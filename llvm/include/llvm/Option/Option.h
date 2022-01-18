@@ -63,7 +63,10 @@ public:
     CommaJoinedClass,
     MultiArgClass,
     JoinedOrSeparateClass,
-    JoinedAndSeparateClass
+#if INTEL_CUSTOMIZATION
+    JoinedAndSeparateClass,
+    SeparateOrNoneClass
+#endif // INTEL_CUSTOMIZATION
   };
 
   enum RenderStyleKind {
@@ -173,6 +176,9 @@ public:
     case JoinedOrSeparateClass:
     case RemainingArgsClass:
     case RemainingArgsJoinedClass:
+#if INTEL_CUSTOMIZATION
+    case SeparateOrNoneClass:
+#endif // INTEL_CUSTOMIZATION
       return RenderSeparateStyle;
     }
     llvm_unreachable("Unexpected kind!");
@@ -205,9 +211,9 @@ public:
   /// always be false.
   bool matches(OptSpecifier ID) const;
 
-  /// accept - Potentially accept the current argument, returning a
-  /// new Arg instance, or 0 if the option does not accept this
-  /// argument (or the argument is missing values).
+  /// Potentially accept the current argument, returning a new Arg instance,
+  /// or 0 if the option does not accept this argument (or the argument is
+  /// missing values).
   ///
   /// If the option accepts the current argument, accept() sets
   /// Index to the position where argument parsing should resume
@@ -217,12 +223,12 @@ public:
   /// underlying storage to represent a Joined argument.
   /// \p GroupedShortOption If true, we are handling the fallback case of
   /// parsing a prefix of the current argument as a short option.
-  Arg *accept(const ArgList &Args, StringRef CurArg, bool GroupedShortOption,
-              unsigned &Index) const;
+  std::unique_ptr<Arg> accept(const ArgList &Args, StringRef CurArg,
+                              bool GroupedShortOption, unsigned &Index) const;
 
 private:
-  Arg *acceptInternal(const ArgList &Args, StringRef CurArg,
-                      unsigned &Index) const;
+  std::unique_ptr<Arg> acceptInternal(const ArgList &Args, StringRef CurArg,
+                                      unsigned &Index) const;
 
 public:
   void print(raw_ostream &O) const;

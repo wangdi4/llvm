@@ -143,8 +143,13 @@ TEST(KernelID, FreeKernelIDEqualsKernelBundleId) {
     return; // test is not supported on host.
   }
 
-  if (Plt.get_backend() == sycl::backend::cuda) {
+  if (Plt.get_backend() == sycl::backend::ext_oneapi_cuda) {
     std::cout << "Test is not supported on CUDA platform, skipping\n";
+    return;
+  }
+
+  if (Plt.get_backend() == sycl::backend::ext_oneapi_hip) {
+    std::cout << "Test is not supported on HIP platform, skipping\n";
     return;
   }
 
@@ -181,8 +186,13 @@ TEST(KernelID, KernelBundleKernelIDsIntersectAll) {
     return; // test is not supported on host.
   }
 
-  if (Plt.get_backend() == sycl::backend::cuda) {
+  if (Plt.get_backend() == sycl::backend::ext_oneapi_cuda) {
     std::cout << "Test is not supported on CUDA platform, skipping\n";
+    return;
+  }
+
+  if (Plt.get_backend() == sycl::backend::ext_oneapi_hip) {
+    std::cout << "Test is not supported on HIP platform, skipping\n";
     return;
   }
 
@@ -215,8 +225,13 @@ TEST(KernelID, KernelIDHasKernel) {
     return; // test is not supported on host.
   }
 
-  if (Plt.get_backend() == sycl::backend::cuda) {
+  if (Plt.get_backend() == sycl::backend::ext_oneapi_cuda) {
     std::cout << "Test is not supported on CUDA platform, skipping\n";
+    return;
+  }
+
+  if (Plt.get_backend() == sycl::backend::ext_oneapi_hip) {
+    std::cout << "Test is not supported on HIP platform, skipping\n";
     return;
   }
 
@@ -298,4 +313,31 @@ TEST(KernelID, KernelIDHasKernel) {
   EXPECT_TRUE(InputBundle7.has_kernel(TestKernel1ID));
   EXPECT_TRUE(InputBundle7.has_kernel(TestKernel2ID));
   EXPECT_TRUE(InputBundle7.has_kernel(TestKernel3ID));
+}
+
+TEST(KernelID, InvalidKernelName) {
+  sycl::platform Plt{sycl::default_selector()};
+  if (Plt.is_host()) {
+    std::cout << "Test is not supported on host, skipping\n";
+    return; // test is not supported on host.
+  }
+
+  if (Plt.get_backend() == sycl::backend::ext_oneapi_cuda) {
+    std::cout << "Test is not supported on CUDA platform, skipping\n";
+    return;
+  }
+
+  sycl::unittest::PiMock Mock{Plt};
+  setupDefaultMockAPIs(Mock);
+
+  try {
+    sycl::get_kernel_id<class NotAKernel>();
+    throw std::logic_error("sycl::runtime_error didn't throw");
+  } catch (sycl::runtime_error const &e) {
+    EXPECT_EQ(std::string("No kernel found with the specified name -46 "
+                          "(CL_INVALID_KERNEL_NAME)"),
+              e.what());
+  } catch (...) {
+    FAIL() << "Expected sycl::runtime_error";
+  }
 }

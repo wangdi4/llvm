@@ -32,7 +32,9 @@ declare <4 x double> @function_from_rtl_1(<4 x double>) nounwind
 declare <4 x double> @function_from_rtl_2(<4 x double>) nounwind
 
 
-; CHECK:  define linkonce_odr <4 x double> @function_from_rtl_1(<4 x double> %in)
-; CHECK:  define linkonce_odr <4 x double> @function_from_rtl_2(<4 x double> %in)
+; CHECK:  define internal <4 x double> @function_from_rtl_1(<4 x double> %in)
+; CHECK:  define internal <4 x double> @function_from_rtl_2(<4 x double> %in)
 
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function function_from_rtl_1
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function function_from_rtl_2
 ; DEBUGIFY-NOT: WARNING

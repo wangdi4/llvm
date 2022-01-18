@@ -17,8 +17,6 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
-#include <vector>
-
 namespace llvm {
 
 using namespace DPCPPKernelMetadataAPI;
@@ -58,17 +56,13 @@ void BarrierUtils::clean() {
 
 BasicBlock *BarrierUtils::findBasicBlockOfUsageInst(Value *Val,
                                                     Instruction *UserInst) {
-  if (!isa<PHINode>(UserInst)) {
-    // Not PHINode, return usage instruction basic block
+  if (!isa<PHINode>(UserInst))
     return UserInst->getParent();
-  }
+
   // Usage is a PHINode, find previous basic block according to Val
   PHINode *PhiNode = cast<PHINode>(UserInst);
   BasicBlock *PrevBB = nullptr;
-  for (pred_iterator BI = pred_begin(PhiNode->getParent()),
-                     BE = pred_end(PhiNode->getParent());
-       BI != BE; ++BI) {
-    BasicBlock *BB = *BI;
+  for (BasicBlock *BB : predecessors(PhiNode->getParent())) {
     Value *PHINodeVal = PhiNode->getIncomingValueForBlock(BB);
     if (PHINodeVal == Val) {
       // BB is the previous basic block
@@ -81,21 +75,14 @@ BasicBlock *BarrierUtils::findBasicBlockOfUsageInst(Value *Val,
 }
 
 SyncType BarrierUtils::getSyncType(Instruction *Inst) {
-  // Initialize sync data if it is not done yet
   initializeSyncData();
 
-  if (!isa<CallInst>(Inst)) {
-    // Not a call instruction, cannot BE a synchronize instruction
+  if (!isa<CallInst>(Inst))
     return SyncType::None;
-  }
-  if (Barriers.count(Inst)) {
-    // It is a barrier instruction
+  if (Barriers.count(Inst))
     return SyncType::Barrier;
-  }
-  if (DummyBarriers.count(Inst)) {
-    // It is a dummyBarrier instruction
+  if (DummyBarriers.count(Inst))
     return SyncType::DummyBarrier;
-  }
   return SyncType::None;
 }
 
@@ -103,57 +90,40 @@ SyncType BarrierUtils::getSyncType(BasicBlock *BB) {
   return getSyncType(&*BB->begin());
 }
 
-InstVector &BarrierUtils::getAllSynchronizeInstructions() {
+InstVector BarrierUtils::getAllSynchronizeInstructions() {
   // Initialize sync data if it is not done yet
   initializeSyncData();
 
   // Clear old collected data!
-  SyncInstructions.clear();
+  InstVector SyncInstructions;
 
-  // Insert all barrier instructions
-  for (InstSet::iterator II = Barriers.begin(), IE = Barriers.end(); II != IE;
-       ++II) {
-    SyncInstructions.push_back(*II);
-  }
-  // Insert all dummyBarrier instructions
-  for (InstSet::iterator II = DummyBarriers.begin(), IE = DummyBarriers.end();
-       II != IE; ++II) {
-    SyncInstructions.push_back(*II);
-  }
+  SyncInstructions.insert(SyncInstructions.end(), Barriers.begin(),
+                          Barriers.end());
+  SyncInstructions.insert(SyncInstructions.end(), DummyBarriers.begin(),
+                          DummyBarriers.end());
 
   return SyncInstructions;
 }
 
-InstVector &BarrierUtils::getWGCallInstructions(CALL_BI_TYPE Ty) {
-
-  // Clear old collected data
-  WGcallInstructions.clear();
+InstVector BarrierUtils::getWGCallInstructions(CALL_BI_TYPE Ty) {
+  InstVector WGcallInstructions;
 
   // Scan external function definitions in the module
-  for (Module::iterator FI = M->begin(), FE = M->end(); FI != FE; ++FI) {
-    Function *Func = &*FI;
-    if (!Func->isDeclaration()) {
-      // Built-in functions assumed to BE declarations at this point.
+  for (auto &F : *M) {
+    if (!F.isDeclaration()) {
+      // Built-in functions are assumed to be declarations.
       continue;
     }
-    std::string FuncName = Func->getName().str();
+    StringRef FName = F.getName();
     if ((CALL_BI_TYPE_WG == Ty &&
-         DPCPPKernelCompilationUtils::isWorkGroupBuiltin(FuncName)) ||
+         DPCPPKernelCompilationUtils::isWorkGroupBuiltin(FName)) ||
         (CALL_BI_TYPE_WG_ASYNC_OR_PIPE == Ty &&
-         DPCPPKernelCompilationUtils::isWorkGroupAsyncOrPipeBuiltin(FuncName,
+         DPCPPKernelCompilationUtils::isWorkGroupAsyncOrPipeBuiltin(FName,
                                                                     *M))) {
       // Module contains declaration of a WG function built-in, FIx its
       // usages.
-      Function::user_iterator ui = Func->user_begin();
-      Function::user_iterator ue = Func->user_end();
-      for (; ui != ue; ++ui) {
-        CallInst *CI = dyn_cast<CallInst>(*ui);
-        if (!CI) {
-          assert(false &&
-                 "usage of work-group built-in is not a call instruction!");
-          continue;
-        }
-        // Found a call instruction to work-group built-in, collect it.
+      for (User *U : F.users()) {
+        CallInst *CI = cast<CallInst>(U);
         WGcallInstructions.push_back(CI);
       }
     }
@@ -162,23 +132,17 @@ InstVector &BarrierUtils::getWGCallInstructions(CALL_BI_TYPE Ty) {
   return WGcallInstructions;
 }
 
-FuncSet &BarrierUtils::getAllFunctionsWithSynchronization() {
-  // Initialize SyncInstructions
-  getAllSynchronizeInstructions();
+FuncSet BarrierUtils::getAllFunctionsWithSynchronization() {
+  auto SyncInstructions = getAllSynchronizeInstructions();
 
-  // Clear old collected data!
-  SyncFunctions.clear();
-
-  for (InstVector::iterator II = SyncInstructions.begin(),
-                            IE = SyncInstructions.end();
-       II != IE; ++II) {
-    SyncFunctions.insert((*II)->getFunction());
-  }
+  FuncSet SyncFunctions;
+  for (auto *Inst : SyncInstructions)
+    SyncFunctions.insert(Inst->getFunction());
   return SyncFunctions;
 }
 
 FuncSet BarrierUtils::getRecursiveFunctionsWithSync() {
-  FuncSet &SyncFunctions = getAllFunctionsWithSynchronization();
+  FuncSet SyncFunctions = getAllFunctionsWithSynchronization();
   FuncSet RecursiveFunctions;
   for (Function *F : SyncFunctions) {
     auto FMD = FunctionMetadataAPI(F);
@@ -200,30 +164,23 @@ FuncVector BarrierUtils::getAllKernelsAndVectorizedCounterparts(
       Result.push_back(VectorizedKernelMetadata.get());
   }
 
-  // rely on move ctor.
   return Result;
 }
 
-FuncVector &BarrierUtils::getAllKernelsWithBarrier() {
+FuncVector BarrierUtils::getAllKernelsWithBarrier() {
   auto Kernels = KernelList(M);
 
-  // Clear old collected data!
-  KernelFunctions.clear();
-  if (Kernels.empty()) {
+  FuncVector KernelFunctions;
+  if (Kernels.empty())
     return KernelFunctions;
-  }
 
   // Get the kernels using the barrier for work group loops.
   SmallVector<Function *, 4> KernelsWithBarrier;
   for (auto Func : Kernels) {
     auto kimd = KernelInternalMetadataAPI(Func);
-    // Need to check if NoBarrierPath Value exists, it is not guaranteed that
-    // KernelAnalysisPass is running in all scenarios.
-    if (kimd.NoBarrierPath.hasValue() && kimd.NoBarrierPath.get()) {
-      // Kernel that should not be handled in Barrier path, skip it.
+    if (kimd.NoBarrierPath.hasValue() && kimd.NoBarrierPath.get())
       continue;
-    }
-    // Add kernel to the list
+
     // Currently no check if kernel already added to the list!
     KernelsWithBarrier.push_back(Func);
   }
@@ -254,7 +211,6 @@ unsigned BarrierUtils::getFunctionVectorizationWidth(const Function *F) const {
       assert(!Failed && "Unexpected widened-size attribute");
       return WidenedSize;
     }
-    // TODO: Maybe we need to rename KernelInternalMetadataAPI.
     auto FIMD = KernelInternalMetadataAPI(const_cast<Function *>(F));
     return FIMD.VectorizedWidth.hasValue() ? FIMD.VectorizedWidth.get() : 1;
   }
@@ -262,21 +218,17 @@ unsigned BarrierUtils::getFunctionVectorizationWidth(const Function *F) const {
 }
 
 Instruction *BarrierUtils::createBarrier(Instruction *InsertBefore) {
-  if (!BarrierFunc) {
-    // Barrier function is not initialized yet
-    // Check if there is a declaration in the module
+  if (!BarrierFunc)
     BarrierFunc = M->getFunction(DPCPPKernelCompilationUtils::mangledWGBarrier(
         DPCPPKernelCompilationUtils::BarrierType::NoScope));
-  }
   if (!BarrierFunc) {
     // Module has no barrier declaration. Create one
     Type *Result = Type::getVoidTy(M->getContext());
-    std::vector<Type *> FuncTyArgs;
-    FuncTyArgs.push_back(IntegerType::get(M->getContext(), 32));
+    Type *FuncArgTys[] = {IntegerType::get(M->getContext(), 32)};
     BarrierFunc = createFunctionDeclaration(
         DPCPPKernelCompilationUtils::mangledWGBarrier(
             DPCPPKernelCompilationUtils::BarrierType::NoScope),
-        Result, FuncTyArgs);
+        Result, FuncArgTys);
     BarrierFunc->setAttributes(BarrierFunc->getAttributes().addFnAttribute(
         BarrierFunc->getContext(),
         Attribute::Convergent));
@@ -291,32 +243,26 @@ Instruction *BarrierUtils::createBarrier(Instruction *InsertBefore) {
 }
 
 Instruction *BarrierUtils::createDummyBarrier(Instruction *InsertBefore) {
-  if (!DummyBarrierFunc) {
-    // Dummy Barrier function is not initialized yet
-    // Check if there is a declaration in the module
+  if (!DummyBarrierFunc)
     DummyBarrierFunc = M->getFunction(DUMMY_BARRIER_FUNC_NAME);
-  }
   if (!DummyBarrierFunc) {
     // Module has no Dummy barrier declaration
     // Create one
     Type *Result = Type::getVoidTy(M->getContext());
-    std::vector<Type *> FuncTyArgs;
     DummyBarrierFunc =
-        createFunctionDeclaration(DUMMY_BARRIER_FUNC_NAME, Result, FuncTyArgs);
+        createFunctionDeclaration(DUMMY_BARRIER_FUNC_NAME, Result, {});
   }
   return CallInst::Create(DummyBarrierFunc, "", InsertBefore);
 }
 
 bool BarrierUtils::isDummyBarrierCall(Instruction *CallInstr) {
   assert(CallInstr && "Instruction should not BE NULL!");
-  // Initialize sync data if it is not done yet
   initializeSyncData();
   return DummyBarriers.count(CallInstr);
 }
 
 bool BarrierUtils::isBarrierCall(Instruction *CallInstr) {
   assert(CallInstr && "Instruction should not BE NULL!");
-  // Initialize sync data if it is not done yet
   initializeSyncData();
   return Barriers.count(CallInstr);
 }
@@ -333,9 +279,8 @@ Instruction *BarrierUtils::createGetSpecialBuffer(Instruction *InsertBefore) {
     // Create one
     Type *Result = PointerType::get(IntegerType::get(M->getContext(), 8),
                                     SPECIAL_BUFFER_ADDR_SPACE);
-    std::vector<Type *> FuncTyArgs;
     GetSpecialBufferFunc =
-        createFunctionDeclaration(GET_SPECIAL_BUFFER, Result, FuncTyArgs);
+        createFunctionDeclaration(GET_SPECIAL_BUFFER, Result, {});
     SetFunctionAttributeReadNone(GetSpecialBufferFunc);
   }
   return CallInst::Create(GetSpecialBufferFunc, "pSB", InsertBefore);
@@ -366,11 +311,8 @@ InstVector &BarrierUtils::getAllGetGlobalId() {
     Function *Func =
         M->getFunction(DPCPPKernelCompilationUtils::mangledGetGID());
     if (Func) {
-      for (Value::user_iterator ui = Func->user_begin(), ue = Func->user_end();
-           ui != ue; ++ui) {
-        CallInst *InstCall = dyn_cast<CallInst>(*ui);
-        assert(InstCall && "Something other than CallInst is using "
-                           "get_globalal_id function!");
+      for (auto *U : Func->users()) {
+        CallInst *InstCall = cast<CallInst>(U);
         GetGIDInstructions.push_back(InstCall);
       }
     }
@@ -389,9 +331,8 @@ Instruction *BarrierUtils::createGetBaseGlobalId(Value *Dim,
   if (!GetBaseGIDFunc) {
     // Create one
     Type *Result = IntegerType::get(M->getContext(), UISizeT);
-    std::vector<Type *> FuncTyArgs;
-    FuncTyArgs.push_back(IntegerType::get(M->getContext(), 32));
-    GetBaseGIDFunc = createFunctionDeclaration(FuncName, Result, FuncTyArgs);
+    Type *FuncArgTys[] = {IntegerType::get(M->getContext(), 32)};
+    GetBaseGIDFunc = createFunctionDeclaration(FuncName, Result, FuncArgTys);
     SetFunctionAttributeReadNone(GetBaseGIDFunc);
   }
   return CallInst::Create(
@@ -409,9 +350,8 @@ Instruction *BarrierUtils::createGetLocalId(unsigned Dim, IRBuilderBase &B) {
   if (!GetLIDFunc) {
     // Create one
     Type *Result = IntegerType::get(M->getContext(), UISizeT);
-    std::vector<Type *> FuncTyArgs;
-    FuncTyArgs.push_back(IntegerType::get(M->getContext(), 32));
-    GetLIDFunc = createFunctionDeclaration(strLID, Result, FuncTyArgs);
+    Type *FuncArgTys[] = {IntegerType::get(M->getContext(), 32)};
+    GetLIDFunc = createFunctionDeclaration(strLID, Result, FuncArgTys);
     SetFunctionAttributeReadNone(GetLIDFunc);
   }
   Type *uintType = IntegerType::get(M->getContext(), 32);
@@ -430,9 +370,8 @@ Instruction *BarrierUtils::createGetGlobalId(unsigned Dim, IRBuilderBase &B) {
   if (!GetGIDFunc) {
     // Create one
     Type *Result = IntegerType::get(M->getContext(), UISizeT);
-    std::vector<Type *> FuncTyArgs;
-    FuncTyArgs.push_back(IntegerType::get(M->getContext(), 32));
-    GetGIDFunc = createFunctionDeclaration(strGID, Result, FuncTyArgs);
+    Type *FuncArgTys[] = {IntegerType::get(M->getContext(), 32)};
+    GetGIDFunc = createFunctionDeclaration(strGID, Result, FuncArgTys);
     SetFunctionAttributeReadNone(GetGIDFunc);
   }
   Type *uintType = IntegerType::get(M->getContext(), 32);
@@ -447,21 +386,14 @@ bool BarrierUtils::doesCallModuleFunction(Function *Func) {
     FunctionsWithNonInlinedCalls.clear();
     // Collect all functions with non inlined calls, i.e.
     // functions that calls other functions from this module
-    for (Module::iterator FI = M->begin(), FE = M->end(); FI != FE; ++FI) {
-      Function *CalledFunc = &*FI;
-      if (CalledFunc->isDeclaration()) {
-        // It is not an internal function, only delaration
+    for (auto &CalledFunc : *M) {
+      if (CalledFunc.isDeclaration())
         continue;
-      }
-      for (Value::user_iterator UI = CalledFunc->user_begin(),
-                                UE = CalledFunc->user_end();
-           UI != UE; ++UI) {
-        CallInst *CI = dyn_cast<CallInst>(*UI);
-        // usage of Func can BE a global variable!
-        if (!CI) {
-          // usage of Func is not a CallInst
+      for (auto *U : CalledFunc.users()) {
+        CallInst *CI = dyn_cast<CallInst>(U);
+        // The user may be a global variable.
+        if (!CI)
           continue;
-        }
         Function *CallingFunc = CI->getCaller();
         FunctionsWithNonInlinedCalls.insert(CallingFunc);
       }
@@ -472,12 +404,9 @@ bool BarrierUtils::doesCallModuleFunction(Function *Func) {
 }
 
 void BarrierUtils::initializeSyncData() {
-  if (SyncDataInitialized) {
-    // Sync data already initialized
+  if (SyncDataInitialized)
     return;
-  }
 
-  // Clear old collected data!
   Barriers.clear();
   DummyBarriers.clear();
 
@@ -496,20 +425,12 @@ void BarrierUtils::initializeSyncData() {
   SyncDataInitialized = true;
 }
 
-void BarrierUtils::findAllUsesOfFunc(const llvm::StringRef &Name,
-                                     InstSet &UsesSet) {
-  // Check if given function name is declared in the module
+void BarrierUtils::findAllUsesOfFunc(const StringRef Name, InstSet &UsesSet) {
   Function *Func = M->getFunction(Name);
-  if (!Func) {
-    // Function is not declared
+  if (!Func)
     return;
-  }
-  // Find all calls to given function name
-  for (Value::user_iterator ui = Func->user_begin(), ue = Func->user_end();
-       ui != ue; ++ui) {
-    CallInst *Call = dyn_cast<CallInst>(*ui);
-    assert(Call && "Something other than CallInst is using function!");
-    // Add the call instruction into uses set
+  for (User *U : Func->users()) {
+    CallInst *Call = cast<CallInst>(U);
     UsesSet.insert(Call);
   }
 }
@@ -525,9 +446,8 @@ Instruction *BarrierUtils::createGetLocalSize(unsigned Dim,
   if (!GetLocalSizeFunc) {
     // Create one
     Type *Result = SizetTy;
-    std::vector<Type *> FuncTyArgs;
-    FuncTyArgs.push_back(I32Ty);
-    GetLocalSizeFunc = createFunctionDeclaration(strGID, Result, FuncTyArgs);
+    Type *FuncArgTys[] = {I32Ty};
+    GetLocalSizeFunc = createFunctionDeclaration(strGID, Result, FuncArgTys);
     SetFunctionAttributeReadNone(GetLocalSizeFunc);
   }
   Value *ConstDim = ConstantInt::get(I32Ty, Dim, false);
@@ -537,12 +457,12 @@ Instruction *BarrierUtils::createGetLocalSize(unsigned Dim,
       InsertBefore);
 }
 
-Function *
-BarrierUtils::createFunctionDeclaration(const llvm::Twine &Name, Type *Result,
-                                        std::vector<Type *> &FuncTyArgs) {
+Function *BarrierUtils::createFunctionDeclaration(const llvm::Twine &Name,
+                                                  Type *Result,
+                                                  ArrayRef<Type *> FuncArgTys) {
   FunctionType *FuncTy = FunctionType::get(
       /*Result=*/Result,
-      /*Params=*/FuncTyArgs,
+      /*Params=*/FuncArgTys,
       /*isVarArg=*/false);
 
   assert(FuncTy && "Failed to create new function type");

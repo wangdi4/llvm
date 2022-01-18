@@ -4,7 +4,7 @@
 ; Test for checking the simple Intel partial inliner. This partial inliner
 ; will identify small functions that use an argument as iterator and return a
 ; boolean. The result will be a cloned function that checks if the input
-; parameter is null to exit early, or call the original function. The inliner
+; parameter is null to exit early, or calls the original function. The inliner
 ; will actually perform the partial inlining.
 ;
 ; This test case is very simple. In C++ it can be seen as follows:

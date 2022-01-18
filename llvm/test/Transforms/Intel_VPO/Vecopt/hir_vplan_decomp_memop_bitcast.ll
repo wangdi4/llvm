@@ -24,8 +24,8 @@
 
 ; Check decomposed VPInstructions
 ; CHECK: i64 [[I1:%vp.*]] = phi
-; CHECK-NEXT: i32* [[ADDR1:%vp.*]] = subscript inbounds [1024 x i32]* @arr {i64 0 : i64 0 : i64 4096 : [1024 x i32]*} {i64 0 : i64 [[I1]] : i64 4 : [1024 x i32]}
-; CHECK-NEXT: float** [[ADDR2:%vp.*]] = subscript inbounds [1024 x float*]* @ip {i64 0 : i64 0 : i64 8192 : [1024 x float*]*} {i64 0 : i64 [[I1]] : i64 8 : [1024 x float*]}
+; CHECK-NEXT: i32* [[ADDR1:%vp.*]] = subscript inbounds [1024 x i32]* @arr {i64 0 : i64 0 : i64 4096 : [1024 x i32]*([1024 x i32])} {i64 0 : i64 [[I1]] : i64 4 : [1024 x i32](i32)}
+; CHECK-NEXT: float** [[ADDR2:%vp.*]] = subscript inbounds [1024 x float*]* @ip {i64 0 : i64 0 : i64 8192 : [1024 x float*]*([1024 x float*])} {i64 0 : i64 [[I1]] : i64 8 : [1024 x float*](float*)}
 ; CHECK-NEXT: i32** [[BITCAST:%vp.*]] = bitcast float** [[ADDR2]]
 ; CHECK-NEXT: store i32* [[ADDR1]] i32** [[BITCAST]]
 

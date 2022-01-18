@@ -150,6 +150,7 @@ static cl::opt<unsigned> ExtraOutliningPenalty(
     cl::desc("A debug option to add additional penalty to the computed one."));
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
 // The probability that the outlined (splinter) function will be called after
 // partially inlining has been performed. The default value is 50, which
 // represents that there is a 50% chance that the branch will be taken and a
@@ -164,6 +165,7 @@ static cl::opt<unsigned> DevirtBranchProbability(
 static cl::opt<bool> LTOPartialInlineVirtual(
     "partial-inline-virtual-functions", cl::init(false), cl::Hidden,
     cl::desc("Force partial inlining on virtual function targets"));
+#endif // INTEL_FEATURE_SW_DTRANS
 
 static cl::opt<bool> ForceRunLTOPartialInline(
     "force-run-lto-partial-inline", cl::init(false), cl::Hidden,
@@ -349,6 +351,7 @@ private:
   }
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   // If the input function is a target of a virtual function
   // then check if there is at least one user. This function
   // returns the first call site found for the input function,
@@ -364,17 +367,20 @@ private:
 
     return nullptr;
   }
-#endif
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   static CallBase *getOneCallSiteTo(Function &F) {
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
     // If the function is a target of a virtual function,
     // then return the first user
     User *VirtualFuncUser = getOneDirectCallSiteUser(F);
     if (VirtualFuncUser)
       return getSupportedCallBase(VirtualFuncUser);
-#endif
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
     User *User = *F.user_begin();
     return getSupportedCallBase(User);
@@ -397,15 +403,16 @@ private:
   computeOutliningCosts(FunctionCloner &Cloner) const;
 
 #if INTEL_CUSTOMIZATION
-  // The current function that is being partially inlined is a target
-  // of a virtual function
-  bool IsVirtualTarget = false;
-
   // The partial inliner is being called from the LTO pass
   bool RunLTOPartialInline = false;
 
   // Special cases of partial inlining should be handled
   bool EnableSpecialCases = false;
+
+#if INTEL_FEATURE_SW_DTRANS
+  // The current function that is being partially inlined is a target
+  // of a virtual function
+  bool IsVirtualTarget = false;
 
   // Return true if all the call sites for the input function
   // are direct calls.
@@ -414,6 +421,7 @@ private:
   // Return true if the input function is used as a target of
   // a virtual call site, else return false
   bool isVirtualFunctionTarget(Function *Func) const;
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif //INTEL_CUSTOMIZATION
 
   // Compute the 'InlineCost' of block BB. InlineCost is a proxy used to
@@ -544,9 +552,7 @@ PartialInlinerImpl::computeOutliningColdRegionsInfo(
   };
 
   auto BBProfileCount = [BFI](BasicBlock *BB) {
-    return BFI->getBlockProfileCount(BB)
-               ? BFI->getBlockProfileCount(BB).getValue()
-               : 0;
+    return BFI->getBlockProfileCount(BB).getValueOr(0);
   };
 
   // Use the same computeBBInlineCost function to compute the cost savings of
@@ -746,8 +752,7 @@ PartialInlinerImpl::computeOutliningInfo(Function &F) const {
   if (!CandidateFound)
     return std::unique_ptr<FunctionOutliningInfo>();
 
-  // Do sanity check of the entries: threre should not
-  // be any successors (not in the entry set) other than
+  // There should not be any successors (not in the entry set) other than
   // {ReturnBlock, NonReturnBlock}
   assert(OutliningInfo->Entries[0] == &F.front() &&
          "Function Entry must be the first in Entries vector");
@@ -852,6 +857,7 @@ BranchProbability PartialInlinerImpl::getOutliningCallBBRelativeFreq(
     return OutlineRegionRelFreq;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   // If the function is a target of a virtual call, then we are going to
   // use a conservative branch probability. This means that there will be
   // a 50% chance that the branch will be taken or not taken.
@@ -860,7 +866,8 @@ BranchProbability PartialInlinerImpl::getOutliningCallBBRelativeFreq(
     auto DevirtProbability = BranchProbability(DevirtBranchProbability, 100);
     return DevirtProbability;
   }
-#endif
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   // When profile data is not available, we need to be conservative in
   // estimating the overall savings. Static branch prediction can usually
@@ -1108,6 +1115,7 @@ void PartialInlinerImpl::computeCallsiteToProfCountMap(
 
   for (User *User : Users) {
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
     // When performing partial inlining for functions that were devirtualized,
     // ignore uses that are not calls. These uses are for comparing the address
     // of an indirect function pointer to the address of the function. There is
@@ -1116,7 +1124,8 @@ void PartialInlinerImpl::computeCallsiteToProfCountMap(
     // function for the cold portion of the routine.
     if (IsVirtualTarget && !isa<CallBase>(User))
       continue;
-#endif
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
     CallBase *CB = getSupportedCallBase(User);
     Function *Caller = CB->getCaller();
     if (CurrentCaller != Caller) {
@@ -1434,6 +1443,7 @@ PartialInlinerImpl::FunctionCloner::~FunctionCloner() {
 }
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
 // Return true if all call sites to the input function are direct
 // calls, else return false.
 bool PartialInlinerImpl::allCallSitesAreDirect(Function *Func) {
@@ -1463,8 +1473,8 @@ bool PartialInlinerImpl::isVirtualFunctionTarget(Function *Func) const {
           && Func->hasMetadata() &&
           Func->getMetadata("_Intel.Devirt.Target") != nullptr);
 }
-
-#endif
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 //
@@ -1540,6 +1550,7 @@ std::pair<bool, Function *> PartialInlinerImpl::unswitchFunction(Function &F) {
 
 #if INTEL_CUSTOMIZATION
   if (!(EnableSpecialCases && SpecialEarlySwitch(&F))) {
+#if INTEL_FEATURE_SW_DTRANS
     // Only do LTO partial inlining for functions that are targets of
     // virtual calls
     if ((RunLTOPartialInline || LTOPartialInlineVirtual) &&
@@ -1548,6 +1559,10 @@ std::pair<bool, Function *> PartialInlinerImpl::unswitchFunction(Function &F) {
     IsVirtualTarget = isVirtualFunctionTarget(&F) && allCallSitesAreDirect(&F);
     if (F.hasAddressTaken() && !IsVirtualTarget)
       return {false, nullptr};
+#else // INTEL_FEATURE_SW_DTRANS
+    if (F.hasAddressTaken())
+      return {false, nullptr};
+#endif // INTEL_FEATURE_SW_DTRANS
   } else if (F.hasAddressTaken())
     return {false, nullptr};
 #endif // INTEL_CUSTOMIZATION
@@ -1680,18 +1695,20 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
     computeCallsiteToProfCountMap(Cloner.ClonedFunc, CallSiteToProfCountMap);
 
   uint64_t CalleeEntryCountV =
-      (CalleeEntryCount ? CalleeEntryCount.getCount() : 0);
+      (CalleeEntryCount ? CalleeEntryCount->getCount() : 0);
 
   bool AnyInline = false;
   for (User *User : Users) {
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
     // If the function is a virtual target then, there may be users that
     // are not call sites. We can skip those here.
     if (IsVirtualTarget &&
         !isa<CallInst>(User) && !isa<InvokeInst>(User))
       continue;
-#endif
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
     CallBase *CB = getSupportedCallBase(User);
 
@@ -1746,8 +1763,8 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
   if (AnyInline) {
     Cloner.IsFunctionInlined = true;
     if (CalleeEntryCount)
-      Cloner.OrigFunc->setEntryCount(
-          CalleeEntryCount.setCount(CalleeEntryCountV));
+      Cloner.OrigFunc->setEntryCount(Function::ProfileCount(
+          CalleeEntryCountV, CalleeEntryCount->getType()));
     OptimizationRemarkEmitter OrigFuncORE(Cloner.OrigFunc);
     OrigFuncORE.emit([&]() {
       return OptimizationRemark(DEBUG_TYPE, "PartiallyInlined", Cloner.OrigFunc)

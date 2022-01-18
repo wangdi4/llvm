@@ -87,6 +87,14 @@ static constexpr char GENX_SLM_OFFSET[] = "genx.slm.offset";
 
 #define SYCL_GLOBAL_AS 1
 #define SYCL_SLM_AS 3
+#define SYCL_GENERIC_AS 4
+
+static uint32_t getElementSizeInBytes(Type *ETy, DataLayout &DL) {
+  uint32_t ebytes = (unsigned int)ETy->getPrimitiveSizeInBits() / 8;
+  if (ETy->isPointerTy())
+    ebytes = DL.getPointerTypeSize(ETy);
+  return ebytes;
+}
 
 // Newly created GenX intrinsic might have different return type than expected.
 // This helper function creates cast operation from GenX intrinsic return type
@@ -287,10 +295,12 @@ static Value *translateSqrtOpIntrinsic(CallInst *CI) {
   return RepI;
 }
 
-static Value *translateReduceOpIntrinsic(CallInst *CI) {
-  assert(isa<llvm::IntrinsicInst>(CI));
+static Value *translateReduceOpIntrinsic(IntrinsicInst *II, Instruction::BinaryOps ReduceOp) {
+  auto *CI = cast<CallInst>(II);
   LLVMContext &CTX = CI->getContext();
   // TODO: introduce GenXIRBuilder helper
+  bool IsFloatingPointReduction = CI->getType()->getScalarType()->isDoubleTy() ||
+                                  CI->getType()->getScalarType()->isFloatTy();
   auto GetReduceSeq = [&](Value *Src, unsigned Size,
                           unsigned ElemOffset) -> Value * {
     if (Size == 1) {
@@ -309,7 +319,8 @@ static Value *translateReduceOpIntrinsic(CallInst *CI) {
     Type *Tys[] = {FixedVectorType::get(SrcElementType, Size), SrcType,
                    Type::getInt16Ty(CTX)};
     auto *Decl = GenXIntrinsic::getGenXDeclaration(
-        CI->getModule(), GenXIntrinsic::genx_rdregioni, Tys);
+        CI->getModule(), IsFloatingPointReduction ? GenXIntrinsic::genx_rdregionf :
+                                                    GenXIntrinsic::genx_rdregioni, Tys);
 
     Value *Args[] = {
         Src,
@@ -327,28 +338,26 @@ static Value *translateReduceOpIntrinsic(CallInst *CI) {
                             CI /*InsertBefore*/);
   };
 
-  Instruction::BinaryOps ReduceOp;
-  switch (CI->getIntrinsicID()) {
-  default:
-    llvm_unreachable("unimplemented intrinsic");
-  case Intrinsic::vector_reduce_add:
-    ReduceOp = Instruction::Add;
-    break;
-  case Intrinsic::vector_reduce_mul:
-    ReduceOp = Instruction::Mul;
-    break;
-  case Intrinsic::vector_reduce_xor:
-    ReduceOp = Instruction::Xor;
-    break;
-  case Intrinsic::vector_reduce_or:
-    ReduceOp = Instruction::Or;
-    break;
-  }
-
-  Value *OperandToReduce = CI->getOperand(0);
+  int OperandToReduceIdx = IsFloatingPointReduction ? 1 : 0;
+  Value *OperandToReduce = CI->getOperand(OperandToReduceIdx);
   unsigned N =
       cast<FixedVectorType>(OperandToReduce->getType())->getNumElements();
-  // Split vector into two parts. First part's size  is alwayas a power of two
+  Value *CurrentReduceRes = nullptr;
+
+  IRBuilder<> Builder(CI);
+
+  // If reassoc is not allowed then do sequential operation for floating points.
+  if (IsFloatingPointReduction && !CI->hasAllowReassoc()) {
+    CurrentReduceRes = CI->getOperand(0);
+    for (unsigned i = 0; i < N; i++) {
+        auto *Extract = GetReduceSeq(OperandToReduce, 1, i);
+        CurrentReduceRes = Builder.CreateBinOp(ReduceOp, CurrentReduceRes, Extract);
+    }
+    CI->replaceAllUsesWith(CurrentReduceRes);
+    return CurrentReduceRes;
+  }
+
+  // Split vector into two parts. First part's size is alwayas a power of two
   // so we can simply apply reduction by spliiting it into parts. Reduction with
   // a second part is applicable it's size equals to the first part size
   unsigned N1, N2;
@@ -360,21 +369,15 @@ static Value *translateReduceOpIntrinsic(CallInst *CI) {
     N2 = N - N1;
   }
 
-  Value *CurrentReduceRes = OperandToReduce;
-  IRBuilder<> Builder(CI);
+  CurrentReduceRes = OperandToReduce;
   for (unsigned i = N1 / 2; i >= 1; i /= 2) {
     auto *RSeq1 = GetReduceSeq(CurrentReduceRes, i, 0);
     auto *RSeq2 = GetReduceSeq(CurrentReduceRes, i, i);
     CurrentReduceRes = Builder.CreateBinOp(ReduceOp, RSeq1, RSeq2);
 
-    unsigned CurrentReduceSize;
-    if (auto *VT = dyn_cast<FixedVectorType>(CurrentReduceRes->getType()))
-      CurrentReduceSize = VT->getNumElements();
-    else
-      CurrentReduceSize = 1;
     // Continue reducing if second part has suitable size, fall back
     // to reducing first part otherwise
-    if (CurrentReduceSize > N2)
+    if (i > N2)
       continue;
 
     // Reduction across parts
@@ -383,7 +386,14 @@ static Value *translateReduceOpIntrinsic(CallInst *CI) {
     CurrentReduceRes = Builder.CreateBinOp(ReduceOp, RSeq21, RSeq22);
     N2 -= i;
   }
+
   assert(CurrentReduceRes->getType() == CI->getType());
+
+  if (IsFloatingPointReduction) {
+    assert (CI->hasAllowReassoc());
+    CurrentReduceRes = Builder.CreateBinOp(ReduceOp, CurrentReduceRes,  CI->getOperand(0));
+  }
+
   CI->replaceAllUsesWith(CurrentReduceRes);
   return CurrentReduceRes;
 }
@@ -503,6 +513,7 @@ static Value *translateSVMLoad(LoadInst *LoadOp) {
   IRBuilder<> Builder(LoadOp);
   auto PtrV = LoadOp->getPointerOperand();
   auto DTy = LoadOp->getType();
+  auto DL = LoadOp->getModule()->getDataLayout();
   if (!DTy->isSingleValueType()) {
     Twine Msg("unable to lower LoadInst with non-single-value type");
     llvm::report_fatal_error(Msg, false /*no crash diag*/);
@@ -520,7 +531,7 @@ static Value *translateSVMLoad(LoadInst *LoadOp) {
     std::string IntrName =
         std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "svm.gather";
     auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
-    auto EltBytes = DTy->getPrimitiveSizeInBits() / 8;
+    auto EltBytes = getElementSizeInBytes(DTy, DL);
     int NumBlks = 0; // (0/1/2/3 for num blocks 1/2/4/8)
     int RetLen = 1;
     auto EltTy = DTy;
@@ -649,6 +660,7 @@ static Instruction *formDoubleVector(Value *InputVector,
   auto VL = cast<VectorType>(VTy)->getNumElements();
   assert(VL == 16 || VL == 32);
   auto EltTy = cast<VectorType>(VTy)->getElementType();
+  assert(!EltTy->isPointerTy());
   auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
   auto Width = VL / 2;
   // read low half
@@ -682,6 +694,7 @@ static Instruction *disbandDoubleVector(Value *InputVector,
   auto VL = cast<VectorType>(VTy)->getNumElements();
   assert(VL == 16 || VL == 32);
   auto EltTy = cast<VectorType>(VTy)->getElementType();
+  assert(!EltTy->isPointerTy());
   auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
   auto Width = VL / 2;
   // read low elements
@@ -718,10 +731,11 @@ static Value *translateSLMLoad(LoadInst *LoadOp) {
   Value *RepI = nullptr;
   auto CIntTy = Type::getInt32Ty(CTX);
   auto BTI = ConstantInt::get(CIntTy, SLM_BTI);
+  auto DL = LoadOp->getModule()->getDataLayout();
   if (DTy->isVectorTy()) {
     auto VL = cast<VectorType>(DTy)->getNumElements();
     auto EltTy = cast<VectorType>(DTy)->getElementType();
-    auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
+    auto EltBytes = getElementSizeInBytes(EltTy, DL);
     // create constant for offset
     auto VOffset = getConstVector(CIntTy, VL, EltBytes);
     // create constant for predicate
@@ -774,7 +788,7 @@ static Value *translateSLMLoad(LoadInst *LoadOp) {
     std::string IntrName =
         std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "gather.scaled";
     auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
-    auto EltBytes = DTy->getPrimitiveSizeInBits() / 8;
+    auto EltBytes = getElementSizeInBytes(DTy, DL);
     assert(EltBytes == 1 || EltBytes == 2 || EltBytes == 4 || EltBytes == 8);
     int NumBlks = (EltBytes >= 4) ? 2 : (EltBytes - 1);
     auto EltTy = (EltBytes == 8) ? CIntTy : DTy;
@@ -839,6 +853,7 @@ static Value *translateSVMStore(StoreInst *StoreOp) {
     llvm::report_fatal_error(Msg, false /*no crash diag*/);
   }
   Value *RepI = nullptr;
+  auto DL = StoreOp->getModule()->getDataLayout();
   if (DTy->isVectorTy()) {
     std::string IntrName =
         std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "svm.block.st";
@@ -852,7 +867,7 @@ static Value *translateSVMStore(StoreInst *StoreOp) {
     std::string IntrName =
         std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "svm.scatter";
     auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
-    auto EltBytes = DTy->getPrimitiveSizeInBits() / 8;
+    auto EltBytes = getElementSizeInBytes(DTy, DL);
     int NumBlks = 0; // (0/1/2/3 for num blocks 1/2/4/8)
     int DataLen = 1;
     auto EltTy = DTy;
@@ -911,10 +926,11 @@ static Value *translateSLMStore(StoreInst *StoreOp) {
   Value *RepI = nullptr;
   auto CIntTy = Type::getInt32Ty(CTX);
   auto BTI = ConstantInt::get(CIntTy, SLM_BTI);
+  auto DL = StoreOp->getModule()->getDataLayout();
   if (DTy->isVectorTy()) {
     auto VL = cast<VectorType>(DTy)->getNumElements();
     auto EltTy = cast<VectorType>(DTy)->getElementType();
-    auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
+    auto EltBytes = getElementSizeInBytes(EltTy, DL);
     auto VOffset = getConstVector(CIntTy, VL, EltBytes);
     // create constant for predicate
     auto PredVTy = llvm::FixedVectorType::get(IntegerType::getInt1Ty(CTX), VL);
@@ -958,7 +974,7 @@ static Value *translateSLMStore(StoreInst *StoreOp) {
     std::string IntrName =
         std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "scatter.scaled";
     auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
-    auto EltBytes = DTy->getPrimitiveSizeInBits() / 8;
+    auto EltBytes = getElementSizeInBytes(DTy, DL);
     assert(EltBytes == 1 || EltBytes == 2 || EltBytes == 4 || EltBytes == 8);
     int NumBlks = (EltBytes >= 4) ? 2 : (EltBytes - 1);
     auto EltTy = (EltBytes == 8) ? CIntTy : DTy;
@@ -1076,7 +1092,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
   if (auto CastOp = dyn_cast<llvm::CastInst>(Inst)) {
     llvm::Type *DstTy = CastOp->getDestTy();
     auto CastOpcode = CastOp->getOpcode();
-    if ((CastOpcode == llvm::Instruction::FPToUI &&
+    if (isa<FixedVectorType>(DstTy) && (CastOpcode == llvm::Instruction::FPToUI &&
          DstTy->getScalarType()->getPrimitiveSizeInBits() <= 32) ||
         (CastOpcode == llvm::Instruction::FPToSI &&
          DstTy->getScalarType()->getPrimitiveSizeInBits() < 32)) {
@@ -1113,11 +1129,16 @@ static Value *translateLLVMInst(Instruction *Inst) {
     // handle memory intrinsics
     // masked.gather, masked.scatter etc
     auto ID = CallOp->getIntrinsicID();
+    auto DL = CallOp->getModule()->getDataLayout();
     switch (ID) {
     case Intrinsic::masked_load: {
       auto PtrV = CallOp->getArgOperand(0);
       assert(PtrV->getType()->isPointerTy());
       auto AS = cast<PointerType>(PtrV->getType())->getAddressSpace();
+      if (isa<AddrSpaceCastInst>(PtrV) && AS == SYCL_GENERIC_AS) {
+        PtrV = cast<Instruction>(PtrV)->getOperand(0);
+        AS = cast<PointerType>(PtrV->getType())->getAddressSpace();
+      }
       if (AS == 0) { // thread private memory
                      // convert to load then select
         auto VecDT =
@@ -1150,7 +1171,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
         auto VL = cast<VectorType>(DTy)->getNumElements();
         auto EltTy = cast<VectorType>(DTy)->getElementType();
         auto PredV = CallOp->getArgOperand(2);
-        auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
+        auto EltBytes = getElementSizeInBytes(EltTy, DL);
         // create constant for offset
         auto VOffset = getConstVector(CIntTy, VL, EltBytes);
         auto ScaleC = ConstantInt::get(Type::getInt16Ty(CTX), 0);
@@ -1213,6 +1234,10 @@ static Value *translateLLVMInst(Instruction *Inst) {
       auto PtrV = CallOp->getArgOperand(1);
       assert(PtrV->getType()->isPointerTy());
       auto AS = cast<PointerType>(PtrV->getType())->getAddressSpace();
+      if (isa<AddrSpaceCastInst>(PtrV) && AS == SYCL_GENERIC_AS) {
+        PtrV = cast<Instruction>(PtrV)->getOperand(0);
+        AS = cast<PointerType>(PtrV->getType())->getAddressSpace();
+      }
       auto DTV = CallOp->getArgOperand(0);
       if (AS == 0) { // thread private memory
                      // convert to load then select then store
@@ -1252,7 +1277,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
         auto BTI = ConstantInt::get(CIntTy, SLM_BTI);
         auto VL = cast<VectorType>(DTy)->getNumElements();
         auto EltTy = cast<VectorType>(DTy)->getElementType();
-        auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
+        auto EltBytes = getElementSizeInBytes(EltTy, DL);
         auto PredV = CallOp->getArgOperand(3);
         auto VOffset = getConstVector(CIntTy, VL, EltBytes);
         auto ScaleC = ConstantInt::get(Type::getInt16Ty(CTX), 0);
@@ -1310,12 +1335,17 @@ static Value *translateLLVMInst(Instruction *Inst) {
       auto PtrETy = cast<VectorType>(PtrV->getType())->getElementType();
       assert(PtrETy->isPointerTy());
       auto AS = cast<PointerType>(PtrETy)->getAddressSpace();
+      if (isa<AddrSpaceCastInst>(PtrV) && AS == SYCL_GENERIC_AS) {
+        PtrV = cast<Instruction>(PtrV)->getOperand(0);
+        PtrETy = cast<VectorType>(PtrV->getType())->getElementType();
+        AS = cast<PointerType>(PtrETy)->getAddressSpace();
+      }
       assert(AS != SYCL_SLM_AS && "yet to support masked SLM gather");
       if (AS != SYCL_GLOBAL_AS)
         return CallOp;
       auto EltTy = cast<VectorType>(DTy)->getElementType();
       auto NumElts = cast<VectorType>(DTy)->getNumElements();
-      auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
+      auto EltBytes = getElementSizeInBytes(EltTy, DL);
       int EltsPerLane = 1;
       // for short or byte type, load-data is 4 bytes per lane
       if (EltBytes < 4) {
@@ -1365,12 +1395,17 @@ static Value *translateLLVMInst(Instruction *Inst) {
       auto PtrETy = cast<VectorType>(PtrV->getType())->getElementType();
       assert(PtrETy->isPointerTy());
       auto AS = cast<PointerType>(PtrETy)->getAddressSpace();
+      if (isa<AddrSpaceCastInst>(PtrV) && AS == SYCL_GENERIC_AS) {
+        PtrV = cast<Instruction>(PtrV)->getOperand(0);
+        PtrETy = cast<VectorType>(PtrV->getType())->getElementType();
+        AS = cast<PointerType>(PtrETy)->getAddressSpace();
+      }
       assert(AS != SYCL_SLM_AS && "yet to support masked SLM scatter");
       if (AS != SYCL_GLOBAL_AS)
         return CallOp;
       auto EltTy = cast<VectorType>(DTy)->getElementType();
       auto NumElts = cast<VectorType>(DTy)->getNumElements();
-      auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
+      auto EltBytes = getElementSizeInBytes(EltTy, DL);
       int EltsPerLane = 1;
       // for short or byte type, store-data is 4 bytes per lane
       if (EltBytes < 4) {
@@ -1400,10 +1435,15 @@ static Value *translateLLVMInst(Instruction *Inst) {
       return RepI;
     } break;
     case Intrinsic::vector_reduce_add:
+      return translateReduceOpIntrinsic(CallOp, Instruction::Add);
     case Intrinsic::vector_reduce_mul:
+      return translateReduceOpIntrinsic(CallOp, Instruction::Mul);
     case Intrinsic::vector_reduce_xor:
+      return translateReduceOpIntrinsic(CallOp, Instruction::Xor);
     case Intrinsic::vector_reduce_or:
-      return translateReduceOpIntrinsic(cast<CallInst>(CallOp));
+      return translateReduceOpIntrinsic(CallOp, Instruction::Or);
+    case Intrinsic::vector_reduce_fadd:
+      return translateReduceOpIntrinsic(CallOp, Instruction::FAdd);
     case Intrinsic::sqrt:
       return translateSqrtOpIntrinsic(cast<CallInst>(CallOp));
     default: {
@@ -1433,7 +1473,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
       if (GID != GenXIntrinsic::not_genx_intrinsic) {
         Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
             CallOp->getModule(), GID, {CallOp->getType()});
-        SmallVector<Value *, 2> ValueOperands(CallOp->arg_operands());
+        SmallVector<Value *, 2> ValueOperands(CallOp->args());
         Value *RepI = CallInst::Create(NewFDecl, ValueOperands,
                                        CallOp->getName(), CallOp);
         CallOp->replaceAllUsesWith(RepI);
@@ -1447,16 +1487,16 @@ static Value *translateLLVMInst(Instruction *Inst) {
 }
 
 static unsigned int assignSLMOffset(Module &M) {
-  const DataLayout *DL = &M.getDataLayout();
+  auto DL = M.getDataLayout();
   unsigned SLMSize = 0;
   for (auto &&GV : M.getGlobalList()) {
     auto Ty = dyn_cast<PointerType>(GV.getType());
     if (Ty && Ty->getAddressSpace() == SYCL_SLM_AS) {
       auto DTy = GV.getValueType();
-      auto BufferSize = static_cast<size_t>(DL->getTypeAllocSize(DTy));
+      auto BufferSize = static_cast<size_t>(DL.getTypeAllocSize(DTy));
       auto align = GV.getAlignment();
       if (align == 0) {
-        int EltBytes = DTy->getScalarType()->getPrimitiveSizeInBits()/8;
+        int EltBytes = getElementSizeInBytes(DTy->getScalarType(), DL);
         align = (EltBytes > 0 && EltBytes < 8) ? EltBytes : 8;
       }
       SLMSize = ((SLMSize + align - 1) / align) * align;
@@ -1587,6 +1627,11 @@ PreservedAnalyses VPOParoptLowerSimdPass::run(Function &F,
   }
   for (auto *CI : SimdToErases) {
     CI->eraseFromParent();
+  }
+  for (auto I = inst_begin(F), E = inst_end(F); I != E;) {
+    auto *CI = dyn_cast<AddrSpaceCastInst>(&*I++);
+    if (CI && CI->use_empty())
+      CI->eraseFromParent();
   }
 
   return PreservedAnalyses::none();

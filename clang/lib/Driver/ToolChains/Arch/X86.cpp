@@ -23,8 +23,8 @@ using namespace clang;
 using namespace llvm::opt;
 
 #if INTEL_CUSTOMIZATION
-std::string getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
-                           bool IsArchOpt = false) {
+std::string x86::getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
+                                bool IsArchOpt) {
   StringRef CPU;
   if (Triple.getArch() == llvm::Triple::x86 && !IsArchOpt) { // 32-bit-only
     CPU = llvm::StringSwitch<StringRef>(Arch)
@@ -40,7 +40,8 @@ std::string getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
               .CaseLower("sse4.1", "penryn")
               .CaseLower("sse4.2", "corei7")
               .CaseLower("sandybridge", "corei7-avx")
-              .CasesLower("core-avx2", "core_avx2", "haswell", "core-avx2")
+              .CasesLower("core-avx2", "core_avx2", "haswell", "avx2",
+                          "core-avx2")
               .CasesLower("core-avx-i", "core_avx_i", "ivybridge", "core-avx-i")
               .CasesLower("atom-ssse3", "atom_ssse3", "atom")
               .CasesLower("atom-sse4.2", "atom_sse4.2", "silvermont",
@@ -97,7 +98,23 @@ bool x86::isValidIntelCPU(StringRef CPU, const llvm::Triple &Triple) {
 std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
                                  const llvm::Triple &Triple) {
 #if INTEL_CUSTOMIZATION
+  auto ArchOverrideCheck = [&Args, &D](OptSpecifier Opt1, OptSpecifier Opt2) {
+    Arg *Previous = nullptr;
+    for (Arg *A : Args.filtered(Opt1, Opt2)) {
+      bool IsSourceTypeOpt = A->getOption().matches(options::OPT_x) &&
+          types::lookupTypeForTypeSpecifier(A->getValue());
+      if (Previous && !IsSourceTypeOpt &&
+          A->getAsString(Args) != Previous->getAsString(Args))
+        D.Diag(clang::diag::warn_drv_overriding_flag_option)
+            << Previous->getAsString(Args) << A->getAsString(Args);
+      // Only capture the -x option if it is for arch setting
+      if (IsSourceTypeOpt)
+        continue;
+      Previous = A;
+    }
+  };
   if (const Arg *A = clang::driver::getLastArchArg(Args)) {
+    ArchOverrideCheck(options::OPT_x, options::OPT_march_EQ);
     if (A->getOption().matches(options::OPT_x)) {
       // -x<code> handling for Intel Processors.
       StringRef Arch = A->getValue();
@@ -125,6 +142,7 @@ std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
 #if INTEL_CUSTOMIZATION
   if (const Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
                                             options::OPT__SLASH_Qx)) {
+    ArchOverrideCheck(options::OPT__SLASH_arch, options::OPT__SLASH_Qx);
     if (A->getOption().matches(options::OPT__SLASH_Qx)) {
       // /Qx<code> handling for Intel Processors.
       StringRef Arch = A->getValue();
@@ -156,6 +174,14 @@ std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
     }
     StringRef CPU = ArchMap.lookup(A->getValue());
     if (CPU.empty()) {
+#if INTEL_CUSTOMIZATION
+      // Handle 'other' /arch variations that are allowed for icx/Intel
+      std::string IntelCPU = getCPUForIntel(A->getValue(), Triple, true);
+      if (!IntelCPU.empty()) {
+        A->claim();
+        return IntelCPU;
+      }
+#endif // INTEL_CUSTOMIZATION
       std::vector<StringRef> ValidArchs{ArchMap.keys().begin(),
                                         ArchMap.keys().end()};
       sort(ValidArchs);
@@ -163,14 +189,6 @@ std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
           << A->getValue() << (Triple.getArch() == llvm::Triple::x86)
           << join(ValidArchs, ", ");
     }
-#if INTEL_CUSTOMIZATION
-    // Handle 'other' /arch variations that are allowed for icx/Intel
-    std::string IntelCPU = getCPUForIntel(A->getValue(), Triple, true);
-    if (!IntelCPU.empty()) {
-      A->claim();
-      return IntelCPU;
-    }
-#endif // INTEL_CUSTOMIZATION
     return std::string(CPU);
   }
 

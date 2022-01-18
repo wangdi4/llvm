@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: intel_feature_sw_dtrans
+
 ; This test case checks that the partial inliner was executed for functions that are virtual
 ; function targets. The test cases translates into the following example:
 ;
@@ -176,7 +179,8 @@
 ;                                    -wholeprogramdevirt-multiversion-verify -wholeprogramdevirt-assume-safe
 ; 4) Partial inliner: -partial-inliner -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions
 
-; RUN: opt < %s -wholeprogramanalysis -whole-program-assume -intel-fold-wp-intrinsic -internalize -simplifycfg -wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -instnamer -partial-inliner -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -S 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -wholeprogramanalysis -whole-program-assume -intel-fold-wp-intrinsic -internalize -simplifycfg -wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -instnamer -partial-inliner -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='require<wholeprogram>,module(intel-fold-wp-intrinsic),module(internalize),function(simplifycfg),module(wholeprogramdevirt),function(instnamer),module(partial-inliner)' -whole-program-assume -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -S 2>&1 | FileCheck %s
 
 ; ModuleID = 'test.cpp'
 source_filename = "test.cpp"
@@ -549,7 +553,7 @@ attributes #12 = { builtin nounwind }
 !8 = !{i64 16, !"_ZTS8Derived2"}
 !9 = !{i64 32, !"_ZTSM8Derived2FbPviE.virtual"}
 !10 = !{i32 1, !"wchar_size", i32 4}
-!11 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 5be402b1c6a5f2f334635d9257915bd7c3f4b734) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm f36c84b6396d62d17021894e327aec5aa228dbaf)"}
+!11 = !{!"clang version 8.0.0"}
 !12 = !{!13, !13, i64 0}
 !13 = !{!"vtable pointer", !14, i64 0}
 !14 = !{!"Simple C++ TBAA"}
@@ -615,5 +619,4 @@ attributes #12 = { builtin nounwind }
 ; CHECK-NEXT:    %i[[V4:[0-9]+]] = phi i1 [ %retval.0.i[[V3]], %_ZN7Derived3fooEPvi.2.exit ], [ %retval.0.i, %_ZN8Derived23fooEPvi.1.exit ]
 ; CHECK-NEXT:    br label %bb
 
-
-
+; end INTEL_FEATURE_SW_DTRANS

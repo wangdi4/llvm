@@ -64,12 +64,14 @@ const char *SYCL::Linker::constructLLVMSpirvCommand(
     CmdArgs.push_back("-o");
     CmdArgs.push_back(OutputFileName);
   } else {
+#if INTEL_CUSTOMIZATION
+    // Workaround for old GPU driver version
     CmdArgs.push_back("-spirv-max-version=1.3");
+#else  // INTEL_CUSTOMIZATION
+    CmdArgs.push_back("-spirv-max-version=1.4");
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-spirv-ext=+all");
-    if (!C.getDriver().isFPGAEmulationMode())
-      CmdArgs.push_back("-spirv-debug-info-version=legacy");
-    else
-      CmdArgs.push_back("-spirv-debug-info-version=ocl-100");
+    CmdArgs.push_back("-spirv-debug-info-version=ocl-100");
     CmdArgs.push_back("-spirv-allow-extra-diexpressions");
     CmdArgs.push_back("-spirv-allow-unknown-intrinsics=llvm.genx.");
     CmdArgs.push_back("-o");
@@ -125,6 +127,25 @@ void SYCL::constructLLVMForeachCommand(Compilation &C, const JobAction &JA,
         C.getArgs().MakeArgString("--out-increment=" + Increment));
   if (!ParallelJobs.empty())
     ForeachArgs.push_back(C.getArgs().MakeArgString("--jobs=" + ParallelJobs));
+
+  if (C.getDriver().isSaveTempsEnabled()) {
+    SmallString<128> OutputDirName;
+    if (C.getDriver().isSaveTempsObj()) {
+      OutputDirName =
+          T->getToolChain().GetFilePath(OutputFileName.c_str()).c_str();
+      llvm::sys::path::remove_filename(OutputDirName);
+    }
+    // Use the current dir if the `GetFilePath` returned en empty string, which
+    // is the case when the `OutputFileName` does not contain any directory
+    // information, or if in CWD mode. This is necessary for `llvm-foreach`, as
+    // it would disregard the parameter without it. Otherwise append separator.
+    if (OutputDirName.empty())
+      llvm::sys::path::native(OutputDirName = "./");
+    else
+      OutputDirName.append(llvm::sys::path::get_separator());
+    ForeachArgs.push_back(
+        C.getArgs().MakeArgString("--out-dir=" + OutputDirName));
+  }
 
   ForeachArgs.push_back(C.getArgs().MakeArgString("--"));
   ForeachArgs.push_back(
@@ -219,14 +240,14 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
         LibPostfix = ".obj";
       StringRef InputFilename =
           llvm::sys::path::filename(StringRef(II.getFilename()));
-      if (!InputFilename.startswith("libsycl-") ||
+      StringRef LibSyclPrefix("libsycl-");
+      if (!InputFilename.startswith(LibSyclPrefix) ||
           !InputFilename.endswith(LibPostfix) || (InputFilename.count('-') < 2))
         return false;
-      size_t PureLibNameLen = InputFilename.find_last_of('-');
       // Skip the prefix "libsycl-"
-      StringRef PureLibName = InputFilename.substr(8, PureLibNameLen - 8);
+      StringRef PureLibName = InputFilename.substr(LibSyclPrefix.size());
       for (const auto &L : SYCLDeviceLibList) {
-        if (PureLibName.compare(L) == 0)
+        if (PureLibName.startswith(L))
           return true;
       }
       return false;
@@ -755,6 +776,15 @@ SYCLToolChain::SYCLToolChain(const Driver &D, const llvm::Triple &Triple,
   // Lookup binaries into the driver directory, this is used to
   // discover the clang-offload-bundler executable.
   getProgramPaths().push_back(getDriver().Dir);
+#if INTEL_CUSTOMIZATION
+  // getDriver() returns clang, which is not the Intel driver and may not be in
+  // "bin". Ensure that we look in "bin" for programs. This is Intel-specific
+  // because upstream doesn't typically have multiple program directories.
+  SmallString<128> Bin(getDriver().Dir);
+  llvm::sys::path::append(Bin, "..", "bin");
+  llvm::sys::path::remove_dots(Bin, /*remove_dot_dot=*/ true);
+  getProgramPaths().push_back(std::string(Bin));
+#endif // INTEL_CUSTOMIZATION
 }
 
 void SYCLToolChain::addClangTargetOptions(
@@ -839,13 +869,15 @@ void SYCLToolChain::TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
       // the options should go.
 #if INTEL_CUSTOMIZATION
       if (DeviceOffloadKind == Action::OFK_SYCL) {
-        if (Args.getAllArgValues(options::OPT_fsycl_targets_EQ).size() != 1) {
+        const Arg *TargetArg = Args.getLastArg(options::OPT_fsycl_targets_EQ);
+        if (TargetArg && TargetArg->getValues().size() != 1) {
           getDriver().Diag(diag::err_drv_Xsycl_target_missing_triple)
               << A->getSpelling();
           continue;
         }
       } else {
-        if (Args.getAllArgValues(options::OPT_fopenmp_targets_EQ).size() != 1) {
+        const Arg *TargetArg = Args.getLastArg(options::OPT_fopenmp_targets_EQ);
+        if (TargetArg && TargetArg->getValues().size() != 1) {
           getDriver().Diag(diag::err_drv_Xopenmp_target_missing_triple)
               << A->getSpelling();
           continue;

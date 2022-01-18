@@ -1,5 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; Check that a structure assigned from calloc is treated like a whole structure
 ; assign with all zeroes, yielding Multiple Value when the fields are then

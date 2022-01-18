@@ -41,23 +41,19 @@
 
 ; CHECK-LABEL: entry
 ; CHECK:         [[COSPTR_VEC:%.*]] = alloca <8 x float>
-; CHECK-NEXT:    [[SINPTR_VEC:%.*]] = alloca <8 x float>
 ; CHECK-NEXT:    [[COSPTR_BC:%.*]] = bitcast <8 x float>* [[COSPTR_VEC]] to float*
 ; CHECK-NEXT:    [[COSPTR_GEP:%.*]] = getelementptr float, float* [[COSPTR_BC]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 
 ; CHECK-LABEL: vector.body
-; CHECK:         {{.*}} = call <8 x float> @_Z14sincos_ret2ptrDv8_fPS_S1_(<8 x float> {{.*}}, <8 x float>* [[SINPTR_VEC]], <8 x float>* [[COSPTR_VEC]])
-; CHECK:         {{.*}} = load <8 x float>, <8 x float>* [[SINPTR_VEC]]
+; CHECK:         {{.*}} = call <8 x float> @_Z6sincosDv8_fPS_(<8 x float> {{.*}}, <8 x float>* [[COSPTR_VEC]])
 ; CHECK:         {{.*}} = load <8 x float>, <8 x float>* [[COSPTR_VEC]], align 4
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-; Function Attrs: convergent nounwind
-declare float @_Z6sincosfPf(float, float*) #0
+declare float @_Z6sincosfPf(float, float*)
 
-; Function Attrs: nounwind
 define void @foo(float addrspace(1)* %uni1, float addrspace(1)* %uni2) {
 entry:
   %cosPtr = alloca float
@@ -86,16 +82,8 @@ simd.loop.exit:                                   ; preds = %simd.loop
 
 simd.end.region:                                  ; preds = %simd.loop.exit
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
-  br label %return
-
-return:                                           ; preds = %simd.end.region
   ret void
 }
 
-; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
-
-attributes #0 = { readnone }

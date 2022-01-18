@@ -28,6 +28,18 @@
 // Don't format out enums and structs.
 // clang-format off
 
+/// return flags of __tgt_target_XXX public APIs
+enum __tgt_target_return_t : int {
+  /// successful offload executed on a target device
+  OMP_TGT_SUCCESS = 0,
+  /// offload may not execute on the requested target device
+  /// this scenario can be caused by the device not available or unsupported
+  /// as described in the Execution Model in the specifcation
+  /// this status may not be used for target device execution failure
+  /// which should be handled internally in libomptarget
+  OMP_TGT_FAIL = ~0
+};
+
 /// Data attributes for each data reference used in an OpenMP target region.
 #if INTEL_COLLAB
 enum tgt_map_type : uint64_t {
@@ -80,6 +92,11 @@ enum OpenMPOffloadingDeclareTargetFlags {
   OMP_DECLARE_TARGET_CTOR = 0x02,
   /// Mark the entry as being a global destructor.
   OMP_DECLARE_TARGET_DTOR = 0x04
+#if INTEL_COLLAB
+  ,
+  /// Mark the entry as being a function pointer.
+  OMP_DECLARE_TARGET_FPTR = 0x8
+#endif // INTEL_COLLAB
 };
 
 enum OpenMPOffloadingRequiresDirFlags {
@@ -254,6 +271,11 @@ struct __tgt_target_table {
 };
 
 #if INTEL_COLLAB
+typedef struct __omp_offloading_fptr_map_t {
+  uint64_t host_ptr; // key
+  uint64_t tgt_ptr;  // value
+} __omp_offloading_fptr_map_t;
+
 #ifdef __cplusplus
 
 #if _WIN32
@@ -434,6 +456,13 @@ EXTERN void *ompx_target_aligned_alloc_host(
     size_t align, size_t size, int device_num);
 EXTERN void *ompx_target_aligned_alloc_shared(
     size_t align, size_t size, int device_num);
+
+/// Get number of subdevices supported by the given device ID at the specified
+/// level
+EXTERN int ompx_get_num_subdevices(int device_num, int level);
+
+EXTERN void ompx_kernel_batch_begin(int device_num, uint32_t max_kernels);
+EXTERN void ompx_kernel_batch_end(int device_num);
 #endif // INTEL_COLLAB
 
 /// Explicit target memory allocators
@@ -450,6 +479,12 @@ void *llvm_omp_target_alloc_host(size_t size, int device_num);
 EXTERN
 #endif  // INTEL_COLLAB
 void *llvm_omp_target_alloc_shared(size_t size, int device_num);
+
+/// Dummy target so we have a symbol for generating host fallback.
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
+void *llvm_omp_get_dynamic_shared();
 
 /// add the clauses of the requires directives in a given file
 #if INTEL_COLLAB
@@ -722,6 +757,17 @@ EXTERN int __tgt_get_target_memory_info(
 // TODO: remove this if we choose to modify device image description.
 EXTERN void __tgt_add_build_options(
     const char *compile_options, const char *link_options);
+
+// Check if reduction scratch is supported
+EXTERN int __tgt_target_supports_per_hw_thread_scratch(int64_t device_id);
+
+// Allocate per-hw-thread reducion scratch
+EXTERN void *__tgt_target_alloc_per_hw_thread_scratch(
+    int64_t device_id, size_t obj_size, int32_t alloc_kind);
+
+// Free per-hw-thread reduction scratch
+EXTERN void __tgt_target_free_per_hw_thread_scratch(
+    int64_t device_id, void *ptr);
 #endif // INTEL_COLLAB
 
 #if INTEL_COLLAB

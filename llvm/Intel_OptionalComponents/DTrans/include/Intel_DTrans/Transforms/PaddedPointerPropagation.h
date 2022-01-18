@@ -24,14 +24,29 @@
 
 namespace llvm {
 
+namespace dtrans {
+
 /// Pass for new pass manager for padding property propagation.
 class PaddedPtrPropPass : public PassInfoMixin<PaddedPtrPropPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
 };
 
+} // namespace dtrans
+
+namespace dtransOP {
+
+/// Pass for new pass manager for padding property propagation.
+class PaddedPtrPropOPPass : public PassInfoMixin<PaddedPtrPropOPPass> {
+public:
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
+};
+
+} // namespace dtransOP
+
 /// Pass creation routine for legacy pass manager
 ModulePass *createPaddedPtrPropWrapperPass();
+ModulePass *createPaddedPtrPropOPWrapperPass();
 
 /// A routine to query if a Value points to padded memory
 int getPaddingForValue(Value *V);
@@ -42,6 +57,6 @@ void insertPaddedMarkUp(Value *V, int Padding);
 /// A routine for padding markup removal
 void removePaddedMarkUp(IntrinsicInst *I);
 
-}
+} // namespace llvm
 
 #endif // LLVM_TRANSFORMS_INTEL_PADDEDPTRPROP_H

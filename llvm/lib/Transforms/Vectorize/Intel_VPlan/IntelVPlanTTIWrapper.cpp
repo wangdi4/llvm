@@ -192,13 +192,16 @@ VPlanTTIWrapper::InstructionCost VPlanTTIWrapper::getMemoryOpCost(
     TTI::TargetCostKind CostKind, const Instruction *I) const {
   auto VPTTICost = Multiplier * TTI.getMemoryOpCost(Opcode, Src, Alignment,
                                                     AddressSpace, CostKind, I);
+  LLVM_DEBUG(dbgs() << "VPTTICost: " << VPTTICost << '\n';);
 
   // Return not adjusted scaled up cost for non-vector types.
-  if (!isa<VectorType>(Src))
+  if (!isa<FixedVectorType>(Src) ||
+      cast<FixedVectorType>(Src)->getNumElements() == 1)
     return VPTTICost;
 
   auto AdjustedCost =
       VPTTICost + getNonMaskedMemOpCostAdj(Opcode, Src, Alignment);
+  LLVM_DEBUG(dbgs() << "AdjustedCost: " << AdjustedCost << '\n';);
 
   return AdjustedCost;
 }

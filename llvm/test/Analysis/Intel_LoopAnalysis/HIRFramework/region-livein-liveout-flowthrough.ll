@@ -1,4 +1,5 @@
-; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-framework | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -analyze -hir-framework -enable-new-pm=0 < %s  2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir-framework>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; HIR-
 ; + DO i1 = 0, -1 * %.pr.us.us + smax(0, (1 + %.pr.us.us)) + -1, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 2147483649>

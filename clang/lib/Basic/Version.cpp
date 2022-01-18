@@ -72,7 +72,7 @@ std::string getClangFullRepositoryVersion() {
   std::string LLVMRev = getLLVMRevision();
   OS << Revision << ':' << LLVMRev;
 #endif // INTEL_CUSTOMIZATION
-  return OS.str();
+  return buf;
 }
 
 std::string getClangFullVersion() {
@@ -87,7 +87,7 @@ std::string getClangToolFullVersion(StringRef ToolName) {
   OS << getDPCPPProductName() << " " << getDPCPPVersionString()
      << " (" << getICXVersionString() << ")";
 #endif // INTEL_CUSTOMIZATION
-  return OS.str();
+  return buf;
 }
 
 std::string getClangFullCPPVersion() {
@@ -104,7 +104,7 @@ std::string getClangFullCPPVersion() {
   if (!repo.empty()) {
     OS << " " << repo;
   }
-  return OS.str();
+  return buf;
 }
 
 #if INTEL_CUSTOMIZATION

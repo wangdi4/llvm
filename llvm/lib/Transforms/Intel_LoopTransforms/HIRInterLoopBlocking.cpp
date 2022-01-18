@@ -4245,7 +4245,7 @@ void testDriver::checkTargetsAndShrink(
   if (MaxNumber >= LabelNumber)
     return;
 
-  auto I = OuterNodes.size() - 1;
+  int64_t I = OuterNodes.size() - 1;
   for (; I >= 0; I--) {
     if (OuterNodes[I]->getMaxTopSortNum() < GotoNumber) {
       // InnermostLoops only upto this OuterNode are valid

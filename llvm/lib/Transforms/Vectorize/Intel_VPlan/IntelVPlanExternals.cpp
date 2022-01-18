@@ -324,13 +324,19 @@ void VPLiveInOutCreator::createInOutsPrivates(
           PrivFinalExternalUse->getOperandIndex(PrivFinal));
       // Put live-in/out to their lists
       Plan.setLiveOutValue(LOV, MergeId);
-      if (auto PrivInst = dyn_cast<VPPrivateFinalCond>(PrivFinal)) {
-        VPValue *StartV = PrivInst->getOrig();
-        VPLiveInValue *LIV = createLiveInValue(MergeId, StartV->getType());
-        Plan.setLiveInValue(LIV, MergeId);
-        ExtVals.setOriginalIncomingValue(StartV, MergeId);
-        PrivInst->setOrig(LIV);
+
+      VPValue *StartV;
+      if (auto *PrivInst = dyn_cast<VPPrivateFinalCond>(PrivFinal))
+        StartV = PrivInst->getOrig();
+      else {
+        // For unconditional privates add "undef" incoming value.
+        StartV = Plan.getVPConstant(UndefValue::get(LOV->getType()));
       }
+      VPLiveInValue *LIV = createLiveInValue(MergeId, StartV->getType());
+      Plan.setLiveInValue(LIV, MergeId);
+      ExtVals.setOriginalIncomingValue(StartV, MergeId);
+      if (auto *PrivInst = dyn_cast<VPPrivateFinalCond>(PrivFinal))
+        PrivInst->setOrig(LIV);
       addOriginalLiveInOut(VPLEntityList, OrigLoop, Priv, PrivFinalExternalUse,
                            ScalarInOuts);
     }

@@ -51,7 +51,6 @@ class VPOCodeGenHIR;
 class VPPostDominatorTree;
 class VPPHINode;
 struct TripCountInfo;
-class VPlanScalVecAnalysis;
 
 // llvm::mapped_itrator has limited support of functions returning by value.
 // TODO: Replace VPSuccIterator with llvm::mapped_iterator, once it is fixed.
@@ -113,9 +112,6 @@ private:
   /// Current block predicate - null if the block does not need a predicate.
   VPInstruction *BlockPredicate = nullptr;
 
-  BasicBlock *CBlock = nullptr;
-  BasicBlock *TBlock = nullptr;
-  BasicBlock *FBlock = nullptr;
   BasicBlock *OriginalBB = nullptr;
 
   // TODO: Not sure what other types of loop metadata we'd need. Most probably,
@@ -315,8 +311,6 @@ public:
   void addInstruction(VPInstruction *Instruction,
                       VPInstruction *Before = nullptr);
 
-  void moveConditionalEOBTo(VPBasicBlock *ToBB);
-
   /// Remove the instruction from VPBasicBlock's instructions.
   void removeInstruction(VPInstruction *Instruction) {
     Instructions.remove(Instruction);
@@ -367,16 +361,6 @@ public:
 
   void print(raw_ostream &OS) const override { print(OS, 0); };
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-  void setCBlock(BasicBlock *CB) { CBlock = CB; }
-  void setFBlock(BasicBlock *FB) { FBlock = FB; }
-  void setTBlock(BasicBlock *TB) { TBlock = TB; }
-  BasicBlock *getCBlock() { return CBlock; }
-  BasicBlock *getTBlock() { return TBlock; }
-  BasicBlock *getFBlock() { return FBlock; }
-
-  bool hasTrueEdge() { return CBlock && TBlock; }
-  bool hasFalseEdge() { return CBlock && FBlock; }
-
   void setOriginalBB(BasicBlock *BB) { OriginalBB = BB; }
   BasicBlock *getOriginalBB() const { return OriginalBB; }
 

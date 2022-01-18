@@ -252,14 +252,13 @@ protected:
   SmallVector<const HLLoop *, MaxLoopNestLevel> NearByPerm;
   SmallVector<const HLLoop *, 5> PerfectLoopsEnabled;
   SmallVector<DirectionVector, 16> DVs;
-  std::map<const HLLoop *, InterchangeIgnorableSymbasesTy>
-      CandLoopToIgnorableSymBases;
 
   bool shouldInterchange(const HLLoop *);
-  bool getPermutation(const HLLoop *);
+  bool getPermutation(const HLLoop *, const HLLoop *);
 
   // returns true means legal for any permutation
-  bool isLegalForAnyPermutation(const HLLoop *Loop);
+  bool isLegalForAnyPermutation(const HLLoop *Outermost,
+                                const HLLoop *Innermost);
   //  SrcLevel and DstLevel start from 1
 
   bool isBestLocalityInInnermost(const HLLoop *Loop,
@@ -551,7 +550,7 @@ class HIRSpecialLoopInterchange : public HIRLoopInterchange {
   bool generatePermutation(HLLoop *OuterLp, HLLoop *InnerLp);
 
   // Peggy back to original Interchange pass's legal model
-  bool isLegal(HLLoop *OuterLp);
+  bool isLegal(HLLoop *OuterLp, const HLLoop *InnerLp);
 
   // Peggy back to original Interchange pass's transform function
   bool transform(HLLoop *OuterLp);
@@ -1041,8 +1040,9 @@ bool HIRSpecialLoopInterchange::generatePermutation(HLLoop *OuterLp,
 // [Note]
 // - SortedLoops contains the desired permutation for the special interchange.
 //
-bool HIRSpecialLoopInterchange::isLegal(HLLoop *OuterLp) {
-  bool IsLegal = HIRLoopInterchange::getPermutation(OuterLp);
+bool HIRSpecialLoopInterchange::isLegal(HLLoop *OuterLp,
+                                        const HLLoop *InnermostLp) {
+  bool IsLegal = HIRLoopInterchange::getPermutation(OuterLp, InnermostLp);
   LLVM_DEBUG({
     StringRef Msg = IsLegal ? "Legal" : "Illegal";
     dbgs() << Msg + " on outermost Lp: " << OuterLp << "\n";
@@ -1076,8 +1076,8 @@ bool HIRSpecialLoopInterchange::run() {
       continue;
     }
 
-    // flag to allow skipping any legal test, profit test, and transformation for
-    // the special interchange.
+    // flag to allow skipping any legal test, profit test, and transformation
+    // for the special interchange.
     if (!DoSpecialInterchange) {
       continue;
     }
@@ -1103,7 +1103,7 @@ bool HIRSpecialLoopInterchange::run() {
       continue;
     }
 
-    if (!isLegal(OuterLp)) {
+    if (!isLegal(OuterLp, InnerLp)) {
       LLVM_DEBUG(
           dbgs() << "Failure in HIRSpecialLoopInterchange::isLegal()\n";);
       continue;
@@ -1157,7 +1157,8 @@ bool HIRLoopInterchange::run(void) {
 
     LLVM_DEBUG(dbgs() << "\nIn CandidateLoop:\n"; OutermostLp->dump());
 
-    if (shouldInterchange(OutermostLp) && getPermutation(OutermostLp)) {
+    if (shouldInterchange(OutermostLp) &&
+        getPermutation(OutermostLp, InnermostLoop)) {
       transformLoop(OutermostLp);
     } else {
       if (std::find(PerfectLoopsEnabled.begin(), PerfectLoopsEnabled.end(),
@@ -1169,7 +1170,6 @@ bool HIRLoopInterchange::run(void) {
 
   CandidateLoops.clear();
   PerfectLoopsEnabled.clear();
-  CandLoopToIgnorableSymBases.clear();
 
   return AnyLoopInterchanged;
 }
@@ -1193,7 +1193,8 @@ bool HIRLoopInterchange::shouldInterchange(const HLLoop *Loop) {
 
 /// Return true if loop can be interchanged with best permutation or
 /// Nearby permutation
-bool HIRLoopInterchange::getPermutation(const HLLoop *OutermostLp) {
+bool HIRLoopInterchange::getPermutation(const HLLoop *OutermostLp,
+                                        const HLLoop *InnermostLp) {
 
   // 3) If already in decreasing order (from outer to inner) of loop cost,
   //   nothing needs to be done, Otherwise. Try to find a permutation that's
@@ -1202,6 +1203,7 @@ bool HIRLoopInterchange::getPermutation(const HLLoop *OutermostLp) {
   bool CanInterchange = false;
   LoopPermutation.clear();
   NearByPerm.clear();
+  DVs.clear();
   OutmostNestingLevel = OutermostLp->getNestingLevel();
 
   // Save it in local vector because it may change later
@@ -1211,7 +1213,7 @@ bool HIRLoopInterchange::getPermutation(const HLLoop *OutermostLp) {
 
   // When returning legal == true, we can just interchange w/o
   // examining DV.
-  if (isLegalForAnyPermutation(OutermostLp)) {
+  if (isLegalForAnyPermutation(OutermostLp, InnermostLp)) {
     LLVM_DEBUG(dbgs() << "\n Legal for all Permutations\n");
     CanInterchange = true;
   } else {
@@ -1423,7 +1425,8 @@ void HIRLoopInterchange::permuteNearBy(unsigned DstLevel, unsigned DstIndex,
 }
 
 /// Return true if legal for any permutations
-bool HIRLoopInterchange::isLegalForAnyPermutation(const HLLoop *OutermostLoop) {
+bool HIRLoopInterchange::isLegalForAnyPermutation(const HLLoop *OutermostLoop,
+                                                  const HLLoop *InnermostLoop) {
 
   //
   // 4) exclude loops that has pragma for unroll or unroll & jam.
@@ -1446,9 +1449,16 @@ bool HIRLoopInterchange::isLegalForAnyPermutation(const HLLoop *OutermostLoop) {
   // The following visitor will gather DVs from DDG and push them into
   // HIRLoopInterchange::DVs;
 
-  DDUtils::computeDVsForPermuteIgnoringSBs(DVs, Lp, InnermostNestingLevel, HDDA,
-                                           HSRA, false,
-                                           &CandLoopToIgnorableSymBases[Lp]);
+  // For temps, consider only temps that are live-in.
+  // Other temps are OK to ignore for DV checks.
+  SpecialSymbasesTy TempSBsToConsider;
+  for (auto I : llvm::make_range(InnermostLoop->live_in_begin(),
+                                 InnermostLoop->live_in_end())) {
+    TempSBsToConsider.insert(I);
+  }
+
+  DDUtils::computeDVsForPermuteWithSBs(DVs, Lp, InnermostNestingLevel, HDDA,
+                                       HSRA, false, &TempSBsToConsider);
 
   // If edges are selected,
   // there are dependencies to check out w.r.t to interchange order

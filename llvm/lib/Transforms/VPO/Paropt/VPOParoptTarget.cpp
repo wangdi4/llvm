@@ -97,6 +97,12 @@ static cl::opt<bool> DisableParallelBarriers(
     cl::init(false), cl::ZeroOrMore,
     cl::desc("Disable adding workgroup barriers after parallel regions"));
 
+static cl::opt<bool> ExcludeGlobalFenceFromBarriers(
+    "vpo-paropt-exclude-global-fence-from-workgroup-barriers", cl::Hidden,
+    cl::init(false), cl::ZeroOrMore,
+    cl::desc("Exclude global fence when adding workgroup barriers after "
+             "parallel regions"));
+
 static cl::opt<uint64_t> KernelArgsSizeLimit(
     "vpo-paropt-kernel-args-size-limit", cl::Hidden, cl::init(1024),
     cl::desc("Maximum total size in bytes of the arguments for a kernel"));
@@ -105,6 +111,12 @@ static cl::opt<uint32_t> AtomicFreeRedGlobalBufSize(
     "vpo-paropt-atomic-free-red-global-buf-size", cl::Hidden, cl::init(1024),
     cl::desc("Maximum number of elements (and teams) in the global buffer for "
              "atomic-free reduction"));
+cl::opt<uint32_t> AtomicFreeRedLocalBufSize(
+    "vpo-paropt-atomic-free-red-local-buf-size", cl::Hidden, cl::init(1024),
+    cl::desc("Maximum number of elements (and hence workitems) in the local "
+             "buffer used for tree-like local update in"
+             "atomic-free reduction"));
+
 
 extern cl::opt<bool> AtomicFreeReduction;
 extern cl::opt<uint32_t> AtomicFreeReductionCtrl;
@@ -203,7 +215,7 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
 
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": old printf(): " << *OldCall
                         << "\n");
-      SmallVector<Value *, 4> FnArgs(OldCall->arg_operands());
+      SmallVector<Value *, 4> FnArgs(OldCall->args());
 
       // First argument of the original printf() is of
       // ADDRESS_SPACE_GENERIC (=4) due to its addrspacecast:
@@ -355,7 +367,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(
 
   // Generate '<kernel-name>_kernel_info' global variable that specifies
   // whether a kernel argument is passed by value or not.
-  // Versions 1-3 of the data structure use the following format:
+  // Versions 1-4 of the data structure use the following format:
   //   struct KernelInfoTy {
   //     uint32_t Version = [1 .. 2];
   //     uint32_t ArgsNum = <number of the kernel arguments>;
@@ -365,9 +377,10 @@ Function *VPOParoptTransform::finalizeKernelFunction(
   //     } ArgsDesc[ArgsNum];
   //     uint64_t Attributes1; // Since version 2.
   //     uint64_t WGNum;       // Since version 3.
+  //     uint64_t WINum;       // Since version 4.
   //   };
   auto GenerateKernelArgInfoVar =
-      [](const std::vector<KernelArgInfoDesc> &KernelArgInfo,
+      [this, &WT](const std::vector<KernelArgInfoDesc> &KernelArgInfo,
          Function *Fn, bool HasTeamsReduction) {
         auto &C = Fn->getContext();
         size_t ArgsNum = KernelArgInfo.size();
@@ -381,7 +394,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(
         // The current version is 3.
         KernelInfoInitMemberTypes.push_back(Type::getInt32Ty(C));
         KernelInfoInitBuffer.push_back(
-            ConstantInt::get(Type::getInt32Ty(C), 3));
+            ConstantInt::get(Type::getInt32Ty(C), 4));
         // Specify the number of kernel argument.
         KernelInfoInitMemberTypes.push_back(Type::getInt32Ty(C));
         KernelInfoInitBuffer.push_back(
@@ -430,6 +443,17 @@ Function *VPOParoptTransform::finalizeKernelFunction(
         KernelInfoInitMemberTypes.push_back(Type::getInt64Ty(C));
         KernelInfoInitBuffer.push_back(
             ConstantInt::get(Type::getInt64Ty(C), UseGPURedWGLimit));
+
+        uint64_t UseGPURedWILimit =
+            (AtomicFreeReduction &&
+             (AtomicFreeReductionCtrl &
+              VPOParoptAtomicFreeReduction::Kind_Local) &&
+             UsedLocalTreeReduction.count(WT))
+                ? AtomicFreeRedLocalBufSize
+                : 0;
+        KernelInfoInitMemberTypes.push_back(Type::getInt64Ty(C));
+        KernelInfoInitBuffer.push_back(
+            ConstantInt::get(Type::getInt64Ty(C), UseGPURedWILimit));
 
         KernelInfoInitTy = StructType::create(KernelInfoInitMemberTypes);
         Constant *KernelInfoInit =
@@ -488,8 +512,29 @@ Function *VPOParoptTransform::finalizeKernelFunction(
             (MapIdx + 1 >= MapTypes.size() ||
              (MapTypes[MapIdx + 1] & TGT_MAP_MEMBER_OF) == 0)) {
           // We can pass it by value, but we have to adjust the data type.
-          Type *BlobTy = ArrayType::get(Type::getInt1Ty(C), MapSizeVal);
-          Type *AggrTy = StructType::get(BlobTy);
+          // It turns out some device compilers do not pass the by value
+          // argument objects to the kernels in contiguous manner, e.g.
+          // for types like { i8, i8 } they may use 2 4-byte registers
+          // for passing the members. To make the register usage more
+          // efficient, we represent any user type as a structure
+          // with the following members:
+          //   { [K x i64], [L x i32], [M x i16], [N x i8] }, where
+          // K >= 0, 0 <= L <= 1, 0 <= M <= 1, 0 <= N <= 1
+          unsigned ChunkWidth = 8;
+          uint64_t RemainingSize = MapSizeVal;
+          SmallVector<Type *, 4> ChunkTys;
+          while (ChunkWidth >= 1 && RemainingSize > 0) {
+            uint64_t ChunkSize = RemainingSize / ChunkWidth;
+            if (ChunkSize > 0)
+              ChunkTys.push_back(
+                  ArrayType::get(Type::getIntNTy(C, ChunkWidth * 8),
+                                 ChunkSize));
+
+            RemainingSize = (RemainingSize % ChunkWidth);
+            ChunkWidth >>= 1;
+          }
+          Type *AggrTy = StructType::get(C, ChunkTys, /*isPacked=*/true);
+
           // ByVal pointer arguments must be in addrspace(0).
           ParamsTy.push_back(PointerType::get(AggrTy,
                                               vpo::ADDRESS_SPACE_PRIVATE));
@@ -830,6 +875,18 @@ void VPOParoptTransform::guardSideEffectStatements(
 
     LLVM_DEBUG(dbgs() << "\nInsert Barrier before:" << *InsertPt << "\n");
 
+    // Experimental option is used to remove global memory fence from the
+    // barrier instruction. 
+    auto MemorySemanticsID =
+        (ExcludeGlobalFenceFromBarriers)
+            ? ConstantInt::get(Type::getInt32Ty(C),
+                               spirv::SequentiallyConsistent |
+                               spirv::WorkgroupMemory)
+            : ConstantInt::get(Type::getInt32Ty(C),
+                               spirv::SequentiallyConsistent |
+                               spirv::WorkgroupMemory |
+                               spirv::CrossWorkgroupMemory);
+
     // TODO: we only need global fences for side effect instructions
     //       inside "omp target" and outside of the enclosed regions.
     //       Moreover, it probably makes sense to guard such instructions
@@ -850,10 +907,7 @@ void VPOParoptTransform::guardSideEffectStatements(
             //     vpo::spirv::MemorySemantics::CrossWorkgroupMemory)
             { ConstantInt::get(Type::getInt32Ty(C), spirv::Workgroup),
               ConstantInt::get(Type::getInt32Ty(C), spirv::Workgroup),
-              ConstantInt::get(Type::getInt32Ty(C),
-                               spirv::SequentiallyConsistent |
-                               spirv::WorkgroupMemory |
-                               spirv::CrossWorkgroupMemory) },
+              MemorySemanticsID },
             InsertPt);
     // __spirv_ControlBarrier() is a convergent call.
     CI->getCalledFunction()->setConvergent();
@@ -1600,7 +1654,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       // For target data directive, if the "if" clause is evaluated to false,
       // device is host, and the outlined function is called without mapping
       // data.
-      SmallVector<Value *, 4> FnArgs(NewCall->arg_operands());
+      SmallVector<Value *, 4> FnArgs(NewCall->args());
       Builder.CreateCall(NewF, FnArgs, "");
     }
   } else {
@@ -1629,7 +1683,8 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       //                            /*default num_teams*/ 0, /*num_threads*/ 1)
       ConstantInt *ValueOne = ConstantInt::getSigned(Type::getInt32Ty(C), 1);
       VPOParoptUtils::genKmpcPushNumTeams(W, IdentTy, ValueZero, ValueZero,
-                                          ValueOne, Term);
+                                          ValueZero->getType(),
+                                          ValueOne, ValueOne->getType(), Term);
       NewCall->removeFromParent();
       NewCall->insertBefore(Term->getParent()->getTerminator());
     } else if (isa<WRNTargetDataNode>(W)) {
@@ -2012,17 +2067,18 @@ void VPOParoptTransform::genTgtInformationForPtrs(
 //     TgtLoopDescTy Levels[3]; // Up to 3 loops
 //   } TgtNDRangeDescTy;
 AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W) {
-  auto &UncollapsedNDRange = W->getUncollapsedNDRange();
+  auto &UncollapsedNDRangeDims = W->getUncollapsedNDRangeDimensions();
+  auto &UncollapsedNDRangeTypes = W->getUncollapsedNDRangeTypes();
   uint8_t DistributeDim = W->getNDRangeDistributeDim();
 
-  if (UncollapsedNDRange.empty())
+  if (UncollapsedNDRangeDims.empty())
     return nullptr;
 
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *NewEntryBB = SplitBlock(EntryBB, &*(EntryBB->begin()), DT, LI);
   W->setEntryBBlock(NewEntryBB);
 
-  unsigned NumLoops = UncollapsedNDRange.size();
+  unsigned NumLoops = UncollapsedNDRangeDims.size();
   NumLoops += DistributeDim;
   assert(NumLoops <= 3 && "Max 3 dimensions for ND-range execution.");
 
@@ -2076,9 +2132,8 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W) {
     if (I < DistributeDim)
       CloneUB = Builder.getInt64(0);
     else
-      CloneUB = Builder.CreateLoad(
-          UncollapsedNDRange[Idx]->getType()->getPointerElementType(),
-          UncollapsedNDRange[Idx]);
+      CloneUB = Builder.CreateLoad(UncollapsedNDRangeTypes[Idx],
+                                   UncollapsedNDRangeDims[Idx]);
 
     assert(CloneUB && "genTgtLoopParameter: unexpected null CloneUB");
     Builder.CreateStore(Builder.CreateSExtOrTrunc(CloneUB, Int64Ty),
@@ -2106,7 +2161,7 @@ unsigned VPOParoptTransform::getTargetDataInfo(
 #endif // INTEL_CUSTOMIZATION
     bool &HasRuntimeEvaluationCaptureSize) const {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::getTargetDataInfo\n");
-  unsigned NumberOfPtrs = Call->getNumArgOperands();
+  unsigned NumberOfPtrs = Call->arg_size();
   HasRuntimeEvaluationCaptureSize = false;
   bool ForceMapping =
       // These regions will not have any real references to the mapped
@@ -2125,7 +2180,7 @@ unsigned VPOParoptTransform::getTargetDataInfo(
 #endif // INTEL_CUSTOMIZATION
                                HasRuntimeEvaluationCaptureSize);
     } else {
-      for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
+      for (unsigned II = 0; II < Call->arg_size(); ++II) {
         Value *BPVal = Call->getArgOperand(II);
         genTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes, Names, Mappers,
 #if INTEL_CUSTOMIZATION
@@ -2326,8 +2381,13 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
     } else if (UDPI->getIsF90DopeVector()) {
       // For F90_DVs, the map needs to be added for the data pointer, i.e.
       // load i32*, i32** (getelementptr (%dv, 0, 0)).
+      Type *DVType = nullptr;
+      Value *NumElements = nullptr;
+      std::tie(DVType, NumElements, std::ignore) =
+          VPOParoptUtils::getItemInfo(UDPI);
+      assert(!NumElements && "use_device_ptr item cannot be an array.");
+
       auto *Zero = LoadBuilder.getInt32(0);
-      auto *DVType = UDPI->getOrigElemType();
       auto *Addr0GEP = LoadBuilder.CreateInBoundsGEP(DVType, UDP, {Zero, Zero},
                                                      UDP->getName() + ".addr0");
       MappedVal = LoadBuilder.CreateLoad(
@@ -2363,32 +2423,6 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
   return true;
 }
 
-void VPOParoptTransform::checkAtomicFreeReductionOpportunity(WRegionNode *W) {
-  if (W->getIsSections())
-    return;
-  auto *WTarget = WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
-  if (!WTarget)
-    return;
-
-  if (W->getIsOmpLoop())
-    AtomicFreeReductionCheck[WTarget].setLoopIsOk(
-        !W->getWRNLoopInfo().isKnownNDRange());
-  if (W->getIsPar())
-    AtomicFreeReductionCheck[WTarget].setParIsOk();
-  if (W->getIsDistribute())
-    AtomicFreeReductionCheck[WTarget].setParIsOk(
-        // TODO: set WRNDistirbute inner stores pointer operands to @redbuf
-        // so that the following condition could be removed
-        // TODO: remove isKnownNDRange call here once the related clause
-        // is correctly handled in fixupKnownNDRange()
-        (isa<WRNDistributeNode>(W)
-             ? AtomicFreeReductionCheck[WTarget].getParIsOk()
-             : true) &&
-        !W->getWRNLoopInfo().isKnownNDRange());
-  if (W->getIsTeams())
-    AtomicFreeReductionCheck[WTarget].setTeamsIsOk();
-}
-
 // Add globals for fast GPU reduction global buffers (one per reduction item)
 // and global teams counter (one per kernel)
 bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
@@ -2396,16 +2430,15 @@ bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
 
   assert(W->getIsTarget());
 
-  if (!AtomicFreeReductionCheck[W].isGlobalValid())
-    return false;
-
   auto WTeamsIt =
       std::find_if(W->getChildren().begin(), W->getChildren().end(),
                    [](WRegionNode *SW) { return SW->getIsTeams(); });
-  assert(WTeamsIt != W->getChildren().end() &&
-         "Teams presence was promised by AtomicFreeReductionCheck");
+  if (WTeamsIt == W->getChildren().end())
+    return false;
 
   auto *WTeams = *WTeamsIt;
+  if (WTeams->getRed().empty())
+    return false;
 
   CallInst *EntryCI = cast<CallInst>(W->getEntryDirective());
 
@@ -2433,7 +2466,40 @@ bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
   };
   const DataLayout &DL = F->getParent()->getDataLayout();
 
+  bool FoundProperItem = false;
+
   for (ReductionItem *RedI : RedClause.items()) {
+    if (RedI->getType() == ReductionItem::WRNReductionUdr)
+      continue;
+#if INTEL_CUSTOMIZATION
+    if (RedI->getIsF90DopeVector())
+      continue;
+#endif // INTEL_CUSTOMIZATION
+
+    if (RedI->getIsArraySection()) {
+      // computeArraySectionTypeOffsetSize() may insert computations
+      // before the target region, if an array section dimension's
+      // lower bound or/and size is not constant. Since the dimension
+      // lb/size values definition may be dominated by the target region,
+      // we cannot easily use them before the target region.
+      // We need more sophisticated code here to be able to do that
+      // correctly. For now just support array sections with constant
+      // section specifiers.
+      const auto &ArrSecInfo = RedI->getArraySectionInfo();
+      if (ArrSecInfo.isArraySectionWithVariableLengthOrOffset())
+        continue;
+
+      computeArraySectionTypeOffsetSize(W, *RedI, EntryCI);
+    }
+
+    Type *BufTy = nullptr;
+    Value *NumElems = nullptr;
+
+    std::tie(BufTy, NumElems, std::ignore) = VPOParoptUtils::getItemInfo(RedI);
+
+    if (NumElems && !isa<ConstantInt>(NumElems))
+      continue;
+
     uint64_t Size = DL.getPointerSizeInBits() / 8;
     uint64_t MapType = TGT_MAP_PRIVATE;
     Value *MapTypeVal =
@@ -2442,18 +2508,45 @@ bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
         Type::getInt64Ty(F->getContext()),
         Size * (AtomicFreeRedGlobalBufSize ? AtomicFreeRedGlobalBufSize : 1));
 
-    Type *BufTy = nullptr;
-    std::tie(BufTy, std::ignore, std::ignore) =
-        VPOParoptUtils::getItemInfo(RedI);
+    assert(BufTy && "Found untyped reduction item");
+    if (RedI->getIsArraySection()) {
+      assert(NumElems && "No elements number specified for array section");
+      BufTy =
+          ArrayType::get(BufTy, cast<ConstantInt>(NumElems)->getZExtValue());
+    }
+
+    Module *M = F->getParent();
+    assert(M && "Function has no parent module.");
+    Triple TT(M->getTargetTriple());
+
+    GlobalValue::LinkageTypes BufLinkage =
+        GlobalValue::LinkageTypes::ExternalWeakLinkage;
+    Constant *Initializer = nullptr;
+    // MSVC linker does not support multiple definitions of extern_weak
+    // symbols with the same name in different modules, so we have to define
+    // the variable with private linkage for the host compilation.
+    //
+    // FIXME: we need to think about not using global variables. These host
+    //        variables are eventually just used to tell libomptarget know
+    //        that it needs to allocate some memory on the device.
+    //        I believe we could as well use nullptr for this purpose.
+    if (TT.isOSWindows() && !hasOffloadCompilation()) {
+      BufLinkage = GlobalValue::LinkageTypes::PrivateLinkage;
+      Initializer = Constant::getNullValue(BufTy);
+    }
 
     auto *NewBuf = new GlobalVariable(
         *F->getParent(), BufTy, false,
-        GlobalValue::LinkageTypes::ExternalWeakLinkage, nullptr, "red_buf",
+        BufLinkage, Initializer, "red_buf",
         nullptr, GlobalValue::NotThreadLocal,
         isTargetSPIRV() ? vpo::ADDRESS_SPACE_GLOBAL : 0);
     NewBuf->addAttribute(VPOParoptAtomicFreeReduction::GlobalBufferAttr);
     addMapForValue(NewBuf, MapType, MapTypeVal, MapSize);
+    FoundProperItem = true;
   }
+
+  if (!FoundProperItem)
+    return false;
 
   uint64_t Size = DL.getPointerSizeInBits() / 8;
   uint64_t MapType = TGT_MAP_PRIVATE | TGT_MAP_TO;
@@ -2464,8 +2557,7 @@ bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
   auto *GlobalCounter = new GlobalVariable(
       *(F->getParent()), Type::getInt32Ty(F->getContext()), false,
       GlobalValue::LinkageTypes::PrivateLinkage,
-      ConstantInt::get(Type::getInt32Ty(F->getContext()), 0),
-      "teams_counter",
+      ConstantInt::get(Type::getInt32Ty(F->getContext()), 0), "teams_counter",
       nullptr, GlobalValue::NotThreadLocal, isTargetSPIRV() ? 1 : 0);
   GlobalCounter->addAttribute(VPOParoptAtomicFreeReduction::TeamsCounterAttr);
 
@@ -2826,7 +2918,6 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
     assert(BasePtrGEP && "No GEP found for base-ptr of Map item's orig.");
 
     Value *OrigV = UDPI->getOrig();
-    Type *OrigElemTy = UDPI->getOrigElemType();
 
     Value *GepCast = Builder.CreateBitOrPointerCast(
         BasePtrGEP, MapI->getOrig()->getType()->getPointerTo(),
@@ -2837,22 +2928,28 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
                            OrigV->getName() + ".updated.val"); //           (4)
     Value *NewV = UpdatedUDPVal;
     if (UDPI->getIsPointerToPointer()) {
-      NewV = genPrivatizationAlloca(OrigV, OrigElemTy, AllocaInsertPt,
+      NewV = genPrivatizationAlloca(UDPI, AllocaInsertPt,
                                     ".new");                        //      (2)
       Builder.CreateStore(UpdatedUDPVal, NewV);                     //      (5)
     }
 # if INTEL_CUSTOMIZATION
     else if (UDPI->getIsF90DopeVector()) {
-      NewV = genPrivatizationAlloca(OrigV, OrigElemTy, AllocaInsertPt,
+      Type *DVType = nullptr;
+      Value *NumElements = nullptr;
+      std::tie(DVType, NumElements, std::ignore) =
+          VPOParoptUtils::getItemInfo(UDPI);
+      assert(!NumElements && "use_device_ptr item cannot be an array.");
+
+      NewV = genPrivatizationAlloca(UDPI, AllocaInsertPt,
                                     ".new"); //                             (2)
       genCopyByAddr(UDPI, NewV, OrigV, &*Builder.GetInsertPoint()); //      (7)
       auto *Zero = Builder.getInt32(0);
       auto *Addr0GEP =
-          Builder.CreateInBoundsGEP(OrigElemTy, NewV, {Zero, Zero}, //      (8)
+          Builder.CreateInBoundsGEP(DVType, NewV, {Zero, Zero}, //          (8)
                                     NewV->getName() + ".addr0");
       Builder.CreateStore(UpdatedUDPVal, Addr0GEP); //                      (5)
     } else if (UDPI->getIsCptr()) {
-      NewV = genPrivatizationAlloca(OrigV, OrigElemTy, AllocaInsertPt,
+      NewV = genPrivatizationAlloca(UDPI, AllocaInsertPt,
                                     ".new"); //                             (2)
       PointerType *Int8PtrPtrTy = Builder.getInt8PtrTy()->getPointerTo();
       auto *NewVCast = Builder.CreateBitOrPointerCast(
@@ -3139,7 +3236,7 @@ void VPOParoptTransform::genOffloadArraysInit(
   //        structures and the initializations must be properly ordered.
   //        We'd better have all the information in some structure,
   //        e.g. TgDataInfo, and just process it here.
-  for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
+  for (unsigned II = 0; II < Call->arg_size(); ++II) {
     BPVal = Call->getArgOperand(II);
 
     Match = false;
@@ -3239,8 +3336,32 @@ void VPOParoptTransform::genOffloadArraysArgument(
 /// \endcode
 bool VPOParoptTransform::clearLaunderIntrinBeforeRegion(WRegionNode *W) {
 
+  if (LaunderIntrinsicsForRegion.count(W) == 0)
+    return false;
+
+  auto &LaunderIntrinsics = LaunderIntrinsicsForRegion[W];
+  auto NumLaunderIntrinsicsForW = LaunderIntrinsics.size();
+  if (NumLaunderIntrinsicsForW == 0)
+    return false;
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__
+                    << ": Number of launder intrinsics for the region is "
+                    << NumLaunderIntrinsicsForW << ".\n");
+
   DenseMap<Value *, Value *> RenameMap;
   bool Changed = false;
+
+  auto replaceWithOperandZero = [&](CallInst *CI) -> Value * {
+    LLVM_DEBUG(dbgs() << "clearLaunderIntrinBeforeRegion: Replacing "
+                         "launder intrinsic '";
+               CI->printAsOperand(dbgs()); dbgs() << "' with its operand.\n");
+
+    Value *NewV = CI->getOperand(0);
+    CI->replaceAllUsesWith(NewV);
+    CI->eraseFromParent();
+    Changed = true;
+    return NewV;
+  };
 
   // Check if Orig is a launder intrinsic, or a bitcast whose operand is a
   // launder intrinsic, and if so, remove the launder intrinsic.
@@ -3259,15 +3380,10 @@ bool VPOParoptTransform::clearLaunderIntrinBeforeRegion(WRegionNode *W) {
 
     CallInst *CI = dyn_cast<CallInst>(V);
     if (CI && isFenceCall(CI)) {
-      LLVM_DEBUG(dbgs() << "clearLaunderIntrinBeforeRegion: Replacing "
-                           "launder intrinsic '";
-                 CI->printAsOperand(dbgs()); dbgs() << "' with its operand.\n");
-
-      Value *NewV = CI->getOperand(0);
-      CI->replaceAllUsesWith(NewV);
-      CI->eraseFromParent();
+    Value *NewV = replaceWithOperandZero(CI);
       RenameMap.insert({V, NewV});
-      Changed = true;
+      LaunderIntrinsics.erase(CI);
+
       if (V == Orig) // If V is Orig, we want to replace uses of Orig with NewV,
         return NewV; // but not when V is a bitcast on Orig.
     }
@@ -3351,6 +3467,20 @@ bool VPOParoptTransform::clearLaunderIntrinBeforeRegion(WRegionNode *W) {
     }
   }
 
+  // Clear any unhandled launder intrinsics left for the region
+  if (LaunderIntrinsics.size() > 0) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Clearing "
+                      << LaunderIntrinsics.size()
+                      << " unhandled intrinsics.\n");
+    for (auto *I : LaunderIntrinsics) {
+      auto *CI = cast<CallInst>(I);
+      assert(isFenceCall(CI) && "Unexpected value in Launder intrinsics map");
+      replaceWithOperandZero(CI);
+    }
+
+    LaunderIntrinsicsForRegion[W].clear();
+  }
+
   W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
 }
@@ -3431,6 +3561,7 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(
   auto createRenamedValueForV = [&](Value *V) {
     IRBuilder<> Builder(EntryBB->getTerminator());
     Value *NewV = Builder.CreateLaunderInvariantGroup(V);
+    LaunderIntrinsicsForRegion[W].insert(NewV->stripPointerCasts());
     NewV->setName(V->getName());
     LLVM_DEBUG(dbgs() << "createRenamedValueForV : Renamed '";
                V->printAsOperand(dbgs());
@@ -3808,8 +3939,8 @@ bool VPOParoptTransform::promoteClauseArgumentUses(WRegionNode *W) {
 #endif // INTEL_CUSTOMIZATION
 StringRef VPOParoptTransform::getVariantInfo(
     WRegionNode *W, CallInst *BaseCall, StringRef &MatchConstruct,
-    uint64_t &DeviceArchs, llvm::Optional<uint64_t> &InteropPositionOut,
-    StringRef &NeedDevicePtrStr, StringRef &InteropStr) {
+    uint64_t &DeviceArchsOut, llvm::Optional<uint64_t> &InteropPositionOut,
+    StringRef &NeedDevicePtrStrOut, StringRef &InteropStrOut) {
 
   assert(BaseCall && "BaseCall is null");
   Function *BaseFunc = BaseCall->getCalledFunction();
@@ -3873,10 +4004,11 @@ StringRef VPOParoptTransform::getVariantInfo(
   SmallVector<StringRef, 1> Variants;  // holds <variant> substrings
   SmallVector<StringRef, 3> Fields;    // holds <field>:<value> substrings
   SmallVector<StringRef, 2> FV;        // FV[0]= <field>; FV[1]= <value>
-  StringRef VariantName;               // string to return
+  StringRef VariantNameOut;            // string to return
   bool FoundConstruct = false;
   bool FoundArch = false;
   bool FoundName = false;
+  uint64_t DeviceArchs = 0u;
 
   auto matchDeviceArch = [&DeviceArchs](StringRef &ArchList) {
     // ArchList is of the form <arch>[,<arch>[,<arch>...]]
@@ -3927,6 +4059,12 @@ StringRef VPOParoptTransform::getVariantInfo(
     FoundConstruct = false;
     FoundArch = false;
     FoundName = false;
+    StringRef VariantName;
+    StringRef InteropStr;
+    StringRef NeedDevicePtrStr;
+    DeviceArchs = 0u;
+    uint64_t InteropPosition = 0u;
+
     for (StringRef &Field : Fields) {
       // LLVM_DEBUG(dbgs() << __FUNCTION__ << ":   Field: " << Field << "\n");
 
@@ -3935,32 +4073,32 @@ StringRef VPOParoptTransform::getVariantInfo(
       Field.split(FV, ":");
       assert(FV.size() == 2 &&
              "Malformed <field>:<value> in openmp-variant attribute");
-      if (FV[0] == "construct" && FV[1] == MatchConstruct)
+      if (FV[0] == "construct") {
+        // The same function can have multiple variants matching different
+        // constructs (e.g. dispatch and variant dispatch).
+        if (FV[1] != MatchConstruct)
+          break;
         FoundConstruct = true;
-      else if (FV[0] == "arch" && matchDeviceArch(FV[1]))
+      } else if (FV[0] == "arch" && matchDeviceArch(FV[1])) {
         FoundArch = true;
-      else if (FV[0] == "name") {
+      } else if (FV[0] == "name") {
         VariantName = FV[1];
         FoundName = true;
-      }
-      else if (FV[0] == "need_device_ptr") {
+      } else if (FV[0] == "need_device_ptr") {
         NeedDevicePtrStr = FV[1];
-      }
-      else if (FV[0] == "interop") {
+      } else if (FV[0] == "interop") {
         InteropStr = FV[1];
-      }
-      else if (FV[0] == "interop_position") {
+      } else if (FV[0] == "interop_position") {
         uint64_t Position = 0u;
         if (FV[1].getAsInteger(10, Position)) {
           // getAsInteger() returns true on error
           llvm_unreachable("Interop position must be an unsigned integer");
         } else if (Position > 0) {
-          InteropPositionOut.emplace(Position);
+          InteropPosition = Position;
         } else {
           llvm_unreachable("Interop position must be positive");
         }
-      }
-      else {
+      } else {
         F->getContext().diagnose(DiagnosticInfoUnsupported(
             *F, "Found unsupported field in the openmp-variant attribute.",
             W->getEntryDirective()->getDebugLoc()));
@@ -3971,6 +4109,14 @@ StringRef VPOParoptTransform::getVariantInfo(
 
     if (FoundConstruct) {
       if (FoundName) {
+        // Found a variant matching the construct. Update the output fields.
+        VariantNameOut = VariantName;
+        DeviceArchsOut = DeviceArchs;
+        NeedDevicePtrStrOut = NeedDevicePtrStr;
+        InteropStrOut = InteropStr;
+        if (InteropPosition > 0)
+          InteropPositionOut.emplace(InteropPosition);
+
         if (CountDeclareVariantsForDispatch > 1) {
           emitWarning(W, "Found multiple variants for " + MatchConstruct +
                              ". Only one will be used in the current "
@@ -3987,15 +4133,17 @@ StringRef VPOParoptTransform::getVariantInfo(
 
   if (FoundConstruct && FoundName) {
     LLVM_DEBUG(dbgs() << __FUNCTION__
-                      << ": Found variant function: " << VariantName);
+                      << ": Found variant function: " << VariantNameOut);
     if (FoundArch)
-      LLVM_DEBUG(dbgs() << " and device bits " << llvm::format_hex(DeviceArchs, 6, true) << "\n");
+      LLVM_DEBUG(dbgs() << " and device bits "
+                        << llvm::format_hex(DeviceArchsOut, 6, true));
     else
-      LLVM_DEBUG(dbgs() << " with no device arch specified\n");
+      LLVM_DEBUG(dbgs() << " with no device arch specified");
   } else {
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Variant function not found\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Variant function not found");
   }
-  return VariantName;
+  LLVM_DEBUG(dbgs() << " for construct '" << MatchConstruct << "'\n");
+  return VariantNameOut;
 }
 
 // This interface is for target variant dispatch, which does not need
@@ -4567,7 +4715,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   // BaseCall's original arguments before outlining the call in WrapperFn are
   // used to find corresponding arguments in VariantWrapperCall in order to
   // propagate the ByVal and alignment attributes.
-  SmallVector<Value *, 4> BaseArgs(BaseCall->arg_operands());
+  SmallVector<Value *, 4> BaseArgs(BaseCall->args());
 
   BaseCall->replaceAllUsesWith(VariantCall);
   assert(BaseCall->use_empty());
@@ -4588,7 +4736,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   //          call void @foo2.wrapper(%struct.A* byval(%struct.A) align 8 %AAA)
   LLVMContext &C = Builder.getContext();
   FunctionType *WrapperFnTy = VariantWrapperCall->getFunctionType();
-  for (unsigned ArgNum = 0; ArgNum < BaseCall->getNumArgOperands(); ++ArgNum) {
+  for (unsigned ArgNum = 0; ArgNum < BaseCall->arg_size(); ++ArgNum) {
     if (BaseCall->isByValArgument(ArgNum)) {
       Value *BaseArg = BaseArgs[ArgNum];
       MaybeAlign MayAln = BaseCall->getParamAlign(ArgNum);
@@ -4597,7 +4745,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
       // Find BaseArg in VariantWrapperCall to propagate its ByVal and Alignment
       // attributes to both the wrapper call and the wrapper function.
       for (unsigned WrapperArgNum = 0;
-           WrapperArgNum < VariantWrapperCall->getNumArgOperands();
+           WrapperArgNum < VariantWrapperCall->arg_size();
            ++WrapperArgNum) {
         Value *WrapperArg = VariantWrapperCall->getArgOperand(WrapperArgNum);
         if (BaseArg == WrapperArg) {
@@ -4652,7 +4800,7 @@ void VPOParoptTransform::processNeedDevicePtr(WRegionNode *W,
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::processNeedDevicePtr\n");
 
-  SmallVector<Value *, 4> FnArgs(VariantCall->arg_operands());
+  SmallVector<Value *, 4> FnArgs(VariantCall->args());
   SmallVector<StringRef, 4> Substr;
   NeedDevicePtrStr.split(Substr, ",");
 
@@ -4867,12 +5015,12 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
     PHINode *Phi = Builder.CreatePHI(BaseCall->getType(), 2, "callphi");
     Phi->addIncoming(VariantCall, ThenTerm->getParent());
     Phi->addIncoming(BaseCall, ElseTerm->getParent());
-    for (User *U : BaseCall->users())
-      if (Instruction *UI = dyn_cast<Instruction>(U)) {
-        if (UI != Phi) { // don't replace in Phi
-          UI->replaceUsesOfWith(BaseCall, Phi);
-        }
-      }
+    BaseCall->replaceUsesWithIf(Phi, [Phi](Use &U) {
+      if (auto *UI = dyn_cast<Instruction>(U.getUser()))
+        if (UI != Phi) // don't replace in Phi
+          return true;
+      return false;
+    });
   }
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genDispatchCode\n");

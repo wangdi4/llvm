@@ -47,41 +47,42 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @foo1(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
-; CHECK-NEXT:  VPlan IR for: foo1:HIR
+; CHECK-NEXT:  VPlan IR for: foo1:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%2}
 ; CHECK-DAG:     [[VP1:%.*]] = {%c.promoted}
-; CHECK-DAG:     [[VP2:%.*]] = {%n + -1}
-; CHECK-DAG:     [[VP3:%.*]] = {%ptr.addr.promoted}
+; CHECK-DAG:     [[VP2:%.*]] = {%ptr.addr.promoted}
+; CHECK-DAG:     [[VP3:%.*]] = {%n + -1}
 ; CHECK-DAG:     [[VP4:%.*]] = {%s}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     i32* [[VP5:%.*]] = allocate-priv i32*, OrigAlign = 4
-; CHECK-NEXT:     i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 [[TMP2:%.*]]
-; CHECK-NEXT:     store i32 [[VP__RED_INIT]] i32* [[VP5]]
+; CHECK-NEXT:     i32 [[VP5:%.*]] = add i32 [[VP3]] i32 1
+; CHECK-NEXT:     i32* [[VP_S:%.*]] = allocate-priv i32*, OrigAlign = 4
+; CHECK-NEXT:     i32 [[VP_SRED_INIT:%.*]] = reduction-init i32 0 i32 [[TMP2:%.*]]
+; CHECK-NEXT:     store i32 [[VP_SRED_INIT]] i32* [[VP_S]]
 ; CHECK-NEXT:     i32 [[VP__IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     i32 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
-; CHECK-NEXT:     i32 [[VP6:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP7:%.*]], [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP6:%.*]] = phi  [ i32 [[VP_SRED_INIT]], [[BB1]] ],  [ i32 [[VP7:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP8:%.*]] = phi  [ i32 [[VP__IND_INIT]], [[BB1]] ],  [ i32 [[VP9:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[PTR_ADDR_PROMOTED0:%.*]]
 ; CHECK-NEXT:     i32 [[VP10:%.*]] = sext i8 [[C_PROMOTED0:%.*]] to i32
 ; CHECK-NEXT:     i32 [[VP11:%.*]] = mul i32 [[VP_LOAD]] i32 [[VP10]]
 ; CHECK-NEXT:     i32 [[VP7]] = add i32 [[VP11]] i32 [[VP6]]
-; CHECK-NEXT:     store i32 [[VP7]] i32* [[VP5]]
+; CHECK-NEXT:     store i32 [[VP7]] i32* [[VP_S]]
 ; CHECK-NEXT:     i32 [[VP9]] = add i32 [[VP8]] i32 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp sle i32 [[VP9]] i32 [[VP2]]
+; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp slt i32 [[VP9]] i32 [[VP5]]
 ; CHECK-NEXT:     br i1 [[VP12]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP5]]
-; CHECK-NEXT:     i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP_LOAD_1]]
-; CHECK-NEXT:     store i32 [[VP__RED_FINAL]] i32* [[S0:%.*]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_S]]
+; CHECK-NEXT:     i32 [[VP_SRED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP_LOAD_1]]
+; CHECK-NEXT:     store i32 [[VP_SRED_FINAL]] i32* [[S0:%.*]]
 ; CHECK-NEXT:     i32 [[VP__IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -162,7 +163,7 @@ omp.precond.end:                                  ; preds = %omp.loop.exit, %ent
 
 define dso_local i32 @foo2(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
-; CHECK-NEXT:  VPlan IR for: foo2:HIR
+; CHECK-NEXT:  VPlan IR for: foo2:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%2}
 ; CHECK-DAG:     [[VP1:%.*]] = {%n + -1}
@@ -174,33 +175,37 @@ define dso_local i32 @foo2(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     i32* [[VP5:%.*]] = allocate-priv i32*, OrigAlign = 4
-; CHECK-NEXT:     i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 [[TMP2:%.*]]
-; CHECK-NEXT:     store i32 [[VP__RED_INIT]] i32* [[VP5]]
+; CHECK-NEXT:     i32 [[VP5:%.*]] = add i32 [[VP1]] i32 1
+; CHECK-NEXT:     i32* [[VP_S:%.*]] = allocate-priv i32*, OrigAlign = 4
+; CHECK-NEXT:     i32 [[VP_SRED_INIT:%.*]] = reduction-init i32 0 i32 [[TMP2:%.*]]
+; CHECK-NEXT:     store i32 [[VP_SRED_INIT]] i32* [[VP_S]]
 ; CHECK-NEXT:     i32 [[VP__IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     i32 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
-; CHECK-NEXT:     i32 [[VP6:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP7:%.*]], [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP6:%.*]] = phi  [ i32 [[VP_SRED_INIT]], [[BB1]] ],  [ i32 [[VP7:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP8:%.*]] = phi  [ i32 [[VP__IND_INIT]], [[BB1]] ],  [ i32 [[VP9:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[PTR_ADDR_PROMOTED0:%.*]]
 ; CHECK-NEXT:     i32 [[VP10:%.*]] = sext i8 [[C_PROMOTED0:%.*]] to i32
 ; CHECK-NEXT:     i32 [[VP11:%.*]] = mul i32 [[VP_LOAD]] i32 [[VP10]]
 ; CHECK-NEXT:     i32 [[VP7]] = add i32 [[VP11]] i32 [[VP6]]
-; CHECK-NEXT:     store i32 [[VP7]] i32* [[VP5]]
+; CHECK-NEXT:     store i32 [[VP7]] i32* [[VP_S]]
 ; CHECK-NEXT:     i32 [[VP9]] = add i32 [[VP8]] i32 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp sle i32 [[VP9]] i32 [[VP1]]
+; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp slt i32 [[VP9]] i32 [[VP5]]
 ; CHECK-NEXT:     br i1 [[VP12]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:     i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP7]]
-; CHECK-NEXT:     store i32 [[VP__RED_FINAL]] i32* [[S0:%.*]]
+; CHECK-NEXT:     i32 [[VP_SRED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP7]]
+; CHECK-NEXT:     store i32 [[VP_SRED_FINAL]] i32* [[S0:%.*]]
 ; CHECK-NEXT:     i32 [[VP__IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
 ; CHECK-NEXT:     br <External Block>
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   i32 [[VP_SRED_FINAL]] -> [[VP13:%.*]] = {%2}
 ;
 entry:
   %ptr.addr = alloca i32*, align 8

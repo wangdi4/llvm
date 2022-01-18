@@ -401,10 +401,10 @@ define void @_ZTS28Kernel_L3_SLM_8x8_4x16_vec_1(i8* noalias %0, i64* noalias %1,
 ; CHECK-NEXT:    vmovaps (%r14,%rdx), %xmm3
 ; CHECK-NEXT:    leal (%r9,%rsi), %edx
 ; CHECK-NEXT:    movslq %edx, %r15
-; CHECK-NEXT:    movq %r15, %r11
-; CHECK-NEXT:    shlq $4, %r11
-; CHECK-NEXT:    movslq %r13d, %r8
-; CHECK-NEXT:    movq %r8, %rdx
+; CHECK-NEXT:    movq %r15, %r8
+; CHECK-NEXT:    shlq $4, %r8
+; CHECK-NEXT:    movslq %r13d, %r11
+; CHECK-NEXT:    movq %r11, %rdx
 ; CHECK-NEXT:    shlq $4, %rdx
 ; CHECK-NEXT:    vmovaps (%r14,%rdx), %xmm4
 ; CHECK-NEXT:    movq 200(%rbx), %rdx # 8-byte Reload
@@ -454,8 +454,8 @@ define void @_ZTS28Kernel_L3_SLM_8x8_4x16_vec_1(i8* noalias %0, i64* noalias %1,
 ; CHECK-NEXT:    vbroadcastss (%rcx,%r10), %xmm0
 ; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm1 = (xmm0 * xmm3) + xmm1
 ; CHECK-NEXT:    vmovaps %xmm1, %xmm4
-; CHECK-NEXT:    vmovaps (%r14,%r11), %xmm1
-; CHECK-NEXT:    leal (%r8,%rsi), %edx
+; CHECK-NEXT:    vmovaps (%r14,%r8), %xmm1
+; CHECK-NEXT:    leal (%r11,%rsi), %edx
 ; CHECK-NEXT:    movslq %edx, %r13
 ; CHECK-NEXT:    movq %r13, %rdx
 ; CHECK-NEXT:    shlq $4, %rdx
@@ -499,7 +499,7 @@ define void @_ZTS28Kernel_L3_SLM_8x8_4x16_vec_1(i8* noalias %0, i64* noalias %1,
 ; CHECK-NEXT:    vbroadcastss 4(%rcx,%r10), %xmm2
 ; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm4 = (xmm2 * xmm1) + xmm4
 ; CHECK-NEXT:    vmovaps (%r14,%rdx), %xmm1
-; CHECK-NEXT:    leal (%r12,%r8), %edx
+; CHECK-NEXT:    leal (%r12,%r11), %edx
 ; CHECK-NEXT:    movslq %edx, %rdx
 ; CHECK-NEXT:    shlq $4, %rdx
 ; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm3 = (xmm0 * xmm2) + xmm3
@@ -539,8 +539,8 @@ define void @_ZTS28Kernel_L3_SLM_8x8_4x16_vec_1(i8* noalias %0, i64* noalias %1,
 ; CHECK-NEXT:    vbroadcastss 8(%rcx,%r10), %xmm2
 ; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm4 = (xmm2 * xmm1) + xmm4
 ; CHECK-NEXT:    vmovaps (%r14,%rdx), %xmm1
-; CHECK-NEXT:    addl %edi, %r8d
-; CHECK-NEXT:    movslq %r8d, %rdx
+; CHECK-NEXT:    addl %edi, %r11d
+; CHECK-NEXT:    movslq %r11d, %rdx
 ; CHECK-NEXT:    shlq $4, %rdx
 ; CHECK-NEXT:    vfmadd231ps {{.*#+}} xmm3 = (xmm0 * xmm2) + xmm3
 ; CHECK-NEXT:    vmovaps (%r14,%rdx), %xmm0

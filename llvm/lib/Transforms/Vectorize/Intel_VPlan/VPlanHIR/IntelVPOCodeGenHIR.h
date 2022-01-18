@@ -54,24 +54,20 @@ public:
   VPOCodeGenHIR(TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
                 HIRSafeReductionAnalysis *SRA, VPlanVLSAnalysis *VLSA,
                 const VPlanVector *Plan, Function &Fn, HLLoop *Loop,
-                OptReportBuilder &ORB, const VPLoopEntityList *VPLoopEntities,
+                OptReportBuilder &ORB,
                 const HIRVectorizationLegality *HIRLegality,
                 const VPlanIdioms::Opcode SearchLoopType,
                 const RegDDRef *SearchLoopPeelArrayRef, bool IsOmpSIMD)
       : TLI(TLI), TTI(TTI), SRA(SRA), Plan(Plan), VLSA(VLSA), Fn(Fn),
         Context(*Plan->getLLVMContext()), OrigLoop(Loop), PeelLoop(nullptr),
         MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
-        TripCount(0), VF(0), UF(1), ORBuilder(ORB),
-        VPLoopEntities(VPLoopEntities), HIRLegality(HIRLegality),
+        TripCount(0), VF(0), UF(1), ORBuilder(ORB), HIRLegality(HIRLegality),
         SearchLoopType(SearchLoopType),
         SearchLoopPeelArrayRef(SearchLoopPeelArrayRef),
         BlobUtilities(Loop->getBlobUtils()),
         CanonExprUtilities(Loop->getCanonExprUtils()),
         DDRefUtilities(Loop->getDDRefUtils()),
-        HLNodeUtilities(Loop->getHLNodeUtils()), IsOmpSIMD(IsOmpSIMD) {
-    assert(Plan->getVPLoopInfo()->size() == 1 && "Expected one loop");
-    VLoop = *(Plan->getVPLoopInfo()->begin());
-  }
+        HLNodeUtilities(Loop->getHLNodeUtils()), IsOmpSIMD(IsOmpSIMD) {}
 
   ~VPOCodeGenHIR() {
     SCEVWideRefMap.clear();
@@ -220,10 +216,12 @@ public:
   HLInst *extendVector(RegDDRef *Input, unsigned TargetLength);
 
   /// Helper method to replicate contents of \p Input vector by \p
-  /// ReplicationFactor number of times. This function mimics the equivalent
-  /// LLVM-IR version in VectorUtils.cpp. Example -
+  /// ReplicationFactor number of times. \p ReplNestingLvl provides the nesting
+  /// level at which replicate instruction is attached. This function mimics the
+  /// equivalent LLVM-IR version in VectorUtils.cpp. Example -
   /// {v0, v1, v2, v3} -> RF = 2 -> { v0, v1, v2, v3, v0, v1, v2, v3 }
-  HLInst *replicateVector(RegDDRef *Input, unsigned ReplicationFactor);
+  HLInst *replicateVector(RegDDRef *Input, unsigned ReplicationFactor,
+                          unsigned ReplNestingLvl);
 
   /// Helper method to replicate each element of \p Input vector by \p
   /// ReplicationFactor number of times. This function mimics the equivalent
@@ -444,10 +442,10 @@ public:
   RegDDRef *generateLoopInductionRef(Type *RefDestTy);
 
   // Given a pointer ref that is a selfblob, create and return memory reference
-  // for PtrRef[Index]. NumElements if greater than 1 is used to set the
+  // for PtrRef[Index]. IdxBcastFactor if greater than 1 is used to set the
   // destination type of canon expr corresponding to Index appropriately.
-  RegDDRef *createMemrefFromBlob(RegDDRef *PtrRef, int Index,
-                                 unsigned NumElements);
+  RegDDRef *createMemrefFromBlob(RegDDRef *PtrRef, Type *ElementType, int Index,
+                                 unsigned IdxBcastFactor);
 
   // Returns the widened address-of DDRef for a pointer. The base pointer is
   // replicated and flattened if we are dealing with re-vectorization scenarios.
@@ -490,28 +488,15 @@ public:
     addInsertRegion(If);
   }
 
-  // Create a new temp ref to represent VPLoopEntities inside the generated
-  // vector loop. Type of this temp ref is VF x Entity's type. Additionally we
-  // map instructions linked to a LoopEntity, to the new ref which will be used
-  // during CG.
-  void createAndMapLoopEntityRefs(unsigned VF);
+  // Utility that walks over final CFG before codegen and collects lists of
+  // instructions that either participate in reductions or are associated with
+  // main loop IV. These lists are later used by CG to avoid folding or
+  // filtering out.
+  void collectLoopEntityInsts();
 
   // Utility to check if target being compiled for has AVX512 Intel
   // optimizations.
   bool targetHasIntelAVX512() const;
-
-  void setUniformControlFlowSeen() {
-    // Search loops do not go through predication currently and code generation
-    // for this is handled separately for now. Until search loop representation
-    // is made explicit we do not need any additional handling of the uniform
-    // control flow case for them.
-    if (!isSearchLoop())
-      UniformControlFlowSeen = true;
-  }
-
-  bool getUniformControlFlowSeen() const { return UniformControlFlowSeen; }
-
-  const VPLoop *getVPLoop() const { return VLoop; }
 
   // Emit a label to indicate the start of the given basic block if the
   // block is inside the loop being vectorized and add the label to
@@ -548,6 +533,10 @@ public:
     return ID == Intrinsic::lifetime_start || ID == Intrinsic::lifetime_end;
   }
 
+  // Set "llvm.loop.isvectorized" on outgoing scalar HLLoops that already have
+  // "llvm.loop.vectorize.enable" metadata.
+  void setIsVecMDForHLLoops();
+
 private:
   // Target Library Info is used to check for svml.
   TargetLibraryInfo *TLI;
@@ -560,9 +549,6 @@ private:
 
   // VPlan for which vector code is being generated.
   const VPlanVector *Plan;
-
-  // VPLoop being vectorized - assumes VPlan contains one loop.
-  const VPLoop *VLoop;
 
   // OPTVLS analysis.
   VPlanVLSAnalysis *VLSA;
@@ -640,10 +626,6 @@ private:
   HLNode *RednInitInsertPoint = nullptr;
   HLNode *RednFinalInsertPoint = nullptr;
 
-  // VPEntities present in current loop being vectorized. These include
-  // reductions, inductions and privates.
-  const VPLoopEntityList *VPLoopEntities;
-
   // HIR vectorization legality which contains reductions, inductions and
   // privates coming from SIMD clause descriptors.
   const HIRVectorizationLegality *HIRLegality;
@@ -668,10 +650,6 @@ private:
   // operations.
   SmallPtrSet<const VPInstruction *, 4> ReductionVPInsts;
 
-  // Map of VPValues(reduction PHI and its operands) and their corresponding HIR
-  // reduction variable(RegDDRef) used inside the generated vector loop.
-  DenseMap<const VPValue *, RegDDRef *> ReductionRefs;
-
   // Collection of VPInstructions inside the loop that correspond to main loop
   // IV. This is expected to contain the PHI and incrementing add
   // instruction(s).
@@ -684,10 +662,6 @@ private:
   // Set of masked private temp symbases that have been initialized to undef in
   // vector loop header.
   SmallSet<unsigned, 16> InitializedPrivateTempSymbases;
-
-  // Boolean flag used to see if the loop being vectorized has any uniform
-  // control flow.
-  bool UniformControlFlowSeen = false;
 
   // Vector used to contain HLGotos created during vector code generation.
   // This vector is setup to be used in the call to eliminate redundant gotos.
@@ -706,6 +680,8 @@ private:
   SmallPtrSet<const VPBasicBlock *, 2> LoopHeaderBlocks;
   SmallPtrSet<const VPBasicBlock *, 2> LoopExitBlocks;
   SmallDenseMap<const VPLoop *, HLLoop *> VPLoopHLLoopMap;
+  // Set of scalar HLLoops generated for outgoing HIR.
+  SmallPtrSet<HLLoop *, 2> OutgoingScalarHLLoops;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setPeelLoop(HLLoop *L) { PeelLoop = L; }
@@ -948,9 +924,9 @@ private:
   // Get or create HLLabel corresponding to VPBB and return the same.
   HLLabel *getOrCreateBlockLabel(const VPBasicBlock *VPBB);
 
-  // Helper method to set upper bound and stride for vectorized HLLoops. The
-  // corresponding VPLoop is provided as input.
-  void setUBForVectorLoop(VPLoop *VPLp);
+  // Helper method to set lower, upper bound and stride for vectorized HLLoops.
+  // The corresponding VPLoop is provided as input.
+  void setBoundsForVectorLoop(VPLoop *VPLp);
 
   RegDDRef *getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize);
 
@@ -961,42 +937,19 @@ private:
       SmallVectorImpl<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>>
           &RTChecks);
 
-  // If VPInst has a corresponding reduction ref, create a copy instruction
-  // copying RValRef to the same with given Mask and return LvalRef of the copy
-  // instruction. Return RValRef otherwise.
-  RegDDRef *createCopyForRednRef(const VPInstruction *VPInst, RegDDRef *RvalRef,
-                                 RegDDRef *Mask) {
-    auto Itr = ReductionRefs.find(VPInst);
-    if (Itr == ReductionRefs.end())
-      return RvalRef;
-    auto *RedRef = Itr->second;
-    HLInst *CopyInst =
-        HLNodeUtilities.createCopyInst(RvalRef, "redval.copy", RedRef->clone());
-    addInst(CopyInst, Mask);
-    return CopyInst->getLvalDDRef();
-  }
-
   // Internal helper utility to get operator overflow flags (nuw/nsw) for a
-  // VPInstruction and the reduction ref if it participates in reduction
-  // sequence.
-  void getOverflowFlagsAndRednRef(const VPInstruction *VPInst, bool &HasNUW,
-                                  bool &HasNSW, RegDDRef *&RedRef) {
+  // VPInstruction.
+  void getOverflowFlags(const VPInstruction *VPInst, bool &HasNUW,
+                        bool &HasNSW) {
     // Overflow flags should be preserved only for instructions that don't
     // participate in reduction sequence.
     bool PreserveOverflowFlags = ReductionVPInsts.count(VPInst) == 0;
     HasNUW = PreserveOverflowFlags && VPInst->hasNoUnsignedWrap();
     HasNSW = PreserveOverflowFlags && VPInst->hasNoSignedWrap();
-
-    // If binop instruction corresponds to a reduction, then we need to write
-    // the result back to the corresponding reduction variable. Overflow flags
-    // should not be preserved for this instruction.
-    RedRef = nullptr;
-    if (ReductionRefs.count(VPInst)) {
-      assert(!PreserveOverflowFlags &&
-             "Overflow flags cannot be preserved for reduction instruction.");
-      RedRef = ReductionRefs[VPInst];
-    }
   }
+
+  template <typename FinalInstType>
+  void insertPrivateFinalCond(const VPInstruction *VPInst);
 
   void makeSymLiveInForParentLoops(unsigned Sym) {
     auto *ParentLoop = MainLoop->getParentLoop();

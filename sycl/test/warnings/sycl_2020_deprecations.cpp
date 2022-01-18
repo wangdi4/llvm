@@ -134,6 +134,10 @@ int main() {
   auto MCA = sycl::info::device::max_constant_args;
   (void)MCA;
 
+  // expected-warning@+1{{'built_in_kernels' is deprecated: use built_in_kernel_ids instead}}
+  auto BIK = sycl::info::device::built_in_kernels;
+  (void)BIK;
+
   // expected-warning@+1{{'extensions' is deprecated: platform::extensions is deprecated, use device::get_info() with info::device::aspects instead.}}
   auto PE = sycl::info::platform::extensions;
 
@@ -157,6 +161,10 @@ int main() {
   // expected-warning@+1{{'level_zero' is deprecated: use 'ext_oneapi_level_zero' instead}}
   auto LevelZeroBackend = sycl::backend::level_zero;
   (void)LevelZeroBackend;
+
+  // expected-warning@+1{{'esimd_cpu' is deprecated: use 'ext_oneapi_esimd_emulator' instead}}
+  auto ESIMDCPUBackend = sycl::backend::esimd_cpu;
+  (void)ESIMDCPUBackend;
 
   sycl::half Val = 1.0f;
   // expected-warning@+1{{'bit_cast<unsigned short, sycl::detail::half_impl::half>' is deprecated: use 'sycl::bit_cast' instead}}

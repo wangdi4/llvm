@@ -32,12 +32,22 @@
 // CHECK-ZI: "-gcodeview"
 // CHECK-ZI: "-debug-info-kind=constructor"
 
-// -ax support (accept, but don't use)
-// RUN: %clang_cl -### /c /QaxCORE-AVX2 %s 2>&1 | \
-// RUN:  FileCheck -check-prefix=CHECK-AX %s
-// RUN: %clang -### -c -axCORE-AVX2 %s 2>&1 | \
-// RUN:  FileCheck -check-prefix=CHECK-AX %s
-// CHECK-AX: argument unused
+// RUN: %clang -### -axbroadwell  %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-AX-BROADWELL
+// RUN: %clang -### -ax=broadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-AX-BROADWELL
+// RUN: %clang -### -ax=CORE-AVX2,broadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-AX-BOTH
+// RUN: %clang -### -axCORE-AVX2,broadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-AX-BOTH
+//
+// RUN: %clang_cl -### /Qaxbroadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s --check-prefixes=CHECK-AX-BROADWELL
+// RUN: %clang_cl -### /Qaxcore-avx2,broadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-AX-BOTH
+//
+// CHECK-AX-BROADWELL: "-ax=broadwell"
+// CHECK-AX-BOTH: "-ax=core-avx2,broadwell"
 
 // -Qfreestanding
 // RUN: %clang_cl -### -c -Qfreestanding %s 2>&1 | FileCheck -check-prefix CHECK-QFREESTANDING %s
@@ -100,7 +110,6 @@
 // RUN: %clang -### -target x86_64-linux-gnu -fopenmp %s -o %t 2>&1 | FileCheck %s -check-prefix CHECK-LD-IOMP5
 // CHECK-QOPENMP-WIN: "--dependent-lib=libiomp5md"
 // CHECK-QOPENMP: "-fopenmp-late-outline"
-// CHECK-QOPENMP: "-fintel-openmp-region"
 // CHECK-QOPENMP: "-fopenmp-threadprivate-legacy"
 // CHECK-QOPENMP: "-fopenmp"
 // CHECK-QOPENMP: "-mllvm" "-paropt=31"
@@ -357,7 +366,7 @@
 // RUN: %clang_cl -### /Qiopenmp -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIOPENMP %s
 // CHECK-QOPENMP-THREADPRIVATE: "-fopenmp-threadprivate-legacy"
 // CHECK-QOPENMP-COMPAT: "-fopenmp-late-outline"
-// CHECK-FIOPENMP: "-fopenmp-late-outline" "-fintel-openmp-region" "-fopenmp-threadprivate-legacy"
+// CHECK-FIOPENMP: "-fopenmp-late-outline" "-fopenmp-threadprivate-legacy"
 
 // RUN: %clang -### -qopt-mem-layout-trans=4 -flto -c %s 2>&1 | FileCheck --check-prefix=CHECK-LAYOUT-LTO %s
 // RUN: %clang_cl -### /Qopt-mem-layout-trans:4 -Qipo -c %s 2>&1 | FileCheck --check-prefix=CHECK-LAYOUT-LTO %s
@@ -527,6 +536,13 @@
 // CHECK-FNO-ALN-NOT: "-function-alignment"
 // CHECK-FUN-ALN-EQ: "-function-alignment" "2"
 
+// -falign-stack
+// RUN: %clang -### -falign-stack=assume-4-byte %s 2>&1 | FileCheck %s -check-prefix CHECK-ALIGN-STACK -DBYTESIZE=4
+// RUN: %clang -### -falign-stack=assume-16-byte %s 2>&1 | FileCheck %s -check-prefix CHECK-ALIGN-STACK -DBYTESIZE=16
+// RUN: %clang -### -falign-stack=maintain-16-byte %s 2>&1 | FileCheck %s -check-prefixes=CHECK-ALIGN-STACK-MAINTAIN,CHECK-ALIGN-STACK -DBYTESIZE=16
+// CHECK-ALIGN-STACK-MAINTAIN: "-mstackrealign"
+// CHECK-ALIGN-STACK: "-mstack-alignment=[[BYTESIZE]]"
+
 // Behavior with /Qcf-protection option
 // RUN: %clang_cl -### -c /Qcf-protection %s 2>&1 | FileCheck -check-prefix CHECK-QCF-PROTECTION %s
 // RUN: %clang_cl -### -c /Qcf-protection=full %s 2>&1 | FileCheck -check-prefix CHECK-QCF-PROTECTION %s
@@ -579,17 +595,20 @@
 // CHECK-OPT-REPORT: "-mllvm" "-enable-ra-report"
 // CHECK-OPT-REPORT: "-mllvm" "-intel-loop-optreport=medium"
 // CHECK-OPT-REPORT: "-mllvm" "-intel-ra-spillreport=medium"
+// CHECK-OPT-REPORT: "-mllvm" "-inline-report=0x2819"
 // CHECK-OPT-REPORT-NAME: "-opt-record-file" "intel-options-openmp-spir64.opt.yaml"
 
 // RUN: %clang -### -qopt-report=min -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MIN %s
 // RUN: %clang_cl -### -Qopt-report:min -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MIN %s
 // CHECK-OPT-REPORT-MIN: "-mllvm" "-intel-loop-optreport=low"
 // CHECK-OPT-REPORT-MIN: "-mllvm" "-intel-ra-spillreport=low"
+// CHECK-OPT-REPORT-MIN: "-mllvm" "-inline-report=0x19"
 
 // RUN: %clang -### -qopt-report=max -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MAX %s
 // RUN: %clang_cl -### -Qopt-report:max -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MAX %s
 // CHECK-OPT-REPORT-MAX: "-mllvm" "-intel-loop-optreport=high"
 // CHECK-OPT-REPORT-MAX: "-mllvm" "-intel-ra-spillreport=high"
+// CHECK-OPT-REPORT-MAX: "-mllvm" "-inline-report=0xf859"
 
 // RUN: %clang -### -O3 -c %s 2>&1 | FileCheck -check-prefix=CHECK-GVN %s
 // RUN: %clang -### -Ofast -c %s 2>&1 | FileCheck -check-prefix=CHECK-GVN %s
@@ -760,3 +779,81 @@
 // SOX: -sox=
 // SOX-SAME: -### -sox -c {{.*}}intel-options.c
 // NOSOX-NOT: -sox
+
+// -ftz and /Qftz
+// RUN: %clang -### -ftz -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang -### -no-ftz -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang -### -fp-model=precise -ftz -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang -### -ftz -fp-model=precise -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang -### -fp-model=strict -ftz -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang -### -ftz -fp-model=strict -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang -### -fp-model=fast -no-ftz -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang -### -no-ftz -fp-model=fast -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang -### -ffast-math -no-ftz -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang -### -no-ftz -ffast-math -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang -### --intel -O0 -ftz -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang -### --intel -ftz -O0 -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang -### --intel -O1 -no-ftz -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang -### --intel -no-ftz -O1 -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang_cl -### /Qftz -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang_cl -### /Qftz- -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang_cl -### /fp:precise /Qftz -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang_cl -### /Qftz /fp:precise -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang_cl -### /fp:strict /Qftz -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang_cl -### /Qftz /fp:strict -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang_cl -### /fp:fast /Qftz- -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang_cl -### /Qftz- /fp:fast -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang_cl -### --intel -Od /Qftz -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang_cl -### --intel /Qftz -Od -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang_cl -### --intel -O1 /Qftz- -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang_cl -### --intel /Qftz- -O1 -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// FTZ: "-fdenormal-fp-math=preserve-sign,preserve-sign"
+// NO-FTZ-NOT: "-fdenormal-fp-math=preserve-sign,preserve-sign"
+
+// -fimf-use-svml and /Qimf-use-svml
+// RUN: %clang -### -fimf-use-svml -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-USE-SVML-TRUE %s
+// RUN: %clang -### -fimf-use-svml=true -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-USE-SVML-TRUE %s
+// RUN: %clang -### -fimf-use-svml=false -c %s 2>&1 | FileCheck --check-prefix=CHECK-NO-USE-SVML %s
+// RUN: %clang -### -fimf-use-svml=true:sin -c %s 2>&1 | FileCheck -DVALUE=true:sin --check-prefix=CHECK-FIMF-USE-SVML-VALUE %s
+// RUN: %clang -### -fimf-use-svml=false:sqrtf -c %s 2>&1 | FileCheck -DVALUE=false:sqrtf --check-prefix=CHECK-FIMF-USE-SVML-VALUE %s
+// RUN: %clang_cl -### /Qimf-use-svml -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-USE-SVML-TRUE %s
+// RUN: %clang_cl -### /Qimf-use-svml:true -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-USE-SVML-TRUE %s
+// RUN: %clang_cl -### /Qimf-use-svml:false -c %s 2>&1 | FileCheck --check-prefix=CHECK-NO-USE-SVML %s
+// RUN: %clang_cl -### /Qimf-use-svml:true:sin -c %s 2>&1 | FileCheck -DVALUE=true:sin --check-prefix=CHECK-FIMF-USE-SVML-VALUE %s
+// RUN: %clang_cl -### /Qimf-use-svml:false:sqrtf -c %s 2>&1 | FileCheck -DVALUE=false:sqrtf --check-prefix=CHECK-FIMF-USE-SVML-VALUE %s
+// CHECK-FIMF-USE-SVML-TRUE: "-mGLOB_imf_attr=use-svml:true"
+// CHECK-NO-USE-SVML-NOT: "-mGLOB_imf_attr=use-svml:{{.*}}
+// CHECK-FIMF-USE-SVML-VALUE: "-mGLOB_imf_attr=use-svml:[[VALUE]]"
+
+// all imf options should be combined into a single -mGLOB_imf_attr= setting
+// RUN: %clang -### -fimf-arch-consistency=none -fimf-max-error=5 -fimf-absolute-error=none -fimf-accuracy-bits=none -fimf-domain-exclusion=none -fimf-precision=none -fimf-use-svml=true -c %s 2>&1 \
+// RUN:  | FileCheck --check-prefix=CHECK-COMBINED-IMF-ATTR %s
+// RUN: %clang_cl -### /Qimf-arch-consistency:none /Qimf-max-error:5 /Qimf-absolute-error:none /Qimf-accuracy-bits:none /Qimf-domain-exclusion:none /Qimf-precision:none /Qimf-use-svml:true -c %s 2>&1 \
+// RUN:  | FileCheck --check-prefix=CHECK-COMBINED-IMF-ATTR %s
+// CHECK-COMBINED-IMF-ATTR: "-mGLOB_imf_attr=arch-consistency:none max-error:5 absolute-error:none accuracy-bits:none domain-exclusion:none precision:none use-svml:true"
+
+// -Qfinite-math-only
+// RUN: %clang_cl -### /Qfinite-math-only -c %s 2>&1 | FileCheck --check-prefix=CHECK-FINITE-MATH-ONLY %s
+// CHECK-FINITE-MATH-ONLY: clang{{.*}} "-ffinite-math-only"
+
+// RUN: %clang_cl -### /Qfinite-math-only- -c %s 2>&1 | FileCheck --check-prefix=CHECK-NO-FINITE-MATH-ONLY %s
+// CHECK-NO-FINITE-MATH-ONLY-NOT: clang{{.*}} "-ffinite-math-only"
+
+// Use of -O0 with clang-cl should emit an unused diagnostic
+// RUN: %clang_cl -### /O0 --intel %s 2>&1 \
+// RUN:   | FileCheck --check-prefix O0_UNUSED %s
+// RUN: %clang_cl -### /O0 --intel -fsycl %s 2>&1 \
+// RUN:   | FileCheck --check-prefix O0_UNUSED %s
+// O0_UNUSED: argument unused during compilation
+
+// -no-global-hoist and /Qglobal-hoist- should enable "-mllvm -global-loads-unsafe"
+// RUN: %clang -### -no-global-hoist %s 2>&1 | FileCheck --check-prefix=GLOBAL-LOADS-UNSAFE %s
+// RUN: %clang -### -global-hoist %s 2>&1 | FileCheck --check-prefix=NO-GLOBAL-LOADS-UNSAFE %s
+// RUN: %clang -### -global-hoist -no-global-hoist %s 2>&1 | FileCheck --check-prefix=GLOBAL-LOADS-UNSAFE %s
+// RUN: %clang -### -no-global-hoist -global-hoist %s 2>&1 | FileCheck --check-prefix=NO-GLOBAL-LOADS-UNSAFE %s
+// RUN: %clang_cl -### /Qglobal-hoist- %s 2>&1 | FileCheck --check-prefix=GLOBAL-LOADS-UNSAFE %s
+// RUN: %clang_cl -### /Qglobal-hoist %s 2>&1 | FileCheck --check-prefix=NO-GLOBAL-LOADS-UNSAFE %s
+// RUN: %clang_cl -### /Qglobal-hoist /Qglobal-hoist- %s 2>&1 | FileCheck --check-prefix=GLOBAL-LOADS-UNSAFE %s
+// RUN: %clang_cl -### /Qglobal-hoist- /Qglobal-hoist %s 2>&1 | FileCheck --check-prefix=NO-GLOBAL-LOADS-UNSAFE %s
+// GLOBAL-LOADS-UNSAFE: clang{{.*}} "-mllvm" "-global-loads-unsafe"
+// NO-GLOBAL-LOADS-UNSAFE-NOT: "-mllvm" "-global-loads-unsafe"

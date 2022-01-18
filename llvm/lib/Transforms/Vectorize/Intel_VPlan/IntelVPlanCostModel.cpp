@@ -98,7 +98,8 @@ VPlanTTICostModel::getMemInstAlignment(const VPLoadStoreInst *LoadStore) const {
   // DefaultPeelingVariant is expected to be set.
   assert(DefaultPeelingVariant && "PeelingVariant is not set.");
   bool NegativeStride = false;
-  if (isUnitStrideLoadStore(LoadStore, NegativeStride)) {
+  if (Plan->getVPlanSVA()->instNeedsVectorCode(LoadStore) &&
+      isUnitStrideLoadStore(LoadStore, NegativeStride)) {
     // VPAA method takes alignment from IR as a base.
     // Alignment computed by VPAA in most cases is not guaranteed if we skip
     // the peel loop at runtime.
@@ -142,6 +143,7 @@ VPlanTTICostModel::getMemInstAlignment(const VPLoadStoreInst *LoadStore) const {
 
 bool VPlanTTICostModel::isUnitStrideLoadStore(const VPLoadStoreInst *LoadStore,
                                               bool &NegativeStride) const {
+  assert (Plan->getVPlanDA() && "DA is not established.");
   return Plan->getVPlanDA()->isUnitStridePtr(LoadStore->getPointerOperand(),
                                              LoadStore->getValueType(),
                                              NegativeStride);
@@ -187,7 +189,7 @@ unsigned VPlanTTICostModel::getLoadStoreIndexSize(
     const VPSubscriptInst *Subscript = cast<VPSubscriptInst>(VPAddrInst);
     // Add index operand for each dimension.
     for (unsigned Dim = 0; Dim < Subscript->getNumDimensions(); ++Dim)
-      IndicesOperands.push_back(Subscript->getIndex(Dim));
+      IndicesOperands.push_back(Subscript->dim(Dim).Index);
   }
 
   unsigned NumOfVarIndices = 0;
@@ -559,9 +561,33 @@ unsigned VPlanTTICostModel::getTTICostForVF(
     return CmpCost + SelectCost;
   }
 
-  // TODO - costmodel support for AllZeroCheck.
-  case VPInstruction::AllZeroCheck:
-    return 0;
+  case VPInstruction::AllZeroCheck: {
+    // AVX512 targets where zmm usage=high results in the following asm:
+    // kortestb %k1, %k1
+    //
+    // AVX512 targets zmm usage=low register results in the following asm:
+    // kshiftlb $4, %k2, %k0
+    // korb     %k0, %k1, %k0
+    // kortestb %k0, %k0
+    //
+    // AVX2 targets results in the following asm:
+    // vmovmskpd %ymm3, %eax
+    // testl     %eax, %eax
+    //
+    // VPlan CG generates bitcast of <i1 x VF> to int of VF size, followed
+    // by comparison to 0. The cost of these two instructions seems
+    // reasonable for each of the above targets, so this is what is
+    // modeled.
+    Type *OpTy = VPInst->getOperand(0)->getType();
+    Type *VecSrcTy = getWidenedType(OpTy, VF);
+    Type *DestTy = IntegerType::get(VPInst->getType()->getContext(), VF);
+    unsigned CastCost =
+        VPTTI.getCastInstrCost(Instruction::BitCast, DestTy, VecSrcTy,
+                               TTI::CastContextHint::None);
+    unsigned CmpCost = VPTTI.getCmpSelInstrCost(Instruction::ICmp, DestTy);
+    return CastCost + CmpCost;
+  }
+
   // This is a no-op - used to mark block predicate.
   case VPInstruction::Pred:
     return 0;
@@ -814,6 +840,32 @@ unsigned VPlanTTICostModel::getTTICostForVF(
       }
 
     llvm_unreachable("Unreachable code during VPCONFLICT handling.");
+  }
+  case VPInstruction::GeneralMemOptConflict: {
+    // General memory conflict is not handled in VPlan CG thus it is not
+    // supported in CM for VF > 1. We still can see in VF = 1 Plan if
+    // cost modelling is performed before general conflict optimization
+    // into vectorizable forms of conflict.
+    assert(VF == 1 && "GeneralMemOptConflict supported for VF = 1 CM only.");
+    // The cost of GeneralMemOptConflict is determined as the sum of costs
+    // of all instructions within the Region of general conflict instruction.
+    //
+    // NOTE:
+    // We silently assume here that conflict region either consists of a single
+    // block or linear sequence of blocks, which doesn't have if's and loops.
+    // And we don't need to apply any heuristics on the code inside the region.
+    // The code has to be adjusted once the assumption doesn't hold anymore.
+    auto *VPConflict = cast<VPGeneralMemOptConflict>(VPInst);
+    unsigned Cost = 0;
+    for (const VPBasicBlock *RegionBlk : VPConflict->getRegion()->getBBs())
+      for (const VPInstruction &RegionInst : *RegionBlk) {
+        unsigned InstCost = VPlanTTICostModel::getTTICostForVF(&RegionInst, VF);
+        if (InstCost == UnknownCost)
+          continue;
+        Cost += InstCost;
+      }
+
+    return Cost;
   }
   }
 }

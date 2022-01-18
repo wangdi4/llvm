@@ -21,7 +21,8 @@
 ; VPRED:             + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; VPRED-NEXT:        |   %.vec = (<4 x i32*>*)(%arr)[i1];
 ; VPRED-NEXT:        |   %.vec1 = (<4 x i32>*)(%.vec)[i1 + <i64 0, i64 1, i64 2, i64 3>];
-; VPRED-NEXT:        |   %red.var = %.vec1  +  %red.var;
+; VPRED-NEXT:        |   %.vec2 = %.vec1  +  %phi.temp;
+; VPRED-NEXT:        |   %phi.temp = %.vec2;
 ; VPRED-NEXT:        + END LOOP
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

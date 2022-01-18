@@ -45,16 +45,19 @@ define internal "intel_dtrans_func_index"="1" i8* @test01b(%struct.test01.derive
   ret i8* null
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01.base
+; CHECK: LLVMType: %struct.test01.base
 ; CHECK: Safety data: Bad casting | Mismatched element access | Global pointer | Nested structure | Has vtable{{ *$}}
+; CHECK: End LLVMType: %struct.test01.base
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01.derived1
+; CHECK: LLVMType: %struct.test01.derived1
 ; CHECK: Safety data: Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01.derived1
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01.derived2
+; CHECK: LLVMType: %struct.test01.derived2
 ; CHECK: Safety data: Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01.derived2
 
 
 !1 = !{!"F", i1 true, i32 0, !2}  ; i32 (...)

@@ -61,6 +61,10 @@
 // RUN:  | FileCheck -check-prefixes=XCOREAVX2,ADV_OPT %s
 // RUN: %clang_cl -### -c /QxHASWELL %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XCOREAVX2,ADV_OPT %s
+// RUN: %clang -### -c -xAVX2 %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XCOREAVX2,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxAVX2 %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XCOREAVX2,ADV_OPT %s
 // XCOREAVX2: "-target-cpu" "core-avx2"
 
 // RUN: %clang -### -c -xCORE-AVX-I %s 2>&1 \
@@ -258,3 +262,26 @@
 // FLTO_XCOREAVX512_WIN: "-mllvm:-mcpu=skylake-avx512"
 // FLTO_XCOREAVX512_WIN: "-mllvm:-enable-intel-advanced-opts"
 // FLTO_XCOREAVX512_WIN: "-mllvm:-enable-multiversioning"
+
+// Option override diagnostic check
+// RUN: %clang -### -xbroadwell -march=nocona -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=OVERRIDE_X_ARCH %s
+// RUN: %clang -### -xbroadwell -x c++ -march=nocona -x c -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=OVERRIDE_X_ARCH %s
+// RUN: %clang -### -march=nocona -xbroadwell -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=OVERRIDE_ARCH_X %s
+// RUN: %clang -### -march=nocona -x c -xbroadwell -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=OVERRIDE_ARCH_X %s
+// RUN: %clang_cl -### /Qxbroadwell /arch:AVX2 -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=OVERRIDE_QX_ARCH %s
+// RUN: %clang_cl -### /arch:AVX2 /Qxbroadwell -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=OVERRIDE_ARCH_QX %s
+// OVERRIDE_X_ARCH: overriding '-x broadwell' option with '-march=nocona'
+// OVERRIDE_ARCH_X: overriding '-march=nocona' option with '-x broadwell'
+// OVERRIDE_QX_ARCH: overriding '/Qxbroadwell' option with '/arch:AVX2'
+// OVERRIDE_ARCH_QX: overriding '/arch:AVX2' option with '/Qxbroadwell'
+
+// No override diagnostic with the same option
+// RUN: %clang -### -xbroadwell -xbroadwell -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=OVERRIDE_SAME %s
+// OVERRIDE_SAME-NOT: overriding {{.*}} option with

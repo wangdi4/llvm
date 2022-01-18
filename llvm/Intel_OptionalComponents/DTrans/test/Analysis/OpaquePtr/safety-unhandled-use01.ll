@@ -16,8 +16,9 @@ define i32 @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !inte
   ret i32 %low
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Unhandled use{{ *}}
+; CHECK: End LLVMType: %struct.test01
 
 
 !1 = !{i32 0, i32 0}  ; i32

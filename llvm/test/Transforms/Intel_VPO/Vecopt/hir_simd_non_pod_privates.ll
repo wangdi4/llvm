@@ -96,13 +96,9 @@ omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.3,
 ;          |   %2 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%j.i.linear.iv)[0])1),  QUAL.OMP.PRIVATE(&((%ref.tmp.i.priv)[0])) ]
 ;          |
 ;          |   + DO i2 = 0, 119, 1   <DO_LOOP> <simd>
-;          |   |   @llvm.lifetime.start.p0i8(4,  &((i8*)(%j.i.linear.iv)[0]));
-;          |   |   @llvm.lifetime.start.p0i8(8,  &((i8*)(%ref.tmp.i.priv)[0]));
 ;          |   |   (%ref.tmp.i.priv)[0].0.0 = 0x400A666660000000;
 ;          |   |   (%ref.tmp.i.priv)[0].0.1 = 0x40119999A0000000;
 ;          |   |   %call2.i = @_Z5pointRKSt7complexIfE(&((%ref.tmp.i.priv)[0]));
-;          |   |   @llvm.lifetime.end.p0i8(8,  &((i8*)(%ref.tmp.i.priv)[0]));
-;          |   |   @llvm.lifetime.end.p0i8(4,  &((i8*)(%j.i.linear.iv)[0]));
 ;          |   + END LOOP
 ;          |
 ;          |   @llvm.directive.region.exit(%2); [ DIR.OMP.END.SIMD() ]
@@ -119,7 +115,6 @@ define dso_local i32 @nested_loops() local_unnamed_addr #4 {
 ; CHECK:          |   %priv.mem.bc = &((%"class.std::complex"*)(%priv.mem)[0]);
 ; CHECK:          |
 ; CHECK:          |   + DO i32 i2 = 0, 119, 2   <DO_LOOP> <simd-vectorized> <novectorize>
-; CHECK:          |   |   %.vec = bitcast.<2 x i32*>.<2 x i8*>(%j.i.linear.iv);
 ; CHECK:          |   |   %nsbgepcopy = &((<2 x %"class.std::complex"*>)(%priv.mem.bc)[<i32 0, i32 1>]);
 ; CHECK:          |   |   <RVAL-REG> &((<2 x %"class.std::complex"*>)(LINEAR %"class.std::complex"* %priv.mem.bc{def@1})[<2 x i32> <i32 0, i32 1>]) inbounds
 ; CHECK:          |   |   %nsbgepcopy3 = &((%"class.std::complex"*)(%priv.mem)[0]);
@@ -133,7 +128,6 @@ define dso_local i32 @nested_loops() local_unnamed_addr #4 {
 ; CHECK:          |   |   %extract.1. = extractelement &((<2 x %"class.std::complex"*>)(%priv.mem.bc)[<i32 0, i32 1>]),  1;
 ; CHECK:          |   |   %_Z5pointRKSt7complexIfE6 = @_Z5pointRKSt7complexIfE(%extract.1.);
 ; CHECK:          |   |   %serial.temp = insertelement %serial.temp,  %_Z5pointRKSt7complexIfE6,  1;
-; CHECK:          |   |   %.vec8 = bitcast.<2 x i32*>.<2 x i8*>(%j.i.linear.iv);
 ; CHECK:          |   + END LOOP
 ; CHECK:          + END LOOP
 ; CHECK:    END REGION
@@ -157,13 +151,9 @@ DIR.OMP.SIMD.115:                                 ; preds = %DIR.OMP.SIMD.1
 
 omp.inner.for.body.i:                             ; preds = %DIR.OMP.SIMD.115, %omp.inner.for.body.i
   %.omp.iv.i.local.09 = phi i32 [ 0, %DIR.OMP.SIMD.115 ], [ %add3.i, %omp.inner.for.body.i ]
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %0) #5
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %1) #5
   store float 0x400A666660000000, float* %_M_value.realp.i.i, align 4
   store float 0x40119999A0000000, float* %_M_value.imagp.i.i, align 4
   %call2.i = call i32 @_Z5pointRKSt7complexIfE(%"class.std::complex"* nonnull align 4 dereferenceable(8) %ref.tmp.i.priv) #5
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* nonnull %1) #5
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %0) #5
   %add3.i = add nuw nsw i32 %.omp.iv.i.local.09, 1
   %exitcond.not = icmp eq i32 %add3.i, 120
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.1, label %omp.inner.for.body.i
@@ -180,13 +170,11 @@ DIR.OMP.END.SIMD.2:                               ; preds = %DIR.OMP.END.SIMD.1
 _ZL9MandelOMPv.exit:                              ; preds = %DIR.OMP.END.SIMD.2
   %ref.tmp.i4 = alloca %"class.std::complex", align 4
   %3 = bitcast %"class.std::complex"* %ref.tmp.i4 to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %3) #5
   %_M_value.realp.i.i5 = getelementptr inbounds %"class.std::complex", %"class.std::complex"* %ref.tmp.i4, i32 0, i32 0, i32 0
   store float 0x3FF19999A0000000, float* %_M_value.realp.i.i5, align 4
   %_M_value.imagp.i.i6 = getelementptr inbounds %"class.std::complex", %"class.std::complex"* %ref.tmp.i4, i32 0, i32 0, i32 1
   store float 0x40019999A0000000, float* %_M_value.imagp.i.i6, align 4
   %call1.i = call i32 @_Z5pointRKSt7complexIfE(%"class.std::complex"* nonnull align 4 dereferenceable(8) %ref.tmp.i4)
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* nonnull %3) #5
   ret i32 0
 }
 
@@ -195,12 +183,6 @@ declare token @llvm.directive.region.entry() #4
 
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #4
-
-; Function Attrs: argmemonly mustprogress nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #4
-
-; Function Attrs: argmemonly mustprogress nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #4
 
 ; Function Attrs: nofree norecurse nounwind uwtable willreturn
 declare %struct.ClassA* @_ZTS6ClassA.omp.def_constr(%struct.ClassA* nonnull returned %0) #5

@@ -4,9 +4,9 @@
 
 ; CHECK-LABEL: Private list
 ; CHECK-EMPTY:
-; CHECK-NEXT:   Private tag: InMemory
-; CHECK-NEXT:   Linked values: <2 x i32>* %tmp.priv,
-; CHECK-NEXT:  Memory: <2 x i32>* %tmp.priv
+; CHECK-NEXT:    Exit instr: <2 x i32> [[VP__:%.*]] = select i1 [[VP_CMP3:%.*]] <2 x i32> [[VP0:%.*]] <2 x i32> zeroinitializer
+; CHECK-NEXT:    Linked values: <2 x i32> [[VP__]], <2 x i32>* [[TMP_PRIV0:%.*]],
+; CHECK-NEXT:   Memory: <2 x i32>* [[TMP_PRIV0]]
 
 ; CHECK-LABEL: simd_loop
 ; CHECK: %[[CmpRes:.*]] = icmp sgt <4 x i32> %{{.*}}, zeroinitializer
@@ -44,14 +44,8 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.body
 
 DIR.OMP.END.SIMD.1:                               ; preds = %omp.loop.exit
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
-  br label %DIR.QUAL.LIST.END.2
-
-DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.END.SIMD.1
   ret void
 }
 
-; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)

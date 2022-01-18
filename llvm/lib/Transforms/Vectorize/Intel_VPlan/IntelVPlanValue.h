@@ -396,6 +396,14 @@ public:
   const_operand_range operands() const {
     return const_operand_range(op_begin(), op_end());
   }
+
+  using reverse_operand_iterator = SmallVectorImpl<VPValue *>::reverse_iterator;
+  using const_reverse_operand_iterator =
+      SmallVectorImpl<VPValue *>::const_reverse_iterator;
+  reverse_operand_iterator op_rbegin() { return Operands.rbegin(); }
+  reverse_operand_iterator op_rend() { return Operands.rend(); }
+  const_reverse_operand_iterator op_rbegin() const { return Operands.rbegin(); }
+  const_reverse_operand_iterator op_rend() const { return Operands.rend(); }
 };
 
 class VPRegionLiveOut : public VPUser {
@@ -544,6 +552,7 @@ class VPExternalDef : public VPValue, public FoldingSetNode {
   friend class VPLiveInOutCreator;
   friend class VPOCodeGenHIR;
   friend class VPOCodeGen;
+  friend class VPLoopEntityList;
 
 private:
   // Hold the DDRef or IV information related to this external definition.
@@ -789,17 +798,17 @@ protected:
       : VPValue(VPValue::VPMetadataAsValueSC, MDAsValue->getType(), MDAsValue) {
   }
 
+  /// Return the Metadata of the underlying MetadataAsValue.
+  Metadata *getMetadata() { return getMetadataAsValue()->getMetadata(); }
+
+public:
   /// Return the underlying MetadataAsValue.
-  MetadataAsValue *getMetadataAsValue() {
+  MetadataAsValue *getMetadataAsValue() const {
     assert(isa<MetadataAsValue>(getUnderlyingValue()) &&
            "Expected MetadataAsValue as underlying Value.");
     return cast<MetadataAsValue>(getUnderlyingValue());
   }
 
-  /// Return the Metadata of the underlying MetadataAsValue.
-  Metadata *getMetadata() { return getMetadataAsValue()->getMetadata(); }
-
-public:
   VPMetadataAsValue(const VPMetadataAsValue &) = delete;
   VPMetadataAsValue &operator=(const VPMetadataAsValue &) const = delete;
 

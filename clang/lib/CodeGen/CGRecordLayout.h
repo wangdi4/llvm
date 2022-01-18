@@ -149,9 +149,11 @@ private:
   llvm::DenseMap<const CXXRecordDecl *, unsigned> CompleteObjectVirtualBases;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   unsigned VFPtrLoc = (std::numeric_limits<unsigned>::max)();
   unsigned VBPtrLoc = (std::numeric_limits<unsigned>::max)();
   const FieldDecl *UnionDecl = nullptr;
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   /// False if any direct or indirect subobject of this class, when
@@ -229,6 +231,7 @@ public:
   }
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   bool IsIdxVFPtr(unsigned Idx) const {
     return VFPtrLoc == Idx;
   }
@@ -273,6 +276,7 @@ public:
 
     return QualType{};
   }
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   void print(raw_ostream &OS) const;

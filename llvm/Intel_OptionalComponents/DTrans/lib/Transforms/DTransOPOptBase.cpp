@@ -27,12 +27,22 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #define DEBUG_TYPE "dtransop-optbase"
 
 namespace llvm {
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// This option is used during testing to allow changes of types for
+// function declarations.
+static cl::opt<bool> DTransOPOptBaseProcessFuncDecl(
+    "dtransop-optbase-process-function-declaration", cl::init(false),
+    cl::ReallyHidden);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 namespace dtransOP {
 
 //===----------------------------------------------------------------------===//
@@ -211,7 +221,7 @@ DTransOPTypeRemapper::computeReplacementType(llvm::Type *SrcTy) const {
       NeedsReplaced = true;
     }
 
-    for (Type* ParamTy : FunctionTy->params()) {
+    for (Type *ParamTy : FunctionTy->params()) {
       Type *ReplParmTy = ParamTy;
       Type *ReplTy = computeReplacementType(ParamTy);
       if (ReplTy) {
@@ -710,7 +720,7 @@ void DTransOPOptBase::populateDependentTypes(
       ReplStructTy->setBody(DataTypes, StructTy->isPacked());
 
       LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: New LLVM structure body: "
-        << *ReplStructTy << "\n");
+                        << *ReplStructTy << "\n");
 
       LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: New DTrans structure body: "
                         << *DTReplTy << "\n";);
@@ -763,6 +773,10 @@ void DTransOPOptBase::createCloneFunctionDeclarations(Module &M) {
   for (auto &F : M)
     if (!F.isDeclaration())
       WL.push_back(&F);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    else if (DTransOPOptBaseProcessFuncDecl)
+      WL.push_back(&F);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   for (auto *F : WL) {
     // If the function signature changes as a result of the type remapping,

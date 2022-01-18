@@ -17,6 +17,12 @@
 ; CHECK: createRenamedValueForV : Renamed 'i32* getelementptr inbounds ([10 x i32], [10 x i32]* @a, i64 0, i64 1)' (via launder intrinsic) to: 'i32* %{{.*}}'.
 ; CHECK: createRenamedValueForV : Renamed '[10 x i32]* @a' (via launder intrinsic) to: '[10 x i32]* %a'.
 
+; CHECK: clearLaunderIntrinBeforeRegion: Number of launder intrinsics for the region is 2.
+; CHECK: clearLaunderIntrinBeforeRegion: Replacing launder intrinsic 'i8* %{{.+}}' with its operand.
+; CHECK: clearLaunderIntrinBeforeRegion: Replacing launder intrinsic 'i8* %{{.+}}' with its operand.
+
+; CHECK-NOT: call i8* @llvm.launder.invariant.group
+
 ; Check that globals @a is not used in the outlined function.
 ; CHECK: define internal void @__omp_offloading_{{.*}}foov{{.*}}([10 x i32]* %a)
 ; CHECK: %[[A1:[^ ]+]] = getelementptr inbounds [10 x i32], [10 x i32]* %a, i64 0, i64 1

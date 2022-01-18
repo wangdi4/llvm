@@ -15,7 +15,8 @@ set(HWASAN_RTL_SOURCES
   hwasan_memintrinsics.cpp
   hwasan_poisoning.cpp
   hwasan_report.cpp
-  hwasan_setjmp.S
+  hwasan_setjmp_aarch64.S
+  hwasan_setjmp_x86_64.S
   hwasan_tag_mismatch_aarch64.S
   hwasan_thread.cpp
   hwasan_thread_list.cpp
@@ -78,7 +79,10 @@ set(HWASAN_DYNAMIC_LIBS ${SANITIZER_CXX_ABI_LIBRARIES} ${SANITIZER_COMMON_LINK_L
 
 append_list_if(COMPILER_RT_HAS_LIBDL dl HWASAN_DYNAMIC_LIBS)
 append_list_if(COMPILER_RT_HAS_LIBRT rt HWASAN_DYNAMIC_LIBS)
-append_list_if(COMPILER_RT_HAS_LIBM m HWASAN_DYNAMIC_LIBS)
+# INTEL_CUSTOMIZATION
+# We don't want compiler-rt link against intel dynamic libraries.
+append_list_if(COMPILER_RT_HAS_LIBM libm.a HWASAN_DYNAMIC_LIBS)
+# end INTEL_CUSTOMIZATION
 append_list_if(COMPILER_RT_HAS_LIBPTHREAD pthread HWASAN_DYNAMIC_LIBS)
 
 # Static runtime library.

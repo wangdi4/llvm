@@ -3,6 +3,7 @@
 ; a structure as candidate due to safety conditions.
 
 ;  RUN: opt  < %s -whole-program-assume -dtrans-reorderfields -debug-only=dtrans-reorderfields -disable-output 2>&1 | FileCheck %s
+;  RUN: opt  < %s -whole-program-assume -passes=dtrans-reorderfields -debug-only=dtrans-reorderfields -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: Rejecting struct.test based on safety data
 

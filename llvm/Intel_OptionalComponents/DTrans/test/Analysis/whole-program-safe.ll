@@ -5,7 +5,7 @@
 ; RUN: opt -whole-program-assume -dtransanalysis -debug-only=dtransanalysis -disable-output %s 2>&1 \
 ; RUN:    | FileCheck -allow-empty %s
 
-; RUN: opt -whole-program-assume -dtransanalysis -debug-only=dtransanalysis -disable-output -enable-npm-dtrans  %s 2>&1 \
+; RUN: opt -whole-program-assume -passes='require<dtransanalysis>' -debug-only=dtransanalysis -disable-output %s 2>&1 \
 ; RUN:    | FileCheck -allow-empty %s
 
 

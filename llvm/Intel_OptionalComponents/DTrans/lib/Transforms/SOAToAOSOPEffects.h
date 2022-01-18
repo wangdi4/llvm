@@ -1075,12 +1075,10 @@ namespace soatoaosOP {
 //     where <val> has size of first field.
 //
 inline bool isSafeBitCast(const DataLayout &DL, const Value *V,
-                          DTransSafetyInfo &DTInfo) {
+                          const PtrTypeAnalyzer &PTA) {
   auto *BC = dyn_cast<BitCastInst>(V);
   if (!BC)
     return false;
-
-  PtrTypeAnalyzer &PTA = DTInfo.getPtrTypeAnalyzer();
 
   auto *FromInfo = PTA.getValueTypeInfo(BC->getOperand(0));
   if (!FromInfo)

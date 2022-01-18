@@ -19,16 +19,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |   %b = (%BI)[0].1;
 ; CHECK:       |   if ((%b)[0] !=u 0.000000e+00)
 ; CHECK:       |   {
-; CHECK:       |      %sum.L1 = %sum;
-; CHECK:       |
 ; CHECK:       |      + DO i2 = 0, 63, 1   <DO_LOOP>
 ; CHECK:       |      |   + DO i3 = 0, 127, 1   <DO_LOOP>
 ; CHECK:       |      |   |   %Aijbj = (%A)[128 * i2 + i3]  *  (%b)[i3];
-; CHECK:       |      |   |   %sum.L1 = %sum.L1  +  %Aijbj;
+; CHECK:       |      |   |   %sum = %sum  +  %Aijbj;
 ; CHECK:       |      |   + END LOOP
 ; CHECK:       |      + END LOOP
-; CHECK:       |
-; CHECK:       |      %sum = %sum.L1;
 ; CHECK:       |   }
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
@@ -45,7 +41,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |   %b = (%BI)[0].1;
 ; CHECK:       |   if ((%b)[0] !=u 0.000000e+00)
 ; CHECK:       |   {
-; CHECK:       |      %sum.L1 = %sum;
 ; CHECK:       |      if (%[[NEEDCHECK]] != 0)
 ; CHECK:       |      {
 ; CHECK:       |         %[[FIRST:[A-Za-z0-9_.]+]] = (%b)[0];
@@ -83,7 +78,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |      |   {
 ; CHECK:       |      |   case 1:
 ; CHECK:       |      |      + DO i3 = 0, 127, 1   <DO_LOOP>
-; CHECK:       |      |      |   %sum.L1 = %sum.L1  - (%A)[128 * i2 + i3];
+; CHECK:       |      |      |   %sum = %sum  - (%A)[128 * i2 + i3];
 ; CHECK:       |      |      + END LOOP
 ; CHECK:       |      |      break;
 ; CHECK:       |      |   case 2:
@@ -91,13 +86,11 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT:  |      |   default:
 ; CHECK:       |      |      + DO i3 = 0, 127, 1   <DO_LOOP>
 ; CHECK:       |      |      |   %Aijbj = (%A)[128 * i2 + i3]  *  (%b)[i3];
-; CHECK:       |      |      |   %sum.L1 = %sum.L1  +  %Aijbj;
+; CHECK:       |      |      |   %sum = %sum  +  %Aijbj;
 ; CHECK:       |      |      + END LOOP
 ; CHECK:       |      |      break;
 ; CHECK:       |      |   }
 ; CHECK:       |      + END LOOP
-; CHECK:       |
-; CHECK:       |      %sum = %sum.L1;
 ; CHECK:       |   }
 ; CHECK:       + END LOOP
 ; CHECK: END REGION

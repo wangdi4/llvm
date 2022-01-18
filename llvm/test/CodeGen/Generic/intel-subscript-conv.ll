@@ -1,5 +1,6 @@
 ; REQUIRES: system-linux
 ; RUN: opt -S -convert-to-subscript %s 2>&1 | %lli | FileCheck -check-prefix=CHECK-EXEC %s
+; RUN: opt -S -opaque-pointers -convert-to-subscript %s 2>&1 | %lli -opaque-pointers | FileCheck -check-prefix=CHECK-EXEC %s
 ; RUN: opt -S %s 2>&1 | %lli | FileCheck -check-prefix=CHECK-EXEC %s
 ; CHECK-EXEC: passed
 
@@ -16,6 +17,20 @@
 ; CHECK-CONV: getelementptr inbounds %"struct.A::B::C", %"struct.A::B::C"*  {{.*}}, i64 0, i32 5
 ; @_Z3bazv (GEPOperator + 0th array offsets)
 ; CHECK-CONV: ret i32* getelementptr inbounds (%struct.A, %struct.A* @a, i64 0, i32 1, i64 0, i32 3, i64 0, i32 5)
+
+; RUN: opt -S -convert-to-subscript -opaque-pointers %s 2>&1 | FileCheck -check-prefix=OPAQUE-CONV %s
+; @_Z3fooi (GetElementPtrInst)
+; OPAQUE-CONV: call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 132, ptr elementtype(%"struct.A::B")
+; OPAQUE-CONV: getelementptr inbounds %"struct.A::B", ptr {{.*}}, i64 0, i32 3, i64 0
+; OPAQUE-CONV: call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 24, ptr elementtype(%"struct.A::B::C")
+; OPAQUE-CONV: getelementptr inbounds %"struct.A::B::C", ptr {{.*}}, i64 0, i32 5
+; @_Z4bar1v (GEPOperator)
+; OPAQUE-CONV: call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 132, ptr elementtype(%"struct.A::B") getelementptr inbounds (%struct.A, ptr @a, i64 0, i32 1, i64 0), i64 2)
+; OPAQUE-CONV: getelementptr inbounds %"struct.A::B", ptr {{.*}}, i64 0, i32 3, i64 0
+; OPAQUE-CONV: call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 24, ptr
+; OPAQUE-CONV: getelementptr inbounds %"struct.A::B::C", ptr  {{.*}}, i64 0, i32 5
+; @_Z3bazv (GEPOperator + 0th array offsets)
+; OPAQUE-CONV: ret ptr getelementptr inbounds (%struct.A, ptr @a, i64 0, i32 1, i64 0, i32 3, i64 0, i32 5)
 
 ; ModuleID = 'm.cc'
 source_filename = "m.cc"

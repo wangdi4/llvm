@@ -19,7 +19,7 @@
 ;   return -1;
 ; }
 
-; CHECK: StrEq and StructPtrEq loop was not recognized
+; CHECK: StrEq and PtrEq loop was not recognized
 
 ;Module Before HIR
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

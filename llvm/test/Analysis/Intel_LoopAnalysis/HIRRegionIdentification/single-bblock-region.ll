@@ -1,7 +1,7 @@
-; RUN: opt < %s -analyze -hir-region-identification | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -analyze -hir-region-identification | FileCheck %s
+; RUN: opt < %s -passes='print<hir-region-identification>' -disable-output 2>&1 | FileCheck %s
 
 ; Check that we create one region each for functon foo and bar.
-; CHECK: foo
 ; CHECK: Region 1
 ; CHECK-NEXT: EntryBB
 ; CHECK-SAME: for.body
@@ -9,7 +9,6 @@
 ; CHECK-NEXT: Member
 ; CHECK-SAME: for.body
 
-; CHECK: bar
 ; CHECK: Region 1
 ; CHECK-NEXT: EntryBB
 ; CHECK-SAME: for.body
@@ -20,28 +19,18 @@
 
 ; Verify that region creation is disabled based on command line option.
 
-; RUN: opt < %s -analyze -hir-region-identification -disable-hir-regions-func-list=foo | FileCheck %s --check-prefix=NOFOO
-; RUN: opt < %s -analyze -hir-region-identification -disable-hir-regions-func-list=bar | FileCheck %s --check-prefix=NOBAR
-; RUN: opt < %s -analyze -hir-region-identification -disable-hir-regions-func-list=foo,bar | FileCheck %s --check-prefix=NOFOOBAR
+; RUN : opt < %s -enable-new-pm=0 -analyze -hir-region-identification -disable-hir-regions-func-list=foo | FileCheck %s --check-prefix=ONEFUNC
+; RUN: opt < %s -passes='print<hir-region-identification>' -disable-hir-regions-func-list=foo 2>&1 | FileCheck %s --check-prefix=ONEFUNC
+; RUN: opt < %s -enable-new-pm=0 -analyze -hir-region-identification -disable-hir-regions-func-list=bar | FileCheck %s --check-prefix=ONEFUNC
+; RUN: opt < %s -passes='print<hir-region-identification>' -disable-hir-regions-func-list=bar 2>&1 | FileCheck %s --check-prefix=ONEFUNC
+; RUN: opt < %s -enable-new-pm=0 -analyze -hir-region-identification -disable-hir-regions-func-list=foo,bar | FileCheck %s --check-prefix=TWOFUNC
+; RUN: opt < %s -passes='print<hir-region-identification>' -disable-hir-regions-func-list=foo,bar 2>&1 | FileCheck %s --check-prefix=TWOFUNC
 
-; NOFOO: foo
-; NOFOO-NOT: Region 1
+; ONEFUNC: Region 1
 
-; NOFOO: bar
-; NOFOO: Region 1
+; ONEFUNC-NOT: Region 1
 
-; NOBAR: foo
-; NOBAR: Region 1
-
-; NOBAR: bar
-; NOBAR-NOT: Region 1
-
-; NOFOOBAR: foo
-; NOFOOBAR-NOT: Region 1
-
-; NOFOOBAR: bar
-; NOFOOBAR-NOT: Region 1
-
+; TWOFUNC-NOT: Region 1
 
 ; ModuleID = 'q1.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

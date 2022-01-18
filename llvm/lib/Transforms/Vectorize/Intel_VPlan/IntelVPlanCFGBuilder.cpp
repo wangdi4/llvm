@@ -22,6 +22,13 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vplan-cfg-builder"
 
+static cl::opt<bool> ImportOrigBBNames(
+    "vplan-import-orig-bb-names", cl::init(false), cl::Hidden,
+    cl::desc(
+        "Import incoming LLVM IR BasicBlocks' names. The names should not "
+        "match those created by the VPlan pass to avoid name collisions as "
+        "they are imported without unification."));
+
 template <class CFGBuilder>
 void VPlanCFGBuilderBase<CFGBuilder>::fixPhiNodes() {
   for (auto *Phi : PhisToFix) {
@@ -40,14 +47,15 @@ void VPlanCFGBuilderBase<CFGBuilder>::fixPhiNodes() {
 
 template <class CFGBuilder>
 VPBasicBlock *VPlanCFGBuilderBase<CFGBuilder>::getOrCreateVPBB(BasicBlock *BB) {
-
   VPBasicBlock *VPBB;
   auto BlockIt = BB2VPBB.find(BB);
 
   if (BlockIt == BB2VPBB.end()) {
     // New VPBB
     LLVM_DEBUG(dbgs() << "Creating VPBasicBlock for " << BB->getName() << "\n");
-    VPBB = new VPBasicBlock(VPlanUtils::createUniqueName("BB"), Plan);
+    VPBB = new VPBasicBlock(
+        ImportOrigBBNames ? BB->getName() : VPlanUtils::createUniqueName("BB"),
+        Plan);
     BB2VPBB[BB] = VPBB;
     VPBB->setOriginalBB(BB);
     Plan->insertAtBack(VPBB);
@@ -264,8 +272,6 @@ void VPlanCFGBuilderBase<CFGBuilder>::processBB(BasicBlock *BB) {
     VPBasicBlock *SuccVPBB = getOrCreateVPBB(TI->getSuccessor(0));
     assert(SuccVPBB && "VPBB Successor not found");
     VPBB->setTerminator(SuccVPBB);
-    VPBB->setCBlock(BB);
-    VPBB->setTBlock(TI->getSuccessor(0));
   } else if (NumSuccs == 2) {
     VPBasicBlock *SuccVPBB0 = getOrCreateVPBB(TI->getSuccessor(0));
     assert(SuccVPBB0 && "Successor 0 not found");
@@ -289,11 +295,6 @@ void VPlanCFGBuilderBase<CFGBuilder>::processBB(BasicBlock *BB) {
       VPCondBit = IRDef2VPValue[BrCond];
     }
     VPBB->setTerminator(SuccVPBB0, SuccVPBB1, VPCondBit);
-
-    VPBB->setCBlock(BB);
-    VPBB->setTBlock(TI->getSuccessor(0));
-    VPBB->setFBlock(TI->getSuccessor(1));
-
   } else if (NumSuccs == 0) {
     assert(!cast<ReturnInst>(TI)->getReturnValue() && "Expected void return!");
     VPBB->setTerminator();
@@ -301,6 +302,15 @@ void VPlanCFGBuilderBase<CFGBuilder>::processBB(BasicBlock *BB) {
     llvm_unreachable("Number of successors not supported");
   }
   VPBB->getTerminator()->setDebugLocation(TI->getDebugLoc());
+
+  // If current terminator has llvm::Loop's LoopID metadata, then attach the
+  // same to corresponding VPBB terminator instruction.
+  if (auto *LpID = TI->getMetadata(LLVMContext::MD_loop)) {
+    auto *VPTI = VPBB->getTerminator();
+    VPTI->setLoopIDMetadata(LpID);
+    LLVM_DEBUG(dbgs() << "Adding loop ID: "; LpID->dump();
+               dbgs() << " to VPBranchInst: "; VPTI->dump());
+  }
 }
 
 void VPlanLoopCFGBuilder::buildCFG() {

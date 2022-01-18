@@ -70,12 +70,12 @@ public:
 class OpcodeData {
   using AssocDataTy = SmallVector<AssocOpcodeData, 1>;
 
-  unsigned Opcode = 0;
+  unsigned Opcode;
   // The Unary associative opcodes that apply to the leaf.
   AssocDataTy AssocOpcodeVec;
 
 public:
-  OpcodeData() {}
+  OpcodeData() = delete;
   OpcodeData(unsigned Opcode) : Opcode(Opcode), AssocOpcodeVec() {}
 
   // The Add/Sub opcode of the leaf.
@@ -88,28 +88,26 @@ public:
       Hash = hash_combine(Hash, Data.getHash());
     return Hash;
   }
-  bool isUndef() const { return Opcode == 0; }
-  // Compare only the canonicalized +/- opcode.
-  bool hasSameAddSubOpcode(const OpcodeData &OD2) const {
-    return Opcode == OD2.Opcode;
+  bool isAssocEqual(const OpcodeData &Other) const {
+    return AssocOpcodeVec == Other.AssocOpcodeVec;
   }
-  // Compare the whole opcode.
-  bool operator==(const OpcodeData &OD2) const {
-    return Opcode == OD2.Opcode && AssocOpcodeVec == OD2.AssocOpcodeVec;
+  // Compare the whole data.
+  bool operator==(const OpcodeData &Other) const {
+    return Opcode == Other.Opcode && isAssocEqual(Other);
   }
-  bool operator!=(const OpcodeData &OD2) const { return !(*this == OD2); }
   // Comparator used for sorting.
-  bool operator<(const OpcodeData &OD2) const {
-    if (Opcode != OD2.Opcode)
-      return Opcode < OD2.Opcode;
-    if (AssocOpcodeVec.size() != OD2.AssocOpcodeVec.size())
-      return AssocOpcodeVec.size() < OD2.AssocOpcodeVec.size();
-    for (size_t I = 0, E = AssocOpcodeVec.size(); I != E; ++I)
-      if (AssocOpcodeVec[I] != OD2.AssocOpcodeVec[I])
-        return AssocOpcodeVec[I] < OD2.AssocOpcodeVec[I];
-    return false;
+  bool operator<(const OpcodeData &Other) const {
+    return std::tie(Opcode, AssocOpcodeVec) <
+           std::tie(Other.Opcode, Other.AssocOpcodeVec);
   }
-  OpcodeData getFlipped() const;
+  // Reverse the opcode
+  void reverse();
+  // Take a copy with the reversed opcode
+  OpcodeData getReversed() const {
+    OpcodeData Opc = *this;
+    Opc.reverse();
+    return Opc;
+  }
   void appendAssocInstr(Instruction *I) {
     AssocOpcodeVec.push_back(AssocOpcodeData(I));
   }
@@ -122,7 +120,6 @@ public:
 /// It represents incoming value called a leaf and an operation used to link it
 /// to a canonical form.
 class CanonNode {
-  friend class CanonForm;
   /// Incoming value called a leaf.
   TrackingVH<Value> Leaf;
   /// The canonicalized opcode. In addition it keeps associative instructions
@@ -136,21 +133,23 @@ public:
   const OpcodeData &getOpcodeData() const { return Opcode; }
 
   void appendAssocInstruction(Instruction *I) { Opcode.appendAssocInstr(I); }
-
+  void reverseOpcode() { Opcode.reverse(); }
   hash_code getHash() const {
-    //hash_code LeafHC = hash_value();
-    return hash_combine(Leaf.getValPtr(), Opcode.getHash()); }
+    return hash_combine(Leaf.getValPtr(), Opcode.getHash());
+  }
   /// Two nodes are equal if they have the same incoming leaf. Please note that
   /// we don't take opcode into account.
   bool operator==(const CanonNode &Pair2) const { return Leaf == Pair2.Leaf; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump(const unsigned Padding) const;
+  void dump(unsigned Padding) const;
 #endif
 };
 
-/// Canonical form is a special form of a binary tree where one (say left)
-/// child is always a leaf and another one is either canonical form or zero.
+/// Canonical form is a linerized representation of an original binary tree
+/// where one (say left) operand is always a terminal node and the other
+/// operand is either a canonical form or implied zero. Each terminal node
+/// has associated operation and the two form a leaf.
 ///
 /// For example for (a+b)-(c-d) looks the following way:
 ///  +
@@ -161,10 +160,11 @@ public:
 ///      |\
 ///      c +
 ///        |\
-///        d 0
+///        d 0 <== implied zero
+/// which also can be written as string of leaves: +d,-c,+b,+a.
 ///
-/// Main property of a canonical form is that reordering of any two nodes
-/// doesn't invalidate tree semantic.
+/// Core property of a canonical form is that reordering of its leaves does not
+/// affect tree semantics.
 class CanonForm {
 public:
   using NodeVecTy = SmallVector<CanonNode, 16>;
@@ -214,16 +214,23 @@ public:
     std::iter_swap(remove_constness(Leaves, LLeaf),
                    remove_constness(Leaves, RLeaf));
   }
-  /// Returns node matching \p Leaf and optionally \p Opcode starting from
-  /// position given by \p It. If \p Opcode argument is omitted then only
-  /// \p Leaf is taken into consideration. By specifying \p It you exclude
-  /// all nodes preceding \p It from the search. This may be useful if you need
-  /// to handle nodes with identical leaves.
-  NodeItTy findLeaf(const NodeItTy It, const Value *Leaf,
-                    const OpcodeData &Opcode = OpcodeData()) const;
+  /// Returns iterator pointing to a node that has \p Leaf value matching
+  /// It does not take opcode data in the form into account.
+  NodeItTy findLeaf(const Value *Leaf) const {
+    return find_if(Leaves, [Leaf](const CanonNode &Node) {
+      return Node.getLeaf() == Leaf;
+    });
+  }
+  /// Returns iterator pointing to a node that has \p Leaf value matching
+  /// and opcode data in the form is equal to \p OpData.
+  NodeItTy findLeaf(const Value *Leaf, const OpcodeData &OpData) const {
+    return find_if(Leaves, [&OpData, Leaf](const CanonNode &Node) {
+      return Node.getLeaf() == Leaf && Node.getOpcodeData() == OpData;
+    });
+  }
   /// Convinience interface to check whether a Leaf is in the Form.
   bool hasLeaf(const Value *Leaf) const {
-    return findLeaf(begin(), Leaf) != end();
+    return findLeaf(Leaf) != end();
   }
   /// Performs massaging aimed at more optimal code generation.
   // TODO: describe what exactly it does.
@@ -248,9 +255,11 @@ protected:
   /// associative instructions they will be emitted before returned one.
   Instruction *generateInstruction(const OpcodeData &Opcode, Value *Leaf,
                                    Instruction *IP) const;
-
-  /// Flips opcodes of all nodes in the form.
-  void flipOpcodes();
+  /// Reverse opcode of each node in the form.
+  void reverseOpcodes() {
+    for (CanonNode &Leaf : *this)
+      Leaf.reverseOpcode();
+  }
 };
 
 /// This is an abstraction for dealing with original (IR) and canonical
@@ -339,12 +348,12 @@ public:
 
   /// Returns a pair of unique and total number of associative instructions in
   /// the group.
-  std::pair<unsigned, unsigned> getAssocInstrCnt() const {
+  std::pair<int /*unique*/, int /*total*/> getAssocInstrCnt() const {
     std::unordered_set<AssocOpcodeData, HashIt<AssocOpcodeData>> Set;
 
-    unsigned Total = 0;
-    for (auto &TreeLeaf : *this) {
-      for (const auto &AOD : TreeLeaf.getOpcodeData()) {
+    int Total = 0;
+    for (const CanonNode &TreeLeaf : *this) {
+      for (const AssocOpcodeData &AOD : TreeLeaf.getOpcodeData()) {
         ++Total;
         Set.insert(AOD);
       }
@@ -355,8 +364,8 @@ public:
   bool isSimilar(const Group &G2);
   /// Canonicalize the group by sorting by opcode.
   void sort();
-  /// Flips opcodes of entire group.
-  void flipOpcodes() { CanonForm::flipOpcodes(); }
+  /// Reverse opcodes of the entire group.
+  void reverseOpcodes() { CanonForm::reverseOpcodes(); }
 };
 
 /// This pass reassociates add-sub chains to improve expression reuse
@@ -385,21 +394,6 @@ private:
   // Group of trees most profitable for reassosiation.
   SmallVector<std::pair<Group, TreeSignVecTy>, 4> BestGroups;
 
-  /// Scans through Trees and returns the first one which containing \p I.
-  Tree *findEnclosingTree(const Instruction *I) {
-    for (auto &T : Trees)
-      if (T->hasTrunkInstruction(I))
-        return T.get();
-    return nullptr;
-  }
-
-  /// Find a tree amongst Trees which has root \p I ignoring \p Ignore.
-  Tree *findTreeWithRoot(const Instruction *I, const Tree *Ignore) {
-    for (auto &T : Trees)
-      if (T.get() != Ignore && T->getRoot() == I)
-        return T.get();
-    return nullptr;
-  }
   /// Routine to compute distance between \p V1 and \p V2.
   /// If both V1 and V2 are load instructions return distance between
   /// pointers otherwise step down through operands seeking for load
@@ -450,10 +444,10 @@ private:
   /// and populate Clusters.
   void clusterTrees();
 
-  /// Try to grow tree \p T up toward definitions. \p GrowthLimit value
+  /// Try to grow tree \p Tree up toward definitions. \p GrowthLimit value
   /// determines how much the tree is allowed to grow.
   /// Returns size of the tree.
-  unsigned growTree(Tree *T, unsigned GrowthLimit,
+  unsigned growTree(Tree *Tree, unsigned GrowthLimit,
                     SmallVectorImpl<CanonNode> &&WorkList);
 
   /// Enlarge trees in Clusters by growing them towards shared leaves.

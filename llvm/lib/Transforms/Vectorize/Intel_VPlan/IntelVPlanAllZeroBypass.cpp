@@ -339,8 +339,8 @@ void VPlanAllZeroBypass::collectAllZeroBypassLoopRegions(
     AllZeroBypassRegionsTy &AllZeroBypassRegions,
     RegionsCollectedTy &RegionsCollected) {
   VPLoopInfo *VPLI = Plan.getVPLoopInfo();
-  SetVector<VPBasicBlock *> RegionBlocks;
   for (auto *VPLp : VPLI->getLoopsInPreorder()) {
+    SetVector<VPBasicBlock *> RegionBlocks;
     VPBasicBlock *Preheader = VPLp->getLoopPreheader();
     VPValue *PreheaderPred = Preheader ? Preheader->getPredicate() : nullptr;
     // Loop is not predicated, so skip to the next one. E.g., outermost loop.

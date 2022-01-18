@@ -42,7 +42,7 @@ llvm_config.use_default_substitutions()
 llvm_config.use_lld()
 
 tool_patterns = [
-    'llc', 'llvm-as', 'llvm-mc', 'llvm-nm', 'llvm-objdump', 'llvm-pdbutil',
+    'llc', 'llvm-as', 'llvm-mc', 'llvm-nm', 'llvm-objdump', 'llvm-otool', 'llvm-pdbutil',
     'llvm-dwarfdump', 'llvm-readelf', 'llvm-readobj', 'obj2yaml', 'yaml2obj',
     'opt', 'llvm-dis']
 # INTEL_CUSTOMIZATION
@@ -94,6 +94,22 @@ if ics_setopts:
     # Check if bfd is the default linker
     elif ics_setopts == 'ld=bfd':
         config.available_features.add('default_linker_bfd')
+
+intel_devirt_options = ''
+intel_mllvm = ''
+# INTEL_FEATURE_SW_DTRANS
+# Special options that we want to pass to the test cases for Intel only
+
+if config.include_intel_extra_opts:
+  # Turn off multiversioning for whole program devirtualization
+  intel_devirt_options = '-wholeprogramdevirt-multiversion=false'
+
+  # Substitution for -mllvm
+  intel_mllvm = '-mllvm'
+
+# end INTEL_FEATURE_SW_DTRANS
+config.substitutions.append(('%intel_devirt_options', intel_devirt_options))
+config.substitutions.append(('%intel_mllvm', intel_mllvm))
 # end INTEL_CUSTOMIZATION
 
 llvm_config.feature_config(
@@ -113,9 +129,30 @@ llvm_config.feature_config(
                           'X86': 'x86'})
      ])
 
+# INTEL_CUSTOMIZATION
+# Include the TC_WRAPPER_PATH environment variable if it is available
+llvm_config.with_system_environment(['TC_WRAPPER_PATH'])
+# end INTEL_CUSTOMIZATION
+
 # Set a fake constant version so that we get consistent output.
 config.environment['LLD_VERSION'] = 'LLD 1.0'
-config.environment['LLD_IN_TEST'] = '1'
+
+# LLD_IN_TEST determines how many times `main` is run inside each process, which
+# lets us test that it's cleaning up after itself and resetting global state
+# correctly (which is important for usage as a library).
+run_lld_main_twice = lit_config.params.get('RUN_LLD_MAIN_TWICE', False)
+if not run_lld_main_twice:
+    config.environment['LLD_IN_TEST'] = '1'
+else:
+    config.environment['LLD_IN_TEST'] = '2'
+    # Many ELF tests fail in this mode.
+    config.excludes.append('ELF')
+    # Some old Mach-O backend tests fail, and it's due for removal anyway.
+    config.excludes.append('mach-o')
+    # Some new Mach-O backend tests fail; give them a way to mark themselves
+    # unsupported in this mode.
+    config.available_features.add('main-run-twice')
+
 # INTEL_CUSTOMIZATION
 config.environment['INTEL_LLD_IN_TEST'] = '1'
 # end INTEL_CUSTOMIZATION

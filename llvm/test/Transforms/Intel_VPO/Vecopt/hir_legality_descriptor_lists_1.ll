@@ -44,37 +44,59 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -disable-vplan-codegen -vplan-print-legality -disable-output < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
-; Check contents of the lists from debug log
-
-; CHECK-LABEL: HIRLegality Descriptor Lists
-; CHECK: HIRLegality PrivatesList:
-
-; CHECK: HIRLegality LinearList:
-; CHECK: Ref: &((%ptr.addr)[0])
-; CHECK: AliasRef: [[PTR_ALIAS:%.*]]
-; CHECK-NEXT: InitValue: [[PTR_ALIAS]]
-
-; CHECK: Ref: &((%c)[0])
-; CHECK: AliasRef: [[C_ALIAS_1:%.*]]
-; CHECK: AliasRef: [[C_ALIAS_2:%.*]]
-; CHECK-NEXT: InitValue: [[C_ALIAS_2]]
-; CHECK-NEXT: UpdateInstruction: {{.*}} [[C_ALIAS_2]] = {{.*}}
-
-; CHECK: HIRLegality ReductionList:
-; CHECK: Ref: &((%s)[0])
-; CHECK-NEXT: InitValue: %s
-; CHECK-NEXT: UpdateInstruction: {{.*}} (%s)[0] = {{.*}}
-; CHECK: AliasRef: [[S_ALIAS_1:%.*]]
-; CHECK: AliasRef: [[S_ALIAS_2:%.*]]
-; CHECK-NEXT: InitValue: [[S_ALIAS_2]]
-; CHECK-NEXT: UpdateInstruction: {{.*}} [[S_ALIAS_2]] = (sext.i8.i32([[C_ALIAS_2]]) * [[TMP_1:%.*]])  +  [[S_ALIAS_2]];
-
-
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @_Z3fooPiii(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
+; Check contents of the lists from debug log
+
+; CHECK-LABEL:  HIRLegality Descriptor Lists
+; CHECK:       HIRLegality PrivatesList:
+; CHECK:       HIRLegality PrivatesNonPODList:
+; CHECK:       HIRLegality LinearList:
+; CHECK-NEXT:  Ref: &(([[PTR_ADDR0:%.*]])[0])
+; CHECK-NEXT:    UpdateInstructions:
+; CHECK-NEXT:    none
+; CHECK-EMPTY:
+; CHECK-NEXT:    AliasRef: [[PTR_ADDR_PROMOTED0:%.*]]
+; CHECK-NEXT:    UpdateInstructions:
+; CHECK-NEXT:    none
+; CHECK-NEXT:      InitValue: [[PTR_ADDR_PROMOTED0]]
+;
+; CHECK:       Ref: &(([[C0:%.*]])[0])
+; CHECK-NEXT:    UpdateInstructions:
+; CHECK-NEXT:    none
+; CHECK-EMPTY:
+; CHECK-NEXT:    AliasRef: [[C_PROMOTED0:%.*]]
+; CHECK-NEXT:    UpdateInstructions:
+; CHECK-NEXT:    none
+; CHECK-EMPTY:
+; CHECK-NEXT:    AliasRef: [[INC170:%.*]]
+; CHECK-NEXT:    UpdateInstructions:
+; CHECK-NEXT:    <31>         [[INC170]] = i1 + [[C_PROMOTED0]] + 1
+; CHECK-NEXT:      InitValue: [[INC170]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    AliasRef: [[INC0:%.*]]
+; CHECK-NEXT:    UpdateInstructions:
+; CHECK-NEXT:    none
+;
+; CHECK:       HIRLegality ReductionList:
+; CHECK-NEXT:  Ref: &(([[S0:%.*]])[0])
+; CHECK-NEXT:    UpdateInstructions:
+; CHECK-NEXT:             ([[S0]])[0] = [[TMP5:%.*]];
+; CHECK-EMPTY:
+; CHECK-NEXT:    AliasRef: [[DOTPRE0:%.*]]
+; CHECK-NEXT:    UpdateInstructions:
+; CHECK-NEXT:    none
+; CHECK-EMPTY:
+; CHECK-NEXT:    AliasRef: [[TMP5]]
+; CHECK-NEXT:    UpdateInstructions:
+; CHECK-NEXT:             [[TMP5]] = (sext.i8.i32([[INC170]]) * [[TMP6:%.*]])  +  [[TMP5]]
+; CHECK-NEXT:      InitValue: [[TMP5]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    InitValue: [[S0]]
+;
 entry:
   %ptr.addr = alloca i32*, align 8
   %s = alloca i32, align 4

@@ -28,7 +28,7 @@
 # RUN: lib /LTCG /OUT:test_lib_6.lib bar_test_6.obj baz_test_6.obj
 
 # Link
-# RUN: lld-link /OUT:msgl_test_6 /subsystem:console driver_test_6.obj foo_test_6.obj test_lib_6.lib > %t_out 2>&1
+# RUN: lld-link /OUT:msgl_test_6 /subsystem:console /opt:noltonewpassmanager driver_test_6.obj foo_test_6.obj test_lib_6.lib > %t_out 2>&1
 # RUN: cat %t_out | FileCheck %s -allow-empty
 
 # Check that MS-LINK is not called
@@ -43,3 +43,23 @@ CHECK-NOT: Finished generating code
 CHECKRUN6: FOO: 1
 CHECKRUN6-NOT: BAR: 2
 CHECKRUN6-NOT: BAZ: 3
+
+
+# Check for new pass manager
+
+# Link
+# RUN: lld-link /OUT:msgl_test_6 /subsystem:console /opt:ltonewpassmanager driver_test_6.obj foo_test_6.obj test_lib_6.lib > %t_npm_out 2>&1
+# RUN: cat %t_npm_out | FileCheck -check-prefix=CHECK-NPM %s -allow-empty
+
+# Check that MS-LINK is not called
+CHECK-NPM-NOT: MS /GL object found in the command line
+CHECK-NPM-NOT: Finalizing linking process with MS-LINK
+CHECK-NPM-NOT: Generating code
+CHECK-NPM-NOT: Finished generating code
+
+# Check that the executable runs correctly
+# RUN: ./msgl_test_6 > %t_npm_out 2>&1
+# RUN: cat %t_npm_out | FileCheck -check-prefix=CHECKRUN6-NPM %s
+CHECKRUN6-NPM: FOO: 1
+CHECKRUN6-NPM-NOT: BAR: 2
+CHECKRUN6-NPM-NOT: BAZ: 3

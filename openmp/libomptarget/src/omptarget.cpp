@@ -80,6 +80,9 @@ static int InitLibrary(DeviceTy &Device) {
   int rc = OFFLOAD_SUCCESS;
   bool supportsEmptyImages = Device.RTL->supports_empty_images &&
                              Device.RTL->supports_empty_images() > 0;
+#if INTEL_COLLAB
+  uint64_t FnPtrsCount = 0;
+#endif // INTEL_COLLAB
 
   Device.PendingGlobalsMtx.lock();
   PM->TrlTblMtx.lock();
@@ -141,7 +144,12 @@ static int InitLibrary(DeviceTy &Device) {
                              *EntryDeviceEnd = TargetTable->EntriesEnd;
          CurrDeviceEntry != EntryDeviceEnd;
          CurrDeviceEntry++, CurrHostEntry++) {
+#if INTEL_COLLAB
+      if (CurrDeviceEntry->size != 0 ||
+          (CurrDeviceEntry->flags & OMP_DECLARE_TARGET_FPTR)) {
+#else // INTEL_COLLAB
       if (CurrDeviceEntry->size != 0) {
+#endif // INTEL_COLLAB
         // has data.
         assert(CurrDeviceEntry->size == CurrHostEntry->size &&
                "data size mismatch");
@@ -164,8 +172,23 @@ static int InitLibrary(DeviceTy &Device) {
             false /*UseHoldRefCount*/, nullptr /*Name*/,
             true /*IsRefCountINF*/);
       }
+#if INTEL_COLLAB
+      if (CurrDeviceEntry->flags & OMP_DECLARE_TARGET_FPTR) {
+        if (CurrDeviceEntry->size != 0) {
+          REPORT("Function pointer " DPxMOD " with non-zero size %zu.\n",
+                 DPxPTR(CurrHostEntry->addr), CurrDeviceEntry->size);
+          rc = OFFLOAD_FAIL;
+          break;
+        }
+        ++FnPtrsCount;
+      }
+#endif // INTEL_COLLAB
     }
     Device.DataMapMtx.unlock();
+#if INTEL_COLLAB
+    if (rc != OFFLOAD_SUCCESS)
+      break;
+#endif // INTEL_COLLAB
   }
   PM->TrlTblMtx.unlock();
 
@@ -174,6 +197,34 @@ static int InitLibrary(DeviceTy &Device) {
     return rc;
   }
 
+#if INTEL_COLLAB
+  if (FnPtrsCount != 0) {
+    Device.FnPtrMapMtx.lock();
+    Device.FnPtrs.reserve(FnPtrsCount);
+
+    Device.DataMapMtx.lock();
+    // Note that the entries in HostDataToTargetMap are sorted by
+    // HstPtrBegin, so they will be sorted in FnPtrs as well.
+    for (auto &Entry : Device.HostDataToTargetMap)
+      if (Entry.HstPtrBegin == Entry.HstPtrEnd)
+        Device.FnPtrs.push_back({Entry.HstPtrBegin, Entry.TgtPtrBegin});
+    if (Device.FnPtrs.size() != FnPtrsCount) {
+      REPORT("Expected %zu function pointers, found %zu.\n",
+             FnPtrsCount, Device.FnPtrs.size());
+      rc = OFFLOAD_FAIL;
+    }
+    Device.DataMapMtx.unlock();
+    Device.FnPtrMapMtx.unlock();
+
+    if (rc == OFFLOAD_SUCCESS)
+      rc = Device.set_function_ptr_map();
+
+    if (rc != OFFLOAD_SUCCESS) {
+      Device.PendingGlobalsMtx.unlock();
+      return rc;
+    }
+  }
+#endif // INTEL_COLLAB
   /*
    * Run ctors for static objects
    */
@@ -1650,6 +1701,15 @@ int target(ident_t *loc, DeviceTy &Device, void *HostPtr, int32_t ArgNum,
   }
   assert(TargetTable && "Global data has not been mapped\n");
 
+  // We need to keep bases and offsets separate. Sometimes (e.g. in OpenCL) we
+  // need to manifest base pointers prior to launching a kernel. Even if we have
+  // mapped an object only partially, e.g. A[N:M], although the kernel is
+  // expected to access elements starting at address &A[N] and beyond, we still
+  // need to manifest the base of the array &A[0]. In other cases, e.g. the COI
+  // API, we need the begin address itself, i.e. &A[N], as the API operates on
+  // begin addresses, not bases. That's why we pass args and offsets as two
+  // separate entities so that each plugin can do what it needs. This behavior
+  // was introdued via https://reviews.llvm.org/D33028 and commit 1546d319244c.
   std::vector<void *> TgtArgs;
   std::vector<ptrdiff_t> TgtOffsets;
 
@@ -1686,9 +1746,6 @@ int target(ident_t *loc, DeviceTy &Device, void *HostPtr, int32_t ArgNum,
     }
   }
 
-  // Get loop trip count
-  uint64_t LoopTripCount = getLoopTripCount(DeviceId);
-
   // Launch device execution.
 #if INTEL_COLLAB
 #else // INTEL_COLLAB
@@ -1719,7 +1776,8 @@ int target(ident_t *loc, DeviceTy &Device, void *HostPtr, int32_t ArgNum,
                                     TgtNDLoopDesc);
   else if (IsTeamConstruct)
     Ret = Device.runTeamRegion(TgtEntryPtr, argsPtr, offsetsPtr, TgtArgs.size(),
-                               TeamNum, ThreadLimit, LoopTripCount, AsyncInfo);
+                               TeamNum, ThreadLimit, getLoopTripCount(DeviceId),
+                               AsyncInfo);
   else
     Ret = Device.runRegion(TgtEntryPtr, argsPtr, offsetsPtr, TgtArgs.size(),
                            AsyncInfo);
@@ -1730,7 +1788,7 @@ int target(ident_t *loc, DeviceTy &Device, void *HostPtr, int32_t ArgNum,
     if (IsTeamConstruct)
       Ret = Device.runTeamRegion(TgtEntryPtr, &TgtArgs[0], &TgtOffsets[0],
                                  TgtArgs.size(), TeamNum, ThreadLimit,
-                                 LoopTripCount, AsyncInfo);
+                                 getLoopTripCount(DeviceId), AsyncInfo);
     else
       Ret = Device.runRegion(TgtEntryPtr, &TgtArgs[0], &TgtOffsets[0],
                              TgtArgs.size(), AsyncInfo);

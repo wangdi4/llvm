@@ -32,18 +32,16 @@
 %struct.ClassA = type { i32 }
 
 ; Function Attrs: nounwind uwtable mustprogress
-define dso_local void @_Z4funcPiS_i(i32* nocapture %dst, i32* nocapture readonly %src, i32 %n) local_unnamed_addr #2 {
+define dso_local void @_Z4funcPiS_i(i32* nocapture %dst, i32* nocapture readonly %src, i32 %n) local_unnamed_addr  {
 ; CHECK-LABEL: @_Z4funcPiS_i(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[VALUE_PRIV:%.*]] = alloca [[STRUCT_CLASSA:%.*]], align 4
 ; CHECK-NEXT:    [[VALUE_PRIV_CONSTR:%.*]] = call %struct.ClassA* @_ZTS6ClassA.omp.def_constr(%struct.ClassA* [[VALUE_PRIV]])
-; CHECK-NEXT:    [[CMP3_NOT20:%.*]] = icmp slt i32 [[N:%.*]], 1
 ; CHECK-NEXT:    [[VALUE_PRIV_VEC:%.*]] = alloca [2 x %struct.ClassA], align 8
 ; CHECK-NEXT:    [[VALUE_PRIV_VEC_BC:%.*]] = bitcast [2 x %struct.ClassA]* [[VALUE_PRIV_VEC]] to %struct.ClassA*
 ; CHECK-NEXT:    [[VALUE_PRIV_VEC_BASE_ADDR:%.*]] = getelementptr [[STRUCT_CLASSA]], %struct.ClassA* [[VALUE_PRIV_VEC_BC]], <2 x i32> <i32 0, i32 1>
 ; CHECK-NEXT:    [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_1_:%.*]] = extractelement <2 x %struct.ClassA*> [[VALUE_PRIV_VEC_BASE_ADDR]], i32 1
 ; CHECK-NEXT:    [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_0_:%.*]] = extractelement <2 x %struct.ClassA*> [[VALUE_PRIV_VEC_BASE_ADDR]], i32 0
-; CHECK-NEXT:    br i1 [[CMP3_NOT20]], label [[OMP_PRECOND_END:%.*]], label [[DIR_OMP_SIMD_1:%.*]]
 ; CHECK:       VPlannedBB2:
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds [[STRUCT_CLASSA]], %struct.ClassA* [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_0_]], i64 0, i32 0
 ; CHECK-NEXT:    [[TMP2:%.*]] = call %struct.ClassA* @_ZTS6ClassA.omp.def_constr(%struct.ClassA* [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_0_]])
@@ -61,8 +59,7 @@ define dso_local void @_Z4funcPiS_i(i32* nocapture %dst, i32* nocapture readonly
 entry:
   %value.priv = alloca %struct.ClassA, align 4
   %value.priv.constr = call %struct.ClassA* @_ZTS6ClassA.omp.def_constr(%struct.ClassA* %value.priv)
-  %cmp3.not20 = icmp slt i32 %n, 1
-  br i1 %cmp3.not20, label %omp.precond.end, label %DIR.OMP.SIMD.1
+  br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD"(%struct.ClassA* %value.priv, %struct.ClassA* (%struct.ClassA*)* @_ZTS6ClassA.omp.def_constr, void (%struct.ClassA*)* @_ZTS6ClassA.omp.destr) ]
@@ -76,7 +73,7 @@ DIR.OMP.SIMD.128:                                 ; preds = %DIR.OMP.SIMD.1
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.128, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.128 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %iv.trunc = trunc i64 %indvars.iv to i32
-  call void @_ZN6ClassA3incEi(%struct.ClassA* nonnull dereferenceable(4) %value.priv, i32 %iv.trunc) #4
+  call void @_ZN6ClassA3incEi(%struct.ClassA* nonnull dereferenceable(4) %value.priv, i32 %iv.trunc)
   %ptridx = getelementptr inbounds i32, i32* %src, i64 %indvars.iv
   %src.ld = load i32, i32* %ptridx, align 4
   %m_value.ld = load i32, i32* %m_value, align 4
@@ -98,23 +95,11 @@ DIR.OMP.END.SIMD.2:                               ; preds = %DIR.OMP.END.SIMD.22
 
 DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
   call void @_ZTS6ClassA.omp.destr(%struct.ClassA* nonnull %value.priv)
-  br label %omp.precond.end
-
-omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.3, %entry
   ret void
 }
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #4
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #4
-
-; Function Attrs: nofree norecurse nounwind uwtable willreturn
-declare %struct.ClassA* @_ZTS6ClassA.omp.def_constr(%struct.ClassA* nonnull returned %0) #5
-
-; Function Attrs: nofree norecurse nounwind uwtable willreturn
-declare void @_ZTS6ClassA.omp.destr(%struct.ClassA* nocapture readnone %0) #5
-
-; Function Attrs: nofree noinline norecurse nounwind uwtable willreturn mustprogress
-declare void @_ZN6ClassA3incEi(%struct.ClassA* nocapture nonnull dereferenceable(4) %this, i32 %a) #1
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
+declare %struct.ClassA* @_ZTS6ClassA.omp.def_constr(%struct.ClassA* nonnull returned %0)
+declare void @_ZTS6ClassA.omp.destr(%struct.ClassA* nocapture readnone %0)
+declare void @_ZN6ClassA3incEi(%struct.ClassA* nocapture nonnull dereferenceable(4) %this, i32 %a)

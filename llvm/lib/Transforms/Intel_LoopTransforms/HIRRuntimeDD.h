@@ -22,6 +22,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
@@ -162,6 +163,7 @@ class HIRRuntimeDD {
   HIRLoopStatistics &HLS;
   TargetLibraryInfo &TLI;
   TargetTransformInfo &TTI;
+  HIRSafeReductionAnalysis &SRA;
 
   bool EnableLibraryCallMethod = true;
 
@@ -171,8 +173,9 @@ public:
   static char ID;
 
   HIRRuntimeDD(HIRFramework &HIRF, HIRDDAnalysis &DDA, HIRLoopStatistics &HLS,
-               TargetLibraryInfo &TLI, TargetTransformInfo &TTI)
-      : HIRF(HIRF), DDA(DDA), HLS(HLS), TLI(TLI), TTI(TTI) {}
+               TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
+               HIRSafeReductionAnalysis &SRA)
+      : HIRF(HIRF), DDA(DDA), HLS(HLS), TLI(TLI), TTI(TTI), SRA(SRA) {}
 
   bool run();
 
@@ -185,6 +188,9 @@ private:
 
   // Returns true if \p Loop is considered as profitable for multiversioning.
   bool isProfitable(const HLLoop *Loop);
+
+  // Returns false if multiversioning the loop will not enable vectorization.
+  bool canHelpVectorization(const HLLoop *InnermostLoop) const;
 
   RuntimeDDResult processDDGToGroupPairs(
       const HLLoop *Loop, MemRefGatherer::VectorTy &Refs,

@@ -5,7 +5,7 @@
 ; to the parent loop region.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vec-dir-insert -hir-details < %s 2>&1 -disable-output | FileCheck %s --check-prefix=INPUT
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-hir-cond-last-priv-cg=false -vplan-force-vf=4 -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -hir-details < %s 2>&1 -disable-output | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -hir-details < %s 2>&1 -disable-output | FileCheck %s
 
 ; Checks for incoming HIR
 ; INPUT-LABEL: BEGIN REGION { }
@@ -58,6 +58,7 @@ define dso_local i32 @main() local_unnamed_addr {
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     i64 [[UB_INC:%.*]] = add i64 [[VP1]] i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
@@ -86,7 +87,7 @@ define dso_local i32 @main() local_unnamed_addr {
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB5]]
 ; CHECK-NEXT:     i32 [[VP5]] = phi  [ i32 [[VP4]], [[BB4]] ],  [ i32 [[VP10]], [[BB5]] ]
 ; CHECK-NEXT:     i64 [[VP7]] = add i64 [[VP6]] i64 1
-; CHECK-NEXT:     i1 [[VP14:%.*]] = icmp sle i64 [[VP7]] i64 [[VP1]]
+; CHECK-NEXT:     i1 [[VP14:%.*]] = icmp slt i64 [[VP7]] i64 [[UB_INC]]
 ; CHECK-NEXT:     br i1 [[VP14]], [[BB2]], [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB3]]
@@ -122,12 +123,24 @@ define dso_local i32 @main() local_unnamed_addr {
 ; CHECK:              |      |   %phi.temp2 = %select;
 ; CHECK:              |      + END LOOP
 ; CHECK:              |
+; CHECK:              |      %.vec11 = %select != -1;
+; CHECK:              |      %2 = bitcast.<4 x i1>.i4(%.vec11);
+; CHECK:              |      %cmp12 = %2 == 0;
+; CHECK:              |      %all.zero.check = %cmp12;
+; CHECK:              |      %phi.temp13 = %nz.061;
+; CHECK:              |      %unifcond = extractelement %all.zero.check,  0;
+; CHECK:              |      if (%unifcond == 1)
+; CHECK:              |      {
+; CHECK:              |         goto BB10.74;
+; CHECK:              |      }
 ; CHECK:              |      %priv.idx.max = @llvm.vector.reduce.smax.v4i64(%select);
 ; CHECK:              |      %priv.idx.cmp = %select == %priv.idx.max;
 ; CHECK:              |      %bsfintmask = bitcast.<4 x i1>.i4(%priv.idx.cmp);
 ; CHECK:              |      %bsf = @llvm.cttz.i4(%bsfintmask,  1);
 ; CHECK:              |      %nz.061 = extractelement %select8,  %bsf;
 ; CHECK:              |      <LVAL-REG> NON-LINEAR i32 %nz.061 {sb:3}
+; CHECK:              |      %phi.temp13 = %nz.061;
+; CHECK:              |      BB10.74:
 ; CHECK:              |   }
 ;
 entry:

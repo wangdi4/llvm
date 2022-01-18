@@ -755,7 +755,7 @@ bool WholeProgramInfo::isValidAlias(const GlobalAlias *GA,
   if (AliasesFound.count(GA))
     return true;
 
-  const Value *BaseObject = cast<const GlobalValue>(GA->getBaseObject());
+  const Value *BaseObject = cast<const GlobalValue>(GA->getAliaseeObject());
 
   // Collect what GA is aliasing
   SetVector<const Value*> Aliasees;

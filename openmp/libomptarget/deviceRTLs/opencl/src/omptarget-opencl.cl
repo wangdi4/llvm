@@ -41,4 +41,42 @@ kmp_local_state_t __omp_spirv_local_data[KMP_MAX_NUM_GROUPS];
 
 kmp_thread_state_t __omp_spirv_thread_data[KMP_MAX_NUM_GROUPS];
 
+// Host to target pointer map for user functions that may be called indirectly.
+__attribute__((weak)) __global __omp_offloading_fptr_map_t *
+    __omp_offloading_fptr_map_p = 0;
+// Number of entries in __omp_offloading_fptr_map_p map.
+__attribute__((weak)) ulong __omp_offloading_fptr_map_size = 0;
+
+EXTERN void *__kmpc_target_translate_fptr(void *fn_ptr) {
+  ulong size = __omp_offloading_fptr_map_size;
+  if (size == 0 || !__omp_offloading_fptr_map_p)
+    return fn_ptr;
+
+  // Do a binary search of fn_ptr in __omp_offloading_fptr_map_p
+  // comparing it to the host_ptr keys.
+  ulong fn_addr = (long)fn_ptr;
+  ulong left = 0;
+  ulong right = size - 1;
+
+  // Do a quick check for fn_addr being outside of the host code region.
+  // This should speed-up lookups for cases when the function pointer
+  // already holds a device address.
+  if (fn_addr < __omp_offloading_fptr_map_p[left].host_ptr ||
+      fn_addr > __omp_offloading_fptr_map_p[right].host_ptr)
+    return fn_ptr;
+
+  while (left < right) {
+    ulong middle = (left + right) / 2;
+    if (__omp_offloading_fptr_map_p[middle].host_ptr < fn_addr)
+      left = middle + 1;
+    else
+      right = middle;
+  }
+
+  if (__omp_offloading_fptr_map_p[left].host_ptr == fn_addr)
+    return (void *)__omp_offloading_fptr_map_p[left].tgt_ptr;
+
+  return fn_ptr;
+}
+
 #endif // INTEL_COLLAB

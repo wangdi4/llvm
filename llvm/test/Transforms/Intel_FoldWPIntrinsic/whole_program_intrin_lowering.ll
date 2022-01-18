@@ -1,3 +1,5 @@
+; REQUIRES: intel_feature_sw_dtrans
+
 ; Tests if the intrinsic llvm.intel.wholeprogramsafe was lowered correctly
 ; into false since the whole program analysis didn't run. Also, the intrinsic
 ; llvm.intel.wholeprogramsafe should be removed.

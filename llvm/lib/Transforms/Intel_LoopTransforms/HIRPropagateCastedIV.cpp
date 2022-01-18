@@ -96,7 +96,7 @@ void CollectMemRefs::visit(HLDDNode *Node) {
     }
 
     if (!Ref->isMemRef() || Ref->isFake() ||
-        Ref->getBitCastDestType() != nullptr) {
+        Ref->getBitCastDestVecOrElemType() != nullptr) {
       CanDeleteCandidateInst = false;
       continue;
     }

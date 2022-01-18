@@ -1,11 +1,9 @@
 ; RUN: opt < %s -analyze -hir-scc-formation | FileCheck %s
 
-; Check formation of SCC %v_gp.020 and %xor. We should not consider the alternate cycle involving %cond8 as a SCC.
-; CHECK: Region 1
-; CHECK-NEXT: SCC1
-; CHECK-DAG: v_gp.020
-; CHECK-DAG: %xor
-; CHECK-NOT: %cond8
+; Check that we don't from any SCC for %v_gp.020 due to live range overlap.
+; The SCC nodes %v_gp.020 and %cond8 are both live together at %xor.
+
+; CHECK-NOT: SCC1
 
 ; Function Attrs: uwtable
 define i32 @main() {

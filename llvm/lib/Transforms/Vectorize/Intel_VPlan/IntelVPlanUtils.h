@@ -64,17 +64,15 @@ inline size_t getVecBits(Instruction *LI, const DataLayout &DL,
 /// \returns the scalar bit-size of \p LI .
 inline size_t getScalarBits(Instruction *LI, const DataLayout &DL) {
   auto InstTy = getLoadStoreType(LI);
-  auto InstVecTy = dyn_cast<VectorType>(InstTy);
-  Type *ScalarTy = InstVecTy ? InstVecTy->getElementType() : InstTy;
-
-  size_t Bits = DL.getTypeSizeInBits(ScalarTy);
+  size_t Bits = DL.getTypeSizeInBits(InstTy->getScalarType());
   return Bits;
 }
 
 /// \returns the number of vector elements of \p Ty. It returns 1 if \Ty is
 /// scalar.
 inline size_t getNumElementsSafe(Type *Ty) {
-  return (isa<VectorType>(Ty) ? cast<VectorType>(Ty)->getNumElements() : 1);
+  return (isa<FixedVectorType>(Ty) ?
+            cast<FixedVectorType>(Ty)->getNumElements() : 1);
 }
 
 /// \returns the memory location that is being access by the instruction.
@@ -276,6 +274,38 @@ inline bool getStrideUsingHIR(const loopopt::RegDDRef *MemRef,
          "Outerloop vectorization is not supported.");
 
   return MemRef->getConstStrideAtLevel(HLoop->getNestingLevel(), &Stride);
+}
+
+// This function adds new SzAddMD metadata string to the loop. We use it to set
+// llvm.loop.vectorize.enable and llvm.loop.isvectorized metadata attributes:
+//   llvm.loop.vectorize.enable - is added by the front-end (called without
+//   -fiopenmp option) or VPlan Vectorizer if pragma simd is specified on
+//   the loop.
+//   llvm.loop.isvectorized - is added by vectorizer for vectorized loops.
+inline void setLoopMD(const Loop *const Lp, const char *const SzAddMD) {
+  if (!Lp)
+    return;
+  LLVMContext &Context = Lp->getHeader()->getContext();
+  MDNode *AddMD = MDNode::get(
+      Context,
+      {MDString::get(Context, SzAddMD),
+       ConstantAsMetadata::get(ConstantInt::get(Context, APInt(32, 1)))});
+  MDNode *LoopID = Lp->getLoopID();
+  MDNode *NewLoopID =
+      makePostTransformationMetadata(Context, LoopID, {SzAddMD}, {AddMD});
+  Lp->setLoopID(NewLoopID);
+}
+
+// Same functionality as above method - specialized for HIR loops.
+inline void setHLLoopMD(loopopt::HLLoop *Lp, const char *SzAddMD) {
+  if (!Lp)
+    return;
+  LLVMContext &Context = Lp->getHLNodeUtils().getContext();
+  MDNode *AddMD = MDNode::get(
+      Context,
+      {MDString::get(Context, SzAddMD),
+       ConstantAsMetadata::get(ConstantInt::get(Context, APInt(32, 1)))});
+  Lp->addLoopMetadata({AddMD});
 }
 #endif // INTEL_CUSTOMIZATION
 

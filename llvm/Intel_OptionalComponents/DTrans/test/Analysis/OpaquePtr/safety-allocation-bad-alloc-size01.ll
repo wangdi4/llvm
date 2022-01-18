@@ -16,6 +16,7 @@ define void @test01() {
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Bad alloc size{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; This structure will be allocated with a variable size argument that cannot
@@ -33,6 +34,7 @@ define void @test02(i64 %num1, i64 %num2, %struct.test02** "intel_dtrans_func_in
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Bad alloc size{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 ; This structure will be allocated with a variable size argument that we don't
@@ -49,6 +51,7 @@ define void @test03(i64 %size) {
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: Bad alloc size | Global pointer{{ *$}}
+; CHECK: End LLVMType: %struct.test03
 
 
 ; Here we make sure that 'sext' instruction handling isn't masking a bad size.
@@ -66,6 +69,7 @@ define void @test04(i32 %num1, i64 %num2) {
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test04
 ; CHECK: Safety data: Bad alloc size | Global pointer{{ *$}}
+; CHECK: End LLVMType: %struct.test04
 
 
 ; Here we make sure that we don't fail on zero size arrays.
@@ -79,6 +83,7 @@ define void @test05() {
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test05
 ; CHECK: Safety data: Bad alloc size{{ *$}}
+; CHECK: End LLVMType: %struct.test05
 
 
 declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" i8* @malloc(i64)

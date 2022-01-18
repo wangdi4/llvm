@@ -1,4 +1,4 @@
-//RUN: %clang_cc1 -Wpragmas -fhls -fsyntax-only -fopenmp -fintel-compatibility -fintel-openmp-region -ast-dump -verify -pedantic %s | FileCheck %s
+//RUN: %clang_cc1 -Wpragmas -fhls -fsyntax-only -fopenmp -fintel-compatibility -fopenmp-late-outline -ast-dump -verify -pedantic %s | FileCheck %s
 //expected-no-diagnostics
 
 // Test that applicable loop pragmas work with pragma omp simd.

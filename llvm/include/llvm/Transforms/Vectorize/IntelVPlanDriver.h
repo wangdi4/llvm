@@ -29,6 +29,9 @@ class VPlanOptReportBuilder;
 class VPAnalysesFactoryBase;
 class LoopVectorizationPlanner;
 class WRNVecLoopNode;
+class VPLoop;
+class VPLoopInfo;
+class CfgMergerPlanDescr;
 
 class VPlanDriverImpl {
 private:
@@ -114,6 +117,23 @@ protected:
   void addOptReportRemarks(WRNVecLoopNode *WRLp,
                            VPlanOptReportBuilder &VPORBuilder,
                            VPOCodeGenType *VCodeGen);
+
+  // Utility to add remarks related to VPlan containing the main vectorized
+  // loop.
+  void addOptReportRemarksForMainPlan(WRNVecLoopNode *WRLp,
+                                      const CfgMergerPlanDescr &MainPlanDescr);
+
+  // Utility to add remarks related to VPlan containing vectorized remainder
+  // loop.
+  void addOptReportRemarksForVecRemainder(const CfgMergerPlanDescr &PlanDescr);
+
+  // Utility to add remarks related to VPlan containing vectorized peel loop.
+  void addOptReportRemarksForVecPeel(const CfgMergerPlanDescr &PlanDescr);
+
+  // Add the statistics related remarks collected from CG into given MainVPLoop.
+  template <typename VPOCodeGenType>
+  void addStatsFromCG(VPLoop *MainVPLoop, VPLoopInfo *VPLI,
+                      VPOCodeGenType *VCodeGen);
 
   // Helper utility to populate all needed analyses in VPlans using the provided
   // factory object.

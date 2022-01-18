@@ -1,5 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -whole-program-assume -dtransanalysis -dtrans-print-types -debug-only=dtrans-bca -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -debug-only=dtrans-bca -disable-output 2>&1 | FileCheck %s
 
 ; This test case tests the bad cast analyzer on a case which does not have the
 ; candidate field as the first field of the potential candidate root type

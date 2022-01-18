@@ -85,6 +85,7 @@ class ArrayUseInfo final {
   Value *Source;
   const SCEV *Size;
   std::unique_ptr<RangeDataflow> DataflowResults;
+  bool CheckIndirectUses;
 
   friend class ArrayUse;
 
@@ -92,7 +93,7 @@ class ArrayUseInfo final {
     const ArrayUse &AU);
 
 public:
-  ArrayUseInfo(Value *Source, const SCEV *Size);
+  ArrayUseInfo(Value *Source, const SCEV *Size, bool CheckIndirectUses);
   ~ArrayUseInfo();
   static std::unique_ptr<ArrayUseInfo> make(Value *Source, ScalarEvolution &SE);
 

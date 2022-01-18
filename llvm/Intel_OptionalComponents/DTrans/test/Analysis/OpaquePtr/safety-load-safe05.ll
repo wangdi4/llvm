@@ -25,5 +25,6 @@ define internal void @test01() {
 !2 = !{!"S", %struct.test01 zeroinitializer, i32 3, !1, !1, !1} ; { i64, i64, i64 }
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Local instance{{ *}}
+; CHECK: End LLVMType: %struct.test01

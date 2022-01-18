@@ -1,4 +1,5 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-runtime-dd -print-before=hir-runtime-dd -print-after=hir-runtime-dd 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-before=hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-runtime-dd,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that the test is successfully compiled. Originally, there was an
 ; overflow during lcm computation when runtime dd invoked addition of
@@ -6,10 +7,10 @@
 ; being set as the denominator.
 
 
-; CHECK: Dump Before HIR RuntimeDD
+; CHECK: BEGIN REGION
 ; CHECK: %9 = (@_Z21ut_crc32_slice8_table)[0][0][(%1)/u72057594037927936];
 
-; CHECK: Dump After HIR RuntimeDD
+; CHECK: BEGIN REGION
 ; CHECK: %9 = (@_Z21ut_crc32_slice8_table)[0][0][(%1)/u72057594037927936];
 
 

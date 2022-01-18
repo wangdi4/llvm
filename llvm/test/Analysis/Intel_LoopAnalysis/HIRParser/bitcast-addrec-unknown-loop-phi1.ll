@@ -1,5 +1,5 @@
-; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-framework -hir-framework-debug=parser 2>&1 | FileCheck %s 
-; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" -hir-framework-debug=parser 2>&1 | FileCheck %s 
+; RUN: opt < %s -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" -hir-framework-debug=parser 2>&1 | FileCheck %s
 
 ; Verify that unconventional bitcast access of %phi.ptr (which has AddRec form)
 ; is considered non-linear by SSA deconstruction and a liveout copy

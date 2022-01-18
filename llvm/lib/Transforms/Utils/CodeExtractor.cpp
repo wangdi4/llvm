@@ -1114,7 +1114,7 @@ void CodeExtractor::constructDebugParameters(
       Instruction *IB;
       if (Instruction *I = dyn_cast_or_null<Instruction>(NS))
         IB = I->getNextNode();
-      else if (Argument *A = dyn_cast_or_null<Argument>(NS))
+      else if (NS && isa<Argument>(NS))
         IB = NF->begin()->getTerminator();
       else
         IB = nullptr;
@@ -1456,9 +1456,8 @@ static void eraseLifetimeMarkersOnInputs(const SetVector<BasicBlock *> &Blocks,
                                          const SetVector<Value *> &SunkAllocas,
                                          SetVector<Value *> &LifetimesStart) {
   for (BasicBlock *BB : Blocks) {
-    for (auto It = BB->begin(), End = BB->end(); It != End;) {
-      auto *II = dyn_cast<IntrinsicInst>(&*It);
-      ++It;
+    for (Instruction &I : llvm::make_early_inc_range(*BB)) {
+      auto *II = dyn_cast<IntrinsicInst>(&I);
       if (!II || !II->isLifetimeStartOrEnd())
         continue;
 
@@ -2191,11 +2190,8 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
   // Remove @llvm.assume calls that will be moved to the new function from the
   // old function's assumption cache.
   for (BasicBlock *Block : Blocks) {
-    for (auto It = Block->begin(), End = Block->end(); It != End;) {
-      Instruction *I = &*It;
-      ++It;
-
-      if (auto *AI = dyn_cast<AssumeInst>(I)) {
+    for (Instruction &I : llvm::make_early_inc_range(*Block)) {
+      if (auto *AI = dyn_cast<AssumeInst>(&I)) {
         if (AC)
           AC->unregisterAssumption(AI);
         AI->eraseFromParent();
@@ -2452,7 +2448,7 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
     doHoistAlloca(*newFunction, ChildDT);
 
     for (Value *V : NewAllocas) {
-      auto *AI = cast<Instruction>(V);
+      auto *AI = cast<AllocaInst>(V);
       llvm::vpo::VPOUtils::addPrivateToEnclosingRegion(
           AI, TheCall->getParent(), *DT, true /* SimdOnly */);
     }

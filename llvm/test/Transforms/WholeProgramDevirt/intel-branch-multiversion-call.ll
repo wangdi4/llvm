@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: intel_feature_sw_dtrans
+
 ; This test check that the multiversioning based on virtual function pointers
 ; was done correctly using CallInst. The test case is pretty simple, this is
 ; how it looks like in C++:
@@ -45,6 +48,7 @@
 ;   call b->foo
 
 ; RUN: opt < %s -wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -S 2>&1 | FileCheck %s
 
 %"class.std::ios_base::Init" = type { i8 }
 %class.Base = type { i32 (...)** }
@@ -181,7 +185,7 @@ attributes #6 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disab
 !4 = !{i64 16, !"_ZTS8Derived2"}
 !5 = !{i64 16, !"_ZTSM8Derived2FbiE.virtual"}
 !6 = !{i32 1, !"wchar_size", i32 4}
-!7 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang ff38d5989c66cc12167cbe397bfb5d6915c4838f)"}
+!7 = !{!"clang version 8.0.0"}
 !8 = !{!9, !9, i64 0}
 !9 = !{!"unspecified pointer", !10, i64 0}
 !10 = !{!"omnipotent char", !11, i64 0}
@@ -235,3 +239,5 @@ attributes #6 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disab
 ; Check that the metadata was added
 ; CHECK: define linkonce_odr hidden zeroext i1 @_ZN7Derived3fooEi(%class.Derived* %this, i32 %a) unnamed_addr #{{.*}} comdat align 2 !_Intel.Devirt.Target
 ; CHECK: define linkonce_odr hidden zeroext i1 @_ZN8Derived23fooEi(%class.Derived2* %this, i32 %a) unnamed_addr #{{.*}} comdat align 2 !_Intel.Devirt.Target
+
+; end INTEL_FEATURE_SW_DTRANS

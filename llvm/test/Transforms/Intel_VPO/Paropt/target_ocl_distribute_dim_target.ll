@@ -10,7 +10,7 @@
 ; }
 
 ; Check that the loop nest was parallelized as a whole (i.e. using ND-range):
-; CHECK: call spir_func i64 @_Z14get_num_groupsj(i32 1)
+; CHECK-NOT: call spir_func i64 @_Z14get_num_groupsj(i32 1)
 ; CHECK: call spir_func i64 @_Z12get_group_idj(i32 1)
 ; CHECK: call spir_func i64 @_Z14get_local_sizej(i32 0)
 ; CHECK: call spir_func i64 @_Z12get_local_idj(i32 0)

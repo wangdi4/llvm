@@ -143,7 +143,7 @@ bool AAResults::invalidate(Function &F, const PreservedAnalyses &PA,
 
 AliasResult AAResults::alias(const MemoryLocation &LocA,
                              const MemoryLocation &LocB) {
-  AAQueryInfo AAQIP;
+  SimpleAAQueryInfo AAQIP;
   return alias(LocA, LocB, AAQIP);
 }
 
@@ -198,7 +198,7 @@ bool AAResults::escapes(const Value *V) {
 
 AliasResult AAResults::loopCarriedAlias(const MemoryLocation &LocA,
                                         const MemoryLocation &LocB) {
-  AAQueryInfo AAQIP(/*NeedLoopCarried*/ true);
+  SimpleAAQueryInfo AAQIP(/*NeedLoopCarried*/ true);
   return loopCarriedAlias(LocA, LocB, AAQIP);
 }
 
@@ -217,7 +217,7 @@ AliasResult AAResults::loopCarriedAlias(const MemoryLocation &LocA,
 
 bool AAResults::pointsToConstantMemory(const MemoryLocation &Loc,
                                        bool OrLocal) {
-  AAQueryInfo AAQIP;
+  SimpleAAQueryInfo AAQIP;
   return pointsToConstantMemory(Loc, AAQIP, OrLocal);
 }
 
@@ -245,7 +245,7 @@ ModRefInfo AAResults::getArgModRefInfo(const CallBase *Call, unsigned ArgIdx) {
 }
 
 ModRefInfo AAResults::getModRefInfo(Instruction *I, const CallBase *Call2) {
-  AAQueryInfo AAQIP;
+  SimpleAAQueryInfo AAQIP;
   return getModRefInfo(I, Call2, AAQIP);
 }
 
@@ -255,25 +255,24 @@ ModRefInfo AAResults::getModRefInfo(Instruction *I, const CallBase *Call2,
   if (const auto *Call1 = dyn_cast<CallBase>(I)) {
     // Check if the two calls modify the same memory.
     return getModRefInfo(Call1, Call2, AAQI);
-  } else if (I->isFenceLike()) {
-    // If this is a fence, just return ModRef.
-    return ModRefInfo::ModRef;
-  } else {
-    // Otherwise, check if the call modifies or references the
-    // location this memory access defines.  The best we can say
-    // is that if the call references what this instruction
-    // defines, it must be clobbered by this location.
-    const MemoryLocation DefLoc = MemoryLocation::get(I);
-    ModRefInfo MR = getModRefInfo(Call2, DefLoc, AAQI);
-    if (isModOrRefSet(MR))
-      return setModAndRef(MR);
   }
+  // If this is a fence, just return ModRef.
+  if (I->isFenceLike())
+    return ModRefInfo::ModRef;
+  // Otherwise, check if the call modifies or references the
+  // location this memory access defines.  The best we can say
+  // is that if the call references what this instruction
+  // defines, it must be clobbered by this location.
+  const MemoryLocation DefLoc = MemoryLocation::get(I);
+  ModRefInfo MR = getModRefInfo(Call2, DefLoc, AAQI);
+  if (isModOrRefSet(MR))
+    return setModAndRef(MR);
   return ModRefInfo::NoModRef;
 }
 
 ModRefInfo AAResults::getModRefInfo(const CallBase *Call,
                                     const MemoryLocation &Loc) {
-  AAQueryInfo AAQIP;
+  SimpleAAQueryInfo AAQIP;
   return getModRefInfo(Call, Loc, AAQIP);
 }
 
@@ -322,11 +321,11 @@ ModRefInfo AAResults::getModRefInfo(const CallBase *Call,
     bool IsMustAlias = true;
     ModRefInfo AllArgsMask = ModRefInfo::NoModRef;
     if (doesAccessArgPointees(MRB)) {
-      for (auto AI = Call->arg_begin(), AE = Call->arg_end(); AI != AE; ++AI) {
-        const Value *Arg = *AI;
+      for (const auto &I : llvm::enumerate(Call->args())) {
+        const Value *Arg = I.value();
         if (!Arg->getType()->isPointerTy())
           continue;
-        unsigned ArgIdx = std::distance(Call->arg_begin(), AI);
+        unsigned ArgIdx = I.index();
         MemoryLocation ArgLoc =
             MemoryLocation::getForArgument(Call, ArgIdx, TLI);
         AliasResult ArgAlias = alias(ArgLoc, Loc, AAQI);
@@ -360,7 +359,7 @@ ModRefInfo AAResults::getModRefInfo(const CallBase *Call,
 
 ModRefInfo AAResults::getModRefInfo(const CallBase *Call1,
                                     const CallBase *Call2) {
-  AAQueryInfo AAQIP;
+  SimpleAAQueryInfo AAQIP;
   return getModRefInfo(Call1, Call2, AAQIP);
 }
 
@@ -561,7 +560,7 @@ static MemoryLocation getMemoryLocationWithSize(const T *Inst,
 
 ModRefInfo AAResults::getModRefInfo(const LoadInst *L,
                                     const MemoryLocation &Loc) {
-  AAQueryInfo AAQIP;
+  SimpleAAQueryInfo AAQIP;
   return getModRefInfo(L, Loc, AAQIP);
 }
 ModRefInfo AAResults::getModRefInfo(const LoadInst *L,
@@ -587,7 +586,7 @@ ModRefInfo AAResults::getModRefInfo(const LoadInst *L,
 
 ModRefInfo AAResults::getModRefInfo(const StoreInst *S,
                                     const MemoryLocation &Loc) {
-  AAQueryInfo AAQIP;
+  SimpleAAQueryInfo AAQIP;
   return getModRefInfo(S, Loc, AAQIP);
 }
 ModRefInfo AAResults::getModRefInfo(const StoreInst *S,
@@ -620,7 +619,7 @@ ModRefInfo AAResults::getModRefInfo(const StoreInst *S,
 }
 
 ModRefInfo AAResults::getModRefInfo(const FenceInst *S, const MemoryLocation &Loc) {
-  AAQueryInfo AAQIP;
+  SimpleAAQueryInfo AAQIP;
   return getModRefInfo(S, Loc, AAQIP);
 }
 
@@ -636,7 +635,7 @@ ModRefInfo AAResults::getModRefInfo(const FenceInst *S,
 
 ModRefInfo AAResults::getModRefInfo(const VAArgInst *V,
                                     const MemoryLocation &Loc) {
-  AAQueryInfo AAQIP;
+  SimpleAAQueryInfo AAQIP;
   return getModRefInfo(V, Loc, AAQIP);
 }
 
@@ -667,7 +666,7 @@ ModRefInfo AAResults::getModRefInfo(const VAArgInst *V,
 
 ModRefInfo AAResults::getModRefInfo(const CatchPadInst *CatchPad,
                                     const MemoryLocation &Loc) {
-  AAQueryInfo AAQIP;
+  SimpleAAQueryInfo AAQIP;
   return getModRefInfo(CatchPad, Loc, AAQIP);
 }
 
@@ -687,7 +686,7 @@ ModRefInfo AAResults::getModRefInfo(const CatchPadInst *CatchPad,
 
 ModRefInfo AAResults::getModRefInfo(const CatchReturnInst *CatchRet,
                                     const MemoryLocation &Loc) {
-  AAQueryInfo AAQIP;
+  SimpleAAQueryInfo AAQIP;
   return getModRefInfo(CatchRet, Loc, AAQIP);
 }
 
@@ -707,7 +706,7 @@ ModRefInfo AAResults::getModRefInfo(const CatchReturnInst *CatchRet,
 
 ModRefInfo AAResults::getModRefInfo(const AtomicCmpXchgInst *CX,
                                     const MemoryLocation &Loc) {
-  AAQueryInfo AAQIP;
+  SimpleAAQueryInfo AAQIP;
   return getModRefInfo(CX, Loc, AAQIP);
 }
 
@@ -736,7 +735,7 @@ ModRefInfo AAResults::getModRefInfo(const AtomicCmpXchgInst *CX,
 
 ModRefInfo AAResults::getModRefInfo(const AtomicRMWInst *RMW,
                                     const MemoryLocation &Loc) {
-  AAQueryInfo AAQIP;
+  SimpleAAQueryInfo AAQIP;
   return getModRefInfo(RMW, Loc, AAQIP);
 }
 
@@ -836,14 +835,16 @@ ModRefInfo AAResults::getModRefInfo(const Instruction *I,
   case Instruction::AtomicRMW:
     return getModRefInfo((const AtomicRMWInst *)I, Loc, AAQIP, Size); // INTEL
   case Instruction::Call:
-    return getModRefInfo((const CallInst *)I, Loc, AAQIP);
+  case Instruction::CallBr:
   case Instruction::Invoke:
-    return getModRefInfo((const InvokeInst *)I, Loc, AAQIP);
+    return getModRefInfo((const CallBase *)I, Loc, AAQIP);
   case Instruction::CatchPad:
     return getModRefInfo((const CatchPadInst *)I, Loc, AAQIP);
   case Instruction::CatchRet:
     return getModRefInfo((const CatchReturnInst *)I, Loc, AAQIP);
   default:
+    assert(!I->mayReadOrWriteMemory() &&
+           "Unhandled memory access instruction!");
     return ModRefInfo::NoModRef;
   }
 }
@@ -885,7 +886,7 @@ ModRefInfo AAResults::callCapturesBefore(const Instruction *I,
     // pointer were passed to arguments that were neither of these, then it
     // couldn't be no-capture.
     if (!(*CI)->getType()->isPointerTy() ||
-        (!Call->doesNotCapture(ArgNo) && ArgNo < Call->getNumArgOperands() &&
+        (!Call->doesNotCapture(ArgNo) && ArgNo < Call->arg_size() &&
          !Call->isByValArgument(ArgNo)))
       continue;
 
@@ -946,11 +947,6 @@ AAResults::Concept::~Concept() = default;
 
 // Provide a definition for the static object used to identify passes.
 AnalysisKey AAManager::Key;
-
-namespace {
-
-
-} // end anonymous namespace
 
 ExternalAAWrapperPass::ExternalAAWrapperPass() : ImmutablePass(ID) {
   initializeExternalAAWrapperPassPass(*PassRegistry::getPassRegistry());

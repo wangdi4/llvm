@@ -3,18 +3,15 @@
 ;; First check that we get devirtualization when the defs are in the
 ;; LTO unit.
 
-;; INTEL_CUSTOMIZATION
-
-;; We need to turn off the multiversioning for devirtualization in the Intel
-;; customization.
-
 ;; Index based WPD
 ;; Generate unsplit module with summary for ThinLTO index-based WPD.
 ; RUN: opt --thinlto-bc -o %t1a.o %s
 ; RUN: opt --thinlto-bc -o %t2a.o %S/Inputs/devirt_vcall_vis_shared_def.ll
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
-; RUN:   --plugin-opt=-wholeprogramdevirt-multiversion=false \
 ; RUN:   --plugin-opt=whole-program-visibility \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_plugin_devirt_options \
+; INTEL_CUSTOMIZATION
 ; RUN:   --plugin-opt=save-temps \
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t1a.o %t2a.o -o %t3a 2>&1 | FileCheck %s --check-prefix=REMARK
@@ -25,8 +22,10 @@
 ; RUN: opt --thinlto-bc --thinlto-split-lto-unit -o %t1b.o %s
 ; RUN: opt --thinlto-bc --thinlto-split-lto-unit -o %t2b.o %S/Inputs/devirt_vcall_vis_shared_def.ll
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
-; RUN:   --plugin-opt=-wholeprogramdevirt-multiversion=false \
 ; RUN:   --plugin-opt=whole-program-visibility \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_plugin_devirt_options \
+; INTEL_CUSTOMIZATION
 ; RUN:   --plugin-opt=save-temps \
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t1b.o %t2b.o -o %t3b 2>&1 | FileCheck %s --check-prefix=REMARK
@@ -36,8 +35,10 @@
 ; RUN: opt -o %t1c.o %s
 ; RUN: opt -o %t2c.o %S/Inputs/devirt_vcall_vis_shared_def.ll
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
-; RUN:   --plugin-opt=-wholeprogramdevirt-multiversion=false \
 ; RUN:   --plugin-opt=whole-program-visibility \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_plugin_devirt_options \
+; INTEL_CUSTOMIZATION
 ; RUN:   --plugin-opt=save-temps \
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t1c.o %t2c.o -o %t3c 2>&1 | FileCheck %s --check-prefix=REMARK
@@ -52,8 +53,10 @@
 
 ;; Index based WPD
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
-; RUN:   --plugin-opt=-wholeprogramdevirt-multiversion=false \
 ; RUN:   --plugin-opt=whole-program-visibility \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_plugin_devirt_options \
+; INTEL_CUSTOMIZATION
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t1a.o %t.so -o %t4a \
 ; RUN:   --export-dynamic 2>&1 | count 0
@@ -61,8 +64,10 @@
 ;; Hybrid WPD
 ; RUN: opt --thinlto-bc --thinlto-split-lto-unit -o %t4.o %s
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
-; RUN:   --plugin-opt=-wholeprogramdevirt-multiversion=false \
 ; RUN:   --plugin-opt=whole-program-visibility \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_plugin_devirt_options \
+; INTEL_CUSTOMIZATION
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t1b.o %t.so -o %t4b \
 ; RUN:   --export-dynamic 2>&1 | count 0
@@ -70,13 +75,13 @@
 ;; Regular LTO WPD
 ; RUN: opt -o %t4.o %s
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
-; RUN:   --plugin-opt=-wholeprogramdevirt-multiversion=false \
 ; RUN:   --plugin-opt=whole-program-visibility \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_plugin_devirt_options \
+; INTEL_CUSTOMIZATION
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t1c.o %t.so -o %t4c \
 ; RUN:   --export-dynamic 2>&1 | count 0
-
-;; END INTEL_CUSTOMIZATION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-grtev4-linux-gnu"

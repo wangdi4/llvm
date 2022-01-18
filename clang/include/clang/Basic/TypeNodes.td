@@ -75,6 +75,7 @@ def DependentSizedMatrixType : TypeNode<MatrixType>, AlwaysDependent;
 def FunctionType : TypeNode<Type, 1>;
 def FunctionProtoType : TypeNode<FunctionType>;
 def FunctionNoProtoType : TypeNode<FunctionType>;
+def UsingType : TypeNode<Type>, NeverCanonical;
 def UnresolvedUsingType : TypeNode<Type>, AlwaysDependent;
 def ParenType : TypeNode<Type>, NeverCanonical;
 def TypedefType : TypeNode<Type>, NeverCanonical;
@@ -110,5 +111,5 @@ def ChannelType : TypeNode<Type>;
 #endif // INTEL_CUSTOMIZATION
 def PipeType : TypeNode<Type>;
 def AtomicType : TypeNode<Type>;
-def ExtIntType : TypeNode<Type>;
-def DependentExtIntType : TypeNode<Type>, AlwaysDependent;
+def BitIntType : TypeNode<Type>;
+def DependentBitIntType : TypeNode<Type>, AlwaysDependent;

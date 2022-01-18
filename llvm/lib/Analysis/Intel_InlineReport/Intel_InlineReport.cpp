@@ -76,7 +76,8 @@ InlineReportCallSite::cloneBase(const ValueToValueMapTy &IIMap,
     // Start with a clean copy, as this is a newly created callsite produced
     // by recursive inlining.
     IRCSk = new InlineReportCallSite(this->IRCallee, false, NinlrNoReason,
-                                     this->M, nullptr, CB);
+                                     CB->getFunction()->getParent(),
+                                     nullptr, CB);
     IRCSk->Line = this->Line;
     IRCSk->Col = this->Col;
   } else
@@ -413,7 +414,8 @@ InlineReportCallSite *InlineReport::addCallSite(CallBase *Call) {
         MapItC == IRFunctionMap.end() ? addFunction(Callee) : MapItC->second;
   }
   InlineReportCallSite *IRCS =
-      new InlineReportCallSite(IRFC, false, NinlrNoReason, M, &DLoc,
+      new InlineReportCallSite(IRFC, false, NinlrNoReason,
+                               Call->getFunction()->getParent(), &DLoc,
                                Call, SuppressInlRpt);
   IRF->addCallSite(IRCS);
   IRCallBaseCallSiteMap.insert(std::make_pair(Call, IRCS));

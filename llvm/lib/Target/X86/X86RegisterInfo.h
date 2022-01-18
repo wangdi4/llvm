@@ -31,14 +31,6 @@ private:
   ///
   bool IsWin64;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  /// IsIceCode - Is the subtarget IceCode.
-  ///
-  bool IsIceCode;
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-
   /// SlotSize - Stack slot size in bytes.
   ///
   unsigned SlotSize;

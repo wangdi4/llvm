@@ -4,6 +4,9 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -S > %t2.out
 ; RUN: diff %t1.out %t2.out
 
+; RUN: opt %s -passes="hir-ssa-deconstruction" > %t1.newpm
+; RUN: opt %s -passes="hir-ssa-deconstruction" > %t2.newpm
+; RUN: diff %t1.newpm %t2.newpm
 
 ;Module Before HIR; ModuleID = 'mpeg/mpeg2enc/predict.c'
 source_filename = "mpeg/mpeg2enc/predict.c"

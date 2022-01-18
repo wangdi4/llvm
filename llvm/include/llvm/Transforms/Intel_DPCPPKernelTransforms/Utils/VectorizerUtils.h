@@ -15,6 +15,8 @@
 
 namespace llvm {
 
+class RuntimeService;
+
 namespace VectorizerUtils {
 
 class CanVectorize {
@@ -22,19 +24,20 @@ public:
   /// Checks whether we can (as opposed to should) vectorize this function
   /// for VPO. \param F Function to check. \param UnsupportedFuncs
   /// Unsupported function obtained from getNonInlineUnsupportedFunctions.
+  /// \param RTService Runtime service.
   /// \param EnableDirectCallVectorization Whether to enable direct function
   /// call vectorization.
   /// \param EnableSGDirectCallVectorization Whether to enable direct
   /// subgroup function call vectorization. \returns true if the function
   /// can be vectorized.
   static bool
-  canVectorizeForVPO(Function &F,
+  canVectorizeForVPO(Function &F, RuntimeService *RTService,
                      DPCPPKernelCompilationUtils::FuncSet &UnsupportedFuncs,
                      bool EnableDirectCallVectorization = false,
                      bool EnableSGDirectCallVectorization = false);
 
   // Check if the function has variable access to get_global/loval_id(X)
-  static bool hasVariableGetTIDAccess(Function &F);
+  static bool hasVariableGetTIDAccess(Function &F, RuntimeService *RTService);
 
   // Get unsupported function in a module.
   // An unsupported function is function that contains
@@ -86,6 +89,26 @@ Value *rootInputArgumentBySignature(Value *Arg, unsigned ParamNum,
 /// \return The "proper" retval if found, or NULL otherwise.
 Value *rootReturnValue(Value *RetVal, Type *RootTy, CallInst *CI);
 
+/// @brief Returns true if the llvm intrinsic is safe to ignore
+inline bool isSafeIntrinsic(Intrinsic::ID IntrinsicID) {
+  switch (IntrinsicID) {
+  case Intrinsic::lifetime_start:
+  case Intrinsic::lifetime_end:
+  case Intrinsic::var_annotation:
+  case Intrinsic::ptr_annotation:
+  case Intrinsic::invariant_start:
+  case Intrinsic::invariant_end:
+  case Intrinsic::dbg_addr:
+  case Intrinsic::dbg_label:
+  case Intrinsic::dbg_declare:
+  case Intrinsic::dbg_value:
+  case Intrinsic::annotation:
+  case Intrinsic::assume:
+    return true;
+  default:
+    return false;
+  }
+}
 } // namespace VectorizerUtils
 } // namespace llvm
 

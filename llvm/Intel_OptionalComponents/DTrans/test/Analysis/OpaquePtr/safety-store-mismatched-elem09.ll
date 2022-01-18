@@ -17,12 +17,14 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct, i8 
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data: Mismatched element access | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; Safety data: Mismatched element access | Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01b
 
 
  %struct.test02a = type { %struct.test02b }
@@ -34,12 +36,14 @@ define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct, i16
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02a
+; CHECK: LLVMType: %struct.test02a
 ; CHECK: Safety data: Mismatched element access | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test02a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02b
+; CHECK: LLVMType: %struct.test02b
 ; CHECK: Safety data: Mismatched element access | Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test02b
 
 
 %struct.test03a = type { %struct.test03b }
@@ -51,12 +55,14 @@ define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct, i64
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03a
+; CHECK: LLVMType: %struct.test03a
 ; CHECK: Safety data: Mismatched element access | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test03a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03b
+; CHECK: LLVMType: %struct.test03b
 ; CHECK: Safety data: Mismatched element access | Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test03b
 
 
 ; This access could be considered a whole structure reference, but we do not
@@ -71,12 +77,14 @@ define void @test04(%struct.test04a* "intel_dtrans_func_index"="1" %pStruct, i64
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04a
+; CHECK: LLVMType: %struct.test04a
 ; CHECK: Safety data: Mismatched element access | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test04a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04b
+; CHECK: LLVMType: %struct.test04b
 ; CHECK: Safety data: Mismatched element access | Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test04b
 
 
 ; Access of 'i32' field within the nested structure as a different
@@ -91,16 +99,19 @@ define void @test05(%struct.test05a* "intel_dtrans_func_index"="1" %pStruct, %st
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test05a
+; CHECK: LLVMType: %struct.test05a
 ; CHECK: Safety data: Bad casting | Mismatched element access | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test05a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test05b
+; CHECK: LLVMType: %struct.test05b
 ; CHECK: Safety data: Bad casting | Mismatched element access | Unsafe pointer store | Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test05b
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test05c
+; CHECK: LLVMType: %struct.test05c
 ; CHECK: Safety data: Bad casting | Unsafe pointer store{{ *$}}
+; CHECK: End LLVMType: %struct.test05c
 
 ; A safe access to a nested element.
 %struct.test06a = type { %struct.test06b }
@@ -112,12 +123,14 @@ define void @test06(%struct.test06a* "intel_dtrans_func_index"="1" %pStruct, i32
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test06a
+; CHECK: LLVMType: %struct.test06a
 ; CHECK: Safety data: Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test06a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test06b
+; CHECK: LLVMType: %struct.test06b
 ; CHECK: Safety data: Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test06b
 
 
 !1 = !{%struct.test01b zeroinitializer, i32 0}  ; %struct.test01b

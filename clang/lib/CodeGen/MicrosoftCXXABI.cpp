@@ -743,6 +743,62 @@ public:
                                              "eh.ThrowInfo");
     return ThrowInfoType;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  // Create a Clang version of the type returned by getThrowInfoType above.
+  // "Flags" is an int type, the rest depend on the image-relative-type logic.
+  QualType getThrowInfoClangType() {
+    ASTContext &Ctx = CGM.getContext();
+
+    if (!ClangThrowInfoType.isNull())
+      return Ctx.getPointerType(ClangThrowInfoType);
+
+    RecordDecl *RD = Ctx.buildImplicitRecord("eh.ThrowInfo");
+    RD->startDefinition();
+    FieldDecl *Flags = FieldDecl::Create(
+        Ctx, RD, SourceLocation{}, SourceLocation{}, /*IdentifierInfo*/ nullptr,
+        Ctx.IntTy, /*TInfo*/ nullptr, /*Bitwidth*/ nullptr, /*mutable*/ false,
+        ICIS_NoInit);
+    Flags->setAccess(AS_public);
+
+    QualType ImgTy =
+        isImageRelative() ? Ctx.IntTy : Ctx.getPointerType(Ctx.CharTy);
+    FieldDecl *CleanupFn = FieldDecl::Create(
+        Ctx, RD, SourceLocation{}, SourceLocation{}, /*IdentifierInfo*/ nullptr,
+        ImgTy, /*TInfo*/ nullptr, /*Bitwidth*/ nullptr, /*mutable*/ false,
+        ICIS_NoInit);
+    CleanupFn->setAccess(AS_public);
+
+    FieldDecl *ForwardCompat = FieldDecl::Create(
+        Ctx, RD, SourceLocation{}, SourceLocation{}, /*IdentifierInfo*/ nullptr,
+        ImgTy, /*TInfo*/ nullptr, /*Bitwidth*/ nullptr, /*mutable*/ false,
+        ICIS_NoInit);
+    ForwardCompat->setAccess(AS_public);
+
+    FieldDecl *CatchableTypeArray = FieldDecl::Create(
+        Ctx, RD, SourceLocation{}, SourceLocation{}, /*IdentifierInfo*/ nullptr,
+        ImgTy, /*TInfo*/ nullptr, /*Bitwidth*/ nullptr, /*mutable*/ false,
+        ICIS_NoInit);
+    CatchableTypeArray->setAccess(AS_public);
+
+    RD->addDecl(Flags);
+    RD->addDecl(CleanupFn);
+    RD->addDecl(ForwardCompat);
+    RD->addDecl(CatchableTypeArray);
+    RD->completeDefinition();
+    ClangThrowInfoType = Ctx.getRecordType(RD);
+
+    // Make sure we setup the code-gen-types so we can emit this as a 'type'
+    // correctly later.
+    llvm::StructType *ST = getThrowInfoType();
+    CGM.getTypes().setDTransRuntimeType(
+        ST, ClangThrowInfoType,
+        {Flags, CleanupFn, ForwardCompat, CatchableTypeArray});
+    CGM.addDTransType(RD, ST);
+    return Ctx.getPointerType(ClangThrowInfoType);
+  }
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   llvm::FunctionCallee getThrowFn() {
     // _CxxThrowException is passed an exception object and a ThrowInfo object
@@ -757,6 +813,19 @@ public:
       if (auto *Fn = dyn_cast<llvm::Function>(Throw.getCallee()))
         Fn->setCallingConv(llvm::CallingConv::X86_StdCall);
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    if (CGM.getCodeGenOpts().EmitDTransInfo) {
+      ASTContext &Ctx = CGM.getContext();
+      QualType CharPtr = Ctx.getPointerType(Ctx.CharTy);
+      CGM.addDTransInfoToFunc(
+          CodeGenTypes::DTransFuncInfo{Ctx.VoidTy,
+                                       { CharPtr,
+                                         getThrowInfoClangType() }},
+          FTy, cast<llvm::Function>(Throw.getCallee()));
+    }
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
     return Throw;
   }
 
@@ -818,6 +887,11 @@ private:
   llvm::StructType *CatchableTypeType;
   llvm::DenseMap<uint32_t, llvm::StructType *> CatchableTypeArrayTypeMap;
   llvm::StructType *ThrowInfoType;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  QualType ClangThrowInfoType;
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 };
 
 }
@@ -917,7 +991,7 @@ void MicrosoftCXXABI::emitBeginCatch(CodeGenFunction &CGF,
 std::tuple<Address, llvm::Value *, const CXXRecordDecl *>
 MicrosoftCXXABI::performBaseAdjustment(CodeGenFunction &CGF, Address Value,
                                        QualType SrcRecordTy) {
-  Value = CGF.Builder.CreateBitCast(Value, CGF.Int8PtrTy);
+  Value = CGF.Builder.CreateElementBitCast(Value, CGF.Int8Ty);
   const CXXRecordDecl *SrcDecl = SrcRecordTy->getAsCXXRecordDecl();
   const ASTContext &Context = getContext();
 
@@ -1017,6 +1091,19 @@ llvm::Value *MicrosoftCXXABI::EmitDynamicCastCall(
   llvm::FunctionCallee Function = CGF.CGM.CreateRuntimeFunction(
       llvm::FunctionType::get(CGF.Int8PtrTy, ArgTypes, false),
       "__RTDynamicCast");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  if (CGM.getCodeGenOpts().EmitDTransInfo) {
+    ASTContext &Ctx = CGF.getContext();
+    QualType CharPtr = Ctx.getPointerType(Ctx.CharTy);
+    QualType Int32Ty = Ctx.getIntTypeForBitwidth(32, /*signed*/ 0);
+    CGF.CGM.addDTransInfoToFunc(
+        CodeGenTypes::DTransFuncInfo{
+            CharPtr, {CharPtr, Int32Ty, CharPtr, CharPtr, Int32Ty}},
+        Function.getFunctionType(), cast<llvm::Function>(Function.getCallee()));
+  }
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   llvm::Value *Args[] = {
       ThisPtr, Offset, SrcRTTI, DestRTTI,
       llvm::ConstantInt::get(CGF.Int32Ty, DestTy->isReferenceType())};
@@ -1810,8 +1897,8 @@ llvm::GlobalVariable *MicrosoftCXXABI::getAddrOfVTable(const CXXRecordDecl *RD,
 #endif
   }
 
-  const std::unique_ptr<VPtrInfo> *VFPtrI = std::find_if(
-      VFPtrs.begin(), VFPtrs.end(), [&](const std::unique_ptr<VPtrInfo>& VPI) {
+  const std::unique_ptr<VPtrInfo> *VFPtrI =
+      llvm::find_if(VFPtrs, [&](const std::unique_ptr<VPtrInfo> &VPI) {
         return VPI->FullOffsetInMDC == VPtrOffset;
       });
   if (VFPtrI == VFPtrs.end()) {
@@ -1844,7 +1931,7 @@ llvm::GlobalVariable *MicrosoftCXXABI::getAddrOfVTable(const CXXRecordDecl *RD,
     VFTablesMap[ID] = VFTable;
     VTable = VTableAliasIsRequred
                  ? cast<llvm::GlobalVariable>(
-                       cast<llvm::GlobalAlias>(VFTable)->getBaseObject())
+                       cast<llvm::GlobalAlias>(VFTable)->getAliaseeObject())
                  : cast<llvm::GlobalVariable>(VFTable);
     return VTable;
   }
@@ -2408,50 +2495,104 @@ static ConstantAddress getInitThreadEpochPtr(CodeGenModule &CGM) {
   StringRef VarName("_Init_thread_epoch");
   CharUnits Align = CGM.getIntAlign();
   if (auto *GV = CGM.getModule().getNamedGlobal(VarName))
-    return ConstantAddress(GV, Align);
+    return ConstantAddress(GV, GV->getValueType(), Align);
   auto *GV = new llvm::GlobalVariable(
       CGM.getModule(), CGM.IntTy,
       /*isConstant=*/false, llvm::GlobalVariable::ExternalLinkage,
       /*Initializer=*/nullptr, VarName,
       /*InsertBefore=*/nullptr, llvm::GlobalVariable::GeneralDynamicTLSModel);
   GV->setAlignment(Align.getAsAlign());
-  return ConstantAddress(GV, Align);
+  return ConstantAddress(GV, GV->getValueType(), Align);
 }
 
 static llvm::FunctionCallee getInitThreadHeaderFn(CodeGenModule &CGM) {
   llvm::FunctionType *FTy =
       llvm::FunctionType::get(llvm::Type::getVoidTy(CGM.getLLVMContext()),
                               CGM.IntTy->getPointerTo(), /*isVarArg=*/false);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  llvm::FunctionCallee Callee = CGM.CreateRuntimeFunction(
+      FTy, "_Init_thread_header",
+      llvm::AttributeList::get(CGM.getLLVMContext(),
+                               llvm::AttributeList::FunctionIndex,
+                               llvm::Attribute::NoUnwind),
+      /*Local=*/true);
+  if (CGM.getCodeGenOpts().EmitDTransInfo) {
+    ASTContext &Ctx = CGM.getContext();
+    QualType IntPtr = Ctx.getPointerType(Ctx.IntTy);
+    CGM.addDTransInfoToFunc(CodeGenTypes::DTransFuncInfo{Ctx.VoidTy, {IntPtr}},
+                            FTy, cast<llvm::Function>(Callee.getCallee()));
+  }
+  return Callee;
+#else // INTEL_FEATURE_SW_DTRANS
   return CGM.CreateRuntimeFunction(
       FTy, "_Init_thread_header",
       llvm::AttributeList::get(CGM.getLLVMContext(),
                                llvm::AttributeList::FunctionIndex,
                                llvm::Attribute::NoUnwind),
       /*Local=*/true);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 }
 
 static llvm::FunctionCallee getInitThreadFooterFn(CodeGenModule &CGM) {
   llvm::FunctionType *FTy =
       llvm::FunctionType::get(llvm::Type::getVoidTy(CGM.getLLVMContext()),
                               CGM.IntTy->getPointerTo(), /*isVarArg=*/false);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  llvm::FunctionCallee Callee = CGM.CreateRuntimeFunction(
+      FTy, "_Init_thread_footer",
+      llvm::AttributeList::get(CGM.getLLVMContext(),
+                               llvm::AttributeList::FunctionIndex,
+                               llvm::Attribute::NoUnwind),
+      /*Local=*/true);
+  if (CGM.getCodeGenOpts().EmitDTransInfo) {
+    ASTContext &Ctx = CGM.getContext();
+    QualType IntPtr = Ctx.getPointerType(Ctx.IntTy);
+    CGM.addDTransInfoToFunc(CodeGenTypes::DTransFuncInfo{Ctx.VoidTy, {IntPtr}},
+                            FTy, cast<llvm::Function>(Callee.getCallee()));
+  }
+  return Callee;
+#else // INTEL_FEATURE_SW_DTRANS
   return CGM.CreateRuntimeFunction(
       FTy, "_Init_thread_footer",
       llvm::AttributeList::get(CGM.getLLVMContext(),
                                llvm::AttributeList::FunctionIndex,
                                llvm::Attribute::NoUnwind),
       /*Local=*/true);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 }
 
 static llvm::FunctionCallee getInitThreadAbortFn(CodeGenModule &CGM) {
   llvm::FunctionType *FTy =
       llvm::FunctionType::get(llvm::Type::getVoidTy(CGM.getLLVMContext()),
                               CGM.IntTy->getPointerTo(), /*isVarArg=*/false);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  llvm::FunctionCallee Callee = CGM.CreateRuntimeFunction(
+      FTy, "_Init_thread_abort",
+      llvm::AttributeList::get(CGM.getLLVMContext(),
+                               llvm::AttributeList::FunctionIndex,
+                               llvm::Attribute::NoUnwind),
+      /*Local=*/true);
+  if (CGM.getCodeGenOpts().EmitDTransInfo) {
+    ASTContext &Ctx = CGM.getContext();
+    QualType IntPtr = Ctx.getPointerType(Ctx.IntTy);
+    CGM.addDTransInfoToFunc(CodeGenTypes::DTransFuncInfo{Ctx.VoidTy, {IntPtr}},
+                            FTy, cast<llvm::Function>(Callee.getCallee()));
+  }
+  return Callee;
+#else // INTEL_FEATURE_SW_DTRANS
   return CGM.CreateRuntimeFunction(
       FTy, "_Init_thread_abort",
       llvm::AttributeList::get(CGM.getLLVMContext(),
                                llvm::AttributeList::FunctionIndex,
                                llvm::Attribute::NoUnwind),
       /*Local=*/true);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 }
 
 namespace {
@@ -2567,7 +2708,7 @@ void MicrosoftCXXABI::EmitGuardedInit(CodeGenFunction &CGF, const VarDecl &D,
       GI->Guard = GuardVar;
   }
 
-  ConstantAddress GuardAddr(GuardVar, GuardAlign);
+  ConstantAddress GuardAddr(GuardVar, GuardTy, GuardAlign);
 
   assert(GuardVar->getLinkage() == GV->getLinkage() &&
          "static local from the same function had different linkage");

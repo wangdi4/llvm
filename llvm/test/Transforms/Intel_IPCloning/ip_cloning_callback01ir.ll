@@ -15,8 +15,8 @@
 ; CHECK: call{{.*}}@__kmpc_fork_call{{.*}}@foo.DIR.OMP.PARALLEL.LOOP.2.split5.[[R0:[0-9]+]]
 ; CHECK: define internal fastcc i32 @foo.2
 ; CHECK: call{{.*}}@__kmpc_fork_call{{.*}}@foo.DIR.OMP.PARALLEL.LOOP.2.split5.[[R1:[0-9]+]]
-; CHECK-DAG: define internal void @foo.DIR.OMP.PARALLEL.LOOP.2.split5.[[R0]]
-; CHECK-DAG: define internal void @foo.DIR.OMP.PARALLEL.LOOP.2.split5.[[R1]]
+; CHECK: define internal void @foo.DIR.OMP.PARALLEL.LOOP.2.split5.[[R0]]
+; CHECK: define internal void @foo.DIR.OMP.PARALLEL.LOOP.2.split5.[[R1]]
 
 %struct.ident_t = type { i32, i32, i32, i32, i8* }
 

@@ -1,12 +1,12 @@
-; RUN: opt -intel-ipo-dead-arg-elimination %s -S 2>&1 | FileCheck %s
-; RUN: opt -passes=intel-ipo-dead-arg-elimination %s -S 2>&1 | FileCheck %s
+; RUN: opt -intel-ipo-dead-arg-elimination  %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes=intel-ipo-dead-arg-elimination  %s -S 2>&1 | FileCheck %s
 
 ; This test case checks that IPO simplified dead argument elimination won't
 ; remove argument %0 in function @foo since the actual parameter is passed
 ; to @bar, which isn't a candidate for the transformation. This test case is
 ; the same as intel-ipo-dead-arg-03.ll but it checks the IR.
 
-; CHECK: define internal float @foo(float* %0, float* %1, i64 %2, i64 %3) 
+; CHECK: define internal float @foo(float* %0, float* %1, i64 %2, i64 %3)
 ; CHECK-NEXT:   %5 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %2, i64 %3, float* nonnull elementtype(float) %0, i64 %2)
 ; CHECK-NEXT:   %6 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %2, i64 4, float* nonnull elementtype(float) %5, i64 %2)
 ; CHECK-NEXT:   %7 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 %2, i64 %3, float* nonnull elementtype(float) %6, i64 %2)

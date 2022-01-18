@@ -1,9 +1,10 @@
 ; REQUIRES: asserts
 
-; Test that identifies if the DTrans padded malloc optimization was applied outside the
-; OpenMP region.
+; Test that identifies that the DTrans padded malloc optimization was applied
+; outside the OpenMP region.
 
-; RUN: opt  < %s -whole-program-assume -vpo-paropt -dtrans-paddedmalloc -dtrans-test-paddedmalloc  -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -vpo-paropt -dtrans-paddedmalloc -dtrans-test-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -passes="vpo-paropt,dtrans-paddedmalloc" -dtrans-test-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
 
 %struct.testStruct = type { i8* }
 

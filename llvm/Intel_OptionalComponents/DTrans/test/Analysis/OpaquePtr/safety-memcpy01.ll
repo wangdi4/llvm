@@ -18,7 +18,7 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStructA, %st
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Written
 ; CHECK: 1)Field LLVM Type: i32
@@ -26,6 +26,7 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStructA, %st
 ; CHECK: 2)Field LLVM Type: i32
 ; CHECK: Field info: Written
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Copy a subset of structure fields, starting from a GEP of field 0.
@@ -39,7 +40,7 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStructA, %st
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Written ComplexUse
 ; CHECK: 1)Field LLVM Type: i32
@@ -47,6 +48,7 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStructA, %st
 ; CHECK: 2)Field LLVM Type: i32
 ; CHECK: Field info:{{ *}}
 ; CHECK: Safety data: Memfunc partial write{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 ; Copy beyond the end of the structure, starting from a GEP of field 0.
@@ -60,8 +62,9 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStructA, %st
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: Bad memfunc size{{ *$}}
+; CHECK: End LLVMType: %struct.test03
 
 
 ; Copy a subset of the structure, starting and ending on a field boundary.
@@ -75,7 +78,7 @@ define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %pStructA, %st
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04
+; CHECK: LLVMType: %struct.test04
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
@@ -87,6 +90,7 @@ define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %pStructA, %st
 ; CHECK: 4)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: Memfunc partial write{{ *$}}
+; CHECK: End LLVMType: %struct.test04
 
 
 ; Copy a subset of the structure, with a size that extends beyond the structure
@@ -101,8 +105,9 @@ define void @test05(%struct.test05* "intel_dtrans_func_index"="1" %pStructA, %st
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test05
+; CHECK: LLVMType: %struct.test05
 ; CHECK: Safety data: Bad memfunc size{{ *$}}
+; CHECK: End LLVMType: %struct.test05
 
 
 ; Copy a subset of the structure, with a size that does not end on a field
@@ -117,8 +122,9 @@ define void @test06(%struct.test06* "intel_dtrans_func_index"="1" %pStructA, %st
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test06
+; CHECK: LLVMType: %struct.test06
 ; CHECK: Safety data: Bad memfunc size{{ *$}}
+; CHECK: End LLVMType: %struct.test06
 
 
 ; Copy one set of fields within a structure to a different set of fields. This
@@ -134,8 +140,9 @@ define void @test07(%struct.test07* "intel_dtrans_func_index"="1" %pStruct) !int
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test07
+; CHECK: LLVMType: %struct.test07
 ; CHECK: Safety data: Bad memfunc manipulation{{ *$}}
+; CHECK: End LLVMType: %struct.test07
 
 ; Copy from one structure type to another. This is not supported by DTrans as a
 ; simplification for what the transformations need to handle.
@@ -150,12 +157,14 @@ define void @test08(%struct.test08a* "intel_dtrans_func_index"="1" %pStructA, %s
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test08a
+; CHECK: LLVMType: %struct.test08a
 ; CHECK: Safety data: Bad memfunc manipulation{{ *$}}
+; CHECK: End LLVMType: %struct.test08a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test08b
+; CHECK: LLVMType: %struct.test08b
 ; CHECK: Safety data: Bad memfunc manipulation{{ *$}}
+; CHECK: End LLVMType: %struct.test08b
 
 
 declare !intel.dtrans.func.type !20 void @llvm.memcpy.p0i8.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i64, i1)

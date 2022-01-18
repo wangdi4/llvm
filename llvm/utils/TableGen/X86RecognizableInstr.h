@@ -211,12 +211,6 @@ private:
   bool ForceDisassemble;
   // The CD8_Scale field from the record
   uint8_t CD8_Scale;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  // Whether the instruction has the predicate "InIceCodeMode"
-  bool IsIceCode;
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   // Whether the instruction has the predicate "In64BitMode"
   bool Is64Bit;
   // Whether the instruction has the predicate "In32BitMode"

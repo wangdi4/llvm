@@ -26,8 +26,9 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %s) !intel.dtr
 ; thing is just that they not be treated as safe, if we do.
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Unhandled use{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*

@@ -556,6 +556,8 @@ public:
   const_pre_iterator pre_begin() const { return Children.begin(); }
   pre_iterator pre_end() { return ChildBegin; }
   const_pre_iterator pre_end() const { return ChildBegin; }
+  auto preheaderNodes() { return make_range(pre_begin(), pre_end());}
+  auto preheaderNodes() const { return make_range(pre_begin(), pre_end()); }
 
   reverse_pre_iterator pre_rbegin() { return ++ChildBegin.getReverse(); }
   const_reverse_pre_iterator pre_rbegin() const {
@@ -599,6 +601,8 @@ public:
   const_post_iterator post_begin() const { return PostexitBegin; }
   post_iterator post_end() { return Children.end(); }
   const_post_iterator post_end() const { return Children.end(); }
+  auto postExitNodes() { return make_range(post_begin(), post_end());}
+  auto postExitNodes() const { return make_range(post_begin(), post_end());}
 
   reverse_post_iterator post_rbegin() { return Children.rbegin(); }
   const_reverse_post_iterator post_rbegin() const { return Children.rbegin(); }
@@ -977,6 +981,16 @@ public:
     return mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
   }
 
+  unsigned getInterleavePragmaCount() const {
+    auto *MD = getLoopStringMetadata("llvm.loop.interleave.count");
+
+    if (!MD) {
+      return 0;
+    }
+
+    return mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
+  }
+
   /// Returns true if loop has pragma to enable unroll & jam.
   bool hasUnrollAndJamEnablingPragma() const {
     if (getLoopStringMetadata("llvm.loop.unroll_and_jam.enable")) {
@@ -1261,6 +1275,12 @@ public:
   bool hasDistributePoint() const { return HasDistributePoint; }
   void setHasDistributePoint(bool Flag) { HasDistributePoint = Flag; }
 
+  /// The flag is set by SinkingForPerfectLoopnest pass to indicate to later
+  /// UndoSinking pass that sinking was performed and needs to be undone.
+  /// The flag is reset by intermediate interchange or blocking passes if they
+  /// trigger on the loopnest. If loop interchange or loop blocking is not triggered
+  /// with sinked insts, we need to set the loop as an undo sinking candidate
+  /// and undo sinking later.
   bool isUndoSinkingCandidate() const { return IsUndoSinkingCandidate; }
   void setIsUndoSinkingCandidate(bool Flag) { IsUndoSinkingCandidate = Flag; }
 

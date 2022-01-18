@@ -90,12 +90,17 @@ cl::opt<bool> VerifyScheduling(
     "verify-misched", cl::Hidden,
     cl::desc("Verify machine instrs before and after machine scheduling"));
 
+#ifndef NDEBUG
+cl::opt<bool> ViewMISchedDAGs(
+    "view-misched-dags", cl::Hidden,
+    cl::desc("Pop up a window to show MISched dags after they are processed"));
+#else
+const bool ViewMISchedDAGs = false;
+#endif // NDEBUG
+
 } // end namespace llvm
 
 #ifndef NDEBUG
-static cl::opt<bool> ViewMISchedDAGs("view-misched-dags", cl::Hidden,
-  cl::desc("Pop up a window to show MISched dags after they are processed"));
-
 /// In some situations a few uninteresting nodes depend on nearly all other
 /// nodes in the graph, provide a cutoff to hide them.
 static cl::opt<unsigned> ViewMISchedCutoff("view-misched-cutoff", cl::Hidden,
@@ -111,7 +116,6 @@ static cl::opt<unsigned> SchedOnlyBlock("misched-only-block", cl::Hidden,
 static cl::opt<bool> PrintDAGs("misched-print-dags", cl::Hidden,
                               cl::desc("Print schedule DAGs"));
 #else
-static const bool ViewMISchedDAGs = false;
 static const bool PrintDAGs = false;
 #endif // NDEBUG
 
@@ -139,6 +143,13 @@ static cl::opt<unsigned>
                          cl::desc("The threshold for fast cluster"),
                          cl::init(1000));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<unsigned>
+    MaxCriticalRPBlock("shrink-reg-pressure-limit", cl::Hidden,
+                         cl::desc("The max size of single BB loop which "
+                                   "need shrink reg pressure limit"),
+                         cl::init(100));
+#endif // INTEL_CUSTOMIZATION
 // DAG subtrees must have at least this many nodes.
 static const unsigned MinSubtreeSize = 8;
 
@@ -561,11 +572,10 @@ void MachineSchedulerBase::scheduleRegions(ScheduleDAGInstrs &Scheduler,
 
     MBBRegionsVector MBBRegions;
     getSchedRegions(&*MBB, MBBRegions, Scheduler.doMBBSchedRegionsTopDown());
-    for (MBBRegionsVector::iterator R = MBBRegions.begin();
-         R != MBBRegions.end(); ++R) {
-      MachineBasicBlock::iterator I = R->RegionBegin;
-      MachineBasicBlock::iterator RegionEnd = R->RegionEnd;
-      unsigned NumRegionInstrs = R->NumRegionInstrs;
+    for (const SchedRegion &R : MBBRegions) {
+      MachineBasicBlock::iterator I = R.RegionBegin;
+      MachineBasicBlock::iterator RegionEnd = R.RegionEnd;
+      unsigned NumRegionInstrs = R.NumRegionInstrs;
 
       // Notify the scheduler of the region, even if we may skip scheduling
       // it. Perhaps it still needs to be bundled.
@@ -1007,6 +1017,31 @@ void ScheduleDAGMILive::enterRegion(MachineBasicBlock *bb,
          "ShouldTrackLaneMasks requires ShouldTrackPressure");
 }
 
+#if INTEL_CUSTOMIZATION
+// This functoin was used for shrink Reg Pressure Limit to let this RegSet more
+// easily be consided as Critical Reg Pressure. But this will only lower the Reg
+// Pressure from the perspective of "probability". To let things be simple, here
+// we add MaxCriticalRPBlock to exclude complex/big loops. And We do have an
+// unexpected example "outside" the probability in JIRA CMPLRLLVM-34009.
+//
+// TODO: Current way of handling "Critical Reg Pressure" can not make sure the
+// final Reg Pressure lower than before. Because it just "choose" candidate in
+// a small "window", we need to totally change current logic if we want to
+// completely focus on lowering/reducing reg pressure.
+bool ScheduleDAGMILive::isHighRegPressLoop(MachineBasicBlock *MBB,
+                                 unsigned MaxPressure, unsigned Limit) const {
+  bool SelfLoop = MBB->isSuccessor(MBB);
+
+  if (!SelfLoop || MBB->size() > MaxCriticalRPBlock)
+    return false;
+
+  // If current Max Reg Pressure is very closed to Limited Reg Pressure we
+  // see it as high reg pressure block. Because MIR scheduler may increase
+  // Reg Pressure later.
+  return MaxPressure + (Limit >> 3) >= Limit;
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Setup the register pressure trackers for the top scheduled and bottom
 // scheduled regions.
 void ScheduleDAGMILive::initRegPressure() {
@@ -1070,6 +1105,8 @@ void ScheduleDAGMILive::initRegPressure() {
     RPTracker.getPressure().MaxSetPressure;
   for (unsigned i = 0, e = RegionPressure.size(); i < e; ++i) {
     unsigned Limit = RegClassInfo->getRegPressureSetLimit(i);
+    if (isHighRegPressLoop(BB, RegionPressure[i], Limit)) // INTEL
+      Limit = Limit - (Limit >> 3);                       // INTEL
     if (RegionPressure[i] > Limit) {
       LLVM_DEBUG(dbgs() << TRI->getRegPressureSetName(i) << " Limit " << Limit
                         << " Actual " << RegionPressure[i] << "\n");

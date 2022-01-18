@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -force-opaque-pointers < %s -S -tilemvinlmarker -tile-candidate-mark -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=2 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
-; RUN: opt -force-opaque-pointers < %s -S -passes='tilemvinlmarker' -tile-candidate-mark -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=2 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -S -tilemvinlmarker -tile-candidate-mark -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=2 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -S -passes='tilemvinlmarker' -tile-candidate-mark -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=2 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
 
 ; Check that the loop indices and increments are correctly identified for
 ;   the loops within the tile candidates.

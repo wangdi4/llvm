@@ -1,40 +1,43 @@
 ; RUN: opt -hir-cost-model-throttling=0 -hir-ssa-deconstruction -disable-output -hir-opt-predicate -print-after=hir-opt-predicate < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -hir-cost-model-throttling=0 -disable-output < %s 2>&1 | FileCheck %s
 
-; Check that node (*) in the DO i2 loop postexit will not be present after opt-predicate and dead node removal.
+; OUTDATED: Check that node (*) in the DO i2 loop postexit will not be present after opt-predicate and dead node removal.
+; This test case now checks that we pass with opt predicate. The instruction in postexit was eliminated with improvement in framework.
+; TODO: find a new postexit case.
 
-; BEGIN REGION { }
-;       + DO i1 = 0, 99, 1   <DO_MULTI_EXIT_LOOP>
-;       |   %t.05.out = %t.05;
-;       |
-;       |      %t.13 = %t.05.out;
-;       |   + DO i2 = 0, %s + -1, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 2147483647>
-;       |   |   %add = %t.13  +  i2;
-;       |   |   if (%n < 5)
-;       |   |   {
-;       |   |      goto if.then;
-;       |   |   }
-;       |   |   %t.13 = %add;
-;       |   + END LOOP
-;       |      %t.05 = %add; (*)
-;       |
-;       |   (%p)[i1] = %t.05;
-;       + END LOOP
-; END REGION
+
+; + DO i1 = 0, 99, 1   <DO_MULTI_EXIT_LOOP>
+; |   + DO i2 = 0, %s + -1, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 2147483647>
+; |   |   %t.05 = %t.05  +  i2;
+; |   |   if (%n < 5)
+; |   |   {
+; |   |      goto if.then;
+; |   |   }
+; |   + END LOOP
+; |
+; |   (%p)[i1] = %t.05;
+; + END LOOP
 
 ; CHECK: if (%n < 5)
 ; CHECK: {
 ; CHECK:    + DO i1 = 0, 99, 1   <DO_MULTI_EXIT_LOOP>
-; CHECK:    |   %t.05.out = %t.05;
 ; CHECK:    |   if (0 < %s)
 ; CHECK:    |   {
-; CHECK:    |      %t.13 = %t.05.out;
-; CHECK:    |      %add = %t.13  +  0;
+; CHECK:    |      %t.05 = %t.05  +  0;
 ; CHECK:    |      goto if.then;
-; CHECK-NOT:       %t.05 = %add;
 ; CHECK:    |   }
 ; CHECK:    |   (%p)[i1] = %t.05;
 ; CHECK:    + END LOOP
+; CHECK: else
+; CHECK: {
+; CHECK:    + DO i1 = 0, 99, 1   <DO_LOOP>
+; CHECK:    |   + DO i2 = 0, %s + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+; CHECK:    |   |   %t.05 = %t.05  +  i2;
+; CHECK:    |   + END LOOP
+; CHECK:    |
+; CHECK:    |   (%p)[i1] = %t.05;
+; CHECK:    + END LOOP
+; CHECK: }
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

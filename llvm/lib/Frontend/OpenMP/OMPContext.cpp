@@ -25,7 +25,10 @@
 using namespace llvm;
 using namespace omp;
 
-OMPContext::OMPContext(bool IsDeviceCompilation, Triple TargetTriple) {
+#if INTEL_CUSTOMIZATION
+OMPContext::OMPContext(bool IsDeviceCompilation, Triple TargetTriple,
+                       bool IsIntel) {
+#endif // INTEL_CUSTOMIZATION
   // Add the appropriate device kind trait based on the triple and the
   // IsDeviceCompilation flag.
   ActiveTraits.set(unsigned(IsDeviceCompilation
@@ -75,6 +78,11 @@ OMPContext::OMPContext(bool IsDeviceCompilation, Triple TargetTriple) {
 
   // LLVM is the "OpenMP vendor" but we could also interpret vendor as the
   // target vendor.
+#if INTEL_CUSTOMIZATION
+  if (IsIntel)
+    ActiveTraits.set(unsigned(TraitProperty::implementation_vendor_intel));
+  else
+#endif // INTEL_CUSTOMIZATION
   ActiveTraits.set(unsigned(TraitProperty::implementation_vendor_llvm));
 
   // The user condition true is accepted but not false.

@@ -101,6 +101,11 @@ namespace llvm {
 extern cl::opt<bool> ForceTopDown;
 extern cl::opt<bool> ForceBottomUp;
 extern cl::opt<bool> VerifyScheduling;
+#ifndef NDEBUG
+extern cl::opt<bool> ViewMISchedDAGs;
+#else
+extern const bool ViewMISchedDAGs;
+#endif
 
 class AAResults;
 class LiveIntervals;
@@ -504,6 +509,9 @@ protected:
   void scheduleMI(SUnit *SU, bool IsTopNode);
 
   // Lesser helpers...
+
+  bool isHighRegPressLoop(MachineBasicBlock *MBB,                       // INTEL
+                          unsigned MaxPressure, unsigned Limit) const;  // INTEL
 
   void initRegPressure();
 

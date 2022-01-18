@@ -128,7 +128,14 @@ define dso_local spir_kernel void @test_masked_store(<8 x i32>* nonnull %ptr) {
 
 define dso_local spir_kernel void @test_masked_scatter(<8 x i32 addrspace(1)*> %ptr) {
 ; CHECK: call void @llvm.genx.svm.scatter.v8i1.v8p1i32.v8i32(<8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 0, <8 x i32 addrspace(1)*> %ptr, <8 x i32> zeroinitializer)
-  call void @llvm.masked.scatter.v8i32.v8p4i32(<8 x i32> zeroinitializer, <8 x i32 addrspace(1)*> %ptr, i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
+  call void @llvm.masked.scatter.v8i32.v8p1i32(<8 x i32> zeroinitializer, <8 x i32 addrspace(1)*> %ptr, i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
+  ret void
+}
+
+define dso_local spir_kernel void @test_generic_cast(<8 x i32 addrspace(1)*> %ptr) {
+; CHECK: call void @llvm.genx.svm.scatter.v8i1.v8p1i32.v8i32(<8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 0, <8 x i32 addrspace(1)*> %ptr, <8 x i32> zeroinitializer)
+  %ptr4 = addrspacecast <8 x i32 addrspace(1)*> %ptr to <8 x i32 addrspace(4)*>
+  call void @llvm.masked.scatter.v8i32.v8p4i32(<8 x i32> zeroinitializer, <8 x i32 addrspace(4)*> %ptr4, i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
   ret void
 }
 
@@ -145,6 +152,22 @@ define dso_local spir_kernel void @test_svm_scatter(i32 %val, i32 addrspace(1)* 
 ; CHECK-NEXT: [[INS:%.*]] = insertelement <1 x i32> undef, i32 %val, i32 0
 ; CHECK-NEXT: call void @llvm.genx.svm.scatter.v1i1.v1p1i32.v1i32(<1 x i1> <i1 true>, i32 0, <1 x i32 addrspace(1)*> [[PTR_CAST]], <1 x i32> [[INS]])
   store i32 %val, i32 addrspace(1)* %ptr
+  ret void
+}
+
+define dso_local spir_kernel i32 addrspace(1)* @test_svm_gather_ptrv(i32 addrspace(1)* addrspace(1)* %ptr) {
+; CHECK: [[PTR_CAST:%.*]] = bitcast i32 addrspace(1)* addrspace(1)* %ptr to <1 x i32 addrspace(1)* addrspace(1)*>
+; CHECK-NEXT: [[GATHER:%.*]] = call <1 x i32 addrspace(1)*> @llvm.genx.svm.gather.v1p1i32.v1i1.v1p1p1i32(<1 x i1> <i1 true>, i32 0, <1 x i32 addrspace(1)* addrspace(1)*> [[PTR_CAST]], <1 x i32 addrspace(1)*> undef)
+; CHECK-NEXT: [[EXTRACT:%.*]] = extractelement <1 x i32 addrspace(1)*> [[GATHER]], i32 0
+  %l = load i32 addrspace(1)*, i32 addrspace(1)* addrspace(1)* %ptr
+  ret i32 addrspace(1)* %l
+}
+
+define dso_local spir_kernel void @test_svm_scatter_ptrv(i32 addrspace(1)* %val, i32 addrspace(1)* addrspace(1)* %ptr) {
+; CHECK: [[PTR_CAST:%.*]] = bitcast i32 addrspace(1)* addrspace(1)* %ptr to <1 x i32 addrspace(1)* addrspace(1)*>
+; CHECK-NEXT: [[INS:%.*]] = insertelement <1 x i32 addrspace(1)*> undef, i32 addrspace(1)* %val, i32 0
+; CHECK-NEXT: call void @llvm.genx.svm.scatter.v1i1.v1p1p1i32.v1p1i32(<1 x i1> <i1 true>, i32 0, <1 x i32 addrspace(1)* addrspace(1)*> [[PTR_CAST]], <1 x i32 addrspace(1)*> [[INS]])
+  store i32 addrspace(1)* %val, i32 addrspace(1)* addrspace(1)* %ptr
   ret void
 }
 
@@ -208,5 +231,6 @@ declare <8 x float> @llvm.log2.v8f32(<8 x float>)
 declare void @llvm.masked.store.v8i32.p0v8i32(<8 x i32>, <8 x i32>*, i32 immarg, <8 x i1>) #1
 declare void @llvm.masked.store.v8i32.p3v8i32(<8 x i32>, <8 x i32> addrspace(3)*, i32 immarg, <8 x i1>) #1
 declare void @llvm.masked.store.v8i64.p3v8i64(<8 x i64>, <8 x i64> addrspace(3)*, i32 immarg, <8 x i1>) #1
-declare void @llvm.masked.scatter.v8i32.v8p4i32(<8 x i32>, <8 x i32 addrspace(1)*>, i32 immarg, <8 x i1>)
+declare void @llvm.masked.scatter.v8i32.v8p1i32(<8 x i32>, <8 x i32 addrspace(1)*>, i32 immarg, <8 x i1>)
+declare void @llvm.masked.scatter.v8i32.v8p4i32(<8 x i32>, <8 x i32 addrspace(4)*>, i32 immarg, <8 x i1>)
 declare <8 x i64> @llvm.masked.load.v8i64.p3v8i64(<8 x i64> addrspace(3)*, i32 immarg, <8 x i1>, <8 x i64>)

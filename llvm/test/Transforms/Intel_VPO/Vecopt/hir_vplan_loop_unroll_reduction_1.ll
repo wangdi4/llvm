@@ -25,7 +25,8 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP1]], UF = 3
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_UB_INC:%.*]] = add i64 [[VP1]] i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_UB_INC]], UF = 3
 ; CHECK-NEXT:     [DA: Div] i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 live-in0
 ; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
@@ -38,7 +39,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP7:%.*]] = add i32 [[VP_LOAD]] i32 [[VP3]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP8:%.*]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP9:%.*]] = icmp sle i64 [[VP8]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP9:%.*]] = icmp slt i64 [[VP8]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br cloned.[[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB4]]: # preds: [[BB2]]
@@ -46,7 +47,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:     [DA: Div] i32 [[VP11:%.*]] = load i32* [[VP10]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP12:%.*]] = add i32 [[VP11]] i32 [[VP7]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP13:%.*]] = add i64 [[VP8]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP14:%.*]] = icmp sle i64 [[VP13]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP14:%.*]] = icmp slt i64 [[VP13]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br cloned.[[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB3]]: # preds: cloned.[[BB4]]
@@ -54,7 +55,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:     [DA: Div] i32 [[VP16:%.*]] = load i32* [[VP15]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP4]] = add i32 [[VP16]] i32 [[VP12]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP6]] = add i64 [[VP13]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP17:%.*]] = icmp sle i64 [[VP6]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP17:%.*]] = icmp slt i64 [[VP6]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP17]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: cloned.[[BB3]]
@@ -79,17 +80,19 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; VPVALCG-NEXT:                 [[TGU0:%.*]] = (sext.i32.i64([[N0:%.*]]))/u12
 ; VPVALCG-NEXT:                 if (0 <u 12 * [[TGU0]])
 ; VPVALCG-NEXT:                 {
-; VPVALCG-NEXT:                    [[RED_VAR0:%.*]] = 0
-; VPVALCG-NEXT:                    [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_0190]],  0
+; VPVALCG-NEXT:                    [[RED_INIT:%.*]] = 0
+; VPVALCG-NEXT:                    [[RED_INIT_INSERT:%.*]] = insertelement [[RED_INIT]],  [[ACC_0190]],  0
+; VPVALCG-NEXT:                    [[PHI_TEMP:%.*]]  = [[RED_INIT_INSERT]]
 ; VPVALCG:                         + DO i1 = 0, 12 * [[TGU0]] + -1, 12 <DO_LOOP> <MAX_TC_EST = 178956970> <simd-vectorized> <nounroll> <novectorize>
 ; VPVALCG-NEXT:                    |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
-; VPVALCG-NEXT:                    |   [[DOTVEC20:%.*]] = [[DOTVEC0]]  +  [[RED_VAR0]]
+; VPVALCG-NEXT:                    |   [[DOTVEC20:%.*]] = [[DOTVEC0]]  +  [[PHI_TEMP]]
 ; VPVALCG-NEXT:                    |   [[DOTVEC30:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]
 ; VPVALCG-NEXT:                    |   [[DOTVEC40:%.*]] = [[DOTVEC30]]  +  [[DOTVEC20]]
 ; VPVALCG-NEXT:                    |   [[DOTVEC50:%.*]] = (<4 x i32>*)([[A0]])[i1 + 8]
-; VPVALCG-NEXT:                    |   [[RED_VAR0]] = [[DOTVEC50]]  +  [[DOTVEC40]]
+; VPVALCG-NEXT:                    |   [[DOTVEC60:%.*]] = [[DOTVEC50]]  +  [[DOTVEC40]]
+; VPVALCG-NEXT:                    |   [[PHI_TEMP]] = [[DOTVEC60]]
 ; VPVALCG-NEXT:                    + END LOOP
-; VPVALCG:                         [[ACC_0190]] = @llvm.vector.reduce.add.v4i32([[RED_VAR0]])
+; VPVALCG:                         [[ACC_0190]] = @llvm.vector.reduce.add.v4i32([[DOTVEC60]])
 ; VPVALCG-NEXT:                 }
 ; VPVALCG:                      + DO i1 = 12 * [[TGU0]], sext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 11> <nounroll> <novectorize> <max_trip_count = 11>
 ; VPVALCG-NEXT:                 |   [[TMP1:%.*]] = ([[A0]])[i1]

@@ -1,3 +1,8 @@
+// INTEL_CUSTOMIZATION
+// FIXME: Disabled on Windows as it is flaky
+// UNSUPPORTED: system-windows
+// end INTEL_CUSTOMIZATION
+
 // FIXME: Figure out how to use %clang_analyze_cc1 with our lit.local.cfg.
 // RUN: %clang_cc1 -analyze -triple x86_64-unknown-linux-gnu \
 // RUN:                     -analyzer-checker=core \

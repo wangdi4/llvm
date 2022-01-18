@@ -61,6 +61,10 @@
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/TypeMetadataUtils.h"
 #include "llvm/Bitcode/BitcodeReader.h"
@@ -94,7 +98,11 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
-#include "llvm/Transforms/IPO/Intel_DevirtMultiversioning.h"  // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "llvm/Transforms/IPO/Intel_DevirtMultiversioning.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Evaluator.h"
 #include <algorithm>
@@ -104,7 +112,11 @@
 #include <string>
 
 using namespace llvm;
-using namespace llvm::llvm_intel_wp_analysis;  // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+using namespace llvm::llvm_intel_wp_analysis;
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 using namespace wholeprogramdevirt;
 
 #define DEBUG_TYPE "wholeprogramdevirt"
@@ -361,6 +373,36 @@ template <> struct DenseMapInfo<VTableSlotSummary> {
 
 namespace {
 
+// Returns true if the function must be unreachable based on ValueInfo.
+//
+// In particular, identifies a function as unreachable in the following
+// conditions
+//   1) All summaries are live.
+//   2) All function summaries indicate it's unreachable
+bool mustBeUnreachableFunction(ValueInfo TheFnVI) {
+  if ((!TheFnVI) || TheFnVI.getSummaryList().empty()) {
+    // Returns false if ValueInfo is absent, or the summary list is empty
+    // (e.g., function declarations).
+    return false;
+  }
+
+  for (auto &Summary : TheFnVI.getSummaryList()) {
+    // Conservatively returns false if any non-live functions are seen.
+    // In general either all summaries should be live or all should be dead.
+    if (!Summary->isLive())
+      return false;
+    if (auto *FS = dyn_cast<FunctionSummary>(Summary.get())) {
+      if (!FS->fflags().MustBeUnreachable)
+        return false;
+    }
+    // Do nothing if a non-function has the same GUID (which is rare).
+    // This is correct since non-function summaries are not relevant.
+  }
+  // All function summaries are live and all of them agree that the function is
+  // unreachble.
+  return true;
+}
+
 // A virtual call site. VTable is the loaded virtual table pointer, and CS is
 // the indirect virtual call.
 struct VirtualCallSite {
@@ -536,6 +578,8 @@ struct DevirtModule {
   std::map<CallInst *, unsigned> NumUnsafeUsesForTypeTest;
   PatternList FunctionsToSkip;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   DevirtModule(Module &M, function_ref<AAResults &(Function &)> AARGetter,
                function_ref<OptimizationRemarkEmitter &(Function *)> OREGetter,
                function_ref<DominatorTree &(Function &)> LookupDomTree,
@@ -555,6 +599,26 @@ struct DevirtModule {
     assert(!(ExportSummary && ImportSummary));
     FunctionsToSkip.init(SkipFunctionNames);
   }
+#else // INTEL_FEATURE_SW_DTRANS
+  DevirtModule(Module &M, function_ref<AAResults &(Function &)> AARGetter,
+               function_ref<OptimizationRemarkEmitter &(Function *)> OREGetter,
+               function_ref<DominatorTree &(Function &)> LookupDomTree,
+               ModuleSummaryIndex *ExportSummary,
+               const ModuleSummaryIndex *ImportSummary)
+      : M(M), AARGetter(AARGetter), LookupDomTree(LookupDomTree),
+        ExportSummary(ExportSummary), ImportSummary(ImportSummary),
+        Int8Ty(Type::getInt8Ty(M.getContext())),
+        Int8PtrTy(Type::getInt8PtrTy(M.getContext())),
+        Int32Ty(Type::getInt32Ty(M.getContext())),
+        Int64Ty(Type::getInt64Ty(M.getContext())),
+        IntPtrTy(M.getDataLayout().getIntPtrType(M.getContext(), 0)),
+        Int8Arr0Ty(ArrayType::get(Type::getInt8Ty(M.getContext()), 0)),
+        RemarksEnabled(areRemarksEnabled()), OREGetter(OREGetter) {
+    assert(!(ExportSummary && ImportSummary));
+    FunctionsToSkip.init(SkipFunctionNames);
+  }
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   bool areRemarksEnabled();
 
@@ -566,10 +630,12 @@ struct DevirtModule {
   void buildTypeIdentifierMap(
       std::vector<VTableBits> &Bits,
       DenseMap<Metadata *, std::set<TypeMemberInfo>> &TypeIdMap);
+
   bool
   tryFindVirtualCallTargets(std::vector<VirtualCallTarget> &TargetsForSlot,
                             const std::set<TypeMemberInfo> &TypeMemberInfos,
-                            uint64_t ByteOffset);
+                            uint64_t ByteOffset,
+                            ModuleSummaryIndex *ExportSummary);
 
   void applySingleImplDevirt(VTableSlotInfo &SlotInfo, Constant *TheFn,
                              bool &IsExported);
@@ -585,11 +651,13 @@ struct DevirtModule {
                             WholeProgramDevirtResolution *Res, VTableSlot Slot);
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   // Generate a VirtualCallsDataForMV, which contains the basic information
   // needed by the multiversioning
   void translateDataForMultiVersion(
       MutableArrayRef<VirtualCallTarget> TargetsForSlot,
       VTableSlotInfo &SlotInfo);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif //INTEL_CUSTOMIZATION
 
   bool tryEvaluateFunctionsWithArgs(
@@ -652,7 +720,25 @@ struct DevirtModule {
 
   bool run();
 
+  // Look up the corresponding ValueInfo entry of `TheFn` in `ExportSummary`.
+  //
+  // Caller guarantees that `ExportSummary` is not nullptr.
+  static ValueInfo lookUpFunctionValueInfo(Function *TheFn,
+                                           ModuleSummaryIndex *ExportSummary);
+
+  // Returns true if the function definition must be unreachable.
+  //
+  // Note if this helper function returns true, `F` is guaranteed
+  // to be unreachable; if it returns false, `F` might still
+  // be unreachable but not covered by this helper function.
+  //
+  // Implementation-wise, if function definition is present, IR is analyzed; if
+  // not, look up function flags from ExportSummary as a fallback.
+  static bool mustBeUnreachableFunction(Function *const F,
+                                        ModuleSummaryIndex *ExportSummary);
+
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   // Lower the module using the action and summary passed as command line
   // arguments. For testing purposes only.
   static bool
@@ -663,6 +749,16 @@ struct DevirtModule {
 
 private:
   IntelDevirtMultiversion &IntelDevirtMV;
+
+#else  // INTEL_FEATURE_SW_DTRANS
+
+  // Lower the module using the action and summary passed as command line
+  // arguments. For testing purposes only.
+  static bool
+  runForTesting(Module &M, function_ref<AAResults &(Function &)> AARGetter,
+                function_ref<OptimizationRemarkEmitter &(Function *)> OREGetter,
+                function_ref<DominatorTree &(Function &)> LookupDomTree);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 };
 
@@ -741,7 +837,8 @@ struct WholeProgramDevirt : public ModulePass {
     };
 
 #if INTEL_CUSTOMIZATION
-    auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
+#if INTEL_FEATURE_SW_DTRANS
+    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
       return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
     };
 
@@ -757,6 +854,15 @@ struct WholeProgramDevirt : public ModulePass {
     return DevirtModule(M, LegacyAARGetter(*this), OREGetter, LookupDomTree,
                         ExportSummary, ImportSummary, IntelDevirtMV)
         .run();
+#else  // INTEL_FEATURE_SW_DTRANS
+    if (UseCommandLine)
+      return DevirtModule::runForTesting(M, LegacyAARGetter(*this), OREGetter,
+                                         LookupDomTree);
+
+    return DevirtModule(M, LegacyAARGetter(*this), OREGetter, LookupDomTree,
+                        ExportSummary, ImportSummary)
+        .run();
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -764,9 +870,11 @@ struct WholeProgramDevirt : public ModulePass {
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>(); // INTEL
-    AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
-    AU.addRequired<XmainOptLevelWrapperPass>(); // INTEL
+#if INTEL_CUSTOMIZATION
+    AU.addRequired<WholeProgramWrapperPass>();
+    AU.addRequired<XmainOptLevelWrapperPass>();
+    AU.addPreserved<WholeProgramWrapperPass>();
+#endif // INTEL_CUSTOMIZATION
   }
 };
 
@@ -777,7 +885,9 @@ INITIALIZE_PASS_BEGIN(WholeProgramDevirt, "wholeprogramdevirt",
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)     // INTEL
+#if INTEL_CUSTOMIZATION
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
+#endif // INTEL_CUSTOMIZATION
 INITIALIZE_PASS_END(WholeProgramDevirt, "wholeprogramdevirt",
                     "Whole program devirtualization", false, false)
 char WholeProgramDevirt::ID = 0;
@@ -802,9 +912,10 @@ PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
   };
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   auto WPInfo = AM.getResult<WholeProgramAnalysis>(M);
-  auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
-    return FAM.getResult<TargetLibraryAnalysis>(F);
+  auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function *>(&F)));
   };
 
   IntelDevirtMultiversion IntelDevirtMV(M, WPInfo, GetTLI);
@@ -820,6 +931,18 @@ PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
                     ImportSummary, IntelDevirtMV)
            .run())
     return PreservedAnalyses::all();
+#else // INTEL_FEATURE_SW_DTRANS
+  if (UseCommandLine) {
+    if (DevirtModule::runForTesting(M, AARGetter, OREGetter, LookupDomTree))
+      return PreservedAnalyses::all();
+    return PreservedAnalyses::none();
+  }
+  if (!DevirtModule(M, AARGetter, OREGetter, LookupDomTree, ExportSummary,
+                    ImportSummary)
+           .run())
+    return PreservedAnalyses::all();
+#endif // INTEL_FEATURE_SW_DTRANS
+  // return PreservedAnalyses::none();
 
   auto PA = PreservedAnalyses();
   PA.preserve<WholeProgramAnalysis>();
@@ -832,10 +955,12 @@ PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
 // internal option, and not force disabled.
 static bool hasWholeProgramVisibility(bool WholeProgramVisibilityEnabledInLTO) {
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   // If the user specifies that we assume whole program then we need to turn
   // on the visibility
   if (AssumeWholeProgram && !DisableWholeProgramVisibility)
     return true;
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   return (WholeProgramVisibilityEnabledInLTO || WholeProgramVisibility) &&
@@ -935,11 +1060,13 @@ static Error checkCombinedSummaryForTesting(ModuleSummaryIndex *Summary) {
   return ErrorSuccess();
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
 bool DevirtModule::runForTesting(
     Module &M, function_ref<AAResults &(Function &)> AARGetter,
     function_ref<OptimizationRemarkEmitter &(Function *)> OREGetter,
-    function_ref<DominatorTree &(Function &)> LookupDomTree,          // INTEL
-    IntelDevirtMultiversion &IntelDevirtMV) {   // INTEL
+    function_ref<DominatorTree &(Function &)> LookupDomTree,
+    IntelDevirtMultiversion &IntelDevirtMV) {
   std::unique_ptr<ModuleSummaryIndex> Summary =
       std::make_unique<ModuleSummaryIndex>(/*HaveGVs=*/false);
 
@@ -963,7 +1090,6 @@ bool DevirtModule::runForTesting(
     }
   }
 
-#if INTEL_CUSTOMIZATION
   bool Changed =
       DevirtModule(M, AARGetter, OREGetter, LookupDomTree,
                    ClSummaryAction == PassSummaryAction::Export ? Summary.get()
@@ -972,7 +1098,6 @@ bool DevirtModule::runForTesting(
                                                                 : nullptr,
                    IntelDevirtMV)
           .run();
-#endif // INTEL_CUSTOMIZATION
 
   if (!ClWriteSummary.empty()) {
     ExitOnError ExitOnErr(
@@ -992,6 +1117,62 @@ bool DevirtModule::runForTesting(
 
   return Changed;
 }
+#else // INTEL_FEATURE_SW_DTRANS
+bool DevirtModule::runForTesting(
+    Module &M, function_ref<AAResults &(Function &)> AARGetter,
+    function_ref<OptimizationRemarkEmitter &(Function *)> OREGetter,
+    function_ref<DominatorTree &(Function &)> LookupDomTree) {
+  std::unique_ptr<ModuleSummaryIndex> Summary =
+      std::make_unique<ModuleSummaryIndex>(/*HaveGVs=*/false);
+
+  // Handle the command-line summary arguments. This code is for testing
+  // purposes only, so we handle errors directly.
+  if (!ClReadSummary.empty()) {
+    ExitOnError ExitOnErr("-wholeprogramdevirt-read-summary: " + ClReadSummary +
+                          ": ");
+    auto ReadSummaryFile =
+        ExitOnErr(errorOrToExpected(MemoryBuffer::getFile(ClReadSummary)));
+    if (Expected<std::unique_ptr<ModuleSummaryIndex>> SummaryOrErr =
+            getModuleSummaryIndex(*ReadSummaryFile)) {
+      Summary = std::move(*SummaryOrErr);
+      ExitOnErr(checkCombinedSummaryForTesting(Summary.get()));
+    } else {
+      // Try YAML if we've failed with bitcode.
+      consumeError(SummaryOrErr.takeError());
+      yaml::Input In(ReadSummaryFile->getBuffer());
+      In >> *Summary;
+      ExitOnErr(errorCodeToError(In.error()));
+    }
+  }
+
+  bool Changed =
+      DevirtModule(M, AARGetter, OREGetter, LookupDomTree,
+                   ClSummaryAction == PassSummaryAction::Export ? Summary.get()
+                                                                : nullptr,
+                   ClSummaryAction == PassSummaryAction::Import ? Summary.get()
+                                                                : nullptr)
+          .run();
+
+  if (!ClWriteSummary.empty()) {
+    ExitOnError ExitOnErr(
+        "-wholeprogramdevirt-write-summary: " + ClWriteSummary + ": ");
+    std::error_code EC;
+    if (StringRef(ClWriteSummary).endswith(".bc")) {
+      raw_fd_ostream OS(ClWriteSummary, EC, sys::fs::OF_None);
+      ExitOnErr(errorCodeToError(EC));
+      WriteIndexToFile(*Summary, OS);
+    } else {
+      raw_fd_ostream OS(ClWriteSummary, EC, sys::fs::OF_TextWithCRLF);
+      ExitOnErr(errorCodeToError(EC));
+      yaml::Output Out(OS);
+      Out << *Summary;
+    }
+  }
+
+  return Changed;
+}
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
 void DevirtModule::buildTypeIdentifierMap(
     std::vector<VTableBits> &Bits,
@@ -1029,7 +1210,8 @@ void DevirtModule::buildTypeIdentifierMap(
 
 bool DevirtModule::tryFindVirtualCallTargets(
     std::vector<VirtualCallTarget> &TargetsForSlot,
-    const std::set<TypeMemberInfo> &TypeMemberInfos, uint64_t ByteOffset) {
+    const std::set<TypeMemberInfo> &TypeMemberInfos, uint64_t ByteOffset,
+    ModuleSummaryIndex *ExportSummary) {
   for (const TypeMemberInfo &TM : TypeMemberInfos) {
     if (!TM.Bits->GV->isConstant())
       return false;
@@ -1058,11 +1240,18 @@ bool DevirtModule::tryFindVirtualCallTargets(
       continue;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
     // Windows form of pure virtual
     // TODO: guard this check for Windows only
     if (Fn->getName() == "_purecall")
       continue;
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+
+    // We can disregard unreachable functions as possible call targets, as
+    // unreachable functions shouldn't be called.
+    if (mustBeUnreachableFunction(Fn, ExportSummary))
+      continue;
 
     TargetsForSlot.push_back({Fn, &TM});
   }
@@ -1120,6 +1309,9 @@ bool DevirtIndex::tryFindVirtualCallTargets(
       if (VTP.VTableOffset != P.AddressPointOffset + ByteOffset)
         continue;
 
+      if (mustBeUnreachableFunction(VTP.FuncVI))
+        continue;
+
       TargetsForSlot.push_back(VTP.FuncVI);
     }
   }
@@ -1144,12 +1336,14 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
                              TheFn->stripPointerCasts()->getName(), OREGetter);
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
       // CMPLRLLVM-23243: If the target or the caller functions are libfuncs
       // then we are going to multiversion the virtual call and will include
       // the default case.
       if(!IntelDevirtMV.tryAddingDefaultTargetIntoVCallSite(&VCallSite.CB,
           dyn_cast<Function>(TheFn), VCallSite.CB.getCaller())) {
-#endif // INTEL_CUSTOIMIZATION
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
       auto &CB = VCallSite.CB;
       assert(!CB.getCalledFunction() && "devirtualizing direct call?");
       IRBuilder<> Builder(&CB);
@@ -1183,8 +1377,8 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
       if (TheFn->getType() != VCallSite.CB.getCalledOperand()->getType())
         (&VCallSite.CB)->setMetadata("_Intel.Devirt.Call",
          IntelDevirtMV.getDevirtCallMDNode());
-#endif // INTEL_FEATURE_SW_DTRANS
       }
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
       // This use is no longer unsafe.
       if (VCallSite.NumUnsafeUses)
@@ -1473,6 +1667,7 @@ void DevirtModule::applyICallBranchFunnel(VTableSlotInfo &SlotInfo,
 }
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
 // This function will collect the virtual call sites from SlotInfo and the
 // possible targets from TargetsForSlot and generate a new
 // VirtualCallsDataForMV (structure that holds the basic data needed for
@@ -1523,6 +1718,7 @@ void DevirtModule::translateDataForMultiVersion(
     IntelDevirtMV.PrintVTableInfoAndTargets();
   });
 }
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 bool DevirtModule::tryEvaluateFunctionsWithArgs(
@@ -1882,6 +2078,7 @@ void DevirtModule::rebuildGlobal(VTableBits &B) {
        B.GV->getInitializer(),
        ConstantDataArray::get(M.getContext(), B.After.Bytes)});
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   // Changed under INTEL_CUSTOMIZATION to not create an unnamed global variable
   // because doing so prevents IR dumps created after this pass from being able
   // run with through opt using the -whole-program-assume flag, because
@@ -1890,10 +2087,15 @@ void DevirtModule::rebuildGlobal(VTableBits &B) {
   auto NewGV = new GlobalVariable(M, NewInit->getType(), B.GV->isConstant(),
                                   GlobalVariable::PrivateLinkage, NewInit,
                                   "__Devirt", B.GV);
+#else // INTEL_FEATURE_SW_DTRANS
+  auto NewGV =
+      new GlobalVariable(M, NewInit->getType(), B.GV->isConstant(),
+                         GlobalVariable::PrivateLinkage, NewInit, "", B.GV);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
   NewGV->setSection(B.GV->getSection());
   NewGV->setComdat(B.GV->getComdat());
-  NewGV->setAlignment(MaybeAlign(B.GV->getAlignment()));
+  NewGV->setAlignment(B.GV->getAlign());
 
   // Copy the original vtable's metadata to the anonymous global, adjusting
   // offsets as required.
@@ -1935,10 +2137,8 @@ void DevirtModule::scanTypeTestUsers(
   // points to a member of the type identifier %md. Group calls by (type ID,
   // offset) pair (effectively the identity of the virtual function) and store
   // to CallSlots.
-  for (auto I = TypeTestFunc->use_begin(), E = TypeTestFunc->use_end();
-       I != E;) {
-    auto CI = dyn_cast<CallInst>(I->getUser());
-    ++I;
+  for (Use &U : llvm::make_early_inc_range(TypeTestFunc->uses())) {
+    auto *CI = dyn_cast<CallInst>(U.getUser());
     if (!CI)
       continue;
 
@@ -1957,7 +2157,11 @@ void DevirtModule::scanTypeTestUsers(
         CallSlots[{TypeId, Call.Offset}].addCallSite(Ptr, Call.CB, nullptr);
     }
 
-    IntelDevirtMV.deleteVTableCast(CI->getArgOperand(0));  // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    IntelDevirtMV.deleteVTableCast(CI->getArgOperand(0));
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
     auto RemoveTypeTestAssumes = [&]() {
       // We no longer need the assumes or the type test.
@@ -2009,11 +2213,8 @@ void DevirtModule::scanTypeTestUsers(
 void DevirtModule::scanTypeCheckedLoadUsers(Function *TypeCheckedLoadFunc) {
   Function *TypeTestFunc = Intrinsic::getDeclaration(&M, Intrinsic::type_test);
 
-  for (auto I = TypeCheckedLoadFunc->use_begin(),
-            E = TypeCheckedLoadFunc->use_end();
-       I != E;) {
-    auto CI = dyn_cast<CallInst>(I->getUser());
-    ++I;
+  for (Use &U : llvm::make_early_inc_range(TypeCheckedLoadFunc->uses())) {
+    auto *CI = dyn_cast<CallInst>(U.getUser());
     if (!CI)
       continue;
 
@@ -2170,6 +2371,65 @@ void DevirtModule::removeRedundantTypeTests() {
   }
 }
 
+ValueInfo
+DevirtModule::lookUpFunctionValueInfo(Function *TheFn,
+                                      ModuleSummaryIndex *ExportSummary) {
+  assert((ExportSummary != nullptr) &&
+         "Caller guarantees ExportSummary is not nullptr");
+
+  const auto TheFnGUID = TheFn->getGUID();
+  const auto TheFnGUIDWithExportedName = GlobalValue::getGUID(TheFn->getName());
+  // Look up ValueInfo with the GUID in the current linkage.
+  ValueInfo TheFnVI = ExportSummary->getValueInfo(TheFnGUID);
+  // If no entry is found and GUID is different from GUID computed using
+  // exported name, look up ValueInfo with the exported name unconditionally.
+  // This is a fallback.
+  //
+  // The reason to have a fallback:
+  // 1. LTO could enable global value internalization via
+  // `enable-lto-internalization`.
+  // 2. The GUID in ExportedSummary is computed using exported name.
+  if ((!TheFnVI) && (TheFnGUID != TheFnGUIDWithExportedName)) {
+    TheFnVI = ExportSummary->getValueInfo(TheFnGUIDWithExportedName);
+  }
+  return TheFnVI;
+}
+
+bool DevirtModule::mustBeUnreachableFunction(
+    Function *const F, ModuleSummaryIndex *ExportSummary) {
+#if INTEL_CUSTOMIZATION
+  // Returns true if BB has any side effect instruction. "llvm.trap()”
+  // call is considered as no-side effect instruction for now.
+  auto HasSideEffectBB = [](BasicBlock *BB) {
+    for (auto &I : *BB) {
+      if (auto *CB = dyn_cast<CallBase>(&I)) {
+        Function *CallF = CB->getCalledFunction();
+        if (CallF && CallF->getIntrinsicID() == Intrinsic::trap)
+          continue;
+      }
+      if (I.mayHaveSideEffects())
+        return true;
+    }
+    return false;
+  };
+#endif // INTEL_CUSTOMIZATION
+  // First, learn unreachability by analyzing function IR.
+  if (!F->isDeclaration()) {
+    // A function must be unreachable if its entry block ends with an
+    // 'unreachable'.
+#if INTEL_CUSTOMIZATION
+    // On xmain, a function is considered as unreachable only when no
+    // instruction has side effects.
+    return isa<UnreachableInst>(F->getEntryBlock().getTerminator()) &&
+           !HasSideEffectBB(&F->getEntryBlock());
+#endif // INTEL_CUSTOMIZATION
+  }
+  // Learn unreachability from ExportSummary if ExportSummary is present.
+  return ExportSummary &&
+         ::mustBeUnreachableFunction(
+             DevirtModule::lookUpFunctionValueInfo(F, ExportSummary));
+}
+
 bool DevirtModule::run() {
   // If only some of the modules were split, we cannot correctly perform
   // this transformation. We already checked for the presense of type tests
@@ -2195,8 +2455,10 @@ bool DevirtModule::run() {
     return false;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   // Find the possible places where a downcasting can occur
   IntelDevirtMV.filterDowncasting(AssumeFunc);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   // Rebuild type metadata into a map for easy lookup.
@@ -2299,12 +2561,15 @@ bool DevirtModule::run() {
                      cast<MDString>(S.first.TypeID)->getString())
                  .WPDRes[S.first.ByteOffset];
     if (tryFindVirtualCallTargets(TargetsForSlot, TypeMemberInfos,
-                                  S.first.ByteOffset)) {
+                                  S.first.ByteOffset, ExportSummary)) {
+
       if (!trySingleImplDevirt(ExportSummary, TargetsForSlot, S.second, Res)) {
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
         translateDataForMultiVersion(TargetsForSlot, S.second);
         if (!IntelDevirtMV.tryMultiVersionDevirt()) {
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
         DidVirtualConstProp |=
@@ -2313,7 +2578,9 @@ bool DevirtModule::run() {
         tryICallBranchFunnel(TargetsForSlot, S.second, Res, S.first);
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
         }
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
       }
 
@@ -2365,7 +2632,11 @@ bool DevirtModule::run() {
   for (GlobalVariable &GV : M.globals())
     GV.eraseMetadata(LLVMContext::MD_vcall_visibility);
 
-  IntelDevirtMV.runDevirtVerifier(M);  // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  IntelDevirtMV.runDevirtVerifier(M);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   return true;
 }

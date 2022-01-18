@@ -14,12 +14,14 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct.a) !
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data: Ambiguous GEP{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; CHECK: Safety data: Ambiguous GEP{{ *$}}
+; CHECK: End LLVMType: %struct.test01b
 
 
 ; "Ambiguous GEP" case where the type is used with nested structure access, using
@@ -36,28 +38,34 @@ define void @test02(%struct.test02a0* "intel_dtrans_func_index"="1" %pStruct.a) 
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02a0
+; CHECK: LLVMType: %struct.test02a0
 ; CHECK: Safety data: Ambiguous GEP | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test02a0
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02a1
+; CHECK: LLVMType: %struct.test02a1
 ; CHECK: Safety data: Ambiguous GEP | Nested structure | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test02a1
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02a2
+; CHECK: LLVMType: %struct.test02a2
 ; CHECK: Safety data: Ambiguous GEP | Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test02a2
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02b0
+; CHECK: LLVMType: %struct.test02b0
 ; CHECK: Safety data: Ambiguous GEP | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test02b0
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02b1
+; CHECK: LLVMType: %struct.test02b1
 ; CHECK: Safety data: Ambiguous GEP | Nested structure | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test02b1
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02b2
+; CHECK: LLVMType: %struct.test02b2
 ; CHECK: Safety data: Ambiguous GEP | Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test02b2
 
 
 !1 = !{i32 0, i32 0}  ; i32

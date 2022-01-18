@@ -1,5 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt  < %s -whole-program-assume -disable-output -dtrans-aostosoa -debug-only=dtrans-aostosoa 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -disable-output -passes=dtrans-aostosoa -debug-only=dtrans-aostosoa 2>&1 | FileCheck %s
 
 ; This test verifies that if the allocation path cannot be
 ; uniquely traced back to 'main', the type is disqualified

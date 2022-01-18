@@ -18,28 +18,29 @@
 
 #include "llvm/IR/Function.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Transforms/InstCombine/InstCombineWorklist.h"
+
+#define DEBUG_TYPE "instcombine"
+#include "llvm/Transforms/Utils/InstructionWorklist.h"
 
 namespace llvm {
 
 class InstCombinePass : public PassInfoMixin<InstCombinePass> {
-  InstCombineWorklist Worklist;
+  InstructionWorklist Worklist;
   const bool PreserveForDTrans; // INTEL
   const bool PreserveAddrCompute; // INTEL
   const unsigned MaxIterations;
-  const FcmpMinMaxCombineType EnableFcmpMinMaxCombine; // INTEL
+  const bool EnableFcmpMinMaxCombine; // INTEL
   const bool EnableUpCasting;   // INTEL
 
 public:
 #if INTEL_CUSTOMIZATION
   explicit InstCombinePass(bool PreserveForDTrans = false,
                            bool PreserveAddrCompute = false,
-                           FcmpMinMaxCombineType EnableFcmpMinMaxCombine =
-                               EnableAllFcmpMinMaxCombine,
+                           bool EnableFcmpMinMaxCombine = true,
                            bool EnableUpCasting = true);
   explicit InstCombinePass(bool PreserveForDTrans, bool PreserveAddrCompute,
                            unsigned MaxIterations,
-                           FcmpMinMaxCombineType EnableFcmpMinMaxCombine,
+                           bool EnableFcmpMinMaxCombine,
                            bool EnableUpCasting);
 #endif // INTEL_CUSTOMIZATION
 
@@ -51,10 +52,10 @@ public:
 /// This is a basic whole-function wrapper around the instcombine utility. It
 /// will try to combine all instructions in the function.
 class InstructionCombiningPass : public FunctionPass {
-  InstCombineWorklist Worklist;
+  InstructionWorklist Worklist;
   const bool PreserveForDTrans; // INTEL
   const bool PreserveAddrCompute; // INTEL
-  const FcmpMinMaxCombineType EnableFcmpMinMaxCombine; // INTEL
+  const bool EnableFcmpMinMaxCombine; // INTEL
   const bool EnableUpCasting; // INTEL
   const unsigned MaxIterations;
 
@@ -64,12 +65,11 @@ public:
 #if INTEL_CUSTOMIZATION
   InstructionCombiningPass(bool PreserveForDTrans = false,
                            bool PreserveAddrCompute = false,
-                           FcmpMinMaxCombineType EnableFcmpMinMaxCombine =
-                               EnableAllFcmpMinMaxCombine,
+                           bool EnableFcmpMinMaxCombine = true,
                            bool EnableUpCasting = true);
   InstructionCombiningPass(bool PreserveForDTrans, bool PreserveAddrCompute,
                            unsigned MaxInterations,
-                           FcmpMinMaxCombineType EnableFcmpMinMaxCombine,
+                           bool EnableFcmpMinMaxCombine,
                            bool EnableUpCasting);
 #endif // INTEL_CUSTOMIZATION
 
@@ -93,16 +93,17 @@ public:
 FunctionPass *
 createInstructionCombiningPass(bool PreserveForDTrans = false,
                                bool PreserveAddrCompute = false,
-                               FcmpMinMaxCombineType EnableFcmpMinMaxCombine =
-                                   EnableAllFcmpMinMaxCombine,
+                               bool EnableFcmpMinMaxCombine = true,
                                bool EnableUpCasting = true);
 FunctionPass *
 createInstructionCombiningPass(bool PreserveForDTrans,
                                bool PreserveAddrCompute,
                                unsigned MaxIterations,
-                               FcmpMinMaxCombineType EnableFcmpMinMaxCombine,
+                               bool EnableFcmpMinMaxCombine,
                                bool EnableUpCasting);
 #endif // INTEL_CUSTOMIZATION
 }
+
+#undef DEBUG_TYPE
 
 #endif

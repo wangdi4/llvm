@@ -231,6 +231,15 @@ public:
     return getGraphImpl(Loop->getParentRegion(), Loop);
   }
 
+  /// Eliminates all invalid graphs in the region by resetting them to 'NoData'
+  /// state. This is done by clearing the entire DDGraph. No new graphs are
+  /// built by this function, it only updates the cached state of the graph.
+  /// This function exposes the internal implementation of HIRDDAnalysis and is
+  /// used as a workaround for clients which can cache DDEdges for different
+  /// loops in the region such as HIRParVecAnalysis. The cached DDEdges can get
+  /// invalidated by getGraphImpl() resulting in invalid memory access.
+  void resetInvalidGraphs(const HLRegion *Region);
+
   /// \brief Caller has DDG and the level it needs to refine. Should check
   /// isRefinable before calling refineDV
   bool isRefinableDepAtLevel(const DDEdge *Edge, unsigned Level) const;

@@ -143,6 +143,7 @@ PreservedAnalyses FunctionSpecializationPass::run(Module &M,
   return PA;
 }
 
+namespace {
 struct FunctionSpecializationLegacyPass : public ModulePass {
   static char ID; // Pass identification, replacement for typeid
   FunctionSpecializationLegacyPass() : ModulePass(ID) {}
@@ -183,6 +184,7 @@ struct FunctionSpecializationLegacyPass : public ModulePass {
     return runFunctionSpecialization(M, DL, GetTLI, GetTTI, GetAC, GetAnalysis);
   }
 };
+} // namespace
 
 char FunctionSpecializationLegacyPass::ID = 0;
 

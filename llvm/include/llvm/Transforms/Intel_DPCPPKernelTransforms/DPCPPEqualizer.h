@@ -15,20 +15,19 @@
 
 namespace llvm {
 
+class BuiltinLibInfo;
+
 /// Adjust the given module to be processed by the BE.
 /// - replaces SPIR artifacts with Intel-implementation specific stuff.
 /// - updates LLVM IR to version supported by back-end compiler
 class DPCPPEqualizerPass : public PassInfoMixin<DPCPPEqualizerPass> {
 public:
-  explicit DPCPPEqualizerPass(ArrayRef<Module *> BuiltinModules = {})
-      : BuiltinModules(BuiltinModules) {}
-
-  static StringRef name() { return "DPCPPEqualizerPass"; }
+  explicit DPCPPEqualizerPass(ArrayRef<Module *> BuiltinModules = {}) {}
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // Glue for old PM.
-  bool runImpl(Module &M);
+  bool runImpl(Module &M, BuiltinLibInfo *BLI);
 
 private:
   /// Set block-literal-size attribute for enqueued kernels.

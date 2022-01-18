@@ -43,7 +43,7 @@ KnownBits VPlanValueTrackingHIR::getKnownBits(VPlanSCEV *Expr,
 // this (ScalarEvolution and ValueTracking), we can compute KnownBits only for
 // expressions that are defined in LLVM code (i.e. outside of HIR region).
 KnownBits VPlanValueTrackingHIR::getKnownBitsImpl(VPlanAddRecHIR *AddRec) {
-  auto BitWidth = DL->getMaxPointerSizeInBits();
+  auto BitWidth = DL->getMaxIndexSizeInBits();
   CanonExpr *Base = AddRec->Base;
   BlobUtils &BU = Base->getBlobUtils();
 
@@ -90,7 +90,7 @@ KnownBits VPlanValueTrackingHIR::getKnownBitsImpl(VPlanAddRecHIR *AddRec) {
 KnownBits
 VPlanValueTrackingHIR::computeKnownBitsForScev(const SCEV *Expr,
                                                Instruction *CtxI) const {
-  auto BitWidth = DL->getMaxPointerSizeInBits();
+  auto BitWidth = DL->getMaxIndexSizeInBits();
 
   if (auto *E = dyn_cast<SCEVUnknown>(Expr))
     return computeKnownBits(E->getValue(), *DL, 0, AC, CtxI, DT)

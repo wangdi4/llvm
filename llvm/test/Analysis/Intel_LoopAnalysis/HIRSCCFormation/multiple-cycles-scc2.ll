@@ -1,13 +1,20 @@
 ; RUN: opt < %s -analyze -hir-scc-formation | FileCheck %s
 
-; Verify that we do not construct the SCC (%v_fnaob.1254 -> %v_fnaob.0261 -> %xor105.lcssa -> %xor105 -> %xor97) which has multiple cycles. There are two other legitimate SCCs which are formed.
+; Verify that we do not construct the SCC (%v_fnaob.1254 -> %v_fnaob.0261 -> 
+; %xor105.lcssa -> %xor105 -> %xor97) which has multiple cycles. There are 3
+; other legitimate SCCs which are formed including the inner loop SCC (%xor105
+; -> %v_fnaob.1254).
+
 ; CHECK: SCC1
 ; CHECK-SAME: %.lcssa318320
 
 ; CHECK: SCC2
 ; CHECK-SAME: %xor111259
 
-; CHECK-NOT: SCC
+; CHECK: SCC3
+; CHECK-NOT: %v_fnaob.0261
+; CHECK-SAME: %v_fnaob.1254
+
 
 ;Module Before HIR; ModuleID = 'bug6.cpp'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

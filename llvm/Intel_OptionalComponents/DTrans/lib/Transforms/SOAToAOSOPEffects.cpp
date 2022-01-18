@@ -138,7 +138,7 @@ const Dep *DepCompute::computeValueDep(const Value *Val) const {
       unsigned FieldInd = IsFieldAccessGEP(*(*SCCIt).begin());
 
       auto *V = *(*SCCIt).begin();
-      if (isSafeBitCast(DL, V, DTInfo))
+      if (isSafeBitCast(DL, V, DTInfo.getPtrTypeAnalyzer()))
         ThisRep = Dep::mkArgList(DM, Args);
       else if (FieldInd != -1U && Args.size() != 0)
         ThisRep = Dep::mkGEP(DM, Dep::mkNonEmptyArgList(DM, Args), FieldInd);

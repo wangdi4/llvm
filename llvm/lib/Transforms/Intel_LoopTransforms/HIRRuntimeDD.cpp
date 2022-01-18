@@ -847,6 +847,38 @@ static bool isStarEdge(const DDEdge &Edge) {
   return false;
 }
 
+// Check for temps in the loop. If there are live-in temps
+// and they are not in a safe-reduction chain, RTDD will not help vectorization
+// and should be avoided.
+bool HIRRuntimeDD::canHelpVectorization(const HLLoop *InnermostLoop) const {
+  // Gather terminal refs which are only inside the innermost loop
+  DDRefGatherer<RegDDRef, TerminalRefs>::VectorTy TempRefs;
+  DDRefGatherer<RegDDRef, TerminalRefs>::gather(InnermostLoop, TempRefs);
+
+  SRA.computeSafeReductionChains(InnermostLoop);
+
+  DDGraph DDG = DDA.getGraph(InnermostLoop);
+  unsigned LoopLevel = InnermostLoop->getNestingLevel();
+
+  for (RegDDRef *TempRef : TempRefs) {
+    if (TempRef->isRval() || !InnermostLoop->isLiveIn(TempRef->getSymbase())) {
+      continue;
+    }
+
+    for (const DDEdge *Edge : DDG.outgoing(TempRef)) {
+      if (!Edge->preventsVectorization(LoopLevel)) {
+        continue;
+      }
+
+      unsigned OpCode;
+      if (!SRA.isReductionRef(TempRef, OpCode)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 RuntimeDDResult HIRRuntimeDD::processDDGToGroupPairs(
     const HLLoop *Loop, MemRefGatherer::VectorTy &Refs,
     DenseMap<const RegDDRef *, unsigned> &RefGroupIndex,
@@ -912,6 +944,92 @@ static void clearNotInvolvedGroups(
   }
 }
 
+// Check whether RTDD can happen before a relaxed non-perfect loopnest.
+// The pattern is matched by Geekbench6.0/Camera
+static bool canLoopBeRelaxed(HLLoop *Loop, const HLLoop *&InnermostLoop,
+                             SmallSet<unsigned, 16> &PreLoopInstsLvalSBs) {
+  HLIf *If = dyn_cast<HLIf>(Loop->getLastChild());
+
+  if (!If) {
+    return false;
+  }
+
+  if (If->getNumThenChildren() != 1) {
+    return false;
+  }
+
+  const HLNode *FirstThenChild = If->getFirstThenChild();
+
+  InnermostLoop = dyn_cast<HLLoop>(FirstThenChild);
+
+  if (!InnermostLoop || !InnermostLoop->isInnermost()) {
+    return false;
+  }
+
+  for (const HLNode &Node :
+       make_range(Loop->child_begin(), std::prev(Loop->child_end()))) {
+    const HLInst *HInst = dyn_cast<HLInst>(&Node);
+    if (!HInst) {
+      return false;
+    }
+
+    const RegDDRef *Lval = HInst->getLvalDDRef();
+
+    if (!Lval->isTerminalRef()) {
+      return false;
+    } else {
+      PreLoopInstsLvalSBs.insert(Lval->getSymbase());
+    }
+  }
+
+  return true;
+}
+
+static bool
+canHelpScalarReplacementOrMemoryMotion(const HLLoop *InnermostLoop) {
+  return HIRLoopLocality::hasTemporalLocality(InnermostLoop, 2, true, false);
+}
+
+static void
+splitRefGroups(RefGroupVecTy &Groups,
+               DenseMap<const RegDDRef *, unsigned> &RefGroupIndex) {
+  unsigned GroupSize = Groups.size();
+
+  for (unsigned I = 0; I < GroupSize; ++I) {
+    if (Groups[I].size() < 2) {
+      continue;
+    }
+
+    for (unsigned J = 0, EE = Groups[I].size() - 1; J < EE; ++J) {
+      if (DDRefUtils::haveConstDimensionDistances(Groups[I][J],
+                                                  Groups[I][J + 1], false)) {
+        continue;
+      }
+
+      if (Groups[I][J]->getHLDDNode()->getParentLoop()->getNestingLevel() ==
+          Groups[I][J + 1]->getHLDDNode()->getParentLoop()->getNestingLevel()) {
+        continue;
+      }
+
+      Groups.resize(++GroupSize);
+
+      // Update the group index for the refs which will be in the new group
+      for (unsigned K = J + 1, End = Groups[I].size(); K < End; ++K) {
+        auto GroupI = RefGroupIndex.find(Groups[I][K]);
+        assert(GroupI != RefGroupIndex.end() &&
+               "Cannot find the group index\n");
+        GroupI->second = GroupSize - 1;
+        Groups.back().push_back(Groups[I][K]);
+      }
+
+      Groups[I].resize(J + 1);
+      break;
+    }
+  }
+
+  return;
+}
+
 RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   RuntimeDDResult Ret = OK;
   Context.Loop = Loop;
@@ -937,9 +1055,17 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   }
 
   const HLLoop *InnermostLoop = Loop;
+  bool CanLoopBeRelaxed = false;
+  SmallSet<unsigned, 16> PreLoopInstsLvalSBs;
+
   if (!Loop->isInnermost() &&
       !HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop)) {
-    return NON_PERFECT_LOOPNEST;
+    CanLoopBeRelaxed =
+        canLoopBeRelaxed(Loop, InnermostLoop, PreLoopInstsLvalSBs);
+
+    if (!CanLoopBeRelaxed) {
+      return NON_PERFECT_LOOPNEST;
+    }
   }
 
   bool ConstantTripCount = true;
@@ -996,8 +1122,27 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   // Populate a reference-to-group-number map.
   DDRefIndexGrouping Grouping(Groups, Refs);
 
+  // Split the Group if the size of Group is larger than 2 and the elements are
+  // from different parent loops and they do not have constant distance
+  if (CanLoopBeRelaxed) {
+    splitRefGroups(Groups, Grouping.getIndex());
+  }
+
+  // Dump ref groups after split.
+  LLVM_DEBUG(dbgs() << "Ref groups after split:\n ";
+             for (unsigned I = 0; I < Groups.size(); ++I) {
+               auto &Group = Groups[I];
+               dbgs() << "Group " << I << " contains (" << Group.size()
+                      << ") refs:\n";
+               for (auto &Ref : Group) {
+                 Ref->dump();
+                 dbgs() << "\n";
+               }
+             });
+
   SmallSetVector<std::pair<unsigned, unsigned>, ExpectedNumberOfTests> Tests;
   Ret = processDDGToGroupPairs(Loop, Refs, Grouping.getIndex(), Tests);
+
   if (Ret != OK) {
     return Ret;
   }
@@ -1075,9 +1220,29 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
       return STRUCT_ACCESS;
     }
 
+    // Allow fake ref if canUsePointeeSize is set.
     if (std::any_of(Groups[I].begin(), Groups[I].end(),
-                    [](const RegDDRef *Ref) { return Ref->isFake(); })) {
+                    [](const RegDDRef *Ref) {
+                      return (Ref->isFake() && !Ref->canUsePointeeSize());
+                    })) {
       return UNKNOWN_ADDR_RANGE;
+    }
+
+    // Check whether any pre-loop inst's lval is used as a blob inside the
+    // memref. If yes, RT cannot be allowed to put before the relaxed loop,
+    // because the definition is after the use.
+    if (std::any_of(Groups[I].begin(), Groups[I].end(),
+                    [&](const RegDDRef *Ref) {
+                      for (auto BI = Ref->blob_begin(), E = Ref->blob_end();
+                           BI != E; ++BI) {
+                        const BlobDDRef *BlobRef = *BI;
+                        if (PreLoopInstsLvalSBs.count(BlobRef->getSymbase())) {
+                          return true;
+                        }
+                      }
+                      return false;
+                    })) {
+      return NON_PERFECT_LOOPNEST;
     }
 
     bool IsWriteGroup =
@@ -1091,6 +1256,11 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     if (Ret != OK) {
       return Ret;
     }
+  }
+
+  if (!canHelpVectorization(InnermostLoop) &&
+      !canHelpScalarReplacementOrMemoryMotion(InnermostLoop)) {
+    return NON_PROFITABLE;
   }
 
   processLoopnest(Loop, InnermostLoop, IVSegments);
@@ -1128,46 +1298,42 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   return OK;
 }
 
-// Update \p Lower and \p Upper address RegDDRefs types to be equal to \p
-// PtrType.
-// * If PtrType is null then smallest type between Lower and Upper is selected.
-// * If Upper type is larger than PtrType then non-linear address offset will be
-//   generated and added to \p Nodes to address the last word of larger type.
+// Update \p Lower and \p Upper address RegDDRefs element types to be equal to
+// \p PtrElementType.
+// * If PtrElementType is null then smallest type between Lower and Upper is
+// selected.
+// * If Upper type is larger than PtrElementType then non-linear address offset
+// will be generated and added to \p Nodes to address the last word of larger
+// type.
 static void normalizeRefTypes(HLNodeUtils &HNU, HLContainerTy &Nodes,
                               RegDDRef *&Lower, RegDDRef *&Upper,
-                              Type *PtrType) {
+                              Type *PtrElementType) {
   assert(Lower->isAddressOf() && Upper->isAddressOf() &&
          "Expected to be isAddressOf DDRefs");
 
   auto &DL = HNU.getDataLayout();
 
-  Type *LowerType = Lower->getDestType();
-  Type *UpperType = Upper->getDestType();
-
   Type *LowerElementType = Lower->getDereferencedType();
   Type *UpperElementType = Upper->getDereferencedType();
 
-  Type *PtrElementType = PtrType;
   // Determine smallest type.
-  if (!PtrType) {
+  if (!PtrElementType) {
     auto LowerSize = DL.getTypeSizeInBits(LowerElementType);
     auto UpperSize = DL.getTypeSizeInBits(UpperElementType);
 
     if (LowerSize < UpperSize) {
-      PtrType = LowerType;
       PtrElementType = LowerElementType;
     } else {
-      PtrType = UpperType;
       PtrElementType = UpperElementType;
     }
   }
 
-  if (LowerType != PtrType) {
-    Lower->setBitCastDestType(PtrType);
+  if (LowerElementType != PtrElementType) {
+    Lower->setBitCastDestVecOrElemType(PtrElementType);
   }
 
-  if (UpperType != PtrType) {
-    Upper->setBitCastDestType(PtrType);
+  if (UpperElementType != PtrElementType) {
+    Upper->setBitCastDestVecOrElemType(PtrElementType);
 
     auto UpperTypeSize = DL.getTypeSizeInBits(UpperElementType);
     auto PtrTypeSize = DL.getTypeSizeInBits(PtrElementType);
@@ -1188,9 +1354,9 @@ static void normalizeRefTypes(HLNodeUtils &HNU, HLContainerTy &Nodes,
 
       auto *BaseDDRef = BaseInst->getLvalDDRef();
 
-      auto *OffsetDDRef = HNU.getDDRefUtils().createAddressOfRef(Upper->getDereferencedType(),
-          BaseDDRef->getSelfBlobIndex(), NonLinearLevel, Upper->getSymbase(),
-          true);
+      auto *OffsetDDRef = HNU.getDDRefUtils().createAddressOfRef(
+          Upper->getDereferencedType(), BaseDDRef->getSelfBlobIndex(),
+          NonLinearLevel, Upper->getSymbase(), true);
 
       OffsetDDRef->addDimension(
           HNU.getCanonExprUtils().createCanonExpr(OffsetTy, 0, Offset));
@@ -1240,12 +1406,11 @@ static Type *getMinimalElementSizeType(const DataLayout &DL,
 
   for (auto &Segment : Segments) {
     for (auto &Ref : {Segment.Lower, Segment.Upper}) {
-      Type *RefType = Ref->getDestType();
       Type *RefElementType = Ref->getDereferencedType();
       auto Size = DL.getTypeSizeInBits(RefElementType);
       if (Size < MinTypeSize) {
         MinTypeSize = Size;
-        MinType = RefType;
+        MinType = RefElementType;
       }
     }
   }
@@ -1275,8 +1440,11 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
   auto &LLVMContext = HNU.getContext();
 
   Type *I8PtrType = Type::getInt8PtrTy(LLVMContext, 0);
-  Type *PtrType =
+  Type *PtrElementType =
       getMinimalElementSizeType(HNU.getDataLayout(), Context.SegmentList);
+
+  // TODO: bailout of library call logic if any ref is not in address space 0.
+  Type *PtrType = PointerType::get(PtrElementType, 0);
 
   // Create a type for [N * %mem_region_t]
   Type *SegmentRuntimeTy = StructType::get(PtrType, PtrType);
@@ -1301,7 +1469,8 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
   //   (%dd)[49].0 = &(%Q)[%lower]
   //   (%dd)[49].1 = &(%Q)[%upper]
   for (auto &S : Context.SegmentList) {
-    RegDDRef *LBDDRef = DRU.createMemRef(SegmentArrayRuntimeTy, TestArrayBlobIndex);
+    RegDDRef *LBDDRef =
+        DRU.createMemRef(SegmentArrayRuntimeTy, TestArrayBlobIndex);
     LBDDRef->addDimension(CEU.createCanonExpr(IVType));
     LBDDRef->addDimension(CEU.createCanonExpr(IVType, 0, TestIdx));
     LBDDRef->setTrailingStructOffsets(1, 0);
@@ -1309,7 +1478,7 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
     RegDDRef *UBDDRef = LBDDRef->clone();
     UBDDRef->setTrailingStructOffsets(1, 1);
 
-    normalizeRefTypes(HNU, Nodes, S.Lower, S.Upper, PtrType);
+    normalizeRefTypes(HNU, Nodes, S.Lower, S.Upper, PtrElementType);
     Nodes.push_back(*HNU.createStore(S.Lower, "lb", LBDDRef));
     Nodes.push_back(*HNU.createStore(S.Upper, "ub", UBDDRef));
 
@@ -1328,10 +1497,11 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
   FunctionCallee RtddIndep = HNU.getModule().getOrInsertFunction(
       "__intel_rtdd_indep", Attrs, IntPtrType, I8PtrType, IntPtrType);
 
-  RegDDRef *ArrayRef = DRU.createMemRef(SegmentArrayRuntimeTy, TestArrayBlobIndex);
+  RegDDRef *ArrayRef =
+      DRU.createMemRef(SegmentArrayRuntimeTy, TestArrayBlobIndex);
   ArrayRef->setAddressOf(true);
   ArrayRef->addDimension(CEU.createCanonExpr(IVType));
-  ArrayRef->setBitCastDestType(I8PtrType);
+  ArrayRef->setBitCastDestVecOrElemType(Type::getInt8Ty(LLVMContext));
 
   RegDDRef *SegementSizeRef =
       DRU.createConstDDRef(IntPtrType, Context.SegmentList.size());
@@ -1596,20 +1766,15 @@ void HIRRuntimeDD::markDDRefsIndep(LoopContext &Context) {
       AAMDNodes AANodes;
       Ref->getAAMetadata(AANodes);
 
-      AANodes.Scope = MDNode::concatenate(AANodes.Scope, NewScopes[ScopeId]);
+      MDNode *ScopeMD = MDNode::get(LLVMContext, NewScopes[ScopeId]);
+      AANodes.Scope = MDNode::concatenate(AANodes.Scope, ScopeMD);
 
       SmallVector<Metadata *, ExpectedNumberOfTests> NoAliasScopes;
       NoAliasScopes.reserve(Size - 1);
       NoAliasScopes.append(NewScopes.begin(), NewScopes.begin() + ScopeId);
       NoAliasScopes.append(NewScopes.begin() + ScopeId + 1, NewScopes.end());
 
-      MDNode *NoAliasScopesMD;
-      if (NoAliasScopes.size() == 1) {
-        NoAliasScopesMD = cast<MDNode>(NoAliasScopes.front());
-      } else {
-        NoAliasScopesMD = MDNode::get(LLVMContext, NoAliasScopes);
-      }
-
+      MDNode *NoAliasScopesMD = MDNode::get(LLVMContext, NoAliasScopes);
       AANodes.NoAlias = MDNode::concatenate(AANodes.NoAlias, NoAliasScopesMD);
 
       Ref->setAAMetadata(AANodes);
@@ -1659,7 +1824,8 @@ PreservedAnalyses HIRRuntimeDDPass::runImpl(llvm::Function &F,
   HIRRuntimeDD(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                AM.getResult<HIRLoopStatisticsAnalysis>(F),
                AM.getResult<TargetLibraryAnalysis>(F),
-               AM.getResult<TargetIRAnalysis>(F))
+               AM.getResult<TargetIRAnalysis>(F),
+               AM.getResult<HIRSafeReductionAnalysisPass>(F))
       .run();
 
   return PreservedAnalyses::all();
@@ -1679,6 +1845,7 @@ public:
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
+    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
     AU.setPreservesAll();
   }
 
@@ -1687,11 +1854,13 @@ public:
       return false;
     }
 
-    return HIRRuntimeDD(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-                        getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-                        getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
-                        getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
-                        getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F))
+    return HIRRuntimeDD(
+               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
+               getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
+               getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
+               getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F),
+               getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR())
         .run();
   }
 };
@@ -1704,6 +1873,7 @@ INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRRuntimeDDLegacyPass, OPT_SWITCH, OPT_DESCR, false, false)
 
 FunctionPass *llvm::createHIRRuntimeDDPass() {

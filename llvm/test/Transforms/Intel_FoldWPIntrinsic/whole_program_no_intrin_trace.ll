@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: assert, intel_feature_sw_dtrans
 
 ; This test checks that the debug trace is printed correctly if the intrinsic
 ; llvm.intel.wholeprogramsafe intrinsic is not in the IR.

@@ -16,7 +16,7 @@ define "intel_dtrans_func_index"="1" %struct.test01* @test01() !intel.dtrans.fun
   ret %struct.test01* %newStruct
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i64
@@ -28,6 +28,7 @@ define "intel_dtrans_func_index"="1" %struct.test01* @test01() !intel.dtrans.fun
 ; CHECK: 4)Field LLVM Type: i16
 ; CHECK: Field info: Written ComplexUse
 ; CHECK: Safety data: Memfunc partial write{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Call memset starting with the address of a padding byte between fields.
@@ -40,7 +41,7 @@ define "intel_dtrans_func_index"="1" %struct.test02* @test02() !intel.dtrans.fun
   ret %struct.test02* %newStruct
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i64
@@ -52,6 +53,7 @@ define "intel_dtrans_func_index"="1" %struct.test02* @test02() !intel.dtrans.fun
 ; CHECK: 4)Field LLVM Type: i16
 ; CHECK: Field info: Written ComplexUse
 ; CHECK: Safety data: Memfunc partial write{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 ; Call memset starting with a byte that is not padding or a field boundary.
@@ -64,8 +66,9 @@ define "intel_dtrans_func_index"="1" %struct.test03* @test03() !intel.dtrans.fun
   ret %struct.test03* %newStruct
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: Bad memfunc size{{ *$}}
+; CHECK: End LLVMType: %struct.test03
 
 
 declare !intel.dtrans.func.type !11 "intel_dtrans_func_index"="1" i8* @malloc(i64)

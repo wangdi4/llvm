@@ -1,0 +1,71 @@
+//===- RuntimeService.h - Runtime service --------------------------*- C++-===//
+//
+// Copyright (C) 2022 Intel Corporation. All rights reserved.
+//
+// The information and source code contained herein is the exclusive property
+// of Intel Corporation and may not be disclosed, examined or reproduced in
+// whole or in part without explicit written authorization from the company.
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_RUNTIME_SERVICES_H
+#define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_RUNTIME_SERVICES_H
+
+#include "llvm/IR/Instructions.h"
+
+namespace llvm {
+
+/// These are services for runtime-specific information, e.g. detection of
+/// Thread-ID creation instructions, and Scalar/Vector mapping of builtin
+/// functions.
+class RuntimeService {
+public:
+  RuntimeService(ArrayRef<Module *> BuiltinModules) {
+    this->BuiltinModules.assign(BuiltinModules.begin(), BuiltinModules.end());
+  }
+
+  /// Find a function in the runtime's built-in modules.
+  /// \ FuncName Function name to look for.
+  Function *findFunctionInBuiltinModules(StringRef FuncName) const;
+
+  /// Return true if the function has no side effects. This means it can be
+  /// safely vectorized regardless if it is being masked.
+  /// @param FuncName Function name to check.
+  bool hasNoSideEffect(StringRef FuncName);
+
+  /// Check if \p CI is an TID generator with constant operator.
+  /// \returns a tuple of
+  ///   * true if \p CI is TID generator.
+  ///   * true if there is an error that its argument is not constant.
+  ///   * dimension of the TID generator.
+  std::tuple<bool, bool, unsigned> isTIDGenerator(const CallInst *CI) const;
+
+  /// Return true if the function is a descriptor of image built-in.
+  /// \param FuncName Function name to check.
+  bool isImageDescBuiltin(StringRef FuncName);
+
+  /// Return true if the function is a safe llvm initrinsic.
+  /// \param FuncName Function name to check.
+  bool isSafeLLVMIntrinsic(StringRef FuncName);
+
+  /// Return true if the function is synchronization function with no side
+  /// effects.
+  /// \param FuncName Function name to check.
+  bool isSyncWithNoSideEffect(StringRef FuncName);
+
+  /// Return true if the function is a work-item builtin.
+  /// \param FuncName Function name to check.
+  bool isWorkItemBuiltin(StringRef FuncName);
+
+  /// Return true if the function needs 'VPlan' style masking, meaning it has
+  /// i32 mask as the last argument.
+  /// \param FuncName Function name to check.
+  bool needsVPlanStyleMask(StringRef FuncName);
+
+private:
+  SmallVector<Module *, 2> BuiltinModules;
+};
+
+} // namespace llvm
+
+#endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_RUNTIME_SERVICES_H

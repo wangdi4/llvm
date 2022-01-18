@@ -9,14 +9,12 @@
 ; RUN: opt -thinlto-bc -o %t3.o %s
 ; RUN: opt -thinlto-bc -o %t4.o %p/Inputs/devirt_promote.ll
 
-; INTEL_CUSTOMIZATION
-; This customization is for turning off the multiversioning during
-; whole program devirtualization
-
 ; RUN: llvm-lto2 run %t3.o %t4.o -save-temps -use-new-pm -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -wholeprogramdevirt-print-index-based \
-; RUN:   -wholeprogramdevirt-multiversion=false \
 ; RUN:   -o %t5 \
 ; RUN:   -r=%t3.o,test,px \
 ; RUN:   -r=%t4.o,_ZN1B1fEi,p \
@@ -27,8 +25,6 @@
 ; RUN: llvm-dis %t5.2.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR2
 ; RUN: llvm-nm %t5.1 | FileCheck %s --check-prefix=NM-INDEX1
 ; RUN: llvm-nm %t5.2 | FileCheck %s --check-prefix=NM-INDEX2
-
-; END INTEL_CUSTOMIZATION
 
 ; NM-INDEX1: U _ZN1A1nEi.llvm.
 

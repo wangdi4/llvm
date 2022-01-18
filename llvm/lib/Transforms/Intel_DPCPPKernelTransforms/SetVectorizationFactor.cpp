@@ -80,6 +80,15 @@ bool SetVectorizationFactorPass::runImpl(Module &M,
     KIMD.RecommendedVL.set(VF);
     LLVM_DEBUG(dbgs() << "Set VF=" << VF << " for kernel " << Kernel->getName()
                       << '\n');
+    unsigned SGEmuSize = VFInfo->getSubgroupEmulationSize(Kernel);
+    if (SGEmuSize == 0)
+      continue;
+    KIMD.SubgroupEmuSize.set(SGEmuSize);
+    // The kernel needs to go through Barrier passes when it needs to be
+    // emulated.
+    KIMD.NoBarrierPath.set(false);
+    LLVM_DEBUG(dbgs() << "Set SGEmuSize=" << SGEmuSize << " for kernel "
+                      << Kernel->getName() << '\n');
   }
   return !Kernels.empty();
 }

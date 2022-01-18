@@ -21,7 +21,7 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !int
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: 0)Field LLVM Type: [200 x i8]
 ; CHECK: Field info: Written
 ; CHECK: 1)Field LLVM Type: i32
@@ -33,6 +33,7 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !int
 ; CHECK: 4)Field LLVM Type: i32
 ; CHECK: Field info: Written
 ; CHECK: Safety data: Global instance{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Test with memset that just writes the array elements.
@@ -44,7 +45,7 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !int
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: 0)Field LLVM Type: [200 x i8]
 ; CHECK: Field info: Written
 ; CHECK: 1)Field LLVM Type: i32
@@ -56,6 +57,7 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !int
 ; CHECK: 4)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: Global instance | Memfunc partial write{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 ; Test with memset that only writes some of the array elements. This is not
@@ -68,8 +70,9 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct) !int
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: Global instance | Bad memfunc size{{ *$}}
+; CHECK: End LLVMType: %struct.test03
 
 
 declare !intel.dtrans.func.type !11 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)

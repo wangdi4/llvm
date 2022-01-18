@@ -584,10 +584,13 @@ public:
     ActiveLaneExtract,
     ConstStepVector,
     ScalarPeel,
+    ScalarPeelHIR,
     ScalarRemainder,
-    ScalarPeelRemainderHIR,
-    OrigLiveOut,
-    OrigLiveOutHIR,
+    ScalarRemainderHIR,
+    PeelOrigLiveOut,
+    RemOrigLiveOut,
+    PeelOrigLiveOutHIR,
+    RemOrigLiveOutHIR,
     PushVF,
     PopVF,
     PlanAdapter,
@@ -604,6 +607,19 @@ public:
                            // finalization during CG.
                            // TODO: Remove when non-explicit remainder loop
                            // support is deprecated.
+    PrivateFinalMasked,    // No special class implemented. Represents the last
+                        // value of unconditional private in masked mode loop.
+                        // Three operands: liveout, execution mask, and
+                        // fall-through value that comes out when the execution
+                        // mask is 0 (loop is not executed). The last value is
+                        // calculated as extract of the item correspnding MSB
+                        // set in the mask.
+    PrivateFinalMaskedMem, // No special class implemented. Represents the last
+                           // value of in-memory unconditional private in
+                           // masked mode loop. Two operands: liveout and
+                           // execution mask. The last value is calculated as
+                           // extract of the item correspnding MSB set in the
+                           // mask.
     PrivateFinalArray,
     PrivateLastValueNonPOD,
     GeneralMemOptConflict,
@@ -1083,13 +1099,26 @@ public:
     setOperand(getNumOperands() - 1, Cond);
   }
 
+  /// Returns LoopID metadata node attached to this terminator instruction. This
+  /// is expected to be present only for loop latch terminator.
+  MDNode *getLoopIDMetadata() const { return LoopID; }
+
+  /// Set the LoopID metadata node for this terminator instruction.
+  void setLoopIDMetadata(MDNode *LpID) { LoopID = LpID; }
+
 protected:
   virtual VPBranchInst *cloneImpl() const final {
     VPBranchInst *Cloned = new VPBranchInst(getType());
     for (unsigned i = 0; i < getNumOperands(); i++)
       Cloned->addOperand(getOperand(i));
+    Cloned->setLoopIDMetadata(getLoopIDMetadata());
     return Cloned;
   }
+
+  // Capture the incoming loop's LoopID metadata. It can also be used internally
+  // by VPlan framework to attach some metadata related to the loop like TC
+  // estimates.
+  MDNode *LoopID = nullptr;
 };
 
 /// Concrete class for blending instruction. Was previously represented as
@@ -1416,206 +1445,160 @@ protected:
   }
 };
 
-/// Concrete class to represent a single or multi-dimensional array access
-/// implemented using llvm.intel.subscript intrinsic calls in VPlan.
-// Consider the following two examples:
-//
-// 1. Single-dimension access
-//
-//    If the incoming IR contains:
-//    %0 = llvm.intel.subscript...(i8 %Rank, i32 %Lower, i32 %Stride,
-//                                 i32* %Base, i32 %Idx)
-//      (or)
-//    %0 = @(%Base)[%Idx]
-//
-//    The corresponding VPSubscriptInst in VPlan looks like:
-//    i32* %vp0 = subscript i32* %Base, i32 %Lower, i32 %Stride, i32 %Idx
-//
-//    where,
-//     getRank(0) = %Rank
-//     getLower(0) = %Lower
-//     getStride(0) = %Stride
-//     getIndex(0) = %Idx
-//
-// 2. Combined multi-dimensional access
-//
-//    If the incoming IR contains:
-//    %0 = llvm.intel.subscript...(i8 1, i32 %L1, i32 %S1, i32* %Base, i32 %I1)
-//    %1 = llvm.intel.subscript...(i8 0, i32 %L0, i32 %S0, i32* %0, i32 %I0)
-//      (or)
-//    %1 = @(%Base)[%I1][%I0]
-//
-//    The corresponding VPSubscriptInst in VPlan for combined access looks like:
-//    i32* %vp1 = subscript i32* %Base, i32 %L1, i32 %S1, i32 %I1,
-//                                      i32 %L0, i32 %S0, i32 %I0
-//
-//    where,
-//     getRank(1) = 1
-//     getLower(1) = %L1
-//     getStride(1) = %S1
-//     getIndex(1) = %I1
-//    and,
-//     getRank(0) = 0
-//     getLower(0) = %L0
-//     getStride(0) = %S0
-//     getIndex(0) = %I0
+/// Concrete class to represent loopopt:RegDDRefs in the VPlan framework.
+///
+/// RegDDRefs dimension information is mapped to a DimInfo data structure
+/// defined below and the VPSubscriptInst consists of a base pointers and a list
+/// of DimInfo elements describing all the dimensions contained in the original
+/// RegDDRef. It also stores explicit type information as that is needed due to
+/// the opaque pointers for the StructOffsets address computation. (dimensional
+/// accesses are computed using explicit strides in bytes).
 class VPSubscriptInst final : public VPInstruction {
 public:
-  using DimStructOffsetsMapTy = DenseMap<unsigned, SmallVector<unsigned, 4>>;
-  using DimTypeMapTy = DenseMap<unsigned, Type *>;
+  struct DimInfo {
+    unsigned Rank;
+    VPValue *LowerBound;
+    VPValue *StrideInBytes;
+    VPValue *Index;
+
+    // See loopopt::RegDDRef implementation, we just store the information to be
+    // able to generate HIR back in the format the rest of LoopOpt desires.
+
+    // Type associated with each dimension of this array access. For example,
+    // incoming HIR contains:
+    // %1 = (@arr)[0:0:4096([1024 x i32]*:0)][0:i1:4([1024 x i32]:1024)]
+    //
+    // then the types will be the following:
+    // Dim  --->     DimType
+    //  1         [1024 x i32]*
+    //  0         [1024 x i32]
+    //
+    // TODO: Not sure why loopopt really needs it or what will they do once
+    // [1024 x i32]* would become simply opaque pointer type.
+    Type *DimType;
+
+    // See loopopt::RegDDRef docs as well.
+    // For the case above the values would be:
+    //  Dim ---->    DimElementType
+    //  1         [1024 x i32]
+    //  0         i32
+    Type *DimElementType;
+
+    // Struct offsets associated with each dimension of this array access. For
+    // example, suppose incoming HIR contains:
+    //
+    //   %1 = @(%Base)[%I1].0.1[%I2].0[%I3]
+    //
+    // Offsets for the dimension 2 would be {0, 1}, for dimensions 1: {0} and
+    // empty for dimension 0;
+    ArrayRef<unsigned> StructOffsets;
+
+    DimInfo(unsigned Rank, VPValue *LowerBound, VPValue *StrideInBytes,
+            VPValue *Index, Type *DimType, Type *DimElementType,
+            ArrayRef<unsigned> StructOffsets = {})
+        : Rank(Rank), LowerBound(LowerBound), StrideInBytes(StrideInBytes),
+          Index(Index), DimType(DimType), DimElementType(DimElementType),
+          StructOffsets(StructOffsets) {}
+    DimInfo(const DimInfo &) = default;
+  };
 
 private:
+  // For internal storage - same as DimInfo but without VPValues stored as
+  // operands.
+  // Not every dimension is expected to have those, so we don't want to bloat
+  // the size of VPSubscriptInst by having each dimension information to keep
+  // its own SmallVector. Instead keep all indices here, and have each dimension
+  // reference its subrange.
+  SmallVector<unsigned, 8> StructOffsetsStorage;
+  struct DimInfoWithoutOperands {
+    unsigned Rank;
+    unsigned short OffsetsBegin;
+    unsigned short OffsetsEnd;
+    Type *DimType;
+    Type *DimElementType;
+
+    DimInfoWithoutOperands(const DimInfo &Dim, unsigned short OffsetsBegin,
+                           unsigned short OffsetsEnd)
+        : Rank(Dim.Rank), OffsetsBegin(OffsetsBegin), OffsetsEnd(OffsetsEnd),
+          DimType(Dim.DimType), DimElementType(Dim.DimElementType) {
+      assert((size_t)(OffsetsEnd - OffsetsBegin) == Dim.StructOffsets.size() &&
+             "Lost struct offset!");
+    }
+    DimInfoWithoutOperands(const DimInfoWithoutOperands &) = default;
+  };
+
   bool InBounds = false;
-  // TODO: Below SmallVectors are currently assuming that dimensions are added
+
+  // TODO: Below SmallVector is currently assuming that dimensions are added
   // in a fixed order i.e. outer-most dimension to inner-most dimension. To
   // support flexibility in this ordering, DenseMaps will be needed. For
   // example, for a 3-dimensional array access, Ranks = < 2, 1, 0 >.
-  SmallVector<unsigned, 4> Ranks;
-  // Struct offsets associated with each dimension of this array access. For
-  // example, incoming HIR contains:
-  // %1 = @(%Base)[%I1].0.1[%I2].0[%I3]
-  //
-  // then the map below will have following entries:
-  // Dim  --->  Offsets
-  //  2         {0, 1}
-  //  1          {0}
-  //  0          {}
-  //
-  // NOTE: This information is needed only if the subscript instruction
-  // is created via HIR-path. For LLVM-IR path the map will always be empty.
-  DimStructOffsetsMapTy DimStructOffsets;
-  // Type associated with each dimension of this array access. For example,
-  // incoming HIR contains:
-  // %1 = (@arr)[0:0:4096([1024 x i32]*:0)][0:i1:4([1024 x i32]:1024)]
-  //
-  // then the map below will have following entries:
-  // Dim  --->     Type
-  //  1         [1024 x i32]*
-  //  0         [1024 x i32]
-  //
-  // NOTE: This information is needed only if the subscript instruction
-  // is created via HIR-path. For LLVM-IR path the map will always be empty.
-  DimTypeMapTy DimTypes;
+  SmallVector<DimInfoWithoutOperands, 4> Dimensions;
 
-  /// Add a new dimension to represent the array access for this subscript
-  /// instruction.
-  void addDimension(unsigned Rank, VPValue *Lower, VPValue *Stride,
-                    VPValue *Index) {
-    if (Ranks.size() > 0) {
-      assert(Rank == Ranks.back() - 1 &&
-             "Dimension is being added in out-of-order fashion.");
-    }
-    assert(getNumOperands() > 0 &&
-           "Dimension is being added without base pointer.");
-    Ranks.push_back(Rank);
-    addOperand(Lower);
-    addOperand(Stride);
-    addOperand(Index);
-  }
-
-  unsigned getDimensionArrayIndex(unsigned Dim) const {
-    assert(Dim < getNumDimensions() && "Invalid dimension.");
-    unsigned Idx = getNumDimensions() - 1 - Dim;
-    return Idx;
-  }
-
-  /// Explicit copy constructor to copy the operand list, Ranks and struct
-  /// offsets map.
+  // To be used in cloneImpl.
   VPSubscriptInst(const VPSubscriptInst &Other)
       : VPInstruction(VPInstruction::Subscript, Other.getType(), {}) {
     for (auto *Op : Other.operands())
       addOperand(Op);
     InBounds = Other.InBounds;
-    Ranks = Other.Ranks;
-    DimStructOffsets = Other.DimStructOffsets;
-    DimTypes = Other.DimTypes;
+    Dimensions = Other.Dimensions;
+    StructOffsetsStorage = Other.StructOffsetsStorage;
   }
 
 public:
-  /// Constructor to allow clients to create a VPSubscriptInst with a single
-  /// dimension only. Type of the instruction will be same as the type of the
-  /// base pointer operand.
-  VPSubscriptInst(Type *BaseTy, unsigned Rank, VPValue *Lower, VPValue *Stride,
-                  VPValue *Base, VPValue *Index)
-      : VPInstruction(VPInstruction::Subscript, BaseTy,
-                      {Base, Lower, Stride, Index}) {
-    Ranks.push_back(Rank);
-  }
-
-  /// Constructor to create a VPSubscriptInst that represents a combined
-  /// multi-dimensional array access. The fields are expected to be ordered from
-  /// highest-dimension to lowest-dimension.
-  VPSubscriptInst(Type *BaseTy, unsigned NumDims, ArrayRef<VPValue *> Lowers,
-                  ArrayRef<VPValue *> Strides, VPValue *Base,
-                  ArrayRef<VPValue *> Indices)
+  // No need to auto-deduce BaseTy because it will become just opaque pointer
+  // type soon enough.
+  VPSubscriptInst(Type *BaseTy, VPValue *Base, ArrayRef<DimInfo> Dims)
       : VPInstruction(VPInstruction::Subscript, BaseTy, {Base}) {
-    assert((Lowers.size() == NumDims && Strides.size() == NumDims &&
-            Indices.size() == NumDims) &&
-           "Inconsistent parameters for multi-dimensional subscript access.");
-    for (unsigned I = 0; I < NumDims; ++I) {
-      unsigned Rank = NumDims - 1 - I;
-      addDimension(Rank, Lowers[I], Strides[I], Indices[I]);
+    assert(
+        is_sorted(Dims, [](const DimInfo &D1,
+                           const DimInfo &D2) { return D1.Rank >= D2.Rank; }) &&
+        "Ranks are not monotonic!");
+    for (auto &Dim : Dims) {
+      unsigned short OffsetsBegin = StructOffsetsStorage.size();
+      unsigned short OffsetsEnd = OffsetsBegin + Dim.StructOffsets.size();
+      StructOffsetsStorage.append(Dim.StructOffsets.begin(),
+                                  Dim.StructOffsets.end());
+      Dimensions.emplace_back(Dim, OffsetsBegin, OffsetsEnd);
+      addOperand(Dim.LowerBound);
+      addOperand(Dim.StrideInBytes);
+      addOperand(Dim.Index);
     }
   }
 
-  /// Constructor to create a VPSubscriptInst that represents a combined
-  /// multi-dimensional array access when each dimension has corresponding
-  /// struct offsets and the dimension's associated type information is also
-  /// available. The fields are expected to be ordered from highest-dimension to
-  /// lowest-dimension.
-  VPSubscriptInst(Type *BaseTy, unsigned NumDims, ArrayRef<VPValue *> Lowers,
-                  ArrayRef<VPValue *> Strides, VPValue *Base,
-                  ArrayRef<VPValue *> Indices,
-                  DimStructOffsetsMapTy StructOffsets, DimTypeMapTy Types)
-      : VPSubscriptInst(BaseTy, NumDims, Lowers, Strides, Base, Indices) {
-    DimStructOffsets = std::move(StructOffsets);
-    DimTypes = std::move(Types);
+  unsigned getNumDimensions() const { return Dimensions.size(); }
+
+  /// Get \p Dim dimension data.
+  const DimInfo dim(unsigned Dim) const {
+    assert(Dim < getNumDimensions() && "Out of bounds Dim!");
+
+    auto It = op_rbegin();
+    std::advance(It, 3 * Dim);
+
+    VPValue *Index = *It++;
+    VPValue *StrideInBytes = *It++;
+    VPValue *LowerBound = *It++;
+
+    auto DimIt = Dimensions.rbegin();
+    std::advance(DimIt, Dim);
+    const auto &D = *DimIt;
+
+    return {D.Rank,
+            LowerBound,
+            StrideInBytes,
+            Index,
+            D.DimType,
+            D.DimElementType,
+            ArrayRef<unsigned>(StructOffsetsStorage)
+                .slice(D.OffsetsBegin, D.OffsetsEnd - D.OffsetsBegin)};
   }
 
   /// Setter and getter functions for InBounds.
   void setIsInBounds(bool IsInBounds) { InBounds = IsInBounds; }
   bool isInBounds() const { return InBounds; }
 
-  /// Get trailing struct offsets for given dimension.
-  ArrayRef<unsigned> getStructOffsets(unsigned Dim) const {
-    auto Iter = DimStructOffsets.find(Dim);
-    if (Iter != DimStructOffsets.end())
-      return Iter->second;
-    return ArrayRef<unsigned>(None);
-  }
-  /// Get type associated for given dimension.
-  Type *getDimensionType(unsigned Dim) const {
-    auto Iter = DimTypes.find(Dim);
-    assert(Iter != DimTypes.end() &&
-           "Type information not found for dimension.");
-    return Iter->second;
-  }
-
-  /// Get number of dimensions associated with this array access.
-  unsigned getNumDimensions() const { return Ranks.size(); }
-
-  /// Get the rank for given dimension. For multi-dimensional accesses this
-  /// should be trivial as Dimension == Rank.
-  unsigned getRank(unsigned Dim) const {
-    return Ranks[getDimensionArrayIndex(Dim)];
-  }
-  /// Get the lower bound of index for given dimension.
-  VPValue *getLower(unsigned Dim) const {
-    unsigned OpIdx = (getDimensionArrayIndex(Dim) * 3) + 1;
-    return getOperand(OpIdx);
-  }
-  /// Get the stride of access for given dimension.
-  VPValue *getStride(unsigned Dim) const {
-    unsigned OpIdx = (getDimensionArrayIndex(Dim) * 3) + 2;
-    return getOperand(OpIdx);
-  }
   /// Get the base pointer operand.
   VPValue *getPointerOperand() const { return getOperand(0); }
-  /// Get the index operand for given dimension.
-  VPValue *getIndex(unsigned Dim) const {
-    unsigned OpIdx = (getDimensionArrayIndex(Dim) * 3) + 3;
-    return getOperand(OpIdx);
-  }
 
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:
   static bool classof(const VPInstruction *VPI) {
@@ -1927,21 +1910,29 @@ private:
   /// VF.
   CallVecScenarios VecScenario = CallVecScenarios::Undefined;
 
+  FunctionType *FnTy;
   const CallInst *OrigCall;
 
 public:
   using CallVecScenariosTy = CallVecScenarios;
   using SerializationReasonTy = CallVecProperties::SerializationReason;
-  VPCallInstruction(VPValue *CalledValue, ArrayRef<VPValue *> ArgList,
-                    const CallInst *OrigCall)
-      : VPInstruction(Instruction::Call, OrigCall->getType(), ArgList),
-        OrigCall(OrigCall) {
-    assert(OrigCall &&
-           "VPlan trying to create a new VPCall without underlying Call.");
-    assert(CalledValue && "Call instruction does not have CalledValue");
+
+  // Most generic ctor.
+  VPCallInstruction(VPValue *Callee, FunctionType *FnTy,
+                    ArrayRef<VPValue *> ArgList)
+      : VPInstruction(Instruction::Call, FnTy->getReturnType(), ArgList),
+        FnTy(FnTy), OrigCall(nullptr) {
+    assert(Callee && "Call instruction does not have Callee");
     // Add called value to end of operand list for def-use chain.
-    addOperand(CalledValue);
+    addOperand(Callee);
     resetVecScenario(0 /*Initial VF*/);
+  }
+
+  // If extra information from the underlying CallInst is available.
+  VPCallInstruction(VPValue *Callee, ArrayRef<VPValue *> ArgList,
+                    const CallInst &OrigCallInst)
+      : VPCallInstruction(Callee, OrigCallInst.getFunctionType(), ArgList) {
+    OrigCall = &OrigCallInst;
     // Check if Call should not be strictly widened i.e. not (re-)vectorized or
     // serialized.
     if (OrigCall->hasFnAttr("kernel-uniform-call"))
@@ -1950,20 +1941,6 @@ public:
     if (OrigCall->hasFnAttr("unmasked"))
       VecScenario = CallVecScenarios::UnmaskedWiden;
   }
-
-  // Alternate constructor to create VPCall without any underlying CallInst, for
-  // example - constructor/destructor calls for non-POD private memory.
-  VPCallInstruction(VPValue *Callee, ArrayRef<VPValue *> ArgList,
-                    Type *CallType)
-      : VPInstruction(Instruction::Call, CallType, ArgList), OrigCall(nullptr) {
-    assert(Callee && "Call instruction does not have Callee");
-    // Add called value to end of operand list for def-use chain.
-    addOperand(Callee);
-    resetVecScenario(0 /*Initial VF*/);
-  }
-
-  VPCallInstruction(FunctionCallee Callee, ArrayRef<VPValue *> ArgList,
-                    VPlan *Plan);
 
   /// Helper utility to access underlying CallInst corresponding to this
   /// VPCallInstruction. The utility works for both LLVM-IR and HIR paths.
@@ -1991,6 +1968,8 @@ public:
     // Indirect call.
     return nullptr;
   }
+
+  FunctionType *getFunctionType() const { return FnTy; }
 
   /// Getter for called function's calling convention.
   CallingConv::ID getOrigCallingConv() const {
@@ -2294,8 +2273,7 @@ public:
 protected:
   virtual VPCallInstruction *cloneImpl() const final {
     VPCallInstruction *Cloned = new VPCallInstruction(
-        getCalledValue(), ArrayRef<VPValue *>(op_begin(), op_end() - 1),
-        getType());
+        getCalledValue(), FnTy, ArrayRef<VPValue *>(op_begin(), op_end() - 1));
     Cloned->OrigCall = getUnderlyingCallInst();
     Cloned->VecScenario = VecScenario;
     Cloned->VecProperties = VecProperties;
@@ -2835,17 +2813,26 @@ private:
 };
 
 // Base-class for the peel and remainder loop instructions.
-class VPPeelRemainder : public VPInstruction {
+template <class LoopTy, class LiveInOpTy, unsigned PeelRemOpcode>
+class VPPeelRemainderImpl : public VPInstruction {
 
   /// The original loop.
-  Loop *Lp;
+  LoopTy *Lp;
 
   /// The live-in operands list.
-  SmallVector<Use *, 4> OpLiveInMap;
+  SmallVector<LiveInOpTy *, 4> OpLiveInMap;
 
   /// Flag to indicate whether the scalar loop has to be cloned. (Because we
   /// need two copies of it and this is the second one.)
   bool NeedsCloning = false;
+
+  static LLVMContext &getContext(Loop *Lp) {
+    return Lp->getHeader()->getContext();
+  }
+
+  static LLVMContext &getContext(loopopt::HLLoop *Lp) {
+    return Lp->getHLNodeUtils().getContext();
+  }
 
 protected:
 
@@ -2856,32 +2843,27 @@ protected:
 
   /// Add \p VPVal to the instruction operands list and the \p OrigLoopUse to
   /// the OpLiveInMap.
-  void addLiveIn(VPValue *VPVal, Use *OrigLoopUse) {
+  void addLiveIn(VPValue *VPVal, LiveInOpTy *OrigLoopUse) {
     assert(isValidLiveIn(VPVal, OrigLoopUse) &&
-           "Live-ins can only be a phi or a block!");
+           "Live-ins can only be a phi/block/DDRef!");
     addOperand(VPVal);
     OpLiveInMap.push_back(OrigLoopUse);
   }
 
   virtual bool isValidLiveIn(const VPValue *VPVal,
-                             const Use *OrigLoopUse) const {
-    return VPVal->getType()->isLabelTy() ||
-           (isa<PHINode>(OrigLoopUse->getUser()) &&
-            cast<PHINode>(OrigLoopUse->getUser())->getParent() ==
-                getLoop()->getHeader());
-  }
+                             const LiveInOpTy *OrigLoopUse) const = 0;
 
 public:
-  VPPeelRemainder(unsigned Opcode, Loop *Lp, bool ShouldClone = false)
-      : VPInstruction(Opcode, Type::getTokenTy(Lp->getHeader()->getContext()),
-                      /* Operands */ {}),
+  VPPeelRemainderImpl(LoopTy *Lp, bool ShouldClone)
+      : VPInstruction(PeelRemOpcode, Type::getTokenTy(getContext(Lp)),
+                      {} /* Operands */),
         Lp(Lp), NeedsCloning(ShouldClone) {}
 
   /// Get the original loop.
-  Loop *getLoop() const { return Lp; }
+  LoopTy *getLoop() const { return Lp; }
 
   /// Set the new original loop after cloning.
-  void setClonedLoop(Loop *L) {
+  void setClonedLoop(LoopTy *L) {
     assert(L && "unexpected null loop");
     Lp = L;
   }
@@ -2892,14 +2874,16 @@ public:
   void setCloningRequired() { NeedsCloning = true; }
 
   /// Get the live-in value corresponding to the \p Idx.
-  Use *getLiveIn(unsigned Idx) const {
+  LiveInOpTy *getLiveIn(unsigned Idx) const {
     assert(Idx <= OpLiveInMap.size() - 1 &&
            "Invalid entry in the live-in map requested.");
     return OpLiveInMap[Idx];
   }
 
+  unsigned getNumLiveIns() const { return OpLiveInMap.size(); }
+
   /// Get the live-in value corresponding to the \p Idx.
-  void setClonedLiveIn(unsigned Idx, Use *U) {
+  void setClonedLiveIn(unsigned Idx, LiveInOpTy *U) {
     assert(Idx <= OpLiveInMap.size() - 1 &&
            "Invalid entry in the live-in map requested.");
     OpLiveInMap[Idx] = U;
@@ -2907,8 +2891,7 @@ public:
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const VPInstruction *V) {
-    return V->getOpcode() == VPInstruction::ScalarPeel ||
-           V->getOpcode() == VPInstruction::ScalarRemainder;
+    return V->getOpcode() == PeelRemOpcode;
   }
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -2916,173 +2899,121 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  virtual void printImpl(raw_ostream &O) const {
-    O << " " << getLoop()->getName()
-      << ", NeedsCloning: " << isCloningRequired() << ", LiveInMap:";
-    assert(getNumOperands() == OpLiveInMap.size() &&
-           "Inconsistent live-ins data!");
-    for (unsigned I = 0; I < getNumOperands(); ++I) {
-      O << "\n       {";
-      OpLiveInMap[I]->get()->printAsOperand(O);
-      O << " in {" << *OpLiveInMap[I]->getUser() << "} -> ";
-      getOperand(I)->printAsOperand(O);
-      O << " }";
-      }
-  }
+  virtual void printImpl(raw_ostream &O) const = 0;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-protected:
-  VPInstruction *cloneImpl() const override {
-    llvm_unreachable("not expected to clone");
-    return nullptr;
-  }
-};
-
-// Class to represent scalar HIR peel and remainder loop instructions in VPlan.
-class VPPeelRemainderHIR : public VPInstruction {
-  // The original loop.
-  loopopt::HLLoop *HLp;
-
-  // Map to track temps that need to be initialized.
-  SmallVector<loopopt::DDRef *, 4> TempInitMap;
-
-  // Flag to indicate whether the scalar loop has to be cloned. (Because we need
-  // two copies of it and this is the second one.)
-  bool NeedsCloning = false;
-
-  // Temp that defines the lower bound of the scalar loop. Will be nullptr for
-  // peel loop.
-  loopopt::DDRef *LowerBoundTmp = nullptr;
-
-  // Temp that defines the upper bound of the scalar loop. Will be nullptr for
-  // remainder loop. It can be set indirectly only via the setUpperBound
-  // interface.
-  loopopt::DDRef *UpperBoundTmp = nullptr;
 
 protected:
-  using VPInstruction::addOperand;
-  using VPInstruction::removeAllOperands;
-  using VPInstruction::removeOperand;
-  using VPInstruction::setOperand;
-
   VPInstruction *cloneImpl() const override {
     assert(false && "not expected to clone");
     return nullptr;
   }
+};
+
+template <unsigned PeelRemOpcode>
+using VPPeelRemainderIRTy = VPPeelRemainderImpl<Loop, Use, PeelRemOpcode>;
+
+// Class to represent scalar IR peel and remainder loop instructions in VPlan.
+template <unsigned PeelRemOpcode>
+class VPPeelRemainder : public VPPeelRemainderIRTy<PeelRemOpcode> {
+  using Base = VPPeelRemainderIRTy<PeelRemOpcode>;
+
+protected:
+  bool isValidLiveIn(const VPValue *VPVal,
+                     const Use *OrigLoopUse) const override {
+    return VPVal->getType()->isLabelTy() ||
+           (isa<PHINode>(OrigLoopUse->getUser()) &&
+            cast<PHINode>(OrigLoopUse->getUser())->getParent() ==
+                Base::getLoop()->getHeader());
+  }
 
 public:
-  VPPeelRemainderHIR(loopopt::HLLoop *HLp, bool ShouldClone = false)
-      : VPInstruction(VPInstruction::ScalarPeelRemainderHIR,
-                      Type::getTokenTy(HLp->getHLNodeUtils().getContext()), {}),
-        HLp(HLp), NeedsCloning(ShouldClone) {}
+  VPPeelRemainder(Loop *Lp, bool ShouldClone = false) : Base(Lp, ShouldClone) {}
 
-  // Get the original loop.
-  loopopt::HLLoop *getLoop() const { return HLp; }
-
-  // Return true if cloning is required.
-  bool isCloningRequired() const { return NeedsCloning; }
-
-  void setCloningRequired() { NeedsCloning = true; }
-
-  // Add \p VPVal to the instruction operands list and the \p Temp to the
-  // TempInitMap.
-  void addTemp(VPValue *VPVal, loopopt::DDRef *Temp) {
-    addOperand(VPVal);
-    TempInitMap.push_back(Temp);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  virtual void printImpl(raw_ostream &O) const override {
+    O << " " << Base::getLoop()->getName()
+      << ", NeedsCloning: " << Base::isCloningRequired() << ", LiveInMap:";
+    assert(Base::getNumOperands() == Base::getNumLiveIns() &&
+           "Inconsistent live-ins data!");
+    for (unsigned I = 0; I < Base::getNumOperands(); ++I) {
+      O << "\n       {";
+      Base::getLiveIn(I)->get()->printAsOperand(O);
+      O << " in {" << *Base::getLiveIn(I)->getUser() << "} -> ";
+      Base::getOperand(I)->printAsOperand(O);
+      O << " }";
+    }
   }
-
-  // Get the temp corresponding to the \p Idx.
-  loopopt::DDRef *getTemp(unsigned Idx) const {
-    assert(Idx <= TempInitMap.size() - 1 &&
-           "Invalid entry in the temp-init map requested.");
-    return TempInitMap[Idx];
-  }
-
-  // Set the temp corresponding to the \p Idx.
-  void setClonedTemp(unsigned Idx, loopopt::DDRef *T) {
-    assert(Idx <= TempInitMap.size() - 1 &&
-           "Invalid entry in the temp-init map requested.");
-    TempInitMap[Idx] = T;
-  }
-
-  // Set lower bound temp for the loop.
-  void setLowerBoundTemp(loopopt::DDRef *Tmp) {
-    assert(!UpperBoundTmp && "Setting lower bound for peel loop?");
-    LowerBoundTmp = Tmp;
-  }
-
-  loopopt::DDRef *getLowerBoundTemp() const { return LowerBoundTmp; }
-
-  // Set upper bound for the loop. It creates a new temp and adds it to
-  // temp-initialization map.
-  void setUpperBound(VPValue *UB) {
-    assert(!LowerBoundTmp && "Setting upper bound for remainder loop?");
-    loopopt::RegDDRef *UBTmp =
-        HLp->getHLNodeUtils().createTemp(HLp->getIVType(), "ub.tmp");
-    addTemp(UB, UBTmp);
-    UpperBoundTmp = UBTmp;
-  }
-
-  // Helper to get the operand that defines the upper bound of this scalar loop.
-  // Obtained indirectly by looking up index of UpperBoundTmp in TempInitMap.
-  VPValue *getUpperBound() const {
-    if (!UpperBoundTmp)
-      return nullptr;
-
-    auto UBIter = llvm::find(TempInitMap, UpperBoundTmp);
-    assert(UBIter != TempInitMap.end() &&
-           "Upper bound temp not found in TempInitMap.");
-    unsigned UBIdx = std::distance(TempInitMap.begin(), UBIter);
-    return getOperand(UBIdx);
-  }
-
-  loopopt::DDRef *getUpperBoundTemp() const { return UpperBoundTmp; }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const VPInstruction *V) {
-    return V->getOpcode() == VPInstruction::ScalarPeelRemainderHIR;
+    return V->getOpcode() == PeelRemOpcode;
   }
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const VPValue *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
+};
+
+template <unsigned PeelRemOpcode>
+using VPPeelRemainderHIRTy =
+    VPPeelRemainderImpl<loopopt::HLLoop, loopopt::DDRef, PeelRemOpcode>;
+
+// Class to represent scalar HIR peel and remainder loop instructions in VPlan.
+template <unsigned PeelRemOpcode>
+class VPPeelRemainderHIR : public VPPeelRemainderHIRTy<PeelRemOpcode> {
+  using Base = VPPeelRemainderHIRTy<PeelRemOpcode>;
+
+protected:
+  bool isValidLiveIn(const VPValue *VPVal,
+                     const loopopt::DDRef *OrigLoopUse) const override {
+    // We allow temps that are live-in to loop or represent unattached refs like
+    // %lb.tmp or %ub.tmp.
+    return Base::getLoop()->isLiveIn(OrigLoopUse->getSymbase()) ||
+           OrigLoopUse->getHLDDNode() == nullptr;
+  }
+
+public:
+  VPPeelRemainderHIR(loopopt::HLLoop *HLp, bool ShouldClone = false)
+      : Base(HLp, ShouldClone) {}
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  virtual void printImpl(raw_ostream &O) const {
+  virtual void printImpl(raw_ostream &O) const override {
     formatted_raw_ostream FO(O);
     // TODO: How to find unique ID for HLLoop?
     FO << " "
        << "<HLLoop>"
-       << ", NeedsCloning: " << isCloningRequired() << ", LBTemp: ";
-    if (auto *LB = getLowerBoundTemp())
-      LB->print(FO);
-    else
-      FO << "none";
-    FO << ", UBTemp: ";
-    if (auto *UB = getUpperBoundTemp())
-      UB->print(FO);
-    else
-      FO << "none";
+       << ", NeedsCloning: " << Base::isCloningRequired();
     FO << ", TempInitMap:";
-    assert(getNumOperands() == TempInitMap.size() &&
+    assert(Base::getNumOperands() == Base::getNumLiveIns() &&
            "Inconsistent temp init data!");
-    for (unsigned I = 0; I < getNumOperands(); ++I) {
+    for (unsigned I = 0; I < Base::getNumOperands(); ++I) {
       FO << "\n       { Initialize temp ";
-      TempInitMap[I]->print(FO);
+      Base::getLiveIn(I)->print(FO);
       FO << " with -> ";
-      getOperand(I)->printAsOperand(FO);
+      Base::getOperand(I)->printAsOperand(FO);
       FO << " }";
     }
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPInstruction *V) {
+    return V->getOpcode() == PeelRemOpcode;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
 };
 
 /// Class for representing the 'scalar-peel' instruction.
 /// This class holds all the information needed for representing the code
 /// required for peel-loop generation.
-class VPScalarPeel final : public VPPeelRemainder {
+class VPScalarPeel final : public VPPeelRemainder<VPInstruction::ScalarPeel> {
 
   // Variable that keeps track of index of the TargetLabel.
   int IndexOfTargetLabel = -1;
@@ -3091,8 +3022,7 @@ class VPScalarPeel final : public VPPeelRemainder {
   int IndexOfUpperBound = -1;
 
 public:
-  VPScalarPeel(Loop *Lp, bool ShouldClone)
-      : VPPeelRemainder(VPInstruction::ScalarPeel, Lp, ShouldClone) {}
+  VPScalarPeel(Loop *Lp, bool ShouldClone) : VPPeelRemainder(Lp, ShouldClone) {}
 
   bool isValidLiveIn(const VPValue *VPVal,
                      const Use *OrigLoopUse) const override {
@@ -3155,16 +3085,60 @@ private:
   Use *findUpperBoundUseInLatch() const;
 };
 
+/// Class for representing the 'scalar-peel' instruction for HIR input.
+class VPScalarPeelHIR final
+    : public VPPeelRemainderHIR<VPInstruction::ScalarPeelHIR> {
+  // Variable that is used to track index of UpperBound in LiveInMap.
+  int IndexOfUB = -1;
+
+public:
+  VPScalarPeelHIR(loopopt::HLLoop *HLp, bool ShouldClone)
+      : VPPeelRemainderHIR(HLp, ShouldClone) {}
+
+  // Set upper bound for the loop. It creates a new temp and adds it to
+  // live-in map.
+  void setUpperBound(VPValue *UB) {
+    assert(IndexOfUB == -1 && "Upper bound of peel loop already set");
+    IndexOfUB = getNumOperands();
+    loopopt::RegDDRef *UBTmp = getLoop()->getHLNodeUtils().createTemp(
+        getLoop()->getIVType(), "ub.tmp");
+    addLiveIn(UB, UBTmp);
+  }
+
+  // Helper to get the operand that defines the upper bound of this scalar peel
+  // loop.
+  VPValue *getUpperBound() const {
+    assert(IndexOfUB >= 0 && "Upper bound of peel loop has not been set.");
+    return getOperand(IndexOfUB);
+  }
+
+  loopopt::DDRef *getUpperBoundTemp() const {
+    assert(IndexOfUB >= 0 && "Upper bound of peel loop has not been set.");
+    return getLiveIn(IndexOfUB);
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ScalarPeelHIR;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+};
+
 /// Class representing the 'scalar-remainder' instruction.
 /// This class holds all the information needed for representing the code
 /// required for remainder-loop generation.
-class VPScalarRemainder final : public VPPeelRemainder {
+class VPScalarRemainder final
+    : public VPPeelRemainder<VPInstruction::ScalarRemainder> {
 
 public:
   // TODO: Consider storing the loop as header/latch pair with an assert on some
   // canonical form because \p Lp might become stale during CG stage.
   VPScalarRemainder(Loop *Lp, bool ShouldClone)
-      : VPPeelRemainder(VPInstruction::ScalarRemainder, Lp, ShouldClone) {}
+      : VPPeelRemainder(Lp, ShouldClone) {}
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const VPInstruction *V) {
@@ -3184,6 +3158,43 @@ public:
 
   /// Get the original use at index \p Idx.
   Use *getOrigUse(unsigned Idx) const { return getLiveIn(Idx); }
+};
+
+class VPScalarRemainderHIR final
+    : public VPPeelRemainderHIR<VPInstruction::ScalarRemainderHIR> {
+  // Variable used to track index of lower bound in LiveInMap.
+  int IndexOfLB = -1;
+
+public:
+  VPScalarRemainderHIR(loopopt::HLLoop *HLp, bool ShouldClone)
+      : VPPeelRemainderHIR(HLp, ShouldClone) {}
+
+  // Add live-in variable VPVal and corresponding temp.
+  void addLiveIn(VPValue *VPVal, loopopt::DDRef *Temp) {
+    VPPeelRemainderHIR::addLiveIn(VPVal, Temp);
+  }
+
+  // Set lower bound temp for the loop.
+  void setLowerBoundTemp(VPValue *LB, loopopt::DDRef *Tmp) {
+    assert(IndexOfLB == -1 && "Lower bound for remainder loop is already set");
+    IndexOfLB = getNumOperands();
+    addLiveIn(LB, Tmp);
+  }
+
+  loopopt::DDRef *getLowerBoundTemp() const {
+    assert(IndexOfLB >= 0 && "Lower bound for remainder loop is not set.");
+    return getLiveIn(IndexOfLB);
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ScalarRemainderHIR;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
 };
 
 /// Class for representing the vp-scev-wrapper instruction.
@@ -3310,7 +3321,7 @@ private:
 
   // Peel loop specific utility for HIR path where we update orig-live-out-hir
   // created for main loop IV when upper bound of peel loop is set.
-  void updateHIROrigLiveOut();
+  void updateUBInHIROrigLiveOut();
 };
 
 // VPInstruction to allocate private memory. This is translated into
@@ -3319,9 +3330,10 @@ private:
 // for arrays of a variable size.
 class VPAllocatePrivate : public VPInstruction {
 public:
-  VPAllocatePrivate(Type *Ty, Align OrigAlignment)
-      : VPInstruction(VPInstruction::AllocatePrivate, Ty, {}), IsSOASafe(false),
-        IsSOAProfitable(false), OrigAlignment(OrigAlignment) {}
+  VPAllocatePrivate(Type *Ty, Type *AllocatedTy, Align OrigAlignment)
+      : VPInstruction(VPInstruction::AllocatePrivate, Ty, {}),
+        AllocatedTy(AllocatedTy), IsSOASafe(false), IsSOAProfitable(false),
+        OrigAlignment(OrigAlignment) {}
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
@@ -3356,10 +3368,13 @@ public:
   /// corresponds to.
   Align getOrigAlignment() const { return OrigAlignment; }
 
+  Type *getAllocatedType() const { return AllocatedTy; }
+
 protected:
 
   VPAllocatePrivate *cloneImpl() const override {
-    auto Ret = new VPAllocatePrivate(getType(), getOrigAlignment());
+    auto Ret = new VPAllocatePrivate(
+      getType(), getAllocatedType(), getOrigAlignment());
     if (isSOASafe())
       Ret->setSOASafe();
     if (isSOAProfitable())
@@ -3368,6 +3383,7 @@ protected:
   }
 
 private:
+  Type *AllocatedTy;
   bool IsSOASafe;
   bool IsSOAProfitable;
   Align OrigAlignment;
@@ -3480,7 +3496,7 @@ using VPPrivateFinalCond = VPPrivateFinalC<VPInstruction::PrivateFinalCond>;
 using VPPrivateFinalCondMem = VPPrivateFinalC<VPInstruction::PrivateFinalCondMem>;
 
 /// VPOrigLiveOut represents the outgoing value from the scalar
-/// loop described by VPScalarRemainder/VPPeelRemainderHIR, which is its
+/// loop described by VPPeelRemainder/VPPeelRemainderHIR, which is its
 /// operand. It links an outgoing scalar value from the loop with VPlan.
 /// Example.
 ///
@@ -3549,10 +3565,16 @@ protected:
 };
 
 // Specialized types for IR and HIR versions.
-using VPOrigLiveOut =
-    VPOrigLiveOutImpl<VPPeelRemainder, Value, VPInstruction::OrigLiveOut>;
-using VPOrigLiveOutHIR = VPOrigLiveOutImpl<VPPeelRemainderHIR, loopopt::DDRef,
-                                           VPInstruction::OrigLiveOutHIR>;
+using VPPeelOrigLiveOut =
+    VPOrigLiveOutImpl<VPScalarPeel, Value, VPInstruction::PeelOrigLiveOut>;
+using VPRemainderOrigLiveOut =
+    VPOrigLiveOutImpl<VPScalarRemainder, Value, VPInstruction::RemOrigLiveOut>;
+using VPPeelOrigLiveOutHIR =
+    VPOrigLiveOutImpl<VPScalarPeelHIR, loopopt::DDRef,
+                      VPInstruction::PeelOrigLiveOutHIR>;
+using VPRemainderOrigLiveOutHIR =
+    VPOrigLiveOutImpl<VPScalarRemainderHIR, loopopt::DDRef,
+                      VPInstruction::RemOrigLiveOutHIR>;
 
 /// Instruction representing a wide VLS-optimized (Vector Load/Stores) load. It
 /// takes place of several adjacent loads and substitutes several
@@ -4493,14 +4515,14 @@ public:
     VPVT = std::move(A);
   }
 
-  void setVPlanSVA(std::unique_ptr<VPlanScalVecAnalysis> VPSVA) {
+  void setVPlanSVA(std::unique_ptr<VPlanScalVecAnalysisBase> VPSVA) {
     VPlanSVA = std::move(VPSVA);
   }
 
-  VPlanScalVecAnalysis *getVPlanSVA() const { return VPlanSVA.get(); }
+  VPlanScalVecAnalysisBase *getVPlanSVA() const { return VPlanSVA.get(); }
 
-  // Compute SVA results for this VPlan.
-  void runSVA();
+  // Compute SVA results for this VPlan for given VF.
+  void runSVA(unsigned VF);
 
   // Clear results of SVA.
   void clearSVA();
@@ -4642,7 +4664,7 @@ private:
   std::unique_ptr<VPLoopInfo> VPLInfo;
   std::unique_ptr<VPlanScalarEvolution> VPSE;
   std::unique_ptr<VPlanValueTracking> VPVT;
-  std::unique_ptr<VPlanScalVecAnalysis> VPlanSVA;
+  std::unique_ptr<VPlanScalVecAnalysisBase> VPlanSVA;
 
   DenseMap<const VPLoop *, std::unique_ptr<VPLoopEntityList>> LoopEntities;
 

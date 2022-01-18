@@ -73,14 +73,7 @@ enum attributeBits {
   ATTR_EVEXK  = 0x1 << 10,
   ATTR_EVEXKZ = 0x1 << 11,
   ATTR_EVEXB  = 0x1 << 12,
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  ATTR_CE     = 0x1 << 13,
-  ATTR_max    = 0x1 << 14,
-#else // INTEL_FEATURE_ICECODE
   ATTR_max    = 0x1 << 13,
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 };
 
 // Combinations of the above attributes that are relevant to instruction
@@ -294,37 +287,9 @@ enum attributeBits {
   ENUM_ENTRY(IC_EVEX_L2_W_XD_KZ,     4,  "requires EVEX_KZ, L2, W and XD prefix")    \
   ENUM_ENTRY(IC_EVEX_L2_W_OPSIZE_KZ, 4,  "requires EVEX_KZ, L2, W and OpSize")
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-#define INSTRUCTION_CONTEXTS_CE \
-  INSTRUCTION_CONTEXTS \
-  ENUM_ENTRY(IC_64BIT_CE,            1,  "says the instruction applies in "     \
-                                         "icecode mode but no more")            \
-  ENUM_ENTRY(IC_64BIT_OPSIZE_CE,     3,  "requires an OPSIZE prefix, so "       \
-                                         "operands change width")               \
-  ENUM_ENTRY(IC_64BIT_XD_OPSIZE_CE,  3,  "Just as meaningful as IC_XD_OPSIZE")  \
-  ENUM_ENTRY(IC_64BIT_XS_OPSIZE_CE,  3,  "Just as meaningful as IC_XS_OPSIZE")  \
-  ENUM_ENTRY(IC_64BIT_REXW_CE,       5,  "requires a REX.W prefix, so operands "\
-                                         "change width; overrides IC_OPSIZE")   \
-  ENUM_ENTRY(IC_64BIT_XD_CE,         6,  "XD instructions are SSE; REX.W is "   \
-                                         "secondary")                           \
-  ENUM_ENTRY(IC_64BIT_XS_CE,         6,  "Just as meaningful as IC_64BIT_XD_CE") \
-  ENUM_ENTRY(IC_64BIT_REXW_XS_CE,    7,  "OPSIZE could mean a different "       \
-                                         "opcode")                              \
-  ENUM_ENTRY(IC_64BIT_REXW_XD_CE,    7,  "Just as meaningful as "               \
-                                         "IC_64BIT_REXW_XS_CE")
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-
 #define ENUM_ENTRY(n, r, d) n,
 enum InstructionContext {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  INSTRUCTION_CONTEXTS_CE
-#else // INTEL_FEATURE_ICECODE
   INSTRUCTION_CONTEXTS
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   IC_max
 };
 #undef ENUM_ENTRY
@@ -537,23 +502,9 @@ enum OperandEncoding {
   ENUM_ENTRY(TYPE_DUP4,       "operand 4")
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-#define TYPES_CE \
-  TYPES \
-  ENUM_ENTRY(TYPE_M32,        "32bits Memory operand")
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-
 #define ENUM_ENTRY(n, d) n,
 enum OperandType {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  TYPES_CE
-#else // INTEL_FEATURE_ICECODE
   TYPES
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   TYPE_max
 };
 #undef ENUM_ENTRY

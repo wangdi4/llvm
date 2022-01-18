@@ -17,12 +17,12 @@ void foo_v3(float *AAA, float *BBB, int *I) { return; }
 void foo_v4(float *AAA, float *BBB, int *I, omp_interop_t) { return; }
 
 #ifdef OMP51
-// expected-error@+3 {{adjust_arg argument 'AAA' used in multiple clauses}}
+// expected-error@+3 {{'adjust_arg' argument 'AAA' used in multiple clauses}}
 #pragma omp declare variant(foo_v1)                          \
    match(construct={dispatch}, device={arch(arm)})           \
    adjust_args(need_device_ptr:AAA,BBB) adjust_args(need_device_ptr:AAA)
 
-// expected-error@+3 {{adjust_arg argument 'AAA' used in multiple clauses}}
+// expected-error@+3 {{'adjust_arg' argument 'AAA' used in multiple clauses}}
 #pragma omp declare variant(foo_v1)                          \
    match(construct={dispatch}, device={arch(ppc)}),          \
    adjust_args(need_device_ptr:AAA) adjust_args(nothing:AAA)
@@ -49,7 +49,7 @@ void foo_v4(float *AAA, float *BBB, int *I, omp_interop_t) { return; }
 #pragma omp declare variant(foo_v4)                          \
    append_args(interop(target)) match(device={arch(ppc)})
 
-// expected-error@+2 {{unexpected append-op in 'append_args' clause, expected 'interop'}}
+// expected-error@+2 {{unexpected operation specified in 'append_args' clause, expected 'interop'}}
 #pragma omp declare variant(foo_v2)                          \
    append_args(inerop(target)) match(construct={dispatch}, device={arch(ppc)})
 // expected-error@+2 {{expected interop type: 'target' and/or 'targetsync'}}
@@ -62,7 +62,7 @@ void foo_v4(float *AAA, float *BBB, int *I, omp_interop_t) { return; }
 #pragma omp declare variant(foo_v4)                          \
    append_args(interop(target,target)) match(construct={dispatch}, device={arch(ppc)})
 
-// expected-error@+5 {{directive '#pragma omp declare variant' cannot contain more than one 'append_args' clause}}
+// expected-error@+3 {{directive '#pragma omp declare variant' cannot contain more than one 'append_args' clause}}
 #pragma omp declare variant(foo_v1)                        \
    match(construct={dispatch}, device={arch(gen)})         \
    append_args(interop(target)) \

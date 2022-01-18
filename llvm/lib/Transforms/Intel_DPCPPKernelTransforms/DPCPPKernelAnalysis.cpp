@@ -147,7 +147,7 @@ void DPCPPKernelAnalysisPass::fillSubgroupCallingFuncs(CallGraph &CG) {
   for (auto &F : *M) {
     if (F.isDeclaration())
       continue;
-    if (hasFunctionCallInCGNodeSatisfiedWith(CG[&F], [&](Function *CalledFunc) {
+    if (hasFunctionCallInCGNodeIf(CG[&F], [&](const Function *CalledFunc) {
           return CalledFunc && CalledFunc->isDeclaration() &&
                  (isSubGroupBuiltin(CalledFunc->getName()) ||
                   isSubGroupBarrier(CalledFunc->getName()));

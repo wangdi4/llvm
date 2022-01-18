@@ -156,10 +156,14 @@ public:
   virtual void print(raw_ostream &OS, unsigned Indent = 0) const {
     OS << "Ref: ";
     Ref->dump();
-    OS.indent(Indent + 2) << "UpdateInstruction: ";
-    for (auto &V : UpdateInstructions) {
-      V->dump();
-    }
+    OS << "\n";
+    OS.indent(Indent + 2) << "UpdateInstructions:\n";
+    if (UpdateInstructions.empty())
+      OS.indent(Indent + 2) << "none\n";
+    else
+      for (auto &V : UpdateInstructions) {
+        OS.indent(Indent + 2); V->dump();
+      }
   }
   void dump() const { print(errs()); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -180,10 +184,6 @@ template <typename Value> class DescrWithAliases : public DescrValue<Value> {
   INTEL_INTRODUCE_CUSTOMCOMPARE(Value)
   /// Vector of Aliases for particular private value.
   SmallVector<std::unique_ptr<DescrValue<Value>>, 8> Aliases;
-
-  inline decltype(auto) aliases() const {
-    return map_range(Aliases, [](auto &UPtr) { return UPtr.get(); });
-  }
 
 protected:
   // Required by descendent in IntelVPlanHCFGBuilderHIR.h
@@ -221,10 +221,14 @@ public:
     return *this;
   }
 
+  inline decltype(auto) aliases() const {
+    return map_range(Aliases, [](auto &UPtr) { return UPtr.get(); });
+  }
+
   /// Add new alias for private value.
   void addAlias(const Value *RefV, std::unique_ptr<DescrValue<Value>> Descr) {
-    assert(!findAlias(RefV) && "Alias already added to aliases.");
-    Aliases.push_back(std::move(Descr));
+    if (!findAlias(RefV)) // don't add second time
+      Aliases.push_back(std::move(Descr));
   }
 
   /// Return alias for specific value. If no alias is found return nullptr.
@@ -287,20 +291,23 @@ public:
 
 private:
   PrivateKind PrivKind;
+  Type *Ty;
 
 public:
   // Value can be of type llvm::Value or loopopt::DDRef
-  PrivDescr(Value *RegV, PrivateKind KindV)
-      : DescrWithAliases<Value>(RegV, DescrKind::DK_WithAliases),
-        PrivKind(KindV) {}
+  PrivDescr(Value *RegV, Type *Ty, PrivateKind KindV)
+    : DescrWithAliases<Value>(RegV, DescrKind::DK_WithAliases),
+    PrivKind(KindV), Ty(Ty) {}
 
   // Copy constructor
   PrivDescr(const PrivDescr &Other)
-      : DescrWithAliases<Value>(Other), PrivKind(Other.PrivKind) {}
+      : DescrWithAliases<Value>(Other), PrivKind(Other.PrivKind),
+        Ty(Other.Ty) {}
 
   // Move constructor
   PrivDescr(PrivDescr &&Other)
-      : DescrWithAliases<Value>(std::move(Other)), PrivKind(Other.PrivKind) {}
+      : DescrWithAliases<Value>(std::move(Other)), PrivKind(Other.PrivKind),
+        Ty(Other.Ty) {}
 
   // Copy assignment
   PrivDescr &operator=(const PrivDescr &Other) {
@@ -308,6 +315,7 @@ public:
       return *this;
     DescrWithAliases<Value>::operator=(Other);
     PrivKind = Other.PrivKind;
+    Ty = Other.Ty;
   }
 
   // Move assignment
@@ -316,6 +324,7 @@ public:
       return *this;
     DescrWithAliases<Value>::operator=(std::move(Other));
     PrivKind = Other.PrivKind;
+    Ty = Other.Ty;
   }
 
   /// Check if private is conditional last private.
@@ -324,13 +333,18 @@ public:
   bool isLast() const { return PrivKind != PrivateKind::NonLast; }
   /// Check if private is for non-POD data type.
   virtual bool isNonPOD() const { return false; }
+  /// Get the private Type.
+  Type* getType() const { return Ty; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, unsigned Indent = 0) const override {
     DescrWithAliases<Value>::print(OS);
     OS << "PrivDescr: ";
     OS << "{IsCond: " << ((isCond()) ? "1" : "0")
-       << ", IsLast: " << ((isLast()) ? "1" : "0") << "}\n";
+       << ", IsLast: " << ((isLast()) ? "1" : "0");
+    OS << ", Type: ";
+    Ty->print(OS);
+    OS << "}\n";
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
@@ -345,12 +359,12 @@ template <typename Value> class PrivDescrNonPOD : public PrivDescr<Value> {
 
 public:
   // Value can be of type llvm::Value or loopopt::DDRef
-  PrivDescrNonPOD(Value *RegV, PrivateKind KindV, Function *Ctor,
+  PrivDescrNonPOD(Value *RegV, Type *Ty, PrivateKind KindV, Function *Ctor,
                   Function *Dtor, Function *CopyAssign)
-      : PrivDescr<Value>(RegV, KindV), Ctor(Ctor), Dtor(Dtor),
-        CopyAssign(CopyAssign) {
-    assert(KindV != PrivateKind::Conditional &&
-           "Non POD privates cannot be conditional last privates.");
+    : PrivDescr<Value>(RegV, Ty, KindV), Ctor(Ctor), Dtor(Dtor),
+      CopyAssign(CopyAssign) {
+        assert(KindV != PrivateKind::Conditional &&
+               "Non POD privates cannot be conditional last privates.");
   }
 
   // Copy constructor

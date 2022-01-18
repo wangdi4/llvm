@@ -442,6 +442,7 @@ def StableArgument : Attr {
   let LangOpts = [HLS];
   let Documentation = [Undocumented];
   let PragmaAttributeSupport = 0;
+  let SimpleHandler = 1;
 }
 
 def AgentMemoryArgument : Attr {
@@ -450,6 +451,7 @@ def AgentMemoryArgument : Attr {
   let LangOpts = [HLS];
   let Documentation = [Undocumented];
   let PragmaAttributeSupport = 0;
+  let SimpleHandler = 1;
 }
 
 // HLS local or static variable attributes

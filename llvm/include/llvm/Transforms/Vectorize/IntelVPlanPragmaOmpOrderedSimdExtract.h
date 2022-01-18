@@ -60,7 +60,8 @@ using WRenInfo = function_ref<vpo::WRegionInfo *(Function &F)>;
 class VPlanPragmaOmpOrderedSimdExtractImpl {
 public:
   VPlanPragmaOmpOrderedSimdExtractImpl() {}
-  bool runImpl(Module &M, DomT DT, WRenInfo WRI);
+  bool runImpl(Module &M, DomT DT, WRenInfo WRI,
+               LoopOptLimiter Limiter = LoopOptLimiter::None);
 };
 
 class VPlanPragmaOmpOrderedSimdExtractPass

@@ -1,6 +1,5 @@
 ; Test sorting in ddref gathering where a ref occurs twice but with different def level
-
-
+;
 ; REQUIRES: asserts
 ; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -debug-only=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd" -aa-pipeline="basic-aa" -debug-only=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
@@ -18,9 +17,34 @@
 ;           C[i][j] += A[i][p] * B[p][j];
 ;       }
 ; }
-
+;
+;*** IR Dump Before HIR RuntimeDD Multiversioning (hir-runtime-dd) ***
+;Function: FMX2Multiply
+;
+;<0>          BEGIN REGION { }
+;<60>               + DO i1 = 0, sext.i32.i64((-1 + %m)), 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+;<7>                |      %0 = (%C)[i1];
+;<61>               |   + DO i2 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+;<13>               |   |   (%0)[i2] = 0.000000e+00;
+;<62>               |   |
+;<18>               |   |      %1 = (%A)[i1];
+;<20>               |   |      %2 = (%B)[%p];
+;<22>               |   |      %3 = (%C)[i1];
+;<24>               |   |      %.pre = (%3)[i2];
+;<25>               |   |      %4 = %.pre;
+;<62>               |   |   + DO i3 = 0, %p + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+;<29>               |   |   |   %5 = (%1)[%p];
+;<30>               |   |   |   %6 = (%2)[i2];
+;<31>               |   |   |   %mul = %5  *  %6;
+;<32>               |   |   |   %4 = %mul  +  %4;
+;<33>               |   |   |   (%3)[i2] = %4;
+;<62>               |   |   + END LOOP
+;<61>               |   + END LOOP
+;<60>               + END LOOP
+;<0>          END REGION
+;
 ; CHECK: LOOPOPT_OPTREPORT: [RTDD] Loop {{[0-9]+}}: OK
-
+;
 ; ModuleID = 'matmul-nonlinear.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

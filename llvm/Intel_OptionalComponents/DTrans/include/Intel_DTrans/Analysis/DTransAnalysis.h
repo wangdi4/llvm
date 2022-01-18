@@ -284,7 +284,7 @@ public:
 
   // Returns true if the module requires runtime validation of possible bad cast
   // issues. Returns functions where runtime checks are required.
-  bool requiresBadCastValidation(SmallPtrSetImpl<Function *> &Func,
+  bool requiresBadCastValidation(SetVector<Function *> &Func,
                                  unsigned &ArgumentIndex,
                                  unsigned &StructIndex) const;
 
@@ -362,7 +362,7 @@ private:
 
   // A set of functions where bad cast safety issue validation required in
   // runtime.
-  std::set<Function *> FunctionsRequireBadCastValidation;
+  SetVector<Function *> FunctionsRequireBadCastValidation;
 
   // Indicates that a Fortran function was seen. This will enable
   // DTransOutOfBoundsOK and disable DTransUseCRuleCompat.

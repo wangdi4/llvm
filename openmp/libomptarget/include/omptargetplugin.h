@@ -250,8 +250,9 @@ int32_t __tgt_rtl_run_target_team_nd_region_nowait(
     int32_t ID, void *Entry, void **Args, ptrdiff_t *Offsets, int32_t NumArgs,
     int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc, void *AsyncData);
 
-// Creates an opaque handle to a device-dependent offload queue.
-EXTERN void __tgt_rtl_create_offload_queue(int32_t ID, void *InteropObj);
+// Creates an opaque handle to a device-dependent offload queue if CreateNew is true
+// Return existing queue if false.
+EXTERN void __tgt_rtl_get_offload_queue(int32_t ID, void *InteropObj, bool CreateNew);
 
 // Releases a device-dependent offload queue.
 EXTERN int32_t __tgt_rtl_release_offload_queue(int32_t ID, void *Queue);
@@ -343,6 +344,16 @@ EXTERN int32_t __tgt_rtl_command_batch_begin(int32_t ID, int32_t BatchLevel);
 
 // End data batch commands
 EXTERN int32_t __tgt_rtl_command_batch_end(int32_t ID, int32_t BatchLevel);
+
+EXTERN void __tgt_rtl_kernel_batch_begin(int32_t ID, uint32_t MaxKernels);
+EXTERN void __tgt_rtl_kernel_batch_end(int32_t ID);
+
+// Allocate per-hw-thread reduction scratch
+EXTERN void *__tgt_rtl_alloc_per_hw_thread_scratch(
+    int32_t ID, size_t ObjSize, int32_t AllocKind);
+
+// Free per-hw-thread reduction scratch
+EXTERN void __tgt_rtl_free_per_hw_thread_scratch(int32_t ID, void *Ptr);
 #endif // INTEL_COLLAB
 // Set plugin's internal information flag externally.
 void __tgt_rtl_set_info_flag(uint32_t);

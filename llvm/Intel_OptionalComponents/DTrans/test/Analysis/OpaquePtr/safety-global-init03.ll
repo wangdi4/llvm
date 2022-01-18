@@ -13,6 +13,7 @@ define void @func01(i8* "intel_dtrans_func_index"="1") !intel.dtrans.func.type !
 }
 ; CHECK-LABEL: LLVMType: %struct.test01
 ; CHECK: Safety data: Global instance | Has initializer list | Has function ptr{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{!"F", i1 false, i32 1, !3, !4}  ; void(%struct.test01*)

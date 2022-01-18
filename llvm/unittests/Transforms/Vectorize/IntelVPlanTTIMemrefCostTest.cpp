@@ -13,7 +13,7 @@
 #include "IntelVPlanTestBase.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/CodeGen/CommandFlags.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 #include "gtest/gtest.h"
@@ -120,7 +120,7 @@ TEST_F(VPlanTTIMemrefCostTest, Check_1xi1) {
 }
 
 TEST_F(VPlanTTIMemrefCostTest, Check1xi8Ptr) {
-  const unsigned Expected = 1063;
+  const unsigned Expected = 1000;
   const unsigned Alignment = 4;
   const unsigned VF = 1;
   const auto Tyi8Ptr = Type::getInt8Ty(*Ctx);

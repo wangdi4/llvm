@@ -1,5 +1,7 @@
 ; RUN: opt < %s -anders-aa -print-non-escape-candidates -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -convert-to-subscript -S | opt -anders-aa -print-non-escape-candidates -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='require<anders-aa>' -print-non-escape-candidates -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=convert-to-subscript -S | opt -passes='require<anders-aa>' -print-non-escape-candidates -disable-output 2>&1 | FileCheck %s
 ; CHECK: Non-Escape-Static-Vars_Begin
 ; CHECK-NEXT: Non-Escape-Static-Vars_End
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

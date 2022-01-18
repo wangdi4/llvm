@@ -28,15 +28,16 @@ class VPVectorShape {
 public:
   // Used for transfer function table lookup
   enum VPShapeDescriptor {
-    Uni      = 0, // All elements in a vector are the same
-    Seq      = 1, // Elements are consecutive
-    Str      = 2, // Elements are in strides
-    Rnd      = 3, // Unknown or non-consecutive order
-    SOASeq   = 4, // Elements are consecutive under SOA-layout.
-    SOAStr   = 5, // Elements are in strides under SOA-layout.
-    SOARnd   = 6, // Unknown or non-consecutive stride under SOA-layout.
-    Undef    = 7, // Undefined shape
-    NumDescs = 8
+    Uni = 0,    // All elements in a vector are the same
+    Seq = 1,    // Elements are consecutive
+    Str = 2,    // Elements are in strides
+    Rnd = 3,    // Unknown or non-consecutive order
+    SOASeq = 4, // Elements are consecutive under SOA-layout.
+    SOAStr = 5, // Elements are in strides under SOA-layout.
+    SOARnd = 6, // Unknown or non-consecutive stride under SOA-layout.
+    SOACvt = 7, // Used to mark a pointer transformed by SOAMemRefTransform
+    Undef = 8,  // Undefined shape
+    NumDescs = 9
   };
 
   // describes how the contents of a vector vary with the vectorized dimension
@@ -120,6 +121,8 @@ public:
     return (Desc == VPShapeDescriptor::Undef);
   }
 
+  bool isSOAConverted() const { return (Desc == VPShapeDescriptor::SOACvt); }
+
   /// Create a new shape identical to the existing one.
   VPVectorShape *clone() {
     return new VPVectorShape(getShapeDescriptor(), getStride());
@@ -147,6 +150,8 @@ public:
         return "SOA Strided";
       case VPShapeDescriptor::SOARnd:
         return "SOA Random";
+      case VPShapeDescriptor::SOACvt:
+        return "SOA Converted";
       case VPShapeDescriptor::Undef:
         return "Undef";
       default:

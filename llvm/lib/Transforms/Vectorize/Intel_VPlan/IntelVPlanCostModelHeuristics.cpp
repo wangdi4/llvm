@@ -17,7 +17,6 @@
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanCostModelHeuristics.h"
 #include "IntelVPlanIdioms.h"
-#include "IntelVPlanUtils.h"
 #include "IntelVPlanPatternMatch.h"
 
 #include <numeric>
@@ -34,8 +33,16 @@ static cl::opt<unsigned> NumberOfSpillsPerExtraReg(
     cl::desc("The number of spills/fills generated on average for each HW "
              "register spilled and restored."));
 
+// These are two experimentally set thresholds we use by default for desktop
+// and HPC programs.
+// TODO: There is no fundamental reason why those thresholds can not be the
+// same. We might want to tune CM to match them.
+unsigned const CMGatherScatterDefaultThreshold = 50;
+unsigned const CMGatherScatterDefaultThresholdZMM = 70;
+
 static cl::opt<unsigned> CMGatherScatterThreshold(
-  "vplan-cm-gather-scatter-threshold", cl::init(50),
+  "vplan-cm-gather-scatter-threshold",
+  cl::init(CMGatherScatterDefaultThreshold),
   cl::desc("If gather/scatter cost is more than CMGatherScatterThreshold "
            "percent of whole loop price the price of gather/scatter is "
            "doubled to make it harder to choose in favor of "
@@ -295,7 +302,7 @@ void HeuristicSearchLoop::apply(
       // Return some huge value, so that VectorCost still could be computed.
       Cost = UnknownCost;
     break;
-  case VPlanIdioms::SearchLoopStructPtrEq:
+  case VPlanIdioms::SearchLoopPtrEq:
     // Without proper type information, cost model cannot properly compute the
     // cost, thus hard code VF.
     if (VF == 1)
@@ -612,9 +619,18 @@ void HeuristicGatherScatter::apply(
     // correctly scale the cost of the basic block.
     GSCost += (*this)(Block);
 
-  // Double GatherScatter cost contribution in case Gathers/Scatters take too
-  // much to make it harder to choose this VF.
-  if (TTICost * CMGatherScatterThreshold < GSCost * 100)
+  unsigned CGThreshold = CMGatherScatterDefaultThreshold;
+
+  // If CMGatherScatterThreshold is not specified in the command line the
+  // default value for heuristic is different in ZMM-enabled context.
+  if (CMGatherScatterThreshold.getNumOccurrences() == 0 &&
+      CM->VPTTI.getRegisterBitWidth(
+          TargetTransformInfo::RGK_FixedWidthVector) >= 512)
+    CGThreshold = CMGatherScatterDefaultThresholdZMM;
+
+  // Increase GatherScatter cost contribution in case Gathers/Scatters take too
+  // much.
+  if (TTICost * CGThreshold < GSCost * 100)
     Cost += CMGatherScatterPenaltyFactor * GSCost;
 }
 
@@ -730,7 +746,6 @@ void HeuristicPsadbw::initForVPlan() {
       continue;
 
     VPBasicBlock *Block = VPL->getHeader();
-    VPBasicBlock *PH = VPL->getLoopPreheader();
     VPBasicBlock *Latch = VPL->getLoopLatch();
 
     // Loop through PHI nodes.
@@ -738,26 +753,10 @@ void HeuristicPsadbw::initForVPlan() {
       assert(PhiNode.getNumIncomingValues() == 2 &&
              "A loop header is expected to have two predecessors.");
 
-      const auto *RedInitInst =
-        dyn_cast<VPReductionInit>(PhiNode.getIncomingValue(PH));
-      if (!RedInitInst)
-        continue;
-
       const auto *SumCarryOut =
         dyn_cast<VPInstruction>(PhiNode.getIncomingValue(Latch));
       if (!SumCarryOut || SumCarryOut->getOpcode() != Instruction::Add)
         continue;
-
-      // Check that there is VPReductionFinal among users of SumCarryOut.
-      const VPReductionFinal *ReductionFinalInst = nullptr;
-      auto It = llvm::find_if(SumCarryOut->users(),
-                              [](const auto* SumVPUser) {
-                                return (isa<VPReductionFinal>(SumVPUser));
-                              });
-      if (It == SumCarryOut->users().end())
-        continue;
-
-      ReductionFinalInst = cast<VPReductionFinal>(*It);
 
       // Now go up through ADD's operands starting from SumCarryOut and
       // find the patterns.  We model unrolled at source level or by HIR
@@ -792,9 +791,8 @@ void HeuristicPsadbw::initForVPlan() {
         if (RHS->getOpcode() == Instruction::Add)
           AddsStack.push(RHS);
 
-        // Add PhiNode, RedInitInst, ReductionFinalInst and AddInst into
-        // the list of pattern forming instruction whenever pattern is found
-        // along LHS operand or RHS operand of the add.
+        // Add PhiNode and AddInst into the list of pattern forming instruction
+        // whenever pattern is found.
         //
         // Make sure to run checkPsadwbPattern for LHS and RHS as there could
         // be patterns on the both ways and we want checkPsadwbPattern() to
@@ -802,9 +800,7 @@ void HeuristicPsadbw::initForVPlan() {
         bool PatternFound = checkPsadwbPattern(LHS, CurrPsadbwPatternInsts);
         if (checkPsadwbPattern(RHS, CurrPsadbwPatternInsts) || PatternFound) {
           CurrPsadbwPatternInsts.insert(&PhiNode);
-          CurrPsadbwPatternInsts.insert(RedInitInst);
           CurrPsadbwPatternInsts.insert(AddInst);
-          CurrPsadbwPatternInsts.insert(ReductionFinalInst);
         }
       }
 
@@ -1076,7 +1072,7 @@ void HeuristicOVLSMember::apply(
             ->getAddressSpace();
     int InterleaveFactor =
         std::abs(computeInterleaveFactor(Group->getInsertPoint()));
-    auto *WideVecTy = FixedVectorType::get(ValTy, VF * InterleaveFactor);
+    auto *WideVecTy = getWidenedType(ValTy, VF * InterleaveFactor);
 
     // Holds the indices of existing members in an interleaved load group.
     // Currently we only support accesses with no gaps and hence all indices

@@ -1,4 +1,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-opt-predicate,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-loop-optreport=low -disable-output 2>&1 | FileCheck %s -check-prefix=OPTREPORT
+
+
 ; Source code:
 ;
 ;void foo(int *p, int *q, int n) {
@@ -91,11 +94,11 @@
 ;OPTREPORT:     LOOP END
 ;OPTREPORT:     LOOP BEGIN at bar.c (3, 5)
 ;OPTREPORT:     <Predicate Optimized v2>
-;OPTREPORT:         remark #25422: Invariant Condition at line 9 hoisted out of this loop
+;OPTREPORT:         remark #25423: Invariant If condition at line 9 hoisted out of this loop
 ;OPTREPORT:     LOOP END
 ;OPTREPORT:     LOOP BEGIN at bar.c (3, 5)
 ;OPTREPORT:     <Predicate Optimized v1>
-;OPTREPORT:         remark #25422: Invariant Condition at line 5 hoisted out of this loop
+;OPTREPORT:         remark #25423: Invariant If condition at line 5 hoisted out of this loop
 ;OPTREPORT:     LOOP END
 ;OPTREPORT: LOOP END
 

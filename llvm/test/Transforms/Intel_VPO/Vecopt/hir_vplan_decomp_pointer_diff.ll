@@ -35,7 +35,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local void @make_simple_name(i8* %name) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
-; CHECK-NEXT:  VPlan IR for: make_simple_name:HIR
+; CHECK-NEXT:  VPlan IR for: make_simple_name:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%spec.select}
 ; CHECK-DAG:     [[VP1:%.*]] = {-1 * ptrtoint.i8*.i64(%name) + ptrtoint.i8*.i64(%spec.select) + -1}
@@ -44,28 +44,29 @@ define dso_local void @make_simple_name(i8* %name) local_unnamed_addr #0 {
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     i64 [[VP2:%.*]] = add i64 [[VP1]] i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:     i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i64 [[VP4:%.*]] = mul i64 -1 i64 [[VP2]]
-; CHECK-NEXT:     i64 [[VP5:%.*]] = add i64 [[VP4]] i64 -1
-; CHECK-NEXT:     i8* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i8* [[SPEC_SELECT0:%.*]] i64 [[VP5]]
+; CHECK-NEXT:     i64 [[VP3:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB3]] ]
+; CHECK-NEXT:     i64 [[VP5:%.*]] = mul i64 -1 i64 [[VP3]]
+; CHECK-NEXT:     i64 [[VP6:%.*]] = add i64 [[VP5]] i64 -1
+; CHECK-NEXT:     i8* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i8* [[SPEC_SELECT0:%.*]] i64 [[VP6]]
 ; CHECK-NEXT:     i8 [[VP_LOAD:%.*]] = load i8* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     i1 [[VP6:%.*]] = icmp eq i8 [[VP_LOAD]] i8 46
-; CHECK-NEXT:     br i1 [[VP6]], [[BB4:BB[0-9]+]], [[BB3]]
+; CHECK-NEXT:     i1 [[VP7:%.*]] = icmp eq i8 [[VP_LOAD]] i8 46
+; CHECK-NEXT:     br i1 [[VP7]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:       i64 [[VP7:%.*]] = mul i64 -1 i64 [[VP2]]
-; CHECK-NEXT:       i64 [[VP8:%.*]] = add i64 [[VP7]] i64 -1
-; CHECK-NEXT:       i8* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i8* [[SPEC_SELECT0]] i64 [[VP8]]
+; CHECK-NEXT:       i64 [[VP8:%.*]] = mul i64 -1 i64 [[VP3]]
+; CHECK-NEXT:       i64 [[VP9:%.*]] = add i64 [[VP8]] i64 -1
+; CHECK-NEXT:       i8* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i8* [[SPEC_SELECT0]] i64 [[VP9]]
 ; CHECK-NEXT:       store i8 95 i8* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB2]]
-; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:     i1 [[VP9:%.*]] = icmp sle i64 [[VP3]] i64 [[VP1]]
-; CHECK-NEXT:     br i1 [[VP9]], [[BB2]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP3]] i64 1
+; CHECK-NEXT:     i1 [[VP10:%.*]] = icmp slt i64 [[VP4]] i64 [[VP2]]
+; CHECK-NEXT:     br i1 [[VP10]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]
 ; CHECK-NEXT:     br [[BB6:BB[0-9]+]]

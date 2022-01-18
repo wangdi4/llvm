@@ -1,5 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -whole-program-assume  -dtransanalysis -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; This test verifies that a bitcast of a function pointer in a call instruction with var args
 ; is handled as a bitcast of the arguments.

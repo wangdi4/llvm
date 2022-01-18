@@ -42,6 +42,9 @@ VERS1.0 {
     __tgt_create_interop;
     __tgt_release_interop;
     __tgt_use_interop;
+    __tgt_target_supports_per_hw_thread_scratch;
+    __tgt_target_alloc_per_hw_thread_scratch;
+    __tgt_target_free_per_hw_thread_scratch;
 # end INTEL_COLLAB
     omp_get_num_devices;
     omp_get_initial_device;
@@ -68,6 +71,7 @@ VERS1.0 {
     omp_get_interop_rc_desc;
     omp_set_sub_device;
     omp_unset_sub_device;
+    ompx_get_num_subdevices;
     ompx_target_realloc;
     ompx_target_realloc_device;
     ompx_target_realloc_host;
@@ -76,6 +80,8 @@ VERS1.0 {
     ompx_target_aligned_alloc_device;
     ompx_target_aligned_alloc_host;
     ompx_target_aligned_alloc_shared;
+    ompx_kernel_batch_begin;
+    ompx_kernel_batch_end;
 # end INTEL_COLLAB
     __kmpc_push_target_tripcount;
     __kmpc_push_target_tripcount;
@@ -83,6 +89,7 @@ VERS1.0 {
     llvm_omp_target_alloc_host;
     llvm_omp_target_alloc_shared;
     llvm_omp_target_alloc_device;
+    llvm_omp_get_dynamic_shared;
     __tgt_set_info_flag;
     __tgt_print_device_info;
   local:

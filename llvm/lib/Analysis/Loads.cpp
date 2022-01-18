@@ -31,6 +31,14 @@
 
 using namespace llvm;
 
+#if INTEL_CUSTOMIZATION
+// Used for nonstandard runtime architectures where the data segment
+// may be remapped to non-local storage and must have a runtime check before
+// accessing. Loads should not be speculated or hoisted in these circumstances.
+static cl::opt<bool> GlobalLoadsUnsafe("global-loads-unsafe",
+                                         cl::Hidden, cl::init(false));
+#endif
+
 static bool isAligned(const Value *Base, const APInt &Offset, Align Alignment,
                       const DataLayout &DL) {
   Align BA = Base->getPointerAlignment(DL);
@@ -55,6 +63,11 @@ static bool isDereferenceableAndAlignedPointer(
   // Already visited?  Bail out, we've likely hit unreachable code.
   if (!Visited.insert(V).second)
     return false;
+
+#if INTEL_CUSTOMIZATION
+  if (isa<GlobalValue>(V) && GlobalLoadsUnsafe)
+    return false;
+#endif
 
   // Note that it is not safe to speculate into a malloc'd region because
   // malloc may return null.
@@ -147,7 +160,7 @@ static bool isDereferenceableAndAlignedPointer(
                                               Alignment, Size, DL, CtxI, DT,
                                               TLI, Visited, MaxDepth);
 
-  if (const AddrSpaceCastInst *ASC = dyn_cast<AddrSpaceCastInst>(V))
+  if (const AddrSpaceCastOperator *ASC = dyn_cast<AddrSpaceCastOperator>(V))
     return isDereferenceableAndAlignedPointer(ASC->getOperand(0), Alignment,
                                               Size, DL, CtxI, DT, TLI,
                                               Visited, MaxDepth);
@@ -454,8 +467,8 @@ static bool areNonOverlapSameBaseLoadAndStore(const Value *LoadPtr,
                                               const Value *StorePtr,
                                               Type *StoreTy,
                                               const DataLayout &DL) {
-  APInt LoadOffset(DL.getTypeSizeInBits(LoadPtr->getType()), 0);
-  APInt StoreOffset(DL.getTypeSizeInBits(StorePtr->getType()), 0);
+  APInt LoadOffset(DL.getIndexTypeSizeInBits(LoadPtr->getType()), 0);
+  APInt StoreOffset(DL.getIndexTypeSizeInBits(StorePtr->getType()), 0);
   const Value *LoadBase = LoadPtr->stripAndAccumulateConstantOffsets(
       DL, LoadOffset, /* AllowNonInbounds */ false);
   const Value *StoreBase = StorePtr->stripAndAccumulateConstantOffsets(
@@ -514,8 +527,11 @@ static Value *getAvailableLoadStore(Instruction *Inst, const Value *Ptr,
     if (CastInst::isBitOrNoopPointerCastable(Val->getType(), AccessTy, DL))
       return Val;
 
-    if (auto *C = dyn_cast<Constant>(Val))
-      return ConstantFoldLoadThroughBitcast(C, AccessTy, DL);
+    TypeSize StoreSize = DL.getTypeStoreSize(Val->getType());
+    TypeSize LoadSize = DL.getTypeStoreSize(AccessTy);
+    if (TypeSize::isKnownLE(LoadSize, StoreSize))
+      if (auto *C = dyn_cast<Constant>(Val))
+        return ConstantFoldLoadFromConst(C, AccessTy, DL);
   }
 
   return nullptr;

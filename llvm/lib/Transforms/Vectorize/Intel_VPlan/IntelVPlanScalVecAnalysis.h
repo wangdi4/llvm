@@ -39,70 +39,63 @@ class VPInstruction;
 class VPPHINode;
 class VPBasicBlock;
 
-/// This class is responsible to find and keep whether a VPInstruction and its
-/// operands must be widened or it can be kept scalar. For example consider a
-/// series of uniform instructions that can be computed as scalar and
-/// broadcasted in vector context.
-class VPlanScalVecAnalysis {
+/// Base class for ScalVec Analysis. Defines interfaces and implements those
+/// ones that are common for Scalar ScalVec and Vector ScalVec analyses.
+class VPlanScalVecAnalysisBase {
+protected:
+  // Enum for different types of ScalVec analyses.
+  enum class SVAType {
+    Scalar,
+    Vector,
+  };
+
+  // VPlan for which SVA results are computed for.
+  VPlanVector *Plan;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(raw_ostream &OS, const VPInstruction *VPI);
+  void print(raw_ostream &OS, const VPBasicBlock *VPBB);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  VPlanScalVecAnalysisBase(SVAType Type) : Type(Type) {}
+
 public:
-  explicit VPlanScalVecAnalysis() = default;
-  ~VPlanScalVecAnalysis() = default;
+  SVAType getSVAType() const { return Type; }
+
+  virtual ~VPlanScalVecAnalysisBase() = default;
 
   // Getter interfaces for querying SVA results at instruction-level.
-  bool instNeedsVectorCode(const VPInstruction *Inst) const {
-    return getSVABitsForInst(Inst).test(static_cast<unsigned>(SVAKind::Vector));
-  }
+  virtual bool instNeedsVectorCode(const VPInstruction *Inst) const = 0;
 
-  bool instNeedsFirstScalarCode(const VPInstruction *Inst) const {
-    return getSVABitsForInst(Inst).test(
-        static_cast<unsigned>(SVAKind::FirstScalar));
-  }
+  virtual bool instNeedsFirstScalarCode(const VPInstruction *Inst) const = 0;
 
-  bool instNeedsLastScalarCode(const VPInstruction *Inst) const {
-    return getSVABitsForInst(Inst).test(
-        static_cast<unsigned>(SVAKind::LastScalar));
-  }
+  virtual bool instNeedsLastScalarCode(const VPInstruction *Inst) const = 0;
 
   // Getter interfaces for querying SVA results at operand-level.
-  bool operandNeedsVectorCode(const VPInstruction *Inst, unsigned OpIdx) const {
-    return getSVABitsForOperand(Inst, OpIdx)
-        .test(static_cast<unsigned>(SVAKind::Vector));
-  }
+  virtual bool operandNeedsVectorCode(const VPInstruction *Inst,
+                                      unsigned OpIdx) const = 0;
 
-  bool operandNeedsFirstScalarCode(const VPInstruction *Inst,
-                                   unsigned OpIdx) const {
-    return getSVABitsForOperand(Inst, OpIdx)
-        .test(static_cast<unsigned>(SVAKind::FirstScalar));
-  }
+  virtual bool operandNeedsFirstScalarCode(const VPInstruction *Inst,
+                                           unsigned OpIdx) const = 0;
 
-  bool operandNeedsLastScalarCode(const VPInstruction *Inst,
-                                  unsigned OpIdx) const {
-    return getSVABitsForOperand(Inst, OpIdx)
-        .test(static_cast<unsigned>(SVAKind::LastScalar));
-  }
+  virtual bool operandNeedsLastScalarCode(const VPInstruction *Inst,
+                                          unsigned OpIdx) const = 0;
 
   // Getter interfaces for broadcast and extract patterns.
-  bool instNeedsBroadcast(const VPInstruction *Inst) const;
+  virtual bool instNeedsBroadcast(const VPInstruction *Inst) const = 0;
 
-  bool instNeedsExtractFromFirstActiveLane(const VPInstruction *Inst) const;
+  virtual bool instNeedsExtractFromFirstActiveLane(
+    const VPInstruction *Inst) const = 0;
 
-  bool instNeedsExtractFromLastActiveLane(const VPInstruction *Inst) const;
+  virtual bool instNeedsExtractFromLastActiveLane(
+    const VPInstruction *Inst) const = 0;
 
   // Getter interfaces for querying SVA results at return value level.
-  bool retValNeedsVectorCode(const VPInstruction *Inst) const {
-    return getSVABitsForReturnValue(Inst).test(
-      static_cast<unsigned>(SVAKind::Vector));
-  }
+  virtual bool retValNeedsVectorCode(const VPInstruction *Inst) const = 0;
 
-  bool retValNeedsFirstScalarCode(const VPInstruction *Inst) const {
-    return getSVABitsForReturnValue(Inst).test(
-      static_cast<unsigned>(SVAKind::FirstScalar));
-  }
+  virtual bool retValNeedsFirstScalarCode(const VPInstruction *Inst) const = 0;
 
-  bool retValNeedsLastScalarCode(const VPInstruction *Inst) const {
-    return getSVABitsForReturnValue(Inst).test(static_cast<unsigned>(
-      SVAKind::LastScalar));
-  }
+  virtual bool retValNeedsLastScalarCode(const VPInstruction *Inst) const = 0;
 
   // TODO: Public setter/add interfaces are not needed as of now since bits are
   // computed internally within SVA. Introduce them if needed in the future.
@@ -114,17 +107,109 @@ public:
   /// VPValue is also used from DA for decisions about an instruction's nature.
   /// Results of CallVecDecisions analysis are used to compute more accurate
   /// results for Call instructions and their argument operands.
-  void compute(VPlanVector *P);
+  virtual void compute(VPlanVector *P) = 0;
 
-  void clear(void) { VPlanSVAResults.clear(); }
+  virtual void clear(void) = 0;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS);
   /// Print SVA result for given VPInstruction.
-  void printSVAKindForInst(raw_ostream &OS, const VPInstruction *VPI) const;
+  virtual void printSVAKindForInst(raw_ostream &OS,
+                                   const VPInstruction *VPI) const = 0;
+  /// Print SVA result for given operand of VPInstruction.
+  virtual void printSVAKindForOperand(raw_ostream &OS, const VPInstruction *VPI,
+                                      unsigned OpIdx) const = 0;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+private:
+  SVAType Type;
+};
+
+/// This class is responsible to find and keep whether a VPInstruction and its
+/// operands must be widened or it can be kept scalar for VF > 1 cases. For
+/// example consider a series of uniform instructions that can be computed as
+/// scalar and broadcasted in vector context.
+class VPlanScalVecAnalysis final : public VPlanScalVecAnalysisBase {
+public:
+  explicit VPlanScalVecAnalysis() :
+    VPlanScalVecAnalysisBase(SVAType::Vector) {};
+  ~VPlanScalVecAnalysis() = default;
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(VPlanScalVecAnalysisBase const *V) {
+    return V->getSVAType() == SVAType::Vector;
+  }
+
+  // Getter interfaces for querying SVA results at instruction-level.
+  bool instNeedsVectorCode(const VPInstruction *Inst) const override {
+    return getSVABitsForInst(Inst).test(static_cast<unsigned>(SVAKind::Vector));
+  }
+
+  bool instNeedsFirstScalarCode(const VPInstruction *Inst) const override {
+    return getSVABitsForInst(Inst).test(
+        static_cast<unsigned>(SVAKind::FirstScalar));
+  }
+
+  bool instNeedsLastScalarCode(const VPInstruction *Inst) const override {
+    return getSVABitsForInst(Inst).test(
+        static_cast<unsigned>(SVAKind::LastScalar));
+  }
+
+  // Getter interfaces for querying SVA results at operand-level.
+  bool operandNeedsVectorCode(const VPInstruction *Inst,
+                              unsigned OpIdx) const override {
+    return getSVABitsForOperand(Inst, OpIdx)
+        .test(static_cast<unsigned>(SVAKind::Vector));
+  }
+
+  bool operandNeedsFirstScalarCode(const VPInstruction *Inst,
+                                   unsigned OpIdx) const override {
+    return getSVABitsForOperand(Inst, OpIdx)
+        .test(static_cast<unsigned>(SVAKind::FirstScalar));
+  }
+
+  bool operandNeedsLastScalarCode(const VPInstruction *Inst,
+                                  unsigned OpIdx) const override {
+    return getSVABitsForOperand(Inst, OpIdx)
+        .test(static_cast<unsigned>(SVAKind::LastScalar));
+  }
+
+  // Getter interfaces for broadcast and extract patterns.
+  bool instNeedsBroadcast(const VPInstruction *Inst) const override;
+
+  bool instNeedsExtractFromFirstActiveLane(
+    const VPInstruction *Inst) const override;
+
+  bool instNeedsExtractFromLastActiveLane(
+    const VPInstruction *Inst) const override;
+
+  // Getter interfaces for querying SVA results at return value level.
+  bool retValNeedsVectorCode(const VPInstruction *Inst) const override {
+    return getSVABitsForReturnValue(Inst).test(
+      static_cast<unsigned>(SVAKind::Vector));
+  }
+
+  bool retValNeedsFirstScalarCode(const VPInstruction *Inst) const override {
+    return getSVABitsForReturnValue(Inst).test(
+      static_cast<unsigned>(SVAKind::FirstScalar));
+  }
+
+  bool retValNeedsLastScalarCode(const VPInstruction *Inst) const override {
+    return getSVABitsForReturnValue(Inst).test(static_cast<unsigned>(
+      SVAKind::LastScalar));
+  }
+
+  void compute(VPlanVector *P) override;
+
+  void clear(void) override { VPlanSVAResults.clear(); }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  /// Print SVA result for given VPInstruction.
+  void printSVAKindForInst(raw_ostream &OS,
+                           const VPInstruction *VPI) const override;
   /// Print SVA result for given operand of VPInstruction.
   void printSVAKindForOperand(raw_ostream &OS, const VPInstruction *VPI,
-                              unsigned OpIdx) const;
+                              unsigned OpIdx) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
@@ -169,9 +254,6 @@ private:
 
   // Central data structure to track results of analysis.
   SmallDenseMap<const VPInstruction *, VPInstSVABits> VPlanSVAResults;
-
-  // VPlan for which SVA results are computed for.
-  VPlanVector *Plan;
 
   // Container to track loop header PHIs that are skipped during forward
   // propagation. Such PHIs occur when they do not have any processed users i.e.
@@ -344,10 +426,95 @@ private:
   /// Helper utility to check if given instruction is processed specially in
   /// SVA.
   bool isSVASpecialProcessedInst(const VPInstruction *Inst);
+};
+
+/// This class implementation for so called Scalar ScalVec analysis, which
+/// results are enquired for VF == 1 only. We don't really do any analysis
+/// for VF = 1 but return trivially known results.
+/// The class is used to unify access to VPlanScalVecAnalysisBase's methods
+/// for all VFs.
+class VPlanScalVecAnalysisScalar final : public VPlanScalVecAnalysisBase {
+public:
+  explicit VPlanScalVecAnalysisScalar() :
+    VPlanScalVecAnalysisBase(SVAType::Scalar) {};
+  ~VPlanScalVecAnalysisScalar() = default;
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(VPlanScalVecAnalysisBase const *V) {
+    return V->getSVAType() == SVAType::Scalar;
+  }
+
+  // Getter interfaces for querying SVA results at instruction-level.
+  bool instNeedsVectorCode(const VPInstruction *Inst) const override {
+    return false;
+  }
+
+  bool instNeedsFirstScalarCode(const VPInstruction *Inst) const override {
+    return true;
+  }
+
+  bool instNeedsLastScalarCode(const VPInstruction *Inst) const override {
+    return false;
+  }
+
+  // Getter interfaces for querying SVA results at operand-level.
+  bool operandNeedsVectorCode(const VPInstruction *Inst,
+                              unsigned OpIdx) const override {
+    return false;
+  }
+
+  bool operandNeedsFirstScalarCode(const VPInstruction *Inst,
+                                   unsigned OpIdx) const override {
+    return true;
+  }
+
+  bool operandNeedsLastScalarCode(const VPInstruction *Inst,
+                                  unsigned OpIdx) const override {
+    return false;
+  }
+
+  // Getter interfaces for broadcast and extract patterns.
+  bool instNeedsBroadcast(const VPInstruction *Inst) const override {
+    return false;
+  }
+
+  bool instNeedsExtractFromFirstActiveLane(
+    const VPInstruction *Inst) const override {
+    return false;
+  }
+
+  bool instNeedsExtractFromLastActiveLane(
+    const VPInstruction *Inst) const override {
+    return false;
+  }
+
+  // Getter interfaces for querying SVA results at return value level.
+  bool retValNeedsVectorCode(const VPInstruction *Inst) const override {
+    return false;
+  }
+
+  bool retValNeedsFirstScalarCode(const VPInstruction *Inst) const override {
+    return true;
+  }
+
+  bool retValNeedsLastScalarCode(const VPInstruction *Inst) const override {
+    return false;
+  }
+
+  void compute(VPlanVector *P) override {}
+
+  void clear(void) override {}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &OS, const VPInstruction *VPI);
-  void print(raw_ostream &OS, const VPBasicBlock *VPBB);
+  /// Print SVA result for given VPInstruction.
+  void printSVAKindForInst(raw_ostream &OS,
+                           const VPInstruction *VPI) const override;
+  /// Print SVA result for given operand of VPInstruction.
+  void printSVAKindForOperand(raw_ostream &OS, const VPInstruction *VPI,
+                              unsigned OpIdx) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+private:
 };
 
 } // namespace vpo

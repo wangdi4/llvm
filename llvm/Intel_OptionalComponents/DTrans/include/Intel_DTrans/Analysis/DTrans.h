@@ -123,6 +123,14 @@ public:
         SAFKind(SAFK_Top), SingleAllocFunction(nullptr), RWState(RWK_Top),
         Frequency(0) {}
 
+  // Disallow copy
+  FieldInfo(const FieldInfo&) = delete;
+  FieldInfo &operator=(const FieldInfo &) = delete;
+
+  // Move operators use default implementation
+  FieldInfo(FieldInfo &&) = default;
+  FieldInfo &operator=(FieldInfo &&) = default;
+
   llvm::Type *getLLVMType() const { return Ty.getLLVMType(); }
   dtransOP::DTransType *getDTransType() const { return Ty.getDTransType(); }
   bool isDTransType() const { return Ty.isDTransType(); }
@@ -181,8 +189,8 @@ public:
     SAFKind = SAFK_Single;
     SingleAllocFunction = F;
   }
-  void setMultipleValue() { SVKind = SVK_Incomplete; }
-  void setIAMultipleValue() { SVIAKind = SVK_Incomplete; }
+  void setIncompleteValueSet() { SVKind = SVK_Incomplete; }
+  void setIAIncompleteValueSet() { SVIAKind = SVK_Incomplete; }
   void setBottomAllocFunction() {
     SAFKind = SAFK_Bottom;
     SingleAllocFunction = nullptr;
@@ -952,6 +960,13 @@ public:
 
   // Return true if the last field in the structure is used for padding.
   bool hasPaddedField();
+
+  // Update 'FieldNum' to indicate it has been assigned result of
+  // calling 'Callee'.
+  void updateNewSingleAllocFunc(unsigned FieldNum, Function &Callee);
+
+  // Indicate 'FieldNum' is BottomAllocFunc
+  void updateSingleAllocFuncToBottom(unsigned FieldNum);
 
 private:
   SmallVector<FieldInfo, 16> Fields;

@@ -4,6 +4,8 @@
 ; RUN: opt -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
 
 ; intel_vec_len_hint allow fallback
+; CHECK: warning: kernel "test": Fall back vectorization width to 4 due to unsupported vec_len_hint value for workgroup/subgroup builtins
+
 ; CHECK-NOT: error
 ; CHECK-LABEL: Kernel --> VF:
 ; CHECK: <test> : 4

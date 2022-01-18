@@ -27,11 +27,7 @@ config.test_format = lit.formats.ShTest()
 config.suffixes = ['.c', '.cpp', '.dump'] #add .spv. Currently not clear what to do with those
 
 # feature tests are considered not so lightweight, so, they are excluded by default
-# INTEL_CUSTOMIZATION
-# CMPLRLLVM-31399: on-device was removed upstream. Need to keep this here
-# until intel-fptr* tests are moved elsewhere.
-config.excludes = ['Inputs', 'feature-tests', 'on-device']
-# end INTEL_CUSTOMIZATION
+config.excludes = ['Inputs', 'feature-tests']
 
 # test_source_root: The root path where tests are located.
 config.test_source_root = os.path.dirname(__file__)
@@ -53,7 +49,7 @@ def getAdditionalFlags():
             flags += ['-DDPCPP_HOST_DEVICE_OPENMP=1', '-fopenmp']
         elif backend == 'openmp-perf':
             flags += ['-DDPCPP_HOST_DEVICE_PERF_NATIVE=1', '-fiopenmp', \
-                      '-mllvm', '-enable-dpcpp-kernel-transforms', '-O3']
+                      '-O3']
         elif backend == 'serial':
             pass
         else:
@@ -155,15 +151,25 @@ config.substitutions.append( ('%sycl_triple',  triple ) )
 if triple == 'nvptx64-nvidia-cuda-sycldevice':
     config.available_features.add('cuda')
 
+if config.cuda_be == "ON":
+    config.available_features.add('cuda_be')
+
+if config.hip_be == "ON":
+    config.available_features.add('hip_be')
+
+if config.esimd_emulator_be == "ON":
+    config.available_features.add('esimd_emulator_be')
+
 if triple == 'nvptx64-nvidia-cuda':
     config.available_features.add('cuda')
 
 if triple == 'amdgcn-amd-amdhsa':
-    config.available_features.add('rocm_amd')
+    config.available_features.add('hip_amd')
     # For AMD the specific GPU has to be specified with --offload-arch
     if not re.match('.*--offload-arch.*', config.sycl_clang_extra_flags):
         raise Exception("Error: missing --offload-arch flag when trying to "  \
                         "run lit tests for AMD GPU, please add "              \
+                        "--hip-amd-arch=<target> to buildbot/configure.py or add"  \
                         "`-Xsycl-target-backend=amdgcn-amd-amdhsa --offload-arch=<target>` to " \
                         "the CMake variable SYCL_CLANG_EXTRA_FLAGS")
 

@@ -28,6 +28,10 @@ class Module;
 class StoreInst;
 class WholeProgramInfo;
 
+namespace dtransOP {
+class DTransSafetyInfo;
+} // end namespace dtransOP
+
 // This class captures the final results of the field ModRef analysis that can
 // be used to check whether a function reads/writes a field within some
 // structure.
@@ -146,50 +150,16 @@ private:
 class DTransModRefAnalyzer {
 public:
   // The function that is invoked from either the new pass manager or the legacy
-  // pass manager to perform all the analysis needed.
+  // pass manager to perform all the analysis needed based on results collected
+  // by the DTransAnalysis pass.
   bool runAnalysis(Module &M, DTransAnalysisInfo &DTransInfo,
                    WholeProgramInfo &WPInfo, FieldModRefResult &Result);
 
-private:
-  void initialize(Module &M, FieldModRefResult &FMRResult);
-  void analyzeModule(Module &M);
-  void analyzeFunction(Function &F);
-  void populateResults(FieldModRefResult &Result);
-
-  bool analyzeFieldForEscapes(GetElementPtrInst *GEP, llvm::StructType *Ty,
-                              size_t FieldNum, dtrans::FieldInfo &FI);
-
-  bool checkAllValuesUsingIndirectAddress(llvm::StructType *StTy,
-                                          size_t FieldNum, Value *V);
-  void gatherValueAliases(Value *V, bool IncludeNonPointers,
-                          SmallPtrSetImpl<Value *> &Aliases);
-
-  Value *traceToAllocation(Value *V, SmallVectorImpl<Value *> &Aliases);
-  bool checkStoredValueSafe(llvm::StructType *StTy, size_t FieldNum,
-                            StoreInst *SI, Value *V);
-
-  void setAllFieldsToBottom(dtrans::StructInfo *StInfo);
-
-  void addIndirectReader(llvm::StructType *Ty, size_t FieldNum, Function *F);
-  void addIndirectWriter(llvm::StructType *Ty, size_t FieldNum, Function *F);
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void printCandidateInfo(StringRef Header);
-  void printQueryResults(Module &M, FieldModRefResult &Result);
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
-  DTransAnalysisInfo *DTInfo = nullptr;
-
-  // List of structures that have fields that passed the initial safety
-  // analysis.
-  SmallPtrSet<llvm::StructType *, 8> Candidates;
-
-  // For dynamically allocated array fields, keep track of the functions that
-  // read/write elements of the array.
-  using FunctionSet = llvm::SmallPtrSet<Function *, 2>;
-  using CandFieldTy = std::pair<llvm::StructType *, size_t>;
-  DenseMap<CandFieldTy, FunctionSet> IndirectFieldReaders;
-  DenseMap<CandFieldTy, FunctionSet> IndirectFieldWriters;
+  // The function that is invoked from either the new pass manager or the legacy
+  // pass manager to perform all the analysis needed based on results collected
+  // by the DTransSafetyAnalyzer pass.
+  bool runAnalysis(Module &M, dtransOP::DTransSafetyInfo &DTransInfo,
+                   WholeProgramInfo &WPInfo, FieldModRefResult &Result);
 };
 
 // Old pass manager style pass that does the analysis, and saves the results
@@ -207,11 +177,41 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 };
 
+// Legacy pass manager style pass that does the field mod/ref analysis with
+// support for IR containing opaque pointer types, and saves the results into a
+// FieldModRefResult object.
+class DTransFieldModRefOPAnalysisWrapper : public ModulePass {
+private:
+  DTransModRefAnalyzer Impl;
+
+public:
+  static char ID;
+
+  DTransFieldModRefOPAnalysisWrapper();
+
+  bool runOnModule(Module &M) override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+};
+
 // New pass manager style pass.
 class DTransFieldModRefAnalysis
     : public AnalysisInfoMixin<DTransFieldModRefAnalysis> {
   static AnalysisKey Key;
   friend AnalysisInfoMixin<DTransFieldModRefAnalysis>;
+  static char PassID;
+
+public:
+  typedef FieldModRefResult Result;
+  Result run(Module &M, ModuleAnalysisManager &AM);
+};
+
+// New pass manager style pass that does the field mod/ref analysis with support
+// for IR containing opaque pointer types, and saves the results into a
+// FieldModRefResult object.
+class DTransFieldModRefOPAnalysis
+    : public AnalysisInfoMixin<DTransFieldModRefOPAnalysis> {
+  static AnalysisKey Key;
+  friend AnalysisInfoMixin<DTransFieldModRefOPAnalysis>;
   static char PassID;
 
 public:
@@ -246,6 +246,7 @@ public:
 };
 
 ModulePass *createDTransFieldModRefAnalysisWrapperPass();
+ModulePass *createDTransFieldModRefOPAnalysisWrapperPass();
 ImmutablePass *createDTransFieldModRefResultWrapperPass();
 
 } // end namespace llvm

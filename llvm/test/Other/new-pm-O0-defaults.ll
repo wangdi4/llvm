@@ -68,13 +68,13 @@
 ; CHECK-LTO-NEXT: Running analysis: WholeProgramAnalysis
 ; CHECK-LTO-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-LTO-NEXT: Running analysis: TargetIRAnalysis
-; CHECK-LTO-NEXT: Running pass: IntelFoldWPIntrinsicPass
-; CHECK-LTO-NEXT: Running pass: WholeProgramDevirtPass
+; CHECK-LTO: Running pass: WholeProgramDevirtPass
 ; end INTEL_CUSTOMIZATION
 ; CHECK-LTO-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-LTO-NEXT: Running pass: LowerTypeTestsPass
+; CHECK-CORO-NEXT: Running pass: AnnotationRemarksPass
 ; CHECK-LTO-NEXT: Running pass: AnnotationRemarksPass
-; CHECK-LTO-NEXT: Running analysis: TargetLibraryAnalysis 
+; CHECK-LTO-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-NEXT: Running pass: PrintModulePass
 
 ; Make sure we get the IR back out without changes when we print the module.

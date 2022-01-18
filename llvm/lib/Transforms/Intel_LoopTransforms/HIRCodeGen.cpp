@@ -883,27 +883,17 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
 
   Value *BaseV = visitCanonExpr(Ref->getBaseCE());
 
-  bool AnyVector = false;
-
-  auto BitCastDestTy = Ref->getBitCastDestType();
-
-  for (auto CEI = Ref->canon_begin(), CEE = Ref->canon_end(); CEI != CEE;
-       ++CEI) {
-    if ((*CEI)->getDestType()->isVectorTy()) {
-      AnyVector = true;
-      break;
-    }
-  }
+  bool HasVectorIndices = Ref->hasAnyVectorIndices();
+  bool IsAddressOf = Ref->isAddressOf();
+  auto BitCastDestVecOrElemTy = Ref->getBitCastDestVecOrElemType();
 
   // A GEP instruction is allowed to have a mix of scalar and vector operands.
   // However, not all optimizations(especially LLVM loop unroller) are handling
   // such cases. To workaround, the base pointer value needs to be broadcast.
   // If Ref's dest type is a vector, we need to do a broadcast.
-  if (!BaseV->getType()->isVectorTy()) {
-    if (AnyVector || (BitCastDestTy && BitCastDestTy->isVectorTy())) {
-      auto VL = cast<VectorType>(Ref->getDestType())->getNumElements();
-      BaseV = Builder.CreateVectorSplat(VL, BaseV);
-    }
+  if (!BaseV->getType()->isVectorTy() && HasVectorIndices) {
+    auto VL = cast<VectorType>(Ref->getDestType())->getNumElements();
+    BaseV = Builder.CreateVectorSplat(VL, BaseV);
   }
 
   auto &DL = HIRF.getDataLayout();
@@ -988,18 +978,19 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
     }
   }
 
-  if (GEPVal->getType()->isVectorTy() && isa<PointerType>(BitCastDestTy)) {
+  if (GEPVal->getType()->isVectorTy() && !IsAddressOf &&
+      isa<VectorType>(BitCastDestVecOrElemTy)) {
     // When we have a vector of pointers and base src and dest types do not
     // match, we need to bitcast from vector of pointers of src type to vector
     // of pointers of dest type. Example case, Src type is int * and Dest type
     // is <4 x float>*, we will have pointer vector <4 x int*>. This vector
     // needs to be bitcast to <4 x float*> so that the gather/scatter
     // loads/stores <4 x float>.
-    auto PtrDestTy = cast<PointerType>(BitCastDestTy); // <4 x float>*
-    auto DestElTy = PtrDestTy->getElementType();       // <4 x float>
+    auto DestElTy = BitCastDestVecOrElemTy;            // <4 x float>
     auto DestScTy = DestElTy->getScalarType();         // float
-    auto DestScPtrTy = PointerType::get(DestScTy,      // float *
-                                        PtrDestTy->getAddressSpace());
+    auto DestScPtrTy = PointerType::get(
+        DestScTy, // float *
+        GEPVal->getType()->getScalarType()->getPointerAddressSpace());
 
     if (GEPVal->getType()->getScalarType() != DestScPtrTy) {
       auto VL = cast<VectorType>(DestElTy)->getNumElements();
@@ -1009,15 +1000,22 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
       GEPVal =
           Builder.CreateBitCast(GEPVal, FixedVectorType::get(DestScPtrTy, VL));
     }
-  } else if (BitCastDestTy) {
+  } else if (BitCastDestVecOrElemTy) {
     // Base CE could have different src and dest types in which case we need a
     // bitcast. Can occur from llvm's canonicalization of store/load of float
     // to int by bitcast. Note that bitcast of  something like int * to
     // <4 x int>* is also handled here.
-    GEPVal = Builder.CreateBitCast(GEPVal, BitCastDestTy);
+    auto *BitCastTy =
+        (IsAddressOf && HasVectorIndices)
+            ? BitCastDestVecOrElemTy
+            : PointerType::get(
+                  BitCastDestVecOrElemTy,
+                  GEPVal->getType()->getScalarType()->getPointerAddressSpace());
+
+    GEPVal = Builder.CreateBitCast(GEPVal, BitCastTy);
   }
 
-  if (Ref->isAddressOf()) {
+  if (IsAddressOf) {
     return GEPVal;
   }
 
@@ -1490,6 +1488,29 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
     assert(Upper->getType() == Lp->getIVType() &&
            "IVtype does not match upper type");
 
+    if (Lp->isSIMD()) {
+      // Here we are when a simd loop was not vectorized. Need some special
+      // efforts to allow the post-loopopt vectorizer to accept the loops
+      // w/o additional adjustments of the bottom test. The acceptable form of
+      // the bottom test is as follows:
+      //
+      //     %upper_1 = %upper + 1
+      //     ...; loop body
+      //     %i_curr = load %i_var
+      //     %i_next = %i_curr + 1
+      //     %bot_test = icmp ne %i_next, %upper_1
+      //
+      // instead of usually generated:
+      //
+      //     ... ; loop body
+      //     %i_curr = load %i_var
+      //     %i_next = %i_curr + 1
+      //     %bot_test = icmp ne %i_curr, %upper
+      //
+      Upper =
+          Builder.CreateAdd(Upper, ConstantInt::getSigned(Upper->getType(), 1));
+    }
+
     LoopBB = BasicBlock::Create(F.getContext(), LName, &F);
 
     // explicit fallthru to loop, terminates current bblock
@@ -1561,9 +1582,16 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
     // For step of 1, generate canonical comparison type of '!='. These are more
     // likely to be handled by LLVM passes like loop strength reduction.
     if (ConstStepVal && ConstStepVal->isOne()) {
-      // Generates: (i != upper).
-      EndCond =
-          Builder.CreateICmp(CmpInst::ICMP_NE, CurVar, Upper, "cond" + LName);
+      if (!Lp->isSIMD()) {
+        // Generates: (i != upper).
+        EndCond =
+            Builder.CreateICmp(CmpInst::ICMP_NE, CurVar, Upper, "cond" + LName);
+      } else {
+        // See the comment about simd loops above.
+        // Generates: (i+1 != upper1).
+        EndCond = Builder.CreateICmp(CmpInst::ICMP_NE, NextVar, Upper,
+                                     "cond" + LName);
+      }
     } else {
       // Generates: (i+1 <= upper).
       EndCond = Builder.CreateICmp(HasSignedIV ? CmpInst::ICMP_SLE

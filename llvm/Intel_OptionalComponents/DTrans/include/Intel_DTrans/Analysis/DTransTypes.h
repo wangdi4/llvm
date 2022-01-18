@@ -26,6 +26,7 @@
 #define INTEL_DTRANS_ANALYSIS_DTRANSTYPES_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -135,6 +136,10 @@ public:
   bool isVectorTy() const { return getTypeID() == DTransVectorTypeID; }
   bool isFunctionTy() const { return getTypeID() == DTransFunctionTypeID; }
   bool isAggregateType() const { return isStructTy() || isArrayTy(); }
+
+  // Get the number of fields of a structure, or elements of a sequential type.
+  uint32_t getNumContainedElements() const;
+
   bool isIntegerTy() const {
     return isAtomicTy() && getLLVMType()->isIntegerTy();
   }
@@ -200,11 +205,14 @@ private:
   friend class DTransTypeManager;
   explicit DTransAtomicType(llvm::Type *Ty)
       : DTransType(DTransAtomicTypeID, Ty->getContext()), LLVMType(Ty) {
-    // Integer type encapsulates integers, floating point and void type.
-    // Ensure this class is not used to represent a complex type (pointer,
-    // structure, array, function, etc)
+    // This type encapsulates the single value types (integer types, floating
+    // point types, etc) with the exception of pointer types. It is also used
+    // for specialized types that do not represent aggregate types (void type,
+    // metadata type and token type). Assert to ensure that this class does not
+    // get used to represent a complex type (pointer, structure, array,
+    // function, etc) that requires special handling by DTrans.
     assert((Ty->isIntegerTy() || Ty->isFloatingPointTy() || Ty->isVoidTy() ||
-            Ty->isMetadataTy()) &&
+            Ty->isMetadataTy() || Ty->isTokenTy()) &&
            "Atomic type must be first class type");
   }
 
@@ -820,6 +828,46 @@ private:
   bool IsVarArg;
 };
 
+// This class is used to track DTransFunctionType objects so that only a single
+// instance is created for each unique function type.
+class DTransFunctionTypeNode : public FoldingSetNode {
+public:
+  DTransFunctionTypeNode(DTransFunctionType *FTy) : FTy(FTy) {}
+
+  // Used by the FoldingSet template instantiation of this type to generate a
+  // unique fingerprint that corresponds to the 'DTransFunctionType' object
+  // stored.
+  void Profile(FoldingSetNodeID &ID) const {
+    // The ID, is just a concatenation of these values to get a unique value for
+    // the function signature of the DTransFunctionType object.
+    ID.AddPointer(FTy->getReturnType());
+    ID.AddInteger(FTy->getNumArgs());
+    for (auto CurParamTy : FTy->args())
+      ID.AddPointer(CurParamTy);
+    ID.AddBoolean(FTy->isVarArg());
+  }
+
+  // Generate the fingerprint value for a DTransFunctionType that would be
+  // created if a DTransFunctionType were created with the specified types.
+  static void generateProfile(DTransType *DTRetTy,
+                              ArrayRef<DTransType *> ParamTypes,
+                              bool IsVarArg, FoldingSetNodeID &ID) {
+    // This must match the logic of the 'Profile' member so that the same
+    // fingerprint will be generated once a DTransFunctionType object is
+    // created.
+    ID.AddPointer(DTRetTy);
+    ID.AddInteger(ParamTypes.size());
+    for (auto CurParamTy : ParamTypes)
+      ID.AddPointer(CurParamTy);
+    ID.AddBoolean(IsVarArg);
+  }
+
+  DTransFunctionType *getFunctionType() const { return FTy; }
+
+private:
+  DTransFunctionType *FTy;
+};
+
 // This class is used for keeping track of what types exist and owns the memory
 // for all the types
 class DTransTypeManager {
@@ -834,6 +882,9 @@ public:
   DTransTypeManager(DTransTypeManager &&) = delete;
   DTransTypeManager &operator=(const DTransTypeManager &) = delete;
   DTransTypeManager &operator=(DTransTypeManager &&) = delete;
+
+  // Return associated LLVMContext.
+  LLVMContext &getContext() const { return Ctx; }
 
   // Create a DTransAtomicType to represent a void type or first class llvm
   // type. Returns existing type, if one already exists.
@@ -869,7 +920,7 @@ public:
   // ParamTypes. Returns existing type, if one already exists.
   DTransFunctionType *
   getOrCreateFunctionType(DTransType *DTRetTy,
-                          SmallVectorImpl<DTransType *> &ParamTypes,
+                          ArrayRef<DTransType *> ParamTypes,
                           bool IsVarArg);
 
   // We don't supply a method for looking up a type based on an
@@ -906,6 +957,27 @@ public:
   // types will be included in the vector returned.
   std::vector<DTransStructType *> getIdentifiedStructTypes() const;
 
+  // This type will store pointers to all the DTransType objects created, so
+  // that all of them can be easily visited using the dtrans_types() method.
+  using DTransTypesVector = std::vector<DTransType*>;
+
+  // Iterator for DTransTypesVector
+  struct dtrans_types_iterator
+    : public iterator_adaptor_base<
+    dtrans_types_iterator, DTransTypesVector::iterator,
+    std::forward_iterator_tag, DTransTypesVector::size_type> {
+    explicit dtrans_types_iterator(DTransTypesVector::iterator X)
+      : iterator_adaptor_base(X) {}
+
+    DTransTypesVector::value_type operator*() const { return *I; }
+    DTransTypesVector::value_type operator->() const { return operator*(); }
+  };
+
+  iterator_range<dtrans_types_iterator> dtrans_types() {
+    return make_range(dtrans_types_iterator(AllDTransTypes.begin()),
+      dtrans_types_iterator(AllDTransTypes.end()));
+  }
+
 private:
   void DeleteType(DTransType *DTTy);
 
@@ -940,8 +1012,23 @@ private:
   // List of all literal struct types allocation that need to be destroyed.
   SmallVector<DTransStructType *, 32> LitStructTypeVec;
 
-  // List of DTransFunctionType objects allocated that need to be destroyed.
-  SmallVector<DTransFunctionType *, 32> FunctionTypeVec;
+  // This allocator will be used for all the DTransFunctionTypeNode objects so
+  // that the entire memory pool can be released, instead of deleting each
+  // object, since there is no need to run destructors on the
+  // DTransFunctionTypeNode objects.
+  BumpPtrAllocator Allocator;
+
+  // Set of handles to unique DTransFunctionType objects allocated. The
+  // DTransFunctionType objects referenced by the DTransFunctionTypeNode need to
+  // be deallocated prior to the destruction of this set.
+  FoldingSet<DTransFunctionTypeNode> FunctionTypeNodes;
+
+  // All the DTransType objects created.
+  // This contains the same pointers that are stored in the categorized
+  // maps/sets that are used when searching whether a specific type has been
+  // created yet or not: TypeInfoMap, StructTypeInfoMap, PointerTypeInfoMap,
+  // ArrayTypeInfoMap, VecTypeInfoMap, FunctionTypeNodes.
+  DTransTypesVector AllDTransTypes;
 };
 
 } // namespace dtransOP

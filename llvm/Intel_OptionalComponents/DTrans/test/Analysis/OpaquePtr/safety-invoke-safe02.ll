@@ -27,12 +27,14 @@ bad:
     resume { i8*, i32 } %lp
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data: Has C++ handling{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; CHECK: Safety data: Has C++ handling{{ *$}}
+; CHECK: End LLVMType: %struct.test01b
 
 
 declare i32 @__gxx_personality_v0(...)

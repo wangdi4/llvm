@@ -23,7 +23,6 @@
 #else
 #include "VPlan.h"
 #endif
-#include "llvm/Analysis/VPO/WRegionInfo/WRegionClause.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
 
@@ -242,6 +241,11 @@ public:
   bool isMaskedRemainder() const {
     return Type == LTRemainder && isa<VPlanMasked>(Plan);
   }
+
+  bool isNonMaskedVecRemainder() const {
+    return Type == LTRemainder && isa<VPlanNonMasked>(Plan);
+  }
+
   bool isMaskedOrScalarRemainder() const {
     return Type == LTRemainder &&
            (isa<VPlanMasked>(Plan) || isa<VPlanScalar>(Plan));
@@ -345,22 +349,6 @@ public:
   /// Generate the IR code for the body of the vectorized loop according to the
   /// best selected VPlan.
   void executeBestPlan(VPOCodeGen &LB);
-
-  /// Feed information from explicit clauses to the loop Legality.
-  /// This information is necessary for initial loop analysis in the CodeGen.
-#if INTEL_CUSTOMIZATION
-  template <class VPOVectorizationLegality>
-#endif
-  static void EnterExplicitData(WRNVecLoopNode *WRLp, VPOVectorizationLegality &Legal);
-
-  /// Utility to check if given Item is an array type item.
-  static bool isItemArrayType(const Item *I);
-
-  /// Utility to check if given WRegion loop has any array reduction idioms.
-  static bool hasArrayReduction(WRNVecLoopNode *WRLp);
-
-  /// Utility to check if given WRegion loop has any nonPOD lastprivate array.
-  static bool hasArrayLastprivateNonPod(WRNVecLoopNode *WRLp);
 
   /// Post VPlan FrontEnd pass to verify that we can process the VPlan that
   /// was constructed. There are some limitations in CG, CM, and other parts of

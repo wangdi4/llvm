@@ -20,9 +20,8 @@
   ; INTEL: We check the debug information location is retained when the
   ;        machine loop invariant pass hoists instructions out of a loop.
   ;
-  ; CHECK:        [[LINE_5:![0-9]+]] = !DILocation(line: 5, column: 7,{{.*}}) ;INTEL
   ; CHECK-LABEL:  bb.0.entry:
-  ; CHECK:        MOV64rm $rip, 1, $noreg, target-flags(x86-gotpcrel) @x, $noreg, debug-location [[LINE_5]] :: (load (s64) from got) ;INTEL
+  ; CHECK:        MOV64rm $rip, 1, $noreg, target-flags(x86-gotpcrel) @x, $noreg, debug-location !DILocation(line: 5, column: 7, scope: {{.*}}) :: (load (s64) from got) ;INTEL
   ; CHECK-LABEL:  bb.1.while.body:
   ;
   ; ModuleID = 'tx.ll'

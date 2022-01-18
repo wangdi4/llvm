@@ -25,6 +25,7 @@ define void @test01() {
 ; CHECK:  1)Field LLVM Type: i32
 ; CHECK:    Multiple Value: [ 98 ] <incomplete>
 ; CHECK:  Safety data: Whole structure reference | Local instance{{ *}}
+; CHECK:  End LLVMType: %struct.test01
 
 
 %struct.test02 = type { i32, i32 }
@@ -44,6 +45,7 @@ define void @test02(%struct.test02 %in) {
 ; CHECK:  1)Field LLVM Type: i32
 ; CHECK:    Multiple Value: [ 98 ] <incomplete>
 ; CHECK:  Safety data: Whole structure reference | Local instance{{ *}}
+; CHECK:  End LLVMType: %struct.test02
 
 
 !1 = !{i32 0, i32 0}  ; i32

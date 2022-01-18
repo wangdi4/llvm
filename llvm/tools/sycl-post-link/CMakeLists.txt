@@ -37,7 +37,7 @@ include_directories(
 add_llvm_tool_in_bin(sycl-post-link
 # end INTEL_CUSTOMIZATION
   sycl-post-link.cpp
-  SPIRKernelParamOptInfo.cpp
+  SYCLKernelParamOptInfo.cpp
   SpecConstants.cpp
   SYCLDeviceLibReqMask.cpp
   ADDITIONAL_HEADER_DIRS

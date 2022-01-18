@@ -1,5 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; Check that we see 'No safety issues' with @malloc and @free
 ; Bit casting of malloc result is used directly in later instructions in @main

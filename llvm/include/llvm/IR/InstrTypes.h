@@ -19,6 +19,7 @@
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
@@ -755,6 +756,20 @@ public:
   using PredicateField =
       Bitfield::Element<Predicate, 0, 6, LAST_ICMP_PREDICATE>;
 
+  /// Returns the sequence of all FCmp predicates.
+  static auto FCmpPredicates() {
+    return enum_seq_inclusive(Predicate::FIRST_FCMP_PREDICATE,
+                              Predicate::LAST_FCMP_PREDICATE,
+                              force_iteration_on_noniterable_enum);
+  }
+
+  /// Returns the sequence of all ICmp predicates.
+  static auto ICmpPredicates() {
+    return enum_seq_inclusive(Predicate::FIRST_ICMP_PREDICATE,
+                              Predicate::LAST_ICMP_PREDICATE,
+                              force_iteration_on_noniterable_enum);
+  }
+
 protected:
   CmpInst(Type *ty, Instruction::OtherOps op, Predicate pred,
           Value *LHS, Value *RHS, const Twine &Name = "",
@@ -1325,33 +1340,23 @@ public:
   bool arg_empty() const { return arg_end() == arg_begin(); }
   unsigned arg_size() const { return arg_end() - arg_begin(); }
 
-  // Legacy API names that duplicate the above and will be removed once users
-  // are migrated.
-  iterator_range<User::op_iterator> arg_operands() {
-    return make_range(arg_begin(), arg_end());
-  }
-  iterator_range<User::const_op_iterator> arg_operands() const {
-    return make_range(arg_begin(), arg_end());
-  }
-  unsigned getNumArgOperands() const { return arg_size(); }
-
   Value *getArgOperand(unsigned i) const {
-    assert(i < getNumArgOperands() && "Out of bounds!");
+    assert(i < arg_size() && "Out of bounds!");
     return getOperand(i);
   }
 
   void setArgOperand(unsigned i, Value *v) {
-    assert(i < getNumArgOperands() && "Out of bounds!");
+    assert(i < arg_size() && "Out of bounds!");
     setOperand(i, v);
   }
 
   /// Wrappers for getting the \c Use of a call argument.
   const Use &getArgOperandUse(unsigned i) const {
-    assert(i < getNumArgOperands() && "Out of bounds!");
+    assert(i < arg_size() && "Out of bounds!");
     return User::getOperandUse(i);
   }
   Use &getArgOperandUse(unsigned i) {
-    assert(i < getNumArgOperands() && "Out of bounds!");
+    assert(i < arg_size() && "Out of bounds!");
     return User::getOperandUse(i);
   }
 
@@ -1487,7 +1492,9 @@ public:
 #if INTEL_CUSTOMIZATION
   /// Return the Attribute associated with this call or an empty Attribute if
   /// none of this \p Kind is set.
-  Attribute getFnAttr(StringRef Kind) const { return getFnAttrImpl(Kind); }
+  Attribute getCallSiteOrFuncAttr(StringRef Kind) const {
+    return getCallSiteOrFuncAttrImpl(Kind);
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // TODO: remove non-AtIndex versions of these methods.
@@ -1537,13 +1544,13 @@ public:
 
   /// Adds the attribute to the indicated argument
   void addParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) {
-    assert(ArgNo < getNumArgOperands() && "Out of bounds");
+    assert(ArgNo < arg_size() && "Out of bounds");
     Attrs = Attrs.addParamAttribute(getContext(), ArgNo, Kind);
   }
 
   /// Adds the attribute to the indicated argument
   void addParamAttr(unsigned ArgNo, Attribute Attr) {
-    assert(ArgNo < getNumArgOperands() && "Out of bounds");
+    assert(ArgNo < arg_size() && "Out of bounds");
     Attrs = Attrs.addParamAttribute(getContext(), ArgNo, Attr);
   }
 
@@ -1584,13 +1591,13 @@ public:
 
   /// Removes the attribute from the given argument
   void removeParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) {
-    assert(ArgNo < getNumArgOperands() && "Out of bounds");
+    assert(ArgNo < arg_size() && "Out of bounds");
     Attrs = Attrs.removeParamAttribute(getContext(), ArgNo, Kind);
   }
 
   /// Removes the attribute from the given argument
   void removeParamAttr(unsigned ArgNo, StringRef Kind) {
-    assert(ArgNo < getNumArgOperands() && "Out of bounds");
+    assert(ArgNo < arg_size() && "Out of bounds");
     Attrs = Attrs.removeParamAttribute(getContext(), ArgNo, Kind);
   }
 
@@ -1630,19 +1637,24 @@ public:
   }
 
   /// Get the attribute of a given kind for the function.
+  Attribute getFnAttr(StringRef Kind) const {
+    return getAttributes().getFnAttr(Kind);
+  }
+
+  /// Get the attribute of a given kind for the function.
   Attribute getFnAttr(Attribute::AttrKind Kind) const {
     return getAttributes().getFnAttr(Kind);
   }
 
   /// Get the attribute of a given kind from a given arg
   Attribute getParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) const {
-    assert(ArgNo < getNumArgOperands() && "Out of bounds");
+    assert(ArgNo < arg_size() && "Out of bounds");
     return getAttributes().getParamAttr(ArgNo, Kind);
   }
 
   /// Get the attribute of a given kind from a given arg
   Attribute getParamAttr(unsigned ArgNo, StringRef Kind) const {
-    assert(ArgNo < getNumArgOperands() && "Out of bounds");
+    assert(ArgNo < arg_size() && "Out of bounds");
     return getAttributes().getParamAttr(ArgNo, Kind);
   }
 
@@ -1659,14 +1671,14 @@ public:
   ///     (\p i) in the operand list.
   bool dataOperandHasImpliedAttr(unsigned i, Attribute::AttrKind Kind) const {
     // Note that we have to add one because `i` isn't zero-indexed.
-    assert(i < getNumArgOperands() + getNumTotalBundleOperands() &&
+    assert(i < arg_size() + getNumTotalBundleOperands() &&
            "Data operand index out of bounds!");
 
     // The attribute A can either be directly specified, if the operand in
     // question is a call argument; or be indirectly implied by the kind of its
     // containing operand bundle, if the operand is a bundle operand.
 
-    if (i < getNumArgOperands())
+    if (i < arg_size())
       return paramHasAttr(i, Kind);
 
     assert(hasOperandBundles() && i >= getBundleOperandsStartIndex() &&
@@ -1894,7 +1906,7 @@ public:
   /// Determine if the call returns a structure through first
   /// pointer argument.
   bool hasStructRetAttr() const {
-    if (getNumArgOperands() == 0)
+    if (arg_empty())
       return false;
 
     // Be friendly and also check the callee.
@@ -2309,7 +2321,8 @@ private:
   }
 
 #if INTEL_CUSTOMIZATION
-  template <typename AttrKind> Attribute getFnAttrImpl(AttrKind Kind) const {
+  template <typename AttrKind>
+  Attribute getCallSiteOrFuncAttrImpl(AttrKind Kind) const {
     if (Attrs.hasFnAttr(Kind))
       return Attrs.getFnAttr(Kind);
 

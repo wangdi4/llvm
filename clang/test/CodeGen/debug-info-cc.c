@@ -66,13 +66,15 @@ __attribute__((swiftasynccall)) int add_swiftasynccall(int a, int b, int c) {
   return a+b+c;
 }
 
-// LINUX: !DISubprogram({{.*}}"add_inteloclbicc", {{.*}}type: ![[FTY:[0-9]+]]
+// INTEL_CUSTOMIZATION
+typedef float __m256 __attribute__ ((__vector_size__ (32)));
+
+// LINUX: !DISubprogram({{.*}}"__svml_add_inteloclbicc", {{.*}}type: ![[FTY:[0-9]+]]
 // LINUX: ![[FTY]] = !DISubroutineType({{.*}}cc: DW_CC_LLVM_IntelOclBicc,
-__attribute__((intel_ocl_bicc)) int add_inteloclbicc(int a, int b) {
+__attribute__((intel_ocl_bicc)) __m256 __svml_add_inteloclbicc(__m256 a, __m256 b) {
   return a+b;
 }
 
-// INTEL_CUSTOMIZATION
 // LINUX: !DISubprogram({{.*}}"add_inteloclbiccavx", {{.*}}type: ![[FTY:[0-9]+]]
 // LINUX: ![[FTY]] = !DISubroutineType({{.*}}cc: DW_CC_LLVM_IntelOclBiccAVX,
 __attribute__((intel_ocl_bicc_avx)) int add_inteloclbiccavx(int a, int b) {

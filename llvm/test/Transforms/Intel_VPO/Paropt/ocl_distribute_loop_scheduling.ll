@@ -7,9 +7,9 @@
 ;   for (int i = 0; i < 100; ++i);
 ; }
 
+; CHECK: [[LOOPLBV:%.+]] = load i32, i32* [[LOOPLBP:%[A-Za-z0-9._]+lower.bnd]]
+; CHECK: [[LOOPUBV:%.+]] = load i32, i32* [[LOOPUBP:%[A-Za-z0-9._]+upper.bnd]]
 ; CHECK: [[TMP1:%.+]] = call spir_func i64 @_Z14get_num_groupsj(i32 0)
-; CHECK: [[LOOPLBV:%.+]] = load i32, i32* [[LOOPLBP:%[A-Za-z0-9._]+]]
-; CHECK: [[LOOPUBV:%.+]] = load i32, i32* [[LOOPUBP:%[A-Za-z0-9._]+]]
 ; CHECK: [[NUMGROUPS:%.+]] = trunc i64 [[TMP1]] to i32
 ; CHECK: [[STRIDEV:%.+]] = mul i32 [[NUMGROUPS]], 2
 ; CHECK: store i32 [[STRIDEV]], i32* [[TEAMINCP:%[A-Za-z0-9._]+]]
@@ -19,13 +19,11 @@
 ; CHECK: [[TEAMLBV:%.+]] = add i32 [[LOOPLBV]], [[OFFSET]]
 ; CHECK: store i32 [[TEAMLBV]], i32* [[LOOPLBP]]
 ; CHECK: store i32 [[TEAMLBV]], i32* [[TEAMLBP:%[A-Za-z0-9._]+]]
-; CHECK: store i32 [[LOOPUBV]], i32* [[TEAMUBP:%[A-Za-z0-9._]+]]
-; CHECK: br i1 {{.*}}, label %[[THEN:[A-Za-z0-9._]+]], label %[[ELSE:[A-Za-z0-9._]+]]
-
-; CHECK: [[THEN]]:
-; CHECK: br label %[[ELSE]]
-
-; CHECK: [[ELSE]]:
+; CHECK: [[TEAMUBV:%.+]] = add i32 [[TEAMLBV]], 1
+; CHECK: [[MINUBPRED:%.+]] = icmp slt i32 [[TEAMUBV]], [[LOOPUBV]]
+; CHECK: [[MINUBV:%.+]] = select i1 [[MINUBPRED]], i32 [[TEAMUBV]], i32 [[LOOPUBV]]
+; CHECK: store i32 [[MINUBV]], i32* [[LOOPUBP:%[A-Za-z0-9._]+]]
+; CHECK: store i32 [[MINUBV]], i32* [[TEAMUBP:%[A-Za-z0-9._]+]]
 ; CHECK: br label %[[TEAMDISPHDR:[A-Za-z0-9._]+]]
 
 ; CHECK: [[TEAMDISPHDR]]:

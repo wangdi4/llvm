@@ -19,6 +19,7 @@
 
 ; CHECK-LABEL: LLVMType: %struct._CoderMapInfo
 ; CHECK: Safety data: Global instance | Has initializer list | Global array{{ *}}
+; CHECK: End LLVMType: %struct._CoderMapInfo
 
 !intel.dtrans.types = !{!2}
 

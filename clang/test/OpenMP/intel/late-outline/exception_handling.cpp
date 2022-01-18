@@ -31,6 +31,11 @@
 // RUN: -DTARGET_TEST -emit-llvm %s -o - \
 // RUN:  | FileCheck %s --check-prefix TTEST
 
+// RUN: %clang_cc1 -triple x86_64-pc-windows-msvc19.29.30133 -fopenmp \
+// RUN: -fexceptions -fcxx-exceptions -fopenmp-late-outline -DWTEST \
+// RUN: -emit-llvm %s -o - \
+// RUN:  | FileCheck %s --check-prefix WTEST
+
 extern void bar(float*);
 extern void goo(float*);
 
@@ -200,4 +205,17 @@ void target_throw() {
   }
 }
 #endif
+#ifdef WTEST
+void aw_bar();
+//WTEST: define {{.*}}catch_param_no_name
+void catch_param_no_name() {
+    //WTEST: DIR.OMP.PARALLEL.LOOP
+    #pragma omp parallel for
+    for (int b = 0; b < 10;b++)
+      try {
+        aw_bar();
+      } catch (int) { }
+    //WTEST: DIR.OMP.END.PARALLEL.LOOP
+}
+#endif // WTEST
 // end INTEL_COLLAB

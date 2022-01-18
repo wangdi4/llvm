@@ -112,7 +112,6 @@ class Item
 
   private :
     VAR   OrigItem;  // original var
-    Type *OrigItemElemType; // original var type/ element type if PointerType
 #if INTEL_CUSTOMIZATION
     HVAR HOrigItem;       // original var for HIR
     bool IsF90DopeVector; // true for a F90 dope vector
@@ -151,18 +150,6 @@ class Item
     MDNode *AliasScope; // alias info (loads)  to help registerize private vars
     MDNode *NoAlias;    // alias info (stores) to help registerize private vars
     const ItemKind Kind; // Item kind for LLVM's RTTI
-    // Utility function.
-    // TODO: OPAQUEPOINTER: VTy Will be passed as a Item String by Front End
-    // after Opaque Pointers are introduced.
-    void setValueType(VAR &V, Type *&VTy) {
-      if (V)
-        VTy = isa<PointerType>(V->getType())
-                  ? V->getType()->getPointerElementType()
-                  : V->getType();
-      else
-        VTy = nullptr;
-      return;
-    }
 
     bool IsTyped = false; // true if type is transfered thru arguments
     Type *OrigItemElementTypeFromIR = nullptr; // Type of an item
@@ -183,17 +170,11 @@ class Item
           IsPointerToPointer(UseDevicePtrIsDefaultByRef),
           ThunkBufferSize(nullptr), NewThunkBufferSize(nullptr),
           PrivateThunkIdx(-1), SharedThunkIdx(-1), ThunkBufferOffset(nullptr),
-          AliasScope(nullptr), NoAlias(nullptr), Kind(K) {
-      setValueType(OrigItem, OrigItemElemType);
-    }
+          AliasScope(nullptr), NoAlias(nullptr), Kind(K) {}
     virtual ~Item() = default;
 
-    void setOrig(VAR V) {
-      OrigItem = V;
-      setValueType(OrigItem, OrigItemElemType);
-    }
-    void setOrigElemType(Type *VTy) { OrigItemElemType = VTy; }
-    void setNew(VAR V) { NewItem = V; }
+    void setOrig(VAR V)           { OrigItem = V;       }
+    void setNew(VAR V)            { NewItem = V;        }
     void setOrigGEP(VAR V)        { OrigGEP = V;        }
     void setIsByRef(bool Flag)    { IsByRef = Flag;     }
     void setIsNonPod(bool Flag)   { IsNonPod = Flag;    }
@@ -216,7 +197,6 @@ class Item
     void setNoAlias(MDNode *M)    { NoAlias = M;        }
 
     VAR getOrig()           const { return OrigItem;       }
-    Type *getOrigElemType() const { return OrigItemElemType; }
     VAR getNew()            const { return NewItem;        }
     VAR getOrigGEP()        const { return OrigGEP;        }
     bool getIsByRef()       const { return IsByRef;        }
@@ -746,6 +726,8 @@ public:
   GlobalVariable *getGVSize() const { return GVSize; }
   void setGVSize(GlobalVariable *Sz) { GVSize = Sz; }
   bool isVariableLengthArraySection() const;
+  bool hasVariableStartingOffset() const;
+  bool isArraySectionWithVariableLengthOrOffset() const;
 
   void print(formatted_raw_ostream &OS, bool PrintType = true) const;
   void print(raw_ostream &OS, bool PrintType = true) const;
@@ -923,7 +905,7 @@ public:
     };
 
     void setArraySectionOffset(Value *Offset) { ArraySectionOffset = Offset; }
-    Value *getArraySectionOffset() { return ArraySectionOffset; }
+    Value *getArraySectionOffset() const { return ArraySectionOffset; }
 
     // Return a string for the reduction operation, such as "ADD" and "MUL"
     StringRef getOpName() const {
@@ -1406,34 +1388,66 @@ class DependItem
     VAR   Base;           // scalar item or base of array section
     bool  IsByRef;        // true if Base is by-reference
     bool  IsIn;           // depend type: true for IN; false for OUT/INOUT
-    EXPR  LowerBound;     // null if unspecified
-    EXPR  Length;         // null if unspecified
-    EXPR  Stride;         // null if unspecified
+    // FIXME: ArrSecInfo is not needed, once we switch to TYPED clauses.
     ArraySectionInfo ArrSecInfo;
+    bool IsTyped = false; // true if type is transfered thru arguments
+    Type *OrigItemElementTypeFromIR = nullptr; // Type of an item
+    Value *NumElements = nullptr; // Number of elements of this item
+
+    // Array section offset in elements.
+    // It is only used with TYPED clauses.
+    // It stays nullptr, if the clause item is not an array section.
+    Value *ArraySectionOffset = nullptr;
 
   public:
     DependItem(VAR V = nullptr)
-        : Base(V), IsByRef(false), IsIn(true), LowerBound(nullptr),
-          Length(nullptr), Stride(nullptr) {}
+        : Base(V), IsByRef(false), IsIn(true) {}
 
     void setOrig(VAR V)         { Base = V; }
     void setIsByRef(bool Flag)  { IsByRef = Flag; }
     void setIsIn(bool Flag)     { IsIn = Flag; }
-    void setLb(EXPR Lb)         { LowerBound = Lb;   }
-    void setLength(EXPR Len)    { Length = Len;  }
-    void setStride(EXPR Str)    { Stride = Str;  }
+    void setIsTyped(bool Flag)  { IsTyped = Flag; }
+    void setOrigItemElementTypeFromIR(Type *Ty) {
+      OrigItemElementTypeFromIR = Ty;
+    }
+    void setNumElements(Value *N) { NumElements = N; }
+    void setArraySectionOffset(Value *Offset) { ArraySectionOffset = Offset; }
 
     VAR  getOrig()      const   { return Base; }
     bool getIsByRef()   const   { return IsByRef; }
     bool getIsIn()      const   { return IsIn; }
-    EXPR getLb()        const   { return LowerBound; }
-    EXPR getLength()    const   { return Length; }
-    EXPR getStride()    const   { return Stride; }
     ArraySectionInfo &getArraySectionInfo() { return ArrSecInfo; }
     const ArraySectionInfo &getArraySectionInfo() const { return ArrSecInfo; }
     bool getIsArraySection() const {
+      if (IsTyped)
+        return ArraySectionOffset;
+
       return !ArrSecInfo.getArraySectionDims().empty();
     };
+    bool getIsTyped() const { return IsTyped; }
+    Type *getOrigItemElementTypeFromIR() const {
+      return OrigItemElementTypeFromIR;
+    }
+    Value *getNumElements() const { return NumElements; }
+    Value *getArraySectionOffset() const { return ArraySectionOffset; }
+
+    void printIfTyped(formatted_raw_ostream &OS, bool PrintType = true) const {
+      if (getIsTyped()) {
+        OS << ", TYPED (TYPE: ";
+        assert(getOrigItemElementTypeFromIR() &&
+               "OrigItemElementTypeFromIR is null.");
+        getOrigItemElementTypeFromIR()->print(OS);
+        OS << ", NUM_ELEMENTS: ";
+        assert(getNumElements() && "NumElements is null.");
+        getNumElements()->printAsOperand(OS, PrintType);
+        if (getIsArraySection()) {
+          OS << ", ARRAY SECTION OFFSET: ";
+          assert(getArraySectionOffset() && "ArraySectionOffset is null.");
+          getArraySectionOffset()->printAsOperand(OS, PrintType);
+        }
+        OS << ")";
+      }
+    }
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
       if (getIsByRef())
@@ -1444,6 +1458,7 @@ class DependItem
       }
       OS << "(" ;
       getOrig()->printAsOperand(OS, PrintType);
+      printIfTyped(OS, PrintType);
       OS << ") ";
     }
 };

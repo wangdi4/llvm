@@ -85,6 +85,7 @@ public:
     auto It = Value2ValueMap.find(OrigVal);
     assert(It == Value2ValueMap.end() &&
            "Re-mapping of original value is not expected");
+    assert(ClonedVal && "unexpected non-null clone");
     (void)It;
     Value2ValueMap[OrigVal] = ClonedVal;
   }

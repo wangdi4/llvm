@@ -18,12 +18,14 @@ define i32 @test01() {
   ret i32 %value
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: test01.struct.anon
+; CHECK: LLVMType: %test01.struct.anon
 ; CHECK: Safety data: Ambiguous GEP{{ *$}}
+; CHECK: End LLVMType: %test01.struct.anon
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: test01.union.u
+; CHECK: LLVMType: %test01.union.u
 ; CHECK: Safety data: Ambiguous GEP | Global instance{{ *$}}
+; CHECK: End LLVMType: %test01.union.u
 
 
 !1 = !{i32 0, i32 0}  ; i32

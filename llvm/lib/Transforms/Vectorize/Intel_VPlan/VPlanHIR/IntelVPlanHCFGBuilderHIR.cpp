@@ -72,25 +72,25 @@ static bool isSIMDDescriptorDDRef(const RegDDRef *DescrRef, const DDRef *Ref) {
   assert(DescrRef->isAddressOf() &&
          "Original SIMD descriptor ref is not address of type.");
 
-  // Since we know descriptor ref is always address of type, set address-of to
-  // false for equality check. Reset to true after check.
-  const_cast<RegDDRef *>(DescrRef)->setAddressOf(false);
-  if (DescrRef->getDDRefUtils().areEqual(DescrRef, Ref)) {
-    const_cast<RegDDRef *>(DescrRef)->setAddressOf(true);
-    return true;
-  }
+  auto *RegRef = dyn_cast<RegDDRef>(Ref);
+  if (RegRef) {
+    if (!RegRef->isMemRef())
+      return false;
 
-  const_cast<RegDDRef *>(DescrRef)->setAddressOf(true);
-
-  // Special casing for incoming Ref of the form %s which was actually the Base
-  // CE of the memref %s[0]
-  auto *DescrRefCE = DescrRef->getBaseCE();
-  if (auto *BDDR = dyn_cast<BlobDDRef>(Ref)) {
-    auto *RefCE = BDDR->getSingleCanonExpr();
-    if (DescrRefCE->getCanonExprUtils().areEqual(DescrRefCE, RefCE))
+    // Since we know descriptor ref is always address of type, call dedicated
+    // compare.
+    if (DDRefUtils::areEqualWithoutAddressOf(DescrRef, RegRef))
       return true;
+  } else {
+    // Special casing for incoming Ref of the form %s which was actually the
+    // Base CE of the memref %s[0]
+    auto *DescrRefCE = DescrRef->getBaseCE();
+    if (auto *BDDR = dyn_cast<BlobDDRef>(Ref)) {
+      auto *RefCE = BDDR->getSingleCanonExpr();
+      if (CanonExprUtils::areEqual(DescrRefCE, RefCE))
+        return true;
+    }
   }
-
   return false;
 }
 
@@ -212,63 +212,124 @@ void HIRVectorizationLegality::recordPotentialSIMDDescrUpdate(
   }
 }
 
-void HIRVectorizationLegality::findAliasDDRefs(HLNode *ClauseNode,
-                                               HLLoop *HLoop) {
+bool HIRVectorizationLegality::bailout(BailoutReason Code) {
+    DEBUG_WITH_TYPE("HIRLegality", dbgs() << getBailoutReasonStr(Code));
+    return false;
+}
 
-  // Container to collect all nodes that are present before HLoop to process for
-  // potential aliases
+bool HIRVectorizationLegality::canVectorize(const WRNVecLoopNode *WRLp) {
+  // Send explicit data from WRLoop to the Legality.
+  return EnterExplicitData(WRLp);
+}
+
+void HIRVectorizationLegality::findAliasDDRefs(HLNode *BeginNode,
+                                               HLNode *EndNode, HLLoop *HLoop) {
+
+  // Containers to collect all nodes that are present before/after HLoop to
+  // process for potential aliases.
   SetVector<HLNode *> PreLoopNodes;
+  SetVector<HLNode *> PostLoopNodes;
 
-  // Collect nodes between the SIMD clause directive and the HLLoop node
-  HLNode *CurNode = ClauseNode;
+  // Collect nodes between the begin-SIMD clause directive and the HLLoop node.
+  HLNode *CurNode = BeginNode;
   while (auto *NextNode = CurNode->getNextNode()) {
     if (NextNode == HLoop)
       break;
-
-    LLVM_DEBUG(dbgs() << "PreHLLoop node: "; NextNode->dump(););
     PreLoopNodes.insert(NextNode);
     CurNode = NextNode;
   }
+  // Collect nodes present in HLLoop's preheader.
+  auto PreRange = map_range(HLoop->preheaderNodes(), [](HLNode &N) { return &N; });
+  PreLoopNodes.insert(PreRange.begin(), PreRange.end());
 
-  // Collect nodes present in HLLoop's preheader
-  for (auto &Pre : make_range(HLoop->pre_begin(), HLoop->pre_end())) {
-    LLVM_DEBUG(dbgs() << "Preheader node: "; Pre.dump(););
-    PreLoopNodes.insert(&Pre);
-  }
-
-  // Process all pre-loop nodes
-  for (HLNode *PLN : PreLoopNodes) {
-    // Evaluate Rvals of only HLInsts in the pre-loop nodes
-    if (auto *HInst = dyn_cast<HLInst>(PLN)) {
-      RegDDRef *RVal = HInst->getRvalDDRef();
-
-      // If there is no RVal ignore node
-      if (!RVal)
-        continue;
-
-      // Check if RVal is any of explicit SIMD descriptors
-      DescrWithAliasesTy *Descr = getPrivateDescr(RVal);
-      if (Descr == nullptr)
-        Descr = getPrivateDescrNonPOD(RVal);
-      if (Descr == nullptr)
-        Descr = getLinearDescr(RVal);
-      if (Descr == nullptr)
-        Descr = getReductionDescr(RVal);
-
-      // RVal is not a SIMD descriptor, move to next HLInst
-      if (Descr == nullptr)
-        continue;
-
-      LLVM_DEBUG(dbgs() << "Found an alias for a SIMD descriptor ref ";
-                 RVal->dump(); dbgs() << "\n");
-      RegDDRef *LVal = HInst->getLvalDDRef();
-      assert(LVal && "HLInst in the preheader does not have an Lval.");
-      if (isa<DescrWithInitValue>(Descr))
-        Descr->addAlias(LVal, std::make_unique<DescrWithInitValue>(LVal));
-      else
-        Descr->addAlias(LVal, std::make_unique<DescrWithAliasesTy>(LVal));
+  // Collect nodes present in HLLoop's postexit.
+  // In some cases the EndNode can reside in the loop post exit. Thus we might
+  // miss it going by the nodes after the loop. See the
+  // hir_simd_directives_preheader_postexit.ll for an example of such EndNode
+  // placement.
+  bool EndFound = false;
+  for (HLNode &Node: HLoop->postExitNodes()) {
+    if (&Node == EndNode) {
+      EndFound = true;
+      break;
     }
+    PostLoopNodes.insert(&Node);
   }
+  // Collect nodes between the HLLoop node and the end-SIMD clause directive.
+  if (!EndFound) {
+    CurNode = HLoop->getNextNode();
+    while (CurNode && CurNode != EndNode) {
+      PostLoopNodes.insert(CurNode);
+      CurNode = CurNode->getNextNode();
+    }
+    assert(CurNode && "can't find region end");
+  }
+  auto getDescr = [this](RegDDRef *Ref) {
+    // Check if Ref is any of explicit SIMD descriptors.
+    DescrWithAliasesTy *Descr = getPrivateDescr(Ref);
+    if (!Descr)
+      Descr = getPrivateDescrNonPOD(Ref);
+    if (!Descr)
+      Descr = getLinearRednDescriptors(Ref);
+    return Descr;
+  };
+  auto addAlias = [](DescrWithAliasesTy *Descr, DDRef *Val) {
+    if (isa<DescrWithInitValue>(Descr))
+      Descr->addAlias(Val, std::make_unique<DescrWithInitValue>(Val));
+    else
+      Descr->addAlias(Val, std::make_unique<DescrWithAliasesTy>(Val));
+  };
+  // Process all pre-loop nodes.
+  for (HLNode *PLN : PreLoopNodes) {
+    LLVM_DEBUG(dbgs() << "PreHLLoop node: "; PLN->dump(););
+    // Evaluate Rvals of only HLInsts in the pre-loop nodes.
+    auto *HInst = dyn_cast<HLInst>(PLN);
+    // TODO: Check whether we really can have HLoop, HLIf, or other-non-HInst
+    // things here (between the simd-region begin statement and the loop). If
+    // so we need a special processing for them. Same for the postloop nodes.
+    if (!HInst)
+      continue;
+    RegDDRef *RVal = HInst->getRvalDDRef();
+    if (!RVal)
+      continue;
+
+    DescrWithAliasesTy *Descr = getDescr(RVal);
+    // RVal is not a SIMD descriptor, move to next HLInst.
+    if (!Descr)
+      continue;
+
+    LLVM_DEBUG(dbgs() << "Found an alias for a SIMD descriptor ref ";
+               RVal->dump(); dbgs() << "...."; HInst->dump(); dbgs() << "\n");
+    RegDDRef *LVal = HInst->getLvalDDRef();
+    assert(LVal && "HLInst in the preheader does not have an Lval.");
+    addAlias(Descr, LVal);
+  }
+  // Process all post-loop nodes.
+  for (HLNode *PLN : PostLoopNodes) {
+    LLVM_DEBUG(dbgs() << "PostHLLoop node: "; PLN->dump(););
+    // Evaluate LVals of only HLInsts in the pre-loop nodes.
+    auto *HInst = dyn_cast<HLInst>(PLN);
+    if (!HInst)
+      continue;
+    RegDDRef *LVal = HInst->getLvalDDRef();
+    if (!LVal)
+      continue;
+
+    DescrWithAliasesTy *Descr = getDescr(LVal);
+    // LVal is not a SIMD descriptor, move to next HLInst.
+    if (!Descr)
+      continue;
+
+    LLVM_DEBUG(dbgs() << "Found an alias for a SIMD descriptor ref ";
+               LVal->dump(); dbgs() << "...."; HInst->dump(); dbgs() << "\n");
+    RegDDRef *RVal = HInst->getRvalDDRef();
+    assert(RVal && "HLInst in the postexit does not have an Rval.");
+    // TODO: extend to non-terminals. That might be useful for inductions.
+    // Currently, we can bailout on non-recognized phi for such entities.
+    if (RVal->isTerminalRef())
+      addAlias(Descr, RVal);
+  }
+  LLVM_DEBUG(dbgs() << "HIR legality after collecting aliases\n"; dump(););
 }
 
 const HIRVectorIdioms *
@@ -295,16 +356,6 @@ bool HIRVectorizationLegality::isMinMaxIdiomTemp(const DDRef *Ref,
 
   return false;
 }
-
-// TODO: Dummy placeholder function which should be updated once common
-// interface will be established for VPOVectorizationLegality and for
-// HIRVectorizationLegality.
-void HIRVectorizationLegality::collectPreLoopDescrAliases() {}
-
-// TODO: Dummy placeholder function which should be updated once common
-// interface will be established for VPOVectorizationLegality and for
-// HIRVectorizationLegality.
-void HIRVectorizationLegality::collectPostExitLoopDescrAliases() {}
 
 // Build plain CFG from incomming IR using only VPBasicBlock's that contain
 // VPInstructions.
@@ -1109,6 +1160,7 @@ private:
       RKind = IsMax ? RecurKind::UMax : RecurKind::UMin;
       break;
     default:
+      assert(CmpInst::isFPPredicate(Pred) && "expected FP predicate");
       RKind = IsMax ? RecurKind::FMax : RecurKind::FMin;
       break;
     }
@@ -1201,9 +1253,13 @@ private:
         auto Opcode = ChainCurrent->OpCode;
         // Predicate type is needed to determine reduction kind for min/max
         // reductions. For other reductions predicate is undefined.
-        auto Pred = Opcode == Instruction::Select
-                        ? (*RedCurrent)->getPredicate().Kind
-                        : PredicateTy::BAD_ICMP_PREDICATE;
+        auto Pred = PredicateTy::BAD_ICMP_PREDICATE;
+        if (Opcode == Instruction::Select) {
+          Pred = isa<SelectInst>((*RedCurrent)->getLLVMInstruction())
+                     ? (*RedCurrent)->getPredicate().Kind
+                     : PredicateTy::FIRST_FCMP_PREDICATE;
+        }
+
         Descriptor.fillReductionKinds(
             (*RedCurrent)->getLvalDDRef()->getDestType(), Opcode, Pred,
             (*RedCurrent)->isMax(), HIRVectorIdioms::NoIdiom);
@@ -1407,6 +1463,8 @@ public:
 
   void operator()(InductionDescr &Descriptor,
                   const LinearList::value_type &CurrValue) {
+    // TODO: for opaque pointers we may need to pull type information down
+    // through the legality checker.
     Type *IndTy = CurrValue.getRef()->getDestType();
     const HLDDNode *HLNode = CurrValue.getRef()->getHLDDNode();
     Descriptor.setStartPhi(
@@ -1482,18 +1540,15 @@ public:
   /// Fill in the data from list of explicit reductions
   void operator()(ReductionDescr &Descriptor,
                   const ExplicitReductionList::value_type &CurrValue) {
-    Type *RType = CurrValue.getRef()->getDestType();
-    assert(isa<PointerType>(RType) &&
-           "SIMD reduction descriptor DDRef is not pointer type.");
     // Get pointee type of descriptor ref
-    RType = cast<PointerType>(RType)->getElementType();
+    Type *RType = cast<RegDDRef>(CurrValue.getRef())->getBasePtrElementType();
     // Translate HIRLegality descriptor's UpdateInstructions to corresponding
     // VPInstructions
     for (auto *UpdateInst : CurrValue.getUpdateInstructions()) {
-      VPValue *UpdateVPInst = Decomposer.getVPValueForNode(UpdateInst);
-      assert(UpdateVPInst && isa<VPInstruction>(UpdateVPInst) &&
-             "Instruction that updates reduction descriptor is not valid.");
-      Descriptor.addUpdateVPInst(cast<VPInstruction>(UpdateVPInst));
+      auto *VPInst =
+          dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(UpdateInst));
+      assert(VPInst && "Instruction updating reduction descriptor is invalid.");
+      Descriptor.addUpdateVPInst(VPInst);
     }
     // Set start value of descriptor (can be null)
     Descriptor.setStart(
@@ -1555,10 +1610,22 @@ public:
     DDRef *BasePtrRef = DescrRef->getBlobDDRef(DescrRef->getBasePtrBlobIndex());
     Descriptor.setAllocaInst(
         Decomposer.getVPExternalDefForSIMDDescr(BasePtrRef));
+    Descriptor.setAllocatedType(CurValue.getType());
     Descriptor.setIsConditional(CurValue.isCond());
     Descriptor.setIsLast(CurValue.isLast());
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(false);
+    if (HIRVectorizationLegality::DescrValueTy *Alias =
+            CurValue.getValidAlias()) {
+      SmallVector<VPInstruction *, 4> AliasUpdates;
+      for (auto *UpdateInst : Alias->getUpdateInstructions())
+        AliasUpdates.push_back(
+            cast<VPInstruction>(Decomposer.getVPValueForNode(UpdateInst)));
+      Descriptor.setAlias(nullptr /*AliasInit*/, AliasUpdates);
+    }
+    for (auto UpdateInst: CurValue.getUpdateInstructions())
+      Descriptor.addUpdateVPInst(
+          cast<VPInstruction>(Decomposer.getVPValueForNode(UpdateInst)));
   }
 
   void operator()(PrivateDescr &Descriptor,
@@ -1567,6 +1634,7 @@ public:
     DDRef *BasePtrRef = DescrRef->getBlobDDRef(DescrRef->getBasePtrBlobIndex());
     Descriptor.setAllocaInst(
         Decomposer.getVPExternalDefForSIMDDescr(BasePtrRef));
+    Descriptor.setAllocatedType(CurValue.getType());
     Descriptor.setIsConditional(CurValue.isCond());
     Descriptor.setIsLast(CurValue.isLast());
     Descriptor.setCtor(CurValue.getCtor());
@@ -1605,26 +1673,16 @@ protected:
   DenseMap<const HLLoop *, const VPLoop *> LoopMap;
 };
 
-typedef VPLoopEntitiesConverter<ReductionDescr, HLLoop,
-                                HLLoop2VPLoopMapper> ReductionConverter;
-typedef VPLoopEntitiesConverter<InductionDescr, HLLoop,
-                                HLLoop2VPLoopMapper> InductionConverter;
-typedef VPLoopEntitiesConverter<PrivateDescr, HLLoop, HLLoop2VPLoopMapper>
-    PrivatesConverter;
+template <typename DescrType>
+using Converter =
+    VPLoopEntitiesConverter<DescrType, HLLoop, HLLoop2VPLoopMapper>;
 
 void PlainCFGBuilderHIR::convertEntityDescriptors(
     VPlanHCFGBuilder::VPLoopEntityConverterList &CvtVec) {
-
-  using InductionList = VPDecomposerHIR::VPInductionHIRList;
-  using LinearList = HIRVectorizationLegality::LinearListTy;
-  using ExplicitReductionList = HIRVectorizationLegality::ReductionListTy;
-  using PrivatesList = HIRVectorizationLegality::PrivatesListTy;
-  using PrivatesNonPODList = HIRVectorizationLegality::PrivatesNonPODListTy;
-
-  ReductionConverter *RedCvt = new ReductionConverter(Plan);
-  InductionConverter *IndCvt = new InductionConverter(Plan);
-  PrivatesConverter *PrivCvt = new PrivatesConverter(Plan);
-  PrivatesConverter *PrivNonPODCvt = new PrivatesConverter(Plan);
+  auto RedCvt = std::make_unique<Converter<ReductionDescr>>(Plan);
+  auto IndCvt = std::make_unique<Converter<InductionDescr>>(Plan);
+  auto PrivCvt = std::make_unique<Converter<PrivateDescr>>(Plan);
+  auto PrivNonPODCvt = std::make_unique<Converter<PrivateDescr>>(Plan);
 
   for (auto LoopDescr = Header2HLLoop.begin(), End = Header2HLLoop.end();
        LoopDescr != End; ++LoopDescr) {
@@ -1644,65 +1702,41 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
           }
     );
 
-    const InductionList &IL = Decomposer.getInductions(HL);
-    iterator_range<InductionList::const_iterator> InducRange(IL.begin(),
-                                                             IL.end());
-    InductionListCvt InducListCvt(Decomposer);
-    auto InducPair = std::make_pair(InducRange, InducListCvt);
-
-    const LinearList &LL = Legal->getLinears();
-#if 1
-    // TODO: remove after correction of descriptor translation (see
-    iterator_range<LinearList::const_iterator> LinearRange(LL.end(), LL.end());
-#else
-    iterator_range<LinearList::const_iterator> LinearRange(LL->begin(),
-                                                           LL->end());
-#endif
-    LinearListCvt LinListCvt(Decomposer);
-    auto LinearPair = std::make_pair(LinearRange, LinListCvt);
-
-    iterator_range<ReductionInputIteratorHIR> ReducRange(
-        ReductionInputIteratorHIR(true, SRCL),
-        ReductionInputIteratorHIR(false, SRCL));
-    ReductionListCvt<ReductionInputIteratorHIR> RedListCvt(Decomposer);
-    auto ReducPair = std::make_pair(ReducRange, RedListCvt);
-
-    const ExplicitReductionList &ERL = Legal->getReductions();
-
-    iterator_range<ExplicitReductionList::const_iterator> ExplRedRange(
-        ERL.begin(), ERL.end());
-
-    ExplicitReductionListCvt ExplRedCvt(Decomposer);
-    auto ExplRedPair = std::make_pair(ExplRedRange, ExplRedCvt);
-
-    const PrivatesList &PL = Legal->getPrivates();
-    iterator_range<PrivatesList::const_iterator> PrivRange(PL.begin(),
-                                                           PL.end());
-    PrivatesListCvt PrivListCvt(Decomposer);
-    auto PrivatesPair = std::make_pair(PrivRange, PrivListCvt);
-
-    const PrivatesNonPODList &PNPL = Legal->getNonPODPrivates();
-    auto PrivNonPODRange = make_range(PNPL.begin(), PNPL.end());
-    PrivatesListCvt PrivNonPODListCvt(Decomposer);
-    auto PrivatesNonPODPair =
-        std::make_pair(PrivNonPODRange, PrivNonPODListCvt);
+    auto Bind = [](auto &&Range, auto &&Converter) {
+      return std::make_pair(std::ref(Range), std::move(Converter));
+    };
 
     const HIRVectorIdioms *Idioms = Legal->getVectorIdioms(HL);
-    iterator_range<MinMaxIdiomsInputIteratorHIR> MinMaxIdiomRange(
-        MinMaxIdiomsInputIteratorHIR(true, *Idioms),
-        MinMaxIdiomsInputIteratorHIR(false, *Idioms));
-    ReductionListCvt<MinMaxIdiomsInputIteratorHIR> RedIdiomCvt(Decomposer);
-    auto RedIdiomPair = std::make_pair(MinMaxIdiomRange, RedIdiomCvt);
 
-    RedCvt->createDescrList(HL, ReducPair, ExplRedPair, RedIdiomPair);
-    IndCvt->createDescrList(HL, InducPair, LinearPair);
-    PrivCvt->createDescrList(HL, PrivatesPair);
-    PrivNonPODCvt->createDescrList(HL, PrivatesNonPODPair);
+    // clang-format off
+    RedCvt->createDescrList(HL,
+      Bind(make_range(ReductionInputIteratorHIR(true, SRCL),
+                      ReductionInputIteratorHIR(false, SRCL)),
+           ReductionListCvt<ReductionInputIteratorHIR>{Decomposer}),
+      Bind(Legal->getReductions(), ExplicitReductionListCvt{Decomposer}),
+      Bind(make_range(MinMaxIdiomsInputIteratorHIR(true, *Idioms),
+                      MinMaxIdiomsInputIteratorHIR(false, *Idioms)),
+           ReductionListCvt<MinMaxIdiomsInputIteratorHIR>{Decomposer}));
+
+    IndCvt->createDescrList(HL,
+      Bind(Decomposer.getInductions(HL), InductionListCvt{Decomposer}),
+      // TODO: ArrayRef-based empty slice here serves as a stub because
+      // LinearListCvt is not working correctly. Fix it when the converter
+      // is fixed.
+      Bind(makeArrayRef(Legal->getLinears()).take_front(0),
+           LinearListCvt{Decomposer}));
+
+    PrivCvt->createDescrList(HL,
+      Bind(Legal->getPrivates(), PrivatesListCvt{Decomposer}));
+
+    PrivNonPODCvt->createDescrList(HL,
+      Bind(Legal->getNonPODPrivates(), PrivatesListCvt{Decomposer}));
+    // clang-format on
   }
-  CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(RedCvt));
-  CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(IndCvt));
-  CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(PrivCvt));
-  CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(PrivNonPODCvt));
+  CvtVec.emplace_back(std::move(RedCvt));
+  CvtVec.emplace_back(std::move(IndCvt));
+  CvtVec.emplace_back(std::move(PrivCvt));
+  CvtVec.emplace_back(std::move(PrivNonPODCvt));
 }
 
 bool VPlanHCFGBuilderHIR::buildPlainCFG(VPLoopEntityConverterList &CvtVec) {

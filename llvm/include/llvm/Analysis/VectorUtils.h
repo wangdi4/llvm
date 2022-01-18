@@ -17,6 +17,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
+#include "llvm/IR/IRBuilder.h" // INTEL
 #include "llvm/Support/CheckedArithmetic.h"
 
 namespace llvm {
@@ -116,7 +117,7 @@ struct VFShape {
 
     return {EC, Parameters};
   }
-  /// Sanity check on the Parameters in the VFShape.
+  /// Validation check on the Parameters in the VFShape.
   bool hasValidParameterList() const;
 };
 
@@ -511,6 +512,15 @@ Type *calcCharacteristicType(Type *ReturnType, RangeIterator Args,
   return CharacteristicDataType;
 }
 
+/// Promote provided boolean (i1) mask, \p MaskToUse, to a type suitable for the
+/// \p VecVariant call and add it into vector arguments/vector argument types
+/// arrays.
+void createVectorMaskArg(IRBuilder<> &Builder, Type *CharacteristicType,
+                         VectorVariant *VecVariant,
+                         SmallVectorImpl<Value *> &VecArgs,
+                         SmallVectorImpl<Type *> &VecArgTys, unsigned VF,
+                         Value *MaskToUse);
+
 /// Helper function that returns widened type of given type \p Ty.
 inline VectorType *getWidenedType(Type *Ty, unsigned VF) {
   unsigned NumElts =
@@ -525,14 +535,20 @@ void getFunctionsToVectorize(
 
 /// \brief Widens the call to function \p OrigF  using a vector length of \p VL
 /// and inserts the appropriate function declaration if not already created.
-/// This function will insert functions for library calls, intrinsics, and simd
-/// functions. The call site instruction is not strictly required here. It is
+/// This function will insert functions for simd functions.
+Function *getOrInsertVectorVariantFunction(
+  Function *OrigF, unsigned VL, ArrayRef<Type *> ArgTys,
+  VectorVariant *VecVariant, bool Masked);
+
+/// \brief Widens the call to function \p OrigF  using a vector length of \p VL
+/// and inserts the appropriate function declaration if not already created.
+/// This function will insert functions for library calls, intrinsics.
+/// The call site instruction is not strictly required here. It is
 /// used only for OpenCL read/write channel functions.
-Function *getOrInsertVectorFunction(Function *OrigF, unsigned VL,
-                                    ArrayRef<Type *> ArgTys,
-                                    TargetLibraryInfo *TLI, Intrinsic::ID ID,
-                                    VectorVariant *VecVariant, bool Masked,
-                                    const CallInst *Call = nullptr);
+Function *getOrInsertVectorLibFunction(
+  Function *OrigF, unsigned VL, ArrayRef<Type *> ArgTys,
+  TargetLibraryInfo *TLI, Intrinsic::ID ID, bool Masked,
+  const CallInst *Call = nullptr);
 
 /// \brief Return true if \p FnName is an OpenCL SinCos function
 bool isOpenCLSinCos(StringRef FcnName);
@@ -552,7 +568,7 @@ bool isOpenCLReadChannelDest(StringRef FnName, unsigned Idx);
 bool isOpenCLWriteChannelSrc(StringRef FnName, unsigned Idx);
 
 /// \brief Returns the alloca associated with an OpenCL read/write channel call.
-Value* getOpenCLReadWriteChannelAlloc(const CallInst *Call);
+AllocaInst* getOpenCLReadWriteChannelAlloc(const CallInst *Call);
 
 /// \brief Returns a string representation of Type \p Ty.
 std::string typeToString(Type *Ty);
@@ -756,6 +772,12 @@ SmallVector<int, 64> createVectorStrideMask(unsigned Start, unsigned Stride,
 ///   <0, 1, 2, 3, undef, undef, undef, undef>
 llvm::SmallVector<int, 16>
 createSequentialMask(unsigned Start, unsigned NumInts, unsigned NumUndefs);
+
+/// Given a shuffle mask for a binary shuffle, create the equivalent shuffle
+/// mask assuming both operands are identical. This assumes that the unary
+/// shuffle will use elements from operand 0 (operand 1 will be unused).
+llvm::SmallVector<int, 16> createUnaryMask(ArrayRef<int> Mask,
+                                           unsigned NumElts);
 
 /// Concatenate a list of vectors.
 ///

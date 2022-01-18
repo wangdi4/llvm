@@ -3,6 +3,9 @@
 ; RUN: opt -hir-ssa-deconstruction -disable-output -hir-post-vec-complete-unroll -print-after-all -stats < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-ssa-deconstruction -disable-output -hir-post-vec-complete-unroll -print-after-all -stats < %s 2>&1 | FileCheck %s --check-prefix=DEBUG
 
+; RUN: opt -passes="hir-ssa-deconstruction,print,hir-post-vec-complete-unroll,print<hir>" -stats < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print,hir-post-vec-complete-unroll,print<hir>" -stats < %s 2>&1 | FileCheck %s --check-prefix=DEBUG
+
 ; Input HIR:
 ; <0>       BEGIN REGION { }
 ; <65>            + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
@@ -19,7 +22,7 @@
 ; <65>            + END LOOP
 ; <0>       END REGION
 
-; CHECK: IR Dump After
+; CHECK: Function: foo
 
 ; CHECK: BEGIN REGION
 ; CHECK:  + DO i1 = 0, %n + -1, 1
@@ -31,7 +34,7 @@
 
 ; DEBUG-REQUIRES: asserts
 
-; DEBUG: IR Dump After
+; DEBUG: Function: foo
 
 ; DEBUG: BEGIN REGION
 ; DEBUG:  + DO i1 = 0, %n + -1, 1

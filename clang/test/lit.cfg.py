@@ -55,6 +55,22 @@ llvm_config.with_system_environment(
 
 config.substitutions.append(('%PATH%', config.environment['PATH']))
 
+# INTEL_CUSTOMIZATION
+intel_devirt_options = ''
+intel_mllvm = ''
+# INTEL_FEATURE_SW_DTRANS
+# Special options that we want to pass to the test cases for Intel only
+if config.include_intel_extra_opts:
+  # Extra options for whole program devirtualization
+  intel_devirt_options = '-wholeprogramdevirt-multiversion=false'
+
+  # Substitution for -mllvm
+  intel_mllvm = '-mllvm'
+
+# end INTEL_FEATURE_SW_DTRANS
+config.substitutions.append(('%intel_devirt_options', intel_devirt_options))
+config.substitutions.append(('%intel_mllvm', intel_mllvm))
+# end INTEL_CUSTOMIZATION
 
 # For each occurrence of a clang tool name, replace it with the full path to
 # the build directory holding that tool.  We explicitly specify the directories
@@ -71,7 +87,6 @@ tools = [
 
 if config.clang_examples:
     config.available_features.add('examples')
-    tools.append('clang-interpreter')
 
 def have_host_jit_support():
     clang_repl_exe = lit.util.which('clang-repl', config.clang_tools_dir)
@@ -99,7 +114,7 @@ if config.clang_staticanalyzer:
     config.available_features.add('staticanalyzer')
     tools.append('clang-check')
 
-    if config.clang_staticanalyzer_z3 == '1':
+    if config.clang_staticanalyzer_z3:
         config.available_features.add('z3')
 
     check_analyzer_fixit_path = os.path.join(
@@ -121,6 +136,9 @@ config.substitutions.append(('%host_cxx', config.host_cxx))
 # Plugins (loadable modules)
 if config.has_plugins and config.llvm_plugin_ext:
     config.available_features.add('plugins')
+
+if config.clang_default_pie_on_linux:
+    config.available_features.add('default-pie-on-linux')
 
 # Set available features we allow tests to conditionalize on.
 #

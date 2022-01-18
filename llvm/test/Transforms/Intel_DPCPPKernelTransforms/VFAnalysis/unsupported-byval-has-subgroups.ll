@@ -18,7 +18,7 @@
 ; CHECK-EMULATION: <kernel> : 16
 ; CHECK-NO-EMULATION: <kernel> : 0
 
-; CHECK-SUBGROUP-BROKEN: error: function <kernel>: Subgroup is broken!
+; CHECK-SUBGROUP-BROKEN: error: kernel "kernel": Subgroup calls in scalar function can't be resolved
 
 %struct.A = type { float, i32, double, i64 }
 

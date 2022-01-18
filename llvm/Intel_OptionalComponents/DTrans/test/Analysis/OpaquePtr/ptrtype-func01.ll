@@ -2,8 +2,8 @@
 
 ; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s
 ; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s
-; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s
-; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s
 
 ; Test type recovery for function definitions with and without metadata
 
@@ -33,6 +33,11 @@ define internal void @test03(i32 %in1, double %in2) {
 }
 ; CHECK: Added alias [DECL]: @test03 -- void (i32, double)*
 ; CHECK: Added alias [USE]: @test03 -- void (i32, double)*
+
+
+declare void @llvm.directive.region.exit(token)
+; CHECK: Added alias [DECL]: @llvm.directive.region.exit -- void (token)*
+; CHECK: Added alias [USE]: @llvm.directive.region.exit -- void (token)*
 
 
 declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" i8* @malloc(i64)

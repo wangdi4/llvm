@@ -465,6 +465,14 @@ public:
   ///
   static bool doSpecialSinkForPerfectLoopnest(HLLoop *OuterLp, HLLoop *InnerLp,
                                               HIRDDAnalysis &HDDA);
+
+  /// Create an If statement with predicate of Loop's ztt condition.
+  static HLIf *createZttIf(const HLLoop *Loop, bool IsSigned);
+
+  /// Create an HLIf with predicate of \p Loop's ztt and add it
+  /// around \p Loop. The caller should make sure if such
+  /// explicit if is needed.
+  static void addExplicitZttIf(HLLoop *Loop);
 };
 
 } // End namespace loopopt

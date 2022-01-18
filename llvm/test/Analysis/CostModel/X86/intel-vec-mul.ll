@@ -16,7 +16,7 @@ target triple = "x86_64-apple-macosx10.8.0"
 
 define i32 @mul_pow2(i32 %arg) {
 ; SSSE3-LABEL: 'mul_pow2'
-; SSSE3-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
+; SSSE3-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = mul i64 undef, undef
 ; SSSE3-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I64 = mul <2 x i64> undef, <i64 4, i64 4>
 ; SSSE3-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4I64 = mul <4 x i64> undef, <i64 8, i64 8, i64 8, i64 8>
 ; SSSE3-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V8I64 = mul <8 x i64> undef, <i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16>
@@ -41,15 +41,15 @@ define i32 @mul_pow2(i32 %arg) {
 ; SSSE3-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; SSE42-LABEL: 'mul_pow2'
-; SSE42-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
+; SSE42-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = mul i64 undef, undef
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I64 = mul <2 x i64> undef, <i64 4, i64 4>
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4I64 = mul <4 x i64> undef, <i64 8, i64 8, i64 8, i64 8>
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V8I64 = mul <8 x i64> undef, <i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16>
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I32 = mul i32 undef, undef
-; SSE42-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I32 = mul <2 x i32> undef, <i32 4, i32 4>
-; SSE42-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4I32 = mul <4 x i32> undef, <i32 8, i32 8, i32 8, i32 8>
-; SSE42-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V8I32 = mul <8 x i32> undef, <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
-; SSE42-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V16I32 = mul <16 x i32> undef, <i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32>
+; SSE42-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I32 = mul <2 x i32> undef, <i32 4, i32 4>
+; SSE42-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V4I32 = mul <4 x i32> undef, <i32 8, i32 8, i32 8, i32 8>
+; SSE42-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V8I32 = mul <8 x i32> undef, <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
+; SSE42-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V16I32 = mul <16 x i32> undef, <i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32>
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I16 = mul i16 undef, undef
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I16 = mul <2 x i16> undef, <i16 4, i16 4>
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V4I16 = mul <4 x i16> undef, <i16 8, i16 8, i16 8, i16 8>
@@ -66,15 +66,15 @@ define i32 @mul_pow2(i32 %arg) {
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; AVX1-LABEL: 'mul_pow2'
-; AVX1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
+; AVX1-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = mul i64 undef, undef
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I64 = mul <2 x i64> undef, <i64 4, i64 4>
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4I64 = mul <4 x i64> undef, <i64 8, i64 8, i64 8, i64 8>
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8I64 = mul <8 x i64> undef, <i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16>
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I32 = mul i32 undef, undef
-; AVX1-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I32 = mul <2 x i32> undef, <i32 4, i32 4>
-; AVX1-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4I32 = mul <4 x i32> undef, <i32 8, i32 8, i32 8, i32 8>
-; AVX1-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %V8I32 = mul <8 x i32> undef, <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
-; AVX1-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %V16I32 = mul <16 x i32> undef, <i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32>
+; AVX1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I32 = mul <2 x i32> undef, <i32 4, i32 4>
+; AVX1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V4I32 = mul <4 x i32> undef, <i32 8, i32 8, i32 8, i32 8>
+; AVX1-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V8I32 = mul <8 x i32> undef, <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
+; AVX1-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V16I32 = mul <16 x i32> undef, <i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32>
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I16 = mul i16 undef, undef
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I16 = mul <2 x i16> undef, <i16 4, i16 4>
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V4I16 = mul <4 x i16> undef, <i16 8, i16 8, i16 8, i16 8>
@@ -91,15 +91,15 @@ define i32 @mul_pow2(i32 %arg) {
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; AVX2-LABEL: 'mul_pow2'
-; AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
+; AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = mul i64 undef, undef
 ; AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I64 = mul <2 x i64> undef, <i64 4, i64 4>
 ; AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V4I64 = mul <4 x i64> undef, <i64 8, i64 8, i64 8, i64 8>
 ; AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V8I64 = mul <8 x i64> undef, <i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16>
 ; AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I32 = mul i32 undef, undef
-; AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I32 = mul <2 x i32> undef, <i32 4, i32 4>
-; AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4I32 = mul <4 x i32> undef, <i32 8, i32 8, i32 8, i32 8>
-; AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V8I32 = mul <8 x i32> undef, <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
-; AVX2-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V16I32 = mul <16 x i32> undef, <i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32>
+; AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I32 = mul <2 x i32> undef, <i32 4, i32 4>
+; AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V4I32 = mul <4 x i32> undef, <i32 8, i32 8, i32 8, i32 8>
+; AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V8I32 = mul <8 x i32> undef, <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
+; AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V16I32 = mul <16 x i32> undef, <i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32>
 ; AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I16 = mul i16 undef, undef
 ; AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I16 = mul <2 x i16> undef, <i16 4, i16 4>
 ; AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V4I16 = mul <4 x i16> undef, <i16 8, i16 8, i16 8, i16 8>
@@ -137,7 +137,7 @@ define i32 @mul_pow2(i32 %arg) {
 ; AVX512F-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V8I8 = mul <8 x i8> undef, <i8 16, i8 16, i8 16, i8 16, i8 16, i8 16, i8 16, i8 16>
 ; AVX512F-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %V16I8 = mul <16 x i8> undef, <i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32>
 ; AVX512F-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: %V32I8 = mul <32 x i8> undef, <i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64>
-; AVX512F-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %V64I8 = mul <64 x i8> undef, <i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128>
+; AVX512F-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %V64I8 = mul <64 x i8> undef, <i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128>
 ; AVX512F-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; AVX512BW-LABEL: 'mul_pow2'
@@ -162,14 +162,14 @@ define i32 @mul_pow2(i32 %arg) {
 ; AVX512BW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V8I8 = mul <8 x i8> undef, <i8 16, i8 16, i8 16, i8 16, i8 16, i8 16, i8 16, i8 16>
 ; AVX512BW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V16I8 = mul <16 x i8> undef, <i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32>
 ; AVX512BW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V32I8 = mul <32 x i8> undef, <i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64>
-; AVX512BW-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %V64I8 = mul <64 x i8> undef, <i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128>
+; AVX512BW-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %V64I8 = mul <64 x i8> undef, <i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128>
 ; AVX512BW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; AVX512DQ-LABEL: 'mul_pow2'
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
-; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I64 = mul <2 x i64> undef, <i64 4, i64 4>
-; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4I64 = mul <4 x i64> undef, <i64 8, i64 8, i64 8, i64 8>
-; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V8I64 = mul <8 x i64> undef, <i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16>
+; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I64 = mul <2 x i64> undef, <i64 4, i64 4>
+; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V4I64 = mul <4 x i64> undef, <i64 8, i64 8, i64 8, i64 8>
+; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V8I64 = mul <8 x i64> undef, <i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16>
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I32 = mul i32 undef, undef
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I32 = mul <2 x i32> undef, <i32 4, i32 4>
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V4I32 = mul <4 x i32> undef, <i32 8, i32 8, i32 8, i32 8>
@@ -187,44 +187,44 @@ define i32 @mul_pow2(i32 %arg) {
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V8I8 = mul <8 x i8> undef, <i8 16, i8 16, i8 16, i8 16, i8 16, i8 16, i8 16, i8 16>
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %V16I8 = mul <16 x i8> undef, <i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32>
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: %V32I8 = mul <32 x i8> undef, <i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64>
-; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %V64I8 = mul <64 x i8> undef, <i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128>
+; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %V64I8 = mul <64 x i8> undef, <i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128>
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; SLM-LABEL: 'mul_pow2'
-; SLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
+; SLM-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = mul i64 undef, undef
 ; SLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I64 = mul <2 x i64> undef, <i64 4, i64 4>
 ; SLM-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4I64 = mul <4 x i64> undef, <i64 8, i64 8, i64 8, i64 8>
 ; SLM-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V8I64 = mul <8 x i64> undef, <i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16>
 ; SLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I32 = mul i32 undef, undef
-; SLM-NEXT:  Cost Model: Found an estimated cost of 11 for instruction: %V2I32 = mul <2 x i32> undef, <i32 4, i32 4>
-; SLM-NEXT:  Cost Model: Found an estimated cost of 11 for instruction: %V4I32 = mul <4 x i32> undef, <i32 8, i32 8, i32 8, i32 8>
-; SLM-NEXT:  Cost Model: Found an estimated cost of 22 for instruction: %V8I32 = mul <8 x i32> undef, <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
-; SLM-NEXT:  Cost Model: Found an estimated cost of 44 for instruction: %V16I32 = mul <16 x i32> undef, <i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32>
+; SLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I32 = mul <2 x i32> undef, <i32 4, i32 4>
+; SLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V4I32 = mul <4 x i32> undef, <i32 8, i32 8, i32 8, i32 8>
+; SLM-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V8I32 = mul <8 x i32> undef, <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
+; SLM-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V16I32 = mul <16 x i32> undef, <i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32>
 ; SLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I16 = mul i16 undef, undef
-; SLM-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I16 = mul <2 x i16> undef, <i16 4, i16 4>
-; SLM-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4I16 = mul <4 x i16> undef, <i16 8, i16 8, i16 8, i16 8>
-; SLM-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V8I16 = mul <8 x i16> undef, <i16 16, i16 16, i16 16, i16 16, i16 16, i16 16, i16 16, i16 16>
-; SLM-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V16I16 = mul <16 x i16> undef, <i16 32, i16 32, i16 32, i16 32, i16 32, i16 32, i16 32, i16 32, i16 32, i16 32, i16 32, i16 32, i16 32, i16 32, i16 32, i16 32>
-; SLM-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V32I16 = mul <32 x i16> undef, <i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64>
+; SLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I16 = mul <2 x i16> undef, <i16 4, i16 4>
+; SLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V4I16 = mul <4 x i16> undef, <i16 8, i16 8, i16 8, i16 8>
+; SLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V8I16 = mul <8 x i16> undef, <i16 16, i16 16, i16 16, i16 16, i16 16, i16 16, i16 16, i16 16>
+; SLM-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V16I16 = mul <16 x i16> undef, <i16 32, i16 32, i16 32, i16 32, i16 32, i16 32, i16 32, i16 32, i16 32, i16 32, i16 32, i16 32, i16 32, i16 32, i16 32, i16 32>
+; SLM-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V32I16 = mul <32 x i16> undef, <i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64, i16 64>
 ; SLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I8 = mul i8 undef, undef
-; SLM-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %V2I8 = mul <2 x i8> undef, <i8 4, i8 4>
-; SLM-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %V4I8 = mul <4 x i8> undef, <i8 8, i8 8, i8 8, i8 8>
-; SLM-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %V8I8 = mul <8 x i8> undef, <i8 16, i8 16, i8 16, i8 16, i8 16, i8 16, i8 16, i8 16>
-; SLM-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %V16I8 = mul <16 x i8> undef, <i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32>
-; SLM-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %V32I8 = mul <32 x i8> undef, <i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64>
-; SLM-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %V64I8 = mul <64 x i8> undef, <i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128>
+; SLM-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2I8 = mul <2 x i8> undef, <i8 4, i8 4>
+; SLM-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4I8 = mul <4 x i8> undef, <i8 8, i8 8, i8 8, i8 8>
+; SLM-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V8I8 = mul <8 x i8> undef, <i8 16, i8 16, i8 16, i8 16, i8 16, i8 16, i8 16, i8 16>
+; SLM-NEXT:  Cost Model: Found an estimated cost of 7 for instruction: %V16I8 = mul <16 x i8> undef, <i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32, i8 32>
+; SLM-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V32I8 = mul <32 x i8> undef, <i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64, i8 64>
+; SLM-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V64I8 = mul <64 x i8> undef, <i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128>
 ; SLM-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; GLM-LABEL: 'mul_pow2'
-; GLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
+; GLM-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = mul i64 undef, undef
 ; GLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I64 = mul <2 x i64> undef, <i64 4, i64 4>
 ; GLM-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4I64 = mul <4 x i64> undef, <i64 8, i64 8, i64 8, i64 8>
 ; GLM-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V8I64 = mul <8 x i64> undef, <i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16>
 ; GLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I32 = mul i32 undef, undef
-; GLM-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I32 = mul <2 x i32> undef, <i32 4, i32 4>
-; GLM-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4I32 = mul <4 x i32> undef, <i32 8, i32 8, i32 8, i32 8>
-; GLM-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V8I32 = mul <8 x i32> undef, <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
-; GLM-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V16I32 = mul <16 x i32> undef, <i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32>
+; GLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I32 = mul <2 x i32> undef, <i32 4, i32 4>
+; GLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V4I32 = mul <4 x i32> undef, <i32 8, i32 8, i32 8, i32 8>
+; GLM-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V8I32 = mul <8 x i32> undef, <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
+; GLM-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V16I32 = mul <16 x i32> undef, <i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32>
 ; GLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I16 = mul i16 undef, undef
 ; GLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I16 = mul <2 x i16> undef, <i16 4, i16 4>
 ; GLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V4I16 = mul <4 x i16> undef, <i16 8, i16 8, i16 8, i16 8>
@@ -241,15 +241,15 @@ define i32 @mul_pow2(i32 %arg) {
 ; GLM-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; BTVER2-LABEL: 'mul_pow2'
-; BTVER2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
+; BTVER2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = mul i64 undef, undef
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I64 = mul <2 x i64> undef, <i64 4, i64 4>
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4I64 = mul <4 x i64> undef, <i64 8, i64 8, i64 8, i64 8>
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8I64 = mul <8 x i64> undef, <i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16>
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I32 = mul i32 undef, undef
-; BTVER2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I32 = mul <2 x i32> undef, <i32 4, i32 4>
-; BTVER2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4I32 = mul <4 x i32> undef, <i32 8, i32 8, i32 8, i32 8>
-; BTVER2-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %V8I32 = mul <8 x i32> undef, <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
-; BTVER2-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %V16I32 = mul <16 x i32> undef, <i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32>
+; BTVER2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I32 = mul <2 x i32> undef, <i32 4, i32 4>
+; BTVER2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V4I32 = mul <4 x i32> undef, <i32 8, i32 8, i32 8, i32 8>
+; BTVER2-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V8I32 = mul <8 x i32> undef, <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
+; BTVER2-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V16I32 = mul <16 x i32> undef, <i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32>
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I16 = mul i16 undef, undef
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I16 = mul <2 x i16> undef, <i16 4, i16 4>
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V4I16 = mul <4 x i16> undef, <i16 8, i16 8, i16 8, i16 8>
@@ -296,7 +296,7 @@ define i32 @mul_pow2(i32 %arg) {
 
 define i32 @mul_pow2_m1(i32 %arg) {
 ; SSSE3-LABEL: 'mul_pow2_m1'
-; SSSE3-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
+; SSSE3-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = mul i64 undef, undef
 ; SSSE3-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I64 = mul <2 x i64> undef, <i64 3, i64 3>
 ; SSSE3-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4I64 = mul <4 x i64> undef, <i64 7, i64 7, i64 7, i64 7>
 ; SSSE3-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8I64 = mul <8 x i64> undef, <i64 15, i64 15, i64 15, i64 15, i64 15, i64 15, i64 15, i64 15>
@@ -321,7 +321,7 @@ define i32 @mul_pow2_m1(i32 %arg) {
 ; SSSE3-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; SSE42-LABEL: 'mul_pow2_m1'
-; SSE42-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
+; SSE42-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = mul i64 undef, undef
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I64 = mul <2 x i64> undef, <i64 3, i64 3>
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4I64 = mul <4 x i64> undef, <i64 7, i64 7, i64 7, i64 7>
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8I64 = mul <8 x i64> undef, <i64 15, i64 15, i64 15, i64 15, i64 15, i64 15, i64 15, i64 15>
@@ -346,7 +346,7 @@ define i32 @mul_pow2_m1(i32 %arg) {
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; AVX1-LABEL: 'mul_pow2_m1'
-; AVX1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
+; AVX1-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = mul i64 undef, undef
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I64 = mul <2 x i64> undef, <i64 3, i64 3>
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4I64 = mul <4 x i64> undef, <i64 7, i64 7, i64 7, i64 7>
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8I64 = mul <8 x i64> undef, <i64 15, i64 15, i64 15, i64 15, i64 15, i64 15, i64 15, i64 15>
@@ -371,7 +371,7 @@ define i32 @mul_pow2_m1(i32 %arg) {
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; AVX2-LABEL: 'mul_pow2_m1'
-; AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
+; AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = mul i64 undef, undef
 ; AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I64 = mul <2 x i64> undef, <i64 3, i64 3>
 ; AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4I64 = mul <4 x i64> undef, <i64 7, i64 7, i64 7, i64 7>
 ; AVX2-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V8I64 = mul <8 x i64> undef, <i64 15, i64 15, i64 15, i64 15, i64 15, i64 15, i64 15, i64 15>
@@ -417,7 +417,7 @@ define i32 @mul_pow2_m1(i32 %arg) {
 ; AVX512F-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V8I8 = mul <8 x i8> undef, <i8 15, i8 15, i8 15, i8 15, i8 15, i8 15, i8 15, i8 15>
 ; AVX512F-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %V16I8 = mul <16 x i8> undef, <i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31>
 ; AVX512F-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: %V32I8 = mul <32 x i8> undef, <i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63>
-; AVX512F-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %V64I8 = mul <64 x i8> undef, <i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127>
+; AVX512F-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %V64I8 = mul <64 x i8> undef, <i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127>
 ; AVX512F-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; AVX512BW-LABEL: 'mul_pow2_m1'
@@ -442,7 +442,7 @@ define i32 @mul_pow2_m1(i32 %arg) {
 ; AVX512BW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V8I8 = mul <8 x i8> undef, <i8 15, i8 15, i8 15, i8 15, i8 15, i8 15, i8 15, i8 15>
 ; AVX512BW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V16I8 = mul <16 x i8> undef, <i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31>
 ; AVX512BW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V32I8 = mul <32 x i8> undef, <i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63>
-; AVX512BW-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %V64I8 = mul <64 x i8> undef, <i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127>
+; AVX512BW-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %V64I8 = mul <64 x i8> undef, <i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127>
 ; AVX512BW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; AVX512DQ-LABEL: 'mul_pow2_m1'
@@ -467,11 +467,11 @@ define i32 @mul_pow2_m1(i32 %arg) {
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V8I8 = mul <8 x i8> undef, <i8 15, i8 15, i8 15, i8 15, i8 15, i8 15, i8 15, i8 15>
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %V16I8 = mul <16 x i8> undef, <i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31, i8 31>
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: %V32I8 = mul <32 x i8> undef, <i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63, i8 63>
-; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %V64I8 = mul <64 x i8> undef, <i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127>
+; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %V64I8 = mul <64 x i8> undef, <i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127, i8 127>
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; SLM-LABEL: 'mul_pow2_m1'
-; SLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
+; SLM-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = mul i64 undef, undef
 ; SLM-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %V2I64 = mul <2 x i64> undef, <i64 3, i64 3>
 ; SLM-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %V4I64 = mul <4 x i64> undef, <i64 7, i64 7, i64 7, i64 7>
 ; SLM-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %V8I64 = mul <8 x i64> undef, <i64 15, i64 15, i64 15, i64 15, i64 15, i64 15, i64 15, i64 15>
@@ -496,7 +496,7 @@ define i32 @mul_pow2_m1(i32 %arg) {
 ; SLM-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; GLM-LABEL: 'mul_pow2_m1'
-; GLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
+; GLM-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = mul i64 undef, undef
 ; GLM-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I64 = mul <2 x i64> undef, <i64 3, i64 3>
 ; GLM-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4I64 = mul <4 x i64> undef, <i64 7, i64 7, i64 7, i64 7>
 ; GLM-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8I64 = mul <8 x i64> undef, <i64 15, i64 15, i64 15, i64 15, i64 15, i64 15, i64 15, i64 15>
@@ -521,7 +521,7 @@ define i32 @mul_pow2_m1(i32 %arg) {
 ; GLM-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; BTVER2-LABEL: 'mul_pow2_m1'
-; BTVER2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
+; BTVER2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = mul i64 undef, undef
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I64 = mul <2 x i64> undef, <i64 3, i64 3>
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4I64 = mul <4 x i64> undef, <i64 7, i64 7, i64 7, i64 7>
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8I64 = mul <8 x i64> undef, <i64 15, i64 15, i64 15, i64 15, i64 15, i64 15, i64 15, i64 15>
@@ -576,7 +576,7 @@ define i32 @mul_pow2_m1(i32 %arg) {
 
 define i32 @mul_pow2_p1(i32 %arg) {
 ; SSSE3-LABEL: 'mul_pow2_p1'
-; SSSE3-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
+; SSSE3-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = mul i64 undef, undef
 ; SSSE3-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I64 = mul <2 x i64> undef, <i64 5, i64 5>
 ; SSSE3-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4I64 = mul <4 x i64> undef, <i64 9, i64 9, i64 9, i64 9>
 ; SSSE3-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8I64 = mul <8 x i64> undef, <i64 17, i64 17, i64 17, i64 17, i64 17, i64 17, i64 17, i64 17>
@@ -601,7 +601,7 @@ define i32 @mul_pow2_p1(i32 %arg) {
 ; SSSE3-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; SSE42-LABEL: 'mul_pow2_p1'
-; SSE42-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
+; SSE42-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = mul i64 undef, undef
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I64 = mul <2 x i64> undef, <i64 5, i64 5>
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4I64 = mul <4 x i64> undef, <i64 9, i64 9, i64 9, i64 9>
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8I64 = mul <8 x i64> undef, <i64 17, i64 17, i64 17, i64 17, i64 17, i64 17, i64 17, i64 17>
@@ -626,7 +626,7 @@ define i32 @mul_pow2_p1(i32 %arg) {
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; AVX1-LABEL: 'mul_pow2_p1'
-; AVX1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
+; AVX1-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = mul i64 undef, undef
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I64 = mul <2 x i64> undef, <i64 5, i64 5>
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4I64 = mul <4 x i64> undef, <i64 9, i64 9, i64 9, i64 9>
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8I64 = mul <8 x i64> undef, <i64 17, i64 17, i64 17, i64 17, i64 17, i64 17, i64 17, i64 17>
@@ -651,7 +651,7 @@ define i32 @mul_pow2_p1(i32 %arg) {
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; AVX2-LABEL: 'mul_pow2_p1'
-; AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
+; AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = mul i64 undef, undef
 ; AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I64 = mul <2 x i64> undef, <i64 5, i64 5>
 ; AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4I64 = mul <4 x i64> undef, <i64 9, i64 9, i64 9, i64 9>
 ; AVX2-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V8I64 = mul <8 x i64> undef, <i64 17, i64 17, i64 17, i64 17, i64 17, i64 17, i64 17, i64 17>
@@ -697,7 +697,7 @@ define i32 @mul_pow2_p1(i32 %arg) {
 ; AVX512F-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V8I8 = mul <8 x i8> undef, <i8 17, i8 17, i8 17, i8 17, i8 17, i8 17, i8 17, i8 17>
 ; AVX512F-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %V16I8 = mul <16 x i8> undef, <i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33>
 ; AVX512F-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: %V32I8 = mul <32 x i8> undef, <i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65>
-; AVX512F-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %V64I8 = mul <64 x i8> undef, <i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128>
+; AVX512F-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %V64I8 = mul <64 x i8> undef, <i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128>
 ; AVX512F-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; AVX512BW-LABEL: 'mul_pow2_p1'
@@ -722,7 +722,7 @@ define i32 @mul_pow2_p1(i32 %arg) {
 ; AVX512BW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V8I8 = mul <8 x i8> undef, <i8 17, i8 17, i8 17, i8 17, i8 17, i8 17, i8 17, i8 17>
 ; AVX512BW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V16I8 = mul <16 x i8> undef, <i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33>
 ; AVX512BW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V32I8 = mul <32 x i8> undef, <i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65>
-; AVX512BW-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %V64I8 = mul <64 x i8> undef, <i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128>
+; AVX512BW-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %V64I8 = mul <64 x i8> undef, <i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128>
 ; AVX512BW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; AVX512DQ-LABEL: 'mul_pow2_p1'
@@ -747,11 +747,11 @@ define i32 @mul_pow2_p1(i32 %arg) {
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V8I8 = mul <8 x i8> undef, <i8 17, i8 17, i8 17, i8 17, i8 17, i8 17, i8 17, i8 17>
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %V16I8 = mul <16 x i8> undef, <i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33>
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: %V32I8 = mul <32 x i8> undef, <i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65>
-; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %V64I8 = mul <64 x i8> undef, <i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128>
+; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %V64I8 = mul <64 x i8> undef, <i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128>
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; SLM-LABEL: 'mul_pow2_p1'
-; SLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
+; SLM-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = mul i64 undef, undef
 ; SLM-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %V2I64 = mul <2 x i64> undef, <i64 5, i64 5>
 ; SLM-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %V4I64 = mul <4 x i64> undef, <i64 9, i64 9, i64 9, i64 9>
 ; SLM-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %V8I64 = mul <8 x i64> undef, <i64 17, i64 17, i64 17, i64 17, i64 17, i64 17, i64 17, i64 17>
@@ -772,11 +772,11 @@ define i32 @mul_pow2_p1(i32 %arg) {
 ; SLM-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %V8I8 = mul <8 x i8> undef, <i8 17, i8 17, i8 17, i8 17, i8 17, i8 17, i8 17, i8 17>
 ; SLM-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %V16I8 = mul <16 x i8> undef, <i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33, i8 33>
 ; SLM-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %V32I8 = mul <32 x i8> undef, <i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65, i8 65>
-; SLM-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %V64I8 = mul <64 x i8> undef, <i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128>
+; SLM-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V64I8 = mul <64 x i8> undef, <i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128, i8 -128>
 ; SLM-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; GLM-LABEL: 'mul_pow2_p1'
-; GLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
+; GLM-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = mul i64 undef, undef
 ; GLM-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I64 = mul <2 x i64> undef, <i64 5, i64 5>
 ; GLM-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4I64 = mul <4 x i64> undef, <i64 9, i64 9, i64 9, i64 9>
 ; GLM-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8I64 = mul <8 x i64> undef, <i64 17, i64 17, i64 17, i64 17, i64 17, i64 17, i64 17, i64 17>
@@ -801,7 +801,7 @@ define i32 @mul_pow2_p1(i32 %arg) {
 ; GLM-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; BTVER2-LABEL: 'mul_pow2_p1'
-; BTVER2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
+; BTVER2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = mul i64 undef, undef
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I64 = mul <2 x i64> undef, <i64 5, i64 5>
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4I64 = mul <4 x i64> undef, <i64 9, i64 9, i64 9, i64 9>
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8I64 = mul <8 x i64> undef, <i64 17, i64 17, i64 17, i64 17, i64 17, i64 17, i64 17, i64 17>

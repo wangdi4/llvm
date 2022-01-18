@@ -31,16 +31,6 @@ VPlanVLSAnalysisHIR::getAccessType(const RegDDRef *Ref, const unsigned Level,
   return MemAccessTy::Strided;
 }
 
-// TODO: Replace this function with a call to divergence analysis when it is
-// ready.
-bool VPlanVLSAnalysisHIR::isUnitStride(const RegDDRef *Ref, unsigned Level) {
-  int64_t ConstStride;
-  auto DL = Ref->getDDRefUtils().getDataLayout();
-  auto RefSizeInBytes = DL.getTypeAllocSize(Ref->getDestType());
-  return getAccessType(Ref, Level, &ConstStride) == MemAccessTy::Strided &&
-    ConstStride > 0 && static_cast<uint64_t>(ConstStride) == RefSizeInBytes;
-}
-
 OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPLoadStoreInst *Inst,
                                                  const unsigned VF) const {
 

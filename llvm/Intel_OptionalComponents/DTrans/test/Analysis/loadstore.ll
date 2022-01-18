@@ -1,5 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -whole-program-assume -internalize -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -passes='internalize,require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies correct handling of load and store instructions by the
 ; DTransAnalysis and verifies that real legality checks are correctly

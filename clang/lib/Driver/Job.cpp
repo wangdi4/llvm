@@ -118,8 +118,15 @@ void Command::writeResponseFile(raw_ostream &OS) const {
   for (const auto *Arg : Arguments) {
     OS << '"';
 
-    for (; *Arg != '\0'; Arg++) {
+    for (int Cnt = 0; *Arg != '\0'; Arg++, Cnt++) { // INTEL
       if (*Arg == '\"' || *Arg == '\\') {
+#if INTEL_CUSTOMIZATION
+        // When using NFS path names, the MSVC linker doesn't take too kindly
+        // to libraries passed in with '\\\\nfs\\libname.lib'.  Update the
+        // string to use '\\nfs\\libname.lib' to work around the issue.
+        if (Cnt == 0 && *Arg == '\\' && *(Arg+1) == '\\')
+          Arg++;
+#endif // INTEL_CUSTOMIZATION
         OS << '\\';
       }
       OS << *Arg;
@@ -447,6 +454,8 @@ int CC1Command::Execute(ArrayRef<llvm::Optional<StringRef>> Redirects,
   Argv.push_back(getExecutable());
   Argv.append(getArguments().begin(), getArguments().end());
   Argv.push_back(nullptr);
+  Argv.pop_back(); // The terminating null element shall not be part of the
+                   // slice (main() behavior).
 
   // This flag simply indicates that the program couldn't start, which isn't
   // applicable here.

@@ -343,11 +343,22 @@ private:
   // translation unit has any target code.
   bool HasTargetCode = false;
 
+  // Cache for multiversion targets metadata
+  llvm::MDNode *AutoMultiVersionMetadata = nullptr;
+
+  /// A vector of metadata strings for "#pragma comment( lib, ... )".
+  SmallVector<llvm::MDNode *, 8> PCKLibMetadata;
+  /// This function actually implements the same function as AddDependentLib,
+  /// but we maintain another metadata list.
+  void AddPragmaCommentLib(StringRef Lib);
+
+#if INTEL_FEATURE_SW_DTRANS
   /// List of types used in the application, used later to generate DTrans
   /// metadata. Some RecordDecl's can be emitted as a base class, so they can
   /// have 2 representations, so we store/generate both.
   llvm::MapVector<const RecordDecl *, llvm::SmallVector<llvm::StructType *, 2>>
       DTransTypes;
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
   /// Non-zero if emitting code from a target region, including functions
@@ -607,6 +618,8 @@ private:
   MetadataTypeMap VirtualMetadataIdMap;
   MetadataTypeMap GeneralizedMetadataIdMap;
 
+  llvm::DenseMap<StringRef, const RecordDecl *> TypesWithAspects;
+
 public:
   CodeGenModule(ASTContext &C, const HeaderSearchOptions &headersearchopts,
                 const PreprocessorOptions &ppopts,
@@ -733,6 +746,31 @@ public:
       NoObjCARCExceptionsMetadata = llvm::MDNode::get(getLLVMContext(), None);
     return NoObjCARCExceptionsMetadata;
   }
+
+#ifdef INTEL_CUSTOMIZATION
+  llvm::MDNode *getAutoMultiversionMetadata() {
+    if (AutoMultiVersionMetadata)
+      return AutoMultiVersionMetadata;
+
+    std::vector<std::string> &Targets =
+        Target.getTargetOpts().AutoMultiVersionTargets;
+    if (Targets.empty())
+      return nullptr;
+
+    using namespace llvm;
+    llvm::SmallVector<llvm::Metadata *> TargetMDs;
+    llvm::LLVMContext &Ctx = getLLVMContext();
+    llvm::Metadata *MagicStr =
+        llvm::MDString::get(Ctx, "auto-cpu-dispatch-target");
+    for (llvm::StringRef Target : Targets) {
+      std::array<llvm::Metadata *, 2> Ops = {MagicStr,
+                                             llvm::MDString::get(Ctx, Target)};
+      TargetMDs.push_back(llvm::MDNode::get(Ctx, Ops));
+    }
+    AutoMultiVersionMetadata = llvm::MDNode::get(Ctx, TargetMDs);
+    return AutoMultiVersionMetadata;
+  }
+#endif //INTEL_CUSTOMIZATION
 
   ASTContext &getContext() const { return Context; }
   const LangOptions &getLangOpts() const { return LangOpts; }
@@ -915,6 +953,9 @@ public:
                                     bool DontDefer = false,
                                     ForDefinition_t IsForDefinition
                                       = NotForDefinition);
+
+  // Return the function body address of the given function.
+  llvm::Constant *GetFunctionStart(const ValueDecl *Decl);
 
   /// Get the address of the RTTI descriptor for the given type.
   llvm::Constant *GetAddrOfRTTIDescriptor(QualType Ty, bool ForEH = false);
@@ -1176,7 +1217,17 @@ public:
       return Context.getTargetAddressSpace(LangAS::Default);
     return getDataLayout().getAllocaAddrSpace();
   }
+  // During the OpenMP device compile there are some cases where a function
+  // must be emitted that is found outside CodeGenModule code. Rather than pass
+  // this back up and change common code, expose this publically for now.
+  void addDeferredTargetDecl(GlobalDecl Decl) {
+    addDeferredDeclToEmit(Decl);
+  }
 #endif // INTEL_COLLAB
+
+  void addTypeWithAspects(StringRef TypeName, const RecordDecl *RD) {
+    TypesWithAspects[TypeName] = RD;
+  }
 
   void generateIntelFPGAAnnotation(const Decl *D,
                                      llvm::SmallString<256> &AnnotStr);
@@ -1267,6 +1318,7 @@ public:
 
   void ConstructSVMLCallAttributes(StringRef Name, llvm::AttributeList &List);
 
+#if INTEL_FEATURE_SW_DTRANS
   void addDTransType(const RecordDecl *RD, llvm::StructType *STy) {
     if (getCodeGenOpts().EmitDTransInfo) {
       RD = cast<RecordDecl>(RD->getCanonicalDecl());
@@ -1275,6 +1327,9 @@ public:
     }
   }
 
+  llvm::Function *
+  addDTransInfoToFunc(const CodeGenTypes::DTransFuncInfo &FuncInfo,
+                      llvm::FunctionType *FT, llvm::Function *Func);
   llvm::Function *addDTransInfoToFunc(GlobalDecl GD, StringRef MangledName,
                                       llvm::FunctionType *FT,
                                       llvm::Function *Func);
@@ -1289,6 +1344,7 @@ public:
                     const SmallVectorImpl<llvm::Constant *> &Fields);
   llvm::CallBase *addDTransIndirectCallInfo(llvm::CallBase *CI,
                                             const CGFunctionInfo &CallInfo);
+#endif // INTEL_FEATURE_SW_DTRANS
 
 #endif // INTEL_CUSTOMIZATION
 
@@ -1681,6 +1737,7 @@ private:
   void EmitAliasDefinition(GlobalDecl GD);
   void emitIFuncDefinition(GlobalDecl GD);
   void emitCPUDispatchDefinition(GlobalDecl GD);
+  void EmitTargetClonesResolver(GlobalDecl GD);
   void EmitObjCPropertyImplementations(const ObjCImplementationDecl *D);
   void EmitObjCIvarInitializations(ObjCImplementationDecl *D);
 
@@ -1791,8 +1848,10 @@ private:
   /// \brief Emit MS-specific debug info as llvm.dbg.ms.* metadata nodes.
   void EmitMSDebugInfoMetadata();
 
+#if INTEL_FEATURE_SW_DTRANS
   /// Emit the Intel DTrans type/function metadata.
   void EmitIntelDTransMetadata();
+#endif // INTEL_FEATURE_SW_DTRANS
 
   /// Emit compiler options as llvm.ident metadata.
   void EmitSoxIdentMetadata();

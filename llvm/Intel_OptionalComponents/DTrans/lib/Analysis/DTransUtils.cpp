@@ -32,6 +32,9 @@ using namespace dtrans;
 
 #define DEBUG_TYPE "dtransanalysis"
 
+// Debug type for verbose field single alloc function analysis output.
+#define SAFETY_FSAF "dtrans-safetyanalyzer-fsaf"
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 cl::opt<bool> dtrans::DTransPrintAnalyzedTypes("dtrans-print-types",
                                                cl::ReallyHidden);
@@ -666,6 +669,7 @@ void dtrans::StructInfo::print(
     OS << "enclosing type: " << CG.getEnclosingType()->getName() << "\n";
   }
   printSafetyData(OS);
+  OS << "  End LLVMType: " << *S << "\n";
   OS << "\n";
 }
 
@@ -681,6 +685,7 @@ void dtrans::ArrayInfo::print(raw_ostream &OS) const {
   if (DTransElemTy->isDTransType())
     OS << "  Element DTrans Type: " << *DTransElemTy->getDTransType() << "\n";
   printSafetyData(OS);
+  OS << "  End LLVMType: " << *getLLVMType() << "\n";
   OS << "\n";
 }
 
@@ -790,11 +795,11 @@ void dtrans::FieldInfo::print(raw_ostream &OS,
   if (IgnoredInTransform & dtrans::DT_FieldSingleAllocFunction)
     OS << " (ignored)";
   OS << "\n";
-  OS << "    Readers: ";
+  OS << "    Readers:" << (readers().empty() ? "" : " ");
   dtrans::printCollectionSorted(OS, readers().begin(), readers().end(), ", ",
                                 [](const Function *F) { return F->getName(); });
   OS << "\n";
-  OS << "    Writers: ";
+  OS << "    Writers:" << (writers().empty() ? "" : " ");
   dtrans::printCollectionSorted(OS, writers().begin(), writers().end(), ", ",
                                 [](const Function *F) { return F->getName(); });
   OS << "\n";
@@ -981,6 +986,30 @@ bool StructInfo::hasPaddedField() {
   dtrans::FieldInfo &Field = getField(LastField);
 
   return Field.isPaddedField();
+}
+
+void StructInfo::updateNewSingleAllocFunc(unsigned FieldNum,
+                                          Function &Callee) {
+  dtrans::FieldInfo &FI = getField(FieldNum);
+  if (!FI.processNewSingleAllocFunction(&Callee))
+    return;
+  DEBUG_WITH_TYPE(SAFETY_FSAF, {
+    dbgs() << "dtrans-fsaf: " << *(getLLVMType()) << " [" << FieldNum << "] ";
+    if (FI.isSingleAllocFunction())
+      Callee.printAsOperand(dbgs());
+    else
+      dbgs() << "<BOTTOM>";
+    dbgs() << "\n";
+  });
+}
+
+void StructInfo::updateSingleAllocFuncToBottom(unsigned FieldNum) {
+  dtrans::FieldInfo &FI = getField(FieldNum);
+  DEBUG_WITH_TYPE(SAFETY_FSAF, {
+    if (!FI.isBottomAllocFunction())
+      dbgs() << "dtrans-fsaf: " << *(getLLVMType()) << " [" << FieldNum << "] <BOTTOM>\n";
+  });
+  FI.setBottomAllocFunction();
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1488,6 +1517,53 @@ bool dtrans::hasPointerType(llvm::Type *Ty) {
   }
 
   return false;
+}
+
+// Helper function that checks if at least one field in the structure StTy
+// is an opaque pointer type, or if it contains a reference to an opaque
+// pointer.
+bool dtrans::hasOpaquePointerFields(llvm::StructType *StTy) {
+  assert(StTy && "Trying to access the information in a null type");
+
+  // Return true if the input type is an opaque pointer
+  std::function<bool(llvm::Type *, llvm::SetVector<Type *>&)>
+      hasOpaquePointerType = [&hasOpaquePointerType](llvm::Type *Ty,
+      llvm::SetVector<Type *> &Visited) -> bool {
+
+    // If the type was visited then return false, there is nothing to check
+    if (!Visited.insert(Ty))
+      return false;
+
+    // If the input type is a pointer then return true if it is opaque, else
+    // return false.
+    if (Ty->isPointerTy())
+      return Ty->isOpaquePointerTy();
+
+    // If the input type is an array or a vector, then check the element
+    else if (Ty->isArrayTy())
+      return hasOpaquePointerType(cast<ArrayType>(Ty)->getElementType(),
+                                  Visited);
+
+    else if (Ty->isVectorTy())
+      return hasOpaquePointerType(cast<VectorType>(Ty)->getElementType(),
+                                  Visited);
+
+    // If the input type is a structure, then check the fields
+    else if (auto *StTy = dyn_cast<StructType>(Ty))
+      for (auto *ElemTy : StTy->elements())
+        if(hasOpaquePointerType(ElemTy, Visited))
+          return true;
+
+    // No need to check for function pointers because they are pointers
+    return false;
+  };
+
+  // No need to call the recursion when there are no elements
+  if (StTy->isOpaque() || StTy->getNumElements() == 0)
+    return false;
+
+  SetVector<Type *> Visited;
+  return hasOpaquePointerType(cast<Type>(StTy), Visited);
 }
 
 // If the loaded operand comes from a BitCast that points to a structure then

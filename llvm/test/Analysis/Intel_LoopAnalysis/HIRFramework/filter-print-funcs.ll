@@ -1,19 +1,21 @@
 ; Check that filter-print-funcs option filters HIR output
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup --print-after-all -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup --print-after-all -filter-print-funcs=bar -disable-output < %s 2>&1 | FileCheck %s --check-prefix=FILTER-CHECK
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -print-after-all -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -print-after-all -filter-print-funcs=foo -disable-output < %s 2>&1 | FileCheck %s --check-prefix=FILTER-CHECK
 
-; CHECK: *** IR Dump After
+; RUN: opt -passes="hir-ssa-deconstruction,print,hir-temp-cleanup,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print,hir-temp-cleanup,print<hir>" -filter-print-funcs=foo -disable-output < %s 2>&1 | FileCheck %s --check-prefix=FILTER-CHECK
+
+
+
 ; CHECK: Function: foo
 ; CHECK: BEGIN REGION
-; CHECK: *** IR Dump After
 ; CHECK: Function: bar
 ; CHECK: BEGIN REGION
 
-; FILTER-CHECK: *** IR Dump After
-; FILTER-CHECK-NOT: Function: foo
-; FILTER-CHECK: Function: bar
+; FILTER-CHECK: Function: foo
 ; FILTER-CHECK: BEGIN REGION
+; FILTER-CHECK-NOT: Function: bar
 
 ;Module Before HIR; ModuleID = 'filter-print-funcs.c'
 source_filename = "filter-print-funcs.c"

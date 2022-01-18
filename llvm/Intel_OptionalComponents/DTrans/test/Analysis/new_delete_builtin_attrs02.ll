@@ -1,6 +1,7 @@
 ; REQUIRES: asserts
 
 ; RUN: opt  < %s -whole-program-assume -dtransanalysis -debug-only=dtransanalysis -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -debug-only=dtransanalysis -disable-output 2>&1 | FileCheck %s
 
 ; This test checks that user-defined function allocate() is not recognized as
 ; AK_UserMalloc function since its first parameter is used inside the function.

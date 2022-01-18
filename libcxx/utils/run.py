@@ -43,7 +43,14 @@ def main():
             subprocess.check_call(['xcrun', 'codesign', '-f', '-s', args.codesign_identity, exe], env={})
 
     # Extract environment variables into a dictionary
-    env = {k : v  for (k, v) in map(lambda s: s.split('=', 1), args.env)}
+    # INTEL_CUSTOMIZATION
+    # If no extra env args are passed in, the default empty value
+    # will clear all env variable and cause the lit test to run fail.
+    # So we set env to 'None' if no extra env args.
+    env = None
+    if args.env:
+        env = {k : v  for (k, v) in map(lambda s: s.split('=', 1), args.env)}
+    # end INTEL_CUSTOMIZATION
     if platform.system() == 'Windows':
         # Pass some extra variables through on Windows:
         # COMSPEC is needed for running subprocesses via std::system().

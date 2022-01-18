@@ -20,13 +20,15 @@ define i1 @basic_test(float* %ptrA, float* %ptrB, float* %ptrX, float* %ptrY) "u
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmulss (%rdx), %xmm0, %xmm1
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
-; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm2 = -(xmm2 * xmm0) + xmm1
-; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm0 = -(xmm0 * mem) + xmm1
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm2
-; CHECK-NEXT:    seta %cl
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    seta %al
-; CHECK-NEXT:    orb %cl, %al
+; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm2 = (xmm2 * xmm0) - xmm1
+; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm0 = (xmm0 * mem) - xmm1
+; CHECK-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm1, %xmm0, %k0
+; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm0, %xmm2, %k1
+; CHECK-NEXT:    korw %k0, %k1, %k0
+; CHECK-NEXT:    kmovd %k0, %eax
+; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    retq
 entry:
   %A = load float, float* %ptrA
@@ -50,12 +52,14 @@ define i1 @basic_test_no_loads(float %A, float %B, float %X, float %Y) "unsafe-f
 ; CHECK-NEXT:    vsubss %xmm2, %xmm0, %xmm0
 ; CHECK-NEXT:    vmulss %xmm3, %xmm0, %xmm0
 ; CHECK-NEXT:    vsubss %xmm2, %xmm1, %xmm1
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    vmulss %xmm3, %xmm1, %xmm0
-; CHECK-NEXT:    setb %cl
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    setb %al
-; CHECK-NEXT:    orb %cl, %al
+; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vmulss %xmm3, %xmm1, %xmm1
+; CHECK-NEXT:    vcmpltps %xmm2, %xmm1, %k0
+; CHECK-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm1, %xmm0, %k1
+; CHECK-NEXT:    korw %k0, %k1, %k0
+; CHECK-NEXT:    kmovd %k0, %eax
+; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    retq
 entry:
   %sub1 = fsub fast float %A, %X
@@ -79,12 +83,14 @@ define i1 @no_unsafe_attrib(float* %ptrA, float* %ptrB, float* %ptrX, float* %pt
 ; CHECK-NEXT:    vsubss %xmm2, %xmm0, %xmm0
 ; CHECK-NEXT:    vmulss %xmm3, %xmm0, %xmm0
 ; CHECK-NEXT:    vsubss %xmm2, %xmm1, %xmm1
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    vmulss %xmm3, %xmm1, %xmm0
-; CHECK-NEXT:    setb %cl
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    setb %al
-; CHECK-NEXT:    orb %cl, %al
+; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vmulss %xmm3, %xmm1, %xmm1
+; CHECK-NEXT:    vcmpltps %xmm2, %xmm1, %k0
+; CHECK-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm1, %xmm0, %k1
+; CHECK-NEXT:    korw %k0, %k1, %k0
+; CHECK-NEXT:    kmovd %k0, %eax
+; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    retq
 entry:
   %A = load float, float* %ptrA
@@ -112,16 +118,18 @@ define i1 @Y_has_other_users(float* %ptrA, float* %ptrB, float* %ptrX, float* %p
 ; CHECK-NEXT:    vsubss %xmm2, %xmm0, %xmm0
 ; CHECK-NEXT:    vmulss %xmm3, %xmm0, %xmm0
 ; CHECK-NEXT:    vsubss %xmm2, %xmm1, %xmm1
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    vmulss %xmm3, %xmm1, %xmm0
-; CHECK-NEXT:    setb %cl
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
-; CHECK-NEXT:    setb %al
-; CHECK-NEXT:    vucomiss %xmm3, %xmm0
-; CHECK-NEXT:    seta %dl
+; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vmulss %xmm3, %xmm1, %xmm1
+; CHECK-NEXT:    vucomiss %xmm3, %xmm2
+; CHECK-NEXT:    seta %cl
+; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm2, %xmm1, %k0
+; CHECK-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm1, %xmm0, %k1
+; CHECK-NEXT:    korw %k0, %k1, %k0
+; CHECK-NEXT:    kmovd %k0, %eax
 ; CHECK-NEXT:    orb %cl, %al
-; CHECK-NEXT:    orb %dl, %al
+; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    retq
 entry:
   %A = load float, float* %ptrA
@@ -152,12 +160,13 @@ define i1 @sub1_has_other_users(float* %ptrA, float* %ptrB, float* %ptrX, float*
 ; CHECK-NEXT:    vmulss %xmm3, %xmm0, %xmm4
 ; CHECK-NEXT:    vsubss %xmm2, %xmm1, %xmm1
 ; CHECK-NEXT:    vmulss %xmm3, %xmm1, %xmm1
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm4
-; CHECK-NEXT:    setb %al
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm1
-; CHECK-NEXT:    setb %cl
-; CHECK-NEXT:    orb %al, %cl
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
+; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm2, %xmm1, %k0
+; CHECK-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm1, %xmm4, %k1
+; CHECK-NEXT:    korw %k0, %k1, %k0
+; CHECK-NEXT:    kmovd %k0, %ecx
+; CHECK-NEXT:    vucomiss {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0
 ; CHECK-NEXT:    setb %al
 ; CHECK-NEXT:    orb %cl, %al
 ; CHECK-NEXT:    retq
@@ -190,12 +199,13 @@ define i1 @sub2_has_other_users(float* %ptrA, float* %ptrB, float* %ptrX, float*
 ; CHECK-NEXT:    vmulss %xmm3, %xmm0, %xmm0
 ; CHECK-NEXT:    vsubss %xmm2, %xmm1, %xmm1
 ; CHECK-NEXT:    vmulss %xmm3, %xmm1, %xmm2
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    setb %al
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm2
-; CHECK-NEXT:    setb %cl
-; CHECK-NEXT:    orb %al, %cl
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm1
+; CHECK-NEXT:    vmovss {{.*#+}} xmm3 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm3, %xmm2, %k0
+; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm2, %xmm0, %k1
+; CHECK-NEXT:    korw %k0, %k1, %k0
+; CHECK-NEXT:    kmovd %k0, %ecx
+; CHECK-NEXT:    vucomiss {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm1
 ; CHECK-NEXT:    setb %al
 ; CHECK-NEXT:    orb %cl, %al
 ; CHECK-NEXT:    retq
@@ -225,13 +235,15 @@ define i1 @swap_operands1(float* %ptrA, float* %ptrB, float* %ptrX, float* %ptrY
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmulss (%rdx), %xmm0, %xmm1
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
-; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm2 = (xmm2 * xmm0) - xmm1
-; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm0 = (xmm0 * mem) - xmm1
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm2
-; CHECK-NEXT:    seta %cl
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    seta %al
-; CHECK-NEXT:    orb %cl, %al
+; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm2 = -(xmm2 * xmm0) + xmm1
+; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm0 = -(xmm0 * mem) + xmm1
+; CHECK-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm1, %xmm0, %k0
+; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm0, %xmm2, %k1
+; CHECK-NEXT:    korw %k0, %k1, %k0
+; CHECK-NEXT:    kmovd %k0, %eax
+; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    retq
 entry:
   %A = load float, float* %ptrA
@@ -257,13 +269,15 @@ define i1 @swap_operands2(float* %ptrA, float* %ptrB, float* %ptrX, float* %ptrY
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmulss (%rdx), %xmm0, %xmm1
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
-; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm2 = (xmm2 * xmm0) - xmm1
-; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm0 = -(xmm0 * mem) + xmm1
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm2
-; CHECK-NEXT:    seta %cl
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    seta %al
-; CHECK-NEXT:    orb %cl, %al
+; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm2 = -(xmm2 * xmm0) + xmm1
+; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm0 = (xmm0 * mem) - xmm1
+; CHECK-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm1, %xmm0, %k0
+; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm0, %xmm2, %k1
+; CHECK-NEXT:    korw %k0, %k1, %k0
+; CHECK-NEXT:    kmovd %k0, %eax
+; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    retq
 entry:
   %A = load float, float* %ptrA
@@ -289,13 +303,15 @@ define i1 @swap_operands3(float* %ptrA, float* %ptrB, float* %ptrX, float* %ptrY
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmulss (%rdx), %xmm0, %xmm1
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
-; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm2 = -(xmm2 * xmm0) + xmm1
-; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm0 = (xmm0 * mem) - xmm1
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm2
-; CHECK-NEXT:    seta %cl
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    seta %al
-; CHECK-NEXT:    orb %cl, %al
+; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm2 = (xmm2 * xmm0) - xmm1
+; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm0 = -(xmm0 * mem) + xmm1
+; CHECK-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm1, %xmm0, %k0
+; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm0, %xmm2, %k1
+; CHECK-NEXT:    korw %k0, %k1, %k0
+; CHECK-NEXT:    kmovd %k0, %eax
+; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    retq
 entry:
   %A = load float, float* %ptrA
@@ -321,13 +337,15 @@ define i1 @swap_operands4(float* %ptrA, float* %ptrB, float* %ptrX, float* %ptrY
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmulss (%rdx), %xmm0, %xmm1
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
-; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm2 = -(xmm2 * xmm0) + xmm1
-; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm0 = -(xmm0 * mem) + xmm1
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm2
-; CHECK-NEXT:    seta %cl
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    seta %al
-; CHECK-NEXT:    orb %cl, %al
+; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm2 = (xmm2 * xmm0) - xmm1
+; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm0 = (xmm0 * mem) - xmm1
+; CHECK-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm1, %xmm0, %k0
+; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm0, %xmm2, %k1
+; CHECK-NEXT:    korw %k0, %k1, %k0
+; CHECK-NEXT:    kmovd %k0, %eax
+; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    retq
 entry:
   %A = load float, float* %ptrA
@@ -353,13 +371,15 @@ define i1 @swap_operands5(float* %ptrA, float* %ptrB, float* %ptrX, float* %ptrY
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmulss (%rdx), %xmm0, %xmm1
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
-; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm2 = -(xmm2 * xmm0) + xmm1
-; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm0 = -(xmm0 * mem) + xmm1
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm2
-; CHECK-NEXT:    seta %cl
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    seta %al
-; CHECK-NEXT:    orb %cl, %al
+; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm2 = (xmm2 * xmm0) - xmm1
+; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm0 = (xmm0 * mem) - xmm1
+; CHECK-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm1, %xmm0, %k0
+; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm0, %xmm2, %k1
+; CHECK-NEXT:    korw %k0, %k1, %k0
+; CHECK-NEXT:    kmovd %k0, %eax
+; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    retq
 entry:
   %A = load float, float* %ptrA
@@ -385,13 +405,15 @@ define i1 @swap_operands6(float* %ptrA, float* %ptrB, float* %ptrX, float* %ptrY
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmulss (%rdx), %xmm0, %xmm1
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
-; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm2 = -(xmm2 * xmm0) + xmm1
-; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm0 = -(xmm0 * mem) + xmm1
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm2
-; CHECK-NEXT:    seta %cl
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    seta %al
-; CHECK-NEXT:    orb %cl, %al
+; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm2 = (xmm2 * xmm0) - xmm1
+; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm0 = (xmm0 * mem) - xmm1
+; CHECK-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm1, %xmm0, %k0
+; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm0, %xmm2, %k1
+; CHECK-NEXT:    korw %k0, %k1, %k0
+; CHECK-NEXT:    kmovd %k0, %eax
+; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    retq
 entry:
   %A = load float, float* %ptrA
@@ -419,11 +441,13 @@ define i1 @basic_test_add(float* %ptrA, float* %ptrB, float* %ptrX, float* %ptrY
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vfmadd132ss {{.*#+}} xmm2 = (xmm2 * xmm0) + xmm1
 ; CHECK-NEXT:    vfmadd132ss {{.*#+}} xmm0 = (xmm0 * mem) + xmm1
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm2
-; CHECK-NEXT:    setb %cl
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    setb %al
-; CHECK-NEXT:    orb %cl, %al
+; CHECK-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm1, %xmm0, %k0
+; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm0, %xmm2, %k1
+; CHECK-NEXT:    korw %k0, %k1, %k0
+; CHECK-NEXT:    kmovd %k0, %eax
+; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    retq
 entry:
   %A = load float, float* %ptrA
@@ -449,13 +473,15 @@ define i1 @mixed_sub_and_add(float* %ptrA, float* %ptrB, float* %ptrX, float* %p
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmulss (%rdx), %xmm0, %xmm1
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
-; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm2 = -(xmm2 * xmm0) + xmm1
+; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm2 = (xmm2 * xmm0) - xmm1
 ; CHECK-NEXT:    vfmadd132ss {{.*#+}} xmm0 = (xmm0 * mem) + xmm1
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm2
-; CHECK-NEXT:    seta %cl
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    setb %al
-; CHECK-NEXT:    orb %cl, %al
+; CHECK-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm1, %xmm0, %k0
+; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; CHECK-NEXT:    vcmpltps %xmm0, %xmm2, %k1
+; CHECK-NEXT:    korw %k0, %k1, %k0
+; CHECK-NEXT:    kmovd %k0, %eax
+; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    retq
 entry:
   %A = load float, float* %ptrA

@@ -15,8 +15,9 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStructA, i8*
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Bad memfunc manipulation{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Cannot copy from a structure type to a non-structure type.
@@ -29,8 +30,9 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStructA, i32
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Bad memfunc manipulation{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 declare !intel.dtrans.func.type !8 void @llvm.memcpy.p0i8.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i64, i1)

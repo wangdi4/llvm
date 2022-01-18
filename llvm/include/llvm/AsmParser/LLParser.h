@@ -62,12 +62,14 @@ namespace llvm {
     APFloat APFloatVal{0.0};
     Constant *ConstantVal;
     std::unique_ptr<Constant *[]> ConstantStructElts;
+    bool NoCFI = false;
 
     ValID() = default;
     ValID(const ValID &RHS)
         : Kind(RHS.Kind), Loc(RHS.Loc), UIntVal(RHS.UIntVal), FTy(RHS.FTy),
           StrVal(RHS.StrVal), StrVal2(RHS.StrVal2), APSIntVal(RHS.APSIntVal),
-          APFloatVal(RHS.APFloatVal), ConstantVal(RHS.ConstantVal) {
+          APFloatVal(RHS.APFloatVal), ConstantVal(RHS.ConstantVal),
+          NoCFI(RHS.NoCFI) {
       assert(!RHS.ConstantStructElts);
     }
 
@@ -172,9 +174,8 @@ namespace llvm {
     /// getGlobalVal - Get a value with the specified name or ID, creating a
     /// forward reference record if needed.  This can return null if the value
     /// exists but does not have the right type.
-    GlobalValue *getGlobalVal(const std::string &N, Type *Ty, LocTy Loc,
-                              bool IsCall);
-    GlobalValue *getGlobalVal(unsigned ID, Type *Ty, LocTy Loc, bool IsCall);
+    GlobalValue *getGlobalVal(const std::string &N, Type *Ty, LocTy Loc);
+    GlobalValue *getGlobalVal(unsigned ID, Type *Ty, LocTy Loc);
 
     /// Get a Comdat with the specified name, creating a forward reference
     /// record if needed.
@@ -314,16 +315,16 @@ namespace llvm {
 #else // INTEL_COLLAB
                      GlobalVariable::UnnamedAddr UnnamedAddr);
 #endif // INTEL_COLLAB
-    bool parseIndirectSymbol(const std::string &Name, LocTy NameLoc,
-                             unsigned L, unsigned Visibility,
-                             unsigned DLLStorageClass, bool DSOLocal,
-                             GlobalVariable::ThreadLocalMode TLM,
+    bool parseAliasOrIFunc(const std::string &Name, LocTy NameLoc,
+                           unsigned L, unsigned Visibility,
+                           unsigned DLLStorageClass, bool DSOLocal,
+                           GlobalVariable::ThreadLocalMode TLM,
 #if INTEL_COLLAB
-                             GlobalVariable::UnnamedAddr UnnamedAddr,
-                             bool IsThreadPrivate,
-                             bool IsTargetDeclare);
+                           GlobalVariable::UnnamedAddr UnnamedAddr,
+                           bool IsThreadPrivate,
+                           bool IsTargetDeclare);
 #else // INTEL_COLLAB
-                             GlobalVariable::UnnamedAddr UnnamedAddr);
+                           GlobalVariable::UnnamedAddr UnnamedAddr);
 #endif // INTEL_COLLAB
     bool parseComdat();
     bool parseStandaloneMetadata();
@@ -438,8 +439,8 @@ namespace llvm {
       /// GetVal - Get a value with the specified name or ID, creating a
       /// forward reference record if needed.  This can return null if the value
       /// exists but does not have the right type.
-      Value *getVal(const std::string &Name, Type *Ty, LocTy Loc, bool IsCall);
-      Value *getVal(unsigned ID, Type *Ty, LocTy Loc, bool IsCall);
+      Value *getVal(const std::string &Name, Type *Ty, LocTy Loc);
+      Value *getVal(unsigned ID, Type *Ty, LocTy Loc);
 
       /// setInstName - After an instruction is parsed and inserted into its
       /// basic block, this installs its name.
@@ -461,10 +462,10 @@ namespace llvm {
     };
 
     bool convertValIDToValue(Type *Ty, ValID &ID, Value *&V,
-                             PerFunctionState *PFS, bool IsCall);
+                             PerFunctionState *PFS);
 
     Value *checkValidVariableType(LocTy Loc, const Twine &Name, Type *Ty,
-                                  Value *Val, bool IsCall);
+                                  Value *Val);
 
     bool parseConstantValue(Type *Ty, Constant *&C);
     bool parseValue(Type *Ty, Value *&V, PerFunctionState *PFS);

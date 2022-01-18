@@ -25,14 +25,16 @@ define void @test01(i64 %arg)  {
   ret void
 }
 ; CHECK_ALWAYS-LABEL: DTRANS_StructInfo:
-; CHECK_ALWAYS: Name: struct.test01a
+; CHECK_ALWAYS: LLVMType: %struct.test01a
 ; CHECK_OOB_T: Safety data: Bad pointer manipulation | Global instance | Contains nested structure{{ *$}}
 ; CHECK_OOB_F: Safety data: Global instance | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK_ALWAYS-LABEL: DTRANS_StructInfo:
-; CHECK_ALWAYS: Name: struct.test01b
+; CHECK_ALWAYS: LLVMType: %struct.test01b
 ; CHECK_OOB_T: Safety data: Bad pointer manipulation | Global instance | Nested structure{{ *$}}
 ; CHECK_OOB_F: Safety data: Field address taken memory | Global instance | Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 !1 = !{i64 0, i32 0}  ; i64

@@ -148,7 +148,7 @@ attributes #2 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disa
 !llvm.ident = !{!0}
 !llvm.module.flags = !{!1, !2}
 
-!0 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang e5f4f662867240aabc27bc9491b73d220049214d) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 55a65d6b450a8fef4eabd8f7a3a3850d67223e64)"}
+!0 = !{!"clang version 8.0.0"}
 !1 = !{i32 1, !"wchar_size", i32 4}
 !2 = !{i32 1, !"ThinLTO", i32 0}
 !3 = !{!4, !4, i64 0}

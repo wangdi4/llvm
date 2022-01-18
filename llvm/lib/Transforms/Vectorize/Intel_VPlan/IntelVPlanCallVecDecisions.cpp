@@ -135,7 +135,7 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
     return {};
 
   StringRef VecVariantStringValue =
-      Call->getFnAttr("vector-variants").getValueAsString();
+      Call->getCallSiteOrFuncAttr("vector-variants").getValueAsString();
 
   assert(!VecVariantStringValue.empty() &&
          "VectorVariant string value shouldn't be empty!");

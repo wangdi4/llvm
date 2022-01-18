@@ -237,21 +237,23 @@ class OpenMPLateOutliner {
 
   // Add a llvm::Value directly.
   void addArg(llvm::Value *V, bool Handled = false, bool IsTyped = false,
-              bool IsRef = false, unsigned Elements = 0);
+              bool IsRef = false, llvm::Value *ZeroValue = nullptr,
+              llvm::Value *NumElements = nullptr);
 
   // Add an llvm::Value with extra 'typed' arguments.
-  void addTypedArg(llvm::Value *V, bool Handled = false, bool IsRef = false,
-                   unsigned Elements = 0);
-  void addSinglePtrTypedArg(llvm::Value *V, bool Handled = false,
+  void addNoElementTypedArg(llvm::Value *V, bool Handled = false,
                             bool IsRef = false);
+
+  void addSingleElementTypedArg(llvm::Value *V, bool Handled = false,
+                                bool IsRef = false);
 
   // Add an argument that is the result of emitting an Expr.
   void addArg(const Expr *E, bool IsRef = false, bool IsTyped = false,
-              unsigned Elements = 0);
+              bool NeedsTypedElements = true);
 
   // Add through the Expr with 'typed' arguments.
-  void addTypedArg(const Expr *E, bool IsRef = false, unsigned Elements = 0);
-  void addSinglePtrTypedArg(const Expr *E, bool IsRef = false);
+  void addTypedArg(const Expr *E, bool IsRef = false,
+                   bool NeedsTypedElements = true);
 
   void addFenceCalls(bool IsBegin);
   void getApplicableDirectives(OpenMPClauseKind CK,
@@ -358,6 +360,7 @@ class OpenMPLateOutliner {
   void emitOMPAlignClause(const OMPAlignClause *Cl);
   void emitOMPFullClause(const OMPFullClause *Cl);
   void emitOMPPartialClause(const OMPPartialClause *Cl);
+  void emitOMPOmpxPlacesClause(const OMPOmpxPlacesClause *Cl);
 
   llvm::Value *emitOpenMPDefaultConstructor(const Expr *IPriv,
                                             bool IsUDR = false);
@@ -442,8 +445,7 @@ public:
                                                            ".map.ptr.tmp");
       CGF.Builder.CreateStore(MT.first, A);
       PrivateScope.addPrivateNoTemps(MT.second, [A]() -> Address { return A; });
-      if (MT.second->getType()->isReferenceType())
-        CGF.addMappedRefTemp(MT.second);
+      CGF.addMappedTemp(MT.second, MT.second->getType()->isReferenceType());
     }
     for (auto FP : MapFPrivates) {
       llvm::Value *V = FP.first;

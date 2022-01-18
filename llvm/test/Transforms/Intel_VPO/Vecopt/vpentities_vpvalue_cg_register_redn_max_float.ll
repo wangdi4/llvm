@@ -7,12 +7,14 @@
 
 ; CHECK-HIR: Function: foo_float
 ; CHECK-HIR: if (0 <u 4 * [[UB:%.*]])
-; CHECK-HIR: [[RED_VAR:%.*]] = [[RED_INIT:%.*]];
+; CHECK-HIR: [[RED_INIT:%.*]] = [[INIT:%.*]];
+; CHECK-HIR: [[PHI_TEMP:%.*]] = [[RED_INIT]]
 ; CHECK-HIR: DO i1 = 0, 4 * [[UB]] + -1, 4   <DO_LOOP>
 ; CHECK-HIR: [[VEC_LD:%.*]] = (<4 x float>*)(%ptr)
-; CHECK-HIR: [[RED_VAR]] = ([[RED_VAR]] > [[VEC_LD]]) ? [[RED_VAR]] : [[VEC_LD]];
+; CHECK-HIR: [[RED_SEL:%.*]] = ([[PHI_TEMP]] > [[VEC_LD]]) ? [[PHI_TEMP]] : [[VEC_LD]];
+; CHECK-HIR: [[PHI_TEMP]] = [[RED_SEL]]
 ; CHECK-HIR: END LOOP
-; CHECK-HIR: [[RED_INIT]] = @llvm.vector.reduce.fmax.v4f32([[RED_VAR]]);
+; CHECK-HIR: [[INIT]] = @llvm.vector.reduce.fmax.v4f32([[RED_SEL]]);
 
 
 ; Fully VPValue-based LLVM-IR codegen

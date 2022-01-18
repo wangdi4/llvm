@@ -664,7 +664,7 @@ void llvm::analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
                                           const TargetLibraryInfo *TLI,
                                           ScalarEvolution *SE, Loop *OrigLoop)
 {
-  for (unsigned I = 0; I < CI->getNumArgOperands(); ++I) {
+  for (unsigned I = 0; I < CI->arg_size(); ++I) {
 
     Value *CallArg = CI->getArgOperand(I);
     GetElementPtrInst *ArgGep = dyn_cast<GetElementPtrInst>(CallArg);
@@ -727,6 +727,38 @@ Type *llvm::calcCharacteristicType(Function &F, VectorVariant &Variant) {
                                 F.getParent()->getDataLayout());
 }
 
+void llvm::createVectorMaskArg(IRBuilder<> &Builder, Type *CharacteristicType,
+                               VectorVariant *VecVariant,
+                               SmallVectorImpl<Value *> &VecArgs,
+                               SmallVectorImpl<Type *> &VecArgTys,
+                               unsigned VF, Value *MaskToUse) {
+
+  // Add the mask parameter for masked simd functions.
+  // Mask should already be vectorized as i1 type.
+  VectorType *MaskTy = cast<VectorType>(MaskToUse->getType());
+  assert(MaskTy->getElementType()->isIntegerTy(1) &&
+         "Mask parameter is not vector of i1");
+
+  // Promote the i1 to an integer type that has the same size as the
+  // characteristic type.
+  Type *ScalarToType = IntegerType::get(
+      MaskTy->getContext(), CharacteristicType->getPrimitiveSizeInBits());
+  VectorType *VecToType = FixedVectorType::get(ScalarToType, VF);
+  Value *MaskExt = Builder.CreateSExt(MaskToUse, VecToType, "maskext");
+
+  // Bitcast if the promoted type is not the same as the characteristic
+  // type.
+  if (ScalarToType != CharacteristicType) {
+    Type *MaskCastTy = FixedVectorType::get(CharacteristicType, VF);
+    Value *MaskCast = Builder.CreateBitCast(MaskExt, MaskCastTy, "maskcast");
+    VecArgs.push_back(MaskCast);
+    VecArgTys.push_back(MaskCastTy);
+  } else {
+    VecArgs.push_back(MaskExt);
+    VecArgTys.push_back(VecToType);
+  }
+}
+
 void llvm::getFunctionsToVectorize(
   llvm::Module &M, MapVector<Function*, std::vector<StringRef> > &FuncVars) {
 
@@ -779,7 +811,7 @@ bool llvm::isOpenCLWriteChannelSrc(StringRef FnName, unsigned i) {
   return (isOpenCLWriteChannel(FnName) && i == 1);
 }
 
-Value* llvm::getOpenCLReadWriteChannelAlloc(const CallInst *Call) {
+AllocaInst* llvm::getOpenCLReadWriteChannelAlloc(const CallInst *Call) {
 
   AddrSpaceCastInst *Arg = dyn_cast<AddrSpaceCastInst>(Call->getArgOperand(1));
 
@@ -884,12 +916,49 @@ void llvm::setRequiredAttributes(AttributeList Attrs, CallInst *VecCall,
                                             Attrs.getRetAttrs(), ArgAttrs));
 }
 
-Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
-                                          ArrayRef<Type *> ArgTys,
-                                          TargetLibraryInfo *TLI,
-                                          Intrinsic::ID ID,
-                                          VectorVariant *VecVariant,
-                                          bool Masked, const CallInst *Call) {
+Function *llvm::getOrInsertVectorVariantFunction(
+    Function *OrigF, unsigned VL,
+    ArrayRef<Type *> ArgTys,
+    VectorVariant *VecVariant,
+    bool Masked) {
+  // OrigF is the original scalar function being called.
+  assert(OrigF && "Function not found for call instruction");
+  assert(VecVariant && "Expect VectorVariant to be present");
+
+  StringRef FnName = OrigF->getName();
+  Module *M = OrigF->getParent();
+  Type *RetTy = OrigF->getReturnType();
+  Type *VecRetTy = RetTy;
+  if (!RetTy->isVoidTy()) {
+    // GEPs into vectors of i1 do not make sense, so promote it to i8
+    // similar to its later processing in CodeGen.
+    if (RetTy->isIntegerTy(1))
+      RetTy = Type::getInt8Ty(RetTy->getContext());
+    VecRetTy = getWidenedType(RetTy, VL);
+  }
+
+  // Having getName() absent means that the vector variant was in the form
+  // "_ZGVbM4uu_" without the BaseName. Use function name then.
+  std::string VFnName = VecVariant->getName().hasValue() ?
+    *VecVariant->getName() : VecVariant->generateFunctionName(FnName);
+  Function *VectorF = M->getFunction(VFnName);
+  if (!VectorF) {
+    FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
+    VectorF = Function::Create(FTy, OrigF->getLinkage(), VFnName, M);
+    VectorF->copyAttributesFrom(OrigF);
+    VectorF->setVisibility(OrigF->getVisibility());
+  }
+
+  return VectorF;
+}
+
+
+Function *llvm::getOrInsertVectorLibFunction(
+    Function *OrigF, unsigned VL,
+    ArrayRef<Type *> ArgTys,
+    TargetLibraryInfo *TLI,
+    Intrinsic::ID ID,
+    bool Masked, const CallInst *Call) {
 
   // OrigF is the original scalar function being called. Widen the scalar
   // call to a vector call if it is known to be vectorizable as SVML or
@@ -898,8 +967,7 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
   StringRef FnName = OrigF->getName();
   if (TLI && !TLI->isFunctionVectorizable(
         FnName, ElementCount::getFixed(VL)) &&
-      !ID && !VecVariant && !isOpenCLReadChannel(FnName) &&
-      !isOpenCLWriteChannel(FnName))
+      !ID && !isOpenCLReadChannel(FnName) && !isOpenCLWriteChannel(FnName))
     return nullptr;
 
   Module *M = OrigF->getParent();
@@ -907,20 +975,6 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
   Type *VecRetTy = RetTy;
   if (!RetTy->isVoidTy()) {
     VecRetTy = getWidenedType(RetTy, VL);
-  }
-
-  if (VecVariant) {
-    // Having getName() absent means that the vector variant was in the form
-    // "_ZGVbM4uu_" without the BaseName. Use function name then.
-    std::string VFnName = VecVariant->getName().hasValue() ?
-      *VecVariant->getName() : VecVariant->generateFunctionName(FnName);
-    Function *VectorF = M->getFunction(VFnName);
-    if (!VectorF) {
-      FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
-      VectorF = Function::Create(FTy, OrigF->getLinkage(), VFnName, M);
-      VectorF->copyAttributesFrom(OrigF);
-    }
-    return VectorF;
   }
 
   if (ID) {
@@ -939,10 +993,9 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
     // Check JR https://jira.devtools.intel.com/browse/CORC-4838
     assert(Call && "VPVALCG: OpenCL read/write channels not uplifted to be "
                    "call independent.");
-    Value *Alloca = getOpenCLReadWriteChannelAlloc(Call);
+    AllocaInst *Alloca = getOpenCLReadWriteChannelAlloc(Call);
     std::string VLStr = toString(APInt(32, VL), 10, false);
-    std::string TyStr =
-        typeToString(Alloca->getType()->getPointerElementType());
+    std::string TyStr = typeToString(Alloca->getAllocatedType());
     std::string VFnName = FnName.str() + "_v" + VLStr + TyStr;
 
     if (isOpenCLReadChannel(FnName)) {
@@ -950,8 +1003,7 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
       // pointer element type of the read destination pointer alloca. The
       // function call below traces back through bitcast instructions to
       // find the alloca.
-      VecRetTy =
-          FixedVectorType::get(Alloca->getType()->getPointerElementType(), VL);
+      VecRetTy = FixedVectorType::get(Alloca->getAllocatedType(), VL);
     }
     if (isOpenCLWriteChannel(FnName)) {
       VecRetTy = RetTy;
@@ -1336,6 +1388,23 @@ llvm::SmallVector<int, 16> llvm::createSequentialMask(unsigned Start,
   return Mask;
 }
 
+llvm::SmallVector<int, 16> llvm::createUnaryMask(ArrayRef<int> Mask,
+                                                 unsigned NumElts) {
+  // Avoid casts in the loop and make sure we have a reasonable number.
+  int NumEltsSigned = NumElts;
+  assert(NumEltsSigned > 0 && "Expected smaller or non-zero element count");
+
+  // If the mask chooses an element from operand 1, reduce it to choose from the
+  // corresponding element of operand 0. Undef mask elements are unchanged.
+  SmallVector<int, 16> UnaryMask;
+  for (int MaskElt : Mask) {
+    assert((MaskElt < NumEltsSigned * 2) && "Expected valid shuffle mask");
+    int UnaryElt = MaskElt >= NumEltsSigned ? MaskElt - NumEltsSigned : MaskElt;
+    UnaryMask.push_back(UnaryElt);
+  }
+  return UnaryMask;
+}
+
 /// A helper function for concatenating vectors. This function concatenates two
 /// vectors having the same element type. If the second vector has fewer
 /// elements than the first, it is padded with undefs.
@@ -1452,7 +1521,7 @@ APInt llvm::possiblyDemandedEltsInMask(Value *Mask) {
 
   const unsigned VWidth =
       cast<FixedVectorType>(Mask->getType())->getNumElements();
-  APInt DemandedElts = APInt::getAllOnesValue(VWidth);
+  APInt DemandedElts = APInt::getAllOnes(VWidth);
   if (auto *CV = dyn_cast<ConstantVector>(Mask))
     for (unsigned i = 0; i < VWidth; i++)
       if (CV->getAggregateElement(i)->isNullValue())
@@ -1492,7 +1561,7 @@ void InterleavedAccessInfo::collectConstStrideAccesses(
       // wrap around the address space we would do a memory access at nullptr
       // even without the transformation. The wrapping checks are therefore
       // deferred until after we've formed the interleaved groups.
-      int64_t Stride = getPtrStride(PSE, Ptr, TheLoop, Strides,
+      int64_t Stride = getPtrStride(PSE, ElementTy, Ptr, TheLoop, Strides,
                                     /*Assume=*/true, /*ShouldCheckWrap=*/false);
 
       const SCEV *Scev = replaceSymbolicStrideSCEV(PSE, Strides, Ptr);
@@ -1714,8 +1783,9 @@ void InterleavedAccessInfo::analyzeInterleaving(
     Instruction *Member = Group->getMember(Index);
     assert(Member && "Group member does not exist");
     Value *MemberPtr = getLoadStorePointerOperand(Member);
-    if (getPtrStride(PSE, MemberPtr, TheLoop, Strides, /*Assume=*/false,
-                     /*ShouldCheckWrap=*/true))
+    Type *AccessTy = getLoadStoreType(Member);
+    if (getPtrStride(PSE, AccessTy, MemberPtr, TheLoop, Strides,
+                     /*Assume=*/false, /*ShouldCheckWrap=*/true))
       return false;
     LLVM_DEBUG(dbgs() << "LV: Invalidate candidate interleaved group due to "
                       << FirstOrLast

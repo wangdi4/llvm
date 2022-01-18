@@ -1,8 +1,12 @@
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: intel_feature_sw_dtrans
+
 ; This test case checks that the indirect call is preserved after
 ; devirtualization in one caller function (@_ZNSt13runtime_errorC1EPKc),
 ; while it is removed in the other caller because is not a libfunc (@foo).
 
 ; RUN: opt -S -whole-program-assume -wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify %s 2>&1 | FileCheck %s
+; RUN: opt -S -whole-program-assume -passes=wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify %s 2>&1 | FileCheck %s
 
 target datalayout = "e-p:64:64"
 target triple = "x86_64-unknown-linux-gnu"
@@ -79,3 +83,5 @@ declare void @llvm.assume(i1)
 ; CHECK: define internal void @foo(i8* %obj, i8* %alloc)
 ; CHECK: call void @vf(i8* %obj, i8* %alloc)
 ; CHECK-NOT: call void %fptr_casted(i8* %obj, i8* %alloc)
+
+; end INTEL_FEATURE_SW_DTRANS

@@ -205,12 +205,7 @@ define i32 @ctpop_add(i32 %a, i32 %b) {
 
 define i32 @ctpop_add_no_common_bits(i32 %a, i32 %b) {
 ; CHECK-LABEL: @ctpop_add_no_common_bits(
-; INTEL_CUSTOMIZATION
-; Scalar fshl suppressed as it may inhibit vectorization.
-; CHECK-NEXT:    [[SHL16:%.*]] = shl i32 [[A:%.*]], 16
-; CHECK-NEXT:    [[LSHL16:%.*]] = lshr i32 [[B:%.*]], 16
-; CHECK-NEXT:    [[TMP1:%.*]] = or i32 [[SHL16]], [[LSHL16]]
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP1:%.*]] = call i32 @llvm.fshl.i32(i32 [[A:%.*]], i32 [[B:%.*]], i32 16)
 ; CHECK-NEXT:    [[TMP2:%.*]] = call i32 @llvm.ctpop.i32(i32 [[TMP1]]), !range [[RNG1]]
 ; CHECK-NEXT:    ret i32 [[TMP2]]
 ;

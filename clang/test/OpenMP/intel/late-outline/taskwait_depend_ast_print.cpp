@@ -59,7 +59,7 @@ void foo()
 //DUMP: OMPTaskwaitDirective {{.*}} openmp_standalone_directive
 //DUMP: OMPNowaitClause
 //DUMP: OMPDependClause
-//DUMP: DeclRefExpr {{.*}} 'int [100]' lvalue Var {{.*}} 'arr' 'int [100]'
+//DUMP: DeclRefExpr {{.*}} 'int[100]' lvalue Var {{.*}} 'arr' 'int[100]'
 //DUMP: OMPTaskwaitDirective {{.*}} openmp_standalone_directive
 //DUMP: OMPDependClause
 //DUMP: DeclRefExpr {{.*}} 'int' lvalue Var {{.*}} 'var' 'int'
@@ -67,7 +67,7 @@ void foo()
 //DUMP: OMPDependClause
 //DUMP: DeclRefExpr {{.*}} 'int' lvalue Var {{.*}} 'var' 'int'
 //DUMP: OMPDependClause
-//DUMP: DeclRefExpr {{.*}} 'int [100]' lvalue Var {{.*}} 'arr' 'int [100]'
+//DUMP: DeclRefExpr {{.*}} 'int[100]' lvalue Var {{.*}} 'arr' 'int[100]'
 //PRINT: #pragma omp taskwait depend(in : var)
 //PRINT: #pragma omp taskwait depend(out : var) nowait
 //PRINT: #pragma omp taskwait nowait depend(inout : arr)

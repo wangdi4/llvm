@@ -11,7 +11,6 @@ define void @test_amx(i64 %stride, i8* %addr) {
 ; CHECK-NEXT:    tcvtd2ps %tmm1, (%rsi,%rdi)
 ; CHECK-NEXT:    tcvtps2bf16 %tmm1, (%rsi,%rdi)
 ; CHECK-NEXT:    tcvtps2ph %tmm1, (%rsi,%rdi)
-; CHECK-NEXT:    tilerelease
 ; CHECK-NEXT:    retq
   call void @llvm.x86.tcvt2ps2bf16(i8* %addr, i64 %stride, i8 1, i8 7)
   call void @llvm.x86.tcvt2ps2ph(i8* %addr, i64 %stride, i8 1, i8 7)

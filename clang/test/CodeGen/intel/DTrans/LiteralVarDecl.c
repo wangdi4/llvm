@@ -1,3 +1,4 @@
+// REQUIRES: intel_feature_sw_dtrans
 // RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s
 char a[] = {30, 0, 0, 0, 0, 0, 0, 0, 0};
 // CHECK: @a = global <{ i8, [8 x i8] }>{{.+}}!intel_dtrans_type ![[A:[0-9]+]]

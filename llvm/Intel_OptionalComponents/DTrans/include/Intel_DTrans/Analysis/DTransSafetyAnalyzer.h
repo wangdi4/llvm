@@ -46,7 +46,7 @@ public:
   using GetTLIFnType =
       std::function<const TargetLibraryInfo &(const Function &)>;
 
-  // Adapter for directly iterating over the dtrans::TypeInfo pointers.
+  /// Adapter for directly iterating over the dtrans::TypeInfo pointers.
   struct type_info_iterator
       : public iterator_adaptor_base<
             type_info_iterator,
@@ -256,9 +256,19 @@ public:
   // violations.
   bool isReadOnlyFieldAccess(LoadInst *Load);
 
+  bool isPtrToStruct(Value *V);
+
   bool isFunctionPtr(llvm::StructType *STy, unsigned Idx);
 
-  bool isPtrToStruct(Value *V);
+  llvm::StructType *getPtrToStructElementType(Value *V);
+
+  bool isPtrToStructWithI8StarFieldAt(Value *V, unsigned StructIndex);
+
+  bool isPtrToIntOrFloat(Value *V);
+
+  bool hasPtrToIntOrFloatReturnType(Function *F);
+
+  bool isPtrToIntOrFloat(dtrans::FieldInfo &FI);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAnalyzedTypes();
@@ -321,6 +331,12 @@ private:
   // Indicates that a Fortran function was seen. This will disable
   // DTransUseCRuleCompat.
   bool SawFortran = false;
+
+  DTransStructType *getPtrToStructTy(Value *V);
+
+  DTransType *getFieldTy(StructType *STy, unsigned Idx);
+
+  DTransType *getFieldPETy(StructType *STy, unsigned Idx);
 };
 
 class DTransSafetyAnalyzer : public AnalysisInfoMixin<DTransSafetyAnalyzer> {

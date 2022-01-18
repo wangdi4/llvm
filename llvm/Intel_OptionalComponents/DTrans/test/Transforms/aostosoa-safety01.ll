@@ -1,5 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt  -whole-program-assume < %s -disable-output -dtrans-aostosoa -debug-only=dtrans-aostosoa 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -disable-output -passes=dtrans-aostosoa -debug-only=dtrans-aostosoa 2>&1 | FileCheck %s
 
 ; This test verifies that the dtrans aostosoa pass does not try to transform
 ; structures that do not meet the DTrans analysis safety conditions on the

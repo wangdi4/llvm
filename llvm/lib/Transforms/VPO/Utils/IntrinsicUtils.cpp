@@ -338,7 +338,7 @@ CallInst *VPOUtils::removeOpenMPClausesFromCall(CallInst *CI,
 // SimdOnly: Process SIMD directives only. This must be true inside VPO, as
 // non-SIMD directives cannot be modified during VPO.
 // Return false if no directive was found.
-bool VPOUtils::addPrivateToEnclosingRegion(Instruction *I, BasicBlock *BlockPos,
+bool VPOUtils::addPrivateToEnclosingRegion(AllocaInst *I, BasicBlock *BlockPos,
                                            DominatorTree &DT, bool SimdOnly) {
   // Check if I is already used in a directive, don't introduce a possible
   // conflict.
@@ -377,10 +377,16 @@ bool VPOUtils::addPrivateToEnclosingRegion(Instruction *I, BasicBlock *BlockPos,
 }
 
 // Returns the next enclosing OpenMP begin directive, or nullptr if none.
+// The instruction must be reachable and have a dominator available.
 IntrinsicInst *VPOUtils::enclosingBeginDirective(Instruction *I,
                                                  DominatorTree *DT) {
+  assert(DT && "Dominator tree not available.");
   auto *DomNode = DT->getNode(I->getParent());
-  assert(DomNode && "Dominator tree not built for this function.");
+
+  // We assert here rather than returning nullptr, as we don't know what
+  // the caller actually would like to do with unreachable blocks.
+  assert(DomNode && "Dominator for inst not available: may be unreachable.");
+
   // Start at the previous inst, in case I is already a begin directive.
   // We want the enclosing scope in that case, not I.
   // If prev is null, the loop will choose a new block.

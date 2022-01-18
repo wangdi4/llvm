@@ -45,7 +45,7 @@ elseif( CMAKE_HOST_UNIX )
     set(system_libs ${system_libs} ${Backtrace_LIBFILE})
   endif()
   if( LLVM_ENABLE_TERMINFO )
-    set(imported_libs ${imported_libs} "${TERMINFO_LIB}")
+    set(imported_libs ${imported_libs} Terminfo::terminfo)
   endif()
   if( LLVM_ENABLE_THREADS AND (HAVE_LIBATOMIC OR HAVE_CXX_LIBATOMICS64) )
     set(system_libs ${system_libs} atomic)
@@ -126,6 +126,7 @@ set (SUPPORT_SOURCES
   BranchProbability.cpp
   BuryPointer.cpp
   CachePruning.cpp
+  Caching.cpp
   circular_raw_ostream.cpp
   Chrono.cpp
   COM.cpp
@@ -140,6 +141,7 @@ set (SUPPORT_SOURCES
   Debug.cpp
   DebugCounter.cpp
   DeltaAlgorithm.cpp
+  DivisionByConstantInfo.cpp
   DAGDeltaAlgorithm.cpp
   DJB.cpp
   ELFAttributeParser.cpp
@@ -178,6 +180,8 @@ set (SUPPORT_SOURCES
   MemoryBuffer.cpp
   MemoryBufferRef.cpp
   MD5.cpp
+  MSP430Attributes.cpp
+  MSP430AttributeParser.cpp
   NativeFormatting.cpp
   OptimizedStructLayout.cpp
   Optional.cpp
@@ -189,6 +193,7 @@ set (SUPPORT_SOURCES
   Regex.cpp
   RISCVAttributes.cpp
   RISCVAttributeParser.cpp
+  RISCVISAInfo.cpp
   ScaledNumber.cpp
   ScopedPrinter.cpp
   SHA1.cpp
@@ -248,7 +253,6 @@ set (SUPPORT_SOURCES
   Program.cpp
   RWMutex.cpp
   Signals.cpp
-  TargetRegistry.cpp
   ThreadLocal.cpp
   Threading.cpp
   Valgrind.cpp
@@ -307,7 +311,10 @@ if(LLVM_ENABLE_ZLIB)
 endif()
 
 if(LLVM_ENABLE_TERMINFO)
-  get_library_name(${TERMINFO_LIB} terminfo_library)
+  if(NOT terminfo_library)
+    get_property(terminfo_library TARGET Terminfo::terminfo PROPERTY LOCATION)
+  endif()
+  get_library_name(${terminfo_library} terminfo_library)
   set(llvm_system_libs ${llvm_system_libs} "${terminfo_library}")
 endif()
 

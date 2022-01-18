@@ -140,7 +140,7 @@ struct EffectiveContext {
 
   bool includesClass(const CXXRecordDecl *R) const {
     R = R->getCanonicalDecl();
-    return llvm::find(Records, R) != Records.end();
+    return llvm::is_contained(Records, R);
   }
 
   /// Retrieves the innermost "useful" context.  Can be null if we're
@@ -1894,7 +1894,7 @@ void Sema::CheckLookupAccess(const LookupResult &R) {
           Entity.getNamingClass() && isa<TypeDecl>(Entity.getTargetDecl()))
         Entity.setDiag(diag::warn_access_type);
       else if (getLangOpts().IntelCompat &&
-               ((!getLangOpts().IntelMSCompat && ParsingTemplateArg) ||
+               ((!getLangOpts().MSVCCompat && ParsingTemplateArg) ||
                 (CurContext->isDependentContext() &&
                  CodeSynthesisContexts.empty())))
         Entity.setDiag(diag::warn_access);

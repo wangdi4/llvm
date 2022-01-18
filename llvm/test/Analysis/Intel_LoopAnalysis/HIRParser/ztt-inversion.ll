@@ -1,4 +1,6 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+
 
 ; Check parsing output for the loop verifying that the inverted ztt is recognized successfully.
 
@@ -16,14 +18,14 @@
 ; CHECK: |   |   %16 = (%11)[i2];
 ; CHECK: |   |   %17 = (%13)[i2];
 ; CHECK: |   |   %18 = (%4)[%17];
-; CHECK: |   |   %19 = (%3)[%18 + zext.i8.i32(%15)];
+; CHECK: |   |   %19 = (%3)[zext.i8.i64(%15) + sext.i32.i64(%18)];
 ; CHECK: |   |   (%14)[3 * i2] = %19;
 ; CHECK: |   |   %20 = (%7)[%16];
 ; CHECK: |   |   %21 = (%6)[%17];
-; CHECK: |   |   %22 = (%3)[zext.i8.i32(%15) + trunc.i64.i32(((%20 + %21) /u 65536))];
+; CHECK: |   |   %22 = (%3)[zext.i8.i64(%15) + sext.i32.i64(trunc.i64.i32(((%21 + %20) /u 65536)))];
 ; CHECK: |   |   (%14)[3 * i2 + 1] = %22;
 ; CHECK: |   |   %23 = (%5)[%16];
-; CHECK: |   |   %24 = (%3)[zext.i8.i32(%15) + %23];
+; CHECK: |   |   %24 = (%3)[zext.i8.i64(%15) + sext.i32.i64(%23)];
 ; CHECK: |   |   (%14)[3 * i2 + 2] = %24;
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP

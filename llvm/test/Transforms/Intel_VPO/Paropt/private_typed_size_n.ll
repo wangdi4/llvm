@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -vpo-paropt-opt-scalar-fp=false -S < %s 2>&1 | FileCheck %s
-; RUN: opt < %s -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -vpo-paropt-opt-scalar-fp=false -S 2>&1 | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -vpo-paropt-opt-scalar-fp=false -S < %s 2>&1 | FileCheck --check-prefixes=CHECK,ALL %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -vpo-paropt-opt-scalar-fp=false -S 2>&1 | FileCheck --check-prefixes=CHECK,ALL %s
+; RUN: opt -opaque-pointers -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -vpo-paropt-opt-scalar-fp=false -S < %s 2>&1 | FileCheck --check-prefixes=OPQPTR,ALL %s
+; RUN: opt < %s -opaque-pointers -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -vpo-paropt-opt-scalar-fp=false -S 2>&1 | FileCheck --check-prefixes=OPQPTR,ALL %s
 
 
 ; void foo(int n) {
@@ -9,12 +11,13 @@
 ;   for(int d=0; d<100; d++);
 ; }
 
-; CHECK:  === VPOParopt Transform: PARALLEL LOOP construct
-; CHECK: collectNonPointerValuesToBeUsedInOutlinedRegion: Non-pointer values to be passed into the outlined region: 'i32 %n
-; CHECK: Enter VPOParoptTransform::genPrivatizationCode
+; ALL:  === VPOParopt Transform: PARALLEL LOOP construct
+; ALL: collectNonPointerValuesToBeUsedInOutlinedRegion: Non-pointer values to be passed into the outlined region: 'i32 %n
+; ALL: Enter VPOParoptTransform::genPrivatizationCode
 ; CHECK: getItemInfo: Local Element Info for 'i32* %vla' (Typed):: Type: i32, NumElements: i32 %n 
-; CHECK: Exit VPOParoptTransform::genPrivatizationCode
-; CHECK: {{.*}} = alloca i32, i32 %n{{.*}}
+; OPQPTR: getItemInfo: Local Element Info for 'ptr %vla' (Typed):: Type: i32, NumElements: i32 %n 
+; ALL: Exit VPOParoptTransform::genPrivatizationCode
+; ALL: {{.*}} = alloca i32, i32 %n{{.*}}
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -48,7 +51,7 @@ entry:
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %5) #3
   store i32 99, i32* %.omp.ub, align 4, !tbaa !4
   store i64 %1, i64* %omp.vla.tmp, align 8, !tbaa !8
-  %6 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.PRIVATE:TYPED"(i32* %vla, i32 0, i32 %n), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %d), "QUAL.OMP.SHARED"(i64* %omp.vla.tmp) ]
+  %6 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.PRIVATE:TYPED"(i32* %vla, i32 0, i32 %n), "QUAL.OMP.NORMALIZED.IV:TYPED"(i32* %.omp.iv, i32 0), "QUAL.OMP.FIRSTPRIVATE:TYPED"(i32* %.omp.lb, i32 0, i32 1), "QUAL.OMP.NORMALIZED.UB:TYPED"(i32* %.omp.ub, i32 0), "QUAL.OMP.PRIVATE:TYPED"(i32* %d, i32 0, i32 1), "QUAL.OMP.SHARED"(i64* %omp.vla.tmp) ]
   %7 = load i64, i64* %omp.vla.tmp, align 8
   %8 = load i32, i32* %.omp.lb, align 4, !tbaa !4
   store i32 %8, i32* %.omp.iv, align 4, !tbaa !4

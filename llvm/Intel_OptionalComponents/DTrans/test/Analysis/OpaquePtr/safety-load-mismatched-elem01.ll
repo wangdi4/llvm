@@ -17,8 +17,9 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !int
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Mismatched element access{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 %struct.test02 = type { i32, i32, i32 }
@@ -29,8 +30,9 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !int
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Mismatched element access{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 %struct.test03 = type { i32, i32, i32 }
@@ -41,8 +43,9 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct) !int
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: Mismatched element access{{ *$}}
+; CHECK: End LLVMType: %struct.test03
 
 
 !1 = !{i32 0, i32 0}  ; i32

@@ -17,8 +17,9 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !int
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Bad casting | Mismatched element access{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Using a scalar i16 type to access a pointer field is a 'mismatched element
@@ -32,8 +33,9 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !int
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Bad casting | Mismatched element access{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 ; This case does not trigger "Mismatched element access" because it is using
@@ -49,8 +51,9 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct) !int
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test03
 
 
 ; Loading a pointer-to-pointer type as a scalar is a 'mismatched element
@@ -64,8 +67,9 @@ define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %pStruct) !int
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04
+; CHECK: LLVMType: %struct.test04
 ; CHECK: Safety data: Bad casting | Mismatched element access{{ *$}}
+; CHECK: End LLVMType: %struct.test04
 
 
 !1 = !{i32 0, i32 1}  ; i32*

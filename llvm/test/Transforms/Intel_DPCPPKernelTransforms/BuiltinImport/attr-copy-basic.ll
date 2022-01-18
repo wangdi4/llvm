@@ -18,4 +18,5 @@ declare spir_func float @_Z3cosf(float)
 ; CHECK: define {{.*}} @_Z3cosf
 ; CHECK: attributes {{.*}} nounwind readnone
 
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z3cosf --  ret float %x
 ; DEBUGIFY-NOT: WARNING

@@ -137,6 +137,7 @@ public:
   llvm::Type *ConvertTypeForMem(QualType T, bool ForBitField = false);
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   // A type to hold the type-information for a function type, specifically for
   // DTrans Metadata information.
   struct DTransFuncInfo {
@@ -144,7 +145,15 @@ public:
     // type.
     std::array<QualType, 2> ResultTypes;
     llvm::SmallVector<QualType> Params;
+
+    DTransFuncInfo() = default;
+    DTransFuncInfo(QualType RetTy, llvm::ArrayRef<QualType> Params)
+        : ResultTypes{RetTy, QualType{}}, Params{Params.begin(), Params.end()} {
+    }
   };
+
+  void setDTransRuntimeType(llvm::StructType *ST, QualType ClangTy,
+                            ArrayRef<FieldDecl *> FDs);
 
   /// GetFunctionType - Get the LLVM function type for \arg Info.
   llvm::FunctionType *GetFunctionType(const CGFunctionInfo &Info,
@@ -152,6 +161,12 @@ public:
 
   llvm::FunctionType *GetFunctionType(GlobalDecl GD,
                                       DTransFuncInfo *DFI = nullptr);
+#else // INTEL_FEATURE_SW_DTRANS
+  /// GetFunctionType - Get the LLVM function type for \arg Info.
+  llvm::FunctionType *GetFunctionType(const CGFunctionInfo &Info);
+
+  llvm::FunctionType *GetFunctionType(GlobalDecl GD);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   /// isFuncTypeConvertible - Utility to check whether a function type can

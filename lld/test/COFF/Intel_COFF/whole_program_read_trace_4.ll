@@ -5,6 +5,14 @@
 ; RUN: lld-link /out:%t_wpt4.exe /entry:wmain %t_wpt4.bc /subsystem:console  \
 ; RUN:     /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     /mllvm:-whole-program-read-trace \
+; RUN:     /opt:noltonewpassmanager \
+; RUN:     2>&1 | FileCheck %s
+
+; RUN: llvm-as -o %t_wpt4.bc %s
+; RUN: lld-link /out:%t_wpt4.exe /entry:wmain %t_wpt4.bc /subsystem:console  \
+; RUN:     /mllvm:-debug-only=whole-program-analysis \
+; RUN:     /mllvm:-whole-program-read-trace \
+; RUN:     /opt:ltonewpassmanager \
 ; RUN:     2>&1 | FileCheck %s
 
 ; CHECK: WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ TRACE

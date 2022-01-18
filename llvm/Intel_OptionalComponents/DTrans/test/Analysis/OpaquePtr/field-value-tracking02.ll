@@ -37,6 +37,7 @@ define "intel_dtrans_func_index"="1" %struct.test01* @test01() !intel.dtrans.fun
 ; CHECK:  2)Field LLVM Type: i16
 ; CHECK:    Single Value: i16 16384
 ; CHECK:  Safety data: No issues found{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" i8* @malloc(i64)

@@ -26,6 +26,13 @@
 
 using namespace llvm;
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> TrapOnReduceIntrinsics(
+    "trap-on-reduce-intrin",
+    cl::desc("Insert debug trap intrinsic before reduce intrinsics"),
+    cl::init(false), cl::Hidden);
+#endif // INTEL_CUSTOMIZATION
+
 namespace {
 
 unsigned getOpcode(Intrinsic::ID ID) {
@@ -114,6 +121,12 @@ bool expandReductions(Function &F, const TargetTransformInfo *TTI) {
     IRBuilder<> Builder(II);
     IRBuilder<>::FastMathFlagGuard FMFGuard(Builder);
     Builder.setFastMathFlags(FMF);
+#if INTEL_CUSTOMIZATION
+    // Insert @llvm.debugtrap() before reduce intrinsics for debug purpose.
+    if (TrapOnReduceIntrinsics)
+      Builder.CreateCall(
+          Intrinsic::getDeclaration(F.getParent(), Intrinsic::debugtrap));
+#endif // INTEL_CUSTOMIZATION
     switch (ID) {
     default: llvm_unreachable("Unexpected intrinsic!");
     case Intrinsic::vector_reduce_fadd:

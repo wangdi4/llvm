@@ -36,7 +36,14 @@
 
 ; Check after HIR CG
 ; CG-CHECK: ModuleID
+; CG-CHECK: load{{.*}} !alias.scope [[SCOPELIST1:.*]], !noalias [[SCOPELIST2:.*]]
+; CG-CHECK: store{{.*}} !alias.scope [[SCOPELIST2]], !noalias [[SCOPELIST1]]
 ; CG-CHECK: !llvm.loop ![[MD:[0-9]+]]
+; CG-CHECK: [[SCOPELIST1]] = !{[[SCOPE1:.*]]}
+; CG-CHECK: [[SCOPE1]] = distinct !{[[SCOPE1]], [[DOMAIN1:.*]]}
+; CG-CHECK: [[DOMAIN1]] = distinct !{[[DOMAIN1]]}
+; CG-CHECK: [[SCOPELIST2]] = !{[[SCOPE2:.*]]}
+; CG-CHECK: [[SCOPE2]] = distinct !{[[SCOPE2]], [[DOMAIN1]]}
 ; CG-CHECK: ![[MD]] = distinct !{![[MD]], ![[MD1:[0-9]+]], ![[MD2:[0-9]+]], ![[MD3:[0-9]+]]}
 ; CG-CHECK: ![[MD1]] = !{!"llvm.loop.vectorize.width", i32 1}
 ; CG-CHECK: ![[MD2]] = !{!"llvm.loop.interleave.count", i32 1}

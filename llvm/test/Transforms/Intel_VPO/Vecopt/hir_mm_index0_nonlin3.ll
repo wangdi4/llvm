@@ -22,6 +22,7 @@
 ; CHECK-NEXT:    Linked values: i32 [[VP8]], i32 [[VP7]], i32 [[VP__IND_INIT:%.*]], i32 [[VP__IND_FINAL:%.*]],
 ; CHECK:         [[BB1:BB[0-9]+]]:
 ; CHECK:         [[BB2:BB[0-9]+]]:
+; CHECK-NEXT:     i32 [[UB_INC:%.*]] = add i32 [[VP9:%.*]] i32 1
 ; CHECK-NEXT:     i32 [[VP__RED_INIT]] = reduction-init i32 [[BEST_0230]]
 ; CHECK-NEXT:     i32 [[VP__RED_INIT_2]] = reduction-init i32 [[TMP_0240]]
 ; CHECK-NEXT:     i32 [[VP__RED_INIT_1]] = reduction-init i32 [[VAL_0250]]
@@ -43,7 +44,7 @@
 ; CHECK-NEXT:     i1 [[VP16:%.*]] = icmp sgt i32 [[VP12]] i32 [[VP1]]
 ; CHECK-NEXT:     i32 [[VP0]] = select i1 [[VP16]] i32 [[VP12]] i32 [[VP1]]
 ; CHECK-NEXT:     i32 [[VP7]] = add i32 [[VP8]] i32 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP17:%.*]] = icmp sle i32 [[VP7]] i32 [[VP9:%.*]]
+; CHECK-NEXT:     i1 [[VP17:%.*]] = icmp slt i32 [[VP7]] i32 [[UB_INC]]
 ; CHECK:         [[BB3:BB[0-9]+]]:
 ; CHECK-NEXT:     i32 [[VP2]] = reduction-final{u_smax} i32 [[VP0]]
 ; CHECK-NEXT:     i32 [[VP__RED_FINAL_1]] = reduction-final{s_smin} i32 [[VP5]] i32 [[VP0]] i32 [[VP2]]
@@ -60,22 +61,28 @@
 ;CG_ENABLE-NEXT:       %tgu = (%m)/u4;
 ;CG_ENABLE-NEXT:       if (0 <u 4 * %tgu)
 ;CG_ENABLE-NEXT:       {
-;CG_ENABLE-NEXT:          %red.var = %best.023;
-;CG_ENABLE-NEXT:          %red.var1 = %tmp.024;
-;CG_ENABLE-NEXT:          %red.var2 = %val.025;
+;CG_ENABLE-NEXT:          %red.init = %best.023;
+;CG_ENABLE-NEXT:          %red.init1 = %tmp.024;
+;CG_ENABLE-NEXT:          %red.init2 = %val.025;
+;CG_ENABLE-NEXT:          %phi.temp = %red.init1;
+;CG_ENABLE-NEXT:          %phi.temp3 = %red.init2;
+;CG_ENABLE-NEXT:          %phi.temp5 = %red.init;
 ;CG_ENABLE:               + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ;CG_ENABLE-NEXT:          |   %.vec = (<4 x i32>*)(%ordering)[i1];
-;CG_ENABLE-NEXT:          |   %red.var2 = (%.vec > %red.var) ? %.vec + 2 : %red.var2;
-;CG_ENABLE-NEXT:          |   %red.var1 = (%.vec > %red.var) ? i1 + <i32 0, i32 1, i32 2, i32 3> : %red.var1;
-;CG_ENABLE-NEXT:          |   %red.var = (%.vec > %red.var) ? %.vec : %red.var;
+;CG_ENABLE-NEXT:          |   %.vec7 = (%.vec > %phi.temp5) ? %.vec + 2 : %phi.temp3;
+;CG_ENABLE-NEXT:          |   %.vec8 = (%.vec > %phi.temp5) ? i1 + <i32 0, i32 1, i32 2, i32 3> : %phi.temp;
+;CG_ENABLE-NEXT:          |   %.vec9 = (%.vec > %phi.temp5) ? %.vec : %phi.temp5;
+;CG_ENABLE-NEXT:          |   %phi.temp = %.vec8;
+;CG_ENABLE-NEXT:          |   %phi.temp3 = %.vec7;
+;CG_ENABLE-NEXT:          |   %phi.temp5 = %.vec9;
 ;CG_ENABLE-NEXT:          + END LOOP
-;CG_ENABLE:               %best.023 = @llvm.vector.reduce.smax.v4i32(%red.var);
-;CG_ENABLE-NEXT:          %idx.blend = (%best.023 == %red.var) ? %red.var1 : <i32 2147483647, i32 2147483647, i32 2147483647, i32 2147483647>;
+;CG_ENABLE:               %best.023 = @llvm.vector.reduce.smax.v4i32(%.vec9);
+;CG_ENABLE-NEXT:          %idx.blend = (%best.023 == %.vec9) ? %.vec8 : <i32 2147483647, i32 2147483647, i32 2147483647, i32 2147483647>;
 ;CG_ENABLE-NEXT:          %tmp.024 = @llvm.vector.reduce.smin.v4i32(%idx.blend);
-;CG_ENABLE-NEXT:          %mmidx.cmp. = %tmp.024 == %red.var1;
+;CG_ENABLE-NEXT:          %mmidx.cmp. = %tmp.024 == %.vec8;
 ;CG_ENABLE-NEXT:          %bsfintmask = bitcast.<4 x i1>.i4(%mmidx.cmp.);
 ;CG_ENABLE-NEXT:          %bsf = @llvm.cttz.i4(%bsfintmask,  1);
-;CG_ENABLE-NEXT:          %val.025 = extractelement %red.var2,  %bsf;
+;CG_ENABLE-NEXT:          %val.025 = extractelement %.vec7,  %bsf;
 ;CG_ENABLE-NEXT:       }
 ;CG_ENABLE:            + DO i1 = 4 * %tgu, %m + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ;CG_ENABLE-NEXT:       |   %0 = (%ordering)[i1];

@@ -172,6 +172,7 @@ public:
   Value *getNormUB(unsigned I=0) const;
   Type *getNormUBElemTy(unsigned I = 0) const;
   ArrayRef<Value *> getNormUBs() const { return NormUB; }
+  ArrayRef<Type *> getNormUBElemTys() const { return NormUBElemTy; }
   unsigned getNormIVSize() const { return NormIV.size(); }
   unsigned getNormUBSize() const { return NormUB.size(); }
 
@@ -595,7 +596,9 @@ private:
   ReductionClause Reduction;
   AllocateClause Alloc;
   EXPR ThreadLimit;
+  Type *ThreadLimitTy = nullptr;
   EXPR NumTeams;
+  Type *NumTeamsTy = nullptr;
   WRNDefaultKind Default;
 #if INTEL_CUSTOMIZATION
   uint64_t ConfiguredThreadLimit = 0;
@@ -606,7 +609,9 @@ public:
 
 protected:
   void setThreadLimit(EXPR E) override { ThreadLimit = E; }
+  void setThreadLimitType(Type *T) override { ThreadLimitTy = T; }
   void setNumTeams(EXPR E) override { NumTeams = E; }
+  void setNumTeamsType(Type *T) override { NumTeamsTy = T; }
   void setDefault(WRNDefaultKind D) override { Default = D; }
 
 public:
@@ -617,7 +622,9 @@ public:
   DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
 
   EXPR getThreadLimit() const override { return ThreadLimit; }
+  Type *getThreadLimitType() const override { return ThreadLimitTy; }
   EXPR getNumTeams() const override  { return NumTeams; }
+  Type *getNumTeamsType() const override { return NumTeamsTy; }
   WRNDefaultKind getDefault() const override { return Default; }
 #if INTEL_CUSTOMIZATION
   void setConfiguredThreadLimit(uint64_t TL) override {
@@ -744,7 +751,8 @@ private:
       {WRNDefaultmapAbsent};
   int OffloadEntryIdx;
   SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
-  SmallVector<Value *, 3> UncollapsedNDRange;
+  SmallVector<Value *, 3> UncollapsedNDRangeDimensions;
+  SmallVector<Type *, 3> UncollapsedNDRangeTypes;
   uint8_t NDRangeDistributeDim = 0;
   unsigned SPIRVSIMDWidth = 0;
   bool HasTeamsReduction = false;
@@ -761,10 +769,16 @@ protected:
   }
   void setOffloadEntryIdx(int Idx) override { OffloadEntryIdx = Idx; }
   void setUncollapsedNDRangeDimensions(ArrayRef<Value *> Dims) override {
-    assert(UncollapsedNDRange.empty() &&
+    assert(UncollapsedNDRangeDimensions.empty() &&
            "Uncollapsed NDRange must be set only once.");
-    UncollapsedNDRange.insert(
-        UncollapsedNDRange.begin(), Dims.begin(), Dims.end());
+    UncollapsedNDRangeDimensions.insert(
+        UncollapsedNDRangeDimensions.begin(), Dims.begin(), Dims.end());
+  }
+  void setUncollapsedNDRangeTypes(ArrayRef<Type *> Types) override {
+    assert(UncollapsedNDRangeTypes.empty() &&
+           "Uncollapsed NDRange must be set only once.");
+    UncollapsedNDRangeTypes.insert(
+        UncollapsedNDRangeTypes.begin(), Types.begin(), Types.end());
   }
   void setHasTeamsReduction() override {
     HasTeamsReduction = true;
@@ -796,8 +810,12 @@ protected:
     DirectlyUsedNonPointerValues.push_back(V);
   }
 
-  const SmallVectorImpl<Value *> &getUncollapsedNDRange() const override {
-    return UncollapsedNDRange;
+  const SmallVectorImpl<Value *> &
+      getUncollapsedNDRangeDimensions() const override {
+    return UncollapsedNDRangeDimensions;
+  }
+  const SmallVectorImpl<Type *> &getUncollapsedNDRangeTypes() const override {
+    return UncollapsedNDRangeTypes;
   }
 
   void setSPIRVSIMDWidth(unsigned Width) {
@@ -808,8 +826,9 @@ protected:
     return SPIRVSIMDWidth;
   }
 
-  void resetUncollapsedNDRangeDimensions() override {
-    UncollapsedNDRange.clear();
+  void resetUncollapsedNDRange() override {
+    UncollapsedNDRangeDimensions.clear();
+    UncollapsedNDRangeTypes.clear();
   }
 
   void setNDRangeDistributeDim(uint8_t Dim) override {

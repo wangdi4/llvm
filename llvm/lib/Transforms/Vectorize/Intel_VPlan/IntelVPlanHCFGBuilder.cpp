@@ -71,9 +71,8 @@ VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
 
 VPlanHCFGBuilder::~VPlanHCFGBuilder() = default;
 
-static TripCountInfo readIRLoopMetadata(Loop *Lp) {
+static TripCountInfo readIRLoopMetadata(MDNode *LoopID) {
   TripCountInfo TCInfo;
-  MDNode *LoopID = Lp->getLoopID();
   if (!LoopID)
     // Default construct to trigger usage of the default estimated trip count
     // later.
@@ -114,6 +113,8 @@ void VPlanHCFGBuilder::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
     assert(VPLatch && "No dedicated latch!");
     BasicBlock *Latch = VPLatch->getOriginalBB();
     assert(Latch && "Loop massaging happened before VPLoop's creation?");
+    // TODO: IR loop is needed here to query SCEV. Consider dropping it after
+    // transitioning SCEV query to loop ID metadata during CFG build.
     Loop *Lp = LI->getLoopFor(Latch);
     assert(Lp &&
            "VPLoopLatch does not correspond to Latch, massaging happened?");
@@ -132,7 +133,7 @@ void VPlanHCFGBuilder::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
     }
     // If not, check if an estimation for max TC can be obtained.
     // First, try reading pragmas.
-    TripCountInfo TCInfo = readIRLoopMetadata(Lp);
+    TripCountInfo TCInfo = readIRLoopMetadata(VPL->getLoopID());
     if (TripCountTy KnownMaxTC = SE->getSmallConstantMaxTripCount(Lp)) {
       // Then see if the compiler can infer a better estimate.
       TCInfo.MaxTripCount = std::min(TCInfo.MaxTripCount, KnownMaxTC);
@@ -407,24 +408,25 @@ public:
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(Builder.getOrCreateVPOperand(CurValue.first));
 
-    Type *IndTy = CurValue.first->getType();
-    assert(IndTy->isPointerTy() &&
+    Value *V = CurValue.first;
+    assert(V->getType()->isPointerTy() &&
            "expected pointer type for explicit induction");
-    IndTy = IndTy->getPointerElementType();
-    Type *StepTy = IndTy;
+    Type *IndTy;
+    int Step;
+    std::tie(IndTy, Step) = CurValue.second;
     Descriptor.setKindAndOpcodeFromTy(IndTy);
+
+    Type *StepTy = IndTy;
     if (IndTy->isPointerTy()) {
-      assert(isa<Instruction>(CurValue.first) &&
-             "Linear descriptor is not an instruction.");
-      const DataLayout &DL =
-          cast<Instruction>(CurValue.first)->getModule()->getDataLayout();
+      // TODO: revisit this once PTR_TO_PTR clause implemented
+      const DataLayout &DL = cast<Instruction>(V)->getModule()->getDataLayout();
       StepTy = DL.getIntPtrType(IndTy);
     }
-    Value *Cstep = ConstantInt::get(StepTy, CurValue.second);
-    Descriptor.setStep(Builder.getOrCreateVPOperand(Cstep));
+    Descriptor.setStep(
+        Builder.getOrCreateVPOperand(ConstantInt::get(StepTy, Step)));
 
     Descriptor.setInductionOp(nullptr);
-    assertIsSingleElementAlloca(CurValue.first);
+    assertIsSingleElementAlloca(V);
     // Initialize the AllocaInst of the descriptor with the induction start
     // value. Explicit inductions always have a valid memory allocation.
     Descriptor.setAllocaInst(Descriptor.getStart());
@@ -508,7 +510,8 @@ public:
   void operator()(PrivateDescr &Descriptor, const PrivDescrTy *CurValue) {
     Descriptor.clear();
     assertIsSingleElementAlloca(CurValue->getRef());
-    auto *VPAllocaVal = Builder.getOrCreateVPOperand(CurValue->getRef());
+    auto *RefVal = CurValue->getRef();
+    auto *VPAllocaVal = Builder.getOrCreateVPOperand(RefVal);
 
     // Collect the out-of-loop aliases corresponding to this AllocaVal.
     // TODO: This is a temporary solution. Aliases to the private descriptor
@@ -521,12 +524,31 @@ public:
     Descriptor.setIsLast(CurValue->isLast());
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(true);
+    Descriptor.setAllocatedType(CurValue->getType());
     if (CurValue->isNonPOD()) {
       auto *NonPODCurValue = cast<PrivDescrNonPODTy>(CurValue);
       Descriptor.setCtor(NonPODCurValue->getCtor());
       Descriptor.setDtor(NonPODCurValue->getDtor());
       Descriptor.setCopyAssign(NonPODCurValue->getCopyAssign());
     }
+    SmallVector<VPInstruction *, 4> AliasUpdates;
+    for (auto *Alias : CurValue->aliases()) {
+      auto *VAliasRef =
+          Builder.getOrCreateVPOperand(const_cast<Value *>(Alias->getRef()));
+      if (auto *VI = dyn_cast<VPInstruction>(VAliasRef))
+        AliasUpdates.push_back(VI);
+      for (const Instruction *UpdateInst : Alias->getUpdateInstructions()) {
+        LLVM_DEBUG(dbgs() << "Adding update inst:"; UpdateInst->print(dbgs()));
+        AliasUpdates.push_back(cast<VPInstruction>(Builder.getOrCreateVPOperand(
+            const_cast<Instruction *>(UpdateInst))));
+      }
+    }
+    // TODO: consider combininig collectMemoryAliases with value-aliases
+    // gathering.
+    Descriptor.setAlias(nullptr /*AliasInit*/, AliasUpdates);
+    for (auto UpdateInst : CurValue->getUpdateInstructions())
+      Descriptor.addUpdateVPInst(cast<VPInstruction>(
+          Builder.getOrCreateVPOperand(const_cast<Instruction *>(UpdateInst))));
   }
 };
 
@@ -549,6 +571,10 @@ public:
           const Loop *L = Head2Loop[BB->getOriginalBB()];
           assert(L != nullptr && "Can't find Loop");
           LoopMap[L] = VPL;
+          // Capture opt-report remarks that are present for current loop in
+          // incoming IR.
+          const_cast<VPLoop *>(VPL)->setOptReport(
+              OptReport::findOptReportInLoopID(L->getLoopID()));
           for (auto VLoop : *VPL)
             mapLoop2VPLoop(VLoop);
         };
@@ -575,86 +601,50 @@ void PlainCFGBuilder::convertEntityDescriptors(
     VPOVectorizationLegality *Legal,
     ScalarEvolution *SE,
     VPlanHCFGBuilder::VPLoopEntityConverterList &Cvts) {
+  auto RedCvt = std::make_unique<ReductionConverter>(Plan);
+  auto IndCvt = std::make_unique<InductionConverter>(Plan);
+  auto PrivCvt = std::make_unique<PrivatesConverter>(Plan);
 
-  using InductionList = VPOVectorizationLegality::InductionList;
-  using LinearListTy = VPOVectorizationLegality::LinearListTy;
-  using ReductionList = VPOVectorizationLegality::ReductionList;
-  using ExplicitReductionList = VPOVectorizationLegality::ExplicitReductionList;
-  using InMemoryReductionList = VPOVectorizationLegality::InMemoryReductionList;
+  auto Bind = [](auto &&Range, auto &&Converter) {
+    return std::make_pair(std::ref(Range), std::move(Converter));
+  };
 
-  ReductionConverter *RedCvt = new ReductionConverter(Plan);
-  InductionConverter *IndCvt = new InductionConverter(Plan);
-  PrivatesConverter *PrivCvt = new PrivatesConverter(Plan);
+  // clang-format off
+  RedCvt->createDescrList(TheLoop,
+      Bind(*Legal->getReductionVars(),          ReductionListCvt{*this}),
+      Bind(*Legal->getExplicitReductionVars(),  ExplicitReductionListCvt{*this}),
+      Bind(*Legal->getInMemoryReductionVars(),  InMemoryReductionListCvt{*this}));
 
-  // TODO: create legality and import descriptors for all inner loops too.
+  IndCvt->createDescrList(TheLoop,
+      Bind(*Legal->getInductionVars(),          InductionListCvt{*this, Plan, SE}),
+      Bind(*Legal->getLinears(),                LinearListCvt{*this}));
 
-  const InductionList *IL = Legal->getInductionVars();
-  iterator_range<InductionList::const_iterator> InducRange(IL->begin(), IL->end());
-  InductionListCvt InducListCvt(*this, Plan, SE);
+  PrivCvt->createDescrList(TheLoop,
+      Bind(Legal->privates(),                   PrivatesListCvt{*this}));
 
-  const LinearListTy *LL = Legal->getLinears();
-  iterator_range<LinearListTy::const_iterator> LinearRange(LL->begin(), LL->end());
-  LinearListCvt LinListCvt(*this);
+  // clang-format on
 
-  const ReductionList *RL = Legal->getReductionVars();
-  iterator_range<ReductionList::const_iterator> ReducRange(RL->begin(), RL->end());
-  ReductionListCvt RedListCvt(*this);
-
-  const ExplicitReductionList *ERL = Legal->getExplicitReductionVars();
-  iterator_range<ExplicitReductionList::const_iterator> ExplicitReductionRange(
-      ERL->begin(), ERL->end());
-  ExplicitReductionListCvt ExpRLCvt(*this);
-
-  const InMemoryReductionList *IMRL = Legal->getInMemoryReductionVars();
-  iterator_range<InMemoryReductionList::const_iterator> InMemoryReductionRange(
-      IMRL->begin(), IMRL->end());
-  InMemoryReductionListCvt IMRLCvt(*this);
-  auto ReducPair = std::make_pair(ReducRange, RedListCvt);
-  auto ExplicitRedPair = std::make_pair(ExplicitReductionRange, ExpRLCvt);
-  auto InMemoryRedPair = std::make_pair(InMemoryReductionRange, IMRLCvt);
-
-  PrivatesListCvt PrivListCvt(*this);
-
-  // Create the iterator-range to the list of privates loop-entities.
-  // FIXME: Uses workaround approach because of known bug with reuse of
-  // map_range, currently used in VPOVectorizationLegality::privates().
-  // Should be simplified once community fix will be provided.
-  SmallVector<const VPOVectorizationLegality::PrivDescrTy *, 8> PvtRawPtrs =
-      llvm::to_vector<8>(Legal->privates());
-
-  RedCvt->createDescrList(TheLoop, ReducPair, ExplicitRedPair, InMemoryRedPair);
-
-  auto InducPair = std::make_pair(InducRange, InducListCvt);
-  auto LinearPair = std::make_pair(LinearRange, LinListCvt);
-
-  auto PrivatesPair = std::make_pair(
-      make_range(PvtRawPtrs.begin(), PvtRawPtrs.end()), PrivListCvt);
-
-  IndCvt->createDescrList(TheLoop, InducPair, LinearPair);
-
-  PrivCvt->createDescrList(TheLoop, PrivatesPair);
-
-  Cvts.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(RedCvt));
-  Cvts.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(IndCvt));
-  Cvts.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(PrivCvt));
+  Cvts.push_back(std::move(RedCvt));
+  Cvts.push_back(std::move(IndCvt));
+  Cvts.push_back(std::move(PrivCvt));
 }
 
 bool VPlanHCFGBuilder::buildPlainCFG(VPLoopEntityConverterList &Cvts) {
   PlainCFGBuilder PCFGBuilder(TheLoop, LI, Plan);
   PCFGBuilder.buildCFG();
   // Converting loop enities.
-  PCFGBuilder.convertEntityDescriptors(Legal, SE, Cvts);
-  return true;
-}
-
-void VPlanHCFGBuilder::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
-  typedef VPLoopEntitiesConverterTempl<Loop2VPLoopMapper> BaseConverter;
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (VPlanPrintLegality) {
     Legal->dump(dbgs());
   }
 #endif
+
+  PCFGBuilder.convertEntityDescriptors(Legal, SE, Cvts);
+  return true;
+}
+
+void VPlanHCFGBuilder::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
+  using BaseConverter = VPLoopEntitiesConverterTempl<Loop2VPLoopMapper>;
 
   Loop2VPLoopMapper Mapper(TheLoop, Plan);
   for (auto &Cvt : Cvts) {

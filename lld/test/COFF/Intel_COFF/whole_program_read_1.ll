@@ -4,6 +4,13 @@
 ; RUN: llvm-as -o %t_wp1.bc %s
 ; RUN: lld-link /out:%t_wp1.exe /entry:main %t_wp1.bc /subsystem:console  \
 ; RUN:     /mllvm:-debug-only=whole-program-analysis \
+; RUN:     /opt:noltonewpassmanager \
+; RUN:     2>&1 | FileCheck %s
+
+; RUN: llvm-as -o %t_wp1.bc %s
+; RUN: lld-link /out:%t_wp1.exe /entry:main %t_wp1.bc /subsystem:console  \
+; RUN:     /mllvm:-debug-only=whole-program-analysis \
+; RUN:     /opt:ltonewpassmanager \
 ; RUN:     2>&1 | FileCheck %s
 
 ; CHECK:   UNRESOLVED CALLSITES: 0

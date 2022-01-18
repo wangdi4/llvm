@@ -32,8 +32,9 @@ void initializeDTransPasses(PassRegistry&);
 // Analysis passes
 void initializeDTransAnalysisWrapperPass(PassRegistry&);
 void initializeDTransFieldModRefAnalysisWrapperPass(PassRegistry&);
+void initializeDTransFieldModRefOPAnalysisWrapperPass(PassRegistry&);
 void initializeDTransFieldModRefResultWrapperPass(PassRegistry&);
-void initializeDTransImmutableAnalysisWrapperPass(PassRegistry &);
+void initializeDTransImmutableAnalysisWrapperPass(PassRegistry&);
 void initializeDTransSafetyAnalyzerWrapperPass(PassRegistry&);
 
 // Transform passes
@@ -42,12 +43,14 @@ void initializeDTransAOSToSOAOPWrapperPass(PassRegistry&);
 void initializeDTransDeleteFieldWrapperPass(PassRegistry&);
 void initializeDTransDeleteFieldOPWrapperPass(PassRegistry&);
 void initializeDTransPaddedMallocWrapperPass(PassRegistry&);
+void initializeDTransPaddedMallocOPWrapperPass(PassRegistry&);
 void initializeDTransReorderFieldsWrapperPass(PassRegistry&);
 void initializeDTransResolveTypesWrapperPass(PassRegistry&);
 // Pass for elimination of unreachable access to field which is only read.
 void initializeDTransEliminateROFieldAccessWrapperPass(PassRegistry&);
 void initializeDTransEliminateROFieldAccessOPWrapperPass(PassRegistry&);
 void initializePaddedPtrPropWrapperPass(PassRegistry&);
+void initializePaddedPtrPropOPWrapperPass(PassRegistry&);
 void initializeDTransDynCloneWrapperPass(PassRegistry&);
 void initializeDTransDynCloneOPWrapperPass(PassRegistry&);
 void initializeDTransSOAToAOSWrapperPass(PassRegistry&);
@@ -56,10 +59,12 @@ void initializeDTransSOAToAOSPrepareWrapperPass(PassRegistry&);
 void initializeDTransAnnotatorCleanerWrapperPass(PassRegistry&);
 void initializeDTransWeakAlignWrapperPass(PassRegistry&);
 void initializeDTransMemInitTrimDownWrapperPass(PassRegistry&);
+void initializeDTransMemInitTrimDownOPWrapperPass(PassRegistry&);
 void initializeDTransMemManageTransWrapperPass(PassRegistry&);
 void initializeDTransCodeAlignWrapperPass(PassRegistry&);
 void initializeDTransTransposeWrapperPass(PassRegistry&);
 void initializeDTransCommuteCondWrapperPass(PassRegistry&);
+void initializeDTransCommuteCondOPWrapperPass(PassRegistry&);
 
 #if !INTEL_PRODUCT_RELEASE
 void initializeDTransOPOptBaseTestWrapperPass(PassRegistry&);

@@ -384,17 +384,6 @@ def SS : X86Reg<"ss", 2>;
 def ES : X86Reg<"es", 0>;
 def FS : X86Reg<"fs", 4>;
 def GS : X86Reg<"gs", 5>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-def PHYSEG_SUPOVR : X86Reg<"physeg_supovr", 6>;
-def LINSEG_SUPOVR : X86Reg<"linseg_supovr", 12>;
-def LINSEG_NOSUPOVR : X86Reg<"linseg_nosupovr", 11>;
-def IDTR : X86Reg<"idtr", 9>;
-def GDTR : X86Reg<"gdtr", 7>;
-def LDTR : X86Reg<"ldtr", 8>;
-def TR : X86Reg<"tr", 10>;
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 
 // Debug registers
 def DR0  : X86Reg<"dr0",   0>;
@@ -435,12 +424,6 @@ def CR15 : X86Reg<"cr15", 15>;
 // Pseudo index registers
 def EIZ : X86Reg<"eiz", 4>;
 def RIZ : X86Reg<"riz", 4>;
-
-// Bound registers, used in MPX instructions
-def BND0 : X86Reg<"bnd0",   0>;
-def BND1 : X86Reg<"bnd1",   1>;
-def BND2 : X86Reg<"bnd2",   2>;
-def BND3 : X86Reg<"bnd3",   3>;
 
 // CET registers - Shadow Stack Pointer
 def SSP : X86Reg<"ssp", 0>;
@@ -499,25 +482,16 @@ def GR64 : RegisterClass<"X86", [i64], 64,
                          (add RAX, RCX, RDX, RSI, RDI, R8, R9, R10, R11,
                               RBX, R14, R15, R12, R13, RBP, RSP, RIP)>;
 
-// GR64 - 64-bit GPRs without R8 and RIP. Could be used when emitting code for
-// intrinsics, which use implict input registers.
-def GR64NoR8 : RegisterClass<"X86", [i64], 64,
-                              (add RAX, RCX, RDX, RSI, RDI, R9, R10, R11,
-                                   RBX, R14, R15, R12, R13, RBP, RSP)>;
+// GR64PLTSafe - 64-bit GPRs without R10, R11, RSP and RIP. Could be used when
+// emitting code for intrinsics, which use implict input registers.
+def GR64PLTSafe : RegisterClass<"X86", [i64], 64,
+                              (add RAX, RCX, RDX, RSI, RDI, R8, R9,
+                                   RBX, R14, R15, R12, R13, RBP)>;
 
 // Segment registers for use by MOV instructions (and others) that have a
 //   segment register as one operand.  Always contain a 16-bit segment
 //   descriptor.
 def SEGMENT_REG : RegisterClass<"X86", [i16], 16, (add CS, DS, SS, ES, FS, GS)>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-def SEGMENTEX_REG : RegisterClass<"X86", [i16], 16, (add SEGMENT_REG,
-                                                         PHYSEG_SUPOVR, GDTR,
-                                                         LDTR, IDTR, TR,
-                                                         LINSEG_NOSUPOVR,
-                                                         LINSEG_SUPOVR)>;
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 
 // Debug registers.
 def DEBUG_REG : RegisterClass<"X86", [i32], 32, (sequence "DR%u", 0, 15)>;
@@ -711,9 +685,6 @@ def VK8WM   : RegisterClass<"X86", [v8i1],  16,  (sub VK8, K0)> {let Size = 16;}
 def VK16WM  : RegisterClass<"X86", [v16i1], 16, (add VK8WM)>   {let Size = 16;}
 def VK32WM  : RegisterClass<"X86", [v32i1], 32, (add VK16WM)> {let Size = 32;}
 def VK64WM  : RegisterClass<"X86", [v64i1], 64, (add VK32WM)> {let Size = 64;}
-
-// Bound registers
-def BNDR : RegisterClass<"X86", [v2i64], 128, (sequence "BND%u", 0, 3)>;
 
 // Tiles
 let CopyCost = -1 in // Don't allow copying of tile registers

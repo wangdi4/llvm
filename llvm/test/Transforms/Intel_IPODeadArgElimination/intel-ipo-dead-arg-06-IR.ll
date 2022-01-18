@@ -1,5 +1,5 @@
-; RUN: opt -intel-ipo-dead-arg-elimination %s -S 2>&1 | FileCheck %s
-; RUN: opt -passes=intel-ipo-dead-arg-elimination %s -S 2>&1 | FileCheck %s
+; RUN: opt -intel-ipo-dead-arg-elimination  %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes=intel-ipo-dead-arg-elimination  %s -S 2>&1 | FileCheck %s
 
 ; This test case checks that IPO simplified dead argument elimination won't
 ; be performed since function @foo is not internal. This is the same
@@ -21,6 +21,7 @@
 ; CHECK-NEXT:   %6 = call float @foo(float* %5, float* %0, i64 %2, i64 %3)
 ; CHECK-NEXT:   %7 = fadd float %1, %6
 ; CHECK-NEXT:   ret float %7
+; CHECK-NEXT: }
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -20,8 +20,9 @@ define dllexport "intel_dtrans_func_index"="1" i8* @extern_func01() !intel.dtran
   ret i8* @var01
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Bad casting | System object{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 !1 = !{i32 0, i32 0}  ; i32

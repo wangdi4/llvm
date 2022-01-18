@@ -30,14 +30,14 @@
 # RUN: lib /LTCG /OUT:test_lib_5.lib baz_test_5.obj test_sub_lib_5.lib
 
 # Link
-# RUN: lld-link /OUT:msgl_test_5 /subsystem:console driver_test_5.obj foo_test_5.obj test_lib_5.lib > %t_out 2>&1
+# RUN: lld-link /OUT:msgl_test_5 /subsystem:console /opt:noltonewpassmanager driver_test_5.obj foo_test_5.obj test_lib_5.lib > %t_out 2>&1
 # RUN: cat %t_out | FileCheck -check-prefix=CHECK %s
 
 # Check that MS-LINK is called
 CHECK: MS /GL object found in the command line
 CHECK: Finalizing linking process with MS-LINK
 
-# Check that MS-LINK linked succesfully
+# Check that MS-LINK linked successfully
 CHECK: Generating code
 CHECK: Finished generating code
 
@@ -47,3 +47,24 @@ CHECK: Finished generating code
 CHECKRUN5: FOO: 1
 CHECKRUN5: BAR: 2
 CHECKRUN5: BAZ: 3
+
+# Check for new pass manager
+
+# Link
+# RUN: lld-link /OUT:msgl_test_5 /subsystem:console /opt:ltonewpassmanager driver_test_5.obj foo_test_5.obj test_lib_5.lib > %t_npm_out 2>&1
+# RUN: cat %t_npm_out | FileCheck -check-prefix=CHECK-NPM %s
+
+# Check that MS-LINK is called
+CHECK-NPM: MS /GL object found in the command line
+CHECK-NPM: Finalizing linking process with MS-LINK
+
+# Check that MS-LINK linked successfully
+CHECK-NPM: Generating code
+CHECK-NPM: Finished generating code
+
+# Check that the executable runs correctly
+# RUN: ./msgl_test_5 > %t_npm_out 2>&1
+# RUN: cat %t_npm_out | FileCheck -check-prefix=CHECKRUN5-NPM %s
+CHECKRUN5-NPM: FOO: 1
+CHECKRUN5-NPM: BAR: 2
+CHECKRUN5-NPM: BAZ: 3

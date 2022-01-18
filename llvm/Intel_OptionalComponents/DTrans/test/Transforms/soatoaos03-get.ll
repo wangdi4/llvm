@@ -1,12 +1,12 @@
 ; RUN: opt < %s -whole-program-assume -disable-output                                                           \
 ; RUN:    -passes='require<dtransanalysis>,function(require<soatoaos-approx>,require<soatoaos-array-methods>)'  \
 ; RUN:    -dtrans-soatoaos-base-ptr-off=3 -dtrans-soatoaos-mem-off=0                                            \
-; RUN:    -debug-only=dtrans-soatoaos -dtrans-free-functions=struct.Mem,1                                       \
+; RUN:    -debug-only=dtrans-soatoaos \
 ; RUN:  2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -disable-output                                                           \
 ; RUN:    -passes='require<dtransanalysis>,function(require<soatoaos-approx>,require<soatoaos-array-methods>)'  \
 ; RUN:    -dtrans-soatoaos-base-ptr-off=3 -dtrans-soatoaos-mem-off=0                                            \
-; RUN:    -debug-only=dtrans-soatoaos-arrays -dtrans-free-functions=struct.Mem,1                                \
+; RUN:    -debug-only=dtrans-soatoaos-arrays \
 ; RUN:  2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
 ; RUN: opt -S < %s -whole-program-assume                                                                        \
 ; RUN:    -passes=soatoaos-arrays-methods-transform -dtrans-soatoaos-base-ptr-off=3                             \

@@ -1,5 +1,7 @@
 ; RUN: opt < %s -anders-aa -disable-output 2>/dev/null
+; RUN: opt < %s -passes='require<anders-aa>' -disable-output 2>/dev/null
 ; RUN: opt < %s -anders-aa -disable-output -skip-anders-unreachable-asserts=false 2> /dev/null
+; RUN: opt < %s -passes='require<anders-aa>' -disable-output -skip-anders-unreachable-asserts=false 2> /dev/null
 ; This test has different WinEH related instruction.
 ; It tests Andersens analysis doesn't crash in presence of WinEH, and that it
 ; doesn't just silently ignore the instructions.

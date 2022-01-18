@@ -14,6 +14,7 @@
 
 #include <cuda.h>
 
+#include "CudaUtils.hpp"
 #include "TestGetPlugin.hpp"
 #include <CL/sycl.hpp>
 #include <CL/sycl/detail/pi.hpp>
@@ -25,19 +26,20 @@ using namespace cl::sycl;
 struct CudaContextsTest : public ::testing::Test {
 
 protected:
-  detail::plugin *plugin = pi::initializeAndGet(backend::cuda);
+  std::optional<detail::plugin> plugin =
+      pi::initializeAndGet(backend::ext_oneapi_cuda);
 
   pi_platform platform_;
   pi_device device_;
 
   void SetUp() override {
     // skip the tests if the CUDA backend is not available
-    if (!plugin) {
+    if (!plugin.has_value()) {
       GTEST_SKIP();
     }
 
     pi_uint32 numPlatforms = 0;
-    ASSERT_EQ(plugin->getBackend(), backend::cuda);
+    ASSERT_EQ(plugin->getBackend(), backend::ext_oneapi_cuda);
 
     ASSERT_EQ((plugin->call_nocheck<detail::PiApiKind::piPlatformsGet>(
                   0, nullptr, &numPlatforms)),
@@ -63,7 +65,7 @@ protected:
 
 TEST_F(CudaContextsTest, ContextLifetime) {
   // start with no active context
-  cuCtxSetCurrent(nullptr);
+  pi::clearCudaContext();
 
   // create a context
   pi_context context;
@@ -149,7 +151,7 @@ TEST_F(CudaContextsTest, ContextLifetimeExisting) {
 // still able to work correctly in that thread.
 TEST_F(CudaContextsTest, ContextThread) {
   // start with no active context
-  cuCtxSetCurrent(nullptr);
+  pi::clearCudaContext();
 
   // create two PI contexts
   pi_context context1;

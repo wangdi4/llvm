@@ -18,9 +18,10 @@
 #include "Intel_DTrans/Analysis/DTransFieldModRef.h"
 
 #include "Intel_DTrans/Analysis/DTrans.h"
-#include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransInfoAdapter.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/DTransCommon.h"
+#include "llvm/Analysis/Intel_LangRules.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/InstIterator.h"
@@ -393,17 +394,65 @@ void FieldModRefResult::print(raw_ostream &OS) const {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-bool DTransModRefAnalyzer::runAnalysis(Module &M,
-                                       DTransAnalysisInfo &DTransInfo,
-                                       WholeProgramInfo &WPInfo,
-                                       FieldModRefResult &FMRResult) {
+namespace {
+// This class implements the safety analysis to identify candidates, and save
+// the results of structure/field pairs that pass the analysis into a
+// FieldModRefResult object that will be used for the Mod/Ref queries.
+template <class InfoClass> class DTransModRefAnalyzerImpl {
+public:
+  bool runAnalysis(Module &M, InfoClass &DTransInfo, WholeProgramInfo &WPInfo,
+                   FieldModRefResult &Result);
+
+private:
+  void initialize(Module &M, FieldModRefResult &FMRResult);
+  void analyzeModule(Module &M);
+  void analyzeFunction(Function &F);
+  void populateResults(FieldModRefResult &Result);
+
+  bool analyzeFieldForEscapes(GetElementPtrInst *GEP, llvm::StructType *Ty,
+                              size_t FieldNum, dtrans::FieldInfo &FI);
+
+  bool checkAllValuesUsingIndirectAddress(llvm::StructType *StTy,
+                                          size_t FieldNum, Value *V);
+  void gatherValueAliases(Value *V, bool IncludeNonPointers,
+                          SmallPtrSetImpl<Value *> &Aliases);
+
+  Value *traceToAllocation(Value *V, SmallVectorImpl<Value *> &Aliases);
+  bool checkStoredValueSafe(llvm::StructType *StTy, size_t FieldNum,
+                            StoreInst *SI, Value *V);
+
+  void setAllFieldsToBottom(dtrans::StructInfo *StInfo);
+
+  void addIndirectReader(llvm::StructType *Ty, size_t FieldNum, Function *F);
+  void addIndirectWriter(llvm::StructType *Ty, size_t FieldNum, Function *F);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printCandidateInfo(StringRef Header);
+  void printQueryResults(Module &M, FieldModRefResult &Result);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+  InfoClass *DTInfo = nullptr;
+
+  // List of structures that have fields that passed the initial safety
+  // analysis.
+  SmallPtrSet<llvm::StructType *, 8> Candidates;
+
+  // For dynamically allocated array fields, keep track of the functions that
+  // read/write elements of the array.
+  using FunctionSet = llvm::SmallPtrSet<Function *, 2>;
+  using CandFieldTy = std::pair<llvm::StructType *, size_t>;
+  DenseMap<CandFieldTy, FunctionSet> IndirectFieldReaders;
+  DenseMap<CandFieldTy, FunctionSet> IndirectFieldWriters;
+};
+
+template <class InfoClass>
+bool DTransModRefAnalyzerImpl<InfoClass>::runAnalysis(
+    Module &M, InfoClass &DTransInfo, WholeProgramInfo &WPInfo,
+    FieldModRefResult &FMRResult) {
   DTInfo = &DTransInfo;
   FMRResult.reset();
 
   if (!WPInfo.isWholeProgramSafe())
-    return false;
-
-  if (!DTInfo->useDTransAnalysis())
     return false;
 
   initialize(M, FMRResult);
@@ -437,7 +486,9 @@ bool DTransModRefAnalyzer::runAnalysis(Module &M,
 // Do an initial pruning of fields that may not be able to be analyzed for the
 // sets of functions that modify or reference the fields based on the DTrans
 // safety data of their container structures.
-void DTransModRefAnalyzer::initialize(Module &M, FieldModRefResult &FMRResult) {
+template <class InfoClass>
+void DTransModRefAnalyzerImpl<InfoClass>::initialize(
+    Module &M, FieldModRefResult &FMRResult) {
   // Helper to collect all the functions that may be called from Function \p
   // F. Also, include all the functions those calls make.
   std::function<void(Function *, SmallPtrSetImpl<Function *> &)>
@@ -481,7 +532,7 @@ void DTransModRefAnalyzer::initialize(Module &M, FieldModRefResult &FMRResult) {
 
   // When DTransOutOfBoundsOK is set, the address of any field is assumed to
   // be able to be used to access any other field.
-  if (DTInfo->getDTransOutOfBoundsOK())
+  if (getLangRuleOutOfBoundsOK())
     ModRefSafetyMask |= dtrans::AnyFieldAddressTaken;
 
   auto IsDirectCall = [](const Use *U) -> bool {
@@ -790,24 +841,23 @@ void DTransModRefAnalyzer::initialize(Module &M, FieldModRefResult &FMRResult) {
       llvm::Type *FieldTy = FI.getLLVMType();
       if (FieldTy->isArrayTy()) {
         DEBUG_WITH_TYPE(DTRANS_FMR, dbgs() << "Disqualifying field #" << FNum
-                                           << " of " << *StInfo->getLLVMType()
+                                           << " of " << *StTy
                                            << ": Array field\n");
         FI.setRWBottom();
-      } else if (FieldTy->isPointerTy() &&
-                 FieldTy->getPointerElementType()->isPointerTy()) {
+      } else if (DTInfo->isFieldPtrToPtr(*StInfo, FNum)) {
         DEBUG_WITH_TYPE(DTRANS_FMR, dbgs() << "Disqualifying field #" << FNum
-                                           << " of " << *StInfo->getLLVMType()
+                                           << " of " << *StTy
                                            << ": Ptr-to-Ptr field\n");
         FI.setRWBottom();
       } else if (FI.isAddressTaken()) {
         DEBUG_WITH_TYPE(DTRANS_FMR, dbgs() << "Disqualifying field #" << FNum
-                                           << " of " << *StInfo->getLLVMType()
+                                           << " of " << *StTy
                                            << ": Address taken field\n");
         FI.setRWBottom();
       } else if (FI.isMismatchedElementAccess()) {
         DEBUG_WITH_TYPE(DTRANS_FMR,
                         dbgs() << "Disqualifying field #" << FNum << " of "
-                               << *StInfo->getLLVMType()
+                               << *StTy
                                << ": Mismatched element access on field\n");
         FI.setRWBottom();
       } else if (std::any_of(FI.writers().begin(), FI.writers().end(),
@@ -818,7 +868,7 @@ void DTransModRefAnalyzer::initialize(Module &M, FieldModRefResult &FMRResult) {
         // or may be called from a function that is address taken.
         DEBUG_WITH_TYPE(DTRANS_FMR, dbgs()
                                         << "Disqualifying field #" << FNum
-                                        << " of " << *StInfo->getLLVMType()
+                                        << " of " << *StTy
                                         << ": Writer function reachable from "
                                            "address taken function\n");
         FI.setRWBottom();
@@ -829,7 +879,7 @@ void DTransModRefAnalyzer::initialize(Module &M, FieldModRefResult &FMRResult) {
         // Also exclude readers to simplify the implementation by allowing
         // all indirect calls to be ignored later.
         DEBUG_WITH_TYPE(DTRANS_FMR, dbgs() << "Disqualifying field #" << FNum
-                                           << " of " << *StInfo->getLLVMType()
+                                           << " of " << *StTy
                                            << ":  Reader function reachable "
                                               "from address taken function\n");
         FI.setRWBottom();
@@ -846,23 +896,30 @@ void DTransModRefAnalyzer::initialize(Module &M, FieldModRefResult &FMRResult) {
 
 // Set the ModRef analysis state for all fields of the structure (and any
 // nested structures) to bottom.
-void DTransModRefAnalyzer::setAllFieldsToBottom(dtrans::StructInfo *StInfo) {
+template <class InfoClass>
+void DTransModRefAnalyzerImpl<InfoClass>::setAllFieldsToBottom(
+    dtrans::StructInfo *StInfo) {
   for (auto &FI : StInfo->getFields()) {
     FI.setRWBottom();
-    dtrans::TypeInfo *FieldTypeInfo = DTInfo->getTypeInfo(FI.getLLVMType());
-    if (auto *FieldStInfo = dyn_cast<dtrans::StructInfo>(FieldTypeInfo))
+    llvm::Type *FieldTy = FI.getLLVMType();
+    if (FieldTy->isStructTy()) {
+      dtrans::StructInfo *FieldStInfo =
+          DTInfo->getStructTypeInfo(cast<llvm::StructType>(FieldTy));
       setAllFieldsToBottom(FieldStInfo);
+    }
   }
 }
 
-void DTransModRefAnalyzer::analyzeModule(Module &M) {
+template <class InfoClass>
+void DTransModRefAnalyzerImpl<InfoClass>::analyzeModule(Module &M) {
   for (auto &F : M)
     analyzeFunction(F);
 }
 
 // Check all the GEPs of the function that could get the address of a
 // structure field that we are interested in for the usage of the field.
-void DTransModRefAnalyzer::analyzeFunction(Function &F) {
+template <class InfoClass>
+void DTransModRefAnalyzerImpl<InfoClass>::analyzeFunction(Function &F) {
   DEBUG_WITH_TYPE(DTRANS_FMR_VERBOSE,
                   dbgs() << "Analyzing function: " << F.getName() << "\n");
 
@@ -881,8 +938,7 @@ void DTransModRefAnalyzer::analyzeFunction(Function &F) {
         llvm::Type *SrcTy = InfoPair.first;
         if (auto *SrcStTy = dyn_cast<llvm::StructType>(SrcTy)) {
           if (Candidates.count(SrcStTy)) {
-            dtrans::StructInfo *StInfo =
-                cast<dtrans::StructInfo>(DTInfo->getTypeInfo(SrcStTy));
+            dtrans::StructInfo *StInfo = DTInfo->getStructTypeInfo(SrcStTy);
             size_t FieldNum = InfoPair.second;
             dtrans::FieldInfo &FI = StInfo->getField(FieldNum);
             if (FI.isRWBottom())
@@ -898,7 +954,7 @@ void DTransModRefAnalyzer::analyzeFunction(Function &F) {
               // When DTrans is allowing for out-of-bounds mode, an unsupported
               // access to one field needs to disqualify all fields of the
               // structure.
-              if (DTInfo->getDTransOutOfBoundsOK())
+              if (getLangRuleOutOfBoundsOK())
                 setAllFieldsToBottom(StInfo);
             }
           }
@@ -915,8 +971,7 @@ void DTransModRefAnalyzer::analyzeFunction(Function &F) {
       if (!Candidates.count(StTy))
         continue;
 
-      dtrans::StructInfo *StInfo =
-          cast<dtrans::StructInfo>(DTInfo->getTypeInfo(StTy));
+      dtrans::StructInfo *StInfo = DTInfo->getStructTypeInfo(StTy);
       dtrans::FieldInfo &FI = StInfo->getField(FieldNum);
       if (FI.isRWBottom())
         continue;
@@ -931,7 +986,7 @@ void DTransModRefAnalyzer::analyzeFunction(Function &F) {
         // When DTrans is allowing for out-of-bounds mode, an unsupported
         // access to one field needs to disqualify all fields of the
         // structure.
-        if (DTInfo->getDTransOutOfBoundsOK())
+        if (getLangRuleOutOfBoundsOK())
           setAllFieldsToBottom(StInfo);
       }
     }
@@ -941,22 +996,20 @@ void DTransModRefAnalyzer::analyzeFunction(Function &F) {
 // Check if the \p GEP, which holds the address of a structure field, is
 // used in a way that will store the address into another memory location that
 // can be accessed without going through the containing structure.
-bool DTransModRefAnalyzer::analyzeFieldForEscapes(GetElementPtrInst *GEP,
-                                                  llvm::StructType *StTy,
-                                                  size_t FieldNum,
-                                                  dtrans::FieldInfo &FI) {
+template <class InfoClass>
+bool DTransModRefAnalyzerImpl<InfoClass>::analyzeFieldForEscapes(
+    GetElementPtrInst *GEP, llvm::StructType *StTy, size_t FieldNum,
+    dtrans::FieldInfo &FI) {
   DEBUG_WITH_TYPE(DTRANS_FMR_VERBOSE, {
     dbgs() << "  Analyze field #" << FieldNum << " of " << StTy->getName()
            << "\n";
     dbgs() << "  " << *GEP << "\n";
   });
 
-  llvm::Type *FieldTy = FI.getLLVMType();
-  bool IsPointer = FieldTy->isPointerTy();
-
   // For non-pointers, we only need to verify the pointer produced by the GEP
   // does not get stored to another memory location, which has already been
   // done by the DTrans FieldAddressTaken safety check.
+  bool IsPointer = FI.getLLVMType()->isPointerTy();
   if (!IsPointer)
     return true;
 
@@ -1015,7 +1068,8 @@ bool DTransModRefAnalyzer::analyzeFieldForEscapes(GetElementPtrInst *GEP,
 // When \p IncludeNonPointerTypes is set, also add any integer objects produced
 // from PtrToInt, etc, that can be converted back to be a pointer alias of the
 // value object.
-void DTransModRefAnalyzer::gatherValueAliases(
+template <class InfoClass>
+void DTransModRefAnalyzerImpl<InfoClass>::gatherValueAliases(
     Value *V, bool IncludeNonPointerTypes, SmallPtrSetImpl<Value *> &Aliases) {
   if (!Aliases.insert(V).second)
     return;
@@ -1055,7 +1109,8 @@ void DTransModRefAnalyzer::gatherValueAliases(
 // We need to check the users of V to determine that V does not get written to
 // memory or escape the function. Also, check for reads/writes that reference
 // the memory of the pointer array.
-bool DTransModRefAnalyzer::checkAllValuesUsingIndirectAddress(
+template <class InfoClass>
+bool DTransModRefAnalyzerImpl<InfoClass>::checkAllValuesUsingIndirectAddress(
     llvm::StructType *StTy, size_t FieldNum, Value *V) {
 
   // First, collect all the value objects that directly or indirectly hold the
@@ -1150,14 +1205,16 @@ bool DTransModRefAnalyzer::checkAllValuesUsingIndirectAddress(
   return true;
 }
 
-void DTransModRefAnalyzer::addIndirectReader(llvm::StructType *Ty,
-                                             size_t FieldNum, Function *F) {
+template <class InfoClass>
+void DTransModRefAnalyzerImpl<InfoClass>::addIndirectReader(
+    llvm::StructType *Ty, size_t FieldNum, Function *F) {
   auto &Cand = IndirectFieldReaders[std::make_pair(Ty, FieldNum)];
   Cand.insert(F);
 }
 
-void DTransModRefAnalyzer::addIndirectWriter(llvm::StructType *Ty,
-                                             size_t FieldNum, Function *F) {
+template <class InfoClass>
+void DTransModRefAnalyzerImpl<InfoClass>::addIndirectWriter(
+    llvm::StructType *Ty, size_t FieldNum, Function *F) {
   auto &Cand = IndirectFieldWriters[std::make_pair(Ty, FieldNum)];
   Cand.insert(F);
 }
@@ -1168,9 +1225,9 @@ void DTransModRefAnalyzer::addIndirectWriter(llvm::StructType *Ty,
 // be traced back to a malloc call. And that the result of the malloc
 // does not get stored to a location that does not require access to the
 // structure field.
-bool DTransModRefAnalyzer::checkStoredValueSafe(llvm::StructType *StTy,
-                                                size_t FieldNum, StoreInst *SI,
-                                                Value *V) {
+template <class InfoClass>
+bool DTransModRefAnalyzerImpl<InfoClass>::checkStoredValueSafe(
+    llvm::StructType *StTy, size_t FieldNum, StoreInst *SI, Value *V) {
   if (V == Constant::getNullValue(V->getType()))
     return true;
 
@@ -1291,9 +1348,9 @@ bool DTransModRefAnalyzer::checkStoredValueSafe(llvm::StructType *StTy,
 //   %91 = and i64 %90, -64 (optional)
 //   %92 = inttoptr i64 %91 to i8* (optional)
 //   store i8* %92, i8** %97
-Value *
-DTransModRefAnalyzer::traceToAllocation(Value *V,
-                                        SmallVectorImpl<Value *> &AllocPath) {
+template <class InfoClass>
+Value *DTransModRefAnalyzerImpl<InfoClass>::traceToAllocation(
+    Value *V, SmallVectorImpl<Value *> &AllocPath) {
   if (auto *BC = dyn_cast<BitCastInst>(V)) {
     AllocPath.push_back(V);
     return traceToAllocation(BC->getOperand(0), AllocPath);
@@ -1334,9 +1391,11 @@ DTransModRefAnalyzer::traceToAllocation(Value *V,
 // safety checks. The DTransAnalysisInfo may be discarded because that pass is
 // not preserved, but the FieldModRefResult should be preserved for use by
 // other passes.
-void DTransModRefAnalyzer::populateResults(FieldModRefResult &FMRResult) {
+template <class InfoClass>
+void DTransModRefAnalyzerImpl<InfoClass>::populateResults(
+    FieldModRefResult &FMRResult) {
   for (auto *StTy : Candidates) {
-    auto *StInfo = cast<dtrans::StructInfo>(DTInfo->getTypeInfo(StTy));
+    dtrans::StructInfo *StInfo = DTInfo->getStructTypeInfo(StTy);
     size_t FieldNum = 0;
     for (auto &FI : StInfo->getFields()) {
       if (FI.isRWBottom()) {
@@ -1373,18 +1432,23 @@ void DTransModRefAnalyzer::populateResults(FieldModRefResult &FMRResult) {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void DTransModRefAnalyzer::printCandidateInfo(StringRef Header) {
-  DTransAnalysisInfo &Info = *DTInfo;
+template <class InfoClass>
+void DTransModRefAnalyzerImpl<InfoClass>::printCandidateInfo(StringRef Header) {
+  InfoClass &Info = *DTInfo;
   auto PrintCandidate = [&Info](StructType *Ty) {
     std::string OutputVal;
     raw_string_ostream OS(OutputVal);
     OS << "LLVMType: ";
     Ty->print(OS);
     OS << "\n";
-    auto *StInfo = cast<dtrans::StructInfo>(Info.getTypeInfo(Ty));
+    dtrans::StructInfo *StInfo = Info.getStructTypeInfo(Ty);
     size_t FNum = 0;
     for (dtrans::FieldInfo &Field : StInfo->getFields()) {
-      OS << "  " << FNum << ")Field LLVM Type: " << *Field.getLLVMType()
+      if (Field.isDTransType())
+        OS << "  " << FNum << ")Field DTrans Type: " << *Field.getDTransType()
+           << "\n ";
+      else
+        OS << "  " << FNum << ")Field LLVM Type: " << *Field.getLLVMType()
          << "\n";
       OS << "    Readers: ";
       dtrans::printCollectionSorted(
@@ -1402,6 +1466,9 @@ void DTransModRefAnalyzer::printCandidateInfo(StringRef Header) {
          << "\n";
       ++FNum;
     }
+    OS << "End LLVMType: ";
+    Ty->print(OS);
+    OS << "\n";
     OS.flush();
     return OutputVal;
   };
@@ -1412,8 +1479,9 @@ void DTransModRefAnalyzer::printCandidateInfo(StringRef Header) {
   dbgs() << "\n";
 }
 
-void DTransModRefAnalyzer::printQueryResults(Module &M,
-                                             FieldModRefResult &Result) {
+template <class InfoClass>
+void DTransModRefAnalyzerImpl<InfoClass>::printQueryResults(
+    Module &M, FieldModRefResult &Result) {
   for (auto &F : M) {
     SmallVector<Instruction *, 16> MemInst;
     SmallVector<CallBase *, 16> Calls;
@@ -1444,6 +1512,32 @@ void DTransModRefAnalyzer::printQueryResults(Module &M,
 }
 
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+} // end anonymous namespace
+
+bool DTransModRefAnalyzer::runAnalysis(Module &M,
+                                       DTransAnalysisInfo &DTransInfo,
+                                       WholeProgramInfo &WPInfo,
+                                       FieldModRefResult &FMRResult) {
+  if (!DTransInfo.useDTransAnalysis())
+    return false;
+
+  dtrans::DTransAnalysisInfoAdapter AIAdaptor(DTransInfo);
+  DTransModRefAnalyzerImpl<dtrans::DTransAnalysisInfoAdapter> Impl;
+  return Impl.runAnalysis(M, AIAdaptor, WPInfo, FMRResult);
+}
+
+bool DTransModRefAnalyzer::runAnalysis(Module &M,
+                                       dtransOP::DTransSafetyInfo &DTransInfo,
+                                       WholeProgramInfo &WPInfo,
+                                       FieldModRefResult &FMRResult) {
+  if (!DTransInfo.useDTransSafetyAnalysis())
+    return false;
+
+  dtransOP::DTransSafetyInfoAdapter SIAdaptor(DTransInfo);
+  DTransModRefAnalyzerImpl<dtransOP::DTransSafetyInfoAdapter> Impl;
+  return Impl.runAnalysis(M, SIAdaptor, WPInfo, FMRResult);
+}
+
 } // end namespace llvm
 
 using namespace llvm;
@@ -1458,15 +1552,34 @@ bool DTransFieldModRefAnalysisWrapper::runOnModule(Module &M) {
   DTransAnalysisWrapper &DTAnalysisWrapper =
       getAnalysis<DTransAnalysisWrapper>();
   DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
-
   auto &FMRResult = getAnalysis<DTransFieldModRefResultWrapper>().getResult();
   WholeProgramInfo &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
+
+  // TODO: Uncomment this when we want to start running the compiler with opaque
+  // pointer support to allow the DTransFieldModRefAnalysisWrapper to use the
+  // opaque pointer version of analysis to allow HIR to get the
+  // DTransFieldModRefResult without needing to choose which analysis should be
+  // run.
+  // if (!DTInfo.useDTransAnalysis()) {
+  //  auto &DTSafetyAnalyzer =
+  //      getAnalysis<dtransOP::DTransSafetyAnalyzerWrapper>();
+  //  dtransOP::DTransSafetyInfo &DTSafetyInfo =
+  //      DTSafetyAnalyzer.getDTransSafetyInfo(M);
+  //  return Impl.runAnalysis(M, DTSafetyInfo, WPInfo, FMRResult);
+  //}
+
   return Impl.runAnalysis(M, DTInfo, WPInfo, FMRResult);
 }
 
 void DTransFieldModRefAnalysisWrapper::getAnalysisUsage(
     AnalysisUsage &AU) const {
   AU.addRequired<DTransAnalysisWrapper>();
+  // TODO: Uncomment this when we want to start running the compiler with opaque
+  // pointer support to allow the DTransFieldModRefAnalysisWrapper to use the
+  // opaque pointer version of analysis to allow HIR to get the
+  // DTransFieldModRefResult without needing to choose which analysis should be
+  // run.
+  //AU.addRequired<dtransOP::DTransSafetyAnalyzerWrapper>();
   AU.addRequired<DTransFieldModRefResultWrapper>();
   AU.addRequired<WholeProgramWrapperPass>();
   AU.setPreservesAll();
@@ -1478,6 +1591,12 @@ INITIALIZE_PASS_BEGIN(DTransFieldModRefAnalysisWrapper,
                       "dtrans-fieldmodref-analysis",
                       "DTrans field mod/ref analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
+// TODO: Uncomment this when we want to start running the compiler with opaque
+// pointer support to allow the DTransFieldModRefAnalysisWrapper to use the
+// opaque pointer version of analysis to allow HIR to get the
+// DTransFieldModRefResult without needing to choose which analysis should be
+// run.
+//INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
 INITIALIZE_PASS_DEPENDENCY(DTransFieldModRefResultWrapper)
 INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(DTransFieldModRefAnalysisWrapper,
@@ -1488,6 +1607,50 @@ ModulePass *llvm::createDTransFieldModRefAnalysisWrapperPass() {
   return new DTransFieldModRefAnalysisWrapper();
 }
 
+DTransFieldModRefOPAnalysisWrapper::DTransFieldModRefOPAnalysisWrapper()
+    : ModulePass(ID) {
+  initializeDTransFieldModRefOPAnalysisWrapperPass(
+      *PassRegistry::getPassRegistry());
+}
+
+bool DTransFieldModRefOPAnalysisWrapper::runOnModule(Module &M) {
+  auto &DTSafetyAnalyzerWrapper =
+      getAnalysis<dtransOP::DTransSafetyAnalyzerWrapper>();
+  dtransOP::DTransSafetyInfo &DTInfo =
+      DTSafetyAnalyzerWrapper.getDTransSafetyInfo(M);
+
+  auto &FMRResult = getAnalysis<DTransFieldModRefResultWrapper>().getResult();
+  WholeProgramInfo &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
+  return Impl.runAnalysis(M, DTInfo, WPInfo, FMRResult);
+}
+
+void DTransFieldModRefOPAnalysisWrapper::getAnalysisUsage(
+    AnalysisUsage &AU) const {
+  AU.addRequired<dtransOP::DTransSafetyAnalyzerWrapper>();
+  AU.addRequired<DTransFieldModRefResultWrapper>();
+  AU.addRequired<WholeProgramWrapperPass>();
+  AU.setPreservesAll();
+}
+
+using dtransOP::DTransSafetyAnalyzerWrapper;
+char DTransFieldModRefOPAnalysisWrapper::ID = 0;
+
+INITIALIZE_PASS_BEGIN(DTransFieldModRefOPAnalysisWrapper,
+                      "dtrans-fieldmodrefop-analysis",
+                      "DTrans field mod/ref analysis for opaque pointers",
+                      false, true)
+INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
+INITIALIZE_PASS_DEPENDENCY(DTransFieldModRefResultWrapper)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
+INITIALIZE_PASS_END(DTransFieldModRefOPAnalysisWrapper,
+                    "dtrans-fieldmodrefop-analysis",
+                    "DTrans field mod/ref analysis for opaque pointers", false,
+                    true)
+
+ModulePass *llvm::createDTransFieldModRefOPAnalysisWrapperPass() {
+  return new DTransFieldModRefOPAnalysisWrapper();
+}
+
 AnalysisKey DTransFieldModRefAnalysis::Key;
 
 DTransFieldModRefAnalysis::Result
@@ -1495,11 +1658,38 @@ DTransFieldModRefAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
+  // TODO: Uncomment this when we want to start running the compiler with opaque
+  // pointer support to allow the DTransFieldModRefAnalysisWrapper to use the
+  // opaque pointer version of analysis to allow HIR to get the
+  // DTransFieldModRefResult without needing to choose which analysis should be
+  // run.
+  //if (!DTransInfo.useDTransAnalysis()) {
+  //  auto &DTSafetyInfo = AM.getResult<dtransOP::DTransSafetyAnalyzer>(M);
+  //  FieldModRefResult &FMRResult = AM.getResult<DTransFieldModRefResult>(M);
+  //  DTransModRefAnalyzer Analyzer;
+  //  Analyzer.runAnalysis(M, DTSafetyInfo, WPInfo, FMRResult);
+  //  return FMRResult;
+  //}
+
+  FieldModRefResult &FMRResult = AM.getResult<DTransFieldModRefResult>(M);
+  DTransModRefAnalyzer Analyzer;
+  Analyzer.runAnalysis(M, DTransInfo, WPInfo, FMRResult);
+  return FMRResult;
+}
+
+AnalysisKey DTransFieldModRefOPAnalysis::Key;
+
+DTransFieldModRefOPAnalysis::Result
+DTransFieldModRefOPAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
+  auto &DTransInfo = AM.getResult<dtransOP::DTransSafetyAnalyzer>(M);
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
+
   DTransModRefAnalyzer Analyzer;
   FieldModRefResult &FMRResult = AM.getResult<DTransFieldModRefResult>(M);
   Analyzer.runAnalysis(M, DTransInfo, WPInfo, FMRResult);
   return FMRResult;
 }
+
 
 char DTransFieldModRefResultWrapper::ID = 0;
 INITIALIZE_PASS(DTransFieldModRefResultWrapper, "dtrans-fieldmodref-result",

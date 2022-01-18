@@ -191,9 +191,8 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
         // Since loads will only have a single operand, and GEPs only a single
         // non-index operand, this will record direct loads without any indices,
         // and gep+loads with the GEP indices.
-        for (User::op_iterator II = UI->op_begin() + 1, IE = UI->op_end();
-             II != IE; ++II)
-          Indices.push_back(cast<ConstantInt>(*II)->getSExtValue());
+        for (const Use &I : llvm::drop_begin(UI->operands()))
+          Indices.push_back(cast<ConstantInt>(I)->getSExtValue());
         // GEPs with a single 0 index can be merged with direct loads
         if (Indices.size() == 1 && Indices.front() == 0)
           Indices.clear();
@@ -397,9 +396,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
               IRB.CreateLoad(OrigLoad->getType(), V, V->getName() + ".val");
           newLoad->setAlignment(OrigLoad->getAlign());
           // Transfer the AA info too.
-          AAMDNodes AAInfo;
-          OrigLoad->getAAMetadata(AAInfo);
-          newLoad->setAAMetadata(AAInfo);
+          newLoad->setAAMetadata(OrigLoad->getAAMetadata());
 
           Args.push_back(MaybeCastTo(newLoad, *I)); // INTEL
           ArgAttrVec.push_back(AttributeSet());
@@ -466,9 +463,9 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
   // All uses of the old function have been replaced with the new function,
   // transfer the function entry count to the replacement function to maintain
   // the ability to place the functions into hot/cold sections.
-  Function::ProfileCount OldCount = F->getEntryCount();
+  Optional<Function::ProfileCount> OldCount = F->getEntryCount();
   if (OldCount.hasValue())
-    NF->setEntryCount(OldCount.getCount());
+    NF->setEntryCount(OldCount->getCount());
 #endif // INTEL_CUSTOMIZATION
 
   // Since we have now created the new function, splice the body of the old
@@ -1048,14 +1045,22 @@ bool ArgumentPromotionPass::areFunctionArgsABICompatible(
     const Function &F, const TargetTransformInfo &TTI,
     SmallPtrSetImpl<Argument *> &ArgsToPromote,
     SmallPtrSetImpl<Argument *> &ByValArgsToTransform) {
+  // TODO: Check individual arguments so we can promote a subset?
+  SmallVector<Type *, 32> Types;
+  for (Argument *Arg : ArgsToPromote)
+    Types.push_back(Arg->getType()->getPointerElementType());
+  for (Argument *Arg : ByValArgsToTransform)
+    Types.push_back(Arg->getParamByValType());
+
   for (const Use &U : F.uses()) {
-    AbstractCallSite CS(&U); // INTEL
+#ifdef INTEL_CUSTOMIZATION
+    AbstractCallSite CS(&U);
     if (!CS)
       return false;
-    const Function *Caller = CS.getInstruction()->getCaller(); // INTEL
+    const Function *Caller = CS.getInstruction()->getCaller();
     const Function *Callee = CS.getCalledFunction();
-    if (!TTI.areFunctionArgsABICompatible(Caller, Callee, ArgsToPromote) ||
-        !TTI.areFunctionArgsABICompatible(Caller, Callee, ByValArgsToTransform))
+#endif // INTEL_CUSTOMIZATION
+    if (!TTI.areTypesABICompatible(Caller, Callee, Types))
       return false;
   }
   return true;
@@ -1284,10 +1289,12 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
   do {
     LocalChange = false;
 
+    FunctionAnalysisManager &FAM =
+        AM.getResult<FunctionAnalysisManagerCGSCCProxy>(C, CG).getManager();
+
     for (LazyCallGraph::Node &N : C) {
       Function &OldF = N.getFunction();
-      FunctionAnalysisManager &FAM =
-          AM.getResult<FunctionAnalysisManagerCGSCCProxy>(C, CG).getManager();
+
       // FIXME: This lambda must only be used with this function. We should
       // skip the lambda and just get the AA results directly.
       auto AARGetter = [&](Function &F) -> AAResults & {
@@ -1318,6 +1325,25 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
       C.getOuterRefSCC().replaceNodeFunction(N, *NewF);
       FAM.clear(OldF, OldF.getName());
       OldF.eraseFromParent();
+
+      PreservedAnalyses FuncPA;
+      FuncPA.preserveSet<CFGAnalyses>();
+      for (auto *U : NewF->users()) {
+#if INTEL_CUSTOMIZATION
+        // CMPLRLLVM-32836: Accommodate bitcasts within the arguments of
+        // broker functions, which is an Intel extension.
+        auto CB = dyn_cast<CallBase>(U);
+        if (CB) {
+          auto *UserF = CB->getFunction();
+          FAM.invalidate(*UserF, FuncPA);
+        } else {
+          for (auto *V : U->users()) {
+            auto *UserF = cast<CallBase>(V)->getFunction();
+            FAM.invalidate(*UserF, FuncPA);
+          }
+        }
+#endif // INTEL_CUSTOMIZATION
+      }
     }
 
     Changed |= LocalChange;
@@ -1326,12 +1352,16 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
   if (!Changed)
     return PreservedAnalyses::all();
 
-#if INTEL_CUSTOMIZATION
   PreservedAnalyses PA;
+  // We've cleared out analyses for deleted functions.
+  PA.preserve<FunctionAnalysisManagerCGSCCProxy>();
+#if INTEL_CUSTOMIZATION
   PA.preserve<AndersensAA>();
   PA.preserve<WholeProgramAnalysis>();
-  return PA;
 #endif // INTEL_CUSTOMIZATION
+  // We've manually invalidated analyses for functions we've modified.
+  PA.preserveSet<AllAnalysesOn<Function>>();
+  return PA;
 }
 
 namespace {

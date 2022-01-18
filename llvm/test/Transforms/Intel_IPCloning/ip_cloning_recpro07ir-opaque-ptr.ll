@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -force-opaque-pointers < %s -ip-cloning -ip-gen-cloning-force-enable-dtrans -S 2>&1 | FileCheck %s
-; RUN: opt -force-opaque-pointers < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-enable-dtrans -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -ip-cloning -ip-gen-cloning-force-enable-dtrans -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-enable-dtrans -S 2>&1 | FileCheck %s
 
 ; Test that the function foo is recognized as a recursive progression clone
 ; and eight clones of it are created. Also test that the recursive progression

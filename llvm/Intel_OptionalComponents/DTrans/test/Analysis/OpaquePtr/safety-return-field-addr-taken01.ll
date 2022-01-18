@@ -12,7 +12,7 @@ define "intel_dtrans_func_index"="1" i32* @test01(%struct.test01* "intel_dtrans_
   ret i32* %addr
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: DTrans Type: i32
 ; CHECK-NEXT: Field info:{{ *$}}
@@ -20,6 +20,7 @@ define "intel_dtrans_func_index"="1" i32* @test01(%struct.test01* "intel_dtrans_
 ; CHECK: DTrans Type: i32
 ; CHECK-NEXT: Field info: ComplexUse AddressTaken{{ *$}}
 ; CHECK: Safety data: Field address taken return{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Test with returning a field from within a nested structure
@@ -30,11 +31,12 @@ define "intel_dtrans_func_index"="1" i32* @test02(%struct.test02a* "intel_dtrans
   ret i32* %addr
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02a
+; CHECK: LLVMType: %struct.test02a
 ; CHECK: Safety data: Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test02a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02b
+; CHECK: LLVMType: %struct.test02b
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: DTrans Type: i32
 ; CHECK-NEXT: Field info:{{ *$}}
@@ -42,6 +44,7 @@ define "intel_dtrans_func_index"="1" i32* @test02(%struct.test02a* "intel_dtrans
 ; CHECK: DTrans Type: i32
 ; CHECK-NEXT: Field info: ComplexUse AddressTaken{{ *$}}
 ; CHECK: Safety data: Nested structure | Field address taken return{{ *$}}
+; CHECK: End LLVMType: %struct.test02b
 
 
 ; Test with returning an address that is the nested structure's address
@@ -52,7 +55,7 @@ define "intel_dtrans_func_index"="1" %struct.test03b* @test03(%struct.test03a* "
   ret %struct.test03b* %addr
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03a
+; CHECK: LLVMType: %struct.test03a
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: DTrans Type: i32
 ; CHECK-NEXT: Field info:{{ *$}}
@@ -60,12 +63,14 @@ define "intel_dtrans_func_index"="1" %struct.test03b* @test03(%struct.test03a* "
 ; CHECK: DTrans Type: %struct.test03b
 ; CHECK-NEXT: Field info: ComplexUse AddressTaken{{ *$}}
 ; CHECK: Safety data: Contains nested structure | Field address taken return{{ *$}}
+; CHECK: End LLVMType: %struct.test03a
 
 ; This is marked as "Field address taken return" due to "-dtrans-outofboundsok=true",
 ; otherwise it is safe.
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03b
+; CHECK: LLVMType: %struct.test03b
 ; CHECK: Safety data: Nested structure | Field address taken return{{ *$}}
+; CHECK: End LLVMType: %struct.test03b
 
 
 ; Test with returning the address obtained using a GEPOperator
@@ -76,7 +81,7 @@ define "intel_dtrans_func_index"="1" %struct.test04b* @test04() !intel.dtrans.fu
   ret %struct.test04b* getelementptr (%struct.test04a, %struct.test04a* @var04, i64 0, i32 1)
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04a
+; CHECK: LLVMType: %struct.test04a
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: DTrans Type: i32
 ; CHECK-NEXT: Field info:{{ *$}}
@@ -84,12 +89,14 @@ define "intel_dtrans_func_index"="1" %struct.test04b* @test04() !intel.dtrans.fu
 ; CHECK: DTrans Type: %struct.test04b
 ; CHECK-NEXT: Field info: ComplexUse AddressTaken{{ *$}}
 ; CHECK: Safety data: Global instance | Contains nested structure | Field address taken return{{ *$}}
+; CHECK: End LLVMType: %struct.test04a
 
 ; This is marked as "Field address taken return" due to "-dtrans-outofboundsok=true",
 ; otherwise it is safe.
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04b
+; CHECK: LLVMType: %struct.test04b
 ; CHECK: Safety data: Global instance | Nested structure | Field address taken return{{ *$}}
+; CHECK: End LLVMType: %struct.test04b
 
 
 !1 = !{i32 0, i32 0}  ; i32

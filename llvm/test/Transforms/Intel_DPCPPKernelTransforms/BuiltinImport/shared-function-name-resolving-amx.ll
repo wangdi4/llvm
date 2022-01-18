@@ -54,4 +54,5 @@ declare <4 x double> @function_foo4(<4 x double>) nounwind
 ; CHECK-AMX32:  declare <4 x double> @__ocl_svml_l9_asin4(<4 x double>)
 ; CHECK-AMX32:  declare <4 x double> @blabla__ocl_svml_shared_acos4(<4 x double>)
 
+; DEBUGIFY-COUNT-4: WARNING: Instruction with empty DebugLoc in function function_foo4
 ; DEBUGIFY-NOT: WARNING

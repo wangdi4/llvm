@@ -13,8 +13,8 @@
 ;  }
 ; }
 ;
-; This test checks that we are setting the Subdevice clause operands to null before outlining.
-; CHECK: %{{.*}} = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i8* null), "QUAL.OMP.DEVICE"(i8* null), "QUAL.OMP.SUBDEVICE"(i8* null, i8* null, i8* null, i8* null)
+; This test checks that we are setting non-constant Subdevice clause operands to null before outlining.
+; CHECK: %{{.*}} = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.DEVICE"(i32 0), "QUAL.OMP.SUBDEVICE"(i32 1, i8* null, i32 1, i32 1)
 
 source_filename = "test.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

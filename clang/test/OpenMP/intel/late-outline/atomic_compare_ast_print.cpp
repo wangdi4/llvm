@@ -249,7 +249,7 @@ void test()
   //DUMP:OMPCompareClause
   //DUMP:BinaryOperator {{.*}}'='
   //DUMP:ArraySubscriptExpr
-  //DUMP:DeclRefExpr {{.*}}'x' 'int [4]'
+  //DUMP:DeclRefExpr {{.*}}'x' 'int[4]'
   //DUMP:IntegerLiteral {{.*}}'int' 0
   #pragma omp atomic compare
   x[0] = expr < x[0] ? expr : x[0];
@@ -260,7 +260,7 @@ void test()
   //DUMP:OMPCompareClause
   //DUMP:BinaryOperator {{.*}}'='
   //DUMP:ArraySubscriptExpr
-  //DUMP:DeclRefExpr {{.*}}'x' 'int [4]'
+  //DUMP:DeclRefExpr {{.*}}'x' 'int[4]'
   //DUMP:IntegerLiteral {{.*}}'int' 1
   #pragma omp atomic compare
   x[1] = x[1] == e ? d : x[1];
@@ -274,7 +274,7 @@ void test()
   //DUMP:IfStmt
   //DUMP:BinaryOperator {{.*}}'>'
   //DUMP:ArraySubscriptExpr
-  //DUMP:DeclRefExpr {{.*}}'x' 'int [4]'
+  //DUMP:DeclRefExpr {{.*}}'x' 'int[4]'
   //DUMP:IntegerLiteral {{.*}}'int' 2
   #pragma omp atomic compare
   if (x[2] > expr) { x[2] = expr; }
@@ -288,7 +288,7 @@ void test()
   //DUMP:IfStmt
   //DUMP:BinaryOperator {{.*}}'=='
   //DUMP:ArraySubscriptExpr
-  //DUMP:DeclRefExpr {{.*}}'x' 'int [4]'
+  //DUMP:DeclRefExpr {{.*}}'x' 'int[4]'
   //DUMP:IntegerLiteral {{.*}}'int' 3
   #pragma omp atomic compare
   if (x[3] == e) { x[3] = d; }

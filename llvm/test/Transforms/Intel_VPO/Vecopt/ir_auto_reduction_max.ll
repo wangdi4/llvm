@@ -16,7 +16,7 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N) {
 ; CHECK-LABEL: @foo(
 ; CHECK:       [[TMP0:%.*]] = load i32, i32* [[A:%.*]], align 4
 ; CHECK:       VPlannedBB2:
-; CHECK:         [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[TMP0]], i32 0
+; CHECK:         [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[TMP0]], i64 0
 ; CHECK:         [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT0]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK:       vector.body:
 ; CHECK:         [[VEC_PHI50:%.*]] = phi <4 x i32> [ [[BROADCAST_SPLAT0]], [[VPLANNEDBB20:%.*]] ], [ [[TMP7:%.*]], [[VECTOR_BODY0:%.*]] ]

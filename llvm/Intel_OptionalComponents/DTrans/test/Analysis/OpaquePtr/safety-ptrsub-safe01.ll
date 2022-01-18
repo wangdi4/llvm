@@ -17,8 +17,9 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct1, %st
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01
 
 ; udiv is also safe.
 %struct.test02 = type { i64, i64 }
@@ -31,8 +32,9 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct1, %st
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test02
 
 
 ; Subtracting ptr-to-ptr types does not require division by the aggregate type
@@ -47,8 +49,9 @@ define void @test03(%struct.test03** "intel_dtrans_func_index"="1" %ppStruct1, %
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test03
 
 !1 = !{i64 0, i32 0}  ; i64
 !2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*

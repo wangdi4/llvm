@@ -1,5 +1,5 @@
-; RUN: opt -intel-ipo-dead-arg-elimination %s -S 2>&1 | FileCheck %s
-; RUN: opt -passes=intel-ipo-dead-arg-elimination %s -S 2>&1 | FileCheck %s
+; RUN: opt -intel-ipo-dead-arg-elimination  %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes=intel-ipo-dead-arg-elimination  %s -S 2>&1 | FileCheck %s
 
 ; This test case checks that IPO simplified dead argument elimination won't
 ; be performed since function @foo is set as naked. This is the same
@@ -15,7 +15,6 @@
 ; CHECK-NEXT:   store float 0.000000e+00, float* %10, align 4
 ; CHECK-NEXT:   %11 = load float, float* %1, align 4
 ; CHECK-NEXT:   ret float %11
-; CHECK-NEXT: }
 
 ; CHECK: define float @bas(float* %0, float %1, i64 %2, i64 %3)
 ; CHECK-NEXT:   %5 = alloca float, i64 %3, align 4
@@ -24,6 +23,7 @@
 ; CHECK-NEXT:   ret float %7
 
 ; CHECK: attributes #1 = { naked }
+
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

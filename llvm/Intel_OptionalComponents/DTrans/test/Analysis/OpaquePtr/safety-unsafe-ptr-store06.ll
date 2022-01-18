@@ -18,12 +18,14 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !in
 ; This case gets treated as safe by DTrans because the i8* will be compatible
 ; with the element zero type of the structure.
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01b
 
 
 %struct.test02a = type{ %struct.test02b*, %struct.test02b*, %struct.test02b* }
@@ -35,12 +37,14 @@ define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct) !in
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02a
+; CHECK: LLVMType: %struct.test02a
 ; CHECK: Safety data: Bad casting | Unsafe pointer store{{ *$}}
+; CHECK: End LLVMType: %struct.test02a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02b
+; CHECK: LLVMType: %struct.test02b
 ; CHECK: Safety data: Bad casting | Unsafe pointer store{{ *$}}
+; CHECK: End LLVMType: %struct.test02b
 
 
 %struct.test03a = type{ %struct.test03b*, %struct.test03b*, %struct.test03b* }
@@ -52,12 +56,14 @@ define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct) !in
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03a
+; CHECK: LLVMType: %struct.test03a
 ; CHECK: Safety data: Bad casting | Unsafe pointer store{{ *$}}
+; CHECK: End LLVMType: %struct.test03a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03b
+; CHECK: LLVMType: %struct.test03b
 ; CHECK: Safety data: Bad casting | Unsafe pointer store{{ *$}}
+; CHECK: End LLVMType: %struct.test03b
 
 
 %struct.test04a = type { %struct.test04b*, %struct.test04b*, %struct.test04b* }
@@ -70,16 +76,19 @@ define void @test04(%struct.test04a* "intel_dtrans_func_index"="1" %pStruct) !in
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04a
+; CHECK: LLVMType: %struct.test04a
 ; CHECK: Safety data: Bad casting | Unsafe pointer store{{ *$}}
+; CHECK: End LLVMType: %struct.test04a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04b
+; CHECK: LLVMType: %struct.test04b
 ; CHECK: Safety data: Bad casting | Unsafe pointer store{{ *$}}
+; CHECK: End LLVMType: %struct.test04b
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04c
+; CHECK: LLVMType: %struct.test04c
 ; CHECK: Safety data: Bad casting | Unsafe pointer store | Local instance{{ *$}}
+; CHECK: End LLVMType: %struct.test04c
 
 declare !intel.dtrans.func.type !16 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 

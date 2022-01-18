@@ -19,10 +19,13 @@ define dso_local void @foo(float* nocapture %p) local_unnamed_addr #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
 ; CHECK-NEXT:    [[ENTRY_REGION0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 2) ]
+; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.preheader:
 ; CHECK-NEXT:    br label [[SIMD_LOOP0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop:
-; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_BEGIN_REGION0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]
+; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]
 ; CHECK-NEXT:    [[VEC_P_CAST_GEP0:%.*]] = getelementptr float*, float** [[VEC_P_CAST0]], i32 [[INDEX0]]
 ; CHECK-NEXT:    [[VEC_P_ELEM0:%.*]] = load float*, float** [[VEC_P_CAST_GEP0]], align 8
 ; CHECK-NEXT:    store float 0.000000e+00, float* [[VEC_P_ELEM0]], align 4

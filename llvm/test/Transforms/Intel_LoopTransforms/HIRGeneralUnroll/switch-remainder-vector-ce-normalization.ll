@@ -1,4 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -hir-general-unroll -print-before=hir-general-unroll -print-after=hir-general-unroll -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -hir-general-unroll -print-before=hir-general-unroll -print-after=hir-general-unroll -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-general-unroll,print<hir>" -disable-output 2>&1 | FileCheck %s
 
 ; Verify that we are able to generate a switch remainder by successfully
 ; normalizing the loop containing vector CEs with IV.
@@ -7,26 +8,30 @@
 
 ; Dump Before -
 
-; CHECK: + DO i1 = 0, -1 * %t913 + %t918 + -1, 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, -1 * %t913 + %t918 + -1, 1   <DO_LOOP> <unroll = 4>
 ; CHECK: |   %t928 = 1.000000e+00  /  (%t922)[i1 + %t913];
 ; CHECK: |   %t931 = 0.000000e+00;
 ; CHECK: |   %t932 = 0.000000e+00;
-; CHECK: |   %red.var = 0.000000e+00;
-; CHECK: |   %red.var2 = 0.000000e+00;
+; CHECK: |   %red.init = 0.000000e+00;
+; CHECK: |   %red.init2 = 0.000000e+00;
+; CHECK: |   %phi.temp = %red.init2;
+; CHECK: |   %phi.temp3 = %red.init;
 ; CHECK: |   %.vec = (<2 x float>*)(@"module_ra_aerosol_mp_calc_aerosol_goddard_sw_$UPPER_WVL")[0][7];
-; CHECK: |   %.vec4 = (<2 x float>*)(@"module_ra_aerosol_mp_calc_aerosol_goddard_sw_$LOWER_WVL")[0][7];
-; CHECK: |   %.vec5 = %.vec  +  %.vec4;
-; CHECK: |   %.vec6 = %.vec5  *  0x3FED1745C0000000;
-; CHECK: |   %llvm.log.v2f32 = @llvm.log.v2f32(%.vec6);
-; CHECK: |   %.vec7 = (<2 x float>*)(%t143)[<i64 0, i64 1> + 7][%t920][i1 + %t913];
-; CHECK: |   %.vec8 = %.vec7  *  %t928;
-; CHECK: |   %llvm.log.v2f329 = @llvm.log.v2f32(%.vec8);
-; CHECK: |   %.vec10 = %llvm.log.v2f329  *  %llvm.log.v2f32;
-; CHECK: |   %red.var = %.vec10  +  %red.var;
-; CHECK: |   %.vec12 = %llvm.log.v2f32  *  %llvm.log.v2f32;
-; CHECK: |   %red.var2 = %.vec12  +  %red.var2;
-; CHECK: |   %t931 = @llvm.vector.reduce.fadd.v2f32(%t931,  %red.var);
-; CHECK: |   %t932 = @llvm.vector.reduce.fadd.v2f32(%t932,  %red.var2);
+; CHECK: |   %.vec5 = (<2 x float>*)(@"module_ra_aerosol_mp_calc_aerosol_goddard_sw_$LOWER_WVL")[0][7];
+; CHECK: |   %.vec6 = %.vec  +  %.vec5;
+; CHECK: |   %.vec7 = %.vec6  *  0x3FED1745C0000000;
+; CHECK: |   %llvm.log.v2f32 = @llvm.log.v2f32(%.vec7);
+; CHECK: |   %.vec8 = (<2 x float>*)(%t143)[<i64 0, i64 1> + 7][%t920][i1 + %t913];
+; CHECK: |   %.vec9 = %.vec8  *  %t928;
+; CHECK: |   %llvm.log.v2f3210 = @llvm.log.v2f32(%.vec9);
+; CHECK: |   %.vec11 = %llvm.log.v2f3210  *  %llvm.log.v2f32;
+; CHECK: |   %.vec12 = %.vec11  +  %phi.temp3;
+; CHECK: |   %.vec13 = %llvm.log.v2f32  *  %llvm.log.v2f32;
+; CHECK: |   %.vec14 = %.vec13  +  %phi.temp;
+; CHECK: |   %phi.temp = %.vec14;
+; CHECK: |   %phi.temp3 = %.vec12;
+; CHECK: |   %t931 = @llvm.vector.reduce.fadd.v2f32(%t931,  %.vec12);
+; CHECK: |   %t932 = @llvm.vector.reduce.fadd.v2f32(%t932,  %.vec14);
 ; CHECK: |   %t955 =  - %t931;
 ; CHECK: |   %t956 = %t955  /  %t932;
 ; CHECK: |   (%t923)[i1 + %t913] = %t956;

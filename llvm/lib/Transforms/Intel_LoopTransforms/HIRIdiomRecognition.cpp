@@ -415,8 +415,7 @@ bool HIRIdiomRecognition::makeStartRef(RegDDRef *Ref, HLLoop *Loop,
   Ref->setAddressOf(true);
 
   // Set destination address (i8*)
-  Ref->setBitCastDestType(
-      Type::getInt8PtrTy(HIRF.getContext(), Ref->getPointerAddressSpace()));
+  Ref->setBitCastDestVecOrElemType(Type::getInt8Ty(HIRF.getContext()));
 
   return true;
 }

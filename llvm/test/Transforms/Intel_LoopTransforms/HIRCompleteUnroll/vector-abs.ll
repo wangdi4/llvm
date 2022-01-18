@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -hir-post-vec-complete-unroll -print-after=hir-vplan-vec -print-after=hir-post-vec-complete-unroll -vplan-force-vf=16 -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-post-vec-complete-unroll,print<hir>" -vplan-force-vf=16 -disable-output 2>&1 < %s | FileCheck %s
 
 ; Verify that we are able to completely unroll the i1 loop with vector abs() idiom after vectorizer unrolls the i2 loop.
 
@@ -20,7 +21,8 @@
 ; CHECK: |   %.vec3 = %.vec2  *  -1;
 ; CHECK: |   %.vec4 = %.vec  +  %.vec3;
 ; CHECK: |   %.vec5 = (%.vec4 < 0) ? -1 * %.vec4 : %.vec4;
-; CHECK: |   %red.var = %.vec5  +  %red.var;
+; CHECK: |   %.vec6 = %.vec5  +  %phi.temp;
+; CHECK: |   %phi.temp = %.vec6
 ; CHECK: + END LOOP
 
 ; CHECK: Function: x264_pixel_sad_16x16

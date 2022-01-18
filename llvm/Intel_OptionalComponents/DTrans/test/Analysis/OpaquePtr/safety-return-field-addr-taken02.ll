@@ -16,7 +16,7 @@ define "intel_dtrans_func_index"="1" %struct.test01b* @test2() !intel.dtrans.fun
   ret %struct.test01b* %s
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: DTrans Type: i32
 ; CHECK-NEXT: Field info:{{ *$}}
@@ -24,10 +24,12 @@ define "intel_dtrans_func_index"="1" %struct.test01b* @test2() !intel.dtrans.fun
 ; CHECK: DTrans Type: i8
 ; CHECK-NEXT: Field info: ComplexUse AddressTaken{{ *$}}
 ; CHECK: Safety data: Bad casting | Global instance | Field address taken return{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; CHECK: Safety data: Bad casting{{ *$}}
+; CHECK: End LLVMType: %struct.test01b
 
 
 !1 = !{i32 0, i32 0}  ; i32

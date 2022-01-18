@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
 //===- HIRSymbaseAssignment.cpp - Assigns symbase to ddrefs ---------------===//
 //
 // Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
@@ -101,10 +102,14 @@ void HIRSymbaseAssignment::HIRSymbaseAssignmentVisitor::addToAST(
     // The entire pointer (base and indexing) is region invariant. A normal AST
     // will correctly disambiguate, even with precise size.
     LocationSize LocSize = MemoryLocation::UnknownSize;
+    // Note: isAddressOfSizedType() can return different answers for opaque and
+    // non-opaque pointer paths.
+    // TODO: Investigate the performance impact of removing this check.
     if (!Ref->isFake() &&
         (!Ref->isAddressOf() || Ref->isAddressOfSizedType())) {
-      uint64_t RefSize = Ref->isAddressOf() ? Ref->getElementTypeSizeInBytes()
-                                            : Ref->getDestTypeSizeInBytes();
+      uint64_t RefSize = Ref->isAddressOf()
+                             ? Ref->getDereferencedTypeSizeInBytes()
+                             : Ref->getDestTypeSizeInBytes();
       LocSize = LocationSize::precise(RefSize);
     }
     LLVM_DEBUG(
@@ -186,3 +191,4 @@ void HIRSymbaseAssignment::print(raw_ostream &OS) const {
     }
   }
 }
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED

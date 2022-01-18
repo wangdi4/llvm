@@ -1,11 +1,9 @@
 ; REQUIRES: asserts
 
-; Test that verifies if padded malloc wasn't applied
+; Test that verifies that padded malloc wasn't applied because there was
+; no search loop and no use of malloc.
 
-; RUN: opt -disable-verify -debug-only=dtrans-paddedmalloc -whole-program-assume \
-; RUN:     -passes='lto<O2>'  %s -enable-npm-dtrans 2>&1 \
-; RUN:     | FileCheck %s
-
+; RUN: opt -disable-verify -debug-only=dtrans-paddedmalloc -whole-program-assume -passes='lto<O2>' %s -enable-npm-dtrans 2>&1 | FileCheck %s
 
 declare void @bar() local_unnamed_addr
 

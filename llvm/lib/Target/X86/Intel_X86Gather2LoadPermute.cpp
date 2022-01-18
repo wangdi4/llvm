@@ -225,7 +225,7 @@ class X86Gather2LoadPermutePass : public FunctionPass {
       return false;
     // The optimization code below does not work for scalable vectors.
     if (isa<ScalableVectorType>(II->getType()) ||
-        any_of(II->arg_operands(),
+        any_of(II->args(),
                [](Value *V) { return isa<ScalableVectorType>(V->getType()); }))
       return false;
 

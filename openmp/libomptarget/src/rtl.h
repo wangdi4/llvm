@@ -72,7 +72,7 @@ struct RTLInfoTy {
   typedef int32_t(run_team_region_nowait_ty)(int32_t, void *, void **,
                                              ptrdiff_t *, int32_t, int32_t,
                                              int32_t, uint64_t, void *);
-  typedef void (create_offload_queue_ty)(int32_t, void *);
+  typedef void (get_offload_queue_ty)(int32_t, void *, bool);
   typedef void *(get_platform_handle_ty)(int32_t);
   typedef void (set_device_handle_ty)(int32_t, void *);
   typedef void *(get_context_handle_ty)(int32_t);
@@ -104,6 +104,12 @@ struct RTLInfoTy {
   typedef int32_t(is_private_arg_on_host_ty)(int32_t, const void *, uint32_t);
   typedef int32_t(command_batch_begin_ty)(int32_t, int32_t);
   typedef int32_t(command_batch_end_ty)(int32_t, int32_t);
+  typedef void(kernel_batch_begin_ty)(int32_t, uint32_t);
+  typedef void(kernel_batch_end_ty)(int32_t);
+  typedef int32_t(set_function_ptr_map_ty)(int32_t, uint64_t,
+                                           const __omp_offloading_fptr_map_t *);
+  typedef void *(alloc_per_hw_thread_scratch_ty)(int32_t, size_t, int32_t);
+  typedef void(free_per_hw_thread_scratch_ty)(int32_t, void *);
 #endif // INTEL_COLLAB
   typedef int32_t (*register_lib_ty)(__tgt_bin_desc *);
   typedef int32_t(supports_empty_images_ty)();
@@ -161,7 +167,7 @@ struct RTLInfoTy {
   run_team_nd_region_nowait_ty *run_team_nd_region_nowait = nullptr;
   run_region_nowait_ty *run_region_nowait = nullptr;
   run_team_region_nowait_ty *run_team_region_nowait = nullptr;
-  create_offload_queue_ty *create_offload_queue = nullptr;
+  get_offload_queue_ty *get_offload_queue = nullptr;
   get_platform_handle_ty *get_platform_handle = nullptr;
   set_device_handle_ty *set_device_handle = nullptr;
   get_context_handle_ty *get_context_handle = nullptr;
@@ -190,6 +196,11 @@ struct RTLInfoTy {
   is_private_arg_on_host_ty *is_private_arg_on_host = nullptr;
   command_batch_begin_ty *command_batch_begin = nullptr;
   command_batch_end_ty *command_batch_end = nullptr;
+  kernel_batch_begin_ty *kernel_batch_begin = nullptr;
+  kernel_batch_end_ty *kernel_batch_end = nullptr;
+  set_function_ptr_map_ty *set_function_ptr_map = nullptr;
+  alloc_per_hw_thread_scratch_ty *alloc_per_hw_thread_scratch = nullptr;
+  free_per_hw_thread_scratch_ty *free_per_hw_thread_scratch = nullptr;
 #endif // INTEL_COLLAB
   register_lib_ty register_lib = nullptr;
   register_lib_ty unregister_lib = nullptr;

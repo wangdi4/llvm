@@ -315,3 +315,17 @@ define <4 x float> @test04(<4 x float> %a, <4 x float> %b) nounwind {
   ret <4 x float> %shuf2
 }
 
+; INTEL_CUSTOMIZATION
+define preserve_allcc <4 x float> @preserve_all_vzeroupper(<4 x double> %a, <4 x double> %b) nounwind {
+; ALL-LABEL: preserve_all_vzeroupper:
+; ALL:       # %bb.0:
+; ALL-NEXT:    vmovupd %ymm0, {{[-0-9]+}}(%r{{[sb]}}p) # 32-byte Spill
+; ALL-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
+; ALL-NEXT:    vcvtpd2ps %ymm0, %xmm0
+; ALL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %ymm0 # 32-byte Reload
+; ALL-NEXT:    retq
+  %1 = fadd <4 x double> %a, %b
+  %2 = fptrunc <4 x double> %1 to <4 x float>
+  ret <4 x float> %2
+}
+; end INTEL_CUSTOMIZATION

@@ -161,38 +161,13 @@ bool AddImplicitArgsPass::runImpl(Module &M, LocalBufferInfo *LBInfo,
     CallInst *CI = It.first;
     Value **CallArgs = It.second;
 
-    // Create new call instruction with extended arguments.
-    SmallVector<Value *, 16> NewArgs;
-
-    // Go over explicit arguments, they are currently undef and need to be
-    // assigned their actual value.
-    for (unsigned I = 0, E = CI->getNumArgOperands() -
-                             ImplicitArgsUtils::NUM_IMPLICIT_ARGS;
-         I < E; ++I)
-      NewArgs.push_back(CI->getArgOperand(I));
-
-    // Add implicit parameters.
-    for (unsigned I = 0; I < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++I)
-      NewArgs.push_back(CallArgs[I]);
-
-    CallInst *NewCI = CallInst::Create(
-        FunctionCallee(CI->getFunctionType(), CI->getCalledOperand()),
-        ArrayRef<Value *>(NewArgs), "", CI);
-    NewCI->setCallingConv(CI->getCallingConv());
-    NewCI->setTailCall(CI->getTailCallKind());
-    NewCI->setDebugLoc(CI->getDebugLoc());
-    // Copy attributes from the callee which contains aligment for arguments.
-    if (Function *Callee = CI->getCalledFunction())
-      NewCI->setAttributes(Callee->getAttributes());
-
-    // Copy debug metadata to new function if available.
-    if (CI->hasMetadata())
-      NewCI->setDebugLoc(CI->getDebugLoc());
+    unsigned ImplicitArgStart =
+        CI->arg_size() - ImplicitArgsUtils::NUM_IMPLICIT_ARGS;
+    for (unsigned i = ImplicitArgStart, j = 0;
+         j < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++i, ++j)
+      CI->setArgOperand(i, CallArgs[j]);
 
     delete[] CallArgs;
-
-    CI->replaceAllUsesWith(NewCI);
-    CI->eraseFromParent();
   }
 
   return true;
@@ -231,6 +206,9 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
   // maintain this map to preserve original/modified relation for functions.
   FixupFunctionsRefs[F] = NewF;
 
+  // Transfer mappings of directly used local values to modified function.
+  DirectLocalsMap[NewF] = LBInfo->getDirectLocals(F);
+
   // Apple LLVM-IR workaround
   // 1.  Pass WI information structure as the next parameter after given
   // function parameters
@@ -268,18 +246,46 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
       CallArgs[I] = static_cast<Value *>(&*IA);
     assert(IA == NewF->arg_end());
     // Calculate pointer to the local memory buffer for callee.
+    IRBuilder<> Builder(CI);
     Value *LocalMem = CallArgs[ImplicitArgsUtils::IA_SLM_BUFFER];
     Twine ValName = "LocalMem_" + Name;
     // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual
     // type (not using type from pointer as this functionality is planned o
     // be removed.
     Type *Ty = LocalMem->getType()->getScalarType()->getPointerElementType();
-    Value *NewLocalMem = GetElementPtrInst::Create(
-        Ty, LocalMem,
-        ConstantInt::get(IntegerType::get(F->getContext(), 32),
-                         DirectLocalSize),
-        ValName, CI);
+    Value *NewLocalMemOffset = ConstantInt::get(
+        IntegerType::get(F->getContext(), 32), DirectLocalSize);
+    auto *NewLocalMem =
+        Builder.CreateGEP(Ty, LocalMem, NewLocalMemOffset, ValName);
     CallArgs[ImplicitArgsUtils::IA_SLM_BUFFER] = NewLocalMem;
+
+    // Now that the local memory buffer is rebased, the memory location of
+    // directly used local values should be passed to the callee so that local
+    // values can be loaded/stored correctly by callee.
+    // In this way, the pointers to local values are pushed to new local memory
+    // buffer base, and then callee can access local values via the pointers.
+    unsigned int CurrLocalOffset = 0;
+    llvm::DataLayout DL(F->getParent());
+    // Get Locals from the new map if the callee Function has been modified.
+    auto &CalleeLocalSet = DirectLocalsMap.count(Callee)
+                               ? DirectLocalsMap[Callee]
+                               : LBInfo->getDirectLocals(Callee);
+    for (auto *Local : CalleeLocalSet) {
+      GlobalVariable *GV = cast<GlobalVariable>(Local);
+      size_t LocalSize = DL.getTypeAllocSize(GV->getType()->getElementType());
+      assert(0 != LocalSize && "zero array size!");
+      // Get the position of Local in NewLocalMem.
+      ConstantInt *LocalIndex = ConstantInt::get(
+          IntegerType::get(F->getContext(), 32), CurrLocalOffset);
+      auto *LocalPtr = Builder.CreateGEP(Ty, NewLocalMem, LocalIndex);
+      // Cast to pointer type of Local.
+      auto *Cast =
+          Builder.CreatePointerCast(LocalPtr, GV->getType()->getPointerTo());
+      // Store pointer to Local to NewLocalMem.
+      Builder.CreateStore(GV, Cast);
+      // Calculate the offset of next direct used local value.
+      CurrLocalOffset += ADJUST_SIZE_TO_MAXIMUM_ALIGN(LocalSize);
+    }
 
     FixupCalls[CI] = CallArgs;
   }
@@ -323,7 +329,35 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
         llvm_unreachable("unexpected ConstantAggregate user");
       C->replaceAllUsesWith(NewC);
     } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
-      replaceCallInst(CI, NewTypes, NewF);
+      Value *Callee = CI->getCalledOperand();
+      if (Callee == F)
+        replaceCallInst(CI, NewTypes, NewF);
+      else {
+        // The function is used as an argument.
+        auto *Cast = CastInst::CreatePointerCast(NewF, F->getType(), "", CI);
+        Cast->setDebugLoc(CI->getDebugLoc());
+        CI->replaceUsesOfWith(F, Cast);
+#ifndef NDEBUG
+        // FIXME:
+        // The only case that a function ptr is passed as an argument is in
+        // task_sequence, and in such case, we assume the passed function won't
+        // be called directly inside the task_sequence, so we don't do extra
+        // work except bitcast'ing the argument's pointer type. We add an
+        // assert here to assure it won't be called. If the passed function ptr
+        // is called inside the function in the future, we need to fix call
+        // instructions in the function.
+        auto *CalledF = dyn_cast<Function>(Callee);
+        if (!CalledF)
+          continue;
+        for (int i = 0, e = CI->arg_size(); i < e; ++i) {
+          if (CI->getArgOperand(i) != Cast)
+            continue;
+          assert(llvm::all_of(CalledF->getArg(i)->users(),
+                              [](User *U) { return !isa<CallBase>(U); }) &&
+                 "Calling a function pointer from argument isn't implemented.");
+        }
+#endif
+      }
     } else if (auto *CI = dyn_cast<CastInst>(U)) {
       assert((isa<BitCastInst, AddrSpaceCastInst, PtrToIntInst>(CI)) &&
              "Only expect bitcast, addrspacecast or ptrtoint cast instruction "

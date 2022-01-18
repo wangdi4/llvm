@@ -344,6 +344,7 @@
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: LoopAnalysis
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: AssumptionAnalysis
+; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Invalidating analysis: PreservedCFGCheckerAnalysis on foo
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running pass: LCSSAPass
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: PreservedCFGCheckerAnalysis on foo
@@ -358,7 +359,6 @@
 ; Moved up to after XmainOptLevelAnalysis ;INTEL
 ; COM: CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: OuterAnalysisManagerProxy ;INTEL
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: ScalarEvolutionAnalysis
-; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}>
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running pass: RepeatedPass
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running pass: NoOpLoopPass

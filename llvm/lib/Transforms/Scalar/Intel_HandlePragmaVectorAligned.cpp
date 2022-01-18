@@ -121,8 +121,7 @@ void HandlePragmaVectorAligned::processAlignedLoop(const Loop *L) {
         continue;
 
       // Make sure that the access is unit stride.
-      Type *AccessType =
-          cast<PointerType>(Address->getType())->getElementType();
+      Type *AccessType = getLoadStoreType(&I);
       auto AccessSize = DL->getTypeAllocSize(AccessType);
       if (AccessSize.isScalable())
         continue;

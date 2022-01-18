@@ -11,20 +11,14 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: BEGIN REGION
 ; CHECK:       + DO i1 = 0, 127, 1   <DO_LOOP>
-; CHECK:       |      %sum.L1 = %sum
 ; CHECK:       |   + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-; CHECK:       |   |      %sum.L2 = %sum.L1
 ; CHECK:       |   |   + DO i3 = 0, %N + -1, 1   <DO_LOOP>
-; CHECK:       |   |   |      %sum.L3 = %sum.L2
 ; CHECK:       |   |   |   + DO i4 = 0, %K + -1, 1   <DO_LOOP>
 ; CHECK:       |   |   |   |   %AikBkj = (%A)[%K * i3 + i4]  *  (%B)[(%M * %K) * i1 + i2 + %M * i4];
-; CHECK:       |   |   |   |   %sum.L3 = %sum.L3  +  %AikBkj;
+; CHECK:       |   |   |   |   %sum = %sum  +  %AikBkj;
 ; CHECK:       |   |   |   + END LOOP
-; CHECK:       |   |   |      %sum.L2 = %sum.L3
 ; CHECK:       |   |   + END LOOP
-; CHECK:       |   |      %sum.L1 = %sum.L2
 ; CHECK:       |   + END LOOP
-; CHECK:       |      %sum = %sum.L1
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
 
@@ -76,48 +70,33 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       + END LOOP
 
 ; CHECK:       + DO i1 = 0, 127, 1   <DO_LOOP>
-; CHECK:       |      %sum.L1 = %sum
 ; CHECK:       |   + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-; CHECK:       |   |      %sum.L2 = %sum.L1
 ; CHECK:       |   |   + DO i3 = 0, %N + -1, 1   <DO_LOOP>
 ; CHECK:       |   |   |   switch((%[[ROWCASES]])[i3])
 ; CHECK:       |   |   |   {
 ; CHECK:       |   |   |   case 1:
-; CHECK:       |   |   |         %sum.L3 = %sum.L2
 ; CHECK:       |   |   |      + DO i4 = 0, %K + -1, 1   <DO_LOOP>
 ; CHECK:       |   |   |      |   %AikBkj = - (%B)[(%M * %K) * i1 + i2 + %M * i4];
-; CHECK:       |   |   |      |   %sum.L3 = %sum.L3  +  %AikBkj;
+; CHECK:       |   |   |      |   %sum = %sum  +  %AikBkj;
 ; CHECK:       |   |   |      + END LOOP
-; CHECK:       |   |   |         %sum.L2 = %sum.L3
 ; CHECK:       |   |   |      break;
 ; CHECK:       |   |   |   case 2:
-; CHECK:       |   |   |      if (%K > 0)
-; CHECK:       |   |   |      {
-; CHECK:       |   |   |         %sum.L3 = %sum.L2
-; CHECK:       |   |   |         %sum.L2 = %sum.L3
-; CHECK:       |   |   |      }
 ; CHECK:       |   |   |      break;
 ; CHECK:       |   |   |   case 3:
-; CHECK:       |   |   |         %sum.L3 = %sum.L2
 ; CHECK:       |   |   |      + DO i4 = 0, %K + -1, 1   <DO_LOOP>
 ; CHECK:       |   |   |      |   %AikBkj = (%B)[(%M * %K) * i1 + i2 + %M * i4];
-; CHECK:       |   |   |      |   %sum.L3 = %sum.L3  +  %AikBkj;
+; CHECK:       |   |   |      |   %sum = %sum  +  %AikBkj;
 ; CHECK:       |   |   |      + END LOOP
-; CHECK:       |   |   |         %sum.L2 = %sum.L3
 ; CHECK:       |   |   |      break;
 ; CHECK:       |   |   |   default:
-; CHECK:       |   |   |         %sum.L3 = %sum.L2
 ; CHECK:       |   |   |      + DO i4 = 0, %K + -1, 1   <DO_LOOP>
 ; CHECK:       |   |   |      |   %AikBkj = (%A)[%K * i3 + i4]  *  (%B)[(%M * %K) * i1 + i2 + %M * i4];
-; CHECK:       |   |   |      |   %sum.L3 = %sum.L3  +  %AikBkj;
+; CHECK:       |   |   |      |   %sum = %sum  +  %AikBkj;
 ; CHECK:       |   |   |      + END LOOP
-; CHECK:       |   |   |         %sum.L2 = %sum.L3
 ; CHECK:       |   |   |      break;
 ; CHECK:       |   |   |   }
 ; CHECK:       |   |   + END LOOP
-; CHECK:       |   |      %sum.L1 = %sum.L2
 ; CHECK:       |   + END LOOP
-; CHECK:       |      %sum = %sum.L1
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
 

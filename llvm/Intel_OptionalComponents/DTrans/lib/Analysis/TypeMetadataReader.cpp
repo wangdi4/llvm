@@ -13,11 +13,18 @@
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/DTransOPUtils.h"
 #include "Intel_DTrans/DTransCommon.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "dtrans-typemetadatareader"
+
+static llvm::cl::opt<bool> EnableStrictCheck(
+    "dtrans-typemetadatareader-strict-check", llvm::cl::Hidden,
+    llvm::cl::init(true), llvm::cl::desc("verify that DTrans "
+    "metadata was collected for all structures"));
 
 namespace llvm {
 namespace dtransOP {
@@ -125,7 +132,7 @@ void TypeMetadataReader::setDTransFuncMetadata(Function *F,
   }
 }
 
-bool TypeMetadataReader::initialize(Module &M) {
+bool TypeMetadataReader::initialize(Module &M, bool StrictCheck) {
   NamedMDNode *DTMDTypes = getDTransTypesMetadata(M);
   if (!DTMDTypes)
     return false;
@@ -180,6 +187,29 @@ bool TypeMetadataReader::initialize(Module &M) {
         MDToStruct.insert(std::make_pair(MD, DTStTy));
     }
 
+  if (!StrictCheck || !EnableStrictCheck) {
+    // Create DTransStructType objects for any structures lacking metadata that
+    // do not contain pointer types. These types can be created directly from
+    // the llvm::StructType object because there are no unknown pointer types
+    // within them.
+    DenseMap<llvm::StructType *, DTransStructType *> LLVMToDTransTypeMap;
+    for (auto &KV : TypeRecoveryState)
+      if (KV.second == MS_RecoveryNotNeeded && KV.first->hasName()) {
+        auto *DTy = cast<DTransStructType>(TM.getOrCreateSimpleType(KV.first));
+        assert(DTy && "Could not create DTransType for structure");
+        LLVMToDTransTypeMap[KV.first] = DTy;
+      }
+
+    // All structure types required should have been created by now. Populate
+    // the ones that did not have metadata. This needs to be done after the type
+    // creation to ensure any nested structures have been created before we
+    // begin populating.
+    for (auto &KV : LLVMToDTransTypeMap) {
+      populateDTransStructTypeFromLLVMType(KV.first, KV.second);
+      TypeRecoveryState[KV.first] = MS_RecoveryComplete;
+    }
+  }
+
   // Process all of the structure types to populate the structure bodies.
   for (auto &MDTypePair : MDToStruct) {
     MDNode *MD = MDTypePair.first;
@@ -206,7 +236,17 @@ bool TypeMetadataReader::initialize(Module &M) {
     }
 
     DTransStructType *DTStTy = TM.getStructType(P.first->getName());
-    assert(DTStTy && "Expected recovered type to have been created");
+    if (!DTStTy) {
+      if ((!StrictCheck || !EnableStrictCheck) &&
+          !dtrans::hasOpaquePointerFields(P.first))
+        continue;
+
+      RecoveryErrors = true;
+      LLVM_DEBUG(dbgs() << "DTransStructType not created for: " << *P.first
+        << "\n");
+      continue;
+    }
+
     if (DTStTy->getReconstructError()) {
       LLVM_DEBUG(dbgs() << "Errors with type info for struct: " << *P.first
                         << "\n");
@@ -407,6 +447,18 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
   });
 
   return StTy;
+}
+
+// Populate the body of \p DSTy based on the members of STy. All members of STy
+// must be simple types. i.e. none of the members contain pointer references.
+void TypeMetadataReader::populateDTransStructTypeFromLLVMType(
+    llvm::StructType *STy, DTransStructType *DSTy) {
+  for (auto &Elem : enumerate(STy->elements())) {
+    DTransType *DTFieldTy = TM.getOrCreateSimpleType(Elem.value());
+    assert(DTFieldTy && "Expected structure fields to be simple types");
+    DTransFieldMember &Field = DSTy->getField(Elem.index());
+    Field.addResolvedType(DTFieldTy);
+  }
 }
 
 // This method is the publicly visible method that will check whether a Value

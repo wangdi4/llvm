@@ -11,8 +11,9 @@
 ;       "visitIntrinsicInst" inside the DTransSafetyAnalyzer is implemented.
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct._ZTS13__va_list_tag.__va_list_tag
+; CHECK: LLVMType: %struct._ZTS13__va_list_tag.__va_list_tag
 ; CHECK: Safety data: Local instance{{ *}}
+; CHECK: End LLVMType: %struct._ZTS13__va_list_tag.__va_list_tag
 
 
 ; Test with a direct call to a VarArg function which does not use the argument.
@@ -30,8 +31,9 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %in) !intel.dt
   ; TODO: Currently, the safety analyzer marks this as "Unhandled use" because
   ;       checking whether the VarArg elements get used is not implemented yet.
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Unhandled use{{ *}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Test with a bitcast function call. This case is safe because the parameter in
@@ -49,8 +51,9 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %in) !intel.dt
   ; TODO: Currently, the safety analyzer marks this as "Unhandled use" because
   ;       checking whether the VarArg elements get used is not implemented yet.
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Unhandled use{{ *}}
+; CHECK: End LLVMType: %struct.test02
 
 
 ; Test a case where the VarArg element is used with the expected type.
@@ -101,8 +104,9 @@ vaarg.end:                                        ; preds = %vaarg.in_mem, %vaar
 ;       had the "Bad casting" flag set.
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: Unhandled use{{ *}}
+; CHECK: End LLVMType: %struct.test03
 
 declare !intel.dtrans.func.type !10 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 declare !intel.dtrans.func.type !11 void @llvm.va_start(i8* "intel_dtrans_func_index"="1")

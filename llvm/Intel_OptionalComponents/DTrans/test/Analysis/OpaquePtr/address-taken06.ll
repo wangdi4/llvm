@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -force-opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -dtrans-usecrulecompat -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -force-opaque-pointers -whole-program-assume  -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-usecrulecompat -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -dtrans-usecrulecompat -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume  -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-usecrulecompat -disable-output < %s 2>&1 | FileCheck %s
 
 ; Test two structs, one which has only floating-point fields, and another
 ; which has floating point and integer fields.
@@ -10,6 +10,7 @@
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.MYSTRUCT = type { float, double }
 ; CHECK-NOT: Safety data:{{.*}}Address taken{{.*}}
+; CHECK: End LLVMType: %struct.MYSTRUCT
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

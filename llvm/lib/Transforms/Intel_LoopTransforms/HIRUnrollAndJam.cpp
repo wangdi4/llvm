@@ -906,7 +906,7 @@ void HIRUnrollAndJam::Analyzer::refineUnrollFactorUsingParentLoop(
     ParUnrollFactor = 1;
   }
 
-  if (!HIRLoopLocality::hasTemporalLocality(ParLp, 1, true)) {
+  if (!HIRLoopLocality::hasTemporalLocality(ParLp, 1, true, true)) {
     LLVM_DEBUG(dbgs() << "Skipping unroll & jam as loop does not have "
                          "temporal locality!\n");
     HUAJ.throttle(ParLp);
@@ -1069,7 +1069,7 @@ void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
   if (!HasEnablingPragma) {
     // TODO: refine unroll factor using extra cache lines accessed by
     // unrolling?
-    if (!HIRLoopLocality::hasTemporalLocality(Lp, UnrollFactor - 1, true)) {
+    if (!HIRLoopLocality::hasTemporalLocality(Lp, UnrollFactor - 1, true, true)) {
       LLVM_DEBUG(dbgs() << "Skipping unroll & jam as loop does not have "
                            "temporal locality!\n");
       HUAJ.throttle(Lp);

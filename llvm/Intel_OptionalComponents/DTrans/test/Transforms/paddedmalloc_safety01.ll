@@ -1,9 +1,10 @@
 ; REQUIRES: asserts
 
-; Test that identifies if the DTrans padded malloc optimization
-; didn't found a malloc function.
+; Test that identifies that the DTrans padded malloc optimization
+; didn't find a malloc function.
 
-; RUN: opt  -whole-program-assume < %s -dtrans-paddedmalloc -dtrans-test-paddedmalloc  -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume < %s -dtrans-paddedmalloc -dtrans-test-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume < %s -passes=dtrans-paddedmalloc -dtrans-test-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
 
 %struct.testStruct = type { i8* }
 

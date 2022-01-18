@@ -70,7 +70,7 @@ bool TargetRegisterInfo::shouldRegionSplitForVirtReg(
   const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
   const MachineRegisterInfo &MRI = MF.getRegInfo();
   MachineInstr *MI = MRI.getUniqueVRegDef(VirtReg.reg());
-  if (MI && TII->isTriviallyReMaterializable(*MI, nullptr, false) && // INTEL
+  if (MI && TII->isTriviallyReMaterializable(*MI) &&
       VirtReg.size() > HugeSizeForSplit)
     return false;
   return true;
@@ -248,8 +248,8 @@ static void getAllocatableSetForRC(const MachineFunction &MF,
                                    const TargetRegisterClass *RC, BitVector &R){
   assert(RC->isAllocatable() && "invalid for nonallocatable sets");
   ArrayRef<MCPhysReg> Order = RC->getRawAllocationOrder(MF);
-  for (unsigned i = 0; i != Order.size(); ++i)
-    R.set(Order[i]);
+  for (MCPhysReg PR : Order)
+    R.set(PR);
 }
 
 BitVector TargetRegisterInfo::getAllocatableSet(const MachineFunction &MF,

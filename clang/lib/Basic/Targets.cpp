@@ -554,11 +554,6 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
       return new X86_32TargetInfo(Triple, Opts);
     }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  case llvm::Triple::x86_icecode:
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   case llvm::Triple::x86_64:
     if (Triple.isOSDarwin() || Triple.isOSBinFormatMachO())
       return new DarwinX86_64TargetInfo(Triple, Opts);
@@ -674,6 +669,20 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
 #endif // INTEL_CUSTOMIZATION
     }
   }
+
+  case llvm::Triple::spirv32: {
+    if (os != llvm::Triple::UnknownOS ||
+        Triple.getEnvironment() != llvm::Triple::UnknownEnvironment)
+      return nullptr;
+    return new SPIRV32TargetInfo(Triple, Opts);
+  }
+  case llvm::Triple::spirv64: {
+    if (os != llvm::Triple::UnknownOS ||
+        Triple.getEnvironment() != llvm::Triple::UnknownEnvironment)
+      return nullptr;
+    return new SPIRV64TargetInfo(Triple, Opts);
+  }
+
   case llvm::Triple::wasm32:
     if (Triple.getSubArch() != llvm::Triple::NoSubArch ||
         Triple.getVendor() != llvm::Triple::UnknownVendor ||
@@ -753,6 +762,25 @@ TargetInfo::CreateTargetInfo(DiagnosticsEngine &Diags,
       Diags.Report(diag::note_valid_options) << llvm::join(ValidList, ", ");
     return nullptr;
   }
+
+#ifdef INTEL_CUSTOMIZATION
+  // Check that targets for automatic-multiversion-dispatch specified are legal.
+  {
+    bool IncorrectTargetNameSeen = false;
+    for (const std::string &TargetName : Opts->AutoMultiVersionTargets) {
+      if (!Target->isValidCPUName(TargetName)) {
+        Diags.Report(diag::err_target_unknown_cpu) << TargetName;
+        IncorrectTargetNameSeen = true;
+      }
+    }
+    if (IncorrectTargetNameSeen) {
+      SmallVector<StringRef, 32> ValidList;
+      Target->fillValidCPUList(ValidList);
+      if (!ValidList.empty())
+        Diags.Report(diag::note_valid_options) << llvm::join(ValidList, ", ");
+    }
+  }
+#endif //INTEL_CUSTOMIZATION
 
   // Set the target ABI if specified.
   if (!Opts->ABI.empty() && !Target->setABI(Opts->ABI)) {

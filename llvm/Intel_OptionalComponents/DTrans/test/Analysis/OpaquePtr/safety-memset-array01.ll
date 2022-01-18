@@ -16,12 +16,13 @@ define void @test01() {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: 0)Field LLVM Type: i64
 ; CHECK: Field info: Written
 ; CHECK: 1)Field LLVM Type: i64
 ; CHECK: Field info: Written
 ; CHECK: Safety data: Local instance{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Writing a pointer type, not the structure fields.
@@ -33,12 +34,13 @@ define void @test02() {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: 0)Field LLVM Type: i64
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i64
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: Local pointer{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 declare !intel.dtrans.func.type !6 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)

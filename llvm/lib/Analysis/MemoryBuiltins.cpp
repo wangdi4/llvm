@@ -122,17 +122,6 @@ static const std::pair<LibFunc, AllocFnsTy> AllocationFnData[] = {
   // TODO: Handle "int posix_memalign(void **, size_t, size_t)"
 };
 
-#if INTEL_CUSTOMIZATION
-static bool isIntegerPointerWithWidth(Type *Ty, const unsigned Width) {
-  if (Ty->isPointerTy()) {
-    PointerType *PTy = dyn_cast<PointerType>(Ty);
-    Type *PointeeTy = PTy->getPointerElementType();
-    return PointeeTy->isIntegerTy(Width);
-  }
-  return false;
-}
-#endif //INTEL_CUSTOMIZATION
-
 static const Function *getCalledFunction(const Value *V, bool LookThroughBitCast,
                                          bool &IsNoBuiltin) {
   // Don't care about intrinsics in this case.
@@ -153,9 +142,8 @@ static const Function *getCalledFunction(const Value *V, bool LookThroughBitCast
   return nullptr;
 }
 
-/// Returns the allocation data for the given value if it's either a call to a
-/// known allocation function, or a call to a function with the allocsize
-/// attribute.
+/// Returns the allocation data for the given value if it's a call to a known
+/// allocation function.
 static Optional<AllocFnsTy>
 getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
                              const TargetLibraryInfo *TLI) {
@@ -195,8 +183,8 @@ getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
   // Model a free or delete call signature
   if (FTy->getReturnType()==Type::getVoidTy(FTy->getContext()) &&
       (FTy->getNumParams()==FnData->NumParams) &&
-      (FstParam==0 &&
-          isIntegerPointerWithWidth(FTy->getParamType(FstParam), 8)) &&
+       (FstParam >= 0 &&
+        FTy->getParamType(FstParam) == Type::getInt8PtrTy(FTy->getContext())) &&
       (SndParam < 0))
     return *FnData;
 #endif // INTEL_CUSTOMIZATION
@@ -739,9 +727,9 @@ STATISTIC(ObjectVisitorArgument,
 STATISTIC(ObjectVisitorLoad,
           "Number of load instructions with unsolved size and offset");
 
-APInt ObjectSizeOffsetVisitor::align(APInt Size, uint64_t Alignment) {
+APInt ObjectSizeOffsetVisitor::align(APInt Size, MaybeAlign Alignment) {
   if (Options.RoundToAlign && Alignment)
-    return APInt(IntTyBits, alignTo(Size.getZExtValue(), Align(Alignment)));
+    return APInt(IntTyBits, alignTo(Size.getZExtValue(), Alignment));
   return Size;
 }
 
@@ -756,7 +744,7 @@ ObjectSizeOffsetVisitor::ObjectSizeOffsetVisitor(const DataLayout &DL,
 
 SizeOffsetType ObjectSizeOffsetVisitor::compute(Value *V) {
   IntTyBits = DL.getIndexTypeSizeInBits(V->getType());
-  Zero = APInt::getNullValue(IntTyBits);
+  Zero = APInt::getZero(IntTyBits);
 
   V = V->stripPointerCasts();
   if (Instruction *I = dyn_cast<Instruction>(V)) {
@@ -816,7 +804,7 @@ SizeOffsetType ObjectSizeOffsetVisitor::visitAllocaInst(AllocaInst &I) {
 
   APInt Size(IntTyBits, DL.getTypeAllocSize(I.getAllocatedType()));
   if (!I.isArrayAllocation())
-    return std::make_pair(align(Size, I.getAlignment()), Zero);
+    return std::make_pair(align(Size, I.getAlign()), Zero);
 
   Value *ArraySize = I.getArraySize();
   if (const ConstantInt *C = dyn_cast<ConstantInt>(ArraySize)) {
@@ -826,8 +814,8 @@ SizeOffsetType ObjectSizeOffsetVisitor::visitAllocaInst(AllocaInst &I) {
 
     bool Overflow;
     Size = Size.umul_ov(NumElems, Overflow);
-    return Overflow ? unknown() : std::make_pair(align(Size, I.getAlignment()),
-                                                 Zero);
+    return Overflow ? unknown()
+                    : std::make_pair(align(Size, I.getAlign()), Zero);
   }
   return unknown();
 }
@@ -841,7 +829,7 @@ SizeOffsetType ObjectSizeOffsetVisitor::visitArgument(Argument &A) {
   }
 
   APInt Size(IntTyBits, DL.getTypeAllocSize(MemoryTy));
-  return std::make_pair(align(Size, A.getParamAlignment()), Zero);
+  return std::make_pair(align(Size, A.getParamAlign()), Zero);
 }
 
 SizeOffsetType ObjectSizeOffsetVisitor::visitCallBase(CallBase &CB) {
@@ -947,7 +935,7 @@ SizeOffsetType ObjectSizeOffsetVisitor::visitGlobalVariable(GlobalVariable &GV){
     return unknown();
 
   APInt Size(IntTyBits, DL.getTypeAllocSize(GV.getValueType()));
-  return std::make_pair(align(Size, GV.getAlignment()), Zero);
+  return std::make_pair(align(Size, GV.getAlign()), Zero);
 }
 
 SizeOffsetType ObjectSizeOffsetVisitor::visitIntToPtrInst(IntToPtrInst&) {

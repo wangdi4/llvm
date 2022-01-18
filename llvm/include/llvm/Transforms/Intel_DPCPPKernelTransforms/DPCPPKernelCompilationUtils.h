@@ -1,6 +1,6 @@
 //===-- DPCPPKernelCompilationUtils.h - Function declarations -*- C++ -----===//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -31,7 +31,7 @@ namespace llvm {
 // 3. mangled vector variant name
 using VectItem = std::tuple<const char *, const char *, const char *>;
 
-enum class SyncType { None, Barrier, DummyBarrier, Fiber };
+enum class SyncType { None, Barrier, DummyBarrier };
 
 namespace KernelAttribute {
 // Attributes
@@ -44,6 +44,7 @@ extern const StringRef OCLVecUniformReturn;
 extern const StringRef RecursionWithBarrier;
 extern const StringRef UniformCall;
 extern const StringRef VectorVariants;
+extern const StringRef VectorVariantFailure;
 
 inline StringRef getAttributeAsString(const Function &F, StringRef Attr) {
   assert(F.hasFnAttribute(Attr) && "Function doesn't have this attribute!");
@@ -145,11 +146,6 @@ using ValueVec = SmallVector<Value *, 4>;
 /// Return true if this alloca instruction is created by ImplicitGID Pass.
 bool isImplicitGID(AllocaInst *AI);
 
-/// Load builtin modules from path specified by command line
-/// option(dpcpp-kernel-builtin-lib).
-SmallVector<std::unique_ptr<Module>, 2>
-loadBuiltinModulesFromCommandLine(LLVMContext &Ctx);
-
 /// Append the dimension string to S.
 std::string AppendWithDimension(StringRef S, int Dimension);
 std::string AppendWithDimension(StringRef S, const Value *Dimension);
@@ -232,6 +228,9 @@ std::string getPipeName(PipeKind);
 
 /// Return true if string is name of work-item pipe builtin.
 bool isWorkItemPipeBuiltin(StringRef S);
+
+/// Return true if \p S is wait_group_events builtin.
+bool isWaitGroupEvents(StringRef S);
 
 /// \name WorkGroup Builtin
 /// \param S function name
@@ -400,6 +399,18 @@ bool isSubGroupBuiltin(StringRef S);
 /// Returns true if \p S is the name of subgroup barrier.
 bool isSubGroupBarrier(StringRef S);
 
+/// Returns true if \p S is the name of get_sub_group_slice_length.
+bool isGetSubGroupSliceLength(StringRef S);
+
+/// Returns true if \p S is the name of sub_group_rowslice_extractelement.
+bool isSubGroupRowSliceExtractElement(StringRef S);
+
+/// Returns true if \p S is the name of sub_group_rowslice_insertelement.
+bool isSubGroupRowSliceInsertElement(StringRef S);
+
+/// Returns true if \p S is the name of sub_group_insert_rowslice_to_matrix.
+bool isSubGroupInsertRowSliceToMatrix(StringRef S);
+
 /// Collect all kernel functions.
 inline auto getKernels(Module &M) {
   return DPCPPKernelMetadataAPI::KernelList(M);
@@ -520,7 +531,7 @@ void updateMetadataTreeWithNewFuncs(
     Module *M, DenseMap<Function *, Function *> &FunctionMap,
     MDNode *MDTreeNode, SmallSet<MDNode *, 8> &Visited);
 
-inline bool hasByvalByrefArgs(Function *F) {
+inline bool hasByvalByrefArgs(const Function *F) {
   if (!F)
     return false;
   return llvm::any_of(F->args(), [](auto &Arg) {
@@ -538,13 +549,83 @@ Instruction *createInstructionFromConstantWithReplacement(
 /// satisfies the given `Condition`. This will perform a DFS on the CallGraph.
 /// Returns true if `Node->getFunction()` calls target function
 /// directly/indirectly.
-bool hasFunctionCallInCGNodeSatisfiedWith(
-    CallGraphNode *Node, function_ref<bool(Function *)> Condition);
+bool hasFunctionCallInCGNodeIf(CallGraphNode *Node,
+                               function_ref<bool(const Function *)> Condition);
+
+/// Apply `MapFunc` to all functions satisfied with the given `Condition` in the
+/// CallGraph `Node`.
+void mapFunctionCallInCGNodeIf(CallGraphNode *Node,
+                               function_ref<bool(const Function *)> Condition,
+                               function_ref<void(Function *)> MapFunc);
 
 void initializeVectInfoOnce(
     ArrayRef<VectItem> VectInfos,
     std::vector<std::tuple<std::string, std::string, std::string>>
         &ExtendedVectInfos);
+
+/// Insert printf in the kernel for debug purpose.
+void insertPrintf(const Twine &Prefix, Instruction *IP,
+                  ArrayRef<Value *> Inputs = None);
+
+/// Create a get_sub_group_slice_length.() call.
+/// SIGNATURE:
+///   i64 get_sub_group_slice_length.(i32 immarg %total.element.count)
+/// This internal builtin will be resolved by ResolveSubGroupWICall pass
+/// as: ceil(%total.element.count / VF)
+CallInst *createGetSubGroupSliceLengthCall(unsigned TotalElementCount,
+                                           Instruction *IP,
+                                           const Twine &Name = "");
+
+/// Create a get_sub_group_rowslice_id() call.
+/// SIGNATURE:
+///   i64 get_sub_group_rowslice_id.<MatrixTypeMangle>.<IndexTypeMangle>(
+///   <MatrixType> %matrix, i32 immarg R, i32 immarg C, <IndexType> %index)
+/// where <MatrixType> must be a FixedVectorType, whose number of elements
+/// equals to R times C;
+/// and <IndexType> is an arbitrary integer type.
+/// This internal builtin will be resolved by ResolveSubGroupWICall pass.
+CallInst *createGetSubGroupRowSliceIdCall(Value *Matrix, unsigned R, unsigned C,
+                                          Value *Index, Instruction *IP,
+                                          const Twine &Name = "");
+
+/// Create a sub_group_rowslice_extractelement() call.
+/// SIGNATURE:
+///   <ElementType> sub_group_rowslice_extractelement.<ElementTypeMangle>(i64
+///   %rowslice.id)
+/// where %rowslice.id must be a call of get_sub_group_rowslice_id;
+/// and <ElementType> must match with the element type of the matrix argument
+/// associated with %rowslice.id.
+/// This internal builtin will be widen by vectorizer and resolved by
+/// ResolveSubGroupWICall pass.
+CallInst *createSubGroupRowSliceExtractElementCall(Value *RowSliceId,
+                                                   Type *ReturnType,
+                                                   Instruction *IP,
+                                                   const Twine &Name = "");
+
+/// Create a sub_group_rowslice_insertelement() call.
+/// SIGNATURE:
+///   void sub_group_rowslice_insertelement.<ElementTypeMangle>(
+///   i64 %rowslice.id, <ElementType> %element)
+/// where %rowslice.id must be a call of get_sub_group_rowslice_id;
+/// and <ElementType> must match with the element type of the matrix argument
+/// associated with %rowslice.id.
+/// This internal builtin will be widen by vectorizer and resolved by
+/// ResolveSubGroupWICall pass.
+CallInst *createSubGroupRowSliceInsertElementCall(Value *RowSliceId,
+                                                  Value *Data, Instruction *IP);
+
+/// Create a sub_group_insert_rowslice_to_matrix() call.
+/// SIGNATURE:
+///   <MatrixType> sub_group_insert_rowslice_to_matrix.<MatrixTypeMangle>(i64
+///   %rowslice.id)
+/// where %rowslice.id must be a call of get_sub_group_rowslice_id;
+/// and <MatrixType> must be the same as the typo of matrix argument associated
+/// with %rowslice.id.
+/// This internal builtin will be resolved by ResolveSubGroupWICall pass.
+CallInst *createSubGroupInsertRowSliceToMatrixCall(Value *RowSliceId,
+                                                   Type *ReturnMatrixType,
+                                                   Instruction *IP,
+                                                   const Twine &Name = "");
 
 } // namespace DPCPPKernelCompilationUtils
 } // namespace llvm

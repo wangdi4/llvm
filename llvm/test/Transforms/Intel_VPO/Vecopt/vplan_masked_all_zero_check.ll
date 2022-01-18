@@ -54,10 +54,7 @@ for.body4:                                        ; preds = %for.body4.preheader
 ; CHECK:         [[TMP10:%.*]] = and <8 x i1> [[TMP9]], [[TMP3]]
 ; CHECK-NEXT:    [[TMP11:%.*]] = bitcast <8 x i1> [[TMP10]] to i8
 ; CHECK-NEXT:    [[TMP12:%.*]] = icmp eq i8 [[TMP11]], 0
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <8 x i1> poison, i1 [[TMP12]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <8 x i1> [[BROADCAST_SPLATINSERT0]], <8 x i1> poison, <8 x i32> zeroinitializer
-; CHECK-NEXT:    [[COND:%.*]] = extractelement <8 x i1> [[BROADCAST_SPLAT0]], i32 0
-; CHECK-NEXT:    br i1 [[COND]], label [[VPLANNEDBB130:%.*]], label [[VPLANNEDBB70:%.*]]
+; CHECK-NEXT:    br i1 [[TMP12]], label [[VPLANNEDBB130:%.*]], label [[VPLANNEDBB70:%.*]]
   br i1 %cmp3, label %for.body4, label %for.inc7.loopexit
 
 for.inc7.loopexit:                                ; preds = %for.body4

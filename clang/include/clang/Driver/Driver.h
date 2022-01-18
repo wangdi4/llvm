@@ -261,6 +261,14 @@ public:
   /// or when using the -gen-reproducer driver flag.
   unsigned GenReproducer : 1;
 
+  // getFinalPhase - Determine which compilation mode we are in and record
+  // which option we used to determine the final phase.
+  // TODO: Much of what getFinalPhase returns are not actually true compiler
+  //       modes. Fold this functionality into Types::getCompilationPhases and
+  //       handleArguments.
+  phases::ID getFinalPhase(const llvm::opt::DerivedArgList &DAL,
+                           llvm::opt::Arg **FinalPhaseArg = nullptr) const;
+
 private:
   /// Certain options suppress the 'no input files' warning.
   unsigned SuppressMissingInputWarning : 1;
@@ -277,14 +285,6 @@ private:
   /// arguments, after applying the standard argument translations.
   llvm::opt::DerivedArgList *
   TranslateInputArgs(const llvm::opt::InputArgList &Args) const;
-
-  // getFinalPhase - Determine which compilation mode we are in and record
-  // which option we used to determine the final phase.
-  // TODO: Much of what getFinalPhase returns are not actually true compiler
-  //       modes. Fold this functionality into Types::getCompilationPhases and
-  //       handleArguments.
-  phases::ID getFinalPhase(const llvm::opt::DerivedArgList &DAL,
-                           llvm::opt::Arg **FinalPhaseArg = nullptr) const;
 
   // handleArguments - All code related to claiming and printing diagnostics
   // related to arguments to the driver are done here.
@@ -661,11 +661,10 @@ private:
   ///
   /// Will cache ToolChains for the life of the driver object, and create them
   /// on-demand.
-  const ToolChain &getOffloadingDeviceToolChain(const llvm::opt::ArgList &Args,
-                                                const llvm::Triple &Target,
-                                                const ToolChain &HostTC,
-                                                const Action::OffloadKind
-                                                &TargetDeviceOffloadKind) const;
+  const ToolChain &getOffloadingDeviceToolChain(
+      const llvm::opt::ArgList &Args, const llvm::Triple &Target,
+      const ToolChain &HostTC,
+      const Action::OffloadKind &TargetDeviceOffloadKind) const;
 
   /// Get bitmasks for which option flags to include and exclude based on
   /// the driver mode.
@@ -675,7 +674,7 @@ private:
   /// Specific to DPC++, specialization function for setting the option flags
   /// to handle dpcpp behaviors on Windows.
   std::pair<unsigned, unsigned> getIncludeExcludeOptionFlagMasksDpcpp(
-      bool IsClCompatMode, bool AllowLinux) const;
+      bool IsClCompatMode, bool AllowAllOpts) const;
 #endif // INTEL_CUSTOMIZATION
 
   /// Helper used in BuildJobsForAction.  Doesn't use the cache when building

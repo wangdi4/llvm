@@ -19,37 +19,38 @@
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local i32 @peel_example(i32 %delta2, i32 %len_limit, i32* nocapture readonly %cur) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after initial VPlan transforms:
-; CHECK-NEXT:  VPlan IR for: peel_example:HIR
+; CHECK-NEXT:  VPlan IR for: peel_example:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:     [[VP0:%.*]] = {%len_limit + -2}
-; CHECK-DAG:     [[VP1:%.*]] = {%cur}
+; CHECK-DAG:     [[VP0:%.*]] = {%cur}
+; CHECK-DAG:     [[VP1:%.*]] = {%len_limit + -2}
 ; CHECK-DAG:     [[VP2:%.*]] = {-1 * zext.i32.i64(%delta2) + 1}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     i32 [[VP3:%.*]] = add i32 [[VP1]] i32 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:     i32 [[VP3:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP4:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i32 [[VP5:%.*]] = add i32 [[VP3]] i32 1
-; CHECK-NEXT:     i32 [[VP6:%.*]] = hir-copy i32 [[VP5]] , OriginPhiId: -1
-; CHECK-NEXT:     i64 [[VP7:%.*]] = zext i32 [[VP3]] to i64
-; CHECK-NEXT:     i64 [[VP8:%.*]] = add i64 [[VP2]] i64 [[VP7]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[CUR0:%.*]] i64 [[VP8]]
+; CHECK-NEXT:     i32 [[VP4:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP5:%.*]], [[BB3]] ]
+; CHECK-NEXT:     i32 [[VP6:%.*]] = add i32 [[VP4]] i32 1
+; CHECK-NEXT:     i32 [[VP7:%.*]] = hir-copy i32 [[VP6]] , OriginPhiId: -1
+; CHECK-NEXT:     i64 [[VP8:%.*]] = zext i32 [[VP4]] to i64
+; CHECK-NEXT:     i64 [[VP9:%.*]] = add i64 [[VP2]] i64 [[VP8]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[CUR0:%.*]] i64 [[VP9]]
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     i32 [[VP9:%.*]] = add i32 [[VP3]] i32 1
-; CHECK-NEXT:     i64 [[VP10:%.*]] = zext i32 [[VP9]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[CUR0]] i64 [[VP10]]
+; CHECK-NEXT:     i32 [[VP10:%.*]] = add i32 [[VP4]] i32 1
+; CHECK-NEXT:     i64 [[VP11:%.*]] = zext i32 [[VP10]] to i64
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[CUR0]] i64 [[VP11]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp ne i32 [[VP_LOAD]] i32 [[VP_LOAD_1]]
-; CHECK-NEXT:     br i1 [[VP11]], [[BB4:BB[0-9]+]], [[BB3]]
+; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp ne i32 [[VP_LOAD]] i32 [[VP_LOAD_1]]
+; CHECK-NEXT:     br i1 [[VP12]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:       i32 [[VP4]] = add i32 [[VP3]] i32 1
-; CHECK-NEXT:       i1 [[VP12:%.*]] = icmp sle i32 [[VP4]] i32 [[VP0]]
-; CHECK-NEXT:       br i1 [[VP12]], [[BB2]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:       i32 [[VP5]] = add i32 [[VP4]] i32 1
+; CHECK-NEXT:       i1 [[VP13:%.*]] = icmp slt i32 [[VP5]] i32 [[VP3]]
+; CHECK-NEXT:       br i1 [[VP13]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB3]]
 ; CHECK-NEXT:       br [[BB6:BB[0-9]+]]
@@ -62,6 +63,9 @@ define dso_local i32 @peel_example(i32 %delta2, i32 %len_limit, i32* nocapture r
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
 ; CHECK-NEXT:     br <External Block>
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   i32 [[VP7]] -> [[VP14:%.*]] = {%len_best.011.out}
 ;
 entry:
   %cmp10 = icmp eq i32 %len_limit, 1

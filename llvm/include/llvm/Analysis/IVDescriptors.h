@@ -20,6 +20,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/Casting.h"
@@ -36,20 +37,25 @@ class DominatorTree;
 
 /// These are the kinds of recurrences that we support.
 enum class RecurKind {
-  None,   ///< Not a recurrence.
-  Add,    ///< Sum of integers.
-  Mul,    ///< Product of integers.
-  Or,     ///< Bitwise or logical OR of integers.
-  And,    ///< Bitwise or logical AND of integers.
-  Xor,    ///< Bitwise or logical XOR of integers.
-  SMin,   ///< Signed integer min implemented in terms of select(cmp()).
-  SMax,   ///< Signed integer max implemented in terms of select(cmp()).
-  UMin,   ///< Unisgned integer min implemented in terms of select(cmp()).
-  UMax,   ///< Unsigned integer max implemented in terms of select(cmp()).
-  FAdd,   ///< Sum of floats.
-  FMul,   ///< Product of floats.
-  FMin,   ///< FP min implemented in terms of select(cmp()).
-  FMax    ///< FP max implemented in terms of select(cmp()).
+  None,       ///< Not a recurrence.
+  Add,        ///< Sum of integers.
+  Mul,        ///< Product of integers.
+  Or,         ///< Bitwise or logical OR of integers.
+  And,        ///< Bitwise or logical AND of integers.
+  Xor,        ///< Bitwise or logical XOR of integers.
+  SMin,       ///< Signed integer min implemented in terms of select(cmp()).
+  SMax,       ///< Signed integer max implemented in terms of select(cmp()).
+  UMin,       ///< Unisgned integer min implemented in terms of select(cmp()).
+  UMax,       ///< Unsigned integer max implemented in terms of select(cmp()).
+  FAdd,       ///< Sum of floats.
+  FMul,       ///< Product of floats.
+  FMin,       ///< FP min implemented in terms of select(cmp()).
+  FMax,       ///< FP max implemented in terms of select(cmp()).
+  FMulAdd,    ///< Fused multiply-add of floats (a * b + c).
+  SelectICmp, ///< Integer select(icmp(),x,y) where one of (x,y) is loop
+              ///< invariant
+  SelectFCmp  ///< Integer select(fcmp(),x,y) where one of (x,y) is loop
+              ///< invariant
 };
 
 /// The RecurrenceDescriptor is used to identify recurrences variables in a
@@ -80,11 +86,13 @@ public:
   /// Expose an ordered FP reduction to the instance users.
   bool isOrdered() const { return IsOrdered; }
 
-  /// Returns identity corresponding to the RecurrenceKind.
-  static Constant *getRecurrenceIdentity(RecurKind K, Type *Tp,
-                                         FastMathFlags FMF);
+  /// Returns identity, that can be represented as a constant,
+  /// corresponding to the RecurrenceKind. Not all recurrence kinds
+  /// can have constant representation.
+  static Constant *getConstRecurrenceIdentity(RecurKind K, Type *Tp,
+                                              FastMathFlags FMF);
 
-  /// Returns the opcode of binary operation corresponding to the RecurKind.
+  /// Returns the opcode corresponding to the RecurrenceKind.
   static unsigned getOpcode(RecurKind Kind);
 
   unsigned getOpcode() const {
@@ -114,6 +122,12 @@ public:
   /// Returns true if the recurrence kind is any min/max kind.
   static bool isMinMaxRecurrenceKind(RecurKind Kind) {
     return isIntMinMaxRecurrenceKind(Kind) || isFPMinMaxRecurrenceKind(Kind);
+  }
+
+  /// Returns true if the recurrence kind is of the form
+  ///   select(cmp(),x,y) where one of (x,y) is loop invariant.
+  static bool isSelectCmpRecurrenceKind(RecurKind Kind) {
+    return Kind == RecurKind::SelectICmp || Kind == RecurKind::SelectFCmp;
   }
 
 protected:
@@ -186,6 +200,19 @@ public:
     CastInsts.insert(CI.begin(), CI.end());
   }
 
+  /// Returns identity corresponding to the RecurrenceKind.
+#if INTEL_CUSTOMIZATION
+  Value *getRecurrenceIdentity(RecurKind K, Type *Tp, FastMathFlags FMF) const {
+#endif
+    switch (K) {
+    case RecurKind::SelectICmp:
+    case RecurKind::SelectFCmp:
+      return getRecurrenceStartValue();
+    default:
+      return getConstRecurrenceIdentity(K, Tp, FMF);
+    }
+  }
+
   /// This POD struct holds information about a potential recurrence operation.
   class InstDesc {
   public:
@@ -220,12 +247,14 @@ public:
   };
 
   /// Returns a struct describing if the instruction 'I' can be a recurrence
-  /// variable of type 'Kind'. If the recurrence is a min/max pattern of
-  /// select(icmp()) this function advances the instruction pointer 'I' from the
-  /// compare instruction to the select instruction and stores this pointer in
-  /// 'PatternLastInst' member of the returned struct.
-  static InstDesc isRecurrenceInstr(Instruction *I, RecurKind Kind,
-                                    InstDesc &Prev, FastMathFlags FMF);
+  /// variable of type 'Kind' for a Loop \p L and reduction PHI \p Phi.
+  /// If the recurrence is a min/max pattern of select(icmp()) this function
+  /// advances the instruction pointer 'I' from the compare instruction to the
+  /// select instruction and stores this pointer in 'PatternLastInst' member of
+  /// the returned struct.
+  static InstDesc isRecurrenceInstr(Loop *L, PHINode *Phi, Instruction *I,
+                                    RecurKind Kind, InstDesc &Prev,
+                                    FastMathFlags FuncFMF);
 
   /// Returns true if instruction I has multiple uses in Insts
   static bool hasMultipleUsesOf(Instruction *I,
@@ -235,12 +264,22 @@ public:
   /// Returns true if all uses of the instruction I is within the Set.
   static bool areAllUsesIn(Instruction *I, SmallPtrSetImpl<Instruction *> &Set);
 
-  /// Returns a struct describing if the instruction is a
-  /// Select(ICmp(X, Y), X, Y) instruction pattern corresponding to a min(X, Y)
-  /// or max(X, Y). \p Prev specifies the description of an already processed
-  /// select instruction, so its corresponding cmp can be matched to it.
-  static InstDesc isMinMaxSelectCmpPattern(Instruction *I,
-                                           const InstDesc &Prev);
+  /// Returns a struct describing if the instruction is a llvm.(s/u)(min/max),
+  /// llvm.minnum/maxnum or a Select(ICmp(X, Y), X, Y) pair of instructions
+  /// corresponding to a min(X, Y) or max(X, Y), matching the recurrence kind \p
+  /// Kind. \p Prev specifies the description of an already processed select
+  /// instruction, so its corresponding cmp can be matched to it.
+  static InstDesc isMinMaxPattern(Instruction *I, RecurKind Kind,
+                                  const InstDesc &Prev);
+
+  /// Returns a struct describing whether the instruction is either a
+  ///   Select(ICmp(A, B), X, Y), or
+  ///   Select(FCmp(A, B), X, Y)
+  /// where one of (X, Y) is a loop invariant integer and the other is a PHI
+  /// value. \p Prev specifies the description of an already processed select
+  /// instruction, so its corresponding cmp can be matched to it.
+  static InstDesc isSelectCmpPattern(Loop *Loop, PHINode *OrigPhi,
+                                     Instruction *I, InstDesc &Prev);
 
   /// Returns a struct describing if the instruction is a
   /// Select(FCmp(X, Y), (Z = X op PHINode), PHINode) instruction pattern.
@@ -251,7 +290,7 @@ public:
   /// non-null, the minimal bit width needed to compute the reduction will be
   /// computed.
   static bool AddReductionVar(PHINode *Phi, RecurKind Kind, Loop *TheLoop,
-                              FastMathFlags FMF,
+                              FastMathFlags FuncFMF,
                               RecurrenceDescriptor &RedDes,
                               DemandedBits *DB = nullptr,
                               AssumptionCache *AC = nullptr,
@@ -294,6 +333,12 @@ public:
   /// be treated as a set of reductions instructions for in-loop reductions.
   SmallVector<Instruction *, 4> getReductionOpChain(PHINode *Phi,
                                                     Loop *L) const;
+
+  /// Returns true if the instruction is a call to the llvm.fmuladd intrinsic.
+  static bool isFMulAddIntrinsic(Instruction *I) {
+    return isa<IntrinsicInst>(I) &&
+           cast<IntrinsicInst>(I)->getIntrinsicID() == Intrinsic::fmuladd;
+  }
 
 private:
   // First instance of non-reassociative floating-point in the PHI's use-chain.
@@ -355,6 +400,8 @@ protected:
               InductionBinOp->getOpcode() == Instruction::FSub))) &&
            "Binary opcode should be specified for FP induction");
   }
+
+  Type *getInductionType() const { return StartValue->getType(); }
 
   /// Start value.
   ValueStorageTy StartValue;

@@ -40,9 +40,62 @@ if (NOT DEFINED LLVM_EXTERNAL_XPTIFW_SOURCE_DIR)
   endif()
 endif()
 
-# Now simply link against gtest or gtest_main as needed. Eg
-add_executable(xpti_tests xpti_api_tests.cpp xpti_correctness_tests.cpp)
-target_link_libraries(xpti_tests gtest)
-target_link_libraries(xpti_tests LLVMSupport) # INTEL
-target_link_libraries(xpti_tests gtest_main xptifw)
-add_test(NAME example_test COMMAND xpti_tests)
+add_executable(XPTIFWUnitTests EXCLUDE_FROM_ALL
+  xpti_api_tests.cpp
+  xpti_correctness_tests.cpp
+)
+
+# Silence warnings from GTest
+target_include_directories(XPTIFWUnitTests SYSTEM PRIVATE
+  ${gtest_SOURCE_DIR}/include
+  ${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include
+)
+
+# INTEL_CUSTOMIZATION
+
+# This piece is replaced with logic below
+# if (TARGET LLVMSupport)
+#   set(SUPPORT_LIB LLVMSupport)
+# endif()
+
+if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
+  llvm_map_components_to_libnames(llvm_libs Support_stdcpp)
+  set(SUPPORT_LIB ${llvm_libs} gtest_stdcpp gtest_main_stdcpp stdc++)
+  string( REPLACE "-stdlib=libc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
+  string( REPLACE "-stdlib=libc++" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
+  string( REPLACE "-stdlib=libc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
+  string( REPLACE "-static-libstdc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
+  string( REPLACE "-static-libstdc++" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
+  string( REPLACE "-static-libstdc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
+  set(EXTRA_FLAGS -stdlib=libstdc++)
+elseif(WIN32)
+  llvm_map_components_to_libnames(llvm_libs Support_dyn)
+  set(SUPPORT_LIB ${llvm_libs} gtest_dyn gtest_main_dyn)
+  if (CMAKE_BUILD_TYPE MATCHES "Debug")
+    target_compile_options(XPTIFWUnitTests PRIVATE "/MDd")
+  else()
+    target_compile_options(XPTIFWUnitTests PRIVATE "/MD")
+  endif()
+else()
+  llvm_map_components_to_libnames(llvm_libs Support)
+  set(SUPPORT_LIB ${llvm_libs} gtest gtest_main)
+endif()
+# end INTEL_CUSTOMIZATION
+
+target_link_libraries(XPTIFWUnitTests PRIVATE
+  # gtest INTEL_CUSTOMIZATION
+  # gtest_main INTEL_CUSTOMIZATION
+  xptifw
+  ${SUPPORT_LIB}
+)
+
+if (EXTRA_FLAGS)
+  target_compile_options(XPTIFWUnitTests PRIVATE ${EXTRA_FLAGS})
+endif()
+
+add_test(NAME XPTIFWTests COMMAND XPTIFWUnitTests)
+
+add_custom_target(check-xptifw-unittest COMMAND
+  $<TARGET_PROPERTY:XPTIFWUnitTests,RUNTIME_OUTPUT_DIRECTORY>/XPTIFWUnitTests)
+add_dependencies(check-xptifw-unittest XPTIFWUnitTests)
+add_dependencies(check-xptifw check-xptifw-unittest)

@@ -229,6 +229,15 @@ public:
   /// Returns a pointer to the new LoopID metadata.
   static MDNode *addOptReportToLoopID(MDNode *LoopID, OptReport OR,
                                       LLVMContext &C);
+
+  /// Replace OptReport that is currently attached to LoopID metadata. Erases
+  /// any existing OptReport MDNodes in LoopID and adds NewOR as replacement
+  /// OptReport for the loop. Returns a pointer to the new LoopID metadata.
+  static MDNode *replaceOptReportForLoopID(MDNode *LoopID, OptReport NewOR,
+                                           LLVMContext &C) {
+    MDNode *NewLoopID = eraseOptReportFromLoopID(LoopID, C);
+    return addOptReportToLoopID(NewLoopID, NewOR, C);
+  }
 };
 
 } // namespace llvm

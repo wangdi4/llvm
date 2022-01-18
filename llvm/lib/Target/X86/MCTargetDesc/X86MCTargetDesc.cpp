@@ -26,9 +26,9 @@
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MachineLocation.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Host.h"
-#include "llvm/Support/TargetRegistry.h"
 
 using namespace llvm;
 
@@ -44,16 +44,6 @@ using namespace llvm;
 
 std::string X86_MC::ParseX86Triple(const Triple &TT) {
   std::string FS;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  // SSE2 is disabled in IceCode mode.
-  // FIXME: Why? The frontend code forces avx512 which forces sse2.
-  if (TT.getArch() == Triple::x86_icecode)
-    FS = "+64bit-mode,-32bit-mode,-16bit-mode,+icecode-mode";
-  else
-#else // INTEL_FEATURE_ICECODE
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   if (TT.isArch64Bit())
   // SSE2 should default to enabled in 64-bit mode, but can be turned off
   // explicitly.
@@ -67,13 +57,7 @@ std::string X86_MC::ParseX86Triple(const Triple &TT) {
 }
 
 unsigned X86_MC::getDwarfRegFlavour(const Triple &TT, bool isEH) {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  if (TT.getArch() == Triple::x86_icecode || TT.getArch() == Triple::x86_64)
-#else // INTEL_FEATURE_ICECODE
   if (TT.getArch() == Triple::x86_64)
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
     return DWARFFlavour::X86_64;
 
   if (TT.isOSDarwin())
@@ -321,14 +305,7 @@ static MCInstrInfo *createX86MCInstrInfo() {
 }
 
 static MCRegisterInfo *createX86MCRegisterInfo(const Triple &TT) {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  unsigned RA = (TT.getArch() == Triple::x86_icecode ||
-                 TT.getArch() == Triple::x86_64)
-#else // INTEL_FEATURE_ICECODE
   unsigned RA = (TT.getArch() == Triple::x86_64)
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
                     ? X86::RIP  // Should have dwarf #16.
                     : X86::EIP; // Should have dwarf #8.
 
@@ -342,14 +319,7 @@ static MCRegisterInfo *createX86MCRegisterInfo(const Triple &TT) {
 static MCAsmInfo *createX86MCAsmInfo(const MCRegisterInfo &MRI,
                                      const Triple &TheTriple,
                                      const MCTargetOptions &Options) {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  bool is64Bit = TheTriple.getArch() == Triple::x86_icecode ||
-                 TheTriple.getArch() == Triple::x86_64;
-#else // INTEL_FEATURE_ICECODE
   bool is64Bit = TheTriple.getArch() == Triple::x86_64;
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 
   MCAsmInfo *MAI;
   if (TheTriple.isOSBinFormatMachO()) {
@@ -438,6 +408,9 @@ public:
                                                   const MCSubtargetInfo *STI,
                                                   uint64_t Addr,
                                                   uint64_t Size) const override;
+  Optional<uint64_t>
+  getMemoryOperandRelocationOffset(const MCInst &Inst,
+                                   uint64_t Size) const override;
 };
 
 #define GET_STIPREDICATE_DEFS_FOR_MC_ANALYSIS
@@ -547,11 +520,6 @@ std::vector<std::pair<uint64_t, uint64_t>> X86MCInstrAnalysis::findPltEntries(
     case Triple::x86:
       return findX86PltEntries(PltSectionVA, PltContents, GotPltSectionVA);
     case Triple::x86_64:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-    case Triple::x86_icecode:
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
       return findX86_64PltEntries(PltSectionVA, PltContents);
     default:
       return {};
@@ -592,6 +560,30 @@ Optional<uint64_t> X86MCInstrAnalysis::evaluateMemoryOperandAddress(
   return None;
 }
 
+Optional<uint64_t>
+X86MCInstrAnalysis::getMemoryOperandRelocationOffset(const MCInst &Inst,
+                                                     uint64_t Size) const {
+  if (Inst.getOpcode() != X86::LEA64r)
+    return None;
+  const MCInstrDesc &MCID = Info->get(Inst.getOpcode());
+  int MemOpStart = X86II::getMemoryOperandNo(MCID.TSFlags);
+  if (MemOpStart == -1)
+    return None;
+  MemOpStart += X86II::getOperandBias(MCID);
+  const MCOperand &SegReg = Inst.getOperand(MemOpStart + X86::AddrSegmentReg);
+  const MCOperand &BaseReg = Inst.getOperand(MemOpStart + X86::AddrBaseReg);
+  const MCOperand &IndexReg = Inst.getOperand(MemOpStart + X86::AddrIndexReg);
+  const MCOperand &ScaleAmt = Inst.getOperand(MemOpStart + X86::AddrScaleAmt);
+  const MCOperand &Disp = Inst.getOperand(MemOpStart + X86::AddrDisp);
+  // Must be a simple rip-relative address.
+  if (BaseReg.getReg() != X86::RIP || SegReg.getReg() != 0 ||
+      IndexReg.getReg() != 0 || ScaleAmt.getImm() != 1 || !Disp.isImm())
+    return None;
+  // rip-relative ModR/M immediate is 32 bits.
+  assert(Size > 4 && "invalid instruction size for rip-relative lea");
+  return Size - 4;
+}
+
 } // end of namespace X86_MC
 
 } // end of namespace llvm
@@ -602,14 +594,7 @@ static MCInstrAnalysis *createX86MCInstrAnalysis(const MCInstrInfo *Info) {
 
 // Force static initialization.
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86TargetMC() {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  for (Target *T : {&getTheX86_32Target(), &getTheX86_64Target(),
-                    &getTheX86_IceCodeTarget()}) {
-#else // INTEL_FEATURE_ICECODE
   for (Target *T : {&getTheX86_32Target(), &getTheX86_64Target()}) {
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
     // Register the MC asm info.
     RegisterMCAsmInfoFn X(*T, createX86MCAsmInfo);
 
@@ -650,12 +635,6 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86TargetMC() {
                                        createX86_32AsmBackend);
   TargetRegistry::RegisterMCAsmBackend(getTheX86_64Target(),
                                        createX86_64AsmBackend);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  TargetRegistry::RegisterMCAsmBackend(getTheX86_IceCodeTarget(),
-                                       createX86_IceCodeAsmBackend);
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 }
 
 MCRegister llvm::getX86SubSuperRegisterOrZero(MCRegister Reg, unsigned Size,

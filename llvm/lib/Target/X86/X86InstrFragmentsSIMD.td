@@ -86,16 +86,26 @@ def X86multishift   : SDNode<"X86ISD::MULTISHIFT",
                  SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCisVec<1>,
                                       SDTCisSameAs<1,2>]>>;
 def X86pextrb  : SDNode<"X86ISD::PEXTRB",
-                 SDTypeProfile<1, 2, [SDTCisVT<0, i32>, SDTCisVT<1, v16i8>,
+#if INTEL_CUSTOMIZATION
+                 SDTypeProfile<1, 2, [SDTCisVT<0, i32>, SDTCVecEltisVT<1, i8>,
+#endif // INTEL_CUSTOMIZATION
                                       SDTCisVT<2, i8>]>>;
 def X86pextrw  : SDNode<"X86ISD::PEXTRW",
-                 SDTypeProfile<1, 2, [SDTCisVT<0, i32>, SDTCisVT<1, v8i16>,
+#if INTEL_CUSTOMIZATION
+                 SDTypeProfile<1, 2, [SDTCisVT<0, i32>, SDTCVecEltisVT<1, i16>,
+#endif // INTEL_CUSTOMIZATION
                                       SDTCisVT<2, i8>]>>;
 def X86pinsrb  : SDNode<"X86ISD::PINSRB",
-                 SDTypeProfile<1, 3, [SDTCisVT<0, v16i8>, SDTCisSameAs<0,1>,
+#if INTEL_CUSTOMIZATION
+                 SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCVecEltisVT<1, i8>,
+                                      SDTCisSameAs<0,1>,
+#endif // INTEL_CUSTOMIZATION
                                       SDTCisVT<2, i32>, SDTCisVT<3, i8>]>>;
 def X86pinsrw  : SDNode<"X86ISD::PINSRW",
-                 SDTypeProfile<1, 3, [SDTCisVT<0, v8i16>, SDTCisSameAs<0,1>,
+#if INTEL_CUSTOMIZATION
+                 SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCVecEltisVT<1, i16>,
+                                      SDTCisSameAs<0,1>,
+#endif // INTEL_CUSTOMIZATION
                                       SDTCisVT<2, i32>, SDTCisVT<3, i8>]>>;
 def X86insertps : SDNode<"X86ISD::INSERTPS",
                  SDTypeProfile<1, 3, [SDTCisVT<0, v4f32>, SDTCisSameAs<0,1>,
@@ -585,22 +595,22 @@ def SDTIFma : SDTypeProfile<1, 3, [SDTCisInt<0>, SDTCisSameAs<0,1>,
 def x86vpmadd52l     : SDNode<"X86ISD::VPMADD52L",     SDTIFma, [SDNPCommutative]>;
 def x86vpmadd52h     : SDNode<"X86ISD::VPMADD52H",     SDTIFma, [SDNPCommutative]>;
 
-def x86vfmaddc       : SDNode<"X86ISD::VFMADDC",       SDTFPTernaryOp>;
-def x86vfmaddcRnd    : SDNode<"X86ISD::VFMADDC_RND",   SDTFmaRound>;
+def x86vfmaddc       : SDNode<"X86ISD::VFMADDC",       SDTFPTernaryOp,  [SDNPCommutative]>;
+def x86vfmaddcRnd    : SDNode<"X86ISD::VFMADDC_RND",   SDTFmaRound,     [SDNPCommutative]>;
 def x86vfcmaddc      : SDNode<"X86ISD::VFCMADDC",      SDTFPTernaryOp>;
 def x86vfcmaddcRnd   : SDNode<"X86ISD::VFCMADDC_RND",  SDTFmaRound>;
-def x86vfmulc        : SDNode<"X86ISD::VFMULC",        SDTFPBinOp>;
-def x86vfmulcRnd     : SDNode<"X86ISD::VFMULC_RND",    SDTFPBinOpRound>;
+def x86vfmulc        : SDNode<"X86ISD::VFMULC",        SDTFPBinOp,      [SDNPCommutative]>;
+def x86vfmulcRnd     : SDNode<"X86ISD::VFMULC_RND",    SDTFPBinOpRound, [SDNPCommutative]>;
 def x86vfcmulc       : SDNode<"X86ISD::VFCMULC",       SDTFPBinOp>;
 def x86vfcmulcRnd    : SDNode<"X86ISD::VFCMULC_RND",   SDTFPBinOpRound>;
 
-def x86vfmaddcSh     : SDNode<"X86ISD::VFMADDCSH",     SDTFPTernaryOp>;
+def x86vfmaddcSh     : SDNode<"X86ISD::VFMADDCSH",     SDTFPTernaryOp,  [SDNPCommutative]>;
 def x86vfcmaddcSh    : SDNode<"X86ISD::VFCMADDCSH",    SDTFPTernaryOp>;
-def x86vfmulcSh      : SDNode<"X86ISD::VFMULCSH",      SDTFPBinOp>;
+def x86vfmulcSh      : SDNode<"X86ISD::VFMULCSH",      SDTFPBinOp,      [SDNPCommutative]>;
 def x86vfcmulcSh     : SDNode<"X86ISD::VFCMULCSH",     SDTFPBinOp>;
-def x86vfmaddcShRnd  : SDNode<"X86ISD::VFMADDCSH_RND", SDTFmaRound>;
+def x86vfmaddcShRnd  : SDNode<"X86ISD::VFMADDCSH_RND", SDTFmaRound,     [SDNPCommutative]>;
 def x86vfcmaddcShRnd : SDNode<"X86ISD::VFCMADDCSH_RND",SDTFmaRound>;
-def x86vfmulcShRnd   : SDNode<"X86ISD::VFMULCSH_RND",  SDTFPBinOpRound>;
+def x86vfmulcShRnd   : SDNode<"X86ISD::VFMULCSH_RND",  SDTFPBinOpRound, [SDNPCommutative]>;
 def x86vfcmulcShRnd  : SDNode<"X86ISD::VFCMULCSH_RND", SDTFPBinOpRound>;
 
 def X86rsqrt14   : SDNode<"X86ISD::RSQRT14",  SDTFPUnaryOp>;
@@ -1219,6 +1229,12 @@ def EXTRACT_get_vextract128_imm : SDNodeXForm<extract_subvector, [{
 // VINSERTF128/VINSERTI128 imm.
 def INSERT_get_vinsert128_imm : SDNodeXForm<insert_subvector, [{
   return getInsertVINSERTImmediate(N, 128, SDLoc(N));
+}]>;
+
+// INSERT_get_vperm2x128_imm xform function: convert insert_subvector index to
+// commuted VPERM2F128/VPERM2I128 imm.
+def INSERT_get_vperm2x128_commutedimm : SDNodeXForm<insert_subvector, [{
+  return getPermuteVINSERTCommutedImmediate(N, 128, SDLoc(N));
 }]>;
 
 // EXTRACT_get_vextract256_imm xform function: convert extract_subvector index

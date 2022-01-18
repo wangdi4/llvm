@@ -18,12 +18,14 @@ define void @test01()  {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data: Global instance | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; CHECK: Safety data: Field address taken memory | Global instance | Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01b
 
 
 ; Element 3 of the array is not the same address as the structure field. This is not
@@ -38,12 +40,14 @@ define void @test02()  {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02a
+; CHECK: LLVMType: %struct.test02a
 ; CHECK: Safety data: Global instance | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test02a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02b
+; CHECK: LLVMType: %struct.test02b
 ; CHECK: Safety data: Global instance | Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test02b
 
 
 !1 = !{i64 0, i32 0}  ; i64

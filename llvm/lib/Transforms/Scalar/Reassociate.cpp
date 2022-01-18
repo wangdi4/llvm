@@ -152,7 +152,7 @@ XorOpnd::XorOpnd(Value *V) {
 
   // view the operand as "V | 0"
   SymbolicPart = V;
-  ConstPart = APInt::getNullValue(V->getType()->getScalarSizeInBits());
+  ConstPart = APInt::getZero(V->getType()->getScalarSizeInBits());
   isOr = true;
 }
 
@@ -506,7 +506,7 @@ static bool LinearizeExprTree(Instruction *I,
   SmallVector<Value *, 8> LeafOrder; // Ensure deterministic leaf output order.
 
 #ifndef NDEBUG
-  SmallPtrSet<Value *, 8> Visited; // For sanity checking the iteration scheme.
+  SmallPtrSet<Value *, 8> Visited; // For checking the iteration scheme.
 #endif
   while (!Worklist.empty()) {
     std::pair<Instruction*, APInt> P = Worklist.pop_back_val();
@@ -1291,10 +1291,10 @@ static Value *OptimizeAndOrXor(unsigned Opcode,
 /// be returned.
 static Value *createAndInstr(Instruction *InsertBefore, Value *Opnd,
                              const APInt &ConstOpnd) {
-  if (ConstOpnd.isNullValue())
+  if (ConstOpnd.isZero())
     return nullptr;
 
-  if (ConstOpnd.isAllOnesValue())
+  if (ConstOpnd.isAllOnes())
     return Opnd;
 
   Instruction *I = BinaryOperator::CreateAnd(
@@ -1316,7 +1316,7 @@ bool ReassociatePass::CombineXorOpnd(Instruction *I, XorOpnd *Opnd1,
   //                       = ((x | c1) ^ c1) ^ (c1 ^ c2)
   //                       = (x & ~c1) ^ (c1 ^ c2)
   // It is useful only when c1 == c2.
-  if (!Opnd1->isOrExpr() || Opnd1->getConstPart().isNullValue())
+  if (!Opnd1->isOrExpr() || Opnd1->getConstPart().isZero())
     return false;
 
   if (!Opnd1->getValue()->hasOneUse())
@@ -1373,7 +1373,7 @@ bool ReassociatePass::CombineXorOpnd(Instruction *I, XorOpnd *Opnd1,
     APInt C3((~C1) ^ C2);
 
     // Do not increase code size!
-    if (!C3.isNullValue() && !C3.isAllOnesValue()) {
+    if (!C3.isZero() && !C3.isAllOnes()) {
       int NewInstNum = ConstOpnd.getBoolValue() ? 1 : 2;
       if (NewInstNum > DeadInstNum)
         return false;
@@ -1389,7 +1389,7 @@ bool ReassociatePass::CombineXorOpnd(Instruction *I, XorOpnd *Opnd1,
     APInt C3 = C1 ^ C2;
 
     // Do not increase code size
-    if (!C3.isNullValue() && !C3.isAllOnesValue()) {
+    if (!C3.isZero() && !C3.isAllOnes()) {
       int NewInstNum = ConstOpnd.getBoolValue() ? 1 : 2;
       if (NewInstNum > DeadInstNum)
         return false;
@@ -1480,8 +1480,7 @@ Value *ReassociatePass::OptimizeXor(Instruction *I,
     Value *CV;
 
     // Step 3.1: Try simplifying "CurrOpnd ^ ConstOpnd"
-    if (!ConstOpnd.isNullValue() &&
-        CombineXorOpnd(I, CurrOpnd, ConstOpnd, CV)) {
+    if (!ConstOpnd.isZero() && CombineXorOpnd(I, CurrOpnd, ConstOpnd, CV)) {
       Changed = true;
       if (CV)
         *CurrOpnd = XorOpnd(CV);
@@ -1522,7 +1521,7 @@ Value *ReassociatePass::OptimizeXor(Instruction *I,
       ValueEntry VE(getRank(O.getValue()), O.getValue());
       Ops.push_back(VE);
     }
-    if (!ConstOpnd.isNullValue()) {
+    if (!ConstOpnd.isZero()) {
       Value *C = ConstantInt::get(Ty, ConstOpnd);
       ValueEntry VE(getRank(C), C);
       Ops.push_back(VE);
@@ -1531,7 +1530,7 @@ Value *ReassociatePass::OptimizeXor(Instruction *I,
     if (Sz == 1)
       return Ops.back().Op;
     if (Sz == 0) {
-      assert(ConstOpnd.isNullValue());
+      assert(ConstOpnd.isZero());
       return ConstantInt::get(Ty, ConstOpnd);
     }
   }
@@ -2397,11 +2396,8 @@ void ReassociatePass::ReassociateExpression(BinaryOperator *I) {
   MadeChange |= LinearizeExprTree(I, Tree);
   SmallVector<ValueEntry, 8> Ops;
   Ops.reserve(Tree.size());
-  for (unsigned i = 0, e = Tree.size(); i != e; ++i) {
-    RepeatedValue E = Tree[i];
-    Ops.append(E.second.getZExtValue(),
-               ValueEntry(getRank(E.first), E.first));
-  }
+  for (const RepeatedValue &E : Tree)
+    Ops.append(E.second.getZExtValue(), ValueEntry(getRank(E.first), E.first));
 
   SmallVector<ValueEntry, 8> OrigOps(Ops); // INTEL
 

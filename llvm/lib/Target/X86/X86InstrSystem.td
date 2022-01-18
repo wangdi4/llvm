@@ -328,11 +328,6 @@ def POPGS32 : I<0xa9, RawFrm, (outs), (ins), "pop{l}\t{%gs|gs}", []>, TB,
 def POPGS64 : I<0xa9, RawFrm, (outs), (ins), "pop{q}\t{%gs|gs}", []>, TB,
                 OpSize32, Requires<[In64BitMode]>;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-let Predicates = [NotIceCodeMode] in {
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 def LDS16rm : I<0xc5, MRMSrcMem, (outs GR16:$dst), (ins opaquemem:$src),
                 "lds{w}\t{$src, $dst|$dst, $src}", []>, OpSize16,
                 Requires<[Not64BitMode]>;
@@ -368,11 +363,6 @@ def LGS32rm : I<0xb5, MRMSrcMem, (outs GR32:$dst), (ins opaquemem:$src),
 
 def LGS64rm : RI<0xb5, MRMSrcMem, (outs GR64:$dst), (ins opaquemem:$src),
                  "lgs{q}\t{$src, $dst|$dst, $src}", []>, TB;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-}
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 
 def VERRr : I<0x00, MRM4r, (outs), (ins GR16:$seg), "verr\t$seg", []>, TB, NotMemoryFoldable;
 def VERWr : I<0x00, MRM5r, (outs), (ins GR16:$seg), "verw\t$seg", []>, TB, NotMemoryFoldable;
@@ -461,6 +451,13 @@ def LMSW16m : I<0x01, MRM6m, (outs), (ins i16mem:$src),
 
 let Defs = [EAX, EBX, ECX, EDX], Uses = [EAX, ECX] in
   def CPUID : I<0xA2, RawFrm, (outs), (ins), "cpuid", []>, TB;
+
+#if INTEL_CUSTOMIZATION
+// Use a virtual register as cpuid ebx result since this result may be exchanged
+// to other register to prevent ebx being used as base ptr.
+let Defs = [EAX, ECX, EDX], Uses = [EAX, ECX] in
+  def CPUID_G : PseudoI<(outs GR32:$dst), (ins), []>;
+#endif // INTEL_CUSTOMIZATION
 } // SchedRW
 
 //===----------------------------------------------------------------------===//
@@ -594,7 +591,7 @@ def XRSTORS64 : RI<0xC7, MRM3m, (outs), (ins opaquemem:$dst),
 //===----------------------------------------------------------------------===//
 // VIA PadLock crypto instructions
 let Defs = [RAX, RDI], Uses = [RDX, RDI], SchedRW = [WriteSystem] in
-  def XSTORE : I<0xa7, MRM_C0, (outs), (ins), "xstore", []>, TB, REP;
+  def XSTORE : I<0xa7, MRM_C0, (outs), (ins), "xstore", []>, TB;
 
 def : InstAlias<"xstorerng", (XSTORE)>;
 

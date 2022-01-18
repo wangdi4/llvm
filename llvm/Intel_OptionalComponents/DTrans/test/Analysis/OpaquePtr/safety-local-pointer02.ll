@@ -13,8 +13,9 @@ define void @test01() {
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Unhandled use
+; CHECK: End LLVMType: %struct.test01
 
 ; Allocating an array of a vector of pointers to structures is currently
 ; unhandled.
@@ -24,8 +25,9 @@ define void @test02() {
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Unhandled use
+; CHECK: End LLVMType: %struct.test02
 
 
 !1 = !{i32 0, i32 0}  ; i32

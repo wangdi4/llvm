@@ -3,6 +3,7 @@
 ; function successfully when -fiopenmp is used.
 
 ; RUN: opt  < %s -whole-program-assume -dtrans-test-paddedmalloc -vpo-paropt -dtrans-paddedmalloc -S 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -dtrans-test-paddedmalloc -passes='vpo-paropt,dtrans-paddedmalloc' -S 2>&1 | FileCheck %s
 
 %struct.testStruct = type { i8* }
 
@@ -100,7 +101,7 @@ DIR.OMP.END.PARALLEL.EXIT:
 ; CHECK:   br label %codeRepl
 ;
 ; CHECK-LABEL: codeRepl:                                         ; preds = %0
-; CHECK:   call void (%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_call(%struct.ident_t* @.kmpc_loc.0.0, i32 0, void (i32*, i32*, ...)* bitcast (void (i32*, i32*)* @main..split to void (i32*, i32*, ...)*))
+; CHECK:   call void (%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_call(%struct.ident_t* @.kmpc_loc{{[^,]*}}, i32 0, void (i32*, i32*, ...)* bitcast (void (i32*, i32*)* @main..split to void (i32*, i32*, ...)*))
 ; CHECK:   br label %DIR.OMP.END.PARALLEL.EXIT.ret
 ;
 ; CHECK-LABEL: DIR.OMP.END.PARALLEL.EXIT.ret:                    ; preds = %codeRepl

@@ -71,7 +71,7 @@ define dso_local void @do_add_pd(<8 x i1> %cond) local_unnamed_addr #0 {
 ; CHECK-NEXT:     <8 x double>* [[VP21:%.*]] = bitcast %union.V512* [[VP_SUBSCRIPT_4]]
 ; CHECK-NEXT:     store <8 x double> [[VP18]] <8 x double>* [[VP21]]
 ; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP3]] i64 1
-; CHECK-NEXT:     i1 [[VP22:%.*]] = icmp sle i64 [[VP4]] i64 49
+; CHECK-NEXT:     i1 [[VP22:%.*]] = icmp slt i64 [[VP4]] i64 50
 ; CHECK-NEXT:     br i1 [[VP22]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]

@@ -21,22 +21,23 @@
 
 
 ; Checks for VPValue based code generation.
-; VPCHECK:                   %red.var = 0.000000e+00;
+; VPCHECK:                   %red.init = 0.000000e+00;
+; VPCHECK:                   %phi.temp = %red.init;
 ; VPCHECK:                   + DO i1 = 0, 999, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; VPCHECK-NEXT:              |   %.vec = %N2 > 0;
-; VPCHECK-NEXT:              |   %phi.temp = %red.var;
+; VPCHECK-NEXT:              |   %phi.temp1 = %phi.temp;
 ; VPCHECK-NEXT:              |   %unifcond = extractelement %.vec,  0;
 ; VPCHECK-NEXT:              |   if (%unifcond == 1)
 ; VPCHECK-NEXT:              |   {
-; VPCHECK-NEXT:              |      %.vec1 = (<4 x float>*)(@B)[0][i1];
-; VPCHECK-NEXT:              |      %.vec2 = (<4 x float>*)(@C)[0][i1];
-; VPCHECK-NEXT:              |      %.vec3 = %.vec1  +  %.vec2;
-; VPCHECK-NEXT:              |      %.vec4 = %red.var  +  %.vec3;
-; VPCHECK-NEXT:              |      %phi.temp = %.vec4;
+; VPCHECK-NEXT:              |      %.vec3 = (<4 x float>*)(@B)[0][i1];
+; VPCHECK-NEXT:              |      %.vec4 = (<4 x float>*)(@C)[0][i1];
+; VPCHECK-NEXT:              |      %.vec5 = %.vec3  +  %.vec4;
+; VPCHECK-NEXT:              |      %.vec6 = %phi.temp  +  %.vec5;
+; VPCHECK-NEXT:              |      %phi.temp1 = %.vec6;
 ; VPCHECK-NEXT:              |   }
-; VPCHECK-NEXT:              |   %red.var = %phi.temp;
+; VPCHECK-NEXT:              |   %phi.temp = %phi.temp1;
 ; VPCHECK-NEXT:              + END LOOP
-; VPCHECK:                   %tsum.015 = @llvm.vector.reduce.fadd.v4f32(%tsum.015,  %red.var);
+; VPCHECK:                   %tsum.015 = @llvm.vector.reduce.fadd.v4f32(%tsum.015,  %phi.temp1);
  
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

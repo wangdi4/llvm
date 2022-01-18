@@ -292,7 +292,7 @@ void foo() {
   // TRUE:  [[L2]] = !DIBasicType(name: "long2", size: 128, encoding: DW_ATE_signed)
   // FALSE: [[L2]] = !DIDerivedType(tag: DW_TAG_typedef, name: "long2", {{.*}}baseType: [[A2LI:![0-9]+]])
   // FALSE: [[A2LI]] = !DICompositeType(tag: DW_TAG_array_type, baseType: [[LI:![0-9]+]], size: 128, flags: DIFlagVector, elements: [[ELT2]])
-  // FALSE: [[LI]] = !DIBasicType(name: "long int", size: 64, encoding: DW_ATE_signed)
+  // FALSE: [[LI]] = !DIBasicType(name: "long", size: 64, encoding: DW_ATE_signed)
 
   long3 l3;
   // CHECK: !DILocalVariable(name: "l3",{{.*}} type: [[L3:![0-9]+]])
@@ -326,7 +326,7 @@ void foo() {
   // FALSE: [[UL2]] = !DIDerivedType(tag: DW_TAG_typedef, name: "ulong2", {{.*}}baseType: [[A2ULONG:![0-9]+]])
   // FALSE: [[A2ULONG]] = !DICompositeType(tag: DW_TAG_array_type, baseType: [[ULONG:![0-9]+]], size: 128, flags: DIFlagVector, elements: [[ELT2]])
   // FALSE: [[ULONG]] = !DIDerivedType(tag: DW_TAG_typedef, name: "ulong", {{.*}}baseType: [[LUI:![0-9]+]])
-  // FALSE: [[LUI]] = !DIBasicType(name: "long unsigned int", size: 64, encoding: DW_ATE_unsigned)
+  // FALSE: [[LUI]] = !DIBasicType(name: "unsigned long", size: 64, encoding: DW_ATE_unsigned)
 
   ulong3 ul3;
   // CHECK: !DILocalVariable(name: "ul3",{{.*}} type: [[UL3:![0-9]+]])

@@ -1,7 +1,8 @@
+// INTEL_FEATURE_SW_ADVANCED
 // 21914: Make sure that simplifycfg is run after DTrans+multiversioning,
 // to clean up duplicate code.
 
-// REQUIRES: asserts
+// REQUIRES: asserts, intel_feature_sw_advanced
 // Multiversioning doesn't turn on for Windows with below options.
 // XFAIL: win32, windows-gnu, windows-msvc
 
@@ -14,3 +15,4 @@
 int main(void) {
   return 0;
 }
+// end INTEL_FEATURE_SW_ADVANCED

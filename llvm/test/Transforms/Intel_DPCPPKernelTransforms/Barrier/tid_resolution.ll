@@ -15,7 +15,7 @@ entry:
 ;CHECK: [[LID:%LocalId_[0-9]*]] = load i32, i32* %pLocalId_0, align 4
 ;CHECK-NEXT: {{%GlobalID_[0-9]*}} = add i32 [[LID]], %BaseGlobalId_0
 ;CHECK-NEXT: {{%LocalId_[0-9]*}} = load i32, i32* %pLocalId_0, align 4
-;CHECK-NEXT: call void @foo([3 x i32]* %pLocalIds)
+;CHECK-NEXT: call void @foo([3 x i32]* noalias %pLocalIds)
   %gid = call i32 @_Z13get_global_idj(i32 0)
   %lid = call i32 @_Z12get_local_idj(i32 0)
   call void @foo()

@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_DTRANS
 //===-- Intel_FoldWPIntrinsic.cpp - Intrinsic wholeprogramsafe Lowering -*--===//
 //
 // Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
@@ -206,3 +207,4 @@ PreservedAnalyses IntelFoldWPIntrinsicPass::run(Module &M,
 
   return PA;
 }
+#endif // INTEL_FEATURE_SW_DTRANS

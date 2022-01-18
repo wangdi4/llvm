@@ -92,6 +92,7 @@ MCAssembler::MCAssembler(MCContext &Context,
       BundleAlignSize(0), RelaxAll(false), SubsectionsViaSymbols(false),
       IncrementalLinkerCompatible(false), ELFHeaderEFlags(0) {
   VersionInfo.Major = 0; // Major version == 0 for "none specified"
+  DarwinTargetVariantVersionInfo.Major = 0;
 }
 
 MCAssembler::~MCAssembler() = default;
@@ -112,6 +113,8 @@ void MCAssembler::reset() {
   LOHContainer.reset();
   VersionInfo.Major = 0;
   VersionInfo.SDKVersion = VersionTuple();
+  DarwinTargetVariantVersionInfo.Major = 0;
+  DarwinTargetVariantVersionInfo.SDKVersion = VersionTuple();
 
   // reset objects owned by us
   if (getBackendPtr())

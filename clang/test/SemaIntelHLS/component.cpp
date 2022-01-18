@@ -132,7 +132,7 @@ __attribute__((scheduler_target_fmax_mhz(12)))
 void bar13() {
 }
 
-__attribute__((scheduler_target_fmax_mhz("sch"))) //expected-error{{integral constant expression must have integral or unscoped enumeration type, not 'const char [4]'}}
+__attribute__((scheduler_target_fmax_mhz("sch"))) //expected-error{{integral constant expression must have integral or unscoped enumeration type, not 'const char[4]'}}
 void bar14() {
 }
 
@@ -143,3 +143,15 @@ void bar15() {
 __attribute__((scheduler_target_fmax_mhz(0)))
 void bar16() {
 }
+
+__attribute__((stall_free_return(0))) //expected-error{{'stall_free_return' attribute takes no arguments}}
+void bar17(int b) {
+}
+
+__attribute__((ihc_component))
+__attribute__((hls_component_use_single_clock("other"))) // expected-error{{'hls_component_use_single_clock' attribute takes no arguments}}
+void bar18(int c) {}
+
+__attribute__((ihc_component))
+__attribute__((__hls_component_use_single_clock__("other"))) // expected-error{{'__hls_component_use_single_clock__' attribute takes no arguments}}
+void bar19(int d) {}

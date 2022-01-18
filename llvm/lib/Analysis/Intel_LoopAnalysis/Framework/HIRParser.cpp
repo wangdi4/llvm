@@ -2596,6 +2596,8 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
   return Ref;
 }
 
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
+
 void HIRParser::parse(HLRegion *Reg) {
   CurRegion = Reg;
   ScopedSE.setScope(Reg->getIRRegion().getOutermostLoops());
@@ -2920,11 +2922,22 @@ void HIRParser::parse(HLSwitch *Switch) {
     Switch->setCaseValueDDRef(CaseValRef, CaseNum);
   }
 }
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 
 static Type *getBasePtrElementType(const GEPOrSubsOperator *GEPOp) {
 
   if (auto *GEP = dyn_cast<GEPOperator>(GEPOp)) {
     return GEP->getSourceElementType();
+  } else {
+    auto *Sub = cast<SubscriptInst>(GEPOp);
+    return Sub->getElementType();
+  }
+}
+
+static Type *getResultElementType(const GEPOrSubsOperator *GEPOp) {
+
+  if (auto *GEP = dyn_cast<GEPOperator>(GEPOp)) {
+    return GEP->getResultElementType();
   } else {
     auto *Sub = cast<SubscriptInst>(GEPOp);
     return Sub->getElementType();
@@ -2989,11 +3002,16 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi, unsigned Level,
 
   int64_t OrigDenom = IndexCE->getDenominator();
 
-  *ElemTy = RI.findPhiElementType(Phi);
+  auto *FoundElemTy = RI.findPhiElementType(Phi);
 
-  if (!*ElemTy) {
+  // Give up if there is a mismatch between known element type passed in by the
+  // caller and element type found by tracing phi operands. This can happen with
+  // opaque ptrs.
+  if (!FoundElemTy || (*ElemTy && (*ElemTy != FoundElemTy))) {
     return nullptr;
   }
+
+  *ElemTy = FoundElemTy;
 
   unsigned ElementSize = getCanonExprUtils().getTypeSizeInBytes(*ElemTy);
 
@@ -3329,7 +3347,8 @@ class HIRParser::GEPChain {
 
   // Return true if next information about indices may be merged into a single
   // chain.
-  bool isCompatible(const ArrayInfo &NextAI) const;
+  bool isCompatible(const ArrayInfo &NextAI,
+                    const GEPOrSubsOperator *NextGEPOp) const;
 
 public:
   using iterator = decltype(Arrays)::const_iterator;
@@ -3561,8 +3580,16 @@ std::list<ArrayInfo> HIRParser::GEPChain::parseGEPOp(const HIRParser &Parser,
 //
 // However we may still represent it as (%p)[0:4000][i:40][j:4],
 // but we would loose type consistency between dimensions.
-bool HIRParser::GEPChain::isCompatible(const ArrayInfo &NextArr) const {
+bool HIRParser::GEPChain::isCompatible(
+    const ArrayInfo &NextArr, const GEPOrSubsOperator *NextGEPOp) const {
   const ArrayInfo &CurArr = Arrays.front();
+
+  // There is an implied bitcast between two GEPs. This can only happen with
+  // opaque pointers.
+  if (getResultElementType(NextGEPOp) !=
+      CurArr.getHighestDim().getElementType()) {
+    return false;
+  }
 
   // If NextArr has a struct offset and current first first index is not
   // zero then we have an unconventional structure access and the GEPs cannot
@@ -3643,7 +3670,7 @@ bool HIRParser::GEPChain::extend(const HIRParser &Parser,
 
   ArrayInfo &NextArr = NextArrays.back();
 
-  if (!isCompatible(NextArr)) {
+  if (!isCompatible(NextArr, GEPOp)) {
     return false;
   }
 
@@ -3872,7 +3899,7 @@ void HIRParser::addPhiBaseGEPDimensions(const GEPOrSubsOperator *GEPOp,
 }
 
 const Value *
-HIRParser::getValidPhiBaseVal(const Value *PhiInitVal,
+HIRParser::getValidPhiBaseVal(const Value *PhiInitVal, Type *ResultElemTy,
                               const GEPOrSubsOperator **InitGEPOp) const {
 
   *InitGEPOp = nullptr;
@@ -3885,7 +3912,8 @@ HIRParser::getValidPhiBaseVal(const Value *PhiInitVal,
 
   // A phi init GEP representing an offset cannot be merged into the ref as it
   // represents an unconventional access.
-  if (representsStructOffset(GEPOp) || !isValidGEPOp(GEPOp)) {
+  if (representsStructOffset(GEPOp) || !isValidGEPOp(GEPOp) ||
+      (getResultElementType(GEPOp) != ResultElemTy)) {
     // If this is an instruction, we can use it as the base.
     if (isa<Instruction>(PhiInitVal)) {
       return PhiInitVal;
@@ -3945,21 +3973,22 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
   do {
     const GEPOrSubsOperator *InitGEPOp = nullptr;
     CanonExpr *IndexCE = nullptr;
-    Type *ElemTy = nullptr;
     unsigned ElementSize = 0;
+    Type *ElemTy = GEPOp ? getBasePtrElementType(getBaseGEPOp(GEPOp)) : nullptr;
+
     auto SC = ScopedSE.getSCEV(const_cast<PHINode *>(CurBasePhi));
 
     if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
       const Value *PhiInitVal = RI.getHeaderPhiInitVal(CurBasePhi);
 
-      if (RecSCEV->isAffine() &&
-          (BaseVal = getValidPhiBaseVal(PhiInitVal, &InitGEPOp))) {
+      if (RecSCEV->isAffine()) {
         IndexCE = createHeaderPhiIndexCE(CurBasePhi, Level, &ElemTy);
+        BaseVal = getValidPhiBaseVal(PhiInitVal, ElemTy, &InitGEPOp);
       }
     }
 
     // Non-linear base is parsed as base + zero offset: (%p)[0].
-    if (!IndexCE) {
+    if (!IndexCE || !BaseVal) {
       InitGEPOp = nullptr;
       BaseVal = CurBasePhi;
       IndexCE = getCanonExprUtils().createCanonExpr(OffsetTy);
@@ -4027,13 +4056,12 @@ static void setSelfRefElementTypeAndStride(RegDDRef *Ref, Type *ElementTy) {
   // base ptr type (i64*) otherwise some of the existing utilities will assert
   // on mismatched type. Hence, we extract the element type from the base ptr
   // itself.
-  //
-  // TODO: Figure out a better fix when investigating BitCastDestType.
-  if (auto *BitCastTy = Ref->getBitCastDestType()) {
-    if (auto *PtrBitCastTy = dyn_cast<PointerType>(BitCastTy)) {
-      if (!PtrBitCastTy->isOpaque()) {
-        ElementTy = Ref->getBaseCE()->getDestType()->getPointerElementType();
-      }
+  if (Ref->getBitCastDestVecOrElemType()) {
+    auto *BaseCETy = Ref->getBaseCE()->getDestType()->getScalarType();
+    auto *PtrBaseCETy = cast<PointerType>(BaseCETy);
+
+    if (!PtrBaseCETy->isOpaque()) {
+      ElementTy = BaseCETy->getPointerElementType();
     }
   }
 
@@ -4081,8 +4109,6 @@ RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
   return Ref;
 }
 
-// NOTE: AddRec->delinearize() doesn't work with constant bound arrays.
-// TODO: handle struct GEPs.
 RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
                                     bool IsUse) {
   const PHINode *BasePhi = nullptr;
@@ -4091,7 +4117,7 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
 
   // Incoming IR may be bitcasting the GEP before loading/storing into it. If so
   // we store the type of the GEP in BaseCE src type and the eventual load/store
-  // type in BaseCE dest type.
+  // type is stored in BitCastDestVecOrElemTy.
   Type *DestTy = GEPVal->getType();
   bool HasDestTy = false;
 
@@ -4141,8 +4167,8 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
     Ref = createSingleElementGEPDDRef(GEPVal, Level);
   }
 
-  if (HasDestTy) {
-    Ref->setBitCastDestType(DestTy);
+  if (HasDestTy && !cast<PointerType>(DestTy)->isOpaque()) {
+    Ref->setBitCastDestVecOrElemType(DestTy->getPointerElementType());
   }
 
   populateBlobDDRefs(Ref, Level);
@@ -4269,9 +4295,17 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
   if (auto LInst = dyn_cast<LoadInst>(Inst)) {
     Ref = createGEPDDRef(LInst->getPointerOperand(), Level, true);
 
+    auto *LoadTy = LInst->getType();
+
     if (!Ref->getBasePtrElementType()) {
       // We can assign the load type to self-refs: (%p)[0]
-      setSelfRefElementTypeAndStride(Ref, LInst->getType());
+      setSelfRefElementTypeAndStride(Ref, LoadTy);
+
+    } else if (Ref->getDestType() != LoadTy) {
+      // This is opaque ptr path. BitCast dest type for non-opaque pointers is
+      // assigned inside createGEPDDRef(). Self refs cannot have bitcast dest
+      // type with opaque ptrs.
+      Ref->setBitCastDestVecOrElemType(LoadTy);
     }
 
     Ref->setAlignment(LInst->getAlignment());
@@ -4290,6 +4324,12 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
     Ref = createGEPDDRef(OpVal, Level, true);
     Ref->setAddressOf(true);
 
+    // This condition is comparing two pointer types so it can only be true for
+    // non-opaque pointers.
+    if (Ref->getDestType() != OpTy) {
+      Ref->setBitCastDestVecOrElemType(OpTy->getPointerElementType());
+    }
+
     assert((Ref->isSelfGEPRef(true) || Ref->getBasePtrElementType()) &&
            "Base element type not assigned to ref!");
 
@@ -4307,9 +4347,17 @@ RegDDRef *HIRParser::createLvalDDRef(HLInst *HInst, unsigned Level) {
   if (auto SInst = dyn_cast<StoreInst>(Inst)) {
     Ref = createGEPDDRef(SInst->getPointerOperand(), Level, true);
 
+    auto *StoreValTy = SInst->getValueOperand()->getType();
+
     if (!Ref->getBasePtrElementType()) {
       // We can assign the store type to self-refs: (%p)[0]
-      setSelfRefElementTypeAndStride(Ref, SInst->getValueOperand()->getType());
+      setSelfRefElementTypeAndStride(Ref, StoreValTy);
+
+    } else if (Ref->getDestType() != StoreValTy) {
+      // This is opaque ptr path. BitCast dest type for non-opaque pointers is
+      // assigned inside createGEPDDRef(). Self refs cannot have bitcast dest
+      // type with opaque ptrs.
+      Ref->setBitCastDestVecOrElemType(StoreValTy);
     }
 
     Ref->setAlignment(SInst->getAlignment());
@@ -4334,6 +4382,8 @@ bool HIRParser::isLiveoutCopy(const HLInst *HInst) {
          ScopedSE.getHIRMetadata(HInst->getLLVMInstruction(),
                                  ScalarEvolution::HIRLiveKind::LiveOut);
 }
+
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
 
 unsigned HIRParser::getNumRvalOperands(const Instruction *Inst) {
   unsigned NumOp;
@@ -4645,7 +4695,7 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   bool IsReadOnly =
       (FakeDDRefsRequired && Call->hasFnAttr(Attribute::ReadOnly));
 
-  unsigned NumArgOperands = Call ? Call->getNumArgOperands() : 0;
+  unsigned NumArgOperands = Call ? Call->arg_size() : 0;
 
   // Process rvals
   for (unsigned I = 0; I < NumRvalOp; ++I) {
@@ -4772,10 +4822,16 @@ void HIRParser::phase2Parse() {
   }
 
   for (auto *Call : DistributePoints) {
-    assert(!HLNodeUtils::isLexicalLastChildOfParent(Call) &&
-           "Could not find next node of distribute point intrinsic!");
+    // It is possible for scalar opt to generate incoming IR where
+    // redundant instructions after the DistPoint has been removed. This
+    // should be equivalent as distpoint at the beginning of the loop.
+    HLNode *NextNode;
+    if (HLNodeUtils::isLexicalLastChildOfParent(Call)) {
+      NextNode = Call->getParentLoop()->getFirstChild();
+    } else {
+      NextNode = &*std::next(Call->getIterator());
+    }
 
-    auto *NextNode = &*std::next(Call->getIterator());
     assert(isa<HLDDNode>(NextNode) &&
            "Next node of distribute point intrinsic is not a HLDDNode!");
 
@@ -4810,6 +4866,7 @@ void HIRParser::run() {
 
   IsReady = true;
 }
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 
 void HIRParser::parseMetadata(const Instruction *Inst, RegDDRef *Ref) const {
   assert(Ref->hasGEPInfo() && "Ref is expected to be gep DDRef");

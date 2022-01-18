@@ -668,8 +668,16 @@ int32_t DeviceTy::manifest_data_for_region(void *TgtEntryPtr) {
   DataMapMtx.lock();
 
   for (auto &HT : HostDataToTargetMap) {
+#if INTEL_COLLAB
+    if (!HT.isDynRefCountInf() ||
+        // Function pointers has zero size, and we do not have to manifest
+        // them, because program code is always resident on the device.
+        HT.HstPtrBegin == HT.HstPtrEnd)
+      continue;
+#else // INTEL_COLLAB
     if (!HT.isDynRefCountInf())
       continue;
+#endif // INTEL_COLLAB
 
     void *TgtPtrBegin = reinterpret_cast<void *>(HT.TgtPtrBegin);
 
@@ -839,9 +847,9 @@ int32_t DeviceTy::run_team_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
   return ret;
 }
 
-void DeviceTy::create_offload_queue(void *Interop) {
-  if (RTL->create_offload_queue)
-    RTL->create_offload_queue(RTLDeviceID, Interop);
+void DeviceTy::get_offload_queue(void *Interop, bool CreateNew) {
+  if (RTL->get_offload_queue)
+    RTL->get_offload_queue(RTLDeviceID, Interop, CreateNew);
 }
 
 int32_t DeviceTy::release_offload_queue(void *Queue) {
@@ -883,7 +891,7 @@ int32_t DeviceTy::is_device_accessible_ptr(void *Ptr) {
 }
 
 int32_t DeviceTy::managed_memory_supported() {
-  return RTL->is_device_accessible_ptr != nullptr;
+  return RTL->data_alloc_managed != nullptr;
 }
 
 void *DeviceTy::dataRealloc(void *Ptr, size_t Size, int32_t Kind) {
@@ -923,6 +931,13 @@ int32_t DeviceTy::popSubDevice(void) {
     return RTL->pop_subdevice();
   else
     return OFFLOAD_SUCCESS;
+}
+
+int32_t DeviceTy::getNumSubDevices(int32_t Level) {
+  if (RTL->get_num_sub_devices)
+    return RTL->get_num_sub_devices(RTLDeviceID, Level);
+  else
+    return 0;
 }
 
 int32_t DeviceTy::isSupportedDevice(void *DeviceType) {
@@ -1057,6 +1072,45 @@ int32_t DeviceTy::commandBatchEnd(int32_t BatchLevel) {
     return RTL->command_batch_end(RTLDeviceID, BatchLevel);
   else
     return OFFLOAD_SUCCESS;
+}
+
+void DeviceTy::kernelBatchBegin(uint32_t MaxKernels) {
+  if (RTL->kernel_batch_begin)
+    RTL->kernel_batch_begin(RTLDeviceID, MaxKernels);
+}
+
+void DeviceTy::kernelBatchEnd(void) {
+  if (RTL->kernel_batch_end)
+    RTL->kernel_batch_end(RTLDeviceID);
+}
+
+int32_t DeviceTy::set_function_ptr_map() {
+  std::lock_guard<std::mutex> Lock(FnPtrMapMtx);
+  uint64_t Size = FnPtrs.size();
+  if (Size == 0)
+    return OFFLOAD_SUCCESS;
+  if (!RTL->set_function_ptr_map)
+    return OFFLOAD_FAIL;
+  return RTL->set_function_ptr_map(RTLDeviceID, Size, FnPtrs.data());
+}
+
+int32_t DeviceTy::supportsPerHWThreadScratch(void) {
+  if (RTL->alloc_per_hw_thread_scratch)
+    return 1;
+  else
+    return 0;
+}
+
+void *DeviceTy::allocPerHWThreadScratch(size_t ObjSize, int32_t AllocKind) {
+  if (RTL->alloc_per_hw_thread_scratch)
+    return RTL->alloc_per_hw_thread_scratch(RTLDeviceID, ObjSize, AllocKind);
+  else
+    return nullptr;
+}
+
+void DeviceTy::freePerHWThreadScratch(void *Ptr) {
+  if (RTL->free_per_hw_thread_scratch)
+    RTL->free_per_hw_thread_scratch(RTLDeviceID, Ptr);
 }
 #endif // INTEL_COLLAB
 

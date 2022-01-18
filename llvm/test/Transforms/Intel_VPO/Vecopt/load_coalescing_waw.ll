@@ -22,10 +22,17 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local i32 @main() local_unnamed_addr #1 {
 ; CHECK-LABEL: @main(
 ; CHECK-NEXT:  entry:
-; CHECK:         [[NK:%.*]] = bitcast i32 0 to i32
+; CHECK-NEXT:    [[SR:%.*]] = alloca [100 x i32], align 16
+; CHECK-NEXT:    [[Z:%.*]] = alloca [100 x i32], align 16
+; CHECK-NEXT:    [[R:%.*]] = alloca [100 x [100 x i32]], align 16
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast [100 x i32]* [[SR]] to i8*
+; CHECK-NEXT:    [[TMP1:%.*]] = bitcast [100 x i32]* [[Z]] to i8*
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast [100 x [100 x i32]]* [[R]] to i8*
+; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* nonnull align 16 dereferenceable(40000) [[TMP2]], i8 0, i64 40000, i1 false)
+; CHECK-NEXT:    [[NK:%.*]] = bitcast i32 0 to i32
 ; CHECK-NEXT:    [[J:%.*]] = bitcast i64 1 to i64
-; CHECK-NEXT:    [[Z_1:%.*]] = getelementptr inbounds [100 x i32], [100 x i32]* [[Z:%.*]], i64 0, i64 1
-; CHECK-NEXT:    [[ARRAYIDX110:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R:%.*]], i64 0, i64 1, i64 [[J]]
+; CHECK-NEXT:    [[Z_1:%.*]] = getelementptr inbounds [100 x i32], [100 x i32]* [[Z]], i64 0, i64 1
+; CHECK-NEXT:    [[ARRAYIDX110:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 1, i64 [[J]]
 ; CHECK-NEXT:    [[NK1:%.*]] = add i32 [[NK]], -1
 ; CHECK-NEXT:    store i32 [[NK1]], i32* [[ARRAYIDX110]], align 4
 ; CHECK-NEXT:    [[ARRAYIDX112:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 2, i64 1
@@ -39,38 +46,70 @@ define dso_local i32 @main() local_unnamed_addr #1 {
 ; CHECK-NEXT:    [[LOADCOALESCINGSHUFFLE_1:%.*]] = shufflevector <8 x i32> [[COALESCEDLOAD]], <8 x i32> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
 ; CHECK-NEXT:    [[WIDE_ADD_1:%.*]] = add <4 x i32> [[LOADCOALESCINGSHUFFLE_]], <i32 -126, i32 -126, i32 -126, i32 -126>
 ; CHECK-NEXT:    [[E1:%.*]] = extractelement <4 x i32> [[WIDE_ADD_1]], i32 0
+; CHECK-NEXT:    [[ARRAYIDX127:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 3, i64 2
+; CHECK-NEXT:    [[ARRAYIDX143:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 4, i64 3
+; CHECK-NEXT:    [[ARRAYIDX159:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 5, i64 4
 ; CHECK-NEXT:    [[MUL1:%.*]] = mul i32 [[GEPLOAD113]], [[E1]]
+; CHECK-NEXT:    [[E2:%.*]] = extractelement <4 x i32> [[WIDE_ADD_1]], i32 1
+; CHECK-NEXT:    [[GEPLOAD128:%.*]] = load i32, i32* [[ARRAYIDX127]], align 8
+; CHECK-NEXT:    [[E3:%.*]] = extractelement <4 x i32> [[WIDE_ADD_1]], i32 2
+; CHECK-NEXT:    [[GEPLOAD144:%.*]] = load i32, i32* [[ARRAYIDX143]], align 4
+; CHECK-NEXT:    [[E4:%.*]] = extractelement <4 x i32> [[WIDE_ADD_1]], i32 3
+; CHECK-NEXT:    [[GEPLOAD160:%.*]] = load i32, i32* [[ARRAYIDX159]], align 16
 ; CHECK-NEXT:    store i32 [[MUL1]], i32* [[ARRAYIDX112]], align 4
 ; CHECK-NEXT:    [[ARRAYIDX124:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 2, i64 [[J]]
 ; CHECK-NEXT:    [[NK2:%.*]] = add i32 [[NK]], -2
-; CHECK-NEXT:    store i32 [[NK2]], i32* [[ARRAYIDX124]], align 4
-; CHECK-NEXT:    [[ARRAYIDX127:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 3, i64 2
-; CHECK-NEXT:    [[E2:%.*]] = extractelement <4 x i32> [[WIDE_ADD_1]], i32 1
-; CHECK-NEXT:    [[GEPLOAD128:%.*]] = load i32, i32* [[ARRAYIDX127]], align 8
 ; CHECK-NEXT:    [[MUL2:%.*]] = mul i32 [[GEPLOAD128]], [[E2]]
-; CHECK-NEXT:    store i32 [[MUL2]], i32* [[ARRAYIDX127]], align 8
 ; CHECK-NEXT:    [[ARRAYIDX140:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 3, i64 [[J]]
 ; CHECK-NEXT:    [[NK3:%.*]] = add i32 [[NK]], -3
-; CHECK-NEXT:    store i32 [[NK3]], i32* [[ARRAYIDX140]], align 4
-; CHECK-NEXT:    [[ARRAYIDX143:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 4, i64 3
-; CHECK-NEXT:    [[E3:%.*]] = extractelement <4 x i32> [[WIDE_ADD_1]], i32 2
-; CHECK-NEXT:    [[GEPLOAD144:%.*]] = load i32, i32* [[ARRAYIDX143]], align 4
 ; CHECK-NEXT:    [[MUL3:%.*]] = mul i32 [[GEPLOAD144]], [[E3]]
-; CHECK-NEXT:    store i32 [[MUL3]], i32* [[ARRAYIDX143]], align 4
+; CHECK-NEXT:    [[BC2:%.*]] = bitcast i32* [[Z_1]] to <4 x i32>*
 ; CHECK-NEXT:    [[ARRAYIDX156:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 4, i64 [[J]]
 ; CHECK-NEXT:    [[NK4:%.*]] = add i32 [[NK]], -4
-; CHECK-NEXT:    store i32 [[NK4]], i32* [[ARRAYIDX156]], align 4
-; CHECK-NEXT:    [[ARRAYIDX159:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 5, i64 4
-; CHECK-NEXT:    [[E4:%.*]] = extractelement <4 x i32> [[WIDE_ADD_1]], i32 3
-; CHECK-NEXT:    [[GEPLOAD160:%.*]] = load i32, i32* [[ARRAYIDX159]], align 16
 ; CHECK-NEXT:    [[MUL4:%.*]] = mul i32 [[GEPLOAD160]], [[E4]]
-; CHECK-NEXT:    store i32 [[MUL4]], i32* [[ARRAYIDX159]], align 16
 ; CHECK-NEXT:    [[ARRAYIDX172:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 5, i64 [[J]]
 ; CHECK-NEXT:    [[NK5:%.*]] = add i32 [[NK]], -5
-; CHECK-NEXT:    [[BC2:%.*]] = bitcast i32* [[Z_1]] to <4 x i32>*
-; CHECK-NEXT:    store i32 [[NK5]], i32* [[ARRAYIDX172]], align 4
 ; CHECK-NEXT:    [[ARRAYIDX175:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 6, i64 5
+; CHECK-NEXT:    store i32 [[NK2]], i32* [[ARRAYIDX124]], align 4
+; CHECK-NEXT:    store i32 [[MUL2]], i32* [[ARRAYIDX127]], align 8
+; CHECK-NEXT:    store i32 [[NK3]], i32* [[ARRAYIDX140]], align 4
+; CHECK-NEXT:    store i32 [[MUL3]], i32* [[ARRAYIDX143]], align 4
 ; CHECK-NEXT:    store <4 x i32> [[WIDE_ADD_1]], <4 x i32>* [[BC2]], align 4
+; CHECK-NEXT:    store i32 [[NK4]], i32* [[ARRAYIDX156]], align 4
+; CHECK-NEXT:    store i32 [[MUL4]], i32* [[ARRAYIDX159]], align 16
+; CHECK-NEXT:    store i32 [[NK5]], i32* [[ARRAYIDX172]], align 4
+; CHECK-NEXT:    [[GEPLOAD176:%.*]] = load i32, i32* [[ARRAYIDX175]], align 4
+; CHECK-NEXT:    [[WIDE_ADD_2:%.*]] = add <4 x i32> [[LOADCOALESCINGSHUFFLE_1]], <i32 -126, i32 -126, i32 -126, i32 -126>
+; CHECK-NEXT:    [[E5:%.*]] = extractelement <4 x i32> [[WIDE_ADD_2]], i32 0
+; CHECK-NEXT:    [[MUL5:%.*]] = mul i32 [[GEPLOAD176]], [[E5]]
+; CHECK-NEXT:    store i32 [[MUL5]], i32* [[ARRAYIDX175]], align 4
+; CHECK-NEXT:    [[ARRAYIDX188:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 6, i64 [[J]]
+; CHECK-NEXT:    [[NK6:%.*]] = add i32 [[NK]], -6
+; CHECK-NEXT:    store i32 [[NK6]], i32* [[ARRAYIDX188]], align 4
+; CHECK-NEXT:    [[ARRAYIDX191:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 7, i64 6
+; CHECK-NEXT:    [[GEPLOAD192:%.*]] = load i32, i32* [[ARRAYIDX191]], align 8
+; CHECK-NEXT:    [[E6:%.*]] = extractelement <4 x i32> [[WIDE_ADD_2]], i32 1
+; CHECK-NEXT:    [[MUL6:%.*]] = mul i32 [[GEPLOAD192]], [[E6]]
+; CHECK-NEXT:    store i32 [[MUL6]], i32* [[ARRAYIDX191]], align 8
+; CHECK-NEXT:    [[ARRAYIDX204:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 7, i64 [[J]]
+; CHECK-NEXT:    [[NK7:%.*]] = add i32 [[NK]], -7
+; CHECK-NEXT:    store i32 [[NK7]], i32* [[ARRAYIDX204]], align 4
+; CHECK-NEXT:    [[ARRAYIDX207:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 8, i64 7
+; CHECK-NEXT:    [[GEPLOAD208:%.*]] = load i32, i32* [[ARRAYIDX207]], align 4
+; CHECK-NEXT:    [[E7:%.*]] = extractelement <4 x i32> [[WIDE_ADD_2]], i32 2
+; CHECK-NEXT:    [[MUL7:%.*]] = mul i32 [[GEPLOAD208]], [[E7]]
+; CHECK-NEXT:    store i32 [[MUL7]], i32* [[ARRAYIDX207]], align 4
+; CHECK-NEXT:    [[BC4:%.*]] = bitcast i32* [[Z_2]] to <4 x i32>*
+; CHECK-NEXT:    store <4 x i32> [[WIDE_ADD_2]], <4 x i32>* [[BC4]], align 4
+; CHECK-NEXT:    [[ARRAYIDX220:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 8, i64 [[J]]
+; CHECK-NEXT:    [[NK8:%.*]] = add i32 [[NK]], -8
+; CHECK-NEXT:    store i32 [[NK8]], i32* [[ARRAYIDX220]], align 4
+; CHECK-NEXT:    [[ARRAYIDX223:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 9, i64 8
+; CHECK-NEXT:    [[GEPLOAD224:%.*]] = load i32, i32* [[ARRAYIDX223]], align 16
+; CHECK-NEXT:    [[E8:%.*]] = extractelement <4 x i32> [[WIDE_ADD_2]], i32 3
+; CHECK-NEXT:    [[MUL8:%.*]] = mul i32 [[GEPLOAD224]], [[E8]]
+; CHECK-NEXT:    store i32 [[MUL8]], i32* [[ARRAYIDX223]], align 16
+; CHECK-NEXT:    ret i32 0
 ;
 entry:
   %sr = alloca [100 x i32], align 16

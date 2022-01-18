@@ -21,10 +21,12 @@ define void @test01() {
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data: Bad casting | Ambiguous GEP{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01b
 ; CHECK: Safety data: Bad casting | Ambiguous GEP{{ *$}}
+; CHECK: End LLVMType: %struct.test01b
 
 
 declare !intel.dtrans.func.type !4 "intel_dtrans_func_index"="1" i8* @malloc(i64)

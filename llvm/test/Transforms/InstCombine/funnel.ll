@@ -10,14 +10,7 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f3
 
 define i32 @fshl_i32_constant(i32 %x, i32 %y) {
 ; CHECK-LABEL: @fshl_i32_constant(
-; INTEL_CUSTOMIZATION
-; CMPLRLLVM-23976: Suppress fshl recognition for scalar non-pow2 cases.
-;
-; CHECK-NEXT:    [[SHL:%.*]] = shl i32 [[X:%.*]], 11
-; CHECK-NEXT:    [[SHR:%.*]] = lshr i32 [[Y:%.*]], 21
-; CHECK-NEXT:    [[R:%.*]] = or i32 [[SHR]], [[SHL]]
-; CHECK-NEXT:    ret i32 [[R]]
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[R:%.*]] = call i32 @llvm.fshl.i32(i32 [[X:%.*]], i32 [[Y:%.*]], i32 11)
 ;
   %shl = shl i32 %x, 11
   %shr = lshr i32 %y, 21
@@ -27,12 +20,7 @@ define i32 @fshl_i32_constant(i32 %x, i32 %y) {
 
 define i42 @fshr_i42_constant(i42 %x, i42 %y) {
 ; CHECK-LABEL: @fshr_i42_constant(
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[SHR:%.*]] = lshr i42 [[X:%.*]], 31
-; CHECK-NEXT:    [[SHL:%.*]] = shl i42 [[Y:%.*]], 11
-; CHECK-NEXT:    [[R:%.*]] = or i42 [[SHR]], [[SHL]]
-; CHECK-NEXT:    ret i42 [[R]]
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[R:%.*]] = call i42 @llvm.fshl.i42(i42 [[Y:%.*]], i42 [[X:%.*]], i42 11)
 ;
   %shr = lshr i42 %x, 31
   %shl = shl i42 %y, 11
@@ -172,14 +160,7 @@ define <3 x i36> @fshl_v3i36_constant_nonsplat_undef0(<3 x i36> %x, <3 x i36> %y
 
 define i64 @fshl_sub_mask(i64 %x, i64 %y, i64 %a) {
 ; CHECK-LABEL: @fshl_sub_mask(
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[MASK:%.*]] = and i64 [[A:%.*]], 63
-; CHECK-NEXT:    [[SHL:%.*]] = shl i64 [[X:%.*]], [[MASK]]
-; CHECK-NEXT:    [[SUB:%.*]] = sub nuw nsw i64 64, [[MASK]]
-; CHECK-NEXT:    [[SHR:%.*]] = lshr i64 [[Y:%.*]], [[SUB]]
-; CHECK-NEXT:    [[R:%.*]] = or i64 [[SHL]], [[SHR]]
-; CHECK-NEXT:    ret i64 [[R]]
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[R:%.*]] = call i64 @llvm.fshl.i64(i64 [[X:%.*]], i64 [[Y:%.*]], i64 [[A:%.*]])
 ;
   %mask = and i64 %a, 63
   %shl = shl i64 %x, %mask
@@ -193,14 +174,7 @@ define i64 @fshl_sub_mask(i64 %x, i64 %y, i64 %a) {
 
 define i64 @fshr_sub_mask(i64 %x, i64 %y, i64 %a) {
 ; CHECK-LABEL: @fshr_sub_mask(
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[MASK:%.*]] = and i64 [[A:%.*]], 63
-; CHECK-NEXT:    [[SHR:%.*]] = lshr i64 [[X:%.*]], [[MASK]]
-; CHECK-NEXT:    [[SUB:%.*]] = sub nuw nsw i64 64, [[MASK]]
-; CHECK-NEXT:    [[SHL:%.*]] = shl i64 [[Y:%.*]], [[SUB]]
-; CHECK-NEXT:    [[R:%.*]] = or i64 [[SHL]], [[SHR]]
-; CHECK-NEXT:    ret i64 [[R]]
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[R:%.*]] = call i64 @llvm.fshr.i64(i64 [[Y:%.*]], i64 [[X:%.*]], i64 [[A:%.*]])
 ;
   %mask = and i64 %a, 63
   %shr = lshr i64 %x, %mask

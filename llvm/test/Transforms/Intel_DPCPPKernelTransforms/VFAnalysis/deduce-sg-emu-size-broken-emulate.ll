@@ -13,7 +13,7 @@
 ; CHECK-EMULATION-DAG: <reqd> : 8
 ; CHECK-EMULATION-DAG: <sg_emu_size> : 16
 
-; CHECK-NO-EMULATION: error: function <{{reqd|sg_emu_size}}>: Subgroup is broken!
+; CHECK-NO-EMULATION: error: kernel "{{reqd|sg_emu_size}}": Subgroup calls in scalar function can't be resolved
 
 define void @reqd() noinline optnone "has-sub-groups" !kernel_has_sub_groups !{i1 true} !intel_reqd_sub_group_size !{i32 8} {
   ret void

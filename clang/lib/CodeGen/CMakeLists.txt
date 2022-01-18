@@ -5,6 +5,7 @@ set(LLVM_LINK_COMPONENTS
   Core
   Coroutines
   Coverage
+  Demangle
   Extensions
   FrontendOpenMP
   IPO
@@ -26,6 +27,26 @@ set(LLVM_LINK_COMPONENTS
   Target
   TransformUtils
   )
+
+# INTEL_CUSTOMIZATION
+set(INTEL_SOURCE_FILES_TO_BUILD)
+intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
+  COMPLEMENT LLVM_OPTIONAL_SOURCES
+# Add custom Intel files below.  Files listed here will be included in
+# INTEL_CUSTOMIZATION build.
+  intel/CGBuiltin_getBuiltinIntelLibFunction.cpp
+  intel/CGSPIRMetadataAdder.cpp
+  intel/CGIntelHLS.cpp
+  )
+
+# INTEL_FEATURE_SW_DTRANS
+intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
+  COMPLEMENT LLVM_OPTIONAL_SOURCES
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS
+  intel/CGDTransInfo.cpp
+  )
+# end INTEL_FEATURE_SW_DTRANS
+# end INTEL_CUSTOMIZATION
 
 add_clang_library(clangCodeGen
   BackendUtil.cpp
@@ -59,9 +80,7 @@ add_clang_library(clangCodeGen
   CGObjCRuntime.cpp
   CGOpenCLRuntime.cpp
   CGOpenMPRuntime.cpp
-  CGOpenMPRuntimeAMDGCN.cpp
   CGOpenMPRuntimeGPU.cpp
-  CGOpenMPRuntimeNVPTX.cpp
   CGRecordLayoutBuilder.cpp
   CGStmt.cpp
   CGStmtOpenMP.cpp
@@ -91,10 +110,7 @@ add_clang_library(clangCodeGen
   TargetInfo.cpp
   VarBypassDetector.cpp
 # INTEL_CUSTOMIZATION
-  intel/CGBuiltin_getBuiltinIntelLibFunction.cpp
-  intel/CGDTransInfo.cpp
-  intel/CGSPIRMetadataAdder.cpp
-  intel/CGIntelHLS.cpp
+  ${INTEL_SOURCE_FILES_TO_BUILD}
 # end INTEL_CUSTOMIZATION
 
   DEPENDS

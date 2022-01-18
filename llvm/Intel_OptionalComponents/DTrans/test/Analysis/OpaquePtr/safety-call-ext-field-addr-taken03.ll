@@ -18,10 +18,11 @@ define void @test01() {
 ; structure does not begin with an array of i8 elements.
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: 0)Field
 ; CHECK: Field info: ComplexUse AddressTaken{{ *$}}
 ; CHECK: Safety data:  Global instance | Field address taken call{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 declare !intel.dtrans.func.type !4 double @strtod(i8* "intel_dtrans_func_index"="1", i8** "intel_dtrans_func_index"="2")

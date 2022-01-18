@@ -1,8 +1,7 @@
 ; RUN: opt < %s -whole-program-assume -disable-output \
 ; RUN:    -passes='require<dtransanalysis>,function(require<soatoaos-approx>,require<soatoaos-array-methods>)'  \
 ; RUN:    -dtrans-soatoaos-base-ptr-off=3 -dtrans-soatoaos-mem-off=0                                            \
-; RUN:    -debug-only=dtrans-soatoaos -dtrans-malloc-functions=struct.Mem,0 -dtrans-free-functions=struct.Mem,1 \
-; RUN:  2>&1 | FileCheck %s
+; RUN:    -debug-only=dtrans-soatoaos 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 

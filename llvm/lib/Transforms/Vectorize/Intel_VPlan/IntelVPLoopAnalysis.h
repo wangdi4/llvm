@@ -1,4 +1,3 @@
-//===- IntelVPLoopAnalysis.h ----------------------------------------------===//
 //
 //   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
@@ -76,6 +75,8 @@ public:
       LinkedVPValues.insert(Val);
   }
 
+  virtual Type *getAllocatedType() const = 0;
+
 protected:
   // No need for public constructor.
   explicit VPLoopEntity(unsigned char Id, bool IsMem)
@@ -113,6 +114,8 @@ public:
   unsigned getReductionOpcode() const {
     return getReductionOpcode(getRecurrenceKind());
   }
+
+  Type *getAllocatedType() const override { return getRecurrenceType(); }
 
   bool isMinMax() const {
     return RecurrenceDescriptorData::isMinMaxRecurrenceKind(
@@ -230,6 +233,8 @@ public:
   VPValue *getStartVal() const { return StartVal; }
   VPValue *getEndVal() const { return EndVal; }
 
+  Type *getAllocatedType() const override { return getInductionType(); }
+
   /// Return true if the induction needs a close-form generation at the
   /// beginning of the loop body. These cases are: explicit linears w/o
   /// explicit increments inside loop body and inductions that have a use
@@ -306,14 +311,18 @@ public:
   using VPEntityAliasesTy = MapVector<VPValue *, VPInstruction *>;
 
   VPPrivate(VPInstruction *ExitI, VPEntityAliasesTy &&InAliases, PrivateKind K,
-            bool Explicit, bool IsMemOnly = false, unsigned char Id = Private)
+            bool Explicit, Type *AllocatedTy, bool IsMemOnly = false,
+            unsigned char Id = Private)
       : VPLoopEntity(Id, IsMemOnly), Kind(K), IsExplicit(Explicit),
-        TagOrExit(ExitI), Aliases(std::move(InAliases)) {}
+        TagOrExit(ExitI), Aliases(std::move(InAliases)),
+        AllocatedType(AllocatedTy) {}
 
   VPPrivate(PrivateTag PTag, VPEntityAliasesTy &&InAliases, PrivateKind K,
-            bool Explicit, bool IsMemOnly = false, unsigned char Id = Private)
+            bool Explicit, Type *AllocatedType, bool IsMemOnly = false,
+            unsigned char Id = Private)
       : VPLoopEntity(Id, IsMemOnly), Kind(K), IsExplicit(Explicit),
-        TagOrExit(PTag), Aliases(std::move(InAliases)) {}
+        TagOrExit(PTag), Aliases(std::move(InAliases)),
+        AllocatedType(AllocatedType) {}
 
   bool isConditional() const { return Kind == PrivateKind::Conditional; }
   bool isLast() const { return Kind != PrivateKind::NonLast; }
@@ -327,6 +336,9 @@ public:
     assert(hasExitInstr() && "expected instruction");
     return TagOrExit.I;
   }
+
+  Type *getAllocatedType() const override { return AllocatedType; }
+
   void setExitInst(VPInstruction *I) { TagOrExit.assignInstr(I); }
 
   bool hasExitInstr() const { return TagOrExit.IsInstr; }
@@ -377,14 +389,18 @@ private:
   // Map that stores the VPExternalDef->VPInstruction mapping. These are alias
   // instructions to existing loop-private, which are outside the loop-region.
   VPEntityAliasesTy Aliases;
+
+  // Type of the allocated memory.
+  Type *AllocatedType;
 };
 
 class VPPrivateNonPOD : public VPPrivate {
 public:
   VPPrivateNonPOD(VPEntityAliasesTy &&InAliases, PrivateKind K, bool IsExplicit,
-                  Function *Ctor, Function *Dtor, Function *CopyAssign)
+                  Function *Ctor, Function *Dtor, Type *AllocatedTy,
+                  Function *CopyAssign)
       : VPPrivate(PrivateTag::PTNonPod, std::move(InAliases), K, IsExplicit,
-                  true /*IsMemOnly*/, PrivateNonPOD),
+                  AllocatedTy, true /*IsMemOnly*/, PrivateNonPOD),
         Ctor(Ctor), Dtor(Dtor), CopyAssign(CopyAssign) {}
 
   Function *getCtor() const { return Ctor; }
@@ -490,20 +506,23 @@ public:
   /// and explicit.
   VPPrivate *addPrivate(VPInstruction *ExitI, VPEntityAliasesTy &PtrAliases,
                         VPPrivate::PrivateKind K, bool Explicit,
-                        VPValue *AI = nullptr, bool ValidMemOnly = false);
+                        Type *AllocatedTy, VPValue *AI = nullptr,
+                        bool ValidMemOnly = false);
 
   /// Add private corresponding to \p Alloca along with the specified private
   /// tag. Also store other relavant attributes of the private like the
   /// conditional, last and explicit.
   VPPrivate *addPrivate(VPPrivate::PrivateTag Tag,
                         VPEntityAliasesTy &PtrAliases, VPPrivate::PrivateKind K,
-                        bool Explicit, VPValue *AI = nullptr,
+                        bool Explicit, Type *AllocatedTy,
+                        VPValue *AI = nullptr,
                         bool ValidMemOnly = false);
 
   VPPrivateNonPOD *addNonPODPrivate(VPEntityAliasesTy &PtrAliases,
                                     VPPrivate::PrivateKind K, bool Explicit,
                                     Function *Ctor, Function *Dtor,
                                     Function *CopyAssign,
+                                    Type *AllocatedTy = nullptr,
                                     VPValue *AI = nullptr);
 
   /// Final stage of importing data from IR. Go through all imported descriptors
@@ -672,18 +691,23 @@ public:
     return false;
   }
 
-  bool hasConditionalLastPrivate() const {
-    for (auto &It : MemoryDescriptors)
-      if (auto *Priv = dyn_cast<VPPrivate>(It.first))
-        if (Priv->isLast() && Priv->isConditional())
-          return true;
-    return false;
-  }
-
   // Find implicit last privates in the loop and add their descriptors.
   // Implicit last private is a live out value which is assigned in the
   // loop and is not known as reduction/induction.
   void analyzeImplicitLastPrivates();
+
+  void linkValue(VPLoopEntity *E, VPValue *Val) {
+    if (auto Red = dyn_cast<VPReduction>(E))
+      linkValue(ReductionMap, Red, Val);
+    else if (auto Red = dyn_cast<VPIndexReduction>(E))
+      linkValue(ReductionMap, Red, Val);
+    else if (auto Ind = dyn_cast<VPInduction>(E))
+      linkValue(InductionMap, Ind, Val);
+    else if (auto Priv = dyn_cast<VPPrivate>(E))
+      linkValue(PrivateMap, Priv, Val);
+    else
+      llvm_unreachable("Unknown loop entity");
+  }
 
 private:
   VPlanVector &Plan;
@@ -750,19 +774,6 @@ private:
       Map[Val] = Descr;
       Descr->addLinkedVPValue(Val);
     }
-  }
-
-  void linkValue(VPLoopEntity *E, VPValue *Val) {
-    if (auto Red = dyn_cast<VPReduction>(E))
-      linkValue(ReductionMap, Red, Val);
-    else if (auto Red = dyn_cast<VPIndexReduction>(E))
-      linkValue(ReductionMap, Red, Val);
-    else if (auto Ind = dyn_cast<VPInduction>(E))
-      linkValue(InductionMap, Ind, Val);
-    else if (auto Priv = dyn_cast<VPPrivate>(E))
-      linkValue(PrivateMap, Priv, Val);
-    else
-      llvm_unreachable("Unknown loop entity");
   }
 
   // Create private memory allocator for VPLoopEntity if the corresponding
@@ -939,6 +950,12 @@ public:
   // preheader, not in lifetimestart/end.
   static bool hasRealUserInLoop(VPValue *Val, const VPLoop *Loop);
 
+  iterator_range<SmallVectorImpl<VPInstruction *>::iterator>
+  getUpdateVPInsts() {
+    return make_range(UpdateVPInsts.begin(), UpdateVPInsts.end());
+  }
+  void addUpdateVPInst(VPInstruction *V) { UpdateVPInsts.push_back(V); }
+
 protected:
   VPValue *findMemoryUses(VPValue *Start, const VPLoop *Loop);
 
@@ -948,6 +965,7 @@ protected:
     Importing = true;
     Alias.reset();
     HasAlias = false;
+    UpdateVPInsts.clear();
   }
   VPValue *AllocaInst = nullptr;
   bool ValidMemOnly = false;
@@ -955,6 +973,8 @@ protected:
   // NOTE: We assume that a descriptor can have only one valid alias
   Optional<DescrAlias> Alias;
   bool HasAlias = false;
+  /// Instruction(s) in VPlan that update the variable
+  SmallVector<VPInstruction *, 4> UpdateVPInsts;
 };
 
 /// Intermediate reduction descriptor. This is a temporary data to keep
@@ -975,10 +995,6 @@ public:
   bool getSigned() const { return Signed; }
   VPInstruction *getLinkPhi() const { return LinkPhi; }
   bool getLinearIndex() const { return IsLinearIndex; }
-  iterator_range<SmallVectorImpl<VPInstruction *>::iterator>
-  getUpdateVPInsts() {
-    return make_range(UpdateVPInsts.begin(), UpdateVPInsts.end());
-  }
 
   void setStartPhi(VPInstruction *V) { StartPhi = V; }
   void setStart(VPValue *V) { Start = V; }
@@ -988,7 +1004,6 @@ public:
   void setSigned(bool V) { Signed = V; }
   void setLinkPhi(VPInstruction *V) { LinkPhi = V; }
   void setIsLinearIndex(bool V) { IsLinearIndex = V; }
-  void addUpdateVPInst(VPInstruction *V) { UpdateVPInsts.push_back(V); }
   void addLinkedVPValue(VPValue *V) { LinkedVPVals.push_back(V); }
 
   /// Clear the content.
@@ -996,7 +1011,6 @@ public:
     BaseT::clear();
     StartPhi = nullptr;
     Start = nullptr;
-    UpdateVPInsts.clear();
     Exit = nullptr;
     K = RecurKind::None;
     RT = nullptr;
@@ -1040,8 +1054,6 @@ private:
 
   VPInstruction *StartPhi = nullptr; // TODO: Consider changing to VPPHINode.
   VPValue *Start = nullptr;
-  /// Instruction(s) in VPlan that update the reduction variable
-  SmallVector<VPInstruction *, 4> UpdateVPInsts;
   VPInstruction *Exit = nullptr;
   RecurKind K = RecurKind::None;
   Type *RT = nullptr;
@@ -1169,7 +1181,6 @@ private:
   VPValue *StartVal = nullptr;
   VPValue *EndVal = nullptr;
   VPInstruction *InductionOp =nullptr;
-  SmallVector<VPInstruction *, 4> UpdateVPInsts; // TODO: unpopulated
   unsigned IndOpcode = Instruction::BinaryOpsEnd;
   bool IsExplicitInduction = false; // TODO: unpopulated
 };
@@ -1183,7 +1194,7 @@ class PrivateDescr : public VPEntityImportDescr {
 public:
   PrivateDescr() = default;
 
-  VPValue *getAllocaInst() const { return AllocaInst; }
+  Type *getAllocatedType() const { return AllocatedType; }
   bool isConditional() const { return IsConditional; }
   bool isLast() const { return IsLast; }
   bool isExplicit() const { return IsExplicit; }
@@ -1196,7 +1207,6 @@ public:
   void clear() override {
     BaseT::clear();
     PtrAliases.clear();
-    AllocaInst = nullptr;
     ExitInst = nullptr;
     IsConditional = false;
     IsLast = false;
@@ -1216,7 +1226,7 @@ public:
   /// Pass the data to VPlan
   void passToVPlan(VPlanVector *Plan, const VPLoop *Loop);
 
-  void setAllocaInst(VPValue *AllocaI) { AllocaInst = AllocaI; }
+  void setAllocatedType(Type *Ty) { AllocatedType = Ty; }
   void setIsConditional(bool IsCond) { IsConditional = IsCond; }
   void setIsLast(bool IsLastPriv) { IsLast = IsLastPriv; }
   void setIsExplicit(bool IsExplicitVal) { IsExplicit = IsExplicitVal; }
@@ -1230,12 +1240,16 @@ public:
 private:
   /// Set fields to define PrivateKind for the imported private.
   /// Sometimes it can differ from one that was set by user. E.g. the
-  /// "conditional" modifier can be set on the private that assigned in both
-  /// branches of an IF statement. But those assignments can be merged into one
-  /// select instruction.
-  void updateKind(const VPLoop *Loop);
+  /// "conditional" modifier can be set on the private that is assigned in both
+  /// branches of an IF statement but those assignments can be merged into one
+  /// select instruction and the assignment becomes unconditional. This is a
+  /// simple correction of the user declaration to generate more effective code.
+  /// Returns true if the update was successful and false if we were unable
+  /// to recognize it.
+  bool updateKind(VPLoopEntityList *LE);
 
-  VPValue *AllocaInst = nullptr;
+  // Type of memory.
+  Type *AllocatedType = nullptr;
   VPInstruction *ExitInst = nullptr;
   // These are Pointer-aliases. Each Loop-private memory descriptor can have
   // multiple aliases as opposed to memory descriptors for inductions or
@@ -1312,10 +1326,11 @@ public:
 
   /// Gathering pass.
   template<typename... OtherItersT>
-  void createDescrList(LoopT *Loop, OtherItersT&... Args) {
+  void createDescrList(LoopT *Loop, OtherItersT&&... Args) {
     LoopList.emplace_back(Loop, DescrList());
     DescrList &Lst = LoopList.back().second;
-    processIterators(Lst, Args...);
+    // Expand the parameter pack.
+    (void)std::initializer_list<int>{(processIterator(Lst, std::move(Args)), 0)...};
   }
 
   /// Sending pass.
@@ -1335,25 +1350,17 @@ public:
   }
 
 private:
-  template <typename FirstIteratorT, typename... OtherItersT>
-  static void processIterators(DescrList &Lst, FirstIteratorT &FirstIter,
-                               OtherItersT &... Args) {
-    processIterators(Lst, FirstIter);
-    processIterators(Lst, Args...);
-  }
-
-  template <typename IteratorT>
-  static void processIterators(DescrList &Lst, IteratorT &Iterator) {
+  template <typename RangeTy, typename ConverterTy>
+  static void processIterator(DescrList &Lst,
+                              std::pair<RangeTy, ConverterTy> &&Iterator) {
     auto &ValRange = Iterator.first;
     auto &ConverterFunc = Iterator.second;
-    for (auto &Iter : ValRange) {
+    for (const auto &Iter : ValRange) {
       Lst.push_back(DescrT());
       auto &Item = Lst.back();
       ConverterFunc(Item, Iter);
     }
   }
-
-  void processIterators(DescrList &Lst) {}
 
   VPlanVector *Plan;
   LoopListT LoopList;

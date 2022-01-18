@@ -148,6 +148,7 @@ for.body:
   %iv1.next = add nuw nsw i64 %iv1, 1
   %cmp = icmp ult i64 %iv1.next, 1024
   br i1 %cmp, label %for.body, label %for.end
+
 for.end:                                          ; preds = %for.body
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   ret void
@@ -156,7 +157,6 @@ for.end:                                          ; preds = %for.body
 
 
 define dso_local void @test_memref_transform(i32 %n) {
-;
 ; CHECK:       Printing Divergence info for test_memref_transform:for.body
 ; CHECK-NEXT:  Basic Block: [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB1:BB[0-9]+]]
@@ -232,6 +232,7 @@ for.body:
   %iv1.next = add nuw nsw i64 %iv1, 1
   %cmp = icmp ult i64 %iv1.next, 1024
   br i1 %cmp, label %for.body, label %for.end
+
 for.end:                                          ; preds = %for.body
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   ret void
@@ -431,6 +432,7 @@ simd.loop:
   %ld = load i32, i32* %uni.gep32, align 4
   %ld.64 = sext i32 %ld to i64
   br i1 true, label %if, label %else
+
 if:
   %uni.if1 = getelementptr inbounds i32, i32* %uni.gep32, i64 1
   %uni.if.non_priv1 = getelementptr inbounds i32, i32* %arr.non.priv, i64 1
@@ -438,6 +440,7 @@ if:
   %str.soa.if = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv32, i64 0, i64 %iv1
   %str.if.non.priv1 = getelementptr inbounds i32, i32* %arr.non.priv, i64 %iv1
   br label %conv.point.uni
+
 else:
   %uni.else1 = getelementptr inbounds i32, i32* %uni.gep32, i64 2
   %str.else.non.priv1 = getelementptr inbounds i32, i32* %arr.non.priv, i64 %iv1
@@ -445,6 +448,7 @@ else:
   %rnd.else.non.priv1 = getelementptr inbounds i32, i32* %arr.non.priv, i64 %ld.64
   %str.soa.else = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv32, i64 0, i64 %iv1
   br label %conv.point.uni
+
 conv.point.uni:
   %phi.result11 = phi i32* [%uni.if1, %if], [%uni.else1, %else]
   %phi.result12 = phi i32* [%uni.if1, %if], [%str.else.non.priv1, %else]
@@ -459,6 +463,7 @@ conv.point.uni:
   %rem = srem i64 %iv1, 2
   %cmps = icmp eq i64 %rem, 0
   br i1 %cmps, label %div.if, label %div.else
+
 div.if:
   %uni.if2 = getelementptr inbounds i32, i32* %uni.gep32, i64 1
   %uni.if.non_priv2 = getelementptr inbounds i32, i32* %arr.non.priv, i64 1
@@ -466,6 +471,7 @@ div.if:
   %rnd.div.if.non.priv1 = getelementptr inbounds i32, i32* %arr.non.priv, i64 %ld.64
   %str.if.non.priv2 = getelementptr inbounds i32, i32* %arr.non.priv, i64 %iv1
   br label %conv.point.div
+
 div.else:
   %uni.else2 = getelementptr inbounds i32, i32* %uni.gep32, i64 2
   %str.else.non.priv2 = getelementptr inbounds i32, i32* %arr.non.priv, i64 %iv1
@@ -473,6 +479,7 @@ div.else:
   %rnd.soa.div.else = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv32, i64 0, i64 %ld.64
   %rnd.div.else.non.priv1 = getelementptr inbounds i32, i32* %arr.non.priv, i64 %ld.64
   br label %conv.point.div
+
 conv.point.div:
   %phi.result21 = phi i32* [%uni.if2, %div.if], [%uni.else2, %div.else]
   %phi.result22 = phi i32* [%uni.if2, %div.if], [%str.else.non.priv2, %div.else]
@@ -487,6 +494,7 @@ conv.point.div:
   %iv1.next = add nuw nsw i64 %iv1, 1
   %cmp = icmp ult i64 %iv1.next, 1024
   br i1 %cmp, label %simd.loop, label %simd.end
+
 simd.end:
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   ret void

@@ -23,6 +23,10 @@ public:
   /// A set of local values used by a function
   typedef SmallPtrSet<llvm::GlobalValue *, 16> TUsedLocals;
 
+  /// A mapping between function pointer and the set of local values the
+  /// function uses directly.
+  typedef DenseMap<const llvm::Function *, TUsedLocals> TUsedLocalsMap;
+
   LocalBufferInfo(Module *M) { this->M = M; }
 
   void analyzeModule(CallGraph *CG);
@@ -64,10 +68,6 @@ private:
   /// \param maxDepth the maximum depth of recursive functions.
   /// \returns The total size of local buffer needed by given function.
   size_t calculateLocalsSize(Function *F, unsigned maxDepth);
-
-  /// A mapping between function pointer and the set of local values the
-  /// function uses directly.
-  typedef DenseMap<const llvm::Function *, TUsedLocals> TUsedLocalsMap;
 
   /// A mapping between function pointer and the local buffer size that the
   /// function uses.

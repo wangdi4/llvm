@@ -143,10 +143,10 @@ char DPCPPKernelVecCloneLegacy::ID = 0;
 
 static const char lv_name[] = SV_NAME;
 INITIALIZE_PASS_BEGIN(DPCPPKernelVecCloneLegacy, SV_NAME, lv_name,
-                      false /* not modifies CFG */, true /* transform pass */)
+                      false /* not modifies CFG */, false /* is_analysis */)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(DPCPPKernelVecCloneLegacy, SV_NAME, lv_name,
-                    false /* not modifies CFG */, true /* transform pass */)
+                    false /* not modifies CFG */, false /* is_analysis */)
 
 DPCPPKernelVecCloneLegacy::DPCPPKernelVecCloneLegacy(
     ArrayRef<VectItem> VectInfos, VectorVariant::ISAClass ISA, bool IsOCL)
@@ -224,6 +224,28 @@ static void updateTID(Instruction *TIDCallInstr, PHINode *Phi) {
   Instruction *InductionSExt =
       cast<Instruction>(IRB.CreateSExtOrTrunc(Phi, TIDCallInstr->getType()));
   TIDCallInstr->replaceAllUsesWith(InductionSExt);
+}
+
+static void optimizedUpdateTID(Instruction *TIDCallInstr, PHINode *Phi) {
+  Instruction *IP = &*Phi->getParent()->getFirstInsertionPt();
+  IRBuilder<> IRB(IP);
+  SmallVector<ZExtInst *> WorkList;
+
+  for (auto *User : TIDCallInstr->users()) {
+    if (auto *ZExt = dyn_cast<ZExtInst>(User))
+      WorkList.push_back(ZExt);
+  }
+
+  for (auto *ZExt : WorkList) {
+    Instruction *SExt = cast<Instruction>(
+      IRB.CreateSExt(TIDCallInstr, ZExt->getType(),
+                     TIDCallInstr->getName() + ".sext"));
+    ZExt->replaceAllUsesWith(SExt);
+    ZExt->eraseFromParent();
+  }
+
+  // Now process TID.
+  updateTID(TIDCallInstr, Phi);
 }
 
 // Find all paths with shl/op.../ashr pattern by DFS, where op can be
@@ -471,6 +493,23 @@ static bool TIDFitsInInt32(const CallInst *CI) {
   return false;
 }
 
+// Check if we can optimize get_sub_group_local_id.
+// We know this value is capped by a reasonable max VF
+// (value not even close to 2GB, like 8, 16, 32, 64).
+// We can use sext instead of zext to widen i32 type to i64.
+// This would help vectorizer to not think unsigned 32 bit wrap around
+// is possible in this sequence:
+// %1 = tail call i32 @_Z22get_sub_group_local_idv()
+// %conv.i.i = zext i32 %1 to i64
+static bool isOptimizableSubgroupLocalId(const CallInst *CI) {
+  using namespace llvm::PatternMatch;
+  for (auto *User : CI->users()) {
+    if (match(User, m_ZExt(m_Specific(CI))))
+      return true;
+  }
+  return false;
+}
+
 DPCPPKernelVecCloneImpl::DPCPPKernelVecCloneImpl(ArrayRef<VectItem> VectInfos,
                                                  VectorVariant::ISAClass ISA,
                                                  bool IsOCL)
@@ -546,10 +585,15 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
       case FnAction::MoveAndUpdateUses:
         updateAndMoveTID(CI, Phi, EntryBlock);
         break;
-      case FnAction::UpdateOnly:
-        updateTID(CI, Phi);
+      case FnAction::UpdateOnly: {
+        bool TIDIsInt32 = CI->getType()->isIntegerTy(32);
+        if (TIDIsInt32 && isOptimizableSubgroupLocalId(CI))
+          optimizedUpdateTID(CI, Phi);
+        else
+          updateTID(CI, Phi);
         InstsToRemove.push_back(CI);
         break;
+      }
       case FnAction::MoveOnly:
         // All the other Kernel function built-ins, if they have constant
         // arguments or don't have argument, then should just be moved at
@@ -615,8 +659,8 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
 
     // This condition isn't expected to happen, but do the right thing anyway.
     if (Call->hasFnAttr("vector-variants"))
-      Variants =
-          std::string(Call->getFnAttr("vector-variants").getValueAsString());
+      Variants = std::string(
+          Call->getCallSiteOrFuncAttr("vector-variants").getValueAsString());
 
     // Indicates the call must have mask arg.
     bool HasMask = true;

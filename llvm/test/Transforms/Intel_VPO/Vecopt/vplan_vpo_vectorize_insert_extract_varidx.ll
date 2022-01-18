@@ -5,7 +5,7 @@
 ; Run the following command and intercept the function and print module
 ; before VPlanDriver is invoked on a function
 ;
-; icx -Xclang -fintel-openmp-region -c -fopenmp -mllvm --vplan-vec
+; icx -Xclang -fopenmp-late-outline -c -fopenmp -mllvm --vplan-vec
 ; -mllvm -vplan-force-vf=2 -mllvm --loopopt=0 tt2.cpp
 ;
 ; =====================tt2.cpp============================================

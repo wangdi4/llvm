@@ -203,6 +203,15 @@ namespace {
     };
 
 #if INTEL_CUSTOMIZATION
+    void PopulateDiscriminatorTable(MachineFunction &MF);
+    using LocationDiscriminator = std::tuple<StringRef, unsigned, unsigned>;
+    using BBSet = DenseSet<const MachineBasicBlock*>;
+    using LocationDiscriminatorBBMap = DenseMap<LocationDiscriminator, BBSet>;
+    using LocationDiscriminatorCurrPassMap =
+      DenseMap<LocationDiscriminator, unsigned>;
+    LocationDiscriminatorBBMap LDBM;
+    LocationDiscriminatorCurrPassMap LDCM;
+
     struct HoistableLoadInfo {
       MachineBasicBlock *MBB;
       MachineInstr *MI;
@@ -223,8 +232,8 @@ namespace {
         assert(NewMIs[0]);
         assert(NewMIs[1]);
         MachineFunction *MF = MBB->getParent();
-        MF->DeleteMachineInstr(NewMIs[0]);
-        MF->DeleteMachineInstr(NewMIs[1]);
+        MF->deleteMachineInstr(NewMIs[0]);
+        MF->deleteMachineInstr(NewMIs[1]);
       }
     };
     SmallVector<HoistableLoadInfo, 32> HoistableLoadCandidates;
@@ -359,6 +368,39 @@ static bool LoopIsOuterMostWithPredecessor(MachineLoop *CurLoop) {
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+// To maintain debug information on lines moved out of loops and be able to
+// track profile counts for the line when it is within or outside the loop, we
+// need to use separate discriminator values. This routine identifies the
+// discriminator values already in use for each basic block the line is used in
+// so that an appropriate value can be used when a line is moved to a different
+// block.
+void MachineLICMBase::PopulateDiscriminatorTable(MachineFunction& MF) {
+  for (MachineBasicBlock& BB : MF) {
+    for (MachineInstr& I : BB) {
+      const DILocation* DIL = I.getDebugLoc().get();
+      if (!DIL)
+        continue;
+      unsigned LineNo = DIL->getLine();
+      if (LineNo == 0)
+        continue;
+
+      unsigned Discriminator = DIL->getDiscriminator();
+      LocationDiscriminator LD{ DIL->getFilename(), LineNo, Discriminator };
+      auto& BBMap = LDBM[LD];
+      BBMap.insert(&BB);
+
+      // Save the max base disciminator seen for the location, so that a new
+      // unique one can be created.
+      unsigned BD, DF, CI;
+      DIL->decodeDiscriminator(Discriminator, BD, DF, CI);
+      unsigned CurMax = LDCM[LD];
+      LDCM[LD] = std::max(BD, CurMax);
+    }
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
   if (skipFunction(MF.getFunction()))
     return false;
@@ -371,6 +413,7 @@ bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
   MFI = &MF.getFrameInfo();
   MRI = &MF.getRegInfo();
   SchedModel.init(&ST);
+  PopulateDiscriminatorTable(MF); // INTEL
 
   PreRegAlloc = MRI->isSSA();
   HasProfileData = MF.getFunction().hasProfileData();
@@ -741,6 +784,9 @@ void MachineLICMBase::HoistRegionPostRA() {
     MachineBasicBlock *MBB = HoistableLoad.MBB;
     MBB->insert(Pos, HoistableLoad.NewMIs[0]);
     MBB->insert(Pos, HoistableLoad.NewMIs[1]);
+    if (HoistableLoad.MI->shouldUpdateCallSiteInfo())
+      MBB->getParent()->moveCallSiteInfo(HoistableLoad.MI,
+                                         HoistableLoad.NewMIs[1]);
     HoistableLoad.MI->eraseFromParent();
     HoistPostRA(HoistableLoad.NewMIs[0], AllocReg);
   }
@@ -934,15 +980,11 @@ void MachineLICMBase::HoistOutOfLoop(MachineDomTreeNode *HeaderN) {
 
     // Process the block
     SpeculationState = SpeculateUnknown;
-    for (MachineBasicBlock::iterator
-         MII = MBB->begin(), E = MBB->end(); MII != E; ) {
-      MachineBasicBlock::iterator NextMII = MII; ++NextMII;
-      MachineInstr *MI = &*MII;
-      if (!Hoist(MI, Preheader))
-        UpdateRegPressure(MI);
+    for (MachineInstr &MI : llvm::make_early_inc_range(*MBB)) {
+      if (!Hoist(&MI, Preheader))
+        UpdateRegPressure(&MI);
       // If we have hoisted an instruction that may store, it can only be a
       // constant store.
-      MII = NextMII;
     }
 
     // If it's a leaf node, it's done. Traverse upwards to pop ancestors.
@@ -1606,10 +1648,36 @@ bool MachineLICMBase::Hoist(MachineInstr *MI, MachineBasicBlock *Preheader) {
     Preheader->splice(Preheader->getFirstTerminator(),MI->getParent(),MI);
 
     assert(!MI->isDebugInstr() && "Should not hoist debug inst");
+
 #if INTEL_CUSTOMIZATION
     // INTEL - Maintain the original (correct) source correlation. Hoisting
-    //         the instruction does not invalidate the source correlation.
-
+    //         the instruction does not invalidate the source correlation, but
+    //         assign a new discriminator value for the location in case other
+    //         instructions have the same source location in the source loop to
+    //         avoid breaking the profiling information.
+    DILocation *DIL = MI->getDebugLoc().get();
+    if (DIL) {
+      unsigned LineNo = DIL->getLine();
+      unsigned Discriminator = DIL->getDiscriminator();
+      LocationDiscriminator LD{DIL->getFilename(), LineNo, Discriminator};
+      auto It = LDBM.find(LD);
+      if (It == LDBM.end()) {
+        // Update the descriminator map so that other values with the same
+        // location may be hoisted to this block.
+        auto &BBMap = LDBM[LD];
+        BBMap.insert(MI->getParent());
+      } else {
+        // Create a new discriminator value for the hoisted code.
+        unsigned BD, DF, CI;
+        DIL->decodeDiscriminator(Discriminator, BD, DF, CI);
+        unsigned NextDisriminator = ++LDCM[LD];
+        auto NewDiscriminator =
+            DIL->encodeDiscriminator(NextDisriminator, DF, CI);
+        const auto *const NewDIL =
+            DIL->cloneWithDiscriminator(NewDiscriminator.getValueOr(0));
+        MI->setDebugLoc(NewDIL);
+      }
+    }
     // Since we are moving the instruction out of its basic block, we do not
     // retain its debug location. Doing so would degrade the debugging
     // experience and adversely affect the accuracy of profiling information.

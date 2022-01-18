@@ -1,27 +1,27 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
 ; Verify that we construct the HIR properly by suppressing creation of SCC when the header phi is live outside the loop in another SCC instruction.
 
-; CHECK: SCC1
-; CHECK-SAME: %x0.055
-
-; CHECK-NOT: SCC2
+; CHECK-NOT: SCC1
 
 ; CHECK: + DO i1 = 0, 55, 1   <DO_LOOP>
-; CHECK: |   %x0.055.out1 = %x0.055;
+; CHECK: |   %x0.1.lcssa = %x0.055;
 ; CHECK: |
-; CHECK: |      %x0.152 = %x0.055.out1;
+; CHECK: |      %x0.152 = %x0.055;
 ; CHECK: |   + DO i2 = 0, -1 * i1 + 22, 1   <DO_LOOP>
 ; CHECK: |   |   %x0.2 = %x0.152;
+; CHECK: |   |
 ; CHECK: |   |   + DO i3 = 0, 0, 1   <DO_LOOP>
 ; CHECK: |   |   |   %x0.2.out = %x0.2;
 ; CHECK: |   |   |   %x0.2 = 0;
 ; CHECK: |   |   + END LOOP
+; CHECK: |   |
 ; CHECK: |   |   %x0.152 = %x0.2.out;
 ; CHECK: |   + END LOOP
-; CHECK: |      %x0.055 = %x0.2.out;
+; CHECK: |      %x0.1.lcssa = %x0.2.out;
 ; CHECK: |
-; CHECK: |   %x0.055.out = %x0.055;
+; CHECK: |   %x0.055 = %x0.1.lcssa;
 ; CHECK: + END LOOP
 
 

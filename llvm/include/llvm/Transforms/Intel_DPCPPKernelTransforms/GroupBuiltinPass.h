@@ -18,26 +18,26 @@
 
 namespace llvm {
 
+class BuiltinLibInfo;
+class RuntimeService;
+
 /// \brief GroupBuiltinHandler pass is a module pass that handles calls to
 /// group built-ins instructions, e.g. async_copy, etc.
 /// It provides that their execution will be synchronized across all WIs
 class GroupBuiltinPass : public PassInfoMixin<GroupBuiltinPass> {
 public:
-  static StringRef name() { return "GroupBuiltin"; }
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
-  bool runImpl(Module &M);
+  bool runImpl(Module &M, BuiltinLibInfo *BLI);
 
-  explicit GroupBuiltinPass(SmallVector<Module *, 2> BuiltinModuleList = {})
-      : BuiltinModuleList(std::move(BuiltinModuleList)){};
+  explicit GroupBuiltinPass(ArrayRef<Module *> BuiltinModuleList = {}){};
 
 private:
   /// This module
   Module *M;
 
-  /// This is a list of built-in modules
-  SmallVector<Module *, 2> BuiltinModuleList;
+  /// Runtime service.
+  RuntimeService *RTService;
 
   /// This context
   LLVMContext *Context;
@@ -69,7 +69,7 @@ public:
   static char ID;
 
   /// \brief C'tor
-  explicit GroupBuiltinLegacy(SmallVector<Module *, 2> BuiltinModuleList = {});
+  explicit GroupBuiltinLegacy(ArrayRef<Module *> BuiltinModuleList = {});
 
   /// \brief Provides name of pass
   StringRef getPassName() const override {
@@ -82,7 +82,7 @@ public:
   bool runOnModule(Module &M) override;
 
   /// \brief Inform about usage/mofication/dependency of this pass
-  void getAnalysisUsage(AnalysisUsage &AU) const override {}
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
 };
 
 } // namespace llvm

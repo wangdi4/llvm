@@ -243,6 +243,7 @@ typedef std::map<__tgt_bin_desc *, PendingCtorDtorListsTy>
     PendingCtorsDtorsPerLibrary;
 #if INTEL_COLLAB
 typedef std::vector<std::set<void *>> UsedPtrsTy;
+typedef std::vector<__omp_offloading_fptr_map_t> FnPtrsTy;
 #endif // INTEL_COLLAB
 
 struct DeviceTy {
@@ -265,6 +266,8 @@ struct DeviceTy {
   std::mutex UsedPtrsMtx;
   std::map<int32_t, std::vector<void *>> LambdaPtrs;
   std::mutex LambdaPtrsMtx;
+  std::mutex FnPtrMapMtx;
+  FnPtrsTy FnPtrs;
 #endif // INTEL_COLLAB
 
   // NOTE: Once libomp gains full target-task support, this state should be
@@ -375,7 +378,7 @@ struct DeviceTy {
                                  ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                  int32_t NumTeams, int32_t ThreadLimit,
                                  uint64_t LoopTripCount, void *AsyncData);
-  void create_offload_queue(void *Interop);
+  void get_offload_queue(void *Interop, bool CreateNew);
   int32_t release_offload_queue(void *);
   void *get_platform_handle();
   void setDeviceHandle(void *Interop);
@@ -388,6 +391,7 @@ struct DeviceTy {
   int32_t get_data_alloc_info(int32_t NumPtrs, void *Ptrs, void *Infos);
   int32_t pushSubDevice(int64_t EncodedID, int64_t DeviceID);
   int32_t popSubDevice(void);
+  int32_t getNumSubDevices(int32_t Level);
   int32_t isSupportedDevice(void *DeviceType);
   __tgt_interop *createInterop(int32_t InteropContext, int32_t NumPrefers,
                                intptr_t *PreferIDs);
@@ -409,6 +413,15 @@ struct DeviceTy {
   // BatchLevel 2 enables full batching within a target region
   int32_t commandBatchBegin(int32_t BatchLevel = 1);
   int32_t commandBatchEnd(int32_t BatchLevel = 1);
+  void kernelBatchBegin(uint32_t MaxKernels);
+  void kernelBatchEnd(void);
+  int32_t set_function_ptr_map(void);
+  // Check if reduction scratch is supported
+  int32_t supportsPerHWThreadScratch(void);
+  // Allocate per-hw-thread reduction scratch
+  void *allocPerHWThreadScratch(size_t ObjSize, int32_t AllocKind);
+  // Free per-hw-thread reduction scratch
+  void freePerHWThreadScratch(void *Ptr);
 #endif // INTEL_COLLAB
 
   /// Synchronize device/queue/event based on \p AsyncInfo and return

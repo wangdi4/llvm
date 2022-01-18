@@ -1,5 +1,5 @@
-; RUN: opt  < %s -whole-program-assume -internalize -S -dtrans-optbasetest -dtrans-merge-padded-structs=true \
-; RUN:        -dtrans-optbasetest-typelist=struct.test.a 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -internalize -S -dtrans-optbasetest -dtrans-merge-padded-structs=true -dtrans-optbasetest-typelist=struct.test.a 2>&1 | FileCheck %s 
+; RUN: opt  < %s -whole-program-assume -S -passes='internalize,dtrans-optbasetest' -dtrans-merge-padded-structs=true -dtrans-optbasetest-typelist=struct.test.a 2>&1 | FileCheck %s 
 
 ; This test verifies that type remapping didn't happen because there is a
 ; base type and a padded type.

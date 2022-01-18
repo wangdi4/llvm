@@ -25,10 +25,10 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/KnownBits.h"
-#include "llvm/Transforms/InstCombine/InstCombineWorklist.h"
 #include <cassert>
 
 #define DEBUG_TYPE "instcombine"
+#include "llvm/Transforms/Utils/InstructionWorklist.h"
 
 namespace llvm {
 
@@ -43,7 +43,9 @@ class TargetTransformInfo;
 /// This class provides both the logic to recursively visit instructions and
 /// combine them.
 class LLVM_LIBRARY_VISIBILITY InstCombiner {
-  /// Only used to call target specific inst combining.
+  /// Only used to call target specific intrinsic combining.
+  /// It must **NOT** be used for any other purpose, as InstCombine is a
+  /// target-independent canonicalization transform.
   TargetTransformInfo &TTI;
 
 public:
@@ -60,16 +62,14 @@ public:
 
   bool preserveAddrCompute() const { return PreserveAddrCompute; }
 
-  bool enableFcmpMinMaxCombine(FcmpMinMaxCombineType Ty) const {
-    return (EnableFcmpMinMaxCombine & Ty) == Ty;
-  }
+  bool enableFcmpMinMaxCombine() const { return EnableFcmpMinMaxCombine; }
 
   bool enableUpCasting() const { return EnableUpCasting; }
 #endif // INTEL_CUSTOMIZATION
 
 protected:
   /// A worklist of the instructions that need to be simplified.
-  InstCombineWorklist &Worklist;
+  InstructionWorklist &Worklist;
 
   // Mode in which we are running the combiner.
   const bool MinimizeSize;
@@ -81,7 +81,7 @@ protected:
 
   /// Enable optimizations which recognize min/max semantics in (fcmp)&(fcmp)
   /// and (fcmp)|(fcmp).
-  const FcmpMinMaxCombineType EnableFcmpMinMaxCombine;
+  const bool EnableFcmpMinMaxCombine;
 
   /// If true, avoid doing transformations that significantly change address
   /// computation expressions for load and store instructions to preserve
@@ -114,15 +114,15 @@ protected:
   bool MadeIRChange = false;
 
 public:
-  InstCombiner(InstCombineWorklist &Worklist, BuilderTy &Builder,
+  InstCombiner(InstructionWorklist &Worklist, BuilderTy &Builder,
 #if INTEL_CUSTOMIZATION
                bool MinimizeSize, bool PreserveForDTrans,
-               FcmpMinMaxCombineType EnableFcmpMinMaxCombine,
-               bool PreserveAddrCompute, bool EnableUpCasting, AAResults *AA,
-               AssumptionCache &AC, TargetLibraryInfo &TLI,
-               TargetTransformInfo &TTI, DominatorTree &DT,
-               OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
-               ProfileSummaryInfo *PSI, const DataLayout &DL, LoopInfo *LI)
+               bool EnableFcmpMinMaxCombine, bool PreserveAddrCompute,
+               bool EnableUpCasting, AAResults *AA, AssumptionCache &AC,
+               TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
+               DominatorTree &DT, OptimizationRemarkEmitter &ORE,
+               BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
+               const DataLayout &DL, LoopInfo *LI)
       : TTI(TTI), Builder(Builder), Worklist(Worklist),
         MinimizeSize(MinimizeSize), PreserveForDTrans(PreserveForDTrans),
         EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
@@ -207,16 +207,16 @@ public:
     switch (Pred) {
     case ICmpInst::ICMP_SLT: // True if LHS s< 0
       TrueIfSigned = true;
-      return RHS.isNullValue();
+      return RHS.isZero();
     case ICmpInst::ICMP_SLE: // True if LHS s<= -1
       TrueIfSigned = true;
-      return RHS.isAllOnesValue();
+      return RHS.isAllOnes();
     case ICmpInst::ICMP_SGT: // True if LHS s> -1
       TrueIfSigned = false;
-      return RHS.isAllOnesValue();
+      return RHS.isAllOnes();
     case ICmpInst::ICMP_SGE: // True if LHS s>= 0
       TrueIfSigned = false;
-      return RHS.isNullValue();
+      return RHS.isZero();
     case ICmpInst::ICMP_UGT:
       // True if LHS u> RHS and RHS == sign-bit-mask - 1
       TrueIfSigned = true;
@@ -519,6 +519,11 @@ public:
   unsigned ComputeNumSignBits(const Value *Op, unsigned Depth = 0,
                               const Instruction *CxtI = nullptr) const {
     return llvm::ComputeNumSignBits(Op, DL, Depth, &AC, CxtI, &DT);
+  }
+
+  unsigned ComputeMinSignedBits(const Value *Op, unsigned Depth = 0,
+                                const Instruction *CxtI = nullptr) const {
+    return llvm::ComputeMinSignedBits(Op, DL, Depth, &AC, CxtI, &DT);
   }
 
   OverflowResult computeOverflowForUnsignedMul(const Value *LHS,

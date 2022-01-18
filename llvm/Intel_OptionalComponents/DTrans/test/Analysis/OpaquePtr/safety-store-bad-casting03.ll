@@ -31,16 +31,19 @@ define "intel_dtrans_func_index"="1" %struct.test01c* @test01c() !intel.dtrans.f
   ret %struct.test01c* null
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data: Bad casting | Unsafe pointer store | Global pointer | Unsafe pointer merge{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; CHECK: Safety data: Bad casting | Unsafe pointer store | Unsafe pointer merge{{ *$}}
+; CHECK: End LLVMType: %struct.test01b
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01c
+; CHECK: LLVMType: %struct.test01c
 ; CHECK: Safety data: Bad casting | Unsafe pointer store | Unsafe pointer merge{{ *$}}
+; CHECK: End LLVMType: %struct.test01c
 
 
 !1 = !{i32 0, i32 0}  ; i32

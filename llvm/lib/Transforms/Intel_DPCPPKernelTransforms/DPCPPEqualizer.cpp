@@ -14,6 +14,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
@@ -136,7 +137,7 @@ private:
     }
     assert(PipesModule && "Module containing pipe built-ins not found");
 
-    assert(CI->getNumArgOperands() == 4 && "Unexpected number of arguments");
+    assert(CI->arg_size() == 4 && "Unexpected number of arguments");
     SmallVector<Value *, 4> NewArgs;
     NewArgs.push_back(CI->getArgOperand(0));
 
@@ -158,7 +159,7 @@ private:
     }
 
     // Copy rest arguments.
-    for (size_t I = 2; I < CI->getNumArgOperands(); ++I)
+    for (size_t I = 2; I < CI->arg_size(); ++I)
       NewArgs.push_back(CI->getArgOperand(I));
 
     // Add _fpga suffix to pipe built-ins.
@@ -281,10 +282,15 @@ public:
 
   StringRef getPassName() const override { return "DPCPPEqualizerLegacy"; }
 
-  bool runOnModule(Module &M) override { return Impl.runImpl(M); }
+  bool runOnModule(Module &M) override {
+    BuiltinLibInfo *BLI =
+        &getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
+    return Impl.runImpl(M, BLI);
+  }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addPreserved<CallGraphWrapperPass>();
+    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
     AU.setPreservesCFG();
   }
 };
@@ -293,8 +299,11 @@ public:
 
 char DPCPPEqualizerLegacy::ID = 0;
 
-INITIALIZE_PASS(DPCPPEqualizerLegacy, DEBUG_TYPE,
-                "Setup kernel attribute and metadata", false, false)
+INITIALIZE_PASS_BEGIN(DPCPPEqualizerLegacy, DEBUG_TYPE,
+                      "Setup kernel attribute and metadata", false, false)
+INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
+INITIALIZE_PASS_END(DPCPPEqualizerLegacy, DEBUG_TYPE,
+                    "Setup kernel attribute and metadata", false, false)
 
 ModulePass *
 llvm::createDPCPPEqualizerLegacyPass(ArrayRef<Module *> BuiltinModules) {
@@ -377,16 +386,8 @@ void DPCPPEqualizerPass::formKernelsMetadata(Module &M) {
   KernelList.set(Kernels);
 }
 
-bool DPCPPEqualizerPass::runImpl(Module &M) {
-  // If BuiltinModules is empty, try to load from CommandLine.
-  SmallVector<std::unique_ptr<Module>, 2> BIModuleList;
-  SmallVector<Module *, 2> BIModuleRawPtrs;
-  if (BuiltinModules.empty()) {
-    BIModuleList = loadBuiltinModulesFromCommandLine(M.getContext());
-    transform(BIModuleList, std::back_inserter(BIModuleRawPtrs),
-              [](auto &BIModule) { return BIModule.get(); });
-    BuiltinModules = BIModuleRawPtrs;
-  }
+bool DPCPPEqualizerPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
+  BuiltinModules = BLI->getBuiltinModules();
 
   // form kernel list in the module.
   formKernelsMetadata(M);
@@ -406,8 +407,8 @@ bool DPCPPEqualizerPass::runImpl(Module &M) {
 
 PreservedAnalyses DPCPPEqualizerPass::run(Module &M,
                                           ModuleAnalysisManager &AM) {
-  (void)AM;
-  if (!runImpl(M))
+  BuiltinLibInfo *BLI = &AM.getResult<BuiltinLibInfoAnalysis>(M);
+  if (!runImpl(M, BLI))
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserve<CallGraphAnalysis>();

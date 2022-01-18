@@ -2,25 +2,25 @@
 ; For now the only difference is between -O1 and everything else, so
 ; -O2, -O3, -Os, -Oz are the same.
 
-; RUN: opt -disable-verify -verify-cfg-preserved=0 -debug-pass-manager \
+; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='lto<O1>' -S %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O --check-prefix=CHECK-O1
-; RUN: opt -disable-verify -verify-cfg-preserved=0 -debug-pass-manager \
+; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='lto<O2>' -S  %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O --check-prefix=CHECK-O23SZ \
 ; RUN:     --check-prefix=CHECK-O2
-; RUN: opt -disable-verify -verify-cfg-preserved=0 -debug-pass-manager \
+; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='lto<O3>' -S  %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O --check-prefix=CHECK-O23SZ \
 ; RUN:     --check-prefix=CHECK-O3
-; RUN: opt -disable-verify -verify-cfg-preserved=0 -debug-pass-manager \
+; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='lto<Os>' -S %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O --check-prefix=CHECK-O23SZ \
 ; RUN:     --check-prefix=CHECK-OS
-; RUN: opt -disable-verify -verify-cfg-preserved=0 -debug-pass-manager \
+; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='lto<Oz>' -S %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O --check-prefix=CHECK-O23SZ
-; RUN: opt -disable-verify -verify-cfg-preserved=0 -debug-pass-manager \
+; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='lto<O3>' -S  %s -passes-ep-peephole='no-op-function' 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O --check-prefix=CHECK-O23SZ \
 ; RUN:     --check-prefix=CHECK-O3 --check-prefix=CHECK-EP-Peephole
@@ -38,7 +38,6 @@
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
 ; INTEL_CUSTOMIZATION
-; CHECK-O-NEXT: Running pass: IntelFoldWPIntrinsicPass
 ; CHECK-O: Running pass: ForceFunctionAttrsPass
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: InferFunctionAttrsPass
@@ -93,6 +92,10 @@
 ; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis ;INTEL
 ; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy ;INTEL
 ; CHECK-O1-NEXT: Running analysis: AssumptionAnalysis on foo
+; INTEL_CUSTOMIZATION
+; TargetIRAnalysis is run earlier for xmain
+; COM: CHECK-O1-NEXT: Running analysis: TargetIRAnalysis
+; end INTEL_CUSTOMIZATION
 ; CHECK-O1-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-O-NEXT: Running analysis: ScopedNoAliasAA ;INTEL
 ; CHECK-O-NEXT: Running analysis: TypeBasedAA
@@ -111,8 +114,8 @@
 ; CHECK-O23SZ-NEXT: Running pass: PromotePass
 ; CHECK-O23SZ-NEXT: Running pass: ConstantMergePass
 ; CHECK-O23SZ-NEXT: Running pass: DeadArgumentEliminationPass
-; CHECK-O3-NEXT: Running pass: AggressiveInstCombinePass
 ; CHECK-O23SZ-NEXT: Running pass: InstCombinePass
+; CHECK-O3-NEXT: Running pass: AggressiveInstCombinePass
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O23SZ-NEXT: Running pass: InlineListsPass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA ;INTEL
@@ -123,24 +126,31 @@
 ; CHECK-O23SZ-NEXT: Running analysis: InlineAdvisorAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: InlinerPass
 ; CHECK-O23SZ-NEXT: Running pass: InlinerPass
-; INTEL_CUSTOMIZATION
+; CHECK-O23SZ-NEXT: Invalidating analysis: InlineAdvisorAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: GlobalOptPass
+; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ: Running pass: PartialInlinerPass
-; CHECK-O23SZ: Running pass: GlobalDCEPass
 ; END INTEL_CUSTOMIZATION
+; CHECK-O23SZ: Running pass: GlobalDCEPass
 ; CHECK-O23SZ-NEXT: Running pass: ArgumentPromotionPass
 ; CHECK-O23SZ-NEXT: Running pass: IPArrayTransposePass ;INTEL
-; CHECK-O23SZ: Running pass: InstCombinePass ;INTEL
+; CHECK-O23SZ: Running pass: InstCombinePass
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O23SZ-NEXT: Running pass: JumpThreadingPass
 ; CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis on foo ;INTEL
-; CHECK-O23SZ-NEXT: Running pass: SROA on foo
+; CHECK-O23SZ-NEXT: Running pass: SROAPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: TailCallElimPass on foo
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: IntelLoopAttrsPass on foo
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: PostOrderFunctionAttrsPass on (foo)
+; INTEL_CUSTOMIZATION
+; CHECK-O23SZ-NEXT: Running pass: InvalidateAnalysisPass<llvm::AndersensAA> on [module]
+; CHECK-O23SZ-NEXT: Invalidating analysis: AndersensAA on [module]
+; CHECK-O23SZ-NEXT: Running pass: RequireAnalysisPass<llvm::AndersensAA, llvm::Module> on [module]
+; CHECK-O23SZ-NEXT: Running analysis: AndersensAA on [module]
+; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: RequireAnalysisPass<{{.*}}GlobalsAA
 ; CHECK-O23SZ-NEXT: Running analysis: GlobalsAA on [module]
 ; CHECK-O23SZ-NEXT: Running pass: InvalidateAnalysisPass<{{.*}}AAManager
@@ -163,7 +173,7 @@
 ; CHECK-O23SZ-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; Running analysis: PostDominatorTreeAnalysis on foo ;INTEL PostDom has moved, cannot make check work
 ; CHECK-O23SZ-NEXT: Running pass: LICMPass on Loop
-; CHECK-O23SZ-NEXT: Running pass: GVN on foo
+; CHECK-O23SZ-NEXT: Running pass: GVNPass on foo
 ; CHECK-O23SZ-NEXT: Running analysis: MemoryDependenceAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running analysis: PhiValuesAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running pass: DopeVectorHoistPass on foo ;INTEL

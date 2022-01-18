@@ -267,6 +267,7 @@
 ///
 ///===----------------------------------------------------------------------===//
 
+#include "Utils/WebAssemblyUtilities.h"
 #include "WebAssembly.h"
 #include "WebAssemblyTargetMachine.h"
 #include "llvm/ADT/StringExtras.h"
@@ -284,13 +285,6 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "wasm-lower-em-ehsjlj"
-
-// Emscripten's asm.js-style exception handling
-extern cl::opt<bool> WasmEnableEmEH;
-// Emscripten's asm.js-style setjmp/longjmp handling
-extern cl::opt<bool> WasmEnableEmSjLj;
-// Wasm setjmp/longjmp handling using wasm EH instructions
-extern cl::opt<bool> WasmEnableSjLj;
 
 static cl::list<std::string>
     EHAllowlist("emscripten-cxx-exceptions-allowed",
@@ -370,8 +364,9 @@ public:
   static char ID;
 
   WebAssemblyLowerEmscriptenEHSjLj()
-      : ModulePass(ID), EnableEmEH(WasmEnableEmEH),
-        EnableEmSjLj(WasmEnableEmSjLj), EnableWasmSjLj(WasmEnableSjLj) {
+      : ModulePass(ID), EnableEmEH(WebAssembly::WasmEnableEmEH),
+        EnableEmSjLj(WebAssembly::WasmEnableEmSjLj),
+        EnableWasmSjLj(WebAssembly::WasmEnableSjLj) {
     assert(!(EnableEmSjLj && EnableWasmSjLj) &&
            "Two SjLj modes cannot be turned on at the same time");
     assert(!(EnableEmEH && EnableWasmSjLj) &&
@@ -549,7 +544,7 @@ Value *WebAssemblyLowerEmscriptenEHSjLj::wrapInvoke(CallBase *CI) {
   // No attributes for the callee pointer.
   ArgAttributes.push_back(AttributeSet());
   // Copy the argument attributes from the original
-  for (unsigned I = 0, E = CI->getNumArgOperands(); I < E; ++I)
+  for (unsigned I = 0, E = CI->arg_size(); I < E; ++I)
     ArgAttributes.push_back(InvokeAL.getParamAttrs(I));
 
   AttrBuilder FnAttrs(InvokeAL.getFnAttrs());
@@ -830,6 +825,33 @@ bool WebAssemblyLowerEmscriptenEHSjLj::runOnModule(Module &M) {
 
   Function *SetjmpF = M.getFunction("setjmp");
   Function *LongjmpF = M.getFunction("longjmp");
+
+  // In some platforms _setjmp and _longjmp are used instead. Change these to
+  // use setjmp/longjmp instead, because we later detect these functions by
+  // their names.
+  Function *SetjmpF2 = M.getFunction("_setjmp");
+  Function *LongjmpF2 = M.getFunction("_longjmp");
+  if (SetjmpF2) {
+    if (SetjmpF) {
+      if (SetjmpF->getFunctionType() != SetjmpF2->getFunctionType())
+        report_fatal_error("setjmp and _setjmp have different function types");
+    } else {
+      SetjmpF = Function::Create(SetjmpF2->getFunctionType(),
+                                 GlobalValue::ExternalLinkage, "setjmp", M);
+    }
+    SetjmpF2->replaceAllUsesWith(SetjmpF);
+  }
+  if (LongjmpF2) {
+    if (LongjmpF) {
+      if (LongjmpF->getFunctionType() != LongjmpF2->getFunctionType())
+        report_fatal_error(
+            "longjmp and _longjmp have different function types");
+    } else {
+      LongjmpF = Function::Create(LongjmpF2->getFunctionType(),
+                                  GlobalValue::ExternalLinkage, "setjmp", M);
+    }
+    LongjmpF2->replaceAllUsesWith(LongjmpF);
+  }
 
   auto *TPC = getAnalysisIfAvailable<TargetPassConfig>();
   assert(TPC && "Expected a TargetPassConfig");

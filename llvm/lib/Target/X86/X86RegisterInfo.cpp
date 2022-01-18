@@ -53,11 +53,6 @@ X86RegisterInfo::X86RegisterInfo(const Triple &TT)
   // Cache some information.
   Is64Bit = TT.isArch64Bit();
   IsWin64 = Is64Bit && TT.isOSWindows();
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  IsIceCode = TT.getArch() == Triple::x86_icecode;
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 
   // Use a callee-saved register as the base pointer.  These registers must
   // not conflict with any ABI requirements.  For example, in 32-bit mode PIC
@@ -370,6 +365,27 @@ X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
     if (IsWin64)
       return CSR_Win64_SVML_AVX512_SaveList;
     return CSR_Lin64_SVML_AVX512_SaveList;
+  case CallingConv::SVML_Unified:
+    if (!Is64Bit)
+      return CSR_32_Unified_SVML_GPR_SaveList;
+    if (IsWin64)
+      return CSR_Win64_Unified_SVML_128_SaveList;
+    return CSR_Lin64_Unified_SVML_128_SaveList;
+  case CallingConv::SVML_Unified_256:
+    if (!Is64Bit)
+      return CSR_32_Unified_SVML_GPR_SaveList;
+    if (IsWin64)
+      return CSR_Win64_Unified_SVML_256_SaveList;
+    return CSR_Lin64_Unified_SVML_256_SaveList;
+  case CallingConv::SVML_Unified_512:
+    if (!Is64Bit)
+      return CSR_32_Unified_SVML_512_SaveList;
+    if (IsWin64)
+      return CSR_Win64_Unified_SVML_512_SaveList;
+    return CSR_Lin64_Unified_SVML_512_SaveList;
+  case CallingConv::Intel_Features_Init:
+    return Is64Bit ? CSR_64_Intel_Features_Init_SaveList
+                   : CSR_32_Intel_Features_Init_SaveList;
 #endif // INTEL_CUSTOMIZATION
   case CallingConv::X86_RegCall:
     if (Is64Bit) {
@@ -517,9 +533,30 @@ X86RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
     if (IsWin64)
       return CSR_Win64_SVML_AVX512_RegMask;
     return CSR_Lin64_SVML_AVX512_RegMask;
+  case CallingConv::SVML_Unified:
+    if (!Is64Bit)
+      return CSR_32_Unified_SVML_GPR_RegMask;
+    if (IsWin64)
+      return CSR_Win64_Unified_SVML_128_RegMask;
+    return CSR_Lin64_Unified_SVML_128_RegMask;
+  case CallingConv::SVML_Unified_256:
+    if (!Is64Bit)
+      return CSR_32_Unified_SVML_GPR_RegMask;
+    if (IsWin64)
+      return CSR_Win64_Unified_SVML_256_RegMask;
+    return CSR_Lin64_Unified_SVML_256_RegMask;
+  case CallingConv::SVML_Unified_512:
+    if (!Is64Bit)
+      return CSR_32_Unified_SVML_512_RegMask;
+    if (IsWin64)
+      return CSR_Win64_Unified_SVML_512_RegMask;
+    return CSR_Lin64_Unified_SVML_512_RegMask;
   case CallingConv::X86_AVX2_C:
     assert(Is64Bit);
     return CSR_64_AVX2_RegMask;
+  case CallingConv::Intel_Features_Init:
+    return Is64Bit ? CSR_64_Intel_Features_Init_RegMask
+                   : CSR_32_Intel_Features_Init_RegMask;
 #endif // INTEL_CUSTOMIZATION
   case CallingConv::X86_RegCall:
     if (Is64Bit) {
@@ -681,17 +718,6 @@ BitVector X86RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
         Reserved.set(*AI);
     }
   }
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  // Reserve the registers ZMM0~15 in IceCode mode.
-  if (IsIceCode)
-    for (unsigned n = 0; n != 16; ++n)
-      // ZMM0, ZMM1, ...
-      for (MCRegAliasIterator AI(X86::ZMM0 + n, this, true); AI.isValid(); ++AI)
-        Reserved.set(*AI);
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 
   assert(checkAllSuperRegsMarked(Reserved,
                                  {X86::SIL, X86::DIL, X86::BPL, X86::SPL,
@@ -897,10 +923,10 @@ unsigned X86RegisterInfo::findDeadCallerSavedReg(
     return 0;
   case TargetOpcode::PATCHABLE_RET:
   case X86::RET:
-  case X86::RETL:
-  case X86::RETQ:
-  case X86::RETIL:
-  case X86::RETIQ:
+  case X86::RET32:
+  case X86::RET64:
+  case X86::RETI32:
+  case X86::RETI64:
   case X86::TCRETURNdi:
   case X86::TCRETURNri:
   case X86::TCRETURNmi:

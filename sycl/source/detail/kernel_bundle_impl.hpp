@@ -87,17 +87,22 @@ public:
         MContext, MDevices, State);
   }
 
-  // Interop constructor
-  kernel_bundle_impl(context Ctx, std::vector<device> Devs,
-                     device_image_plain &DevImage)
+  // Interop constructor used by make_kernel
+  kernel_bundle_impl(context Ctx, std::vector<device> Devs)
       : MContext(Ctx), MDevices(Devs) {
     if (!checkAllDevicesAreInContext(Devs, Ctx))
       throw sycl::exception(
           make_error_code(errc::invalid),
           "Not all devices are associated with the context or "
           "vector of devices is empty");
-    MDeviceImages.push_back(DevImage);
     MIsInterop = true;
+  }
+
+  // Interop constructor
+  kernel_bundle_impl(context Ctx, std::vector<device> Devs,
+                     device_image_plain &DevImage)
+      : kernel_bundle_impl(Ctx, Devs) {
+    MDeviceImages.push_back(DevImage);
   }
 
   // Matches sycl::build and sycl::compile
@@ -158,6 +163,10 @@ public:
       std::vector<device> Devs, const property_list &PropList)
       : MDevices(std::move(Devs)) {
 
+    if (MDevices.empty())
+      throw sycl::exception(make_error_code(errc::invalid),
+                            "Vector of devices is empty");
+
     if (ObjectBundles.empty())
       return;
 
@@ -184,11 +193,10 @@ public:
                                                         Dev);
               });
         });
-    if (MDevices.empty() || !AllDevsAssociatedWithInputBundles)
-      throw sycl::exception(
-          make_error_code(errc::invalid),
-          "Not all devices are in the set of associated "
-          "devices for input bundles or vector of devices is empty");
+    if (!AllDevsAssociatedWithInputBundles)
+      throw sycl::exception(make_error_code(errc::invalid),
+                            "Not all devices are in the set of associated "
+                            "devices for input bundles");
 
     // TODO: Unify with c'tor for sycl::comile and sycl::build by calling
     // sycl::join on vector of kernel_bundles
@@ -473,6 +481,9 @@ public:
   size_t size() const noexcept { return MDeviceImages.size(); }
 
   bundle_state get_bundle_state() const {
+    // Interop kernel-bundles are always in executable state
+    if (MIsInterop)
+      return bundle_state::executable;
     // All device images are expected to have the same state
     return MDeviceImages.empty()
                ? bundle_state::input

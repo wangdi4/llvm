@@ -30,6 +30,8 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 static LoopVPlanDumpControl
+    LinearizationDumpControl("linearization", "linearization");
+static LoopVPlanDumpControl
     PredicatesEmissionDumpControl("predicates-emission", "predicates emission");
 
 static cl::opt<bool> PreserveUniformCFG(
@@ -319,6 +321,11 @@ VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
     return It->second[AtBlock];
   }
 
+  LLVM_DEBUG(dbgs() << "Propagating PredicateTerm "
+                    << Term.OriginBlock->getName() << " "
+                    << Term.Condition->getName() << " Negate: " << Term.Negate
+                    << "\n");
+
   VPValue *Val = createDefiningValueForPredicateTerm(Term);
   assert(Val && "Value for PredicateTerm wasn't created!");
 
@@ -333,10 +340,19 @@ VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
   SmallVector<VPBasicBlock *, 8> IDFPHIBlocks;
   computeLiveInsForIDF(Term, LiveInBlocks);
 
+  LLVM_DEBUG({
+    dbgs() << "LiveInBlocks:\n";
+    for (auto *BB : LiveInBlocks)
+      dbgs() << BB->getName() << " ";
+  });
+
   VPlanForwardIDFCalculator IDF(*Plan.getDT());
   IDF.setDefiningBlocks(DefBlocks);
   IDF.setLiveInBlocks(LiveInBlocks);
   IDF.calculate(IDFPHIBlocks);
+
+  LLVM_DEBUG(dbgs() << "\nIDFPHIBlocks:\n";
+             for (auto *BB : IDFPHIBlocks) { dbgs() << BB->getName() << " "; } dbgs() << "\n");
 
   DenseMap<VPBasicBlock *, VPValue *> &LiveValueMap =
       PredicateTerm2LiveInMap[Term];
@@ -448,8 +464,44 @@ bool VPlanPredicator::shouldPreserveOutgoingEdges(VPBasicBlock *Block) {
          "No dedicated pre-header?");
 
   auto *Cond = Block->getCondBit();
+  if (Cond && Plan.getVPlanDA()->isDivergent(*Cond))
+    return false;
+
   bool BlockIsUniform = Block2PredicateTermsAndUniformity[Block].second;
-  return BlockIsUniform && (!Cond || !Plan.getVPlanDA()->isDivergent(*Cond));
+  if (BlockIsUniform)
+    return true;
+
+  if (!Cond)
+    return false;
+
+  // Try to preserve uniform condition under a top-level mask.
+  if (!isa<VPExternalDef>(Cond))
+    // Non-trivial in case of all-false outer mask.
+    return false;
+
+  VPBasicBlock *PostDom = Plan.getPDT()->getNode(Block)->getIDom()->getBlock();
+  for (auto It = std::next(df_begin(Block)), End = df_end(Block);
+       It != End;) {
+    if (*It == PostDom) {
+      It.skipChildren();
+      continue;
+    }
+
+    // No outer edge going into the region.
+    if (!Plan.getDT()->dominates(Block, *It))
+      return false;
+
+    // No intermix of subregions between each other.
+    if (llvm::none_of(Block->getSuccessors(),
+                      [&It, DT = Plan.getDT()](const VPBasicBlock *Succ) {
+                        return DT->dominates(Succ, *It);
+                      }))
+      return false;
+
+    ++It;
+  }
+
+  return true;
 }
 
 namespace {
@@ -507,6 +559,16 @@ public:
 void VPlanPredicator::linearizeRegion() {
   LinearizationBlockOrdering BlockOrdering(Plan, RPOT);
 
+  // Init list of edges we're going to preserve. The check might/will be CFG
+  // based and we don't want to run it in the middle of the processing.
+  DenseMap<VPBasicBlock * /* Dst */, SmallPtrSet<VPBasicBlock * /* Src */, 4>>
+      EdgesToPreserve;
+
+  for (VPBasicBlock *Block : BlockOrdering)
+    if (shouldPreserveOutgoingEdges(Block))
+      for (VPBasicBlock *Succ : Block->getSuccessors())
+        EdgesToPreserve[Succ].insert(Block);
+
   // Keep track of the edges that were removed during linearization process.
   // Once we meet any divergent condition that is going to be linearized we keep
   // a single outgoing edge (to the CurrBlock, see below) and remove another
@@ -518,33 +580,32 @@ void VPlanPredicator::linearizeRegion() {
   std::map<VPBasicBlock * /* Dst */, SmallVector<VPBasicBlock * /* Src */, 4>>
       RemovedDivergentEdgesMap;
 
-  // VPlan entry block is assumed to be unmasked.
-  auto It = BlockOrdering.begin();
-  ++It;
-  auto End = BlockOrdering.end();
-
   int CurrBlockIndex = 0;
-  for (VPBasicBlock *CurrBlock : make_range(It, End)) {
+  // VPlan entry block is assumed to be unmasked.
+  for (VPBasicBlock *CurrBlock : drop_begin(BlockOrdering)) {
     // We've peeled 0-th iteration, so incrementing in the beginning of the loop
     // is correct.
     ++CurrBlockIndex;
 
-   // Process incoming edges to the CurrBlock. Once this iterations finishes,
-   // CurrBlock's incoming edges are properly set. Also create new basic blocks
-   // if CurrBlock is a point of re-convergence of several divergent conditions
-   // (or even of a single one if uniform incoming edges are present). Blocks
-   // that would need post-processing for blends creation are marked as such as
-   // well.
-    SmallVector<VPBasicBlock *, 4> UniformEdges;
+    LLVM_DEBUG(dbgs() << "Processing incoming edges to " << CurrBlock->getName()
+                      << "\n");
+
+    // Process incoming edges to the CurrBlock. Once this iterations finishes,
+    // CurrBlock's incoming edges are properly set. Also create new basic blocks
+    // if CurrBlock is a point of re-convergence of several divergent conditions
+    // (or even of a single one if uniform incoming edges are present). Blocks
+    // that would need post-processing for blends creation are marked as such as
+    // well.
+    SmallPtrSetImpl<VPBasicBlock *> &PredsToPreserve =
+        EdgesToPreserve[CurrBlock];
     SmallVector<VPBasicBlock *, 4> RemainingDivergentEdges;
     SmallVectorImpl<VPBasicBlock *> &RemovedDivergentEdges =
         RemovedDivergentEdgesMap[CurrBlock];
 
     for (auto *Pred : CurrBlock->getPredecessors()) {
-      if (shouldPreserveOutgoingEdges(Pred)) {
-        UniformEdges.push_back(Pred);
+      if (PredsToPreserve.count(Pred))
         continue;
-      }
+
       RemainingDivergentEdges.push_back(Pred);
     }
 
@@ -552,7 +613,7 @@ void VPlanPredicator::linearizeRegion() {
       // FIXME: CG to create a separate BB if there are PHIs here instead.
       // For now, just mark phis as blend to avoid phis in the middle of the
       // generated BB.
-      if (UniformEdges.size() == 1 &&
+      if (PredsToPreserve.size() == 1 &&
           CurrBlock->getSinglePredecessor()->getSingleSuccessor()) {
         for (auto &Phi : CurrBlock->getVPPhis()) {
           PhisToBlendProcess[CurrBlock].push_back(&Phi);
@@ -561,6 +622,7 @@ void VPlanPredicator::linearizeRegion() {
 
       // No more fixups needed, al predecessors are uniform edges that we didn't
       // touch.
+      LLVM_DEBUG(dbgs() << "No fixup needed\n");
       continue;
     }
 
@@ -575,77 +637,45 @@ void VPlanPredicator::linearizeRegion() {
           Src->setTerminator(TargetToKeep);
         };
 
+    LLVM_DEBUG(dbgs() << "Remaining divergent edges:");
     for (auto *Pred : RemainingDivergentEdges) {
+      LLVM_DEBUG(dbgs() << " " << Pred->getName());
       // The edge is in the linearized subgraph and is processed first. Keep it,
       // but remove other successors of the pred to perform linearization.
-      assert(!shouldPreserveOutgoingEdges(Pred) &&
-             "Trying to remove an edge that should be preserved!");
       DropDivergentEdgesFromAndLinkWith(Pred, CurrBlock);
     }
 
+    LLVM_DEBUG(dbgs() << "\nAlready dropped divergent edges:");
     for (auto *Pred : RemovedDivergentEdges) {
-      // Check if Pred is in the same linearized sub-graph that the CurrBlock
-      // is. In other words, do we reach any of the remaining edges when going
-      // through Pred's single successors chain?
+      LLVM_DEBUG(dbgs() << " " << Pred->getName());
+      // Ensure that all preds where edges were dropped can reach this block on
+      // all pathes from them. Add new edges if necessary.
+      auto It = df_begin(Pred);
+      auto End = df_end(Pred);
+      while (It != End) {
+        if (any_of(It->getSuccessors(),
+                   [&BlockOrdering, CurrBlockIndex](const VPBasicBlock *Succ) {
+                     return BlockOrdering.getIndex(Succ) < CurrBlockIndex;
+                   })) {
+          // Not a leaf in the subgraph processed so far.
+          ++It;
+          continue;
+        }
 
-      VPBasicBlock *LastProcessed = Pred;
-      VPBasicBlock *PredSucc = Pred->getSingleSuccessor();
-      // Don't go into the blocks that haven't been processed before this one
-      // , including itself.
-      while (PredSucc && BlockOrdering.getIndex(PredSucc) < CurrBlockIndex) {
-        LastProcessed = PredSucc;
-        auto EdgeFormsLinearizedChain =
-            [this, &BlockOrdering, CurrBlockIndex](const VPBasicBlock *From,
-                                                   const VPBasicBlock *To) {
-              return !VPBlockUtils::isBackEdge(From, To, VPLI) &&
-                     BlockOrdering.getIndex(To) < CurrBlockIndex;
-            };
-        assert(count_if(PredSucc->getSuccessors(),
-                        [EdgeFormsLinearizedChain,
-                         PredSucc](const VPBasicBlock *Succ) {
-                          return EdgeFormsLinearizedChain(PredSucc, Succ);
-                        }) <= 1 &&
-               "Broken linearized chain!");
-        auto *SavedPtr = PredSucc;
-        PredSucc = nullptr;
-        for (auto *Succ : SavedPtr->getSuccessors())
-          if (EdgeFormsLinearizedChain(SavedPtr, Succ)) {
-            PredSucc = Succ;
-            break;
-          }
-      }
+        if (BlockOrdering.getIndex(*It) >= CurrBlockIndex) {
+          // Block is outside the subgraph we're currently working on.
+          It.skipChildren();
+          continue;
+        }
 
-      if (is_contained(LastProcessed->getSuccessors(), CurrBlock)) {
-        // Nothing to do.
-        //
-        // Indeed, the LastProcessed-CurrBlock edge is one of the following:
-        //   - Uniform edge (e.g. exiting edge of an inner loop). No successors
-        //     fixup is needed.
-        //   - Remaining divergent edge. Successors were fixed up in a loop
-        //     processing such kind of edges.
-        //   - New edge connecting this block to a linearized chain created on
-        //     one of the previous iterations of this loop. Successors were
-        //     fixed up during edge creation (else part of this condition).
-      } else {
-        // Pred was processed as part of some other linearization chain. Need to
-        // merge it with the current one.
-        //
-        // Note: we are in the process of iterating over
-        // RemovedDivergentEdgesMap[CurrBlock]. Since CurrBlock is passed at the
-        // destination to keep no invalidation happens.
-        DropDivergentEdgesFromAndLinkWith(LastProcessed, CurrBlock);
+        DropDivergentEdgesFromAndLinkWith(*It, CurrBlock);
+        It.skipChildren();
       }
     }
 
-    // All incoming edges to CurrBlock are correct now.
-    assert(none_of(CurrBlock->getPredecessors(),
-                   [CurrBlock, this](VPBasicBlock *PredBlock) -> bool {
-                     return shouldPreserveOutgoingEdges(PredBlock) &&
-                            !is_contained(PredBlock->getSuccessors(),
-                                          CurrBlock);
-                   }) &&
-           "Uniform edge has been removed!");
+    LLVM_DEBUG(dbgs() << "\n");
 
+    // All incoming edges to CurrBlock are correct now.
     for (auto &Phi : CurrBlock->getVPPhis()) {
       PhisToBlendProcess[CurrBlock].push_back(&Phi);
     }
@@ -1171,10 +1201,10 @@ void VPlanPredicator::predicate() {
   //     step.
   //   - The correct phi placement during phi-to-blend processing requires IDF
   //     algorithm as well and is another reason to separate the steps.
-  // It does *NOT* update condBits as they're used later for predicates
-  // creation. We probably need to fix this for the explicit VPBranchInsts.
   if (!SearchLoopHack)
     linearizeRegion();
+
+  VPLAN_DUMP(LinearizationDumpControl, Plan);
 
   Plan.computeDT();
   Plan.computePDT();

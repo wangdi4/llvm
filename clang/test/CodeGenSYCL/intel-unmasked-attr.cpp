@@ -37,5 +37,5 @@ int main() {
   return 0;
 }
 
-// CHECK: attributes #[[ATTRS_UNMASKED]] = { {{.*}} "referenced-indirectly" {{.*}} "unmasked"
-// CHECK-NOT: attributes #[[ATTRS_NOT_UNMASKED]] = { {{.*}} "unmasked"
+// CHECK: attributes #[[ATTRS_UNMASKED]] = { {{.*}} noinline {{.*}} "referenced-indirectly" {{.*}} "unmasked"
+// CHECK-NOT: attributes #[[ATTRS_NOT_UNMASKED]] = { {{.*}} noinline {{.*}} "unmasked"

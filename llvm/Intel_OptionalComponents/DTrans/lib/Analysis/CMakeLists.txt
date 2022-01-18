@@ -17,8 +17,10 @@ add_llvm_component_library(LLVMIntel_DTransAnalysis
   DTransAnalysis.cpp
   DTransAnnotator.cpp
   DTransArraysWithConstant.cpp
+  DTransBadCastingAnalyzer.cpp
   DTransFieldModRef.cpp
   DTransImmutableAnalysis.cpp
+  DTransLibraryInfo.cpp
   DTransOPUtils.cpp
   DTransSafetyAnalyzer.cpp
   DTransTypes.cpp

@@ -83,7 +83,7 @@ define i32 @main() local_unnamed_addr #0 {
 ; CHECK-NEXT:     i32 [[VP16:%.*]] = phi  [ i32 [[VP4]], [[BB4]] ],  [ i32 [[VP4]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP5]] = mul i32 [[VP16]] i32 [[VP15]]
 ; CHECK-NEXT:     i64 [[VP7]] = add i64 [[VP6]] i64 1
-; CHECK-NEXT:     i1 [[VP17:%.*]] = icmp sle i64 [[VP7]] i64 7
+; CHECK-NEXT:     i1 [[VP17:%.*]] = icmp slt i64 [[VP7]] i64 8
 ; CHECK-NEXT:     br i1 [[VP17]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]

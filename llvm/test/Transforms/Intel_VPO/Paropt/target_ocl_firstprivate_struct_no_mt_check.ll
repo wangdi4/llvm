@@ -15,7 +15,7 @@
 ; that the store to a.d[7] is not guarded with a master-thread check.
 ; That would be incorrect, because the same store must be done
 ; in all threads.
-; CHECK: define{{.*}}spir_kernel void @__omp_offloading_805_be2278__Z3foov_l6({ [80 x i1] }* byval({ [80 x i1] })
+; CHECK: define{{.*}}spir_kernel void @__omp_offloading_805_be2278__Z3foov_l6(<{ [10 x i64] }>* byval(<{ [10 x i64] }>)
 ; Master-thread check will generate get_local_id calls:
 ; CHECK-NOT: get_local_id
 

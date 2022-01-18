@@ -1,7 +1,7 @@
 ;
 ; REQUIRES: asserts
-; RUN: opt -vplan-enable-soa=false -S %s -vplan-vec -vplan-print-after-linearization -disable-output | FileCheck %s
-; RUN: opt -vplan-enable-soa=false -S %s -passes="vplan-vec" -vplan-print-after-linearization -disable-output | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -S %s -vplan-vec -vplan-print-after-predicator -disable-output | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -S %s -passes="vplan-vec" -vplan-print-after-predicator -disable-output | FileCheck %s
 
 ;source code:
 ;void foo(float *a, float *b, int* n) {
@@ -18,7 +18,7 @@
 ; Expected 2 all-zero-check VPInstructions created proving the recursivness
 ; of loopCFU calls.
 
-; CHECK-LABEL: VPlan after predication and linearization
+; CHECK-LABEL: VPlan after predicator
 ; CHECK:        i1 [[ALLZERO_1:%vp.*]] = all-zero-check
 ; CHECK-NEXT:   br i1 [[ALLZERO_1]], {{BB[0-9]+}}, {{BB[0-9]+}}
 ; CHECK:        i1 [[ALLZERO_2:%vp.*]] = all-zero-check

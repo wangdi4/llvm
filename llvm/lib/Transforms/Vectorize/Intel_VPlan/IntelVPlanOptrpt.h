@@ -52,6 +52,33 @@ public:
   } // end of definition
 #include "IntelVPlanOptrpt.inc"
   }
+
+  void emitRemarks(OptReportBuilder &Builder, VPLoop *Lp,
+                   VPLoopInfo *VPLI) const {
+    int Gathers = MaskedGathers + UnmaskedGathers;
+    int Scatters = MaskedScatters + UnmaskedScatters;
+#define VPLAN_OPTRPT_GS(Gathers, Scatters)                                     \
+  if (Gathers)                                                                 \
+    Builder(*Lp, *VPLI).addRemark(OptReportVerbosity::High, 15567u);           \
+  if (Scatters)                                                                \
+    Builder(*Lp, *VPLI).addRemark(OptReportVerbosity::High, 15568u);
+#define VPLAN_OPTRPT_HANDLE_GROUP_BEGIN(ID)                                    \
+  Builder(*Lp, *VPLI).addRemark(OptReportVerbosity::High, ID);
+#define VPLAN_OPTRPT_HANDLE(ID, NAME)                                          \
+  Builder(*Lp, *VPLI)                                                          \
+      .addRemark(OptReportVerbosity::High, ID, Twine(NAME).str());
+#define VPLAN_OPTRPT_HANDLE_GROUP_END(ID)                                      \
+  Builder(*Lp, *VPLI).addRemark(OptReportVerbosity::High, ID);
+#define VPLAN_OPTRPT_VEC_HANDLE(VEC)                                           \
+  for (auto &Itr : VEC) {                                                      \
+    if (Itr.second.empty())                                                    \
+      Builder(*Lp, *VPLI).addRemark(OptReportVerbosity::High, Itr.first);      \
+    else                                                                       \
+      Builder(*Lp, *VPLI)                                                      \
+          .addRemark(OptReportVerbosity::High, Itr.first, Itr.second);         \
+  } // end of definition
+#include "IntelVPlanOptrpt.inc"
+  }
 };
 } // namespace vpo
 } // namespace llvm

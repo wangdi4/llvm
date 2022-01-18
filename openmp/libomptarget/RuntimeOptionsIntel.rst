@@ -177,6 +177,26 @@ Enables/disables use of target build options embedded in the target image.
 
 **Default**: Enabled
 
+``LIBOMPTARGET_ONEAPI_SHOW_BUILD_LOG=<Bool>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Bool> := 1 | T | t | 0 | F | f
+
+Enables/disables printing of the build logs produced by the device compiler
+for the target programs.
+
+**Default**: Disabled
+
+``LIBOMPTARGET_ONEAPI_LINK_LIBDEVICE=<Bool>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Bool> := 1 | T | t | 0 | F | f
+
+Enables/disables fallback libdevice linking in the plugins.
+
+**Default**: Disabled
 
 Plugin LevelZero
 ----------------
@@ -316,7 +336,8 @@ counts for a target region that requires cross-team reduction updates.
 '0' disables special handling for kernels with reductions, so
 ``LIBOMPTARGET_LEVEL0_SUBSCRIPTION_RATE`` takes the effect.
 
-**Default**: 8 for discrete devices, 1 for non-discrete devices
+**Default**: 8 for discrete devices, 1 for non-discrete devices or/and
+for kernels that use atomic-free reductions.
 
 ``LIBOMPTARGET_LEVEL0_KERNEL_WIDTH=<Width>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -336,7 +357,7 @@ Staging buffer is used in copy operations between host and device as a
 temporary storage for two-step copy operation. The buffer is only used for
 discrete devices.
 
-**Default**: 4
+**Default**: 16
 
 ``LIBOMPTARGET_LEVEL_ZERO_COMMAND_BATCH=<Value>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -360,6 +381,16 @@ region.
 
 **Default**: ``<Type>=none`` (Disabled)
 
+``LIBOMPTARGET_LEVEL_ZERO_USE_MULTIPLE_COMPUTE_QUEUES=<Bool>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Bool> := 1 | T | t | 0 | F | f
+
+Enables/disables using multiple compute queues for multiple host threads if the
+device supports.
+
+**Default**: Disabled
 
 Plugin OpenCL
 -------------
@@ -399,7 +430,8 @@ counts for a target region that requires cross-team reduction updates.
 '0' disables special handling for kernels with reductions, so
 ``LIBOMPTARGET_OPENCL_SUBSCRIPTION_RATE`` takes the effect.
 
-**Default**: 8 for discrete devices, 1 for non-discrete devices
+**Default**: 8 for discrete devices, 1 for non-discrete devices or/and
+for kernels that use atomic-free reductions.
 
 ``LIBOMPTARGET_ENABLE_SIMD=<Enable>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

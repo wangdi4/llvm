@@ -2,18 +2,27 @@ cmake_minimum_required(VERSION 3.14)
 
 include(FetchContent)
 
+# Suppress warnings related to dependencies
+if (MSVC)
+  add_definitions(
+    -wd4133 # Suppress ''function': incompatible types - from 'char [9]' to 'LPCWSTR''
+    -wd4152 # Suppress 'nonstandard extension, function/data pointer conversion in expression'
+    -wd4201 # Suppress 'nonstandard extension used: nameless struct/union'
+  )
+endif()
+
 # Repo URLs
 
 if(INTEL_CUSTOMIZATION)
   if(DEFINED ENV{ICS_GIT_MIRROR} AND NOT "$ENV{ICS_GIT_MIRROR}" STREQUAL "")
     STRING(REGEX REPLACE "\\\\" "/" GITSERVER "$ENV{ICS_GIT_MIRROR}")
   else()
-    set(GITSERVER "ssh://git-amr-2.devtools.intel.com:29418")
+    set(GITSERVER "https://github.com/intel-innersource")
   endif()
  set(OCL_HEADERS_REPO
-   "${GITSERVER}/dpd_icl-opencl-headers")
+   "${GITSERVER}/applications.compilers.source.opencl-headers")
  set(OCL_LOADER_REPO
-   "${GITSERVER}/dpd_icl-opencl-icd-loader")
+   "${GITSERVER}/applications.compilers.source.opencl-icd-loader")
 endif(INTEL_CUSTOMIZATION)
 
 # Repo tags/hashes

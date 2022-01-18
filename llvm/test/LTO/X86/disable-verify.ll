@@ -9,9 +9,11 @@ target triple = "x86_64-apple-macosx10.10.0"
 
 ; -disable-verify should disable verification from the optimization pipeline.
 ; CHECK: Pass Arguments:
-; CHECK-NOT: -verify {{.*}} -verify
+; INTEL_CUSTOMIZATION
+; CHECK-NOT: -verify {{.*}} -verify {{.*}} -verify
 
-; VERIFY: Pass Arguments: {{.*}} -verify {{.*}} -verify
+; VERIFY: Pass Arguments: {{.*}} -verify {{.*}} -verify {{.*}} -verify
+; END INTEL_CUSTOMIZATION
 
 define void @f() {
 entry:

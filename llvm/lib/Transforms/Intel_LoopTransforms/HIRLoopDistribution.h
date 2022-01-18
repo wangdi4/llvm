@@ -106,6 +106,7 @@ public:
   };
 
 private:
+  HLLoop *Lp;
   unsigned Level;
   bool HasDistributePoint;
 
@@ -115,7 +116,7 @@ private:
   using SymbaseLoopSetTy = SmallSet<std::pair<unsigned, unsigned>, 8>;
 
 public:
-  ScalarExpansion(unsigned Level, bool HasDistributePoint,
+  ScalarExpansion(HLLoop *Loop, bool HasDistributePoint,
                   ArrayRef<HLDDNodeList> Chunks);
 
   ArrayRef<Candidate> getCandidates() const { return Candidates; }
@@ -133,6 +134,8 @@ public:
     return std::count_if(Candidates.begin(), Candidates.end(),
                          isTempRequiredPredicate);
   }
+
+  bool hasBadCandidate() const;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DUMP_METHOD void dump() {

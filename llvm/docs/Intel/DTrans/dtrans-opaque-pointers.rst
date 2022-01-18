@@ -396,6 +396,19 @@ Here the return type attribute indicates that the 1st item in the metadata list
 contains the encoding for the return type, and the pointer parameters are the
 2nd and 3rd items in the metadata list.
 
+The "intel_dtrans_func_index"es are assigned for all pointer arguments,
+beginning with the return value, if it is a pointer argument, and then
+prooceeding through the pointer arguments passed to the function. The
+number in the quotes indicates the position of the return or function
+argument in the metadata for the function definition. The front-end
+numbers these starting with "1".
+
+So, the above example, @bitop has its pointer return and function arguments
+defined by metadata !3, the return is described by metadata !1 with
+"intel_dtrans_func_index"="1", %0 is described by metedata !1 with 
+"intel_dtrans_func_index"="2", and %2 is described by metedata !2 with
+"intel_dtrans_func_index"="3".
+
 Type Recovery Process
 =====================
 TBD

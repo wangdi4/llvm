@@ -1,7 +1,4 @@
-; INTEL_CUSTOMIZATION
-; Disabled loopopt as it significantly changes the pass pipeline.
-; RUN: opt -loopopt=0 -passes='default<O3>,print<scalar-evolution>' -S < %s 2>&1 | FileCheck %s
-; END INTEL_CUSTOMIZATION
+; RUN: opt -passes='default<O3>,print<scalar-evolution>' -S < %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:m-p:40:64:64:32-i32:32-i16:16-i8:8-n32"
 

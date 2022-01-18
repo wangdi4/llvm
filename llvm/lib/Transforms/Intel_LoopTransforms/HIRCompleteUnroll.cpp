@@ -93,6 +93,11 @@ static cl::opt<unsigned> CommandLineOptLevel(
     cl::desc(
         "Opt level for complete unroll (2 or 3). This affects unroll limits."));
 
+static cl::opt<float> GEPSavingsMultiplier(
+    "hir-complete-unroll-gepsavingsmultiplier", cl::init(1.5), cl::ReallyHidden,
+    cl::desc(
+        "Multiplier for GEPSavings."));
+
 const unsigned O2LoopTripThreshold = 63;
 const unsigned O3LoopTripThreshold = 63;
 
@@ -1031,6 +1036,8 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
   auto HInst = dyn_cast<HLInst>(Node);
   auto Inst = HInst ? HInst->getLLVMInstruction() : nullptr;
   bool IsSelect = (Inst && isa<SelectInst>(Inst));
+  bool IsIdiomaticSelect =
+      (IsSelect && (HInst->isAbs() || HInst->isMinOrMax()));
 
   auto RefIt = HInst ? HInst->rval_op_ddref_begin() : Node->op_ddref_begin();
   auto End = HInst ? HInst->rval_op_ddref_end() : Node->op_ddref_end();
@@ -1051,7 +1058,7 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
     // simplification. t = (t1 < t2) ? t3 : t4
     bool IsSelectOperand = IsSelect && (NumRvalOp > 1);
 
-    if (IsSelectOperand && (HInst->isAbs() || HInst->isMinOrMax())) {
+    if (IsSelectOperand && IsIdiomaticSelect) {
       // Do not analyze last two operands of 'idiomatic' select.
       break;
     }
@@ -1075,8 +1082,8 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
     // perform constant propagation/DCE after complete unroll we may mistakenly
     // identify it as savings in post vec complete unroll.
     if (HasNonConstRval) {
-      // Add extra savings for ifs/switches.
-      Savings += HInst ? 1 : 2;
+      // Add extra savings for ifs/switches/selects.
+      Savings += (!HInst || IsSelect) ? 2 : 1;
     }
 
     if (!HInst) {
@@ -1115,14 +1122,14 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
 
   if (!CanSimplifyRvals || !CanSimplifyLval) {
 
-    if (HInst) {
+    if (HInst && !IsSelect) {
       // Add extra cost if instruction is a non-simplifiable reduction and we
       // are executing before vectorizer. We should prefer vectorizing
       // reductions rather than unrolling them.
       Cost +=
           (HCU.IsPreVec && LvalRef && HCU.HSRA.isSafeReduction(HInst)) ? 2 : 1;
     } else {
-      // Add extra cost for ifs/switches.
+      // Add extra cost for ifs/switches/selects.
       Cost += 2;
     }
   }
@@ -2095,7 +2102,8 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(
         // Ideally, the savings should be outer loop trip count multiplied by
         // unique occurences but that skews the cost model too much so we only
         // double the saving.
-        GEPSavings += (2 * UniqueOccurences * BaseCost);
+        GEPSavings += (GEPSavingsMultiplier *
+                       (float) UniqueOccurences * (float) BaseCost);
 
       } else if (HCU.IsPreVec && isMemIdiomStore(Ref, OuterLoop)) {
         // Add extra cost for memset/memcpy like stores in pre-vec pass so that
@@ -2477,8 +2485,15 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processBlobs(
       continue;
     }
 
-    addBlobCost(BInfo, Blob->Coeff, CE, 0, NumNonLinearTerms,
-                &HasVisitedNonLinearTerms);
+    // Currently, nullptr is passed to addBlobCost to increase NumNonLinearTerms
+    // further with Visited non-linear terms.
+    // There may be a way to improve the cost model analysis but it will require
+    // more intrusive changes. Basically, we can call
+    // canConvertToStandAloneBlobOrConstant() on the CE where applicable and
+    // keep track of the resulting blobs as 'visited'. Based on whether the
+    // overall CE blob was visited, we can either consider the cost as 1 or
+    // (number of terms).
+    addBlobCost(BInfo, Blob->Coeff, CE, 0, NumNonLinearTerms, nullptr);
   }
 
   if (HasVisitedNonLinearTerms) {

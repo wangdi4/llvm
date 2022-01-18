@@ -39,11 +39,11 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/MC/MCAsmInfo.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/CFGuard.h"
@@ -60,11 +60,6 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   // Register the target.
   RegisterTargetMachine<X86TargetMachine> X(getTheX86_32Target());
   RegisterTargetMachine<X86TargetMachine> Y(getTheX86_64Target());
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  RegisterTargetMachine<X86TargetMachine> Z(getTheX86_IceCodeTarget());
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 
   PassRegistry &PR = *PassRegistry::getPassRegistry();
   initializeX86SplitVectorValueTypePass(PR);  // INTEL
@@ -103,7 +98,10 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeGenerateLEAPassPass(PR);
   initializeX86Gather2LoadPermutePassPass(PR);
   initializeX86LowerMatrixIntrinsicsPassPass(PR);
+  initializeX86InstCombinePass(PR);
   initializeX86FeatureInitPassPass(PR);
+  initializeX86SplitLongBlockPassPass(PR);
+  initializeX86PreISelIntrinsicLoweringPass(PR);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -443,8 +441,10 @@ TargetPassConfig *X86TargetMachine::createPassConfig(PassManagerBase &PM) {
 void X86PassConfig::addIRPasses() {
   addPass(createAtomicExpandPass());
   addPass(createFloat128ExpandPass()); // INTEL
-  if (TM->getOptLevel() != CodeGenOpt::None) // INTEL
+  if (TM->getOptLevel() != CodeGenOpt::None) { // INTEL
     addPass(createFoldLoadsToGatherPass()); // INTEL
+    addPass(createX86Gather2LoadPermutePass()); // INTEL
+  } // INTEL
 
   addPass(createX86LowerMatrixIntrinsicsPass()); // INTEL
   // We add both pass anyway and when these two passes run, we skip the pass
@@ -454,6 +454,9 @@ void X86PassConfig::addIRPasses() {
 
   if (TM->getOptLevel() == CodeGenOpt::None)
     addPass(createX86PreAMXConfigPass());
+
+  if (TM->getOptLevel() != CodeGenOpt::None) // INTEL
+    insertPass(&HeteroArchOptID, &X86InstCombineID); // INTEL
 
   TargetPassConfig::addIRPasses();
 
@@ -476,12 +479,6 @@ void X86PassConfig::addIRPasses() {
       addPass(createCFGuardCheckPass());
     }
   }
-
-#if INTEL_CUSTOMIZATION
-  if (TM->getOptLevel() > CodeGenOpt::None && TM->Options.IntelAdvancedOptim) {
-    addPass(createX86Gather2LoadPermutePass());
-  }
-#endif // INTEL_CUSTOMIZATION
 }
 
 bool X86PassConfig::addInstSelector() {
@@ -554,6 +551,7 @@ bool X86PassConfig::addPreISel() {
 #endif // INTEL_FEATURE_SW_ADVANCED
   if (getOptLevel() == CodeGenOpt::Aggressive)
     addPass(createIVSplitLegacyPass());
+  addPass(createX86PreISelIntrinsicLoweringPass());
 #endif // INTEL_CUSTOMIZATION
   return true;
 }
@@ -572,7 +570,7 @@ void X86PassConfig::addPreRegAlloc() {
 
   addPass(createX86SpeculativeLoadHardeningPass());
   addPass(createX86FlagsCopyLoweringPass());
-  addPass(createX86WinAllocaExpander());
+  addPass(createX86DynAllocaExpander());
 #if INTEL_CUSTOMIZATION
   addPass(createX86PRAExpandPseudoPass());
 #endif // INTEL_CUSTOMIZATION
@@ -625,6 +623,11 @@ void X86PassConfig::addPreEmitPass2() {
   const Triple &TT = TM->getTargetTriple();
   const MCAsmInfo *MAI = TM->getMCAsmInfo();
 
+#if INTEL_CUSTOMIZATION
+  if (getOptLevel() != CodeGenOpt::None)
+    addPass(createX86SplitLongBlockPass());
+#endif // INTEL_CUSTOMIZATION
+
   // The X86 Speculative Execution Pass must run after all control
   // flow graph modifying passes. As a result it was listed to run right before
   // the X86 Retpoline Thunks pass. The reason it must run after control flow
@@ -657,6 +660,21 @@ void X86PassConfig::addPreEmitPass2() {
     addPass(createEHContGuardCatchretPass());
   }
   addPass(createX86LoadValueInjectionRetHardeningPass());
+
+  // Insert pseudo probe annotation for callsite profiling
+  addPass(createPseudoProbeInserter());
+
+  // On Darwin platforms, BLR_RVMARKER pseudo instructions are lowered to
+  // bundles.
+  if (TT.isOSDarwin())
+    addPass(createUnpackMachineBundles([](const MachineFunction &MF) {
+      // Only run bundle expansion if there are relevant ObjC runtime functions
+      // present in the module.
+      const Function &F = MF.getFunction();
+      const Module *M = F.getParent();
+      return M->getFunction("objc_retainAutoreleasedReturnValue") ||
+             M->getFunction("objc_unsafeClaimAutoreleasedReturnValue");
+    }));
 }
 
 bool X86PassConfig::addPostFastRegAllocRewrite() {

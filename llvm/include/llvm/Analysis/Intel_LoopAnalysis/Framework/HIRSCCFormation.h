@@ -100,6 +100,10 @@ private:
   /// NodeStack - Running stack of nodes visited during a call to findSCC().
   SmallVector<NodeTy *, 32> NodeStack;
 
+  /// SCC nodes that were invalidated due to legality/profitability. They are
+  /// tracked as they may be reconsidered for an inner loop.
+  SmallVector<NodeTy *, 32> InvalidatedSCCNodes;
+
   /// CurRegIt - Points to the region being processed.
   HIRRegionIdentification::const_iterator CurRegIt;
 
@@ -122,9 +126,6 @@ private:
 private:
   /// Returns true if this is a potential root of a new SCC.
   bool isCandidateRootNode(const NodeTy *Node) const;
-
-  /// Returns true if \p Phi is used in a header phi contained in CurLoop.
-  bool usedInHeaderPhi(const PHINode *Phi) const;
 
   /// Returns true if \p Inst is used outside the loop it is defined in.
   bool isLoopLiveOut(const Instruction *Inst) const;
@@ -184,6 +185,10 @@ private:
       const Instruction *TargetNode, const SCC &CurSCC,
       SmallPtrSet<const BasicBlock *, 8> &VisitedBBs) const;
 
+  /// Returns true if the edge from \p SrcNode to \p DstNode represents an
+  /// invalid SCC edge.
+  bool isInvalidSCCEdge(const NodeTy *SrcNode, const NodeTy *DstNode) const;
+
   /// Returns true if there is live range overlap on SCC edges originating from
   /// \p Node.
   bool hasLiveRangeOverlap(const NodeTy *Node, const SCC &CurSCC) const;
@@ -198,9 +203,6 @@ private:
   /// Checks the validity of an SCC w.r.t assigning the same symbase to all its
   /// nodes.
   bool isValidSCC(const SCC &CurSCC) const;
-
-  /// Checks that Phi is used in another phi in the SCC.
-  static bool isUsedInSCCPhi(PHINode *Phi, const SCC &CurSCC);
 
   /// Used to set the outermost loop header phi amongst the nodes as the root
   /// node.

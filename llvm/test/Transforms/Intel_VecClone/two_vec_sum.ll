@@ -25,7 +25,7 @@
 ; CHECK-NEXT: br label %simd.loop
 
 ; CHECK: simd.loop:
-; CHECK-NEXT: %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
+; CHECK-NEXT: %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.exit ]
 ; CHECK-NEXT: %vec.i.cast.gep = getelementptr i32, i32* %vec.i.cast, i32 %index
 ; CHECK-NEXT: %0 = load i32, i32* %vec.i.cast.gep, align 4
 ; CHECK-NEXT: %vec.j.cast.gep = getelementptr i32, i32* %vec.j.cast, i32 %index

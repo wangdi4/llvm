@@ -21,6 +21,9 @@ void foo_v2(float *&AAA, float *BBB, int *I, omp_interop_t) {return;}
 void foo_v3(float *&AAA, float *&BBB, int *I, omp_interop_t, omp_interop_t) {
   return;
 }
+void foo_v4(double *AAA, float *BBB, int *&I, omp_interop_t) {return;}
+void foo_v5(float *AAA, double *&BBB, int *I, omp_interop_t) {return;}
+void foo_v6(double *AAA, double *BBB, int *I, omp_interop_t) {return;}
 
 //CHECK: define{{.*}}foo1{{.*}}#[[FOO1BASE:[0-9]*]]
 #pragma omp declare variant(foo_v1)                        \
@@ -36,10 +39,31 @@ void foo2(float *&AAA, float *BBB, int *I) {return;}
 
 //CHECK: define{{.*}}foo3{{.*}}#[[FOO3BASE:[0-9]*]]
 #pragma omp declare variant(foo_v3)                        \
-   adjust_args(need_device_ptr:AAA,BBB) adjust_args(nothing:I) \
+   adjust_args(need_device_ptr:BBB,AAA) adjust_args(nothing:I) \
    append_args(interop(target),interop(targetsync)) \
    match(construct={dispatch}, device={arch(XeLP,XeHP)})
 void foo3(float *&AAA, float *&BBB, int *I) {return;}
+
+//CHECK: define{{.*}}foo4{{.*}}#[[FOO4BASE:[0-9]*]]
+#pragma omp declare variant (foo_v4) \
+    match(construct={dispatch}, device={arch(gen)}) \
+    append_args(interop(targetsync)) adjust_args(need_device_ptr:I, BBB)
+void foo4(double *AAA, float *BBB, int *&I);
+void foo4(double *AAA, float *BBB, int *&I) {return;}
+
+//CHECK: define{{.*}}foo5{{.*}}#[[FOO5BASE:[0-9]*]]
+#pragma omp declare variant (foo_v5) \
+    match(construct={dispatch}, device={arch(gen)}) \
+    append_args(interop(targetsync)) adjust_args(need_device_ptr:BBB, AAA)
+void foo5(float *AAA, double *&BBB, int *I);
+void foo5(float *AAA, double *&BBB, int *I) {return;}
+
+//CHECK: define{{.*}}foo6{{.*}}#[[FOO6BASE:[0-9]*]]
+#pragma omp declare variant (foo_v6) \
+    match(construct={dispatch}, device={arch(gen)}) \
+    append_args(interop(targetsync)) adjust_args(need_device_ptr:BBB)
+void foo6(double *AAA, double *BBB, int *I);
+void foo6(double *AAA, double *BBB, int *I) {return;}
 
 void Foo_Var(float *AAA, float *BBB, omp_interop_t I1, omp_interop_t I2) {
   return;
@@ -105,6 +129,16 @@ void func(float *A, float *B, int *I)
 //CHECK: attributes #[[FOO3BASE]] = {{.*}}"openmp-variant"=
 //CHECK-SAME:name:{{.*}}foo_v3
 //CHECK-SAME:construct:dispatch;arch:XeLP,XeHP;need_device_ptr:PTR_TO_PTR,PTR_TO_PTR,F;interop:target;interop:targetsync"
+
+//CHECK: attributes #[[FOO4BASE]] = {{.*}}"openmp-variant"=
+//CHECK-SAME:name:{{.*}}foo_v4
+//CHECK-SAME:construct:dispatch;arch:gen;need_device_ptr:F,T,PTR_TO_PTR;interop:targetsync"
+//CHECK: attributes #[[FOO5BASE]] = {{.*}}"openmp-variant"=
+//CHECK-SAME:name:{{.*}}foo_v5
+//CHECK-SAME:construct:dispatch;arch:gen;need_device_ptr:T,PTR_TO_PTR,F;interop:targetsync"
+//CHECK: attributes #[[FOO6BASE]] = {{.*}}"openmp-variant"=
+//CHECK-SAME:name:{{.*}}foo_v6
+//CHECK-SAME:construct:dispatch;arch:gen;need_device_ptr:F,T,F;interop:targetsync"
 
 // Unlike normal functions, the attribute number for template functions varies
 // from the number associated with the function definition. We can't verify the

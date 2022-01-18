@@ -1,8 +1,12 @@
 add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
+  AddFastMath.cpp
   AddFunctionAttrs.cpp
   AddImplicitArgs.cpp
+  AddNTAttr.cpp
   BuiltinCallToInst.cpp
   BuiltinImport.cpp
+  CoerceTypes.cpp
+  BuiltinLibInfoAnalysis.cpp
   CoerceWin64Types.cpp
   DPCPPEqualizer.cpp
   DPCPPKernelTransforms.cpp
@@ -31,8 +35,11 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DataPerValuePass.cpp
   BarrierPass.cpp
   BarrierInFunctionPass.cpp
+  ResolveMatrixFill.cpp
+  ResolveMatrixWISlice.cpp
   ResolveSubGroupWICall.cpp
   ResolveWICall.cpp
+  SoaAllocaAnalysis.cpp
   SplitBBonBarrierPass.cpp
   WIRelatedValuePass.cpp
   PrepareKernelArgs.cpp
@@ -46,6 +53,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   SubgroupEmulation/SGLoopConstruct.cpp
   SubgroupEmulation/SGSizeAnalysis.cpp
   SubgroupEmulation/SGValueWiden.cpp
+  TaskSeqAsyncHandling.cpp
   VectorVariant/CreateSimdVariantPropagation.cpp
   VectorVariant/IndirectCallLowering.cpp
   VectorVariant/SGSizeCollector.cpp
@@ -54,6 +62,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   VectorVariant/VectorVariantFillIn.cpp
   VectorVariant/VectorVariantLowering.cpp
   VFAnalysis.cpp
+  WorkItemAnalysis.cpp
 
   Utils/CPUDetect.cpp
   Utils/FunctionDescriptor.cpp

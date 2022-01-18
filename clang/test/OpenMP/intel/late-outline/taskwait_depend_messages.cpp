@@ -12,15 +12,14 @@ void foo()
   #pragma omp task
   {
 #ifdef LATEOUT
-    // expected-error@+1 {{unsupported dependency type in 'taskwait' directive; must be one of 'in', 'out', or 'inout'}}
+    // expected-error@+1 {{'mutexinoutset' modifier not allowed in 'depend' clause on 'taskwait' directive}}
     #pragma omp taskwait nowait depend(in:var) depend(mutexinoutset:var)
     // expected-error@+1 {{'nowait' clause requires a 'depend' clause when used with 'taskwait' directive}}
     #pragma omp taskwait nowait
     // expected-error@+1 {{directive '#pragma omp taskwait' cannot contain more than one 'nowait' clause}}
     #pragma omp taskwait nowait depend(out:var) nowait
 #else
-    // expected-error@+2 {{unexpected OpenMP clause 'nowait' in directive '#pragma omp taskwait'}}
-    // expected-error@+1 {{unexpected OpenMP clause 'depend' in directive '#pragma omp taskwait'}}
+    // expected-error@+1 {{unexpected OpenMP clause 'nowait' in directive '#pragma omp taskwait'}}
     #pragma omp taskwait nowait depend(in:var)
 #endif
   }

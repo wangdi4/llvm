@@ -140,7 +140,7 @@ static bool isForModuleBuilding(Module *M, StringRef CurrentModule,
 
 static MacroDiag shouldWarnOnMacroDef(Preprocessor &PP, IdentifierInfo *II) {
   const LangOptions &Lang = PP.getLangOpts();
-  if (II->isReserved(Lang) != ReservedIdentifierStatus::NotReserved) {
+  if (isReservedInAllContexts(II->isReserved(Lang))) {
     // list from:
     // - https://gcc.gnu.org/onlinedocs/libstdc++/manual/using_macros.html
     // - https://docs.microsoft.com/en-us/cpp/c-runtime-library/security-features-in-the-crt?view=msvc-160
@@ -194,7 +194,7 @@ static MacroDiag shouldWarnOnMacroDef(Preprocessor &PP, IdentifierInfo *II) {
 static MacroDiag shouldWarnOnMacroUndef(Preprocessor &PP, IdentifierInfo *II) {
   const LangOptions &Lang = PP.getLangOpts();
   // Do not warn on keyword undef.  It is generally harmless and widely used.
-  if (II->isReserved(Lang) != ReservedIdentifierStatus::NotReserved)
+  if (isReservedInAllContexts(II->isReserved(Lang)))
     return MD_ReservedMacro;
   return MD_NoWarn;
 }
@@ -756,7 +756,7 @@ Module *Preprocessor::getModuleForLocation(SourceLocation Loc) {
   // to the current module, if there is one.
   return getLangOpts().CurrentModule.empty()
              ? nullptr
-             : HeaderInfo.lookupModule(getLangOpts().CurrentModule);
+             : HeaderInfo.lookupModule(getLangOpts().CurrentModule, Loc);
 }
 
 const FileEntry *
@@ -1462,11 +1462,15 @@ void Preprocessor::HandleDigitDirective(Token &DigitTok) {
       DiscardUntilEndOfDirective();
       return;
     }
-    FilenameID = SourceMgr.getLineTableFilenameID(Literal.GetString());
 
     // If a filename was present, read any flags that are present.
     if (ReadLineMarkerFlags(IsFileEntry, IsFileExit, FileKind, *this))
       return;
+
+    // Exiting to an empty string means pop to the including file, so leave
+    // FilenameID as -1 in that case.
+    if (!(IsFileExit && Literal.GetString().empty()))
+      FilenameID = SourceMgr.getLineTableFilenameID(Literal.GetString());
   }
 
   // Create a line note with this information.
@@ -2023,20 +2027,16 @@ Preprocessor::ImportAction Preprocessor::HandleHeaderIncludeOrImport(
   SourceLocation FilenameLoc = FilenameTok.getLocation();
   StringRef LookupFilename = Filename;
 
-#ifdef _WIN32
-  llvm::sys::path::Style BackslashStyle = llvm::sys::path::Style::windows;
-#else
   // Normalize slashes when compiling with -fms-extensions on non-Windows. This
   // is unnecessary on Windows since the filesystem there handles backslashes.
   SmallString<128> NormalizedPath;
-  llvm::sys::path::Style BackslashStyle = llvm::sys::path::Style::posix;
-  if (LangOpts.MicrosoftExt) {
+  llvm::sys::path::Style BackslashStyle = llvm::sys::path::Style::native;
+  if (is_style_posix(BackslashStyle) && LangOpts.MicrosoftExt) {
     NormalizedPath = Filename.str();
     llvm::sys::path::native(NormalizedPath);
     LookupFilename = NormalizedPath;
     BackslashStyle = llvm::sys::path::Style::windows;
   }
-#endif
 
   Optional<FileEntryRef> File = LookupHeaderIncludeOrImport(
       CurDir, Filename, FilenameLoc, FilenameRange, FilenameTok,
@@ -2154,12 +2154,14 @@ Preprocessor::ImportAction Preprocessor::HandleHeaderIncludeOrImport(
       IsImportDecl ||
       IncludeTok.getIdentifierInfo()->getPPKeywordID() == tok::pp_import;
 
+  bool IsFirstIncludeOfFile = false;
+
   // Ask HeaderInfo if we should enter this #include file.  If not, #including
   // this file will have no effect.
   if (Action == Enter && File &&
-      !HeaderInfo.ShouldEnterIncludeFile(*this, &File->getFileEntry(),
-                                         EnterOnce, getLangOpts().Modules,
-                                         SuggestedModule.getModule())) {
+      !HeaderInfo.ShouldEnterIncludeFile(
+          *this, &File->getFileEntry(), EnterOnce, getLangOpts().Modules,
+          SuggestedModule.getModule(), IsFirstIncludeOfFile)) {
     // Even if we've already preprocessed this header once and know that we
     // don't need to see its contents again, we still need to import it if it's
     // modular because we might not have imported it from this submodule before.
@@ -2353,7 +2355,8 @@ Preprocessor::ImportAction Preprocessor::HandleHeaderIncludeOrImport(
   }
 
   // If all is good, enter the new file!
-  if (EnterSourceFile(FID, CurDir, FilenameTok.getLocation()))
+  if (EnterSourceFile(FID, CurDir, FilenameTok.getLocation(),
+                      IsFirstIncludeOfFile))
     return {ImportAction::None};
 
   // Determine if we're switching to building a new submodule, and which one.
@@ -2711,9 +2714,9 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   while (true) {
     Token Tok;
     LexUnexpandedToken(Tok);
+    Tokens.push_back(Tok);
     if (Tok.is(tok::eod))
       break;
-    Tokens.push_back(Tok);
 
     IdentifierInfo *II = nullptr;
     if (Tok.is(tok::identifier))
@@ -2793,6 +2796,15 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
 
   auto TypelibHeaderName = llvm::sys::path::filename(TypelibName);
 
+  // Enable logging of temporary file insertions.
+  enum TempFileTypes { TFT_wrapper = 0, TFT_argument = 1 };
+  auto AddLineToTempFile = [&](llvm::raw_fd_ostream &File, StringRef Line,
+                               TempFileTypes TFT) {
+    if (LangOpts.ShowImportProcessing)
+      Diag(FilenameTok, clang::diag::note_import_file_line) << Line << TFT;
+    File << Line << '\n';
+  };
+
   //
   // Create the wrapper file.  This file contains an accumulation of #import
   // directives we've seen so far (since they can depend on each other).
@@ -2808,6 +2820,10 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
       return;
     }
     WrapperFilename = std::string(WrapperFilenameImpl);
+    if (LangOpts.KeepImportTemps || LangOpts.ShowImportProcessing) {
+      Diag(FilenameTok, clang::diag::warn_generating_import_files)
+          << WrapperFilename << TFT_wrapper;
+    }
   } else if (std::error_code ErrorCode = llvm::sys::fs::openFileForWrite(
                  WrapperFilename, WrapperFileDesc,
                  llvm::sys::fs::CD_CreateAlways, llvm::sys::fs::OF_Append)) {
@@ -2817,13 +2833,13 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   }
 
   // Add this #import to the end of the wrapper file
+  SmallString<128> WrapperBuffer;
   llvm::raw_fd_ostream WrapperFile(WrapperFileDesc, /*shouldClose=*/true);
-  WrapperFile << "#import ";
-  WrapperFile << Lexer::getSourceText({{Tokens.begin()->getLocation(),
-                                        Tokens.rbegin()->getLocation()},
-                                       true},
-                                      getSourceManager(), LangOpts)
-              << '\n';
+  WrapperBuffer = "#import ";
+  WrapperBuffer += Lexer::getSourceText(
+      {{Tokens.begin()->getLocation(), Tokens.rbegin()->getLocation()}, true},
+      getSourceManager(), LangOpts);
+  AddLineToTempFile(WrapperFile, WrapperBuffer, TFT_wrapper);
   WrapperFile.close();
 
   //
@@ -2839,6 +2855,10 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
         << ErrorCode.message();
     return;
   }
+  if (LangOpts.KeepImportTemps || LangOpts.ShowImportProcessing) {
+    Diag(FilenameTok, clang::diag::warn_generating_import_files)
+        << ArgFilename << TFT_argument;
+  }
 
   llvm::raw_fd_ostream ArgFile(ArgFileDesc, /*shouldClose=*/true);
 
@@ -2846,25 +2866,46 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   // includes normally, needs to be done explicitly to compile the generated
   // source.
   SourceManager &SM = getSourceManager();
-  if (const FileEntry *MainFile = SM.getFileEntryForID(SM.getMainFileID()))
-    ArgFile << "/I\"" << MainFile->getDir()->getName() << "\"\n";
+  SmallString<256> ArgFileLine;
+
+  if (const FileEntry *MainFile = SM.getFileEntryForID(SM.getMainFileID())) {
+    ArgFileLine = "/I\"";
+    ArgFileLine += MainFile->getDir()->getName();
+    ArgFileLine += "\"";
+    AddLineToTempFile(ArgFile, ArgFileLine, TFT_argument);
+  }
 
   // Add includes used in the original source, but remove Intel headers
   // since the MS compile isn't guaranteed to compile them.  The Intel
   // headers start with HeaderBasePath.
   auto HSOpts = HeaderInfo.getHeaderSearchOpts();
+  std::string HeaderBasePathSlash =
+      llvm::sys::path::convert_to_slash(HSOpts.HeaderBasePath);
   for (const auto &Iter : HSOpts.UserEntries) {
-    if (HSOpts.HeaderBasePath.empty() ||
-        Iter.Path.rfind(HSOpts.HeaderBasePath, 0) != 0)
-      ArgFile << "/I\"" << Iter.Path << "\"\n";
+    if (!HSOpts.HeaderBasePath.empty() &&
+        (Iter.Path.rfind(HSOpts.HeaderBasePath, 0) == 0 ||
+         Iter.Path.rfind(HeaderBasePathSlash, 0) == 0))
+      continue;
+    ArgFileLine = "/I\"";
+    ArgFileLine += Iter.Path;
+    ArgFileLine += "\"";
+    AddLineToTempFile(ArgFile, ArgFileLine, TFT_argument);
   }
 
   SmallString<128> OutputDir = getPreprocessorOpts().OutputFile;
   llvm::sys::path::remove_filename(OutputDir);
 
-  if (!OutputDir.empty())
-    ArgFile << "/Fo\"" << OutputDir << "/\"\n";
-  ArgFile << "\"" << WrapperFilename << "\"\n";
+  if (!OutputDir.empty()) {
+    ArgFileLine = "/Fo\"";
+    ArgFileLine += OutputDir;
+    ArgFileLine += "/\"";
+    AddLineToTempFile(ArgFile, ArgFileLine, TFT_argument);
+  }
+
+  ArgFileLine = "\"";
+  ArgFileLine += WrapperFilename;
+  ArgFileLine += "\"";
+  AddLineToTempFile(ArgFile, ArgFileLine, TFT_argument);
   ArgFile.close();
 
   std::string ErrMsg;
@@ -2884,7 +2925,8 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   }
 
   // Remove the arg and generated preprocessed file.
-  llvm::sys::fs::remove(ArgFilename);
+  if (!LangOpts.KeepImportTemps)
+    llvm::sys::fs::remove(ArgFilename);
   SmallString<128> OutputFilename = OutputDir;
   if (!OutputDir.empty())
     OutputFilename += "/";
@@ -2933,7 +2975,7 @@ void Preprocessor::HandleImportDirective(SourceLocation HashLoc,
   if (!LangOpts.ObjC) {  // #import is standard for ObjC.
 #if INTEL_CUSTOMIZATION
 #ifdef _WIN32
-    if (LangOpts.IntelMSCompat)
+    if (LangOpts.IntelCompat && LangOpts.MSVCCompat)
       return HandleMicrosoftImportIntelDirective(HashLoc, ImportTok);
 #endif // _WIN32
 #endif // INTEL_CUSTOMIZATION
@@ -3029,7 +3071,7 @@ bool Preprocessor::ReadMacroParameterList(MacroInfo *MI, Token &Tok) {
 
       // If this is already used as a parameter, it is used multiple times (e.g.
       // #define X(A,A.
-      if (llvm::find(Parameters, II) != Parameters.end()) { // C99 6.10.3p6
+      if (llvm::is_contained(Parameters, II)) { // C99 6.10.3p6
         Diag(Tok, diag::err_pp_duplicate_name_in_arg_list) << II;
         return true;
       }
@@ -3359,6 +3401,12 @@ void Preprocessor::HandleDefineDirective(
   if (MacroNameTok.is(tok::eod))
     return;
 
+  IdentifierInfo *II = MacroNameTok.getIdentifierInfo();
+  // Issue a final pragma warning if we're defining a macro that was has been
+  // undefined and is being redefined.
+  if (!II->hasMacroDefinition() && II->hadMacroDefinition() && II->isFinal())
+    emitFinalMacroWarning(MacroNameTok, /*IsUndef=*/false);
+
   // If we are supposed to keep comments in #defines, reenable comment saving
   // mode.
   if (CurLexer) CurLexer->SetCommentRetentionState(KeepMacroComments);
@@ -3401,6 +3449,12 @@ void Preprocessor::HandleDefineDirective(
   // Finally, if this identifier already had a macro defined for it, verify that
   // the macro bodies are identical, and issue diagnostics if they are not.
   if (const MacroInfo *OtherMI=getMacroInfo(MacroNameTok.getIdentifierInfo())) {
+    // Final macros are hard-mode: they always warn. Even if the bodies are
+    // identical. Even if they are in system headers. Even if they are things we
+    // would silently allow in the past.
+    if (MacroNameTok.getIdentifierInfo()->isFinal())
+      emitFinalMacroWarning(MacroNameTok, /*IsUndef=*/false);
+
     // In Objective-C, ignore attempts to directly redefine the builtin
     // definitions of the ownership qualifiers.  It's still possible to
     // #undef them.
@@ -3430,6 +3484,7 @@ void Preprocessor::HandleDefineDirective(
     // then don't bother calling MacroInfo::isIdenticalTo.
     if (!getDiagnostics().getSuppressSystemWarnings() ||
         !SourceMgr.isInSystemHeader(DefineTok.getLocation())) {
+
       if (!OtherMI->isUsed() && OtherMI->isWarnIfUnused())
         Diag(OtherMI->getDefinitionLoc(), diag::pp_macro_not_used);
 
@@ -3506,6 +3561,9 @@ void Preprocessor::HandleUndefDirective() {
   auto *II = MacroNameTok.getIdentifierInfo();
   auto MD = getMacroDefinition(II);
   UndefMacroDirective *Undef = nullptr;
+
+  if (II->isFinal())
+    emitFinalMacroWarning(MacroNameTok, /*IsUndef=*/true);
 
   // If the macro is not defined, this is a noop undef.
   if (const MacroInfo *MI = MD.getMacroInfo()) {

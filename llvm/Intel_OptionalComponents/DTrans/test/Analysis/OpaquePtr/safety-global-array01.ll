@@ -7,29 +7,33 @@
 %struct.test01 = type { i64, i64 }
 @array_of_struct = internal global [2 x %struct.test01] zeroinitializer
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Global instance | Global array{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 %struct.test02 = type { i64, i64 }
 @array_of_structptr = internal global [2 x %struct.test02*] zeroinitializer, !intel_dtrans_type !2
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Global pointer{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 %struct.test03 = type { i64, i64 }
 @array_of_structptrptr = internal global [2 x %struct.test03**] zeroinitializer, !intel_dtrans_type !4
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: Global pointer{{ *$}}
+; CHECK: End LLVMType: %struct.test03
 
 
 %struct.test04 = type { i64, i64 }
 @ptr_to_array_of_struct = internal global [2 x %struct.test04]* zeroinitializer, !intel_dtrans_type !6
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test04
+; CHECK: LLVMType: %struct.test04
 ; CHECK: Safety data: Global pointer{{ *$}}
+; CHECK: End LLVMType: %struct.test04
 
 
 %struct.test05 = type { i64, i64 }
@@ -37,35 +41,41 @@
 ; DTrans does not treat global pointer as pointer carried because the pointer
 ; to the structure is not being directly instantiated.
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test05
+; CHECK: LLVMType: %struct.test05
 ; CHECK: Safety data: No issues found{{ *$}}
+; CHECK: End LLVMType: %struct.test05
+
 
 %struct.test06 = type { i64, i64 }
 @ptr_to_array_of_structptrptr = internal global [2 x %struct.test06**]* zeroinitializer, !intel_dtrans_type !12
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test06
+; CHECK: LLVMType: %struct.test06
 ; CHECK: Safety data: No issues found{{ *$}}
+; CHECK: End LLVMType: %struct.test06
 
 
 %struct.test07 = type { i64, i64 }
 @array_of_array_of_struct = internal global [2 x [4 x %struct.test07]] zeroinitializer
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test07
+; CHECK: LLVMType: %struct.test07
 ; CHECK: Safety data: Global instance | Global array{{ *$}}
+; CHECK: End LLVMType: %struct.test07
 
 
 %struct.test08 = type { i64, i64 }
 @array_of_array_of_structptr = internal global [2 x [4 x %struct.test08*]] zeroinitializer, !intel_dtrans_type !15
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test08
+; CHECK: LLVMType: %struct.test08
 ; CHECK: Safety data: Global pointer{{ *$}}
+; CHECK: End LLVMType: %struct.test08
 
 
 %struct.test09 = type { i64, i64 }
 @array_of_array_of_structptrptr = internal global [2 x [4 x %struct.test09**]] zeroinitializer, !intel_dtrans_type !18
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test09
+; CHECK: LLVMType: %struct.test09
 ; CHECK: Safety data: Global pointer{{ *$}}
+; CHECK: End LLVMType: %struct.test09
 
 
 !1 = !{i64 0, i32 0}  ; i64

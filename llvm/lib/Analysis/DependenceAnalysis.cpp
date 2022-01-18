@@ -2325,7 +2325,7 @@ bool DependenceInfo::gcdMIVtest(const SCEV *Src, const SCEV *Dst,
   LLVM_DEBUG(dbgs() << "starting gcd\n");
   ++GCDapplications;
   unsigned BitWidth = SE->getTypeSizeInBits(Src->getType());
-  APInt RunningGCD = APInt::getNullValue(BitWidth);
+  APInt RunningGCD = APInt::getZero(BitWidth);
 
   // Examine Src coefficients.
   // Compute running GCD and record source constant.
@@ -2365,7 +2365,7 @@ bool DependenceInfo::gcdMIVtest(const SCEV *Src, const SCEV *Dst,
   }
   const SCEV *DstConst = Coefficients;
 
-  APInt ExtraGCD = APInt::getNullValue(BitWidth);
+  APInt ExtraGCD = APInt::getZero(BitWidth);
   const SCEV *Delta = SE->getMinusSCEV(DstConst, SrcConst);
   LLVM_DEBUG(dbgs() << "    Delta = " << *Delta << "\n");
   const SCEVConstant *Constant = dyn_cast<SCEVConstant>(Delta);
@@ -3339,8 +3339,8 @@ bool DependenceInfo::tryDelinearizeFixedSize(
     return false;
 
   SmallVector<int, 4> SrcSizes, DstSizes;
-  SE->getIndexExpressionsFromGEP(SrcGEP, SrcSubscripts, SrcSizes);
-  SE->getIndexExpressionsFromGEP(DstGEP, DstSubscripts, DstSizes);
+  getIndexExpressionsFromGEP(*SE, SrcGEP, SrcSubscripts, SrcSizes);
+  getIndexExpressionsFromGEP(*SE, DstGEP, DstSubscripts, DstSizes);
 
   // Check that the two size arrays are non-empty and equal in length and
   // value.

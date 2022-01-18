@@ -9,6 +9,11 @@
 #ifndef LLVM_LINKER_IRMOVER_H
 #define LLVM_LINKER_IRMOVER_H
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypes.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif //INTEL_CUSTOMIZATION
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringRef.h" // INTEL
@@ -84,6 +89,11 @@ private:
   Module &Composite;
   IdentifiedStructTypeSet IdentifiedStructTypes;
   MDMapT SharedMDs; ///< A Metadata map to use for all calls to \a move().
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  dtransOP::DTransTypeManager TM;
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif //INTEL_CUSTOMIZATION
 };
 
 } // End llvm namespace

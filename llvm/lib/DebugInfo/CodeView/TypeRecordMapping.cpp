@@ -733,3 +733,58 @@ Error TypeRecordMapping::visitKnownRecord(CVType &CVR,
   error(IO.mapInteger(EndPrecomp.Signature, "Signature"));
   return Error::success();
 }
+
+#if INTEL_CUSTOMIZATION
+Error TypeRecordMapping::visitKnownRecord(CVType &CVR,
+                                          OEMTypeRecord &Record) {
+  if (!IO.isReading())
+    assert(Record.isValid() && "Malformed OEMTypeRecord!");
+  error(IO.mapEnum(Record.OEMIdentifier, "OEMId"));
+  error(IO.mapEnum(Record.OEMTypeID, "OEMType"));
+
+  uint32_t Count;
+  if (!IO.isReading()) {
+    ArrayRef<TypeIndex> Indices = Record.getTypeIndices();
+    Count = Indices.size();
+    error(IO.mapInteger(Count, "Count"));
+    for (size_t idx = 0; idx < Count; idx++) {
+      TypeIndex Index = Indices[idx];
+      error(IO.mapInteger(Index, "Type"));
+    }
+  } else {
+    error(IO.mapInteger(Count, "Count"));
+    for (size_t idx = 0; idx < Count; idx++) {
+      TypeIndex Type;
+      error(IO.mapInteger(Type, "Type"));
+      Record.TypeIndices.push_back(Type);
+    }
+  }
+
+  uint32_t DataCount;
+  if (!IO.isReading()) {
+    ArrayRef<uint32_t> Data = Record.getData();
+    DataCount = Data.size();
+    for (size_t idx = 0; idx < DataCount; idx++) {
+      uint32_t D = Data[idx];
+      error(IO.mapInteger(D, "Data"));
+    }
+  } else {
+    if (Record.isF90DescribedArray())
+      DataCount = 2;
+	else if (Record.isF90Descriptor())
+      DataCount = 1;
+    else
+      DataCount = 0;
+
+    for (size_t idx = 0; idx < DataCount; idx++) {
+      uint32_t D;
+      error(IO.mapInteger(D, "Data"));
+      Record.Data.push_back(D);
+    }
+  }
+  if (IO.isReading())
+    assert(Record.isValid() && "Malformed OEMTypeRecord!");
+
+  return Error::success();
+}
+#endif //INTEL_CUSTOMIZATION

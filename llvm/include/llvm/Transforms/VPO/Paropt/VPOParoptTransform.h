@@ -286,34 +286,33 @@ private:
   ///           };
   StructType *KmpTaskDependInfoTy;
 
+  /// Launder Intrinsics inserted by genGlobalPrivatizationLaunderIntrin().
+  SmallDenseMap<WRegionNode *, SmallPtrSet<Value *, 8>>
+      LaunderIntrinsicsForRegion;
+
+  /// Atomic-free reduction global buffers per reduction item.
+  DenseMap<ReductionItem *, GlobalVariable *> AtomicFreeRedLocalBufs;
   DenseMap<ReductionItem *, GlobalVariable *> AtomicFreeRedGlobalBufs;
 
-  class AtomicFreeReductionValidityCheck {
-    bool LoopIsOk = false;
-    bool ParIsOk = false;
-    bool TeamsIsOk = false;
-
-  public:
-    AtomicFreeReductionValidityCheck() {}
-
-    bool getLoopIsOk() const { return LoopIsOk; }
-    bool getParIsOk() const { return ParIsOk; }
-    bool getTeamsIsOk() const { return TeamsIsOk; }
-
-    void setLoopIsOk(bool Val = true) { LoopIsOk = Val; }
-    void setParIsOk(bool Val = true) { ParIsOk = Val; }
-    void setTeamsIsOk(bool Val = true) { TeamsIsOk = Val; }
-
-    bool isLocalValid() const { return LoopIsOk && ParIsOk; }
-    bool isGlobalValid() const { return LoopIsOk && ParIsOk && TeamsIsOk; }
+  struct LocalUpdateInfo {
+    BasicBlock *UpdateBB = nullptr;
+    BasicBlock *ExitBB = nullptr;
+    PHINode *IVPhi = nullptr;
+    Instruction *LocalId = nullptr;
+    Instruction *EntryBarrier = nullptr;
   };
-
-  DenseMap<WRegionNode *, AtomicFreeReductionValidityCheck>
-      AtomicFreeReductionCheck;
-
-  /// BBs that perform updates within the fast GPU reduction loops.
-  DenseMap<WRegionNode *, BasicBlock *> AtomicFreeRedLocalUpdateBBs;
-  DenseMap<WRegionNode *, BasicBlock *> AtomicFreeRedGlobalUpdateBBs;
+  struct GlobalUpdateInfo {
+    BasicBlock *EntryBB = nullptr;
+    BasicBlock *UpdateBB = nullptr;
+    BasicBlock *ExitBB = nullptr;
+    PHINode *IVPhi = nullptr;
+    BasicBlock *ScalarUpdateBB = nullptr;
+    BasicBlock *LatchBB = nullptr;
+  };
+  /// BBs that perform updates within the atomic-free reduction loops.
+  DenseMap<WRegionNode *, LocalUpdateInfo> AtomicFreeRedLocalUpdateInfos;
+  DenseMap<WRegionNode *, GlobalUpdateInfo> AtomicFreeRedGlobalUpdateInfos;
+  DenseSet<WRNTargetNode *> UsedLocalTreeReduction;
 
   /// Struct that keeps all the information needed to pass to
   /// the runtime library.
@@ -395,25 +394,43 @@ private:
                      Function *Cctor = nullptr, bool IsByRef = false);
 
   /// For array constructor/destructor/copy assignment/copy constructor loop,
-  /// get the base address of the destination array, number of elements, and
-  /// destination element type.
-  /// \param [in] SrcVal Source value for copy assignment/copy constructor.
-  /// \param [in] DestVal Destination value for constructor/destructor/copy
-  /// assign/copy constructor.
-  /// \param [in] InsertPt Insert point for any Instructions to be inserted.
-  /// \param [in] Builder IRBuilder using InsertPt for any new Instructions.
-  /// \param [out] NumElements Number of elements in the array.
-  /// \param [out] SrcArrayBegin Base address of the source array.
-  /// \param [out] DestArrayBegin Base address of the destination array.
-  /// \param [out] DestElementTy Type of each element of the array.
-  void genPrivAggregateSrcDstInfo(Value *SrcVal, Value *DestVal,
-                                  Instruction *InsertPt, IRBuilder<> &Builder,
-                                  Value *&NumElements, Value *&SrcArrayBegin,
-                                  Value *&DestArrayBegin, Type *&DestElementTy);
+  /// get the base address of the array, number of elements, and element type.
+  /// \param [in] ObjTy Either the array's type or the element type.
+  /// \param [in] NumElements Number of elements of \p ObjTy type in the array.
+  /// \param [in] BaseAddr Base address of the array.
+  /// \param [in] Builder IRBuilder for any new Instructions.
+  /// \returns a \b tuple of <ElementType, NumElements, BaseAddress>,
+  /// where \p ElementType is the element type of the array,
+  /// \p NumElements is the number of elements in the array, and
+  /// \p BaseAddress is the base address of the array properly casted.
+  ///
+  /// \p ObjTy and \p NumElements represent the array configuration,
+  /// and there are only two supported configurations:
+  ///   1. \p ObjTy is an array type, and \p NumElements is either nullptr
+  ///      or ConstantInt value 1.
+  ///   2. \p ObjTy is a non-array type.
+  std::tuple<Type *, Value *, Value *> genPrivAggregatePtrInfo(
+      Type *ObjTy, Value *NumElements, Value *BaseAddr, IRBuilder<> &Builder);
 
-  /// Generate the constructor/destructor/copy assignment/copy constructor for
-  /// privatized arrays.
+  /// Generate the constructor/destructor/copy assignment/copy constructor call
+  /// for a privatized array.
+  /// \param [in] Fn Function that needs to be called.
+  /// \param [in] FuncKind Kind of the action performed by \p Fn, which
+  /// defines the call signature.
+  /// \param [in] ObjTy Either the array's type or the element type.
+  /// \param [in] NumElements Number of elements of \p ObjTy type in the array.
+  /// \param [in] DestVal Base address of the destination array.
+  /// \param [in] SrcVal Base address of the source array.
+  /// \param [in] InsertPt Insert point for any Instructions to be inserted.
+  /// \param [in] DT DominatorTree that needs to be updated, if not nullptr.
+  ///
+  /// \p ObjTy and \p NumElements represent the array configuration,
+  /// and there are only two supported configurations:
+  ///   1. \p ObjTy is an array type, and \p NumElements is either nullptr
+  ///      or ConstantInt value 1.
+  ///   2. \p ObjTy is a non-array type.
   void genPrivAggregateInitOrFini(Function *Fn, FunctionKind FuncKind,
+                                  Type *ObjTy, Value *NumElements,
                                   Value *DestVal, Value *SrcVal,
                                   Instruction *InsertPt, DominatorTree *DT);
 
@@ -482,27 +499,6 @@ private:
 
   /// Generate destructor calls for [first|last]private variables
   bool genDestructorCode(WRegionNode *W);
-
-  /// Generate an optionally addrspacecast'ed pointer Value for the local copy
-  /// of \p OrigValue with \p OrigElemTy Element Type, with \p NameSuffix
-  /// appended at the end of its name. If new instructions need to be generated,
-  /// they will be inserted before \p InsertPt. \p AllocaAddrSpace specifies
-  /// address space in which the memory for the privatized variable needs to be
-  /// allocated. If it is llvm::None, then the address space matches the default
-  /// alloca's address space, as specified by DataLayout. Note that some address
-  /// spaces may require allocating the private version of the variable
-  /// as a GlobalVariable, not as an AllocaInst.
-  /// If \p PreserveAddressSpace is true, then the generated Value
-  /// will be addrspacecast'ed to match the addrspace of the \p OrigValue,
-  /// otherwise, the generated Value will have the addrspace, as specified
-  /// by \p AllocaAddrSpace.
-  //  FIXME: get rid of PreserveAddressSpace, when PromoteMemToReg
-  //         supports AddrSpaceCastInst.
-  Value *
-  genPrivatizationAlloca(Value *OrigValue, Type *OrigElemTy,
-                         Instruction *InsertPt, const Twine &NameSuffix = "",
-                         llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
-                         bool PreserveAddressSpace = true) const;
 
   /// Generate an optionally addrspacecast'ed pointer Value for the local copy
   /// of ClauseItem \I for various data-sharing clauses like private,
@@ -613,7 +609,6 @@ private:
   bool addMapForUseDevicePtr(WRegionNode *W,
                  Instruction *InsertBefore = nullptr);
 
-  void checkAtomicFreeReductionOpportunity(WRegionNode *W);
   bool addFastGlobalRedBufMap(WRegionNode *W);
 
   // Convert 'IS_DEVICE_PTR' clauses in W to MAP, and 'IS_DEVICE_PTR:PTR_TO_PTR'
@@ -647,10 +642,14 @@ private:
   /// reduction update code. If \p NoNeedToOffsetOrDerefOldV is true, then that
   /// means that \p OldV has already been pre-processed to include any pointer
   /// dereference/offset, and can be used directly as the destination base
-  /// pointer. (default = false)
+  /// pointer. (default = false) \p LocalRedVar is a WG-local storage for
+  /// the reduction items, contains !nullptr iff atomic-free reduction
+  /// uses SLM for the local computations to be able copy its contents to the
+  /// global buffer. (default = nullptr)
   bool genReductionFini(WRegionNode *W, ReductionItem *RedI, Value *OldV,
                         Instruction *InsertPt, DominatorTree *DT,
-                        bool NoNeedToOffsetOrDerefOldV = false);
+                        bool NoNeedToOffsetOrDerefOldV = false,
+                        Value *LocalRedVar = nullptr);
 
   /// Generate the reduction initialization code for Min/Max.
   Value *genReductionMinMaxInit(ReductionItem *RedI, Type *Ty, bool IsMax);
@@ -695,8 +694,11 @@ private:
                       Instruction *InsertPt, DominatorTree *DT,
                       bool NoNeedToOffsetOrDerefOldV = false);
 
-  /// Generate copy code for scalar type.
-  void genFastRedScalarCopy(Value *Dst, Value *Src, IRBuilder<> &Builder);
+  /// Generate copy code for scalar type \p ElemTy.
+  /// Copy from \p Src address to \p Dst address.
+  /// New instructions are inserted using \p Builder.
+  void genFastRedScalarCopy(Value *Dst, Value *Src, Type *ElemTy,
+                            IRBuilder<> &Builder);
 
   /// Generate copy code for aggregate type.
   void genFastRedAggregateCopy(ReductionItem *RedI, Value *Src, Value *Dst,
@@ -715,6 +717,7 @@ private:
 
   /// Generate local update loop for atomic-free GPU reduction
   bool genAtomicFreeReductionLocalFini(WRegionNode *W, ReductionItem *RedI,
+                                       LoadInst *Rhs1, LoadInst *Rhs2,
                                        StoreInst *RedStore,
                                        IRBuilder<> &Builder, DominatorTree *DT);
 
@@ -768,6 +771,14 @@ private:
                               Value *ReductionVar, Value *ReductionValueLoc,
                               Type *ScalarTy, IRBuilder<> &Builder,
                               DominatorTree *DT);
+
+  /// Generate the reduction operator with the given arguments \p Rhs1
+  /// and \p Rhs2 and the operator in \p RedI.
+  /// Handles both LLVM scalar types and also complex ones.
+  /// May emit > 1 instructions depending on the item's type and the
+  /// reduction operator.
+  Value *genReductionScalarOp(ReductionItem *RedI, IRBuilder<> &Builder,
+                              Type *ScalarTy, Value *Rhs1, Value *Rhs2);
 
   /// Generate the reduction initialization/update for array.
   /// Returns true iff critical section is required around the generated
@@ -1292,10 +1303,6 @@ private:
   /// void (*kmpc_micro)(kmp_int32 *global_tid, kmp_int32 *bound_tid, ...)
   FunctionType* getKmpcMicroTaskPointerTy();
 
-  /// The data structure which builds the map between the
-  /// alloc/tid and the uses instruction in the WRegion.
-  SmallDenseMap<Instruction *, std::vector<Instruction *> > IdMap;
-
   /// The data structure that is used to store the alloca or tid call
   ///  instruction that are used in the WRegion.
   SmallPtrSet<Instruction*, 8> TidAndBidInstructions;
@@ -1672,6 +1679,9 @@ private:
   ///   ...
   /// \endcode
   ///
+  /// If \p ReplaceUses is \b true (default), then original uses or %v are
+  /// replaced with %v1.
+  ///
   /// If \p InsertLoadInBeginningOfEntryBB is \b true, the load `%v1` is
   /// inserted in the beginning on EntryBB (BBlock containing `%0`), and the
   /// use of `%v` in `%0` is also replaced with `%v1`. Otherwise, by default,
@@ -1688,7 +1698,7 @@ private:
   /// \returns the pointer where \p V is stored (`%v.addr` above).
   Value *replaceWithStoreThenLoad(
       WRegionNode *W, Value *V, Instruction *InsertPtForStore,
-      bool InsertLoadInBeginningOfEntryBB = false,
+      bool ReplaceUses = true, bool InsertLoadInBeginningOfEntryBB = false,
       bool SelectAllocaInsertPtBasedOnParentWRegion = false,
       bool CastToAddrSpaceGeneric = false);
 
@@ -1791,7 +1801,8 @@ private:
   /// \p V is an optionally addrspacecast'ed AllocaInst for \p W region's
   /// normalized upper bound pointer or normalized induction variable
   /// pointer.
-  /// Insert a new AllocaInst at the region's entry block.
+  /// Insert a new AllocaInst at the region's entry block allocating
+  /// an object as specified by \p ElementTy and \p NumElements.
   /// Copy the original variable value to the allocated area, iff
   /// \p IsFirstPrivate is true.
   /// Replace all uses of the original AllocaInst with the new one.
@@ -1800,7 +1811,8 @@ private:
   /// pointer, we do not expect it to have non-POD type
   /// neither expect it to be By-Ref.
   Value *genRegionPrivateValue(
-      WRegionNode *W, Value *V, bool IsFirstPrivate = false);
+      WRegionNode *W, Value *V, Type *ElementTy, Value *NumElements,
+      bool IsFirstPrivate = false);
 
   /// Move SIMD directives next to the loop associated
   /// with the given OpenMP loop region \p W.
@@ -2263,7 +2275,18 @@ private:
   /// clause for \p WT listing the known tripcount(s), and also sets
   /// QUAL_OMP_OFFLOAD_KNOWN_NDRANGE for \p WL.
   void setNDRangeClause(
-      WRegionNode *WT, WRegionNode *WL, ArrayRef<Value *> NDRangeDims) const;
+      WRegionNode *WT, WRegionNode *WL, ArrayRef<Value *> NDRangeDims,
+      ArrayRef<Type *> NDRangeTypes) const;
+
+  /// Checks if the given OpenMP loop region should use SPIR partitioning
+  /// with known loop(s) bounds and if it is profitable.
+  /// Comparing to fixupKnownNDRange() the checks are done for loops
+  /// that may not have QUAL_OMP_OFFLOAD_KNOWN_NDRANGE setup yet.
+  /// This method should be used by both loop collapsing and
+  /// fixupKnownNDRange(), so that their behavior is synchronized
+  /// regarding the loop paritioning and the actual specific vs default
+  /// ND-range used for the kernel invocation.
+  bool shouldNotUseKnownNDRange(WRegionNode *W) const;
 
   /// Checks if the given OpenMP loop region may use SPIR paritioning
   /// with known loop(s) bounds and if it is profitable.

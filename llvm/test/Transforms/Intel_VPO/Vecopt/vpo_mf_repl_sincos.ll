@@ -45,7 +45,6 @@ DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.2
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.body ], [ 0, %DIR.OMP.SIMD.2 ]
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %1) #2
   %arrayidx = getelementptr inbounds float, float* %f, i64 %indvars.iv
   %2 = load float, float* %arrayidx, align 4
   %div = fmul fast float %2, 0x3FD5555560000000
@@ -54,7 +53,6 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
   %add3 = fadd fast float %3, %4
   %arrayidx5 = getelementptr inbounds float, float* %r, i64 %indvars.iv
   store float %add3, float* %arrayidx5, align 4
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %1) #2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %DIR.OMP.END.SIMD.4, label %omp.inner.for.body
@@ -65,47 +63,17 @@ DIR.OMP.END.SIMD.4:                               ; preds = %omp.inner.for.body
 
 DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.4
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
-  br label %DIR.OMP.END.SIMD.417
-
-DIR.OMP.END.SIMD.417:                             ; preds = %DIR.OMP.END.SIMD.3
   ret void
 }
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
-
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #2
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #2
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
 
 declare dso_local i32 @__gxx_personality_v0(...)
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
-
-; Function Attrs: nounwind readnone speculatable
 declare float @llvm.sin.f32(float) #3
-
-; Function Attrs: nounwind readnone speculatable
 declare float @llvm.cos.f32(float) #3
-
-; Function Attrs: nofree nounwind
-declare dso_local void @sincosf(float, float*, float*) local_unnamed_addr #0
-
-; Function Attrs: nounwind
 declare float @_Z6sincosfPf(float, float*) #2
-
-; Function Attrs: nounwind
-declare <4 x float> @_Z14sincos_ret2ptrDv4_fPS_S1_(<4 x float>, <4 x float>*, <4 x float>*) #2
-
-; Function Attrs: nounwind
-; Function Attrs: nounwind
-declare <16 x float> @_Z14sincos_ret2ptrDv16_fPS_S1_(<16 x float>, <16 x float>*, <16 x float>*) #2
-
-; Function Attrs: nounwind willreturn
-declare void @llvm.masked.scatter.v4f32.v4p0f32(<4 x float>, <4 x float*>, i32 immarg, <4 x i1>) #2
 
 attributes #0 = { noinline nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-jump-tables"="false" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

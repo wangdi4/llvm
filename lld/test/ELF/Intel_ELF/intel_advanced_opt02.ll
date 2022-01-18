@@ -4,6 +4,18 @@
 ; RUN: opt %s -o %t.bc
 ; RUN: not ld.lld --lto-O2 -e main \
 ; RUN:    -plugin-opt=fintel-advanced-optim \
+; RUN:    -plugin-opt=legacy-pass-manager \
+; RUN:    -plugin-opt=-intel-libirc-allowed \
+; RUN:    -mllvm -debug-only=whole-program-analysis \
+; RUN:    -mllvm -whole-program-advanced-opt-trace \
+; RUN:    -mllvm -print-after-all \
+; RUN:    -mllvm -whole-program-assume-executable %t.bc -o %t \
+; RUN:    2>&1 | FileCheck %s
+
+; RUN: opt %s -o %t.bc
+; RUN: not ld.lld --lto-O2 -e main \
+; RUN:    -plugin-opt=fintel-advanced-optim \
+; RUN:    -plugin-opt=new-pass-manager  \
 ; RUN:    -plugin-opt=-intel-libirc-allowed \
 ; RUN:    -mllvm -debug-only=whole-program-analysis \
 ; RUN:    -mllvm -whole-program-advanced-opt-trace \

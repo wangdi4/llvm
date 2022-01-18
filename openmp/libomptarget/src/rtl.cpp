@@ -17,10 +17,6 @@
 #include "omptarget-tools.h"
 #endif // INTEL_COLLAB
 
-#if OMPT_SUPPORT
-#include "ompt-target.h"
-#endif
-
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
@@ -339,7 +335,7 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(data_aligned_alloc);
     SET_OPTIONAL_INTERFACE_FN(data_submit_nowait);
     SET_OPTIONAL_INTERFACE_FN(data_retrieve_nowait);
-    SET_OPTIONAL_INTERFACE_FN(create_offload_queue);
+    SET_OPTIONAL_INTERFACE_FN(get_offload_queue);
     SET_OPTIONAL_INTERFACE_FN(release_offload_queue);
     SET_OPTIONAL_INTERFACE_FN(get_device_name);
     SET_OPTIONAL_INTERFACE_FN(get_platform_handle);
@@ -367,6 +363,11 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(is_private_arg_on_host);
     SET_OPTIONAL_INTERFACE_FN(command_batch_begin);
     SET_OPTIONAL_INTERFACE_FN(command_batch_end);
+    SET_OPTIONAL_INTERFACE_FN(kernel_batch_begin);
+    SET_OPTIONAL_INTERFACE_FN(kernel_batch_end);
+    SET_OPTIONAL_INTERFACE_FN(set_function_ptr_map);
+    SET_OPTIONAL_INTERFACE_FN(alloc_per_hw_thread_scratch);
+    SET_OPTIONAL_INTERFACE_FN(free_per_hw_thread_scratch);
     SET_OPTIONAL_INTERFACE(run_team_nd_region, run_target_team_nd_region);
     SET_OPTIONAL_INTERFACE(run_region_nowait, run_target_region_nowait);
     SET_OPTIONAL_INTERFACE(run_team_region_nowait,
@@ -400,19 +401,6 @@ void RTLsTy::LoadRTLs() {
     *((void **)&R.destroy_event) =
         dlsym(dynlib_handle, "__tgt_rtl_destroy_event");
   }
-
-#if OMPT_SUPPORT
-  DP("OMPT_SUPPORT is enabled in libomptarget\n");
-  DP("Init OMPT for libomptarget\n");
-  if (libomp_start_tool) {
-    DP("Retrieve libomp_start_tool successfully\n");
-    if (!libomp_start_tool(&ompt_target_enabled)) {
-      DP("Turn off OMPT in libomptarget because libomp_start_tool returns "
-         "false\n");
-      memset(&ompt_target_enabled, 0, sizeof(ompt_target_enabled));
-    }
-  }
-#endif
 
   DP("RTLs loaded!\n");
 

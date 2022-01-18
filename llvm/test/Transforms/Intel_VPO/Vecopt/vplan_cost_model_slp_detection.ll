@@ -1,5 +1,6 @@
+; INTEL_FEATURE_SW_ADVANCED
 ; TODO: Enable a way to run with LLVM-IR VPlanDriver
-
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -xmain-opt-level=3 -hir-vec-dir-insert -hir-vplan-vec -vplan-cost-model-print-analysis-for-vf=4 -disable-output | FileCheck %s
 
 ; CHECK: Extra cost due to SLP breaking heuristic
@@ -47,3 +48,4 @@ for.body:                                         ; preds = %entry, %for.body
 for.end:                                          ; preds = %for.body
   ret void
 }
+; end INTEL_FEATURE_SW_ADVANCED

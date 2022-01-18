@@ -355,6 +355,20 @@ TRACE_FN_DEF(zeDriverGetExtensionFunctionAddress)(
   return rc;
 }
 
+TRACE_FN_DEF(zeDriverGetExtensionProperties)(
+    ze_driver_handle_t hDriver,
+    uint32_t *pCount,
+    ze_driver_extension_properties_t *pExtensionProperties) {
+  auto rc = zeDriverGetExtensionProperties(hDriver, pCount,
+                                           pExtensionProperties);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hDriver);
+  TRACE_FN_ARG_PTR(pCount);
+  TRACE_FN_ARG_PTR(pExtensionProperties);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
 TRACE_FN_DEF(zeEventCreate)(
     ze_event_pool_handle_t hEventPool,
     const ze_event_desc_t *desc,
@@ -732,7 +746,6 @@ TRACE_FN_DEF(zeModuleDestroy)(
   return rc;
 }
 
-#if ENABLE_LIBDEVICE_LINKING
 TRACE_FN_DEF(zeModuleDynamicLink)(
     uint32_t numModules,
     ze_module_handle_t *phModules,
@@ -745,7 +758,6 @@ TRACE_FN_DEF(zeModuleDynamicLink)(
   TRACE_FN_ARG_END();
   return rc;
 }
-#endif // ENABLE_LIBDEVICE_LINKING
 
 TRACE_FN_DEF(zeModuleGetGlobalPointer)(
     ze_module_handle_t hModule,
@@ -758,6 +770,17 @@ TRACE_FN_DEF(zeModuleGetGlobalPointer)(
   TRACE_FN_ARG_PTR(pGlobalName);
   TRACE_FN_ARG_PTR(pSize);
   TRACE_FN_ARG_PTR(pptr);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
+TRACE_FN_DEF(zeModuleGetProperties)(
+    ze_module_handle_t hModule,
+    ze_module_properties_t *pModuleProperties) {
+  auto rc = zeModuleGetProperties(hModule, pModuleProperties);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hModule);
+  TRACE_FN_ARG_PTR(pModuleProperties);
   TRACE_FN_ARG_END();
   return rc;
 }
@@ -776,8 +799,8 @@ TRACE_FN_DEF(zeModuleGetGlobalPointer)(
   do {                                                                         \
     CALL_ZE(Rc, Fn, __VA_ARGS__);                                              \
     if (Rc != ZE_RESULT_SUCCESS) {                                             \
-      DP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, rc,    \
-         getZeErrorName(rc));                                                  \
+      DP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, Rc,    \
+         getZeErrorName(Rc));                                                  \
     }                                                                          \
   } while(0)
 

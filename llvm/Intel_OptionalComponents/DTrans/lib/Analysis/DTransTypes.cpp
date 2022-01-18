@@ -59,6 +59,18 @@ llvm::Type *DTransType::getLLVMType() const {
   llvm_unreachable("Switch table not completely covered");
 }
 
+uint32_t DTransType::getNumContainedElements() const {
+  switch (ID) {
+  default:
+     return 0;
+  case DTransStructTypeID:
+    return cast<DTransStructType>(this)->getNumFields();
+  case DTransArrayTypeID:
+    return cast<DTransSequentialType>(this)->getNumElements();
+  }
+  llvm_unreachable("Switch table not completely covered");
+}
+
 // The base class just dispatches the request to one of the
 // derived classes based on the actual type of this DTransType object.
 MDNode *DTransType::createMetadataReference() const {
@@ -322,9 +334,16 @@ void DTransStructType::print(raw_ostream &OS, bool Detailed) const {
   if (getReconstructError())
     OS << "Metadata mismatch: ";
 
-  // For compatibility with the way struct names are printed for
-  // llvm::StructType, some names will be quoted.
-  auto ShouldQuoteName = [](StringRef S) { return S.contains(':'); };
+  // For compatibility with the way llvm::StructType names are printed, names
+  // with certain non-alpha numeric characters will be quoted.
+  auto ShouldQuoteName = [](StringRef S) {
+    for (auto C : S)
+      if (!isalnum(static_cast<unsigned char>(C)) && C != '-' && C != '.' &&
+          C != '_')
+        return true;
+    return false;
+  };
+
   bool IsLiteral = isLiteralStruct();
   if (!IsLiteral) {
     assert(hasName() && "Non-literal structs should have names");
@@ -515,13 +534,14 @@ DTransTypeManager::~DTransTypeManager() {
     delete P.second;
   VecTypeInfoMap.clear();
 
-  for (auto *FTy : FunctionTypeVec)
-    delete FTy;
-  FunctionTypeVec.clear();
+  for (auto &FTyNode : FunctionTypeNodes)
+    delete FTyNode.getFunctionType();
+  FunctionTypeNodes.clear();
 
   for (auto &P : StructTypeInfoMap)
     delete P.second;
   StructTypeInfoMap.clear();
+  AllDTransTypes.clear();
 }
 
 // Invoke the appropriate delete method based on the object type.
@@ -554,6 +574,7 @@ DTransAtomicType *DTransTypeManager::getOrCreateAtomicType(llvm::Type *Ty) {
 
   auto *DTType = new DTransAtomicType(Ty);
   TypeInfoMap.insert(std::make_pair(Ty, DTType));
+  AllDTransTypes.push_back(DTType);
   return DTType;
 }
 
@@ -567,6 +588,7 @@ DTransTypeManager::getOrCreatePointerType(DTransType *PointeeTy) {
 
   auto DTPtrTy = new DTransPointerType(PointeeTy->getContext(), PointeeTy);
   PointerTypeInfoMap.insert(std::make_pair(PointeeTy, DTPtrTy));
+  AllDTransTypes.push_back(DTPtrTy);
   return DTPtrTy;
 }
 
@@ -585,7 +607,7 @@ DTransTypeManager::getOrCreateStructType(llvm::StructType *StTy) {
         StTy->getContext(), StTy, std::string(StTy->getName()), 0,
         /*IsOpaque=*/true);
     StructTypeInfoMap.insert(std::make_pair(StTy->getName(), DTransStTy));
-
+    AllDTransTypes.push_back(DTransStTy);
     return DTransStTy;
   }
 
@@ -597,6 +619,7 @@ DTransTypeManager::getOrCreateStructType(llvm::StructType *StTy) {
 
   DTransStructType *DTransStTy = new DTransStructType(StTy, Fields);
   StructTypeInfoMap.insert(std::make_pair(StTy->getName(), DTransStTy));
+  AllDTransTypes.push_back(DTransStTy);
   return DTransStTy;
 }
 
@@ -624,6 +647,7 @@ DTransStructType *DTransTypeManager::getOrCreateLiteralStructType(
 
   auto *NewTy = DTransLitTy.release();
   LitStructTypeVec.push_back(NewTy);
+  AllDTransTypes.push_back(NewTy);
   return NewTy;
 }
 
@@ -637,6 +661,7 @@ DTransArrayType *DTransTypeManager::getOrCreateArrayType(DTransType *ElemType,
   auto *DTArrTy = new DTransArrayType(ElemType->getContext(), ElemType, Num);
   ArrayTypeInfoMap.insert(
       std::make_pair(std::make_pair(ElemType, Num), DTArrTy));
+  AllDTransTypes.push_back(DTArrTy);
   return DTArrTy;
 }
 
@@ -649,41 +674,21 @@ DTransVectorType *DTransTypeManager::getOrCreateVectorType(DTransType *ElemType,
 
   auto *DTVecTy = new DTransVectorType(ElemType->getContext(), ElemType, Num);
   VecTypeInfoMap.insert(std::make_pair(std::make_pair(ElemType, Num), DTVecTy));
+  AllDTransTypes.push_back(DTVecTy);
   return DTVecTy;
 }
 
 DTransFunctionType *DTransTypeManager::getOrCreateFunctionType(
-    DTransType *DTRetTy, SmallVectorImpl<DTransType *> &ParamTypes,
+    DTransType *DTRetTy, ArrayRef<DTransType *> ParamTypes,
     bool IsVarArg) {
-
-  auto CompareFunctionTypes = [](DTransFunctionType *DTFnTy,
-                                 DTransType *DTRetTy,
-                                 SmallVectorImpl<DTransType *> &ParamTypes,
-                                 bool IsVarArg) {
-    if (DTFnTy->getNumArgs() != ParamTypes.size())
-      return false;
-
-    if (DTFnTy->isVarArg() != IsVarArg)
-      return false;
-
-    if (!DTFnTy->getReturnType() || !DTFnTy->getReturnType()->compare(*DTRetTy))
-      return false;
-
-    unsigned AI = 0;
-    for (auto CurParamTy : DTFnTy->args()) {
-      assert(ParamTypes[AI] && "Should be non-null when AllAnalyzed is true");
-      if (!CurParamTy || !CurParamTy->compare(*ParamTypes[AI]))
-        return false;
-      ++AI;
-    }
-
-    return true;
-  };
-
-  // Check for an existing function type that matches the signature
-  for (auto *DTFnTy : FunctionTypeVec)
-    if (CompareFunctionTypes(DTFnTy, DTRetTy, ParamTypes, IsVarArg))
-      return DTFnTy;
+  llvm::FoldingSetNodeID Profile;
+  DTransFunctionTypeNode::generateProfile(DTRetTy, ParamTypes, IsVarArg,
+                                          Profile);
+  void *IP = nullptr;
+  DTransFunctionTypeNode *N =
+      FunctionTypeNodes.FindNodeOrInsertPos(Profile, IP);
+  if (N)
+    return N->getFunctionType();
 
   auto *NewDTFnTy = new DTransFunctionType(Ctx, ParamTypes.size(), IsVarArg);
   NewDTFnTy->setReturnType(DTRetTy);
@@ -691,7 +696,10 @@ DTransFunctionType *DTransTypeManager::getOrCreateFunctionType(
   for (auto ParamTy : ParamTypes)
     NewDTFnTy->setArgType(AI++, ParamTy);
 
-  FunctionTypeVec.push_back(NewDTFnTy);
+  DTransFunctionTypeNode *NewN =
+      new (Allocator) DTransFunctionTypeNode(NewDTFnTy);
+  FunctionTypeNodes.InsertNode(NewN, IP);
+  AllDTransTypes.push_back(NewDTFnTy);
   return NewDTFnTy;
 }
 
@@ -795,7 +803,7 @@ DTransType *DTransTypeManager::getOrCreateSimpleType(llvm::Type *Ty) {
   }
 
   assert((Ty->isIntegerTy() || Ty->isFloatingPointTy() || Ty->isVoidTy() ||
-          Ty->isMetadataTy()) &&
+          Ty->isMetadataTy() || Ty->isTokenTy()) &&
          "Primitive type must be based on scalar type");
   return getOrCreateAtomicType(Ty);
 }

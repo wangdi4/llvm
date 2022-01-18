@@ -21,7 +21,7 @@ define i32 @foo(i32* noalias nocapture %A, i32 %N, i32 %init)  {
 ; CHECK-LABEL: @foo(
 ; CHECK:       VPlannedBB2:
 ; CHECK:         [[TMP6:%.*]] = shl i32 [[TMP0:%.*]], 2
-; CHECK-NEXT:    [[IND_STEP_INIT_SPLATINSERT:%.*]] = insertelement <4 x i32> poison, i32 [[TMP6]], i32 0
+; CHECK-NEXT:    [[IND_STEP_INIT_SPLATINSERT:%.*]] = insertelement <4 x i32> poison, i32 [[TMP6]], i64 0
 ; CHECK-NEXT:    [[IND_STEP_INIT_SPLAT:%.*]] = shufflevector <4 x i32> [[IND_STEP_INIT_SPLATINSERT]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK:         br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:

@@ -17,8 +17,9 @@ define void @test01callee(i64 %in) {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data: Local instance{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 
 ; Test with bitcast function call
@@ -34,12 +35,14 @@ define void @test02callee(%struct.test02b* "intel_dtrans_func_index"="1" %in) !i
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02a
+; CHECK: LLVMType: %struct.test02a
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test02a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02b
+; CHECK: LLVMType: %struct.test02b
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test02b
 
 
 !1 = !{i32 0, i32 0}  ; i32

@@ -300,9 +300,9 @@ added in the future:
     code for the target, without having to conform to an externally
     specified ABI (Application Binary Interface). `Tail calls can only
     be optimized when this, the tailcc, the GHC or the HiPE convention is
-    used. <CodeGenerator.html#id80>`_ This calling convention does not
-    support varargs and requires the prototype of all callees to exactly
-    match the prototype of the function definition.
+    used. <CodeGenerator.html#tail-call-optimization>`_ This calling
+    convention does not support varargs and requires the prototype of all
+    callees to exactly match the prototype of the function definition.
 "``coldcc``" - The cold calling convention
     This calling convention attempts to make code in the caller as
     efficient as possible under the assumption that the call is not
@@ -329,8 +329,8 @@ added in the future:
        floating-point parameters.
 
     This calling convention supports `tail call
-    optimization <CodeGenerator.html#id80>`_ but requires both the
-    caller and callee are using it.
+    optimization <CodeGenerator.html#tail-call-optimization>`_ but requires
+    both the caller and callee are using it.
 "``cc 11``" - The HiPE calling convention
     This calling convention has been implemented specifically for use by
     the `High-Performance Erlang
@@ -340,8 +340,8 @@ added in the future:
     registers for argument passing than the ordinary C calling
     convention and defines no callee-saved registers. The calling
     convention properly supports `tail call
-    optimization <CodeGenerator.html#id80>`_ but requires that both the
-    caller and the callee use it. It uses a *register pinning*
+    optimization <CodeGenerator.html#tail-call-optimization>`_ but requires
+    that both the caller and the callee use it. It uses a *register pinning*
     mechanism, similar to GHC's convention, for keeping frequently
     accessed runtime components pinned to specific hardware registers.
     At the moment only X86 supports this convention (both 32 and 64
@@ -437,8 +437,8 @@ added in the future:
     tail call optimized. This calling convention is equivalent to fastcc,
     except for an additional guarantee that tail calls will be produced
     whenever possible. `Tail calls can only be optimized when this, the fastcc,
-    the GHC or the HiPE convention is used. <CodeGenerator.html#id80>`_ This
-    calling convention does not support varargs and requires the prototype of
+    the GHC or the HiPE convention is used. <CodeGenerator.html#tail-call-optimization>`_
+    This calling convention does not support varargs and requires the prototype of
     all callees to exactly match the prototype of the function definition.
 "``swiftcc``" - This calling convention is used for Swift language.
     - On X86-64 RCX and R8 are available for additional integer returns, and
@@ -446,7 +446,7 @@ added in the future:
     - On iOS platforms, we use AAPCS-VFP calling convention.
 "``swifttailcc``"
     This calling convention is like ``swiftcc`` in most respects, but also the
-    callee pops the argument area of the stack so that mandatory tail calls are 
+    callee pops the argument area of the stack so that mandatory tail calls are
     possible as in ``tailcc``.
 "``cfguard_checkcc``" - Windows Control Flow Guard (Check mechanism)
     This calling convention is used for the Control Flow Guard check function,
@@ -623,7 +623,7 @@ need to either ensure that a) all possible values are valid, or b)
 appropriate fencing is inserted.  Since the appropriate fencing is
 implementation defined, the optimizer can't do the latter.  The former is
 challenging as many commonly expected properties, such as
-``ptrtoint(v)-ptrtoint(v) == 0``, don't hold for non-integral types.  
+``ptrtoint(v)-ptrtoint(v) == 0``, don't hold for non-integral types.
 
 .. _globalvars:
 
@@ -709,7 +709,7 @@ to over-align the global if the global has an assigned section. In this
 case, the extra alignment could be observable: for example, code could
 assume that the globals are densely packed in their section and try to
 iterate over them as an array, alignment padding would break this
-iteration. The maximum alignment is ``1 << 29``.
+iteration. The maximum alignment is ``1 << 32``.
 
 For global variables declarations, as well as definitions that may be
 replaced at link time (``linkonce``, ``weak``, ``extern_weak`` and ``common``
@@ -931,7 +931,7 @@ IFunc may have an optional :ref:`linkage type <linkage>` and an optional
 
 Syntax::
 
-    @<Name> = [Linkage] [Visibility] ifunc <IFuncTy>, <ResolverTy>* @<Resolver>
+    @<Name> = [Linkage] [PreemptionSpecifier] [Visibility] ifunc <IFuncTy>, <ResolverTy>* @<Resolver>
 
 
 .. _langref_comdats:
@@ -1632,12 +1632,18 @@ example:
     ``disable_sanitizer_instrumentation`` disables all kinds of instrumentation,
     taking precedence over the ``sanitize_<name>`` attributes and other compiler
     flags.
-``"dontcall"``
-    This attribute denotes that a diagnostic should be emitted when a call of a
-    function with this attribute is not eliminated via optimization. Front ends
-    can provide optional ``srcloc`` metadata nodes on call sites of such
-    callees to attach information about where in the source language such a
-    call came from.
+``"dontcall-error"``
+    This attribute denotes that an error diagnostic should be emitted when a
+    call of a function with this attribute is not eliminated via optimization.
+    Front ends can provide optional ``srcloc`` metadata nodes on call sites of
+    such callees to attach information about where in the source language such a
+    call came from. A string value can be provided as a note.
+``"dontcall-warn"``
+    This attribute denotes that a warning diagnostic should be emitted when a
+    call of a function with this attribute is not eliminated via optimization.
+    Front ends can provide optional ``srcloc`` metadata nodes on call sites of
+    such callees to attach information about where in the source language such a
+    call came from. A string value can be provided as a note.
 ``"frame-pointer"``
     This attribute tells the code generator whether the function
     should keep the frame pointer. The code generator may emit the frame pointer
@@ -1698,6 +1704,18 @@ example:
     a new pointer for the original function, which means that code that depends
     on function-pointer identity can break. So, any function annotated with
     ``jumptable`` must also be ``unnamed_addr``.
+.. INTEL_CUSTOMIZATION
+``"loopopt-pipeline"``
+    This attribute tells the optimizer to run loopopt framework passes for this
+    function. The precise effect of this attribute depends on its string value,
+    for which there currently are three legal possibilities:
+
+     * ``"none"`` - disable all loopopt framework based loop optimization.
+     * ``"light"`` - enable lightweight loopopt framework based loop optimization.
+     * ``"full"`` - enable all loopopt framework based loop optimization passes.
+
+    If this attribute is not specified, the default is ``"none"``.
+.. END INTEL_CUSTOMIZATION
 ``minsize``
     This attribute suggests that optimization passes and code generator
     passes make choices that keep the code size of this function as small
@@ -2184,9 +2202,10 @@ example:
     duplicate definitions are linked together with differing values.
 ``vscale_range(<min>[, <max>])``
     This attribute indicates the minimum and maximum vscale value for the given
-    function. A value of 0 means unbounded. If the optional max value is omitted
-    then max is set to the value of min. If the attribute is not present, no
-    assumptions are made about the range of vscale.
+    function. The min must be greater than 0. A maximum value of 0 means
+    unbounded. If the optional max value is omitted then max is set to the
+    value of min. If the attribute is not present, no assumptions are made
+    about the range of vscale.
 
 .. INTEL_CUSTOMIZATION
 
@@ -2659,28 +2678,33 @@ as follows:
 ``A<address space>``
     Specifies the address space of objects created by '``alloca``'.
     Defaults to the default address space of 0.
-``p[n]:<size>:<abi>:<pref>:<idx>``
+``p[n]:<size>:<abi>[:<pref>][:<idx>]``
     This specifies the *size* of a pointer and its ``<abi>`` and
-    ``<pref>``\erred alignments for address space ``n``. The fourth parameter
-    ``<idx>`` is a size of index that used for address calculation. If not
+    ``<pref>``\erred alignments for address space ``n``. ``<pref>`` is optional
+    and defaults to ``<abi>``. The fourth parameter ``<idx>`` is the size of the
+    index that used for address calculation. If not
     specified, the default index size is equal to the pointer size. All sizes
     are in bits. The address space, ``n``, is optional, and if not specified,
     denotes the default address space 0. The value of ``n`` must be
     in the range [1,2^23).
-``i<size>:<abi>:<pref>``
+``i<size>:<abi>[:<pref>]``
     This specifies the alignment for an integer type of a given bit
     ``<size>``. The value of ``<size>`` must be in the range [1,2^23).
-``v<size>:<abi>:<pref>``
+    ``<pref>`` is optional and defaults to ``<abi>``.
+``v<size>:<abi>[:<pref>]``
     This specifies the alignment for a vector type of a given bit
-    ``<size>``.
-``f<size>:<abi>:<pref>``
+    ``<size>``. The value of ``<size>`` must be in the range [1,2^23).
+    ``<pref>`` is optional and defaults to ``<abi>``.
+``f<size>:<abi>[:<pref>]``
     This specifies the alignment for a floating-point type of a given bit
     ``<size>``. Only values of ``<size>`` that are supported by the target
     will work. 32 (float) and 64 (double) are supported on all targets; 80
     or 128 (different flavors of long double) are also supported on some
-    targets.
-``a:<abi>:<pref>``
+    targets. The value of ``<size>`` must be in the range [1,2^23).
+    ``<pref>`` is optional and defaults to ``<abi>``.
+``a:<abi>[:<pref>]``
     This specifies the alignment for an object of aggregate type.
+    ``<pref>`` is optional and defaults to ``<abi>``.
 ``F<type><abi>``
     This specifies the alignment for function pointers.
     The options for ``<type>`` are:
@@ -2696,6 +2720,7 @@ as follows:
     options are
 
     * ``e``: ELF mangling: Private symbols get a ``.L`` prefix.
+    * ``l``: GOFF mangling: Private symbols get a ``@`` prefix.
     * ``m``: Mips mangling: Private symbols get a ``$`` prefix.
     * ``o``: Mach-O mangling: Private symbols get ``L`` prefix. Other
       symbols get a ``_`` prefix.
@@ -2727,7 +2752,7 @@ default set of specifications which are then (possibly) overridden by
 the specifications in the ``datalayout`` keyword. The default
 specifications are given in this list:
 
--  ``E`` - big endian
+-  ``e`` - little endian
 -  ``p:64:64:64`` - 64-bit pointers with 64-bit alignment.
 -  ``p[n]:64:64:64`` - Other address spaces are assumed to be the
    same as the default address space.
@@ -2758,10 +2783,6 @@ following rules:
    given the default specifications above, the i7 type will use the
    alignment of i8 (next largest) while both i65 and i256 will use the
    alignment of i64 (largest specified).
-#. If no match is found, and the type sought is a vector type, then the
-   largest vector type that is smaller than the sought vector type will
-   be used as a fall back. This happens because <128 x double> can be
-   implemented in terms of 64 <2 x double>, for example.
 
 The function of the data layout string may not be what you expect.
 Notably, this is not a specification from the frontend of what alignment
@@ -3415,7 +3436,7 @@ Integer Type
 
 The integer type is a very simple type that simply specifies an
 arbitrary bit width for the integer type desired. Any bit width from 1
-bit to 2\ :sup:`23`\ -1 (about 8 million) can be specified.
+bit to 2\ :sup:`23`\ (about 8 million) can be specified.
 
 :Syntax:
 
@@ -4325,6 +4346,20 @@ may not be ``dso_local``.
 
 This is currently only supported for ELF binary formats.
 
+.. _no_cfi:
+
+No CFI
+------
+
+``no_cfi @func``
+
+With `Control-Flow Integrity (CFI)
+<https://clang.llvm.org/docs/ControlFlowIntegrity.html>`_, a '``no_cfi``'
+constant represents a function reference that does not get replaced with a
+reference to the CFI jump table in the ``LowerTypeTests`` pass. These constants
+may be useful in low-level programs, such as operating system kernels, which
+need to refer to the actual function body.
+
 .. _constantexprs:
 
 Constant Expressions
@@ -4922,7 +4957,7 @@ RISC-V:
 - ``r``: A 32- or 64-bit general-purpose register (depending on the platform
   ``XLEN``).
 - ``vr``: A vector register. (requires V extension).
-- ``vm``: A vector mask register. (requires V extension).
+- ``vm``: A vector register for masking operand. (requires V extension).
 
 Sparc:
 
@@ -5508,8 +5543,8 @@ DISubrange
 :ref:`DICompositeType`.
 
 - ``count: -1`` indicates an empty array.
-- ``count: !9`` describes the count with a :ref:`DILocalVariable`.
-- ``count: !11`` describes the count with a :ref:`DIGlobalVariable`.
+- ``count: !10`` describes the count with a :ref:`DILocalVariable`.
+- ``count: !12`` describes the count with a :ref:`DIGlobalVariable`.
 
 .. code-block:: text
 
@@ -5902,12 +5937,16 @@ DIImportedEntity
 """"""""""""""""
 
 ``DIImportedEntity`` nodes represent entities (such as modules) imported into a
-compile unit.
+compile unit. The ``elements`` field is a list of renamed entities (such as
+variables and subprograms) in the imported entity (such as module).
 
 .. code-block:: text
 
    !2 = !DIImportedEntity(tag: DW_TAG_imported_module, name: "foo", scope: !0,
-                          entity: !1, line: 7)
+                          entity: !1, line: 7, elements: !3)
+   !3 = !{!4}
+   !4 = !DIImportedEntity(tag: DW_TAG_imported_declaration, name: "bar", scope: !0,
+                          entity: !5, line: 7)
 
 DIMacro
 """""""
@@ -7937,7 +7976,7 @@ The optional ``FuncFlags`` field looks like:
 
 .. code-block:: text
 
-    funcFlags: (readNone: 0, readOnly: 0, noRecurse: 0, returnDoesNotAlias: 0)
+    funcFlags: (readNone: 0, readOnly: 0, noRecurse: 0, returnDoesNotAlias: 0, noInline: 0, alwaysInline: 0, noUnwind: 1, mayThrow: 0, hasUnknownCall: 0)
 
 If unspecified, flags are assumed to hold the conservative ``false`` value of
 ``0``.
@@ -10202,7 +10241,7 @@ appropriate type to the program. If "NumElements" is specified, it is
 the number of elements allocated, otherwise "NumElements" is defaulted
 to be one. If a constant alignment is specified, the value result of the
 allocation is guaranteed to be aligned to at least that boundary. The
-alignment may not be greater than ``1 << 29``. If not specified, or if
+alignment may not be greater than ``1 << 32``. If not specified, or if
 zero, the target can choose to align the allocation on any convenient
 boundary compatible with the type.
 
@@ -10292,7 +10331,7 @@ alignment for the target. It is the responsibility of the code emitter
 to ensure that the alignment information is correct. Overestimating the
 alignment results in undefined behavior. Underestimating the alignment
 may produce less efficient code. An alignment of 1 is always safe. The
-maximum possible alignment is ``1 << 29``. An alignment value higher
+maximum possible alignment is ``1 << 32``. An alignment value higher
 than the size of the loaded type implies memory up to the alignment
 value bytes can be safely loaded without trapping in the default
 address space. Access of the high bytes can interfere with debugging
@@ -10427,7 +10466,7 @@ alignment for the target. It is the responsibility of the code emitter
 to ensure that the alignment information is correct. Overestimating the
 alignment results in undefined behavior. Underestimating the
 alignment may produce less efficient code. An alignment of 1 is always
-safe. The maximum possible alignment is ``1 << 29``. An alignment
+safe. The maximum possible alignment is ``1 << 32``. An alignment
 value higher than the size of the stored type implies memory up to the
 alignment value bytes can be stored to without trapping in the default
 address space. Storing to the higher bytes however may result in data
@@ -12691,7 +12730,7 @@ Syntax:
 
       declare token
         @llvm.experimental.gc.statepoint(i64 <id>, i32 <num patch bytes>,
-                       func_type <target>, 
+                       func_type <target>,
                        i64 <#call args>, i64 <flags>,
                        ... (call parameters),
                        i64 0, i64 0)
@@ -12801,7 +12840,7 @@ Operands:
 
 The first and only argument is the ``gc.statepoint`` which starts
 the safepoint sequence of which this ``gc.result`` is a part.
-Despite the typing of this as a generic token, *only* the value defined 
+Despite the typing of this as a generic token, *only* the value defined
 by a ``gc.statepoint`` is legal here.
 
 Semantics:
@@ -12825,8 +12864,8 @@ Syntax:
 ::
 
       declare <pointer type>
-        @llvm.experimental.gc.relocate(token %statepoint_token, 
-                                       i32 %base_offset, 
+        @llvm.experimental.gc.relocate(token %statepoint_token,
+                                       i32 %base_offset,
                                        i32 %pointer_offset)
 
 Overview:
@@ -12840,7 +12879,7 @@ Operands:
 
 The first argument is the ``gc.statepoint`` which starts the
 safepoint sequence of which this ``gc.relocation`` is a part.
-Despite the typing of this as a generic token, *only* the value defined 
+Despite the typing of this as a generic token, *only* the value defined
 by a ``gc.statepoint`` is legal here.
 
 The second and third arguments are both indices into operands of the
@@ -18118,6 +18157,338 @@ The :ref:`align <attr_align>` parameter attribute can be provided
 for the ``%Ptr`` arguments.
 
 
+.. INTEL_CUSTOMIZATION
+
+Experimental joint matrix intrinsics
+------------------------------------
+These intrinsics operate on *joint matrices*. Elements of a joint matrix are
+distributed among a group of work-items.
+
+Set of elements which are owned or are directly accessible by single work-item
+is called *work-item slice* of the matrix.
+
+The group of work-items which owns all elements of the matrix is called *memory
+scope* of the matrix.  The memory scope for the intrinsics below is specified as
+a metadata string argument.  Currently, value of this argument must be one of
+the following strings:
+::
+
+    "scope.subgroup"
+    "scope.workgroup"
+
+A metadata string argument is also used by the intrinsics to specify layout of
+the matrix.  Value of such argument must be one of the following strings:
+::
+
+    "matrix.rowmajor"
+    "matrix.columnmajor"
+    "matrix.packed.a"
+    "matrix.packed.b"
+
+'``llvm.experimental.matrix.fill.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+
+::
+
+      declare <vectorty> @llvm.experimental.matrix.fill.*(
+          <type> %Input, i32 <Rows>, i32 <Cols>,
+          metadata <Layout>, metadata <Scope>)
+
+Overview:
+"""""""""
+The '``llvm.experimental.matrix.fill..*``' intrinsics creates a new joint
+matrix initialized by the specified value.
+
+Arguments:
+""""""""""
+The first argument ``%Input`` is a value of an integer or floating point type.
+The second and third arguments, ``<Rows>`` and ``<Cols>``, specify the
+number of rows and columns of the matrix, and must be positive, constant
+integers.
+
+The fourth and fifth arguments are metadata strings which specify layout and
+memory scope of the matrix, respectively.
+
+Semantics:
+""""""""""
+The '``llvm.experimental.matrix.fill.*``' intrinsic function creates a new
+``<Rows> x <Cols>`` joint matrix using a ``%Scope`` operand to specify memory
+scope for the matrix. All elements of the new matrix are initialized by the
+value of ``%Input``. The return type is ``<Rows> x <Cols>`` vector, which
+represents the matrix.
+
+
+'``llvm.experimental.matrix.wi.slice.length.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+
+::
+
+      declare i64
+      @llvm.experimental.matrix.wi.slice.length.*(<vectorty> <matrix>,
+                                                  i32 <rows>, i32 <columns>,
+                                                  metadata <layout>, metadata <scope>)
+
+Overview:
+"""""""""
+The '``llvm.experimental.matrix.wi.slice.length``' intrinsic returns number of
+elements owned by the current work-item in a joint matrix.
+
+Arguments:
+""""""""""
+The first three arguments describe the matrix: the first argument is a vector
+which represents a flattened matrix, the second and third arguments are number
+of rows and columns in the matrix respectively. Elements of the vector must be
+either of any integer or any floating point type. ``rows`` and ``columns`` must
+be positive, constant integers.
+
+The fourth and fifth arguments are metadata strings which specify layout and
+memory scope of the matrix, respectively.
+
+Semantics:
+""""""""""
+This intrinsics returns the number of matrix elements which are owned or
+directly accessible by the current work-item.
+
+Example:
+""""""""
+::
+
+    declare i64 @llvm.experimental.matrix.wi.slice.length.v256f32(<256 x float> %A, i32 16, i32 16, metadata !"matrix.columnmajor", metadata !"scope.subgroup")
+
+
+'``llvm.experimental.matrix.wi.slice.extractelement.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+
+::
+
+    declare <ty>
+    @llvm.experimental.matrix.wi.slice.extractelement.*(<vectorty> <matrix>,
+                                                        i32 <rows>, i32 <columns>, <ty2> <index>,
+                                                        metadata <layout>, metadata <scope>)
+
+Overview:
+"""""""""
+'``llvm.experimental.matrix.wi.slice.extractelement.*``' intrinsic extracts one
+element from the current work-item slice.
+
+Arguments:
+""""""""""
+The first three arguments describe the matrix: the first argument is a vector
+which represent flattened matrix, the second and third arguments are number of
+rows and columns in the matrix respectively. Elements of the vector must be
+either of any integer or any floating point type. ``rows`` and ``columns`` must
+be positive, constant integers.
+
+The fourth argument specifies index of the element to be extracted from the
+current work-item slice. The ``index`` argument must be of an integer type.
+
+The fifth and sixth arguments are metadata strings which specify layout and
+memory scope of the matrix, respectively.
+
+Semantics:
+""""""""""
+``llvm.experimental.matrix.wi.slice.extractelement.*`` interprets the current
+work-item slice as a vector with length equals to the value returned by
+``llvm.experimental.matrix.wi.slice.length.*``. This intrinsic operates on the
+current work-item slice only and returns the value of the element at position
+``index`` in the current work-item slice(vector). Type of the returned value
+match with the type of matrix elements. If the value of ``index`` exceeds the
+value returned by ``llvm.experimental.matrix.wi.slice.length.*``, the result is
+a ``poison value``.
+
+Example:
+""""""""
+::
+
+    declare float @llvm.experimental.matrix.wi.slice.extractelement.v256f32.i64(<256 x float> %A, i32 16, i32 16, i64 %index,  metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+    declare i8 @llvm.experimental.matrix.wi.slice.extractelement.v64i8.i32(<64 x i8> %A, i32 16, i32 4, i32 %index,  metadata !"matrix.columnmajor", metadata !"scope.subgroup")
+
+
+'``llvm.experimental.matrix.wi.slice.insertelement.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+::
+
+      declare <vectorty>
+      @llvm.experimental.matrix.wi.slice.insertelement.*(<vectorty> <matrix>,
+                                                         i32 <rows>, i32 <columns>,
+                                                         <ty> <val>, <ty2> <index>,
+                                                         metadata <layout>, metadata <scope>)
+
+Overview:
+"""""""""
+'``llvm.experimental.matrix.wi.slice.insertelement``' intrinsic inserts scalar
+value to the current work-item slice.
+
+Arguments:
+""""""""""
+The first three arguments describe the matrix: the first argument is a vector
+which represent flattened matrix, the second and third arguments are number of
+rows and columns in the matrix respectively. Elements of the vector must be
+either of any integer or any floating point type. ``rows`` and ``columns`` must
+be positive, constant integers.
+
+The fourth argument is the value to insert, its type must match with the type of
+matrix elements.  The fifth argument is an index indicating the position in the
+current work-item slice at which to insert the value. The ``index`` argument
+must be of an integer type.
+
+The sixth and seventh arguments are metadata strings which specify layout and
+memory scope of the matrix, respectively.
+
+Semantics:
+""""""""""
+``llvm.experimental.matrix.wi.slice.insertelement.*`` interprets the current
+work-item slice as a vector with length equals to the value returned by
+``llvm.experimental.matrix.wi.slice.length.*``.  The return value is a copy of
+``matrix``, except one element at position ``index`` in the current work-item
+slice, where it gets the value ``val``.  If the value of ``index`` exceeds the
+value returned by ``llvm.experimental.matrix.wi.slice.length.*``, the result is
+a ``poison value``.
+
+Example:
+""""""""
+::
+
+      declare <256 x float> @llvm.experimental.matrix.wi.slice.insertelement.v256f32.i64(<256 x float> %A, i32 16, i32 16, float %val, i64 %index, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+      declare <64 x i8> @llvm.experimental.matrix.wi.slice.insertelement.v64i8.i32(<64 x i8> %A, i32 16, i32 4, i8 %val, i32 %index, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+
+
+'``llvm.experimental.matrix.extract.row.slice``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+::
+
+      declare <vectorty>
+      @llvm.experimental.matrix.extract.row.slice.*(<vectorty2> <matrix>,
+                                                    i32 <rowindex>, i32 <colindex>, i32 <count>,
+                                                    i32 <rows>, i32 <cols>, metadata <layout>)
+
+Overview:
+"""""""""
+'``llvm.experimental.matrix.extract.row.slice``' intrinsic extracts consecutive
+values (in row-major order) from the matrix. A collection of the row-major
+consecutive values is called a row slice of the matrix.
+
+Arguments:
+""""""""""
+The first argument is a vector which represents a flattened matrix.
+
+The second and third arguments are the row and column index of the leader
+element of the row slice to be extracted.
+
+The fourth argument is a positive, constant integer that represents the length
+of the returned row slice.
+
+The fifth and sixth arguments describes the number of rows and columns of the
+matrix respectively.
+
+The seventh argument is a metadata string specifying the matrix layout.
+
+Semantics:
+""""""""""
+'``llvm.experimental.matrix.extract.row.slice``' extracts and returns a
+consecutive set of elements (called a row slice) out of the matrix, by viewing
+the matrix as a flattened vector in row-major order. The coordinates of the first
+element of the row slice in the matrix are specified by ``rowindex`` and
+``colindex``. ``count`` specifies the number of elements of the returned row
+slice.
+
+If any part of the row slice falls outside the matrix range, the result is a
+:ref:`poison value <poisonvalues>`.
+
+Example:
+""""""""
+::
+
+      ; Extracts a length-4 row slice from a 3-by-4 matrix, starting from A[0,1]
+      ; Return vector == [A[0,1], A[0,2], A[0,3], A[1,0]]
+      <result> = call <4 x i32> @llvm.experimental.matrix.extract.row.slice.v4i32.v12i32(<12 x i32> %A, i32 0, i32 1, i32 4, i32 3, i32 4, metadata !"matrix.rowmajor")
+      ; Extracts a length-4 row slice from a 3-by-4 matrix, starting from A[2,1]
+      ; Return vector is a poison value, because the last element falls outside the matrix range
+      <result> = call <4 x i32> @llvm.experimental.matrix.extract.row.slice.v4i32.v12i32(<12 x i32> %A, i32 2, i32 1, i32 4, i32 3, i32 4, metadata !"matrix.rowmajor")
+
+
+'``llvm.experimental.matrix.insert.row.slice``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+::
+
+      declare <vectorty>
+      @llvm.experimental.matrix.insert.row.slice.*(<vectorty> <matrix>, <vectorty2> <data>,
+                                                   i32 <rowindex>, i32 <colindex>, i32 <count>,
+                                                   i32 <rows>, i32 <cols>, metadata <layout>)
+
+Overview:
+"""""""""
+'``llvm.experimental.matrix.insert.row.slice``' intrinsic inserts data into
+consecutive positions (in row-major order) of the matrix.
+
+Arguments:
+""""""""""
+The first argument is a vector which represents a flattened matrix.
+
+The second argument is a vector which specifies the data to be inserted.
+
+The third and fourth arguments are the row and column index of the leader
+element of the row slice to be inserted.
+
+The fifth argument is a positive, constant integer that represents the length
+of the row slice to be inserted.
+
+The sixth and seventh arguments describes the number of rows and columns of the
+matrix respectively.
+
+The eighth argument is a metadata string specifying the matrix layout.
+
+Semantics:
+""""""""""
+'``llvm.experimental.matrix.insert.row.slice``' inserts data into consecutive
+positions (called a row slice) of the matrix, by viewing the matrix as a
+flattened vector in row-major order and returns a copy of the flattened matrix
+with corresponding elements updated. The coordinates of the first element of
+the row slice in the matrix are specified by ``rowindex`` and ``colindex``.
+``count`` specifies the number of elements to be inserted.
+
+If any part of the row slice falls outside the matrix range, the result is a
+:ref:`poison value <poisonvalues>`.
+
+Example:
+""""""""
+::
+
+      ; Inserts a length-4 row slice into a 3-by-4 matrix, starting from A[0,1]
+      ; [A[0,1], A[0,2], A[0,3], A[1,0]] <== %data
+      <result> = call <12 x i32> @llvm.experimental.matrix.insert.row.slice.v12i32.v4i32(<12 x i32> %A, <4 x i32> %data, i32 0, i32 1, i32 4, i32 3, i32 4, metadata !"matrix.rowmajor")
+      ; Inserts a length-4 row slice into a 3-by-4 matrix, starting from A[2,1]
+      ; Result is a poison value, because the last element falls outside the matrix range
+      <result> = call <12 x i32> @llvm.experimental.matrix.insert.row.slice.v12i32.v4i32(<12 x i32> %A, <4 x i32> %data, i32 2, i32 1, i32 4, i32 3, i32 4, metadata !"matrix.rowmajor")
+
+
+.. END INTEL_CUSTOMIZATION
+
+
 Half Precision Floating-Point Intrinsics
 ----------------------------------------
 
@@ -18347,6 +18718,13 @@ The LLVM exception handling intrinsics (which all start with
 ``llvm.eh.`` prefix), are described in the `LLVM Exception
 Handling <ExceptionHandling.html#format-common-intrinsics>`_ document.
 
+Pointer Authentication Intrinsics
+---------------------------------
+
+The LLVM pointer authentication intrinsics (which all start with
+``llvm.ptrauth.`` prefix), are described in the `Pointer Authentication
+<PointerAuth.html#intrinsics>`_ document.
+
 .. _int_trampoline:
 
 Trampoline Intrinsics
@@ -18516,7 +18894,7 @@ This is an overloaded intrinsic.
 ::
 
       declare <16 x i32>  @llvm.vp.select.v16i32 (<16 x i1> <condition>, <16 x i32> <on_true>, <16 x i32> <on_false>, i32 <evl>)
-      declare <vscale x 4 x i64>  @llvm.vp.select.nxv4i64 (<vscale x 4 x i1> <condition>, <vscale x 4 x i32> <on_true>, <vscale x 4 x i32> <on_false>, i32 <evl>)
+      declare <vscale x 4 x i64>  @llvm.vp.select.nxv4i64 (<vscale x 4 x i1> <condition>, <vscale x 4 x i64> <on_true>, <vscale x 4 x i64> <on_false>, i32 <evl>)
 
 Overview:
 """""""""
@@ -20275,6 +20653,287 @@ Examples:
 
       %active.lane.mask = call <4 x i1> @llvm.get.active.lane.mask.v4i1.i64(i64 %elem0, i64 429)
       %wide.masked.load = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* %3, i32 4, <4 x i1> %active.lane.mask, <4 x i32> undef)
+
+
+.. _int_experimental_vp_splice:
+
+'``llvm.experimental.vp.splice``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+
+::
+
+      declare <2 x double> @llvm.experimental.vp.splice.v2f64(<2 x double> %vec1, <2 x double> %vec2, i32 %imm, <2 x i1> %mask, i32 %evl1, i32 %evl2)
+      declare <vscale x 4 x i32> @llvm.experimental.vp.splice.nxv4i32(<vscale x 4 x i32> %vec1, <vscale x 4 x i32> %vec2, i32 %imm, <vscale x 4 x i1> %mask, i32 %evl1, i32 %evl2)
+
+Overview:
+"""""""""
+
+The '``llvm.experimental.vp.splice.*``' intrinsic is the vector length
+predicated version of the '``llvm.experimental.vector.splice.*``' intrinsic.
+
+Arguments:
+""""""""""
+
+The result and the first two arguments ``vec1`` and ``vec2`` are vectors with
+the same type.  The third argument ``imm`` is an immediate signed integer that
+indicates the offset index.  The fourth argument ``mask`` is a vector mask and
+has the same number of elements as the result.  The last two arguments ``evl1``
+and ``evl2`` are unsigned integers indicating the explicit vector lengths of
+``vec1`` and ``vec2`` respectively.  ``imm``, ``evl1`` and ``evl2`` should
+respect the following constraints: ``-evl1 <= imm < evl1``, ``0 <= evl1 <= VL``
+and ``0 <= evl2 <= VL``, where ``VL`` is the runtime vector factor. If these
+constraints are not satisfied the intrinsic has undefined behaviour.
+
+Semantics:
+""""""""""
+
+Effectively, this intrinsic concatenates ``vec1[0..evl1-1]`` and
+``vec2[0..evl2-1]`` and creates the result vector by selecting the elements in a
+window of size ``evl2``, starting at index ``imm`` (for a positive immediate) of
+the concatenated vector. Elements in the result vector beyond ``evl2`` are
+``undef``.  If ``imm`` is negative the starting index is ``evl1 + imm``.  The result
+vector of active vector length ``evl2`` contains ``evl1 - imm`` (``-imm`` for
+negative ``imm``) elements from indices ``[imm..evl1 - 1]``
+(``[evl1 + imm..evl1 -1]`` for negative ``imm``) of ``vec1`` followed by the
+first ``evl2 - (evl1 - imm)`` (``evl2 + imm`` for negative ``imm``) elements of
+``vec2``. If ``evl1 - imm`` (``-imm``) >= ``evl2``, only the first ``evl2``
+elements are considered and the remaining are ``undef``.  The lanes in the result
+vector disabled by ``mask`` are ``undef``.
+
+Examples:
+"""""""""
+
+.. code-block:: text
+
+ llvm.experimental.vp.splice(<A,B,C,D>, <E,F,G,H>, 1, 2, 3)  ==> <B, E, F, undef> ; index
+ llvm.experimental.vp.splice(<A,B,C,D>, <E,F,G,H>, -2, 3, 2) ==> <B, C, undef, undef> ; trailing elements
+
+
+.. _int_vp_load:
+
+'``llvm.vp.load``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+
+::
+
+    declare <4 x float> @llvm.vp.load.v4f32.p0v4f32(<4 x float>* %ptr, <4 x i1> %mask, i32 %evl)
+    declare <vscale x 2 x i16> @llvm.vp.load.nxv2i16.p0nxv2i16(<vscale x 2 x i16>* %ptr, <vscale x 2 x i1> %mask, i32 %evl)
+    declare <8 x float> @llvm.vp.load.v8f32.p1v8f32(<8 x float> addrspace(1)* %ptr, <8 x i1> %mask, i32 %evl)
+    declare <vscale x 1 x i64> @llvm.vp.load.nxv1i64.p6nxv1i64(<vscale x 1 x i64> addrspace(6)* %ptr, <vscale x 1 x i1> %mask, i32 %evl)
+
+Overview:
+"""""""""
+
+The '``llvm.vp.load.*``' intrinsic is the vector length predicated version of
+the :ref:`llvm.masked.load <int_mload>` intrinsic.
+
+Arguments:
+""""""""""
+
+The first operand is the base pointer for the load. The second operand is a
+vector of boolean values with the same number of elements as the return type.
+The third is the explicit vector length of the operation. The return type and
+underlying type of the base pointer are the same vector types.
+
+The :ref:`align <attr_align>` parameter attribute can be provided for the first
+operand.
+
+Semantics:
+""""""""""
+
+The '``llvm.vp.load``' intrinsic reads a vector from memory in the same way as
+the '``llvm.masked.load``' intrinsic, where the mask is taken from the
+combination of the '``mask``' and '``evl``' operands in the usual VP way.
+Certain '``llvm.masked.load``' operands do not have corresponding operands in
+'``llvm.vp.load``': the '``passthru``' operand is implicitly ``undef``; the
+'``alignment``' operand is taken as the ``align`` parameter attribute, if
+provided. The default alignment is taken as the ABI alignment of the return
+type as specified by the :ref:`datalayout string<langref_datalayout>`.
+
+Examples:
+"""""""""
+
+.. code-block:: text
+
+     %r = call <8 x i8> @llvm.vp.load.v8i8.p0v8i8(<8 x i8>* align 2 %ptr, <8 x i1> %mask, i32 %evl)
+     ;; For all lanes below %evl, %r is lane-wise equivalent to %also.r
+
+     %also.r = call <8 x i8> @llvm.masked.load.v8i8.p0v8i8(<8 x i8>* %ptr, i32 2, <8 x i1> %mask, <8 x i8> undef)
+
+
+.. _int_vp_store:
+
+'``llvm.vp.store``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+
+::
+
+    declare void @llvm.vp.store.v4f32.p0v4f32(<4 x float> %val, <4 x float>* %ptr, <4 x i1> %mask, i32 %evl)
+    declare void @llvm.vp.store.nxv2i16.p0nxv2i16(<vscale x 2 x i16> %val, <vscale x 2 x i16>* %ptr, <vscale x 2 x i1> %mask, i32 %evl)
+    declare void @llvm.vp.store.v8f32.p1v8f32(<8 x float> %val, <8 x float> addrspace(1)* %ptr, <8 x i1> %mask, i32 %evl)
+    declare void @llvm.vp.store.nxv1i64.p6nxv1i64(<vscale x 1 x i64> %val, <vscale x 1 x i64> addrspace(6)* %ptr, <vscale x 1 x i1> %mask, i32 %evl)
+
+Overview:
+"""""""""
+
+The '``llvm.vp.store.*``' intrinsic is the vector length predicated version of
+the :ref:`llvm.masked.store <int_mstore>` intrinsic.
+
+Arguments:
+""""""""""
+
+The first operand is the vector value to be written to memory. The second
+operand is the base pointer for the store. It has the same underlying type as
+the value operand. The third operand is a vector of boolean values with the
+same number of elements as the return type. The fourth is the explicit vector
+length of the operation.
+
+The :ref:`align <attr_align>` parameter attribute can be provided for the
+second operand.
+
+Semantics:
+""""""""""
+
+The '``llvm.vp.store``' intrinsic reads a vector from memory in the same way as
+the '``llvm.masked.store``' intrinsic, where the mask is taken from the
+combination of the '``mask``' and '``evl``' operands in the usual VP way. The
+alignment of the operation (corresponding to the '``alignment``' operand of
+'``llvm.masked.store``') is specified by the ``align`` parameter attribute (see
+above). If it is not provided then the ABI alignment of the type of the
+'``value``' operand as specified by the :ref:`datalayout
+string<langref_datalayout>` is used instead.
+
+Examples:
+"""""""""
+
+.. code-block:: text
+
+     call void @llvm.vp.store.v8i8.p0v8i8(<8 x i8> %val, <8 x i8>* align 4 %ptr, <8 x i1> %mask, i32 %evl)
+     ;; For all lanes below %evl, the call above is lane-wise equivalent to the call below.
+
+     call void @llvm.masked.store.v8i8.p0v8i8(<8 x i8> %val, <8 x i8>* %ptr, i32 4, <8 x i1> %mask)
+
+
+.. _int_vp_gather:
+
+'``llvm.vp.gather``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+
+::
+
+    declare <4 x double> @llvm.vp.gather.v4f64.v4p0f64(<4 x double*> %ptrs, <4 x i1> %mask, i32 %evl)
+    declare <vscale x 2 x i8> @llvm.vp.gather.nxv2i8.nxv2p0i8(<vscale x 2 x i8*> %ptrs, <vscale x 2 x i1> %mask, i32 %evl)
+    declare <2 x float> @llvm.vp.gather.v2f32.v2p2f32(<2 x float addrspace(2)*> %ptrs, <2 x i1> %mask, i32 %evl)
+    declare <vscale x 4 x i32> @llvm.vp.gather.nxv4i32.nxv4p4i32(<vscale x 4 x i32 addrspace(4)*> %ptrs, <vscale x 4 x i1> %mask, i32 %evl)
+
+Overview:
+"""""""""
+
+The '``llvm.vp.gather.*``' intrinsic is the vector length predicated version of
+the :ref:`llvm.masked.gather <int_mgather>` intrinsic.
+
+Arguments:
+""""""""""
+
+The first operand is a vector of pointers which holds all memory addresses to
+read. The second operand is a vector of boolean values with the same number of
+elements as the return type. The third is the explicit vector length of the
+operation. The return type and underlying type of the vector of pointers are
+the same vector types.
+
+Semantics:
+""""""""""
+
+The '``llvm.vp.gather``' intrinsic reads multiple scalar values from memory in
+the same way as the '``llvm.masked.gather``' intrinsic, where the mask is taken
+from the combination of the '``mask``' and '``evl``' operands in the usual VP
+way. Of the '``llvm.masked.gather``' operands not set by '``llvm.vp.gather``':
+the '``passthru``' operand is implicitly ``undef``; the '``alignment``' operand
+is taken as the ABI alignment of the source addresses as specified by the
+:ref:`datalayout string<langref_datalayout>`.
+
+Examples:
+"""""""""
+
+.. code-block:: text
+
+     %r = call <8 x i8> @llvm.vp.gather.v8i8.v8p0i8(<8 x i8*> %ptrs, <8 x i1> %mask, i32 %evl)
+     ;; For all lanes below %evl, %r is lane-wise equivalent to %also.r
+     ;; Note that since the alignment is ultimately up to the data layout
+     ;; string, 8 is used as an example.
+
+     %also.r = call <8 x i8> @llvm.masked.gather.v8i8.v8p0i8(<8 x i8*> %ptrs, i32 8, <8 x i1> %mask, <8 x i8> undef)
+
+
+.. _int_vp_scatter:
+
+'``llvm.vp.scatter``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+
+::
+
+    declare void @llvm.vp.scatter.v4f64.v4p0f64(<4 x double> %val, <4 x double*> %ptrs, <4 x i1> %mask, i32 %evl)
+    declare void @llvm.vp.scatter.nxv2i8.nxv2p0i8(<vscale x 2 x i8> %val, <vscale x 2 x i8*> %ptrs, <vscale x 2 x i1> %mask, i32 %evl)
+    declare void @llvm.vp.scatter.v2f32.v2p2f32(<2 x float> %val, <2 x float addrspace(2)*> %ptrs, <2 x i1> %mask, i32 %evl)
+    declare void @llvm.vp.scatter.nxv4i32.nxv4p4i32(<vscale x 4 x i32> %val, <vscale x 4 x i32 addrspace(4)*> %ptrs, <vscale x 4 x i1> %mask, i32 %evl)
+
+Overview:
+"""""""""
+
+The '``llvm.vp.scatter.*``' intrinsic is the vector length predicated version of
+the :ref:`llvm.masked.scatter <int_mscatter>` intrinsic.
+
+Arguments:
+""""""""""
+
+The first operand is a vector value to be written to memory. The second operand
+is a vector of pointers, pointing to where the value elements should be stored.
+The third operand is a vector of boolean values with the same number of
+elements as the return type. The fourth is the explicit vector length of the
+operation.
+
+Semantics:
+""""""""""
+
+The '``llvm.vp.scatter``' intrinsic writes multiple scalar values to memory in
+the same way as the '``llvm.masked.scatter``' intrinsic, where the mask is
+taken from the combination of the '``mask``' and '``evl``' operands in the
+usual VP way. The '``alignment``' operand of the '``llvm.masked.scatter``'
+intrinsic is not set by '``llvm.vp.scatter``': it is taken as the ABI alignment
+of the destination addresses as specified by the :ref:`datalayout
+string<langref_datalayout>`.
+
+Examples:
+"""""""""
+
+.. code-block:: text
+
+     call void @llvm.vp.scatter.v8i8.v8p0i8(<8 x i8> %val, <8 x i8*> %ptrs, <8 x i1> %mask, i32 %evl)
+     ;; For all lanes below %evl, the call above is lane-wise equivalent to the call below.
+     ;; Note that since the alignment is ultimately up to the data layout
+     ;; string, 8 is used as an example.
+
+     call void @llvm.masked.scatter.v8i8.v8p0i8(<8 x i8> %val, <8 x i8*> %ptrs, i32 8, <8 x i1> %mask)
 
 
 .. _int_mload_mstore:
@@ -24189,6 +24848,7 @@ Independence cannot be proved without additional analysis,
 because one cannot tell that ``j`` and/or ``k`` are related to rightmost
 indexes.
 
+.. INTEL_FEATURE_SW_DTRANS
 
 '``llvm.intel.wholeprogramsafe``' Intrinsic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -24265,6 +24925,8 @@ Link Time Optimization (LTO) process is enabled. The reason is because
 the whole program analysis run if LTO is available. If LTO is not used,
 then it will be considered that whole program safe wasn't achieved and
 the intrinsic will be lowered as ``false``.
+
+.. end INTEL_FEATURE_SW_DTRANS
 
 .. END INTEL_CUSTOMIZATION
 

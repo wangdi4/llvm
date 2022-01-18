@@ -13,7 +13,7 @@
 ; CHECK: |   |   |   %1 = (%pix1)[i2 + i3].0;
 ; CHECK: |   |   |   %conv.us = uitofp.i16.double(%1);
 ; CHECK: |   |   |   %mul10.us = %conv.us  *  %mul;
-; CHECK: |   |   |   %add11.us = %t1.3173.us  +  %mul10.us;
+; CHECK: |   |   |   %t1.1206 = %t1.1206  +  %mul10.us;
 ; CHECK: |   |   + END LOOP
 ; CHECK: |   + END LOOP
 

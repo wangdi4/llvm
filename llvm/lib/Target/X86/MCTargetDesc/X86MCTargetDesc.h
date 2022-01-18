@@ -81,14 +81,6 @@ MCAsmBackend *createX86_64AsmBackend(const Target &T,
                                      const MCSubtargetInfo &STI,
                                      const MCRegisterInfo &MRI,
                                      const MCTargetOptions &Options);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-MCAsmBackend *createX86_IceCodeAsmBackend(const Target &T,
-                                          const MCSubtargetInfo &STI,
-                                          const MCRegisterInfo &MRI,
-                                          const MCTargetOptions &Options);
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 
 
 /// Implements X86-only directives for assembly emission.

@@ -286,7 +286,7 @@ static pi_result redefinedKernelGetInfo(pi_kernel Kernel,
                                         size_t ParamValueSize, void *ParamValue,
                                         size_t *ParamValueSizeRet) {
   if (PI_KERNEL_INFO_CONTEXT == ParamName) {
-    cl_context Ctx = Context->get_native<sycl::backend::opencl>();
+    cl_context Ctx = sycl::get_native<sycl::backend::opencl>(*Context);
 
     if (ParamValue)
       memcpy(ParamValue, &Ctx, sizeof(Ctx));
@@ -359,7 +359,7 @@ static pi_result redefinedProgramGetInfo(pi_program P,
   if (PI_PROGRAM_INFO_DEVICES == ParamName) {
     EXPECT_EQ(ParamValueSize, 1 * sizeof(cl_device_id));
 
-    cl_device_id Dev = Device->get_native<sycl::backend::opencl>();
+    cl_device_id Dev = sycl::get_native<sycl::backend::opencl>(*Device);
 
     if (ParamValue)
       memcpy(ParamValue, &Dev, sizeof(Dev));
@@ -516,8 +516,13 @@ TEST(Assert, TestPositive) {
       return;
     }
 
-    if (Plt.get_backend() == sycl::backend::cuda) {
+    if (Plt.get_backend() == sycl::backend::ext_oneapi_cuda) {
       printf("Test is not supported on CUDA platform, skipping\n");
+      return;
+    }
+
+    if (Plt.get_backend() == sycl::backend::ext_oneapi_hip) {
+      printf("Test is not supported on HIP platform, skipping\n");
       return;
     }
   }
@@ -546,6 +551,20 @@ TEST(Assert, TestPositive) {
 #endif // _WIN32
 }
 
+TEST(Assert, TestAssertServiceKernelHidden) {
+  const char *AssertServiceKernelName = sycl::detail::KernelInfo<
+      sycl::detail::__sycl_service_kernel__::AssertInfoCopier>::getName();
+
+  std::vector<sycl::kernel_id> AllKernelIDs = sycl::get_kernel_ids();
+
+  auto NoFoundServiceKernelID = std::none_of(
+      AllKernelIDs.begin(), AllKernelIDs.end(), [=](sycl::kernel_id KernelID) {
+        return strcmp(KernelID.get_name(), AssertServiceKernelName) == 0;
+      });
+
+  EXPECT_TRUE(NoFoundServiceKernelID);
+}
+
 TEST(Assert, TestInteropKernelNegative) {
   sycl::platform Plt{sycl::default_selector()};
 
@@ -556,14 +575,11 @@ TEST(Assert, TestInteropKernelNegative) {
 
   const sycl::backend Backend = Plt.get_backend();
 
-  /* INTEL_CUSTOMIZATION */
-  /* Cherry-pick 56c9ec4e introduces renaming of ROCM backed to HIP in the test
-   * without renaming it in headers. Revert this change after pulldown. */
-  if (Backend == sycl::backend::cuda || Backend == sycl::backend::rocm ||
-      Backend == sycl::backend::level_zero) {
+  if (Backend == sycl::backend::ext_oneapi_cuda ||
+      Backend == sycl::backend::ext_oneapi_hip ||
+      Backend == sycl::backend::ext_oneapi_level_zero) {
     printf(
         "Test is not supported on CUDA, ROCm, Level Zero platforms, skipping\n");
-    /* end INTEL_CUSTOMIZATION */
     return;
   }
 
@@ -597,14 +613,11 @@ TEST(Assert, TestInteropKernelFromProgramNegative) {
 
   const sycl::backend Backend = Plt.get_backend();
 
-  /* INTEL_CUSTOMIZATION */
-  /* Cherry-pick 56c9ec4e introduces renaming of ROCM backed to HIP in the test
-   * without renaming it in headers. Revert this change after pulldown. */
-  if (Backend == sycl::backend::cuda || Backend == sycl::backend::rocm ||
-      Backend == sycl::backend::level_zero) {
+  if (Backend == sycl::backend::ext_oneapi_cuda ||
+      Backend == sycl::backend::ext_oneapi_hip ||
+      Backend == sycl::backend::ext_oneapi_level_zero) {
     printf(
         "Test is not supported on CUDA, ROCm, Level Zero platforms, skipping\n");
-  /* end INTEL_CUSTOMIZATION */
     return;
   }
 
@@ -617,11 +630,11 @@ TEST(Assert, TestInteropKernelFromProgramNegative) {
 
   setupMockForInterop(Mock, Ctx, Dev);
 
-  sycl::program POrig{Ctx};
-  POrig.build_with_kernel_type<TestKernel>();
-  sycl::kernel KOrig = POrig.get_kernel<TestKernel>();
+  sycl::kernel_bundle Bundle =
+      sycl::get_kernel_bundle<sycl::bundle_state::executable>(Ctx);
+  sycl::kernel KOrig = Bundle.get_kernel(sycl::get_kernel_id<TestKernel>());
 
-  cl_kernel CLKernel = KOrig.get_native<sycl::backend::opencl>();
+  cl_kernel CLKernel = sycl::get_native<sycl::backend::opencl>(KOrig);
   sycl::kernel KInterop{CLKernel, Ctx};
 
   Queue.submit([&](sycl::handler &H) { H.single_task(KInterop); });
@@ -640,14 +653,11 @@ TEST(Assert, TestKernelFromSourceNegative) {
 
   const sycl::backend Backend = Plt.get_backend();
 
-  /* INTEL_CUSTOMIZATION */
-  /* Cherry-pick 56c9ec4e introduces renaming of ROCM backed to HIP in the test
-   * without renaming it in headers. Revert this change after pulldown. */
-  if (Backend == sycl::backend::cuda || Backend == sycl::backend::rocm ||
-      Backend == sycl::backend::level_zero) {
+  if (Backend == sycl::backend::ext_oneapi_cuda ||
+      Backend == sycl::backend::ext_oneapi_hip ||
+      Backend == sycl::backend::ext_oneapi_level_zero) {
     printf(
         "Test is not supported on CUDA, ROCm, Level Zero platforms, skipping\n");
-    /* end INTEL_CUSTOMIZATION */
     return;
   }
 
@@ -687,18 +697,4 @@ TEST(Assert, TestKernelFromSourceNegative) {
 
   EXPECT_EQ(TestInteropKernel::KernelLaunchCounter,
             KernelLaunchCounterBase + 1);
-}
-
-TEST(Assert, TestAssertServiceKernelHidden) {
-  const char *AssertServiceKernelName = sycl::detail::KernelInfo<
-      sycl::detail::__sycl_service_kernel__::AssertInfoCopier>::getName();
-
-  std::vector<sycl::kernel_id> AllKernelIDs = sycl::get_kernel_ids();
-
-  auto NoFoundServiceKernelID = std::none_of(
-      AllKernelIDs.begin(), AllKernelIDs.end(), [=](sycl::kernel_id KernelID) {
-        return strcmp(KernelID.get_name(), AssertServiceKernelName) == 0;
-      });
-
-  EXPECT_TRUE(NoFoundServiceKernelID);
 }

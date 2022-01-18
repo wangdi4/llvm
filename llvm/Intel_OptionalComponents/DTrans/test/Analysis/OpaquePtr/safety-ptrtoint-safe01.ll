@@ -10,8 +10,9 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct1) !in
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*

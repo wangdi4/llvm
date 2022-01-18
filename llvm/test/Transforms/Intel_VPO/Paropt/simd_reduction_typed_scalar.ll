@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -S < %s 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -S 2>&1 | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -S < %s 2>&1 | FileCheck --check-prefixes=CHECK,ALL %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -S 2>&1 | FileCheck --check-prefixes=CHECK,ALL %s
+; RUN: opt -opaque-pointers -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -S < %s 2>&1 | FileCheck --check-prefixes=OPQPTR,ALL %s
+; RUN: opt < %s -opaque-pointers -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -S 2>&1 | FileCheck --check-prefixes=OPQPTR,ALL %s
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -15,10 +17,11 @@ target triple = "x86_64-unknown-linux-gnu"
 ; }
 
 
-; CHECK: Enter VPOParoptTransform::genReductionCode
+; ALL: Enter VPOParoptTransform::genReductionCode
 ; CHECK: getItemInfo: Local Element Info for 'i32* %l' (Typed):: Type: i32{{.*}}
-; CHECK: Exit VPOParoptTransform::genReductionCode
-; CHECK: %l.red = alloca i32, align 4
+; OPQPTR: getItemInfo: Local Element Info for 'ptr %l' (Typed):: Type: i32{{.*}}
+; ALL: Exit VPOParoptTransform::genReductionCode
+; ALL: %l.red = alloca i32, align 4
 
 
 ; Function Attrs: mustprogress nounwind uwtable
@@ -37,7 +40,7 @@ entry:
   %2 = bitcast i32* %.omp.ub to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %2) #2
   store i32 999, i32* %.omp.ub, align 4, !tbaa !4
-  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %l, i32 0, i32 1), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.LINEAR:IV"(i32* %i, i32 1) ]
+  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %l, i32 0, i32 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(i32* %.omp.iv, i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(i32* %.omp.ub, i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i, i32 0, i32 1, i32 1) ]
   store i32 0, i32* %.omp.iv, align 4, !tbaa !4
   br label %omp.inner.for.cond
 

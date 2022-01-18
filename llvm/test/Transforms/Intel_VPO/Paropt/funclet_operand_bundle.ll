@@ -22,6 +22,10 @@
 ;
 
 ;check that when running on windows every generated kmpc call that lies within a catch block has the funclet operand bundle.
+;CHECK: define dso_local i32 @main
+;CHECK:  call void @__kmpc_end(%struct.ident_t* @{{.*}})
+
+;CHECK: define internal void @main.DIR.OMP.PARALLEL{{[^ ]*}}
 ;CHECK:  call void @__kmpc_for_static_init_{{.*}}(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 34, i32* %{{.*}}, i32* %{{.*}}, i32* %{{.*}}, i32* %{{.*}}, i32 1, i32 1) [ "funclet"(token %{{.*}}) ]
 ;CHECK:  call void @__kmpc_ordered(%struct.ident_t* @{{.*}}, i32 %{{.*}}) [ "funclet"(token %{{.*}}) ]
 ;CHECK:  call void @__kmpc_end_ordered(%struct.ident_t* @{{.*}}, i32 %{{.*}}) [ "funclet"(token %{{.*}} ]

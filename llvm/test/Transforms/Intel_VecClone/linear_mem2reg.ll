@@ -7,11 +7,11 @@
 ; CHECK: simd.begin.region:
 ; CHECK-NEXT: %entry.region = call token @llvm.directive.region.entry()
 ; CHECK-SAME: DIR.OMP.SIMD
-; CHECK-SAME: QUAL.OMP.UNIFORM
-; CHECK-SAME: i32* %alloca.x
 ; CHECK-SAME: QUAL.OMP.LINEAR
 ; CHECK-SAME: i32* %alloca.i
 ; CHECK-SAME: i32 1
+; CHECK-SAME: QUAL.OMP.UNIFORM
+; CHECK-SAME: i32* %alloca.x
 ; CHECK: simd.loop:
 ; CHECK: %stride.mul = mul i32 1, %index
 ; CHECK-NEXT: %stride.add = add i32 %load.i, %stride.mul

@@ -25,8 +25,9 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !int
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Global instance | Bad memfunc size{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Pass a runtime dependent array element address to memset. In this case, the
@@ -45,8 +46,9 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct, i32 
 ; GEP sets an additional safety flag on the structure.
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Global instance | Bad memfunc size{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 declare !intel.dtrans.func.type !9 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)

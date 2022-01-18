@@ -18,7 +18,6 @@
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelVPOCodeGen.h"
-#include "IntelVPSOAAnalysis.h"
 #include "IntelVPlanAllZeroBypass.h"
 #include "IntelVPlanCFGMerger.h"
 #include "IntelVPlanCallVecDecisions.h"
@@ -36,9 +35,7 @@
 #include "VPlanHIR/IntelVPlanHCFGBuilderHIR.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 
 #define DEBUG_TYPE "LoopVectorizationPlanner"
 
@@ -52,8 +49,13 @@ static cl::opt<unsigned> VecThreshold(
     cl::init(100));
 #endif // INTEL_CUSTOMIZATION
 
-static cl::opt<unsigned> VPlanForceVF("vplan-force-vf", cl::init(0),
-                                      cl::desc("Force VPlan to use given VF"));
+static cl::opt<unsigned> VPlanForceVF(
+    "vplan-force-vf", cl::init(0),
+    cl::desc("Force VPlan to use given VF, for experimental purposes only."));
+
+static cl::opt<unsigned> VPlanTargetVF(
+    "vplan-target-vf", cl::init(0),
+    cl::desc("When simdlen is not set force VPlan to use given VF"));
 
 static cl::opt<bool>
     DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
@@ -108,7 +110,7 @@ static LoopVPlanDumpControl LCSSADumpControl("lcssa", "LCSSA transformation");
 static LoopVPlanDumpControl LoopCFUDumpControl("loop-cfu",
                                                "LoopCFU transformation");
 static LoopVPlanDumpControl
-    LinearizationDumpControl("linearization", "predication and linearization");
+    PredicatorDumpControl("predicator", "predicator");
 static LoopVPlanDumpControl
     AllZeroBypassDumpControl("all-zero-bypass", "all zero bypass insertion");
 
@@ -239,7 +241,7 @@ unsigned getForcedVF(const WRNVecLoopNode *WRLp) {
 
   if (VPlanForceVF)
     return VPlanForceVF;
-  return WRLp && WRLp->getSimdlen() ? WRLp->getSimdlen() : 0;
+  return WRLp && WRLp->getSimdlen() ? WRLp->getSimdlen() : VPlanTargetVF;
 }
 
 #if INTEL_CUSTOMIZATION
@@ -450,8 +452,29 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   assert(!VFs.empty() && "The vector with VFs should have at least one value.");
 
   // TODO: Insert initial run of SVA here for any new users before CM & CG.
-  for (unsigned TmpVF : VFs)
-    VPlans[TmpVF] = {Plan, nullptr};
+
+  // Need to create multiple VPlans with different VFs to hit the non-masked
+  // remainder vectorization when simdlen(n) is specified. Those VPlans will be
+  // used only during remainder vectorization, so main loop will be vectorized
+  // with one VF specified in simdlen(n)
+  bool CanRemainderBeVectorized =
+      !isVecRemainderDisabled() &&
+      (isVecRemainderEnforced() || EnableNonMaskedVectorizedRemainder);
+  unsigned VFUF = VPlanForceUF ? VPlanForceUF * VFs[0] : VFs[0];
+
+  if (WRLp && VFs.size() == 1 && WRLp->getSimdlen() &&
+      CanRemainderBeVectorized &&
+      (MainLoop->getTripCountInfo().IsEstimated ||
+       (isDynAlignEnabled() &&
+        MainLoop->getTripCountInfo().TripCount != VFUF) ||
+       MainLoop->getTripCountInfo().TripCount % VFUF != 0)) {
+    for (unsigned TmpVF = 1; TmpVF <= VFs[0]; TmpVF = TmpVF * 2) {
+      VPlans[TmpVF] = {Plan, nullptr};
+    }
+  } else {
+    for (unsigned TmpVF : VFs)
+      VPlans[TmpVF] = {Plan, nullptr};
+  }
 
   // Always capture scalar VPlan to handle cases where vectorization
   // is not possible with VF > 1 (such as when forced VF greater than TC).
@@ -1053,7 +1076,7 @@ void LoopVectorizationPlanner::predicate() {
     // has some hacks for search loop processing inside it as well.
     VPlanPredicator VPP(*VPlan);
     VPP.predicate();
-    VPLAN_DUMP(LinearizationDumpControl, VPlan);
+    VPLAN_DUMP(PredicatorDumpControl, VPlan);
 
     PredicatedVPlans.insert(VPlan);
   };
@@ -1401,166 +1424,18 @@ void LoopVectorizationPlanner::printAndVerifyAfterInitialTransforms(
   VPLAN_DUMP(InitialTransformsDumpControl, Plan);
 }
 
-bool LoopVectorizationPlanner::isItemArrayType(const Item *I) {
-    Type *ElemType = nullptr;
-    Value *NumElements = nullptr;
-    std::tie(ElemType, NumElements, std::ignore) =
-        VPOParoptUtils::getItemInfo(I);
-    if (isa<ArrayType>(ElemType) || NumElements != nullptr)
-      return true;
-    return false;
-}
-
-bool LoopVectorizationPlanner::hasArrayReduction(WRNVecLoopNode *WRLp) {
-  // Visit each reduction clause in the WRegion loop and identify if any of them
-  // represents array reduction idiom.
-  ReductionClause &RedClause = WRLp->getRed();
-  for (ReductionItem *RedItem : RedClause.items()) {
-    if (RedItem->getIsArraySection())
-      return true;
-    if (isItemArrayType(RedItem))
-      return true;
-  }
-
-  // All checks failed, loop does not have array reductions.
-  return false;
-}
-
-bool LoopVectorizationPlanner::hasArrayLastprivateNonPod(WRNVecLoopNode *WRLp) {
-  LastprivateClause &LPrivClause = WRLp->getLpriv();
-  for (LastprivateItem *LPrivItem : LPrivClause.items()) {
-    if (!LPrivItem->getIsNonPod())
-      continue;
-    if (isItemArrayType(LPrivItem))
-        return true;
-  }
-
-  // All checks failed, loop does not have array lastprivate.
-  return false;
-}
-
-// Feed explicit data, saved in WRNVecLoopNode to the CodeGen.
-#if INTEL_CUSTOMIZATION
-template <class Legality> constexpr IRKind getIRKindByLegality() {
-  return std::is_same<Legality, VPOVectorizationLegality>::value
-             ? IRKind::LLVMIR
-             : IRKind::HIR;
-}
-
-static Type *getType(Value *V) { return V->getType(); }
-static Type *getType(RegDDRef *V) { return V->getDestType(); }
-
-template <class VPOVectorizationLegality>
-#endif
-void LoopVectorizationPlanner::EnterExplicitData(
-    WRNVecLoopNode *WRLp, VPOVectorizationLegality &LVL) {
-#if INTEL_CUSTOMIZATION
-  constexpr IRKind Kind = getIRKindByLegality<VPOVectorizationLegality>();
-#endif
-  // Collect any SIMD loop private information
-  if (WRLp) {
-    LVL.setIsSimdFlag();
-    LastprivateClause &LastPrivateClause = WRLp->getLpriv();
-    for (LastprivateItem *PrivItem : LastPrivateClause.items()) {
-#if INTEL_CUSTOMIZATION
-      auto PrivVal = PrivItem->getOrig<Kind>();
-#else
-      auto PrivVal = PrivItem->getOrig();
-#endif
-      if (PrivItem->getIsNonPod())
-        LVL.addLoopPrivate(PrivVal, PrivItem->getConstructor(),
-                           PrivItem->getDestructor(), PrivItem->getCopyAssign(),
-                           true /* IsLast */);
-      else
-        LVL.addLoopPrivate(PrivVal, PrivItem->getIsF90DopeVector(),
-                           true /* IsLast */, PrivItem->getIsConditional());
-    }
-    PrivateClause &PrivateClause = WRLp->getPriv();
-    for (PrivateItem *PrivItem : PrivateClause.items()) {
-#if INTEL_CUSTOMIZATION
-      auto PrivVal = PrivItem->getOrig<Kind>();
-#else
-      auto PrivVal = PrivItem->getOrig();
-#endif
-      if (PrivItem->getIsNonPod())
-        LVL.addLoopPrivate(PrivVal, PrivItem->getConstructor(),
-                           PrivItem->getDestructor(),
-                           nullptr /* no CopyAssign for PrivateItem */);
-      else
-        LVL.addLoopPrivate(PrivVal, PrivItem->getIsF90DopeVector());
-    }
-
-    // Add information about loop linears to Legality
-    LinearClause &LinearClause = WRLp->getLinear();
-    for (LinearItem *LinItem : LinearClause.items()) {
-#if INTEL_CUSTOMIZATION
-      auto LinVal = LinItem->getOrig<Kind>();
-      auto Step = LinItem->getStep<Kind>();
-#else
-      auto LinVal = LinItem->getOrig();
-      auto Step = LinItem->getStep();
-#endif
-      LVL.addLinear(LinVal, Step);
-    }
-
-    ReductionClause &RedClause = WRLp->getRed();
-    for (ReductionItem *RedItem : RedClause.items()) {
-#if INTEL_CUSTOMIZATION
-      auto V = RedItem->getOrig<Kind>();
-#else
-      auto V = RedItem->getOrig();
-#endif
-      if (RedItem->getIsComplex())
-        LVL.setHasComplexTyReduction();
-
-      bool IsInteger = getType(V)->getPointerElementType()->isIntegerTy();
-      ReductionItem::WRNReductionKind Type = RedItem->getType();
-      RecurKind Kind;
-      switch (Type) {
-      case ReductionItem::WRNReductionMin:
-        Kind = IsInteger ? (RedItem->getIsUnsigned()
-                            ? RecurKind::UMin
-                            : RecurKind::SMin)
-                         : RecurKind::FMin;
-        break;
-      case ReductionItem::WRNReductionMax:
-        Kind = IsInteger ? (RedItem->getIsUnsigned()
-                            ? RecurKind::UMax
-                            : RecurKind::SMax)
-                         : RecurKind::FMax;
-        break;
-      case ReductionItem::WRNReductionAdd:
-      case ReductionItem::WRNReductionSub:
-        Kind = IsInteger ? RecurKind::Add : RecurKind::FAdd;
-        break;
-      case ReductionItem::WRNReductionMult:
-        Kind = IsInteger ? RecurKind::Mul : RecurKind::FMul;
-        break;
-      case ReductionItem::WRNReductionBor:
-        Kind = RecurKind::Or;
-        break;
-      case ReductionItem::WRNReductionBxor:
-        Kind = RecurKind::Xor;
-        break;
-      case ReductionItem::WRNReductionBand:
-        Kind = RecurKind::And;
-        break;
-      default:
-        continue;
-      }
-      LVL.addReduction(V, Kind, RedItem->getIsF90DopeVector());
-    }
-  }
-  if (WRLp) {
-    LVL.collectPreLoopDescrAliases();
-    LVL.collectPostExitLoopDescrAliases();
-  }
-}
-
 bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
   VPLoop *VPLp = *(Plan.getVPLoopInfo()->begin());
   VPBasicBlock *Header = VPLp->getHeader();
   const VPLoopEntityList *LE = Plan.getLoopEntities(VPLp);
+  if (!LE)
+    return false;
+  // Check whether all reductions are supported
+  for (auto Red : LE->vpreductions())
+    if (Red->getRecurrenceKind() == RecurKind::SelectICmp ||
+        Red->getRecurrenceKind() == RecurKind::SelectFCmp)
+      return false;
+
   // Check whether all header phis are recognized as entities.
   for (auto &Phi : Header->getVPPhis())
     if (!LE->getInduction(&Phi) && !LE->getReduction(&Phi) &&
@@ -1584,6 +1459,8 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
   if (EnableAllLiveOuts)
     return true;
   const VPLoopEntityList *LE = Plan.getLoopEntities(&Loop);
+  if (!LE)
+    return false;
   for (auto *BB : Loop.blocks())
     for (VPInstruction &Inst : *BB) {
       if (LE->getReduction(&Inst) || LE->getInduction(&Inst)) {
@@ -1595,42 +1472,16 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
                             << Inst << "\n");
           return false;
         }
-      } else if (auto *Priv = LE->getPrivate(&Inst)) {
-        // TODO: This is a temporary bailout. Remove when conditional
-        // lastprivate finalization is supported in LLVM-IR vector CG.
-        if (Priv->isConditional()) {
-          LLVM_DEBUG(dbgs() << "LVP: Conditional lastprivate found, bailout "
-                               "since CG support is missing.\n"
-                            << Inst << "\n");
-          return false;
-        }
-      } else if (Loop.isLiveOut(&Inst)) {
-        // All liveouts should be recognized via legality at this point.
-        assert(false && "Unrecognized liveout found.");
+      } else if (Loop.isLiveOut(&Inst) && !LE->getPrivate(&Inst)) {
+        // Some liveouts are left unrecognized due to unvectorizable use-def
+        // chains.
+        LLVM_DEBUG(dbgs() << "LVP: Unrecognized liveout found.");
         return false;
       }
     }
 
-  // TODO: This is a temporary bailout. Remove when conditional
-  // lastprivate finalization is supported in LLVM-IR vector CG.
-  if (LE->hasConditionalLastPrivate())
-    return false;
-
   return true;
 }
-
-namespace llvm {
-namespace vpo {
-#if INTEL_CUSTOMIZATION
-template void
-LoopVectorizationPlanner::EnterExplicitData<HIRVectorizationLegality>(
-    WRNVecLoopNode *WRLp, HIRVectorizationLegality &LVL);
-template void
-LoopVectorizationPlanner::EnterExplicitData<VPOVectorizationLegality>(
-    WRNVecLoopNode *WRLp, VPOVectorizationLegality &LVL);
-#endif
-} // namespace vpo
-} // namespace llvm
 
 VPlanVector *LoopVectorizationPlanner::getBestVPlan() {
   unsigned VF = getBestVF();
@@ -1681,7 +1532,7 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   VPLAN_DUMP(PrintAfterCallVecDecisions, Label, Plan);
 
   // Compute SVA results for final VPlan which will be used by CG.
-  Plan->runSVA();
+  Plan->runSVA(getBestVF());
   VPLAN_DUMP(PrintSVAResults, "ScalVec analysis", Plan);
 
   VPTransformState State(getBestVF(), 1 /* UF */, LI, DT, ILV->getBuilder(),

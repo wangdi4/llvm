@@ -15,7 +15,7 @@ define void @foo(i32* nocapture %ary) {
 ;    ary[i + 1] = t1;
 ;  }
 ; SVA-IR-LABEL:  VPlan after ScalVec analysis:
-; SVA-IR-NEXT:  VPlan IR for: foo:for.body
+; SVA-IR-NEXT:  VPlan IR for: foo:for.body.#{{[0-9]+}}
 ; SVA-IR-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop for.body (SVAOpBits )
 ; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF=4 UF=1 (SVAOpBits )
@@ -71,7 +71,7 @@ define void @foo(i32* nocapture %ary) {
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-HIR-EMPTY:
 ; SVA-HIR-NEXT:    [[BB1]]: # preds: [[BB0]]
-; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1023, UF = 1 (SVAOpBits 0->F )
+; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1 (SVAOpBits 0->F )
 ; SVA-HIR-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
@@ -91,7 +91,7 @@ define void @foo(i32* nocapture %ary) {
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] <8 x i32> [[VP_VLS_INSERT_1:%.*]] = vls-insert <8 x i32> [[VP_VLS_INSERT]] i32 [[VP6]], group_size=2, offset=1 (SVAOpBits 0->F 1->V )
 ; SVA-HIR-NEXT:     [DA: Div, SVA: RetVal:(F  ), Inst:( V )] vls-store <8 x i32> [[VP_VLS_INSERT_1]] i32* [[VP_SUBSCRIPT_1]], group_size=2, align=4 (SVAOpBits 0->F 1->F )
 ; SVA-HIR-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP2]] = add i64 [[VP1]] i64 [[VP__IND_INIT_STEP]] (SVAOpBits 0->F 1->F )
-; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP7:%.*]] = icmp sle i64 [[VP2]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP7:%.*]] = icmp slt i64 [[VP2]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP7]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; SVA-HIR-EMPTY:
 ; SVA-HIR-NEXT:    [[BB3]]: # preds: [[BB2]]

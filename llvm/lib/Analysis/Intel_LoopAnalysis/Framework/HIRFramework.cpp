@@ -208,6 +208,7 @@ bool HIRFrameworkWrapperPass::runOnFunction(Function &F) {
   return false;
 }
 
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
 void HIRFramework::processDeferredZtts() {
 
   for (auto &LoopZttPair : PhaseLoopFormation->getDeferredZtts()) {
@@ -360,8 +361,10 @@ void HIRFramework::updateNumLoopExits() {
     }
   }
 }
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 
 void HIRFramework::runImpl() {
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
   // TODO: Refactor code of the framework phases to make them local objects by
   // moving persistent data structures from individual phases to the
   // HIRFramework class.
@@ -426,6 +429,7 @@ void HIRFramework::runImpl() {
 #ifndef NDEBUG
   verify();
 #endif
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 }
 
 HIRFramework::HIRFramework(Function &F, DominatorTree &DT,

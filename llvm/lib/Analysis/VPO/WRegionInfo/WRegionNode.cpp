@@ -295,7 +295,7 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
           if (VPOAnalysisUtils::isCallOfName(&I, "__read_pipe_2_bl_intel")) {
             CallInst *Call = cast<CallInst>(&I);
             // LLVM_DEBUG(dbgs() << "Found Call: " << *Call << "\n");
-            assert(Call->getNumArgOperands()==2 &&
+            assert(Call->arg_size()==2 &&
                    "__read_pipe_2_bl_intel() is expected to have 2 operands");
             Value *V = Call->getArgOperand(1); // second operand
             AllocaInst *Alloca = VPOAnalysisUtils::findAllocaInst(V);
@@ -837,7 +837,6 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
   case QUAL_OMP_NUM_THREADS:
     setNumThreads(V);
     break;
-    break;
   case QUAL_OMP_FINAL:
     setFinal(V);
     break;
@@ -849,12 +848,6 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
     break;
   case QUAL_OMP_PRIORITY:
     setPriority(V);
-    break;
-  case QUAL_OMP_NUM_TEAMS:
-    setNumTeams(V);
-    break;
-  case QUAL_OMP_THREAD_LIMIT:
-    setThreadLimit(V);
     break;
   case QUAL_OMP_DEVICE:
     setDevice(V);
@@ -1037,6 +1030,14 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
       C.back()->setIsByRef(true);
     if (IsConditional)
       C.back()->setIsConditional(true);
+#if INTEL_CUSTOMIZATION
+    if (!CurrentBundleDDRefs.empty() &&
+        WRegionUtils::supportsRegDDRefs(ClauseID))
+      C.back()->setHOrig(CurrentBundleDDRefs[0]);
+    if (ClauseInfo.getIsF90DopeVector())
+      C.back()->setIsF90DopeVector(true);
+    C.back()->setIsWILocal(ClauseInfo.getIsWILocal());
+#endif // INTEL_CUSTOMIZATION
   } else { // non-Typed PODs
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = Args[I];
@@ -1227,6 +1228,34 @@ void WRegionNode::extractDependOpndList(const Use *Args, unsigned NumArgs,
                                         const ClauseSpecifier &ClauseInfo,
                                         DependClause &C, bool IsIn) {
   C.setClauseID(QUAL_OMP_DEPEND_IN); // dummy depend clause id;
+  bool IsTyped = ClauseInfo.getIsTyped();
+
+  if (IsTyped) {
+    bool IsArraySection = ClauseInfo.getIsArraySection();
+    assert(((IsArraySection && NumArgs == 4) ||
+            (!IsArraySection && NumArgs == 3)) &&
+           "DEPEND:TYPED must have 3 or 4 arguments.");
+    C.add(Args[0]);
+    DependItem *DI = C.back();
+    DI->setIsTyped(true);
+    DI->setOrigItemElementTypeFromIR(Args[1]->getType());
+    DI->setNumElements(Args[2]);
+    DI->setIsIn(IsIn);
+    DI->setIsByRef(ClauseInfo.getIsByRef());
+    if (IsArraySection)
+      DI->setArraySectionOffset(Args[3]);
+
+    // FIXME: ArraySectionInfo should be removed, when we switch
+    //        to TYPED clauses completely.
+    ArraySectionInfo &ArrSecInfo = DI->getArraySectionInfo();
+    ArrSecInfo.setSize(DI->getNumElements());
+    ArrSecInfo.setOffset(DI->getArraySectionOffset());
+    ArrSecInfo.setElementType(DI->getOrigItemElementTypeFromIR());
+
+    // FIXME: set this based on PTR_TO_PTR modifier.
+    ArrSecInfo.setBaseIsPointer(false);
+    return;
+  }
 
   if (ClauseInfo.getIsArraySection()) {
     Value *V = Args[0];
@@ -1239,8 +1268,7 @@ void WRegionNode::extractDependOpndList(const Use *Args, unsigned NumArgs,
     assert((NumArgs == 3 * (cast<ConstantInt>(Args[1])->getZExtValue()) + 2) &&
            "Unexpected number of args for array section operand.");
     ArrSecInfo.populateArraySectionDims(Args, NumArgs);
-  }
-  else
+  } else {
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = Args[I];
       C.add(V);
@@ -1248,6 +1276,7 @@ void WRegionNode::extractDependOpndList(const Use *Args, unsigned NumArgs,
       DI->setIsIn(IsIn);
       DI->setIsByRef(ClauseInfo.getIsByRef());
     }
+  }
 }
 
 void WRegionNode::extractLinearOpndList(const Use *Args, unsigned NumArgs,
@@ -1417,6 +1446,13 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       RI->setIsInReduction(IsInReduction);
       RI->setIsByRef(ClauseInfo.getIsByRef());
 
+#if INTEL_CUSTOMIZATION
+      if (!CurrentBundleDDRefs.empty() &&
+          WRegionUtils::supportsRegDDRefs(C.getClauseID()))
+        RI->setHOrig(CurrentBundleDDRefs[I]);
+      if (ClauseInfo.getIsF90DopeVector())
+        RI->setIsF90DopeVector(true);
+#endif // INTEL_CUSTOMIZATION
       if (IsTyped) {
         LLVMContext &Ctxt = V->getContext();
         RI->setIsTyped(true);
@@ -1431,13 +1467,6 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
      // reduction-modifier on a Reduction clause
      //   if (IsTask)
      //     RI->setIsTask(IsTask);
-#if INTEL_CUSTOMIZATION
-      if (!CurrentBundleDDRefs.empty() &&
-          WRegionUtils::supportsRegDDRefs(C.getClauseID()))
-        RI->setHOrig(CurrentBundleDDRefs[I]);
-      if (ClauseInfo.getIsF90DopeVector())
-        RI->setIsF90DopeVector(true);
-#endif // INTEL_CUSTOMIZATION
 
       if (ReductionKind == ReductionItem::WRNReductionUdr) {
         assert(((I + 4) < NumArgs) &&
@@ -1898,11 +1927,23 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     }
     break;
   case QUAL_OMP_OFFLOAD_NDRANGE: {
-    SmallVector<Value *, 3> NDRange;
-    for (unsigned I = 0; I < NumArgs; ++I) {
-      NDRange.push_back(Args[I]);
+    SmallVector<Value *, 3> NDRangeDims;
+    SmallVector<Type *, 3> NDRangeTypes;
+    assert((NumArgs % 2) == 0 &&
+           "OFFLOAD_NDRANGE clause must have even number of arguments.");
+    // The clause arguments are the pointers to the normalized UB variables
+    // with their types specified with getNullValue() values, e.g.:
+    //   "QUAL.OMP.OFFLOAD.NDRANGE"(i64* %ub, i64 0)
+    //   "QUAL.OMP.OFFLOAD.NDRANGE"(i32* %ub1, i32 0, i64* %ub2, i64 0)
+    for (unsigned I = 0; I < NumArgs / 2; ++I) {
+      NDRangeDims.push_back(Args[2 * I]);
+      Type *ValTy = Args[2 * I + 1]->getType();
+      assert(ValTy->isIntegerTy() &&
+             "OFFLOAD_NDRANGE variable must have integer type.");
+      NDRangeTypes.push_back(ValTy);
     }
-    setUncollapsedNDRangeDimensions(NDRange);
+    setUncollapsedNDRangeDimensions(NDRangeDims);
+    setUncollapsedNDRangeTypes(NDRangeTypes);
     break;
   }
   case QUAL_OMP_JUMP_TO_END_IF:
@@ -1910,6 +1951,42 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     // It may exist after VPO Paropt prepare and before
     // VPO Paropt transform to guarantee that DCE does not
     // remove unreachable region exit directives.
+    break;
+  case QUAL_OMP_NUM_TEAMS:
+    if (!ClauseInfo.getIsTyped()) {
+      assert(NumArgs == 1 && "NUM_TEAMS must have one argument.");
+      setNumTeams(Args[0]);
+      Type *ItemTy = Args[0]->getType();
+      if (auto *PtrTy = dyn_cast<PointerType>(ItemTy)) {
+        // OPAQUEPOINTER: replace this with llvm_unreachable.
+        assert(!PtrTy->isOpaque() &&
+               "NUM_TEAMS must be typed, when opaque pointers are enabled.");
+        ItemTy = PtrTy->getPointerElementType();
+      }
+      setNumTeamsType(ItemTy);
+      break;
+    }
+    assert(NumArgs == 2 && "NUM_TEAMS:TYPED must have two arguments.");
+    setNumTeams(Args[0]);
+    setNumTeamsType(Args[1]->getType());
+    break;
+  case QUAL_OMP_THREAD_LIMIT:
+    if (!ClauseInfo.getIsTyped()) {
+      assert(NumArgs == 1 && "THREAD_LIMIT must have one argument.");
+      setThreadLimit(Args[0]);
+      Type *ItemTy = Args[0]->getType();
+      if (auto *PtrTy = dyn_cast<PointerType>(ItemTy)) {
+        // OPAQUEPOINTER: replace this with llvm_unreachable.
+        assert(!PtrTy->isOpaque() &&
+               "THREAD_LIMIT must be typed, when opaque pointers are enabled.");
+        ItemTy = PtrTy->getPointerElementType();
+      }
+      setThreadLimitType(ItemTy);
+      break;
+    }
+    assert(NumArgs == 2 && "THREAD_LIMIT:TYPED must have two arguments.");
+    setThreadLimit(Args[0]);
+    setThreadLimitType(Args[1]->getType());
     break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpndList()");

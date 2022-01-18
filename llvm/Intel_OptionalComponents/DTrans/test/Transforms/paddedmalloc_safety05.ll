@@ -42,6 +42,9 @@ define i32 @main() {
   ret i32 0
 }
 
+; Check to ensure pass is run
+; CHECK: mallocFunc(
+
 ; Verify that the interface isn't in the IR
 ; CHECK-NOT: @__Intel_PaddedMallocInterface
 

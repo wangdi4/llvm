@@ -32,9 +32,12 @@ set(sources
   Intel_X86GenerateLEA.cpp        # INTEL
   Intel_X86PRAExpandPseudo.cpp    # INTEL
   Intel_X86Gather2LoadPermute.cpp # INTEL
+  Intel_X86InstCombine.cpp # INTEL
   Intel_X86LowerMatrixIntrinsics.cpp # INTEL
   Intel_X86CFMA.cpp      # INTEL
   Intel_X86VecSpill.cpp  # INTEL
+  Intel_X86SplitLongBlock.cpp  # INTEL
+  Intel_X86PreISelIntrinsicLowering.cpp  # INTEL
   X86AsmPrinter.cpp
   X86AvoidTrailingCall.cpp
   X86CallFrameOptimization.cpp
@@ -55,6 +58,7 @@ set(sources
   X86FixupBWInsts.cpp
   X86FixupLEAs.cpp
   X86AvoidStoreForwardingBlocks.cpp
+  X86DynAllocaExpander.cpp
   X86FixupSetCC.cpp
   X86FlagsCopyLowering.cpp
   X86FloatingPoint.cpp
@@ -91,7 +95,6 @@ set(sources
   X86TargetObjectFile.cpp
   X86TargetTransformInfo.cpp
   X86VZeroUpper.cpp
-  X86WinAllocaExpander.cpp
   X86WinEHState.cpp
   X86InsertWait.cpp
   )

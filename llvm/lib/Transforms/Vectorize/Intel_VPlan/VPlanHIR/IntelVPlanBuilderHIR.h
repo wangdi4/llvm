@@ -26,7 +26,7 @@ public:
   /// Create VPInstruction described by a special class \p T, setting its
   /// underlying HIR node.
   template <class T, class NameType, class... Args>
-  T *create(loopopt::HLDDNode *DDNode, const NameType &Name, Args &&... args) {
+  T *createHIR(loopopt::HLDDNode *DDNode, const NameType &Name, Args &&... args) {
     auto *New = VPBuilder::create<T>(Name, std::forward<Args>(args)...);
     if (DDNode) {
       New->HIR().setUnderlyingNode(DDNode);
@@ -53,10 +53,11 @@ public:
 
   /// Create a VPInstruction with 'Add' opcode, \p LHS and \p RHS as operands
   /// and \p DDNode as its VPInstructionData.
-  VPValue *createAdd(VPValue *LHS, VPValue *RHS, loopopt::HLDDNode *DDNode) {
-    assert(DDNode && "DDNode can't be null.");
+  VPValue *createAdd(VPValue *LHS, VPValue *RHS,
+                     loopopt::HLDDNode *DDNode = nullptr) {
     auto *NewAdd = cast<VPInstruction>(VPBuilder::createAdd(LHS, RHS));
-    NewAdd->HIR().setUnderlyingNode(DDNode);
+    if (DDNode)
+      NewAdd->HIR().setUnderlyingNode(DDNode);
     return NewAdd;
   }
 
@@ -113,7 +114,7 @@ public:
            "Underlying HLInst is not a call instruction.");
     auto *Call = HInst->getCallInst();
     VPCallInstruction *NewVPCall =
-        new VPCallInstruction(CalledValue, ArgList, Call);
+        new VPCallInstruction(CalledValue, ArgList, *Call);
     NewVPCall->setName(HInst->getLLVMInstruction()->getName());
     insert(NewVPCall);
     if (DDNode)

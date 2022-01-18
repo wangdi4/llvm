@@ -41,6 +41,8 @@
 ; CHECK-NEXT:       X86 runtime feature initialization pass
 ; end INTEL_FEATURE_SW_ADVANCED
 ; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:     X86 Pre-ISel Intrinsic Lowering ;INTEL
+; CHECK-NEXT:     FunctionPass Manager ;INTEL
 ; CHECK-NEXT:       Safe Stack instrumentation pass
 ; CHECK-NEXT:       Insert stack protectors
 ; CHECK-NEXT:       Module Verifier
@@ -51,7 +53,7 @@
 ; CHECK-NEXT:       X86 speculative load hardening
 ; CHECK-NEXT:       MachineDominator Tree Construction
 ; CHECK-NEXT:       X86 EFLAGS copy lowering
-; CHECK-NEXT:       X86 WinAlloca Expander
+; CHECK-NEXT:       X86 DynAlloca Expander
 ; CHECK-NEXT:       X86 Pre-RA pseudo instruction expansion pass ;INTEL
 ; CHECK-NEXT:       Eliminate PHI nodes for register allocation
 ; CHECK-NEXT:       Two-Address instruction pass
@@ -83,7 +85,8 @@
 ; CHECK-NEXT:       X86 Speculative Execution Side Effect Suppression
 ; CHECK-NEXT:       X86 Indirect Thunks
 ; CHECK-NEXT:       Check CFA info and insert CFI instructions if needed
-; CHECK-NEXT:       X86 Load Value Injection (LVI) Ret-Hardening
+; CHECK-NEXT:       X86 Load Value Injection (LVI) Ret-Hardening  
+; CHECK-NEXT:       Pseudo Probe Inserter
 ; CHECK-NEXT:       Lazy Machine Block Frequency Analysis
 ; CHECK-NEXT:       Machine Optimization Remark Emitter
 ; CHECK-NEXT:       X86 Assembly Printer

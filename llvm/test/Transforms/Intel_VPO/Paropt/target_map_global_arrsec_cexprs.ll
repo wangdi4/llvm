@@ -28,6 +28,16 @@
 ; CHECK: createRenamedValueForV : Renamed '[10 x i32]* @b' (via launder intrinsic) to: '[10 x i32]* %b'.
 ; CHECK: createRenamedValueForV : Renamed 'i64* @N' (via launder intrinsic) to: 'i64* %N'.
 
+; CHECK: clearLaunderIntrinBeforeRegion: Number of launder intrinsics for the region is 5.
+; CHECK: clearLaunderIntrinBeforeRegion: Replacing launder intrinsic 'i8* %{{.+}}' with its operand.
+; CHECK: clearLaunderIntrinBeforeRegion: Replacing launder intrinsic 'i8* %{{.+}}' with its operand.
+; CHECK: clearLaunderIntrinBeforeRegion: Replacing launder intrinsic 'i8* %{{.+}}' with its operand.
+; CHECK: clearLaunderIntrinBeforeRegion: Replacing launder intrinsic 'i8* %{{.+}}' with its operand.
+; CHECK-DAG: clearLaunderIntrinBeforeRegion: Clearing 1 unhandled intrinsics.
+; CHECK: clearLaunderIntrinBeforeRegion: Replacing launder intrinsic 'i8* %{{.+}}' with its operand.
+
+; CHECK-NOT: call i8* @llvm.launder.invariant.group
+
 ; Check that the hoisted IF Instruction is used in the target codegen
 ; CHECK: %[[CHECK:[^ ]+]] = icmp ne i1 %[[IF]], false
 ; CHECK: br i1 %[[CHECK]], label %{{.+}}, label %{{.+}}

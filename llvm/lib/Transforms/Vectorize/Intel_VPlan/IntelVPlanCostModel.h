@@ -23,7 +23,9 @@
 #include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanCostModelHeuristics.h"
 #include "IntelVPlanTTIWrapper.h"
+#include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
+#include "IntelVPlanVLSTransform.h"
 #include "llvm/Analysis/Intel_OptVLS.h"
 #include "llvm/Support/SaveAndRestore.h"
 
@@ -105,7 +107,14 @@ public:
 
   /// \Returns true if VPInst is part of an optimized VLS group.
   bool isOptimizedVLSGroupMember(const VPInstruction *VPInst) const {
-    return getOptimizedVLSGroupData(VPInst, VLSA, Plan).hasValue();
+    if (!VLSA)
+      return false;
+
+    auto *Group = VLSA->getGroupsFor(Plan, VPInst);
+    if (!Group)
+      return false;
+
+    return isTransformableVLSGroup(Group);
   }
 
   /// \Returns the cost of one operand or two operands arithmetics instructions.
@@ -135,7 +144,7 @@ protected:
 
     // Compute SVA results for current VPlan in order to compute cost
     // accurately in CM.
-    const_cast<VPlanVector *>(Plan)->runSVA();
+    const_cast<VPlanVector *>(Plan)->runSVA(VF);
 
     // Collect VLS Groups once VLSA is specified. Heuristics can query VLS
     // Groups when VLSA is available.

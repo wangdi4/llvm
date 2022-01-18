@@ -16,6 +16,10 @@
 #pragma float_control(precise, on)
 /* end INTEL_CUSTOMIZATION */
 
+#if !defined(__i386__) && !defined(__x86_64__)
+#error "This header is only meant to be used on x86 and x64 architecture"
+#endif
+
 #include <mmintrin.h>
 
 typedef int __v4si __attribute__((__vector_size__(16)));

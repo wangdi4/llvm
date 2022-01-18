@@ -201,7 +201,7 @@ CodeGenFunction::GenerateVarArgsThunk(llvm::Function *Fn,
   Address ThisPtr(&*AI, CGM.getClassPointerAlignment(MD->getParent()));
   llvm::BasicBlock *EntryBB = &Fn->front();
   llvm::BasicBlock::iterator ThisStore =
-      std::find_if(EntryBB->begin(), EntryBB->end(), [&](llvm::Instruction &I) {
+      llvm::find_if(*EntryBB, [&](llvm::Instruction &I) {
         return isa<llvm::StoreInst>(I) &&
                I.getOperand(0) == ThisPtr.getPointer();
       });
@@ -611,6 +611,11 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
   }
 
   setThunkProperties(CGM, TI, ThunkFn, ForVTable, GD);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  ThunkFn = CGM.addDTransInfoToFunc(GD, Name, ThunkFnTy, ThunkFn);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   return ThunkFn;
 }
 

@@ -1313,7 +1313,9 @@ static TryCastResult TryStaticCast(Sema &Self, ExprResult &SrcExpr,
   // lvalue-to-rvalue, array-to-pointer, function-to-pointer, and boolean
   // conversions, subject to further restrictions.
   // Also, C++ 5.2.9p1 forbids casting away constness, which makes reversal
-  // of qualification conversions impossible.
+  // of qualification conversions impossible. (In C++20, adding an array bound
+  // would be the reverse of a qualification conversion, but adding permission
+  // to add an array bound in a static_cast is a wording oversight.)
   // In the CStyle case, the earlier attempt to const_cast should have taken
   // care of reverse qualification conversions.
 
@@ -1691,7 +1693,7 @@ TryStaticDowncast(Sema &Self, CanQualType SrcType, CanQualType DestType,
       msg = 0;
 #if INTEL_CUSTOMIZATION
     // CQ#409860 report warning instead of error in compatibility mode.
-      if (Self.getLangOpts().IntelCompat && Self.getLangOpts().IntelMSCompat)
+      if (Self.getLangOpts().IntelCompat && Self.getLangOpts().MSVCCompat)
         return TC_Extension;
 #endif // INTEL_CUSTOMIZATION
       return TC_Failed;

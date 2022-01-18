@@ -1,8 +1,9 @@
-; RUN: opt -loopopt -O2 -hir-print-after-all < %s 2>&1 | FileCheck %s
+; RUN: opt -O2 -hir-print-after-all < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='default<O2>' -loopopt -hir-print-after-all -disable-output < %s 2>&1 | FileCheck %s
 
-; CHECK: HIR SSA Deconstruction
+; CHECK: BEGIN REGION
 
-define void @foo(i8* nocapture %p, i32 %n) {
+define void @foo(i8* nocapture %p, i32 %n) "loopopt-pipeline"="full" {
 entry:
   %cmp5 = icmp sgt i32 %n, 0
   br i1 %cmp5, label %for.body.preheader, label %for.cond.cleanup
@@ -26,4 +27,3 @@ for.body:                                         ; preds = %for.body.preheader,
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body
 }
-

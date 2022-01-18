@@ -7,32 +7,37 @@
 %struct.test01 = type { i32, i32 }
 @global_ptr_to_struct = internal global %struct.test01* zeroinitializer, !intel_dtrans_type !2
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Global pointer
+; CHECK: End LLVMType: %struct.test01
 
 %struct.test02 = type { i32, i32 }
 @global_ptr_to_ptr_to_struct = internal global %struct.test02** zeroinitializer, !intel_dtrans_type !3
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Global pointer
+; CHECK: End LLVMType: %struct.test02
 
 %struct.test03a = type { %struct.test03b, %struct.test03c* }
 %struct.test03b = type { i32, i32 }
 %struct.test03c = type { i32, i32 }
 @global_ptr_struct3 =  internal global %struct.test03a* zeroinitializer, !intel_dtrans_type !6
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test03a
+; CHECK: LLVMType: %struct.test03a
 ; CHECK: Safety data: Global pointer
+; CHECK: End LLVMType: %struct.test03a
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test03b
+; CHECK: LLVMType: %struct.test03b
 ; CHECK: Safety data: Global pointer
+; CHECK: End LLVMType: %struct.test03b
 
 ; "Global pointer" is not pointer-carried to referenced types.
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test03c
+; CHECK: LLVMType: %struct.test03c
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test03c
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*

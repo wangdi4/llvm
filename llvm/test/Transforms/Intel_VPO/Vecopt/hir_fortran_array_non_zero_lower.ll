@@ -16,12 +16,15 @@
 
 ; Check that memref and loop was vectorized.
 ; CHECK:          BEGIN REGION { modified }
-; CHECK-NEXT:           %red.var = 0.000000e+00;
+; CHECK-NEXT:           %red.init = 0.000000e+00;
+; CHECK-NEXT:           %phi.temp = %red.init;
 ; CHECK-NEXT:           %.vec = (<2 x double>*)(@mod1_mp_weight_)[0:0:4112([1 x [257 x [2 x double]]]*:0)][1:%"foo_$NG_fetch":4112([1 x [257 x [2 x double]]]:1)][0:<i64 0, i64 1> + 1:16([257 x [2 x double]]:257)][0:0:8([2 x double]:2)];
-; CHECK-NEXT:           %red.var = %.vec  +  %red.var;
+; CHECK-NEXT:           %.vec1 = %.vec  +  %phi.temp;
+; CHECK-NEXT:           %phi.temp = %.vec1;
 ; CHECK-NEXT:           %.vec = (<2 x double>*)(@mod1_mp_weight_)[0:0:4112([1 x [257 x [2 x double]]]*:0)][1:%"foo_$NG_fetch":4112([1 x [257 x [2 x double]]]:1)][0:<i64 0, i64 1> + 3:16([257 x [2 x double]]:257)][0:0:8([2 x double]:2)];
-; CHECK-NEXT:           %red.var = %.vec  +  %red.var;
-; CHECK-NEXT:           %add10 = @llvm.vector.reduce.fadd.v2f64(%add10,  %red.var);
+; CHECK-NEXT:           %.vec1 = %.vec  +  %phi.temp;
+; CHECK-NEXT:           %phi.temp = %.vec1;
+; CHECK-NEXT:           %add10 = @llvm.vector.reduce.fadd.v2f64(%add10,  %.vec1);
 ; CHECK-NEXT:     END REGION
 
 

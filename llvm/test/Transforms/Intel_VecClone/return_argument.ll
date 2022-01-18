@@ -13,10 +13,13 @@ define i32 @bar(i32 %gid) #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
 ; CHECK-NEXT:    [[ENTRY_REGION0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
+; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.preheader:
 ; CHECK-NEXT:    br label [[SIMD_LOOP0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop:
-; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_BEGIN_REGION0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]
+; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]
 ; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.exit:

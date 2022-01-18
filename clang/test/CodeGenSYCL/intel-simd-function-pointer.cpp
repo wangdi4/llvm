@@ -19,7 +19,7 @@ __attribute__((opencl_private)) __attribute__((sycl_explicit_simd)) fptr one_one
 //CHECK: @"_Z2f2i$SIMDTable" = weak global [1 x i32 (i32)*] [i32 (i32)* @_Z2f2i], align 8
 //CHECK: @"_Z2f3i$SIMDTable" = weak global [1 x i32 (i32)*] [i32 (i32)* @_Z2f3i], align 8
 //CHECK: @__const._Z3xoov.pfarr = private unnamed_addr addrspace(1) constant [3 x i32 (i32)*] [i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z2f1i$SIMDTable" to i32 (i32)*), i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z2f2i$SIMDTable" to i32 (i32)*), i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z2f3i$SIMDTable" to i32 (i32)*)]
-//CHECK: @__const._Z3xoov.obj = private unnamed_addr addrspace(1) constant %struct._ZTS1C.C { i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z2f1i$SIMDTable" to i32 (i32)*), i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z2f2i$SIMDTable" to i32 (i32)*) }
+//CHECK: @__const._Z3xoov.obj = private unnamed_addr addrspace(1) constant %struct.C { i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z2f1i$SIMDTable" to i32 (i32)*), i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z2f2i$SIMDTable" to i32 (i32)*) }
 //CHECK: @"_Z3zooi$SIMDTable" = weak global [1 x i32 (i32)*] [i32 (i32)* @_Z3zooi]
 //CHECK: @"_Z3barii$SIMDTable" = weak global [1 x i32 (i32, i32)*] [i32 (i32, i32)* @_Z3barii]
 //CHECK: @"_Z3mooi$SIMDTable" = weak global [1 x i32 (i32)*] [i32 (i32)* @_Z3mooi]
@@ -67,8 +67,8 @@ void test(int i) {
   fp = &zoo;
   p = bar;
 //CHECK: [[FP:%fp]] = alloca i32 (i32)*,
-//CHECK: %[[FP_CAST:.+]] = addrspacecast i32 (i32)** [[FP]] to i32 (i32)* addrspace(4)*
 //CHECK: [[P:%p]] = alloca i32 (i32, i32)*,
+//CHECK: %[[FP_CAST:.+]] = addrspacecast i32 (i32)** [[FP]] to i32 (i32)* addrspace(4)*
 //CHECK: %[[P_CAST:.+]] = addrspacecast i32 (i32, i32)** [[P]] to i32 (i32, i32)* addrspace(4)*
 //CHECK: store i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z3zooi$SIMDTable" to i32 (i32)*), i32 (i32)* addrspace(4)* %[[FP_CAST]],
 //CHECK: store i32 (i32, i32)* bitcast ([1 x i32 (i32, i32)*]* @"_Z3barii$SIMDTable" to i32 (i32, i32)*), i32 (i32, i32)* addrspace(4)* %[[P_CAST]],

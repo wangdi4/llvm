@@ -1,5 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=scalar-symbase-assignment -debug-only=hir-framework 2>&1 | FileCheck %s
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -analyze -hir-framework -hir-framework-debug=scalar-symbase-assignment -debug-only=hir-framework -enable-new-pm=0 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=scalar-symbase-assignment -debug-only=hir-framework -disable-output < %s 2>&1 | FileCheck %s
 
 ; ; Check region liveins
 ; CHECK: LiveIns:

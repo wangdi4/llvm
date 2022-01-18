@@ -18,6 +18,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPLANHCFGBUILDER_HIR_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPLANHCFGBUILDER_HIR_H
 
+#include "../IntelLoopVectorizationLegality.h"
 #include "../IntelVPlanEntityDescr.h"
 #include "../IntelVPlanHCFGBuilder.h"
 #include "IntelVPlanVerifierHIR.h"
@@ -46,7 +47,12 @@ namespace vpo {
 // High-level class to capture and provide loop vectorization legality analysis
 // for incoming HIR. Currently various loop entities like reductions, inductions
 // and privates are identified and stored within this class.
-class HIRVectorizationLegality {
+class HIRVectorizationLegality final
+    : public VectorizationLegalityBase<HIRVectorizationLegality> {
+  // Explicit vpo:: to workaround gcc bug
+  // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52625
+  template <typename LegalityTy> friend class vpo::VectorizationLegalityBase;
+
 public:
   struct CompareByDDRefSymbase {
     bool operator()(const DDRef *Ref1, const DDRef *Ref2) const {
@@ -90,19 +96,12 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     void print(raw_ostream &OS, unsigned Indent = 0) const override {
-      OS << "Ref: ";
-      DescrValueTy::getRef()->dump();
-      OS << "\n";
+      DescrWithAliasesTy::print(OS);
       if (InitValue) {
         OS.indent(Indent + 2) << "InitValue: ";
         InitValue->dump();
         OS << "\n";
       }
-      OS.indent(Indent + 2) << "UpdateInstruction: ";
-      for (auto &V : DescrValueTy::getUpdateInstructions()) {
-        V->dump();
-      }
-      DescrWithAliasesTy::print(OS);
     }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   };
@@ -123,7 +122,6 @@ public:
 
   using PrivDescrTy = PrivDescr<DDRef>;
   using PrivDescrNonPODTy = PrivDescrNonPOD<DDRef>;
-  using PrivateKindTy = PrivDescrTy::PrivateKind;
   using PrivatesListTy = SmallVector<PrivDescrTy, 8>;
   using PrivatesNonPODListTy = SmallVector<PrivDescrNonPODTy, 8>;
   // Specialized class to represent linear descriptors specified explicitly via
@@ -151,46 +149,8 @@ public:
                            HIRDDAnalysis *DDA)
       : TTI(TTI), SRA(SafeReds), DDAnalysis(DDA) {}
 
-  // Add explicit private.
-  // Add POD privates to PrivatesList
-  void addLoopPrivate(RegDDRef *PrivVal, bool IsF90DopeVector,
-                      bool IsLast = false, bool IsConditional = false) {
-    assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
-    PrivateKindTy Kind = PrivateKindTy::NonLast;
-    if (IsLast)
-      Kind = PrivateKindTy::Last;
-    if (IsConditional)
-      Kind = PrivateKindTy::Conditional;
-    PrivatesList.emplace_back(PrivVal, Kind);
-
-    if (IsF90DopeVector)
-      HasF90DopeVectorPrivate = true;
-  }
-
-  // Add non-POD privates to PrivatesList
-  // TODO: Use Constr, Destr and CopyAssign for non-POD privates.
-  void addLoopPrivate(RegDDRef *PrivVal, Function *Constr, Function *Destr,
-                      Function *CopyAssign, bool IsLast = false) {
-    assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
-    PrivateKindTy Kind = PrivateKindTy::NonLast;
-    if (IsLast)
-      Kind = PrivateKindTy::Last;
-    PrivatesNonPODList.emplace_back(PrivVal, Kind, Constr, Destr, CopyAssign);
-  }
-
-  /// Register explicit reduction variables provided from outside.
-  void addReduction(RegDDRef *V, RecurKind Kind, bool IsF90DopeVector, bool IsSigned = false) {
-    assert(V->isAddressOf() && "Reduction ref is not an address-of type.");
-    if (IsF90DopeVector)
-      HasF90DopeVectorReduction = true;
-    ReductionList.emplace_back(V, Kind, IsSigned);
-  }
-
-  // Add explicit linear.
-  void addLinear(RegDDRef *LinearVal, RegDDRef *Step) {
-    assert(LinearVal->isAddressOf() && "Linear ref is not address of type.");
-    LinearList.emplace_back(LinearVal, Step);
-  }
+  /// Returns true if it is legal to vectorize this loop.
+  bool canVectorize(const WRNVecLoopNode *WRLp);
 
   HIRSafeReductionAnalysis *getSRA() const { return SRA; }
   const HIRVectorIdioms *getVectorIdioms(HLLoop *Loop) const;
@@ -219,9 +179,9 @@ public:
   /// recognized for a loop \p HLoop.
   bool isMinMaxIdiomTemp(const DDRef *Ref, HLLoop *HLoop) const;
 
-  /// Identify any DDRefs in the \p HLoop's pre-loop nodes which alias the OMP
-  /// SIMD clause descriptor DDRefs
-  void findAliasDDRefs(HLNode *ClauseNode, HLLoop *HLoop);
+  /// Identify any DDRefs in the \p HLoop's pre/post-loop nodes which alias the
+  /// OMP SIMD clause descriptor DDRefs
+  void findAliasDDRefs(HLNode *BeginNode, HLNode *EndNode, HLLoop *HLoop);
 
   /// Check if the given DDRef \p Ref corresponds to any linear/reduction
   /// HIRLegality descriptors. If found, then update the corresponding
@@ -236,27 +196,51 @@ public:
   /// instruction.
   void recordPotentialSIMDDescrUpdate(HLInst *UpdateInst);
 
-  void setIsSimdFlag() { IsSimdLoop = true; }
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Debug print utility to display contents of the descriptor lists
   void dump(raw_ostream &OS) const;
   void dump() const { dump(errs()); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  // TODO: Dummy placeholder set of functions which should be updated once
-  // common interface will be established for VPOVectorizationLegality and for
-  // HIRVectorizationLegality.
-  void collectPreLoopDescrAliases();
-  void collectPostExitLoopDescrAliases();
-
-  bool hasF90DopeVectorPrivate() { return HasF90DopeVectorPrivate; }
-  bool hasF90DopeVectorReduction() { return HasF90DopeVectorReduction; }
-
-  bool hasComplexTyReduction() { return HasComplexTyReduction; }
-  void setHasComplexTyReduction() { HasComplexTyReduction = true; }
-
 private:
+  /// Reports a reason for vectorization bailout. Always returns false.
+  bool bailout(BailoutReason Code);
+
+  /// Add an explicit non-POD private to PrivatesList
+  /// TODO: Use Constr, Destr and CopyAssign for non-POD privates.
+  void addLoopPrivate(RegDDRef *PrivVal, Type *PrivTy, Function *Constr,
+                      Function *Destr, Function *CopyAssign,
+                      PrivateKindTy Kind) {
+    assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
+    PrivatesNonPODList.emplace_back(PrivVal, PrivTy, Kind, Constr, Destr,
+                                    CopyAssign);
+  }
+
+  /// Add an explicit POD private to PrivatesList
+  void addLoopPrivate(RegDDRef *PrivVal, Type *PrivTy, PrivateKindTy Kind) {
+    assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
+    PrivatesList.emplace_back(PrivVal, PrivTy, Kind);
+  }
+
+  /// Add an explicit linear.
+  void addLinear(RegDDRef *LinearVal, Type * /* LinearTy */, RegDDRef *Step) {
+    assert(LinearVal->isAddressOf() && "Linear ref is not address of type.");
+
+    // TODO: Type information is not used thus far but is here for consistency
+    // of the legality interface(vs LLVM IR path). LinearListCvt converter has
+    // problems and is disabled. Once enabled this likely has to be revisited
+    // too.
+    LinearList.emplace_back(LinearVal, Step);
+  }
+  /// Add an explicit reduction variable
+  void addReduction(RegDDRef *V, RecurKind Kind) {
+    assert(V->isAddressOf() && "Reduction ref is not an address-of type.");
+
+    // TODO: Consider removing IsSigned field from RedDescr struct since it is
+    // unused and can basically be deducted from the recurrence kind.
+    ReductionList.emplace_back(V, Kind, false /*IsSigned*/);
+  }
+
   /// Check if the given \p Ref is an explicit SIMD descriptor variable of type
   /// \p DescrType in the list \p List, if yes then return the descriptor object
   /// corresponding to it, else nullptr
@@ -293,10 +277,6 @@ private:
   // list of idioms on the fly if no entry is found for a given loop. Check
   // getVectorIdioms(HLLoop*).
   mutable std::map<HLLoop *, IdiomListTy> VecIdioms;
-  bool IsSimdLoop = false;
-  bool HasF90DopeVectorPrivate = false;
-  bool HasF90DopeVectorReduction = false;
-  bool HasComplexTyReduction = false;
 };
 
 class VPlanHCFGBuilderHIR : public VPlanHCFGBuilder {

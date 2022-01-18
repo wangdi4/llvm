@@ -10,22 +10,25 @@
 %struct.test01 = type { i32, i32 }
 @global_array_of_vector_ptrs = internal global [16 x <2 x %struct.test01*>] zeroinitializer, !intel_dtrans_type !2
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data:{{.*}}Unhandled use{{.*}}
+; CHECK: End LLVMType: %struct.test01
 
 ; Thread locals variables are conservatively marked as unhandled.
 %struct.test02 = type { i32, i32 }
 @global_thread_local = thread_private global %struct.test02 zeroinitializer
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data:{{.*}}Unhandled use{{.*}}
+; CHECK: End LLVMType: %struct.test02
 
 ; Non-local linkage variables should not get transformed.
 %struct.test03 = type { i32, i32 }
 @global_weak = weak global %struct.test03 zeroinitializer
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data:{{.*}}Unhandled use{{.*}}
+; CHECK: End LLVMType: %struct.test03
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{!"A", i32 16, !3}  ; [16 x <2 x %struct.test01*>]

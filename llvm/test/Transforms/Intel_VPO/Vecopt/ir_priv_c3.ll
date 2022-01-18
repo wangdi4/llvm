@@ -5,7 +5,7 @@
 ; inner loop w/o break with top test
 define dso_local i64 @_Z3fooPlS_() local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
-; CHECK-NEXT:  VPlan IR for: _Z3fooPlS_:omp.inner.for.body
+; CHECK-NEXT:  VPlan IR for: _Z3fooPlS_:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
@@ -13,13 +13,11 @@ define dso_local i64 @_Z3fooPlS_() local_unnamed_addr #0 {
 ; CHECK-NEXT:    Linked values: i64 [[VP__OMP_IV_LOCAL_020]], i64 [[VP_ADD9]], i64 [[VP__OMP_IV_LOCAL_020_IND_INIT:%.*]], i64 [[VP__OMP_IV_LOCAL_020_IND_FINAL:%.*]],
 ; CHECK:       Private list
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Private tag: InMemory
-; CHECK-NEXT:    Linked values: i64* [[RET_LPRIV0:%.*]], i64* [[VP_RET_LPRIV:%.*]],
+; CHECK-NEXT:    Exit instr: i64 [[VP__LCSSA:%.*]] = phi  [ i64 [[VP0:%.*]], [[BB1:BB[0-9]+]] ]
+; CHECK-NEXT:    Linked values: i64 [[VP__LCSSA]], i64* [[RET_LPRIV0:%.*]], i64 [[VP__LCSSA30:%.*]], i64* [[VP_RET_LPRIV:%.*]], i64 [[VP__LCSSA_PRIV_FINAL:%.*]],
 ; CHECK-NEXT:   Memory: i64* [[RET_LPRIV0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Exit instr: i64 [[VP__LCSSA:%.*]] = phi  [ i64 [[VP0:%.*]], [[BB1:BB[0-9]+]] ]
-; CHECK-NEXT:    Linked values: i64 [[VP__LCSSA]], i64 [[VP__LCSSA30:%.*]], i64 [[VP__LCSSA_PRIV_FINAL:%.*]],
-; CHECK:         [[BB2:BB[0-9]+]]: # preds:
+; CHECK-NEXT:    [[BB2:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
@@ -44,27 +42,27 @@ define dso_local i64 @_Z3fooPlS_() local_unnamed_addr #0 {
 ; CHECK-NEXT:     br i1 [[VP_TOBOOL]], [[BB1]], [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[BB5]]
-; CHECK-NEXT:       i1 [[VP_TOBOOL3:%.*]] = icmp eq i64 [[VP2]] i64 0
+; CHECK-NEXT:       i1 [[VP_TOBOOL3:%.*]] = icmp eq i64 [[VP1]] i64 0
 ; CHECK-NEXT:       br i1 [[VP_TOBOOL3]], [[BB7:BB[0-9]+]], [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB8]]: # preds: [[BB6]]
-; CHECK-NEXT:         i64 [[VP3:%.*]] = add i64 [[VP2]] i64 10
+; CHECK-NEXT:         i64 [[VP3:%.*]] = add i64 [[VP1]] i64 10
 ; CHECK-NEXT:         br [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]]: # preds: [[BB6]], [[BB8]]
-; CHECK-NEXT:       i64 [[VP_PRIV_IDX_BB6:%.*]] = phi  [ i64 [[VP__OMP_IV_LOCAL_020]], [[BB8]] ],  [ i64 [[VP__OMP_IV_LOCAL_020]], [[BB6]] ]
+; CHECK-NEXT:       i64 [[VP_PRIV_IDX_BB6:%.*]] = phi  [ i64 [[VP__OMP_IV_LOCAL_020]], [[BB8]] ],  [ i64 [[VP_PRIV_IDX_BB3]], [[BB6]] ]
 ; CHECK-NEXT:       i64 [[VP4:%.*]] = phi  [ i64 [[VP3]], [[BB8]] ],  [ i64 [[VP2]], [[BB6]] ]
 ; CHECK-NEXT:       br [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB5]], [[BB7]]
-; CHECK-NEXT:     i64 [[VP_PRIV_IDX_BB4]] = phi  [ i64 [[VP__OMP_IV_LOCAL_020]], [[BB5]] ],  [ i64 [[VP__OMP_IV_LOCAL_020]], [[BB7]] ]
+; CHECK-NEXT:     i64 [[VP_PRIV_IDX_BB4]] = phi  [ i64 [[VP_PRIV_IDX_BB3]], [[BB5]] ],  [ i64 [[VP_PRIV_IDX_BB6]], [[BB7]] ]
 ; CHECK-NEXT:     i64 [[VP0]] = phi  [ i64 [[VP2]], [[BB5]] ],  [ i64 [[VP4]], [[BB7]] ]
 ; CHECK-NEXT:     i64 [[VP_INC]] = add i64 [[VP_INNER_IV]] i64 1
 ; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INC]] i64 100
 ; CHECK-NEXT:     br i1 [[VP_EXITCOND]], [[BB4]], [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB1]]
-; CHECK-NEXT:     i64 [[VP_PRIV_IDX_BB8]] = phi  [ i64 [[VP__OMP_IV_LOCAL_020]], [[BB1]] ]
+; CHECK-NEXT:     i64 [[VP_PRIV_IDX_BB8]] = phi  [ i64 [[VP_PRIV_IDX_BB4]], [[BB1]] ]
 ; CHECK-NEXT:     i64 [[VP__LCSSA]] = phi  [ i64 [[VP0]], [[BB1]] ]
 ; CHECK-NEXT:     i64 [[VP_ADD9]] = add i64 [[VP__OMP_IV_LOCAL_020]] i64 [[VP__OMP_IV_LOCAL_020_IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP_EXITCOND31:%.*]] = icmp eq i64 [[VP_ADD9]] i64 100
@@ -108,11 +106,11 @@ for.body:                                         ; preds = %omp.inner.for.body,
   br i1 %tobool, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %tobool3 = icmp eq i64 %2, 0
+  %tobool3 = icmp eq i64 %1, 0
   br i1 %tobool3, label %if.end, label %if.then4
 
 if.then4:                                         ; preds = %if.then
-  %3 = add i64 %2, 10
+  %3 = add i64 %1, 10
   br label %if.end
 
 if.end:                                           ; preds = %if.then4, %if.then

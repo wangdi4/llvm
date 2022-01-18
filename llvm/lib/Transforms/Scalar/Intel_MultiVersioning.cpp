@@ -536,8 +536,8 @@ class BoolMultiVersioningImpl {
 
     // Set the profile weight for the branch the controls the version
     // selection as a percentage of the function entry count.
-    Function::ProfileCount EntryCount = F.getEntryCount();
-    if (EntryCount.hasValue() && (TrueWeight != 0 || FalseWeight != 0)) {
+    if (F.getEntryCount().hasValue() && (TrueWeight != 0 || FalseWeight != 0)) {
+      Function::ProfileCount EntryCount = *F.getEntryCount();
       uint64_t TotalWeight = TrueWeight + FalseWeight;
       Br->setMetadata(
           LLVMContext::MD_prof,

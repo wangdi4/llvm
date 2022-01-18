@@ -9,7 +9,7 @@
 ; }
 
 ; Check that the distribute loop nest was collapsed:
-; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),{{.*}}"QUAL.OMP.OFFLOAD.NDRANGE"(i64 addrspace(4)* [[DIM0:%[a-zA-Z._0-9]+]])
+; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),{{.*}}"QUAL.OMP.OFFLOAD.NDRANGE"(i64 addrspace(4)* [[DIM0:%[a-zA-Z._0-9]+]], i64 0)
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(),{{.*}}"QUAL.OMP.FIRSTPRIVATE:WILOCAL"({{[^"]*}}i64 addrspace(4)* [[DIM0]]
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(),{{.*}}"QUAL.OMP.NORMALIZED.UB"(i64 addrspace(4)* [[DIM0]]){{.*}}"QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"()
 

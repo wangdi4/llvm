@@ -58,6 +58,9 @@ private:
   /// Result of LocalBufferAnalysis pass.
   LocalBufferInfo *LBInfo;
 
+  /// Maps the modified Function with local values the function uses directly.
+  LocalBufferInfo::TUsedLocalsMap DirectLocalsMap;
+
   /// Result of ImplicitArgsAnalysis pass.
   ImplicitArgsInfo *IAInfo;
 

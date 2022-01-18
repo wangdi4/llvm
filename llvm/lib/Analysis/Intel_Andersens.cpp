@@ -1021,6 +1021,15 @@ unsigned AndersensAAResult::getNodeValue(Value &V) {
 //                  AliasAnalysis Interface Implementation
 //===---------------------------------------------------------------------===//
 
+/// Handle invalidation events in the new pass manager.
+bool AndersensAAResult::invalidate(Module &M, const PreservedAnalyses &PA,
+                                   ModuleAnalysisManager::Invalidator &Inv) {
+  // Check whether the analysis has been explicitly invalidated. Otherwise, it's
+  // stateless and remains preserved.
+  auto PAC = PA.getChecker<AndersensAA>();
+  return !PAC.preservedWhenStateless();
+}
+
 AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
                                      const MemoryLocation &LocB,
                                      AAQueryInfo &AAQI)  {
@@ -5823,7 +5832,7 @@ IntelModRefImpl::getFormatCheckPosition(LibFunc &TheLibFunc) {
 unsigned IntelModRefImpl::findFormatCheckReadOnlyStart(const CallBase *Call,
                                                        LibFunc TheLibFunc) {
   unsigned StringPos = getFormatCheckPosition(TheLibFunc);
-  unsigned ArgCount = Call->getNumArgOperands();
+  unsigned ArgCount = Call->arg_size();
   unsigned PrintfReadOnlyArgs = ArgCount;
 
   // Try to analyze the printf formatting string for any %n arguments. If the
@@ -5903,7 +5912,7 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
   if (LibFuncModel & LFMR_ARGS) {
     bool FunctionReadOnly = F->hasFnAttribute(Attribute::ReadOnly);
     unsigned FuncArgCount = F->getFunctionType()->getNumParams();
-    unsigned ArgCount = Call->getNumArgOperands();
+    unsigned ArgCount = Call->arg_size();
     for (unsigned ArgNo = 0; ArgNo < ArgCount; ++ArgNo) {
       Value *Arg = Call->getArgOperand(ArgNo);
       if (!Arg->getType()->isPointerTy())
@@ -5916,7 +5925,7 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
           getUnderlyingObject(Call->getArgOperand(ArgNo));
 
       MemoryLocation Loc2 = MemoryLocation(Object, LocationSize::beforeOrAfterPointer());
-      AAQueryInfo AAQIP;
+      SimpleAAQueryInfo AAQIP;
       AliasResult AR = Ander->alias(Loc, Loc2, AAQIP);
       if (AR == AliasResult::NoAlias)
         continue;

@@ -33,44 +33,46 @@
 // DISABLED-NOT: "-sycl-std={{.*}}"
 // DISABLED-NOT: "-fsycl-std-layout-kernel-params"
 
-// RUN: %clangxx -fsycl -fsycl-targets=spir64-unknown-unknown-sycldevice,nvptx64-nvidia-cuda-sycldevice -fno-sycl-libspirv -nocudalib -c %s 2>&1 | FileCheck %s --check-prefix=CHECK_WARNING
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -fsycl -fsycl-targets=spir64-unknown-unknown-sycldevice,nvptx64-nvidia-cuda-sycldevice -fno-sycl-libspirv -nocudalib -c %s 2>&1 | FileCheck %s --check-prefix=CHECK_WARNING
 // CHECK_WARNING: argument 'spir64-unknown-unknown-sycldevice' is deprecated, use 'spir64' instead
 // CHECK_WARNING: argument 'nvptx64-nvidia-cuda-sycldevice' is deprecated, use 'nvptx64-nvidia-cuda' instead
 
-// RUN: %clang -### -fsycl-device-only -c %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
-// RUN: %clang -### -fsycl-device-only %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
-// RUN: %clang -### -fsycl-device-only -S %s 2>&1 | FileCheck %s --check-prefix=TEXTUAL
-// RUN: %clang -### -fsycl-device-only -fsycl  %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
-// RUN: %clang -### -fsycl-device-only -fno-sycl-use-bitcode -c %s 2>&1 | FileCheck %s --check-prefix=NO-BITCODE
-// RUN: %clang -### -target spir64-unknown-linux -c -emit-llvm %s 2>&1 | FileCheck %s --check-prefix=TARGET
-// RUN: %clang -### -fsycl-device-only -c -emit-llvm %s 2>&1 | FileCheck %s --check-prefix=COMBINED
-// RUN: %clangxx -### -fsycl-device-only %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
-// RUN: %clang_cl -### -fsycl-device-only %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
-// RUN: %clangxx -### -fsycl-device-only -fno-sycl-unnamed-lambda %s 2>&1 | FileCheck %s --check-prefix=CHECK-NOT-LAMBDA
-// RUN: %clang_cl -### -fsycl-device-only -fno-sycl-unnamed-lambda %s 2>&1 | FileCheck %s --check-prefix=CHECK-NOT-LAMBDA
+// RUN: %clang -### -target x86_64-unknown-linux-gnu -fsycl-device-only -c %s 2>&1 | FileCheck %s --check-prefix=DEFAULT -DSPIRARCH=spir64
+// RUN: %clang -### -target x86_64-unknown-linux-gnu -fsycl-device-only %s 2>&1 | FileCheck %s --check-prefix=DEFAULT -DSPIRARCH=spir64
+// RUN: %clang -### -target x86_64-unknown-linux-gnu -fsycl-device-only -S %s 2>&1 | FileCheck %s --check-prefix=TEXTUAL -DSPIRARCH=spir64
+// RUN: %clang -### -target x86_64-unknown-linux-gnu -fsycl-device-only -fsycl  %s 2>&1 | FileCheck %s --check-prefix=DEFAULT -DSPIRARCH=spir64
+// RUN: %clang -### -target x86_64-unknown-linux-gnu -fsycl-device-only -fno-sycl-use-bitcode -c %s 2>&1 | FileCheck %s --check-prefix=NO-BITCODE -DSPIRARCH=spir64
+// RUN: %clang -### -target spir64-unknown-linux -c -emit-llvm %s 2>&1 | FileCheck %s --check-prefix=TARGET -DSPIRARCH=spir64
+// RUN: %clang -### -target x86_64-unknown-linux-gnu -fsycl-device-only -c -emit-llvm %s 2>&1 | FileCheck %s --check-prefix=COMBINED -DSPIRARCH=spir64
+// RUN: %clangxx -### -target x86_64-unknown-linux-gnu -fsycl-device-only %s 2>&1 | FileCheck %s --check-prefix=DEFAULT -DSPIRARCH=spir64
+// RUN: %clang_cl -### --target=x86_64-pc-windows-msvc -fsycl-device-only %s 2>&1 | FileCheck %s --check-prefix=DEFAULT -DSPIRARCH=spir64
 
-// INTEL_CUSTOMIZATION
-// For 32-bit host compilers (xmainx86oclwin) the spir target defaults to
-// "spir" but for 64-bit compilers it is "spir64".
-// DEFAULT: "-triple" "spir{{(64)?}}-unknown-{{.*}}"{{.*}} "-fsycl-is-device"{{.*}} "-sycl-std=2020"{{.*}} "-emit-llvm-bc"
-// end INTEL_CUSTOMIZATION
+/// 32-bit target checks
+// RUN: %clang -### -target i386-unknown-linux-gnu -fsycl-device-only -c %s 2>&1 | FileCheck %s --check-prefix=DEFAULT -DSPIRARCH=spir
+// RUN: %clang -### -target i386-unknown-linux-gnu -fsycl-device-only %s 2>&1 | FileCheck %s --check-prefix=DEFAULT -DSPIRARCH=spir
+// RUN: %clang -### -target i386-unknown-linux-gnu -fsycl-device-only -S %s 2>&1 | FileCheck %s --check-prefix=TEXTUAL -DSPIRARCH=spir
+// RUN: %clang -### -target i386-unknown-linux-gnu -fsycl-device-only -fsycl  %s 2>&1 | FileCheck %s --check-prefix=DEFAULT -DSPIRARCH=spir
+// RUN: %clang -### -target i386-unknown-linux-gnu -fsycl-device-only -fno-sycl-use-bitcode -c %s 2>&1 | FileCheck %s --check-prefix=NO-BITCODE -DSPIRARCH=spir
+// RUN: %clang -### -target spir-unknown-linux -c -emit-llvm %s 2>&1 | FileCheck %s --check-prefix=TARGET -DSPIRARCH=spir
+// RUN: %clang -### -target i386-unknown-linux-gnu -fsycl-device-only -c -emit-llvm %s 2>&1 | FileCheck %s --check-prefix=COMBINED -DSPIRARCH=spir
+// RUN: %clangxx -### -target i386-unknown-linux-gnu -fsycl-device-only %s 2>&1 | FileCheck %s --check-prefix=DEFAULT -DSPIRARCH=spir
+// RUN: %clang_cl -### --target=i386-pc-windows-msvc -fsycl-device-only %s 2>&1 | FileCheck %s --check-prefix=DEFAULT -DSPIRARCH=spir
+
+// DEFAULT: "-triple" "[[SPIRARCH]]-unknown-{{.*}}"{{.*}} "-fsycl-is-device"{{.*}} "-sycl-std=2020"{{.*}} "-emit-llvm-bc"
 // DEFAULT: "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl"
 // DEFAULT: "-internal-isystem" "{{.*lib.*clang.*include}}"
 // DEFAULT: "-std=c++17"
 // DEFAULT-NOT: "{{.*}}llvm-spirv"{{.*}}
 // DEFAULT-NOT: "-std=c++11"
 // DEFAULT-NOT: "-std=c++14"
-// INTEL_CUSTOMIZATION
-// NO-BITCODE: "-triple" "spir{{(64)?}}-unknown-{{.*}}"{{.*}} "-fsycl-is-device"{{.*}} "-emit-llvm-bc"
-// end INTEL_CUSTOMIZATION
+// NO-BITCODE: "-triple" "[[SPIRARCH]]-unknown-{{.*}}"{{.*}} "-fsycl-is-device"{{.*}} "-emit-llvm-bc"
 // NO-BITCODE: "{{.*}}llvm-spirv"{{.*}}
-// INTEL_CUSTOMIZATION
-// In the "TARGET" case, we specified an explicit target triple on the
-// command line, so it will always be "spir64" here.
-// TARGET: "-triple" "spir64-unknown-linux"{{.*}} "-emit-llvm-bc"
-// COMBINED: "-triple" "spir{{(64)?}}-unknown-{{.*}}"{{.*}} "-fsycl-is-device"{{.*}} "-emit-llvm-bc"
-// TEXTUAL: "-triple" "spir{{(64)?}}-unknown-{{.*}}" "-fsycl-is-device"{{.*}} "-emit-llvm"
-// end INTEL_CUSTOMIZATION
+// TARGET: "-triple" "[[SPIRARCH]]-unknown-linux"{{.*}} "-emit-llvm-bc"
+// COMBINED: "-triple" "[[SPIRARCH]]-unknown-{{.*}}" "-fsycl-is-device"{{.*}} "-emit-llvm-bc"
+// TEXTUAL: "-triple" "[[SPIRARCH]]-unknown-{{.*}}" "-fsycl-is-device"{{.*}} "-emit-llvm"
+
+// RUN: %clangxx -### -fsycl-device-only -fno-sycl-unnamed-lambda %s 2>&1 | FileCheck %s --check-prefix=CHECK-NOT-LAMBDA
+// RUN: %clang_cl -### -fsycl-device-only -fno-sycl-unnamed-lambda %s 2>&1 | FileCheck %s --check-prefix=CHECK-NOT-LAMBDA
 // CHECK-NOT-LAMBDA: "-fno-sycl-unnamed-lambda"
 
 /// -fsycl-device-only triple checks
@@ -112,11 +114,21 @@
 // SYCL-HELP-BADARG: unsupported argument 'foo' to option 'fsycl-help='
 // SYCL-HELP-GEN: Emitting help information for ocloc
 // SYCL-HELP-GEN: Use triple of 'spir64_gen-unknown-unknown' to enable ahead of time compilation
-// SYCL-HELP-FPGA-OUT: "[[DIR]]{{[/\\]+}}aoc" "-help" "-sycl"
 // SYCL-HELP-FPGA: Emitting help information for aoc
 // SYCL-HELP-FPGA: Use triple of 'spir64_fpga-unknown-unknown' to enable ahead of time compilation
+// SYCL-HELP-FPGA-OUT: "[[DIR]]{{[/\\]+}}aoc" "-help" "-sycl"
 // SYCL-HELP-CPU: Emitting help information for opencl-aot
 // SYCL-HELP-CPU: Use triple of 'spir64_x86_64-unknown-unknown' to enable ahead of time compilation
+
+// -fsycl-help redirect to file should retain proper information ordering
+// RUN: %clang -### -fsycl-help %s > %t.help-out 2>&1
+// RUN: FileCheck %s -check-prefix SYCL_HELP_ORDER --input-file=%t.help-out
+// SYCL_HELP_ORDER: Emitting help information for ocloc
+// SYCL_HELP_ORDER: ocloc{{(\.exe)?}}" "--help"
+// SYCL_HELP_ORDER: Emitting help information for aoc
+// SYCL_HELP_ORDER: aoc{{(\.exe)?}}" "-help" "-sycl"
+// SYCL_HELP_ORDER: Emitting help information for opencl-aot
+// SYCL_HELP_ORDER: opencl-aot{{(\.exe)?}}" "--help"
 
 // -fsycl-id-queries-fit-in-int
 // RUN: %clang -### -fsycl -fsycl-id-queries-fit-in-int  %s 2>&1 | FileCheck %s --check-prefix=ID_QUERIES

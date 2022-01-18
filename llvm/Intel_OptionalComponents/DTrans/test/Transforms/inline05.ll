@@ -164,7 +164,7 @@ attributes #3 = { nounwind }
 
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 1, !"ThinLTO", i32 0}
-!2 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang fbafeeb835bf1bb38071fea1f990ef5491c4d097) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm c9383ff56fc718dde9499c4d3132afd5aaae0ac8)"}
+!2 = !{!"clang version 8.0.0"}
 !3 = !{!4, !4, i64 0}
 !4 = !{!"int", !5, i64 0}
 !5 = !{!"omnipotent char", !6, i64 0}

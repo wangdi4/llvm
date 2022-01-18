@@ -1,6 +1,6 @@
 // Check output from -fintel-compatibility-doc using all valid values.
 //
-// RUN: %clang -c -Xclang -fintel-compatibility-doc=AllowExtraArgument,AllowFewerMacroArgs,AllowMissingTypename,FArgumentNoalias,FakeLoad,IMFAttributes,IntelTBAABF,IntelTBAA,IntrinsicPromotion,PragmaBlockLoop,PragmaFusion,PragmaLoopCount,PragmaNoFusion,PragmaNoUnrollAndJam,PragmaNoVector,PragmaUnrollAndJam,PragmaVector,PredeclareAlignValT,RelaxSpirCCNoProtoDiag,StringCharStarCatchable,UnrollZero,VaArgPack,VolatileInOMPRegions,WholeProgramVTableWrap %s 2>&1 | FileCheck --match-full-lines %s
+// RUN: %clang -c -Xclang -fintel-compatibility-doc=AllowExtraArgument,AllowFewerMacroArgs,AllowMissingTypename,FArgumentNoalias,FakeLoad,IMFAttributes,IntelTBAABF,IntelTBAA,IntrinsicPromotion,PragmaBlockLoop,PragmaFusion,PragmaLoopCount,PragmaNoFusion,PragmaNoUnrollAndJam,PragmaNoVector,PragmaUnrollAndJam,PragmaVector,PredeclareAlignValT,RelaxSpirCCNoProtoDiag,StringCharStarCatchable,UnrollZero,VaArgPack,VolatileInOMPRegions %s 2>&1 | FileCheck --match-full-lines %s
 
 // CHECK:AllowExtraArgument
 // CHECK-NEXT: ==================
@@ -124,8 +124,3 @@
 // CHECK-NEXT: ====================
 // CHECK-NEXT: Community clang removes volatile from variables captured in OpenMP regions.
 // CHECK-NEXT: This extension, controlled by -fintel-compatibility, retains volatile.
-
-// CHECK: WholeProgramVTableWrap
-// CHECK-NEXT: ======================
-// CHECK-NEXT: When used with ``-fwhole-program-vtables`` option, this optimization enables
-// CHECK-NEXT: devirtualization with whole program analysis without hidden LTO visibility.

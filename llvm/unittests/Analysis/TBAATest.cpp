@@ -140,7 +140,7 @@ TEST_F(TBAATest, checkTBAACommutativity) {
   const MemoryLocation Loc1 = MemoryLocation::get(SI);
   const MemoryLocation Loc2 = MemoryLocation::get(LI);
 
-  AAQueryInfo AAQIP;
+  SimpleAAQueryInfo AAQIP;
   auto AliasResult1 = TBAA.alias(Loc1, Loc2, AAQIP);
   auto AliasResult2 = TBAA.alias(Loc2, Loc1, AAQIP);
 

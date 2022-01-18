@@ -2,16 +2,15 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; INTEL- disabled loopopt to retain original pipeline order.
-; RUN: opt -O2 -S -loopopt=0 < %s | FileCheck %s
+; RUN: opt -O2 -S < %s | FileCheck %s
 
 ; CHECK-LABEL: main
-; CHECK: if.end
-; CHECK: store
 ; CHECK: memset
 ; CHECK: if.then
 ; CHECK: store
-; CHECK: memset
+; CHECK: if.end
+; CHECK: store
+; CHECK: store
 
 @d = common global i32 0, align 4
 @b = common global i32 0, align 4

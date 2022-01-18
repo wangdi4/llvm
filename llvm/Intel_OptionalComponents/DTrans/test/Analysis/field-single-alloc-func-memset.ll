@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -whole-program-assume  -dtransanalysis -dtrans-print-types -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -whole-program-assume  -passes="require<dtransanalysis>" -dtrans-print-types -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output < %s 2>&1 | FileCheck %s
 
 ; The test checks that a memset call updates an alloc function as following:
 ;   1) Non-zero value: sets to bottom

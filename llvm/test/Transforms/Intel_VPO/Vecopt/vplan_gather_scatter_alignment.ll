@@ -39,24 +39,18 @@ simd.begin.region:
   br label %simd.loop
 
 simd.loop:
-  %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
+  %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop ]
   %0 = sext i32 %index to i64
   %arrayidx.src = getelementptr inbounds [2 x <4 x i8>], [2 x <4 x i8>]* %sPrivateStorage.src, i64 0, i64 0
   %arrayidx.dst = getelementptr inbounds [2 x <4 x i8>], [2 x <4 x i8>]* %sPrivateStorage.dst, i64 0, i64 0
   %load = load <4 x i8>, <4 x i8>* %arrayidx.src, align 4
   store <4 x i8> %load, <4 x i8>* %arrayidx.dst, align 4
-  br label %simd.loop.exit
-
-simd.loop.exit:
   %indvar = add nuw i32 %index, 1
   %vl.cond = icmp ult i32 %indvar, 8
   br i1 %vl.cond, label %simd.loop, label %simd.end.region
 
 simd.end.region:
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
-  br label %return
-
-return:
   ret void
 }
 
@@ -99,8 +93,5 @@ simd.loop.exit:
 
 simd.end.region:                                  ; preds = %simd.loop.exit
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
-  br label %return
-
-return:
   ret void
 }

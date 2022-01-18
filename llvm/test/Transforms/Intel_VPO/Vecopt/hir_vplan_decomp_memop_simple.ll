@@ -27,12 +27,12 @@
 
 ; Check decomposed VPInstructions
 ; CHECK: i64 [[I1:%vp.*]] = phi
-; CHECK-NEXT: i32* [[ADDR1:%vp.*]] = subscript inbounds i32* %b {i64 0 : i64 [[I1]] : i64 4 : i32*}
+; CHECK-NEXT: i32* [[ADDR1:%vp.*]] = subscript inbounds i32* %b {i64 0 : i64 [[I1]] : i64 4 : i32*(i32)}
 ; CHECK-NEXT: i32 [[LOAD1:%vp.*]] = load i32* [[ADDR1]]
-; CHECK-NEXT: i32* [[ADDR2:%vp.*]] = subscript inbounds i32* %c {i64 0 : i64 [[I1]] : i64 4 : i32*}
+; CHECK-NEXT: i32* [[ADDR2:%vp.*]] = subscript inbounds i32* %c {i64 0 : i64 [[I1]] : i64 4 : i32*(i32)}
 ; CHECK-NEXT: i32 [[LOAD2:%vp.*]] = load i32* [[ADDR2]]
 ; CHECK-NEXT: i32 [[ADD:%vp.*]] = add i32 [[LOAD1]] i32 [[LOAD2]]
-; CHECK-NEXT: i32* [[ADDR3:%vp.*]] = subscript inbounds i32* %a {i64 0 : i64 [[I1]] : i64 4 : i32*}
+; CHECK-NEXT: i32* [[ADDR3:%vp.*]] = subscript inbounds i32* %a {i64 0 : i64 [[I1]] : i64 4 : i32*(i32)}
 ; CHECK-NEXT: store i32 [[ADD]] i32* [[ADDR3]]
 
 

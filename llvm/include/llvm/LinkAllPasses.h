@@ -44,9 +44,11 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
+#include "llvm/SYCLLowerIR/ESIMDVerifier.h"
 #include "llvm/SYCLLowerIR/LowerESIMD.h"
 #include "llvm/SYCLLowerIR/LowerWGLocalMemory.h"
 #include "llvm/SYCLLowerIR/LowerWGScope.h"
+#include "llvm/SYCLLowerIR/MutatePrintfAddrspace.h"
 #include "llvm/Support/Valgrind.h"
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
 #include "llvm/Transforms/IPO.h"
@@ -104,6 +106,9 @@ namespace {
       // delete it all as dead code, even with whole program optimization,
       // yet is effectively a NO-OP. As the compiler isn't smart enough
       // to know that getenv() never returns -1, this will do the job.
+      // This is so that globals in the translation units where these functions
+      // are defined are forced to be initialized, populating various
+      // registries.
       if (std::getenv("bar") != (char*) -1)
         return;
 
@@ -281,8 +286,10 @@ namespace {
       (void)llvm::createSYCLLowerESIMDPass();
       (void)llvm::createESIMDLowerLoadStorePass();
       (void)llvm::createESIMDLowerVecArgPass();
+      (void)llvm::createESIMDVerifierPass();
       (void)llvm::createSPIRITTAnnotationsLegacyPass();
       (void)llvm::createSYCLLowerWGLocalMemoryLegacyPass();
+      (void)llvm::createESIMDVerifierPass();
       std::string buf;
       llvm::raw_string_ostream os(buf);
       (void) llvm::createPrintModulePass(os);
@@ -415,6 +422,7 @@ namespace {
       // DPCPP Kernel Transformations
       (void)llvm::createAddFunctionAttrsLegacyPass();
       (void)llvm::createBuiltinImportLegacyPass();
+      (void)llvm::createBuiltinLibInfoAnalysisLegacyPass();
       (void)llvm::createCoerceWin64TypesLegacyPass();
       (void)llvm::createDPCPPEqualizerLegacyPass();
       (void)llvm::createDPCPPKernelVecClonePass();
@@ -437,7 +445,11 @@ namespace {
       (void)llvm::createInternalizeNonKernelFuncLegacyPass();
       (void)llvm::createLocalBufferAnalysisLegacyPass();
       (void)llvm::createLocalBuffersLegacyPass(false);
+      (void)llvm::createAddFastMathLegacyPass();
       (void)llvm::createAddImplicitArgsLegacyPass();
+      (void)llvm::createAddNTAttrLegacyPass();
+      (void)llvm::createResolveMatrixFillLegacyPass();
+      (void)llvm::createResolveMatrixWISliceLegacyPass();
       (void)llvm::createResolveSubGroupWICallLegacyPass();
       (void)llvm::createResolveWICallLegacyPass(false, false);
       (void)llvm::createSGBarrierPropagateLegacyPass();
@@ -446,8 +458,10 @@ namespace {
       (void)llvm::createSGLoopConstructLegacyPass();
       (void)llvm::createSGSizeAnalysisLegacyPass();
       (void)llvm::createSGValueWidenLegacyPass();
+      (void)llvm::createSoaAllocaAnalysisLegacyPass();
       (void)llvm::createPrepareKernelArgsLegacyPass(false);
       (void)llvm::createCleanupWrappedKernelLegacyPass();
+      (void)llvm::createCoerceTypesLegacyPass();
       (void)llvm::createVFAnalysisLegacyPass();
       (void)llvm::createHandleVPlanMaskLegacyPass(nullptr);
       (void)llvm::createVectorVariantFillInLegacyPass();
@@ -456,10 +470,12 @@ namespace {
       (void)llvm::createSGSizeCollectorLegacyPass(llvm::VectorVariant::XMM);
       (void)llvm::createSGSizeCollectorIndirectLegacyPass(
           llvm::VectorVariant::XMM);
+      (void)llvm::createTaskSeqAsyncHandlingLegacyPass();
       (void)llvm::createUpdateCallAttrsLegacyPass();
       (void)llvm::createIndirectCallLoweringLegacyPass();
       (void)llvm::createCreateSimdVariantPropagationLegacyPass();
       (void)llvm::createLinearIdResolverPass();
+      (void)llvm::createWorkItemAnalysisLegacyPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();
@@ -508,3 +524,4 @@ namespace {
 }
 
 #endif
+

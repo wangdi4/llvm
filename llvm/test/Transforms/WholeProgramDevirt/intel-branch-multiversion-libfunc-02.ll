@@ -1,7 +1,11 @@
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: intel_feature_sw_dtrans
+
 ; This test case checks that the indirect call is preserved and the PHI
 ; nodes are correct after devirtualization when the target is a LibFunc.
 
 ; RUN: opt -S -whole-program-assume -wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify %s 2>&1 | FileCheck %s
+; RUN: opt -S -whole-program-assume -passes=wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify %s 2>&1 | FileCheck %s
 
 target datalayout = "e-p:64:64"
 target triple = "x86_64-unknown-linux-gnu"
@@ -57,3 +61,5 @@ declare void @llvm.assume(i1)
 ; Check that the PHI node was generated correctly
 ; CHECK: [[T6:%[^ ]*]] = phi i32 [ [[T4]], %BBDevirt__ZNSt15basic_streambufIcSt11char_traitsIcEE6xsgetnEPcl ], [ [[T5]], %DefaultBB ]
 ; CHECK: br label [[T7:%[^ ]*]]
+
+; end INTEL_FEATURE_SW_DTRANS

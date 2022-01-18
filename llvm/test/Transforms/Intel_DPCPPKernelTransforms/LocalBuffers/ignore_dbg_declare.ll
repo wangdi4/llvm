@@ -115,6 +115,4 @@ entry:
 !35 = !{i32 7, i32 0, !34, null}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function mykernel -- {{.*}} getelementptr
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function mykernel -- {{.*}} bitcast
-; DEBUGIFY-NOT: WARNING
+; DEBUGIFY: CheckModuleDebugify: PASS

@@ -1,5 +1,6 @@
-;RUN: opt -whole-program-assume -internalize -disable-output -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
-;RUN: opt -whole-program-assume -disable-output -padded-pointer-info -passes="internalize,padded-pointer-prop" < %s 2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt -whole-program-assume -internalize -disable-output -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -disable-output -padded-pointer-info -passes="internalize,padded-pointer-prop" < %s 2>&1 | FileCheck %s
 
 ; Checks merging of padding for SelectInst
 
@@ -18,9 +19,9 @@
 ;CHECK-NEXT:   Arguments' Padding:
 ;CHECK-NEXT:     i32* %p : -1
 ;CHECK-NEXT:   Value paddings:
-;CHECK-DAG:      %6 = select i1 %tobool, i32* %5, i32* %4 :: 1
-;CHECK-DAG:      %4 = select i1 %cmp, i32* %0, i32* %1 :: 4
-;CHECK-DAG:      %5 = select i1 %cmp1, i32* %1, i32* %2 :: 1
+;CHECK:           %4 = select i1 %cmp, i32* %0, i32* %1 :: 4
+;CHECK-NEXT:      %5 = select i1 %cmp1, i32* %1, i32* %2 :: 1
+;CHECK-NEXT:      %6 = select i1 %tobool, i32* %5, i32* %4 :: 1
 ;CHECK:      ==== END OF TRANSFORMED FUNCTION SET ====
 
 @0 = private unnamed_addr constant [15 x i8] c"padded 4 bytes\00"

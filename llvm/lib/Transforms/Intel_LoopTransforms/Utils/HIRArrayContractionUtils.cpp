@@ -104,18 +104,12 @@ bool HIRArrayContractionUtil::checkSanity(RegDDRef *Ref,
   auto CheckRefType = [&](RegDDRef *Ref, unsigned NumDimsRemain,
                           SmallVectorImpl<unsigned> &DimSizeVec,
                           Type *&RootTy) {
-    const CanonExpr *CE = Ref->getBaseCE();
-    LLVM_DEBUG(dbgs() << "BaseCE: "; CE->dump(1); dbgs() << "\n";
-               dbgs() << "\tSrcType: "; CE->getSrcType()->dump();
-               dbgs() << "\tDestType: "; CE->getDestType()->dump();
-               dbgs() << "NumDimsRemain: " << NumDimsRemain << "\n";);
     assert((RootTy == nullptr) && "Expect RootTy be nullptr");
     assert(DimSizeVec.empty() && "Expect TyVec be empty");
 
-    // CE's SrcType:
+    // Ref's base pointer element type:
     // expect either an IntegerType or a FloatingPointType.
-    const PointerType *PtrTy = cast<PointerType>(CE->getSrcType());
-    Type *ElemTy = PtrTy->getElementType();
+    Type *ElemTy = Ref->getBasePtrElementType();
     assert(ElemTy && "Expect a valid ElemTy");
     if (isa<IntegerType>(ElemTy) || ElemTy->isFloatingPointTy()) {
       RootTy = ElemTy;
@@ -201,22 +195,16 @@ bool HIRArrayContractionUtil::checkSanity(RegDDRef *Ref,
   // E.g.
   // int A[100][100][100][10][10] is an ArrayType, its root type is int.
   //
-  auto CheckBaseCE = [&](RegDDRef *Ref, unsigned NumDimsRemain,
+  auto CheckBasePtrType = [&](RegDDRef *Ref, unsigned NumDimsRemain,
                          SmallVectorImpl<unsigned> &DimSizeVec, Type *&RootTy) {
-    const CanonExpr *CE = Ref->getBaseCE();
-    LLVM_DEBUG(dbgs() << "BaseCE: "; CE->dump(1); dbgs() << "\n";
-               dbgs() << "\tSrcType: "; CE->getSrcType()->dump();
-               dbgs() << "\tDestType: "; CE->getDestType()->dump();
-               dbgs() << "NumDimsRemain: " << NumDimsRemain << "\n";);
     assert((RootTy == nullptr) && "Expect RootTy be nullptr");
     assert(DimSizeVec.empty() && "Expect TyVec be empty");
 
     // Analyze SrcType:
     // expect an array-type on each dimension, all the way to RootTy.
-    const PointerType *PtrTy = cast<PointerType>(CE->getSrcType());
-    const ArrayType *ArryTy = dyn_cast<ArrayType>(PtrTy->getElementType());
+    const ArrayType *ArryTy = dyn_cast<ArrayType>(Ref->getBasePtrElementType());
     if (!ArryTy) {
-      Type *EleTy = PtrTy->getElementType();
+      Type *EleTy = Ref->getBasePtrElementType();
       if (isPrimitiveType(EleTy)) {
         return CheckRefType(Ref, NumDimsRemain, DimSizeVec, RootTy);
       }
@@ -372,8 +360,8 @@ bool HIRArrayContractionUtil::checkSanity(RegDDRef *Ref,
   }
 
   // Check Ref's BaseCE type: expect RootTy be an primitive (int or float) type
-  if (!CheckBaseCE(Ref, PreservedDims.size(), DimSizeVec, RootTy)) {
-    LLVM_DEBUG(dbgs() << "Failure in CheckBaseCE(.)\n";);
+  if (!CheckBasePtrType(Ref, PreservedDims.size(), DimSizeVec, RootTy)) {
+    LLVM_DEBUG(dbgs() << "Failure in CheckBasePtrType(.)\n";);
     return false;
   }
   assert(RootTy && DimSizeVec.size() &&

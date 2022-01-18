@@ -18,11 +18,15 @@ add_llvm_component_library(LLVMIntel_LoopAnalysis
   Framework/HIRRegionIdentification.cpp
   Framework/HIRSCCFormation.cpp
   Framework/HIRCreation.cpp
+  # INTEL_FEATURE_SHARED_SW_ADVANCED
   Framework/HIRCleanup.cpp
+  #end INTEL_FEATURE_SHARED_SW_ADVANCED
   Framework/HIRLoopFormation.cpp
   Framework/HIRScalarSymbaseAssignment.cpp
   Framework/HIRParser.cpp
+  # INTEL_FEATURE_SHARED_SW_ADVANCED
   Framework/HIRSymbaseAssignment.cpp
+  #end INTEL_FEATURE_SHARED_SW_ADVANCED
   Framework/HIRFramework.cpp
   Analysis/HIRAnalysisPass.cpp
   Analysis/HIRDDAnalysis.cpp

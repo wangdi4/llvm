@@ -512,19 +512,6 @@ bool HIRRegionIdentification::collectIntermediateBBs(
   return true;
 }
 
-Type *HIRRegionIdentification::getPrimaryElementType(Type *PtrTy) const {
-  assert(isa<PointerType>(PtrTy) && "Unexpected type!");
-
-  Type *ElTy = cast<PointerType>(PtrTy)->getElementType();
-
-  // Recurse into array types, if any.
-  for (; ArrayType *ArrTy = dyn_cast<ArrayType>(ElTy);
-       ElTy = ArrTy->getElementType()) {
-  }
-
-  return ElTy;
-}
-
 bool HIRRegionIdentification::isHeaderPhi(const PHINode *Phi) const {
   auto ParentBB = Phi->getParent();
 
@@ -595,8 +582,8 @@ bool HIRRegionIdentification::containsUnsupportedTy(
   }
 
   auto *GEPOp = cast<GEPOperator>(GEPOrSubs);
-
-  for (unsigned I = 0, NumOp = GEPOp->getNumOperands(); I < NumOp; ++I) {
+  unsigned NumOps = GEPOp->getNumOperands();
+  for (unsigned I = 0; I < NumOps; ++I) {
     if (!isSupported(GEPOp->getOperand(I)->getType(), true, Lp)) {
       return true;
     }
@@ -604,10 +591,38 @@ bool HIRRegionIdentification::containsUnsupportedTy(
 
   // We need to check 'indexed' types as well as they can contain vector types
   // even if indices don't. This is possible when indexing structures which
-  // contain vector elements.
-  for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E; ++I) {
-    if (!isSupported(I.getIndexedType(), true, Lp)) {
+  // contain vector elements. Also check constant indexes of the array indexed
+  // types. Return true if index goes outside of the array more than 1 element.
+
+  unsigned OperandNum = 2;
+  for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E;
+       ++I, ++OperandNum) {
+    auto *IType = I.getIndexedType();
+    assert(IType && "Indexed type is missing");
+
+    if (!isSupported(IType, true, Lp)) {
       return true;
+    }
+
+    // Check that constant array index is less than array size.
+    if (auto *ArrType = dyn_cast<ArrayType>(IType)) {
+      int64_t ArraySize = ArrType->getArrayNumElements();
+
+      // Bail out for arrays with unknown size or if the corresponding index is
+      // missing.
+      if ((ArraySize == 0) || (OperandNum >= NumOps))
+        continue;
+
+      auto *CurrIdxOperand = GEPOp->getOperand(OperandNum);
+      if (auto *CurrIntIdxOp = dyn_cast<ConstantInt>(CurrIdxOperand)) {
+        int64_t CurrIdxVal = CurrIntIdxOp->getSExtValue();
+
+        // If index is outside of array more than one element return true.
+        if (CurrIdxVal > ArraySize) {
+          printOptReportRemark(Lp, "Constant array access goes out of range.");
+          return true;
+        }
+      }
     }
   }
 
@@ -1318,6 +1333,12 @@ static bool isUnrollMetadata(MDNode *Node) {
   return Str && Str->getString().startswith("llvm.loop.unroll");
 }
 
+static bool isInterleaveMetadata(MDNode *Node) {
+  MDString *Str = getStringMetadata(Node);
+
+  return Str && Str->getString().startswith("llvm.loop.interleave");
+}
+
 static bool isFusionMetadata(MDNode *Node) {
   MDString *Str = getStringMetadata(Node);
 
@@ -1365,10 +1386,11 @@ static bool isMustProgressMetadata(MDNode *Node) {
 static bool isSupportedMetadata(MDNode *Node) {
 
   if (isDebugMetadata(Node) || isUnrollMetadata(Node) ||
-      isDistributeMetadata(Node) || isVectorizeMetadata(Node) ||
-      isLoopCountMetadata(Node) || OptReport::isOptReportMetadata(Node) ||
-      isFusionMetadata(Node) || isParallelAccessMetadata(Node) ||
-      isMustProgressMetadata(Node) || isIntelVectorizeMetadata(Node)) {
+      isInterleaveMetadata(Node) || isDistributeMetadata(Node) ||
+      isVectorizeMetadata(Node) || isLoopCountMetadata(Node) ||
+      OptReport::isOptReportMetadata(Node) || isFusionMetadata(Node) ||
+      isParallelAccessMetadata(Node) || isMustProgressMetadata(Node) ||
+      isIntelVectorizeMetadata(Node)) {
     return true;
   }
 
@@ -2228,7 +2250,7 @@ void HIRRegionIdentification::formRegionsForLoopMaterialization(
 }
 
 void HIRRegionIdentification::formRegions(Function &Func) {
-#if INTEL_FEATURE_SW_ADVANCED
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
   SmallVector<const Loop *, 32> GenerableLoops;
 
   // LoopInfo::iterator visits loops in reverse program order so we need to
@@ -2254,11 +2276,11 @@ void HIRRegionIdentification::formRegions(Function &Func) {
   }
 
   formRegionsForLoopMaterialization(Func);
-#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 }
 
 void HIRRegionIdentification::createFunctionLevelRegion(Function &Func) {
-#if INTEL_FEATURE_SW_ADVANCED
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
 
   if (RegionNumThreshold && (RegionCount == RegionNumThreshold)) {
     printOptReportRemark(nullptr,
@@ -2277,7 +2299,7 @@ void HIRRegionIdentification::createFunctionLevelRegion(Function &Func) {
                          NonLoopBBlocks, LI.getTopLevelLoops(), false, true);
 
   RegionCount++;
-#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 }
 
 bool HIRRegionIdentification::areBBlocksGenerable(Function &Func) const {
@@ -2438,7 +2460,7 @@ HIRRegionIdentification::HIRRegionIdentification(
 }
 
 void HIRRegionIdentification::runImpl(Function &F) {
-#if INTEL_FEATURE_SW_ADVANCED
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
   if (F.hasFnAttribute(Attribute::OptimizeNone)) {
     return;
   }
@@ -2479,7 +2501,7 @@ void HIRRegionIdentification::runImpl(Function &F) {
   }
 #else
   llvm_unreachable("Loopopt Disabled!");
-#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 }
 
 HIRRegionIdentification::HIRRegionIdentification(HIRRegionIdentification &&RI)

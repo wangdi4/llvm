@@ -16,12 +16,14 @@ define i64 @test01(%struct.test01a** "intel_dtrans_func_index"="1" %ppStructA) !
   ret i64 0
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data: Bad casting | Unsafe pointer store{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; CHECK: Safety data: Bad casting | Unsafe pointer store | Local instance{{ *$}}
+; CHECK: End LLVMType: %struct.test01b
 
 
 ; This case will not be able to resolve a dominant type for the pointer operand
@@ -35,8 +37,9 @@ define i64 @test02(%struct.test02a*** "intel_dtrans_func_index"="1" %pppStructA)
   ret i64 0
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02a
+; CHECK: LLVMType: %struct.test02a
 ; CHECK: Safety data: Bad casting | Unsafe pointer store | Local instance{{ *$}}
+; CHECK: End LLVMType: %struct.test02a
 
 
 ; This case stores an arbitrary i64 value to a location that should hold a
@@ -48,8 +51,9 @@ define i64 @test03(%struct.test03a** "intel_dtrans_func_index"="1" %ppStructA, i
   ret i64 0
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03a
+; CHECK: LLVMType: %struct.test03a
 ; CHECK: Safety data: Bad casting{{ *$}}
+; CHECK: End LLVMType: %struct.test03a
 
 
 !1 = !{i64 0, i32 1}  ; i64*

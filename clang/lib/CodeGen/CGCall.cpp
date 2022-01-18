@@ -43,6 +43,7 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/Transforms/Utils/Intel_IMLUtils.h" // INTEL
 #include "llvm/Transforms/Utils/Local.h"
 using namespace clang;
 using namespace CodeGen;
@@ -60,8 +61,8 @@ unsigned CodeGenTypes::ClangCallConvToLLVMCallConv(CallingConv CC) {
   case CC_X86_64SysV: return llvm::CallingConv::X86_64_SysV;
   case CC_AAPCS: return llvm::CallingConv::ARM_AAPCS;
   case CC_AAPCS_VFP: return llvm::CallingConv::ARM_AAPCS_VFP;
-  case CC_IntelOclBicc: return llvm::CallingConv::Intel_OCL_BI;
 #if INTEL_CUSTOMIZATION
+  case CC_IntelOclBicc: return llvm::CallingConv::SVML_Unified;
   case CC_IntelOclBiccAVX: return llvm::CallingConv::Intel_OCL_BI_AVX;
   case CC_IntelOclBiccAVX512: return llvm::CallingConv::Intel_OCL_BI_AVX512;
 #endif // INTEL_CUSTOMIZATION
@@ -1284,8 +1285,7 @@ static llvm::Value *CreateCoercedLoad(Address Src, llvm::Type *Ty,
     //
     // FIXME: Assert that we aren't truncating non-padding bits when have access
     // to that information.
-    Src = CGF.Builder.CreateBitCast(Src,
-                                    Ty->getPointerTo(Src.getAddressSpace()));
+    Src = CGF.Builder.CreateElementBitCast(Src, Ty);
     return CGF.Builder.CreateLoad(Src);
   }
 
@@ -1587,14 +1587,14 @@ bool CodeGenModule::ReturnTypeUsesFPRet(QualType ResultType) {
     default:
       return false;
     case BuiltinType::Float:
-      return getTarget().useObjCFPRetForRealType(TargetInfo::Float);
+      return getTarget().useObjCFPRetForRealType(FloatModeKind::Float);
     case BuiltinType::Double:
-      return getTarget().useObjCFPRetForRealType(TargetInfo::Double);
+      return getTarget().useObjCFPRetForRealType(FloatModeKind::Double);
     case BuiltinType::LongDouble:
-      return getTarget().useObjCFPRetForRealType(TargetInfo::LongDouble);
+      return getTarget().useObjCFPRetForRealType(FloatModeKind::LongDouble);
 #if INTEL_CUSTOMIZATION
     case BuiltinType::Float128:
-      return getTarget().useObjCFPRetForRealType(TargetInfo::Float128);
+      return getTarget().useObjCFPRetForRealType(FloatModeKind::Float128);
 #endif  // INTEL_CUSTOMIZATION
     }
   }
@@ -1614,6 +1614,7 @@ bool CodeGenModule::ReturnTypeUsesFP2Ret(QualType ResultType) {
 }
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
 // Helper function to figure out the types for a struct or union passed via
 // llvm types.  Figures out the 'Effective Types", that is, ones from the
 // clang-type that end up getting translated to the IR type.
@@ -1901,6 +1902,14 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(GlobalDecl GD,
 }
 llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI,
                                                   DTransFuncInfo *DFI) {
+#else // INTEL_FEATURE_SW_DTRANS
+llvm::FunctionType *CodeGenTypes::GetFunctionType(GlobalDecl GD) {
+  const CGFunctionInfo &FI = arrangeGlobalDeclaration(GD);
+  return GetFunctionType(FI);
+}
+
+llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   bool Inserted = FunctionsBeingProcessed.insert(&FI).second;
@@ -1941,7 +1950,9 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI,
     break;
   }
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   addToDTransFuncInfo(*this, CGM, DFI, resultType, FI.getReturnType(), retAI);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   ClangToLLVMArgMapping IRFunctionArgs(getContext(), FI, true);
@@ -1956,9 +1967,11 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI,
         llvm::PointerType::get(Ty, AddressSpace);
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
     addSRetToDTransFuncInfo(*this, DFI, Ret,
                             ArgTypes[IRFunctionArgs.getSRetArgNo()],
                             IRFunctionArgs.getSRetArgNo());
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -1968,10 +1981,12 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI,
     assert(ArgStruct);
     ArgTypes[IRFunctionArgs.getInallocaArgNo()] = ArgStruct->getPointerTo();
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
     QualType Ret = FI.getReturnType();
     addInallocaToDTransFuncInfo(*this, CGM, DFI, ArgStruct,
                                 ArgTypes[IRFunctionArgs.getInallocaArgNo()],
                                 IRFunctionArgs.getInallocaArgNo(), Ret);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -2007,9 +2022,11 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI,
           CGM.getDataLayout().getAllocaAddrSpace());
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
       addToDTransFuncInfo(*this, CGM, DFI, ArgInfo, it->type,
                           ArgTypes[FirstIRArg], ArgTypes, FirstIRArg,
                           NumIRArgs);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
       break;
     }
@@ -2018,9 +2035,11 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI,
       llvm::Type *LTy = ConvertTypeForMem(it->type);
       ArgTypes[FirstIRArg] = LTy->getPointerTo(ArgInfo.getIndirectAddrSpace());
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
       addToDTransFuncInfo(*this, CGM, DFI, ArgInfo, it->type,
                           ArgTypes[FirstIRArg], ArgTypes, FirstIRArg,
                           NumIRArgs);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
       break;
     }
@@ -2039,8 +2058,10 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI,
         ArgTypes[FirstIRArg] = argType;
       }
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
       addToDTransFuncInfo(*this, CGM, DFI, ArgInfo, it->type, argType, ArgTypes,
                           FirstIRArg, NumIRArgs);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
       break;
     }
@@ -2052,9 +2073,11 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI,
       }
       assert(ArgTypesIter == ArgTypes.begin() + FirstIRArg + NumIRArgs);
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
       addToDTransFuncInfo(*this, CGM, DFI, ArgInfo, it->type,
                           ArgTypes[FirstIRArg], ArgTypes, FirstIRArg,
                           NumIRArgs);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
       break;
     }
@@ -2064,9 +2087,11 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI,
       getExpandedTypes(it->type, ArgTypesIter);
       assert(ArgTypesIter == ArgTypes.begin() + FirstIRArg + NumIRArgs);
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
       addToDTransFuncInfo(*this, CGM, DFI, ArgInfo, it->type,
                           ArgTypes[FirstIRArg], ArgTypes, FirstIRArg,
                           NumIRArgs);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
       break;
     }
@@ -2097,6 +2122,21 @@ static void AddAttributesFromFunctionProtoType(ASTContext &Ctx,
   if (!isUnresolvedExceptionSpec(FPT->getExceptionSpecType()) &&
       FPT->isNothrow())
     FuncAttrs.addAttribute(llvm::Attribute::NoUnwind);
+}
+
+static void AddAttributesFromAssumes(llvm::AttrBuilder &FuncAttrs,
+                                     const Decl *Callee) {
+  if (!Callee)
+    return;
+
+  SmallVector<StringRef, 4> Attrs;
+
+  for (const AssumptionAttr *AA : Callee->specific_attrs<AssumptionAttr>())
+    AA->getAssumption().split(Attrs, ",");
+
+  if (!Attrs.empty())
+    FuncAttrs.addAttribute(llvm::AssumptionAttrKey,
+                           llvm::join(Attrs.begin(), Attrs.end(), ","));
 }
 
 bool CodeGenModule::MayDropFunctionReturn(const ASTContext &Context,
@@ -2207,11 +2247,6 @@ void CodeGenModule::getDefaultFunctionAttributes(StringRef Name,
     if (LangOpts.getFPExceptionMode() == LangOptions::FPE_Ignore)
       FuncAttrs.addAttribute("no-trapping-math", "true");
 
-    // Strict (compliant) code is the default, so only add this attribute to
-    // indicate that we are trying to workaround a problem case.
-    if (!CodeGenOpts.StrictFloatCastOverflow)
-      FuncAttrs.addAttribute("strict-float-cast-overflow", "false");
-
     // TODO: Are these all needed?
     // unsafe/inf/nan/nsz are handled by instruction-level FastMathFlags.
     if (LangOpts.NoHonorInfs)
@@ -2222,6 +2257,8 @@ void CodeGenModule::getDefaultFunctionAttributes(StringRef Name,
     if (LangOpts.NoHonorNaNs && !LangOpts.HonorNaNCompares)
 #endif
       FuncAttrs.addAttribute("no-nans-fp-math", "true");
+    if (LangOpts.ApproxFunc)
+      FuncAttrs.addAttribute("approx-func-fp-math", "true");
     if (LangOpts.UnsafeFPMath)
       FuncAttrs.addAttribute("unsafe-fp-math", "true");
     if (CodeGenOpts.SoftFloat)
@@ -2348,7 +2385,7 @@ static bool DetermineNoUndef(QualType QTy, CodeGenTypes &Types,
       // there's no internal padding (typeSizeEqualsStoreSize).
       return false;
   }
-  if (QTy->isExtIntType())
+  if (QTy->isBitIntType())
     return true;
   if (QTy->isReferenceType())
     return true;
@@ -2414,6 +2451,10 @@ void CodeGenModule::ConstructAttributeList(StringRef Name,
 
   const Decl *TargetDecl = CalleeInfo.getCalleeDecl().getDecl();
 
+  // Attach assumption attributes to the declaration. If this is a call
+  // site, attach assumptions from the caller to the call as well.
+  AddAttributesFromAssumes(FuncAttrs, TargetDecl);
+
   bool HasOptnone = false;
   // The NoBuiltinAttr attached to the target FunctionDecl.
   const NoBuiltinAttr *NBA = nullptr;
@@ -2460,24 +2501,6 @@ void CodeGenModule::ConstructAttributeList(StringRef Name,
       // allows it to work on indirect virtual function calls.
       if (AttrOnCallSite && TargetDecl->hasAttr<NoMergeAttr>())
         FuncAttrs.addAttribute(llvm::Attribute::NoMerge);
-
-      // Add known guaranteed alignment for allocation functions.
-      if (unsigned BuiltinID = Fn->getBuiltinID()) {
-        switch (BuiltinID) {
-        case Builtin::BIaligned_alloc:
-        case Builtin::BIcalloc:
-        case Builtin::BImalloc:
-        case Builtin::BImemalign:
-        case Builtin::BIrealloc:
-        case Builtin::BIstrdup:
-        case Builtin::BIstrndup:
-          RetAttrs.addAlignmentAttr(Context.getTargetInfo().getNewAlign() /
-                                    Context.getTargetInfo().getCharWidth());
-          break;
-        default:
-          break;
-        }
-      }
     }
 
     // 'const', 'pure' and 'noalias' attributed functions are also nounwind.
@@ -2531,18 +2554,6 @@ void CodeGenModule::ConstructAttributeList(StringRef Name,
                                llvm::toStringRef(CodeGenOpts.UniformWGSize));
       }
     }
-
-    std::string AssumptionValueStr;
-    for (AssumptionAttr *AssumptionA :
-         TargetDecl->specific_attrs<AssumptionAttr>()) {
-      std::string AS = AssumptionA->getAssumption().str();
-      if (!AS.empty() && !AssumptionValueStr.empty())
-        AssumptionValueStr += ",";
-      AssumptionValueStr += AS;
-    }
-
-    if (!AssumptionValueStr.empty())
-      FuncAttrs.addAttribute(llvm::AssumptionAttrKey, AssumptionValueStr);
   }
 
   // Attach "no-builtins" attributes to:
@@ -3106,8 +3117,8 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
     case ABIArgInfo::Indirect:
     case ABIArgInfo::IndirectAliased: {
       assert(NumIRArgs == 1);
-      Address ParamAddr =
-          Address(Fn->getArg(FirstIRArg), ArgI.getIndirectAlign());
+      Address ParamAddr = Address(Fn->getArg(FirstIRArg), ConvertTypeForMem(Ty),
+                                  ArgI.getIndirectAlign());
 
       if (!hasScalarEvaluationKind(Ty)) {
         // Aggregates and complex variables are accessed by reference. All we
@@ -3215,7 +3226,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
             // so the UBSAN check could function.
             llvm::ConstantInt *AlignmentCI =
                 cast<llvm::ConstantInt>(EmitScalarExpr(AVAttr->getAlignment()));
-            unsigned AlignmentInt =
+            uint64_t AlignmentInt =
                 AlignmentCI->getLimitedValue(llvm::Value::MaximumAlignment);
             if (AI->getParamAlign().valueOrOne() < AlignmentInt) {
               AI->removeAttr(llvm::Attribute::AttrKind::Alignment);
@@ -3899,11 +3910,18 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
     case TEK_Aggregate:
       // Do nothing; aggregrates get evaluated directly into the destination.
       break;
-    case TEK_Scalar:
-      EmitStoreOfScalar(Builder.CreateLoad(ReturnValue),
-                        MakeNaturalAlignAddrLValue(&*AI, RetTy),
-                        /*isInit*/ true);
+    case TEK_Scalar: {
+      LValueBaseInfo BaseInfo;
+      TBAAAccessInfo TBAAInfo;
+      CharUnits Alignment =
+          CGM.getNaturalTypeAlignment(RetTy, &BaseInfo, &TBAAInfo);
+      Address ArgAddr(&*AI, ConvertType(RetTy), Alignment);
+      LValue ArgVal =
+          LValue::MakeAddr(ArgAddr, RetTy, getContext(), BaseInfo, TBAAInfo);
+      EmitStoreOfScalar(
+          Builder.CreateLoad(ReturnValue), ArgVal, /*isInit*/ true);
       break;
+    }
     }
     break;
   }
@@ -3926,7 +3944,7 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
         // Fix for CQ379239: Emit debug location for return instruction, not
         // eliminated store.
        bool IsIntelandMSCompat =
-           getLangOpts().IntelCompat && getLangOpts().IntelMSCompat;
+           getLangOpts().IntelCompat && getLangOpts().MSVCCompat;
 #endif // INTEL_CUSTOMIZATION
         if (EmitRetDbgLoc && !AutoreleaseResult
 #if INTEL_CUSTOMIZATION
@@ -4577,8 +4595,7 @@ void CodeGenFunction::EmitCallArgs(
   }
 
   // If we still have any arguments, emit them using the type of the argument.
-  for (auto *A : llvm::make_range(std::next(ArgRange.begin(), ArgTypes.size()),
-                                  ArgRange.end()))
+  for (auto *A : llvm::drop_begin(ArgRange, ArgTypes.size()))
     ArgTypes.push_back(IsVariadic ? getVarArgType(A) : A->getType());
   assert((int)ArgTypes.size() == (ArgRange.end() - ArgRange.begin()));
 
@@ -4750,11 +4767,8 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
       type->castAs<RecordType>()->getDecl()->isParamDestroyedInCallee()) {
     // If we're using inalloca, use the argument memory.  Otherwise, use a
     // temporary.
-    AggValueSlot Slot;
-    if (args.isUsingInAlloca())
-      Slot = createPlaceholderSlot(*this, type);
-    else
-      Slot = CreateAggTemp(type, "agg.tmp");
+    AggValueSlot Slot = args.isUsingInAlloca()
+        ? createPlaceholderSlot(*this, type) : CreateAggTemp(type, "agg.tmp");
 
     bool DestroyedInCallee = true, NeedsEHCleanup = true;
     if (const auto *RD = type->getAsCXXRecordDecl())
@@ -5096,13 +5110,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
     //
     // In other cases, we assert that the types match up (until pointers stop
     // having pointee types).
-    llvm::Type *TypeFromVal;
     if (Callee.isVirtual())
-      TypeFromVal = Callee.getVirtualFunctionType();
-    else
-      TypeFromVal =
-          Callee.getFunctionPointer()->getType()->getPointerElementType();
-    assert(IRFuncTy == TypeFromVal);
+      assert(IRFuncTy == Callee.getVirtualFunctionType());
+    else {
+      llvm::PointerType *PtrTy =
+          llvm::cast<llvm::PointerType>(Callee.getFunctionPointer()->getType());
+      assert(PtrTy->isOpaqueOrPointeeTypeMatches(IRFuncTy));
+    }
   }
 #endif
 
@@ -5329,7 +5343,8 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
           I->copyInto(*this, AI);
         } else {
           // Skip the extra memcpy call.
-          auto *T = V->getType()->getPointerElementType()->getPointerTo(
+          auto *T = llvm::PointerType::getWithSamePointeeType(
+              cast<llvm::PointerType>(V->getType()),
 #if INTEL_COLLAB
               CGM.getEffectiveAllocaAddrSpace());
 #else // INTEL_COLLAB
@@ -5433,8 +5448,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
           Builder.CreateMemCpy(TempAlloca, Src, SrcSize);
           Src = TempAlloca;
         } else {
-          Src = Builder.CreateBitCast(Src,
-                                      STy->getPointerTo(Src.getAddressSpace()));
+          Src = Builder.CreateElementBitCast(Src, STy);
         }
 
         assert(NumIRArgs == STy->getNumElements());
@@ -5483,12 +5497,12 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
         auto scalarAlign = CGM.getDataLayout().getPrefTypeAlignment(scalarType);
 
         // Materialize to a temporary.
-        addr = CreateTempAlloca(
-            RV.getScalarVal()->getType(),
-            CharUnits::fromQuantity(std::max(
-                (unsigned)layout->getAlignment().value(), scalarAlign)),
-            "tmp",
-            /*ArraySize=*/nullptr, &AllocaAddr);
+        addr =
+            CreateTempAlloca(RV.getScalarVal()->getType(),
+                             CharUnits::fromQuantity(std::max(
+                                 layout->getAlignment().value(), scalarAlign)),
+                             "tmp",
+                             /*ArraySize=*/nullptr, &AllocaAddr);
         tempSize = EmitLifetimeStart(scalarSize, AllocaAddr.getPointer());
 
         Builder.CreateStore(RV.getScalarVal(), addr);
@@ -5731,13 +5745,18 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   if (!InvokeDest) {
 #if INTEL_CUSTOMIZATION
     if (getContext().getLangOpts().SYCLIsDevice &&
-        getContext().getLangOpts().EnableVariantFunctionPointers)
-      if (IRFuncTy && Callee.isOrdinary() && Callee.getFunctionPointer() &&
-          (isa<llvm::CallInst>(Callee.getFunctionPointer()) ||
-           CGM.isSIMDTable(Callee.getFunctionPointer()) ||
-           isa<llvm::LoadInst>(Callee.getFunctionPointer())))
-        return EmitBuiltinIndirectCall(IRFuncTy, IRCallArgs,
-                                       Callee.getFunctionPointer());
+        getContext().getLangOpts().EnableVariantFunctionPointers) {
+      assert(CalleePtr && "No function to call");
+      if (auto *PHI = dyn_cast<llvm::PHINode>(CalleePtr->stripPointerCasts())) {
+        for (unsigned I = 0, E = PHI->getNumIncomingValues(); I < E; ++I)
+          if (isa<llvm::LoadInst>(
+                  PHI->getIncomingValue(I)->stripPointerCasts()))
+            return EmitBuiltinIndirectCall(IRFuncTy, IRCallArgs, CalleePtr);
+      } else if (isa<llvm::LoadInst>(CalleePtr->stripPointerCasts()) ||
+                 isa<llvm::CallInst>(CalleePtr->stripPointerCasts()) ||
+                 CGM.isSIMDTable(CalleePtr->stripPointerCasts()))
+        return EmitBuiltinIndirectCall(IRFuncTy, IRCallArgs, CalleePtr);
+    }
 #endif  // INTEL_CUSTOMIZATION
     CI = Builder.CreateCall(IRFuncTy, CalleePtr, IRCallArgs, BundleList);
   } else {
@@ -5777,6 +5796,28 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   // Apply the attributes and calling convention.
   CI->setAttributes(Attrs);
   CI->setCallingConv(static_cast<llvm::CallingConv::ID>(CallingConv));
+
+#if INTEL_CUSTOMIZATION
+  // For SVML functions, the calling convention computed from CallInfo may not
+  // be the correct variant, because it depends on both the name and type of the
+  // function, but CallInfo doesn't know it's name. Instead, the appropriate
+  // calling convention is computed later at SetLLVMFunctionAttributes and set
+  // in generated IR of that function.
+  // If the function is called directly, use the calling convention specified in
+  // it's declaration. If it's called through a function pointer, we can assume
+  // it's a dynamic dispatch, and just use the calling convention of the caller.
+  if (CallingConv == llvm::CallingConv::SVML_Unified) {
+    auto *FPtr = dyn_cast<llvm::Function>(CalleePtr);
+    if (!FPtr)
+      CI->setCallingConv(CurFn->getCallingConv());
+    else if (llvm::isSVMLCallingConv(FPtr->getCallingConv()))
+      CI->setCallingConv(FPtr->getCallingConv());
+  }
+
+  auto *CalleeF = dyn_cast<llvm::Function>(CalleePtr);
+  if (CalleeF && llvm::shouldUseIntelFeaturesInitCallConv(CalleeF->getName()))
+    CI->setCallingConv(llvm::CallingConv::Intel_Features_Init);
+#endif // INTEL_CUSTOMIZATION
 
   // Apply various metadata.
 
@@ -5847,8 +5888,10 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
                     llvm::MDNode::get(getLLVMContext(), ArgsNoAliasScopes));
   }
 
+#if INTEL_FEATURE_SW_DTRANS
   if (!CI->getCalledFunction())
     CI = CGM.addDTransIndirectCallInfo(CI, CallInfo);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   // 4. Finish the call.

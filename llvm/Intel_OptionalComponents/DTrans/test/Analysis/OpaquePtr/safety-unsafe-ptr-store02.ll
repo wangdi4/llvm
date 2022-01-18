@@ -15,8 +15,9 @@ define internal void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Bad casting | Unsafe pointer store{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 %struct.test02 = type { i32* }
@@ -26,8 +27,9 @@ define internal void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Bad casting | Unsafe pointer store{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 %struct.test03 = type { i32*, i32* }
@@ -37,8 +39,9 @@ define internal void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: Bad casting | Unsafe pointer store{{ *$}}
+; CHECK: End LLVMType: %struct.test03
 
 
 !1 = !{i32 0, i32 1}  ; i32*

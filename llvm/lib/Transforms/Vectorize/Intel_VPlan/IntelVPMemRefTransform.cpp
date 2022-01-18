@@ -93,11 +93,33 @@ void VPMemRefTransform::transformSOAUnitStrideGEPs(VPGEPInstruction *GEP) {
     return isa<VPPHINode>(User) || isa<VPBlendInst>(User);
   });
   DA.markDivergent(*ConstVectorStepInst);
-  // We mark the instruction as 'Random' shaped now. This is because, it
-  // is no different from other 'Random' GEPs and we want to avoid
-  // double-processing of 'SOA'-GEPs.
-  DA.markDivergent(*BaseAddrGEP);
-  // Call updateDependentPHIs() to update the shape of dependent instructions.
+  // We mark this GEP as SOACvt to record the completion of this SOA
+  // transformation.
+  // This prevents a re-processing the GEPs and helps us identify the
+  // SOA-transformed GEPs in CG.
+  // *** Pointer to SOA private with SOASeq shape ***
+  // [DA: [Shape: SOA Unit Stride, Stride: i64 8]] i64* %vp53916
+  //               = getelementptr inbounds [1024 x i64]* %vp54568 i64 0 i64 1
+  // …
+  // BB25: # preds: BB24, BB23
+  // [DA: [Shape: SOA Random], SVA: ( V )] i64* %vp55654 = phi  [ i64* %vp53916,
+  //                     BB24 ],  [ i64* %vp53364, BB23 ] (SVAOpBits 0->V 1->V )
+  //
+  // After transformation:
+  // *** Pointer to SOA private with SOASeq shape ***
+  // [DA: [Shape: SOA Unit Stride, Stride: i64 8]] i64* %vp53916
+  //               = getelementptr inbounds [1024 x i64]* %vp54568 i64 0 i64 1
+  // *** Transformed pointer with added index ***
+  // [DA: [Shape: Random]] i64 %vp48614 = const-step-vector: { Start:0, Step:1,
+  //                                                           NumSteps:2}
+  // [DA: [Shape: Random]] i64* %vp25688 = getelementptr i64*
+  //                                               %vp53916 i64 0 i64 %vp48614
+  // …
+  // BB25: # preds: BB24, BB23
+  // [DA: [Shape: Random]] i64* %vp55654 = phi  [ i64* %vp25688, BB24 ],  [ i64*
+  //                                                            %vp53364, BB23 ]
+  DA.updateVectorShape(BaseAddrGEP, VPVectorShape::SOACvt);
+  //  Call updateDependentPHIs() to update the shape of dependent instructions.
   updateDependentPHIs(BaseAddrGEP);
 }
 
@@ -110,12 +132,26 @@ void VPMemRefTransform::transformSOANonUnitStrideGEPs(VPGEPInstruction *GEP) {
   GEP->addOperand(ConstVectorStepInst);
   assert(DA.isDivergent(*GEP) && "Expect the GEP to be divergent.");
   DA.markDivergent(*ConstVectorStepInst);
-  // We mark the instruction as 'Random' shaped now. This is because, it
-  // is no different from other 'Random' GEPs.
-  DA.updateVectorShape(GEP, VPVectorShape::Rnd);
-  // Call updateDependentPHIs() to update the shape of dependent instructions.
-  // NOTE: Blends are always random in the scenario. So, now special handling is
-  // required in the callee.
+  // We mark this GEP as SOACvt to record the completion of this SOA
+  // transformation.
+  // This prevents a re-processing the GEPs and helps us identify the
+  // SOA-transformed GEPs in CG.
+  // *** GEP with SOAStr/SOARnd shape ***
+  // [DA: [Shape: SOA Random], SVA: ( V )] i64* %vp4136
+  //  = getelementptr inbounds i64* %vp48688 i64 %vp48720 (SVAOpBits 0->F 1->V )
+  //
+  // After Transformation:
+  // *** Transformed Pointer with added index ***
+  // [DA: [Shape: Random], SVA: ( V )] i64 %vp55978
+  //  = const-step-vector: { Start:0, Step:1, NumSteps:2} (SVAOpBits )
+  // [DA: [Shape: Random], SVA: ( V )] i64* %vp4136
+  //  = getelementptr inbounds i64* %vp48688 i64 %vp48720 i64
+  //      %vp55978 (SVAOpBits 0->F 1->V 2->V )
+  //
+  DA.updateVectorShape(GEP, VPVectorShape::SOACvt);
+  //  Call updateDependentPHIs() to update the shape of dependent instructions.
+  //  NOTE: Blends are always random in the scenario. So, now special handling
+  //  is required in the callee.
   updateDependentPHIs(GEP);
 }
 
@@ -154,15 +190,14 @@ void VPMemRefTransform::transformSOAGEPs(unsigned InVF) {
   bool ResetSVA = false;
   SmallVector<VPInstruction *, 50> InstructionsToProcess;
 
-  auto SOANonUnitStridedPHIUsersToProcess = [=](const VPUser *U) -> bool {
+  auto SOANonUnitStridedPHIUsersToProcess =
+      [=](const VPUser *U) -> bool {
     return isa<VPLoadStoreInst>(U) || isa<VPPHINode>(U) || isa<VPBlendInst>(U);
   };
 
-  auto SOAUnitStridedPHIUsersToProcess = [&](const VPUser *U) -> bool {
-    return (isa<VPPHINode>(U) &&
-            !DA.isUnitStridePtr(
-                // FIXME: Get access type from the memory op.
-                U, cast<PointerType>(U->getType())->getElementType())) ||
+  auto SOAUnitStridedPHIUsersToProcess = [&](const VPUser *U,
+                                             Type *Ty) -> bool {
+    return (isa<VPPHINode>(U) && !DA.isUnitStridePtr(U, Ty)) ||
            isa<VPBlendInst>(U);
   };
 
@@ -198,8 +233,9 @@ void VPMemRefTransform::transformSOAGEPs(unsigned InVF) {
 
         // We want to transform SOA unit-strided GEP only if it has the
         // following users and constraints.
+        Type *PointedToTy = cast<VPGEPInstruction>(&I)->getResultElementType();
         if (any_of(I.users(), [&](const VPUser *U) {
-              return SOAUnitStridedPHIUsersToProcess(U);
+              return SOAUnitStridedPHIUsersToProcess(U, PointedToTy);
             }))
           InstructionsToProcess.push_back(&I);
       }
@@ -224,10 +260,11 @@ void VPMemRefTransform::transformSOAGEPs(unsigned InVF) {
     if (isSOAUnitStridedGEP(I)) {
       // Clone the GEP instruction only if there is a non SOA-unitstrided
       // PHI/Blend user of this GEP.
-      cloneAndReplaceUses(I,
-                          [SOAUnitStridedPHIUsersToProcess](const VPUser *U) {
-                            return !SOAUnitStridedPHIUsersToProcess(U);
-                          });
+      Type *PointedToTy = cast<VPGEPInstruction>(I)->getResultElementType();
+      cloneAndReplaceUses(
+          I, [SOAUnitStridedPHIUsersToProcess, &PointedToTy](const VPUser *U) {
+            return !SOAUnitStridedPHIUsersToProcess(U, PointedToTy);
+          });
       transformSOAUnitStrideGEPs(cast<VPGEPInstruction>(I));
     }
   }

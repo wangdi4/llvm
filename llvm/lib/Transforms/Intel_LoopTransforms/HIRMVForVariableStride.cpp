@@ -76,13 +76,16 @@ static cl::opt<int>
     MaxNumPredsAllowed(OPT_SWITCH "-max-num-preds", cl::init(8), cl::Hidden,
                        cl::desc("Maximum number of predicates allowd for a "
                                 "candidate to be MVed through " OPT_DESCR "."));
-
 static cl::opt<bool>
     AllowFakeRefs("hir-mv-allow-fake-refs", cl::init(false), cl::Hidden,
                   cl::desc("Allow fake refs in candidates for " OPT_DESCR "."));
 
+static cl::opt<bool> BypassSIMDLoops("simd-" OPT_SWITCH, cl::init(false),
+                                     cl::Hidden,
+                                     cl::desc("Disable " OPT_DESCR "."));
 STATISTIC(LoopsMultiversioned,
           "Number of innermost loops multiversioned by MV for variable stride");
+
 STATISTIC(OuterLoopsMultiversioned,
           "Number of Outer loops multiversioned by MV for variable stride");
 
@@ -333,6 +336,13 @@ private:
     calcOutermostLoopToMV(HLLoop *InnermostLoop,
                           ArrayRef<StrideAndSizeTy> StrideAndConstSize) const;
 
+    /// Util for finding handlable SIMD-entry/exit
+    /// Returns SIMD-entry/exit instructions found. Currently only handles
+    /// SIMD-entry as the last preheader inst or last pre-loop inst with
+    /// no prehear. The same applies to SIMD-exit: last postexit or post-loop
+    /// with no postexit.
+    static std::pair<HLInst *, HLInst *> findHandlableSIMD(HLLoop *Loop);
+
     bool transformLoop(HLLoop *InnermostLoop,
                        ArrayRef<RegDDRef *> RefsToRewrite);
 
@@ -395,6 +405,37 @@ HLLoop *HIRMVForVariableStride::MVTransformer::calcOutermostLoopToMV(
   return OuterLoopToMV;
 }
 
+std::pair<HLInst *, HLInst *>
+HIRMVForVariableStride::MVTransformer::findHandlableSIMD(HLLoop *Loop) {
+
+  HLInst *Entry = nullptr;
+  if (HLInst *Inst = dyn_cast_or_null<HLInst>(Loop->getLastPreheaderNode()))
+    if (Inst->isSIMDDirective())
+      Entry = Inst;
+
+  if (!Entry)
+    if (!Loop->hasPreheader())
+      if (HLInst *Inst = dyn_cast_or_null<HLInst>(Loop->getPrevNode()))
+        if (Inst->isSIMDDirective())
+          Entry = Inst;
+
+  if (!Entry)
+    return {nullptr, nullptr};
+
+  HLInst *Exit = nullptr;
+  if (HLInst *Inst = dyn_cast_or_null<HLInst>(Loop->getFirstPostexitNode()))
+    if (Inst->isSIMDEndDirective())
+      Exit = Inst;
+
+  if (!Exit)
+    if (!Loop->hasPostexit())
+      if (HLInst *Inst = dyn_cast_or_null<HLInst>(Loop->getNextNode()))
+        if (Inst->isSIMDEndDirective())
+          Exit = Inst;
+
+  return {Entry, Exit};
+}
+
 bool HIRMVForVariableStride::MVTransformer::transformLoop(
     HLLoop *InnermostLoop, ArrayRef<RegDDRef *> RefsToRewrite) {
 
@@ -438,6 +479,38 @@ bool HIRMVForVariableStride::MVTransformer::transformLoop(
   if (NumPreds > MaxNumPredsAllowed)
     return false;
 
+  // Find the outermost loop enclosing InnermostLoop to MV
+  HLLoop *OuterLoopToMV =
+      calcOutermostLoopToMV(InnermostLoop, StrideAndConstSize);
+
+  bool IsOuterLoopToMVInSIMD = OuterLoopToMV->isSIMD();
+
+  HLInst *DirSIMD = nullptr;
+  HLInst *DirSIMDExit = nullptr;
+  if (IsOuterLoopToMVInSIMD) {
+    std::tie(DirSIMD, DirSIMDExit) = findHandlableSIMD(OuterLoopToMV);
+
+    // OuterLoopToMV is inSIMDRegion, but we don't know
+    // how to handle those simd dirs along with MV.
+    if (!DirSIMD || !DirSIMDExit)
+      return false;
+  }
+
+  // Actual MV of OuterLoop
+
+  // Extract ztt explicitly to give the same order of checks regardless of the
+  // existence of preheader/postexit
+  OuterLoopToMV->extractZttPreheaderAndPostexit();
+
+  // Multiversioned loop is not the innermost loop
+  if (OuterLoopToMV != InnermostLoop)
+    OuterLoopsMultiversioned++;
+
+  if (IsOuterLoopToMVInSIMD) {
+    HLNodeUtils::moveAsLastPreheaderNode(OuterLoopToMV, DirSIMD);
+    HLNodeUtils::moveAsFirstPostexitNode(OuterLoopToMV, DirSIMDExit);
+  }
+
   // Create If-stmt with Preds
   DDRefUtils &DRU = InnermostLoop->getDDRefUtils();
   // makeConsistent updates SB later
@@ -454,20 +527,6 @@ bool HIRMVForVariableStride::MVTransformer::transformLoop(
     If->addPredicate(PredicateTy::ICMP_EQ, LHS,
                      DRU.createConstDDRef(LHS->getDestType(), Pair.second));
   }
-
-  // Find the outermost loop enclosing InnermostLoop to MV
-  HLLoop *OuterLoopToMV =
-      calcOutermostLoopToMV(InnermostLoop, StrideAndConstSize);
-
-  // Actual MV of OuterLoop
-
-  // Extract ztt explicitly to give the same order of checks regardless of the
-  // existence of preheader/postexit
-  OuterLoopToMV->extractZttPreheaderAndPostexit();
-
-  // Multiversioned loop is not the innermost loop
-  if (OuterLoopToMV != InnermostLoop)
-    OuterLoopsMultiversioned++;
 
   // TODO: invalidation might be called redundantly?
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(OuterLoopToMV);
@@ -594,7 +653,7 @@ bool HIRMVForVariableStride::run() {
         continue;
       if (!cast<HLLoop>(Node)->isInnermost())
         continue;
-      if (cast<HLLoop>(Node)->isInSIMDRegion())
+      if (BypassSIMDLoops && cast<HLLoop>(Node)->isInSIMDRegion())
         continue;
 
       MVAnalyzer.checkAndAddIfCandidate(cast<HLLoop>(Node));
@@ -603,10 +662,10 @@ bool HIRMVForVariableStride::run() {
     if (!MVAnalyzer.hasCandidates())
       continue;
 
-    // For a list of loops in a region, do multiversion.
-    // We collect information about all loops in region before
-    // do actual transformation of each loop to get some help
-    // in hoisting MV conditions to outermost loop possible.
+      // For a list of loops in a region, do multiversion.
+      // We collect information about all loops in region before
+      // do actual transformation of each loop to get some help
+      // in hoisting MV conditions to outermost loop possible.
     Changed =
         MVTransformer(InnermostLoops, cast<HLRegion>(Reg)).rewrite() || Changed;
   }

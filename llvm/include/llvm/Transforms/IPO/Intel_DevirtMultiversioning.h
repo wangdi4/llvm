@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_DTRANS
 //=-- Intel_DevirtMultiversioning.h - Intel Devirtualization Multiversion -*-=//
 //
 // Copyright (C) 2021 Intel Corporation. All rights reserved.
@@ -14,8 +15,12 @@
 #ifndef LLVM_TRANSFORMS_IPO_INTEL_DEVIRTMULTIVERSIONING_H
 #define LLVM_TRANSFORMS_IPO_INTEL_DEVIRTMULTIVERSIONING_H
 
+#include "Intel_DTrans/Analysis/DTransTypes.h"
+#include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
+#include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 
@@ -29,7 +34,7 @@ class IntelDevirtMultiversion {
 public:
   IntelDevirtMultiversion(
       Module &M, WholeProgramInfo &WPInfo,
-      std::function<const TargetLibraryInfo &(Function &F)> GetTLI);
+      std::function<const TargetLibraryInfo &(const Function &F)> GetTLI);
 
   // Try to generate multiple targets with if and else instructions
   // rather than a branch funnel
@@ -51,10 +56,8 @@ public:
   // Delete the bitcast for the vtable if there is no use of it.
   void deleteVTableCast(Value *VTablePtr);
 
-#if INTEL_FEATURE_SW_DTRANS
   // Return the MDNode related to Intel multiversioning
   MDNode *getDevirtCallMDNode() { return DevirtCallMDNode; }
-#endif // INTEL_FEATURE_SW_DTRANS
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Simplified print of the data collected by the devirtualization process,
@@ -86,14 +89,12 @@ private:
 
   Module &M;
   WholeProgramInfo &WPInfo;
-  std::function<const TargetLibraryInfo &(Function &F)> GetTLI;
+  std::function<const TargetLibraryInfo &(const Function &F)> GetTLI;
   bool EnableDevirtMultiversion;
 
-#if INTEL_FEATURE_SW_DTRANS
   // Metadata node that will be used to mark a function call as being
   // created by the devirtualizer to help DTrans analyze bitcast function calls.
   MDNode *DevirtCallMDNode = nullptr;
-#endif // INTEL_FEATURE_SW_DTRANS
 
   // Helper function to generate the branches for multiversioning
   void
@@ -143,9 +144,20 @@ private:
                                                  //   false
   };
 
+  void collectAssumeCallSitesNonOpaque(Function *AssumeFunc,
+      std::vector<CallBase *> &AssumesVector);
+
+  void collectAssumeCallSitesOpaque(Function *AssumeFunc,
+    std::vector<CallBase *> &AssumesVector,
+    dtransOP::PtrTypeAnalyzer &Analyzer);
+
   VirtualCallsDataForMV VCallsData;
+
+  SetVector<CallBase *> VCallsWithDefaultCase;
 };
 
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_IPO_INTEL_DEVIRTMULTIVERSIONING_H
+
+#endif // INTEL_FEATURE_SW_DTRANS

@@ -1,6 +1,6 @@
 //===-- DPCPPKernelCompilationUtils.cpp - Function definitions -*- C++ ----===//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -11,15 +11,11 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
-#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IRReader/IRReader.h"
-#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include "ImplicitArgsUtils.h"
@@ -43,6 +39,7 @@ const StringRef KernelAttribute::RecursionWithBarrier =
     "barrier_with_recursion";
 const StringRef KernelAttribute::UniformCall = "kernel-uniform-call";
 const StringRef KernelAttribute::VectorVariants = "vector-variants";
+const StringRef KernelAttribute::VectorVariantFailure = "vector-variant-failure";
 
 namespace {
 // Document what source language this module was translated from.
@@ -73,6 +70,7 @@ const StringRef NAME_BARRIER = "barrier";
 const StringRef NAME_WG_BARRIER = "work_group_barrier";
 const StringRef NAME_SG_BARRIER = "sub_group_barrier";
 const StringRef NAME_PREFETCH = "prefetch";
+const StringRef NAME_WAIT_GROUP_EVENTS = "wait_group_events";
 const StringRef SAMPLER = "sampler_t";
 
 // atomic fence functions
@@ -138,12 +136,17 @@ const StringRef NAME_SUB_GROUP_SCAN_INCLUSIVE_MAX =
 const StringRef NAME_GET_BASE_GID = "get_base_global_id.";
 const StringRef NAME_GET_SPECIAL_BUFFER = "get_special_buffer.";
 const StringRef NAME_PRINTF = "printf";
-} // namespace
 
-static cl::list<std::string>
-    OptBuiltinModuleFiles(cl::CommaSeparated, "dpcpp-kernel-builtin-lib",
-                          cl::desc("Builtin declarations (bitcode) libraries"),
-                          cl::value_desc("filename1,filename2"));
+/// Matrix slicing support.
+const StringRef NAME_GET_SUB_GROUP_SLICE_LENGTH = "get_sub_group_slice_length.";
+const StringRef NAME_GET_SUB_GROUP_ROWSLICE_ID = "get_sub_group_rowslice_id";
+const StringRef NAME_SUB_GROUP_ROWSLICE_EXTRACTELEMENT =
+    "sub_group_rowslice_extractelement";
+const StringRef NAME_SUB_GROUP_ROWSLICE_INSERTELEMENT =
+    "sub_group_rowslice_insertelement";
+const StringRef NAME_SUB_GROUP_INSERT_ROWSLICE_TO_MATRIX =
+    "sub_group_insert_rowslice_to_matrix";
+} // namespace
 
 static cl::opt<std::string> OptVectInfoFile("dpcpp-vect-info",
                                             cl::desc("Builtin VectInfo list"),
@@ -151,37 +154,11 @@ static cl::opt<std::string> OptVectInfoFile("dpcpp-vect-info",
 
 namespace DPCPPKernelCompilationUtils {
 
-SmallVector<std::unique_ptr<Module>, 2>
-loadBuiltinModulesFromCommandLine(LLVMContext &Ctx) {
-  SmallVector<std::unique_ptr<Module>, 2> BuiltinModules;
-  for (auto &ModuleFile : OptBuiltinModuleFiles) {
-    if (ModuleFile.empty()) {
-      BuiltinModules.push_back(std::make_unique<Module>("empty", Ctx));
-    } else {
-      SMDiagnostic Err;
-      std::unique_ptr<Module> BuiltinModule =
-          getLazyIRFileModule(ModuleFile, Err, Ctx);
-      assert(BuiltinModule && "failed to load builtin lib from file");
-      BuiltinModules.push_back(std::move(BuiltinModule));
-    }
-  }
-  return BuiltinModules;
-}
-
 static unsigned CLVersionToVal(uint64_t Major, uint64_t Minor) {
   return Major * 100 + Minor * 10;
 }
 
 static bool isMangleOf(StringRef LHS, StringRef RHS) {
-  if (!isMangledName(LHS))
-    return false;
-  return stripName(LHS) == RHS;
-}
-
-static bool isOptionalMangleOf(StringRef LHS, StringRef RHS) {
-  if (LHS == RHS)
-    return true;
-  // LHS should be mangled
   if (!isMangledName(LHS))
     return false;
   return stripName(LHS) == RHS;
@@ -267,36 +244,36 @@ bool isGetEnqueuedLocalSize(StringRef S) {
 }
 
 bool isGetGlobalLinearId(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_LINEAR_GID);
+  return isMangleOf(S, NAME_GET_LINEAR_GID);
 }
 
 bool isGetLocalLinearId(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_LINEAR_LID);
+  return isMangleOf(S, NAME_GET_LINEAR_LID);
 }
 
 bool isGetGlobalSize(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_GLOBAL_SIZE);
+  return isMangleOf(S, NAME_GET_GLOBAL_SIZE);
 }
 
 bool isGetGroupId(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_GROUP_ID);
+  return isMangleOf(S, NAME_GET_GROUP_ID);
 }
 
 bool isGetLocalSize(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_LOCAL_SIZE);
+  return isMangleOf(S, NAME_GET_LOCAL_SIZE);
 }
 
 bool isGetNumGroups(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_NUM_GROUPS);
+  return isMangleOf(S, NAME_GET_NUM_GROUPS);
 }
 
 bool isGetWorkDim(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_WORK_DIM);
+  return isMangleOf(S, NAME_GET_WORK_DIM);
 }
 
-bool isGetLocalId(StringRef S) { return isOptionalMangleOf(S, NAME_GET_LID); }
+bool isGetLocalId(StringRef S) { return isMangleOf(S, NAME_GET_LID); }
 
-bool isGetGlobalId(StringRef S) { return isOptionalMangleOf(S, NAME_GET_GID); }
+bool isGetGlobalId(StringRef S) { return isMangleOf(S, NAME_GET_GID); }
 
 bool isAtomicBuiltin(StringRef S) {
   // S is atomic built-in name if
@@ -319,7 +296,7 @@ bool isGlobalCtorDtorOrCPPFunc(Function *F) {
 }
 
 bool isGlobalOffset(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_GLOBAL_OFFSET);
+  return isMangleOf(S, NAME_GET_GLOBAL_OFFSET);
 }
 
 StringRef nameGetBaseGID() { return NAME_GET_BASE_GID; }
@@ -542,6 +519,10 @@ bool isWorkItemPipeBuiltin(StringRef S) {
   return Kind && Kind.Scope == PipeKind::ScopeKind::WorkItem;
 }
 
+bool isWaitGroupEvents(StringRef S) {
+  return isMangleOf(S, NAME_WAIT_GROUP_EVENTS);
+}
+
 bool isWorkGroupAsyncOrPipeBuiltin(StringRef S, const Module &M) {
   return isAsyncWorkGroupCopy(S) || isAsyncWorkGroupStridedCopy(S) ||
          (OclVersion::CL_VER_2_0 <= fetchCLVersionFromMetadata(M) &&
@@ -607,27 +588,27 @@ bool isWorkGroupBarrier(StringRef S) {
 /// Subgroup builtin functions
 
 bool isGetSubGroupSize(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_SUB_GROUP_SIZE);
+  return isMangleOf(S, NAME_GET_SUB_GROUP_SIZE);
 }
 
 bool isGetMaxSubGroupSize(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_MAX_SUB_GROUP_SIZE);
+  return isMangleOf(S, NAME_GET_MAX_SUB_GROUP_SIZE);
 }
 
 bool isGetNumSubGroups(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_NUM_SUB_GROUPS);
+  return isMangleOf(S, NAME_GET_NUM_SUB_GROUPS);
 }
 
 bool isGetEnqueuedNumSubGroups(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_ENQUEUED_NUM_SUB_GROUPS);
+  return isMangleOf(S, NAME_GET_ENQUEUED_NUM_SUB_GROUPS);
 }
 
 bool isGetSubGroupId(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_SUB_GROUP_ID);
+  return isMangleOf(S, NAME_GET_SUB_GROUP_ID);
 }
 
 bool isGetSubGroupLocalId(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_SUB_GROUP_LOCAL_ID);
+  return isMangleOf(S, NAME_GET_SUB_GROUP_LOCAL_ID);
 }
 
 bool isSubGroupAll(StringRef S) { return isMangleOf(S, NAME_SUB_GROUP_ALL); }
@@ -700,6 +681,25 @@ bool isSubGroupBuiltin(StringRef S) {
 bool isSubGroupBarrier(StringRef S) {
   return S == mangledSGBarrier(BarrierType::NoScope) ||
          S == mangledSGBarrier(BarrierType::WithScope);
+}
+
+bool isGetSubGroupSliceLength(StringRef S) {
+  return S.equals(NAME_GET_SUB_GROUP_SLICE_LENGTH);
+}
+
+bool isSubGroupRowSliceExtractElement(StringRef S) {
+  // Might be vectorized as '_ZGVbN16u_sub_group_rowslice_extractelement'
+  return S.contains(NAME_SUB_GROUP_ROWSLICE_EXTRACTELEMENT);
+}
+
+bool isSubGroupRowSliceInsertElement(StringRef S) {
+  // Might be vectorized as '_ZGVbN16uv_sub_group_rowslice_insertelement'
+  return S.contains(NAME_SUB_GROUP_ROWSLICE_INSERTELEMENT);
+}
+
+bool isSubGroupInsertRowSliceToMatrix(StringRef S) {
+  // Has type mangle suffix.
+  return S.startswith(NAME_SUB_GROUP_INSERT_ROWSLICE_TO_MATRIX);
 }
 
 template <reflection::TypePrimitiveEnum... ParamTys>
@@ -1116,17 +1116,18 @@ CallInst *AddMoreArgsToCall(CallInst *OldC, ArrayRef<Value *> NewArgs,
                             Function *NewF) {
   assert(OldC && "CallInst is NULL");
   assert(NewF && "function is NULL");
-  assert(OldC->getNumArgOperands() + NewArgs.size() == NewF->arg_size() &&
+  assert(OldC->arg_size() + NewArgs.size() == NewF->arg_size() &&
          "Function argument number mismatch");
 
   SmallVector<Value *, 16> Args;
-  for (unsigned I = 0, E = OldC->getNumArgOperands(); I != E; ++I)
+  for (unsigned I = 0, E = OldC->arg_size(); I != E; ++I)
     Args.push_back(OldC->getArgOperand(I));
   Args.append(NewArgs.begin(), NewArgs.end());
 
   // Replace the original function with a call
   CallInst *NewC = CallInst::Create(NewF, Args, "", OldC);
   NewC->setCallingConv(OldC->getCallingConv());
+  NewC->setAttributes(NewF->getAttributes());
 
   // Copy debug metadata to new function if available
   if (OldC->hasMetadata()) {
@@ -1146,7 +1147,7 @@ CallInst *addMoreArgsToIndirectCall(CallInst *OldC, ArrayRef<Value *> NewArgs) {
 
   SmallVector<Value *, 16> Args;
   // Copy existing arguments
-  for (unsigned I = 0, E = OldC->getNumArgOperands(); I != E; ++I)
+  for (unsigned I = 0, E = OldC->arg_size(); I != E; ++I)
     Args.push_back(OldC->getArgOperand(I));
   // And append new arguments
   Args.append(NewArgs.begin(), NewArgs.end());
@@ -1584,17 +1585,24 @@ Instruction *createInstructionFromConstantWithReplacement(
   return cast<Instruction>(V);
 }
 
-bool hasFunctionCallInCGNodeSatisfiedWith(
-    CallGraphNode *Node, function_ref<bool(Function *)> Condition) {
-  for (auto It = df_begin(Node); It != df_end(Node); ++It) {
-    Function *CalledFunc = It->getFunction();
-    // Always skips the root node.
-    if (CalledFunc == Node->getFunction())
-      continue;
-    if (Condition(CalledFunc))
+bool hasFunctionCallInCGNodeIf(CallGraphNode *Node,
+                               function_ref<bool(const Function *)> Condition) {
+  // Always skips the root node by starting from ++df_begin().
+  for (auto It = ++df_begin(Node); It != df_end(Node); ++It)
+    if (Condition(It->getFunction()))
       return true;
-  }
   return false;
+}
+
+void mapFunctionCallInCGNodeIf(CallGraphNode *Node,
+                               function_ref<bool(const Function *)> Condition,
+                               function_ref<void(Function *)> MapFunc) {
+  // Always skips the root node by starting from ++df_begin().
+  for (auto It = ++df_begin(Node); It != df_end(Node); ++It) {
+    Function *CalledFunc = It->getFunction();
+    if (Condition(CalledFunc))
+      MapFunc(CalledFunc);
+  }
 }
 
 #define PRIM_TYPE(prim_type_enum)                                              \
@@ -1730,6 +1738,37 @@ static void pushSGBlockBuiltinDivergentVectInfo(
   }
 }
 
+static void pushSGRowSliceBuiltinVectInfo(
+    std::vector<std::tuple<std::string, std::string, std::string>>
+        &ExtendedVectInfos) {
+  const static SmallVector<StringRef, 4> DataTypes = {"i8", "i32", "bf16", "f32"};
+  const static SmallVector<unsigned, 5> VFs = {4, 8, 16, 32, 64};
+  for (StringRef DataType : DataTypes) {
+    for (unsigned VF : VFs) {
+      // e.g. i32 @sub_group_rowslice_extractelement.i32(i64 %rowslice.id)
+      std::string ExtractElementBaseName =
+          (NAME_SUB_GROUP_ROWSLICE_EXTRACTELEMENT + "." + DataType).str();
+      // e.g. void @sub_group_rowslice_insertelement.i32(i64 %rowslice.id, i32
+      // %data)
+      std::string InsertElementBaseName =
+          (NAME_SUB_GROUP_ROWSLICE_INSERTELEMENT + "." + DataType).str();
+      // The first argument %rowslice.id is always uniform.
+      ExtendedVectInfos.push_back(
+          {ExtractElementBaseName, std::string(KernelAttribute::CallOnce),
+           ("_ZGVbN" + Twine(VF) + "u_" + ExtractElementBaseName).str()});
+      ExtendedVectInfos.push_back(
+          {ExtractElementBaseName, std::string(KernelAttribute::CallOnce),
+           ("_ZGVbM" + Twine(VF) + "u_" + ExtractElementBaseName).str()});
+      ExtendedVectInfos.push_back(
+          {InsertElementBaseName, std::string(KernelAttribute::CallOnce),
+           ("_ZGVbN" + Twine(VF) + "uv_" + InsertElementBaseName).str()});
+      ExtendedVectInfos.push_back(
+          {InsertElementBaseName, std::string(KernelAttribute::CallOnce),
+           ("_ZGVbM" + Twine(VF) + "uv_" + InsertElementBaseName).str()});
+    }
+  }
+}
+
 void initializeVectInfoOnce(
     ArrayRef<VectItem> VectInfos,
     std::vector<std::tuple<std::string, std::string, std::string>>
@@ -1742,7 +1781,8 @@ void initializeVectInfoOnce(
     static ErrorOr<std::unique_ptr<MemoryBuffer>> BufOrErr =
         MemoryBuffer::getFile(OptVectInfoFile, /* IsText */ true);
     if (BufOrErr) {
-      SmallVector<StringRef, 8192 * 3> Items;
+      SmallVector<StringRef, 0> Items;
+      Items.reserve(8192 * 3);
       SplitString(BufOrErr.get()->getBuffer(), Items, " \t\n\v\f\r,{}");
       assert(Items.size() % 3 == 0 &&
              "Invalid number of items in VectInfo.gen");
@@ -1788,6 +1828,265 @@ void initializeVectInfoOnce(
                                         std::get<2>(Entry), std::get<3>(Entry),
                                         ExtendedVectInfos);
   }
+
+  // Add extra vector info for 'sub_group_rowslice_extractelement.*' and
+  // 'sub_group_rowslice_insertelement.*'
+  pushSGRowSliceBuiltinVectInfo(ExtendedVectInfos);
+}
+
+static std::string getFormatStr(Value *V) {
+  Type *T = V->getType();
+  std::string Name = V->getName().str();
+
+  if (T->isIntegerTy(32))
+    return Name + ": %d ";
+  if (T->isFloatTy())
+    return Name + ": %f ";
+  if (T->isDoubleTy())
+    return Name + ": %lf ";
+  if (T->isPointerTy())
+    return Name + "%p";
+  llvm_unreachable("Can't print this value");
+}
+
+void insertPrintf(const Twine &Prefix, Instruction *IP,
+                  ArrayRef<Value *> Inputs) {
+  auto &Context = IP->getContext();
+  unsigned StrAddrSpace = 2;
+
+  // Declare printf function
+  auto *StrType = PointerType::get(Type::getInt8Ty(Context), StrAddrSpace);
+  SmallVector<Type *, 1> ArgList{StrType};
+  auto *FuncType = FunctionType::get(Type::getInt32Ty(Context), ArgList, true);
+  FunctionCallee PrintFuncConst =
+      IP->getModule()->getOrInsertFunction("printf", FuncType);
+  auto *PrintFunc = cast<Function>(PrintFuncConst.getCallee());
+
+  SmallVector<Value *, 16> TempInputs;
+  IRBuilder<> Builder(IP);
+  for (auto *I : Inputs) {
+    if (auto *T = dyn_cast<FixedVectorType>(I->getType())) {
+      unsigned Len = T->getNumElements();
+      StringRef Name = I->getName();
+      for (unsigned Idx = 0; Idx < Len; ++Idx) {
+        auto *Ele =
+            Builder.CreateExtractElement(I, Idx, Name + "." + Twine(Idx));
+        TempInputs.push_back(Ele);
+      }
+    } else {
+      TempInputs.push_back(I);
+    }
+  }
+
+  std::string FormatStr = "PRINT " + Prefix.str() + " ";
+  SmallVector<Value *, 16> TempInputsCast;
+  for (auto *V : TempInputs) {
+    Type *T = V->getType();
+    if (T->isIntegerTy())
+      if (!T->isIntegerTy(32))
+        V = CastInst::CreateIntegerCast(V, Type::getInt32Ty(V->getContext()),
+                                        false, V->getName() + "cast.", IP);
+    FormatStr += getFormatStr(V);
+    TempInputsCast.push_back(V);
+  }
+  FormatStr += "\n";
+
+  Constant *StrVal =
+      ConstantDataArray::getString(IP->getContext(), FormatStr, true);
+  auto *ArrayType = StrVal->getType();
+  auto *FormatStrGV = new GlobalVariable(
+      *IP->getModule(), ArrayType, true, GlobalValue::InternalLinkage, StrVal,
+      "format.str.", 0, GlobalVariable::NotThreadLocal, StrAddrSpace);
+
+  SmallVector<Value *, 2> Idx(2, Builder.getInt32(0));
+  auto *StrPtr = GetElementPtrInst::Create(ArrayType, FormatStrGV, Idx, "", IP);
+
+  // Insert call.
+  SmallVector<Value *, 4> Args{StrPtr};
+  Args.append(TempInputsCast.begin(), TempInputsCast.end());
+  Builder.CreateCall(PrintFunc, Args, "PRINT.");
+}
+
+/// Copied from llvm/lib/IR/Function.cpp:813
+/// Returns a stable mangling for the type specified for use in the name
+/// mangling scheme used by 'any' types in intrinsic signatures.  The mangling
+/// of named types is simply their name.  Manglings for unnamed types consist
+/// of a prefix ('p' for pointers, 'a' for arrays, 'f_' for functions)
+/// combined with the mangling of their component types.  A vararg function
+/// type will have a suffix of 'vararg'.  Since function types can contain
+/// other function types, we close a function type mangling with suffix 'f'
+/// which can't be confused with it's prefix.  This ensures we don't have
+/// collisions between two unrelated function types. Otherwise, you might
+/// parse ffXX as f(fXX) or f(fX)X.  (X is a placeholder for any other type.)
+/// The HasUnnamedType boolean is set if an unnamed type was encountered,
+/// indicating that extra care must be taken to ensure a unique name.
+static std::string getMangledTypeStr(Type *Ty, bool &HasUnnamedType) {
+  std::string Result;
+  if (PointerType *PTyp = dyn_cast<PointerType>(Ty)) {
+    Result += "p" + utostr(PTyp->getAddressSpace());
+    // Opaque pointer doesn't have pointee type information, so we just mangle
+    // address space for opaque pointer.
+    if (!PTyp->isOpaque())
+      Result += getMangledTypeStr(PTyp->getElementType(), HasUnnamedType);
+  } else if (ArrayType *ATyp = dyn_cast<ArrayType>(Ty)) {
+    Result += "a" + utostr(ATyp->getNumElements()) +
+              getMangledTypeStr(ATyp->getElementType(), HasUnnamedType);
+  } else if (StructType *STyp = dyn_cast<StructType>(Ty)) {
+    if (!STyp->isLiteral()) {
+      Result += "s_";
+      if (STyp->hasName())
+        Result += STyp->getName();
+      else
+        HasUnnamedType = true;
+    } else {
+      Result += "sl_";
+      for (auto Elem : STyp->elements())
+        Result += getMangledTypeStr(Elem, HasUnnamedType);
+    }
+    // Ensure nested structs are distinguishable.
+    Result += "s";
+  } else if (FunctionType *FT = dyn_cast<FunctionType>(Ty)) {
+    Result += "f_" + getMangledTypeStr(FT->getReturnType(), HasUnnamedType);
+    for (size_t i = 0; i < FT->getNumParams(); i++)
+      Result += getMangledTypeStr(FT->getParamType(i), HasUnnamedType);
+    if (FT->isVarArg())
+      Result += "vararg";
+    // Ensure nested function types are distinguishable.
+    Result += "f";
+  } else if (VectorType *VTy = dyn_cast<VectorType>(Ty)) {
+    ElementCount EC = VTy->getElementCount();
+    if (EC.isScalable())
+      Result += "nx";
+    Result += "v" + utostr(EC.getKnownMinValue()) +
+              getMangledTypeStr(VTy->getElementType(), HasUnnamedType);
+  } else if (Ty) {
+    switch (Ty->getTypeID()) {
+    default:
+      llvm_unreachable("Unhandled type");
+    case Type::VoidTyID:
+      Result += "isVoid";
+      break;
+    case Type::MetadataTyID:
+      Result += "Metadata";
+      break;
+    case Type::HalfTyID:
+      Result += "f16";
+      break;
+    case Type::BFloatTyID:
+      Result += "bf16";
+      break;
+    case Type::FloatTyID:
+      Result += "f32";
+      break;
+    case Type::DoubleTyID:
+      Result += "f64";
+      break;
+    case Type::X86_FP80TyID:
+      Result += "f80";
+      break;
+    case Type::FP128TyID:
+      Result += "f128";
+      break;
+    case Type::PPC_FP128TyID:
+      Result += "ppcf128";
+      break;
+    case Type::X86_MMXTyID:
+      Result += "x86mmx";
+      break;
+    case Type::X86_AMXTyID:
+      Result += "x86amx";
+      break;
+    case Type::IntegerTyID:
+      Result += "i" + utostr(cast<IntegerType>(Ty)->getBitWidth());
+      break;
+    }
+  }
+  return Result;
+}
+
+static CallInst *generateCall(Module *M, StringRef FnName, Type *ReturnType,
+                              ArrayRef<Value *> Args, IRBuilder<> &Builder,
+                              const Twine &Name = "",
+                              AttributeList AttrList = AttributeList()) {
+  SmallVector<Type *> ArgTypes;
+  for (auto *Arg : Args)
+    ArgTypes.push_back(Arg->getType());
+  auto *FuncType = FunctionType::get(ReturnType, ArgTypes, false);
+  auto Func = M->getOrInsertFunction(FnName, FuncType, AttrList);
+  return Builder.CreateCall(Func, Args, Name);
+}
+
+CallInst *createGetSubGroupSliceLengthCall(unsigned TotalElementCount,
+                                           Instruction *IP, const Twine &Name) {
+  IRBuilder<> Builder(IP);
+  auto *Arg = Builder.getInt32(TotalElementCount);
+  return generateCall(IP->getModule(), NAME_GET_SUB_GROUP_SLICE_LENGTH,
+                      Builder.getInt64Ty(), {Arg}, Builder);
+}
+
+CallInst *createGetSubGroupRowSliceIdCall(Value *Matrix, unsigned R, unsigned C,
+                                          Value *Index, Instruction *IP,
+                                          const Twine &Name) {
+  auto *MatrixType = cast<FixedVectorType>(Matrix->getType());
+  assert(MatrixType->getNumElements() == (R * C) &&
+         "Matrix size doesn't match");
+  IRBuilder<> Builder(IP);
+  auto *Rows = Builder.getInt32(R);
+  auto *Cols = Builder.getInt32(C);
+  SmallVector<Value *> Args = {Matrix, Rows, Cols, Index};
+  bool HasUnnamedType = false;
+  std::string FnName = NAME_GET_SUB_GROUP_ROWSLICE_ID.str() + "." +
+                       getMangledTypeStr(MatrixType, HasUnnamedType) + "." +
+                       getMangledTypeStr(Index->getType(), HasUnnamedType);
+  auto AL = AttributeList()
+                .addFnAttribute(IP->getContext(), KernelAttribute::UniformCall)
+                .addFnAttribute(IP->getContext(),
+                                KernelAttribute::OCLVecUniformReturn);
+  return generateCall(IP->getModule(), FnName, Builder.getInt64Ty(), Args,
+                      Builder, Name, AL);
+}
+
+CallInst *createSubGroupRowSliceExtractElementCall(Value *RowSliceId,
+                                                   Type *ReturnType,
+                                                   Instruction *IP,
+                                                   const Twine &Name) {
+  IRBuilder<> Builder(IP);
+  bool HasUnnamedType = false;
+  std::string FnName = NAME_SUB_GROUP_ROWSLICE_EXTRACTELEMENT.str() + "." +
+                       getMangledTypeStr(ReturnType, HasUnnamedType);
+  auto AL = AttributeList().addFnAttribute(IP->getContext(),
+                                           KernelAttribute::CallOnce);
+  return generateCall(IP->getModule(), FnName, ReturnType, {RowSliceId},
+                      Builder, Name, AL);
+}
+
+CallInst *createSubGroupRowSliceInsertElementCall(Value *RowSliceId,
+                                                  Value *Data,
+                                                  Instruction *IP) {
+  IRBuilder<> Builder(IP);
+  bool HasUnnamedType = false;
+  std::string FnName = NAME_SUB_GROUP_ROWSLICE_INSERTELEMENT.str() + "." +
+                       getMangledTypeStr(Data->getType(), HasUnnamedType);
+  auto AL = AttributeList().addFnAttribute(IP->getContext(),
+                                           KernelAttribute::CallOnce);
+  return generateCall(IP->getModule(), FnName, Builder.getVoidTy(),
+                      {RowSliceId, Data}, Builder, "", AL);
+}
+
+CallInst *createSubGroupInsertRowSliceToMatrixCall(Value *RowSliceId,
+                                                   Type *ReturnMatrixType,
+                                                   Instruction *IP,
+                                                   const Twine &Name) {
+  IRBuilder<> Builder(IP);
+  bool HasUnnamedType = false;
+  std::string FnName = NAME_SUB_GROUP_INSERT_ROWSLICE_TO_MATRIX.str() + "." +
+                       getMangledTypeStr(ReturnMatrixType, HasUnnamedType);
+  auto AL = AttributeList()
+                .addFnAttribute(IP->getContext(), KernelAttribute::UniformCall)
+                .addFnAttribute(IP->getContext(),
+                                KernelAttribute::OCLVecUniformReturn);
+  return generateCall(IP->getModule(), FnName, ReturnMatrixType, {RowSliceId},
+                      Builder, Name, AL);
 }
 
 } // end namespace DPCPPKernelCompilationUtils

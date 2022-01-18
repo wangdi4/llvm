@@ -25,6 +25,7 @@ define void @test01() {
 ; CHECK:  2)Field LLVM Type: i32
 ; CHECK:    No Value
 ; CHECK:  Safety data: Local instance{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Store a constant value to each field, but with multiple writers of the field.
@@ -56,6 +57,7 @@ define void @test02() {
 ; CHECK:  2)Field LLVM Type: i32
 ; CHECK:    Single Value: i32 4
 ; CHECK:  Safety data: Local instance{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 ; Store multiple constant values to each field.
@@ -88,6 +90,7 @@ define void @test03() {
 ; CHECK:  2)Field LLVM Type: i32
 ; CHECK:    Multiple Value: [ 32, 4 ] <complete>
 ; CHECK:  Safety data: Local instance{{ *$}}
+; CHECK: End LLVMType: %struct.test03
 
 
 ; Store constant and non-constant values
@@ -125,6 +128,7 @@ define void @test04(i32 %in0, i32 %in1, i32 %in2) {
 ; CHECK:  2)Field LLVM Type: i32
 ; CHECK:    Multiple Value: [ ] <incomplete>
 ; CHECK:  Safety data: Local instance{{ *$}}
+; CHECK: End LLVMType: %struct.test04
 
 
 ; Test with GEPs that index into an array of structures
@@ -155,6 +159,7 @@ define void @test05() {
 ; CHECK:  2)Field LLVM Type: i32
 ; CHECK:    Multiple Value: [ 32, 4 ] <complete>
 ; CHECK:  Safety data: Local instance{{ *$}}
+; CHECK: End LLVMType: %struct.test05
 
 
 !1 = !{i32 0, i32 0}  ; i32

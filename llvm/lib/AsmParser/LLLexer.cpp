@@ -614,6 +614,10 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(svml_cc);
   KEYWORD(svml_avx_cc);
   KEYWORD(svml_avx512_cc);
+  KEYWORD(svml_unified_cc);
+  KEYWORD(svml_unified_cc_256);
+  KEYWORD(svml_unified_cc_512);
+  KEYWORD(intel_features_init_cc);
 #endif // INTEL_CUSTOMIZATION
   KEYWORD(x86_64_sysvcc);
   KEYWORD(win64cc);
@@ -749,6 +753,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(x);
   KEYWORD(blockaddress);
   KEYWORD(dso_local_equivalent);
+  KEYWORD(no_cfi);
 
   // Metadata types.
   KEYWORD(distinct);
@@ -786,6 +791,10 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(returnDoesNotAlias);
   KEYWORD(noInline);
   KEYWORD(alwaysInline);
+  KEYWORD(noUnwind);
+  KEYWORD(mayThrow);
+  KEYWORD(hasUnknownCall);
+  KEYWORD(mustBeUnreachable);
   KEYWORD(calls);
   KEYWORD(callee);
   KEYWORD(params);
@@ -865,7 +874,15 @@ lltok::Kind LLLexer::LexIdentifier() {
   TYPEKEYWORD("x86_mmx",   Type::getX86_MMXTy(Context));
   TYPEKEYWORD("x86_amx",   Type::getX86_AMXTy(Context));
   TYPEKEYWORD("token",     Type::getTokenTy(Context));
-  TYPEKEYWORD("ptr", PointerType::getUnqual(Context));
+
+  if (Keyword == "ptr") {
+    if (Context.supportsTypedPointers()) {
+      Warning("ptr type is only supported in -opaque-pointers mode");
+      return lltok::Error;
+    }
+    TyVal = PointerType::getUnqual(Context);
+    return lltok::Type;
+  }
 
 #undef TYPEKEYWORD
 

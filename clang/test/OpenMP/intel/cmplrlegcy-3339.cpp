@@ -1,5 +1,5 @@
 //RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fintel-compatibility \
-//RUN:   -fintel-openmp-region -fno-intel-openmp-offload \
+//RUN:   -fopenmp-late-outline -fno-intel-openmp-offload \
 //RUN:   -fopenmp-targets=x86_64 -triple x86_64 %s \
 //RUN:   | FileCheck %s
 

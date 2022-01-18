@@ -127,9 +127,11 @@
 // ARCH-SAPPHIRERAPIDS: "-target-cpu" "sapphirerapids"
 
 // RUN: %clang_cl -### -c /arch:ALDERLAKE %s 2>&1 \
-// RUN:  | FileCheck -check-prefixes=ARCH-ALDERLAKE %s
+// RUN:  | FileCheck -check-prefixes=ARCH-ALDERLAKE,ARCH-WARN %s
 // ARCH-ALDERLAKE: "-target-cpu" "alderlake"
 
 // RUN: %clang_cl -### -c /arch:ROCKETLAKE %s 2>&1 \
-// RUN:  | FileCheck -check-prefixes=ARCH-ROCKETLAKE %s
+// RUN:  | FileCheck -check-prefixes=ARCH-ROCKETLAKE,ARCH-WARN %s
 // ARCH-ROCKETLAKE: "-target-cpu" "rocketlake"
+
+// ARCH-WARN-NOT: ignoring invalid /arch: argument

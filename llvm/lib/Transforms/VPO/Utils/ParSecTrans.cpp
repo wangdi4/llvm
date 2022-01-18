@@ -179,11 +179,8 @@ using namespace llvm::vpo;
 // The transformation function returns TRUE if any transformation happens,
 // otherwise returns FALSE.
 //
-bool VPOUtils::parSectTransformer(
-  Function *F,
-  DominatorTree *DT
-)
-{
+bool VPOUtils::parSectTransformer(Function *F, DominatorTree *DT,
+                                  LoopInfo *LI) {
   ParSectNode *Root = buildParSectTree(F, DT);
 
 #ifdef DEBUG
@@ -219,8 +216,7 @@ bool VPOUtils::parSectTransformer(
   } else
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-
-  parSectTransRecursive(F, Root, Counter, DT);
+  parSectTransRecursive(F, Root, Counter, DT, LI);
 
   delete Root;
 
@@ -523,19 +519,15 @@ void VPOUtils::insertSectionRecursive(
 
 
 // Post-order traversal
-void VPOUtils::parSectTransRecursive(
-  Function *F,
-  ParSectNode *Node,
-  int &Counter,
-  DominatorTree *DT
-)
-{
+void VPOUtils::parSectTransRecursive(Function *F, ParSectNode *Node,
+                                     int &Counter, DominatorTree *DT,
+                                     LoopInfo *LI) {
   // This is a leaf node. Nothing to do with it.
   if (Node->Children.size() == 0)
     return;
 
   for (auto *Child: Node->Children)
-    parSectTransRecursive(F, Child, Counter, DT);
+    parSectTransRecursive(F, Child, Counter, DT, LI);
 
   // We only need to do transformations at OMP_PARALLEL_SECTIONS and
   // OMP_SECTIONS nodes, not OMP_SECTION nodes or the tree Root.
@@ -554,7 +546,7 @@ void VPOUtils::parSectTransRecursive(
       }
 
       Counter++;
-      doParSectTrans(F, Node, Counter, DT);
+      doParSectTrans(F, Node, Counter, DT, LI);
     }
 
   // Free children
@@ -616,13 +608,8 @@ void VPOUtils::parSectTransRecursive(
 // Note that, the directives OMP_SECTION and OMP_END_SECTION will be deleted
 // although we show them here for illustration purpose.
 //
-void VPOUtils::doParSectTrans(
-  Function *F,
-  ParSectNode *Node,
-  int Counter,
-  DominatorTree *DT
-)
-{
+void VPOUtils::doParSectTrans(Function *F, ParSectNode *Node, int Counter,
+                              DominatorTree *DT, LoopInfo *LI) {
   assert(Node->Children.size() != 0 && "No section nodes to be transformed");
 
   BasicBlock *SectionsEntryBB = Node->EntryBB;
@@ -636,8 +623,12 @@ void VPOUtils::doParSectTrans(
   //    OMP_END_PARALLEL_SECTIONS
   //
   IRBuilder<> Builder(SectionsEntryBB);
+  auto *OldSucc = SectionsEntryBB->getSingleSuccessor();
+  assert(OldSucc && "Section entry has multiple successors.");
   SectionsEntryBB->getTerminator()->eraseFromParent();
+  DT->deleteEdge(SectionsEntryBB, OldSucc);
   Builder.CreateBr(SectionsExitBB);
+  DT->insertEdge(SectionsEntryBB, SectionsExitBB);
 
   // 2) Insert an empty loop between the pair of directives:
   //
@@ -668,7 +659,8 @@ void VPOUtils::doParSectTrans(
   Constant *Stride = ConstantInt::get(IntTy, 1);
   Value *NormalizedUB = nullptr;
 
-  Value *IV = genNewLoop(LB, UB, Stride, Builder, Counter, NormalizedUB, DT);
+  Value *IV =
+      genNewLoop(LB, UB, Stride, Builder, Counter, NormalizedUB, DT, LI);
 
   // 3) Insert a switch statement right before the first non-PHI instruction
   // in the loop. The code (e.g., sec1, sec2) for each OMP_SECTION will be
@@ -701,7 +693,7 @@ void VPOUtils::doParSectTrans(
   //
   // generateSwitch() will return the switch instruction created.
   //
-  genParSectSwitch(IV, IntTy, Node, Builder, Counter, DT);
+  genParSectSwitch(IV, IntTy, Node, Builder, Counter, DT, LI);
 
   Instruction *Inst = Node->EntryBB->getFirstNonPHI();
   CallInst *CI = dyn_cast<CallInst>(Inst);
@@ -732,7 +724,8 @@ void VPOUtils::doParSectTrans(
 //
 Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
                             IRBuilder<> &Builder, int Counter,
-                            Value *&NormalizedUB, DominatorTree *DT) {
+                            Value *&NormalizedUB, DominatorTree *DT,
+                            LoopInfo *LI) {
   assert(LB->getType() == UB->getType() && "Loop bound types do not match");
 
   IntegerType *LoopIVType = dyn_cast<IntegerType>(UB->getType());
@@ -763,7 +756,7 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
   ExitBB->setName(FName + ".sloop.latch." + Twine(Counter));
 
   // BeforeBB
-  //BeforeBB->getTerminator()->setSuccessor(0, HeaderBB);
+  auto *OldSucc = BeforeBB->getTerminator()->getSuccessor(0);
   BeforeBB->getTerminator()->setSuccessor(0, PreHeaderBB);
 
   Builder.SetInsertPoint(PreHeaderBB);
@@ -851,10 +844,26 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
                                 F->end());
 
   if (DT) {
+    DT->deleteEdge(BeforeBB, OldSucc);
     DT->addNewBlock(PreHeaderBB, BeforeBB);
     DT->addNewBlock(HeaderBB, PreHeaderBB);
     DT->addNewBlock(BodyBB, HeaderBB);
-    DT->changeImmediateDominator(ExitBB, PreHeaderBB);
+    DT->insertEdge(BodyBB, HeaderBB);
+    DT->insertEdge(BodyBB, ExitBB);
+  }
+
+  if (LI) {
+    Loop *NewLoop = LI->AllocateLoop();
+    Loop *ParentLoop = LI->getLoopFor(BeforeBB);
+    if (ParentLoop) {
+      ParentLoop->addChildLoop(NewLoop);
+      ParentLoop->addBasicBlockToLoop(PreHeaderBB, *LI);
+    }
+    else {
+      LI->addTopLevelLoop(NewLoop);
+    }
+    NewLoop->addBasicBlockToLoop(HeaderBB, *LI);
+    NewLoop->addBasicBlockToLoop(BodyBB, *LI);
   }
 
   // The loop body should be added here.
@@ -893,15 +902,9 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
 //             |......            |
 //             --------------------
 //
-void VPOUtils::genParSectSwitch(
-  Value *SwitchCond,
-  Type *SwitchCondTy,
-  ParSectNode *Node,
-  IRBuilder<> &Builder,
-  int Counter,
-  DominatorTree *DT
-)
-{
+void VPOUtils::genParSectSwitch(Value *SwitchCond, Type *SwitchCondTy,
+                                ParSectNode *Node, IRBuilder<> &Builder,
+                                int Counter, DominatorTree *DT, LoopInfo *LI) {
   BasicBlock *SwitchBB = Builder.GetInsertBlock();
   BasicBlock::iterator InsertPoint = Builder.GetInsertPoint();
 
@@ -924,6 +927,7 @@ void VPOUtils::genParSectSwitch(
   SwitchInst *SwitchInstruction = Builder.CreateSwitch(
       Builder.CreateLoad(SwitchCondTy, SwitchCond, true),
       Default, NumCases - 1);
+  SwitchBB->getTerminator()->eraseFromParent();
 
   BasicBlock *Epilog = BasicBlock::Create(
           Context, FName + ".sw.epilog." + Twine(Counter), F);
@@ -946,10 +950,6 @@ void VPOUtils::genParSectSwitch(
     Builder.SetInsertPoint(SectionExitBB);
     Builder.CreateBr(Epilog);
 
-    if (DT) {
-      DT->changeImmediateDominator(SectionEntryBB, SwitchBB);
-    }
-
     // Delete DIR_OMP_END_SECTION directive
     SectionExitBB->getInstList().pop_front();
 
@@ -962,12 +962,39 @@ void VPOUtils::genParSectSwitch(
       SectionEntryBB->getInstList().pop_front();
     }
   }
-
-  SwitchBB->getTerminator()->eraseFromParent();
-
   if (DT) {
-    DT->addNewBlock(Epilog, SwitchBB);
-    DT->changeImmediateDominator(SwitchSuccBB, Epilog);
+    DT->deleteEdge(SwitchBB, SwitchSuccBB);
+    for (unsigned i = 0, e = NumCases; i != e; ++i) {
+      BasicBlock *SectionExitBB = Node->Children[i]->ExitBB;
+      BasicBlock *SectionEntryBB = Node->Children[i]->EntryBB;
+      // insertEdge will take care of adding SectionExitBB and Epilog
+      // to the DomTree, as they become reachable.
+      // The section "case" BBs may dominate Epilog (and the rest of the
+      // CFG) if there is only one case/default.
+      DT->insertEdge(SwitchBB, SectionEntryBB);
+      DT->insertEdge(SectionExitBB, Epilog);
+    }
+    DT->insertEdge(Epilog, SwitchSuccBB);
+  }
+
+  if (LI) {
+    Loop *RegionLoop = LI->getLoopFor(SwitchBB);
+    if (RegionLoop) {
+      RegionLoop->addBasicBlockToLoop(Epilog, *LI);
+      RegionLoop->addBasicBlockToLoop(SwitchSuccBB, *LI);
+      for (unsigned i = 0, e = NumCases; i != e; ++i) {
+        BasicBlock *SectionEntryBB = Node->Children[i]->EntryBB;
+        BasicBlock *SectionExitBB = Node->Children[i]->ExitBB;
+        // These blocks were pre-existing and may be in a loop already.
+        // Remove and re-add them to the new inner loop.
+        // removeBlock will ignore the block if it is not in a loop.
+        // We do not use changeLoopFor, as it only works on top-level loops.
+        LI->removeBlock(SectionEntryBB);
+        LI->removeBlock(SectionExitBB);
+        RegionLoop->addBasicBlockToLoop(SectionEntryBB, *LI);
+        RegionLoop->addBasicBlockToLoop(SectionExitBB, *LI);
+      }
+    }
   }
 
   return;

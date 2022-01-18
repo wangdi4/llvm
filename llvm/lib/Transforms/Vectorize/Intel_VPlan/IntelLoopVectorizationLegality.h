@@ -22,7 +22,10 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/IVDescriptors.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 
+using namespace llvm::loopopt;
 namespace llvm {
 
 class PredicatedScalarEvolution;
@@ -33,20 +36,322 @@ class LoopInfo;
 class Function;
 
 namespace vpo {
+class VPOVectorizationLegality;
+extern bool ForceComplexTyReductionVec;
 
-class VPOVectorizationLegality {
+template <typename LegalityTy> class VectorizationLegalityBase {
+  static constexpr IRKind IR =
+      std::is_same<LegalityTy, VPOVectorizationLegality>::value ? IRKind::LLVMIR
+                                                                : IRKind::HIR;
+public:
+  using ValueTy =
+      typename std::conditional<IR == IRKind::LLVMIR, Value, RegDDRef>::type;
+  using PrivateKindTy =
+      typename std::conditional<IR == IRKind::LLVMIR,
+                                PrivDescr<Value>::PrivateKind,
+                                PrivDescr<DDRef>::PrivateKind>::type;
+
+  // This enum lists reasons why vectorizer may decide not to vectorize a loop.
+  enum class BailoutReason {
+    ComplexTyReduction,
+    // Fortran dope vectors support not implemented (CMPLRLLVM-10783)
+    F90DopeVectorPrivate,
+    F90DopeVectorReduction,
+    // Loop entities framework does not support array reductions idiom. Bailout
+    // to prevent incorrect vector code generatiion. Check - CMPLRLLVM-20621.
+    ArrayReduction,
+    // Loop entities framework does not support nonPOD lastprivates array.
+    // Bailout to prevent incorrect vector code generatiion.
+    // TODO: CMPLRLLVM-30686.
+    ArrayLastprivateNonPod,
+    ArrayPrivate,
+    UserDefinedReduction,
+    UnsupportedReductionOp
+  };
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  static const char *getBailoutReasonStr(BailoutReason Code) {
+    switch (Code) {
+    case BailoutReason::ComplexTyReduction:
+      return "Complex type reductions are not supported.\n";
+    case BailoutReason::F90DopeVectorPrivate:
+      return "F90 dope vector privates are not supported.\n";
+    case BailoutReason::F90DopeVectorReduction:
+      return "F90 dope vector reductions are not supported.\n";
+    case BailoutReason::ArrayReduction:
+      return "Cannot handle array reductions.\n";
+    case BailoutReason::ArrayLastprivateNonPod:
+      return "Cannot handle nonPOD array lastprivates.\n";
+    case BailoutReason::ArrayPrivate:
+      return "Cannot handle array privates yet.\n";
+    case BailoutReason::UserDefinedReduction:
+      return "User defined reductions are not supported.\n";
+    case BailoutReason::UnsupportedReductionOp:
+      return "A reduction of this operation is not supported.\n";
+    }
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  /// Return true if requested to proceed with vectorizing a complex type
+  /// reduction
+  static bool forceComplexTyReductionVec() {
+    return ForceComplexTyReductionVec;
+  }
+
+protected:
+  VectorizationLegalityBase() = default;
+
+  /// Import explicit data from WRLoop.
+  bool EnterExplicitData(const WRNVecLoopNode *WRLp) {
+    if (!WRLp)
+      return true;
+    return visitPrivates(WRLp) && visitLinears(WRLp) && visitReductions(WRLp);
+  }
+
+private:
+  /// Imports any SIMD loop private amd listprivate information into Legality
+  /// Return true on success.
+  bool visitPrivates(const WRNVecLoopNode *WRLp) {
+    for (LastprivateItem *Item : WRLp->getLpriv().items()) {
+      if (Item->getIsF90DopeVector())
+        return bailout(BailoutReason::F90DopeVectorPrivate);
+      if (!visitLastPrivate(Item))
+        return false;
+    }
+
+    for (PrivateItem *Item : WRLp->getPriv().items()) {
+      if (Item->getIsF90DopeVector())
+        return bailout(BailoutReason::F90DopeVectorPrivate);
+      if (!visitPrivate(Item))
+        return false;
+    }
+    return true;
+  }
+  /// Import information about loop linears to Legality
+  /// Returns true (always success).
+  bool visitLinears(const WRNVecLoopNode *WRLp) {
+    for (LinearItem *Item : WRLp->getLinear().items())
+      visitLinear(Item);
+    return true;
+  }
+
+  /// Import information about loop reductions into Legality
+  /// Return true on success.
+  bool visitReductions(const WRNVecLoopNode *WRLp) {
+    auto IsSupportedReduction = [this](const ReductionItem *Item) {
+      if (Item->getIsArraySection())
+        return bailout(BailoutReason::ArrayReduction);
+      if (Item->getIsF90DopeVector())
+        return bailout(BailoutReason::F90DopeVectorReduction);
+      switch (Item->getType()) {
+      case ReductionItem::WRNReductionMin:
+      case ReductionItem::WRNReductionMax:
+      case ReductionItem::WRNReductionAdd:
+      case ReductionItem::WRNReductionSub:
+      case ReductionItem::WRNReductionMult:
+      case ReductionItem::WRNReductionBor:
+      case ReductionItem::WRNReductionBxor:
+      case ReductionItem::WRNReductionBand:
+        return true;
+      case ReductionItem::WRNReductionUdr:
+        return bailout(BailoutReason::UserDefinedReduction);
+      default:
+        return bailout(BailoutReason::UnsupportedReductionOp);
+      }
+    };
+
+    for (ReductionItem *Item : WRLp->getRed().items())
+      if (!IsSupportedReduction(Item) || !visitReduction(Item))
+        return false;
+    return true;
+  }
+
+  /// Figures recurrence kind given a reduction and type.
+  static RecurKind getReductionRecurKind(const ReductionItem *Item,
+                                         const Type *ElType) {
+    switch (Item->getType()) {
+    case ReductionItem::WRNReductionMin:
+      return ElType->isIntegerTy()
+                 ? (Item->getIsUnsigned() ? RecurKind::UMin : RecurKind::SMin)
+                 : RecurKind::FMin;
+    case ReductionItem::WRNReductionMax:
+      return ElType->isIntegerTy()
+                 ? (Item->getIsUnsigned() ? RecurKind::UMax : RecurKind::SMax)
+                 : RecurKind::FMax;
+    case ReductionItem::WRNReductionAdd:
+    case ReductionItem::WRNReductionSub:
+      return ElType->isIntegerTy() ? RecurKind::Add : RecurKind::FAdd;
+    case ReductionItem::WRNReductionMult:
+      return ElType->isIntegerTy() ? RecurKind::Mul : RecurKind::FMul;
+    case ReductionItem::WRNReductionBor:
+      return RecurKind::Or;
+    case ReductionItem::WRNReductionBxor:
+      return RecurKind::Xor;
+    case ReductionItem::WRNReductionBand:
+      return RecurKind::And;
+    default:
+      llvm_unreachable("Unsupported reduction type");
+    }
+  };
+
+  // When NumElements is null (aka 1 element) return ElType.
+  // When it is a constant, construct an array type <NumElements x ElType>
+  // Otherwise return nullptr.
+  Type *adjustTypeIfArray(Type *ElType, Value *NumElements) {
+    if (!NumElements)
+      return ElType;
+    // For opaque pointers this is a new way an array type being communicated
+    // into vectorizer so we need to re-construct its type as 1D array
+    // [NumElements x ElType].
+    // Eg. "QUAL.OMP.PRIVATE:TYPED"([10 x i32]* %20, [10 x i32]
+    // zeroinitializer, i32 2520) will give us [2520 x [10 x i32]] array
+    // type. Another way of representing an array:
+    // "QUAL.OMP.PRIVATE:TYPED"([10 x i32]* %20, [10 x i32] zeroinitializer,
+    // i32 1) will give us [10 x i32] array type( is likely to be deprecated).
+    // The resulting array then will be vectorized by our algorithms.
+    // Usually it will be transformed into [VF x ElType] array (unless SOA
+    // transformation is applied to it).
+    if (auto *CI = dyn_cast<ConstantInt>(NumElements))
+      if (CI->getValue().ugt(1))
+        return ArrayType::get(ElType, CI->getZExtValue());
+
+    return nullptr;
+  }
+
+  /// Register an explicit private variable
+  /// Return true if successfully consumed.
+  bool visitPrivate(const PrivateItem *Item) {
+    Type *Type = nullptr;
+    Value *NumElements = nullptr;
+    std::tie(Type, NumElements, /* AddrSpace */ std::ignore) =
+        VPOParoptUtils::getItemInfo(Item);
+    assert(Type && "Missed OMP clause item type!");
+
+    Type = adjustTypeIfArray(Type, NumElements);
+    if (!Type)
+      return bailout(BailoutReason::ArrayPrivate);
+
+    ValueTy *Val = Item->getOrig<IR>();
+
+    if (Item->getIsNonPod()) {
+      addLoopPrivate(Val, Type, Item->getConstructor(), Item->getDestructor(),
+                     nullptr /* no CopyAssign */, PrivateKindTy::NonLast);
+      return true;
+    }
+    addLoopPrivate(Val, Type, PrivateKindTy::NonLast);
+    return true;
+  }
+
+  /// Register an explicit last private variable
+  /// Return true if successfully consumed.
+  bool visitLastPrivate(const LastprivateItem *Item) {
+    Type *Type = nullptr;
+    Value *NumElements = nullptr;
+    std::tie(Type, NumElements, /* AddrSpace */ std::ignore) =
+        VPOParoptUtils::getItemInfo(Item);
+    assert(Type && "Missed OMP clause item type!");
+
+    Type = adjustTypeIfArray(Type, NumElements);
+    if (!Type)
+      return bailout(BailoutReason::ArrayPrivate);
+
+    ValueTy *Val = Item->getOrig<IR>();
+
+    if (Item->getIsNonPod()) {
+      if (isa<ArrayType>(Type) || NumElements)
+        return bailout(BailoutReason::ArrayLastprivateNonPod);
+      addLoopPrivate(Val, Type, Item->getConstructor(), Item->getDestructor(),
+                     Item->getCopyAssign(), PrivateKindTy::Last);
+      return true;
+    }
+
+    addLoopPrivate(Val, Type,
+                   Item->getIsConditional() ? PrivateKindTy::Conditional
+                                            : PrivateKindTy::Last);
+    return true;
+  }
+
+  /// Register explicit linear variable
+  void visitLinear(const LinearItem *Item) {
+    Type *Type = nullptr;
+    Value *NumElements = nullptr;
+    std::tie(Type, NumElements, /* AddrSpace */ std::ignore) =
+        VPOParoptUtils::getItemInfo(Item);
+    assert(Type && "Missed OMP clause item type!");
+
+    // NumElements == nullptr by convention means the number is 1.
+    // Arrays are not allowed by OMP standard thus any values including
+    // a constant are illegal for linears.
+    assert(!isa<ArrayType>(Type) && !NumElements &&
+           "Unexpected number of elements");
+
+    ValueTy *Val = Item->getOrig<IR>();
+    ValueTy *Step = Item->getStep<IR>();
+    addLinear(Val, Type, Step);
+  }
+
+  /// Register explicit reduction variable
+  /// Return true if successfully consumed.
+  bool visitReduction(const ReductionItem *Item) {
+    if (!forceComplexTyReductionVec() && Item->getIsComplex())
+      return bailout(BailoutReason::ComplexTyReduction);
+
+    Type *Type = nullptr;
+    Value *NumElements = nullptr;
+    std::tie(Type, NumElements, /* AddrSpace */ std::ignore) =
+        VPOParoptUtils::getItemInfo(Item);
+    assert(Type && "Missed OMP clause item type!");
+
+    if (isa<ArrayType>(Type) || NumElements)
+      return bailout(BailoutReason::ArrayReduction);
+
+    ValueTy *Val = Item->getOrig<IR>();
+    RecurKind Kind = getReductionRecurKind(Item, Type);
+    addReduction(Val, Kind);
+    return true;
+  }
+
+  // Set of thunks to a parent methods
+  bool bailout(BailoutReason Code) {
+    return static_cast<LegalityTy *>(this)->bailout(Code);
+  }
+
+  void addLoopPrivate(ValueTy *Val, Type *Ty, Function *Constr, Function *Destr,
+                      Function *CopyAssign, PrivateKindTy Kind) {
+    return static_cast<LegalityTy *>(this)->addLoopPrivate(
+        Val, Ty, Constr, Destr, CopyAssign, Kind);
+  }
+
+  void addLoopPrivate(ValueTy *Val, Type *Ty, PrivateKindTy Kind) {
+    return static_cast<LegalityTy *>(this)->addLoopPrivate(Val, Ty, Kind);
+  }
+
+  void addLinear(ValueTy *Val, Type *Ty, ValueTy *Step) {
+    return static_cast<LegalityTy *>(this)->addLinear(Val, Ty, Step);
+  }
+
+  void addReduction(ValueTy *V, RecurKind Kind) {
+    return static_cast<LegalityTy *>(this)->addReduction(V, Kind);
+  }
+};
+
+class VPOVectorizationLegality final
+    : public VectorizationLegalityBase<VPOVectorizationLegality> {
+  // Explicit vpo:: to workaround gcc bug
+  // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52625
+  template <typename LegalityTy> friend class vpo::VectorizationLegalityBase;
+
 public:
   VPOVectorizationLegality(Loop *L, PredicatedScalarEvolution &PSE, Function *F)
       : TheLoop(L), PSE(PSE), Induction(nullptr), WidestIndTy(nullptr) {}
 
   /// Returns true if it is legal to vectorize this loop.
-  bool canVectorize(DominatorTree &DT, const CallInst *RegionEntry);
+  bool canVectorize(DominatorTree &DT, const WRNVecLoopNode *WRLp);
 
   using DescrValueTy = DescrValue<Value>;
   using DescrWithAliasesTy = DescrWithAliases<Value>;
   using PrivDescrTy = PrivDescr<Value>;
   using PrivDescrNonPODTy = PrivDescrNonPOD<Value>;
-  using PrivateKindTy = PrivDescrTy::PrivateKind;
 
   /// Container-class for storing the different types of Privates
   using PrivatesListTy = MapVector<const Value *, std::unique_ptr<PrivDescrTy>>;
@@ -68,8 +373,9 @@ public:
   using InductionList = MapVector<PHINode *, InductionDescriptor>;
 
   /// Linear list contains explicit linear specifications, mapping linear values
-  /// and their strides.
-  using LinearListTy = MapVector<Value *, int>;
+  /// to their strides and a type of the linear.
+  using LinearListTy =
+      MapVector<Value *, std::pair<Type * /*EltType*/, int /*Step*/>>;
 
   /// Returns the Induction variable.
   PHINode *getInduction() { return Induction; }
@@ -108,9 +414,6 @@ public:
   /// Returns True if V is an induction variable in this loop.
   bool isInductionVariable(const Value *V);
 
-  /// Returns true if the value \p V is loop invariant.
-  bool isLoopInvariant(Value *V);
-
   /// Returns True if PN is a reduction variable in this loop.
   bool isReductionVariable(PHINode *PN) const {
     return ExplicitReductions.count(PN) || Reductions.count(PN);
@@ -136,11 +439,6 @@ public:
 
   /// Returns the widest induction type.
   Type *getWidestInductionType() { return WidestIndTy; }
-
-  void setIsSimdFlag() { IsSimdLoop = true; }
-
-  bool hasComplexTyReduction() { return HasComplexTyReduction; }
-  void setHasComplexTyReduction() { HasComplexTyReduction = true; }
 
 private:
   /// The loop that we evaluate.
@@ -182,22 +480,7 @@ private:
   /// Map of pointer values and stride
   DenseMap<Value *, int> PtrStrides;
 
-  /// Set of loop invariants - currently only GEP operands and select condition
-  /// are checked for invariance.
-  SmallPtrSet<Value *, 8> LoopInvariants;
-
-  /// Map of linear items in original loop and the scalar linear item in the
-  /// vector loop along with linear Step. This map is maintained only for
-  /// step values 1 and -1 and is used to generate unit-stride loads/stores
-  /// when possible
-  std::map<Value *, std::pair<Value *, int>> UnitStepLinears;
-
   bool IsSimdLoop = false;
-
-  bool HasF90DopeVectorPrivate = false;
-  bool HasF90DopeVectorReduction = false;
-
-  bool HasComplexTyReduction = false;
 
 public:
   /// Add stride information for pointer \p Ptr.
@@ -209,38 +492,6 @@ public:
   // Used for a temporary solution of teaching legality based on DA.
   void erasePtrStride(Value *Ptr) { PtrStrides.erase(Ptr); }
 
-  /// Add an in memory non-POD private to the vector of private values.
-  void addLoopPrivate(Value *PrivVal, Function *Constr, Function *Destr,
-                      Function *CopyAssign, bool IsLast = false) {
-    PrivateKindTy Kind = PrivateKindTy::NonLast;
-    if (IsLast)
-      Kind = PrivateKindTy::Last;
-    std::unique_ptr<PrivDescrNonPODTy> PrivItem =
-        std::make_unique<PrivDescrNonPODTy>(PrivVal, Kind, Constr, Destr,
-                                            CopyAssign);
-    Privates.insert({PrivVal, std::move(PrivItem)});
-  }
-
-  /// Add an in memory POD private to the vector of private values.
-  void addLoopPrivate(Value *PrivVal, bool IsF90DopeVector, bool IsLast = false,
-                      bool IsConditional = false) {
-    PrivateKindTy Kind = PrivateKindTy::NonLast;
-    if (IsLast)
-      Kind = PrivateKindTy::Last;
-    if (IsConditional)
-      Kind = PrivateKindTy::Conditional;
-    std::unique_ptr<PrivDescrTy> PrivItem =
-        std::make_unique<PrivDescrTy>(PrivVal, Kind);
-    Privates.insert({PrivVal, std::move(PrivItem)});
-
-    if (IsF90DopeVector)
-      HasF90DopeVectorPrivate = true;
-  }
-
-  /// Register explicit reduction variables provided from outside by finding
-  /// pattern inside the loop for matching the explicit reduction variable \p V.
-  void addReduction(Value *V, RecurKind Kind, bool IsF90DopeVector);
-
   bool isExplicitReductionPhi(PHINode *Phi);
 
   // Return True if the specified value \p Val is reduction variable that
@@ -250,42 +501,8 @@ public:
   // Return true if the specified value \p Val is private.
   bool isLoopPrivate(Value *Val) const;
 
-  // Return true if the specified value \p Val is private.
-  bool isLoopPrivateAggregate(Value *Val) const;
-
-  // Return True if the specified value \p Val is (unconditional) last private.
-  bool isLastPrivate(Value *Val) const;
-
-  // Return True if the specified value \p Val is conditional last private.
-  bool isCondLastPrivate(Value *Val) const;
-
-  // Add linear value to Linears map
-  void addLinear(Value *LinearVal, Value *StepValue) {
-    assert(isa<ConstantInt>(StepValue) &&
-           "Non constant LINEAR step is not yet supported");
-    ConstantInt *CI = cast<ConstantInt>(StepValue);
-    int Step = *((CI->getValue()).getRawData());
-    Linears[LinearVal] = Step;
-  }
-
-  // Add unit step linear value to UnitStepLinears map
-  void addUnitStepLinear(Value *LinearVal, Value *NewVal, int Step) {
-    UnitStepLinears[LinearVal] = std::make_pair(NewVal, Step);
-  }
-
-  // Return true if \p Val is a linear and return linear step in \p Step if
-  // non-null
-  bool isLinear(Value *Val, int *Step = nullptr);
-
-  // Return true if \p Val is a unit step linear item and return linear step in
-  // \p Step if non-null and New scalar value in NewScal if non-null
-  bool isUnitStepLinear(Value *Val, int *Step = nullptr,
-                        Value **NewScal = nullptr);
-
   // Return pointer to Linears map
-  LinearListTy *getLinears() {
-    return &Linears;
-  }
+  LinearListTy *getLinears() { return &Linears; }
 
   // Analyze all instruction between the SIMD clause and the loop to identify
   // any aliasing variables to the explicit SIMD descriptors.
@@ -306,34 +523,24 @@ public:
 
   // Return the iterator-range to the list of privates loop-entities values.
   inline decltype(auto) privateVals() const {
-    return map_range(make_range(Privates.begin(), Privates.end()),
-                     [](auto &PrivatePair) { return PrivatePair.first; });
+    return make_first_range(Privates);
   }
 
   // Return the iterator-range to the list of explicit reduction variables which
   // are of 'Pointer Type'.
   inline decltype(auto) explicitReductionVals() const {
-    return map_range(
-        make_filter_range(
-            make_range(ExplicitReductions.begin(), ExplicitReductions.end()),
-            [](auto &PHIRecDesc) {
-              return isa<PointerType>(PHIRecDesc.second.second->getType());
-            }),
-        [](auto &PHIRecDesc) { return PHIRecDesc.second.second; });
+    return make_filter_range(
+        make_second_range(make_second_range(ExplicitReductions)),
+        [](auto *Val) { return Val->getType()->isPointerTy(); });
   }
 
   // Return the iterator-range to the list of in-memory reduction variables.
   inline decltype(auto) inMemoryReductionVals() const {
-    return map_range(
-        make_range(InMemoryReductions.begin(), InMemoryReductions.end()),
-        [](auto &ValRecDesc) { return ValRecDesc.first; });
+    return make_first_range(InMemoryReductions);
   }
 
   // Return the iterator-range to the list of 'linear' variables.
-  inline decltype(auto) linearVals() const {
-    return map_range(make_range(Linears.begin(), Linears.end()),
-                     [](auto &LinearStepPair) { return LinearStepPair.first; });
-  }
+  inline decltype(auto) linearVals() const { return make_first_range(Linears); }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS) const;
@@ -341,6 +548,34 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
+  /// Reports a reason for vectorization bailout. Always returns false.
+  bool bailout(BailoutReason Code);
+
+  /// Add an in memory non-POD private to the vector of private values.
+  void addLoopPrivate(Value *PrivVal, Type *PrivTy, Function *Constr,
+                      Function *Destr, Function *CopyAssign,
+                      PrivateKindTy Kind) {
+    Privates.insert(
+        {PrivVal, std::make_unique<PrivDescrNonPODTy>(
+                      PrivVal, PrivTy, Kind, Constr, Destr, CopyAssign)});
+  }
+
+  /// Add an in memory POD private to the vector of private values.
+  void addLoopPrivate(Value *PrivVal, Type *PrivTy, PrivateKindTy Kind) {
+    Privates.insert(
+        {PrivVal, std::make_unique<PrivDescrTy>(PrivVal, PrivTy, Kind)});
+  }
+
+  /// Add linear value to Linears map
+  void addLinear(Value *LinearVal, Type *EltTy, Value *StepValue) {
+    ConstantInt *CI = cast<ConstantInt>(StepValue);
+    int Step = *((CI->getValue()).getRawData());
+    Linears[LinearVal] = std::make_pair(EltTy, Step);
+  }
+
+  /// Add an explicit reduction variable \p V and the reduction recurrence kind.
+  void addReduction(Value *V, RecurKind Kind);
+
   /// Parsing Min/Max reduction patterns.
   void parseMinMaxReduction(Value *V, RecurKind Kind);
   /// Parsing arithmetic reduction patterns.
@@ -359,6 +594,11 @@ private:
   /// Return operand of the \p Phi which is live-out. Live out phi or
   /// a Recurrence phi is expected.
   const Instruction *getLiveOutPhiOperand(const PHINode *Phi) const;
+  Instruction *getLiveOutPhiOperand(PHINode *Phi) const {
+    return const_cast<Instruction *>(
+        // std::as_const is C++17.
+        getLiveOutPhiOperand(const_cast<const PHINode *>(Phi)));
+  }
 
   /// Check whether Phi can be private or private alias, update private
   /// descriptor and return true if so. Otherwise return false. Live out phi or
@@ -380,13 +620,12 @@ private:
   template <typename LoopEntitiesRange>
   bool isEntityAliasingSafe(
       const LoopEntitiesRange &LERange,
-      std::function<bool(const Instruction *)> IsAliasInRelevantScope);
+      function_ref<bool(const Instruction *)> IsAliasInRelevantScope);
 
   /// Utility function to check whether given Instruction is end directive of
   /// OMP.SIMD directive.
   bool isEndDirective(Instruction *I) const;
 };
-
 } // namespace vpo
 } // namespace llvm
 

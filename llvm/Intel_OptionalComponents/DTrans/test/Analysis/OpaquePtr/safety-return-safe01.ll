@@ -13,6 +13,7 @@ define "intel_dtrans_func_index"="1" %struct.test01* @test1(%struct.test01* "int
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Test with return of null pointer.
@@ -23,6 +24,7 @@ define "intel_dtrans_func_index"="1" %struct.test02* @test2() !intel.dtrans.func
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test02
 
 
 ; Return an i64 type that does not represent a pointer to a
@@ -36,6 +38,7 @@ define i64 @test3(%struct.test03* "intel_dtrans_func_index"="1" %pStruct) !intel
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test03
 
 
 !1 = !{i32 0, i32 0}  ; i32

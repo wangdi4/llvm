@@ -1,7 +1,6 @@
-//===-- Intel_StdContainerOpt.cpp - Std Container Optimization implementation
-//-===//
+// Intel_StdContainerOpt.cpp - Std Container Optimization implementation
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -32,7 +31,7 @@
 //
 // Finally, we walk the use chain for each load instruction, propogating the
 // clique sets to load, store, GEP, PHINode and IntToPtr instructions and
-// their users. 
+// their users.
 //
 // Here is one example.
 //
@@ -48,19 +47,18 @@
 //  %cmp.i33 = icmp eq i32* %ita.sroa.0.0, %3
 //  br i1 %cmp.i33, label %for.end21, label %for.body
 //
-//for.body:                                         ; preds = %for.cond
+// for.body:                                         ; preds = %for.cond
 //  %4 = call i32** @llvm.intel.std.container.ptr.iter.p0p0i32(i32** nonnull getelementptr inbounds (%"class.std::vector", %"class.std::vector"* @myvector, i64 0, i32 0, i32 0, i32 0)) #2
 //  %5 = load i32*, i32** %4, align 8, !tbaa !10
 //  br label %for.cond8
-//
-//for.cond8:                                        ; preds = %for.body13, %for.body
+// for.cond8:                                        ; preds = %for.body13, %for.body
 //  %it.sroa.0.0 = phi i32* [ %5, %for.body ], [ %incdec.ptr.i26, %for.body13 ]
 //  %6 = call i32** @llvm.intel.std.container.ptr.iter.p0p0i32(i32** nonnull getelementptr inbounds (%"class.std::vector", %"class.std::vector"* @myvector, i64 0, i32 0, i32 0, i32 1)) #2
 //  %7 = load i32*, i32** %6, align 8, !tbaa !10
 //  %cmp.i = icmp eq i32* %it.sroa.0.0, %7
 //  br i1 %cmp.i, label %for.inc19, label %for.body13
 //
-//for.body13:                                       ; preds = %for.cond8
+// for.body13:                                       ; preds = %for.cond8
 //  %8 = load i32, i32* %it.sroa.0.0, align 4, !tbaa !11
 //  %9 = load i32, i32* %ita.sroa.0.0, align 4, !tbaa !11
 //  %mul = mul nsw i32 %9, %8
@@ -69,36 +67,36 @@
 //  %incdec.ptr.i26 = getelementptr inbounds i32, i32* %it.sroa.0.0, i64 1
 //  br label %for.cond8
 //
-//for.inc19:                                        ; preds = %for.cond8
+// for.inc19:                                        ; preds = %for.cond8
 //  %incdec.ptr.i = getelementptr inbounds i32, i32* %ita.sroa.0.0, i64 1
 //  br label %for.cond
 //
-//for.end21:                                        ; preds = %for.cond
+// for.end21:                                        ; preds = %for.cond
 //  ret void
 //
 //  *** IR Dump After StdContainerOpt ***
 //
-//entry:
+// entry:
 //  %0 = load i32*, i32** getelementptr inbounds (%"class.std::vector", %"class.std::vector"* @myvector2, i64 0, i32 0, i32 0, i32 0), align 8, !tbaa !7, !std.container.ptr.iter !8
 //  br label %for.cond
 //
-//for.cond:                                         ; preds = %for.inc19, %entry
+// for.cond:                                         ; preds = %for.inc19, %entry
 //  %ita.sroa.0.0 = phi i32* [ %0, %entry ], [ %incdec.ptr.i, %for.inc19 ]
 //  %1 = load i32*, i32** getelementptr inbounds (%"class.std::vector", %"class.std::vector"* @myvector2, i64 0, i32 0, i32 0, i32 1), align 8, !tbaa !7, !std.container.ptr.iter !8
 //  %cmp.i33 = icmp eq i32* %ita.sroa.0.0, %1
 //  br i1 %cmp.i33, label %for.end21, label %for.body
 //
-//for.body:                                         ; preds = %for.cond
+// for.body:                                         ; preds = %for.cond
 //  %2 = load i32*, i32** getelementptr inbounds (%"class.std::vector", %"class.std::vector"* @myvector, i64 0, i32 0, i32 0, i32 0), align 8, !tbaa !7, !std.container.ptr.iter !9
 //  br label %for.cond8
 //
-//for.cond8:                                        ; preds = %for.body13, %for.body
+// for.cond8:                                        ; preds = %for.body13, %for.body
 //  %it.sroa.0.0 = phi i32* [ %2, %for.body ], [ %incdec.ptr.i26, %for.body13 ]
 //  %3 = load i32*, i32** getelementptr inbounds (%"class.std::vector", %"class.std::vector"* @myvector, i64 0, i32 0, i32 0, i32 1), align 8, !tbaa !7, !std.container.ptr.iter !9
 //  %cmp.i = icmp eq i32* %it.sroa.0.0, %3
 //  br i1 %cmp.i, label %for.inc19, label %for.body13
 //
-//for.body13:                                       ; preds = %for.cond8
+// for.body13:                                       ; preds = %for.cond8
 //  %4 = load i32, i32* %it.sroa.0.0, align 4, !tbaa !10, !std.container.ptr.iter !9
 //  %5 = load i32, i32* %ita.sroa.0.0, align 4, !tbaa !10, !std.container.ptr.iter !8
 //  %mul = mul nsw i32 %5, %4
@@ -107,11 +105,11 @@
 //  %incdec.ptr.i26 = getelementptr inbounds i32, i32* %it.sroa.0.0, i64 1
 //  br label %for.cond8
 //
-//for.inc19:                                        ; preds = %for.cond8
+// for.inc19:                                        ; preds = %for.cond8
 //  %incdec.ptr.i = getelementptr inbounds i32, i32* %ita.sroa.0.0, i64 1
 //  br label %for.cond
 //
-//for.end21:                                        ; preds = %for.cond
+// for.end21:                                        ; preds = %for.cond
 //  ret void
 //
 //
@@ -123,9 +121,11 @@
 #include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/IR/Value.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -137,7 +137,7 @@ using namespace llvm;
 
 #define DEBUG_TYPE "std-container-opt"
 
-namespace {
+namespace intel_std_container_opt {
 class BitMatrix {
 private:
   BitVector BV;
@@ -174,23 +174,12 @@ public:
   }
 };
 
-struct StdContainerOpt : public FunctionPass,
-                         public InstVisitor<StdContainerOpt> {
+class StdContainerOpt : public InstVisitor<StdContainerOpt> {
 public:
-  static char ID;
-  StdContainerOpt() : FunctionPass(ID) {
-    initializeStdContainerOptPass(*PassRegistry::getPassRegistry());
-  }
-  bool runOnFunction(Function &F) override;
+  StdContainerOpt(AliasAnalysis *AA, const DataLayout *DL) : AA(AA), DL(DL) {}
   void visitInstruction(Instruction &I) { return; }
   void visitIntrinsicInst(IntrinsicInst &II);
-  StringRef getPassName() const override { return "StdContainerOpt"; }
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesCFG();
-    AU.addRequired<AAResultsWrapperPass>();
-    AU.addPreserved<GlobalsAAWrapperPass>();
-  }
-  void setStdContainPtrMD();
+  bool setStdContainPtrMD();
   void initAliasMatrix(std::vector<Instruction *> &Insns, unsigned KindID);
   void calculateClique(std::vector<Instruction *> &Insns, unsigned KindID);
   void formClique(BitVector &C, int Col, int Row, class BitMatrix &CM);
@@ -199,6 +188,7 @@ public:
   void propMD(std::vector<Instruction *> &Insns, unsigned KindID);
   void propMDForInsn(Value *V, unsigned KindID, MDNode *MD,
                      SmallPtrSetImpl<const PHINode *> &PhiUsers);
+  bool run(Function &F);
 
 private:
   friend class InstVisitor<StdContainerOpt>;
@@ -208,45 +198,6 @@ private:
   AliasAnalysis *AA;
   const DataLayout *DL;
 };
-}
-char StdContainerOpt::ID = 0;
-INITIALIZE_PASS_BEGIN(StdContainerOpt, "std-container-opt",
-                      "Propagate the TbaaMD through intrinsic", false, false)
-INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
-INITIALIZE_PASS_END(StdContainerOpt, "std-container-opt",
-                    "Propagate the TbaaMD through intrinsic", false, false)
-
-FunctionPass *llvm::createStdContainerOptPass() {
-  return new StdContainerOpt();
-}
-
-PreservedAnalyses StdContainerOptPass::run(Function &F,
-                                           FunctionAnalysisManager &AM) {
-  auto PA = PreservedAnalyses();
-  PA.preserve<GlobalsAA>();
-  return PA;
-}
-
-bool StdContainerOpt::runOnFunction(Function &F) {
-  AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
-  DL = &(F.getParent()->getDataLayout());
-  ContainerPtrIterInsns.clear();
-  ContainerPtrInsns.clear();
-
-  for (BasicBlock &BB : F) {
-    for (auto II = BB.begin(), IE = BB.end(); II != IE;) {
-      // The call to visit() may erase the instruction, so we need to
-      // increment the iterator here before we visit.
-      Instruction &I = *II;
-      ++II;
-      visit(&I);
-    }
-  }
-
-  setStdContainPtrMD();
-
-  return false;
-}
 
 // The metadata std.container.ptr and std.cotnainer.ptr.iter is propagated
 // along the refernce SSA chain.
@@ -373,13 +324,15 @@ void StdContainerOpt::formClique(BitVector &C, int Col, int Row,
   C.set(Row);
 }
 
-void StdContainerOpt::setStdContainPtrMD() {
+bool StdContainerOpt::setStdContainPtrMD() {
+  bool changed = !ContainerPtrIterInsns.empty();
   initAliasMatrix(ContainerPtrIterInsns,
                   LLVMContext::MD_std_container_ptr_iter);
   calculateClique(ContainerPtrIterInsns,
                   LLVMContext::MD_std_container_ptr_iter);
   initAliasMatrix(ContainerPtrInsns, LLVMContext::MD_std_container_ptr);
   calculateClique(ContainerPtrInsns, LLVMContext::MD_std_container_ptr);
+  return changed;
 }
 
 // Build an alias matrix based on the baiscAA for the load/store's 
@@ -403,11 +356,11 @@ void StdContainerOpt::initAliasMatrix(std::vector<Instruction *> &Insns,
           BM.bitSet(J, I);
       } else {
         uint64_t I1Size = MemoryLocation::UnknownSize;
-        Type *I1ElTy = cast<PointerType>(V1->getType())->getElementType();
+        Type *I1ElTy = LIA->getType();
         if (I1ElTy->isSized())
           I1Size = DL->getTypeStoreSize(I1ElTy);
         uint64_t I2Size = MemoryLocation::UnknownSize;
-        Type *I2ElTy = cast<PointerType>(V2->getType())->getElementType();
+        Type *I2ElTy = LIB->getType();
         if (I2ElTy->isSized())
           I2Size = DL->getTypeStoreSize(I2ElTy);
         if (!AA->isNoAlias(V1, I1Size, V2, I2Size))
@@ -437,3 +390,68 @@ void StdContainerOpt::visitIntrinsicInst(IntrinsicInst &II) {
   II.replaceAllUsesWith(V);
   II.eraseFromParent();
 }
+
+bool StdContainerOpt::run(Function &F) {
+  ContainerPtrIterInsns.clear();
+  ContainerPtrInsns.clear();
+
+  for (Instruction &I : llvm::make_early_inc_range(instructions(F)))
+    visit(&I);
+
+  return setStdContainPtrMD();
+}
+
+} // namespace intel_std_container_opt
+
+// New PM pass code
+
+PreservedAnalyses llvm::StdContainerOptPass::run(Function &F,
+                                                 FunctionAnalysisManager &AM) {
+  auto *AA = &(AM.getResult<AAManager>(F));
+  auto *DL = &(F.getParent()->getDataLayout());
+
+  // the actual implementation
+  intel_std_container_opt::StdContainerOpt(AA, DL).run(F);
+  // This adds MD only, no analysis impact
+  return PreservedAnalyses::all();
+}
+
+// Old PM pass code
+
+class StdContainerOptLegacyPass : public FunctionPass {
+public:
+  static char ID;
+  StdContainerOptLegacyPass() : FunctionPass(ID) {
+    initializeStdContainerOptLegacyPassPass(*PassRegistry::getPassRegistry());
+  }
+
+  bool runOnFunction(Function &F) override {
+    if (skipFunction(F))
+      return false;
+
+    auto *AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
+    auto *DL = &(F.getParent()->getDataLayout());
+    // the actual implementation
+    return intel_std_container_opt::StdContainerOpt(AA, DL).run(F);
+  }
+
+  StringRef getPassName() const override { return "StdContainerOpt"; }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<AAResultsWrapperPass>();
+    // This adds MD only, no analysis impact
+    AU.setPreservesAll();
+  }
+};
+
+char StdContainerOptLegacyPass::ID = 0;
+
+FunctionPass *llvm::createStdContainerOptPass() {
+  return new StdContainerOptLegacyPass();
+}
+
+INITIALIZE_PASS_BEGIN(StdContainerOptLegacyPass, "std-container-opt",
+                      "Propagate the TbaaMD through intrinsic", false, false)
+INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
+INITIALIZE_PASS_END(StdContainerOptLegacyPass, "std-container-opt",
+                    "Propagate the TbaaMD through intrinsic", false, false)

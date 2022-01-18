@@ -52,6 +52,9 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/AliasAnalysis.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/CFG.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
@@ -134,6 +137,11 @@ class ShrinkWrap : public MachineFunctionPass {
   // Emit remarks.
   MachineOptimizationRemarkEmitter *ORE = nullptr;
 
+#if INTEL_CUSTOMIZATION
+  /// Alias analysis used to determine whether a load/store is on the frame.
+  AAResults *AA = nullptr;
+#endif // INTEL_CUSTOMIZATION
+
   /// Frequency of the Entry block.
   uint64_t EntryFreq;
 
@@ -194,6 +202,9 @@ class ShrinkWrap : public MachineFunctionPass {
     MBFI = &getAnalysis<MachineBlockFrequencyInfo>();
     MLI = &getAnalysis<MachineLoopInfo>();
     ORE = &getAnalysis<MachineOptimizationRemarkEmitterPass>().getORE();
+#if INTEL_CUSTOMIZATION
+    AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
+#endif // INTEL_CUSTOMIZATION
     EntryFreq = MBFI->getEntryFreq();
     const TargetSubtargetInfo &Subtarget = MF.getSubtarget();
     const TargetInstrInfo &TII = *Subtarget.getInstrInfo();
@@ -228,6 +239,9 @@ public:
     AU.addRequired<MachinePostDominatorTree>();
     AU.addRequired<MachineLoopInfo>();
     AU.addRequired<MachineOptimizationRemarkEmitterPass>();
+#if INTEL_CUSTOMIZATION
+    AU.addRequired<AAResultsWrapperPass>();
+#endif // INTEL_CUSTOMIZATION
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 
@@ -255,6 +269,9 @@ INITIALIZE_PASS_DEPENDENCY(MachineDominatorTree)
 INITIALIZE_PASS_DEPENDENCY(MachinePostDominatorTree)
 INITIALIZE_PASS_DEPENDENCY(MachineLoopInfo)
 INITIALIZE_PASS_DEPENDENCY(MachineOptimizationRemarkEmitterPass)
+#if INTEL_CUSTOMIZATION
+INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
+#endif // INTEL_CUSTOMIZATION
 INITIALIZE_PASS_END(ShrinkWrap, DEBUG_TYPE, "Shrink Wrap Pass", false, false)
 
 bool ShrinkWrap::useOrDefCSROrFI(const MachineInstr &MI,
@@ -265,8 +282,25 @@ bool ShrinkWrap::useOrDefCSROrFI(const MachineInstr &MI,
   //         are known to not access the stack.
   //       - Further, data dependency and alias analysis can validate
   //         that load and stores never derive from the stack pointer.
-  if (MI.mayLoadOrStore())
-    return true;
+#if INTEL_CUSTOMIZATION
+  if (MI.mayLoadOrStore()) {
+    // Give up on InlineAsm since we can't extract MachineMemOperand from it for
+    // analysis,
+    if (MI.isInlineAsm())
+      return true;
+    // We can be sure that access to constant memory doesn't touch the stack.
+    for (MachineMemOperand *MMO : MI.memoperands()) {
+      if (const PseudoSourceValue *PSV = MMO->getPseudoValue())
+        if (PSV->isGOT() || PSV->isConstantPool() || PSV->isJumpTable())
+          continue;
+      if (const Value *V = MMO->getValue())
+        if (AA->pointsToConstantMemory(
+                MemoryLocation(V, MMO->getSize(), MMO->getAAInfo())))
+          continue;
+      return true;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (MI.getOpcode() == FrameSetupOpcode ||
       MI.getOpcode() == FrameDestroyOpcode) {

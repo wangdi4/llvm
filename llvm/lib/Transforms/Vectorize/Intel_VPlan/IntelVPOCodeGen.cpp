@@ -49,25 +49,10 @@ static void addBlockToParentLoop(Loop *L, BasicBlock *BB, LoopInfo &LI) {
     ParentLoop->addBasicBlockToLoop(BB, LI);
 }
 
-// TODO: Consolidate and move this function to a IntelVPlanUtils.h
-static bool LLVM_ATTRIBUTE_UNUSED isScalarPointeeTy(const VPValue *Val) {
-  assert(isa<PointerType>(Val->getType()) &&
-         "Expect a pointer-type argument to isScalarPointeeTy function.");
-  Type *PointeeTy = Val->getType()->getPointerElementType();
-  return (!(PointeeTy->isAggregateType() || PointeeTy->isVectorTy() ||
-            PointeeTy->isPointerTy()));
-}
-
-/// Helper function that returns widened type of given type \p VPInstTy.
-static Type *getVPInstVectorType(Type *VPInstTy, unsigned VF) {
-  auto *VPInstVecTy = dyn_cast<VectorType>(VPInstTy);
-  unsigned NumElts = VPInstVecTy ? VPInstVecTy->getNumElements() * VF : VF;
-  return FixedVectorType::get(VPInstTy->getScalarType(), NumElts);
-}
-
 /// Return true if \p Var a variable identified for SOA-layout.
 static bool isSOAAccess(const VPValue *Var, const VPlanVector *Plan) {
-  return Plan->getVPlanDA()->isSOAShape(Var);
+  return Plan->getVPlanDA()->isSOAShape(Var) ||
+         Plan->getVPlanDA()->hasBeenSOAConverted(Var);
 }
 
 /// Return true if \p Var has a SOA unit-stride access.
@@ -190,6 +175,8 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
   } else if (VPInst->getOpcode() == Instruction::Call) {
     assert(Ops.size() > 0 &&
            "Call VPInstruction should have atleast one operand.");
+    auto *VPCall = cast<VPCallInstruction>(VPInst);
+
     if (auto *ScalarF = dyn_cast<Function>(Ops.back())) {
       Ops = Ops.drop_back();
       if (ScalarF->getIntrinsicID() == Intrinsic::assume) {
@@ -214,16 +201,9 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
       Value *FuncPtr = Ops.back();
       Ops = Ops.drop_back();
 
-      Type *FuncPtrTy = FuncPtr->getType();
-      assert(isa<PointerType>(FuncPtrTy) &&
-             "Function pointer operand is not pointer type.");
-      auto *FT = cast<FunctionType>(
-          cast<PointerType>(FuncPtrTy)->getPointerElementType());
-
-      SerialInst = Builder.CreateCall(FT, FuncPtr, Ops);
+      SerialInst = Builder.CreateCall(VPCall->getFunctionType(), FuncPtr, Ops);
     }
     auto *SerialCall = cast<CallInst>(SerialInst);
-    auto *VPCall = cast<VPCallInstruction>(VPInst);
     SerialCall->setCallingConv(VPCall->getOrigCallingConv());
     SerialCall->setAttributes(VPCall->getOrigCallAttrs());
     SerialCall->setTailCall(VPCall->isOrigTailCall());
@@ -234,11 +214,14 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     Ops = Ops.drop_front();
 
     Type *SourceElementType = VPGEP->getSourceElementType();
-    if (!VPGEP->isOpaque())
-      // FIXME: SOA transformation cuts lots of corners and doesn't preserve
-      // consistency in SourceElementType.
+    // TODO: SOAMemRef transformations needs to be updated to correctly set
+    // SourceElementType which can then be used here.
+    if (!VPGEP->isOpaque()) {
       SourceElementType =
           GepBasePtr->getType()->getScalarType()->getPointerElementType();
+    } else if (isSOAAccess(VPGEP, Plan)) {
+      SourceElementType = getSOAType(SourceElementType, VF);
+    }
 
     if (VPGEP->isInBounds())
       SerialInst =
@@ -258,12 +241,12 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     SerialInst = Builder.CreateExtractElement(Ops[0], Ops[1]);
   } else if (VPInst->getOpcode() == Instruction::Alloca) {
     assert(Ops.size() == 1 && "Alloca instruction should have one operand.");
-    auto *Ty = cast<PointerType>(VPInst->getType());
-    AllocaInst *SerialAlloca = Builder.CreateAlloca(
-        Ty->getElementType(), Ty->getAddressSpace(), Ops[0]);
     // TODO: We don't represent alloca attributes in VPInstruction, so
     // underlying instruction must exist!
     auto *OrigAlloca = cast<AllocaInst>(VPInst->getUnderlyingValue());
+    AllocaInst *SerialAlloca = Builder.CreateAlloca(
+        OrigAlloca->getAllocatedType(),
+        cast<PointerType>(VPInst->getType())->getAddressSpace(), Ops[0]);
     SerialAlloca->setAlignment(OrigAlloca->getAlign());
     SerialAlloca->setUsedWithInAlloca(OrigAlloca->isUsedWithInAlloca());
     SerialAlloca->setSwiftError(OrigAlloca->isSwiftError());
@@ -337,9 +320,19 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
              VPInst->getOpcode() == Instruction::AddrSpaceCast) {
     assert(Ops.size() == 1 &&
            "BitCast/AddrspaceCast should have only one operand.");
+    Type *DestTy = VPInst->getType();
+    // Cast's destination type on operands with SOA accesses need to be set up
+    // with correct type.
+    if (isSOAAccess(VPInst, Plan)) {
+      auto *DestPtrTy = cast<PointerType>(DestTy);
+      if (!DestPtrTy->isOpaque()) {
+        Type *ElemTy = DestPtrTy->getElementType();
+        DestTy = PointerType::get(getSOAType(ElemTy, VF),
+                                  DestPtrTy->getAddressSpace());
+      }
+    }
     SerialInst = Builder.CreateCast(
-        static_cast<Instruction::CastOps>(VPInst->getOpcode()), Ops[0],
-        VPInst->getType());
+        static_cast<Instruction::CastOps>(VPInst->getOpcode()), Ops[0], DestTy);
   } else if (VPInst->getOpcode() == Instruction::PHI) {
     assert(Ops.size() == 0 && "No operands expected for serialized PHIs.");
     SerialInst = Builder.CreatePHI(VPInst->getType(), VPInst->getNumOperands(),
@@ -377,12 +370,13 @@ void VPOCodeGen::emitVectorLoopEnteredCheck(Loop *L, BasicBlock *Bypass) {
 
   // Generate code to check that the loop's trip count that we computed by
   // adding one to the backedge-taken count will not overflow.
-  BasicBlock *NewBB = BB->splitBasicBlock(BB->getTerminator(), "vector.ph");
-  // Update dominator tree immediately if the generated block is a
-  // LoopBypassBlock because SCEV expansions to generate loop bypass
-  // checks may query it before the current function is finished.
-  DT->addNewBlock(NewBB, BB);
-  addBlockToParentLoop(L, NewBB, *LI);
+
+  // Update dominator tree immediately (i.e. not using delayed DomTreeUpdater)
+  // if the generated block is a LoopBypassBlock because SCEV expansions to
+  // generate loop bypass checks may query it before the current function is
+  // finished.
+  BasicBlock *NewBB = SplitBlock(BB, BB->getTerminator(), DT, LI,
+                                 nullptr /* MemorySSAUpdater */, "vector.ph");
   ReplaceInstWithInst(BB->getTerminator(),
                       BranchInst::Create(Bypass, NewBB, Cmp));
   LoopBypassBlocks.push_back(BB);
@@ -526,7 +520,6 @@ void VPOCodeGen::finalizeLoop() {
     VPBasicBlock *VHeader = (*VPLI->begin())->getHeader();
     LoopVectorBody = cast<BasicBlock>(getScalarValue(VHeader, 0));
     LoopVectorBody->setName("vector.body");
-    LoopVectorBody->getTerminator()->setDebugLoc(OrigLoop->getStartLoc());
   } else {
     fixOutgoingValues();
     fixNonInductionVPPhis();
@@ -535,12 +528,21 @@ void VPOCodeGen::finalizeLoop() {
     predicateInstructions();
   }
 
+  // Anchor point to emit/lower remarks from VPLoops to outgoing llvm::Loops.
+  // This should be done before LoopInfo gets invalidated/recomputed.
+  // TODO: Currently only scalar loop remarks are emitted here. Move invocation
+  // of lowerRemarksForVectorLoops here as well.
+  emitRemarksForScalarLoops();
+
   DT->recalculate(*LoopVectorBody->getParent());
   LI->releaseMemory();
   LI->analyze(*DT);
 
   NewLoop = LI->getLoopFor(LoopVectorBody);
   OrigLoop = LI->getLoopFor(LoopScalarBody);
+
+  // Preserve LocRange info in outgoing LoopID after LoopInfo is recomputed.
+  preserveLoopIDDbgMDs();
 }
 
 void VPOCodeGen::updateAnalysis() {
@@ -748,10 +750,15 @@ static Loop *cloneLoopBody(BasicBlock *Before, Loop *OrigLoop,
 //                                             OrigLp
 //
 //
+template <class VPPeelRemainderTy>
 Loop *VPOCodeGen::cloneScalarLoop(Loop *OrigLP, BasicBlock *NewLoopPred,
                                   BasicBlock *NewLoopSucc,
-                                  VPPeelRemainder *LoopInst,
+                                  VPPeelRemainderTy *LoopInst,
                                   const Twine &Name) {
+  // Determine live-out type based on scalar peel/remainder.
+  using OrigLiveOutTy = typename std::conditional<
+      std::is_same<VPPeelRemainderTy, VPScalarPeel>::value, VPPeelOrigLiveOut,
+      VPRemainderOrigLiveOut>::type;
 
   // Make sure that NewLoopPred and NewLoopSucc are connected.
   assert(count(successors(NewLoopPred), NewLoopSucc) == 1 &&
@@ -789,8 +796,8 @@ Loop *VPOCodeGen::cloneScalarLoop(Loop *OrigLP, BasicBlock *NewLoopPred,
 
     // Remap liveouts.
     for (auto U : LoopInst->users()) {
-      if (auto LO = dyn_cast<VPOrigLiveOut>(U))
-        LO->setClonedLiveOutVal(MapValue(LO->getLiveOutVal(), VMap));
+      auto *LO = cast<OrigLiveOutTy>(U);
+      LO->setClonedLiveOutVal(MapValue(LO->getLiveOutVal(), VMap));
     }
   }
 
@@ -804,6 +811,17 @@ Loop *VPOCodeGen::cloneScalarLoop(Loop *OrigLP, BasicBlock *NewLoopPred,
 
   return NewLoop;
 }
+
+template Loop *VPOCodeGen::cloneScalarLoop(Loop *OrigLP,
+                                           BasicBlock *NewLoopPred,
+                                           BasicBlock *NewLoopSucc,
+                                           VPScalarRemainder *LoopInst,
+                                           const Twine &Name);
+template Loop *VPOCodeGen::cloneScalarLoop(Loop *OrigLP,
+                                           BasicBlock *NewLoopPred,
+                                           BasicBlock *NewLoopSucc,
+                                           VPScalarPeel *LoopInst,
+                                           const Twine &Name);
 
 void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
                                    AttributeList OrigAttrs,
@@ -939,7 +957,8 @@ Value *VPOCodeGen::codeGenVPInvSCEVWrapper(VPInvSCEVWrapper *SW) {
   return InvBase;
 }
 
-void VPOCodeGen::vectorizeScalarPeelRem(VPPeelRemainder *LoopReuse) {
+template <class VPPeelRemainderTy>
+void VPOCodeGen::vectorizeScalarPeelRem(VPPeelRemainderTy *LoopReuse) {
   if (LoopReuse->isCloningRequired()) {
     // Clone before processing if needed.
     VPBasicBlock *ParentSucc = LoopReuse->getParent()->getSingleSuccessor();
@@ -949,6 +968,17 @@ void VPOCodeGen::vectorizeScalarPeelRem(VPPeelRemainder *LoopReuse) {
     cloneScalarLoop(LoopReuse->getLoop(), Builder.GetInsertBlock(), SuccBB,
                     LoopReuse, ".sl.clone");
   }
+
+  // Capture outgoing scalar loop.
+  if (isa<VPScalarPeel>(LoopReuse))
+    OutgoingScalarLoopHeaders.push_back(
+        std::make_pair(CfgMergerPlanDescr::LoopType::LTPeel,
+                       LoopReuse->getLoop()->getHeader()));
+  else
+    OutgoingScalarLoopHeaders.push_back(
+        std::make_pair(CfgMergerPlanDescr::LoopType::LTRemainder,
+                       LoopReuse->getLoop()->getHeader()));
+
   // Make the current block predecessor of the original loop header.
   ReplaceInstWithInst(Builder.GetInsertBlock()->getTerminator(),
                       BranchInst::Create(LoopReuse->getLoop()->getHeader()));
@@ -1110,14 +1140,17 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     llvm::transform(GEP->indices(), std::back_inserter(OpsV),
                     [GetVectorOp](VPValue *Op) { return GetVectorOp(Op); });
 
+    // TODO: SOAMemRef transformations needs to be updated to correctly set
+    // SourceElementType which can then be used here.
     StringRef GepName =
         isSOAAccess(GEP, Plan) ? "soa_vectorGEP" : "mm_vectorGEP";
-    // FIXME: SOA transformation cuts lots of corners and doesn't preserve
-    // consistency in SourceElementType.
-    Type *SourceElementType = GEP->isOpaque() ? GEP->getSourceElementType()
-                                              : WideGepBasePtr->getType()
-                                                    ->getScalarType()
-                                                    ->getPointerElementType();
+    Type *SourceElementType =
+        GEP->isOpaque() ? isSOAAccess(GEP, Plan)
+                              ? getSOAType(GEP->getSourceElementType(), VF)
+                              : GEP->getSourceElementType()
+                        : WideGepBasePtr->getType()
+                              ->getScalarType()
+                              ->getPointerElementType();
 
     Value *VectorGEP = Builder.CreateGEP(SourceElementType,
                                          WideGepBasePtr, OpsV, GepName);
@@ -1546,9 +1579,12 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     auto *CmpInst =
         Builder.CreateICmpEQ(BitCastInst, Constant::getNullValue(IntTy));
 
-    // Broadcast the compare and set as the widened value.
-    auto *V = Builder.CreateVectorSplat(VF, CmpInst, "broadcast");
-    VPWidenMap[VPInst] = V;
+    VPScalarMap[VPInst][0] = CmpInst;
+    if (SVA->instNeedsBroadcast(VPInst)) {
+      // Broadcast the compare and set as the widened value.
+      auto *V = Builder.CreateVectorSplat(VF, CmpInst, "broadcast");
+      VPWidenMap[VPInst] = V;
+    }
     return;
   }
   case VPInstruction::Not: {
@@ -1707,10 +1743,10 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     // Do nothing.
     return;
   case VPInstruction::ScalarRemainder:
-    vectorizeScalarPeelRem(cast<VPPeelRemainder>(VPInst));
+    vectorizeScalarPeelRem(cast<VPScalarRemainder>(VPInst));
     return;
   case VPInstruction::ScalarPeel: {
-    auto LoopReuse = cast<VPPeelRemainder>(VPInst);
+    auto LoopReuse = cast<VPScalarPeel>(VPInst);
     vectorizeScalarPeelRem(LoopReuse);
     // In scalar peel replace original preheader with the new one in the header
     // phis.
@@ -1719,8 +1755,13 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
       Phi.replaceIncomingBlockWith(OrigPreHeader, NewPH);
     return;
   }
-  case VPInstruction::OrigLiveOut: {
-    auto *LiveOut = cast<VPOrigLiveOut>(VPInst);
+  case VPInstruction::PeelOrigLiveOut: {
+    auto *LiveOut = cast<VPPeelOrigLiveOut>(VPInst);
+    VPScalarMap[LiveOut][0] = const_cast<Value *>(LiveOut->getLiveOutVal());
+    return;
+  }
+  case VPInstruction::RemOrigLiveOut: {
+    auto *LiveOut = cast<VPRemainderOrigLiveOut>(VPInst);
     VPScalarMap[LiveOut][0] = const_cast<Value *>(LiveOut->getLiveOutVal());
     return;
   }
@@ -1739,13 +1780,94 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     vectorizePrivateFinalUncond(VPInst);
     return;
   }
+  case VPInstruction::PrivateFinalCondMem:
+  case VPInstruction::PrivateFinalCond: {
+    // Pseudo IR generated to finalize conditional last private entity -
+    // %priv.final = private-final-c %exit, %idx, %orig
+    //
+    // ; Find max index where condition was true
+    // %idx.reduce = llvm.vector.reduce.smax.v2i64(%idx.vec)
+    // ; Identify where max index is set in final vector
+    // %max.idx.cmp = %idx.reduce == %idx.vec
+    // ; Obtain lane for extraction
+    // %bsfintmask = bitcast.<2 x i1>.i2(%max.idx.cmp);
+    // %lane = @llvm.cttz.i2(%bsfintmask,  1);
+    // ; Extract final value and store back to original
+    // %orig = extractelement %exit.vec, %lane
+    //
+    Value *VecExit = getVectorValue(VPInst->getOperand(0));
+    Value *VecIndex = getVectorValue(VPInst->getOperand(1));
+
+    Value *IdxReduceCall = Builder.CreateIntMaxReduce(VecIndex, true);
+    Value *CmpInst = Builder.CreateICmp(
+        ICmpInst::ICMP_EQ, VecIndex,
+        Builder.CreateVectorSplat(VF, IdxReduceCall, "broadcast"),
+        "priv.idx.cmp");
+
+    Type *IntTy = IntegerType::get(CmpInst->getContext(), VF);
+    Value *CastedMask = Builder.CreateBitCast(CmpInst, IntTy);
+
+    Module *M = OrigLoop->getHeader()->getModule();
+    Function *CTTZ =
+        Intrinsic::getDeclaration(M, Intrinsic::cttz, CastedMask->getType());
+    Value *BsfCall =
+        Builder.CreateCall(CTTZ, {CastedMask, Builder.getTrue()}, "cttz");
+
+    // Scalar result of private finalization should be written back to original
+    // private descriptor variable.
+    Value *PrivExtract =
+        Builder.CreateExtractElement(VecExit, BsfCall, "priv.extract");
+    VPScalarMap[VPInst][0] = PrivExtract;
+    return;
+  }
+  case VPInstruction::PrivateFinalMasked:
+  case VPInstruction::PrivateFinalMaskedMem: {
+    // Pseudo IR generated to finalize unconditional last private in masked mode
+    // loop.
+    // %priv.final = private-final-masked %exit, %mask, %orig
+    //  ==>
+    // %bsfintmask = bitcast.<2 x i1>.i2(%mask); Obtain lane for extraction
+    // %lz = @llvm.ctlz.i2(%bsfintmask, 1);
+    // %lane = VF - 1 - %lz;
+    // %last_val = extractelement %exit, %lane ; extract final value
+    //
+    // NOTE: The block above is encapsulated into the check of mask is zero in
+    // VPlan, before CG, so the code will be generated in the mask_nonzero block
+    // below.
+    //
+    // orig_bb:
+    //   %pred = all_zero_check(%mask)
+    //   br %pred label %mask_zero, label %mask_nonzero
+    // mask_nonzero:
+    //   ; this one is transformed by this routine.
+    //   %priv.final = private-final-masked %exit, %mask, %orig
+    //   %br label %mask_zero
+    // mask_zero:
+    //   %last_v = phi [%priv_final, %b_nz], [%orig, %orig_bb]
+    //
+    Value *VecMask = getVectorValue(VPInst->getOperand(1));
+    Type *IntTy = IntegerType::get(Builder.getContext(), VF);
+    Value *CastedMask = Builder.CreateBitCast(VecMask, IntTy);
+
+    Module *M = OrigLoop->getHeader()->getModule();
+    Function *CTLZ =
+        Intrinsic::getDeclaration(M, Intrinsic::ctlz, CastedMask->getType());
+    Value *BsfCall =
+        Builder.CreateCall(CTLZ, {CastedMask, Builder.getTrue()}, "ctlz");
+    Value *Lane = Builder.CreateSub(ConstantInt::get(IntTy, VF - 1), BsfCall);
+    Value *VecExit = getVectorValue(VPInst->getOperand(0));
+    Value *PrivExtract =
+        Builder.CreateExtractElement(VecExit, Lane, "priv.extract");
+    VPScalarMap[VPInst][0] = PrivExtract;
+    return;
+  }
   case VPInstruction::PrivateFinalArray: {
     // We need to copy array from last private allocated memory into the
     // original array location.
     Value *Orig = getScalarValue(VPInst->getOperand(1), 0);
-    Type *ElementType = Orig->getType()->getPointerElementType();
 
     VPAllocatePrivate *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
+    Type *ElementType = Priv->getAllocatedType();
     if (Priv->isSOALayout()) {
 
       assert(LoopPrivateVPWidenMap.count(Priv) > 0 &&
@@ -1768,11 +1890,11 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
       Phi->addIncoming(Builder.getInt64(0), BBLoop->getSinglePredecessor());
 
       // Loop body. Copying element in VF - 1 position from each vector.
-      Value *Ptr = Builder.CreateGEP(
-          Res->getType()->getScalarType()->getPointerElementType(), Res,
+      Value *Ptr = Builder.CreateGEP(getSOAType(ElementType, VF), Res,
           {Builder.getInt64(0), Phi, Builder.getInt64(VF - 1)});
       Value *Val =
-          Builder.CreateLoad(Ptr->getType()->getPointerElementType(), Ptr);
+          Builder.CreateLoad(
+            cast<GetElementPtrInst>(Ptr)->getResultElementType(), Ptr);
       Value *Target =
           Builder.CreateGEP(ElementType, Orig, {Builder.getInt64(0), Phi});
       Builder.CreateStore(Val, Target);
@@ -2221,8 +2343,8 @@ Value *VPOCodeGen::createVectorPrivatePtrs(VPAllocatePrivate *V) {
 
   auto Base =
       Builder.CreateBitCast(PtrToVec, PrivTy, PtrToVec->getName() + ".bc");
-  return Builder.CreateGEP(PrivTy->getScalarType()->getPointerElementType(),
-                           Base, Cv, PtrToVec->getName() + ".base.addr");
+  return Builder.CreateGEP(V->getAllocatedType(), Base, Cv,
+                           PtrToVec->getName() + ".base.addr");
 }
 
 template <typename CastInstTy>
@@ -2251,7 +2373,7 @@ void VPOCodeGen::vectorizeCast(
   }
 
   Value *WidenedOp = getVectorValue(VPInst->getOperand(0));
-  Type *WidenedTy = getVPInstVectorType(VPInst->getType(), VF);
+  Type *WidenedTy = getWidenedType(VPInst->getType(), VF);
   Value *WidenedCast = Builder.CreateCast(Opcode, WidenedOp, WidenedTy);
   VPWidenMap[VPInst] = WidenedCast;
 }
@@ -2260,7 +2382,7 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
                                        bool IsMasked) {
   // If we encounter a call to OpenCL sincos function, i.e., a call to
   // _Z6sincosfPf, the code in Intel_SVMLEmitter.cpp, currently maps that call
-  // to _Z14sincos_ret2ptrDv<VF>_fPS_S1_ variant. The following code correctly
+  // to _Z6sincosDv<VF>_fPS_ variant. The following code correctly
   // sets up the input/output arguments for that function.  '_Z6sincosfPf' has
   // the form,
   //
@@ -2268,13 +2390,9 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
   // %cosVal = load float, float* %cosPtr
   //
   // The following code replaces that function call with
-  // %16 = call <8 x float> @_Z14sincos_ret2ptrDv8_fPS_S1_(<8 x float>
-  //                                                       %wide.input,
-  //                                                       <8 x float>*
-  //                                                       %sinPtr.vec,
-  //                                                       <8 x float>*
-  //                                                       %cosPtr.vec)
-  // %wide.sin.InitVal = load <8 x float>, <8 x float>* %SinPtr.vec
+  // %wide.sinVal = call <8 x float> @_Z6sincosDv8_fPS_(<8 x float> %wide.input,
+  //                                                    <8 x float>*
+  //                                                    %cosPtr.vec)
   // %wide.load2 = load <8 x float>, <8 x float>* %cosPtr.vec, align 4
 
   // TODO: This is a temporary solution to fix performance issues with DPC++
@@ -2297,21 +2415,16 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
   // While vectorizing VPAllocatePrivate created for CosPtr, the base pointer to
   // wide alloca was added to LoopPrivateVPWidenMap.
   auto *WideCosPtr = cast<AllocaInst>(LoopPrivateVPWidenMap[CosPtr]);
-  auto *WideSinPtr = cast<AllocaInst>(WideCosPtr->clone());
-  WideSinPtr->insertAfter(WideCosPtr);
-  WideSinPtr->setName("sinPtr.vec");
   VecArgs.push_back(Arg1);
-  VecArgs.push_back(WideSinPtr);
   VecArgs.push_back(WideCosPtr);
   VecArgTys.push_back(Arg1->getType());
-  VecArgTys.push_back(WideSinPtr->getType());
   VecArgTys.push_back(WideCosPtr->getType());
 
   Function *CalledFunc = VPCall->getCalledFunction();
   assert(CalledFunc && "Unexpected null call function.");
   Function *VectorF =
-      getOrInsertVectorFunction(CalledFunc, VF, VecArgTys, TLI,
-                                Intrinsic::not_intrinsic, nullptr, IsMasked);
+      getOrInsertVectorLibFunction(CalledFunc, VF, VecArgTys, TLI,
+                                   Intrinsic::not_intrinsic, IsMasked);
   assert(VectorF && "Vector function not created.");
   CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
   // Copy fast math flags represented in VPInstruction to VecCall.
@@ -2334,10 +2447,7 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
   analyzeCallArgMemoryReferences(Call, VecCall, TLI, PSE.getSE(), Lp);
 #endif
 
-  Value *WideSinLoad =
-      Builder.CreateAlignedLoad(WideSinPtr->getAllocatedType(), WideSinPtr,
-                                WideSinPtr->getAlign(), "wide.sin.InitVal");
-  VPWidenMap[VPCall] = WideSinLoad;
+  VPWidenMap[VPCall] = VecCall;
 }
 
 void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
@@ -2484,30 +2594,10 @@ void VPOCodeGen::createVectorMaskArg(VPCallInstruction *VPCall,
     return;
   }
 
-  // Promote to characteristic type.
-  Type *CharacteristicType =
-      VPlanCallVecDecisions::calcCharacteristicType(VPCall, *VecVariant);
-  unsigned CharacteristicTypeSize =
-      CharacteristicType->getPrimitiveSizeInBits();
-
-  // Promote the i1 to an integer type that has the same size as the
-  // characteristic type.
-  Type *ScalarToType =
-      IntegerType::get(MaskTy->getContext(), CharacteristicTypeSize);
-  VectorType *VecToType = FixedVectorType::get(ScalarToType, PumpedVF);
-  Value *MaskExt = Builder.CreateSExt(MaskToUse, VecToType, "maskext");
-
-  // Bitcast if the promoted type is not the same as the characteristic
-  // type.
-  if (ScalarToType != CharacteristicType) {
-    Type *MaskCastTy = FixedVectorType::get(CharacteristicType, PumpedVF);
-    Value *MaskCast = Builder.CreateBitCast(MaskExt, MaskCastTy, "maskcast");
-    VecArgs.push_back(MaskCast);
-    VecArgTys.push_back(MaskCastTy);
-  } else {
-    VecArgs.push_back(MaskExt);
-    VecArgTys.push_back(VecToType);
-  }
+  llvm::createVectorMaskArg(
+      Builder,
+      VPlanCallVecDecisions::calcCharacteristicType(VPCall, *VecVariant),
+      VecVariant, VecArgs, VecArgTys, PumpedVF, MaskToUse);
 }
 
 void VPOCodeGen::vectorizeSelectInstruction(VPInstruction *VPInst) {
@@ -3066,13 +3156,27 @@ void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
     vectorizeCallArgs(VPCall, MatchedVariant, VectorIntrinID, PumpPart,
                       PumpFactor, VecArgs, VecArgTys, VecArgAttrs);
 
-    Function *VectorF =
-        getOrInsertVectorFunction(CalledFunc, VF / PumpFactor, VecArgTys, TLI,
-                                  VectorIntrinID, MatchedVariant, IsMasked);
+    Function *VectorF = nullptr;
+    if (MatchedVariant) {
+      VectorF = getOrInsertVectorVariantFunction(
+            CalledFunc, VF / PumpFactor, VecArgTys, MatchedVariant, IsMasked);
+    } else {
+      VectorF = getOrInsertVectorLibFunction(
+        CalledFunc, VF / PumpFactor, VecArgTys, TLI, VectorIntrinID, IsMasked);
+    }
     assert(VectorF && "Can't create vector function.");
     CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
     VecCall->setCallingConv(VectorF->getCallingConv());
-    CallResults.push_back(VecCall);
+    if (VPCall->getType()->isIntegerTy(1)) {
+      // Trunc the result back to i1 after it has been promoted to i8,
+      // in order not to conflict with ret type users.
+      Value *Trunc = Builder.CreateTrunc(
+        VecCall,
+        getWidenedType(Type::getInt1Ty(Builder.getContext()), VF / PumpFactor),
+        VecCall->getName() + ".trunc");
+      CallResults.push_back(Trunc);
+    } else
+      CallResults.push_back(VecCall);
 
     // Copy fast math flags represented in VPInstruction.
     // TODO: investigate why attempting to copy fast math flags for __read_pipe
@@ -3365,7 +3469,7 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
         InstCGIsSVADriven && SVA->instNeedsLastScalarCode(VInst) &&
         !SVA->instNeedsFirstScalarCode(VInst) &&
         !SVA->instNeedsVectorCode(VInst);
-    assert(!requiresUnsupportedSVAFeatures(VInst, Plan) &&
+    assert(!VInst || !requiresUnsupportedSVAFeatures(VInst, Plan) &&
            "Bcast of (F L) sequence of SVA bits is not supported.");
     if (IsUniform || NeedsFirstLaneBcastForNonSVADrivenCG ||
         NeedsLastLaneBcastForNonSVADrivenCG) {
@@ -3477,7 +3581,9 @@ void VPOCodeGen::vectorizeLifetimeStartEndIntrinsic(VPCallInstruction *VPCall) {
       // bitcast to convert it to i8*. This inserts duplicate bitcasts, but, we
       // expect CSE following up to take care of this.
       Value *PointerArg = getScalarValue(VPCall->getOperand(1), 0);
-      if (!PointerArg->getType()->getPointerElementType()->isIntegerTy(8))
+      auto *PointerArgType = cast<PointerType>(PointerArg->getType());
+      if (!PointerArgType->isOpaque() &&
+          !PointerArgType->getElementType()->isIntegerTy(8))
         PointerArg = Builder.CreateBitCast(
             PointerArg, Type::getInt8PtrTy(*Plan->getLLVMContext()));
 
@@ -3940,10 +4046,13 @@ void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
 
   PHINode *NewPhi;
   // PHI-arguments with SOA accesses need to be set up with correct-types.
-  if (isSOAAccess(VPPhi, Plan) && !isOnlyUsedInLifetimeIntrinsics(VPPhi)) {
-    Type *ElemTy = PhiTy->getPointerElementType();
-    PhiTy = PointerType::get(getSOAType(ElemTy, VF),
-                             cast<PointerType>(PhiTy)->getAddressSpace());
+  if (isSOAAccess(VPPhi, Plan)) {
+    auto *PhiPtrTy = cast<PointerType>(PhiTy);
+    if (!PhiPtrTy->isOpaque()) {
+      Type *ElemTy = PhiTy->getPointerElementType();
+      PhiTy = PointerType::get(getSOAType(ElemTy, VF),
+                               PhiPtrTy->getAddressSpace());
+    }
   }
   // FIXME: Replace with proper SVA.
   bool EmitScalarOnly = !Plan->getVPlanDA()->isDivergent(*VPPhi) && !MaskValue;
@@ -4081,7 +4190,7 @@ void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
 void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
   // Private memory is a pointer. We need to get element type
   // and allocate VF elements.
-  Type *OrigTy = V->getType()->getPointerElementType();
+  Type *OrigTy = V->getAllocatedType();
 
   Type *VecTyForAlloca;
   std::string VarName = Twine(V->getOrigName() + ".vec").str();
@@ -4511,8 +4620,7 @@ void VPOCodeGen::fixNonInductionVPPhis() {
       }
       BasicBlock *BB = State->CFG.VPBB2IREndBB[VPBB];
       if (Plan->hasExplicitRemainder()) {
-        auto *LiveOut = dyn_cast<VPOrigLiveOut>(VPVal);
-        if (LiveOut && !isa<VPScalarPeel>(LiveOut->getOperand(0))) {
+        if (auto *LiveOut = dyn_cast<VPRemainderOrigLiveOut>(VPVal)) {
           // Add outgoing from the scalar loop.
           Loop *L = cast<VPScalarRemainder>(LiveOut->getOperand(0))->getLoop();
           BB = L->getLoopLatch();
@@ -4538,4 +4646,95 @@ void VPOCodeGen::fixNonInductionVPPhis() {
     int Lane = MapIt.second.second;
     fixPHI(MapIt.second.first, MapIt.first, Lane);
   }
+}
+
+void VPOCodeGen::lowerRemarksForVectorLoops() {
+  auto LowerRemarksForLoop = [this](VPLoop *VPL) {
+    auto OR = VPL->getOptReport();
+    if (!OR)
+      return;
+
+    // Identify the IR loop that corresponds to current VPLoop.
+    auto *VPLpHeader = VPL->getHeader();
+    auto *LpHeader = cast<BasicBlock>(getScalarValue(VPLpHeader, 0));
+    Loop *IRLp = LI->getLoopFor(LpHeader);
+    assert(IRLp && "Could not find IR loop corresponding to VPLoop.");
+
+    // Drop any existing opt-report metadata and re-add the opt-report tracked
+    // for current VPLoop to corresponding IR loop. Remarks from prior
+    // components are all captured in VPLoop's opt-report during VPlan CFG
+    // construction.
+    MDNode *NewLoopID = OptReport::replaceOptReportForLoopID(
+        IRLp->getLoopID(), OR, *Plan->getLLVMContext());
+    IRLp->setLoopID(NewLoopID);
+  };
+
+  for (VPLoop *OuterLoop : *Plan->getVPLoopInfo())
+    for (auto *VLP : post_order(OuterLoop))
+      LowerRemarksForLoop(VLP);
+}
+
+void VPOCodeGen::emitRemarksForScalarLoops() {
+  auto RemoveOptReport = [this](Loop *Lp) {
+    MDNode *NewLoopID = OptReport::eraseOptReportFromLoopID(
+        Lp->getLoopID(), *Plan->getLLVMContext());
+    Lp->setLoopID(NewLoopID);
+  };
+
+  for (auto &ScalarLoopPair : OutgoingScalarLoopHeaders) {
+    auto LpKind = ScalarLoopPair.first;
+    Loop *ScalarLp = LI->getLoopFor(ScalarLoopPair.second);
+    assert(ScalarLp && "Loop not found.");
+
+    // Remove all opt-reports from scalar loop nest. They have been moved to
+    // vectorized loops.
+    for (auto *Lp : post_order(ScalarLp))
+      RemoveOptReport(Lp);
+
+    // TODO: Any other remarks for scalar peel/remainder loops? Should we report
+    // that they were not vectorized?
+    if (LpKind == CfgMergerPlanDescr::LoopType::LTPeel) {
+      // remark #25518: PEELED LOOP FOR VECTORIZATION.
+      ORBuilder(*ScalarLp, *LI).addOrigin(25518u);
+    } else {
+      assert(LpKind == CfgMergerPlanDescr::LoopType::LTRemainder &&
+             "Remainder loop type expected here.");
+      // remark #25519: REMAINDER LOOP FOR VECTORIZATION.
+      ORBuilder(*ScalarLp, *LI).addOrigin(25519u);
+    }
+  }
+}
+
+void VPOCodeGen::preserveLoopIDDbgMDs() {
+  auto PreserveMDsForLoop = [this](VPLoop *VPL) {
+    MDNode *LpID = VPL->getLoopID();
+    if (!LpID)
+      return;
+
+    SmallVector<MDNode *, 2> DbgLocMDs;
+    // Collect all DbgLoc metadata present in LoopID.
+    for (unsigned i = 1, e = LpID->getNumOperands(); i < e; i++) {
+      if (auto *DbgMD = dyn_cast<DILocation>(LpID->getOperand(i)))
+        DbgLocMDs.push_back(DbgMD);
+    }
+
+    if (DbgLocMDs.empty())
+      return;
+
+    // Identify the IR loop that corresponds to current VPLoop.
+    auto *VPLpHeader = VPL->getHeader();
+    auto *LpHeader = cast<BasicBlock>(getScalarValue(VPLpHeader, 0));
+    Loop *IRLp = LI->getLoopFor(LpHeader);
+    assert(IRLp && "Could not find IR loop corresponding to VPLoop.");
+
+    // Add the MDNodes to LoopID.
+    MDNode *NewLoopID = makePostTransformationMetadata(
+        IRLp->getHeader()->getContext(), IRLp->getLoopID(),
+        {} /*No MDs to drop*/, DbgLocMDs);
+    IRLp->setLoopID(NewLoopID);
+  };
+
+  for (VPLoop *OuterLoop : *Plan->getVPLoopInfo())
+    for (auto *VLP : post_order(OuterLoop))
+      PreserveMDsForLoop(VLP);
 }

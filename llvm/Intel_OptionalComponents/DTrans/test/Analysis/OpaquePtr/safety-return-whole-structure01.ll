@@ -12,6 +12,7 @@ define %struct.test01 @test2(%struct.test01 %s) {
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Whole structure reference
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Return an array of structures
@@ -22,6 +23,7 @@ define [4 x %struct.test02] @test02([4 x %struct.test02] %a) {
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Whole structure reference
+; CHECK: End LLVMType: %struct.test02
 
 
 ; Return a literal structure
@@ -44,6 +46,7 @@ define { i8, %struct.test04 } @test04() {
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test04
 ; CHECK: Safety data: Whole structure reference
+; CHECK: End LLVMType: %struct.test04
 
 
 !1 = !{i32 0, i32 0}  ; i32

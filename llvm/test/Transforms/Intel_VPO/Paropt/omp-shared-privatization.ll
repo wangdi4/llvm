@@ -817,7 +817,7 @@ declare float @llvm.fabs.f32(float)
 !llvm.module.flags = !{!0}
 !0 = !{i32 7, !"openmp", i32 50}
 
-; CHECK: define internal void [[OUTLINED_FUNC]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture readonly [[BBASE:%.+]], float* nocapture [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
+; CHECK: define internal void [[OUTLINED_FUNC]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture readonly [[BBASE:%.+]], float* nocapture writeonly [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
 ; CHECK: omp.inner.for.body:
 ; CHECK:   [[BADDR:%.+]] = getelementptr inbounds float, float* [[BBASE]], i64 [[IV:%.+]]
 ; CHECK:   %{{.+}} = load float, float* [[BADDR]]
@@ -825,7 +825,7 @@ declare float @llvm.fabs.f32(float)
 ; CHECK:   store float %{{.+}}, float* [[AADDR]]
 ; CHECK: }
 
-; CHECK: define internal void [[OUTLINED_GOO]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture [[ABASE:%.+]], float* nocapture readonly [[BBASE:%.+]], i64 %{{.+}}) #{{[0-9]+}} {
+; CHECK: define internal void [[OUTLINED_GOO]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture writeonly [[ABASE:%.+]], float* nocapture readonly [[BBASE:%.+]], i64 %{{.+}}) #{{[0-9]+}} {
 ; CHECK: omp.inner.for.body:
 ; CHECK:   [[BADDR:%.+]] = getelementptr inbounds float, float* [[BBASE]], i64 [[IV:%.+]]
 ; CHECK:   %{{.+}} = load float, float* [[BADDR]]
@@ -833,7 +833,7 @@ declare float @llvm.fabs.f32(float)
 ; CHECK:   store float %{{.+}}, float* [[AADDR]]
 ; CHECK: }
 
-; CHECK: define internal void [[OUTLINED_BAR1]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
+; CHECK: define internal void [[OUTLINED_BAR1]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture writeonly [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
 ; CHECK: omp.inner.for.body{{.*}}:
 ; CHECK:   [[AADDR:%.+]] = getelementptr inbounds float, float* [[ABASE]], i64 [[IV:%.+]]
 ; CHECK:   store float %{{.+}}, float* [[AADDR]]
@@ -858,7 +858,7 @@ declare float @llvm.fabs.f32(float)
 ; CHECK:   store float [[ADD1]], float* [[AADDR]]
 ; CHECK: }
 
-; CHECK: define internal void [[OUTLINED_BAZ_LOOP:@.+]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture [[ABASE:%.+]], float* nocapture readonly [[BBASE:%.+]], i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
+; CHECK: define internal void [[OUTLINED_BAZ_LOOP:@.+]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture writeonly [[ABASE:%.+]], float* nocapture readonly [[BBASE:%.+]], i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
 ; CHECK: omp.inner.for.body{{.*}}:
 ; CHECK:   [[BADDR:%.+]] = getelementptr inbounds float, float* [[BBASE]],
 ; CHECK:   [[VAL:%.+]] = load float, float* [[BADDR]]
@@ -880,7 +880,7 @@ declare float @llvm.fabs.f32(float)
 ; CHECK:   store float [[FADD]], float* [[AADDR]]
 ; CHECK: }
 
-; CHECK: define internal void [[NESTED_PRIVATE_LOOP1:@.+]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture [[ABASE:%.+]], float* nocapture readonly [[BBASE:%.+]], i64 %{{.+}}, i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
+; CHECK: define internal void [[NESTED_PRIVATE_LOOP1:@.+]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture writeonly [[ABASE:%.+]], float* nocapture readonly [[BBASE:%.+]], i64 %{{.+}}, i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
 ; CHECK: omp.inner.for.body{{.*}}:
 ; CHECK:   [[BADDR:%.+]] = getelementptr inbounds float, float* [[BBASE]],
 ; CHECK:   [[BVAL:%.+]] = load float, float* [[BADDR]]

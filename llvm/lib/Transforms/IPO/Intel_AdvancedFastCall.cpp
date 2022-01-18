@@ -270,10 +270,10 @@ void FastCallEnabler::convert(Function *F) {
   bool HasProfile = false;
   uint64_t DirectCallExecCount = 0;
   uint64_t OrigExecCount = 0;
-  Function::ProfileCount ExecCount = F->getEntryCount();
+  Optional<Function::ProfileCount> ExecCount = F->getEntryCount();
   if (ExecCount.hasValue()) {
     HasProfile = true;
-    OrigExecCount = ExecCount.getCount();
+    OrigExecCount = ExecCount->getCount();
   }
 
   // Collect a list of users to update, and then replace them. This is to avoid

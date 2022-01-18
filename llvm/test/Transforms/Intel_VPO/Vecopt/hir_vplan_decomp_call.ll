@@ -28,7 +28,7 @@ define void @powi_f64(i32 %n, double* noalias nocapture readonly %y, double* noa
 ; CHECK-NEXT:     double* [[VP7:%.*]] = subscript inbounds double* [[X0:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:     store double [[VP6]] double* [[VP7]]
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp sle i64 [[VP3]] i64 [[VP1:%vp.*]]
+; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp slt i64 [[VP3]] i64 [[VP1:%vp.*]]
 ;
 entry:
   %cmp9 = icmp sgt i32 %n, 0

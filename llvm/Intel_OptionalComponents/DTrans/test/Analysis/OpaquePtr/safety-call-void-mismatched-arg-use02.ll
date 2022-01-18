@@ -30,12 +30,14 @@ define void @test01(%struct.test01.a** "intel_dtrans_func_index"="1" %pStruct) !
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01.a
+; CHECK: LLVMType: %struct.test01.a
 ; CHECK: Safety data: Mismatched argument use{{ *}}
+; CHECK: End LLVMType: %struct.test01.a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01.b
+; CHECK: LLVMType: %struct.test01.b
 ; CHECK: Safety data: Mismatched argument use{{ *}}
+; CHECK: End LLVMType: %struct.test01.b
 
 ; Test with using the i8* parameter as a non-aggregate type that is incompatible
 ; with the use in the caller.
@@ -59,8 +61,9 @@ define i1 @test02less(i8* "intel_dtrans_func_index"="1" %p0, i8* "intel_dtrans_f
   ret i1 %cmp
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Mismatched argument use{{ *}}
+; CHECK: End LLVMType: %struct.test02
 
 
 ; Test with using the i8* parameter as an ambiguous aggregate type in the callee.
@@ -98,16 +101,19 @@ define void @test03(%struct.test03.a** "intel_dtrans_func_index"="1" %pStruct) !
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03.a
+; CHECK: LLVMType: %struct.test03.a
 ; CHECK: Safety data: Mismatched argument use{{ *}}
+; CHECK: End LLVMType: %struct.test03.a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03.b
+; CHECK: LLVMType: %struct.test03.b
 ; CHECK: Safety data: Ambiguous GEP | Mismatched argument use{{ *}}
+; CHECK: End LLVMType: %struct.test03.b
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03.c
+; CHECK: LLVMType: %struct.test03.c
 ; CHECK: Safety data: Ambiguous GEP | Mismatched argument use{{ *}}
+; CHECK: End LLVMType: %struct.test03.c
 
 
 !1 = !{i64 0, i32 0}  ; i64

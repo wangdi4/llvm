@@ -167,9 +167,6 @@ else()
 endif()
 
 if(APPLE)
-  if(LLVM_ENABLE_LLD AND LLVM_ENABLE_LTO)
-    message(FATAL_ERROR "lld does not support LTO on Darwin")
-  endif()
   # Darwin-specific linker flags for loadable modules.
   set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -Wl,-flat_namespace -Wl,-undefined -Wl,suppress")
 endif()
@@ -411,9 +408,9 @@ if( LLVM_ENABLE_PIC )
   endif()
 endif()
 
-if(NOT WIN32 AND NOT CYGWIN AND NOT (${CMAKE_SYSTEM_NAME} MATCHES "AIX" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
+if(NOT WIN32 AND NOT CYGWIN AND NOT (${CMAKE_SYSTEM_NAME} MATCHES "AIX"))
   # MinGW warns if -fvisibility-inlines-hidden is used.
-  # GCC on AIX warns if -fvisibility-inlines-hidden is used.
+  # GCC on AIX warns if -fvisibility-inlines-hidden is used and Clang on AIX doesn't currently support visibility.
   check_cxx_compiler_flag("-fvisibility-inlines-hidden" SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG)
   append_if(SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG "-fvisibility-inlines-hidden" CMAKE_CXX_FLAGS)
 endif()
@@ -528,9 +525,6 @@ if( MSVC )
     -D_UNICODE
   )
 
-  # Allow setting clang-cl's /winsysroot flag.
-  set(LLVM_WINSYSROOT "" CACHE STRING
-    "If set, argument to clang-cl's /winsysroot")
   if (LLVM_WINSYSROOT)
     if (NOT CLANG_CL)
       message(ERROR "LLVM_WINSYSROOT requires clang-cl")
@@ -986,9 +980,11 @@ if(LLVM_USE_SANITIZER)
     append("-fsanitize=fuzzer-no-link" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
   endif()
   if (LLVM_USE_SANITIZER MATCHES ".*Undefined.*")
-    set(BLACKLIST_FILE "${CMAKE_SOURCE_DIR}/utils/sanitizers/ubsan_blacklist.txt")
-    if (EXISTS "${BLACKLIST_FILE}")
-      append("-fsanitize-blacklist=${BLACKLIST_FILE}"
+    set(IGNORELIST_FILE "${CMAKE_SOURCE_DIR}/utils/sanitizers/ubsan_ignorelist.txt")
+    if (EXISTS "${IGNORELIST_FILE}")
+      # Use this option name version since -fsanitize-ignorelist is only
+      # accepted with clang 13.0 or newer.
+      append("-fsanitize-blacklist=${IGNORELIST_FILE}"
              CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
     endif()
   endif()

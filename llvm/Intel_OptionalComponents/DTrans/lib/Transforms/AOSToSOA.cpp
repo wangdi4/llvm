@@ -2302,7 +2302,8 @@ private:
     PeelIndexWidth = BitWidth;
     PeelIndexType = Type::getIntNTy(Context, PeelIndexWidth);
 
-    IncompatiblePeelTypeAttrs = AttributeFuncs::typeIncompatible(PeelIndexType);
+    IncompatiblePeelTypeAttrs.merge(
+        AttributeFuncs::typeIncompatible(PeelIndexType));
   }
 
   uint64_t getPeeledIndexWidth() const { return PeelIndexWidth; }

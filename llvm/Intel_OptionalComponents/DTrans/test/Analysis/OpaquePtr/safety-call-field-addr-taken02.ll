@@ -27,8 +27,9 @@ define void @test01h(i8* "intel_dtrans_func_index"="1" %pAddr) !intel.dtrans.fun
 ; this behavior, but this could be relaxed in the future.
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Local instance | Mismatched argument use | Field address taken call{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 !1 = !{!"A", i32 200, !2}  ; [200 x i8]
 !2 = !{i8 0, i32 0}  ; i8

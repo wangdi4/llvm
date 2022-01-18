@@ -193,7 +193,7 @@ Optional<uint64_t> getConstGEPIndex(const GEPOperator &GEP,
 Optional<unsigned int> getArgumentPosition(const CallBase &CI,
                                            const Value *Val) {
   Optional<unsigned int> Pos;
-  unsigned int ArgCount = CI.getNumArgOperands();
+  unsigned int ArgCount = CI.arg_size();
   for (unsigned int ArgNum = 0; ArgNum < ArgCount; ++ArgNum)
     if (CI.getArgOperand(ArgNum) == Val) {
       if (Pos)
@@ -1967,7 +1967,7 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
       return false;
 
     // Find the actual argument
-    uint64_t NumArgs = Call->getNumArgOperands();
+    uint64_t NumArgs = Call->arg_size();
     uint64_t ArgNo = 0;
     bool ArgFound = false;
     for (uint64_t I = 0; I < NumArgs; I++) {
@@ -2557,7 +2557,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   //
   auto IsSafeIntrinMemFunc = [](CallBase *CB, Value *InPtr,
                                uint64_t NE) -> bool {
-    if (CB->getNumArgOperands() != 4)
+    if (CB->arg_size() != 4)
       return false;
     if (CB->getArgOperand(0) != InPtr)
       return false;
@@ -2593,7 +2593,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   //
   auto IsSafeLibFuncForTrim = [](CallBase *CB, Value *InPtr,
                                  uint64_t NE) -> bool {
-    if (CB->getNumArgOperands() != 4)
+    if (CB->arg_size() != 4)
       return false;
     if (CB->getArgOperand(2) != InPtr)
       return false;
@@ -2623,11 +2623,11 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   // argument.
   //
   auto IsSafeLibFuncForConcat = [](CallBase *CB, Value *InPtr) -> bool {
-    if (CB->getNumArgOperands() != 4)
+    if (CB->arg_size() != 4)
       return false;
     if (CB->getArgOperand(0) != InPtr)
       return false;
-    for (unsigned I = 1; I < CB->getNumArgOperands(); ++I)
+    for (unsigned I = 1; I < CB->arg_size(); ++I)
       if (CB->getArgOperand(I) == InPtr)
         return false;
     return true;

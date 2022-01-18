@@ -29,8 +29,9 @@ define i1 @test01less(i8* "intel_dtrans_func_index"="1" %p0, i8* "intel_dtrans_f
   ret i1 %cmp
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01
 
 
 !1 = !{%struct.test01 zeroinitializer, i32 2}  ; %struct.test01**

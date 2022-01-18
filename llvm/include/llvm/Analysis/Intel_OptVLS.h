@@ -738,20 +738,20 @@ class OVLSShuffle : public OVLSInstruction {
 
 public:
   static constexpr uint32_t UndefMask = std::numeric_limits<uint32_t>::max();
-  explicit OVLSShuffle(OVLSOperand *O1, OVLSOperand *O2, OVLSOperand *O3)
+  explicit OVLSShuffle(OVLSOperand *O1, OVLSOperand *O2, OVLSType MaskT,
+                       const int8_t *MaskV)
       : OVLSInstruction(OC_Shuffle, OVLSType(O1->getType().getElementSize(),
-                                             O3->getType().getNumElements())) {
-    assert(hasValidOperands(O1, O2, O3) &&
+                                             MaskT.getNumElements())),
+                                             Mask(MaskT, MaskV) {
+    assert(hasValidOperands(O1, O2) &&
            "Invalid shuffle vector instruction operand!");
     Op1 = O1;
     Op2 = O2;
-    Op3 = O3;
   }
 
   /// isValidOperands - Return true if a shufflevector instruction can be
   /// formed with the specified operands.
-  bool hasValidOperands(OVLSOperand *O1, OVLSOperand *O2,
-                        OVLSOperand *Mask) const;
+  bool hasValidOperands(OVLSOperand *O1, OVLSOperand *O2) const;
 
   static bool classof(const OVLSInstruction *I) {
     return I->getKind() == OC_Shuffle;
@@ -772,24 +772,23 @@ public:
     case 1:
       return Op2;
     case 2:
-      return Op3;
+      return &Mask;
     }
     return nullptr;
   }
   void getShuffleMask(SmallVectorImpl<int> &Result) const {
-    const OVLSConstant *C = cast<const OVLSConstant>(Op3);
-    for (unsigned i = 0; i < Op3->getType().getNumElements(); i++)
-      Result.push_back(C->getElement(i));
+    for (unsigned i = 0; i < Mask.getType().getNumElements(); i++)
+      Result.push_back(Mask.getElement(i));
   }
 
 private:
   const OVLSOperand *Op1;
   const OVLSOperand *Op2;
 
-  /// \p Op3 defines the shuffle mask, specifies for each element of the result
+  /// \p Mask defines the shuffle mask, specifies for each element of the result
   /// vector, which element of the two source vectors the result element gets.
   /// Having -1 as a shuffle selector means "don't care".
-  const OVLSOperand *Op3;
+  const OVLSConstant Mask;
 };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

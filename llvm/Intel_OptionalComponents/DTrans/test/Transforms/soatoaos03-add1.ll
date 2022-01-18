@@ -11,7 +11,6 @@
 ; RUN: opt -S < %s -whole-program-assume                                                                        \
 ; RUN:    -passes=soatoaos-arrays-methods-transform                                                             \
 ; RUN:    -dtrans-soatoaos-base-ptr-off=3 -dtrans-soatoaos-mem-off=0                                            \
-; RUN:    -dtrans-malloc-functions=struct.Mem,0                                                                 \
 ; RUN:    -dtrans-optbase-process-function-declaration                                                          \
 ; RUN:  | FileCheck --check-prefix=CHECK-MOD %s
 ; REQUIRES: asserts

@@ -15,8 +15,9 @@ define void @test01(i32 %value) {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Volatile data | Global instance{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Store to a pointer of another type, safety data is not pointer-carried.
@@ -29,13 +30,15 @@ define void @test02(%struct.test02b* "intel_dtrans_func_index"="1" %value) !inte
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02a
+; CHECK: LLVMType: %struct.test02a
 ; CHECK: Safety data: Volatile data | Global instance{{ *$}}
+; CHECK: End LLVMType: %struct.test02a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02b
+; CHECK: LLVMType: %struct.test02b
 ; CHECK: Safety data:
 ; CHECK-SAME: No issues found
+; CHECK: End LLVMType: %struct.test02b
 
 
 ; Use of nested type
@@ -48,12 +51,14 @@ define void @test03(i32 %value) {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03a
+; CHECK: LLVMType: %struct.test03a
 ; CHECK: Safety data: Volatile data | Global instance | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test03a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03b
+; CHECK: LLVMType: %struct.test03b
 ; CHECK: Safety data: Volatile data | Global instance | Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test03b
 
 
 !1 = !{i32 0, i32 0}  ; i32

@@ -54,6 +54,7 @@ const BasicBlock *HIRCreation::getSrcBBlock(HLSwitch *Switch) const {
 
   llvm_unreachable("Could not find src bblock for switch!");
 }
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
 
 HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
   auto Terminator = BB->getTerminator();
@@ -474,3 +475,4 @@ void HIRCreation::run(HLContainerTy &Regions) {
     Regions.push_back(*CurRegion);
   }
 }
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED

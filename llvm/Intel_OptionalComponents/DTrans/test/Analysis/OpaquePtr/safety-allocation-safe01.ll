@@ -18,6 +18,7 @@ define internal void @test00() {
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test00
 ; CHECK: Safety data: Global pointer{{ *$}}
+; CHECK: End LLVMType: %struct.test00
 
 
 ; Allocation using malloc that is resolved based on location stored to.
@@ -40,10 +41,12 @@ define internal void @test01f() {
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Global instance{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01member
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01member
 
 
 ; Allocation using malloc that is resolved based on function return type metadata.
@@ -62,6 +65,7 @@ define void @test02f(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !in
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test02
 
 
 ; Allocation using calloc
@@ -79,6 +83,7 @@ define internal void @test03(%struct.test03* "intel_dtrans_func_index"="1" %in, 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test03
 
 
 ; Allocation using realloc
@@ -98,6 +103,7 @@ define void @test04f(%struct.test04* "intel_dtrans_func_index"="1" %in) !intel.d
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test04
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test04
 
 
 ; Allocation using new
@@ -116,6 +122,7 @@ define void @test05f(%struct.test05* "intel_dtrans_func_index"="1" %pStruct) !in
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test05
 ; CHECK: Safety data: Has C++ handling{{ *$}}
+; CHECK: End LLVMType: %struct.test05
 
 
 ; Allocation using new[]
@@ -135,6 +142,7 @@ define void @test06f(%struct.test06* "intel_dtrans_func_index"="1" %pStruct) !in
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test06
 ; CHECK: Safety data: Has C++ handling{{ *$}}
+; CHECK: End LLVMType: %struct.test06
 
 
 ; Test an allocation that is not used for the structure type, but instead
@@ -161,6 +169,7 @@ define void @test07f() {
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test07
 ; CHECK: Safety data: Global instance{{ *$}}
+; CHECK: End LLVMType: %struct.test07
 
 
 declare !intel.dtrans.func.type !21 "intel_dtrans_func_index"="1" i8* @malloc(i64)

@@ -1,4 +1,8 @@
 ; Test for basic functionality of HIR vectorizer CG for merged CFG.
+; Vec Scenario:
+;    - No peel
+;    - Main vector loop with VF=4
+;    - Scalar remainder
 
 ; Input HIR
 ; BEGIN REGION { }
@@ -16,7 +20,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -vplan-vec-scenario="n0;v4;s1" -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: Function: foo
-; CHECK:          BEGIN REGION { }
+; CHECK:          BEGIN REGION { modified }
 ; CHECK-NEXT:           %sum.07 = %init;
 ; CHECK-NEXT:           %tgu = %N  /u  4;
 ; CHECK-NEXT:           %vec.tc = %tgu  *  4;
@@ -30,39 +34,41 @@
 ; CHECK-NEXT:           }
 ; CHECK-NEXT:           %tgu4 = %N  /u  4;
 ; CHECK-NEXT:           %vec.tc5 = %tgu4  *  4;
-; CHECK-NEXT:           %red.var = 0;
-; CHECK-NEXT:           %red.var = insertelement %red.var,  %sum.07,  0;
+; CHECK-NEXT:           %red.init = 0;
+; CHECK-NEXT:           %red.init.insert = insertelement %red.init,  %sum.07,  0;
+; CHECK-NEXT:           %phi.temp6 = %red.init.insert;
 
 ; CHECK:                + DO i1 = 0, %vec.tc5 + -1, 4   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:           |   %.vec6 = (<4 x i32>*)(%A)[i1];
-; CHECK-NEXT:           |   %red.var = %.vec6  +  %red.var;
+; CHECK-NEXT:           |   %.vec8 = (<4 x i32>*)(%A)[i1];
+; CHECK-NEXT:           |   %.vec9 = %.vec8  +  %phi.temp6;
+; CHECK-NEXT:           |   %phi.temp6 = %.vec9;
 ; CHECK-NEXT:           + END LOOP
 
-; CHECK:                %sum.07 = @llvm.vector.reduce.add.v4i32(%red.var);
-; CHECK-NEXT:           %.vec8 = %N + -1 == %vec.tc5;
+; CHECK:                %sum.07 = @llvm.vector.reduce.add.v4i32(%.vec9);
+; CHECK-NEXT:           %.vec11 = %N == %vec.tc5;
 ; CHECK-NEXT:           %phi.temp = %sum.07;
 ; CHECK-NEXT:           %phi.temp2 = %vec.tc5;
-; CHECK-NEXT:           %phi.temp11 = %sum.07;
-; CHECK-NEXT:           %phi.temp13 = %vec.tc5;
-; CHECK-NEXT:           %unifcond15 = extractelement %.vec8,  0;
-; CHECK-NEXT:           if (%unifcond15 == 1)
+; CHECK-NEXT:           %phi.temp14 = %sum.07;
+; CHECK-NEXT:           %phi.temp16 = %vec.tc5;
+; CHECK-NEXT:           %unifcond18 = extractelement %.vec11,  0;
+; CHECK-NEXT:           if (%unifcond18 == 1)
 ; CHECK-NEXT:           {
-; CHECK-NEXT:              goto final.merge.57;
+; CHECK-NEXT:              goto final.merge.59;
 ; CHECK-NEXT:           }
 ; CHECK-NEXT:           merge.blk10.31:
 ; CHECK-NEXT:           %extract.0. = extractelement %phi.temp2,  0;
 ; CHECK-NEXT:           %lb.tmp = %extract.0.;
-; CHECK-NEXT:           %extract.0.16 = extractelement %phi.temp,  0;
-; CHECK-NEXT:           %sum.07 = %extract.0.16;
+; CHECK-NEXT:           %extract.0.19 = extractelement %phi.temp,  0;
+; CHECK-NEXT:           %sum.07 = %extract.0.19;
 
 ; CHECK:                + DO i1 = %lb.tmp, %N + -1, 1   <DO_LOOP> <vectorize>
 ; CHECK-NEXT:           |   %A.i = (%A)[i1];
 ; CHECK-NEXT:           |   %sum.07 = %A.i  +  %sum.07;
 ; CHECK-NEXT:           + END LOOP
 
-; CHECK:                %phi.temp11 = %sum.07;
-; CHECK-NEXT:           %phi.temp13 = %N + -1;
-; CHECK-NEXT:           final.merge.57:
+; CHECK:                %phi.temp14 = %sum.07;
+; CHECK-NEXT:           %phi.temp16 = %N + -1;
+; CHECK-NEXT:           final.merge.59:
 ; CHECK-NEXT:     END REGION
 
 

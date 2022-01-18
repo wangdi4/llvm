@@ -207,8 +207,8 @@ struct MaskOps {
   bool FoundAnd1;
 
   MaskOps(unsigned BitWidth, bool MatchAnds)
-      : Root(nullptr), Mask(APInt::getNullValue(BitWidth)),
-        MatchAndChain(MatchAnds), FoundAnd1(false) {}
+      : Root(nullptr), Mask(APInt::getZero(BitWidth)), MatchAndChain(MatchAnds),
+        FoundAnd1(false) {}
 };
 
 /// This is a recursive helper for foldAnyOrAllBitsSet() that walks through a
@@ -379,10 +379,10 @@ static bool foldUnusualPatterns(Function &F, DominatorTree &DT) {
     // Also, we want to avoid matching partial patterns.
     // TODO: It would be more efficient if we removed dead instructions
     // iteratively in this loop rather than waiting until the end.
-    for (Instruction &I : make_range(BB.rbegin(), BB.rend())) {
+    for (Instruction &I : llvm::reverse(BB)) {
       MadeChange |= foldAnyOrAllBitsSet(I);
       MadeChange |= foldGuardedFunnelShift(I, DT);
-      MadeChange |= tryToRecognizePopCount(I); 
+      MadeChange |= tryToRecognizePopCount(I);
     }
   }
 

@@ -17,38 +17,7 @@
 #ifdef __SYCL_DEVICE_ONLY__
 #define SYCL_ESIMD_KERNEL __attribute__((sycl_explicit_simd))
 #define SYCL_ESIMD_FUNCTION __attribute__((sycl_explicit_simd))
-#else
-#define SYCL_ESIMD_KERNEL
-#define SYCL_ESIMD_FUNCTION
-#endif
 
-__SYCL_INLINE_NAMESPACE(cl) {
-namespace sycl {
-namespace ext {
-namespace intel {
-namespace experimental {
-namespace esimd {
-
-using uchar = unsigned char;
-using ushort = unsigned short;
-using uint = unsigned int;
-
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-#ifdef __SYCL_DEVICE_ONLY__
-// TODO map bfloat16 to SYCL's half type storage for now, following CM practice.
-// Will map to native bfloat16 (available since LLVM 11), once supported in BE.
-using bfloat16 = _Float16;
-#else
-// TODO can't map to cl::sycl::detail::half_impl::StorageT, as it is a class on
-// host and can't be a vector element. Implement generic solution for half and
-// bfloat16.
-using bfloat16 = uint16_t;
-#endif // __SYCL_DEVICE_ONLY__
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
-
-#ifdef __SYCL_DEVICE_ONLY__
 // Mark a function being nodebug.
 #define ESIMD_NODEBUG __attribute__((nodebug))
 // Mark a "ESIMD global": accessible from all functions in current translation
@@ -58,14 +27,21 @@ using bfloat16 = uint16_t;
   __attribute__((opencl_private)) __attribute__((sycl_explicit_simd))
 // Bind a ESIMD global variable to a specific register.
 #define ESIMD_REGISTER(n) __attribute__((register_num(n)))
-#else
+
+#define __ESIMD_API ESIMD_NODEBUG ESIMD_INLINE
+#else // __SYCL_DEVICE_ONLY__
+#define SYCL_ESIMD_KERNEL
+#define SYCL_ESIMD_FUNCTION
+
 // TODO ESIMD define what this means on Windows host
 #define ESIMD_NODEBUG
 // On host device ESIMD global is a thread local static var. This assumes that
 // each work-item is mapped to a separate OS thread on host device.
 #define ESIMD_PRIVATE thread_local
 #define ESIMD_REGISTER(n)
-#endif
+
+#define __ESIMD_API ESIMD_INLINE
+#endif // __SYCL_DEVICE_ONLY__
 
 // Mark a function being noinline
 #define ESIMD_NOINLINE __attribute__((noinline))
@@ -84,6 +60,32 @@ using bfloat16 = uint16_t;
 // message printed out by the compiler.
 #define __ESIMD_DEPR_ENUM_V(old, new, t)                                       \
   old __ESIMD_DEPRECATED(new) = static_cast<t>(new)
+
+__SYCL_INLINE_NAMESPACE(cl) {
+namespace sycl {
+namespace ext {
+namespace intel {
+namespace experimental {
+namespace esimd {
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef __SYCL_DEVICE_ONLY__
+// TODO map bfloat16 to SYCL's half type storage for now, following CM practice.
+// Will map to native bfloat16 (available since LLVM 11), once supported in BE.
+using bfloat16 = _Float16;
+#else
+// TODO can't map to cl::sycl::detail::half_impl::StorageT, as it is a class on
+// host and can't be a vector element. Implement generic solution for half and
+// bfloat16.
+using bfloat16 = uint16_t;
+#endif // __SYCL_DEVICE_ONLY__
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+
+using uchar = unsigned char;
+using ushort = unsigned short;
+using uint = unsigned int;
 
 /// Gen hardware supports applying saturation to results of some operation.
 /// This enum allows to control this behavior.
@@ -377,101 +379,83 @@ template <typename T, lsc_data_size DS> constexpr void check_lsc_data_size() {
                 "Unsupported data type");
 }
 
-template <EsimdAtomicOpType Op> constexpr void check_lsc_atomic_op() {
-  static_assert(Op == EsimdAtomicOpType::ATOMIC_ADD ||
-                    Op == EsimdAtomicOpType::ATOMIC_SUB ||
-                    Op == EsimdAtomicOpType::ATOMIC_INC ||
-                    Op == EsimdAtomicOpType::ATOMIC_DEC ||
-                    Op == EsimdAtomicOpType::ATOMIC_MIN ||
-                    Op == EsimdAtomicOpType::ATOMIC_MAX ||
-                    Op == EsimdAtomicOpType::ATOMIC_CMPXCHG ||
-                    Op == EsimdAtomicOpType::ATOMIC_AND ||
-                    Op == EsimdAtomicOpType::ATOMIC_OR ||
-                    Op == EsimdAtomicOpType::ATOMIC_XOR ||
-                    Op == EsimdAtomicOpType::ATOMIC_MINSINT ||
-                    Op == EsimdAtomicOpType::ATOMIC_MAXSINT ||
-                    Op == EsimdAtomicOpType::ATOMIC_FMAX ||
-                    Op == EsimdAtomicOpType::ATOMIC_FMIN ||
-                    Op == EsimdAtomicOpType::ATOMIC_FCMPWR ||
-                    Op == EsimdAtomicOpType::ATOMIC_FADD ||
-                    Op == EsimdAtomicOpType::ATOMIC_FSUB ||
-                    Op == EsimdAtomicOpType::ATOMIC_LOAD ||
-                    Op == EsimdAtomicOpType::ATOMIC_STORE,
+template <atomic_op Op> constexpr void check_lsc_atomic_op() {
+  static_assert(Op == atomic_op::add || Op == atomic_op::sub ||
+                    Op == atomic_op::inc || Op == atomic_op::dec ||
+                    Op == atomic_op::min || Op == atomic_op::max ||
+                    Op == atomic_op::cmpxchg || Op == atomic_op::bit_and ||
+                    Op == atomic_op::bit_or || Op == atomic_op::bit_xor ||
+                    Op == atomic_op::minsint || Op == atomic_op::maxsint ||
+                    Op == atomic_op::fmax || Op == atomic_op::fmin ||
+                    Op == atomic_op::fcmpwr || Op == atomic_op::fadd ||
+                    Op == atomic_op::fsub || Op == atomic_op::load ||
+                    Op == atomic_op::store,
                 "Unsupported operation for LSC atomics");
 }
 
 /// Check the legality of lsc xatomic call in terms of size and type.
 /// \ingroup sycl_esimd
-template <EsimdAtomicOpType Op, unsigned NumSrc>
+template <atomic_op Op, unsigned NumSrc>
 constexpr void check_lsc_atomic() {
   check_lsc_atomic_op<Op>();
-  if constexpr (Op == EsimdAtomicOpType::ATOMIC_INC ||
-                Op == EsimdAtomicOpType::ATOMIC_DEC ||
-                Op == EsimdAtomicOpType::ATOMIC_LOAD) {
+  if constexpr (Op == atomic_op::inc || Op == atomic_op::dec ||
+                Op == atomic_op::load) {
     static_assert(NumSrc == 0, "No source operands are expected");
   }
-  if constexpr (Op == EsimdAtomicOpType::ATOMIC_STORE ||
-                Op == EsimdAtomicOpType::ATOMIC_ADD ||
-                Op == EsimdAtomicOpType::ATOMIC_SUB ||
-                Op == EsimdAtomicOpType::ATOMIC_MINSINT ||
-                Op == EsimdAtomicOpType::ATOMIC_MAXSINT ||
-                Op == EsimdAtomicOpType::ATOMIC_MIN ||
-                Op == EsimdAtomicOpType::ATOMIC_MAX ||
-                Op == EsimdAtomicOpType::ATOMIC_FADD ||
-                Op == EsimdAtomicOpType::ATOMIC_FSUB ||
-                Op == EsimdAtomicOpType::ATOMIC_FMIN ||
-                Op == EsimdAtomicOpType::ATOMIC_FMAX ||
-                Op == EsimdAtomicOpType::ATOMIC_AND ||
-                Op == EsimdAtomicOpType::ATOMIC_OR ||
-                Op == EsimdAtomicOpType::ATOMIC_XOR) {
+  if constexpr (Op == atomic_op::store || Op == atomic_op::add ||
+                Op == atomic_op::sub || Op == atomic_op::minsint ||
+                Op == atomic_op::maxsint || Op == atomic_op::min ||
+                Op == atomic_op::max || Op == atomic_op::fadd ||
+                Op == atomic_op::fsub || Op == atomic_op::fmin ||
+                Op == atomic_op::fmax || Op == atomic_op::bit_and ||
+                Op == atomic_op::bit_or || Op == atomic_op::bit_xor) {
     static_assert(NumSrc == 1, "One source operand is expected");
   }
-  if constexpr (Op == EsimdAtomicOpType::ATOMIC_CMPXCHG ||
-                Op == EsimdAtomicOpType::ATOMIC_FCMPWR) {
+  if constexpr (Op == atomic_op::cmpxchg || Op == atomic_op::fcmpwr) {
     static_assert(NumSrc == 2, "Two source operands are expected");
   }
 }
 
-template <EsimdAtomicOpType Op> constexpr lsc_atomic_op to_lsc_atomic_op() {
+template <atomic_op Op> constexpr lsc_atomic_op to_lsc_atomic_op() {
   check_lsc_atomic_op<Op>();
   switch (Op) {
-  case EsimdAtomicOpType::ATOMIC_ADD:
+  case atomic_op::add:
     return lsc_atomic_op::iadd;
-  case EsimdAtomicOpType::ATOMIC_SUB:
+  case atomic_op::sub:
     return lsc_atomic_op::isub;
-  case EsimdAtomicOpType::ATOMIC_INC:
+  case atomic_op::inc:
     return lsc_atomic_op::iinc;
-  case EsimdAtomicOpType::ATOMIC_DEC:
+  case atomic_op::dec:
     return lsc_atomic_op::idec;
-  case EsimdAtomicOpType::ATOMIC_MIN:
+  case atomic_op::min:
     return lsc_atomic_op::umin;
-  case EsimdAtomicOpType::ATOMIC_MAX:
+  case atomic_op::max:
     return lsc_atomic_op::umax;
-  case EsimdAtomicOpType::ATOMIC_CMPXCHG:
+  case atomic_op::cmpxchg:
     return lsc_atomic_op::icas;
-  case EsimdAtomicOpType::ATOMIC_AND:
+  case atomic_op::bit_and:
     return lsc_atomic_op::bit_and;
-  case EsimdAtomicOpType::ATOMIC_OR:
+  case atomic_op::bit_or:
     return lsc_atomic_op::bit_or;
-  case EsimdAtomicOpType::ATOMIC_XOR:
+  case atomic_op::bit_xor:
     return lsc_atomic_op::bit_xor;
-  case EsimdAtomicOpType::ATOMIC_MINSINT:
+  case atomic_op::minsint:
     return lsc_atomic_op::smin;
-  case EsimdAtomicOpType::ATOMIC_MAXSINT:
+  case atomic_op::maxsint:
     return lsc_atomic_op::smax;
-  case EsimdAtomicOpType::ATOMIC_FMAX:
+  case atomic_op::fmax:
     return lsc_atomic_op::fmax;
-  case EsimdAtomicOpType::ATOMIC_FMIN:
+  case atomic_op::fmin:
     return lsc_atomic_op::fmin;
-  case EsimdAtomicOpType::ATOMIC_FCMPWR:
+  case atomic_op::fcmpwr:
     return lsc_atomic_op::fcas;
-  case EsimdAtomicOpType::ATOMIC_FADD:
+  case atomic_op::fadd:
     return lsc_atomic_op::fadd;
-  case EsimdAtomicOpType::ATOMIC_FSUB:
+  case atomic_op::fsub:
     return lsc_atomic_op::fsub;
-  case EsimdAtomicOpType::ATOMIC_LOAD:
+  case atomic_op::load:
     return lsc_atomic_op::load;
-  case EsimdAtomicOpType::ATOMIC_STORE:
+  case atomic_op::store:
     return lsc_atomic_op::store;
   default:
     return lsc_atomic_op::iinc;
@@ -572,12 +556,15 @@ enum class split_barrier_action : uint8_t {
 // For backward compatibility:
 using EsimdSbarrierType = split_barrier_action;
 
-#undef __ESIMD_DEPR_ENUM_V
-
 // Since EsimdSbarrierType values are deprecated, these macros will generate
 // deprecation message.
 #define ESIMD_SBARRIER_WAIT EsimdSbarrierType::WAIT
 #define ESIMD_SBARRIER_SIGNAL EsimdSbarrierType::SIGNAL
+
+/// Surface index type. Surface is an internal representation of a memory block
+/// addressable by GPU in "stateful" memory model, and each surface is
+/// identified by its "binding table index" - surface index.
+using SurfaceIndex = unsigned int;
 
 } // namespace esimd
 } // namespace experimental

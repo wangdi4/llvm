@@ -14,8 +14,9 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %p) !intel.dtr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Check for 8-byte alignment with an extraneous bit set
@@ -28,8 +29,9 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %p) !intel.dtr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test02
 
 
 ; Check for variable bitmask -- this may be OK, but we don't need it so it's
@@ -43,8 +45,9 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %p, i64 %mask)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: Unhandled use{{ *}}
+; CHECK: End LLVMType: %struct.test03
 
 
 ; Check for comparison of two masked pointers
@@ -60,8 +63,9 @@ define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %p1, %struct.t
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04
+; CHECK: LLVMType: %struct.test04
 ; CHECK: Safety data: Unhandled use{{ *}}
+; CHECK: End LLVMType: %struct.test04
 
 
 ; Check for alignment check on a field element address
@@ -74,8 +78,9 @@ define void @test05(%struct.test05* "intel_dtrans_func_index"="1" %p) !intel.dtr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test05
+; CHECK: LLVMType: %struct.test05
 ; CHECK: Safety data: Unhandled use{{ *}}
+; CHECK: End LLVMType: %struct.test05
 
 
 ; Alignment checks on pointer-to-pointer types for cases that are not supported
@@ -93,8 +98,9 @@ define void @test06(%struct.test06** "intel_dtrans_func_index"="1" %p1, %struct.
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test06
+; CHECK: LLVMType: %struct.test06
 ; CHECK: Safety data: Unhandled use{{ *}}
+; CHECK: End LLVMType: %struct.test06
 
 
 !1 = !{i32 0, i32 0}  ; i32

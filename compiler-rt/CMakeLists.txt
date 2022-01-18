@@ -16,6 +16,8 @@ endif()
 list(INSERT CMAKE_MODULE_PATH 0
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules"
+  "${CMAKE_CURRENT_SOURCE_DIR}/../cmake"
+  "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Modules"
   )
 
 if(CMAKE_CONFIGURATION_TYPES)
@@ -49,25 +51,6 @@ option(COMPILER_RT_BUILD_ORC "Build ORC runtime" ON)
 mark_as_advanced(COMPILER_RT_BUILD_ORC)
 option(COMPILER_RT_BUILD_GWP_ASAN "Build GWP-ASan, and link it into SCUDO" ON)
 mark_as_advanced(COMPILER_RT_BUILD_GWP_ASAN)
-
-set(COMPILER_RT_ASAN_SHADOW_SCALE ""
-    CACHE STRING "Override the shadow scale to be used in ASan runtime")
-
-if (NOT COMPILER_RT_ASAN_SHADOW_SCALE STREQUAL "")
-  # Check that the shadow scale value is valid.
-  if (NOT (COMPILER_RT_ASAN_SHADOW_SCALE GREATER -1 AND
-           COMPILER_RT_ASAN_SHADOW_SCALE LESS 8))
-    message(FATAL_ERROR "
-      Invalid ASan Shadow Scale '${COMPILER_RT_ASAN_SHADOW_SCALE}'.")
-  endif()
-
-  set(COMPILER_RT_ASAN_SHADOW_SCALE_LLVM_FLAG
-      -mllvm -asan-mapping-scale=${COMPILER_RT_ASAN_SHADOW_SCALE})
-  set(COMPILER_RT_ASAN_SHADOW_SCALE_DEFINITION
-      ASAN_SHADOW_SCALE=${COMPILER_RT_ASAN_SHADOW_SCALE})
-  set(COMPILER_RT_ASAN_SHADOW_SCALE_FLAG
-      -D${COMPILER_RT_ASAN_SHADOW_SCALE_DEFINITION})
-endif()
 
 if(FUCHSIA)
   set(COMPILER_RT_HWASAN_WITH_INTERCEPTORS_DEFAULT OFF)
@@ -205,6 +188,14 @@ macro(handle_default_cxx_lib var)
   endif()
 endmacro()
 
+# INTEL_CUSTOMIZATION
+# Avoid libc++ libarary dependency in compiler-rt
+string(REGEX REPLACE "-stdlib=[a-zA-Z+]*" "-stdlib=libstdc++" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+string(REGEX REPLACE "-stdlib=[a-zA-Z+]*" "-stdlib=libstdc++" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
+string(REGEX REPLACE "-stdlib=[a-zA-Z+]*" "-stdlib=libstdc++" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
+string(REGEX REPLACE "-stdlib=[a-zA-Z+]*" "-stdlib=libstdc++" CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS}")
+# end INTEL_CUSTOMIZATION
+
 # This is either directly the C++ ABI library or the full C++ library
 # which pulls in the ABI transitively.
 set(SANITIZER_CXX_ABI "default" CACHE STRING
@@ -231,10 +222,11 @@ if (CMAKE_CXX_FLAGS MATCHES "-fprofile-arcs" AND CMAKE_CXX_FLAGS MATCHES "-ftest
   string(REGEX REPLACE "-fprofile-arcs" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   string(REGEX REPLACE "-ftest-coverage" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   set(CCOV_BUILD_FLAGS "-fprofile-arcs -ftest-coverage")
-  # Libirc is not ready when running lit tests, so we disable it when
-  # doing ccov build.
-  string(APPEND CMAKE_CXX_FLAGS " -i_no-use-libirc")
 endif()
+
+# Libirc is not ready when running lit tests, so we disable using it.
+string(APPEND CMAKE_C_FLAGS " -i_no-use-libirc")
+string(APPEND CMAKE_CXX_FLAGS " -i_no-use-libirc")
 # end INTEL_CUSTOMIZATION
 
 set(DEFAULT_SANITIZER_USE_STATIC_LLVM_UNWINDER OFF)
@@ -246,6 +238,7 @@ endif()
 
 option(SANITIZER_USE_STATIC_LLVM_UNWINDER
   "Use static LLVM unwinder." ${DEFAULT_SANITIZER_USE_STATIC_LLVM_UNWINDER})
+pythonize_bool(SANITIZER_USE_STATIC_LLVM_UNWINDER)
 
 set(DEFAULT_SANITIZER_USE_STATIC_CXX_ABI OFF)
 if (DEFINED LIBCXXABI_ENABLE_SHARED AND NOT LIBCXXABI_ENABLE_SHARED)
@@ -254,6 +247,7 @@ endif()
 
 option(SANITIZER_USE_STATIC_CXX_ABI
   "Use static libc++abi." ${DEFAULT_SANITIZER_USE_STATIC_CXX_ABI})
+pythonize_bool(SANITIZER_USE_STATIC_CXX_ABI)
 
 set(DEFAULT_COMPILER_RT_USE_BUILTINS_LIBRARY OFF)
 if (FUCHSIA)
@@ -322,8 +316,11 @@ if(NOT COMPILER_RT_ENABLE_PGO)
   endif()
   if(LLVM_BUILD_INSTRUMENTED MATCHES IR AND COMPILER_RT_HAS_FNO_PROFILE_GENERATE_FLAG)
     list(APPEND SANITIZER_COMMON_CFLAGS "-fno-profile-generate")
-  elseif(LLVM_BUILD_INSTRUMENTED AND COMPILER_RT_HAS_FNO_PROFILE_INSTR_GENERATE_FLAG)
+  elseif((LLVM_BUILD_INSTRUMENTED OR LLVM_BUILD_INSTRUMENTED_COVERAGE) AND COMPILER_RT_HAS_FNO_PROFILE_INSTR_GENERATE_FLAG)
     list(APPEND SANITIZER_COMMON_CFLAGS "-fno-profile-instr-generate")
+    if(LLVM_BUILD_INSTRUMENTED_COVERAGE AND COMPILER_RT_HAS_FNO_COVERAGE_MAPPING_FLAG)
+      list(APPEND SANITIZER_COMMON_CFLAGS "-fno-coverage-mapping")
+    endif()
   endif()
 endif()
 
@@ -452,7 +449,6 @@ append_list_if(COMPILER_RT_HAS_WGNU_FLAG -Wno-gnu SANITIZER_COMMON_CFLAGS)
 append_list_if(COMPILER_RT_HAS_WVARIADIC_MACROS_FLAG -Wno-variadic-macros SANITIZER_COMMON_CFLAGS)
 append_list_if(COMPILER_RT_HAS_WC99_EXTENSIONS_FLAG -Wno-c99-extensions SANITIZER_COMMON_CFLAGS)
 # format-pedantic warns about passing T* for %p, which is not useful.
-append_list_if(COMPILER_RT_HAS_WNO_FORMAT_PEDANTIC -Wno-format-pedantic SANITIZER_COMMON_CFLAGS)
 append_list_if(COMPILER_RT_HAS_WD4146_FLAG /wd4146 SANITIZER_COMMON_CFLAGS)
 append_list_if(COMPILER_RT_HAS_WD4291_FLAG /wd4291 SANITIZER_COMMON_CFLAGS)
 append_list_if(COMPILER_RT_HAS_WD4391_FLAG /wd4391 SANITIZER_COMMON_CFLAGS)

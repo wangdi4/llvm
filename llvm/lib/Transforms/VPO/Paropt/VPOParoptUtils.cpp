@@ -44,6 +44,13 @@
 #include "llvm/Analysis/EHPersonalities.h"
 #include <string>
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypes.h"
+#include "Intel_DTrans/Analysis/TypeMetadataReader.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+
+#endif // INTEL_CUSTOMIZATION
 #define DEBUG_TYPE "vpo-paropt-utils"
 
 using namespace llvm;
@@ -173,6 +180,70 @@ VPOParoptUtils::getOrCreateStructType(Function *F, StringRef Name,
   return StructType::create(C, ElementTypes, Name, false);
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+// Return DTrans type describing kmpc_micro function type:
+//   typedef void(*kmpc_micro)(kmp_int32 *global_tid, kmp_int32 *bound_tid, ...)
+dtransOP::DTransFunctionType *VPOParoptUtils::getKmpcMicroDTransType(
+    dtransOP::DTransTypeManager &TM) {
+  LLVMContext &C = TM.getContext();
+  dtransOP::DTransType *DVoidTy = TM.getOrCreateAtomicType(Type::getVoidTy(C));
+  dtransOP::DTransType *DInt32Ty =
+      TM.getOrCreateAtomicType(Type::getInt32Ty(C));
+  dtransOP::DTransType *DInt32PtrTy =
+      TM.getOrCreatePointerType(DInt32Ty);
+  dtransOP::DTransType *ArgTypes[] = {DInt32PtrTy, DInt32PtrTy};
+  dtransOP::DTransFunctionType *DKmpcMicroTy =
+      TM.getOrCreateFunctionType(DVoidTy, ArgTypes, /*IsVarArg=*/true);
+  return DKmpcMicroTy;
+}
+
+// Return DTrans type describing ident_t type:
+//   typedef struct ident {
+//     kmp_int32 reserved_1;
+//     kmp_int32 flags;
+//     kmp_int32 reserved_2;
+//     kmp_int32 reserved_3;
+//     char const *psource;
+//   } ident_t;
+dtransOP::DTransStructType *VPOParoptUtils::getIdentStructDTransType(
+    dtransOP::DTransTypeManager &TM, StructType *IdentTy) {
+  // Check if the type already has DTrans type
+  // in the provided DTransTypeManager.
+  auto *DStructTy = TM.getStructType(IdentTy->getName());
+  if (DStructTy)
+    return DStructTy;
+
+  LLVMContext &C = TM.getContext();
+
+  // Create a representation of the ident_t in the DTrans type space.
+  DStructTy = TM.getOrCreateStructType(IdentTy);
+
+  // Get the DTransTypes for the fields.
+  dtransOP::DTransType *DInt32Ty =
+      TM.getOrCreateAtomicType(Type::getInt32Ty(C));
+  dtransOP::DTransType *DInt8PtrTy =
+      TM.getOrCreateAtomicType(Type::getInt8Ty(C));
+  DInt8PtrTy = TM.getOrCreatePointerType(DInt8PtrTy);
+
+  dtransOP::DTransType *DTransDataTypes[] = {DInt32Ty,
+                                             DInt32Ty,
+                                             DInt32Ty,
+                                             DInt32Ty,
+                                             DInt8PtrTy};
+
+  // Populate the body of the structure,
+  // and then ask for a metadata encoding of it.
+  for (unsigned I = 0, NumFields = DStructTy->getNumFields();
+       I < NumFields; ++I) {
+    dtransOP::DTransFieldMember &Field = DStructTy->getField(I);
+    Field.addResolvedType(DTransDataTypes[I]);
+  }
+
+  return DStructTy;
+}
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 // Find any existing ident_t (LOC) struct in the module of F, and if found,
 // return it. If not, create an ident_t struct and return it.
 StructType *VPOParoptUtils::getIdentStructType(Function *F) {
@@ -180,17 +251,35 @@ StructType *VPOParoptUtils::getIdentStructType(Function *F) {
   assert(F && "Null function pointer.");
 
   LLVMContext &C = F->getContext();
-  unsigned AS = VPOAnalysisUtils::isTargetSPIRV(F->getParent())
-                    ? vpo::ADDRESS_SPACE_GENERIC
-                    : 0;
+  unsigned AS = VPOParoptUtils::getDefaultAS(F->getParent());
   Type *IdentTyArgs[] = {Type::getInt32Ty(C),        // reserved_1
                          Type::getInt32Ty(C),        // flags
                          Type::getInt32Ty(C),        // reserved_2
                          Type::getInt32Ty(C),        // reserved_3
                          Type::getInt8PtrTy(C, AS)}; // *psource
 
-  return VPOParoptUtils::getOrCreateStructType(F, "struct.ident_t",
-                                               IdentTyArgs);
+  StructType *IdentTy = getOrCreateStructType(F, "struct.ident_t",
+                                              IdentTyArgs);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  NamedMDNode *DTMDTypes =
+      dtransOP::TypeMetadataReader::getDTransTypesMetadata(*F->getParent());
+  if (!DTMDTypes) {
+    // If there is no DTrans types metadata (i.e. DTrans is not enabled
+    // with compiler options), then we should not be adding any either.
+    return IdentTy;
+  }
+  dtransOP::DTransTypeManager TM(C);
+  // Create a representation of the ident_t in the DTrans type space.
+  dtransOP::DTransStructType *NewDTransStructTy =
+      getIdentStructDTransType(TM, IdentTy);
+  MDNode *MD = NewDTransStructTy->createMetadataStructureDescriptor();
+  DTMDTypes->addOperand(MD);
+
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
+  return IdentTy;
 }
 
 // This function generates a runtime library call to __kmpc_begin(&loc, 0)
@@ -390,17 +479,19 @@ WRNScheduleKind VPOParoptUtils::getDistLoopScheduleKind(WRegionNode *W)
 // via a pointer or as a Constant.
 // The resulting value is casted to the given type.
 Value *VPOParoptUtils::getOrLoadClauseArgValueWithSext(
-    Value *Arg, Type *Ty, IRBuilder<> &Builder) {
+    Value *Arg, Type *ArgElementTy, Type *Ty, IRBuilder<> &Builder) {
   if (!Arg)
     return nullptr;
 
   assert(Ty && Ty->isIntegerTy() && "Expected integer type.");
 
-  if (Arg->getType()->isPointerTy())
-    Arg = Builder.CreateLoad(Arg->getType()->getPointerElementType(), Arg);
-  else
+  if (Arg->getType()->isPointerTy()) {
+    assert(ArgElementTy && "ArgElementTy is null.");
+    Arg = Builder.CreateLoad(ArgElementTy, Arg);
+  } else {
     assert(isa<Constant>(Arg) &&
            "The clause argument must be either pointer or Constant Value.");
+  }
 
   return Builder.CreateSExtOrTrunc(Arg, Ty);
 }
@@ -416,8 +507,9 @@ Value *VPOParoptUtils::getOrLoadClauseArgValueWithSext(
 /// \endcode
 CallInst *VPOParoptUtils::genKmpcPushNumTeams(WRegionNode *W,
                                               StructType *IdentTy, Value *Tid,
-                                              Value *NumTeams,
+                                              Value *NumTeams, Type *NumTeamsTy,
                                               Value *NumThreads,
+                                              Type *NumThreadsTy,
                                               Instruction *InsertPt) {
   BasicBlock *B = W->getEntryBBlock();
   BasicBlock *E = W->getExitBBlock();
@@ -449,12 +541,14 @@ CallInst *VPOParoptUtils::genKmpcPushNumTeams(WRegionNode *W,
   Type *Int32Ty = Type::getInt32Ty(C);
 
   if (NumTeams)
-    NumTeams = getOrLoadClauseArgValueWithSext(NumTeams, Int32Ty, Builder);
+    NumTeams = getOrLoadClauseArgValueWithSext(NumTeams, NumTeamsTy,
+                                               Int32Ty, Builder);
   else
     NumTeams = ConstantInt::get(Int32Ty, 0);
 
   if (NumThreads)
-    NumThreads = getOrLoadClauseArgValueWithSext(NumThreads, Int32Ty, Builder);
+    NumThreads = getOrLoadClauseArgValueWithSext(NumThreads, NumThreadsTy,
+                                                 Int32Ty, Builder);
   else
     NumThreads = ConstantInt::get(Int32Ty, 0);
 
@@ -669,15 +763,18 @@ VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr, int NumArgs,
     SubdeviceI  = Subdevice.front();
 
   Value *NumTeamsPtr = W->getNumTeams();
+  Type *NumTeamsTy = W->getNumTeamsType();
 
   assert((!useSPMDMode(W) || !NumTeamsPtr) &&
          "SPMD mode cannot be used with num_teams.");
 
   Value *ThreadLimitPtr = W->getThreadLimit();
+  Type *ThreadLimitTy = W->getThreadLimitType();
   CallInst *Call =
       genTgtCall("__tgt_target_teams", W, DeviceID, NumArgs, ArgsBase, Args,
                  ArgsSize, ArgsMaptype, ArgsNames, ArgsMappers, InsertPt,
-                 HostAddr, NumTeamsPtr, ThreadLimitPtr, SubdeviceI);
+                 HostAddr, NumTeamsPtr, NumTeamsTy, ThreadLimitPtr,
+                 ThreadLimitTy, SubdeviceI);
   return Call;
 }
 
@@ -803,7 +900,8 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode *W,
                                      Value *ArgsSize, Value *ArgsMaptype,
                                      Value *ArgsNames, Value *ArgsMappers,
                                      Instruction *InsertPt, Value *HostAddr,
-                                     Value *NumTeamsPtr, Value *ThreadLimitPtr,
+                                     Value *NumTeamsPtr, Type *NumTeamsTy,
+                                     Value *ThreadLimitPtr, Type *ThreadLimitTy,
                                      SubdeviceItem *SubdeviceI) {
   IRBuilder<> Builder(InsertPt);
   BasicBlock *B = InsertPt->getParent();
@@ -854,14 +952,15 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode *W,
       if (NumTeamsPtr == nullptr)
         NumTeams = Builder.getInt32(0);
       else
-        NumTeams =
-            getOrLoadClauseArgValueWithSext(NumTeamsPtr, Int32Ty, Builder);
+        NumTeams = getOrLoadClauseArgValueWithSext(NumTeamsPtr, NumTeamsTy,
+                                                   Int32Ty, Builder);
 
       if (ThreadLimitPtr == nullptr)
         ThreadLimit = Builder.getInt32(0);
       else
-        ThreadLimit =
-            getOrLoadClauseArgValueWithSext(ThreadLimitPtr, Int32Ty, Builder);
+        ThreadLimit = getOrLoadClauseArgValueWithSext(ThreadLimitPtr,
+                                                      ThreadLimitTy,
+                                                      Int32Ty, Builder);
 #if INTEL_CUSTOMIZATION
       uint64_t KernelThreadLimit = W->getConfiguredThreadLimit();
       if (KernelThreadLimit > 0)
@@ -1806,12 +1905,18 @@ CallInst *genKmpcTaskAllocImpl(WRegionNode *W, StructType *IdentTy, Value *Tid,
   return TaskAllocCall;
 }
 
-// build the CFG for if clause.
+// Build the CFG for if clause and update the DT.
 void VPOParoptUtils::buildCFGForIfClause(Value *Cmp, Instruction *&ThenTerm,
                                          Instruction *&ElseTerm,
                                          Instruction *InsertPt,
                                          DominatorTree *DT) {
   BasicBlock *SplitBeforeBB = InsertPt->getParent();
+  // After we split the block into a diamond, the new "if.end" block must
+  // dominate everything that the original block did. Save the original
+  // immediate children here.
+  DomTreeNode *OldNode = DT->getNode(SplitBeforeBB);
+  SmallVector<DomTreeNode *, 4> DomChildren(OldNode->begin(), OldNode->end());
+
   SplitBlockAndInsertIfThenElse(Cmp, InsertPt, &ThenTerm, &ElseTerm);
   ThenTerm->getParent()->setName("if.then");
   ElseTerm->getParent()->setName("if.else");
@@ -1819,14 +1924,10 @@ void VPOParoptUtils::buildCFGForIfClause(Value *Cmp, Instruction *&ThenTerm,
 
   DT->addNewBlock(ThenTerm->getParent(), SplitBeforeBB);
   DT->addNewBlock(ElseTerm->getParent(), SplitBeforeBB);
-  DT->addNewBlock(InsertPt->getParent(), SplitBeforeBB);
-
-  DT->changeImmediateDominator(ThenTerm->getParent(), SplitBeforeBB);
-  DT->changeImmediateDominator(ElseTerm->getParent(), SplitBeforeBB);
-  BasicBlock *NextBB = InsertPt->getParent()->getSingleSuccessor();
-
-  if (NextBB && NextBB->getUniquePredecessor())
-    DT->changeImmediateDominator(NextBB, InsertPt->getParent());
+  auto *IfEndDomNode = DT->addNewBlock(InsertPt->getParent(), SplitBeforeBB);
+  for (auto *Child : DomChildren)
+    DT->changeImmediateDominator(Child, IfEndDomNode);
+  // verification will run after extraction
 }
 
 // This function generates a call as follows.
@@ -3493,7 +3594,8 @@ CallInst *VPOParoptUtils::genKmpcMaskedOrEndMaskedCall(
                                        I32Ty, Tid, Align(4), "my.tid"));
 
   if (IsMaskedStart)
-    FnArgs.push_back(isa<WRNMaskedNode>(W) ? W->getFilter() : Zero);
+    FnArgs.push_back(isa<WRNMaskedNode>(W) && W->getFilter() ? W->getFilter()
+                                                             : Zero);
 
   CallInst *MaskedOrEndCall =
       VPOParoptUtils::genKmpcCall(W, IdentTy, InsertPt, FnName, RetTy, FnArgs);
@@ -3963,7 +4065,7 @@ CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
       Function *F = InsertPt->getFunction();
       F->getContext().diagnose(DiagnosticInfoUnsupported(*F, Msg));
     } else
-      report_fatal_error(Msg);
+      report_fatal_error(Twine(Msg));
   }
 
   llvm_unreachable(Msg.c_str());
@@ -4041,7 +4143,7 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
   FunctionType *BaseFnTy = BaseCall->getFunctionType();
   bool IsVarArg = BaseFnTy->isVarArg();
 
-  SmallVector<Value *, 4> FnArgs(BaseCall->arg_operands());
+  SmallVector<Value *, 4> FnArgs(BaseCall->args());
 
   // When IsVarArg==true, we cannot recreate the FnArgTypes from the FnArgs
   // because there may be more arguments in the call than the formal parameters
@@ -4087,13 +4189,11 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
   // -Base:           call void @foo1(%struct.A* byval(%struct.A) align 8 %AAA)
   // -Variant before: call void @foo2(%struct.A* %AAA)
   // -Variant after:  call void @foo2(%struct.A* byval(%struct.A) align 8 %AAA)
-  for (unsigned ArgNum = 0; ArgNum < BaseCall->getNumArgOperands(); ++ArgNum) {
+  for (unsigned ArgNum = 0; ArgNum < BaseCall->arg_size(); ++ArgNum) {
     if (BaseCall->isByValArgument(ArgNum)) {
-      Type *ArgType = FnArgTypes[ArgNum];
-      assert(isa<PointerType>(ArgType) && "Byval expects a pointer type");
       VariantCall->addParamAttr(
           ArgNum,
-          Attribute::getWithByValType(C, ArgType->getPointerElementType()));
+          Attribute::getWithByValType(C, BaseCall->getParamByValType(ArgNum)));
       // Byval arguments may have an alignment; propagate it too
       MaybeAlign MayAln = BaseCall->getParamAlign(ArgNum);
       Align Aln = MayAln.valueOrOne();
@@ -4821,13 +4921,18 @@ void VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
 
 // Emit Constructor call and insert it after PrivAlloca
 CallInst *VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
-                                             Value* PrivAlloca) {
+                                             Value *PrivAlloca,
+                                             bool IsTargetSPIRV) {
   if (Ctor == nullptr)
     return nullptr;
 
   Type *ValType = V->getType();
-  CallInst *Call = genCall(Ctor->getParent(), Ctor, {V}, {ValType}, nullptr);
   Instruction *InsertAfterPt = cast<Instruction>(PrivAlloca);
+  if (IsTargetSPIRV)
+    V = VPOParoptUtils::genAddrSpaceCast(
+        V, InsertAfterPt, Ctor->getArg(0)->getType()->getPointerAddressSpace());
+
+  CallInst *Call = genCall(Ctor->getParent(), Ctor, {V}, {ValType}, nullptr);
   Call->insertAfter(InsertAfterPt);
   Call->setDebugLoc(InsertAfterPt->getDebugLoc());
   Call->addFnAttr(Attribute::get(Call->getContext(),
@@ -4838,9 +4943,15 @@ CallInst *VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
 
 // Emit Destructor call and insert it before InsertBeforePt
 CallInst *VPOParoptUtils::genDestructorCall(Function *Dtor, Value *V,
-                                            Instruction *InsertBeforePt) {
+                                            Instruction *InsertBeforePt,
+                                            bool IsTargetSPIRV) {
   if (Dtor == nullptr)
     return nullptr;
+
+  if (IsTargetSPIRV)
+    V = VPOParoptUtils::genAddrSpaceCast(
+        V, InsertBeforePt,
+        Dtor->getArg(0)->getType()->getPointerAddressSpace());
 
   Type *ArgTy = Dtor->getFunctionType()->getParamType(0);
   Type *ValType = V->getType();
@@ -4860,12 +4971,23 @@ CallInst *VPOParoptUtils::genDestructorCall(Function *Dtor, Value *V,
 
 // Emit Copy Constructor call and insert it before InsertBeforePt
 CallInst *VPOParoptUtils::genCopyConstructorCall(Function *Cctor, Value *D,
-                                  Value *S, Instruction *InsertBeforePt) {
+                                                 Value *S,
+                                                 Instruction *InsertBeforePt,
+                                                 bool IsTargetSPIRV) {
   if (Cctor == nullptr)
     return nullptr;
 
   Type *DTy = D->getType();
   Type *STy = S->getType();
+
+  if (IsTargetSPIRV) {
+    auto Arg0 = Cctor->getArg(0);
+    auto Arg1 = Cctor->getArg(1);
+    D = VPOParoptUtils::genAddrSpaceCast(
+        D, InsertBeforePt, Arg0->getType()->getPointerAddressSpace());
+    S = VPOParoptUtils::genAddrSpaceCast(
+        S, InsertBeforePt, Arg1->getType()->getPointerAddressSpace());
+  }
 
   CallInst *Call =
       genCall(Cctor->getParent(), Cctor, {D,S}, {DTy, STy}, nullptr);
@@ -4877,15 +4999,24 @@ CallInst *VPOParoptUtils::genCopyConstructorCall(Function *Cctor, Value *D,
   return Call;
 }
 
-
 // Emit Copy Assign call and insert it before InsertBeforePt
 CallInst *VPOParoptUtils::genCopyAssignCall(Function *Cp, Value *D, Value *S,
-                                            Instruction *InsertBeforePt) {
+                                            Instruction *InsertBeforePt,
+                                            bool IsTargetSPIRV) {
   if (Cp == nullptr)
     return nullptr;
 
   Type *DTy = D->getType();
   Type *STy = S->getType();
+
+  if (IsTargetSPIRV) {
+    auto Arg0 = Cp->getArg(0);
+    auto Arg1 = Cp->getArg(1);
+    D = VPOParoptUtils::genAddrSpaceCast(
+        D, InsertBeforePt, Arg0->getType()->getPointerAddressSpace());
+    S = VPOParoptUtils::genAddrSpaceCast(
+        S, InsertBeforePt, Arg1->getType()->getPointerAddressSpace());
+  }
 
   CallInst *Call = genCall(Cp->getParent(), Cp, {D,S}, {DTy, STy}, nullptr);
   Call->insertBefore(InsertBeforePt);
@@ -5094,18 +5225,16 @@ Value *VPOParoptUtils::computeOmpUpperBound(
   IRBuilder<> Builder(InsertPt);
   auto &RegionInfo = W->getWRNLoopInfo();
   auto *NormUB = RegionInfo.getNormUB(Idx);
+  auto *NormUBTy = RegionInfo.getNormUBElemTy(Idx);
 
   assert(NormUB && GeneralUtils::isOMPItemLocalVAR(NormUB) &&
          "computeOmpUpperBound: Expect isOMPItemLocalVAR().");
 
   auto *NormUBAlloca = cast<Instruction>(NormUB);
-  assert(isa<PointerType>(NormUBAlloca->getType()) &&
-         NormUBAlloca->getType()->getPointerElementType()->isIntegerTy() &&
+  assert(NormUBTy->isIntegerTy() &&
          "Normalized upper bound must have an integer type.");
 
-  return Builder.CreateLoad(
-      NormUBAlloca->getType()->getPointerElementType(), NormUBAlloca,
-      ".norm.ub" + Name);
+  return Builder.CreateLoad(NormUBTy, NormUBAlloca, ".norm.ub" + Name);
 }
 
 // Returns the predicate which includes equal for the zero trip test.
@@ -5322,59 +5451,47 @@ Value *VPOParoptUtils::cloneInstructions(Value *V, Instruction *InsertBefore) {
 }
 
 // Generate the pointer pointing to the head of the array.
-Value *VPOParoptUtils::genArrayLength(Value *AI, Value *BaseAddr,
-                                      Instruction *InsertPt,
-                                      IRBuilder<> &Builder, Type *&ElementTy,
-                                      Value *&ArrayBegin) {
-  // FIXME: we can probably gather the type information from
-  //        BaseAddr, and do not pass AI at all.
-  assert(GeneralUtils::isOMPItemLocalVAR(AI) &&
-         "genArrayLength: Expect isOMPItemLocalVAR().");
+std::tuple<Type *, Value *, Value *>
+    VPOParoptUtils::genArrayLength(Type *ObjTy, Value *NumElements,
+                                   Value *BaseAddr, IRBuilder<> &Builder) {
+  assert(ObjTy && "ArrayTy is nullptr.");
+  assert(BaseAddr && "BaseAddr is nullptr.");
 
-  Type *AllocaTy = nullptr;
-  Value *NumElements = nullptr;
-  Type *AIElemType = AI->getType()->getPointerElementType();
-  std::tie(AllocaTy, NumElements) =
-      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(AI, AIElemType);
-  assert(AllocaTy && "genArrayLength: item type cannot be deduced.");
-
-  // TODO: NumElements??
-  Type *ScalarTy = AllocaTy->getScalarType();
-  SmallVector<llvm::Value *, 8> GepIndices;
-  ArrayType *ArrTy = dyn_cast<ArrayType>(ScalarTy);
+  SmallVector<Value *, 8> GepIndices;
   uint64_t CountFromCLAs = 1;
   ConstantInt *Zero = Builder.getInt32(0);
 
-  if (ArrTy != nullptr) {
+  Type *ElemTy = ObjTy;
+
+  if (auto *ArrayTy = dyn_cast<ArrayType>(ObjTy)) {
+    assert((!NumElements ||
+            (dyn_cast<ConstantInt>(NumElements) &&
+             cast<ConstantInt>(NumElements)->isOneValue())) &&
+           "Unexpected NumElements for an array type.");
     GepIndices.push_back(Zero);
 
-    ArrayType *ArrayT = ArrTy;
-    while (ArrayT) {
+    while (ArrayTy) {
       GepIndices.push_back(Zero);
-      CountFromCLAs *= ArrayT->getNumElements();
-      ElementTy = ArrayT->getElementType();
-      ArrayT = dyn_cast<ArrayType>(ElementTy);
+      CountFromCLAs *= ArrayTy->getNumElements();
+      ElemTy = ArrayTy->getElementType();
+      ArrayTy = dyn_cast<ArrayType>(ElemTy);
     }
+
+    // TODO: should we use int64 here?
     NumElements = Builder.getInt32(CountFromCLAs);
   } else {
-    // For VLA, NumElements is computation result of array length, so we don't
-    // need to compute it here.
-    assert(!(NumElements == nullptr || isa<ConstantInt>(NumElements)) &&
-           "Expect variable length array.");
-    ElementTy = ScalarTy;
+    assert(NumElements && "Expected variable length array.");
     GepIndices.push_back(Zero);
   }
 
-  // TODO: OPAQUEPOINTER: element type needs to be passed in
-  ArrayBegin = Builder.CreateInBoundsGEP(
-      BaseAddr->getType()->getScalarType()->getPointerElementType(), BaseAddr,
-      GepIndices, "array.begin");
+  Value *ArrayBegin =
+      Builder.CreateInBoundsGEP(ObjTy, BaseAddr, GepIndices, "array.begin");
 
-  return NumElements;
+  return std::make_tuple(ElemTy, NumElements, ArrayBegin);
 }
 
-Constant* VPOParoptUtils::getMinMaxIntVal(LLVMContext &C, Type *Ty,
-                                             bool IsUnsigned, bool GetMax) {
+Constant *VPOParoptUtils::getMinMaxIntVal(Type *Ty, bool IsUnsigned,
+                                          bool GetMax) {
   IntegerType *IntTy = dyn_cast<IntegerType>(Ty->getScalarType());
   assert(IntTy && "getMinMaxIntVal: Expected Interger type");
 
@@ -5390,7 +5507,7 @@ Constant* VPOParoptUtils::getMinMaxIntVal(LLVMContext &C, Type *Ty,
     MinMaxAPInt = IsUnsigned ? APInt::getMinValue(BitWidth) :
                                APInt::getSignedMinValue(BitWidth);
 
-  ConstantInt *MinMaxVal = ConstantInt::get(C, MinMaxAPInt);
+  ConstantInt *MinMaxVal = ConstantInt::get(Ty->getContext(), MinMaxAPInt);
   if (VectorType *VTy = dyn_cast<VectorType>(Ty))
     return ConstantVector::getSplat(ElementCount::getFixed(VTy->getNumElements()),
                                     MinMaxVal);
@@ -6303,6 +6420,8 @@ VPOParoptUtils::storeIntToThreadLocalGlobal(Value *V, Instruction *InsertBefore,
 
 // Extract the type and size of local Alloca to be created to privatize
 // OrigValue.
+// OPAQUEPOINTER: this whole function must be removed, when
+//                we switch to TYPED clauses.
 void VPOParoptUtils::getItemInfoFromValue(Value *OrigValue,
                                           Type *OrigValueElemType,
                                           Type *&ElementType,    // out
@@ -6343,7 +6462,6 @@ VPOParoptUtils::getItemInfo(const Item *I) {
   assert(I && "Null Clause Item.");
 
   Value *Orig = I->getOrig();
-  Type *OrigElemTy = I->getOrigElemType();
   assert(Orig && "Null original Value in clause item.");
 
   auto getItemInfoIfArraySection = [I, &ElementType, &NumElements,
@@ -6367,10 +6485,18 @@ VPOParoptUtils::getItemInfo(const Item *I) {
       return false;
     ElementType = I->getOrigItemElementTypeFromIR();
     NumElements = I->getNumElements();
+    if (auto *ConstNumElements = dyn_cast<ConstantInt>(NumElements))
+      if (ConstNumElements->isOneValue())
+        NumElements = nullptr;
     return true;
   };
 
   if (!getItemInfoIfTyped() && !getItemInfoIfArraySection()) {
+    // OPAQUEPOINTER: this code must be removed, when we switch
+    //                to TYPED clauses.
+    Type *OrigElemTy = I->getOrig()->getType();
+    assert(isa<PointerType>(OrigElemTy) && "Item must have a pointer type.");
+    OrigElemTy = OrigElemTy->getPointerElementType();
     getItemInfoFromValue(Orig, OrigElemTy, ElementType, NumElements, AddrSpace);
     assert(ElementType && "Failed to find element type for reduction operand.");
 
@@ -6391,5 +6517,11 @@ VPOParoptUtils::getItemInfo(const Item *I) {
                NumElements->printAsOperand(dbgs());
              } dbgs() << "\n");
   return std::make_tuple(ElementType, NumElements, AddrSpace);
+}
+
+// Return default address space for the current target.
+// It is vpo::ADDRESS_SPACE_GENERIC for SPIR-V targets, 0 - otherwise.
+unsigned VPOParoptUtils::getDefaultAS(const Module *M) {
+  return VPOAnalysisUtils::isTargetSPIRV(M) ? vpo::ADDRESS_SPACE_GENERIC : 0;
 }
 #endif // INTEL_COLLAB

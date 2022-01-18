@@ -17,24 +17,29 @@ define void @test01() {
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data: Contains nested structure | Local instance{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; CHECK: Safety data: Nested structure | Contains nested structure | Local instance{{ *$}}
+; CHECK: End LLVMType: %struct.test01b
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01c
+; CHECK: LLVMType: %struct.test01c
 ; CHECK: Safety data: Nested structure | Local instance{{ *$}}
+; CHECK: End LLVMType: %struct.test01c
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01d
+; CHECK: LLVMType: %struct.test01d
 ; CHECK: Safety data: Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01d
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01e
+; CHECK: LLVMType: %struct.test01e
 ; CHECK: Safety data: Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01e
 
 
 ; Allocation of array of structures should be "Local instance"
@@ -44,8 +49,9 @@ define void @test02() {
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Local instance{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 !1 = !{i32 0, i32 1}  ; i32*

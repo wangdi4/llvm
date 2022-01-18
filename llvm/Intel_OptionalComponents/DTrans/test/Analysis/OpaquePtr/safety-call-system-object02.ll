@@ -16,12 +16,14 @@ define void @test02() {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct._IO_FILE
+; CHECK: LLVMType: %struct._IO_FILE
 ; CHECK: Safety data: System object{{ *$}}
+; CHECK: End LLVMType: %struct._IO_FILE
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct._IO_marker
+; CHECK: LLVMType: %struct._IO_marker
 ; CHECK: Safety data: System object{{ *$}}
+; CHECK: End LLVMType: %struct._IO_marker
 
 declare !intel.dtrans.func.type !10 "intel_dtrans_func_index"="1" %struct._IO_FILE* @fopen(i8* "intel_dtrans_func_index"="2", i8* "intel_dtrans_func_index"="3")
 

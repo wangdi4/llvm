@@ -59,7 +59,7 @@ define hidden i32 @x264_pixel_satd_16x16(i8* nocapture readonly, i32, i8* nocapt
 ; CHECK-NEXT:     i32 [[VP298:%.*]] = add i32 [[VP294]] i32 [[VP296]]
 ; CHECK-NEXT:     store i32 [[VP298]] i32* [[VP297]]
 ; CHECK-NEXT:     i64 [[VP8]] = add i64 [[VP7]] i64 1
-; CHECK-NEXT:     i1 [[VP299:%.*]] = icmp sle i64 [[VP8]] i64 7
+; CHECK-NEXT:     i1 [[VP299:%.*]] = icmp slt i64 [[VP8]] i64 8
 ; CHECK-LABEL:  VPlan after importing plain CFG
 ;
   %5 = alloca [4 x [4 x i32]], align 16

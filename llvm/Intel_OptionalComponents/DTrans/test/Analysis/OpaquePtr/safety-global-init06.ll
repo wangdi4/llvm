@@ -25,9 +25,11 @@ define float @Triangle(float %in0, %struct._ResizeFilter* "intel_dtrans_func_ind
 
 ; CHECK-LABEL: LLVMType: %struct._ResizeFilter
 ; CHECK: Safety data: Has function ptr{{ *}}
+; CHECK: End LLVMType: %struct._ResizeFilter
 
 ; CHECK-LABEL: LLVMType: %struct.anon.0
 ; CHECK: Safety data: Global instance | Has initializer list | Global array | Has function ptr{{ *}}
+; CHECK: End LLVMType: %struct.anon.0
 
 !intel.dtrans.types = !{!11, !12}
 

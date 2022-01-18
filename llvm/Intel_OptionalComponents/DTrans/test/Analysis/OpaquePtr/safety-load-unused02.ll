@@ -23,12 +23,13 @@ define void @test01(i32 %in) {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Read Written{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
 ; CHECK: Field info: Read Written{{ *$}}
 ; CHECK: Safety data: Whole structure reference | Global instance{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 !1 = !{i32 0, i32 0}  ; i32

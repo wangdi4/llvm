@@ -7,7 +7,7 @@
 
 ; CHECK: DO i1 =
 ; CHECK: [[ADDR:%[0-9a-z]+]] = @llvm.stacksave();
-
+; CHECK: [[ADDBLOB:%.*]] =
 ; CHECK: [[ALLOC_0:%[0-9a-z]+]] = alloca %array_size;
 ; CHECK-NEXT: [[ALLOC_1:%[0-9a-z]+]] = alloca %array_size;
 ; CHECK-NEXT: [[ALLOC_2:%[0-9a-z]+]] = alloca %array_size;
@@ -21,9 +21,9 @@
 ; CHECK: DO i2 =
 ; CHECK: DO i3 =
 ; CHECK: DO i4 =
-; CHECK:  =  uitofp.i16.double(([[ALLOC_0]])[i2 + %add13 * i3 + i4]);
-; CHECK:  =  uitofp.i16.double(([[ALLOC_1]])[i2 + %add13 * i3 + i4]);
-; CHECK:  =  uitofp.i16.double(([[ALLOC_2]])[i2 + %add13 * i3 + i4]);
+; CHECK:  =  uitofp.i16.double(([[ALLOC_0]])[i2 + [[ADDBLOB]] * i3 + i4]);
+; CHECK:  =  uitofp.i16.double(([[ALLOC_1]])[i2 + [[ADDBLOB]] * i3 + i4]);
+; CHECK:  =  uitofp.i16.double(([[ALLOC_2]])[i2 + [[ADDBLOB]] * i3 + i4]);
 ; CHECK: END LOOP
 ; CHECK: END LOOP
 ; CHECK: END LOOP

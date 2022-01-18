@@ -41,7 +41,6 @@
 
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPLoopAnalysis.h"
-#include "IntelVPSOAAnalysis.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanLoopInfo.h"
@@ -85,6 +84,7 @@ static cl::opt<bool>
 #define SOASeq VPVectorShape::SOASeq
 #define SOAStr VPVectorShape::SOAStr
 #define SOARnd VPVectorShape::SOARnd
+#define SOACvt VPVectorShape::SOACvt
 #define Undef  VPVectorShape::Undef
 
 const VPVectorShape::VPShapeDescriptor
@@ -119,15 +119,16 @@ MulConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
 
 const VPVectorShape::VPShapeDescriptor
 GepConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
-  /* ptr\index      Uni,      Seq,      Str,      Rnd,      Undef */
-  /* Uni      */   {Uni,      Str,      Str,      Rnd,      Undef},
-  /* Seq      */   {Str,      Rnd,      Rnd,      Rnd,      Undef},
-  /* Str      */   {Str,      Rnd,      Rnd,      Rnd,      Undef},
-  /* Rnd      */   {Rnd,      Rnd,      Rnd,      Rnd,      Undef},
-  /* SOASeq   */   {SOASeq,   SOAStr,   SOARnd,   SOARnd,   Undef},
-  /* SOAStr   */   {SOAStr,   SOAStr,   SOARnd,   SOARnd,   Undef},
-  /* SOARnd   */   {SOARnd,   SOARnd,   SOARnd,   SOARnd,   Undef},
-  /* Undef    */   {Undef,    Undef,    Undef,    Undef,    Undef}
+  /* ptr\index       Uni,    Seq,    Str,    Rnd,    Undef */
+  /* Uni         */ {Uni,    Str,    Str,    Rnd,    Undef},
+  /* Seq         */ {Str,    Rnd,    Rnd,    Rnd,    Undef},
+  /* Str         */ {Str,    Rnd,    Rnd,    Rnd,    Undef},
+  /* Rnd         */ {Rnd,    Rnd,    Rnd,    Rnd,    Undef},
+  /* SOASeq      */ {SOASeq, SOAStr, SOARnd, SOARnd, Undef},
+  /* SOAStr      */ {SOAStr, SOAStr, SOARnd, SOARnd, Undef},
+  /* SOARnd      */ {SOARnd, SOARnd, SOARnd, SOARnd, Undef},
+  /* SOACvt      */ {SOACvt, SOACvt, SOACvt, SOACvt, Undef},
+  /* Undef       */ {Undef,  Undef,  Undef,  Undef,  Undef}
 };
 
 const VPVectorShape::VPShapeDescriptor
@@ -149,6 +150,7 @@ SelectConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
 #undef SOASeq
 #undef SOAStr
 #undef SOARnd
+#undef SOACvt
 #undef Undef
 
 static void assertOperandsDefined(const VPInstruction &I,
@@ -691,7 +693,6 @@ bool VPlanDivergenceAnalysis::shapesAreDifferent(VPVectorShape OldShape,
 bool VPlanDivergenceAnalysis::updateVectorShape(const VPValue *V,
                                                 VPVectorShape Shape) {
   VPVectorShape OldShape = getVectorShape(*V);
-
   // Has shape changed in any way?
   if (shapesAreDifferent(OldShape, Shape)) {
     VectorShapes[V] = Shape;
@@ -723,15 +724,26 @@ bool VPlanDivergenceAnalysis::isSOAShape(const VPValue *Val) const {
   return getVectorShape(*Val).isSOAShape();
 }
 
+/// Return true given variable has been transformed by SOAMemRefTransform.
+bool VPlanDivergenceAnalysis::hasBeenSOAConverted(const VPValue *Val) const {
+  assert(Val && "Expected a non-null value.");
+  return getVectorShape(*Val).isSOAConverted();
+}
+
 // Returns a SOASequential vector shape with the given stride.
 VPVectorShape
 VPlanDivergenceAnalysis::getSOASequentialVectorShape(int64_t Stride) {
   return {VPVectorShape::SOASeq, getConstantInt(Stride)};
 }
 
-// Returns a SOARandom vector shape with the given stride.
+// Returns a SOARandom vector shape.
 VPVectorShape VPlanDivergenceAnalysis::getSOARandomVectorShape() {
   return {VPVectorShape::SOARnd};
+}
+
+// Returns a SOACvt vector shape.
+VPVectorShape VPlanDivergenceAnalysis::getSOAConvertedVectorShape() {
+  return {VPVectorShape::SOACvt};
 }
 
 // Verify the shape of each instruction in give Block \p VPBB.
@@ -1001,16 +1013,6 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForCastInst(
   }
 }
 
-static Type *getResultElementTypeForMemAddrInst(const VPInstruction *I) {
-  assert(isa<VPGEPInstruction>(I) ||
-         isa<VPSubscriptInst>(I) && "Not a MemAddrInst!");
-  if (auto *GEP = dyn_cast<VPGEPInstruction>(I))
-    return GEP->getResultElementType();
-
-  // FIXME: Store ResultElementType inside VPSubscriptInst itself.
-  return cast<PointerType>(I->getType())->getElementType();
-}
-
 VPVectorShape
 VPlanDivergenceAnalysis::computeVectorShapeForSOAGepInst(const VPInstruction *I) {
   const auto &VPBB = *I->getParent();
@@ -1043,8 +1045,12 @@ VPlanDivergenceAnalysis::computeVectorShapeForSOAGepInst(const VPInstruction *I)
 
   // If shape is not random, then a new stride (in bytes) can be calculated for
   // the gep. Gep stride is always in bytes.
-  if (NewDesc != VPVectorShape::SOARnd) {
-    Type *PointedToTy = getResultElementTypeForMemAddrInst(I);
+  if (NewDesc != VPVectorShape::SOARnd && NewDesc != VPVectorShape::SOACvt) {
+    auto *Gep = dyn_cast<VPGEPInstruction>(I);
+    Type *PointedToTy =
+        Gep ? Gep->getResultElementType()
+            : cast<PointerType>(cast<VPSubscriptInst>(I)->getType())
+                  ->getElementType();
     uint64_t PointedToTySize = getTypeSizeInBytes(PointedToTy);
     // For known strides:
     // 1) Uniform gep on an array-private should result in strided-access with
@@ -1103,16 +1109,17 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
   // Special processing for subscript instructions which could have struct
   // offsets in 0th dimension.
   if (auto *Subscript = dyn_cast<VPSubscriptInst>(I)) {
-    ArrayRef<unsigned> ZeroDimOffsets = Subscript->getStructOffsets(0);
+    ArrayRef<unsigned> ZeroDimOffsets = Subscript->dim(0).StructOffsets;
     if (!ZeroDimOffsets.empty() && !IdxShape.isUniform())
       // 0-th dimension index is divergent and we have struct offsets, do not
       // proceed.
       return getRandomVectorShape();
 
     // Refine IdxShape based on stride of 0-th dimension in subscript.
-    auto *ZeroDimStride = dyn_cast<VPConstant>(Subscript->getStride(0));
+    auto *ZeroDimStride =
+        dyn_cast<VPConstant>(Subscript->dim(0).StrideInBytes);
     VPVectorShape ZeroDimLowerShape =
-        getObservedShape(VPBB, *(Subscript->getLower(0)));
+        getObservedShape(VPBB, *(Subscript->dim(0).LowerBound));
     // Conservatively mark the pointer as Random shape when -
     // 1. stride is non-constant
     // 2. lower is loop variant
@@ -1140,10 +1147,16 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
       // NewIdxStride     = (32/8) * 1 = 4 (elements)
       int64_t CurrIdxStride = IdxShape.getStrideVal();
       unsigned ZeroDimStrideVal = ZeroDimStride->getZExtValue();
-      Type *PointedToTy = getResultElementTypeForMemAddrInst(I);
+
+      assert(Subscript->dim(0).StructOffsets.empty() &&
+             "Can't handle struct ofssets!");
+      Type *PointedToTy = Subscript->dim(0).DimElementType;
+
       uint64_t PointedToTySize = getTypeSizeInBytes(PointedToTy);
       // Index could have a multiplicative co-efficient, so multiply the
       // dimension's stride with current stride value.
+      assert(ZeroDimStrideVal % PointedToTySize == 0 &&
+             "Broken stride assumption!");
       int64_t NewIdxStride =
           (ZeroDimStrideVal / PointedToTySize) * CurrIdxStride;
       assert(NewIdxStride != 0 && "Idx has no stride.");
@@ -1168,14 +1181,7 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
   // If shape is not random, then a new stride (in bytes) can be calculated for
   // the gep. Gep stride is always in bytes.
   if (NewDesc != VPVectorShape::Rnd) {
-    // BaseType of Gep should be a pointer type referring to a non-aggregate
-    // type (i.e., scalar or vector type). For example, this should hold true
-    // for multi-dim arrays.
-    // Examples: float* -> float,
-    //           [3000 x [3000 x i32]]* -> i32,
-    //           <4 x i32>* -> <4 x i32>
-    Type *PointedToTy = getResultElementTypeForMemAddrInst(I);
-    uint64_t PointedToTySize = getTypeSizeInBytes(PointedToTy);
+
     // For known strides:
     // 1) Uniform gep should result in 0 stride (i.e., pointer and idx are
     //    uniform).
@@ -1195,15 +1201,25 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
       assert((PtrStrideVal == 0 || IdxStrideVal == 0) &&
              "Expect one of PtrStrideVal or IdxStrideVal to be 0.");
 
-      NewStride = getConstantInt(PtrStrideVal + PointedToTySize * IdxStrideVal);
-
-      // See if we can refine a strided pointer to a unit-strided pointer by
-      // checking if new stride value is the same as size of pointedto type.
-      const APInt &NewStrideVal =
-          cast<ConstantInt>(NewStride->getUnderlyingValue())->getValue();
-      uint64_t NewStrideValAbs = NewStrideVal.abs().getZExtValue();
-      if (NewDesc == VPVectorShape::Str && PointedToTySize == NewStrideValAbs)
-        NewDesc = VPVectorShape::Str;
+      if (IdxStrideVal == 0)
+        NewStride = getConstantInt(PtrStrideVal);
+      else {
+        // BaseType of Gep should be a pointer type referring to a non-aggregate
+        // type (i.e., scalar or vector type). For example, this should hold
+        // true for multi-dim arrays. Examples: float* -> float,
+        //           [3000 x [3000 x i32]]* -> i32,
+        //           <4 x i32>* -> <4 x i32>
+        Type *PointedToTy;
+        if (auto *Subscript = dyn_cast<VPSubscriptInst>(I)) {
+          assert(Subscript->dim(0).StructOffsets.empty() &&
+                 "Should have bailed-out earlier!");
+          PointedToTy = Subscript->dim(0).DimElementType;
+        } else {
+          PointedToTy = cast<VPGEPInstruction>(I)->getResultElementType();
+        }
+        uint64_t PointedToTySize = getTypeSizeInBytes(PointedToTy);
+        NewStride = getConstantInt(PointedToTySize * IdxStrideVal);
+      }
     }
   }
   return {NewDesc, NewStride};
@@ -1403,7 +1419,7 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForAllocatePrivateInst(
     const VPAllocatePrivate *AI) {
   // Allocate-private is of a pointer type. Get the pointee size and set a
   // tentative shape.
-  Type *PointeeTy = cast<PointerType>(AI->getType())->getPointerElementType();
+  Type *PointeeTy = AI->getAllocatedType();
 
   // Check for SOA-layout.
   if (AI->isSOALayout() && isa<ArrayType>(PointeeTy)) {
@@ -1542,6 +1558,10 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::ReductionFinal)
     NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::PrivateFinalMasked)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::PrivateFinalMaskedMem)
+    NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PrivateFinalUncond)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PrivateFinalUncondMem)
@@ -1569,7 +1589,9 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getRandomVectorShape();
   } else if (Opcode == VPInstruction::ScalarRemainder)
     NewShape = getUniformVectorShape();
-  else if (Opcode == VPInstruction::OrigLiveOut)
+  else if (Opcode == VPInstruction::PeelOrigLiveOut)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::RemOrigLiveOut)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PushVF)
     NewShape = getUniformVectorShape();
@@ -1754,6 +1776,8 @@ void VPlanDivergenceAnalysis::cloneVectorShapes(
   for (const auto &Pair : OrigClonedValuesMap) {
     VPValue *OrigVal = Pair.first;
     VPValue *ClonedVal = Pair.second;
+
+    assert(ClonedVal && "unexpected null clone");
 
     if (isa<VPBasicBlock>(OrigVal))
       continue;

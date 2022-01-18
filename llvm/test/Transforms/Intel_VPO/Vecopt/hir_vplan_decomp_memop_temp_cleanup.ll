@@ -27,12 +27,12 @@
 
 ; Check decomposed VPInstructions
 ; CHECK: i64 [[I1:%vp.*]] = phi
-; CHECK-NEXT: float* [[ADDR1:%vp.*]] = subscript inbounds [1024 x float]* @arr1 {i64 0 : i64 0 : i64 4096 : [1024 x float]*} {i64 0 : i64 [[I1]] : i64 4 : [1024 x float]}
+; CHECK-NEXT: float* [[ADDR1:%vp.*]] = subscript inbounds [1024 x float]* @arr1 {i64 0 : i64 0 : i64 4096 : [1024 x float]*([1024 x float])} {i64 0 : i64 [[I1]] : i64 4 : [1024 x float](float)}
 ; CHECK-NEXT: float [[LOAD1:%vp.*]] = load float* [[ADDR1]]
-; CHECK-NEXT: float* [[ADDR2:%vp.*]] = subscript inbounds [1024 x float]* @arr2 {i64 0 : i64 0 : i64 4096 : [1024 x float]*} {i64 0 : i64 [[I1]] : i64 4 : [1024 x float]}
+; CHECK-NEXT: float* [[ADDR2:%vp.*]] = subscript inbounds [1024 x float]* @arr2 {i64 0 : i64 0 : i64 4096 : [1024 x float]*([1024 x float])} {i64 0 : i64 [[I1]] : i64 4 : [1024 x float](float)}
 ; CHECK-NEXT: float [[LOAD2:%vp.*]] = load float* [[ADDR2]]
 ; CHECK-NEXT: float [[ADD:%vp.*]] = fadd float [[LOAD1]] float [[LOAD2]]
-; CHECK-NEXT: float* [[ADDR3:%vp.*]] = subscript inbounds [1024 x float]* @ip {i64 0 : i64 0 : i64 4096 : [1024 x float]*} {i64 0 : i64 [[I1]] : i64 4 : [1024 x float]}
+; CHECK-NEXT: float* [[ADDR3:%vp.*]] = subscript inbounds [1024 x float]* @ip {i64 0 : i64 0 : i64 4096 : [1024 x float]*([1024 x float])} {i64 0 : i64 [[I1]] : i64 4 : [1024 x float](float)}
 ; CHECK-NEXT: store float [[ADD]] float* [[ADDR3]]
 
 

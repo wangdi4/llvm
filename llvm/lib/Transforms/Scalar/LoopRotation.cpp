@@ -70,6 +70,11 @@ PreservedAnalyses LoopRotatePass::run(Loop &L, LoopAnalysisManager &AM,
             L.getHeader()->getParent()->size() >
         ComplexityLimit)
       return PreservedAnalyses::all();
+
+  // Max header size is set by target, if the option is not specified, and
+  // rotation has not been disabled.
+  if (DefaultRotationThreshold.getNumOccurrences() == 0 && Threshold != 0)
+    Threshold = AR.TTI.getLoopRotationDefaultThreshold(true);
 #endif // INTEL_CUSTOMIZATION
 
   const DataLayout &DL = L.getHeader()->getModule()->getDataLayout();

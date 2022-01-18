@@ -199,6 +199,8 @@ public:
   /// Return true if the given variable has a SOA VectorShape.
   bool isSOAShape(const VPValue *Val) const;
 
+  bool hasBeenSOAConverted(const VPValue *Val) const;
+
   /// Return true if the given variable has SOA unit-stride.
   bool isSOAUnitStride(const VPValue *Val) const;
 
@@ -416,8 +418,11 @@ private:
   /// Returns a SOASequential vector shape with the given stride.
   VPVectorShape getSOASequentialVectorShape(int64_t Stride);
 
-  /// Returns a SOARandom vector shape with the given stride.
+  /// Returns a SOARandom vector shape.
   VPVectorShape getSOARandomVectorShape();
+
+  /// Returns a SOACvt vector shape.
+  VPVectorShape getSOAConvertedVectorShape();
 
   /// Returns in integer value in \p IntVal if \p V is an integer VPConstant.
   bool getConstantIntVal(VPValue *V, int64_t &IntVal);

@@ -643,6 +643,10 @@ class DDTest {
   const CanonExpr *stripExt(const CanonExpr *CE, bool StripSExt,
                             bool StripZExt);
 
+  // Returns a new CE by adding either SExt or ZExt based on type of CE if
+  // possible, otherwise returns original CE.
+  const CanonExpr *addExt(const CanonExpr *CE);
+
   /// isKnownPredicateImpl - Compare X and Y using the predicate Pred.
   /// Basically a wrapper for HLNodeUtils::isKnownPredicate,
   /// but tries harder, especially in the presence of sign and zero

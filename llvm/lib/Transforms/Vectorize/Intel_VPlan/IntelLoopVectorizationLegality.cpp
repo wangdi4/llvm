@@ -24,20 +24,32 @@
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
 
+#define DEBUG_TYPE "vpo-ir-loop-vectorize-legality"
+
 using namespace llvm;
 using namespace llvm::vpo;
+
+static cl::opt<bool, true> ForceComplexTyReductionVecOpt(
+    "vplan-force-complex-type-reduction-vectorization",
+    cl::location(ForceComplexTyReductionVec), cl::Hidden,
+    cl::desc("Force vectorization of reduction involving complex type."));
 
 static cl::opt<bool>
     UseSimdChannels("use-simd-channels", cl::init(true), cl::Hidden,
                     cl::desc("use simd versions of read/write pipe functions"));
 
-#define DEBUG_TYPE "vpo-ir-loop-vectorize-legality"
+namespace llvm {
+namespace vpo {
+bool ForceComplexTyReductionVec = false;
+} // namespace vpo
+} // namespace llvm
 
 /// The function collects Load and Store instruction that access the
 /// reduction variable \p RedVarPtr.
@@ -48,7 +60,7 @@ static void collectAllRelevantUsers(Value *RedVarPtr,
       Users.push_back(U);
     else if (isa<BitCastInst>(U)) {
       Value *Ptr = getPtrThruCast<BitCastInst>(RedVarPtr);
-      if (Ptr && Ptr != RedVarPtr)
+      if (Ptr != RedVarPtr)
         for (auto U : Ptr->users())
           if (isa<LoadInst>(U) || isa<StoreInst>(U))
             Users.push_back(U);
@@ -57,30 +69,25 @@ static void collectAllRelevantUsers(Value *RedVarPtr,
 }
 
 static bool checkCombinerOp(Value *CombinerV, RecurKind Kind) {
+  auto *CombinerInst = dyn_cast<Instruction>(CombinerV);
+  if (!CombinerInst)
+    return false;
+  unsigned Opcode = CombinerInst->getOpcode();
   switch (Kind) {
   case RecurKind::FAdd:
-    return isa<Instruction>(CombinerV) &&
-           (cast<Instruction>(CombinerV)->getOpcode() == Instruction::FAdd ||
-            cast<Instruction>(CombinerV)->getOpcode() == Instruction::FSub);
+    return Opcode == Instruction::FAdd || Opcode == Instruction::FSub;
   case RecurKind::Add:
-    return isa<Instruction>(CombinerV) &&
-           (cast<Instruction>(CombinerV)->getOpcode() == Instruction::Add ||
-            cast<Instruction>(CombinerV)->getOpcode() == Instruction::Sub);
+    return Opcode == Instruction::Add || Opcode == Instruction::Sub;
   case RecurKind::Mul:
-    return isa<Instruction>(CombinerV) &&
-           cast<Instruction>(CombinerV)->getOpcode() == Instruction::Mul;
+    return Opcode == Instruction::Mul;
   case RecurKind::FMul:
-    return isa<Instruction>(CombinerV) &&
-           cast<Instruction>(CombinerV)->getOpcode() == Instruction::FMul;
+    return Opcode == Instruction::FMul;
   case RecurKind::And:
-    return isa<Instruction>(CombinerV) &&
-           cast<Instruction>(CombinerV)->getOpcode() == Instruction::And;
+    return Opcode == Instruction::And;
   case RecurKind::Or:
-    return isa<Instruction>(CombinerV) &&
-           cast<Instruction>(CombinerV)->getOpcode() == Instruction::Or;
+    return Opcode == Instruction::Or;
   case RecurKind::Xor:
-    return isa<Instruction>(CombinerV) &&
-           cast<Instruction>(CombinerV)->getOpcode() == Instruction::Xor;
+    return Opcode == Instruction::Xor;
   default:
     break;
   }
@@ -124,7 +131,6 @@ static bool isOrHasScalableTy(Type *InTy) {
 }
 
 static bool isSupportedInstructionType(const Instruction &I) {
-
   Type *Ty = I.getType();
 
   if (isOrHasScalableTy(Ty)) {
@@ -140,8 +146,8 @@ static bool isSupportedInstructionType(const Instruction &I) {
     return true;
 
   bool InstrOperandsAreNonScalableType =
-      all_of(I.operands(),
-             [](const Value *V) { return !isOrHasScalableTy(V->getType()); });
+      none_of(I.operands(),
+              [](const Value *V) { return isOrHasScalableTy(V->getType()); });
 
   return VecTy->getElementType()->isSingleValueType() &&
          InstrOperandsAreNonScalableType;
@@ -164,14 +170,6 @@ static bool hasOutsideLoopUser(const Loop *TheLoop, Instruction *Inst,
       }
     }
   return false;
-}
-
-static bool isUsedInReductionScheme(
-    PHINode *Phi,
-    VPOVectorizationLegality::ExplicitReductionList &ReductionPhis) {
-  return std::any_of(Phi->users().begin(), Phi->users().end(), [&](User *U) {
-    return isa<PHINode>(U) && ReductionPhis.count(cast<PHINode>(U));
-  });
 }
 
 static Type *convertPointerToIntegerType(const DataLayout &DL, Type *Ty) {
@@ -376,16 +374,16 @@ void VPOVectorizationLegality::collectPostExitLoopDescrAliases() {
     for (auto &I : *CurBB) {
       if (isEndDirective(&I))
         return;
-      if (!isa<StoreInst>(&I))
+      auto *SI = dyn_cast<StoreInst>(&I);
+      if (!SI)
         continue;
-      LLVM_DEBUG(dbgs() << "VPOLegal: StoreInst: "; I.dump());
-      Value *StorePtrOp = cast<StoreInst>(&I)->getPointerOperand();
+      LLVM_DEBUG(dbgs() << "VPOLegal: StoreInst: "; SI->dump());
+      Value *StorePtrOp = SI->getPointerOperand();
       if (!Privates.count(StorePtrOp))
         continue;
 
       std::unique_ptr<PrivDescrTy> &Descr = Privates.find(StorePtrOp)->second;
-      const Instruction *StoreOp =
-          dyn_cast<Instruction>(cast<StoreInst>(&I)->getValueOperand());
+      auto *StoreOp = dyn_cast<Instruction>(SI->getValueOperand());
       if (!StoreOp)
         continue;
       if (!TheLoop->contains(StoreOp)) {
@@ -398,25 +396,22 @@ void VPOVectorizationLegality::collectPostExitLoopDescrAliases() {
       }
       LLVM_DEBUG(dbgs() << "Found an alias for a SIMD descriptor ref ";
                  StoreOp->dump());
-      Descr->addAlias(StoreOp, std::make_unique<DescrValueTy>(
-                                    const_cast<Instruction *>(StoreOp)));
+      Descr->addAlias(StoreOp, std::make_unique<DescrValueTy>(StoreOp));
     }
   }
 }
 
-// Check the safety of aliasing of particular class of clause-variables in \p
-// Range outside of the loop.
 template <typename LoopEntitiesRange>
 bool VPOVectorizationLegality::isEntityAliasingSafe(
     const LoopEntitiesRange &LERange,
-    std::function<bool(const Instruction *)> IsAliasInRelevantScope) {
+    function_ref<bool(const Instruction *)> IsAliasInRelevantScope) {
   for (auto *En : LERange) {
     SetVector<const Value *> WL;
     WL.insert(En);
     while (!WL.empty()) {
       auto *HeadI = WL.pop_back_val();
       for (auto *Use : HeadI->users()) {
-        const Instruction *UseInst = cast<Instruction>(Use);
+        const auto *UseInst = cast<Instruction>(Use);
 
         // We only want to analyze the blocks between the region-entry and the
         // loop-block (typically just simd.loop.preheader). This means we won't
@@ -427,7 +422,7 @@ bool VPOVectorizationLegality::isEntityAliasingSafe(
         // If this is a store of private pointer or any of its alias to an
         // external memory, treat the loop as unsafe for vectorization and
         // return false.
-        if (const StoreInst *SI = dyn_cast<StoreInst>(UseInst))
+        if (const auto *SI = dyn_cast<StoreInst>(UseInst))
           if (SI->getValueOperand() == HeadI)
             return false;
         if (isTrivialPointerAliasingInst(UseInst))
@@ -517,21 +512,16 @@ void VPOVectorizationLegality::parseMinMaxReduction(Value *RedVarPtr,
   Value *StartV = nullptr;
   StoreInst *ReductionStore = nullptr;
   if (doesReductionUsePhiNodes(RedVarPtr, LoopHeaderPhiNode, StartV)) {
-    for (auto PnUser : LoopHeaderPhiNode->users()) {
-      if (TheLoop->isLoopInvariant(PnUser))
-        continue;
-      if (auto Phi = dyn_cast<PHINode>(PnUser))
-        MinMaxResultInst = Phi;
-      else if (auto Select = dyn_cast<SelectInst>(PnUser))
-        MinMaxResultInst = Select;
-      else if (auto *II = dyn_cast<IntrinsicInst>(PnUser)) {
-        auto ID = II->getIntrinsicID();
-        if (ID == Intrinsic::maxnum || ID == Intrinsic::minnum)
-          MinMaxResultInst = II;
-      }
-      if (MinMaxResultInst != nullptr)
-        break;
-    }
+    using namespace PatternMatch;
+    auto It = find_if(LoopHeaderPhiNode->users(), [this](auto *U) {
+      return !TheLoop->isLoopInvariant(U) &&
+             (isa<PHINode>(U) || isa<SelectInst>(U) ||
+              match(U, m_CombineOr(m_Intrinsic<Intrinsic::maxnum>(),
+                                   m_Intrinsic<Intrinsic::minnum>())));
+    });
+    if (It != LoopHeaderPhiNode->user_end())
+      MinMaxResultInst = cast<Instruction>(*It);
+
     SmallPtrSet<Instruction *, 4> CastInsts;
     FastMathFlags FMF = FastMathFlags::getFast();
     RecurrenceDescriptor RD(StartV, MinMaxResultInst, Kind, FMF, nullptr,
@@ -598,14 +588,9 @@ void VPOVectorizationLegality::parseBinOpReduction(Value *RedVarPtr,
     LLVM_DEBUG(dbgs() << "LV: Explicit reduction pattern is not recognized ");
 }
 
-void VPOVectorizationLegality::addReduction(Value *RedVarPtr,
-                                            RecurKind Kind,
-                                            bool IsF90DopeVector) {
+void VPOVectorizationLegality::addReduction(Value *RedVarPtr, RecurKind Kind) {
   assert(isa<PointerType>(RedVarPtr->getType()) &&
          "Expected reduction variable to be a pointer type");
-
-  if (IsF90DopeVector)
-    HasF90DopeVectorReduction = true;
 
   if (RecurrenceDescriptorData::isMinMaxRecurrenceKind(Kind))
     return parseMinMaxReduction(RedVarPtr, Kind);
@@ -617,17 +602,23 @@ bool VPOVectorizationLegality::isExplicitReductionPhi(PHINode *Phi) {
   return ExplicitReductions.count(Phi);
 }
 
-bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
-                                            const CallInst *RegionEntry) {
+bool VPOVectorizationLegality::bailout(BailoutReason Code) {
+  LLVM_DEBUG(dbgs() << getBailoutReasonStr(Code));
+  return false;
+}
 
-  // TODO: implement Fortran dope vectors support (CMPLRLLVM-10783)
-  if (HasF90DopeVectorPrivate) {
-    LLVM_DEBUG(dbgs() << "F90 dope vector privates are not supported\n");
+bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
+                                            const WRNVecLoopNode *WRLp) {
+    IsSimdLoop = WRLp;
+
+  // Import explicit data from WRLoop.
+  // Decision about loop vectorization is based on this data.
+  if (!EnterExplicitData(WRLp))
     return false;
-  }
-  if (HasF90DopeVectorReduction) {
-    LLVM_DEBUG(dbgs() << "F90 dope vector reductions are not supported\n");
-    return false;
+
+  if (IsSimdLoop) {
+    collectPreLoopDescrAliases();
+    collectPostExitLoopDescrAliases();
   }
 
   if (TheLoop->getNumBackEdges() != 1 || !TheLoop->getExitingBlock()) {
@@ -649,6 +640,9 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
   }
 
   // Check if aliasing of privates is safe outside of the loop.
+  CallInst *RegionEntry =
+      WRLp ? cast<CallInst>(WRLp->getEntryDirective()) : nullptr;
+
   if (!isAliasingSafe(DT, RegionEntry)) {
     LLVM_DEBUG(dbgs() << "LV: Safety of aliasing of privates outside of the "
                          "loop cannot be accertained. \n");
@@ -672,8 +666,14 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
           // identified reduction value with an outside user.
           if (!hasOutsideLoopUser(TheLoop, Phi, AllowedExit))
             continue;
-          if (isUsedInReductionScheme(Phi, ExplicitReductions))
+
+          if (any_of(Phi->users(), [&](User *U) {
+                return isa<PHINode>(U) &&
+                       ExplicitReductions.count(cast<PHINode>(U));
+              }))
+            // Used in reduction scheme.
             continue;
+
           if (checkAndAddAliasForSimdLastPrivate(Phi))
             continue;
 
@@ -773,32 +773,47 @@ VPOVectorizationLegality::getLiveOutPhiOperand(const PHINode *Phi) const {
 //
 // We detect two potential cases for private aliases here.
 //
-// 1) %LoopPreheader:
+// 1) LoopPreheader:
 //        %alias = load %private
 //        ...
-//    %LoopHeader:
+//    LoopHeader:
 //        %priv_phi = phi [%alias, %LoopPreheader], ...
 //
-// 2) %LoopPreheader:
+// 2) LoopPreheader:
 //        ...
-//    %LoopHeader:
+//    LoopHeader:
 //        %priv_phi = phi [%some_const, %LoopPreheader], [%liveout_phi, %Latch]
 //        ...
-//    %Body:
+//    Body:
 //        %priv = something
 //        ...
-//    %Latch (or any other block)
+//    Latch (or any other block)
 //        %liveout_phi = phi [%priv_phi, %LoopHeader], [%priv, %Body]
 //        ...
-//    %LoopExit:
+//    LoopExit:
 //        %lcssa_phi = phi [%liveout_phi, %Latch]
 //        store %lcssa.phi, %private
+//
+// 3) LoopPreheader:
+//        %alias = load %private
+//        ...
+//    LoopHeader:
+//        %priv_phi = phi [%alias, %loop_preheader], [%priv_exit, %latch]
+//        ...
+//    Latch:
+//       %priv_exit = some_inst
+//       ...
+//    outside_loop:
+//       ; no store to %private, just using %priv_exit
 //
 // In the first case, if the load from private is used in the phi then phi is
 // alias for private.
 // In the second case, we can have a check for both phis, from loop header and
 // liveout phi from latch. The loop header phi is checked when the check in the
 // first case does not work, e.g. the incoming value is constant.
+// In the third case, if the load from private is used in the phi then phi is
+// alias for private. The live out value is not stored into private but we can
+// check the use in the header phi and propagate alias-ness from that phi.
 //
 // No other data dependency checks are done because we do this for simd loops
 // only.
@@ -808,16 +823,24 @@ bool VPOVectorizationLegality::checkAndAddAliasForSimdLastPrivate(
     return false;
   bool IsHeaderPhi = Phi->getParent() == TheLoop->getHeader();
   const Instruction *LiveOut = Phi;
+  const BasicBlock *PreheaderBB = TheLoop->getLoopPreheader();
+
+  auto CheckPhiPreheaderOperand =
+      [PreheaderBB, this](const Instruction *LOut, const PHINode *Phi) {
+        const Value *PHIncomingVal = Phi->getIncomingValueForBlock(PreheaderBB);
+        if (auto *Priv = findPrivateOrAlias(PHIncomingVal)) {
+          updatePrivateExitInst(Priv, LOut);
+          return true;
+        }
+        return false;
+      };
+
   if (IsHeaderPhi) {
-    const BasicBlock *PreheaderBB = TheLoop->getLoopPreheader();
-    const Value *PHIncomingVal = Phi->getIncomingValueForBlock(PreheaderBB);
     LiveOut = getLiveOutPhiOperand(Phi);
     if (!LiveOut)
       return false;
-    if (auto *Priv = findPrivateOrAlias(PHIncomingVal)) {
-      updatePrivateExitInst(Priv, LiveOut);
+    if (CheckPhiPreheaderOperand(LiveOut, Phi))
       return true;
-    }
     if (!isa<PHINode>(LiveOut))
       return false;
   } else if (!isLiveOut(Phi))
@@ -828,6 +851,17 @@ bool VPOVectorizationLegality::checkAndAddAliasForSimdLastPrivate(
     updatePrivateExitInst(Priv, LiveOut);
     return true;
   }
+  // Check whether the LiveOut is used by a header phi and that phi is alias for
+  // a lastprivate. The case 3) above.
+  auto HeaderUserIt = llvm::find_if(
+      LiveOut->users(), [LoopHdr = TheLoop->getHeader()](const User *U) {
+        auto HdrPhi = dyn_cast<PHINode>(U);
+        return HdrPhi && HdrPhi->getParent() == LoopHdr;
+      });
+  if (HeaderUserIt != LiveOut->user_end()) {
+    return CheckPhiPreheaderOperand(LiveOut, cast<PHINode>(*HeaderUserIt));
+  }
+
   return false;
 }
 
@@ -867,11 +901,11 @@ void VPOVectorizationLegality::addInductionPhi(
       WidestIndTy = getWiderType(DL, PhiTy, WidestIndTy);
   }
 
+  using namespace PatternMatch;
   // Int inductions are special because we only allow one IV.
   if (ID.getKind() == InductionDescriptor::IK_IntInduction &&
-      ID.getConstIntStepValue() && ID.getConstIntStepValue()->isOne() &&
-      isa<Constant>(ID.getStartValue()) &&
-      cast<Constant>(ID.getStartValue())->isNullValue()) {
+      ID.getConstIntStepValue() && match(ID.getConstIntStepValue(), m_One()) &&
+      match(ID.getStartValue(), m_Zero())) {
 
     // Use the phi node with the widest type as induction. Use the last
     // one if there are multiple (no good reason for doing this other
@@ -890,70 +924,14 @@ void VPOVectorizationLegality::addInductionPhi(
   return;
 }
 
-bool VPOVectorizationLegality::isLoopInvariant(Value *V) {
-  // Each lane gets its own copy of the private value
-  if (isLoopPrivate(V))
-    return false;
-
-  return LoopInvariants.count(V);
-}
-
 bool VPOVectorizationLegality::isLoopPrivate(Value *V) const {
   return Privates.count(getPtrThruCast<BitCastInst>(V)) ||
          isInMemoryReduction(V);
 }
 
-bool VPOVectorizationLegality::isLoopPrivateAggregate(Value *V) const {
-  V = getPtrThruCast<BitCastInst>(V);
-  V = getPtrThruCast<AddrSpaceCastInst>(V);
-  if (isLoopPrivate(V)) {
-    Type *PointeeTy = cast<PointerType>(V->getType())->getPointerElementType();
-    return PointeeTy->isVectorTy() || PointeeTy->isAggregateType();
-  }
-  return false;
-}
-
 bool VPOVectorizationLegality::isInMemoryReduction(Value *V) const {
   V = getPtrThruCast<BitCastInst>(V);
   return isa<PointerType>(V->getType()) && InMemoryReductions.count(V);
-}
-
-bool VPOVectorizationLegality::isLastPrivate(Value *V) const {
-  if (Privates.count(getPtrThruCast<BitCastInst>(V)))
-    return Privates.find(V)->second->isLast();
-  return false;
-}
-
-bool VPOVectorizationLegality::isCondLastPrivate(Value *V) const {
-  if (Privates.count(getPtrThruCast<BitCastInst>(V)))
-    return Privates.find(V)->second->isCond();
-  return false;
-}
-
-bool VPOVectorizationLegality::isLinear(Value *Val, int *Step) {
-  auto PtrThruBitCast = getPtrThruCast<BitCastInst>(Val);
-  if (Linears.count(PtrThruBitCast)) {
-    if (Step)
-      *Step = Linears[PtrThruBitCast];
-    return true;
-  }
-
-  return false;
-}
-
-bool VPOVectorizationLegality::isUnitStepLinear(Value *Val, int *Step,
-                                                Value **NewScal) {
-  if (UnitStepLinears.count(Val)) {
-    auto NewValStep = UnitStepLinears[Val];
-    if (Step)
-      *Step = NewValStep.second;
-    if (NewScal)
-      *NewScal = NewValStep.first;
-
-    return true;
-  }
-
-  return false;
 }
 
 bool VPOVectorizationLegality::isInductionVariable(const Value *V) {

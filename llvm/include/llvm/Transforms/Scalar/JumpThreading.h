@@ -44,6 +44,7 @@ class PHINode;
 class SelectInst;
 class SwitchInst;
 class TargetLibraryInfo;
+class TargetTransformInfo;
 class Value;
 
 /// A private "module" namespace for types and utilities used by
@@ -112,6 +113,7 @@ enum ConstantPreference { WantInteger, WantBlockAddress };
 /// revectored to the false side of the second if.
 class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
   TargetLibraryInfo *TLI;
+  TargetTransformInfo *TTI;
   LazyValueInfo *LVI;
   AAResults *AA;
   DomTreeUpdater *DTU;
@@ -158,9 +160,9 @@ public:
                     int T = -1, bool AllowCFGSimps = true);       // INTEL
 
   // Glue for old PM.
-  bool runImpl(Function &F, TargetLibraryInfo *TLI, LazyValueInfo *LVI,
-               AAResults *AA, DomTreeUpdater *DTU, bool HasProfileData,
-               std::unique_ptr<BlockFrequencyInfo> BFI_,
+  bool runImpl(Function &F, TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
+               LazyValueInfo *LVI, AAResults *AA, DomTreeUpdater *DTU,
+               bool HasProfileData, std::unique_ptr<BlockFrequencyInfo> BFI_,
                std::unique_ptr<BranchProbabilityInfo> BPI_,  // INTEL
                PostDominatorTree *PDT_);                     // INTEL
 

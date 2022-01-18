@@ -14,7 +14,7 @@
 ; CHECK: define i32 @mymain(%"PHYSICS_TYPES$.btPHYSICS_STATE"* nonnull %0)
 ; CHECK: %[[S2:[0-9a-z]+]] = getelementptr %"PHYSICS_TYPES$.btPHYSICS_STATE", %"PHYSICS_TYPES$.btPHYSICS_STATE"* %0, i32 0, i32 1
 ; CHECK: %[[S3:[0-9a-z]+]] = load i32, i32* %[[S2]], align 4
-; CHECK: %[[S4:[0-9a-z]+]] = icmp eq i32 %[[S3]], 3
+; CHECK: %[[S4:[0-9a-z]+]] = icmp eq i32 %[[S3]], 4
 ; CHECK: br i1 %[[S4]], label %[[L5:[0-9]+]], label %[[L6:[0-9]+]]
 ; CHECK: [[L5]]:
 ; CHECK: %[[S5:[0-9a-z]+]] = call i32 @aer_rad_props_mp_aer_rad_props_sw_(i32* nonnull @anon, %"PHYSICS_TYPES$.btPHYSICS_STATE"* nonnull %0)
@@ -30,14 +30,14 @@
 
 ; CHECK: define internal i32 @aer_rad_props_mp_aer_rad_props_sw_
 ; CHECK: %[[S25:[A-Za-z0-9]+]] = alloca i32, align 8
-; CHECK: store i32 3, i32* %[[S25]], align 8
-; CHECK: sext i32 3 to i64
+; CHECK: store i32 4, i32* %[[S25]], align 8
+; CHECK: sext i32 4 to i64
 
 ; Check that the clone was not optimizied
 
 ; CHECK: define internal i32 @aer_rad_props_mp_aer_rad_props_sw_.1
-; CHECK-NOT: store i32 3, i32* %[[S25]], align 8
-; CHECK-NOT: sext i32 3 to i64
+; CHECK-NOT: store i32 4, i32* %[[S25]], align 8
+; CHECK-NOT: sext i32 4 to i64
 
 @anon = internal unnamed_addr constant i32 0
 @physconst_mp_rga_ = internal global double 0x3FBA1B256713BBEC, align 8

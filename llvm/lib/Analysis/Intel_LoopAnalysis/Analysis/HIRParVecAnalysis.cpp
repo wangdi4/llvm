@@ -51,7 +51,7 @@ cl::opt<bool>
     MinMaxIndexEnabled("enable-mmindex", cl::init(true), cl::Hidden,
                        cl::desc("Enable min/max+index idiom recognition"));
 
-cl::opt<bool> VConflictIdiomEnabled("enable-vconflict-idiom", cl::init(false),
+cl::opt<bool> VConflictIdiomEnabled("enable-vconflict-idiom", cl::init(true),
                                     cl::Hidden,
                                     cl::desc("Enable vconflict idiom"));
 
@@ -83,7 +83,33 @@ public:
                 TargetLibraryInfo *TLI, HIRDDAnalysis *DDA,
                 HIRSafeReductionAnalysis *SRA, HIRParVecInfoMapType &InfoMap)
       : Mode(Mode), InfoMap(InfoMap), TTI(TTI), TLI(TLI), DDA(DDA), SRA(SRA) {}
-  /// \brief Determine parallelizability/vectorizability of the loop
+
+  /// Ensure DDG for the Region is either fully valid or invalidated so that it
+  /// won't be invalidated in the middle of the analysis. It's possible that we
+  /// can encounter something like this:
+  ///
+  ///   Region {
+  ///      Loop {}
+  ///   }
+  ///
+  /// --> HIRDDAnalysis --> Some transform -->
+  ///
+  ///
+  ///    Region {      // DD invalidated
+  ///      if (cond) {
+  ///        Loop {}   // DD valid
+  ///      } else {
+  ///        Loop2 {}  // No DD data
+  ///      }
+  ///    }
+  ///
+  /// Then we walk into Loop first, store edges information and invalidate the
+  /// whole Region's DD graph when visiting Loop2 making our stored edges data
+  /// stale. Avoid that by using the resetInvalidGraphs interface.
+  void visit(HLRegion *Region) {
+    DDA->resetInvalidGraphs(Region);
+  }
+  /// Determine parallelizability/vectorizability of the loop
   void postVisit(HLLoop *Loop);
 
   // TODO: Add structural analysis for non-rectangular loop nest.
@@ -960,6 +986,19 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
   if (StoreMemDDRef->getBaseCE()->isNonLinear())
     return Mismatch("Non-linear base address is not supported.");
 
+  // TODO: Update VConflict search to work with multi-dimensional arrays.
+  // For now, we just bail-out.
+  if (StoreMemDDRef->getNumDimensions() > 1)
+    return Mismatch("Multidimensional arrays are not supported.");
+
+  if (StoreMemDDRef->getSingleCanonExpr()->isInvariantAtLevel(
+          Loop->getNestingLevel()))
+    return Mismatch("Invariant index is not supported.");
+
+  if (StoreMemDDRef->getSingleCanonExpr()->getDenominator() == 1 &&
+      StoreMemDDRef->isLinearAtLevel(Loop->getNestingLevel()))
+    return Mismatch("Store memory ref is linear");
+
   // The store address of the above example has two outgoing edges:
   // 8:7 (%A)[%0] --> (%A)[%0] FLOW (*) (?)
   // 8:8 (%A)[%0] --> (%A)[%0] OUTPUT (*) (?)
@@ -984,11 +1023,6 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
       return Mismatch("Too many dependencies.");
 
     FlowDepCnt++;
-
-    // TODO: Update VConflict search to work with multi-dimensional arrays.
-    // For now, we just bail-out.
-    if (StoreMemDDRef->getNumDimensions() > 1)
-      return Mismatch("Multidimensional arrays are not supported.");
 
     // Check if both nodes have the same parent.
     // Pay attention that we don't require the nodes to be on
@@ -1024,8 +1058,11 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
     // If the store memref has only linear blobs then we know that their uses
     // are defined outside current loop and hence index of such memrefs cannot
     // be redefined.
-    if (StoreMemDDRef->isLinear())
+    if (StoreMemDDRef->isLinearAtLevel((Loop->getNestingLevel()))) {
+      assert(StoreMemDDRef->getSingleCanonExpr()->getDenominator() != 1 &&
+             "Expected early bailout for linear ref with denominator of 1");
       continue;
+    }
 
     // Check that store memref has only one non-linear blob.
     auto *NonLinearBlob = StoreMemDDRef->getSingleNonLinearBlobRef();

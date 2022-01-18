@@ -44,10 +44,10 @@ bool BarrierInFunction::runImpl(Module &M) {
   Utils.init(&M);
 
   // Find all the kernel functions.
-  FuncVector &KernelFunctions = Utils.getAllKernelsWithBarrier();
+  FuncVector KernelFunctions = Utils.getAllKernelsWithBarrier();
 
   // Find all functions that call synchronize instructions.
-  FuncSet &FunctionsWithSync = Utils.getAllFunctionsWithSynchronization();
+  FuncSet FunctionsWithSync = Utils.getAllFunctionsWithSynchronization();
 
   // Set of all functions that allready added to handle container.
   // Will be used to prevent handling functions more than once.

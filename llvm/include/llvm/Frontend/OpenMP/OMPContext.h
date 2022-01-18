@@ -155,7 +155,10 @@ struct VariantMatchInfo {
 /// e.g., device={kind(host)}, and constructs traits which describe the nesting
 /// in OpenMP constructs at the location.
 struct OMPContext {
-  OMPContext(bool IsDeviceCompilation, Triple TargetTriple);
+#if INTEL_CUSTOMIZATION
+  OMPContext(bool IsDeviceCompilation, Triple TargetTriple,
+             bool IsIntel = false);
+#endif // INTEL_CUSTOMIZATION
   virtual ~OMPContext() = default;
 
   void addTrait(TraitProperty Property) {

@@ -5,7 +5,7 @@
 ; correctness of traversal algorithm.
 
 ; REQUIRES: asserts
-; RUN: opt -S < %s -vplan-vec -disable-output -vplan-enable-scalvec-analysis -vplan-print-scalvec-results | FileCheck %s
+; RUN: opt -S < %s -vplan-vec -disable-output -vplan-enable-scalvec-analysis -vplan-print-scalvec-results -vplan-force-vf=2 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -13,7 +13,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local void @divControlFlow(i32* nocapture %a, i32* nocapture %b, i32* nocapture readonly %c, i32 %N) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
-; CHECK-NEXT:  VPlan IR for: divControlFlow:omp.inner.for.body
+; CHECK-NEXT:  VPlan IR for: divControlFlow:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF=2 UF=1 (SVAOpBits )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP0:%.*]] = vector-trip-count i64 [[WIDE_TRIP_COUNT0:%.*]], UF = 1 (SVAOpBits 0->F )
@@ -159,15 +159,15 @@ omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.33
 ; Function Attrs: nounwind uwtable
 define dso_local void @uniControlFlow(i32* nocapture %a, i32* nocapture %b, i32* nocapture readonly %c, i32 %N, i64 %key) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
-; CHECK-NEXT:  VPlan IR for: uniControlFlow:omp.inner.for.body
+; CHECK-NEXT:  VPlan IR for: uniControlFlow:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF=4 UF=1 (SVAOpBits )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF=2 UF=1 (SVAOpBits )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP0:%.*]] = vector-trip-count i64 [[WIDE_TRIP_COUNT0:%.*]], UF = 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP0]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VEC_TC_CHECK]], [[MERGE_BLK0:merge.blk[0-9]+]], [[BB1:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] pushvf VF=4 UF=1 (SVAOpBits )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] pushvf VF=2 UF=1 (SVAOpBits )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB1]]

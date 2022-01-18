@@ -1221,6 +1221,45 @@ DDTest::classifyPair(const CanonExpr *Src, const HLLoop *SrcLoopNest,
   return Subscript::MIV;
 }
 
+// Given a single blob CE %t, which is marked SExt or ZExt, constuct sext(%t)
+// and zext(%t).
+const CanonExpr *DDTest::addExt(const CanonExpr *CE) {
+  // Only single blob canonical expression with  no IVs and demoninator=1 is
+  // allowed.
+  if (!CE->isSingleBlob(true /*allow conversion*/)) {
+    return CE;
+  }
+
+  if (!CE->isZExt() && !CE->isSExt()) {
+    return CE;
+  }
+
+  auto *DestTy = CE->getDestType();
+  auto &BU = CE->getBlobUtils();
+  auto Blob = BU.getBlob(CE->getSingleBlobIndex());
+  int64_t BlobCoeff = CE->getSingleBlobCoeff();
+
+  unsigned NewBlobIdx;
+  if (CE->isZExt() && (BlobCoeff > 0)) {
+    BU.createZeroExtendBlob(Blob, DestTy, true, &NewBlobIdx);
+  } else if (CE->isSExt()) {
+    BU.createSignExtendBlob(Blob, DestTy, true, &NewBlobIdx);
+  } else {
+    return CE;
+  }
+
+  auto *NewCE = CE->getCanonExprUtils().createStandAloneBlobCanonExpr(
+      NewBlobIdx, CE->getDefinedAtLevel());
+
+  if (BlobCoeff != 1) {
+    NewCE->setBlobCoeff(NewBlobIdx, BlobCoeff);
+  }
+
+  push(NewCE);
+
+  return NewCE;
+}
+
 // Given a CE of the form-
 // 4 * sext(%t) + c   or    sext(4 * %t) + c
 //
@@ -1341,7 +1380,22 @@ bool DDTest::isKnownPredicate(ICmpInst::Predicate Pred, const CanonExpr *X,
 
   Y = stripExt(Y, StripSExt, StripZExtY);
 
+  if (isKnownPredicateImpl(Pred, X, Y))
+    return true;
+
+  // If result is still unknown, try to add SExt/ZExt to X and Y and compare
+  // them.
+
+  if (X->isZExt() || X->isSExt()) {
+    X = addExt(X);
+  }
+
+  if (Y->isZExt() || Y->isSExt()) {
+    Y = addExt(Y);
+  }
+
   return isKnownPredicateImpl(Pred, X, Y);
+
 }
 
 // All subscripts are all the same type.
@@ -3893,6 +3947,11 @@ bool DDTest::tryDelinearize(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef,
                             SmallVectorImpl<Subscript> &Pair,
                             bool ForDDGBuild) {
 
+  // Do not try to delinearise non-linear dd refs.
+  if (SrcDDRef->isNonLinear() || DstDDRef->isNonLinear()) {
+    return false;
+  }
+
   // Without loss of generailty, a 3-dim array is used for illustration
   //    A[n1][n2][n3]
   //    do i1=0, n1-1
@@ -4621,7 +4680,8 @@ static bool mayIntersectDueToTypeCast(const RegDDRef *Ref1,
                                       const RegDDRef *Ref2) {
   assert(Ref1->isMemRef() && Ref2->isMemRef() && "Memref expected");
 
-  if (!Ref1->getBitCastDestType() && !Ref2->getBitCastDestType())
+  if (!Ref1->getBitCastDestVecOrElemType() &&
+      !Ref2->getBitCastDestVecOrElemType())
     return false;
 
   uint64_t Size1Dst = Ref1->getDestTypeSizeInBytes();
@@ -4828,10 +4888,16 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
 
   //  Number of dimemsion are different or different base: need to bail out,
   //  except for IVDEP
-  if (TestingMemRefs &&
-      (!EqualBaseAndShape || SrcRegDDRef->isFake() || DstRegDDRef->isFake())) {
-    adjustDV(Result, EqualBaseAndShape, SrcRegDDRef, DstRegDDRef);
-    return std::make_unique<Dependences>(Result);
+  if (TestingMemRefs) {
+    // Refine fake-to-real refs edge if canUsePointeeSize is set for fake ref.
+    bool SrcBadFakeRef =
+        SrcRegDDRef->isFake() && !SrcRegDDRef->canUsePointeeSize();
+    bool DstBadFakeRef =
+        DstRegDDRef->isFake() && !DstRegDDRef->canUsePointeeSize();
+    if (!EqualBaseAndShape || SrcBadFakeRef || DstBadFakeRef) {
+      adjustDV(Result, EqualBaseAndShape, SrcRegDDRef, DstRegDDRef);
+      return std::make_unique<Dependences>(Result);
+    }
   }
 
   if (!EqualBaseAndShape || (NoCommonNest && !ForFusion)) {

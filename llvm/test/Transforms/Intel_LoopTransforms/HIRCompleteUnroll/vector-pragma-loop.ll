@@ -3,6 +3,9 @@
 ; RUN: opt -hir-ssa-deconstruction -debug-only=hir-complete-unroll -hir-pre-vec-complete-unroll 2>&1 < %s | FileCheck %s --check-prefix=PREVEC
 ; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s --check-prefix=POSTVEC
 
+; RUN: opt -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll" -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s --check-prefix=PREVEC
+; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,print<hir>" -disable-output 2>&1 < %s | FileCheck %s --check-prefix=POSTVEC
+
 ; Verify that the vector pragma disables pre-vec complete unroll but not post-vec complete unroll.
 
 ; Src-

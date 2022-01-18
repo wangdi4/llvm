@@ -47,10 +47,6 @@ DIR.OMP.END.SIMD.22:                              ; preds = %DIR.OMP.END.SIMD.2
   ret void
 }
 
-; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
-
 declare void @myfunc(i8* nonnull, i8* nonnull)

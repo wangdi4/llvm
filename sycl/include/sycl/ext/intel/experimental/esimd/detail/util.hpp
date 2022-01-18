@@ -19,6 +19,12 @@
 #define __SEIEE sycl::ext::intel::experimental::esimd
 #define __SEIEEED sycl::ext::intel::experimental::esimd::emu::detail
 
+#ifdef __SYCL_DEVICE_ONLY__
+#define __ESIMD_INTRIN SYCL_EXTERNAL SYCL_ESIMD_FUNCTION
+#else
+#define __ESIMD_INTRIN inline
+#endif // __SYCL_DEVICE_ONLY__
+
 __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace ext {
@@ -203,6 +209,21 @@ template <> struct word_type<char> { using type = short; };
 template <> struct word_type<int> { using type = short; };
 template <> struct word_type<uchar> { using type = ushort; };
 template <> struct word_type<uint> { using type = ushort; };
+
+// Utility for compile time loop unrolling.
+template <unsigned N> class ForHelper {
+  template <unsigned I, typename Action> static inline void repeat(Action A) {
+    if constexpr (I < N)
+      A(I);
+    if constexpr (I + 1 < N)
+      repeat<I + 1, Action>(A);
+  }
+
+public:
+  template <typename Action> static inline void unroll(Action A) {
+    ForHelper::template repeat<0, Action>(A);
+  }
+};
 
 } // namespace detail
 

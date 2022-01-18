@@ -1,5 +1,6 @@
-;RUN: opt -whole-program-assume -internalize -disable-output -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
-;RUN: opt -whole-program-assume -disable-output -padded-pointer-info -passes="internalize,padded-pointer-prop" < %s 2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt -whole-program-assume -internalize -disable-output -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -disable-output -padded-pointer-info -passes="internalize,padded-pointer-prop" < %s 2>&1 | FileCheck %s
 
 ; Checks padding propagation for simple recursion case
 ; C code
@@ -31,14 +32,14 @@
 ;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Return Padding: 16
 ;CHECK-NEXT:   Value paddings:
-;CHECK-DAG:      %0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %call, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @1, i64 0, i64 0), i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 4, i8* null) :: 16
-;CHECK-DAG:      %call = tail call i32* @bar() :: 16
+;CHECK:      %0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %call, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @1, i64 0, i64 0), i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 4, i8* null) :: 16
+;CHECK:      %call = tail call i32* @bar() :: 16
 ;CHECK:      Function info(baz):
 ;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Return Padding: 16
 ;CHECK-NEXT:   Value paddings:
-;CHECK-DAG:      %call = tail call i32* @bar() :: 16
-;CHECK-DAG:      %1 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %0, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 8, i8* null) :: 8
+;CHECK-NEXT:      %1 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %0, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 8, i8* null) :: 8
+;CHECK-NEXT:      %call = tail call i32* @bar() :: 16
 ;CHECK:      ==== END OF TRANSFORMED FUNCTION SET ====
 
 

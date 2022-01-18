@@ -1,11 +1,11 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 ; Inline report
-; RUN: opt -force-opaque-pointers < %s -dtrans-inline-heuristics -inline -inline-report=7 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-NEW %s
-; RUN: opt -force-opaque-pointers < %s -dtrans-inline-heuristics -passes='cgscc(inline)' -inline-report=7 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-NEW %s
+; RUN: opt -opaque-pointers < %s -dtrans-inline-heuristics -inline -inline-report=7 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-NEW %s
+; RUN: opt -opaque-pointers < %s -dtrans-inline-heuristics -passes='cgscc(inline)' -inline-report=7 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-NEW %s
 ; Inline report via metadata
-; RUN: opt -force-opaque-pointers -inlinereportsetup -inline-report=134 < %s -S | opt -force-opaque-pointers -inline -inline-report=134 -dtrans-inline-heuristics -S | opt -force-opaque-pointers -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD
-; RUN: opt -force-opaque-pointers -passes='inlinereportsetup' -inline-report=134 < %s -S | opt -force-opaque-pointers -passes='cgscc(inline)' -inline-report=134 -dtrans-inline-heuristics -S | opt -force-opaque-pointers -passes='inlinereportemitter' -inline-report=134 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD
+; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=134 < %s -S | opt -opaque-pointers -inline -inline-report=134 -dtrans-inline-heuristics -S | opt -opaque-pointers -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD
+; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=134 < %s -S | opt -opaque-pointers -passes='cgscc(inline)' -inline-report=134 -dtrans-inline-heuristics -S | opt -opaque-pointers -passes='inlinereportemitter' -inline-report=134 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD
 
 ; Check that @g is not inlined because it would introduce exception handling
 ; code into a loop in @main which does not already have exception handling.

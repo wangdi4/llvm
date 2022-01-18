@@ -17,6 +17,15 @@
 // RUN:  | FileCheck -check-prefix=DEBUG_FULL %s
 // DEBUG_FULL: "-debug-info-kind=constructor"
 
+// RUN: %clang -debug -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=DEBUG_FULL,NO-ARG-ERROR %s
+// RUN: %clang -### -c -debug %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=DEBUG_FULL,NO-ARG-ERROR %s
+// RUN: %clang -### -c %s -debug 2>&1 \
+// RUN:  | FileCheck -check-prefixes=DEBUG_FULL,NO-ARG-MISSING %s
+// NO-ARG-ERROR-NOT: clang{{.*}} error: unsupported argument{{.*}}
+// NO-ARG-MISSING-NOT: clang{{.*}} error: argument to '-debug' is missing (expected 1 value)
+
 // RUN: %clang -debug emit-column -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=DEBUG_EMIT_COLUMN %s
 // RUN: %clang_cl /debug:emit-column -### -c %s 2>&1 \

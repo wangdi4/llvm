@@ -38,8 +38,9 @@ define i32 @quant_4x4(i16* noalias nocapture %dct, i16* nocapture readonly %mf, 
 ; CHECK-LABEL:  Function: quant_4x4
 ; CHECK-EMPTY:
 ; CHECK-NEXT:           BEGIN REGION { modified }
-; CHECK-NEXT:                %red.var = 0;
-; CHECK-NEXT:                %red.var = insertelement %red.var,  %nz.039,  0;
+; CHECK-NEXT:                %red.init = 0;
+; CHECK-NEXT:                %red.init.insert = insertelement %red.init,  %nz.039,  0;
+; CHECK-NEXT:                %phi.temp = %red.init.insert;
 ; CHECK:                     + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:                |   %.vec = (<4 x i16>*)(%dct)[i1];
 ; CHECK-NEXT:                |   %.vec2 = (<4 x i16>*)(%mf)[i1];
@@ -51,16 +52,17 @@ define i32 @quant_4x4(i16* noalias nocapture %dct, i16* nocapture readonly %mf, 
 ; CHECK-NEXT:                |   %.vec8 = %.vec7  *  %.vec2;
 ; CHECK-NEXT:                |   %.vec9 = %.vec8  /u  65536;
 ; CHECK-NEXT:                |   %.vec10 = %.vec9  *  -1;
-; CHECK-NEXT:                |   %.copy = %.vec10;
-; CHECK-NEXT:                |   %.vec11 = %.vec  +  %.vec3;
-; CHECK-NEXT:                |   %.vec12 = %.vec11  *  %.vec2;
-; CHECK-NEXT:                |   %.vec13 = %.vec12  /u  65536;
-; CHECK-NEXT:                |   %.copy14 = %.vec13;
-; CHECK-NEXT:                |   %select = (%.vec4 == <i1 true, i1 true, i1 true, i1 true>) ? %.copy14 : %.copy;
+; CHECK-NEXT:                |   %.copy11 = %.vec10;
+; CHECK-NEXT:                |   %.vec12 = %.vec  +  %.vec3;
+; CHECK-NEXT:                |   %.vec13 = %.vec12  *  %.vec2;
+; CHECK-NEXT:                |   %.vec14 = %.vec13  /u  65536;
+; CHECK-NEXT:                |   %.copy15 = %.vec14;
+; CHECK-NEXT:                |   %select = (%.vec4 == <i1 true, i1 true, i1 true, i1 true>) ? %.copy15 : %.copy11;
 ; CHECK-NEXT:                |   (<4 x i16>*)(%dct)[i1] = %select;
-; CHECK-NEXT:                |   %red.var = %red.var  |  %select;
+; CHECK-NEXT:                |   %.vec16 = %phi.temp  |  %select;
+; CHECK-NEXT:                |   %phi.temp = %.vec16;
 ; CHECK-NEXT:                + END LOOP
-; CHECK:                     %nz.039 = @llvm.vector.reduce.or.v4i32(%red.var);
+; CHECK:                     %nz.039 = @llvm.vector.reduce.or.v4i32(%.vec16);
 ; CHECK-NEXT:           END REGION
 ;
 entry:

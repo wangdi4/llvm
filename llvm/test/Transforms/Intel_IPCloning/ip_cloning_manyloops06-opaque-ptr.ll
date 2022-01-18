@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt -force-opaque-pointers < %s -S -ip-cloning -ip-spec-cloning-min-loops=1 -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning 2>&1 | FileCheck %s
-; RUN: opt -force-opaque-pointers < %s -S -passes='module(ip-cloning)' -ip-spec-cloning-min-loops=1 -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -S -ip-cloning -ip-spec-cloning-min-loops=1 -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -S -passes='module(ip-cloning)' -ip-spec-cloning-min-loops=1 -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning 2>&1 | FileCheck %s
 
 ; Check that many loops specialization cloning was NOT performed, because
 ; at least one loop has the 'ICmpInst does not feed branch' condition.
@@ -9,10 +9,11 @@
 ; CHECK: MLSC: Testing aer_rad_props_mp_aer_rad_props_sw_:
 ; CHECK: MLSC: Arg(0): ArgUse(0): Missing minimal GEPI conditions
 ; CHECK: MLSC: Arg(1): ArgUse(0): Missing minimal GEPI conditions
-; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(0): Missing SExtInst or more than one use
+; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(0): Missing CastInst or more than one use
 ; CHECK: ICmpInst does not feed branch.
-; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(1): Not enough loops
-; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(2): Missing SExtInst or more than one use
+; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(1): Could not find matching trip count
+; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(2): Missing CastInst or more than one use
+; CHECK: MLSC: Arg(1): ArgUse(1): Not enough loops 0 < 1
 ; CHECK: Selected Specialization cloning
 ; CHECK-NOT: Selected ManyLoopSpecialization cloning
 

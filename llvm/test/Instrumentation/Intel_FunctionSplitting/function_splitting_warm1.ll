@@ -90,6 +90,6 @@ attributes #1 = { nounwind }
 !25 = !{i32 999900, i64 100, i32 3}
 !26 = !{i32 999990, i64 100, i32 3}
 !27 = !{i32 999999, i64 100, i32 3}
-!28 = !{!"clang version 6.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 89b4bb5e4184046169d0c23283b7401179947b93) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 2fc8a99081c3f1d6ca872d7df83a2f9da84d0e85)"}
+!28 = !{!"clang version 6.0.0"}
 !29 = !{!"function_entry_count", i64 50}
 !30 = !{!"branch_weights", i32 50, i32 0}

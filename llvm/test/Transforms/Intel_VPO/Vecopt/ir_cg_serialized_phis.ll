@@ -26,11 +26,11 @@ define void @foo(i32** %uni) {
 ; CHECK-NEXT:    [[TMP20]] = phi { i32, i1 } [ undef, [[PRED_LOAD_CONTINUE:%.*]] ], [ [[SERIAL_CMPXCHG13]], [[PRED_CMPXCHG_IF:%.*]] ]
 ; CHECK-NEXT:    br label [[PRED_CMPXCHG_CONTINUE:%.*]]
 
-; CHECK:       pred.cmpxchg.if26:
+; CHECK:       pred.cmpxchg.if24:
 ; CHECK-NEXT:    [[SERIAL_CMPXCHG15:%.*]] = cmpxchg i32* [[TMP16]], i32 [[SERIAL_EXTRACTVALUE12]], i32 [[DOTEXTRACT_1_i:%.*]] seq_cst seq_cst, align 4
 ; CHECK-NEXT:    br label [[TMP22:%.*]]
 ; CHECK:       22:
-; CHECK-NEXT:    [[TMP23]] = phi { i32, i1 } [ undef, [[PRED_CMPXCHG_CONTINUE]] ], [ [[SERIAL_CMPXCHG15]], [[PRED_CMPXCHG_IF26:%.*]] ]
+; CHECK-NEXT:    [[TMP23]] = phi { i32, i1 } [ undef, [[PRED_CMPXCHG_CONTINUE]] ], [ [[SERIAL_CMPXCHG15]], [[PRED_CMPXCHG_IF24:%.*]] ]
 ; CHECK-NEXT:    br label [[PRED_CMPXCHG_CONTINUE27:%.*]]
 ;
 entry:

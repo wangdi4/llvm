@@ -1,6 +1,5 @@
-; INTEL - Disabling loopopt as it affects pass pipeline.
-; RUN: opt < %s -S -O2 -unroll-runtime=true -unroll-runtime-epilog=true -loopopt=0  | FileCheck %s -check-prefix=EPILOG
-; RUN: opt < %s -S -O2 -unroll-runtime=true -unroll-runtime-epilog=false -loopopt=0 | FileCheck %s -check-prefix=PROLOG
+; RUN: opt < %s -S -O2 -unroll-runtime=true -unroll-runtime-epilog=true | FileCheck %s -check-prefix=EPILOG
+; RUN: opt < %s -S -O2 -unroll-runtime=true -unroll-runtime-epilog=false | FileCheck %s -check-prefix=PROLOG
 
 ; Check runtime unrolling prologue can be promoted by LICM pass.
 

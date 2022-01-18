@@ -20,8 +20,9 @@ define internal void @test01(%struct.test01* "intel_dtrans_func_index"="1" %in) 
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Test a GEP that is used for a pointer-to-pointer, followed by a safe
@@ -35,8 +36,9 @@ define internal void @test02(%struct.test02** "intel_dtrans_func_index"="1" %in)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test02
 
 
 ; Test handling for a zero-sized array element at the end of the structure.
@@ -47,8 +49,9 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %in) !intel.dt
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: Has zero-sized array{{ *$}}
+; CHECK: End LLVMType: %struct.test03
 
 
 ; Test access with nested structure element using multiple GEPs to traverse structure
@@ -68,16 +71,19 @@ define internal i64 @test04(%struct.test04outer* "intel_dtrans_func_index"="1" %
   ret i64 %val0
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04inner
+; CHECK: LLVMType: %struct.test04inner
 ; CHECK: Safety data: Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test04inner
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04mid
+; CHECK: LLVMType: %struct.test04mid
 ; CHECK: Safety data: Nested structure | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test04mid
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04outer
+; CHECK: LLVMType: %struct.test04outer
 ; CHECK: Safety data: Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test04outer
 
 
 ; Test access with nested structure element using single GEP to traverse structure
@@ -93,16 +99,19 @@ define internal i64 @test05(%struct.test05outer* "intel_dtrans_func_index"="1" %
   ret i64 %val0
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test05inner
+; CHECK: LLVMType: %struct.test05inner
 ; CHECK: Safety data: Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test05inner
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test05mid
+; CHECK: LLVMType: %struct.test05mid
 ; CHECK: Safety data: Nested structure | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test05mid
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test05outer
+; CHECK: LLVMType: %struct.test05outer
 ; CHECK: Safety data: Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test05outer
 
 
 ; Test access to an element of an array member of a structure.
@@ -113,8 +122,9 @@ define internal i64 @test06(%struct.test06* "intel_dtrans_func_index"="1" %in) !
   ret i64 %val
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test06
+; CHECK: LLVMType: %struct.test06
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test06
 
 
 ; Test access to an element that is an array of pointers
@@ -126,8 +136,9 @@ define internal void @test07() {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test07
+; CHECK: LLVMType: %struct.test07
 ; CHECK: Safety data: Global pointer{{ *$}}
+; CHECK: End LLVMType: %struct.test07
 
 
 ; Test access to a structure member from an array of structures
@@ -139,8 +150,9 @@ define internal void @test08() {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test08
+; CHECK: LLVMType: %struct.test08
 ; CHECK: Safety data: Global instance | Global array{{ *$}}
+; CHECK: End LLVMType: %struct.test08
 
 
 ; This is a special case of a GEP that uses a null value for the pointer
@@ -158,8 +170,9 @@ define internal void @test09(i64 %offset) {
  ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test09
+; CHECK: LLVMType: %struct.test09
 ; CHECK: Safety data: Has function ptr{{ *$}}
+; CHECK: End LLVMType: %struct.test09
 
 
 !1 = !{i64 0, i32 0}  ; i64

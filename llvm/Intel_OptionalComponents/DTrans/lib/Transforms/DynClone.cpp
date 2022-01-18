@@ -3982,8 +3982,7 @@ template <class InfoClass> void DynCloneImpl<InfoClass>::transformIR(void) {
   //
   auto ProcessLoad = [&](LoadInst *LI, DynField &LdElem, bool NeedsDecoding) {
     LLVM_DEBUG(dbgs() << "Load before convert: " << *LI << "\n");
-    AAMDNodes AATags;
-    LI->getAAMetadata(AATags);
+    AAMDNodes AATags = LI->getAAMetadata();
 
     StructType *OldTy = cast<StructType>(LdElem.first);
     StructType *NewSt = TransformedTypeMap[OldTy];
@@ -4048,8 +4047,7 @@ template <class InfoClass> void DynCloneImpl<InfoClass>::transformIR(void) {
   //
   auto ProcessStore = [&](StoreInst *SI, DynField &StElem, bool NeedsEncoding) {
     LLVM_DEBUG(dbgs() << "Store before convert: " << *SI << "\n");
-    AAMDNodes AATags;
-    SI->getAAMetadata(AATags);
+    AAMDNodes AATags = SI->getAAMetadata() ;
 
     StructType *OldTy = cast<StructType>(StElem.first);
     StructType *NewSt = TransformedTypeMap[OldTy];

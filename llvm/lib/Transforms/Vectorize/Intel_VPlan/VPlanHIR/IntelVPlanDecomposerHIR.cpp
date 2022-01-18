@@ -552,13 +552,7 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
       SubscriptResultType =
           PointerType::get(SubscriptResultType, Ref->getPointerAddressSpace());
 
-    // Process lowers, strides, indices and struct offsets for each dimension to
-    // create operands of VPSubscript.
-    SmallVector<VPValue *, 4> Lowers;
-    SmallVector<VPValue *, 4> Strides;
-    SmallVector<VPValue *, 4> Indices;
-    VPSubscriptInst::DimStructOffsetsMapTy StructOffsets;
-    VPSubscriptInst::DimTypeMapTy Types;
+    SmallVector<VPSubscriptInst::DimInfo, 4> Dimensions;
     for (unsigned I = NumDims; I > 0; --I) {
       VPValue *DecompLower = decomposeCanonExpr(Ref, Ref->getDimensionLower(I));
       VPValue *DecompStride =
@@ -578,46 +572,31 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
                  DecompStride->dump(); dbgs() << "\n");
       LLVM_DEBUG(dbgs() << "VPDecomp: Memop DecompIndex: "; DecompIndex->dump();
                  dbgs() << "\n");
-      Lowers.push_back(DecompLower);
-      Strides.push_back(DecompStride);
-      Indices.push_back(DecompIndex);
 
       // Get trailing struct offsets for dimension.
       auto HIRDimOffsets = Ref->getTrailingStructOffsets(I);
 
-      // Add the offsets for the corresponding dimension operand only if it is
-      // non-empty
-      if (!HIRDimOffsets.empty()) {
-        for (auto OffsetVal : HIRDimOffsets) {
-          LLVM_DEBUG(dbgs()
-                     << "VPDecomp: Struct Offset: " << OffsetVal << "\n");
-          // Dimensions in VPSubscriptInst are zero-indexed, hence attach the
-          // offset to I-1 dimension.
-          StructOffsets[I - 1].push_back(OffsetVal);
-        }
-      }
-
-      // Get type associated for dimension.
-      Types[I - 1] = Ref->getDimensionType(I);
+      Dimensions.emplace_back(I - 1, DecompLower, DecompStride, DecompIndex,
+                              Ref->getDimensionType(I),
+                              Ref->getDimensionElementType(I), HIRDimOffsets);
     }
-
-    if (Ref->isInBounds())
-      MemOpVPI = Builder.createInBoundsSubscriptInst(
-          SubscriptResultType, NumDims, Lowers, Strides, DecompBaseCE, Indices,
-          StructOffsets, Types);
-    else
-      MemOpVPI = Builder.createSubscriptInst(SubscriptResultType, NumDims,
-                                             Lowers, Strides, DecompBaseCE,
-                                             Indices, StructOffsets, Types);
+    auto *Subscript = Builder.create<VPSubscriptInst>(
+        "subscript", SubscriptResultType, DecompBaseCE, Dimensions);
+    Subscript->setIsInBounds(Ref->isInBounds());
+    MemOpVPI = Subscript;
   }
 
   // Create a bitcast instruction if needed
-  auto BitCastDestTy = Ref->getBitCastDestType();
-  if (BitCastDestTy) {
-    LLVM_DEBUG(dbgs() << "VPDecomp: BitCastDestTy: "; BitCastDestTy->dump();
-               dbgs() << "\n");
-    MemOpVPI =
-        Builder.createNaryOp(Instruction::BitCast, {MemOpVPI}, BitCastDestTy);
+  auto BitCastDestElemTy = Ref->getBitCastDestVecOrElemType();
+  if (BitCastDestElemTy) {
+    LLVM_DEBUG(dbgs() << "VPDecomp: BitCastDestElemTy: ";
+               BitCastDestElemTy->dump(); dbgs() << "\n");
+    MemOpVPI = Builder.createNaryOp(
+        Instruction::BitCast, {MemOpVPI},
+        PointerType::get(BitCastDestElemTy, Ref->getBaseCE()
+                                                ->getDestType()
+                                                ->getScalarType()
+                                                ->getPointerAddressSpace()));
   }
 
   // If memory reference is AddressOf type, return the last generated
@@ -630,11 +609,10 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
   if (Ref->isRval()) {
     // If memory reference is an RVal, then it corresponds to a load. Create a
     // new load VPInstruction to represent it.
-    assert(isa<PointerType>(MemOpVPI->getType()) &&
-           "Base type of load is not a pointer.");
-    // Result type of load will be element type of the pointer
-    MemOpVPI = Builder.createLoad(
-        cast<PointerType>(MemOpVPI->getType())->getElementType(), MemOpVPI);
+    assert(cast<PointerType>(MemOpVPI->getType())
+               ->isOpaqueOrPointeeTypeMatches(Ref->getDestType()) &&
+           "Incompatible types!");
+    MemOpVPI = Builder.createLoad(Ref->getDestType(), MemOpVPI);
 
     // Copy metadata for the created load instruction.
     auto *MemOpVPInst = cast<VPLoadStoreInst>(MemOpVPI);
@@ -679,35 +657,12 @@ VPValue *VPDecomposerHIR::decomposeVPOperand(RegDDRef *RDDR) {
   return decomposeMemoryOp(RDDR);
 }
 
-// Utility function that returns a CmpInst::Predicate for a given DDNode. The
-// return value is in the context of the *plain* CFG construction:
-//   1) HLInst representing a CmpInst -> CmpInst's opcode.
-//   2) HLLoop -> ICMP_SLE or ICMP_ULE (bottom test).
-// NOTE: Decomposition of HLIf nodes currently don't use this utility function
-static CmpInst::Predicate getPredicateFromHIR(HLDDNode *DDNode) {
-  assert((isa<HLInst>(DDNode) || isa<HLLoop>(DDNode)) &&
-         "Expected HLInst or HLLoop.");
-
-  if (auto *HInst = dyn_cast<HLInst>(DDNode)) {
-    assert(isa<CmpInst>(HInst->getLLVMInstruction()) && "Expected CmpInst.");
-    return cast<CmpInst>(HInst->getLLVMInstruction())->getPredicate();
-  }
-
-  // Get the predicate for the HLLoop bottom test condition.
-  auto *HLp = cast<HLLoop>(DDNode);
-  assert((HLp->isDo() || HLp->isDoMultiExit()) && HLp->isNormalized() &&
-         "Expected single-exit normalized DO HLLoop.");
-  assert(HLp->getLowerCanonExpr()->getDestType()->isIntegerTy() &&
-         HLp->getUpperCanonExpr()->getDestType()->isIntegerTy() &&
-         "HLLoops only support integer IVs.");
-
-  // HLLoop upper-bound is inclusive so we return the proper less-equal
-  // predicate based on the sign bit of the comparison type.
-  // TODO: Does HIR perform any normalization regarding sign/unsigned types?
-  if (cast<IntegerType>(HLp->getLowerCanonExpr()->getDestType())->getSignBit())
-    return CmpInst::ICMP_SLE;
-
-  return CmpInst::ICMP_ULE;
+// Utility function that returns a CmpInst::Predicate for a given HLInst
+// representing a CmpInst. Return value is CmpInst's opcode. NOTE: Decomposition
+// of HLIf nodes currently don't use this utility function
+static CmpInst::Predicate getPredicateFromHIR(HLInst *HInst) {
+  assert(isa<CmpInst>(HInst->getLLVMInstruction()) && "Expected CmpInst.");
+  return cast<CmpInst>(HInst->getLLVMInstruction())->getPredicate();
 }
 
 // Return true if \p Def is considered an external definition. An external
@@ -916,18 +871,15 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       NewVPInst = Builder.createCall(
           CalledValue, ArgList, HInst /*Used to get underlying call*/,
           DDNode /*Used to determine if this VPCall is master/slave*/);
-    } else if(isa<GetElementPtrInst>(LLVMInst)) {
-      assert(VPOperands.size() <= 2 && "Unexpected GEP being created.");
-      NewVPInst = Builder.createGEP(
-          // FIXME: Should come from elsewhere. Or, even better, the GEP
-          // shouldn't be created at all.
-          cast<PointerType>(VPOperands[0]->getType()->getScalarType())->getElementType(),
-          cast<PointerType>(VPOperands[0]->getType()->getScalarType())->getElementType(),
-          VPOperands[0],
-          ArrayRef<VPValue *>(VPOperands.begin() + 1, VPOperands.end()),
-          nullptr /* Inst */);
-      if (DDNode)
-        NewVPInst->HIR().setUnderlyingNode(DDNode);
+    } else if (isa<GetElementPtrInst>(LLVMInst)) {
+      // Don't create an additional single operand no-op GEP here. Re-use the
+      // subscript instruction that was already created during decomposition of
+      // corresponding memref.
+      assert(VPOperands.size() == 1 &&
+             "HLInst with underlying GEP is expected to have single operand.");
+      NewVPInst = cast<VPSubscriptInst>(VPOperands[0]);
+      // Make subscript the master instruction since it was already created.
+      NewVPInst->HIR().setUnderlyingNode(DDNode);
     } else {
       // Generic VPInstruction.
       NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
@@ -1299,25 +1251,39 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   //   3) set the last created VPInstruction for UB as master VPInstruction for
   //      that UB group of decomposed VPInstructions.
   assert(HLp->getUpperDDRef() && "Expected a valid upper DDRef for HLLoop.");
-  SmallVector<VPValue *, 2> VPOperands;
 
   // Keep last instruction before decomposition. We will need it to set the
   // master VPInstruction of all the created decomposed VPInstructions.
   VPInstruction *LastVPIBeforeDec = getLastVPI(LpPH);
   VPValue *DecompUB;
-  VPOperands.push_back(IVNext);
   { // #1. This scope is for Guard (RAII).
     VPBuilder::InsertPointGuard Guard(Builder);
     Builder.setInsertPoint(LpPH);
     DecompUB = decomposeVPOperand(HLp->getUpperDDRef());
-    VPOperands.push_back(DecompUB);
+    // Increment UB value by 1 since HLLoop upper bounds are inclusive. This
+    // allows to avoid off-by-one errors during vector TC computation and use
+    // stricter predicate for backedge condition.
+    if (auto *ConstUB = dyn_cast<VPConstant>(DecompUB))
+      DecompUB = Plan->getVPConstant(ConstantExpr::getAdd(
+          ConstUB->getConstant(), ConstantInt::get(ConstUB->getType(), 1)));
+    else
+      DecompUB = Builder.createAdd(
+          DecompUB,
+          Plan->getVPConstant(ConstantInt::get(DecompUB->getType(), 1)));
   }
   bool UBInstsGenerated = LastVPIBeforeDec != getLastVPI(LpPH);
 
   // #2.
-  CmpInst::Predicate CmpPredicate = getPredicateFromHIR(HLp);
-  auto *BottomTest = Builder.createCmpInst(CmpPredicate, VPOperands[0],
-                                           VPOperands[1], HLp);
+  // Get the predicate for the HLLoop bottom test condition.
+  // HLLoop upper-bound is inclusive and the UB used in VPlan will be
+  // incremented by 1 for valid TC computation. So we return the proper
+  // less-than predicate based on the sign bit of the comparison type.
+  // TODO: Does HIR perform any normalization regarding sign/unsigned types?
+  CmpInst::Predicate CmpPredicate =
+      cast<IntegerType>(HLp->getLowerCanonExpr()->getDestType())->getSignBit()
+          ? CmpInst::ICMP_SLT
+          : CmpInst::ICMP_ULT;
+  auto *BottomTest = Builder.createCmpInst(CmpPredicate, IVNext, DecompUB, HLp);
 
   if (UBInstsGenerated)
     if (auto *DecompUBVPI = dyn_cast<VPInstruction>(DecompUB)) {

@@ -1,4 +1,5 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-framework -hir-cost-model-throttling=0 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-cost-model-throttling=0 -analyze -hir-framework -enable-new-pm=0 < %s  2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-cost-model-throttling=0 -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that we are able to handle bottom tests where the loop exit jumps to a non-lexical successor.
 ; This is done by moving the loop exit goto [ goto bb145; ] after the loop.

@@ -109,11 +109,12 @@ protected:
 
   std::unique_ptr<VPOCodeGen> getVPOCodeGen(BasicBlock *LoopHeader, unsigned VF,
                                             unsigned UF) {
+    OptReportBuilder ORBuilder; // Unsetup ORBuilder
     auto Plan = buildHCFG(LoopHeader);
     auto VPOCG = std::make_unique<VPOCodeGen>(
         LI->getLoopFor(LoopHeader), *Ctx.get(), *PSE.get(), LI.get(), DT.get(),
-        TLI.get(), VF, UF, Legal.get(), nullptr /*VLSA*/,
-        Plan.get());
+        TLI.get(), VF, UF, Legal.get(), nullptr /*VLSA*/, Plan.get(),
+        ORBuilder);
     return VPOCG;
   }
 };

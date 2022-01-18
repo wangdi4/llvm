@@ -32,7 +32,7 @@ define dso_local i64 @foo([100 x i8]* nocapture readonly %arr, i64* noalias noca
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:       i64 [[VP7:%.*]] = hir-copy i64 100 , OriginPhiId: -1
 ; CHECK-NEXT:       i64 [[VP3]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:       i1 [[VP8:%.*]] = icmp sle i64 [[VP3]] i64 99
+; CHECK-NEXT:       i1 [[VP8:%.*]] = icmp slt i64 [[VP3]] i64 100
 ; CHECK-NEXT:       br i1 [[VP8]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB3]]

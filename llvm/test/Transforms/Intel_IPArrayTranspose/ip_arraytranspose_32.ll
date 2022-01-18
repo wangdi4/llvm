@@ -7,6 +7,8 @@
 
 ; RUN: opt < %s -ip-array-transpose-heuristic=false -iparraytranspose -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -ip-array-transpose-heuristic=false -passes='module(iparraytranspose)' -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -ip-array-transpose-heuristic=false -iparraytranspose -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck --check-prefix=CHECK-OP %s
+; RUN: opt < %s -opaque-pointers -ip-array-transpose-heuristic=false -passes='module(iparraytranspose)' -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck --check-prefix=CHECK-OP %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -23,6 +25,18 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: [[B0:%[0-9]+]] = bitcast i8* [[G0]] to i64*
 ; CHECK: store i64 0, i64* [[B0]], align 8
 ; CHECK: [[I1]] = add i64 [[I0]], 1
+
+; Check updated memory references are generated.
+; CHECK-OP: b00:
+; CHECK-OP: [[S0:%[0-9]+]] = shl nuw nsw i64 %lb, 3
+; CHECK-OP: [[A0:%[0-9]+]] = add nuw nsw i64 [[S0]], 592001608
+; CHECK-OP: b1:
+; CHECK-OP: [[I0:%[a-z0-9]+]] = phi i64 [ [[I1:%[a-z0-9.]+]], %b1 ], [ 0, %b00 ]
+; CHECK-OP: [[S1:%[0-9]+]] = shl i64 [[I0]], 3
+; CHECK-OP: [[A1:%[0-9]+]] = add i64 [[A0]], [[S1]]
+; CHECK-OP: [[G0:%[a-z0-9]+]]  = getelementptr i8, ptr %inn, i64 [[A1]]
+; CHECK-OP: store i64 0, ptr [[G0]], align 8
+; CHECK-OP: [[I1]] = add i64 [[I0]], 1
 
 define i32 @main() #0 {
 b0:

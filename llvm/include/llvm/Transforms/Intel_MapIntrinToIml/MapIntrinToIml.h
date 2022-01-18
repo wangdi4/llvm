@@ -126,9 +126,6 @@ class MapIntrinToImlImpl {
   /// returns true.
   bool isLessThanFullVector(Type *ValType, Type *LegalType);
 
-  /// Returns the largest vector type represented in the function signature.
-  VectorType *getVectorTypeForSVMLFunction(FunctionType *FT);
-
   /// Extract information of an SVML function using it's function name and VL of
   /// its return type. Returns the scalar function name for the SVML function.
   /// The number of components is returned with out parameter \p LogicalVL (for

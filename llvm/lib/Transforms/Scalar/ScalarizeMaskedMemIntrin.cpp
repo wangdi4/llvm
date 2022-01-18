@@ -45,6 +45,22 @@ using namespace llvm;
 
 #define DEBUG_TYPE "scalarize-masked-mem-intrin"
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<unsigned> MaxDepth(
+    "scalarize-masked-mem-intrin-max-depth", cl::Hidden, cl::init(4),
+    cl::desc("Maximum depth of checking isSplatAndConst. (default = 4)"));
+
+static cl::opt<unsigned>
+    MaxLoads("scalarize-masked-mem-intrin-max-loads", cl::Hidden, cl::init(1),
+             cl::desc("Maximum load count in GEP's elements when it can do "
+                      "tryScalarizeGEP. (default = 1)"));
+
+static cl::opt<unsigned>
+MaxConst("scalarize-masked-mem-intrin-max-const", cl::Hidden, cl::init(1),
+  cl::desc("Maximum constant count in GEP's elements when it can do "
+    "tryScalarizeGEP. (default = 1)"));
+#endif // INTEL_CUSTOMIZATION
+
 namespace {
 
 class ScalarizeMaskedMemIntrinLegacyPass : public FunctionPass {
@@ -515,6 +531,125 @@ static void scalarizeMaskedStore(const DataLayout &DL, CallInst *CI,
 }
 
 #if INTEL_CUSTOMIZATION
+
+// Return true if all elements are ConstantInts,
+// use the Constant for this element.
+static Constant *legalConst(Constant *C, unsigned &ConstCount) {
+  auto VT = cast<FixedVectorType>(C->getType());
+  if (!VT)
+    return nullptr;
+
+  unsigned NumElts = VT->getNumElements();
+  ++ConstCount;
+  if (ConstCount > MaxConst)
+    return nullptr;
+
+  for (unsigned j = 0; j != NumElts; ++j) {
+    Constant *Elt = C->getAggregateElement(j);
+    if (!Elt || !isa<ConstantInt>(Elt))
+      return nullptr;
+  }
+  return C;
+}
+
+// Return true iff all the leaf variables are splat vectors
+// and only constants are real vectors.
+static bool isSplatAndConst(Value *V, unsigned Depth, unsigned &LoadCount,
+                            unsigned &ConstCount) {
+  if (Depth > MaxDepth || LoadCount > MaxLoads || ConstCount > MaxConst)
+    return false;
+
+  if (auto Bin = dyn_cast<BinaryOperator>(V)) {
+    auto LHS = Bin->getOperand(0);
+    auto RHS = Bin->getOperand(1);
+
+    switch (Bin->getOpcode()) {
+    case Instruction::Add:
+    case Instruction::Sub:
+    case Instruction::Mul:
+    case Instruction::Shl:
+      break;
+    default:
+      return false;
+    }
+
+    if (getSplatValue(LHS)) {
+      if (auto *C = dyn_cast<Constant>(RHS))
+        return legalConst(C, ConstCount);
+      return isSplatAndConst(RHS, Depth + 1, LoadCount, ConstCount);
+    }
+    if (auto *C = dyn_cast<Constant>(LHS)) {
+      if (!legalConst(C, ConstCount))
+        return false;
+      if (getSplatValue(RHS))
+        return true;
+      return isSplatAndConst(RHS, Depth + 1, LoadCount, ConstCount);
+    }
+    if (getSplatValue(RHS)) {
+      if (auto *C = dyn_cast<Constant>(LHS))
+        return legalConst(C, ConstCount);
+      return isSplatAndConst(LHS, Depth + 1, LoadCount, ConstCount);
+    }
+    if (auto *C = dyn_cast<Constant>(RHS)) {
+      if (!legalConst(C, ConstCount))
+        return false;
+      if (getSplatValue(LHS))
+        return true;
+      return isSplatAndConst(LHS, Depth + 1, LoadCount, ConstCount);
+    }
+  } else if (isa<LoadInst>(V)) {
+    ++LoadCount;
+    if (LoadCount <= MaxLoads)
+      return true;
+  } else if (auto ZExt = dyn_cast<ZExtInst>(V))
+    return isSplatAndConst(ZExt->getOperand(0), Depth + 1, LoadCount,
+                           ConstCount);
+
+  return false;
+}
+
+static Value *createSplatAndConstExpr(Value *V, unsigned Element,
+                                      IRBuilder<> &Builder) {
+  auto createBinOpExpr = [](Value *&Op0, Value *&Op1, unsigned Element,
+                            IRBuilder<> &Builder) {
+    if (auto Splat = getSplatValue(Op0)) {
+      Op0 = Splat;
+      if (auto *C = dyn_cast<Constant>(Op1))
+        Op1 = C->getAggregateElement(Element);
+      else
+        Op1 = createSplatAndConstExpr(Op1, Element, Builder);
+      return true;
+    }
+    if (auto *C = dyn_cast<Constant>(Op0)) {
+      Op0 = C->getAggregateElement(Element);
+      if (auto Splat = getSplatValue(Op1))
+        Op1 = Splat;
+      else
+        Op1 = createSplatAndConstExpr(Op1, Element, Builder);
+      return true;
+    }
+    return false;
+  };
+  if (auto Bin = dyn_cast<BinaryOperator>(V)) {
+    auto LHS = Bin->getOperand(0);
+    auto RHS = Bin->getOperand(1);
+
+    if (createBinOpExpr(LHS, RHS, Element, Builder) ||
+        createBinOpExpr(RHS, LHS, Element, Builder))
+      return Builder.CreateBinOp(Bin->getOpcode(), LHS, RHS);
+  } else if (auto ZExt = dyn_cast<ZExtInst>(V)) {
+    auto Src = createSplatAndConstExpr(ZExt->getOperand(0), Element, Builder);
+    auto DstTy = dyn_cast<VectorType>(ZExt->getType());
+    assert(DstTy && "DstTy must be ");
+    auto ScalarDstTy = DstTy->getElementType();
+    return Builder.CreateZExt(Src, ScalarDstTy);
+  } else if (auto Load = dyn_cast<LoadInst>(V))
+    return Builder.CreateExtractElement(Load, Element);
+
+  llvm_unreachable("Not reachable.");
+  return nullptr;
+}
+
 // Look for GEP where the base pointer and all indices are made of scalars,
 // splats of scalars, or constant ints. These GEPs are trivially scalarizable.
 // This creates opportunities for the arithmetic to be folded into the address
@@ -522,8 +657,11 @@ static void scalarizeMaskedStore(const DataLayout &DL, CallInst *CI,
 // the scalars into vector registers, doing the address arithmetic there, and
 // then extracting the address for each element.
 static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
-                              IRBuilder<> &Builder) {
+                              IRBuilder<> &Builder, const TargetTransformInfo &TTI) {
   Value *Base = GEP->getPointerOperand();
+  Type *BasePtrTy = GEP->getSourceElementType();
+  unsigned LoadCount = 0;
+  unsigned ConstCount = 0;
 
   // Base should be a scalar, or a splatted scalar.
   if (Base->getType()->isVectorTy()) {
@@ -547,13 +685,21 @@ static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
       // We have some kind of non-splat vector.
       if (auto *C = dyn_cast<Constant>(GEPIdx)) {
         // If all elements are ConstantInts, use the Constant for this element.
-        unsigned NumElts = cast<VectorType>(C->getType())->getNumElements();
+        auto VT = dyn_cast<FixedVectorType>(C->getType());
+        if (!VT)
+          return nullptr;
+        unsigned NumElts = VT->getNumElements();
         for (unsigned j = 0; j != NumElts; ++j) {
           Constant *Elt = C->getAggregateElement(j);
           if (!Elt || !isa<ConstantInt>(Elt))
             return nullptr;
         }
         Indices.push_back(C->getAggregateElement(Element));
+        continue;
+      } else if (TTI.isAdvancedOptEnabled(
+              TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42) &&
+              isSplatAndConst(GEPIdx, 1, LoadCount, ConstCount)) {
+        Indices.push_back(nullptr);
         continue;
       }
 
@@ -562,16 +708,22 @@ static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
     }
   }
 
+  for (unsigned i = 1, e = GEP->getNumOperands(); i != e; ++i) {
+    Value *GEPIdx = GEP->getOperand(i);
+    if (Indices[i - 1] != nullptr)
+      continue;
+    Indices[i - 1] = createSplatAndConstExpr(GEPIdx, Element, Builder);
+  }
+
   // Create a GEP from the scalar components.
-  return Builder.CreateGEP(
-      Base->getType()->getScalarType()->getPointerElementType(), Base, Indices,
-      "Ptr" + Twine(Element));
+  return Builder.CreateGEP(BasePtrTy, Base, Indices, "Ptr" + Twine(Element));
 }
 
 static Value *getScalarAddress(Value *Ptrs, unsigned Element,
-                               IRBuilder<> &Builder) {
+                               IRBuilder<> &Builder,
+                               const TargetTransformInfo &TTI) {
   if (auto *GEP = dyn_cast<GetElementPtrInst>(Ptrs))
-    if (Value *V = tryScalarizeGEP(GEP, Element, Builder))
+    if (Value *V = tryScalarizeGEP(GEP, Element, Builder, TTI))
       return V;
 
   return Builder.CreateExtractElement(Ptrs, Element, "Ptr" + Twine(Element));
@@ -608,7 +760,8 @@ static Value *getScalarAddress(Value *Ptrs, unsigned Element,
 // %Result = select <16 x i1> %Mask, <16 x i32> %res.phi.select, <16 x i32> %Src
 // ret <16 x i32> %Result
 static void scalarizeMaskedGather(const DataLayout &DL, CallInst *CI,
-                                  DomTreeUpdater *DTU, bool &ModifiedDT) {
+                                  DomTreeUpdater *DTU, bool &ModifiedDT, // INTEL
+                                  const TargetTransformInfo &TTI) {      // INTEL
   Value *Ptrs = CI->getArgOperand(0);
   Value *Alignment = CI->getArgOperand(1);
   Value *Mask = CI->getArgOperand(2);
@@ -634,7 +787,7 @@ static void scalarizeMaskedGather(const DataLayout &DL, CallInst *CI,
     for (unsigned Idx = 0; Idx < VectorWidth; ++Idx) {
       if (cast<Constant>(Mask)->getAggregateElement(Idx)->isNullValue())
         continue;
-      Value *Ptr = getScalarAddress(Ptrs, Idx, Builder); // INTEL
+      Value *Ptr = getScalarAddress(Ptrs, Idx, Builder, TTI); // INTEL
       LoadInst *Load =
           Builder.CreateAlignedLoad(EltTy, Ptr, AlignVal, "Load" + Twine(Idx));
       VResult =
@@ -690,7 +843,7 @@ static void scalarizeMaskedGather(const DataLayout &DL, CallInst *CI,
     CondBlock->setName("cond.load");
 
     Builder.SetInsertPoint(CondBlock->getTerminator());
-    Value *Ptr = getScalarAddress(Ptrs, Idx, Builder); // INTEL
+    Value *Ptr = getScalarAddress(Ptrs, Idx, Builder, TTI); // INTEL
     LoadInst *Load =
         Builder.CreateAlignedLoad(EltTy, Ptr, AlignVal, "Load" + Twine(Idx));
     Value *NewVResult =
@@ -743,7 +896,8 @@ static void scalarizeMaskedGather(const DataLayout &DL, CallInst *CI,
 // br label %else2
 //   . . .
 static void scalarizeMaskedScatter(const DataLayout &DL, CallInst *CI,
-                                   DomTreeUpdater *DTU, bool &ModifiedDT) {
+                                   DomTreeUpdater *DTU, bool &ModifiedDT, // INTEL
+                                   const TargetTransformInfo &TTI) {      // INTEL
   Value *Src = CI->getArgOperand(0);
   Value *Ptrs = CI->getArgOperand(1);
   Value *Alignment = CI->getArgOperand(2);
@@ -771,7 +925,7 @@ static void scalarizeMaskedScatter(const DataLayout &DL, CallInst *CI,
         continue;
       Value *OneElt =
           Builder.CreateExtractElement(Src, Idx, "Elt" + Twine(Idx));
-      Value *Ptr = getScalarAddress(Ptrs, Idx, Builder); // INTEL
+      Value *Ptr = getScalarAddress(Ptrs, Idx, Builder, TTI); // INTEL
       Builder.CreateAlignedStore(OneElt, Ptr, AlignVal);
     }
     CI->eraseFromParent();
@@ -823,7 +977,7 @@ static void scalarizeMaskedScatter(const DataLayout &DL, CallInst *CI,
 
     Builder.SetInsertPoint(CondBlock->getTerminator());
     Value *OneElt = Builder.CreateExtractElement(Src, Idx, "Elt" + Twine(Idx));
-    Value *Ptr = getScalarAddress(Ptrs, Idx, Builder); // INTEL
+    Value *Ptr = getScalarAddress(Ptrs, Idx, Builder, TTI); // INTEL
     Builder.CreateAlignedStore(OneElt, Ptr, AlignVal);
 
     // Create "else" block, fill it in the next iteration
@@ -1078,12 +1232,10 @@ static bool runImpl(Function &F, const TargetTransformInfo &TTI,
   auto &DL = F.getParent()->getDataLayout();
   while (MadeChange) {
     MadeChange = false;
-    for (Function::iterator I = F.begin(); I != F.end();) {
-      BasicBlock *BB = &*I++;
+    for (BasicBlock &BB : llvm::make_early_inc_range(F)) {
       bool ModifiedDTOnIteration = false;
-      MadeChange |= optimizeBlock(*BB, ModifiedDTOnIteration, TTI, DL,
+      MadeChange |= optimizeBlock(BB, ModifiedDTOnIteration, TTI, DL,
                                   DTU.hasValue() ? DTU.getPointer() : nullptr);
-
 
       // Restart BB iteration if the dominator tree of the Function was changed
       if (ModifiedDTOnIteration)
@@ -1138,7 +1290,7 @@ static bool optimizeCallInst(CallInst *CI, bool &ModifiedDT,
   if (II) {
     // The scalarization code below does not work for scalable vectors.
     if (isa<ScalableVectorType>(II->getType()) ||
-        any_of(II->arg_operands(),
+        any_of(II->args(),
                [](Value *V) { return isa<ScalableVectorType>(V->getType()); }))
       return false;
 
@@ -1165,7 +1317,7 @@ static bool optimizeCallInst(CallInst *CI, bool &ModifiedDT,
       if (!TTI.shouldScalarizeMaskedGather(CI))
 #endif // INTEL_CUSTOMIZATION
         return false;
-      scalarizeMaskedGather(DL, CI, DTU, ModifiedDT);
+      scalarizeMaskedGather(DL, CI, DTU, ModifiedDT, TTI);
       return true;
     }
     case Intrinsic::masked_scatter: {
@@ -1176,7 +1328,7 @@ static bool optimizeCallInst(CallInst *CI, bool &ModifiedDT,
                                                       StoreTy->getScalarType());
       if (TTI.isLegalMaskedScatter(StoreTy, Alignment))
         return false;
-      scalarizeMaskedScatter(DL, CI, DTU, ModifiedDT);
+      scalarizeMaskedScatter(DL, CI, DTU, ModifiedDT, TTI);
       return true;
     }
     case Intrinsic::masked_expandload:

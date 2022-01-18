@@ -1,5 +1,5 @@
 ; RUN: opt -arg-noalias-prop -S %s | FileCheck %s
-; RUN: opt -aa-pipeline=basic-aa -passes='function(require<phi-values>),arg-noalias-prop' -S %s | FileCheck %s
+; RUN: opt -aa-pipeline=basic-aa -passes='arg-noalias-prop' -S %s | FileCheck %s
 
 declare noalias i8* @malloc(i64)
 

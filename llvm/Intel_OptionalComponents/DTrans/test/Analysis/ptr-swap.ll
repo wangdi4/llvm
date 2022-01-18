@@ -1,5 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -whole-program-assume  -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies that we are able to identify a couple of idioms for
 ; swapping pointer values in a dynamic array of pointers
@@ -238,7 +239,7 @@ swap:
   %NextHalf2 = getelementptr inbounds i32, i32* %HalfPtr2, i64 1
   store i32 %HalfVal1, i32* %HalfPtr2
   %NextCount = add nsw i64 %Count, -1
-  %Cmp = icmp sgt i64 %NextCount, 0 
+  %Cmp = icmp sgt i64 %NextCount, 0
   br i1 %Cmp, label %swap, label %exit
 
 exit:

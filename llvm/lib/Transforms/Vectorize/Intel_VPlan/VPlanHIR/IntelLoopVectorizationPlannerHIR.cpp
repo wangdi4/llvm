@@ -58,8 +58,9 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG,
 
   applyVLSTransform(*Plan, *VLSA, BestVF);
 
-  // Process all loop entities and create refs for them if needed.
-  CG->createAndMapLoopEntityRefs(BestVF);
+  // Process all loop entities and collect instructions participating in them if
+  // needed.
+  CG->collectLoopEntityInsts();
   // Set hoist loop for reductions.
   CG->setRednHoistPtForVectorLoop();
 
@@ -85,7 +86,7 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG,
   VPLAN_DUMP(PrintAfterCallVecDecisions, Label, Plan);
 
   // Compute SVA results for final VPlan which will be used by CG.
-  Plan->runSVA();
+  Plan->runSVA(BestVF);
   VPLAN_DUMP(PrintSVAResults, "ScalVec analysis", Plan);
 
   Plan->executeHIR(CG);
@@ -133,19 +134,26 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
     return true;
 
   const VPLoopEntityList *LE = Plan.getLoopEntities(&Loop);
+  if (!LE)
+    return false;
 
   for (auto *BB : Loop.blocks())
     for (VPInstruction &Inst : *BB) {
       // Entities code and CG need to be uplifted to handle vector type
       // inductions and reductions.
-      if (LE->getReduction(&Inst) || LE->getInduction(&Inst))
+      if (LE->getReduction(&Inst) || LE->getInduction(&Inst)) {
         if (isa<VectorType>(Inst.getType())) {
           LLVM_DEBUG(dbgs() << "LVP: Vector type reduction/induction currently"
                             << " not supported.\n"
                             << Inst << "\n");
           return false;
         }
-
+      } else if (Loop.isLiveOut(&Inst) && !LE->getPrivate(&Inst)) {
+        // Some liveouts are left unrecognized due to unvectorizable use-def
+        // chains.
+        LLVM_DEBUG(dbgs() << "LVP: Unrecognized liveout found.");
+        return false;
+      }
       // Specialization for handling sincos functions in CG is done based on
       // underlying HIR. Privatization for such sincos cannot be implemented
       // until it is uplifted to be fully VPValue-based.
@@ -176,8 +184,14 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
   // operations during initialization and finalization. Walking the VPlan
   // instructions will not work as this check is done before we insert entity
   // related instructions.
-  if (LE->hasInMemoryReductionInduction() || LE->hasInMemoryLiveoutPrivate())
+  if (LE->hasInMemoryReductionInduction())
     return false;
+
+  // Check whether all reductions are supported
+  for (auto Red : LE->vpreductions())
+    if (Red->getRecurrenceKind() == RecurKind::SelectICmp ||
+        Red->getRecurrenceKind() == RecurKind::SelectFCmp)
+      return false;
 
   // All checks passed.
   return true;
@@ -198,14 +212,20 @@ unsigned LoopVectorizationPlannerHIR::getLoopUnrollFactor(bool *Forced) {
     if (UF > 0)
       ForcedValue = true;
     else {
-      // getUnrollPragmaCount() returns negative value, which means no
-      // #pragma unroll N is specified for TheLoop.  Leave ForcedValue
-      // to be false then.
-      // Capture UF that could be specified internally by other LoopOpt
-      // transforms.
-      UF = TheLoop->getForcedVectorUnrollFactor();
-      if (UF == 0)
-        UF = 1;
+      UF = TheLoop->getInterleavePragmaCount();
+
+      if (UF > 0)
+        ForcedValue = true;
+      else {
+        // getUnrollPragmaCount() returns negative value, which means no
+        // #pragma unroll N is specified for TheLoop.  Leave ForcedValue
+        // to be false then.
+        // Capture UF that could be specified internally by other LoopOpt
+        // transforms.
+        UF = TheLoop->getForcedVectorUnrollFactor();
+        if (UF == 0)
+          UF = 1;
+      }
     }
   }
 
@@ -275,8 +295,9 @@ void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlanVector *Plan) {
   // hasLoopNormalizedInduction) to accept HIR-normalized loops. They use 'le'
   // condition which leads to execution of OrigUB + 1 iterations.
   //
-  bool ExactUB = true;
+  bool ExactUB = false;
   bool HasNormalizedInd = hasLoopNormalizedInduction(CandidateLoop, ExactUB);
+  assert(ExactUB && "Exact UB expected for decomposed HLLoops.");
   CandidateLoop->setHasNormalizedInductionFlag(HasNormalizedInd, ExactUB);
 
   // The multi-exit loops are processed in a special way
@@ -304,7 +325,8 @@ void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlanVector *Plan) {
         "Unexpected loop upper bound placement");
     Builder.setInsertPoint(Parent, std::next(Instr->getIterator(), 1));
   }
-  auto *VTC = Builder.create<VPVectorTripCountCalculation>(
+
+  auto *VTC = Builder.createHIR<VPVectorTripCountCalculation>(
       TheLoop, "vector.trip.count", OrigTC);
   Cond->replaceUsesOfWith(OrigTC, VTC);
 }

@@ -39,6 +39,12 @@
 #include <unordered_map>
 #include <utility>
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypes.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+
+#endif // INTEL_CUSTOMIZATION
 // Use trampoline for internal microtasks
 #define KMP_IDENT_IMB              0x01
 
@@ -217,6 +223,29 @@ public:
   static StructType *getOrCreateStructType(Function *F, StringRef Name,
                                            ArrayRef<Type *> ElementTypes);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  /// Return DTrans type describing kmpc_micro function type
+  /// in the given DTransTypeManager \p TM:
+  ///   typedef void(*kmpc_micro)(kmp_int32 *global_tid,
+  ///                             kmp_int32 *bound_tid, ...)
+
+  static dtransOP::DTransFunctionType *getKmpcMicroDTransType(
+      dtransOP::DTransTypeManager &TM);
+
+  /// Return DTrans type describing given OpenMP ident_t type \p IdentTy
+  /// in the given DTransTypeManager \p TM:
+  ///   typedef struct ident {
+  ///     kmp_int32 reserved_1;
+  ///     kmp_int32 flags;
+  ///     kmp_int32 reserved_2;
+  ///     kmp_int32 reserved_3;
+  ///     char const *psource;
+  ///   } ident_t;
+  static dtransOP::DTransStructType *getIdentStructDTransType(
+      dtransOP::DTransTypeManager &TM, StructType *IdentTy);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   /// Find any existing ident_t (LOC) struct in the module of \p F, and if
   /// found, return it. If not, create an ident_t struct and return it.
   ///
@@ -299,12 +328,13 @@ public:
 
   /// \p Arg is a Value from a clause.  It is either a Constant or
   /// a Value of pointer type.  If it is a pointer Value, the method
-  /// loads the clause's actual argument value via this pointer,
-  /// otherwise the clause's actual argument value is \p Arg itself.
+  /// loads the clause's actual argument value via this pointer using
+  /// \p ArgElementTy element type, otherwise the clause's actual argument
+  /// value is \p Arg itself.
   /// The method sign-extends or truncates the clause's actual argument
   /// value to type \p Ty using the provided \p Builder.
   static Value *getOrLoadClauseArgValueWithSext(
-      Value *Arg, Type *Ty, IRBuilder<> &Builder);
+      Value *Arg, Type *ArgElementTy, Type *Ty, IRBuilder<> &Builder);
 
   /// Generate a call to set `num_threads` for the `parallel` region and
   /// `parallel loop/sections`. Example:
@@ -322,7 +352,8 @@ public:
   /// \endcode
   static CallInst *genKmpcPushNumTeams(WRegionNode *W, StructType *IdentTy,
                                        Value *Tid, Value *NumTeams,
-                                       Value *NumThreads,
+                                       Type *NumTeamsTy, Value *NumThreads,
+                                       Type *NumThreadsTy,
                                        Instruction *InsertPt);
 
   /// Generate a call to notify the runtime system that the team
@@ -891,13 +922,16 @@ public:
   static void genConstructorCall(Function *Ctor, Value *V,
                                  IRBuilder<> &Builder);
   static CallInst *genConstructorCall(Function *Ctor, Value *V,
-                                      Value *PrivAlloca);
+                                      Value *PrivAlloca, bool IsTargetSPIRV);
   static CallInst *genDestructorCall(Function *Dtor, Value *V,
-                                     Instruction *InsertBeforePt);
+                                     Instruction *InsertBeforePt,
+                                     bool IsTargetSPIRV);
   static CallInst *genCopyConstructorCall(Function *Cctor, Value *D, Value *S,
-                                          Instruction *InsertBeforePt);
+                                          Instruction *InsertBeforePt,
+                                          bool IsTargetSPIRV);
   static CallInst *genCopyAssignCall(Function *Cp, Value *D, Value *S,
-                                     Instruction *InsertBeforePt);
+                                     Instruction *InsertBeforePt,
+                                     bool IsTargetSPIRV);
   /// @}
 
   /// Generate an optionally addrspacecast'ed pointer Value for an array
@@ -1075,9 +1109,22 @@ public:
   static Value *cloneInstructions(Value *V, Instruction *InsertPt);
 
   /// Generate the pointer pointing to the head of the array.
-  static Value *genArrayLength(Value *AI, Value *BaseAddr,
-                               Instruction *InsertPt, IRBuilder<> &Builder,
-                               Type *&ElementTy, Value *&ArrayBegin);
+  /// \param [in] ObjTy Either the array's type or the element type.
+  /// \param [in] NumElements Number of elements of \p ObjTy type in the array.
+  /// \param [in] BaseAddr Base address of the array.
+  /// \param [in] Builder IRBuilder for any new Instructions.
+  /// \returns a \b tuple of <ElementType, NumElements, BaseAddress>,
+  /// where \p ElementType is the element type of the array,
+  /// \p NumElements is the number of elements in the array, and
+  /// \p BaseAddress is the base address of the array.
+  ///
+  /// \p ObjTy and \p NumElements represent the array configuration,
+  /// and there are only two supported configurations:
+  ///   1. \p ObjTy is an array type, and \p NumElements is either nullptr
+  ///      or ConstantInt value 1.
+  ///   2. \p ObjTy is a non-array type.
+  static std::tuple<Type *, Value *, Value *> genArrayLength(
+      Type *ObjTy, Value *NumElements, Value *BaseAddr, IRBuilder<> &Builder);
 
   static Value *genAddrSpaceCast(Value *Ptr, Instruction *InsertPt,
                                  unsigned AddrSpace);
@@ -1453,7 +1500,8 @@ public:
              int NumArgsCount, Value *ArgsBase, Value *Args, Value *ArgsSize,
              Value *ArgsMaptype, Value *ArgsNames, Value *ArgsMappers,
              Instruction *InsertPt, Value *HostAddr = nullptr,
-             Value *NumTeamsPtr = nullptr, Value *ThreadLimitPtr = nullptr,
+             Value *NumTeamsPtr = nullptr, Type *NumTeamsTy = nullptr,
+             Value *ThreadLimitPtr = nullptr, Type *ThreadLimitTy = nullptr,
              SubdeviceItem *SubdeviceI = nullptr);
 
   /// Generate tgt_push_code_location call which pushes source code location
@@ -1608,8 +1656,7 @@ public:
 
   /// Returns min/max int of the given integer type.
   /// This can be used to initialize min/max reduction variables.
-  static Constant *getMinMaxIntVal(LLVMContext &C, Type *Ty, bool IsUnsigned,
-                                   bool GetMax);
+  static Constant *getMinMaxIntVal(Type *Ty, bool IsUnsigned, bool GetMax);
   // static uint64_t getMinInt(Type *IntTy, bool IsUnsigned);
   // static uint64_t getMaxInt(Type *IntTy, bool IsUnsigned);
 
@@ -2113,6 +2160,11 @@ public:
   /// nullptr otherwise. AddrSpace is the address space of the input item
   /// object.
   static std::tuple<Type *, Value *, unsigned> getItemInfo(const Item *I);
+
+  /// Return default address space for the current target.
+  /// It is vpo::ADDRESS_SPACE_GENERIC for SPIR-V targets, 0 - otherwise.
+  /// \p M is used to identify the current target.
+  static unsigned getDefaultAS(const Module *M);
 };
 
 } // namespace vpo

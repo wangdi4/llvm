@@ -1,5 +1,6 @@
 
-; RUN: opt -O2   < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -O2   < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="default<O2>"   < %s 2>&1 | FileCheck %s
 ;
 ; This is just a remainder that we need to defer the PreLoad in GVN until
 ; loopopt cleanup.  Loop Carried temps will prevent loop transformations and

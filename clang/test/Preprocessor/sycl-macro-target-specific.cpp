@@ -37,7 +37,6 @@
 // CHECK-USM-ADDR-SPACE: #define __ENABLE_USM_ADDR_SPACE__
 // CHECK-USM-ADDR-SPACE-NEG-NOT: #define __ENABLE_USM_ADDR_SPACE__
 
-#if INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 %s -fsycl-is-device -triple spir64_fpga-unknown-unknown -E -dM \
 // RUN: | FileCheck --check-prefix=CHECK-DISABLE-FALLBACK-ASSERT %s
 // RUN: %clang_cc1 %s -fsycl-is-device -triple spir64-unknown-unknown -E -dM \
@@ -50,4 +49,3 @@
 // RUN: | FileCheck --check-prefix=CHECK-DISABLE-FALLBACK-ASSERT-NEG %s
 // CHECK-DISABLE-FALLBACK-ASSERT: #define SYCL_DISABLE_FALLBACK_ASSERT
 // CHECK-DISABLE-FALLBACK-ASSERT-NEG-NOT: #define SYCL_DISABLE_FALLBACK_ASSERT
-#endif // INTEL_CUSTOMIZATION

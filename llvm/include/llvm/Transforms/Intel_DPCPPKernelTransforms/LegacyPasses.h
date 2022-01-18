@@ -1,6 +1,6 @@
 //==- LegacyPasses.h - Legacy constructors for DPCPP kernel transforms -----==//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -23,10 +23,13 @@ class StringRef;
 
 ModulePass *createAddFunctionAttrsLegacyPass();
 Pass *createParseAnnotateAttributesPass();
+ModulePass *createTaskSeqAsyncHandlingLegacyPass();
 FunctionPass *createBuiltinCallToInstLegacyPass();
 ModulePass *createBuiltinImportLegacyPass(
     const SmallVector<Module *, 2> &BuiltinModules = SmallVector<Module *, 2>(),
     StringRef CPUPrefix = "");
+ImmutablePass *
+createBuiltinLibInfoAnalysisLegacyPass(ArrayRef<Module *> BuiltinModules = {});
 ModulePass *createCreateSimdVariantPropagationLegacyPass();
 ModulePass *createCoerceWin64TypesLegacyPass();
 ModulePass *
@@ -42,8 +45,9 @@ ModulePass *createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
 ModulePass *createDuplicateCalledKernelsLegacyPass();
 FunctionPass *createPhiCanonicalizationLegacyPass();
 FunctionPass *createRedundantPhiNodeLegacyPass();
-ModulePass *createGroupBuiltinLegacyPass(
-    const SmallVector<Module *, 2> &BuiltinModules = {});
+ModulePass *
+createGroupBuiltinLegacyPass(ArrayRef<Module *> BuiltinModules = {});
+FunctionPass *createSoaAllocaAnalysisLegacyPass();
 ModulePass *createSplitBBonBarrierLegacyPass();
 ModulePass *createWIRelatedValueWrapperPass();
 ModulePass *createDataPerBarrierWrapperPass();
@@ -57,7 +61,11 @@ ModulePass *createInternalizeNonKernelFuncLegacyPass();
 ModulePass *createLinearIdResolverPass();
 ModulePass *createLocalBufferAnalysisLegacyPass();
 ModulePass *createLocalBuffersLegacyPass(bool UseTLSGlobals);
+FunctionPass *createAddNTAttrLegacyPass();
 ModulePass *createAddImplicitArgsLegacyPass();
+FunctionPass *createAddFastMathLegacyPass();
+ModulePass *createResolveMatrixFillLegacyPass();
+ModulePass *createResolveMatrixWISliceLegacyPass();
 ModulePass *createResolveSubGroupWICallLegacyPass(
     const SmallVector<Module *, 2> &BuiltinModules = SmallVector<Module *, 2>(),
     bool ResolveSGBarrier = true);
@@ -73,6 +81,7 @@ ModulePass *createSGSizeAnalysisLegacyPass();
 ModulePass *createSGValueWidenLegacyPass();
 ModulePass *createPrepareKernelArgsLegacyPass(bool UseTLSGlobals);
 ModulePass *createCleanupWrappedKernelLegacyPass();
+ModulePass *createCoerceTypesLegacyPass();
 ModulePass *createUpdateCallAttrsLegacyPass();
 ModulePass *createVectorVariantFillInLegacyPass();
 ModulePass *createVectorVariantLoweringLegacyPass(VectorVariant::ISAClass);
@@ -83,6 +92,7 @@ ModulePass *createSetVectorizationFactorLegacyPass(
 ModulePass *createVFAnalysisLegacyPass();
 ModulePass *
 createHandleVPlanMaskLegacyPass(const StringSet<> *VPlanMaskedFuncs);
+FunctionPass *createWorkItemAnalysisLegacyPass(unsigned VectorizeDim = 0);
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_LEGACY_PASSES_H

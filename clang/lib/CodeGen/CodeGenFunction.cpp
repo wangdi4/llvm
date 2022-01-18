@@ -47,6 +47,7 @@
 #include "llvm/Support/CRC.h"
 #include "llvm/Transforms/Scalar/LowerExpectIntrinsic.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
+
 using namespace clang;
 using namespace CodeGen;
 
@@ -195,8 +196,8 @@ LValue CodeGenFunction::MakeNaturalAlignAddrLValue(llvm::Value *V, QualType T) {
   LValueBaseInfo BaseInfo;
   TBAAAccessInfo TBAAInfo;
   CharUnits Alignment = CGM.getNaturalTypeAlignment(T, &BaseInfo, &TBAAInfo);
-  return LValue::MakeAddr(Address(V, Alignment), T, getContext(), BaseInfo,
-                          TBAAInfo);
+  Address Addr(V, ConvertTypeForMem(T), Alignment);
+  return LValue::MakeAddr(Addr, T, getContext(), BaseInfo, TBAAInfo);
 }
 
 /// Given a value of type T* that may not be to a complete object,
@@ -207,7 +208,13 @@ CodeGenFunction::MakeNaturalAlignPointeeAddrLValue(llvm::Value *V, QualType T) {
   TBAAAccessInfo TBAAInfo;
   CharUnits Align = CGM.getNaturalTypeAlignment(T, &BaseInfo, &TBAAInfo,
                                                 /* forPointeeType= */ true);
-  return MakeAddrLValue(Address(V, Align), T, BaseInfo, TBAAInfo);
+#if INTEL_CUSTOMIZATION
+  // This is need to be removed see cmplrllvm-33708
+  Address Addr(V, Align);
+#else
+  Address Addr(V, ConvertTypeForMem(T), Align);
+#endif // INTEL_CUSTOMIZATION
+  return MakeAddrLValue(Addr, T, BaseInfo, TBAAInfo);
 }
 
 
@@ -253,7 +260,7 @@ TypeEvaluationKind CodeGenFunction::getEvaluationKind(QualType type) {
     case Type::Channel:
 #endif // INTEL_CUSTOMIZATION
     case Type::Pipe:
-    case Type::ExtInt:
+    case Type::BitInt:
       return TEK_Scalar;
 
     // Complexes.
@@ -440,6 +447,14 @@ void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
   llvm::Instruction *Ptr = AllocaInsertPt;
   AllocaInsertPt = nullptr;
   Ptr->eraseFromParent();
+
+  // PostAllocaInsertPt, if created, was lazily created when it was required,
+  // remove it now since it was just created for our own convenience.
+  if (PostAllocaInsertPt) {
+    llvm::Instruction *PostPtr = PostAllocaInsertPt;
+    PostAllocaInsertPt = nullptr;
+    PostPtr->eraseFromParent();
+  }
 
   // If someone took the address of a label but never did an indirect goto, we
   // made a zero entry PHI node, which is illegal, zap it now.
@@ -1218,6 +1233,9 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
       EmitOpenCLHLSComponentMetadata(FD, Fn);
   }
 #endif // INTEL_CUSTOMIZATION
+  if (getLangOpts().SYCLIsHost && D && D->hasAttr<SYCLKernelAttr>())
+    Fn->addFnAttr("sycl_kernel");
+
   if (getLangOpts().SYCLIsDevice && D) {
     if (const auto *A = D->getAttr<SYCLIntelLoopFuseAttr>()) {
       const auto *CE = cast<ConstantExpr>(A->getValue());
@@ -1229,6 +1247,26 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
               A->isIndependent() ? Builder.getInt32(1) : Builder.getInt32(0))};
       Fn->setMetadata("loop_fuse",
                       llvm::MDNode::get(getLLVMContext(), AttrMDArgs));
+    }
+    if (const auto *A = D->getAttr<SYCLDeviceHasAttr>()) {
+      SmallVector<llvm::Metadata *, 4> AspectsMD;
+      for (auto *Aspect : A->aspects()) {
+        llvm::APSInt AspectInt = Aspect->EvaluateKnownConstInt(getContext());
+        AspectsMD.push_back(llvm::ConstantAsMetadata::get(
+            Builder.getInt32(AspectInt.getZExtValue())));
+      }
+      Fn->setMetadata("intel_declared_aspects",
+                      llvm::MDNode::get(getLLVMContext(), AspectsMD));
+    }
+    if (const auto *A = D->getAttr<SYCLUsesAspectsAttr>()) {
+      SmallVector<llvm::Metadata *, 4> AspectsMD;
+      for (auto *Aspect : A->aspects()) {
+        llvm::APSInt AspectInt = Aspect->EvaluateKnownConstInt(getContext());
+        AspectsMD.push_back(llvm::ConstantAsMetadata::get(
+            Builder.getInt32(AspectInt.getZExtValue())));
+      }
+      Fn->setMetadata("intel_used_aspects",
+                      llvm::MDNode::get(getLLVMContext(), AspectsMD));
     }
   }
 
@@ -1341,7 +1379,8 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
   // precise source location of the checked return statement.
   if (requiresReturnValueCheck()) {
     ReturnLocation = CreateDefaultAlignTempAlloca(Int8PtrTy, "return.sloc.ptr");
-    InitTempAlloca(ReturnLocation, llvm::ConstantPointerNull::get(Int8PtrTy));
+    Builder.CreateStore(llvm::ConstantPointerNull::get(Int8PtrTy),
+                        ReturnLocation);
   }
 
   // Emit subprogram debug descriptor.
@@ -1349,21 +1388,14 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
     // Reconstruct the type from the argument list so that implicit parameters,
     // such as 'this' and 'vtt', show up in the debug info. Preserve the calling
     // convention.
-    CallingConv CC = CallingConv::CC_C;
-    if (FD)
-      if (const auto *SrcFnTy = FD->getType()->getAs<FunctionType>())
-        CC = SrcFnTy->getCallConv();
-    SmallVector<QualType, 16> ArgTypes;
-    for (const VarDecl *VD : Args)
-      ArgTypes.push_back(VD->getType());
-    QualType FnType = getContext().getFunctionType(
-        RetTy, ArgTypes, FunctionProtoType::ExtProtoInfo(CC));
-    DI->emitFunctionStart(GD, Loc, StartLoc, FnType, CurFn, CurFuncIsThunk);
+    DI->emitFunctionStart(GD, Loc, StartLoc,
+                          DI->getFunctionType(FD, RetTy, Args), CurFn,
+                          CurFuncIsThunk);
   }
 
 #if INTEL_CUSTOMIZATION
   // Fix for CQ368405: Prologue source correlation is missing.
-  if (getLangOpts().IntelCompat && getLangOpts().IntelMSCompat)
+  if (getLangOpts().IntelCompat && getLangOpts().MSVCCompat)
     if (auto *FD = dyn_cast_or_null<FunctionDecl>(D))
       if (auto *Body = dyn_cast_or_null<CompoundStmt>(FD->getBody()))
         // Emit a location at the start of the prologue.
@@ -1438,7 +1470,8 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
     auto AI = CurFn->arg_begin();
     if (CurFnInfo->getReturnInfo().isSRetAfterThis())
       ++AI;
-    ReturnValue = Address(&*AI, CurFnInfo->getReturnInfo().getIndirectAlign());
+    ReturnValue = Address(&*AI, ConvertType(RetTy),
+                          CurFnInfo->getReturnInfo().getIndirectAlign());
     if (!CurFnInfo->getReturnInfo().getIndirectByVal()) {
       ReturnValuePointer =
           CreateDefaultAlignTempAlloca(Int8PtrTy, "result.ptr");
@@ -1756,18 +1789,53 @@ llvm::Intrinsic::ID CodeGenFunction::getContainerIntrinsic(
 
 void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                    const CGFunctionInfo &FnInfo) {
+  assert(Fn && "generating code for null Function");
   const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
   CurGD = GD;
 
   FunctionArgList Args;
   QualType ResTy = BuildFunctionArgList(GD, Args);
 
+  if (FD->isInlineBuiltinDeclaration()) {
+    // When generating code for a builtin with an inline declaration, use a
+    // mangled name to hold the actual body, while keeping an external
+    // definition in case the function pointer is referenced somewhere.
+    std::string FDInlineName = (Fn->getName() + ".inline").str();
+    llvm::Module *M = Fn->getParent();
+    llvm::Function *Clone = M->getFunction(FDInlineName);
+    if (!Clone) {
+      Clone = llvm::Function::Create(Fn->getFunctionType(),
+                                     llvm::GlobalValue::InternalLinkage,
+                                     Fn->getAddressSpace(), FDInlineName, M);
+      Clone->addFnAttr(llvm::Attribute::AlwaysInline);
+    }
+    Fn->setLinkage(llvm::GlobalValue::ExternalLinkage);
+    Fn = Clone;
+  } else {
+    // Detect the unusual situation where an inline version is shadowed by a
+    // non-inline version. In that case we should pick the external one
+    // everywhere. That's GCC behavior too. Unfortunately, I cannot find a way
+    // to detect that situation before we reach codegen, so do some late
+    // replacement.
+    for (const FunctionDecl *PD = FD->getPreviousDecl(); PD;
+         PD = PD->getPreviousDecl()) {
+      if (LLVM_UNLIKELY(PD->isInlineBuiltinDeclaration())) {
+        std::string FDInlineName = (Fn->getName() + ".inline").str();
+        llvm::Module *M = Fn->getParent();
+        if (llvm::Function *Clone = M->getFunction(FDInlineName)) {
+          Clone->replaceAllUsesWith(Fn);
+          Clone->eraseFromParent();
+        }
+        break;
+      }
+    }
+  }
+
   // Check if we should generate debug info for this function.
   if (FD->hasAttr<NoDebugAttr>()) {
     // Clear non-distinct debug info that was possibly attached to the function
     // due to an earlier declaration without the nodebug attribute
-    if (Fn)
-      Fn->setSubprogram(nullptr);
+    Fn->setSubprogram(nullptr);
     // Disable debug info indefinitely for this function
     DebugInfo = nullptr;
   }
@@ -1811,7 +1879,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   StartFunction(GD, ResTy, Fn, FnInfo, Args, Loc, BodyRange.getBegin());
 
   SyclOptReportHandler &SyclOptReport = CGM.getDiags().getSYCLOptReport();
-  if (SyclOptReport.HasOptReportInfo(FD)) {
+  if (Fn && SyclOptReport.HasOptReportInfo(FD)) {
     llvm::OptimizationRemarkEmitter ORE(Fn);
     for (auto ORI : llvm::enumerate(SyclOptReport.GetInfo(FD))) {
       llvm::DiagnosticLocation DL =
@@ -1834,7 +1902,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
 
 #if INTEL_CUSTOMIZATION
   OpenMPOptReportHandler &OpenMPOptReport = CGM.getDiags().OpenMPOptReport;
-  if (OpenMPOptReport.HasOpenMPReportInfo(FD)) {
+  if (Fn && OpenMPOptReport.HasOpenMPReportInfo(FD)) {
     llvm::OptimizationRemarkEmitter ORE(Fn);
     for (auto &ORI : OpenMPOptReport.GetClangInfo(FD)) {
       llvm::DiagnosticLocation DL = SourceLocToDebugLoc(ORI.DirectiveLoc);
@@ -2694,12 +2762,13 @@ void CodeGenFunction::EmitVariablyModifiedType(QualType type) {
     case Type::Record:
     case Type::Enum:
     case Type::Elaborated:
+    case Type::Using:
     case Type::TemplateSpecialization:
     case Type::ObjCTypeParam:
     case Type::ObjCObject:
     case Type::ObjCInterface:
     case Type::ObjCObjectPointer:
-    case Type::ExtInt:
+    case Type::BitInt:
       llvm_unreachable("type class is never variably-modified!");
 
     case Type::Adjusted:
@@ -3106,8 +3175,7 @@ void CodeGenFunction::checkTargetFeatures(SourceLocation Loc,
     // Return if the builtin doesn't have any required features.
     if (FeatureList.empty())
       return;
-    assert(FeatureList.find(' ') == StringRef::npos &&
-           "Space in feature list");
+    assert(!FeatureList.contains(' ') && "Space in feature list");
     TargetFeatures TF(CallerFeatureMap);
     if (!TF.hasRequiredFeatures(FeatureList))
       CGM.getDiags().Report(Loc, diag::err_builtin_needs_feature)
@@ -3250,7 +3318,7 @@ void CodeGenFunction::EmitMultiVersionResolver(
 #if INTEL_CUSTOMIZATION
   if (IsCpuDispatch &&
       CGM.getLangOpts().isIntelCompat(LangOptions::CpuDispatchUseLibIrc))
-    EmitCpuFeaturesInit();
+    CurBlock = EmitCpuFeaturesInit(Resolver);
   else
     EmitX86CpuInit();
 #endif // INTEL_CUSTOMIZATION

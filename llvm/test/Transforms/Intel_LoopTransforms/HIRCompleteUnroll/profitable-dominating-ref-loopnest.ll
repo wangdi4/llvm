@@ -10,7 +10,7 @@
 
 ; CHECK:      + DO i1 = 0, 3, 1   <DO_LOOP>
 ; CHECK-NEXT: |   %t315 = (%t9)[0].12.0[i1];
-; CHECK-NEXT: |   if ((%t9)[0].5.0[%t315 + %t305] == 2)
+; CHECK-NEXT: |   if ((%t9)[0].5.0[sext.i32.i64(%t305) + sext.i32.i64(%t315)] == 2)
 ; CHECK-NEXT: |   {
 ; CHECK-NEXT: |      + DO i2 = 0, 3, 1   <DO_MULTI_EXIT_LOOP>
 ; CHECK-NEXT: |      |   %t328 = (%t9)[0].12.0[i2];

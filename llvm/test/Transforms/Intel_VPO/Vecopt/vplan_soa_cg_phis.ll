@@ -54,12 +54,15 @@ simd.loop:
   %uni.gep = getelementptr inbounds [1024 x i64], [1024 x i64]* %arr.soa.priv64, i64 0, i64 0
   %ldstd = load i64, i64* %uni.gep, align 4
   br i1 true, label %bb1, label %bb2
+
 bb1:
   %uni.if = getelementptr inbounds [1024 x i64], [1024 x i64]* %arr.soa.priv64, i64 0, i64 0
   br label %simd.check.phi
+
 bb2:
   %uni.else = getelementptr inbounds [1024 x i64], [1024 x i64]* %arr.soa.priv64, i64 0, i64 1
   br label %simd.check.phi
+
 simd.check.phi:
   %phi.mix.uni = phi i64* [%uni.else, %bb2], [%uni.if, %bb1]
   %ld = load i64, i64* %phi.mix.uni, align 4
@@ -68,6 +71,7 @@ simd.check.phi:
   %iv1.next = add nuw nsw i64 %iv1, 1
   %cmp = icmp ult i64 %iv1.next, 1024
   br i1 %cmp, label %simd.loop, label %simd.end
+
 simd.end:
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   ret void
@@ -129,13 +133,16 @@ simd.loop:
   %uni.gep = getelementptr inbounds [1024 x i64], [1024 x i64]* %arr.soa.priv64, i64 0, i64 0
   %ldstd = load i64, i64* %uni.gep, align 4
   br i1 true, label %bb1, label %bb2
+
 bb1:
   %str.if = getelementptr inbounds [1024 x i64], [1024 x i64]* %arr.soa.priv64, i64 0, i64 %iv1
   br label %simd.check.phi
+
 bb2:
   %uni.else = getelementptr inbounds [1024 x i64], [1024 x i64]* %arr.soa.priv64, i64 0, i64 1
   %ld.else = load i64, i64* %uni.else, align 4
   br label %simd.check.phi
+
 simd.check.phi:
   %phi.mix.uni = phi i64* [%uni.else, %bb2], [%str.if, %bb1]
   %ld = load i64, i64* %phi.mix.uni, align 4
@@ -144,6 +151,7 @@ simd.check.phi:
   %iv1.next = add nuw nsw i64 %iv1, 1
   %cmp = icmp ult i64 %iv1.next, 1024
   br i1 %cmp, label %simd.loop, label %simd.end
+
 simd.end:
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   ret void
@@ -202,12 +210,15 @@ simd.loop:
   %iv1 = phi i64 [ 0, %simd.loop.preheader ], [ %iv1.next, %simd.check.phi]
   %uni.gep = getelementptr inbounds [1024 x i64], [1024 x i64]* %arr.soa.priv64, i64 0, i64 0
   br i1 true, label %bb1, label %bb2
+
 bb1:
   %str.if = getelementptr inbounds [1024 x i64], [1024 x i64]* %arr.soa.priv64, i64 0, i64 %iv1
   br label %simd.check.phi
+
 bb2:
   %str.else = getelementptr inbounds [1024 x i64], [1024 x i64]* %arr.soa.priv64, i64 0, i64 %iv1
   br label %simd.check.phi
+
 simd.check.phi:
   %phi.mix.uni = phi i64* [%str.else, %bb2], [%str.if, %bb1]
   %ld = load i64, i64* %phi.mix.uni, align 4
@@ -216,6 +227,7 @@ simd.check.phi:
   %iv1.next = add nuw nsw i64 %iv1, 1
   %cmp = icmp ult i64 %iv1.next, 1024
   br i1 %cmp, label %simd.loop, label %simd.end
+
 simd.end:
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   ret void
@@ -286,12 +298,15 @@ simd.loop:
   %div.gep = getelementptr inbounds [1024 x i64], [1024 x i64]* %arr.aos.priv64, i64 0, i64 0
   %call = call i64 @helper(i64* nonnull %div.gep)
   br i1 true, label %bb1, label %bb2
+
 bb1:
   %aos.if = getelementptr inbounds [1024 x i64], [1024 x i64]* %arr.aos.priv64, i64 0, i64 %iv1
   br label %simd.check.phi
+
 bb2:
   %uni.else = getelementptr inbounds [1024 x i64], [1024 x i64]* %arr.soa.priv64, i64 0, i64 %iv1
   br label %simd.check.phi
+
 simd.check.phi:
   %phi.mix.uni = phi i64* [%aos.if, %bb1], [%uni.else, %bb2]
   %ld = load i64, i64* %phi.mix.uni, align 4
@@ -300,6 +315,7 @@ simd.check.phi:
   %iv1.next = add nuw nsw i64 %iv1, 1
   %cmp = icmp ult i64 %iv1.next, 1024
   br i1 %cmp, label %simd.loop, label %simd.end
+
 simd.end:
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   ret void

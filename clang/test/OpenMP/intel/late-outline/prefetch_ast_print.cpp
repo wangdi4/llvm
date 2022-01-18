@@ -75,16 +75,16 @@ int template_test() {
 //DUMP: FunctionDecl {{.*}} <line:58:1, line:63:1> line:58:3 {{.*}} 'T ()'
 //DUMP: CompoundStmt {{.*}} <col:9, line:63:1>
 //DUMP: DeclStmt {{.*}} <line:59:3, col:14>
-//DUMP: VarDecl {{.*}} <col:3, col:13> col:5 {{.*}} foo 'T [size]'
+//DUMP: VarDecl {{.*}} <col:3, col:13> col:5 {{.*}} foo 'T[size]'
 //DUMP: OMPPrefetchDirective {{.*}} <line:60:3, col:44> openmp_standalone_directive
 //DUMP: OMPDataClause {{.*}} <col:24, col:43>
 //DUMP: UnaryOperator {{.*}} <col:29, col:30> '<dependent type>' prefix '&' cannot overflow
-//DUMP: DeclRefExpr {{.*}} <col:30> 'T [size]' lvalue Var {{.*}} 'foo' 'T [size]'
+//DUMP: DeclRefExpr {{.*}} <col:30> 'T[size]' lvalue Var {{.*}} 'foo' 'T[size]'
 //DUMP: DeclRefExpr {{.*}} <col:34> 'unsigned int' NonTypeTemplateParm {{.*}} 'hint' 'unsigned int'
 //DUMP: DeclRefExpr {{.*}} <col:39> 'unsigned int' NonTypeTemplateParm {{.*}} 'size' 'unsigned int'
 //DUMP: ReturnStmt {{.*}} <line:62:3, col:15>
 //DUMP: ArraySubscriptExpr {{.*}} <col:10, col:15> '<dependent type>' lvalue
-//DUMP: DeclRefExpr {{.*}} <col:10> 'T [size]' lvalue Var {{.*}} 'foo' 'T [size]'
+//DUMP: DeclRefExpr {{.*}} <col:10> 'T[size]' lvalue Var {{.*}} 'foo' 'T[size]'
 //DUMP: IntegerLiteral {{.*}} <col:14> 'int' 0
 //DUMP: FunctionDecl {{.*}} <line:58:1, line:63:1> line:58:3 {{.*}} run 'double ()'
 //DUMP: TemplateArgument type 'double'
@@ -93,11 +93,11 @@ int template_test() {
 //DUMP: TemplateArgument integral 10
 //DUMP: CompoundStmt {{.*}} <col:9, line:63:1>
 //DUMP: DeclStmt {{.*}} <line:59:3, col:14>
-//DUMP: VarDecl {{.*}} <col:3, col:13> col:5 {{.*}} foo 'double [10]'
+//DUMP: VarDecl {{.*}} <col:3, col:13> col:5 {{.*}} foo 'double[10]'
 //DUMP: OMPPrefetchDirective {{.*}} <line:60:3, col:44> openmp_standalone_directive
 //DUMP: OMPDataClause {{.*}} <col:24, col:43>
 //DUMP: UnaryOperator {{.*}} <col:29, col:30> 'double (*)[10]' prefix '&' cannot overflow
-//DUMP: DeclRefExpr {{.*}} <col:30> 'double [10]' lvalue Var {{.*}} 'foo' 'double [10]'
+//DUMP: DeclRefExpr {{.*}} <col:30> 'double[10]' lvalue Var {{.*}} 'foo' 'double[10]'
 //DUMP: SubstNonTypeTemplateParmExpr {{.*}} <col:34> 'unsigned int'
 //DUMP: NonTypeTemplateParmDecl {{.*}} <line:57:23, col:32> col:32 {{.*}} 'unsigned int' depth 0 index 1 hint
 //DUMP: IntegerLiteral {{.*}} <line:60:34> 'unsigned int' 1

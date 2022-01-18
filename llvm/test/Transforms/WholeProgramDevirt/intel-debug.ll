@@ -1,8 +1,12 @@
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: intel_feature_sw_dtrans
+
 ; REQUIRES: asserts
 
 ; This test case checks that the debug data is printed correctly.
 
 ; RUN: opt < %s -wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -debug-only=intel-wholeprogramdevirt -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -debug-only=intel-wholeprogramdevirt -disable-output 2>&1 | FileCheck %s
 
 %"class.std::ios_base::Init" = type { i8 }
 %class.Base = type { i32 (...)** }
@@ -139,7 +143,7 @@ attributes #6 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disab
 !4 = !{i64 16, !"_ZTS8Derived2"}
 !5 = !{i64 16, !"_ZTSM8Derived2FbiE.virtual"}
 !6 = !{i32 1, !"wchar_size", i32 4}
-!7 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang ff38d5989c66cc12167cbe397bfb5d6915c4838f)"}
+!7 = !{!"clang version 8.0.0"}
 !8 = !{!9, !9, i64 0}
 !9 = !{!"unspecified pointer", !10, i64 0}
 !10 = !{!"omnipotent char", !11, i64 0}
@@ -152,3 +156,5 @@ attributes #6 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disab
 ; CHECK:  Targets:
 ; CHECK:    _ZN7Derived3fooEi
 ; CHECK:    _ZN8Derived23fooEi
+
+; end INTEL_FEATURE_SW_DTRANS

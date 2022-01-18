@@ -79,6 +79,7 @@
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #include "HIRLoopCollapse.h"
 
@@ -390,8 +391,14 @@ bool HIRLoopCollapse::doPreliminaryChecks(void) {
     break;
   }
 
-  NumCollapsableLoops = std::min(Count, NumCollapsableLoops);
+  // Check: not allow preheader or postexit for the outer-most loop
+  unsigned OuterLevel = getOutermostLevel();
+  HLLoop *OuterLp = InnermostLp->getParentLoopAtLevel(OuterLevel);
+  if (OuterLp->hasPreheader() || OuterLp->hasPostexit())
+    return false;
 
+  // Check: NumcollapsableLoops to be 2+
+  NumCollapsableLoops = std::min(Count, NumCollapsableLoops);
   return (NumCollapsableLoops > 1);
 }
 
@@ -695,6 +702,53 @@ static void updateProfDataforCollapsedLoop(HLLoop *OutermostLp,
   CollapsedLp->setProfileData(InnerTrueWeight, OuterFalseWeight);
 }
 
+// Collect all symbase(s) from a given Ref, and put the results into ZTTLivIns.
+static void collectSymbase(RegDDRef *Ref, SmallSet<unsigned, 8> &ZTTLiveIns) {
+  if (Ref->isConstant())
+    return;
+
+  if (Ref->isSelfBlob()) {
+    ZTTLiveIns.insert(Ref->getSymbase());
+  } else {
+    for (const BlobDDRef *BRef :
+         make_range(Ref->blob_begin(), Ref->blob_end())) {
+      ZTTLiveIns.insert(BRef->getSymbase());
+    }
+  }
+}
+
+// Extract ZTT on each relevant loop level, and also save ZTTLiveIns.
+static void moveZttLiveIn(HLLoop *InnermostLp, unsigned OrigInnermostLevel,
+                          unsigned OrigOutermostLevel,
+                          SmallVectorImpl<PredicateTuple> &ZTTs,
+                          SmallSet<unsigned, 8> &ZTTLiveIns) {
+
+  assert(InnermostLp->getNestingLevel() == OrigInnermostLevel);
+
+  for (unsigned Level = OrigInnermostLevel; Level >= OrigOutermostLevel;
+       --Level) {
+    HLLoop *Lp = InnermostLp->getParentLoopAtLevel(Level);
+    HIRTransformUtils::cloneOrRemoveZttPredicates(Lp, ZTTs, false /* remove */);
+    Lp->removeZtt();
+  }
+
+  // Collect symbase(s) from each available ZTT:
+  for (auto &ZTT : ZTTs) {
+    collectSymbase(ZTT.Op1, ZTTLiveIns);
+    collectSymbase(ZTT.Op2, ZTTLiveIns);
+  }
+}
+
+static void mergeZttLiveIn(HLLoop *ToCollapseLp,
+                           SmallVectorImpl<PredicateTuple> &ZTTs,
+                           SmallSet<unsigned, 8> &ZTTLiveIns) {
+  HIRTransformUtils::mergeZtt(ToCollapseLp, ZTTs);
+
+  for (unsigned LiveIn : ZTTLiveIns) {
+    ToCollapseLp->addLiveInTemp(LiveIn);
+  }
+}
+
 bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
                                   const unsigned OrigInnermostLevel,
                                   const unsigned OrigOutermostLevel) {
@@ -708,6 +762,10 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
   });
 
   OrigOutermostLp->extractPreheaderAndPostexit();
+  SmallVector<PredicateTuple, 8> ZTTs;
+  SmallSet<unsigned, 8> ZTTLiveInSBs;
+  moveZttLiveIn(ToCollapseLp, OrigInnermostLevel, OrigOutermostLevel, ZTTs,
+                ZTTLiveInSBs);
 
   // *** Accumulate and update TripCount ***
 
@@ -798,6 +856,8 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
     //
     adjustIVCoeffs(Ref, 1, 1, OrigInnermostLevel, OrigOutermostLevel, false);
   }
+
+  mergeZttLiveIn(ToCollapseLp, ZTTs, ZTTLiveInSBs);
 
   // Remove the original OrigOutermostLp loop(s):
   HLNodeUtils::remove(OrigOutermostLp);

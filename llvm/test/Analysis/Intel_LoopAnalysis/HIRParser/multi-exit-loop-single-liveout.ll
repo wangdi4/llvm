@@ -1,4 +1,6 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+
 
 ; Check that we correctly parse the multi-exit loop and set the liveout value %0.
 
@@ -14,6 +16,7 @@
 
 ; Check CG for liveout value %0
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck -check-prefix=CHECK-CG %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S 2>&1 | FileCheck %s -check-prefix=CHECK-CG
 
 
 ; CHECK-CG: %t.1.ph = phi i32 [ %0, %for.cond ], [ %0, %for.body.split ], [ [[LIVEOUTLOAD1:.*]], %[[NORMALEXIT:.*]] ], [ [[LIVEOUTLOAD2:.*]], %[[EARLYEXIT:.*]] ]

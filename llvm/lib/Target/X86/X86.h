@@ -24,6 +24,9 @@ class PassRegistry;
 class X86RegisterBankInfo;
 class X86Subtarget;
 class X86TargetMachine;
+#if INTEL_CUSTOMIZATION
+class ModulePass;
+#endif // INTEL_CUSTOMIZATION
 
 /// This pass converts a legalized DAG into a X86-specific DAG, ready for
 /// instruction scheduling.
@@ -67,6 +70,8 @@ FunctionPass *createIVSplitLegacyPass();
 FunctionPass *createX86SplitVectorValueTypePass();
 FunctionPass *createX86PRAExpandPseudoPass();
 FunctionPass *createX86VecSpillPass();
+/// This pass performs x86 intrinsics lowering right before ISel.
+ModulePass *createX86PreISelIntrinsicLoweringPass();
 #endif // INTEL_CUSTOMIZATION
 
 /// Return a pass that selectively replaces certain instructions (like add,
@@ -87,8 +92,8 @@ FunctionPass *createX86AvoidStoreForwardingBlocks();
 /// Return a pass that lowers EFLAGS copy pseudo instructions.
 FunctionPass *createX86FlagsCopyLoweringPass();
 
-/// Return a pass that expands WinAlloca pseudo-instructions.
-FunctionPass *createX86WinAllocaExpander();
+/// Return a pass that expands DynAlloca pseudo-instructions.
+FunctionPass *createX86DynAllocaExpander();
 
 /// Return a pass that config the tile registers.
 FunctionPass *createX86TileConfigPass();
@@ -158,8 +163,15 @@ FunctionPass *createX86GenerateLEAs();
 /// Return a pass that generate load + permute for gather instruciton.
 FunctionPass *createX86Gather2LoadPermutePass();
 
+/// Return a pass that do instruction combine optimization for x86 target.
+FunctionPass *createX86InstCombinePass();
+
+extern char &X86InstCombineID;
+
 /// Return a pass that generate amx intrinsics for matrix intrinsics.
 FunctionPass *createX86LowerMatrixIntrinsicsPass();
+
+FunctionPass *createX86SplitLongBlockPass();
 
 #endif // INTEL_CUSTOMIZATION
 
@@ -212,6 +224,9 @@ void initializeX86SpeculativeExecutionSideEffectSuppressionPass(PassRegistry &);
 void initializeGenerateLEAPassPass(PassRegistry &);
 void initializeX86Gather2LoadPermutePassPass(PassRegistry &);
 void initializeX86LowerMatrixIntrinsicsPassPass(PassRegistry &);
+void initializeX86InstCombinePass(PassRegistry &);
+void initializeX86SplitLongBlockPassPass(PassRegistry &);
+void initializeX86PreISelIntrinsicLoweringPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
 void initializeX86PreTileConfigPass(PassRegistry &);
 void initializeX86FastTileConfigPass(PassRegistry &);
@@ -226,20 +241,6 @@ enum : unsigned {
   GS = 256,
   FS = 257,
   SS = 258,
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  ES = 259,
-  CS = 260,
-  DS = 261,
-  PHYSEG_SUPOVR = 262,
-  LINSEG_SUPOVR = 263,
-  LINSEG_NOSUPOVR = 264,
-  IDTR = 265,
-  GDTR = 266,
-  LDTR = 267,
-  TR = 268,
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   PTR32_SPTR = 270,
   PTR32_UPTR = 271,
   PTR64 = 272

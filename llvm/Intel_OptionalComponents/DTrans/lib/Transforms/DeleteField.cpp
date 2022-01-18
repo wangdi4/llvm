@@ -770,7 +770,12 @@ void DeleteFieldImpl::postprocessCall(CallBase *Call) {
   // The number of types in the call element info and the number of types
   // in the OrigToNew type mapping should both be very small.
   auto CallElemTypes = CInfo->getElementTypesRef();
-  for (auto *PointeeTy : CallElemTypes.element_llvm_types())
+  for (auto *PointeeTy : CallElemTypes.element_llvm_types()) {
+    // For an array of elements, identify the element type to see if it is
+    // being transformed, and will require updating the size argument to be a
+    // multiple of the new size.
+    while (PointeeTy->isArrayTy())
+      PointeeTy = PointeeTy->getArrayElementType();
 
     for (auto &ONPair : OrigToNewTypeMapping) {
       llvm::Type *OrigTy = ONPair.first;
@@ -793,6 +798,7 @@ void DeleteFieldImpl::postprocessCall(CallBase *Call) {
       const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
       updateCallSizeOperand(Call, CInfo, OrigTy, ReplTy, TLI);
     }
+  }
 }
 
 void DeleteFieldImpl::processSubInst(Instruction *I) {

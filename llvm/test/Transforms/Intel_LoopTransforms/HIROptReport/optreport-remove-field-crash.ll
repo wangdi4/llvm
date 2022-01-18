@@ -38,7 +38,7 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
 ; CHECK-NEXT: <Predicate Optimized v6>
-; CHECK-NEXT:     remark #25422: Invariant Condition at line 25 hoisted out of this loop
+; CHECK-NEXT:     remark #25423: Invariant If condition at line 25 hoisted out of this loop
 ; CHECK-NEXT:     remark #15300: LOOP WAS VECTORIZED
 ; CHECK-NEXT:     remark #15305: vectorization support: vector length 4
 ; CHECK-COUNT-19: remark{{.*}}:
@@ -47,10 +47,6 @@
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
 ; CHECK-NEXT: <Remainder loop for vectorization>
 ; CHECK-NEXT:     remark #15441: remainder loop was not vectorized:
-; CHECK-NEXT: LOOP END
-; CHECK-EMPTY:
-; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
-; CHECK-NEXT: <Predicate Optimized v8>
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
@@ -67,8 +63,8 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
 ; CHECK-NEXT: <Predicate Optimized v2>
-; CHECK-NEXT:     remark #25422: Invariant Condition at line 22 hoisted out of this loop
-; CHECK-NEXT:     remark #25422: Invariant Condition at line 25 hoisted out of this loop
+; CHECK-NEXT:     remark #25423: Invariant If condition at line 22 hoisted out of this loop
+; CHECK-NEXT:     remark #25423: Invariant If condition at line 25 hoisted out of this loop
 ; CHECK-NEXT:     remark #15300: LOOP WAS VECTORIZED
 ; CHECK-NEXT:     remark #15305: vectorization support: vector length 4
 ; CHECK-COUNT-19: remark{{.*}}:
@@ -93,7 +89,7 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
 ; CHECK-NEXT: <Predicate Optimized v3>
-; CHECK-NEXT:     remark #25422: Invariant Condition at line 25 hoisted out of this loop
+; CHECK-NEXT:     remark #25423: Invariant If condition at line 25 hoisted out of this loop
 ; CHECK-NEXT:     remark #15300: LOOP WAS VECTORIZED
 ; CHECK-NEXT:     remark #15305: vectorization support: vector length 4
 ; CHECK-COUNT-19: remark{{.*}}:
@@ -118,9 +114,9 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
 ; CHECK-NEXT: <Predicate Optimized v1>
-; CHECK-NEXT:     remark #25422: Invariant Condition at line 19 hoisted out of this loop
-; CHECK-NEXT:     remark #25422: Invariant Condition at line 22 hoisted out of this loop
-; CHECK-NEXT:     remark #25422: Invariant Condition at line 25 hoisted out of this loop
+; CHECK-NEXT:     remark #25423: Invariant If condition at line 19 hoisted out of this loop
+; CHECK-NEXT:     remark #25423: Invariant If condition at line 22 hoisted out of this loop
+; CHECK-NEXT:     remark #25423: Invariant If condition at line 25 hoisted out of this loop
 ; CHECK-NEXT:     remark #15300: LOOP WAS VECTORIZED
 ; CHECK-NEXT:     remark #15305: vectorization support: vector length 4
 ; CHECK-COUNT-19: remark{{.*}}:

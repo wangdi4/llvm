@@ -4,7 +4,6 @@
 ; xmain does not have this problem.
 ; XFAIL: *
 ; end INTEL_CUSTOMIZATION
-; RUN: opt -enable-new-pm=0 -std-link-opts -S < %s  | FileCheck %s
 ; RUN: opt -passes='lto<O3>'               -S < %s  | FileCheck %s
 
 define void @hoist_fdiv(float* %a, float %b) {

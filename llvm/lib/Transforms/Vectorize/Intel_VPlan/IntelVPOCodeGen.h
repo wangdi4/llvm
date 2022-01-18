@@ -16,6 +16,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPOCODEGEN_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPOCODEGEN_H
 
+#include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanOptrpt.h"
 
@@ -49,13 +50,14 @@ public:
              PredicatedScalarEvolution &PSE, LoopInfo *LI, DominatorTree *DT,
              TargetLibraryInfo *TLI, unsigned VecWidth, unsigned UnrollFactor,
              VPOVectorizationLegality *LVL, VPlanVLSAnalysis *VLSA,
-             const VPlanVector *Plan, bool IsOmpSIMD = false,
+             const VPlanVector *Plan, OptReportBuilder &ORBuilder,
+             bool IsOmpSIMD = false,
              FatalErrorHandlerTy FatalErrorHandler = nullptr)
       : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), Legal(LVL),
         VLSA(VLSA), VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VecWidth),
         Plan(Plan), VF(VecWidth), UF(UnrollFactor), Builder(Context),
-        OrigPreHeader(OrigLoop->getLoopPreheader()), IsOmpSIMD(IsOmpSIMD),
-        FatalErrorHandler(FatalErrorHandler) {}
+        OrigPreHeader(OrigLoop->getLoopPreheader()), ORBuilder(ORBuilder),
+        IsOmpSIMD(IsOmpSIMD), FatalErrorHandler(FatalErrorHandler) {}
 
   ~VPOCodeGen() { assert(VFStack.empty() && "expected empty VF stack"); }
 
@@ -159,14 +161,19 @@ public:
 
   OptReportStatsTracker &getOptReportStatsTracker() { return OptRptStats; }
 
+  /// Lower opt-report remarks collected in VPlan data structures to outgoing
+  /// IR.
+  void lowerVPlanOptReportRemarks() { lowerRemarksForVectorLoops(); }
+
   /// Clone the given scalar loop \p OrigLP and insert the cloned loop on the
   /// edge between NewLoopPred and NewLoopSucc. The NewLoopPred and NewLoopSucc
   /// should be connected directly and that is asserted by the function.
   //  TODO: This function will most likely not work for multi-exit loops. The
   //  full support for cloning such loops would have to be tested before this
   //  function is used for cloning such loops.
+  template <class VPPeelRemainderTy>
   Loop *cloneScalarLoop(Loop *OrigLP, BasicBlock *NewLoopPred,
-                        BasicBlock *NewLoopSucc, VPPeelRemainder *LoopInst,
+                        BasicBlock *NewLoopSucc, VPPeelRemainderTy *LoopInst,
                         const Twine &Name = "cloned.loop");
 
 private:
@@ -350,7 +357,8 @@ private:
   Value *codeGenVPInvSCEVWrapper(VPInvSCEVWrapper *SW);
 
   /// Vectorize VPInstruction that corresponds to scalar peel/remainder.
-  void vectorizeScalarPeelRem(VPPeelRemainder *LoopReuse);
+  template <class VPPeelRemainderTy>
+  void vectorizeScalarPeelRem(VPPeelRemainderTy *LoopReuse);
 
   /// Generate vector code for reduction finalization.
   /// The final vector reduction value is reduced horizontally using
@@ -546,6 +554,11 @@ private:
 
   OptReportStatsTracker OptRptStats;
 
+  // Set of scalar loop header blocks generated in outgoing vector code. We also
+  // track the type of scalar loop i.e. peel or remainder.
+  SmallVector<std::pair<CfgMergerPlanDescr::LoopType, BasicBlock *>, 2>
+      OutgoingScalarLoopHeaders;
+
   // Get alignment for VPLoadStoreInst using underlying llvm::Instruction.
   Align getOriginalLoadStoreAlignment(const VPLoadStoreInst *VPInst);
 
@@ -692,6 +705,21 @@ private:
   /// memory operation. Returns nullptr if operation is unmasked.
   Value *getVLSLoadStoreMask(VectorType *WidevalueType, int GroupSize);
 
+  /// Helper method to visit all VPLoops in final VPlan CFG and lower
+  /// opt-reports attached to them to their corresponding loops in outgoing IR.
+  void lowerRemarksForVectorLoops();
+
+  /// Helper method to visit all outgoing scalar loops and emit opt-report
+  /// remarks for them explicitly.
+  // TODO: We are not able to attach these remarks earlier in pipeline since
+  // scalar loops don't have VPLoops in CFG. Explore alternative approaches for
+  // such loops.
+  void emitRemarksForScalarLoops();
+
+  /// Preserve DbgLoc metatdata from incoming loop's LoopID in outgoing
+  /// vectorized loops. This ensures loop's LocRange info is not lost.
+  void preserveLoopIDDbgMDs();
+
   /// Return a guaranteed peeling variant. Null is returned if we are not sure
   /// that the peel loop will be executed at run-time.
   VPlanPeelingVariant *getGuaranteedPeeling() const;
@@ -700,6 +728,10 @@ private:
   DenseMap<AllocaInst *, Value *> ReductionVecInitVal;
 
   SmallDenseMap<const OVLSGroup *, Instruction *> VLSGroupLoadMap;
+
+  /// Opt-report builder object that will be used to emit/lower remarks into
+  /// outgoing loops.
+  OptReportBuilder &ORBuilder;
 
   // True if #pragma omp simd defined for OrigLoop
   bool IsOmpSIMD;

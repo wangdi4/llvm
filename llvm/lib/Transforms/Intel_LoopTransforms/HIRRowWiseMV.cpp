@@ -791,6 +791,7 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
     const RegDDRef *const NeedCheck = NeedCheckInit->getLvalDDRef();
     SafeCheckIf =
       HNU.createHLIf(PredicateTy::ICMP_NE, NeedCheck->clone(), False->clone());
+    SafeCheckLevelParent->extractZtt();
     SafeCheckLevelParent->extractPreheader();
     HLNodeUtils::insertBefore(SafeCheckLevelParent, SafeCheckIf);
     HLInst *const NeedCheckReset =
@@ -837,6 +838,7 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
     if (SafeCheckIf)
       HLNodeUtils::insertAsFirstThenChild(SafeCheckIf, NonInvariantCheckLoop);
     else {
+      OutermostParent->extractZtt();
       OutermostParent->extractPreheader();
       HLNodeUtils::insertBefore(OutermostParent, NonInvariantCheckLoop);
     }
@@ -876,6 +878,7 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
   } else if (SafeCheckIf) {
     HLNodeUtils::insertAsFirstThenChild(SafeCheckIf, CheckLoop);
   } else {
+    OutermostParent->extractZtt();
     OutermostParent->extractPreheader();
     HLNodeUtils::insertBefore(OutermostParent, CheckLoop);
   }

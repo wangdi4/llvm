@@ -27,10 +27,10 @@ define void @vec_len_hint_and_reqd_sg_size() !intel_vec_len_hint !{i32 16} !inte
 !0 = !{void ()* @recommended, void ()* @vec_len_hint, void ()* @reqd_sg_size, void ()* @vec_len_hint_and_reqd_sg_size}
 
 ; No diagnostics with zero or one constraint.
-; CHECK-NO-FORCE-NOT: error: function <{{recommended|vec_len_hint|reqd_sg_size}}>
-; CHECK-FORCE-NOT: error: function <recommended>
+; CHECK-NO-FORCE-NOT: error: kernel "{{recommended|vec_len_hint|reqd_sg_size}}"
+; CHECK-FORCE-NOT: error: kernel "recommended"
 
 ; Report error with multiple constraints.
-; CHECK-NO-FORCE: error: function <vec_len_hint_and_reqd_sg_size>: Only allow specifying one of ForceVF, intel_vec_len_hint and intel_reqd_sub_group_size!
-; CHECK-FORCE: error: function <vec_len_hint>: Only allow specifying one of ForceVF, intel_vec_len_hint and intel_reqd_sub_group_size!
+; CHECK-NO-FORCE: error: kernel "vec_len_hint_and_reqd_sg_size": Only one of CL_CONFIG_CPU_VECTORIZER_MODE, intel_vec_len_hint and intel_reqd_sub_group_size can be specified
+; CHECK-FORCE: error: kernel "vec_len_hint": Only one of CL_CONFIG_CPU_VECTORIZER_MODE, intel_vec_len_hint and intel_reqd_sub_group_size can be specified
 ; No other errors since the optimizer will early exit due to this fatal error.

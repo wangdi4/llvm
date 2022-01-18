@@ -47,8 +47,9 @@ define i1 @test01identify(%struct.test01** "intel_dtrans_func_index"="1" %in) !i
   ret i1 %cmp
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Swap pointers in 8-bit chunks.
@@ -88,8 +89,9 @@ define i1 @test02identify(%struct.test02** "intel_dtrans_func_index"="1" %in) !i
   ret i1 %cmp
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test02
 
 
 ; Swap a variable number of pointers in 32-bit chunks.
@@ -136,8 +138,9 @@ define i1 @test03identify(%struct.test03** "intel_dtrans_func_index"="1" %in) !i
   ret i1 %cmp
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test03
 
 
 ; Swap incomplete chunks of pointers. This case does not match the partial
@@ -178,8 +181,9 @@ define i1 @test04identify(%struct.test04** "intel_dtrans_func_index"="1" %in) !i
   ret i1 %cmp
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04
+; CHECK: LLVMType: %struct.test04
 ; CHECK: Safety data: Bad casting | Ambiguous GEP | Unsafe pointer merge{{ *}}
+; CHECK: End LLVMType: %struct.test04
 
 
 ; Swap 32-bit chunks without looping. This case does not match the partial
@@ -229,8 +233,9 @@ define i1 @test05identify(%struct.test05** "intel_dtrans_func_index"="1" %in) !i
   ret i1 %cmp
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test05
+; CHECK: LLVMType: %struct.test05
 ; CHECK: Safety data: Bad casting | Ambiguous GEP | Unsafe pointer merge{{ *}}
+; CHECK: End LLVMType: %struct.test05
 
 
 ; Swap pointers in 32-bit chunks with a bad pointer increment. This case does
@@ -276,8 +281,9 @@ define i1 @test06identify(%struct.test06** "intel_dtrans_func_index"="1" %in) !i
   ret i1 %cmp
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test06
+; CHECK: LLVMType: %struct.test06
 ; CHECK: Safety data: Bad casting | Ambiguous GEP | Unsafe pointer merge{{ *}}
+; CHECK: End LLVMType: %struct.test06
 
 
 ; Swap a variable number of pointers in 32-bit chunks. This is a minor variation
@@ -326,8 +332,9 @@ define i1 @test07identify(%struct.test07** "intel_dtrans_func_index"="1" %in) !i
   ret i1 %cmp
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test07
+; CHECK: LLVMType: %struct.test07
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test07
 
 
 ; Swap pointers in 32-bit chunks. This is same as test1 except the type of
@@ -373,8 +380,9 @@ define i1 @test08identify(%struct.test08** "intel_dtrans_func_index"="1" %in) !i
   ret i1 %cmp
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test08
+; CHECK: LLVMType: %struct.test08
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test08
 
 
 ; Swap pointers in 32-bit chunks. This is same as test8 except operands
@@ -420,8 +428,9 @@ define i1 @test09identify(%struct.test09** "intel_dtrans_func_index"="1" %in) !i
   ret i1 %cmp
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test09
+; CHECK: LLVMType: %struct.test09
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test09
 
 
 !1 = !{i32 0, i32 0}  ; i32

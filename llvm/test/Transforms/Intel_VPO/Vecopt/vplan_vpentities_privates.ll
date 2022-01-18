@@ -26,19 +26,10 @@ target triple = "x86_64-pc-linux"
 %"class.cl::sycl::detail::array" = type { [1 x i64] }
 
 
-; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture)
-
-; Function Attrs: nounwind
-declare double @_Z4sqrtd(double) local_unnamed_addr
-
-; Function Attrs: nounwind
-declare double @_Z3expd(double) local_unnamed_addr
-
-; Function Attrs: argmemonly nounwind
+declare double @_Z4sqrtd(double)
+declare double @_Z3expd(double)
 declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture)
-
-; Function Attrs: nounwind readnone
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr
 
 
@@ -152,16 +143,10 @@ simd.loop.exit:                                   ; preds = %_ZZZN8binomialIdE3r
 
 simd.end.region:                                  ; preds = %simd.loop.exit
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
-  br label %return
-
-return:                                           ; preds = %simd.end.region
   ret void
 }
 
-; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
 
 !19 = distinct !{!19, !20}

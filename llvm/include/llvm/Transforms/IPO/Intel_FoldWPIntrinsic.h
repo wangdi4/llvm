@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_DTRANS
 //===--Intel_FoldWPIntrinsic.h - Intrinsic wholeprogramsafe Lowering -*-===//
 //
 // Copyright (C) 2019 Intel Corporation. All rights reserved.
@@ -33,3 +34,4 @@ public:
 
 } // end llvm namespace
 #endif // LLVM_TRANSFORMS_IPO_INTEL_FOLDWPINTRINSIC_H
+#endif // INTEL_FEATURE_SW_DTRANS

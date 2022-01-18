@@ -20,10 +20,10 @@
 #include "llvm/ADT/Twine.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/DiagnosticPrinter.h"
-#include "llvm/LTO/Caching.h"
 #include "llvm/LTO/Config.h"
 #include "llvm/LTO/LTO.h"
 #include "llvm/Object/SymbolicFile.h"
+#include "llvm/Support/Caching.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FileSystem.h"
@@ -195,7 +195,8 @@ void BitcodeCompiler::add(BitcodeFile &f) {
 // and return the resulting objects.
 #if INTEL_CUSTOMIZATION
 std::vector<InputFile *>
-BitcodeCompiler::compile(std::vector<StringRef> *buffersOut) {
+BitcodeCompiler::compile(COFFLinkerContext &ctx,
+                         std::vector<StringRef> *buffersOut) {
 #endif // INTEL_CUSTOMIZATION
   unsigned maxTasks = ltoObj->getMaxTasks();
   buf.resize(maxTasks);
@@ -204,16 +205,17 @@ BitcodeCompiler::compile(std::vector<StringRef> *buffersOut) {
   // The /lldltocache option specifies the path to a directory in which to cache
   // native object files for ThinLTO incremental builds. If a path was
   // specified, configure LTO to use it as the cache directory.
-  lto::NativeObjectCache cache;
+  FileCache cache;
   if (!config->ltoCache.empty())
-    cache = check(lto::localCache(
-        config->ltoCache, [&](size_t task, std::unique_ptr<MemoryBuffer> mb) {
-          files[task] = std::move(mb);
-        }));
+    cache =
+        check(localCache("ThinLTO", "Thin", config->ltoCache,
+                         [&](size_t task, std::unique_ptr<MemoryBuffer> mb) {
+                           files[task] = std::move(mb);
+                         }));
 
   checkError(ltoObj->run(
       [&](size_t task) {
-        return std::make_unique<lto::NativeObjectStream>(
+        return std::make_unique<CachedFileStream>(
             std::make_unique<raw_svector_ostream>(buf[task]));
       },
       cache));
@@ -264,7 +266,7 @@ BitcodeCompiler::compile(std::vector<StringRef> *buffersOut) {
 
     if (config->saveTemps)
       saveBuffer(buf[i], ltoObjName);
-    ret.push_back(make<ObjFile>(MemoryBufferRef(objBuf, ltoObjName)));
+    ret.push_back(make<ObjFile>(ctx, MemoryBufferRef(objBuf, ltoObjName)));
 #if INTEL_CUSTOMIZATION
     if (buffersOut)
       buffersOut->push_back(objBuf);

@@ -56,16 +56,19 @@ exit:
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data: Bad casting | Unsafe pointer merge{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; CHECK: Safety data: Bad casting | Unsafe pointer merge{{ *$}}
+; CHECK: End LLVMType: %struct.test01b
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01c
+; CHECK: LLVMType: %struct.test01c
 ; CHECK: Safety data: Bad casting | Unsafe pointer merge{{ *$}}
+; CHECK: End LLVMType: %struct.test01c
 
 
 ; This case is merging pointers to pointers of the aggregate types. This is
@@ -105,23 +108,27 @@ merge:
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02a
+; CHECK: LLVMType: %struct.test02a
 ; CHECK: Safety data: Bad casting | Mismatched element access | Unsafe pointer store | Unsafe pointer merge{{ *$}}
+; CHECK: End LLVMType: %struct.test02a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02b
+; CHECK: LLVMType: %struct.test02b
 ; CHECK: Safety data: Bad casting | Mismatched element access | Unsafe pointer store | Unsafe pointer merge{{ *$}}
+; CHECK: End LLVMType: %struct.test02b
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02c
+; CHECK: LLVMType: %struct.test02c
 ; CHECK: Safety data: Bad casting | Mismatched element access | Unsafe pointer store | Unsafe pointer merge{{ *$}}
+; CHECK: End LLVMType: %struct.test02c
 
 ; Even though 'test02d' is not directly involved in the PHINode, it also
 ; needs to be marked due to the pointer carried safety rules because it is
 ; reachable from the unsafe types.
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02d
+; CHECK: LLVMType: %struct.test02d
 ; CHECK: Unsafe pointer merge{{ *$}}
+; CHECK: End LLVMType: %struct.test02d
 
 
 ; Merging the addresses of fields that do not represent pointers to aggregate
@@ -159,16 +166,19 @@ merge:
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03a
+; CHECK: LLVMType: %struct.test03a
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test03a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03b
+; CHECK: LLVMType: %struct.test03b
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test03b
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03c
+; CHECK: LLVMType: %struct.test03c
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test03c
 
 
 !1 = !{i32 0, i32 0}  ; i32

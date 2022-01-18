@@ -33,4 +33,5 @@ declare <4 x double> @function_from_rtl(<4 x double>) nounwind
 ; CHECK-NOT:  target-cpu
 ; CHECK-NOT:  target-features
 
+; DEBUGIFY-COUNT-3: WARNING: Instruction with empty DebugLoc in function function_from_rtl
 ; DEBUGIFY-NOT: WARNING

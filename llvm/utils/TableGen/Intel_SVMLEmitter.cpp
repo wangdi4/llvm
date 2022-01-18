@@ -212,11 +212,11 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
   OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv8_f\", FIXED(8), true},\n";
   OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv16_f\", FIXED(16), true},\n";
 
-  OS << "{\"_Z6sincosfPf\", \"_Z14sincos_ret2ptrDv2_fPS_S1_\", FIXED(2), false},\n";
-  OS << "{\"_Z6sincosfPf\", \"_Z14sincos_ret2ptrDv3_fPS_S1_\", FIXED(3), false},\n";
-  OS << "{\"_Z6sincosfPf\", \"_Z14sincos_ret2ptrDv4_fPS_S1_\", FIXED(4), false},\n";
-  OS << "{\"_Z6sincosfPf\", \"_Z14sincos_ret2ptrDv8_fPS_S1_\", FIXED(8), false},\n";
-  OS << "{\"_Z6sincosfPf\", \"_Z14sincos_ret2ptrDv16_fPS_S1_\", FIXED(16), false},\n";
+  OS << "{\"_Z6sincosfPf\", \"_Z6sincosDv2_fPS_\", FIXED(2), false},\n";
+  OS << "{\"_Z6sincosfPf\", \"_Z6sincosDv3_fPS_\", FIXED(3), false},\n";
+  OS << "{\"_Z6sincosfPf\", \"_Z6sincosDv4_fPS_\", FIXED(4), false},\n";
+  OS << "{\"_Z6sincosfPf\", \"_Z6sincosDv8_fPS_\", FIXED(8), false},\n";
+  OS << "{\"_Z6sincosfPf\", \"_Z6sincosDv16_fPS_\", FIXED(16), false},\n";
 
   OS << "{\"_Z3minii\", \"_Z3minDv4_iS_\", FIXED(4), false},\n";
   OS << "{\"_Z3minii\", \"_Z3minDv8_iS_\", FIXED(8), false},\n";

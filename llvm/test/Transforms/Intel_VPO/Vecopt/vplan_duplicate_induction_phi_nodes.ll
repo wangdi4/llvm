@@ -1,7 +1,7 @@
 ; Check if VPLoopEntities framework is able to handle duplicates of induction PHIs.
 
-; RUN: opt -loopopt=0 -vplan-vec -vpo-vplan-build-stress-test -vplan-print-after-plain-cfg -vplan-entities-dump -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -loopopt=0 -passes="vplan-vec" -vpo-vplan-build-stress-test -vplan-print-after-plain-cfg -vplan-entities-dump -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-vec -vpo-vplan-build-stress-test -vplan-print-after-plain-cfg -vplan-entities-dump -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vplan-vec" -vpo-vplan-build-stress-test -vplan-print-after-plain-cfg -vplan-entities-dump -disable-output < %s 2>&1 | FileCheck %s
 
 ; Note : We should potentially stop supporting duplicate induction PHIs right
 ; from legality. Check CMPLRLLVM-18412.

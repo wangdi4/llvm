@@ -404,16 +404,6 @@ void VPBasicBlock::addInstruction(VPInstruction *Instruction,
   }
 }
 
-// TODO: Please, remove this interface once C/T/F blocks have been removed.
-void VPBasicBlock::moveConditionalEOBTo(VPBasicBlock *ToBB) {
-  if (getNumSuccessors() > 1) {
-    ToBB->setCBlock(CBlock);
-    ToBB->setTBlock(TBlock);
-    ToBB->setFBlock(FBlock);
-    CBlock = TBlock = FBlock = nullptr;
-  }
-}
-
 // Unlinks the instruction from VPBasicBlock's instructions and adds in
 // UnlinkedVPInsns vector. The VPInstructions in UnlinkedVPInsns are deleted
 // when VPlan's destructor is called.
@@ -485,6 +475,9 @@ void VPBasicBlock::execute(VPTransformState *State) {
     // Temporarily terminate with unreachable until CFG is rewired.
     UnreachableInst *Terminator = State->Builder.CreateUnreachable();
     State->Builder.SetInsertPoint(Terminator);
+    // Preserve debug location of terminator instruction generated for the
+    // BasicBlock.
+    Terminator->setDebugLoc(getTerminator()->getDebugLocation());
   }
 
   // 2. Fill the IR basic block with IR instructions.
@@ -559,6 +552,9 @@ void VPBasicBlock::execute(VPTransformState *State) {
       // InsertPointGuard without real insertion into a broken insert point
       // could crash...
       State->Builder.SetInsertPoint(Br);
+      // Preserve debug location of branch instruction generated for the
+      // BasicBlock.
+      Br->setDebugLoc(getTerminator()->getDebugLocation());
     }
   }
   LLVM_DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
@@ -740,7 +736,6 @@ VPBasicBlock *VPBasicBlock::splitBlock(iterator I, const Twine &NewBBName) {
 
   VPBasicBlock *NewBB = new VPBasicBlock(NewName, Parent);
   NewBB->setTerminator();
-  moveConditionalEOBTo(NewBB);
   NewBB->moveTripCountInfoFrom(this);
 
   auto End = end();

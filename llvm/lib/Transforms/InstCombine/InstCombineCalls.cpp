@@ -67,7 +67,6 @@
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/InstCombine/InstCombineWorklist.h"
 #include "llvm/Transforms/InstCombine/InstCombiner.h"
 #include "llvm/Transforms/Utils/AssumeBundleBuilder.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -79,10 +78,11 @@
 #include <utility>
 #include <vector>
 
+#define DEBUG_TYPE "instcombine"
+#include "llvm/Transforms/Utils/InstructionWorklist.h"
+
 using namespace llvm;
 using namespace PatternMatch;
-
-#define DEBUG_TYPE "instcombine"
 
 #if INTEL_CUSTOMIZATION
 // The transformation described as follows is to expand the mempcy
@@ -151,6 +151,8 @@ static bool hasNonStructNonSingleValueType(StructType *STy) {
    return false;
 }
 
+static bool isScalarTBAANode(const MDNode *MD);
+
 //
 // For C/C++, clang usually translates the structure assignment into the
 // memcpy annotated with struct type meta data. This transformation hampers
@@ -167,9 +169,86 @@ static bool hasNonStructNonSingleValueType(StructType *STy) {
 // nested ArrayTypes or VectorTypes, for compatibility with what was done
 // in ifort.
 //
-static bool IsGoodStructMemcpy(AnyMemTransferInst *MI, uint64_t Size) {
+static bool isGoodStructMemcpyOpaque(AnyMemTransferInst *MI, uint64_t Size,
+                                     StructType *&STy) {
+  // Is the memcpy too large to break up? The Fortran threshold is measured in
+  // bytes, while the C threshold is meaured in fields. We assume that every
+  // struct field greater than 8 bytes is a vector or array type that would be
+  // excluded for C anyways.
+  uint64_t SizeThreshold = MI->getFunction()->isFortran() ?
+    StructCopySizeThresholdFortran : StructCopyCountThresholdC * 8;
+  if (Size > SizeThreshold)
+    return false;
+
+  const DataLayout &DL = MI->getParent()->getModule()->getDataLayout();
+  if ((Size & (Size - 1)) != 0)
+    return false;
+  MDNode *M = MI->getMetadata(LLVMContext::MD_tbaa_struct);
+  if (!M || M->getNumOperands() % 3 != 0)
+    return false;
+
+  // Check the C struct element count rules. In CMPLRLLVM-8813, the heuristic
+  // was changed to allow up to 2 * 2 = 4 fields if the struct is 8 bytes or
+  // fewer.
+  unsigned int ElemNum = M->getNumOperands() / 3;
+  unsigned Multiplier = Size <= 8 ? 2 : 1;
+  if (!MI->getFunction()->isFortran() &&
+      ElemNum > StructCopyCountThresholdC * Multiplier)
+    return false;
+
+  // Build the struct type that represents the data that comes from the
+  // !tbaa.struct metadata. This will be used to break the memcpy into several
+  // distinct load/stores.
+  SmallVector<Type *, 4> Fields;
+  SmallVector<uint64_t, 4> Offsets;
+  for (unsigned int i = 0; i < ElemNum; ++i) {
+    // Parse the tbaa.struct metadata to get field information.
+    if (!mdconst::hasa<ConstantInt>(M->getOperand(3 * i)) ||
+        !mdconst::hasa<ConstantInt>(M->getOperand(3 * i + 1)))
+      return false;
+    unsigned FieldOffset =
+      mdconst::extract<ConstantInt>(M->getOperand(3 * i))->getZExtValue();
+    unsigned FieldSize =
+      mdconst::extract<ConstantInt>(M->getOperand(3 * i + 1))->getZExtValue();
+
+    // Any field size larger than 8 bytes is assumed to be an array or vector
+    // type.
+    if (FieldSize > 8) {
+      return false;
+    }
+
+    Offsets.push_back(FieldOffset);
+    Fields.push_back(Type::getIntNTy(MI->getContext(), FieldSize * 8));
+
+    MDNode *TBAAType = dyn_cast_or_null<MDNode>(M->getOperand(3 * i + 2));
+    if (!TBAAType || !isScalarTBAANode(TBAAType)) {
+      return false;
+    }
+  }
+
+  // If the tbaa.struct metadata is empty, then return nothing. This appears to
+  // happen when the C/C++ "there are no zero-sized objects" rule kicked in,
+  // causing the entire struct to be padding.
+  if (Fields.empty())
+    return false;
+
+  // Construct a new struct type from the TBAA metadata. If the data layout of
+  // the offsets doesn't match, then fail the optimization. This allows us to
+  // account for simple cases of padding between fields, but it could
+  // potentially miss some more complex padding issues.
+  STy = StructType::get(MI->getContext(), Fields);
+  const StructLayout *Layout = DL.getStructLayout(STy);
+  return Offsets == Layout->getMemberOffsets() &&
+    Size == Layout->getSizeInBytes();
+}
+
+static bool isGoodStructMemcpy(AnyMemTransferInst *MI, uint64_t Size,
+                               StructType *&STy) {
   Value *StrippedSrc = MI->getArgOperand(1)->stripPointerCasts();
   Value *StrippedDst = MI->getArgOperand(0)->stripPointerCasts();
+  if (StrippedSrc->getType()->isOpaquePointerTy())
+    return isGoodStructMemcpyOpaque(MI, Size, STy);
+
   // The following code gets the structure type for the source operand
   // and destination operand in the memcpy.
   Type *SrcPtrTyp = cast<PointerType>(StrippedSrc->getType())->getElementType();
@@ -179,6 +258,7 @@ static bool IsGoodStructMemcpy(AnyMemTransferInst *MI, uint64_t Size) {
   if (!SrcSTy || !DstSTy || SrcSTy != DstSTy) {
     return false;
   }
+  STy = SrcSTy;
   const DataLayout &DL = MI->getParent()->getModule()->getDataLayout();
   if (MI->getFunction()->isFortran())
     return DL.getTypeStoreSize(SrcSTy) == Size &&
@@ -248,8 +328,7 @@ unsigned int InstCombinerImpl::GenFieldsForStruct(AnyMemTransferInst *MI,
       Index = GenFieldsForStruct(MI, SSTy, GEPSrc, GEPDest, Index);
       continue;
     }
-    auto *GEPSrcTy = GEPSrc->getType()->getPointerElementType();
-    LDSrc = Builder.CreateLoad(GEPSrcTy, GEPSrc);
+    LDSrc = Builder.CreateLoad(ElemTy, GEPSrc);
     // Take into account an alignment specified for the pointer in the mem
     // intrinsic which can decrease the default alignment. For example, in the
     // case when packed structure is processed.
@@ -260,6 +339,15 @@ unsigned int InstCombinerImpl::GenFieldsForStruct(AnyMemTransferInst *MI,
     if (M) {
       CopyMD = cast<MDNode>(M->getOperand(2 + Index * 3));
       Index++;
+      // The references to tbaa metadata here may not be directly a struct-path
+      // tbaa form. If not, convert CopyMD into such a form. The check is taken
+      // from isStructPathTBAA, which is a static function in
+      // TypeBasedAliasAnalysis.cpp
+      // See the test test/Transforms/InstCombine/intel-struct-tbaa.ll for an
+      // example of metadata that would cause failures without this check.
+      if (CopyMD->getNumOperands() < 3 || !isa<MDNode>(CopyMD->getOperand(0)))
+        CopyMD = MDTuple::get(CopyMD->getContext(),
+            {CopyMD, CopyMD, ConstantAsMetadata::get(Builder.getInt64(0))});
       LDSrc->setMetadata(LLVMContext::MD_tbaa, CopyMD);
     }
     STDest = Builder.CreateStore(LDSrc, GEPDest);
@@ -285,14 +373,13 @@ unsigned int InstCombinerImpl::GenFieldsForStruct(AnyMemTransferInst *MI,
 }
 
 // It expands the memcpy of a structure into the copies of structure members.
-void InstCombinerImpl::GenStructFieldsCopyFromMemcpy(AnyMemTransferInst *MI) {
+void InstCombinerImpl::GenStructFieldsCopyFromMemcpy(AnyMemTransferInst *MI,
+                                                     StructType *STy) {
   // The following code gets structure pointer for the source operand
   // and destination operand in the memcpy.
   LLVM_DEBUG(dbgs() << "Generating fields for memcpy " << *MI << "\n");
   Value *StrippedSrc = MI->getArgOperand(1)->stripPointerCasts();
   Value *StrippedDest = MI->getArgOperand(0)->stripPointerCasts();
-  Type *PtrTyp = cast<PointerType>(StrippedDest->getType())->getElementType();
-  StructType *STy = dyn_cast<StructType>(&*PtrTyp);
   assert(STy && "Expected non-empty structure type");
   (void) GenFieldsForStruct(MI, STy, StrippedSrc, StrippedDest, 0);
 }
@@ -301,7 +388,7 @@ void InstCombinerImpl::GenStructFieldsCopyFromMemcpy(AnyMemTransferInst *MI) {
 // scalar type, valid for load/store instructions.
 // We assume that the TBAA MD is otherwise well formed (no illegal operands).
 // Details are in the code comments.
-static bool IsScalarTBAANode(const MDNode *MD) {
+static bool isScalarTBAANode(const MDNode *MD) {
   const MDNode *currMD = MD;
   SmallPtrSet<const MDNode *, 4> Cache;
   // New-style TBAA, let the verifier handle it.
@@ -374,8 +461,9 @@ Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
 #if INTEL_CUSTOMIZATION
   // Translate the memcpy into structure members copies in certain
   // cases.
-  if (IsGoodStructMemcpy(MI, Size)) {
-    GenStructFieldsCopyFromMemcpy(MI);
+  StructType *STy;
+  if (isGoodStructMemcpy(MI, Size, STy)) {
+    GenStructFieldsCopyFromMemcpy(MI, STy);
     MI->setArgOperand(2, Constant::getNullValue(MemOpLength->getType()));
     return MI;
   }
@@ -431,7 +519,7 @@ Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
   // node instead.
   if (CopyMD) {
     MDNode *StructFormMD = MI->getMetadata(LLVMContext::MD_tbaa_struct);
-    if (StructFormMD && !IsScalarTBAANode(CopyMD)) {
+    if (StructFormMD && !isScalarTBAANode(CopyMD)) {
       Kind = LLVMContext::MD_tbaa_struct;
       CopyMD = StructFormMD;
     }
@@ -560,9 +648,8 @@ static Instruction *simplifyForCpyStr(ForCpyStrInst *FCSI, InstCombiner &IC) {
   if (DestLen <= SrcLen) {
     Builder.CreateMemMove(Dest, DestAlign, Src, SrcAlign, DestLen, IsVol);
   } else {
-    auto *PaddingAddr = Builder.CreateConstGEP1_64(
-        Dest->getType()->getScalarType()->getPointerElementType(), Dest,
-        SrcLen);
+    auto *PaddingAddr = Builder.CreateConstGEP1_64(Builder.getInt8Ty(),
+        Dest, SrcLen);
     auto *PaddingVal = Padding == 0 ? Builder.getInt8(' ') : Builder.getInt8(0);
     const int64_t PaddingLen = DestLen - SrcLen;
     MaybeAlign PaddingAlign;
@@ -671,7 +758,7 @@ Instruction *InstCombinerImpl::simplifyMaskedScatter(IntrinsicInst &II) {
       IndexTy = VectorType::get(
           IndexTy, cast<VectorType>(Ptr->getType())->getElementCount());
       Ptr = Builder.CreateGEP(
-          V->getType()->getScalarType()->getPointerElementType(), V,
+          II.getArgOperand(0)->getType()->getScalarType(), V,
           Constant::getNullValue(IndexTy));
       Builder.CreateCall(
           II.getCalledFunction(),
@@ -829,7 +916,7 @@ static Instruction *foldCttzCtlz(IntrinsicInst &II, InstCombinerImpl &IC) {
   // If the input to cttz/ctlz is known to be non-zero,
   // then change the 'ZeroIsUndef' parameter to 'true'
   // because we know the zero behavior can't affect the result.
-  if (!Known.One.isNullValue() ||
+  if (!Known.One.isZero() ||
       isKnownNonZero(Op0, IC.getDataLayout(), 0, &IC.getAssumptionCache(), &II,
                      &IC.getDominatorTree())) {
     if (!match(II.getArgOperand(1), m_One()))
@@ -972,8 +1059,8 @@ static Value *simplifyNeonTbl1(const IntrinsicInst &II,
 // comparison to the first NumOperands.
 static bool haveSameOperands(const IntrinsicInst &I, const IntrinsicInst &E,
                              unsigned NumOperands) {
-  assert(I.getNumArgOperands() >= NumOperands && "Not enough operands");
-  assert(E.getNumArgOperands() >= NumOperands && "Not enough operands");
+  assert(I.arg_size() >= NumOperands && "Not enough operands");
+  assert(E.arg_size() >= NumOperands && "Not enough operands");
   for (unsigned i = 0; i < NumOperands; i++)
     if (I.getArgOperand(i) != E.getArgOperand(i))
       return false;
@@ -998,11 +1085,11 @@ removeTriviallyEmptyRange(IntrinsicInst &EndI, InstCombinerImpl &IC,
   BasicBlock::reverse_iterator BI(EndI), BE(EndI.getParent()->rend());
   for (; BI != BE; ++BI) {
     if (auto *I = dyn_cast<IntrinsicInst>(&*BI)) {
-      if (isa<DbgInfoIntrinsic>(I) ||
+      if (I->isDebugOrPseudoInst() ||
           I->getIntrinsicID() == EndI.getIntrinsicID())
         continue;
       if (IsStart(*I)) {
-        if (haveSameOperands(EndI, *I, EndI.getNumArgOperands())) {
+        if (haveSameOperands(EndI, *I, EndI.arg_size())) {
           IC.eraseInstFromFunction(*I);
           IC.eraseInstFromFunction(EndI);
           return true;
@@ -1026,7 +1113,7 @@ Instruction *InstCombinerImpl::visitVAEndInst(VAEndInst &I) {
 }
 
 static CallInst *canonicalizeConstantArg0ToArg1(CallInst &Call) {
-  assert(Call.getNumArgOperands() > 1 && "Need at least 2 args to swap");
+  assert(Call.arg_size() > 1 && "Need at least 2 args to swap");
   Value *Arg0 = Call.getArgOperand(0), *Arg1 = Call.getArgOperand(1);
   if (isa<Constant>(Arg0) && !isa<Constant>(Arg1)) {
     Call.setArgOperand(0, Arg1);
@@ -1171,6 +1258,45 @@ static bool isRedundantStacksaveStackrestore(CallInst *SSCI,
   return true;
 }
 #endif // INTEL_CUSTOMIZATION
+
+/// Try to canonicalize min/max(X + C0, C1) as min/max(X, C1 - C0) + C0. This
+/// can trigger other combines.
+static Instruction *moveAddAfterMinMax(IntrinsicInst *II,
+                                       InstCombiner::BuilderTy &Builder) {
+  Intrinsic::ID MinMaxID = II->getIntrinsicID();
+  assert((MinMaxID == Intrinsic::smax || MinMaxID == Intrinsic::smin ||
+          MinMaxID == Intrinsic::umax || MinMaxID == Intrinsic::umin) &&
+         "Expected a min or max intrinsic");
+
+  // TODO: Match vectors with undef elements, but undef may not propagate.
+  Value *Op0 = II->getArgOperand(0), *Op1 = II->getArgOperand(1);
+  Value *X;
+  const APInt *C0, *C1;
+  if (!match(Op0, m_OneUse(m_Add(m_Value(X), m_APInt(C0)))) ||
+      !match(Op1, m_APInt(C1)))
+    return nullptr;
+
+  // Check for necessary no-wrap and overflow constraints.
+  bool IsSigned = MinMaxID == Intrinsic::smax || MinMaxID == Intrinsic::smin;
+  auto *Add = cast<BinaryOperator>(Op0);
+  if ((IsSigned && !Add->hasNoSignedWrap()) ||
+      (!IsSigned && !Add->hasNoUnsignedWrap()))
+    return nullptr;
+
+  // If the constant difference overflows, then instsimplify should reduce the
+  // min/max to the add or C1.
+  bool Overflow;
+  APInt CDiff =
+      IsSigned ? C1->ssub_ov(*C0, Overflow) : C1->usub_ov(*C0, Overflow);
+  assert(!Overflow && "Expected simplify of min/max");
+
+  // min/max (add X, C0), C1 --> add (min/max X, C1 - C0), C0
+  // Note: the "mismatched" no-overflow setting does not propagate.
+  Constant *NewMinMaxC = ConstantInt::get(II->getType(), CDiff);
+  Value *NewMinMax = Builder.CreateBinaryIntrinsic(MinMaxID, X, NewMinMaxC);
+  return IsSigned ? BinaryOperator::CreateNSWAdd(NewMinMax, Add->getOperand(1))
+                  : BinaryOperator::CreateNUWAdd(NewMinMax, Add->getOperand(1));
+}
 
 /// If we have a clamp pattern like max (min X, 42), 41 -- where the output
 /// can only be one of two possible constant values -- turn that into a select
@@ -1376,7 +1502,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
   if (auto *IIFVTy = dyn_cast<FixedVectorType>(II->getType())) {
     auto VWidth = IIFVTy->getNumElements();
     APInt UndefElts(VWidth, 0);
-    APInt AllOnesEltMask(APInt::getAllOnesValue(VWidth));
+    APInt AllOnesEltMask(APInt::getAllOnes(VWidth));
     if (Value *V = SimplifyDemandedVectorElts(II, AllOnesEltMask, UndefElts)) {
       if (V != II)
         return replaceInstUsesWith(*II, V);
@@ -1544,6 +1670,9 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
     if (Instruction *I = moveNotAfterMinMax(I1, I0))
       return I;
 
+    if (Instruction *I = moveAddAfterMinMax(II, Builder))
+      return I;
+
     // smax(X, -X) --> abs(X)
     // smin(X, -X) --> -abs(X)
     // umax(X, -X) --> -abs(X)
@@ -1625,6 +1754,19 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
       if (Power->equalsInt(2))
         return BinaryOperator::CreateFMulFMF(II->getArgOperand(0),
                                              II->getArgOperand(0), II);
+
+      if (!Power->getValue()[0]) {
+        Value *X;
+        // If power is even:
+        // powi(-x, p) -> powi(x, p)
+        // powi(fabs(x), p) -> powi(x, p)
+        // powi(copysign(x, y), p) -> powi(x, p)
+        if (match(II->getArgOperand(0), m_FNeg(m_Value(X))) ||
+            match(II->getArgOperand(0), m_FAbs(m_Value(X))) ||
+            match(II->getArgOperand(0),
+                  m_Intrinsic<Intrinsic::copysign>(m_Value(X), m_Value())))
+          return replaceOperand(*II, 0, X);
+      }
     }
     break;
 
@@ -2164,19 +2306,72 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
     break;
   }
   case Intrinsic::stackrestore: {
-    // If the save is right next to the restore, remove the restore.  This can
-    // happen when variable allocas are DCE'd.
-    if (IntrinsicInst *SS = dyn_cast<IntrinsicInst>(II->getArgOperand(0))) {
-      if (SS->getIntrinsicID() == Intrinsic::stacksave) {
-        // Skip over debug info.
-        if (SS->getNextNonDebugInstruction() == II) {
-          return eraseInstFromFunction(CI);
+    enum class ClassifyResult {
+      None,
+      Alloca,
+      StackRestore,
+      CallWithSideEffects,
+    };
+    auto Classify = [](const Instruction *I) {
+      if (isa<AllocaInst>(I))
+        return ClassifyResult::Alloca;
+
+      if (auto *CI = dyn_cast<CallInst>(I)) {
+        if (auto *II = dyn_cast<IntrinsicInst>(CI)) {
+          if (II->getIntrinsicID() == Intrinsic::stackrestore)
+            return ClassifyResult::StackRestore;
+
+          if (II->mayHaveSideEffects())
+            return ClassifyResult::CallWithSideEffects;
+        } else {
+          // Consider all non-intrinsic calls to be side effects
+          return ClassifyResult::CallWithSideEffects;
         }
-#if INTEL_CUSTOMIZATION
-        if (isRedundantStacksaveStackrestore(cast<CallInst>(SS), &CI))
-          return eraseInstFromFunction(CI);
-#endif // INTEL_CUSTOMIZATION
       }
+
+      return ClassifyResult::None;
+    };
+
+    // If the stacksave and the stackrestore are in the same BB, and there is
+    // no intervening call, alloca, or stackrestore of a different stacksave,
+    // remove the restore. This can happen when variable allocas are DCE'd.
+    if (IntrinsicInst *SS = dyn_cast<IntrinsicInst>(II->getArgOperand(0))) {
+      if (SS->getIntrinsicID() == Intrinsic::stacksave &&
+          SS->getParent() == II->getParent()) {
+        BasicBlock::iterator BI(SS);
+        bool CannotRemove = false;
+        for (++BI; &*BI != II; ++BI) {
+          switch (Classify(&*BI)) {
+          case ClassifyResult::None:
+            // So far so good, look at next instructions.
+            break;
+
+          case ClassifyResult::StackRestore:
+            // If we found an intervening stackrestore for a different
+            // stacksave, we can't remove the stackrestore. Otherwise, continue.
+            if (cast<IntrinsicInst>(*BI).getArgOperand(0) != SS)
+              CannotRemove = true;
+            break;
+
+          case ClassifyResult::Alloca:
+          case ClassifyResult::CallWithSideEffects:
+            // If we found an alloca, a non-intrinsic call, or an intrinsic
+            // call with side effects, we can't remove the stackrestore.
+            CannotRemove = true;
+            break;
+          }
+          if (CannotRemove)
+            break;
+        }
+
+        if (!CannotRemove)
+          return eraseInstFromFunction(CI);
+      }
+#if INTEL_CUSTOMIZATION
+      if (SS->getIntrinsicID() == Intrinsic::stacksave &&
+          isRedundantStacksaveStackrestore(cast<CallInst>(SS), &CI))
+        return eraseInstFromFunction(CI);
+#endif // INTEL_CUSTOMIZATION
     }
 
     // Scan down this block to see if there is another stack restore in the
@@ -2185,29 +2380,25 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
     Instruction *TI = II->getParent()->getTerminator();
     bool CannotRemove = false;
     for (++BI; &*BI != TI; ++BI) {
-      if (isa<AllocaInst>(BI)) {
+      switch (Classify(&*BI)) {
+      case ClassifyResult::None:
+        // So far so good, look at next instructions.
+        break;
+
+      case ClassifyResult::StackRestore:
+        // If there is a stackrestore below this one, remove this one.
+        return eraseInstFromFunction(CI);
+
+      case ClassifyResult::Alloca:
+      case ClassifyResult::CallWithSideEffects:
+        // If we found an alloca, a non-intrinsic call, or an intrinsic call
+        // with side effects (such as llvm.stacksave and llvm.read_register),
+        // we can't remove the stack restore.
         CannotRemove = true;
         break;
       }
-      if (CallInst *BCI = dyn_cast<CallInst>(BI)) {
-        if (auto *II2 = dyn_cast<IntrinsicInst>(BCI)) {
-          // If there is a stackrestore below this one, remove this one.
-          if (II2->getIntrinsicID() == Intrinsic::stackrestore)
-            return eraseInstFromFunction(CI);
-
-          // Bail if we cross over an intrinsic with side effects, such as
-          // llvm.stacksave, or llvm.read_register.
-          if (II2->mayHaveSideEffects()) {
-            CannotRemove = true;
-            break;
-          }
-        } else {
-          // If we found a non-intrinsic call, we can't remove the stack
-          // restore.
-          CannotRemove = true;
-          break;
-        }
-      }
+      if (CannotRemove)
+        break;
     }
 
     // If the stack restore is in a return, resume, or unwind block and if there
@@ -2491,6 +2682,46 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
 
       Value *Shuffle = Builder.CreateShuffleVector(Vec, Mask);
       return replaceInstUsesWith(CI, Shuffle);
+    }
+    break;
+  }
+  case Intrinsic::experimental_vector_reverse: {
+    Value *BO0, *BO1, *X, *Y;
+    Value *Vec = II->getArgOperand(0);
+    if (match(Vec, m_OneUse(m_BinOp(m_Value(BO0), m_Value(BO1))))) {
+      auto *OldBinOp = cast<BinaryOperator>(Vec);
+      if (match(BO0, m_Intrinsic<Intrinsic::experimental_vector_reverse>(
+                         m_Value(X)))) {
+        // rev(binop rev(X), rev(Y)) --> binop X, Y
+        if (match(BO1, m_Intrinsic<Intrinsic::experimental_vector_reverse>(
+                           m_Value(Y))))
+          return replaceInstUsesWith(CI,
+                                     BinaryOperator::CreateWithCopiedFlags(
+                                         OldBinOp->getOpcode(), X, Y, OldBinOp,
+                                         OldBinOp->getName(), II));
+        // rev(binop rev(X), BO1Splat) --> binop X, BO1Splat
+        if (isSplatValue(BO1))
+          return replaceInstUsesWith(CI,
+                                     BinaryOperator::CreateWithCopiedFlags(
+                                         OldBinOp->getOpcode(), X, BO1,
+                                         OldBinOp, OldBinOp->getName(), II));
+      }
+      // rev(binop BO0Splat, rev(Y)) --> binop BO0Splat, Y
+      if (match(BO1, m_Intrinsic<Intrinsic::experimental_vector_reverse>(
+                         m_Value(Y))) &&
+          isSplatValue(BO0))
+        return replaceInstUsesWith(CI, BinaryOperator::CreateWithCopiedFlags(
+                                           OldBinOp->getOpcode(), BO0, Y,
+                                           OldBinOp, OldBinOp->getName(), II));
+    }
+    // rev(unop rev(X)) --> unop X
+    if (match(Vec, m_OneUse(m_UnOp(
+                       m_Intrinsic<Intrinsic::experimental_vector_reverse>(
+                           m_Value(X)))))) {
+      auto *OldUnOp = cast<UnaryOperator>(Vec);
+      auto *NewUnOp = UnaryOperator::CreateWithCopiedFlags(
+          OldUnOp->getOpcode(), X, OldUnOp, OldUnOp->getName(), II);
+      return replaceInstUsesWith(CI, NewUnOp);
     }
     break;
   }
@@ -2786,6 +3017,12 @@ static bool isSafeToEliminateVarargsCast(const CallBase &Call,
 Instruction *InstCombinerImpl::tryOptimizeCall(CallInst *CI) {
   if (!CI->getCalledFunction()) return nullptr;
 
+  // Skip optimizing notail and musttail calls so
+  // LibCallSimplifier::optimizeCall doesn't have to preserve those invariants.
+  // LibCallSimplifier::optimizeCall should try to preseve tail calls though.
+  if (CI->isMustTailCall() || CI->isNoTailCall())
+    return nullptr;
+
   auto InstCombineRAUW = [this](Instruction *From, Value *With) {
     replaceInstUsesWith(*From, With);
   };
@@ -2879,7 +3116,7 @@ static IntrinsicInst *findInitTrampoline(Value *Callee) {
 }
 
 void InstCombinerImpl::annotateAnyAllocSite(CallBase &Call, const TargetLibraryInfo *TLI) {
-  unsigned NumArgs = Call.getNumArgOperands();
+  unsigned NumArgs = Call.arg_size();
   ConstantInt *Op0C = dyn_cast<ConstantInt>(Call.getOperand(0));
   ConstantInt *Op1C =
       (NumArgs == 1) ? nullptr : dyn_cast<ConstantInt>(Call.getOperand(1));
@@ -2955,7 +3192,7 @@ Instruction *InstCombinerImpl::visitCallBase(CallBase &Call) {
     ArgNo++;
   }
 
-  assert(ArgNo == Call.arg_size() && "sanity check");
+  assert(ArgNo == Call.arg_size() && "Call arguments not processed correctly.");
 
   if (!ArgNos.empty()) {
     AttributeList AS = Call.getAttributes();

@@ -56,7 +56,7 @@ simd.loop:                                        ; preds = %VPlannedBB7, %simd.
   %index = phi i32 [ %uni.phi6, %VPlannedBB7 ], [ %indvar, %simd.loop.exit ]
   call void (void (i32, i32*)**, i32, i32*, ...) @__intel_indirect_call.2(void (i32, i32*)** poison, i32 3, i32* undef) #0
 ; CHECK:  %4 = load void (<16 x i32>, <16 x i32*>, <16 x i32>)*, void (<16 x i32>, <16 x i32*>, <16 x i32>)** poison, align 8
-; CHECK:  call void %4(<16 x i32> <i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>, <16 x i32*> undef, <16 x i32> <i32 1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>)
+; CHECK:  call void %4(<16 x i32> <i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>, <16 x i32*> undef, <16 x i32> <i32 -1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>)
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %simd.loop

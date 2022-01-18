@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -force-opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -dtrans-usecrulecompat -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -force-opaque-pointers -whole-program-assume  -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-usecrulecompat -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -dtrans-usecrulecompat -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume  -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-usecrulecompat -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check arrays of different numbers of elements of underlying structs which
 ; are identical.
@@ -12,6 +12,7 @@
 ; CHECK: Number of elements: 10
 ; CHECK: Element LLVM Type: %struct.MYSTRUCT = type { i32, i32 }
 ; CHECK-NOT: Safety data:{{.*}}Address taken{{.*}}
+; CHECK: End LLVMType: [10 x %struct.MYSTRUCT]
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

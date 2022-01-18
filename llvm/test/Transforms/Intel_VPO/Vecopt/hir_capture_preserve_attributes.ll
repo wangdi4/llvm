@@ -31,6 +31,7 @@
 ; VEC-HIR:      <0>          BEGIN REGION { modified }
 ; VEC-HIR-NEXT: <{{[0-9]+}}:8>             %red.init = call <4 x i32> @llvm.ssa.copy.v4i32(<4 x i32> undef), !dbg !29
 ; VEC-HIR-NEXT: <{{[0-9]+}}:8>             %red.init.insert = insertelement <4 x i32> undef, i32 undef, i64 0, !dbg !29
+; VEC-HIR-NEXT: <{{[0-9]+}}:8>             %.copy = call <4 x i32> @llvm.ssa.copy.v4i32(<4 x i32> undef), !dbg !29
 ; VEC-HIR:      <{{[0-9]+}}:8>             + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; VEC-HIR-NEXT: <{{[0-9]+}}:10>            |     %.vec = load <4 x float>, <4 x float>* undef, align 16, !dbg !29
 ; VEC-HIR-NEXT: <{{[0-9]+}}:10>            |     %.vec1 = load <4 x float>, <4 x float>* undef, align 16, !dbg !29
@@ -42,6 +43,7 @@
 ; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec6 = add <4 x i32> undef, undef, !dbg !32
 ; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec7 = select fast i1 undef, <4 x float> undef, <4 x float> undef, !dbg !32
 ; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     store <4 x float> undef, <4 x float>* undef, align 16, !dbg !29
+; VEC-HIR-NEXT: <{{[0-9]+}}:8>             |     %.copy8 = call <4 x i32> @llvm.ssa.copy.v4i32(<4 x i32> undef), !dbg !29
 ; VEC-HIR-NEXT: <{{[0-9]+}}:8>             + END LOOP
 ; VEC-HIR:      <{{[0-9]+}}:11>            %vec.reduce = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> undef), !dbg !32
 ; VEC-HIR-NEXT: <0>          END REGION
@@ -207,7 +209,7 @@ loop.body:                               ; predggs = %omp.inner.for.body, %DIR.O
 ; VPLAN-IR-NEXT:      end of details
 
   %exitcond = icmp eq i64 %indvars.iv.next, 1024, !dbg !42
-; VPLAN-IR:          i1 [[VP21:%.*]] = icmp sle i64 [[VP7]] i64 1023
+; VPLAN-IR:          i1 [[VP21:%.*]] = icmp slt i64 [[VP7]] i64 1024
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:9:3
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0

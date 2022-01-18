@@ -10,6 +10,8 @@
 ; Overrides recommended_vector_length:
 ; CHECK-DAG: <vec_len_hint> : 16
 ; CHECK-DAG: <reqd_sg_size> : 8
+; Inherits from existing recommended_vector_length:
+; CHECK-DAG: <recommended_vector_length> : 16
 
 ; CHECK-LABEL: Kernel --> SGEmuSize:
 
@@ -25,6 +27,10 @@ define void @reqd_sg_size() !intel_reqd_sub_group_size !{i32 8} {
   ret void
 }
 
+define void @recommended_vector_length() !recommended_vector_length !{i32 16} {
+  ret void
+}
+
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @none, void ()* @vec_len_hint, void ()* @reqd_sg_size}
+!0 = !{void ()* @none, void ()* @vec_len_hint, void ()* @reqd_sg_size, void ()* @recommended_vector_length}

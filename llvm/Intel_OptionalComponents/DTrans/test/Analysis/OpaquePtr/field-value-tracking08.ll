@@ -13,6 +13,7 @@
 ; CHECK:   1)Field LLVM Type: float
 ; CHECK:     Single Value: float 0.000000e+00
 ; CHECK:   Safety data: Global instance{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 %struct.test02 = type { i32, float }
@@ -24,6 +25,7 @@
 ; CHECK:   1)Field LLVM Type: float
 ; CHECK:     Multiple Value: [ 0.000000e+00, 1.700000e+01 ] <complete>
 ; CHECK:   Safety data: Global instance | Has initializer list{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 ; An aggregate type with zero initialization
@@ -36,6 +38,7 @@
 ; CHECK:   1)Field LLVM Type: i32
 ; CHECK:     Single Value: i32 0
 ; CHECK:   Safety data: Global instance | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test03
 
 ; CHECK-LABEL: LLVMType: %struct.test03inner
 ; CHECK:   0)Field LLVM Type: i32
@@ -43,6 +46,7 @@
 ; CHECK:   1)Field LLVM Type: i32
 ; CHECK:     Single Value: i32 0
 ; CHECK:   Safety data: Global instance | Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test03inner
 
 
 ; An aggregate type with an initializer list
@@ -55,6 +59,7 @@
 ; CHECK:   1)Field LLVM Type: i32
 ; CHECK:     Single Value: i32 15
 ; CHECK:   Safety data: Global instance | Has initializer list | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test04
 
 ; CHECK-LABEL: LLVMType: %struct.test04inner
 ; CHECK:   0)Field LLVM Type: i32
@@ -62,6 +67,7 @@
 ; CHECK:   1)Field LLVM Type: i32
 ; CHECK:     Single Value: i32 10
 ; CHECK:   Safety data: Global instance | Has initializer list | Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test04inner
 
 
 ; Multi-dimension array of structures with a zero initializer
@@ -73,6 +79,7 @@
 ; CHECK:   1)Field LLVM Type: float
 ; CHECK:     Single Value: float 0.000000e+00
 ; CHECK:   Safety data: Global instance | Global array{{ *$}}
+; CHECK: End LLVMType: %struct.test05
 
 
 ; Array type with an initializer list
@@ -85,6 +92,7 @@
 ; CHECK:   1)Field LLVM Type: float
 ; CHECK:     Multiple Value: [ 3.400000e+01, 5.600000e+01 ] <complete>
 ; CHECK:   Safety data: Global instance | Has initializer list | Global array{{ *$}}
+; CHECK: End LLVMType: %struct.test06
 
 
 !1 = !{i32 0, i32 0}  ; i32

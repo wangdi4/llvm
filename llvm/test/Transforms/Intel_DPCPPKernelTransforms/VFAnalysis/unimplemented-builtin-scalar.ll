@@ -11,7 +11,7 @@
 ; CHECK-EMULATION-LABEL: Kernel --> SGEmuSize:
 ; CHECK-EMULATION: <test> : 4
 
-; CHECK-NO-EMULATION: error: function <test>: Unimplemented workgroup/subgroup builtin!
+; CHECK-NO-EMULATION: error: kernel "test": Unimplemented function(s): _Z13sub_group_alli with vectorization width 1
 
 define void @test(i32 %a) "has-sub-groups" !kernel_has_sub_groups !{i1 true} {
   %call = call i32 @_Z13sub_group_alli(i32 %a)

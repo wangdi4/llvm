@@ -1,7 +1,8 @@
 ; RUN: opt < %s -analyze -hir-scc-formation | FileCheck %s
 
-; Check that no SCCs are formed for this loop. The SCC (%1 -> %2 -> %add.ptr1.i.520) should have been invalidated.
-; CHECK-NOT: SCC1
+; Check that we are able to form SCC (%1 -> %2 -> %add.ptr1.i.520).
+; CHECK: SCC1
+; CHECK-SAME: %add.ptr1.i.520
 
 ; ModuleID = 'bugpoint-reduced-simplified.bc'
 target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"

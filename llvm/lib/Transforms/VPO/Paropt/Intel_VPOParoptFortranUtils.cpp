@@ -222,7 +222,6 @@ void VPOParoptUtils::genF90DVReductionInitDstInfo(const Item *I, Value *&NewV,
 
   // Get base address from the dope vector.
   auto *Zero = Builder.getInt32(0);
-  // TODO: OPAQUEPOINTER: Get DV type from I->getOrigElemType().
   auto *DVType = cast<StructType>(NewV->getType()->getPointerElementType());
   auto *Addr0GEP = Builder.CreateInBoundsGEP(DVType, NewV, {Zero, Zero},
                                              NamePrefix + ".addr0");
@@ -263,7 +262,6 @@ void VPOParoptUtils::genF90DVReductionSrcDstInfo(
   IRBuilder<> Builder(InsertBefore);
   StringRef NamePrefix = DestVal->getName();
 
-  // TODO: OPAQUEPOINTER: Get DV type from I->getOrigElemType().
   auto *DVType = cast<StructType>(DestVal->getType()->getPointerElementType());
   auto *Zero = Builder.getInt32(0);
   auto *Addr0GEP = Builder.CreateInBoundsGEP(DVType, DestVal, {Zero, Zero},

@@ -1023,14 +1023,34 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
 
   SmallSet<Value *, 16> AlreadyCollected;
 
-  auto collectIfNonPointerNonConstant = [&](Value *V) {
+  auto isNonPointerNonConstant = [](Value *V) -> bool {
     if (!V || isa<Constant>(V) || isa<PointerType>(V->getType()))
-      return;
+      return false;
+    return true;
+  };
 
+  auto collectIfNotAlreadyCollected = [&](Value *V) {
     if (AlreadyCollected.find(V) != AlreadyCollected.end())
       return;
 
     W->addDirectlyUsedNonPointerValue(V);
+  };
+
+  auto collectIfNonPointerNonConstant = [&](Value *V) {
+    if (!isNonPointerNonConstant(V))
+      return;
+    collectIfNotAlreadyCollected(V);
+  };
+
+  auto collectIfUsedInRegion = [&](Value *V) {
+    if (!isNonPointerNonConstant(V))
+      return;
+
+    W->populateBBSet(); // Populate BBSet if not already populated.
+    if (!WRegionUtils::findUsersInRegion(W, V))
+      return;
+
+    collectIfNotAlreadyCollected(V);
   };
 
   auto collectSizeIfVLA = [&](Value *V) {
@@ -1105,6 +1125,9 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
     for (MapItem *MapI : MapClause.items())
       collectSizeIfVLA(MapI->getOrig());
   }
+
+  if (W->canHaveIf())
+    collectIfUsedInRegion(W->getIf());
 
   // Maybe it is a better idea to request capturing the tripcounts
   // in front-ends, but we can do it here as well.

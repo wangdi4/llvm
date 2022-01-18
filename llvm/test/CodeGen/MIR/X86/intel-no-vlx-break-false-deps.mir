@@ -40,6 +40,6 @@ body:             |
     renamable $eax = MOV32rm killed renamable $rdi, 1, $noreg, 0, $noreg :: (load (s32) from %ir.ld_i32)
     renamable $eax = ADD32ri8 killed renamable $eax, 5, implicit-def dead $eflags
     renamable $xmm0 = VCVTSI2SDZrr undef $xmm22, killed renamable $eax
-    RETQ $xmm0
+    RET64 $xmm0
 
 ...

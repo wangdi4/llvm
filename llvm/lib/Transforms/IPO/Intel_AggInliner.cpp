@@ -275,11 +275,11 @@ using Item = std::tuple<Value *, Value *, unsigned>;
 //
 static Argument *getFormal(Value *X, CallBase *CB) {
   Function *F = CB->getCalledFunction();
-  if (!F || CB->getNumArgOperands() != F->arg_size())
+  if (!F || CB->arg_size() != F->arg_size())
     return nullptr;
   bool FoundIndex = false;
   unsigned Index = 0;
-  for (unsigned I = 0, E = CB->getNumArgOperands(); I < E; ++I) {
+  for (unsigned I = 0, E = CB->arg_size(); I < E; ++I) {
     if (CB->getArgOperand(I) == X) {
       if (!FoundIndex) {
         Index = I;

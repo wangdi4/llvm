@@ -129,7 +129,7 @@ static cl::opt<uint32_t> MaxBBSpeculations(
              "into) when deducing if a value is fully available or not in GVN "
              "(default = 600)"));
 
-struct llvm::GVN::Expression {
+struct llvm::GVNPass::Expression {
   uint32_t opcode;
   bool commutative = false;
   Type *type = nullptr;
@@ -158,17 +158,18 @@ struct llvm::GVN::Expression {
 
 namespace llvm {
 
-template <> struct DenseMapInfo<GVN::Expression> {
-  static inline GVN::Expression getEmptyKey() { return ~0U; }
-  static inline GVN::Expression getTombstoneKey() { return ~1U; }
+template <> struct DenseMapInfo<GVNPass::Expression> {
+  static inline GVNPass::Expression getEmptyKey() { return ~0U; }
+  static inline GVNPass::Expression getTombstoneKey() { return ~1U; }
 
-  static unsigned getHashValue(const GVN::Expression &e) {
+  static unsigned getHashValue(const GVNPass::Expression &e) {
     using llvm::hash_value;
 
     return static_cast<unsigned>(hash_value(e));
   }
 
-  static bool isEqual(const GVN::Expression &LHS, const GVN::Expression &RHS) {
+  static bool isEqual(const GVNPass::Expression &LHS,
+                      const GVNPass::Expression &RHS) {
     return LHS == RHS;
   }
 };
@@ -249,7 +250,7 @@ struct llvm::gvn::AvailableValue {
   /// Emit code at the specified insertion point to adjust the value defined
   /// here to the specified type. This handles various coercion cases.
   Value *MaterializeAdjustedValue(LoadInst *Load, Instruction *InsertPt,
-                                  GVN &gvn) const;
+                                  GVNPass &gvn) const;
 };
 
 /// Represents an AvailableValue which can be rematerialized at the end of
@@ -279,7 +280,7 @@ struct llvm::gvn::AvailableValueInBlock {
 
   /// Emit code at the end of this block to adjust the value defined here to
   /// the specified type. This handles various coercion cases.
-  Value *MaterializeAdjustedValue(LoadInst *Load, GVN &gvn) const {
+  Value *MaterializeAdjustedValue(LoadInst *Load, GVNPass &gvn) const {
     return AV.MaterializeAdjustedValue(Load, BB->getTerminator(), gvn);
   }
 };
@@ -288,7 +289,7 @@ struct llvm::gvn::AvailableValueInBlock {
 //                     ValueTable Internal Functions
 //===----------------------------------------------------------------------===//
 
-GVN::Expression GVN::ValueTable::createExpr(Instruction *I) {
+GVNPass::Expression GVNPass::ValueTable::createExpr(Instruction *I) {
   Expression e;
   e.type = I->getType();
   e.opcode = I->getOpcode();
@@ -301,7 +302,12 @@ GVN::Expression GVN::ValueTable::createExpr(Instruction *I) {
     e.varargs.push_back(lookupOrAdd(GCR->getDerivedPtr()));
   } else {
     for (Use &Op : I->operands())
+#if INTEL_COLLAB
+      if (Op)
+        e.varargs.push_back(lookupOrAdd(Op));
+#else  // INTEL_COLLAB
       e.varargs.push_back(lookupOrAdd(Op));
+#endif // INTEL_COLLAB
   }
   if (I->isCommutative()) {
     // Ensure that commutative instructions that only differ by a permutation
@@ -333,9 +339,8 @@ GVN::Expression GVN::ValueTable::createExpr(Instruction *I) {
   return e;
 }
 
-GVN::Expression GVN::ValueTable::createCmpExpr(unsigned Opcode,
-                                               CmpInst::Predicate Predicate,
-                                               Value *LHS, Value *RHS) {
+GVNPass::Expression GVNPass::ValueTable::createCmpExpr(
+    unsigned Opcode, CmpInst::Predicate Predicate, Value *LHS, Value *RHS) {
   assert((Opcode == Instruction::ICmp || Opcode == Instruction::FCmp) &&
          "Not a comparison!");
   Expression e;
@@ -353,7 +358,8 @@ GVN::Expression GVN::ValueTable::createCmpExpr(unsigned Opcode,
   return e;
 }
 
-GVN::Expression GVN::ValueTable::createExtractvalueExpr(ExtractValueInst *EI) {
+GVNPass::Expression
+GVNPass::ValueTable::createExtractvalueExpr(ExtractValueInst *EI) {
   assert(EI && "Not an ExtractValueInst?");
   Expression e;
   e.type = EI->getType();
@@ -385,20 +391,21 @@ GVN::Expression GVN::ValueTable::createExtractvalueExpr(ExtractValueInst *EI) {
 //                     ValueTable External Functions
 //===----------------------------------------------------------------------===//
 
-GVN::ValueTable::ValueTable() = default;
-GVN::ValueTable::ValueTable(const ValueTable &) = default;
-GVN::ValueTable::ValueTable(ValueTable &&) = default;
-GVN::ValueTable::~ValueTable() = default;
-GVN::ValueTable &GVN::ValueTable::operator=(const GVN::ValueTable &Arg) = default;
+GVNPass::ValueTable::ValueTable() = default;
+GVNPass::ValueTable::ValueTable(const ValueTable &) = default;
+GVNPass::ValueTable::ValueTable(ValueTable &&) = default;
+GVNPass::ValueTable::~ValueTable() = default;
+GVNPass::ValueTable &
+GVNPass::ValueTable::operator=(const GVNPass::ValueTable &Arg) = default;
 
 /// add - Insert a value into the table with a specified value number.
-void GVN::ValueTable::add(Value *V, uint32_t num) {
+void GVNPass::ValueTable::add(Value *V, uint32_t num) {
   valueNumbering.insert(std::make_pair(V, num));
   if (PHINode *PN = dyn_cast<PHINode>(V))
     NumberingPhi[num] = PN;
 }
 
-uint32_t GVN::ValueTable::lookupOrAddCall(CallInst *C) {
+uint32_t GVNPass::ValueTable::lookupOrAddCall(CallInst *C) {
   if (AA->doesNotAccessMemory(C)) {
     Expression exp = createExpr(C);
     uint32_t e = assignExpNewValueNum(exp).first;
@@ -424,13 +431,12 @@ uint32_t GVN::ValueTable::lookupOrAddCall(CallInst *C) {
       // a normal load or store instruction.
       CallInst *local_cdep = dyn_cast<CallInst>(local_dep.getInst());
 
-      if (!local_cdep ||
-          local_cdep->getNumArgOperands() != C->getNumArgOperands()) {
+      if (!local_cdep || local_cdep->arg_size() != C->arg_size()) {
         valueNumbering[C] = nextValueNumber;
         return nextValueNumber++;
       }
 
-      for (unsigned i = 0, e = C->getNumArgOperands(); i < e; ++i) {
+      for (unsigned i = 0, e = C->arg_size(); i < e; ++i) {
         uint32_t c_vn = lookupOrAdd(C->getArgOperand(i));
         uint32_t cd_vn = lookupOrAdd(local_cdep->getArgOperand(i));
         if (c_vn != cd_vn) {
@@ -480,11 +486,11 @@ uint32_t GVN::ValueTable::lookupOrAddCall(CallInst *C) {
       return nextValueNumber++;
     }
 
-    if (cdep->getNumArgOperands() != C->getNumArgOperands()) {
+    if (cdep->arg_size() != C->arg_size()) {
       valueNumbering[C] = nextValueNumber;
       return nextValueNumber++;
     }
-    for (unsigned i = 0, e = C->getNumArgOperands(); i < e; ++i) {
+    for (unsigned i = 0, e = C->arg_size(); i < e; ++i) {
       uint32_t c_vn = lookupOrAdd(C->getArgOperand(i));
       uint32_t cd_vn = lookupOrAdd(cdep->getArgOperand(i));
       if (c_vn != cd_vn) {
@@ -503,11 +509,13 @@ uint32_t GVN::ValueTable::lookupOrAddCall(CallInst *C) {
 }
 
 /// Returns true if a value number exists for the specified value.
-bool GVN::ValueTable::exists(Value *V) const { return valueNumbering.count(V) != 0; }
+bool GVNPass::ValueTable::exists(Value *V) const {
+  return valueNumbering.count(V) != 0;
+}
 
 /// lookup_or_add - Returns the value number for the specified value, assigning
 /// it a new number if it did not have one before.
-uint32_t GVN::ValueTable::lookupOrAdd(Value *V) {
+uint32_t GVNPass::ValueTable::lookupOrAdd(Value *V) {
   DenseMap<Value*, uint32_t>::iterator VI = valueNumbering.find(V);
   if (VI != valueNumbering.end())
     return VI->second;
@@ -584,7 +592,7 @@ uint32_t GVN::ValueTable::lookupOrAdd(Value *V) {
 
 /// Returns the value number of the specified value. Fails if
 /// the value has not yet been numbered.
-uint32_t GVN::ValueTable::lookup(Value *V, bool Verify) const {
+uint32_t GVNPass::ValueTable::lookup(Value *V, bool Verify) const {
   DenseMap<Value*, uint32_t>::const_iterator VI = valueNumbering.find(V);
   if (Verify) {
     assert(VI != valueNumbering.end() && "Value not numbered?");
@@ -597,15 +605,15 @@ uint32_t GVN::ValueTable::lookup(Value *V, bool Verify) const {
 /// assigning it a new number if it did not have one before.  Useful when
 /// we deduced the result of a comparison, but don't immediately have an
 /// instruction realizing that comparison to hand.
-uint32_t GVN::ValueTable::lookupOrAddCmp(unsigned Opcode,
-                                         CmpInst::Predicate Predicate,
-                                         Value *LHS, Value *RHS) {
+uint32_t GVNPass::ValueTable::lookupOrAddCmp(unsigned Opcode,
+                                             CmpInst::Predicate Predicate,
+                                             Value *LHS, Value *RHS) {
   Expression exp = createCmpExpr(Opcode, Predicate, LHS, RHS);
   return assignExpNewValueNum(exp).first;
 }
 
 /// Remove all entries from the ValueTable.
-void GVN::ValueTable::clear() {
+void GVNPass::ValueTable::clear() {
   valueNumbering.clear();
   expressionNumbering.clear();
   NumberingPhi.clear();
@@ -617,7 +625,7 @@ void GVN::ValueTable::clear() {
 }
 
 /// Remove a value from the value numbering.
-void GVN::ValueTable::erase(Value *V) {
+void GVNPass::ValueTable::erase(Value *V) {
   uint32_t Num = valueNumbering.lookup(V);
   valueNumbering.erase(V);
   // If V is PHINode, V <--> value number is an one-to-one mapping.
@@ -627,7 +635,7 @@ void GVN::ValueTable::erase(Value *V) {
 
 /// verifyRemoved - Verify that the value is removed from all internal data
 /// structures.
-void GVN::ValueTable::verifyRemoved(const Value *V) const {
+void GVNPass::ValueTable::verifyRemoved(const Value *V) const {
   for (DenseMap<Value*, uint32_t>::const_iterator
          I = valueNumbering.begin(), E = valueNumbering.end(); I != E; ++I) {
     assert(I->first != V && "Inst still occurs in value numbering map!");
@@ -638,28 +646,28 @@ void GVN::ValueTable::verifyRemoved(const Value *V) const {
 //                                GVN Pass
 //===----------------------------------------------------------------------===//
 
-bool GVN::isPREEnabled() const {
+bool GVNPass::isPREEnabled() const {
   return Options.AllowPRE.getValueOr(GVNEnablePRE);
 }
 
-bool GVN::isLoadPREEnabled() const {
+bool GVNPass::isLoadPREEnabled() const {
   return Options.AllowLoadPRE.getValueOr(GVNEnableLoadPRE);
 }
 
-bool GVN::isLoadInLoopPREEnabled() const {
+bool GVNPass::isLoadInLoopPREEnabled() const {
   return Options.AllowLoadInLoopPRE.getValueOr(GVNEnableLoadInLoopPRE);
 }
 
-bool GVN::isLoadPRESplitBackedgeEnabled() const {
+bool GVNPass::isLoadPRESplitBackedgeEnabled() const {
   return Options.AllowLoadPRESplitBackedge.getValueOr(
       GVNEnableSplitBackedgeInLoadPRE);
 }
 
-bool GVN::isMemDepEnabled() const {
+bool GVNPass::isMemDepEnabled() const {
   return Options.AllowMemDep.getValueOr(GVNEnableMemDep);
 }
 
-PreservedAnalyses GVN::run(Function &F, FunctionAnalysisManager &AM) {
+PreservedAnalyses GVNPass::run(Function &F, FunctionAnalysisManager &AM) {
   // FIXME: The order of evaluation of these 'getResult' calls is very
   // significant! Re-ordering these variables will cause GVN when run alone to
   // be less effective! We should fix memdep and basic-aa to not exhibit this
@@ -689,8 +697,26 @@ PreservedAnalyses GVN::run(Function &F, FunctionAnalysisManager &AM) {
   return PA;
 }
 
+void GVNPass::printPipeline(
+    raw_ostream &OS, function_ref<StringRef(StringRef)> MapClassName2PassName) {
+  static_cast<PassInfoMixin<GVNPass> *>(this)->printPipeline(
+      OS, MapClassName2PassName);
+
+  OS << "<";
+  if (Options.AllowPRE != None)
+    OS << (Options.AllowPRE.getValue() ? "" : "no-") << "pre;";
+  if (Options.AllowLoadPRE != None)
+    OS << (Options.AllowLoadPRE.getValue() ? "" : "no-") << "load-pre;";
+  if (Options.AllowLoadPRESplitBackedge != None)
+    OS << (Options.AllowLoadPRESplitBackedge.getValue() ? "" : "no-")
+       << "split-backedge-load-pre;";
+  if (Options.AllowMemDep != None)
+    OS << (Options.AllowMemDep.getValue() ? "" : "no-") << "memdep";
+  OS << ">";
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-LLVM_DUMP_METHOD void GVN::dump(DenseMap<uint32_t, Value*>& d) const {
+LLVM_DUMP_METHOD void GVNPass::dump(DenseMap<uint32_t, Value *> &d) const {
   errs() << "{\n";
   for (auto &I : d) {
     errs() << I.first << "\n";
@@ -840,7 +866,7 @@ static bool IsValueFullyAvailableInBlock(
 static Value *
 ConstructSSAForLoadSet(LoadInst *Load,
                        SmallVectorImpl<AvailableValueInBlock> &ValuesPerBlock,
-                       GVN &gvn) {
+                       GVNPass &gvn) {
   // Check for the fully redundant, dominating load case.  In this case, we can
   // just use the dominating value directly.
   if (ValuesPerBlock.size() == 1 &&
@@ -883,7 +909,7 @@ ConstructSSAForLoadSet(LoadInst *Load,
 
 Value *AvailableValue::MaterializeAdjustedValue(LoadInst *Load,
                                                 Instruction *InsertPt,
-                                                GVN &gvn) const {
+                                                GVNPass &gvn) const {
   Value *Res;
   Type *LoadTy = Load->getType();
   const DataLayout &DL = Load->getModule()->getDataLayout();
@@ -1007,8 +1033,8 @@ static void reportMayClobberedLoad(LoadInst *Load, MemDepResult DepInfo,
   ORE->emit(R);
 }
 
-bool GVN::AnalyzeLoadAvailability(LoadInst *Load, MemDepResult DepInfo,
-                                  Value *Address, AvailableValue &Res) {
+bool GVNPass::AnalyzeLoadAvailability(LoadInst *Load, MemDepResult DepInfo,
+                                      Value *Address, AvailableValue &Res) {
   assert((DepInfo.isDef() || DepInfo.isClobber()) &&
          "expected a local dependence");
   assert(Load->isUnordered() && "rules below are incorrect for ordered access");
@@ -1142,9 +1168,9 @@ bool GVN::AnalyzeLoadAvailability(LoadInst *Load, MemDepResult DepInfo,
   return false;
 }
 
-void GVN::AnalyzeLoadAvailability(LoadInst *Load, LoadDepVect &Deps,
-                                  AvailValInBlkVect &ValuesPerBlock,
-                                  UnavailBlkVect &UnavailableBlocks) {
+void GVNPass::AnalyzeLoadAvailability(LoadInst *Load, LoadDepVect &Deps,
+                                      AvailValInBlkVect &ValuesPerBlock,
+                                      UnavailBlkVect &UnavailableBlocks) {
   // Filter out useless results (non-locals, etc).  Keep track of the blocks
   // where we have a value available in repl, also keep track of whether we see
   // dependencies that produce an unknown value for the load (such as a call
@@ -1195,33 +1221,41 @@ static bool PaddedMallocGenerated(Module &M) {
 }
 
 // This identifies the following pattern in the code when the Malloc Padding
-// is active to facilitate the Load PRE:
+// is active to facilitate the Load PRE for xz:
 //
-//     %PHI = phi i32 [ %l, %if.else ], [ %l, %while.end ], [ %s, %if.else10 ]
-//     %0 = zext i32 %phi to i64
+//     %PHI = phi i32 ... [ 3 or 4 preds, 2 have same value ]
+//     %0 = zext i32 %phi to i64 ; optional
 //     %1 = getelementptr inbounds i8, i8* %a, i64 %0
 //     %2 = load i8, i8* %1, align 1, !tbaa !19
 //
 // It returns the PHI node if such Load is found,
 // otherwise nullptr.
 PHINode *PREProfitableWithPaddedMalloc(LoadInst *Load) {
-  if (!PaddedMallocGenerated(*(Load->getModule()))) {
+  if (!PaddedMallocGenerated(*(Load->getModule())))
     return nullptr;
-  }
 
-  if (!isa<GEPOperator>(Load->getPointerOperand())) {
+  if (!isa<GEPOperator>(Load->getPointerOperand()))
     return nullptr;
-  }
+
+  // Aggressive PRE may cause live range extension outside of loops, hard
+  // for HIR to deal with.
+  if (Load->getParent()->getParent()->isPreLoopOpt())
+    return nullptr;
 
   GEPOperator *GEP = dyn_cast<GEPOperator>(Load->getPointerOperand());
-  if (GEP->getNumIndices() == 1 && isa<ZExtInst>(GEP->getOperand(1))) {
-    ZExtInst *ZEI = dyn_cast<ZExtInst>(GEP->getOperand(1));
-    if (isa<PHINode>(ZEI->getOperand(0))) {
-      PHINode *PH = dyn_cast<PHINode>(ZEI->getOperand(0));
-      if ((PH->getNumIncomingValues() == 3) &&
-          PH->getParent() == Load->getParent()) {
-        return PH;
-      }
+  if (GEP->getNumIndices() == 1) {
+    auto *GEPIdx = GEP->getOperand(1);
+    // skip 1 cast
+    if (auto *CI = dyn_cast<CastInst>(GEPIdx))
+      GEPIdx = CI->getOperand(0);
+    if (auto *PN = dyn_cast<PHINode>(GEPIdx)) {
+      unsigned NumPreds = PN->getNumIncomingValues();
+      // 3 or 4 preds, (0,1) or (1,2) have the same incoming value.
+      if (((NumPreds == 3) || (NumPreds == 4)) &&
+          PN->getParent() == Load->getParent() &&
+          (PN->getIncomingValue(1) == PN->getIncomingValue(0) ||
+           PN->getIncomingValue(1) == PN->getIncomingValue(2)))
+        return PN;
     }
   }
 
@@ -1340,7 +1374,7 @@ static bool isLoadPREProfitable(LoadInst *Load, DominatorTree *DT,
 
 #endif // INTEL_CUSTOMIZATION
 
-void GVN::eliminatePartiallyRedundantLoad(
+void GVNPass::eliminatePartiallyRedundantLoad(
     LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
     MapVector<BasicBlock *, Value *> &AvailableLoads) {
   for (const auto &AvailableLoad : AvailableLoads) {
@@ -1370,8 +1404,7 @@ void GVN::eliminatePartiallyRedundantLoad(
     }
 
     // Transfer the old load's AA tags to the new load.
-    AAMDNodes Tags;
-    Load->getAAMetadata(Tags);
+    AAMDNodes Tags = Load->getAAMetadata();
     if (Tags)
       NewLoad->setAAMetadata(Tags);
 
@@ -1415,8 +1448,8 @@ void GVN::eliminatePartiallyRedundantLoad(
   });
 }
 
-bool GVN::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
-                         UnavailBlkVect &UnavailableBlocks) {
+bool GVNPass::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
+                             UnavailBlkVect &UnavailableBlocks) {
 #if INTEL_CUSTOMIZATION
   if (!isLoadPREProfitable(Load, DT, this->LI)) {
     return false;
@@ -1555,20 +1588,41 @@ bool GVN::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
          "Fully available value should already be eliminated!");
 
 #if INTEL_CUSTOMIZATION
+  // Check for xz load pattern (described above).
   PHINode *PH = PREProfitableWithPaddedMalloc(Load);
+  // Check for either 2 or 3 unavailable predecessors, 1 or 2 critical edges.
+  // PRE cannot handle a case with this kind of mix of multiple unavailable
+  // blocks and critical edges, so we fix the CFG here to a form that PRE can
+  // handle.
+  //
+  // We want to create a single new block that ties the unavailable and
+  // critical edges together. This block can be the landing zone for the PRE
+  // reload.
   if (PH) {
-    if (NumUnavailablePreds == 2 && CriticalEdgePred.size() == 2 &&
-        (PH->getIncomingValueForBlock(CriticalEdgePred[0]) ==
-         PH->getIncomingValueForBlock(CriticalEdgePred[1]))) {
-      BasicBlock *NewBB = SplitBlockPredecessors(LoadBB, CriticalEdgePred,
+    if ((NumUnavailablePreds == 2 || NumUnavailablePreds == 3) &&
+      !CriticalEdgePred.empty() && CriticalEdgePred.size() <= 2) {
+      // Make a vector containing the head blocks of the incoming critical
+      // edges, and the blocks where the load is unavailable (PredLoads).
+      // Duplication is OK.
+      SmallVector<BasicBlock *, 2> BlocksToSplit;
+      BlocksToSplit.append(CriticalEdgePred);
+      for (auto &PredLoad : PredLoads)
+        BlocksToSplit.push_back(PredLoad.first);
+      // Insert a single empty block into all these edges.
+      BasicBlock *NewBB = SplitBlockPredecessors(LoadBB, BlocksToSplit,
                                                  ".split", DT, this->LI,
                                                  MSSAU);
       if (NewBB) {
         LLVM_DEBUG(dbgs() << " ENABLING PRE BY SPLITTING BB for LOAD: " << *Load
                           << '\n');
+        // There are 0 critical edges now, and only 1 unavailable block
+        // (the new block). Update the lists.
+        // The PRE algorithm below is now free to move the loads into this
+        // block.
         CriticalEdgePred.clear();
+        PredLoads.clear();
         PredLoads[NewBB] = nullptr;
-        NumUnavailablePreds = PredLoads.size() + CriticalEdgePred.size();
+        NumUnavailablePreds = 1;
         if (MD)
           MD->invalidateCachedPredecessors();
         InvalidBlockRPONumbers = true;
@@ -1704,8 +1758,9 @@ bool GVN::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
   return true;
 }
 
-bool GVN::performLoopLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
-                             UnavailBlkVect &UnavailableBlocks) {
+bool GVNPass::performLoopLoadPRE(LoadInst *Load,
+                                 AvailValInBlkVect &ValuesPerBlock,
+                                 UnavailBlkVect &UnavailableBlocks) {
 #if INTEL_CUSTOMIZATION
   // This transformation adds a conditional loop carried dependency
   // for the load. It's bad for vectorization.
@@ -1806,7 +1861,7 @@ static void reportLoadElim(LoadInst *Load, Value *AvailableValue,
 
 /// Attempt to eliminate a load whose dependencies are
 /// non-local by performing PHI construction.
-bool GVN::processNonLocalLoad(LoadInst *Load) {
+bool GVNPass::processNonLocalLoad(LoadInst *Load) {
   // non-local speculations are not allowed under asan.
   if (Load->getParent()->getParent()->hasFnAttribute(
           Attribute::SanitizeAddress) ||
@@ -1838,10 +1893,8 @@ bool GVN::processNonLocalLoad(LoadInst *Load) {
   // If this load follows a GEP, see if we can PRE the indices before analyzing.
   if (GetElementPtrInst *GEP =
           dyn_cast<GetElementPtrInst>(Load->getOperand(0))) {
-    for (GetElementPtrInst::op_iterator OI = GEP->idx_begin(),
-                                        OE = GEP->idx_end();
-         OI != OE; ++OI)
-      if (Instruction *I = dyn_cast<Instruction>(OI->get()))
+    for (Use &U : GEP->indices())
+      if (Instruction *I = dyn_cast<Instruction>(U.get()))
         Changed |= performScalarPRE(I);
   }
 
@@ -1957,7 +2010,7 @@ static bool hasUsersIn(Value *V, BasicBlock *BB) {
   return false;
 }
 
-bool GVN::processAssumeIntrinsic(AssumeInst *IntrinsicI) {
+bool GVNPass::processAssumeIntrinsic(AssumeInst *IntrinsicI) {
   Value *V = IntrinsicI->getArgOperand(0);
 
   if (ConstantInt *Cond = dyn_cast<ConstantInt>(V)) {
@@ -2101,7 +2154,7 @@ static void patchAndReplaceAllUsesWith(Instruction *I, Value *Repl) {
 
 /// Attempt to eliminate a load, first by eliminating it
 /// locally, and then attempting non-local elimination if that fails.
-bool GVN::processLoad(LoadInst *L) {
+bool GVNPass::processLoad(LoadInst *L) {
   if (!MD)
     return false;
 
@@ -2155,7 +2208,7 @@ bool GVN::processLoad(LoadInst *L) {
 /// Return a pair the first field showing the value number of \p Exp and the
 /// second field showing whether it is a value number newly created.
 std::pair<uint32_t, bool>
-GVN::ValueTable::assignExpNewValueNum(Expression &Exp) {
+GVNPass::ValueTable::assignExpNewValueNum(Expression &Exp) {
   uint32_t &e = expressionNumbering[Exp];
   bool CreateNewValNum = !e;
   if (CreateNewValNum) {
@@ -2170,8 +2223,8 @@ GVN::ValueTable::assignExpNewValueNum(Expression &Exp) {
 
 /// Return whether all the values related with the same \p num are
 /// defined in \p BB.
-bool GVN::ValueTable::areAllValsInBB(uint32_t Num, const BasicBlock *BB,
-                                     GVN &Gvn) {
+bool GVNPass::ValueTable::areAllValsInBB(uint32_t Num, const BasicBlock *BB,
+                                         GVNPass &Gvn) {
   LeaderTableEntry *Vals = &Gvn.LeaderTable[Num];
   while (Vals && Vals->BB == BB)
     Vals = Vals->Next;
@@ -2179,9 +2232,9 @@ bool GVN::ValueTable::areAllValsInBB(uint32_t Num, const BasicBlock *BB,
 }
 
 /// Wrap phiTranslateImpl to provide caching functionality.
-uint32_t GVN::ValueTable::phiTranslate(const BasicBlock *Pred,
-                                       const BasicBlock *PhiBlock, uint32_t Num,
-                                       GVN &Gvn) {
+uint32_t GVNPass::ValueTable::phiTranslate(const BasicBlock *Pred,
+                                           const BasicBlock *PhiBlock,
+                                           uint32_t Num, GVNPass &Gvn) {
   auto FindRes = PhiTranslateTable.find({Num, Pred});
   if (FindRes != PhiTranslateTable.end())
     return FindRes->second;
@@ -2192,9 +2245,10 @@ uint32_t GVN::ValueTable::phiTranslate(const BasicBlock *Pred,
 
 // Return true if the value number \p Num and NewNum have equal value.
 // Return false if the result is unknown.
-bool GVN::ValueTable::areCallValsEqual(uint32_t Num, uint32_t NewNum,
-                                       const BasicBlock *Pred,
-                                       const BasicBlock *PhiBlock, GVN &Gvn) {
+bool GVNPass::ValueTable::areCallValsEqual(uint32_t Num, uint32_t NewNum,
+                                           const BasicBlock *Pred,
+                                           const BasicBlock *PhiBlock,
+                                           GVNPass &Gvn) {
   CallInst *Call = nullptr;
   LeaderTableEntry *Vals = &Gvn.LeaderTable[Num];
   while (Vals) {
@@ -2227,9 +2281,9 @@ bool GVN::ValueTable::areCallValsEqual(uint32_t Num, uint32_t NewNum,
 
 /// Translate value number \p Num using phis, so that it has the values of
 /// the phis in BB.
-uint32_t GVN::ValueTable::phiTranslateImpl(const BasicBlock *Pred,
-                                           const BasicBlock *PhiBlock,
-                                           uint32_t Num, GVN &Gvn) {
+uint32_t GVNPass::ValueTable::phiTranslateImpl(const BasicBlock *Pred,
+                                               const BasicBlock *PhiBlock,
+                                               uint32_t Num, GVNPass &Gvn) {
   if (PHINode *PN = NumberingPhi[Num]) {
     for (unsigned i = 0; i != PN->getNumIncomingValues(); ++i) {
       if (PN->getParent() == PhiBlock && PN->getIncomingBlock(i) == Pred)
@@ -2282,8 +2336,8 @@ uint32_t GVN::ValueTable::phiTranslateImpl(const BasicBlock *Pred,
 
 /// Erase stale entry from phiTranslate cache so phiTranslate can be computed
 /// again.
-void GVN::ValueTable::eraseTranslateCacheEntry(uint32_t Num,
-                                               const BasicBlock &CurrBlock) {
+void GVNPass::ValueTable::eraseTranslateCacheEntry(
+    uint32_t Num, const BasicBlock &CurrBlock) {
   for (const BasicBlock *Pred : predecessors(&CurrBlock))
     PhiTranslateTable.erase({Num, Pred});
 }
@@ -2293,7 +2347,7 @@ void GVN::ValueTable::eraseTranslateCacheEntry(uint32_t Num,
 // and then scan the list to find one whose block dominates the block in
 // question.  This is fast because dominator tree queries consist of only
 // a few comparisons of DFS numbers.
-Value *GVN::findLeader(const BasicBlock *BB, uint32_t num) {
+Value *GVNPass::findLeader(const BasicBlock *BB, uint32_t num) {
   LeaderTableEntry Vals = LeaderTable[num];
   if (!Vals.Val) return nullptr;
 
@@ -2332,7 +2386,7 @@ static bool isOnlyReachableViaThisEdge(const BasicBlockEdge &E,
   return Pred != nullptr;
 }
 
-void GVN::assignBlockRPONumber(Function &F) {
+void GVNPass::assignBlockRPONumber(Function &F) {
   BlockRPONumber.clear();
   uint32_t NextBlockNumber = 1;
   ReversePostOrderTraversal<Function *> RPOT(&F);
@@ -2341,7 +2395,7 @@ void GVN::assignBlockRPONumber(Function &F) {
   InvalidBlockRPONumbers = false;
 }
 
-bool GVN::replaceOperandsForInBlockEquality(Instruction *Instr) const {
+bool GVNPass::replaceOperandsForInBlockEquality(Instruction *Instr) const {
   bool Changed = false;
   for (unsigned OpNum = 0; OpNum < Instr->getNumOperands(); ++OpNum) {
     Value *Operand = Instr->getOperand(OpNum);
@@ -2361,8 +2415,9 @@ bool GVN::replaceOperandsForInBlockEquality(Instruction *Instr) const {
 /// 'RHS' everywhere in the scope.  Returns whether a change was made.
 /// If DominatesByEdge is false, then it means that we will propagate the RHS
 /// value starting from the end of Root.Start.
-bool GVN::propagateEquality(Value *LHS, Value *RHS, const BasicBlockEdge &Root,
-                            bool DominatesByEdge) {
+bool GVNPass::propagateEquality(Value *LHS, Value *RHS,
+                                const BasicBlockEdge &Root,
+                                bool DominatesByEdge) {
   SmallVector<std::pair<Value*, Value*>, 4> Worklist;
   Worklist.push_back(std::make_pair(LHS, RHS));
   bool Changed = false;
@@ -2510,7 +2565,7 @@ bool GVN::propagateEquality(Value *LHS, Value *RHS, const BasicBlockEdge &Root,
 
 /// When calculating availability, handle an instruction
 /// by inserting it into the appropriate sets
-bool GVN::processInstruction(Instruction *I) {
+bool GVNPass::processInstruction(Instruction *I) {
   // Ignore dbg info intrinsics.
   if (isa<DbgInfoIntrinsic>(I))
     return false;
@@ -2651,10 +2706,10 @@ bool GVN::processInstruction(Instruction *I) {
 }
 
 /// runOnFunction - This is the main transformation entry point for a function.
-bool GVN::runImpl(Function &F, AssumptionCache &RunAC, DominatorTree &RunDT,
-                  const TargetLibraryInfo &RunTLI, AAResults &RunAA,
-                  MemoryDependenceResults *RunMD, LoopInfo *LI,
-                  OptimizationRemarkEmitter *RunORE, MemorySSA *MSSA) {
+bool GVNPass::runImpl(Function &F, AssumptionCache &RunAC, DominatorTree &RunDT,
+                      const TargetLibraryInfo &RunTLI, AAResults &RunAA,
+                      MemoryDependenceResults *RunMD, LoopInfo *LI,
+                      OptimizationRemarkEmitter *RunORE, MemorySSA *MSSA) {
   AC = &RunAC;
   DT = &RunDT;
   VN.setDomTree(DT);
@@ -2676,10 +2731,8 @@ bool GVN::runImpl(Function &F, AssumptionCache &RunAC, DominatorTree &RunDT,
   DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
   // Merge unconditional branches, allowing PRE to catch more
   // optimization opportunities.
-  for (Function::iterator FI = F.begin(), FE = F.end(); FI != FE; ) {
-    BasicBlock *BB = &*FI++;
-
-    bool removedBlock = MergeBlockIntoPredecessor(BB, &DTU, LI, MSSAU, MD);
+  for (BasicBlock &BB : llvm::make_early_inc_range(F)) {
+    bool removedBlock = MergeBlockIntoPredecessor(&BB, &DTU, LI, MSSAU, MD);
     if (removedBlock)
       ++NumGVNBlocks;
 
@@ -2721,7 +2774,7 @@ bool GVN::runImpl(Function &F, AssumptionCache &RunAC, DominatorTree &RunDT,
   return Changed;
 }
 
-bool GVN::processBlock(BasicBlock *BB) {
+bool GVNPass::processBlock(BasicBlock *BB) {
   // FIXME: Kill off InstrsToErase by doing erasing eagerly in a helper function
   // (and incrementing BI before processing an instruction).
   assert(InstrsToErase.empty() &&
@@ -2782,8 +2835,8 @@ bool GVN::processBlock(BasicBlock *BB) {
 }
 
 // Instantiate an expression in a predecessor that lacked it.
-bool GVN::performScalarPREInsertion(Instruction *Instr, BasicBlock *Pred,
-                                    BasicBlock *Curr, unsigned int ValNo) {
+bool GVNPass::performScalarPREInsertion(Instruction *Instr, BasicBlock *Pred,
+                                        BasicBlock *Curr, unsigned int ValNo) {
   // Because we are going top-down through the block, all value numbers
   // will be available in the predecessor by the time we need them.  Any
   // that weren't originally present will have been instantiated earlier
@@ -2831,7 +2884,7 @@ bool GVN::performScalarPREInsertion(Instruction *Instr, BasicBlock *Pred,
   return true;
 }
 
-bool GVN::performScalarPRE(Instruction *CurInst) {
+bool GVNPass::performScalarPRE(Instruction *CurInst) {
   if (isa<AllocaInst>(CurInst) || CurInst->isTerminator() ||
       isa<PHINode>(CurInst) || CurInst->getType()->isVoidTy() ||
       CurInst->mayReadFromMemory() || CurInst->mayHaveSideEffects() ||
@@ -3016,7 +3069,7 @@ bool GVN::performScalarPRE(Instruction *CurInst) {
 
 /// Perform a purely local form of PRE that looks for diamond
 /// control flow patterns and attempts to perform simple PRE at the join point.
-bool GVN::performPRE(Function &F) {
+bool GVNPass::performPRE(Function &F) {
   bool Changed = false;
   for (BasicBlock *CurrentBlock : depth_first(&F.getEntryBlock())) {
     // Nothing to PRE in the entry block.
@@ -3043,7 +3096,7 @@ bool GVN::performPRE(Function &F) {
 
 /// Split the critical edge connecting the given two blocks, and return
 /// the block inserted to the critical edge.
-BasicBlock *GVN::splitCriticalEdges(BasicBlock *Pred, BasicBlock *Succ) {
+BasicBlock *GVNPass::splitCriticalEdges(BasicBlock *Pred, BasicBlock *Succ) {
   // GVN does not require loop-simplify, do not try to preserve it if it is not
   // possible.
   BasicBlock *BB = SplitCriticalEdge(
@@ -3059,7 +3112,7 @@ BasicBlock *GVN::splitCriticalEdges(BasicBlock *Pred, BasicBlock *Succ) {
 
 /// Split critical edges found during the previous
 /// iteration that may enable further optimization.
-bool GVN::splitCriticalEdges() {
+bool GVNPass::splitCriticalEdges() {
   if (toSplit.empty())
     return false;
 
@@ -3079,7 +3132,7 @@ bool GVN::splitCriticalEdges() {
 }
 
 /// Executes one iteration of GVN
-bool GVN::iterateOnFunction(Function &F) {
+bool GVNPass::iterateOnFunction(Function &F) {
   cleanupGlobalSets();
 
   // Top-down walk of the dominator tree
@@ -3095,7 +3148,7 @@ bool GVN::iterateOnFunction(Function &F) {
   return Changed;
 }
 
-void GVN::cleanupGlobalSets() {
+void GVNPass::cleanupGlobalSets() {
   VN.clear();
   LeaderTable.clear();
   BlockRPONumber.clear();
@@ -3106,7 +3159,7 @@ void GVN::cleanupGlobalSets() {
 
 /// Verify that the specified instruction does not occur in our
 /// internal data structures.
-void GVN::verifyRemoved(const Instruction *Inst) const {
+void GVNPass::verifyRemoved(const Instruction *Inst) const {
   VN.verifyRemoved(Inst);
 
   // Walk through the value number scope to make sure the instruction isn't
@@ -3126,7 +3179,7 @@ void GVN::verifyRemoved(const Instruction *Inst) const {
 /// function is to add all these blocks to "DeadBlocks". For the dead blocks'
 /// live successors, update their phi nodes by replacing the operands
 /// corresponding to dead blocks with UndefVal.
-void GVN::addDeadBlock(BasicBlock *BB) {
+void GVNPass::addDeadBlock(BasicBlock *BB) {
   SmallVector<BasicBlock *, 4> NewDead;
   SmallSetVector<BasicBlock *, 4> DF;
 
@@ -3214,7 +3267,7 @@ void GVN::addDeadBlock(BasicBlock *BB) {
 //     dead blocks with "UndefVal" in an hope these PHIs will optimized away.
 //
 // Return true iff *NEW* dead code are found.
-bool GVN::processFoldableCondBr(BranchInst *BI) {
+bool GVNPass::processFoldableCondBr(BranchInst *BI) {
   if (!BI || BI->isUnconditional())
     return false;
 
@@ -3242,7 +3295,7 @@ bool GVN::processFoldableCondBr(BranchInst *BI) {
 // associated val-num. As it normally has far more live instructions than dead
 // instructions, it makes more sense just to "fabricate" a val-number for the
 // dead code than checking if instruction involved is dead or not.
-void GVN::assignValNumForDeadCode() {
+void GVNPass::assignValNumForDeadCode() {
   for (BasicBlock *BB : DeadBlocks) {
     for (Instruction &Inst : *BB) {
       unsigned ValNum = VN.lookupOrAdd(&Inst);
@@ -3299,7 +3352,7 @@ public:
   }
 
 private:
-  GVN Impl;
+  GVNPass Impl;
 };
 
 char GVNLegacyPass::ID = 0;

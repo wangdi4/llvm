@@ -24,7 +24,9 @@ entry:
 
 declare i8 addrspace(2)* @call_coord_translate_i_callback(i32 %samplerIndex)
 
-; CHECK:  define linkonce_odr <4 x i32> @_Z25trans_coord_int_UNDEFINEDPvDv4_i(i8* nocapture %image, <4 x i32> %coord)
-; CHECK:  define linkonce_odr i8 addrspace(2)* @call_coord_translate_i_callback(i32 %samplerIndex)
+; CHECK:  define internal <4 x i32> @_Z25trans_coord_int_UNDEFINEDPvDv4_i(i8* nocapture %image, <4 x i32> %coord)
+; CHECK:  define internal i8 addrspace(2)* @call_coord_translate_i_callback(i32 %samplerIndex)
 
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z25trans_coord_int_UNDEFINEDPvDv4_i
+; DEBUGIFY-COUNT-5: WARNING: Instruction with empty DebugLoc in function call_coord_translate_i_callback
 ; DEBUGIFY-NOT: WARNING

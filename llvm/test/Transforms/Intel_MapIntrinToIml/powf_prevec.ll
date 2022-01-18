@@ -1,6 +1,6 @@
 ; Check to see that the -fveclib=SVML option is applied and the powf call becomes __svml_powf.
 
-; RUN: opt -vector-library=SVML -loop-vectorize -S < %s | FileCheck %s
+; RUN: opt -vector-library=SVML -inject-tli-mappings -loop-vectorize -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @vector_foo
 ; CHECK: call fast <4 x float> @__svml_powf4

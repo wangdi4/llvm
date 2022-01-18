@@ -147,13 +147,6 @@ bool HIRSCCFormation::isConsideredLinear(const NodeTy *Node) const {
     return !hasUnconventionalAccess(Phi, AddRecSCEV);
   }
 
-  // Check if there is a type mismatch in the primary element type for pointer
-  // types.
-  if (RI.getPrimaryElementType(Phi->getType()) !=
-      RI.getPrimaryElementType(SC->getType())) {
-    return false;
-  }
-
   return true;
 }
 
@@ -195,26 +188,6 @@ bool HIRSCCFormation::isLoopLiveOut(const Instruction *Inst) const {
     if (!Lp->contains(UserInst->getParent())) {
       return true;
     }
-  }
-
-  return false;
-}
-
-bool HIRSCCFormation::usedInHeaderPhi(const PHINode *Phi) const {
-  assert(!RI.isHeaderPhi(Phi) && "Header phi not expected!");
-
-  for (auto I = Phi->user_begin(), E = Phi->user_end(); I != E; ++I) {
-    auto UserPhi = dyn_cast<PHINode>(*I);
-
-    if (!UserPhi || !RI.isHeaderPhi(UserPhi)) {
-      continue;
-    }
-
-    if (!CurLoop->contains(UserPhi->getParent())) {
-      continue;
-    }
-
-    return true;
   }
 
   return false;
@@ -373,7 +346,7 @@ bool HIRSCCFormation::isCandidateNode(const NodeTy *Node,
   // If phi has a predecessor which is an early exit from an inner loop, then it
   // gets complicated to preserve loop simplify form if we want to split this
   // edge during SSA deconstruction so we suppress the SCC formation.
-  return (usedInHeaderPhi(Phi) && !hasEarlyExitPredecessor(Phi));
+  return !hasEarlyExitPredecessor(Phi);
 }
 
 HIRSCCFormation::NodeTy::user_iterator
@@ -497,29 +470,6 @@ void HIRSCCFormation::setRegion(HIRRegionIdentification::const_iterator RegIt) {
   IsNewRegion = true;
 }
 
-bool HIRSCCFormation::isUsedInSCCPhi(PHINode *Phi, const SCC &CurSCC) {
-  bool UsedInPhi = false;
-
-  for (auto I = Phi->user_begin(), E = Phi->user_end(); I != E; ++I) {
-    auto UserPhi = dyn_cast<PHINode>(*I);
-
-    if (!UserPhi) {
-      continue;
-    }
-
-    if (CurSCC.contains(UserPhi)) {
-      UsedInPhi = true;
-      break;
-    }
-  }
-
-  if (!UsedInPhi) {
-    return false;
-  }
-
-  return true;
-}
-
 bool HIRSCCFormation::isRegionLiveOut(
     HIRRegionIdentification::const_iterator RegIt, const Instruction *Inst) {
   for (auto UserIt = Inst->user_begin(), EndIt = Inst->user_end();
@@ -622,6 +572,10 @@ bool HIRSCCFormation::isProfitableSCC(const SCC &CurSCC) const {
       // liveout copies makes HIR any cleaner than not forming the SCC at all.
       // Thus, this is more of a cost-model decision.
       if (LiveoutValueFound) {
+        LLVM_DEBUG(dbgs() << "SCC with root node ";
+                   CurSCC.getRoot()->printAsOperand(dbgs(), false);
+                   dbgs() << " considered non-profitable due multiple region "
+                             "liveout nodes.\n");
         return false;
       }
 
@@ -713,6 +667,59 @@ bool HIRSCCFormation::foundIntermediateSCCNode(
   return false;
 }
 
+bool HIRSCCFormation::isInvalidSCCEdge(const NodeTy *SrcNode,
+                                       const NodeTy *DstNode) const {
+  // Return true if the SCC edge is from an outer loop to inner loop and DstNode
+  // is not a loop header phi.
+  //
+  // This is problematic because we collapse SCC instructions into one temp in
+  // HIR. Before collapsing, there was no recursive definition of temp in the
+  // inner loop because a recursive definition requires a loop header phi (to
+  // complete def-use cycle), which the DstNode is not. But after collapsing we
+  // made the temp recursive in the inner loop which violates program semantics.
+  //
+  // For example, consider the edge from %t1 to %t2 in the SCC %t1 -> %t2 ->
+  // %t2.lcssa.
+  //
+  // OuterLoop:
+  //   %t1 = phi [ %init, %pre], [ %t2.lcssa, %latch]
+  //
+  //   InnerLoop:
+  //     %t3 = load
+  //     %t2 = add %t1, %t3
+  //   End InnerLoop
+  //     %t2.lcssa = phi [ %t2, %InnerLoop]
+  //
+  // End OuterLoop
+  //
+  // Before collasping, the last iteration value of %t2 was flowing out of
+  // InnerLoop. Collapsing %t1 and %t2 will make the add instruction like this-
+  // %t1 = %t1 + %t3
+  //
+  // Thus, it will update in every iteration of InnerLoop which is incorrect.
+
+  if (CurLoop->isInnermost()) {
+    return false;
+  }
+
+  auto *SrcLp = LI.getLoopFor(SrcNode->getParent());
+  auto *DstLp = LI.getLoopFor(DstNode->getParent());
+  assert(SrcLp && DstLp && "Could not find parent loop of SCC inst!");
+
+  if (SrcLp == DstLp) {
+    return false;
+  }
+
+  // Use in the loop header phi is always valid.
+  auto *DstPhi = dyn_cast<PHINode>(DstNode);
+
+  if (DstPhi && (DstPhi->getParent() == DstLp->getHeader())) {
+    return false;
+  }
+
+  return SrcLp->contains(DstLp);
+}
+
 bool HIRSCCFormation::hasLiveRangeOverlap(const NodeTy *Node,
                                           const SCC &CurSCC) const {
 
@@ -726,6 +733,10 @@ bool HIRSCCFormation::hasLiveRangeOverlap(const NodeTy *Node,
 
     if (!CurSCC.contains(UserInst)) {
       continue;
+    }
+
+    if (isInvalidSCCEdge(Node, UserInst)) {
+      return true;
     }
 
     // Found an SCC def-use edge. Now check if another SCC node lies between the
@@ -746,12 +757,19 @@ bool HIRSCCFormation::hasLiveRangeOverlap(const NodeTy *Node,
 
         if (foundIntermediateSCCNode(UserPhi->getIncomingBlock(I), nullptr,
                                      Node, CurSCC, VisitedBBs)) {
+          LLVM_DEBUG(dbgs() << "Invalidating SCC due to live range overlap of ";
+                     Node->printAsOperand(dbgs(), false);
+                     dbgs() << " at use inst ";
+                     UserInst->printAsOperand(dbgs(), false); dbgs() << "\n");
           return true;
         }
       }
 
     } else if (foundIntermediateSCCNode(UserInst->getParent(), UserInst, Node,
                                         CurSCC, VisitedBBs)) {
+      LLVM_DEBUG(dbgs() << "Invalidating SCC due to live range overlap of ";
+                 Node->printAsOperand(dbgs(), false); dbgs() << " at use inst ";
+                 UserInst->printAsOperand(dbgs(), false); dbgs() << "\n");
       return true;
     }
   }
@@ -913,15 +931,11 @@ bool HIRSCCFormation::isValidSCC(const SCC &CurSCC) const {
 
     BBlocks.insert(ParentBB);
 
-    if (RI.isHeaderPhi(Phi)) {
-      if (hasLoopLiveoutUseInSCC(Phi, CurSCC)) {
-        return false;
-      } else {
-        continue;
-      }
-    }
-
-    if (!isUsedInSCCPhi(Phi, CurSCC)) {
+    if (RI.isHeaderPhi(Phi) && hasLoopLiveoutUseInSCC(Phi, CurSCC)) {
+      LLVM_DEBUG(
+          dbgs() << "Invalidating SCC due to loop liveout use of header phi ";
+          Phi->printAsOperand(dbgs(), false);
+          dbgs() << " in another SCC node\n");
       return false;
     }
   }
@@ -969,6 +983,9 @@ unsigned HIRSCCFormation::findSCC(NodeTy *Node) {
   auto Ret = VisitedNodes.insert(std::make_pair(Node, Index));
   (void)Ret;
   assert((Ret.second == true) && "Node has already been visited!");
+
+  LLVM_DEBUG(dbgs() << "Visiting node: "; Node->printAsOperand(dbgs(), false);
+             dbgs() << "\n");
 
   for (auto SuccIter = getFirstSucc(Node); SuccIter != getLastSucc(Node);
        SuccIter = getNextSucc(Node, SuccIter)) {
@@ -1020,6 +1037,8 @@ unsigned HIRSCCFormation::findSCC(NodeTy *Node) {
              RI.isHeaderPhi(cast<PHINode>(NewSCC.getRoot())) &&
              "No phi found in SCC!");
 
+      SCCNodesTy CurSCCNodes(NewSCC.begin(), NewSCC.end());
+
       removeIntermediateNodes(NewSCC);
 
       if (isValidSCC(NewSCC) && isProfitableSCC(NewSCC)) {
@@ -1028,6 +1047,10 @@ unsigned HIRSCCFormation::findSCC(NodeTy *Node) {
 
         // Set pointer to first SCC of region, if applicable.
         setRegionSCCBegin();
+      } else if (!CurLoop->isInnermost()) {
+        // Track invalidated nodes so they can be reconsidered for an inner
+        // loopnest.
+        InvalidatedSCCNodes.append(CurSCCNodes);
       }
     }
   }
@@ -1049,6 +1072,7 @@ void HIRSCCFormation::runImpl() {
     ScopedSE.setScope(RegIt->getOutermostLoops());
 
     VisitedNodes.clear();
+    InvalidatedSCCNodes.clear();
 
     auto Root = DT.getNode(RegIt->getEntryBBlock());
 
@@ -1069,6 +1093,14 @@ void HIRSCCFormation::runImpl() {
       }
 
       CurLoop = LI.getLoopFor(BB);
+
+      // Remove invalidated nodes from visited set so they can be reconsidered
+      // for the inner loopnest.
+      for (auto *Node : InvalidatedSCCNodes) {
+        VisitedNodes.erase(Node);
+      }
+
+      InvalidatedSCCNodes.clear();
 
       // Iterate through the phi nodes in the header.
       for (auto I = BB->begin(); isa<PHINode>(I); ++I) {
@@ -1097,9 +1129,11 @@ HIRSCCFormation::HIRSCCFormation(HIRSCCFormation &&SCCF)
       RegionSCCs(std::move(SCCF.RegionSCCs)),
       RegionSCCBegin(std::move(SCCF.RegionSCCBegin)),
       VisitedNodes(std::move(SCCF.VisitedNodes)),
-      NodeStack(std::move(SCCF.NodeStack)), CurRegIt(SCCF.CurRegIt),
-      LastSCCRegIt(SCCF.LastSCCRegIt), CurLoop(SCCF.CurLoop),
-      GlobalNodeIndex(SCCF.GlobalNodeIndex), IsNewRegion(SCCF.IsNewRegion) {}
+      NodeStack(std::move(SCCF.NodeStack)),
+      InvalidatedSCCNodes(std::move(SCCF.InvalidatedSCCNodes)),
+      CurRegIt(SCCF.CurRegIt), LastSCCRegIt(SCCF.LastSCCRegIt),
+      CurLoop(SCCF.CurLoop), GlobalNodeIndex(SCCF.GlobalNodeIndex),
+      IsNewRegion(SCCF.IsNewRegion) {}
 
 HIRSCCFormation::const_iterator
 HIRSCCFormation::begin(HIRRegionIdentification::const_iterator RegIt) const {

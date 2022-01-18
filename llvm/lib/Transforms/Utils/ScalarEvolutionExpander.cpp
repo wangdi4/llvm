@@ -18,6 +18,7 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -755,9 +756,8 @@ Value *SCEVExpander::visitAddExpr(const SCEVAddExpr *S) {
   // so that pointer operands are inserted first, which the code below relies on
   // to form more involved GEPs.
   SmallVector<std::pair<const Loop *, const SCEV *>, 8> OpsAndLoops;
-  for (std::reverse_iterator<SCEVAddExpr::op_iterator> I(S->op_end()),
-       E(S->op_begin()); I != E; ++I)
-    OpsAndLoops.push_back(std::make_pair(getRelevantLoop(*I), *I));
+  for (const SCEV *Op : reverse(S->operands()))
+    OpsAndLoops.push_back(std::make_pair(getRelevantLoop(Op), Op));
 
   // Sort by loop. Use a stable sort so that constants follow non-constants and
   // pointer operands precede non-pointer operands.
@@ -819,9 +819,8 @@ Value *SCEVExpander::visitMulExpr(const SCEVMulExpr *S) {
   // Collect all the mul operands in a loop, along with their associated loops.
   // Iterate in reverse so that constants are emitted last, all else equal.
   SmallVector<std::pair<const Loop *, const SCEV *>, 8> OpsAndLoops;
-  for (std::reverse_iterator<SCEVMulExpr::op_iterator> I(S->op_end()),
-       E(S->op_begin()); I != E; ++I)
-    OpsAndLoops.push_back(std::make_pair(getRelevantLoop(*I), *I));
+  for (const SCEV *Op : reverse(S->operands()))
+    OpsAndLoops.push_back(std::make_pair(getRelevantLoop(Op), Op));
 
   // Sort by loop. Use a stable sort so that constants follow non-constants.
   llvm::stable_sort(OpsAndLoops, LoopCompare(SE.DT));
@@ -1056,9 +1055,9 @@ bool SCEVExpander::hoistIVInc(Instruction *IncV, Instruction *InsertPos) {
     if (SE.DT.dominates(IncV, InsertPos))
       break;
   }
-  for (auto I = IVIncs.rbegin(), E = IVIncs.rend(); I != E; ++I) {
-    fixupInsertPoints(*I);
-    (*I)->moveBefore(InsertPos);
+  for (Instruction *I : llvm::reverse(IVIncs)) {
+    fixupInsertPoints(I);
+    I->moveBefore(InsertPos);
   }
   return true;
 }
@@ -1875,6 +1874,53 @@ Value *SCEVExpander::expandCodeForImpl(const SCEV *SH, Type *Ty, bool Root) {
   return V;
 }
 
+#if INTEL_CUSTOMIZATION
+/// See if nsw/nuw flags can be preserved in I, in the context where value I
+/// will replace S. Notice that I is Value*, and Offset
+/// is the offset from SE's ValueOffsetMap. I.e. S -> {I, Offset}
+static bool canPreservePoisonFlags(const SCEV *S, const ConstantInt* Offset,
+                                   const Instruction *I) {
+  // We narrow down only to "add" operations with two operands.
+
+  // Offset shouldn't exist because we are looking for match of operands
+  // of SCEV and I.
+  if (Offset)
+    return false;
+
+  auto *AS = dyn_cast<SCEVAddExpr>(S);
+  if (!AS || !isa<OverflowingBinaryOperator>(I) ||
+      I->getOpcode() != Instruction::Add)
+    return false;
+  if (AS->getNumOperands() != 2)
+    return false;
+
+  bool SCEVLostPoisonFlags =
+      (I->hasNoSignedWrap() && !AS->hasNoSignedWrap()) ||
+      (I->hasNoUnsignedWrap() && !AS->hasNoUnsignedWrap());
+
+  if (SCEVLostPoisonFlags)
+    return false;
+
+  // Make sure that I's operands and SCEV's operands are the same
+  // to be conservative in preserving nsw/nuw flags.
+  const Value* Op0 = I->getOperand(0);
+  const Value* Op1 = I->getOperand(1);
+
+  const SCEV* S0 = AS->getOperand(0);
+  const SCEV* S1 = AS->getOperand(1);
+
+  // We only care when SCEV's two operands are SCEVConstant or SCEVUnknown
+  const Value* V0 = isa<SCEVConstant>(S0) ? cast<SCEVConstant>(S0)->getValue() :
+                    isa<SCEVUnknown>(S0) ? cast<SCEVUnknown>(S0)->getValue() :
+                    nullptr;
+  const Value* V1 = isa<SCEVConstant>(S1) ? cast<SCEVConstant>(S1)->getValue() :
+                    isa<SCEVUnknown>(S1) ? cast<SCEVUnknown>(S1)->getValue() :
+                    nullptr;
+
+  return Op0 == V0 && Op1 == V1 || Op0 == V1 && Op1 == V0;
+}
+#endif // INTEL_CUSTOMIZATION
+
 ScalarEvolution::ValueOffsetPair
 SCEVExpander::FindValueInExprValueMap(const SCEV *S,
                                       const Instruction *InsertPt) {
@@ -1884,16 +1930,18 @@ SCEVExpander::FindValueInExprValueMap(const SCEV *S,
   if (CanonicalMode || !SE.containsAddRecurrence(S)) {
     // If S is scConstant, it may be worse to reuse an existing Value.
     if (S->getSCEVType() != scConstant && Set) {
-      // Choose a Value from the set which dominates the insertPt.
-      // insertPt should be inside the Value's parent loop so as not to break
+      // Choose a Value from the set which dominates the InsertPt.
+      // InsertPt should be inside the Value's parent loop so as not to break
       // the LCSSA form.
       for (auto const &VOPair : *Set) {
         Value *V = VOPair.first;
         ConstantInt *Offset = VOPair.second;
-        Instruction *EntInst = nullptr;
-        if (V && isa<Instruction>(V) && (EntInst = cast<Instruction>(V)) &&
-            S->getType() == V->getType() &&
-            EntInst->getFunction() == InsertPt->getFunction() &&
+        Instruction *EntInst = dyn_cast_or_null<Instruction>(V);
+        if (!EntInst)
+          continue;
+
+        assert(EntInst->getFunction() == InsertPt->getFunction());
+        if (S->getType() == V->getType() &&
             SE.DT.dominates(EntInst, InsertPt) &&
             (SE.LI.getLoopFor(EntInst->getParent()) == nullptr ||
              SE.LI.getLoopFor(EntInst->getParent())->contains(InsertPt)))
@@ -1975,26 +2023,50 @@ Value *SCEVExpander::expand(const SCEV *S) {
 
   if (!V)
     V = visit(S);
-  else if (VO.second) {
-    if (PointerType *Vty = dyn_cast<PointerType>(V->getType())) {
-      Type *Ety = Vty->getPointerElementType();
-      int64_t Offset = VO.second->getSExtValue();
-      int64_t ESize = SE.getTypeSizeInBits(Ety);
-      if ((Offset * 8) % ESize == 0) {
-        ConstantInt *Idx =
+  else {
+    // If we're reusing an existing instruction, we are effectively CSEing two
+    // copies of the instruction (with potentially different flags).  As such,
+    // we need to drop any poison generating flags unless we can prove that
+    // said flags must be valid for all new users.
+#if INTEL_CUSTOMIZATION
+    // if (auto *I = dyn_cast<Instruction>(V))
+    //   if (I->hasPoisonGeneratingFlags() && !programUndefinedIfPoison(I)) {
+    //     I->dropPoisonGeneratingFlags();
+    //   }
+
+    // Dropping poison generating flags maximally has a detrimental
+    // effect on subsequent optimizations, in particular on loopopt.
+    // So, we narrow the condition of hasPoisonGeneratingFlags().
+    // For Nary operation, if both S and I are add and
+    // have poison-generating flags,
+    // flags are not dropped when possible.
+    if (auto *I = dyn_cast<Instruction>(V))
+      if (I->hasPoisonGeneratingFlags() && !programUndefinedIfPoison(I) &&
+          !canPreservePoisonFlags(S, VO.second, I))
+          I->dropPoisonGeneratingFlags();
+#endif // INTEL_CUSTOMIZATION
+
+    if (VO.second) {
+      if (PointerType *Vty = dyn_cast<PointerType>(V->getType())) {
+        Type *Ety = Vty->getPointerElementType();
+        int64_t Offset = VO.second->getSExtValue();
+        int64_t ESize = SE.getTypeSizeInBits(Ety);
+        if ((Offset * 8) % ESize == 0) {
+          ConstantInt *Idx =
             ConstantInt::getSigned(VO.second->getType(), -(Offset * 8) / ESize);
-        V = Builder.CreateGEP(Ety, V, Idx, "scevgep");
-      } else {
-        ConstantInt *Idx =
+          V = Builder.CreateGEP(Ety, V, Idx, "scevgep");
+        } else {
+          ConstantInt *Idx =
             ConstantInt::getSigned(VO.second->getType(), -Offset);
-        unsigned AS = Vty->getAddressSpace();
-        V = Builder.CreateBitCast(V, Type::getInt8PtrTy(SE.getContext(), AS));
-        V = Builder.CreateGEP(Type::getInt8Ty(SE.getContext()), V, Idx,
-                              "uglygep");
-        V = Builder.CreateBitCast(V, Vty);
+          unsigned AS = Vty->getAddressSpace();
+          V = Builder.CreateBitCast(V, Type::getInt8PtrTy(SE.getContext(), AS));
+          V = Builder.CreateGEP(Type::getInt8Ty(SE.getContext()), V, Idx,
+                                "uglygep");
+          V = Builder.CreateBitCast(V, Vty);
+        }
+      } else {
+        V = Builder.CreateSub(V, VO.second);
       }
-    } else {
-      V = Builder.CreateSub(V, VO.second);
     }
   }
   // Remember the expanded value for this SCEV at this location.
@@ -2045,7 +2117,9 @@ SCEVExpander::replaceCongruentIVs(Loop *L, const DominatorTree *DT,
     Phis.push_back(&PN);
 
   if (TTI)
-    llvm::sort(Phis, [](Value *LHS, Value *RHS) {
+    // Use stable_sort to preserve order of equivalent PHIs, so the order
+    // of the sorted Phis is the same from run to run on the same loop.
+    llvm::stable_sort(Phis, [](Value *LHS, Value *RHS) {
       // Put pointers at the back and make sure pointer < pointer = false.
       if (!LHS->getType()->isIntegerTy() || !RHS->getType()->isIntegerTy())
         return RHS->getType()->isIntegerTy() && !LHS->getType()->isIntegerTy();
@@ -2201,7 +2275,9 @@ SCEVExpander::getRelatedExistingExpansion(const SCEV *S, const Instruction *At,
   }
 
   // Use expand's logic which is used for reusing a previous Value in
-  // ExprValueMap.
+  // ExprValueMap.  Note that we don't currently model the cost of
+  // needing to drop poison generating flags on the instruction if we
+  // want to reuse it.  We effectively assume that has zero cost.
   ScalarEvolution::ValueOffsetPair VO = FindValueInExprValueMap(S, At);
   if (VO.first)
     return VO;
@@ -2258,6 +2334,7 @@ template<typename T> static InstructionCost costAndCollectOperands(
                              CmpInst::BAD_ICMP_PREDICATE, CostKind);
   };
 
+  const SCEVConstant *Const = nullptr; // INTEL
   switch (S->getSCEVType()) {
   case scCouldNotCompute:
     llvm_unreachable("Attempt to use a SCEVCouldNotCompute object!");
@@ -2291,7 +2368,18 @@ template<typename T> static InstructionCost costAndCollectOperands(
     // TODO: this is a very pessimistic cost modelling for Mul,
     // because of Bin Pow algorithm actually used by the expander,
     // see SCEVExpander::visitMulExpr(), ExpandOpBinPowN().
-    Cost = ArithCost(Instruction::Mul, S->getNumOperands() - 1);
+#if INTEL_CUSTOMIZATION
+    // If SCEVMulExpr's first operand is a power of 2, use Shl to evaluate first
+    // multiplication's cost as it is a cheaper operation.
+    Const = dyn_cast<SCEVConstant>(S->getOperand(0));
+    if (Const && Const->getAPInt().isPowerOf2())
+      Cost = ArithCost(Instruction::Shl, 1);
+    else
+      Cost = ArithCost(Instruction::Mul, 1);
+
+    if (S->getNumOperands() > 2)
+      Cost += ArithCost(Instruction::Mul, S->getNumOperands() - 2);
+#endif // INTEL_CUSTOMIZATION
     break;
   case scSMaxExpr:
   case scUMaxExpr:
@@ -2508,7 +2596,7 @@ Value *SCEVExpander::generateOverflowCheck(const SCEVAddRecExpr *AR,
   Value *StartValue = expandCodeForImpl(Start, ARTy, Loc, false);
 
   ConstantInt *Zero =
-      ConstantInt::get(Loc->getContext(), APInt::getNullValue(DstBits));
+      ConstantInt::get(Loc->getContext(), APInt::getZero(DstBits));
 
   Builder.SetInsertPoint(Loc);
   // Compute |Step|
@@ -2517,13 +2605,22 @@ Value *SCEVExpander::generateOverflowCheck(const SCEVAddRecExpr *AR,
 
   // Get the backedge taken count and truncate or extended to the AR type.
   Value *TruncTripCount = Builder.CreateZExtOrTrunc(TripCountVal, Ty);
-  auto *MulF = Intrinsic::getDeclaration(Loc->getModule(),
-                                         Intrinsic::umul_with_overflow, Ty);
 
   // Compute |Step| * Backedge
-  CallInst *Mul = Builder.CreateCall(MulF, {AbsStep, TruncTripCount}, "mul");
-  Value *MulV = Builder.CreateExtractValue(Mul, 0, "mul.result");
-  Value *OfMul = Builder.CreateExtractValue(Mul, 1, "mul.overflow");
+  Value *MulV, *OfMul;
+  if (Step->isOne()) {
+    // Special-case Step of one. Potentially-costly `umul_with_overflow` isn't
+    // needed, there is never an overflow, so to avoid artificially inflating
+    // the cost of the check, directly emit the optimized IR.
+    MulV = TruncTripCount;
+    OfMul = ConstantInt::getFalse(MulV->getContext());
+  } else {
+    auto *MulF = Intrinsic::getDeclaration(Loc->getModule(),
+                                           Intrinsic::umul_with_overflow, Ty);
+    CallInst *Mul = Builder.CreateCall(MulF, {AbsStep, TruncTripCount}, "mul");
+    MulV = Builder.CreateExtractValue(Mul, 0, "mul.result");
+    OfMul = Builder.CreateExtractValue(Mul, 1, "mul.overflow");
+  }
 
   // Compute:
   //   Start + |Step| * Backedge < Start
@@ -2658,9 +2755,11 @@ namespace {
 // perfectly reduced form, which can't be guaranteed.
 struct SCEVFindUnsafe {
   ScalarEvolution &SE;
+  bool CanonicalMode;
   bool IsUnsafe;
 
-  SCEVFindUnsafe(ScalarEvolution &se): SE(se), IsUnsafe(false) {}
+  SCEVFindUnsafe(ScalarEvolution &SE, bool CanonicalMode)
+      : SE(SE), CanonicalMode(CanonicalMode), IsUnsafe(false) {}
 
   bool follow(const SCEV *S) {
     if (const SCEVUDivExpr *D = dyn_cast<SCEVUDivExpr>(S)) {
@@ -2676,6 +2775,14 @@ struct SCEVFindUnsafe {
         IsUnsafe = true;
         return false;
       }
+
+      // For non-affine addrecs or in non-canonical mode we need a preheader
+      // to insert into.
+      if (!AR->getLoop()->getLoopPreheader() &&
+          (!CanonicalMode || !AR->isAffine())) {
+        IsUnsafe = true;
+        return false;
+      }
     }
     return true;
   }
@@ -2684,8 +2791,8 @@ struct SCEVFindUnsafe {
 }
 
 namespace llvm {
-bool isSafeToExpand(const SCEV *S, ScalarEvolution &SE) {
-  SCEVFindUnsafe Search(SE);
+bool isSafeToExpand(const SCEV *S, ScalarEvolution &SE, bool CanonicalMode) {
+  SCEVFindUnsafe Search(SE, CanonicalMode);
   visitAll(S, Search);
   return !Search.IsUnsafe;
 }

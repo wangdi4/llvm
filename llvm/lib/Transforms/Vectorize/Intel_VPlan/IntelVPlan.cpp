@@ -103,6 +103,11 @@ static cl::opt<bool>
                           cl::desc("Print VPGEPInstruction's SourceElementType "
                                    "even for non-opaque pointers."));
 
+static cl::opt<bool>
+    VPlanDumpDAShapes("vplan-dump-da-shapes", cl::init(false), cl::Hidden,
+                      cl::desc("Print VPlan instructions' DA shape "
+                               "instead of simple Uni/Div."));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
   V.print(OS);
@@ -339,9 +344,11 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "active-lane";
   case VPInstruction::ActiveLaneExtract:
     return "lane-extract";
-  case VPInstruction::OrigLiveOut:
+  case VPInstruction::PeelOrigLiveOut:
+  case VPInstruction::RemOrigLiveOut:
     return "orig-live-out";
-  case VPInstruction::OrigLiveOutHIR:
+  case VPInstruction::PeelOrigLiveOutHIR:
+  case VPInstruction::RemOrigLiveOutHIR:
     return "orig-live-out-hir";
   case VPInstruction::PushVF:
     return "pushvf";
@@ -349,10 +356,12 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "popvf";
   case VPInstruction::ScalarPeel:
     return "scalar-peel";
+  case VPInstruction::ScalarPeelHIR:
+    return "scalar-peel-hir";
   case VPInstruction::ScalarRemainder:
     return "scalar-remainder";
-  case VPInstruction::ScalarPeelRemainderHIR:
-    return "scalar-hir-loop";
+  case VPInstruction::ScalarRemainderHIR:
+    return "scalar-remainder-hir";
   case VPInstruction::PlanAdapter:
     return "vplan-adapter";
   case VPInstruction::PlanPeelAdapter:
@@ -361,6 +370,10 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "private-final-uc";
   case VPInstruction::PrivateFinalUncondMem:
     return "private-final-uc-mem";
+  case VPInstruction::PrivateFinalMasked:
+    return "private-final-masked";
+  case VPInstruction::PrivateFinalMaskedMem:
+    return "private-final-masked-mem";
   case VPInstruction::VLSLoad:
     return "vls-load";
   case VPInstruction::VLSStore:
@@ -403,7 +416,7 @@ void VPInstruction::print(raw_ostream &O) const {
     return;
   }
   const VPlanDivergenceAnalysisBase *DA = Plan->getVPlanDA();
-  VPlanScalVecAnalysis *SVA = nullptr;
+  VPlanScalVecAnalysisBase *SVA = nullptr;
   if (auto *VecVPlan = dyn_cast<VPlanVector>(Plan))
     SVA = VecVPlan->getVPlanSVA();
 
@@ -412,7 +425,9 @@ void VPInstruction::print(raw_ostream &O) const {
   // Print DA information.
   if (DA) {
     O << "DA: ";
-    if (DA->isDivergent(*this))
+    if (VPlanDumpDAShapes)
+      DA->getVectorShape(*this).print(O);
+    else if (DA->isDivergent(*this))
       O << "Div";
     else
       O << "Uni";
@@ -455,6 +470,13 @@ void VPInstruction::print(raw_ostream &O) const {
       << ", NUW: " << hasNoUnsignedWrap() << ", Exact: " << isExact() << "\n";
     if (auto *LSI = dyn_cast<VPLoadStoreInst>(this))
       LSI->printDetails(O);
+    if (auto *Br = dyn_cast<VPBranchInst>(this)) {
+      if (auto *LpID = Br->getLoopIDMetadata()) {
+        O << "    LoopID: ";
+        LpID->print(O);
+        O << "\n";
+      }
+    }
     // Print other attributes here when imported.
     O << "    end of details\n";
   }
@@ -552,17 +574,22 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     O << getOpcodeName(getOpcode());
   }
 
-  if (auto *ScalarPeel = dyn_cast<VPScalarPeel>(this)) {
-    ScalarPeel->printImpl(O);
+  if (auto *ScalarLp = dyn_cast<VPScalarPeel>(this)) {
+    ScalarLp->printImpl(O);
     return;
   }
 
-  if (auto *ScalarRemainder = dyn_cast<VPScalarRemainder>(this)) {
-    ScalarRemainder->printImpl(O);
+  if (auto *ScalarLp = dyn_cast<VPScalarRemainder>(this)) {
+    ScalarLp->printImpl(O);
     return;
   }
 
-  if (auto *ScalarLpHIR = dyn_cast<VPPeelRemainderHIR>(this)) {
+  if (auto *ScalarLpHIR = dyn_cast<VPScalarPeelHIR>(this)) {
+    ScalarLpHIR->printImpl(O);
+    return;
+  }
+
+  if (auto *ScalarLpHIR = dyn_cast<VPScalarRemainderHIR>(this)) {
     ScalarLpHIR->printImpl(O);
     return;
   }
@@ -572,12 +599,22 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     return;
   }
 
-  if (auto *LiveOut = dyn_cast<VPOrigLiveOut>(this)) {
+  if (auto *LiveOut = dyn_cast<VPPeelOrigLiveOut>(this)) {
     LiveOut->printImpl(O);
     return;
   }
 
-  if (auto *LiveOut = dyn_cast<VPOrigLiveOutHIR>(this)) {
+  if (auto *LiveOut = dyn_cast<VPRemainderOrigLiveOut>(this)) {
+    LiveOut->printImpl(O);
+    return;
+  }
+
+  if (auto *LiveOut = dyn_cast<VPPeelOrigLiveOutHIR>(this)) {
+    LiveOut->printImpl(O);
+    return;
+  }
+
+  if (auto *LiveOut = dyn_cast<VPRemainderOrigLiveOutHIR>(this)) {
     LiveOut->printImpl(O);
     return;
   }
@@ -627,21 +664,26 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     };
     // Dump operands per dimension (with details if needed).
     for (int Dim = Subscript->getNumDimensions() - 1; Dim >= 0; --Dim) {
-      auto *Idx = Subscript->getIndex(Dim);
-      ArrayRef<unsigned> DimStructOffsets = Subscript->getStructOffsets(Dim);
+      auto DimInfo = Subscript->dim(Dim);
+      auto *Idx = DimInfo.Index;
+      ArrayRef<unsigned> DimStructOffsets = DimInfo.StructOffsets;
       if (!VPlanDumpSubscriptDetails) {
         O << " ";
         Idx->printAsOperand(O);
         PrintStructOffsets(DimStructOffsets);
       } else {
         O << " {";
-        Subscript->getLower(Dim)->printAsOperand(O);
+        DimInfo.LowerBound->printAsOperand(O);
         O << " : ";
         Idx->printAsOperand(O);
         O << " : ";
-        Subscript->getStride(Dim)->printAsOperand(O);
+        DimInfo.StrideInBytes->printAsOperand(O);
         O << " : ";
-        Subscript->getDimensionType(Dim)->print(O);
+        DimInfo.DimType->print(O);
+        O << "(";
+        DimInfo.DimElementType->print(O, true /*IsForDebug*/,
+                                      true /*NoDetails*/);
+        O << ")";
         PrintStructOffsets(DimStructOffsets);
         O << "}";
       }
@@ -769,10 +811,13 @@ void VPlanVector::computePDT(void) {
 
 #endif // INTEL_CUSTOMIZATION
 
-void VPlanVector::runSVA() {
+void VPlanVector::runSVA(unsigned VF) {
   if (!EnableScalVecAnalysis)
     return;
-  VPlanSVA = std::make_unique<VPlanScalVecAnalysis>();
+  if (VF == 1)
+    VPlanSVA = std::make_unique<VPlanScalVecAnalysisScalar>();
+  else
+    VPlanSVA = std::make_unique<VPlanScalVecAnalysis>();
   VPlanSVA->compute(this);
 }
 
@@ -917,19 +962,6 @@ void VPlanVector::execute(VPTransformState *State) {
 #if INTEL_CUSTOMIZATION
 void VPlanVector::executeHIR(VPOCodeGenHIR *CG) {
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(getEntryBlock());
-  const VPLoop *VLoop = CG->getVPLoop();
-
-  // Check and mark if we see any uniform control flow remaining in the loop.
-  // We check for a non-latch block with two successors.
-  // TODO - The code here assumes inner loop vectorization. This needs to
-  // be changed for outer loop vectorization.
-  for (VPBasicBlock *VPBB : RPOT) {
-    if (VLoop->contains(VPBB) && !VLoop->isLoopLatch(VPBB) &&
-        VPBB->getNumSuccessors() == 2) {
-      CG->setUniformControlFlowSeen();
-      break;
-    }
-  }
 
   for (VPBasicBlock *VPBB : RPOT) {
     LLVM_DEBUG(dbgs() << "HIRV: VPBlock in RPO " << VPBB->getName() << '\n');
@@ -993,16 +1025,12 @@ VPlanAdapter::VPlanAdapter(unsigned Opcode, VPlan &P)
       Plan(P) {}
 
 VPValue *VPlanPeelAdapter::getPeelLoop() const {
-  for (auto &BB : Plan) {
-    for (auto &I : BB) {
-      if (auto *PeelLoop = dyn_cast<VPScalarPeel>(&I))
-        return PeelLoop;
-      if (auto *PeelHLoop = dyn_cast<VPPeelRemainderHIR>(&I)) {
-        if (!PeelHLoop->getLowerBoundTemp())
-          return PeelHLoop;
-      }
-    }
-  }
+  auto It = llvm::find_if(vpinstructions(&Plan), [](const VPInstruction &I) {
+    return isa<VPScalarPeel>(&I) || isa<VPScalarPeelHIR>(&I);
+  });
+
+  if (It != vpinstructions(&Plan).end())
+    return &*It;
   llvm_unreachable("can't find scalar peel");
 }
 
@@ -1010,29 +1038,28 @@ VPValue *VPlanPeelAdapter::getPeelLoop() const {
 // Transform looks like -
 // Before:
 //  PeelBlk:
-//   token %hir-loop = scalar-hir-loop NeedsCloning: 1, UBTemp: %ub
+//   token %hir-loop = scalar-peel-hir NeedsCloning: 1, TempInitMap:
+//     { Initialize temp %ub with %vp.peel.ub }
 //   i64 %live-out-1 = orig-live-out-hir token %hir-loop, liveout: %N + -1
 //   br PostPeel
 // After:
 //  PeelBlk:
-//   token %hir-loop = scalar-hir-loop NeedsCloning: 1, UBTemp: %ub
+//   token %hir-loop = scalar-peel-hir NeedsCloning: 1, TempInitMap:
+//     { Initialize temp %ub with %vp.peel.ub }
 //   i64 %live-out-1 = orig-live-out-hir token %hir-loop, liveout: %ub
 //   br PostPeel
-void VPlanPeelAdapter::updateHIROrigLiveOut() {
-  auto *PeelHLp = cast<VPPeelRemainderHIR>(getPeelLoop());
+void VPlanPeelAdapter::updateUBInHIROrigLiveOut() {
+  auto *PeelHLp = cast<VPScalarPeelHIR>(getPeelLoop());
   loopopt::DDRef *OrigUB = PeelHLp->getLoop()->getUpperDDRef();
   loopopt::DDRef *NewUB = PeelHLp->getUpperBoundTemp();
 
-  // Iterate over instruction in the scalar VPlan and update all
-  // VPOrigLiveOutHIR that use OrigUB.
-  for (auto &BB : Plan) {
-    for (auto &I : BB) {
-      if (auto *HIRLiveOut = dyn_cast<VPOrigLiveOutHIR>(&I)) {
-        // TODO: Use HIR's equal interfaces instead?
-        if (HIRLiveOut->getLiveOutVal() == OrigUB)
-          HIRLiveOut->setClonedLiveOutVal(NewUB);
-      }
-    }
+  // Iterate over users of scalar peel loop and update all VPOrigLiveOutHIR that
+  // use OrigUB.
+  for (auto *U : PeelHLp->users()) {
+    auto *HIRLiveOut = cast<VPPeelOrigLiveOutHIR>(U);
+    // TODO: Use HIR's equal interfaces instead?
+    if (HIRLiveOut->getLiveOutVal() == OrigUB)
+      HIRLiveOut->setClonedLiveOutVal(NewUB);
   }
 }
 
@@ -1040,7 +1067,7 @@ const VPValue *VPlanPeelAdapter::getUpperBound() const {
   VPValue *PeelLp = getPeelLoop();
   if (auto *IRPeel = dyn_cast<VPScalarPeel>(PeelLp))
     return IRPeel->getUpperBound();
-  return cast<VPPeelRemainderHIR>(PeelLp)->getUpperBound();
+  return cast<VPScalarPeelHIR>(PeelLp)->getUpperBound();
 }
 
 void VPlanPeelAdapter::setUpperBound(VPValue *TC) {
@@ -1049,8 +1076,8 @@ void VPlanPeelAdapter::setUpperBound(VPValue *TC) {
     if (auto *IRPeel = dyn_cast<VPScalarPeel>(PeelLp))
       IRPeel->setUpperBound(TC);
     else {
-      cast<VPPeelRemainderHIR>(PeelLp)->setUpperBound(TC);
-      updateHIROrigLiveOut();
+      cast<VPScalarPeelHIR>(PeelLp)->setUpperBound(TC);
+      updateUBInHIROrigLiveOut();
     }
     return;
   }
@@ -1269,13 +1296,25 @@ void VPlanScalar::setNeedCloneOrigLoop(bool V) {
     return;
   for (VPBasicBlock &B : *this) {
     auto LoopI = llvm::find_if(B, [](const VPInstruction &I) {
-      return isa<VPPeelRemainder>(I) || isa<VPPeelRemainderHIR>(I);
+      switch (I.getOpcode()) {
+      case VPInstruction::ScalarPeel:
+      case VPInstruction::ScalarRemainder:
+      case VPInstruction::ScalarPeelHIR:
+      case VPInstruction::ScalarRemainderHIR:
+        return true;
+      default:
+        return false;
+      }
     });
     if (LoopI != B.end()) {
-      if (auto *IRPeelRem = dyn_cast<VPPeelRemainder>(&*LoopI))
-        IRPeelRem->setCloningRequired();
+      if (auto *IRPeel = dyn_cast<VPScalarPeel>(&*LoopI))
+        IRPeel->setCloningRequired();
+      else if (auto *IRRem = dyn_cast<VPScalarRemainder>(&*LoopI))
+        IRRem->setCloningRequired();
+      else if (auto *HIRPeel = dyn_cast<VPScalarPeelHIR>(&*LoopI))
+        HIRPeel->setCloningRequired();
       else
-        cast<VPPeelRemainderHIR>(*LoopI).setCloningRequired();
+        cast<VPScalarRemainderHIR>(*LoopI).setCloningRequired();
       return;
     }
   }
@@ -1585,7 +1624,7 @@ void VPlanVector::copyData(VPAnalysesFactoryBase &VPAF, UpdateDA UDA,
   // Clone the basic blocks from the current VPlan to the new one
   VPCloneUtils::Value2ValueMapTy OrigClonedValuesMap;
   VPCloneUtils::cloneBlocksRange(&front(), &back(), OrigClonedValuesMap,
-                                 nullptr, "Cloned.", TargetPlan);
+                                 nullptr, "", TargetPlan);
 
   // Clone live in and live out values.
   VPValueMapper Mapper(OrigClonedValuesMap);
@@ -1670,15 +1709,4 @@ VPlanMasked *VPlanNonMasked::cloneMasked(VPAnalysesFactoryBase &VPAF,
 
   copyData(VPAF, UDA, ClonedVPlan);
   return ClonedVPlan;
-}
-
-VPCallInstruction::VPCallInstruction(FunctionCallee Callee,
-                                     ArrayRef<VPValue *> ArgList, VPlan *Plan)
-    : VPInstruction(Instruction::Call,
-                    Callee.getFunctionType()->getReturnType(), ArgList),
-      OrigCall(nullptr) {
-  assert(Callee && "Call instruction does not have Callee");
-  // Add called value to end of operand list for def-use chain.
-  addOperand(Plan->getVPConstant(cast<Constant>(Callee.getCallee())));
-  resetVecScenario(0 /*Initial VF*/);
 }

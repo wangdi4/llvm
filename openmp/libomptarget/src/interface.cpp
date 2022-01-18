@@ -354,7 +354,7 @@ EXTERN int __tgt_target_mapper(ident_t *loc, int64_t device_id, void *host_ptr,
      DPxPTR(host_ptr), device_id);
   if (checkDeviceAndCtors(device_id, loc)) {
     DP("Not offloading to device %" PRId64 "\n", device_id);
-    return OFFLOAD_FAIL;
+    return OMP_TGT_FAIL;
   }
 
   if (getInfoLevel() & OMP_INFOTYPE_KERNEL_ARGS)
@@ -387,7 +387,8 @@ EXTERN int __tgt_target_mapper(ident_t *loc, int64_t device_id, void *host_ptr,
   if (encodedId != device_id)
     PM->Devices[device_id]->popSubDevice();
 #endif // INTEL_COLLAB
-  return rc;
+  assert(rc == OFFLOAD_SUCCESS && "__tgt_target_mapper unexpected failure!");
+  return OMP_TGT_SUCCESS;
 }
 
 EXTERN int __tgt_target_nowait_mapper(
@@ -440,7 +441,7 @@ EXTERN int __tgt_target_teams_mapper(ident_t *loc, int64_t device_id,
      DPxPTR(host_ptr), device_id);
   if (checkDeviceAndCtors(device_id, loc)) {
     DP("Not offloading to device %" PRId64 "\n", device_id);
-    return OFFLOAD_FAIL;
+    return OMP_TGT_FAIL;
   }
 
   if (getInfoLevel() & OMP_INFOTYPE_KERNEL_ARGS)
@@ -474,7 +475,9 @@ EXTERN int __tgt_target_teams_mapper(ident_t *loc, int64_t device_id,
   if (encodedId != device_id)
     PM->Devices[device_id]->popSubDevice();
 #endif // INTEL_COLLAB
-  return rc;
+  assert(rc == OFFLOAD_SUCCESS &&
+         "__tgt_target_teams_mapper unexpected failure!");
+  return OMP_TGT_SUCCESS;
 }
 
 EXTERN int __tgt_target_teams_nowait_mapper(
@@ -675,7 +678,7 @@ EXTERN int __tgt_release_interop_obj(void *interop_obj) {
 
   __tgt_interop_obj *obj = static_cast<__tgt_interop_obj *>(interop_obj);
   DeviceTy &Device = *PM->Devices[obj->device_id];
-  if (obj->queue)
+  if (obj->queue && obj->is_async)
     Device.release_offload_queue(obj->queue);
   free(interop_obj);
 
@@ -734,7 +737,8 @@ EXTERN int __tgt_get_interop_property(
     break;
   case INTEROP_OFFLOAD_QUEUE:
     if (!interop->queue)
-      PM->Devices[interop->device_id]->create_offload_queue(interop);
+      PM->Devices[interop->device_id]->get_offload_queue(
+          interop, interop->is_async ? true /*create_new*/ : false);
     *property_value = interop->queue;
     break;
   case INTEROP_PLATFORM_HANDLE:
@@ -859,6 +863,44 @@ EXTERN void __tgt_add_build_options(
   auto RTLInfo = PM->Devices[device_num]->RTL;
   if (RTLInfo->add_build_options)
     RTLInfo->add_build_options(compile_options, link_options);
+}
+
+EXTERN int __tgt_target_supports_per_hw_thread_scratch(int64_t device_num) {
+  if (checkDeviceAndCtors(device_num, nullptr) != OFFLOAD_SUCCESS) {
+    DP("Failed to get device %" PRId64 " ready\n", device_num);
+    handleTargetOutcome(false, nullptr);
+    return 0;
+  }
+
+  return PM->Devices[device_num]->supportsPerHWThreadScratch();
+}
+
+EXTERN void *__tgt_target_alloc_per_hw_thread_scratch(
+    int64_t device_num, size_t obj_size, int32_t alloc_kind) {
+  if (obj_size == 0)
+    return nullptr;
+
+  if (checkDeviceAndCtors(device_num, nullptr) != OFFLOAD_SUCCESS) {
+    DP("Failed to get device %" PRId64 " ready\n", device_num);
+    handleTargetOutcome(false, nullptr);
+    return nullptr;
+  }
+
+  return PM->Devices[device_num]->allocPerHWThreadScratch(obj_size, alloc_kind);
+}
+
+EXTERN void __tgt_target_free_per_hw_thread_scratch(
+    int64_t device_num, void *ptr) {
+  if (!ptr)
+    return;
+
+  if (checkDeviceAndCtors(device_num, nullptr) != OFFLOAD_SUCCESS) {
+    DP("Failed to get device %" PRId64 " ready\n", device_num);
+    handleTargetOutcome(false, nullptr);
+    return;
+  }
+
+  return PM->Devices[device_num]->freePerHWThreadScratch(ptr);
 }
 #endif // INTEL_COLLAB
 EXTERN void __tgt_set_info_flag(uint32_t NewInfoLevel) {

@@ -26,7 +26,7 @@ void tests() {
   int i;
   // expected-error@+1 {{argument to '_may_i_use_cpu_feature' must be a constant integer}}
   _may_i_use_cpu_feature(i);
-  // expected-error-re@+1 {{cannot initialize a parameter of type 'unsigned {{.*}}long' with an lvalue of type 'const char [8]'}}
+  // expected-error-re@+1 {{cannot initialize a parameter of type 'unsigned {{.*}}long' with an lvalue of type 'const char[8]'}}
  _may_i_use_cpu_feature("FEATURE");
 
  _may_i_use_cpu_feature(1 | 8);
@@ -40,12 +40,12 @@ void tests2() {
   int i;
   // expected-error@+1 {{argument to '_may_i_use_cpu_feature_ext' must be a constant integer}}
   _may_i_use_cpu_feature_ext(i, 0);
-  // expected-error-re@+1 {{cannot initialize a parameter of type 'unsigned {{.*}}long' with an lvalue of type 'const char [8]'}}
+  // expected-error-re@+1 {{cannot initialize a parameter of type 'unsigned {{.*}}long' with an lvalue of type 'const char[8]'}}
   _may_i_use_cpu_feature_ext("FEATURE", 0);
 
   // expected-error@+1 {{argument to '_may_i_use_cpu_feature_ext' must be a constant integer}}
   _may_i_use_cpu_feature_ext(FEAT_1 | FEAT_2, i);
-  // expected-error@+1 {{cannot initialize a parameter of type 'unsigned int' with an lvalue of type 'const char [8]'}}
+  // expected-error@+1 {{cannot initialize a parameter of type 'unsigned int' with an lvalue of type 'const char[8]'}}
   _may_i_use_cpu_feature_ext(FEAT_1 | FEAT_2, "FEATURE");
   // expected-error@+1 {{argument value 2 is outside the valid range [0, 1]}}
   _may_i_use_cpu_feature_ext(FEAT_1 | FEAT_2, 2);

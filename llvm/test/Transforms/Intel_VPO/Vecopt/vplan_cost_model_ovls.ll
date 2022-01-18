@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -xmain-opt-level=3 \
 ; RUN:     -hir-vec-dir-insert -hir-vplan-vec -disable-output \
 ; RUN:     -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 \
@@ -46,3 +48,4 @@ for.body:                                         ; preds = %entry, %for.body
 for.end:                                          ; preds = %for.body
   ret void
 }
+; end INTEL_FEATURE_SW_ADVANCED

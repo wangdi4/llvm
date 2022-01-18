@@ -366,12 +366,15 @@ void X86InstPrinterCommon::printInstFlags(const MCInst *MI, raw_ostream &O) {
     O << "\trep\t";
 
 #if INTEL_CUSTOMIZATION
-  if (TSFlags & X86II::ExplicitVEXPrefix)
+  if (TSFlags & X86II::EmitVEXOrEVEXPrefix) {
     // These all require a pseudo prefix
-    O << "\t{vex}";
-  else if (TSFlags & X86II::ExplicitEVEXPrefix)
-    O << "\t{evex}";
-  else
+    if (((TSFlags & X86II::EncodingMask) == X86II::VEX))
+      O << "\t{vex}";
+    else if (((TSFlags & X86II::EncodingMask) == X86II::EVEX))
+      O << "\t{evex}";
+    else
+      llvm_unreachable("Unexpected prefix!");
+  } else
 #endif // INTEL_CUSTOMIZATION
   // These all require a pseudo prefix
   if ((Flags & X86::IP_USE_VEX) || (TSFlags & X86II::ExplicitVEXPrefix))

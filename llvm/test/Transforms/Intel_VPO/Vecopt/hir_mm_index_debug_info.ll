@@ -25,7 +25,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local i32 @_Z6maxlocl(i64 %m) local_unnamed_addr #0 !dbg !14 {
 ;
 ; CHECKHIRPCFG-LABEL:  VPlan after importing plain CFG:
-; CHECKHIRPCFG-NEXT:  VPlan IR for: _Z6maxlocl:HIR
+; CHECKHIRPCFG-NEXT:  VPlan IR for: _Z6maxlocl:HIR.#{{[0-9]+}}
 ; CHECKHIRPCFG-NEXT:  External Defs Start:
 ; CHECKHIRPCFG-DAG:     [[VP0:%.*]] = {%tmp.026}
 ; CHECKHIRPCFG-DAG:     [[VP1:%.*]] = {@ordering}
@@ -36,49 +36,52 @@ define dso_local i32 @_Z6maxlocl(i64 %m) local_unnamed_addr #0 !dbg !14 {
 ; CHECKHIRPCFG-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc:
 ; CHECKHIRPCFG:         [[BB1]]: # preds: [[BB0]]
+; CHECKHIRPCFG-NEXT:     i64 [[VP4:%.*]] = add i64 [[VP2]] i64 1
+; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:10:16
+; CHECKHIRPCFG-EMPTY:
 ; CHECKHIRPCFG-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:10:5
 ; CHECKHIRPCFG:         [[BB2]]: # preds: [[BB1]], [[BB2]]
-; CHECKHIRPCFG-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 [[TMP_0260:%.*]], [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB2]] ]
+; CHECKHIRPCFG-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 [[TMP_0260:%.*]], [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
 ; CHECKHIRPCFG-NEXT:      DbgLoc:
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i64 [[VP6:%.*]] = phi  [ i64 [[B_0250:%.*]], [[BB1]] ],  [ i64 [[VP7:%.*]], [[BB2]] ]
+; CHECKHIRPCFG-NEXT:     i64 [[VP7:%.*]] = phi  [ i64 [[B_0250:%.*]], [[BB1]] ],  [ i64 [[VP8:%.*]], [[BB2]] ]
 ; CHECKHIRPCFG-NEXT:      DbgLoc:
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i64 [[VP8:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP9:%.*]], [[BB2]] ]
+; CHECKHIRPCFG-NEXT:     i64 [[VP9:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP10:%.*]], [[BB2]] ]
 ; CHECKHIRPCFG-NEXT:      DbgLoc:
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1000 x i32]* @ordering i64 0 i64 [[VP8]]
+; CHECKHIRPCFG-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1000 x i32]* @ordering i64 0 i64 [[VP9]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:11:16
 ; CHECKHIRPCFG-EMPTY:
 ; CHECKHIRPCFG-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:11:16
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i64 [[VP10:%.*]] = sext i32 [[VP_LOAD]] to i64
+; CHECKHIRPCFG-NEXT:     i64 [[VP11:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:11:16
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i1 [[VP11:%.*]] = icmp slt i64 [[VP6]] i64 [[VP10]]
+; CHECKHIRPCFG-NEXT:     i1 [[VP12:%.*]] = icmp slt i64 [[VP7]] i64 [[VP11]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:11:28
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i64 [[VP5]] = select i1 [[VP11]] i64 [[VP4]] i64 [[VP8]]
+; CHECKHIRPCFG-NEXT:     i64 [[VP6]] = select i1 [[VP12]] i64 [[VP5]] i64 [[VP9]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:11:15
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i64 [[VP12:%.*]] = sext i32 [[VP_LOAD]] to i64
+; CHECKHIRPCFG-NEXT:     i64 [[VP13:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:11:16
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i1 [[VP13:%.*]] = icmp slt i64 [[VP6]] i64 [[VP12]]
+; CHECKHIRPCFG-NEXT:     i1 [[VP14:%.*]] = icmp slt i64 [[VP7]] i64 [[VP13]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:11:28
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i64 [[VP7]] = select i1 [[VP13]] i64 [[VP6]] i64 [[VP12]]
+; CHECKHIRPCFG-NEXT:     i64 [[VP8]] = select i1 [[VP14]] i64 [[VP7]] i64 [[VP13]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:12:13
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i64 [[VP9]] = add i64 [[VP8]] i64 1
+; CHECKHIRPCFG-NEXT:     i64 [[VP10]] = add i64 [[VP9]] i64 1
 ; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:10:16
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i1 [[VP14:%.*]] = icmp sle i64 [[VP9]] i64 [[VP2]]
+; CHECKHIRPCFG-NEXT:     i1 [[VP15:%.*]] = icmp slt i64 [[VP10]] i64 [[VP4]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:10:16
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     br i1 [[VP14]], [[BB2]], [[BB3:BB[0-9]+]]
+; CHECKHIRPCFG-NEXT:     br i1 [[VP15]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:10:5
 ; CHECKHIRPCFG:         [[BB3]]: # preds: [[BB2]]
 ; CHECKHIRPCFG-NEXT:     br [[BB4:BB[0-9]+]]
@@ -87,26 +90,29 @@ define dso_local i32 @_Z6maxlocl(i64 %m) local_unnamed_addr #0 !dbg !14 {
 ; CHECKHIRPCFG-NEXT:     br <External Block>
 ; CHECKHIRPCFG-NEXT:      DbgLoc:
 ; CHECKHIRPCFG:       External Uses:
-; CHECKHIRPCFG-NEXT:  Id: 0   i64 [[VP5]] -> [[VP15:%.*]] = {%tmp.026}
+; CHECKHIRPCFG-NEXT:  Id: 0   i64 [[VP6]] -> [[VP16:%.*]] = {%tmp.026}
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:  Id: 1   i64 [[VP7]] -> [[VP16:%.*]] = {%b.025}
+; CHECKHIRPCFG-NEXT:  Id: 1   i64 [[VP8]] -> [[VP17:%.*]] = {%b.025}
 ;
 ; CHECKHIRVPE-LABEL:  VPlan after insertion of VPEntities instructions:
-; CHECKHIRVPE-NEXT:  VPlan IR for: _Z6maxlocl:HIR
+; CHECKHIRVPE-NEXT:  VPlan IR for: _Z6maxlocl:HIR.#{{[0-9]+}}
 ; CHECKHIRVPE-NEXT:  External Defs Start:
 ; CHECKHIRVPE-DAG:     [[VP0:%.*]] = {%tmp.026}
-; CHECKHIRVPE-DAG:     [[VP1:%.*]] = {%m + -1}
-; CHECKHIRVPE-DAG:     [[VP2:%.*]] = {@ordering}
+; CHECKHIRVPE-DAG:     [[VP1:%.*]] = {@ordering}
+; CHECKHIRVPE-DAG:     [[VP2:%.*]] = {%m + -1}
 ; CHECKHIRVPE-DAG:     [[VP3:%.*]] = {%b.025}
 ; CHECKHIRVPE-NEXT:  External Defs End:
 ; CHECKHIRVPE-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECKHIRVPE-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECKHIRVPE-NEXT:      DbgLoc:
 ; CHECKHIRVPE:         [[BB1]]: # preds: [[BB0]]
-; CHECKHIRVPE-NEXT:     i64 [[VP__RED_INIT:%.*]] = reduction-init i64 [[B_0250:%.*]]
+; CHECKHIRVPE-NEXT:     i64 [[VP4:%.*]] = add i64 [[VP2]] i64 1
+; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:10:16
+; CHECKHIRVPE-EMPTY:
+; CHECKHIRVPE-NEXT:     i64 [[VP_MINMAX_RED_INIT:%.*]] = reduction-init i64 [[B_0250:%.*]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:10:5
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i64 [[VP__RED_INIT_1:%.*]] = reduction-init i64 [[TMP_0260:%.*]]
+; CHECKHIRVPE-NEXT:     i64 [[VP_MONO_IDX_RED_INIT:%.*]] = reduction-init i64 [[TMP_0260:%.*]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:10:5
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
@@ -118,52 +124,52 @@ define dso_local i32 @_Z6maxlocl(i64 %m) local_unnamed_addr #0 !dbg !14 {
 ; CHECKHIRVPE-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:10:5
 ; CHECKHIRVPE:         [[BB2]]: # preds: [[BB1]], [[BB2]]
-; CHECKHIRVPE-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 [[VP__RED_INIT_1]], [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB2]] ]
+; CHECKHIRVPE-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 [[VP_MONO_IDX_RED_INIT]], [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
 ; CHECKHIRVPE-NEXT:      DbgLoc:
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i64 [[VP6:%.*]] = phi  [ i64 [[VP__RED_INIT]], [[BB1]] ],  [ i64 [[VP7:%.*]], [[BB2]] ]
+; CHECKHIRVPE-NEXT:     i64 [[VP7:%.*]] = phi  [ i64 [[VP_MINMAX_RED_INIT]], [[BB1]] ],  [ i64 [[VP8:%.*]], [[BB2]] ]
 ; CHECKHIRVPE-NEXT:      DbgLoc:
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i64 [[VP8:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP9:%.*]], [[BB2]] ]
+; CHECKHIRVPE-NEXT:     i64 [[VP9:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP10:%.*]], [[BB2]] ]
 ; CHECKHIRVPE-NEXT:      DbgLoc:
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1000 x i32]* @ordering i64 0 i64 [[VP8]]
+; CHECKHIRVPE-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1000 x i32]* @ordering i64 0 i64 [[VP9]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:16
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:16
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i64 [[VP10:%.*]] = sext i32 [[VP_LOAD]] to i64
+; CHECKHIRVPE-NEXT:     i64 [[VP11:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:16
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i1 [[VP11:%.*]] = icmp slt i64 [[VP6]] i64 [[VP10]]
+; CHECKHIRVPE-NEXT:     i1 [[VP12:%.*]] = icmp slt i64 [[VP7]] i64 [[VP11]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:28
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i64 [[VP5]] = select i1 [[VP11]] i64 [[VP4]] i64 [[VP8]]
+; CHECKHIRVPE-NEXT:     i64 [[VP6]] = select i1 [[VP12]] i64 [[VP5]] i64 [[VP9]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:15
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i64 [[VP12:%.*]] = sext i32 [[VP_LOAD]] to i64
+; CHECKHIRVPE-NEXT:     i64 [[VP13:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:16
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i1 [[VP13:%.*]] = icmp slt i64 [[VP6]] i64 [[VP12]]
+; CHECKHIRVPE-NEXT:     i1 [[VP14:%.*]] = icmp slt i64 [[VP7]] i64 [[VP13]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:28
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i64 [[VP7]] = select i1 [[VP13]] i64 [[VP6]] i64 [[VP12]]
+; CHECKHIRVPE-NEXT:     i64 [[VP8]] = select i1 [[VP14]] i64 [[VP7]] i64 [[VP13]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:12:13
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i64 [[VP9]] = add i64 [[VP8]] i64 [[VP__IND_INIT_STEP]]
+; CHECKHIRVPE-NEXT:     i64 [[VP10]] = add i64 [[VP9]] i64 [[VP__IND_INIT_STEP]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:10:16
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i1 [[VP14:%.*]] = icmp sle i64 [[VP9]] i64 [[VP1]]
+; CHECKHIRVPE-NEXT:     i1 [[VP15:%.*]] = icmp slt i64 [[VP10]] i64 [[VP4]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:10:16
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     br i1 [[VP14]], [[BB2]], [[BB3:BB[0-9]+]]
+; CHECKHIRVPE-NEXT:     br i1 [[VP15]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:10:5
 ; CHECKHIRVPE:         [[BB3]]: # preds: [[BB2]]
-; CHECKHIRVPE-NEXT:     i64 [[VP__RED_FINAL:%.*]] = reduction-final{u_smin} i64 [[VP7]]
+; CHECKHIRVPE-NEXT:     i64 [[VP_MINMAX_RED_FINAL:%.*]] = reduction-final{u_smin} i64 [[VP8]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:12:13
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i64 [[VP__RED_FINAL_1:%.*]] = reduction-final{s_smax} i64 [[VP5]] i64 [[VP7]] i64 [[VP__RED_FINAL]]
+; CHECKHIRVPE-NEXT:     i64 [[VP_MONO_IDX_RED_FINAL:%.*]] = reduction-final{s_smax} i64 [[VP6]] i64 [[VP8]] i64 [[VP_MINMAX_RED_FINAL]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:15
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
@@ -175,9 +181,9 @@ define dso_local i32 @_Z6maxlocl(i64 %m) local_unnamed_addr #0 !dbg !14 {
 ; CHECKHIRVPE-NEXT:     br <External Block>
 ; CHECKHIRVPE-NEXT:      DbgLoc:
 ; CHECKHIRVPE:       External Uses:
-; CHECKHIRVPE-NEXT:  Id: 0   i64 [[VP__RED_FINAL_1]] -> [[VP15:%.*]] = {%tmp.026}
+; CHECKHIRVPE-NEXT:  Id: 0   i64 [[VP_MONO_IDX_RED_FINAL]] -> [[VP16:%.*]] = {%tmp.026}
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:  Id: 1   i64 [[VP__RED_FINAL]] -> [[VP16:%.*]] = {%b.025}
+; CHECKHIRVPE-NEXT:  Id: 1   i64 [[VP_MINMAX_RED_FINAL]] -> [[VP17:%.*]] = {%b.025}
 ;
 
 entry:

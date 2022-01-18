@@ -390,6 +390,8 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::PrivateFinalMasked:
+  case VPInstruction::PrivateFinalMaskedMem:
   case VPInstruction::PrivateFinalUncondMem:
   case VPInstruction::PrivateFinalUncond: {
     // The instruction is extract. It produces a scalar return value.
@@ -483,7 +485,8 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
 
   case VPInstruction::ScalarRemainder:
   case VPInstruction::ScalarPeel:
-  case VPInstruction::ScalarPeelRemainderHIR: {
+  case VPInstruction::ScalarPeelHIR:
+  case VPInstruction::ScalarRemainderHIR: {
     // Instruction itself is unconditionally always scalar.
     setSVAKindForInst(Inst, SVAKind::FirstScalar);
     // All operands are always scalar too.
@@ -491,8 +494,10 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
-  case VPInstruction::OrigLiveOut:
-  case VPInstruction::OrigLiveOutHIR: {
+  case VPInstruction::PeelOrigLiveOut:
+  case VPInstruction::RemOrigLiveOut:
+  case VPInstruction::PeelOrigLiveOutHIR:
+  case VPInstruction::RemOrigLiveOutHIR: {
     // Instruction itself is unconditionally always scalar.
     setSVAKindForInst(Inst, SVAKind::FirstScalar);
     // All operands are always scalar too.
@@ -884,11 +889,16 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::ActiveLaneExtract:
   case VPInstruction::ScalarRemainder:
   case VPInstruction::ScalarPeel:
-  case VPInstruction::ScalarPeelRemainderHIR:
-  case VPInstruction::OrigLiveOut:
-  case VPInstruction::OrigLiveOutHIR:
+  case VPInstruction::ScalarPeelHIR:
+  case VPInstruction::ScalarRemainderHIR:
+  case VPInstruction::PeelOrigLiveOut:
+  case VPInstruction::RemOrigLiveOut:
+  case VPInstruction::PeelOrigLiveOutHIR:
+  case VPInstruction::RemOrigLiveOutHIR:
   case VPInstruction::PushVF:
   case VPInstruction::PopVF:
+  case VPInstruction::PrivateFinalMasked:
+  case VPInstruction::PrivateFinalMaskedMem:
   case VPInstruction::PrivateFinalUncondMem:
   case VPInstruction::PrivateFinalUncond:
   case VPInstruction::PrivateFinalCondMem:
@@ -910,19 +920,21 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPlanScalVecAnalysis::print(raw_ostream &OS, const VPInstruction *VPI) {
+void VPlanScalVecAnalysisBase::print(raw_ostream &OS,
+                                     const VPInstruction *VPI) {
   OS << "[";
   printSVAKindForInst(OS, VPI);
   OS << "] ";
   VPI->print(OS);
 }
 
-void VPlanScalVecAnalysis::print(raw_ostream &OS, const VPBasicBlock *VPBB) {
+void VPlanScalVecAnalysisBase::print(raw_ostream &OS,
+                                     const VPBasicBlock *VPBB) {
   for (auto &VPI : *VPBB)
     print(OS, &VPI);
 }
 
-void VPlanScalVecAnalysis::print(raw_ostream &OS) {
+void VPlanScalVecAnalysisBase::print(raw_ostream &OS) {
   OS << "\nPrinting ScalVec analysis results for " << Plan->getName() << "\n";
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan->getEntryBlock());
   for (VPBasicBlock *VPBB : make_range(RPOT.begin(), RPOT.end())) {
@@ -986,5 +998,15 @@ void VPlanScalVecAnalysis::printSVAKindForOperand(raw_ostream &OS,
     OS << "L";
   if (OpBits.test(static_cast<unsigned>(SVAKind::Vector)))
     OS << "V";
+}
+
+void VPlanScalVecAnalysisScalar::printSVAKindForInst(
+  raw_ostream &OS, const VPInstruction *VPI) const {
+  OS << "(F  )";
+}
+
+void VPlanScalVecAnalysisScalar::printSVAKindForOperand(
+  raw_ostream &OS, const VPInstruction *VPI, unsigned OpIdx) const {
+  OS << "F";
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP

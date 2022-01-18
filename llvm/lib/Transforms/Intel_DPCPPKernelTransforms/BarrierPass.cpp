@@ -93,7 +93,7 @@ bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
   }
 
   // Find all functions that call synchronize instructions.
-  FuncSet &FunctionsWithSync = Utils.getAllFunctionsWithSynchronization();
+  FuncSet FunctionsWithSync = Utils.getAllFunctionsWithSynchronization();
 
   // Note: We can't early exit here, otherwise, optimizer will claim the
   // functions to be resolved in this pass are undefined.

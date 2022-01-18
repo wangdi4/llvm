@@ -22,7 +22,9 @@ define float @f1(float %p, i32 %q)
 ;
 ; X64_AVX512F-LABEL: f1:
 ; X64_AVX512F:       # %bb.0:
-; X64_AVX512F-NEXT:    jmp ldexpf@PLT # TAILCALL
+; X64_AVX512F-NEXT:    vcvtsi2ss %edi, %xmm1, %xmm1
+; X64_AVX512F-NEXT:    vscalefss %xmm1, %xmm0, %xmm0
+; X64_AVX512F-NEXT:    retq
 {
     %t = call float @llvm.ldexp.f32(float %p, i32 %q)
     ret float %t
@@ -150,39 +152,17 @@ define <4 x float> @f3(<4 x float> %p, i32 %q)
 ;
 ; X64_AVX512F-LABEL: f3:
 ; X64_AVX512F:       # %bb.0:
-; X64_AVX512F-NEXT:    pushq %rbx
-; X64_AVX512F-NEXT:    .cfi_def_cfa_offset 16
-; X64_AVX512F-NEXT:    subq $32, %rsp
-; X64_AVX512F-NEXT:    .cfi_def_cfa_offset 48
-; X64_AVX512F-NEXT:    .cfi_offset %rbx, -16
-; X64_AVX512F-NEXT:    movl %edi, %ebx
-; X64_AVX512F-NEXT:    vmovaps %xmm0, {{[-0-9]+}}(%r{{[sb]}}p) # 16-byte Spill
-; X64_AVX512F-NEXT:    callq ldexpf@PLT
-; X64_AVX512F-NEXT:    vmovaps %xmm0, (%rsp) # 16-byte Spill
-; X64_AVX512F-NEXT:    vmovshdup {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Folded Reload
-; X64_AVX512F-NEXT:    # xmm0 = mem[1,1,3,3]
-; X64_AVX512F-NEXT:    movl %ebx, %edi
-; X64_AVX512F-NEXT:    callq ldexpf@PLT
-; X64_AVX512F-NEXT:    vmovaps (%rsp), %xmm1 # 16-byte Reload
-; X64_AVX512F-NEXT:    vinsertps {{.*#+}} xmm0 = xmm1[0],xmm0[0],xmm1[2,3]
-; X64_AVX512F-NEXT:    vmovaps %xmm0, (%rsp) # 16-byte Spill
-; X64_AVX512F-NEXT:    vpermilpd $1, {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Folded Reload
-; X64_AVX512F-NEXT:    # xmm0 = mem[1,0]
-; X64_AVX512F-NEXT:    movl %ebx, %edi
-; X64_AVX512F-NEXT:    callq ldexpf@PLT
-; X64_AVX512F-NEXT:    vmovaps (%rsp), %xmm1 # 16-byte Reload
-; X64_AVX512F-NEXT:    vinsertps {{.*#+}} xmm0 = xmm1[0,1],xmm0[0],xmm1[3]
-; X64_AVX512F-NEXT:    vmovaps %xmm0, (%rsp) # 16-byte Spill
-; X64_AVX512F-NEXT:    vpermilps $255, {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Folded Reload
-; X64_AVX512F-NEXT:    # xmm0 = mem[3,3,3,3]
-; X64_AVX512F-NEXT:    movl %ebx, %edi
-; X64_AVX512F-NEXT:    callq ldexpf@PLT
-; X64_AVX512F-NEXT:    vmovaps (%rsp), %xmm1 # 16-byte Reload
-; X64_AVX512F-NEXT:    vinsertps {{.*#+}} xmm0 = xmm1[0,1,2],xmm0[0]
-; X64_AVX512F-NEXT:    addq $32, %rsp
-; X64_AVX512F-NEXT:    .cfi_def_cfa_offset 16
-; X64_AVX512F-NEXT:    popq %rbx
-; X64_AVX512F-NEXT:    .cfi_def_cfa_offset 8
+; X64_AVX512F-NEXT:    vcvtsi2ss %edi, %xmm1, %xmm1
+; X64_AVX512F-NEXT:    vscalefss %xmm1, %xmm0, %xmm2
+; X64_AVX512F-NEXT:    vmovshdup {{.*#+}} xmm3 = xmm0[1,1,3,3]
+; X64_AVX512F-NEXT:    vscalefss %xmm1, %xmm3, %xmm3
+; X64_AVX512F-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0],xmm3[0],xmm2[2,3]
+; X64_AVX512F-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm0[1,0]
+; X64_AVX512F-NEXT:    vscalefss %xmm1, %xmm3, %xmm3
+; X64_AVX512F-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1],xmm3[0],xmm2[3]
+; X64_AVX512F-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[3,3,3,3]
+; X64_AVX512F-NEXT:    vscalefss %xmm1, %xmm0, %xmm0
+; X64_AVX512F-NEXT:    vinsertps {{.*#+}} xmm0 = xmm2[0,1,2],xmm0[0]
 ; X64_AVX512F-NEXT:    retq
 {
     %t = call <4 x float> @llvm.ldexp.v4f32(<4 x float> %p, i32 %q)

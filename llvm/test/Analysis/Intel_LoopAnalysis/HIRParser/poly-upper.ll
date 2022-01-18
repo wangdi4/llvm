@@ -1,4 +1,6 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+
 
 ; Check parsing output for the loop verifying that the polynomial upper of inenr loop is parsed correctly.
 
@@ -9,7 +11,7 @@
 ; CHECK: |   |   (%A)[i2] = i2;
 ; CHECK: |   + END LOOP
 ; CHECK: |
-; CHECK: |   %indvars.iv.next24 = %indvars.iv23  +  i1 + 1;
+; CHECK: |   %indvars.iv.next24 = %add  +  i1 + 1;
 ; CHECK: |   %indvars.iv23 = %indvars.iv.next24;
 ; CHECK: |   %k.020 = %add;
 ; CHECK: + END LOOP

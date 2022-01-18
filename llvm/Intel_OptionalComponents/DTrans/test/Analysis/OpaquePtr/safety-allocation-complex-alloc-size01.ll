@@ -23,6 +23,7 @@ define void @test01caller() {
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Global pointer | Complex alloc size{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; This case is not supported because the multiplication is not a multiple of
@@ -44,6 +45,7 @@ define void @test02caller() {
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Bad alloc size | Global pointer{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @malloc(i64)

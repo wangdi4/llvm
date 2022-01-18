@@ -116,6 +116,13 @@ static cl::opt<bool>
                          cl::desc("Disable emission .debug_ranges section."),
                          cl::init(false));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> DisableIntelExtensions(
+    "disable-intel-dwarf-vendor-extensions", cl::Hidden,
+    cl::desc("Disable the emission of DW_AT_intel_comp_flags attribute"),
+    cl::init(false));
+#endif
+
 static cl::opt<DefaultOnOff> DwarfSectionsAsReferences(
     "dwarf-sections-as-references", cl::Hidden,
     cl::desc("Use sections+offset as references rather than labels."),
@@ -480,7 +487,7 @@ static bool hasObjCCategory(StringRef Name) {
   if (!isObjCClass(Name))
     return false;
 
-  return Name.find(") ") != StringRef::npos;
+  return Name.contains(") ");
 }
 
 static void getObjCClassCategory(StringRef In, StringRef &Class,
@@ -1011,12 +1018,25 @@ void DwarfDebug::finishUnitAttributes(const DICompileUnit *DIUnit,
 
   StringRef Producer = DIUnit->getProducer();
   StringRef Flags = DIUnit->getFlags();
-  if (!Flags.empty() && !useAppleExtensionAttributes()) {
-    std::string ProducerWithFlags = Producer.str() + " " + Flags.str();
+#if INTEL_CUSTOMIZATION
+  StringRef IntelFlags; 
+  StringRef ProducerFlags; 
+  if (Flags.consume_front_insensitive("ProducerFlags_")) { 
+    int Producerlen = 0; 
+    Flags.consumeInteger(0, Producerlen); 
+    ProducerFlags = Flags.take_front(Producerlen); 
+    IntelFlags = Flags.substr(Producerlen); 
+  }
+  if (!ProducerFlags.empty() && !useAppleExtensionAttributes()) {
+    std::string ProducerWithFlags = Producer.str() + " " + ProducerFlags.str();
     NewCU.addString(Die, dwarf::DW_AT_producer, ProducerWithFlags);
   } else
     NewCU.addString(Die, dwarf::DW_AT_producer, Producer);
-
+  if (!IntelFlags.empty() && !DisableIntelExtensions) 
+    NewCU.addString(Die, dwarf::DW_AT_INTEL_comp_flags, IntelFlags);
+   else if (!Flags.empty() && !DisableIntelExtensions) 
+    NewCU.addString(Die, dwarf::DW_AT_INTEL_comp_flags, Flags);
+#endif
   NewCU.addUInt(Die, dwarf::DW_AT_language, dwarf::DW_FORM_data2,
                 DIUnit->getSourceLanguage());
   NewCU.addString(Die, dwarf::DW_AT_name, FN);
@@ -1045,9 +1065,10 @@ void DwarfDebug::finishUnitAttributes(const DICompileUnit *DIUnit,
     if (DIUnit->isOptimized())
       NewCU.addFlag(Die, dwarf::DW_AT_APPLE_optimized);
 
-    StringRef Flags = DIUnit->getFlags();
-    if (!Flags.empty())
-      NewCU.addString(Die, dwarf::DW_AT_APPLE_flags, Flags);
+#if INTEL_CUSTOMIZATION
+    if (!ProducerFlags.empty())
+      NewCU.addString(Die, dwarf::DW_AT_APPLE_flags, ProducerFlags);
+#endif
 
     if (unsigned RVer = DIUnit->getRuntimeVersion())
       NewCU.addUInt(Die, dwarf::DW_AT_APPLE_major_runtime_vers,
@@ -1100,11 +1121,6 @@ DwarfDebug::getOrCreateDwarfCompileUnit(const DICompileUnit *DIUnit) {
     finishUnitAttributes(DIUnit, NewCU);
     NewCU.setSection(Asm->getObjFileLowering().getDwarfInfoSection());
   }
-
-  // Create DIEs for function declarations used for call site debug info.
-  for (auto Scope : DIUnit->getRetainedTypes())
-    if (auto *SP = dyn_cast_or_null<DISubprogram>(Scope))
-      NewCU.getOrCreateSubprogramDIE(SP);
 
   CUMap.insert({DIUnit, &NewCU});
   CUDieMap.insert({&NewCU.getUnitDie(), &NewCU});
@@ -1229,17 +1245,15 @@ void DwarfDebug::beginModule(Module *M) {
         CU.getOrCreateGlobalVariableDIE(GV, sortGlobalExprs(GVMap[GV]));
     }
 
-    for (auto *Ty : CUNode->getEnumTypes()) {
-      // The enum types array by design contains pointers to
-      // MDNodes rather than DIRefs. Unique them here.
+    for (auto *Ty : CUNode->getEnumTypes())
       CU.getOrCreateTypeDIE(cast<DIType>(Ty));
-    }
+
     for (auto *Ty : CUNode->getRetainedTypes()) {
       // The retained types array by design contains pointers to
       // MDNodes rather than DIRefs. Unique them here.
       if (DIType *RT = dyn_cast<DIType>(Ty))
-          // There is no point in force-emitting a forward declaration.
-          CU.getOrCreateTypeDIE(RT);
+        // There is no point in force-emitting a forward declaration.
+        CU.getOrCreateTypeDIE(RT);
     }
     // Emit imported_modules last so that the relevant context is already
     // available.
@@ -1412,6 +1426,10 @@ void DwarfDebug::finalizeModuleInfo() {
 
 // Emit all Dwarf sections that should come after the content.
 void DwarfDebug::endModule() {
+  // Terminate the pending line table.
+  if (PrevCU)
+    terminateLineTable(PrevCU);
+  PrevCU = nullptr;
   assert(CurFn == nullptr);
   assert(CurMI == nullptr);
 
@@ -2087,12 +2105,22 @@ void DwarfDebug::beginInstruction(const MachineInstr *MI) {
 static DebugLoc findPrologueEndLoc(const MachineFunction *MF) {
   // First known non-DBG_VALUE and non-frame setup location marks
   // the beginning of the function body.
-  for (const auto &MBB : *MF)
-    for (const auto &MI : MBB)
+  DebugLoc LineZeroLoc;
+  for (const auto &MBB : *MF) {
+    for (const auto &MI : MBB) {
       if (!MI.isMetaInstruction() && !MI.getFlag(MachineInstr::FrameSetup) &&
-          MI.getDebugLoc())
-        return MI.getDebugLoc();
-  return DebugLoc();
+          MI.getDebugLoc()) {
+        // Scan forward to try to find a non-zero line number. The prologue_end
+        // marks the first breakpoint in the function after the frame setup, and
+        // a compiler-generated line 0 location is not a meaningful breakpoint.
+        // If none is found, return the first location after the frame setup.
+        if (MI.getDebugLoc().getLine())
+          return MI.getDebugLoc();
+        LineZeroLoc = MI.getDebugLoc();
+      }
+    }
+  }
+  return LineZeroLoc;
 }
 
 /// Register a source line with debug info. Returns the  unique label that was
@@ -2167,10 +2195,22 @@ DwarfDebug::getDwarfCompileUnitIDForLineTable(const DwarfCompileUnit &CU) {
     return CU.getUniqueID();
 }
 
+void DwarfDebug::terminateLineTable(const DwarfCompileUnit *CU) {
+  const auto &CURanges = CU->getRanges();
+  auto &LineTable = Asm->OutStreamer->getContext().getMCDwarfLineTable(
+      getDwarfCompileUnitIDForLineTable(*CU));
+  // Add the last range label for the given CU.
+  LineTable.getMCLineSections().addEndEntry(
+      const_cast<MCSymbol *>(CURanges.back().End));
+}
+
 void DwarfDebug::skippedNonDebugFunction() {
   // If we don't have a subprogram for this function then there will be a hole
   // in the range information. Keep note of this by setting the previously used
   // section to nullptr.
+  // Terminate the pending line table.
+  if (PrevCU)
+    terminateLineTable(PrevCU);
   PrevCU = nullptr;
   CurFn = nullptr;
 }
@@ -2520,14 +2560,7 @@ void DwarfDebug::emitDebugLocEntry(ByteStreamer &Streamer,
       if (Op.getDescription().Op[I] == Encoding::SizeNA)
         continue;
       if (Op.getDescription().Op[I] == Encoding::BaseTypeRef) {
-        uint64_t Offset =
-            CU->ExprRefedBaseTypes[Op.getRawOperand(I)].Die->getOffset();
-        assert(Offset < (1ULL << (ULEB128PadSize * 7)) && "Offset wont fit");
-        Streamer.emitULEB128(Offset, "", ULEB128PadSize);
-        // Make sure comments stay aligned.
-        for (unsigned J = 0; J < ULEB128PadSize; ++J)
-          if (Comment != End)
-            Comment++;
+        Streamer.emitDIERef(*CU->ExprRefedBaseTypes[Op.getRawOperand(I)].Die);
       } else {
         for (uint64_t J = Offset; J < Op.getOperandEndOffset(I); ++J)
           Streamer.emitInt8(Data.getData()[J], Comment != End ? *(Comment++) : "");

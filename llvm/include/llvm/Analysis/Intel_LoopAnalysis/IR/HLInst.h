@@ -165,7 +165,7 @@ public:
   /// calls.
   unsigned getNumNonBundleOperands() const {
     auto Call = getCallInst();
-    return Call ? (Call->getNumArgOperands() + hasLval()) : getNumOperands();
+    return Call ? (Call->arg_size() + hasLval()) : getNumOperands();
   }
 
   /// Returns the number of operands in the bundle \p BundleNum which is in
@@ -350,6 +350,9 @@ public:
   /// Checks whether the instruction is a call to a omp simd directive.
   bool isSIMDDirective() const { return isDirective(DIR_OMP_SIMD); }
 
+  /// Checks whether the instruction is a call to a omp simd directive.
+  bool isSIMDEndDirective() const { return isDirective(DIR_OMP_END_SIMD); }
+
   /// Checks whether the instruction is a call to an auto vectorization
   /// directive.
   bool isAutoVecDirective() const;
@@ -386,7 +389,9 @@ public:
   /// Return true if OpCode is a valid reduction opcode.
   static bool isValidReductionOpCode(unsigned OpCode);
 
-  /// Return true if the instruction was sinked.
+  /// The flag is set by SinkingForPerfectLoopnest pass on instructions sinked
+  /// inside innermost loop to form perfect loopnest for interchange and blocking.
+  /// It is reset by UndoSinking pass later and it is used by DDTest.
   bool isSinked() const { return IsSinked; }
 
   void setIsSinked(bool Flag) { IsSinked = Flag; }

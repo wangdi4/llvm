@@ -1,6 +1,9 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-recognize-par-loop -print-before=hir-recognize-par-loop -print-after=hir-recognize-par-loop -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-recognize-par-loop,print<hir>" -S < %s 2>&1 | FileCheck %s
 
+; RUN: opt < %s -opaque-pointers -hir-ssa-deconstruction -hir-recognize-par-loop -print-before=hir-recognize-par-loop -print-after=hir-recognize-par-loop -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,print<hir>,hir-recognize-par-loop,print<hir>" -S < %s 2>&1 | FileCheck %s
+
 ; The test checks if
 ;   '%1 = @llvm.directive.region.entry()' / '@llvm.directive.region.exit(%1)'
 ; pair of intrinsics originating from OpenMP's 'parallel for' is recognized and
@@ -10,7 +13,7 @@
 ; --- Host compilation:
 ; clang -cc1 -triple x86_64-unknown-linux-gnu -emit-llvm-bc \
 ;   -fintel-compatibility -fopenmp -fopenmp-targets=x86_64 -target-cpu x86-64 \
-;   -O2 -fno-intel-openmp-offload -mllvm -paropt=31 -fintel-openmp-region \
+;   -O2 -fno-intel-openmp-offload -mllvm -paropt=31 -fopenmp-late-outline \
 ;   -o src.bc src.cpp
 ; INTEL_FEATURE_CSA
 ; --- Device compilation:
@@ -18,7 +21,7 @@
 ;   -fopenmp-targets=x86_64 -fopenmp-is-device \
 ;   -fopenmp-host-ir-file-path src.bc -O2 -fno-intel-openmp-offload \
 ;   -mllvm -paropt=31 -mllvm -disable-hir-vec-dir-insert \
-;   -mllvm -disable-hir-general-unroll -fintel-openmp-region \
+;   -mllvm -disable-hir-general-unroll -fopenmp-late-outline \
 ;   -mllvm -hir-recognize-par-loop src.cpp
 ; end INTEL_FEATURE_CSA
 ;
@@ -44,9 +47,9 @@
 ; CHECK:         %4 = (%ip.addr)[0];
 
 ; CHECK:         + DO i1 = 0, -1 * sext.i32.i64(%2) + smax(sext.i32.i64(%2), %6), 1   <DO_LOOP>
-; CHECK:         |   @llvm.lifetime.start.p0i8(4,  &((i8*)(%i)[0]));
+; CHECK:         |   @llvm.lifetime.start.p0{{.*}}(4,  &({{.*}}(%i)[0]));
 ; CHECK:         |   (%4)[i1 + sext.i32.i64(%2)] = i1 + sext.i32.i64(%2);
-; CHECK:         |   @llvm.lifetime.end.p0i8(4,  &((i8*)(%i)[0]));
+; CHECK:         |   @llvm.lifetime.end.p0{{.*}}(4,  &({{.*}}(%i)[0]));
 ; CHECK:         + END LOOP
 ; CHECK:       }
 ; CHECK:      @llvm.directive.region.exit(%1); [ DIR.OMP.END.PARALLEL.LOOP() ]
@@ -62,9 +65,9 @@
 ; CHECK:         %4 = (%ip.addr)[0];
 
 ; CHECK:         + DO i1 = 0, -1 * sext.i32.i64(%2) + smax(sext.i32.i64(%2), %6), 1   <DO_LOOP> <parallel>
-; CHECK:         |   @llvm.lifetime.start.p0i8(4,  &((i8*)(%i)[0]));
+; CHECK:         |   @llvm.lifetime.start.p0{{.*}}(4,  &({{.*}}(%i)[0]));
 ; CHECK:         |   (%4)[i1 + sext.i32.i64(%2)] = i1 + sext.i32.i64(%2);
-; CHECK:         |   @llvm.lifetime.end.p0i8(4,  &((i8*)(%i)[0]));
+; CHECK:         |   @llvm.lifetime.end.p0{{.*}}(4,  &({{.*}}(%i)[0]));
 ; CHECK:         + END LOOP
 ; CHECK:       }
 ; CHECK: END REGION
@@ -86,13 +89,13 @@ DIR.OMP.PARALLEL.LOOP.112:                        ; preds = %entry
   call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %0) #2
   store i32 0, i32* %.omp.lb, align 4, !tbaa !7
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.NUM_THREADS"(i32 3), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.SHARED"(i32** %ip.addr) ]
-  %2 = load i32, i32* %.omp.lb, align 4, !tbaa !7, !alias.scope !9, !noalias !11
+  %2 = load i32, i32* %.omp.lb, align 4, !tbaa !7, !alias.scope !909, !noalias !911
   %cmp413 = icmp slt i32 %2, %n.addr.sroa.0.0.extract.trunc
   br i1 %cmp413, label %omp.inner.for.body.preheader, label %omp.loop.exit
 
 omp.inner.for.body.preheader:                     ; preds = %DIR.OMP.PARALLEL.LOOP.112
   %3 = bitcast i32* %i to i8*
-  %4 = load i32*, i32** %ip.addr, align 8, !tbaa !3, !alias.scope !12, !noalias !11
+  %4 = load i32*, i32** %ip.addr, align 8, !tbaa !3, !alias.scope !912, !noalias !911
   %5 = sext i32 %2 to i64
   %sub2 = shl i64 %n, 32
   %sext = add i64 %sub2, -4294967296
@@ -145,8 +148,11 @@ attributes #2 = { nounwind }
 !6 = !{!"Simple C++ TBAA"}
 !7 = !{!8, !8, i64 0}
 !8 = !{!"int", !5, i64 0}
+!909 = !{!9}
 !9 = distinct !{!9, !10, !"OMPAliasScope"}
 !10 = distinct !{!10, !"OMPDomain"}
+!911 = !{!11}
 !11 = distinct !{!11, !10, !"OMPAliasScope"}
+!912 = !{!12}
 !12 = distinct !{!12, !10, !"OMPAliasScope"}
-!13 = !{!12, !10, !"OMPAliasScope", !11, !9}
+!13 = !{!12, !11}

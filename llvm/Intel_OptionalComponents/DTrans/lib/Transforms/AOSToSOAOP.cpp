@@ -821,7 +821,7 @@ void AOSCollector::visitCallBase(CallBase &I) {
 
   // Check for 'null' pointer values being passed. These need to be updated to
   // allow them to be converted to an integer index value.
-  unsigned NumOps = I.getNumArgOperands();
+  unsigned NumOps = I.arg_size();
   for (unsigned ArgNum = 0; ArgNum < NumOps; ++ArgNum)
     checkForConstantToConvert(&I, ArgNum);
 }
@@ -1836,8 +1836,8 @@ void AOSToSOAOPTransformImpl::initializeIndexType(LLVMContext &Ctx,
   IndexInfo.Width = BitWidth;
   IndexInfo.LLVMType = Type::getIntNTy(Ctx, BitWidth);
   IndexInfo.DTType = TM.getOrCreateAtomicType(IndexInfo.LLVMType);
-  IndexInfo.IncompatibleTypeAttrs =
-      AttributeFuncs::typeIncompatible(IndexInfo.LLVMType);
+  IndexInfo.IncompatibleTypeAttrs.merge(
+      AttributeFuncs::typeIncompatible(IndexInfo.LLVMType));
 }
 
 // Return an integer type that will be used as a replacement type for pointers

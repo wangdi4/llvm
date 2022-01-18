@@ -124,30 +124,22 @@ static void propagateConstant(HLLoop *Loop, unsigned TempIndex,
 }
 
 // Cost model: handle loop if the new TC will be within [8, 32] range.
-static bool isProfitable(const CanonExpr *UpperBound, int64_t Constant) {
-  unsigned SrcWidth = UpperBound->getSrcType()->getPrimitiveSizeInBits();
-  unsigned DstWidth = UpperBound->getSrcType()->getPrimitiveSizeInBits();
+// New TC is calculated by replacing the UB blob of \p Blobindex with the
+// most likely \p Constant value based on the phi in the IR.
+static bool isProfitable(const CanonExpr *UpperBound, unsigned BlobIndex,
+ int64_t Constant) {
+  std::unique_ptr<CanonExpr> UBCEClone(UpperBound->clone());
 
-  APInt NewUpper(SrcWidth, Constant, true);
-  NewUpper += UpperBound->getConstant();
+  UBCEClone->replaceTempBlobByConstant(BlobIndex, Constant);
+  UBCEClone->simplify(true, true);
 
-  auto Denom = UpperBound->getDenominator();
-  if (Denom != 1) {
-    if (UpperBound->isSignedDiv()) {
-      NewUpper = NewUpper.sdiv(APInt(SrcWidth, Denom, true));
-    } else {
-      NewUpper = NewUpper.udiv(APInt(SrcWidth, Denom, true));
-    }
-  }
+  int64_t NewTC = 0;
+  bool IsConst = UBCEClone->isIntConstant(&NewTC);
+  assert(IsConst && "TC should result in Const Value");
+  (void) IsConst;
+  NewTC++; // normalize TC
 
-  if (UpperBound->isSExt()) {
-    NewUpper = NewUpper.sextOrTrunc(DstWidth);
-  } else {
-    NewUpper = NewUpper.zextOrTrunc(DstWidth);
-  }
-
-  int64_t NewTCVal = NewUpper.getSExtValue() + 1;
-  return NewTCVal >= 8 && NewTCVal <= 32;
+  return NewTC >= 8 && NewTC <= 32;
 }
 
 void HIRMVForConstUB::transformLoop(HLLoop *Loop,
@@ -254,7 +246,7 @@ bool HIRMVForConstUB::analyzeAndTransformLoop(HLLoop *Loop) {
   unsigned BlobIndex = BlobRef->getBlobIndex();
 
   if (BU.getTempBlobMostProbableConstValue(BlobIndex, ConstValue) &&
-      isProfitable(CE, ConstValue)) {
+      isProfitable(CE, BlobIndex, ConstValue)) {
     transformLoop(Loop, BlobIndex, ConstValue);
     return true;
   }

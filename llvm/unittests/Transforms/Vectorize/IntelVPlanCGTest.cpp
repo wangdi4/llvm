@@ -89,8 +89,9 @@ TEST_F(VPlanVPCGTest, TestVPlanCGLoopCloning) {
     Loop *Lp = LI->getLoopFor(LoopHeader);
     BasicBlock *NewLoopPred = Lp->getLoopPreheader()->getSinglePredecessor();
     BasicBlock *NewLoopSucc = Lp->getLoopPreheader();
-    Loop *NewLoop = VPOCG->cloneScalarLoop(Lp, NewLoopPred, NewLoopSucc,
-                                           nullptr, Twine(".dup"));
+    Loop *NewLoop =
+        VPOCG->cloneScalarLoop(Lp, NewLoopPred, NewLoopSucc,
+                               (VPScalarRemainder *)nullptr, Twine(".dup"));
     EXPECT_EQ(F->getName(), "f");
 
     // Check that the old and the new loop have the same number of blocks.

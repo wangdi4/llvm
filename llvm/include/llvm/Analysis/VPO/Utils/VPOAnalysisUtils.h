@@ -474,7 +474,7 @@ public:
     static bool skipFunctionForOpenmp(Function &F);
 
     /// \return true if the program is compiled for SPIRV.
-    static bool isTargetSPIRV(Module *M);
+    static bool isTargetSPIRV(const Module *M);
 
     /// True for bind clauses
     static bool isBindClause(int ClauseID);

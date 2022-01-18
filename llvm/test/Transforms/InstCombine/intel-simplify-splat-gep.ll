@@ -6,7 +6,7 @@
 define dso_local <3 x float*> @GEP_Splat_0(%struct.VBVHNode* nocapture readonly %node, i64 %index) {
 ; CHECK-LABEL: @GEP_Splat_0(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[INDEX0:%.*]] = insertelement <3 x i64> undef, i64 [[INDEX:%.*]], i32 0
+; CHECK-NEXT:    [[INDEX0:%.*]] = insertelement <3 x i64> undef, i64 [[INDEX:%.*]], i64 0
 ; CHECK-NEXT:    [[INDEX2:%.*]] = shufflevector <3 x i64> [[INDEX0]], <3 x i64> poison, <3 x i32> zeroinitializer
 ; CHECK-NEXT:    [[RET:%.*]] = getelementptr inbounds [[STRUCT_VBVHNODE:%.*]], %struct.VBVHNode* [[NODE:%.*]], i64 0, i32 0, <3 x i64> [[INDEX2]]
 ; CHECK-NEXT:    ret <3 x float*> [[RET]]

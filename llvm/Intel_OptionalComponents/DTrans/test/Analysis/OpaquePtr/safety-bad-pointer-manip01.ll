@@ -17,8 +17,9 @@ define internal void @test01(i32 %x, i32 %y) {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Bad pointer manipulation | Local instance{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Byte-flattened GEP that does not align to the start of a field, and is not
@@ -33,8 +34,9 @@ define internal void @test02(i32 %x) {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Bad pointer manipulation | Local instance{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 !1 = !{i32 0, i32 0}  ; i32

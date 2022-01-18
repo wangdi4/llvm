@@ -25,14 +25,16 @@ define void @test01(i64 %arg)  {
   ret void
 }
 ; CHECK_ALWAYS-LABEL: DTRANS_StructInfo:
-; CHECK_ALWAYS: Name: struct.test01a
+; CHECK_ALWAYS: LLVMType: %struct.test01a
 ; CHECK_OOB_T: Safety data: Bad pointer manipulation | Global instance | Bad memfunc manipulation | Contains nested structure{{ *$}}
 ; CHECK_OOB_F: Safety data: Global instance | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK_ALWAYS-LABEL: DTRANS_StructInfo:
-; CHECK_ALWAYS: Name: struct.test01b
+; CHECK_ALWAYS: LLVMType: %struct.test01b
 ; CHECK_OOB_T: Safety data: Bad pointer manipulation | Global instance | Bad memfunc manipulation | Nested structure{{ *$}}
 ; CHECK_OOB_F: Safety data: Global instance | Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01b
 
 
 declare !intel.dtrans.func.type !7 void @llvm.memcpy.p0i8.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i64, i1)

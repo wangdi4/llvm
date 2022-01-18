@@ -164,10 +164,15 @@ bool expandComplexInstruction(IntrinsicInst *CI, const TargetLowering *TLI,
   } else {
     switch (Opcode) {
     case Intrinsic::intel_complex_fmul: {
-      // If the target has a complex_fmul expansion, use that instead of
-      // expanding.
-      if (TLI->hasComplexMultiply(FloatTy))
+      // If the target has a complex_fmul expansion and the fast-math flag
+      // set, use that instead of expanding.
+      if (TLI->CustomLowerComplexMultiply(ComplexVectorTy)) {
+        assert((CI->getFastMathFlags().noNaNs() ||
+                CI->getFastMathFlags().noInfs() ||
+                CI->hasFnAttr("complex-limited-range")) &&
+               " This intrinsics can not be expanded");
         return false;
+      }
 
       OutReal = Builder.CreateFSub(
           Builder.CreateFMul(LhsR, RhsR), Builder.CreateFMul(LhsI, RhsI));

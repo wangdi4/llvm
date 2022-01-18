@@ -37,6 +37,10 @@ class raw_ostream;
 
 // List of target independent CodeGen pass IDs.
 namespace llvm {
+
+  /// AtomicExpandPass - At IR level this pass replace atomic instructions with
+  /// __atomic_* library calls, or target specific instruction which implement the
+  /// same semantics in a way which better fits the target backend.
   FunctionPass *createAtomicExpandPass();
 
   /// createUnreachableBlockEliminationPass - The LLVM code generator does not
@@ -219,6 +223,8 @@ namespace llvm {
 
   /// FoldLoadsToGatherID -- This pass fold loads to gather intrinsic.
   extern char &FoldLoadsToGatherID;
+
+  extern char &HeteroArchOptID;
 
 #endif  // INTEL_CUSTOMIZATION
 
@@ -531,6 +537,8 @@ namespace llvm {
   FunctionPass *createFloat128ExpandPass();
 
   FunctionPass *createFoldLoadsToGatherPass();
+
+  FunctionPass *createHeteroArchOptPass();
 #endif // INTEL_CUSTOMIZATION
 
   /// This pass inserts pseudo probe annotation for callsite profiling.

@@ -286,6 +286,12 @@ void Float128Expand::PostTransformFP128PHI() {
   return;
 }
 
+static bool isFPToILib(StringRef LibCallName) {
+  return LibCallName == "__qtoi" || LibCallName == "__qtou" ||
+         LibCallName == "__qtoj" || LibCallName == "__qtok" ||
+         LibCallName == "__qtom" || LibCallName == "__qton";
+}
+
 Value *Float128Expand::expandToLibCall(IRBuilder<> &Builder, Instruction *I,
                                        StringRef LibCallName, Type *RetTy,
                                        ArrayRef<Value *> Ops) {
@@ -388,6 +394,9 @@ Value *Float128Expand::expandToLibCall(IRBuilder<> &Builder, Instruction *I,
     } else {
       VOp0 = VNT.lookup(Ops[0]);
       Args.push_back(VOp0);
+      // Set the mode to MODE_TOWARDZERO
+      if (isFPToILib(LibCallName))
+        Args.push_back(ConstantInt::get(Type::getInt32Ty(Ctx), 0, true));
     }
   } else {
     // Otherwise just push the argument.

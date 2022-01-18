@@ -2388,18 +2388,18 @@ private:
   typedef std::pair<unsigned, Value *> AVTy;
   typedef std::vector<AVTy> AVVecTy;
   typedef std::pair<unsigned, Function *> AFTy;
-  typedef DenseMap<AFTy, AVVecTy> ACSFMapTy;
-  typedef DenseMap<unsigned, AVVecTy> CFAASTy;
-  typedef DenseMap<CallInst *, ACSFMapTy> CBMapTy;
+  typedef MapVector<AFTy, AVVecTy> ACSFMapTy;
+  typedef std::map<unsigned, AVVecTy> CFAASTy;
+  typedef MapVector<CallInst *, ACSFMapTy> CBMapTy;
   typedef std::vector<CBMapTy> CBVecTy;
-  typedef DenseMap<CallInst *, unsigned> CBIMapTy;
+  typedef MapVector<CallInst *, unsigned> CBIMapTy;
 
   // Local objects
   Function &F;     // Primary function being cloned
   CFAASTy CFAAS;   // Complete version of FunctionAllArgumentsSets
   CBVecTy CBVec;   // Vector of maps from primary clone arg sets to
                    //   arg sets of callback functions
-  SmallPtrSet<Function *, 2> CBCloneSet; // Callback functions eligible to
+  SmallSetVector<Function *, 2> CBCloneSet; // Callback functions eligible to
                                          // be cloned
 
   // Private functions
@@ -2424,7 +2424,7 @@ void CallbackCloner::createCompleteArgSets() {
     auto CFIt = CFAAS.find(Index);
     if (CFIt == CFAAS.end()) {
      std::vector<std::pair<unsigned, Value *>> ConstantArgs;
-     for (unsigned J = 0, JE = CI->getNumArgOperands(); J != JE; ++J)
+     for (unsigned J = 0, JE = CI->arg_size(); J != JE; ++J)
        if (auto C = dyn_cast<Constant>(CI->getArgOperand(J)))
          ConstantArgs.push_back(std::make_pair(J, C));
      auto &CArgs = CFAAS[Index];
@@ -2432,7 +2432,7 @@ void CallbackCloner::createCompleteArgSets() {
          std::back_inserter(CArgs));
    } else {
      auto &CArgs = CFIt->second;
-     for (unsigned J = 0, JE = CI->getNumArgOperands(); J != JE; ++J)
+     for (unsigned J = 0, JE = CI->arg_size(); J != JE; ++J)
        if (auto C = dyn_cast<Constant>(CI->getArgOperand(J)))
          for (unsigned K = 0, KE = CArgs.size(); K != KE; ++K)
            if (CArgs[K].first == J) {
@@ -2537,20 +2537,13 @@ void CallbackCloner::removeConflictsCBMap(CBMapTy &CBMap) {
   }
   if (!SawConflict)
     return;
-  for (auto I = CBMap.begin(), IE = CBMap.end(), II = I; I != IE; I = II) {
-    II = next(I, 1);
-    bool FoundOne = false;
+  for (auto I = CBMap.begin(), IE = CBMap.end(); I != IE; ++I) {
     ACSFMapTy &AMap = I->second;
-    for (auto J = AMap.begin(), JE = AMap.end(), JJ = J; J != JE; J = JJ) {
-       JJ = next(J, 1);
-       if (J->second.empty())
-         AMap.erase(J);
-       else
-         FoundOne = true;
-    }
-    if (!FoundOne)
-      CBMap.erase(I);
+    AMap.remove_if([&](std::pair<AFTy, AVVecTy> &MapEntry) {
+        return (MapEntry.second.empty()); });
   }
+  CBMap.remove_if([&](std::pair<CallInst *, ACSFMapTy> &MapEntry) {
+      return (MapEntry.second.empty()); });
 }
 
 //
@@ -2581,7 +2574,6 @@ void CallbackCloner::remapCBVec(unsigned Index, ValueToValueMapTy &VMap) {
     ACSFMapTy &ACSFMap = I->second;
     if (auto CBNew = dyn_cast<CallInst>(VMap[CB]))
       CBNewMap[CBNew] = ACSFMap;
-    CBMap.erase(I);
   }
   CBVec[Index] = CBNewMap;
 }
@@ -2626,7 +2618,7 @@ void CallbackCloner::createCBIMap(Function &F, CBIMapTy &CBIMap) {
 // Use the 'CBIMap' to create a clone of the callback function 'F'.
 //
 void CallbackCloner::cloneCallbackFunction(Function &F, CBIMapTy &CBIMap) {
-  DenseMap<unsigned, Function *> FCloneMap;
+  MapVector<unsigned, Function *> FCloneMap;
   for (auto I = CBIMap.begin(), IE = CBIMap.end(); I != IE; ++I) {
     CallInst *CB = I->first;
     unsigned Index = I->second;
@@ -2672,7 +2664,7 @@ void CallbackCloner::cloneCallbackFunction(Function &F, CBIMapTy &CBIMap) {
 void CallbackCloner::cloneCallbackFunctions() {
   for (auto I = CBCloneSet.begin(), E = CBCloneSet.end(); I != E; ++I) {
     Function *F = *I;
-    DenseMap<CallInst *, unsigned> CBIMap;
+    MapVector<CallInst *, unsigned> CBIMap;
     createCBIMap(*F, CBIMap);
     cloneCallbackFunction(*F, CBIMap);
   }
@@ -3317,7 +3309,7 @@ static bool isManyRecCallsCloneCandidate(Function &F, SmallArgumentSet &IfArgs,
       if (!CB)
         continue;
       unsigned Position = 0;
-      for (Value *V : CB->arg_operands()) {
+      for (Value *V : CB->args()) {
         auto CI = dyn_cast<ConstantInt>(V);
         if (CI)
           ConstArgs.insert(F.getArg(Position));
@@ -3994,7 +3986,7 @@ bool Splitter::canReloadPHI(PHINode *PHIN) {
         Function *F = CI->getCalledFunction();
         if (!F || F->isVarArg())
           return false;
-        for (unsigned I = 0, E = CI->getNumArgOperands(); I < E; ++I)
+        for (unsigned I = 0, E = CI->arg_size(); I < E; ++I)
           if (CI->getArgOperand(I) == Arg && CouldMod(F->getArg(I)))
             return false;
       }
@@ -4581,7 +4573,7 @@ void Splitter::markForInlining() {
                         << F1->getName() << "\n");
     }
     unsigned Count = 0;
-    for (unsigned I = 0, E = CB->getNumArgOperands(); I < E; ++I) {
+    for (unsigned I = 0, E = CB->arg_size(); I < E; ++I) {
       auto CI = dyn_cast<ConstantInt>(CB->getArgOperand(I));
       if (CI && CI->isOne())
         Count++;
@@ -5099,7 +5091,7 @@ static bool isManyLoopSpecializationCandidate(Function *F,
   //
   // Given 'CI' a call site which we would like to specialize on the Argument
   // with 'ArgNo', a field of which is accessed with 'GEPI' and 'LI', and
-  // 'TCNumber - 1' is the predicted field value, return a condition test
+  // 'TCNumber' is the predicted field value, return a condition test
   // which tests whether the field value is equal to the predicted value.
   //
   auto CondTest = [](CallInst *CI, int ArgNo, GetElementPtrInst *GEPI,
@@ -5115,7 +5107,7 @@ static bool isManyLoopSpecializationCandidate(Function *F,
     LoadInst *LINew = Builder.CreateLoad(LI->getType(), GEPINew, "");
     if (DIL)
       LINew->setDebugLoc(DIL);
-    auto CI2 = ConstantInt::get(LI->getType(), TCNumber - 1);
+    auto CI2 = ConstantInt::get(LI->getType(), TCNumber);
     Value *IC = Builder.CreateICmp(ICmpInst::ICMP_EQ, LINew, CI2, "");
     return IC;
   };
@@ -5153,7 +5145,7 @@ static bool isManyLoopSpecializationCandidate(Function *F,
     // Test some basic arguments. 'onlyReadsMemory' is the most important one,
     // since we need to test the argument value in the specialization test.
     const DataLayout &DL = F->getParent()->getDataLayout();
-    if (!Arg.hasNoCaptureAttr() || !Arg.getType()->isPointerTy()) {
+    if (!Arg.getType()->isPointerTy()) {
       LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
                         << "Arg missing required attributes\n");
       continue;
@@ -5209,49 +5201,89 @@ static bool isManyLoopSpecializationCandidate(Function *F,
                           << "GEPI does not feed a LoadInst\n");
         continue;
       }
+      // Create a vector of LoadInsts that load the potential trip count
+      SmallVector<LoadInst *, 4> LoadVec;
+      LoadVec.push_back(LI);
+      for (User *U00 : LI->users()) {
+        auto SI = dyn_cast<StoreInst>(U00);
+        if (SI && SI->getValueOperand() == LI) {
+          Value *V = SI->getPointerOperand();
+          for (User *U01 : V->users())
+            if (auto VLI = dyn_cast<LoadInst>(U01))
+              LoadVec.push_back(VLI);
+        }
+      }
+      // Look at the LoadInsts to find loops whose trip counts all can
+      // be predicted to be the same value.
       int LoadUseCount = -1;
-      for (User *U1 : LI->users()) {
-        LoadUseCount++;
-        // Right now, a SExtInst followed by an increment appears in the cases
-        // we care about. This code below could also be generalized if it were
-        // found to be useful to do so.
-        auto SX = dyn_cast<SExtInst>(U1);
-        if (!SX || !SX->hasOneUse()) {
+      unsigned TripCountCount = 0;
+      unsigned TCN = 0;
+      while (!LoadVec.empty()) {
+        LoadInst *LI = LoadVec.pop_back_val();
+        for (User *U1 : LI->users()) {
+          LoadUseCount++;
+          // Right now, a SExtInst or ZExtInst followed by an increment
+          // appears in the cases we care about. This code below could also
+          // be generalized if it were found to be useful to do so.
+          auto CsI = dyn_cast<CastInst>(U1);
+          if (!CsI || !CsI->hasOneUse()) {
+            LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                              << "ArgUse(" << ArgUseCount << "): "
+                              << "LoadUse(" << LoadUseCount << "): "
+                              << "Missing CastInst or more than "
+                              << "one use\n");
+            continue;
+          }
+          if (!isa<SExtInst>(CsI) && !isa<ZExtInst>(CsI)) {
+            LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                              << "ArgUse(" << ArgUseCount << "): "
+                              << "LoadUse(" << LoadUseCount << "): "
+                              << "Not SExtInst or ZExtInst\n");
+            continue;
+          }
+          Value *TCV = *CsI->user_begin();
+          if (!match(TCV, m_Add(m_Specific(CsI), m_One()))) {
+            LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                              << "ArgUse(" << ArgUseCount << "): "
+                              << "LoadUse(" << LoadUseCount << "): "
+                              << "Missing increment\n");
+            continue;
+          }
+          // Expect to see many loops in the function for which we find the
+          // same trip count based on this value.
+          unsigned LocalTripCountCount = 0;
+          unsigned TCNL = TripCount(TCV, &LocalTripCountCount);
+          if (TCNL == 0 || TCN != 0 && TCN != TCNL) {
+            LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                              << "ArgUse(" << ArgUseCount << "): "
+                              << "LoadUse(" << LoadUseCount << "): "
+                              << "Could not find matching trip count\n");
+            continue;
+          }
           LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
                             << "ArgUse(" << ArgUseCount << "): "
                             << "LoadUse(" << LoadUseCount << "): "
-                            << "Missing SExtInst or more than one use\n");
-          continue;
+                            << "Good partial result\n");
+          TripCountCount += LocalTripCountCount;
+          TCN = TCNL;
         }
-        Value *TCV = *SX->user_begin();
-        if (!match(TCV, m_Add(m_Specific(SX), m_One()))) {
-          LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
-                            << "ArgUse(" << ArgUseCount << "): "
-                            << "LoadUse(" << LoadUseCount << "): "
-                            << "Missing increment\n");
-          continue;
-        }
-        // Expect to see many loops in the function for which we find the
-        // same trip count based on this value.
-        unsigned TripCountCount = 0;
-        unsigned TCN = TripCount(TCV, &TripCountCount);
-        if (TCN == 0 || TripCountCount < IPSpeCloningMinLoops) {
-          LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
-                            << "ArgUse(" << ArgUseCount << "): "
-                            << "LoadUse(" << LoadUseCount << "): "
-                            << "Not enough loops\n");
-          continue;
-        }
-        // We found it! Generate the condition test.
-        *IC = CondTest(CI, ArgNo, GEPI, LI, TCN);
-        *LIOut = LI;
-        *TCNumber = TCN;
+      }
+      // Check that we have seen enough loops with this trip count.
+      if (TripCountCount < IPSpeCloningMinLoops) {
         LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
                           << "ArgUse(" << ArgUseCount << "): "
-                          << "LoadUse(" << LoadUseCount << "): "
-                          << "FOUND MLSC CANDIDATE\n");
-        return true;
+                          << "Not enough loops " << TripCountCount
+                          << " < " << IPSpeCloningMinLoops <<"\n");
+        continue;
       }
+      // We found it! Generate the condition test.
+      *IC = CondTest(CI, ArgNo, GEPI, LI, TCN);
+      *LIOut = LI;
+      *TCNumber = TCN;
+      LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                        << "ArgUse(" << ArgUseCount << "): "
+                        << "FOUND MLSC CANDIDATE\n");
+      return true;
     }
   }
   return false;
@@ -5259,7 +5291,7 @@ static bool isManyLoopSpecializationCandidate(Function *F,
 
 //
 // Clone 'F' and create a specialization test of the form:
-//   if (Arg->Field == TCNumber - 1)
+//   if (Arg->Field == TCNumber)
 //     foo(...);
 //   else
 //     foo.clone-index(...);
@@ -5301,7 +5333,7 @@ static void createManyLoopSpecializationClones(Function *F,
   // The original Function will be used for the specialized version. Replace
   // the tested expression by the predicted constant value and get rid of
   // the extraneous test in the original Function.
-  auto CINew = ConstantInt::get(LI->getType(), TCNumber - 1);
+  auto CINew = ConstantInt::get(LI->getType(), TCNumber);
   LI->replaceAllUsesWith(CINew);
   auto GEPI = cast<GetElementPtrInst>(LI->getPointerOperand());
   LI->eraseFromParent();
@@ -5580,6 +5612,8 @@ IPCloningPass::IPCloningPass(bool AfterInl, bool EnableDTrans)
 
 PreservedAnalyses IPCloningPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
+  if (IPCloningAfterInl)
+    AfterInl = true;
   if (!runIPCloning(M, AfterInl, EnableDTrans, &WPInfo))
     return PreservedAnalyses::all();
 
