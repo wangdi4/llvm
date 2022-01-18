@@ -1,6 +1,6 @@
 //===-- DPCPPKernelCompilationUtils.cpp - Function definitions -*- C++ ----===//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -70,6 +70,7 @@ const StringRef NAME_BARRIER = "barrier";
 const StringRef NAME_WG_BARRIER = "work_group_barrier";
 const StringRef NAME_SG_BARRIER = "sub_group_barrier";
 const StringRef NAME_PREFETCH = "prefetch";
+const StringRef NAME_WAIT_GROUP_EVENTS = "wait_group_events";
 const StringRef SAMPLER = "sampler_t";
 
 // atomic fence functions
@@ -516,6 +517,10 @@ std::string getPipeName(PipeKind Kind) {
 bool isWorkItemPipeBuiltin(StringRef S) {
   auto Kind = getPipeKind(S);
   return Kind && Kind.Scope == PipeKind::ScopeKind::WorkItem;
+}
+
+bool isWaitGroupEvents(StringRef S) {
+  return isMangleOf(S, NAME_WAIT_GROUP_EVENTS);
 }
 
 bool isWorkGroupAsyncOrPipeBuiltin(StringRef S, const Module &M) {

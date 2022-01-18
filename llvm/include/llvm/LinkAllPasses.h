@@ -475,6 +475,7 @@ namespace {
       (void)llvm::createIndirectCallLoweringLegacyPass();
       (void)llvm::createCreateSimdVariantPropagationLegacyPass();
       (void)llvm::createLinearIdResolverPass();
+      (void)llvm::createWorkItemAnalysisLegacyPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

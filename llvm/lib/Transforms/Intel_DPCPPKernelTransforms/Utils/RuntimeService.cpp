@@ -1,6 +1,6 @@
 //===- RuntimeService.cpp - Runtime service ------------------------*- C++-===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -9,10 +9,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/RuntimeService.h"
+#include "NameMangleAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
 using namespace llvm;
 using namespace DPCPPKernelCompilationUtils;
+using namespace NameMangleAPI;
 
 Function *
 RuntimeService::findFunctionInBuiltinModules(StringRef FuncName) const {
@@ -22,6 +24,57 @@ RuntimeService::findFunctionInBuiltinModules(StringRef FuncName) const {
       return RetFunction;
   }
   return nullptr;
+}
+
+bool RuntimeService::hasNoSideEffect(StringRef FuncName) {
+  // Work item builtins and llvm intrinsics are not in runtime module so check
+  // them first.
+  if (isWorkItemBuiltin(FuncName))
+    return true;
+  if (isSafeLLVMIntrinsic(FuncName))
+    return true;
+
+  // FIXME remove volcano specific code in the following block.
+  {
+    if (FuncName.contains("fake.extract.element") ||
+        FuncName.contains("fake.insert.element"))
+      return true;
+    auto isRetByVectorBuiltin = [](StringRef Name) {
+      reflection::FunctionDescriptor FD = demangle(Name);
+      if (FD.isNull())
+        return false;
+      return FD.Name.find("__retbyvector_") != std::string::npos;
+    };
+    if (isRetByVectorBuiltin(FuncName))
+      return true;
+  }
+
+  // If it is not a built-in, don't know if it has side effect.
+  Function *FuncRT = findFunctionInBuiltinModules(FuncName);
+  if (!FuncRT)
+    return false;
+
+  // Special case builtins that access memory but has no side effects.
+  if (isSyncWithNoSideEffect(FuncName))
+    return true;
+  if (isImageDescBuiltin(FuncName))
+    return true;
+
+  // Respect horizontal builtin here, treat them as having a side effect.
+  // So far these are onl VPlan style masked functions.
+  if (needsVPlanStyleMask(FuncName))
+    return false;
+
+  // All builtins that don't access memory and don't throw have no side effects.
+  if (FuncRT->doesNotAccessMemory() && FuncRT->doesNotThrow())
+    return true;
+
+  // OpenCL 2.0 ndrange_1D/ndrange_2D/ndrange_3D builtins have a sret argument,
+  // so doesNotAccessMemory() returns false.
+  auto IsNdrange_ndBuiltin = [](StringRef S) {
+    return S.startswith("_Z10ndrange_");
+  };
+  return IsNdrange_ndBuiltin(FuncName);
 }
 
 std::tuple<bool, bool, unsigned>
@@ -53,4 +106,80 @@ RuntimeService::isTIDGenerator(const CallInst *CI) const {
 
   // This is indeed a TID generator.
   return {true, false, Dim};
+}
+
+bool RuntimeService::isImageDescBuiltin(StringRef FuncName) {
+  return StringSwitch<bool>(FuncName)
+      .Case("_Z16get_image_height", true)
+      .Case("_Z15get_image_width", true)
+      .Case("_Z15get_image_depth", true)
+      .Case("_Z27get_image_channel", true)
+      .Case("_Z13get_image_dim_", true)
+      .Default(false);
+}
+
+bool RuntimeService::isSafeLLVMIntrinsic(StringRef FuncName) {
+  return StringSwitch<bool>(FuncName)
+      .Case("llvm.var.annotation", true)
+      .Case("llvm.dbg.declare", true)
+      .Case("llvm.dbg.value", true)
+      .Case("llvm.dbg.label", true)
+      .Case("llvm.dbg.address", true)
+      .Case("llvm.assume", true)
+      .Default(false);
+}
+
+bool RuntimeService::isSyncWithNoSideEffect(StringRef FuncName) {
+  if (isWorkGroupBarrier(FuncName) || isSubGroupBarrier(FuncName))
+    return true;
+
+  if (isWaitGroupEvents(FuncName))
+    return true;
+
+  // builtin functions are always mangled.
+  if (!isMangledName(FuncName))
+    return false;
+
+  StringRef Stripped = stripName(FuncName);
+  return StringSwitch<bool>(Stripped)
+      .Case("mem_fence", true)
+      .Case("read_mem_fence", true)
+      .Case("write_mem_fence", true)
+      .Default(false);
+}
+
+bool RuntimeService::isWorkItemBuiltin(StringRef FuncName) {
+  return isGetGlobalId(FuncName) || isGetLocalId(FuncName) ||
+         isGetLocalSize(FuncName) || isGetGlobalSize(FuncName) ||
+         isGetGroupId(FuncName) || isGetWorkDim(FuncName) ||
+         isGlobalOffset(FuncName) || isGetNumGroups(FuncName) ||
+         FuncName == nameGetBaseGID() || isGetSubGroupId(FuncName) ||
+         isGetSubGroupLocalId(FuncName) || isGetSubGroupSize(FuncName) ||
+         isGetMaxSubGroupSize(FuncName) || isGetNumSubGroups(FuncName) ||
+         // The following is applicable for OpenCL 2.0 or more recent versions.
+         isGetEnqueuedLocalSize(FuncName) ||
+         isGetEnqueuedNumSubGroups(FuncName);
+}
+
+bool RuntimeService::needsVPlanStyleMask(StringRef FuncName) {
+  return FuncName.contains("intel_sub_group_ballot") ||
+         FuncName.contains("sub_group_all") ||
+         FuncName.contains("sub_group_any") ||
+         FuncName.contains("sub_group_broadcast") ||
+         FuncName.contains("sub_group_reduce_add") ||
+         FuncName.contains("sub_group_reduce_min") ||
+         FuncName.contains("sub_group_reduce_max") ||
+         FuncName.contains("sub_group_scan_exclusive_add") ||
+         FuncName.contains("sub_group_scan_exclusive_min") ||
+         FuncName.contains("sub_group_scan_exclusive_max") ||
+         FuncName.contains("sub_group_scan_inclusive_add") ||
+         FuncName.contains("sub_group_scan_inclusive_min") ||
+         FuncName.contains("sub_group_scan_inclusive_max") ||
+         FuncName.contains("intel_sub_group_shuffle_up") ||
+         FuncName.contains("intel_sub_group_shuffle_down") ||
+         FuncName.contains("intel_sub_group_shuffle_xor") ||
+         FuncName.contains("intel_sub_group_shuffle_xor") ||
+         FuncName.contains("intel_sub_group_shuffle") ||
+         FuncName.contains("intel_sub_group_block_read") ||
+         FuncName.contains("intel_sub_group_block_write");
 }
