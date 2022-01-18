@@ -2188,6 +2188,35 @@ private:
     const SmallVectorImpl<int> &getTrunks() const { return MultiNodeTEs; }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     void dump() const;
+    /// MultiNode data structures has two pieces. First, a list of TreeEntries
+    /// that could be used to draw the def-use subgraph before the reordering.
+    /// Second, so-called "MultiNode Leaves" which are some, but not necessarily
+    /// all, leaves in that def-use tree. In general, it seems impossible to
+    /// reproduce the whole def-use subgraph forming the multinode from leaves
+    /// only, e.g.
+    ///
+    ///   Leaf0 Leaf1 Leaf2 Leaf3
+    ///       \  /       \   /
+    ///     Frontier0   Frontier1
+    ///             \   /
+    ///             Root (not easily reachabe from leaves)
+    ///
+    /// A 100% accurate dump would have to use the TreeEntries to be produced,
+    /// but we don't have that (yet?). As such, this routine will produce
+    /// def-use subgraphs that
+    ///
+    ///   1) Contain all edges between MultiNode's Leaves/its Frontiers.
+    ///   2) Some other edges between SLP Tree's Trunks/their operands.
+    ///
+    /// that would be readable/useful "enough" when analyzing dumps.
+    ///
+    /// Edges' colors used in the "reordered" dump:
+    ///
+    ///   red  - reordered Leaf
+    ///   blue - not-reodered Leaf
+    ///   black - def-use edges that cannot be reordered
+    ///
+    /// There is no edges differentiation in the original def-use graph though.
     void dumpDot() const;
 #endif
   };
@@ -10469,26 +10498,21 @@ LLVM_DUMP_METHOD void BoUpSLP::MultiNode::dumpDot() const {
       V->printAsOperand(OS);
       OS << "." << NameSuffix << "\"";
     };
-    auto PrintEdge = [&](const Value *Src, const Instruction *Dst, int OpIdx) {
+    auto PrintEdge = [&](const Value *Src, const Instruction *Dst, int OpIdx,
+                         StringRef Color = "") {
       PrintNodeName(Src);
       OS << "->";
       PrintNodeName(Dst);
       OS << "[label= \"" << OpIdx << "\"";
-      if (Dst->getOperand(OpIdx) != Src)
-        OS << " color=red";
-
+      if (!Color.empty())
+        OS << " color=" << Color;
       OS << "];\n";
     };
-    auto PrintInvisEdge = [&](const Value *Src, const Value *Dst) {
-      PrintNodeName(Src);
-      OS << "->";
-      PrintNodeName(Dst);
-      OS << "[style=invisible arrowhead=none];\n";
-      OS << "{rank=same; ";
-      PrintNodeName(Src);
-      OS << "; ";
-      PrintNodeName(Dst);
-      OS << ";}\n";
+    // Print MultiNode's Leaf (which is essentially an edge in the use-def graph).
+    auto PrintLeafEdge = [&](const Value *Src, const Instruction *Dst,
+                             int OpIdx) {
+      PrintEdge(Src, Dst, OpIdx,
+                Dst->getOperand(OpIdx) == Src ? "blue" : "red");
     };
     auto CreateNode = [&](const Value *V) {
       if (!Nodes.insert(V).second)
@@ -10510,31 +10534,59 @@ LLVM_DUMP_METHOD void BoUpSLP::MultiNode::dumpDot() const {
       }
       OS << "\"];\n";
     };
-    OS << "subgraph cluster_" << Lane << "_orig {\n";
-    OS << "label=\"Lane #" << Lane << " Original\";\n";
-    SmallPtrSet<const Instruction *, 8> ProcessedFrontiers;
+
+    auto PrintBinOp = [&](const Instruction *I) {
+      assert(isa<BinaryOperator>(I) && "Only expected binary operators");
+      Value *Op0 = I->getOperand(0);
+      Value *Op1 = I->getOperand(1);
+      CreateNode(I);
+      CreateNode(Op0);
+      CreateNode(Op1);
+      PrintEdge(Op0, I, 0);
+      PrintEdge(Op1, I, 1);
+    };
+
+    // For
+    //
+    //     Leaf Non-Leaf
+    //       \  /
+    //      Frontier2  Non-Leaf
+    //          \    /
+    //          Trunk      Leaf
+    //             \       /
+    //              Frontier1
+    //
+    // Try to collect "Trunk" to print a single tree instead of the Frontiers'
+    // forest (we'd miss Trunk->Frontier2 edge otherwise).
+    SmallPtrSet<const Instruction *, 8> Frontiers;
+    SmallPtrSet<const Instruction *, 8> ExtraTrunksToPrint;
     for (int OpI = 0, OpI_e = getNumOperands(); OpI != OpI_e; ++OpI) {
       const OperandData *Op = getOperand(Lane, OpI);
       auto *Frontier = Op->getFrontier();
-      if (!ProcessedFrontiers.insert(Frontier).second)
-        // Already dumped when processing some other Leaf.
-        continue;
-      assert(Frontier->getNumOperands() == 2);
-      auto *Op0 = Frontier->getOperand(0);
-      auto *Op1 = Frontier->getOperand(1);
-      CreateNode(Frontier);
-      CreateNode(Op0);
-      CreateNode(Op1);
-      PrintEdge(Op0, Frontier, 0);
-      PrintEdge(Op1, Frontier, 1);
-      // Draw invisble edge between operands to ensure left-to-right layout.
-      PrintInvisEdge(Op0, Op1);
+      Frontiers.insert(Frontier);
     }
+    for (const Instruction *Frontier : Frontiers) {
+      for (const Value *Op : Frontier->operands()) {
+        auto *OpInst = dyn_cast<BinaryOperator>(Op);
+        if (OpInst && Frontiers.count(OpInst) == 0 &&
+            (is_contained(Frontiers, OpInst->getOperand(0)) ||
+             is_contained(Frontiers, OpInst->getOperand(1))))
+          ExtraTrunksToPrint.insert(OpInst);
+      }
+    }
+
+    OS << "subgraph cluster_" << Lane << "_orig {\n";
+    OS << "label=\"Lane #" << Lane << " Original\";\n";
+    for (auto *Frontier : Frontiers)
+      PrintBinOp(Frontier);
+    for (auto *Inst : ExtraTrunksToPrint)
+      PrintBinOp(Inst);
     OS << "}\n";
     OS << "subgraph cluster_" << Lane << "_reordered {\n";
     OS << "label=\"Lane #" << Lane << " Reordered\";\n";
     NameSuffix = "reordered";
     Nodes.clear();
+
     DenseMap<const Instruction *, std::pair<const Value *, const Value *>>
         DrawnOps;
     for (int OpI = 0, OpI_e = getNumOperands(); OpI != OpI_e; ++OpI) {
@@ -10543,15 +10595,14 @@ LLVM_DUMP_METHOD void BoUpSLP::MultiNode::dumpDot() const {
       auto *V = Op->getValue();
       CreateNode(Frontier);
       CreateNode(V);
-      PrintEdge(V, Frontier, Op->getOperandNum());
+      PrintLeafEdge(V, Frontier, Op->getOperandNum());
       if (Op->getOperandNum() == 0)
         DrawnOps[Frontier].first = V;
       else
         DrawnOps[Frontier].second = V;
     }
-    for (int OpI = 0, OpI_e = getNumOperands(); OpI != OpI_e; ++OpI) {
-      const OperandData *Op = getOperand(Lane, OpI);
-      auto *Frontier = Op->getFrontier();
+
+    for (auto *Frontier : Frontiers) {
       std::pair<const Value *, const Value *> &Drawn = DrawnOps[Frontier];
       if (!Drawn.first) {
         auto *V = Frontier->getOperand(0);
@@ -10565,14 +10616,13 @@ LLVM_DUMP_METHOD void BoUpSLP::MultiNode::dumpDot() const {
         CreateNode(V);
         PrintEdge(V, Frontier, 1);
       }
-
-      // Draw invisble edge between operands to ensure left-to-right layout.
-      // Technically we might draw it multiple times as the same frontier could
-      // be referenced from multiple leafs, but it's invisible anyway.
-      PrintInvisEdge(Drawn.first, Drawn.second);
     }
+
+    for (auto *Inst : ExtraTrunksToPrint)
+      PrintBinOp(Inst);
+
     OS << "}\n";
-  }
+    }
   OS << "}\n";
 }
 
