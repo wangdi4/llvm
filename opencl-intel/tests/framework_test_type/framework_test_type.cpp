@@ -199,6 +199,13 @@ TEST(FrameworkTestType, Test_clGetKernelArgInfoTest)
     EXPECT_TRUE(clGetKernelArgInfoTest());
 }
 
+// Not supported on 32 bit OS.
+#if !defined(_WIN32) || defined(_WIN64)
+TEST(FrameworkTestType, Test_clGetKernelArgInfoWithoutArgMetadataTest) {
+    EXPECT_TRUE(clGetKernelArgInfoWithoutArgMetadataTest());
+}
+#endif
+
 TEST(FrameworkTestType, Test_clSetKernelArgInvalidArgSizeTest)
 {
     clSetKernelArgInvalidArgSizeTest();

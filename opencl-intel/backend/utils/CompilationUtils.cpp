@@ -430,29 +430,37 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     std::vector<cl_kernel_argument_info> ArgInfos;
 
-    llvm::MDNode *AddressQualifiers = F->getMetadata("kernel_arg_addr_space");
-    llvm::MDNode *AccessQualifiers = F->getMetadata("kernel_arg_access_qual");
-    llvm::MDNode *TypeNames = F->getMetadata("kernel_arg_type");
-    llvm::MDNode *TypeQualifiers = F->getMetadata("kernel_arg_type_qual");
-    llvm::MDNode *ArgNames = F->getMetadata("kernel_arg_name");
-    llvm::MDNode *HostAccessible = F->getMetadata("kernel_arg_host_accessible");
-    llvm::MDNode *LocalMemSize = F->getMetadata("local_mem_size");
-    if (!AddressQualifiers || !AccessQualifiers || !TypeNames ||
-        !TypeQualifiers)
-      return ArgInfos;
+    MDNode *AddressQualifiers = F->getMetadata("kernel_arg_addr_space");
+    MDNode *AccessQualifiers = F->getMetadata("kernel_arg_access_qual");
+    MDNode *TypeNames = F->getMetadata("kernel_arg_type");
+    MDNode *TypeQualifiers = F->getMetadata("kernel_arg_type_qual");
+    MDNode *ArgNames = F->getMetadata("kernel_arg_name");
+    MDNode *HostAccessible = F->getMetadata("kernel_arg_host_accessible");
+    MDNode *LocalMemSize = F->getMetadata("local_mem_size");
 
-    for (unsigned int i = 0; i < AddressQualifiers->getNumOperands(); ++i) {
+    unsigned KernelArgCount = F->arg_size();
+    for (unsigned int I = 0; I < KernelArgCount; ++I) {
+      Argument *Arg = F->getArg(I);
       cl_kernel_argument_info ArgInfo;
       memset(&ArgInfo, 0, sizeof(ArgInfo));
 
       // Address qualifier
-      llvm::ConstantInt *AddressQualifier =
-          llvm::mdconst::dyn_extract<llvm::ConstantInt>(
-              AddressQualifiers->getOperand(i));
-      assert(AddressQualifier &&
-             "AddressQualifier is not a valid ConstantInt*");
-
-      uint64_t AddrQ = AddressQualifier->getZExtValue();
+      unsigned AddrQ = 0;
+      if (AddressQualifiers) {
+        assert(AddressQualifiers->getNumOperands() == KernelArgCount &&
+               "If kernel has 'kernel_arg_addr_space' metadata, its operand "
+               "count must match with kernel arg count!");
+        ConstantInt *AddressQualifier =
+            mdconst::dyn_extract<ConstantInt>(AddressQualifiers->getOperand(I));
+        assert(AddressQualifier &&
+               "AddressQualifier is not a valid ConstantInt*");
+        AddrQ = AddressQualifier->getZExtValue();
+      } else {
+        // kernel_arg_addr_space might not exist for a SYCL kernel.
+        // Decode from the kernel argument itself.
+        if (auto *PTy = dyn_cast<PointerType>(Arg->getType()))
+          AddrQ = PTy->getAddressSpace();
+      }
       switch (AddrQ) {
       case 0:
         ArgInfo.addressQualifier = CL_KERNEL_ARG_ADDRESS_PRIVATE;
@@ -471,62 +479,81 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             std::to_string(AddrQ);
         break;
       }
-      // Access qualifier
-      llvm::MDString *AccessQualifier =
-          llvm::cast<llvm::MDString>(AccessQualifiers->getOperand(i));
 
+      // Access qualifier
+      // kernel_arg_access_qual might not exist for a SYCL kernel, leave it as
+      // "none" by default.
+      StringRef AccessQ = "none";
+      if (AccessQualifiers) {
+        assert(AccessQualifiers->getNumOperands() == KernelArgCount &&
+               "If kernel has 'kernel_arg_access_qual' metadata, its operand "
+               "count must match with kernel arg count!");
+        AccessQ = cast<MDString>(AccessQualifiers->getOperand(I))->getString();
+      }
       ArgInfo.accessQualifier =
-          llvm::StringSwitch<cl_kernel_arg_access_qualifier>(
-              AccessQualifier->getString())
+          StringSwitch<cl_kernel_arg_access_qualifier>(AccessQ)
               .Case("read_only", CL_KERNEL_ARG_ACCESS_READ_ONLY)
               .Case("write_only", CL_KERNEL_ARG_ACCESS_WRITE_ONLY)
               .Case("read_write", CL_KERNEL_ARG_ACCESS_READ_WRITE)
               .Default(CL_KERNEL_ARG_ACCESS_NONE);
 
       // Type qualifier
-      llvm::MDString *pTypeQualifier =
-          llvm::cast<llvm::MDString>(TypeQualifiers->getOperand(i));
+      // kernel_arg_type_qual might not exist for a SYCL kernel, leave it as ""
+      // by default.
+      StringRef TypeQ = "";
+      if (TypeQualifiers) {
+        assert(TypeQualifiers->getNumOperands() == KernelArgCount &&
+               "If kernel has 'kernel_arg_type_qual' metadata, its operand "
+               "count must match with kernel arg count!");
+        TypeQ = cast<MDString>(TypeQualifiers->getOperand(I))->getString();
+      }
       ArgInfo.typeQualifier = 0;
-      llvm::StringRef typeQualStr = pTypeQualifier->getString();
-      if (typeQualStr.find("const") != llvm::StringRef::npos)
+      if (TypeQ.contains("const"))
         ArgInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_CONST;
-      if (typeQualStr.find("restrict") != llvm::StringRef::npos)
+      if (TypeQ.contains("restrict"))
         ArgInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_RESTRICT;
-      if (typeQualStr.find("volatile") != llvm::StringRef::npos)
+      if (TypeQ.contains("volatile"))
         ArgInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_VOLATILE;
-      if (typeQualStr.find("pipe") != llvm::StringRef::npos)
+      if (TypeQ.contains("pipe"))
         ArgInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_PIPE;
 
       // Type name
-      llvm::MDString *pTypeName =
-          llvm::cast<llvm::MDString>(TypeNames->getOperand(i));
-      ArgInfo.typeName = STRDUP(pTypeName->getString().str().c_str());
+      std::string TypeName = "";
+      if (TypeNames) {
+        assert(TypeNames->getNumOperands() == KernelArgCount &&
+               "If kernel has 'kernel_arg_type' metadata, its operand count "
+               "must match with kernel arg count!");
+        TypeName = cast<MDString>(TypeNames->getOperand(I))->getString().str();
+      } else {
+        // kernel_arg_type might not exist for a SYCL kernel.
+        // Decode from the kernel argument itself.
+        raw_string_ostream OS(TypeName);
+        Arg->getType()->print(OS, /*IsForDebug*/ false, /*NoDetails*/ true);
+        OS.flush();
+      }
+      ArgInfo.typeName = STRDUP(TypeName.c_str());
 
       if (ArgNames) {
         // Parameter name
-        llvm::MDString *pArgName =
-            llvm::cast<llvm::MDString>(ArgNames->getOperand(i));
-
-        ArgInfo.name = STRDUP(pArgName->getString().str().c_str());
+        MDString *ArgName = cast<MDString>(ArgNames->getOperand(I));
+        ArgInfo.name = STRDUP(ArgName->getString().str().c_str());
       }
 
       if (HostAccessible) {
         auto *HostAccessibleFlag =
-            llvm::cast<llvm::ConstantAsMetadata>(HostAccessible->getOperand(i));
+            cast<ConstantAsMetadata>(HostAccessible->getOperand(I));
 
         ArgInfo.hostAccessible =
             HostAccessibleFlag &&
-            llvm::cast<llvm::ConstantInt>(HostAccessibleFlag->getValue())
-                ->isOne();
+            cast<ConstantInt>(HostAccessibleFlag->getValue())->isOne();
       }
 
       if (LocalMemSize) {
         auto *LocalMemSizeFlag =
-            llvm::cast<llvm::ConstantAsMetadata>(LocalMemSize->getOperand(i));
+            cast<ConstantAsMetadata>(LocalMemSize->getOperand(I));
 
         ArgInfo.localMemSize =
-            llvm::cast<llvm::ConstantInt>(LocalMemSizeFlag->getValue())
-                ->getZExtValue();
+            cast<ConstantInt>(LocalMemSizeFlag->getValue())->getZExtValue();
       }
 
       ArgInfos.push_back(ArgInfo);
