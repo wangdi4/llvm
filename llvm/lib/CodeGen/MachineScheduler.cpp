@@ -143,6 +143,13 @@ static cl::opt<unsigned>
                          cl::desc("The threshold for fast cluster"),
                          cl::init(1000));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<unsigned>
+    MaxCriticalRPBlock("shrink-reg-pressure-limit", cl::Hidden,
+                         cl::desc("The max size of single BB loop which "
+                                   "need shrink reg pressure limit"),
+                         cl::init(100));
+#endif // INTEL_CUSTOMIZATION
 // DAG subtrees must have at least this many nodes.
 static const unsigned MinSubtreeSize = 8;
 
@@ -1011,13 +1018,21 @@ void ScheduleDAGMILive::enterRegion(MachineBasicBlock *bb,
 }
 
 #if INTEL_CUSTOMIZATION
+// This functoin was used for shrink Reg Pressure Limit to let this RegSet more
+// easily be consided as Critical Reg Pressure. But this will only lower the Reg
+// Pressure from the perspective of "probability". To let things be simple, here
+// we add MaxCriticalRPBlock to exclude complex/big loops. And We do have an
+// unexpected example "outside" the probability in JIRA CMPLRLLVM-34009.
+//
+// TODO: Current way of handling "Critical Reg Pressure" can not make sure the
+// final Reg Pressure lower than before. Because it just "choose" candidate in
+// a small "window", we need to totally change current logic if we want to
+// completely focus on lowering/reducing reg pressure.
 bool ScheduleDAGMILive::isHighRegPressLoop(MachineBasicBlock *MBB,
                                  unsigned MaxPressure, unsigned Limit) const {
   bool SelfLoop = MBB->isSuccessor(MBB);
 
-  // TODO: Currently we only handle small loop with single BB. Refine me by
-  // handling complex loop.
-  if (!SelfLoop)
+  if (!SelfLoop || MBB->size() > MaxCriticalRPBlock)
     return false;
 
   // If current Max Reg Pressure is very closed to Limited Reg Pressure we
