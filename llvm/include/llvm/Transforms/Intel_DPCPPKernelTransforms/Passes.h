@@ -14,6 +14,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddFunctionAttrs.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddImplicitArgs.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddNTAttr.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddTLSGlobals.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BarrierInFunctionPass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BarrierPass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinCallToInst.h"

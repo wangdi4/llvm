@@ -104,7 +104,7 @@ enum DeviceArch : uint64_t {
 /// Mapping from device arch to GPU runtime's device identifiers
 #ifdef _WIN32
 /// For now, we need to depend on known published product names
-std::map<uint64_t, std::vector<const char *>> DeviceArchMap {
+std::map<uint64_t, std::vector<const char *>> DeviceArchStrMap {
   {
     DeviceArch_Gen9, {
       "HD Graphics",
@@ -123,7 +123,7 @@ std::map<uint64_t, std::vector<const char *>> DeviceArchMap {
   // TODO: how to detect XeHP?
   // Using XeHP on Windows seems to be a rare case.
 };
-#else // !defined(_WIN32)
+#endif // _WIN32
 std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
   {
     DeviceArch_Gen9, {
@@ -152,7 +152,6 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
     }
   }
 };
-#endif // !defined(_WIN32)
 
 /// Interop support
 namespace OCLInterop {
@@ -1888,6 +1887,9 @@ void *RTLDeviceInfoTy::allocDataClMem(int32_t DeviceId, size_t Size) {
 }
 
 uint32_t RTLDeviceInfoTy::getPCIDeviceId(int32_t DeviceId) {
+  if (Extensions[DeviceId].DeviceAttributeQuery == ExtensionStatusEnabled)
+    return DeviceProperties[DeviceId].DeviceId;
+
   uint32_t Id = 0;
 #ifndef _WIN32
   // Linux: Device name contains "[0xABCD]" device identifier.
@@ -1905,14 +1907,6 @@ uint64_t RTLDeviceInfoTy::getDeviceArch(int32_t DeviceId) {
   if (Option.DeviceType == CL_DEVICE_TYPE_CPU)
     return DeviceArch_x86_64;
 
-  std::string DeviceName(Names[DeviceId].data());
-#ifdef _WIN32
-  // Windows: Device name contains published product name.
-  for (auto &Arch : DeviceArchMap)
-    for (auto Str : Arch.second)
-      if (DeviceName.find(Str) != std::string::npos)
-        return Arch.first;
-#else
   uint32_t PCIDeviceId = getPCIDeviceId(DeviceId);
   if (PCIDeviceId != 0) {
     for (auto &Arch : DeviceArchMap)
@@ -1920,6 +1914,14 @@ uint64_t RTLDeviceInfoTy::getDeviceArch(int32_t DeviceId) {
         if (PCIDeviceId == Id || (PCIDeviceId & 0xFF00) == Id)
           return Arch.first;  // Exact match or prefix match
   }
+
+  std::string DeviceName(Names[DeviceId].data());
+#ifdef _WIN32
+  // Windows: Device name contains published product name.
+  for (auto &Arch : DeviceArchStrMap)
+    for (auto Str : Arch.second)
+      if (DeviceName.find(Str) != std::string::npos)
+        return Arch.first;
 #endif
 
   DP("Warning: Cannot decide device arch for %s.\n", DeviceName.c_str());
@@ -2341,7 +2343,6 @@ int32_t __tgt_rtl_number_of_devices() {
             DeviceInfo->Names[i].data(), nullptr);
     if (rc != CL_SUCCESS)
       continue;
-    DeviceInfo->DeviceArchs[i] = DeviceInfo->getDeviceArch(i);
     DP("Device %d: %s\n", i, DeviceInfo->Names[i].data());
     CALL_CL_RET_ZERO(clGetDeviceInfo, deviceId, CL_DEVICE_MAX_COMPUTE_UNITS, 4,
                      &DeviceInfo->maxExecutionUnits[i], nullptr);
@@ -2427,6 +2428,8 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
         DeviceInfo->DeviceProperties[device_id].getDeviceProperties(deviceID))
       return OFFLOAD_FAIL;
   }
+
+  DeviceInfo->DeviceArchs[device_id] = DeviceInfo->getDeviceArch(device_id);
 
   OMPT_CALLBACK(ompt_callback_device_initialize, device_id,
                 DeviceInfo->Names[device_id].data(),
@@ -3956,9 +3959,14 @@ static void decideKernelGroupArguments(
   size_t numThreadsPerEU = 7;
   size_t numEUs = DeviceInfo->maxExecutionUnits[DeviceId];
   if (DeviceInfo->Option.DeviceType == CL_DEVICE_TYPE_GPU) {
-    // TODO: we need to find a way to compute the number of sub slices
-    //       and number of EUs per sub slice for the particular device.
-    if (numEUs >= 256) {
+    // Use cl_intel_device_attribute_query if available.
+    if (DeviceInfo->Extensions[DeviceId].DeviceAttributeQuery ==
+        ExtensionStatusEnabled) {
+      auto &P = DeviceInfo->DeviceProperties[DeviceId];
+      numEUsPerSubslice = P.NumEUsPerSubslice;
+      numThreadsPerEU = P.NumThreadsPerEU;
+      numSubslices = P.NumSlices * P.NumSubslicesPerSlice;
+    } else if (numEUs >= 256) {
       // Newer GPUs.
       numEUsPerSubslice = 16;
       numSubslices = numEUs / numEUsPerSubslice;

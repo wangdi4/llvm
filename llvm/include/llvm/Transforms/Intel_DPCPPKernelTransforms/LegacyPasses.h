@@ -64,6 +64,7 @@ ModulePass *createLocalBuffersLegacyPass(bool UseTLSGlobals);
 FunctionPass *createAddNTAttrLegacyPass();
 ModulePass *createAddImplicitArgsLegacyPass();
 FunctionPass *createAddFastMathLegacyPass();
+ModulePass *createAddTLSGlobalsLegacyPass();
 ModulePass *createResolveMatrixFillLegacyPass();
 ModulePass *createResolveMatrixWISliceLegacyPass();
 ModulePass *createResolveSubGroupWICallLegacyPass(
