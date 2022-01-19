@@ -52,9 +52,9 @@ define dso_local preserve_mostcc void @preserve_most() #0 {
 entry:
   ret void
 ; CHECK-NOT:  retq
-; CHECK:      popq %rax
+; CHECK:      popq %r11 ;INTEL
 ; CHECK-NEXT: lfence
-; CHECK-NEXT: jmpq *%rax
+; CHECK-NEXT: jmpq *%r11 ;INTEL
 }
 
 ; Function Attrs: noinline nounwind optnone uwtable
@@ -63,9 +63,9 @@ define dso_local preserve_allcc void @preserve_all() #0 {
 entry:
   ret void
 ; CHECK-NOT:  retq
-; CHECK:      popq %rax
+; CHECK:      popq %r11 ;INTEL
 ; CHECK-NEXT: lfence
-; CHECK-NEXT: jmpq *%rax
+; CHECK-NEXT: jmpq *%r11 ;INTEL
 }
 
 define { i64, i128 } @ret_i64_i128() #0 {

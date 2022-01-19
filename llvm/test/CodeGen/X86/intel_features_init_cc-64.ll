@@ -16,7 +16,7 @@ define intel_features_init_cc i32 @__intel_cpu_features_init_x() #0 {
 ; CHECK-NEXT:    pushq %rax
 ; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    callq __intel_cpu_features_init_body@PLT
-; CHECK-NEXT:    popq %rcx
+; CHECK-NEXT:    addq $8, %rsp
 ; CHECK-NEXT:    retq
 entry:
   %call = tail call intel_features_init_cc i32 @__intel_cpu_features_init_body(i32 0) #0
@@ -29,7 +29,7 @@ define intel_features_init_cc i32 @__intel_cpu_features_init() #0 {
 ; CHECK-NEXT:    pushq %rax
 ; CHECK-NEXT:    movl $1, %eax
 ; CHECK-NEXT:    callq __intel_cpu_features_init_body@PLT
-; CHECK-NEXT:    popq %rcx
+; CHECK-NEXT:    addq $8, %rsp
 ; CHECK-NEXT:    retq
 entry:
   %call = tail call intel_features_init_cc i32 @__intel_cpu_features_init_body(i32 1)
