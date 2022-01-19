@@ -1388,6 +1388,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_gnu_std_cxx11_basic_stringstream_ctor:
     return Changed;
+  case LibFunc_ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEED1Ev:
+    return Changed;
   case LibFunc_gxx_personality_v0:
     return Changed;
   case LibFunc_isinf:
@@ -1915,6 +1917,14 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_ZNSt9bad_allocD0Ev:
     return Changed;
   case LibFunc_ZNSt9bad_allocD1Ev:
+    return Changed;
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2ERKS4_:
+    return Changed;
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6appendEPKc:
+    return Changed;
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEaSEOS4_:
+    return Changed;
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEaSEPKc:
     return Changed;
   case LibFunc_ZNSt9basic_iosIcSt11char_traitsIcEE4initEPSt15basic_streambufIcS1_E:
     return Changed;
