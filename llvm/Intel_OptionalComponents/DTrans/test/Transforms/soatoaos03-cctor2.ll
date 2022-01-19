@@ -1,5 +1,5 @@
 ; RUN: opt < %s -whole-program-assume -disable-output \
-; RUN:    -passes='require<dtransanalysis>,function(require<soatoaos-approx>,require<soatoaos-array-methods>)'  \
+; RUN:    -passes='require<dtransanalysis>,require<soatoaos-approx>,function(require<soatoaos-array-methods>)'  \
 ; RUN:    -dtrans-soatoaos-base-ptr-off=3 -dtrans-soatoaos-mem-off=0                                            \
 ; RUN:    -debug-only=dtrans-soatoaos 2>&1 | FileCheck %s
 ; REQUIRES: asserts

@@ -948,7 +948,10 @@ unsigned X86RegisterInfo::findDeadCallerSavedReg(
     }
 
     for (auto CS : AvailableRegs)
-      if (!Uses.count(CS) && CS != X86::RIP && CS != X86::RSP && CS != X86::ESP)
+#if INTEL_CUSTOMIZATION
+      if (!Uses.count(CS) && CS != X86::RIP && CS != X86::RSP &&
+          CS != X86::ESP && !isCalleeSavedPhysReg(CS, *MF))
+#endif // INTEL_CUSTOMIZATION
         return CS;
   }
   }
