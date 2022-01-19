@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSArrays.cpp - Part of SOAToAOSPass -----------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -80,7 +80,9 @@ SOAToAOSArrayMethodsCheckDebug::Ignore::~Ignore() {}
 SOAToAOSArrayMethodsCheckDebug::Ignore
 SOAToAOSArrayMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
 
-  auto *Res = AM.getCachedResult<SOAToAOSApproximationDebug>(F);
+  const auto &MAM = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
+  auto *Res = MAM.getCachedResult<SOAToAOSApproximationDebug>(*F.getParent());
+
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   if (!Res)
     report_fatal_error("SOAToAOSApproximationDebug was not run before "
@@ -255,7 +257,8 @@ SOAToAOSArrayMethodsTransformDebug::run(Module &M, ModuleAnalysisManager &AM) {
     return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function*>(&F)));
   };
   // SOAToAOSArrayMethodsCheckDebug uses SOAToAOSApproximationDebug internally.
-  FAM.getResult<SOAToAOSApproximationDebug>(*MethodToTest);
+  AM.getResult<SOAToAOSApproximationDebug>(M);
+
   auto &InstsToTransformPtr =
       FAM.getResult<SOAToAOSArrayMethodsCheckDebug>(*MethodToTest);
 
