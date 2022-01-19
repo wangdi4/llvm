@@ -3519,10 +3519,13 @@ cl_int ContextModule::USMBlockingFree(cl_context context, void* ptr)
 
     // Wait for all commands referring this USM buffer to complete.
     if (!waitList.empty()) {
+        // After we get the waitList, we should skip invalid events in case some
+        // user events are released before waiting on them.
         cl_err_code err = FrameworkProxy::Instance()
                               ->GetExecutionModule()
                               ->GetEventsManager()
-                              ->WaitForEvents(waitList.size(), waitList.data());
+                              ->WaitForEvents(waitList.size(), waitList.data(),
+                                              /*skipInvalidEvents*/ true);
 
         if (CL_FAILED(err)) {
             // TODO: The document doesn't say which error code we should return
