@@ -1485,10 +1485,10 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 #if INTEL_CUSTOMIZATION
 
   // If VPO paropt was required to run then do IP constant propagation after
-  // promoting pointer arguments to values (when OptLevel > 2) and running
+  // promoting pointer arguments to values (when OptLevel > 1) and running
   // simplification passes. That will propagate constant values down to callback
   // functions which represent outlined OpenMP parallel loops where possible.
-  if (RunVPOParopt && Level.getSpeedupLevel() > 2)
+  if (RunVPOParopt && Level.getSpeedupLevel() > 1)
     MPM.addPass(IPSCCPPass());
 #endif // INTEL_CUSTOMIZATION
 
