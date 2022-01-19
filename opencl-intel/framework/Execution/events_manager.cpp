@@ -118,7 +118,9 @@ cl_err_code EventsManager::GetEventProfilingInfo (cl_event clEvent, cl_profiling
  * The events specified in event_list act as synchronization points.
  *
  ******************************************************************/
-cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* eventList)
+cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents,
+                                         const cl_event* eventList,
+                                         bool skipInvalidEvents)
 {
     if ( 0 == uiNumEvents || NULL == eventList )
          return CL_INVALID_EVENT_WAIT_LIST;
@@ -126,10 +128,14 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* ev
     // First validate that all ids in the event list exists
     std::vector<SharedPtr<OclEvent> > vOclEvents, vExplicitWaitEvents;
 
-    if(!GetEventsFromList(uiNumEvents, eventList, &vOclEvents))
-    {
+    if (!GetEventsFromList(uiNumEvents, eventList, &vOclEvents,
+                           skipInvalidEvents))
         return CL_INVALID_EVENT_WAIT_LIST;
-    }
+
+    // Return CL_SUCCESS if allowed to skip invalid events and all events in the
+    // list are invalid.
+    if (skipInvalidEvents && vOclEvents.empty())
+        return CL_SUCCESS;
 
     cl_context eventContext;
     //Ensure all events are in the same context
@@ -236,7 +242,8 @@ bool EventsManager::IsValidEventList(cl_uint uiNumEvents, const cl_event* eventL
         return false;
     if (0 != uiNumEvents)
     {
-        if(!GetEventsFromList(uiNumEvents, eventList, pvOclEvents))
+        if(!GetEventsFromList(uiNumEvents, eventList, pvOclEvents,
+                              /*skipInvalidEvents*/ false))
             return false;
     }
     return true;
@@ -300,28 +307,32 @@ cl_err_code EventsManager::RegisterEvents(const SharedPtr<OclEvent>& pEvent, cl_
 /******************************************************************
  * This function returns list of OclEvent objects corresponding
  * to the input parameters of eventId.
- * If one or more of the eventId in the eventList is not valid, NULL
- * is return.
  * On success a list is returned that need to be free by the caller.
  * 
  ******************************************************************/
-bool EventsManager::GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList, std::vector<SharedPtr<OclEvent> >* pvOclEvents)
+bool EventsManager::GetEventsFromList(
+    cl_uint uiNumEvents, const cl_event* eventList,
+    std::vector<SharedPtr<OclEvent> >* pvOclEvents, bool skipInvalidEvents)
 {
     if(0 == uiNumEvents)
-    {
         return false;
-    }
-    for ( cl_uint ui = 0; ui < uiNumEvents; ui++)
-    {
-        SharedPtr<OclEvent> pEvent = m_mapEvents.GetOCLObject((_cl_event_int*)eventList[ui]).DynamicCast<OclEvent>();
+
+    for ( cl_uint ui = 0; ui < uiNumEvents; ui++) {
+        SharedPtr<OclEvent> pEvent =
+            m_mapEvents.GetOCLObject((_cl_event_int*)eventList[ui])
+                .DynamicCast<OclEvent>();
+
         if (NULL == pEvent.GetPtr()) {
-          // Not valid, return
-          return false;
+            if (skipInvalidEvents)
+                continue;
+            else
+                return false;
         }
+
         if (NULL != pvOclEvents)
             pvOclEvents->push_back(pEvent);
-    } 
-    return true;    
+    }
+    return true;
 }
 
 /******************************************************************
