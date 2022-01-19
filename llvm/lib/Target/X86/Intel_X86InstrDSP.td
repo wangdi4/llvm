@@ -224,6 +224,29 @@ defm DVPDPBUSD :  avxvnni_dsp<0xc1, "dvpdpbusd", X86Vpdpbusd>, T_MAP8PD;
 defm DVPDPBUSDS : avxvnni_dsp<0xc2, "dvpdpbusds", X86Vpdpbusds>, T_MAP8PD;
 // end Chapter 8
 
+// Chapter 10
+defm DVPSADACCUBWS : dspv1_3op_rw<0xdf, "dvpsadaccubws", loadv16i8>, T_MAP8XD, VEX_W;
+// end Chapter 10
+
+// Chapter 11
+defm DVPSRRSUQW : dspv1_2op_imm8_w<0xa0, "dvpsrrsuqw", loadv2i64>, TAPS, VEX_W;
+defm DVPSRVRSUQW : dspv1_3op_w<0xe0, "dvpsrvrsuqw", loadv2i64>, T_MAP8PS, VEX_W;
+defm DVPSLRSUQW : dspv1_2op_imm8_w<0xa0, "dvpslrsuqw", loadv2i64>, TAPD, VEX_W;
+defm DVPSLVRSUQW : dspv1_3op_w<0xe0, "dvpslvrsuqw", loadv2i64>, T_MAP8PD, VEX_W;
+defm DVPSRARSQW : dspv1_2op_imm8_w<0xa0, "dvpsrarsqw", loadv2i64>, TAXD, VEX_W;
+defm DVPSRAVRSQW : dspv1_3op_w<0xe0, "dvpsravrsqw", loadv2i64>, T_MAP8XD, VEX_W;
+defm DVPSLRSQW : dspv1_2op_imm8_w<0xa0, "dvpslrsqw", loadv2i64>, TAXS, VEX_W;
+defm DVPSLVRSQW : dspv1_3op_w<0xe0, "dvpslvrsqw", loadv2i64>, T_MAP8XS, VEX_W;
+defm DVPSRRSUQD : dspv1_2op_imm8_w<0xa1, "dvpsrrsuqd", loadv2i64>, TAPS, VEX_W;
+defm DVPSRVRSUQD : dspv1_3op_w<0xe1, "dvpsrvrsuqd", loadv2i64>, T_MAP8PS, VEX_W;
+defm DVPSLRSUQD : dspv1_2op_imm8_w<0xa1, "dvpslrsuqd", loadv2i64>, TAPD, VEX_W;
+defm DVPSLVRSUQD : dspv1_3op_w<0xe1, "dvpslvrsuqd", loadv2i64>, T_MAP8PD, VEX_W;
+defm DVPSRARSQD : dspv1_2op_imm8_w<0xa1, "dvpsrarsqd", loadv2i64>, TAXD, VEX_W;
+defm DVPSRAVRSQD : dspv1_3op_w<0xe1, "dvpsravrsqd", loadv2i64>, T_MAP8XD, VEX_W;
+defm DVPSLRSQD : dspv1_2op_imm8_w<0xa1, "dvpslrsqd", loadv2i64>, TAXS, VEX_W;
+defm DVPSLVRSQD : dspv1_3op_w<0xe1, "dvpslvrsqd", loadv2i64>, T_MAP8XS, VEX_W;
+// end Chapter 11
+
 // Chapter 12
 let Uses = [MXCSR] in {
   defm DVPSRARD :  dspv1_2op_imm8_w<0xa2, "dvpsrard", loadv4i32>, TAXD;
