@@ -9,13 +9,19 @@ if( BACKEND_BUILD_VERIFICATION_LIB )
     add_subdirectory(unittest)
 endif( BACKEND_BUILD_VERIFICATION_LIB )
 
+set(BUILT_IN_LIST_INC ${OCL_BINARY_DIR}/include/BuiltinList.inc)
 add_custom_command(
-  OUTPUT BuiltinList.inc
-  COMMAND ${CMAKE_COMMAND} -E copy ${OCL_BINARY_DIR}/tests/name_mangling_test_type/MangledNames.inc
-  BuiltinList.inc
-  DEPENDS name_mangling_test_type
-  COMMENT "copying MangledNames.inc ..."
+  OUTPUT ${BUILT_IN_LIST_INC}
+  COMMAND ocl-tblgen -gen-ocl-biheader
+  -I ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins
+  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/GENERIC_CPU.td
+  -o ${BUILT_IN_LIST_INC}
+  DEPENDS ocl-tblgen
+  COMMENT "Generating demangled headers..."
   VERBATIM
+)
+add_custom_target(builtin_list_target
+  DEPENDS ${BUILT_IN_LIST_INC}
 )
 
 add_custom_command(
@@ -33,9 +39,6 @@ add_custom_command(
   VERBATIM
 )
 
-set(BUILT_IN_LIST_INC
-  BuiltinList.inc
-)
 set(CUSTOM_MAPPINGS_GEN
   CustomMappings.gen
 )
@@ -69,10 +72,13 @@ include_directories(
   ${LLVM_INCLUDE_DIRS}
   ${OCL_SOURCE_DIR}/backend/name_mangling
   ${OCL_SOURCE_DIR}/backend/utils
+  ${OCL_BINARY_DIR}/include
 )
 
 include_directories(
   ${CMAKE_CURRENT_BINARY_DIR}
 )
+
+add_dependencies(${TARGET_NAME} builtin_list_target)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/reflection )

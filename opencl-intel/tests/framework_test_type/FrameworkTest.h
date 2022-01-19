@@ -119,6 +119,7 @@ bool EventDependenciesTest();
 bool ClkEventAsKernelArg();
 bool CreateReleaseOOOQueueTest();
 bool clGetKernelArgInfoTest();
+bool clGetKernelArgInfoWithoutArgMetadataTest();
 void clSetKernelArgInvalidArgSizeTest();
 bool ShutdownFromChildThread();
 bool predictable_partition_test();
