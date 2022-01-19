@@ -131,6 +131,10 @@ STATISTIC(LoopsRerolled, "Number of HIR loops rerolled");
 static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
+
+static cl::opt<unsigned>
+    RerollLoopSizeThreshold(OPT_SWITCH "-size-threshold", cl::init(450),
+                            cl::Hidden, cl::desc("Disable " OPT_DESC " pass"));
 namespace {
 
 class HIRLoopRerollLegacyPass : public HIRTransformPass {
@@ -1899,6 +1903,11 @@ bool isRerollCandidate(const HLLoop *Loop, HIRLoopStatistics &HLS,
     return false;
   }
 
+  if (Loop->getNumChildren() > RerollLoopSizeThreshold) {
+    LLVM_DEBUG(dbgs() << "Reroll skipping.. Loop is too large\n");
+    return false;
+  }
+
   // pragmas
   // We don't stop rerolling with unroll and jam pragma on the parent loop.
   if (Loop->hasUnrollEnablingPragma() || Loop->hasVectorizeEnablingPragma()) {
@@ -2058,7 +2067,7 @@ bool rerollStraightCodes(HLLoop *Loop, HIRDDAnalysis &DDA,
   }
 
   OptReportBuilder &LORBuilder =
-    Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
+      Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
   LORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25264u, RerollFactor);
 
