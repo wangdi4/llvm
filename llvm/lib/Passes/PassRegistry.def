@@ -193,6 +193,14 @@ MODULE_PASS("globaldce", GlobalDCEPass())
 MODULE_PASS("globalopt", GlobalOptPass())
 MODULE_PASS("globalsplit", GlobalSplitPass())
 MODULE_PASS("hotcoldsplit", HotColdSplittingPass())
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+MODULE_PASS("indirectcallconv", IndirectCallConvPass(/*UseAndersen=*/false,
+                                                     /*UseDTrans=*/false))
+#else  // INTEL_FEATURE_SW_DTRANS
+MODULE_PASS("indirectcallconv", IndirectCallConvPass(/*UseAndersen=*/false))
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 MODULE_PASS("inferattrs", InferFunctionAttrsPass())
 MODULE_PASS("inliner-wrapper", ModuleInlinerWrapperPass())
 MODULE_PASS("inliner-wrapper-no-mandatory-first", ModuleInlinerWrapperPass(
@@ -489,11 +497,6 @@ FUNCTION_PASS("gvn-hoist", GVNHoistPass())
 #if INTEL_FEATURE_SW_ADVANCED
 FUNCTION_PASS("functionrecognizer", FunctionRecognizerPass()) // INTEL
 #endif // INTEL_FEATURE_SW_ADVANCED
-#if INTEL_FEATURE_SW_DTRANS
-FUNCTION_PASS("indirectcallconv", IndirectCallConvPass(/* UseAndersen = */ false, /* UseDTrans = */ false))
-#else  // INTEL_FEATURE_SW_DTRANS
-FUNCTION_PASS("indirectcallconv", IndirectCallConvPass(/* UseAndersen = */ false))
-#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 FUNCTION_PASS("gvn-sink", GVNSinkPass())
 FUNCTION_PASS("helloworld", HelloWorldPass())

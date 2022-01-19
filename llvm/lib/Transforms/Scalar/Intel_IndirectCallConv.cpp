@@ -1,6 +1,6 @@
 //===- Intel_IndirectCallConv.cpp - Indirect call Conv transformation -===//
 //
-// Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -588,15 +588,14 @@ bool IndirectCallConvLegacyPass::runOnFunction(Function &F) {
   return ImplObj.run(F);
 }
 
-PreservedAnalyses IndirectCallConvPass::run(Function &F,
-                                            FunctionAnalysisManager &AM) {
-  auto &MAM = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
+PreservedAnalyses IndirectCallConvPass::run(Module& M,
+                                            ModuleAnalysisManager &MAM) {
   auto *AnderPointsTo = (UseAndersen || IndCallConvForceAndersen)
-                            ? MAM.getCachedResult<AndersensAA>(*F.getParent())
+                            ? &MAM.getResult<AndersensAA>(M)
                             : nullptr;
 #if INTEL_FEATURE_SW_DTRANS
   auto *DTransInfo = (UseDTrans || IndCallConvForceDTrans)
-                         ? MAM.getCachedResult<DTransAnalysis>(*F.getParent())
+                         ? &MAM.getResult<DTransAnalysis>(M)
                          : nullptr;
   if (!AnderPointsTo && !DTransInfo)
     return PreservedAnalyses::all();
@@ -606,7 +605,12 @@ PreservedAnalyses IndirectCallConvPass::run(Function &F,
     return PreservedAnalyses::all();
   IndirectCallConvImpl ImplObj(AnderPointsTo);
 #endif // INTEL_FEATURE_SW_DTRANS
-  if (!ImplObj.run(F))
+
+  bool Changed = false;
+  for (auto &F : M)
+    Changed |= ImplObj.run(F);
+
+  if (!Changed)
     return PreservedAnalyses::all();
   auto PA = PreservedAnalyses();
   PA.preserve<AndersensAA>();
