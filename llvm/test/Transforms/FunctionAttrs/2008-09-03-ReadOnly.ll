@@ -1,13 +1,6 @@
 ; First test run uses module pass that is not designed for the old pass manager.
 ; Expect different input till the moment when NewPM is enabled by default.
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-; Test the old PM until it is disabled.
-; RUN: opt < %s --enable-new-pm=0 -basic-aa -function-attrs -S | FileCheck %s --check-prefix=CHECK-OLD-PM
-; end INTEL_CUSTOMIZATION
-=======
 ; RUN: opt < %s -basic-aa -function-attrs -S -enable-new-pm=0 | FileCheck %s --check-prefix=CHECK-OLD-PM
->>>>>>> f139bfcf5ebd30622088c3e47ab608232f7a970a
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes=function-attrs -S | FileCheck %s --check-prefix=CHECK-FUNC-PASS
 
 ; CHECK: define i32 @f() #0
