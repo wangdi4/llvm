@@ -1035,7 +1035,6 @@ public:
     addAttribute(A);
   }
 
-  AttrBuilder(LLVMContext &Ctx, AttributeList AS, unsigned Idx);
   AttrBuilder(LLVMContext &Ctx, AttributeSet AS);
 
   void clear();
