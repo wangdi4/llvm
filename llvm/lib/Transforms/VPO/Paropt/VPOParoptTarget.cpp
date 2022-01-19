@@ -1492,6 +1492,32 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 #endif // INTEL_CUSTOMIZATION
   CallInst *NewCall = cast<CallInst>(NewF->user_back());
 
+#if INTEL_CUSTOMIZATION
+  if (EnableTargetArgsNoAlias) {
+    // Add noalias attribute to outlined function's pointer arguments. It should
+    // be safe to do it if actual value that is passed to the outlined region
+    // - is function local object that does not alias with any other object
+    // - is not captured before the call
+    // - does not alias with any other actual argument
+    SmallVector<Argument *, 16u> PtrArgs;
+    for (Argument &A : NewF->args())
+      if (isa<PointerType>(A.getType()))
+        PtrArgs.push_back(&A);
+    for (Argument *Arg : PtrArgs) {
+      Value *Ptr = NewCall->getArgOperand(Arg->getArgNo());
+
+      if (isIdentifiedFunctionLocal(Ptr->stripPointerCasts()) &&
+          !PointerMayBeCapturedBefore(Ptr, /*ReturnCaptures=*/true,
+                                      /*StoreCaptures=*/true, NewCall, DT) &&
+          none_of(PtrArgs, [this, Arg, Ptr, NewCall](const Argument *A) {
+            return A != Arg &&
+                   !AA->isNoAlias(Ptr, NewCall->getArgOperand(A->getArgNo()));
+          }))
+        Arg->addAttr(Attribute::NoAlias);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   Constant *RegionId = nullptr;
   if (auto *WT = dyn_cast<WRNTargetNode>(W)) {
     assert(MT && "target region with no module transform");
@@ -1561,32 +1587,6 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       }
     }
   }
-
-#if INTEL_CUSTOMIZATION
-  if (EnableTargetArgsNoAlias) {
-    // Add noalias attribute to outlined function's pointer arguments. It should
-    // be safe to do it if actual value that is passed to the outlined region
-    // - is function local object that does not alias with any other object
-    // - is not captured before the call
-    // - does not alias with any other actual argument
-    SmallVector<Argument *, 16u> PtrArgs;
-    for (Argument &A : NewF->args())
-      if (isa<PointerType>(A.getType()))
-        PtrArgs.push_back(&A);
-    for (Argument *Arg : PtrArgs) {
-      Value *Ptr = NewCall->getArgOperand(Arg->getArgNo());
-
-      if (isIdentifiedFunctionLocal(Ptr->stripPointerCasts()) &&
-          !PointerMayBeCapturedBefore(Ptr, /*ReturnCaptures=*/true,
-                                      /*StoreCaptures=*/true, NewCall, DT) &&
-          none_of(PtrArgs, [this, Arg, Ptr, NewCall](const Argument *A) {
-            return A != Arg &&
-                   !AA->isNoAlias(Ptr, NewCall->getArgOperand(A->getArgNo()));
-          }))
-        Arg->addAttr(Attribute::NoAlias);
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
 
   if (hasOffloadCompilation())
     // Everything below only makes sense on the host.

@@ -3117,6 +3117,8 @@ AAManager PassBuilder::buildDefaultAAPipeline() {
 
 #if INTEL_CUSTOMIZATION
   AA.registerFunctionAnalysis<StdContainerAA>();
+  if (EnableAndersen)
+    AA.registerModuleAnalysis<AndersensAA>();
 #endif // INTEL_CUSTOMIZATION
 
   // Add support for querying global aliasing information when available.

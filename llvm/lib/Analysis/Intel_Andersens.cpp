@@ -779,7 +779,7 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M, bool BeforeInl)  {
   // Register Callback Handles here
   for (DenseMap<Value*, unsigned>::iterator Iter = ValueNodes.begin(),
        EV = ValueNodes.end(); Iter != EV; ++Iter) {
-    AndersensHandles.insert(
+    AndersensHandles.push_back(
           AndersensDeletionCallbackHandle(*this, (Iter->first)));
   }
 
@@ -842,10 +842,16 @@ AndersensAAResult::AndersensAAResult(AndersensAAResult &&Arg)
       VarargNodes(std::move(Arg.VarargNodes)),
       NonEscapeStaticVars(std::move(Arg.NonEscapeStaticVars)),
       NonPointerAssignments(std::move(Arg.NonPointerAssignments)),
-      IMR(std::move(Arg.IMR)) {
+      IMR(std::move(Arg.IMR)),
+      AndersensHandles(std::move(Arg.AndersensHandles)) {
   WholeProgramSafeDetected = Arg.WholeProgramSafeDetected;
   if (IMR)
     IMR->resetAndersenAAResult(this);
+  // Update the parent for each DeletionCallbackHandle.
+  for (auto &H : AndersensHandles) {
+    assert(H.AAR == &Arg);
+    H.AAR = this;
+  }
 }
 
 /*static*/ AndersensAAResult
