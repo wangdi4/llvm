@@ -7,13 +7,9 @@ __attribute__((sycl_kernel)) void kernel_single_task(const Func &kernelFunc) {
   kernelFunc();
 }
 
-<<<<<<< HEAD
 // INTEL: added nocapture
 // CHECK: define dso_local spir_func{{.*}}invoke_function{{.*}}(i32 ()* nocapture %fptr, i32 addrspace(4)* nocapture %ptr)
 // INTEL
-=======
-// CHECK: define dso_local spir_func{{.*}}invoke_function{{.*}}(i32 ()* noundef %fptr, i32 addrspace(4)* noundef %ptr)
->>>>>>> 9d65571a8d87ab518c51fcb34fb972abd79b068b
 void invoke_function(int (*fptr)(), int *ptr) {}
 
 int f() { return 0; }
