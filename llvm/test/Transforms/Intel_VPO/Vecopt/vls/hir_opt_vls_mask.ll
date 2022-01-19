@@ -10,10 +10,10 @@ define dso_local void @foo(i32* noalias nocapture %arr, %struct.S1* noalias noca
 ; CHECK-NEXT:  |   %.vec = i1 + <i64 0, i64 1, i64 2, i64 3> != 42;
 ; CHECK-NEXT:  |   %gep.base = &((i64*)(%sarr)[i1].1);
 ; CHECK-NEXT:  |   %vls.mask = shufflevector %.vec,  zeroinitializer,  <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>;
-; CHECK-NEXT:  |   %.vls.load = (<8 x i64>*)(%gep.base)[-1]; Mask = @{%vls.mask}
+; CHECK-NEXT:  |   %.vls.load = (<8 x i64>*)(%gep.base)[-1], Mask = @{%vls.mask};
 ; CHECK-NEXT:  |   %vls.extract = shufflevector %.vls.load,  %.vls.load,  <i32 0, i32 2, i32 4, i32 6>;
 ; CHECK-NEXT:  |   %vls.extract1 = shufflevector %.vls.load,  %.vls.load,  <i32 1, i32 3, i32 5, i32 7>;
-; CHECK-NEXT:  |   (<4 x i32>*)(%arr)[i1] = %vls.extract + %vls.extract1; Mask = @{%.vec}
+; CHECK-NEXT:  |   (<4 x i32>*)(%arr)[i1] = %vls.extract + %vls.extract1, Mask = @{%.vec};
 ; CHECK-NEXT:  + END LOOP
 entry:
   br label %header

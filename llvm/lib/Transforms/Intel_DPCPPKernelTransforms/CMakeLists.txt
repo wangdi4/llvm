@@ -3,6 +3,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   AddFunctionAttrs.cpp
   AddImplicitArgs.cpp
   AddNTAttr.cpp
+  AddTLSGlobals.cpp
   BuiltinCallToInst.cpp
   BuiltinImport.cpp
   CoerceTypes.cpp
@@ -62,6 +63,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   VectorVariant/VectorVariantFillIn.cpp
   VectorVariant/VectorVariantLowering.cpp
   VFAnalysis.cpp
+  WorkItemAnalysis.cpp
 
   Utils/CPUDetect.cpp
   Utils/FunctionDescriptor.cpp

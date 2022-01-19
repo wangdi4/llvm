@@ -448,6 +448,7 @@ namespace {
       (void)llvm::createAddFastMathLegacyPass();
       (void)llvm::createAddImplicitArgsLegacyPass();
       (void)llvm::createAddNTAttrLegacyPass();
+      (void)llvm::createAddTLSGlobalsLegacyPass();
       (void)llvm::createResolveMatrixFillLegacyPass();
       (void)llvm::createResolveMatrixWISliceLegacyPass();
       (void)llvm::createResolveSubGroupWICallLegacyPass();
@@ -475,6 +476,7 @@ namespace {
       (void)llvm::createIndirectCallLoweringLegacyPass();
       (void)llvm::createCreateSimdVariantPropagationLegacyPass();
       (void)llvm::createLinearIdResolverPass();
+      (void)llvm::createWorkItemAnalysisLegacyPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

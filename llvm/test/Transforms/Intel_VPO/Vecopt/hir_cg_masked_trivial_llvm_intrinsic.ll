@@ -24,8 +24,8 @@
 ; CHECK-NEXT:       |   %llvm.exp.v4f64 = undef
 ; CHECK-NEXT:       |   %.vec = (<4 x double>*)(%y)[i1];
 ; CHECK-NEXT:       |   [[CMP:%.*]] = %.vec == %key;
-; CHECK-NEXT:       |   %llvm.exp.v4f64 = @llvm.exp.v4f64(%.vec); Mask = @{[[CMP]]}
-; CHECK-NEXT:       |   (<4 x double>*)(%x)[i1] = %llvm.exp.v4f64; Mask = @{[[CMP]]}
+; CHECK-NEXT:       |   %llvm.exp.v4f64 = @llvm.exp.v4f64(%.vec), Mask = @{[[CMP]]};
+; CHECK-NEXT:       |   (<4 x double>*)(%x)[i1] = %llvm.exp.v4f64, Mask = @{[[CMP]]};
 ; CHECK-NEXT:       + END LOOP
 
 ; Check generated LLVM call after HIR-CG

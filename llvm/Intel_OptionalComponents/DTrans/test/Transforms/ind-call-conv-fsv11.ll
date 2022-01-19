@@ -1,5 +1,5 @@
 ; RUN: opt  -whole-program-assume -intel-ind-call-force-dtrans -dtransanalysis -indirectcallconv -intel-ind-call-conv-max-target=3 < %s -S 2>&1 | FileCheck %s
-; RUN: opt  -whole-program-assume -intel-ind-call-force-dtrans -passes='require<dtransanalysis>,function(indirectcallconv)' -intel-ind-call-conv-max-target=3 < %s  -S 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume -intel-ind-call-force-dtrans -passes=indirectcallconv -intel-ind-call-conv-max-target=3 < %s  -S 2>&1 | FileCheck %s
 
 ; Check that the first indirect call in @main is specialized to @foo and
 ; then @baz, and then @baf.

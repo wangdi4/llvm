@@ -5353,6 +5353,14 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   case X86::BI__builtin_ia32_dvpslsd:
   case X86::BI__builtin_ia32_dvpsrrud:
   case X86::BI__builtin_ia32_dvpslsud:
+  case X86::BI__builtin_ia32_dvpsrrsuqw:
+  case X86::BI__builtin_ia32_dvpslrsuqw:
+  case X86::BI__builtin_ia32_dvpsrarsqw:
+  case X86::BI__builtin_ia32_dvpslrsqw:
+  case X86::BI__builtin_ia32_dvpsrrsuqd:
+  case X86::BI__builtin_ia32_dvpslrsuqd:
+  case X86::BI__builtin_ia32_dvpsrarsqd:
+  case X86::BI__builtin_ia32_dvpslrsqd:
 #endif // INTEL_FEATURE_ISA_DSPV1
 #endif // INTEL_CUSTOMIZATION
     i = 1; l = 0; u = 255;

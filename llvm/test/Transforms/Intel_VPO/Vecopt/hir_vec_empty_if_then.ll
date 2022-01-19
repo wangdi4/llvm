@@ -15,7 +15,7 @@
 ; CHECK:   [[Cmp2:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3> < ((1 + %element) * %scale);
 ; CHECK:   [[And:%.*]] = [[Cmp1]] &  [[Cmp2]]
 ; CHECK:   [[FPred:%.*]] = [[And]]  ^  -1;
-; CHECK:   (<4 x i32>*)(%Mask)[i1] = -1; Mask = @{[[FPred]]}
+; CHECK:   (<4 x i32>*)(%Mask)[i1] = -1, Mask = @{[[FPred]]};
 ; CHECK: END LOOP
 define void @foo(i32* %Mask, i32 %n, i32 %element, i32 %scale) {
 entry:

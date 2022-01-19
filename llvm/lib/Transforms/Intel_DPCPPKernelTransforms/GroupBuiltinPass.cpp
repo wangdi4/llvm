@@ -98,6 +98,8 @@ Constant *GroupBuiltinPass::getInitializationValue(Function *Func) {
   reflection::TypePrimitiveEnum DataEnum = PrimitiveParam->getPrimitive();
 
   Constant *InitVal = nullptr;
+  Type *Int8Type = Type::getInt8Ty(*Context);
+  Type *Int16Type = Type::getInt16Ty(*Context);
   Type *Int32Type = Type::getInt32Ty(*Context);
   Type *Int64Type = Type::getInt64Ty(*Context);
   // Act according to the function's logic
@@ -173,6 +175,14 @@ Constant *GroupBuiltinPass::getInitializationValue(Function *Func) {
   } else {
     // Initial value for the rest of WG functions: zero
     switch (DataEnum) {
+    case reflection::PRIMITIVE_CHAR:
+    case reflection::PRIMITIVE_UCHAR:
+      InitVal = ConstantInt::get(Int8Type, 0);
+      break;
+    case reflection::PRIMITIVE_SHORT:
+    case reflection::PRIMITIVE_USHORT:
+      InitVal = ConstantInt::get(Int16Type, 0);
+      break;
     case reflection::PRIMITIVE_INT:
     case reflection::PRIMITIVE_UINT:
       InitVal = ConstantInt::get(Int32Type, 0);

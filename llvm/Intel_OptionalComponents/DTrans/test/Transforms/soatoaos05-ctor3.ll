@@ -5,7 +5,7 @@
 ; klocworks.
 
 ; RUN: opt < %s -whole-program-assume -disable-output                                                                   \
-; RUN:          -passes='require<dtransanalysis>,function(require<soatoaos-approx>,require<soatoaos-struct-methods>)'   \
+; RUN:          -passes='require<dtransanalysis>,require<soatoaos-approx>,require<soatoaos-struct-methods>'             \
 ; RUN:          -dtrans-soatoaos-array-type=struct.Arr                                                                  \
 ; RUN:          -dtrans-soatoaos-array-type=struct.Arr.0                                                                \
 ; RUN:          -dtrans-soatoaos-base-ptr-off=2                                                                         \

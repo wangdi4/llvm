@@ -26,8 +26,8 @@ define void @foo(i8* %a) {
 ; CHECK-NEXT:        |   {
 ; CHECK-NEXT:        |      [[DOTUNIFLOAD0]] = ([[A0:%.*]])[0]
 ; CHECK-NEXT:        |   }
-; CHECK-NEXT:        |   (<2 x i32>*)([[PRIV_MEM20]])[0] = i1 + <i32 0, i32 1>; Mask = @{[[DOTVEC0]]}
-; CHECK-NEXT:        |   (<2 x i8>*)([[PRIV_MEM0]])[0] = [[DOTUNIFLOAD0]]; Mask = @{[[DOTVEC0]]}
+; CHECK-NEXT:        |   (<2 x i32>*)([[PRIV_MEM20]])[0] = i1 + <i32 0, i32 1>, Mask = @{[[DOTVEC0]]};
+; CHECK-NEXT:        |   (<2 x i8>*)([[PRIV_MEM0]])[0] = [[DOTUNIFLOAD0]], Mask = @{[[DOTVEC0]]};
 ; CHECK-NEXT:        + END LOOP
 ; CHECK:        [[DOTVEC60:%.*]] = (<2 x i8>*)([[PRIV_MEM0]])[0]
 ; CHECK-NEXT:        [[DOTVEC70:%.*]] = (<2 x i32>*)([[PRIV_MEM20]])[0]

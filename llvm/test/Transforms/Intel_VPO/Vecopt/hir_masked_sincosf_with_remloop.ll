@@ -46,8 +46,8 @@
 ; CHECK-512:     |   [[RET_MASK_UNIT:%.*]] = @__svml_sincosf16_mask(undef, [[MASK_UNIT:%.*]], [[SRC_UNIT]]);
 ; CHECK-NEXT:    |   [[SIN_MASK_UNIT:%.*]] = extractvalue [[RET_MASK_UNIT]], 0;
 ; CHECK-NEXT:    |   [[COS_MASK_UNIT:%.*]] = extractvalue [[RET_MASK_UNIT]], 1;
-; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%sinB)[i1] = [[SIN_MASK_UNIT]]; Mask = @{[[MASK_UNIT]]}
-; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%cosB)[i1] = [[COS_MASK_UNIT]]; Mask = @{[[MASK_UNIT]]}
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%sinB)[i1] = [[SIN_MASK_UNIT]], Mask = @{[[MASK_UNIT]]};
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%cosB)[i1] = [[COS_MASK_UNIT]], Mask = @{[[MASK_UNIT]]};
 ; CHECK-NEXT:    + END LOOP
 ; CHECK-NEXT: }
 
@@ -90,8 +90,8 @@
 ; CHECK-512:     |   [[RET_MASK_NONUNIT:%.*]] = @__svml_sincosf16_mask(undef, [[MASK_NONUNIT:%.*]], [[SRC_NONUNIT]]);
 ; CHECK-NEXT:    |   [[SIN_MASK_NONUNIT:%.*]] = extractvalue [[RET_MASK_NONUNIT]], 0;
 ; CHECK-NEXT:    |   [[COS_MASK_NONUNIT:%.*]] = extractvalue [[RET_MASK_NONUNIT]], 1;
-; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%sinB)[2 * i1 + <i64 0, i64 2, i64 4, i64 6{{.*}}] = [[SIN_MASK_NONUNIT]]; Mask = @{[[MASK_NONUNIT]]}
-; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%cosB)[2 * i1 + <i64 0, i64 2, i64 4, i64 6{{.*}}] = [[COS_MASK_NONUNIT]]; Mask = @{[[MASK_NONUNIT]]}
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%sinB)[2 * i1 + <i64 0, i64 2, i64 4, i64 6{{.*}}] = [[SIN_MASK_NONUNIT]], Mask = @{[[MASK_NONUNIT]]};
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%cosB)[2 * i1 + <i64 0, i64 2, i64 4, i64 6{{.*}}] = [[COS_MASK_NONUNIT]], Mask = @{[[MASK_NONUNIT]]};
 ; CHECK-NEXT:    + END LOOP
 ; CHECK-NEXT: }
 

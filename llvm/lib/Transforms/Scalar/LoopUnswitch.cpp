@@ -1585,6 +1585,20 @@ void LoopUnswitch::unswitchNontrivialCondition(
   ExitBlocks.clear();
   L->getUniqueExitBlocks(ExitBlocks);
 
+#if INTEL_CUSTOMIZATION
+  // After splitExitEdges, exception handling edges may still remain. This is
+  // an xmain-specific modification. Loops with these exits should not be
+  // unswitched.
+  for (auto *ExitBB : ExitBlocks) {
+    if (ExitBB->getTerminator()->getNumSuccessors() > 1) {
+      LLVM_DEBUG(
+          dbgs() << "Exit block " << ExitBB->getName()
+                 << " could not be split (possible exception handler)\n");
+      return;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Add exit blocks to the loop blocks.
   llvm::append_range(LoopBlocks, ExitBlocks);
 

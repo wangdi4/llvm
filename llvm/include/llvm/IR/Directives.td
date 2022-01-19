@@ -342,6 +342,10 @@ def "QUAL.OMP.OFFLOAD.HAS.TEAMS.REDUCTION" : Clause;
 // =====================================================================
 #if INTEL_CUSTOMIZATION
 def "QUAL.PRAGMA.ARRAY" : Clause;
+
+// Fortran DO_CONCURRENT Tag on OMP Target/Teams/GenericLoop construct
+def "QUAL.EXT.DO.CONCURRENT" : Clause;
 #endif // INTEL_CUSTOMIZATION
+
 
 #endif // INTEL_COLLAB

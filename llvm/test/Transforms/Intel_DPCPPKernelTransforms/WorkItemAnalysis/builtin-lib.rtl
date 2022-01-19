@@ -1,0 +1,8 @@
+; This builtin runtime library is used by a few tests in this folder.
+
+target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
+target triple = "spir64-unknonw-unknown"
+
+declare float @_Z5acoshf(float %x)
+declare i32 @_Z10atomic_incPU3AS1Vi(i32 addrspace(1)*)
+declare i32 @_Z6selectiii(i32, i32, i32) nounwind readnone

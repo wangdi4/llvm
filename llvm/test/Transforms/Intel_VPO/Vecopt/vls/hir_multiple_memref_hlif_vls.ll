@@ -29,7 +29,7 @@
 ; CHECK-NEXT:       %vls.extract = shufflevector %.vls.load, %.vls.load,  <i32 0, i32 2, i32 4, i32 6>;
 ; CHECK-NEXT:       %vls.extract1 = shufflevector %.vls.load, %.vls.load,  <i32 1, i32 3, i32 5, i32 7>;
 ; CHECK-NEXT:       %.vec = %vls.extract == %vls.extract1;
-; CHECK-NEXT:       (<4 x i64>*)(@arr)[0][i1] = i1 + <i64 0, i64 1, i64 2, i64 3>; Mask = @{%.vec}
+; CHECK-NEXT:       (<4 x i64>*)(@arr)[0][i1] = i1 + <i64 0, i64 1, i64 2, i64 3>, Mask = @{%.vec};
 ; CHECK-NEXT:     END LOOP
 ;
 ; CHECK: Function: foo2
@@ -37,8 +37,8 @@
 ; CHECK-NEXT:       %.vec2 = undef;
 ; CHECK-NEXT:       %.vec = (<4 x i64>*)(@sarr)[0][i1 + <i64 0, i64 1, i64 2, i64 3>].0;
 ; CHECK-NEXT:       %.vec1 = %.vec == 10;
-; CHECK-NEXT:       %.vec2 = (<4 x i64>*)(@sarr)[0][i1 + <i64 0, i64 1, i64 2, i64 3>].1; Mask = @{%.vec1}
-; CHECK-NEXT:       (<4 x i64>*)(@arr)[0][i1] = %.vec2; Mask = @{%.vec1}
+; CHECK-NEXT:       %.vec2 = (<4 x i64>*)(@sarr)[0][i1 + <i64 0, i64 1, i64 2, i64 3>].1, Mask = @{%.vec1};
+; CHECK-NEXT:       (<4 x i64>*)(@arr)[0][i1] = %.vec2, Mask = @{%.vec1};
 ; CHECK-NEXT:     END LOOP
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

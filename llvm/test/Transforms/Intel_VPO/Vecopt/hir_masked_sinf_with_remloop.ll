@@ -42,9 +42,9 @@
 ; CHECK-NEXT:          |   [[SRC:%.*]] = (<[[VL]] x float>*)(%b)[i1];
 ; CHECK-NEXT:          |   [[WIDECMP:%.*]] = [[SRC]] > 3.000000e+00;
 ; FLOAT-LT-512-NEXT:   |   [[MASKEXT:%.*]] = sext.<[[VL]] x i1>.<[[VL]] x i32>([[WIDECMP]]);
-; FLOAT-LT-512-NEXT:   |   [[RESULT]] = @__svml_sinf[[VL]]_mask([[SRC]],  [[MASKEXT]]); Mask = @{[[WIDECMP]]}
-; FLOAT-512-NEXT:      |   [[RESULT]] = @__svml_sinf[[VL]]_mask(undef, [[WIDECMP]], [[SRC]]); Mask = @{[[WIDECMP]]}
-; CHECK-NEXT:          |   (<[[VL]] x float>*)(%a)[i1] = [[RESULT]]; Mask = @{[[WIDECMP]]}
+; FLOAT-LT-512-NEXT:   |   [[RESULT]] = @__svml_sinf[[VL]]_mask([[SRC]],  [[MASKEXT]]), Mask = @{[[WIDECMP]]};
+; FLOAT-512-NEXT:      |   [[RESULT]] = @__svml_sinf[[VL]]_mask(undef, [[WIDECMP]], [[SRC]]), Mask = @{[[WIDECMP]]};
+; CHECK-NEXT:          |   (<[[VL]] x float>*)(%a)[i1] = [[RESULT]], Mask = @{[[WIDECMP]]};
 ; CHECK-NEXT:          + END LOOP
 
 ; CHECK:               + DO i1 = 128, 130, 1   <DO_LOOP> <novectorize>
@@ -64,9 +64,9 @@
 ; CHECK-NEXT:          |   [[SRC:%.*]] = (<[[VL]] x double>*)(%b)[i1];
 ; CHECK-NEXT:          |   [[WIDECMP:%.*]] = [[SRC]] > 3.000000e+00;
 ; DOUBLE-LT-512-NEXT:  |   [[MASKEXT:%.*]] = sext.<[[VL]] x i1>.<[[VL]] x i64>([[WIDECMP]]);
-; DOUBLE-LT-512-NEXT:  |   [[RESULT]] = @__svml_sin[[VL]]_mask([[SRC]],  [[MASKEXT]]); Mask = @{[[WIDECMP]]}
-; DOUBLE-512-NEXT:     |   [[RESULT]] = @__svml_sin[[VL]]_mask(undef, [[WIDECMP]], [[SRC]]); Mask = @{[[WIDECMP]]}
-; CHECK-NEXT:          |   (<[[VL]] x double>*)(%a)[i1] = [[RESULT]]; Mask = @{[[WIDECMP]]}
+; DOUBLE-LT-512-NEXT:  |   [[RESULT]] = @__svml_sin[[VL]]_mask([[SRC]],  [[MASKEXT]]), Mask = @{[[WIDECMP]]};
+; DOUBLE-512-NEXT:     |   [[RESULT]] = @__svml_sin[[VL]]_mask(undef, [[WIDECMP]], [[SRC]]), Mask = @{[[WIDECMP]]};
+; CHECK-NEXT:          |   (<[[VL]] x double>*)(%a)[i1] = [[RESULT]], Mask = @{[[WIDECMP]]};
 ; CHECK-NEXT:          + END LOOP
 
 ; CHECK:               + DO i1 = 128, 130, 1   <DO_LOOP> <novectorize>

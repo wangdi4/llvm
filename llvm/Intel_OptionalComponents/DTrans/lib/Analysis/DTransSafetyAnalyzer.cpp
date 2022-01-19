@@ -1,6 +1,6 @@
 //===----------------------DTransSafetyAnalyzer.cpp-----------------------===//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1459,6 +1459,155 @@ public:
                                  ValueTypeInfo &PtrInfo,
                                  ValueTypeInfo *ValInfo) {
 
+    // This lambda is used to identify whether a pointer value being stored into
+    // a field element that is a pointer to a scalar type can be traced back to
+    // newly allocated memory.
+    auto IsSafeAllocatedMemoryStore = [this](Instruction &I,
+                                             DTransType *ExpectTy) {
+      // Look for a pattern such as:
+      //   %a = call ptr @malloc(i64 %size)
+      //   %int = ptrtoint ptr %a to i64
+      //   %manip1 = add i64 %int, 71
+      //   %manip2 = add i64 %manip1, -64
+      //   %ptr = inttoptr i64 %manip2 to ptr
+      //
+      // Return the allocation call if found. Otherwise, return nullptr.
+      std::function<Value *(Value *)> FindSource =
+          [&FindSource](Value *V) -> Value * {
+        if (isa<CallInst>(V))
+          return V;
+        if (auto *BC = dyn_cast<BitCastInst>(V))
+          return FindSource(BC->getOperand(0));
+        if (auto *ITP = dyn_cast<IntToPtrInst>(V))
+          return FindSource(ITP->getOperand(0));
+        if (auto *PTI = dyn_cast<PtrToIntInst>(V))
+          return FindSource(PTI->getOperand(0));
+        if (auto *BinOp = dyn_cast<BinaryOperator>(V)) {
+          if (BinOp->getOpcode() != Instruction::Add &&
+              BinOp->getOpcode() != Instruction::And)
+            return nullptr;
+          if (auto *CI = dyn_cast<ConstantInt>(BinOp->getOperand(0)))
+            return FindSource(BinOp->getOperand(1));
+          if (auto CI = dyn_cast<ConstantInt>(BinOp->getOperand(1)))
+            return FindSource(BinOp->getOperand(0));
+        }
+        return nullptr;
+      };
+
+      auto *SI = dyn_cast<StoreInst>(&I);
+      if (!SI)
+        return false;
+
+      // only allow storing into a pointer to a scalar type.
+      if (!ExpectTy->isPointerTy() ||
+          !ExpectTy->getPointerElementType()->isAtomicTy())
+        return false;
+
+      // Try to trace the value being stored to newly allocated memory, possible
+      // with some adjustment of the pointer for alignment.
+      Value *ValOp = SI->getValueOperand();
+      Value *SrcOp = FindSource(ValOp);
+      auto *Call = dyn_cast_or_null<CallInst>(SrcOp);
+      if (Call == nullptr)
+        return false;
+
+      dtrans::AllocKind AKind = PTA.getAllocationCallKind(Call);
+      if (AKind == dtrans::AK_NotAlloc)
+        return false;
+
+      // Check that the usage type is only i8* or the expected pointer type.
+      ValueTypeInfo *Info = PTA.getValueTypeInfo(ValOp);
+      if (!Info)
+        return false;
+      auto &UseAliases = Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
+      for (auto *AliasTy : UseAliases) {
+        if (AliasTy == DTransI8PtrType)
+          continue;
+        if (AliasTy != ExpectTy)
+          return false;
+      }
+
+      return true;
+    };
+
+    // This lambda is used when the above lambda resolves that a memory
+    // allocation that has a pointer type alias with an i8* is being stored
+    // into a structure field to ensure that any i8* uses are safe so that the
+    // structure does not need to be marked as having a "Mismatched element
+    // access". For example, a memset call using the pointer as an i8* type
+    // should be allowed even if the structure field being stored to is a
+    // double*:
+    //   call void @llvm.memset.ptr.i64(ptr %290, i8 0, i64 %384, i1  false)
+    auto AreAllMemoryUsersSafe = [](Instruction &I, DTransType *ExpectTy) {
+      // Lambda to collect the set of Values that use 'V', either directly or
+      // indirectly from 'V' being moved to another Value object.
+      std::function<void(Value *, SmallPtrSetImpl<Value *> &)> CollectUsers =
+          [&CollectUsers](Value *V, SmallPtrSetImpl<Value *> &Visited) -> void {
+        if (!Visited.insert(V).second)
+          return;
+
+        if (isa<PHINode>(V) || isa<SelectInst>(V) || isa<BitCastInst>(V) ||
+            isa<PtrToIntInst>(V) || isa<IntToPtrInst>(V))
+          for (auto *U : V->users())
+            CollectUsers(U, Visited);
+      };
+
+      assert(isa<StoreInst>(I) && "Analysis needs a StoreInst");
+      assert(ExpectTy->isPointerTy() &&
+             ExpectTy->getPointerElementType()->isAtomicTy() &&
+             "Field type needs to be pointer to atomic type");
+
+      auto *SI = cast<StoreInst>(&I);
+      Value *ValOp = SI->getValueOperand();
+      SmallPtrSet<Value *, 16> ValueUsers;
+      for (auto *U : ValOp->users())
+        CollectUsers(U, ValueUsers);
+
+      // Check the users that may be using the value as an i8* to verify they
+      // are safe. In particular, the following uses are safe, when evaluating
+      // the store, where %229 is the allocated memory, and %234 is the
+      // structure field address:
+      //     store ptr %229, ptr %234
+      //
+      //     %290 = phi ptr [ %229, %243 ], ...
+      //     call void @llvm.memset.ptr.i64(ptr %290, i8 0, i64 %384, i1 false)
+      //     %235 = icmp eq ptr %229, null
+      //
+      // The value may also be used as the structure field type for a GEP, as
+      // in:
+      //     373 = getelementptr double, ptr %229, i64 %360
+      //
+      for (auto *V : ValueUsers) {
+        if (V == SI)
+          continue;
+
+        // Ignore instructions that are just moving the value.
+        if (isa<PHINode>(V) || isa<SelectInst>(V) || isa<BitCastInst>(V) ||
+            isa<PtrToIntInst>(V) || isa<IntToPtrInst>(V))
+          continue;
+
+        // The value type does not matter for comparisons of pointers.
+        if (isa<ICmpInst>(V))
+          continue;
+
+        // Allow call to memset
+        if (auto *II = dyn_cast<IntrinsicInst>(V))
+          if (II->getIntrinsicID() == Intrinsic::memset)
+            continue;
+
+        // Only allow a GEP that indexes the value using the field type.
+        if (auto *GEP = dyn_cast<GetElementPtrInst>(V)) {
+          llvm::Type *Ty = GEP->getSourceElementType();
+          if (ExpectTy->getPointerElementType()->getLLVMType() == Ty)
+            continue;
+        }
+
+        return false;
+      }
+
+      return true;
+    };
+
     bool IsLoad = isa<LoadInst>(&I);
     Value *PtrOp = IsLoad ? cast<LoadInst>(&I)->getPointerOperand()
                           : cast<StoreInst>(&I)->getPointerOperand();
@@ -1559,8 +1708,15 @@ public:
 
       DTransType *ValTy = getLoadStoreValueType(*ValOp, ValInfo, IsLoad);
       if (!ValTy) {
-        TypesCompatible = false;
-        BadCasting = true;
+        // In some cases we may not have a ValTy identified for a pointer being
+        // stored because the value had an i8* alias due to be a dynamically
+        // allocated pointer. Check for that pattern before treating it as an
+        // incompatible type.
+        if (!IsSafeAllocatedMemoryStore(I, IndexedType) ||
+            !AreAllMemoryUsersSafe(I, IndexedType)) {
+          TypesCompatible = false;
+          BadCasting = true;
+        }
       }
       // If the pointer location represents a vtable, then we only need to
       // check that the value operand is not a structure type, which should
@@ -1836,22 +1992,26 @@ public:
                                        DTransType *AccessTy,
                                        unsigned int ElementNum,
                                        Instruction &I) {
-    auto *TI = DTInfo.getTypeInfo(ParentTy);
-    assert(TI && "visitModule() should create all TypeInfo objects");
     if (getLangRuleOutOfBoundsOK()) {
       // Assuming out of bound access, set safety issue for the entire
       // ParentTy.
       setBaseTypeInfoSafetyData(ParentTy, dtrans::MismatchedElementAccess,
                                 "Incompatible type for field load/store", &I);
     } else {
-      // Set safety issue to AccessTy only, because out of bounds accesses are
-      // known to not occur based on the LangRuleOutOfBoundsOK definition.
-      TI->setSafetyData(dtrans::MismatchedElementAccess);
+      // Set the safety issue only on the structure containing the field and the
+      // field type, rather than to all fields reachable from the structure
+      // because out of bounds accesses are known to not occur based on the
+      // LangRuleOutOfBoundsOK definition.
+      setOnlyBaseTypeInfoSafetyData(ParentTy, dtrans::MismatchedElementAccess,
+                                    "Incompatible type for field load/store",
+                                    &I);
       if (AccessTy)
         setBaseTypeInfoSafetyData(AccessTy, dtrans::MismatchedElementAccess,
                                   "Incompatible type for field load/store", &I);
     }
 
+    auto *TI = DTInfo.getTypeInfo(ParentTy);
+    assert(TI && "visitModule() should create all TypeInfo objects");
     if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
       TypeSize FieldSize = DL.getTypeSizeInBits(
           ParentStInfo->getField(ElementNum).getLLVMType());
@@ -4712,6 +4872,19 @@ private:
                                   isPointerCarriedSafetyCondition(Data), V,
                                   /*ForCascade=*/false,
                                   /*ForPtrCarried=*/false);
+  }
+
+  // This is similar to setBaseTypeInfoSafetyData, except that there is no
+  // propagation to nested or referenced types of 'Ty'.
+  void setOnlyBaseTypeInfoSafetyData(DTransType *Ty, dtrans::SafetyData Data,
+                                     StringRef Reason, Value *V,
+                                     SafetyInfoReportCB Callback = nullptr) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    printSafetyDataDebugMessage(Data, Reason, V, nullptr, Callback);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    setBaseTypeInfoSafetyDataImpl(
+        Ty, Data, /*DoCascade=*/false, /*DoPtrCarried=*/false, V,
+        /*ForCascade=*/false, +/*ForPtrCarried=*/false);
   }
 
   // Set the safety data on all the aliased types of 'PtrInfo'

@@ -28,9 +28,9 @@ define dso_local void @foo(<2 x i64>* noalias nocapture %larr, <2 x i64> %val, i
 ; CHECK-NEXT:         |   %.vec2 = undef
 ; CHECK-NEXT:         |   %.vec = i1 + <i64 0, i64 1, i64 2, i64 3> < %n1
 ; CHECK-NEXT:         |   %.replicated.elts = shufflevector %.vec,  undef,  <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
-; CHECK-NEXT:         |   %.vec2 = (<8 x i64>*)(%larr.bc)[2 * i1]; Mask = @{%.replicated.elts}
+; CHECK-NEXT:         |   %.vec2 = (<8 x i64>*)(%larr.bc)[2 * i1], Mask = @{%.replicated.elts};
 ; CHECK-NEXT:         |   %.replicated.elts3 = shufflevector %.vec,  undef,  <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
-; CHECK-NEXT:         |   (<8 x i64>*)(%larr.bc)[2 * i1] = %.vec2 + %.replicated; Mask = @{%.replicated.elts3}
+; CHECK-NEXT:         |   (<8 x i64>*)(%larr.bc)[2 * i1] = %.vec2 + %.replicated, Mask = @{%.replicated.elts3};
 ; CHECK-NEXT:         + END LOOP
 ; CHECK:              ret
 ; CHECK-NEXT:    END REGION

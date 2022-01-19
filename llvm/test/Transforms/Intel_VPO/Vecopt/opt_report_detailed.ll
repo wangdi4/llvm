@@ -230,13 +230,13 @@ define void @test_nonvls_mem(i64* %ptr, i64 *%ptr2) #1 {
 ; HIR-NEXT:        |   (<4 x i64>*)(%ptr2)[%.vec] = 42;
 ; HIR-NEXT:        |   %.vec4 = %.vec2 == 76;
 ; HIR-NEXT:        |   %reverse = shufflevector %.vec4,  undef,  <i32 3, i32 2, i32 1, i32 0>;
-; HIR-NEXT:        |   %.vec5 = (<4 x i64>*)(%ptr)[-1 * i1 + -3]; Mask = @{%reverse}
+; HIR-NEXT:        |   %.vec5 = (<4 x i64>*)(%ptr)[-1 * i1 + -3], Mask = @{%reverse};
 ; HIR-NEXT:        |   %reverse6 = shufflevector %.vec5,  undef,  <i32 3, i32 2, i32 1, i32 0>;
 ; HIR-NEXT:        |   %reverse7 = shufflevector %.vec4,  undef,  <i32 3, i32 2, i32 1, i32 0>;
 ; HIR-NEXT:        |   %reverse8 = shufflevector 42,  undef,  <i32 3, i32 2, i32 1, i32 0>;
-; HIR-NEXT:        |   (<4 x i64>*)(%ptr)[-1 * i1 + -3] = %reverse8; Mask = @{%reverse7}
-; HIR-NEXT:        |   %.vec9 = (<4 x i64>*)(%ptr2)[%.vec]; Mask = @{%.vec4}
-; HIR-NEXT:        |   (<4 x i64>*)(%ptr2)[%.vec] = 77; Mask = @{%.vec4}
+; HIR-NEXT:        |   (<4 x i64>*)(%ptr)[-1 * i1 + -3] = %reverse8, Mask = @{%reverse7};
+; HIR-NEXT:        |   %.vec9 = (<4 x i64>*)(%ptr2)[%.vec], Mask = @{%.vec4};
+; HIR-NEXT:        |   (<4 x i64>*)(%ptr2)[%.vec] = 77, Mask = @{%.vec4};
 ; HIR-NEXT:        + END LOOP
 ; HIR:             ret ;
 ; HIR-NEXT:  END REGION
@@ -344,7 +344,7 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; HIR-NEXT:       |   (<8 x i64>*)(%ptr2)[2 * i1] = %shuffle5;
 ; HIR-NEXT:       |   %.vec6 = %vls.extract == 67;
 ; HIR-NEXT:       |   %vls.mask = shufflevector %.vec6,  zeroinitializer,  <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>;
-; HIR-NEXT:       |   %.vls.load7 = (<8 x i64>*)(%ptr3)[2 * i1]; Mask = @{%vls.mask}
+; HIR-NEXT:       |   %.vls.load7 = (<8 x i64>*)(%ptr3)[2 * i1], Mask = @{%vls.mask};
 ; HIR-NEXT:       |   %vls.extract8 = shufflevector %.vls.load7,  %.vls.load7,  <i32 0, i32 2, i32 4, i32 6>;
 ; HIR-NEXT:       |   %vls.extract9 = shufflevector %.vls.load7,  %.vls.load7,  <i32 1, i32 3, i32 5, i32 7>;
 ; HIR-NEXT:       |   %.extended10 = shufflevector 41,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>;
@@ -352,7 +352,7 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; HIR-NEXT:       |   %.extended12 = shufflevector 42,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>;
 ; HIR-NEXT:       |   %shuffle13 = shufflevector %shuffle11,  %.extended12,  <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>;
 ; HIR-NEXT:       |   %vls.mask14 = shufflevector %.vec6,  zeroinitializer,  <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>;
-; HIR-NEXT:       |   (<8 x i64>*)(%ptr4)[2 * i1] = %shuffle13; Mask = @{%vls.mask14}
+; HIR-NEXT:       |   (<8 x i64>*)(%ptr4)[2 * i1] = %shuffle13, Mask = @{%vls.mask14};
 ; HIR-NEXT:       + END LOOP
 ; HIR:            ret ;
 ; HIR-NEXT: END REGION

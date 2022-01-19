@@ -35,7 +35,7 @@
 ; VPCHECK-NEXT:  |   %.vec2 = undef;
 ; VPCHECK-NEXT:  |   %.vec = (<4 x float>*)(@B)[0][i1];
 ; VPCHECK-NEXT:  |   %.vec1 = %.vec > 0.000000e+00;
-; VPCHECK-NEXT:  |   %.vec2 = (<4 x float>*)(@C)[0][i1]; Mask = @{%.vec1}
+; VPCHECK-NEXT:  |   %.vec2 = (<4 x float>*)(@C)[0][i1], Mask = @{%.vec1};
 ; VPCHECK-NEXT:  |   %.vec3 = %.vec  +  %.vec2;
 ; VPCHECK-NEXT:  |   %.vec4 = %phi.temp  +  %.vec3;
 ; VPCHECK-NEXT:  |   %select = (%.vec1 == <i1 true, i1 true, i1 true, i1 true>) ? %.vec4 : %phi.temp;

@@ -703,6 +703,7 @@ void initializeAddFastMathLegacyPass(PassRegistry &);
 void initializeAddFunctionAttrsLegacyPass(PassRegistry &);
 void initializeAddImplicitArgsLegacyPass(PassRegistry &);
 void initializeAddNTAttrLegacyPass(PassRegistry &);
+void initializeAddTLSGlobalsLegacyPass(PassRegistry &);
 void initializeBarrierInFunctionLegacyPass(PassRegistry &);
 void initializeBuiltinCallToInstLegacyPass(PassRegistry &);
 void initializeBuiltinImportLegacyPass(PassRegistry &);
@@ -752,6 +753,7 @@ void initializeUpdateCallAttrsLegacyPass(PassRegistry &);
 void initializeVectorVariantFillInLegacyPass(PassRegistry &);
 void initializeVectorVariantLoweringLegacyPass(PassRegistry &);
 void initializeVFAnalysisLegacyPass(PassRegistry &);
+void initializeWorkItemAnalysisLegacyPass(PassRegistry &);
 void initializeWIRelatedValueWrapperPass(PassRegistry &);
 // Add/Sub reassociation pass
 void initializeAddSubReassociateLegacyPassPass(PassRegistry&);

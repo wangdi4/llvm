@@ -18,9 +18,9 @@ define void @foo(i64* noalias nocapture readonly %larr, float* noalias nocapture
 ; VPVAL-NEXT:          |   %.vec2 = undef;
 ; VPVAL-NEXT:          |   %.vec = (<4 x i64>*)(%larr)[i1];
 ; VPVAL-NEXT:          |   %.vec1 = %.vec > 111;
-; VPVAL-NEXT:          |   %.vec2 = (<4 x float>*)(%farr)[i1]; Mask = @{%.vec1}
+; VPVAL-NEXT:          |   %.vec2 = (<4 x float>*)(%farr)[i1], Mask = @{%.vec1};
 ; VPVAL-NEXT:          |   %.vec3 =  - %.vec2;
-; VPVAL-NEXT:          |   (<4 x float>*)(%farr)[i1] = %.vec3; Mask = @{%.vec1}
+; VPVAL-NEXT:          |   (<4 x float>*)(%farr)[i1] = %.vec3, Mask = @{%.vec1};
 ; VPVAL-NEXT:          + END LOOP
 ;
 entry:

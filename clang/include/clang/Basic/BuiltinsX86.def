@@ -2742,6 +2742,27 @@ TARGET_BUILTIN(__builtin_ia32_dvpdpbsud, "V4UiV4UiV16UcV16Uc", "nV:128:", "dspv1
 TARGET_BUILTIN(__builtin_ia32_dvpdpbsuds, "V4UiV4UiV16UcV16Uc", "nV:128:", "dspv1")
 TARGET_BUILTIN(__builtin_ia32_dvpndpbssd, "V4UiV4UiV16UcV16Uc", "nV:128:", "dspv1")
 // end Chapter 8
+// Chapter 10
+TARGET_BUILTIN(__builtin_ia32_dvpsadaccubws, "V8UsV8UsV16UcV16Uc", "nV:128:", "dspv1")
+// end Chapter 10
+// Chapter 11
+TARGET_BUILTIN(__builtin_ia32_dvpsrrsuqw, "V8UsV2ULLiIi", "nV:128:", "dspv1")
+TARGET_BUILTIN(__builtin_ia32_dvpsrvrsuqw, "V8UsV2ULLiV2ULLi", "nV:128:", "dspv1")
+TARGET_BUILTIN(__builtin_ia32_dvpslrsuqw, "V8UsV2ULLiIi", "nV:128:", "dspv1")
+TARGET_BUILTIN(__builtin_ia32_dvpslvrsuqw, "V8UsV2ULLiV2ULLi", "nV:128:", "dspv1")
+TARGET_BUILTIN(__builtin_ia32_dvpsrarsqw, "V8UsV2ULLiIi", "nV:128:", "dspv1")
+TARGET_BUILTIN(__builtin_ia32_dvpsravrsqw, "V8UsV2ULLiV2ULLi", "nV:128:", "dspv1")
+TARGET_BUILTIN(__builtin_ia32_dvpslrsqw, "V8UsV2ULLiIi", "nV:128:", "dspv1")
+TARGET_BUILTIN(__builtin_ia32_dvpslvrsqw, "V8UsV2ULLiV2ULLi", "nV:128:", "dspv1")
+TARGET_BUILTIN(__builtin_ia32_dvpsrrsuqd, "V4UiV2ULLiIi", "nV:128:", "dspv1")
+TARGET_BUILTIN(__builtin_ia32_dvpsrvrsuqd, "V4UiV2ULLiV2ULLi", "nV:128:", "dspv1")
+TARGET_BUILTIN(__builtin_ia32_dvpslrsuqd, "V4UiV2ULLiIi", "nV:128:", "dspv1")
+TARGET_BUILTIN(__builtin_ia32_dvpslvrsuqd, "V4UiV2ULLiV2ULLi", "nV:128:", "dspv1")
+TARGET_BUILTIN(__builtin_ia32_dvpsrarsqd, "V4UiV2ULLiIi", "nV:128:", "dspv1")
+TARGET_BUILTIN(__builtin_ia32_dvpsravrsqd, "V4UiV2ULLiV2ULLi", "nV:128:", "dspv1")
+TARGET_BUILTIN(__builtin_ia32_dvpslrsqd, "V4UiV2ULLiIi", "nV:128:", "dspv1")
+TARGET_BUILTIN(__builtin_ia32_dvpslvrsqd, "V4UiV2ULLiV2ULLi", "nV:128:", "dspv1")
+// end Chapter 11
 // Chapter 12
 TARGET_BUILTIN(__builtin_ia32_dvpsrard, "V4UiV4UiIi", "nV:128:", "dspv1")
 TARGET_BUILTIN(__builtin_ia32_dvpsravrd, "V4UiV4UiV4Ui", "nV:128:", "dspv1")

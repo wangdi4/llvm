@@ -284,6 +284,7 @@ public:
   bool canHaveAllocate() const;
   bool canHaveOrderedTripCounts() const;
   bool canHaveIf() const;
+  bool canHaveDoConcurrent() const;
   /// @}
 
   /// Returns `true` if the construct needs to be outlined into a separate
@@ -400,7 +401,7 @@ public:
                                            {WRNERROR(QUAL_OMP_FIRSTPRIVATE);}
   virtual const FlushSet &getFlush() const {WRNERROR(QUAL_OMP_FLUSH);       }
   virtual const IsDevicePtrClause &getIsDevicePtr() const
-                                           {WRNERROR(QUAL_OMP_IS_DEVICE_PTR);}
+                                          {WRNERROR(QUAL_OMP_IS_DEVICE_PTR);}
   virtual const LastprivateClause &getLpriv() const
                                            {WRNERROR(QUAL_OMP_LASTPRIVATE); }
   virtual const LinearClause &getLinear() const
@@ -441,6 +442,8 @@ public:
   virtual CallInst *getCall()             const {WRNERROR("DISPATCH CALL");   }
   virtual void setCancelKind(WRNCancelKind CK)  {WRNERROR("CANCEL TYPE");     }
   virtual WRNCancelKind getCancelKind()   const {WRNERROR("CANCEL TYPE");     }
+  virtual void setIsDoConcurrent(bool B)    {WRNERROR(QUAL_EXT_DO_CONCURRENT);}
+  virtual bool getIsDoConcurrent() const    {WRNERROR(QUAL_EXT_DO_CONCURRENT);}
   virtual void setCollapse(int N)               {WRNERROR(QUAL_OMP_COLLAPSE); }
   virtual int getCollapse()               const {WRNERROR(QUAL_OMP_COLLAPSE); }
   virtual void setDefault(WRNDefaultKind T)     {WRNERROR("DEFAULT");         }

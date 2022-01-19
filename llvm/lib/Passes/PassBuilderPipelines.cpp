@@ -1485,10 +1485,10 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 #if INTEL_CUSTOMIZATION
 
   // If VPO paropt was required to run then do IP constant propagation after
-  // promoting pointer arguments to values (when OptLevel > 2) and running
+  // promoting pointer arguments to values (when OptLevel > 1) and running
   // simplification passes. That will propagate constant values down to callback
   // functions which represent outlined OpenMP parallel loops where possible.
-  if (RunVPOParopt && Level.getSpeedupLevel() > 2)
+  if (RunVPOParopt && Level.getSpeedupLevel() > 1)
     MPM.addPass(IPSCCPPass());
 #endif // INTEL_CUSTOMIZATION
 
@@ -2689,12 +2689,9 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 #if INTEL_FEATURE_SW_DTRANS
   if (DTransEnabled) {
     addLateDTransPasses(MPM);
-    if (EnableIndirectCallConv) {
-       MPM.addPass(RequireAnalysisPass<DTransAnalysis, Module>());
-       MPM.addPass(createModuleToFunctionPassAdaptor(
-           IndirectCallConvPass(false /* EnableAndersen */,
-                                true /* DTransEnabled */)));
-    }
+    if (EnableIndirectCallConv)
+       MPM.addPass(IndirectCallConvPass(false /* EnableAndersen */,
+                                       true /* DTransEnabled */));
   }
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
@@ -2735,13 +2732,11 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // Indirect to direct call conversion.
 #if INTEL_FEATURE_SW_DTRANS
   if (EnableIndirectCallConv && EnableAndersen)
-    MPM.addPass(createModuleToFunctionPassAdaptor(
-        IndirectCallConvPass(true /* EnableAndersen */,
-                             false /* EnableDTrans */)));
+    MPM.addPass(IndirectCallConvPass(true /* EnableAndersen */,
+                                     false /* EnableDTrans */));
 #else // INTEL_FEATURE_SW_DTRANS
   if (EnableIndirectCallConv && EnableAndersen)
-    MPM.addPass(createModuleToFunctionPassAdaptor(
-        IndirectCallConvPass(true /* EnableAndersen */)));
+    MPM.addPass(IndirectCallConvPass(true /* EnableAndersen */));
 #endif // INTEL_FEATURE_SW_DTRANS
 
   // Require the InlineAggAnalysis for the module so we can query it within
