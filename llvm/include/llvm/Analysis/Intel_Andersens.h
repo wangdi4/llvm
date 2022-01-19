@@ -403,15 +403,15 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
 
   /// Handle to clear this analysis on deletion of values.
   struct AndersensDeletionCallbackHandle final : CallbackVH {
-    AndersensAAResult &AAR;
+    AndersensAAResult *AAR;
 
     AndersensDeletionCallbackHandle(AndersensAAResult &AAR, Value *V)
-        : CallbackVH(V), AAR(AAR) {}
+        : CallbackVH(V), AAR(&AAR) {}
 
     void deleted() override {
       Value *Val = getValPtr();
 
-      AAR.ProcessIRValueDestructed(Val);
+      AAR->ProcessIRValueDestructed(Val);
 
       // Clear the value handle, so that the object can be destroyed.
       setValPtr(nullptr);
@@ -452,7 +452,7 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
     std::vector<llvm::Value*>& PtVec);
 
   // List of callbacks for Values being tracked by this analysis.
-  std::set<AndersensDeletionCallbackHandle> AndersensHandles;
+  std::list<AndersensDeletionCallbackHandle> AndersensHandles;
 
   explicit AndersensAAResult(const DataLayout &DL, AndersGetTLITy GetTLI,
                              WholeProgramInfo *WPInfo);
