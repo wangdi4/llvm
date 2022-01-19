@@ -1992,10 +1992,6 @@ class SyclKernelDeclCreator : public SyclKernelFieldHandler {
   // Additional processing is required for accessor type.
   void handleAccessorType(const CXXRecordDecl *RecordDecl, SourceLocation Loc) {
     handleAccessorPropertyList(Params.back(), RecordDecl, Loc);
-    if (KernelDecl->hasAttr<SYCLSimdAttr>())
-      // In ESIMD, the kernels accessor's pointer argument needs to be marked.
-      Params.back()->addAttr(
-          SYCLSimdAccessorPtrAttr::CreateImplicit(SemaRef.getASTContext()));
     // Get access mode of accessor.
     const auto *AccessorSpecializationDecl =
         cast<ClassTemplateSpecializationDecl>(RecordDecl);
@@ -2007,6 +2003,8 @@ class SyclKernelDeclCreator : public SyclKernelFieldHandler {
     if (isReadOnlyAccessor(AccessModeArg))
       Params.back()->addAttr(
           SYCLAccessorReadonlyAttr::CreateImplicit(SemaRef.getASTContext()));
+    Params.back()->addAttr(
+        SYCLAccessorPtrAttr::CreateImplicit(SemaRef.getASTContext()));
   }
 
   // All special SYCL objects must have __init method. We extract types for
