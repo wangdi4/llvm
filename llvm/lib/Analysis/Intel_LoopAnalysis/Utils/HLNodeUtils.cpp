@@ -2757,11 +2757,17 @@ HLNode *HLNodeUtils::getImmediateChildContainingNode(HLNode *ParentNode,
 struct StructuredFlowChecker final : public HLNodeVisitorBase {
   bool IsPDom;
   const HLNode *TargetNode;
+  // Target node is being for 2 different purposes-
+  // 1) To signify end of traveral (early-exit from the visitor).
+  // 2) To check jumps across target in post-domination mode.
+  // This flag indicates whether it can be used for 1) or just 2).
+  bool TargetEndsTraversal;
   bool IsStructured;
   bool IsDone;
 
   StructuredFlowChecker(bool PDom, const HLNode *TNode,
-                        const HLLoop *ParentLoop, HIRLoopStatistics *HLS);
+                        bool TargetEndsTraversal, const HLLoop *ParentLoop,
+                        HIRLoopStatistics *HLS);
 
   // Returns true if visitor is done.
   bool visit(const HLNode *Node);
@@ -2777,9 +2783,11 @@ struct StructuredFlowChecker final : public HLNodeVisitorBase {
 };
 
 StructuredFlowChecker::StructuredFlowChecker(bool PDom, const HLNode *TNode,
+                                             bool TargetEndsTraversal,
                                              const HLLoop *ParentLoop,
                                              HIRLoopStatistics *HLS)
-    : IsPDom(PDom), TargetNode(TNode), IsStructured(true), IsDone(false) {
+    : IsPDom(PDom), TargetNode(TNode), TargetEndsTraversal(TargetEndsTraversal),
+      IsStructured(true), IsDone(false) {
   // Query HIRLoopStatistics for a possible faster response.
   if (HLS && ParentLoop) {
     if (IsPDom) {
@@ -2801,7 +2809,7 @@ StructuredFlowChecker::StructuredFlowChecker(bool PDom, const HLNode *TNode,
 }
 
 bool StructuredFlowChecker::visit(const HLNode *Node) {
-  if (Node == TargetNode) {
+  if (TargetEndsTraversal && (Node == TargetNode)) {
     IsDone = true;
   }
 
@@ -2907,7 +2915,12 @@ bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
     return true;
   }
 
-  StructuredFlowChecker SFC(PostDomination, TargetNode,
+  // 'Upward' traversal is backward traversal of HIR. If TargetNode is the
+  // LastNode of the range, StructuredFlowChecker will exit early using 'IsDone'
+  // mechanism and skip all the checks which is not the intention.
+  bool TargetEndsTraversal = (!UpwardTraversal || (TargetNode != LastNode));
+
+  StructuredFlowChecker SFC(PostDomination, TargetNode, TargetEndsTraversal,
                             FirstNode->getParentLoop(), HLS);
 
   // Don't need to recurse into loops.
