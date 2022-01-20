@@ -946,15 +946,14 @@ static void clearNotInvolvedGroups(
 
 // Check whether RTDD can happen before a relaxed non-perfect loopnest.
 // The pattern is matched by Geekbench6.0/Camera
-static bool canLoopBeRelaxed(HLLoop *Loop, const HLLoop *&InnermostLoop,
-                             SmallSet<unsigned, 16> &PreLoopInstsLvalSBs) {
+static bool canLoopBeRelaxed(HLLoop *Loop, const HLLoop *&InnermostLoop) {
   HLIf *If = dyn_cast<HLIf>(Loop->getLastChild());
 
   if (!If) {
     return false;
   }
 
-  if (If->getNumThenChildren() != 1) {
+  if (If->getNumThenChildren() != 1 || If->hasElseChildren()) {
     return false;
   }
 
@@ -977,8 +976,6 @@ static bool canLoopBeRelaxed(HLLoop *Loop, const HLLoop *&InnermostLoop,
 
     if (!Lval->isTerminalRef()) {
       return false;
-    } else {
-      PreLoopInstsLvalSBs.insert(Lval->getSymbase());
     }
   }
 
@@ -1056,12 +1053,10 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
   const HLLoop *InnermostLoop = Loop;
   bool CanLoopBeRelaxed = false;
-  SmallSet<unsigned, 16> PreLoopInstsLvalSBs;
 
   if (!Loop->isInnermost() &&
       !HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop)) {
-    CanLoopBeRelaxed =
-        canLoopBeRelaxed(Loop, InnermostLoop, PreLoopInstsLvalSBs);
+    CanLoopBeRelaxed = canLoopBeRelaxed(Loop, InnermostLoop);
 
     if (!CanLoopBeRelaxed) {
       return NON_PERFECT_LOOPNEST;
@@ -1212,6 +1207,8 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     }
   });
 
+  unsigned LoopLevel = Loop->getNestingLevel();
+
   // Construct IV Segments from Groups.
   SmallVector<IVSegment, ExpectedNumberOfTests> IVSegments;
   for (unsigned I = 0; I < GroupSize; ++I) {
@@ -1228,21 +1225,25 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
       return UNKNOWN_ADDR_RANGE;
     }
 
-    // Check whether any pre-loop inst's lval is used as a blob inside the
-    // memref. If yes, RT cannot be allowed to put before the relaxed loop,
-    // because the definition is after the use.
-    if (std::any_of(Groups[I].begin(), Groups[I].end(),
-                    [&](const RegDDRef *Ref) {
-                      for (auto BI = Ref->blob_begin(), E = Ref->blob_end();
-                           BI != E; ++BI) {
-                        const BlobDDRef *BlobRef = *BI;
-                        if (PreLoopInstsLvalSBs.count(BlobRef->getSymbase())) {
+    if (!Loop->isInnermost()) {
+      // Check whether any pre-loop inst's lval is used as a blob inside the
+      // memref. If yes, RT cannot be allowed to put before the relaxed loop,
+      // because the definition is after the use.
+      if (std::any_of(Groups[I].begin(), Groups[I].end(),
+                      [&](const RegDDRef *Ref) {
+                        if (!Ref->isLinearAtLevel(LoopLevel)) {
                           return true;
                         }
-                      }
-                      return false;
-                    })) {
-      return NON_PERFECT_LOOPNEST;
+                        return false;
+                      })) {
+        return NON_PERFECT_LOOPNEST;
+      }
+
+      // CHeck whether innermost loop bound uses any pre-loop inst's lval
+      if (!(InnermostLoop->getUpperDDRef()->isStructurallyInvariantAtLevel(
+              LoopLevel))) {
+        return NON_PERFECT_LOOPNEST;
+      }
     }
 
     bool IsWriteGroup =
