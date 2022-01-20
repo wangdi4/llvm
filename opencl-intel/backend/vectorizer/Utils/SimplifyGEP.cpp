@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -19,8 +19,9 @@
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 
-#include "llvm/IR/InstIterator.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/InitializePasses.h"
 #include <vector>
 
 namespace intel {
@@ -28,7 +29,7 @@ namespace intel {
 char SimplifyGEP::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP instructions", false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
+OCL_INITIALIZE_PASS_DEPENDENCY(WorkItemAnalysisLegacy)
 OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP instructions", false, false)
 
   SimplifyGEP::SimplifyGEP() : FunctionPass(ID), m_pDL(nullptr),
@@ -46,16 +47,17 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
     // obtain TagetData of the module
     m_pDL = &F.getParent()->getDataLayout();
 
-    // Obtain WIAnalysis of the function
-    m_depAnalysis = &getAnalysis<WIAnalysis>();
+    // Obtain WorkItemAnalysis of the function
+    m_depAnalysis = &getAnalysis<WorkItemAnalysisLegacy>();
     V_ASSERT(m_depAnalysis && "Unable to get pass");
-
+    m_WIInfo = &m_depAnalysis->getResult();
     bool changed = false;
     changed = FixPhiNodeGEP(F) || changed;
     // This is a work around to fix WIAnaylsis after changing the function!
     // TODO: need to fix the analysis without regenrating all of it!
     if(changed) {
       m_depAnalysis->runOnFunction(F);
+      m_WIInfo = &m_depAnalysis->getResult();
     }
     changed = FixMultiIndicesGEP(F) || changed;
 
@@ -114,14 +116,14 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
       // Else initialValue is a Gep Inst: initial index = Gep:index, base = Gep:base
       Value *pNewBase = nullptr;
       Value *pNewInitialValue = nullptr;
-      if (WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(pInitialValue)) {
+      if (WorkItemInfo::UNIFORM == m_WIInfo->whichDepend(pInitialValue)) {
         pNewBase = pInitialValue;
         pNewInitialValue = Constant::getNullValue(indexType);
       }
       else {
         GetElementPtrInst *pInitialValueGep = dyn_cast<GetElementPtrInst>(pInitialValue);
         if (pInitialValueGep && pInitialValueGep->getNumIndices() == 1 &&
-          WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(pInitialValueGep->getPointerOperand()) &&
+          WorkItemInfo::UNIFORM == m_WIInfo->whichDepend(pInitialValueGep->getPointerOperand()) &&
           pInitialValueGep->getOperand(1)->getType() == indexType) {
             pNewBase = pInitialValueGep->getPointerOperand();
             pNewInitialValue = pInitialValueGep->getOperand(1); //operand-1 is first index.
@@ -284,8 +286,8 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
        // Support GEP instructions with a single index which is not uniform/consecutive.
        BinaryOperator * pAddInst = getNextAdd(pGEP->getOperand(1));
        if(pAddInst &&
-          WIAnalysis::UNIFORM != m_depAnalysis->whichDepend(pAddInst) &&
-          WIAnalysis::CONSECUTIVE != m_depAnalysis->whichDepend(pAddInst))
+          WorkItemInfo::UNIFORM != m_WIInfo->whichDepend(pAddInst) &&
+          WorkItemInfo::CONSECUTIVE != m_WIInfo->whichDepend(pAddInst))
          return true;
        else
          return false;
@@ -320,9 +322,9 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
     Value * pBasePtrVal = pGEP->getOperand(0);
     BinaryOperator * pAddInst = getNextAdd(pGEP->getOperand(1));
     if(pAddInst &&
-       WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(pBasePtrVal) &&
-       WIAnalysis::UNIFORM != m_depAnalysis->whichDepend(pAddInst) &&
-       WIAnalysis::CONSECUTIVE != m_depAnalysis->whichDepend(pAddInst)) {
+       WorkItemInfo::UNIFORM == m_WIInfo->whichDepend(pBasePtrVal) &&
+       WorkItemInfo::UNIFORM != m_WIInfo->whichDepend(pAddInst) &&
+       WorkItemInfo::CONSECUTIVE != m_WIInfo->whichDepend(pAddInst)) {
 
       // Collect uniform and divergent indices
       SmallVector<Value *, 8>        uniformVals, divergentVals;
@@ -336,7 +338,7 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
 
         for(unsigned i = 0; i < 2; ++i) {
           Value * pVal = operands[i];
-          if(WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(pVal)) {
+          if(WorkItemInfo::UNIFORM == m_WIInfo->whichDepend(pVal)) {
             uniformVals.push_back(pVal);
           }
           else {
@@ -389,7 +391,7 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
 
     // Check if all indices except the last one are uniform
     for (unsigned int i = 1; i < pGEP->getNumIndices(); ++i) {
-      if (WIAnalysis::UNIFORM != m_depAnalysis->whichDepend(pGEP->getOperand(i))) {
+      if (WorkItemInfo::UNIFORM != m_WIInfo->whichDepend(pGEP->getOperand(i))) {
         return false;
       }
     }

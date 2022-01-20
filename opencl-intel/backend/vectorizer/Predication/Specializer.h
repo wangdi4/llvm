@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -78,9 +78,9 @@ public:
   /// @param all_zero Function to check for all-zero of values
   /// @param PDT postdominator analysis
   /// @param DT dominator analysis
-  FunctionSpecializer(Predicator* pred, Function* func, Function* all_zero,
-                      PostDominatorTree* PDT, DominatorTree*  DT,
-                      LoopInfo *LI, WIAnalysis *WIA, OCLBranchProbability *OBP);
+  FunctionSpecializer(Predicator *pred, Function *func, Function *all_zero,
+                      PostDominatorTree *PDT, DominatorTree *DT, LoopInfo *LI,
+                      WorkItemInfo *WIA, OCLBranchProbability *OBP);
 
   /// @brief Finds a single edge to specialize. This uses
   ///  the control dominance of the block to check.
@@ -208,7 +208,7 @@ private:
   // LoopInfo
   LoopInfo *m_LI;
   // Work Item Analysis
-  WIAnalysis *m_WIA;
+  WorkItemInfo *m_WIA;
   // Branch probability analysis - for bypasses addition
   OCLBranchProbability *m_OBP;
   /// Zero

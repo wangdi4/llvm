@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,25 +15,25 @@
 #ifndef __PREDICATOR_H_
 #define __PREDICATOR_H_
 #include "BuiltinLibInfo.h"
-#include "WIAnalysis.h"
-#include "PhiCanon.h"
 #include "Linearizer.h"
-#include "Specializer.h"
 #include "OclTune.h"
+#include "PhiCanon.h"
+#include "Specializer.h"
 
-#include "llvm/Pass.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
-#include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/WorkItemAnalysis.h"
 #include "llvm/Transforms/Scalar.h"
-#include "llvm/ADT/SetVector.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
@@ -424,7 +424,7 @@ public:
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<PostDominatorTreeWrapperPass>();
     // we preserve nothing. really.
-    AU.addRequired<WIAnalysis>();
+    AU.addRequired<WorkItemAnalysisLegacy>();
     // for bypasses usage
     AU.addRequired<OCLBranchProbability>();
     AU.addRequired<BuiltinLibInfo>();
@@ -513,7 +513,7 @@ private:
   /// true if the predicated function gets arguments that are pointers to local mem.
   bool m_hasLocalMemoryArgs;
   // Work-item analysis pointer
-  WIAnalysis* m_WIA;
+  WorkItemInfo *m_WIA;
   // Dominator tree pointer.
   DominatorTree* m_DT;
   // Loop info pointer
@@ -542,7 +542,7 @@ private:
   /// Exit basic blocks out of UCF regions with relation to the entry BBs
   std::map<BasicBlock*, BasicBlock*> m_ucfExit2Entry;
   /// UCF region scheduling constraints
-  SchdConstMap m_ucfSchedulingConstraints;
+  WorkItemInfo::SchdConstMap m_ucfSchedulingConstraints;
 
   // Statistics:
   Statistic::ActiveStatsT m_kernelStats;

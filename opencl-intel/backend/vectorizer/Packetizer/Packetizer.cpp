@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -68,7 +68,7 @@ const unsigned int PacketizeFunction::MaxLogBufferSize = 31;
 char PacketizeFunction::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(PacketizeFunction, "packetize", "packetize functions", false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
+OCL_INITIALIZE_PASS_DEPENDENCY(WorkItemAnalysisLegacy)
 OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysisLegacy)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(PacketizeFunction, "packetize", "packetize functions", false, false)
@@ -217,9 +217,9 @@ bool PacketizeFunction::runOnFunction(Function &F)
   V_PRINT(packetizer, "\nStarting packetization of: " << m_currFunc->getName());
   V_PRINT(packetizer, " to Width: " << m_packetWidth << "\n");
 
-  // Obtain WIAnalysis of the function
-  m_depAnalysis = &getAnalysis<WIAnalysis>();
-  V_ASSERT(m_depAnalysis && "Unable to get pass");
+  // Obtain WorkItemInfo of the function
+  WIInfo = &getAnalysis<WorkItemAnalysisLegacy>().getResult();
+  V_ASSERT(WIInfo && "Unable to get pass");
 
     // Obtain SoaAllocaAnalysis of the function
   m_soaAllocaInfo = &getAnalysis<SoaAllocaAnalysisLegacy>().getResult();
@@ -276,7 +276,7 @@ bool PacketizeFunction::runOnFunction(Function &F)
   for (indexIter = iterStart; indexIter != iterEnd; ++indexIter)
   {
     Instruction *curInst = *indexIter;
-    m_depAnalysis->invalidateDepend(curInst);
+    WIInfo->invalidateDepend(curInst);
     curInst->replaceAllUsesWith(UndefValue::get(curInst->getType()));
     curInst->eraseFromParent();
   }
@@ -443,14 +443,14 @@ bool PacketizeFunction::canTransposeMemory(Value * /*addr*/, Value *origVal,
                                            bool isMasked) {
 
   // There is no point to transpose uniform value.
-  if (m_depAnalysis->whichDepend(origVal) == WIAnalysis::UNIFORM) return false;
+  if (WIInfo->whichDepend(origVal) == WorkItemInfo::UNIFORM) return false;
 
   // It is possible the address is uniform even when the value isn't.
   // This can happen in either masked loads with non-uniform mask, masked stores,
   // or stores that write different values to the same address (the last case is weird).
   // Right now we could treat these cases as gathers, but that is very inefficient.
   // Another option is not to transpose, by uncommenting the line below.
-  // if (m_depAnalysis->whichDepend(addr) == WIAnalysis::UNIFORM) return false;
+  // if (WIInfo->whichDepend(addr) == WorkItemInfo::UNIFORM) return false;
   // Finally, the last option is to handle it properly - e.g. a masked load from a
   // uniform address should be a load+broadcast protected by an allZero branch.
 
@@ -474,7 +474,7 @@ bool PacketizeFunction::isScatterGatherAddr(Value* Address) {
   // the vectorized version of Address. Otherwise, we can perform a wide load/store.
   // Note that we consider uniform as gather/scatter here, even though
   // you can be more efficient, because currently the appropriate builtin is missing.
-  return (m_depAnalysis->whichDepend(Address) != WIAnalysis::PTR_CONSECUTIVE);
+  return (WIInfo->whichDepend(Address) != WorkItemInfo::PTR_CONSECUTIVE);
 }
 
 void PacketizeFunction::obtainLoadAndTranspose(Instruction* LI, Value* loadAdd, bool masked) {
@@ -644,7 +644,7 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
     return generateSequentialIndices(I);
   }
 
-  if (WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(I))
+  if (WorkItemInfo::UNIFORM == WIInfo->whichDepend(I))
   {
     // since we are never getting uniform values from other dependencies
     // (even though sub consecutive consecutive = uniform)
@@ -1158,7 +1158,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
 
   if (MO.Mask) {
     // if mask is uniform keep it scalar (will be handled later in resolver)
-    if( WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(MO.Mask) ) {
+    if( WorkItemInfo::UNIFORM == WIInfo->whichDepend(MO.Mask) ) {
       Value *SclrMask[MAX_PACKET_WIDTH];
       obtainMultiScalarValues(SclrMask, MO.Mask, MO.Orig);
       MO.Mask = SclrMask[0];
@@ -1362,10 +1362,10 @@ Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO)
   V_ASSERT(MO.Mask && "expected masked operation");
   std::string name = (MO.Data? Mangler::getStoreName(MO.Alignment):
                                Mangler::getLoadName(MO.Alignment));
-  WIAnalysis::WIDependancy MaskDep = m_depAnalysis->whichDepend(MO.Mask);
+  WorkItemInfo::Dependency MaskDep = WIInfo->whichDepend(MO.Mask);
 
   // Set the mask. We are free to generate scalar or vector masks.
-  if (MaskDep == WIAnalysis::UNIFORM) {
+  if (MaskDep == WorkItemInfo::UNIFORM) {
     Value *SclrMask[MAX_PACKET_WIDTH];
     obtainMultiScalarValues(SclrMask, MO.Mask, MO.Orig);
     MO.Mask = SclrMask[0];
@@ -1428,9 +1428,9 @@ Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO)
 }
 
 Instruction *PacketizeFunction::widenConsecutiveMemOp(MemoryOperation &MO) {
-  // First, try to handle cases that WIAnalysis found to be consecutive.
-  WIAnalysis::WIDependancy PtrDep = m_depAnalysis->whichDepend(MO.Ptr);
-  if (PtrDep == WIAnalysis::PTR_CONSECUTIVE) {
+  // First, try to handle cases that WorkItemInfo found to be consecutive.
+  WorkItemInfo::Dependency PtrDep = WIInfo->whichDepend(MO.Ptr);
+  if (PtrDep == WorkItemInfo::PTR_CONSECUTIVE) {
     if (MO.Mask) {
       Instruction *Wide = widenConsecutiveMaskedMemOp(MO);
       V_ASSERT(Wide && "failed to generate masked wide memory operation");
@@ -1448,16 +1448,16 @@ Instruction *PacketizeFunction::widenConsecutiveMemOp(MemoryOperation &MO) {
   // where the ptr was calculated as base + index with uniform base and
   // consecutive index. This relaxation is meant to capture cases where
   // consecutive 32 bit index was zero extended and was declared random by
-  // WIAnalysis since it may wrap. Since buffer size is <= 2^31, and all work
-  // items access the memory we know that wrapping can't happen.
+  // WorkItemAnalysis since it may wrap. Since buffer size is <= 2^31, and all
+  // work items access the memory we know that wrapping can't happen.
   bool indexConsecutive = MO.Index && MO.Base && // has base, index
-    m_depAnalysis->whichDepend(MO.Index) == WIAnalysis::CONSECUTIVE && // index consecutive
-    m_depAnalysis->whichDepend(MO.Base) == WIAnalysis::UNIFORM && // base uniform
+    WIInfo->whichDepend(MO.Index) == WorkItemInfo::CONSECUTIVE && // index consecutive
+    WIInfo->whichDepend(MO.Base) == WorkItemInfo::UNIFORM && // base uniform
     MO.Index->getType()->getPrimitiveSizeInBits() > MaxLogBufferSize; // index is at least 32 bit
   if (!indexConsecutive) return nullptr;
 
   if (MO.Mask) {
-    if(m_depAnalysis->whichDepend(MO.Mask) == WIAnalysis::UNIFORM) {
+    if(WIInfo->whichDepend(MO.Mask) == WorkItemInfo::UNIFORM) {
       Instruction *Wide = widenConsecutiveMaskedMemOp(MO);
       V_ASSERT(Wide && "failed to generate masked wide memory operation");
       Wide_Masked_Memory_Operation_Created++; // statistics
@@ -1474,8 +1474,8 @@ Instruction *PacketizeFunction::widenConsecutiveMemOp(MemoryOperation &MO) {
 
 void PacketizeFunction::obtainBaseIndex(MemoryOperation &MO) {
   //Uniform pointer can be seen as the base with 0 index.
-  WIAnalysis::WIDependancy PtrDep = m_depAnalysis->whichDepend(MO.Ptr);
-  if (PtrDep == WIAnalysis::UNIFORM) {
+  WorkItemInfo::Dependency PtrDep = WIInfo->whichDepend(MO.Ptr);
+  if (PtrDep == WorkItemInfo::UNIFORM) {
     MO.Index = ConstantInt::getNullValue(Type::getInt32Ty(MO.Ptr->getContext()));
     MO.Base = MO.Ptr;
     MO.IndexIsSigned = true;
@@ -1490,9 +1490,9 @@ void PacketizeFunction::obtainBaseIndex(MemoryOperation &MO) {
   if (Gep && Gep->getNumIndices() == 1) {
     Base = Gep->getOperand(0);
     // and the base is uniform
-    WIAnalysis::WIDependancy depBase = m_depAnalysis->whichDepend(Base);
-    if (depBase == WIAnalysis::UNIFORM ||
-        (depBase == WIAnalysis::PTR_CONSECUTIVE &&
+    WorkItemInfo::Dependency depBase = WIInfo->whichDepend(Base);
+    if (depBase == WorkItemInfo::UNIFORM ||
+        (depBase == WorkItemInfo::PTR_CONSECUTIVE &&
          m_soaAllocaInfo->isSoaAllocaScalarRelated(Base))) {
       Index = Gep->getOperand(1);
       MO.IndexIsSigned = true;
@@ -1549,15 +1549,15 @@ void PacketizeFunction::obtainBaseIndex(MemoryOperation &MO) {
     Base = Gep->getOperand(0);
     Value* arrayIndex = Gep->getOperand(1);
     Value* field = Gep->getOperand(2);
-    WIAnalysis::WIDependancy depBase = m_depAnalysis->whichDepend(Base);
-    WIAnalysis::WIDependancy gepArg1Dep = m_depAnalysis->whichDepend(arrayIndex);
+    WorkItemInfo::Dependency depBase = WIInfo->whichDepend(Base);
+    WorkItemInfo::Dependency gepArg1Dep = WIInfo->whichDepend(arrayIndex);
     ConstantInt* fieldConstantInt = dyn_cast<ConstantInt>(field);
     PointerType* basePointerType = dyn_cast<PointerType>(Base->getType());
     StructType* structType =
       basePointerType ? dyn_cast<StructType>(basePointerType->getElementType()): nullptr;
     if (structType &&
-        depBase == WIAnalysis::UNIFORM &&
-        gepArg1Dep == WIAnalysis::CONSECUTIVE &&
+        depBase == WorkItemInfo::UNIFORM &&
+        gepArg1Dep == WorkItemInfo::CONSECUTIVE &&
         fieldConstantInt && !fieldConstantInt->isNegative()) {
       // Make sure this actually is a struct field access
       uint64_t structAllocSize = m_pDL->getTypeAllocSize(structType);
@@ -1722,7 +1722,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
     MemoryOperation MO;
     if (Mangler::isMangledPrefetch(scalarFuncName)) {
       MO.Ptr = (isMangled) ? CI->getArgOperand(1) : CI->getArgOperand(0);
-      if (WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(MO.Ptr))
+      if (WorkItemInfo::UNIFORM == WIInfo->whichDepend(MO.Ptr))
       {
         // since we are never getting uniform values from other dependencies
         // (even though sub consecutive consecutive = uniform)
@@ -1811,7 +1811,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
     // uniform, then serialize it.
     for (auto Arg : enumerate(CI->args())) {
       if (hasVectorInstrinsicScalarOpd(ID, Arg.index()) &&
-          m_depAnalysis->whichDepend(Arg.value()) != WIAnalysis::UNIFORM) {
+          WIInfo->whichDepend(Arg.value()) != WorkItemInfo::UNIFORM) {
         V_STAT(m_noVectorFuncCtr++;
         Scalarize_Function_Call++;)
         return duplicateNonPacketizableInst(CI);
@@ -1942,7 +1942,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   // an allones/allzeroes call and the branch that uses it.
   // (sometimes it is not even used at all, if branch
   // after allzero is uniform)
-  if (WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(CI)) {
+  if (WorkItemInfo::UNIFORM == WIInfo->whichDepend(CI)) {
     V_ASSERT(CI->getNumUses() <= 1
             && "expected at most one branch uses the allones/allzeroes");
     V_ASSERT(m_VCM.count(CI) && "missing packetized allone/allzeroes call");
@@ -2472,7 +2472,7 @@ bool PacketizeFunction::obtainInsertElts(InsertElementInst *IEI, InsertElementIn
 
       if (LoadInst *LI = dyn_cast<LoadInst>(insertedValue)) {
         Value *Address = LI->getPointerOperand();
-        if (m_depAnalysis->whichDepend(Address) != WIAnalysis::PTR_CONSECUTIVE)
+        if (WIInfo->whichDepend(Address) != WorkItemInfo::PTR_CONSECUTIVE)
           badForTranspose = true;
       } else if (CallInst *CI = dyn_cast<CallInst>(insertedValue)) {
         // Masked loads are represented as special call instructions,
@@ -2482,12 +2482,12 @@ bool PacketizeFunction::obtainInsertElts(InsertElementInst *IEI, InsertElementIn
         StringRef Name = CI->getCalledFunction()->getName();
         if (Mangler::isMangledLoad(std::string(Name))) {
           Value *Address = CI->getArgOperand(1);
-          if (m_depAnalysis->whichDepend(Address) != WIAnalysis::PTR_CONSECUTIVE)
+          if (WIInfo->whichDepend(Address) != WorkItemInfo::PTR_CONSECUTIVE)
             badForTranspose = true;
         }
       }
 
-      if (m_depAnalysis->whichDepend(insertedValue) == WIAnalysis::UNIFORM) {
+      if (WIInfo->whichDepend(insertedValue) == WorkItemInfo::UNIFORM) {
         badForTranspose = true;
       }
       // for statistics:://////////////
@@ -2933,7 +2933,7 @@ void PacketizeFunction::packetizeInstruction(SelectInst *SI)
 
   // Check if the selector is uniform (if so, we don't generate a vector select)
   bool isUniformCondition =
-    (WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(SI->getCondition()));
+    (WorkItemInfo::UNIFORM == WIInfo->whichDepend(SI->getCondition()));
   if (!isUniformCondition)
   {
     // While back-end does not support vector selects, fallback to scalar...

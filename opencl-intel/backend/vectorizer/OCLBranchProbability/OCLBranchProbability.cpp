@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2019 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -31,7 +31,7 @@ namespace intel {
   char OCLBranchProbability::ID = 0;
 
   OCL_INITIALIZE_PASS_BEGIN(OCLBranchProbability, "ocl-branch-probability", "augment the general branch probability to be ocl directive aware", false, false)
-  OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
+  OCL_INITIALIZE_PASS_DEPENDENCY(WorkItemAnalysisLegacy)
   OCL_INITIALIZE_PASS_DEPENDENCY(BranchProbabilityInfoWrapperPass)
   OCL_INITIALIZE_PASS_END(OCLBranchProbability, "ocl-branch-probability", "augment the general branch probability to be ocl directive aware", false, false)
 
@@ -39,11 +39,11 @@ namespace intel {
     m_BPI = &getAnalysis<BranchProbabilityInfoWrapperPass>().getBPI();
     assert (m_BPI && "Unable to get BranchProbabilityInfo");
 
-    m_WIA = &getAnalysis<WIAnalysis>();
-    assert (m_WIA && "Unable to get WIAnalysis");
+    m_WIA = &getAnalysis<WorkItemAnalysisLegacy>().getResult();
+    assert (m_WIA && "Unable to get WorkItemAnalysisLegacy");
 
     // We go over the function and look for branches that can be classified as high predicted in compile time
-    // This function utilizes WIAnalysis and gives high priority for one of the successors in the following cases:
+    // This function utilizes WorkItemAnalysis and gives high priority for one of the successors in the following cases:
     // CONSECUTIVE == UNIFORM - the non-taken successor gets high priority
     // CONSECUTIVE != UNIFORM - the taken successor gets high priority
     // CONSECUTIVE ? UNIFORM and one of the successor's terminator is a return instruction
@@ -67,11 +67,11 @@ namespace intel {
       // weight of (`e') / (sum of weights for all outgoing edges of `n')
       unsigned weights[2] = {NormalWeight, NormalWeight};
       if(cmp) {
-        WIAnalysis::WIDependancy op0Dep = m_WIA->whichDepend(cmp->getOperand(0));
-        WIAnalysis::WIDependancy op1Dep = m_WIA->whichDepend(cmp->getOperand(1));
+        WorkItemInfo::Dependency op0Dep = m_WIA->whichDepend(cmp->getOperand(0));
+        WorkItemInfo::Dependency op1Dep = m_WIA->whichDepend(cmp->getOperand(1));
 
-        if ((op0Dep == WIAnalysis::CONSECUTIVE && op1Dep == WIAnalysis::UNIFORM) ||
-            (op1Dep == WIAnalysis::CONSECUTIVE && op0Dep == WIAnalysis::UNIFORM)) {
+        if ((op0Dep == WorkItemInfo::CONSECUTIVE && op1Dep == WorkItemInfo::UNIFORM) ||
+            (op1Dep == WorkItemInfo::CONSECUTIVE && op0Dep == WorkItemInfo::UNIFORM)) {
           if (cmp->getPredicate() == CmpInst::ICMP_EQ) {
             weights[0] = NonTakenWeight;
             weights[1] = TakenWeight;
