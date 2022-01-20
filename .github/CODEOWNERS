@@ -26,7 +26,7 @@
 /llvm/include/llvm/Support/ @andykaylor
 
 # CFE: Team owns everything in Clang unless otherwise specified.
-/clang/* @ErichKeane @mikerice1969 @aaronballman
+/clang/ @ErichKeane @mikerice1969 @aaronballman
 
 # CFE/OpenMP
 /llvm/include/llvm/Frontend/OpenMP/ @mikerice1969 @jyu2-git
