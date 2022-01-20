@@ -1,6 +1,6 @@
 //===-------------- SOAToAOSOPArrays.cpp - Part of SOAToAOSOPPass ---------===//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -82,41 +82,42 @@ SOAToAOSOPArrayMethodsCheckDebug::Ignore::get() const {
 SOAToAOSOPArrayMethodsCheckDebug::Ignore::~Ignore() {}
 
 SOAToAOSOPArrayMethodsCheckDebug::Ignore
-SOAToAOSOPArrayMethodsCheckDebug::run(Function &F,
-                                      FunctionAnalysisManager &AM) {
+SOAToAOSOPArrayMethodsCheckDebug::run(Module &M, ModuleAnalysisManager &MAM) {
 
-  auto *Res = AM.getCachedResult<SOAToAOSOPApproximationDebug>(F);
-  auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
-  if (!Res)
-    report_fatal_error("SOAToAOSOPApproximationDebug was not run before "
-                       "SOAToAOSOPArrayMethodsCheckDebug.");
-
+  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto *Res = &MAM.getResult<SOAToAOSOPApproximationDebug>(M);
   const DepMap *DM = Res->get();
   if (!DM)
     report_fatal_error("Missing SOAToAOSOPApproximationDebug results before "
                        "SOAToAOSOPArrayMethodsCheckDebug.");
 
-  const auto &MAM = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
-  auto *DTInfo = MAM.getCachedResult<DTransSafetyAnalyzer>(*F.getParent());
-
-  ArraySummaryForIdiom S =
-      getParametersForSOAToAOSArrayMethodsCheckDebug(F, DTInfo);
-
-  LLVM_DEBUG(dbgs() << "; Checking array's method " << F.getName() << "\n");
+  auto *DTInfo = &MAM.getResult<DTransSafetyAnalyzer>(M);
 
   std::unique_ptr<SOAToAOSOPArrayMethodsCheckDebugResult> Result(
       new SOAToAOSOPArrayMethodsCheckDebugResult());
-  ComputeArrayMethodClassification MC(F.getParent()->getDataLayout(), *DM, S,
-                                      *Result, TLI);
-  Result->MK = MC.classify().first;
-  LLVM_DEBUG(dbgs() << "; Classification: " << Result->MK << "\n");
+  for (auto &F : M) {
+    if (F.isDeclaration())
+      continue;
 
-  // Dump results of analysis.
-  DEBUG_WITH_TYPE(DTRANS_SOAARR, {
-    dbgs() << "; Dump instructions needing update. Total = " << MC.getTotal();
-    ComputeArrayMethodClassification::AnnotatedWriter Annotate(MC);
-    F.print(dbgs(), &Annotate);
-  });
+    ArraySummaryForIdiom S =
+        getParametersForSOAToAOSArrayMethodsCheckDebug(F, DTInfo);
+
+    LLVM_DEBUG(dbgs() << "; Checking array's method " << F.getName() << "\n");
+
+    auto &TLI =
+        FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function *>(&F)));
+    ComputeArrayMethodClassification MC(F.getParent()->getDataLayout(), *DM, S,
+                                        *Result, TLI);
+    Result->MK = MC.classify().first;
+    LLVM_DEBUG(dbgs() << "; Classification: " << Result->MK << "\n");
+
+    // Dump results of analysis.
+    DEBUG_WITH_TYPE(DTRANS_SOAARR, {
+      dbgs() << "; Dump instructions needing update. Total = " << MC.getTotal();
+      ComputeArrayMethodClassification::AnnotatedWriter Annotate(MC);
+      F.print(dbgs(), &Annotate);
+    });
+  }
   return Ignore(Result.release());
 }
 
@@ -332,6 +333,7 @@ SOAToAOSArrayMethodsTransformDebug::run(Module &M, ModuleAnalysisManager &AM) {
       MethodToTest = &F;
     }
 
+
   if (!MethodToTest)
     report_fatal_error(
         "Exactly one function definition per compilation unit is "
@@ -347,10 +349,8 @@ SOAToAOSArrayMethodsTransformDebug::run(Module &M, ModuleAnalysisManager &AM) {
   };
   // SOAToAOSOPArrayMethodsCheckDebug uses SOAToAOSOPApproximationDebug
   // internally.
-  FAM.getResult<SOAToAOSOPApproximationDebug>(*MethodToTest);
-  auto &InstsToTransformPtr =
-      FAM.getResult<SOAToAOSOPArrayMethodsCheckDebug>(*MethodToTest);
-
+  AM.getResult<SOAToAOSOPApproximationDebug>(M);
+  auto &InstsToTransformPtr = AM.getResult<SOAToAOSOPArrayMethodsCheckDebug>(M);
   if (InstsToTransformPtr.get()->MK == MK_Unknown)
     report_fatal_error("Please debug array method's classification before "
                        "attempting to transform it.");

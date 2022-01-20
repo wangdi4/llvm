@@ -1,6 +1,6 @@
 //===------ SOAToAOSOP.h - DTransSOAToAOSOPPass for opaque pointers -------===//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -62,10 +62,15 @@ public:
     const SOAToAOSOPApproximationDebugResult *get() const;
     // Prevent default dtor creation while type is incomplete.
     ~Ignore();
+
+    bool invalidate(Module &M, const PreservedAnalyses &PA,
+                    ModuleAnalysisManager::Invalidator &Inv) {
+      return false;
+    }
   };
   typedef Ignore Result;
 
-  Result run(Function &F, FunctionAnalysisManager &AM);
+  Result run(Module &M, ModuleAnalysisManager &MAM);
 };
 
 // Debugging pass to check array method classification.
@@ -90,7 +95,7 @@ public:
   };
   typedef Ignore Result;
 
-  Result run(Function &F, FunctionAnalysisManager &AM);
+  Result run(Module &M, ModuleAnalysisManager &MAM);
 };
 
 struct SOAToAOSOPStructMethodsCheckDebugResult;
@@ -114,7 +119,7 @@ public:
   };
   typedef Ignore Result;
 
-  Result run(Function &F, FunctionAnalysisManager &AM);
+  Result run(Module &M, ModuleAnalysisManager &MAM);
 };
 
 // This class is used for testing transformations of arrays' methods.
