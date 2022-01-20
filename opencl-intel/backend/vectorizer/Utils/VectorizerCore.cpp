@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -301,8 +301,8 @@ bool VectorizerCore::runOnFunction(Function &F) {
     pBuiltinInfoPass->getRuntimeServices()->setPacketizationWidth(m_packetWidth);
     fpm2.add(pBuiltinInfoPass);
 
-    // add WIAnalysis for the predicator.
-    fpm2.add(new WIAnalysis(m_vectorizationDim));
+    // add WorkItemAnalysis for the predicator.
+    fpm2.add(llvm::createWorkItemAnalysisLegacyPass(m_vectorizationDim));
 
     // Register predicate
     FunctionPass *predicate = createPredicator();
@@ -316,15 +316,15 @@ bool VectorizerCore::runOnFunction(Function &F) {
     FunctionPass *dce = createDeadCodeEliminationPass();
     fpm2.add(dce);
 
-    // Add WIAnalysis for SimplifyGEP.
-    fpm2.add(new WIAnalysis(m_vectorizationDim));
+    // Add WorkItemAnalysis for SimplifyGEP.
+    fpm2.add(llvm::createWorkItemAnalysisLegacyPass(m_vectorizationDim));
 
     // Register SimplifyGEP
     FunctionPass *simplifyGEP = createSimplifyGEPPass();
     fpm2.add(simplifyGEP);
 
-    // add WIAnalysis for the packetizer.
-    fpm2.add(new WIAnalysis(m_vectorizationDim));
+    // add WorkItemAnalysis for the packetizer.
+    fpm2.add(llvm::createWorkItemAnalysisLegacyPass(m_vectorizationDim));
 
     // Register packetize
     FunctionPass *packetize = createPacketizer(m_pConfig->GetCpuId(), m_vectorizationDim);

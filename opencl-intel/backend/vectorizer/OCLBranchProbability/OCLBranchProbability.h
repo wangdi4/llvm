@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,12 +15,11 @@
 #ifndef __OCL_BRANCH_PROB_H__
 #define __OCL_BRANCH_PROB_H__
 
-#include "WIAnalysis.h"
-
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/WorkItemAnalysis.h"
 
 namespace intel {
 
@@ -31,7 +30,7 @@ namespace intel {
   using namespace llvm;
 
   /// @brief Branch probability that takes into account uniform and consecutive information.
-  /// The pass utilizes WIAnalysis and gives high priority for one of the successors in the following cases:
+  /// The pass utilizes WorkItemAnalysis and gives high priority for one of the successors in the following cases:
   /// CONSECUTIVE == UNIFORM - the non-taken successor gets high priority
   /// CONSECUTIVE != UNIFORM - the taken successor gets high priority
   /// CONSECUTIVE ? UNIFORM and one of the successor's terminator is a return instruction
@@ -61,7 +60,7 @@ namespace intel {
       /// @param AU Analysis
       virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
         AU.setPreservesAll();
-        AU.addRequired<WIAnalysis>();
+        AU.addRequired<WorkItemAnalysisLegacy>();
         AU.addRequired<BranchProbabilityInfoWrapperPass>();
       }
 
@@ -81,7 +80,7 @@ namespace intel {
     private:
 
       BranchProbabilityInfo * m_BPI;
-      WIAnalysis * m_WIA;
+      WorkItemInfo *m_WIA;
   };
 
 } // namespace intel

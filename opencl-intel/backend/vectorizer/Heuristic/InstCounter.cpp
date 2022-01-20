@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,15 +15,15 @@
 #define DEBUG_TYPE "InstCounter"
 
 #include "InstCounter.h"
-#include "WIAnalysis.h"
-#include "Predicator.h"
-#include "Mangler.h"
-#include "LoopUtils/LoopUtils.h"
-#include "OpenclRuntime.h"
-#include "OCLPassSupport.h"
-#include "InitializePasses.h"
 #include "CompilationUtils.h"
+#include "InitializePasses.h"
+#include "Logger.h"
+#include "LoopUtils/LoopUtils.h"
+#include "Mangler.h"
+#include "OCLPassSupport.h"
 #include "OclTune.h"
+#include "OpenclRuntime.h"
+#include "Predicator.h"
 
 #include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -671,7 +671,7 @@ unsigned WeightedInstCounter::getOpWidth(FixedVectorType* VecType) const
 int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instruction*, int> &MemOpCostMap)
 {
   // We could replace this by a switch on the opcode, but that introduces
-  // a bit too many cases. So using this method (also used in WIAnalysis).
+  // a bit too many cases. So using this method (also used in WorkItemAnalysis).
   // TODO: A lot of cases have been introduced as is, so, perhaps replace.
   if (BinaryOperator* BinOp = dyn_cast<BinaryOperator>(I))
     return estimateBinOp(BinOp);

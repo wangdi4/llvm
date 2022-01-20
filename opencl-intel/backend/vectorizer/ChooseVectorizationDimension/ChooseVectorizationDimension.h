@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2020 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,12 +14,14 @@
 
 #ifndef __CHOOSE_VECTORIZATION_DIMENSION_H_
 #define __CHOOSE_VECTORIZATION_DIMENSION_H_
-#include "BuiltinLibInfo.h"
-#include "WIAnalysis.h"
+
+#include "Logger.h"
 #include "OclTune.h"
 
 #include "llvm/Pass.h"
-#include "llvm/IR/Function.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DevLimits.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/WorkItemAnalysis.h"
 
 using namespace llvm;
 
@@ -42,8 +44,11 @@ public:
 
   ChooseVectorizationDimensionImpl();
 
-  bool run(Function &F, const RuntimeServices *RTS,
-           ArrayRef<Module *> Builtins);
+  /// Return true if vectorization dimension is chosen to be 0 based on fast
+  /// checks, e.g. NoBarrierPath is false.
+  bool preCheckDimZero(Function &F, RuntimeService *RTS);
+
+  bool run(Function &F, WorkItemInfo &WIInfo);
 
   /// @brief Function for querying the vectorization dimension.
   unsigned getVectorizationDim() const {
@@ -64,17 +69,29 @@ private:
   /// @brief tests whether the function uses a certain dimension.
   /// (uses = calls get_***_id(dim))
   /// @param F the function to test.
-  /// @param dim the dimension to look for.
-  bool hasDim(Function* F, unsigned int dim);
+  /// @param Dim the dimension to look for.
+  /// @param RTS runtime service.
+  bool hasDim(Function *F, unsigned int Dim);
 
-  /// Runtime services pointer
-  const RuntimeServices *m_rtServices;
+  /// Runtime service.
+  RuntimeService *RTService;
 
   /// The vectorized dimension
   unsigned int m_vectorizationDim;
 
   /// whether it is ok to unite workgroups.
   bool m_canUniteWorkgroups;
+
+  /// Whether the dimension exists.
+  bool DimExist[MAX_WORK_DIM];
+  /// Whether the dimension is a valid possibility.
+  bool DimValid[MAX_WORK_DIM];
+  // True if there is at least one block that prefers dimension x over 0.
+  bool SwitchMotivation[MAX_WORK_DIM];
+  /// How many BB's perfer dimension 1/2.
+  int PreferredDim[MAX_WORK_DIM];
+
+  int TotalDims;
 
 #ifndef INTEL_PRODUCT_RELEASE
   // Statistics:
@@ -94,13 +111,11 @@ class ChooseVectorizationDimension : public FunctionPass {
 public:
   static char ID;
 
-  ChooseVectorizationDimension() :
-    FunctionPass(ID), Impl(new ChooseVectorizationDimensionImpl)
-  {}
+  ChooseVectorizationDimension() : FunctionPass(ID) {}
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-    AU.addRequired<BuiltinLibInfo>();
+    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
+    AU.addRequired<WorkItemAnalysisLegacy>();
   }
 
   llvm::StringRef getPassName() const override {
@@ -108,22 +123,24 @@ public:
   }
 
   bool runOnFunction(Function &F) override {
-    BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
-    return Impl->run(F, BLI.getRuntimeServices(), BLI.getBuiltinModules());
+    auto *RTService = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
+                          .getResult()
+                          .getRuntimeService();
+    if (!Impl.preCheckDimZero(F, RTService)) {
+      WorkItemInfo &WIInfo = getAnalysis<WorkItemAnalysisLegacy>().getResult();
+      Impl.run(F, WIInfo);
+    }
+    return false;
   }
 
   /// @brief Function for querying the vectorization dimension.
-  unsigned getVectorizationDim() const {
-    return Impl->getVectorizationDim();
-  }
+  unsigned getVectorizationDim() const { return Impl.getVectorizationDim(); }
 
   /// @brief Function for querying whether it is ok to unite workgroups.
-  bool getCanUniteWorkgroups() const {
-    return Impl->getCanUniteWorkgroups();
-  }
+  bool getCanUniteWorkgroups() const { return Impl.getCanUniteWorkgroups(); }
 
 private:
-  std::unique_ptr<ChooseVectorizationDimensionImpl> Impl;
+  ChooseVectorizationDimensionImpl Impl;
 };
 
 // Module pass, used by VPlan
@@ -136,8 +153,8 @@ public:
   {}
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-    AU.addRequired<BuiltinLibInfo>();
+    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
+    AU.addRequired<WorkItemAnalysisLegacy>();
   }
 
   llvm::StringRef getPassName() const override {

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -20,12 +20,11 @@
 #include "Mangler.h"
 #include "OclTune.h"
 #include "VectorizerCommon.h"
-#include "WIAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/SoaAllocaAnalysis.h"
-
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/SoaAllocaAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/WorkItemAnalysis.h"
 
 #include "llvm/IR/DataLayout.h"
 
@@ -98,7 +97,7 @@ public:
 
   virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
-    AU.addRequired<WIAnalysis>();
+    AU.addRequired<WorkItemAnalysisLegacy>();
     AU.addRequired<SoaAllocaAnalysisLegacy>();
     AU.addRequired<BuiltinLibInfo>();
   }
@@ -482,7 +481,7 @@ private:
   LLVMContext& context() {return *m_moduleContext;}
 
   // @brief pointer to work-item analysis performed for this function
-  WIAnalysis *m_depAnalysis;
+  WorkItemInfo *WIInfo;
 
   // @brief pointer to Soa alloca analysis performed for this function
   SoaAllocaInfo *m_soaAllocaInfo;
