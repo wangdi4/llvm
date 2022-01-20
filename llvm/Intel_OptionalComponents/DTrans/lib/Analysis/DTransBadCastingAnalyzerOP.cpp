@@ -1,4 +1,4 @@
-//===-----DTransBadCastingAnalyzer.cpp - Specialized bad casting analyzer--===//
+//==-DTransBadCastingAnalyzerOP.cpp - Specialized OP bad casting analyzer--===//
 //
 // Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
@@ -8,15 +8,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Intel_DTrans/Analysis/DTransBadCastingAnalyzer.h"
-#include "Intel_DTrans/Analysis/DTransAllocAnalyzer.h"
+#include "Intel_DTrans/Analysis/DTransBadCastingAnalyzerOP.h"
+#include "Intel_DTrans/Analysis/DTransAllocCollector.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
+#include <queue>
 
 #define DEBUG_TYPE "dtransanalysis"
 
 using namespace llvm;
-using namespace dtrans;
+using namespace dtransOP;
 
 // Debug type for verbose bad casting analysis output.
 #define DTRANS_BCA "dtrans-bca"
@@ -26,7 +27,7 @@ using namespace dtrans;
 //
 // For example, in:
 //   %8 = getelementptr inbounds %struct.lzma_next_coder_s, \
-//     %struct.lzma_next_coder_s* %0, i64 0, i32 2
+//     ptr %0, i64 0, i32 2
 // where:
 //   %struct.lzma_next_coder_s = type { i8*, i64, i64, ..
 // the last type is %struct.lzma_next_coder_s.
@@ -34,14 +35,15 @@ using namespace dtrans;
 // The function is more interesting and useful when a GEP with more than
 // 2 indices is specified. For example:
 //   %30 = getelementptr inbounds %struct.lzma_coder_s.187, \
-//     %struct.lzma_coder_s.187* %28, i64 0, i32 2, i32 0
+//     ptr %28, i64 0, i32 2, i32 0
 // where:
 //   %struct.lzma_coder_s.187 = type { %struct.lzma_dict, \
 //     %struct.lzma_lz_decoder, %struct.lzma_next_coder_s, i8, i8, \
 //     %struct.anon.186 }
 // and the last type is %struct.lzma_next_coder_s.
 //
-llvm::Type *DTransBadCastingAnalyzer::getLastType(GetElementPtrInst *GEPI) {
+llvm::Type *
+DTransBadCastingAnalyzerOP::getLastType(GetElementPtrInst *GEPI) {
   SmallVector<Value *, 4> Ops(GEPI->idx_begin(), GEPI->idx_end() - 1);
   return GetElementPtrInst::getIndexedType(GEPI->getSourceElementType(), Ops);
 }
@@ -63,37 +65,40 @@ llvm::Type *DTransBadCastingAnalyzer::getLastType(GetElementPtrInst *GEPI) {
 //     %struct.lzma_filter*)*
 //  }
 // Could be a good candidate, as its zeroth field is i8* and it has 5 fields
-// which are function pointers.
+// which are function pointers. (Not that the types of the pointers can only
+// be determined by using the metadata.)
 //
-bool DTransBadCastingAnalyzer::analyzeBeforeVisit() {
+bool
+DTransBadCastingAnalyzerOP::analyzeBeforeVisit() {
   DEBUG_WITH_TYPE(DTRANS_BCA,
                   { dbgs() << "dtrans-bca: Begin bad casting analysis\n"; });
   unsigned BestCount = 0;
-  for (StructType *Ty : M.getIdentifiedStructTypes()) {
-    unsigned E = Ty->getNumElements();
-    if (E <= CandidateVoidField)
-      continue;
-    if (Ty->getElementType(CandidateVoidField) != Int8PtrTy)
-      continue;
-    unsigned Count = 0;
-    for (unsigned I = 0; I != E; ++I) {
-      if (I == CandidateVoidField)
+  for (auto *StTy : TM.getIdentifiedStructTypes()) {
+      unsigned E = StTy->getNumFields();
+      if (E <= CandidateVoidField)
         continue;
-      llvm::Type *FieldTy = Ty->getElementType(I);
-      if (FieldTy->isPointerTy() &&
-          FieldTy->getPointerElementType()->isFunctionTy())
-        ++Count;
-    }
-    if (Count > BestCount) {
-      CandidateRootType = Ty;
-      BestCount = Count;
-    }
+      DTransType *DFTyC = StTy->getFieldType(CandidateVoidField);
+      if (DFTyC != getDTransI8PtrType())
+        continue;
+      unsigned Count = 0;
+      for (unsigned I = 0; I != E; ++I) {
+        if (I == CandidateVoidField)
+          continue;
+        DTransType *DFTy = StTy->getFieldType(I);
+        if (DFTy->isPointerTy() &&
+            DFTy->getPointerElementType()->isFunctionTy())
+          ++Count;
+      }
+      if (Count > BestCount) {
+        CandidateRootType = StTy;
+        BestCount = Count;
+      }
   }
   DEBUG_WITH_TYPE(DTRANS_BCA, {
     dbgs() << "dtrans-bca: Candidate Root Type: ";
-    dbgs() << (CandidateRootType ? dtrans::getStructName(CandidateRootType)
-                                 : "<<NONE>>")
-           << "\n";
+    dbgs() << (CandidateRootType ?
+        dtrans::getStructName(CandidateRootType->getLLVMType()) : "<<NONE>>")
+        << "\n";
   });
   if (!CandidateRootType || BestCount == 0)
     setFoundViolation(true);
@@ -108,74 +113,79 @@ bool DTransBadCastingAnalyzer::analyzeBeforeVisit() {
 // nullptr).
 //
 // For example, in
-//   define internal void @lz_decoder_end(i8*, %struct.lzma_allocator*) #7 {
-//     %3 = bitcast i8* %0 to %struct.lzma_coder_s.187*
-// The function lz_decoder_end has the argument at index 0 cast to
-//   %struct.lzma_coder_s.187*
+//  define internal void @lz_decoder_end(ptr, ptr) #7 {
+//    %4 = getelementptr inbounds %struct.lzma_coder_s.187, ptr %0, i64 0, i32 2
+//    %5 = getelementptr inbounds %struct.lzma_coder_s.187, ptr %0, i64 0, i32 0
+//    %8 = getelementptr inbounds %struct.lzma_coder_s.187, ptr %0, i64 0, i32 1
+// The function lz_decoder_end has the argument at index 0 "virtually" cast to
+//    %struct.lzma_coder_s.187*
+// and so we will return (true, %struct.lzma_coder_s.187).
 //
 std::pair<bool, llvm::Type *>
-DTransBadCastingAnalyzer::findSpecificArgType(Function *F, unsigned Index) {
+DTransBadCastingAnalyzerOP::findSpecificArgType(Function *F, unsigned Index) {
   if (Index > F->arg_size() - 1)
     return std::make_pair(false, nullptr);
   Argument *ArgIndex = F->arg_begin() + Index;
-  unsigned UserCount = 0;
   llvm::Type *ResultType = nullptr;
   for (auto *U : ArgIndex->users()) {
-    // Give up if there are more than 2 uses. It's possible this could
-    // be generalized, but no need to do that unless it is necessary.
-    if (UserCount > 2)
-      return std::make_pair(false, nullptr);
-    // Look for a bitcast to a specific type.  This will be the result
-    // type if it is unique.
-    auto BC = dyn_cast<BitCastInst>(U);
-    if (BC) {
-      if (ResultType)
-        return std::make_pair(false, nullptr);
-      ResultType = BC->getDestTy();
-      UserCount++;
-      continue;
-    }
     // Tolerate use in a call to a free-like function.
-    auto CI = dyn_cast<CallInst>(U);
-    if (CI) {
-      const TargetLibraryInfo &TLI = GetTLI(*CI->getFunction());
-      if (!dtrans::isFreeFn(CI, TLI) && !DTAA.isFreePostDom(CI))
+    if (auto CI = dyn_cast<CallInst>(U)) {
+      if (PTA.getFreeCallKind(CI) == dtrans::FK_NotFree)
         return std::make_pair(false, nullptr);
-      UserCount++;
       continue;
     }
+    auto GEPI = dyn_cast<GetElementPtrInst>(U);
+    if (GEPI) {
+      if (!ResultType)
+        ResultType = GEPI->getSourceElementType();
+      else if (ResultType != GEPI->getSourceElementType())
+        return std::make_pair(false, nullptr);
+      continue;
+    } 
     return std::make_pair(false, nullptr);
   }
+  if (!isa<StructType>(ResultType))
+    return std::make_pair(false, nullptr);
   // Jumped through all of the hoops. Return the ResultType.
   return std::make_pair(true, ResultType);
 }
 
 //
-// Find the single bit cast instruction that is used to cast the value
-// assigned to the store instruction 'STI'.  Return nullptr if there is none.
+// Find the single source element type used in GetElementPtrInsts that access
+// pointer stored in the StoreInst 'STI'.  Return nullptr if there is not a
+// single source element type. If 'CheckPHIInputs', check the inputs to any
+// PHINode which has the value operand of 'STI' as one of its inputs to ensure
+// that they only come from conditionally dead basic blocks.
 //
 // For example, in:
-//   %18 = tail call fastcc i8* @lzma_alloc(i64 %17) #4
-//   store i8* %18, i8** %11, align 8, !tbaa !34
-//   %19 = icmp eq i8* %18, null
-//   %20 = bitcast i8* %18 to %struct.lzma_coder_s.260*
-// we are supplying the store as an argument and expecting to get %20.
+//   %18 = tail call fastcc ptr @lzma_alloc(i64 %17) #4
+//   store ptr %18, ptr %11, align 8
+//   %19 = icmp eq ptr %18, null
+//   ...
+//   %28 = getelementptr inbounds %struct.lzma_coder_s.260, \
+//      ptr %18, i64 0, i32 0, i32 0
+//   store ptr null, ptr %28, align 8
+//   %29 = getelementptr inbounds %struct.lzma_coder_s.260, \
+//     ptr %18, i64 0, i32 0, i32 1
+//   %30 = getelementptr inbounds %struct.lzma_coder_s.260, \
+//     ptr %18, i64 0, i32 0, i32 2
+// we are supplying the store as an argument and expecting to get the
+// source element type of the GetElementPtrInst instructions which have %18
+// as their pointer operand, which is %struct.lzma_coder_s.260.
 //
-BitCastInst *DTransBadCastingAnalyzer::findSingleBitCastAlloc(StoreInst *STI) {
+llvm::Type *
+DTransBadCastingAnalyzerOP::findSingleGEPISourceElementType(StoreInst *STI,
+    bool CheckPHIInputs) {
   auto CI = dyn_cast<CallInst>(STI->getValueOperand());
   if (!CI)
     return nullptr;
-  BitCastInst *RBC = nullptr;
+  llvm::Type *Result = nullptr;
   const TargetLibraryInfo &TLI = GetTLI(*CI->getFunction());
   if (dtrans::getAllocFnKind(CI, TLI) == dtrans::AK_NotAlloc &&
-      !DTAA.isMallocPostDom(CI))
+      PTA.getAllocationCallKind(CI) == dtrans::AK_NotAlloc)
     return nullptr;
   unsigned UserCount = 0;
   for (auto *U : CI->users()) {
-    // Don't expect more than three users. This can be generalized if
-    // necessary.
-    if (UserCount > 3)
-      return nullptr;
     // The store should be one of the uses.
     if (U == STI) {
       UserCount++;
@@ -183,35 +193,54 @@ BitCastInst *DTransBadCastingAnalyzer::findSingleBitCastAlloc(StoreInst *STI) {
     }
     // One of the uses can be an optional test against a constant null pointer.
     // This indicates that the allocation can be conditional.
-    auto CmpI = dyn_cast<ICmpInst>(U);
-    if (CmpI) {
+    if (auto CmpI = dyn_cast<ICmpInst>(U)) {
       auto CT = U->getOperand(0) == CI ? U->getOperand(1) : U->getOperand(0);
       if (!isa<ConstantPointerNull>(CT))
         return nullptr;
       UserCount++;
       continue;
     }
-    // One use should bit cast the pointer to the allocated memory to the
-    // result type.
-    auto BC = dyn_cast<BitCastInst>(U);
-    if (!BC) {
-      // Tolerate a single PHINode with one use, which we can skip past
-      // to get to the bit cast.
-      auto PHI = dyn_cast<PHINode>(U);
-      if (PHI && PHI->hasOneUse())
-        BC = dyn_cast<BitCastInst>(*(PHI->user_begin()));
-    }
-    if (BC) {
-      if (RBC)
-        return nullptr;
-      RBC = BC;
-      UserCount++;
+    if (auto PHIN = dyn_cast<PHINode>(U)) {
+      if (CheckPHIInputs) {
+        // A PHINode may join an access to stored value with other
+        // "fake" sources that will never actually reach to the PHINode.
+        // For now, it is enough to check that such a "fake" source
+        // can only come from the special gaurd conditional basic block.
+        // This can be generalized if it is found useful.
+        for (unsigned I = 0; I < PHIN->getNumIncomingValues(); ++I) {
+          BasicBlock *BB = PHIN->getIncomingBlock(I);
+          if (!isSpecialGuardConditional(BB) && BB != STI->getParent()) {
+            DEBUG_WITH_TYPE(DTRANS_BCA, {
+              dbgs() << "dtrans-bca: (SV) [" << CandidateVoidField;
+              dbgs() << "] Improper incoming block for PHI node:";
+              PHIN->dump();
+            });
+            return nullptr;
+          }
+        }
+      }
+      for (auto *UU : PHIN->users()) {
+        if (auto GEPI = dyn_cast<GetElementPtrInst>(UU)) {
+          if (!Result)
+            Result = GEPI->getSourceElementType();
+          else if (Result !=  GEPI->getSourceElementType())
+            return nullptr;
+        } else {
+          return nullptr;
+        }
+      }
       continue;
     }
-
+    if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
+      if (!Result)
+        Result = GEPI->getSourceElementType();
+      else if (Result !=  GEPI->getSourceElementType())
+        return nullptr;
+      continue;
+    }
     return nullptr;
   }
-  return RBC;
+  return Result;
 }
 
 //
@@ -221,16 +250,23 @@ BitCastInst *DTransBadCastingAnalyzer::findSingleBitCastAlloc(StoreInst *STI) {
 //
 // For example, in:
 //   %11 = getelementptr inbounds %struct.lzma_next_coder_s, \
-//       %struct.lzma_next_coder_s* %0, i64 0, i32 0
-//   %18 = tail call fastcc i8* @lzma_alloc(i64 %17) #4
-//   store i8* %18, i8** %11, align 8, !tbaa !34
-//   %19 = icmp eq i8* %18, null
-//   %20 = bitcast i8* %18 to %struct.lzma_coder_s.260*
+//       ptr %0, i64 0, i32 0
+//   %18 = tail call fastcc ptr @lzma_alloc(i64 %17) #4
+//   store ptr %18, ptr %11, align 8
+//   %19 = icmp eq ptr %18, null
+//   ...
+//   %53 = getelementptr inbounds %struct.lzma_coder_s.260, \
+//       ptr %19, i64 0, i32 5
+//   ...
+//   %60 = getelementptr inbounds %struct.lzma_coder_s.260, \
+//       ptr %19, i64 0, i32 2
+//   ...
 // If the GetElementPtrInst in %11 matches 'GEPI' and 'TI' is the indicated
-// store, we return the type %struct.lzma_coder_s.260*.
+// store, we return the type %struct.lzma_coder_s.260.
 //
-llvm::Type *DTransBadCastingAnalyzer::foundStoreType(Instruction *TI,
-                                                     GetElementPtrInst *GEPI) {
+llvm::Type *
+DTransBadCastingAnalyzerOP::foundStoreType(Instruction *TI,
+                                           GetElementPtrInst *GEPI) {
   // Look for a store to a matching GEP
   auto STI = dyn_cast<StoreInst>(TI);
   if (!STI)
@@ -240,22 +276,19 @@ llvm::Type *DTransBadCastingAnalyzer::foundStoreType(Instruction *TI,
     return nullptr;
   if (getLastType(AltGEPI) != getLastType(GEPI))
     return nullptr;
-  // Expect it to be stored from a malloc like function through a single
-  // bit cast.
-  auto BC = findSingleBitCastAlloc(STI);
-  if (!BC)
-    return nullptr;
-  return BC->getDestTy();
+  // Expect it to be stored from a malloc like function and to be used as
+  // a single type.
+  return findSingleGEPISourceElementType(STI, false);
 }
 
 //
 // Starting with instruction before 'TI', walk backward to find a store
 // instruction which stores to the structure indicated by 'GEPI', and
-// return the Type to which that store instruction is bit cast. If no
-// such store is found, return nullptr.
+// return the unique type of the value operands of the store instruction.
+// If no such store with a unique type is found, return nullptr.
 //
 llvm::Type *
-DTransBadCastingAnalyzer::findStoreTypeBack(Instruction *TI,
+DTransBadCastingAnalyzerOP::findStoreTypeBack(Instruction *TI,
                                             GetElementPtrInst *GEPI) {
   // Starting with the Instruction above 'TI' search for a store of
   // allocated memory to the same location as 'GEPI'.
@@ -290,15 +323,14 @@ DTransBadCastingAnalyzer::findStoreTypeBack(Instruction *TI,
 //
 // For example, in the basic block:
 //   %11 = getelementptr inbounds %struct.lzma_next_coder_s, \
-//       %struct.lzma_next_coder_s* %0, i64 0, i32 0
-//   %12 = load i8*, i8** %11, align 8, !tbaa !34
-//   %13 = icmp eq i8* %12, null
-//   %14 = bitcast i8* %12 to %struct.lzma_coder_s.260*
+//       ptr %0, i64 0, i32 0
+//   %12 = load ptr, ptr %11, align 8
+//   %13 = icmp eq ptr %12, null
 //   br i1 %13, label %15, label %44
 // we return the GEPI in %11.
 //
 GetElementPtrInst *
-DTransBadCastingAnalyzer::getRootGEPIFromConditional(BasicBlock *BB) {
+DTransBadCastingAnalyzerOP::getRootGEPIFromConditional(BasicBlock *BB) {
   auto BI = dyn_cast<BranchInst>(BB->getTerminator());
   if (!BI)
     return nullptr;
@@ -327,15 +359,26 @@ DTransBadCastingAnalyzer::getRootGEPIFromConditional(BasicBlock *BB) {
 }
 
 //
-// Return 'true' if the 'GEPI' is accessing the candidate field.
+// Return 'true' if the 'GEPI' is accessing the candidate structure.
 //
-bool DTransBadCastingAnalyzer::gepiMatchesCandidate(GetElementPtrInst *GEPI) {
+bool
+DTransBadCastingAnalyzerOP::gepiMatchesCandidateStruct(
+    GetElementPtrInst *GEPI) {
   llvm::Type *IndexedTy = getLastType(GEPI);
   auto IndexedStructTy = dyn_cast<StructType>(IndexedTy);
   if (!IndexedStructTy)
     return false;
-  if (IndexedStructTy != CandidateRootType)
-    return false;
+  return IndexedStructTy == CandidateRootType->getLLVMType();
+}
+
+//
+// Return 'true' if the 'GEPI' is accessing the candidate field.
+//
+bool
+DTransBadCastingAnalyzerOP::gepiMatchesCandidateField(
+    GetElementPtrInst *GEPI) {
+  if (!gepiMatchesCandidateStruct(GEPI))
+    return false; 
   auto ConstIndex = GEPI->getOperand(GEPI->getNumOperands() - 1);
   auto *LastArg = dyn_cast<ConstantInt>(ConstIndex);
   if (!LastArg)
@@ -350,14 +393,14 @@ bool DTransBadCastingAnalyzer::gepiMatchesCandidate(GetElementPtrInst *GEPI) {
 //
 // For example, this is a special guard conditional basic block:
 //   %11 = getelementptr inbounds %struct.lzma_next_coder_s, \
-//       %struct.lzma_next_coder_s* %0, i64 0, i32 0
-//   %12 = load i8*, i8** %11, align 8, !tbaa !34
-//   %13 = icmp eq i8* %12, null
-//   %14 = bitcast i8* %12 to %struct.lzma_coder_s.260*
+//       ptr %0, i64 0, i32 0
+//   %12 = load ptr, ptr %11, align 8
+//   %13 = icmp eq ptr %12, null
 //   br i1 %13, label %15, label %44
 // and the basic block returned will be the one starting with label 15.
 //
-BasicBlock *DTransBadCastingAnalyzer::getTakenPathOfSpecialGuardConditional(
+BasicBlock *
+DTransBadCastingAnalyzerOP::getTakenPathOfSpecialGuardConditional(
     BasicBlock *BB) {
   auto BI = cast<BranchInst>(BB->getTerminator());
   auto ICI = cast<ICmpInst>(BI->getCondition());
@@ -373,14 +416,14 @@ BasicBlock *DTransBadCastingAnalyzer::getTakenPathOfSpecialGuardConditional(
 //
 // For example, this is a special guard coniditonal basic block:
 //   %11 = getelementptr inbounds %struct.lzma_next_coder_s, \
-//       %struct.lzma_next_coder_s* %0, i64 0, i32 0
-//   %12 = load i8*, i8** %11, align 8, !tbaa !34
-//   %13 = icmp eq i8* %12, null
-//   %14 = bitcast i8* %12 to %struct.lzma_coder_s.260*
+//       ptr %0, i64 0, i32 0
+//   %12 = load ptr, ptr %11, align 8
+//   %13 = icmp eq ptr %12, null
 //   br i1 %13, label %15, label %44
 // and the basic block returned will be the one starting with label 44.
 //
-BasicBlock *DTransBadCastingAnalyzer::getNotTakenPathOfSpecialGuardConditional(
+BasicBlock *
+DTransBadCastingAnalyzerOP::getNotTakenPathOfSpecialGuardConditional(
     BasicBlock *BB) {
   auto BI = cast<BranchInst>(BB->getTerminator());
   auto ICI = cast<ICmpInst>(BI->getCondition());
@@ -394,11 +437,12 @@ BasicBlock *DTransBadCastingAnalyzer::getNotTakenPathOfSpecialGuardConditional(
 // Return 'true' if 'BB' is terminated with an instruction representing the
 // a test of whether the candidate field is equal (or not equal) to nullptr.
 //
-bool DTransBadCastingAnalyzer::isSpecialGuardConditional(BasicBlock *BB) {
+bool
+DTransBadCastingAnalyzerOP::isSpecialGuardConditional(BasicBlock *BB) {
   GetElementPtrInst *GEPI = getRootGEPIFromConditional(BB);
   if (!GEPI)
     return false;
-  return gepiMatchesCandidate(GEPI);
+  return gepiMatchesCandidateField(GEPI);
 }
 
 //
@@ -410,8 +454,8 @@ bool DTransBadCastingAnalyzer::isSpecialGuardConditional(BasicBlock *BB) {
 // if there is none.
 //
 BasicBlock *
-DTransBadCastingAnalyzer::getStoreForwardAltNextBB(BasicBlock *BB,
-                                                   GetElementPtrInst *GEPI) {
+DTransBadCastingAnalyzerOP::getStoreForwardAltNextBB(BasicBlock *BB,
+                                                     GetElementPtrInst *GEPI) {
   GetElementPtrInst *AltGEPI = getRootGEPIFromConditional(BB);
   if (GEPI != AltGEPI)
     return nullptr;
@@ -422,50 +466,51 @@ DTransBadCastingAnalyzer::getStoreForwardAltNextBB(BasicBlock *BB,
 // Walk through 'CI' into its calling function to continue the search for
 // a store instruction which stores to the same structure type as that
 // indicated by 'GEPI'.  If one is found, return a pair, the second element
-// of which is the type to which the store is bit cast. In this case, the
+// of which is the unique type of the store's value operand. In this case, the
 // first element will be a bool which indicates whether the search required
 // taking the 'true' path of a conditional which tests the candidate
-// field against nullptr.  If no such store instruction is found, return
-// std::make_pair(false, nullptr).
+// field against nullptr.  If no such store instruction with a value operand
+// which has a unique type is found, return std::make_pair(false, nullptr).
 //
 // For example, in:
 //  %5 = getelementptr inbounds %struct.lzma_next_coder_s, \
-//     %struct.lzma_next_coder_s* %0, i64 0, i32 7
-//  store i32 (i8*, %struct.lzma_allocator*, %struct.lzma_filter*, \
-//     %struct.lzma_filter*)* @delta_encoder_update, i32 (i8*, \
-//     %struct.lzma_allocator*, %struct.lzma_filter*, \
-//     %struct.lzma_filter*)** %5, align 8, !tbaa !37
+//     ptr %0, i64 0, i32 7
+//  store ptr @delta_encoder_update, ptr %5, align 8
 //  %6 = tail call fastcc i32 @lzma_delta_coder_init( \
-//     %struct.lzma_next_coder_s* %0, %struct.lzma_allocator* %1, \
-//     %struct.lzma_filter_info_s* %2) #4
+//     ptr %0, ptr %1, ptr %2) #4
 // We would walk forward through the GetElementPtrInst and StoreInst
 // and get to the call.  At the call, we will start with the GEPI at %5
 // with  pointer operand %0, and then continue through the CallInst %6
 // through the zeroth argument of @lzma_delta_coder_init:
 //   define internal fastcc i32 @lzma_delta_coder_init( \
-//     %struct.lzma_next_coder_s* nocapture, %struct.lzma_allocator*, \
-//     %struct.lzma_filter_info_s*) unnamed_addr #7 {
-//   %4 = alloca { i32 (i8*, %struct.lzma_allocator*, i8*, i64*, i64, i8*, \
-//     i64*, i64, i32)*, void (i8*, %struct.lzma_allocator*)*, i32 (i8*)*, \
-//     i32 (i8*, i64*, i64*, i64)*, i32 (i8*, %struct.lzma_allocator*, \
-//     %struct.lzma_filter*, %struct.lzma_filter*)* }, align 8
+//     ptr, ptr, ptr) unnamed_addr #7 {
+//   %4 = alloca { ptr, ptr, ptr, ptr, ptr }
 //   %5 = getelementptr inbounds %struct.lzma_next_coder_s, \
-//     %struct.lzma_next_coder_s* %0, i64 0, i32 0
-//   %6 = load i8*, i8** %5, align 8, !tbaa !34
-//   %7 = icmp eq i8* %6, null
+//     ptr %0, i64 0, i32 0
+//   %6 = load ptr, ptr %5, align 8, !tbaa !34
+//   %7 = icmp eq ptr %6, null
 //   br i1 %7, label %8, label %20
 //   ; <label>:8:                                      ; preds = %3
-//   %9 = tail call fastcc i8* @lzma_alloc(i64 336) #4
-//   store i8* %9, i8** %5, align 8, !tbaa !34
-//   %10 = icmp eq i8* %9, null
-//   %11 = bitcast i8* %9 to %struct.lzma_coder_s.243*
+//   %9 = tail call fastcc ptr @lzma_alloc(i64 336) #4
+//   store ptr %9, ptr %5, align 8
+//   %10 = icmp eq ptr %9, null
+//   ...
+//   %15 = getelementptr inbounds %struct.lzma_coder_s.243, \
+//     ptr %9, i64 0, i32 0, i32 0
+//   store ptr null, ptr %15, align 8
+//   %16 = getelementptr inbounds %struct.lzma_coder_s.243, \
+//     ptr %9, i64 0, i32 0, i32 1
+//   store i64 -1, ptr %16, align 8
+//   %17 = getelementptr inbounds %struct.lzma_coder_s.243, \
+//     ptr %9, i64 0, i32 0, i32 2
 // We would continue the search at %5 take the "true" conditional branch
-// to %9, and find the type %struct.lzma_coder_s.243*. We would return
-// std::make_pair(true, %struct.lzma_coder_s.243*).
+// to %9, and find the GetElementPtrInsts's source element type
+// %struct.lzma_coder_s.243. We would return
+// std::make_pair(true, %struct.lzma_coder_s.243).
 //
 std::pair<bool, llvm::Type *>
-DTransBadCastingAnalyzer::findStoreTypeForwardCall(CallInst *CI,
-                                                   GetElementPtrInst *GEPI) {
+DTransBadCastingAnalyzerOP::findStoreTypeForwardCall(CallInst *CI,
+                                                     GetElementPtrInst *GEPI) {
   Function *F = CI->getCalledFunction();
   if (F == nullptr)
     return std::make_pair(false, nullptr);
@@ -501,15 +546,16 @@ DTransBadCastingAnalyzer::findStoreTypeForwardCall(CallInst *CI,
 //
 // Starting with instruction after 'TI', walk forward to find a store
 // instruction which stores to the structure indicated by 'GEPI'.
-// If one is found, return a pair, the second element of which is the type
-// to which the store is bit cast. In this case, the first element will be
+// If one is found, return a pair, the second element of which is the
+// pointer element type of a StoreInst, which serves as the pointer operand
+// of one or more GetElementPtrInsts. In this case, the first element will be
 // a bool which indicates whether the search required taking the 'true' path
-// of a conditional which tests the candidate field against nullptr.  If no
-// such store instruction is found, return std::make_pair(false, nullptr).
+// of a conditional which tests the candidate field against/ nullptr.  If no
+// such StoreInst found, return std::make_pair(false, nullptr).
 //
 std::pair<bool, llvm::Type *>
-DTransBadCastingAnalyzer::findStoreTypeForward(Instruction *TI,
-                                               GetElementPtrInst *GEPI) {
+DTransBadCastingAnalyzerOP::findStoreTypeForward(Instruction *TI,
+                                                 GetElementPtrInst *GEPI) {
   BasicBlock::iterator IT(TI);
   BasicBlock *BB = TI->getParent();
   for (++IT; IT != BB->end(); ++IT) {
@@ -545,17 +591,17 @@ DTransBadCastingAnalyzer::findStoreTypeForward(Instruction *TI,
 
 //
 // Starting with instruction after 'TI', walk backward, and if necessary,
-// forward, to find a store instruction which stores to the structure
+// forward, to find a StoreInst which stores to the structure
 // indicated by 'GEPI'.  If one is found, return a pair, the second element
-// of which is the type to which the store is bit cast. In this case, the
-// first element will be a bool which indicates whether the search required
-// taking the 'true' path of a conditional which tests the candidate field
-// against nullptr.  If no such store instruction is found, return
-// std::make_pair(false, nullptr).
+// of which is the pointer element type of the value operand of the StoreInst.
+// In this case, the first element of the return value will be a bool which
+// indicates whether the search required taking the 'true' path of a
+// conditional which tests the candidate field against nullptr.  If no such
+// store instruction is found, return std::make_pair(false, nullptr).
 //
 std::pair<bool, llvm::Type *>
-DTransBadCastingAnalyzer::findStoreType(Instruction *TI,
-                                        GetElementPtrInst *GEPI) {
+DTransBadCastingAnalyzerOP::findStoreType(Instruction *TI,
+                                          GetElementPtrInst *GEPI) {
   llvm::Type *TypeBack = findStoreTypeBack(TI, GEPI);
   if (TypeBack)
     return std::make_pair(false, TypeBack);
@@ -574,20 +620,20 @@ DTransBadCastingAnalyzer::findStoreType(Instruction *TI,
 //
 // For example,
 //   %5 = getelementptr inbounds %struct.lzma_next_coder_s, \
-//     %struct.lzma_next_coder_s* %0, i64 0, i32 0
-//   %6 = load i8*, i8** %5, align 8, !tbaa !34
-//   %7 = icmp eq i8* %6, null
+//     ptr %0, i64 0, i32 0
+//   %6 = load ptr, ptr %5, align 8, !tbaa !34
+//   %7 = icmp eq ptr %6, null
 //   br i1 %7, label %8, label %20
 //   ; <label>:8:                                      ; preds = %3
-//   %9 = tail call fastcc i8* @lzma_alloc(i64 336) #4
-//   store i8* %9, i8** %5, align 8, !tbaa !34
+//   %9 = tail call fastcc ptr @lzma_alloc(i64 336) #4
+//   store ptr %9, ptr %5, align 8
 // The basic block in <label>:8 is conditionally executed under a test of
 // the candidate field against nullptr, and so we would return BCCondSpecial
 // if it were passed to this function.
 //
 
-DTransBadCastingAnalyzer::BCCondType
-DTransBadCastingAnalyzer::isConditionalBlock(BasicBlock *SBB) {
+DTransBadCastingAnalyzerOP::BCCondType
+DTransBadCastingAnalyzerOP::isConditionalBlock(BasicBlock *SBB) {
   SmallPtrSet<BasicBlock *, 20> VisitedBlocks;
   std::queue<BasicBlock *> PendingBlocks;
   for (BasicBlock *BB : predecessors(SBB))
@@ -617,9 +663,10 @@ DTransBadCastingAnalyzer::isConditionalBlock(BasicBlock *SBB) {
 //
 // Record that 'SI' is an alloc store to the type 'StType'.
 //
-void DTransBadCastingAnalyzer::recordAllocStore(StoreInst *SI,
-                                                llvm::Type *StType) {
-  DTransBadCastingAnalyzer::BCCondType Result;
+void
+DTransBadCastingAnalyzerOP::recordAllocStore(StoreInst *SI,
+                                             llvm::Type *StType) {
+  DTransBadCastingAnalyzerOP::BCCondType Result;
   Result = isConditionalBlock(SI->getParent());
   bool IsConditional = Result == BCCondSpecial;
   AllocStores.insert(std::make_pair(SI, std::make_pair(IsConditional, StType)));
@@ -639,128 +686,55 @@ void DTransBadCastingAnalyzer::recordAllocStore(StoreInst *SI,
 // the type of the structure being allocated in this store.
 //
 // This function will return 'false' if the analysis must terminate
-// because a violation (bad casting or unsafe pointer store) is found.
-// In this case, setFoundViolation() is called to record that the violation
-// has been observed.  Otherwise, we return 'true' and continue with the
-// analysis.
+// because a violation (bad casting, unsafe pointer store, or mismatched
+// element access) is found. In this case, setFoundViolation() is called to
+// record that the violation has been observed.  Otherwise, we return 'true'
+// and continue with the analysis.
 //
 // For example, we are looking to analyze stores like:
 //   %5 = getelementptr inbounds %struct.lzma_next_coder_s, \
-//     %struct.lzma_next_coder_s* %0, i64 0, i32 0
-//   %6 = load i8*, i8** %5, align 8, !tbaa !34
-//   %7 = icmp eq i8* %6, null
+//     ptr %0, i64 0, i32 0
+//   %6 = load ptr, ptr %5, align 8, !tbaa !34
+//   %7 = icmp eq ptr %6, null
 //   br i1 %7, label %8, label %20
 //   ; <label>:8:                                      ; preds = %3
-//   %9 = tail call fastcc i8* @lzma_alloc(i64 336) #4
-//   store i8* %9, i8** %5, align 8, !tbaa !34
+//   %9 = tail call fastcc ptr @lzma_alloc(i64 336) #4
+//   store ptr %9, ptr %5, align 8, !tbaa !34
 // and like:
 //   %13 = getelementptr inbounds %struct.lzma_next_coder_s, \
-//     %struct.lzma_next_coder_s* %0, i64 0, i32 4
-//   store void (i8*, %struct.lzma_allocator*)* @delta_coder_end, \
-//     void (i8*, %struct.lzma_allocator*)** %13, align 8, !tbaa !33
+//     ptr %0, i64 0, i32 4
+//   store ptr @delta_coder_end, ptr %13, align 8
 //
-bool DTransBadCastingAnalyzer::analyzeStore(dtrans::FieldInfo &FI,
-                                            Instruction &I) {
+bool
+DTransBadCastingAnalyzerOP::analyzeStore(dtrans::FieldInfo &FI,
+                                         Instruction &I) {
 
-  // Lambda function which returns 'true' if 'V' is a GEPI of the
-  // indicated 'TargetType'. 'Index' is used for printing the index of
-  // the GEPI in traces.
-  auto handleGEPI = [this](Value *V, llvm::Type *TargetType,
-                           uint64_t Index) -> bool {
-    auto SGEPI = dyn_cast<GetElementPtrInst>(V);
-    if (!SGEPI) {
+  auto HandleCandidateField = [this](StoreInst *STI,
+                                     GetElementPtrInst *GEPI) -> bool {
+    // We can tolerate a store of a nullptr value.
+    if (isa<ConstantPointerNull>(STI->getValueOperand()))
+      return true;
+    // Check if the store used as the pointer operand of one or more
+    // GetElementPtrInsts of a specific source element type.
+    llvm::Type *TargetType = findSingleGEPISourceElementType(STI, true);
+    if (!TargetType) {
       DEBUG_WITH_TYPE(DTRANS_BCA, {
-        dbgs() << "dtrans-bca: (SV) [" << Index;
-        dbgs() << "] Non-GEP bitcast target:";
-        V->dump();
+        dbgs() << "dtrans-bca: (SV) [" << CandidateVoidField;
+        dbgs() << "] Non-GEP target\n";
       });
       setFoundViolation(true);
       return false;
     }
-    assert(SGEPI->getSourceElementType() == TargetType);
+    recordAllocStore(STI, TargetType);
     return true;
   };
 
-  if (foundViolation())
-    return false;
-  // Examine stores only from a GEPI.
-  auto STI = cast<StoreInst>(&I);
-  auto GEPI = dyn_cast<GetElementPtrInst>(STI->getPointerOperand());
-  if (!GEPI)
-    return true;
-  // Find the llvm::Type being indexed and see if it is a CandidateRootType.
-  auto AV = STI->getValueOperand();
-  llvm::Type *AVType = AV->getType();
-  Type *IndexedTy = getLastType(GEPI);
-  auto IndexedStructTy = dyn_cast<StructType>(IndexedTy);
-  if (!IndexedStructTy)
-    return false;
-  if (IndexedTy != CandidateRootType)
-    return true;
-  // Find the field being stored
-  auto ConstIndex = GEPI->getOperand(GEPI->getNumOperands() - 1);
-  auto *LastArg = cast<ConstantInt>(ConstIndex);
-  uint64_t Index = LastArg->getLimitedValue();
-  if (Index == CandidateVoidField) {
-    // Check if the store is from an allocation bit cast to a specific type.
-    BitCastInst *BCI = findSingleBitCastAlloc(STI);
-    if (BCI) {
-      // The bit cast better be a pointer type, since it comes from an
-      // allocation.
-      llvm::Type *TargetType = BCI->getDestTy();
-      assert(TargetType->isPointerTy());
-      TargetType = TargetType->getPointerElementType();
-      // Any uses should be GEPs from the same bit cast type.  This can
-      // be generalized, but this is sufficient for now.
-      for (auto *V : BCI->users()) {
-        auto PHIN = dyn_cast<PHINode>(V);
-        if (PHIN) {
-          // A PHINode may join an access to stored value with other
-          // "fake" sources that will never actually reach to the PHINode.
-          // For now, it is enough to check that such a "fake" source
-          // can only come from the special guard conditional basic block.
-          // This can be generalized if it is found useful.
-          for (unsigned I = 0; I < PHIN->getNumIncomingValues(); ++I) {
-            BasicBlock *BB = PHIN->getIncomingBlock(I);
-            if (!isSpecialGuardConditional(BB) && BB != STI->getParent()) {
-              DEBUG_WITH_TYPE(DTRANS_BCA, {
-                dbgs() << "dtrans-bca: (SV) [" << Index;
-                dbgs() << "] Improper incoming block for PHI node:";
-                V->dump();
-              });
-              setFoundViolation(true);
-              return false;
-            }
-          }
-          for (auto *VV : PHIN->users())
-            if (!handleGEPI(VV, TargetType, Index))
-              return false;
-        } else if (!handleGEPI(V, TargetType, Index)) {
-          return false;
-        }
-      }
-      recordAllocStore(STI, TargetType);
-      return true;
-    }
-    // We can also tolerate a store of a nullptr value.
-    if (isa<ConstantPointerNull>(AV))
-      return true;
-    // But anything else is not permissible.
-    DEBUG_WITH_TYPE(DTRANS_BCA, {
-      dbgs() << "dtrans-bca: (SV) [" << Index;
-      dbgs() << "] Store not from alloc or nullptr: ";
-      I.dump();
-      GEPI->dump();
-      AV->dump();
-    });
-    setFoundViolation(true);
-    return false;
-  }
-  if (!isa<ConstantPointerNull>(AV) && AVType->isPointerTy() &&
-      AVType->getPointerElementType()->isFunctionTy()) {
+  auto HandleCandidateRootFxnPtrField = [this](StoreInst *STI,
+                                               GetElementPtrInst *GEPI,
+                                               unsigned Index) {
     // For the case of a function pointer field being stored, ensure that the
     // VoidArgumentIndex of that function can be determined ...
-    Function *F = cast<Function>(AV);
+    Function *F = cast<Function>(STI->getValueOperand());
     auto SpecificArgResult = findSpecificArgType(F, VoidArgumentIndex);
     if (!SpecificArgResult.first) {
       DEBUG_WITH_TYPE(DTRANS_BCA, {
@@ -775,7 +749,7 @@ bool DTransBadCastingAnalyzer::analyzeStore(dtrans::FieldInfo &FI,
     // ... and if the VoidArgumentIndex is used in the function, it is used
     // as a pointer to the type of the structure being allocated in this store.
     if (SpecificArgResult.second) {
-      auto StReturn = findStoreType(&I, GEPI);
+      auto StReturn = findStoreType(STI, GEPI);
       if (StReturn.second != SpecificArgResult.second) {
         DEBUG_WITH_TYPE(DTRANS_BCA, {
           dbgs() << "dtrans-bca: ";
@@ -796,18 +770,41 @@ bool DTransBadCastingAnalyzer::analyzeStore(dtrans::FieldInfo &FI,
         return false;
       }
     }
-  }
+    return true;
+  };
+
+  if (foundViolation())
+    return false;
+  // Examine stores only from a GEPI.
+  auto STI = cast<StoreInst>(&I);
+  auto GEPI = dyn_cast<GetElementPtrInst>(STI->getPointerOperand());
+  if (!GEPI)
+    return true;
+  if (!gepiMatchesCandidateStruct(GEPI))
+    return true; 
+  // Find the field being stored
+  auto ConstIndex = GEPI->getOperand(GEPI->getNumOperands() - 1);
+  auto *LastArg = cast<ConstantInt>(ConstIndex);
+  uint64_t Index = LastArg->getLimitedValue();
+  auto AV = STI->getValueOperand();
+  if (isa<ConstantPointerNull>(AV))
+    return true;
+  if (Index == CandidateVoidField)
+    return HandleCandidateField(STI, GEPI);
+  if (isa<Function>(AV))
+    return HandleCandidateRootFxnPtrField(STI, GEPI, Index);
   // No special rules for any other fields.
   return true;
 }
 
 //
 // If 'SI' needs to be an alloc store to validate the removal of the bad
-// casting and unsafe pointer store safety violations, check if it is
-// already determined to be one, and if not, save it as a pending store
-// that will be checked later.
+// casting, unsafe pointer store, and mismatched element access safety
+// violations, check if it is already determined to be one, and if not,
+// save it as a pending store that will be checked later.
 //
-void DTransBadCastingAnalyzer::handlePotentialAllocStore(StoreInst *SI) {
+void
+DTransBadCastingAnalyzerOP::handlePotentialAllocStore(StoreInst *SI) {
   if (AllocStores.find(SI) != AllocStores.end())
     PendingStores.insert(SI);
 }
@@ -823,28 +820,26 @@ void DTransBadCastingAnalyzer::handlePotentialAllocStore(StoreInst *SI) {
 //
 // For example, in:
 //    %26 = getelementptr inbounds %struct.lzma_next_coder_s, \
-//      %struct.lzma_next_coder_s* %25, i64 0, i32 3
-//    %27 = load i32 (i8*, %struct.lzma_allocator*, i8*, i64*, i64, i8*, \
-//      i64*, i64, i32)*, i32 (i8*, %struct.lzma_allocator*, i8*, i64*, i64, \
-//      i8*, i64*, i64, i32)** %26, align 8, !tbaa !48
+//      ptr %25, i64 0, i32 3
+//    %27 = load ptr, ptr %26, align 8
 //    ...
 //    %112 = getelementptr inbounds %struct.lzma_next_coder_s, \
-//      %struct.lzma_next_coder_s* %25, i64 0, i32 0
-//    %113 = load i8*, i8** %112, align 8, !tbaa !61
+//      ptr %25, i64 0, i32 0
+//    %113 = load ptr, ptr %112, align 8
 //    %114 = getelementptr inbounds %struct.lzma_stream, \
-//      %struct.lzma_stream* %0, i64 0, i32 6
+//      ptr %0, i64 0, i32 6
 //    ...
-//    %120 = call i32 %27(i8* %113, %struct.lzma_allocator* %115, i8* %6, \
-//      i64* nonnull %3, i64 %117, i8* %14, i64* nonnull %4, i64 %119, \
+//    %120 = call i32 %27(ptr %113, ptr %115, ptr %6, \
+//      ptr nonnull %3, i64 %117, ptr %14, ptr nonnull %4, i64 %119, \
 //      i32 %1) #4
 // %113 is an innocuous load of the indirect call type.
 //
-bool DTransBadCastingAnalyzer::isInnocuousLoadOfCall(CallInst *CI, LoadInst *LI,
-                                                     GetElementPtrInst *GEPI) {
+bool
+DTransBadCastingAnalyzerOP::isInnocuousLoadOfCall(CallInst *CI, LoadInst *LI,
+                                                  GetElementPtrInst *GEPI) {
   Function *F = CI->getCalledFunction();
   if (F) {
-    const TargetLibraryInfo &TLI = GetTLI(*CI->getFunction());
-    if (!dtrans::isFreeFn(CI, TLI) && !DTAA.isFreePostDom(CI))
+    if (PTA.getFreeCallKind(CI) == dtrans::FK_NotFree)
       return false;
   } else {
     auto LI2 = dyn_cast<LoadInst>(CI->getCalledOperand());
@@ -870,23 +865,20 @@ bool DTransBadCastingAnalyzer::isInnocuousLoadOfCall(CallInst *CI, LoadInst *LI,
 //
 // ; <label>:14:                                     ; preds = %12
 //  %15 = getelementptr inbounds %struct.lzma_next_coder_s, \
-//    %struct.lzma_next_coder_s* %0, i64 0, i32 0
-//  %16 = load i8*, i8** %15, align 8, !tbaa !34
-//  %17 = icmp eq i8* %16, null
-//  %18 = bitcast i8* %16 to %struct.lzma_coder_s.92*
+//    ptr %0, i64 0, i32 0
+//  %16 = load ptr, ptr %15, align 8
+//  %17 = icmp eq ptr %16, null
 //  br i1 %17, label %22, label %19
 //
 // ; <label>:19:                                     ; preds = %14
-//  %20 = bitcast %struct.lzma_next_coder_s* %0 to %struct.lzma_coder_s.92**
 //  %21 = getelementptr inbounds %struct.lzma_coder_s.92, \
-//    %struct.lzma_coder_s.92* %18, i64 0, i32 6
+//    ptr %16, i64 0, i32 6
 //  br label %49
 //
 //; <label>:22:                                     ; preds = %14
-//  %23 = tail call fastcc i8* @lzma_alloc(i64 1472) #4
-//  store i8* %23, i8** %15, align 8, !tbaa !34
-//  %24 = icmp eq i8* %23, null
-//  %25 = bitcast i8* %23 to %struct.lzma_coder_s.92*
+//  %23 = tail call fastcc ptr @lzma_alloc(i64 1472) #4
+//  store ptr %23, ptr %15, align 8, !tbaa !34
+//  %24 = icmp eq ptr %23, null
 //  br i1 %24, label %78, label %26
 //
 //; <label>:26:                                     ; preds = %22
@@ -894,18 +886,19 @@ bool DTransBadCastingAnalyzer::isInnocuousLoadOfCall(CallInst *CI, LoadInst *LI,
 //  br label %49
 //
 //; <label>:49:                                     ; preds = %26, %19
-//  %50 = phi %struct.lzma_index_s** [ %21, %19 ], [ %48, %26 ]
-//  %51 = phi %struct.lzma_coder_s.92** [ %20, %19 ], [ %30, %26 ]
-//  %52 = phi %struct.lzma_coder_s.92* [ %18, %19 ], [ %47, %26 ]
+//  %50 = phi ptr [ %21, %19 ], [ %48, %26 ]
+//  %51 = phi ptr [ %0, %19 ], [ %30, %26 ]
+//  %52 = phi ptr [ %16, %19 ], [ %47, %26 ]
 //
-// Let 'I' be %18. It has uses in basic blocks <label>:19 and <label>:49.
+// Let 'I' be %16. It has uses in basic blocks <label>:19 and <label>:49.
 //
 // Note that <label>:14 is a special guard conditional basic block. Its
 // true branch targets basic block <label>:22, which contains an alloc
 // store. Its false branch targets basic block <label>:19 which is
 // therefore conditionally dead.
 //
-bool DTransBadCastingAnalyzer::allUseBBsConditionallyDead(Instruction *I) {
+bool
+DTransBadCastingAnalyzerOP::allUseBBsConditionallyDead(Instruction *I) {
 
   //
   // Return a StoreInst which is a potential alloc store, if the
@@ -924,9 +917,9 @@ bool DTransBadCastingAnalyzer::allUseBBsConditionallyDead(Instruction *I) {
         if (!CI)
           continue;
         const TargetLibraryInfo &TLI = GetTLI(*CI->getFunction());
-        if (gepiMatchesCandidate(GEPI) &&
+        if (gepiMatchesCandidateField(GEPI) &&
             (dtrans::getAllocFnKind(CI, TLI) != dtrans::AK_NotAlloc ||
-             DTAA.isMallocPostDom(CI)))
+             PTA.getAllocationCallKind(CI) != dtrans::AK_NotAlloc))
           return SI;
       }
     }
@@ -971,37 +964,34 @@ bool DTransBadCastingAnalyzer::allUseBBsConditionallyDead(Instruction *I) {
 // must be alloc stores or innocuous loads.
 //
 // This function will return 'false' if the analysis must terminate
-// because a violation (bad casting or unsafe pointer store) is found.
-// In this case, setFoundViolation() is called to record that the violation
-// has been observed.  Otherwise, we return 'true' and continue with the
-// analysis.
+// because a violation (bad casting, unsafe pointer store, or mismatched
+// element access) is found. In this case, setFoundViolation() is called to
+// record that the violation has been observed.  Otherwise, we return 'true'
+// and continue with the analysis.
 //
 // For example, in:
 //   %5 = getelementptr inbounds %struct.lzma_next_coder_s, \
-//     %struct.lzma_next_coder_s* %0, i64 0, i32 0
-//   %6 = load i8*, i8** %5, align 8, !tbaa !34
-//   %7 = icmp eq i8* %6, null
+//     ptr %0, i64 0, i32 0
+//   %6 = load ptr, ptr %5, align 8
+//   %7 = icmp eq ptr %6, null
 //   br i1 %7, label %8, label %20
 //   ; <label>:8: ; preds = %3
-//   %9 = tail call fastcc i8* @lzma_alloc(i64 336) #4
-//   store i8* %9, i8** %5, align 8, !tbaa !34
+//   %9 = tail call fastcc ptr @lzma_alloc(i64 336) #4
+//   store ptr %9, ptr %5, align 8
 // The load above is one of the kind of loads we are analyzing here. The
 // other type is the innocuous load, for which an example appears in the
 // relevant function.
 //
-bool DTransBadCastingAnalyzer::analyzeLoad(dtrans::FieldInfo &FI,
-                                           Instruction &I) {
+bool
+DTransBadCastingAnalyzerOP::analyzeLoad(dtrans::FieldInfo &FI,
+                                        Instruction &I) {
   if (foundViolation())
     return false;
   auto LDI = cast<LoadInst>(&I);
   auto GEPI = dyn_cast<GetElementPtrInst>(LDI->getPointerOperand());
   if (!GEPI)
     return true;
-  Type *IndexedTy = getLastType(GEPI);
-  auto IndexedStructTy = dyn_cast<StructType>(IndexedTy);
-  if (!IndexedStructTy)
-    return false;
-  if (IndexedTy != CandidateRootType)
+  if (!gepiMatchesCandidateStruct(GEPI))
     return true;
   // Find the field being loaded
   auto ConstIndex = GEPI->getOperand(GEPI->getNumOperands() - 1);
@@ -1078,45 +1068,11 @@ bool DTransBadCastingAnalyzer::analyzeLoad(dtrans::FieldInfo &FI,
 // Remove 'F' from the set 'CondLoadFunctions' if there is an alloc store
 // in the Function 'F'.
 //
-void DTransBadCastingAnalyzer::pruneCondLoadFunctions() {
+void
+DTransBadCastingAnalyzerOP::pruneCondLoadFunctions() {
   for (auto &IT : AllocStores) {
     Function *MyF = IT.first->getFunction();
     CondLoadFunctions.remove_if([&](Function *F) { return F == MyF; });
-  }
-}
-
-//
-// If any of the potentially bad cast instructions are from anything other
-// than an alloc store, record a safety violation.
-//
-void DTransBadCastingAnalyzer::processPotentialBitCastsOfAllocStores() {
-  for (auto *BCI : BadCastOperators) {
-    auto SI = dyn_cast<StoreInst>(BCI->getOperand(0));
-    if (SI && (AllocStores.find(SI) != AllocStores.end())) {
-      setFoundViolation(true);
-      return;
-    }
-  }
-}
-
-//
-// If any potential unsafe pointer store is not an alloc store to the
-// indicated alias type, record a safety violation.
-//
-void DTransBadCastingAnalyzer::processPotentialUnsafePointerStores() {
-  for (auto &IT : UnsafePtrStores) {
-    StoreInst *SI = IT.first;
-    llvm::Type *StPtrType = IT.second;
-    if (!StPtrType->isPointerTy()) {
-      setFoundViolation(true);
-      return;
-    }
-    llvm::Type *StType = StPtrType->getPointerElementType();
-    auto ASIT = AllocStores.find(SI);
-    if (ASIT == AllocStores.end() || ASIT->second.second != StType) {
-      setFoundViolation(true);
-      return;
-    }
   }
 }
 
@@ -1125,7 +1081,8 @@ void DTransBadCastingAnalyzer::processPotentialUnsafePointerStores() {
 // inserting appropriate conditional tests of the candidate field against
 // nullptr.  Return 'false' if no such conditionals must be inserted.
 //
-bool DTransBadCastingAnalyzer::violationIsConditional() {
+bool
+DTransBadCastingAnalyzerOP::violationIsConditional() {
   bool SawConditional = false;
   for (auto &IT : AllocStores) {
     bool IsConditional = IT.second.first;
@@ -1146,7 +1103,8 @@ bool DTransBadCastingAnalyzer::violationIsConditional() {
 // safety violation 'SC1', remove safety violation 'SC2' (if it is set), and
 // set safety violation 'SC3'.
 //
-void DTransBadCastingAnalyzer::applySafetyCheckToCandidate(
+void
+DTransBadCastingAnalyzerOP::applySafetyCheckToCandidate(
     dtrans::SafetyData FindCondition, dtrans::SafetyData RemoveCondition,
     dtrans::SafetyData ReplaceByCondition) {
   for (dtrans::TypeInfo *TI : DTInfo.type_info_entries()) {
@@ -1164,25 +1122,26 @@ void DTransBadCastingAnalyzer::applySafetyCheckToCandidate(
 // safety violation if:
 //   (1) There are still pending stores which have not been determined
 //       to be alloc stores.
-//   (2) Any potentially problematic bit cast and store instructions are
-//       not identified as alloc stores.
+//   (2) There are conditional load functions which do not have an alloc store.
 // During the visiting of loads and stores, we mark types affected by
-// potential bad casting and unsafe pointer stores with BadCastingPending
-// and UnsafePointerStorePending safety violations. One of three things
+// potential bad casting, unsafe pointer stores, and mismatched element
+// accesses with BadCastingPending, UnsafePointerStorePending, and
+// MismatchedElementAccessPending safety violations. One of three things
 // will happen with these:
 //   (1) If there is no way to remove the safety violation, these will
-//       be converted to BadCasting and UnsafePointerStore.
+//       be converted to BadCasting, UnsafePointerStore, and
+//       MismatchedElementAccess.
 //   (2) If the safety violations can be removed by adding conditionals,
-//       these safety violations are converted to BadCastingConditional
-//       and UnsafePointerStoreConditional.
+//       these safety violations are converted to BadCastingConditional,
+//       UnsafePointerStoreConditional, and MismatchedElementAccessConditional.
 //   (3) If adding conditionals is not necessary, these pending safety
 //       simply removed.
 // After this, any type with both BadCasting and BadCastingConditional has
-// BadCastingConditional removed.  Similarly, if any type has both
-// UnsafePointerStore and UnsafePointerStoreConditional,
-// UnsafePointerStoreConditional is removed.
+// BadCastingConditional removed. UnsafePointerStore and
+// MismatchedElementAccess are treated similarly.
 //
-bool DTransBadCastingAnalyzer::analyzeAfterVisit() {
+bool
+DTransBadCastingAnalyzerOP::analyzeAfterVisit() {
   // Lambda to convert pending safety violations to unconditional
   auto convertPendingToUnconditional = [this]() -> void {
     applySafetyCheckToCandidate(dtrans::BadCastingPending,
@@ -1190,6 +1149,9 @@ bool DTransBadCastingAnalyzer::analyzeAfterVisit() {
     applySafetyCheckToCandidate(dtrans::UnsafePointerStorePending,
                                 dtrans::UnsafePointerStorePending,
                                 dtrans::UnsafePointerStore);
+    applySafetyCheckToCandidate(dtrans::MismatchedElementAccessPending,
+                                dtrans::MismatchedElementAccessPending,
+                                dtrans::MismatchedElementAccess);
   };
   // If we saw a violation that could not be removed by conditionalization,
   // give up now.
@@ -1236,20 +1198,6 @@ bool DTransBadCastingAnalyzer::analyzeAfterVisit() {
     });
     return false;
   }
-  // Check if there are potential bit casts and stores that may be problematic.
-  // If there are any, call setFoundViolation(true), and change pending
-  // safety violations into unconditional ones.
-  processPotentialBitCastsOfAllocStores();
-  processPotentialUnsafePointerStores();
-  if (foundViolation()) {
-    convertPendingToUnconditional();
-    DEBUG_WITH_TYPE(DTRANS_BCA, {
-      dbgs() << "dtrans-bca: Found unconditional bad cast or unsafe "
-             << "pointer store\n"
-             << "dtrans-bca: End bad casting analysis: (NOT OK)\n";
-    });
-    return false;
-  }
   // The remaining safety violations might be removable by inserting
   // conditionals.  If so, change them to conditional safety violations.
   if (violationIsConditional()) {
@@ -1259,14 +1207,17 @@ bool DTransBadCastingAnalyzer::analyzeAfterVisit() {
     applySafetyCheckToCandidate(dtrans::UnsafePointerStorePending,
                                 dtrans::UnsafePointerStorePending,
                                 dtrans::UnsafePointerStoreConditional);
+    applySafetyCheckToCandidate(dtrans::MismatchedElementAccessPending,
+                                dtrans::MismatchedElementAccessPending,
+                                dtrans::MismatchedElementAccessConditional);
     applySafetyCheckToCandidate(
         dtrans::BadCasting, dtrans::BadCastingConditional, dtrans::NoIssues);
     applySafetyCheckToCandidate(dtrans::UnsafePointerStore,
                                 dtrans::UnsafePointerStoreConditional,
                                 dtrans::NoIssues);
     DEBUG_WITH_TYPE(DTRANS_BCA, {
-      dbgs() << "dtrans-bca: Found conditional bad cast or unsafe "
-             << "pointer store\n"
+      dbgs() << "dtrans-bca: Found conditional bad cast, unsafe "
+             << "pointer store, or mismatched element access\n"
              << "dtrans-bca: End bad casting analysis: (OK)\n";
     });
     return true;
@@ -1277,137 +1228,60 @@ bool DTransBadCastingAnalyzer::analyzeAfterVisit() {
   applySafetyCheckToCandidate(dtrans::UnsafePointerStorePending,
                               dtrans::UnsafePointerStorePending,
                               dtrans::NoIssues);
+  applySafetyCheckToCandidate(dtrans::MismatchedElementAccessPending,
+                              dtrans::MismatchedElementAccessPending,
+                              dtrans::NoIssues);
   DEBUG_WITH_TYPE(DTRANS_BCA, {
-    dbgs() << "dtrans-bca: Removed pending bad cast and unsafe"
-           << " pointer stores\n"
+    dbgs() << "dtrans-bca: Removed pending bad cast, unsafe"
+           << " pointer stores, and mismatched element accesses\n"
            << "dtrans-bca: End bad casting analysis: (OK)\n";
   });
   return true;
 }
 
-//
-// Return true if the 'Type' and 'Index' are for the BadCastingAnalysis
-// root type and candidate field.
-//
-bool DTransBadCastingAnalyzer::isBadCastTypeAndFieldCandidate(llvm::Type *Type,
-                                                              unsigned Index) {
-  if (!Type->isPointerTy())
-    return false;
-  llvm::Type *PTy = Type->getPointerElementType();
-  auto StPTy = dyn_cast<StructType>(PTy);
-  if (StPTy != CandidateRootType)
-    return false;
-  return Index == CandidateVoidField;
-}
-
-//
-// Return 'true' if 'BCI' is a bit cast of store instruction which stores
-// into the candidate field.
-//
-// For example, in:
-//   %5 = getelementptr inbounds %struct.lzma_next_coder_s, \
-//     %struct.lzma_next_coder_s* %0, i64 0, i32 0
-//   %6 = load i8*, i8** %5, align 8, !tbaa !34
-//   %7 = icmp eq i8* %6, null
-//   br i1 %7, label %8, label %20
-//   ; <label>:8: ; preds = %3
-//   %9 = tail call fastcc i8* @lzma_alloc(i64 336) #4
-//   store i8* %9, i8** %5, align 8, !tbaa !34
-//   %10 = icmp eq i8* %9, null
-//   %11 = bitcast i8* %9 to %struct.lzma_coder_s.243*
-// %11 is a bit cast of the desired form.
-//
-bool DTransBadCastingAnalyzer::isPotentialBitCastOfAllocStore(
-    BitCastOperator *BCI) {
-  auto SI = dyn_cast<StoreInst>(BCI->getOperand(0));
-  if (!SI)
-    return false;
-  auto CI = dyn_cast<CallInst>(SI->getValueOperand());
-  const TargetLibraryInfo &TLI = GetTLI(*CI->getFunction());
-  if (dtrans::getAllocFnKind(CI, TLI) == dtrans::AK_NotAlloc &&
-      !DTAA.isMallocPostDom(CI))
-    return false;
-  auto GEPI = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
-  if (!GEPI)
-    return false;
-  return gepiMatchesCandidate(GEPI);
-}
-
-//
-// Return true if 'BCI' is a bit cast of a load of the candidate field.
-//
-// For example, in:
-//   %23 = getelementptr inbounds %struct.lzma_next_coder_s,
-//     %struct.lzma_next_coder_s* %0, i64 0, i32 0
-//   %24 = load i8*, i8** %23, align 8, !tbaa !34
-//   %25 = icmp eq i8* %24, null
-//   br i1 %25, label %29, label %26
-//   ; <label>:26: ; preds = %22
-//   %27 = bitcast i8* %24 to %struct.lzma_coder_s.39*
-// %27 is a bit cast of the desired form.
-//
-bool DTransBadCastingAnalyzer::isBitCastFromBadCastCandidate(
-    BitCastOperator *BCI) {
-  auto BCV = BCI->getOperand(0);
-  if (BCV->getType() != Int8PtrTy)
-    return false;
-  auto LI = dyn_cast<LoadInst>(BCV);
-  if (!LI)
-    return false;
-  auto GEPI = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
-  if (!GEPI)
-    return false;
-  return gepiMatchesCandidate(GEPI);
-}
-
-//
-// Add the instruction 'I' to the list of bad cast instructions which
-// could lead to a bad casting safety violation.
-//
-void DTransBadCastingAnalyzer::setSawBadCastBitCast(BitCastOperator *I) {
-  BadCastOperators.insert(I);
-  DEBUG_WITH_TYPE(DTRANS_BCA, {
-    dbgs() << "dtrans-bca: Bad casting (pending) -- "
-           << "unknown pointer cast to type of interest:\n"
-           << "  " << *I << "\n";
-  });
-}
-
-//
-// Add the instruction 'SI' on the map of unsafe pointer stores and the
-// the corresponding alias types which could lead to an unsafe pointer
-// store safety violation.
-//
-void DTransBadCastingAnalyzer::setSawUnsafePointerStore(StoreInst *SI,
-                                                        llvm::Type *AliasType) {
-  UnsafePtrStores.insert(std::make_pair(SI, AliasType));
-  DEBUG_WITH_TYPE(DTRANS_BCA, {
-    dbgs() << "dtrans-bca: Unsafe pointer store -- "
-           << " (pending) "
-           << "  Unmatch store of aliased value:\n";
-  });
-}
-
-void DTransBadCastingAnalyzer::getConditionalFunctions(
+void
+DTransBadCastingAnalyzerOP::getConditionalFunctions(
     SetVector<Function *> &Funcs) const {
   Funcs.clear();
-
-  for (auto *F : CondLoadFunctions) {
+  for (auto *F : CondLoadFunctions)
     Funcs.insert(F);
-  }
-
-  for (auto &Entry : AllocStores) {
-    // If store is conditional, it requires a value validation (should be NULL).
-    if (Entry.second.first) {
+  // If store is conditional, it requires a value validation (should be NULL).
+  for (auto &Entry : AllocStores)
+    if (Entry.second.first)
       Funcs.insert(Entry.first->getParent()->getParent());
-    }
-  }
 }
 
-void DTransBadCastingAnalyzer::noteUnsafeCastOfAliasedPtr(BitCastOperator *I) {
-  DEBUG_WITH_TYPE(DTRANS_BCA, {
-  dbgs() << "dtrans-bca: Bad casting -- "
-         << "unsafe cast of aliased pointer:\n"
-         << "  " << *I << "\n";
-  });
+bool
+DTransBadCastingAnalyzerOP::isAllocStore(Instruction *I) {
+  auto SI = dyn_cast<StoreInst>(I);
+  return SI && AllocStores.find(SI) != AllocStores.end();
 }
+
+void
+DTransBadCastingAnalyzerOP::setSawBadCasting(Instruction *I) {
+   DEBUG_WITH_TYPE(DTRANS_BCA, {
+    dbgs() << "dtrans-bca: Bad casting (pending) -- "
+           << "unknown pointer virtually cast to type of interest:\n"
+           << "  " << *I << "\n";
+  });
+} 
+
+void
+DTransBadCastingAnalyzerOP::setSawUnsafePointerStore(Instruction *I) {
+  DEBUG_WITH_TYPE(DTRANS_BCA, {
+    dbgs() << "dtrans-bca: Unsafe pointer store (pending) -- "
+           << "unmatched store of aliased value:\n"
+           << "  " << *I << "\n";
+  });
+} 
+
+void
+DTransBadCastingAnalyzerOP::setSawMismatchedElementAccess(Instruction *I) {
+  DEBUG_WITH_TYPE(DTRANS_BCA, {
+    dbgs() << "dtrans-bca: Mismatched element access (pending) -- "
+           << "incompatible type for field load/store value:\n"
+           << "  " << *I << "\n";
+  });
+} 
+
+

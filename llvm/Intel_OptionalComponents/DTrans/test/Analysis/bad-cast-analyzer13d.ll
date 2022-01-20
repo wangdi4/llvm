@@ -9,8 +9,10 @@
 %struct.test01a = type { i32, i64, i32 }
 %struct.test01b = type { i32, i64, i32 }
 
+; CHECK: dtrans-bca: Begin bad casting analysis
 ; CHECK-NOT: dtrans-bca: Bad casting -- unsafe cast of aliased pointer:
 ; CHECK-NOT: %p2 = bitcast %struct.test01a* %p to %struct.test01b*
+; CHECK: dtrans-bca: End bad casting analysis
 
 define void @test01_a(%struct.test01b* %p2) {
   ret void

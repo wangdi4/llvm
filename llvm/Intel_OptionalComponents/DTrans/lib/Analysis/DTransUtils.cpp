@@ -1,6 +1,6 @@
 //===------------ Intel_DTransUtils.cpp - Utilities for DTrans ------------===//
 //
-// Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -513,6 +513,10 @@ const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
     return "Unsafe pointer store (pending)";
   if (SafetyInfo & dtrans::UnsafePointerStoreConditional)
     return "Unsafe pointer store (conditional)";
+  if (SafetyInfo & dtrans::MismatchedElementAccessPending)
+    return "Mismatched element access (pending)";
+  if (SafetyInfo & dtrans::MismatchedElementAccessConditional)
+    return "Mismatched element access (conditional)";
   if (SafetyInfo & dtrans::DopeVector)
     return "Dope vector";
   if (SafetyInfo & dtrans::BadCastingForRelatedTypes)
@@ -559,8 +563,10 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::HasFnPtr | dtrans::HasCppHandling | dtrans::HasZeroSizedArray |
       dtrans::BadCastingPending | dtrans::BadCastingConditional |
       dtrans::UnsafePointerStorePending |
-      dtrans::UnsafePointerStoreConditional | dtrans::DopeVector |
-      dtrans::BadCastingForRelatedTypes |
+      dtrans::UnsafePointerStoreConditional |
+      dtrans::MismatchedElementAccessPending |
+      dtrans::MismatchedElementAccessConditional |
+      dtrans::DopeVector | dtrans::BadCastingForRelatedTypes |
       dtrans::BadPtrManipulationForRelatedTypes |
       dtrans::MismatchedElementAccessRelatedTypes |
       dtrans::UnsafePointerStoreRelatedTypes |
@@ -587,8 +593,10 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::HasCppHandling ^ dtrans::HasZeroSizedArray ^
            dtrans::BadCastingPending ^ dtrans::BadCastingConditional ^
            dtrans::UnsafePointerStorePending ^
-           dtrans::UnsafePointerStoreConditional ^ dtrans::DopeVector ^
-           dtrans::BadCastingForRelatedTypes ^
+           dtrans::UnsafePointerStoreConditional ^
+           dtrans::MismatchedElementAccessPending ^
+           dtrans::MismatchedElementAccessConditional ^
+           dtrans::DopeVector ^ dtrans::BadCastingForRelatedTypes ^
            dtrans::BadPtrManipulationForRelatedTypes ^
            dtrans::MismatchedElementAccessRelatedTypes ^
            dtrans::UnsafePointerStoreRelatedTypes ^

@@ -12,6 +12,7 @@
 
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAllocAnalyzer.h"
+#include "Intel_DTrans/Analysis/DTransBadCastingAnalyzerOP.h"
 #include "Intel_DTrans/Analysis/DTransDebug.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
@@ -224,10 +225,11 @@ public:
       LLVMContext &Ctx, const DataLayout &DL,
       DTransSafetyInfo::GetTLIFnType GetTLI,
       function_ref<BlockFrequencyInfo &(Function &)> &GetBFI,
-      DTransSafetyInfo &DTInfo, PtrTypeAnalyzer &PTA, DTransTypeManager &TM,
+      DTransSafetyInfo &DTInfo, PtrTypeAnalyzer &PTA,
+      DTransBadCastingAnalyzerOP &DTBCA, DTransTypeManager &TM,
       TypeMetadataReader &MDReader, DTransSafetyLogger &Log)
       : DL(DL), GetTLI(GetTLI), GetBFI(GetBFI), DTInfo(DTInfo), PTA(PTA),
-        MDReader(MDReader), TM(TM), Log(Log) {
+        DTBCA(DTBCA), MDReader(MDReader), TM(TM), Log(Log) {
     DTransI8Type = TM.getOrCreateAtomicType(llvm::Type::getInt8Ty(Ctx));
     DTransI8PtrType = TM.getOrCreatePointerType(DTransI8Type);
     LLVMPtrSizedIntType = llvm::Type::getIntNTy(Ctx, DL.getPointerSizeInBits());
@@ -1161,7 +1163,7 @@ public:
           continue;
 
         setFieldMismatchedElementAccess(PtrAliasTy, ValSize, ValTy,
-                                        /*FieldNum=*/0, I);
+                                        /*FieldNum=*/0, I, false);
       }
     } else if (PtrDomTy && !isPtrToPtr(PtrDomTy)) {
       // Treat this as an element zero access if the pointer operand alias info
@@ -1772,16 +1774,22 @@ public:
       // that safety bit has different semantics regarding propagation than
       // the MismatchedElementAccess safety, which are necessary to get all
       // the necessary structures marked.
+      bool IsAllocStore = DTBCA.isAllocStore(&I);
       if (BadCasting) {
+        const llvm::dtrans::SafetyData SD = IsAllocStore ?
+            dtrans::BadCastingPending : dtrans::BadCasting;
         setBaseTypeInfoSafetyData(
-            ParentTy, dtrans::BadCasting,
+            ParentTy, SD,
             "Incompatible pointer type for field load/store", &I);
         if (ValInfo)
           for (auto *ValAliasTy :
-               ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+               ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+            if (IsAllocStore)
+              DTBCA.setSawBadCasting(&I);
             setBaseTypeInfoSafetyData(
-                ValAliasTy, dtrans::BadCasting,
+                ValAliasTy, SD,
                 "Incompatible pointer type for field load/store", &I);
+          }
       }
 
       if (!TypesCompatible) {
@@ -1794,29 +1802,38 @@ public:
           if (IndexedType->isPointerTy() &&
               IndexedType->getPointerElementType()->isAggregateType())
             PtrToAggregateFound = true;
-
+          const llvm::dtrans::SafetyData SD = IsAllocStore ?
+              dtrans::UnsafePointerStorePending : dtrans::UnsafePointerStore;
           if (ValInfo) {
             auto &AliasSet =
                 ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
             PtrToAggregateFound |= ValInfo->canAliasToDirectAggregatePointer();
             if (PtrToAggregateFound) {
-              for (auto *ValAliasTy : AliasSet)
+              for (auto *ValAliasTy : AliasSet) {
+                if (IsAllocStore)
+                  DTBCA.setSawUnsafePointerStore(&I);
                 setBaseTypeInfoSafetyData(
-                    ValAliasTy, dtrans::UnsafePointerStore,
+                    ValAliasTy, SD,
                     "Incompatible type for field load/store", &I);
+              }
             }
           }
 
-          if (PtrToAggregateFound)
-            setBaseTypeInfoSafetyData(IndexedType, dtrans::UnsafePointerStore,
+          if (PtrToAggregateFound) {
+            if (IsAllocStore)
+              DTBCA.setSawUnsafePointerStore(&I);
+            setBaseTypeInfoSafetyData(IndexedType, SD,
                                       "Incompatible type for field load/store",
                                       &I);
+          }
         }
 
         // Finally, mark the structure as having a mismatched element access.
         TypeSize ValSize = DL.getTypeSizeInBits(ValOp->getType());
+        if (IsAllocStore)
+          DTBCA.setSawMismatchedElementAccess(&I);
         setFieldMismatchedElementAccess(ParentTy, ValSize, IndexedType,
-                                        ElementNum, I);
+                                        ElementNum, I, IsAllocStore);
       }
     }
   }
@@ -1991,22 +2008,26 @@ public:
                                        TypeSize AccessSize,
                                        DTransType *AccessTy,
                                        unsigned int ElementNum,
-                                       Instruction &I) {
+                                       Instruction &I,
+                                       bool IsPending) {
+    const llvm::dtrans::SafetyData SD = IsPending ?
+        dtrans::MismatchedElementAccessPending :
+        dtrans::MismatchedElementAccess;
     if (getLangRuleOutOfBoundsOK()) {
       // Assuming out of bound access, set safety issue for the entire
       // ParentTy.
-      setBaseTypeInfoSafetyData(ParentTy, dtrans::MismatchedElementAccess,
+      setBaseTypeInfoSafetyData(ParentTy, SD,
                                 "Incompatible type for field load/store", &I);
     } else {
       // Set the safety issue only on the structure containing the field and the
       // field type, rather than to all fields reachable from the structure
       // because out of bounds accesses are known to not occur based on the
       // LangRuleOutOfBoundsOK definition.
-      setOnlyBaseTypeInfoSafetyData(ParentTy, dtrans::MismatchedElementAccess,
+      setOnlyBaseTypeInfoSafetyData(ParentTy, SD,
                                     "Incompatible type for field load/store",
                                     &I);
       if (AccessTy)
-        setBaseTypeInfoSafetyData(AccessTy, dtrans::MismatchedElementAccess,
+        setBaseTypeInfoSafetyData(AccessTy, SD,
                                   "Incompatible type for field load/store", &I);
     }
 
@@ -2132,6 +2153,7 @@ public:
                             &Descended);
       dtrans::FieldInfo &FI = ReadStInfo->getField(ReadFieldNum);
       FI.setRead(I);
+      DTBCA.analyzeLoad(FI, I);
       updateFieldFrequency(FI, I);
       DTInfo.addLoadMapping(&I, { ReadStInfo->getLLVMType(), ReadFieldNum });
       if (Descended || ForElementZeroAccess)
@@ -2226,6 +2248,7 @@ public:
                           &Descended);
     dtrans::FieldInfo &FI = WrittenStInfo->getField(WrittenFieldNum);
     SetFieldInfo(I, *WrittenStInfo, FI, WrittenFieldNum, WriteVal);
+    DTBCA.analyzeStore(FI, I);
     if (Descended || ForElementZeroAccess)
       FI.setNonGEPAccess();
 
@@ -4742,6 +4765,8 @@ private:
     case dtrans::MemFuncPartialWrite:
     case dtrans::MismatchedArgUse:
     case dtrans::MismatchedElementAccess:
+    case dtrans::MismatchedElementAccessPending:
+    case dtrans::MismatchedElementAccessConditional:
     case dtrans::NestedStruct:
     case dtrans::NoFieldsInStruct:
     case dtrans::WholeStructureReference:
@@ -4798,6 +4823,8 @@ private:
     case dtrans::LocalPtr:
     case dtrans::MismatchedArgUse:
     case dtrans::MismatchedElementAccess:
+    case dtrans::MismatchedElementAccessPending:
+    case dtrans::MismatchedElementAccessConditional:
     case dtrans::NestedStruct:
     case dtrans::NoFieldsInStruct:
     case dtrans::SystemObject:
@@ -5279,6 +5306,7 @@ private:
   function_ref<BlockFrequencyInfo &(Function &)> &GetBFI;
   DTransSafetyInfo &DTInfo;
   PtrTypeAnalyzer &PTA;
+  DTransBadCastingAnalyzerOP &DTBCA;
   TypeMetadataReader &MDReader;
   DTransTypeManager &TM;
   DTransSafetyLogger &Log;
@@ -5316,6 +5344,9 @@ DTransSafetyInfo::DTransSafetyInfo(DTransSafetyInfo &&Other)
   Other.StoreInfoMap.clear();
   MultiElemLoadStoreInfo.insert(Other.MultiElemLoadStoreInfo.begin(),
                                 Other.MultiElemLoadStoreInfo.end());
+  FunctionsRequireBadCastValidation.insert(
+      Other.FunctionsRequireBadCastValidation.begin(),
+      Other.FunctionsRequireBadCastValidation.end());
   Other.MultiElemLoadStoreInfo.clear();
   SawFortran = Other.SawFortran;
 }
@@ -5337,12 +5368,28 @@ DTransSafetyInfo &DTransSafetyInfo::operator=(DTransSafetyInfo &&Other) {
   Other.StoreInfoMap.clear();
   MultiElemLoadStoreInfo.insert(Other.MultiElemLoadStoreInfo.begin(),
     Other.MultiElemLoadStoreInfo.end());
+  FunctionsRequireBadCastValidation.insert(
+      Other.FunctionsRequireBadCastValidation.begin(),
+      Other.FunctionsRequireBadCastValidation.end());
   Other.MultiElemLoadStoreInfo.clear();
   MaxTotalFrequency = Other.MaxTotalFrequency;
   UnhandledPtrType = Other.UnhandledPtrType;
   DTransSafetyAnalysisRan = Other.DTransSafetyAnalysisRan;
   SawFortran = Other.SawFortran;
   return *this;
+}
+
+bool DTransSafetyInfo::requiresBadCastValidation(
+    SetVector<Function *> &Func, unsigned &ArgumentIndex,
+    unsigned &StructIndex) const {
+  Func.clear();
+  Func.insert(FunctionsRequireBadCastValidation.begin(),
+              FunctionsRequireBadCastValidation.end());
+
+  ArgumentIndex = DTransBadCastingAnalyzerOP::VoidArgumentIndex;
+  StructIndex = DTransBadCastingAnalyzerOP::CandidateVoidField;
+
+  return !Func.empty();
 }
 
 void DTransSafetyInfo::analyzeModule(
@@ -5381,10 +5428,14 @@ void DTransSafetyInfo::analyzeModule(
   }
 
   DTransSafetyLogger Log;
+  DTransBadCastingAnalyzerOP DTBCA(Ctx, *this, *PtrAnalyzer, *TM, GetTLI, M);
   DTransSafetyInstVisitor Visitor(Ctx, DL, GetTLI, GetBFI, *this, *PtrAnalyzer,
-                                  *TM, *MDReader, Log);
+                                  DTBCA, *TM, *MDReader, Log);
   checkLanguages(M);
+  DTBCA.analyzeBeforeVisit();
   Visitor.visit(M);
+  DTBCA.analyzeAfterVisit();
+  DTBCA.getConditionalFunctions(FunctionsRequireBadCastValidation);
   PostProcessFieldValueInfo();
   DTransSafetyAnalysisRan = true;
 

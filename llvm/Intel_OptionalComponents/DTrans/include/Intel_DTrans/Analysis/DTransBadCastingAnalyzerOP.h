@@ -1,4 +1,4 @@
-//===-----DTransBadCastingAnalyzer.h - Specialized bad casting analyzer----===//
+//===-DTransBadCastingAnalyzerOP.h - Specialized OP bad casting analyzer----===//
 //
 // Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
@@ -9,46 +9,51 @@
 //===----------------------------------------------------------------------===//
 
 #if !INTEL_FEATURE_SW_DTRANS
-#error DTransBadCastingAnalyzer.h include in an non-INTEL_FEATURE_SW_DTRANS build.
+#error DTransBadCastingAnalyzerOP.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
-#ifndef INTEL_DTRANS_ANALYSIS_DTRANSBADCASTINGANALYZER_H
-#define INTEL_DTRANS_ANALYSIS_DTRANSBADCASTINGANALYZER_H
+#ifndef INTEL_DTRANS_ANALYSIS_DTRANSBADCASTINGANALYZEROP_H
+#define INTEL_DTRANS_ANALYSIS_DTRANSBADCASTINGANALYZEROP_H
 
-#include "Intel_DTrans/Analysis/DTransAllocAnalyzer.h"
-#include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "llvm/IR/Operator.h"
+#include "Intel_DTrans/Analysis/DTransAllocCollector.h"
+#include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
+#include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include <map>
+
 
 namespace llvm {
 
 class TargetLibraryInfo;
 
-namespace dtrans {
+namespace dtransOP {
 
-class DTransBadCastingAnalyzer {
+class DTransBadCastingAnalyzerOP {
 
 public:
   using GetTLIFnType =
       std::function<const TargetLibraryInfo &(const Function &)>;
-  DTransBadCastingAnalyzer(DTransAnalysisInfo &DTInfo,
-                           dtrans::DTransAllocAnalyzer &DTAA,
-                           GetTLIFnType GetTLI, const Module &M)
-      : DTInfo(DTInfo), DTAA(DTAA), GetTLI(GetTLI), M(M), FoundViolation(false),
-        CandidateRootType(nullptr) {
-    Int8PtrTy = llvm::Type::getInt8PtrTy(M.getContext());
+  DTransBadCastingAnalyzerOP(LLVMContext &Ctx, DTransSafetyInfo &DTInfo,
+                             PtrTypeAnalyzer &PTA, DTransTypeManager &TM,
+                             GetTLIFnType GetTLI, const Module &M)
+      : DTInfo(DTInfo), PTA(PTA), TM(TM), GetTLI(GetTLI), M(M),
+        FoundViolation(false), CandidateRootType(nullptr) {
+    LLVMI8Type = llvm::Type::getInt8Ty(Ctx);
+    DTransI8Type = TM.getOrCreateAtomicType(LLVMI8Type);
+    DTransI8PtrType = TM.getOrCreatePointerType(DTransI8Type);
   }
-  ~DTransBadCastingAnalyzer() {}
+  DTransPointerType *getDTransI8PtrType() const { return DTransI8PtrType; }
+  ~DTransBadCastingAnalyzerOP() {}
   bool analyzeBeforeVisit();
   bool analyzeLoad(dtrans::FieldInfo &FI, Instruction &I);
   bool analyzeStore(dtrans::FieldInfo &FI, Instruction &I);
   bool analyzeAfterVisit();
-  bool isBadCastTypeAndFieldCandidate(llvm::Type *SrcType, unsigned Index);
-  bool isBitCastFromBadCastCandidate(BitCastOperator *I);
-  bool gepiMatchesCandidate(GetElementPtrInst *GEPI);
-  bool isPotentialBitCastOfAllocStore(BitCastOperator *BCI);
-  void setSawBadCastBitCast(BitCastOperator *BCI);
-  void setSawUnsafePointerStore(StoreInst *SI, llvm::Type *AliasType);
-  void noteUnsafeCastOfAliasedPtr(BitCastOperator *I);
+  bool gepiMatchesCandidateStruct(GetElementPtrInst *GEPI);
+  bool gepiMatchesCandidateField(GetElementPtrInst *GEPI);
+  bool isAllocStore(Instruction *I);
+  void setSawBadCasting(Instruction *I);
+  void setSawUnsafePointerStore(Instruction *I);
+  void setSawMismatchedElementAccess(Instruction *I);
 
 public:
   // Constants
@@ -63,10 +68,13 @@ public:
 
 private:
   // Accessed class objects
-  DTransAnalysisInfo &DTInfo;
-  dtrans::DTransAllocAnalyzer &DTAA;
+  DTransSafetyInfo &DTInfo;
+  PtrTypeAnalyzer &PTA;
+  DTransTypeManager &TM;
   GetTLIFnType GetTLI;
-
+  llvm::Type *LLVMI8Type;
+  DTransType *DTransI8Type;
+  DTransPointerType *DTransI8PtrType;
   const Module &M;
 
   // A lattice which indicates:
@@ -75,14 +83,11 @@ private:
   //   BCCondBottom: we cannot tell whether a store is unconditionally
   //     or conditionally assigned.
   enum BCCondType { BCCondTop, BCCondSpecial, BCCondBottom };
-  // Data structures
-  // The type for a pointer to a 8-bit integer
-  PointerType *Int8PtrTy;
   // Set to true if a bad casting or unsafe pointer store violation on
   // the candidate field has been detected, and the analysis cannot continue.
   bool FoundViolation;
   // The structure to which the candidate field belongs.
-  llvm::StructType *CandidateRootType;
+  DTransStructType *CandidateRootType;
   // A map of stores to pairs of a bool and a type.  Each store is the
   // target of the return of a call to an allocation function, which is a
   // pointer value and can be assigned to the candidate field.  The bool
@@ -94,11 +99,6 @@ private:
   // be proved to be "alloc stores", or we assume a potential violation has
   // been found.
   SmallPtrSet<StoreInst *, 10> PendingStores;
-  // Bit cast operators which could be the source of bad casting.
-  SmallPtrSet<BitCastOperator *, 10> BadCastOperators;
-  // A map from store instructions, which could be the source of an unsafe
-  // pointer store and the type that can be assigned to each store.
-  std::map<StoreInst *, llvm::Type *> UnsafePtrStores;
   // Functions which must have conditionals inserted to avoid bad casting
   // on loads in those Functions.
   SetVector<Function *> CondLoadFunctions;
@@ -110,9 +110,11 @@ private:
   std::pair<bool, llvm::Type *> findSpecificArgType(Function *F,
                                                     unsigned Index);
   llvm::Type *getLastType(GetElementPtrInst *GEPI);
-  BitCastInst *findSingleBitCastAlloc(StoreInst *STI);
+  bool isGEPILastTypeCandidateRootType(GetElementPtrInst *GEPI);
+  llvm::Type *findSingleGEPISourceElementType(StoreInst *STI,
+                                              bool CheckPHIInputs);
   std::pair<bool, llvm::Type *>
-  findStoreTypeForwardCall(CallInst *CI, GetElementPtrInst *GEPI);
+      findStoreTypeForwardCall(CallInst *CI, GetElementPtrInst *GEPI);
   llvm::Type *foundStoreType(Instruction *TI, GetElementPtrInst *GEPI);
   GetElementPtrInst *getRootGEPIFromConditional(BasicBlock *BB);
   BasicBlock *getTakenPathOfSpecialGuardConditional(BasicBlock *BB);
@@ -131,8 +133,6 @@ private:
                              GetElementPtrInst *GEPI);
   bool allUseBBsConditionallyDead(Instruction *I);
   void pruneCondLoadFunctions();
-  void processPotentialBitCastsOfAllocStores();
-  void processPotentialUnsafePointerStores();
   bool violationIsConditional();
   void applySafetyCheckToCandidate(dtrans::SafetyData FindCondition,
                                    dtrans::SafetyData RemoveCondition,
@@ -142,7 +142,7 @@ public:
   void getConditionalFunctions(SetVector<Function *> &Funcs) const;
 };
 
-} // end namespace dtrans
+} // end namespace dtransOP
 } // end namespace llvm
 
-#endif // INTEL_DTRANS_ANALYSIS_DTRANSBADCASTINGANALYZER_H
+#endif // INTEL_DTRANS_ANALYSIS_DTRANSBADCASTINGANALYZEROP_H
