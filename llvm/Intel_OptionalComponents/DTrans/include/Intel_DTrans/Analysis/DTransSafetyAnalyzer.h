@@ -69,6 +69,12 @@ public:
 
   ~DTransSafetyInfo();
 
+  // Returns true if the module requires runtime validation of possible bad cast
+  // issues. Returns functions where runtime checks are required.
+  bool requiresBadCastValidation(SetVector<Function *> &Func,
+                                 unsigned &ArgumentIndex,
+                                 unsigned &StructIndex) const;
+
   /// Handle invalidation events in the new pass manager.
   bool invalidate(Module &M, const PreservedAnalyses &PA,
                   ModuleAnalysisManager::Invalidator &Inv);
@@ -327,6 +333,10 @@ private:
 
   // Indicates whether the module was completely analyzed for safety checks.
   bool DTransSafetyAnalysisRan = false;
+
+  // A set of functions where bad cast safety issue validation required in
+  // runtime.
+  SetVector<Function *> FunctionsRequireBadCastValidation;
 
   // Indicates that a Fortran function was seen. This will disable
   // DTransUseCRuleCompat.
