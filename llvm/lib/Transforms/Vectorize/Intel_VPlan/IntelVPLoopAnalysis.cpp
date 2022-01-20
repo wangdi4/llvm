@@ -1063,20 +1063,39 @@ static void createNonPODPrivateCtorDtorCalls(Function *F, VPValue *NonPODMemory,
 const VPInduction *
 VPLoopEntityList::getLoopInduction() const {
   // There are two ways to find main loop induction:
-  // 1) Get latch -> condbit -> operand which is induction. This relies on that
-  //    we always have canonical loops with bottom test and will give exactly
-  //    loop IV.
+  // 1) Get latch -> condbit -> follow operand chain which is involved in
+  //    induction. This relies on that we always have canonical loops with
+  //    bottom test and will give exactly loop IV.
   // 2) Get header, scan phis until the induction is found. That is more
   //    reliable but will give the first IV which is not necessary the main
   //    loop IV.
   // The method implements the first way.
 
-  const auto *LatchCond = cast<VPCmpInst>(Loop.getLoopLatch()->getCondBit());
-  const VPInduction *Ret = getInduction(LatchCond->getOperand(0));
-  if (!Ret)
-    Ret = getInduction(LatchCond->getOperand(1));
-  assert(Ret && "Expected non-null induction");
-  return Ret;
+  // Look into the def-use chain starting from latch condition via a worklist
+  // approach.
+  const auto *LatchCond = cast<VPCmpInst>(Loop.getLatchComparison());
+  SmallVector<const VPInstruction *, 4> Worklist;
+  SmallPtrSet<const VPInstruction *, 4> Visited;
+
+  // Initiate the worklist with latch condition.
+  Worklist.push_back(LatchCond);
+
+  while (!Worklist.empty()) {
+    const VPInstruction *CurrI = Worklist.pop_back_val();
+    if (const VPInduction *Ret = getInduction(CurrI))
+      return Ret;
+
+    // Avoid cyclic-phi chains.
+    if (!Visited.insert(CurrI).second)
+      continue;
+
+    for (auto *Op : CurrI->operands()) {
+      if (auto *OpInst = dyn_cast<VPInstruction>(Op))
+        Worklist.push_back(OpInst);
+    }
+  }
+
+  llvm_unreachable("Expected non-null induction for main loop IV.");
 }
 
 // See comment in the header file.
