@@ -28,6 +28,11 @@
 # CFE: Team owns everything in Clang unless otherwise specified.
 /clang/* @ErichKeane @mikerice1969 @aaronballman
 
+# CFE/OpenMP
+/llvm/include/llvm/Frontend/OpenMP/ @mikerice1969 @jyu2-git
+/llvm/lib/Frontend/OpenMP/ @mikerice1969 @jyu2-git
+/clang/**/*OpenMP* @mikerice1969 @jyu2-git
+
 # JIRA: CMPLRLLVM->LLVM Driver
 /clang/**/Driver @intel-restricted/cmplrllvm-llvm-driver
 
