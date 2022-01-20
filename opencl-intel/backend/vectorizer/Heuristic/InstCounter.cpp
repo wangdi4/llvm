@@ -273,8 +273,12 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
 
     // Here, recommended_vector_length is set. This metadata is used by later
     // VF analysis passes.
-    auto vkimd = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F);
-    vkimd.RecommendedVL.set(m_desiredWidth);
+    const auto Kernels = KernelList(*F.getParent()).getList();
+    if (llvm::find(Kernels, &F) != Kernels.end()) {
+      auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F);
+      if (!KIMD.VectorizedWidth.hasValue())
+        KIMD.RecommendedVL.set(m_desiredWidth);
+    }
   }
   return false;
 }

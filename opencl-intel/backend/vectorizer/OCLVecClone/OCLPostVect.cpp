@@ -49,6 +49,10 @@ bool OCLPostVect::isKernelVectorized(Function *Clone) {
   return true;
 }
 
+static void removeRecommendedVLMetadata(Function *F) {
+  MDValueGlobalObjectStrategy::unset(F, "recommended_vector_length");
+}
+
 // Make sure the cloned vectorized kernel (if there's one) is binded
 // to the original function correctly.
 // A cloned vectorized kernel may not be binded to original function
@@ -87,6 +91,8 @@ static bool rebindVectorizedKernel(Module &M, Function *F) {
     if (nullptr == Clone)
       continue;
 
+    removeRecommendedVLMetadata(Clone);
+
     // Set clone's metadata
     auto CloneMD = KernelInternalMetadataAPI(Clone);
 
@@ -117,24 +123,26 @@ bool OCLPostVect::runOnModule(Module &M) {
     // Try to rebind vectorized kernel if missing.
     ModifiedModule |= rebindVectorizedKernel(M, F);
     // Remove "recommended_vector_length" metadata.
-    MDValueGlobalObjectStrategy::unset(F, "recommended_vector_length");
-    auto FMD = KernelInternalMetadataAPI(F);
-    Function *ClonedKernel = FMD.VectorizedKernel.get();
-    if (ClonedKernel && !isKernelVectorized(ClonedKernel)) {
+    removeRecommendedVLMetadata(F);
+
+    auto RemoveNotVectorizedClone = [this, &ModifiedModule,
+                                     &F](Function *Clone, StringRef MDName) {
+      if (!Clone)
+        return;
+      if (isKernelVectorized(Clone)) {
+        removeRecommendedVLMetadata(Clone);
+        return;
+      }
       // Unset the metadata of the original kernel.
-      MDValueGlobalObjectStrategy::unset(F, "vectorized_kernel");
+      MDValueGlobalObjectStrategy::unset(F, MDName);
       // If the kernel is not vectorized, then the cloned kernel is removed.
-      ClonedKernel->eraseFromParent();
+      Clone->eraseFromParent();
       ModifiedModule = true;
-    }
-    Function *MaskedKernel = FMD.VectorizedMaskedKernel.get();
-    if (MaskedKernel && !isKernelVectorized(MaskedKernel)) {
-      // Unset the metadata of the original kernel.
-      MDValueGlobalObjectStrategy::unset(F, "vectorized_masked_kernel");
-      // If the kernel is not vectorized, then the masked kernel is removed.
-      MaskedKernel->eraseFromParent();
-      ModifiedModule = true;
-    }
+    };
+    auto FMD = KernelInternalMetadataAPI(F);
+    RemoveNotVectorizedClone(FMD.VectorizedKernel.get(), "vectorized_kernel");
+    RemoveNotVectorizedClone(FMD.VectorizedMaskedKernel.get(),
+                             "vectorized_masked_kernel");
   }
   return ModifiedModule;
 }
