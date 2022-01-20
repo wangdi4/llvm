@@ -10,14 +10,18 @@
 ; passing the value on cmdline.
 ;
 
-; RUN: opt < %s -debug-only=call-tree-clone -call-tree-clone -ctcmv-model-user-calls=1 -ctcmv-num-user-calls-modeled=2450 -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-mv-bypass-coll-for-littest=0 -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -debug-only=call-tree-clone -passes='module(call-tree-clone)' -ctcmv-model-user-calls=1 -ctcmv-num-user-calls-modeled=2450 -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-mv-bypass-coll-for-littest=0 -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -debug-only=call-tree-clone -call-tree-clone -ctcmv-model-user-calls=1 -ctcmv-num-user-calls-modeled=2450 -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-mv-bypass-coll-for-littest=0 -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -debug-only=call-tree-clone -passes='module(call-tree-clone)' -ctcmv-model-user-calls=1 -ctcmv-num-user-calls-modeled=2450 -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-mv-bypass-coll-for-littest=0 -disable-output 2>&1 | FileCheck %s
 
 ;
 ; CHECK:        Call-Tree Cloning preliminary analysis:  good
 ; CHECK-NEXT:   Call-Tree Cloning collection: NOT good
 
+; This is the same test case as call_tree_cloning_14.ll, but it checks for
+; opaque pointers.
 
+; ModuleID = 'call_tree_cloning_14-opaque-ptr.ll'
+source_filename = "call_tree_cloning_14-opaque-ptr.ll"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -26,7 +30,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nofree noinline nounwind uwtable
 define dso_local void @hello() local_unnamed_addr #0 {
 entry:
-  %puts = tail call i32 @puts(i8* nonnull dereferenceable(1) getelementptr inbounds ([13 x i8], [13 x i8]* @str, i64 0, i64 0))
+  %puts = tail call i32 @puts(ptr nonnull dereferenceable(1) getelementptr inbounds ([13 x i8], ptr @str, i64 0, i64 0))
   ret void
 }
 
@@ -38,7 +42,7 @@ entry:
 }
 
 ; Function Attrs: nofree nounwind
-declare i32 @puts(i8* nocapture readonly) local_unnamed_addr #1
+declare i32 @puts(ptr nocapture readonly) local_unnamed_addr #1
 
 attributes #0 = { nofree noinline nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nofree nounwind }

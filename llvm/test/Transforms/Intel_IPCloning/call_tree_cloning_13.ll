@@ -1,3 +1,5 @@
+; REQUIRES: asserts
+
 ; [DEBUG+TRACE]
 ; Show that inexperienced developers can tell whether call-tree cloning, post-processing, and multi-versioning
 ; transformations happen by checking the debug output stream.
@@ -5,13 +7,13 @@
 ; RUN: opt < %s -debug-only=call-tree-clone -call-tree-clone -call-tree-clone-detail-log=1 \
 ; RUN:       -post-processing-detail-log=1 -multiversioning-detail-log=1 \
 ; RUN:       -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 \
-; RUN:       -call-tree-clone-mv-bypass-coll-for-littest=1 -S -disable-output 2>&1  | FileCheck %s
+; RUN:       -call-tree-clone-mv-bypass-coll-for-littest=1 -disable-output 2>&1  | FileCheck %s
 
 ; RUN: opt < %s -passes='module(call-tree-clone)' -debug-only=call-tree-clone \
 ; RUN:       -call-tree-clone-detail-log=1 -post-processing-detail-log=1 \
 ; RUN:       -multiversioning-detail-log=1 -enable-intel-advanced-opts=1 \
 ; RUN:       -mtriple=i686-- -mattr=+avx2 \
-; RUN:       -call-tree-clone-mv-bypass-coll-for-littest=1 -S 2>&1 | FileCheck %s
+; RUN:       -call-tree-clone-mv-bypass-coll-for-littest=1 -disable-output 2>&1 | FileCheck %s
 
 ; ** Call-Tree Cloning related trace ***
 ; CHECK:    Call-Tree Cloning preliminary analysis:  good
