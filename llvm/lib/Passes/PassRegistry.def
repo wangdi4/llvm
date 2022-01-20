@@ -31,6 +31,11 @@ MODULE_ANALYSIS("dtrans-safetyanalyzer", dtransOP::DTransSafetyAnalyzer())
 MODULE_ANALYSIS("soatoaos-approx", dtrans::SOAToAOSApproximationDebug())
 MODULE_ANALYSIS("soatoaos-struct-methods",
                 dtrans::SOAToAOSStructMethodsCheckDebug())
+MODULE_ANALYSIS("soatoaosop-approx", dtransOP::SOAToAOSOPApproximationDebug())
+MODULE_ANALYSIS("soatoaosop-array-methods",
+                dtransOP::SOAToAOSOPArrayMethodsCheckDebug())
+MODULE_ANALYSIS("soatoaosop-struct-methods",
+                dtransOP::SOAToAOSOPStructMethodsCheckDebug())
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
@@ -411,10 +416,6 @@ FUNCTION_ANALYSIS("divergence", DivergenceAnalysis())
 #if INTEL_FEATURE_SW_DTRANS
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 FUNCTION_ANALYSIS("soatoaos-array-methods", dtrans::SOAToAOSArrayMethodsCheckDebug())
-
-FUNCTION_ANALYSIS("soatoaosop-approx", dtransOP::SOAToAOSOPApproximationDebug())
-FUNCTION_ANALYSIS("soatoaosop-array-methods", dtransOP::SOAToAOSOPArrayMethodsCheckDebug())
-FUNCTION_ANALYSIS("soatoaosop-struct-methods", dtransOP::SOAToAOSOPStructMethodsCheckDebug())
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #endif // INTEL_FEATURE_SW_DTRANS
 

@@ -1,6 +1,6 @@
 //===-------------- SOAToAOSOPEffects.cpp - Part of SOAToAOSOPPass --------===//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -569,35 +569,38 @@ SOAToAOSOPApproximationDebug::Ignore::get() const {
 SOAToAOSOPApproximationDebug::Ignore::~Ignore() {}
 
 SOAToAOSOPApproximationDebug::Ignore
-SOAToAOSOPApproximationDebug::run(Function &F, FunctionAnalysisManager &AM) {
-  const auto &MAM = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
-  auto *DTInfo = MAM.getCachedResult<DTransSafetyAnalyzer>(*F.getParent());
-  auto *TLI = AM.getCachedResult<TargetLibraryAnalysis>(F);
-
-  if (!DTInfo || !TLI)
-    report_fatal_error("DTransAnalysis was not run before "
-                       "SOAToAOSOPApproximationDebug.");
+SOAToAOSOPApproximationDebug::run(Module &M, ModuleAnalysisManager &MAM) {
+  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto *DTInfo = &MAM.getResult<DTransSafetyAnalyzer>(M);
 
   std::unique_ptr<SOAToAOSOPApproximationDebugResult> Result(
       new SOAToAOSOPApproximationDebugResult());
 
-  DTransStructType *ClassType = getOPStructTypeOfMethod(&F, DTInfo);
-  if (!ClassType)
-    report_fatal_error(Twine("Cannot extract struct/class type from ") +
-                       F.getName() + ".");
+  for (auto &F : M) {
+    if (F.isDeclaration())
+      continue;
 
-  // Do analysis.
-  DepCompute DC(*DTInfo, F.getParent()->getDataLayout(), *TLI, &F, ClassType,
-                // *Result is filled-in.
-                *Result);
-  DC.computeDepApproximation();
+    DTransStructType *ClassType = getOPStructTypeOfMethod(&F, DTInfo);
+    if (!ClassType)
+      report_fatal_error(Twine("Cannot extract struct/class type from ") +
+                         F.getName() + ".");
 
-  // Dump results of analysis.
-  DEBUG_WITH_TYPE(DTRANS_SOADEP, {
-    dbgs() << "; Dump computed dependencies ";
-    DepMap::DepAnnotatedWriter Annotate(*Result);
-    F.print(dbgs(), &Annotate);
-  });
+    // Do analysis.
+    auto &TLI =
+        FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function *>(&F)));
+    DepCompute DC(*DTInfo, F.getParent()->getDataLayout(), TLI, &F, ClassType,
+                  // *Result is filled-in.
+                  *Result);
+    DC.computeDepApproximation();
+
+    // Dump results of analysis.
+    DEBUG_WITH_TYPE(DTRANS_SOADEP, {
+      dbgs() << "; Dump computed dependencies ";
+      DepMap::DepAnnotatedWriter Annotate(*Result);
+      F.print(dbgs(), &Annotate);
+    });
+  }
+
   return Ignore(Result.release());
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
