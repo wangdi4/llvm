@@ -2868,10 +2868,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
 #endif //INTEL_CUSTOMIZATION
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotFreeMemory(F);
-    Changed |= setOnlyWritesMemory(F);
-    Changed |= setWillReturn(F);
     if (!F.onlyReadsMemory() && isAllUsersFast(F)) // INTEL
       Changed |= setOnlyReadsMemory(F);            // INTEL
+    Changed |= setOnlyWritesMemory(F);
+    Changed |= setWillReturn(F);
     return Changed;
   default:
     // FIXME: It'd be really nice to cover all the library functions we're
