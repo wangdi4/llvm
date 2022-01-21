@@ -15,7 +15,9 @@
 #ifndef LLVM_CLANG_BASIC_VERSION_H
 #define LLVM_CLANG_BASIC_VERSION_H
 
+#include "clang/Basic/LangOptions.h"
 #include "clang/Basic/Version.inc"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 
 #if INTEL_CUSTOMIZATION
@@ -76,6 +78,11 @@ namespace clang {
   /// for use in the CPP __VERSION__ macro, which includes the clang version
   /// number, the repository version, and the vendor tag.
   std::string getClangFullCPPVersion();
+
+  /// Retrieves a string representing the SYCL standard version for use in
+  /// the CL_SYCL_LANGUAGE_VERSION and SYCL_LANGUAGE_VERSION macros.
+  llvm::SmallVector<std::pair<llvm::StringRef, llvm::StringRef>, 2>
+  getSYCLVersionMacros(const LangOptions &LangOpts);
 
 #if INTEL_CUSTOMIZATION
   std::string getDPCPPProductName();
