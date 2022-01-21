@@ -67,7 +67,6 @@ void initializeLocalBuffersPass(llvm::PassRegistry &);
 void initializeLocalBuffAnalysisPass(llvm::PassRegistry&);
 void initializeSubGroupAdaptationPass(llvm::PassRegistry&);
 void initializeRemovePrefetchPass(llvm::PassRegistry&);
-void initializeResolveWICallPass(llvm::PassRegistry&);
 void initializeResolveSubGroupWICallPass(llvm::PassRegistry&);
 void initializeDetectRecursionPass(llvm::PassRegistry&);
 void initializeDebugInfoPassPass(llvm::PassRegistry&);

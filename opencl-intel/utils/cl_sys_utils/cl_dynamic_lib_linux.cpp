@@ -86,7 +86,9 @@ int OclDynamicLib::Load(const char* pLibName)
                                  std::string(VERSIONSTRING);
         m_hLibrary = dlopen(strLibName.c_str(), RTLD_LAZY);
         if (nullptr == m_hLibrary) {
-          m_vErrInfo = std::string(dlerror());
+          const char *strDllError = dlerror();
+          m_vErrInfo = std::string(nullptr == strDllError ? "Unknown reason."
+                                                          : strDllError);
           return 1;
         }
     }

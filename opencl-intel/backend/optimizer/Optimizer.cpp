@@ -148,8 +148,6 @@ llvm::ModulePass *createProfilingInfoPass();
 llvm::Pass *createSmartGVNPass(bool);
 
 llvm::ModulePass *createSinCosFoldPass();
-llvm::ModulePass *createResolveWICallPass(bool isUniformWGSize,
-                                          bool useTLSGlobals);
 llvm::ModulePass *createDetectRecursionPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
 llvm::ModulePass *createPrintfArgumentsPromotionPass();
@@ -757,7 +755,7 @@ static void populatePassesPostFailCheck(
   else
     PM.add(llvm::createAddImplicitArgsLegacyPass());
 
-  PM.add(createResolveWICallPass(pConfig->GetUniformWGSize(), UseTLSGlobals));
+  PM.add(llvm::createResolveWICallLegacyPass(pConfig->GetUniformWGSize(), UseTLSGlobals));
   PM.add(llvm::createLocalBuffersLegacyPass(UseTLSGlobals));
   // clang converts OCL's local to global.
   // createLocalBuffersLegacyPass changes the local allocation from global to a

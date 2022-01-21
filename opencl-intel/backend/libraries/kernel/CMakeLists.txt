@@ -21,8 +21,8 @@ function(create_ocl_kernel_target CLANG_FLAGS INPUT_CL TMP_DIR OUTPUT_DIR OUTPUT
             -dpcpp-kernel-analysis -cl-loop-bound -deduce-max-dim
             -dpcpp-kernel-wgloop-creator
             -loop-idiom -loop-deletion -dpcpp-kernel-add-implicit-args
-            -resolve-wi-call -dpcpp-kernel-prepare-args -inline -dce -globaldce
-            -instcombine -cleanup-wrapped-kernels
+            -dpcpp-kernel-resolve-wi-call -dpcpp-kernel-prepare-args -inline
+            -dce -globaldce -instcombine -cleanup-wrapped-kernels
             -o ${OUTPUT_OPT_FILE}
     COMMENT "Compiling ${OPT_RTL_FILE}"
   )
