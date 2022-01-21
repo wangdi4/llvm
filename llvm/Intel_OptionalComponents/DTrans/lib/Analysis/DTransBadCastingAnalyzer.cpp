@@ -1319,10 +1319,19 @@ bool DTransBadCastingAnalyzer::isBadCastTypeAndFieldCandidate(llvm::Type *Type,
 //
 bool DTransBadCastingAnalyzer::isPotentialBitCastOfAllocStore(
     BitCastOperator *BCI) {
-  auto SI = dyn_cast<StoreInst>(BCI->getOperand(0));
+  auto CI = dyn_cast<CallInst>(BCI->getOperand(0));
+  if (!CI)
+    return false;
+  StoreInst *SI = nullptr;
+  for (User *U : CI->users())
+    if (auto LSI = dyn_cast<StoreInst>(U))
+      if (LSI->getValueOperand() == CI)
+        if (!SI)
+          SI = LSI;
+        else
+          return false;
   if (!SI)
     return false;
-  auto CI = dyn_cast<CallInst>(SI->getValueOperand());
   const TargetLibraryInfo &TLI = GetTLI(*CI->getFunction());
   if (dtrans::getAllocFnKind(CI, TLI) == dtrans::AK_NotAlloc &&
       !DTAA.isMallocPostDom(CI))
