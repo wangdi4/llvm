@@ -390,6 +390,7 @@ void Impl::generateAsyncBodies() {
     IRB.SetInsertPoint(Entry);
 
     auto *BlockInvokeMapper = M.getFunction(getBlockInvokeMapperName(F));
+    assert(BlockInvokeMapper && "Block_invoke_mapper missed.");
     auto *AsyncFunc = IRB.CreatePointerCast(F->getArg(1), VoidPtrTy);
     auto *AsyncInvoke =
         IRB.CreateCall(BlockInvokeMapper->getFunctionType(), BlockInvokeMapper,
