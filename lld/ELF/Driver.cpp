@@ -1736,7 +1736,7 @@ void LinkerDriver::doGnuLTOLinking() {
   if (gNULTOFilesCmd.empty())
     fatal("unable to generate the temporary files for GNU LTO");
 
-  StringRef exec = saver().save(*exeOrErr);
+  StringRef exec = saver.save(*exeOrErr);
 
   // Build the command g++ -fuse-ld=bfd -r GNU-LTO-FILES -nostdlib
   //                    -nostartfiles -o /tmp/gnulto.o

@@ -1401,7 +1401,7 @@ bool LinkerDriver::processLibInResponseFile(ArrayRef<const char *> argv) {
           cl::TokenizeWindowsCommandLine : cl::TokenizeGNUCommandLine;
 
     // Expand the command stored in the file
-    cl::ExpandResponseFiles(saver(), quotingStyle, expandedArgv);
+    cl::ExpandResponseFiles(saver, quotingStyle, expandedArgv);
 
     // Check that "/lib" is the first argument in the expanded command
     if (expandedArgv.size() > 1 &&
