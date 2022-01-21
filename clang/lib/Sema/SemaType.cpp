@@ -2596,6 +2596,9 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
   }
 
   // Delay diagnostic to SemaSYCL so only Kernel functions are diagnosed.
+#if INTEL_COLLAB
+  if (!getLangOpts().OpenMPLateOutline)
+#endif // INTEL_COLLAB
   if (T->isVariableArrayType() && !Context.getTargetInfo().isVLASupported() &&
       !getLangOpts().SYCLIsDevice) {
     // CUDA device code and some other targets don't support VLAs.

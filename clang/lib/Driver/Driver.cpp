@@ -3251,6 +3251,12 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
           if (Args.hasArgNoClaim(options::OPT_fthinlto_index_EQ) &&
               Ty == types::TY_Object)
             Ty = types::TY_LLVM_BC;
+
+#if INTEL_CUSTOMIZATION
+          // If running with -E, treat Fortran input as a C input
+          if (Ty == types::TY_PP_Fortran && Args.hasArgNoClaim(options::OPT_E))
+            Ty = types::TY_C;
+#endif // INTEL_CUSTOMIZATION
         }
 
         // -ObjC and -ObjC++ override the default language, but only for "source

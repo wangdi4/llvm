@@ -399,6 +399,24 @@ casting analyzer, and involve certain functions' arguments being nullptr
 on entry to those functions. (See the description of the Bad Casting
 Analyzer below.) `Bad Casting Analyzer`_
 
+MismatchedElementAccessPending
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A potential mismatched element access issue that will be either eliminated,
+converted to mismatched element access conditional, or converted to mismatched
+element access at the end of analysis by the bad casting analyzer.
+(See the description of the Bad Casting Analyzer below.)
+`Bad Casting Analyzer`_
+
+MismatchedElementAccessConditional
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Indicates that a mismtched element access will occur only if specific
+conditions are not fulfilled.  These conditions are noted by the bad 
+casting analyzer, and involve certain functions' arguments being nullptr
+on entry to those functions. (See the description of the Bad Casting
+Analyzer below.) `Bad Casting Analyzer`_
+
 DopeVector
 ~~~~~~~~~~
 The type was identified as a dope vector.
@@ -1172,9 +1190,10 @@ UnsafePointerStorePending. In step (3), we have three choices:
       UnsafePointerStore violations to UnsafePointerStore.
   (3) We can determine that the safety conditions can be removed under
       certain conditions, and change the BadCastingPending violations
-      to BadCastingConditional and the UnsafePointerStore violations to
-      UnsafePointerStoreConditional. (This is what was illustrated in
-      the example above.)
+      to BadCastingConditional, the UnsafePointerStorePending violations to
+      UnsafePointerStoreConditional, and the MismatchedElementAccessPending
+      violations to MismatchedElementAccessConditional (This is what was
+      illustrated in the example above.)
 
 Further details on the operation of the bad casting analyzer, including
 examples with IR, can be found in the code in DTransAnalysis.cpp.

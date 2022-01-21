@@ -1,4 +1,4 @@
-//===-----DTransBadCastingAnalyzer.h - Speicalized bad casting analyzer----===//
+//===-----DTransBadCastingAnalyzer.h - Specialized bad casting analyzer----===//
 //
 // Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //

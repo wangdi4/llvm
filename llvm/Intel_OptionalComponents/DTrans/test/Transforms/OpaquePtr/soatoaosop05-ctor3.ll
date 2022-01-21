@@ -4,8 +4,8 @@
 ; "_ZN1FC2Ev" to reproduce the crash. The nullptr access was reported by
 ; klocworks.
 
-; RUN: opt < %s -whole-program-assume -disable-output                                                                   \
-; RUN:          -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>,require<soatoaosop-struct-methods>)'   \
+; RUN: opt < %s -whole-program-assume -disable-output                                                                     \
+; RUN:          -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-struct-methods>'    \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr                                                                  \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr.0                                                                \
 ; RUN:          -dtrans-soatoaosop-base-ptr-off=2                                                                         \
@@ -14,8 +14,8 @@
 ; RUN:          -dtrans-soatoaosop-array-ctor=_ZN3ArrIPfEC2Ei                                                             \
 ; RUN:          2>/dev/null
 
-; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output                                                                   \
-; RUN:          -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>,require<soatoaosop-struct-methods>)'   \
+; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output                                                    \
+; RUN:          -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-struct-methods>'    \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr                                                                  \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr.0                                                                \
 ; RUN:          -dtrans-soatoaosop-base-ptr-off=2                                                                         \

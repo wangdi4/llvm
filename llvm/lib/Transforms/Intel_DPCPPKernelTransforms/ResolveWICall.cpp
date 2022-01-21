@@ -546,8 +546,8 @@ TInternalCallType ResolveWICallPass::getCallFunctionType(StringRef FuncName) {
   if (DPCPPKernelCompilationUtils::isPrefetch(FuncName))
     return ICT_PREFETCH;
 
-  // OpenCL2.0 built-ins to resolve.
-  if (OclVersion == DPCPPKernelCompilationUtils::OclVersion::CL_VER_2_0) {
+  // OpenCL 2.0/3.0 built-ins to resolve.
+  if (OclVersion >= DPCPPKernelCompilationUtils::OclVersion::CL_VER_2_0) {
     if (DPCPPKernelCompilationUtils::isEnqueueKernelLocalMem(FuncName))
       return ICT_ENQUEUE_KERNEL_LOCALMEM;
     if (DPCPPKernelCompilationUtils::isEnqueueKernelEventsLocalMem(FuncName))
