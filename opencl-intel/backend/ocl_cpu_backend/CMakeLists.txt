@@ -239,7 +239,6 @@ set( BACKEND_PASSES
     PrintIRPass
     ProfilingInfoPass
     RelaxedPass
-    ResolveWICall
     SetPreferVectorWidth
     UndefExternalFuncs
     KernelInfo

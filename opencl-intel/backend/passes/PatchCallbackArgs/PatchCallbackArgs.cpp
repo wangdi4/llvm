@@ -12,7 +12,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#define DEBUG_TYPE "resolve-wi-call"
 #include "PatchCallbackArgs.h"
 #include "CompilationUtils.h"
 #include "OCLAddressSpace.h"
