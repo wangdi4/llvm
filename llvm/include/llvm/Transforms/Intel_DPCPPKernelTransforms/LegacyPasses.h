@@ -91,6 +91,7 @@ ModulePass *createSGSizeCollectorIndirectLegacyPass(VectorVariant::ISAClass);
 ModulePass *createSetVectorizationFactorLegacyPass(
     VectorVariant::ISAClass ISA = VectorVariant::XMM);
 ModulePass *createVFAnalysisLegacyPass();
+ModulePass *createVectorizationDimensionAnalysisLegacyPass();
 ModulePass *
 createHandleVPlanMaskLegacyPass(const StringSet<> *VPlanMaskedFuncs);
 FunctionPass *createWorkItemAnalysisLegacyPass(unsigned VectorizeDim = 0);
