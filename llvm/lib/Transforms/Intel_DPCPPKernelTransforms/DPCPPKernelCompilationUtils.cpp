@@ -762,6 +762,11 @@ std::string mangledGetGroupID() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GROUP_ID);
 }
 
+std::string mangledGetNumGroups() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(
+      NAME_GET_NUM_GROUPS);
+}
+
 std::string mangledGetLocalSize() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(
       NAME_GET_LOCAL_SIZE);

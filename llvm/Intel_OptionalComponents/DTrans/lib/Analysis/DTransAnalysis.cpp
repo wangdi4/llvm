@@ -9812,7 +9812,7 @@ AnalysisKey DTransAnalysis::Key;
 bool DTransAnalysisInfo::invalidate(Module &M, const PreservedAnalyses &PA,
                                 ModuleAnalysisManager::Invalidator &Inv) {
   auto PAC = PA.getChecker<DTransAnalysis>();
-  return !PAC.preservedWhenStateless();
+  return !PAC.preserved();
 }
 
 DTransAnalysisInfo DTransAnalysis::run(Module &M, AnalysisManager<Module> &AM) {
