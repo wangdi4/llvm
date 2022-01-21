@@ -255,6 +255,21 @@ public:
       m_strStream << "0]";
     }
 
+    void PrintCLSources(cl_uint count, const char **strings,
+                        const size_t *lengths) {
+      if (count == 0 || !strings)
+        return;
+      m_strStream << "\nOpenCL source:\n";
+      for (cl_uint i = 0; i < count; ++i) {
+        if (!lengths || lengths[i] == 0) {
+          m_strStream << strings[i];
+        } else {
+          std::string str(strings[i], lengths[i]);
+          m_strStream << str;
+        }
+      }
+    }
+
     /**
      * End logging of an API function with a pointer return value
      * @param retVal the return value
