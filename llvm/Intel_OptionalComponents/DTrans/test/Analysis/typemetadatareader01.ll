@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 
-; RUN: opt -dtrans-typemetadatareader -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes=dtrans-typemetadatareader -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -dtrans-typemetadatareader -dtrans-typemetadatareader-values -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=dtrans-typemetadatareader -dtrans-typemetadatareader-values -disable-output < %s 2>&1 | FileCheck %s
 
 ; This test is to check that structure types can be reconstructed based on metadata.
 

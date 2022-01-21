@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 
-; RUN: opt -dtrans-typemetadatareader -debug-only=dtrans-typemetadatareader -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes=dtrans-typemetadatareader -debug-only=dtrans-typemetadatareader -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -dtrans-typemetadatareader -dtrans-typemetadatareader-missing -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=dtrans-typemetadatareader -dtrans-typemetadatareader-missing -disable-output < %s 2>&1 | FileCheck %s
 
 ; This test is to check that definitions and instructions that are expected to
 ; have dtrans type metadata associated with them are detected when they are
@@ -11,7 +11,6 @@
 
 ; Check a global definition
 @test01_var = internal global %struct.test01* null
-; CHECK-LABEL: Checking module for DTrans metadata
 ; CHECK: Missing var type metadata: @test01_var = internal global %struct.test01* null
 
 ; Check a function definition
@@ -20,14 +19,12 @@ define internal %struct.test01* @test01() {
   %st = bitcast i8* %mem to %struct.test01*
   ret %struct.test01* %st
 }
-; CHECK: Checking function for DTrans metadata: test01
-; CHECK: Missing fn type metadata
+; CHECK: Missing fn type metadata for: test01
 
 define internal void @test02(%struct.test01* %in) {
   ret void
 }
-; CHECK: Checking function for DTrans metadata: test02
-; CHECK: Missing fn type metadata
+; CHECK: Missing fn type metadata for: test02
 
 ; Check an alloca instruction
 define internal void @test03() {
@@ -37,10 +34,10 @@ define internal void @test03() {
   store %struct.test01* %st, %struct.test01** %local
   ret void
 }
-; CHECK: Checking function for DTrans metadata: test03
-; CHECK: Missing metadata:   %local = alloca %struct.test01*
+; CHECK: Missing metadata: test03 :  %local = alloca %struct.test01*
 
 declare noalias i8* @malloc(i64)
+; CHECK: Missing fn type metadata for: malloc
 
 !6 = !{i64 0, i32 0}  ; i64
 !7 = !{i32 0, i32 0}  ; i32

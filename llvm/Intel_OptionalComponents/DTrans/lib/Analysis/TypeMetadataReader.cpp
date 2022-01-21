@@ -1,6 +1,6 @@
 //===-----------TypeMetadataReader.cpp - Decode metadata annotations-------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -9,9 +9,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
+#include "Intel_DTrans/Analysis/DTransOPUtils.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
-#include "Intel_DTrans/Analysis/DTransOPUtils.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/Intel_WP.h"
@@ -243,7 +243,7 @@ bool TypeMetadataReader::initialize(Module &M, bool StrictCheck) {
 
       RecoveryErrors = true;
       LLVM_DEBUG(dbgs() << "DTransStructType not created for: " << *P.first
-        << "\n");
+                        << "\n");
       continue;
     }
 
@@ -934,6 +934,21 @@ void TypeMetadataReader::cacheMDDecoding(MDNode *MD, DTransType *DTTy) {
 #if !INTEL_PRODUCT_RELEASE
 
 namespace llvm {
+
+static cl::opt<bool> ReportDecodedValues(
+    "dtrans-typemetadatareader-values", cl::ReallyHidden, cl::init(false),
+    cl::desc("Report types decoded by type metadata reader test pass"));
+
+static cl::opt<bool> ReportMissing(
+    "dtrans-typemetadatareader-missing", cl::ReallyHidden, cl::init(true),
+    cl::desc("Report missing metadata encountered by the reader test pass"));
+
+static cl::opt<bool> ReportErrors(
+    "dtrans-typemetadatareader-errors", cl::ReallyHidden, cl::init(true),
+    cl::desc("Report decoding errors and mismatches between the metadata "
+             "and the actual type. Mismatch reporting only supported "
+             "when using typed-pointers"));
+
 namespace dtransOP {
 
 class TypeMetadataTester {
@@ -947,7 +962,8 @@ public:
     bool AllResolved = Reader.initialize(M);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    TM.printTypes();
+    if (ReportDecodedValues)
+      TM.printTypes();
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
     dbgs() << DEBUG_TYPE << ": All structures types "
@@ -972,13 +988,9 @@ public:
     // Determine whether the IR is using opaque pointers or not. When opaque
     // pointers are in use, all pointers of an address space should be
     // equivalent. Until opaque pointers become enabled, it's possible to check
-    // whether the metadata information mataches the pointer type in the IR.
-    bool OpaquePointersEnabled = false;
+    // whether the metadata information matches the pointer type in the IR.
     LLVMContext &Ctx = M.getContext();
-    llvm::Type *I8Ptr = llvm::Type::getInt8Ty(Ctx)->getPointerTo();
-    llvm::Type *I16Ptr = llvm::Type::getInt16Ty(Ctx)->getPointerTo();
-    if (I8Ptr == I16Ptr)
-      OpaquePointersEnabled = true;
+    bool OpaquePointersEnabled = !Ctx.supportsTypedPointers();
 
     // Check whether all the global variables that are expected to have metadata
     // have it.
@@ -988,30 +1000,28 @@ public:
         MDNode *MD = Reader.getDTransMDNode(GV);
         if (!MD) {
           ErrorsFound = true;
-          LLVM_DEBUG(dbgs()
-                     << DEBUG_TYPE
-                     << ":   ERROR: Missing var type metadata: " << GV << "\n");
+          if (ReportMissing)
+            dbgs() << "ERROR: Missing var type metadata: " << GV << "\n";
           continue;
         }
 
         DTransType *DType = Reader.decodeMDNode(MD);
         if (!DType) {
           ErrorsFound = true;
-          LLVM_DEBUG(dbgs() << DEBUG_TYPE
-                            << ":   ERROR: Failed to decode var type metadata: "
-                            << GV << " - " << *MD << "\n");
+          if (ReportErrors)
+            dbgs() << "ERROR: Failed to decode var type metadata: " << GV
+                   << " - " << *MD << "\n";
         } else {
-          LLVM_DEBUG(dbgs() << DEBUG_TYPE << ":  Decoded var type metadata: "
-                            << GV << " - " << *DType << "\n");
+          if (ReportDecodedValues)
+            dbgs() << "Decoded var type metadata: " << GV << " - " << *DType
+                   << "\n";
 
           if (!OpaquePointersEnabled && GVType != DType->getLLVMType()) {
             ErrorsFound = true;
-            LLVM_DEBUG(
-                dbgs()
-                << DEBUG_TYPE
-                << ":   ERROR: Metadata type does not match expected type: "
-                << GV.getName() << "\n  IR: " << *GV.getValueType()
-                << "\n  MD: " << *DType << "\n");
+            if (ReportErrors)
+              dbgs() << "ERROR: Metadata type does not match expected type: "
+                     << GV.getName() << "\n   IR: " << *GV.getValueType()
+                     << "\n   MD: " << *DType << "\n";
           }
         }
       }
@@ -1042,22 +1052,21 @@ public:
     if (dtrans::hasPointerType(FnType)) {
       DTransType *DType = Reader.getDTransType(&F);
       if (DType) {
-        LLVM_DEBUG(dbgs() << DEBUG_TYPE << ":   Decoded fn type metadata: "
-                          << *DType << "\n");
+        if (ReportDecodedValues)
+          dbgs() << "Decoded fn type metadata: " << F.getName() << " : "
+                 << *DType << "\n";
         if (!OpaquePointersEnabled && DType->getLLVMType() != FnType) {
           ErrorsFound = true;
-          LLVM_DEBUG(
-              dbgs()
-              << DEBUG_TYPE
-              << ":   ERROR: Metadata type does not match expected type: "
-              << F.getName() << "\n  IR: " << *FnType << "\n  MD: " << *DType
-              << "\n");
+          if (ReportErrors)
+            dbgs() << "ERROR: Metadata type does not match expected type: "
+                   << F.getName() << "\n   IR: " << *FnType
+                   << "\n   MD: " << *DType << "\n";
         }
       } else {
         ErrorsFound = true;
-        LLVM_DEBUG(dbgs() << DEBUG_TYPE
-                          << ":   ERROR: Missing fn type metadata for: "
-                          << F.getName() << "\n");
+        if (ReportMissing)
+          dbgs() << "ERROR: Missing fn type metadata for: " << F.getName()
+                 << "\n";
       }
     }
 
@@ -1068,27 +1077,31 @@ public:
           MDNode *MD = Reader.getDTransMDNode(*AI);
           if (!MD) {
             ErrorsFound = true;
-            LLVM_DEBUG(dbgs() << DEBUG_TYPE << ":   ERROR: Missing metadata: "
-                              << *AI << "\n");
+            if (ReportMissing)
+              dbgs() << "ERROR: Missing metadata: " << F.getName() << " : "
+                     << *AI << "\n";
             continue;
           }
 
           DTransType *DType = Reader.decodeMDNode(MD);
           if (!DType) {
             ErrorsFound = true;
-            LLVM_DEBUG(dbgs() << DEBUG_TYPE
-                              << ":   ERROR: Failed to decode metadata: " << *AI
-                              << " - " << *MD << "\n");
+            if (ReportErrors)
+              dbgs() << "ERROR: Failed to decode metadata: " << F.getName()
+                     << " : " << *AI << " - " << *MD << "\n";
           } else {
-            LLVM_DEBUG(dbgs() << DEBUG_TYPE << ":  Decoded metadata: " << *AI
-                              << " - " << *DType << "\n");
+            if (ReportDecodedValues)
+              dbgs() << "Decoded alloca metadata : " << F.getName() << " : "
+                     << *AI << " - " << *DType << "\n";
+
             if (!OpaquePointersEnabled && DType->getLLVMType() != AllocType) {
               ErrorsFound = true;
-              LLVM_DEBUG(dbgs() << DEBUG_TYPE
-                                << ":  ERROR: Metadata type does not match "
-                                   "expected type: "
-                                << *AI << "\n  IR: " << *AI->getAllocatedType()
-                                << "\n  MD: " << *DType << "\n");
+              if (ReportErrors)
+                dbgs() << F.getName()
+                       << "ERROR: Metadata type does not match expected type: "
+                       << F.getName() << " : " << *AI
+                       << "\n   IR: " << *AI->getAllocatedType()
+                       << "\n   MD: " << *DType << "\n";
             }
           }
         }
@@ -1098,28 +1111,30 @@ public:
           MDNode *MD = Reader.getDTransMDNode(*Call);
           if (!MD) {
             ErrorsFound = true;
-            LLVM_DEBUG(dbgs() << DEBUG_TYPE << ":   ERROR: Missing metadata: "
-                              << *Call << "\n");
+            if (ReportMissing)
+              dbgs() << "ERROR: Missing metadata: " << F.getName() << " : "
+                     << *Call << "\n";
             continue;
           }
 
           DTransType *DType = Reader.decodeMDNode(MD);
           if (!DType) {
             ErrorsFound = true;
-            LLVM_DEBUG(dbgs()
-                       << DEBUG_TYPE << ":   ERROR: Failed to decode metadata: "
-                       << *Call << " - " << *MD << "\n");
+            if (ReportErrors)
+              dbgs() << "ERROR: Failed to decode metadata: " << F.getName()
+                     << " : " << *Call << " - " << *MD << "\n";
           } else {
-            LLVM_DEBUG(dbgs() << DEBUG_TYPE << ":  Decoded metadata: " << *Call
-                              << " - " << *DType << "\n");
+            if (ReportDecodedValues)
+              dbgs() << "Decoded call metadata   : " << F.getName() << " : "
+                     << *Call << " - " << *DType << "\n";
+
             if (!OpaquePointersEnabled &&
                 DType->getLLVMType() != Call->getFunctionType()) {
-              LLVM_DEBUG(dbgs()
-                         << DEBUG_TYPE
-                         << ":   ERROR:  Metadata type does not match "
-                            "expected type: "
-                         << *Call << "\n  IR: " << *Call->getFunctionType()
-                         << "\nMD: " << *DType << "\n");
+              if (ReportErrors)
+                dbgs() << "ERROR:  Metadata type does not match expected type: "
+                       << F.getName() << " : " << *Call
+                       << "\n   IR: " << *Call->getFunctionType()
+                       << "\n   MD: " << *DType << "\n";
             }
           }
         }
