@@ -113,6 +113,11 @@ static cl::opt<int>
                    cl::desc("Maximum length of dependent chains to hoist "
                             "(default = 10, unlimited = -1)"));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<uint64_t> MaxInstTimesBB(
+    "gvn-hoist-max-inst-x-bb", cl::Hidden, cl::init((uint64_t)100000 * 50000),
+    cl::desc("Skip this entire pass, if num insts * num BBs is too large."));
+#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 
@@ -573,14 +578,23 @@ bool GVNHoist::run(Function &F) {
   bool Res = false;
   // Perform DFS Numbering of instructions.
   unsigned BBI = 0;
+  uint64_t TotalI = 0; // INTEL
   for (const BasicBlock *BB : depth_first(&F.getEntryBlock())) {
     DFSNumber[BB] = ++BBI;
     unsigned I = 0;
     for (auto &Inst : *BB)
       DFSNumber[&Inst] = ++I;
+    TotalI += I; // INTEL
   }
 
   int ChainLength = 0;
+
+#if INTEL_CUSTOMIZATION
+  // For extremely large functions, hoist has a huge cost (SSA VN alg.) and
+  // may not give any performance benefit.
+  if ((TotalI * BBI) > MaxInstTimesBB)
+    return false;
+#endif // INTEL_CUSTOMIZATION
 
   // FIXME: use lazy evaluation of VN to avoid the fix-point computation.
   while (true) {
