@@ -2740,14 +2740,14 @@ bool GVNPass::runImpl(Function &F, AssumptionCache &RunAC, DominatorTree &RunDT,
   // Merge unconditional branches, allowing PRE to catch more
   // optimization opportunities.
   for (BasicBlock &BB : llvm::make_early_inc_range(F)) {
-    bool removedBlock = MergeBlockIntoPredecessor(&BB, &DTU, LI, MSSAU, MD);
-    if (removedBlock)
-      ++NumGVNBlocks;
-
 #if INTEL_CUSTOMIZATION
     BBCount++;
     ICount += std::distance(BB.begin(), BB.end());
 #endif // INTEL_CUSTOMIZATION
+    bool removedBlock = MergeBlockIntoPredecessor(&BB, &DTU, LI, MSSAU, MD);
+    if (removedBlock)
+      ++NumGVNBlocks;
+
     Changed |= removedBlock;
   }
 
