@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -73,7 +73,7 @@ OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominanceFrontierWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
-OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
+OCL_INITIALIZE_PASS_DEPENDENCY(WorkItemAnalysisLegacy)
 OCL_INITIALIZE_PASS_DEPENDENCY(OCLBranchProbability)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(Predicator, "predicate", "Predicate Function", false, false)
@@ -196,8 +196,8 @@ bool Predicator::needPredication(Function &F) {
   /// Place out-masks
   for (Function::iterator it = F.begin(), e  = F.end(); it != e ; ++it) {
     if (dyn_cast<ReturnInst>(it->getTerminator())) continue;
-    WIAnalysis::WIDependancy dep = m_WIA->whichDepend(it->getTerminator());
-    if (dep != WIAnalysis::UNIFORM) {
+    WorkItemInfo::Dependency dep = m_WIA->whichDepend(it->getTerminator());
+    if (dep != WorkItemInfo::UNIFORM) {
       V_PRINT(predicate, F.getName()<< "needs predication because of "<<it->getName()<<" \n");
       return true;
     }
@@ -213,7 +213,7 @@ bool Predicator::runOnFunction(Function &F) {
   V_ASSERT(m_rtServices && "Runtime services were not initialized!");
 
   /// Work item analysis pointer
-  m_WIA = &getAnalysis<WIAnalysis>();
+  m_WIA = &getAnalysis<WorkItemAnalysisLegacy>().getResult();
   V_ASSERT(m_WIA && "Unable to get work item analysis pointer pass");
 
   /// Create functions which we may use later
@@ -255,7 +255,7 @@ bool Predicator::hasOutsideRandomUsers(Instruction* inst, Loop* loop) {
       // if the user is non-random, then either it is inside the loop,
       // or all the exits of the loop are uniform. In any case,
       // the user can continue to use the original value after predication.
-      if (m_WIA->whichDepend(user) != WIAnalysis::RANDOM) {
+      if (m_WIA->whichDepend(user) != WorkItemInfo::RANDOM) {
         continue;
       }
       // Is the parent of this instruction contained in this loop ?
@@ -329,7 +329,7 @@ void Predicator::LinearizeBlock(BasicBlock* block, BasicBlock* next,
 
   // The control flow of uniform branches in a non divergent blocks should remain
   // as it is
-  if (m_WIA->whichDepend(term) == WIAnalysis::UNIFORM && !m_WIA->isDivergentBlock(block))
+  if (m_WIA->whichDepend(term) == WorkItemInfo::UNIFORM && !m_WIA->isDivergentBlock(block))
     return;
 
   if (!loop) {
@@ -474,10 +474,10 @@ void Predicator::registerLoopSchedulingScopes(SchedulingScope& parent,
 void Predicator::addDivergentBranchesSchedConstraints(SchedulingScope& main_scope) {
 
   // Getting the scheduling constraints calculated during WIA
-  SchdConstMap & predSched = m_WIA->getSchedulingConstraints();
+  WorkItemInfo::SchdConstMap & predSched = m_WIA->getSchedulingConstraints();
 
   // Going over the constraints and add these as scheduling scopes
-  for (SchdConstMap::iterator itr = predSched.begin();
+  for (auto itr = predSched.begin();
        itr != predSched.end();
        ++itr) {
     assert(itr->second.size() > 1 && "Constraint size should be larger than 1.");
@@ -669,7 +669,7 @@ void Predicator::convertPhiToSelect(BasicBlock* BB) {
       if (Instruction* condInst = dyn_cast<Instruction>(cond)) { // cond is instruction &&
         Loop* condLoop = m_LI->getLoopFor(condInst->getParent());
         if (condLoop &&                                          // cond inside loop &&
-          m_WIA->whichDepend(phi) == WIAnalysis::RANDOM  &&    // the phi is RANDOM &&
+          m_WIA->whichDepend(phi) == WorkItemInfo::RANDOM  &&    // the phi is RANDOM &&
           !m_outsideUsers.count(condInst) && // cond has no other users &&
           !condLoop->contains(phi->getParent())) { // phi is not inside the same loop
           // just use the mask.
@@ -758,7 +758,7 @@ Function* Predicator::createPredicatedFunction(Instruction *inst,
 bool Predicator::isLocalMemoryConsecutiveLoad(Instruction* inst) {
   if (LoadInst* load = dyn_cast<LoadInst>(inst)) {
     if (load->getPointerAddressSpace() == Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Local) {
-      if (m_WIA->whichDepend(load->getPointerOperand()) == WIAnalysis::PTR_CONSECUTIVE)
+      if (m_WIA->whichDepend(load->getPointerOperand()) == WorkItemInfo::PTR_CONSECUTIVE)
         return true;
     }
   }
@@ -767,7 +767,7 @@ bool Predicator::isLocalMemoryConsecutiveLoad(Instruction* inst) {
 
 bool Predicator::keepOriginalInstructionAsWell(Instruction* original) {
   if ((isa<StoreInst>(original) || isa<LoadInst>(original)) &&
-    m_WIA->whichDepend(original) == WIAnalysis::UNIFORM) {
+    m_WIA->whichDepend(original) == WorkItemInfo::UNIFORM) {
       Predicated_Uniform_Store_Or_Loads++; // statistics
       return true; // to later unpredicate a uniform store or load
                    // if it is being allzero-bypassed.
@@ -1006,7 +1006,7 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
     V_ASSERT(user && "a non-instruction user");
     // if the user is non-random, then all the exits of the loop are
     // uniform, and it can safely continue to use the original inst.
-    if (m_WIA->whichDepend(user) != WIAnalysis::RANDOM) {
+    if (m_WIA->whichDepend(user) != WorkItemInfo::RANDOM) {
       continue;
     }
     // If the user is in this loop, don't change it.
@@ -1317,7 +1317,7 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
   // the branch is not uniform or
   // the branch is nested
   if (!L->getExitingBlock() ||
-      m_WIA->whichDepend(br) != WIAnalysis::UNIFORM ||
+      m_WIA->whichDepend(br) != WorkItemInfo::UNIFORM ||
       !isAlwaysFollowedBy(L, BB)) {
     /// ----  Create the exit condition. When to leave the loop
     V_ASSERT(m_allzero && "Unable to find allzero func");
@@ -1531,7 +1531,7 @@ bool Predicator::isUCFRegion(BasicBlock * const entryBB, BasicBlock * const exit
     BranchInst * br = dyn_cast<BranchInst>(currBB->getTerminator());
     V_ASSERT((br || currBB->getTerminator()->getNumSuccessors() < 2) && "unexpected BB terminator");
 
-    if(br && br->isConditional() && m_WIA->whichDepend(br) != WIAnalysis::UNIFORM) {
+    if(br && br->isConditional() && m_WIA->whichDepend(br) != WorkItemInfo::UNIFORM) {
       return false;
     }
     else if(!isInsideEntryLoop(entryLoop, LI->getLoopFor(currBB))) {
@@ -1550,17 +1550,17 @@ void Predicator::collectUCFRegions(Function * /*F*/, LoopInfo *LI,
                                    PostDominatorTree *PDT, DominatorTree *DT) {
   // Go over divergent regions identified by WIAnalysys and collect largest UCF regions
   // nested inside divergent regions.
-  SchdConstMap & predSched = m_WIA->getSchedulingConstraints();
+  WorkItemInfo::SchdConstMap & predSched = m_WIA->getSchedulingConstraints();
 
-  for(SchdConstMap::iterator divRegIt = predSched.begin(), divRegEnd = predSched.end();
+  for(auto divRegIt = predSched.begin(), divRegEnd = predSched.end();
         divRegIt != divRegEnd; ++divRegIt) {
     // First collect smallest Single Entry Single Exit regions
-    // The BB at the front of the scheduling constraints received from WIAnalysis is an entry BB
+    // The BB at the front of the scheduling constraints received from WorkItemAnalysis is an entry BB
     // to the main divergent control flow region and the BB at the back is the full join BB (an exit)
     for(std::vector<BasicBlock*>::iterator bbIt = divRegIt->second.begin() + 1, bbEnd = divRegIt->second.end() - 1;
           bbIt != bbEnd; ++bbIt) {
       BasicBlock * entryBB = *bbIt;
-      // Skip NULL references to BBs which might be received from the WIAnalysis under some specific
+      // Skip NULL references to BBs which might be received from the WorkItemAnalysis under some specific
       // circumstances
       if(nullptr == entryBB) continue;
 
@@ -1580,7 +1580,7 @@ void Predicator::collectUCFRegions(Function * /*F*/, LoopInfo *LI,
 
       // Check if this BB has uniform conditional branch
       BranchInst * br = dyn_cast<BranchInst>(entryBB->getTerminator());
-      if(!br || br->isUnconditional() || m_WIA->whichDepend(br) != WIAnalysis::UNIFORM) continue;
+      if(!br || br->isUnconditional() || m_WIA->whichDepend(br) != WorkItemInfo::UNIFORM) continue;
 
       DomTreeNode * postDomNode = PDT->getNode(entryBB);
       V_ASSERT(postDomNode && "postDomNode is nullptr");
@@ -1751,7 +1751,7 @@ void Predicator::collectUCFRegions(Function * /*F*/, LoopInfo *LI,
 
 void Predicator::registerUCFSchedulingScopes(SchedulingScope& main_scope) {
   // Go over the UCF constraints and add these as scheduling scopes
-  for (SchdConstMap::iterator itr = m_ucfSchedulingConstraints.begin();
+  for (auto itr = m_ucfSchedulingConstraints.begin();
        itr != m_ucfSchedulingConstraints.end(); ++itr) {
     V_ASSERT(itr->second.size() >= 2 && "UCF scope must contain at least two BBs, entry and exit");
 
@@ -1783,7 +1783,7 @@ void Predicator::maskOutgoing(BasicBlock *BB) {
   // Implementation of unconditional branches or uniform branches in
   // non divergent blocks or in UCF regions can be easily done
   if (br->isUnconditional() ||
-    (m_WIA->whichDepend(br) == WIAnalysis::UNIFORM && !m_WIA->isDivergentBlock(BB)) ||
+    (m_WIA->whichDepend(br) == WorkItemInfo::UNIFORM && !m_WIA->isDivergentBlock(BB)) ||
     isUCFEntry(BB) || isUCFInter(BB)) {
     // If this outgoing mask is an optimized case
     return maskOutgoing_useIncoming(BB, BB);
@@ -2204,7 +2204,7 @@ bool Predicator::isMaskedUniformStoreOrLoad(Instruction* inst) {
 
   if (Mangler::isMangledLoad(std::string(call->getCalledFunction()->getName()))) {
     V_ASSERT(call->arg_size() == 2 && "expected 2 arguments");
-    if (m_WIA->whichDepend(call->getArgOperand(1)) == WIAnalysis::UNIFORM) {
+    if (m_WIA->whichDepend(call->getArgOperand(1)) == WorkItemInfo::UNIFORM) {
        V_ASSERT(m_predicatedToOriginalInst.count(call) &&
         "missing predicated to original entry");
       V_ASSERT(isa<LoadInst>(m_predicatedToOriginalInst[call]) && "expected a load");
@@ -2218,8 +2218,8 @@ bool Predicator::isMaskedUniformStoreOrLoad(Instruction* inst) {
   }
   if (Mangler::isMangledStore(std::string(call->getCalledFunction()->getName()))) {
     V_ASSERT(call->arg_size() == 3 && "expected 3 arguments");
-    if (m_WIA->whichDepend(call->getArgOperand(1)) == WIAnalysis::UNIFORM &&
-      m_WIA->whichDepend(call->getArgOperand(2)) == WIAnalysis::UNIFORM) {
+    if (m_WIA->whichDepend(call->getArgOperand(1)) == WorkItemInfo::UNIFORM &&
+      m_WIA->whichDepend(call->getArgOperand(2)) == WorkItemInfo::UNIFORM) {
       V_ASSERT(m_predicatedToOriginalInst.count(call) &&
         "missing predicated to original entry");
       V_ASSERT(isa<StoreInst>(m_predicatedToOriginalInst[call]) && "expected a store");
@@ -2554,7 +2554,7 @@ void Predicator::insertAllOnesBypassesSingleBlockLoopCase(BasicBlock* original) 
   if (!callCond || callCond->getCalledFunction() != m_allzero) {
     // if not an allzero, it must be a uniform condition.
     isAllZeroCondition = false;
-    V_ASSERT(m_WIA->whichDepend(original->getTerminator()) == WIAnalysis::UNIFORM
+    V_ASSERT(m_WIA->whichDepend(original->getTerminator()) == WorkItemInfo::UNIFORM
       && "condition must be uniform if not allZero");
 
     for (unsigned int i = 0; i < allOnesBr->getNumSuccessors(); i++) {
@@ -3154,8 +3154,8 @@ bool Predicator::blockHasLoadStore(BasicBlock* BB) {
     if (isa<LoadInst>(it)) {
       OCLSTAT_GATHER_CHECK(
         Value* operand = cast<LoadInst>(it)->getPointerOperand();
-        WIAnalysis::WIDependancy dep = m_WIA->whichDepend(operand);
-        if (dep == WIAnalysis::PTR_CONSECUTIVE) {
+        WorkItemInfo::Dependency dep = m_WIA->whichDepend(operand);
+        if (dep == WorkItemInfo::PTR_CONSECUTIVE) {
           AllOnes_Bypasses_Due_To_Non_Consecutive_Store_Load--; // statistics
           return true;
         }
@@ -3169,8 +3169,8 @@ bool Predicator::blockHasLoadStore(BasicBlock* BB) {
     if (isa<StoreInst>(it)) {
       OCLSTAT_GATHER_CHECK(
         Value* operand = cast<StoreInst>(it)->getPointerOperand();
-        WIAnalysis::WIDependancy dep = m_WIA->whichDepend(operand);
-        if (dep == WIAnalysis::PTR_CONSECUTIVE) {
+        WorkItemInfo::Dependency dep = m_WIA->whichDepend(operand);
+        if (dep == WorkItemInfo::PTR_CONSECUTIVE) {
           AllOnes_Bypasses_Due_To_Non_Consecutive_Store_Load--; // statistics
           return true;
         }

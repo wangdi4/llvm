@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2020 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,17 +16,15 @@
 #define DEBUG_TYPE "Vectorizer"
 
 #include "ChooseVectorizationDimension.h"
-#include "BuiltinLibInfo.h"
-#include "OCLPassSupport.h"
-#include "InitializePasses.h"
-#include "OCLAddressSpace.h"
 #include "CompilationUtils.h"
+#include "InitializePasses.h"
 #include "LoopUtils/LoopUtils.h"
+#include "OCLAddressSpace.h"
+#include "OCLPassSupport.h"
 
-#include "llvm/IR/Function.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/Type.h"
-#include "llvm/Pass.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
@@ -43,7 +41,8 @@ extern "C" Pass *createBuiltinLibInfoPass(ArrayRef<Module *> pRtlModuleList,
 OCL_INITIALIZE_PASS_BEGIN(ChooseVectorizationDimension,
                           "ChooseVectorizationDimension",
                           "Choosing Vectorization Dimension", false, true)
-OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
+OCL_INITIALIZE_PASS_DEPENDENCY(WorkItemAnalysisLegacy)
 OCL_INITIALIZE_PASS_END(ChooseVectorizationDimension,
                         "ChooseVectorizationDimension",
                         "Choosing Vectorization Dimension", false, true)
@@ -167,7 +166,7 @@ bool ChooseVectorizationDimensionImpl::hasDim(Function* F, unsigned int dim) {
     }
     bool err, isTidGen;
     unsigned inst_dim = 0;
-    isTidGen = m_rtServices->isTIDGenerator(pInstCall, &err, &inst_dim);
+    std::tie(isTidGen, err, inst_dim) = RTService->isTIDGenerator(pInstCall);
     // KernelAnalysis should have set noBarrierPath to false if err is true.
     (void)isTidGen;
     V_ASSERT(isTidGen && !err &&
@@ -180,16 +179,18 @@ bool ChooseVectorizationDimensionImpl::hasDim(Function* F, unsigned int dim) {
 }
 
 /// @brief counts how many good load stores and bad load stores
-/// are in the given BasicBlock, if using the provided WIAnalysis.
+/// are in the given BasicBlock, if using the provided WorkItemAnalysis.
 /// Good load stores: uniform load/stores and consecutive scalar load/stores.
-/// Bad load stores: random/strided load stores and also vector consecutive load/stores.
-/// @param wi the WIAnlaysis to ask for the dependency of the pointer param.
+/// Bad load stores: random/strided load stores and also vector consecutive
+/// load/stores.
+/// @param wi the WorkItemAnlaysis to ask for the dependency of the pointer param.
 /// @param BB the basic block to count its instructions
 /// @param goodLoadStores write the number of good load/stores into this param.
 /// @param badLoadStores write the number of bad load/stores into this param.
 /// @param dim the dimension we are counting. Only needed for statistics.
-static void countLoadStores(WIAnalysis *wi, BasicBlock *BB, int &goodLoadStores,
-                            int &badLoadStores, int /*dim*/) {
+static void countLoadStores(WorkItemInfo &wi, BasicBlock *BB,
+                            int &goodLoadStores, int &badLoadStores,
+                            int /*dim*/) {
   goodLoadStores = badLoadStores = 0;
   for (auto &I : *BB) {
     Value* pointerOperand = nullptr;
@@ -203,7 +204,7 @@ static void countLoadStores(WIAnalysis *wi, BasicBlock *BB, int &goodLoadStores,
       continue;
 
     // it is either a load or a store
-    if (wi->whichDepend(&I) == WIAnalysis::UNIFORM) {
+    if (wi.whichDepend(&I) == WorkItemInfo::UNIFORM) {
       goodLoadStores++; // uniform ops are always good.
       continue;
     }
@@ -213,13 +214,13 @@ static void countLoadStores(WIAnalysis *wi, BasicBlock *BB, int &goodLoadStores,
       continue;
     }
 
-    WIAnalysis::WIDependancy dep = wi->whichDepend(pointerOperand);
-    if (dep == WIAnalysis::PTR_CONSECUTIVE) {
+    WorkItemInfo::Dependency dep = wi.whichDepend(pointerOperand);
+    if (dep == WorkItemInfo::PTR_CONSECUTIVE) {
       goodLoadStores++; // consecutive scalar ops are good.
       continue;
     }
 
-    if (dep == WIAnalysis::UNIFORM) {
+    if (dep == WorkItemInfo::UNIFORM) {
       // arguably counter-intuitive, as this memop might be scalarized,
       // but we believe a uniform address is likely to suggest few executions anyway.
       goodLoadStores++;
@@ -269,13 +270,14 @@ void ChooseVectorizationDimensionImpl::setFinalDecision(int dim, bool canUniteWo
   m_canUniteWorkgroups = canUniteWorkGroups;
 }
 
-bool ChooseVectorizationDimensionImpl::run(Function &F,
-                                           const RuntimeServices *RTS,
-                                           ArrayRef<Module *> Builtins) {
-  m_rtServices = RTS;
-  V_ASSERT(m_rtServices && "Runtime services were not initialized!");
+bool ChooseVectorizationDimensionImpl::preCheckDimZero(
+    Function &F, RuntimeService *RTS) {
+  RTService = RTS;
   int chosenVectorizationDimension = 0;
   bool canUniteWorkgroups = true;
+  std::fill(std::begin(SwitchMotivation), std::end(SwitchMotivation), 0);
+  std::fill(std::begin(PreferredDim), std::end(PreferredDim), 0);
+  TotalDims = 0;
 
   if (!canSwitchDimensions(&F)) {
     chosenVectorizationDimension = 0;
@@ -283,114 +285,115 @@ bool ChooseVectorizationDimensionImpl::run(Function &F,
     setFinalDecision(chosenVectorizationDimension, canUniteWorkgroups);
     OCLSTAT_GATHER_CHECK(
         intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE));
-    return false;
+    return true;
   }
 
-  WIAnalysis* wi[MAX_WORK_DIM] = {nullptr}; // WI for each dimension.
-  bool dimExist[MAX_WORK_DIM];  // whether the dimension exists.
-  bool dimValid[MAX_WORK_DIM]; // whether the dimension is a valid possibility.
-  int goodLoadStores[MAX_WORK_DIM] = {}; // will be used to store number of good store/load per dimension.
-  int badLoadStores[MAX_WORK_DIM] = {}; // will be used to store number of bad store/load per dimension.
-  bool switchMotivation[MAX_WORK_DIM]; // true if there is at least one block that prefers dimension x over 0.
-  int preferredDim[MAX_WORK_DIM]; // how many BB's perfer dimension 1/2
-
-  int totalDims = 0;
-  for (unsigned int dim = 0; dim < MAX_WORK_DIM; dim++) {
-    if (hasDim(&F, dim)) {
-      dimExist[dim] = true;
-      dimValid[dim] = true;
-      switchMotivation[dim] = false;
-      preferredDim[dim] = 0;
-      totalDims++;
-    }
-    else {
-      dimExist[dim] = false;
-      dimValid[dim] = false;
+  for (unsigned int Dim = 0; Dim < MAX_WORK_DIM; Dim++) {
+    if (hasDim(&F, Dim)) {
+      DimExist[Dim] = true;
+      DimValid[Dim] = true;
+      SwitchMotivation[Dim] = false;
+      PreferredDim[Dim] = 0;
+      TotalDims++;
+    } else {
+      DimExist[Dim] = false;
+      DimValid[Dim] = false;
     }
   }
 
-  if (totalDims < 2 || !dimExist[0]) {
+  if (TotalDims < 2 || !DimExist[0]) {
     chosenVectorizationDimension = 0;
     setFinalDecision(chosenVectorizationDimension, canUniteWorkgroups);
     OCLSTAT_GATHER_CHECK(
         intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE));
-    return false;
+    return true;
   }
+  return false;
+}
 
-  // create function pass manager to run the WIAnalysis for each dimension.
-  legacy::FunctionPassManager runWi(F.getParent());
-  runWi.add(createBuiltinLibInfoAnalysisLegacyPass(Builtins));
-  runWi.add(createBuiltinLibInfoPass(Builtins, ""));
-  for (unsigned int dim = 0; dim < MAX_WORK_DIM; dim++) {
-    if (dimExist[dim]) {
-      wi[dim] = new WIAnalysis(dim); // construct WI and tell it on which dimension to run.
-      runWi.add(wi[dim]);
-    }
-  }
-  runWi.doInitialization();
-  runWi.run(F);
+bool ChooseVectorizationDimensionImpl::run(Function &F, WorkItemInfo &WIInfo) {
+  int chosenVectorizationDimension = 0;
+  bool canUniteWorkgroups = true;
+  // Store number of good store/load per dimension.
+  DenseMap<BasicBlock *, int> goodLoadStores[MAX_WORK_DIM];
+  // Store number of bad store/load per dimension.
+  DenseMap<BasicBlock *, int> badLoadStores[MAX_WORK_DIM];
 
   // now analyse the results for each BB.
+  DenseSet<BasicBlock *> DivergentBlocks[MAX_WORK_DIM];
+  for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim) {
+    // Dim 0 is already computed. Re-compute WorkItemInfo for higher dimension.
+    if (Dim > 0)
+      WIInfo.compute(Dim);
+
+    for (auto &BB : F) {
+      if (DimValid[Dim] && TotalDims > 1) {
+        countLoadStores(WIInfo, &BB, goodLoadStores[Dim][&BB],
+                        badLoadStores[Dim][&BB], Dim);
+      } else if (DimExist[Dim]) {
+        // count load stores only if needed for statistics.
+        OCLSTAT_GATHER_CHECK(countLoadStores(WIInfo, &BB,
+                                             goodLoadStores[Dim][&BB],
+                                             badLoadStores[Dim][&BB], Dim));
+      }
+
+      if (WIInfo.isDivergentBlock(&BB))
+        DivergentBlocks[Dim].insert(&BB);
+    }
+  }
+
   for (BasicBlock &currBlock : F) {
     for (unsigned int dim = 0; dim < MAX_WORK_DIM; dim++) {
-      if (dimValid[dim] && totalDims > 1) {
-        countLoadStores(wi[dim], &currBlock, goodLoadStores[dim], badLoadStores[dim], dim);
-      } else if (dimExist[dim]) {
-        // count load stores only if needed for statistics.
-        OCLSTAT_GATHER_CHECK(
-          countLoadStores(wi[dim], &currBlock, goodLoadStores[dim], badLoadStores[dim], dim);
-        );
-      }
       OCLSTAT_GATHER_CHECK(
       switch (dim) {
       case 0:
-        Dim_Zero_Bad_Store_Loads += badLoadStores[dim];
-        Dim_Zero_Good_Store_Loads += goodLoadStores[dim];
+        Dim_Zero_Bad_Store_Loads += badLoadStores[dim][&currBlock];
+        Dim_Zero_Good_Store_Loads += goodLoadStores[dim][&currBlock];
         break;
       case 1:
-        Dim_One_Bad_Store_Loads += badLoadStores[dim];
-        Dim_One_Good_Store_Loads += goodLoadStores[dim];
+        Dim_One_Bad_Store_Loads += badLoadStores[dim][&currBlock];
+        Dim_One_Good_Store_Loads += goodLoadStores[dim][&currBlock];
         break;
       case 2:
-        Dim_Two_Bad_Store_Loads += badLoadStores[dim];
-        Dim_Two_Good_Store_Loads += goodLoadStores[dim];
+        Dim_Two_Bad_Store_Loads += badLoadStores[dim][&currBlock];
+        Dim_Two_Good_Store_Loads += goodLoadStores[dim][&currBlock];
         break;
       });
     }
     for (unsigned int dim = 1; dim < MAX_WORK_DIM; dim++) {
-      if (!dimValid[dim])
+      if (!DimValid[dim])
         continue;
 
       PreferredOption prefer = getPreferredOption(
-          wi[0]->isDivergentBlock(&currBlock),
-          wi[dim]->isDivergentBlock(&currBlock),
-          goodLoadStores[0], goodLoadStores[dim]);
+          DivergentBlocks[0].contains(&currBlock),
+          DivergentBlocks[dim].contains(&currBlock),
+          goodLoadStores[0][&currBlock], goodLoadStores[dim][&currBlock]);
 
       switch (prefer) {
       case PreferredOption::First:
         // if even one block prefers dim 0, than the other possiblity is never taken.
-        dimValid[dim] = false;
-        totalDims--;
+        DimValid[dim] = false;
+        TotalDims--;
         break;
       case PreferredOption::Second:
-        switchMotivation[dim] = true;
+        SwitchMotivation[dim] = true;
         break;
       case PreferredOption::Neutral:
         break;
       }
     }
 
-    if (totalDims > 2) { // find out which dims are best for this block.
+    if (TotalDims > 2) { // find out which dims are best for this block.
       std::set<unsigned int> bestDims;
       int bestGoodLoadStores = -1;
       bool bestDivergence = true;
       for (unsigned int dim = 1; dim < MAX_WORK_DIM; dim++) {
-        if (!dimValid[dim])
+        if (!DimValid[dim])
           continue;
-        bool currDivergence = wi[dim]->isDivergentBlock(&currBlock);
+        bool currDivergence = DivergentBlocks[dim].contains(&currBlock);
         PreferredOption prefer = getPreferredOption(
-            bestDivergence, currDivergence,
-            bestGoodLoadStores, goodLoadStores[dim]);
+            bestDivergence, currDivergence, bestGoodLoadStores,
+            goodLoadStores[dim][&currBlock]);
         switch (prefer) {
         case PreferredOption::First:
           break; // best option remains the best
@@ -398,7 +401,7 @@ bool ChooseVectorizationDimensionImpl::run(Function &F,
           // now the new option is the best
           bestDims.clear();
           bestDims.insert(dim);
-          bestGoodLoadStores = goodLoadStores[dim];
+          bestGoodLoadStores = goodLoadStores[dim][&currBlock];
           bestDivergence = currDivergence;
           break;
         case PreferredOption::Neutral:
@@ -407,21 +410,18 @@ bool ChooseVectorizationDimensionImpl::run(Function &F,
         }
       }
       for (unsigned dim : bestDims)
-        preferredDim[dim]++;
+        PreferredDim[dim]++;
     }
   }
-
-  runWi.doFinalization();
 
   // find the best dim
   chosenVectorizationDimension = 0;
   int bestPreferredCount = -1;
   for (unsigned int dim = 1; dim < MAX_WORK_DIM; dim++) {
-    if (dimValid[dim] &&
-      switchMotivation[dim] &&
-      preferredDim[dim] > bestPreferredCount) {
+    if (DimValid[dim] && SwitchMotivation[dim] &&
+        PreferredDim[dim] > bestPreferredCount) {
       chosenVectorizationDimension = dim;
-      bestPreferredCount = preferredDim[dim];
+      bestPreferredCount = PreferredDim[dim];
     }
   }
 
@@ -436,19 +436,25 @@ char ChooseVectorizationDimensionModulePass::ID = 0;
 OCL_INITIALIZE_PASS_BEGIN(ChooseVectorizationDimensionModulePass,
                           "ChooseVectorizationDimensionModulePass",
                           "Choosing Vectorization Dimension", false, true)
-OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
+OCL_INITIALIZE_PASS_DEPENDENCY(WorkItemAnalysisLegacy)
 OCL_INITIALIZE_PASS_END(ChooseVectorizationDimensionModulePass,
                         "ChooseVectorizationDimensionModulePass",
                         "Choosing Vectorization Dimension", false, true)
 
 bool ChooseVectorizationDimensionModulePass::runOnModule(Module &M) {
-  BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
-  auto Kernels = DPCPPKernelMetadataAPI::KernelList(*&M).getList();
+  auto *RTS = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
+                  .getResult()
+                  .getRuntimeService();
+  auto Kernels = DPCPPKernelMetadataAPI::KernelList(M).getList();
   ChooseVectorizationDimensionImpl Impl;
   for (Function *Kernel : Kernels) {
     if (Kernel->hasOptNone())
       continue;
-    Impl.run(*Kernel, BLI.getRuntimeServices(), BLI.getBuiltinModules());
+    if (!Impl.preCheckDimZero(*Kernel, RTS)) {
+      auto &WIInfo = getAnalysis<WorkItemAnalysisLegacy>(*Kernel).getResult();
+      Impl.run(*Kernel, WIInfo);
+    }
     ChosenVecDims[Kernel] = Impl.getVectorizationDim();
     CanUniteWorkgroups[Kernel] = Impl.getCanUniteWorkgroups();
   }

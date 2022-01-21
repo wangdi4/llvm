@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -148,7 +148,7 @@ FunctionSpecializer::FunctionSpecializer(Predicator* pred, Function* func,
                                          PostDominatorTree* PDT,
                                          DominatorTree*  DT,
                                          LoopInfo *LI,
-                                         WIAnalysis *WIA,
+                                         WorkItemInfo *WIA,
                                          OCLBranchProbability *OBP):
   m_pred(pred), m_func(func),
   m_allzero(all_zero), m_PDT(PDT), m_DT(DT), m_LI(LI), m_WIA(WIA), m_OBP(OBP),
@@ -342,8 +342,8 @@ void FunctionSpecializer::addAuxBBForSingleExitEdge(BypassInfo & info) {
     }
 
     // Update the scheduling constrains for the predicated regions
-    SchdConstMap & predSched = m_WIA->getSchedulingConstraints();
-    for (SchdConstMap::iterator itr = predSched.begin();
+    auto &predSched = m_WIA->getSchedulingConstraints();
+    for (auto itr = predSched.begin();
            itr != predSched.end();
            ++itr) {
 
@@ -498,7 +498,7 @@ void FunctionSpecializer::CollectDominanceInfo() {
     // we calculate regions either for successors of divergent branches or
     // for divergent blocks
     if(!br || ! br->isConditional() ||
-      (!m_WIA->isDivergentBlock(bb) && m_WIA->whichDepend(term) == WIAnalysis::UNIFORM))
+      (!m_WIA->isDivergentBlock(bb) && m_WIA->whichDepend(term) == WorkItemInfo::UNIFORM))
       continue;
 
     for (unsigned i=0; i < br->getNumSuccessors(); ++i) {

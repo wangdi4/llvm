@@ -152,7 +152,7 @@ OCLVecCloneImpl::OCLVecCloneImpl(ArrayRef<VectItem> VectInfos,
 
 OCLVecCloneImpl::OCLVecCloneImpl() : VecCloneImpl() {}
 
-// Remove the "recommended_vector_length" metadata from the original kernel.
+// "recommended_vector_length" metadata is removed in OCLPostVect.
 // "recommened_vector_length" metadata is used only by OCLVecClone. The rest
 // of the Volcano passes recognize the "vector_width" metadata. Thus, we add
 // "vector_width" metadata to the original kernel and the cloned kernel.

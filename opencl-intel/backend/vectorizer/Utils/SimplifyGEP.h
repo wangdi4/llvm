@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,14 +14,15 @@
 
 #ifndef __SIMPLIFY_GEP_H_
 #define __SIMPLIFY_GEP_H_
-#include "WIAnalysis.h"
+
 #include "Logger.h"
 #include "OclTune.h"
 
-#include "llvm/Pass.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/DataLayout.h"
+#include "llvm/Pass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/WorkItemAnalysis.h"
 
 using namespace llvm;
 
@@ -45,7 +46,7 @@ namespace intel {
     /// @param AU Analysis
     virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.setPreservesCFG();
-      AU.addRequired<WIAnalysis>();
+      AU.addRequired<WorkItemAnalysisLegacy>();
     }
 
     /// @brief LLVM Function pass entry
@@ -94,7 +95,8 @@ namespace intel {
 
   private:
     /// @brief pointer to work-item analysis performed for this function
-    WIAnalysis *m_depAnalysis;
+    WorkItemAnalysisLegacy *m_depAnalysis;
+    WorkItemInfo *m_WIInfo;
     /// @brief This holds DataLayout of processed module
     const DataLayout *m_pDL;
 

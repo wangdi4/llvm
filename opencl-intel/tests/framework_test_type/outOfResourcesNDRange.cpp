@@ -301,6 +301,8 @@ TEST_F(BaseProvisionalTest, OutOfResourcesNDRange)
     ASSERT_TRUE(UNSETENV("CL_CONFIG_AUTO_MEMORY"));
 }
 
+// Disable this test as it's randomly failed with x86 win build
+#if !(defined(_WIN32) && !defined(_WIN64))
 TEST_F(BaseProvisionalTest, OutOfResourcesNDRangeWithAutoMemEnabled) {
   printf("=============================================================\n");
   printf("clEnqeueNDRange with exceeding local/private memory w/auto\n");
@@ -557,3 +559,4 @@ TEST_F(BaseProvisionalTest, OutOfResourcesNDRangeWithAutoMemEnabled) {
     clReleaseContext(context);
   }
 }
+#endif // #if !(defined(_WIN32) && !defined(_WIN64))

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2019 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -305,7 +305,7 @@ void LoopWIAnalysis::ScanLoop(DomTreeNode *N) {
   for (DomTreeNode *Children : N->children()) ScanLoop(Children);
 }
 
-// Same as WIAnalysis.
+// Same as WorkItemAnalysis.
 LoopWIAnalysis::ValDependancy LoopWIAnalysis::calculate_dep(CastInst *CI) {
   Value* op0 = CI->getOperand(0);
   ValDependancy dep0 = getDependency(op0);

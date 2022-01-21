@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -41,7 +41,7 @@ public:
   virtual std::unique_ptr<VectorizerFunction>
   findBuiltinFunction(StringRef inp_name) const override;
 
-  /// @brief DX is not ordered. WIAnalysis is not needed
+  /// @brief DX is not ordered. WorkItemAnalysis is not needed
   ///  since everything is assumed to be random.
   /// @return True
   virtual bool orderedWI() const override;
