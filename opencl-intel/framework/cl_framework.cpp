@@ -1308,6 +1308,7 @@ cl_program CL_API_CALL clCreateProgramWithSource(cl_context     context,
     {
         START_LOG_API(clCreateProgramWithSource);
         apiLogger << "cl_context context" << context << "cl_uint count" << count << "const char ** strings" << strings << "const size_t * lengths" << lengths << "cl_int * errcode_ret" << errcode_ret;
+        apiLogger.PrintCLSources(count, strings, lengths);
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_program, CreateProgramWithSource(context, count, strings, lengths, errcode_ret),
