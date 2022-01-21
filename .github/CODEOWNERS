@@ -601,3 +601,6 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 # XPTI instrumentation utilities
 xpti/ @intel-restricted/llvm-reviewers-runtime
 xptifw/ @intel-restricted/llvm-reviewers-runtime
+
+# JIRA: CMPLRLLVM->DPC++ Tools
+sycl-post-link/ @AlexeySachkov
