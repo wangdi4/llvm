@@ -1,4 +1,5 @@
-; RUN: opt -vplan-force-vf=4 -S %s -O2 -vplan-vec | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vplan-force-vf=4 -S %s -O2 -vplan-vec | FileCheck %s
+; RUN: opt -passes='default<O2>,vplan-vec' -vplan-force-vf=4 -S %s | FileCheck %s
 
 ;void foo(int *arr1, int *__restrict__ arr2, int *__restrict__ arr3) {
 ;#pragma omp simd
