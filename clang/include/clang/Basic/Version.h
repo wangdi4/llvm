@@ -15,7 +15,9 @@
 #ifndef LLVM_CLANG_BASIC_VERSION_H
 #define LLVM_CLANG_BASIC_VERSION_H
 
+#include "clang/Basic/LangOptions.h"
 #include "clang/Basic/Version.inc"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 
 #if INTEL_CUSTOMIZATION
@@ -77,6 +79,7 @@ namespace clang {
   /// number, the repository version, and the vendor tag.
   std::string getClangFullCPPVersion();
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   std::string getDPCPPProductName();
 
@@ -84,6 +87,12 @@ namespace clang {
 
   std::string getICXVersionString();
 #endif // INTEL_CUSTOMIZATION
+=======
+  /// Retrieves a string representing the SYCL standard version for use in
+  /// the CL_SYCL_LANGUAGE_VERSION and SYCL_LANGUAGE_VERSION macros.
+  llvm::SmallVector<std::pair<llvm::StringRef, llvm::StringRef>, 2>
+  getSYCLVersionMacros(const LangOptions &LangOpts);
+>>>>>>> 652417b63ee07a45b6c93821efa64785a36be167
 }
 
 #endif // LLVM_CLANG_BASIC_VERSION_H
