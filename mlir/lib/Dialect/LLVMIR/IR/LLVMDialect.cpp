@@ -1661,8 +1661,10 @@ static void printGlobalOp(OpAsmPrinter &p, GlobalOp op) {
   p << " : " << op.getType();
 
   Region &initializer = op.getInitializerRegion();
-  if (!initializer.empty())
+  if (!initializer.empty()) {
+    p << ' ';
     p.printRegion(initializer, /*printEntryBlockArgs=*/false);
+  }
 }
 
 // Parses one of the keywords provided in the list `keywords` and returns the
@@ -2092,9 +2094,11 @@ static void printLLVMFuncOp(OpAsmPrinter &p, LLVMFuncOp op) {
 
   // Print the body if this is not an external function.
   Region &body = op.getBody();
-  if (!body.empty())
+  if (!body.empty()) {
+    p << ' ';
     p.printRegion(body, /*printEntryBlockArgs=*/false,
                   /*printBlockTerminators=*/true);
+  }
 }
 
 // Hook for OpTrait::FunctionLike, called after verifying that the 'type'
@@ -2905,29 +2909,4 @@ Attribute LoopOptionsAttr::parse(AsmParser &parser, Type type) {
 
   llvm::sort(options, llvm::less_first());
   return get(parser.getContext(), options);
-}
-
-Attribute LLVMDialect::parseAttribute(DialectAsmParser &parser,
-                                      Type type) const {
-  if (type) {
-    parser.emitError(parser.getNameLoc(), "unexpected type");
-    return {};
-  }
-  StringRef attrKind;
-  if (parser.parseKeyword(&attrKind))
-    return {};
-  {
-    Attribute attr;
-    auto parseResult = generatedAttributeParser(parser, attrKind, type, attr);
-    if (parseResult.hasValue())
-      return attr;
-  }
-  parser.emitError(parser.getNameLoc(), "unknown attribute type: ") << attrKind;
-  return {};
-}
-
-void LLVMDialect::printAttribute(Attribute attr, DialectAsmPrinter &os) const {
-  if (succeeded(generatedAttributePrinter(attr, os)))
-    return;
-  llvm_unreachable("Unknown attribute type");
 }

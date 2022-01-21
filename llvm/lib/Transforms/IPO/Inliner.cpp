@@ -98,6 +98,11 @@ static cl::opt<bool>
     DisableInlinedAllocaMerging("disable-inlined-alloca-merging",
                                 cl::init(false), cl::Hidden);
 
+/// A flag for test, so we can print the content of the advisor when running it
+/// as part of the default (e.g. -O3) pipeline.
+static cl::opt<bool> KeepAdvisorForPrinting("keep-inline-advisor-for-printing",
+                                            cl::init(false), cl::Hidden);
+
 extern cl::opt<InlinerFunctionImportStatsOpts> InlinerFunctionImportStats;
 
 #if INTEL_CUSTOMIZATION
@@ -1044,7 +1049,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   InlineAdvisor &Advisor = getAdvisor(MAMProxy, FAM, M);
   Advisor.onPassEntry();
 
-  auto AdvisorOnExit = make_scope_exit([&] { Advisor.onPassExit(); });
+  auto AdvisorOnExit = make_scope_exit([&] { Advisor.onPassExit(&InitialC); });
 
 #if INTEL_CUSTOMIZATION
   Report->beginSCC(InitialC, this);
@@ -1520,7 +1525,8 @@ PreservedAnalyses ModuleInlinerWrapperPass::run(Module &M,
   // Discard the InlineAdvisor, a subsequent inlining session should construct
   // its own.
   auto PA = PreservedAnalyses::all();
-  PA.abandon<InlineAdvisorAnalysis>();
+  if (!KeepAdvisorForPrinting)
+    PA.abandon<InlineAdvisorAnalysis>();
   return PA;
 }
 

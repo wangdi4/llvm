@@ -208,6 +208,7 @@ MODULE_PASS("indirectcallconv", IndirectCallConvPass(/*UseAndersen=*/false))
 #endif // INTEL_CUSTOMIZATION
 MODULE_PASS("inferattrs", InferFunctionAttrsPass())
 MODULE_PASS("inliner-wrapper", ModuleInlinerWrapperPass())
+MODULE_PASS("print<inline-advisor>", InlineAdvisorAnalysisPrinterPass(dbgs()))
 MODULE_PASS("inliner-wrapper-no-mandatory-first", ModuleInlinerWrapperPass(
   getInlineParams(),
   false))

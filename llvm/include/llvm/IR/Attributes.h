@@ -1069,9 +1069,6 @@ public:
       return removeAttribute(A.getKindAsEnum());
   }
 
-  /// Remove the attributes from the builder.
-  AttrBuilder &removeAttributes(AttributeList A, uint64_t WithoutIndex);
-
   /// Add the attributes from the builder.
   AttrBuilder &merge(const AttrBuilder &B);
 
@@ -1095,12 +1092,12 @@ public:
   /// Return true if the builder has IR-level attributes.
   bool hasAttributes() const;
 
-  /// Return true if the builder has any attribute that's in the
-  /// specified attribute.
-  bool hasAttributes(AttributeList A, uint64_t Index) const;
-
   /// Return true if the builder has an alignment attribute.
   bool hasAlignmentAttr() const;
+
+  /// Return Attribute with the given Kind. The returned attribute will be
+  /// invalid if the Kind is not present in the builder.
+  Attribute getAttribute(StringRef Kind) const;
 
   /// Return raw (possibly packed/encoded) value of integer attribute or 0 if
   /// not set.
