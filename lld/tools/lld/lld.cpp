@@ -149,43 +149,22 @@ static bool inTestOutputDisabled = false;
 static int lldMain(int argc, const char **argv, llvm::raw_ostream &stdoutOS,
                    llvm::raw_ostream &stderrOS, bool exitEarly = true) {
   std::vector<const char *> args(argv, argv + argc);
-<<<<<<< HEAD
-  switch (parseFlavor(args)) {
-  case Gnu:
-#if INTEL_CUSTOMIZATION
-    if (isPETarget(args))
-      die("Unsupported PE target");
-#else // INTEL_CUSTOMIZATION
-    if (isPETarget(args))
-      return !mingw::link(args, exitEarly, stdoutOS, stderrOS);
-#endif // INTEL_CUSTOMIZATION
-    return !elf::link(args, exitEarly, stdoutOS, stderrOS);
-  case WinLink:
-    return !coff::link(args, exitEarly, stdoutOS, stderrOS);
-#if INTEL_CUSTOMIZATION
-  default:
-    die("lld is a generic driver.\n"
-        "Invoke ld.lld (Unix), lld-link (Windows), instead");
-#else // INTEL_CUSTOMIZATION
-  case Darwin:
-    return !macho::link(args, exitEarly, stdoutOS, stderrOS);
-  case Wasm:
-    return !lld::wasm::link(args, exitEarly, stdoutOS, stderrOS);
-  default:
-    die("lld is a generic driver.\n"
-        "Invoke ld.lld (Unix), ld64.lld (macOS), lld-link (Windows), wasm-ld"
-        " (WebAssembly) instead");
-#endif // INTEL_CUSTOMIZATION
-  }
-=======
   auto link = [&args]() {
     Flavor f = parseFlavor(args);
     if (f == Gnu && isPETarget(args))
+#if INTEL_CUSTOMIZATION
+      die("Unsupported PE target");
+#else // INTEL_CUSTOMIZATION
       return mingw::link;
+#endif // INTEL_CUSTOMIZATION
     if (f == Gnu)
       return elf::link;
     if (f == WinLink)
       return coff::link;
+#if INTEL_CUSTOMIZATION
+    die("lld is a generic driver.\n"
+        "Invoke ld.lld (Unix), lld-link (Windows), instead");
+#else // INTEL_CUSTOMIZATION
     if (f == Darwin)
       return macho::link;
     if (f == Wasm)
@@ -193,6 +172,7 @@ static int lldMain(int argc, const char **argv, llvm::raw_ostream &stdoutOS,
     die("lld is a generic driver.\n"
         "Invoke ld.lld (Unix), ld64.lld (macOS), lld-link (Windows), wasm-ld"
         " (WebAssembly) instead");
+#endif // INTEL_CUSTOMIZATION
   }();
   // Run the driver. If an error occurs, false will be returned.
   int r = !link(args, stdoutOS, stderrOS, exitEarly, inTestOutputDisabled);
@@ -208,7 +188,6 @@ static int lldMain(int argc, const char **argv, llvm::raw_ostream &stdoutOS,
   CommonLinkerContext::destroy();
 
   return r;
->>>>>>> f860fe362282ed69b9d4503a20e5d20b9a041189
 }
 
 // Similar to lldMain except that exceptions are caught.
