@@ -2323,7 +2323,6 @@ private:
     return hasFnAttrOnCalledFunction(Kind);
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   template <typename AttrKind>
   Attribute getCallSiteOrFuncAttrImpl(AttrKind Kind) const {
@@ -2339,7 +2338,7 @@ private:
     return Attribute();
   }
 #endif // INTEL_CUSTOMIZATION
-=======
+
   /// A specialized version of hasFnAttrImpl for when the caller wants to
   /// know if an attribute's semantics are implied, not whether the attribute
   /// is actually present.  This distinction only exists when checking whether
@@ -2359,7 +2358,6 @@ private:
     return hasFnAttrOnCalledFunction(Kind) ||
       hasFnAttrOnCalledFunction(Attribute::ReadNone);
   }
->>>>>>> 31c0e52420bb089291758a11e65e1672244c2e9f
 
   /// Determine whether the return value has the given attribute. Supports
   /// Attribute::AttrKind and StringRef as \p AttrKind types.
