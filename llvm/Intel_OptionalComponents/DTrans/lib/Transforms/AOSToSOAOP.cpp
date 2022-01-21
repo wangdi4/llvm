@@ -1,6 +1,6 @@
 //==== AOSToSOAOP.cpp - AOS-to-SOA with support for opaque pointers ====//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -3251,10 +3251,12 @@ bool AOSToSOAOPPass::qualifyCalls(Module &M, WholeProgramInfo &WPInfo,
         DTransType *AllocatedTy = TypeList.getElemDTransType(0);
         if (AllocatedTy->isStructTy()) {
           // Save the first allocation seen, otherwise disqualify the type.
-          auto *TI = dyn_cast<StructInfo>(DTInfo.getTypeInfo(AllocatedTy));
+          auto *TI = DTInfo.getTypeInfo(AllocatedTy);
+          assert(TI && "TypeInfo not found. DTransInfo out of date?");
+          auto *STI = cast<StructInfo>(TI);
           Instruction *Inst = CInfo->getInstruction();
-          if (!AllocTypeInfoToInstr.insert(std::make_pair(TI, Inst)).second) {
-            Disqualified.insert(TI);
+          if (!AllocTypeInfoToInstr.insert(std::make_pair(STI, Inst)).second) {
+            Disqualified.insert(STI);
             LLVM_DEBUG(dbgs()
                        << "AOS-to-SOA rejecting -- Too many allocations: "
                        << *AllocatedTy << "\n");
@@ -3575,7 +3577,6 @@ PreservedAnalyses AOSToSOAOPPass::run(Module &M, ModuleAnalysisManager &AM) {
 
   PreservedAnalyses PA;
   PA.preserve<WholeProgramAnalysis>();
-  PA.abandon<DTransSafetyAnalyzer>();
   return PA;
 }
 
