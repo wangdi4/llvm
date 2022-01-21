@@ -18454,6 +18454,16 @@ OMPClause *Sema::ActOnOpenMPFirstprivateClause(ArrayRef<Expr *> VarList,
       continue;
     }
 
+#if INTEL_COLLAB
+    if (LangOpts.OpenMPLateOutline &&
+        !Context.getTargetInfo().isVLASupported() &&
+        !Type->isAnyPointerType() && Type->isVariablyModifiedType() &&
+        isOpenMPNestingTeamsDirective(DSAStack->getCurrentDirective())) {
+      targetDiag(ELoc, diag::err_vla_unsupported);
+      continue;
+    }
+#endif // INTEL_COLLAB
+
     Type = Type.getUnqualifiedType();
     VarDecl *VDPrivate =
         buildVarDecl(*this, ELoc, Type, D->getName(),
