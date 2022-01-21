@@ -2907,6 +2907,17 @@ struct GlobalOptLegacyPass : public ModulePass {
     if (skipModule(M))
       return false;
 
+#if INTEL_CUSTOMIZATION
+    // Skip GlobalOptLegacyPass iff the pass is limited and every functions'
+    // loopopt-pipeline attribute indicates that the pass needs to be skipped.
+    LoopOptLimiter Limiter = getLimiter();
+    if (!M.functions().empty() &&
+        none_of(M.functions(),
+                [Limiter](Function& F) {
+                    return doesLoopOptPipelineAllowToRun(Limiter, F); }))
+      return false;
+#endif // INTEL_CUSTOMIZATION
+
     auto &DL = M.getDataLayout();
     auto LookupDomTree = [this](Function &F) -> DominatorTree & {
       return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();

@@ -67,6 +67,7 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeVectorVariantFillInLegacyPass(Registry);
   initializeVectorVariantLoweringLegacyPass(Registry);
   initializeVFAnalysisLegacyPass(Registry);
+  initializeVectorizationDimensionAnalysisLegacyPass(Registry);
   initializeWorkItemAnalysisLegacyPass(Registry);
   initializeWIRelatedValueWrapperPass(Registry);
 }

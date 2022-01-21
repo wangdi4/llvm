@@ -122,7 +122,8 @@ bool WorkItemAnalysisLegacy::runOnFunction(Function &F) {
   auto *PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
   auto *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   auto *SA = &getAnalysis<SoaAllocaAnalysisLegacy>().getResult();
-  WIInfo.reset(new WorkItemInfo(F, RTS, DT, PDT, LI, SA, VectorizeDim));
+  WIInfo.reset(new WorkItemInfo(F, RTS, DT, PDT, LI, SA));
+  WIInfo->compute(VectorizeDim);
   return false;
 }
 
@@ -149,8 +150,9 @@ WorkItemInfo WorkItemAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
   auto *PDT = &AM.getResult<PostDominatorTreeAnalysis>(F);
   auto *LI = &AM.getResult<LoopAnalysis>(F);
   auto *SA = &AM.getResult<SoaAllocaAnalysis>(F);
-  unsigned VectorizeDim = 0;
-  return WorkItemInfo(F, RTS, DT, PDT, LI, SA, VectorizeDim);
+  WorkItemInfo WIInfo(F, RTS, DT, PDT, LI, SA);
+  WIInfo.compute(/*Dim*/ 0);
+  return WIInfo;
 }
 
 void WorkItemInfo::compute(unsigned Dim) {

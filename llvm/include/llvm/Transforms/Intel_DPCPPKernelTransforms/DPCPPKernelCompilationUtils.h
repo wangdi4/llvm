@@ -317,6 +317,9 @@ std::string mangledGetLID();
 /// Returns the mangled name of the function get_group_id.
 std::string mangledGetGroupID();
 
+/// Returns the mangled name of the function get_num_groups.
+std::string mangledGetNumGroups();
+
 /// Returns the mangled name of the function get_local_size.
 std::string mangledGetLocalSize();
 
