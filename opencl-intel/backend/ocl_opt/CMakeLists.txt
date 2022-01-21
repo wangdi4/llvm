@@ -32,7 +32,6 @@ set(OCL_BE_PASSES
     Prefetch
     PreventDivCrashes
     RelaxedPass
-    ResolveWICall
     SetPreferVectorWidth
     SinCosFold
     SmartGVN
