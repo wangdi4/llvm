@@ -159,7 +159,17 @@ public:
     VPEntities = Entities;
   }
 
-  OptReportStatsTracker &getOptReportStatsTracker() { return OptRptStats; }
+  OptReportStatsTracker &getOptReportStats(VPInstruction *I) {
+    auto *BB = I->getParent();
+    auto *VPLp = Plan->getVPLoopInfo()->getLoopFor(BB);
+    // TODO: For instructions that don't belong to loop, need to find associated
+    // concrete VPLoop and report stats there. For now we ignore these
+    // instructions by collecting the stats in NonLoopInstStats.
+    if (!VPLp)
+      return NonLoopInstStats;
+
+    return Plan->getOptRptStatsForLoop(VPLp);
+  }
 
   /// Lower opt-report remarks collected in VPlan data structures to outgoing
   /// IR.
@@ -552,7 +562,7 @@ private:
   // BasicBlock mapping.
   struct VPTransformState *State = nullptr;
 
-  OptReportStatsTracker OptRptStats;
+  OptReportStatsTracker NonLoopInstStats;
 
   // Set of scalar loop header blocks generated in outgoing vector code. We also
   // track the type of scalar loop i.e. peel or remainder.

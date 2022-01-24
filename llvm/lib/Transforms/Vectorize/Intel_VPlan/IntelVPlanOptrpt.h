@@ -10,17 +10,23 @@
 //===----------------------------------------------------------------------===//
 ///
 /// \file
-/// Helper utilities for opt remark emision.
+/// Helper utilities for opt remark emission.
 ///
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANOPTRPT_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANOPTRPT_H
 
-#include "IntelVPlan.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 
 namespace llvm {
 namespace vpo {
+
+class VPlanOptReportBuilder;
+class VPLoop;
+class VPLoopInfo;
+
 struct OptReportStatsTracker {
   // Fields.
 #define VPLAN_OPTRPT_HANDLE(ID, NAME) int NAME = 0;
@@ -30,55 +36,10 @@ struct OptReportStatsTracker {
 
 public:
   template <class LoopTy>
-  void emitRemarks(VPlanOptReportBuilder &Builder, LoopTy *Lp) const {
-    int Gathers = MaskedGathers + UnmaskedGathers;
-    int Scatters = MaskedScatters + UnmaskedScatters;
-#define VPLAN_OPTRPT_GS(Gathers, Scatters)                                     \
-  if (Gathers) Builder.addRemark(Lp, OptReportVerbosity::High, 15567);         \
-  if (Scatters) Builder.addRemark(Lp, OptReportVerbosity::High, 15568);
-#define VPLAN_OPTRPT_HANDLE_GROUP_BEGIN(ID)                                    \
-  Builder.addRemark(Lp, OptReportVerbosity::High, ID);
-#define VPLAN_OPTRPT_HANDLE(ID, NAME)                                          \
-  Builder.addRemark(Lp, OptReportVerbosity::High, ID, Twine(NAME).str());
-#define VPLAN_OPTRPT_HANDLE_GROUP_END(ID)                                      \
-  Builder.addRemark(Lp, OptReportVerbosity::High, ID);
-#define VPLAN_OPTRPT_VEC_HANDLE(VEC)                                           \
-  for (auto &Itr : VEC) {                                                      \
-   if (Itr.second.empty())                                                     \
-     Builder.addRemark(Lp, OptReportVerbosity::High, Itr.first);               \
-   else                                                                        \
-     Builder.addRemark(Lp, OptReportVerbosity::High, Itr.first,                \
-                       Itr.second);                                            \
-  } // end of definition
-#include "IntelVPlanOptrpt.inc"
-  }
+  void emitRemarks(VPlanOptReportBuilder &Builder, LoopTy *Lp) const;
 
   void emitRemarks(OptReportBuilder &Builder, VPLoop *Lp,
-                   VPLoopInfo *VPLI) const {
-    int Gathers = MaskedGathers + UnmaskedGathers;
-    int Scatters = MaskedScatters + UnmaskedScatters;
-#define VPLAN_OPTRPT_GS(Gathers, Scatters)                                     \
-  if (Gathers)                                                                 \
-    Builder(*Lp, *VPLI).addRemark(OptReportVerbosity::High, 15567u);           \
-  if (Scatters)                                                                \
-    Builder(*Lp, *VPLI).addRemark(OptReportVerbosity::High, 15568u);
-#define VPLAN_OPTRPT_HANDLE_GROUP_BEGIN(ID)                                    \
-  Builder(*Lp, *VPLI).addRemark(OptReportVerbosity::High, ID);
-#define VPLAN_OPTRPT_HANDLE(ID, NAME)                                          \
-  Builder(*Lp, *VPLI)                                                          \
-      .addRemark(OptReportVerbosity::High, ID, Twine(NAME).str());
-#define VPLAN_OPTRPT_HANDLE_GROUP_END(ID)                                      \
-  Builder(*Lp, *VPLI).addRemark(OptReportVerbosity::High, ID);
-#define VPLAN_OPTRPT_VEC_HANDLE(VEC)                                           \
-  for (auto &Itr : VEC) {                                                      \
-    if (Itr.second.empty())                                                    \
-      Builder(*Lp, *VPLI).addRemark(OptReportVerbosity::High, Itr.first);      \
-    else                                                                       \
-      Builder(*Lp, *VPLI)                                                      \
-          .addRemark(OptReportVerbosity::High, Itr.first, Itr.second);         \
-  } // end of definition
-#include "IntelVPlanOptrpt.inc"
-  }
+                   VPLoopInfo *VPLI) const;
 };
 } // namespace vpo
 } // namespace llvm

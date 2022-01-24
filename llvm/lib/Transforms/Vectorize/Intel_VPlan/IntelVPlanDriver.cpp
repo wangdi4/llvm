@@ -527,9 +527,6 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
                  "single iteration optimization", Plan);
     }
 
-  // VPLoop for the main vector loop in outgoing vectorized code.
-  VPLoop *MainVPLoop = nullptr;
-
   // Do the preparation for CG: create auxiliary loops and merge them into one
   // piece of CFG.
   if (VF > 1) {
@@ -562,10 +559,8 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
         }
 
       // Capture opt-report remarks for main VPLoop.
-      if (PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTMain) {
-        MainVPLoop = *(cast<VPlanVector>(Plan)->getVPLoopInfo()->begin());
+      if (PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTMain)
         addOptReportRemarksForMainPlan(WRLp, PlanDescr);
-      }
 
       // Capture opt-report remarks for vectorized remainder loops.
       if (LpKind == CfgMergerPlanDescr::LoopType::LTRemainder &&
@@ -619,8 +614,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 
   CandLoopsVectorized++;
 
-  // TODO: Move these to VPOCodeGen::finalizeLoop.
-  addStatsFromCG<VPOCodeGen>(MainVPLoop, Plan->getVPLoopInfo(), &VCodeGen);
+  // TODO: Move this to VPOCodeGen::finalizeLoop.
   VCodeGen.lowerVPlanOptReportRemarks();
 
   // Mark source and vector and scalar loops with isvectorized directive so that
@@ -1041,12 +1035,6 @@ void VPlanDriverImpl::addOptReportRemarksForVecPeel(
                  Twine(PlanDescr.getVF()).str());
 }
 
-template <typename VPOCodeGenType>
-void VPlanDriverImpl::addStatsFromCG(VPLoop *MainVPLoop, VPLoopInfo *VPLI,
-                                     VPOCodeGenType *VCodeGen) {
-  VCodeGen->getOptReportStatsTracker().emitRemarks(ORBuilder, MainVPLoop, VPLI);
-}
-
 void VPlanDriverImpl::populateVPlanAnalyses(LoopVectorizationPlanner &LVP,
                                             VPAnalysesFactoryBase &VPAF) {
   for (auto &Pair : LVP.getAllVPlans()) {
@@ -1056,23 +1044,6 @@ void VPlanDriverImpl::populateVPlanAnalyses(LoopVectorizationPlanner &LVP,
     if (!Plan.getVPVT())
       Plan.setVPVT(VPAF.createVPVT(Plan.getVPSE()));
   }
-}
-
-// Definitions of addRemark functions in VPlanOptReportBuilder
-template <typename... Args>
-void VPlanOptReportBuilder::addRemark(HLLoop *Lp,
-                                      OptReportVerbosity::Level Verbosity,
-                                      unsigned MsgID, Args &&...args) {
-  ORBuilder(*Lp).addRemark(Verbosity, MsgID, std::forward<Args>(args)...);
-}
-
-template <typename... Args>
-void VPlanOptReportBuilder::addRemark(Loop *Lp,
-                                      OptReportVerbosity::Level Verbosity,
-                                      unsigned MsgID, Args &&...args) {
-  // For LLVM-IR Loop, LORB needs a valid LoopInfo object
-  assert(LI && "LoopInfo for opt-report builder is null.");
-  ORBuilder(*Lp, *LI).addRemark(Verbosity, MsgID, std::forward<Args>(args)...);
 }
 
 INITIALIZE_PASS_BEGIN(VPlanDriver, "vplan-vec", "VPlan Vectorizer",
