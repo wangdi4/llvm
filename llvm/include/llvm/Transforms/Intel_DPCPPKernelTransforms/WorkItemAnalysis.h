@@ -12,6 +12,7 @@
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_WORKITEM_ANALYSIS_H
 
 #include "llvm/IR/PassManager.h"
+#include <map>
 #include <queue>
 
 namespace llvm {

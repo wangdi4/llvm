@@ -20,6 +20,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 
+#include <map>
+
 namespace llvm {
 
 namespace dtrans {

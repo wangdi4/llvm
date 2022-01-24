@@ -990,7 +990,13 @@ public:
   /// attribute.
   bool contains(StringRef A) const { return TargetDepAttrs.count(A); }
 
-<<<<<<< HEAD
+  /// Return true if the mask contains the specified attribute.
+  bool contains(Attribute A) const {
+    if (A.isStringAttribute())
+      return contains(A.getKindAsString());
+    return contains(A.getKindAsEnum());
+  }
+
 #if INTEL_CUSTOMIZATION
   AttributeMask &merge(const AttributeMask &B) {
     Attrs |= B.Attrs;
@@ -1000,20 +1006,13 @@ public:
 
     return *this;
   }
-#endif // INTEL_CUSTOMIZATION
 
   using td_const_iterator = decltype(TargetDepAttrs)::const_iterator;
   using td_const_range = iterator_range<td_const_iterator>;
   td_const_range td_attrs() const {
     return {TargetDepAttrs.begin(), TargetDepAttrs.end()};
-=======
-  /// Return true if the mask contains the specified attribute.
-  bool contains(Attribute A) const {
-    if (A.isStringAttribute())
-      return contains(A.getKindAsString());
-    return contains(A.getKindAsEnum());
->>>>>>> 42a68215a1291981d0f7d32c397eb64fd1ff0b11
   }
+#endif // INTEL_CUSTOMIZATION
 };
 
 //===----------------------------------------------------------------------===//
