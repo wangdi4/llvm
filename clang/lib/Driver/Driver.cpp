@@ -6159,12 +6159,12 @@ public:
     }
   }
 
-  Action *makeHostLinkAction(ActionList &LinkerInputs) {
+  void makeHostLinkAction(ActionList &LinkerInputs) {
     // Build a list of device linking actions.
     ActionList DeviceAL;
     appendDeviceLinkActions(DeviceAL);
     if (DeviceAL.empty())
-      return nullptr;
+      return;
 
     // Let builders add host linking actions.
     for (DeviceActionBuilder *SB : SpecializedBuilders) {
@@ -6173,7 +6173,6 @@ public:
       if (Action *HA = SB->appendLinkHostActions(DeviceAL))
         LinkerInputs.push_back(HA);
     }
-    return nullptr;
   }
 
   /// Processes the host linker action. This currently consists of replacing it
