@@ -37,24 +37,21 @@
 ; CHECK:           %"sub_$S.0" = 0.000000e+00;
 ;
 ; CHECK:           + DO i1 = 0, 4, 1   <DO_LOOP>
-; CHECK:           |   %"sub_$S.1" = %"sub_$S.0";
-; CHECK:           |
 ; CHECK:           |   + DO i2 = 0, 4, 1   <DO_LOOP>
-; CHECK:           |   |   %float_cast76 = fpext.float.double(%"sub_$S.1");
+; CHECK:           |   |   %float_cast76 = fpext.float.double(%"sub_$S.0");
 ; CHECK:           |   |   %"sub_$C[]71[]_fetch" = (%"sub_$C")[i1][i2];
 ; CHECK:           |   |   %add75 = %"sub_$C[]71[]_fetch"  +  %float_cast76;
-; CHECK:           |   |   %float_cast = fptrunc.double.float(%add75);
-; CHECK:           |   |   %"sub_$S.1" = %float_cast;
+; CHECK:           |   |   %"sub_$S.0" = fptrunc.double.float(%add75);
 ; CHECK:           |   + END LOOP
 ; CHECK:           |
-; CHECK:           |   %"sub_$S.0" = %float_cast;
+; CHECK:           |   %"sub_$S.0.out" = %"sub_$S.0";
 ; CHECK:           + END LOOP
 ;
 ; CHECK:           (%addressof)[0][0] = 26;
 ; CHECK:           (%addressof)[0][1] = 1;
 ; CHECK:           (%addressof)[0][2] = 1;
 ; CHECK:           (%addressof)[0][3] = 0;
-; CHECK:           (%ARGBLOCK_0)[0].0 = %float_cast;
+; CHECK:           (%ARGBLOCK_0)[0].0 = %"sub_$S.0.out";
 ; CHECK:           %func_result102 = @for_write_seq_lis(&((i8*)(%"var$1")[0]),  -1,  1239157112576,  &((%addressof)[0][0]),  &((i8*)(%ARGBLOCK_0)[0]));
 ; CHECK:           ret ;
 ; CHECK:     END REGION
@@ -73,24 +70,21 @@
 ; CHECK:           %"sub_$S.0" = 0.000000e+00;
 ;
 ; CHECK:           + DO i1 = 0, 4, 1   <DO_LOOP>
-; CHECK:           |   %"sub_$S.1" = %"sub_$S.0";
-; CHECK:           |
 ; CHECK:           |   + DO i2 = 0, 4, 1   <DO_LOOP>
-; CHECK:           |   |   %float_cast76 = fpext.float.double(%"sub_$S.1");
+; CHECK:           |   |   %float_cast76 = fpext.float.double(%"sub_$S.0");
 ; CHECK:           |   |   %"sub_$C[]71[]_fetch" = (%"sub_$C")[i1][i2];
 ; CHECK:           |   |   %add75 = %"sub_$C[]71[]_fetch"  +  %float_cast76;
-; CHECK:           |   |   %float_cast = fptrunc.double.float(%add75);
-; CHECK:           |   |   %"sub_$S.1" = %float_cast;
+; CHECK:           |   |   %"sub_$S.0" = fptrunc.double.float(%add75);
 ; CHECK:           |   + END LOOP
 ; CHECK:           |
-; CHECK:           |   %"sub_$S.0" = %float_cast;
+; CHECK:           |   %"sub_$S.0.out" = %"sub_$S.0";
 ; CHECK:           + END LOOP
 ;
 ; CHECK:           (%addressof)[0][0] = 26;
 ; CHECK:           (%addressof)[0][1] = 1;
 ; CHECK:           (%addressof)[0][2] = 1;
 ; CHECK:           (%addressof)[0][3] = 0;
-; CHECK:           (%ARGBLOCK_0)[0].0 = %float_cast;
+; CHECK:           (%ARGBLOCK_0)[0].0 = %"sub_$S.0.out";
 ; CHECK:           %func_result102 = @for_write_seq_lis(&((i8*)(%"var$1")[0]),  -1,  1239157112576,  &((%addressof)[0][0]),  &((i8*)(%ARGBLOCK_0)[0]));
 ; CHECK:           ret ;
 ; CHECK:     END REGION

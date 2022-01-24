@@ -254,15 +254,15 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 /llvm/test/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
 
 # JIRA: CMPLRLLVM->LLVM VPO Vectorizer
-/llvm/docs/Intel/VPO/ @sguggill @skozhukh @alexey-bataev
-/llvm/include/llvm/Analysis/Intel_VectorVariant.h @sguggill @skozhukh @alexey-bataev
-/llvm/include/llvm/Transforms/Vectorize/ @sguggill @skozhukh @alexey-bataev
-/llvm/lib/Analysis/Intel_VectorVariant.cpp @sguggill @skozhukh @alexey-bataev
-/llvm/lib/Transforms/Intel_VPO/Vecopt/VPODirectiveCleanup.cpp @sguggill @skozhukh @alexey-bataev
-/llvm/lib/Transforms/Vectorize/ @sguggill @skozhukh @alexey-bataev
-/llvm/test/Transforms/Intel_VPO/Vecopt/ @sguggill @skozhukh @alexey-bataev
-/llvm/test/Transforms/LoopVectorize/ @sguggill @skozhukh @alexey-bataev
-/llvm/unittests/Analysis/Intel_VectorVariantTest.cpp @sguggill @skozhukh @alexey-bataev
+/llvm/docs/Intel/VPO/ @sguggill @skozhukh
+/llvm/include/llvm/Analysis/Intel_VectorVariant.h @sguggill @skozhukh
+/llvm/include/llvm/Transforms/Vectorize/ @sguggill @skozhukh
+/llvm/lib/Analysis/Intel_VectorVariant.cpp @sguggill @skozhukh
+/llvm/lib/Transforms/Intel_VPO/Vecopt/VPODirectiveCleanup.cpp @sguggill @skozhukh
+/llvm/lib/Transforms/Vectorize/ @sguggill @skozhukh
+/llvm/test/Transforms/Intel_VPO/Vecopt/ @sguggill @skozhukh
+/llvm/test/Transforms/LoopVectorize/ @sguggill @skozhukh
+/llvm/unittests/Analysis/Intel_VectorVariantTest.cpp @sguggill @skozhukh
 
 # VPO vectorizer file based code owner overrides
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVolcanoOpenCL.h @turinevgeny @kmitropo
@@ -331,13 +331,13 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 /llvm/lib/Transforms/Utils/Intel_VecClone.cpp @mamasten @kmitropo @turinevgeny @skozhukh
 /llvm/test/Transforms/Intel_VecClone/ @mamasten @kmitropo @turinevgeny @skozhukh
 
-/llvm/include/llvm/Transforms/Scalar/Intel_AddSubReassociate.h @alexey-bataev @valerydmit
-/llvm/lib/Transforms/Scalar/Intel_AddSubReassociate.cpp @alexey-bataev @valerydmit
-/llvm/lib/Transforms/Vectorize/SLPVectorizer.cpp @alexey-bataev @valerydmit
-/llvm/include/llvm/Transforms/Vectorize/SLPVectorizer.h @alexey-bataev @valerydmit
-/llvm/test/Transforms/Intel_VPO/Vecopt/slp/ @alexey-bataev @valerydmit
-/llvm/test/Transforms/Reassociate/Intel_addsub* @alexey-bataev @valerydmit
-/llvm/test/Transforms/SLPVectorizer/ @alexey-bataev @valerydmit
+/llvm/include/llvm/Transforms/Scalar/Intel_AddSubReassociate.h @valerydmit @aelovikov-intel
+/llvm/lib/Transforms/Scalar/Intel_AddSubReassociate.cpp @valerydmit @aelovikov-intel
+/llvm/lib/Transforms/Vectorize/SLPVectorizer.cpp @valerydmit @aelovikov-intel
+/llvm/include/llvm/Transforms/Vectorize/SLPVectorizer.h @valerydmit @aelovikov-intel
+/llvm/test/Transforms/Intel_VPO/Vecopt/slp/ @valerydmit @aelovikov-intel
+/llvm/test/Transforms/Reassociate/Intel_addsub* @valerydmit @aelovikov-intel
+/llvm/test/Transforms/SLPVectorizer/ @valerydmit @aelovikov-intel
 
 /llvm/lib/Analysis/Intel_OptVLS.cpp @clin111 @aelovikov-intel @skozhukh @sguggill @karthik-senthil 
 /llvm/include/llvm/Analysis/Intel_OptVLS.h @clin111 @aelovikov-intel @skozhukh @sguggill @karthik-senthil

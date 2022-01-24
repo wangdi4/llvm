@@ -6,11 +6,9 @@
 ; test must be separate.
 
 ; RUN: opt -disable-verify -debug-pass-manager -whole-program-assume    \
-; RUN:     -enable-dtrans-soatoaos -enable-dtrans-deletefield           \
-; RUN:     -enable-resolve-types                                        \
-; RUN:     -passes='lto<O2>,internalize'  -internalize-public-api-list main \
-; RUN:     -S  %s -enable-npm-dtrans                  \
-; RUN:     2>&1 \
+; RUN:     -passes='lto<O2>' -internalize-public-api-list main          \
+; RUN:     -S  %s -enable-npm-dtrans                                    \
+; RUN:     2>&1                                                         \
 ; RUN:     | FileCheck %s
 
 ; Basic orientation checks.
