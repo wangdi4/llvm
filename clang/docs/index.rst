@@ -97,6 +97,7 @@ Using Clang Tools
    ClangFormattedStatus
    ClangNvlinkWrapper
    ClangOffloadBundler
+   ClangOffloadWrapper
 
 Design Documents
 ================
