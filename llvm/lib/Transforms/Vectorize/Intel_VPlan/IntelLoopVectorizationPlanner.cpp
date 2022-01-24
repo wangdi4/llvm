@@ -526,17 +526,30 @@ void LoopVectorizationPlanner::selectBestPeelingVariants() {
   }
 }
 
+LoopVectorizationPlanner::PlannerType
+LoopVectorizationPlanner::getPlannerType() const {
+  if (TTI->isAdvancedOptEnabled(
+        TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42))
+    return PlannerType::Full;
+  else
+    return PlannerType::Base;
+}
+
 std::unique_ptr<VPlanCostModelInterface>
 LoopVectorizationPlanner::createCostModel(const VPlanVector *Plan,
                                           unsigned VF) const {
   // Do not run VLSA for VF = 1
   VPlanVLSAnalysis *VLSACM = VF > 1 ? VLSA : nullptr;
 
-  if (TTI->isAdvancedOptEnabled(
-        TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42))
-    return VPlanCostModelFull::makeUniquePtr(Plan, VF, TTI, TLI, DL, VLSACM);
-  else
-    return VPlanCostModelBase::makeUniquePtr(Plan, VF, TTI, TLI, DL, VLSACM);
+  switch (getPlannerType()) {
+    case PlannerType::Full:
+      return VPlanCostModelFull::makeUniquePtr(Plan, VF, TTI, TLI, DL, VLSACM);
+    case PlannerType::LightWeight:
+      return VPlanCostModelLite::makeUniquePtr(Plan, VF, TTI, TLI, DL, VLSACM);
+    case PlannerType::Base:
+      return VPlanCostModelBase::makeUniquePtr(Plan, VF, TTI, TLI, DL, VLSACM);
+  }
+  llvm_unreachable("Uncovered Planner type in the switch-case above.");
 }
 
 unsigned LoopVectorizationPlanner::getLoopUnrollFactor(bool *Forced) {
@@ -721,6 +734,65 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                       << ", selecting it.\n");
   }
 
+  // In light weight and advanced modes select VF basing on Search Loop idioms
+  // unless VF is forced elsehow.
+  //
+  // TODO: The VF selection code and Evaluators have to be taught to deal with
+  // UnknownCost in ScalarIterationCost/ScalarCost. Once it is done we should
+  // be able to remove explicit checks for ForcedVF/SearchLoopPreferredVF from
+  // VF selection loop and manage available VFs through VFs[] alone. Meanwhile
+  // SearchLoopPreferredVF has to be visible to VF selection loop.
+  unsigned SearchLoopPreferredVF = 0;
+  if (ForcedVF == 0 && getPlannerType() != PlannerType::Base) {
+    RegDDRef *PeelArrayRef = nullptr;
+
+    switch (VPlanIdioms::isSearchLoop(ScalarPlan, true, PeelArrayRef)) {
+      case VPlanIdioms::Unsafe:
+        SearchLoopPreferredVF = 1;
+        break;
+      case VPlanIdioms::SearchLoopStrEq:
+        SearchLoopPreferredVF = 32;
+        break;
+      case VPlanIdioms::SearchLoopPtrEq:
+        SearchLoopPreferredVF = 4;
+        break;
+      default:
+        break;
+    }
+
+    // Check the VPlan availability and remove VFs that are not preferred.
+    if (SearchLoopPreferredVF > 0 && hasVPlanForVF(SearchLoopPreferredVF)) {
+      VFs.erase(std::remove_if(VFs.begin(), VFs.end(),
+                               [SearchLoopPreferredVF](unsigned VF) {
+                                 return VF != SearchLoopPreferredVF;
+                               }),
+                VFs.end());
+      LLVM_DEBUG(dbgs() << "Search Loop Preferred VF="
+                 << SearchLoopPreferredVF << "\n");
+      // Early return from the routine for VF = 1 as the code below does not
+      // expect VF = 1 for ForcedVF or SearchLoopPreferredVF.
+      // TODO: We may want to make the same return for all other values of
+      // SearchLoopPreferredVF. That requires updating VecScenario structure
+      // so getBestVF()/getBestVPlan() utilites can work properly.
+      if (SearchLoopPreferredVF == 1) {
+        LLVM_DEBUG(dbgs() << "Selecting VPlan with VF=" <<
+                   SearchLoopPreferredVF << '\n');
+        return std::make_pair(VecScenario.getMainVF(), getBestVPlan());
+      }
+
+      if (SearchLoopPreferredVF * BestUF > TripCount) {
+        LLVM_DEBUG(dbgs() << "Bailing out to scalar VPlan because "
+                   << "SearchLoopPreferredVF(" << SearchLoopPreferredVF
+                   << ") * BestUF(" << BestUF << ") > TripCount("
+                   << TripCount << ")\n");
+        // The scenario was reset just before the check.
+        return std::make_pair(VecScenario.getMainVF(), getBestVPlan());
+      }
+    }
+    else
+      SearchLoopPreferredVF = 0;
+  }
+
   raw_ostream *OS = nullptr;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   OS = is_contained(VPlanCostModelPrintAnalysisForVF, 1) ? &outs() : nullptr;
@@ -734,9 +806,11 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   // FIXME: that multiplication should be the part of CostModel - see below.
   uint64_t ScalarCost = ScalarIterationCost * TripCount;
 
-  if (ForcedVF > 0) {
-    assert((VFs.size() == 1 && VFs[0] == ForcedVF && hasVPlanForVF(VFs[0])) &&
-           "Expected only one forced VF and non-null VPlan");
+  if (ForcedVF > 0 || SearchLoopPreferredVF > 0) {
+    assert((VFs.size() == 1 &&
+            (VFs[0] == ForcedVF || VFs[0] == SearchLoopPreferredVF) &&
+            hasVPlanForVF(VFs[0])) &&
+           "Expected only one forced/preferred VF and non-null VPlan");
   }
 
   uint64_t BestCost = ScalarCost;
@@ -759,8 +833,17 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   }
 #endif // INTEL_CUSTOMIZATION
 
-  // FIXME: Currently limit this to VF = 16. Has to be fixed with more accurate
-  // cost model.
+  // FIXME: Currently limit this to VF = 16 for HIR path. Has to be fixed with
+  // more accurate cost model. Still allow forced VFs to enter the loop below.
+  if (getPlannerType() != PlannerType::Base)
+    VFs.erase(
+      std::remove_if(
+        VFs.begin(), VFs.end(),
+        [ForcedVF, SearchLoopPreferredVF](unsigned VF) {
+          return VF > 16 && VF != ForcedVF && VF != SearchLoopPreferredVF;
+        }),
+      VFs.end());
+
   //
   // The main loop where we choose VF.
   // Please note that best peeling variant is expected to be selected up to
@@ -793,10 +876,10 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
 
     if (MainLoopIterationCost == VPlanTTICostModel::UnknownCost) {
       LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << " is unknown. Skip it.\n");
-      if (VF == ForcedVF) {
+      if (VF == ForcedVF || VF == SearchLoopPreferredVF) {
         // If the VF is forced and loop cost for it is unknown select the
         // simplest configuration: non-masked main loop + scalar remainder.
-        selectSimplestVecScenario(ForcedVF, BestUF);
+        selectSimplestVecScenario(VF, BestUF);
       }
       continue;
     }
@@ -927,7 +1010,8 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       LLVM_DEBUG(dbgs() << "Peeling will be performed.\n");
     }
 
-    if (VectorCost < BestCost || VF == ForcedVF) {
+    if (VectorCost < BestCost ||
+        VF == ForcedVF || VF == SearchLoopPreferredVF) {
       BestCost = VectorCost;
       updateVecScenario(PeelEvaluator,
                         GoUnaligned ? RemainderEvaluatorWithoutPeel
