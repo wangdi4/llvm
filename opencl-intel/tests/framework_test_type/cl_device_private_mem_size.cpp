@@ -193,6 +193,8 @@ TEST_F(PrivateMemSizeTest, SmallStackSize) {
   ASSERT_TRUE(UNSETENV("CL_CONFIG_AUTO_MEMORY"));
 }
 
+// Disable this test with x86 win build, as auto memory is disabled by default.
+#if !(defined(_WIN32) && !defined(_WIN64))
 TEST_F(PrivateMemSizeTest, LargeStackSizeWithAutoMemory) {
   std::string programSources =
       "__kernel void test(__global int* o)\n"
@@ -229,6 +231,7 @@ TEST_F(PrivateMemSizeTest, LargeStackSizeWithAutoMemory) {
 
   ASSERT_TRUE(UNSETENV("CL_CONFIG_AUTO_MEMORY"));
 }
+#endif // #if !(defined(_WIN32) && !defined(_WIN64))
 
 void PrivateMemSizeTest::testBody(cl_ulong expectedPrivateMemSize,
                                   const std::string &programSources,

@@ -132,9 +132,11 @@
 #       force a SIMD instruction set used for OpenCL(TM) kernel compilation.
 #
 # CL_CONFIG_AUTO_MEMORY [bool]
-#       True: (default) the stack size for kernel execution will be allocated automatically
-#             and CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE, CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE
-#             should also be set as the max private and local memory for WG execution.
+#       True: (default, except with x86 32bit windows build) the stack size for
+#             kernel execution will be allocated automatically and
+#             CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE,
+#             CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE should also be set as the max
+#             private and local memory for WG execution.
 #       False: the stack size for kernel execution is under control of
 #              CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE and CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE.
 #       NOTE: Support CPU and FPGA Emulator device. Usage of this configuration

@@ -22,14 +22,13 @@
 #include "SerializerCompatibility.h"
 
 #include "cpu_dev_limits.h"
-
-#include <cstring>
+#include "llvm/Support/Threading.h"
 #include <cmath>
+#include <cstring>
 #include <iostream>
 #include <sstream>
 #include <stddef.h>
 #include <stdio.h>
-
 #if defined(_WIN32)
 #define NOMINMAX
 #include <strsafe.h>
@@ -37,6 +36,8 @@
 #else
 #include <ucontext.h>
 #endif
+
+#include <llvm/Support/raw_ostream.h>
 
 static size_t GCD(size_t a, size_t b) {
   while (1) {
@@ -660,36 +661,44 @@ static void WINAPI CreateFiberExRoutineFunc(LPVOID params) {
   SwitchToFiber(fiberData->primaryFiber);
 }
 
+static llvm::once_flag PrintErrorMessageOnce;
+
 static void ErrorExit(LPTSTR lpszFunction) {
+  // Display the error message and exit the process
+  llvm::call_once(PrintErrorMessageOnce, [&]() {
+    DWORD LastError = GetLastError();
     // Retrieve the system error message for the last-error code
-    LPVOID lpMsgBuf;
-    LPVOID lpDisplayBuf;
-    DWORD dw = GetLastError();
-    FormatMessage(
-        FORMAT_MESSAGE_ALLOCATE_BUFFER |
-        FORMAT_MESSAGE_FROM_SYSTEM |
-        FORMAT_MESSAGE_IGNORE_INSERTS,
-        NULL,
-        dw,
-        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-        (LPTSTR) &lpMsgBuf,
-        0, NULL);
+    LPVOID MessageBuffer;
+    DWORD BufferLength = FormatMessage(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+            FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL, LastError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPTSTR)&MessageBuffer, 0, NULL);
 
-    // Display the error message and exit the process
-    lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT,
-        (lstrlen((LPCTSTR)lpMsgBuf) + lstrlen((LPCTSTR)lpszFunction) + 40) * sizeof(TCHAR));
-    StringCchPrintf((LPTSTR)lpDisplayBuf,
-        LocalSize(lpDisplayBuf) / sizeof(TCHAR),
-        TEXT("%s failed with error %d: %s"),
-        lpszFunction, dw, lpMsgBuf);
-    MessageBox(NULL, (LPCTSTR)lpDisplayBuf, TEXT("Error"), MB_OK);
+    if (BufferLength) {
+      if (((LPTSTR)MessageBuffer)[BufferLength - 2] == TEXT('\r')) {
+        ((LPTSTR)MessageBuffer)[BufferLength - 2] =
+            ((LPTSTR)MessageBuffer)[BufferLength - 1];
+        ((LPTSTR)MessageBuffer)[BufferLength - 1] = TEXT('\0');
+        BufferLength -= 1;
+      }
 
-    LocalFree(lpMsgBuf);
-    LocalFree(lpDisplayBuf);
-    ExitProcess(dw);
+      std::string FunctionName(lpszFunction,
+                               lpszFunction + lstrlen((LPCTSTR)lpszFunction));
+      std::string ErrorMessage((LPTSTR)MessageBuffer,
+                               (LPTSTR)MessageBuffer + BufferLength);
+      // TODO: use LOG_ERROR (It needs to implement LogErrorW since backend
+      // library is built with UNICODE)
+      llvm::errs() << "\n"
+             << FunctionName << " failed with error " << LastError << ": "
+             << ErrorMessage << "\n";
+      LocalFree(MessageBuffer);
+    }
+    ExitProcess(LastError);
+  });
 }
 
-#endif
+#endif // #if defined(_WIN32)
 
 cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
                                  const size_t *pGroupID,
@@ -783,6 +792,7 @@ cl_dev_err_code Kernel::RestoreThreadState(ICLDevExecutionState &state) const {
   return CL_DEV_SUCCESS;
 }
 
+#if !defined(_WIN32)
 std::pair<void *, size_t> Kernel::AllocaStack(size_t size) const {
   m_stackMutex.lock();
   if (m_stackMem.empty()) {
@@ -823,6 +833,7 @@ void Kernel::ReleaseStack(void *stackBase, size_t size) const {
   m_stackMem.push_back(std::make_pair(stackBase, size));
   m_stackMutex.unlock();
 }
+#endif // #if !defined(_WIN32)
 
 void Kernel::Serialize(IOutputStream& ost, SerializationStatus* stats) const
 {
