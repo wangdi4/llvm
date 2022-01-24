@@ -1,4 +1,4 @@
-// Copyright 2010-2021 Intel Corporation.
+// Copyright 2010-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -81,7 +81,7 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeScalarizeFunctionPass(Registry);
     intel::initializeRemoveAtExitPass(Registry);
     intel::initializeAddNTAttrPass(Registry);
-    intel::initializeChooseVectorizationDimensionModulePassPass(Registry);
+    intel::initializeChooseVectorizationDimensionPass(Registry);
     intel::initializeVectorKernelDiscardPass(Registry);
     intel::initializeReduceCrossBarrierValuesPass(Registry);
     intel::initializeSetPreferVectorWidthPass(Registry);

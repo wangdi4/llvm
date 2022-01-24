@@ -1,6 +1,6 @@
 //=---- OCLVecClone.cpp - Vector function to loop transform -*- C++ -*----=//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -35,6 +35,7 @@
 
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
+#include "Logger.h"
 #include "LoopUtils/LoopUtils.h"
 #include "NameMangleAPI.h"
 #include "VectorizerCommon.h"
@@ -139,7 +140,8 @@ OCLVecClone::OCLVecClone(ArrayRef<VectItem> VectInfos,
 OCLVecClone::OCLVecClone() : OCLVecClone({}, nullptr, false) {}
 
 bool OCLVecClone::runOnModule(Module &M) {
-  Impl.setDimChooser(getAnalysisIfAvailable<ChooseVectorizationDimensionModulePass>());
+  auto *VD = getAnalysisIfAvailable<VectorizationDimensionAnalysisLegacy>();
+  Impl.setVectorizeDimMap(VD ? &VD->getResult() : nullptr);
   return Impl.runImpl(M);
 }
 
@@ -526,9 +528,11 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
 
   unsigned VecDim;
   bool CanUniteWorkgroups;
-  if (DimChooser && IsKernel) {
-    VecDim = DimChooser->getVectorizationDim(&F);
-    CanUniteWorkgroups = DimChooser->getCanUniteWorkgroups(&F);
+  if (VectorizeDimMap && IsKernel) {
+    const auto It = VectorizeDimMap->find(&F);
+    assert(It != VectorizeDimMap->end() && "VectorizeDimInfo is not found");
+    VecDim = It->second.getVectorizeDim();
+    CanUniteWorkgroups = It->second.getCanUniteWorkGroups();
   } else {
     VecDim = 0;
     CanUniteWorkgroups = false;
