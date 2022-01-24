@@ -152,17 +152,6 @@ public:
              const VPlanVector *Plan, raw_ostream *OS = nullptr) const;
 };
 
-// Heurstic that searches for Search Loop idioms within VPlan.
-// Returns the cost of vectorizing SearchLoop if such loop is detected or
-// unmodified Cost otherwise.
-class HeuristicSearchLoop : public HeuristicBase {
-public:
-  HeuristicSearchLoop(VPlanTTICostModel *CM) :
-    HeuristicBase(CM, "SearchLoop Idiom") {};
-  void apply(unsigned TTICost, unsigned &Cost,
-             const VPlanVector *Plan, raw_ostream *OS = nullptr) const;
-};
-
 // Heurstic that calculates Spill/Fill cost.
 // Implements basic register pressure calculation pass.
 // Calculates the pressure of Vector Instructions only if VectorInsts is

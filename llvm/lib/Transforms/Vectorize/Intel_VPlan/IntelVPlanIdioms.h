@@ -42,10 +42,10 @@ public:
   /// VPlanIdioms::Unknown if the loop doesn't fit into any known pattern. If
   /// the identified pattern requires peeling of an array for aligned accesses,
   /// then return it in \p PeelArrayRef.
-  static Opcode isSearchLoop(const VPlanVector *Plan, const unsigned VF,
+  static Opcode isSearchLoop(const VPlanVector *Plan,
                              const bool CheckSafety,
                              loopopt::RegDDRef *&PeelArrayRef);
-  static bool isAnySearchLoop(const VPlanVector *Plan, const unsigned VF,
+  static bool isAnySearchLoop(const VPlanVector *Plan,
                               const bool CheckSafety);
 
   static bool isAnySearchLoop(const VPlanIdioms::Opcode Opcode) {

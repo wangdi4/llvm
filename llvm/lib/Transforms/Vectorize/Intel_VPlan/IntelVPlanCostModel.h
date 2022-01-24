@@ -496,7 +496,6 @@ using VPlanCostModelLite = VPlanCostModelWithHeuristics<
   HeuristicsList<const VPBasicBlock>,  // empty list
   HeuristicsList<
     const VPlanVector,
-    VPlanCostModelHeuristics::HeuristicSearchLoop,
     VPlanCostModelHeuristics::HeuristicSLP,
     VPlanCostModelHeuristics::HeuristicGatherScatter,
     VPlanCostModelHeuristics::HeuristicSpillFill,
@@ -510,7 +509,6 @@ using VPlanCostModelFull = VPlanCostModelWithHeuristics<
   HeuristicsList<const VPBasicBlock>, // empty list
   HeuristicsList<
     const VPlanVector,
-    VPlanCostModelHeuristics::HeuristicSearchLoop,
     VPlanCostModelHeuristics::HeuristicSLP,
     VPlanCostModelHeuristics::HeuristicGatherScatter,
     VPlanCostModelHeuristics::HeuristicSpillFill,

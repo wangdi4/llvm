@@ -297,6 +297,21 @@ private:
 class LoopVectorizationPlanner {
   friend class VPlanTestBase;
 
+protected:
+  // PlannerType depends on global setting of -x knob and input type: LLVM-IR
+  // or HIR. PlannerType drives the approach of VPlan planning and cost
+  // modelling.
+  enum class PlannerType {
+    Base,        // Basic pipeline of planning is used for LLVM-IR input, which
+                 // currently kicks in for Intel and non-Intel targets for
+                 // #pragma forced vectorization loops only that bypassed HIR
+                 // vectorization (either HIR path is supressed or HIR pass
+                 // does not support such loops).
+    LightWeight, // Light weight type is used for non-Intel targets with HIR
+                 // VPlan input is activated.
+    Full         // The full mode is for Intel targets and HIR input.
+  };
+
 public:
 #if INTEL_CUSTOMIZATION
   LoopVectorizationPlanner(WRNVecLoopNode *WRL, Loop *Lp, LoopInfo *LI,
@@ -329,9 +344,12 @@ public:
   /// Select the best peeling variant for every VPlan.
   void selectBestPeelingVariants();
 
+  /// Detects and returns the current type of planning.
+  virtual PlannerType getPlannerType() const;
+
   /// Create and return Plan/VF specific CostModel object based on global
   /// compilation settings such as presence of -x knob in command line.
-  virtual std::unique_ptr<VPlanCostModelInterface> createCostModel(
+  std::unique_ptr<VPlanCostModelInterface> createCostModel(
     const VPlanVector *Plan, unsigned VF) const;
 
   /// Record CM's decision and dispose of all other VPlans.

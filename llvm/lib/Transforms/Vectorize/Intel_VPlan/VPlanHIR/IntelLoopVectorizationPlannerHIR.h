@@ -130,10 +130,8 @@ public:
   /// \p Forced indicates that Unroll Factor is forced.
   virtual unsigned getLoopUnrollFactor(bool *Forced = nullptr) override;
 
-  /// Create and return Plan/VF specific CostModel object basic on global
-  /// compilation settings such as presence of -x knob in command line.
-  std::unique_ptr<VPlanCostModelInterface> createCostModel(
-    const VPlanVector *Plan, unsigned VF) const final;
+  /// Detects and returns the current type of planning.
+  LoopVectorizationPlanner::PlannerType getPlannerType() const final;
 
   bool unroll(VPlanVector &Plan) override;
 
