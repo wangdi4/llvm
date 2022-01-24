@@ -217,7 +217,7 @@
 // RUN: %clang -target x86_64-unknown-linux-gnu --intel -fsycl -fno-sycl-device-lib=all -fiopenmp -fopenmp-targets=spir64 -foffload-static-lib=%t.a -### %t-1.o %t-2.o %t-3.o -fno-openmp-device-lib=all 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=FOFFLOAD_STATIC_LIB_MULTI_O
 // FOFFLOAD_STATIC_LIB_MULTI_O: "{{.*}}clang-offload-bundler" "-type=o" "-targets=host-x86_64-unknown-linux-gnu,openmp-spir64,sycl-spir64-unknown-unknown" "-inputs={{.*}}libomp-spirvdevicertl.o" "-outputs=[[RTLHOST:.+\.o]],[[RTLTGTOMP:.+\.o]],[[RTLTGTSYCL:.+\.o]]" "-unbundle" "-allow-missing-bundles"
-// FOFFLOAD_STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=aoo" "-targets=openmp-spir64,sycl-spir64-unknown-unknown" "-inputs=[[INPUTA:.+\.a]]" "-outputs=[[OMPLIB:.+\.a]],[[SYCLLIB:.+\.a]]" "-unbundle"
+// FOFFLOAD_STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=aoo" "-targets=openmp-spir64,sycl-spir64-unknown-unknown" "-inputs=[[INPUTA:.+\.a]]" "-outputs=[[OMPLIB:.+\.txt]],[[SYCLLIB:.+\.txt]]" "-unbundle"
 // FOFFLOAD_STATIC_LIB_MULTI_O: spirv-to-ir-wrapper{{.*}} "[[SYCLLIB]]" "-o" "[[SYCLLIBLIST:.+\.txt]]"
 // FOFFLOAD_STATIC_LIB_MULTI_O: llvm-link{{.*}} "@[[SYCLLIBLIST]]" "-o" "[[SYCLLINKEDBCPRE:.+\.bc]]"
 // FOFFLOAD_STATIC_LIB_MULTI_O: llvm-link{{.*}} "--only-needed" "[[SYCLLINKEDBCPRE]]" {{.*}} "-o" "[[SYCLLINKEDBC:.+\.bc]]"
@@ -271,7 +271,7 @@
 // FOFFLOAD_STATIC_LIB_SRC: 23: linker, {0, 9, 11, 13, 15, 17}, host_dep_image, (host-openmp-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 24: clang-offload-deps, {23}, ir, (host-openmp-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 25: input, "[[INPUT1]]", archive
-// FOFFLOAD_STATIC_LIB_SRC: 26: clang-offload-unbundler, {25}, archive
+// FOFFLOAD_STATIC_LIB_SRC: 26: clang-offload-unbundler, {25}, tempfilelist
 // FOFFLOAD_STATIC_LIB_SRC: 27: linker, {22, 11, 13, 15, 17, 24, 26}, ir, (device-openmp)
 // FOFFLOAD_STATIC_LIB_SRC: 28: sycl-post-link, {27}, ir, (device-openmp)
 // FOFFLOAD_STATIC_LIB_SRC: 29: llvm-spirv, {28}, spirv, (device-openmp)

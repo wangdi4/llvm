@@ -247,18 +247,14 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
     if (LinkSYCLDeviceLibs)
       Opts.push_back("-only-needed");
     for (const auto &II : InputFiles) {
-#if INTEL_CUSTOMIZATION
-      if (isOMPDeviceLib(II)) {
-        OMPObjs.push_back(II.getFilename());
-      } else if (II.getType() == types::TY_Tempfilelist ||
-                 (getToolChain().getTriple().isSPIR() &&
-                  II.getType() == types::TY_Archive)) {
-        // Archives are expected to be unbundled as 'aoo' which means it is
-        // a list of files, so treat them accordingly for llvm-link acceptance
-#endif // INTEL_CUSTOMIZATION
+      if (II.getType() == types::TY_Tempfilelist) {
         // Pass the unbundled list with '@' to be processed.
         std::string FileName(II.getFilename());
         Libs.push_back(C.getArgs().MakeArgString("@" + FileName));
+#if INTEL_CUSTOMIZATION
+      } else if (isOMPDeviceLib(II)) {
+        OMPObjs.push_back(II.getFilename());
+#endif // INTEL_CUSTOMIZATION
       } else if (II.getType() == types::TY_Archive && !LinkSYCLDeviceLibs) {
         Libs.push_back(II.getFilename());
       } else
