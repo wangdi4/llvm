@@ -24,6 +24,8 @@
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/IR/Module.h"
 
+#include <map>
+
 using namespace llvm;
 
 namespace intel {
