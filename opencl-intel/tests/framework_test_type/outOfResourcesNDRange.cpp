@@ -301,7 +301,8 @@ TEST_F(BaseProvisionalTest, OutOfResourcesNDRange)
     ASSERT_TRUE(UNSETENV("CL_CONFIG_AUTO_MEMORY"));
 }
 
-// Disable this test as it's randomly failed with x86 win build
+// Disable this test with x86 win build as it's randomly failed on many cores.
+// And auto memory is disabled by default with x86 win build.
 #if !(defined(_WIN32) && !defined(_WIN64))
 TEST_F(BaseProvisionalTest, OutOfResourcesNDRangeWithAutoMemEnabled) {
   printf("=============================================================\n");

@@ -37,7 +37,7 @@ set(OCL_LIBRARY_TARGET_NAME cllibrary)
 
 set(OCL_OPT oclopt)
 
-remove_definitions( -D_UNICODE -DUNICODE )
+SET_UNICODE_OFF()
 
 #
 # Settings for Linux compilation

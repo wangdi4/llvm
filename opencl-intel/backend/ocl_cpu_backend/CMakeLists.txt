@@ -108,7 +108,6 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
 
     debuggingservicewrapper.h
     opencl_printf_ext.h
-    Logger.h
     ocl_mutex.h
     ${BACKEND_ROOT_DIR}/utils/OclTune.h
     ${OCL_CPU_BACKEND_DIR}/export/plugin_interface.h
@@ -143,7 +142,6 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     Kernel.cpp
     KernelProperties.cpp
     LibraryProgramManager.cpp
-    Logger.cpp
     Program.cpp
     Serializer.cpp
     ObjectCodeCache.cpp
