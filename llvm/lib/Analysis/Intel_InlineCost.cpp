@@ -1,6 +1,6 @@
 //===------- Intel_InlineCost.cpp ----------------------- -*------===//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -2934,8 +2934,10 @@ static bool worthInliningForDeeplyNestedIfs(CallBase &CB,
                                             bool PrepareForLTO) {
   // Heuristic is enabled if option is unset and it is first inliner run
   // (on PrepareForLTO phase) OR if option is set to true.
-  if (((InliningForDeeplyNestedIfs != cl::BOU_UNSET) || !PrepareForLTO) &&
-      (InliningForDeeplyNestedIfs != cl::BOU_TRUE))
+  // CMPLRLLVM-34251: Put this heuristic under DTransInlineHeuristics test
+  if (!DTransInlineHeuristics ||
+      ((InliningForDeeplyNestedIfs != cl::BOU_UNSET) ||
+      !PrepareForLTO) && (InliningForDeeplyNestedIfs != cl::BOU_TRUE))
     return false;
 
   Function *Callee = CB.getCalledFunction();

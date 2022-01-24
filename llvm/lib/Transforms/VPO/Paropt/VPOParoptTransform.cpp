@@ -10248,8 +10248,15 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     VPOParoptUtils::buildCFGForIfClause(IfClause, ForkInsPt, ElseInsPt, NewCall,
                                         DT);
 
+    // Emit __kmpc_serialized_parallel(void *loc, i32 tid )
+    VPOParoptUtils::genKmpcSerializedParallelCall(W, IdentTy, TidPtrHolder,
+                                                  ElseInsPt, true);
     // Create serial call in 'else' block.
     CreateMtFnCall(ElseInsPt);
+
+    // Emit __kmpc_end_serialized_parallel(void *loc, i32 tid )
+    VPOParoptUtils::genKmpcSerializedParallelCall(W, IdentTy, TidPtrHolder,
+                                                  ElseInsPt, false);
   }
 
   CallInst *MTFnCI = CreateMtFnCall(ForkInsPt);

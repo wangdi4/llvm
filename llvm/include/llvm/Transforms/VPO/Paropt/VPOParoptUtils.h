@@ -291,6 +291,15 @@ public:
   static CallInst *genKmpcEndCall(Function *F, Instruction *InsertPt,
                                   StructType *IdentTy);
 
+  /// Emits a call to      __kmpc_serialized_parallel(void *loc, int tid)
+  ///              or  __kmpc_end_serialized_parallel(void *loc, int tid)
+  /// selected by \p IsBegin
+  static CallInst *genKmpcSerializedParallelCall(WRegionNode *W,
+                                                 StructType *IdentTy,
+                                                 Value *TidPtr,
+                                                 Instruction *InsertPt,
+                                                 bool IsBegin);
+
   /// Check whether the call `__kmpc_global_thread_num()` exists in the given
   /// basic block \p BB, and return it.
   static CallInst *findKmpcGlobalThreadNumCall(BasicBlock *BB);
@@ -888,6 +897,9 @@ public:
   /// \param IntrinsicName is the name of the function.
   /// \param ReturnTy is the return type of the function.
   /// \param Args arguments for the function call.
+  /// \param Insert controls whether to insert the call (before InsertPt).
+  ///        Note that the load instruction for TidPtr is always inserted,
+  ///        regardless of this flag.
   /// \param EnableAtomicReduce is to set flag bit for enabling atomic reduce.
   /// Note: The function inserts a LoadInst for getting Tid, into the IR
   /// (before the \p InsertPt), and inserts the function prototype for the
@@ -899,6 +911,7 @@ public:
                                       Value *TidPtr, Instruction *InsertPt,
                                       StringRef IntrinsicName, Type *ReturnTy,
                                       ArrayRef<Value *> Args,
+                                      bool Insert = false,
                                       bool EnableAtomicReduce = false);
 
   /// Inserts \p Call1 and \p Call2 at \p W's region boundary. If \p
