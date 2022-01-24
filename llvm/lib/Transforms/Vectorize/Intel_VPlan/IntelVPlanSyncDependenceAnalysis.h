@@ -22,6 +22,8 @@
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SmallPtrSet.h"
 
+#include <map>
+
 namespace llvm {
 namespace vpo {
 

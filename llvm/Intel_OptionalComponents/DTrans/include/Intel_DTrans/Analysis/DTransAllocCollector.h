@@ -15,6 +15,7 @@
 
 #include "Intel_DTrans/Analysis/MemoryBuiltinsExtras.h"
 #include "llvm/IR/Instructions.h"
+#include <map>
 #include <set>
 
 #if !INTEL_FEATURE_SW_DTRANS

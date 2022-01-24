@@ -14,6 +14,8 @@
 
 #include "llvm/IR/PassManager.h"
 
+#include <map>
+
 namespace llvm {
 
 class Module;
