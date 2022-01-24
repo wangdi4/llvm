@@ -56,13 +56,13 @@ bool isAllocationFn(const Value *V, const TargetLibraryInfo *TLI);
 bool isAllocationFn(const Value *V,
                     function_ref<const TargetLibraryInfo &(Function &)> GetTLI);
 
-#if INTEL_CUSTOMIZATION
 /// Tests if a value is a call or invoke to a library function that
 /// allocates uninitialized memory (such as malloc).
 bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 bool isMallocLikeFn(const Value *V,
                     function_ref<const TargetLibraryInfo &(Function &)> GetTLI);
 
+#if INTEL_CUSTOMIZATION
 /// Tests if a function is a call or invoke to a library function that
 /// allocates memory (e.g., malloc).
 bool isMallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
