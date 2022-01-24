@@ -9460,7 +9460,9 @@ void OffloadBundler::ConstructJob(Compilation &C, const JobAction &JA,
     // TODO: Replace parsing of -march flag. Can be done by storing GPUArch
     //       with each toolchain.
     StringRef GPUArchName;
-    if (CurKind == Action::OFK_OpenMP) {
+#if INTEL_CUSTOMIZATION
+    if (CurKind == Action::OFK_OpenMP && !CurTC->getTriple().isSPIR()) {
+#endif // INTEL_CUSTOMIZATION
       // Extract GPUArch from -march argument in TC argument list.
       for (unsigned ArgIndex = 0; ArgIndex < TCArgs.size(); ArgIndex++) {
         auto ArchStr = StringRef(TCArgs.getArgString(ArgIndex));
