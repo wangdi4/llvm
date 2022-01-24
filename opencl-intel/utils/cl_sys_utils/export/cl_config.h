@@ -608,7 +608,17 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
 
         bool UseAutoMemory() const
         {
-            return m_pConfigFile->Read<bool>("CL_CONFIG_AUTO_MEMORY", true);
+          // Auto memory is disabled by default with x86 Windows build (32bit).
+          // There is no request to enable this mechanism w/x86 Windows build.
+          // And it may lead to "no enough memory resources" error on processors
+          // with many cores (like icelake).
+          return m_pConfigFile->Read<bool>("CL_CONFIG_AUTO_MEMORY",
+#if defined(_WIN32) && !defined(_WIN64)
+                                           false
+#else
+                                           true
+#endif
+          );
         }
 
         cl_ulong GetForcedLocalMemSize() const
