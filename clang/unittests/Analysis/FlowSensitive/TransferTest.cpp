@@ -50,7 +50,7 @@ protected:
                     std::pair<std::string, DataflowAnalysisState<NoopLattice>>>
                     Results,
                 ASTContext &ASTCtx) { Match(Results, ASTCtx); },
-            {"-fsyntax-only",
+            {"-fsyntax-only", "-fno-delayed-template-parsing",
              "-std=" +
                  std::string(
                      LangStandard::getLangStandardForKind(Std).getName())}),
