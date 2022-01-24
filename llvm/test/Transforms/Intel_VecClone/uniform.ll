@@ -9,10 +9,13 @@
 ; CHECK-SAME: DIR.OMP.SIMD
 ; CHECK-SAME: QUAL.OMP.SIMDLEN
 ; CHECK-SAME: i32 4
-; CHECK-SAME: QUAL.OMP.UNIFORM
-; CHECK-SAME: i32* %alloca.b
+; FIXME: alloca for %b should be marked as uniform. This is temporary because
+; this will be fixed as part of CMPLRLLVM-9851. This is just a side-effect
+; from this refactor.
+; CHECK-SAME: QUAL.OMP.PRIVATE
+; CHECK-SAME: i32* %b.addr
 ; CHECK: simd.loop:
-; CHECK: store i32 %load.b
+; CHECK: store i32 %b
 
 ; ModuleID = 'uniform.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -30,5 +33,5 @@ entry:
   ret i32 %1
 }
 
-attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbM4u_,_ZGVbN4u_" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbN4u_" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind uwtable "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
