@@ -32,6 +32,10 @@ class generic_gep_type_iterator {
 
   ItTy OpIt;
   PointerUnion<StructType *, Type *> CurTy;
+#if INTEL_CUSTOMIZATION
+  enum : uint64_t { Unbounded = -1ull };
+  uint64_t NumElements = Unbounded;
+#endif // INTEL_CUSTOMIZATION
 
   generic_gep_type_iterator() = default;
 
@@ -77,11 +81,18 @@ public:
 
   generic_gep_type_iterator &operator++() { // Preincrement
     Type *Ty = getIndexedType();
-    if (auto *ATy = dyn_cast<ArrayType>(Ty))
+#if INTEL_CUSTOMIZATION
+    if (auto *ATy = dyn_cast<ArrayType>(Ty)) {
       CurTy = ATy->getElementType();
-    else if (auto *VTy = dyn_cast<VectorType>(Ty))
+      NumElements = ATy->getNumElements();
+    } else if (auto *VTy = dyn_cast<VectorType>(Ty)) {
       CurTy = VTy->getElementType();
-    else
+      if (isa<ScalableVectorType>(VTy))
+        NumElements = Unbounded;
+      else
+        NumElements = cast<FixedVectorType>(VTy)->getNumElements();
+    } else
+#endif // INTEL_CUSTOMIZATION
       CurTy = dyn_cast<StructType>(Ty);
     ++OpIt;
     return *this;
@@ -116,6 +127,12 @@ public:
   StructType *getStructTypeOrNull() const {
     return CurTy.dyn_cast<StructType *>();
   }
+
+#if INTEL_CUSTOMIZATION
+  bool isBoundedSequential() const {
+    return isSequential() && NumElements != Unbounded;
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 
   using gep_type_iterator = generic_gep_type_iterator<>;
