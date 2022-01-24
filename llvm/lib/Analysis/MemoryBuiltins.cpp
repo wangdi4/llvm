@@ -276,17 +276,21 @@ bool llvm::isAllocationFn(
 
 /// Tests if a value is a call or invoke to a library function that
 /// allocates uninitialized memory (such as malloc).
+#if INTEL_CUSTOMIZATION
 bool llvm::isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
+#else
+static bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
+#endif
   return getAllocationData(V, MallocOrOpNewLike, TLI).hasValue();
 }
 
+#if INTEL_CUSTOMIZATION
 bool llvm::isMallocLikeFn(
     const Value *V, function_ref<const TargetLibraryInfo &(Function &)> GetTLI) {
   return getAllocationData(V, MallocOrOpNewLike, GetTLI)
       .hasValue();
 }
 
-#if INTEL_CUSTOMIZATION
 /// Tests if a function is a call or invoke to a library function that
 /// allocates memory (e.g., malloc).
 bool llvm::isMallocLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
