@@ -292,7 +292,11 @@ declare void @bcopy(i8*, i8*, i64)
 ; CHECK: declare void @bzero(i8* nocapture writeonly, i64)  [[ARGMEMONLY_NOFREE_NOUNWIND_WILLRETURN]]
 declare void @bzero(i8*, i64)
 
+<<<<<<< HEAD
 ; CHECK: declare noalias noundef i8* @calloc(i64 noundef, i64 noundef) [[NOFREE_NOUNWIND_WILLRETURN:#[0-9]+]] ;INTEL
+=======
+; CHECK: declare noalias noundef i8* @calloc(i64 noundef, i64 noundef) [[INACCESSIBLEMEMONLY_NOFREE_NOUNWIND_WILLRETURN:#[0-9]+]]
+>>>>>>> 5ba73c924df895c95f895c2f00b7c8e76ca0d4a8
 declare i8* @calloc(i64, i64)
 
 ; CHECK: declare double @cbrt(double) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
@@ -495,7 +499,7 @@ declare i64 @fread(i8*, i64, i64, %opaque*)
 ; CHECK: declare void @free(i8* nocapture noundef) [[INACCESSIBLEMEMORARGMEMONLY_NOUNWIND_WILLRETURN:#[0-9]+]]
 declare void @free(i8*)
 
-; CHECK: declare double @frexp(double, i32* nocapture) [[NOFREE_NOUNWIND_WILLRETURN]]
+; CHECK: declare double @frexp(double, i32* nocapture) [[NOFREE_NOUNWIND_WILLRETURN:#[0-9]+]]
 declare double @frexp(double, i32*)
 
 ; CHECK: declare float @frexpf(float, i32* nocapture) [[NOFREE_NOUNWIND_WILLRETURN]]
@@ -656,7 +660,7 @@ declare i32 @lstat(i8*, %opaque*)
 ; CHECK-LINUX: declare noundef i32 @lstat64(i8* nocapture noundef readonly, %opaque* nocapture noundef) [[NOFREE_NOUNWIND]]
 declare i32 @lstat64(i8*, %opaque*)
 
-; CHECK: declare noalias noundef i8* @malloc(i64 noundef) [[INACCESSIBLEMEMONLY_NOFREE_NOUNWIND_WILLRETURN:#[0-9]+]]
+; CHECK: declare noalias noundef i8* @malloc(i64 noundef) [[INACCESSIBLEMEMONLY_NOFREE_NOUNWIND_WILLRETURN]]
 declare i8* @malloc(i64)
 
 ; CHECK-LINUX: declare noalias noundef i8* @memalign(i64, i64) [[INACCESSIBLEMEMONLY_NOFREE_NOUNWIND_WILLRETURN]]
