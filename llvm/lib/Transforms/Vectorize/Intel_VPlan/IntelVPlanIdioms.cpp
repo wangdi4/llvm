@@ -473,7 +473,6 @@ bool VPlanIdioms::isSafeExitBlockForSearchLoop(const VPBasicBlock *Block) {
 }
 
 VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlanVector *Plan,
-                                              const unsigned VF,
                                               const bool CheckSafety,
                                               RegDDRef *&PeelArrayRef) {
   // TODO: With explicit representation of peel loop, next code is not valid
@@ -570,10 +569,10 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlanVector *Plan,
   return Opcode;
 }
 
-bool VPlanIdioms::isAnySearchLoop(const VPlanVector *Plan, const unsigned VF,
+bool VPlanIdioms::isAnySearchLoop(const VPlanVector *Plan,
                                   const bool CheckSafety) {
   RegDDRef *PeelArrayRef = nullptr;
-  return isAnySearchLoop(isSearchLoop(Plan, VF, CheckSafety, PeelArrayRef));
+  return isAnySearchLoop(isSearchLoop(Plan, CheckSafety, PeelArrayRef));
 }
 
 } // namespace vpo

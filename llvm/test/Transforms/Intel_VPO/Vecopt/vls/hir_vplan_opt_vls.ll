@@ -33,10 +33,6 @@
 ; CHECK: Total Groups 1
 ; CHECK: Fixed all OVLSTypes for previously collected memrefs.
 ; CHECK: Total Groups 1
-; CHECK: Fixed all OVLSTypes for previously collected memrefs.
-; CHECK: Total Groups 1
-; CHECK: Fixed all OVLSTypes for previously collected memrefs.
-; CHECK: Total Groups 1
 
 @a = dso_local local_unnamed_addr global [10000 x i32] zeroinitializer, align 16
 @b = dso_local local_unnamed_addr global [10000 x i32] zeroinitializer, align 16

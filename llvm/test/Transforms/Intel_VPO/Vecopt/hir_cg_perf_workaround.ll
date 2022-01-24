@@ -20,8 +20,8 @@
 ;   return sum;
 ; }
 ; ModuleID = 'cg_perf_workaround.c'
-; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -disable-hir-loop-reversal -hir-vplan-vec -print-after=hir-vplan-vec -disable-output -enable-blob-coeff-vec -enable-nested-blob-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM1
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -disable-hir-loop-reversal -print-after=hir-vplan-vec -disable-output -enable-blob-coeff-vec -enable-nested-blob-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM2
+; RUN: opt -enable-new-pm=0 -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -disable-hir-loop-reversal -hir-vplan-vec -print-after=hir-vplan-vec -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=PM1
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -disable-hir-loop-reversal -print-after=hir-vplan-vec -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=PM2
 
 ; It used to be a lit test for performance WA bail out in HIR CG.
 ; Now it checks that the input code can be vectorized with VF=4.
@@ -75,7 +75,7 @@ entry:
   br i1 %cmp18, label %for.body.lr.ph, label %for.end
 
 for.body.lr.ph:                                   ; preds = %entry
-  %0 = load %struct.S1*, %struct.S1** @s1p, align 8, !tbaa !2
+  %0 = load %struct.S1*, %struct.S1** @s1p, align 8, !tbaa !0
   %wide.trip.count = sext i32 %n to i64
   br label %for.body
 
@@ -84,12 +84,12 @@ for.body:                                         ; preds = %for.body, %for.body
   %sum.020 = phi double [ 0.000000e+00, %for.body.lr.ph ], [ %add9, %for.body ]
   %1 = sub nsw i64 0, %indvars.iv
   %a3 = getelementptr inbounds %struct.S1, %struct.S1* %0, i64 %1, i32 2
-  %2 = load i16, i16* %a3, align 2, !tbaa !6
+  %2 = load i16, i16* %a3, align 2, !tbaa !4
   %conv1 = uitofp i16 %2 to double
   %mul2 = fmul fast double %conv1, %d
   %add = fadd fast double %sum.020, %mul2
   %a1 = getelementptr inbounds %struct.S1, %struct.S1* %0, i64 %1, i32 0
-  %3 = load i16, i16* %a1, align 2, !tbaa !9
+  %3 = load i16, i16* %a1, align 2, !tbaa !7
   %conv7 = uitofp i16 %3 to double
   %mul8 = fmul fast double %conv7, %d
   %add9 = fadd fast double %add, %mul8
@@ -101,23 +101,18 @@ for.end.loopexit:                                 ; preds = %for.body
   %add9.lcssa = phi double [ %add9, %for.body ]
   br label %for.end
 
-for.end:                                          ; preds = %for.body, %entry
+for.end:                                          ; preds = %for.end.loopexit, %entry
   %sum.0.lcssa = phi double [ 0.000000e+00, %entry ], [ %add9.lcssa, %for.end.loopexit ]
   ret double %sum.0.lcssa
 }
 
 attributes #0 = { noinline norecurse nounwind readonly uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="true" "use-soft-float"="false" }
 
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
-
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 6.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 0b4a517eb9d8148972ed8a9ef18c3616c05891fc) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 394335808fb2249a44d0c32f2e0724d070071064)"}
-!2 = !{!3, !3, i64 0}
-!3 = !{!"unspecified pointer", !4, i64 0}
-!4 = !{!"omnipotent char", !5, i64 0}
-!5 = !{!"Simple C/C++ TBAA"}
-!6 = !{!7, !8, i64 4}
-!7 = !{!"struct@S1", !8, i64 0, !8, i64 2, !8, i64 4, !8, i64 6}
-!8 = !{!"short", !4, i64 0}
-!9 = !{!7, !8, i64 0}
+!0 = !{!1, !1, i64 0}
+!1 = !{!"unspecified pointer", !2, i64 0}
+!2 = !{!"omnipotent char", !3, i64 0}
+!3 = !{!"Simple C/C++ TBAA"}
+!4 = !{!5, !6, i64 4}
+!5 = !{!"struct@S1", !6, i64 0, !6, i64 2, !6, i64 4, !6, i64 6}
+!6 = !{!"short", !2, i64 0}
+!7 = !{!5, !6, i64 0}

@@ -235,14 +235,11 @@ unsigned LoopVectorizationPlannerHIR::getLoopUnrollFactor(bool *Forced) {
   return UF;
 }
 
-std::unique_ptr<VPlanCostModelInterface>
-LoopVectorizationPlannerHIR::createCostModel(
-  const VPlanVector *Plan, unsigned VF) const {
+LoopVectorizationPlanner::PlannerType
+LoopVectorizationPlannerHIR::getPlannerType() const {
   if (LightWeightMode)
-    return VPlanCostModelLite::makeUniquePtr(Plan, VF, TTI, TLI, DL,
-                                             VF > 1 ? VLSA : nullptr);
-  else
-    return LoopVectorizationPlanner::createCostModel(Plan, VF);
+    return PlannerType::LightWeight;
+  return LoopVectorizationPlanner::getPlannerType();
 }
 
 bool LoopVectorizationPlannerHIR::unroll(VPlanVector &Plan) {

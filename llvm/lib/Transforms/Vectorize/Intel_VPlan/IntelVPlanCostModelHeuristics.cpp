@@ -283,42 +283,6 @@ void HeuristicSLP::apply(unsigned TTICost, unsigned &Cost,
     Cost *= VF;
 }
 
-void HeuristicSearchLoop::apply(
-  unsigned TTICost, unsigned &Cost,
-  const VPlanVector *Plan, raw_ostream *OS) const {
-  (void)TTICost;
-  // Array ref which needs to be aligned via loop peeling, if any.
-  RegDDRef *PeelArrayRef = nullptr;
-  switch (VPlanIdioms::isSearchLoop(Plan, VF, true, PeelArrayRef)) {
-  case VPlanIdioms::Unsafe:
-    Cost = UnknownCost;
-    break;
-  case VPlanIdioms::SearchLoopStrEq:
-    // Without proper type information, cost model cannot properly compute the
-    // cost, thus hard code VF.
-    if (VF == 1)
-      Cost = VPlanTTIWrapper::Multiplier * 1000;
-    else if (VF != 32)
-      // Return some huge value, so that VectorCost still could be computed.
-      Cost = UnknownCost;
-    break;
-  case VPlanIdioms::SearchLoopPtrEq:
-    // Without proper type information, cost model cannot properly compute the
-    // cost, thus hard code VF.
-    if (VF == 1)
-      Cost = VPlanTTIWrapper::Multiplier * 1000;
-    else if (VF != 4)
-      // Return some huge value, so that VectorCost still could be computed.
-      Cost = UnknownCost;
-    break;
-  default:
-    // FIXME: Keep VF = 32 as unsupported right now due to huge perf
-    // regressions.
-    if (VF == 32)
-      Cost = UnknownCost;
-  }
-}
-
 unsigned HeuristicSpillFill::operator()(
   const VPBasicBlock *VPBlock,
   LiveValuesTy &LiveValues,
