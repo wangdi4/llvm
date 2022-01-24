@@ -1,7 +1,7 @@
 //===-------------- OCLVecClone.h - Class definition -*- C++
 //-*---------------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -16,10 +16,10 @@
 #ifndef BACKEND_VECTORIZER_OCLVECCLONE_OCLVECCLONE_H
 #define BACKEND_VECTORIZER_OCLVECCLONE_OCLVECCLONE_H
 
-#include "ChooseVectorizationDimension.h"
 #include "OCLPassSupport.h"
 #include "VecConfig.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorizationDimensionAnalysis.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 
 using namespace llvm;
@@ -32,7 +32,7 @@ private:
   const Intel::OpenCL::Utils::CPUDetect *CPUId;
   bool IsOCL;
 
-  const ChooseVectorizationDimensionModulePass *DimChooser;
+  const VectorizationDimensionAnalysisLegacy::Result *VectorizeDimMap;
 
   // OpenCL-related code transformation: 1. updates all the uses of TID calls
   // with TID + new induction variable. TIDs are updated in this way because
@@ -65,8 +65,9 @@ public:
 
   OCLVecCloneImpl();
 
-  void setDimChooser(const ChooseVectorizationDimensionModulePass *Chooser) {
-    DimChooser = Chooser;
+  void setVectorizeDimMap(
+      const VectorizationDimensionAnalysisLegacy::Result *VDMap) {
+    VectorizeDimMap = VDMap;
   }
 };
 
@@ -90,7 +91,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     // For SYCL program, we always do vectorization on dim 0, so the pass won't
     // be added into the pipeline.
-    AU.addUsedIfAvailable<ChooseVectorizationDimensionModulePass>();
+    AU.addUsedIfAvailable<VectorizationDimensionAnalysisLegacy>();
   }
 };
 
