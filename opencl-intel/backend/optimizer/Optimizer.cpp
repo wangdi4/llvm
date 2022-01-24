@@ -1,4 +1,4 @@
-// Copyright 2012-2021 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -157,7 +157,6 @@ llvm::ModulePass *createAddTLSGlobalsPass();
 llvm::ModulePass *createCoerceTypesPass();
 llvm::ModulePass *createRemoveAtExitPass();
 llvm::FunctionPass *createAddNTAttrPass();
-llvm::ModulePass *createChooseVectorizationDimensionModulePass();
 llvm::Pass *createResolveVariableTIDCallPass();
 llvm::ModulePass *createVectorKernelDiscardPass(const intel::OptimizerConfig *);
 llvm::ModulePass *createSetPreferVectorWidthPass(const CPUDetect *CPUID);
@@ -607,7 +606,7 @@ static void populatePassesPostFailCheck(
         // Prepare Function for VecClone and call VecClone
         // We won't automatically switch vectorization dimension for SYCL.
         if (!IsSYCL)
-          PM.add(createChooseVectorizationDimensionModulePass());
+          PM.add(llvm::createVectorizationDimensionAnalysisLegacyPass());
         PM.add(createOCLVecClonePass(Optimizer::getVectInfos(),
                                      pConfig->GetCpuId(), !IsSYCL && !IsOMP));
 
