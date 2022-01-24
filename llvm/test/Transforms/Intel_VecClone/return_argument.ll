@@ -5,10 +5,19 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @bar(i32 %gid) #0 {
-; CHECK:  define <4 x i32> @_ZGVbN4v_bar(<4 x i32> [[GID0:%.*]]) #1 {
+; CHECK:       target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+; CHECK-NEXT:  target triple = "x86_64-unknown-linux-gnu"
+;
+; CHECK:  define i32 @bar(i32 [[GID0:%.*]]) #0 {
+; CHECK-NEXT:    ret i32 [[GID0]]
+; CHECK-NEXT:  }
+;
+; CHECK:  define <4 x i32> @_ZGVbN4v_bar(<4 x i32> [[GID0]]) #1 {
 ; CHECK-NEXT:    [[VEC_GID0:%.*]] = alloca <4 x i32>, align 16
+; CHECK-NEXT:    [[VEC_RETVAL0:%.*]] = alloca <4 x i32>, align 16
 ; CHECK-NEXT:    [[VEC_GID_CAST0:%.*]] = bitcast <4 x i32>* [[VEC_GID0]] to i32*
 ; CHECK-NEXT:    store <4 x i32> [[GID0]], <4 x i32>* [[VEC_GID0]], align 16
+; CHECK-NEXT:    [[RET_CAST0:%.*]] = bitcast <4 x i32>* [[VEC_RETVAL0]] to i32*
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
@@ -20,6 +29,10 @@ define i32 @bar(i32 %gid) #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop:
 ; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]
+; CHECK-NEXT:    [[VEC_GID_CAST_GEP0:%.*]] = getelementptr i32, i32* [[VEC_GID_CAST0]], i32 [[INDEX0]]
+; CHECK-NEXT:    [[VEC_GID_ELEM0:%.*]] = load i32, i32* [[VEC_GID_CAST_GEP0]], align 4
+; CHECK-NEXT:    [[RET_CAST_GEP0:%.*]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[INDEX0]]
+; CHECK-NEXT:    store i32 [[VEC_GID_ELEM0]], i32* [[RET_CAST_GEP0]], align 4
 ; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.exit:
@@ -32,8 +45,8 @@ define i32 @bar(i32 %gid) #0 {
 ; CHECK-NEXT:    br label [[RETURN0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  return:
-; CHECK-NEXT:    [[VEC_VEC_GID_CAST0:%.*]] = bitcast i32* [[VEC_GID_CAST0]] to <4 x i32>*
-; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <4 x i32>, <4 x i32>* [[VEC_VEC_GID_CAST0]], align 16
+; CHECK-NEXT:    [[VEC_RET_CAST0:%.*]] = bitcast i32* [[RET_CAST0]] to <4 x i32>*
+; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <4 x i32>, <4 x i32>* [[VEC_RET_CAST0]], align 16
 ; CHECK-NEXT:    ret <4 x i32> [[VEC_RET0]]
 ; CHECK-NEXT:  }
 ;

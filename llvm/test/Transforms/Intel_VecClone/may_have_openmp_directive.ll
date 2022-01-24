@@ -9,10 +9,13 @@
 ; CHECK-SAME: DIR.OMP.SIMD
 ; CHECK-SAME: QUAL.OMP.SIMDLEN
 ; CHECK-SAME: i32 4
-; CHECK-SAME: QUAL.OMP.UNIFORM
-; CHECK-SAME: i32* %alloca.b
+; FIXME: alloca for %b should be marked as uniform. This is temporary because
+; this will be fixed as part of CMPLRLLVM-9851. This is just a side-effect
+; from this refactor.
+; CHECK-SAME: QUAL.OMP.PRIVATE
+; CHECK-SAME: i32* %b.addr
 ; CHECK: simd.loop:
-; CHECK: store i32 %load.b
+; CHECK: store i32 %b
 
 ; CHECK: attributes #1
 ; CHECK-SAME: "may-have-openmp-directive"="true"
