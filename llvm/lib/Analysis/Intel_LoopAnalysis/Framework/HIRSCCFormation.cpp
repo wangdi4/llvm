@@ -294,12 +294,8 @@ bool HIRSCCFormation::isCandidateNode(const NodeTy *Node,
   }
 
   // Unary instruction types are alloca, cast, extractvalue, load and vaarg.
-  if (isa<UnaryInstruction>(Node)) {
-    // Only allow single use cast instructions as they can be removed as
-    // intermediate temps from the SCC and do not cause type mismatch issues.
-    if (!isa<CastInst>(Node) || !Node->hasOneUse()) {
-      return false;
-    }
+  if (isa<UnaryInstruction>(Node) && !isa<CastInst>(Node)) {
+    return false;
   }
 
   // Phi SCCs do not have anything to do with memory.
@@ -397,9 +393,9 @@ void HIRSCCFormation::removeIntermediateNodes(SCC &CurSCC) const {
       continue;
     }
 
+    // Remove all non-phi nodes with mismatched type and let validation logic
+    // figure out if it is still a valid SCC.
     if (Node->getType() != RootTy) {
-      assert((!isa<CastInst>(Node) || Node->hasOneUse()) &&
-             "Unexpected SCC node!");
       IntermediateNodes.push_back(Node);
       continue;
 
@@ -896,7 +892,6 @@ bool HIRSCCFormation::isValidSCC(const SCC &CurSCC) const {
 
     // Check whether all phis have the same type. There can be type mismatch if
     // we have traced through casts.
-    // TODO: is it worth tracing through casts?
     if (Phi->getType() != RootTy) {
       return false;
     }

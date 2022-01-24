@@ -11,8 +11,7 @@
 ; CHECK: |   %mul.i = %t2  *  %conv.i;
 ; CHECK: |   (%start)[i1] = %mul.i;
 ; CHECK: |   %mul6.i = %conv.i  *  %factor;
-; CHECK: |   %conv7.i = fptrunc.x86_fp80.double(%mul6.i);
-; CHECK: |   %f.019.i = %conv7.i;
+; CHECK: |   %f.019.i = fptrunc.x86_fp80.double(%mul6.i);
 ; CHECK: + END LOOP
 
 
