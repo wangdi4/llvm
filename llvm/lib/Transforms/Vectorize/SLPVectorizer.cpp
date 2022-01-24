@@ -5800,25 +5800,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         return I0->getParent() == RootI0->getParent();
       };
 
-      auto HasExternalUsesToMultiNode = [this](ArrayRef<Value *> VL) {
-        assert((!getTreeEntry(VL[0]) || getTreeEntry(VL[0])->Idx != 0) &&
-               "This VL is at the root!");
-
-        for (Value *Scalar : VL) {
-          if (llvm::any_of(Scalar->users(), [this](User *U) {
-                // If a user is not in ScalarToTreeEntry, then it is not even in
-                // the SLP-tree, so definitely not in the Multi-Node.
-                // If the user is not in current MultiNode, then it is
-                // an external user.
-                return !ScalarToTreeEntry.count(U) ||
-                       !CurrentMultiNode->containsTrunk(
-                           ScalarToTreeEntry[U]->Idx);
-              }))
-            return true;
-        }
-        return false;
-      };
-
       if (CurrentMultiNode->numOfTrunks() >= MultiNodeSizeLimit ||
           !MultiNodeCompatibleInstructions(VL) ||
           // If operands are trunk instructions of a Multi-Node, then cleanup
@@ -5834,10 +5815,10 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       // Here are few additional checks for a non-empty ones.
       // We have to keep the vector-length constant across the Multi-Node.
       return VL.size() == CurrentMultiNode->getNumLanes() &&
-             // We don't allow values to appear more than once in the Trunk
-             !alreadyInTrunk(VL) &&
-             // Only the root can have external uses.
-             !HasExternalUsesToMultiNode(VL) &&
+             // We want VL to become a trunk. If it would have multiple uses
+             // then reorders of its operand would result in applying it
+             // multiple times which would be wrong.
+             all_of(VL, [](const Value *V) { return V->hasOneUse(); }) &&
              // Should not cross BB
              // TODO: we should remove this restriction in the future.
              // Note that we likely want to take BB size into account once the
