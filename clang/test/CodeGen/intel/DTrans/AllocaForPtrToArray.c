@@ -1,7 +1,7 @@
 // REQUIRES: intel_feature_sw_dtrans
 // RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s
 
-// CHECK: define dso_local void @test(i8* "intel_dtrans_func_index"="1" %buf) {{.*}}!intel.dtrans.func.type ![[TEST_MD:[0-9]+]]
+// CHECK: define dso_local void @test(i8* noundef "intel_dtrans_func_index"="1" %buf) {{.*}}!intel.dtrans.func.type ![[TEST_MD:[0-9]+]]
 void test(void *buf) {
   // CHECK: alloca i8*, align 8, !intel_dtrans_type ![[VOID_PTR:[0-9]+]]
   // CHECK: alloca [4 x i32]*, align 8, !intel_dtrans_type ![[ARRAY_PTR:[0-9]+]]

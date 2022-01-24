@@ -16,8 +16,8 @@ ulong4 __attribute__((const)) __attribute__((overloadable)) convert_ulong4_rte(u
   return 1;
 }
 
-// NOCOER:     define {{.*}}<4 x i64> @_Z18convert_ulong4_rteDv4_t(<4 x i16> %{{.*}})
-// COER32CL:   define {{.*}}<4 x i64> @_Z18convert_ulong4_rteDv4_t(i64 %{{.*}})
-// COER64CL:   define {{.*}}<4 x i64> @_Z18convert_ulong4_rteDv4_t(double %{{.*}})
-// COER32:     define {{.*}}<4 x i32> @_Z18convert_ulong4_rteDv4_t(i64 %{{.*}})
-// COER64:     define {{.*}}<4 x i64> @_Z18convert_ulong4_rteDv4_t(double %{{.*}})
+// NOCOER:     define {{.*}}<4 x i64> @_Z18convert_ulong4_rteDv4_t(<4 x i16> noundef %{{.*}})
+// COER32CL:   define {{.*}}<4 x i64> @_Z18convert_ulong4_rteDv4_t(i64 noundef %{{.*}})
+// COER64CL:   define {{.*}}<4 x i64> @_Z18convert_ulong4_rteDv4_t(double noundef %{{.*}})
+// COER32:     define {{.*}}<4 x i32> @_Z18convert_ulong4_rteDv4_t(i64 noundef %{{.*}})
+// COER64:     define {{.*}}<4 x i64> @_Z18convert_ulong4_rteDv4_t(double noundef %{{.*}})

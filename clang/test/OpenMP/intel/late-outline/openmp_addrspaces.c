@@ -26,7 +26,7 @@
 // SPIR-DAG: %struct.user_struct = type { i32 addrspace(4)* }
 // SPIR-DAG: @user_constant_global = {{.*}}target_declare addrspace(1) global i32
 // SPIR-DAG: @user_nonconstant_global = {{.*}}target_declare addrspace(1) global i32
-// SPIR-DAG: define{{.*}}spir_func void @user_function(i32 addrspace(4)* [[USER_ARG:[^)]*]])
+// SPIR-DAG: define{{.*}}spir_func void @user_function(i32 addrspace(4)* noundef [[USER_ARG:[^)]*]])
 // SPIR-DAG: [[USER_ARG_ADDR:%.*]] = alloca i32 addrspace(4)*
 // SPIR-DAG: [[USER_ARG_ADDR_CAST:%.*]] = addrspacecast i32 addrspace(4)** [[USER_ARG_ADDR]] to i32 addrspace(4)* addrspace(4)*
 // SPIR-DAG: [[USER_STRUCT_INST:%.*]] = alloca %struct.user_struct
@@ -38,7 +38,7 @@
 // HOST-DAG: %struct.user_struct = type { i32* }
 // HOST-DAG: @user_constant_global = {{.*}}target_declare global i32
 // HOST-DAG: @user_nonconstant_global = {{.*}}target_declare global i32
-// HOST-DAG: define{{.*}} void @user_function(i32* [[USER_ARG:[^)]*]])
+// HOST-DAG: define{{.*}} void @user_function(i32* noundef [[USER_ARG:[^)]*]])
 // HOST-DAG: [[USER_ARG_ADDR:%.*]] = alloca i32*
 // HOST-DAG: [[USER_STRUCT_INST:%.*]] = alloca %struct.user_struct
 // HOST-DAG: store i32* [[USER_ARG]], i32** [[USER_ARG_ADDR]]

@@ -10,8 +10,7 @@ typedef void (*fptr)(long, struct points *);
 struct fptr_test {
   fptr m_func;
 };
-
-// CHECK: define dso_local void @foo(i64 %x, %struct._ZTS6points.points* "intel_dtrans_func_index"="1" %array) {{.*}}!intel.dtrans.func.type ![[FOO_MD:[0-9]+]]
+// CHECK: define dso_local void @foo(i64 noundef %x, %struct._ZTS6points.points* noundef "intel_dtrans_func_index"="1" %array) {{.*}}!intel.dtrans.func.type ![[FOO_MD:[0-9]+]]
 void foo(long x, struct points *array) {
   // CHECK: alloca %struct._ZTS6points.points*, align 8, !intel_dtrans_type ![[POINTS_PTR:[0-9]+]]
 }

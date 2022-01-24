@@ -11,10 +11,10 @@ long double global;
 // SIZE128: @global = dso_local global fp128 0
 
 long double func(long double param) {
-  // SIZE64: define dso_local double @func(double %param)
-  // SIZE80: define dso_local x86_fp80 @func(x86_fp80 %param)
-  // SIZE80_x86: define dso_local x86_fp80 @func(x86_fp80 %param)
-  // SIZE128: define dso_local fp128  @func(fp128 %param)
+  // SIZE64: define dso_local double @func(double noundef %param)
+  // SIZE80: define dso_local x86_fp80 @func(x86_fp80 noundef %param)
+  // SIZE80_x86: define dso_local x86_fp80 @func(x86_fp80 noundef %param)
+  // SIZE128: define dso_local fp128  @func(fp128 noundef %param)
   long double local = param;
   // SIZE64: alloca double
   // SIZE80: alloca x86_fp80, align 16

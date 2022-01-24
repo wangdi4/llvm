@@ -24,7 +24,7 @@ int foo(int zc, void *lock) {
 //X64-NEXT: @.str.1 = private unnamed_addr constant [20 x i8] c"__itt_sync_acquired\00", align 1
 //X64-NEXT: @.str.2 = private unnamed_addr constant [19 x i8] c"__itt_sync_destroy\00", align 1
 
-//X64:      define{{.*}}i32 @foo(i32 %zc, i8* %lock) #0 {
+//X64:      define{{.*}}i32 @foo(i32 noundef %zc, i8* noundef %lock) #0 {
 //X64-NEXT: entry:
 //X64-NEXT:   %zc.addr = alloca i32, align 4
 //X64-NEXT:   %lock.addr = alloca i8*, align 8
@@ -61,14 +61,13 @@ int foo(int zc, void *lock) {
 //X64-NEXT:   call void @llvm.notify.nzc(i8* getelementptr inbounds ([19 x i8], [19 x i8]* @.str.2, i64 0, i64 0), i8* bitcast (i32* @foo.lock2 to i8*))
 //X64-NEXT:   call void @llvm.notify.zc(i8* getelementptr inbounds ([19 x i8], [19 x i8]* @.str.2, i64 0, i64 0), i8* bitcast (i32* @foo.lock3 to i8*))
 //X64-NEXT:   %7 = load i8*, i8** %lock.addr, align 8
-//X64-NEXT:   call void @bar(i8* %7, i8* bitcast (i32* @foo.lock2 to i8*), i8* bitcast (i32* @foo.lock3 to i8*))
+//X64-NEXT:   call void @bar(i8* noundef %7, i8* noundef bitcast (i32* @foo.lock2 to i8*), i8* noundef bitcast (i32* @foo.lock3 to i8*))
 //X64-NEXT:   ret i32 0
 //X64-NEXT: }
 
 //X64:      declare void @llvm.notify.nzc(i8*, i8*)
 //X64:      declare void @llvm.notify.zc(i8*, i8*)
-//X64:      declare void @bar(i8*, i8*, i8*)
-
+//X64:      declare void @bar(i8* noundef, i8* noundef, i8* noundef)
 
 //X86:      @foo.lock2 = internal global i32 2, align 4
 //X86-NEXT: @foo.lock3 = internal global i32 3, align 4
@@ -76,7 +75,7 @@ int foo(int zc, void *lock) {
 //X86-NEXT: @.str.1 = private unnamed_addr constant [20 x i8] c"__itt_sync_acquired\00", align 1
 //X86-NEXT: @.str.2 = private unnamed_addr constant [19 x i8] c"__itt_sync_destroy\00", align 1
 
-//X86:      define{{.*}}i32 @foo(i32 %zc, i8* %lock) #0 {
+//X86:      define{{.*}}i32 @foo(i32 noundef %zc, i8* noundef %lock) #0 {
 //X86-NEXT: entry:
 //X86-NEXT:   %zc.addr = alloca i32, align 4
 //X86-NEXT:   %lock.addr = alloca i8*, align 4
@@ -112,10 +111,10 @@ int foo(int zc, void *lock) {
 //X86-NEXT:   call void @llvm.notify.nzc(i8* getelementptr inbounds ([19 x i8], [19 x i8]* @.str.2, i32 0, i32 0), i8* bitcast (i32* @foo.lock2 to i8*))
 //X86-NEXT:   call void @llvm.notify.zc(i8* getelementptr inbounds ([19 x i8], [19 x i8]* @.str.2, i32 0, i32 0), i8* bitcast (i32* @foo.lock3 to i8*))
 //X86-NEXT:   %7 = load i8*, i8** %lock.addr, align 4
-//X86-NEXT:   call void @bar(i8* %7, i8* bitcast (i32* @foo.lock2 to i8*), i8* bitcast (i32* @foo.lock3 to i8*))
+//X86-NEXT:   call void @bar(i8* noundef %7, i8* noundef bitcast (i32* @foo.lock2 to i8*), i8* noundef bitcast (i32* @foo.lock3 to i8*))
 //X86-NEXT:   ret i32 0
 //X86-NEXT: }
 
 //X86:      declare void @llvm.notify.nzc(i8*, i8*)
 //X86:      declare void @llvm.notify.zc(i8*, i8*)
-//X86:      declare void @bar(i8*, i8*, i8*)
+//X86:      declare void @bar(i8* noundef, i8* noundef, i8* noundef)

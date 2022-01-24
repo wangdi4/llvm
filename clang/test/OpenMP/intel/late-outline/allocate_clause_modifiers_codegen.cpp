@@ -114,7 +114,7 @@ double template_test() {
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[D:%.*]] = alloca double, align 8
 // CHECK-NEXT:    [[TMP0:%.*]] = load double, double* [[D]], align 8
-// CHECK-NEXT:    [[CALL:%.*]] = call double @_Z3runIdL22omp_allocator_handle_t2ELj10ELj2EET_S1_(double [[TMP0]])
+// CHECK-NEXT:    [[CALL:%.*]] = call noundef double @_Z3runIdL22omp_allocator_handle_t2ELj10ELj2EET_S1_(double noundef [[TMP0]])
 // CHECK-NEXT:    store double [[CALL]], double* [[D]], align 8
 // CHECK-NEXT:    [[TMP1:%.*]] = load double, double* [[D]], align 8
 // CHECK-NEXT:    ret double [[TMP1]]

@@ -315,7 +315,7 @@ int template_test() { run<void,1,2,3>(); return 0;
 // CHECK-NEXT:    [[TMP38:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 11), "QUAL.OMP.SUBDEVICE"(i32 0, i8 [[TMP36]], i64 [[TMP37]], i32 1) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP38]]) [ "DIR.OMP.END.TARGET"() ]
 // CHECK-NEXT:    [[TMP39:%.*]] = load i32, i32* [[A]], align 4
-// CHECK-NEXT:    [[CALL:%.*]] = call i32 @_Z4funci(i32 [[TMP39]])
+// CHECK-NEXT:    [[CALL:%.*]] = call noundef i32 @_Z4funci(i32 noundef [[TMP39]])
 // CHECK-NEXT:    store i32 [[CALL]], i32* [[DOTCAPTURE_EXPR_13]], align 4
 // CHECK-NEXT:    [[TMP40:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_13]], align 4
 // CHECK-NEXT:    [[TMP41:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 12), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP40]], i32 2147483647, i32 1) ]

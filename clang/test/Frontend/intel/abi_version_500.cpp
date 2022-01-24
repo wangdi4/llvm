@@ -8,4 +8,4 @@ void multiQueryFuture(int&& args)
 {
    foo(args);
 }
-// CHECK: call i32 @_Z3fooIJRiEEiDpOT_
+// CHECK: call noundef i32 @_Z3fooIJRiEEiDpOT_

@@ -3,5 +3,4 @@
 __vectorcall // expected-warning {{vectorcall calling convention is not supported on variadic function}}
 void foo(double p1, ...)
 {}
-// CHECK: define dso_local void @{{.+}}(double {{%.+}}, ...) #0 {
-
+// CHECK: define dso_local void @{{.+}}(double noundef {{%.+}}, ...) #0 {

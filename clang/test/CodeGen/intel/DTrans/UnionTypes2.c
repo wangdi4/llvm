@@ -14,7 +14,7 @@ typedef union {
   XOP *xop_ptr;
 } XOPRETANY;
 
-// CHECK: define dso_local "intel_dtrans_func_index"="1" i8* @Perl_custom_op_get_field(%struct._ZTS2op.op* "intel_dtrans_func_index"="2" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[PERL_FUNC_MD:[0-9]+]]
+// CHECK: define dso_local "intel_dtrans_func_index"="1" i8* @Perl_custom_op_get_field(%struct._ZTS2op.op* noundef "intel_dtrans_func_index"="2" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[PERL_FUNC_MD:[0-9]+]]
 XOPRETANY Perl_custom_op_get_field(const OP *o) {
   XOPRETANY local;
   local.xop_class = 1;

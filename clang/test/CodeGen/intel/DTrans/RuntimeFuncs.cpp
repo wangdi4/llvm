@@ -46,7 +46,7 @@ struct A {
 };
 struct B : A {};
 
-// CHECK: define dso_local "intel_dtrans_func_index"="1" %{{\"?}}struct.{{.+}}.B{{\"?}}* @calls_dyn_cast(%{{\"?}}struct.{{.+}}.A{{\"?}}* "intel_dtrans_func_index"="2" %{{.+}}){{.+}}!intel.dtrans.func.type ![[CALLS_DYN_CAST:[0-9]+]]
+// CHECK: define dso_local "intel_dtrans_func_index"="1" %{{\"?}}struct.{{.+}}.B{{\"?}}* @calls_dyn_cast(%{{\"?}}struct.{{.+}}.A{{\"?}}* noundef "intel_dtrans_func_index"="2" %{{.+}}){{.+}}!intel.dtrans.func.type ![[CALLS_DYN_CAST:[0-9]+]]
 
 extern "C" B* calls_dyn_cast(A* a) {
   return dynamic_cast<B*>(a);

@@ -37,8 +37,7 @@ int main() {
 // CHECK: @basket_sizes = global i32* null, align 8, !intel_dtrans_type ![[INT_PTR:[0-9]+]]
 // CHECK: @all_arc_ptrs = global [256 x %struct._ZTS3arc.arc*] zeroinitializer, align 16, !intel_dtrans_type ![[ARC_PTR_ARRAY:[0-9]+]]
 
-// CHECK: declare !intel.dtrans.func.type ![[ARCLESS_MD:[0-9]+]] i32 @arcless(%struct._ZTS3arc.arc* "intel_dtrans_func_index"="1", %struct._ZTS3arc.arc* "intel_dtrans_func_index"="2")
-
+// CHECK: declare !intel.dtrans.func.type ![[ARCLESS_MD:[0-9]+]] i32 @arcless(%struct._ZTS3arc.arc* noundef "intel_dtrans_func_index"="1", %struct._ZTS3arc.arc* noundef "intel_dtrans_func_index"="2")
 // CHECK: !intel.dtrans.types = !{![[ARC:[0-9]+]], ![[BASKET:[0-9]+]]}
 
 // CHECK: ![[ARC_PTR]] = !{%struct._ZTS3arc.arc zeroinitializer, i32 1}

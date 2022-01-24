@@ -40,7 +40,7 @@ void foo1() {
   // CHECK: [[L2:%[0-9]+]] = load i32, i32* [[I]], align 4
   // CHECK: [[L3:%[0-9]+]] = load i32, i32* [[J]], align 4
   // CHECK-NEXT: {{call|invoke}} void {{.*}}bar
-  // CHECK-SAME: (i32 43, i32 [[L2]], i32 [[L3]])
+  // CHECK-SAME: (i32 noundef 43, i32 noundef [[L2]], i32 noundef [[L3]])
 
 #ifdef SPLIT
   #pragma omp target

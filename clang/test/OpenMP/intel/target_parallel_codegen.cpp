@@ -32,7 +32,7 @@ void foo1() {
   {
     // CHECK: [[L1:%[0-9]+]] = load i32, i32* [[J]], align 4
     // CHECK-NEXT: {{call|invoke}} void {{.*}}bar
-    // CHECK-SAME: (i32 41, i32 [[L1]])
+    // CHECK-SAME: (i32 noundef 41, i32 noundef [[L1]])
     bar(41,j);
   }
   // CHECK: directive.region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL"
