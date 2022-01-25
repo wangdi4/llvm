@@ -10066,25 +10066,20 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
     std::string INTELExtArg =
         ",+SPV_INTEL_subgroups,+SPV_INTEL_media_block_io"
         ",+SPV_INTEL_device_side_avc_motion_estimation"
-        ",+SPV_INTEL_fpga_loop_controls,+SPV_INTEL_fpga_memory_attributes"
-        ",+SPV_INTEL_fpga_memory_accesses"
-        ",+SPV_INTEL_unstructured_loop_controls,+SPV_INTEL_fpga_reg"
-        ",+SPV_INTEL_blocking_pipes,+SPV_INTEL_function_pointers"
-        ",+SPV_INTEL_kernel_attributes,+SPV_INTEL_io_pipes"
-        ",+SPV_INTEL_inline_assembly,+SPV_INTEL_arbitrary_precision_integers"
+        ",+SPV_INTEL_fpga_loop_controls,+SPV_INTEL_unstructured_loop_controls"
+        ",+SPV_INTEL_fpga_reg,+SPV_INTEL_blocking_pipes"
+        ",+SPV_INTEL_function_pointers,+SPV_INTEL_kernel_attributes"
+        ",+SPV_INTEL_io_pipes,+SPV_INTEL_inline_assembly"
+        ",+SPV_INTEL_arbitrary_precision_integers"
         ",+SPV_INTEL_float_controls2,+SPV_INTEL_vector_compute"
-        ",+SPV_INTEL_fast_composite,+SPV_INTEL_fpga_buffer_location"
+        ",+SPV_INTEL_fast_composite"
 #if INTEL_COLLAB
         ",+SPV_INTEL_joint_matrix"
 #endif // INTEL_COLLAB
         ",+SPV_INTEL_arbitrary_precision_fixed_point"
         ",+SPV_INTEL_arbitrary_precision_floating_point"
-        ",+SPV_INTEL_arbitrary_precision_floating_point"
         ",+SPV_INTEL_variable_length_array,+SPV_INTEL_fp_fast_math_mode"
-        ",+SPV_INTEL_fpga_cluster_attributes,+SPV_INTEL_loop_fuse"
         ",+SPV_INTEL_long_constant_composite"
-        ",+SPV_INTEL_fpga_invocation_pipelining_attributes"
-        ",+SPV_INTEL_fpga_dsp_control"
         ",+SPV_INTEL_arithmetic_fence"
         ",+SPV_INTEL_task_sequence"; // INTEL
 #if INTEL_CUSTOMIZATION
@@ -10098,8 +10093,12 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
     if (!C.getDriver().isFPGAEmulationMode()) {
 #endif // INTEL_CUSTOMIZATION
       // Enable several extensions on FPGA H/W exclusively
-      ExtArg += ",+SPV_INTEL_usm_storage_classes"
-                ",+SPV_INTEL_runtime_aligned";
+      ExtArg += ",+SPV_INTEL_usm_storage_classes,+SPV_INTEL_runtime_aligned"
+                ",+SPV_INTEL_fpga_cluster_attributes,+SPV_INTEL_loop_fuse"
+                ",+SPV_INTEL_fpga_buffer_location"
+                ",+SPV_INTEL_fpga_invocation_pipelining_attributes"
+                ",+SPV_INTEL_fpga_dsp_control,+SPV_INTEL_fpga_memory_accesses"
+                ",+SPV_INTEL_fpga_memory_attributes";
 #if INTEL_CUSTOMIZATION
       // Disable optnone for FPGA hardware
       ExtArg += ",-SPV_INTEL_optnone";
