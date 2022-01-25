@@ -10,14 +10,15 @@
 // CHECK-SAME: %[[RANGE_TYPE]]* noundef byval(%[[RANGE_TYPE]]) align 4 [[ACC_RANGE2:%[a-zA-Z0-9_]+]],
 // CHECK-SAME: %[[ID_TYPE]]* noundef byval(%[[ID_TYPE]]) align 4 [[ACC_ID:%[a-zA-Z0-9_]+]],
 // CHECK-SAME: i32 noundef [[ACC_INT:%[a-zA-Z0-9_]+]])
+
 // Alloca and addrspace casts for kernel parameters
 // CHECK: [[ARG:%[a-zA-Z0-9_]+]].addr = alloca i8 addrspace(1)*, align 8
 // CHECK: [[ARG:%[a-zA-Z0-9_]+]].addr.ascast = addrspacecast i8 addrspace(1)** [[ARG]].addr to i8 addrspace(1)* addrspace(4)*
 // CHECK: [[ARG_LOAD:%[a-zA-Z0-9_]+]] = load i8 addrspace(1)*, i8 addrspace(1)* addrspace(4)* [[ARG]].addr.ascast, align 8,
 
 // Check __init and __finalize method calls
-// CHECK:  call spir_func void @{{.*}}__init{{.*}}(%{{.*}}cl::sycl::stream" addrspace(4)* noundef %4, i8 addrspace(1)* noundef [[ARG_LOAD]], %[[RANGE_TYPE]]* noundef byval(%[[RANGE_TYPE]]) {{.*}}%{{.*}}
-// CHECK:  call spir_func void @_ZN2cl4sycl6stream10__finalizeEv(%{{.*}}cl::sycl::stream" addrspace(4)* noundef %{{[0-9]+}})
+// CHECK:  call spir_func void @{{.*}}__init{{.*}}(%{{.*}}cl::sycl::stream" addrspace(4)* noundef align 4 dereferenceable_or_null(16) %4, i8 addrspace(1)* noundef [[ARG_LOAD]], %[[RANGE_TYPE]]* noundef byval(%[[RANGE_TYPE]]) {{.*}}%{{.*}}
+// CHECK:  call spir_func void @_ZN2cl4sycl6stream10__finalizeEv(%{{.*}}cl::sycl::stream" addrspace(4)* noundef align 4 dereferenceable_or_null(16) %{{[0-9]+}})
 
 #include "Inputs/sycl.hpp"
 

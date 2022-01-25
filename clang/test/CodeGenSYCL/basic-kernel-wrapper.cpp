@@ -52,7 +52,11 @@ int main() {
 // CHECK: [[ARANGE:%agg.tmp.*]] = addrspacecast %"struct.cl::sycl::range" addrspace(4)* [[ARANGET]] to %"struct.cl::sycl::range"*
 // CHECK: [[MRANGE:%agg.tmp.*]] = addrspacecast %"struct.cl::sycl::range" addrspace(4)* [[MRANGET]] to %"struct.cl::sycl::range"*
 // CHECK: [[OID:%agg.tmp.*]] = addrspacecast %"struct.cl::sycl::id" addrspace(4)* [[OIDT]] to %"struct.cl::sycl::id"*
-// CHECK: call spir_func void @{{.*}}__init{{.*}}(%"class.cl::sycl::accessor" addrspace(4)* {{[^,]*}} [[ACCESSOR]], i32 addrspace(1)* noundef [[MEM_LOAD]], %"struct.cl::sycl::range"* noundef byval({{.*}}) align 4 [[ARANGE]], %"struct.cl::sycl::range"* noundef byval({{.*}}) align 4 [[MRANGE]], %"struct.cl::sycl::id"* noundef byval({{.*}}) align 4 [[OID]])
+// CHECK: call spir_func void @{{.*}}__init{{.*}}(%"class.cl::sycl::accessor" addrspace(4)* {{[^,]*}} [[ACCESSOR]],
+// CHECK-SAME: i32 addrspace(1)* noundef [[MEM_LOAD]],
+// CHECK-SAME: %"struct.cl::sycl::range"* noundef byval({{.*}}) align 4 [[ARANGE]],
+// CHECK-SAME: %"struct.cl::sycl::range"* noundef byval({{.*}}) align 4 [[MRANGE]],
+// CHECK-SAME: %"struct.cl::sycl::id"* noundef byval({{.*}}) align 4 [[OID]])
 
 // Check lambda "()" operator call
 // CHECK: call spir_func void @{{.*}}(%class.anon addrspace(4)* {{[^,]*}})

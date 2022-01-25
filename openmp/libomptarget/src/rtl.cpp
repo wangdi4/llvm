@@ -91,7 +91,20 @@ static char *ProfileTraceFile = nullptr;
 
 __ATTRIBUTE__(constructor(101)) void init() { // INTEL
   DP("Init target library!\n");
-  PM = new PluginManager();
+
+  bool UseEventsForAtomicTransfers = true;
+  if (const char *ForceAtomicMap = getenv("LIBOMPTARGET_MAP_FORCE_ATOMIC")) {
+    std::string ForceAtomicMapStr(ForceAtomicMap);
+    if (ForceAtomicMapStr == "false" || ForceAtomicMapStr == "FALSE")
+      UseEventsForAtomicTransfers = false;
+    else if (ForceAtomicMapStr != "true" && ForceAtomicMapStr != "TRUE")
+      fprintf(stderr,
+              "Warning: 'LIBOMPTARGET_MAP_FORCE_ATOMIC' accepts only "
+              "'true'/'TRUE' or 'false'/'FALSE' as options, '%s' ignored\n",
+              ForceAtomicMap);
+  }
+
+  PM = new PluginManager(UseEventsForAtomicTransfers);
 
 #if INTEL_COLLAB
   OmptGlobal = new OmptGlobalTy();
