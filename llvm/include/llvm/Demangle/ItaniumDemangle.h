@@ -21,12 +21,13 @@
 #include "DemangleConfig.h"
 #include "StringView.h"
 #include "Utility.h"
+#include <algorithm>
 #include <cassert>
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <numeric>
+#include <limits>
 // INTEL_CUSTOMIZATION
 #include <string>
 // end INTEL_CUSTOMIZATION
