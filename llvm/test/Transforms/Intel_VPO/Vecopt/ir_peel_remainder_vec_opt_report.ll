@@ -10,13 +10,13 @@
 ; SCEN1-NEXT: LOOP END
 ; SCEN1-EMPTY:
 ; SCEN1-NEXT: LOOP BEGIN
-; SCEN1-NEXT: <REMAINDER LOOP FOR VECTORIZATION>
+; SCEN1-NEXT: <Remainder loop for vectorization>
 ; SCEN1-NEXT:     remark #15439: remainder loop was vectorized (unmasked)
 ; SCEN1-NEXT:     remark #15305: vectorization support: vector length 2
 ; SCEN1-NEXT: LOOP END
 ; SCEN1-EMPTY:
 ; SCEN1-NEXT: LOOP BEGIN
-; SCEN1-NEXT: <REMAINDER LOOP FOR VECTORIZATION>
+; SCEN1-NEXT: <Remainder loop for vectorization>
 ; SCEN1-NEXT: LOOP END
 
 ; RUN: opt -vplan-vec-scenario="n0;v4;m2" -disable-output -vplan-vec -vplan-enable-peeling -intel-ir-optreport-emitter -intel-loop-optreport=low %s 2>&1 | FileCheck %s --check-prefix=SCEN2
@@ -28,7 +28,7 @@
 ; SCEN2-NEXT: LOOP END
 ; SCEN2-EMPTY:
 ; SCEN2-NEXT: LOOP BEGIN
-; SCEN2-NEXT: <REMAINDER LOOP FOR VECTORIZATION>
+; SCEN2-NEXT: <Remainder loop for vectorization>
 ; SCEN2-NEXT:     remark #15440: remainder loop was vectorized (masked)
 ; SCEN2-NEXT:     remark #15305: vectorization support: vector length 2
 ; SCEN2-NEXT: LOOP END
@@ -46,13 +46,13 @@
 ; SCEN3-NEXT: LOOP END
 ; SCEN3-EMPTY:
 ; SCEN3-NEXT: LOOP BEGIN
-; SCEN3-NEXT: <REMAINDER LOOP FOR VECTORIZATION>
+; SCEN3-NEXT: <Remainder loop for vectorization>
 ; SCEN3-NEXT:     remark #15439: remainder loop was vectorized (unmasked)
 ; SCEN3-NEXT:     remark #15305: vectorization support: vector length 2
 ; SCEN3-NEXT: LOOP END
 ; SCEN3-EMPTY:
 ; SCEN3-NEXT: LOOP BEGIN
-; SCEN3-NEXT: <REMAINDER LOOP FOR VECTORIZATION>
+; SCEN3-NEXT: <Remainder loop for vectorization>
 ; SCEN3-NEXT: LOOP END
 
 ; RUN: opt -vplan-vec-scenario="m4;v4;m4s1" -disable-output -vplan-vec -vplan-enable-peeling -intel-ir-optreport-emitter -intel-loop-optreport=low %s 2>&1 | FileCheck %s --check-prefix=SCEN4
@@ -65,7 +65,7 @@
 ; SCEN4-NEXT: LOOP END
 ; SCEN4-EMPTY:
 ; SCEN4-NEXT: LOOP BEGIN
-; SCEN4-NEXT: <REMAINDER LOOP FOR VECTORIZATION>
+; SCEN4-NEXT: <Remainder loop for vectorization>
 ; SCEN4-NEXT: LOOP END
 ; SCEN4-EMPTY:
 ; SCEN4-NEXT: LOOP BEGIN
@@ -74,7 +74,7 @@
 ; SCEN4-NEXT: LOOP END
 ; SCEN4-EMPTY:
 ; SCEN4-NEXT: LOOP BEGIN
-; SCEN4-NEXT: <REMAINDER LOOP FOR VECTORIZATION>
+; SCEN4-NEXT: <Remainder loop for vectorization>
 ; SCEN4-NEXT:     remark #15440: remainder loop was vectorized (masked)
 ; SCEN4-NEXT:     remark #15305: vectorization support: vector length 4
 ; SCEN4-NEXT: LOOP END

@@ -57,7 +57,7 @@
 ; OPTREPORT-NEXT:         remark #25439: Loop unrolled with remainder by {{[0-9]+}}
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:        <Remainder>
+; OPTREPORT-NEXT:        <Remainder loop>
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 

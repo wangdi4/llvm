@@ -29,7 +29,7 @@
 ; CHECK-NEXT:  LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  LOOP BEGIN at test.cpp (2, 1)
-; CHECK-NEXT:  <REMAINDER LOOP FOR VECTORIZATION>
+; CHECK-NEXT:  <Remainder loop for vectorization>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      LOOP BEGIN at test.cpp (4, 5)
 ; CHECK-NEXT:      LOOP END

@@ -47,7 +47,7 @@
 ; CHECK: [[M13]] = distinct !{!"intel.optreport.rootnode", [[M14:!.*]]}
 ; CHECK: [[M14]] = distinct !{!"intel.optreport", [[M15:!.*]]}
 ; CHECK: [[M15]] = !{!"intel.optreport.origin", [[M16:!.*]]}
-; CHECK: [[M16]] = !{!"intel.optreport.remark", i32 0, !"Remainder loop for vectorization"}
+; CHECK: [[M16]] = !{!"intel.optreport.remark", i32 25519, !"Remainder loop for vectorization"}
 
 ; CHECK: [[F1:!.*]] = distinct !{[[F1]]{{.*}}[[F2:!.*]]{{.*}}}
 ; CHECK: [[F2]] = distinct !{!"intel.optreport.rootnode", [[F3:!.*]]}

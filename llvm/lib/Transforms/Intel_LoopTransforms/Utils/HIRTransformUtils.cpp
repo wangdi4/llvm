@@ -612,12 +612,14 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
     // second to MainLoop, we move all the next siblings back there.
     ORBuilder(*MainLoop).moveSiblingsTo(*OrigLoop);
     if (OptTy == OptimizationType::Vectorizer) {
-      ORBuilder(*OrigLoop).addOrigin("Remainder loop for vectorization");
+      // Remark: Remainder loop for vectorization
+      ORBuilder(*OrigLoop).addOrigin(25519u);
     } else {
       assert(((OptTy == OptimizationType::Unroll) ||
               (OptTy == OptimizationType::UnrollAndJam)) &&
              "Invalid optimization type!");
-      ORBuilder(*OrigLoop).addOrigin("Remainder");
+      // Remark: Remainder loop
+      ORBuilder(*OrigLoop).addOrigin(25491u);
     }
   } else
     assert((!RuntimeChecks || RuntimeChecks->empty()) &&
