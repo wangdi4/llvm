@@ -530,19 +530,17 @@ struct PluginManager {
   // Store target policy (disabled, mandatory, default)
   kmp_target_offload_kind_t TargetOffloadPolicy = tgt_default;
   std::mutex TargetOffloadMtx; ///< For TargetOffloadPolicy
-<<<<<<< HEAD
+
+  /// Flag to indicate if we use events to ensure the atomicity of
+  /// map clauses or not. Can be modified with an environment variable.
+  const bool UseEventsForAtomicTransfers;
+
 #if INTEL_COLLAB
   /// Root device ID and sub-device mask set by user
   /// These should be global to all threads.
   int64_t RootDeviceID = -1;
   int64_t SubDeviceMask = 0;
 #endif // INTEL_COLLAB
-=======
-
-  /// Flag to indicate if we use events to ensure the atomicity of
-  /// map clauses or not. Can be modified with an environment variable.
-  const bool UseEventsForAtomicTransfers;
->>>>>>> 0a1e6d9cafbcbe81d4bd7972cac5d8790124de34
 };
 
 extern PluginManager *PM;

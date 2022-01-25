@@ -17,13 +17,10 @@
 #include "rtl.h"
 
 #include <cassert>
-<<<<<<< HEAD
+#include <cstdint>
 #if INTEL_COLLAB
 #include <cstring>
 #endif // INTEL_COLLAB
-=======
-#include <cstdint>
->>>>>>> 0a1e6d9cafbcbe81d4bd7972cac5d8790124de34
 #include <vector>
 
 int AsyncInfoTy::synchronize() {
@@ -685,7 +682,6 @@ int targetDataBegin(ident_t *loc, DeviceTy &Device, int32_t arg_num,
           REPORT("Copying data to device failed.\n");
           return OFFLOAD_FAIL;
         }
-<<<<<<< HEAD
 #if INTEL_COLLAB
         // Obtain offset from the base address of PointerTgtPtrBegin.
         Device.DataMapMtx.lock();
@@ -696,15 +692,8 @@ int targetDataBegin(ident_t *loc, DeviceTy &Device, int32_t arg_num,
             (uint64_t)PtrLookup.Entry->HstPtrBase);
         Device.notifyIndirectAccess(PointerTgtPtrBegin, PtrOffset);
 #endif // INTEL_COLLAB
-        void *Event = Pointer_TPR.MapTableEntry->getEvent();
-        bool NeedNewEvent = Event == nullptr;
-        if (NeedNewEvent && Device.createEvent(&Event) != OFFLOAD_SUCCESS) {
-          Pointer_TPR.MapTableEntry->unlock();
-          REPORT("Failed to create event.\n");
-=======
         if (Pointer_TPR.MapTableEntry->addEventIfNecessary(Device, AsyncInfo) !=
             OFFLOAD_SUCCESS)
->>>>>>> 0a1e6d9cafbcbe81d4bd7972cac5d8790124de34
           return OFFLOAD_FAIL;
       } else
         Device.ShadowMtx.unlock();
@@ -1625,12 +1614,12 @@ static int processDataBefore(ident_t *loc, int64_t DeviceId, void *HostPtr,
     } else {
 #if INTEL_COLLAB
       if (ArgTypes[I] & OMP_TGT_MAPTYPE_PTR_AND_OBJ) {
-        TgtPtrBegin = Device.getTgtPtrBegin(HstPtrBase, sizeof(void *), IsLast, false, false, IsHostPtr);
+        TgtPtrBegin = Device.getTgtPtrBegin(HstPtrBase, sizeof(void *), IsLast, false, false, IsHostPtr).TargetPointer;
         TgtBaseOffset = 0;
       } else {
         TgtPtrBegin = Device.getTgtPtrBegin(HstPtrBegin, ArgSizes[I], IsLast,
                                             /*UpdateRefCount=*/false,
-                                            /*UseHoldRefCount=*/false, IsHostPtr);
+                                            /*UseHoldRefCount=*/false, IsHostPtr).TargetPointer;
         TgtBaseOffset =(intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
       }
 #else // INTEL COLLAB
