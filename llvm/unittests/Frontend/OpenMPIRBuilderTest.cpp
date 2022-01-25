@@ -492,7 +492,14 @@ TEST_F(OpenMPIRBuilderTest, ParallelSimple) {
   F->setName("func");
   IRBuilder<> Builder(BB);
 
+<<<<<<< HEAD
   OpenMPIRBuilder::LocationDescription Loc({Builder.saveIP()});        // INTEL
+=======
+  BasicBlock *EnterBB = BasicBlock::Create(Ctx, "parallel.enter", F);
+  Builder.CreateBr(EnterBB);
+  Builder.SetInsertPoint(EnterBB);
+  OpenMPIRBuilder::LocationDescription Loc({Builder.saveIP(), DL});
+>>>>>>> 616f77172f0a48ef02c1700882ca0ba2215066d1
 
   AllocaInst *PrivAI = nullptr;
 
@@ -598,6 +605,9 @@ TEST_F(OpenMPIRBuilderTest, ParallelNested) {
   F->setName("func");
   IRBuilder<> Builder(BB);
 
+  BasicBlock *EnterBB = BasicBlock::Create(Ctx, "parallel.enter", F);
+  Builder.CreateBr(EnterBB);
+  Builder.SetInsertPoint(EnterBB);
   OpenMPIRBuilder::LocationDescription Loc({Builder.saveIP(), DL});
 
   unsigned NumInnerBodiesGenerated = 0;
@@ -691,6 +701,9 @@ TEST_F(OpenMPIRBuilderTest, ParallelNested2Inner) {
   F->setName("func");
   IRBuilder<> Builder(BB);
 
+  BasicBlock *EnterBB = BasicBlock::Create(Ctx, "parallel.enter", F);
+  Builder.CreateBr(EnterBB);
+  Builder.SetInsertPoint(EnterBB);
   OpenMPIRBuilder::LocationDescription Loc({Builder.saveIP(), DL});
 
   unsigned NumInnerBodiesGenerated = 0;
@@ -799,7 +812,14 @@ TEST_F(OpenMPIRBuilderTest, ParallelIfCond) {
   F->setName("func");
   IRBuilder<> Builder(BB);
 
+<<<<<<< HEAD
   OpenMPIRBuilder::LocationDescription Loc({Builder.saveIP()});        // INTEL
+=======
+  BasicBlock *EnterBB = BasicBlock::Create(Ctx, "parallel.enter", F);
+  Builder.CreateBr(EnterBB);
+  Builder.SetInsertPoint(EnterBB);
+  OpenMPIRBuilder::LocationDescription Loc({Builder.saveIP(), DL});
+>>>>>>> 616f77172f0a48ef02c1700882ca0ba2215066d1
 
   AllocaInst *PrivAI = nullptr;
 
@@ -922,7 +942,14 @@ TEST_F(OpenMPIRBuilderTest, ParallelCancelBarrier) {
   F->setName("func");
   IRBuilder<> Builder(BB);
 
+<<<<<<< HEAD
   OpenMPIRBuilder::LocationDescription Loc({Builder.saveIP()});        // INTEL
+=======
+  BasicBlock *EnterBB = BasicBlock::Create(Ctx, "parallel.enter", F);
+  Builder.CreateBr(EnterBB);
+  Builder.SetInsertPoint(EnterBB);
+  OpenMPIRBuilder::LocationDescription Loc({Builder.saveIP(), DL});
+>>>>>>> 616f77172f0a48ef02c1700882ca0ba2215066d1
 
   unsigned NumBodiesGenerated = 0;
   unsigned NumPrivatizedVars = 0;
@@ -3117,6 +3144,10 @@ TEST_F(OpenMPIRBuilderTest, CreateReductions) {
   OMPBuilder.initialize();
   F->setName("func");
   IRBuilder<> Builder(BB);
+
+  BasicBlock *EnterBB = BasicBlock::Create(Ctx, "parallel.enter", F);
+  Builder.CreateBr(EnterBB);
+  Builder.SetInsertPoint(EnterBB);
   OpenMPIRBuilder::LocationDescription Loc({Builder.saveIP(), DL});
 
   // Create variables to be reduced.
@@ -3354,6 +3385,10 @@ TEST_F(OpenMPIRBuilderTest, CreateTwoReductions) {
   OMPBuilder.initialize();
   F->setName("func");
   IRBuilder<> Builder(BB);
+
+  BasicBlock *EnterBB = BasicBlock::Create(Ctx, "parallel.enter", F);
+  Builder.CreateBr(EnterBB);
+  Builder.SetInsertPoint(EnterBB);
   OpenMPIRBuilder::LocationDescription Loc({Builder.saveIP(), DL});
 
   // Create variables to be reduced.
