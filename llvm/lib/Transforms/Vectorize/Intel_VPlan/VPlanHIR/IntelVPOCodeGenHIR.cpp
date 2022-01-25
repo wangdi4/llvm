@@ -4781,7 +4781,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       }
 
       RegDDRef *PointerRef = getOrCreateScalarRef(VPInst->getOperand(0), 0);
-      if (PointerRef->getNumDimensions() > 0 &&
+      if (PointerRef->hasGEPInfo() && PointerRef->getNumDimensions() > 0 &&
           !PointerRef->hasTrailingStructOffsets()) {
         if (auto *Const = dyn_cast<VPConstant>(VPInst->getOperand(1))) {
           // Consider VPInst being
