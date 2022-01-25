@@ -1118,7 +1118,17 @@ emitCombinerOrInitializer(CodeGenModule &CGM, QualType Ty,
                           const VarDecl *Out, bool IsCombiner) {
   // void .omp_combiner.(Ty *in, Ty *out);
   ASTContext &C = CGM.getContext();
+#if INTEL_COLLAB
+  // Late-outlining uses this for array types as well, so use the type of
+  // the In or Out variables to determine the type.
+  QualType PtrTy;
+  if (CGM.getLangOpts().OpenMPLateOutline)
+    PtrTy = C.getPointerType(In->getType()).withRestrict();
+  else
+    PtrTy = C.getPointerType(Ty).withRestrict();
+#else // INTEL_COLLAB
   QualType PtrTy = C.getPointerType(Ty).withRestrict();
+#endif // INTEL_COLLAB
   FunctionArgList Args;
   ImplicitParamDecl OmpOutParm(C, /*DC=*/nullptr, Out->getLocation(),
                                /*Id=*/nullptr, PtrTy, ImplicitParamDecl::Other);
