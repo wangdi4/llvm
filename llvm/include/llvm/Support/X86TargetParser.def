@@ -400,6 +400,13 @@ X86_FEATURE       (LVI_LOAD_HARDENING,          "lvi-load-hardening")
 #define CPU_SPECIFIC_ALIAS(NEW_NAME, NAME)
 #endif
 
+#if INTEL_CUSTOMIZATION
+// Used to define additional aliases used for possible values to "-ax".
+#ifndef CPU_SPECIFIC_ALIAS_ADDITIONAL
+#define CPU_SPECIFIC_ALIAS_ADDITIONAL(NEW_NAME, NAME)
+#endif
+#endif // INTEL_CUSTOMIZATION
+
 CPU_SPECIFIC("generic", 'A', "")
 CPU_SPECIFIC("pentium", 'B', "")
 CPU_SPECIFIC("pentium_pro", 'C', "+cmov")
@@ -434,6 +441,16 @@ CPU_SPECIFIC("skylake", 'b', "+cmov,+mmx,+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse4.2
 CPU_SPECIFIC( "skylake_avx512", 'a', "+cmov,+mmx,+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse4.2,+movbe,+popcnt,+f16c,+avx,+fma,+bmi,+lzcnt,+avx2,+avx512dq,+avx512f,+adx,+avx512cd,+avx512bw,+avx512vl,+clwb")
 CPU_SPECIFIC("cannonlake", 'e', "+cmov,+mmx,+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse4.2,+movbe,+popcnt,+f16c,+avx,+fma,+bmi,+lzcnt,+avx2,+avx512dq,+avx512f,+adx,+avx512ifma,+avx512cd,+avx512bw,+avx512vl,+avx512vbmi")
 CPU_SPECIFIC("knm", 'j', "+cmov,+mmx,+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse4.2,+movbe,+popcnt,+f16c,+avx,+fma,+bmi,+lzcnt,+avx2,+avx512f,+adx,+avx512er,+avx512pf,+avx512cd,+avx5124fmaps,+avx5124vnniw,+avx512vpopcntdq")
+
+
+#if INTEL_CUSTOMIZATION
+CPU_SPECIFIC_ALIAS_ADDITIONAL("skylake-avx512", "skylake_avx512")
+CPU_SPECIFIC_ALIAS_ADDITIONAL("corei7-avx", "sandybridge")
+CPU_SPECIFIC_ALIAS_ADDITIONAL("core-avx2", "haswell")
+CPU_SPECIFIC_ALIAS_ADDITIONAL("core-avx-i", "ivybridge")
+
+#undef CPU_SPECIFIC_ALIAS_ADDITIONAL
+#endif // INTEL_CUSTOMIZATION
 
 #undef CPU_SPECIFIC_ALIAS
 #undef CPU_SPECIFIC
