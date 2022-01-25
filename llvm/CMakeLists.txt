@@ -2,8 +2,6 @@
 
 cmake_minimum_required(VERSION 3.13.4)
 
-include(GNUInstallDirs)
-
 # CMP0116: Ninja generators transform `DEPFILE`s from `add_custom_command()`
 # New in CMake 3.20. https://cmake.org/cmake/help/latest/policy/CMP0116.html
 if(POLICY CMP0116)
@@ -49,6 +47,7 @@ project(LLVM
   VERSION ${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_VERSION_PATCH}
   LANGUAGES C CXX ASM)
 
+<<<<<<< HEAD
 
 if (INTEL_CUSTOMIZATION)
   set(DPCPP_VERSION_QUALITY " ")
@@ -71,6 +70,10 @@ if (INTEL_CUSTOMIZATION)
     ${CMAKE_CURRENT_BINARY_DIR}/include/llvm/Config/dpcpp.version.info.h
     )
 endif (INTEL_CUSTOMIZATION)
+=======
+# Must go after project(..)
+include(GNUInstallDirs)
+>>>>>>> df31ff1b29bc4c2308ec5df8a7ff0ec2ab0942d4
 
 set(CMAKE_CXX_STANDARD 14 CACHE STRING "C++ standard to conform to")
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
