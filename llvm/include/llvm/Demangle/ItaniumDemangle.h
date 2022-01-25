@@ -21,15 +21,20 @@
 #include "DemangleConfig.h"
 #include "StringView.h"
 #include "Utility.h"
+#include <algorithm>
 #include <cassert>
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+<<<<<<< HEAD
 #include <numeric>
 // INTEL_CUSTOMIZATION
 #include <string>
 // end INTEL_CUSTOMIZATION
+=======
+#include <limits>
+>>>>>>> 1f9e18b6565fd1bb69c4b649b9efd3467b3c7c7d
 #include <utility>
 
 #define FOR_EACH_NODE_KIND(X) \
