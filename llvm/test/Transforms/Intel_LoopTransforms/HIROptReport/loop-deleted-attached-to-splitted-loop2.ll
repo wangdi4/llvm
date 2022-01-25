@@ -46,7 +46,7 @@
 ; CHECK: [[M13]] = !{!"intel.optreport.remarks", [[M14:!.*]]}
 ; CHECK: [[M14]] = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 10}
 ; CHECK: [[M15]] = !{!"intel.optreport.origin", [[M16:!.*]]}
-; CHECK: [[M16]] = !{!"intel.optreport.remark", i32 0, !"Remainder loop for vectorization"}
+; CHECK: [[M16]] = !{!"intel.optreport.remark", i32 25519, !"Remainder loop for vectorization"}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
