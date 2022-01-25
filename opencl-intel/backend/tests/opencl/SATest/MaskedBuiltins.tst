@@ -35,5 +35,5 @@
 ; CHECK:        [[AND4:%.*]] = and <8 x i64> [[CONDITION2]], [[GATHER2:%.*]]
 ; CHECK-NEXT:   [[OR2:%.*]] = or <8 x i64> [[XOR2]], [[AND4]]
 ; CHECK-NEXT:   [[ORDOUBLE2:%.*]] = bitcast <8 x i64> [[OR2]] to <8 x double>
-; CHECK-NEXT:   call contract intel_ocl_bicc_avx512 <8 x double> @__ocl_svml_z0_acosh8(<8 x double> [[ORDOUBLE1]])
-; CHECK-NEXT:   call contract intel_ocl_bicc_avx512 <8 x double> @__ocl_svml_z0_acosh8(<8 x double> [[ORDOUBLE2]])
+; CHECK-NEXT:   call contract intel_ocl_bicc_avx512 <8 x double> @__ocl_svml_z0_acosh8(<8 x double> noundef [[ORDOUBLE1]])
+; CHECK-NEXT:   call contract intel_ocl_bicc_avx512 <8 x double> @__ocl_svml_z0_acosh8(<8 x double> noundef [[ORDOUBLE2]])
