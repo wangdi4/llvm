@@ -648,6 +648,8 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
   // TODO: Investigate promotion cap for O1.
   LPM1.addPass(LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap));
   LPM1.addPass(SimpleLoopUnswitchPass());
+  if (EnableLoopFlatten)
+    LPM1.addPass(LoopFlattenPass());
 
   LPM2.addPass(LoopIdiomRecognizePass());
   LPM2.addPass(IndVarSimplifyPass());
@@ -659,8 +661,6 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
 
   if (EnableLoopInterchange)
     LPM2.addPass(LoopInterchangePass());
-  if (EnableLoopFlatten)
-    LPM2.addPass(LoopFlattenPass());
 
   // Do not enable unrolling in PreLinkThinLTO phase during sample PGO
   // because it changes IR to makes profile annotation in back compile
@@ -871,6 +871,9 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   LPM1.addPass(
       SimpleLoopUnswitchPass(/* NonTrivial */ Level == OptimizationLevel::O3 &&
                              EnableO3NonTrivialUnswitching));
+  if (EnableLoopFlatten)
+    LPM1.addPass(LoopFlattenPass());
+
   LPM2.addPass(LoopIdiomRecognizePass());
   LPM2.addPass(IndVarSimplifyPass());
 
@@ -881,8 +884,6 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
 
   if (EnableLoopInterchange)
     LPM2.addPass(LoopInterchangePass());
-  if (EnableLoopFlatten)
-    LPM2.addPass(LoopFlattenPass());
 
   // Do not enable unrolling in PreLinkThinLTO phase during sample PGO
   // because it changes IR to makes profile annotation in back compile
@@ -2891,10 +2892,10 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     MainFPM.addPass(ConstraintEliminationPass());
 
   LoopPassManager LPM;
-  LPM.addPass(IndVarSimplifyPass());
-  LPM.addPass(LoopDeletionPass());
   if (EnableLoopFlatten && Level.getSpeedupLevel() > 1)
     LPM.addPass(LoopFlattenPass());
+  LPM.addPass(IndVarSimplifyPass());
+  LPM.addPass(LoopDeletionPass());
   // FIXME: Add loop interchange.
 
 #if INTEL_CUSTOMIZATION
