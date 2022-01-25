@@ -254,7 +254,11 @@ int64_t MLInlineAdvisor::getModuleIRSize() const {
   return Ret;
 }
 
-std::unique_ptr<InlineAdvice> MLInlineAdvisor::getAdviceImpl(CallBase &CB) {
+#if INTEL_CUSTOMIZATION
+std::unique_ptr<InlineAdvice>
+DefaultInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
+                                    WholeProgramInfo *WPI, InlineCost **IC) {
+#endif // INTEL_CUSTOMIZATION
   auto &Caller = *CB.getCaller();
   auto &Callee = *CB.getCalledFunction();
 
@@ -354,8 +358,12 @@ MLInlineAdvisor::getAdviceFromModel(CallBase &CB,
       this, CB, ORE, static_cast<bool>(ModelRunner->evaluate<int64_t>()));
 }
 
-std::unique_ptr<InlineAdvice> MLInlineAdvisor::getMandatoryAdvice(CallBase &CB,
-                                                                  bool Advice) {
+#if INTEL_CUSTOMIZATION
+std::unique_ptr<InlineAdvice>
+InlineAdvisor::getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
+                                  WholeProgramInfo *WPI, InlineCost **IC,
+                                  bool Advice) {
+#endif // INTEL_CUSTOMIZATION
   // Make sure we track inlinings in all cases - mandatory or not.
   if (Advice && !ForceStop)
     return getMandatoryAdviceImpl(CB);
