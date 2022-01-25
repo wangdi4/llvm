@@ -747,7 +747,7 @@ void Verifier::visitGlobalVariable(const GlobalVariable &GV) {
         for (Value *Op : InitArray->operands()) {
           Value *V = Op->stripPointerCasts();
           Assert(isa<GlobalVariable>(V) || isa<Function>(V) ||
-                     isa<GlobalAlias>(V),
+                 isa<GlobalAlias>(V) || isa<GlobalIFunc>(V), // INTEL
                  Twine("invalid ") + GV.getName() + " member", V);
           Assert(V->hasName(),
                  Twine("members of ") + GV.getName() + " must be named", V);

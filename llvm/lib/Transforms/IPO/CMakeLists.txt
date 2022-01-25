@@ -8,6 +8,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   Intel_AggInliner.cpp
   Intel_ArgNoAliasProp.cpp
   Intel_ArgumentAlignment.cpp
+  Intel_AutoCPUClone.cpp
   Intel_CallTreeCloning.cpp
   Intel_DopeVectorConstProp.cpp
   Intel_InlineLists.cpp
