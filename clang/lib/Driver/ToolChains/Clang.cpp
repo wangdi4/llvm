@@ -10072,21 +10072,14 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
         ",+SPV_INTEL_io_pipes,+SPV_INTEL_inline_assembly"
         ",+SPV_INTEL_arbitrary_precision_integers"
         ",+SPV_INTEL_float_controls2,+SPV_INTEL_vector_compute"
-<<<<<<< HEAD
-        ",+SPV_INTEL_fast_composite,+SPV_INTEL_fpga_buffer_location"
+        ",+SPV_INTEL_fast_composite"
 #if INTEL_COLLAB
         ",+SPV_INTEL_joint_matrix"
 #endif // INTEL_COLLAB
-=======
-        ",+SPV_INTEL_fast_composite"
->>>>>>> 912fde3b44f5f0583e579f0757c72349c346f822
         ",+SPV_INTEL_arbitrary_precision_fixed_point"
         ",+SPV_INTEL_arbitrary_precision_floating_point"
         ",+SPV_INTEL_variable_length_array,+SPV_INTEL_fp_fast_math_mode"
         ",+SPV_INTEL_long_constant_composite"
-<<<<<<< HEAD
-        ",+SPV_INTEL_fpga_invocation_pipelining_attributes"
-        ",+SPV_INTEL_fpga_dsp_control"
         ",+SPV_INTEL_arithmetic_fence"
         ",+SPV_INTEL_task_sequence"; // INTEL
 #if INTEL_CUSTOMIZATION
@@ -10095,30 +10088,22 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
       INTELExtArg += ",+SPV_INTEL_optnone";
     }
 #endif // INTEL_CUSTOMIZATION
-=======
-        ",+SPV_INTEL_arithmetic_fence";
->>>>>>> 912fde3b44f5f0583e579f0757c72349c346f822
     ExtArg = ExtArg + DefaultExtArg + INTELExtArg;
 #if INTEL_CUSTOMIZATION
     if (!C.getDriver().isFPGAEmulationMode()) {
 #endif // INTEL_CUSTOMIZATION
       // Enable several extensions on FPGA H/W exclusively
-<<<<<<< HEAD
-      ExtArg += ",+SPV_INTEL_usm_storage_classes"
-                ",+SPV_INTEL_runtime_aligned";
-#if INTEL_CUSTOMIZATION
-      // Disable optnone for FPGA hardware
-      ExtArg += ",-SPV_INTEL_optnone";
-    }
-#endif // INTEL_CUSTOMIZATION
-=======
       ExtArg += ",+SPV_INTEL_usm_storage_classes,+SPV_INTEL_runtime_aligned"
                 ",+SPV_INTEL_fpga_cluster_attributes,+SPV_INTEL_loop_fuse"
                 ",+SPV_INTEL_fpga_buffer_location"
                 ",+SPV_INTEL_fpga_invocation_pipelining_attributes"
                 ",+SPV_INTEL_fpga_dsp_control,+SPV_INTEL_fpga_memory_accesses"
                 ",+SPV_INTEL_fpga_memory_attributes";
->>>>>>> 912fde3b44f5f0583e579f0757c72349c346f822
+#if INTEL_CUSTOMIZATION
+      // Disable optnone for FPGA hardware
+      ExtArg += ",-SPV_INTEL_optnone";
+    }
+#endif // INTEL_CUSTOMIZATION
     else
       // Don't enable several freshly added extensions on FPGA H/W
       ExtArg += ",+SPV_INTEL_token_type"
