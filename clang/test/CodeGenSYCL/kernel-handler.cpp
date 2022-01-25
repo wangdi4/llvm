@@ -28,11 +28,19 @@ void test(int val) {
 
 // NONATIVESUPPORT: %[[KH:[0-9]+]] = load i8 addrspace(1)*, i8 addrspace(1)** %_arg__specialization_constants_buffer.addr, align 8
 // NONATIVESUPPORT: %[[ADDRSPACECAST:[0-9]+]] = addrspacecast i8 addrspace(1)* %[[KH]] to i8*
+<<<<<<< HEAD
 // NONATIVESUPPORT: call void @{{.*}}__init_specialization_constants_buffer{{.*}}(%"class.cl::sycl::kernel_handler"* noundef %kh, i8* noundef %[[ADDRSPACECAST]])
 
 // NATIVESUPPORT-NOT: load i8 addrspace(1)*, i8 addrspace(1)** %_arg__specialization_constants_buffer.addr, align 8
 // NATIVESUPPORT-NOT: addrspacecast i8 addrspace(1)* %{{[0-9]+}} to i8*
 // NATIVESUPPORT-NOT: call void @{{.*}}__init_specialization_constants_buffer{{.*}}(%"class.cl::sycl::kernel_handler"* noundef %kh, i8* noundef %{{[0-9]+}})
+=======
+// NONATIVESUPPORT: call void @{{.*}}__init_specialization_constants_buffer{{.*}}(%"class.cl::sycl::kernel_handler"* noundef nonnull align 1 dereferenceable(1) %kh, i8* noundef %[[ADDRSPACECAST]])
+
+// NATIVESUPPORT-NOT: load i8 addrspace(1)*, i8 addrspace(1)** %_arg__specialization_constants_buffer.addr, align 8
+// NATIVESUPPORT-NOT: addrspacecast i8 addrspace(1)* %{{[0-9]+}} to i8*
+// NATIVESUPPORT-NOT: call void @{{.*}}__init_specialization_constants_buffer{{.*}}(%"class.cl::sycl::kernel_handler"* noundef nonnull align 1 dereferenceable(1) %kh, i8* noundef %{{[0-9]+}})
+>>>>>>> 0a1e6d9cafbcbe81d4bd7972cac5d8790124de34
 
 // ALL: call{{ spir_func | }}void @{{[a-zA-Z0-9_$]+}}kernel_handler{{[a-zA-Z0-9_$]+}}
-// ALL-SAME: byval(%"class.cl::sycl::kernel_handler")
+// ALL-SAME: noundef byval(%"class.cl::sycl::kernel_handler")
