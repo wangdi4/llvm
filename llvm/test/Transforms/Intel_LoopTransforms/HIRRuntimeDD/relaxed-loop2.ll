@@ -81,6 +81,14 @@
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
 ;
+;
+; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -hir-details -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s -check-prefix=CHECK-ALIAS
+; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s -check-prefix=CHECK-ALIAS
+;
+; CHECK-ALIAS: <RVAL-REG> {{.*}} @vrow)[{{.*}}1 + sext.i32.i64(%other_channels)) * i2]{{.*}} !alias.scope [[SCOPE1:.*]] !noalias [[SCOPE2:.*]] {
+; CHECK-ALIAS: <RVAL-REG> {{.*}} @vrow)[{{.*}}i3]{{.*}} !alias.scope [[SCOPE1]] !noalias [[SCOPE2]] {
+; CHECK-ALIAS: <RVAL-REG> {{.*}} %prow)[{{.*}}sext.i32.i64(%channels) * i2 + i3]{{.*}} !alias.scope [[SCOPE2:.*]] !noalias [[SCOPE1:.*]] {
+;
 ;Module Before HIR
 ; ModuleID = 'smallcompo2.cpp'
 source_filename = "smallcompo2.cpp"

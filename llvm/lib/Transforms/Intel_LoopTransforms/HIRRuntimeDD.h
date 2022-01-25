@@ -145,6 +145,7 @@ struct LoopContext {
   SmallVector<Segment, ExpectedNumberOfTests> SegmentList;
   SmallVector<PredicateTuple, 8> PreConditions;
   SmallVector<unsigned, 8> DelinearizedGroupIndices;
+  DenseMap<unsigned, unsigned> SplitedGroupsOriginalIndices;
   RTDDMethod Method = RTDDMethod::Compare;
 
 #ifndef NDEBUG
