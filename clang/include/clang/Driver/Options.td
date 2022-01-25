@@ -7420,7 +7420,6 @@ def _SLASH_Gw_ : CLFlag<"Gw-">,
 def _SLASH_help : CLFlag<"help">, Alias<help>,
   HelpText<"Display available options">;
 def _SLASH_HELP : CLFlag<"HELP">, Alias<help>;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 def _SLASH_Q_keep : CLFlag<"Q_keep">, Alias<i_keep>,
   HelpText<"Save tool args to <tool>.arg file">;
@@ -7429,10 +7428,8 @@ def _SLASH_HASH : CLFlag<"#">, Alias<_HASH>,
 def _SLASH_HASH_x : CLFlag<"#x">, Alias<HASH_x>,
   HelpText<"Show commands to run and use verbose output">;
 #endif // INTEL_CUSTOMIZATION
-=======
 def _SLASH_hotpatch : CLFlag<"hotpatch">, Alias<fms_hotpatch>,
   HelpText<"Create hotpatchable image">;
->>>>>>> 5af2433e1794ebf7e58e848aa612c7912d71dc78
 def _SLASH_I : CLJoinedOrSeparate<"I">,
   HelpText<"Add directory to include search path">, MetaVarName<"<dir>">,
   Alias<I>;
