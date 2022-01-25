@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 set(INTEL_SOURCE_FILES_TO_BUILD)
 intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
@@ -16,7 +15,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   Intel_HeteroArchOpt.cpp
   )
 # end INTEL_CUSTOMIZATION
-=======
+
 if (DEFINED LLVM_HAVE_TF_AOT OR DEFINED LLVM_HAVE_TF_API)
   include(TensorFlowCompile)
   set(LLVM_RAEVICT_MODEL_PATH_DEFAULT "models/regalloc-eviction")
@@ -43,7 +42,6 @@ if (DEFINED LLVM_HAVE_TF_AOT OR DEFINED LLVM_HAVE_TF_API)
     list(APPEND MLLinkDeps ${tensorflow_c_api} ${tensorflow_fx})
   endif()
 endif()
->>>>>>> e67430cca40455d31b95b088a88fa3b16a37ea34
 
 add_llvm_component_library(LLVMCodeGen
   AggressiveAntiDepBreaker.cpp
@@ -246,13 +244,10 @@ add_llvm_component_library(LLVMCodeGen
   WasmEHPrepare.cpp
   WinEHPrepare.cpp
   XRayInstrumentation.cpp
-<<<<<<< HEAD
+  ${GeneratedMLSources}
 # INTEL_CUSTOMIZATION
   ${INTEL_SOURCE_FILES_TO_BUILD}
 # end INTEL_CUSTOMIZATION
-=======
-  ${GeneratedMLSources}
->>>>>>> e67430cca40455d31b95b088a88fa3b16a37ea34
 
   LiveDebugValues/LiveDebugValues.cpp
   LiveDebugValues/VarLocBasedImpl.cpp
@@ -266,13 +261,10 @@ add_llvm_component_library(LLVMCodeGen
 
   DEPENDS
   intrinsics_gen
-<<<<<<< HEAD
+  ${MLDeps}
 # INTEL_CUSTOMIZATION
   directives_gen
 # end INTEL_CUSTOMIZATION
-=======
-  ${MLDeps}
->>>>>>> e67430cca40455d31b95b088a88fa3b16a37ea34
 
   LINK_COMPONENTS
   Analysis
