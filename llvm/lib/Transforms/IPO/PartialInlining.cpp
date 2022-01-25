@@ -1113,6 +1113,7 @@ void PartialInlinerImpl::computeCallsiteToProfCountMap(
   };
 
   for (User *User : Users) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
     // When performing partial inlining for functions that were devirtualized,
@@ -1125,6 +1126,11 @@ void PartialInlinerImpl::computeCallsiteToProfCountMap(
       continue;
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+=======
+    // Don't bother with BlockAddress used by CallBr for asm goto.
+    if (isa<BlockAddress>(User))
+      continue;
+>>>>>>> 7cca13bc3a02163c0b822298fefa6ccb1fe1d06e
     CallBase *CB = getSupportedCallBase(User);
     Function *Caller = CB->getCaller();
     if (CurrentCaller != Caller) {
@@ -1698,6 +1704,7 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
 
   bool AnyInline = false;
   for (User *User : Users) {
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -1708,6 +1715,11 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
       continue;
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+=======
+    // Don't bother with BlockAddress used by CallBr for asm goto.
+    if (isa<BlockAddress>(User))
+      continue;
+>>>>>>> 7cca13bc3a02163c0b822298fefa6ccb1fe1d06e
 
     CallBase *CB = getSupportedCallBase(User);
 
