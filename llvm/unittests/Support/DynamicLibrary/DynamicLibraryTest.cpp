@@ -140,11 +140,7 @@ TEST(DynamicLibrary, Shutdown) {
 
     TestOrder TO_0 = FuncPtr<TestOrder>(
         DynamicLibrary::SearchForAddressOfSymbol("TestOrder"));
-<<<<<<< HEAD
-    EXPECT_TRUE(TO_0 != nullptr);
-=======
     EXPECT_NE(TO_0, nullptr);
->>>>>>> 38ac4093d9d2ae28d631ca1cc5802533989165c5
 
     DynamicLibrary DL2 =
         DynamicLibrary::getPermanentLibrary(LibPath(C_lib).c_str(), &Err); // INTEL
@@ -169,21 +165,13 @@ TEST(DynamicLibrary, Shutdown) {
     TO_0(Order);
     TO_1(Order);
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  EXPECT_TRUE(A == State::GLOBAL_DESTRUCTOR_CALL);
-  EXPECT_TRUE(B == State::LOCAL_DESTRUCTOR_CALL);
+  EXPECT_EQ(A, State::GLOBAL_DESTRUCTOR_CALL);
+  EXPECT_EQ(B, State::LOCAL_DESTRUCTOR_CALL);
 #endif // INTEL_CUSTOMIZATION
-
-  EXPECT_TRUE(FuncPtr<SetStrings>(DynamicLibrary::SearchForAddressOfSymbol(
-                  "SetStrings")) == nullptr);
-=======
-  EXPECT_EQ(A, "Global::~Global");
-  EXPECT_EQ(B, "Local::~Local");
   EXPECT_EQ(FuncPtr<SetStrings>(
                 DynamicLibrary::SearchForAddressOfSymbol("SetStrings")),
             nullptr);
->>>>>>> 38ac4093d9d2ae28d631ca1cc5802533989165c5
 
   // Test unload/destruction ordering
   EXPECT_EQ(Order.size(), 2UL);
