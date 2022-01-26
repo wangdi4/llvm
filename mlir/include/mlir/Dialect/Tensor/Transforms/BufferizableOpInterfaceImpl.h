@@ -1,4 +1,4 @@
-//===- BufferizationInterfaceImpl.h - Bufferization Impl. of Op Interface -===//
+//===- BufferizableOpInterfaceImpl.h - Impl. of BufferizableOpInterface ---===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,20 +6,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef MLIR_DIALECT_BUFFERIZATION_IR_BUFFERIZATIONINTERFACEIMPL_H_
-#define MLIR_DIALECT_BUFFERIZATION_IR_BUFFERIZATIONINTERFACEIMPL_H_
+#ifndef MLIR_DIALECT_TENSOR_BUFFERIZABLEOPINTERFACEIMPL_H
+#define MLIR_DIALECT_TENSOR_BUFFERIZABLEOPINTERFACEIMPL_H
 
 namespace mlir {
-
 class DialectRegistry;
 
-namespace bufferization {
-namespace bufferization_ext {
-
+namespace tensor {
 void registerBufferizableOpInterfaceExternalModels(DialectRegistry &registry);
-
-} // namespace bufferization_ext
-} // namespace bufferization
+} // namespace tensor
 } // namespace mlir
 
-#endif // MLIR_DIALECT_BUFFERIZATION_IR_BUFFERIZATIONINTERFACEIMPL_H_
+#endif // MLIR_DIALECT_TENSOR_BUFFERIZABLEOPINTERFACEIMPL_H
