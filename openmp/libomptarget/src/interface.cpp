@@ -27,6 +27,9 @@
 #if INTEL_COLLAB
 #include <string.h>
 #endif  // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+#include "xpti_registry.h"
+#endif // INTEL_CUSTOMIZATION
 
 extern bool isOffloadDisabled();
 
@@ -120,6 +123,9 @@ EXTERN void __tgt_target_data_begin_mapper(ident_t *loc, int64_t device_id,
                                            map_var_info_t *arg_names,
                                            void **arg_mappers) {
   TIMESCOPE_WITH_IDENT(loc);
+#if INTEL_CUSTOMIZATION
+  XPTIEventCacheTy XPTIEvt(loc, __func__);
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
   int64_t encodedId = GetEncodedDeviceID(device_id);
 #endif // INTEL_COLLAB
@@ -203,6 +209,9 @@ EXTERN void __tgt_target_data_end_mapper(ident_t *loc, int64_t device_id,
                                          map_var_info_t *arg_names,
                                          void **arg_mappers) {
   TIMESCOPE_WITH_IDENT(loc);
+#if INTEL_CUSTOMIZATION
+  XPTIEventCacheTy XPTIEvt(loc, __func__);
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
   int64_t encodedId = GetEncodedDeviceID(device_id);
 #endif // INTEL_COLLAB
@@ -280,6 +289,9 @@ EXTERN void __tgt_target_data_update_mapper(ident_t *loc, int64_t device_id,
                                             map_var_info_t *arg_names,
                                             void **arg_mappers) {
   TIMESCOPE_WITH_IDENT(loc);
+#if INTEL_CUSTOMIZATION
+  XPTIEventCacheTy XPTIEvt(loc, __func__);
+#endif // INTEL_CUSTOMIZATION
   DP("Entering data update with %d mappings\n", arg_num);
 #if INTEL_COLLAB
   int64_t encodedId = GetEncodedDeviceID(device_id);
@@ -346,6 +358,9 @@ EXTERN int __tgt_target_mapper(ident_t *loc, int64_t device_id, void *host_ptr,
                                int64_t *arg_sizes, int64_t *arg_types,
                                map_var_info_t *arg_names, void **arg_mappers) {
   TIMESCOPE_WITH_IDENT(loc);
+#if INTEL_CUSTOMIZATION
+  XPTIEventCacheTy XPTIEvt(loc, __func__);
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
   int64_t encodedId = GetEncodedDeviceID(device_id);
 #endif // INTEL_COLLAB
@@ -433,6 +448,9 @@ EXTERN int __tgt_target_teams_mapper(ident_t *loc, int64_t device_id,
                                      map_var_info_t *arg_names,
                                      void **arg_mappers, int32_t team_num,
                                      int32_t thread_limit) {
+#if INTEL_CUSTOMIZATION
+  XPTIEventCacheTy XPTIEvt(loc, __func__);
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
   int64_t encodedId = GetEncodedDeviceID(device_id);
 #endif // INTEL_COLLAB
@@ -844,6 +862,11 @@ EXTERN int __tgt_get_target_memory_info(
 
 EXTERN void __tgt_push_code_location(const char *location, void *codeptr_ra) {
   OmptGlobal->getTrace().pushCodeLocation(location, codeptr_ra);
+#if INTEL_CUSTOMIZATION
+  // Temporary workaround since code location directly passed with __tgt*
+  // entries is incorrect.
+  XPTIRegistry->pushCodeLocation(location);
+#endif // INTEL_CUSTOMIZATION
 }
 
 EXTERN int __tgt_get_num_devices(void) {

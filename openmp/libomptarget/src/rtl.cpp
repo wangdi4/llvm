@@ -28,6 +28,7 @@
 #else  // !_WIN32
 #include <dlfcn.h>
 #endif // !_WIN32
+#include "xpti_registry.h"
 #else  // INTEL_CUSTOMIZATION
 #include <dlfcn.h>
 #endif  // INTEL_CUSTOMIZATION
@@ -97,6 +98,10 @@ __ATTRIBUTE__(constructor(101)) void init() { // INTEL
   OmptGlobal = new OmptGlobalTy();
 #endif // INTEL_COLLAB
 
+#if INTEL_CUSTOMIZATION
+  XPTIRegistry = new XPTIRegistryTy();
+#endif // INTEL_CUSTOMIZATION
+
 #ifdef OMPTARGET_PROFILE_ENABLED
   ProfileTraceFile = getenv("LIBOMPTARGET_PROFILE");
   // TODO: add a configuration option for time granularity
@@ -112,6 +117,10 @@ __ATTRIBUTE__(destructor(101)) void deinit() { // INTEL
 #if INTEL_COLLAB
   delete OmptGlobal;
 #endif // INTEL_COLLAB
+
+#if INTEL_CUSTOMIZATION
+  delete XPTIRegistry;
+#endif // INTEL_CUSTOMIZATION
 
 #ifdef OMPTARGET_PROFILE_ENABLED
   if (ProfileTraceFile) {
@@ -174,6 +183,10 @@ void RTLsTy::LoadRTLs() {
 #if INTEL_COLLAB
   OmptGlobal->init();
 #endif // INTEL_COLLAB
+
+#if INTEL_CUSTOMIZATION
+  XPTIRegistry->initializeFrameworkOnce();
+#endif // INTEL_CUSTOMIZATION
 
   DP("Loading RTLs...\n");
 

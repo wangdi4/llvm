@@ -13,6 +13,9 @@
 #if INTEL_COLLAB
 #include "omptarget-tools.h"
 #endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+#include "xpti_registry.h"
+#endif // INTEL_CUSTOMIZATION
 #include "device.h"
 #include "private.h"
 #include "rtl.h"
@@ -270,6 +273,9 @@ DeviceTy::getTargetPointer(void *HstPtrBegin, void *HstPtrBase, int64_t Size,
                          (uintptr_t)HstPtrBegin + Size, Ptr, HasHoldModifier,
                          HstPtrName)
                 .first;
+#if INTEL_CUSTOMIZATION
+    XPTIRegistry->traceMemAssociate((uintptr_t)HstPtrBegin, Ptr);
+#endif // INTEL_CUSTOMIZATION
     INFO(OMP_INFOTYPE_MAPPING_CHANGED, DeviceID,
          "Creating new map entry with "
          "HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", Size=%" PRId64 ", "
@@ -492,7 +498,14 @@ __tgt_target_table *DeviceTy::load_binary(void *Img) {
 void *DeviceTy::allocData(int64_t Size, void *HstPtr, int32_t Kind) {
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataAllocBegin(RTLDeviceID, Size));
+#if INTEL_CUSTOMIZATION
+  auto CorrID = XPTIRegistry->traceMemAllocBegin(Size, 0 /* GuardZone */);
+#endif // INTEL_CUSTOMIZATION
   void *Ret = RTL->data_alloc(RTLDeviceID, Size, HstPtr, Kind);
+#if INTEL_CUSTOMIZATION
+  XPTIRegistry->traceMemAllocEnd((uintptr_t)Ret, Size, 0 /* GuardZone */,
+                                 CorrID);
+#endif // INTEL_CUSTOMIZATION
   OMPT_TRACE(targetDataAllocEnd(RTLDeviceID, Size, Ret));
   return Ret;
 #else // INTEL_COLLAB
@@ -501,7 +514,14 @@ void *DeviceTy::allocData(int64_t Size, void *HstPtr, int32_t Kind) {
 }
 
 int32_t DeviceTy::deleteData(void *TgtPtrBegin) {
+#if INTEL_CUSTOMIZATION
+  auto CorrID = XPTIRegistry->traceMemReleaseBegin((uintptr_t)TgtPtrBegin);
+  auto Rc = RTL->data_delete(RTLDeviceID, TgtPtrBegin);
+  XPTIRegistry->traceMemReleaseEnd((uintptr_t)TgtPtrBegin, CorrID);
+  return Rc;
+#else // INTEL_CUSTOMIZATION
   return RTL->data_delete(RTLDeviceID, TgtPtrBegin);
+#endif // INTEL_CUSTOMIZATION
 }
 
 // Submit data to device
@@ -756,11 +776,18 @@ char *DeviceTy::get_device_name(char *Buffer, size_t BufferMaxSize) {
 void *DeviceTy::data_alloc_base(int64_t Size, void *HstPtrBegin,
                                 void *HstPtrBase) {
   OMPT_TRACE(targetDataAllocBegin(RTLDeviceID, Size));
+#if INTEL_CUSTOMIZATION
+  auto CorrID = XPTIRegistry->traceMemAllocBegin(Size, 0 /* GuardZone */);
+#endif // INTEL_CUSTOMIZATION
   void *ret =
       RTL->data_alloc_base
           ? RTL->data_alloc_base(RTLDeviceID, Size, HstPtrBegin, HstPtrBase)
           : RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin,
                             TARGET_ALLOC_DEFAULT);
+#if INTEL_CUSTOMIZATION
+  XPTIRegistry->traceMemAllocEnd((uintptr_t)ret, Size, 0 /* GuardZone */,
+                                 CorrID);
+#endif // INTEL_CUSTOMIZATION
   OMPT_TRACE(targetDataAllocEnd(RTLDeviceID, Size, ret));
   return ret;
 }
