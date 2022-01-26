@@ -235,6 +235,12 @@ static PointerRecord MemberPointer(
     PointerOptions::Const, 3,
     MemberPointerInfo(TypeIndex(46),
                       PointerToMemberRepresentation::GeneralData));
+#if INTEL_CUSTOMIZATION
+static struct {
+  std::vector<TypeIndex> Ids = {TypeIndex(49), TypeIndex(50)};
+  std::vector<uint32_t> Data = {77, 88};
+} OEMType;
+#endif //INTEL_CUSTOMIZATION
 }
 
 namespace members {
@@ -610,13 +616,12 @@ TEST_F(TypeIndexIteratorTest, UsingNamespace) {
 
 #if INTEL_CUSTOMIZATION
 TEST_F(TypeIndexIteratorTest, OEMType) {
-  ArrayRef<TypeIndex> Ids = {TypeIndex(49), TypeIndex(50)};
-  ArrayRef<uint32_t> Data = {77, 88};
+  using namespace leafs;
   OEMTypeRecord Record(
       TypeLeafKind::LF_OEM_IDENT_MSF90,
       TypeLeafKind::LF_recOEM_MSF90_DESCR_ARR,
-      Ids, Data);
+      OEMType.Ids, OEMType.Data);
   writeTypeRecords(Record);
-  checkTypeReferences(0, Ids[0], Ids[1]);
+  checkTypeReferences(0, OEMType.Ids[0], OEMType.Ids[1]);
 }
 #endif //INTEL_CUSTOMIZATION

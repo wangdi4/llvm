@@ -11,13 +11,17 @@ target triple = "x86_64-pc-linux"
 ; Function Attrs: nounwind
 define void @A(float addrspace(1)* nocapture %a, float addrspace(1)* nocapture %b, float addrspace(1)* nocapture %c, i32 %iNumElements) {
 ; CHECK: define void @A
-; CHECK: %temp_arg_buf = alloca [4 x i8]
-; CHECK: [[GEP0:%[a-zA-Z0-9_]+]] = getelementptr inbounds [4 x i8], [4 x i8]* %temp_arg_buf, i32 0, i32 0
-; CHECK: [[BC0:%[a-zA-Z0-9_]+]] = bitcast i8* [[GEP0]] to i32*
-; CHECK: store i32 %iNumElements, i32* [[BC0]], align 1
-; CHECK: [[GEP1:%[a-zA-Z0-9_]+]] = getelementptr inbounds [4 x i8], [4 x i8]* %temp_arg_buf, i32 0, i32 0
-; CHECK: %translated_opencl_printf_call = call i32 @opencl_printf(i8 addrspace(2)* addrspacecast (i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i32 0, i32 0) to i8 addrspace(2)*), i8* [[GEP1]], {}* %RuntimeInterface, {}* %RuntimeHandle)
-; CHECK: ret void
+; CHECK: %temp_arg_buf = alloca [12 x i8]
+; CHECK-NEXT: [[GEP0:%[0-9]+]] = getelementptr inbounds [12 x i8], [12 x i8]* %temp_arg_buf, i32 0, i32 0
+; CHECK-NEXT: %arg_buf_size = bitcast i8* [[GEP0]] to i32*
+; CHECK-NEXT: store i32 12, i32* %arg_buf_size, align 4
+; CHECK-NEXT: [[GEP1:%[0-9]+]] = getelementptr inbounds [12 x i8], [12 x i8]* %temp_arg_buf, i32 0, i32 4
+; CHECK-NEXT: %arg_size = bitcast i8* [[GEP1]] to i32*
+; CHECK-NEXT: store i32 4, i32* %arg_size, align 4
+; CHECK-NEXT: [[GEP2:%[0-9]+]] = getelementptr inbounds [12 x i8], [12 x i8]* %temp_arg_buf, i32 0, i32 8
+; CHECK-NEXT: %arg_val = bitcast i8* [[GEP2]] to i32*
+; CHECK-NEXT: store i32 %iNumElements, i32* %arg_val, align 1
+; CHECK-NEXT: %translated_opencl_printf_call = call i32 @opencl_printf(i8 addrspace(2)* addrspacecast (i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i32 0, i32 0) to i8 addrspace(2)*), i8* [[GEP0]]
   %call1 = tail call i32 (i8 addrspace(2)*, ...) @printf(i8 addrspace(2)* addrspacecast (i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i32 0, i32 0) to i8 addrspace(2)*), i32 %iNumElements)
   ret void
 }
