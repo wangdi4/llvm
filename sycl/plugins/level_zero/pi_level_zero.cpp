@@ -3831,15 +3831,26 @@ pi_result piProgramLink(pi_context Context, pi_uint32 NumDevices,
   (void)Options;
 
   // We only support one device with Level Zero currently.
-  pi_device Device = Context->Devices[0];
   if (NumDevices != 1) {
     zePrint("piProgramLink: level_zero supports only one device.");
     return PI_INVALID_VALUE;
   }
 
   // Validate input parameters.
+<<<<<<< HEAD
   PI_ASSERT(DeviceList && DeviceList[0] == Device, PI_INVALID_DEVICE);
   PI_ASSERT(!PFnNotify && !UserData, PI_INVALID_VALUE);
+=======
+  PI_ASSERT(DeviceList, PI_INVALID_DEVICE);
+  {
+    auto DeviceEntry =
+        find(Context->Devices.begin(), Context->Devices.end(), DeviceList[0]);
+    if (DeviceEntry == Context->Devices.end())
+      return PI_INVALID_DEVICE;
+  }
+  PI_ASSERT(!PFnNotify && !UserData, PI_INVALID_VALUE);
+
+>>>>>>> 449e947906cb500af7df74364c42598c5e4d2fe8
   if (NumInputPrograms == 0 || InputPrograms == nullptr)
     return PI_INVALID_VALUE;
 
@@ -3881,6 +3892,7 @@ pi_result piProgramLink(pi_context Context, pi_uint32 NumDevices,
     SpecConstShims.reserve(NumInputPrograms);
 
     for (pi_uint32 I = 0; I < NumInputPrograms; I++) {
+<<<<<<< HEAD
       pi_program Program = InputPrograms[I];
       CodeSizes[I] = Program->CodeLength;
       CodeBufs[I] = Program->Code.get();
@@ -3909,6 +3921,35 @@ pi_result piProgramLink(pi_context Context, pi_uint32 NumDevices,
         ZeModuleDesc.pInputModule = ZeExtModuleDesc.pInputModules[0];
         ZeModuleDesc.pBuildFlags = ZeExtModuleDesc.pBuildFlags[0];
         ZeModuleDesc.pConstants = ZeExtModuleDesc.pConstants[0];
+=======
+      pi_program Input = InputPrograms[I];
+      if (Input->HasImports) {
+        std::unique_lock<std::mutex> Guard(Input->MutexHasImportsAndIsLinked);
+        if (!Input->HasImportsAndIsLinked) {
+          // This module imports symbols, but it isn't currently linked with
+          // any other module.  Grab the flag to indicate that it is now
+          // linked.
+          PI_CALL(piProgramRetain(Input));
+          Input->HasImportsAndIsLinked = true;
+        } else {
+          // This module imports symbols and is also linked with another module
+          // already, so it needs to be copied.  We expect this to be quite
+          // rare since linking is mostly used to link against libraries which
+          // only export symbols.
+          Guard.unlock();
+          ze_module_handle_t ZeModule;
+          pi_result res =
+              copyModule(Context->ZeContext, DeviceList[0]->ZeDevice,
+                         Input->ZeModule, &ZeModule);
+          if (res != PI_SUCCESS) {
+            return res;
+          }
+          Input =
+              new _pi_program(Input->Context, ZeModule, true /*own ZeModule*/,
+                              _pi_program::Object, Input->HasImports);
+          Input->HasImportsAndIsLinked = true;
+        }
+>>>>>>> 449e947906cb500af7df74364c42598c5e4d2fe8
       } else {
         zePrint("piProgramLink: level_zero driver does not have static linking "
                 "support.");
@@ -4017,6 +4058,7 @@ pi_result piProgramBuild(pi_program Program, pi_uint32 NumDevices,
     return PI_INVALID_VALUE;
   }
 
+<<<<<<< HEAD
   // These aren't supported.
   PI_ASSERT(!PFnNotify && !UserData, PI_INVALID_VALUE);
 
@@ -4027,6 +4069,16 @@ pi_result piProgramBuild(pi_program Program, pi_uint32 NumDevices,
   if (Program->State != _pi_program::IL &&
       Program->State != _pi_program::Native)
     return PI_INVALID_OPERATION;
+=======
+  // Check if device belongs to associated context.
+  PI_ASSERT(Program->Context, PI_INVALID_PROGRAM);
+  {
+    auto DeviceEntry = find(Program->Context->Devices.begin(),
+                            Program->Context->Devices.end(), DeviceList[0]);
+    if (DeviceEntry == Program->Context->Devices.end())
+      return PI_INVALID_VALUE;
+  }
+>>>>>>> 449e947906cb500af7df74364c42598c5e4d2fe8
 
   // We should have either IL or native device code.
   PI_ASSERT(Program->Code, PI_INVALID_PROGRAM);
