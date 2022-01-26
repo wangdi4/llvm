@@ -82,17 +82,12 @@ bool CaptureTracker::isDereferenceableOrNull(Value *O, const DataLayout &DL) {
 
 namespace {
   struct SimpleCaptureTracker : public CaptureTracker {
-<<<<<<< HEAD
     explicit SimpleCaptureTracker(bool ReturnCaptures,
                                   bool IgnoreFlag // INTEL
                                   )
-        : ReturnCaptures(ReturnCaptures), Captured(false),
+        : ReturnCaptures(ReturnCaptures),
           IgnoreNoAliasArgStCaptured(IgnoreFlag // INTEL
                                      ) {}
-=======
-    explicit SimpleCaptureTracker(bool ReturnCaptures)
-        : ReturnCaptures(ReturnCaptures) {}
->>>>>>> b752eb887f7ef160e000c83e4c720d9ecb2bf620
 
     void tooManyUses() override { Captured = true; }
 
@@ -117,12 +112,8 @@ namespace {
 
     bool ReturnCaptures;
 
-<<<<<<< HEAD
-    bool Captured;
-    bool IgnoreNoAliasArgStCaptured; // INTEL
-=======
     bool Captured = false;
->>>>>>> b752eb887f7ef160e000c83e4c720d9ecb2bf620
+    bool IgnoreNoAliasArgStCaptured; // INTEL
   };
 
   /// Only find pointer captures which happen before the given instruction. Uses

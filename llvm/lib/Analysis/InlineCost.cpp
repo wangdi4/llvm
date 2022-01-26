@@ -526,18 +526,13 @@ public:
                OptimizationRemarkEmitter *ORE = nullptr)
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-        CandidateCall(Call), EnableLoadElimination(true), AllowRecursiveCall(false),
-        SingleBB(true)
+        CandidateCall(Call), SingleBB(true)
 #if INTEL_FEATURE_SW_ADVANCED
         , FoundForgivable(false)
 #endif // INTEL_FEATURE_SW_ADVANCED
         {}
 #endif // INTEL_CUSTOMIZATION
-=======
-        CandidateCall(Call) {}
->>>>>>> b752eb887f7ef160e000c83e4c720d9ecb2bf620
 
   InlineResult analyze(const TargetTransformInfo &CalleeTTI); // INTEL
 
