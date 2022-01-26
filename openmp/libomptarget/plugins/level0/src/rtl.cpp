@@ -646,8 +646,9 @@ class MemoryPoolTy {
   /// Initialized
   int32_t Initialized = 0;
 
-  /// Allocation unit size decided by the GPU RT
-  size_t AllocUnit = 0;
+  /// Allocation unit size decided by the GPU RT.
+  /// Fall-back size is 64KB in case GPU RT does not provide the information.
+  size_t AllocUnit = 1 << 16; // 64KB
 
   /// Minimum supported memory allocation size from pool
   size_t AllocMin = 1 << 5; // 32B
@@ -3255,8 +3256,11 @@ void MemoryPoolTy::init(int32_t allocKind, RTLDeviceInfoTy *RTL) {
 
   // Decide AllocUnit. Do not log this allocation.
   void *mem = allocDataExplicit(Device, 8, AllocKind, false, false);
-  CALL_ZE_EXIT_FAIL(zeMemGetAddressRange, Context, mem, nullptr,
-                    &AllocUnit);
+  ze_memory_allocation_properties_t AP = {
+    ZE_STRUCTURE_TYPE_MEMORY_ALLOCATION_PROPERTIES, nullptr
+  };
+  CALL_ZE_EXIT_FAIL(zeMemGetAllocProperties, Context, mem, &AP, nullptr);
+  AllocUnit = (std::max)(AP.pageSize, AllocUnit);
   CALL_ZE_EXIT_FAIL(zeMemFree, Context, mem);
 
   // Convert MB to B and round up to power of 2
@@ -3279,10 +3283,10 @@ void MemoryPoolTy::init(int32_t allocKind, RTLDeviceInfoTy *RTL) {
 
   Initialized = 1;
 
-  DP("Initialized %s pool for device " DPxMOD ": AllocMax = %zu, "
-     "Capacity = %" PRIu32 ", PoolSizeMax = %zu\n",
-     ALLOC_KIND_TO_STR(AllocKind), DPxPTR(Device), AllocMax, BlockCapacity,
-     PoolSizeMax);
+  DP("Initialized %s pool for device " DPxMOD ": AllocUnit = %zu, "
+     "AllocMax = %zu, " "Capacity = %" PRIu32 ", PoolSizeMax = %zu\n",
+     ALLOC_KIND_TO_STR(AllocKind), DPxPTR(Device), AllocUnit, AllocMax,
+     BlockCapacity, PoolSizeMax);
 }
 
 /// Initialize program data
