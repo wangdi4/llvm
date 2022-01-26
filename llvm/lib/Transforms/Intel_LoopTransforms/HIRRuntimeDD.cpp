@@ -987,39 +987,81 @@ canHelpScalarReplacementOrMemoryMotion(const HLLoop *InnermostLoop) {
   return HIRLoopLocality::hasTemporalLocality(InnermostLoop, 2, true, false);
 }
 
+static bool isLoadOnly(RefGroupTy &Group) {
+  for (auto &Ref : Group) {
+    if (Ref->isLval()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Split the group if two adjacent refs do not have constant distance and they
+// are from different parent loop. For example, A[i1], A[i1+1], A[i2], A[i2+1]
+// will be split into 2 groups-
+// A[i1], A[i1+1] and  A[i2], A[i2+1], if A[i1+1] and A[i2] are from different
+// parent loops. We will bail out the case if the rest of refs in the split
+// group do not have constant distance.
 static void
 splitRefGroups(RefGroupVecTy &Groups,
-               DenseMap<const RegDDRef *, unsigned> &RefGroupIndex) {
+               DenseMap<const RegDDRef *, unsigned> &RefGroupIndex,
+               DenseMap<unsigned, unsigned> &SplitedGroupsOriginalIndices) {
   unsigned GroupSize = Groups.size();
 
   for (unsigned I = 0; I < GroupSize; ++I) {
-    if (Groups[I].size() < 2) {
+    unsigned CurGroupSize = Groups[I].size();
+    // Restrict splitting to load-only groups for profitability
+    if (CurGroupSize < 2) {
       continue;
     }
 
-    for (unsigned J = 0, EE = Groups[I].size() - 1; J < EE; ++J) {
+    if (!isLoadOnly(Groups[I])) {
+      continue;
+    }
+
+    bool CanGroupBeSplitted = true;
+
+    for (unsigned J = 0, EE = CurGroupSize - 1; J < EE; ++J) {
       if (DDRefUtils::haveConstDimensionDistances(Groups[I][J],
                                                   Groups[I][J + 1], false)) {
         continue;
       }
 
-      if (Groups[I][J]->getHLDDNode()->getParentLoop()->getNestingLevel() ==
-          Groups[I][J + 1]->getHLDDNode()->getParentLoop()->getNestingLevel()) {
+      if (Groups[I][J]->getParentLoop() == Groups[I][J + 1]->getParentLoop()) {
         continue;
       }
 
-      Groups.resize(++GroupSize);
+      // Check whether two adjacent refs in the group have constant distance.
+      // If not, the group cannot be the slpit group candidate.
+      for (unsigned M = J + 1, E = CurGroupSize - 1; M < E; ++M) {
+        if (!DDRefUtils::haveConstDimensionDistances(Groups[I][M],
+                                                     Groups[I][M + 1], false)) {
+          CanGroupBeSplitted = false;
+          break;
+        }
+      }
+
+      if (!CanGroupBeSplitted) {
+        break;
+      }
+
+      // Group size increased by 1 due to a new splited group
+      Groups.resize(Groups.size() + 1);
+
+      unsigned NewGroupIdx = Groups.size() - 1;
+
+      // Record the new group's original group index which will be used in
+      // DDRefsIndep().
+      SplitedGroupsOriginalIndices[NewGroupIdx] = I;
 
       // Update the group index for the refs which will be in the new group
-      for (unsigned K = J + 1, End = Groups[I].size(); K < End; ++K) {
-        auto GroupI = RefGroupIndex.find(Groups[I][K]);
-        assert(GroupI != RefGroupIndex.end() &&
-               "Cannot find the group index\n");
-        GroupI->second = GroupSize - 1;
+      for (unsigned K = J + 1, End = CurGroupSize; K < End; ++K) {
+        RefGroupIndex[Groups[I][K]] = NewGroupIdx;
         Groups.back().push_back(Groups[I][K]);
       }
 
       Groups[I].resize(J + 1);
+
       break;
     }
   }
@@ -1116,11 +1158,13 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   // Populate reference groups split by base blob index.
   // Populate a reference-to-group-number map.
   DDRefIndexGrouping Grouping(Groups, Refs);
+  DenseMap<unsigned, unsigned> &SplitedGroupsOriginalIndices =
+      Context.SplitedGroupsOriginalIndices;
 
   // Split the Group if the size of Group is larger than 2 and the elements are
   // from different parent loops and they do not have constant distance
   if (CanLoopBeRelaxed) {
-    splitRefGroups(Groups, Grouping.getIndex());
+    splitRefGroups(Groups, Grouping.getIndex(), SplitedGroupsOriginalIndices);
   }
 
   // Dump ref groups after split.
@@ -1750,7 +1794,19 @@ void HIRRuntimeDD::markDDRefsIndep(LoopContext &Context) {
       Context.Loop->getHLNodeUtils().getHIRFramework().getContext();
   RefGroupVecTy &Groups = Context.Groups;
 
-  auto Size = Groups.size();
+  DenseMap<unsigned, unsigned> &SplitedGroupsOriginalIndices =
+      Context.SplitedGroupsOriginalIndices;
+
+  // The splited group should have the same ScopeId as its original group.
+  // Thus, we need to merge the split group back to the original group.
+  for (auto Idx : SplitedGroupsOriginalIndices) {
+    unsigned GroupId = Idx.first;
+    unsigned OriginalId = Idx.second;
+    Groups[OriginalId].append(Groups[GroupId].begin(), Groups[GroupId].end());
+  }
+
+  auto Size = Groups.size() - SplitedGroupsOriginalIndices.size();
+
   MDBuilder MDB(LLVMContext);
 
   MDNode *Domain = MDB.createAnonymousAliasScopeDomain();
