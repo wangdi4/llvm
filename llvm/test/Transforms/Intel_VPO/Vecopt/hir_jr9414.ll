@@ -1,5 +1,5 @@
-; RUN: opt -hir-framework -hir-vplan-vec -vplan-vec -vplan-force-vf=2 -S -vplan-print-after-plain-cfg -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM1,CHECK
-; RUN: opt -passes="hir-vplan-vec,vplan-vec" -vplan-force-vf=2 -S -vplan-print-after-plain-cfg -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM2,CHECK
+; RUN: opt -enable-new-pm=0 -hir-framework -hir-vplan-vec -vplan-vec -vplan-force-vf=2 -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-vplan-vec,print<hir>,vplan-vec" -vplan-force-vf=2 -vplan-print-after-plain-cfg -S < %s 2>&1 | FileCheck %s
 
 ;
 ; Test checks that we do not crash during HIR decomposition. The test also
@@ -10,8 +10,6 @@
 ; Checks for HIR vectorizer
 ; CHECK-LABEL:    VPlan after importing plain CFG
 ; CHECK:          <4 x float> %vp{{.*}} = insertelement <4 x float> <float undef, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00> float %vp{{.*}} i32 0
-; PM1:            IR Dump After VPlan HIR Vectorizer
-; PM2:            IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; CHECK:          + DO i1 = 0, 2 * %tgu + -1, 2   <DO_LOOP>  <MAX_TC_EST = 2147483647> <simd-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:     |   %.vec = (<2 x float>*)(%f)[i1];
 ; CHECK-NEXT:     |   %.extended = shufflevector %.vec,  undef,  <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>;
