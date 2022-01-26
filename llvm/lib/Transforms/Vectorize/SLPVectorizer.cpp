@@ -5768,21 +5768,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
 #if INTEL_CUSTOMIZATION
   if (EnableMultiNodeSLP) {
-    // Return true if any value is already a part of an existing Multi-Node.
-    auto OperandsInExistingMultiNode = [this](ArrayRef<Value *> VL) {
-      for (Value *V : VL) {
-        auto *I = cast<Instruction>(V);
-        if (llvm::any_of(I->operands(), [this](Value *Op) {
-              return AllMultiNodeValues.count(Op);
-            }))
-          return true;
-      }
-      return false;
-    };
-
     /// Return true if all checks passed to begin building a Multi-Node.
-    auto CanBeginNewMultiNode = [this, MultiNodeCompatibleInstructions,
-                                 OperandsInExistingMultiNode](
+    auto CanBeginNewMultiNode = [this, MultiNodeCompatibleInstructions](
                                     ArrayRef<Value *> VL) {
       if (!MultiNodeCompatibleInstructions(VL))
         return false;
@@ -5795,20 +5782,18 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
            })) > MaxBBSizeForMultiNodeSLP)
         return false;
 
-      return !OperandsInExistingMultiNode(VL) &&
-             // Disable overlapping Multi-Nodes
-             llvm::none_of(
-                 VL,
-                 [this](Value *V) { return AllMultiNodeValues.count(V); }) &&
-             // Allow no more than this many multi-nodes per tree.
-             // TODO: This is a workaround for the broken save/undo
-             // instruction scheduling.
-             MultiNodes.size() < MaxNumOfMultiNodesPerTree;
+      return
+          // Disable overlapping Multi-Nodes
+          llvm::none_of(
+              VL, [this](Value *V) { return AllMultiNodeValues.count(V); }) &&
+          // Allow no more than this many multi-nodes per tree.
+          // TODO: This is a workaround for the broken save/undo
+          // instruction scheduling.
+          MultiNodes.size() < MaxNumOfMultiNodesPerTree;
     };
 
     // Check and return true if we can further grow current Multi-Node.
-    auto CanExtendMultiNode = [this, MultiNodeCompatibleInstructions,
-                               OperandsInExistingMultiNode](
+    auto CanExtendMultiNode = [this, MultiNodeCompatibleInstructions](
                                   ArrayRef<Value *> VL) {
       auto WithinSameBB = [](ArrayRef<Value *> VL,
                              const TreeEntry *RootTE) {
@@ -5826,11 +5811,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       };
 
       if (CurrentMultiNode->numOfTrunks() >= MultiNodeSizeLimit ||
-          !MultiNodeCompatibleInstructions(VL) ||
-          // If operands are trunk instructions of a Multi-Node, then cleanup
-          // may fail when we restore this MN's operands, because it may use
-          // the updated Trunk instruction, not the one from the original code.
-          OperandsInExistingMultiNode(VL))
+          !MultiNodeCompatibleInstructions(VL))
         return false;
 
       // Empty Multi-Node may always grow.
