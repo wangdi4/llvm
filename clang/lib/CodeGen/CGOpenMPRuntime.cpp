@@ -2028,6 +2028,7 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       CtorCGF.EmitAnyExprToMem(Init,
 #if INTEL_COLLAB
                                Address(CGM.GetAddrOfGlobalVar(VD),
+                                       CtorCGF.ConvertTypeForMem(VD->getType()),
                                        CGM.getContext().getDeclAlign(VD)),
 #else  // INTEL_COLLAB
                                Address(Addr, CGM.getContext().getDeclAlign(VD)),
@@ -2084,6 +2085,7 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       auto AL = ApplyDebugLocation::CreateArtificial(DtorCGF);
 #if INTEL_COLLAB
       DtorCGF.emitDestroy(Address(CGM.GetAddrOfGlobalVar(VD),
+                                  DtorCGF.ConvertTypeForMem(VD->getType()),
                                   CGM.getContext().getDeclAlign(VD)),
 #else // INTEL_COLLAB
       DtorCGF.emitDestroy(Address(Addr, CGM.getContext().getDeclAlign(VD)),
@@ -8132,9 +8134,11 @@ public:
 #if INTEL_COLLAB
     } else if (CGF.CGM.getLangOpts().OpenMPLateOutline && OASE &&
                isa<CXXThisExpr>(OASE->getBase()->IgnoreParenImpCasts())) {
+      QualType PTy = OASE->getBase()->getType();
       BP = Address(
              CGF.EmitScalarExpr(OASE->getBase()),
-             CGF.getContext().getTypeAlignInChars(OASE->getBase()->getType()));
+             CGF.ConvertTypeForMem(PTy->getAs<PointerType>()->getPointeeType()),
+             CGF.getContext().getTypeAlignInChars(PTy));
 #endif  // INTEL_COLLAB
     } else if ((AE && isa<CXXThisExpr>(AE->getBase()->IgnoreParenImpCasts())) ||
                (OASE &&
@@ -8328,9 +8332,12 @@ public:
 #if INTEL_COLLAB
         } else if (CGF.CGM.getLangOpts().OpenMPLateOutline && OASE &&
                    isa<CXXThisExpr>(OASE->getBase()->IgnoreParenImpCasts())) {
-          LowestElem = LB = Address(CGF.EmitScalarExpr(OASE->getBase()),
-                       CGF.getContext().getTypeAlignInChars(
-                           OASE->getBase()->getType()));
+          QualType PTy = OASE->getBase()->getType();
+          LowestElem = LB =
+              Address(CGF.EmitScalarExpr(OASE->getBase()),
+                      CGF.ConvertTypeForMem(
+                          PTy->getAs<PointerType>()->getPointeeType()),
+                      CGF.getContext().getTypeAlignInChars(PTy));
 #endif  // INTEL_COLLAB
         } else if (IsMemberReference) {
           const auto *ME = cast<MemberExpr>(I->getAssociatedExpression());

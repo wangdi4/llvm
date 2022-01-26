@@ -449,7 +449,8 @@ public:
     }
     for (auto FP : MapFPrivates) {
       llvm::Value *V = FP.first;
-      Address A = Address(V, CGF.getContext().getDeclAlign(FP.second));
+      Address A = Address(V, CGF.ConvertTypeForMem(FP.second->getType()),
+                          CGF.getContext().getDeclAlign(FP.second));
       PrivateScope.addPrivateNoTemps(FP.second, [A]() -> Address { return A; });
     }
     PrivateScope.Privatize();
