@@ -64,7 +64,7 @@ private:
   TInternalCallType getCallFunctionType(StringRef FuncName);
 
   /// Create call to opencl_printf.
-  Value *updatePrintf(llvm::CallInst *CI);
+  Value *updatePrintf(IRBuilder<> &Builder, CallInst *CI);
   /// Create call to lprefetch.
   void updatePrefetch(llvm::CallInst *CI);
 
