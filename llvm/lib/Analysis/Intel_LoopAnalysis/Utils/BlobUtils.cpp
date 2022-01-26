@@ -524,6 +524,8 @@ public:
   }
 
   void visitNAryExpr(const SCEVNAryExpr *NAry) {
+    // TODO: Double the operations for min/max exprs as they generate cmp and
+    // select operations.
     NumOperations += (NAry->getNumOperands() - 1);
     for (const auto *Op : NAry->operands()) {
       visit(Op);
@@ -541,6 +543,13 @@ public:
   void visitSMinExpr(const SCEVSMinExpr *SMin) { visitNAryExpr(SMin); }
 
   void visitUMinExpr(const SCEVUMinExpr *UMin) { visitNAryExpr(UMin); }
+
+  void visitSequentialUMinExpr(const SCEVSequentialUMinExpr *UMin) {
+    // Sequential UMin generates (NumOp - 2) 'Or' instructions in addition to
+    // (cmp + select) instructions.
+    NumOperations += (UMin->getNumOperands() - 2);
+    visitNAryExpr(UMin);
+  }
 
   void visitAddRecExpr(const SCEVAddRecExpr *AddRec) {
     llvm_unreachable("AddRec not expected!");

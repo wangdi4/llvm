@@ -1038,7 +1038,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
 
 #include "clang/Basic/Sanitizers.def"
 #undef SANITIZER
-  } while (0);
+  } while (false);
 
   if (D) {
     bool NoSanitizeCoverage = false;
@@ -2152,9 +2152,9 @@ void CodeGenFunction::EmitBranchToCounterBlock(
   if (!InstrumentRegions || !isInstrumentedCondition(Cond))
     return EmitBranchOnBoolExpr(Cond, TrueBlock, FalseBlock, TrueCount, LH);
 
-  llvm::BasicBlock *ThenBlock = NULL;
-  llvm::BasicBlock *ElseBlock = NULL;
-  llvm::BasicBlock *NextBlock = NULL;
+  llvm::BasicBlock *ThenBlock = nullptr;
+  llvm::BasicBlock *ElseBlock = nullptr;
+  llvm::BasicBlock *NextBlock = nullptr;
 
   // Create the block we'll use to increment the appropriate counter.
   llvm::BasicBlock *CounterIncrBlock = createBasicBlock("lop.rhscnt");
@@ -2666,6 +2666,7 @@ llvm::Value *CodeGenFunction::emitArrayLength(const ArrayType *origArrayType,
     // Create the actual GEP.
     addr = Address(Builder.CreateInBoundsGEP(
         addr.getElementType(), addr.getPointer(), gepIndices, "array.begin"),
+        ConvertTypeForMem(eltType),
         addr.getAlignment());
   }
 
@@ -3387,7 +3388,7 @@ void CodeGenFunction::emitAlignmentAssumptionCheck(
     SanitizerScope SanScope(this);
 
     if (!OffsetValue)
-      OffsetValue = Builder.getInt1(0); // no offset.
+      OffsetValue = Builder.getInt1(false); // no offset.
 
     llvm::Constant *StaticData[] = {EmitCheckSourceLocation(Loc),
                                     EmitCheckSourceLocation(SecondaryLoc),

@@ -137,7 +137,7 @@ struct SOAIndexInfoTy {
   // types that are not valid on the index type being used. This variable
   // holds the list of incompatible attributes that need to be removed
   // from function signatures and call sites for the cloned routines.
-  AttrBuilder IncompatibleTypeAttrs;
+  AttributeMask IncompatibleTypeAttrs;
 };
 
 // This structure holds the information about structure type that is going to be
@@ -2762,7 +2762,7 @@ bool AOSToSOAOPTransformImpl::updateAttributeList(
   llvm::Type *CloneRetTy = CloneFnType->getReturnType();
   if (OrigRetTy->isPointerTy() && !CloneRetTy->isPointerTy()) {
     AttributeSet RetAttrs = Attrs.getAttributes(AttributeList::ReturnIndex);
-    if (AttrBuilder(RetAttrs).overlaps(IndexInfo.IncompatibleTypeAttrs)) {
+    if (AttrBuilder(Ctx, RetAttrs).overlaps(IndexInfo.IncompatibleTypeAttrs)) {
       Attrs = Attrs.removeRetAttributes(Ctx, IndexInfo.IncompatibleTypeAttrs);
       Changed = true;
     }
@@ -2775,7 +2775,8 @@ bool AOSToSOAOPTransformImpl::updateAttributeList(
     if (OrigArgTy->isPointerTy() && !CloneArgTy->isPointerTy()) {
       AttributeSet ParamAttrs =
           Attrs.getAttributes(ArgIdx + AttributeList::FirstArgIndex);
-      if (AttrBuilder(ParamAttrs).overlaps(IndexInfo.IncompatibleTypeAttrs)) {
+      if (AttrBuilder(Ctx, ParamAttrs).overlaps(
+            IndexInfo.IncompatibleTypeAttrs)) {
         Attrs =
             Attrs.removeAttributesAtIndex(Ctx,
                                         ArgIdx + AttributeList::FirstArgIndex,

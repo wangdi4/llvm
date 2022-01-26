@@ -180,13 +180,10 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
     : Diags(Diags), VFS(std::move(VFS)), Mode(GCCMode),
       SaveTemps(SaveTempsNone), BitcodeEmbed(EmbedNone), LTOMode(LTOK_None),
       ClangExecutable(ClangExecutable), SysRoot(DEFAULT_SYSROOT),
-      DriverTitle(Title), CCPrintStatReportFilename(), CCPrintOptionsFilename(),
-      CCPrintHeadersFilename(), CCLogDiagnosticsFilename(),
-      CCCPrintBindings(false), CCPrintOptions(false), CCPrintHeaders(false),
-      CCLogDiagnostics(false), CCGenDiagnostics(false),
-      CCPrintProcessStats(false), TargetTriple(TargetTriple),
-      CCCGenericGCCName(""), Saver(Alloc), CheckInputsExist(true),
-      GenReproducer(false),
+      DriverTitle(Title), CCCPrintBindings(false), CCPrintOptions(false),
+      CCPrintHeaders(false), CCLogDiagnostics(false), CCGenDiagnostics(false),
+      CCPrintProcessStats(false), TargetTriple(TargetTriple), Saver(Alloc),
+      CheckInputsExist(true), GenReproducer(false),
 #if INTEL_CUSTOMIZATION
       SuppressMissingInputWarning(false), IntelPrintOptions(false),
       IntelMode(false), DPCPPMode(false) {
@@ -718,7 +715,20 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
   bool HasNostdlib = Args.hasArg(options::OPT_nostdlib);
   bool HasNostdlibxx = Args.hasArg(options::OPT_nostdlibxx);
   bool HasNodefaultlib = Args.hasArg(options::OPT_nodefaultlibs);
+  bool IgnoreUnused = false;
   for (Arg *A : Args) {
+    if (IgnoreUnused)
+      A->claim();
+
+    if (A->getOption().matches(options::OPT_start_no_unused_arguments)) {
+      IgnoreUnused = true;
+      continue;
+    }
+    if (A->getOption().matches(options::OPT_end_no_unused_arguments)) {
+      IgnoreUnused = false;
+      continue;
+    }
+
     // Unfortunately, we have to parse some forwarding options (-Xassembler,
     // -Xlinker, -Xpreprocessor) because we either integrate their functionality
     // (assembler and preprocessor), or bypass a previous driver ('collect2').
@@ -836,7 +846,7 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
 
   // Enforce -static if -miamcu is present.
   if (Args.hasFlag(options::OPT_miamcu, options::OPT_mno_iamcu, false))
-    DAL->AddFlagArg(0, Opts.getOption(options::OPT_static));
+    DAL->AddFlagArg(nullptr, Opts.getOption(options::OPT_static));
 
   // Use of -fintelfpga implies -g
   if (Args.hasArg(options::OPT_fintelfpga)) {
@@ -2740,9 +2750,16 @@ bool Driver::HandleImmediateArgs(const Compilation &C) {
   }
 
   if (C.getArgs().hasArg(options::OPT_print_runtime_dir)) {
-    std::string CandidateRuntimePath = TC.getRuntimePath();
-    if (getVFS().exists(CandidateRuntimePath))
-      llvm::outs() << CandidateRuntimePath << '\n';
+    std::string RuntimePath;
+    // Get the first existing path, if any.
+    for (auto Path : TC.getRuntimePaths()) {
+      if (getVFS().exists(Path)) {
+        RuntimePath = Path;
+        break;
+      }
+    }
+    if (!RuntimePath.empty())
+      llvm::outs() << RuntimePath << '\n';
     else
       llvm::outs() << TC.getCompilerRTPath() << '\n';
     return false;
@@ -3369,7 +3386,7 @@ static bool runBundler(const SmallVectorImpl<StringRef> &BundlerArgs,
   return !llvm::sys::ExecuteAndWait(BundlerBinary.get(), BundlerArgs);
 }
 
-bool hasFPGABinary(Compilation &C, std::string Object, types::ID Type) {
+static bool hasFPGABinary(Compilation &C, std::string Object, types::ID Type) {
   assert(types::isFPGA(Type) && "unexpected Type for FPGA binary check");
   // Do not do the check if the file doesn't exist
   if (!llvm::sys::fs::exists(Object))
@@ -3638,6 +3655,14 @@ bool Driver::checkForOffloadStaticLib(Compilation &C,
     }
   } // INTEL
   return false;
+}
+
+/// Check whether the given input tree contains any clang-offload-dependency
+/// actions.
+static bool ContainsOffloadDepsAction(const Action *A) {
+  if (isa<OffloadDepsJobAction>(A))
+    return true;
+  return llvm::any_of(A->inputs(), ContainsOffloadDepsAction);
 }
 
 namespace {
@@ -4339,7 +4364,7 @@ class OffloadingActionBuilder final {
         // We will pass the device action as a host dependence, so we don't
         // need to do anything else with them.
         CudaDeviceActions.clear();
-        return ABRT_Success;
+        return CompileDeviceOnly ? ABRT_Ignore_Host : ABRT_Success;
       }
 
       // By default, we produce an action for each device arch.
@@ -4372,6 +4397,7 @@ class OffloadingActionBuilder final {
       assert(DeviceLinkerInputs.size() == GpuArchList.size() &&
              "Linker inputs and GPU arch list sizes do not match.");
 
+      ActionList Actions;
       // Append a new link action for each device.
       unsigned I = 0;
       for (auto &LI : DeviceLinkerInputs) {
@@ -4383,22 +4409,29 @@ class OffloadingActionBuilder final {
         OffloadAction::DeviceDependences DeviceLinkDeps;
         DeviceLinkDeps.add(*DeviceLinkAction, *ToolChains[0],
             GpuArchList[I], AssociatedOffloadKind);
-        AL.push_back(C.MakeAction<OffloadAction>(DeviceLinkDeps,
-            DeviceLinkAction->getType()));
+        Actions.push_back(C.MakeAction<OffloadAction>(
+            DeviceLinkDeps, DeviceLinkAction->getType()));
         ++I;
       }
       DeviceLinkerInputs.clear();
 
       // Create a host object from all the device images by embedding them
-      // in a fat binary.
+      // in a fat binary for mixed host-device compilation. For device-only
+      // compilation, creates a fat binary.
       OffloadAction::DeviceDependences DDeps;
-      auto *TopDeviceLinkAction =
-          C.MakeAction<LinkJobAction>(AL, types::TY_Object);
-      DDeps.add(*TopDeviceLinkAction, *ToolChains[0],
-          nullptr, AssociatedOffloadKind);
-
-      // Offload the host object to the host linker.
-      AL.push_back(C.MakeAction<OffloadAction>(DDeps, TopDeviceLinkAction->getType()));
+      if (!CompileDeviceOnly || !BundleOutput.hasValue() ||
+          BundleOutput.getValue()) {
+        auto *TopDeviceLinkAction = C.MakeAction<LinkJobAction>(
+            Actions,
+            CompileDeviceOnly ? types::TY_HIP_FATBIN : types::TY_Object);
+        DDeps.add(*TopDeviceLinkAction, *ToolChains[0], nullptr,
+                  AssociatedOffloadKind);
+        // Offload the host object to the host linker.
+        AL.push_back(
+            C.MakeAction<OffloadAction>(DDeps, TopDeviceLinkAction->getType()));
+      } else {
+        AL.append(Actions);
+      }
     }
 
     Action* appendLinkHostActions(ActionList &AL) override { return AL.back(); }
@@ -4800,19 +4833,22 @@ class OffloadingActionBuilder final {
           if ((SYCLDeviceOnly || Args.hasArg(options::OPT_emit_llvm)) &&
               Args.hasArg(options::OPT_S))
             OutputType = types::TY_LLVM_IR;
-          if (SYCLDeviceOnly) {
-            if (Args.hasFlag(options::OPT_fno_sycl_use_bitcode,
-                             options::OPT_fsycl_use_bitcode, false)) {
-              auto *CompileAction =
-                  C.MakeAction<CompileJobAction>(A, types::TY_LLVM_BC);
-              A = C.MakeAction<SPIRVTranslatorJobAction>(CompileAction,
-                                                         types::TY_SPIRV);
+          // Use of -fsycl-device-obj=spirv converts the original LLVM-IR
+          // file to SPIR-V for later consumption.
+          if ((SYCLDeviceOnly || FinalPhase != phases::Link) &&
+              Args.getLastArgValue(options::OPT_fsycl_device_obj_EQ)
+                  .equals_insensitive("spirv")) {
+            auto *CompileAction =
+                C.MakeAction<CompileJobAction>(A, types::TY_LLVM_BC);
+            A = C.MakeAction<SPIRVTranslatorJobAction>(CompileAction,
+                                                       types::TY_SPIRV);
+            if (SYCLDeviceOnly)
               continue;
-            }
+          } else {
+            if (Args.hasArg(options::OPT_fsyntax_only))
+              OutputType = types::TY_Nothing;
+            A = C.MakeAction<CompileJobAction>(A, OutputType);
           }
-          if (Args.hasArg(options::OPT_fsyntax_only))
-            OutputType = types::TY_Nothing;
-          A = C.MakeAction<CompileJobAction>(A, OutputType);
           DeviceCompilerInput = A;
         }
         const DeviceTargetInfo &DevTarget = SYCLTargetInfoList.back();
@@ -5059,7 +5095,10 @@ class OffloadingActionBuilder final {
         auto *SYCLDeviceLibsUnbundleAction =
             C.MakeAction<OffloadUnbundlingJobAction>(SYCLDeviceLibsInputAction);
         addDeviceDepences(SYCLDeviceLibsUnbundleAction);
-        DeviceLinkObjects.push_back(SYCLDeviceLibsUnbundleAction);
+
+        auto *ConvertSPIRVAction = C.MakeAction<SpirvToIrWrapperJobAction>(
+            SYCLDeviceLibsUnbundleAction, types::TY_Tempfilelist);
+        DeviceLinkObjects.push_back(ConvertSPIRVAction);
         PerflibAdded = true;
       };
       // Only add the MKL static lib if used with -static or is Windows.
@@ -5262,7 +5301,19 @@ class OffloadingActionBuilder final {
             DA.add(*DeviceWrappingAction, *TC, BoundArch, Action::OFK_SYCL);
             continue;
           } else if (!types::isFPGA(Input->getType())) {
-            LinkObjects.push_back(Input);
+            // No need for any conversion if we are coming in from the
+            // clang-offload-deps or regular compilation path.
+            if (isNVPTX || isAMDGCN || ContainsOffloadDepsAction(Input) ||
+                ContainsCompileOrAssembleAction(Input)) {
+              LinkObjects.push_back(Input);
+              continue;
+            }
+            Action *ConvertSPIRVAction =
+                C.MakeAction<SpirvToIrWrapperJobAction>(
+                    Input, Input->getType() == types::TY_Archive
+                               ? types::TY_Tempfilelist
+                               : types::TY_LLVM_BC);
+            LinkObjects.push_back(ConvertSPIRVAction);
           }
         }
         if (LinkObjects.empty())
@@ -6087,17 +6138,20 @@ public:
     }
   }
 
-  void makeHostLinkAction(ActionList &LinkerInputs) {
-    // Build a list of device linking actions.
-    ActionList DeviceAL;
+  void appendDeviceLinkActions(ActionList &AL) {
     for (DeviceActionBuilder *SB : SpecializedBuilders) {
       if (!SB->isValid())
         continue;
-      SB->appendLinkDeviceActions(DeviceAL);
+      SB->appendLinkDeviceActions(AL);
     }
+  }
 
+  Action *makeHostLinkAction(ActionList &LinkerInputs) {
+    // Build a list of device linking actions.
+    ActionList DeviceAL;
+    appendDeviceLinkActions(DeviceAL);
     if (DeviceAL.empty())
-      return;
+      return nullptr;
 
     // Let builders add host linking actions.
     for (DeviceActionBuilder *SB : SpecializedBuilders) {
@@ -6106,6 +6160,9 @@ public:
       if (Action *HA = SB->appendLinkHostActions(DeviceAL))
         LinkerInputs.push_back(HA);
     }
+#if INTEL_CUSTOMIZATION
+    return nullptr;
+#endif // INTEL_CUSTOMIZATION
   }
 
   /// Processes the host linker action. This currently consists of replacing it
@@ -6611,6 +6668,13 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   }
 
   // Add a link action if necessary.
+
+  if (LinkerInputs.empty()) {
+    Arg *FinalPhaseArg;
+    if (getFinalPhase(Args, &FinalPhaseArg) == phases::Link)
+      OffloadBuilder.appendDeviceLinkActions(Actions);
+  }
+
   if (!LinkerInputs.empty()) {
     OffloadBuilder.makeHostLinkAction(LinkerInputs);
     types::ID LinkType(types::TY_Image);

@@ -30,7 +30,6 @@ namespace clang {
   class Type;
 
 namespace CodeGen {
-class CGRecordLayout;
 class CodeGenModule; // INTEL
 
 // TBAAAccessKind - A kind of TBAA memory access descriptor.

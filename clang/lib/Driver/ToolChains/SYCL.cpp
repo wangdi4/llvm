@@ -213,8 +213,8 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
     const ArgList &Args, StringRef SubArchName, StringRef OutputFilePrefix,
     const InputInfoList &InputFiles) const {
   // Split inputs into libraries which have 'archive' type and other inputs
-  // which can be either objects or list files. Objects/list files are linked
-  // together in a usual way, but the libraries need to be linked differently.
+  // which can be either objects or list files. Object files are linked together
+  // in a usual way, but the libraries/list files need to be linked differently.
   // We need to fetch only required symbols from the libraries. With the current
   // llvm-link command line interface that can be achieved with two step
   // linking: at the first step we will link objects into an intermediate
@@ -255,14 +255,11 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
 #if INTEL_CUSTOMIZATION
     auto isOMPDeviceLib = [&C](const InputInfo &II) {
       const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
-      StringRef LibPostfix = ".o";
       bool IsMSVC = HostTC->getTriple().isWindowsMSVCEnvironment();
-      if (IsMSVC && C.getDriver().IsCLMode())
-        LibPostfix = ".obj";
       StringRef InputFilename =
           llvm::sys::path::filename(StringRef(II.getFilename()));
       if (!InputFilename.startswith("libomp-") ||
-          !InputFilename.endswith(LibPostfix) || (InputFilename.count('-') < 2))
+          (InputFilename.count('-') < 2))
         return false;
       size_t PureLibNameLen = InputFilename.find_last_of('-');
       // Skip the prefix "libomp-"
@@ -290,14 +287,18 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
     if (LinkSYCLDeviceLibs)
       Opts.push_back("-only-needed");
     for (const auto &II : InputFiles) {
-      if (II.getType() == types::TY_Tempfilelist) {
+#if INTEL_CUSTOMIZATION
+      if (isOMPDeviceLib(II)) {
+        OMPObjs.push_back(II.getFilename());
+      } else if (II.getType() == types::TY_Tempfilelist ||
+                 (getToolChain().getTriple().isSPIR() &&
+                  II.getType() == types::TY_Archive)) {
+        // Archives are expected to be unbundled as 'aoo' which means it is
+        // a list of files, so treat them accordingly for llvm-link acceptance
+#endif // INTEL_CUSTOMIZATION
         // Pass the unbundled list with '@' to be processed.
         std::string FileName(II.getFilename());
-        Objs.push_back(C.getArgs().MakeArgString("@" + FileName));
-#if INTEL_CUSTOMIZATION
-      } else if (isOMPDeviceLib(II)) {
-        OMPObjs.push_back(II.getFilename());
-#endif // INTEL_CUSTOMIZATION
+        Libs.push_back(C.getArgs().MakeArgString("@" + FileName));
       } else if (II.getType() == types::TY_Archive && !LinkSYCLDeviceLibs) {
         Libs.push_back(II.getFilename());
       } else
@@ -430,9 +431,8 @@ void SYCL::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   for (const auto &II : Inputs) {
     if (!II.isFilename())
       continue;
-    if (Args.hasFlag(options::OPT_fsycl_use_bitcode,
-                     options::OPT_fno_sycl_use_bitcode, true) ||
-        Args.hasArg(options::OPT_foffload_static_lib_EQ))
+    if (!Args.getLastArgValue(options::OPT_fsycl_device_obj_EQ)
+             .equals_insensitive("spirv"))
       SpirvInputs.push_back(II);
     else {
       const char *LLVMSpirvOutputFile = constructLLVMSpirvCommand(

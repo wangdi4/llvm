@@ -19,8 +19,6 @@
 
 namespace llvm {
 
-class BasicBlock;
-
 class UnifyFunctionExitNodesLegacyPass : public FunctionPass {
 public:
   BasicBlock *ReturnBlock;  // INTEL

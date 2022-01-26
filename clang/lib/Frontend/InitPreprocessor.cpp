@@ -1075,6 +1075,9 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 
   Builder.defineMacro("__USER_LABEL_PREFIX__", TI.getUserLabelPrefix());
 
+  if (!LangOpts.MathErrno)
+    Builder.defineMacro("__NO_MATH_ERRNO__");
+
 #if INTEL_CUSTOMIZATION
   // CQ419573 - Always set __FINITE_MATH_ONLY__ to 0 for compatibility
   // with 'icc' and Intel runtime libraries. If this definition is set

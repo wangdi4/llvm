@@ -12,12 +12,10 @@ endif()
 # NOTE: could have been added earlier from llvm/projects
 if (NOT TARGET LLVMGenXIntrinsics)
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
-    set(LLVMGenXIntrinsics_GIT_REPO https://github.com/intel/vc-intrinsics.git)
-
-    # Author: Aleksander Us <aleksander.us@intel.com>
-    # Date:   Mon Oct 18 18:03:24 2021 +0000
-    #     Wrap arg_size for call instructions
-    set(LLVMGenXIntrinsics_GIT_TAG 6a7e93d3d90638b6565d97cef96ffaf0f77d688c)
+    # FIXME: temporarily use a fork of intel/vc-intrinsics.git which is aimed at using the new interface of
+    # removeAttributesAtIndex after https://reviews.llvm.org/D116110
+    set(LLVMGenXIntrinsics_GIT_REPO https://github.com/yubingex007-a11y/vc-intrinsics.git)
+    set(LLVMGenXIntrinsics_GIT_TAG 612e2eeb324f002ddcae6c4534a31c1ba283d7c5)
 
     if (INTEL_CUSTOMIZATION)
       # for xmain builds the LLVMGenXIntrinsics_GIT_REPO is constructed from
@@ -70,6 +68,11 @@ if (NOT TARGET LLVMGenXIntrinsics)
       endif ()
 
       # Construct GIT_REPO from from GIT_REPO_PATH and GIT_REPO_NAME.
+      # As a workaround solution, force xmain-web to download vc-intrinsics from
+      # https://github.com/yubingex007-a11y/drivers.gpu.compute.vc-intrinsics
+      set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/yubingex007-a11y)
+      set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
+      set(LLVMGenXIntrinsics_GIT_TAG ab962a9a33b76242de6b6bf2c15deab37a97c1ff)
       set( LLVMGenXIntrinsics_GIT_REPO
         ${LLVMGenXIntrinsics_GIT_REPO_PATH}/${LLVMGenXIntrinsics_GIT_REPO_NAME} )
     endif (INTEL_CUSTOMIZATION)

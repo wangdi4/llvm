@@ -302,8 +302,7 @@ static void replaceWithDefined(Symbol &sym, SectionBase &sec, uint64_t value,
   sym.replace(Defined{sym.file, sym.getName(), sym.binding, sym.stOther,
                       sym.type, value, size, &sec});
 
-  sym.pltIndex = old.pltIndex;
-  sym.gotIndex = old.gotIndex;
+  sym.auxIdx = old.auxIdx;
   sym.verdefIndex = old.verdefIndex;
   sym.exportDynamic = true;
   sym.isUsedInRegularObj = true;
@@ -403,6 +402,52 @@ static void addCopyRelSymbol(SharedSymbol &ss) {
     llvm_unreachable("");
   }
 }
+
+// .eh_frame sections are mergeable input sections, so their input
+// offsets are not linearly mapped to output section. For each input
+// offset, we need to find a section piece containing the offset and
+// add the piece's base address to the input offset to compute the
+// output offset. That isn't cheap.
+//
+// This class is to speed up the offset computation. When we process
+// relocations, we access offsets in the monotonically increasing
+// order. So we can optimize for that access pattern.
+//
+// For sections other than .eh_frame, this class doesn't do anything.
+namespace {
+class OffsetGetter {
+public:
+  explicit OffsetGetter(InputSectionBase &sec) {
+    if (auto *eh = dyn_cast<EhInputSection>(&sec))
+      pieces = eh->pieces;
+  }
+
+  // Translates offsets in input sections to offsets in output sections.
+  // Given offset must increase monotonically. We assume that Piece is
+  // sorted by inputOff.
+  uint64_t get(uint64_t off) {
+    if (pieces.empty())
+      return off;
+
+    while (i != pieces.size() && pieces[i].inputOff + pieces[i].size <= off)
+      ++i;
+    if (i == pieces.size())
+      fatal(".eh_frame: relocation is not in any piece");
+
+    // Pieces must be contiguous, so there must be no holes in between.
+    assert(pieces[i].inputOff <= off && "Relocation not in any piece");
+
+    // Offset -1 means that the piece is dead (i.e. garbage collected).
+    if (pieces[i].outputOff == -1)
+      return -1;
+    return pieces[i].outputOff + off - pieces[i].inputOff;
+  }
+
+private:
+  ArrayRef<EhSectionPiece> pieces;
+  size_t i = 0;
+};
+} // namespace
 
 // MIPS has an odd notion of "paired" relocations to calculate addends.
 // For example, if a relocation is of R_MIPS_HI16, there must be a
@@ -786,52 +831,6 @@ template <class RelTy> static RelType getMipsN32RelType(RelTy *&rel, RelTy *end)
     type |= (rel++)->getType(config->isMips64EL) << (8 * n++);
   return type;
 }
-
-// .eh_frame sections are mergeable input sections, so their input
-// offsets are not linearly mapped to output section. For each input
-// offset, we need to find a section piece containing the offset and
-// add the piece's base address to the input offset to compute the
-// output offset. That isn't cheap.
-//
-// This class is to speed up the offset computation. When we process
-// relocations, we access offsets in the monotonically increasing
-// order. So we can optimize for that access pattern.
-//
-// For sections other than .eh_frame, this class doesn't do anything.
-namespace {
-class OffsetGetter {
-public:
-  explicit OffsetGetter(InputSectionBase &sec) {
-    if (auto *eh = dyn_cast<EhInputSection>(&sec))
-      pieces = eh->pieces;
-  }
-
-  // Translates offsets in input sections to offsets in output sections.
-  // Given offset must increase monotonically. We assume that Piece is
-  // sorted by inputOff.
-  uint64_t get(uint64_t off) {
-    if (pieces.empty())
-      return off;
-
-    while (i != pieces.size() && pieces[i].inputOff + pieces[i].size <= off)
-      ++i;
-    if (i == pieces.size())
-      fatal(".eh_frame: relocation is not in any piece");
-
-    // Pieces must be contiguous, so there must be no holes in between.
-    assert(pieces[i].inputOff <= off && "Relocation not in any piece");
-
-    // Offset -1 means that the piece is dead (i.e. garbage collected).
-    if (pieces[i].outputOff == -1)
-      return -1;
-    return pieces[i].outputOff + off - pieces[i].inputOff;
-  }
-
-private:
-  ArrayRef<EhSectionPiece> pieces;
-  size_t i = 0;
-};
-} // namespace
 
 static void addRelativeReloc(InputSectionBase &isec, uint64_t offsetInSec,
                              Symbol &sym, int64_t addend, RelExpr expr,
@@ -1544,15 +1543,17 @@ static bool handleNonPreemptibleIfunc(Symbol &sym) {
   // may alter section/value, so create a copy of the symbol to make
   // section/value fixed.
   auto *directSym = makeDefined(cast<Defined>(sym));
+  directSym->allocateAux();
   addPltEntry(*in.iplt, *in.igotPlt, *in.relaIplt, target->iRelativeRel,
               *directSym);
-  sym.pltIndex = directSym->pltIndex;
+  sym.allocateAux();
+  symAux.back().pltIdx = symAux[directSym->auxIdx].pltIdx;
 
   if (sym.hasDirectReloc) {
     // Change the value to the IPLT and redirect all references to it.
     auto &d = cast<Defined>(sym);
     d.section = in.iplt.get();
-    d.value = sym.pltIndex * target->ipltEntrySize;
+    d.value = d.getPltIdx() * target->ipltEntrySize;
     d.size = 0;
     // It's important to set the symbol type here so that dynamic loaders
     // don't try to call the PLT as if it were an ifunc resolver.
@@ -1571,6 +1572,10 @@ void elf::postScanRelocations() {
   auto fn = [](Symbol &sym) {
     if (handleNonPreemptibleIfunc(sym))
       return;
+    if (!sym.needsDynReloc())
+      return;
+    sym.allocateAux();
+
     if (sym.needsGot)
       addGotEntry(sym);
     if (sym.needsPlt)
@@ -1584,9 +1589,10 @@ void elf::postScanRelocations() {
       } else {
         assert(sym.isFunc() && sym.needsPlt);
         if (!sym.isDefined()) {
-          replaceWithDefined(
-              sym, *in.plt,
-              target->pltHeaderSize + target->pltEntrySize * sym.pltIndex, 0);
+          replaceWithDefined(sym, *in.plt,
+                             target->pltHeaderSize +
+                                 target->pltEntrySize * sym.getPltIdx(),
+                             0);
           sym.needsCopy = true;
           if (config->emachine == EM_PPC) {
             // PPC32 canonical PLT entries are at the beginning of .glink
@@ -1603,13 +1609,12 @@ void elf::postScanRelocations() {
     bool isLocalInExecutable = !sym.isPreemptible && !config->shared;
 
     if (sym.needsTlsDesc) {
-      in.got->addDynTlsEntry(sym);
+      in.got->addTlsDescEntry(sym);
       mainPart->relaDyn->addAddendOnlyRelocIfNonPreemptible(
-          target->tlsDescRel, *in.got, in.got->getGlobalDynOffset(sym), sym,
+          target->tlsDescRel, *in.got, in.got->getTlsDescOffset(sym), sym,
           target->tlsDescRel);
     }
-    if (sym.needsTlsGd && !sym.needsTlsDesc) {
-      // TODO Support mixed TLSDESC and TLS GD.
+    if (sym.needsTlsGd) {
       in.got->addDynTlsEntry(sym);
       uint64_t off = in.got->getGlobalDynOffset(sym);
       if (isLocalInExecutable)
@@ -1653,13 +1658,15 @@ void elf::postScanRelocations() {
     if (sym.needsTlsIe && !sym.needsTlsGdToIe)
       addTpOffsetGotEntry(sym);
   };
+
+  assert(symAux.empty());
   for (Symbol *sym : symtab->symbols())
     fn(*sym);
 
   // Local symbols may need the aforementioned non-preemptible ifunc and GOT
   // handling. They don't need regular PLT.
   for (ELFFileBase *file : objectFiles)
-    for (Symbol *sym : cast<ELFFileBase>(file)->getLocalSymbols())
+    for (Symbol *sym : file->getLocalSymbols())
       fn(*sym);
 }
 
@@ -2173,6 +2180,7 @@ void elf::hexagonTLSSymbolUpdate(ArrayRef<OutputSection *> outputSections) {
           for (Relocation &rel : isec->relocations)
             if (rel.sym->type == llvm::ELF::STT_TLS && rel.expr == R_PLT_PC) {
               if (needEntry) {
+                sym->allocateAux();
                 addPltEntry(*in.plt, *in.gotPlt, *in.relaPlt, target->pltRel,
                             *sym);
                 needEntry = false;

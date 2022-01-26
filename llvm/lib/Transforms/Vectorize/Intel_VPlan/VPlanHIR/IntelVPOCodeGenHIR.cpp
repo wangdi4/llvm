@@ -294,6 +294,7 @@ public:
   RegDDRef *visitUMaxExpr(const SCEVUMaxExpr *Expr);
   RegDDRef *visitSMinExpr(const SCEVSMinExpr *Expr);
   RegDDRef *visitUMinExpr(const SCEVUMinExpr *Expr);
+  RegDDRef *visitSequentialUMinExpr(const SCEVSequentialUMinExpr *Expr);
   RegDDRef *visitUnknown(const SCEVUnknown *Expr);
   RegDDRef *visitCouldNotCompute(const SCEVCouldNotCompute *Expr);
 };
@@ -451,6 +452,11 @@ RegDDRef *NestedBlobCG::visitSMinExpr(const SCEVSMinExpr *Expr) {
 
 RegDDRef *NestedBlobCG::visitUMinExpr(const SCEVUMinExpr *Expr) {
   return codegenNAryOp(Expr, UMinOp);
+}
+
+RegDDRef *NestedBlobCG::visitSequentialUMinExpr(
+    const SCEVSequentialUMinExpr *Expr) {
+  llvm_unreachable("SCEVSequentialUMinExpr not implemented");
 }
 
 RegDDRef *NestedBlobCG::visitUnknown(const SCEVUnknown *Expr) {

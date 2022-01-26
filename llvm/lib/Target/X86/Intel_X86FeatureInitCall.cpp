@@ -229,7 +229,12 @@ public:
     InlineAsm *Asm = InlineAsm::get(
         FunctionType::get(IRB.getVoidTy(), {Ptr8->getType()}, false),
         "fldcw ${0:w}", "*m,~{dirflag},~{fpsr},~{flags}", true);
-    IRB.CreateCall(Asm, Ptr8);
+    CallBase *CallInst = IRB.CreateCall(Asm, Ptr8);
+    // Add elementtype attribute for indirect constraints.
+    auto Attr = Attribute::get(
+        F.getContext(), llvm::Attribute::ElementType,
+        cast<llvm::PointerType>(Ptr8->getType())->getElementType());
+    CallInst->addParamAttr(0, Attr);
 
     // call void @llvm.lifetime.end.p0i8(i64 2, i8* %2)
     IRB.CreateLifetimeEnd(Ptr8, AllocaSize);

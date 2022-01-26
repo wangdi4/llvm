@@ -518,7 +518,7 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
 
   // Collect the arguments attribute list, return and function attributes
   const AttributeList &ArgsAttrList = F->getAttributes();
-  AttrBuilder RAttrs(ArgsAttrList.getRetAttrs());
+  AttrBuilder RAttrs(F->getContext(), ArgsAttrList.getRetAttrs());
   AttributeSet RetAttrs = AttributeSet::get(F->getContext(), RAttrs);
   AttributeSet FnAttrs = ArgsAttrList.getFnAttrs();
 
@@ -571,7 +571,7 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
     // Get the call, actual parameters and return attributes
     CallBase &Call = cast<CallBase>(*F->user_back());
     const AttributeList &CallAttrList = Call.getAttributes();
-    AttrBuilder CallRAttrs(CallAttrList.getRetAttrs());
+    AttrBuilder CallRAttrs(F->getContext(), CallAttrList.getRetAttrs());
     AttributeSet CallRetAttrs = AttributeSet::get(F->getContext(), CallRAttrs);
     AttributeSet CallFnAttrs = CallAttrList.getFnAttrs();
 

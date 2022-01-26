@@ -3913,7 +3913,7 @@ SDValue DAGCombiner::visitMUL(SDNode *N) {
   // Change (mul (shl X, C), Y) -> (shl (mul X, Y), C) when the shift has one
   // use.
   {
-    SDValue Sh(nullptr, 0), Y(nullptr, 0);
+    SDValue Sh, Y;
 
     // Check for both (mul (shl X, C), Y)  and  (mul Y, (shl X, C)).
     if (N0.getOpcode() == ISD::SHL &&
@@ -12325,7 +12325,7 @@ SDValue DAGCombiner::visitSIGN_EXTEND_INREG(SDNode *N) {
     return DAG.getNode(ISD::SIGN_EXTEND_INREG, SDLoc(N), VT, N0, N1);
 
   // If the input is already sign extended, just drop the extension.
-  if (ExtVTBits >= DAG.ComputeMinSignedBits(N0))
+  if (ExtVTBits >= DAG.ComputeMaxSignificantBits(N0))
     return N0;
 
   // fold (sext_in_reg (sext_in_reg x, VT2), VT1) -> (sext_in_reg x, minVT) pt2
@@ -12341,7 +12341,8 @@ SDValue DAGCombiner::visitSIGN_EXTEND_INREG(SDNode *N) {
   if (N0.getOpcode() == ISD::SIGN_EXTEND || N0.getOpcode() == ISD::ANY_EXTEND) {
     SDValue N00 = N0.getOperand(0);
     unsigned N00Bits = N00.getScalarValueSizeInBits();
-    if ((N00Bits <= ExtVTBits || DAG.ComputeMinSignedBits(N00) <= ExtVTBits) &&
+    if ((N00Bits <= ExtVTBits ||
+         DAG.ComputeMaxSignificantBits(N00) <= ExtVTBits) &&
         (!LegalOperations || TLI.isOperationLegal(ISD::SIGN_EXTEND, VT)))
       return DAG.getNode(ISD::SIGN_EXTEND, SDLoc(N), VT, N00);
   }
@@ -12360,7 +12361,7 @@ SDValue DAGCombiner::visitSIGN_EXTEND_INREG(SDNode *N) {
     APInt DemandedSrcElts = APInt::getLowBitsSet(SrcElts, DstElts);
     if ((N00Bits == ExtVTBits ||
          (!IsZext && (N00Bits < ExtVTBits ||
-                      DAG.ComputeMinSignedBits(N00) <= ExtVTBits))) &&
+                      DAG.ComputeMaxSignificantBits(N00) <= ExtVTBits))) &&
         (!LegalOperations ||
          TLI.isOperationLegal(ISD::SIGN_EXTEND_VECTOR_INREG, VT)))
       return DAG.getNode(ISD::SIGN_EXTEND_VECTOR_INREG, SDLoc(N), VT, N00);
@@ -17561,6 +17562,10 @@ void DAGCombiner::getStoreMergeCandidates(
       if (I.getOperandNo() == 0 && isa<LoadSDNode>(*I)) { // walk down chain
         for (auto I2 = (*I)->use_begin(), E2 = (*I)->use_end(); I2 != E2; ++I2)
           TryToAddCandidate(I2);
+      }
+      // Check stores that depend on the root (e.g. Store 3 in the chart above).
+      if (I.getOperandNo() == 0 && isa<StoreSDNode>(*I)) {
+        TryToAddCandidate(I);
       }
     }
   } else {

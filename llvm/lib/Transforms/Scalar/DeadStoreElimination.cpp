@@ -836,6 +836,20 @@ struct DSEState {
     if (!isGuaranteedLoopIndependent(DeadI, KillingI, DeadLoc))
       return OW_Unknown;
 
+    const Value *DeadPtr = DeadLoc.Ptr->stripPointerCasts();
+    const Value *KillingPtr = KillingLoc.Ptr->stripPointerCasts();
+    const Value *DeadUndObj = getUnderlyingObject(DeadPtr);
+    const Value *KillingUndObj = getUnderlyingObject(KillingPtr);
+
+    // Check whether the killing store overwrites the whole object, in which
+    // case the size/offset of the dead store does not matter.
+    if (DeadUndObj == KillingUndObj && KillingLoc.Size.isPrecise()) {
+      uint64_t KillingUndObjSize = getPointerSize(KillingUndObj, DL, TLI, &F);
+      if (KillingUndObjSize != MemoryLocation::UnknownSize &&
+          KillingUndObjSize == KillingLoc.Size.getValue())
+        return OW_Complete;
+    }
+
     // FIXME: Vet that this works for size upper-bounds. Seems unlikely that we'll
     // get imprecise values here, though (except for unknown sizes).
     if (!KillingLoc.Size.isPrecise() || !DeadLoc.Size.isPrecise()) {
@@ -876,14 +890,6 @@ struct DSEState {
         return OW_Complete;
     }
 
-    // Check to see if the killing store is to the entire object (either a
-    // global, an alloca, or a byval/inalloca argument).  If so, then it clearly
-    // overwrites any other store to the same object.
-    const Value *DeadPtr = DeadLoc.Ptr->stripPointerCasts();
-    const Value *KillingPtr = KillingLoc.Ptr->stripPointerCasts();
-    const Value *DeadUndObj = getUnderlyingObject(DeadPtr);
-    const Value *KillingUndObj = getUnderlyingObject(KillingPtr);
-
     // If we can't resolve the same pointers to the same object, then we can't
     // analyze them at all.
     if (DeadUndObj != KillingUndObj) {
@@ -896,12 +902,6 @@ struct DSEState {
         return OW_None;
       return OW_Unknown;
     }
-
-    // If the KillingI store is to a recognizable object, get its size.
-    uint64_t KillingUndObjSize = getPointerSize(KillingUndObj, DL, TLI, &F);
-    if (KillingUndObjSize != MemoryLocation::UnknownSize)
-      if (KillingUndObjSize == KillingSize && KillingUndObjSize >= DeadSize)
-        return OW_Complete;
 
     // Okay, we have stores to two completely different pointers.  Try to
     // decompose the pointer into a "base + constant_offset" form.  If the base
@@ -962,7 +962,7 @@ struct DSEState {
         I.first->second = false;
       } else {
         auto *Inst = dyn_cast<Instruction>(V);
-        if (Inst && isAllocLikeFn(Inst, &TLI))
+        if (Inst && isNoAliasCall(Inst))
           I.first->second = !PointerMayBeCaptured(V, true, false);
       }
     }
@@ -975,7 +975,7 @@ struct DSEState {
     auto I = InvisibleToCallerBeforeRet.insert({V, false});
     if (I.second) {
       auto *Inst = dyn_cast<Instruction>(V);
-      if (Inst && isAllocLikeFn(Inst, &TLI))
+      if (Inst && isNoAliasCall(Inst))
         // NOTE: This could be made more precise by PointerMayBeCapturedBefore
         // with the killing MemoryDef. But we refrain from doing so for now to
         // limit compile-time and this does not cause any changes to the number

@@ -537,7 +537,7 @@ bool BuiltinImportPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
   // targets cannot be inlined together.
   const char *TargetAttrs[] = {"target-cpu", "target-features"};
 
-  AttrBuilder IgnoreAttrs;
+  AttributeMask IgnoreAttrs;
   for (auto A : TargetAttrs)
     IgnoreAttrs.addAttribute(A);
 

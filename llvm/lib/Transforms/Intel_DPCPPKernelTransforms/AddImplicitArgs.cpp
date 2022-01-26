@@ -174,7 +174,7 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
   // Calculate pointer to the local memory buffer. Do this before F is
   // deleted.
   size_t DirectLocalSize = LBInfo->getDirectLocalsSize(F);
-  AttrBuilder B;
+  AttrBuilder B(F->getContext());
   B.addAttribute(Attribute::NoAlias);
   AttributeSet NoAlias = AttributeSet::get(F->getContext(), B);
   AttributeSet NoAttr;

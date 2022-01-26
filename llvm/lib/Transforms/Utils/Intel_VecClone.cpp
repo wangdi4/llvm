@@ -229,7 +229,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
   // not needed for the cloned function and it prevents any attempts at
   // trying to clone the function again in case the pass is called more than
   // once.
-  AttrBuilder AB;
+  AttributeMask AB;
   for (auto Attr : getVectorVariantAttributes(F)) {
     AB.addAttribute(Attr);
   }

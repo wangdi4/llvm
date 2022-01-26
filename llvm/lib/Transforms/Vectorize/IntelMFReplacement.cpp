@@ -96,14 +96,14 @@ static bool isCos(CallInst *Call) {
 
 // Returns attribute { nounwind }
 static AttributeList getNoUnwindAttr(LLVMContext &C) {
-  AttrBuilder AB;
+  AttrBuilder AB(C);
   AB.addAttribute(Attribute::NoUnwind);
   return AttributeList::get(C, AttributeList::FunctionIndex, AB);
 }
 
 // Returns attributes { nounwind, readnone, willreturn }
 static AttributeList getPureAttr(LLVMContext &C) {
-  AttrBuilder AB;
+  AttrBuilder AB(C);
   AB.addAttribute(Attribute::NoUnwind);
   AB.addAttribute(Attribute::ReadNone);
   AB.addAttribute(Attribute::WillReturn);

@@ -137,7 +137,7 @@ omp.inner.for.end:                                ; preds = %omp.inner.for.cond
   br label %omp.loop.exit
 
   ; Zero-trip test for reduction array finalization
-; ALL-DAG: icmp eq (i32* getelementptr (i32, i32* getelementptr inbounds ([3 x [4 x [5 x i32]]], [3 x [4 x [5 x i32]]]* @_Z1y, i32 0, i32 0, i32 0, i32 0), i64 20), i32* getelementptr (i32, i32* getelementptr inbounds ([3 x [4 x [5 x i32]]], [3 x [4 x [5 x i32]]]* @_Z1y, i32 0, i32 0, i32 0, i32 0), i64 60))
+; ALL-DAG: icmp eq (i32* getelementptr inbounds ([3 x [4 x [5 x i32]]], [3 x [4 x [5 x i32]]]* @_Z1y, i32 0, i64 1, i64 0, i64 0), i32* getelementptr inbounds ([3 x [4 x [5 x i32]]], [3 x [4 x [5 x i32]]]* @_Z1y, i64 1, i64 0, i64 0, i64 0))
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL.LOOP"() ]

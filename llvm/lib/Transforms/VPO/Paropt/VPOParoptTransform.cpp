@@ -10396,7 +10396,7 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
   SmallVector<AttributeList, 4> Attrs;
 
   AttributeList FnAttrSet;
-  AttrBuilder B;
+  AttrBuilder B(C);
   FnAttrSet = AttributeList::get(C, ~0U, B);
 
   Attrs.push_back(FnAttrSet);
@@ -10676,8 +10676,10 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
   NFn->copyAttributesFrom(Fn);
 
   // Propagate old parameter attributes to the new function.
-  for (auto &P : Param2Attrs)
-    NFn->addParamAttrs(P.first, P.second);
+  for (auto &P : Param2Attrs) {
+    AttrBuilder AttrB(C, P.second);
+    NFn->addParamAttrs(P.first, AttrB);
+  }
 
   if (W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
       W->getWRegionKindID() == WRegionNode::WRNTask)

@@ -157,13 +157,6 @@ Constant *ConstantFoldLoadFromConstPtr(Constant *C, Type *Ty, APInt Offset,
 Constant *ConstantFoldLoadFromConstPtr(Constant *C, Type *Ty,
                                        const DataLayout &DL);
 
-/// ConstantFoldLoadThroughGEPConstantExpr - Given a constant and a
-/// getelementptr constantexpr, return the constant value being addressed by the
-/// constant expression, or null if something is funny and we can't decide.
-Constant *ConstantFoldLoadThroughGEPConstantExpr(Constant *C, ConstantExpr *CE,
-                                                 Type *Ty,
-                                                 const DataLayout &DL);
-
 #if INTEL_CUSTOMIZATION
 // Following function has been removed from llorg as of commit c5b5b7f. Keeping
 // it here because it is still needed by
@@ -176,6 +169,12 @@ Constant *ConstantFoldLoadThroughGEPConstantExpr(Constant *C, ConstantExpr *CE,
 Constant *ConstantFoldLoadThroughGEPIndices(Constant *C,
                                             ArrayRef<Constant *> Indices);
 #endif // INTEL_CUSTOMIZATION
+
+/// If C is a uniform value where all bits are the same (either all zero, all
+/// ones, all undef or all poison), return the corresponding uniform value in
+/// the new type. If the value is not uniform or the result cannot be
+/// represented, return null.
+Constant *ConstantFoldLoadFromUniformValue(Constant *C, Type *Ty);
 
 /// canConstantFoldCallTo - Return true if its even possible to fold a call to
 /// the specified function.
