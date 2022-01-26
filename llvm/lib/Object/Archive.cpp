@@ -1201,5 +1201,4 @@ BigArchive::BigArchive(MemoryBufferRef Source, Error &Err)
   }
   setFirstRegular(*I);
   Err = Error::success();
-  return;
 }

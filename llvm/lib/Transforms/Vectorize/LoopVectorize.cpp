@@ -8491,15 +8491,8 @@ VPValue *VPRecipeBuilder::createBlockInMask(BasicBlock *BB, VPlanPtr &Plan) {
     assert(CM.foldTailByMasking() && "must fold the tail");
     VPBasicBlock *HeaderVPBB = Plan->getEntry()->getEntryBasicBlock();
     auto NewInsertionPoint = HeaderVPBB->getFirstNonPhi();
-
-    VPValue *IV = nullptr;
-    if (Legal->getPrimaryInduction())
-      IV = Plan->getOrAddVPValue(Legal->getPrimaryInduction());
-    else {
-      auto *IVRecipe = new VPWidenCanonicalIVRecipe(Plan->getCanonicalIV());
-      HeaderVPBB->insert(IVRecipe, NewInsertionPoint);
-      IV = IVRecipe;
-    }
+    auto *IV = new VPWidenCanonicalIVRecipe(Plan->getCanonicalIV());
+    HeaderVPBB->insert(IV, HeaderVPBB->getFirstNonPhi());
 
     VPBuilder::InsertPointGuard Guard(Builder);
     Builder.setInsertPoint(HeaderVPBB, NewInsertionPoint);
@@ -9274,6 +9267,7 @@ VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
     }
   }
 
+  VPlanTransforms::removeRedundantCanonicalIVs(*Plan);
   VPlanTransforms::removeRedundantInductionCasts(*Plan);
 
   // Now that sink-after is done, move induction recipes for optimized truncates

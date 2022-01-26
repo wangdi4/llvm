@@ -12,16 +12,21 @@
 //   Zbb - 1.0
 //   Zbc - 1.0
 //   Zbs - 1.0
-//   Zbe - 0.93
-//   Zbf - 0.93
-//   Zbm - 0.93
-//   Zbp - 0.93
-//   Zbr - 0.93
-//   Zbt - 0.93
+//   Zbe - 0.93 *experimental
+//   Zbf - 0.93 *experimental
+//   Zbm - 0.93 *experimental
+//   Zbp - 0.93 *experimental
+//   Zbr - 0.93 *experimental
+//   Zbt - 0.93 *experimental
 //
-// Zba, Zbb, Zbc, and Zbs have been ratified and are considered stable. The
-// other extensions are experimental as they have not yet been ratiied and are
-// subject to change.
+// The experimental extensions appeared in an earlier draft of the Bitmanip
+// extensions. They are not ratified and subject to change.
+//
+// This file also describes RISC-V instructions from the Zbk* extensions in
+// Cryptography Extensions Volume I: Scalar & Entropy Source Instructions,
+// versions:
+//   Zbkb - 1.0
+//   Zbkc - 1.0
 //
 //===----------------------------------------------------------------------===//
 
@@ -440,13 +445,16 @@ def CRC32CD : RVBUnary<0b0110000, 0b11011, 0b001, OPC_OP_IMM, "crc32c.d">,
               Sched<[]>;
 
 let Predicates = [HasStdExtZbc] in {
-def CLMUL  : ALU_rr<0b0000101, 0b001, "clmul">,
-             Sched<[WriteCLMUL, ReadCLMUL, ReadCLMUL]>;
 def CLMULR : ALU_rr<0b0000101, 0b010, "clmulr">,
+             Sched<[WriteCLMUL, ReadCLMUL, ReadCLMUL]>;
+} // Predicates = [HasStdExtZbc]
+
+let Predicates = [HasStdExtZbcOrZbkc] in {
+def CLMUL  : ALU_rr<0b0000101, 0b001, "clmul">,
              Sched<[WriteCLMUL, ReadCLMUL, ReadCLMUL]>;
 def CLMULH : ALU_rr<0b0000101, 0b011, "clmulh">,
              Sched<[WriteCLMUL, ReadCLMUL, ReadCLMUL]>;
-} // Predicates = [HasStdExtZbc]
+} // Predicates = [HasStdExtZbcOrZbkc]
 
 let Predicates = [HasStdExtZbb] in {
 def MIN  : ALU_rr<0b0000101, 0b100, "min">,
