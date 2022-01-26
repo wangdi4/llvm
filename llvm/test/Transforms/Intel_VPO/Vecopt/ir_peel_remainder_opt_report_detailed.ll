@@ -15,7 +15,7 @@
 ; CHECK:      LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN
-; CHECK-NEXT: <REMAINDER LOOP FOR VECTORIZATION>
+; CHECK-NEXT: <Remainder loop for vectorization>
 ; CHECK-NEXT:     remark #15439: remainder loop was vectorized (unmasked)
 ; CHECK-NEXT:     remark #15305: vectorization support: vector length 2
 ; CHECK-NEXT:     remark #15475: --- begin vector loop cost summary ---
@@ -27,7 +27,7 @@
 ; CHECK:      LOOP END
 ; CHECK-EMPTY: 
 ; CHECK-NEXT: LOOP BEGIN
-; CHECK-NEXT: <REMAINDER LOOP FOR VECTORIZATION>
+; CHECK-NEXT: <Remainder loop for vectorization>
 ; CHECK-NEXT: LOOP END
 ; CHECK-NEXT: =================================================================
 
