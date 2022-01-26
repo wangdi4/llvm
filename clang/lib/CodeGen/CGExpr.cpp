@@ -91,7 +91,7 @@ Address CodeGenFunction::CreateTempAlloca(llvm::Type *Ty, CharUnits Align,
 #if INTEL_COLLAB
   llvm::AllocaInst *AllocInst = CreateTempAlloca(Ty, Name, ArraySize);
   AllocInst->setAlignment(Align.getAsAlign());
-  Address Alloca = Address(AllocInst, Align);
+  Address Alloca = Address(AllocInst, Ty, Align);
 #else
   auto Alloca = CreateTempAllocaWithoutCast(Ty, Align, Name, ArraySize);
 #endif

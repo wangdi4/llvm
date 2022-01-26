@@ -1883,7 +1883,8 @@ public:
         const Expr *E = Z.first;
         llvm::Value *V = Z.second.first;
         CharUnits Align = Z.second.second;
-        Address A(V, Align);
+        Address A(V, CGF.ConvertTypeForMem(CGF.getContext().getSizeType()),
+                  Align);
         CGF.VLASizeMap[E] = CGF.Builder.CreateLoad(A);
         if (CGF.CapturedStmtInfo)
           CGF.CapturedStmtInfo->recordValueReference(
