@@ -82,12 +82,17 @@ bool CaptureTracker::isDereferenceableOrNull(Value *O, const DataLayout &DL) {
 
 namespace {
   struct SimpleCaptureTracker : public CaptureTracker {
+<<<<<<< HEAD
     explicit SimpleCaptureTracker(bool ReturnCaptures,
                                   bool IgnoreFlag // INTEL
                                   )
         : ReturnCaptures(ReturnCaptures), Captured(false),
           IgnoreNoAliasArgStCaptured(IgnoreFlag // INTEL
                                      ) {}
+=======
+    explicit SimpleCaptureTracker(bool ReturnCaptures)
+        : ReturnCaptures(ReturnCaptures) {}
+>>>>>>> b752eb887f7ef160e000c83e4c720d9ecb2bf620
 
     void tooManyUses() override { Captured = true; }
 
@@ -112,8 +117,12 @@ namespace {
 
     bool ReturnCaptures;
 
+<<<<<<< HEAD
     bool Captured;
     bool IgnoreNoAliasArgStCaptured; // INTEL
+=======
+    bool Captured = false;
+>>>>>>> b752eb887f7ef160e000c83e4c720d9ecb2bf620
   };
 
   /// Only find pointer captures which happen before the given instruction. Uses
@@ -125,7 +134,7 @@ namespace {
     CapturesBefore(bool ReturnCaptures, const Instruction *I,
                    const DominatorTree *DT, bool IncludeI, const LoopInfo *LI)
         : BeforeHere(I), DT(DT), ReturnCaptures(ReturnCaptures),
-          IncludeI(IncludeI), Captured(false), LI(LI) {}
+          IncludeI(IncludeI), LI(LI) {}
 
     void tooManyUses() override { Captured = true; }
 
@@ -163,7 +172,7 @@ namespace {
     bool ReturnCaptures;
     bool IncludeI;
 
-    bool Captured;
+    bool Captured = false;
 
     const LoopInfo *LI;
   };
@@ -179,7 +188,7 @@ namespace {
   struct EarliestCaptures : public CaptureTracker {
 
     EarliestCaptures(bool ReturnCaptures, Function &F, const DominatorTree &DT)
-        : DT(DT), ReturnCaptures(ReturnCaptures), Captured(false), F(F) {}
+        : DT(DT), ReturnCaptures(ReturnCaptures), F(F) {}
 
     void tooManyUses() override {
       Captured = true;
@@ -223,7 +232,7 @@ namespace {
 
     bool ReturnCaptures;
 
-    bool Captured;
+    bool Captured = false;
 
     Function &F;
   };

@@ -424,10 +424,10 @@ protected:
   /// Model the elimination of repeated loads that is expected to happen
   /// whenever we simplify away the stores that would otherwise cause them to be
   /// loads.
-  bool EnableLoadElimination;
+  bool EnableLoadElimination = true;
 
   /// Whether we allow inlining for recursive call.
-  bool AllowRecursiveCall;
+  bool AllowRecursiveCall = false;
 
   SmallPtrSet<Value *, 16> LoadAddrSet;
 
@@ -526,6 +526,7 @@ public:
                OptimizationRemarkEmitter *ORE = nullptr)
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         CandidateCall(Call), EnableLoadElimination(true), AllowRecursiveCall(false),
         SingleBB(true)
@@ -534,6 +535,9 @@ public:
 #endif // INTEL_FEATURE_SW_ADVANCED
         {}
 #endif // INTEL_CUSTOMIZATION
+=======
+        CandidateCall(Call) {}
+>>>>>>> b752eb887f7ef160e000c83e4c720d9ecb2bf620
 
   InlineResult analyze(const TargetTransformInfo &CalleeTTI); // INTEL
 
