@@ -543,6 +543,10 @@ private:
         OffloadingEntryInfoTargetRegion = 0,
         /// Entry is a declare target variable.
         OffloadingEntryInfoDeviceGlobalVar = 1,
+#if INTEL_COLLAB
+        /// Entry is a declare target indirect function
+        OffloadingEntryInfoIndirectFn = 2,
+#endif // INTEL_COLLAB
         /// Invalid entry info.
         OffloadingEntryInfoInvalid = ~0u
       };
@@ -550,6 +554,10 @@ private:
     protected:
       OffloadEntryInfo() = delete;
       explicit OffloadEntryInfo(OffloadingEntryInfoKinds Kind) : Kind(Kind) {}
+#if INTEL_COLLAB
+      explicit OffloadEntryInfo(OffloadingEntryInfoKinds Kind, unsigned Order)
+          : Order(Order), Kind(Kind) {}
+#endif // INTEL_COLLAB
       explicit OffloadEntryInfo(OffloadingEntryInfoKinds Kind, unsigned Order,
                                 uint32_t Flags)
           : Flags(Flags), Order(Order), Kind(Kind) {}
@@ -726,6 +734,41 @@ private:
     /// Update the \a Addr for the variable named \a Name.
     void updateDeviceGlobalVarEntryInfoAddr(StringRef Name,
                                             llvm::Constant *Addr);
+
+    /// Device target declare indirect function entries info
+    class OffloadEntryInfoDeviceIndirectFn final : public OffloadEntryInfo {
+    public:
+      OffloadEntryInfoDeviceIndirectFn()
+          : OffloadEntryInfo(OffloadingEntryInfoIndirectFn) {}
+      explicit OffloadEntryInfoDeviceIndirectFn(unsigned Order)
+          : OffloadEntryInfo(OffloadingEntryInfoIndirectFn, Order) {}
+      explicit OffloadEntryInfoDeviceIndirectFn(unsigned Order,
+                                                llvm::Constant *Addr)
+          : OffloadEntryInfo(OffloadingEntryInfoIndirectFn, Order) {
+        setAddress(Addr);
+      }
+      static bool classof(const OffloadEntryInfo *Info) {
+        return Info->getKind() == OffloadingEntryInfoDeviceGlobalVar;
+      }
+    };
+
+    /// Initialize device declare target indirect function entry
+    void initializeDeviceIndirectFnEntryInfo(StringRef Name, unsigned Order);
+
+    /// Register device declare targeta indirect function entry
+    void registerDeviceIndirectFnEntryInfo(StringRef FnName,
+                                           llvm::Constant *Addr);
+
+    /// Checks if the function with the given name has been registered already.
+    bool hasDeviceIndirectFnEntryInfo(StringRef FnName) const {
+      return OffloadEntriesDeviceIndirectFn.count(FnName.str()) > 0;
+    }
+    /// Applies action \a Action on all registered entries.
+    typedef llvm::function_ref<void(StringRef,
+                                    const OffloadEntryInfoDeviceIndirectFn &)>
+        OffloadDeviceIndirectFnEntryInfoActTy;
+    void actOnDeviceIndirectFnEntriesInfo(
+        const OffloadDeviceIndirectFnEntryInfoActTy &Action);
 #endif // INTEL_COLLAB
 
     /// Applies action \a Action on all registered entries.
@@ -753,6 +796,13 @@ private:
     typedef llvm::StringMap<OffloadEntryInfoDeviceGlobalVar>
         OffloadEntriesDeviceGlobalVarTy;
     OffloadEntriesDeviceGlobalVarTy OffloadEntriesDeviceGlobalVar;
+#if INTEL_COLLAB
+    /// Storage for device indirect function entries kind. The storage is to
+    /// be indexed by mangled name.
+    typedef std::map<std::string, OffloadEntryInfoDeviceIndirectFn>
+        OffloadEntriesDeviceIndirectFnTy;
+    OffloadEntriesDeviceIndirectFnTy OffloadEntriesDeviceIndirectFn;
+#endif // INTEL_COLLAB
   };
   OffloadEntriesInfoManagerTy OffloadEntriesInfoManager;
 
@@ -1692,6 +1742,8 @@ public:
   virtual void registerTargetGlobalVariable(const VarDecl *VD,
                                             llvm::Constant *Addr);
 #if INTEL_COLLAB
+  /// Register indirect function when emiiting code for the host.
+  virtual void registerTargetIndirectFn(StringRef FnName, llvm::Constant *Addr);
   /// Register vtable when emiiting code for the host.
   virtual void registerTargetVtableGlobalVar(StringRef VarName,
                                              llvm::Constant *Addr);

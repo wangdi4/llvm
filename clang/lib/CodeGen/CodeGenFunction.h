@@ -4785,6 +4785,11 @@ public:
   RValue EmitBuiltinGenerateSIMDVariant(const CallExpr *E);
   RValue EmitBuiltinCallSIMDVariant(const CallExpr *E);
 #endif  // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  RValue EmitOMPIndirectCall(llvm::FunctionType *IRFuncTy,
+                             const SmallVectorImpl<llvm::Value *> &IRArgs,
+                             llvm::Value *FnPtr);
+#endif // INTEL_COLLAB
 
   enum class MSVCIntrin;
   llvm::Value *EmitMSVCBuiltinExpr(MSVCIntrin BuiltinID, const CallExpr *E);
