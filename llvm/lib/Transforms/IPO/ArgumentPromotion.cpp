@@ -209,6 +209,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
       // Add a parameter to the function for each element passed in.
       for (const auto &ArgIndex : ArgIndices) {
         // not allowed to dereference ->begin() if size() is 0
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         Type *ParamTy = GetElementPtrInst::getIndexedType(
             cast<PointerType>(I->getType())->getElementType(),
@@ -217,6 +218,10 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
           ParamTy = DL.getIntPtrType(I->getType());
         Params.push_back(ParamTy);
 #endif // INTEL_CUSTOMIZATION
+=======
+        Params.push_back(GetElementPtrInst::getIndexedType(
+            I->getType()->getPointerElementType(), ArgIndex.second));
+>>>>>>> aa97bc116d343f7b6f222d7229668de5d361b312
         ArgAttrVec.push_back(AttributeSet());
         assert(Params.back());
       }
@@ -374,7 +379,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
               Ops.push_back(ConstantInt::get(IdxTy, II));
               // Keep track of the type we're currently indexing.
               if (auto *ElPTy = dyn_cast<PointerType>(ElTy))
-                ElTy = ElPTy->getElementType();
+                ElTy = ElPTy->getPointerElementType();
               else
                 ElTy = GetElementPtrInst::getTypeAtIndex(ElTy, II);
             }
@@ -1149,7 +1154,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
   SmallPtrSet<Argument *, 8> ArgsToPromote;
   SmallPtrSet<Argument *, 8> ByValArgsToTransform;
   for (Argument *PtrArg : PointerArgs) {
-    Type *AgTy = cast<PointerType>(PtrArg->getType())->getElementType();
+    Type *AgTy = PtrArg->getType()->getPointerElementType();
 
     // Replace sret attribute with noalias. This reduces register pressure by
     // avoiding a register copy.
