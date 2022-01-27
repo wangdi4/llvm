@@ -757,9 +757,8 @@ struct DSEState {
   SmallVector<MemoryDef *, 64> MemDefs;
   // Any that should be skipped as they are already deleted
   SmallPtrSet<MemoryAccess *, 4> SkipStores;
-  // Keep track of all of the objects that are invisible to the caller before
-  // the function returns.
-  DenseMap<const Value *, bool> InvisibleToCallerBeforeRet;
+  // Keep track whether a given object is captured before return or not.
+  DenseMap<const Value *, bool> CapturedBeforeReturn;
   // Keep track of all of the objects that are invisible to the caller after
   // the function returns.
   DenseMap<const Value *, bool> InvisibleToCallerAfterRet;
@@ -802,12 +801,8 @@ struct DSEState {
     // Treat byval or inalloca arguments the same as Allocas, stores to them are
     // dead at the end of the function.
     for (Argument &AI : F.args())
-      if (AI.hasPassPointeeByValueCopyAttr()) {
-        // For byval, the caller doesn't know the address of the allocation.
-        if (AI.hasByValAttr())
-          InvisibleToCallerBeforeRet.insert({&AI, true});
+      if (AI.hasPassPointeeByValueCopyAttr())
         InvisibleToCallerAfterRet.insert({&AI, true});
-      }
 
     // Collect whether there is any irreducible control flow in the function.
     ContainsIrreducibleLoops = mayContainIrreducibleControl(F, &LI);
@@ -954,7 +949,7 @@ struct DSEState {
       return true;
     auto I = InvisibleToCallerAfterRet.insert({V, false});
     if (I.second) {
-      if (!isInvisibleToCallerBeforeRet(V)) {
+      if (!isInvisibleToCallerOnUnwind(V)) {
         I.first->second = false;
       } else if (isNoAliasCall(V)) {
         I.first->second = !PointerMayBeCaptured(V, true, false);
@@ -963,17 +958,21 @@ struct DSEState {
     return I.first->second;
   }
 
-  bool isInvisibleToCallerBeforeRet(const Value *V) {
-    if (isa<AllocaInst>(V))
+  bool isInvisibleToCallerOnUnwind(const Value *V) {
+    bool RequiresNoCaptureBeforeUnwind;
+    if (!isNotVisibleOnUnwind(V, RequiresNoCaptureBeforeUnwind))
+      return false;
+    if (!RequiresNoCaptureBeforeUnwind)
       return true;
-    auto I = InvisibleToCallerBeforeRet.insert({V, false});
-    if (I.second && isNoAliasCall(V))
+
+    auto I = CapturedBeforeReturn.insert({V, true});
+    if (I.second)
       // NOTE: This could be made more precise by PointerMayBeCapturedBefore
       // with the killing MemoryDef. But we refrain from doing so for now to
       // limit compile-time and this does not cause any changes to the number
       // of stores removed on a large test set in practice.
-      I.first->second = !PointerMayBeCaptured(V, false, true);
-    return I.first->second;
+      I.first->second = PointerMayBeCaptured(V, false, true);
+    return !I.first->second;
   }
 
   Optional<MemoryLocation> getLocForWrite(Instruction *I) const {
@@ -1261,8 +1260,7 @@ struct DSEState {
       MemoryDef *CurrentDef = cast<MemoryDef>(Current);
       Instruction *CurrentI = CurrentDef->getMemoryInst();
 
-      if (canSkipDef(CurrentDef,
-                     !isInvisibleToCallerBeforeRet(KillingUndObj))) {
+      if (canSkipDef(CurrentDef, !isInvisibleToCallerOnUnwind(KillingUndObj))) {
         CanOptimize = false;
         continue;
       }
@@ -1434,7 +1432,7 @@ struct DSEState {
         continue;
       }
 
-      if (UseInst->mayThrow() && !isInvisibleToCallerBeforeRet(KillingUndObj)) {
+      if (UseInst->mayThrow() && !isInvisibleToCallerOnUnwind(KillingUndObj)) {
         LLVM_DEBUG(dbgs() << "  ... found throwing instruction\n");
         return None;
       }
@@ -1615,7 +1613,7 @@ struct DSEState {
     // First see if we can ignore it by using the fact that KillingI is an
     // alloca/alloca like object that is not visible to the caller during
     // execution of the function.
-    if (KillingUndObj && isInvisibleToCallerBeforeRet(KillingUndObj))
+    if (KillingUndObj && isInvisibleToCallerOnUnwind(KillingUndObj))
       return false;
 
     if (KillingI->getParent() == DeadI->getParent())
@@ -1631,7 +1629,7 @@ struct DSEState {
   bool isDSEBarrier(const Value *KillingUndObj, Instruction *DeadI) {
     // If DeadI may throw it acts as a barrier, unless we are to an
     // alloca/alloca like object that does not escape.
-    if (DeadI->mayThrow() && !isInvisibleToCallerBeforeRet(KillingUndObj))
+    if (DeadI->mayThrow() && !isInvisibleToCallerOnUnwind(KillingUndObj))
       return true;
 
     // If DeadI is an atomic load/store stronger than monotonic, do not try to
