@@ -277,7 +277,17 @@ function(add_flag_or_print_warning flag name)
   endif()
 endfunction()
 
-<<<<<<< HEAD
+function(has_msvc_incremental_no_flag flags incr_no_flag_on)
+  set(${incr_no_flag_on} OFF PARENT_SCOPE)
+  string(FIND "${flags}" "/INCREMENTAL" idx REVERSE)
+  if (${idx} GREATER -1)
+    string(SUBSTRING "${flags}" ${idx} 15 no_flag)
+    if (${no_flag} MATCHES "/INCREMENTAL:NO")
+      set(${incr_no_flag_on} ON PARENT_SCOPE)
+    endif()
+  endif()
+endfunction()
+
 # INTEL_CUSTOMIZATION
 macro(intel_add_sdl_flag flag name)
   cmake_parse_arguments(ARG "FUTURE" "" "" ${ARGN})
@@ -347,18 +357,6 @@ macro(intel_add_sdl_linker_flag flag name)
   endif()
 endmacro()
 # end INTEL_CUSTOMIZATION
-=======
-function(has_msvc_incremental_no_flag flags incr_no_flag_on)
-  set(${incr_no_flag_on} OFF PARENT_SCOPE)
-  string(FIND "${flags}" "/INCREMENTAL" idx REVERSE)
-  if (${idx} GREATER -1)
-    string(SUBSTRING "${flags}" ${idx} 15 no_flag)
-    if (${no_flag} MATCHES "/INCREMENTAL:NO")
-      set(${incr_no_flag_on} ON PARENT_SCOPE)
-    endif()
-  endif()
-endfunction()
->>>>>>> d87459a0b8e98afce89309459f1cc5ef33065f8e
 
 if( LLVM_ENABLE_LLD )
   if ( LLVM_USE_LINKER )
