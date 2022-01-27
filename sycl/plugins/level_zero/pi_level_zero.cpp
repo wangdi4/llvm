@@ -3141,6 +3141,9 @@ pi_result piQueueFinish(pi_queue Queue) {
       ZE_CALL(zeHostSynchronize, (Queue->ZeCopyCommandQueues[i]));
   }
 
+  // Prevent unneeded already finished events to show up in the wait list.
+  Queue->LastCommandEvent = nullptr;
+
   return PI_SUCCESS;
 }
 
