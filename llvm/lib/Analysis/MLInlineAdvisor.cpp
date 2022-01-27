@@ -36,11 +36,7 @@
 
 using namespace llvm;
 
-#ifdef LLVM_HAVE_TF_AOT_INLINERSIZEMODEL
-#define LLVM_HAVE_TF_AOT
-#endif
-
-#if defined(LLVM_HAVE_TF_AOT)
+#if defined(LLVM_HAVE_TF_AOT_INLINERSIZEMODEL)
 // codegen-ed file
 #include "InlinerSizeModel.h" // NOLINT
 
@@ -54,8 +50,6 @@ llvm::getReleaseModeAdvisor(Module &M, ModuleAnalysisManager &MAM) {
 #endif
 
 #define DEBUG_TYPE "inline-ml"
-
-#if defined(LLVM_HAVE_TF_AOT) || defined(LLVM_HAVE_TF_API)
 
 static cl::opt<float> SizeIncreaseThreshold(
     "ml-advisor-size-increase-threshold", cl::Hidden,
@@ -256,8 +250,8 @@ int64_t MLInlineAdvisor::getModuleIRSize() const {
 
 #if INTEL_CUSTOMIZATION
 std::unique_ptr<InlineAdvice>
-DefaultInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
-                                    WholeProgramInfo *WPI, InlineCost **IC) {
+MLInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
+                               WholeProgramInfo *WPI, InlineCost **IC) {
 #endif // INTEL_CUSTOMIZATION
   auto &Caller = *CB.getCaller();
   auto &Callee = *CB.getCalledFunction();
@@ -275,7 +269,9 @@ DefaultInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
   // Same thing if this is a recursive case.
   if (MandatoryKind == InlineAdvisor::MandatoryInliningKind::Never ||
       &Caller == &Callee)
-    return getMandatoryAdvice(CB, false);
+#if INTEL_CUSTOMIZATION
+    return getMandatoryAdvice(CB, nullptr, nullptr, nullptr, false);
+#endif // INTEL_CUSTOMIZATION
 
   bool Mandatory =
       MandatoryKind == InlineAdvisor::MandatoryInliningKind::Always;
@@ -287,7 +283,10 @@ DefaultInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
       return OptimizationRemarkMissed(DEBUG_TYPE, "ForceStop", &CB)
              << "Won't attempt inlining because module size grew too much.";
     });
-    return std::make_unique<InlineAdvice>(this, CB, ORE, Mandatory);
+#if INTEL_CUSTOMIZATION
+    return std::make_unique<InlineAdvice>(this, CB, InlineCost::get(0, 0), ORE,
+                                          Mandatory);
+#endif // INTEL_CUSTOMIZATION
   }
 
   int CostEstimate = 0;
@@ -298,7 +297,10 @@ DefaultInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
       // We can't inline this for correctness reasons, so return the base
       // InlineAdvice, as we don't care about tracking any state changes (which
       // won't happen).
-      return std::make_unique<InlineAdvice>(this, CB, ORE, false);
+#if INTEL_CUSTOMIZATION
+      return std::make_unique<InlineAdvice>(this, CB, InlineCost::get(0, 0),
+                                            ORE, false);
+#endif
     }
     CostEstimate = *IsCallSiteInlinable;
   }
@@ -306,11 +308,14 @@ DefaultInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
   const auto CostFeatures =
       llvm::getInliningCostFeatures(CB, TIR, GetAssumptionCache);
   if (!CostFeatures) {
-    return std::make_unique<InlineAdvice>(this, CB, ORE, false);
+#if INTEL_CUSTOMIZATION
+    return std::make_unique<InlineAdvice>(this, CB, InlineCost::get(0, 0), ORE,
+                                          false);
+#endif
   }
 
   if (Mandatory)
-    return getMandatoryAdvice(CB, true);
+    return getMandatoryAdvice(CB, nullptr, nullptr, nullptr, true);
 
   auto NrCtantParams = 0;
   for (auto I = CB.arg_begin(), E = CB.arg_end(); I != E; ++I) {
@@ -355,15 +360,17 @@ std::unique_ptr<MLInlineAdvice>
 MLInlineAdvisor::getAdviceFromModel(CallBase &CB,
                                     OptimizationRemarkEmitter &ORE) {
   return std::make_unique<MLInlineAdvice>(
-      this, CB, ORE, static_cast<bool>(ModelRunner->evaluate<int64_t>()));
+#if INTEL_CUSTOMIZATION
+      this, CB, InlineCost::get(0, 0), ORE,
+      static_cast<bool>(ModelRunner->evaluate<int64_t>()));
+#endif
 }
 
 #if INTEL_CUSTOMIZATION
 std::unique_ptr<InlineAdvice>
-InlineAdvisor::getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
-                                  WholeProgramInfo *WPI, InlineCost **IC,
-                                  bool Advice) {
-#endif // INTEL_CUSTOMIZATION
+MLInlineAdvisor::getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
+                                    WholeProgramInfo *WPI, InlineCost **IC,
+                                    bool Advice) {
   // Make sure we track inlinings in all cases - mandatory or not.
   if (Advice && !ForceStop)
     return getMandatoryAdviceImpl(CB);
@@ -372,12 +379,17 @@ InlineAdvisor::getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
   // state we need to track, so we can just return the base InlineAdvice, which
   // will do nothing interesting.
   // Same if we are forced to stop - we don't track anymore.
-  return std::make_unique<InlineAdvice>(this, CB, getCallerORE(CB), Advice);
+  return std::make_unique<InlineAdvice>(this, CB, InlineCost::get(0, 0),
+                                        getCallerORE(CB), Advice);
 }
+#endif // INTEL_CUSTOMIZATION
 
 std::unique_ptr<MLInlineAdvice>
 MLInlineAdvisor::getMandatoryAdviceImpl(CallBase &CB) {
-  return std::make_unique<MLInlineAdvice>(this, CB, getCallerORE(CB), true);
+#if INTEL_CUSTOMIZATION
+  return std::make_unique<MLInlineAdvice>(this, CB, InlineCost::get(0, 0),
+                                          getCallerORE(CB), true);
+#endif // INTEL_CUSTOMIZATION
 }
 
 void MLInlineAdvice::reportContextForRemark(
@@ -425,4 +437,3 @@ void MLInlineAdvice::recordUnattemptedInliningImpl() {
     return R;
   });
 }
-#endif // defined(LLVM_HAVE_TF_AOT) || defined(LLVM_HAVE_TF_API)
