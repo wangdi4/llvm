@@ -548,6 +548,19 @@ static unsigned getSingleNonLinearBlobIndex(const RegDDRef *StoreRef,
   return NonLinearBlobIndex;
 }
 
+// If Blob is SCEVMulExpr with only two operands and the first
+// operand is constant, the function returns second operand.
+BlobTy getNonConstMulOp(BlobTy Blob) {
+  auto *M = dyn_cast<SCEVMulExpr>(Blob);
+  if (!M || M->getNumOperands() != 2)
+    return nullptr;
+
+  if (!dyn_cast<SCEVConstant>(M->getOperand(0)))
+    return nullptr;
+
+  return M->getOperand(1);
+}
+
 // Structural checks on the canon expressions of the store ref
 // is done here. From the above example- canon expression is %iv + %foff + ...
 // Need to walk the blobs and work with the identified non-linear blob.
@@ -567,7 +580,7 @@ static bool isStructurallyValid(const RegDDRef *StoreRef, unsigned LoopLevel,
 
   // We have to explicitly check that the non-linear blob is present in
   // only one CE (last dimension).
-  bool IsTopLevelBlob = false;
+  bool IsValidBlob = false;
   auto &BU = FirstCE->getBlobUtils();
 
   for (auto BI = FirstCE->blob_begin(), BE = FirstCE->blob_end(); BI != BE;
@@ -577,15 +590,24 @@ static bool isStructurallyValid(const RegDDRef *StoreRef, unsigned LoopLevel,
 
     // Check whether the target blob is embedded.
     if (NonLinearBlobIndex == BlobIndex) {
-      IsTopLevelBlob = true;
+      IsValidBlob = true;
     } else if (BU.contains(BU.getBlob(BlobIndex),
                            BU.getBlob(NonLinearBlobIndex))) {
-      return false;
+      // Recognize additional pattern: sext.i32.i64(3*%t) where %t is
+      // NonLinearBlob.
+      BlobTy NewBlob;
+      if (BU.isSignExtendBlob(BU.getBlob(BlobIndex), &NewBlob) &&
+          (NewBlob = getNonConstMulOp(NewBlob)) &&
+          (NewBlob == BU.getBlob(NonLinearBlobIndex))) {
+        IsValidBlob = true;
+      } else {
+        return false;
+      }
     }
   }
 
   // Bail out if non-linear blob with constant coefficient not found.
-  if (!IsTopLevelBlob) {
+  if (!IsValidBlob) {
     return false;
   }
 
