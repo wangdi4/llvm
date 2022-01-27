@@ -1,4 +1,3 @@
-; ModuleID = 'test2.c'
 ; LLVM IR generated from following test using clang -O1 -S -emit-llvm
 ; int arr[1024];
 ;
@@ -17,8 +16,8 @@
 ; NOTE: We use the switch -vplan-vectorizer-min-trip-count to make sure that loop
 ; is not vectorized. VPlan does not vectorize loops with constant trip counts lesser
 ; than the value specified in the switch.
-; RUN: opt -enable-new-pm=0 -vplan-vectorizer-min-trip-count=1030 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after-all -S < %s 2>&1 | FileCheck %s -check-prefixes=PM1
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-vectorizer-min-trip-count=1030 -print-after-all -S < %s 2>&1 | FileCheck %s -check-prefixes=PM2
+; RUN: opt -enable-new-pm=0 -vplan-vectorizer-min-trip-count=1030 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after-all -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-vectorizer-min-trip-count=1030 -print-after-all -S < %s 2>&1 | FileCheck %s
 
 ;
 ; HIR Test.
@@ -28,15 +27,14 @@
 ; CHECK: DO i1 = 0, 1023, 1
 ; CHECK: llvm.directive.region.exit
 ; CHECK: END REGION
-; PM1:         IR Dump After VPlan HIR Vectorizer
-; PM2:         IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
+;
+;
 ; CHECK: BEGIN REGION
 ; CHECK-NOT: llvm.directive.region.entry
 ; CHECK: DO i1 = 0, 1023, 1
 ; CHECK-NOT: llvm.directive.region.exit
 ; CHECK: END REGION
 
-; source_filename = "test2.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
