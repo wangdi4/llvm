@@ -11,7 +11,7 @@
 ; Begin non-masked variant checking
 
 ; CHECK-LABEL: @_ZGVbN4vv_vec_sum
-; CHECK: simd.loop:
+; CHECK: simd.loop.header:
 ; CHECK: %vec.i.cast.gep = getelementptr i32, i32* %vec.i.cast, i32 %index
 ; CHECK: %vec.i.elem = load i32, i32* %vec.i.cast.gep
 ; CHECK: %vec.j.cast.gep = getelementptr i32, i32* %vec.j.cast, i32 %index

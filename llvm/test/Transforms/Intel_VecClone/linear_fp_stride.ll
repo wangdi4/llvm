@@ -5,10 +5,10 @@
 ; CHECK: define dso_local void @_ZGVbN4vl__Z3barfi
 ; CHECK:       simd.loop.preheader:
 ; CHECK-NEXT:    [[LOAD_B0:%.*]] = load i32, i32* [[ALLOCA_B0:%.*]], align 4
-; CHECK-NEXT:    br label [[SIMD_LOOP0:%.*]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER0:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop:
-; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0:%.*]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]
+; CHECK-NEXT:  simd.loop.header:
+; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0:%.*]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_LATCH0:%.*]] ]
 ; CHECK-NEXT:    [[STRIDE_MUL0:%.*]] = mul i32 1, [[INDEX0]]
 ; CHECK-NEXT:    [[STRIDE_ADD0:%.*]] = add i32 [[LOAD_B0]], [[STRIDE_MUL0]]
 ; CHECK-NEXT:    [[CONV0:%.*]] = sitofp i32 [[STRIDE_ADD0]] to float

@@ -71,8 +71,8 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[UNI_PHI80:%.*]] = phi i32 [ 4, [[VPLANNEDBB70]] ]
 ; CHECK-NEXT:    br label [[SIMD_END_REGION0:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop:
-; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]
+; CHECK-NEXT:  simd.loop.header:
+; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ [[INDVAR0:%.*]], [[SIMD_LOOP_LATCH0:%.*]] ]
 ; CHECK-NEXT:    [[RET_CAST_GEP0:%.*]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[INDEX0]]
 ; CHECK-NEXT:    store i32 0, i32* [[RET_CAST_GEP0]], align 4
 ; CHECK-NEXT:    br label [[CODEREPL0]]
@@ -82,12 +82,12 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_30]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.3:
-; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop.exit:
+; CHECK-NEXT:  simd.loop.latch:
 ; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
 ; CHECK-NEXT:    [[VL_COND0:%.*]] = icmp ult i32 [[INDVAR0]], 4
-; CHECK-NEXT:    br label [[SIMD_LOOP0:%.*]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.end.region:
 ; CHECK-NEXT:    br label [[RETURN0:%.*]]
@@ -150,8 +150,8 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[UNI_PHI80]] = phi i32 [ 8, [[VPLANNEDBB70]] ]
 ; CHECK-NEXT:    br label [[SIMD_END_REGION0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop:
-; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ]
+; CHECK-NEXT:  simd.loop.header:
+; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_LATCH0]] ]
 ; CHECK-NEXT:    [[RET_CAST_GEP0]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[INDEX0]]
 ; CHECK-NEXT:    store i32 0, i32* [[RET_CAST_GEP0]], align 4
 ; CHECK-NEXT:    br label [[CODEREPL0]]
@@ -161,12 +161,12 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_30]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.3:
-; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop.exit:
+; CHECK-NEXT:  simd.loop.latch:
 ; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
 ; CHECK-NEXT:    [[VL_COND0]] = icmp ult i32 [[INDVAR0]], 8
-; CHECK-NEXT:    br label [[SIMD_LOOP0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.end.region:
 ; CHECK-NEXT:    br label [[RETURN0]]
@@ -229,8 +229,8 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[UNI_PHI80]] = phi i32 [ 8, [[VPLANNEDBB70]] ]
 ; CHECK-NEXT:    br label [[SIMD_END_REGION0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop:
-; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ]
+; CHECK-NEXT:  simd.loop.header:
+; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_LATCH0]] ]
 ; CHECK-NEXT:    [[RET_CAST_GEP0]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[INDEX0]]
 ; CHECK-NEXT:    store i32 0, i32* [[RET_CAST_GEP0]], align 4
 ; CHECK-NEXT:    br label [[CODEREPL0]]
@@ -240,12 +240,12 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_30]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.3:
-; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop.exit:
+; CHECK-NEXT:  simd.loop.latch:
 ; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
 ; CHECK-NEXT:    [[VL_COND0]] = icmp ult i32 [[INDVAR0]], 8
-; CHECK-NEXT:    br label [[SIMD_LOOP0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.end.region:
 ; CHECK-NEXT:    br label [[RETURN0]]
@@ -308,8 +308,8 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[UNI_PHI80]] = phi i32 [ 16, [[VPLANNEDBB70]] ]
 ; CHECK-NEXT:    br label [[SIMD_END_REGION0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop:
-; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ]
+; CHECK-NEXT:  simd.loop.header:
+; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_LATCH0]] ]
 ; CHECK-NEXT:    [[RET_CAST_GEP0]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[INDEX0]]
 ; CHECK-NEXT:    store i32 0, i32* [[RET_CAST_GEP0]], align 4
 ; CHECK-NEXT:    br label [[CODEREPL0]]
@@ -319,12 +319,12 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_30]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.3:
-; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop.exit:
+; CHECK-NEXT:  simd.loop.latch:
 ; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
 ; CHECK-NEXT:    [[VL_COND0]] = icmp ult i32 [[INDVAR0]], 16
-; CHECK-NEXT:    br label [[SIMD_LOOP0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.end.region:
 ; CHECK-NEXT:    br label [[RETURN0]]
@@ -445,8 +445,8 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[UNI_PHI140:%.*]] = phi i32 [ 4, [[VPLANNEDBB130]] ]
 ; CHECK-NEXT:    br label [[SIMD_END_REGION0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop:
-; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ]
+; CHECK-NEXT:  simd.loop.header:
+; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_LATCH0]] ]
 ; CHECK-NEXT:    [[MASK_GEP0:%.*]] = getelementptr i32, i32* [[MASK_CAST0]], i32 [[INDEX0]]
 ; CHECK-NEXT:    [[MASK_PARM0:%.*]] = load i32, i32* [[MASK_GEP0]], align 4
 ; CHECK-NEXT:    [[MASK_COND0:%.*]] = icmp ne i32 [[MASK_PARM0]], 0
@@ -462,15 +462,15 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_30]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.3:
-; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.else:
-; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop.exit:
+; CHECK-NEXT:  simd.loop.latch:
 ; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
 ; CHECK-NEXT:    [[VL_COND0]] = icmp ult i32 [[INDVAR0]], 4
-; CHECK-NEXT:    br label [[SIMD_LOOP0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.end.region:
 ; CHECK-NEXT:    br label [[RETURN0]]
@@ -591,8 +591,8 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[UNI_PHI140]] = phi i32 [ 8, [[VPLANNEDBB130]] ]
 ; CHECK-NEXT:    br label [[SIMD_END_REGION0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop:
-; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ]
+; CHECK-NEXT:  simd.loop.header:
+; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_LATCH0]] ]
 ; CHECK-NEXT:    [[MASK_GEP0]] = getelementptr i32, i32* [[MASK_CAST0]], i32 [[INDEX0]]
 ; CHECK-NEXT:    [[MASK_PARM0]] = load i32, i32* [[MASK_GEP0]], align 4
 ; CHECK-NEXT:    [[MASK_COND0]] = icmp ne i32 [[MASK_PARM0]], 0
@@ -608,15 +608,15 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_30]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.3:
-; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.else:
-; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop.exit:
+; CHECK-NEXT:  simd.loop.latch:
 ; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
 ; CHECK-NEXT:    [[VL_COND0]] = icmp ult i32 [[INDVAR0]], 8
-; CHECK-NEXT:    br label [[SIMD_LOOP0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.end.region:
 ; CHECK-NEXT:    br label [[RETURN0]]
@@ -737,8 +737,8 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[UNI_PHI140]] = phi i32 [ 8, [[VPLANNEDBB130]] ]
 ; CHECK-NEXT:    br label [[SIMD_END_REGION0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop:
-; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ]
+; CHECK-NEXT:  simd.loop.header:
+; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_LATCH0]] ]
 ; CHECK-NEXT:    [[MASK_GEP0]] = getelementptr i32, i32* [[MASK_CAST0]], i32 [[INDEX0]]
 ; CHECK-NEXT:    [[MASK_PARM0]] = load i32, i32* [[MASK_GEP0]], align 4
 ; CHECK-NEXT:    [[MASK_COND0]] = icmp ne i32 [[MASK_PARM0]], 0
@@ -754,15 +754,15 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_30]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.3:
-; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.else:
-; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop.exit:
+; CHECK-NEXT:  simd.loop.latch:
 ; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
 ; CHECK-NEXT:    [[VL_COND0]] = icmp ult i32 [[INDVAR0]], 8
-; CHECK-NEXT:    br label [[SIMD_LOOP0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.end.region:
 ; CHECK-NEXT:    br label [[RETURN0]]
@@ -883,8 +883,8 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[UNI_PHI140]] = phi i32 [ 16, [[VPLANNEDBB130]] ]
 ; CHECK-NEXT:    br label [[SIMD_END_REGION0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop:
-; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ]
+; CHECK-NEXT:  simd.loop.header:
+; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_LATCH0]] ]
 ; CHECK-NEXT:    [[MASK_GEP0]] = getelementptr i32, i32* [[MASK_CAST0]], i32 [[INDEX0]]
 ; CHECK-NEXT:    [[MASK_PARM0]] = load i32, i32* [[MASK_GEP0]], align 4
 ; CHECK-NEXT:    [[MASK_COND0]] = icmp ne i32 [[MASK_PARM0]], 0
@@ -900,15 +900,15 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_30]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.3:
-; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.else:
-; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop.exit:
+; CHECK-NEXT:  simd.loop.latch:
 ; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
 ; CHECK-NEXT:    [[VL_COND0]] = icmp ult i32 [[INDVAR0]], 16
-; CHECK-NEXT:    br label [[SIMD_LOOP0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.end.region:
 ; CHECK-NEXT:    br label [[RETURN0]]

@@ -14,7 +14,7 @@
 ; from this refactor.
 ; CHECK-SAME: QUAL.OMP.PRIVATE
 ; CHECK-SAME: i32* %b.addr
-; CHECK: simd.loop:
+; CHECK: simd.loop.header:
 ; CHECK: store i32 %b
 
 ; ModuleID = 'uniform.c'

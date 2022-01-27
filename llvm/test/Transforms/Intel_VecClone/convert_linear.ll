@@ -12,7 +12,7 @@
 ; CHECK-SAME: QUAL.OMP.SIMDLEN
 ; CHECK-SAME: i32 2
 ; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %i.addr)
-; CHECK: simd.loop:
+; CHECK: simd.loop.header:
 ; CHECK: %0 = load i32, i32* %i.addr
 ; CHECK-NEXT: %stride.mul = mul i32 1, %index
 ; CHECK-NEXT: %stride.add = add i32 %0, %stride.mul

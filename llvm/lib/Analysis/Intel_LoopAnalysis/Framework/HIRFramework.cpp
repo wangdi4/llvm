@@ -522,6 +522,52 @@ void HIRFramework::MaxTripCountEstimator::visit(HLDDNode *Node) {
   }
 }
 
+// In C99, there is a concept of 'flexible array members' where the last array
+// field of a structure is used as a variable length array. Some codebases use
+// an array size of 1 as a hacky way of achieving this prior to C99. Refer to
+// "The 'struct hack'" section in the link below-
+//
+// https://riptutorial.com/c/example/10850/flexible-array-members
+//
+// We want to detect such usage in this function.
+//
+// Returns true if \p DimNum of \p Ref possibly represents a flexible array
+// member.
+bool isPossibleFlexibleArrayMember(RegDDRef *Ref, unsigned DimNum,
+                                   uint64_t NumElements) {
+
+  // Restrict to lowest array dimension access with a size of 1.
+  if ((DimNum != 1) || (NumElements != 1)) {
+    return false;
+  }
+
+  // The Ref is guaranteed to have at least 2 dimensions because of the for
+  // loop's control condition in the caller.
+  // TODO: Add a check if/when trying to make this function generic.
+  auto Offsets = Ref->getTrailingStructOffsets(2);
+
+  // No struct access.
+  if (Offsets.empty()) {
+    return false;
+  }
+
+  // Not applicable to fortran.
+  if (Ref->getHLDDNode()->getHLNodeUtils().getFunction().isFortran()) {
+    return false;
+  }
+
+  // Check if the array being accessed is the last field of the structure.
+  auto *HigherDimTy = Ref->getDimensionElementType(2);
+
+  unsigned FieldNum = Offsets.back();
+
+  Offsets = Offsets.drop_back();
+
+  auto *StructTy =
+      cast<StructType>(DDRefUtils::getOffsetType(HigherDimTy, Offsets));
+  return (StructTy->getNumElements() == (FieldNum + 1));
+}
+
 void HIRFramework::MaxTripCountEstimator::visit(RegDDRef *Ref, HLDDNode *Node) {
   if (!Ref->hasGEPInfo()) {
     return;
@@ -537,7 +583,13 @@ void HIRFramework::MaxTripCountEstimator::visit(RegDDRef *Ref, HLDDNode *Node) {
   // Highest dimension is intentionally skipped as it doesn't contain
   // information about number of elements.
   for (unsigned I = 1; I < NumDims; ++I) {
-    if (auto NumElements = Ref->getNumDimensionElements(I)) {
+    auto NumElements = Ref->getNumDimensionElements(I);
+    // Disregard dimensions which can represent 'flexible array members' as we
+    // don't really know the dimension info.
+    // TODO: Should the framework drop dimension info for these altogether? Some
+    // loopopt utilities may choke on misleading info.
+    if (NumElements != 0 &&
+        !isPossibleFlexibleArrayMember(Ref, I, NumElements)) {
       visit(Ref->getDimensionIndex(I), NumElements, Node);
     }
   }
