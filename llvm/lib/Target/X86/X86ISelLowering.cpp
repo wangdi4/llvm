@@ -51789,7 +51789,7 @@ static SDValue combineVectorSignBitsTruncation(SDNode *N, const SDLoc &DL,
     // originally concatenated from subvectors.
     SmallVector<SDValue> ConcatOps;
     if (VT.getSizeInBits() > 128 || !collectConcatOps(In.getNode(), ConcatOps))
-    return SDValue();
+      return SDValue();
   }
 
   unsigned NumPackedSignBits = std::min<unsigned>(SVT.getSizeInBits(), 16);

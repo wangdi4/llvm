@@ -11620,6 +11620,9 @@ def warn_sycl_kernel_num_of_function_params : Warning<
 def warn_sycl_kernel_return_type : Warning<
   "function template with 'sycl_kernel' attribute must have a 'void' return type">,
   InGroup<IgnoredAttributes>;
+def err_sycl_special_type_num_init_method : Error<
+  "types with 'sycl_special_class' attribute must have one and only one '__init' "
+  "method defined">;
 
 // if INTEL_CUSTOMIZATION
 def warn_sycl_unmasked_num_of_function_params : Warning<
