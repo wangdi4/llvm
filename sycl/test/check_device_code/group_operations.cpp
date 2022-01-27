@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-// RUN: %clangxx -I %sycl_include -S -emit-llvm -fsycl-device-only -Xclang -disable-noundef-analysis %s -o - | FileCheck %s
-=======
-// RUN: %clangxx -I %sycl_include -S -emit-llvm -fsycl-device-only -ffp-model=precise %s -o - | FileCheck %s
->>>>>>> c214b2af99c61cfeea115f3d0d66c624b1b50f72
+// RUN: %clangxx -I %sycl_include -S -emit-llvm -fsycl-device-only -ffp-model=precise -Xclang -disable-noundef-analysis %s -o - | FileCheck %s
 
 #include <CL/sycl.hpp>
 
