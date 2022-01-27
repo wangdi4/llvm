@@ -594,7 +594,7 @@ static void printExplicitSpecifier(ExplicitSpecifier ES, llvm::raw_ostream &Out,
   }
   EOut << " ";
   EOut.flush();
-  Out << EOut.str();
+  Out << Proto;
 }
 
 void DeclPrinter::VisitFunctionDecl(FunctionDecl *D) {
