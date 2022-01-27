@@ -10776,8 +10776,7 @@ void CGOpenMPRuntime::emitUDMapperArrayInitOrDel(
   llvm::Value *Cond;
   if (IsInit) {
     // base != begin?
-    llvm::Value *BaseIsBegin = MapperCGF.Builder.CreateIsNotNull(
-        MapperCGF.Builder.CreatePtrDiff(Base, Begin));
+    llvm::Value *BaseIsBegin = MapperCGF.Builder.CreateICmpNE(Base, Begin);
 #if INTEL_COLLAB
     // Late outlining: opencl plugin needs the base and begin pointers even
     // for single-element array section maps with non-zero offset, like:
