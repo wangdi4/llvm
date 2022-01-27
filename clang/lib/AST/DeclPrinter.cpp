@@ -737,7 +737,6 @@ void DeclPrinter::VisitFunctionDecl(FunctionDecl *D) {
         FT->getNoexceptExpr()->printPretty(EOut, nullptr, SubPolicy,
                                            Indentation, "\n", &Context);
         EOut.flush();
-        Proto += EOut.str();
         Proto += ")";
       }
     }
