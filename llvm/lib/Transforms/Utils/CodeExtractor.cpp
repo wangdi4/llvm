@@ -1370,21 +1370,14 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
   // arguments (or appropriate addressing into struct) instead.
   for (unsigned i = 0, e = inputs.size(), aggIdx = 0; i != e; ++i) {
     Value *RewriteVal;
-<<<<<<< HEAD
 #if INTEL_COLLAB
     Instruction *TI = newFunction->begin()->getTerminator();
 #endif // INTEL_COLLAB
-    if (AggregateArgs) {
-      Value *Idx[2];
-      Idx[0] = Constant::getNullValue(Type::getInt32Ty(header->getContext()));
-      Idx[1] = ConstantInt::get(Type::getInt32Ty(header->getContext()), i);
-=======
     if (AggregateArgs && StructValues.contains(inputs[i])) {
       Value *Idx[2];
       Idx[0] = Constant::getNullValue(Type::getInt32Ty(header->getContext()));
       Idx[1] = ConstantInt::get(Type::getInt32Ty(header->getContext()), aggIdx);
       Instruction *TI = newFunction->begin()->getTerminator();
->>>>>>> 95b981ca2ae3915464a63d42eb53b0dde4a88227
       GetElementPtrInst *GEP = GetElementPtrInst::Create(
           StructTy, &*AggAI, Idx, "gep_" + inputs[i]->getName(), TI);
       RewriteVal = new LoadInst(StructTy->getElementType(aggIdx), GEP,
@@ -1600,11 +1593,10 @@ CallInst *CodeExtractor::emitCallAndSwitchStatement(Function *newFunction,
                        &codeReplacer->getParent()->front().front());
       ReloadOutputs.push_back(alloca);
       params.push_back(alloca);
-<<<<<<< HEAD
+#if INTEL_COLLAB
       newAllocas.insert(alloca);
-=======
+#endif // INTEL_COLLAB
       ++ScalarOutputArgNo;
->>>>>>> 95b981ca2ae3915464a63d42eb53b0dde4a88227
     }
   }
 
