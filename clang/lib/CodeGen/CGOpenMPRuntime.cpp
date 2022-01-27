@@ -3208,6 +3208,18 @@ void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
   ++OffloadingEntriesNum;
 }
 
+#if INTEL_COLLAB
+void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
+    initializeDeviceIndirectFnEntryInfo(StringRef Name, unsigned Order) {
+  assert(CGM.getLangOpts().OpenMPIsDevice && "Initialization of entries is "
+                                             "only required for the device "
+                                             "code generation.");
+  OffloadEntriesInfoManagerTy::OffloadEntryInfoDeviceIndirectFn IFn(Order);
+  OffloadEntriesDeviceIndirectFn[Name.str()] = IFn;
+  ++OffloadingEntriesNum;
+}
+#endif  // INTEL_COLLAB
+
 void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
     registerDeviceGlobalVarEntryInfo(StringRef VarName, llvm::Constant *Addr,
                                      CharUnits VarSize,
@@ -3246,6 +3258,24 @@ void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
 }
 
 #if INTEL_COLLAB
+void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
+    registerDeviceIndirectFnEntryInfo(StringRef FnName, llvm::Constant *Addr) {
+  if (CGM.getLangOpts().OpenMPIsDevice) {
+    // This could happen if the device compilation is invoked standalone.
+    if (!hasDeviceIndirectFnEntryInfo(FnName))
+      return;
+    auto &Entry = OffloadEntriesDeviceIndirectFn[FnName.str()];
+    if (Entry.getAddress() && hasDeviceGlobalVarEntryInfo(FnName))
+      return;
+    Entry.setAddress(Addr);
+  } else {
+    OffloadEntriesInfoManagerTy::OffloadEntryInfoDeviceIndirectFn IFn(
+        OffloadingEntriesNum, Addr);
+    OffloadEntriesDeviceIndirectFn[FnName.str()] = IFn;
+    ++OffloadingEntriesNum;
+  }
+}
+
 StringRef CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
     getNameOfOffloadEntryDeviceGlobalVar(llvm::Constant *Addr) {
   for (auto &E : OffloadEntriesDeviceGlobalVar) {
@@ -3269,6 +3299,16 @@ void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
   for (const auto &E : OffloadEntriesDeviceGlobalVar)
     Action(E.getKey(), E.getValue());
 }
+
+#if INTEL_COLLAB
+void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
+    actOnDeviceIndirectFnEntriesInfo(
+        const OffloadDeviceIndirectFnEntryInfoActTy &Action) {
+  // Scan all target region entries and perform the provided action.
+  for (const auto &E : OffloadEntriesDeviceIndirectFn)
+    Action(E.first, E.second);
+}
+#endif // INTEL_COLLAB
 
 void CGOpenMPRuntime::createOffloadEntry(
     llvm::Constant *ID, llvm::Constant *Addr, uint64_t Size, int32_t Flags,
@@ -3434,6 +3474,33 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
       DeviceGlobalVarMetadataEmitter);
 
 #if INTEL_COLLAB
+  // Create function that emits metadata for each device indirect function
+  // entry;
+  auto DeviceIndirectFnMetadataEmitter =
+      [&C, &OrderedEntries, &GetMDInt, &GetMDString,
+       MD](StringRef MangledName,
+           const OffloadEntriesInfoManagerTy::OffloadEntryInfoDeviceIndirectFn
+               &E) {
+        // Generate metadata for indirect functions. Each entry of this
+        // metadata contains:
+        // - Entry 0 -> Kind of this type of metadata (2).
+        // - Entry 1 -> Mangled name of the indirect function.
+        // - Entry 2 -> Order the entry was created.
+        // - Entry 3 -> The Function address (Function).
+        // The first element of the metadata node is the kind.
+        SmallVector<llvm::Metadata *, 4> Ops = {
+            GetMDInt(E.getKind()), GetMDString(MangledName),
+            GetMDInt(E.getOrder())};
+        Ops.push_back(llvm::ConstantAsMetadata::get(E.getAddress()));
+        // Save this entry in the right position of the ordered entries array.
+        OrderedEntries[E.getOrder()] =
+            std::make_tuple(&E, SourceLocation(), MangledName);
+        // Add metadata to the named metadata node.
+        MD->addOperand(llvm::MDNode::get(C, Ops));
+      };
+  OffloadEntriesInfoManager.actOnDeviceIndirectFnEntriesInfo(
+      DeviceIndirectFnMetadataEmitter);
+
   if (CGM.getLangOpts().OpenMPLateOutline)
 #if INTEL_CUSTOMIZATION
     if (CGM.getLangOpts().OpenMPLateOutlineTarget)
@@ -3574,6 +3641,13 @@ void CGOpenMPRuntime::loadOffloadInfoMetadata() {
               /*Flags=*/GetMDInt(2)),
           /*Order=*/GetMDInt(3));
       break;
+#if INTEL_COLLAB
+    case OffloadEntriesInfoManagerTy::OffloadEntryInfo::
+        OffloadingEntryInfoIndirectFn:
+      OffloadEntriesInfoManager.initializeDeviceIndirectFnEntryInfo(
+          /*MangledName=*/GetMDString(1), /*Order=*/GetMDInt(2));
+      break;
+#endif // INTEL_COLLAB
     }
   }
 }
@@ -11678,6 +11752,14 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
 }
 
 #if INTEL_COLLAB
+void CGOpenMPRuntime::registerTargetIndirectFn(StringRef FnName,
+                                               llvm::Constant *Addr) {
+  if (CGM.getLangOpts().OMPTargetTriples.empty() &&
+      !CGM.getLangOpts().OpenMPIsDevice)
+    return;
+  OffloadEntriesInfoManager.registerDeviceIndirectFnEntryInfo(FnName, Addr);
+}
+
 void CGOpenMPRuntime::registerTargetVtableGlobalVar(StringRef VarName,
                                                     llvm::Constant *Addr) {
   if (CGM.getLangOpts().OMPTargetTriples.empty() &&
@@ -13997,3 +14079,21 @@ CGOpenMPSIMDRuntime::getParameterAddress(CodeGenFunction &CGF,
                                          const VarDecl *TargetParam) const {
   llvm_unreachable("Not supported in SIMD-only mode");
 }
+
+#if INTEL_COLLAB
+RValue CodeGenFunction::EmitOMPIndirectCall(
+    llvm::FunctionType *IRFuncTy, const SmallVectorImpl<llvm::Value *> &IRArgs,
+    llvm::Value *FnPtr) {
+  llvm::FunctionCallee Fn =
+      CGM.getOpenMPRuntime().getOMPBuilder().getOrCreateRuntimeFunction(
+          CGM.getModule(), OMPRTL___kmpc_target_translate_fptr);
+  llvm::Value *CI = Builder.CreateCall(
+      Fn, Builder.CreatePointerBitCastOrAddrSpaceCast(FnPtr, TargetInt8PtrTy));
+  llvm::Value *Call =
+      Builder.CreatePointerBitCastOrAddrSpaceCast(CI, FnPtr->getType());
+  SmallVector<llvm::OperandBundleDef, 1> BundleList =
+      getBundlesForFunclet(Call);
+  CI = Builder.CreateCall(IRFuncTy, Call, IRArgs, BundleList);
+  return RValue::get(CI);
+}
+#endif // INTEL_COLLAB
