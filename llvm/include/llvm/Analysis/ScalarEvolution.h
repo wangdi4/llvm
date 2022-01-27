@@ -1997,6 +1997,15 @@ protected: // INTEL
                          const SCEV *FoundLHS, const SCEV *FoundRHS,
                          unsigned Depth);
 
+  /// Test whether the condition described by Pred, LHS, and RHS is true
+  /// whenever the condition described by Pred, FoundLHS, and FoundRHS is
+  /// true.
+  ///
+  /// This routine tries to reason about shifts.
+  bool isImpliedCondOperandsViaShift(ICmpInst::Predicate Pred, const SCEV *LHS,
+                                     const SCEV *RHS, const SCEV *FoundLHS,
+                                     const SCEV *FoundRHS);
+
   /// If we know that the specified Phi is in the header of its containing
   /// loop, we know the loop executes a constant number of times, and the PHI
   /// node is just a recurrence involving constants, fold it.

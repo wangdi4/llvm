@@ -2126,7 +2126,7 @@ inlineRetainOrClaimRVCalls(CallBase &CB, objcarc::ARCInstKind RVCallKind,
   Module *Mod = CB.getModule();
   assert(objcarc::isRetainOrClaimRV(RVCallKind) && "unexpected ARC function");
   bool IsRetainRV = RVCallKind == objcarc::ARCInstKind::RetainRV,
-       IsClaimRV = !IsRetainRV;
+       IsUnsafeClaimRV = !IsRetainRV;
 
   for (auto *RI : Returns) {
     Value *RetOpnd = objcarc::GetRCIdentityRoot(RI->getOperand(0));
@@ -2153,7 +2153,7 @@ inlineRetainOrClaimRVCalls(CallBase &CB, objcarc::ARCInstKind RVCallKind,
         //   and erase the autoreleaseRV call.
         // - If retainRV is attached to the call, just erase the autoreleaseRV
         //   call.
-        if (IsClaimRV) {
+        if (IsUnsafeClaimRV) {
           Builder.SetInsertPoint(II);
           Function *IFn =
               Intrinsic::getDeclaration(Mod, Intrinsic::objc_release);
