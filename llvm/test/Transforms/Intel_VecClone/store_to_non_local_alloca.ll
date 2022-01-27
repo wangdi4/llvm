@@ -22,21 +22,21 @@ define dso_local void @foo1(i32* nocapture nonnull align 4 dereferenceable(4) %p
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.preheader:
 ; CHECK-NEXT:    [[LOAD_I0:%.*]] = load i32, i32* [[ALLOCA_I0]], align 4
-; CHECK-NEXT:    br label [[SIMD_LOOP0:%.*]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER0:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop:
-; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]
+; CHECK-NEXT:  simd.loop.header:
+; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_LATCH0:%.*]] ]
 ; CHECK-NEXT:    [[VEC_P_CAST_GEP0:%.*]] = getelementptr i32*, i32** [[VEC_P_CAST0]], i32 [[INDEX0]]
 ; CHECK-NEXT:    [[VEC_P_ELEM0:%.*]] = load i32*, i32** [[VEC_P_CAST_GEP0]], align 8
 ; CHECK-NEXT:    [[STRIDE_MUL0:%.*]] = mul i32 1, [[INDEX0]]
 ; CHECK-NEXT:    [[STRIDE_ADD0:%.*]] = add i32 [[LOAD_I0]], [[STRIDE_MUL0]]
 ; CHECK-NEXT:    store i32 [[STRIDE_ADD0]], i32* [[VEC_P_ELEM0]], align 4
-; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop.exit:
+; CHECK-NEXT:  simd.loop.latch:
 ; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
 ; CHECK-NEXT:    [[VL_COND0:%.*]] = icmp ult i32 [[INDVAR0]], 2
-; CHECK-NEXT:    br i1 [[VL_COND0]], label [[SIMD_LOOP0]], label [[SIMD_END_REGION0:%.*]]
+; CHECK-NEXT:    br i1 [[VL_COND0]], label [[SIMD_LOOP_HEADER0]], label [[SIMD_END_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.end.region:
 ; CHECK-NEXT:    call void @llvm.directive.region.exit(token [[ENTRY_REGION0]]) [ "DIR.OMP.END.SIMD"() ]
@@ -67,22 +67,22 @@ define dso_local void @foo2(i32* nocapture %p, i32 %i) local_unnamed_addr #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.preheader:
 ; CHECK-NEXT:    [[LOAD_I0:%.*]] = load i32, i32* [[ALLOCA_I0]], align 4
-; CHECK-NEXT:    br label [[SIMD_LOOP0:%.*]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER0:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop:
-; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]
+; CHECK-NEXT:  simd.loop.header:
+; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_LATCH0:%.*]] ]
 ; CHECK-NEXT:    [[VEC_P_CAST_GEP0:%.*]] = getelementptr i32*, i32** [[VEC_P_CAST0]], i32 [[INDEX0]]
 ; CHECK-NEXT:    [[VEC_P_ELEM0:%.*]] = load i32*, i32** [[VEC_P_CAST_GEP0]], align 8
 ; CHECK-NEXT:    [[PTRIDX0:%.*]] = getelementptr inbounds i32, i32* [[VEC_P_ELEM0]]
 ; CHECK-NEXT:    [[STRIDE_MUL0:%.*]] = mul i32 1, [[INDEX0]]
 ; CHECK-NEXT:    [[STRIDE_ADD0:%.*]] = add i32 [[LOAD_I0]], [[STRIDE_MUL0]]
 ; CHECK-NEXT:    store i32 [[STRIDE_ADD0]], i32* [[PTRIDX0]], align 4
-; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop.exit:
+; CHECK-NEXT:  simd.loop.latch:
 ; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
 ; CHECK-NEXT:    [[VL_COND0:%.*]] = icmp ult i32 [[INDVAR0]], 2
-; CHECK-NEXT:    br i1 [[VL_COND0]], label [[SIMD_LOOP0]], label [[SIMD_END_REGION0:%.*]]
+; CHECK-NEXT:    br i1 [[VL_COND0]], label [[SIMD_LOOP_HEADER0]], label [[SIMD_END_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.end.region:
 ; CHECK-NEXT:    call void @llvm.directive.region.exit(token [[ENTRY_REGION0]]) [ "DIR.OMP.END.SIMD"() ]

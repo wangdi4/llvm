@@ -12,7 +12,7 @@
 ; CHECK-SAME: i32 1
 ; CHECK-SAME: QUAL.OMP.UNIFORM
 ; CHECK-SAME: i32* %alloca.x
-; CHECK: simd.loop:
+; CHECK: simd.loop.header:
 ; CHECK: %stride.mul = mul i32 1, %index
 ; CHECK-NEXT: %stride.add = add i32 %load.i, %stride.mul
 ; CHECK-NEXT: %add = add nsw i32 %load.x, %stride.add

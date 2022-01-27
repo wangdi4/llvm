@@ -18,9 +18,9 @@ define i32 @foo(%struct.pair* byval(%struct.pair) %x) #0 {
 ; CHECK-NEXT:    [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM"(%struct.pair* [[X:%.*]]) ]
 ; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER:%.*]]
 ; CHECK:       simd.loop.preheader:
-; CHECK-NEXT:    br label [[SIMD_LOOP:%.*]]
-; CHECK:       simd.loop:
-; CHECK-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER]] ], [ [[INDVAR:%.*]], [[SIMD_LOOP_EXIT:%.*]] ]
+; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER:%.*]]
+; CHECK:       simd.loop.header:
+; CHECK-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER]] ], [ [[INDVAR:%.*]], [[SIMD_LOOP_LATCH:%.*]] ]
 ; CHECK-NEXT:    [[FST_P:%.*]] = getelementptr inbounds [[STRUCT_PAIR:%.*]], %struct.pair* [[X]], i32 0, i32 0
 ; CHECK-NEXT:    [[SND_P:%.*]] = getelementptr inbounds [[STRUCT_PAIR]], %struct.pair* [[X]], i32 0, i32 1
 ; CHECK-NEXT:    [[FST:%.*]] = load i32, i32* [[FST_P]], align 4
@@ -28,11 +28,11 @@ define i32 @foo(%struct.pair* byval(%struct.pair) %x) #0 {
 ; CHECK-NEXT:    [[SUM:%.*]] = add i32 [[FST]], [[SND]]
 ; CHECK-NEXT:    [[RET_CAST_GEP:%.*]] = getelementptr i32, i32* [[RET_CAST]], i32 [[INDEX]]
 ; CHECK-NEXT:    store i32 [[SUM]], i32* [[RET_CAST_GEP]]
-; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT]]
-; CHECK:       simd.loop.exit:
+; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH]]
+; CHECK:       simd.loop.latch:
 ; CHECK-NEXT:    [[INDVAR]] = add nuw i32 [[INDEX]], 1
 ; CHECK-NEXT:    [[VL_COND:%.*]] = icmp ult i32 [[INDVAR]], 4
-; CHECK-NEXT:    br i1 [[VL_COND]], label [[SIMD_LOOP]], label [[SIMD_END_REGION:%.*]], !llvm.loop !0
+; CHECK-NEXT:    br i1 [[VL_COND]], label [[SIMD_LOOP_HEADER]], label [[SIMD_END_REGION:%.*]], !llvm.loop !0
 ; CHECK:       simd.end.region:
 ; CHECK-NEXT:    call void @llvm.directive.region.exit(token [[ENTRY_REGION]]) [ "DIR.OMP.END.SIMD"() ]
 ; CHECK-NEXT:    br label [[RETURN:%.*]]

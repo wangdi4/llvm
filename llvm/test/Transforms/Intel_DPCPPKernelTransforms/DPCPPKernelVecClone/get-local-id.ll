@@ -35,7 +35,7 @@ entry:
 ; CHECK-NEXT:    %entry.region = call token @llvm.directive.region.entry()
 ; CHECK-NEXT:    br label %simd.loop.preheader
 
-; CHECK-LABEL: simd.loop:
+; CHECK-LABEL: simd.loop.header:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i32
 ; CHECK-NEXT:    [[LID_LINEAR:%.*]] = add nuw i32 [[TRUNC]], [[INDEX]]
 ; CHECK-NEXT:    [[INDEX_I64:%.*]] = sext i32 [[LID_LINEAR]] to i64
