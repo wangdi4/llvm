@@ -32,14 +32,6 @@ template <typename T> class AddressImpl<T, false> {
   llvm::Value *Pointer;
   llvm::Type *ElementType;
   CharUnits Alignment;
-#if INTEL_COLLAB
-  // True if this address has been remapped directly and should not generate
-  // the load normally required for variables with reference type.
-  bool ReferenceRemovedWithRemap = false;
-public:
-  bool hasRemovedReference() { return ReferenceRemovedWithRemap; }
-  void setRemovedReference() { ReferenceRemovedWithRemap = true; }
-#endif // INTEL_COLLAB
 
 public:
   AddressImpl(llvm::Value *Pointer, llvm::Type *ElementType,
@@ -55,6 +47,14 @@ template <typename T> class AddressImpl<T, true> {
   llvm::PointerIntPair<llvm::Value *, 3, unsigned> Pointer;
   // Int portion stores lower 3 bits of the log of the alignment.
   llvm::PointerIntPair<llvm::Type *, 3, unsigned> ElementType;
+#if INTEL_COLLAB
+  // True if this address has been remapped directly and should not generate
+  // the load normally required for variables with reference type.
+  bool ReferenceRemovedWithRemap = false;
+public:
+  bool hasRemovedReference() { return ReferenceRemovedWithRemap; }
+  void setRemovedReference() { ReferenceRemovedWithRemap = true; }
+#endif // INTEL_COLLAB
 
 public:
   AddressImpl(llvm::Value *Pointer, llvm::Type *ElementType,
@@ -148,6 +148,11 @@ public:
   Address withAlignment(CharUnits NewAlignment) const {
     return Address(getPointer(), getElementType(), NewAlignment);
   }
+
+#if INTEL_COLLAB
+  bool hasRemovedReference() { return A.hasRemovedReference(); }
+  void setRemovedReference() { A.setRemovedReference(); }
+#endif // INTEL_COLLAB
 };
 
 /// A specialization of Address that requires the address to be an
