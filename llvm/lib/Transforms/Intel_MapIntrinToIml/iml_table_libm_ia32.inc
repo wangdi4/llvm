@@ -16,7 +16,7 @@
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
-0.6, //float ulp_error;
+0.6f, //float ulp_error;
 1e30f, //float absolute_error;
 52, //float accurate_bits;
 0, //int domain_exclusion;
