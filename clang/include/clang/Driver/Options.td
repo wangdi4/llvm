@@ -6030,8 +6030,8 @@ def sox_EQ : Joined<["-"], "sox=">,
   MarshallingInfoString<CodeGenOpts<"Sox">>;
 // endif INTEL_CUSTOMIZATION
 def compress_debug_sections_EQ : Joined<["-", "--"], "compress-debug-sections=">,
-    HelpText<"DWARF debug sections compression type">, Values<"none,zlib,zlib-gnu">,
-    NormalizedValuesScope<"llvm::DebugCompressionType">, NormalizedValues<["None", "Z", "GNU"]>,
+    HelpText<"DWARF debug sections compression type">, Values<"none,zlib">,
+    NormalizedValuesScope<"llvm::DebugCompressionType">, NormalizedValues<["None", "Z"]>,
     MarshallingInfoEnum<CodeGenOpts<"CompressDebugSections">, "None">;
 def compress_debug_sections : Flag<["-", "--"], "compress-debug-sections">,
   Alias<compress_debug_sections_EQ>, AliasArgs<["zlib"]>;
