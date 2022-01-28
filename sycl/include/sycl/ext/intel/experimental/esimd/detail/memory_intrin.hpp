@@ -9,6 +9,8 @@
 // the SIMD classes objects.
 //===----------------------------------------------------------------------===//
 
+/// @cond ESIMD_DETAIL
+
 #pragma once
 
 #include <CL/sycl/detail/accessor_impl.hpp>
@@ -1738,3 +1740,4 @@ inline void __esimd_raw_send_nbarrier_signal(
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
+/// @endcond ESIMD_DETAIL

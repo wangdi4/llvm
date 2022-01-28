@@ -74,6 +74,9 @@ namespace intel {
 namespace experimental {
 namespace esimd {
 
+/// @{
+/// @ingroup sycl_esimd_core
+
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 #ifdef __SYCL_DEVICE_ONLY__
@@ -571,6 +574,8 @@ using EsimdSbarrierType = split_barrier_action;
 /// addressable by GPU in "stateful" memory model, and each surface is
 /// identified by its "binding table index" - surface index.
 using SurfaceIndex = unsigned int;
+
+/// @} sycl_esimd_core
 
 } // namespace esimd
 } // namespace experimental
