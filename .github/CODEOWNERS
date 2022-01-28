@@ -35,6 +35,7 @@
 
 # JIRA: CMPLRLLVM->LLVM Driver
 /clang/**/Driver @intel-restricted/cmplrllvm-llvm-driver
+/clang/**/driver @intel-restricted/cmplrllvm-llvm-driver
 
 # DPC++ runtime library
 sycl/ @intel-restricted/llvm-reviewers-runtime
