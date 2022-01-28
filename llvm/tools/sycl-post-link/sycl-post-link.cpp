@@ -1208,12 +1208,8 @@ int main(int argc, char **argv) {
       !DoLinkOmpOffloadEntries && !DoMakeOmpGlobalsStatic &&
 #else  // INTEL_COLLAB
   if (!DoSplit && !DoSpecConst && !DoSymGen && !DoParamInfo &&
-<<<<<<< HEAD
 #endif // INTEL_COLLAB
-      !DoProgMetadata && !DoSplitEsimd && !DoExportedSyms) {
-=======
       !DoProgMetadata && !DoSplitEsimd && !DoExportedSyms && !DoDeviceGlobals) {
->>>>>>> 88123c1c42e71aa3667d24558ed9c9baca39467a
     errs() << "no actions specified; try --help for usage info\n";
     return 1;
   }
