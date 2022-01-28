@@ -21,6 +21,7 @@
 #endif // INTEL_COLLAB
 //===----------------------------------------------------------------------===//
 
+#include "DeviceGlobals.h"
 #include "SYCLDeviceLibReqMask.h"
 #include "SYCLKernelParamOptInfo.h"
 #include "SpecConstants.h"
@@ -240,12 +241,18 @@ cl::opt<bool> EmitOnlyKernelsAsEntryPoints{
              "device code split"),
     cl::cat(PostLinkCat), cl::init(false)};
 
+cl::opt<bool> DeviceGlobals{
+    "device-globals",
+    cl::desc("Lower and generate information about device global variables"),
+    cl::cat(PostLinkCat)};
+
 struct GlobalBinImageProps {
   bool SpecConstsMet;
   bool EmitKernelParamInfo;
   bool EmitProgramMetadata;
   bool EmitExportedSymbols;
   bool IsEsimdKernel;
+  bool EmitDeviceGlobalPropSet;
 };
 
 void error(const Twine &Msg) {
@@ -809,6 +816,14 @@ void saveModuleProperties(Module &M, const EntryPointGroup &ModuleEntryPoints,
       PropSet[PropSetRegTy::SYCL_ASSERT_USED].insert({FName, true});
   }
 
+  if (ImgPSInfo.EmitDeviceGlobalPropSet) {
+    // Extract device global maps per module
+    auto DevGlobalPropertyMap =
+        DeviceGlobalsPass::collectDeviceGlobalProperties(M);
+    if (!DevGlobalPropertyMap.empty())
+      PropSet.add(PropSetRegTy::SYCL_DEVICE_GLOBALS, DevGlobalPropertyMap);
+  }
+
   std::error_code EC;
   raw_fd_ostream SCOut(PropSetFile, EC);
   checkError(EC, "error opening file '" + PropSetFile + "'");
@@ -1015,9 +1030,12 @@ TableFiles processOneModule(std::unique_ptr<Module> M, bool IsEsimd,
     }
 
     {
-      GlobalBinImageProps ImgPSInfo = {SpecConstsMet, EmitKernelParamInfo,
-                                       EmitProgramMetadata, EmitExportedSymbols,
-                                       IsEsimd};
+      GlobalBinImageProps ImgPSInfo = {SpecConstsMet,
+                                       EmitKernelParamInfo,
+                                       EmitProgramMetadata,
+                                       EmitExportedSymbols,
+                                       IsEsimd,
+                                       DeviceGlobals};
       std::string PropSetFile = makeResultFileName(".prop", I, FileSuffix);
       saveModuleProperties(*ResM, SplitModuleEntryPoints, ImgPSInfo,
                            PropSetFile);
@@ -1171,6 +1189,7 @@ int main(int argc, char **argv) {
   bool DoParamInfo = EmitKernelParamInfo.getNumOccurrences() > 0;
   bool DoProgMetadata = EmitProgramMetadata.getNumOccurrences() > 0;
   bool DoExportedSyms = EmitExportedSymbols.getNumOccurrences() > 0;
+  bool DoDeviceGlobals = DeviceGlobals.getNumOccurrences() > 0;
 
 #if INTEL_COLLAB
   bool DoLinkOmpOffloadEntries =
@@ -1190,7 +1209,7 @@ int main(int argc, char **argv) {
 #else  // INTEL_COLLAB
   if (!DoSplit && !DoSpecConst && !DoSymGen && !DoParamInfo &&
 #endif // INTEL_COLLAB
-      !DoProgMetadata && !DoSplitEsimd && !DoExportedSyms) {
+      !DoProgMetadata && !DoSplitEsimd && !DoExportedSyms && !DoDeviceGlobals) {
     errs() << "no actions specified; try --help for usage info\n";
     return 1;
   }
@@ -1221,6 +1240,11 @@ int main(int argc, char **argv) {
   }
   if (IROutputOnly && DoExportedSyms) {
     errs() << "error: -" << EmitExportedSymbols.ArgStr << " can't be used with"
+           << " -" << IROutputOnly.ArgStr << "\n";
+    return 1;
+  }
+  if (IROutputOnly && DoDeviceGlobals) {
+    errs() << "error: -" << DeviceGlobals.ArgStr << " can't be used with"
            << " -" << IROutputOnly.ArgStr << "\n";
     return 1;
   }
