@@ -927,7 +927,6 @@ __ESIMD_INTRIN void __esimd_raw_send2_noresult(
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
@@ -1741,6 +1740,4 @@ inline void __esimd_raw_send_nbarrier_signal(
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
-=======
 /// @endcond ESIMD_DETAIL
->>>>>>> dfea516f8da2228e975133d58fea38814a7309a6

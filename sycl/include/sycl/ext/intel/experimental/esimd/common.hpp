@@ -74,7 +74,9 @@ namespace intel {
 namespace experimental {
 namespace esimd {
 
-<<<<<<< HEAD
+/// @{
+/// @ingroup sycl_esimd_core
+
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 #ifdef __SYCL_DEVICE_ONLY__
@@ -89,10 +91,6 @@ using bfloat16 = uint16_t;
 #endif // __SYCL_DEVICE_ONLY__
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
-=======
-/// @{
-/// @ingroup sycl_esimd_core
->>>>>>> dfea516f8da2228e975133d58fea38814a7309a6
 
 using uchar = unsigned char;
 using ushort = unsigned short;

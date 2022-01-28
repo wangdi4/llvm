@@ -2645,7 +2645,6 @@ template <typename T, int N> simd<T, N> dp4(simd<T, N> v1, simd<T, N> v2) {
   return retv;
 }
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
@@ -3265,9 +3264,8 @@ __ESIMD_API simd<T, N> dpasw2(simd<T1, N1> src1, simd<T2, N2> src2,
 
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
-=======
+
 /// @} sycl_esimd_math
->>>>>>> dfea516f8da2228e975133d58fea38814a7309a6
 
 } // namespace esimd
 } // namespace experimental
