@@ -16459,6 +16459,7 @@ bool __ovld is_valid_reserve_id(reserve_id_t reserve_id);
 // OpenCL v2.0 s6.13.17 - Enqueue Kernels
 #if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 
+#ifdef __opencl_c_device_enqueue
 ndrange_t __ovld ndrange_1D(size_t);
 ndrange_t __ovld ndrange_1D(size_t, size_t);
 ndrange_t __ovld ndrange_1D(size_t, size_t, size_t);
@@ -16486,6 +16487,7 @@ bool __ovld is_valid_event (clk_event_t event);
 void __ovld capture_event_profiling_info(clk_event_t, clk_profiling_info, __global void* value);
 
 queue_t __ovld get_default_queue(void);
+#endif //__opencl_c_device_enqueue
 #endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 
 // OpenCL Extension v2.0 s9.17 - Sub-groups
