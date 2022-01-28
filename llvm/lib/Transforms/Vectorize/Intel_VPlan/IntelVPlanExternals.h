@@ -113,8 +113,7 @@ public:
   // Return iterator to list of descriptors.
   decltype(auto) list() const {
     return map_range(
-        make_range(InOutList.begin(), InOutList.end()),
-        [](const InOutListTy::value_type &I) -> ScalarInOutDescr * {
+        InOutList, [](const InOutListTy::value_type &I) -> ScalarInOutDescr * {
           return I.second.get();
         });
   }
@@ -215,14 +214,12 @@ class VPExternalValues {
 
   /// Return the iterator range for external defs in VPExternalDefsHIR.
   decltype(auto) getVPExternalDefsHIR() const {
-    return map_range(
-        make_range(VPExternalDefsHIR.begin(), VPExternalDefsHIR.end()),
-        [](const VPExternalDef &Def) { return &Def; });
+    return map_range(VPExternalDefsHIR,
+                     [](const VPExternalDef &Def) { return &Def; });
   }
 
   /// Holds all the external uses in this VPlan.
-  using ExternalUsesListTy = SmallVector<std::unique_ptr<VPExternalUse>, 16>;
-  ExternalUsesListTy VPExternalUses;
+  SmallVector<std::unique_ptr<VPExternalUse>, 16> VPExternalUses;
 
   /// The MergeId counter. Provides unique identifiers of loop entities which
   /// have live out values. The uniqueness is provided by incrementing on
@@ -236,12 +233,11 @@ class VPExternalValues {
 
   decltype(auto) getVPExternalUsesHIR() {
     return map_range(
-        make_filter_range(
-            make_range(VPExternalUses.begin(), VPExternalUses.end()),
-            [](ExternalUsesListTy::value_type &It) {
-              return It->getOperandHIR() != nullptr;
-            }),
-        [](ExternalUsesListTy::value_type &It) { return It.get(); });
+        make_filter_range(VPExternalUses,
+                          [](std::unique_ptr<VPExternalUse> &It) {
+                            return It->getOperandHIR() != nullptr;
+                          }),
+        [](std::unique_ptr<VPExternalUse> &It) { return It.get(); });
   }
 
   /// Holds all the VPMetadataAsValues created for this VPlan.
@@ -302,32 +298,89 @@ public:
   /// Create or retrieve a VPExternalDef for a given non-decomposable DDRef \p
   /// DDR.
   VPExternalDef *getVPExternalDefForDDRef(const loopopt::DDRef *DDR) {
-    return getExternalItemForDDRef(VPExternalDefsHIR, DDR);
+    assert(DDR->isNonDecomposable() && "Expected non-decomposable DDRef!");
+    FoldingSetNodeID ID;
+    ID.AddPointer(nullptr);
+    ID.AddInteger(DDR->getSymbase());
+    ID.AddInteger(0 /*IVLevel*/);
+    void *IP = nullptr;
+    if (VPExternalDef *ExtDef = VPExternalDefsHIR.FindNodeOrInsertPos(ID, IP))
+      return ExtDef;
+    auto *ExtDef = new VPExternalDef(DDR);
+    VPExternalDefsHIR.InsertNode(ExtDef, IP);
+    return ExtDef;
   }
 
   /// Create or retrieve a VPExternalDef for the blob with index \p BlobIndex in
   /// \p DDR.
   VPExternalDef *getVPExternalDefForBlob(const loopopt::RegDDRef *DDR,
                                          unsigned BlobIndex) {
-    return getExternalItemForBlob(VPExternalDefsHIR, DDR, BlobIndex);
+    FoldingSetNodeID ID;
+
+    // The blob(SCEV expression) with index BlobIndex is the folding set key.
+    const loopopt::BlobTy BlobExpr = DDR->getBlobUtils().getBlob(BlobIndex);
+    ID.AddPointer(BlobExpr);
+    ID.AddInteger(0 /*SymBase*/);
+    ID.AddInteger(0 /*IVLevel*/);
+    void *IP = nullptr;
+    if (VPExternalDef *ExtDef = VPExternalDefsHIR.FindNodeOrInsertPos(ID, IP))
+      return ExtDef;
+
+    auto *ExtDef = new VPExternalDef(DDR, BlobIndex, BlobExpr->getType());
+    VPExternalDefsHIR.InsertNode(ExtDef, IP);
+    return ExtDef;
   }
 
   /// Create or retrieve a VPExternalDef for the given canon expression \p CE.
   VPExternalDef *getVPExternalDefForCanonExpr(const loopopt::CanonExpr *CE,
                                               const loopopt::RegDDRef *DDR) {
-    return getExternalItemForCanonExpr(VPExternalDefsHIR, CE, DDR);
+    // Search through the table for an external def equivalent to CE and return
+    // the same if found. DDR is used to set the definedatlevel of blobs in CE
+    // during vector code generation. The canon expression that we are dealing
+    // with here is invariant at the loop level that is being vectorized.
+    // The blobs within such canon expressions will have the same definedatlevel
+    // independent of the DDR. When searching for an external def that is
+    // equivalent we do not need any DDR specific checks as a result.
+    auto Iter =
+        llvm::find_if(VPExternalDefsHIR, [CE](const VPExternalDef &ExtDef) {
+          return ExtDef.getOperandHIR()->isEqual(CE);
+        });
+    if (Iter != VPExternalDefsHIR.end())
+      return &*Iter;
+
+    auto *ExtDef = new VPExternalDef(CE, DDR);
+    VPExternalDefsHIR.InsertNode(ExtDef);
+    return ExtDef;
   }
 
   /// Retrieve the VPExternalDef for given HIR symbase \p Symbase. If no
   /// external definition exists then a nullptr is returned.
   VPExternalDef *getVPExternalDefForSymbase(unsigned Symbase) {
-    return getExternalItemForSymbase(VPExternalDefsHIR, Symbase);
+    FoldingSetNodeID ID;
+    ID.AddPointer(nullptr);
+    ID.AddInteger(Symbase);
+    ID.AddInteger(0 /*IVLevel*/);
+    void *IP = nullptr;
+    if (VPExternalDef *ExtDef = VPExternalDefsHIR.FindNodeOrInsertPos(ID, IP))
+      return ExtDef;
+
+    // No Def found in table
+    return nullptr;
   }
 
   /// Create or retrieve a VPExternalDef for an HIR IV identified by its \p
   /// IVLevel.
   VPExternalDef *getVPExternalDefForIV(unsigned IVLevel, Type *BaseTy) {
-    return getExternalItemForIV(VPExternalDefsHIR, IVLevel, BaseTy);
+    FoldingSetNodeID ID;
+    ID.AddPointer(nullptr);
+    ID.AddInteger(0 /*Symbase*/);
+    ID.AddInteger(IVLevel);
+    void *IP = nullptr;
+    if (VPExternalDef *ExtDef = VPExternalDefsHIR.FindNodeOrInsertPos(ID, IP))
+      return ExtDef;
+    auto *ExtDef = new VPExternalDef(IVLevel, BaseTy);
+    VPExternalDefsHIR.InsertNode(ExtDef, IP);
+    return ExtDef;
   }
 
   /// Return VPExternalUse by its MergeId.
@@ -337,18 +390,17 @@ public:
 
   // Return the iterator-range to the list of ExternalUses.
   inline decltype(auto) externalUses() const {
-    return map_range(make_range(VPExternalUses.begin(), VPExternalUses.end()),
-                     [](const ExternalUsesListTy::value_type &It) {
-                       return It.get();
-                     });
+    return map_range(
+        VPExternalUses,
+        [](const std::unique_ptr<VPExternalUse> &It) { return It.get(); });
   }
 
   /// Create a or retrieve VPExternalUse for a given Value \p ExtVal.
   VPExternalUse *getOrCreateVPExternalUse(PHINode *ExtDef) {
     auto It = llvm::find_if(VPExternalUses,
-                         [ExtDef](const ExternalUsesListTy::value_type &It) {
-                           return It->getUnderlyingValue() == ExtDef;
-                         });
+                            [ExtDef](std::unique_ptr<VPExternalUse> &It) {
+                              return It->getUnderlyingValue() == ExtDef;
+                            });
     if (It != VPExternalUses.end())
       return It->get();
     unsigned Id = getLastMergeId();
@@ -361,7 +413,7 @@ public:
   VPExternalUse *getOrCreateVPExternalUseForDDRef(const loopopt::DDRef *DDR) {
     VPBlob Blob(DDR);
     auto It = llvm::find_if(VPExternalUses,
-                         [&Blob](const ExternalUsesListTy::value_type &It) {
+                         [&Blob](const std::unique_ptr<VPExternalUse> &It) {
                            const VPOperandHIR *Op = It->getOperandHIR();
                            if (!Op)
                              return false;
@@ -378,13 +430,13 @@ public:
   /// IVLevel.
   VPExternalUse *getOrCreateVPExternalUseForIV(unsigned IVLevel, Type *BaseTy) {
     VPIndVar IndVar(IVLevel);
-    auto It = llvm::find_if(VPExternalUses,
-                         [&IndVar](const ExternalUsesListTy::value_type &It) {
-                           const VPOperandHIR *Op = It->getOperandHIR();
-                           if (!Op)
-                             return false;
-                           return IndVar.isStructurallyEqual(Op);
-                         });
+    auto It = llvm::find_if(
+        VPExternalUses, [&IndVar](const std::unique_ptr<VPExternalUse> &It) {
+          const VPOperandHIR *Op = It->getOperandHIR();
+          if (!Op)
+            return false;
+          return IndVar.isStructurallyEqual(Op);
+        });
     if (It != VPExternalUses.end())
       return It->get();
     unsigned Id = getLastMergeId();
@@ -500,115 +552,6 @@ private:
            "Inconsistent ExternalUse");
     VPExternalUses.emplace_back(EUse);
     return VPExternalUses.back().get();
-  }
-
-  // Create or retrieve an external item from \p Table for a given Value \p
-  // ExtVal.
-  template <typename T>
-  typename T::mapped_type::element_type *getExternalItem(T &Table,
-                                                         PHINode *ExtVal) {
-    using Def = typename T::mapped_type::element_type;
-    typename T::mapped_type &UPtr = Table[ExtVal];
-    if (!UPtr)
-      // Def is a new external item to be inserted in the map.
-      UPtr.reset(new Def(ExtVal));
-    return UPtr.get();
-  }
-
-  // Retrieve an external item from \p Table for given HIR symbase \p Symbase.
-  // If no external item is found, then a nullptr is returned
-  template <typename Def>
-  Def *getExternalItemForSymbase(FoldingSet<Def> &Table, unsigned Symbase) {
-    FoldingSetNodeID ID;
-    ID.AddPointer(nullptr);
-    ID.AddInteger(Symbase);
-    ID.AddInteger(0 /*IVLevel*/);
-    void *IP = nullptr;
-    if (Def *ExtDef = Table.FindNodeOrInsertPos(ID, IP))
-      return ExtDef;
-    // No Def found in table
-    return nullptr;
-  }
-
-  /// Create or retrieve an external item from \p Table for the blob with index
-  /// \p BlobIndex in \p DDR.
-  template <typename Def>
-  Def *getExternalItemForBlob(FoldingSet<Def> &Table,
-                              const loopopt::RegDDRef *DDR,
-                              unsigned BlobIndex) {
-    FoldingSetNodeID ID;
-
-    // The blob(SCEV expression) with index BlobIndex is the folding set key.
-    const loopopt::BlobTy BlobExpr = DDR->getBlobUtils().getBlob(BlobIndex);
-    ID.AddPointer(BlobExpr);
-    ID.AddInteger(0 /*SymBase*/);
-    ID.AddInteger(0 /*IVLevel*/);
-    void *IP = nullptr;
-    if (Def *ExtDef = Table.FindNodeOrInsertPos(ID, IP))
-      return ExtDef;
-
-    Def *ExtDef = new Def(DDR, BlobIndex, BlobExpr->getType());
-    Table.InsertNode(ExtDef);
-    return ExtDef;
-  }
-
-  // Create or retrieve an external item from \p Table for given HIR canon
-  // expression \p CE.
-  template <typename Def>
-  Def *getExternalItemForCanonExpr(FoldingSet<Def> &Table,
-                                   const loopopt::CanonExpr *CE,
-                                   const loopopt::RegDDRef *DDR) {
-    // Search through the table for an external def equivalent to CE and return
-    // the same if found. DDR is used to set the definedatlevel of blobs in CE
-    // during vector code generation. The canon expression that we are dealing
-    // with here is invariant at the loop level that is being vectorized.
-    // The blobs within such canon expressions will have the same definedatlevel
-    // independent of the DDR. When searching for an external def that is
-    // equivalent we do not need any DDR specific checks as a result.
-    auto Iter = llvm::find_if(Table, [CE](const Def &ExtDef) {
-      return ExtDef.getOperandHIR()->isEqual(CE);
-    });
-    if (Iter != Table.end())
-      return &*Iter;
-
-    Def *ExtDef = new Def(CE, DDR);
-    Table.InsertNode(ExtDef);
-    return ExtDef;
-  }
-
-  // Create or retrieve an external item from \p Table for given HIR unitary
-  // DDRef \p DDR.
-  template <typename Def>
-  Def *getExternalItemForDDRef(FoldingSet<Def> &Table,
-                               const loopopt::DDRef *DDR) {
-    assert(DDR->isNonDecomposable() && "Expected non-decomposable DDRef!");
-    FoldingSetNodeID ID;
-    ID.AddPointer(nullptr);
-    ID.AddInteger(DDR->getSymbase());
-    ID.AddInteger(0 /*IVLevel*/);
-    void *IP = nullptr;
-    if (Def *ExtDef = Table.FindNodeOrInsertPos(ID, IP))
-      return ExtDef;
-    Def *ExtDef = new Def(DDR);
-    Table.InsertNode(ExtDef, IP);
-    return ExtDef;
-  }
-
-  // Create or retrieve an external item from \p Table for an HIR IV identified
-  // by its \p IVLevel.
-  template <typename Def>
-  Def *getExternalItemForIV(FoldingSet<Def> &Table, unsigned IVLevel,
-                            Type *BaseTy) {
-    FoldingSetNodeID ID;
-    ID.AddPointer(nullptr);
-    ID.AddInteger(0 /*Symbase*/);
-    ID.AddInteger(IVLevel);
-    void *IP = nullptr;
-    if (Def *ExtDef = Table.FindNodeOrInsertPos(ID, IP))
-      return ExtDef;
-    Def *ExtDef = new Def(IVLevel, BaseTy);
-    Table.InsertNode(ExtDef, IP);
-    return ExtDef;
   }
 };
 
