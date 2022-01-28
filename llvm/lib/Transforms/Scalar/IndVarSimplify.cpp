@@ -2128,7 +2128,16 @@ bool IndVarSimplify::run(Loop *L) {
   }
 
   // Eliminate redundant IV cycles.
-  NumElimIV += Rewriter.replaceCongruentIVs(L, DT, DeadInsts, TTI);
+#if INTEL_CUSTOMIZATION
+  // Passing TTI here encourages "cheap" 64->32 IV conversions, which cause
+  // IR bloat and disturb HIR's cost modeling.
+  // The IV replacement does not seem to improve performance otherwise.
+  // Passing null TTI in "else" case is OK (it's original llorg code)
+  if (L->getHeader()->getParent()->isPreLoopOpt())
+    NumElimIV += Rewriter.replaceCongruentIVs(L, DT, DeadInsts);
+  else
+    NumElimIV += Rewriter.replaceCongruentIVs(L, DT, DeadInsts, TTI);
+#endif // INTEL_CUSTOMIZATION
 
   // Try to convert exit conditions to unsigned and rotate computation
   // out of the loop.  Note: Handles invalidation internally if needed.
