@@ -875,11 +875,8 @@ checkAllocSite(CallBase *CallSite, Function *CandidateFunc, Value *Val,
         Val = BC->getOperand(0);
       if (!isMallocLikeFn(Val, GetTLI))
         return false;
-<<<<<<< HEAD
-      auto *CI = cast<CallInst>(Val);
-=======
 
->>>>>>> fe8937fb27fb9ad388a894e567dff1c2b733fefd
+      auto *CI = cast<CallInst>(Val);
       StoreInst *StoredOnceInst = nullptr;
       if (!StoredOnlyOnceMalloc(CI, &StoredOnceInst))
         return false;
