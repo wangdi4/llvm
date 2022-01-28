@@ -10,12 +10,8 @@
 #
 ##===----------------------------------------------------------------------===##
 
-# INTEL_CUSTOMIZATION
-# Don't build this library by default. It expects bitcode generation is
-# available, which is not for release builds
 set(LIBOMPTARGET_BUILD_AMDGCN_BCLIB FALSE CACHE BOOL
-# end INTEL_CUSTOMIZATION
-  "Can be set to false to disable building this library.")
+  "Can be set to true to enable building this library.")
 
 if (NOT LIBOMPTARGET_BUILD_AMDGCN_BCLIB)
   libomptarget_say("Not building AMDGCN device RTL: Disabled by LIBOMPTARGET_BUILD_AMDGCN_BCLIB")
