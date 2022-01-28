@@ -425,7 +425,13 @@ void TargetInfo::adjust(DiagnosticsEngine &Diags, LangOptions &Opts) {
           hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_device_enqueue");
 #endif // INTEL_CUSTOMIZATION
       Opts.OpenCLPipes =
+<<<<<<< HEAD
            hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_pipes");
+=======
+          hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_pipes");
+      Opts.Blocks =
+          hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_device_enqueue");
+>>>>>>> a5de66c4c50b5dec085ffbcd2afefd47f3f18d7f
     }
   }
 
