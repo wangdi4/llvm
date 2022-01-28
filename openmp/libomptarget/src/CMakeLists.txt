@@ -19,6 +19,14 @@ set(LIBOMPTARGET_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/rtl.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/omptarget.cpp
 )
+if(INTEL_CUSTOMIZATION)
+  list(APPEND LIBOMPTARGET_SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/xpti_registry.cpp)
+  if(SYCL_ENABLE_XPTI_TRACING)
+    # Add XPTI proxy library
+    list(APPEND LIBOMPTARGET_SRC_FILES ${LLVM_EXTERNAL_XPTI_SOURCE_DIR}/src/xpti_proxy.cpp)
+    include_directories(${LLVM_EXTERNAL_XPTI_SOURCE_DIR}/include)
+  endif()
+endif(INTEL_CUSTOMIZATION)
 
 set(LIBOMPTARGET_SRC_FILES ${LIBOMPTARGET_SRC_FILES} PARENT_SCOPE)
 
@@ -54,6 +62,11 @@ if(INTEL_COLLAB)
     target_link_libraries(omptarget PRIVATE
       "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")
   endif()
+  if(INTEL_CUSTOMIZATION)
+    if(SYCL_ENABLE_XPTI_TRACING)
+      target_compile_definitions(omptarget PRIVATE XPTI_ENABLE_INSTRUMENTATION XPTI_STATIC_LIBRARY)
+    endif()
+  endif(INTEL_CUSTOMIZATION)
 else(INTEL_COLLAB)
 target_link_libraries(omptarget PRIVATE
   ${CMAKE_DL_LIBS}

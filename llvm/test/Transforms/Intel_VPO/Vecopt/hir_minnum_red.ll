@@ -1,4 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=8 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=8 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=8 -disable-output < %s 2>&1 | FileCheck %s
 
 ; Candidate HLLoop before VPlan (foo):
 ; <11>         + DO i1 = 0, 1023, 1   <DO_LOOP>
@@ -6,7 +7,6 @@
 ; <4>          |   %min.011 = @llvm.minnum.f32(%0,  %min.011); <Safe Reduction>
 ; <11>         + END LOOP
 
-; CHECK: *** IR Dump After VPlan HIR Vectorizer (hir-vplan-vec) ***
 ; CHECK:          BEGIN REGION { modified }
 ; CHECK-NEXT:               %red.init = %min.011;
 ; CHECK-NEXT:               %phi.temp = %red.init;
