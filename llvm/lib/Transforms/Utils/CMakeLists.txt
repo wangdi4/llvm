@@ -46,6 +46,7 @@ add_llvm_component_library(LLVMTransformUtils
   Intel_IMLUtils.cpp
   Intel_ParseAnnotateAttributes.cpp
   Intel_VecClone.cpp                    #TODO: VEC to COLLAB
+  Intel_X86EmitMultiVersionResolver.cpp
 #end INTEL_CUSTOMIZATION
   LCSSA.cpp
   LibCallsShrinkWrap.cpp

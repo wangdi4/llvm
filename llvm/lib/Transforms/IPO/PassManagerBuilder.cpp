@@ -69,6 +69,7 @@
 #if INTEL_FEATURE_SW_DTRANS
 #include "llvm/Transforms/IPO/Intel_FoldWPIntrinsic.h"
 #endif // INTEL_FEATURE_SW_DTRANS
+#include "llvm/Transforms/IPO/Intel_AutoCPUClone.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"
@@ -1292,6 +1293,13 @@ void PassManagerBuilder::populateModulePassManager(
   if (LibraryInfo)
     MPM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
 
+#if INTEL_CUSTOMIZATION
+  // Multiversion functions marked for auto cpu dispatching.
+  if (!PrepareForLTO && OptLevel > 1)
+    MPM.add(createAutoCPUCloneLegacyPass());
+#endif  // INTEL_CUSTOMIZATION
+
+
   addInitialAliasAnalysisPasses(MPM);
 
   // For ThinLTO there are two passes of indirect call promotion. The
@@ -1675,6 +1683,10 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
       (IntelInlineReportLevel & InlineReportOptions::CompositeReport)) {
     PM.add(createInlineReportSetupPass(getMDInlineReport()));
   }
+
+  if (OptLevel > 1)
+    PM.add(createAutoCPUCloneLegacyPass());
+
 #endif // INTEL_CUSTOMIZATION
   // Load sample profile before running the LTO optimization pipeline.
   if (!PGOSampleUse.empty()) {
@@ -1929,6 +1941,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (RunInliner) {
     PM.add(createInlineListsPass()); // -[no]inline-list parsing
   }
+
   if (EnableAndersen) {
     // Andersen's IP alias analysis
     PM.add(createAndersensAAWrapperPass(true /* BeforeInl */));
@@ -2067,6 +2080,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // Propagate noalias attribute to function arguments.
   if (EnableArgNoAliasProp && OptLevel > 2)
     PM.add(createArgNoAliasPropPass());
+
 #endif // INTEL_CUSTOMIZATION
   // Run a few AA driven optimizations here and now, to cleanup the code.
   PM.add(createGlobalsAAWrapperPass()); // IP alias analysis.

@@ -616,6 +616,7 @@ int main(int argc, char **argv) {
   initializeSYCLLowerWGScopeLegacyPassPass(Registry);
   initializeSYCLLowerESIMDLegacyPassPass(Registry);
   initializeParseAnnotateAttributesLegacyPass(Registry);
+  initializeAutoCPUCloneLegacyPassPass(Registry);
 #if INTEL_FEATURE_SW_DTRANS
   initializeDTransPasses(Registry);
 #endif // INTEL_FEATURE_SW_DTRANS

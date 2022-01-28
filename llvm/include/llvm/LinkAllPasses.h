@@ -61,6 +61,7 @@
 #include "llvm/Transforms/IPO/Intel_IPOPrefetch.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
+#include "llvm/Transforms/IPO/Intel_AutoCPUClone.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineLists.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h" // INTEL
@@ -501,6 +502,7 @@ namespace {
       (void) llvm::createVPOParoptSharedPrivatizationPass();
       (void) llvm::createVPOParoptTargetInlinePass();
       (void) llvm::createIntelVTableFixupPass();
+      (void) llvm::createAutoCPUCloneLegacyPass();
   #endif // INTEL_CUSTOMIZATION
 
   #if INTEL_COLLAB
