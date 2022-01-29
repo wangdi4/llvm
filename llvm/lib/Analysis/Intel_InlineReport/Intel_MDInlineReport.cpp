@@ -1,6 +1,6 @@
 //===--- Intel_MDInlineReport.cpp  --Inlining report vis metadata --------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -416,7 +416,15 @@ void InlineReportBuilder::beginFunction(Function *F) {
   LanguageStr.append(llvm::getLanguageStr(F));
   auto LanguageMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, LanguageStr));
   FIR->replaceOperandWith(FMDIR_LanguageStr, LanguageMD);
-  return;
+  // Add callbacks to the Function and CallBases if they do not already have
+  // them.
+  addCallback(F, FIR);
+  for (auto &I : instructions(*F)) {
+    if (auto CB = dyn_cast<CallBase>(&I)) {
+      if (Metadata *CSMD = CB->getMetadata(CallSiteTag))
+        addCallback(CB, cast<MDTuple>(CSMD));
+    }
+  }
 }
 
 // The main goal of beginSCC() and beginFunction() routines is to fill in the
@@ -652,6 +660,7 @@ void InlineReportBuilder::replaceFunctionWithFunction(Function *OldFunction,
   auto LanguageMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, LanguageStr));
   OldFIR->replaceOperandWith(FMDIR_LanguageStr, LanguageMD);
   NewFunction->setMetadata(FunctionTag, OldFIR);
+  removeCallback(OldFunction);
   addCallback(NewFunction, OldFIR);
 }
 
@@ -680,6 +689,97 @@ void InlineReportBuilder::replaceCallBaseWithCallBase(CallBase *OldCall,
 
   // Remove the old call from the map
   removeCallback(OldCall);
+}
+
+Metadata *InlineReportBuilder::copyMD(LLVMContext &C, Metadata *OldMD) {
+  if (!OldMD)
+    return nullptr;
+  Metadata *NewMD = nullptr;
+  if (MDString *OldStrMD = dyn_cast<MDString>(OldMD)) {
+    NewMD = llvm::MDString::get(C, OldStrMD->getString());
+  } else if (MDTuple *OldTupleMD = dyn_cast<MDTuple>(OldMD)) {
+    SmallVector<Metadata *, 20> Ops;
+    int NumOps = OldTupleMD->getNumOperands();
+    for (int I = 0; I < NumOps; ++I)
+      Ops.push_back(copyMD(C, OldTupleMD->getOperand(I)));
+    NewMD = OldTupleMD->isDistinct() ?
+        MDTuple::getDistinct(C, Ops) : MDTuple::get(C, Ops);
+  }
+  return NewMD;
+} 
+
+void InlineReportBuilder::cloneCallBaseToCallBase(CallBase *OldCall,
+                                                  CallBase *NewCall) {
+  if (!isMDIREnabled())
+    return;
+  if (OldCall == NewCall)
+    return;
+  Metadata *OldCallMD = OldCall->getMetadata(MDInliningReport::CallSiteTag);
+  if (!OldCallMD)
+    return;
+  auto *OldCallMDIR = dyn_cast<MDTuple>(OldCallMD);
+  if (!OldCallMDIR)
+    return;
+  LLVMContext &Ctx = OldCall->getFunction()->getParent()->getContext();
+  auto *NewCallMDIR = cast<MDTuple>(copyMD(Ctx, OldCallMDIR));
+  // Op 1: function name
+  if (Function *Callee = NewCall->getCalledFunction()) {
+    std::string FuncName = std::string(Callee->getName());
+    FuncName.insert(0, "name: ");
+    auto FuncNameMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, FuncName));
+    NewCallMDIR->replaceOperandWith(CSMDIR_CalleeName, FuncNameMD);
+  }
+  NewCall->setMetadata(MDInliningReport::CallSiteTag, NewCallMDIR);
+  addCallback(NewCall, NewCallMDIR);
+}
+
+void InlineReportBuilder::setCalledFunction(CallBase *CB, Function *F) {
+  if (!isMDIREnabled())
+    return;
+  Metadata *CallMD = CB->getMetadata(MDInliningReport::CallSiteTag);
+  if (!CallMD)
+    return;
+  auto *CallMDIR = dyn_cast<MDTuple>(CallMD);
+  if (!CallMDIR)
+    return;
+  LLVMContext &Ctx = CB->getFunction()->getParent()->getContext();
+  std::string FuncName = std::string(F->getName());
+  FuncName.insert(0, "name: ");
+  auto FuncNameMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, FuncName));
+  CallMDIR->replaceOperandWith(CSMDIR_CalleeName, FuncNameMD);
+} 
+
+void InlineReportBuilder::cloneFunction(Function *OldFunction,
+                                        Function *NewFunction,
+                                        ValueToValueMapTy &VMap) {
+  if (!isMDIREnabled())
+    return;
+  if (OldFunction == NewFunction)
+    return;
+  Metadata *OldFMD = OldFunction->getMetadata(FunctionTag);
+  if (!OldFMD)
+    return;
+  auto *OldFIR = dyn_cast<MDTuple>(OldFMD);
+  if (!OldFIR)
+    return;
+  LLVMContext &Ctx = NewFunction->getParent()->getContext();
+  Metadata *NewFMD = copyMD(Ctx, OldFMD);
+  auto *NewFIR = cast<MDTuple>(NewFMD);
+  // Op 1: function name
+  std::string FuncName = std::string(NewFunction->getName());
+  FuncName.insert(0, "name: ");
+  auto FuncNameMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, FuncName));
+  NewFIR->replaceOperandWith(FMDIR_FuncName, FuncNameMD);
+  // Op 7: linkage string
+  std::string LinkageStr = "linkage: ";
+  LinkageStr.append(llvm::getLinkageStr(NewFunction));
+  auto LinkageMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, LinkageStr));
+  NewFIR->replaceOperandWith(FMDIR_LinkageStr, LinkageMD);
+  NewFunction->setMetadata(FunctionTag, NewFIR);
+  addCallback(NewFunction, NewFIR);
+  Module *M = OldFunction->getParent();
+  NamedMDNode *ModuleInlineReport = M->getNamedMetadata(ModuleTag);
+  ModuleInlineReport->addOperand(NewFIR);
 }
 
 extern cl::opt<unsigned> IntelInlineReportLevel;
