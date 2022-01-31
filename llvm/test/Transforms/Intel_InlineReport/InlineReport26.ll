@@ -14,6 +14,9 @@
 ; only a single callsite for myopen2() and myopenva() should be exposed,
 ; because the others are removed by dead code elimination.
 
+; NOTE: The new pass manager does not dead code eliminate myopener and myopen
+; as part of the inlining pass, hence the need to check for different results.
+
 ; Function Attrs: nounwind
 declare i32 @llvm.va_arg_pack() #3
 
