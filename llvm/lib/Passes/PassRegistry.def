@@ -147,7 +147,7 @@ MODULE_PASS("check-debugify", NewPMCheckDebugifyPass())
 MODULE_PASS("constmerge", ConstantMergePass())
 MODULE_PASS("cross-dso-cfi", CrossDSOCFIPass())
 MODULE_PASS("deadargelim", DeadArgumentEliminationPass())
-<<<<<<< HEAD
+MODULE_PASS("debugify", NewPMDebugifyPass())
 #if INTEL_FEATURE_SW_DTRANS
 MODULE_PASS("dtrans-aostosoa", dtrans::AOSToSOAPass())           // INTEL
 MODULE_PASS("dtrans-aostosoaop", dtransOP::AOSToSOAOPPass())     // INTEL
@@ -197,9 +197,6 @@ MODULE_PASS("soatoaosop-struct-methods-transform",               // INTEL
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 MODULE_PASS("dtrans-annotator-cleaner", dtrans::AnnotatorCleanerPass()) // INTEL
 #endif // INTEL_FEATURE_SW_DTRANS
-=======
-MODULE_PASS("debugify", NewPMDebugifyPass())
->>>>>>> 464be7af285929ec62c09d01ea1d07374b6b98be
 MODULE_PASS("elim-avail-extern", EliminateAvailableExternallyPass())
 MODULE_PASS("extract-blocks", BlockExtractorPass())
 MODULE_PASS("forceattrs", ForceFunctionAttrsPass())
