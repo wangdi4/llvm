@@ -732,6 +732,8 @@ EXTERN int __tgt_set_interop_property(
 
 EXTERN int __tgt_get_interop_property(
     void *interop_obj, int32_t property_id, void **property_value) {
+  static uint32_t use_single_queue = 0;
+  static std::once_flag Flag{};
   DP("Call to __tgt_get_interop_property with interop_obj " DPxMOD
      ", property_id %" PRId32 "\n", DPxPTR(interop_obj), property_id);
 
@@ -754,9 +756,14 @@ EXTERN int __tgt_get_interop_property(
     *property_value = (void *)interop->async_handler;
     break;
   case INTEROP_OFFLOAD_QUEUE:
+    std::call_once(Flag, []() {
+    if (char *EnvStr = getenv("LIBOMPTARGET_INTEROP_USE_SINGLE_QUEUE"))
+      use_single_queue = std::atoi(EnvStr);
+    });
     if (!interop->queue)
       PM->Devices[interop->device_id]->get_offload_queue(
-          interop, interop->is_async ? true /*create_new*/ : false);
+          interop, (!interop->is_async || use_single_queue)
+                        ? false : true /*create_new*/);
     *property_value = interop->queue;
     break;
   case INTEROP_PLATFORM_HANDLE:
