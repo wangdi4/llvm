@@ -1,6 +1,6 @@
 //===----------------- DTransCommon.cpp - Shared DTrans code --------------===//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -205,6 +205,7 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializePaddedPtrPropOPWrapperPass(PR);
   initializeDTransResolveTypesWrapperPass(PR);
   initializeDTransSOAToAOSPrepareWrapperPass(PR);
+  initializeDTransSOAToAOSOPPrepareWrapperPass(PR);
   initializeDTransSOAToAOSWrapperPass(PR);
   initializeDTransSOAToAOSOPWrapperPass(PR);
   initializeDTransDeleteFieldWrapperPass(PR);
@@ -284,6 +285,7 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
   } else {
     addPass(MPM, commutecond, dtransOP::CommuteCondOPPass());
     addPass(MPM, meminittrimdown, dtransOP::MemInitTrimDownOPPass());
+    addPass(MPM, soatoaosprepare, dtransOP::SOAToAOSOPPreparePass());
     addPass(MPM, deletefield, dtransOP::DeleteFieldOPPass());
     addPass(MPM, aostosoa, dtransOP::AOSToSOAOPPass());
     addPass(MPM, elimrofieldaccess, dtransOP::EliminateROFieldAccessPass());
@@ -345,6 +347,7 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
   } else {
     addPass(PM, commutecond, createDTransCommuteCondOPWrapperPass());
     addPass(PM, meminittrimdown, createDTransMemInitTrimDownOPWrapperPass());
+    addPass(PM, soatoaosprepare, createDTransSOAToAOSOPPrepareWrapperPass());
     addPass(PM, deletefield, createDTransDeleteFieldOPWrapperPass());
     addPass(PM, aostosoa, createDTransAOSToSOAOPWrapperPass());
     addPass(PM, elimrofieldaccess,
@@ -409,6 +412,7 @@ void llvm::createDTransPasses() {
   (void)llvm::createPaddedPtrPropWrapperPass();
   (void)llvm::createPaddedPtrPropOPWrapperPass();
   (void)llvm::createDTransSOAToAOSPrepareWrapperPass();
+  (void)llvm::createDTransSOAToAOSOPPrepareWrapperPass();
   (void)llvm::createDTransSOAToAOSWrapperPass();
   (void)llvm::createDTransSOAToAOSOPWrapperPass();
   (void)llvm::createDTransAnalysisWrapperPass();
