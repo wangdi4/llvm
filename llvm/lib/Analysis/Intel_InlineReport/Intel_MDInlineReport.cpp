@@ -416,10 +416,6 @@ void InlineReportBuilder::beginFunction(Function *F) {
   LanguageStr.append(llvm::getLanguageStr(F));
   auto LanguageMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, LanguageStr));
   FIR->replaceOperandWith(FMDIR_LanguageStr, LanguageMD);
-<<<<<<< HEAD
-  addCallback(F, FIR);
-  return;
-=======
   // Add callbacks to the Function and CallBases if they do not already have
   // them.
   addCallback(F, FIR);
@@ -429,7 +425,6 @@ void InlineReportBuilder::beginFunction(Function *F) {
         addCallback(CB, cast<MDTuple>(CSMD));
     }
   }
->>>>>>> 99ccd214240d5e62b80db5310f035a3fb697a1d6
 }
 
 // The main goal of beginSCC() and beginFunction() routines is to fill in the
