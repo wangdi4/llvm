@@ -100,7 +100,7 @@ TEST_F(VPlanTTIMemrefCostTest, CheckTMSetup) {
 
 TEST_F(VPlanTTIMemrefCostTest, ScalarLoadCost) {
   // Expect regular cost for scalars.
-  const unsigned Expected = 1000;
+  const VPInstructionCost Expected{1000};
   const unsigned Alignment = 4;
   auto ScalarType = Type::getInt32Ty(*Ctx);
   auto Actual = VPTTI->getMemoryOpCost(Instruction::Load, ScalarType,
@@ -111,7 +111,7 @@ TEST_F(VPlanTTIMemrefCostTest, ScalarLoadCost) {
 // Check irregular types.
 
 TEST_F(VPlanTTIMemrefCostTest, Check_1xi1) {
-  const unsigned Expected = 1000;
+  const VPInstructionCost Expected{1000};
   const unsigned Alignment = 4;
   auto Type1xi1 = FixedVectorType::get(Type::getInt1Ty(*Ctx), 1);
   auto Actual =
@@ -120,7 +120,7 @@ TEST_F(VPlanTTIMemrefCostTest, Check_1xi1) {
 }
 
 TEST_F(VPlanTTIMemrefCostTest, Check1xi8Ptr) {
-  const unsigned Expected = 1000;
+  const VPInstructionCost Expected{1000};
   const unsigned Alignment = 4;
   const unsigned VF = 1;
   const auto Tyi8Ptr = Type::getInt8Ty(*Ctx);
@@ -131,7 +131,7 @@ TEST_F(VPlanTTIMemrefCostTest, Check1xi8Ptr) {
 }
 
 TEST_F(VPlanTTIMemrefCostTest, Check1xi8) {
-  const unsigned Expected = 1000;
+  const VPInstructionCost Expected{1000};
   const unsigned Alignment = 4;
   const unsigned VF = 1;
   const auto Tyi8 = Type::getInt8Ty(*Ctx);
@@ -144,7 +144,7 @@ TEST_F(VPlanTTIMemrefCostTest, Check1xi8) {
 TEST_F(VPlanTTIMemrefCostTest, Check7xi8) {
   // Read 7 x i8 (7 bytes).
   // Reading 7 bytes is less than Alignment, so it is aligned.
-  const unsigned Expected = 1000;
+  const VPInstructionCost Expected{1000};
   const unsigned Alignment = 8;
   const unsigned VF = 7;
   const auto Tyi8 = Type::getInt8Ty(*Ctx);
@@ -155,7 +155,7 @@ TEST_F(VPlanTTIMemrefCostTest, Check7xi8) {
 }
 
 TEST_F(VPlanTTIMemrefCostTest, AlignedStore) {
-  const unsigned Expected = 1000;
+  const VPInstructionCost Expected{1000};
   const unsigned Alignment = 16;
   const unsigned VF = 4;
   // Such store is aligned.
@@ -166,7 +166,7 @@ TEST_F(VPlanTTIMemrefCostTest, AlignedStore) {
 }
 
 TEST_F(VPlanTTIMemrefCostTest, UnalignedStoreLowProbility) {
-  const unsigned Expected = 1188;
+  const VPInstructionCost Expected{1188};
   const unsigned Alignment = 4;
   const unsigned VF = 4;
   // Within the cache line it has low probability to be unaligned.
@@ -177,7 +177,7 @@ TEST_F(VPlanTTIMemrefCostTest, UnalignedStoreLowProbility) {
 }
 
 TEST_F(VPlanTTIMemrefCostTest, UnalignedStoreHighProbability) {
-  const unsigned Expected = 1875;
+  const VPInstructionCost Expected{1875};
   const unsigned Alignment = 8;
   const unsigned VF = 16;
   // Within 64 byte cache line it has high probability to be unaligned.
@@ -189,7 +189,7 @@ TEST_F(VPlanTTIMemrefCostTest, UnalignedStoreHighProbability) {
 
 TEST_F(VPlanTTIMemrefCostTest, Check2PartLoadCost) {
   // Expect double penalty for very wide store.
-  const unsigned Expected = 3876;
+  const VPInstructionCost Expected{3876};
   const unsigned Alignment = 4;
   const unsigned VF = 32;
   auto VecTy = FixedVectorType::get(Type::getInt32Ty(*Ctx), VF);
@@ -201,7 +201,7 @@ TEST_F(VPlanTTIMemrefCostTest, Check2PartLoadCost) {
 // Common cases
 
 TEST_F(VPlanTTIMemrefCostTest, Align64Size64) {
-  const unsigned Expected = 1000;
+  const VPInstructionCost Expected{1000};
   const unsigned Alignment = 64;
   const unsigned VF = 16;
   auto VecTy = FixedVectorType::get(Type::getFloatTy(*Ctx), VF);
@@ -211,7 +211,7 @@ TEST_F(VPlanTTIMemrefCostTest, Align64Size64) {
 }
 
 TEST_F(VPlanTTIMemrefCostTest, Align32Size32) {
-  const unsigned Expected = 1000;
+  const VPInstructionCost Expected{1000};
   const unsigned Alignment = 32;
   const unsigned VF = 8;
   auto VecTy = FixedVectorType::get(Type::getFloatTy(*Ctx), VF);
@@ -221,7 +221,7 @@ TEST_F(VPlanTTIMemrefCostTest, Align32Size32) {
 }
 
 TEST_F(VPlanTTIMemrefCostTest, Align64Size32) {
-  const unsigned Expected = 1000;
+  const VPInstructionCost Expected{1000};
   const unsigned Alignment = 64;
   const unsigned VF = 8;
   auto VecTy = FixedVectorType::get(Type::getFloatTy(*Ctx), VF);

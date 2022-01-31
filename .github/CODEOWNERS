@@ -294,6 +294,7 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 /llvm/test/Transforms/Intel_VPO/Vecopt/ @sguggill @skozhukh
 /llvm/test/Transforms/LoopVectorize/ @sguggill @skozhukh
 /llvm/unittests/Analysis/Intel_VectorVariantTest.cpp @sguggill @skozhukh
+/llvm/unittests/Transforms/Vectorize/ @sguggill @skozhukh
 
 # VPO vectorizer file based code owner overrides
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVolcanoOpenCL.h @turinevgeny @kmitropo
