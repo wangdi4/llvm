@@ -2767,8 +2767,8 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicReadFlt) {
   AllocaInst *VVal = Builder.CreateAlloca(Float32);
   VVal->setName("AtomicRead");
   AtomicOrdering AO = AtomicOrdering::Monotonic;
-  OpenMPIRBuilder::AtomicOpValue X = {XVal, false, false};
-  OpenMPIRBuilder::AtomicOpValue V = {VVal, false, false};
+  OpenMPIRBuilder::AtomicOpValue X = {XVal, Float32, false, false};
+  OpenMPIRBuilder::AtomicOpValue V = {VVal, Float32, false, false};
 
   Builder.restoreIP(OMPBuilder.createAtomicRead(Loc, X, V, AO));
 
@@ -2812,8 +2812,8 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicReadInt) {
   AllocaInst *VVal = Builder.CreateAlloca(Int32);
   VVal->setName("AtomicRead");
   AtomicOrdering AO = AtomicOrdering::Monotonic;
-  OpenMPIRBuilder::AtomicOpValue X = {XVal, false, false};
-  OpenMPIRBuilder::AtomicOpValue V = {VVal, false, false};
+  OpenMPIRBuilder::AtomicOpValue X = {XVal, Int32, false, false};
+  OpenMPIRBuilder::AtomicOpValue V = {VVal, Int32, false, false};
 
   BasicBlock *EntryBB = BB;
 
@@ -2859,7 +2859,7 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicWriteFlt) {
   Type *Float32 = Type::getFloatTy(Ctx);
   AllocaInst *XVal = Builder.CreateAlloca(Float32);
   XVal->setName("AtomicVar");
-  OpenMPIRBuilder::AtomicOpValue X = {XVal, false, false};
+  OpenMPIRBuilder::AtomicOpValue X = {XVal, Float32, false, false};
   AtomicOrdering AO = AtomicOrdering::Monotonic;
   Constant *ValToWrite = ConstantFP::get(Float32, 1.0);
 
@@ -2897,7 +2897,7 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicWriteInt) {
   IntegerType *Int32 = Type::getInt32Ty(Ctx);
   AllocaInst *XVal = Builder.CreateAlloca(Int32);
   XVal->setName("AtomicVar");
-  OpenMPIRBuilder::AtomicOpValue X = {XVal, false, false};
+  OpenMPIRBuilder::AtomicOpValue X = {XVal, Int32, false, false};
   AtomicOrdering AO = AtomicOrdering::Monotonic;
   ConstantInt *ValToWrite = ConstantInt::get(Type::getInt32Ty(Ctx), 1U);
 
@@ -2937,7 +2937,7 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicUpdate) {
   AllocaInst *XVal = Builder.CreateAlloca(Int32);
   XVal->setName("AtomicVar");
   Builder.CreateStore(ConstantInt::get(Type::getInt32Ty(Ctx), 0U), XVal);
-  OpenMPIRBuilder::AtomicOpValue X = {XVal, false, false};
+  OpenMPIRBuilder::AtomicOpValue X = {XVal, Int32, false, false};
   AtomicOrdering AO = AtomicOrdering::Monotonic;
   ConstantInt *ConstVal = ConstantInt::get(Type::getInt32Ty(Ctx), 1U);
   Value *Expr = nullptr;
@@ -3008,8 +3008,8 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicCapture) {
   StoreInst *Init =
       Builder.CreateStore(ConstantInt::get(Type::getInt32Ty(Ctx), 0U), XVal);
 
-  OpenMPIRBuilder::AtomicOpValue X = {XVal, false, false};
-  OpenMPIRBuilder::AtomicOpValue V = {VVal, false, false};
+  OpenMPIRBuilder::AtomicOpValue X = {XVal, Int32, false, false};
+  OpenMPIRBuilder::AtomicOpValue V = {VVal, Int32, false, false};
   AtomicOrdering AO = AtomicOrdering::Monotonic;
   ConstantInt *Expr = ConstantInt::get(Type::getInt32Ty(Ctx), 1U);
   AtomicRMWInst::BinOp RMWOp = AtomicRMWInst::Add;
