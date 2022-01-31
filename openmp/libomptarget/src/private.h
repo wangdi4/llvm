@@ -134,14 +134,11 @@ void kmp_set_defaults(const char *);
 int omp_get_default_device(void) __attribute__((weak));
 int32_t __kmpc_global_thread_num(void *) __attribute__((weak));
 int __kmpc_get_target_offload(void) __attribute__((weak));
-<<<<<<< HEAD
 #endif // INTEL_COLLAB
-=======
 void __kmpc_omp_wait_deps(ident_t *loc_ref, kmp_int32 gtid, kmp_int32 ndeps,
                           kmp_depend_info_t *dep_list, kmp_int32 ndeps_noalias,
                           kmp_depend_info_t *noalias_dep_list)
     __attribute__((weak));
->>>>>>> f44e41af412196c8bd5ba0997460e96e17d3b969
 #ifdef __cplusplus
 }
 #endif
