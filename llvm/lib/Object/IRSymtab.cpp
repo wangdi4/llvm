@@ -29,11 +29,7 @@
 #include "llvm/Object/SymbolicFile.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/Casting.h"
-<<<<<<< HEAD
-#include "llvm/Support/CommandLine.h" // INTEL
-=======
 #include "llvm/Support/CommandLine.h"
->>>>>>> 8d121f636b74c45366ff89504184cebe49507f4c
 #include "llvm/Support/Error.h"
 #include "llvm/Support/Path.h" // INTEL
 #include "llvm/Support/StringSaver.h"
