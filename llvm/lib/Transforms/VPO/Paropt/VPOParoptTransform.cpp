@@ -10188,8 +10188,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   if (WRegionUtils::hasParentTarget(W))
     NewF->addFnAttr("target.declare", "true");
 
-  CallInst *NewCall = cast<CallInst>(NewF->user_back());
-  assert(NewCall->use_empty() && "Unexpected uses of outlined function call");
+  auto *NewCall = VPOParoptUtils::getSingleCallSite(NewF);
 
   unsigned int TidArgNo = 0;
   bool IsTidArg = false;
@@ -10739,6 +10738,10 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
     }
     ++TidParmNo;
   }
+
+  // Fix up any BlockAddress references, a 2nd time (we just re-cloned the
+  // extracted function)
+  VPOUtils::replaceBlockAddresses(Fn, NFn);
 
   return NFn;
 }
