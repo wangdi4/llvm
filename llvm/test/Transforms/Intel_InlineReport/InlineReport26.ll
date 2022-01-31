@@ -1,9 +1,17 @@
 ; Inline report
+<<<<<<< HEAD
 ; RUN: opt -enable-new-pm=0 -inline -inline-report=0xe807 -disable-output < %s -S 2>&1 | FileCheck %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -disable-output < %s -S 2>&1 | FileCheck %s
 ; Inline report via metadata
 ; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -enable-new-pm=0 -inline -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s
+=======
+; RUN: opt -enable-new-pm=0 -inline -inline-report=0xe807 -disable-output < %s -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-OLD %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -disable-output < %s -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-NEW %s
+; Inline report via metadata
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -enable-new-pm=0 -inline -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s --check-prefixes=CHECK-NEW
+>>>>>>> 99ccd214240d5e62b80db5310f035a3fb697a1d6
 
 ; This test tests various inlining report features for programs that
 ; contain varags intrinsics like llvm.va_arg_pack and llvm.va_arg_pack_len.
@@ -13,6 +21,9 @@
 ; inlining report. For example, when myopen() is inlined into main(),
 ; only a single callsite for myopen2() and myopenva() should be exposed,
 ; because the others are removed by dead code elimination.
+
+; NOTE: The new pass manager does not dead code eliminate myopener and myopen
+; as part of the inlining pass, hence the need to check for different results.
 
 ; Function Attrs: nounwind
 declare i32 @llvm.va_arg_pack() #3
@@ -284,8 +295,14 @@ attributes #4 = { nounwind uwtable }
 attributes #5 = { alwaysinline nounwind uwtable }
 attributes #6 = { noreturn }
 
+<<<<<<< HEAD
 ; CHECK-LABEL: DEAD STATIC FUNC: myopen
 ; CHECK-LABEL: DEAD STATIC FUNC: myopener
+=======
+; CHECK-OLD-LABEL: DEAD STATIC FUNC: myopen
+; CHECK-OLD-LABEL: DEAD STATIC FUNC: myopener
+
+>>>>>>> 99ccd214240d5e62b80db5310f035a3fb697a1d6
 ; CHECK-LABEL: COMPILE FUNC: myopen2
 ; CHECK: EXTERN: abort
 ; CHECK: EXTERN: abort
@@ -303,6 +320,21 @@ attributes #6 = { noreturn }
 ; CHECK: EXTERN: abort
 ; CHECK: EXTERN: abort
 
+<<<<<<< HEAD
+=======
+; CHECK-NEW-LABEL: COMPILE FUNC: myopen
+; CHECK-NEW: llvm.va_arg_pack_len{{.*}}Callee is intrinsic
+; CHECK-NEW: EXTERN: warn_open_too_many_arguments
+; CHECK-NEW: llvm.va_arg_pack_len{{.*}}Callee is intrinsic
+; CHECK-NEW: myopen2{{.*}}Callee has noinline attribute
+; CHECK-NEW: llvm.va_arg_pack{{.*}}Callee is intrinsic
+; CHECK-NEW: myopenva{{.*}}Callee has noinline attribute
+
+; CHECK-NEW-LABEL: COMPILE FUNC: myopener
+; CHECK-NEW: llvm.va_arg_pack{{.*}}Callee is intrinsic
+; CHECK-NEW: myopenva{{.*}}Callee has noinline attribute
+
+>>>>>>> 99ccd214240d5e62b80db5310f035a3fb697a1d6
 ; CHECK-LABEL: COMPILE FUNC: main
 ; CHECK: INLINE: myopener{{.*}}Callee is always inline
 ; CHECK: myopenva{{.*}}Callee has noinline attribute
