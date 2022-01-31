@@ -283,11 +283,10 @@ define i1 @trunc_v8i32_v8i1(<8 x i32>) {
 ;
 ; AVX1-LABEL: trunc_v8i32_v8i1:
 ; AVX1:       # %bb.0:
-; AVX1-NEXT:    vpslld $31, %xmm0, %xmm1
-; AVX1-NEXT:    vextractf128 $1, %ymm0, %xmm0
+; AVX1-NEXT:    vextractf128 $1, %ymm0, %xmm1
+; AVX1-NEXT:    vpor %xmm1, %xmm0, %xmm0
 ; AVX1-NEXT:    vpslld $31, %xmm0, %xmm0
-; AVX1-NEXT:    vinsertf128 $1, %xmm0, %ymm1, %ymm0
-; AVX1-NEXT:    vmovmskps %ymm0, %eax
+; AVX1-NEXT:    vmovmskps %xmm0, %eax
 ; AVX1-NEXT:    testl %eax, %eax
 ; AVX1-NEXT:    setne %al
 ; AVX1-NEXT:    vzeroupper
@@ -519,10 +518,9 @@ define i1 @trunc_v8i64_v8i1(<8 x i64>) {
 ; AVX1-NEXT:    vshufps {{.*#+}} xmm1 = xmm1[0,2],xmm2[0,2]
 ; AVX1-NEXT:    vextractf128 $1, %ymm0, %xmm2
 ; AVX1-NEXT:    vshufps {{.*#+}} xmm0 = xmm0[0,2],xmm2[0,2]
+; AVX1-NEXT:    vorps %xmm1, %xmm0, %xmm0
 ; AVX1-NEXT:    vpslld $31, %xmm0, %xmm0
-; AVX1-NEXT:    vpslld $31, %xmm1, %xmm1
-; AVX1-NEXT:    vinsertf128 $1, %xmm1, %ymm0, %ymm0
-; AVX1-NEXT:    vmovmskps %ymm0, %eax
+; AVX1-NEXT:    vmovmskps %xmm0, %eax
 ; AVX1-NEXT:    testl %eax, %eax
 ; AVX1-NEXT:    setne %al
 ; AVX1-NEXT:    vzeroupper
@@ -1070,8 +1068,8 @@ define i1 @icmp0_v4i64_v4i1(<4 x i64>) {
 ; AVX1-NEXT:    vpxor %xmm2, %xmm2, %xmm2
 ; AVX1-NEXT:    vpcmpeqq %xmm2, %xmm1, %xmm1
 ; AVX1-NEXT:    vpcmpeqq %xmm2, %xmm0, %xmm0
-; AVX1-NEXT:    vinsertf128 $1, %xmm1, %ymm0, %ymm0
-; AVX1-NEXT:    vmovmskpd %ymm0, %eax
+; AVX1-NEXT:    vpor %xmm1, %xmm0, %xmm0
+; AVX1-NEXT:    vmovmskpd %xmm0, %eax
 ; AVX1-NEXT:    testl %eax, %eax
 ; AVX1-NEXT:    setne %al
 ; AVX1-NEXT:    vzeroupper
@@ -1138,8 +1136,8 @@ define i1 @icmp0_v8i32_v8i1(<8 x i32>) {
 ; AVX1-NEXT:    vpxor %xmm2, %xmm2, %xmm2
 ; AVX1-NEXT:    vpcmpeqd %xmm2, %xmm1, %xmm1
 ; AVX1-NEXT:    vpcmpeqd %xmm2, %xmm0, %xmm0
-; AVX1-NEXT:    vinsertf128 $1, %xmm1, %ymm0, %ymm0
-; AVX1-NEXT:    vmovmskps %ymm0, %eax
+; AVX1-NEXT:    vpor %xmm1, %xmm0, %xmm0
+; AVX1-NEXT:    vmovmskps %xmm0, %eax
 ; AVX1-NEXT:    testl %eax, %eax
 ; AVX1-NEXT:    setne %al
 ; AVX1-NEXT:    vzeroupper
@@ -1371,8 +1369,8 @@ define i1 @icmp0_v8i64_v8i1(<8 x i64>) {
 ; AVX1-NEXT:    vpcmpeqq %xmm3, %xmm2, %xmm2
 ; AVX1-NEXT:    vpcmpeqq %xmm3, %xmm0, %xmm0
 ; AVX1-NEXT:    vpackssdw %xmm2, %xmm0, %xmm0
-; AVX1-NEXT:    vinsertf128 $1, %xmm1, %ymm0, %ymm0
-; AVX1-NEXT:    vmovmskps %ymm0, %eax
+; AVX1-NEXT:    vpor %xmm1, %xmm0, %xmm0
+; AVX1-NEXT:    vmovmskps %xmm0, %eax
 ; AVX1-NEXT:    testl %eax, %eax
 ; AVX1-NEXT:    setne %al
 ; AVX1-NEXT:    vzeroupper
@@ -1903,8 +1901,8 @@ define i1 @icmp_v4i64_v4i1(<4 x i64>, <4 x i64>) {
 ; AVX1-NEXT:    vextractf128 $1, %ymm0, %xmm3
 ; AVX1-NEXT:    vpcmpeqq %xmm2, %xmm3, %xmm2
 ; AVX1-NEXT:    vpcmpeqq %xmm1, %xmm0, %xmm0
-; AVX1-NEXT:    vinsertf128 $1, %xmm2, %ymm0, %ymm0
-; AVX1-NEXT:    vmovmskpd %ymm0, %eax
+; AVX1-NEXT:    vpor %xmm2, %xmm0, %xmm0
+; AVX1-NEXT:    vmovmskpd %xmm0, %eax
 ; AVX1-NEXT:    testl %eax, %eax
 ; AVX1-NEXT:    setne %al
 ; AVX1-NEXT:    vzeroupper
@@ -1971,8 +1969,8 @@ define i1 @icmp_v8i32_v8i1(<8 x i32>, <8 x i32>) {
 ; AVX1-NEXT:    vextractf128 $1, %ymm0, %xmm3
 ; AVX1-NEXT:    vpcmpeqd %xmm2, %xmm3, %xmm2
 ; AVX1-NEXT:    vpcmpeqd %xmm1, %xmm0, %xmm0
-; AVX1-NEXT:    vinsertf128 $1, %xmm2, %ymm0, %ymm0
-; AVX1-NEXT:    vmovmskps %ymm0, %eax
+; AVX1-NEXT:    vpor %xmm2, %xmm0, %xmm0
+; AVX1-NEXT:    vmovmskps %xmm0, %eax
 ; AVX1-NEXT:    testl %eax, %eax
 ; AVX1-NEXT:    setne %al
 ; AVX1-NEXT:    vzeroupper
@@ -2211,8 +2209,8 @@ define i1 @icmp_v8i64_v8i1(<8 x i64>, <8 x i64>) {
 ; AVX1-NEXT:    vpcmpeqq %xmm3, %xmm4, %xmm3
 ; AVX1-NEXT:    vpcmpeqq %xmm2, %xmm0, %xmm0
 ; AVX1-NEXT:    vpackssdw %xmm3, %xmm0, %xmm0
-; AVX1-NEXT:    vinsertf128 $1, %xmm1, %ymm0, %ymm0
-; AVX1-NEXT:    vmovmskps %ymm0, %eax
+; AVX1-NEXT:    vpor %xmm1, %xmm0, %xmm0
+; AVX1-NEXT:    vmovmskps %xmm0, %eax
 ; AVX1-NEXT:    testl %eax, %eax
 ; AVX1-NEXT:    setne %al
 ; AVX1-NEXT:    vzeroupper
