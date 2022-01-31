@@ -177,7 +177,7 @@ define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_un
 ;CHECK-NEXT:           %phi.temp4 = %red.init2;
 ;CHECK-NEXT:           %phi.temp6 = %red.init;
 ;CHECK-NEXT:           %phi.temp8 = %red.init1;
-;CHECK:                + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 536870911> <auto-vectorized> <nounroll> <novectorize>
+;CHECK:                + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 536870911>   <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ;CHECK-NEXT:           |   %.vec = (<4 x i32>*)(%ordering)[i1];
 ;CHECK-NEXT:           |   %.vec10 = %.vec > %phi.temp6;
 ;CHECK-NEXT:           |   %.vec11 = (%.vec > %phi.temp6) ? i1 + <i64 0, i64 1, i64 2, i64 3> : %phi.temp8;
@@ -201,7 +201,7 @@ define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_un
 ;CHECK-NEXT:           %bsf22 = @llvm.cttz.i4(%bsfintmask21,  1);
 ;CHECK-NEXT:           %val.025 = extractelement %.vec13,  %bsf22;
 ;CHECK-NEXT:        }
-;CHECK:             + DO i1 = 4 * %tgu, sext.i32.i64(%m) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+;CHECK:             + DO i1 = 4 * %tgu, sext.i32.i64(%m) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>   <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ;CHECK-NEXT:        |   %0 = (%ordering)[i1];
 ;CHECK-NEXT:        |   %tmp.024 = (%0 > %best.023) ? i1 : %tmp.024;
 ;CHECK-NEXT:        |   %val.025 = (%0 > %best.023) ? %0 + 2 : %val.025;

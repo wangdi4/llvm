@@ -21,7 +21,7 @@
 
 
 ; Check HIR
-; CHECK: DO i2 = 0, 4 * {{%.*}} + -1, 4 <DO_LOOP> <MAX_TC_EST = 536870911> <auto-vectorized> <nounroll> <novectorize>
+; CHECK: DO i2 = 0, 4 * {{%.*}} + -1, 4 <DO_LOOP> <MAX_TC_EST = 536870911>   <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK: [[E0:%.*]] = extractelement i2 + <i64 0, i64 1, i64 2, i64 3>,  3;
 ; CHECK-NEXT: ([[ArrB:%.*]])[0] = [[E0]];
 ; CHECK-NEXT: [[E1:%.*]] = extractelement i2 + <i64 0, i64 1, i64 2, i64 3>,  3;

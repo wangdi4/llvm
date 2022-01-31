@@ -29,7 +29,7 @@
 ; CHECK-NEXT:      |      }
 ; CHECK-NEXT:      |      else
 ; CHECK-NEXT:      |      {
-; CHECK-NEXT:      |         + DO i2 = 0, zext.i32.i64((5 + (-1 * trunc.i64.i32(%9)))), 1   <DO_LOOP>  <MAX_TC_EST = 12> <max_trip_count = 12>
+; CHECK-NEXT:      |         + DO i2 = 0, zext.i32.i64((5 + (-1 * trunc.i64.i32(%9)))), 1   <DO_LOOP>  <MAX_TC_EST = 12>   <LEGAL_MAX_TC = 12> <max_trip_count = 12>
 ; CHECK-NEXT:      |         |   (%sw)[0][i1 + i2 + 1] = (%fr8)[0][i1 + i2];
 ; CHECK-NEXT:      |         + END LOOP
 ; CHECK-NEXT:      |      }

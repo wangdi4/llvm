@@ -67,7 +67,7 @@
 ; CG-CHECK-NEXT:                 |   }
 ; CG-CHECK-NEXT:                 + END LOOP
 ; CG-CHECK-NEXT:              }
-; CG-CHECK:                   + DO i1 = 4 * %tgu, %n + -1 * %peel.factor1 + -1, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CG-CHECK:                   + DO i1 = 4 * %tgu, %n + -1 * %peel.factor1 + -1, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 3> <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ; CG-CHECK-NEXT:              |   if ((%t4)[i1 + %peel.factor1] == &((%t1)[0]))
 ; CG-CHECK-NEXT:              |   {
 ; CG-CHECK-NEXT:              |      %gep = &((%t4)[i1 + %peel.factor1]);

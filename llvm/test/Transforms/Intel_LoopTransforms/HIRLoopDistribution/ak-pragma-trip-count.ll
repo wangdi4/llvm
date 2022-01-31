@@ -5,7 +5,7 @@
 ;
 ;          BEGIN REGION { }
 ;<29>         + DO i1 = 0, 99998, 1   <DO_LOOP>
-;<28>         |   + DO i2 = 0, 99998, 1   <DO_LOOP> <MAX_TC_EST = 100> <min_trip_count = 50> <avg_trip_count = 75> <max_trip_count = 100>
+;<28>         |   + DO i2 = 0, 99998, 1   <DO_LOOP> <MAX_TC_EST = 100>   <LEGAL_MAX_TC = 100> <min_trip_count = 50> <avg_trip_count = 75> <max_trip_count = 100>
 ;<5>          |   |   %0 = (@B)[0][i1 + 1][i2 + 1];
 ;<7>          |   |   %1 = (@C)[0][i1 + 1][i2 + 1];
 ;<8>          |   |   %add = %0  +  %1;
@@ -18,11 +18,11 @@
 
 ; CHECK: BEGIN REGION
 ; CHECK: DO i1 = 0, 99998, 1
-; CHECK-NEXT: DO i2 = 0, 99998, 1   <DO_LOOP> <MAX_TC_EST = 100> <min_trip_count = 50> <avg_trip_count = 75> <max_trip_count = 100>
+; CHECK-NEXT: DO i2 = 0, 99998, 1   <DO_LOOP> <MAX_TC_EST = 100>   <LEGAL_MAX_TC = 100> <min_trip_count = 50> <avg_trip_count = 75> <max_trip_count = 100>
 ; CHECK: (@A)[0][i1 + 1][i2 + 1] =
 ; CHECK-NEXT: END LOOP
 
-; CHECK: DO i2 = 0, 99998, 1   <DO_LOOP> <MAX_TC_EST = 100> <min_trip_count = 50> <avg_trip_count = 75> <max_trip_count = 100>
+; CHECK: DO i2 = 0, 99998, 1   <DO_LOOP> <MAX_TC_EST = 100>   <LEGAL_MAX_TC = 100> <min_trip_count = 50> <avg_trip_count = 75> <max_trip_count = 100>
 ; CHECK: (@A)[0][i1 + 1][i2]
 ; CHECK: END LOOP
 ; CHECK-NEXT: END LOOP

@@ -6,11 +6,11 @@
 
 ; Verify that vectorizer generates a unit stride store for this loop because %s.0 is known positive.
 
-; + DO i1 = 0, -1 * %s.0 + %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967294>
+; + DO i1 = 0, -1 * %s.0 + %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967294>   <LEGAL_MAX_TC = 4294967294>
 ; |   (%p)[i1 + %s.0] = i1 + %s.0;
 ; + END LOOP
 
-; CHECK: + DO i1 = 0, 8 * %tgu + -1, 8   <DO_LOOP>  <MAX_TC_EST = 536870911> <auto-vectorized> <nounroll>
+; CHECK: + DO i1 = 0, 8 * %tgu + -1, 8   <DO_LOOP>  <MAX_TC_EST = 536870911>   <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll>
 ; CHECK: |   (<8 x i32>*)(%p)[i1 + %s.0] = i1 + %s.0 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>;
 ; CHECK: + END LOOP
 

@@ -116,8 +116,9 @@ static void propagateConstant(HLLoop *Loop, unsigned TempIndex,
   });
 
   if (LoopChanged) {
-    // Reset Max TC estimation.
+    // Reset Max TC info.
     Loop->setMaxTripCountEstimate(0);
+    Loop->setLegalMaxTripCount(0);
 
     HLNodeUtils::removeRedundantNodes(Loop);
   }
@@ -184,6 +185,7 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop,
     HLLoop *NewLoop = Loop->clone();
     HLNodeUtils::insertAsFirstThenChild(If, NewLoop);
     NewLoop->setMaxTripCountEstimate(0);
+    NewLoop->setLegalMaxTripCount(0);
 
     RegDDRef *UpperRef = NewLoop->getUpperDDRef();
     CanonExpr *CE = UpperRef->getSingleCanonExpr();

@@ -26,7 +26,7 @@
 ;
 ;<0>          BEGIN REGION { }
 ;<70>               + DO i1 = 0, zext.i32.i64(%height) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2000>
-;<71>               |   + DO i2 = 0, zext.i32.i64(%width) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+;<71>               |   + DO i2 = 0, zext.i32.i64(%width) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647> <LEGAL_MAX_TC = 2147483647>
 ;<14>               |   |   %2 = (@vrow)[0][i1][(1 + sext.i32.i64(%other_channels)) * i2];
 ;<18>               |   |   %3 = (@vrow)[0][i1][(1 + sext.i32.i64(%other_channels)) * i2 + 1];
 ;<20>               |   |   if (%channels > 0)
@@ -57,7 +57,7 @@
 ; CHECK:           |      %mv.and8 = %mv.test6  &  %mv.test7;
 ; CHECK:           |      if (%mv.and == 0 && %mv.and8 == 0)
 ; CHECK:           |      {
-; CHECK:           |         + DO i2 = 0, zext.i32.i64(%width) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <MVTag: 71>
+; CHECK:           |         + DO i2 = 0, zext.i32.i64(%width) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647> <MVTag: 71>
 ; CHECK:           |         |   %2 = (@vrow)[0][i1][(1 + sext.i32.i64(%other_channels)) * i2];
 ; CHECK:           |         |   %3 = (@vrow)[0][i1][(1 + sext.i32.i64(%other_channels)) * i2 + 1];
 ; CHECK:           |         |   if (%channels > 0)
@@ -73,7 +73,7 @@
 ; CHECK:           |      }
 ; CHECK:           |      else
 ; CHECK:           |      {
-; CHECK:           |         + DO i2 = 0, zext.i32.i64(%width) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <MVTag: 71> <nounroll> <novectorize>
+; CHECK:           |         + DO i2 = 0, zext.i32.i64(%width) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647> <MVTag: 71> <nounroll> <novectorize>
 ; CHECK:           |         |   %2 = (@vrow)[0][i1][(1 + sext.i32.i64(%other_channels)) * i2];
 ; CHECK:           |         |   %3 = (@vrow)[0][i1][(1 + sext.i32.i64(%other_channels)) * i2 + 1];
 ; CHECK:           |         |   if (%channels > 0)

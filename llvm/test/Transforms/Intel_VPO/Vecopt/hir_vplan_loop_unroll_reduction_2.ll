@@ -21,7 +21,7 @@
 ; BEGIN REGION { }
 ;       %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
 ;
-;       + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+;       + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647>
 ;       |   %acc.08 = (%a)[i1]  +  %acc.08; <Safe Reduction>
 ;       + END LOOP
 ;
@@ -99,7 +99,7 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CGCHECK-NEXT:                    [[RED_INIT:%.*]] = 0
 ; CGCHECK-NEXT:                    [[RED_INIT_INSERT:%.*]] = insertelement [[RED_INIT]],  [[ACC_080:%.*]],  0
 ; CGCHECK-NEXT:                    [[PHI_TEMP:%.*]] = [[RED_INIT_INSERT]]
-; CGCHECK:                         + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP>  <MAX_TC_EST = 178956970> <auto-vectorized> <nounroll> <novectorize>
+; CGCHECK:                         + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP>  <MAX_TC_EST = 178956970>   <LEGAL_MAX_TC = 178956970> <auto-vectorized> <nounroll> <novectorize>
 ; CGCHECK-NEXT:                    |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
 ; CGCHECK-NEXT:                    |   [[DOTVEC10:%.*]] = [[DOTVEC0]]  +  [[PHI_TEMP]]
 ; CGCHECK-NEXT:                    |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]
@@ -110,7 +110,7 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CGCHECK-NEXT:                    + END LOOP
 ; CGCHECK:                         [[ACC_080]] = @llvm.vector.reduce.add.v4i32([[DOTVEC50]])
 ; CGCHECK-NEXT:                 }
-; CGCHECK:                      + DO i1 = 12 * [[TGU0]], zext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 11> <nounroll> <novectorize> <max_trip_count = 11>
+; CGCHECK:                      + DO i1 = 12 * [[TGU0]], zext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 11>   <LEGAL_MAX_TC = 11> <nounroll> <novectorize> <max_trip_count = 11>
 ; CGCHECK-NEXT:                  |   [[ACC_080]] = ([[A0]])[i1]  +  [[ACC_080]]
 ; CGCHECK-NEXT:                 + END LOOP
 ; CGCHECK-NEXT:            END REGION

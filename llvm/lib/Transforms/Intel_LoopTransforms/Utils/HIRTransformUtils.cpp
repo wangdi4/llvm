@@ -351,10 +351,13 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
       NewLoop->getZtt()->setProfileData(Prof->Quotient, Prof->FalseWeight);
     }
 
-    // Update unrolled/vectorized loop's trip count estimate.
+    // Update unrolled/vectorized loop's max trip count info.
     NewLoop->setMaxTripCountEstimate(
         NewLoop->getMaxTripCountEstimate() / UnrollOrVecFactor,
         NewLoop->isMaxTripCountEstimateUsefulForDD());
+
+    NewLoop->setLegalMaxTripCount(NewLoop->getLegalMaxTripCount() /
+                                  UnrollOrVecFactor);
 
     NewLoop->dividePragmaBasedTripCount(UnrollOrVecFactor);
   }
@@ -449,6 +452,7 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
     // TODO: can set useful for DD flag if loop is normalized.
     if (!HasRuntimeCheck) {
       OrigLoop->setMaxTripCountEstimate(UnrollOrVecFactor - 1);
+      OrigLoop->setLegalMaxTripCount(UnrollOrVecFactor - 1);
       // New max trip count metadata can be applied.
       OrigLoop->setPragmaBasedMaximumTripCount(UnrollOrVecFactor - 1);
     }
@@ -988,6 +992,7 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
     if (MinInstRequired) {
       Lp->addLiveInTemp(MinBlobSymbase);
       Lp->setMaxTripCountEstimate(StripmineSize, true);
+      Lp->setLegalMaxTripCount(StripmineSize);
     }
 
     // Normalize
@@ -1181,6 +1186,7 @@ bool HIRTransformUtils::multiplyTripCount(HLLoop *Lp, unsigned Multiplier) {
   }
 
   Lp->setMaxTripCountEstimate(Lp->getMaxTripCountEstimate() * Multiplier);
+  Lp->setLegalMaxTripCount(Lp->getLegalMaxTripCount() * Multiplier);
 
   updateTripCountPragma(Lp, Multiplier);
   return true;

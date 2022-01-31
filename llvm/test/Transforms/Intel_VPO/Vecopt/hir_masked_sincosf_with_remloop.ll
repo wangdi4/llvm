@@ -51,7 +51,7 @@
 ; CHECK-NEXT:    + END LOOP
 ; CHECK-NEXT: }
 
-; CHECK:      + DO i1 = [[#VL]] * %tgu, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = [[#VL-1]]> <nounroll> <novectorize> <max_trip_count = [[#VL-1]]>
+; CHECK:      + DO i1 = [[#VL]] * %tgu, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = [[#VL-1]]> <LEGAL_MAX_TC = [[#VL-1]]> <nounroll> <novectorize> <max_trip_count = [[#VL-1]]>
 ; CHECK-NEXT: |   %conv = sitofp.i32.float(i1);
 ; CHECK-NEXT: |   %copy = %conv;
 ; CHECK-NEXT: |   [[RET_REM_UNIT:%.*]] = @__svml_sincosf[[#VL]](%copy);
@@ -95,7 +95,7 @@
 ; CHECK-NEXT:    + END LOOP
 ; CHECK-NEXT: }
 
-; CHECK:      + DO i1 = [[#VL]] * %tgu, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = [[#VL-1]]> <nounroll> <novectorize> <max_trip_count = [[#VL-1]]>
+; CHECK:      + DO i1 = [[#VL]] * %tgu, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = [[#VL-1]]> <LEGAL_MAX_TC = [[#VL-1]]> <nounroll> <novectorize> <max_trip_count = [[#VL-1]]>
 ; CHECK-NEXT: |   %conv = sitofp.i32.float(i1);
 ; CHECK-NEXT: |   %copy = %conv;
 ; CHECK-NEXT: |   [[RET_REM_NONUNIT:%.*]] = @__svml_sincosf[[#VL]](%copy);

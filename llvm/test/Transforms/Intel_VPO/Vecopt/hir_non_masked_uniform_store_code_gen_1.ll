@@ -21,7 +21,7 @@
 
 
 ; Check HIR
-; CHECK: DO i2 = 0, 4 * {{%.*}} + -1, 4 <DO_LOOP> <MAX_TC_EST = 536870911> <auto-vectorized> <nounroll> <novectorize>
+; CHECK: DO i2 = 0, 4 * {{%.*}} + -1, 4 <DO_LOOP> <MAX_TC_EST = 536870911> <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK: ([[ArrB:%.*]])[0] = 0;
 ; CHECK-NEXT: ([[ArrB]])[1] = 1;
 ; CHECK-NEXT: ([[ArrB]])[2] = 2;

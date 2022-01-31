@@ -12,13 +12,13 @@
 ;<30>                  %tgu = (zext.i32.i64(%N))/u4;
 ;<32>                  if (0 <u 4 * %tgu)
 ;<32>                  {
-;<31>                     + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 2500> <auto-vectorized> <nounroll> <novectorize>
+;<31>                     + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 2500>  <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ;<34>                     |   %.vec = sitofp.<4 x i32>.<4 x float>(i1 + <i64 0, i64 1, i64 2, i64 3>);
 ;<35>                     |   (<4 x float>*)(@A)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][0] = %.vec;
 ;<31>                     + END LOOP
 ;<32>                  }
 ;<27>
-;<27>                  + DO i1 = 4 * %tgu, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+;<27>                  + DO i1 = 4 * %tgu, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>   <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ;<13>                  |   %conv = sitofp.i32.float(i1);
 ;<15>                  |   (@A)[0][i1][0] = %conv;
 ;<27>                  + END LOOP
@@ -37,7 +37,7 @@
 ; CHECK:              {
 ; CHECK:                 + Loop metadata: !llvm.loop
 ; CHECK-NEXT:            + Prefetching directives:{&((@A)[0]):1:40}
-; CHECK-NEXT:            + DO i64 i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 2500> <auto-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:            + DO i64 i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 2500> <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ;                        |
 ; CHECK:                 |   %.vec = sitofp.<4 x i32>.<4 x float>(i1 + <i64 0, i64 1, i64 2, i64 3>);
 ; CHECK:                 |   (<4 x float>*)(@A)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][0] = %.vec;
@@ -50,7 +50,7 @@
 ; CHECK:              }
 ;
 ; CHECK:              + Loop metadata: !llvm.loop
-; CHECK-NEXT:         + DO i64 i1 = 4 * %tgu, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK-NEXT:         + DO i64 i1 = 4 * %tgu, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>   <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ;                     |
 ; CHECK:              |   %conv = sitofp.i32.float(i1);
 ; CHECK:              |   (@A)[0][i1][0] = %conv;

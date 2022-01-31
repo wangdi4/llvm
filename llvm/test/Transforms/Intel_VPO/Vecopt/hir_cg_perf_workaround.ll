@@ -42,7 +42,7 @@ define double @foo(i32 %n, double %d) local_unnamed_addr #0 {
 ; CHECK-NEXT:           [[RED_INIT0:%.*]] = 0.000000e+00
 ; CHECK-NEXT:           [[PHI_TEMP0:%.*]] = [[RED_INIT0]]
 ;
-; CHECK:                + DO i1 = 0, 4 * [[TGU0]] + -1, 4   <DO_LOOP>  <MAX_TC_EST = 536870911> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:                + DO i1 = 0, 4 * [[TGU0]] + -1, 4   <DO_LOOP>  <MAX_TC_EST = 536870911>  <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:           |   [[DOTVEC0:%.*]] = (<4 x i16>*)([[TMP0:%.*]])[-1 * i1 + -1 * <i64 0, i64 1, i64 2, i64 3>].2
 ; CHECK-NEXT:           |   [[DOTVEC10:%.*]] = uitofp.<4 x i16>.<4 x double>([[DOTVEC0]])
 ; CHECK-NEXT:           |   [[DOTVEC20:%.*]] = [[DOTVEC10]]  *  [[D0:%.*]]
@@ -57,7 +57,7 @@ define double @foo(i32 %n, double %d) local_unnamed_addr #0 {
 ; CHECK:                [[SUM_0200:%.*]] = @llvm.vector.reduce.fadd.v4f64([[SUM_0200]],  [[DOTVEC70]])
 ; CHECK-NEXT:        }
 ;
-; CHECK:             + DO i1 = 4 * [[TGU0]], sext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:             + DO i1 = 4 * [[TGU0]], sext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK-NEXT:        |   [[TMP2:%.*]] = ([[TMP0]])[-1 * i1].2
 ; CHECK-NEXT:        |   [[CONV10:%.*]] = uitofp.i16.double([[TMP2]])
 ; CHECK-NEXT:        |   [[MUL20:%.*]] = [[CONV10]]  *  [[D0]]
