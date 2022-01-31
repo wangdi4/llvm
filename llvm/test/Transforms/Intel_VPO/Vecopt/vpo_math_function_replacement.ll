@@ -73,7 +73,9 @@
 ; CHECK-NEXT: [[SUREM64:%.*]] = sitofp i64 [[REM64]] to float
 
 ;; Check that no replacement happens when a given cl_opt is passed.
-; RUN: opt %s -S -disable-mf-replacement -replace-with-math-library-functions \
+; RUN: opt %s -enable-new-pm=0 -S -disable-mf-replacement -replace-with-math-library-functions \
+; RUN: | FileCheck %s --check-prefix=CHECK-NO-REPLACEMENT
+; RUN: opt %s -S -passes=replace-with-math-library-functions -disable-mf-replacement \
 ; RUN: | FileCheck %s --check-prefix=CHECK-NO-REPLACEMENT
 
 ; Check that we do not do any instruction replacement.
