@@ -1144,7 +1144,7 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
       // Only look at the no-capture or byval pointer arguments.  If this
       // pointer were passed to arguments that were neither of these, then it
       // couldn't be no-capture.
-      if (!(*CI)->getType()->isPointerTy() ||
+      if (!(*CI)->getType()->getScalarType()->isPointerTy() || // INTEL
           (!Call->doesNotCapture(OperandNo) && OperandNo < Call->arg_size() &&
            !Call->isByValArgument(OperandNo)))
         continue;
@@ -1162,8 +1162,12 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
       if (AR != AliasResult::MustAlias)
         IsMustAlias = false;
       // Operand doesn't alias 'Object', continue looking for other aliases
-      if (AR == AliasResult::NoAlias)
+#if INTEL_CUSTOMIZATION
+      // AA currently does not handle vectors of pointers, if we get
+      // NoAlias on these, we must treat it as "MayAlias".
+      if (AR == AliasResult::NoAlias && !(*CI)->getType()->isVectorTy())
         continue;
+#endif // INTEL_CUSTOMIZATION
       // Operand aliases 'Object', but call doesn't modify it. Strengthen
       // initial assumption and keep looking in case if there are more aliases.
       if (Call->onlyReadsMemory(OperandNo)) {
