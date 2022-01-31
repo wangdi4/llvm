@@ -1,5 +1,8 @@
 // This tests that the coroutine elide optimization could happen succesfully.
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++20 -O2 -emit-llvm %s -o - | FileCheck %s
+// INTEL ; Use -fexperimental-new-pass-manager explicitly as it is not yet
+// INTEL ; the default on xmain.
+// RUN: %clang_cc1 -fexperimental-new-pass-manager -triple x86_64-unknown-linux-gnu -std=c++20 -O2 -emit-llvm %s -o - | FileCheck %s
+// INTEL
 
 #include "Inputs/coroutine.h"
 
@@ -58,8 +61,6 @@ Task task1() {
   co_return co_await task0();
 }
 
-// INTEL
-// CHECK: %_Z5task0v.Frame = type {{.*}}%_Z5task0v.Frame
-// INTEL
+// CHECK: %_Z5task1v.Frame = type {{.*}}%_Z5task0v.Frame
 // CHECK-LABEL: define{{.*}} void @_Z5task1v.resume
 // CHECK-NOT: call{{.*}}_Znwm
