@@ -1346,6 +1346,8 @@ public:
   /// based on the target architecture.
   bool isAdvancedOptEnabled(AdvancedOptLevel AO) const;
 
+  bool isLibIRCAllowed() const;
+
   bool adjustCallArgs(CallInst *) const;
 
   /// \return true if 'Mask' requires a target-specific shuffle
@@ -1857,6 +1859,7 @@ public:
                                                    Type *ExpectedType) = 0;
 #if INTEL_CUSTOMIZATION
   virtual bool isAdvancedOptEnabled(AdvancedOptLevel AO) const = 0;
+  virtual bool isLibIRCAllowed() const = 0;
   virtual bool adjustCallArgs(CallInst *) = 0;
 
   virtual bool
@@ -2480,6 +2483,10 @@ public:
 #if INTEL_CUSTOMIZATION
   bool isAdvancedOptEnabled(AdvancedOptLevel AO) const override {
     return Impl.isAdvancedOptEnabled(AO);
+  }
+
+  bool isLibIRCAllowed() const override {
+    return Impl.isLibIRCAllowed();
   }
 
   bool adjustCallArgs(CallInst *CI) override {

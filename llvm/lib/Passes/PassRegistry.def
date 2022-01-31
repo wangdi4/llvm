@@ -156,6 +156,7 @@ MODULE_PASS("dtrans-resolvetypes", dtrans::ResolveTypesPass())   // INTEL
 MODULE_PASS("dtrans-dynclone", dtrans::DynClonePass())           // INTEL
 MODULE_PASS("dtrans-dyncloneop", dtransOP::DynClonePass())       // INTEL
 MODULE_PASS("dtrans-soatoaos-prepare", dtrans::SOAToAOSPreparePass()) // INTEL
+MODULE_PASS("dtrans-soatoaosop-prepare", dtransOP::SOAToAOSOPPreparePass()) // INTEL
 MODULE_PASS("dtrans-soatoaos", dtrans::SOAToAOSPass())           // INTEL
 MODULE_PASS("dtrans-soatoaosop", dtransOP::SOAToAOSOPPass())     // INTEL
 MODULE_PASS("dtrans-weakalign", dtrans::WeakAlignPass())         // INTEL

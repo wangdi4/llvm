@@ -748,6 +748,8 @@ public:
 #if INTEL_CUSTOMIZATION
   bool isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const { return false; }
 
+  bool isLibIRCAllowed() const { return false; }
+
   bool adjustCallArgs(CallInst *CI) { return false; }
 
   bool isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const {

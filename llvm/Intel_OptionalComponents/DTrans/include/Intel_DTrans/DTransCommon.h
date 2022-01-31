@@ -1,6 +1,6 @@
 //===------------------ DTransCommon.h - Shared DTrans code ---------------===//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -56,6 +56,7 @@ void initializeDTransDynCloneOPWrapperPass(PassRegistry&);
 void initializeDTransSOAToAOSWrapperPass(PassRegistry&);
 void initializeDTransSOAToAOSOPWrapperPass(PassRegistry&);
 void initializeDTransSOAToAOSPrepareWrapperPass(PassRegistry&);
+void initializeDTransSOAToAOSOPPrepareWrapperPass(PassRegistry&);
 void initializeDTransAnnotatorCleanerWrapperPass(PassRegistry&);
 void initializeDTransWeakAlignWrapperPass(PassRegistry&);
 void initializeDTransMemInitTrimDownWrapperPass(PassRegistry&);

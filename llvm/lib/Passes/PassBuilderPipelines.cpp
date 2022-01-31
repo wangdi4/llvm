@@ -362,6 +362,9 @@ static cl::opt<bool> EnableIPCloning(
     "enable-npm-ip-cloning", cl::init(true), cl::Hidden,
     cl::desc("Enable IP Cloning for the new PM (default = on)"));
 #endif // INTEL_FEATURE_SW_ADVANCED
+static cl::opt<bool> EnableCallTreeCloning(
+    "enable-npm-call-tree-cloning", cl::init(true), cl::Hidden,
+    cl::desc("Enable Call Tree Cloning for the new PM (default = on)"));
 #endif // INTEL_CUSTOMIZATION
 
 // IPO Array Transpose
@@ -2785,6 +2788,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     MPM.addPass(IPCloningPass(/*AfterInl*/ true,
                               /*IFSwitchHeuristic*/ DTransEnabled));
 #endif // INTEL_FEATURE_SW_ADVANCED
+  if (EnableCallTreeCloning)
+    MPM.addPass(CallTreeCloningPass());
 #endif // INTEL_CUSTOMIZATION
 
   // Garbage collect dead functions.

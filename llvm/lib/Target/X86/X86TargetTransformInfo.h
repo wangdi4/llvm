@@ -271,6 +271,7 @@ public:
   bool isLegalMaskedCompressStore(Type *DataType);
 #if INTEL_CUSTOMIZATION
   bool isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const;
+  bool isLibIRCAllowed() const;
   bool adjustCallArgs(CallInst* CI);
   bool isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const;
   bool isVPlanVLSProfitable() const;

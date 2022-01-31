@@ -5631,6 +5631,11 @@ bool X86TTIImpl::isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const {
     llvm_unreachable("fully covered switch statement");
 }
 
+bool X86TTIImpl::isLibIRCAllowed() const {
+  const TargetMachine &TM = getTLI()->getTargetMachine();
+  return TM.Options.IntelLibIRCAllowed;
+}
+
 bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
   if (CI->getCallingConv() != CallingConv::Intel_OCL_BI)
     return false;

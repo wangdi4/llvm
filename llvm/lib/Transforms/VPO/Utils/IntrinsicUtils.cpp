@@ -432,6 +432,25 @@ IntrinsicInst *VPOUtils::enclosingBeginDirective(Instruction *I,
   return nullptr;
 }
 
+/// Find BlockAddress references in NewFunction that point to OldFunction,
+/// and replace them. This must be called after all code has moved to
+/// NewFunction.
+void VPOUtils::replaceBlockAddresses(Function *OldFunction,
+                                     Function *NewFunction) {
+  SmallVector<BlockAddress *, 4> BlockAddresses;
+  // Collect all BlockAddresses that reference OldFunction.
+  for (User *U : OldFunction->users())
+    if (auto *BA = dyn_cast<BlockAddress>(U))
+      BlockAddresses.push_back(BA);
+  // If any of these BlockAddresses have a BasicBlock that points to
+  // NewFunction, replace it.
+  for (auto *BA : BlockAddresses) {
+    if (BA->getBasicBlock()->getParent() == NewFunction)
+      BA->replaceAllUsesWith(
+          BlockAddress::get(NewFunction, BA->getBasicBlock()));
+  }
+}
+
 #if INTEL_CUSTOMIZATION
 
 // Alias scope is an optimization

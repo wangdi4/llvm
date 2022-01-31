@@ -79,6 +79,11 @@ See details in the `OpenMP specification`_.
 
 .. _`OpenMP specification`: https://www.openmp.org/spec-html/5.1/openmp.html
 
+``LIBOMPTARGET_INTEROP_USE_SINGLE_QUEUE=<Enable>``
+Allows user to use a single queue for all interop objects.
+
+**Default**: Disabled
+
 
 Plugin Common
 -------------

@@ -954,6 +954,18 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       addllvmOption(Args.MakeArgString(Twine("-throughput-opt=") + Val));
   }
 
+  // -qopt-streaming-stores
+  if (Arg *A = Args.getLastArg(options::OPT_qopt_streaming_stores_EQ)) {
+    StringRef Val = A->getValue();
+    if (Val == "always")
+      addllvmOption("-hir-nontemporal-cacheline-count=0");
+    else if (Val == "never")
+      addllvmOption("-disable-hir-nontemporal-marking");
+    else if (Val != "auto")
+      TC.getDriver().Diag(diag::err_drv_invalid_argument_to_option) << Val
+          << A->getOption().getName();
+  }
+
   // Handle --intel defaults.  Do not add for SYCL device (DPC++)
   if (TC.getDriver().IsIntelMode()) {
     if (!Args.hasArg(options::OPT_ffreestanding,
