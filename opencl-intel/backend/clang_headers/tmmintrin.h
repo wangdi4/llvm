@@ -39,7 +39,7 @@ _mm_abs_pi8(__m64 a)
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_abs_epi8(__m128i a)
 {
-    return (__m128i)__builtin_ia32_pabsb128((__v16qi)a);
+    return (__m128i)__builtin_elementwise_abs((__v16qi)a);
 }
 
 static __inline__ __m64 __attribute__((__always_inline__, __nodebug__))
@@ -51,7 +51,7 @@ _mm_abs_pi16(__m64 a)
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_abs_epi16(__m128i a)
 {
-    return (__m128i)__builtin_ia32_pabsw128((__v8hi)a);
+    return (__m128i)__builtin_elementwise_abs((__v8hi)a);
 }
 
 static __inline__ __m64 __attribute__((__always_inline__, __nodebug__))
@@ -63,7 +63,7 @@ _mm_abs_pi32(__m64 a)
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_abs_epi32(__m128i a)
 {
-    return (__m128i)__builtin_ia32_pabsd128((__v4si)a);
+    return (__m128i)__builtin_elementwise_abs((__v4si)a);
 }
 
 #define _mm_alignr_epi8(a, b, n) __extension__ ({ \
