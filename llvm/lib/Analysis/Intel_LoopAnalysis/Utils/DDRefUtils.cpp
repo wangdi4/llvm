@@ -60,7 +60,9 @@ RegDDRef *DDRefUtils::createGEPRef(Type *BasePtrElementType, unsigned BasePtrBlo
   auto BaseCE =
       getCanonExprUtils().createSelfBlobCanonExpr(BasePtrBlobIndex, Level);
 
-  assert(BaseCE->getDestType()->isOpaquePointerTy() || (BasePtrElementType == BaseCE->getDestType()->getScalarType()->getPointerElementType()) && "Incorrect base ptr element type!");
+  assert(cast<PointerType>(BaseCE->getDestType()->getScalarType())->isOpaqueOrPointeeTypeMatches(BasePtrElementType)
+         && "Incorrect base ptr element type!");
+
   Ref->setBaseCE(BaseCE);
   Ref->setBasePtrElementType(BasePtrElementType);
   Ref->setInBounds(IsInBounds);
