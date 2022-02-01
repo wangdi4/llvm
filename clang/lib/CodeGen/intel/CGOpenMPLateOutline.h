@@ -442,6 +442,8 @@ public:
       llvm::Type *Ty = MT.first->getType();
       Address A = CGF.CreateDefaultAlignTempAlloca(Ty, MT.second->getName() +
                                                            ".map.ptr.tmp");
+      if (MT.second->getType()->isReferenceType())
+        A.setRemovedReference();
       CGF.Builder.CreateStore(MT.first, A);
       PrivateScope.addPrivateNoTemps(MT.second, [A]() -> Address { return A; });
       CGF.addMappedTemp(MT.second, MT.second->getType()->isReferenceType());
