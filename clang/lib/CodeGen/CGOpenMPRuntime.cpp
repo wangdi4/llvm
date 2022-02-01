@@ -8252,10 +8252,12 @@ public:
         const auto *VD = dyn_cast<VarDecl>(I->getAssociatedDeclaration());
 #if INTEL_COLLAB
         if (CGF.CGM.getLangOpts().OpenMPLateOutline &&
-            VD && VD->getType()->isLValueReferenceType() &&
+            !isa<OMPCapturedExprDecl>(VD) && VD &&
+            VD->getType()->isLValueReferenceType() &&
             isa<llvm::LoadInst>(BP.getPointer()))
           // For variable with reference type, the privatization is
           // performed in the late outlining. Skip generate extra load.
+          // For OMPCaptureExprDecl, it is handled in EmitDeclRefLValue.
           FirstPointerInComplexData = true;
         else
 #endif // INTEL_COLLAB

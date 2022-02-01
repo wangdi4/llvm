@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert --debug-only=parvec-analysis \
-; RUN:     -disable-output -vplan-force-vf=4 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 < %s -hir-ssa-deconstruction -analyze -hir-parvec-analysis 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='hir-ssa-deconstruction,print<hir-parvec-analysis>' -disable-output  2>&1 | FileCheck %s
 
 @arr.i32.1 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
 @arr.i32.2 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
