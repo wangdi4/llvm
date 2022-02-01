@@ -129,6 +129,12 @@ static cl::opt<uint32_t> MaxBBSpeculations(
              "into) when deducing if a value is fully available or not in GVN "
              "(default = 600)"));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<uint64_t> MaxInstTimesBB(
+    "gvn-max-inst-x-bb", cl::Hidden, cl::init((uint64_t)100000 * 50000),
+    cl::desc("Skip this entire pass, if num insts * num BBs is too large."));
+#endif // INTEL_CUSTOMIZATION
+
 struct llvm::GVNPass::Expression {
   uint32_t opcode;
   bool commutative = false;
@@ -2728,16 +2734,30 @@ bool GVNPass::runImpl(Function &F, AssumptionCache &RunAC, DominatorTree &RunDT,
   bool Changed = false;
   bool ShouldContinue = true;
 
+  uint64_t ICount = 0, BBCount = 0; // INTEL
+
   DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
   // Merge unconditional branches, allowing PRE to catch more
   // optimization opportunities.
   for (BasicBlock &BB : llvm::make_early_inc_range(F)) {
+#if INTEL_CUSTOMIZATION
+    BBCount++;
+    ICount += std::distance(BB.begin(), BB.end());
+#endif // INTEL_CUSTOMIZATION
     bool removedBlock = MergeBlockIntoPredecessor(&BB, &DTU, LI, MSSAU, MD);
     if (removedBlock)
       ++NumGVNBlocks;
 
     Changed |= removedBlock;
   }
+
+#if INTEL_CUSTOMIZATION
+  // For extremely large functions, the VN algorithm itself will bog down
+  // and not obvious how to optimize it. CSE+LICM can cover GVN's
+  // benefit for many cases.
+  if ((ICount * BBCount) > MaxInstTimesBB)
+    return Changed;
+#endif // INTEL_CUSTOMIZATION
 
   unsigned Iteration = 0;
   while (ShouldContinue) {
