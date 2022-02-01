@@ -9,7 +9,7 @@
 ;    BEGIN REGION { }
 ;          %tok = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.PRIVATE:NONPOD(&((%value.priv)[0])@_ZTS6ClassA.omp.def_constr@_ZTS6ClassA.omp.destr) ]
 ;
-;          + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647> <simd>
+;          + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647> <simd>
 ;          |   @_ZN6ClassA3incEi(&((%value.priv)[0]),  i1);
 ;          |   %src.ld = (%src)[i1];
 ;          |   %m_value.ld = (%value.priv)[0].0;
@@ -35,7 +35,7 @@ define dso_local void @ctor_dtor(i32* nocapture %dst, i32* nocapture readonly %s
 ; CHECK:            %_ZTS6ClassA.omp.def_constr2 = @_ZTS6ClassA.omp.def_constr(%extract.1.);
 ; CHECK:            %serial.temp = insertelement %serial.temp,  %_ZTS6ClassA.omp.def_constr2,  1;
 
-; CHECK:            + DO i64 i1 = 0, 2 * %tgu + -1, 2   <DO_LOOP>  <MAX_TC_EST = 1073741823> <simd-vectorized> <nounroll> <novectorize>
+; CHECK:            + DO i64 i1 = 0, 2 * %tgu + -1, 2   <DO_LOOP>  <MAX_TC_EST = 1073741823>   <LEGAL_MAX_TC = 1073741823> <simd-vectorized> <nounroll> <novectorize>
 ; CHECK:            + END LOOP
 
 ; CHECK:            @_ZTS6ClassA.omp.destr(&((%struct.ClassA*)(%priv.mem)[0]));

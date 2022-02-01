@@ -221,14 +221,15 @@ unsigned VPlanTTICostModel::getLoadStoreIndexSize(
   return 32u;
 }
 
-unsigned VPlanTTICostModel::getArithmeticInstructionCost(const unsigned Opcode,
-                                                         const VPValue *Op1,
-                                                         const VPValue *Op2,
-                                                         const Type *ScalarTy,
-                                                         const unsigned VF) {
+VPInstructionCost VPlanTTICostModel::getArithmeticInstructionCost(
+  const unsigned Opcode,
+  const VPValue *Op1,
+  const VPValue *Op2,
+  const Type *ScalarTy,
+  const unsigned VF) {
   assert(Op1 != nullptr && "First operand is expected.");
   if (!ScalarTy)
-    return UnknownCost;
+    return VPInstructionCost::getUnknown();
   Type *VecTy = getWidenedType(const_cast<Type *>(ScalarTy), VF);
 
   auto SetOperandValueFeatures = [](
@@ -265,13 +266,13 @@ unsigned VPlanTTICostModel::getArithmeticInstructionCost(const unsigned Opcode,
     TargetTransformInfo::TCK_RecipThroughput, Op1VK, Op2VK, Op1VP, Op2VP);
 }
 
-unsigned VPlanTTICostModel::getLoadStoreCost(const VPLoadStoreInst *LoadStore,
-                                             unsigned VF) const {
+VPInstructionCost VPlanTTICostModel::getLoadStoreCost(
+  const VPLoadStoreInst *LoadStore, unsigned VF) const {
   unsigned Alignment = getMemInstAlignment(LoadStore);
   return getLoadStoreCost(LoadStore, Align(Alignment), VF);
 }
 
-unsigned VPlanTTICostModel::getLoadStoreCost(
+VPInstructionCost VPlanTTICostModel::getLoadStoreCost(
   const VPLoadStoreInst *LoadStore, Align Alignment, unsigned VF) const {
   // TODO: VF check in IsMasked might become redundant once a separate VPlan
   // is maintained for VF = 1 meaning that the cost calculation for scalar loop
@@ -309,7 +310,7 @@ unsigned VPlanTTICostModel::getLoadStoreCost(
   bool NegativeStride = false;
   if (VF == 1 || Scale > 1 ||
       isUnitStrideLoadStore(LoadStore, NegativeStride)) {
-    unsigned Cost = 0;
+    VPInstructionCost Cost = 0;
 
     // For negative stride we need to reverse elements in the vector after load
     // or before store.
@@ -339,12 +340,12 @@ unsigned VPlanTTICostModel::getLoadStoreCost(
     IsMasked, Alignment.value(), AddrSpace);
 }
 
-unsigned VPlanTTICostModel::getInsertExtractElementsCost(
+VPInstructionCost VPlanTTICostModel::getInsertExtractElementsCost(
   unsigned Opcode, Type *Ty, unsigned VF) {
   assert((Opcode == Instruction::ExtractElement ||
           Opcode == Instruction::InsertElement) &&
          "Only Extract/InsertElement opcode is expected.");
-  unsigned Cost = 0;
+  VPInstructionCost Cost = 0;
   Type *VecTy = getWidenedType(Ty, VF);
   for(unsigned Idx = 0; Idx < VF; Idx++)
     Cost += VPTTI.getVectorInstrCost(Opcode, VecTy, Idx);
@@ -385,7 +386,7 @@ VPlanTTICostModel::getIntrinsicForSVMLCall(
   }
 }
 
-unsigned VPlanTTICostModel::getIntrinsicInstrCost(
+VPInstructionCost VPlanTTICostModel::getIntrinsicInstrCost(
   Intrinsic::ID ID, const VPCallInstruction *VPCall, unsigned VF) {
 
   auto *CallInst = VPCall->getUnderlyingCallInst();
@@ -406,7 +407,7 @@ unsigned VPlanTTICostModel::getIntrinsicInstrCost(
       if (VF == 1)
         break;
       // The calls that missed the analysis have Unknown cost.
-      return UnknownCost;
+      return VPInstructionCost::getUnknown();
     case VPCallInstruction::CallVecScenariosTy::DoNotWiden:
       return VPTTI.getIntrinsicInstrCost(
           IntrinsicCostAttributes(ID, CB), TTI::TCK_RecipThroughput);
@@ -420,31 +421,29 @@ unsigned VPlanTTICostModel::getIntrinsicInstrCost(
       // TODO:
       // Here we ignore the fact that when serialized code feeds another
       // serialized code insert + extract in between can be optimized out.
-      unsigned Cost =
+      VPInstructionCost Cost =
           // The sum of costs of 'devectorizing' all args of the call.
           std::accumulate(
-              CB.arg_begin(), CB.arg_end(), 0,
-              [=](unsigned Cost, const Use &Arg) {
-                Type *ArgTy = Arg.get()->getType();
-                // If Arg is not expected to be vectorized
-                // (isVectorizableTy(ArgTy) is false) then it contributes 0.
-                //
-                // TODO:
-                // In general there are can be call arguments that are not
-                // vectorized.  SVA should help here.
-                return Cost + (isVectorizableTy(ArgTy)
-                                   ? getInsertExtractElementsCost(
-                                         Instruction::ExtractElement, ArgTy, VF)
-                                   : 0);
-              }) +
+            CB.arg_begin(), CB.arg_end(), VPInstructionCost(),
+            [=](VPInstructionCost Cost, const Use &Arg) {
+              Type *ArgTy = Arg.get()->getType();
+              // If Arg is not expected to be vectorized
+              // (isVectorizableTy(ArgTy) is false) then it contributes 0.
+              //
+              // TODO:
+              // In general there are can be call arguments that are not
+              // vectorized.  SVA should help here.
+              return Cost + (isVectorizableTy(ArgTy) ?
+                             getInsertExtractElementsCost(
+                               Instruction::ExtractElement, ArgTy, VF) : 0);
+            }) +
           // The cost of VF calls to the scalar function.
           VF * VPTTI.getIntrinsicInstrCost(
                    IntrinsicCostAttributes(ID, CB), TTI::TCK_RecipThroughput) +
           // The cost of 'vectorizing' function's result if any.
-          (isVectorizableTy(CB.getType()) && !CB.getType()->isVoidTy()
-               ? getInsertExtractElementsCost(Instruction::InsertElement,
-                                              CB.getType(), VF)
-               : 0);
+          (isVectorizableTy(CB.getType()) && !CB.getType()->isVoidTy() ?
+           getInsertExtractElementsCost(Instruction::InsertElement,
+                                        CB.getType(), VF) : 0);
       return Cost;
     }
 
@@ -496,11 +495,11 @@ unsigned VPlanTTICostModel::getIntrinsicInstrCost(
     TTI::TCK_RecipThroughput);
 }
 
-unsigned VPlanTTICostModel::getTTICost(const VPInstruction *VPInst) {
+VPInstructionCost VPlanTTICostModel::getTTICost(const VPInstruction *VPInst) {
   return getTTICostForVF(VPInst, VF);
 }
 
-unsigned VPlanTTICostModel::getTTICostForVF(
+VPInstructionCost VPlanTTICostModel::getTTICostForVF(
   const VPInstruction *VPInst, unsigned VF) {
   // TODO: For instruction that are not contained inside the loop we're
   // vectorizing, VF should not be considered. That includes the instructions
@@ -514,7 +513,7 @@ unsigned VPlanTTICostModel::getTTICostForVF(
   unsigned Opcode = VPInst->getOpcode();
   switch (Opcode) {
   default:
-    return UnknownCost;
+    return VPInstructionCost::getUnknown();
   case Instruction::GetElementPtr:
   case VPInstruction::Subscript: {
     // FIXME: First, there could be at least two ways to use this GEP's result
@@ -548,15 +547,16 @@ unsigned VPlanTTICostModel::getTTICostForVF(
     // a select for now.
     Type *OpTy = VPInst->getOperand(0)->getCMType();
     if (!OpTy)
-      return UnknownCost;
+      return VPInstructionCost::getUnknown();
 
     Type *VecOpTy = getWidenedType(OpTy, VF);
     Type *CmpTy = Type::getInt1Ty(*(Plan->getLLVMContext()));
     Type *VecCmpTy =
         getWidenedType(CmpTy, cast<VectorType>(VecOpTy)->getNumElements());
 
-    unsigned CmpCost = VPTTI.getCmpSelInstrCost(Instruction::ICmp, VecOpTy);
-    unsigned SelectCost =
+    VPInstructionCost CmpCost =
+      VPTTI.getCmpSelInstrCost(Instruction::ICmp, VecOpTy);
+    VPInstructionCost SelectCost =
         VPTTI.getCmpSelInstrCost(Instruction::Select, VecOpTy, VecCmpTy);
     return CmpCost + SelectCost;
   }
@@ -581,10 +581,11 @@ unsigned VPlanTTICostModel::getTTICostForVF(
     Type *OpTy = VPInst->getOperand(0)->getType();
     Type *VecSrcTy = getWidenedType(OpTy, VF);
     Type *DestTy = IntegerType::get(VPInst->getType()->getContext(), VF);
-    unsigned CastCost =
-        VPTTI.getCastInstrCost(Instruction::BitCast, DestTy, VecSrcTy,
-                               TTI::CastContextHint::None);
-    unsigned CmpCost = VPTTI.getCmpSelInstrCost(Instruction::ICmp, DestTy);
+    VPInstructionCost CastCost =
+      VPTTI.getCastInstrCost(Instruction::BitCast, DestTy, VecSrcTy,
+                             TTI::CastContextHint::None);
+    VPInstructionCost CmpCost =
+      VPTTI.getCmpSelInstrCost(Instruction::ICmp, DestTy);
     return CastCost + CmpCost;
   }
 
@@ -636,7 +637,7 @@ unsigned VPlanTTICostModel::getTTICostForVF(
     if (!Ty)
       Ty = VPInst->getOperand(1)->getCMType();
     if (!Ty)
-      return UnknownCost;
+      return VPInstructionCost::getUnknown();
 
     Type *VectorTy = getWidenedType(Ty, VF);
     return VPTTI.getCmpSelInstrCost(Opcode, VectorTy);
@@ -646,19 +647,19 @@ unsigned VPlanTTICostModel::getTTICostForVF(
     // can have 4 operands. This is obviously wrong and is not related to the
     // cost modeling. Skip such cases.
     if (VPInst->getNumOperands() != 3)
-      return UnknownCost;
+      return VPInstructionCost::getUnknown();
 
     Type *CondTy = VPInst->getOperand(0)->getCMType();
     Type *OpTy = VPInst->getOperand(1)->getCMType();
 
     // FIXME: Remove once VPValue is known to always have type.
     if (!CondTy)
-      return UnknownCost;
+      return VPInstructionCost::getUnknown();
 
     if (!OpTy)
       OpTy = VPInst->getOperand(2)->getCMType();
     if (!OpTy)
-      return UnknownCost;
+      return VPInstructionCost::getUnknown();
 
     Type *VecCondTy = getWidenedType(CondTy, VF);
 
@@ -674,12 +675,12 @@ unsigned VPlanTTICostModel::getTTICostForVF(
        *  %15.1 = extractvalue <STy> %15, 0
        *  %16.1 = extractvalue <STy> %16, 0
        */
-      unsigned SelectCost = 0;
-      unsigned ExtractCost = 0;
+      VPInstructionCost SelectCost = 0, ExtractCost = 0;
       if (StructType *STy = dyn_cast<StructType>(OpTy)) {
         // Cost of extracting cond from vec cond
         for(unsigned Idx = 0; Idx < VF; Idx++)
-          ExtractCost += VPTTI.getVectorInstrCost(Instruction::ExtractElement, VecCondTy, Idx);
+          ExtractCost += VPTTI.getVectorInstrCost(
+            Instruction::ExtractElement, VecCondTy, Idx);
 
         /* Cost of single select instruction with struct type operands
          * Here the cost is calculated based on the assumption that all fields
@@ -690,8 +691,8 @@ unsigned VPlanTTICostModel::getTTICostForVF(
          */
         for (auto *EltTy : STy->elements()) {
           // TODO: Handle complex struct types.
-          // getCostImpl skips instructions with UnknownCost, so we will follow the same logic
-          // here.
+          // getCostImpl skips instructions with UnknownCost, so we will
+          // follow the same logic here.
           if(!isVectorizableTy(EltTy)) continue;
           SelectCost += VPTTI.getCmpSelInstrCost(Opcode, EltTy, CondTy);
         }
@@ -700,7 +701,7 @@ unsigned VPlanTTICostModel::getTTICostForVF(
         // where n = VF
         return ExtractCost + VF * SelectCost;
       }
-      return UnknownCost;
+      return VPInstructionCost::getUnknown();
     }
 
     Type *VecOpTy = getWidenedType(OpTy, VF);
@@ -721,7 +722,7 @@ unsigned VPlanTTICostModel::getTTICostForVF(
     Type *BaseSrcTy = VPInst->getOperand(0)->getCMType();
 
     if (!BaseDstTy || !BaseSrcTy)
-      return UnknownCost;
+      return VPInstructionCost::getUnknown();
 
     assert(!BaseDstTy->isAggregateType() && "Unexpected aggregate type!");
 
@@ -741,7 +742,7 @@ unsigned VPlanTTICostModel::getTTICostForVF(
     // Calls that construct/destruct non-POD private memory are not expected to
     // have any underlying CallInst. Return UnknownCost for such cases.
     if (!CI)
-      return UnknownCost;
+      return VPInstructionCost::getUnknown();
     Intrinsic::ID ID = getIntrinsicForCallSite(*CI, TLI);
 
     // If call is expected to be vectorized using SVML then obtain alternate
@@ -760,7 +761,7 @@ unsigned VPlanTTICostModel::getTTICostForVF(
     }
 
     if (ID == Intrinsic::not_intrinsic)
-      return UnknownCost;
+      return VPInstructionCost::getUnknown();
 
     return getIntrinsicInstrCost(ID, VPCall, VF);
   }
@@ -856,11 +857,12 @@ unsigned VPlanTTICostModel::getTTICostForVF(
     // And we don't need to apply any heuristics on the code inside the region.
     // The code has to be adjusted once the assumption doesn't hold anymore.
     auto *VPConflict = cast<VPGeneralMemOptConflict>(VPInst);
-    unsigned Cost = 0;
+    VPInstructionCost Cost = 0;
     for (const VPBasicBlock *RegionBlk : VPConflict->getRegion()->getBBs())
       for (const VPInstruction &RegionInst : *RegionBlk) {
-        unsigned InstCost = VPlanTTICostModel::getTTICostForVF(&RegionInst, VF);
-        if (InstCost == UnknownCost)
+        VPInstructionCost InstCost =
+          VPlanTTICostModel::getTTICostForVF(&RegionInst, VF);
+        if (InstCost.isUnknown())
           continue;
         Cost += InstCost;
       }

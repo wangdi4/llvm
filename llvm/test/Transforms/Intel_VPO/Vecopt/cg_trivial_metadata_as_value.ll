@@ -42,7 +42,7 @@ define void @mod_gauss_hermite_mp_derquadgausshermite_(double* %ptr, double %T_f
 ; HIR-NEXT:                  |   %serial.temp = insertelement %serial.temp,  %llvm.experimental.constrained.fmul.f642,  1;
 ; HIR-NEXT:                  + END LOOP
 ; HIR-NEXT:               }
-; HIR-LABEL:               + DO i1 = 2 * %tgu, smax(0, %N), 1   <DO_LOOP>  <MAX_TC_EST = 1> <nounroll> <novectorize> <max_trip_count = 1>
+; HIR-LABEL:               + DO i1 = 2 * %tgu, smax(0, %N), 1   <DO_LOOP>  <MAX_TC_EST = 1>   <LEGAL_MAX_TC = 1> <nounroll> <novectorize> <max_trip_count = 1>
 ; HIR-NEXT:               |   %"mod_gauss_hermite_mp_h2d_[][]_fetch" = (%ptr)[i1];
 ; HIR-NEXT:               |   %mul = @llvm.experimental.constrained.fmul.f64(%"mod_gauss_hermite_mp_h2d_[][]_fetch",  %T_fetch,  !"round.dynamic",  !"fpexcept.strict");
 ; HIR-NEXT:               + END LOOP

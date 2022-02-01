@@ -17,7 +17,7 @@
 ; INPUT:           |   + Innermost: Yes
 ; INPUT:           |   + LiveIn symbases: 8, 12
 ; INPUT:           |   + LiveOut symbases: 3
-; INPUT:           |   + DO i64 i2 = 0, -1 * i1 + 62, 1   <DO_LOOP>  <MAX_TC_EST = 63>
+; INPUT:           |   + DO i64 i2 = 0, -1 * i1 + 62, 1   <DO_LOOP>  <MAX_TC_EST = 63>   <LEGAL_MAX_TC = 63>
 ; INPUT:           |   |   %2 = (%zo)[0][i2 + 1][0];
 ; INPUT:           |   |   if (%2 == 0)
 ; INPUT:           |   |   {
@@ -109,7 +109,7 @@ define dso_local i32 @main() local_unnamed_addr {
 ; CHECK:              |      <RVAL-REG> NON-LINEAR <4 x i32> %nz.061 {sb:3}
 ; CHECK:              |      %phi.temp2 = -1;
 ; CHECK:              |
-; CHECK:              |      + DO i64 i2 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 15> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:              |      + DO i64 i2 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 15>   <LEGAL_MAX_TC = 15> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK:              |      |   %.vec7 = undef;
 ; CHECK:              |      |   %.vec = (<4 x i32>*)(%zo)[0][i2 + <i64 0, i64 1, i64 2, i64 3> + 1][0];
 ; CHECK:              |      |   %.vec4 = %.vec == 0;

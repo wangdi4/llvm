@@ -64,6 +64,37 @@ static cl::opt<OptReportOptions::OptReportEmitterKind, true> OptReportEmitter(
                    "Optimization reports are emitted at the end of "
                    "MIR processing")));
 
+/// Internal option for setting opt-report output file.
+static cl::opt<std::string> OptReportFile(
+    "intel-loop-optreport-file",
+    cl::desc("What file to write opt-report output to. Special values include "
+             "'stdout' which writes opt-report to stdout and 'stderr' which "
+             "writes to stderr. Default is 'stderr'."),
+    cl::init("stderr"));
+
+formatted_raw_ostream &OptReportOptions::getOutputStream() {
+
+  // Use stdout and stderr if requested.
+  if (OptReportFile == "stdout")
+    return fouts();
+  if (OptReportFile == "stderr")
+    return ferrs();
+
+  // Attempt to open the specified file; fall back to stderr if that fails.
+  static std::error_code Error;
+  static raw_fd_ostream File{OptReportFile, Error};
+  if (Error) {
+    ferrs() << "warning #13022: could not open file '" << OptReportFile
+            << "' for optimization report output, reverting to stdout\n";
+    OptReportFile = "stdout";
+    return getOutputStream();
+  }
+
+  // If opening the file succeeded, use it for opt-report output.
+  static formatted_raw_ostream FormattedFile{File};
+  return FormattedFile;
+}
+
 char OptReportOptionsPass::ID = 0;
 INITIALIZE_PASS(OptReportOptionsPass, "optimization-report-options-pass",
                 "Optimization report options pass", false, true)

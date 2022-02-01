@@ -2932,6 +2932,13 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
   Type *ElemTy = nullptr;
   std::tie(ElemTy, NumElems, std::ignore) = VPOParoptUtils::getItemInfo(RedI);
   bool IsArraySection = RedI->getIsArraySection() || ElemTy->isArrayTy();
+  // NOTE: this is required to get proper NumElements since
+  // getItemInfo isn't currently able to that for array section items
+  // not represented with ARRSECT modifier (typically full-sized arrsecs)
+  // and hence not satisfying RedI->isArraySection() condition
+  if (ElemTy->isArrayTy())
+    std::tie(std::ignore, NumElems, std::ignore) =
+      genPrivAggregatePtrInfo(ElemTy, NumElems, RedI->getNew(), Builder);
   bool GenTreeUpdate =
       AtomicFreeRedLocalBufSize > 0 &&
       (!IsArraySection || (NumElems && isa<ConstantInt>(NumElems)));
@@ -3141,8 +3148,11 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
 
   if (GenTreeUpdate) {
     Builder.SetInsertPoint(UpdateBB->getFirstNonPHI());
+    auto *NumElemsCasted =
+        IsArraySection ? Builder.CreateZExtOrTrunc(NumElems, IVPhi->getType())
+                       : NumElems;
     auto *LocalPtrOffset =
-        IsArraySection ? Builder.CreateMul(NumElems, IVPhi) : IVPhi;
+        IsArraySection ? Builder.CreateMul(NumElemsCasted, IVPhi) : IVPhi;
     auto *LocalPtrPlus = Builder.CreateInBoundsGEP(
         RedStore->getOperand(0)->getType(), LocalPtr, LocalPtrOffset);
     Rhs2->setOperand(0, LocalPtrPlus);

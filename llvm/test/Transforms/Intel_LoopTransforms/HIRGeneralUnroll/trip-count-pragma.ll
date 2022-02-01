@@ -3,16 +3,16 @@
 
 ; Verify that we update min/max/avg trip count pragma when unrolling.
 
-; CHECK: + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100> <min_trip_count = 10> <avg_trip_count = 55> <max_trip_count = 100>
+; CHECK: + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>   <LEGAL_MAX_TC = 100> <min_trip_count = 10> <avg_trip_count = 55> <max_trip_count = 100>
 ; CHECK: + END LOOP
 
 ; CHECK: REGION { modified }
 ; CHECK: %tgu = (sext.i32.i64(%n))/u8;
 
-; CHECK: + DO i1 = 0, %tgu + -1, 1   <DO_LOOP> <MAX_TC_EST = 12> <nounroll> <min_trip_count = 1> <avg_trip_count = 6> <max_trip_count = 12>
+; CHECK: + DO i1 = 0, %tgu + -1, 1   <DO_LOOP> <MAX_TC_EST = 12>   <LEGAL_MAX_TC = 12> <nounroll> <min_trip_count = 1> <avg_trip_count = 6> <max_trip_count = 12>
 ; CHECK: + END LOOP
 
-; CHECK: + DO i1 = 8 * %tgu, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 7> <nounroll> <max_trip_count = 7>
+; CHECK: + DO i1 = 8 * %tgu, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 7>   <LEGAL_MAX_TC = 7> <nounroll> <max_trip_count = 7>
 ; CHECK: + END LOOP
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

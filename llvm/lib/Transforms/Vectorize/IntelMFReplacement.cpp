@@ -374,6 +374,11 @@ char MathLibraryFunctionsReplacementLegacyPass::ID = 0;
 PreservedAnalyses
 MathLibraryFunctionsReplacementPass::run(Function &F,
                                          FunctionAnalysisManager &AM) {
+  // Return without any change if instruction to function replacement is
+  // disabled.
+  if (DisableMFReplacement)
+    return PreservedAnalyses::all();
+
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   MathLibraryFunctionsReplacement G(DT);
   // Update the last parameter if the new PM is enabled with bisection.

@@ -23,6 +23,7 @@
 
 #include "llvm/Analysis/Intel_OptReport/OptReport.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportPrintUtils.h"
 
 #if INTEL_FEATURE_CSA
@@ -144,7 +145,7 @@ bool OptReportEmitter::run(Function &F, LoopInfo &LI) {
       return false;
 #endif // INTEL_FEATURE_CSA
 
-  formatted_raw_ostream OS(dbgs());
+  formatted_raw_ostream &OS = OptReportOptions::getOutputStream();
   OS << "Global optimization report for : " << F.getName() << "\n";
 
   // First check that there are attached reports to the function itself.

@@ -28,7 +28,7 @@
 ; CHECK:                  %and = extractelement %.vec,  1;
 ; CHECK-NEXT:          }
 
-; CHECK:               + DO i1 = 2 * %tgu, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1> <nounroll> <novectorize> <max_trip_count = 1>
+; CHECK:               + DO i1 = 2 * %tgu, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1>   <LEGAL_MAX_TC = 1> <nounroll> <novectorize> <max_trip_count = 1>
 ; CHECK-NEXT:          |   %and = %uni1  &  127;
 ; CHECK-NEXT:          + END LOOP
 ; CHECK-NEXT:    END REGION

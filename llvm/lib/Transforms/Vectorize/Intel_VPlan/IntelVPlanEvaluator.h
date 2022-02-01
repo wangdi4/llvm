@@ -25,6 +25,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANEVALUATOR_H
 
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/InstructionCost.h"
 #include "llvm/Support/raw_ostream.h"
 #include <utility>
 
@@ -48,7 +49,7 @@ class LoopVectorizationPlanner;
 
 class VPlanEvaluator {
 public:
-  VPlanEvaluator(LoopVectorizationPlanner &P, unsigned ScalarCst,
+  VPlanEvaluator(LoopVectorizationPlanner &P, VPInstructionCost ScalarCst,
                  const TargetLibraryInfo *TLI, const TargetTransformInfo *TTI,
                  const DataLayout *DL, VPlanVLSAnalysis *VLSA)
       : Planner(P), ScalarIterCost(ScalarCst), TLI(TLI), TTI(TTI), DL(DL),
@@ -56,11 +57,11 @@ public:
 
 protected:
   // Calculates the cost of VPlan, without calculating peel/remainder cost. If
-  // there is not a VPlan, returns UINT_MAX.
-  unsigned calculatePlanCost(unsigned VF, VPlanVector *Plan);
+  // there is not a VPlan, returns MAX cost.
+  VPInstructionCost calculatePlanCost(unsigned VF, VPlanVector *Plan);
 
   LoopVectorizationPlanner &Planner;
-  unsigned ScalarIterCost;
+  VPInstructionCost ScalarIterCost;
   const TargetLibraryInfo *TLI;
   const TargetTransformInfo *TTI;
   const DataLayout *DL;
@@ -74,7 +75,7 @@ protected:
 /// count calculation and run-time checks.
 class VPlanPeelEvaluator : public VPlanEvaluator {
 public:
-  VPlanPeelEvaluator(LoopVectorizationPlanner &P, unsigned ScalarCst,
+  VPlanPeelEvaluator(LoopVectorizationPlanner &P, VPInstructionCost ScalarCst,
                      const TargetLibraryInfo *TLI,
                      const TargetTransformInfo *TTI, const DataLayout *DL,
                      VPlanVLSAnalysis *VLSA, unsigned MainLoopVF,
@@ -94,7 +95,7 @@ public:
 
   void dump() const { dump(dbgs()); }
 
-  unsigned getLoopCost() const { return LoopCost; }
+  VPInstructionCost getLoopCost() const { return LoopCost; }
 
   // Returns the trip count of the best peel kind.
   unsigned getTripCount() const { return PeelTC; }
@@ -110,7 +111,7 @@ public:
 
 private:
   PeelLoopKind PeelKind = PeelLoopKind::None;
-  unsigned LoopCost = 0;
+  VPInstructionCost LoopCost = 0;
   unsigned PeelTC = 0;
   unsigned MainLoopVF = 0;
   VPlanPeelingVariant *PeelingVariant = nullptr;
@@ -119,7 +120,7 @@ private:
 
   // TODO : Calculate cost of peel count calculation and all run-time checks.
   // std::vector<VPRTCheck *> RTChecks;
-  /* unsigned calculatePeelChecksCost(unsigned MainLoopVF); */
+  /* VPInstructionCost calculatePeelChecksCost(unsigned MainLoopVF); */
 };
 
 /// Helper class to evaluate remainder variants.
@@ -129,7 +130,8 @@ private:
 /// future, it will calculate the overhead of run-time checks.
 class VPlanRemainderEvaluator : public VPlanEvaluator {
 public:
-  VPlanRemainderEvaluator(LoopVectorizationPlanner &P, unsigned ScalarCst,
+  VPlanRemainderEvaluator(LoopVectorizationPlanner &P,
+                          VPInstructionCost ScalarCst,
                           const TargetLibraryInfo *TLI,
                           const TargetTransformInfo *TTI, const DataLayout *DL,
                           VPlanVLSAnalysis *VLSA, unsigned OrigTC,
@@ -164,7 +166,7 @@ public:
 
   void dump() const { dump(dbgs()); }
 
-  unsigned getLoopCost() const { return LoopCost; }
+  VPInstructionCost getLoopCost() const { return LoopCost; }
 
   unsigned getRemainderVF() const { return RemainderVF; }
 
@@ -184,10 +186,10 @@ public:
 
 private:
   RemainderLoopKind RemainderKind = RemainderLoopKind::Scalar;
-  unsigned LoopCost = 0;
+  VPInstructionCost LoopCost = 0;
   unsigned RemainderVF = 1;
   unsigned PeelTC = 0;
-  unsigned UnMaskedVectorCost = 0;
+  VPInstructionCost UnMaskedVectorCost = 0;
   bool PeelIsDynamic = false;
   unsigned MainLoopVF = 0;
   unsigned MainLoopUF = 0;
@@ -200,7 +202,7 @@ private:
 
   // TODO: Calculate cost of trip count checks.
   // std::vector<VPRTCheck *> RTChecks;
-  // unsigned calculateRTChecksCost(unsigned MainLoopVF);
+  // VPInstructionCost calculateRTChecksCost(unsigned MainLoopVF);
 };
 
 } // namespace vpo

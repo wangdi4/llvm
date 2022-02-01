@@ -465,14 +465,6 @@ private:
 
 } // End namespace loopopt
 
-template <>
-struct DenseMapInfo<loopopt::HLInst *>
-    : public loopopt::DenseHLNodeMapInfo<loopopt::HLInst> {};
-
-template <>
-struct DenseMapInfo<const loopopt::HLInst *>
-    : public loopopt::DenseHLNodeMapInfo<const loopopt::HLInst> {};
-
 } // End namespace llvm
 
 #endif

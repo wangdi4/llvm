@@ -47,7 +47,7 @@ define void @foo(i64* nocapture %ary, i64 %size.inner) {
 ; CHECK-NEXT:        |         + END LOOP
 ; CHECK-NEXT:        |      }
 ; CHECK-NEXT:        |
-; CHECK-NEXT:        |      + DO i2 = 4 * %tgu, %size.inner + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK-NEXT:        |      + DO i2 = 4 * %tgu, %size.inner + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>   <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK-NEXT:        |      |   (%ary)[i2] = i2;
 ; CHECK-NEXT:        |      + END LOOP
 ; CHECK-NEXT:        |

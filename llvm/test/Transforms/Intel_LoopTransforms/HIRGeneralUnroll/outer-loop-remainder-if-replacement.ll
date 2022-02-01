@@ -5,8 +5,8 @@
 
 ; Dump Before-
 
-; CHECK: + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100> <unroll = 2>
-; CHECK: |   + DO i2 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100> <unroll = 2>
+; CHECK: + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>  <LEGAL_MAX_TC = 2147483647> <unroll = 2>
+; CHECK: |   + DO i2 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>  <LEGAL_MAX_TC = 2147483647> <unroll = 2>
 ; CHECK: |   |   (@A)[0][i1 + i2] = i1 + i2;
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
@@ -17,10 +17,10 @@
 
 ; CHECK:   %tgu2 = (sext.i32.i64(%n))/u2;
 
-; CHECK: + DO i1 = 0, %tgu2 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 50> <nounroll>
+; CHECK: + DO i1 = 0, %tgu2 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 50>  <LEGAL_MAX_TC = 1073741823> <nounroll>
 ; CHECK: |   %tgu = (sext.i32.i64(%n))/u2;
 ; CHECK: |
-; CHECK: |   + DO i2 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 50> <nounroll>
+; CHECK: |   + DO i2 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 50>  <LEGAL_MAX_TC = 1073741823> <nounroll>
 ; CHECK: |   |   (@A)[0][2 * i1 + 2 * i2] = 2 * i1 + 2 * i2;
 ; CHECK: |   |   (@A)[0][2 * i1 + 2 * i2 + 1] = 2 * i1 + 2 * i2 + 1;
 ; CHECK: |   + END LOOP
@@ -31,7 +31,7 @@
 ; CHECK: |   }
 ; CHECK: |   %tgu = (sext.i32.i64(%n))/u2;
 ; CHECK: |
-; CHECK: |   + DO i2 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 50> <nounroll>
+; CHECK: |   + DO i2 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 50>  <LEGAL_MAX_TC = 1073741823> <nounroll>
 ; CHECK: |   |   (@A)[0][2 * i1 + 2 * i2 + 1] = 2 * i1 + 2 * i2 + 1;
 ; CHECK: |   |   (@A)[0][2 * i1 + 2 * i2 + 2] = 2 * i1 + 2 * i2 + 2;
 ; CHECK: |   + END LOOP
@@ -46,7 +46,7 @@
 ; CHECK: {
 ; CHECK:   %tgu = (sext.i32.i64(%n))/u2;
 
-; CHECK:   + DO i1 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 50> <nounroll>
+; CHECK:   + DO i1 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 50>  <LEGAL_MAX_TC = 1073741823> <nounroll>
 ; CHECK:   |   (@A)[0][2 * i1 + 2 * %tgu2] = 2 * i1 + (2 * %tgu2);
 ; CHECK:   |   (@A)[0][2 * i1 + 2 * %tgu2 + 1] = 2 * i1 + (2 * %tgu2) + 1;
 ; CHECK:   + END LOOP

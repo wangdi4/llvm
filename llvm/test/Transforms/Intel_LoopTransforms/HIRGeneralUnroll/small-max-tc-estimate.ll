@@ -3,7 +3,7 @@
 
 ; Check that the loop is not unrolled due to small max trip count estimate.
 
-; CHECK: + DO i1 = 0, %SRIndex.185 + -1 * smin(0, (-1 + %SRIndex.185)) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 8> <nounroll>
+; CHECK: + DO i1 = 0, %SRIndex.185 + -1 * smin(0, (-1 + %SRIndex.185)) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 8>  <LEGAL_MAX_TC = 32768> <nounroll>
 ; CHECK: |   %0 = (%ShiftRegister)[0][-1 * i1 + %N + -1];
 ; CHECK: |   (%ShiftRegister)[0][-1 * i1 + %N] = %0;
 ; CHECK: + END LOOP
