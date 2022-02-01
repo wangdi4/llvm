@@ -600,19 +600,20 @@ static HLNode *getInsertionNodeForIf(RegDDRef *Src, DDRef *Dst,
     return FirstNode;
   }
 
-  // Find equivalent HLIf parent for both Src and Dst. In some cases the Dst
-  // can be in nested If nodes, so we traverse up the parent chain. Note that
-  // we do not handle cases where the Src is at a deeper if nest than the Dst.
-  // We assume that the incoming HIR does not assign the same temps in that
-  // case.
+  // Find equivalent HLIf parent for both Src and Dst. The Dst may be at a
+  // deeper if nesting than the src, so we traverse up the Dst parent chain.
+  // If there is a deeper nesting, also track the then/else path so we can
+  // match with the Src. Note that Dst is detached HIR at this time.
   bool FoundEqualIf = false;
   HLNode *DstNodeParent = cast<HLNode>(DstParent);
+  HLIf *DstPathIf = nullptr;
   while (DstNodeParent && isa<HLIf>(DstNodeParent)) {
     DstParent = cast<HLIf>(DstNodeParent);
     if (HLNodeUtils::areEqualConditions(SrcParent, DstParent)) {
       FoundEqualIf = true;
       break;
     }
+    DstPathIf = DstParent;
     DstNodeParent = DstNodeParent->getParent();
   }
 
@@ -631,8 +632,11 @@ static HLNode *getInsertionNodeForIf(RegDDRef *Src, DDRef *Dst,
   };
 
   bool SrcPath = SrcParent->isThenChild(Src->getHLDDNode());
-  // DstPath is detached so we need to manually iterate the nodes
-  bool DstPath = isNodeInThenPath(DstParent, Dst->getHLDDNode());
+  // Use DstPathIf that we saved earlier as it is the direct child of the If
+  // node where the original Ref is defined. DstPath is detached so we need to
+  // manually iterate the nodes
+  bool DstPath =
+      isNodeInThenPath(DstParent, DstPathIf ? DstPathIf : Dst->getHLDDNode());
 
   if (SrcPath != DstPath) {
     return FirstNode;
@@ -728,18 +732,13 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
             Cand.SrcRefs.push_back(SrcRegRef);
           }
 
-          HLNode *FirstNode =
-              getInsertionNodeForIf(SrcRegRef, DstRef, Chunks[J].front());
-
           //  Loading is needed once per loop
           if (SymbaseLoopSet.count({SB, J})) {
-            // Revert to the default Chunk if we see this dependency with
-            // different insertion nodes
-            if (FirstNode != Cand.DstRefs.back().FirstNode) {
-              Cand.DstRefs.back().FirstNode = Chunks[J].front();
-            }
             continue;
           }
+
+          HLNode *FirstNode =
+              getInsertionNodeForIf(SrcRegRef, DstRef, Chunks[J].front());
 
           // Push first ref in J group, this is where SrcRegRef should be loaded
           // or recomputed, once per group J.
