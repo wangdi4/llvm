@@ -100,7 +100,7 @@ int main() {
 // CHECK-SAME: %"struct.cl::sycl::range"* noundef byval{{.*}}align 4 [[ACC_RANGE2:%[a-zA-Z0-9_]+_6]],
 // CHECK-SAME: %"struct.cl::sycl::range"* noundef byval{{.*}}align 4 [[MEM_RANGE2:%[a-zA-Z0-9_]+_7]],
 // CHECK-SAME: %"struct.cl::sycl::id"* noundef byval{{.*}}align 4 [[OFFSET2:%[a-zA-Z0-9_]+_8]])
-// CHECK-SAME: !kernel_arg_runtime_aligned !5
+// CHECK-SAME: !kernel_arg_buffer_location !5 !kernel_arg_runtime_aligned !6
 
 // Check kernel_readOnlyAcc parameters
 // CHECK: define {{.*}}spir_kernel void @{{.*}}kernel_readOnlyAcc
@@ -108,7 +108,7 @@ int main() {
 // CHECK-SAME: %"struct.cl::sycl::range"* noundef byval{{.*}}align 4 [[ACC_RANGE1:%[a-zA-Z0-9_]+_1]],
 // CHECK-SAME: %"struct.cl::sycl::range"* noundef byval{{.*}}align 4 [[MEM_RANGE1:%[a-zA-Z0-9_]+_2]],
 // CHECK-SAME: %"struct.cl::sycl::id"* noundef byval{{.*}}align 4 [[OFFSET1:%[a-zA-Z0-9_]+_3]]
-// CHECK-SAME: !kernel_arg_runtime_aligned !14
+// CHECK-SAME: !kernel_arg_buffer_location !14 !kernel_arg_runtime_aligned !15
 
 // Check kernel_B parameters
 // CHECK: define {{.*}}spir_kernel void @{{.*}}kernel_B
@@ -130,7 +130,7 @@ int main() {
 // CHECK-SAME: %"struct.cl::sycl::range.5"* noundef byval{{.*}}align 4 [[ACC_RANGE1:%[a-zA-Z0-9_]+_1]],
 // CHECK-SAME: %"struct.cl::sycl::range.5"* noundef byval{{.*}}align 4 [[MEM_RANGE1:%[a-zA-Z0-9_]+_2]],
 // CHECK-SAME: %"struct.cl::sycl::id.6"* noundef byval{{.*}}align 4 [[OFFSET1:%[a-zA-Z0-9_]+_3]]
-// CHECK-SAME: !kernel_arg_runtime_aligned !14
+// CHECK-SAME: !kernel_arg_buffer_location !14 !kernel_arg_runtime_aligned !15
 
 // Check kernel_acc_raw_ptr parameters
 // CHECK: define {{.*}}spir_kernel void @{{.*}}kernel_acc_raw_ptr
@@ -148,6 +148,6 @@ int main() {
 // Check kernel-arg-runtime-aligned metadata.
 // The value of any metadata element is 1 for any kernel arguments
 // that corresponds to the base pointer of an accessor and 0 otherwise.
-// CHECK: !5 = !{i1 true, i1 false, i1 false, i1 false, i1 true, i1 false, i1 false, i1 false}
-// CHECK: !14 = !{i1 true, i1 false, i1 false, i1 false}
+// CHECK: !6 = !{i1 true, i1 false, i1 false, i1 false, i1 true, i1 false, i1 false, i1 false}
+// CHECK: !15 = !{i1 true, i1 false, i1 false, i1 false}
 // CHECK: !26 = !{i1 true, i1 false, i1 false, i1 false, i1 false}
