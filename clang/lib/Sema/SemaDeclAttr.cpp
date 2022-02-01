@@ -3478,27 +3478,12 @@ static void handleOpenCLDepthAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
     return;
   }
 
-<<<<<<< HEAD
   llvm::APSInt Depth = Result.Val.getInt();
   int DepthVal = Depth.getExtValue();
   if (DepthVal < 0) {
     S.Diag(Attr.getLoc(), diag::warn_attribute_argument_n_negative)
         << Attr << "0";
     return;
-=======
-  TargetInfo::BranchProtectionInfo BPI;
-  StringRef DiagMsg;
-  if (ParsedAttrs.BranchProtection.empty())
-    return false;
-  if (!Context.getTargetInfo().validateBranchProtection(
-          ParsedAttrs.BranchProtection, ParsedAttrs.Architecture, BPI,
-          DiagMsg)) {
-    if (DiagMsg.empty())
-      return Diag(LiteralLoc, diag::warn_unsupported_target_attribute)
-             << Unsupported << None << "branch-protection" << Target;
-    return Diag(LiteralLoc, diag::err_invalid_branch_protection_spec)
-           << DiagMsg;
->>>>>>> 1f08b0867412d5696ed624a2da78bdba2cc672c3
   }
 
   D->addAttr(::new (S.Context) OpenCLDepthAttr(S.Context, Attr, DepthVal));
@@ -5108,7 +5093,8 @@ bool Sema::checkTargetAttr(SourceLocation LiteralLoc, StringRef AttrStr) {
   if (ParsedAttrs.BranchProtection.empty())
     return false;
   if (!Context.getTargetInfo().validateBranchProtection(
-          ParsedAttrs.BranchProtection, BPI, DiagMsg)) {
+          ParsedAttrs.BranchProtection, ParsedAttrs.Architecture, BPI,
+          DiagMsg)) {
     if (DiagMsg.empty())
       return Diag(LiteralLoc, diag::warn_unsupported_target_attribute)
              << Unsupported << None << "branch-protection" << Target;
