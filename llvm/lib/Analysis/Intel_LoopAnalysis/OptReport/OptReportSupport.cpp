@@ -272,6 +272,10 @@ static const DenseMap<unsigned, opt_report_proto::BinOptReport::Property>
         {15305, opt_report_proto::BinOptReport::C_LOOP_VEC_VL},
         {25508, opt_report_proto::BinOptReport::C_LOOP_COMPLETE_UNROLL},
         {25436, opt_report_proto::BinOptReport::C_LOOP_COMPLETE_UNROLL_FACTOR},
+        {25439, opt_report_proto::BinOptReport::C_LOOP_UNROLL_WITH_REMAINDER},
+        {25438,
+         opt_report_proto::BinOptReport::C_LOOP_UNROLL_WITHOUT_REMAINDER},
+        {25540, opt_report_proto::BinOptReport::C_LOOP_UNROLL_AND_JAM},
 };
 #endif // INTEL_ENABLE_PROTO_BIN_OPTRPT
 
