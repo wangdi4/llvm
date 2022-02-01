@@ -24,12 +24,7 @@ if (NOT TARGET LLVMGenXIntrinsics)
       # default repo path for public xmain builds, not using ICS
       set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel-innersource)
       set(LLVMGenXIntrinsics_GIT_REPO_NAME applications.compilers.source.vc-intrinsics.git)
-
-      # Author:     Aleksander Us <aleksander.us@intel.com>
-      # AuthorDate: Mon Oct 18 18:03:24 2021 +0000
-      # Commit:     Alexander Us <aleksander.us@intel.com>
-      #     Wrap arg_size for call instructions
-      set(LLVMGenXIntrinsics_GIT_TAG 6a7e93d3d90638b6565d97cef96ffaf0f77d688c)
+      set(LLVMGenXIntrinsics_GIT_TAG d2f78f24314cd5aad1f633042cf5ae49b0ecdb24)
 
       # Determine if the build is embargo and provide specific settings.
       set(IS_INTERNAL_ESIMD_BUILD FALSE)
@@ -39,11 +34,7 @@ if (NOT TARGET LLVMGenXIntrinsics)
       if (IS_INTERNAL_ESIMD_BUILD)
         # override git repo name and tag for the internal ESIMD EMBARGO build
         set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
-
-        # Author: Dmitry Bushev <dmitry.bushev@intel.com>
-        # Date:   Mon Nov 1 15:23:45 2021 +0300
-        #    Fixed SPIRVWriterAdaptor pass not adding attribute on address convert intrinsic (#143)
-        set(LLVMGenXIntrinsics_GIT_TAG 10163a5d7ed1a0d6f01a5d3dc432660ed486fb86)
+        set(LLVMGenXIntrinsics_GIT_TAG 5a8e6e7dba8177c7045e1385273fd61c0a72ed46)
 
         add_compile_definitions(__INTEL_EMBARGO__)
         # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is
@@ -66,9 +57,6 @@ if (NOT TARGET LLVMGenXIntrinsics)
       endif ()
 
       # Construct GIT_REPO from from GIT_REPO_PATH and GIT_REPO_NAME.
-      set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel)
-      set(LLVMGenXIntrinsics_GIT_REPO_NAME vc-intrinsics.git)
-      set(LLVMGenXIntrinsics_GIT_TAG dpcpp_staging)
       set( LLVMGenXIntrinsics_GIT_REPO
         ${LLVMGenXIntrinsics_GIT_REPO_PATH}/${LLVMGenXIntrinsics_GIT_REPO_NAME} )
     endif (INTEL_CUSTOMIZATION)
