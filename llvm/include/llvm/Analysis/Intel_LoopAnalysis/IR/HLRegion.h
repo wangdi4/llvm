@@ -255,14 +255,6 @@ template <> struct OptReportTraits<loopopt::HLRegion> {
   }
 };
 
-template <>
-struct DenseMapInfo<loopopt::HLRegion *>
-    : public loopopt::DenseHLNodeMapInfo<loopopt::HLRegion> {};
-
-template <>
-struct DenseMapInfo<const loopopt::HLRegion *>
-    : public loopopt::DenseHLNodeMapInfo<const loopopt::HLRegion> {};
-
 } // End namespace llvm
 
 #endif

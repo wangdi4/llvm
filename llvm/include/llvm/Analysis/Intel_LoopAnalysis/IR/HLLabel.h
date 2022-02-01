@@ -87,14 +87,6 @@ public:
 
 } // End namespace loopopt
 
-template <>
-struct DenseMapInfo<loopopt::HLLabel *>
-    : public loopopt::DenseHLNodeMapInfo<loopopt::HLLabel> {};
-
-template <>
-struct DenseMapInfo<const loopopt::HLLabel *>
-    : public loopopt::DenseHLNodeMapInfo<const loopopt::HLLabel> {};
-
 } // End namespace llvm
 
 #endif
