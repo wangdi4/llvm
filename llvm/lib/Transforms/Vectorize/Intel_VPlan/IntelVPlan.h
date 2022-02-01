@@ -4350,6 +4350,12 @@ public:
     return Externals.getVPMetadataAsValue(MD);
   }
 
+  /// Create a new OptReportStatsTracker for VPLoop \p VLp if it doesn't exist
+  /// or retrieve the existing one.
+  OptReportStatsTracker &getOptRptStatsForLoop(const VPLoop *VLp) const {
+    return Externals.getOrCreateOptRptStatsForLoop(VLp);
+  }
+
   /// Clone live-in values from OrigVPlan and add them in LiveInValues.
   void cloneLiveInValues(const VPlan &OrigPlan, VPValueMapper &Mapper);
 
@@ -4849,13 +4855,20 @@ public:
   /// message is identified by \p MsgID.
   template <typename... Args>
   void addRemark(loopopt::HLLoop *Lp, OptReportVerbosity::Level Verbosity,
-                 unsigned MsgID, Args &&...args);
+                 unsigned MsgID, Args &&...args) {
+    ORBuilder(*Lp).addRemark(Verbosity, MsgID, std::forward<Args>(args)...);
+  }
 
   /// Add a vectorization related remark for the LLVM loop \p Lp. The remark
   /// message is identified by \p MsgID.
   template <typename... Args>
   void addRemark(Loop *Lp, OptReportVerbosity::Level Verbosity, unsigned MsgID,
-                 Args &&...args);
+                 Args &&...args) {
+    // For LLVM-IR Loop, LORB needs a valid LoopInfo object
+    assert(LI && "LoopInfo for opt-report builder is null.");
+    ORBuilder(*Lp, *LI).addRemark(Verbosity, MsgID,
+                                  std::forward<Args>(args)...);
+  }
 };
 
 // Several inline functions to hide the #if machinery from the callers.

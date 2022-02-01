@@ -15,6 +15,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_EXTERNALS_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_EXTERNALS_H
 
+#include "IntelVPlanOptrpt.h"
 #include "IntelVPlanValue.h"
 #include "llvm/ADT/MapVector.h"
 
@@ -252,6 +253,11 @@ class VPExternalValues {
   std::map<const Loop *, ScalarInOutList> ScalarLoopsInOut;
   std::map<const loopopt::HLLoop *, ScalarInOutListHIR> ScalarLoopsInOutHIR;
 
+  // Holds opt-report stats tracker created for different VPLoops.
+  // TODO: Drop "mutable" after implementing VPlan statistics collection pass
+  // before CG.
+  mutable DenseMap<const VPLoop *, OptReportStatsTracker> OptRptStatsTrackers;
+
 public:
   VPExternalValues(LLVMContext *Ctx, const DataLayout *L) : DL(L), Context(Ctx) {}
   VPExternalValues(const VPExternalValues &X) = delete;
@@ -442,6 +448,14 @@ public:
     if (It != ScalarLoopsInOutHIR.end())
       return &It->second;
     return nullptr;
+  }
+
+  OptReportStatsTracker &
+  getOrCreateOptRptStatsForLoop(const VPLoop *VLp) const {
+    return OptRptStatsTrackers[VLp];
+  }
+  void setOptRptStatsForLoop(const VPLoop *VLp, OptReportStatsTracker &ORS) {
+    OptRptStatsTrackers[VLp] = ORS;
   }
 
   // Verify that VPConstants are unique in the pool and that the map keys are

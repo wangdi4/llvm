@@ -1791,7 +1791,8 @@ void VPlanCFGMerger::mergeLoopInfo(VPlanVector &P) {
   VPLoopInfo *DestLI = Plan.getVPLoopInfo();
   VPLoopInfo *SrcLI = P.getVPLoopInfo();
 
-  auto CopyLoop = [DestLI, SrcLI](VPLoop *L, VPLoop *ParentL) -> VPLoop * {
+  auto CopyLoop = [DestLI, SrcLI, this](VPLoop *L,
+                                        VPLoop *ParentL) -> VPLoop * {
     VPLoop *NewLoop = DestLI->AllocateLoop();
     if (ParentL)
       ParentL->addChildLoop(NewLoop);
@@ -1800,6 +1801,8 @@ void VPlanCFGMerger::mergeLoopInfo(VPlanVector &P) {
 
     NewLoop->copyHasNormalizedInductionFlag(L);
     NewLoop->setOptReport(L->getOptReport());
+    ExtVals.setOptRptStatsForLoop(NewLoop,
+                                  ExtVals.getOrCreateOptRptStatsForLoop(L));
 
     // Add all of the blocks in L to the new loop.
     for (auto BB : L->getBlocks())

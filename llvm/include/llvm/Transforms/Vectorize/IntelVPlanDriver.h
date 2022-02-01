@@ -130,11 +130,6 @@ protected:
   // Utility to add remarks related to VPlan containing vectorized peel loop.
   void addOptReportRemarksForVecPeel(const CfgMergerPlanDescr &PlanDescr);
 
-  // Add the statistics related remarks collected from CG into given MainVPLoop.
-  template <typename VPOCodeGenType>
-  void addStatsFromCG(VPLoop *MainVPLoop, VPLoopInfo *VPLI,
-                      VPOCodeGenType *VCodeGen);
-
   // Helper utility to populate all needed analyses in VPlans using the provided
   // factory object.
   void populateVPlanAnalyses(LoopVectorizationPlanner &LVP,

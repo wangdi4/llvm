@@ -1056,6 +1056,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     return;
 
   auto *DA = Plan->getVPlanDA();
+  auto &OptRptStats = getOptReportStats(VPInst);
 
   switch (VPInst->getOpcode()) {
   case Instruction::PHI: {
@@ -1228,8 +1229,8 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
       else {
         serializeWithPredication(VPInst);
         // Remark: division was scalarized due to fp-model requirements
-        OptRptStats.SerializedInstRemarks.emplace_back(15566,
-            Instruction::getOpcodeName(VPInst->getOpcode()));
+        OptRptStats.SerializedInstRemarks.emplace_back(
+            15566, Instruction::getOpcodeName(VPInst->getOpcode()));
       }
       return;
     }
@@ -1466,11 +1467,11 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
            SerializationReasonTy::UNDEFINED &&
            "Serialization reason is undefined");
       if (Func == nullptr)
-         OptRptStats.SerializedInstRemarks.emplace_back
-             (15557 + VPCall->getSerialReasonNum(), "");
+        OptRptStats.SerializedInstRemarks.emplace_back(
+            15557 + VPCall->getSerialReasonNum(), "");
       else
-         OptRptStats.SerializedInstRemarks.emplace_back
-             (15557 + VPCall->getSerialReasonNum(), (Func->getName()).str());
+        OptRptStats.SerializedInstRemarks.emplace_back(
+            15557 + VPCall->getSerialReasonNum(), (Func->getName()).str());
       return;
     }
     default:
@@ -2711,12 +2712,12 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPLoadStoreInst *VPLoad,
     if (IsNegOneStride)
       RepMaskValue = reverseVector(RepMaskValue, OriginalVL);
 
-    ++OptRptStats.MaskedUnalignedUnitStrideLoads;
+    ++getOptReportStats(VPLoad).MaskedUnalignedUnitStrideLoads;
     WideLoad =
         Builder.CreateMaskedLoad(WidenedType, VecPtr, Alignment, RepMaskValue,
                                  nullptr, "wide.masked.load");
   } else {
-    ++OptRptStats.UnmaskedUnalignedUnitStrideLoads;
+    ++getOptReportStats(VPLoad).UnmaskedUnalignedUnitStrideLoads;
     WideLoad =
         Builder.CreateAlignedLoad(WidenedType, VecPtr, Alignment, "wide.load");
   }
@@ -2748,7 +2749,7 @@ void VPOCodeGen::vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
   // Loads that are non-vectorizable should be serialized.
   if (!isVectorizableLoadStore(VPLoad)) {
     // Remark: serilalized due to operating on non-vectorizable types
-    OptRptStats.SerializedInstRemarks.emplace_back(15563, "");
+    getOptReportStats(VPLoad).SerializedInstRemarks.emplace_back(15563, "");
     return serializeWithPredication(VPLoad);
   }
 
@@ -2780,7 +2781,8 @@ void VPOCodeGen::vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
                                        "replicatedMaskElts.");
   Value *GatherAddress = getWidenedAddressForScatterGather(Ptr, LoadType);
   Align Alignment = getAlignmentForGatherScatter(VPLoad);
-  ++(RepMaskValue ? OptRptStats.MaskedGathers : OptRptStats.UnmaskedGathers);
+  ++(RepMaskValue ? getOptReportStats(VPLoad).MaskedGathers
+                  : getOptReportStats(VPLoad).UnmaskedGathers);
 
   auto *ScalarPtrTy = cast<PointerType>(GatherAddress->getType()->getScalarType());
   if (ScalarPtrTy->isOpaque()) {
@@ -2829,11 +2831,11 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPLoadStoreInst *VPStore,
     if (IsNegOneStride)
       RepMaskValue = reverseVector(RepMaskValue, OriginalVL);
 
-    ++OptRptStats.MaskedUnalignedUnitStrideStores;
+    ++getOptReportStats(VPStore).MaskedUnalignedUnitStrideStores;
     Store =
         Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, RepMaskValue);
   } else {
-    ++OptRptStats.UnmaskedUnalignedUnitStrideStores;
+    ++getOptReportStats(VPStore).UnmaskedUnalignedUnitStrideStores;
     Store = Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
   }
 
@@ -2866,7 +2868,7 @@ void VPOCodeGen::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
   // Stores that are non-vectorizable should be serialized.
   if (!isVectorizableLoadStore(VPStore)) {
     // Remark: serilalized due to operating on non-vectorizable types
-    OptRptStats.SerializedInstRemarks.emplace_back(15563, "");
+    getOptReportStats(VPStore).SerializedInstRemarks.emplace_back(15563, "");
     return serializeWithPredication(VPStore);
   }
 
@@ -2916,7 +2918,8 @@ void VPOCodeGen::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
     RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
                                        "replicatedMaskElts.");
   Align Alignment = getAlignmentForGatherScatter(VPStore);
-  ++(RepMaskValue ? OptRptStats.MaskedScatters : OptRptStats.UnmaskedScatters);
+  ++(RepMaskValue ? getOptReportStats(VPStore).MaskedScatters
+                  : getOptReportStats(VPStore).UnmaskedScatters);
 
   auto *ScalarPtrTy = cast<PointerType>(ScatterPtr->getType()->getScalarType());
   if (ScalarPtrTy->isOpaque()) {
@@ -3708,7 +3711,7 @@ void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
     if (MaskValue) {
       serializeWithPredication(VPInst);
       // Remark: masked instruction can't be vectorized
-      OptRptStats.SerializedInstRemarks.emplace_back(15565, "");
+      getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(15565, "");
       return;
     }
 
@@ -3725,7 +3728,7 @@ void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
     }
     VPWidenMap[VPInst] = WideExtract;
     // Remark: instruction was serialized due to non-const index
-    OptRptStats.SerializedInstRemarks.emplace_back(15564, "");
+    getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(15564, "");
     return;
   }
 
@@ -3760,7 +3763,7 @@ void VPOCodeGen::vectorizeInsertElement(VPInstruction *VPInst) {
     if (MaskValue) {
       serializeWithPredication(VPInst);
       // Remark: masked instruction can't be vectorized
-      OptRptStats.SerializedInstRemarks.emplace_back(15565, "");
+      getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(15565, "");
       return;
     }
     Value *WideInsert = InsertTo;
@@ -3778,7 +3781,7 @@ void VPOCodeGen::vectorizeInsertElement(VPInstruction *VPInst) {
     }
     VPWidenMap[VPInst] = WideInsert;
     // Remark: instruction was serialized due to non-const index
-    OptRptStats.SerializedInstRemarks.emplace_back(15564, "");
+    getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(15564, "");
     return;
   }
 
@@ -4650,6 +4653,10 @@ void VPOCodeGen::fixNonInductionVPPhis() {
 
 void VPOCodeGen::lowerRemarksForVectorLoops() {
   auto LowerRemarksForLoop = [this](VPLoop *VPL) {
+    // Emit statistics related remarks for the loop.
+    Plan->getOptRptStatsForLoop(VPL).emitRemarks(
+        ORBuilder, VPL, const_cast<VPLoopInfo *>(Plan->getVPLoopInfo()));
+
     auto OR = VPL->getOptReport();
     if (!OR)
       return;
