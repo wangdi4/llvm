@@ -758,10 +758,10 @@ T tmain()
   // CHECK: [[T1:%[0-9]*]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.LOOP"
   // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"([42 x %struct.S]* %arr,
-  // CHECK-SAME:  void ([42 x %struct.S]*, [42 x %struct.S]*)* [[COMB1:@.omp_combiner..[0-9]*]]
+  // CHECK-SAME:  void (%struct.S*, %struct.S*)* [[COMB1:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: i8* null)
   // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:BYREF"(%struct.S** %var,
-  // CHECK-SAME: void (%struct.S**, %struct.S**)* [[COMB2:@.omp_combiner..[0-9]*]]
+  // CHECK-SAME: void (%struct.S*, %struct.S*)* [[COMB2:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: i8* null)
   // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.S* %var1,
   // CHECK-SAME: void (%struct.S*, %struct.S*)* [[COMB3:@.omp_combiner..[0-9]*]]

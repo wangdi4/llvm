@@ -72,7 +72,7 @@
 ; OPTREPORT-NEXT: LOOP END
 
 ; OPTREPORT:      LOOP BEGIN
-; OPTREPORT-NEXT: <Remainder>{{[[:space:]]}}
+; OPTREPORT-NEXT: <Remainder loop>{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END

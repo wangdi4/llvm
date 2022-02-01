@@ -36,7 +36,7 @@
 ; CHECK: [[M7]] = distinct !{!"intel.optreport.rootnode", [[M8:!.*]]}
 ; CHECK: [[M8]] = distinct !{!"intel.optreport", [[M10:!.*]], [[M12:!.*]]}
 ; CHECK: [[M10]] = !{!"intel.optreport.origin", [[M11:!.*]]}
-; CHECK: [[M11]] = !{!"intel.optreport.remark", i32 0, !"Remainder loop for vectorization"}
+; CHECK: [[M11]] = !{!"intel.optreport.remark", i32 25519, !"Remainder loop for vectorization"}
 ; CHECK: [[M12]] = !{!"intel.optreport.remarks", [[M13:!.*]]}
 ; CHECK: [[M13]] = !{!"intel.optreport.remark", i32 15441, !"remainder loop was not vectorized: %s ", {{.*}}}
 
