@@ -3881,6 +3881,10 @@ pi_result piProgramLink(pi_context Context, pi_uint32 NumDevices,
       return PI_INVALID_DEVICE;
   }
   PI_ASSERT(!PFnNotify && !UserData, PI_INVALID_VALUE);
+<<<<<<< HEAD
+=======
+
+>>>>>>> 1d6116912509b1e7459c149be5fc563ef744cb24
   if (NumInputPrograms == 0 || InputPrograms == nullptr)
     return PI_INVALID_VALUE;
 
@@ -4062,6 +4066,10 @@ pi_result piProgramBuild(pi_program Program, pi_uint32 NumDevices,
   PI_ASSERT(!PFnNotify && !UserData, PI_INVALID_VALUE);
 
   std::scoped_lock Guard(Program->Mutex);
+<<<<<<< HEAD
+=======
+
+>>>>>>> 1d6116912509b1e7459c149be5fc563ef744cb24
   // Check if device belongs to associated context.
   PI_ASSERT(Program->Context, PI_INVALID_PROGRAM);
   {

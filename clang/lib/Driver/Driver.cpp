@@ -6173,6 +6173,9 @@ public:
       if (Action *HA = SB->appendLinkHostActions(DeviceAL))
         LinkerInputs.push_back(HA);
     }
+#if INTEL_CUSTOMIZATION
+    return nullptr;
+#endif // INTEL_CUSTOMIZATION
   }
 
   /// Processes the host linker action. This currently consists of replacing it
