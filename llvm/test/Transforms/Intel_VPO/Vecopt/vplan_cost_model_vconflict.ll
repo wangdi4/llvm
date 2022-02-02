@@ -10,7 +10,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local void @foo1(float* noalias nocapture %A, i32* noalias nocapture readonly %B) local_unnamed_addr {
 ;
-; CHECK-VF1:    Cost 0 for i64 {{.*}} = vpconflict-insn i64 {{.*}}
+; CHECK-VF1:    Cost 1000 for float {{.*}} = vp-general-mem-opt-conflict i64 {{.*}}
 ; CHECK-VF2:    Cost 3000 for i64 {{.*}} = vpconflict-insn i64 {{.*}}
 ; CHECK-VF4:    Cost 15000 for i64 {{.*}} = vpconflict-insn i64 {{.*}}
 ; CHECK-VF8:    Cost 22000 for i64 {{.*}} = vpconflict-insn i64 {{.*}}

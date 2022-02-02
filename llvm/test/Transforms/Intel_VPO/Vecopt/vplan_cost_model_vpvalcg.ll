@@ -133,13 +133,10 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
+; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP_LD_IDX:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP_INDVARS_IV]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for i32 [[VP_LD:%.*]] = load i32* [[VP_LD_IDX]]
 ; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64* [[VP_LD_64_IDX:%.*]] = bitcast i32* [[VP_LD_IDX]]
@@ -188,12 +185,11 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for float* [[VP_FLOAT2_ST_IDX:%.*]] = getelementptr inbounds [1024 x float]* @arr.float.3 i64 0 i64 [[VP_INDVARS_IV]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for store float [[VP_FDIV]] float* [[VP_FLOAT_ST_IDX]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for store float [[VP_FLOAT_SUB_NOFMF]] float* [[VP_FLOAT2_ST_IDX]]
-; VPLAN-CM-VF1-NEXT:    Cost 1000 for i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
+; VPLAN-CM-VF1-NEXT:    Cost 1000 for i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
+; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 1024
+; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF1-NEXT:  [[BB2]]: base cost: 65000
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB3]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]]
@@ -284,13 +280,10 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
@@ -343,12 +336,11 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for store float [[VP30]] float* [[VP_SUBSCRIPT_8]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for float* [[VP_SUBSCRIPT_9:%.*]] = subscript inbounds [1024 x float]* @arr.float.3 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for store float [[VP31]] float* [[VP_SUBSCRIPT_9]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP34:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i64 [[VP1]] = add i64 [[VP0]] i64 1
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP34:%.*]] = icmp slt i64 [[VP1]] i64 1024
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP34]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB2]]: base cost: 71000
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB3]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]]
@@ -630,13 +622,10 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
+; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP_LD_I32_IDX:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP_INDVARS_IV]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for i32 [[VP_LD_I32:%.*]] = load i32* [[VP_LD_I32_IDX]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i8* [[VP_LD_I8_IDX:%.*]] = getelementptr inbounds [1024 x i8]* @arr.i8.1 i64 0 i64 [[VP_INDVARS_IV]]
@@ -676,12 +665,11 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for store float [[VP_UITOFP]] float* [[VP_ST_FLOAT_IDX_1]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for store float [[VP_FEXP]] float* [[VP_ST_FLOAT_IDX_2]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for store double [[VP_DEXP]] double* [[VP_ST_DOUBLE_IDX_2]]
-; VPLAN-CM-VF1-NEXT:    Cost 1000 for i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
+; VPLAN-CM-VF1-NEXT:    Cost 1000 for i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
+; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 1024
+; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF1-NEXT:  [[BB2]]: base cost: 112000
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB3]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]]
@@ -758,13 +746,10 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i8]* @arr.i8.1 i64 0 i64 [[VP0]]
@@ -804,12 +789,11 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for store float [[VP_FEXP]] float* [[VP_SUBSCRIPT_11]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for double* [[VP_SUBSCRIPT_12:%.*]] = subscript inbounds [1024 x double]* @arr.double.3 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for store double [[VP_DEXP]] double* [[VP_SUBSCRIPT_12]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP11:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i64 [[VP1]] = add i64 [[VP0]] i64 1
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP11:%.*]] = icmp slt i64 [[VP1]] i64 1024
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP11]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB2]]: base cost: 112000
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB3]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]]
@@ -1045,13 +1029,10 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
+; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP_LD_IDX:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP_INDVARS_IV]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for i32 [[VP_LD:%.*]] = load i32* [[VP_LD_IDX]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i16 [[VP_TRUNC:%.*]] = trunc i32 [[VP_LD]] to i16
@@ -1066,12 +1047,11 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for float [[VP_UITOFP:%.*]] = uitofp i19 [[VP_FPTOUI_MUL]] to float
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for float* [[VP_FLOAT_ST_IDX:%.*]] = getelementptr inbounds [1024 x float]* @arr.float.1 i64 0 i64 [[VP_INDVARS_IV]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for store float [[VP_UITOFP]] float* [[VP_FLOAT_ST_IDX]]
-; VPLAN-CM-VF1-NEXT:    Cost 1000 for i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
+; VPLAN-CM-VF1-NEXT:    Cost 1000 for i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
+; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 1024
+; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF1-NEXT:  [[BB2]]: base cost: 13000
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB3]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]]
@@ -1123,13 +1103,10 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i16 [[VP2:%.*]] = trunc i32 [[VP_LOAD]] to i16
@@ -1144,12 +1121,11 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for float [[VP11:%.*]] = uitofp i19 [[VP10]] to float
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x float]* @arr.float.1 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for store float [[VP11]] float* [[VP_SUBSCRIPT_1]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP12:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i64 [[VP1]] = add i64 [[VP0]] i64 1
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP12:%.*]] = icmp slt i64 [[VP1]] i64 1024
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP12]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB2]]: base cost: 13000
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB3]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]]
@@ -1318,13 +1294,10 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
+; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP_LD_I32_IDX:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP_INDVARS_IV]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for i32 [[VP_LD_I32:%.*]] = load i32* [[VP_LD_I32_IDX]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP_LD_I32_IDX_2:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.2 i64 0 i64 [[VP_INDVARS_IV]]
@@ -1375,12 +1348,11 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP_ST_I32_IDX:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.4 i64 0 i64 [[VP_INDVARS_IV]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for i32 [[VP_ST_VAL:%.*]] = zext i1 [[VP_RESULT]] to i32
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for store i32 [[VP_ST_VAL]] i32* [[VP_ST_I32_IDX]]
-; VPLAN-CM-VF1-NEXT:    Cost 1000 for i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
+; VPLAN-CM-VF1-NEXT:    Cost 1000 for i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
+; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 1024
+; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF1-NEXT:  [[BB2]]: base cost: 39000
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB3]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]]
@@ -1468,13 +1440,10 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.2 i64 0 i64 [[VP0]]
@@ -1525,12 +1494,11 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i32 [[VP25:%.*]] = zext i1 [[VP24]] to i32
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_12:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.4 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for store i32 [[VP25]] i32* [[VP_SUBSCRIPT_12]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP26:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i64 [[VP1]] = add i64 [[VP0]] i64 1
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP26:%.*]] = icmp slt i64 [[VP1]] i64 1024
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP26]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB2]]: base cost: 39000
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB3]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]]
@@ -1816,13 +1784,10 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
+; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP_LD_I32_IDX:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP_INDVARS_IV]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for i32 [[VP_LD_I32:%.*]] = load i32* [[VP_LD_I32_IDX]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP_LD_I32_IDX_2:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.2 i64 0 i64 [[VP_INDVARS_IV]]
@@ -1847,12 +1812,11 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for double [[VP_SEL_DOUBLE:%.*]] = select i1 [[VP_CMP_DOUBLE_2]] double [[VP_MAX_DOUBLE]] double [[VP_LD_DOUBLE_3]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for double* [[VP_ST_DOUBLE_IDX:%.*]] = getelementptr inbounds [1024 x double]* @arr.double.4 i64 0 i64 [[VP_INDVARS_IV]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for store double [[VP_SEL_DOUBLE]] double* [[VP_ST_DOUBLE_IDX]]
-; VPLAN-CM-VF1-NEXT:    Cost 1000 for i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
+; VPLAN-CM-VF1-NEXT:    Cost 1000 for i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
+; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 1024
+; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF1-NEXT:  [[BB2]]: base cost: 18000
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB3]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]]
@@ -1913,13 +1877,10 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.2 i64 0 i64 [[VP0]]
@@ -1943,12 +1904,11 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for double [[VP8:%.*]] = select i1 [[VP7]] double [[VP6]] double [[VP_LOAD_5]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for double* [[VP_SUBSCRIPT_7:%.*]] = subscript inbounds [1024 x double]* @arr.double.4 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for store double [[VP8]] double* [[VP_SUBSCRIPT_7]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP9:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i64 [[VP1]] = add i64 [[VP0]] i64 1
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP9:%.*]] = icmp slt i64 [[VP1]] i64 1024
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB2]]: base cost: 16000
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB3]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]]
@@ -2135,13 +2095,10 @@ define void @test_total_cost_branch_probabilities(i1 %cond) local_unnamed_addr #
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
+; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[COND_INST0:%.*]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB2]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]]
@@ -2153,12 +2110,11 @@ define void @test_total_cost_branch_probabilities(i1 %cond) local_unnamed_addr #
 ; VPLAN-CM-VF1-NEXT:    Cost Unknown for i32 [[VP_LD_I32:%.*]] = phi  [ i32 [[VP_LD_I32_TRUE]], [[BB4]] ],  [ i32 [[VP_LD_I32_FALSE:%.*]], [[BB5]] ]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP_ST_I32_IDX:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.3 i64 0 i64 [[VP_INDVARS_IV]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for store i32 [[VP_LD_I32]] i32* [[VP_ST_I32_IDX]]
-; VPLAN-CM-VF1-NEXT:    Cost 1000 for i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB6:BB[0-9]+]], [[BB2]]
+; VPLAN-CM-VF1-NEXT:    Cost 1000 for i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
+; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 1024
+; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB6:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF1-NEXT:  [[BB3]]: base cost: 3000
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB6]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB7:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB6]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB7]]
@@ -2220,13 +2176,10 @@ define void @test_total_cost_branch_probabilities(i1 %cond) local_unnamed_addr #
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i1 [[VP2:%.*]] = icmp ne i1 [[VP3:%.*]] i1 false
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP2]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB2]]: base cost: 0
@@ -2240,12 +2193,11 @@ define void @test_total_cost_branch_probabilities(i1 %cond) local_unnamed_addr #
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i32 [[VP5:%.*]] = phi  [ i32 [[VP4]], [[BB4]] ],  [ i32 [[VP6:%.*]], [[BB5]] ]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.3 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for store i32 [[VP5]] i32* [[VP_SUBSCRIPT_1]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP7:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i64 [[VP1]] = add i64 [[VP0]] i64 1
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP7:%.*]] = icmp slt i64 [[VP1]] i64 1024
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP7]], [[BB2]], [[BB6:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB3]]: base cost: 3000
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB6]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB7:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB6]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB7]]
@@ -2375,35 +2327,27 @@ define void @test_revectorize() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 2
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 2
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop for.body
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
+; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP_LD_IDX:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP_INDVARS_IV]]
 ; VPLAN-CM-VF1-NEXT:    Cost Unknown for <2 x i32>* [[VP_LD_CAST:%.*]] = bitcast i32* [[VP_LD_IDX]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for <2 x i32> [[VP_LD:%.*]] = load <2 x i32>* [[VP_LD_CAST]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP_ST_IDX:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.3 i64 0 i64 [[VP_INDVARS_IV]]
 ; VPLAN-CM-VF1-NEXT:    Cost Unknown for <2 x i32>* [[VP_ST_CAST:%.*]] = bitcast i32* [[VP_ST_IDX]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for store <2 x i32> [[VP_LD]] <2 x i32>* [[VP_ST_CAST]]
-; VPLAN-CM-VF1-NEXT:    Cost 1000 for i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-CM-VF1-NEXT:    Cost 1000 for i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
-; VPLAN-CM-VF1-NEXT:  [[BB2]]: base cost: 5000
+; VPLAN-CM-VF1-NEXT:    Cost 1000 for i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 2
+; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 1024
+; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
+; VPLAN-CM-VF1-NEXT:  [[BB2]]: base cost: 4000
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 2
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB3]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br <External Block>
 ; VPLAN-CM-VF1-NEXT:  [[BB4]]: base cost: 0
-; VPLAN-CM-VF1-NEXT:  Base Cost: 5000
+; VPLAN-CM-VF1-NEXT:  Base Cost: 4000
 ;
 ; VPLAN-HIR-CM-VF4-LABEL:  Cost Model for VPlan test_revectorize:HIR.#{{[0-9]+}} with VF = 4:
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
@@ -2443,13 +2387,10 @@ define void @test_revectorize() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 512, UF = 1
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 2000 for i64 [[VP2:%.*]] = mul i64 2 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP2]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for <2 x i32>* [[VP3:%.*]] = bitcast i32* [[VP_SUBSCRIPT]]
@@ -2458,12 +2399,11 @@ define void @test_revectorize() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.3 i64 0 i64 [[VP4]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for <2 x i32>* [[VP5:%.*]] = bitcast i32* [[VP_SUBSCRIPT_1]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for store <2 x i32> [[VP_LOAD]] <2 x i32>* [[VP5]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP6:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i64 [[VP1]] = add i64 [[VP0]] i64 1
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP6:%.*]] = icmp slt i64 [[VP1]] i64 512
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP6]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB2]]: base cost: 8000
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB3]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]]
@@ -2572,35 +2512,27 @@ define void @test_revectorize_with_gathers_scatters() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 3
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 3
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop for.body
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
+; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP_LD_IDX:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP_INDVARS_IV]]
 ; VPLAN-CM-VF1-NEXT:    Cost Unknown for <2 x i32>* [[VP_LD_CAST:%.*]] = bitcast i32* [[VP_LD_IDX]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for <2 x i32> [[VP_LD:%.*]] = load <2 x i32>* [[VP_LD_CAST]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP_ST_IDX:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.3 i64 0 i64 [[VP_INDVARS_IV]]
 ; VPLAN-CM-VF1-NEXT:    Cost Unknown for <2 x i32>* [[VP_ST_CAST:%.*]] = bitcast i32* [[VP_ST_IDX]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for store <2 x i32> [[VP_LD]] <2 x i32>* [[VP_ST_CAST]]
-; VPLAN-CM-VF1-NEXT:    Cost 1000 for i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-CM-VF1-NEXT:    Cost 1000 for i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
-; VPLAN-CM-VF1-NEXT:  [[BB2]]: base cost: 5000
+; VPLAN-CM-VF1-NEXT:    Cost 1000 for i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 3
+; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 1024
+; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
+; VPLAN-CM-VF1-NEXT:  [[BB2]]: base cost: 4000
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 3
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  [[BB3]]: base cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br <External Block>
 ; VPLAN-CM-VF1-NEXT:  [[BB4]]: base cost: 0
-; VPLAN-CM-VF1-NEXT:  Base Cost: 5000
+; VPLAN-CM-VF1-NEXT:  Base Cost: 4000
 ;
 ; VPLAN-HIR-CM-VF4-LABEL:  Cost Model for VPlan test_revectorize_with_gathers_scatters:HIR.#{{[0-9]+}} with VF = 4:
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
@@ -2645,13 +2577,10 @@ define void @test_revectorize_with_gathers_scatters() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 341, UF = 1
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 2000 for i64 [[VP2:%.*]] = mul i64 3 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP2]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for <2 x i32>* [[VP3:%.*]] = bitcast i32* [[VP_SUBSCRIPT]]
@@ -2660,12 +2589,11 @@ define void @test_revectorize_with_gathers_scatters() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.3 i64 0 i64 [[VP4]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for <2 x i32>* [[VP5:%.*]] = bitcast i32* [[VP_SUBSCRIPT_1]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for store <2 x i32> [[VP_LOAD]] <2 x i32>* [[VP5]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP6:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i64 [[VP1]] = add i64 [[VP0]] i64 1
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP6:%.*]] = icmp slt i64 [[VP1]] i64 341
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP6]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB2]]: base cost: 8000
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB3]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]]
