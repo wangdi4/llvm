@@ -17,24 +17,6 @@ __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
 #ifdef XPTI_ENABLE_INSTRUMENTATION
-<<<<<<< HEAD
-xpti::trace_event_data_t *
-XPTIRegistry::createTraceEvent(void *Obj, const char *ObjName, uint64_t &IId,
-                               const detail::code_location &CodeLoc,
-                               uint16_t TraceEventType) {
-  std::string Name;
-  if (CodeLoc.fileName()) {
-    Name = std::string(CodeLoc.fileName()) + ":" +
-           std::to_string(CodeLoc.lineNumber()) + ":" +
-           std::to_string(CodeLoc.columnNumber());
-  } else {
-    xpti::utils::StringHelper NG;
-    Name = NG.nameWithAddress<void *>(ObjName, Obj);
-  }
-  xpti::payload_t Payload(
-      Name.c_str(), (CodeLoc.fileName() ? CodeLoc.fileName() : ""),
-      CodeLoc.lineNumber(), CodeLoc.columnNumber(), (void *)Obj);
-=======
 xpti::trace_event_data_t *XPTIRegistry::createTraceEvent(
     const void *Obj, const void *FuncPtr, uint64_t &IId,
     const detail::code_location &CodeLoc, uint16_t TraceEventType) {
@@ -44,7 +26,6 @@ xpti::trace_event_data_t *XPTIRegistry::createTraceEvent(
   xpti::payload_t Payload(Name.c_str(),
                           (CodeLoc.fileName() ? CodeLoc.fileName() : ""),
                           CodeLoc.lineNumber(), CodeLoc.columnNumber(), Obj);
->>>>>>> 55dd98a00d9a14399be0e926cd6876c58d5f6d9d
 
   // Calls could be at different user-code locations; We create a new event
   // based on the code location info and if this has been seen before, a
