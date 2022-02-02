@@ -2456,46 +2456,6 @@ void CodeGenModule::CreateFunctionTypeMetadataForIcall(const FunctionDecl *FD,
 }
 
 #if INTEL_COLLAB
-/// For a function associated with a declare variant directive, determine
-/// which of its parameters should be marked as needing device pointers
-/// (according to an adjust_args clause). Those that do will be marked as
-/// "T" in the 'needs_device_ptr' section of the openmp-variant string.
-/// Otherwise, it will be marked as "F". For a parameter that is a reference in
-/// the function declaration, the "T" marker will be replaced with "PTR_TO_PTR".
-static std::string getDevPtrAttrString(const FunctionDecl *FD,
-                                       const OMPDeclareVariantAttr *Attr) {
-  std::string Buffer;
-  if (Attr->adjustArgsNeedDevicePtr_size()) {
-    llvm::raw_string_ostream OS(Buffer);
-
-    // The adjustArgsNeedDevicePtr list contains the parameters specified with
-    // the 'need_device_ptr' adjust-op in the 'adjust_args' clause. So, if a
-    // parameter is present in the adjust args list, and its position as
-    // declared in the function parameter list equals the current parameter
-    // number, then a T (or PTR_TO_PTR) is emitted. Otherwse, an F.
-    for (unsigned N = 0, NumParams = FD->getNumParams(); N != NumParams; ++N) {
-      if (N != 0)
-        OS << ",";
-      auto I = llvm::find_if(Attr->adjustArgsNeedDevicePtr(), [&N](Expr *&E) {
-        E = E->IgnoreParenImpCasts();
-        if (const auto *DRE = dyn_cast<DeclRefExpr>(E))
-          if (const auto *PVD = dyn_cast<ParmVarDecl>(DRE->getDecl()))
-            if (N == PVD->getFunctionScopeIndex())
-              return true;
-        return false;
-      });
-      if (I != Attr->adjustArgsNeedDevicePtr_end()) {
-        if (FD->getParamDecl(N)->getType()->isReferenceType())
-          OS << "PTR_TO_PTR";
-        else
-          OS << "T";
-      } else
-        OS << "F";
-    }
-  }
-  return Buffer;
-}
-
 static std::string getAppendArgsTypes(const OMPDeclareVariantAttr *Attr) {
   std::string Buffer;
   if (Attr->appendArgs_size()) {
@@ -2591,7 +2551,7 @@ static void addDeclareVariantAttributes(CodeGenModule &CGM,
         break;
       }
     }
-    NeedDevPtrs = getDevPtrAttrString(FD, Attr);
+    NeedDevPtrs = CGM.getDevPtrAttrString(GD, FD, Attr);
     AppendArgs = getAppendArgsTypes(Attr);
     S += ";construct:";
     S += Constructs;
