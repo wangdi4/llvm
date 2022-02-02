@@ -9,23 +9,36 @@
 ; after inlining. Also check that it does NOT include 'Newly created callsite',
 ; 'Not tested for inlining', or 'DELETE' messages.
 
+; This test is similar to InlineReport86.ll, but checks that the functions
+; cloned also get callsite information in the inlining report.
+
+; CHECK-CL: DEAD STATIC FUNC: mynothing
 ; CHECK-CL: COMPILE FUNC: myadd
+; CHECK-CL: INLINE: mynothing{{.*}}Callee is single basic block
 ; CHECK-CL: COMPILE FUNC: mysub
+; CHECK-CL: INLINE: mynothing{{.*}}Callee has single callsite and local linkage
 ; CHECK: COMPILE FUNC: main
-; CHECK: myadd.1{{.*}}Callee has noinline attribute{{.*}}
-; CHECK: myadd.2{{.*}}Callee has noinline attribute{{.*}}
-; CHECK: mysub.3{{.*}}Callee has noinline attribute{{.*}}
-; CHECK: mysub.3{{.*}}Callee has noinline attribute{{.*}}
-; CHECK: mysub.4{{.*}}Callee has noinline attribute{{.*}}
+; CHECK: myadd.1{{.*}}Callee has noinline attribute
+; CHECK: myadd.2{{.*}}Callee has noinline attribute
+; CHECK: mysub.3{{.*}}Callee has noinline attribute
+; CHECK: mysub.3{{.*}}Callee has noinline attribute
+; CHECK: mysub.4{{.*}}Callee has noinline attribute
 ; CHECK-NOT: Newly created callsite
 ; CHECK-NOT: Not tested for inlining
 ; CHECK-NOT: DELETE
+; CHECK-MD: DEAD STATIC FUNC: mynothing
 ; CHECK-MD: COMPILE FUNC: myadd
+; CHECK-MD: INLINE: mynothing{{.*}}Callee is single basic block
 ; CHECK-MD: COMPILE FUNC: mysub
+; CHECK-MD: INLINE: mynothing{{.*}}Callee has single callsite and local linkage
 ; CHECK: COMPILE FUNC: myadd.1
+; CHECK: INLINE: mynothing{{.*}}Callee is single basic block
 ; CHECK: COMPILE FUNC: myadd.2
+; CHECK: INLINE: mynothing{{.*}}Callee is single basic block
 ; CHECK: COMPILE FUNC: mysub.3
+; CHECK: INLINE: mynothing{{.*}}Callee has single callsite and local linkage
 ; CHECK: COMPILE FUNC: mysub.4
+; CHECK: INLINE: mynothing{{.*}}Callee has single callsite and local linkage
 
 define dso_local i32 @main() local_unnamed_addr {
 entry:
@@ -41,15 +54,22 @@ entry:
   ret i32 %add4
 }
 
+define internal i32 @mynothing(i32 %a) {
+entry:
+  ret i32 %a
+}
+
 define internal i32 @myadd(i32 %a, i32 %b) local_unnamed_addr #0 {
 entry:
-  %add = add nsw i32 %b, %a
+  %call = tail call i32 @mynothing(i32 %a)
+  %add = add nsw i32 %b, %call
   ret i32 %add
 }
 
 define internal i32 @mysub(i32 %a, i32 %b) local_unnamed_addr #0 {
 entry:
-  %sub = sub nsw i32 %a, %b
+  %call = tail call i32 @mynothing(i32 %b)
+  %sub = sub nsw i32 %a, %call
   ret i32 %sub
 }
 
