@@ -117,20 +117,23 @@ private:
 public:
   Mapper (T* p) : ptr(p) {
     int *axx;
+  // CHECK: [[PT_TMP_MAP:%pt.map.ptr.tmp]] = alloca i32*, align 8
   // CHECK: [[L1:%[0-9]+]] = load i32*, i32** %pt{{.}}
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
   // CHECK-SAME: "QUAL.OMP.MAP.TO"(i32** %axx, i32** %axx, i64 8, i64 33
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%class.Mapper* %this1, %class.AOO** %ptr{{.*}}, i64 8, i64 547
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[L1]],
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32** [[PT_TMP_MAP]]),
   // CHECK: store i32* [[L1]]
-  // CHECK: [[L4:%[0-9]+]] = load i32*, i32** %pt.map.ptr.tmp
   // CHECK: [[L:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT"(i32* [[L4]],
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT"(i32** [[PT_TMP_MAP]],
 #pragma omp target parallel for map(to:axx) reduction(+:pt[0:9])
     for (int i=0; i <20 ; i++) {
   // CHECK:load i32*, i32** %axx,
+  // CHECK:load i32*, i32** [[PT_TMP_MAP]],
       axx[1] = 10;
       ptr[1] = 20;
+      pt[1] = 20;
     }
   }
 };
@@ -163,5 +166,38 @@ void ThreadsTeams(ThreadData* threads)
 // CHECK: region.exit(token [[T2]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() ]
 // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.TEAMS"() ]
 // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+}
+
+struct A {
+  A() : pt(&x), ptr(pt) {}
+  int *pt;
+  int x = 0;
+  int *&ptr;
+
+  void foo()
+  {
+  // CHECK: [[PTR:%ptr]] = alloca i32**
+  // CHECK: [[PT_TMP_MAP:%ptr.map.ptr.tmp]] = alloca i32*, align 8
+  // CHECK: [[L1:%[0-9]+]] = load i32**, i32*** %ptr3
+  // CHECK: [[L3:%[0-9]+]] = load i32*, i32** [[L1]]
+  // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK-SAME "QUAL.OMP.PRIVATE"(i32** %ptr.map.ptr.tmp)
+  // CHECK: store i32* [[L3]], i32** [[PT_TMP_MAP]]
+  // CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
+  // CHECK: "QUAL.OMP.REDUCTION.ADD:ARRSECT"(i32** [[PT_TMP_MAP]]
+    #pragma omp target parallel for reduction(+:ptr[:1])
+    for (int i=0; i < 20 ; i++) {
+      // CHECK: load i32*, i32** [[PT_TMP_MAP]]
+      ptr[0] = 1;
+    }
+   // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+   // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  }
+};
+
+void bar()
+{
+   A a;
+   a.foo();
 }
 // end INTEL_COLLAB

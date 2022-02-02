@@ -644,6 +644,7 @@ FUNCTION_PASS("print<hir-dd-analysis>", loopopt::HIRAnalysisPrinterPass<loopopt:
 FUNCTION_PASS("print<hir-safe-reduction-analysis>", loopopt::HIRAnalysisPrinterPass<loopopt::HIRSafeReductionAnalysisPass>(dbgs()))
 FUNCTION_PASS("print<hir-sparse-array-reduction-analysis>", loopopt::HIRAnalysisPrinterPass<loopopt::HIRSparseArrayReductionAnalysisPass>(dbgs()))
 FUNCTION_PASS("print<hir-array-section-analysis>", loopopt::HIRAnalysisPrinterPass<loopopt::HIRArraySectionAnalysisPass>(dbgs()))
+FUNCTION_PASS("print<hir-parvec-analysis>", loopopt::HIRAnalysisPrinterPass<loopopt::HIRParVecAnalysisPass>(dbgs()))
 FUNCTION_PASS("hir-recognize-par-loop", loopopt::HIRRecognizeParLoopPass())
 FUNCTION_PASS("hir-dead-store-elimination", loopopt::HIRDeadStoreEliminationPass())
 FUNCTION_PASS("hir-optreport-emitter", loopopt::HIROptReportEmitterPass())

@@ -265,16 +265,7 @@ bool HIRParVecAnalysisWrapperPass::runOnFunction(Function &F) {
   auto DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
   auto SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
 
-  // ParVecAnalysis runs in on-demand mode. runOnFunction is almost no-op.
-  // In the debug mode, run actual analysis in ParallelVector mode, print
-  // the result, and releas memory as if nothing happened. "opt -analyze"
-  // doesn't print anything.
-  LLVM_DEBUG(HPVA.reset(new HIRParVecAnalysis(true, TTI, TLI, HIRF, DDA, SRA)));
-  LLVM_DEBUG(HPVA->analyze(ParVecInfo::ParallelVector));
-  LLVM_DEBUG(HPVA->printAnalysis(dbgs()));
-
   HPVA.reset(new HIRParVecAnalysis(true, TTI, TLI, HIRF, DDA, SRA));
-
   return false;
 }
 
@@ -336,6 +327,8 @@ void HIRParVecAnalysis::markLoopBodyModified(const HLLoop *Lp) {
 }
 
 void HIRParVecAnalysis::printAnalysis(raw_ostream &OS) const {
+  auto *NonConst = const_cast<HIRParVecAnalysis *>(this);
+  NonConst->analyze(ParVecInfo::ParVecInfo::ParallelVector);
   ParVecPrintVisitor Vis(InfoMap, OS);
   HIRF.getHLNodeUtils().visitAll(Vis);
 }
