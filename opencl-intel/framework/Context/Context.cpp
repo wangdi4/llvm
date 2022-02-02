@@ -1924,7 +1924,7 @@ void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
     // Check alignment
     size_t forceAlignment = 0;
     if (0 != alignment) {
-      if (!IsPowerOf2(alignment) || alignment > DEV_MAXIMUM_ALIGN)
+      if (!IsPowerOf2(alignment))
         USM_ALLOC_ERR_RET(CL_INVALID_VALUE);
       forceAlignment = alignment;
     }

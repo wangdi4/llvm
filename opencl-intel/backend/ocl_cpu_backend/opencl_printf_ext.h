@@ -15,8 +15,9 @@
 #pragma once 
 
 #if defined(_WIN32)
-    #include <windows.h>
-    #include <process.h>
+#define NOMINMAX
+#include <windows.h>
+#include <process.h>
 #endif
 
 #if defined (_MSC_VER)

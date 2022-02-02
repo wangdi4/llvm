@@ -189,14 +189,23 @@ TEST_F(USMTest, memAlloc) {
     ASSERT_TRUE(nullptr == buf);
   }
 
-  // Test wrong alignments.
-  int alignments[] = {7, sizeof(cl_double16) * 8};
+  // Test wrong alignments. The only requirement for alignment is power of 2
+  // value.
+  int alignments[] = {7, sizeof(cl_double16) * 8 + 1};
   for (int alignment : alignments) {
     void *buf = clDeviceMemAllocINTEL(m_context, m_device, nullptr, size,
                                       alignment, &err);
     ASSERT_TRUE(nullptr == buf);
     ASSERT_EQ(CL_INVALID_VALUE, err);
   }
+
+  // Test one valid alignment value.
+  void *buf = clDeviceMemAllocINTEL(m_context, m_device, nullptr, size,
+                                    sizeof(cl_double16) * 16, &err);
+  ASSERT_TRUE(nullptr != buf);
+
+  err = clMemFreeINTEL(m_context, buf);
+  ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
 }
 
 TEST_F(USMTest, memBlockingFree) {
