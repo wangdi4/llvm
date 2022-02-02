@@ -1569,6 +1569,68 @@ void ClangToLLVMArgMapping::construct(const ASTContext &Context,
 }
 }  // namespace
 
+#if INTEL_COLLAB
+/// For a function associated with a declare variant directive, determine
+/// which of its parameters should be marked as needing device pointers
+/// (according to an adjust_args clause). Those that do will be marked as
+/// "T" in the 'needs_device_ptr' section of the openmp-variant string.
+/// Otherwise, it will be marked as "F". For a parameter that is a
+/// reference in the function declaration, the "T" marker will be replaced
+/// with "PTR_TO_PTR".
+///
+/// Take into account the number of LLVM registers used for a function
+/// parameter, because there isn't always a one-to-one correspondence (for
+/// example, a small struct by value). To do this, we use the base function
+/// (defined after the declare variant directive) to get source parameters
+/// and the variant function (specified with the declare variant directive)
+/// to get the actual LLVM registers assigned to each of those parameters.
+std::string
+CodeGenModule::getDevPtrAttrString(GlobalDecl VariantFunc,
+                                   const FunctionDecl *BaseFunc,
+                                   const OMPDeclareVariantAttr *Attr) {
+  std::string Buffer;
+  if (Attr->adjustArgsNeedDevicePtr_size()) {
+    llvm::raw_string_ostream OS(Buffer);
+    const CGFunctionInfo &FI = getTypes().arrangeGlobalDeclaration(VariantFunc);
+    ClangToLLVMArgMapping IRFunctionArgs(getContext(), FI, true);
+
+    // The adjustArgsNeedDevicePtr list contains the parameters specified with
+    // the 'need_device_ptr' adjust-op in the 'adjust_args' clause. So, if a
+    // parameter is present in the adjust args list, and its position as
+    // declared in the function parameter list equals the current parameter
+    // number, then a T (or PTR_TO_PTR) is emitted. Otherwse, an F.
+    for (unsigned N = 0, NumParams = BaseFunc->getNumParams(); N != NumParams;
+         ++N) {
+      if (N != 0)
+        OS << ",";
+      auto I = llvm::find_if(Attr->adjustArgsNeedDevicePtr(), [&N](Expr *&E) {
+        E = E->IgnoreParenImpCasts();
+        if (const auto *DRE = dyn_cast<DeclRefExpr>(E))
+          if (const auto *PVD = dyn_cast<ParmVarDecl>(DRE->getDecl()))
+            if (N == PVD->getFunctionScopeIndex())
+              return true;
+        return false;
+      });
+      std::string DevPtrArgString;
+      if (I != Attr->adjustArgsNeedDevicePtr_end()) {
+        if (BaseFunc->getParamDecl(N)->getType()->isReferenceType())
+          DevPtrArgString = "PTR_TO_PTR";
+        else
+          DevPtrArgString = "T";
+      } else
+        DevPtrArgString = "F";
+      // Function parameter maps to this number of LLVM registers.
+      unsigned NumIRArgs = std::get<1>(IRFunctionArgs.getIRArgs(N));
+      for (unsigned Arg = 0; Arg < NumIRArgs; ++Arg) {
+        if (Arg > 0)
+          OS << ",";
+        OS << DevPtrArgString;
+      }
+    }
+  }
+  return Buffer;
+}
+#endif // INTEL_COLLAB
 /***/
 
 bool CodeGenModule::ReturnTypeUsesSRet(const CGFunctionInfo &FI) {

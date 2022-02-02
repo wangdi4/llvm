@@ -17,7 +17,6 @@
 #if INTEL_CUSTOMIZATION
 #include "Intel_TraceBackDebug.h"
 #include "intel/Intel_AsmOptReport.h"
-#include "intel/STIDebug.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #endif // INTEL_CUSTOMIZATION
 #include "PseudoProbePrinter.h"
@@ -162,8 +161,6 @@ const char PPGroupName[] = "pseudo probe";
 const char PPGroupDescription[] = "Pseudo Probe Emission";
 
 #if INTEL_CUSTOMIZATION
-static const char *const STIDebugGroupName = "sti_info";
-static const char *const STIDebugGroupDescription = "STI Debug Info Emission";
 static const char *const OptReportGroupName = "optreport_info";
 static const char *const OptReportGroupDescription = "OptReport Info Emission";
 
@@ -387,18 +384,10 @@ bool AsmPrinter::doInitialization(Module &M) {
   if (MAI->doesSupportDebugInformation()) {
     bool EmitCodeView = M.getCodeViewFlag();
     if (EmitCodeView && TM.getTargetTriple().isOSWindows()) {
-#if INTEL_CUSTOMIZATION
-      if (MMI->getModule()->getModuleFlag("Intel STI") != nullptr) {
-        Handlers.emplace_back(STIDebug::create(this), DbgTimerName,
-                              DbgTimerDescription, STIDebugGroupName,
-                              STIDebugGroupDescription);
-      } else {
-        Handlers.emplace_back(std::make_unique<CodeViewDebug>(this),
-                              DbgTimerName, DbgTimerDescription,
-                              CodeViewLineTablesGroupName,
-                              CodeViewLineTablesGroupDescription);
-      }
-#endif // INTEL_CUSTOMIZATION
+      Handlers.emplace_back(std::make_unique<CodeViewDebug>(this),
+                            DbgTimerName, DbgTimerDescription,
+                            CodeViewLineTablesGroupName,
+                            CodeViewLineTablesGroupDescription);
     }
 
 #if INTEL_CUSTOMIZATION

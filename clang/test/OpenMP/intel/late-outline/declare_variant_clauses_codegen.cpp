@@ -25,6 +25,36 @@ void foo_v4(double *AAA, float *BBB, int *&I, omp_interop_t) {return;}
 void foo_v5(float *AAA, double *&BBB, int *I, omp_interop_t) {return;}
 void foo_v6(double *AAA, double *BBB, int *I, omp_interop_t) {return;}
 
+template <typename T>
+struct SmallStruct {
+  T real;
+  T imag;
+};
+
+// Various small structs with by-value and by pointer arguments. Verify
+// adjust_args string in openmp-variant metadata.
+void foo_v7(SmallStruct<double> alpha, const SmallStruct<double> *AAA,
+    SmallStruct<double> beta, const SmallStruct<double> *BBB,
+    SmallStruct<double> gamma, const SmallStruct<double> *CCC,
+    SmallStruct<double> delta, void *interop_obj) {return;}
+
+void foo_v7(SmallStruct<long> alpha, const SmallStruct<long> *AAA,
+    SmallStruct<long> beta, const SmallStruct<long> *BBB,
+    SmallStruct<long> gamma, const SmallStruct<long> *CCC,
+    SmallStruct<long> delta, void *interop_obj) {return;}
+
+void foo_v7(SmallStruct<int> alpha, const SmallStruct<int> *AAA,
+    SmallStruct<int> beta, const SmallStruct<int> *BBB,
+    SmallStruct<int> gamma, const SmallStruct<int> *CCC,
+    SmallStruct<int> delta, void *interop_obj) {return;}
+
+// Small struct arguments normally passed by-value or by pointer, now passed
+// by-reference. Verify adjust_args string in openmp-variant metadata.
+void foo_v7(SmallStruct<double> &alpha, const SmallStruct<double> *&AAA,
+    SmallStruct<double> beta, const SmallStruct<double> *&BBB,
+    SmallStruct<double> &gamma, const SmallStruct<double> *&CCC,
+    SmallStruct<double> &delta, void *interop_obj) {return;}
+
 //CHECK: define{{.*}}foo1{{.*}}#[[FOO1BASE:[0-9]*]]
 #pragma omp declare variant(foo_v1)                        \
    match(construct={dispatch}, device={arch(gen)})         \
@@ -64,6 +94,46 @@ void foo5(float *AAA, double *&BBB, int *I) {return;}
     append_args(interop(targetsync)) adjust_args(need_device_ptr:BBB)
 void foo6(double *AAA, double *BBB, int *I);
 void foo6(double *AAA, double *BBB, int *I) {return;}
+
+//CHECK: define{{.*}}foo7{{.*}}#[[FOO7BASE:[0-9]*]]
+#pragma omp declare variant (foo_v7) \
+    match(construct={dispatch}, device={arch(gen)}) \
+    append_args(interop(targetsync)) \
+    adjust_args(need_device_ptr:AAA,BBB,CCC) adjust_args(nothing:alpha, gamma)
+void foo7(SmallStruct<double> alpha, const SmallStruct<double> *AAA,
+    SmallStruct<double> beta, const SmallStruct<double> *BBB,
+    SmallStruct<double> gamma, const SmallStruct<double> *CCC,
+    SmallStruct<double> delta) {return;}
+
+//CHECK: define{{.*}}foo8{{.*}}#[[FOO8BASE:[0-9]*]]
+#pragma omp declare variant (foo_v7) \
+    match(construct={dispatch}, device={arch(gen9)}) \
+    append_args(interop(targetsync)) \
+    adjust_args(need_device_ptr:AAA,BBB,CCC) adjust_args(nothing:alpha, gamma)
+void foo8(SmallStruct<long> alpha, const SmallStruct<long> *AAA,
+    SmallStruct<long> beta, const SmallStruct<long> *BBB,
+    SmallStruct<long> gamma, const SmallStruct<long> *CCC,
+    SmallStruct<long> delta) {return;}
+
+//CHECK: define{{.*}}foo9{{.*}}#[[FOO9BASE:[0-9]*]]
+#pragma omp declare variant (foo_v7) \
+    match(construct={dispatch}, device={arch(XeLP)}) \
+    append_args(interop(targetsync)) \
+    adjust_args(need_device_ptr:AAA,BBB,CCC) adjust_args(nothing:alpha, gamma)
+void foo9(SmallStruct<int> alpha, const SmallStruct<int> *AAA,
+    SmallStruct<int> beta, const SmallStruct<int> *BBB,
+    SmallStruct<int> gamma, const SmallStruct<int> *CCC,
+    SmallStruct<int> delta) {return;}
+
+//CHECK: define{{.*}}foo10{{.*}}#[[FOO10BASE:[0-9]*]]
+#pragma omp declare variant (foo_v7) \
+    match(construct={dispatch}, device={arch(XeHP)}) \
+    append_args(interop(targetsync)) \
+    adjust_args(need_device_ptr:AAA,BBB,CCC) adjust_args(nothing:alpha, gamma)
+void foo10(SmallStruct<double> &alpha, const SmallStruct<double> *&AAA,
+    SmallStruct<double> beta, const SmallStruct<double> *&BBB,
+    SmallStruct<double> &gamma, const SmallStruct<double> *&CCC,
+    SmallStruct<double> &delta) {return;}
 
 void Foo_Var(float *AAA, float *BBB, omp_interop_t I1, omp_interop_t I2) {
   return;
@@ -139,6 +209,18 @@ void func(float *A, float *B, int *I)
 //CHECK: attributes #[[FOO6BASE]] = {{.*}}"openmp-variant"=
 //CHECK-SAME:name:{{.*}}foo_v6
 //CHECK-SAME:construct:dispatch;arch:gen;need_device_ptr:F,T,F;interop:targetsync"
+//CHECK: attributes #[[FOO7BASE]] = {{.*}}"openmp-variant"=
+//CHECK-SAME:name:{{.*}}foo_v7
+//CHECK-SAME:construct:dispatch;arch:gen;need_device_ptr:F,F,T,F,F,T,F,F,T,F,F;interop:targetsync"
+//CHECK: attributes #[[FOO8BASE]] = {{.*}}"openmp-variant"=
+//CHECK-SAME:name:{{.*}}foo_v7
+//CHECK-SAME:construct:dispatch;arch:gen9;need_device_ptr:F,F,T,F,F,T,F,T,F;interop:targetsync"
+//CHECK: attributes #[[FOO9BASE]] = {{.*}}"openmp-variant"=
+//CHECK-SAME:name:{{.*}}foo_v7
+//CHECK-SAME:construct:dispatch;arch:XeLP;need_device_ptr:F,T,F,T,F,T,F;interop:targetsync"
+//CHECK: attributes #[[FOO10BASE]] = {{.*}}"openmp-variant"=
+//CHECK-SAME:name:{{.*}}foo_v7
+//CHECK-SAME:construct:dispatch;arch:XeHP;need_device_ptr:F,PTR_TO_PTR,F,F,PTR_TO_PTR,F,PTR_TO_PTR,F;interop:targetsync"
 
 // Unlike normal functions, the attribute number for template functions varies
 // from the number associated with the function definition. We can't verify the
@@ -184,5 +266,4 @@ void cfoo3(float *AAA, float *BBB) {return;}
 //CHECKC-SAME:name:{{.*}}cfoo_v2
 //CHECKC-SAME:construct:dispatch;arch:XeLP,XeHP;need_device_ptr:T,T;interop:target;interop:targetsync"
 #endif
-
 // end INTEL_COLLAB

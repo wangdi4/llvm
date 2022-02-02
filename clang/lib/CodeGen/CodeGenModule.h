@@ -1691,6 +1691,12 @@ public:
   /// Print the postfix for externalized static variable for single source
   /// offloading languages CUDA and HIP.
   void printPostfixForExternalizedStaticVar(llvm::raw_ostream &OS) const;
+#if INTEL_COLLAB
+  /// Return string representing effects of an adjust_args clause.
+  std::string getDevPtrAttrString(GlobalDecl VariantFunc,
+                                  const FunctionDecl *BaseFunc,
+                                  const OMPDeclareVariantAttr *Attr);
+#endif // INTEL_COLLAB
 
 private:
   llvm::Constant *GetOrCreateLLVMFunction(
