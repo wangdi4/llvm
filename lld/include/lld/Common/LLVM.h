@@ -17,6 +17,9 @@
 // This should be the only #include, force #includes of all the others on
 // clients.
 #include "llvm/ADT/Hashing.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/ADT/SmallVector.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Casting.h"
 #include <utility>
