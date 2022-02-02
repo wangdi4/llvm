@@ -267,19 +267,11 @@
 ??$has_property@Vuse_pinned_host_memory@buffer@property@oneapi@ext@sycl@cl@@@program@sycl@cl@@QEBA_NXZ
 ??$has_property@Vuse_pinned_host_memory@buffer@property@oneapi@ext@sycl@cl@@@sampler@sycl@cl@@QEBA_NXZ
 ??$has_property@Vuse_pinned_host_memory@buffer@property@oneapi@ext@sycl@cl@@@stream@sycl@cl@@QEBA_NXZ
-<<<<<<< HEAD
-??$get_property@Vuse_primary_context@context@property@cuda@oneapi@ext@sycl@cl@@@context@sycl@cl@@QEBA?AVuse_primary_context@0property@cuda@oneapi@ext@12@XZ
-=======
->>>>>>> adf8000321a664d81b3f9646d5e3e68d51f5e472
 ??$has_property@Vuse_primary_context@context@property@cuda@oneapi@ext@sycl@cl@@@context@sycl@cl@@QEBA_NXZ
 ??$get_property@Vuse_primary_context@context@property@cuda@oneapi@ext@sycl@cl@@@program@sycl@cl@@QEBA?AVuse_primary_context@context@property@cuda@oneapi@ext@12@XZ
 ??$has_property@Vuse_primary_context@context@property@cuda@oneapi@ext@sycl@cl@@@program@sycl@cl@@QEBA_NXZ
 ??$get_property@Vuse_primary_context@context@property@cuda@oneapi@ext@sycl@cl@@@sampler@sycl@cl@@QEBA?AVuse_primary_context@context@property@cuda@oneapi@ext@12@XZ
 ??$has_property@Vuse_primary_context@context@property@cuda@oneapi@ext@sycl@cl@@@sampler@sycl@cl@@QEBA_NXZ
-<<<<<<< HEAD
-??$get_property@Vuse_primary_context@context@property@cuda@oneapi@ext@sycl@cl@@@stream@sycl@cl@@QEBA?AVuse_primary_context@context@property@cuda@oneapi@ext@12@XZ
-=======
->>>>>>> adf8000321a664d81b3f9646d5e3e68d51f5e472
 ??$has_property@Vuse_primary_context@context@property@cuda@oneapi@ext@sycl@cl@@@stream@sycl@cl@@QEBA_NXZ
 ??$has_property@Vuse_primary_context@cuda@context@property@sycl@cl@@@context@sycl@cl@@QEBA_NXZ
 ??$has_property@Vuse_primary_context@cuda@context@property@sycl@cl@@@program@sycl@cl@@QEBA_NXZ
