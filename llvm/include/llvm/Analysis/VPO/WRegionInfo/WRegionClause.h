@@ -695,15 +695,13 @@ private:
   // The following fields are populated during the actual transformation, and
   // not WRegionCollection, because they may need Insertion of Instructions.
   Value *Size;        ///< Size (`x: 5, yarrptr: 7`).
-  GlobalVariable *GVSize; ///< Global variable for variable sized array
-                          ///< [section] size used by fast reduction.
   Value *Offset;      ///< Starting offset (`x: 1, yarrptr: 22`).
   Type *ElementType;  ///< Type of one element (`x: i32, yarrptr: i32`).
   bool BaseIsPointer; ///< Is base a pointer (`x: false, yarrptr: true`).
 
 public:
   ArraySectionInfo()
-      : Size(nullptr), GVSize(nullptr), Offset(nullptr), ElementType(nullptr),
+      : Size(nullptr), Offset(nullptr), ElementType(nullptr),
         BaseIsPointer(false) {}
 
   void addDimension(const std::tuple<Value *, Value *, Value *> &Dim) {
@@ -723,8 +721,6 @@ public:
   void setElementType(Type *Ty) { ElementType = Ty; }
   bool getBaseIsPointer() const { return BaseIsPointer; }
   void setBaseIsPointer(bool IsPtr) { BaseIsPointer = IsPtr; }
-  GlobalVariable *getGVSize() const { return GVSize; }
-  void setGVSize(GlobalVariable *Sz) { GVSize = Sz; }
   bool isVariableLengthArraySection() const;
   bool hasVariableStartingOffset() const;
   bool isArraySectionWithVariableLengthOrOffset() const;
@@ -780,6 +776,9 @@ public:
         nullptr; // Tasks: 2nd argument in kmpc_taskred_init's
                  // reduction init callback function.
     Value *ArraySectionOffset = nullptr;
+    GlobalVariable *GVSize = nullptr; // Global variable for variable sized
+                                      // array [section] size used by fast
+                                      // reduction.
 
   public:
     ReductionItem(VAR Orig, WRNReductionKind Op = WRNReductionError)
@@ -885,6 +884,7 @@ public:
     void setDestructor(RDECL Dtor)    { Destructor = Dtor;   }
     void setInAllocate(AllocateItem *AI) { InAllocate = AI;  }
     void setTaskRedInitOrigArg(Value *V) { TaskRedInitOrigArg = V; }
+    void setGVSize(GlobalVariable *Sz) { GVSize = Sz; }
 
     WRNReductionKind getType() const { return Ty;            }
     bool getIsUnsigned()       const { return IsUnsigned;    }
@@ -897,6 +897,7 @@ public:
     RDECL getDestructor()      const { return Destructor;    }
     AllocateItem *getInAllocate() const { return InAllocate; }
     Value *getTaskRedInitOrigArg() const { return TaskRedInitOrigArg; }
+    GlobalVariable *getGVSize() const { return GVSize; }
 
     ArraySectionInfo &getArraySectionInfo() { return ArrSecInfo; }
     const ArraySectionInfo &getArraySectionInfo() const { return ArrSecInfo; }
