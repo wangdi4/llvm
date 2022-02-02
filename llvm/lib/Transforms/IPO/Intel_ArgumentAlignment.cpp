@@ -1,6 +1,6 @@
 //===---- Intel_ArgumentAlignment.cpp - Intel Compute Alignment      -*----===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -788,42 +788,51 @@ static bool
 checkAllocSite(CallBase *CallSite, Function *CandidateFunc, Value *Val,
                std::function<const TargetLibraryInfo &(Function &)> GetTLI) {
 
-  // This recursive routine track all uses of "Val" and tries to prove
-  // that there is only one store to "Val". If it can prove that there
-  // is only one store to it, returns true and saves the store instruction
-  // in "StoreOnceInstPtr". When this routine is called first time,
-  // malloc call is expected to be passed as the first argument.
+  // This routine track all uses of "Val" and tries to prove that there is
+  // only one store to "Val". If it can prove that there is only one store
+  // to it, returns true and saves the store instruction in "StoreOnceInstPtr".
+  // When this routine is called first time, malloc call is expected to be
+  // passed as the first argument.
   std::function<bool(Instruction *, StoreInst **)> StoredOnlyOnceMalloc =
       [&](Instruction *Val, StoreInst **StoreOnceInstPtr) {
-        for (User *U : Val->users()) {
-          auto *UserI = dyn_cast<Instruction>(&*U);
-          if (!UserI)
-            return false;
-          // Ignore Load/ICmp/free call since "Val" is not really escaped
-          // through them.
-          if (isa<LoadInst>(UserI) || isa<CmpInst>(UserI) ||
-              isFreeCall(UserI,
-                         &GetTLI(const_cast<Function &>(*UserI->getFunction())),
-                         false))
-            continue;
 
-          if (auto *SI = dyn_cast<StoreInst>(UserI)) {
-            if (SI->getValueOperand() == Val || *StoreOnceInstPtr != nullptr)
-              return false;
-            *StoreOnceInstPtr = SI;
-            continue;
-          }
-          if (isa<BitCastInst>(UserI)) {
-            // Track uses of BitCastInst.
-            if (!StoredOnlyOnceMalloc(UserI, StoreOnceInstPtr))
-              return false;
-            continue;
-          }
-          // No other instruction is allowed for now.
+    std::queue<Value *> ValuesQueue;
+    SetVector<Value *> ValuesVisited;
+    ValuesQueue.push(Val);
+    ValuesVisited.insert(Val);
+
+    while (!ValuesQueue.empty()) {
+      Value *CurrVal = ValuesQueue.front();
+      ValuesQueue.pop();
+      for (User *U : CurrVal->users()) {
+        auto *UserI = dyn_cast<Instruction>(&*U);
+        if (!UserI)
           return false;
+        // Ignore Load/ICmp/free call since "CurrVal" is not really escaped
+        // through them.
+        if (isa<LoadInst>(UserI) || isa<CmpInst>(UserI) ||
+            isFreeCall(UserI,
+                       &GetTLI(const_cast<Function &>(*UserI->getFunction())),
+                       false))
+          continue;
+        if (auto *SI = dyn_cast<StoreInst>(UserI)) {
+          if (SI->getValueOperand() == CurrVal || *StoreOnceInstPtr != nullptr)
+            return false;
+          *StoreOnceInstPtr = SI;
+          continue;
         }
-        return *StoreOnceInstPtr != nullptr;
-      };
+        if (isa<BitCastInst>(UserI)) {
+          // Track uses of BitCastInst.
+          if (ValuesVisited.insert(cast<Value>(UserI)))
+            ValuesQueue.push(cast<Value>(UserI));
+          continue;
+        }
+        // No other instruction is allowed for now.
+        return false;
+      }
+    }
+    return *StoreOnceInstPtr != nullptr;
+  };
 
   if (!CallSite || !Val)
     return false;
@@ -839,7 +848,6 @@ checkAllocSite(CallBase *CallSite, Function *CandidateFunc, Value *Val,
     return CurrType;
   };
 
-  Type *CurrType = GetSourceArrayType(Val->getType());
   Value *CurrVal = Val;
 
   while (CurrVal) {
@@ -868,9 +876,11 @@ checkAllocSite(CallBase *CallSite, Function *CandidateFunc, Value *Val,
       CallInst *CI = extractMallocCall(Val, GetTLI);
       if (!CI)
         return false;
+
       StoreInst *StoredOnceInst = nullptr;
       if (!StoredOnlyOnceMalloc(CI, &StoredOnceInst))
         return false;
+
       CurrVal = StoredOnceInst->getValueOperand();
       continue;
     }
@@ -881,20 +891,17 @@ checkAllocSite(CallBase *CallSite, Function *CandidateFunc, Value *Val,
       // of 8, so now just collect the bitcast and trace it. BitCast
       // instructions shouldn't be in case of opaque pointers, but if there
       // is a BitCast instruction, then it should be a ptr to ptr cast.
-      CurrType = GetSourceArrayType(Cast->getSrcTy());
       CurrVal = Cast->getOperand(0);
       continue;
     }
 
     // Check if the Value is a GEP
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(CurrVal)) {
-      // The source type should be a pointer or an array of pointers
-      Type *SourceType = GetSourceArrayType(GEP->getSourceElementType());
-
       // We already proved that the main argument we care about is a multiple
       // of 8, therefore the GEP will either point to an ptr or a type that
       // will later be converted as an ptr by a BitCast.
-      if (SourceType != CurrType)
+      if (!GetSourceArrayType(GEP->getSourceElementType())->isPointerTy() ||
+          !GetSourceArrayType(GEP->getResultElementType())->isPointerTy())
         return false;
 
       ConstantInt *GEPEntry = nullptr;
