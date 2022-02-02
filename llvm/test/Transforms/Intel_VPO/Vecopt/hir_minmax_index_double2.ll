@@ -52,7 +52,7 @@ define i32 @main() {
 ; CHECK-NEXT:           %9 = extractelement %.vec21,  %bsf34;
 ; CHECK-NEXT:        }
 ;
-; CHECK:             + DO i1 = 4 * %tgu, sext.i32.i64(%2) + -1 * sext.i32.i64(%3) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:             + DO i1 = 4 * %tgu, sext.i32.i64(%2) + -1 * sext.i32.i64(%3) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>   <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK-NEXT:        |   %10 = (%13 > 0.000000e+00) ? i1 + sext.i32.i64(%3) : %10;
 ; CHECK-NEXT:        |   %13 = (%13 > 0.000000e+00) ? 0.000000e+00 : %13;
 ; CHECK-NEXT:        |   %9 = (%12 > 0.000000e+00) ? i1 + sext.i32.i64(%3) : %9;

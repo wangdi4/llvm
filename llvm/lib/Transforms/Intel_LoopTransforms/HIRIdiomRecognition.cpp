@@ -658,6 +658,7 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
       OrigLoopClone->removeZtt();
       OrigLoopClone->setPragmaBasedMaximumTripCount(SmallTripCount);
       OrigLoopClone->setMaxTripCountEstimate(SmallTripCount);
+      OrigLoopClone->setLegalMaxTripCount(SmallTripCount);
     }
 
     LLVM_DEBUG(dbgs() << "Loop DD graph:\n");

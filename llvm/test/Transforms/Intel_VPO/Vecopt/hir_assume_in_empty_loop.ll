@@ -22,7 +22,7 @@
 ; CHECK-NEXT:           |   @llvm.assume(undef);
 ; CHECK-NEXT:           + END LOOP
 ; CHECK-NEXT:        }
-; CHECK:             + DO i1 = 4 * %tgu, %arg + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:             + DO i1 = 4 * %tgu, %arg + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>   <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK-NEXT:        |   @llvm.assume(undef);
 ; CHECK-NEXT:        + END LOOP
 ; CHECK-NEXT:  END REGION

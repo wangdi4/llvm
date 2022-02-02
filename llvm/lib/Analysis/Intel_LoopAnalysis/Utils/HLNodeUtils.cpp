@@ -3825,9 +3825,30 @@ bool HLNodeUtils::mayWraparound(const CanonExpr *CE, unsigned Level,
     return false;
   }
 
-  // Need a test case for truncation without wraparound.
   if (CE->isTrunc()) {
-    return true;
+    // For standalone IVs like trunc.i64.i32(i1), check whether the destination
+    // type is big enough to fit the max legal trip count of the loop. If it is,
+    // there can be no wraparound.
+    unsigned LoopLevel;
+    if (!ParentNode || !CE->isStandAloneIV(true, &LoopLevel)) {
+      return true;
+    }
+
+    auto *ParentLp = ParentNode->getParentLoopAtLevel(LoopLevel);
+
+    uint64_t LegalMaxTC = ParentLp->getLegalMaxTripCount();
+
+    if (!LegalMaxTC) {
+      return true;
+    }
+
+    unsigned DstTySize =
+        CE->getDestType()->getScalarType()->getScalarSizeInBits();
+    APInt MaxTypeVal = ParentLp->hasSignedIV()
+                           ? APInt::getSignedMaxValue(DstTySize)
+                           : APInt::getMaxValue(DstTySize);
+
+    return (MaxTypeVal.getZExtValue() < LegalMaxTC);
   }
 
   // We only handle zext for now as we have real test cases for it.

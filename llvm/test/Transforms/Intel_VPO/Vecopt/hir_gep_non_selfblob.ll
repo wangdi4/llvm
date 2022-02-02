@@ -31,7 +31,18 @@
 ; CHECK-NEXT:                END LOOP
 ;
 %struct.site = type { i16, i16, i16, i16 }
-
+;
+; RUN: opt -opaque-pointers -enable-new-pm=0 -tbaa -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-enable-peeling -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=OPAQUE
+; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -vplan-enable-peeling -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=OPAQUE
+;
+; OPAQUE:     BEGIN REGION { modified }
+; OPAQUE:           + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; OPAQUE:           |   %.vec = (<4 x i64>*)(%neighbor)[i1];
+; OPAQUE:           |   %nsbgepcopy = &((<4 x ptr>)(%lattice)[%.vec]);
+; OPAQUE:           |   (<4 x ptr>*)(%dest)[i1] = &((<4 x ptr>)(%nsbgepcopy)[%field]);
+; OPAQUE:           + END LOOP
+; OPAQUE:     END REGION
+;
 ; Function Attrs: nofree norecurse nounwind uwtable
 define dso_local void @start_gather(i64 %field, i64* nocapture readonly %neighbor, i8** nocapture %dest, %struct.site* %lattice) local_unnamed_addr #0 {
 entry:

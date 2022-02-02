@@ -73,7 +73,7 @@
 ;CG_ENABLE-NEXT:          %phi.temp = %red.init2;
 ;CG_ENABLE-NEXT:          %phi.temp3 = %red.init1;
 ;CG_ENABLE-NEXT:          %phi.temp5 = %red.init;
-;CG_ENABLE:               + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 536870911> <auto-vectorized> <nounroll> <novectorize>
+;CG_ENABLE:               + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 536870911>   <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ;CG_ENABLE-NEXT:          |   %.vec = (<4 x i32>*)(%ordering)[i1];
 ;CG_ENABLE-NEXT:          |   %.vec7 = (%.vec > %phi.temp5) ? i1 + <i32 0, i32 1, i32 2, i32 3> : %phi.temp3;
 ;CG_ENABLE-NEXT:          |   %.vec8 = (%.vec > %phi.temp5) ? %.vec + 2 : %phi.temp;
@@ -90,7 +90,7 @@
 ;CG_ENABLE-NEXT:          %bsf = @llvm.cttz.i4(%bsfintmask,  1);
 ;CG_ENABLE-NEXT:          %val.025 = extractelement %.vec8,  %bsf;
 ;CG_ENABLE-NEXT:       }
-;CG_ENABLE:            + DO i1 = 4 * %tgu, %m + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+;CG_ENABLE:            + DO i1 = 4 * %tgu, %m + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>   <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ;CG_ENABLE-NEXT:       |   %0 = (%ordering)[i1];
 ;CG_ENABLE-NEXT:       |   %tmp.024 = (%0 > %best.023) ? i1 : %tmp.024;
 ;CG_ENABLE-NEXT:       |   %val.025 = (%0 > %best.023) ? %0 + 2 : %val.025;

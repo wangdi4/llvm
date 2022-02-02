@@ -12,12 +12,12 @@
 ;<14>               %tgu = (zext.i32.i64(%t))/u4;
 ;<16>               if (0 <u 4 * %tgu)
 ;<16>               {
-;<15>                  + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 25000> <nounroll> <novectorize>
+;<15>                  + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 25000> <LEGAL_MAX_TC = 536870911> <nounroll> <novectorize>
 ;<18>                  |   (<4 x i32>*)(@A)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][0] = i1 + <i64 0, i64 1, i64 2, i64 3>;
 ;<15>                  + END LOOP
 ;<16>               }
 ;<11>
-;<11>               + DO i1 = 4 * %tgu, zext.i32.i64(%t) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+;<11>               + DO i1 = 4 * %tgu, zext.i32.i64(%t) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ;<4>                |   (@A)[0][i1][0] = i1;
 ;<11>               + END LOOP
 ;<0>          END REGION
@@ -28,7 +28,7 @@
 ; CHECK:             %tgu = (zext.i32.i64(%t))/u4;
 ; CHECK:             if (0 <u 4 * %tgu)
 ; CHECK:             {
-; CHECK:                + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 25000> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:                + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 25000> <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK:                |   (<4 x i32>*)(@A)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][0] = i1 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK:                |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 256][0]),  0,  3,  1);
 ; CHECK:                |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 257][0]),  0,  3,  1);
@@ -37,7 +37,7 @@
 ; CHECK:                + END LOOP
 ; CHECK:             }
 ;
-; CHECK:             + DO i1 = 4 * %tgu, zext.i32.i64(%t) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:             + DO i1 = 4 * %tgu, zext.i32.i64(%t) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK:             |   (@A)[0][i1][0] = i1;
 ; CHECK:             + END LOOP
 ; CHECK:       END REGION

@@ -21,7 +21,7 @@ define void @foo() {
 ; CHECK-NEXT:          %retval.sroa.2.0.copyload.sroa.speculate.load.false = @llvm.vector.reduce.smin.v4i64(%idx.blend);
 ; CHECK-NEXT:       }
 ;
-; CHECK:            + DO i1 = 4 * %tgu, %spec.select309 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:            + DO i1 = 4 * %tgu, %spec.select309 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>   <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK-NEXT:       |   %2 = (%0)[i1];
 ; CHECK-NEXT:       |   %retval.sroa.2.0.copyload.sroa.speculate.load.false = (%1 > %2) ? i1 : %retval.sroa.2.0.copyload.sroa.speculate.load.false;
 ; CHECK-NEXT:       |   %1 = (%1 > %2) ? %2 : %1;

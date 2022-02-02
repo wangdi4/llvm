@@ -44,7 +44,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT:             |   }
 ; CHECK-NEXT:             + END LOOP
 ; CHECK-NEXT:          }
-; CHECK:               + DO i1 = 4 * %tgu, -1 * %peel.factor1 + 76, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:               + DO i1 = 4 * %tgu, -1 * %peel.factor1 + 76, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 3> <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK-NEXT:          |   if ((%t4)[i1 + %peel.factor1] == &((%t1)[0]))
 ; CHECK-NEXT:          |   {
 ; CHECK-NEXT:          |      %gep = &((%t4)[i1 + %peel.factor1]);

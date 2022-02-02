@@ -2664,6 +2664,7 @@ void HIRParser::parse(HLLoop *HLoop) {
           (MaxTC = ScopedSE.getScopedSmallConstantMaxTripCount(
                const_cast<Loop *>(Lp)))) {
         HLoop->setMaxTripCountEstimate(MaxTC);
+        HLoop->setLegalMaxTripCount(MaxTC);
       }
     }
   }
@@ -2675,6 +2676,10 @@ void HIRParser::parse(HLLoop *HLoop) {
     if (!CurMaxTC || (MaxTC < CurMaxTC)) {
       HLoop->setMaxTripCountEstimate(MaxTC);
     }
+
+    // Assume pragma based information is more refined than the info provided by
+    // ScalarEvolution.
+    HLoop->setLegalMaxTripCount(MaxTC);
   }
 
   if (IsUnknown) {

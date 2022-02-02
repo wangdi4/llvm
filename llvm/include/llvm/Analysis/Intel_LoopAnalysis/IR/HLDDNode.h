@@ -398,14 +398,6 @@ public:
 
 } // End namespace loopopt
 
-template <>
-struct DenseMapInfo<loopopt::HLDDNode *>
-    : public loopopt::DenseHLNodeMapInfo<loopopt::HLDDNode> {};
-
-template <>
-struct DenseMapInfo<const loopopt::HLDDNode *>
-    : public loopopt::DenseHLNodeMapInfo<const loopopt::HLDDNode> {};
-
 } // End namespace llvm
 
 #endif

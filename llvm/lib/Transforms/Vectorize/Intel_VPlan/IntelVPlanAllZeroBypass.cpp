@@ -585,13 +585,13 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
     // Cost model not yet available for function vectorization pipeline. It's
     // ok because there's really no reason for it there yet anyway since this
     // pipeline is only used for testing at the moment.
-    unsigned RegionCost = EffectiveThreshold;
+    VPInstructionCost RegionCost{EffectiveThreshold};
     if (CM)
       RegionCost = CM->getBlockRangeCost(CandidateBlock, LastBB);
 
     // If the region meets minimum cost requirements, record it for later
     // insertion.
-    if (RegionCost >= EffectiveThreshold) {
+    if (RegionCost.isValid() && RegionCost >= EffectiveThreshold) {
       AllZeroBypassRegionsTy::iterator InsertPt = AllZeroBypassRegions.end();
       for (AllZeroBypassRegionsTy::iterator It = AllZeroBypassRegions.begin();
            It != AllZeroBypassRegions.end(); ++It) {

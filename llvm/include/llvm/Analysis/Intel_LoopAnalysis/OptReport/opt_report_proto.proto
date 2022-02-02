@@ -82,7 +82,10 @@ message BinOptReport {
     C_LOOP_VEC_VL = 1;
     C_LOOP_COMPLETE_UNROLL = 2;
     C_LOOP_COMPLETE_UNROLL_FACTOR = 3;
-    C_LAST_OPT_RPT_PROPERTY = 4;
+    C_LOOP_UNROLL_WITH_REMAINDER = 4;
+    C_LOOP_UNROLL_WITHOUT_REMAINDER = 5;
+    C_LOOP_UNROLL_AND_JAM = 6;
+    C_LAST_OPT_RPT_PROPERTY = 7;
   }
 
   // NOTE: Enums cannot be used as map key in proto3. Hence we use int32 here;

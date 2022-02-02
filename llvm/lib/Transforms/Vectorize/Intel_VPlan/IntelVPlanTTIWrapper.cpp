@@ -187,7 +187,7 @@ unsigned VPlanTTIWrapper::getNonMaskedMemOpCostAdj(unsigned Opcode, Type *SrcTy,
 }
 
 // Public interface implementation.
-VPlanTTIWrapper::InstructionCost VPlanTTIWrapper::getMemoryOpCost(
+VPInstructionCost VPlanTTIWrapper::getMemoryOpCost(
     unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
     TTI::TargetCostKind CostKind, const Instruction *I) const {
   auto VPTTICost = Multiplier * TTI.getMemoryOpCost(Opcode, Src, Alignment,

@@ -57,7 +57,7 @@
 ;CGCHECK-NEXT:           %red.init1 = %tmp.024;
 ;CGCHECK-NEXT:           %phi.temp = %red.init1;
 ;CGCHECK-NEXT:           %phi.temp2 = %red.init;
-;CGCHECK:                + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 536870911> <auto-vectorized> <nounroll> <novectorize>
+;CGCHECK:                + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 536870911>   <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ;CGCHECK-NEXT:           |   %.vec = (<4 x i32>*)(%ordering)[i1];
 ;CGCHECK-NEXT:           |   %.vec4 = (%.vec >= %phi.temp2) ? i1 + <i32 0, i32 1, i32 2, i32 3> : %phi.temp;
 ;CGCHECK-NEXT:           |   %.vec5 = (%.vec >= %phi.temp2) ? %.vec : %phi.temp2;
@@ -68,7 +68,7 @@
 ;CGCHECK-NEXT:           %idx.blend = (%best.023 == %.vec5) ? %.vec4 : <i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648>;
 ;CGCHECK-NEXT:           %tmp.024 = @llvm.vector.reduce.smax.v4i32(%idx.blend);
 ;CGCHECK-NEXT:        }
-;CGCHECK:              + DO i1 = 4 * %tgu, %m + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+;CGCHECK:              + DO i1 = 4 * %tgu, %m + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>   <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ;CGCHECK-NEXT:        |   %0 = (%ordering)[i1];
 ;CGCHECK-NEXT:        |   %tmp.024 = (%0 >= %best.023) ? i1 : %tmp.024;
 ;CGCHECK-NEXT:        |   %best.023 = (%0 >= %best.023) ? %0 : %best.023;

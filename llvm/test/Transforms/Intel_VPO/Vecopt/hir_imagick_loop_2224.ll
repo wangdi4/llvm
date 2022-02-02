@@ -9,7 +9,7 @@
 ; Incoming HIR of interest.
 ;    |   |   %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
 ;    |   |
-;    |   |   + DO i3 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>
+;    |   |   + DO i3 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>   <LEGAL_MAX_TC = 64>
 ;    |   |   |   %tmp52 = 64 * i2 + i3 + %arg5  *  64 * i2 + i3 + %arg5;
 ;    |   |   |   %tmp53 = %tmp52  +  %tmp38;
 ;    |   |   |   %tmp81 = (%.TempArray)[0][i3];
@@ -86,7 +86,7 @@
 ; CHECK-NEXT:       |   |      %phi.temp36 = %red.init;
 ; CHECK-NEXT:       |   |      %phi.temp38 = -1;
 ; CHECK-NEXT:       |   |
-; CHECK-NEXT:       |   |      + DO i3 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 16> <auto-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:       |   |      + DO i3 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 16>   <LEGAL_MAX_TC = 16> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:       |   |      |   %.vec = 64 * i2 + i3 + %arg5 + <i64 0, i64 1, i64 2, i64 3>  *  64 * i2 + i3 + %arg5 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:       |   |      |   %.vec40 = (<4 x i16>*)(%.TempArray)[0][i3];
 ; CHECK-NEXT:       |   |      |   %.vec41 = (<4 x i16>*)(%.TempArray10)[0][i3];

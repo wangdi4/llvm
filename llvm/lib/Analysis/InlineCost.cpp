@@ -113,6 +113,13 @@ static cl::opt<int> HintThreshold(
     "inlinehint-threshold", cl::Hidden, cl::init(325), cl::ZeroOrMore,
     cl::desc("Threshold for inlining functions with inline hint"));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<int> DoubleCallSiteHintThreshold(
+    "double-callsite-inlinehint-threshold", cl::Hidden, cl::init(675),
+    cl::ZeroOrMore,
+    cl::desc("Threshold for inlining double callsite fxns with inline hint"));
+#endif // INTEL_CUSTOMIZATION
+
 static cl::opt<int>
     ColdCallSiteThreshold("inline-cold-callsite-threshold", cl::Hidden,
                           cl::init(45), cl::ZeroOrMore,
@@ -1289,6 +1296,9 @@ private:
     if (IsIndirectCall) {
       InlineParams IndirectCallParams = {/* DefaultThreshold*/ 0,
                                          /*HintThreshold*/ {},
+#if INTEL_CUSTOMIZATION
+                                         /*DoubleCallSiteHintThreshold*/ {},
+#endif // INTEL_CUSTOMIZATION
                                          /*ColdThreshold*/ {},
                                          /*OptSizeThreshold*/ {},
                                          /*OptMinSizeThreshold*/ {},
@@ -2032,6 +2042,20 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
     LastCallToStaticBonus = 0;
   };
 
+#if INTEL_CUSTOMIZATION
+  auto IsDoubleCallSite = [](Function &F) -> bool {
+    unsigned Count = 0;
+    for (User *U : F.users()) {
+      auto CB = dyn_cast<CallBase>(U);
+      if (!CB)
+        return false;
+      if (++Count > 2)
+        return false;
+    }
+    return Count == 2;
+  };
+#endif // INTEL_CUSTOMIZATION
+
   // Use the OptMinSizeThreshold or OptSizeThreshold knob if they are available
   // and reduce the threshold if the caller has the necessary attribute.
   if (Caller->hasMinSize()) {
@@ -2051,9 +2075,14 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
 #if INTEL_CUSTOMIZATION
     if (Callee.hasFnAttribute(Attribute::InlineHint) ||
         Call.hasFnAttr(Attribute::InlineHint) ||
-        Call.hasFnAttr(Attribute::InlineHintRecursive))
+        Call.hasFnAttr(Attribute::InlineHintRecursive)) {
 #endif // INTEL_CUSTOMIZATION
       Threshold = MaxIfValid(Threshold, Params.HintThreshold);
+#if INTEL_CUSTOMIZATION
+      if (Callee.hasLinkOnceODRLinkage() && IsDoubleCallSite(Callee))
+        Threshold = MaxIfValid(Threshold, Params.DoubleCallSiteHintThreshold);
+    }
+#endif // INTEL_CUSTOMIZATION
 
     // FIXME: After switching to the new passmanager, simplify the logic below
     // by checking only the callsite hotness/coldness as we will reliably
@@ -3077,6 +3106,9 @@ Optional<int> llvm::getInliningCostEstimate(
 #endif // INTEL_CUSTOMIZATION
   const InlineParams Params = {/* DefaultThreshold*/ 0,
                                /*HintThreshold*/ {},
+#if INTEL_CUSTOMIZATION
+                               /*DoubleCallSiteHintThreshold*/ {},
+#endif // INTEL_CUSTOMIZATION
                                /*ColdThreshold*/ {},
                                /*OptSizeThreshold*/ {},
                                /*OptMinSizeThreshold*/ {},
@@ -3399,6 +3431,10 @@ InlineParams llvm::getInlineParams(int Threshold) {
 
   // Set the HintThreshold knob from the -inlinehint-threshold.
   Params.HintThreshold = HintThreshold;
+
+  // Set the  DoubleCallSiteHintThreshold knob from the
+  // -double-callsite-inlinehint-threshold.
+  Params.DoubleCallSiteHintThreshold = DoubleCallSiteHintThreshold;
 
   // Set the HotCallSiteThreshold knob from the -hot-callsite-threshold.
   Params.HotCallSiteThreshold = HotCallSiteThreshold;

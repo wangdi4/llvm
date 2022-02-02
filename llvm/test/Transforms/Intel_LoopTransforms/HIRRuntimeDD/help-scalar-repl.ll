@@ -8,7 +8,7 @@
 ;Function: sub
 ;
 ;<0>          BEGIN REGION { }
-;<21>               + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+;<21>               + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647>
 ;<3>                |   %0 = (%B)[i1];
 ;<4>                |   %add = %0  +  %q.029;
 ;<6>                |   (%A)[i1] = %add;
@@ -30,7 +30,7 @@
 ; CHECK:           %mv.and = %mv.test  &  %mv.test1;
 ; CHECK:           if (%mv.and == 0)
 ; CHECK:           {
-; CHECK:              + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <MVTag: 21>
+; CHECK:              + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647>  <MVTag: 21>
 ; CHECK:              |   %0 = (%B)[i1];
 ; CHECK:              |   %add = %0  +  %q.029;
 ; CHECK:              |   (%A)[i1] = %add;
@@ -44,7 +44,7 @@
 ; CHECK:           }
 ; CHECK:           else
 ; CHECK:           {
-; CHECK:              + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <MVTag: 21> <nounroll> <novectorize>
+; CHECK:              + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647>  <MVTag: 21> <nounroll> <novectorize>
 ; CHECK:              |   %0 = (%B)[i1];
 ; CHECK:              |   %add = %0  +  %q.029;
 ; CHECK:              |   (%A)[i1] = %add;

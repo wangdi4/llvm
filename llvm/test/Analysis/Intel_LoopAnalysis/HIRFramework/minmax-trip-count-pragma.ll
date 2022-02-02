@@ -5,7 +5,7 @@
 ; Also verify that max trip count estimate is refined using max loopcount metadata.
 
 ; CHECK: DO i1
-; CHECK-SAME: <MAX_TC_EST = 10> <min_trip_count = 4> <avg_trip_count = 7> <max_trip_count = 10>
+; CHECK-SAME: <MAX_TC_EST = 10>  <LEGAL_MAX_TC = 10> <min_trip_count = 4> <avg_trip_count = 7> <max_trip_count = 10>
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

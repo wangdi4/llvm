@@ -17,12 +17,12 @@
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: %tgu = (%n)/u20;
 
-; CHECK: + DO i1 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 5> <nounroll and jam>
+; CHECK: + DO i1 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 5> <LEGAL_MAX_TC = 107374182> <nounroll and jam>
 ; CHECK: |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 
-; CHECK: + DO i1 = 20 * %tgu, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 19> <nounroll> <nounroll and jam>
+; CHECK: + DO i1 = 20 * %tgu, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 19> <LEGAL_MAX_TC = 19> <nounroll> <nounroll and jam>
 ; CHECK: |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP

@@ -113,7 +113,7 @@ entry:
 
       // VPlanCostModelInterface getCost() methods will apply heuristics that need
       // VPLoops. Cast down to VPlanCostModelBase to get cost at TTI level.
-      unsigned AllZeroCheckCost =
+      VPInstructionCost AllZeroCheckCost =
           static_cast<VPlanCostModelBase*>(CM.get())->getTTICost(AllZeroCheck);
       EXPECT_EQ(AllZeroCheckCost, (unsigned)2000);
     }

@@ -20,6 +20,7 @@
 #include "llvm/Pass.h"
 
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
+#include "llvm/Support/FormattedStream.h"
 
 namespace llvm {
 
@@ -45,6 +46,9 @@ public:
                   FunctionAnalysisManager::Invalidator &) {
     return false;
   }
+
+  /// Returns a formatted ostream that opt-report output should be written to.
+  static formatted_raw_ostream &getOutputStream();
 };
 
 extern OptReportOptions::OptReportEmitterKind IntelOptReportEmitter;

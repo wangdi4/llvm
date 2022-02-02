@@ -147,6 +147,8 @@ private:
   /// This loop's characteristics related to parallelism.
   std::unique_ptr<HLLoopParallelTraits> ParTraits;
 
+  uint64_t LegalMaxTripCount;
+
   uint64_t MaxTripCountEstimate;
   // This flag is set for stripmined loops so DD can override the Upper Bound to
   // derive a more refined DV.
@@ -1192,6 +1194,15 @@ public:
   /// Returns true if loop has pragma to disable fusion.
   bool hasFusionDisablingPragma() const;
 
+  // This info can be used for legality checks as opposed to
+  // MaxTripCountEstimate which can only be used for profitability checks. 0
+  // means no info.
+  uint64_t getLegalMaxTripCount() const { return LegalMaxTripCount; }
+
+  void setLegalMaxTripCount(uint64_t LegalMaxTC) {
+    LegalMaxTripCount = LegalMaxTC;
+  }
+
   // 0 means no estimate.
   uint64_t getMaxTripCountEstimate() const { return MaxTripCountEstimate; }
 
@@ -1435,14 +1446,6 @@ template <> struct OptReportTraits<loopopt::HLLoop> {
   static void traverseChildNodesBackward(loopopt::HLLoop &Loop,
                                          NodeVisitorTy Func);
 };
-
-template <>
-struct DenseMapInfo<loopopt::HLLoop *>
-    : public loopopt::DenseHLNodeMapInfo<loopopt::HLLoop> {};
-
-template <>
-struct DenseMapInfo<const loopopt::HLLoop *>
-    : public loopopt::DenseHLNodeMapInfo<const loopopt::HLLoop> {};
 
 } // End namespace llvm
 

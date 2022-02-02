@@ -12,18 +12,18 @@
 ; + END LOOP
 
 
-; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100> <min_trip_count = 10> <avg_trip_count = 55> <max_trip_count = 100>
+; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100> <LEGAL_MAX_TC = 100> <min_trip_count = 10> <avg_trip_count = 55> <max_trip_count = 100>
 ; CHECK: + END LOOP
 
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: %tgu = (%n)/u8;
 
-; CHECK: + DO i1 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 12> <nounroll and jam> <min_trip_count = 1> <avg_trip_count = 6> <max_trip_count = 12>
+; CHECK: + DO i1 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 12> <LEGAL_MAX_TC = 12> <nounroll and jam> <min_trip_count = 1> <avg_trip_count = 6> <max_trip_count = 12>
 ; CHECK: |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 
-; CHECK: + DO i1 = 8 * %tgu, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 7> <nounroll> <nounroll and jam> <max_trip_count = 7>
+; CHECK: + DO i1 = 8 * %tgu, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 7> <LEGAL_MAX_TC = 7> <nounroll> <nounroll and jam> <max_trip_count = 7>
 ; CHECK: |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP

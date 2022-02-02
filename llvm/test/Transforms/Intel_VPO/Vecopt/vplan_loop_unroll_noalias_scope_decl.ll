@@ -109,7 +109,7 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) {
 ; CHECK-NEXT: !5 = !{!6}
 ; CHECK-NEXT: !6 = distinct !{!6, !2, !"foo: var:cloned.BB216"}
 ;
-; CHECK-HIR:      + DO i64 i1 = 0, 4 * [[TGU0:%.*]] + -1, 4 <DO_LOOP> <MAX_TC_EST = 536870911> <simd-vectorized> <nounroll> <novectorize>
+; CHECK-HIR:      + DO i64 i1 = 0, 4 * [[TGU0:%.*]] + -1, 4 <DO_LOOP> <MAX_TC_EST = 536870911>   <LEGAL_MAX_TC = 536870911> <simd-vectorized> <nounroll> <novectorize>
 ; CHECK-HIR-NEXT: | <RVAL-REG> LINEAR i64 4 * [[TGU0]] + -1 {sb:2}
 ; CHECK-HIR-NEXT: |    <BLOB> LINEAR i64 [[TGU0]] {sb:15}
 ; CHECK-HIR-NEXT: |

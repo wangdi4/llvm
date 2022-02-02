@@ -18,6 +18,7 @@
 #ifndef LLVM_SUPPORT_INSTRUCTIONCOST_H
 #define LLVM_SUPPORT_INSTRUCTIONCOST_H
 
+#include "llvm/ADT/APFixedPoint.h" // Intel
 #include "llvm/ADT/Optional.h"
 #include "llvm/Support/MathExtras.h"
 #include <limits>
@@ -281,6 +282,231 @@ inline raw_ostream &operator<<(raw_ostream &OS, const InstructionCost &V) {
   V.print(OS);
   return OS;
 }
+
+#if INTEL_CUSTOMIZATION
+namespace vpo {
+  // It's not clear how exactly UnknownCost/InifiniteCost will be distinguished
+  // in the llvm::InstructionCost. Original RFC stated that it would be handled
+  // somehow, but it doesn't seem to be the case yet.
+  //
+  // While that is unclear, we use VPInstructionCost type with intention to
+  // merge its implemention into llvm::InstructionCost eventually.
+
+class VPInstructionCost {
+public:
+  using CostType = APFixedPoint;
+
+  /// CostState describes the state of a cost.
+  enum CostState {
+    Valid,    // The cost represents a valid cost.
+    Unknown,  // The cost is unknown: the instruction(s) is(are) not modelled.
+    Invalid   // The cost is invalid: overflow (or another irreversible
+              // condition) occurred.
+              //
+              // Both Unknown and Invalid costs are not allowed to participate
+              // in arithmetic operations, some relationship operations are
+              // allowed for them though.
+  };
+
+private:
+  CostType Value;
+  CostState State;
+
+  // Helper method to set the Value from int64_t input Val. If Val doesn't fit
+  // the current Fixed Point Semantics it results Invalid cost.
+  void setFromInt64Value(int64_t Val) {
+    bool Overflow = false;
+    APSInt APSIntValue = APSInt::get(Val);
+    Value = CostType::getFromIntValue(
+      APSIntValue, getVPInstructionCostSema(), &Overflow);
+    if (Overflow)
+      setInvalid();
+  }
+
+  // The helper method to return FixedPoint semantics that is used to create
+  // every VPInstructionCost object.
+  static FixedPointSemantics getVPInstructionCostSema() {
+    return FixedPointSemantics {
+      64 /* Width */, 3 /* Scale */, true /* IsSigned */,
+        false /* IsSaturated */, false /* HasUnsignedPadding */};
+  }
+
+public:
+  // A default constructed InstructionCost is a valid zero cost.
+  VPInstructionCost() : Value(0, getVPInstructionCostSema()), State(Valid) {}
+  VPInstructionCost(CostType Val) : VPInstructionCost() { Value = Val; }
+  /// Treat all integral initializers the same way: upcast them to int64_t.
+  template <typename ValTy,
+            typename = std::enable_if_t<std::is_integral<ValTy>::value>>
+  VPInstructionCost(ValTy Val) : VPInstructionCost() { setFromInt64Value(Val); }
+  VPInstructionCost(const InstructionCost& TTICost) : VPInstructionCost() {
+    if (auto MaybeCost = TTICost.getValue())
+      setFromInt64Value(*MaybeCost);
+    else
+      setInvalid();
+  }
+
+  bool isValid()   const { return State == Valid; }
+  bool isUnknown() const { return State == Unknown; }
+  bool isInvalid() const { return State == Invalid; }
+
+  void setInvalid() { State = Invalid; }
+  void setUnknown() { State = Unknown; }
+
+  CostState getState() const { return State; }
+
+  static VPInstructionCost getMax() {
+    return CostType::getMax(getVPInstructionCostSema());
+  }
+
+  static VPInstructionCost getInvalid() {
+    VPInstructionCost Tmp;
+    Tmp.setInvalid();
+    return Tmp;
+  }
+
+  static VPInstructionCost getUnknown() {
+    VPInstructionCost Tmp;
+    Tmp.setUnknown();
+    return Tmp;
+  }
+
+  static VPInstructionCost Min(const VPInstructionCost &LHS,
+                               const VPInstructionCost &RHS) {
+    if (RHS < LHS)
+      return RHS;
+    return LHS;
+  }
+
+  /// Only a Valid Cost value can be extracted out of VPInstructionCost.
+  CostType getValue() const {
+    assert(isValid() && "Attempt to extract Invalid/Unknown cost.");
+    return Value;
+  }
+
+  // The interface to convert VPInstructionCost returned by VPlan
+  // CostModel into 64 bit integer dropping fractional bits.
+  int64_t getInt64Value() const {
+    return getValue().getIntPart().getExtValue();
+  }
+
+  /// For all of the arithmetic operators provided here any Invalid or Unknown
+  /// state is perpetuated and cannot be removed. Once a cost becomes Invalid
+  /// or Unknown it stays Invalid/Unknown, and it also inherits any Invalid/
+  /// Unknown state from the RHS.
+  ///
+  /// If arithmetic work on the actual values overflows the result has Invalid
+  /// state. All of arithmetic operators assert when applied on Invalid/Unknown
+  /// costs.
+  VPInstructionCost &operator+=(const VPInstructionCost &RHS) {
+    bool Overflow = false;
+    Value = getValue().add(RHS.getValue(), &Overflow);
+    if (Overflow)
+      setInvalid();
+    return *this;
+  }
+
+  VPInstructionCost &operator*=(const VPInstructionCost &RHS) {
+    bool Overflow = false;
+    Value = getValue().mul(RHS.getValue(), &Overflow);
+    if (Overflow)
+      setInvalid();
+    return *this;
+  }
+
+  VPInstructionCost &operator-=(const VPInstructionCost &RHS) {
+    bool Overflow = false;
+    Value = getValue().sub(RHS.getValue(), &Overflow);
+    if (Overflow)
+      setInvalid();
+    return *this;
+  }
+
+  VPInstructionCost &operator/=(const VPInstructionCost &RHS) {
+    bool Overflow = false;
+    Value = getValue().div(RHS.getValue(), &Overflow);
+    if (Overflow)
+      setInvalid();
+    return *this;
+  }
+
+  // Relation operators allow comparison of Invalid or Unknown costs with the
+  // certain limits.
+  // You can't compare with '<' or '>' the Unknown/Invalid costs, but you can
+  // check for '==' or '!=' relationship the Unknown/Invalid costs.
+  //
+  bool operator< (const VPInstructionCost &RHS) const {
+    return getValue() < RHS.getValue();
+  }
+
+  bool operator> (const VPInstructionCost &RHS) const { return RHS < *this; }
+  bool operator>=(const VPInstructionCost &RHS) const { return !(*this < RHS); }
+  bool operator<=(const VPInstructionCost &RHS) const { return !(*this > RHS); }
+  bool operator==(const VPInstructionCost &RHS) const {
+    if (State != RHS.State)
+      return false;
+    if (State == Unknown || State == Invalid)
+      return true;
+    return !(*this < RHS) && !(RHS < *this);
+  }
+  bool operator!=(const VPInstructionCost &RHS) const {
+    return !(*this == RHS);
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  std::string toString(bool ForceSignPrint = false) const {
+    if (isInvalid())
+      return std::string("Invalid");
+    else if (isUnknown())
+      return std::string("Unknown");
+
+    std::string SignStr = "";
+    if (ForceSignPrint && *this > VPInstructionCost())
+      SignStr = "+";
+    // TODO:
+    // Currently we have no fractional costs and can ignore fractional bits.
+    // This code has to be fixed once fractional parts become non zero.
+    return SignStr + std::to_string(getInt64Value());
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+};
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+inline raw_ostream &operator<<(raw_ostream &OS, const VPInstructionCost &IC) {
+  return OS << IC.toString();
+}
+
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+inline VPInstructionCost operator+(const VPInstructionCost &LHS,
+                                   const VPInstructionCost &RHS) {
+  VPInstructionCost LHS2{LHS};
+  LHS2 += RHS;
+  return LHS2;
+}
+
+inline VPInstructionCost operator-(const VPInstructionCost &LHS,
+                                   const VPInstructionCost &RHS) {
+  VPInstructionCost LHS2{LHS};
+  LHS2 -= RHS;
+  return LHS2;
+}
+
+inline VPInstructionCost operator*(const VPInstructionCost &LHS,
+                                   const VPInstructionCost &RHS) {
+  VPInstructionCost LHS2{LHS};
+  LHS2 *= RHS;
+  return LHS2;
+}
+
+inline VPInstructionCost operator/(const VPInstructionCost &LHS,
+                                   const VPInstructionCost &RHS) {
+  VPInstructionCost LHS2{LHS};
+  LHS2 /= RHS;
+  return LHS2;
+}
+} // namespace vpo
+#endif // INTEL_CUSTOMIZATION
 
 } // namespace llvm
 

@@ -8,7 +8,7 @@
 ; Function: sub1_
 ;
 ;          BEGIN REGION { }
-;                + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647> <nounroll>
+;                + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647> <nounroll>
 ;                |   + DO i2 = 0, 2, 1   <DO_LOOP> // common outer-spatial loop to two i3-loops
 ;                |   |   + DO i3 = 0, 2, 1   <DO_LOOP>
 ;                |   |   |   %add.2 = (%"sub1_$B")[i2][i3]  +  1.000000e+00;
@@ -28,7 +28,7 @@
 ; Function: sub1_
 
 ;          BEGIN REGION { modified }
-;                + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647> <nounroll>
+;                + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647> <nounroll>
 ;                |   + DO i2 = 0, 2, 2   <DO_LOOP>   // by-strip loop
 ;                |   |   %tile_e_min = (i2 + 1 <= 2) ? i2 + 1 : 2;
 ;                |   |
@@ -60,7 +60,7 @@
 ;          END REGION
 
 
-; CHECK:               DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647> <nounroll>
+; CHECK:               DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647> <nounroll>
 ; CHECK:               DO i2 = 0, 2, 2
 ; CHECK:               %tile_e_min
 ; CHECK-NOT:           %tile_e_min

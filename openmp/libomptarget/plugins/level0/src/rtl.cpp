@@ -85,9 +85,6 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
 #define SUBDEVICE_GET_ROOT(ID) ((uint32_t)EXTRACT_BITS(ID, 31, 0))
 
 // Subdevice options
-#ifndef SUBDEVICE_USE_ROOT_KERNELS
-#define SUBDEVICE_USE_ROOT_KERNELS 1
-#endif
 #ifndef SUBDEVICE_USE_ROOT_MEMORY
 #define SUBDEVICE_USE_ROOT_MEMORY 0
 #endif
@@ -1309,12 +1306,6 @@ struct KernelProfileEventsTy {
   }
 };
 
-/// Subdevice events
-struct SubDeviceEventTy {
-  ze_event_pool_handle_t Pool = nullptr;
-  std::vector<ze_event_handle_t> Events;
-};
-
 typedef std::vector<std::vector<ze_device_handle_t>> SubDeviceListsTy;
 typedef std::vector<std::vector<int32_t>> SubDeviceIdsTy;
 
@@ -2088,9 +2079,6 @@ public:
 
   // Subdevice IDs. It maps users' subdevice IDs to internal subdevice IDs
   std::vector<SubDeviceIdsTy> SubDeviceIds;
-
-  // Events for synchronization between subdevices.
-  std::vector<SubDeviceEventTy> SubDeviceEvents;
 
   // User-friendly form of device ID string
   std::vector<std::string> DeviceIdStr;
@@ -2886,14 +2874,6 @@ static void closeRTL() {
         CALL_ZE_EXIT_FAIL(zeModuleDestroy, Module);
     }
 
-    if (DeviceInfo->Option.DeviceMode == DEVICE_MODE_TOP &&
-        DeviceInfo->NumDevices > DeviceInfo->NumRootDevices &&
-        i < DeviceInfo->NumRootDevices) {
-      auto &subDeviceEvent = DeviceInfo->SubDeviceEvents[i];
-      for (auto event : subDeviceEvent.Events)
-        CALL_ZE_EXIT_FAIL(zeEventDestroy, event);
-      CALL_ZE_EXIT_FAIL(zeEventPoolDestroy, subDeviceEvent.Pool);
-    }
     DeviceInfo->Mutexes[i].unlock();
 
     if (DeviceInfo->Option.Flags.EnableTargetGlobals)
@@ -2929,35 +2909,6 @@ static void closeRTL() {
     CALL_ZE_EXIT_FAIL(zeContextDestroy, DeviceInfo->Context);
 
   DP("Closed RTL successfully\n");
-}
-
-static int32_t copyData(int32_t DeviceId, void *Dest, void *Src, size_t Size) {
-  auto destType = DeviceInfo->getMemAllocType(Dest);
-  auto srcType = DeviceInfo->getMemAllocType(Src);
-
-  // Global variable address is classified as unknown memory, and it should be
-  // handled as device memory (i.e., use memcpy command).
-  if (isDiscrete(DeviceInfo->DeviceProperties[DeviceId].deviceId) ||
-      destType == ZE_MEMORY_TYPE_DEVICE || srcType == ZE_MEMORY_TYPE_DEVICE ||
-      (destType == ZE_MEMORY_TYPE_UNKNOWN &&
-          srcType == ZE_MEMORY_TYPE_UNKNOWN)) {
-    auto cmdList = DeviceInfo->getLinkCopyCmdList(DeviceId);
-    auto cmdQueue = DeviceInfo->getLinkCopyCmdQueue(DeviceId);
-    DP("Copy Engine is %s for data transfer\n",
-       DeviceInfo->usingCopyCmdQueue(DeviceId) ? "used" : "not used");
-    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, Dest, Src, Size,
-                     nullptr, 0, nullptr);
-    CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
-    CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists,
-                         DeviceInfo->Mutexes[DeviceId], cmdQueue, 1, &cmdList,
-                         nullptr);
-    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
-    CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
-  } else {
-    char *src = static_cast<char *>(Src);
-    std::copy(src, src + Size, static_cast<char *>(Dest));
-  }
-  return OFFLOAD_SUCCESS;
 }
 
 /// Allocate data explicitly
@@ -4082,7 +4033,6 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->Context = createContext(DeviceInfo->Driver);
   if (DeviceInfo->Option.Flags.EnableProfile)
     DeviceInfo->ProfileEvents.init(DeviceInfo->Context);
-  DeviceInfo->SubDeviceEvents.resize(DeviceInfo->NumRootDevices);
   DeviceInfo->NumActiveKernels.resize(DeviceInfo->NumRootDevices, 0);
   DeviceInfo->ProgramData.resize(DeviceInfo->NumRootDevices);
   DeviceInfo->BatchCmdQueues.resize(DeviceInfo->NumRootDevices);
@@ -4130,37 +4080,9 @@ EXTERN int32_t __tgt_rtl_init_device(int32_t DeviceId) {
   if (DeviceInfo->Option.Flags.UseMemoryPool)
     DeviceInfo->initMemoryPool();
 
-  uint32_t numSubDevices = 0;
-  for (auto &subIds : DeviceInfo->SubDeviceIds[DeviceId]) {
-    numSubDevices += subIds.size();
+  for (auto &subIds : DeviceInfo->SubDeviceIds[DeviceId])
     for (auto subId : subIds)
       DeviceInfo->Initialized[subId] = true;
-  }
-  if (numSubDevices > 0) {
-    // Create Events for subdevices commands
-    auto &subDeviceEvent = DeviceInfo->SubDeviceEvents[DeviceId];
-    ze_event_pool_desc_t eventPoolDesc = {
-      ZE_STRUCTURE_TYPE_EVENT_POOL_DESC,
-      nullptr,
-      ZE_EVENT_POOL_FLAG_HOST_VISIBLE,
-      numSubDevices
-    };
-    CALL_ZE_RET_FAIL(zeEventPoolCreate, DeviceInfo->Context, &eventPoolDesc,
-                     0, nullptr, &subDeviceEvent.Pool);
-    ze_event_desc_t eventDesc = {
-      ZE_STRUCTURE_TYPE_EVENT_DESC,
-      nullptr,
-      0, // index
-      0,
-      0
-    };
-    for (uint32_t i = 0; i < numSubDevices; i++) {
-      eventDesc.index = i;
-      ze_event_handle_t event;
-      CALL_ZE_RET_FAIL(zeEventCreate, subDeviceEvent.Pool, &eventDesc, &event);
-      subDeviceEvent.Events.push_back(event);
-    }
-  }
 
   DeviceInfo->Initialized[DeviceId] = true;
 
@@ -4562,16 +4484,9 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   if ((uint32_t)DeviceId < DeviceInfo->NumRootDevices) {
     for (auto &subIdList : DeviceInfo->SubDeviceIds[DeviceId])
       for (auto subId : subIdList)
-#if SUBDEVICE_USE_ROOT_KERNELS
         // Use root module while copying kernel properties from root.
         DeviceInfo->KernelProperties[subId] =
             DeviceInfo->KernelProperties[DeviceId];
-#else // !SUBDEVICE_USE_ROOT_KERNELS
-        // Create modules for subdevices. We don't need to return the table
-        // created for subdevices.
-        if (__tgt_rtl_load_binary(subId, Image) == nullptr)
-          return nullptr;
-#endif // !SUBDEVICE_USE_ROOT_KERNELS
   }
 
   OMPT_CALLBACK(ompt_callback_device_load, DeviceId,
@@ -4867,16 +4782,22 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
     DP("Asynchronous data submit started -- %" PRId64 " bytes (hst:"
        DPxMOD ") -> (tgt:" DPxMOD ")\n", Size, DPxPTR(HstPtr), DPxPTR(TgtPtr));
   } else {
-    void *SrcPtr = HstPtr;
-    if (static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize &&
-        DeviceInfo->getMemAllocType(HstPtr) == ZE_MEMORY_TYPE_UNKNOWN &&
-        DeviceInfo->isDiscreteDevice(DeviceId)) {
-      SrcPtr = DeviceInfo->getStagingBuffer().get();
-      std::copy_n(static_cast<char *>(HstPtr), Size,
-                  static_cast<char *>(SrcPtr));
+    auto TgtPtrType = DeviceInfo->getMemAllocType(TgtPtr);
+    if (TgtPtrType == ZE_MEMORY_TYPE_DEVICE) {
+      void *SrcPtr = HstPtr;
+      if (static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize &&
+          DeviceInfo->isDiscreteDevice(DeviceId)) {
+        SrcPtr = DeviceInfo->getStagingBuffer().get();
+        std::copy_n(
+            static_cast<char *>(HstPtr), Size, static_cast<char *>(SrcPtr));
+      }
+      if (DeviceInfo->enqueueMemCopy(DeviceId, TgtPtr, SrcPtr, Size) !=
+          OFFLOAD_SUCCESS)
+        return OFFLOAD_FAIL;
+    } else {
+      std::copy_n(
+          static_cast<char *>(HstPtr), Size, static_cast<char *>(TgtPtr));
     }
-    if (copyData(DeviceId, TgtPtr, SrcPtr, Size) != OFFLOAD_SUCCESS)
-      return OFFLOAD_FAIL;
     DP("Copied %" PRId64 " bytes (hst:" DPxMOD ") -> (tgt:" DPxMOD ")\n", Size,
        DPxPTR(HstPtr), DPxPTR(TgtPtr));
   }
@@ -4943,16 +4864,23 @@ static int32_t retrieveData(
     DP("Asynchronous data retrieve started -- %" PRId64 " bytes (tgt:"
        DPxMOD ") -> (hst:" DPxMOD ")\n", Size, DPxPTR(TgtPtr), DPxPTR(HstPtr));
   } else {
-    void *DstPtr = HstPtr;
-    if (static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize &&
-        DeviceInfo->getMemAllocType(HstPtr) == ZE_MEMORY_TYPE_UNKNOWN &&
-        DeviceInfo->isDiscreteDevice(DeviceId))
-      DstPtr = DeviceInfo->getStagingBuffer().get();
-    if (copyData(DeviceId, DstPtr, TgtPtr, Size) != OFFLOAD_SUCCESS)
-      return OFFLOAD_FAIL;
-    if (DstPtr != HstPtr)
-        std::copy_n(static_cast<char *>(DstPtr), Size,
-                    static_cast<char *>(HstPtr));
+    auto TgtPtrType = DeviceInfo->getMemAllocType(TgtPtr);
+    if (TgtPtrType == ZE_MEMORY_TYPE_DEVICE) {
+      void *DstPtr = HstPtr;
+      if (static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize &&
+          DeviceInfo->isDiscreteDevice(DeviceId)) {
+        DstPtr = DeviceInfo->getStagingBuffer().get();
+      }
+      if (OFFLOAD_SUCCESS !=
+          DeviceInfo->enqueueMemCopy(DeviceId, DstPtr, TgtPtr, Size))
+        return OFFLOAD_FAIL;
+      if (DstPtr != HstPtr)
+        std::copy_n(
+            static_cast<char *>(DstPtr), Size, static_cast<char *>(HstPtr));
+    } else {
+      std::copy_n(
+          static_cast<char *>(TgtPtr), Size, static_cast<char *>(HstPtr));
+    }
     DP("Copied %" PRId64 " bytes (tgt:" DPxMOD ") -> (hst:" DPxMOD ")\n", Size,
        DPxPTR(TgtPtr), DPxPTR(HstPtr));
   }
@@ -5378,185 +5306,99 @@ static int32_t runTargetTeamRegionSub(
     void *AsyncEvent) {
 
   // NOTE: We expect one sub device now (user data partitioning)
-  //       We haven't discussed anything about partitioning by compiler
-  //       We always get the same kernel for all sub devices
 
-  uint32_t subLevel = SUBDEVICE_GET_LEVEL(DeviceIds);
-  uint32_t subStart = SUBDEVICE_GET_START(DeviceIds);
-  uint32_t subCount = SUBDEVICE_GET_COUNT(DeviceIds);
-  uint32_t subStride = SUBDEVICE_GET_STRIDE(DeviceIds);
-  uint32_t rootId = SUBDEVICE_GET_ROOT(DeviceIds);
+  uint32_t SubLevel = SUBDEVICE_GET_LEVEL(DeviceIds);
+  uint32_t SubStart = SUBDEVICE_GET_START(DeviceIds);
+  uint32_t RootId = SUBDEVICE_GET_ROOT(DeviceIds);
 
-  auto &subDeviceIds = DeviceInfo->SubDeviceIds[rootId];
-  int32_t subIdBase = 0;
-  // Internal ID of the first subdevice
-  if (subDeviceIds[0].size() > 0)
-    subIdBase = subDeviceIds[0][0];
-  else
-    subIdBase = subDeviceIds[1][0];
+  auto SubId = DeviceInfo->SubDeviceIds[RootId][SubLevel][SubStart];
+  auto *SubIdStr = DeviceInfo->DeviceIdStr[SubId].c_str();
+  auto Kernel = *(ze_kernel_handle_t *)TgtEntryPtr;
 
-  std::vector<ze_event_handle_t> usedEvents;
-  std::vector<ze_command_list_handle_t> usedCmdLists;
+  ScopedTimerTy KernelTimer(SubId, "Kernel ",
+                            DeviceInfo->KernelProperties[RootId][Kernel].Name);
 
-  ze_kernel_handle_t rootKernel = *(ze_kernel_handle_t *)TgtEntryPtr;
-  uint32_t KernelId = 0;
-  auto &RootEntries = DeviceInfo->FuncGblEntries[rootId];
-
-  // Find kernel ID
-  uint32_t EntryId = 0;
-  for (auto &E : RootEntries) {
-    KernelId = 0;
-    for (; KernelId < E.Entries.size(); KernelId++)
-      if (E.Entries[KernelId].addr == TgtEntryPtr)
-        break;
-    if (KernelId != E.Entries.size())
-      break;
-    EntryId++;
+  // Decide group sizes and counts
+  uint32_t GroupSizes[3];
+  ze_group_count_t GroupCounts;
+  if (LoopDesc) {
+    auto RC = decideLoopKernelGroupArguments(SubId, (uint32_t)ThreadLimit,
+        (TgtNDRangeDescTy *)LoopDesc, Kernel, GroupSizes, GroupCounts);
+    if (RC != OFFLOAD_SUCCESS)
+      return OFFLOAD_FAIL;
+  } else {
+    decideKernelGroupArguments(SubId, (uint32_t )NumTeams,
+        (uint32_t)ThreadLimit, Kernel, GroupSizes, GroupCounts);
   }
-  if (EntryId == RootEntries.size() &&
-      KernelId == RootEntries.back().Entries.size()) {
-    DP("Could not find a kernel for entry " DPxMOD " in the table\n",
-       DPxPTR(TgtEntryPtr));
-    return OFFLOAD_FAIL;
-  }
-
-  ze_event_handle_t profileEvent = nullptr;
-  std::string tmName("Kernel ");
-  auto EntryItr = RootEntries.begin();
-  std::advance(EntryItr, EntryId);
-  tmName = tmName + EntryItr->Entries[KernelId].name;
-  std::vector<ScopedTimerTy> tmKernels;
-
-  if (DeviceInfo->Option.Flags.EnableProfile) {
-    for (uint32_t i = 0; i < subCount; i++) {
-      auto subId = subDeviceIds[subLevel][subStart + i * subStride];
-      tmKernels.emplace_back(ScopedTimerTy(subId, tmName));
-    }
-  }
-
-  for (uint32_t i = 0; i < subCount; i++) {
-    auto userId = subStart + i * subStride;
-    auto subId = subDeviceIds[subLevel][userId];
-
-#if SUBDEVICE_USE_ROOT_KERNELS
-    auto kernel = rootKernel;
-#else // !SUBDEVICE_USE_ROOT_KERNELS
-    auto SubItr = DeviceInfo->FuncGblEntries[subId].begin();
-    std::advance(SubItr, EntryId);
-    auto kernel = SubItr->Kernels[KernelId];
-#endif // !SUBDEVICE_USE_ROOT_KERNELS
-
-    // Decide group sizes and counts
-    uint32_t groupSizes[3];
-    ze_group_count_t groupCounts;
-    if (LoopDesc) {
-      auto Rc = decideLoopKernelGroupArguments(subId, (uint32_t)ThreadLimit,
-          (TgtNDRangeDescTy *)LoopDesc, kernel, groupSizes, groupCounts);
-      if (Rc != OFFLOAD_SUCCESS)
-        return OFFLOAD_FAIL;
-    } else {
-      decideKernelGroupArguments(subId, (uint32_t )NumTeams,
-          (uint32_t)ThreadLimit, kernel, groupSizes, groupCounts);
-    }
 
 #if INTEL_INTERNAL_BUILD
-    forceGroupSizes(groupSizes, groupCounts);
+  forceGroupSizes(GroupSizes, GroupCounts);
 #endif // INTEL_INTERNAL_BUILD
 
-    DP("Group sizes = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
-       groupSizes[0], groupSizes[1], groupSizes[2]);
-    DP("Group counts = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
-       groupCounts.groupCountX, groupCounts.groupCountY,
-       groupCounts.groupCountZ);
+  DP("Group sizes = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
+     GroupSizes[0], GroupSizes[1], GroupSizes[2]);
+  DP("Group counts = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
+     GroupCounts.groupCountX, GroupCounts.groupCountY, GroupCounts.groupCountZ);
 
-    CALL_ZE_RET_FAIL(zeKernelSetGroupSize, kernel, groupSizes[0], groupSizes[1],
-                     groupSizes[2]);
+  CALL_ZE_RET_FAIL(zeKernelSetGroupSize, Kernel, GroupSizes[0], GroupSizes[1],
+                   GroupSizes[2]);
 
-    auto cmdList = DeviceInfo->getCmdList(subId);
-    auto cmdQueue = DeviceInfo->getCmdQueue(subId);
+  auto CmdList = DeviceInfo->getCmdList(SubId);
+  auto CmdQueue = DeviceInfo->getCmdQueue(SubId);
 
-#if SUBDEVICE_USE_ROOT_KERNELS
-    std::unique_lock<std::mutex> kernelLock(DeviceInfo->KernelMutexes[rootId]);
-#else // !SUBDEVICE_USE_ROOT_KERNELS
-    std::unique_lock<std::mutex> kernelLock(DeviceInfo->KernelMutexes[subId]);
-#endif // !SUBDEVICE_USE_ROOT_KERNELS
+  std::unique_lock<std::mutex> KernelLock(DeviceInfo->KernelMutexes[RootId]);
 
-    auto *KernelInfo = DeviceInfo->getKernelInfo(subId, kernel);
-    for (int32_t argId = 0; argId < NumArgs; argId++) {
-      if (KernelInfo && KernelInfo->isArgLiteral(argId)) {
-        uint32_t Size = KernelInfo->getArgSize(argId);
-        CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, kernel, argId, Size,
-                         TgtArgs[argId]);
-
-        DP("Kernel ByVal argument %" PRId32
-           " was set successfully for device %s.\n",
-           argId, DeviceInfo->DeviceIdStr[subId].c_str());
-      } else if (TgtOffsets[argId] == (std::numeric_limits<ptrdiff_t>::max)()) {
-        intptr_t arg = reinterpret_cast<intptr_t>(TgtArgs[argId]);
-        CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, kernel, argId, sizeof(arg),
-                         &arg);
-        DP("Kernel Scalar argument %" PRId32 " (value: " DPxMOD
-           ") was set successfully for device %s.\n",
-           argId, DPxPTR(arg), DeviceInfo->DeviceIdStr[subId].c_str());
-      } else {
-        void *arg = (void *)((intptr_t)TgtArgs[argId] + TgtOffsets[argId]);
-        CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, kernel, argId, sizeof(arg),
-                         arg == nullptr ? nullptr : &arg);
-        DP("Kernel Pointer argument %" PRId32 " (value: " DPxMOD
-           ") was set successfully for device %s.\n",
-           argId, DPxPTR(arg), DeviceInfo->DeviceIdStr[subId].c_str());
-      }
+  auto *KernelInfo = DeviceInfo->getKernelInfo(RootId, Kernel);
+  for (int32_t I = 0; I < NumArgs; I++) {
+    if (KernelInfo && KernelInfo->isArgLiteral(I)) {
+      uint32_t Size = KernelInfo->getArgSize(I);
+      CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, Kernel, I, Size, TgtArgs[I]);
+      DP("Kernel ByVal argument %" PRId32
+         " was set successfully for device %s.\n", I, SubIdStr);
+    } else if (TgtOffsets[I] == (std::numeric_limits<ptrdiff_t>::max)()) {
+      intptr_t Arg = reinterpret_cast<intptr_t>(TgtArgs[I]);
+      CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, Kernel, I, sizeof(Arg), &Arg);
+      DP("Kernel Scalar argument %" PRId32 " (value: " DPxMOD
+         ") was set successfully for device %s.\n", I, DPxPTR(Arg), SubIdStr);
+    } else {
+      void *Arg = (void *)((intptr_t)TgtArgs[I] + TgtOffsets[I]);
+      CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, Kernel, I, sizeof(Arg),
+                       Arg == nullptr ? nullptr : &Arg);
+      DP("Kernel Pointer argument %" PRId32 " (value: " DPxMOD
+         ") was set successfully for device %s.\n", I, DPxPTR(Arg), SubIdStr);
     }
-
-    auto flags = DeviceInfo->getKernelIndirectAccessFlags(rootKernel, rootId);
-    // Kernel dynamic memory is also indirect access
-    if (DeviceInfo->Option.KernelDynamicMemorySize > 0)
-      flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
-    CALL_ZE_RET_FAIL(zeKernelSetIndirectAccess, kernel, flags);
-    DP("Setting indirect access flags " DPxMOD "\n", DPxPTR(flags));
-
-    // Only get device time for the last subdevice for now.
-    if (DeviceInfo->Option.Flags.EnableProfile && i == subCount - 1)
-      profileEvent = DeviceInfo->ProfileEvents.getEvent();
-
-    CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, cmdList, kernel,
-                     &groupCounts, profileEvent, 0, nullptr);
-    kernelLock.unlock();
-
-    // Last event waits for other events
-    auto event = DeviceInfo->SubDeviceEvents[rootId].Events[subId - subIdBase];
-    if (i == subCount - 1)
-      CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, cmdList, event,
-                       usedEvents.size(), usedEvents.data());
-    else
-      CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, cmdList, event, 0, nullptr);
-
-    CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
-    LEVEL0_KERNEL_BEGIN(rootId);
-    CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists,
-                         DeviceInfo->Mutexes[subId], cmdQueue, 1,
-                         &cmdList, nullptr);
-
-    DP("Submitted kernel " DPxMOD " to subdevice %s\n", DPxPTR(kernel),
-       DeviceInfo->DeviceIdStr[subId].c_str());
-
-    usedCmdLists.push_back(cmdList);
-    usedEvents.push_back(event);
   }
 
-  CALL_ZE_RET_FAIL(zeEventHostSynchronize, usedEvents.back(), UINT64_MAX);
+  auto Flags = DeviceInfo->getKernelIndirectAccessFlags(Kernel, RootId);
+  // Kernel dynamic memory is also indirect access
+  if (DeviceInfo->Option.KernelDynamicMemorySize > 0)
+    Flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
+  CALL_ZE_RET_FAIL(zeKernelSetIndirectAccess, Kernel, Flags);
+  DP("Setting indirect access flags " DPxMOD "\n", DPxPTR(Flags));
 
-  if (DeviceInfo->Option.Flags.EnableProfile && profileEvent)
-    tmKernels.back().updateDeviceTime(profileEvent);
+  ze_event_handle_t Event = nullptr;
+  if (DeviceInfo->Option.Flags.EnableProfile)
+    Event = DeviceInfo->ProfileEvents.getEvent();
 
-  for (uint32_t i = 0; i < subCount; i++) {
-    CALL_ZE_RET_FAIL(zeCommandListReset, usedCmdLists[i]);
-    CALL_ZE_RET_FAIL(zeEventHostReset, usedEvents[i]);
-  }
+  CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, CmdList, Kernel,
+                   &GroupCounts, Event, 0, nullptr);
+  KernelLock.unlock();
 
-  LEVEL0_KERNEL_END(rootId);
+  CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
+
+  LEVEL0_KERNEL_BEGIN(RootId);
+
+  CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists,
+                       DeviceInfo->Mutexes[SubId], CmdQueue, 1, &CmdList,
+                       nullptr);
+  DP("Submitted kernel " DPxMOD " to subdevice %s\n", DPxPTR(Kernel), SubIdStr);
+  CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+  KernelTimer.updateDeviceTime(Event);
+
+  LEVEL0_KERNEL_END(RootId);
 
   DP("Executed kernel entry " DPxMOD " on subdevices\n", DPxPTR(TgtEntryPtr));
+
   return OFFLOAD_SUCCESS;
 }
 

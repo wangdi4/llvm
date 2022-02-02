@@ -426,6 +426,12 @@ struct InlineParams {
   /// Threshold to use for callees with inline hint.
   Optional<int> HintThreshold;
 
+#if INTEL_CUSTOMIZATION
+  /// Threshold to use for callees with ODR linkage, double callsites and
+  /// inline hint.
+  Optional<int> DoubleCallSiteHintThreshold;
+#endif // INTEL_CUSTOMIZATION
+
   /// Threshold to use for cold callees.
   Optional<int> ColdThreshold;
 

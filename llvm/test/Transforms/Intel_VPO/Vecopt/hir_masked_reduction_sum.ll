@@ -31,7 +31,7 @@
 ; VPCHECK-NEXT: {
 ; VPCHECK-NEXT:  %red.init = 0.000000e+00;
 ; VPCHECK-NEXT:  %phi.temp = %red.init;
-; VPCHECK:       + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 250> <auto-vectorized> <nounroll> <novectorize>
+; VPCHECK:       + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 250> <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ; VPCHECK-NEXT:  |   %.vec2 = undef;
 ; VPCHECK-NEXT:  |   %.vec = (<4 x float>*)(@B)[0][i1];
 ; VPCHECK-NEXT:  |   %.vec1 = %.vec > 0.000000e+00;

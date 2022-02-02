@@ -62,7 +62,7 @@ HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
     : HLDDNode(HNU, HLNode::HLLoopVal), OrigLoop(LLVMLoop), Ztt(nullptr),
       NestingLevel(0), IsInnermost(true), IVType(nullptr), HasSignedIV(false),
       DistributedForMemRec(false), LoopMetadata(LLVMLoop->getLoopID()),
-      MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
+      LegalMaxTripCount(0), MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
       HasDistributePoint(false), IsUndoSinkingCandidate(false),
       IsBlocked(false), ForcedVectorWidth(0), ForcedVectorUnrollFactor(0),
       VecTag(VecTagTy::NONE) {
@@ -90,7 +90,7 @@ HLLoop::HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
                RegDDRef *UpperDDRef, RegDDRef *StrideDDRef, unsigned NumEx)
     : HLDDNode(HNU, HLNode::HLLoopVal), OrigLoop(nullptr), Ztt(nullptr),
       NestingLevel(0), IsInnermost(true), HasSignedIV(false),
-      DistributedForMemRec(false), LoopMetadata(nullptr),
+      DistributedForMemRec(false), LoopMetadata(nullptr), LegalMaxTripCount(0),
       MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
       HasDistributePoint(false), IsUndoSinkingCandidate(false),
       IsBlocked(false), ForcedVectorWidth(0), ForcedVectorUnrollFactor(0),
@@ -118,6 +118,7 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
       LiveInSet(HLLoopObj.LiveInSet), LiveOutSet(HLLoopObj.LiveOutSet),
       DistributedForMemRec(HLLoopObj.DistributedForMemRec),
       LoopMetadata(HLLoopObj.LoopMetadata),
+      LegalMaxTripCount(HLLoopObj.LegalMaxTripCount),
       MaxTripCountEstimate(HLLoopObj.MaxTripCountEstimate),
       MaxTCIsUsefulForDD(HLLoopObj.MaxTCIsUsefulForDD),
       CmpDbgLoc(HLLoopObj.CmpDbgLoc), BranchDbgLoc(HLLoopObj.BranchDbgLoc),
@@ -158,6 +159,7 @@ HLLoop &HLLoop::operator=(HLLoop &&Lp) {
   HasSignedIV = Lp.HasSignedIV;
   DistributedForMemRec = Lp.DistributedForMemRec;
   LoopMetadata = Lp.LoopMetadata;
+  LegalMaxTripCount = Lp.LegalMaxTripCount;
   MaxTripCountEstimate = Lp.MaxTripCountEstimate;
   MaxTCIsUsefulForDD = Lp.MaxTCIsUsefulForDD;
   HasDistributePoint = Lp.HasDistributePoint;
@@ -509,6 +511,10 @@ void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
 
   if (MaxTripCountEstimate) {
     OS << "  <MAX_TC_EST = " << MaxTripCountEstimate << ">";
+  }
+
+  if (LegalMaxTripCount) {
+    OS << "  <LEGAL_MAX_TC = " << LegalMaxTripCount << ">";
   }
 
   if (getMVTag()) {

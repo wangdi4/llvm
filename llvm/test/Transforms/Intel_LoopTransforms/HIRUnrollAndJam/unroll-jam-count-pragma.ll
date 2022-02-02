@@ -12,7 +12,7 @@
 ; + END LOOP
 
 
-; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100> <unroll and jam = 5>
+; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100> <LEGAL_MAX_TC = 2147483647> <unroll and jam = 5>
 ; CHECK: + END LOOP
 
 ; CHECK: BEGIN REGION { modified }

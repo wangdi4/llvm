@@ -1,6 +1,6 @@
 //===-----------------------PtrTypeAnalyzer.cpp---------------------------===//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1315,8 +1315,6 @@ private:
           // Try to infer the type of something of the form:
           //   inttoptr i64 128 to i32*
           inferTypeFromUse(CE, Info);
-          if (Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use).empty())
-            Info->setUnhandled();
           return;
         }
 
@@ -3279,12 +3277,14 @@ private:
     Value *Src = PTI->getPointerOperand();
     if (isCompilerConstant(Src)) {
       // The source pointer could be any type. We could try to infer the type by
-      // looking for a conversion of the value back to a pointer, but we do not
-      // expect to see a ptrtoint on a null/undef value, so just treat it as
-      // unhandled.
-      ResultInfo->setUnhandled();
-      LLVM_DEBUG(dbgs() << "PtrToInt from constant is not handled: " << *PTI
-                        << "\n");
+      // looking for a conversion of the value back to a pointer, but that is
+      // not likely to occur when the source value was a null/undef value. If
+      // the value is unused though, it can be ignored.
+      if (!PTI->users().empty()) {
+        ResultInfo->setUnhandled();
+        LLVM_DEBUG(dbgs() << "PtrToInt from constant is not handled: " << *PTI
+                          << "\n");
+      }
       return;
     }
 
