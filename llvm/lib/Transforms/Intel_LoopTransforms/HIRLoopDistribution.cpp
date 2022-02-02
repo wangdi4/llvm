@@ -589,31 +589,32 @@ bool ScalarExpansion::isSafeToRecompute(const RegDDRef *SrcRef,
 // Scalar Expansion inserts a temparray store after the definition
 // of x and a temparray load before the use of B[x]. However, because
 // the original use is under an if-node, we want the corresponding load
-// to be inside the if-node, as opposed to before the if, which is the
-// default node used by SCEX.
+// to be inside the if-node, as opposed to before the if.
 static HLNode *getInsertionNodeForIf(RegDDRef *Src, DDRef *Dst,
                                      HLNode *FirstNode) {
-  HLIf *SrcParent = dyn_cast_or_null<HLIf>(Src->getHLDDNode()->getParent());
-  HLIf *DstParent = dyn_cast_or_null<HLIf>(Dst->getHLDDNode()->getParent());
+  HLIf *SrcParentIf = dyn_cast_or_null<HLIf>(Src->getHLDDNode()->getParent());
+  HLIf *DstParentIf = dyn_cast_or_null<HLIf>(Dst->getHLDDNode()->getParent());
 
-  if (!SrcParent || !DstParent) {
+  if (!SrcParentIf || !DstParentIf) {
     return FirstNode;
   }
 
   // Find equivalent HLIf parent for both Src and Dst. The Dst may be at a
   // deeper if nesting than the src, so we traverse up the Dst parent chain.
-  // If there is a deeper nesting, also track the then/else path so we can
-  // match with the Src. Note that Dst is detached HIR at this time.
+  // If there is a deeper nesting, save the if ancestor that is the immediate
+  // child of the matching Dst Ifparent. We use that child to verify the
+  // then/else path of the ifs. This is due to Dst being detached HIR at this
+  // time.
   bool FoundEqualIf = false;
-  HLNode *DstNodeParent = cast<HLNode>(DstParent);
-  HLIf *DstPathIf = nullptr;
+  HLNode *DstNodeParent = DstParentIf;
+  HLIf *DstIfAncestor = nullptr;
   while (DstNodeParent && isa<HLIf>(DstNodeParent)) {
-    DstParent = cast<HLIf>(DstNodeParent);
-    if (HLNodeUtils::areEqualConditions(SrcParent, DstParent)) {
+    DstParentIf = cast<HLIf>(DstNodeParent);
+    if (HLNodeUtils::areEqualConditions(SrcParentIf, DstParentIf)) {
       FoundEqualIf = true;
       break;
     }
-    DstPathIf = DstParent;
+    DstIfAncestor = DstParentIf;
     DstNodeParent = DstNodeParent->getParent();
   }
 
@@ -631,19 +632,19 @@ static HLNode *getInsertionNodeForIf(RegDDRef *Src, DDRef *Dst,
     return false;
   };
 
-  bool SrcPath = SrcParent->isThenChild(Src->getHLDDNode());
-  // Use DstPathIf that we saved earlier as it is the direct child of the If
+  bool SrcPath = SrcParentIf->isThenChild(Src->getHLDDNode());
+  // Use DstIfAncestor that we saved earlier as it is the direct child of the If
   // node where the original Ref is defined. DstPath is detached so we need to
   // manually iterate the nodes
-  bool DstPath =
-      isNodeInThenPath(DstParent, DstPathIf ? DstPathIf : Dst->getHLDDNode());
+  bool DstPath = isNodeInThenPath(
+      DstParentIf, DstIfAncestor ? DstIfAncestor : Dst->getHLDDNode());
 
   if (SrcPath != DstPath) {
     return FirstNode;
   }
 
-  return DstPath ? DstParent->getFirstThenChild()
-                 : DstParent->getFirstElseChild();
+  return DstPath ? DstParentIf->getFirstThenChild()
+                 : DstParentIf->getFirstElseChild();
 }
 
 void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
