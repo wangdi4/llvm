@@ -45366,7 +45366,6 @@ static SDValue combineExtractVectorElt(SDNode *N, SelectionDAG &DAG,
     }
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   auto OnlyFlagUsers = [](SDNode *N) {
     for (SDNode::use_iterator UI = N->use_begin(), UE = N->use_end();
@@ -45405,7 +45404,6 @@ static SDValue combineExtractVectorElt(SDNode *N, SelectionDAG &DAG,
     return DAG.getSetCC(dl, MVT::i1, Res, Mask, ISD::SETEQ);
   }
 #endif // INTEL_CUSTOMIZATION
-=======
   // If this extract is from a loaded vector value and will be used as an
   // integer, that requires a potentially expensive XMM -> GPR transfer.
   // Additionally, if we can convert to a scalar integer load, that will likely
@@ -45437,7 +45435,6 @@ static SDValue combineExtractVectorElt(SDNode *N, SelectionDAG &DAG,
     DAG.ReplaceAllUsesOfValuesWith(From, To, 2);
     return SDValue(N, 0);
   }
->>>>>>> b4b97ec813a02585000f30ac7d532dda74e8bfda
 
   return SDValue();
 }

@@ -137,10 +137,8 @@ define <3 x i16> @h(<3 x i32> %a) nounwind {
 ;
 ; CHECK-WIN-LABEL: h:
 ; CHECK-WIN:       # %bb.0:
-<<<<<<< HEAD
 ; CHECK-WIN-NEXT:    pshuflw {{.*#+}} xmm0 = mem[0,2,2,3,4,5,6,7] ;INTEL
 ; CHECK-WIN-NEXT:    pshufd {{.*#+}} xmm0 = xmm0[0,2,2,3] ;INTEL
-=======
 ; CHECK-WIN-NEXT:    movdqa (%rcx), %xmm0
 ; CHECK-WIN-NEXT:    movl (%rcx), %eax
 ; CHECK-WIN-NEXT:    pextrw $2, %xmm0, %edx
@@ -148,7 +146,6 @@ define <3 x i16> @h(<3 x i32> %a) nounwind {
 ; CHECK-WIN-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-WIN-NEXT:    # kill: def $dx killed $dx killed $edx
 ; CHECK-WIN-NEXT:    # kill: def $cx killed $cx killed $ecx
->>>>>>> b4b97ec813a02585000f30ac7d532dda74e8bfda
 ; CHECK-WIN-NEXT:    retq
   %c = trunc <3 x i32> %a to <3 x i16>
   ret <3 x i16> %c
