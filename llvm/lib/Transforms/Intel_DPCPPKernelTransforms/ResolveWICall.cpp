@@ -138,17 +138,19 @@ static LoadInst *createLoadForTLSGlobal(IRBuilder<> &Builder, Module *M,
 Function *ResolveWICallPass::runOnFunction(Function *F) {
   this->F = F;
   Value *SpecialBuf = nullptr;
+  IRBuilder<> Builder(F->getContext());
   if (UseTLSGlobals) {
-    IRBuilder<> B(dyn_cast<Instruction>(F->getEntryBlock().begin()));
-    WorkInfo =
-        createLoadForTLSGlobal(B, M, ImplicitArgsUtils::IA_WORK_GROUP_INFO);
-    WGId = createLoadForTLSGlobal(B, M, ImplicitArgsUtils::IA_WORK_GROUP_ID);
-    BaseGlbId =
-        createLoadForTLSGlobal(B, M, ImplicitArgsUtils::IA_GLOBAL_BASE_ID);
-    SpecialBuf =
-        createLoadForTLSGlobal(B, M, ImplicitArgsUtils::IA_BARRIER_BUFFER);
-    RuntimeHandle =
-        createLoadForTLSGlobal(B, M, ImplicitArgsUtils::IA_RUNTIME_HANDLE);
+    Builder.SetInsertPoint(dyn_cast<Instruction>(F->getEntryBlock().begin()));
+    WorkInfo = createLoadForTLSGlobal(Builder, M,
+                                      ImplicitArgsUtils::IA_WORK_GROUP_INFO);
+    WGId =
+        createLoadForTLSGlobal(Builder, M, ImplicitArgsUtils::IA_WORK_GROUP_ID);
+    BaseGlbId = createLoadForTLSGlobal(Builder, M,
+                                       ImplicitArgsUtils::IA_GLOBAL_BASE_ID);
+    SpecialBuf = createLoadForTLSGlobal(Builder, M,
+                                        ImplicitArgsUtils::IA_BARRIER_BUFFER);
+    RuntimeHandle = createLoadForTLSGlobal(
+        Builder, M, ImplicitArgsUtils::IA_RUNTIME_HANDLE);
   } else {
     DPCPPKernelCompilationUtils::getImplicitArgs(
         F, nullptr, &WorkInfo, &WGId, &BaseGlbId, &SpecialBuf, &RuntimeHandle);
@@ -192,7 +194,7 @@ Function *ResolveWICallPass::runOnFunction(Function *F) {
       if (!ExtExecDecls.count(ICT_PRINTF))
         addExternFunctionDeclaration(
             CalledFuncType, getOrCreatePrintfFuncType(), "opencl_printf");
-      NewRes = updatePrintf(CI);
+      NewRes = updatePrintf(Builder, CI);
       assert(NewRes && "Expected updatePrintf to succeed");
       break;
     case ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM:
@@ -365,98 +367,178 @@ Value *ResolveWICallPass::updateGetFunctionInBound(CallInst *CI,
   return 0;
 }
 
-Value *ResolveWICallPass::updatePrintf(CallInst *CI) {
-
+// This function creates printf argument buffer and stores argument size/value
+// into the buffer.
+//
+// Memory layout of argument buffer that is passed to opencl_printf builtin:
+// =================================================================
+// | Byte count | Name       | Introduction                        |
+// =================================================================
+// | 4          | BufferSize | Size of the buffer in bytes         |
+// |===============================================================| _
+// | 4          | Size       | Size of arg 1 element and DummyB    |  |
+// |---------------------------------------------------------------|  | Second
+// | A few      | DummyB     | Space to ensure ArgValue is aligned |  | Argument
+// |---------------------------------------------------------------|  |
+// | ArgSize    | ArgValue   | Value of arg 1                      | _|
+// |===============================================================| _
+// | 0-3        | DummyA     | Space to ensure Size is aligned  |  |
+// |---------------------------------------------------------------|  |
+// | 4          | Size       | Size of arg 2 element and DummyB    |  | Third
+// |---------------------------------------------------------------|  | Argument
+// | A few      | DummyB     | Space to ensure ArgValue is aligned |  |
+// |---------------------------------------------------------------|  |
+// | ArgSize    | ArgValue   | Value of arg 2                      | _|
+// |===============================================================|
+// | ...                                                           |
+// | ...                                                           |
+// | ...                                                           |
+// |===============================================================| _
+// | 0-3        | DummyA     | Space to ensure Size is aligned  |  |
+// |---------------------------------------------------------------|  |
+// | 4          | Size       | Size of arg N element and DummyB    |  | Last
+// |---------------------------------------------------------------|  | Argument
+// | A few      | DummyB     | Space to ensure ArgValue is aligned |  |
+// |---------------------------------------------------------------|  |
+// | ArgSize    | ArgValue   | Value of arg N                      | _|
+// |===============================================================|
+// =================================================================
+//
+// Notes:
+// * The first argument (index 0), which is format string, isn't stored to
+//   argument buffer. Therefore, argument index starts with '1' and 'second'.
+// * 'Size' contains 'DummyB' size, which is used to align argument buffer.
+//   Memory layout of 'Size':
+//   ===================================
+//   |0               |16              | Bit
+//   |---------------- ----------------|
+//   |Arg element size|  DummyB size   |
+//   ===================================
+// * For vector argument, its element size is store in 'Size'.
+//   'DummyB' ensures that 'ArgValue' is aligned to its element size.
+//   opencl_printf builtin uses format field to identify number of elements.
+Value *ResolveWICallPass::updatePrintf(IRBuilder<> &Builder, CallInst *CI) {
   assert(RuntimeHandle && "Context pointer RuntimeHandle created as expected");
   const DataLayout &DL = M->getDataLayout();
+  // Types used in several places.
+  IntegerType *I32Ty = IntegerType::getInt32Ty(*Ctx);
+  PointerType *I32PtrTy = PointerType::getUnqual(I32Ty);
+  unsigned I32TySize = 4;
 
   // Find out the buffer size required to store all the arguments.
   // Note: CallInst->getNumOperands() returns the number of operands in
   // the instruction, including its destination as #0. Since this is
   // a printf call and we're interested in all the arguments after the
-  // format string, we start with #2.
+  // format string, we start with #1.
   assert(CI->arg_size() > 0 &&
          "Expect printf to have a format string");
-  unsigned TotalArgSize = 0;
-  for (unsigned NumArg = 1; NumArg < CI->arg_size(); ++NumArg) {
-    Value *arg = CI->getArgOperand(NumArg);
-    unsigned argsize = DL.getTypeAllocSize(arg->getType());
-    TotalArgSize += argsize;
-  }
+  SmallVector<unsigned, 16> ArgEltSizes;
+  SmallVector<unsigned, 16> Sizes;
+  // The first 4 bytes stores total size which is used for out-of-bound check
+  // in opencl_printf builtin implementation.
+  unsigned TotalArgSize = I32TySize;
+  auto AlignSizeTo = [](unsigned Size, unsigned Align) {
+    return (Size + Align - 1) & ~(Align - 1);
+  };
+  for (unsigned I = 1, E = CI->arg_size(); I != E; ++I) {
+    auto *ArgTy = CI->getArgOperand(I)->getType();
 
-  // Types used in several places.
-  IntegerType *I32Type = IntegerType::get(*Ctx, 32);
-  IntegerType *I8Type = IntegerType::get(*Ctx, 8);
+    // Offset to store argument size. For vector type, use element type size.
+    const unsigned SizeOffset = AlignSizeTo(TotalArgSize, I32TySize);
+    const unsigned DummyOffset = SizeOffset + I32TySize;
+    unsigned ArgEltSize;
+    if (auto *VTy = dyn_cast<VectorType>(ArgTy))
+      ArgEltSize = DL.getTypeAllocSize(VTy->getElementType());
+    else
+      ArgEltSize = DL.getTypeAllocSize(ArgTy);
+    ArgEltSizes.push_back(ArgEltSize);
+    assert(ArgEltSize <= std::numeric_limits<uint16_t>::max() &&
+           "arg element size too large");
+
+    // Offset to store current argument value.
+    const unsigned ArgValueOffset = AlignSizeTo(DummyOffset, ArgEltSize);
+
+    // Compute DummyB size.
+    unsigned DummySize = ArgValueOffset - DummyOffset;
+    assert(DummySize <= std::numeric_limits<uint16_t>::max() &&
+           "dummy size too large");
+
+    // Combine argument size and DummyB size.
+    Sizes.push_back(ArgEltSize | (DummySize << 16));
+
+    TotalArgSize = ArgValueOffset + DL.getTypeAllocSize(ArgTy);
+  }
 
   // Create the alloca instruction for allocating the buffer on the stack.
-  // Also, handle the special case where printf got no vararg arguments:
-  // printf("hello");
-  // Since we have to pass something into the 'args' argument of
-  // opencl_printf, and 'alloca' with size 0 is undefined behavior, we
-  // just allocate a dummy buffer of size 1. opencl_printf won't look at
-  // it anyway.
-  ArrayType *BufArrType;
-  if (CI->arg_size() == 1) {
-    BufArrType = ArrayType::get(I8Type, 1);
-  } else {
-    BufArrType = ArrayType::get(I8Type, TotalArgSize);
-  }
-  // TODO: add comment
-  AllocaInst *BufAI =
+  // For the special case where printf got no vararg arguments: printf("hello"),
+  // only TotalArgSize (equals I32TySize) will be stored to the buffer.
+  auto *BufArrType = ArrayType::get(IntegerType::getInt8Ty(*Ctx), TotalArgSize);
+  // Alloca buffer to store size and arguments. This buffer will be parsed by
+  // opencl_printf builtin.
+  auto *BufAI =
       new AllocaInst(BufArrType, DL.getAllocaAddrSpace(), "temp_arg_buf",
-                     &*CI->getParent()->getParent()->getEntryBlock().begin());
+                     &*CI->getFunction()->getEntryBlock().begin());
+  BufAI->setAlignment(Align(I32TySize));
 
-  // Generate instructions to store the operands into the argument buffer.
+  // Generate instructions to store sizes and operands into the argument buffer.
+  Builder.SetInsertPoint(CI);
   unsigned BufPointerOffset = 0;
-  for (unsigned NumArg = 1; NumArg < CI->arg_size(); ++NumArg) {
-    std::vector<Value *> IndexArgs;
-    IndexArgs.push_back(getConstZeroInt32Value());
-    IndexArgs.push_back(ConstantInt::get(I32Type, BufPointerOffset));
+  SmallVector<Value *, 2> IndexArgs(2);
+  IndexArgs[0] = getConstZeroInt32Value();
 
-    // getelementptr to compute the address into which this argument will
-    // be placed.
-    GetElementPtrInst *GEPInst = GetElementPtrInst::CreateInBounds(
-        BufArrType, BufAI, ArrayRef<Value *>(IndexArgs), "", CI);
+  auto CreateGEPCastStore = [&](unsigned Offset, Type *DestTy, StringRef Name,
+                                Value *V, Optional<Align> Alignment = None) {
+    IndexArgs[1] = ConstantInt::get(I32Ty, Offset);
+    auto *GEP = Builder.CreateInBoundsGEP(BufArrType, BufAI, IndexArgs);
+    auto *Cast = Builder.CreatePointerCast(GEP, DestTy, Name);
+    if (Alignment)
+      Builder.CreateAlignedStore(V, Cast, *Alignment);
+    else
+      Builder.CreateStore(V, Cast);
+    return GEP;
+  };
 
-    Value *Arg = CI->getArgOperand(NumArg);
-    Type *Argtype = Arg->getType();
+  // Store total size.
+  // Get a pointer to the buffer, in order to pass it to opencl_printf function.
+  auto *PtrToBuf =
+      CreateGEPCastStore(BufPointerOffset, I32PtrTy, "arg_buf_size",
+                         ConstantInt::get(I32Ty, TotalArgSize));
+  BufPointerOffset += I32TySize;
 
-    // bitcast from generic i8* address to a pointer to the Argument's type.
-    CastInst *CastI = CastInst::CreatePointerCast(
-        GEPInst, PointerType::getUnqual(Argtype), "", CI);
+  for (unsigned I = 1, E = CI->arg_size(); I != E; ++I) {
+    Value *Arg = CI->getArgOperand(I);
+    auto *ArgTy = Arg->getType();
 
-    // store Argument into address. Alignment forced to 1 to make vector.
-    // stores safe.
-    (void)new StoreInst(Arg, CastI, false, Align(1), CI);
+    // Store current argument size.
+    const unsigned SizeOffset = AlignSizeTo(BufPointerOffset, I32TySize);
+    CreateGEPCastStore(SizeOffset, I32PtrTy, "arg_size",
+                       ConstantInt::get(I32Ty, Sizes[I - 1]));
+
+    // Store current argument.
+    // Compute the address into which this argument will be placed.
+    const unsigned DummyOffset = SizeOffset + I32TySize;
+    const unsigned ArgValueOffset =
+        AlignSizeTo(DummyOffset, ArgEltSizes[I - 1]);
+    CreateGEPCastStore(ArgValueOffset, PointerType::getUnqual(ArgTy), "arg_val",
+                       Arg, Align(1));
 
     // This Argument occupied some space in the buffer.
     // Advance the buffer pointer offset by its size to know where the next
     // Argument should be placed.
-    unsigned Argsize = DL.getTypeAllocSize(Arg->getType());
-    BufPointerOffset += Argsize;
+    BufPointerOffset = ArgValueOffset + DL.getTypeAllocSize(ArgTy);
   }
-
-  // Create a pointer to the buffer, in order to pass it to the function.
-  std::vector<Value *> IndexArgs;
-  IndexArgs.push_back(getConstZeroInt32Value());
-  IndexArgs.push_back(getConstZeroInt32Value());
-
-  GetElementPtrInst *PtrToBuf = GetElementPtrInst::CreateInBounds(
-      BufArrType, BufAI, ArrayRef<Value *>(IndexArgs), "", CI);
 
   // Finally create the call to opencl_printf.
   Function *F = M->getFunction("opencl_printf");
   assert(F && "Expect builtin printf to be declared before use");
 
-  SmallVector<Value *, 16> Params;
+  SmallVector<Value *, 4> Params;
   Params.push_back(CI->getArgOperand(0));
   Params.push_back(PtrToBuf);
   Value *RuntimeInterface = getOrCreateRuntimeInterface();
   Params.push_back(RuntimeInterface);
   Params.push_back(RuntimeHandle);
-  CallInst *Res =
-      CallInst::Create(F, Params, "translated_opencl_printf_call", CI);
-  Res->setDebugLoc(CI->getDebugLoc());
+  auto *Res = Builder.CreateCall(F, Params, "translated_opencl_printf_call");
   return Res;
 }
 
