@@ -279,24 +279,6 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
   return Clone;
 }
 
-// Find the alloca and store for any args that go through memory.
-static Optional<std::pair<StoreInst*, AllocaInst*>>
-getUnoptimizedArgInstructions(Argument &Arg) {
-
-  if (!Arg.hasOneUse())
-    return None;
-
-  auto *Store = dyn_cast<StoreInst>(Arg.user_back());
-  if (!Store)
-    return None;
-
-  auto *Alloca = dyn_cast<AllocaInst>(Store->getPointerOperand());
-  if (!Alloca)
-    return None;
-
-  return std::make_pair(Store, Alloca);
-}
-
 BasicBlock *VecCloneImpl::splitEntryIntoLoop(Function *Clone, VectorVariant &V,
                                              BasicBlock *EntryBlock) {
 
@@ -307,16 +289,6 @@ BasicBlock *VecCloneImpl::splitEntryIntoLoop(Function *Clone, VectorVariant &V,
       EntryInsts.push_back(Alloca);
       // Add alloca to SIMD loop private
       PrivateAllocas.insert(Alloca);
-    }
-  }
-
-  std::vector<VectorKind> &ParmKinds = V.getParameters();
-  for (Argument &Arg : Clone->args()) {
-    VectorKind ArgKind = ParmKinds[Arg.getArgNo()];
-    auto IsOptimizedArg = getUnoptimizedArgInstructions(Arg);
-    if (IsOptimizedArg && (ArgKind.isLinear())) {
-      StoreInst *ArgStore = IsOptimizedArg->first;
-      EntryInsts.push_back(ArgStore);
     }
   }
 
@@ -676,13 +648,8 @@ Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Argument *Arg,
   // For linear values, a mul + add/gep sequence is needed to generate the
   // correct value. i.e., val = linear_var + stride * loop_index;
 
-  // Insert the stride related instructions after the user if the
-  // instruction involves a redefinition of the argument. For these
-  // situations, we want to apply the stride to this SSA temp. For other
-  // instructions, e.g., add, the instruction computing the stride must be
-  // inserted before the user.
-  IRBuilder<> Builder(isa<LoadInst>(ArgUser) ?
-      ArgUser->getNextNode() : ArgUser);
+  // Insert the stride related instructions before the user.
+  IRBuilder<> Builder(ArgUser);
 
   if (Arg->getType()->isPointerTy()) {
     auto *Mul = Builder.CreateMul(ConstantInt::get(Phi->getType(), Stride), Phi,
@@ -694,221 +661,50 @@ Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Argument *Arg,
     // address passed to the vector function.
     auto *ArgPtrType = cast<PointerType>(Arg->getType());
 
-    // The base address used for linear gep computations.
-    Value *BaseAddr = nullptr;
-    StringRef RefName;
-
-    if (auto *ArgLoad = dyn_cast<LoadInst>(ArgUser)) {
-      // We are loading from the alloca of the pointer argument (no Mem2Reg)
-      // i.e., loading a pointer to an SSA temp.
-      BaseAddr = ArgUser;
-      RefName = ArgLoad->getOperand(0)->getName();
-    } else {
-      // The user is using the pointer argument directly.
-      BaseAddr = Arg;
-      RefName = BaseAddr->getName();
-    }
-
     // Mul is always generated as i32 since it is calculated using the i32 loop
     // phi that is inserted by this pass. No cast on Mul is necessary because
     // gep can use a base address of one type with an index of another type.
     Value *LinearArgGep = Builder.CreateGEP(ArgPtrType->getElementType(),
-                                             BaseAddr, Mul, RefName + ".gep");
+                                            Arg, Mul, Arg->getName() + ".gep");
 
     return LinearArgGep;
   }
 
   Value *PhiCast = Phi;
-  // The instruction might involve redefinition of the argument. For
-  // example, a load from the argument's associated alloca or a cast. In this
-  // case, we emit the stride based on the type of ArgUser. In any other
-  // case, we use the type of the arguments.
-  Value *Val =
-      isa<LoadInst>(ArgUser) ? cast<Value>(ArgUser) : cast<Value>(Arg);
-  if (Val->getType() != Phi->getType()) {
+  if (Arg->getType() != Phi->getType()) {
     PhiCast = Builder.CreateCast(
-        CastInst::getCastOpcode(Phi, false /* SrcIsSigned */, Val->getType(),
+        CastInst::getCastOpcode(Phi, false /* SrcIsSigned */, Arg->getType(),
                                 false /* DestIsSigned */),
-        Phi, Val->getType(), "phi.cast");
+        Phi, Arg->getType(), "phi.cast");
   }
 
   Value *Mul =
       Builder.CreateMul(GeneralUtils::getConstantValue(
-                            Val->getType(), Clone->getContext(), Stride),
+                        Arg->getType(), Clone->getContext(), Stride),
                         PhiCast, "stride.mul");
 
-  // The user of the argument is an instruction that results in a
-  // redefinition of it. e.g., a load from an alloca (no Mem2Reg) or a cast
-  // instruction. In either case, the stride needs to be applied to this
-  // temp. Otherwise, the user is an instruction that does not redefine the
-  // temp, such as an add instruction. For these cases, the stride must be
-  // computed before the user and the reference to the argument must be
-  // replaced with this instruction.
-  assert(!Val->getType()->isFloatingPointTy() &&
+  // Floating point strides are not allowed.
+  assert(!Arg->getType()->isFloatingPointTy() &&
          "The value should not be floating point!");
-  auto Add = Builder.CreateAdd(Val, Mul, "stride.add");
+  auto Add = Builder.CreateAdd(Arg, Mul, "stride.add");
   return Add;
 }
 
 void VecCloneImpl::updateLinearReferences(Function *Clone, Function &F,
                                           VectorVariant &V, PHINode *Phi) {
-  // Add stride to arguments marked as linear. This is done by finding all
-  // users of the scalar alloca associated with the argument. The user should
-  // be a load from this alloca to a temp. The stride is then added to this temp
-  // and its uses are replaced with the new temp. Or, if Mem2Reg eliminates the
-  // alloca/load, the argument is used directly and this use is updated with
-  // the stride.
-
+  // Add stride to arguments marked as linear. These instructions are added
+  // before the arg user and uses are updated accordingly.
   std::vector<VectorKind> ParmKinds = V.getParameters();
 
   for (Argument &Arg : Clone->args()) {
     VectorKind ParmKind = ParmKinds[Arg.getArgNo()];
-    SmallDenseMap<Instruction*, int> LinearArgUsers;
-
     if (ParmKind.isLinear()) {
       int Stride = ParmKind.getStride();
-      auto IsOptimizedArg = getUnoptimizedArgInstructions(Arg);
-      if (IsOptimizedArg) {
-        AllocaInst *ArgAlloca = IsOptimizedArg->second;
-        for (auto *AU : ArgAlloca->users())
-          if (LoadInst *ArgLoad = dyn_cast<LoadInst>(AU))
-            // The argument is being loaded from an alloca to a new SSA
-            // temp. We must replace the users of this load with an
-            // instruction that adds the result of this load with the
-            // stride.
-            LinearArgUsers[ArgLoad] = Stride;
-      } else {
-        for (User *ArgUser : Arg.users()) {
-          // Mem2Reg has registerized the arguments, so users of it will use
-          // it directly, and not through a load of the argument.
-          LinearArgUsers[cast<Instruction>(ArgUser)] = Stride;
-        }
-      }
-    }
-
-    for (auto UserIt : LinearArgUsers) {
-      Instruction *User = UserIt.first;
-      int Stride = UserIt.second;
-
-      // For each user of argument:
-
-      // We must deal with two cases here, based on whether Mem2Reg has been
-      // run.
-      //
-      // Example:
-      //
-      // __declspec(vector(linear(i:1),uniform(x),vectorlength(4)))
-      // extern int foo(int i, int x) {
-      //   return (x + i);
-      // }
-      //
-      // 1) We are loading the argument from an alloca and the SSA temp as a
-      //    result of the load is what we need to add the stride to. Then, any
-      //    users of that temp must be replaced. The only load instructions put
-      //    in the collection above are guaranteed to be associated with the
-      //    argument's alloca. Thus, we only need to check to see if a load is
-      //    in the map to know what to do.
-      //
-      // Before Linear Update:
-      //
-      // simd.loop.header:                   ; preds = %simd.loop.latch, %entry
-      //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.latch ]
-      //   store i32 %x, i32* %x.addr, align 4
-      //   %0 = load i32, i32* %x.addr, align 4
-      //   %1 = load i32, i32* %i.addr, align 4 <--- %i
-      //   %add = add nsw i32 %0, %1            <--- replace %1 with stride
-      //   %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
-      //   store i32 %add, i32* %ret.cast.gep
-      //   br label %simd.loop.latch
-      //
-      // After Linear Update:
-      //
-      // simd.loop.header:                   ; preds = %simd.loop.latch, %entry
-      //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.latch ]
-      //   store i32 %x, i32* %x.addr, align 4
-      //   %0 = load i32, i32* %x.addr, align 4
-      //   %1 = load i32, i32* %i.addr, align 4
-      //   %stride.mul = mul i32 1, %index
-      //   %stride.add = add i32 %1, %stride.mul <--- stride
-      //   %add = add nsw i32 %0, %stride.add    <--- new %i with stride
-      //   %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
-      //   store i32 %add, i32* %ret.cast.gep
-      //   br label %simd.loop.latch
-      //
-      // 2) The user uses the argument directly, and so we must apply the
-      //    stride directly to the argument. Any users of the argument must
-      //    then be updated.
-      //
-      // Before Linear Update:
-      //
-      // simd.loop.header:                   ; preds = %simd.loop.latch, %entry
-      //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.latch ]
-      //   %add = add nsw i32 %x, %i <-- direct usage of %i
-      //   %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
-      //   store i32 %add, i32* %ret.cast.gep
-      //   br label %simd.loop.latch
-      //
-      // After Linear Update:
-      //
-      // simd.loop.header:                   ; preds = %simd.loop.latch, %entry
-      //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.latch ]
-      //   %stride.mul = mul i32 1, %index
-      //   %stride.add = add i32 %i, %stride.mul <--- stride
-      //   %add = add nsw i32 %x, %stride.add    <--- new %i with stride
-      //   %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
-      //   store i32 %add, i32* %ret.cast.gep
-      //   br label %simd.loop.latch
-
-      // The stride calculation is inserted before the use. In some cases this
-      // can lead to redundant instructions, but they will be optimized away
-      // later. Inserting them this way makes the algorithm simpler.
-      Value *StrideInst =
-          generateStrideForArgument(Clone, &Arg, User, Stride, Phi);
-
-      SmallVector<Instruction*, 4> InstsToUpdate;
-      Value *ArgUser;
-
-      if (isa<LoadInst>(User)) {
-        // Case 1
-        ArgUser = User;
-
-        // Find the users of the redefinition of the argument so that we
-        // can apply the stride to those instructions.
-        for (auto *StrideUser : ArgUser->users()) {
-          if (StrideUser != StrideInst) {
-            // We've already inserted the stride which is now also a user of
-            // the argument, so don't update that instruction. Otherwise,
-            // we'll create a self reference. Hence, why we don't use
-            // replaceAllUsesWith().
-            InstsToUpdate.push_back(cast<Instruction>(StrideUser));
-          }
-        }
-      } else {
-        // Case 2
-        ArgUser = &Arg;
-        InstsToUpdate.push_back(User);
-      }
- 
-      // Replace the old references to the argument with the instruction
-      // that applies the stride.
-      for (unsigned J = 0; J < InstsToUpdate.size(); ++J) {
-        unsigned NumOps = InstsToUpdate[J]->getNumOperands();
-        for (unsigned K = 0; K < NumOps; ++K) {
-          if (InstsToUpdate[J]->getOperand(K) == ArgUser) {
-            InstsToUpdate[J]->setOperand(K, StrideInst);
-          }
-
-          // Replace the old references to the argument with the instruction
-          // that applies the stride.
-          for (unsigned J = 0; J < InstsToUpdate.size(); ++J) {
-            unsigned NumOps = InstsToUpdate[J]->getNumOperands();
-            for (unsigned K = 0; K < NumOps; ++K) {
-              if (InstsToUpdate[J]->getOperand(K) == ArgUser) {
-                InstsToUpdate[J]->setOperand(K, StrideInst);
-              }
-            }
-          }
-        }
+      for (auto &U:  make_early_inc_range(Arg.uses())) {
+        auto *User = cast<Instruction>(U.getUser());
+        Value *StrideInst =
+            generateStrideForArgument(Clone, &Arg, User, Stride, Phi);
+        User->setOperand(U.getOperandNo(), StrideInst);
       }
     }
   }
