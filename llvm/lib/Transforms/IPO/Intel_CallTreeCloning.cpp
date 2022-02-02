@@ -2173,8 +2173,6 @@ public:
         MV2VarCloneFMaxNumIntArgs, /* MaxNumIntArg: 6 */
         MV2VarCloneFMinPtrArgs /* NumPtrArg0:2 */,
         MV2VarCloneFMaxPtrArgs /* NumPtrArg1:4 */,
-        MV2VarCloneFMinDblPtrArgs /* MinNumDoublePtrArgs:0 */,
-        MV2VarCloneFMaxDblPtrArgs /* MaxNumDoublePtrArgs:1 */,
         true /* LeafFunc */);
 
     // 1VarMV function matcher:
@@ -2185,8 +2183,6 @@ public:
         MV1VarCloneFMaxNumIntArgs, /* MaxNumIntArg: 6 */
         MV1VarCloneFPtrArgs /* NumPtrArg0:4 */,
         MV1VarCloneFPtrArgs /* NumPtrArg1:4 */,
-        MV1VarCloneFDblPtrArgs /* MinNumDoublePtrArgs:1 */,
-        MV1VarCloneFDblPtrArgs /* MaxNumDoublePtrArgs:1 */,
         true /* LeafFunc */);
     LLVM_DEBUG({
       // Initialize/Adjust MultiVersioning Tracer:
