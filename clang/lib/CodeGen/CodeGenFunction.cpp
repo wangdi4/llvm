@@ -3060,7 +3060,7 @@ Address CodeGenFunction::EmitHLSFieldAnnotations(const FieldDecl *D,
       CGM.getIntrinsic(llvm::Intrinsic::ptr_annotation, VTy);
   V = EmitAnnotationCall(F, V, AnnotStr, D->getLocation());
   V = Builder.CreateBitCast(V, VTy);
-  return Address(V, Addr.getAlignment());
+  return Address(V, Addr.getElementType(), Addr.getAlignment());
 }
 #endif // INTEL_CUSTOMIZATION
 

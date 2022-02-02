@@ -20,19 +20,19 @@ define void @vec_sum( <2 x i32> %m, <2 x i32> %l) #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.preheader:
 ; CHECK-NEXT:    [[LOAD_M0:%.*]] = load <2 x i32>, <2 x i32>* [[ALLOCA_M0]], align 8
-; CHECK-NEXT:    br label [[SIMD_LOOP0:%.*]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER0:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop:
-; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]
+; CHECK-NEXT:  simd.loop.header:
+; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_LATCH0:%.*]] ]
 ; CHECK-NEXT:    [[VEC_L_CAST_GEP0:%.*]] = getelementptr <2 x i32>, <2 x i32>* [[VEC_L_CAST0]], i32 [[INDEX0]]
 ; CHECK-NEXT:    [[VEC_L_ELEM0:%.*]] = load <2 x i32>, <2 x i32>* [[VEC_L_CAST_GEP0]], align 8
 ; CHECK-NEXT:    [[ADD30:%.*]] = add nsw <2 x i32> [[LOAD_M0]], [[VEC_L_ELEM0]]
-; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop.exit:
+; CHECK-NEXT:  simd.loop.latch:
 ; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
 ; CHECK-NEXT:    [[VL_COND0:%.*]] = icmp ult i32 [[INDVAR0]], 4
-; CHECK-NEXT:    br i1 [[VL_COND0]], label [[SIMD_LOOP0]], label [[SIMD_END_REGION0:%.*]], !llvm.loop !0
+; CHECK-NEXT:    br i1 [[VL_COND0]], label [[SIMD_LOOP_HEADER0]], label [[SIMD_END_REGION0:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.end.region:
 ; CHECK-NEXT:    call void @llvm.directive.region.exit(token [[ENTRY_REGION0]]) [ "DIR.OMP.END.SIMD"() ]

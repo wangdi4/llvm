@@ -120,14 +120,14 @@
 // %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),
 // "QUAL.OMP.UNIFORM"(float* %a), "QUAL.OMP.LINEAR"(i32 %k, i32 1),
 // "QUAL.OMP.SIMDLEN"(i32 4) ]
-//     br label %simd.loop
+//     br label %simd.loop.header
 //
 // and a new basic-block is emitted after loop's latch:
 //
-// simd.loop.exit:                                   ; preds = %simd.loop
+// simd.loop.latch:                            ; preds = %simd.loop.header
 // %indvar = add nuw i32 %index, 1
 // %vl.cond = icmp ult i32 %indvar, 4
-// br i1 %vl.cond, label %simd.loop, label %simd.end.region
+// br i1 %vl.cond, label %simd.loop.header, label %simd.end.region
 //
 // The pass must run at all optimization levels because it is possible that
 // a loop calling the vector function is vectorized, but the vector function
@@ -320,8 +320,8 @@ BasicBlock *VecCloneImpl::splitEntryIntoLoop(Function *Clone, VectorVariant &V,
     }
   }
 
-  BasicBlock *LoopBlock =
-      EntryBlock->splitBasicBlock(EntryBlock->begin(), "simd.loop");
+  BasicBlock *LoopHeader =
+      EntryBlock->splitBasicBlock(EntryBlock->begin(), "simd.loop.header");
 
   for (auto *Inst : EntryInsts) {
     Inst->removeFromParent();
@@ -331,11 +331,11 @@ BasicBlock *VecCloneImpl::splitEntryIntoLoop(Function *Clone, VectorVariant &V,
   LLVM_DEBUG(dbgs() << "After Entry Block Split\n");
   LLVM_DEBUG(Clone->dump());
 
-  return LoopBlock;
+  return LoopHeader;
 }
 
 BasicBlock *VecCloneImpl::splitLoopIntoReturn(Function *Clone,
-                                              BasicBlock *LoopBlock) {
+                                              BasicBlock *LoopHeader) {
   assert(count_if(*Clone,
                   [](const BasicBlock &BB) {
                     return isa<ReturnInst>(BB.getTerminator());
@@ -354,31 +354,31 @@ BasicBlock *VecCloneImpl::splitLoopIntoReturn(Function *Clone,
 }
 
 PHINode *VecCloneImpl::createPhiAndBackedgeForLoop(
-    Function *Clone, BasicBlock *LoopPreHeader, BasicBlock *LoopBlock,
-    BasicBlock *LoopExitBlock, BasicBlock *ReturnBlock, int VectorLength) {
-  // Create the phi node for the top of the loop block and add the back
-  // edge to the loop from the loop exit.
+    Function *Clone, BasicBlock *LoopPreHeader, BasicBlock *LoopHeader,
+    BasicBlock *LoopLatch, BasicBlock *ReturnBlock, int VectorLength) {
+  // Create the phi node for the top of the loop header and add the back
+  // edge to the loop from the loop latch.
 
   PHINode *Phi = PHINode::Create(Type::getInt32Ty(Clone->getContext()), 2,
-                                 "index", &*LoopBlock->getFirstInsertionPt());
+                                 "index", &*LoopHeader->getFirstInsertionPt());
 
   Constant *Inc = ConstantInt::get(Type::getInt32Ty(Clone->getContext()), 1);
   Constant *IndInit = ConstantInt::get(Type::getInt32Ty(Clone->getContext()),
                                        0);
 
   Instruction *Induction = BinaryOperator::CreateNUWAdd(Phi, Inc, "indvar",
-                                                        LoopExitBlock);
+                                                        LoopLatch);
 
   Constant *VL = ConstantInt::get(Type::getInt32Ty(Clone->getContext()),
                                   VectorLength);
 
-  Instruction *VLCmp = new ICmpInst(*LoopExitBlock, CmpInst::ICMP_ULT,
+  Instruction *VLCmp = new ICmpInst(*LoopLatch, CmpInst::ICMP_ULT,
                                     Induction, VL, "vl.cond");
 
-  BranchInst::Create(LoopBlock, ReturnBlock, VLCmp, LoopExitBlock);
+  BranchInst::Create(LoopHeader, ReturnBlock, VLCmp, LoopLatch);
 
   Phi->addIncoming(IndInit, LoopPreHeader);
-  Phi->addIncoming(Induction, LoopExitBlock);
+  Phi->addIncoming(Induction, LoopLatch);
 
   LLVM_DEBUG(dbgs() << "After Loop Insertion\n");
   LLVM_DEBUG(Clone->dump());
@@ -388,7 +388,7 @@ PHINode *VecCloneImpl::createPhiAndBackedgeForLoop(
 
 void VecCloneImpl::updateVectorArgumentUses(
     Function *Clone, Function &OrigFn, const DataLayout &DL, Argument *Arg,
-    BitCastInst *VecArgCast, BasicBlock *EntryBlock, BasicBlock *LoopExitBlock,
+    BitCastInst *VecArgCast, BasicBlock *EntryBlock, BasicBlock *LoopLatch,
     PHINode *Phi) {
 
   // This code updates argument users with a gep/load of an element for a
@@ -403,7 +403,7 @@ void VecCloneImpl::updateVectorArgumentUses(
 
     // If arg is returned, make sure gep and load appear in the loop.
     Instruction *InsertPt = isa<ReturnInst>(User) ?
-        LoopExitBlock->getFirstNonPHI() : User;
+        LoopLatch->getFirstNonPHI() : User;
 
     GetElementPtrInst *VecGep = nullptr;
     Type *OrigElemType = OrigFn.getArg(Arg->getArgNo())->getType();
@@ -437,7 +437,7 @@ void VecCloneImpl::updateVectorArgumentUses(
 
 Instruction *VecCloneImpl::widenVectorArguments(
     Function *Clone, Function &OrigFn, VectorVariant &V, BasicBlock *EntryBlock,
-    BasicBlock *LoopBlock, PHINode *Phi, ValueToValueMapTy &VMap,
+    BasicBlock *LoopHeader, PHINode *Phi, ValueToValueMapTy &VMap,
     AllocaInst *&LastAlloca) {
 
   // Create a completely new VF-widened alloca for each vector argument. Then,
@@ -530,7 +530,7 @@ Instruction *VecCloneImpl::widenVectorArguments(
     Store->insertBefore(EntryBlock->getTerminator());
 
     updateVectorArgumentUses(Clone, OrigFn, DL, Arg, VecArgCast, EntryBlock,
-                             LoopBlock, Phi);
+                             LoopHeader, Phi);
   }
 
   return nullptr;
@@ -568,7 +568,7 @@ Instruction *VecCloneImpl::createWidenedReturn(Function *Clone,
 
 Instruction *VecCloneImpl::widenReturn(Function *Clone, Function &F,
                                        BasicBlock *EntryBlock,
-                                       BasicBlock *LoopBlock,
+                                       BasicBlock *LoopHeader,
                                        BasicBlock *ReturnBlock,
                                        PHINode* Phi,
                                        AllocaInst *&LastAlloca) {
@@ -592,8 +592,8 @@ Instruction *VecCloneImpl::widenReturn(Function *Clone, Function &F,
       InsertPt = cast<Instruction>(InsertPt)->getNextNode();
   } else {
     // Could be returning a constant, so insert gep/store at end of the
-    // LoopBlock.
-    InsertPt = LoopBlock->getFirstNonPHI();
+    // LoopHeader.
+    InsertPt = LoopHeader->getFirstNonPHI();
   }
 
   IRBuilder<> Builder(InsertPt);
@@ -626,7 +626,7 @@ Instruction *VecCloneImpl::widenReturn(Function *Clone, Function &F,
 
 Instruction *VecCloneImpl::widenVectorArgumentsAndReturn(
     Function *Clone, Function &F, VectorVariant &V, Instruction *&Mask,
-    BasicBlock *EntryBlock, BasicBlock *LoopBlock, BasicBlock *ReturnBlock,
+    BasicBlock *EntryBlock, BasicBlock *LoopHeader, BasicBlock *ReturnBlock,
     PHINode *Phi, ValueToValueMapTy &VMap) {
 
   // The function arguments are processed from left to right. The corresponding
@@ -636,13 +636,13 @@ Instruction *VecCloneImpl::widenVectorArgumentsAndReturn(
 
   // If there are no arguments, then this function will do nothing and this
   // is the expected behavior.
-  Mask = widenVectorArguments(Clone, F, V, EntryBlock, LoopBlock, Phi,
+  Mask = widenVectorArguments(Clone, F, V, EntryBlock, LoopHeader, Phi,
                               VMap, LastAlloca);
 
   // If the function returns void, then don't attempt to widen to vector.
   Instruction *WidenedReturn = ReturnBlock->getTerminator();
   if (!Clone->getReturnType()->isVoidTy()) {
-    WidenedReturn = widenReturn(Clone, F, EntryBlock, LoopBlock,
+    WidenedReturn = widenReturn(Clone, F, EntryBlock, LoopHeader,
                                 ReturnBlock, Phi, LastAlloca);
     assert(WidenedReturn && "The return value has not been widened.");
   }
@@ -811,20 +811,20 @@ void VecCloneImpl::updateLinearReferences(Function *Clone, Function &F,
       //
       // Before Linear Update:
       //
-      // simd.loop:                     ; preds = %simd.loop.exit, %entry
-      //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.exit ]
+      // simd.loop.header:                   ; preds = %simd.loop.latch, %entry
+      //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.latch ]
       //   store i32 %x, i32* %x.addr, align 4
       //   %0 = load i32, i32* %x.addr, align 4
       //   %1 = load i32, i32* %i.addr, align 4 <--- %i
       //   %add = add nsw i32 %0, %1            <--- replace %1 with stride
       //   %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
       //   store i32 %add, i32* %ret.cast.gep
-      //   br label %simd.loop.exit
+      //   br label %simd.loop.latch
       //
       // After Linear Update:
       //
-      // simd.loop:                     ; preds = %simd.loop.exit, %entry
-      //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.exit ]
+      // simd.loop.header:                   ; preds = %simd.loop.latch, %entry
+      //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.latch ]
       //   store i32 %x, i32* %x.addr, align 4
       //   %0 = load i32, i32* %x.addr, align 4
       //   %1 = load i32, i32* %i.addr, align 4
@@ -833,7 +833,7 @@ void VecCloneImpl::updateLinearReferences(Function *Clone, Function &F,
       //   %add = add nsw i32 %0, %stride.add    <--- new %i with stride
       //   %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
       //   store i32 %add, i32* %ret.cast.gep
-      //   br label %simd.loop.exit
+      //   br label %simd.loop.latch
       //
       // 2) The user uses the argument directly, and so we must apply the
       //    stride directly to the argument. Any users of the argument must
@@ -841,23 +841,23 @@ void VecCloneImpl::updateLinearReferences(Function *Clone, Function &F,
       //
       // Before Linear Update:
       //
-      // simd.loop:                     ; preds = %simd.loop.exit, %entry
-      //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.exit ]
+      // simd.loop.header:                   ; preds = %simd.loop.latch, %entry
+      //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.latch ]
       //   %add = add nsw i32 %x, %i <-- direct usage of %i
       //   %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
       //   store i32 %add, i32* %ret.cast.gep
-      //   br label %simd.loop.exit
+      //   br label %simd.loop.latch
       //
       // After Linear Update:
       //
-      // simd.loop:                     ; preds = %simd.loop.exit, %entry
-      //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.exit ]
+      // simd.loop.header:                   ; preds = %simd.loop.latch, %entry
+      //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.latch ]
       //   %stride.mul = mul i32 1, %index
       //   %stride.add = add i32 %i, %stride.mul <--- stride
       //   %add = add nsw i32 %x, %stride.add    <--- new %i with stride
       //   %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
       //   store i32 %add, i32* %ret.cast.gep
-      //   br label %simd.loop.exit
+      //   br label %simd.loop.latch
 
       // The stride calculation is inserted before the use. In some cases this
       // can lead to redundant instructions, but they will be optimized away
@@ -981,8 +981,8 @@ static void emitLoadStoreForParameter(AllocaInst *Alloca, Value *ArgValue,
 // Creates the simd.begion.region block which marks the beginning of the WRN
 // region. Given the function arguments, emits the correct directive in the
 // simd.begion.region block. If the arguments are linear or uniform, a new
-// basic block(simd.loop.preheader) is created between the simd.begin.region
-// block and the simd.loop block (header). VPLoopEntity needs the addresses of
+// basic block (simd.loop.preheader) is created between the simd.begin.region
+// block and the simd.loop.header block. VPLoopEntity needs the addresses of
 // the uniform/linear arguments. For this reason, we need to pass the address
 // of the arguments to the directives instead of their values. In VecClone, we
 // have the values, not the addresses. So, we create a stack variable for each
@@ -1086,16 +1086,16 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
 }
 
 void VecCloneImpl::insertEndRegion(Module &M, Function *Clone,
-                                   BasicBlock *LoopExitBlock,
+                                   BasicBlock *LoopLatch,
                                    BasicBlock *ReturnBlock,
                                    CallInst *EntryDirCall) {
   BasicBlock *EndDirectiveBlock = BasicBlock::Create(
       Clone->getContext(), "simd.end.region", Clone, ReturnBlock);
 
-  BranchInst *LoopExitBranch =
-      dyn_cast<BranchInst>(LoopExitBlock->getTerminator());
-  assert(LoopExitBranch && "Expecting br instruction for loop exit block");
-  LoopExitBranch->setOperand(1, EndDirectiveBlock);
+  BranchInst *LoopLatchBranch =
+      dyn_cast<BranchInst>(LoopLatch->getTerminator());
+  assert(LoopLatchBranch && "Expecting br instruction for loop latch block");
+  LoopLatchBranch->setOperand(1, EndDirectiveBlock);
 
   BranchInst::Create(ReturnBlock, EndDirectiveBlock);
 
@@ -1108,11 +1108,11 @@ void VecCloneImpl::insertDirectiveIntrinsics(Module &M, Function *Clone,
                                              Function &F, VectorVariant &V,
                                              BasicBlock *EntryBlock,
                                              BasicBlock *LoopPreHeader,
-                                             BasicBlock *LoopExitBlock,
+                                             BasicBlock *LoopLatch,
                                              BasicBlock *ReturnBlock) {
   CallInst *EntryDirCall = insertBeginRegion(M, Clone, F, V, EntryBlock,
                                              LoopPreHeader);
-  insertEndRegion(M, Clone, LoopExitBlock, ReturnBlock, EntryDirCall);
+  insertEndRegion(M, Clone, LoopLatch, ReturnBlock, EntryDirCall);
   LLVM_DEBUG(dbgs() << "After Directives Insertion\n");
   LLVM_DEBUG(Clone->dump());
 }
@@ -1136,19 +1136,19 @@ bool VecCloneImpl::isSimpleFunction(Function *Func) {
 }
 
 void VecCloneImpl::insertSplitForMaskedVariant(Function *Clone,
-                                               BasicBlock *LoopBlock,
-                                               BasicBlock *LoopExitBlock,
+                                               BasicBlock *LoopHeader,
+                                               BasicBlock *LoopLatch,
                                                Instruction *Mask,
                                                PHINode *Phi) {
   BasicBlock *LoopThenBlock =
-      LoopBlock->splitBasicBlock(LoopBlock->getFirstNonPHI(),
+      LoopHeader->splitBasicBlock(LoopHeader->getFirstNonPHI(),
                                  "simd.loop.then");
 
   BasicBlock *LoopElseBlock = BasicBlock::Create(Clone->getContext(),
                                                  "simd.loop.else",
-                                                 Clone, LoopExitBlock);
+                                                 Clone, LoopLatch);
 
-  BranchInst::Create(LoopExitBlock, LoopElseBlock);
+  BranchInst::Create(LoopLatch, LoopElseBlock);
 
   auto *BitCast = cast<BitCastInst>(Mask);
   auto *Alloca = cast<AllocaInst>(BitCast->getOperand(0));
@@ -1158,11 +1158,11 @@ void VecCloneImpl::insertSplitForMaskedVariant(Function *Clone,
 
   GetElementPtrInst *MaskGep =
       GetElementPtrInst::Create(PointeeType, Mask, Phi, "mask.gep",
-                                LoopBlock->getTerminator());
+                                LoopHeader->getTerminator());
 
   Type *LoadTy = MaskGep->getResultElementType();
   LoadInst *MaskLoad = new LoadInst(LoadTy, MaskGep, "mask.parm",
-                                    LoopBlock->getTerminator());
+                                    LoopHeader->getTerminator());
 
   Type *CompareTy = MaskLoad->getType();
   Instruction *MaskCmp;
@@ -1174,20 +1174,20 @@ void VecCloneImpl::insertSplitForMaskedVariant(Function *Clone,
   if (CompareTy->isIntegerTy()) {
     Zero = GeneralUtils::getConstantValue(CompareTy, Clone->getContext(),
                                                0);
-    MaskCmp = new ICmpInst(LoopBlock->getTerminator(), CmpInst::ICMP_NE,
+    MaskCmp = new ICmpInst(LoopHeader->getTerminator(), CmpInst::ICMP_NE,
                            MaskLoad, Zero, "mask.cond");
   } else if (CompareTy->isFloatingPointTy()) {
     Zero = GeneralUtils::getConstantValue(CompareTy, Clone->getContext(),
                                                0.0);
-    MaskCmp = new FCmpInst(LoopBlock->getTerminator(), CmpInst::FCMP_UNE,
+    MaskCmp = new FCmpInst(LoopHeader->getTerminator(), CmpInst::FCMP_UNE,
                            MaskLoad, Zero, "mask.cond");
   } else {
     llvm_unreachable("Unsupported mask compare");
   }
 
-  Instruction *Term = LoopBlock->getTerminator();
+  Instruction *Term = LoopHeader->getTerminator();
   Term->eraseFromParent();
-  BranchInst::Create(LoopThenBlock, LoopElseBlock, MaskCmp, LoopBlock);
+  BranchInst::Create(LoopThenBlock, LoopElseBlock, MaskCmp, LoopHeader);
 
   LLVM_DEBUG(dbgs() << "After Split Insertion For Masked Variant\n");
   LLVM_DEBUG(Clone->dump());
@@ -1198,7 +1198,7 @@ void VecCloneImpl::disableLoopUnrolling(BasicBlock *Latch) {
   // for the simd loop. The following is an example of what the loop latch
   // and Metadata will look like. The !llvm.loop marks the beginning of the
   // loop Metadata and is always placed on the terminator of the loop latch.
-  // (i.e., simd.loop.exit in this case). According to LLVM documentation, to
+  // (i.e., simd.loop.latch in this case). According to LLVM documentation, to
   // properly set the loop Metadata, the 1st operand of !16 must be a self-
   // reference to avoid some type of Metadata merging conflicts that have
   // apparently arisen in the past. This is part of LLVM history that I do not
@@ -1207,10 +1207,10 @@ void VecCloneImpl::disableLoopUnrolling(BasicBlock *Latch) {
   // to a loop belongs to that loop alone and no sharing of Metadata can be
   // done across different loops.
   //
-  // simd.loop.exit:        ; preds = %simd.loop, %if.else, %if.then
+  // simd.loop.latch:        ; preds = %simd.loop.header, %if.else, %if.then
   //  %indvar = add nuw i32 %index, 1
   //  %vl.cond = icmp ult i32 %indvar, 2
-  //  br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop !16
+  //  br i1 %vl.cond, label %simd.loop.header, label %simd.end.region, !llvm.loop !16
   //
   // !16 = distinct !{!16, !17}
   // !17 = !{!"llvm.loop.unroll.disable"}
@@ -1292,7 +1292,7 @@ bool VecCloneImpl::runImpl(Module &M, LoopOptLimiter Limiter) {
       if (isSimpleFunction(Clone))
         continue;
 
-      BasicBlock *LoopBlock = splitEntryIntoLoop(Clone, Variant, EntryBlock);
+      BasicBlock *LoopHeader = splitEntryIntoLoop(Clone, Variant, EntryBlock);
 
       BasicBlock *LoopPreHeader = EntryBlock->splitBasicBlock(
           EntryBlock->getTerminator(), "simd.loop.preheader");
@@ -1310,18 +1310,18 @@ bool VecCloneImpl::runImpl(Module &M, LoopOptLimiter Limiter) {
         B.CreateUnreachable();
       }
 
-      BasicBlock *LoopExitBlock = BasicBlock::Create(
-          Clone->getContext(), "simd.loop.exit", Clone, ReturnBlock);
-      ReturnBlock->replaceAllUsesWith(LoopExitBlock);
+      BasicBlock *LoopLatch = BasicBlock::Create(
+          Clone->getContext(), "simd.loop.latch", Clone, ReturnBlock);
+      ReturnBlock->replaceAllUsesWith(LoopLatch);
 
       PHINode *Phi = createPhiAndBackedgeForLoop(Clone, LoopPreHeader,
-                                                 LoopBlock, LoopExitBlock,
+                                                 LoopHeader, LoopLatch,
                                                  ReturnBlock,
                                                  Variant.getVlen());
 
       // At this point, we've gathered some parameter information and have
       // restructured the function into an entry block, a set of blocks
-      // forming the loop, a loop exit block, and a return block. Now,
+      // forming the loop, a loop latch block, and a return block. Now,
       // we can go through and update instructions since we know what
       // is part of the loop.
 
@@ -1331,7 +1331,7 @@ bool VecCloneImpl::runImpl(Module &M, LoopOptLimiter Limiter) {
 
       Instruction *Mask = nullptr;
       Instruction *WidenedReturn = widenVectorArgumentsAndReturn(
-          Clone, F, Variant, Mask, EntryBlock, LoopBlock, ReturnBlock,
+          Clone, F, Variant, Mask, EntryBlock, LoopHeader, ReturnBlock,
           Phi, VMap);
 
       // Update any linear variables with the appropriate stride. This function
@@ -1351,7 +1351,7 @@ bool VecCloneImpl::runImpl(Module &M, LoopOptLimiter Limiter) {
       // If this is the masked vector variant, insert the mask condition and
       // if/else blocks.
       if (Variant.isMasked()) {
-        insertSplitForMaskedVariant(Clone, LoopBlock, LoopExitBlock, Mask, Phi);
+        insertSplitForMaskedVariant(Clone, LoopHeader, LoopLatch, Mask, Phi);
       }
 
 #if INTEL_CUSTOMIZATION
@@ -1361,7 +1361,7 @@ bool VecCloneImpl::runImpl(Module &M, LoopOptLimiter Limiter) {
 
       // Insert the basic blocks that mark the beginning/end of the SIMD loop.
       insertDirectiveIntrinsics(M, Clone, F, Variant, EntryBlock, LoopPreHeader,
-                                LoopExitBlock, ReturnBlock);
+                                LoopLatch, ReturnBlock);
       PrivateAllocas.clear();
 
       // Add may-have-openmp-directive attribute since we inserted directives.
@@ -1371,7 +1371,7 @@ bool VecCloneImpl::runImpl(Module &M, LoopOptLimiter Limiter) {
       LLVM_DEBUG(Clone->dump());
 
       // Disable unrolling from kicking in on the simd loop.
-      disableLoopUnrolling(LoopExitBlock);
+      disableLoopUnrolling(LoopLatch);
     } // End of function cloning for the variant
   } // End of function cloning for all variants
 

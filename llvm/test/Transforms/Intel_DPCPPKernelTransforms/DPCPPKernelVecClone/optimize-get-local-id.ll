@@ -16,8 +16,8 @@
 ; LT2GB: [[LID_CALL:%.*]] = tail call i64 @_Z12get_local_idj(i64 0)
 ; LT2GB-NEXT: [[LID_CALL_TRUNC:%.*]] = trunc i64 [[LID_CALL]] to i32
 
-; LT2GB-LABEL: simd.loop:
-; LT2GB-NEXT: %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.exit ]
+; LT2GB-LABEL: simd.loop.header:
+; LT2GB-NEXT: %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.latch ]
 ; LT2GB-NEXT: %add = add nuw i32 [[LID_CALL_TRUNC]], %index
 ; LT2GB-NEXT: [[ADD_SEXT:%.*]] = sext i32 %add to i64
 ; LT2GB-NEXT: %non.trunc.user = add i64 [[ADD_SEXT]], 42
@@ -36,7 +36,7 @@
 ; LT2GB-NEXT: %ret5 = mul i64 %non.trunc.user, %call.ashr
 ; LT2GB-NEXT: %add2 = ashr exact i64 %add2.shl, 32
 ; LT2GB-NEXT: %ret6 = mul i64 %non.trunc.user, %add2
-; LT2GB-NEXT: br label %simd.loop.exit
+; LT2GB-NEXT: br label %simd.loop.latch
 
 ; Check for non-default case i.e. max work group size > 2GB.
 ; RUN: opt -dpcpp-kernel-set-vf -dpcpp-kernel-vec-clone --dpcpp-less-than-two-gig-max-work-group-size=false -dpcpp-vector-variant-isa-encoding-override=AVX512Core %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY,DEBUGIFY2
@@ -48,8 +48,8 @@
 ; GT2GB-LABEL: entry:
 ; GT2GB: [[LID_CALL:%.*]] = tail call i64 @_Z12get_local_idj(i64 0)
 
-; GT2GB-LABEL: simd.loop:
-; GT2GB-NEXT: %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.exit ]
+; GT2GB-LABEL: simd.loop.header:
+; GT2GB-NEXT: %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.latch ]
 ; GT2GB-NEXT: [[IDX_SEXT:%.*]] = sext i32 %index to i64
 ; GT2GB-NEXT: %add = add nuw i64 [[IDX_SEXT]], %lid_call
 ; GT2GB-NEXT: %non.trunc.user = add i64 %add, 42
@@ -73,7 +73,7 @@
 ; GT2GB-NEXT: %ret5 = mul i64 %non.trunc.user, %call.ashr
 ; GT2GB-NEXT: %add2 = ashr exact i64 %add2.shl, 32
 ; GT2GB-NEXT: %ret6 = mul i64 %non.trunc.user, %add2
-; GT2GB-NEXT: br label %simd.loop.exit
+; GT2GB-NEXT: br label %simd.loop.latch
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -128,7 +128,7 @@ declare i64 @dummy(i64)
 ; CHECK-NEXT:    %entry.region = call token @llvm.directive.region.entry()
 ; CHECK-NEXT:    br label %simd.loop.preheader
 
-; CHECK-LABEL: simd.loop:
+; CHECK-LABEL: simd.loop.header:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i32
 ; CHECK-NEXT:    [[LID_LINEAR:%.*]] = add nuw i32 [[TRUNC]], [[INDEX]]
 ; CHECK-NEXT:    [[INDEX_I64:%.*]] = sext i32 [[LID_LINEAR]] to i64

@@ -414,7 +414,6 @@ class OpenMPLateOutliner {
   std::set<const VarDecl *, VarCompareTy> VarRefs;
   llvm::DenseSet<const VarDecl *> FirstPrivateVars;
   llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapTemps;
-  llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapFPrivates;
 #if INTEL_CUSTOMIZATION
   llvm::MapVector<const VarDecl *, std::string> OptRepFPMapInfos;
 #endif  // INTEL_CUSTOMIZATION
@@ -446,11 +445,6 @@ public:
       CGF.Builder.CreateStore(MT.first, A);
       PrivateScope.addPrivateNoTemps(MT.second, [A]() -> Address { return A; });
       CGF.addMappedTemp(MT.second, MT.second->getType()->isReferenceType());
-    }
-    for (auto FP : MapFPrivates) {
-      llvm::Value *V = FP.first;
-      Address A = Address(V, CGF.getContext().getDeclAlign(FP.second));
-      PrivateScope.addPrivateNoTemps(FP.second, [A]() -> Address { return A; });
     }
     PrivateScope.Privatize();
   }

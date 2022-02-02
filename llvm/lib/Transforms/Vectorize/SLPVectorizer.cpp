@@ -5730,14 +5730,11 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
   BlockScheduling &BS = *BSRef.get();
 
 #if INTEL_CUSTOMIZATION
-  // Return true if all VL are instructions compatible with Multi-Node.
-  auto MultiNodeCompatibleInstructions = [](ArrayRef<Value *> VL) {
-    return llvm::all_of(VL, [](Value *V) {
-      auto *I = dyn_cast<Instruction>(V);
-      return I && (I->getOpcode() == Instruction::Add ||
-                   I->getOpcode() == Instruction::Sub);
-    });
-  };
+  bool MultiNodeCompatibleInstructions = llvm::all_of(VL, [](Value *V) {
+    auto *I = dyn_cast<Instruction>(V);
+    return I && (I->getOpcode() == Instruction::Add ||
+                 I->getOpcode() == Instruction::Sub);
+  });
 
   // If we deal with insert/extract instructions, they all must have constant
   // indices, otherwise we should gather them, not try to vectorize.
@@ -5747,7 +5744,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
        (isa<InsertElementInst, ExtractValueInst, ExtractElementInst>(
             S.MainOp) &&
         !all_of(VL, isVectorLikeInstWithConstOps))) &&
-      (!EnableMultiNodeSLP || !MultiNodeCompatibleInstructions(VL))) {
+      (!EnableMultiNodeSLP || !MultiNodeCompatibleInstructions)) {
     LLVM_DEBUG(dbgs() << "SLP: Gathering due to O. \n");
     newTreeEntry(VL, None, S, UserTreeIdx, ReuseShuffleIndicies);
     return;
@@ -5768,30 +5765,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
 #if INTEL_CUSTOMIZATION
   if (EnableMultiNodeSLP) {
-    /// Return true if all checks passed to begin building a Multi-Node.
-    auto CanBeginNewMultiNode = [this, MultiNodeCompatibleInstructions](
-                                    ArrayRef<Value *> VL) {
-      if (!MultiNodeCompatibleInstructions(VL))
-        return false;
-
-      auto *BB = cast<Instruction>(VL[0])->getParent();
-      // Do not begin building Multi-Node if block is too big.
-      if ((BB->size() -
-           llvm::count_if(DeletedInstructions, [BB](const auto &Pair) {
-             return Pair.getFirst()->getParent() == BB;
-           })) > MaxBBSizeForMultiNodeSLP)
-        return false;
-
-      return
-          // Disable overlapping Multi-Nodes
-          llvm::none_of(
-              VL, [this](Value *V) { return AllMultiNodeValues.count(V); }) &&
-          // Allow no more than this many multi-nodes per tree.
-          // TODO: This is a workaround for the broken save/undo
-          // instruction scheduling.
-          MultiNodes.size() < MaxNumOfMultiNodesPerTree;
-    };
-
     // Check and return true if we can further grow current Multi-Node.
     auto CanExtendMultiNode = [this, MultiNodeCompatibleInstructions](
                                   ArrayRef<Value *> VL) {
@@ -5811,7 +5784,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       };
 
       if (CurrentMultiNode->numOfTrunks() >= MultiNodeSizeLimit ||
-          !MultiNodeCompatibleInstructions(VL))
+          !MultiNodeCompatibleInstructions)
         return false;
 
       // Empty Multi-Node may always grow.
@@ -5856,8 +5829,26 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
                              ReuseShuffleIndicies);
       return;
     }
+
     // No Multi-Node is being built, try to see if we can build one.
-    else if (CanBeginNewMultiNode(VL)) {
+    auto *BB = cast<Instruction>(VL[0])->getParent();
+    bool CanBeginNewMultiNode =
+        MultiNodeCompatibleInstructions &&
+        (BB->size() - llvm::count_if(DeletedInstructions,
+                                     [BB](const auto &Pair) {
+                                       return Pair.getFirst()->getParent() ==
+                                              BB;
+                                     }) <=
+         MaxBBSizeForMultiNodeSLP) &&
+        // Disable overlapping Multi-Nodes
+        llvm::none_of(
+            VL, [this](Value *V) { return AllMultiNodeValues.count(V); }) &&
+        // Allow no more than this many multi-nodes per tree.
+        // TODO: This is a workaround for the broken save/undo
+        // instruction scheduling.
+        MultiNodes.size() < MaxNumOfMultiNodesPerTree;
+
+    if (CanBeginNewMultiNode) {
       // Allocate space for the new CurrentMultiNode.
       MultiNodes.resize(MultiNodes.size() + 1);
       CurrentMultiNode = &MultiNodes.back();

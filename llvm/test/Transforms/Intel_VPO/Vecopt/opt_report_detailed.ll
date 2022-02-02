@@ -1,8 +1,10 @@
 ; Test to check the functionality of vectorization opt-report for LLVM-IR based vectorizer.
 
-; RUN: opt -vplan-vec -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-loop-optreport=high -intel-ir-optreport-emitter -enable-intel-advanced-opts -vplan-vls-level=always < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=LLVM
+; RUN: opt -enable-new-pm=0 -vplan-vec -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-loop-optreport=high -intel-ir-optreport-emitter -enable-intel-advanced-opts -vplan-vls-level=always < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=LLVM
+; RUN: opt -passes='vplan-vec,intel-ir-optreport-emitter' -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-loop-optreport=high -enable-intel-advanced-opts -vplan-vls-level=always < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=LLVM
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-loop-optreport=high -hir-optreport-emitter -enable-intel-advanced-opts -vplan-vls-level=always < %s -disable-output -print-after=hir-vplan-vec 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=HIR
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-loop-optreport=high -hir-optreport-emitter -enable-intel-advanced-opts -vplan-vls-level=always -print-after=hir-vplan-vec < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=HIR
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>,hir-optreport-emitter' -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-loop-optreport=high -enable-intel-advanced-opts -vplan-vls-level=always < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=HIR
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

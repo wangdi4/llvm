@@ -19,14 +19,11 @@
 ;
 ;   return sum;
 ; }
-; ModuleID = 'cg_perf_workaround.c'
-; RUN: opt -enable-new-pm=0 -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -disable-hir-loop-reversal -hir-vplan-vec -print-after=hir-vplan-vec -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=PM1
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -disable-hir-loop-reversal -print-after=hir-vplan-vec -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=PM2
+; RUN: opt -enable-new-pm=0 -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -disable-hir-loop-reversal -hir-vplan-vec -print-after=hir-vplan-vec -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-hir-loop-reversal -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 | FileCheck %s
 
 ; It used to be a lit test for performance WA bail out in HIR CG.
 ; Now it checks that the input code can be vectorized with VF=4.
-; ModuleID = 'cg_perf_workaround.c'
-source_filename = "cg_perf_workaround.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -36,39 +33,41 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline norecurse nounwind readonly uwtable
 define double @foo(i32 %n, double %d) local_unnamed_addr #0 {
-; PM1:         IR Dump After VPlan HIR Vectorizer
-; PM2:         IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
-; CHECK-NEXT:  Function: foo
+; CHECK:       Function: foo
 ; CHECK-EMPTY:
-; CHECK-NEXT:  <0>          BEGIN REGION { modified }
-; CHECK-NEXT:  <22>               [[TGU0:%.*]] = (sext.i32.i64([[N0:%.*]]))/u4
-; CHECK-NEXT:  <24>               if (0 <u 4 * [[TGU0]])
-; CHECK-NEXT:  <24>               {
-; CHECK-NEXT:  <26>                     [[RED_VAR0:%.*]] = 0.000000e+00
-; CHECK-NEXT:  <23>                  + DO i1 = 0, 4 * [[TGU0]] + -1, 4 <DO_LOOP> <MAX_TC_EST = 536870911> <auto-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:  <27>                  |   [[DOTVEC0:%.*]] = (<4 x i16>*)([[TMP0:%.*]])[-1 * i1 + -1 * <i64 0, i64 1, i64 2, i64 3>].2
-; CHECK-NEXT:  <28>                  |   [[DOTVEC10:%.*]] = uitofp.<4 x i16>.<4 x double>([[DOTVEC0]])
-; CHECK-NEXT:  <29>                  |   [[DOTVEC20:%.*]] = [[DOTVEC10]]  *  [[D0:%.*]]
-; CHECK-NEXT:  <30>                  |   [[DOTVEC30:%.*]] = [[RED_VAR0]]  +  [[DOTVEC20]]
-; CHECK-NEXT:  <31>                  |   [[DOTVEC40:%.*]] = (<4 x i16>*)([[TMP0]])[-1 * i1 + -1 * <i64 0, i64 1, i64 2, i64 3>].0
-; CHECK-NEXT:  <32>                  |   [[DOTVEC50:%.*]] = uitofp.<4 x i16>.<4 x double>([[DOTVEC40]])
-; CHECK-NEXT:  <33>                  |   [[DOTVEC60:%.*]] = [[DOTVEC50]]  *  [[D0]]
-; CHECK-NEXT:  <34>                  |   [[RED_VAR0]] = [[DOTVEC30]]  +  [[DOTVEC60]]
-; CHECK-NEXT:  <23>                  + END LOOP
-; CHECK-NEXT:  <35>                     [[SUM_0200:%.*]] = @llvm.vector.reduce.fadd.v4f64([[SUM_0200]],  [[RED_VAR0]])
-; CHECK-NEXT:  <24>               }
-; CHECK-NEXT:  <19>
-; CHECK-NEXT:  <19>               + DO i1 = 4 * [[TGU0]], sext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
-; CHECK-NEXT:  <4>                |   [[TMP2:%.*]] = ([[TMP0]])[-1 * i1].2
-; CHECK-NEXT:  <5>                |   [[CONV10:%.*]] = uitofp.i16.double([[TMP2]])
-; CHECK-NEXT:  <6>                |   [[MUL20:%.*]] = [[CONV10]]  *  [[D0]]
-; CHECK-NEXT:  <7>                |   [[ADD0:%.*]] = [[SUM_0200]]  +  [[MUL20]]
-; CHECK-NEXT:  <9>                |   [[TMP3:%.*]] = ([[TMP0]])[-1 * i1].0
-; CHECK-NEXT:  <10>               |   [[CONV70:%.*]] = uitofp.i16.double([[TMP3]])
-; CHECK-NEXT:  <11>               |   [[MUL80:%.*]] = [[CONV70]]  *  [[D0]]
-; CHECK-NEXT:  <12>               |   [[SUM_0200]] = [[ADD0]]  +  [[MUL80]]
-; CHECK-NEXT:  <19>               + END LOOP
-; CHECK-NEXT:  <0>          END REGION
+; CHECK-NEXT:  BEGIN REGION { modified }
+; CHECK-NEXT:        [[TGU0:%.*]] = (sext.i32.i64([[N0:%.*]]))/u4
+; CHECK-NEXT:        if (0 <u 4 * [[TGU0]])
+; CHECK-NEXT:        {
+; CHECK-NEXT:           [[RED_INIT0:%.*]] = 0.000000e+00
+; CHECK-NEXT:           [[PHI_TEMP0:%.*]] = [[RED_INIT0]]
+;
+; CHECK:                + DO i1 = 0, 4 * [[TGU0]] + -1, 4   <DO_LOOP>  <MAX_TC_EST = 536870911> <auto-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:           |   [[DOTVEC0:%.*]] = (<4 x i16>*)([[TMP0:%.*]])[-1 * i1 + -1 * <i64 0, i64 1, i64 2, i64 3>].2
+; CHECK-NEXT:           |   [[DOTVEC10:%.*]] = uitofp.<4 x i16>.<4 x double>([[DOTVEC0]])
+; CHECK-NEXT:           |   [[DOTVEC20:%.*]] = [[DOTVEC10]]  *  [[D0:%.*]]
+; CHECK-NEXT:           |   [[DOTVEC30:%.*]] = [[PHI_TEMP0]]  +  [[DOTVEC20]]
+; CHECK-NEXT:           |   [[DOTVEC40:%.*]] = (<4 x i16>*)([[TMP0]])[-1 * i1 + -1 * <i64 0, i64 1, i64 2, i64 3>].0
+; CHECK-NEXT:           |   [[DOTVEC50:%.*]] = uitofp.<4 x i16>.<4 x double>([[DOTVEC40]])
+; CHECK-NEXT:           |   [[DOTVEC60:%.*]] = [[DOTVEC50]]  *  [[D0]]
+; CHECK-NEXT:           |   [[DOTVEC70:%.*]] = [[DOTVEC30]]  +  [[DOTVEC60]]
+; CHECK-NEXT:           |   [[PHI_TEMP0]] = [[DOTVEC70]]
+; CHECK-NEXT:           + END LOOP
+;
+; CHECK:                [[SUM_0200:%.*]] = @llvm.vector.reduce.fadd.v4f64([[SUM_0200]],  [[DOTVEC70]])
+; CHECK-NEXT:        }
+;
+; CHECK:             + DO i1 = 4 * [[TGU0]], sext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK-NEXT:        |   [[TMP2:%.*]] = ([[TMP0]])[-1 * i1].2
+; CHECK-NEXT:        |   [[CONV10:%.*]] = uitofp.i16.double([[TMP2]])
+; CHECK-NEXT:        |   [[MUL20:%.*]] = [[CONV10]]  *  [[D0]]
+; CHECK-NEXT:        |   [[ADD0:%.*]] = [[SUM_0200]]  +  [[MUL20]]
+; CHECK-NEXT:        |   [[TMP3:%.*]] = ([[TMP0]])[-1 * i1].0
+; CHECK-NEXT:        |   [[CONV70:%.*]] = uitofp.i16.double([[TMP3]])
+; CHECK-NEXT:        |   [[MUL80:%.*]] = [[CONV70]]  *  [[D0]]
+; CHECK-NEXT:        |   [[SUM_0200]] = [[ADD0]]  +  [[MUL80]]
+; CHECK-NEXT:        + END LOOP
+; CHECK-NEXT:  END REGION
 ;
 entry:
   %cmp18 = icmp sgt i32 %n, 0

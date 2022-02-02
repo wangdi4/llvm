@@ -28,10 +28,10 @@
 ; Load the parameters in simd.loop.preheader which is in the WRN region.
 ; CHECK:         [[LOAD_K0:%.*]] = load i32, i32* [[ALLOCA_K0:%.*]], align 4
 ; CHECK-NEXT:    [[LOAD_A0:%.*]] = load i32*, i32** [[ALLOCA_A0:%.*]], align 8
-; CHECK-NEXT:    br label [[SIMD_LOOP0:%.*]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER0:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop:
-; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0:%.*]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]
+; CHECK-NEXT:  simd.loop.header:
+; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0:%.*]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_LATCH0:%.*]] ]
 ; CHECK-NEXT:    [[RET_CAST_GEP0:%.*]] = getelementptr i32, i32* [[RET_CAST0:%.*]], i32 [[INDEX0]]
 ; CHECK-NEXT:    store i32 undef, i32* [[RET_CAST_GEP0:%.*]], align 4
 ; CHECK-NEXT:    [[STRIDE_MUL0:%.*]] = mul i32 1, [[INDEX0]]
@@ -41,7 +41,7 @@
 ; CHECK-NEXT:    [[TMP0:%.*]] = load i32, i32* [[ARRAYIDX0]], align 4, !tbaa !2
 ; CHECK-NEXT:    [[ADD0:%.*]] = add nsw i32 [[TMP0]], 20
 ; CHECK-NEXT:    store i32 [[ADD0]], i32* [[ARRAYIDX0]], align 4, !tbaa !2
-; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0:%.*]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0:%.*]]
 
 ; ModuleID = 'test.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

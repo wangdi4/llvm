@@ -25,7 +25,7 @@ attributes #0 = { "vector-variants"="_ZGVbM4uu_,_ZGVbN4uu_" }
 ; CHECK-SAME:   "QUAL.OMP.UNIFORM"(<3 x i32>* %alloca.b)
 ; CHECK:      simd.loop.preheader:
 ; CHECK-NOT:    %mask
-; CHECK:      simd.loop:
+; CHECK:      simd.loop.header:
 ; CHECK:        call void @bar(<2 x i8> %load.a)
 ; CHECK:        %ext = extractelement <3 x i32> %load.b, i32 0
 
@@ -36,6 +36,6 @@ attributes #0 = { "vector-variants"="_ZGVbM4uu_,_ZGVbN4uu_" }
 ; CHECK-SAME:   "QUAL.OMP.SIMDLEN"
 ; CHECK-SAME:   "QUAL.OMP.UNIFORM"(<2 x i8>* %alloca.a)
 ; CHECK-SAME:   "QUAL.OMP.UNIFORM"(<3 x i32>* %alloca.b)
-; CHECK:      simd.loop:
+; CHECK:      simd.loop.header:
 ; CHECK:        call void @bar(<2 x i8> %load.a)
 ; CHECK:        %ext = extractelement <3 x i32> %load.b, i32 0

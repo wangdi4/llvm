@@ -757,6 +757,25 @@ bool Float128Expand::runOnFunction(Function &F) {
     return false;
 
   bool MadeChange = false;
+  // Expand %d = call fp128 @llvm.fmuladd.f128(fp128 %a, fp128 %b, fp128 %c)
+  // into
+  // %e = fmul fp128 %a, %b
+  // %d = fadd fp128 %e, %c
+  SmallVector<Instruction *, 8> ExpandFMAWorkList;
+  for (Instruction &I : instructions(F)) {
+    IntrinsicInst *II = dyn_cast<IntrinsicInst>(&I);
+    if (II && II->getIntrinsicID() == Intrinsic::fmuladd &&
+        II->getType()->isFP128Ty())
+      ExpandFMAWorkList.push_back(II);
+  }
+  for (Instruction *I : ExpandFMAWorkList) {
+    IRBuilder<> Builder(I);
+    Value *Res = Builder.CreateFMul(I->getOperand(0), I->getOperand(1));
+    Res = Builder.CreateFAdd(Res, I->getOperand(2));
+    I->replaceAllUsesWith(Res);
+    MadeChange = true;
+  }
+
   // Calculate each SCC’s predecessors and successors in reverse topological
   // order and check if each SCC has a USE of fp128 PX
   for (scc_iterator<Function *> SCCI = scc_begin(&F); !SCCI.isAtEnd(); ++SCCI) {

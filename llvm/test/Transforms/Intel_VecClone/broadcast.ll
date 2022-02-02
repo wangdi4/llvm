@@ -4,7 +4,7 @@
 ; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN4_foo
-; CHECK: simd.loop:
+; CHECK: simd.loop.header:
 ; CHECK: store i32 99, i32* %ret.cast.gep
 
 ; ModuleID = 'foo.c'

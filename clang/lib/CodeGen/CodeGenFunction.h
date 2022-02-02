@@ -1876,7 +1876,8 @@ public:
         const Expr *E = Z.first;
         llvm::Value *V = Z.second.first;
         CharUnits Align = Z.second.second;
-        Address A(V, Align);
+        Address A(V, CGF.ConvertTypeForMem(CGF.getContext().getSizeType()),
+                  Align);
         CGF.VLASizeMap[E] = CGF.Builder.CreateLoad(A);
         if (CGF.CapturedStmtInfo)
           CGF.CapturedStmtInfo->recordValueReference(
@@ -4784,6 +4785,11 @@ public:
   RValue EmitBuiltinGenerateSIMDVariant(const CallExpr *E);
   RValue EmitBuiltinCallSIMDVariant(const CallExpr *E);
 #endif  // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  RValue EmitOMPIndirectCall(llvm::FunctionType *IRFuncTy,
+                             const SmallVectorImpl<llvm::Value *> &IRArgs,
+                             llvm::Value *FnPtr);
+#endif // INTEL_COLLAB
 
   enum class MSVCIntrin;
   llvm::Value *EmitMSVCBuiltinExpr(MSVCIntrin BuiltinID, const CallExpr *E);

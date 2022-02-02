@@ -6215,6 +6215,23 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
   if (!GV->isDeclaration())
     return;
 
+#if INTEL_COLLAB
+  if (LangOpts.OpenMPLateOutline && LangOpts.OpenMP >= 51 &&
+      OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(D)) {
+    bool IsIndirect = false;
+    if (llvm::Optional<OMPDeclareTargetDeclAttr *> ActiveAttr =
+            OMPDeclareTargetDeclAttr::getActiveAttr(D)) {
+      IsIndirect = (*ActiveAttr)->getIndirect();
+      if (!IsIndirect)
+        if (const Expr *IndirectE = (*ActiveAttr)->getIndirectExpr())
+          IndirectE->EvaluateAsBooleanCondition(IsIndirect, getContext());
+      const auto *MD = dyn_cast<CXXMethodDecl>(D);
+      if (IsIndirect || MD && MD->isVirtual())
+        getOpenMPRuntime().registerTargetIndirectFn(getMangledName(GD), GV);
+    }
+  }
+#endif // INTEL_COLLAB
+
   // We need to set linkage and visibility on the function before
   // generating code for it because various parts of IR generation
   // want to propagate this information down (e.g. to local static

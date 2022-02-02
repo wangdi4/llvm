@@ -11,7 +11,7 @@
 ; CHECK-SAME: i32 4
 ; CHECK-SAME: QUAL.OMP.PRIVATE
 ; CHECK-SAME: %struct.my_struct** %s.addr
-; CHECK: simd.loop:
+; CHECK: simd.loop.header:
 ; CHECK: %0 = load %struct.my_struct*, %struct.my_struct** %s.addr, align 8
 ; CHECK: %stride.mul{{.*}} = mul i32 1, %index
 ; CHECK: %s.addr.gep{{.*}} = getelementptr %struct.my_struct, %struct.my_struct* %0, i32 %stride.mul{{.*}}

@@ -19,7 +19,7 @@
 ; CHECK-NEXT: [[call_local_size1:%call[0-9]+]] = tail call i64 @_Z14get_local_sizej(i32 1)
 ; CHECK-NEXT: [[call_local_size0:%call]] = tail call i64 @_Z14get_local_sizej(i32 0)
 
-; CHECK-LABEL: simd.loop:
+; CHECK-LABEL: simd.loop.header:
 
 ; Checks the calls with variable argument are inside the simd loop.
 ; CHECK: %lsize = tail call i64 @_Z14get_local_sizej(i32 %[[#]])

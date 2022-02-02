@@ -57,14 +57,14 @@ class VecCloneImpl {
 
     /// \brief Take the loop entry basic block and split off a second basic
     /// block into a new return basic block.
-    BasicBlock* splitLoopIntoReturn(Function *Clone, BasicBlock *LoopBlock);
+    BasicBlock* splitLoopIntoReturn(Function *Clone, BasicBlock *LoopHeader);
 
-    /// \brief Create the backedge from the loop exit basic block to the loop
+    /// \brief Create the backedge from the loop latch basic block to the loop
     /// entry block.
     PHINode* createPhiAndBackedgeForLoop(Function *Clone,
                                          BasicBlock *EntryBlock,
-                                         BasicBlock *LoopBlock,
-                                         BasicBlock *LoopExitBlock,
+                                         BasicBlock *LoopHeader,
+                                         BasicBlock *LoopLatch,
                                          BasicBlock *ReturnBlock,
                                          int VL);
 
@@ -75,7 +75,7 @@ class VecCloneImpl {
     /// to the mask.
     Instruction *widenVectorArgumentsAndReturn(
         Function *Clone, Function &F, VectorVariant &V, Instruction *&Mask,
-        BasicBlock *EntryBlock, BasicBlock *LoopBlock,
+        BasicBlock *EntryBlock, BasicBlock *LoopHeader,
         BasicBlock *ReturnBlock, PHINode *Phi, ValueToValueMapTy &VMap);
 
     /// Updates users of vector arguments with gep/load of lane element.
@@ -83,7 +83,7 @@ class VecCloneImpl {
                                   const DataLayout &DL, Argument *Arg,
                                   BitCastInst *VecArgCast,
                                   BasicBlock *EntryBlock,
-                                  BasicBlock *LoopBlock, PHINode *Phi);
+                                  BasicBlock *LoopHeader, PHINode *Phi);
 
     /// \brief Widen the function arguments to vector types. This function
     /// returns the instruction corresponding to the mask. LastAlloca indicates
@@ -93,7 +93,7 @@ class VecCloneImpl {
     Instruction *widenVectorArguments(Function *Clone, Function &OrigFn,
                                       VectorVariant &V,
                                       BasicBlock *EntryBlock,
-                                      BasicBlock *LoopBlock,
+                                      BasicBlock *LoopHeader,
                                       PHINode *Phi,
                                       ValueToValueMapTy &VMap,
                                       AllocaInst *&LastAlloca);
@@ -102,7 +102,7 @@ class VecCloneImpl {
     /// indicates where the alloca of the return value should be placed in
     /// EntryBlock.
     Instruction *widenReturn(Function *Clone, Function &F,
-                             BasicBlock *EntryBlock, BasicBlock *LoopBlock,
+                             BasicBlock *EntryBlock, BasicBlock *LoopHeader,
                              BasicBlock *ReturnBlock, PHINode *Phi,
                              AllocaInst *&LastAlloca);
 
@@ -124,7 +124,7 @@ class VecCloneImpl {
     void insertDirectiveIntrinsics(Module &M, Function *Clone, Function &F,
                                    VectorVariant &V, BasicBlock *EntryBlock,
                                    BasicBlock *LoopPreHeader,
-                                   BasicBlock *LoopExitBlock,
+                                   BasicBlock *LoopLatch,
                                    BasicBlock *ReturnBlock);
 
     /// \brief Create the basic block indicating the begin of the SIMD loop.
@@ -133,7 +133,7 @@ class VecCloneImpl {
                                 BasicBlock *LoopPreHeader);
 
     /// \brief Create the basic block indicating the end of the SIMD loop.
-    void insertEndRegion(Module &M, Function *Clone, BasicBlock *LoopExitBlock,
+    void insertEndRegion(Module &M, Function *Clone, BasicBlock *LoopLatch,
                          BasicBlock *ReturnBlock, CallInst *EntryDirCall);
 
     /// \brief Create a new vector alloca instruction for the return vector and
@@ -149,8 +149,8 @@ class VecCloneImpl {
 
     /// \brief Inserts the if/else split and mask condition for masked SIMD
     /// functions.
-    void insertSplitForMaskedVariant(Function *Clone, BasicBlock *LoopBlock,
-                                     BasicBlock *LoopExitBlock,
+    void insertSplitForMaskedVariant(Function *Clone, BasicBlock *LoopHeader,
+                                     BasicBlock *LoopLatch,
                                      Instruction *Mask, PHINode *Phi);
 
     /// \brief Utility function that generates instructions that calculate the

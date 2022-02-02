@@ -16,7 +16,7 @@
 ; CHECK-SAME: i32* %x.addr
 ; CHECK-NEXT: br label %simd.loop
 
-; CHECK: simd.loop:
+; CHECK: simd.loop.header:
 ; CHECK: %1 = load i32, i32* %i.addr
 ; CHECK: %stride.mul = mul i32 1, %index
 ; CHECK: %stride.add = add i32 %1, %stride.mul

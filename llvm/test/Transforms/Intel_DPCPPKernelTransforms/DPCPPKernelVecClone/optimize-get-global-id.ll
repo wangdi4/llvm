@@ -14,8 +14,8 @@
 ; LT2GIG: [[GID_CALL:%.*]] = call i64 @_Z13get_global_idj(i32 0)
 ; LT2GIG-NEXT: [[GID_CALL_TRUNC:%.*]] = trunc i64 [[GID_CALL]] to i32
 
-; LT2GIG-LABEL: simd.loop:
-; LT2GIG-NEXT: %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.exit ]
+; LT2GIG-LABEL: simd.loop.header:
+; LT2GIG-NEXT: %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.latch ]
 ; LT2GIG-NEXT: %add = add nuw i32 [[GID_CALL_TRUNC]], %index
 ; LT2GIG-NEXT: [[ADD_SEXT:%.*]] = sext i32 %add to i64
 ; LT2GIG-NEXT: %non.trunc.user = add i64 [[ADD_SEXT]], 42
@@ -34,7 +34,7 @@
 ; LT2GIG-NEXT: %ret5 = mul i64 %non.trunc.user, %call.ashr
 ; LT2GIG-NEXT: %add2 = ashr exact i64 %add2.shl, 32
 ; LT2GIG-NEXT: %ret6 = mul i64 %non.trunc.user, %add2
-; LT2GIG-NEXT: br label %simd.loop.exit
+; LT2GIG-NEXT: br label %simd.loop.latch
 
 
 ; Check for default case i.e. max number of work items is assumed to be > 2Gig.
@@ -47,8 +47,8 @@
 ; GT2GIG-LABEL: entry:
 ; GT2GIG: [[GID_CALL:%.*]] = call i64 @_Z13get_global_idj(i32 0)
 
-; GT2GIG-LABEL: simd.loop:
-; GT2GIG-NEXT: %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.exit ]
+; GT2GIG-LABEL: simd.loop.header:
+; GT2GIG-NEXT: %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.latch ]
 ; GT2GIG-NEXT: [[IDX_SEXT:%.*]] = sext i32 %index to i64
 ; GT2GIG-NEXT: %add = add nuw i64 [[IDX_SEXT]], [[GID_CALL]]
 ; GT2GIG-NEXT: %non.trunc.user = add i64 %add, 42
@@ -72,7 +72,7 @@
 ; GT2GIG-NEXT: %ret5 = mul i64 %non.trunc.user, %call.ashr
 ; GT2GIG-NEXT: %add2 = ashr exact i64 %add2.shl, 32
 ; GT2GIG-NEXT: %ret6 = mul i64 %non.trunc.user, %add2
-; GT2GIG-NEXT: br label %simd.loop.exit
+; GT2GIG-NEXT: br label %simd.loop.latch
 
 
 

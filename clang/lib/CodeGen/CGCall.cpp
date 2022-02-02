@@ -5744,21 +5744,32 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   }
 #endif  // INTEL_COLLAB
   if (!InvokeDest) {
-#if INTEL_CUSTOMIZATION
-    if (getContext().getLangOpts().SYCLIsDevice &&
-        getContext().getLangOpts().EnableVariantFunctionPointers) {
+#if INTEL_COLLAB
+    auto IsIndirectCall = [&CalleePtr]()->bool {
       assert(CalleePtr && "No function to call");
       if (auto *PHI = dyn_cast<llvm::PHINode>(CalleePtr->stripPointerCasts())) {
         for (unsigned I = 0, E = PHI->getNumIncomingValues(); I < E; ++I)
           if (isa<llvm::LoadInst>(
                   PHI->getIncomingValue(I)->stripPointerCasts()))
-            return EmitBuiltinIndirectCall(IRFuncTy, IRCallArgs, CalleePtr);
+            return true;
       } else if (isa<llvm::LoadInst>(CalleePtr->stripPointerCasts()) ||
-                 isa<llvm::CallInst>(CalleePtr->stripPointerCasts()) ||
-                 CGM.isSIMDTable(CalleePtr->stripPointerCasts()))
+                 isa<llvm::CallInst>(CalleePtr->stripPointerCasts()))
+        return true;
+      return false;
+    }();
+#endif  // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+    if (getContext().getLangOpts().SYCLIsDevice &&
+        getContext().getLangOpts().EnableVariantFunctionPointers)
+      if (IsIndirectCall || CGM.isSIMDTable(CalleePtr->stripPointerCasts()))
         return EmitBuiltinIndirectCall(IRFuncTy, IRCallArgs, CalleePtr);
-    }
 #endif  // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+    if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
+        getLangOpts().OpenMP >= 51 && CGM.inTargetRegion() &&
+        CGM.getTriple().isSPIR() && IsIndirectCall)
+      return EmitOMPIndirectCall(IRFuncTy, IRCallArgs, CalleePtr);
+#endif  // INTEL_COLLAB
     CI = Builder.CreateCall(IRFuncTy, CalleePtr, IRCallArgs, BundleList);
   } else {
     llvm::BasicBlock *Cont = createBasicBlock("invoke.cont");

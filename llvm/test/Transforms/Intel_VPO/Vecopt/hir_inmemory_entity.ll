@@ -1,11 +1,9 @@
 ; HIR vector code generation currently does not support in memory entities. Test
 ; checks that we bail out during vectorization for such cases.
 ;
-; RUN: opt -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=PM1
-; RUN: opt -passes="hir-vplan-vec" -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=PM2
+; RUN: opt -enable-new-pm=0 -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-vplan-vec,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
-; PM1: IR Dump After VPlan HIR Vectorizer
-; PM2: IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; CHECK:         + DO i1 = 0, 99, 1   <DO_LOOP> <simd> <vectorize>
 ; CHECK-NEXT:    |   %val = (%arr)[i1];
 ; CHECK-NEXT:    |   %retval = (%ret)[0];

@@ -2211,9 +2211,6 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
           ImplicitMap.insert(std::make_pair(I.Var, ICK_shared));
       } else
         addExplicit(I.Var, OMPC_map);
-      if (FirstPrivateVars.find(I.Var) != FirstPrivateVars.end() &&
-          Ty.isConstant(CGF.getContext()))
-        MapFPrivates.emplace_back(I.Base, I.Var);
       if (CurrentDirectiveKind == OMPD_target)
         if ((Ty->isReferenceType() || Ty->isAnyPointerType()) &&
             isa<llvm::LoadInst>(I.Base)) {

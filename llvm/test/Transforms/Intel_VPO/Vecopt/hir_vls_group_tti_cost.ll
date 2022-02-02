@@ -5,8 +5,10 @@
 ; NOTE: CM dump goes to stdout and HIR dump goes to stderr. Trying to use one
 ; RUN command line garbles up output causing checks to fail.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec -mattr=+sse4.2 -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
 ;
 ; Test to demonstrate GatherScatter(GS) cost being used for accesses
 ; where VLS optimization still kicks in but groups are not supported
@@ -60,8 +62,7 @@ define dso_local i32 @foo(i32* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:  [[BB4]]: base cost: 0
 ; CMCHECK-NEXT:  Base Cost: 42000
 ;
-; HIRCHECK-LABEL:  *** IR Dump After VPlan HIR Vectorizer (hir-vplan-vec) ***
-; HIRCHECK-NEXT:  Function: foo
+; HIRCHECK:       Function: foo
 ; HIRCHECK-EMPTY:
 ; HIRCHECK-NEXT:            BEGIN REGION { modified }
 ; HIRCHECK-NEXT:                 [[RED_INIT0:%.*]] = 0

@@ -103,6 +103,7 @@ MODULE_PASS("dpcpp-kernel-duplicate-called-kernels", DuplicateCalledKernelsPass(
 MODULE_PASS("dpcpp-kernel-group-builtin", GroupBuiltinPass())
 MODULE_PASS("dpcpp-kernel-barrier", KernelBarrier())
 MODULE_PASS("dpcpp-kernel-barrier-in-function", BarrierInFunction())
+MODULE_PASS("dpcpp-kernel-postvec", DPCPPKernelPostVecPass())
 MODULE_PASS("dpcpp-kernel-split-on-barrier", SplitBBonBarrier())
 MODULE_PASS("dpcpp-kernel-update-call-attrs", UpdateCallAttrs())
 MODULE_PASS("dpcpp-kernel-vec-clone", DPCPPKernelVecClonePass())

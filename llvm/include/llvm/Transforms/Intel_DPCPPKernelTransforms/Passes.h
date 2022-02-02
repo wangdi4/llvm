@@ -25,6 +25,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/CoerceWin64Types.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPEqualizer.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelPostVec.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelVecClone.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelWGLoopCreator.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPPreprocessSPIRVFriendlyIR.h"
