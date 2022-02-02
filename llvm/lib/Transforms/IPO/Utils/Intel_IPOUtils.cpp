@@ -85,38 +85,6 @@ bool IPOUtils::hasFloatArg(const Function &F) {
   return false;
 }
 
-// Check if there is any floating-point pointer argument
-bool IPOUtils::hasFloatPtrArg(const Function &F) {
-  for (auto &Arg : F.args())
-    if (Arg.getType()->isPointerTy()) {
-      auto PointeeTy =
-          dyn_cast<PointerType>(Arg.getType())->getPointerElementType();
-      if (!PointeeTy)
-        continue;
-      if (PointeeTy->isFloatingPointTy())
-        return true;
-    }
-  return false;
-}
-
-// Count the # of Double-Pointer Argument(s) in a given Function
-// E.g.
-// int foo(int **p, ...);
-// p is a called a double-pointer argument.
-unsigned IPOUtils::countDoublePtrArgs(const Function &F) {
-  unsigned NumDoublePtrArgs = 0;
-  for (auto &Arg : F.args())
-    if (Arg.getType()->isPointerTy()) {
-      auto PointeeTy =
-          dyn_cast<PointerType>(Arg.getType())->getPointerElementType();
-      if (!PointeeTy)
-        continue;
-      if (PointeeTy->isPointerTy())
-        ++NumDoublePtrArgs;
-    }
-  return NumDoublePtrArgs;
-}
-
 // Preserve metadata on "InlRpt.Suppress" tag on an instruction pair.
 // E.g. if I have this metadata, NI will also have it.
 bool IPOUtils::preserveOrSuppressInlineReport(Instruction *I, Instruction *NI) {
