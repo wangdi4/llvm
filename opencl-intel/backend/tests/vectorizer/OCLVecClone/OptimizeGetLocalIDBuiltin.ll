@@ -12,15 +12,15 @@
 ; LT2GB: [[LID_CALL:%.*]] = call i64 @_Z12get_local_idj(i32 0)
 ; LT2GB-NEXT: [[LID_CALL_TRUNC:%.*]] = trunc i64 [[LID_CALL]] to i32
 
-; LT2GB-LABEL: simd.loop:
-; LT2GB-NEXT: %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.exit ]
+; LT2GB-LABEL: simd.loop.header:
+; LT2GB-NEXT: %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.latch ]
 ; LT2GB-NEXT: %add = add nuw i32 [[LID_CALL_TRUNC]], %index
 ; LT2GB-NEXT: [[ADD_SEXT:%.*]] = sext i32 %add to i64
 ; LT2GB-NEXT: %non.trunc.user = add i64 [[ADD_SEXT]], 42
 ; LT2GB-NEXT: %other.trunc = trunc i64 %non.trunc.user to i32
 ; LT2GB-NEXT: %ret0 = mul i32 %other.trunc, %add
 ; LT2GB-NEXT: %ret1 = mul i64 %non.trunc.user, [[ADD_SEXT]]
-; LT2GB-NEXT: br label %simd.loop.exit
+; LT2GB-NEXT: br label %simd.loop.latch
 
 
 ; Check for non-default case i.e. max work group size > 2GB.
@@ -31,8 +31,8 @@
 ; GT2GB-LABEL: entry:
 ; GT2GB: [[LID_CALL:%.*]] = call i64 @_Z12get_local_idj(i32 0)
 
-; GT2GB-LABEL: simd.loop:
-; GT2GB-NEXT: %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.exit ]
+; GT2GB-LABEL: simd.loop.header:
+; GT2GB-NEXT: %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.latch ]
 ; GT2GB-NEXT: [[IDX_SEXT:%.*]] = sext i32 %index to i64
 ; GT2GB-NEXT: %add = add nuw i64 [[IDX_SEXT]], %lid_call
 ; GT2GB-NEXT: %non.trunc.user = add i64 %add, 42
@@ -42,7 +42,7 @@
 ; GT2GB-NEXT: %ashr.inst = ashr exact i64 %shl.user, 32
 ; GT2GB-NEXT: %ret0 = mul i32 %other.trunc, %trunc.user
 ; GT2GB-NEXT: %ret1 = mul i64 %non.trunc.user, %ashr.inst
-; GT2GB-NEXT: br label %simd.loop.exit
+; GT2GB-NEXT: br label %simd.loop.latch
 
 
 

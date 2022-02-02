@@ -28,7 +28,7 @@ define void @"_ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test"(i32 addrspace(1)*,
 ; CHECK-NEXT:    br label %simd.loop
 ; CHECK-EMPTY:
 
-; CHECK-LABEL:  simd.loop:
+; CHECK-LABEL:  simd.loop.header:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i32
 ; CHECK-NEXT:    [[INDEX_I64:%.*]] = sext i32 [[INDEX]] to i64
 ; CHECK-NEXT:    [[GID_LINEAR:%.*]] = add nuw i64 [[INDEX_I64]], %gid
