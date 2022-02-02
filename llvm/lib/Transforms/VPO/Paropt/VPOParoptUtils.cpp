@@ -5499,6 +5499,41 @@ std::tuple<Type *, Value *, Value *>
   } else {
     assert(NumElements && "Expected variable length array.");
     GepIndices.push_back(Zero);
+    // We may end up here in several cases.
+    //
+    // 1. Non-opaque pointers:
+    //   a. The item is a VLA, and so BaseAddr is a pointer to some
+    //      non-array type. To get the array head pointer, we just
+    //      need to generate a GEP(BaseAddr, 0).
+    //   b. The item is from a TYPED clause and it may be:
+    //     i. VLA (NumElements is not a ConstantInt):
+    //       Again, BaseAddr is a pointer to some non-array type,
+    //       and we just need GEP(BaseAddr, 0).
+    //     ii. Constant sized array (NumElements is a ConstantInt):
+    //       BaseAddr is a pointer to some array type (since this case
+    //       is for non-opaque pointers), but ObjTy is the array's element
+    //       type (i.e. non-array type). So using ObjTy for GEP(0) is illegal.
+    //       Since we need to support multi-dimensional arrays, we just
+    //       cast BaseAddr to be a pointer to array [ObjTy x NumElements],
+    //       and then generate GEP(0) for this casted pointer.
+    // 2. Opaque pointers:
+    //   BaseAddr is just an opaque pointer, and ObjTy is a non-array type.
+    //   a. If NumElements is not a ConstantInt, then this is a VLA item.
+    //     We just generate GEP(BaseAddr, 0).
+    //   b. Otherwise, the item is a constant sized array. We could also
+    //     just generate GEP(BaseAddr, 0), but we do the same pointer casting
+    //     as in 1.b.ii. This is not required, but it simplifies the check
+    //     for when we want to generate the cast. In addition, having a GEP
+    //     representing the underlying array with its size may be useful
+    //     for type deduction somewhere else in the compiler.
+    if (auto CI = dyn_cast<ConstantInt>(NumElements)) {
+      // TYPED clause case.
+      ObjTy = ArrayType::get(ObjTy, CI->getZExtValue());
+      BaseAddr = Builder.CreatePointerCast(BaseAddr,
+          PointerType::get(ObjTy,
+                           cast<PointerType>(
+                               BaseAddr->getType())->getAddressSpace()));
+    }
   }
 
   Value *ArrayBegin =

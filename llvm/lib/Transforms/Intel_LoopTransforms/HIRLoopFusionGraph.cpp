@@ -232,7 +232,7 @@ public:
 };
 
 static bool canHandleZtt(const HLLoop *Loop1, const HLLoop *Loop2,
-                         unsigned AbsoluteTCDifference) {
+                         int TCDifference) {
   // Return true right away if ZTTs are equal in both loops.
   if (HLNodeUtils::areEqualZttConditions(Loop1, Loop2)) {
     return true;
@@ -241,6 +241,26 @@ static bool canHandleZtt(const HLLoop *Loop1, const HLLoop *Loop2,
   if (!Loop1->hasZtt() || !Loop2->hasZtt() ||
       Loop1->getNumZttPredicates() != 1 || Loop2->getNumZttPredicates() != 1) {
     return false;
+  }
+
+  // Reaching here means both loops have different Ztts, and since pre-
+  // header/postexits are guarded by ztts, we conservatively bail out
+  // if preheader/postexit will need to move after fusion. Fusion will
+  // cause the fused loop to use the more restrictive Ztt, and the Peel
+  // loop will use the less restrictive Ztt. Using TCDifference, we can
+  // allow preheader for the Loop with smaller TC, and postexit for loop
+  // with greater TC. Handing other cases would require detatching
+  // pre/post insts to correctly retain ztt information.
+
+  // Loop1 TC > Loop2 TC
+  if (TCDifference > 0) {
+    if (Loop1->hasPreheader() || Loop2->hasPostexit()) {
+      return false;
+    }
+  } else if (TCDifference < 0) {
+    if (Loop2->hasPreheader() || Loop1->hasPostexit()) {
+      return false;
+    }
   }
 
   auto PredI1 = Loop1->ztt_pred_begin();
@@ -276,7 +296,7 @@ static bool canHandleZtt(const HLLoop *Loop1, const HLLoop *Loop2,
     return false;
   }
 
-  return std::abs(DistA) + std::abs(DistB) == AbsoluteTCDifference;
+  return std::abs(DistA) + std::abs(DistB) == std::abs(TCDifference);
 }
 
 static unsigned areLoopsFusibleWithCommonTC(const HLLoop *Loop1,
@@ -308,7 +328,7 @@ static unsigned areLoopsFusibleWithCommonTC(const HLLoop *Loop1,
   }
 
   // TODO: Allow only loops with special ZTTs for now. This needs to be improved.
-  if (!canHandleZtt(Loop1, Loop2, std::abs(UBDist))) {
+  if (!canHandleZtt(Loop1, Loop2, UBDist)) {
     return 0;
   }
 

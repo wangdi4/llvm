@@ -386,6 +386,23 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     return 0;
   }
 
+  raw_ostream *OS = nullptr;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  OS = is_contained(VPlanCostModelPrintAnalysisForVF, 1) ? &outs() : nullptr;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  ScalarIterationCost = createCostModel(Plan.get(), 1)->getCost(
+   nullptr /* PeelingVariant */, OS);
+
+  // FIXME: Should we really prefer VF=1 Plan with unknown cost?
+  if (ScalarIterationCost.isUnknown())
+    ScalarIterationCost = 0;
+
+  // Reset the results of SVA that are set as a side effect of CM invocation.
+  // The results are dummy (specific to VF = 1) and may not be automatically
+  // reused in general.
+  Plan->invalidateAnalyses(VPAnalysisID::SVA);
+
   VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
   LE->analyzeImplicitLastPrivates();
@@ -795,16 +812,6 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   }
 
   raw_ostream *OS = nullptr;
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  OS = is_contained(VPlanCostModelPrintAnalysisForVF, 1) ? &outs() : nullptr;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-  VPInstructionCost ScalarIterationCost = createCostModel(
-    ScalarPlan, 1)->getCost(nullptr /* PeelingVariant */, OS);
-
-  // FIXME: Should we really prefer VF=1 Plan with unknown cost?
-  if (ScalarIterationCost.isUnknown())
-    ScalarIterationCost = 0;
 
   VPInstructionCost ScalarCost = ScalarIterationCost * TripCount;
   // Cap ScalarCost and max value if * TripCount overflows.

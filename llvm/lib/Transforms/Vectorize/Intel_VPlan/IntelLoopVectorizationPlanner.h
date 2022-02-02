@@ -667,6 +667,11 @@ private:
   /// A list of other additional VPlans, created during peel/remainders
   /// creation and cloning.
   SmallVector<std::unique_ptr<VPlan>, 2> AuxVPlans;
+
+  /// The Cost of a single iteration of scalar VPlan. Calculated far before
+  /// VF selection and kept in this member. Is not expected to be updated
+  /// once calculated.
+  VPInstructionCost ScalarIterationCost;
 };
 
 } // namespace vpo
