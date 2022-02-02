@@ -1,3 +1,5 @@
+; VLA reductions are not supported for TASKGROUP yet.
+; UNSUPPORTED: true
 ; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
 ; RUN: opt < %s -passes='function(vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
 ;
