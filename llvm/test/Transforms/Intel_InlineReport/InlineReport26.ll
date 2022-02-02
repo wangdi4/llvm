@@ -8,11 +8,7 @@
 ; This test tests various inlining report features for programs that
 ; contain varags intrinsics like llvm.va_arg_pack and llvm.va_arg_pack_len.
 ; The function myopener() should be inlined and the inlining report should
-; show the call to myopenva() as nested within it. Callsites that are
-; eliminated through dead code elimination should not appear in the
-; inlining report. For example, when myopen() is inlined into main(),
-; only a single callsite for myopen2() and myopenva() should be exposed,
-; because the others are removed by dead code elimination.
+; show the call to myopenva() as nested within it.
 
 ; NOTE: The new pass manager does not dead code eliminate myopener and myopen
 ; as part of the inlining pass, hence the need to check for different results.
@@ -308,10 +304,13 @@ attributes #6 = { noreturn }
 
 ; CHECK-LABEL: COMPILE FUNC: main
 ; CHECK: INLINE: myopener{{.*}}Callee is always inline
+; CHECK: DELETE: llvm.va_arg_pack
 ; CHECK: myopenva{{.*}}Callee has noinline attribute
 ; CHECK: INLINE: myopen{{.*}}Callee is always inline
+; CHECK: DELETE: llvm.va_arg_pack_len
 ; CHECK: EXTERN: warn_open_too_many_arguments
 ; CHECK: myopen2{{.*}}Callee has noinline attribute
+; CHECK: DELETE: llvm.va_arg_pack
 ; CHECK: myopenva{{.*}}Callee has noinline attribute
 ; CHECK: EXTERN: abort
 

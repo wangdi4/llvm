@@ -197,7 +197,11 @@ namespace L0Interop {
     "device_eu_simd_width",
     "device_num_eus_per_subslice",
     "device_num_subslices_per_slice",
-    "device_num_slices"
+    "device_num_slices",
+    "device_local_mem_size",
+    "device_global_mem_size",
+    "device_global_mem_cache_size",
+    "device_max_clock_frequency"
   };
 
   std::vector<const char *> IprTypeDescs {
@@ -215,7 +219,11 @@ namespace L0Interop {
     "intptr_t, physical EU simd width",
     "intptr_t, number of EUs per sub-slice",
     "intptr_t, number of sub-slices per slice",
-    "intptr_t, number of slices"
+    "intptr_t, number of slices",
+    "intptr_t, local memory size in bytes",
+    "intptr_t, global memory size in bytes",
+    "intptr_t, global memory cache size in bytes",
+    "intptr_t, max clock frequency in MHz"
   };
 
   // Level Zero property ID
@@ -225,7 +233,11 @@ namespace L0Interop {
     device_eu_simd_width,
     device_num_eus_per_subslice,
     device_num_subslices_per_slice,
-    device_num_slices
+    device_num_slices,
+    device_local_mem_size,
+    device_global_mem_size,
+    device_global_mem_cache_size,
+    device_max_clock_frequency
   };
 
   /// Level Zero interop property
@@ -2063,6 +2075,8 @@ public:
 
   std::vector<ze_device_properties_t> DeviceProperties;
   std::vector<ze_device_compute_properties_t> ComputeProperties;
+  std::vector<ze_device_memory_properties_t> MemoryProperties;
+  std::vector<ze_device_cache_properties_t> CacheProperties;
 
   // Internal device type ID
   std::vector<uint64_t> DeviceArchs;
@@ -3848,6 +3862,10 @@ static int32_t appendDeviceProperties(
   ze_device_properties_t properties = DevicePropertiesInit;
   ze_device_compute_properties_t computeProperties =
       DeviceComputePropertiesInit;
+  ze_device_memory_properties_t MemoryProperties
+    { ZE_STRUCTURE_TYPE_DEVICE_MEMORY_PROPERTIES, nullptr };
+  ze_device_cache_properties_t CacheProperties
+    { ZE_STRUCTURE_TYPE_DEVICE_CACHE_PROPERTIES, nullptr };
 
   DeviceInfo->Devices.push_back(Device);
 
@@ -3858,6 +3876,14 @@ static int32_t appendDeviceProperties(
 
   CALL_ZE_RET_FAIL(zeDeviceGetComputeProperties, Device, &computeProperties);
   DeviceInfo->ComputeProperties.push_back(computeProperties);
+
+  uint32_t Count = 1;
+  CALL_ZE_RET_FAIL(zeDeviceGetMemoryProperties, Device, &Count,
+                   &MemoryProperties);
+  DeviceInfo->MemoryProperties.push_back(MemoryProperties);
+  CALL_ZE_RET_FAIL(zeDeviceGetCacheProperties, Device, &Count,
+                   &CacheProperties);
+  DeviceInfo->CacheProperties.push_back(CacheProperties);
 
   DeviceInfo->DeviceIdStr.push_back(IdStr);
   uint32_t NumQueues = 0;
@@ -5959,54 +5985,81 @@ EXTERN int32_t __tgt_rtl_get_interop_property_value(
     int32_t DeviceId, __tgt_interop *Interop, int32_t Ipr, int32_t ValueType,
     size_t Size, void *Value) {
 
-  int32_t retCode = omp_irc_success;
-  auto &deviceProperties = DeviceInfo->DeviceProperties[DeviceId];
+  int32_t RC = omp_irc_success;
+  auto &DeviceProperties = DeviceInfo->DeviceProperties[DeviceId];
+  auto &ComputeProperties = DeviceInfo->ComputeProperties[DeviceId];
+  auto &MemoryProperties = DeviceInfo->MemoryProperties[DeviceId];
+  auto &CacheProperties = DeviceInfo->CacheProperties[DeviceId];
 
   switch (Ipr) {
   case L0Interop::device_num_eus:
     if (ValueType == OMP_IPR_VALUE_INT)
-      *static_cast<intptr_t *>(Value) = deviceProperties.numEUsPerSubslice *
-          deviceProperties.numSubslicesPerSlice *
-          deviceProperties.numSlices;
+      *static_cast<intptr_t *>(Value) = DeviceProperties.numEUsPerSubslice *
+          DeviceProperties.numSubslicesPerSlice *
+          DeviceProperties.numSlices;
     else
-      retCode = omp_irc_type_int;
+      RC = omp_irc_type_int;
     break;
   case L0Interop::device_num_threads_per_eu:
     if (ValueType == OMP_IPR_VALUE_INT)
-      *static_cast<intptr_t *>(Value) = deviceProperties.numThreadsPerEU;
+      *static_cast<intptr_t *>(Value) = DeviceProperties.numThreadsPerEU;
     else
-      retCode = omp_irc_type_int;
+      RC = omp_irc_type_int;
     break;
   case L0Interop::device_eu_simd_width:
     if (ValueType == OMP_IPR_VALUE_INT)
-      *static_cast<intptr_t *>(Value) = deviceProperties.physicalEUSimdWidth;
+      *static_cast<intptr_t *>(Value) = DeviceProperties.physicalEUSimdWidth;
     else
-      retCode = omp_irc_type_int;
+      RC = omp_irc_type_int;
     break;
   case L0Interop::device_num_eus_per_subslice:
     if (ValueType == OMP_IPR_VALUE_INT)
-      *static_cast<intptr_t *>(Value) = deviceProperties.numEUsPerSubslice;
+      *static_cast<intptr_t *>(Value) = DeviceProperties.numEUsPerSubslice;
     else
-      retCode = omp_irc_type_int;
+      RC = omp_irc_type_int;
     break;
   case L0Interop::device_num_subslices_per_slice:
     if (ValueType == OMP_IPR_VALUE_INT)
-      *static_cast<intptr_t *>(Value) = deviceProperties.numSubslicesPerSlice;
+      *static_cast<intptr_t *>(Value) = DeviceProperties.numSubslicesPerSlice;
     else
-      retCode = omp_irc_type_int;
+      RC = omp_irc_type_int;
     break;
   case L0Interop::device_num_slices:
     if (ValueType == OMP_IPR_VALUE_INT)
-      *static_cast<intptr_t *>(Value) = deviceProperties.numSlices;
+      *static_cast<intptr_t *>(Value) = DeviceProperties.numSlices;
     else
-      retCode = omp_irc_type_int;
+      RC = omp_irc_type_int;
+    break;
+  case L0Interop::device_local_mem_size:
+    if (ValueType == OMP_IPR_VALUE_INT)
+      *static_cast<intptr_t *>(Value) = ComputeProperties.maxSharedLocalMemory;
+    else
+      RC = omp_irc_type_int;
+    break;
+  case L0Interop::device_global_mem_size:
+    if (ValueType == OMP_IPR_VALUE_INT)
+      *static_cast<intptr_t *>(Value) = MemoryProperties.totalSize;
+    else
+      RC = omp_irc_type_int;
+    break;
+  case L0Interop::device_global_mem_cache_size:
+    if (ValueType == OMP_IPR_VALUE_INT)
+      *static_cast<intptr_t *>(Value) = CacheProperties.cacheSize;
+    else
+      RC = omp_irc_type_int;
+    break;
+  case L0Interop::device_max_clock_frequency:
+    if (ValueType == OMP_IPR_VALUE_INT)
+      *static_cast<intptr_t *>(Value) = DeviceProperties.coreClockRate;
+    else
+      RC = omp_irc_type_int;
     break;
   default:
-    retCode = omp_irc_out_of_range;
+    RC = omp_irc_out_of_range;
     break;
   }
 
-  return retCode;
+  return RC;
 }
 
 EXTERN const char *__tgt_rtl_get_interop_property_info(

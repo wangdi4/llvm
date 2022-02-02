@@ -319,6 +319,30 @@ TRACE_FN_DEF(zeDeviceGetSubDevices)(
   return rc;
 }
 
+TRACE_FN_DEF(zeDeviceGetMemoryProperties)(
+    ze_device_handle_t hDevice,
+    uint32_t *pCount,
+    ze_device_memory_properties_t *pMemProperties) {
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hDevice);
+  TRACE_FN_ARG_PTR(pCount);
+  TRACE_FN_ARG_PTR(pMemProperties);
+  TRACE_FN_ARG_END();
+  return zeDeviceGetMemoryProperties(hDevice, pCount, pMemProperties);
+}
+
+TRACE_FN_DEF(zeDeviceGetCacheProperties)(
+    ze_device_handle_t hDevice,
+    uint32_t *pCount,
+    ze_device_cache_properties_t *pCacheProperties) {
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hDevice);
+  TRACE_FN_ARG_PTR(pCount);
+  TRACE_FN_ARG_PTR(pCacheProperties);
+  TRACE_FN_ARG_END();
+  return zeDeviceGetCacheProperties(hDevice, pCount, pCacheProperties);
+}
+
 TRACE_FN_DEF(zeDriverGet)(
     uint32_t *pCount,
     ze_driver_handle_t *phDrivers) {

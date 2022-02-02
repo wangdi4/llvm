@@ -1033,6 +1033,10 @@ bool TargetTransformInfo::isAdvancedOptEnabled(AdvancedOptLevel AO) const {
   return TTIImpl->isAdvancedOptEnabled(AO);
 }
 
+bool TargetTransformInfo::isLibIRCAllowed() const {
+  return TTIImpl->isLibIRCAllowed();
+}
+
 bool TargetTransformInfo::adjustCallArgs(CallInst *CI) const {
   return TTIImpl->adjustCallArgs(CI);
 }

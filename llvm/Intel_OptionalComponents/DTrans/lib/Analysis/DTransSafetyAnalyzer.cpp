@@ -5506,6 +5506,7 @@ void DTransSafetyInfo::reset() {
   TM.reset();
   MDReader.reset();
   PtrAnalyzer.reset();
+  CIM.reset();
   UnhandledPtrType = false;
   DTransSafetyAnalysisRan = false;
 }

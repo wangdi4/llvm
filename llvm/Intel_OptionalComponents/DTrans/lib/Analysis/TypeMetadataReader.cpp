@@ -471,6 +471,12 @@ DTransType *TypeMetadataReader::getDTransTypeFromMD(const Value *V) {
     DTransFunctionType *Ty = getDTransType(F);
     if (Ty)
       return Ty;
+    // Try to get type of newly created functions from MD for now
+    // since newly created functions are not in the table.
+    auto *MDTypeListNode = F->getMetadata(DTransFuncTypeMDTag);
+    if (!MDTypeListNode)
+      return nullptr;
+    return decodeDTransFuncType(*(const_cast<Function*>(F)), *MDTypeListNode);
   }
 
   MDNode *MD = getDTransMDNode(*V);

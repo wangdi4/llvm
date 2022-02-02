@@ -1864,6 +1864,11 @@ public:
                                 Instruction *InsertPt = nullptr,
                                 bool IsVarArg = false);
 
+  /// Returns the single call site for the given function. Asserts if there
+  /// are multiple callsites or no callsite. Uses such as address-taken
+  /// references are OK.
+  static CallInst *getSingleCallSite(Function *F);
+
   /// Creates new Function and outlines \p W region into it.
   /// \p DT DominatorTree is updated accordingly. If \p BBsToExtractIn is
   /// provided, only the BasicBlocks it contains are outlined, instead of the

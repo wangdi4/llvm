@@ -103,9 +103,14 @@ static bool isBlockValidForExtraction(const BasicBlock &BB,
 #else // INTEL_COLLAB
                                       bool AllowVarArgs, bool AllowAlloca) {
 #endif // INTEL_COLLAB
+
+#if INTEL_COLLAB
+  // We fix these up later.
+#else
   // taking the address of a basic block moved to another function is illegal
   if (BB.hasAddressTaken())
     return false;
+#endif // INTEL_COLLAB
 
   // don't hoist code that uses another basicblock address, as it's likely to
   // lead to unexpected behavior, like cross-function jumps
@@ -119,8 +124,12 @@ static bool isBlockValidForExtraction(const BasicBlock &BB,
     User const *Curr = ToVisit.pop_back_val();
     if (!Visited.insert(Curr).second)
       continue;
+#if INTEL_COLLAB
+    // We fix these up later.
+#else
     if (isa<BlockAddress const>(Curr))
       return false; // even a reference to self is likely to be not compatible
+#endif // INTEL_COLLAB
 
     if (isa<Instruction>(Curr) && cast<Instruction>(Curr)->getParent() != &BB)
       continue;
@@ -317,7 +326,7 @@ CodeExtractor::CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs,
 #if INTEL_COLLAB
                                      /* AllowAlloca */ false,
                                      /* AllowEHTypeID */ false,
-                                     /* AllowUnreachableBlocks */false)),
+                                     /* AllowUnreachableBlocks */ false)),
       DeclLoc(),
 #else // INTEL_COLLAB
                                      /* AllowAlloca */ false)),
@@ -2148,6 +2157,35 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
 #endif // INTEL_COLLAB
 }
 
+#if INTEL_COLLAB
+// Verify any BlockAddresses in the Function, so that they do not cross
+// into or out of the extraction region.
+// Returns false if the verification failed. This is considered an internal
+// error rather than a user error, as the FE prevents such cases in C++.
+static bool verifyBlockAddresses(Function *oldFunction,
+                                 SetVector<BasicBlock *> ExtractBlocks) {
+  if (llvm::none_of(ExtractBlocks,
+                    [](BasicBlock *BB) { return BB->hasAddressTaken(); }))
+    return true;
+
+  // We have an address-taken block in the region. Scan the entire function
+  // and check all the BlockAddress references.
+  for (auto &I : instructions(oldFunction)) {
+    for (Value *V : I.operands()) {
+      if (auto *BA = dyn_cast<BlockAddress>(V)) {
+        auto *RefBB = BA->getBasicBlock();
+        // Check if this is a reference from outside the extraction set to
+        // inside, or vice versa.
+        if (ExtractBlocks.contains(RefBB) !=
+            ExtractBlocks.contains(I.getParent()))
+          return false;
+      }
+    }
+  }
+  return true;
+}
+
+#endif // INTEL_COLLAB
 Function *
 CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
 #if INTEL_COLLAB
@@ -2177,6 +2215,12 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
     }
   }
 
+#if INTEL_COLLAB
+  if (!verifyBlockAddresses(oldFunction, Blocks)) {
+    LLVM_DEBUG(dbgs() << "Invalid block address found in extraction.");
+    return nullptr;
+  }
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   if (AC)
     // Force assumptions in the old function to be rescanned on the next access.
@@ -2376,6 +2420,9 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
     calculateNewCallTerminatorWeights(codeReplacer, ExitWeights, BPI);
 
 #if INTEL_COLLAB
+  // Fix up BlockAddresses.
+  llvm::vpo::VPOUtils::replaceBlockAddresses(oldFunction, newFunction);
+
   // CodeExtractor only partially updated the DT. This completes the update.
   // It needs to be contributed back to the community.
 

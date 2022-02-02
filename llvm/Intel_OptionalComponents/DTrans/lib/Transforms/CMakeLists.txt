@@ -45,6 +45,7 @@ add_llvm_component_library(LLVMIntel_DTransOpt
   SOAToAOSOPEffects.cpp
   SOAToAOSOPStruct.cpp
   SOAToAOSPrepare.cpp
+  SOAToAOSOPPrepare.cpp
   SOAToAOSStruct.cpp
   Transpose.cpp
   WeakAlign.cpp

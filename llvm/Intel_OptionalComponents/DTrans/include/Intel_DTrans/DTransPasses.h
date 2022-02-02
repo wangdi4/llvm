@@ -1,6 +1,6 @@
 //===------------------ DTransPasses.h - Passes for DTrans ---------------===//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -45,6 +45,7 @@
 #include "Intel_DTrans/Transforms/SOAToAOS.h"
 #include "Intel_DTrans/Transforms/SOAToAOSOP.h"
 #include "Intel_DTrans/Transforms/SOAToAOSPrepare.h"
+#include "Intel_DTrans/Transforms/SOAToAOSOPPrepare.h"
 #include "Intel_DTrans/Transforms/Transpose.h"
 #include "Intel_DTrans/Transforms/WeakAlign.h"
 

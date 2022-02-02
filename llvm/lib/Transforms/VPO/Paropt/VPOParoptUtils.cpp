@@ -5944,6 +5944,21 @@ orderBlocksForOutlining(ArrayRef<BasicBlock *> Blocks) {
   return OrderedBlocks;
 }
 
+// Gets the single call site for the given function. Asserts if there are
+// multiple callsites or no callsite. Uses such as address-taken references
+// are OK.
+CallInst *VPOParoptUtils::getSingleCallSite(Function *F) {
+  CallInst *CallSite = nullptr;
+  for (auto *U : F->users()) {
+    if (isa<CallInst>(U)) {
+      assert(!CallSite && "Multiple callsites found for outlined function");
+      CallSite = cast<CallInst>(U);
+    }
+  }
+  assert(CallSite && "No callsite found for outlined function");
+  return CallSite;
+}
+
 Function *VPOParoptUtils::genOutlineFunction(
     const WRegionNode &W, DominatorTree *DT, AssumptionCache *AC,
     llvm::Optional<ArrayRef<BasicBlock *>> BBsToExtractIn, std::string Suffix) {
@@ -6067,9 +6082,8 @@ Function *VPOParoptUtils::genOutlineFunction(
   CodeExtractorAnalysisCache CEAC(*W.getEntryBBlock()->getParent());
   auto *NewFunction = CE.extractCodeRegion(CEAC, /* hoistAlloca */ true);
   assert(NewFunction && "Code extraction failed for the region.");
-  assert(NewFunction->hasOneUse() && "New function should have one use.");
 
-  auto *CallSite = cast<CallInst>(NewFunction->user_back());
+  auto *CallSite = getSingleCallSite(NewFunction);
 
   // Remove the extracted blocks from the LoopInfo of enclosing regions. The
   // Loops and Blocks in the extracted function are no longer valid

@@ -5452,6 +5452,11 @@ def qopt_report_EQ : Joined<["-"], "qopt-report=">, Values<"min,med,max">,
 def : Joined<["-"], "qopt-report">, Alias<qopt_report_EQ>;
 def qopt_report : Flag<["-"], "qopt-report">, Alias<qopt_report_EQ>,
   AliasArgs<["2"]>;
+def qopt_streaming_stores_EQ : Joined<["-"], "qopt-streaming-stores=">,
+  Values<"always,auto,never">, HelpText<"Specifies whether streaming stores "
+  "are generated.">;
+def qno_opt_streaming_stores : Flag<["-"], "qno-opt-streaming-stores">,
+  Alias<qopt_streaming_stores_EQ>, AliasArgs<["never"]>;
 def qopt_zmm_usage_EQ : Joined<["-"], "qopt-zmm-usage=">, Values<"low,high">,
   HelpText<"Specifies the level of zmm registers usage, low or high">;
 def qoverride_limits : Flag<["-"], "qoverride-limits">,
@@ -7741,6 +7746,13 @@ def _SLASH_Qopt_report : CLFlag<"Qopt-report">, Alias<qopt_report_EQ>,
   AliasArgs<["2"]>;
 def _SLASH_Qopt_report_COL : CLJoined<"Qopt-report:">, Alias<qopt_report_EQ>,
   HelpText<"Generate an optimization report, min, med or max.">;
+def : CLJoined<"Qopt-streaming-stores:">,
+  Alias<qopt_streaming_stores_EQ>, HelpText<"Specifies whether streaming "
+  "stores are generated.">;
+def : CLJoined<"Qopt-streaming-stores=">,
+  Alias<qopt_streaming_stores_EQ>;
+def : CLFlag<"Qopt-streaming-stores-">,
+  Alias<qopt_streaming_stores_EQ>, AliasArgs<["never"]>;
 def : CLJoined<"Qopt-zmm-usage:">, Alias<qopt_zmm_usage_EQ>,
   HelpText<"Specifies the level of zmm registers usage, low or high">;
 def : CLJoined<"Qopt-zmm-usage=">, Alias<qopt_zmm_usage_EQ>;

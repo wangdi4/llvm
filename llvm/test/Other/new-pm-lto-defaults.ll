@@ -130,11 +130,33 @@
 ; CHECK-O23SZ-NEXT: Running pass: GlobalOptPass
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ: Running pass: PartialInlinerPass
+; CHECK-O23SZ: Running pass: CallTreeCloningPass
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ: Running pass: GlobalDCEPass
+; INTEL_CUSTOMIZATION
+; CHECK-O23SZ-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Module
+; CHECK-O23SZ-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Module
+; CHECK-O23SZ-NEXT: Running analysis: LazyCallGraphAnalysis
+; CHECK-O23SZ-NEXT: Running analysis: TargetLibraryAnalysis
+; CHECK-O23SZ-NEXT: Running analysis: FunctionAnalysisManagerCGSCCProxy
+; CHECK-O23SZ-NEXT: Running analysis: OuterAnalysisManagerProxy
+; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: ArgumentPromotionPass
+; CHECK-O23SZ-NEXT: Running analysis: TargetIRAnalysis ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: IPArrayTransposePass ;INTEL
 ; CHECK-O23SZ: Running pass: InstCombinePass
+; INTEL_CUSTOMIZATION
+; CHECK-O23SZ-NEXT: Running analysis: AssumptionAnalysis on foo
+; CHECK-O23SZ-NEXT: Running analysis: DominatorTreeAnalysis
+; CHECK-O23SZ-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
+; CHECK-O23SZ-NEXT: Running analysis: AAManager
+; CHECK-O23SZ-NEXT: Running analysis: BasicAA
+; CHECK-O23SZ-NEXT: Running analysis: XmainOptLevelAnalysis
+; CHECK-O23SZ-NEXT: Running analysis: OuterAnalysisManagerProxy
+; CHECK-O23SZ-NEXT: Running analysis: ScopedNoAliasAA
+; CHECK-O23SZ-NEXT: Running analysis: TypeBasedAA
+; CHECK-O23SZ-NEXT: Running analysis: StdContainerAA
+; END INTEL_CUSTOMIZATION
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O23SZ-NEXT: Running pass: JumpThreadingPass
 ; CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis
@@ -143,18 +165,21 @@
 ; CHECK-O23SZ-NEXT: Running pass: TailCallElimPass on foo
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: IntelLoopAttrsPass on foo
+; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo
+; CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: PostOrderFunctionAttrsPass on (foo)
 ; INTEL_CUSTOMIZATION
-; CHECK-O23SZ-NEXT: Running pass: InvalidateAnalysisPass<llvm::AndersensAA> on [module]
+; CHECK-O23SZ-NEXT: Running pass: InvalidateAnalysisPass<{{.*}}AndersensAA
+; CHECK-O23SZ-NEXT: Invalidating analysis: AAManager on foo
 ; CHECK-O23SZ-NEXT: Invalidating analysis: AndersensAA on [module]
-; CHECK-O23SZ-NEXT: Running pass: RequireAnalysisPass<llvm::AndersensAA, llvm::Module> on [module]
-; CHECK-O23SZ-NEXT: Running analysis: AndersensAA on [module]
+; CHECK-O23SZ-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA
+; CHECK-O23SZ-NEXT: Running analysis: AndersensAA
+; CHECK-O23SZ-NEXT: Running analysis: CallGraphAnalysis
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: RequireAnalysisPass<{{.*}}GlobalsAA
 ; CHECK-O23SZ-NEXT: Running analysis: GlobalsAA on [module]
 ; CHECK-O23SZ-NEXT: Running pass: InvalidateAnalysisPass<{{.*}}AAManager
-; CHECK-O23SZ-NEXT: Invalidating analysis: AAManager on foo
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: IntelIPODeadArgEliminationPass on [module]
 ; END INTEL_CUSTOMIZATION

@@ -349,6 +349,12 @@ public:
   /// Returns the next enclosing OpenMP begin directive, or nullptr if none.
   static IntrinsicInst *enclosingBeginDirective(Instruction *I,
                                                 DominatorTree *DT);
+
+  /// Find BlockAddress references in NewFunction that point to OldFunction,
+  /// and replace them. This must be called after all code has moved to
+  /// NewFunction.
+  static void replaceBlockAddresses(Function *OldFunction,
+                                    Function *NewFunction);
   /// @}
 };
 

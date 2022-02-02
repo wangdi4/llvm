@@ -1,6 +1,6 @@
 //===- Intel_InlineReport.cpp - Inline report ------- ---------------------===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -62,16 +62,14 @@ InlineReportCallSite::cloneBase(const ValueToValueMapTy &IIMap,
     return nullptr;
   // If the OldCall was the ActiveInlineCallBase, we placed a nullptr
   // into the IIMap for it.
+  InlineReportCallSite *IRCSk = nullptr;
   bool IsRecursiveCopy = OldCall == ActiveInlineCallBase;
   if (IsRecursiveCopy)
     OldCall = nullptr;
   auto VMI = IIMap.find(OldCall);
-  if (VMI == IIMap.end())
-    return nullptr;
-  if (!VMI->second)
-    return nullptr;
-  CallBase *CB = cast<CallBase>(VMI->second);
-  InlineReportCallSite *IRCSk = nullptr;
+  CallBase *CB = nullptr;
+  if (VMI != IIMap.end() && VMI->second)
+    CB = cast<CallBase>(VMI->second);
   if (IsRecursiveCopy) {
     // Start with a clean copy, as this is a newly created callsite produced
     // by recursive inlining.
@@ -80,8 +78,11 @@ InlineReportCallSite::cloneBase(const ValueToValueMapTy &IIMap,
                                      nullptr, CB);
     IRCSk->Line = this->Line;
     IRCSk->Col = this->Col;
-  } else
+  } else {
     IRCSk = copyBase(CB);
+    if (!CB)
+      IRCSk->setReason(NinlrDeleted);
+  }
   return IRCSk;
 }
 
