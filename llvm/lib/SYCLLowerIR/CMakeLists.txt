@@ -57,12 +57,6 @@ if (NOT TARGET LLVMGenXIntrinsics)
       endif ()
 
       # Construct GIT_REPO from from GIT_REPO_PATH and GIT_REPO_NAME.
-<<<<<<< HEAD
-      set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel)
-      set(LLVMGenXIntrinsics_GIT_REPO_NAME vc-intrinsics.git)
-      set(LLVMGenXIntrinsics_GIT_TAG dpcpp_staging)
-=======
->>>>>>> 51d17b249ff2cce9b49a0d7fbca774f5344dadc0
       set( LLVMGenXIntrinsics_GIT_REPO
         ${LLVMGenXIntrinsics_GIT_REPO_PATH}/${LLVMGenXIntrinsics_GIT_REPO_NAME} )
     endif (INTEL_CUSTOMIZATION)
