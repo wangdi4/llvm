@@ -3149,10 +3149,9 @@ void VPOCodeGenHIR::widenBlendImpl(const VPBlendInst *Blend, RegDDRef *Mask) {
 
 // Widen PHI instruction.
 void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
-  // Check if  PHI is the main loop IV and widen it by generating the ref i1 +
-  // <0, 1, 2, .. VF-1>. TODO: Need to handle all IVs in general here, for now
-  // HIR is expected to have main loop IV only.
-  if (MainLoopIVInsts.count(VPPhi)) {
+  // Check if  PHI is the loop IV and widen it by generating the ref i1 +
+  // <0, 1, 2, .. VF-1>. TODO: Need to handle all IVs in general here.
+  if (LoopIVPhis.count(VPPhi)) {
     auto RefDestTy = VPPhi->getType();
     auto *NewRef = generateLoopInductionRef(RefDestTy);
     addVPValueWideRefMapping(VPPhi, NewRef);
@@ -3789,7 +3788,7 @@ void VPOCodeGenHIR::widenUnmaskedUniformStoreImpl(
     ValRef = getOrCreateScalarRef(ValOp, 0 /*LaneID*/);
   else {
     const VPPHINode *VPPhi = dyn_cast<VPPHINode>(ValOp);
-    if (VPPhi && MainLoopIVInsts.count(VPPhi)) {
+    if (VPPhi && LoopIVPhis.count(VPPhi)) {
       // If the value being stored is the loop IV, generate IV + (VF - 1).
       auto RefDestTy = VPPhi->getType();
       auto *CE = CanonExprUtilities.createCanonExpr(RefDestTy);
@@ -4020,7 +4019,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     return;
   }
 
-  // Skip loop related VPInstructions other than IV-updates from unroller.
+  // Skip loop related VPInstructions other than IV-updates.
   // TODO: Revisit when HIR vectorizer supports outer-loop vectorization.
   if (VPInst->isUnderlyingIRValid()) {
     const HLNode *HNode =
@@ -4034,9 +4033,9 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         // explicitly.
         if (VPInst->getOpcode() == Instruction::ICmp)
           return;
-      } else if (VPInst->getOpcode() != Instruction::Add ||
-                 !MainLoopIVInsts.count(VPInst))
+      } else if (VPInst->getOpcode() != Instruction::Add) {
         return;
+      }
     }
   }
 
@@ -5292,44 +5291,22 @@ void VPOCodeGenHIR::collectLoopEntityInsts() {
       };
 
   // Capture main loop IV instructions.
-  auto captureMainLoopIVInsts = [&](VPBasicBlock *LpPreheader) {
-    bool MainLoopIVCaptured = false;
+  auto captureLoopIVPhis = [&](VPBasicBlock *LpPreheader) {
+    bool LoopIVCaptured = false;
     for (VPInstruction &Inst : *LpPreheader) {
       if (!isa<VPInductionInit>(&Inst))
         continue;
 
       auto *IndInit = cast<VPInductionInit>(&Inst);
-      if (MainLoopIVCaptured)
+      if (LoopIVCaptured)
         report_fatal_error(
             "HIR is expected to have only one loop induction variable.");
-      MainLoopIVCaptured = true;
-
-      std::function<void(VPInstruction *)> CaptureIVUpdates =
-          [&](VPInstruction *Inst) {
-            assert(Inst->getOpcode() == Instruction::Add &&
-                   "Invalid induction variable.");
-            assert(isa<VPInductionInitStep>(Inst->getOperand(0)) ||
-                   isa<VPInductionInitStep>(Inst->getOperand(1)) &&
-                       "One of the operands of IV update should be IV step.");
-            MainLoopIVInsts.insert(Inst);
-            for (auto *Op : Inst->operands()) {
-              if (isa<VPPHINode>(Op) || isa<VPInductionInitStep>(Op)) {
-                // Ignore IV step and PHI operands.
-                continue;
-              } else {
-                CaptureIVUpdates(cast<VPInstruction>(Op));
-              }
-            }
-          };
+      LoopIVCaptured = true;
 
       assert(IndInit->getNumUsers() == 1 && "Invalid induction variable.");
       auto *User = *(IndInit->users().begin());
       VPPHINode *IndPHI = cast<VPPHINode>(User);
-      MainLoopIVInsts.insert(IndPHI);
-      VPInstruction *LastUpdate = cast<VPInstruction>(
-          IndPHI->getOperand(0) == IndInit ? IndPHI->getOperand(1)
-                                           : IndPHI->getOperand(0));
-      CaptureIVUpdates(LastUpdate);
+      LoopIVPhis.insert(IndPHI);
     }
   };
 
@@ -5341,12 +5318,11 @@ void VPOCodeGenHIR::collectLoopEntityInsts() {
         collectRednVPInsts(RedInit);
       }
     }
-    captureMainLoopIVInsts(LpPreheader);
+    captureLoopIVPhis(LpPreheader);
   }
 
-  for (auto *V : MainLoopIVInsts) {
-    LLVM_DEBUG(dbgs() << "VPInst:"; V->dump();
-               dbgs() << " is associated with main loop IV.\n");
+  for (auto *V : LoopIVPhis) {
+    LLVM_DEBUG(dbgs() << "VPPhi:"; V->dump(); dbgs() << " is loop IV.\n");
     (void)V;
   }
 
@@ -5371,14 +5347,6 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask) {
   const HIRSpecifics HIR = VPInst->HIR();
   if (!Mask)
     Mask = CurMaskValue;
-
-  // Generate code for IV related instructions so that we no longer rely
-  // on using unrolled part. This now enables generating wide loads/stores
-  // in mixed codegen path as well when the loads/stores are invalidated.
-  if (MainLoopIVInsts.count(VPInst)) {
-    widenNodeImpl(VPInst, Mask);
-    return;
-  }
 
   // Always generate code for Phis/Blends in mixed code gen mode except for
   // search loops.

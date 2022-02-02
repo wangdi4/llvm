@@ -650,10 +650,9 @@ private:
   // operations.
   SmallPtrSet<const VPInstruction *, 4> ReductionVPInsts;
 
-  // Collection of VPInstructions inside the loop that correspond to main loop
-  // IV. This is expected to contain the PHI and incrementing add
-  // instruction(s).
-  SmallPtrSet<const VPValue *, 8> MainLoopIVInsts;
+  // Collection of VPPHINodes that correspond to loop IV.
+  SmallPtrSet<const VPPHINode *, 8> LoopIVPhis;
+
   // Map of VPlan's private memory objects and their corresponding HIR BlobDDRef
   // and unique symbase created to represent accesses within vector loop.
   DenseMap<const VPAllocatePrivate *, std::pair<BlobDDRef *, unsigned>>
