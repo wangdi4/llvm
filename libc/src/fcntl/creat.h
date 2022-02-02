@@ -1,4 +1,4 @@
-//===-- Implementation of the sqrtf function for x86_64 -------------------===//
+//===-- Implementation header of creat --------------------------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,15 +6,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/math/sqrtf.h"
-#include "src/__support/common.h"
+#ifndef LLVM_LIBC_SRC_FCNTL_CREAT_H
+#define LLVM_LIBC_SRC_FCNTL_CREAT_H
+
+#include <fcntl.h>
 
 namespace __llvm_libc {
 
-LLVM_LIBC_FUNCTION(float, sqrtf, (float x)) {
-  float result;
-  __asm__ __volatile__("sqrtss %x1, %x0" : "=x"(result) : "x"(x));
-  return result;
-}
+int creat(const char *path, int mode);
 
 } // namespace __llvm_libc
+
+#endif // LLVM_LIBC_SRC_FCNTL_CREAT_H

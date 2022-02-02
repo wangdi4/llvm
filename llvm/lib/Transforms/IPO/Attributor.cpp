@@ -1793,7 +1793,7 @@ ChangeStatus Attributor::cleanupIR() {
     // Actually we do not delete the blocks but squash them into a single
     // unreachable but untangling branches that jump here is something we need
     // to do in a more generic way.
-    DetatchDeadBlocks(ToBeDeletedBBs, nullptr);
+    detachDeadBlocks(ToBeDeletedBBs, nullptr);
   }
 
   identifyDeadInternalFunctions();

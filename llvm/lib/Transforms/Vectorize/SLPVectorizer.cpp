@@ -4248,9 +4248,14 @@ void BoUpSLP::reorderBottomToTop(bool IgnoreReorder) {
       MapVector<OrdersType, unsigned,
                 DenseMap<OrdersType, unsigned, OrdersTypeDenseMapInfo>>
           OrdersUses;
+      // Do the analysis for each tree entry only once, otherwise the order of
+      // the same node my be considered several times, though might be not
+      // profitable.
       SmallPtrSet<const TreeEntry *, 4> VisitedOps;
       for (const auto &Op : Data.second) {
         TreeEntry *OpTE = Op.second;
+        if (!VisitedOps.insert(OpTE).second)
+          continue;
         if (!OpTE->ReuseShuffleIndices.empty() ||
             (IgnoreReorder && OpTE == VectorizableTree.front().get()))
           continue;
@@ -4274,9 +4279,8 @@ void BoUpSLP::reorderBottomToTop(bool IgnoreReorder) {
         } else {
           ++OrdersUses.insert(std::make_pair(Order, 0)).first->second;
         }
-        if (VisitedOps.insert(OpTE).second)
-          OrdersUses.insert(std::make_pair(OrdersType(), 0)).first->second +=
-              OpTE->UserTreeIndices.size();
+        OrdersUses.insert(std::make_pair(OrdersType(), 0)).first->second +=
+            OpTE->UserTreeIndices.size();
         assert(OrdersUses[{}] > 0 && "Counter cannot be less than 0.");
         --OrdersUses[{}];
       }
@@ -10130,11 +10134,8 @@ void BoUpSLP::scheduleBlock(BlockScheduling *BS) {
     for (ScheduleData *BundleMember = picked; BundleMember;
          BundleMember = BundleMember->NextInBundle) {
       Instruction *pickedInst = BundleMember->Inst;
-      if (pickedInst->getNextNode() != LastScheduledInst) {
-        BS->BB->getInstList().remove(pickedInst);
-        BS->BB->getInstList().insert(LastScheduledInst->getIterator(),
-                                     pickedInst);
-      }
+      if (pickedInst->getNextNode() != LastScheduledInst)
+        pickedInst->moveBefore(LastScheduledInst);
       LastScheduledInst = pickedInst;
     }
 
@@ -11222,7 +11223,7 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
         continue;
 #endif // !INTEL_CUSTOMIZATION
       R.reorderTopToBottom();
-      R.reorderBottomToTop();
+      R.reorderBottomToTop(!isa<InsertElementInst>(Ops.front()));
       R.buildExternalUses();
 
       R.computeMinimumValueSizes();
