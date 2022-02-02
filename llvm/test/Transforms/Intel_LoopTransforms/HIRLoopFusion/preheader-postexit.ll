@@ -1,21 +1,21 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -disable-output -hir-loop-fusion -print-before=hir-loop-fusion -print-after=hir-loop-fusion < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
-; This is a test with peeled post-loop, check that preheader and postexit nodes are moved to first and last loops after fusion.
+; This test does loop fusion on loops where preheader and postexit nodes are moved to first and last loops after fusion.
 
-; CHECK-LABEL: Function
-; CHECK: BEGIN REGION { }
-;              + DO i1 = 0, 99, 1   <DO_LOOP>
+; HIR before Fusion
+;        BEGIN REGION { }
+; CHECK:       + DO i1 = 0, 99, 1   <DO_LOOP>
 ;              |   %y.0.lcssa = 0.000000e+00;
 ;              |
 ; CHECK:       |      %y.040 = 0.000000e+00;
-; CHECK:       |   + DO i2 = 0, %n + -2, 1   <DO_LOOP>
+; CHECK:       |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>
 ; CHECK:       |   |   %y.040 = %y.040  +  (%p)[i2];
 ; CHECK:       |   + END LOOP
 ; CHECK:       |      %y.0.lcssa = %y.040;
-; CHECK:       |
-; CHECK:       |   %x.0.lcssa = 1.000000e+00;
-; CHECK:       |
+;              |
+;              |   %x.0.lcssa = 1.000000e+00;
+;              |
 ; CHECK:       |      %x.043 = 1.000000e+00;
 ; CHECK:       |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>
 ; CHECK:       |   |   %add11 = (%p)[i2]  +  1.000000e+00;
@@ -26,28 +26,22 @@
 ;              |   %add16 = %y.0.lcssa  +  %x.0.lcssa;
 ;              |   %add17 = %r.046  +  %add16;
 ;              |   %conv18 = fptosi.float.i32(%add17);
-;              |   %phitmp = sitofp.i32.float(%conv18);
-;              |   %r.046 = %phitmp;
+;              |   %r.046 = sitofp.i32.float(%conv18);
 ;              + END LOOP
-; CHECK: END REGION
+;        END REGION
 
-; CHECK-LABEL: Function
+; HIR After Fusion
+
 ; CHECK: BEGIN REGION { modified }
-;              + DO i1 = 0, 99, 1   <DO_LOOP>
+; CHECK:       + DO i1 = 0, 99, 1   <DO_LOOP>
 ;              |   %y.0.lcssa = 0.000000e+00;
 ;              |   %x.0.lcssa = 1.000000e+00;
 ;              |
 ; CHECK:       |      %y.040 = 0.000000e+00;
 ; CHECK:       |      %x.043 = 1.000000e+00;
-; CHECK:       |   + DO i2 = 0, %n + -2, 1   <DO_LOOP>
+; CHECK:       |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>
 ; CHECK:       |   |   %y.040 = %y.040  +  (%p)[i2];
 ; CHECK:       |   |   %add11 = (%p)[i2]  +  1.000000e+00;
-; CHECK:       |   |   %x.043 = %x.043  +  %add11;
-; CHECK:       |   + END LOOP
-; CHECK:       |
-; CHECK:       |
-; CHECK:       |   + DO i2 = 0, 0, 1   <DO_LOOP>
-; CHECK:       |   |   %add11 = (%p)[i2 + %n + -1]  +  1.000000e+00;
 ; CHECK:       |   |   %x.043 = %x.043  +  %add11;
 ; CHECK:       |   + END LOOP
 ; CHECK:       |      %y.0.lcssa = %y.040;
@@ -56,10 +50,9 @@
 ;              |   %add16 = %y.0.lcssa  +  %x.0.lcssa;
 ;              |   %add17 = %r.046  +  %add16;
 ;              |   %conv18 = fptosi.float.i32(%add17);
-;              |   %phitmp = sitofp.i32.float(%conv18);
-;              |   %r.046 = %phitmp;
+;              |   %r.046 = sitofp.i32.float(%conv18);
 ;              + END LOOP
-; CHECK: END REGION
+;        END REGION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -67,7 +60,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local float @foo(float* nocapture readonly %p, i64 %n) local_unnamed_addr #0 {
 entry:
-  %sub = add nsw i64 %n, -1
+  %sub = add nsw i64 %n, 0
   %cmp239 = icmp sgt i64 %sub, 0
   %cmp742 = icmp sgt i64 %n, 0
   br label %for.cond1.preheader
