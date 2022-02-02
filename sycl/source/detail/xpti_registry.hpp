@@ -89,6 +89,7 @@ public:
 #endif // XPTI_ENABLE_INSTRUMENTATION
   }
 
+<<<<<<< HEAD
   static void
   bufferConstructorNotification(void *UserObj,
                                 const detail::code_location &CodeLoc);
@@ -98,6 +99,18 @@ public:
   static void bufferAccessorNotification(void *UserObj, void *AccessorObj,
                                          uint32_t Target, uint32_t Mode,
                                          const detail::code_location &CodeLoc);
+=======
+  static void bufferConstructorNotification(const void *,
+                                            const detail::code_location &,
+                                            const void *, const void *,
+                                            uint32_t, uint32_t, size_t[3]);
+  static void bufferAssociateNotification(const void *, const void *);
+  static void bufferReleaseNotification(const void *, const void *);
+  static void bufferDestructorNotification(const void *);
+  static void bufferAccessorNotification(const void *, const void *, uint32_t,
+                                         uint32_t,
+                                         const detail::code_location &);
+>>>>>>> 55dd98a00d9a14399be0e926cd6876c58d5f6d9d
 
 private:
   std::unordered_set<std::string> MActiveStreams;
@@ -105,7 +118,11 @@ private:
 
 #ifdef XPTI_ENABLE_INSTRUMENTATION
   static xpti::trace_event_data_t *
+<<<<<<< HEAD
   createTraceEvent(void *Obj, const char *ObjName, uint64_t &IId,
+=======
+  createTraceEvent(const void *Obj, const void *ObjName, uint64_t &IId,
+>>>>>>> 55dd98a00d9a14399be0e926cd6876c58d5f6d9d
                    const detail::code_location &CodeLoc,
                    uint16_t TraceEventType);
 #endif // XPTI_ENABLE_INSTRUMENTATION
