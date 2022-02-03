@@ -1,9 +1,9 @@
 ; Inline report
-; RUN: opt -inline -inline-threshold=5 -inlinehint-threshold=6 -double-callsite-inlinehint-threshold=675 -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL,CHECK-CL-OLD
-; RUN: opt -passes='cgscc(inline)' -inline-threshold=5 -inlinehint-threshold=6 -double-callsite-inlinehint-threshold=675 -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL,CHECK-NEW,CHECK-CL-NEW
+; RUN: opt -inline -inline-threshold=5 -inlinehint-threshold=6 -double-callsite-inlinehint-threshold=675 -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -passes='cgscc(inline)' -inline-threshold=5 -inlinehint-threshold=6 -double-callsite-inlinehint-threshold=675 -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
 ; Inline report via metadata
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -inline-threshold=5 -inlinehint-threshold=6 -double-callsite-inlinehint-threshold=675 -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD,CHECK-MD-OLD
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-threshold=5 -inlinehint-threshold=6 -double-callsite-inlinehint-threshold=675 -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD,CHECK-NEW,CHECK-MD-NEW
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -inline-threshold=5 -inlinehint-threshold=6 -double-callsite-inlinehint-threshold=675 -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-threshold=5 -inlinehint-threshold=6 -double-callsite-inlinehint-threshold=675 -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
 ; Test for -double-callsite-inlinehint-threshold. @mydoublecallee0 should be
 ; inlined because it is a double callsite linkonce_odr function with an
@@ -11,12 +11,7 @@
 ; have an inlinehint. @mytriplecallee should not be inlined because it is
 ; a triple, rather than double, callsite.
 
-; @mydoublecallee0 will be a dead static function in the old pass manager but
-; not in the new pass manager, because dead static function elimination is
-; included in the inliner of the old, but not the new, pass manager.
-
-; CHECK-MD-OLD: DEAD STATIC FUNC: mydoublecallee0
-; CHECK-MD-NEW: COMPILE FUNC: mydoublecallee0
+; CHECK-MD: DEAD STATIC FUNC: mydoublecallee0
 ; CHECK-MD: COMPILE FUNC: mytriplecallee
 ; CHECK-MD: COMPILE FUNC: mydoublecallee1
 ; CHECK-MD: COMPILE FUNC: mycaller
@@ -28,7 +23,6 @@
 ; CHECK-MD: mytriplecallee{{.*}}Inlining is not profitable
 ; CHECK-MD: mytriplecallee{{.*}}Inlining is not profitable
 
-; CHECK-NEW: define linkonce_odr dso_local i32 @mydoublecallee0
 ; CHECK: define linkonce_odr dso_local i32 @mytriplecallee
 ; CHECK: define linkonce_odr dso_local i32 @mydoublecallee1
 ; CHECK: define i32 @mycaller
@@ -40,8 +34,7 @@
 ; CHECK:  tail call i32 @mytriplecallee
 ; CHECK-NOT: define linkonce_odr dso_local i32 @mydoublecallee0
 
-; CHECK-CL-OLD: DEAD STATIC FUNC: mydoublecallee0
-; CHECK-CL-NEW: COMPILE FUNC: mydoublecallee0
+; CHECK-CL: DEAD STATIC FUNC: mydoublecallee0
 ; CHECK-CL: COMPILE FUNC: mytriplecallee
 ; CHECK-CL: COMPILE FUNC: mydoublecallee1
 ; CHECK-CL: COMPILE FUNC: mycaller
