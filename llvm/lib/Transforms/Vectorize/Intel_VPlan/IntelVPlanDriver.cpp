@@ -580,7 +580,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   if (DisableCodeGen)
     return false;
 
-  if (VF == 1) {
+  if (VF == 1 || !LVP.canLowerVPlan(*Plan)) {
     // Emit opt report remark if a VPlan candidate SIMD loop was not vectorized.
     // TODO: Emit reason for bailing out.
     VPlanOptReportBuilder(ORBuilder, LI)
@@ -1539,7 +1539,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     VPOCodeGenHIR VCodeGen(TLI, TTI, SafeRedAnalysis, &VLSA, Plan, Fn, Lp,
                            ORBuilder, &HIRVecLegal, SearchLoopOpcode,
                            PeelArrayRef, isOmpSIMDLoop);
-    bool LoopIsHandled = (VF != 1 && VCodeGen.loopIsHandled(Lp, VF));
+    bool LoopIsHandled =
+        (VF != 1 && VCodeGen.loopIsHandled(Lp, VF) && LVP.canLowerVPlan(*Plan));
 
     // Erase intrinsics before and after the loop if we either vectorized the
     // loop or if this loop is an auto vectorization candidate. SIMD Intrinsics
