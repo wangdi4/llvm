@@ -1025,6 +1025,10 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
   } else if (IsTyped) { // Typed PODs
     assert(NumArgs == 3 && "Expected 3 arguments for a Typed POD");
     Value *V = Args[0];
+    if (!V || isa<ConstantPointerNull>(V)) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << " Ignoring null clause operand.\n");
+      return;
+    }
     C.add(V);
     C.back()->setIsTyped(true);
     C.back()->setOrigItemElementTypeFromIR(Args[1]->getType());
