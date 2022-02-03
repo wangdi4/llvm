@@ -7390,7 +7390,8 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
 
   QualType AdjustedFnType = FD->getType();
   if (NumAppendArgs) {
-    if (isa<FunctionNoProtoType>(FD->getType())) {
+    const auto *PTy = AdjustedFnType->getAsAdjusted<FunctionProtoType>();
+    if (!PTy) {
       Diag(FD->getLocation(), diag::err_omp_declare_variant_prototype_required)
           << SR;
       return None;
@@ -7408,8 +7409,7 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
       Diag(SR.getBegin(), diag::err_omp_interop_type_not_found) << SR;
       return None;
     }
-    QualType InteropType = QualType(TD->getTypeForDecl(), 0);
-    auto *PTy = cast<FunctionProtoType>(FD->getType());
+    QualType InteropType = Context.getTypeDeclType(TD);
     if (PTy->isVariadic()) {
       Diag(FD->getLocation(), diag::err_omp_append_args_with_varargs) << SR;
       return None;
