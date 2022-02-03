@@ -1850,7 +1850,7 @@ bool HIRRuntimeDD::run() {
   if (DisableLibraryCallSwitch ||
       !TTI.isAdvancedOptEnabled(
           TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42) ||
-      !TLI.has(LibFunc_qsort)) {
+      !TTI.isLibIRCAllowed() || !TLI.has(LibFunc_qsort)) {
     LLVM_DEBUG(dbgs() << "[RTDD] Libraries are not available. The Library Call "
                          "Method will be disabled.\n");
     EnableLibraryCallMethod = false;
