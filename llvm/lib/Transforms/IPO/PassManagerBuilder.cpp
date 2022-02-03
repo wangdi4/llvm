@@ -948,6 +948,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     MPM.add(createLoopRerollPass());
 
   // Merge & remove BBs and sink & hoist common instructions.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Hoisting of common instructions can result in unstructured CFG input to
   // loopopt. Loopopt has its own pass which hoists conditional loads/stores.
@@ -955,6 +956,14 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   limitNoLoopOptOnly(MPM).add(createCFGSimplificationPass(
       SimplifyCFGOptions().hoistCommonInsts(true).sinkCommonInsts(true)));
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (SYCLOptimizationMode)
+    MPM.add(createCFGSimplificationPass());
+  else
+    MPM.add(createCFGSimplificationPass(
+        SimplifyCFGOptions().hoistCommonInsts(true).sinkCommonInsts(true)));
+
+>>>>>>> 8b29220bcd61e0538f93eba98d0b93dcc44a9656
   // Clean up after everything.
   addInstructionCombiningPass(MPM, !DTransEnabled); // INTEL
   addExtensionsToPM(EP_Peephole, MPM);
