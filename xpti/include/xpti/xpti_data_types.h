@@ -523,15 +523,9 @@ struct offload_buffer_data_t {
   /// A pointer to host memory offload object.
   uintptr_t host_object_handle = 0;
   /// A string representing the type of buffer element.
-<<<<<<< HEAD
   const char *element_type = nullptr;
   /// Buffer element size in bytes
   uint32_t element_size = 0;
-=======
-  const char *element_type;
-  /// Buffer element size in bytes
-  uint32_t element_size;
->>>>>>> fc0d28a10b91441be163aa6523fac71824a127b3
   /// Buffer dimensions number.
   uint32_t dim = 0;
   /// Buffer size for each dimension.
