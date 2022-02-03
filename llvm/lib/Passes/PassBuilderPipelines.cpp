@@ -1026,29 +1026,22 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   for (auto &C : ScalarOptimizerLateEPCallbacks)
     C(FPM, Level);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Hoisting of common instructions can result in unstructured CFG input to
   // loopopt. Loopopt has its own pass which hoists conditional loads/stores.
   if (isLoopOptEnabled(Level)) {
     FPM.addPass(SimplifyCFGPass(SimplifyCFGOptions()));
   } else {
-    FPM.addPass(SimplifyCFGPass(
-        SimplifyCFGOptions().hoistCommonInsts(true).sinkCommonInsts(true)));
+    if (SYCLOptimizationMode)
+      FPM.addPass(SimplifyCFGPass());
+    else
+      FPM.addPass(SimplifyCFGPass(
+          SimplifyCFGOptions().hoistCommonInsts(true).sinkCommonInsts(true)));
   }
-  // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
+// Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
   // IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled);
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (SYCLOptimizationMode)
-    FPM.addPass(SimplifyCFGPass());
-  else
-    FPM.addPass(SimplifyCFGPass(
-        SimplifyCFGOptions().hoistCommonInsts(true).sinkCommonInsts(true)));
-
-  FPM.addPass(InstCombinePass());
->>>>>>> 8b29220bcd61e0538f93eba98d0b93dcc44a9656
   invokePeepholeEPCallbacks(FPM, Level);
 
   if (EnableCHR && Level == OptimizationLevel::O3 && PGOOpt &&
