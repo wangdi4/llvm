@@ -103,11 +103,6 @@ static inline constexpr uint8_t saturation_off =
 static inline constexpr uint8_t saturation_on =
     static_cast<uint8_t>(saturation::on);
 
-<<<<<<< HEAD
-enum {
-  __ESIMD_DEPR_ENUM_V(GENX_NOSAT, saturation::off, uint8_t),
-  __ESIMD_DEPR_ENUM_V(GENX_SAT, saturation::on, uint8_t)
-};
 
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
@@ -128,8 +123,6 @@ enum class EsimdPrecisionType {
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
-=======
->>>>>>> ec0385d0353e6fef1e5349fb384b88864b16cccc
 /// Represents a pixel's channel.
 enum class rgba_channel : uint8_t { R, G, B, A };
 
@@ -201,37 +194,7 @@ enum class atomic_op : uint8_t {
   /* end INTEL_FEATURE_ESIMD_EMBARGO */
   /* end INTEL_CUSTOMIZATION */
   predec = 0xff,
-<<<<<<< HEAD
-  // For backward compatibility:
-  __ESIMD_DEPR_ENUM_V(ATOMIC_ADD, atomic_op::add, uint8_t),
-  __ESIMD_DEPR_ENUM_V(ATOMIC_SUB, atomic_op::sub, uint8_t),
-  __ESIMD_DEPR_ENUM_V(ATOMIC_INC, atomic_op::inc, uint8_t),
-  __ESIMD_DEPR_ENUM_V(ATOMIC_DEC, atomic_op::dec, uint8_t),
-  __ESIMD_DEPR_ENUM_V(ATOMIC_MIN, atomic_op::min, uint8_t),
-  __ESIMD_DEPR_ENUM_V(ATOMIC_MAX, atomic_op::max, uint8_t),
-  __ESIMD_DEPR_ENUM_V(ATOMIC_XCHG, atomic_op::xchg, uint8_t),
-  __ESIMD_DEPR_ENUM_V(ATOMIC_CMPXCHG, atomic_op::cmpxchg, uint8_t),
-  __ESIMD_DEPR_ENUM_V(ATOMIC_AND, atomic_op::bit_and, uint8_t),
-  __ESIMD_DEPR_ENUM_V(ATOMIC_OR, atomic_op::bit_or, uint8_t),
-  __ESIMD_DEPR_ENUM_V(ATOMIC_XOR, atomic_op::bit_xor, uint8_t),
-  __ESIMD_DEPR_ENUM_V(ATOMIC_MINSINT, atomic_op::minsint, uint8_t),
-  __ESIMD_DEPR_ENUM_V(ATOMIC_MAXSINT, atomic_op::maxsint, uint8_t),
-  __ESIMD_DEPR_ENUM_V(ATOMIC_FMAX, atomic_op::fmax, uint8_t),
-  __ESIMD_DEPR_ENUM_V(ATOMIC_FMIN, atomic_op::fmin, uint8_t),
-  __ESIMD_DEPR_ENUM_V(ATOMIC_FCMPWR, atomic_op::fcmpwr, uint8_t),
-  /* INTEL_CUSTOMIZATION */
-  /* INTEL_FEATURE_ESIMD_EMBARGO */
-  __ESIMD_DEPR_ENUM_V(ATOMIC_FADD, atomic_op::fadd, uint8_t),
-  __ESIMD_DEPR_ENUM_V(ATOMIC_FSUB, atomic_op::fsub, uint8_t),
-  __ESIMD_DEPR_ENUM_V(ATOMIC_LOAD, atomic_op::load, uint8_t),
-  __ESIMD_DEPR_ENUM_V(ATOMIC_STORE, atomic_op::store, uint8_t),
-  /* end INTEL_FEATURE_ESIMD_EMBARGO */
-  /* end INTEL_CUSTOMIZATION */
-  __ESIMD_DEPR_ENUM_V(ATOMIC_PREDEC, atomic_op::predec, uint8_t)
 };
-
-// For backward compatibility:
-using EsimdAtomicOpType = atomic_op;
 
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
@@ -500,18 +463,6 @@ constexpr lsc_data_size finalize_data_size() {
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
-// TODO Cache hints APIs are being reworked.
-// L1 or L3 cache hint kinds.
-enum class CacheHint : uint8_t {
-  None = 0,
-  Uncached = 1,
-  Cached = 2,
-  WriteBack = 3,
-  WriteThrough = 4,
-  Streaming = 5,
-  ReadInvalidate = 6
-=======
->>>>>>> ec0385d0353e6fef1e5349fb384b88864b16cccc
 };
 
 /// Represents a split barrier action.
