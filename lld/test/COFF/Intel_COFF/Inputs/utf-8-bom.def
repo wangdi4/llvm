@@ -1,0 +1,6 @@
+﻿; Input file for lib_utf8_bom.ll. This file is encoded in UTF-8 BOM
+
+LIBRARY
+
+EXPORTS
+    ; 明示的なエクスポートはここへ記述できます
