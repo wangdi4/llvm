@@ -1032,10 +1032,13 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   if (isLoopOptEnabled(Level)) {
     FPM.addPass(SimplifyCFGPass(SimplifyCFGOptions()));
   } else {
-    FPM.addPass(SimplifyCFGPass(
-        SimplifyCFGOptions().hoistCommonInsts(true).sinkCommonInsts(true)));
+    if (SYCLOptimizationMode)
+      FPM.addPass(SimplifyCFGPass());
+    else
+      FPM.addPass(SimplifyCFGPass(
+          SimplifyCFGOptions().hoistCommonInsts(true).sinkCommonInsts(true)));
   }
-  // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
+// Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
   // IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled);
 #endif // INTEL_CUSTOMIZATION
