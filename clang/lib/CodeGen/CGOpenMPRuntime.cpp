@@ -9554,6 +9554,8 @@ public:
       MD.push_back(OMPC_MAP_MODIFIER_always);
     if ((Types & MappableExprsHandler::OMP_MAP_CLOSE))
       MD.push_back(OMPC_MAP_MODIFIER_close);
+    if ((Types & MappableExprsHandler::OMP_MAP_PRESENT))
+      MD.push_back(OMPC_MAP_MODIFIER_present);
     return MD;
   }
 
