@@ -343,6 +343,21 @@ CallInst *VPOParoptUtils::genKmpcEndCall(Function *F, Instruction *AI,
   return KmpcEndCall;
 }
 
+// Emits a call to __kmpc_serialized_parallel(void *loc, int tid)
+//              or __kmpc_end_serialized_parallel(void *loc, int tid)
+CallInst *VPOParoptUtils::genKmpcSerializedParallelCall(WRegionNode *W,
+                                                        StructType *IdentTy,
+                                                        Value *TidPtr,
+                                                        Instruction *InsertPt,
+                                                        bool IsBegin) {
+  CallInst *SerializedCall = genKmpcCallWithTid(
+      W, IdentTy, TidPtr, InsertPt,
+      IsBegin ? "__kmpc_serialized_parallel" : "__kmpc_end_serialized_parallel",
+      nullptr, {}, /*insert=*/true);
+  addFuncletOperandBundle(SerializedCall, W->getDT());
+  return SerializedCall;
+}
+
 /// Update loop scheduling kind based on ordered clause and chunk
 /// size information
 WRNScheduleKind VPOParoptUtils::genScheduleKind(WRNScheduleKind Kind,
@@ -2074,6 +2089,7 @@ CallInst *VPOParoptUtils::genKmpcTaskAllocWithoutCallback(WRegionNode *W,
                            NullPtr, InsertPt, false);
   return TaskAllocCall;
 }
+
 // This function generates a call to notify the runtime system that the static
 // distribute loop scheduling for teams is started
 //
@@ -3338,8 +3354,9 @@ bool VPOParoptUtils::genKmpcReduceImpl(
   bool EnableAtomicReduce = false;
   if (AtomicBeginInst != nullptr && AtomicEndInst != nullptr)
     EnableAtomicReduce = true;
-  BeginReduce = genKmpcCallWithTid(W, IdentTy, TidPtr, BeginInst, BeginName,
-                                   RetTy, BeginArgs, EnableAtomicReduce); // (2)
+  BeginReduce =
+      genKmpcCallWithTid(W, IdentTy, TidPtr, BeginInst, BeginName, RetTy,
+                         BeginArgs, /*insrt*/ false, EnableAtomicReduce); // (2)
   assert(BeginReduce != nullptr && "Could not call __kmp_reduce");
 
   if (BeginReduce == nullptr)
@@ -3478,7 +3495,7 @@ bool VPOParoptUtils::genKmpcReduce(
 CallInst *VPOParoptUtils::genKmpcCallWithTid(
     WRegionNode *W, StructType *IdentTy, Value *TidPtr, Instruction *InsertPt,
     StringRef IntrinsicName, Type *ReturnTy, ArrayRef<Value *> Args,
-    bool EnableAtomicReduce) {
+    bool Insert, bool EnableAtomicReduce) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(InsertPt != nullptr && "InsertPt is null.");
@@ -3502,7 +3519,7 @@ CallInst *VPOParoptUtils::genKmpcCallWithTid(
 
   // And then try to generate the KMPC call.
   return VPOParoptUtils::genKmpcCall(W, IdentTy, InsertPt, IntrinsicName,
-                                     ReturnTy, FnArgs, false,
+                                     ReturnTy, FnArgs, Insert,
                                      EnableAtomicReduce);
 }
 

@@ -17,7 +17,9 @@
 ; CHECK:       if.then:
 ; CHECK-NEXT:    call void {{.*}} @__kmpc_fork_call({{.*}})
 ; CHECK:       if.else:
-; CHECK-NEXT:    call void @[[OUTLINED_FUNCTION:_ZN1b1cEv.DIR.OMP.PARALLEL[^(]*]]({{.*}})
+; CHECK:         call void @__kmpc_serialized_parallel({{.*}})
+; CHECK:         call void @[[OUTLINED_FUNCTION:_ZN1b1cEv.DIR.OMP.PARALLEL[^(]*]]({{.*}})
+; CHECK:         call void @__kmpc_end_serialized_parallel({{.*}})
 
 ; CHECK:       define internal void @[[OUTLINED_FUNCTION]]({{.*}})
 ; CHECK:         %call = call i32 @_Z1av()
