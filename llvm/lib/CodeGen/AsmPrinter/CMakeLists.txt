@@ -28,10 +28,6 @@ add_llvm_component_library(LLVMAsmPrinter
   WinCFGuard.cpp
   WinException.cpp
   CodeViewDebug.cpp
-#***INTEL
-  intel/STIDebug.cpp
-  intel/STIIR.cpp
-  intel/pdbInterface.cpp
 #if INTEL_CUSTOMIZATION
   intel/Intel_AsmOptReport.cpp
 #end INTEL_CUSTOMIZATION
