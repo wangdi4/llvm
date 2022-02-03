@@ -524,7 +524,8 @@ void LLDJIT::buildDllFromObjs(
 
   Args.push_back(JumpTableObjectFile.FileName().c_str());
 
-  bool Success = lld::coff::link(Args, false, llvm::outs(), llvm::errs());
+  bool Success =
+      lld::coff::link(Args, llvm::outs(), llvm::errs(), false, false);
   if (!Success) {
     // TODO: Currently, error message will be written to stdout.
     throw Exceptions::CompilerException("Linker failed");
