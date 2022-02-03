@@ -12448,6 +12448,8 @@ emitX86DeclareSimdFunction(const FunctionDecl *FD, llvm::Function *Fn,
                            const llvm::APSInt &VLENVal,
                            ArrayRef<ParamAttrTy> ParamAttrs,
                            OMPDeclareSimdDeclAttr::BranchStateTy State) {
+  if (Fn->getReturnType()->isStructTy()) // INTEL
+    return; // INTEL
   struct ISADataTy {
     char ISA;
     unsigned VecRegSize;
@@ -12525,7 +12527,6 @@ emitX86DeclareSimdFunction(const FunctionDecl *FD, llvm::Function *Fn,
       Out.flush(); // INTEL
     }
   }
-
   Fn->addFnAttr("vector-variants", Out.str()); // INTEL
 }
 
