@@ -4967,9 +4967,11 @@ EXTERN int32_t __tgt_rtl_is_data_exchangable(int32_t SrcId, int32_t DstId) {
 
 EXTERN int32_t __tgt_rtl_data_exchange(
     int32_t SrcId, void *SrcPtr, int32_t DstId, void *DstPtr, int64_t Size) {
-  // This is D2D copy, so prefer main copy engine
-  auto cmdList = DeviceInfo->getCopyCmdList(DstId);
-  auto cmdQueue = DeviceInfo->getCopyCmdQueue(DstId);
+  // TODO: D2D copy with copy engine is slower than using the default queue as
+  // reported in CMPLRLIBS-33721. Use the default queue for now until we find
+  // different result.
+  auto cmdList = DeviceInfo->getCmdList(DstId);
+  auto cmdQueue = DeviceInfo->getCmdQueue(DstId);
 
   CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, DstPtr, SrcPtr, Size,
                    nullptr, 0, nullptr);
