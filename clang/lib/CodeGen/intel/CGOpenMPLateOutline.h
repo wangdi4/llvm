@@ -89,6 +89,7 @@ class OpenMPLateOutliner {
     bool Simd = false;
     bool Always = false;
     bool Close = false;
+    bool Present = false;
     bool Cmplx = false;
     bool PtrToPtr = false;
     bool Chain = false;
@@ -127,6 +128,8 @@ class OpenMPLateOutliner {
         addSeparated("ALWAYS");
       if (Close)
         addSeparated("CLOSE");
+      if (Present)
+        addSeparated("PRESENT");
       if (Cmplx)
         addSeparated("CMPLX");
       if (PtrToPtr)
@@ -162,6 +165,7 @@ class OpenMPLateOutliner {
     void setSimd() { Simd = true; }
     void setAlways() { Always = true; }
     void setClose() { Close =  true; }
+    void setPresent() { Present =  true; }
     void setCmplx() { Cmplx = true; }
     void setPtrToPtr() {PtrToPtr = true; }
     void setChain() { Chain = true; }
