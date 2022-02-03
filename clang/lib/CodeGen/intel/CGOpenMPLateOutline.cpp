@@ -1817,6 +1817,9 @@ void OpenMPLateOutliner::emitOMPDefaultmapClause(
   case OMPC_DEFAULTMAP_MODIFIER_firstprivate:
     CSB.add("FIRSTPRIVATE");
     break;
+  case OMPC_DEFAULTMAP_MODIFIER_present:
+    CSB.add("PRESENT");
+    break;
   default:
      llvm_unreachable("Unexpected defaultmap modifier");
   }
@@ -1961,6 +1964,9 @@ void OpenMPLateOutliner::buildMapQualifier(
         break;
       case OMPC_MAP_MODIFIER_close:
         CSB.setClose();
+        break;
+      case OMPC_MAP_MODIFIER_present:
+        CSB.setPresent();
         break;
       case OMPC_MAP_MODIFIER_unknown:
         break;

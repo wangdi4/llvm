@@ -9554,6 +9554,8 @@ public:
       MD.push_back(OMPC_MAP_MODIFIER_always);
     if ((Types & MappableExprsHandler::OMP_MAP_CLOSE))
       MD.push_back(OMPC_MAP_MODIFIER_close);
+    if ((Types & MappableExprsHandler::OMP_MAP_PRESENT))
+      MD.push_back(OMPC_MAP_MODIFIER_present);
     return MD;
   }
 
@@ -12447,6 +12449,8 @@ emitX86DeclareSimdFunction(const FunctionDecl *FD, llvm::Function *Fn,
                            const llvm::APSInt &VLENVal,
                            ArrayRef<ParamAttrTy> ParamAttrs,
                            OMPDeclareSimdDeclAttr::BranchStateTy State) {
+  if (Fn->getReturnType()->isStructTy()) // INTEL
+    return; // INTEL
   struct ISADataTy {
     char ISA;
     unsigned VecRegSize;
@@ -12524,7 +12528,6 @@ emitX86DeclareSimdFunction(const FunctionDecl *FD, llvm::Function *Fn,
       Out.flush(); // INTEL
     }
   }
-
   Fn->addFnAttr("vector-variants", Out.str()); // INTEL
 }
 
