@@ -14,7 +14,7 @@ queue q;
 
 class A {
 public:
-  // CHECK-DAG: define linkonce_odr spir_func void @_ZN1AclEi(%class.A addrspace(4)* noundef %this, i32 noundef %i) #[[ATTRS_UNMASKED]]
+  // CHECK-DAG: define linkonce_odr spir_func void @_ZN1AclEi(%class.A addrspace(4)* noundef align 1 dereferenceable_or_null(1) %this, i32 noundef %i) #[[ATTRS_UNMASKED]]
   // CHECK-DAG: define dso_local spir_func noundef i32 @_Z5bar20i(i32 noundef %a) #[[ATTRS_NOT_UNMASKED]]
   [[intel::unmasked]] void operator()(int i) { bar20(i); }
 };
