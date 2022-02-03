@@ -153,30 +153,19 @@ public:
 #endif  // INTEL_CUSTOMIZATION
 
   /// Generate a memcpy call with the destination argument \p D, the source
-  /// argument \p S and size argument \p Size. \p Align specifies
-  /// maximum guanranteed alignment of \p D and \p S. The new call is inserted
-  /// at the end of basic block \p BB.
-  /// \code
-  ///   call void @llvm.memcpy.p0i8.p0i8.i32(i8* bitcast (i32* @a to i8*),
-  ///                                        i8* %2,
-  ///                                        i32 4,
-  ///                                        i32 4,
-  ///                                        i1 false)
-  /// \endcode
+  /// argument \p S and size computed by multiplying \p Size and \p NumElements.
+  /// \p Align specifies maximum guaranteed alignment of \p D and \p S.
+  /// The new call is inserted using \p MemcpyBuilder IRBuilder.
   static CallInst *genMemcpy(Value *D, Value *S, uint64_t Size,
-                             unsigned Align, BasicBlock *BB);
-
-  /// Generate a memcpy call with the destination argument \p D, the source
-  /// argument \p S and size argument \p Size. \p Align specifies
-  /// maximum guanranteed alignment of \p D and \p S. The new call is inserted
-  /// using \p MemcpyBuilder IRBuilder.
-  static CallInst *genMemcpy(Value *D, Value *S, uint64_t Size,
-                             unsigned Align, IRBuilder<> &MemcpyBuilder);
+                             Value *NumElements, unsigned Align,
+                             IRBuilder<> &MemcpyBuilder);
 
   /// Generate a memset call with the pointer argument \p P, the value
   /// argument \p V and size argument \p Size. \p Align specifies
   /// maximum guanranteed alignment of \p P. The new call is inserted
   /// using \p MemsetBuilder IRBuilder.
+  // FIXME: get rid of the implicit scaling for array allocations
+  //        in this routine.
   static CallInst *genMemset(Value *P, Value *V, uint64_t Size,
                              unsigned Align, IRBuilder<> &MemsetBuilder);
 

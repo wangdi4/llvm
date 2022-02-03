@@ -4165,7 +4165,8 @@ void VPOParoptTransform::genCopyByAddr(Item *I, Value *To, Value *From,
     AI = dyn_cast<AllocaInst>(From);
 
   Type *AllocaTy = nullptr;
-  std::tie(AllocaTy, std::ignore, std::ignore) =
+  Value *NumElements = nullptr;
+  std::tie(AllocaTy, NumElements, std::ignore) =
       VPOParoptUtils::getItemInfo(I);
 
   // For by-refs, do a pointer dereference to reach the actual operand.
@@ -4182,7 +4183,13 @@ void VPOParoptTransform::genCopyByAddr(Item *I, Value *To, Value *From,
              (AI && AI->isArrayAllocation())) {
     unsigned Alignment = DL.getABITypeAlignment(ObjType);
     uint64_t Size = DL.getTypeAllocSize(AllocaTy);
-    VPOUtils::genMemcpy(To, From, Size, Alignment, Builder);
+    NumElements =
+        (AI && AI->isArrayAllocation()) ? AI->getArraySize() : nullptr;
+    VPOUtils::genMemcpy(To, From, Size, NumElements, Alignment, Builder);
+  } else if (NumElements) {
+    unsigned Alignment = DL.getABITypeAlignment(AllocaTy);
+    uint64_t Size = DL.getTypeAllocSize(AllocaTy);
+    VPOUtils::genMemcpy(To, From, Size, NumElements, Alignment, Builder);
   } else {
     Builder.CreateStore(Builder.CreateLoad(AllocaTy, From), To);
   }
@@ -10626,13 +10633,15 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
       }
 
       Type *ElementType = nullptr;
-      std::tie(ElementType, std::ignore, std::ignore) =
+      Value *NumElements = nullptr;
+      std::tie(ElementType, NumElements, std::ignore) =
           VPOParoptUtils::getItemInfo(C);
 
       uint64_t Size = NDL.getTypeAllocSize(ElementType);
-      VPOUtils::genMemcpy(C->getOrig(), &*NewArgI, Size,
+      IRBuilder<> TermBuilder(Term);
+      VPOUtils::genMemcpy(C->getOrig(), &*NewArgI, Size, NumElements,
                           getAlignmentCopyIn(C->getOrig(), NDL),
-                          Term->getParent());
+                          TermBuilder);
       if (C->getIsTyped()) {
         LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Copyin for '";
                    C->getOrig()->printAsOperand(dbgs()); dbgs() << "' (Typed)";
