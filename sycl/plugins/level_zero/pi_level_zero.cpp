@@ -3877,16 +3877,21 @@ pi_result piProgramLink(pi_context Context, pi_uint32 NumDevices,
   (void)Options;
 
   // We only support one device with Level Zero currently.
-  pi_device Device = Context->Devices[0];
   if (NumDevices != 1) {
     zePrint("piProgramLink: level_zero supports only one device.");
     return PI_INVALID_VALUE;
   }
 
-  PI_ASSERT(DeviceList && DeviceList[0] == Device, PI_INVALID_DEVICE);
+  // Validate input parameters.
+  PI_ASSERT(DeviceList, PI_INVALID_DEVICE);
+  {
+    auto DeviceEntry =
+        find(Context->Devices.begin(), Context->Devices.end(), DeviceList[0]);
+    if (DeviceEntry == Context->Devices.end())
+      return PI_INVALID_DEVICE;
+  }
   PI_ASSERT(!PFnNotify && !UserData, PI_INVALID_VALUE);
 
-  // Validate input parameters.
   if (NumInputPrograms == 0 || InputPrograms == nullptr)
     return PI_INVALID_VALUE;
   for (pi_uint32 I = 0; I < NumInputPrograms; I++) {
@@ -3946,8 +3951,9 @@ pi_result piProgramLink(pi_context Context, pi_uint32 NumDevices,
           // only export symbols.
           Guard.unlock();
           ze_module_handle_t ZeModule;
-          pi_result res = copyModule(Context->ZeContext, Device->ZeDevice,
-                                     Input->ZeModule, &ZeModule);
+          pi_result res =
+              copyModule(Context->ZeContext, DeviceList[0]->ZeDevice,
+                         Input->ZeModule, &ZeModule);
           if (res != PI_SUCCESS) {
             return res;
           }
@@ -4063,7 +4069,14 @@ static pi_result compileOrBuild(pi_program Program, pi_uint32 NumDevices,
     return PI_INVALID_VALUE;
   }
 
-  PI_ASSERT(DeviceList, PI_INVALID_DEVICE);
+  // Check if device belongs to associated context.
+  PI_ASSERT(Program->Context, PI_INVALID_PROGRAM);
+  {
+    auto DeviceEntry = find(Program->Context->Devices.begin(),
+                            Program->Context->Devices.end(), DeviceList[0]);
+    if (DeviceEntry == Program->Context->Devices.end())
+      return PI_INVALID_VALUE;
+  }
 
   // We should have either IL or native device code.
   PI_ASSERT(Program->Code, PI_INVALID_PROGRAM);
