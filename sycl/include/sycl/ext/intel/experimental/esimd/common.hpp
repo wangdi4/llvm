@@ -207,19 +207,8 @@ enum class atomic_op : uint8_t {
   /// Compare and exchange (floating point).
   /// <code>if (*addr == src0) *addr = src1;</code>
   fcmpwr = 0x12,
-<<<<<<< HEAD
-  /* INTEL_CUSTOMIZATION */
-  /* INTEL_FEATURE_ESIMD_EMBARGO */
-  fadd = 0x13,
-  fsub = 0x14,
-  load = 0x15,
-  store = 0x16,
-  /* end INTEL_FEATURE_ESIMD_EMBARGO */
-  /* end INTEL_CUSTOMIZATION */
-=======
   /// Decrement: <code>*addr = *addr - 1</code>. The only operation which
   /// returns new value of the destination rather than old.
->>>>>>> 678399ac8ac77f33dbfe328ac6572f3a39c98ba1
   predec = 0xff,
 };
 
