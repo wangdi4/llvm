@@ -239,6 +239,11 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
   NF->copyAttributesFrom(F);
   NF->copyMetadata(F, 0);
 
+#if INTEL_CUSTOMIZATION
+        getInlineReport()->replaceFunctionWithFunction(F, NF);
+        getMDInlineReport()->replaceFunctionWithFunction(F, NF);
+#endif // INTEL_CUSTOMIZATION
+
   // The new function will have the !dbg metadata copied from the original
   // function. The original function may not be deleted, and dbg metadata need
   // to be unique so we need to drop it.
@@ -1312,11 +1317,6 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
         continue;
       LocalChange = true;
 
-#if INTEL_CUSTOMIZATION
-      getInlineReport()->replaceFunctionWithFunction(&OldF, NewF);
-      getMDInlineReport()->replaceFunctionWithFunction(&OldF, NewF);
-#endif // INTEL_CUSTOMIZATION
-
       // Directly substitute the functions in the call graph. Note that this
       // requires the old function to be completely dead and completely
       // replaced by the new function. It does no call graph updates, it merely
@@ -1466,14 +1466,6 @@ bool ArgPromotion::runOnSCC(CallGraphSCC &SCC) {
                                            {ReplaceCallSite}, TTI)) {
 #endif // INTEL_CUSTOMIZATION
         LocalChange = true;
-
-        // INTEL Argument promotion is replacing F with NF.
-        // INTEL We need to update all of the call graph reports to reflect
-        // INTEL this.
-#if INTEL_CUSTOMIZATION
-        getInlineReport()->replaceFunctionWithFunction(OldF, NewF);
-        getMDInlineReport()->replaceFunctionWithFunction(OldF, NewF);
-#endif // INTEL_CUSTOMIZATION
 
         // Update the call graph for the newly promoted function.
         CallGraphNode *NewNode = CG.getOrInsertFunction(NewF);
