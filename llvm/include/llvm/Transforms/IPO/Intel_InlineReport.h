@@ -484,6 +484,13 @@ public:
   // Change the called Function of 'CB' to 'F'.
   void setCalledFunction(CallBase *CB, Function *F);
 
+  // Delete all calls inside 'F'.
+  void deleteFunctionBody(Function *F);
+
+  // Indicate that 'CB' calls a specialized version of its caller under
+  // a multiversioning test.
+  void addMultiversionedCallSite(CallBase *CB);
+
 private:
   /// The Level is specified by the option -inline-report=N.
   /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level.
@@ -620,6 +627,10 @@ private:
   // create a callback for it.
   InlineReportCallSite *copyAndSetup(InlineReportCallSite *IRCS,
                                      ValueToValueMapTy &VMap);
+
+  // Remove it from the IRCallSiteMap, remove its callback, and remove
+  // all of its children if it represents an inlined call site.
+  void removeIRCS(InlineReportCallSite *IRCS);
 };
 
 /// Get the single, active classic inlining report.

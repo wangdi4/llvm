@@ -1,6 +1,6 @@
 //=-- Intel_IPODeadArgElimination.cpp - Simplified dead arg elimination -*-=//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -564,6 +564,16 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
   NF->setAttributes(NewArgsAttrList);
   NF->takeName(F);
 
+  // Clone the metadata from the function F to the new function
+  SmallVector<std::pair<unsigned, MDNode *>, 1> MDs;
+  F->getAllMetadata(MDs);
+  for (auto MD : MDs)
+    NF->addMetadata(MD.first, *MD.second);
+
+  // Set the inlining report for the new function
+  getInlineReport()->replaceFunctionWithFunction(F, NF);
+  getMDInlineReport()->replaceFunctionWithFunction(F, NF);
+
   // Update the call sites to function F
   std::vector<Value *> LiveArgs;
   LiveArgsAttrVec.clear();
@@ -662,16 +672,6 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
     LiveArg->takeName(Arg);
     LiveArgI++;
   }
-
-  // Clone the metadata from the function F to the new function
-  SmallVector<std::pair<unsigned, MDNode *>, 1> MDs;
-  F->getAllMetadata(MDs);
-  for (auto MD : MDs)
-    NF->addMetadata(MD.first, *MD.second);
-
-  // Set the inlining report for the new function
-  getInlineReport()->replaceFunctionWithFunction(F, NF);
-  getMDInlineReport()->replaceFunctionWithFunction(F, NF);
 
   LLVM_DEBUG({
     dbgs() << "    Function: " << NF->getName() << "\n"

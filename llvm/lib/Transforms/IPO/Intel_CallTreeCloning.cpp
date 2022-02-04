@@ -1,6 +1,6 @@
 //===---------- Intel_CallTreeCloning.cpp - Call Tree Cloning -------------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -99,6 +99,8 @@
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <bitset>
@@ -342,6 +344,11 @@ static cl::opt<bool> ModelArbitraryNumUserCalls(
 static cl::opt<unsigned> NumUserCallsModeled(
     "ctcmv-num-user-calls-modeled", cl::init(0), cl::ReallyHidden,
     cl::desc("Arbitrary number of user-defined calls modeled"));
+
+static cl::opt<bool> ForceInlineReportAfterCallTreeCloning(
+    "force-print-inline-report-after-call-tree-cloning", cl::init(false),
+    cl::Hidden,
+    cl::desc("Force printing of the inlining report after call tree cloning"));
 
 #define DBGX(n, x) LLVM_DEBUG(if (n <= CTCloningDbgLevel) { x; })
 
@@ -2586,6 +2593,8 @@ bool llvm::CallTreeCloningLegacyPass::runOnModule(Module &M) {
   PreservedAnalyses PA;
   CallTreeCloningImpl Impl;
   bool ModuleChanged = Impl.run(M, Anls, GetTLI, PA);
+  if (ForceInlineReportAfterCallTreeCloning)
+    getInlineReport()->testAndPrint(nullptr);
 
   // Verify Module if there is any change on the LLVM IR
 #ifndef NDEBUG
@@ -2633,6 +2642,8 @@ CallInst *specializeCallSite(CallInst *Call, Function *Clone,
   assert(NewArgs.size() == (NumArgs - NumConstArgs) && "arg num mismatch");
   assert(!Call->hasOperandBundles() && "TODO: support operand bundles");
   CallInst *NewCall = CallInst::Create(Clone, NewArgs, "", Call);
+  getInlineReport()->replaceCallBaseWithCallBase(Call, NewCall);
+  getMDInlineReport()->replaceCallBaseWithCallBase(Call, NewCall);
   NewCall->setCallingConv(Call->getCallingConv());
   NewCall->setAttributes(NewAttrs);
   for (auto Kind : {LLVMContext::MD_dbg, LLVMContext::MD_alias_scope,
@@ -3103,6 +3114,9 @@ Function *CallTreeCloningImpl::cloneFunction(Function *F,
   SmallVector<ReturnInst *, 8> Rets;
   CloneFunctionInto(Clone, F, Old2New,
                     CloneFunctionChangeType::LocalChangesOnly, Rets);
+  getInlineReport()->initFunctionClosure(F);
+  getInlineReport()->cloneFunction(F, Clone, Old2New);
+  getMDInlineReport()->cloneFunction(F, Clone, Old2New);
 
   // Redirect the calls in the input map to the cloned functions they map to.
   // Also fix the actual parameter lists removing the constants
@@ -3725,6 +3739,8 @@ bool MultiVersionImpl::doCodeGenMV2VarClone(
     Args.push_back(&Arg);
   }
   CallInst *CI = Builder.CreateCall(CloneF, Args);
+  getInlineReport()->addMultiversionedCallSite(CI);
+  getMDInlineReport()->addMultiversionedCallSite(CI);
   CI->setCallingConv(CloneF->getCallingConv());
 
   // generate a "ret" inside ThenBB after the call to clone.
@@ -3764,6 +3780,9 @@ bool MultiVersionImpl::doCodeGenOrigClone(Function *F, BasicBlock *CallBB) {
     Args.push_back(&Arg);
   }
   CallInst *CI = Builder.CreateCall(OrigCloneF, Args);
+  getInlineReport()->addMultiversionedCallSite(CI);
+  getMDInlineReport()->addMultiversionedCallSite(CI);
+
   CI->setCallingConv(OrigCloneF->getCallingConv());
 
   // Generate a proper "ret" instruction inside CallBB
@@ -3898,6 +3917,8 @@ bool MultiVersionImpl::doCodeGenMV1VarClone(Function *F, unsigned Pos,
     Args.push_back(&Arg);
   }
   CallInst *CI = Builder.CreateCall(CloneF, Args);
+  getInlineReport()->addMultiversionedCallSite(CI);
+  getMDInlineReport()->addMultiversionedCallSite(CI);
   CI->setCallingConv(CloneF->getCallingConv());
 
   // generate a "ret" inside ThenBB after the call to clone:
@@ -3912,6 +3933,8 @@ bool MultiVersionImpl::doCodeGen(Function *F) {
   // Clean F's function body, prepare for MultiVersion code generation
   auto LT = F->getLinkage();
   F->deleteBody();
+  getInlineReport()->deleteFunctionBody(F);
+  getMDInlineReport()->deleteFunctionBody(F);
   F->setLinkage(LT);
   LLVM_DEBUG(F->dump());
 
@@ -4263,6 +4286,8 @@ PreservedAnalyses CallTreeCloningPass::run(Module &M,
   // TODO FIXME add preserved analyses
   CallTreeCloningImpl Impl;
   bool ModuleChanged = Impl.run(M, Anls, GetTLI, PA);
+  if (ForceInlineReportAfterCallTreeCloning)
+    getInlineReport()->testAndPrint(nullptr);
 
   // Verify Module if there is any change on the LLVM IR
 #ifndef NDEBUG

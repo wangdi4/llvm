@@ -32,17 +32,29 @@
 ; CHECK: caller.[[I0:[0-9]]]{{.*}}Callee has noinline attribute
 ; CHECK: caller.[[I1:[0-9]]]{{.*}}Callee has noinline attribute
 
-; CHECK: COMPILE FUNC: caller.[[I1]]
-; CHECK: DELETE: llvm.experimental.noalias.scope.decl
-; CHECK: DELETE: llvm.experimental.noalias.scope.decl
-; CHECK: EXTERN: opaque_callee
-; CHECK: INLINE: callee
+; CHECK-CL: COMPILE FUNC: caller.[[I1]]
+; CHECK-CL: DELETE: llvm.experimental.noalias.scope.decl
+; CHECK-CL: DELETE: llvm.experimental.noalias.scope.decl
+; CHECK-CL: EXTERN: opaque_callee
+; CHECK-CL: INLINE: callee
 
-; CHECK: COMPILE FUNC: caller.[[I0]]
-; CHECK: DELETE: llvm.experimental.noalias.scope.decl
-; CHECK: DELETE: llvm.experimental.noalias.scope.decl
-; CHECK: EXTERN: opaque_callee
-; CHECK: INLINE: callee
+; CHECK-CL: COMPILE FUNC: caller.[[I0]]
+; CHECK-CL: DELETE: llvm.experimental.noalias.scope.decl
+; CHECK-CL: DELETE: llvm.experimental.noalias.scope.decl
+; CHECK-CL: EXTERN: opaque_callee
+; CHECK-CL: INLINE: callee
+
+; CHECK-MD: COMPILE FUNC: caller.[[I1]]
+; CHECK-MD: EXTERN: opaque_callee
+; CHECK-MD: DELETE: llvm.experimental.noalias.scope.decl
+; CHECK-MD: DELETE: llvm.experimental.noalias.scope.decl
+; CHECK-MD: INLINE: callee
+
+; CHECK-MD: COMPILE FUNC: caller.[[I0]]
+; CHECK-MD: EXTERN: opaque_callee
+; CHECK-MD: DELETE: llvm.experimental.noalias.scope.decl
+; CHECK-MD: DELETE: llvm.experimental.noalias.scope.decl
+; CHECK-MD: INLINE: callee
 
 ; CHECK-MD: define {{.*}} @callee(i64* %x)
 ; CHECK-MD: define internal i32 @caller(i32 %arg)
