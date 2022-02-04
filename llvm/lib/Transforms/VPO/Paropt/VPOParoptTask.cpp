@@ -223,13 +223,10 @@ void VPOParoptTransform::genLprivFiniForTaskLoop(LastprivateItem *LprivI,
   } else if (!VPOUtils::canBeRegisterized(ItemTy, DL) ||
              NumElements) {
     uint64_t Size = DL.getTypeAllocSize(ItemTy);
-    if (NumElements) {
-      auto *CI = dyn_cast<ConstantInt>(NumElements);
-      assert(CI && "Lastprivate item should have been classified as VLA.");
-      Size *= CI->getZExtValue();
-    }
-    VPOUtils::genMemcpy(Dst, Src, Size, DL.getABITypeAlignment(ItemTy),
-                        Builder);
+    assert((!NumElements || isa<ConstantInt>(NumElements)) &&
+           "Lastprivate item should have been classified as VLA.");
+    VPOUtils::genMemcpy(Dst, Src, Size, NumElements,
+                        DL.getABITypeAlignment(ItemTy), Builder);
   } else {
     LoadInst *Load = Builder.CreateLoad(ItemTy, Src);
     Builder.CreateStore(Load, Dst);

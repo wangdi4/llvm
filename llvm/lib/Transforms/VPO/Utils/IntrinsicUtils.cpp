@@ -169,26 +169,15 @@ bool VPOUtils::canBeRegisterized(Type *AllocaTy, const DataLayout &DL) {
   return true;
 }
 
-// Generates a memcpy call at the end of the given basic block BB.
-// The value D represents the destination while the value S represents
-// the source. The size of the memcpy is specified as Size.
-// The compiler will insert the typecast if the type of source or destination
-// does not match with the type i8.
-// One example of the output is as follows.
-//   call void @llvm.memcpy.p0i8.p0i8.i32(i8* bitcast (i32* @a to i8*), i8* %2, i32 4, i32 4, i1 false)
-CallInst *VPOUtils::genMemcpy(Value *D, Value *S, uint64_t Size,
-                              unsigned Align, BasicBlock *BB) {
-  IRBuilder<> MemcpyBuilder(BB->getTerminator());
-  return genMemcpy(D, S, Size, Align, MemcpyBuilder);
-}
-
 // Generates a memcpy call using MemcpyBuilder.
 // The value D represents the destination while the value S represents
-// the source. The size of the memcpy is specified as Size.
+// the source. The size of the memcpy is specified as Size multiplied
+// by NumElements.
 // The compiler will insert the typecast if the type of source or destination
 // does not match with the type i8.
 CallInst *VPOUtils::genMemcpy(Value *D, Value *S, uint64_t Size,
-                              unsigned Align, IRBuilder<> &MemcpyBuilder) {
+                              Value *NumElements, unsigned Align,
+                              IRBuilder<> &MemcpyBuilder) {
   Value *Dest = D;
   Value *Src = S;
 #if !ENABLE_OPAQUEPOINTER
@@ -213,10 +202,9 @@ CallInst *VPOUtils::genMemcpy(Value *D, Value *S, uint64_t Size,
   unsigned SizeTBitWidth = SizeTTy->getIntegerBitWidth();
   Value *SizeVal = MemcpyBuilder.getIntN(SizeTBitWidth, Size);
 
-  AllocaInst *AI = dyn_cast<AllocaInst>(D);
-  if (AI && AI->isArrayAllocation())
+  if (NumElements)
     SizeVal = MemcpyBuilder.CreateMul(
-        SizeVal, MemcpyBuilder.CreateZExtOrTrunc(AI->getArraySize(),
+        SizeVal, MemcpyBuilder.CreateZExtOrTrunc(NumElements,
                                                  SizeVal->getType()));
 
   return MemcpyBuilder.CreateMemCpy(Dest, MaybeAlign(Align), Src,
