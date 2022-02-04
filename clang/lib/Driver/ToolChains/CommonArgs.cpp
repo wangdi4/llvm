@@ -727,7 +727,6 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
                          /*IsLTO=*/true);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static void AddllvmOption(const ToolChain &TC, const char *Opt, bool IsLink,
                           const llvm::opt::ArgList &Args,
@@ -1090,24 +1089,6 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
 }
 #endif // INTEL_CUSTOMIZATION
 
-void tools::addOpenMPRuntimeSpecificRPath(const ToolChain &TC,
-                                          const ArgList &Args,
-                                          ArgStringList &CmdArgs) {
-
-  if (Args.hasFlag(options::OPT_fopenmp_implicit_rpath,
-                   options::OPT_fno_openmp_implicit_rpath, true)) {
-    // Default to clang lib / lib64 folder, i.e. the same location as device
-    // runtime
-    SmallString<256> DefaultLibPath =
-        llvm::sys::path::parent_path(TC.getDriver().Dir);
-    llvm::sys::path::append(DefaultLibPath, Twine("lib") + CLANG_LIBDIR_SUFFIX);
-    CmdArgs.push_back("-rpath");
-    CmdArgs.push_back(Args.MakeArgString(DefaultLibPath));
-  }
-}
-
-=======
->>>>>>> a841a3a5791dc653567b48593a6b99b9db2748bb
 void tools::addArchSpecificRPath(const ToolChain &TC, const ArgList &Args,
                                  ArgStringList &CmdArgs) {
   // Enable -frtlib-add-rpath by default for the case of VE.
