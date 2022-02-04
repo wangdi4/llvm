@@ -35,6 +35,12 @@ static cl::opt<bool>
 static cl::opt<int> NumCases(DEBUG_TYPE "-num-cases", cl::init(-1), cl::Hidden,
                              cl::desc("Fuse only first N number of edges."));
 
+static cl::opt<bool>
+    SkipVecProfitabilityCheck(DEBUG_TYPE "-skip-vec-prof-check",
+                              cl::init(false), cl::Hidden,
+                              cl::desc("Skip vectorization profitability check "
+                                       "during fusion edges construction."));
+
 using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::loopopt::fusion;
@@ -46,7 +52,7 @@ typedef DDRefGatherer<DDRef, AllRefs ^ (ConstantRefs | GenericRValRefs |
 bool fusion::isGoodLoop(const HLLoop *Loop) {
   return !(Loop->isDistributedForMemRec() || Loop->hasUnrollEnablingPragma() ||
            Loop->hasVectorizeEnablingPragma() ||
-           Loop->hasFusionDisablingPragma());
+           Loop->hasFusionDisablingPragma() || Loop->isSIMD());
 }
 
 class fusion::FuseEdgeHeap {
@@ -421,6 +427,10 @@ void FuseNode::print(raw_ostream &OS) const {
   if (isBadNode()) {
     OS << "B";
   }
+
+  if (isVectorizable()) {
+    OS << "V";
+  }
 }
 
 unsigned FuseNode::getTopSortNumber() const {
@@ -486,8 +496,14 @@ unsigned FuseGraph::createFuseNode(GraphNodeMapTy &Map, HLNode *Node) {
     Vertex.emplace_back(Node, HasUnsafeSideEffects);
   }
 
-  FuseNumber = Vertex.size();
+  if (Loop) {
+    auto &FNode = Vertex.back();
+    bool IsVectorizable = Loop->hasVectorizeEnablingPragma() ||
+                          !Loop->hasVectorizeDisablingPragma();
+    FNode.setVectorizable(IsVectorizable);
+  }
 
+  FuseNumber = Vertex.size();
   return FuseNumber - 1;
 }
 
@@ -541,6 +557,22 @@ void FuseGraph::initPathToInfo(NodeMapTy &LocalPathFrom,
   }
 }
 
+void FuseGraph::excludePathPreventingVectorization(unsigned NodeV,
+                                                    unsigned NodeW) {
+  // Skip fusion if one loop is vectorizable and another is not.
+  bool NodeVVectorizable = Vertex[NodeV].isVectorizable();
+  bool NodeWVectorizable = Vertex[NodeW].isVectorizable();
+  bool FusionCanSpoilVectorization =
+      (!NodeVVectorizable && NodeWVectorizable) ||
+      (NodeVVectorizable && !NodeWVectorizable);
+  if (FusionCanSpoilVectorization) {
+    auto &BadPathFromV = BadPathFrom[NodeV];
+    auto &PathFromW = PathFrom[NodeW];
+    BadPathFromV.insert(PathFromW.begin(), PathFromW.end());
+  }
+  return;
+}
+
 void FuseGraph::initPathInfo(FuseEdgeHeap &Heap) {
   // First initialize PathFrom structures. Also initialize Heap with edges.
 
@@ -577,6 +609,9 @@ void FuseGraph::initPathInfo(FuseEdgeHeap &Heap) {
         BadPathFromV.insert(PathFromW.begin(), PathFromW.end());
       }
 
+      // Skip fusion if one loop is vectorizable and another is not.
+      excludePathPreventingVectorization(NodeV, NodeW);
+
       Heap.push(NodeV, NodeW, Edge.Weight);
     }
 
@@ -596,8 +631,11 @@ void FuseGraph::initPathInfo(FuseEdgeHeap &Heap) {
       if (Dst < Src) {
         // Skip reversed neighbor edges as their forward counterparts are
         // already added to a heap.
-        continue;;
+        continue;
       }
+
+      // Skip fusion if one loop is vectorizable and another is not.
+      excludePathPreventingVectorization(NodeV, NodeW);
 
       Heap.push(Src, Dst, getFuseEdge(Src, Dst).Weight);
     }
@@ -1113,10 +1151,30 @@ void FuseGraph::constructDirectedEdges(
 
     HLNode *SrcNode = &Child;
     unsigned SrcNumber = getFuseNode(GraphNodeMap, SrcNode);
+    auto *SrcLoop = dyn_cast<HLLoop>(SrcNode);
+    bool IsInnermost = SrcLoop && SrcLoop->isInnermost() &&
+                       (SrcLoop->getNestingLevel() == Level);
 
     for (DDRef *Ref : Refs) {
       // Collect Directed Dependency Edges
       for (const DDEdge *DDEdge : DDG.outgoing(Ref)) {
+        // Mark loop as non-vectorizable if the edge preventing vectorization is
+        // found.
+        if (!SkipVecProfitabilityCheck && IsInnermost &&
+            DDEdge->preventsVectorization(Level)) {
+
+          LLVM_DEBUG(dbgs() << "\nDDEdge preventing vectorization found: ");
+          LLVM_DEBUG(DDEdge->print(dbgs()));
+
+          HLNode *DstNodeExact = DDEdge->getSink()->getHLDDNode();
+          HLNode *DstNode = HLNodeUtils::getImmediateChildContainingNode(
+              ParentNode, DstNodeExact);
+          if (SrcNode == DstNode) {
+            FuseNode &SrcFuseNode = Vertex[SrcNumber];
+            SrcFuseNode.setVectorizable(false);
+          }
+        }
+
         if (DDEdge->isBackwardDep()) {
           continue;
         }

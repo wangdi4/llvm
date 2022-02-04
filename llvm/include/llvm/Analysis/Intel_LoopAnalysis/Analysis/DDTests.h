@@ -116,7 +116,7 @@ struct DirectionVector : public SmallVector<DVKind, MaxLoopNestLevel> {
 
   /// Returns true if DV shows cross iter dependence at Level.
   bool isCrossIterDepAtLevel(unsigned Level) const {
-    return !((*this)[Level - 1] == DVKind::EQ || isIndepFromLevel(Level));
+    return !(isIndepFromLevel(Level) || (*this)[Level - 1] == DVKind::EQ);
   }
 
   /// Returns true if DV refinement for Level makes sense.
