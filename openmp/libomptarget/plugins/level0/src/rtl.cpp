@@ -2911,6 +2911,35 @@ static void closeRTL() {
   DP("Closed RTL successfully\n");
 }
 
+static int32_t copyData(int32_t DeviceId, void *Dest, void *Src, size_t Size) {
+  auto destType = DeviceInfo->getMemAllocType(Dest);
+  auto srcType = DeviceInfo->getMemAllocType(Src);
+
+  // Global variable address is classified as unknown memory, and it should be
+  // handled as device memory (i.e., use memcpy command).
+  if (isDiscrete(DeviceInfo->DeviceProperties[DeviceId].deviceId) ||
+      destType == ZE_MEMORY_TYPE_DEVICE || srcType == ZE_MEMORY_TYPE_DEVICE ||
+      (destType == ZE_MEMORY_TYPE_UNKNOWN &&
+          srcType == ZE_MEMORY_TYPE_UNKNOWN)) {
+    auto cmdList = DeviceInfo->getLinkCopyCmdList(DeviceId);
+    auto cmdQueue = DeviceInfo->getLinkCopyCmdQueue(DeviceId);
+    DP("Copy Engine is %s for data transfer\n",
+       DeviceInfo->usingCopyCmdQueue(DeviceId) ? "used" : "not used");
+    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, Dest, Src, Size,
+                     nullptr, 0, nullptr);
+    CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
+    CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists,
+                         DeviceInfo->Mutexes[DeviceId], cmdQueue, 1, &cmdList,
+                         nullptr);
+    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
+    CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
+  } else {
+    char *src = static_cast<char *>(Src);
+    std::copy(src, src + Size, static_cast<char *>(Dest));
+  }
+  return OFFLOAD_SUCCESS;
+}
+
 /// Allocate data explicitly
 static void *allocDataExplicit(ze_device_handle_t Device, int64_t Size,
                                int32_t Kind, bool LargeMem, bool LogMemAlloc,
@@ -4782,22 +4811,16 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
     DP("Asynchronous data submit started -- %" PRId64 " bytes (hst:"
        DPxMOD ") -> (tgt:" DPxMOD ")\n", Size, DPxPTR(HstPtr), DPxPTR(TgtPtr));
   } else {
-    auto TgtPtrType = DeviceInfo->getMemAllocType(TgtPtr);
-    if (TgtPtrType == ZE_MEMORY_TYPE_DEVICE) {
-      void *SrcPtr = HstPtr;
-      if (static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize &&
-          DeviceInfo->isDiscreteDevice(DeviceId)) {
-        SrcPtr = DeviceInfo->getStagingBuffer().get();
-        std::copy_n(
-            static_cast<char *>(HstPtr), Size, static_cast<char *>(SrcPtr));
-      }
-      if (DeviceInfo->enqueueMemCopy(DeviceId, TgtPtr, SrcPtr, Size) !=
-          OFFLOAD_SUCCESS)
-        return OFFLOAD_FAIL;
-    } else {
-      std::copy_n(
-          static_cast<char *>(HstPtr), Size, static_cast<char *>(TgtPtr));
+    void *SrcPtr = HstPtr;
+    if (static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize &&
+        DeviceInfo->getMemAllocType(HstPtr) == ZE_MEMORY_TYPE_UNKNOWN &&
+        DeviceInfo->isDiscreteDevice(DeviceId)) {
+      SrcPtr = DeviceInfo->getStagingBuffer().get();
+      std::copy_n(static_cast<char *>(HstPtr), Size,
+                  static_cast<char *>(SrcPtr));
     }
+    if (copyData(DeviceId, TgtPtr, SrcPtr, Size) != OFFLOAD_SUCCESS)
+      return OFFLOAD_FAIL;
     DP("Copied %" PRId64 " bytes (hst:" DPxMOD ") -> (tgt:" DPxMOD ")\n", Size,
        DPxPTR(HstPtr), DPxPTR(TgtPtr));
   }
@@ -4864,23 +4887,16 @@ static int32_t retrieveData(
     DP("Asynchronous data retrieve started -- %" PRId64 " bytes (tgt:"
        DPxMOD ") -> (hst:" DPxMOD ")\n", Size, DPxPTR(TgtPtr), DPxPTR(HstPtr));
   } else {
-    auto TgtPtrType = DeviceInfo->getMemAllocType(TgtPtr);
-    if (TgtPtrType == ZE_MEMORY_TYPE_DEVICE) {
-      void *DstPtr = HstPtr;
-      if (static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize &&
-          DeviceInfo->isDiscreteDevice(DeviceId)) {
-        DstPtr = DeviceInfo->getStagingBuffer().get();
-      }
-      if (OFFLOAD_SUCCESS !=
-          DeviceInfo->enqueueMemCopy(DeviceId, DstPtr, TgtPtr, Size))
-        return OFFLOAD_FAIL;
-      if (DstPtr != HstPtr)
-        std::copy_n(
-            static_cast<char *>(DstPtr), Size, static_cast<char *>(HstPtr));
-    } else {
-      std::copy_n(
-          static_cast<char *>(TgtPtr), Size, static_cast<char *>(HstPtr));
-    }
+    void *DstPtr = HstPtr;
+    if (static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize &&
+        DeviceInfo->getMemAllocType(HstPtr) == ZE_MEMORY_TYPE_UNKNOWN &&
+        DeviceInfo->isDiscreteDevice(DeviceId))
+      DstPtr = DeviceInfo->getStagingBuffer().get();
+    if (copyData(DeviceId, DstPtr, TgtPtr, Size) != OFFLOAD_SUCCESS)
+      return OFFLOAD_FAIL;
+    if (DstPtr != HstPtr)
+        std::copy_n(static_cast<char *>(DstPtr), Size,
+                    static_cast<char *>(HstPtr));
     DP("Copied %" PRId64 " bytes (tgt:" DPxMOD ") -> (hst:" DPxMOD ")\n", Size,
        DPxPTR(TgtPtr), DPxPTR(HstPtr));
   }
