@@ -9552,8 +9552,11 @@ ScalarEvolution::computeExitLimitFromICmp(const Loop *L,
   // Simplification changes '<=' to '<' which results in information loss.
   bool IVMaxValIsUB = isIVMaxValUB(LHS, Pred, ControlsExit);
 #endif // INTEL_CUSTOMIZATION
+  bool ControllingFiniteLoop =
+      ControlsExit && loopHasNoAbnormalExits(L) && loopIsFiniteByAssumption(L);
   // Simplify the operands before analyzing them.
-  (void)SimplifyICmpOperands(Pred, LHS, RHS, ExitCond); // INTEL
+  (void)SimplifyICmpOperands(Pred, LHS, RHS, ExitCond, /*Depth=*/0, // INTEL
+                             ControllingFiniteLoop);
 
   // If we have a comparison of a chrec against a constant, try to use value
   // ranges to answer this query.
@@ -9573,9 +9576,7 @@ ScalarEvolution::computeExitLimitFromICmp(const Loop *L,
   // the same values on self-wrap of the IV, then we can infer that IV
   // doesn't self wrap because if it did, we'd have an infinite (undefined)
   // loop.
-  if (ControlsExit && isLoopInvariant(RHS, L) && loopHasNoAbnormalExits(L) &&
-      loopIsFiniteByAssumption(L)) {
-
+  if (ControllingFiniteLoop && isLoopInvariant(RHS, L)) {
     // TODO: We can peel off any functions which are invertible *in L*.  Loop
     // invariant terms are effectively constants for our purposes here.
     auto *InnerLHS = LHS;
@@ -11286,7 +11287,8 @@ bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
                                            const SCEV *&LHS, const SCEV *&RHS,
 #if INTEL_CUSTOMIZATION
                                            const ICmpInst *PredContext,
-                                           unsigned Depth) {
+                                           unsigned Depth,
+                                           bool ControllingFiniteLoop) {
 #endif // INTEL_CUSTOMIZATION
   bool Changed = false;
   // Simplifies ICMP to trivial true or false by turning it into '0 == 0' or
@@ -11416,11 +11418,18 @@ bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
   }
 
   // If possible, canonicalize GE/LE comparisons to GT/LT comparisons, by
-  // adding or subtracting 1 from one of the operands.
+  // adding or subtracting 1 from one of the operands. This can be done for
+  // one of two reasons:
+  // 1) The range of the RHS does not include the (signed/unsigned) boundaries
+  // 2) The loop is finite, with this comparison controlling the exit. Since the
+  // loop is finite, the bound cannot include the corresponding boundary
+  // (otherwise it would loop forever).
   switch (Pred) {
   case ICmpInst::ICMP_SLE:
-    if (!getSignedRangeMax(RHS).isMaxSignedValue() || // INTEL
-        isNotRangeMaxUsingNoWrap(*this, RHS, true)) { // INTEL
+#if INTEL_CUSTOMIZATION
+    if (ControllingFiniteLoop || !getSignedRangeMax(RHS).isMaxSignedValue() ||
+        isNotRangeMaxUsingNoWrap(*this, RHS, true)) {
+#endif
       RHS = getAddExpr(getConstant(RHS->getType(), 1, true), RHS,
                        SCEV::FlagNSW);
       Pred = ICmpInst::ICMP_SLT;
@@ -11434,8 +11443,10 @@ bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
     }
     break;
   case ICmpInst::ICMP_SGE:
-    if (!getSignedRangeMin(RHS).isMinSignedValue() || // INTEL
-        isNotSignedMinUsingNoWrap(*this, RHS)) { // INTEL
+#if INTEL_CUSTOMIZATION
+    if (ControllingFiniteLoop || !getSignedRangeMin(RHS).isMinSignedValue() ||
+        isNotSignedMinUsingNoWrap(*this, RHS)) {
+#endif
       RHS = getAddExpr(getConstant(RHS->getType(), (uint64_t)-1, true), RHS,
                        SCEV::FlagNSW);
       Pred = ICmpInst::ICMP_SGT;
@@ -11449,8 +11460,10 @@ bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
     }
     break;
   case ICmpInst::ICMP_ULE:
-    if (!getUnsignedRangeMax(RHS).isMaxValue() ||      // INTEL
-        isNotRangeMaxUsingNoWrap(*this, RHS, false)) { // INTEL
+#if INTEL_CUSTOMIZATION
+    if (ControllingFiniteLoop || !getUnsignedRangeMax(RHS).isMaxValue() ||
+        isNotRangeMaxUsingNoWrap(*this, RHS, false)) {
+#endif
       RHS = getAddExpr(getConstant(RHS->getType(), 1, true), RHS,
                        SCEV::FlagNUW);
       Pred = ICmpInst::ICMP_ULT;
@@ -11462,7 +11475,7 @@ bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
     }
     break;
   case ICmpInst::ICMP_UGE:
-    if (!getUnsignedRangeMin(RHS).isMinValue()) {
+    if (ControllingFiniteLoop || !getUnsignedRangeMin(RHS).isMinValue()) {
       RHS = getAddExpr(getConstant(RHS->getType(), (uint64_t)-1, true), RHS);
       Pred = ICmpInst::ICMP_UGT;
       Changed = true;
@@ -11502,7 +11515,8 @@ bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
   // Recursively simplify until we either hit a recursion limit or nothing
   // changes.
   if (Changed)
-    return SimplifyICmpOperands(Pred, LHS, RHS, PredContext, Depth+1); // INTEL
+    return SimplifyICmpOperands(Pred, LHS, RHS, PredContext, Depth + 1, // INTEL
+                                ControllingFiniteLoop);
 
   return Changed;
 }

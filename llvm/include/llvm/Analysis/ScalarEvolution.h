@@ -1161,12 +1161,14 @@ public:
   /// Simplify LHS and RHS in a comparison with predicate Pred. Return true
   /// iff any changes were made. If the operands are provably equal or
   /// unequal, LHS and RHS are set to the same value and Pred is set to either
-  /// ICMP_EQ or ICMP_NE.
+  /// ICMP_EQ or ICMP_NE. ControllingFiniteLoop is set if this comparison
+  /// controls the exit of a loop known to have a finite number of iterations.
   bool SimplifyICmpOperands(ICmpInst::Predicate &Pred, const SCEV *&LHS,
 #if INTEL_CUSTOMIZATION
                             const SCEV *&RHS,
                             const ICmpInst *PredContext = nullptr,
-                            unsigned Depth = 0);
+                            unsigned Depth = 0,
+                            bool ControllingFiniteLoop = false);
 #endif // INTEL_CUSTOMIZATION
 
   /// Return the "disposition" of the given SCEV with respect to the given
