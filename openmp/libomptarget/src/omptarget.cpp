@@ -288,9 +288,8 @@ void handleTargetOutcome(bool Success, ident_t *Loc) {
             "LIBOMPTARGET_INFO=%d to dump host-target pointer mappings.\n",
             OMP_INFOTYPE_DUMP_TABLE);
 #else // INTEL_COLLAB
-        FAILURE_MESSAGE("Run with LIBOMPTARGET_INFO=%d to dump host-target "
-                        "pointer mappings.\n",
-                        OMP_INFOTYPE_DUMP_TABLE);
+        FAILURE_MESSAGE("Consult https://openmp.llvm.org/design/Runtimes.html "
+                        "for debugging options.\n");
 #endif // INTEL_COLLAB
 
       SourceInfo info(Loc);
