@@ -28,7 +28,8 @@
 extern "C" {
 #endif
 
-#if !INTEL_COLLAB
+#if INTEL_COLLAB
+#else // INTEL_COLLAB
 /// TODO: Include the `omp.h` of the current build
 /* OpenMP 5.1 interop */
 typedef intptr_t omp_intptr_t;
@@ -116,7 +117,7 @@ omp_get_interop_type_desc(const omp_interop_t, omp_interop_property_t);
  */
 extern const char *__KAI_KMPC_CONVENTION
 omp_get_interop_rc_desc(const omp_interop_t, omp_interop_rc_t);
-#endif //!INTEL_COLLAB
+#endif // INTEL_COLLAB
 
 typedef struct kmp_tasking_flags { /* Total struct must be exactly 32 bits */
   /* Compiler flags */             /* Total compiler flags must be 16 bits */
