@@ -311,5 +311,25 @@ for (int i = 0; i < 3; i++) {
   for(int i = 0; i < 10; i++);
 }
 
+//CHECK: define {{.*}}foo_teams_thread_limit
+void foo_teams_thread_limit()
+{
+  //CHECK: [[LOCAL:%local.*]] = alloca i32,
+  //CHECK: [[TMP:%omp.clause.tmp.*]] = alloca i32,
+  int local = 2;
+
+  //CHECK: load i32, i32* [[LOCAL]]
+  //CHECK-NEXT: add{{.*}}2
+  //CHECK-NEXT: store{{.*}}[[TMP]]
+  //CHECK: "DIR.OMP.TARGET"()
+  //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(i32* [[LOCAL]], i32 0, i32 1)
+  //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(i32* [[TMP]], i32 0, i32 1)
+  //CHECK: "DIR.OMP.TEAMS"()
+  //CHECK-SAME: "QUAL.OMP.NUM_TEAMS:TYPED"(i32* [[LOCAL]], i32 0)
+  //CHECK-SAME: "QUAL.OMP.THREAD_LIMIT:TYPED"(i32* [[TMP]], i32 0)
+  #pragma omp target
+  #pragma omp teams num_teams(local) thread_limit(local+2)
+  { }
+}
 
 // end INTEL_COLLAB
