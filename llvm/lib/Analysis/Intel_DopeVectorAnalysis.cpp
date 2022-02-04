@@ -594,8 +594,11 @@ void DopeVectorFieldUse::collectFromCopy(const DopeVectorFieldUse& CopyDVField) 
     }
   }
 
-  if (MergeAllowed)
+  if (MergeAllowed) {
     Loads.insert(CopyDVField.Loads.begin(), CopyDVField.Loads.end());
+    NotForDVCPLoads.insert(CopyDVField.NotForDVCPLoads.begin(),
+                           CopyDVField.NotForDVCPLoads.end());
+  }
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
