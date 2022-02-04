@@ -1288,15 +1288,12 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
       if (HasValidOpenMPRuntime) {
         llvm::StringMap<const char *> FoundNormalizedTriples;
         for (const char *Val : OpenMPTargets->getValues()) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
           // Strip off any trailing options from
           // -fopenmp-targets=<triple>="opts" usage.
-          llvm::Triple TT(StringRef(Val).split('=').first);
+          llvm::Triple TT(
+              ToolChain::getOpenMPTriple(StringRef(Val).split('=').first));
 #endif // INTEL_CUSTOMIZATION
-=======
-          llvm::Triple TT(ToolChain::getOpenMPTriple(Val));
->>>>>>> 9dc3c592b749d8550537eeaa4657392f545c49bc
           std::string NormalizedName = TT.normalize();
 
           // Make sure we don't have a duplicate triple.
