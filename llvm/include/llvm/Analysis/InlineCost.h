@@ -201,6 +201,7 @@ typedef enum {
    NinlrNotMandatory,
    NinlrUnsplitCoroutineCall,
    NinlrByvalArgsWithoutAllocaAS,
+   NinlrMultiversionedCallsite,
    NinlrLast // Just a marker placed after the last non-inlining reason
 } InlineReason;
 
