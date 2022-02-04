@@ -727,6 +727,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
                          /*IsLTO=*/true);
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static void AddllvmOption(const ToolChain &TC, const char *Opt, bool IsLink,
                           const llvm::opt::ArgList &Args,
@@ -1105,6 +1106,8 @@ void tools::addOpenMPRuntimeSpecificRPath(const ToolChain &TC,
   }
 }
 
+=======
+>>>>>>> a841a3a5791dc653567b48593a6b99b9db2748bb
 void tools::addArchSpecificRPath(const ToolChain &TC, const ArgList &Args,
                                  ArgStringList &CmdArgs) {
   // Enable -frtlib-add-rpath by default for the case of VE.
@@ -1184,9 +1187,6 @@ bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
     CmdArgs.push_back("-lomptarget");
 
   addArchSpecificRPath(TC, Args, CmdArgs);
-
-  if (RTKind == Driver::OMPRT_OMP)
-    addOpenMPRuntimeSpecificRPath(TC, Args, CmdArgs);
 
   return true;
 }
