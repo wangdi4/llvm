@@ -6638,50 +6638,12 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       LLVM_DEBUG(dbgs() << "SLP: added a ShuffleVector op.\n");
 
       // Reorder operands if reordering would enable vectorization.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       if (isa<BinaryOperator>(VL0)) {
         SmallVector<int, 4> OpDirLeft, OpDirRight;
         ValueList Left, Right;
         reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, OpDirLeft,
                                        OpDirRight, *this);
-=======
-      auto *CI = dyn_cast<CmpInst>(VL0);
-      if (isa<BinaryOperator>(VL0) || CI) {
-        ValueList Left, Right;
-        if (!CI || all_of(VL, [](Value *V) {
-              return cast<CmpInst>(V)->isCommutative();
-            })) {
-          reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, *this);
-        } else {
-          CmpInst::Predicate P0 = CI->getPredicate();
-          CmpInst::Predicate AltP0 = cast<CmpInst>(S.AltOp)->getPredicate();
-          CmpInst::Predicate AltP0Swapped = CmpInst::getSwappedPredicate(AltP0);
-          Value *BaseOp0 = VL0->getOperand(0);
-          Value *BaseOp1 = VL0->getOperand(1);
-          // Collect operands - commute if it uses the swapped predicate or
-          // alternate operation.
-          for (Value *V : VL) {
-            auto *Cmp = cast<CmpInst>(V);
-            Value *LHS = Cmp->getOperand(0);
-            Value *RHS = Cmp->getOperand(1);
-            CmpInst::Predicate CurrentPred = CI->getPredicate();
-            CmpInst::Predicate CurrentPredSwapped =
-                CmpInst::getSwappedPredicate(CurrentPred);
-            if (P0 == AltP0 || P0 == AltP0Swapped) {
-              if ((P0 == CurrentPred &&
-                   !areCompatibleCmpOps(BaseOp0, BaseOp1, LHS, RHS)) ||
-                  (P0 == CurrentPredSwapped &&
-                   !areCompatibleCmpOps(BaseOp0, BaseOp1, RHS, LHS)))
-                std::swap(LHS, RHS);
-            } else if (!areCompatibleCmpOps(BaseOp0, BaseOp1, LHS, RHS)) {
-              std::swap(LHS, RHS);
-            }
-            Left.push_back(LHS);
-            Right.push_back(RHS);
-          }
-        }
->>>>>>> afaaecc88c6e5989de8a6a0266610860ef99d9d6
         TE->setOperand(0, Left);
         TE->setOperand(1, Right);
         if (visitRightOperandFirst(VL[0])) {
