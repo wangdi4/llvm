@@ -793,7 +793,7 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
              MinMaxInst->dump());
 
   MatchFail Mismatch("MinMax+Index");
-  DenseMap<HLInst *, HIRVectorIdioms::IdiomId> LinkedInstr;
+  MapVector<HLInst *, HIRVectorIdioms::IdiomId> LinkedInstr;
 
   for (DDEdge *E : DDG.outgoing(Lval)) {
     if (E->isOutput()) {

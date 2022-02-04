@@ -301,14 +301,6 @@ public:
 
 } // End namespace loopopt
 
-template <>
-struct DenseMapInfo<loopopt::HLSwitch *>
-    : public loopopt::DenseHLNodeMapInfo<loopopt::HLSwitch> {};
-
-template <>
-struct DenseMapInfo<const loopopt::HLSwitch *>
-    : public loopopt::DenseHLNodeMapInfo<const loopopt::HLSwitch> {};
-
 } // End namespace llvm
 
 #endif

@@ -325,14 +325,13 @@ public:
 
 private:
   using IdiomListTy = MapVector<const Instruction *, IdiomId>;
-  using IdiomLinksTy =
-      DenseMap<const Instruction *, SmallPtrSet<const Instruction *, 2>>;
+  using LinkedIdiomListTy = SetVector<const Instruction *>;
+  using IdiomLinksTy = DenseMap<const Instruction *, LinkedIdiomListTy>;
   SmallDenseMap<const HLInst *, DDRef *> VConflictStoreToLoadMap;
 
 public:
   using iterator = typename IdiomListTy::iterator;
   using const_iterator = typename IdiomListTy::const_iterator;
-  using LinkedIdiomListTy = SmallPtrSetImpl<const Instruction *>;
 
   VectorIdioms() = default;
   VectorIdioms(const VectorIdioms &) = delete;

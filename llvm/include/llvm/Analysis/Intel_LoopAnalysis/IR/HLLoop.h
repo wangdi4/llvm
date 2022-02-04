@@ -1436,14 +1436,6 @@ template <> struct OptReportTraits<loopopt::HLLoop> {
                                          NodeVisitorTy Func);
 };
 
-template <>
-struct DenseMapInfo<loopopt::HLLoop *>
-    : public loopopt::DenseHLNodeMapInfo<loopopt::HLLoop> {};
-
-template <>
-struct DenseMapInfo<const loopopt::HLLoop *>
-    : public loopopt::DenseHLNodeMapInfo<const loopopt::HLLoop> {};
-
 } // End namespace llvm
 
 #endif

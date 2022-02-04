@@ -307,42 +307,7 @@ public:
   }
 };
 
-// See specialization in ADT/DenseMapInfo.h for pointers.
-template <typename Node> struct DenseHLNodeMapInfo {
-  static_assert(
-      std::is_base_of<HLNode, typename std::remove_cv<Node>::type>::value,
-      "Node must be a CV-qualified derivative of HLNode");
-  typedef Node T;
-  static inline T *getEmptyKey() {
-    uintptr_t Val = static_cast<uintptr_t>(-1);
-    Val <<= PointerLikeTypeTraits<T *>::NumLowBitsAvailable;
-    return reinterpret_cast<T *>(Val);
-  }
-
-  static inline T *getTombstoneKey() {
-    uintptr_t Val = static_cast<uintptr_t>(-2);
-    Val <<= PointerLikeTypeTraits<T *>::NumLowBitsAvailable;
-    return reinterpret_cast<T *>(Val);
-  }
-
-  /// Specialized method.
-  static unsigned getHashValue(const T *PtrVal) {
-    return (unsigned(PtrVal->getNumber() >> 0)) ^
-           (unsigned(PtrVal->getNumber() >> 5));
-  }
-
-  static bool isEqual(const T *LHS, const T *RHS) { return LHS == RHS; }
-};
-
 } // namespace loopopt
-
-template <>
-struct DenseMapInfo<loopopt::HLNode *>
-    : public loopopt::DenseHLNodeMapInfo<loopopt::HLNode> {};
-
-template <>
-struct DenseMapInfo<const loopopt::HLNode *>
-    : public loopopt::DenseHLNodeMapInfo<const loopopt::HLNode> {};
 
 } // namespace llvm
 
