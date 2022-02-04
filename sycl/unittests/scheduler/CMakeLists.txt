@@ -19,4 +19,5 @@ add_sycl_unittest(SchedulerTests OBJECT
     PostEnqueueCleanup.cpp
     Regression.cpp
     utils.cpp
+    LeafLimitDiffContexts.cpp
 )
