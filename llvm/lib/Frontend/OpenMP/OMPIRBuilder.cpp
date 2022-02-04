@@ -2915,7 +2915,7 @@ CallInst *OpenMPIRBuilder::createOMPInteropInit(
   Constant *SrcLocStr = getOrCreateSrcLocStr(Loc, SrcLocStrSize);
   Value *Ident = getOrCreateIdent(SrcLocStr, SrcLocStrSize);
   Value *ThreadId = getOrCreateThreadID(Ident);
-  if (Device == NULL)
+  if (Device == nullptr)
     Device = ConstantInt::get(Int32, -1);
   Constant *InteropTypeVal = ConstantInt::get(Int64, (int)InteropType);
   if (NumDependences == nullptr) {
@@ -2943,7 +2943,7 @@ CallInst *OpenMPIRBuilder::createOMPInteropDestroy(
   Constant *SrcLocStr = getOrCreateSrcLocStr(Loc, SrcLocStrSize);
   Value *Ident = getOrCreateIdent(SrcLocStr, SrcLocStrSize);
   Value *ThreadId = getOrCreateThreadID(Ident);
-  if (Device == NULL)
+  if (Device == nullptr)
     Device = ConstantInt::get(Int32, -1);
   if (NumDependences == nullptr) {
     NumDependences = ConstantInt::get(Int32, 0);
@@ -2971,7 +2971,7 @@ CallInst *OpenMPIRBuilder::createOMPInteropUse(const LocationDescription &Loc,
   Constant *SrcLocStr = getOrCreateSrcLocStr(Loc, SrcLocStrSize);
   Value *Ident = getOrCreateIdent(SrcLocStr, SrcLocStrSize);
   Value *ThreadId = getOrCreateThreadID(Ident);
-  if (Device == NULL)
+  if (Device == nullptr)
     Device = ConstantInt::get(Int32, -1);
   if (NumDependences == nullptr) {
     NumDependences = ConstantInt::get(Int32, 0);

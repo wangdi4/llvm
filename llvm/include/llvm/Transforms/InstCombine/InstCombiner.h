@@ -133,7 +133,7 @@ public:
   }
 #endif // INTEL_CUSTOMIZATION
 
-  virtual ~InstCombiner() {}
+  virtual ~InstCombiner() = default;
 
   /// Return the source operand of a potentially bitcasted value while
   /// optionally checking if it has one use. If there is no bitcast or the one
