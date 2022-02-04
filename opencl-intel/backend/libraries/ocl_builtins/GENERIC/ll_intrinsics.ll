@@ -4,7 +4,7 @@
 %opencl.pipe_wo_t = type opaque
 %struct.__pipe_t = type opaque
 %struct.ConstantPipeStorage = type { i32, i32, i32 }
-%struct._ZTS19ConstantPipeStorage.ConstantPipeStorage = type { i32, i32, i32 }
+%struct.__spirv_ConstantPipeStorage = type { i32, i32, i32 }
 
 define i16 @__ocl_zext_v1i8_v1i16(i8 %x) {
   %1 = zext i8 %x to i16
@@ -1018,20 +1018,6 @@ define i8* @__to_private(i8 addrspace(4)* %p) {
   ret i8* %1
 }
 
-define %opencl.pipe_ro_t addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct._ZTS19ConstantPipeStorage.ConstantPipeStorage addrspace(4)* %p) {
-  %1 = addrspacecast %struct._ZTS19ConstantPipeStorage.ConstantPipeStorage addrspace(4)* %p to %struct._ZTS19ConstantPipeStorage.ConstantPipeStorage addrspace(1)*
-  %2 = bitcast %struct._ZTS19ConstantPipeStorage.ConstantPipeStorage addrspace(1)* %1 to %opencl.pipe_ro_t addrspace(1)* addrspace(1)*
-  %3 = load %opencl.pipe_ro_t addrspace(1)*, %opencl.pipe_ro_t addrspace(1)* addrspace(1)* %2
-  ret %opencl.pipe_ro_t addrspace(1)* %3
-}
-
-define %opencl.pipe_wo_t addrspace(1)* @_Z39__spirv_CreatePipeFromPipeStorage_writePU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct._ZTS19ConstantPipeStorage.ConstantPipeStorage addrspace(4)* %p) {
-  %1 = addrspacecast %struct._ZTS19ConstantPipeStorage.ConstantPipeStorage addrspace(4)* %p to %struct._ZTS19ConstantPipeStorage.ConstantPipeStorage addrspace(1)*
-  %2 = bitcast %struct._ZTS19ConstantPipeStorage.ConstantPipeStorage addrspace(1)* %1 to %opencl.pipe_wo_t addrspace(1)* addrspace(1)*
-  %3 = load %opencl.pipe_wo_t addrspace(1)*, %opencl.pipe_wo_t addrspace(1)* addrspace(1)* %2
-  ret %opencl.pipe_wo_t addrspace(1)* %3
-}
-
 define %opencl.pipe_ro_t addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS419ConstantPipeStorage (%struct.ConstantPipeStorage addrspace(4)* %p) {
   %1 = addrspacecast %struct.ConstantPipeStorage addrspace(4)* %p to %struct.ConstantPipeStorage addrspace(1)*
   %2 = bitcast %struct.ConstantPipeStorage addrspace(1)* %1 to %opencl.pipe_ro_t addrspace(1)* addrspace(1)*
@@ -1042,6 +1028,20 @@ define %opencl.pipe_ro_t addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_re
 define %opencl.pipe_wo_t addrspace(1)* @_Z39__spirv_CreatePipeFromPipeStorage_writePU3AS419ConstantPipeStorage (%struct.ConstantPipeStorage addrspace(4)* %p) {
   %1 = addrspacecast %struct.ConstantPipeStorage addrspace(4)* %p to %struct.ConstantPipeStorage addrspace(1)*
   %2 = bitcast %struct.ConstantPipeStorage addrspace(1)* %1 to %opencl.pipe_wo_t addrspace(1)* addrspace(1)*
+  %3 = load %opencl.pipe_wo_t addrspace(1)*, %opencl.pipe_wo_t addrspace(1)* addrspace(1)* %2
+  ret %opencl.pipe_wo_t addrspace(1)* %3
+}
+
+define %opencl.pipe_ro_t addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS427__spirv_ConstantPipeStorage (%struct.__spirv_ConstantPipeStorage addrspace(4)* %p) {
+  %1 = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(4)* %p to %struct.__spirv_ConstantPipeStorage addrspace(1)*
+  %2 = bitcast %struct.__spirv_ConstantPipeStorage addrspace(1)* %1 to %opencl.pipe_ro_t addrspace(1)* addrspace(1)*
+  %3 = load %opencl.pipe_ro_t addrspace(1)*, %opencl.pipe_ro_t addrspace(1)* addrspace(1)* %2
+  ret %opencl.pipe_ro_t addrspace(1)* %3
+}
+
+define %opencl.pipe_wo_t addrspace(1)* @_Z39__spirv_CreatePipeFromPipeStorage_writePU3AS427__spirv_ConstantPipeStorage (%struct.__spirv_ConstantPipeStorage addrspace(4)* %p) {
+  %1 = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(4)* %p to %struct.__spirv_ConstantPipeStorage addrspace(1)*
+  %2 = bitcast %struct.__spirv_ConstantPipeStorage addrspace(1)* %1 to %opencl.pipe_wo_t addrspace(1)* addrspace(1)*
   %3 = load %opencl.pipe_wo_t addrspace(1)*, %opencl.pipe_wo_t addrspace(1)* addrspace(1)* %2
   ret %opencl.pipe_wo_t addrspace(1)* %3
 }
