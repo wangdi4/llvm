@@ -1288,24 +1288,16 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
       if (HasValidOpenMPRuntime) {
         llvm::StringMap<const char *> FoundNormalizedTriples;
         for (const char *Val : OpenMPTargets->getValues()) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
           // Strip off any trailing options from
           // -fopenmp-targets=<triple>="opts" usage.
           llvm::Triple TT(StringRef(Val).split('=').first);
 #endif // INTEL_CUSTOMIZATION
+=======
+          llvm::Triple TT(ToolChain::getOpenMPTriple(Val));
+>>>>>>> 9dc3c592b749d8550537eeaa4657392f545c49bc
           std::string NormalizedName = TT.normalize();
-
-          // We want to expand the shortened versions of the triples passed in to
-          // the values used for the bitcode libraries for convenience.
-          if (TT.getVendor() == llvm::Triple::UnknownVendor ||
-              TT.getOS() == llvm::Triple::UnknownOS) {
-            if (TT.getArch() == llvm::Triple::nvptx)
-              TT = llvm::Triple("nvptx-nvidia-cuda");
-            else if (TT.getArch() == llvm::Triple::nvptx64)
-              TT = llvm::Triple("nvptx64-nvidia-cuda");
-            else if (TT.getArch() == llvm::Triple::amdgcn)
-              TT = llvm::Triple("amdgcn-amd-amdhsa");
-          }
 
           // Make sure we don't have a duplicate triple.
           auto Duplicate = FoundNormalizedTriples.find(NormalizedName);
