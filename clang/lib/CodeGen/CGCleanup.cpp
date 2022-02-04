@@ -1304,7 +1304,8 @@ Address CodeGenFunction::getNormalCleanupDestSlot() {
       CreateDefaultAlignTempAlloca(Builder.getInt32Ty(), "cleanup.dest.slot");
 #if INTEL_CUSTOMIZATION
   if (CapturedStmtInfo)
-    CapturedStmtInfo->recordValueDefinition(NormalCleanupDest.getPointer());
+    CapturedStmtInfo->recordValueDefinition(NormalCleanupDest.getPointer(),
+                                            NormalCleanupDest.getElementType());
 #endif // INTEL_CUSTOMIZATION
   return NormalCleanupDest;
 }

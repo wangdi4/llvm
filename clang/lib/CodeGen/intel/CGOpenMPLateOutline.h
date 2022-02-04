@@ -241,15 +241,16 @@ class OpenMPLateOutliner {
 
   // Add a llvm::Value directly.
   void addArg(llvm::Value *V, bool Handled = false, bool IsTyped = false,
-              bool IsRef = false, llvm::Value *ZeroValue = nullptr,
+              llvm::Type *ElementType = nullptr,
+              llvm::Value *ZeroValue = nullptr,
               llvm::Value *NumElements = nullptr);
 
   // Add an llvm::Value with extra 'typed' arguments.
-  void addNoElementTypedArg(llvm::Value *V, bool Handled = false,
-                            bool IsRef = false);
+  void addNoElementTypedArg(llvm::Value *V, llvm::Type *ElementType,
+                            bool Handled = false);
 
-  void addSingleElementTypedArg(llvm::Value *V, bool Handled = false,
-                                bool IsRef = false);
+  void addSingleElementTypedArg(llvm::Value *V, llvm::Type *ElementType,
+                                bool Handled = false);
 
   // Add an argument that is the result of emitting an Expr.
   void addArg(const Expr *E, bool IsRef = false, bool IsTyped = false,
@@ -422,8 +423,8 @@ class OpenMPLateOutliner {
   llvm::MapVector<const VarDecl *, std::string> OptRepFPMapInfos;
 #endif  // INTEL_CUSTOMIZATION
 
-  std::vector<llvm::WeakTrackingVH> DefinedValues;
-  std::vector<llvm::WeakTrackingVH> ReferencedValues;
+  std::vector<std::pair<llvm::WeakTrackingVH, llvm::Type *>> DefinedValues;
+  std::vector<std::pair<llvm::WeakTrackingVH, llvm::Type *>> ReferencedValues;
   llvm::DenseSet<llvm::Value *> HandledValues;
 
   bool UseTypedClauses = false;
@@ -511,17 +512,18 @@ public:
   void emitImplicitLoopBounds(const OMPLoopDirective *LD);
   void emitImplicit(Expr *E, ImplicitClauseKind K);
   void emitImplicit(const VarDecl *VD, ImplicitClauseKind K);
-  void emitImplicit(llvm::Value *V, ImplicitClauseKind K);
+  void emitImplicit(llvm::Value *V, llvm::Type *ElementType,
+                    ImplicitClauseKind K);
   void addVariableDef(const VarDecl *VD) { VarDefs.insert(VD); }
   void addVariableRef(const VarDecl *VD) { VarRefs.insert(VD); }
   void addFirstPrivateVars(const VarDecl *VD) { FirstPrivateVars.insert(VD); }
-  void addValueDef(llvm::Value *V) {
+  void addValueDef(llvm::Value *V, llvm::Type *ElemTy) {
     llvm::WeakTrackingVH VH = V;
-    DefinedValues.push_back(VH);
+    DefinedValues.push_back({VH, ElemTy});
   }
-  void addValueRef(llvm::Value *V) {
+  void addValueRef(llvm::Value *V, llvm::Type *ElemTy) {
     llvm::WeakTrackingVH VH = V;
-    ReferencedValues.push_back(VH);
+    ReferencedValues.push_back({VH, ElemTy});
   }
   void addValueSuppress(llvm::Value *V) { HandledValues.insert(V); }
   OpenMPDirectiveKind getCurrentDirectiveKind() { return CurrentDirectiveKind; }
@@ -631,12 +633,12 @@ public:
   void recordVariableReference(const VarDecl *VD) override {
     Outliner.addVariableRef(VD);
   }
-  void recordValueDefinition(llvm::Value *V) override {
-    Outliner.addValueDef(V);
-    Outliner.addValueRef(V);
+  void recordValueDefinition(llvm::Value *V, llvm::Type *ElemTy) override {
+    Outliner.addValueDef(V, ElemTy);
+    Outliner.addValueRef(V, ElemTy);
   }
-  void recordValueReference(llvm::Value *V) override {
-    Outliner.addValueRef(V);
+  void recordValueReference(llvm::Value *V, llvm::Type *ElemTy) override {
+    Outliner.addValueRef(V, ElemTy);
   }
   void recordValueSuppression(llvm::Value *V) override {
     Outliner.addValueSuppress(V);

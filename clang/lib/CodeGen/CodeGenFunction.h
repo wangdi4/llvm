@@ -457,8 +457,8 @@ public:
 #if INTEL_COLLAB
     virtual void recordVariableDefinition(const VarDecl *VD) {}
     virtual void recordVariableReference(const VarDecl *VD) {}
-    virtual void recordValueDefinition(llvm::Value *) {}
-    virtual void recordValueReference(llvm::Value *) {}
+    virtual void recordValueDefinition(llvm::Value *V, llvm::Type *ElemTy) {}
+    virtual void recordValueReference(llvm::Value *V, llvm::Type *ElemTy) {}
     virtual void recordValueSuppression(llvm::Value *) {}
     virtual void recordFirstPrivateVars(const VarDecl *VD) {}
     virtual bool inTargetVariantDispatchRegion() { return false; }
@@ -1290,11 +1290,11 @@ public:
     if (It == ClauseMap.end())
       ClauseMap.insert({C, Addr});
   }
-  llvm::Value *getMappedClause(const OMPClause* C) {
+  Address getMappedClause(const OMPClause *C) {
     auto It = ClauseMap.find(C);
     if (It == ClauseMap.end())
-      return nullptr;
-    return It->second.getPointer();
+      return Address::invalid();
+    return It->second;
   }
   typedef llvm::DenseMap<const OMPClause*, Address> ClauseMapTy;
   ClauseMapTy ClauseMap;
@@ -1880,8 +1880,8 @@ public:
                   Align);
         CGF.VLASizeMap[E] = CGF.Builder.CreateLoad(A);
         if (CGF.CapturedStmtInfo)
-          CGF.CapturedStmtInfo->recordValueReference(
-              cast<llvm::LoadInst>(CGF.VLASizeMap[E])->getPointerOperand());
+          CGF.CapturedStmtInfo->recordValueReference(A.getPointer(),
+                                                     A.getElementType());
       }
     }
     ~CGVLASizeMapHandler() {
@@ -3200,8 +3200,13 @@ public:
   llvm::Value *LoadCXXThis() {
     assert(CXXThisValue && "no 'this' value for this function");
 #if INTEL_COLLAB
-    if (CapturedStmtInfo)
-      CapturedStmtInfo->recordValueReference(CXXThisValue);
+    if (CapturedStmtInfo) {
+      assert(CurFuncDecl && "expected member function decl");
+      QualType TagType = getContext().getTagDeclType(
+          cast<CXXMethodDecl>(CurFuncDecl)->getParent());
+      CapturedStmtInfo->recordValueReference(CXXThisValue,
+                                             ConvertTypeForMem(TagType));
+    }
 #endif  // INTEL_COLLAB
     return CXXThisValue;
   }

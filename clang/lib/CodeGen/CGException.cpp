@@ -424,7 +424,8 @@ Address CodeGenFunction::getExceptionSlot() {
     Address A = CreateDefaultAlignTempAlloca(Int8PtrTy, "exn.slot");
     ExceptionSlot = A.getPointer();
     if (CapturedStmtInfo)
-      CapturedStmtInfo->recordValueDefinition(ExceptionSlot);
+      CapturedStmtInfo->recordValueDefinition(ExceptionSlot,
+                                              A.getElementType());
   }
 #else
   if (!ExceptionSlot)
@@ -439,7 +440,8 @@ Address CodeGenFunction::getEHSelectorSlot() {
     Address A = CreateDefaultAlignTempAlloca(Int32Ty, "ehselector.slot");
     EHSelectorSlot = A.getPointer();
     if (CapturedStmtInfo)
-      CapturedStmtInfo->recordValueDefinition(EHSelectorSlot);
+      CapturedStmtInfo->recordValueDefinition(EHSelectorSlot,
+                                              A.getElementType());
   }
 #else
   if (!EHSelectorSlot)

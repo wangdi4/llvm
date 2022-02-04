@@ -447,8 +447,9 @@ class PrivatesListCvt : public VPEntityConverterBase {
 
     return llvm::any_of(Inst->users(), [&](Value *User) {
       Instruction *Inst = cast<Instruction>(User);
-      return Builder.contains(Inst) || (isTrivialPointerAliasingInst(Inst) &&
-                                        AliasesWithinLoopImpl(Inst, Visited));
+      return Builder.contains(Inst) ||
+             ((isTrivialPointerAliasingInst(Inst) || isa<SelectInst>(Inst)) &&
+               AliasesWithinLoopImpl(Inst, Visited));
     });
   }
 
@@ -484,7 +485,8 @@ class PrivatesListCvt : public VPEntityConverterBase {
         // https://llvm.org/docs/LangRef.html#pointer-aliasing-rules
         Instruction *Inst = cast<Instruction>(Use);
 
-        if ((isTrivialPointerAliasingInst(Inst) || isa<PtrToIntInst>(Inst)) &&
+        if ((isTrivialPointerAliasingInst(Inst) ||
+             isa<PtrToIntInst>(Inst) || isa<SelectInst>(Inst)) &&
             AliasesWithinLoop(Inst)) {
           auto *NewVPOperand = Builder.getOrCreateVPOperand(Inst);
           assert((isa<VPExternalDef>(NewVPOperand) ||
