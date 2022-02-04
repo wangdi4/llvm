@@ -3303,7 +3303,6 @@ pi_result piQueueFinish(pi_queue Queue) {
 
     ZeQueues = Queue->ZeCopyCommandQueues;
     ZeQueues.push_back(Queue->ZeComputeCommandQueue);
-<<<<<<< HEAD
   }
 
   // Don't hold a lock to the queue's mutex while waiting.
@@ -3313,17 +3312,6 @@ pi_result piQueueFinish(pi_queue Queue) {
       ZE_CALL(zeHostSynchronize, (ZeQueue));
   }
 
-=======
-  }
-
-  // Don't hold a lock to the queue's mutex while waiting.
-  // This allows continue working with the queue from other threads.
-  for (auto ZeQueue : ZeQueues) {
-    if (ZeQueue)
-      ZE_CALL(zeHostSynchronize, (ZeQueue));
-  }
-
->>>>>>> 5368f178db0f450727f3487ec19a452b245f3779
   // Lock automatically releases when this goes out of scope.
   std::lock_guard<std::mutex> lock(Queue->PiQueueMutex);
   // Prevent unneeded already finished events to show up in the wait list.
