@@ -278,6 +278,7 @@ void handleTargetOutcome(bool Success, ident_t *Loc) {
         for (auto &Device : PM->Devices)
           dumpTargetPointerMappings(Loc, *Device);
       else
+<<<<<<< HEAD
 #if INTEL_COLLAB
         FAILURE_MESSAGE("Run with\n");
         FAILURE_MESSAGE(
@@ -292,6 +293,10 @@ void handleTargetOutcome(bool Success, ident_t *Loc) {
                         "pointer mappings.\n",
                         OMP_INFOTYPE_DUMP_TABLE);
 #endif // INTEL_COLLAB
+=======
+        FAILURE_MESSAGE("Consult https://openmp.llvm.org/design/Runtimes.html "
+                        "for debugging options.\n");
+>>>>>>> ad0a306a3852a0f05c9192111cb370dd02fc9e6a
 
       SourceInfo info(Loc);
       if (info.isAvailible())
