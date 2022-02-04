@@ -77,7 +77,7 @@ Address CodeGenFunction::CreateTempAllocaWithoutCast(llvm::Type *Ty,
   Alloca->setAlignment(Align.getAsAlign());
 #if INTEL_COLLAB
   if (CapturedStmtInfo && !ArraySize)
-    CapturedStmtInfo->recordValueDefinition(Alloca);
+    CapturedStmtInfo->recordValueDefinition(Alloca, Ty);
 #endif // INTEL_COLLAB
   return Address(Alloca, Ty, Align);
 }
@@ -117,7 +117,7 @@ Address CodeGenFunction::CreateTempAlloca(llvm::Type *Ty, CharUnits Align,
 
 #if INTEL_COLLAB
   if (CapturedStmtInfo && !ArraySize)
-    CapturedStmtInfo->recordValueDefinition(V);
+    CapturedStmtInfo->recordValueDefinition(V, Ty);
 #endif // INTEL_COLLAB
 
   return Address(V, Ty, Align);
@@ -2853,8 +2853,11 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
           OMPLateOutlineLexicalScope::isCapturedVar(*this, VD)) {
         VD = VD->getCanonicalDecl();
         if (auto *FD = LambdaCaptureFields.lookup(VD)) {
-          if (CapturedStmtInfo)
-            CapturedStmtInfo->recordValueReference(CXXABIThisValue);
+          if (CapturedStmtInfo) {
+            QualType TagType = getContext().getTagDeclType(FD->getParent());
+            CapturedStmtInfo->recordValueReference(CXXABIThisValue,
+                                                   ConvertTypeForMem(TagType));
+          }
           return EmitCapturedFieldLValue(*this, FD, CXXABIThisValue);
         }
       }
