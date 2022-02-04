@@ -188,6 +188,13 @@ public:
   // Set the callee of 'CB' to 'F'.
   void setCalledFunction(CallBase *CB, Function *F);
 
+  // Delete all calls inside 'F'.
+  void deleteFunctionBody(Function *F);
+
+  // Indicate that 'CB' calls a specialized version of its caller under
+  // a multiversioning test.
+  void addMultiversionedCallSite(CallBase *CB);
+
 private:
   /// The Level is specified by the option -inline-report=N.
   /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level.
