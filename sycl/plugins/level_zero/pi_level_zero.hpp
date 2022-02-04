@@ -978,17 +978,10 @@ struct _pi_event : _pi_object {
   // be: 1) null, meaning that a host-visible event wasn't yet created 2) a PI
   // event created internally that host will actually be redirected
   //    to wait/query instead of this PI event.
-<<<<<<< HEAD
   //
   // The HostVisibleEvent is a reference counted PI event and can be used more
   // than by just this one event, depending on the mode (see EventsScope).
   //
-=======
-  //
-  // The HostVisibleEvent is a reference counted PI event and can be used more
-  // than by just this one event, depending on the mode (see EventsScope).
-  //
->>>>>>> 648307a177eb033ef1b183d3d71ccdc8bb64985a
   pi_event HostVisibleEvent = {nullptr};
   bool IsHostVisible() const { return this == HostVisibleEvent; }
 
