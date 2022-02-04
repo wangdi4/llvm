@@ -7376,6 +7376,11 @@ pi_result piextUSMEnqueuePrefetch(pi_queue Queue, const void *Ptr, size_t Size,
   // Lock automatically releases when this goes out of scope.
   std::lock_guard<std::mutex> lock(Queue->PiQueueMutex);
 
+  /**
+   * @brief Please note that the following code should be run before the
+   * subsequent getAvailableCommandList() call so that there is no
+   * dead-lock from waiting unsubmitted events in an open batch.
+   */
   _pi_ze_event_list_t TmpWaitList;
   if (auto Res = TmpWaitList.createAndRetainPiZeEventList(NumEventsInWaitList,
                                                           EventWaitList, Queue))
@@ -7396,10 +7401,7 @@ pi_result piextUSMEnqueuePrefetch(pi_queue Queue, const void *Ptr, size_t Size,
   if (Res != PI_SUCCESS)
     return Res;
   ZeEvent = (*Event)->ZeEvent;
-
-  if (auto Res = (*Event)->WaitList.createAndRetainPiZeEventList(
-          NumEventsInWaitList, EventWaitList, Queue))
-    return Res;
+  (*Event)->WaitList = TmpWaitList;
 
   const auto &WaitList = (*Event)->WaitList;
   const auto &ZeCommandList = CommandList->first;
