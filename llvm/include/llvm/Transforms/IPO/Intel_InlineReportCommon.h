@@ -256,13 +256,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Unsplit coroutine call"},
     // NinlrByvalArgsWithoutAllocaAS
     {InlPrtSimple, "Call has byval argument without alloca address space"},
-<<<<<<< HEAD
-=======
-    // NinlrStackProtectMismatch
-    {InlPrtSimple, "Caller/callee stack protection mismatch"},
     // NinlrMultiversionedCallsite
     {InlPrtSimple, "Multiversioned callsite"},
->>>>>>> 9239ac8adb1984823c87bbee89009166fc42fca5
     // NinlrLast
     {InlPrtNone, nullptr}};
 
