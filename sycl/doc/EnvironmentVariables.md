@@ -35,7 +35,7 @@ fixed order of properties in the pattern.
 
 ### `SYCL_DEVICE_FILTER`
 
-This environment variable limits the SYCL RT to use only a subset of the system's devices. Setting this environment variable affects all of the device query functions (`platform::get_devices()` and `platform::get_platforms()`) and all of the device selectors. 
+This environment variable limits the SYCL RT to use only a subset of the system's devices. Setting this environment variable affects all of the device query functions (`platform::get_devices()` and `platform::get_platforms()`) and all of the device selectors.
 
 The value of this environment variable is a comma separated list of filters, where each filter is a triple of the form "`backend`:`device_type`:`device_num`" (without the quotes). Each element of the triple is optional, but each filter must have at least one value. Possible values of `backend` are:
 - `host`
@@ -54,7 +54,7 @@ Possible values of `device_type` are:
 
 `device_num` is an integer that indexes the enumeration of devices from the sycl-ls utility tool, where the first device in that enumeration has index zero in each backend. For example, `SYCL_DEVICE_FILTER=2` will return all devices with index '2' from all different backends. If multiple devices satisfy this device number (e.g., GPU and CPU devices can be assigned device number '2'), then default_selector will choose the device with the highest heuristic point.  When `SYCL_DEVICE_ALLOWLIST` is set, it is applied before enumerating devices and affects `device_num` values.
 
-Assuming a filter has all three elements of the triple, it selects only those devices that come from the given backend, have the specified device type, AND have the given device index. If more than one filter is specified, the RT is restricted to the union of devices selected by all filters. The RT does not include the `host` backend and the `host` device automatically unless one of the filters explicitly specifies the `host` device type. Therefore, `SYCL_DEVICE_FILTER=host` should be set to enforce SYCL to use the `host` device only. 
+Assuming a filter has all three elements of the triple, it selects only those devices that come from the given backend, have the specified device type, AND have the given device index. If more than one filter is specified, the RT is restricted to the union of devices selected by all filters. The RT does not include the `host` backend and the `host` device automatically unless one of the filters explicitly specifies the `host` device type. Therefore, `SYCL_DEVICE_FILTER=host` should be set to enforce SYCL to use the `host` device only.
 
 Note that all device selectors will throw an exception if the filtered list of devices does not include a device that satisfies the selector. For instance, `SYCL_DEVICE_FILTER=cpu,level_zero` will cause `host_selector()` to throw an exception. `SYCL_DEVICE_FILTER` also limits loading only specified plugins into the SYCL RT. In particular, `SYCL_DEVICE_FILTER=level_zero` will cause the `cpu_selector` to throw an exception since SYCL RT will only load the `level_zero` backend which does not support any CPU devices at this time. When multiple devices satisfy the filter (e..g, `SYCL_DEVICE_FILTER=gpu`), only one of them will be selected.
 
@@ -148,18 +148,5 @@ variables in production code.</span>
 | `SYCL_PI_LEVEL_ZERO_USE_COPY_ENGINE` | Any(\*) | This environment variable enables users to control use of copy engines for copy operations. If the value is an integer, it will allow the use of copy engines, if available in the device, in Level Zero plugin to transfer SYCL buffer or image data between the host and/or device(s) and to fill SYCL buffer or image data in device or shared memory. The value of this environment variable can also be a pair of the form "lower_index:upper_index" where the indices point to copy engines in a list of all available copy engines. The default is 1. |
 | `SYCL_PI_LEVEL_ZERO_USE_COPY_ENGINE_FOR_D2D_COPY` (experimental) | Integer | Allows the use of copy engine, if available in the device, in Level Zero plugin for device to device copy operations. The default is 0. This option is experimental and will be removed once heuristics are added to make a decision about use of copy engine for device to device copy operations. |
 | `SYCL_PI_LEVEL_ZERO_DEVICE_SCOPE_EVENTS` | Any(\*) | Enable support of device-scope events whose state is not visible to the host. If enabled mode is SYCL_PI_LEVEL_ZERO_DEVICE_SCOPE_EVENTS=1 the Level Zero plugin would create all events having device-scope only and create proxy host-visible events for them when their status is needed (wait/query) on the host. If enabled mode is SYCL_PI_LEVEL_ZERO_DEVICE_SCOPE_EVENTS=2 the Level Zero plugin would create all events having device-scope and add proxy host-visible event at the end of each command-list submission. The default is 0, meaning all events are host-visible. |
-
-## Debugging variables for CUDA Plugin
-
-:warning: **Warning:** <span style="color:red">the environment variables
-described below are used for development and debugging of DPC++ compiler
-and runtime. Their semantics are subject to change. Do not rely on these
-variables in production code.</span>
-
-| Environment variable | Values | Description |
-| -------------------- | ------ | ----------- |
-| `SYCL_PI_CUDA_ENABLE_IMAGE_SUPPORT` (experimental) | Any(\*) | Enable support of images. This option is experimental since the image support is not fully implemented. |
-
-`(*) Note: Any means this environment variable is effective when set to any non-null value.`
 
 [xpti]: https://github.com/intel/llvm/blob/sycl/xptifw/doc/XPTI_Framework.md
