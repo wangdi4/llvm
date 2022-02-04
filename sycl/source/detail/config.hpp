@@ -189,12 +189,31 @@ template <> class SYCLConfig<SYCL_RT_WARNING_LEVEL> {
   using BaseT = SYCLConfigBase<SYCL_RT_WARNING_LEVEL>;
 
 public:
+<<<<<<< HEAD
   static unsigned int get() {
     static unsigned int Level = []() {
       const char *ValStr = BaseT::getRawValue();
       int SignedLevel = ValStr ? std::atoi(ValStr) : 0;
       return SignedLevel >= 0 ? SignedLevel : 0;
     }();
+=======
+  static unsigned int get() { return getCachedValue(); }
+
+  static void reset() { (void)getCachedValue(true); }
+
+private:
+  static unsigned int getCachedValue(bool ResetCache = false) {
+    const auto Parser = []() {
+      const char *ValStr = BaseT::getRawValue();
+      int SignedLevel = ValStr ? std::atoi(ValStr) : 0;
+      return SignedLevel >= 0 ? SignedLevel : 0;
+    };
+
+    static unsigned int Level = Parser();
+    if (ResetCache)
+      Level = Parser();
+
+>>>>>>> 008519ad9dca91247a990ef72ee754e97684fc31
     return Level;
   }
 };
