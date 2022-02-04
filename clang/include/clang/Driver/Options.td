@@ -2911,6 +2911,8 @@ def qopenmp_link_EQ : Joined<["-"], "qopenmp-link=">,
   "libraries. Default is dynamic.">;
 def qopenmp_target_simd : Flag<["-"], "qopenmp-target-simd">, Alias<fopenmp_target_simd>;
 #endif // INTEL_CUSTOMIZATION
+def fopenmp_new_driver : Flag<["-"], "fopenmp-new-driver">, Flags<[CC1Option]>, Group<Action_Group>,
+  HelpText<"Use the new driver for OpenMP offloading.">;
 def fno_optimize_sibling_calls : Flag<["-"], "fno-optimize-sibling-calls">, Group<f_Group>;
 def foptimize_sibling_calls : Flag<["-"], "foptimize-sibling-calls">, Group<f_Group>;
 defm escaping_block_tail_calls : BoolFOption<"escaping-block-tail-calls",

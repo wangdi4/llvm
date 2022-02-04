@@ -4961,6 +4961,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   bool IsOpenMPDevice = JA.isDeviceOffloading(Action::OFK_OpenMP);
   bool IsSYCLOffloadDevice = JA.isDeviceOffloading(Action::OFK_SYCL);
   bool IsSYCL = JA.isOffloading(Action::OFK_SYCL);
+  bool IsOpenMPHost = JA.isHostOffloading(Action::OFK_OpenMP);
   bool IsHeaderModulePrecompile = isa<HeaderModulePrecompileJobAction>(JA);
   assert((IsCuda || IsHIP || (IsOpenMPDevice && Inputs.size() == 2) || IsSYCL ||
           IsHeaderModulePrecompile || Inputs.size() == 1) &&
@@ -4993,6 +4994,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   const InputInfo *CudaDeviceInput = nullptr;
   const InputInfo *OpenMPDeviceInput = nullptr;
   const InputInfo *SYCLDeviceInput = nullptr;
+  const InputInfo *OpenMPHostInput = nullptr;
   for (const InputInfo &I : Inputs) {
     if (&I == &Input) {
       // This is the primary input.
@@ -5011,6 +5013,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       OpenMPDeviceInput = &I;
     } else if (IsSYCL && !SYCLDeviceInput) {
       SYCLDeviceInput = &I;
+    } else if (IsOpenMPHost && !OpenMPHostInput) {
+      OpenMPHostInput = &I;
     } else {
       llvm_unreachable("unexpectedly given multiple inputs");
     }
