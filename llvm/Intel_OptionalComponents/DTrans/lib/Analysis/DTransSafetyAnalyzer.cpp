@@ -14,6 +14,7 @@
 #include "Intel_DTrans/Analysis/DTransAllocAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransBadCastingAnalyzerOP.h"
 #include "Intel_DTrans/Analysis/DTransDebug.h"
+#include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
@@ -5394,6 +5395,7 @@ bool DTransSafetyInfo::requiresBadCastValidation(
 
 void DTransSafetyInfo::analyzeModule(
     Module &M, GetTLIFnType GetTLI, WholeProgramInfo &WPInfo,
+    DTransImmutableInfo *DTImmutInfo,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
 
   // Initialize the DTransTypeManager & TypeMetadataReader classes first, so
@@ -5439,6 +5441,21 @@ void DTransSafetyInfo::analyzeModule(
   PostProcessFieldValueInfo();
   DTransSafetyAnalysisRan = true;
 
+  // Copy type info which can be passed to downstream passes without worrying
+  // about invalidation into the immutable pass.
+  if (DTImmutInfo) {
+    for (auto *TypeInfo : type_info_entries()) {
+      if (auto *StructInfo = dyn_cast<dtrans::StructInfo>(TypeInfo))
+        for (unsigned I = 0, E = StructInfo->getNumFields(); I != E; ++I) {
+          DTImmutInfo->addStructFieldInfo(
+              cast<StructType>(StructInfo->getLLVMType()), I,
+              StructInfo->getField(I).values(),
+              StructInfo->getField(I).iavalues(),
+              StructInfo->getField(I).getArrayWithConstantEntries());
+        }
+    }
+  }
+
   // Computes TotalFrequency for each StructInfo and MaxTotalFrequency.
   uint64_t MaxTFrequency = 0;
   for (auto *TI : type_info_entries()) {
@@ -5477,6 +5494,9 @@ void DTransSafetyInfo::analyzeModule(
 
   if (dtrans::DTransPrintAnalyzedCalls)
     printCallInfo();
+
+  if (DTImmutInfo && dtrans::DTransPrintImmutableAnalyzedTypes)
+    DTImmutInfo->print(dbgs());
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 }
 
@@ -6011,9 +6031,10 @@ DTransSafetyInfo DTransSafetyAnalyzer::run(Module &M,
     return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function *>(&F)));
   };
   WholeProgramInfo &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
+  DTransImmutableInfo &DTImmutInfo = AM.getResult<DTransImmutableAnalysis>(M);
 
   DTransSafetyInfo DTResult;
-  DTResult.analyzeModule(M, GetTLI, WPInfo, GetBFI);
+  DTResult.analyzeModule(M, GetTLI, WPInfo, &DTImmutInfo, GetBFI);
   return DTResult;
 }
 
@@ -6022,6 +6043,7 @@ INITIALIZE_PASS_BEGIN(DTransSafetyAnalyzerWrapper, "dtrans-safetyanalyzer",
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(DTransImmutableAnalysisWrapper)
 INITIALIZE_PASS_END(DTransSafetyAnalyzerWrapper, "dtrans-safetyanalyzer",
                     "Data transformation safety analyzer", false, true)
 
@@ -6043,7 +6065,9 @@ bool DTransSafetyAnalyzerWrapper::runOnModule(Module &M) {
   };
 
   WholeProgramInfo &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-  Result.analyzeModule(M, GetTLI, WPInfo, GetBFI);
+  DTransImmutableInfo &DTImmutInfo =
+      getAnalysis<DTransImmutableAnalysisWrapper>().getResult();
+  Result.analyzeModule(M, GetTLI, WPInfo, &DTImmutInfo, GetBFI);
   return false;
 }
 
@@ -6057,6 +6081,7 @@ void DTransSafetyAnalyzerWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addRequired<BlockFrequencyInfoWrapperPass>();
   AU.addRequired<WholeProgramWrapperPass>();
+  AU.addRequired<DTransImmutableAnalysisWrapper>();
 }
 
 ModulePass *llvm::createDTransSafetyAnalyzerTestWrapperPass() {
