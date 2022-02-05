@@ -30,7 +30,6 @@ define void @simd_loop(i32* %A, i32* %B) {
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     i32 [[VP_PRIV_OUTGOING_PRIV_FINAL:%.*]] = private-final-uc i32 [[VP_PRIV_OUTGOING]]
-; CHECK-NEXT:     store i32 [[VP_PRIV_OUTGOING_PRIV_FINAL]] i32* [[PRIVATE0:%.*]]
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
@@ -51,7 +50,7 @@ define void @simd_loop(i32* %A, i32* %B) {
 ;
 ; CHECK:  define void @simd_loop(i32* [[A0]], i32* [[B0:%.*]]) {
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[PRIVATE0]] = alloca i32, align 4
+; CHECK-NEXT:    [[PRIVATE0:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    [[PRIVATE_VEC0:%.*]] = alloca <4 x i32>, align 16
 ; CHECK-NEXT:    [[PRIVATE_VEC_BC0:%.*]] = bitcast <4 x i32>* [[PRIVATE_VEC0]] to i32*
 ; CHECK-NEXT:    [[PRIVATE_VEC_BASE_ADDR0:%.*]] = getelementptr i32, i32* [[PRIVATE_VEC_BC0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
@@ -81,7 +80,6 @@ define void @simd_loop(i32* %A, i32* %B) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB3:
 ; CHECK-NEXT:    [[EXTRACTED_PRIV0:%.*]] = extractelement <4 x i32> [[TMP2]], i64 3
-; CHECK-NEXT:    store i32 [[EXTRACTED_PRIV0]], i32* [[PRIVATE0]], align 1
 ; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:

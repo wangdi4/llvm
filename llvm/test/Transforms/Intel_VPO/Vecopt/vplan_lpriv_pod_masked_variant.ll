@@ -15,7 +15,6 @@ define i32 @main() {
 ;
 ; CHECK:          i32 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:     i32 [[VP_X_PRIV_FINAL:%.*]] = private-final-uc i32 [[VP_X]]
-; CHECK-NEXT:     store i32 [[VP_X_PRIV_FINAL]] i32* [[XP0:%.*]]
 ; CHECK-NEXT:     br [[BB5:BB[0-9]+]]
 ;
 ; CHECK:       VPlan after emitting masked variant:
@@ -38,7 +37,7 @@ define i32 @main() {
 ; CHECK-NEXT:       [DA: Uni] br [[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB10]]: # preds: [[BB9]]
-; CHECK:          [DA: Div] i32 [[VP_X_1:%.*]] = add i32 [[VP_IV_1]] i32 1
+; CHECK-NEXT:       [DA: Div] i32 [[VP_X_1:%.*]] = add i32 [[VP_IV_1]] i32 1
 ; CHECK-NEXT:       [DA: Uni] br new_latch
 ; CHECK:         new_latch:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP4:%.*]] = phi  [ i32 [[VP_X_1]], [[BB10]] ],  [ i32 live-in0, [[BB8]] ]
@@ -48,7 +47,6 @@ define i32 @main() {
 ;
 ; CHECK:          [DA: Uni] i32 [[VP7:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP8:%.*]] = private-final-masked i32 [[VP4]] i1 [[VP3]] i32 live-in0
-; CHECK-NEXT:     [DA: Uni] store i32 [[VP8]] i32* [[XP0]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB12:BB[0-9]+]]
 ; CHECK:       External Uses:
 ; CHECK-NEXT:  Id: 0     [[X_LCSSA0:.*]] = phi i32 [ [[X0:.*]], [[LATCH0:.*]] ] i32 [[VP8]] -> i32 [[X0]]
@@ -69,7 +67,6 @@ define i32 @main() {
 ;
 ; CHECK:           [[BB14]]: # preds: [[BB15]], [[BB11]]
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP15:%.*]] = phi  [ i32 [[VP10]], [[BB11]] ],  [ i32 [[VP8]], [[BB15]] ]
-; CHECK-NEXT:       [DA: Uni] store i32 [[VP15]] i32* [[XP0]]
 ; CHECK-NEXT:       [DA: Uni] br [[BB12]]
 ;
 ;========= generated code
@@ -88,8 +85,12 @@ define i32 @main() {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB18:
 ; CHECK-NEXT:    [[UNI_PHI200:%.*]] = phi i32 [ [[UNI_PHI80:%.*]], [[VPLANNEDBB170:%.*]] ], [ [[PRIV_EXTRACT0]], [[VPLANNEDBB190]] ]
-; CHECK-NEXT:    store i32 [[UNI_PHI200]], i32* [[XP0]], align 1
-;
+; CHECK:       final.merge:
+; CHECK-NEXT:    [[UNI_PHI220:%.*]] = phi i32 [ [[UNI_PHI200]], [[VPLANNEDBB210:%.*]] ], [ [[EXTRACTED_PRIV0:%.*]], [[VPLANNEDBB70:%.*]] ]
+; CHECK:         br label [[LOOPEXIT0:%.*]]
+; CHECK:       loopexit:
+; CHECK-NEXT:    [[X_LCSSA0]] = phi i32 [ [[UNI_PHI220]], [[FINAL_MERGE0:%.*]] ]
+; CHECK-NEXT:    store i32 [[X_LCSSA0]], i32* [[XP0:%.*]], align 4
 entry:
   %xp = alloca i32, align 4
   br label %preheader

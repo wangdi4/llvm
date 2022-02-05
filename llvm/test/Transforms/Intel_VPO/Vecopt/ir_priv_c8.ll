@@ -37,7 +37,6 @@ define dso_local i32 @_Z3fooPiS_(i32* %b) local_unnamed_addr #0 {
 ; CHECK-NEXT:     i32* [[VP__IND_FINAL:%.*]] = induction-final{getelementptr} i32* [[B_ADDR_LINEAR_PROMOTED0:%.*]] i64 1
 ; CHECK-NEXT:     i32 [[VP__OMP_IV_LOCAL_011_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:     i32 [[VP__PRIV_FINAL:%.*]] = private-final-uc i32 [[VP2]]
-; CHECK-NEXT:     store i32 [[VP__PRIV_FINAL]] i32* [[V_LPRIV0:%.*]]
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
