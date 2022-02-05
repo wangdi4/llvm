@@ -1047,10 +1047,10 @@ std::unordered_map<Intrinsic::ID, GenXIntrinsic::ID> GenXMath32 = {
     {Intrinsic::cos, GenXIntrinsic::genx_cos},
 
     //  Rounding functions
-    {Intrinsic::ceil, GenXIntrinsic::genx_rnde},
+    {Intrinsic::ceil, GenXIntrinsic::genx_rndu},
     {Intrinsic::floor, GenXIntrinsic::genx_rndd},
     {Intrinsic::trunc, GenXIntrinsic::genx_rndz},
-    {Intrinsic::round, GenXIntrinsic::genx_rnde},
+    {Intrinsic::round, GenXIntrinsic::not_genx_intrinsic},
 
     //  Floating-point manipulation functions
     {Intrinsic::copysign, GenXIntrinsic::not_genx_intrinsic},
@@ -1454,19 +1454,11 @@ static Value *translateLLVMInst(Instruction *Inst) {
         auto Map = GenXMath32.find(ID);
         if (Map != GenXMath32.end()) {
           GID = Map->second;
-          if (GID == GenXIntrinsic::not_genx_intrinsic) {
-            Twine Msg("unable to lower llvm math intrinsic");
-            llvm::report_fatal_error(Msg, false /*no crash diag*/);
-          }
         }
       } else if (DTy->isDoubleTy()) {
         auto Map = GenXMath32.find(ID);
         if (Map != GenXMath64.end()) {
           GID = Map->second;
-          if (GID == GenXIntrinsic::not_genx_intrinsic) {
-            Twine Msg("unable to lower llvm math intrinsic");
-            llvm::report_fatal_error(Msg, false /*no crash diag*/);
-          }
         }
       }
       // do the conversion

@@ -2711,7 +2711,7 @@ bool SOAToAOSPrepareImpl::run(void) {
   // During 2nd transform, there are changes to struct types.
   // Recreate DTInfo for the remaining transformations.
   DTInfo.reset();
-  DTInfo.analyzeModule(M, GetTLI, WPInfo, GetBFI);
+  DTInfo.analyzeModule(M, GetTLI, WPInfo, /*DTImmutInfo=*/nullptr, GetBFI);
 
   // 3rd transform: Inline CtorWrapper and DtorWrapper calls
   Candidate->simplifyCalls();

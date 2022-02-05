@@ -1,6 +1,6 @@
 //===--------------------DTransSafetyAnalyzer.h--------------------------===//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -26,6 +26,7 @@
 
 namespace llvm {
 class BlockFrequencyInfo;
+class DTransImmutableInfo;
 class Function;
 class GEPOperator;
 class Module;
@@ -95,6 +96,7 @@ public:
 
   // Collect the safety bits for the structure types
   void analyzeModule(Module &M, GetTLIFnType GetTLI, WholeProgramInfo &WPInfo,
+                     DTransImmutableInfo *DTImmutInfo,
                      function_ref<BlockFrequencyInfo &(Function &)> GetBFI);
 
   // Cleanup memory, and set object back to default state.
