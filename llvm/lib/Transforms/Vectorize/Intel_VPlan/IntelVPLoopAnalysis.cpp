@@ -1362,7 +1362,9 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
                          : VPInstruction::PrivateFinalUncond;
       auto *Final = Builder.createNaryOp(Opc, Exit->getType(), {Exit});
       Final->setName(Name + ".priv.final");
-      processFinalValue(*Private, AI, Builder, *Final, Exit->getType(), Exit);
+      VPValue* StoreMem = Private->getIsMemOnly() ? AI : nullptr;
+      processFinalValue(*Private, StoreMem, Builder, *Final, Exit->getType(),
+                        Exit);
     }
   }
   LLVM_DEBUG(
