@@ -5679,7 +5679,13 @@ def fno_sycl_device_lib_EQ : CommaJoined<["-"], "fno-sycl-device-lib=">, Group<s
   Values<"libc, libm-fp32, libm-fp64, all">, HelpText<"Control exclusion of "
   "device libraries from device binary linkage. Valid arguments "
   "are libc, libm-fp32, libm-fp64, all">;
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+def fsycl_fp32_prec_sqrt : Flag<["-"], "fsycl-fp32-prec-sqrt">, Group<sycl_Group>, Flags<[CC1Option]>,
+  HelpText<"SYCL only. Specify that single precision floating-point sqrt is correctly rounded.">,
+  MarshallingInfoFlag<CodeGenOpts<"SYCLFp32PrecSqrt">>;
+>>>>>>> 5c8b7e7f1034a2b7cb439e8d7c758e3caf5533bd
 
 //===----------------------------------------------------------------------===//
 // FLangOption + CoreOption + NoXarchOption
