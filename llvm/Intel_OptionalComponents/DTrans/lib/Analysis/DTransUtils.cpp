@@ -44,6 +44,12 @@ cl::opt<bool> dtrans::DTransPrintAnalyzedTypes("dtrans-print-types",
 cl::opt<bool> dtrans::DTransPrintAnalyzedCalls("dtrans-print-callinfo",
                                                cl::ReallyHidden);
 
+// Prints information that was stored into the DTransImmutableInfo result used
+// by HIR to get likely values that may be stored within structure fields.
+cl::opt<bool>
+    dtrans::DTransPrintImmutableAnalyzedTypes("dtrans-print-immutable-types",
+                                              cl::ReallyHidden);
+
 // Enables identification of structure fields that are loaded but never used in
 // a way that affects the program. (e.g. a field may be loaded, and not used or
 // only used to compute some other value that is not used.)

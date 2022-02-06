@@ -1,6 +1,6 @@
 //===--------------------------DTransUtils.h--------------------------------===//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -42,6 +42,7 @@ struct MemfuncRegion;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 extern cl::opt<bool> DTransPrintAnalyzedTypes;
 extern cl::opt<bool> DTransPrintAnalyzedCalls;
+extern cl::opt<bool> DTransPrintImmutableAnalyzedTypes;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 extern cl::opt<bool> DTransOutOfBoundsOK;

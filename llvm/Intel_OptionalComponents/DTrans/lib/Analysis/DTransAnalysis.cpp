@@ -82,11 +82,8 @@ using namespace llvm::PatternMatch;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool> DTransPrintAllocations("dtrans-print-allocations",
                                             cl::ReallyHidden);
-
-static cl::opt<bool>
-    DTransPrintImmutableAnalyzedTypes("dtrans-print-immutable-types",
-                                      cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 // BlockFrequencyInfo is ignored while computing field frequency info
 // if this flag is true.
 // TODO: Disable this flag by default after doing more experiments and
@@ -9669,7 +9666,7 @@ bool DTransAnalysisInfo::analyzeModule(
     dbgs().flush();
   }
 
-  if (DTransPrintImmutableAnalyzedTypes)
+  if (dtrans::DTransPrintImmutableAnalyzedTypes)
     DTImmutInfo.print(dbgs());
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
