@@ -751,7 +751,9 @@ Instruction *InstCombinerImpl::simplifyMaskedScatter(IntrinsicInst &II) {
   // isAllocSiteRemovable to find the scatter if the pointer happens to be an
   // alloca.
   Value *Ptr = II.getArgOperand(1);
-  if (!isa<Constant>(Ptr)) {
+  // With constant mask we prefer the scalar conversions from llorg.
+  Value *Mask = II.getArgOperand(3);
+  if (!isa<Constant>(Ptr) && !isa<Constant>(Mask)) {
     if (Value *V = getSplatValue(Ptr)) {
       Type *IndexTy = DL.getIndexType(V->getType());
       IndexTy = VectorType::get(
