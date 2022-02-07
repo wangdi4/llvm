@@ -2502,7 +2502,7 @@ void LinkerDriver::link(opt::InputArgList &args) {
 #if INTEL_CUSTOMIZATION
   // Process the GNU LTO files
   if (!gNULTOFiles.empty())
-    doGnuLTOLinking<ELFT>();
+    invokeELFT(doGnuLTOLinking);
 #endif // INTEL_CUSTOMIZATION
 
   // Now that we have every file, we can decide if we will need a
