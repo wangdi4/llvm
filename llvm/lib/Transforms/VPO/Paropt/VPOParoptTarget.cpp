@@ -74,6 +74,12 @@ static cl::opt<bool> SimulateGetNumThreadsInTarget(
     cl::desc("Simulate support for omp_get_num_threads in OpenMP target "
              "region. (This may have performance impact)."));
 
+static cl::opt<bool> FrugalNumThreadsSimulation(
+    "vpo-paropt-simulate-get-num-threads-frugally", cl::Hidden, cl::init(true),
+    cl::desc("Try to limit code inserted to enable the simulated support for "
+             "omp_get_num_threads in target regions, when sure that a region "
+             "cannot call omp_get_num_threads."));
+
 cl::opt<bool> llvm::vpo::UseMapperAPI(
     "vpo-paropt-use-mapper-api", cl::Hidden, cl::init(true),
     cl::desc("Emit calls to mapper specific functions in tgt RTL."));
@@ -1334,7 +1340,7 @@ void VPOParoptTransform::guardSideEffectStatements(
 bool VPOParoptTransform::callPopPushNumThreadsAtRegionBoundary(
     WRegionNode *W, bool InsideRegion) {
 
-  if (!SimulateGetNumThreadsInTarget || !moduleHasOmpGetNumThreadsFunction())
+  if (!SimulateGetNumThreadsInTarget || !mayCallOmpGetNumThreads(W))
     return false;
 
   assert(W && "WRegionNode is null.");
@@ -1357,7 +1363,7 @@ bool VPOParoptTransform::callPushPopNumThreadsAtRegionBoundary(
     WRegionNode *W, bool InsideRegion) {
   assert(W && "WRegionNode is null.");
 
-  if (!SimulateGetNumThreadsInTarget || !moduleHasOmpGetNumThreadsFunction())
+  if (!SimulateGetNumThreadsInTarget || !mayCallOmpGetNumThreads(W))
     return false;
 
   Instruction *EntryDir = W->getEntryDirective();
@@ -3806,8 +3812,184 @@ bool VPOParoptTransform::deviceTriplesHasSPIRV() {
   return false;
 }
 
-bool VPOParoptTransform::moduleHasOmpGetNumThreadsFunction() {
+Function *VPOParoptTransform::getOmpGetNumThreadsFunctionIfPresent() {
   return F->getParent()->getFunction("omp_get_num_threads");
+}
+
+void VPOParoptTransform::collectOmpNumThreadsCallerInfo() {
+  Function *OmpGetNumThreadsFunction = getOmpGetNumThreadsFunctionIfPresent();
+  if (!OmpGetNumThreadsFunction)
+    return;
+
+  if (NumThreadsCallerInfo.Computed)
+    return;
+
+  NumThreadsCallerInfo.Computed = true;
+
+  SmallSetVector<Function *, 16> ToProcess;
+  SmallPtrSet<Function *, 16> Processed;
+
+  ToProcess.insert(OmpGetNumThreadsFunction);
+
+  while (!ToProcess.empty()) {
+    Function *Current = ToProcess.pop_back_val();
+
+    // We first need to drop dead constant users of the function to avoid
+    // false positives when checking whether it's address-taken.
+    Current->removeDeadConstantUsers();
+
+    // If any of the candidate function is address-taken, it may not be
+    // reasonable to analyze which functions call it. So we can save this
+    // information, and skip further analysis.
+    const User *AddrTakenBy = nullptr;
+    if (Current->hasAddressTaken(&AddrTakenBy)) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Function ";
+                 Current->printAsOperand(dbgs(), false);
+                 dbgs() << " is address-taken");
+      if (AddrTakenBy)
+        LLVM_DEBUG(dbgs() << " by: '" << *AddrTakenBy);
+      LLVM_DEBUG(dbgs() << "'.\n");
+
+      // No need to compute further.
+      NumThreadsCallerInfo.AddressTaken = true;
+      return;
+    }
+
+    Processed.insert(Current);
+
+    for (const Use &CU : Current->uses()) {
+      User *CUU = CU.getUser();
+
+      auto *Call = dyn_cast<CallBase>(CUU);
+      if (!Call)
+        continue;
+
+      Function *Caller = Call->getFunction();
+      if (Processed.count(Caller) != 0 || ToProcess.count(Caller) != 0)
+        continue;
+
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": ";
+                 Caller->printAsOperand(dbgs(), false);
+                 dbgs() << " may call omp_get_num_threads.\n");
+
+      ToProcess.insert(Caller);
+      NumThreadsCallerInfo.PotentialCallers.insert(Caller);
+    }
+  }
+}
+
+bool VPOParoptTransform::mayCallOmpGetNumThreads(WRegionNode *W) {
+
+  auto logAndReturn = [&](bool Flag) {
+    LLVM_DEBUG(dbgs() << "mayCallOmpGetNumThreads: Region #" << W->getNumber()
+                      << " (" << W->getName()
+                      << ") may call omp_get_num_threads: "
+                      << (Flag ? "Yes" : "No") << ".\n");
+    return Flag;
+  };
+
+  Function *OmpGetNumThreadsFunction = getOmpGetNumThreadsFunctionIfPresent();
+  if (!OmpGetNumThreadsFunction)
+    return logAndReturn(false);
+
+  if (!FrugalNumThreadsSimulation)
+    return logAndReturn(true);
+
+  // First we collect the potential callers of omp_get_num_threads. This
+  // shouldn't take much compile time since we just walk the list of its users.
+  collectOmpNumThreadsCallerInfo();
+
+  // Next, we walk through the region to check if can call either
+  // omp_get_num_threads, or one of its callers.
+
+  W->populateBBSet();
+
+  SmallPtrSet<Function *, 8> FunctionsCalledFromRegion;
+
+  for (auto *BB : make_range(W->bbset_begin() + 1, W->bbset_end() - 1)) {
+    for (Instruction &I : *BB) {
+      auto *CB = dyn_cast<CallBase>(&I);
+      if (!CB)
+        continue;
+
+      auto *CI = dyn_cast<CallInst>(CB);
+      if (!CI) {
+        LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Cannot analyze the call '"
+                          << *CB << "'.\n");
+        return logAndReturn(true);
+      }
+
+      if (isa<IntrinsicInst>(CI))
+        continue; // Ignore calls to llvm intrinsics.
+
+      auto *CalledF =
+          dyn_cast<Function>(CI->getCalledOperand()->stripPointerCasts());
+      if (!CalledF) {
+        LLVM_DEBUG(dbgs() << __FUNCTION__
+                          << ": Cannot get the called function for '" << *CI
+                          << "'.\n");
+        return logAndReturn(true);
+      }
+
+      if (FunctionsCalledFromRegion.count(CalledF))
+        continue; // Already seen.
+
+      FunctionsCalledFromRegion.insert(CalledF);
+
+      LibFunc LF;
+      if (TLI->getLibFunc(*CalledF, LF)) {
+        if (LF == LibFunc_omp_get_num_threads) {
+          LLVM_DEBUG(dbgs()
+                     << __FUNCTION__
+                     << ": The region calls omp_get_num_threads directly.\n");
+          return logAndReturn(true);
+        }
+        LLVM_DEBUG(dbgs() << __FUNCTION__
+                          << ": Ignoring the call to library function '"
+                          << CalledF->getName() << "' from the region.\n");
+        continue; // Ignore library function calls other than
+                  // omp_get_num_threads itself. TODO: Check if some other kmpc
+                  // library function calls omp_get_num_thread internally.
+      }
+
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": The region calls ";
+                 CalledF->printAsOperand(dbgs(), false); dbgs() << ".\n");
+
+      if (!CalledF->hasExactDefinition()) {
+        // If we cannot see the definition of a function, we assume that it may
+        // call omp_get_num_threads. If this is not sufficient, this kind of
+        // optimization would probably need to happen in the openmpopt pass
+        // (which is in the inliner's pipeline).
+        LLVM_DEBUG(dbgs() << __FUNCTION__ << ": ";
+                   CalledF->printAsOperand(dbgs(), false);
+                   dbgs() << " does not have an exact definition. It may call "
+                             "omp_get_num_threads.\n");
+        return logAndReturn(true);
+      }
+
+      if (NumThreadsCallerInfo.AddressTaken) {
+        LLVM_DEBUG(dbgs() << __FUNCTION__
+                          << ": omp_get_num_threads or one of its callers is "
+                             "address-taken. ";
+                   CalledF->printAsOperand(dbgs(), false);
+                   dbgs() << " might be calling it.\n");
+        return logAndReturn(true);
+      }
+
+      if (NumThreadsCallerInfo.PotentialCallers.count(CalledF) != 0) {
+        LLVM_DEBUG(dbgs() << __FUNCTION__ << ": ";
+                   CalledF->printAsOperand(dbgs(), false);
+                   dbgs() << " may call omp_get_num_threads.\n");
+        return logAndReturn(true);
+      }
+    }
+  }
+
+  LLVM_DEBUG(
+      dbgs() << __FUNCTION__
+             << ": Didn't find any potential caller of omp_get_num_threads "
+                "in the region.\n");
+  return logAndReturn(false);
 }
 
 bool VPOParoptTransform::isFunctionOpenMPTargetDeclare() {

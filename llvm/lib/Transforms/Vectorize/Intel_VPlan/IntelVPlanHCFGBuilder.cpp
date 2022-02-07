@@ -465,6 +465,7 @@ class PrivatesListCvt : public VPEntityConverterBase {
   // when required (e.g., escape analysis).
   void collectMemoryAliases(PrivateDescr &Descriptor, Value *Alloca) {
     SetVector<Value *> WorkList;
+    SmallPtrSet<const User *, 4> Visited;
 
     // Start with the Alloca Inst.
     WorkList.insert(Alloca);
@@ -473,8 +474,9 @@ class PrivatesListCvt : public VPEntityConverterBase {
       Value *Head = WorkList.back();
       WorkList.pop_back();
       for (auto *Use : Head->users()) {
-        if (isa<IntrinsicInst>(Use) &&
-            VPOAnalysisUtils::isOpenMPDirective(cast<IntrinsicInst>(Use)))
+        if (Visited.contains(Use) ||
+            (isa<IntrinsicInst>(Use) &&
+              VPOAnalysisUtils::isOpenMPDirective(cast<IntrinsicInst>(Use))))
           continue;
 
         // Check that the use of this alias is within the loop-region and it is
@@ -483,6 +485,7 @@ class PrivatesListCvt : public VPEntityConverterBase {
         // with finding if the pointer here is based on another pointer.
         // LLVM Aliasing instructions -
         // https://llvm.org/docs/LangRef.html#pointer-aliasing-rules
+        Visited.insert(Use);
         Instruction *Inst = cast<Instruction>(Use);
 
         if ((isTrivialPointerAliasingInst(Inst) ||
