@@ -48,6 +48,6 @@ int main()
 
 //Check-HOST: define dso_local noundef i32 @main() #0 {
 
-//Check-TARG: define hidden noundef i32 @main() #0 {
+//Check-TARG: define dso_local noundef i32 @main() #0 {
 
 
