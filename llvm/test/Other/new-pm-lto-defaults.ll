@@ -27,6 +27,7 @@
 
 ; CHECK-O: Running pass: Annotation2Metadata
 ; CHECK-O-NEXT: Running pass: CrossDSOCFIPass
+<<<<<<< HEAD
 ; CHECK-O-NEXT: Running pass: InlineReportSetupPass ;INTEL
 ; CHECK-O-NEXT: Running pass: XmainOptLevelAnalysisInit ;INTEL
 ; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis ;INTEL
@@ -36,6 +37,9 @@
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Function
 ; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-O-NEXT: Running pass: OpenMPOptPass
+>>>>>>> 9d3a47576c1c122891fe88ac13d8a3a131544c34
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
 ; INTEL_CUSTOMIZATION
 ; CHECK-O: Running pass: ForceFunctionAttrsPass
@@ -180,9 +184,14 @@
 ; CHECK-O23SZ-NEXT: Running pass: RequireAnalysisPass<{{.*}}GlobalsAA
 ; CHECK-O23SZ-NEXT: Running analysis: GlobalsAA on [module]
 ; CHECK-O23SZ-NEXT: Running pass: InvalidateAnalysisPass<{{.*}}AAManager
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: IntelIPODeadArgEliminationPass on [module]
 ; END INTEL_CUSTOMIZATION
+=======
+; CHECK-O23SZ-NEXT: Invalidating analysis: AAManager on foo
+; CHECK-O23SZ-NEXT: Running pass: OpenMPOptCGSCCPass on (foo)
+>>>>>>> 9d3a47576c1c122891fe88ac13d8a3a131544c34
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass on foo
 ; INTEL_CUSTOMIZATION
 ; LoopAnalysis will earlier with the IntelLoopAttrsPass
