@@ -1840,9 +1840,7 @@ void clang::EmbedBitcode(llvm::Module *M, const CodeGenOptions &CGOpts,
       CGOpts.getEmbedBitcode() != CodeGenOptions::Embed_Bitcode,
       CGOpts.CmdArgs);
 }
-<<<<<<< HEAD
 #endif // !INTEL_PRODUCT_RELEASE
-=======
 
 void clang::EmbedObject(llvm::Module *M, const CodeGenOptions &CGOpts,
                         DiagnosticsEngine &Diags) {
@@ -1871,4 +1869,3 @@ void clang::EmbedObject(llvm::Module *M, const CodeGenOptions &CGOpts,
     llvm::EmbedBufferInModule(*M, **ObjectOrErr, SectionName);
   }
 }
->>>>>>> 551b1774524428aae5692ed3d41f969288ecd5a2

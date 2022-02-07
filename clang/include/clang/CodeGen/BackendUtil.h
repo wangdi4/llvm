@@ -45,13 +45,10 @@ namespace clang {
 #if !INTEL_PRODUCT_RELEASE
   void EmbedBitcode(llvm::Module *M, const CodeGenOptions &CGOpts,
                     llvm::MemoryBufferRef Buf);
-<<<<<<< HEAD
 #endif // !INTEL_PRODUCT_RELEASE
-=======
 
   void EmbedObject(llvm::Module *M, const CodeGenOptions &CGOpts,
                    DiagnosticsEngine &Diags);
->>>>>>> 551b1774524428aae5692ed3d41f969288ecd5a2
 }
 
 #endif

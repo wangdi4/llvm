@@ -5045,9 +5045,7 @@ void llvm::EmbedBitcodeInModule(llvm::Module &M, llvm::MemoryBufferRef Buf,
       llvm::ConstantArray::get(ATy, UsedArray), "llvm.compiler.used");
   NewUsed->setSection("llvm.metadata");
 }
-<<<<<<< HEAD
 #endif // INTEL_PRODUCT_RELEASE
-=======
 
 void llvm::EmbedBufferInModule(llvm::Module &M, llvm::MemoryBufferRef Buf,
                                StringRef SectionName) {
@@ -5064,4 +5062,3 @@ void llvm::EmbedBufferInModule(llvm::Module &M, llvm::MemoryBufferRef Buf,
 
   appendToCompilerUsed(M, GV);
 }
->>>>>>> 551b1774524428aae5692ed3d41f969288ecd5a2
