@@ -2961,6 +2961,10 @@ bool RAGreedy::runOnMachineFunction(MachineFunction &mf) {
 
   RegCosts = TRI->getRegisterCosts(*MF);
 
+  ExtraInfo.emplace();
+  EvictAdvisor =
+      getAnalysis<RegAllocEvictionAdvisorAnalysis>().getAdvisor(*MF, *this);
+
   VRAI = std::make_unique<VirtRegAuxInfo>(*MF, *LIS, *VRM, *Loops, *MBFI);
   SpillerInstance.reset(createInlineSpiller(*this, *MF, *VRM, *VRAI));
 
@@ -2970,9 +2974,7 @@ bool RAGreedy::runOnMachineFunction(MachineFunction &mf) {
 
   SA.reset(new SplitAnalysis(*VRM, *LIS, *Loops));
   SE.reset(new SplitEditor(*SA, *AA, *LIS, *VRM, *DomTree, *MBFI, *VRAI));
-  ExtraInfo.emplace();
-  EvictAdvisor =
-      getAnalysis<RegAllocEvictionAdvisorAnalysis>().getAdvisor(*MF, *this);
+
   IntfCache.init(MF, Matrix->getLiveUnions(), Indexes, LIS, TRI);
   GlobalCand.resize(32);  // This will grow as needed.
   SetOfBrokenHints.clear();
