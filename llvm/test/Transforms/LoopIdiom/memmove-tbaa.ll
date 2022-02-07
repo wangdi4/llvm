@@ -34,7 +34,10 @@ define void @looperBadMerge(double* nocapture %out) {
 ; CHECK-NEXT:    [[OUT1:%.*]] = bitcast double* [[OUT:%.*]] to i8*
 ; CHECK-NEXT:    [[M:%.*]] = getelementptr double, double* %out, i32 16
 ; CHECK-NEXT:    [[M2:%.*]] = bitcast double* [[M]] to i8*
-; CHECK-NEXT:    call void @llvm.memmove.p0i8.p0i8.i64(i8* align 8 [[OUT1]], i8* align 8 [[M2]], i64 256, i1 false), !tbaa [[TBAAF:![0-9]+]]
+; INTEL_CUSTOMIZATION
+; could be lowered to either memmove or memcpy
+; CHECK-NEXT:    call void @llvm.mem{{.*}}.p0i8.p0i8.i64(i8* align 8 [[OUT1]], i8* align 8 [[M2]], i64 256, i1 false), !tbaa [[TBAAF:![0-9]+]]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[FOR_BODY4:%.*]]
 ;
 entry:
