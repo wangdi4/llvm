@@ -44,11 +44,7 @@ public:
 // CK0-DAG: [[ISARRAY:%.+]] = icmp sgt i64 [[SIZE]], 1
 // CK0-DAG: [[PTRBEGIN:%.+]] = bitcast i8* [[BEGIN]] to %class.C*
 // CK0-DAG: [[PTREND:%.+]] = getelementptr %class.C, %class.C* [[PTRBEGIN]], i64 [[SIZE]]
-// CK0-DAG: [[BPTRI:%.+]] = ptrtoint i8* [[BPTR]] to i64
-// CK0-DAG: [[PTRI:%.+]] = ptrtoint i8* [[BEGIN]] to i64
-// CK0-DAG: [[DIF:%.+]] = sub i64 [[BPTRI]], [[PTRI]]
-// CK0-DAG: [[NORM:%.+]] = sdiv exact i64 [[DIF]], ptrtoint (i8* getelementptr (i8, i8* null, i32 1) to i64)
-// CK0-DAG: [[PTRSNE:%.+]] = icmp ne i64 [[NORM]], 0
+// CK0-DAG: [[PTRSNE:%.+]] = icmp ne i8* [[BPTR]], [[BEGIN]]
 // CK0-DAG: [[CMP:%.+]] = or i1 [[ISARRAY]], [[PTRSNE]]
 // CK0-DAG: [[TYPEDEL:%.+]] = and i64 [[TYPE]], 8
 // CK0-DAG: [[ISNOTDEL:%.+]] = icmp eq i64 [[TYPEDEL]], 0
