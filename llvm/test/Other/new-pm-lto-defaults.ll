@@ -36,6 +36,7 @@
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Function
 ; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
 ; end INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running pass: OpenMPOptPass
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
 ; INTEL_CUSTOMIZATION
 ; CHECK-O: Running pass: ForceFunctionAttrsPass
@@ -183,6 +184,8 @@
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: IntelIPODeadArgEliminationPass on [module]
 ; END INTEL_CUSTOMIZATION
+; CHECK-O23SZ-NEXT: Invalidating analysis: AAManager on foo
+; CHECK-O23SZ-NEXT: Running pass: OpenMPOptCGSCCPass on (foo)
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass on foo
 ; INTEL_CUSTOMIZATION
 ; LoopAnalysis will earlier with the IntelLoopAttrsPass
