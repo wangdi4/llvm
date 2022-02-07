@@ -6290,7 +6290,10 @@ public:
 
   void unbundleStaticArchives(Compilation &C, DerivedArgList &Args,
                               DeviceActionBuilder::PhasesTy &PL) {
-    if (!Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false))
+#if INTEL_CUSTOMIZATION
+    if (!Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false) &&
+        !Args.hasArg(options::OPT_fopenmp_targets_EQ))
+#endif // INTEL_CUSTOMIZATION
       return;
 
     // Go through all of the args, and create a Linker specific argument list.

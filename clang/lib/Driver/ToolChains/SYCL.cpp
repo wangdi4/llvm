@@ -265,11 +265,7 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
 #if INTEL_CUSTOMIZATION
       if (isOMPDeviceLib(II)) {
         OMPObjs.push_back(II.getFilename());
-      } else if (II.getType() == types::TY_Tempfilelist ||
-                 (getToolChain().getTriple().isSPIR() &&
-                  II.getType() == types::TY_Archive)) {
-        // Archives are expected to be unbundled as 'aoo' which means it is
-        // a list of files, so treat them accordingly for llvm-link acceptance
+      } else if (II.getType() == types::TY_Tempfilelist) {
 #endif // INTEL_CUSTOMIZATION
         // Pass the unbundled list with '@' to be processed.
         std::string FileName(II.getFilename());
