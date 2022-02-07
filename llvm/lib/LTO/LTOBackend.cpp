@@ -396,14 +396,9 @@ static void codegen(const Config &Conf, TargetMachine *TM,
   if (Conf.PreCodeGenModuleHook && !Conf.PreCodeGenModuleHook(Task, Mod))
     return;
 
-<<<<<<< HEAD
 #if !INTEL_PRODUCT_RELEASE
   if (::EmbedBitcode == LTOBitcodeEmbedding::EmbedOptimized) // INTEL
-    llvm::EmbedBitcodeInModule(Mod, llvm::MemoryBufferRef(),
-=======
-  if (EmbedBitcode == LTOBitcodeEmbedding::EmbedOptimized)
     llvm::embedBitcodeInModule(Mod, llvm::MemoryBufferRef(),
->>>>>>> 7aaf024dac719d6cc73e15074ec8c9ad804229ad
                                /*EmbedBitcode*/ true,
                                /*EmbedCmdline*/ false,
                                /*CmdArgs*/ std::vector<uint8_t>());
