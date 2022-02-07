@@ -765,7 +765,7 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
     addArg(CSB.getString());
     addTypedArg(E);
     auto *LD = cast<OMPLoopDirective>(&Directive);
-    addArg(CGF.EmitScalarExpr(LD->getLateOutlineLinearCounterStep()));
+    addArg(emitSpecialSIMDExpression(LD->getLateOutlineLinearCounterStep()));
     // Plain SIMD doesn't use the private/lastprivate clause but the
     // implicit clause kind is used to determine if the increment is emitted.
     if (CurrentDirectiveKind == OMPD_simd)
@@ -2735,9 +2735,14 @@ OpenMPLateOutliner::~OpenMPLateOutliner() {
   setInsertPoint();
 
   for (auto &D : Directives) {
+    llvm::CallInst *MarkerCall = D.CallEntry;
+    CGF.Builder.SetInsertPoint(MarkerCall);
     D.CallEntry = CGF.Builder.CreateCall(RegionEntryDirective, {}, D.OpBundles);
+    if (MarkerCall != MarkerInstruction)
+      MarkerCall->eraseFromParent();
     D.clear();
     // Place the end directive in place of the start.
+    setInsertPoint();
     emitDirective(D, D.End);
   }
 

@@ -545,7 +545,27 @@ public:
     // Create a marker call at the start of the region.  The values generated
     // from clauses must be inserted before this point.
     ApplyDebugLocation DL (CGF, Directive.getBeginLoc());
-    MarkerInstruction = CGF.Builder.CreateCall(RegionEntryDirective, {});
+    // Create a marker for each directive.
+    for (auto &D : Directives)
+      D.CallEntry = CGF.Builder.CreateCall(RegionEntryDirective, {});
+    // If there are directives use the first directive as the main marker
+    // for clauses.
+    MarkerInstruction = Directives.empty()
+                            ? CGF.Builder.CreateCall(RegionEntryDirective, {})
+                            : Directives[0].CallEntry;
+  }
+  llvm::Value *emitSpecialSIMDExpression(const Expr* E) {
+    if (Directives.empty() ||
+        Directives[Directives.size() - 1].DKind != llvm::omp::OMPD_simd)
+      return CGF.EmitScalarExpr(E);
+
+    // Emit an expression just above the SIMD directive.
+    CGBuilderTy::InsertPoint SavedIP = CGF.Builder.saveIP();
+    const DirectiveIntrinsicSet &D = Directives[Directives.size() - 1];
+    CGF.Builder.SetInsertPoint(D.CallEntry);
+    llvm::Value *V = CGF.EmitScalarExpr(E);
+    CGF.Builder.restoreIP(SavedIP);
+    return V;
   }
   static bool isFirstDirectiveInSet(const OMPExecutableDirective &S,
                                     OpenMPDirectiveKind Kind);
