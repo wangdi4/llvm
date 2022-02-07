@@ -292,7 +292,7 @@ public:
   static bool isThisArgIsDead(const DTransAnalysisInfo &DTInfo,
                               const TargetLibraryInfo &TLI,
                               const CallBase *Call) {
-    auto *F = Call->getCalledFunction();
+    auto *F = getCalledFunction(*Call);
 
     // Simple wrappers only.
     if (!F || !F->hasOneUse())
@@ -375,7 +375,7 @@ public:
       for (auto &U : User->uses())
         if (const auto *Call = dyn_cast<CallBase>(U.getUser())) {
           // Direct call.
-          if (auto *F = Call->getCalledFunction())
+          if (auto *F = getCalledFunction(*Call))
             if (getStructTypeOfMethod(*F) == ArrType) {
               if (SingleMethod)
                 return std::make_pair(FreeUseSeen, nullptr);
@@ -482,7 +482,7 @@ private:
         if (isCastUse(U)) {
           continue;
         } else if (const CallBase *Call = dyn_cast<CallBase>(U.getUser())) {
-          if (auto *F = Call->getCalledFunction()) {
+          if (auto *F = getCalledFunction(*Call)) {
             // CFG restriction, use can be only for 'this' argument.
             //
             // Safety check of CFG based on the 'this' argument.
@@ -563,7 +563,7 @@ private:
           continue;
         } else if (const CallBase *Call = dyn_cast<CallBase>(U.getUser())) {
           // Use of stored value in ctor is checked in CallSiteComparator.
-          if (auto *F = Call->getCalledFunction())
+          if (auto *F = getCalledFunction(*Call))
             if (ArrType == getStructTypeOfMethod(*F)) {
               // Store should be associated with single method, i.e. with ctor.
               // Called value is checked in CallSiteComparator.
@@ -1181,7 +1181,7 @@ private:
           dyn_cast_or_null<CallBase>(UnR->getPrevNonDebugInstruction());
       if (!CallT)
         return false;
-      Function *F = dtrans::getCalledFunction(cast<CallBase>(*CallT));
+      Function *F = getCalledFunction(cast<CallBase>(*CallT));
       LibFunc LibF;
       if (!F || !TLI.getLibFunc(*F, LibF) || !TLI.has(LibF))
         return false;
@@ -2122,7 +2122,7 @@ public:
             DTInfo, TLI, SI->getValueOperand(), getArrayType(I));
         if (!MethodCall)
           return false;
-        auto *FCalled = MethodCall->getCalledFunction();
+        auto *FCalled = getCalledFunction(*MethodCall);
         // Not ctor call, hence cannot merge.
         if (std::find_if(CSInfo.Ctors.begin(), CSInfo.Ctors.end(),
                          [FCalled](const Function *FCtor) -> bool {
@@ -2143,7 +2143,7 @@ public:
         if (IsUsed.first) {
           assert(IsUsed.second && "StructureMethodAnalysis was not run");
           const CallBase *Call = IsUsed.second;
-          auto FCalled = Call->getCalledFunction();
+          auto FCalled = getCalledFunction(*Call);
           if (std::find_if(CSInfo.Dtors.begin(), CSInfo.Dtors.end(),
                            [FCalled](const Function *FDtor) -> bool {
                              return FCalled == FDtor;
@@ -2158,7 +2158,7 @@ public:
           return false;
         MI = MS;
       } else if (const CallBase *Call = dyn_cast<CallBase>(I)) {
-        auto *FCalled = Call->getCalledFunction();
+        auto *FCalled = getCalledFunction(*Call);
         if (!FCalled)
           return false;
         auto *StrType = getStructTypeOfMethod(*FCalled);
@@ -2290,24 +2290,24 @@ public:
         continue;
       if (auto *Call = dyn_cast<CallBase>(NewI)) {
         const auto *OldCall = dyn_cast<CallBase>(I);
-        auto *FCalled = OldCall->getCalledFunction();
+        auto *FCalled = getCalledFunction(*OldCall);
         assert(FCalled && "Expected direct call");
         // 'this' argument has the same type as pointer to arrays in S.StrType.
         bool ToRemove = getStructTypeOfMethod(*FCalled) !=
                         getSOAArrayType(OldStruct, AOSOff);
 
         if (std::find(CSInfo.Appends.begin(), CSInfo.Appends.end(),
-                      OldCall->getCalledFunction()) != CSInfo.Appends.end())
+                      getCalledFunction(*OldCall)) != CSInfo.Appends.end())
           // See compareAllAppendCallSites, appends should be in a single
           // BasicBlock and CallInst.
           OldAppends.push_back(cast<CallInst>(I));
         else if (ToRemove)
           if (std::find(CSInfo.Ctors.begin(), CSInfo.Ctors.end(),
-                        OldCall->getCalledFunction()) != CSInfo.Ctors.end() ||
+                        getCalledFunction(*OldCall)) != CSInfo.Ctors.end() ||
               std::find(CSInfo.CCtors.begin(), CSInfo.CCtors.end(),
-                        OldCall->getCalledFunction()) != CSInfo.CCtors.end() ||
+                        getCalledFunction(*OldCall)) != CSInfo.CCtors.end() ||
               std::find(CSInfo.Dtors.begin(), CSInfo.Dtors.end(),
-                        OldCall->getCalledFunction()) != CSInfo.Dtors.end())
+                        getCalledFunction(*OldCall)) != CSInfo.Dtors.end())
             removeCtorDtor(Call);
       }
     }
@@ -2390,7 +2390,7 @@ private:
     SmallVector<const CallInst *, MaxNumFieldCandidates> SortedAppends(
         Arrays.size(), nullptr);
     for (auto *CI : OldAppends) {
-      auto *ArrayTy = getStructTypeOfMethod(*CI->getCalledFunction());
+      auto *ArrayTy = getStructTypeOfMethod(*getCalledFunction(*CI));
 
       auto It = std::find(Arrays.begin(), Arrays.end(), ArrayTy);
       assert(It != Arrays.end() && "Incorrect append method");
@@ -2399,7 +2399,7 @@ private:
 
     auto *NewAppend = cast<CallInst>((Value *)VMap[SortedAppends[0]]);
     auto *OldFunctionTy = SortedAppends[0]->getFunctionType();
-    auto *FCalled = SortedAppends[0]->getCalledFunction();
+    auto *FCalled = getCalledFunction(*SortedAppends[0]);
     assert(FCalled && "Expected direct call");
     auto *ArrType = getStructTypeOfMethod(*FCalled);
     assert(ArrType && "Expected class type for array method");
@@ -2431,7 +2431,7 @@ private:
     IRBuilder<> Builder(Context);
     // Insert at the end of BasicBlock.
     Builder.SetInsertPoint(NewAppend->getParent()->getTerminator());
-    auto *NewF = NewAppend->getCalledFunction();
+    auto *NewF = getCalledFunction(*NewAppend);
     assert(NewF && "Expected direct call");
     Builder.CreateCall(NewF->getFunctionType(), NewF, NewArgs);
 
