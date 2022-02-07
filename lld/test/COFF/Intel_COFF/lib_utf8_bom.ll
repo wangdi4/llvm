@@ -2,12 +2,9 @@
 # encoded in UTF-8 byte order mark (BOM). The input file contains Japanese
 # characters to enforce the use of UTF.
 
-# Check that the file is encoded in UTF-8 BOM by doing a grep for the
-# sequence '\xef\xbb\xbf' in the input definition file. It should
-# print the first line of the input file:
-
-# RUN: grep -P '\xef\xbb\xbf' %S/Inputs/utf-8-bom.def | FileCheck %s --check-prefix=CHECK-UTF-8
-CHECK-UTF-8: Input file for lib_utf8_bom.ll. This file is encoded in UTF-8 BOM
+# Check that the file is encoded in UTF-8 BOM:
+# RUN: python %S/Inputs/utf-encoding-check.py %S/Inputs/utf-8-bom.def utf-8-sig | FileCheck %s --check-prefix=CHECK-UTF-8
+CHECK-UTF-8: Pass
 
 # Create the library
 
