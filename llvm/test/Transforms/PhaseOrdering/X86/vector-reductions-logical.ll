@@ -94,7 +94,6 @@ return:
 define float @test_merge_anyof_v4sf(<4 x float> %t) {
 ; CHECK-LABEL: @test_merge_anyof_v4sf(
 ; CHECK-NEXT:  entry:
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[VECEXT:%.*]] = extractelement <4 x float> [[T:%.*]], i64 0
 ; CHECK-NEXT:    [[CMP:%.*]] = fcmp olt float [[VECEXT]], 0.000000e+00
 ; CHECK-NEXT:    br i1 [[CMP]], label [[RETURN:%.*]], label [[LOR_LHS_FALSE:%.*]]
@@ -122,26 +121,6 @@ define float @test_merge_anyof_v4sf(<4 x float> %t) {
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       return:
 ; CHECK-NEXT:    [[RETVAL_0:%.*]] = phi float [ [[TMP1]], [[LOR_LHS_FALSE11]] ], [ 0.000000e+00, [[LOR_LHS_FALSE6]] ], [ 0.000000e+00, [[LOR_LHS_FALSE]] ], [ 0.000000e+00, [[ENTRY:%.*]] ]
-=======
-; CHECK-NEXT:    [[TMP0:%.*]] = extractelement <4 x float> [[T:%.*]], i64 3
-; CHECK-NEXT:    [[TMP1:%.*]] = extractelement <4 x float> [[T]], i64 2
-; CHECK-NEXT:    [[TMP2:%.*]] = extractelement <4 x float> [[T]], i64 1
-; CHECK-NEXT:    [[TMP3:%.*]] = extractelement <4 x float> [[T]], i64 0
-; CHECK-NEXT:    [[T_FR:%.*]] = freeze <4 x float> [[T]]
-; CHECK-NEXT:    [[TMP4:%.*]] = fcmp olt <4 x float> [[T_FR]], zeroinitializer
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <4 x i1> [[TMP4]] to i4
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp ne i4 [[TMP5]], 0
-; CHECK-NEXT:    [[CMP19:%.*]] = fcmp ogt float [[TMP3]], 1.000000e+00
-; CHECK-NEXT:    [[OR_COND3:%.*]] = select i1 [[TMP6]], i1 true, i1 [[CMP19]]
-; CHECK-NEXT:    [[CMP24:%.*]] = fcmp ogt float [[TMP2]], 1.000000e+00
-; CHECK-NEXT:    [[OR_COND4:%.*]] = select i1 [[OR_COND3]], i1 true, i1 [[CMP24]]
-; CHECK-NEXT:    [[CMP29:%.*]] = fcmp ogt float [[TMP1]], 1.000000e+00
-; CHECK-NEXT:    [[OR_COND5:%.*]] = select i1 [[OR_COND4]], i1 true, i1 [[CMP29]]
-; CHECK-NEXT:    [[CMP34:%.*]] = fcmp ogt float [[TMP0]], 1.000000e+00
-; CHECK-NEXT:    [[OR_COND6:%.*]] = select i1 [[OR_COND5]], i1 true, i1 [[CMP34]]
-; CHECK-NEXT:    [[ADD:%.*]] = fadd float [[TMP3]], [[TMP2]]
-; CHECK-NEXT:    [[RETVAL_0:%.*]] = select i1 [[OR_COND6]], float 0.000000e+00, float [[ADD]]
->>>>>>> 5281f0dab2398fdbc60fc7131f8ad2438600e7ae
 ; CHECK-NEXT:    ret float [[RETVAL_0]]
 ;
 entry:
@@ -486,13 +465,8 @@ define float @test_merge_anyof_v4si(<4 x i32> %t) {
 ; CHECK-NEXT:    [[TMP8:%.*]] = add nsw <4 x i32> [[SHIFT]], [[T_FR]]
 ; CHECK-NEXT:    [[ADD:%.*]] = extractelement <4 x i32> [[TMP8]], i64 0
 ; CHECK-NEXT:    [[CONV:%.*]] = sitofp i32 [[ADD]] to float
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[TMP9:%.*]] = select i1 [[OR_COND6]], float 0.000000e+00, float [[CONV]]
 ; CHECK-NEXT:    ret float [[TMP9]]
-=======
-; CHECK-NEXT:    [[RETVAL_0:%.*]] = select i1 [[OR_COND6]], float 0.000000e+00, float [[CONV]]
-; CHECK-NEXT:    ret float [[RETVAL_0]]
->>>>>>> 5281f0dab2398fdbc60fc7131f8ad2438600e7ae
 ;
 entry:
   %vecext = extractelement <4 x i32> %t, i32 0
