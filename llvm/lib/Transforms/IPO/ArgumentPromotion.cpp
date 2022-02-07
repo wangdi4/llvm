@@ -556,13 +556,8 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
       if (LoadInst *LI = dyn_cast<LoadInst>(Arg.user_back())) {
         assert(ArgIndices.begin()->second.empty() &&
                "Load element should sort to front!");
-<<<<<<< HEAD
-        I2->setName(I->getName() + ".val");
-        LI->replaceAllUsesWith(MaybeCastFrom(&*I2, LI)); // INTEL
-=======
         I2->setName(Arg.getName() + ".val");
-        LI->replaceAllUsesWith(&*I2);
->>>>>>> 79179a378bb65e8bd2ae4fd3bf078228621ea0d2
+        LI->replaceAllUsesWith(MaybeCastFrom(&*I2, LI)); // INTEL
         LI->eraseFromParent();
         LLVM_DEBUG(dbgs() << "*** Promoted load of argument '" << Arg.getName()
                           << "' in function '" << F->getName() << "'\n");
