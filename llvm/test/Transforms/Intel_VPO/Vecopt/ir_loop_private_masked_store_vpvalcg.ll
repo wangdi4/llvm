@@ -37,7 +37,6 @@ define void @foo(i64* nocapture %ip, i64* nocapture readonly %ip2) {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1:%.*]] ], [ [[TMP8:%.*]], [[VPLANNEDBB5:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB1]] ], [ [[TMP7:%.*]], [[VPLANNEDBB5]] ]
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 32, i8* nonnull [[TMP1]])
 ; CHECK-NEXT:    store <4 x i64> [[VEC_PHI]], <4 x i64>* [[VAL_VEC]], align 8
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i64, i64* [[IP:%.*]], i64 [[UNI_PHI]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i64* [[SCALAR_GEP]] to <4 x i64>*

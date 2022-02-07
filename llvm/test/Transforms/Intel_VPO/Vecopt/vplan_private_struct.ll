@@ -48,18 +48,12 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i8 addrspace(4)* [[SCALAR_GEP30]] to i32 addrspace(4)*
 ; CHECK-NEXT:    [[TMP6:%.*]] = load i32, i32 addrspace(4)* [[TMP5]], align 8
 ; CHECK-NEXT:    [[TMP7:%.*]] = bitcast [2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>]* [[BLOCK_VEC0]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 56, i8* nonnull [[TMP7]])
 ; CHECK-NEXT:    [[TMP8:%.*]] = bitcast [2 x %struct.ndrange_t.6]* [[TMP_VEC0]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 160, i8* nonnull [[TMP8]])
 ; CHECK-NEXT:    [[TMP9:%.*]] = bitcast [2 x %struct.ndrange_t.6]* [[NDRANGE_I_I_VEC0]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 160, i8* nonnull [[TMP9]])
 ; CHECK-NEXT:    [[TMP10:%.*]] = icmp slt i32 [[TMP6]], 1
 ; CHECK-NEXT:    br i1 [[TMP10]], label [[VPLANNEDBB40:%.*]], label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 160, i8* nonnull [[TMP9]])
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 56, i8* nonnull [[TMP7]])
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 160, i8* nonnull [[TMP8]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 
 ; Function Attrs: nounwind

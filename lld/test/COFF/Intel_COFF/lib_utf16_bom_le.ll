@@ -2,19 +2,15 @@
 # encoded in UTF-16 byte order mark little endian (BOM LE). The input file
 # contains Japanese characters to enforce the use of UTF.
 
-# Check that the file is encoded in UTF-16 BOM LE by doing a grep for the
-# sequence '\xff\xfe' in the input definition file. Grep sees UTF-16 as
-# a binary object file:
+# Check that the file is encoded in UTF-16 BOM LE:
+# RUN: python %S/Inputs/utf-encoding-check.py %S/Inputs/utf-16-bom-le.def utf-16le | FileCheck %s --check-prefix=CHECK-UTF-16-LE
+CHECK-UTF-16-LE: Pass
 
-# RUN: grep -P '\xff\xfe' %S/Inputs/utf-16-bom-le.def | FileCheck %s --check-prefix=CHECK-UTF-16-LE
-CHECK-UTF-16-LE: Binary file
-CHECK-UTF-16-LE-SAME: utf-16-bom-le.def matches
-
-# The pattern for big endian should not be in the input file. Grep returns
-# error code 1 when pattern is not found. We use 'not' to convert the error
-# code into 0.
-# RUN: not grep -P '\xfe\xff' %S/Inputs/utf-16-bom-le.def | FileCheck %s --allow-empty --check-prefix=CHECK-UTF-16-BE
-CHECK-UTF-16-BE-NOT: Binary file
+# The pattern for big endian should not be in the input file. The python
+# script will return error code 1 since the encoding mismatch with the input
+# file. We use 'not' to convert the error code into 0.
+# RUN: not python %S/Inputs/utf-encoding-check.py %S/Inputs/utf-16-bom-le.def utf-16be 2>&1 FileCheck %s --allow-empty --check-prefix=CHECK-UTF-16-BE
+CHECK-UTF-16-BE: Encoding mismatch
 
 # Create the library
 
