@@ -107,4 +107,18 @@ void D(int m, int n, int o) {
   }
 }
 
+// CHECK: define {{.*}}E
+void E() {
+  int n = 2, s = 1, data[2] = { 1, 2};
+  //CHECK: [[K:%k.*]] = alloca i32,
+  //CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
+  //CHECK: [[L9:%[1-9]*]] = load i32, i32*
+  //CHECK: [[SUB:%.*]] = sub nsw i32 0, [[L9]]
+  //CHECK: region.entry() [ "DIR.OMP.SIMD"()
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(i32* [[K]], i32 [[SUB]])
+  #pragma omp parallel for simd
+  for (int k = n-1; k > 0; k -= 2*s)
+    data[k] += data[k-s];
+}
+
 // end INTEL_COLLAB
