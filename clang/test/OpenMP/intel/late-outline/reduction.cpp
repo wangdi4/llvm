@@ -424,11 +424,11 @@ void foo3() {
 // CHECK-NEXT: ret void
 
 // CHECK: define internal void @.omp_initializer..2(%struct.A* noalias noundef %0, %struct.A* noalias noundef %1)
-// CHECK: call void @_ZN1AC1Eii(%struct.A* noundef %3, i32 noundef 1, i32 noundef 0)
+// CHECK: call void @_ZN1AC1Eii(%struct.A* noundef {{.*}} %3, i32 noundef 1, i32 noundef 0)
 // CHECK-NEXT: ret void
 
 // CHECK: define internal void @.omp_initializer..4(%struct.B* noalias noundef %0, %struct.B* noalias noundef %1)
-// CHECK: call void @_ZN1BC1Eii(%struct.B* noundef %3, i32 noundef 1, i32 noundef 0)
+// CHECK: call void @_ZN1BC1Eii(%struct.B* noundef {{.*}} %3, i32 noundef 1, i32 noundef 0)
 // CHECK-NEXT: ret void
 
 int con, des;
@@ -465,7 +465,7 @@ void findMinMax(Point* points, int n, Point* minPoint, Point* maxPoint) {
 }
 
 // CHECK: define internal void @.omp_initializer..11(%struct.Point* noalias noundef %0, %struct.Point* noalias noundef %1)
-// CHECK: call void @_ZN5PointC1Eii(%struct.Point* noundef %3, i32 noundef 1, i32 noundef 1000)
+// CHECK: call void @_ZN5PointC1Eii(%struct.Point* noundef {{.*}} %3, i32 noundef 1, i32 noundef 1000)
 // CHECK-NEXT: ret void
 
 int dcnt;
@@ -570,7 +570,7 @@ void foo4() {
 
 
 // CHECK: define internal void @.[[I4]](%struct.B4* noalias noundef %0, %struct.B4* noalias noundef %1)
-// CHECK: call void @_ZN2B4C1E2A4(%struct.B4* noundef %3, %struct.A4* noundef %agg.tmp)
+// CHECK: call void @_ZN2B4C1E2A4(%struct.B4* noundef {{.*}} %3, %struct.A4* noundef %agg.tmp)
 // CHECK-NEXT: call void @_ZN2A4D1Ev(%struct.A4* {{[^,]*}} %agg.tmp)
 // CHECK-NEXT: ret void
 
