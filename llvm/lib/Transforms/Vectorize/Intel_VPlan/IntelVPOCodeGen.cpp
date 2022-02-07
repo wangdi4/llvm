@@ -1392,20 +1392,11 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
       else
         llvm_unreachable("Intel indirect call should have vector-variants!");
     }
-    // Handle lifetime_start/end intrinsics operating on private-memory.
-    // We use the following mechanism to handle the intrinsic:
-    // If the array-private is widened (AOS/SOA) and not serialized, do not
-    // serialize the intrinsic. Just use the widened-alloca pointer, i.e., its
-    // cast'ed version ( correct casting is handled in then vectorizeCast
-    // function), and pass it to the intrinsic. Along with this, if the first
-    // argument in the original call is not -1 (used to denote variable-size),
-    // compute the size of the widened copy and pass it to the intrinsic.
-    // If the array-private is not widened, and serialized, just bypass this
-    // block and serialize this call.
-    if (VPCall->isLifetimeStartOrEndIntrinsic()) {
-      vectorizeLifetimeStartEndIntrinsic(VPCall);
-      return;
-    }
+    // Drop lifetime_start/end intrinsics operating on private-memory.
+    if (VPCall->isLifetimeStartOrEndIntrinsic())
+      if (auto *PrivPtr = dyn_cast_or_null<VPAllocatePrivate>(
+              getVPValuePrivateMemoryPtr(VPCall->getOperand(1))))
+        return;
 
     switch (VPCall->getVectorizationScenario()) {
     case VPCallInstruction::CallVecScenariosTy::DoNotWiden: {
@@ -1460,18 +1451,21 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
       // serialization
       auto *Func = VPCall->getCalledFunction();
       serializeWithPredication(VPCall);
-      ++OptRptStats.SerializedCalls;
-      // Below we add in OptReport remarks about serialized calls.
-      // Check if called function is indirect call
-      assert(VPCall->getSerialReason() != VPCallInstruction::
-           SerializationReasonTy::UNDEFINED &&
-           "Serialization reason is undefined");
-      if (Func == nullptr)
-        OptRptStats.SerializedInstRemarks.emplace_back(
-            15557 + VPCall->getSerialReasonNum(), "");
-      else
-        OptRptStats.SerializedInstRemarks.emplace_back(
-            15557 + VPCall->getSerialReasonNum(), (Func->getName()).str());
+      // Skip reporting lifetime markers
+      if (!VPCall->isLifetimeStartOrEndIntrinsic()) {
+        ++OptRptStats.SerializedCalls;
+        // Below we add in OptReport remarks about serialized calls.
+        // Check if called function is indirect call
+        assert(VPCall->getSerialReason() !=
+                   VPCallInstruction::SerializationReasonTy::UNDEFINED &&
+               "Serialization reason is undefined");
+        if (Func == nullptr)
+          OptRptStats.SerializedInstRemarks.emplace_back(
+              15557 + VPCall->getSerialReasonNum(), "");
+        else
+          OptRptStats.SerializedInstRemarks.emplace_back(
+              15557 + VPCall->getSerialReasonNum(), (Func->getName()).str());
+      }
       return;
     }
     default:
@@ -3556,51 +3550,6 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
   VPWidenMap[V] = Widened;
 
   return Widened;
-}
-
-// Widen or Serialize lifetime_start/end intrinsic call.
-void VPOCodeGen::vectorizeLifetimeStartEndIntrinsic(VPCallInstruction *VPCall) {
-  // If this is a private, determine if the call can be widened with the widened
-  // pointer, else serialie.
-  if (VPValue *PrivPtr = const_cast<VPValue *>(
-          getVPValuePrivateMemoryPtr(VPCall->getOperand(1)))) {
-    if (LoopPrivateVPWidenMap.count(PrivPtr)) {
-      Value *WidePriv = LoopPrivateVPWidenMap[PrivPtr];
-      AllocaInst *AI = dyn_cast<AllocaInst>(WidePriv);
-      if (!AI) {
-        assert(isa<AddrSpaceCastInst>(WidePriv) &&
-               "Expected alloca or addrspacecast instruction.");
-        AI = cast<AllocaInst>(
-            cast<AddrSpaceCastInst>(WidePriv)->getPointerOperand());
-      }
-      ConstantInt *Size = Builder.getInt64(-1);
-      if (!cast<VPConstantInt>(VPCall->getOperand(0))->isMinusOne()) {
-        const DataLayout &DL =
-            OrigLoop->getHeader()->getModule()->getDataLayout();
-        Size =
-            Builder.getInt64(AI->getAllocationSizeInBits(DL).getValue() >> 3);
-      }
-      // If the pointer argument is not i8* type for this function, insert a
-      // bitcast to convert it to i8*. This inserts duplicate bitcasts, but, we
-      // expect CSE following up to take care of this.
-      Value *PointerArg = getScalarValue(VPCall->getOperand(1), 0);
-      auto *PointerArgType = cast<PointerType>(PointerArg->getType());
-      if (!PointerArgType->isOpaque() &&
-          !PointerArgType->getElementType()->isIntegerTy(8))
-        PointerArg = Builder.CreateBitCast(
-            PointerArg, Type::getInt8PtrTy(*Plan->getLLVMContext()));
-
-      SmallVector<Value *, 3> ScalarArgs = {
-          Size, PointerArg, getScalarValue(VPCall->getOperand(2), 0)};
-      auto *ScalarInstrinsic = generateSerialInstruction(VPCall, ScalarArgs);
-      VPScalarMap[VPCall][0] = ScalarInstrinsic;
-      return;
-    }
-  }
-
-  // This call is either not operating on privates, or is not vectorizable. So,
-  // serialize.
-  serializeWithPredication(VPCall);
 }
 
 Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {

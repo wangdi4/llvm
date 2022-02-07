@@ -7,19 +7,16 @@
 # This command can convert the file to UTF-8:
 # 'iconv -f UTF32BE -t UTF8 Inputs/utf-32-bom-be.def -o test.def'
 
-# Check that the file is encoded in UTF-32 BOM BE by doing a grep for the
-# sequence '\x00\x00\xfe\xff' in the input definition file. Grep sees UTF-32
-# as a binary object file:
+# Check that the file is encoded in UTF-32 BOM BE:
 
-# RUN: grep -P '\x00\x00\xfe\xff' %S/Inputs/utf-32-bom-be.def | FileCheck %s --check-prefix=CHECK-UTF-32-BE
-CHECK-UTF-32-BE: Binary file
-CHECK-UTF-32-BE-SAME: utf-32-bom-be.def matches
+# RUN: python %S/Inputs/utf-encoding-check.py %S/Inputs/utf-32-bom-be.def utf-32be  | FileCheck %s --check-prefix=CHECK-UTF-32-BE
+CHECK-UTF-32-BE: Pass
 
-# The pattern for little endian should not be in the input file. Grep returns
-# error code 1 when pattern is not found. We use 'not' to convert the error
-# code into 0.
-# RUN: not grep -P '\xff\xfe\x00\x00' %S/Inputs/utf-32-bom-be.def | FileCheck %s --allow-empty --check-prefix=CHECK-UTF-32-LE
-CHECK-UTF-32-LE-NOT: Binary file
+# The pattern for little endian should not be in the input file. The python
+# script will return error code 1 since the encoding mismatch with the input
+# file. We use 'not' to convert the error code into 0.
+# RUN: not python %S/Inputs/utf-encoding-check.py %S/Inputs/utf-32-bom-be.def utf-32le 2>&1 FileCheck %s --allow-empty --check-prefix=CHECK-UTF-32-LE
+CHECK-UTF-32-LE: Encoding mismatch
 
 # Create the library
 
