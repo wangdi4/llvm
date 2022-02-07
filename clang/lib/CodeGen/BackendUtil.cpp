@@ -1840,4 +1840,35 @@ void clang::EmbedBitcode(llvm::Module *M, const CodeGenOptions &CGOpts,
       CGOpts.getEmbedBitcode() != CodeGenOptions::Embed_Bitcode,
       CGOpts.CmdArgs);
 }
+<<<<<<< HEAD
 #endif // !INTEL_PRODUCT_RELEASE
+=======
+
+void clang::EmbedObject(llvm::Module *M, const CodeGenOptions &CGOpts,
+                        DiagnosticsEngine &Diags) {
+  if (CGOpts.OffloadObjects.empty())
+    return;
+
+  for (StringRef OffloadObject : CGOpts.OffloadObjects) {
+    if (OffloadObject.count(',') != 1) {
+      Diags.Report(Diags.getCustomDiagID(
+          DiagnosticsEngine::Error, "Invalid string pair for embedding '%0'"))
+          << OffloadObject;
+      return;
+    }
+    auto FilenameAndSection = OffloadObject.split(',');
+    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> ObjectOrErr =
+        llvm::MemoryBuffer::getFileOrSTDIN(std::get<0>(FilenameAndSection));
+    if (std::error_code EC = ObjectOrErr.getError()) {
+      auto DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                                          "could not open '%0' for embedding");
+      Diags.Report(DiagID) << std::get<0>(FilenameAndSection);
+      return;
+    }
+
+    SmallString<128> SectionName(
+        {".llvm.offloading.", std::get<1>(FilenameAndSection)});
+    llvm::EmbedBufferInModule(*M, **ObjectOrErr, SectionName);
+  }
+}
+>>>>>>> 551b1774524428aae5692ed3d41f969288ecd5a2

@@ -71,6 +71,7 @@
 #include "llvm/Support/Path.h" // INTEL
 #include "llvm/Support/SHA1.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -5044,4 +5045,23 @@ void llvm::EmbedBitcodeInModule(llvm::Module &M, llvm::MemoryBufferRef Buf,
       llvm::ConstantArray::get(ATy, UsedArray), "llvm.compiler.used");
   NewUsed->setSection("llvm.metadata");
 }
+<<<<<<< HEAD
 #endif // INTEL_PRODUCT_RELEASE
+=======
+
+void llvm::EmbedBufferInModule(llvm::Module &M, llvm::MemoryBufferRef Buf,
+                               StringRef SectionName) {
+  ArrayRef<char> ModuleData =
+      ArrayRef<char>(Buf.getBufferStart(), Buf.getBufferSize());
+
+  // Embed the buffer into the module.
+  llvm::Constant *ModuleConstant =
+      llvm::ConstantDataArray::get(M.getContext(), ModuleData);
+  llvm::GlobalVariable *GV = new llvm::GlobalVariable(
+      M, ModuleConstant->getType(), true, llvm::GlobalValue::PrivateLinkage,
+      ModuleConstant, "llvm.embedded.object");
+  GV->setSection(SectionName);
+
+  appendToCompilerUsed(M, GV);
+}
+>>>>>>> 551b1774524428aae5692ed3d41f969288ecd5a2

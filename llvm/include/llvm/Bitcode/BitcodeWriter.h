@@ -167,6 +167,11 @@ class raw_ostream;
                             const std::vector<uint8_t> &CmdArgs);
 #endif // !INTEL_PRODUCT_RELEASE
 
+  /// Embeds the memory buffer \p Buf into the module \p M as a global using the
+  /// section name \p SectionName.
+  void EmbedBufferInModule(Module &M, MemoryBufferRef Buf,
+                           StringRef SectionName);
+
 } // end namespace llvm
 
 #endif // LLVM_BITCODE_BITCODEWRITER_H
