@@ -5019,9 +5019,18 @@ RegDDRef *HIRParser::delinearizeSingleRef(const RegDDRef *Ref,
 
   const CanonExpr *LinearIndexCE = Ref->getSingleCanonExpr();
 
-  RegDDRef *NewRef = DRU.createMemRef(Ref->getBasePtrElementType(), Ref->getBasePtrBlobIndex(),
-                                      Ref->getBaseCE()->getDefinedAtLevel(),
-                                      Ref->getSymbase());
+  unsigned BaseBlobIndex = Ref->getBasePtrBlobIndex();
+
+  // Base has invalid blob index if it is null or undef.
+  // Give up on such cases for now because createMemRef asserts on invalid blob
+  // index.
+  if (BaseBlobIndex == InvalidBlobIndex) {
+    return nullptr;
+  }
+
+  RegDDRef *NewRef = DRU.createMemRef(
+      Ref->getBasePtrElementType(), BaseBlobIndex,
+      Ref->getBaseCE()->getDefinedAtLevel(), Ref->getSymbase());
 
   Type *IndexType = LinearIndexCE->getSrcType();
   Type *DimType = Ref->getDimensionType(1);
