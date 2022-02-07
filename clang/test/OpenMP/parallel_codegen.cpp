@@ -891,6 +891,7 @@ int main (int argc, char **argv) {
 // CHECK4-NEXT:  omp.par.entry:
 // CHECK4-NEXT:    [[GEP_VLA:%.*]] = getelementptr { i32* }, { i32* }* [[TMP0]], i32 0, i32 0
 // CHECK4-NEXT:    [[LOADGEP_VLA:%.*]] = load i32*, i32** [[GEP_VLA]], align 8
+// CHECK4-NEXT:    call void @llvm.dbg.value(metadata i32* %loadgep_vla, metadata !35, metadata !DIExpression(DW_OP_deref)), !dbg [[DBG36:![0-9]+]]
 // CHECK4-NEXT:    [[TID_ADDR_LOCAL:%.*]] = alloca i32, align 4
 // CHECK4-NEXT:    [[TMP1:%.*]] = load i32, i32* [[TID_ADDR]], align 4
 // CHECK4-NEXT:    store i32 [[TMP1]], i32* [[TID_ADDR_LOCAL]], align 4
@@ -956,6 +957,7 @@ int main (int argc, char **argv) {
 // CHECK4-NEXT:    [[LOADGEP__RELOADED:%.*]] = load i64*, i64** [[GEP__RELOADED]], align 8
 // CHECK4-NEXT:    [[GEP_ARGC_ADDR:%.*]] = getelementptr { i64*, i8*** }, { i64*, i8*** }* [[TMP0]], i32 0, i32 1
 // CHECK4-NEXT:    [[LOADGEP_ARGC_ADDR:%.*]] = load i8***, i8**** [[GEP_ARGC_ADDR]], align 8
+// CHECK4-NEXT:    call void @llvm.dbg.value(metadata i8*** %loadgep_argc.addr, metadata !60, metadata !DIExpression(DW_OP_deref)), !dbg [[DBG61:![0-9]+]]
 // CHECK4-NEXT:    [[TID_ADDR_LOCAL:%.*]] = alloca i32, align 4
 // CHECK4-NEXT:    [[TMP1:%.*]] = load i32, i32* [[TID_ADDR]], align 4
 // CHECK4-NEXT:    store i32 [[TMP1]], i32* [[TID_ADDR_LOCAL]], align 4
