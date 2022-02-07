@@ -200,6 +200,10 @@ define void @multiple_incoming_phi_with_blend_mask(i64 %a, i16* noalias %dst) {
 ; CHECK-NEXT:    [[TMP10:%.*]] = getelementptr inbounds i16, i16* [[TMP9]], i32 0
 ; CHECK-NEXT:    [[TMP11:%.*]] = bitcast i16* [[TMP10]] to <2 x i16>*
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i16>, <2 x i16>* [[TMP11]], align 1
+; CHECK-NEXT:    [[DST0:%.+]] = getelementptr inbounds i16, i16* %dst, i64 [[TMP0]]
+; CHECK-NEXT:    [[DST1:%.+]] = getelementptr inbounds i16, i16* [[DST0]], i32 0
+; CHECK-NEXT:    [[DST1_BC:%.+]] = bitcast i16* [[DST1]] to <2 x i16>*
+; CHECK-NEXT:    store <2 x i16> [[WIDE_LOAD]], <2 x i16>* [[DST1_BC]], align 2
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[INDEX]], 2
 ; CHECK-NEXT:    [[VEC_IND_NEXT]] = add <2 x i64> [[VEC_IND]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP12:%.*]] = icmp eq i64 [[INDEX_NEXT]], 32
