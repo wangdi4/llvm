@@ -3165,21 +3165,21 @@ def fsycl_host_compiler_options_EQ : Joined<["-"], "fsycl-host-compiler-options=
   Flags<[CoreOption, DpcppOption]>, HelpText<"When performing the host compilation with "
   "-fsycl-host-compiler specified, use the given options during that compile. "
   "Options are expected to be a quoted list of space separated options.">;
-#endif // INTEL_CUSTOMIZATION
-def fno_sycl_use_footer : Flag<["-"], "fno-sycl-use-footer">, Flags<[CoreOption]>,
+def fno_sycl_use_footer : Flag<["-"], "fno-sycl-use-footer">, Flags<[CoreOption, DpcppOption]>,
   HelpText<"Disable usage of the integration footer during SYCL enabled "
    "compilations.">;
 def fsycl_footer_path_EQ : Joined<["-"], "fsycl-footer-path=">,
-  Flags<[CoreOption]>, HelpText<"Specify the location of the temporary "
+  Flags<[CoreOption, DpcppOption]>, HelpText<"Specify the location of the temporary "
   "source file with the included integration footer.">;
 def fno_sycl_link_spirv : Flag<["-"], "fno-sycl-link-spirv">,
-  Flags<[CoreOption]>, HelpText<"Disable adding of the default (spir64) triple "
+  Flags<[CoreOption, DpcppOption]>, HelpText<"Disable adding of the default (spir64) triple "
   "when discovered in user specified objects and archives.">;
 def fsycl_max_parallel_jobs_EQ : Joined<["-"], "fsycl-max-parallel-link-jobs=">,
-  Flags<[CoreOption]>, Group<f_Group>,
+  Flags<[CoreOption, DpcppOption]>, Group<f_Group>,
   HelpText<"Experimental feature: Controls the maximum parallelism of actions performed "
   "on SYCL device code post-link, i.e. the generation of SPIR-V device images "
   "or AOT compilation of each device image.">;
+#endif // INTEL_CUSTOMIZATION
 def fsyntax_only : Flag<["-"], "fsyntax-only">,
   Flags<[NoXarchOption,CoreOption,CC1Option,FC1Option]>, Group<Action_Group>;
 def ftabstop_EQ : Joined<["-"], "ftabstop=">, Group<f_Group>;
@@ -7363,11 +7363,87 @@ def _SLASH_external_COLON_I : CLJoinedOrSeparate<"external:I">, Alias<isystem>,
   HelpText<"Add directory to include search path with warnings suppressed">,
   MetaVarName<"<dir>">;
 #if INTEL_CUSTOMIZATION
+def _SLASH_fcf_protection_COL : CLJoined<"fcf-protection:">,
+  Alias<fcf_protection_EQ>;
+def _SLASH_fcf_protection_EQ : CLJoined<"fcf-protection=">,
+  Alias<fcf_protection_EQ>;
+def _SLASH_fcoverage_compilation_dir_COL : CLJoined<"fcoverage-compilation-dir:">,
+  Alias<fcoverage_compilation_dir_EQ>;
+def _SLASH_fcoverage_compilation_dir_EQ : CLJoined<"fcoverage-compilation-dir=">,
+  Alias<fcoverage_compilation_dir_EQ>;
+def _SLASH_fcoverage_mapping : CLFlag<"fcoverage-mapping">,
+  Alias<fcoverage_mapping>;
+def _SLASH_fno_coverage_mapping : CLFlag<"fno-coverage-mapping">,
+  Alias<fno_coverage_mapping>;
+def _SLASH_fcs_profile_generate : CLFlag<"fcs-profile-generate">,
+  Alias<fcs_profile_generate>;
+def _SLASH_fcs_profile_generate_COL : CLJoined<"fcs-profile-generate:">,
+  Alias<fcs_profile_generate_EQ>;
+def _SLASH_fcs_profile_generate_EQ : CLJoined<"fcs-profile-generate=">,
+  Alias<fcs_profile_generate_EQ>;
+def _SLASH_ffile_compilation_dir_COL : CLJoined<"ffile-compilation-dir:">,
+  Alias<ffile_compilation_dir_EQ>;
+def _SLASH_ffile_compilation_dir_EQ : CLJoined<"ffile-compilation-dir=">,
+  Alias<ffile_compilation_dir_EQ>;
 def _SLASH_fintelfpga : CLFlag<"fintelfpga">, Alias<fintelfpga>;
+def _SLASH_fprofile_list_COL : CLJoined<"fprofile-list:">,
+  Alias<fprofile_list_EQ>;
+def _SLASH_fprofile_list_EQ : CLJoined<"fprofile-list=">,
+  Alias<fprofile_list_EQ>;
 def _SLASH_fopenmp_device_lib_EQ : CLCommaJoined<"fopenmp-device-lib=">,
   Alias<fopenmp_device_lib_EQ>;
 def _SLASH_fno_openmp_device_lib_EQ : CLCommaJoined<"fno-openmp-device-lib=">,
   Alias<fno_openmp_device_lib_EQ>;
+def _SLASH_forder_file_instrumentation : CLFlag<"forder-file-instrumentation">,
+  Alias<forder_file_instrumentation>;
+def _SLASH_fprofile_exclude_files_COL : CLJoined<"fprofile-exclude-files:">,
+  Alias<fprofile_exclude_files_EQ>;
+def _SLASH_fprofile_exclude_files_EQ : CLJoined<"fprofile-exclude-files=">,
+  Alias<fprofile_exclude_files_EQ>;
+def _SLASH_fprofile_filter_files_COL : CLJoined<"fprofile-filter-files:">,
+  Alias<fprofile_filter_files_EQ>;
+def _SLASH_fprofile_filter_files_EQ : CLJoined<"fprofile-filter-files=">,
+  Alias<fprofile_filter_files_EQ>;
+def _SLASH_fprofile_generate : CLFlag<"fprofile-generate">,
+  Alias<fprofile_generate>;
+def _SLASH_fprofile_generate_COL : CLJoined<"fprofile-generate:">,
+  Alias<fprofile_generate_EQ>;
+def _SLASH_fprofile_generate_EQ : CLJoined<"fprofile-generate=">,
+  Alias<fprofile_generate_EQ>;
+def _SLASH_fno_profile_generate : CLFlag<"fno-profile-generate">,
+  Alias<fno_profile_generate>;
+def _SLASH_fprofile_instr_generate : CLFlag<"fprofile-instr-generate">,
+  Alias<fprofile_instr_generate>;
+def _SLASH_fprofile_instr_generate_COL : CLJoined<"fprofile-instr-generate:">,
+  Alias<fprofile_instr_generate_EQ>;
+def _SLASH_fprofile_instr_generate_EQ : CLJoined<"fprofile-instr-generate=">,
+  Alias<fprofile_instr_generate_EQ>;
+def _SLASH_fno_profile_instr_generate : CLFlag<"fno-profile-instr-generate">,
+  Alias<fno_profile_instr_generate>;
+def _SLASH_fprofile_instr_use : CLFlag<"fprofile-instr-use">,
+  Alias<fprofile_instr_use>;
+def _SLASH_fprofile_instr_use_COL : CLJoined<"fprofile-instr-use:">,
+  Alias<fprofile_instr_use_EQ>;
+def _SLASH_fprofile_instr_use_EQ : CLJoined<"fprofile-instr-use=">,
+  Alias<fprofile_instr_use_EQ>;
+def _SLASH_fno_profile_instr_use : CLFlag<"fno-profile-instr-use">,
+  Alias<fno_profile_instr_use>;
+def _SLASH_fprofile_remapping_file_COL : CLJoined<"fprofile-remapping-file:">,
+  Alias<fprofile_remapping_file_EQ>;
+def _SLASH_fprofile_remapping_file_EQ : CLJoined<"fprofile-remapping-file=">,
+  Alias<fprofile_remapping_file_EQ>;
+def _SLASH_fprofile_sample_use : CLFlag<"fprofile-sample-use">,
+  Alias<fprofile_sample_use>;
+def _SLASH_fprofile_sample_use_COL : CLJoined<"fprofile-sample-use:">,
+  Alias<fprofile_sample_use_EQ>;
+def _SLASH_fprofile_sample_use_EQ : CLJoined<"fprofile-sample-use=">,
+  Alias<fprofile_sample_use_EQ>;
+def _SLASH_fno_profile_sample_use : CLFlag<"fno-profile-sample-use">,
+  Alias<fno_profile_sample_use>;
+def _SLASH_fprofile_update_COL : CLJoined<"fprofile-update:">,
+  Alias<fprofile_update_EQ>;
+def _SLASH_fprofile_update_EQ : CLJoined<"fprofile-update=">,
+  Alias<fprofile_update_EQ>;
 #endif // INTEL_CUSTOMIZATION
 def _SLASH_fp_except : CLFlag<"fp:except">, HelpText<"">, Alias<ftrapping_math>;
 def _SLASH_fp_except_ : CLFlag<"fp:except-">,
@@ -7384,24 +7460,89 @@ def _SLASH_fsanitize_EQ_address : CLFlag<"fsanitize=address">,
   HelpText<"Enable AddressSanitizer">,
   Alias<fsanitize_EQ>, AliasArgs<["address"]>;
 #if INTEL_CUSTOMIZATION
+def _SLASH_fsplit_lto_unit : CLFlag<"fsplit-lto-unit">, Alias<fsplit_lto_unit>;
+def _SLASH_fsycl : CLFlag<"fsycl">, Alias<fsycl>;
+def _SLASH_fno_sycl : CLFlag<"fno-sycl">, Alias<fno_sycl>;
+def _SLASH_fsycl_add_targets_COL : CLCommaJoined<"fsycl-add-targets:">,
+  Alias<fsycl_add_targets_EQ>;
+def _SLASH_fsycl_add_targets_EQ : CLCommaJoined<"fsycl-add-targets=">,
+  Alias<fsycl_add_targets_EQ>;
 def _SLASH_fsycl_dead_args_optimization : CLFlag<"fsycl-dead-args-optimization">,
   Alias<fsycl_dead_args_optimization>;
 def _SLASH_fno_sycl_dead_args_optimization : CLFlag<"fno-sycl-dead-args-optimization">,
   Alias<fno_sycl_dead_args_optimization>;
+def _SLASH_fsycl_device_code_split_COL : CLJoined<"fsycl-device-code-split:">,
+  Alias<fsycl_device_code_split_EQ>;
+def _SLASH_fsycl_device_code_split_EQ : CLJoined<"fsycl-device-code-split=">,
+  Alias<fsycl_device_code_split_EQ>;
 def _SLASH_fsycl_device_lib_EQ : CLCommaJoined<"fsycl-device-lib=">,
   Alias<fsycl_device_lib_EQ>;
 def _SLASH_fno_sycl_device_lib_EQ : CLCommaJoined<"fno-sycl-device-lib=">,
   Alias<fno_sycl_device_lib_EQ>;
+def _SLASH_fsycl_device_only : CLFlag<"fsycl-device-only">,
+  Alias<fsycl_device_only>;
 def _SLASH_fsycl_early_optimizations : CLFlag<"fsycl-early-optimizations">,
   Alias<fsycl_early_optimizations>;
 def _SLASH_fno_sycl_early_optimizations : CLFlag<"fno-sycl-early-optimizations">,
   Alias<fno_sycl_early_optimizations>;
+def _SLASH_fsycl_enable_function_pointers : CLFlag<"fsycl-enable-function-pointers">,
+  Alias<fsycl_enable_function_pointers>;
+def _SLASH_fsycl_footer_path_COL : CLJoined<"fsycl-footer-path:">,
+  Alias<fsycl_footer_path_EQ>;
+def _SLASH_fsycl_footer_path_EQ : CLJoined<"fsycl-footer-path=">,
+  Alias<fsycl_footer_path_EQ>;
+def _SLASH_fno_sycl_use_footer : CLFlag<"fno-sycl-use-footer">,
+  Alias<fno_sycl_use_footer>;
+def _SLASH_fsycl_help_COL : CLJoined<"fsycl-help:">, Alias<fsycl_help_EQ>;
+def _SLASH_fsycl_help_EQ : CLJoined<"fsycl-help=">, Alias<fsycl_help_EQ>;
+def _SLASH_fsycl_host_compiler_COL : CLJoined<"fsycl-host-compiler:">,
+  Alias<fsycl_host_compiler_EQ>;
+def _SLASH_fsycl_host_compiler_EQ : CLJoined<"fsycl-host-compiler=">,
+  Alias<fsycl_host_compiler_EQ>;
+def _SLASH_fsycl_host_compiler_options_COL : CLJoined<"fsycl-host-compiler-options:">,
+  Alias<fsycl_host_compiler_options_EQ>;
+def _SLASH_fsycl_host_compiler_options_EQ : CLJoined<"fsycl-host-compiler-options=">,
+  Alias<fsycl_host_compiler_options_EQ>;
+def _SLASH_fsycl_id_queries_fit_in_int : CLFlag<"fsycl-id-queries-fit-in-int">,
+  Alias<fsycl_id_queries_fit_in_int>;
+def _SLASH_fno_sycl_id_queries_fit_in_int : CLFlag<"fno-sycl-id-queries-fit-in-int">,
+  Alias<fno_sycl_id_queries_fit_in_int>;
+def _SLASH_fsycl_instrument_device_code : CLFlag<"fsycl-instrument-device-code">,
+  Alias<fsycl_instrument_device_code>;
+def _SLASH_fno_sycl_instrument_device_code : CLFlag<"fno-sycl-instrument-device-code">,
+  Alias<fno_sycl_instrument_device_code>;
+def _SLASH_fno_sycl_libspirv : CLFlag<"fno-sycl-libspirv">,
+  Alias<fno_sycl_libspirv>;
+def _SLASH_fsycl_libspirv_path_COL : CLJoined<"fsycl-libspirv-path:">,
+  Alias<fsycl_libspirv_path_EQ>;
+def _SLASH_fsycl_libspirv_path_EQ : CLJoined<"fsycl-libspirv-path=">,
+  Alias<fsycl_libspirv_path_EQ>;
 def _SLASH_fsycl_link : CLFlag<"fsycl-link">, Alias<fsycl_link_EQ>, AliasArgs<["early"]>;
 def _SLASH_fsycl_link_EQ : CLJoined<"fsycl-link=">, Alias<fsycl_link_EQ>;
+def _SLASH_fno_sycl_link_spirv : CLFlag<"fno-sycl-link-spirv">,
+  Alias<fno_sycl_link_spirv>;
+def _SLASH_fsycl_link_targets_COL : CLCommaJoined<"fsycl-link-targets:">,
+  Alias<fsycl_link_targets_EQ>;
+def _SLASH_fsycl_link_targets_EQ : CLCommaJoined<"fsycl-link-targets=">,
+  Alias<fsycl_link_targets_EQ>;
+def _SLASH_fsycl_max_parallel_jobs_COL : CLJoined<"fsycl-max-parallel-link-jobs:">,
+  Alias<fsycl_max_parallel_jobs_EQ>;
+def _SLASH_fsycl_max_parallel_jobs_EQ : CLJoined<"fsycl-max-parallel-link-jobs=">,
+  Alias<fsycl_max_parallel_jobs_EQ>;
 def _SLASH_fsycl_targets_EQ : CLCommaJoined<"fsycl-targets=">, Alias<fsycl_targets_EQ>;
 def _SLASH_fsycl_unnamed_lambda : CLFlag<"fsycl-unnamed-lambda">, Alias<fsycl_unnamed_lambda>;
 def _SLASH_fno_sycl_unnamed_lambda : CLFlag<"fno-sycl-unnamed-lambda">,
   Alias<fno_sycl_unnamed_lambda>;
+def _SLASH_fuse_ld_COL : CLJoined<"fuse-ld:">, Alias<fuse_ld_EQ>;
+def _SLASH_fuse_ld_EQ : CLJoined<"fuse-ld=">, Alias<fuse_ld_EQ>;
+def _SLASH_fvirtual_function_elimination : CLFlag<"fvirtual-function-elimination">,
+  Alias<fvirtual_function_elimination>;
+def _SLASH_fno_virtual_function_elimination : CLFlag<"fno-virtual-function-elimination">,
+  Alias<fno_virtual_function_elimination>;
+def _SLASH_fwhole_program_vtables : CLFlag<"fwhole-program-vtables">,
+  Alias<fwhole_program_vtables>;
+def _SLASH_fno_whole_program_vtables : CLFlag<"fno-whole-program-vtables">,
+  Alias<fno_whole_program_vtables>;
 #endif // INTEL_CUSTOMIZATION
 def _SLASH_GA : CLFlag<"GA">, Alias<ftlsmodel_EQ>, AliasArgs<["local-exec"]>,
   HelpText<"Assume thread-local variables are defined in the executable">;
@@ -7912,6 +8053,7 @@ def _SLASH_U : CLJoinedOrSeparate<"U">, HelpText<"Undefine macro">,
   MetaVarName<"<macro>">, Alias<U>;
 #if INTEL_CUSTOMIZATION
 def _SLASH_v : CLFlag<"v">, Alias<v>;
+def _SLASH_W_Joined : CLJoined<"W">, Alias<W_Joined>;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_validate_charset : CLFlag<"validate-charset">,
   Alias<W_Joined>, AliasArgs<["invalid-source-encoding"]>;
