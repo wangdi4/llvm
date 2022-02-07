@@ -239,7 +239,7 @@ protected:
   MCSection *ReadOnly16Section = nullptr;
 
   // Swift5 Reflection Data Sections
-  std::array<MCSection *, swift::Swift5ReflectionSectionKind::last>
+  std::array<MCSection *, binaryformat::Swift5ReflectionSectionKind::last>
       Swift5ReflectionSections = {};
 
 public:
@@ -446,8 +446,9 @@ public:
 
   // Swift5 Reflection Data Sections
   MCSection *getSwift5ReflectionSection(
-      llvm::swift::Swift5ReflectionSectionKind ReflSectionKind) {
-    return ReflSectionKind != llvm::swift::Swift5ReflectionSectionKind::unknown
+      llvm::binaryformat::Swift5ReflectionSectionKind ReflSectionKind) {
+    return ReflSectionKind !=
+                   llvm::binaryformat::Swift5ReflectionSectionKind::unknown
                ? Swift5ReflectionSections[ReflSectionKind]
                : nullptr;
   }
