@@ -1187,6 +1187,7 @@ void CodeGenAction::ExecuteAction() {
     TheModule->setTargetTriple(TargetOpts.Triple);
   }
 
+  EmbedObject(TheModule.get(), CodeGenOpts, Diagnostics);
 #if !INTEL_PRODUCT_RELEASE
   EmbedBitcode(TheModule.get(), CodeGenOpts, *MainFile);
 #endif // !INTEL_PRODUCT_RELEASE
