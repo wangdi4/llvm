@@ -27,10 +27,6 @@ define void @test_lifetime_start_end() {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP4:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP3:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <2 x i8>* [[SOA_SCALAR_GEP]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 2048, i8* nonnull [[TMP1]])
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast <2 x i8>* [[TMP0]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8192, i8* nonnull [[TMP2]])
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i8>, <2 x i8>* [[SOA_SCALAR_GEP]], align 4
 ; CHECK-NEXT:    store <2 x i8> <i8 30, i8 30>, <2 x i8>* [[SOA_SCALAR_GEP]], align 1
 ; CHECK-NEXT:    [[SOA_SCALAR_GEP3:%.*]] = getelementptr inbounds [1024 x <2 x i32>], [1024 x <2 x i32>]* [[ARR_PRIV32_SOA_VEC]], i64 0, i64 0
@@ -38,10 +34,6 @@ define void @test_lifetime_start_end() {
 ; CHECK-NEXT:    store <2 x i32> <i32 30, i32 30>, <2 x i32>* [[SOA_SCALAR_GEP3]], align 4
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i8>* [[SOA_SCALAR_GEP]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 2048, i8* nonnull [[TMP5]])
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast <2 x i8>* [[TMP0]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 8192, i8* nonnull [[TMP6]])
 ; CHECK-NEXT:    [[TMP7:%.*]] = icmp ult i64 [[TMP4]], 1024
 ; CHECK-NEXT:    br i1 [[TMP7]], label [[VECTOR_BODY]], label [[VPLANNEDBB5:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
 ;
@@ -122,10 +114,6 @@ define void @test_lifetime_start_end_with_phi_inputs() {
 ; CHECK-NEXT:    [[TMP11:%.*]] = and <2 x i1> [[TMP0]], <i1 true, i1 true>
 ; CHECK-NEXT:    br label [[VPLANNEDBB13:%.*]]
 ; CHECK:       VPlannedBB13:
-; CHECK-NEXT:    [[TMP12:%.*]] = bitcast <2 x i8>* [[UNI_PHI11]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8192, i8* nonnull [[TMP12]])
-; CHECK-NEXT:    [[TMP13:%.*]] = bitcast <2 x i8>* [[UNI_PHI11]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 8192, i8* nonnull [[TMP13]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB14]]
 ; CHECK:       VPlannedBB14:
 ; CHECK-NEXT:    [[TMP14]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>

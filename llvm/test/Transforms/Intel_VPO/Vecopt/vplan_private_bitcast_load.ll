@@ -11,8 +11,6 @@
 
 ; CHECK: [[DOTSOA_VEC0:%.*]] = alloca [2520 x <4 x double>], align 32
 ; CHECK: [[TMP24:%.*]] = bitcast [2520 x <4 x double>]* [[DOTSOA_VEC0]] to <4 x i8>*
-; CHECK: [[TMP25:%.*]] = bitcast <4 x i8>* [[TMP24]] to i8*
-; CHECK: call void @llvm.lifetime.start.p0i8(i64 80640, i8* nonnull [[TMP25]])
 ; CHECK: [[SOA_SCALAR_GEP0:%.*]] = getelementptr inbounds [2520 x <4 x double>], [2520 x <4 x double>]* [[DOTSOA_VEC0]], i64 0, i64 [[UNI_PHI350:%.*]]
 ; CHECK: store <4 x double> [[TMP96:%.*]], <4 x double>* [[SOA_SCALAR_GEP0]], align 8
 

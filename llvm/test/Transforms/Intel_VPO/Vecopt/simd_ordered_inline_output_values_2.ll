@@ -54,13 +54,11 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <2 x i32>* [[VAL_LOC_VEC0]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 -1, i8* [[TMP3]])
 ; CHECK-NEXT:    [[VAL_I0:%.*]] = load i32, i32* [[SCALAR_GEP0]], align 4
 ; CHECK-NEXT:    store i32 [[VAL_I0]], i32* [[VAL_LOC_VEC_BASE_ADDR_EXTRACT_0_0]], align 4
 ; CHECK-NEXT:    [[VAL_I140:%.*]] = load i32, i32* [[MM_VECTORGEP_EXTRACT_1_0]], align 4
 ; CHECK-NEXT:    store i32 [[VAL_I140]], i32* [[VAL_LOC_VEC_BASE_ADDR_EXTRACT_1_0]], align 4
 ; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[VAL_LOC_VEC0]], align 4
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 -1, i8* [[TMP3]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB50:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
