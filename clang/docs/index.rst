@@ -95,6 +95,7 @@ Using Clang Tools
    ClangFormat
    ClangFormatStyleOptions
    ClangFormattedStatus
+   ClangLinkerWrapper
    ClangNvlinkWrapper
    ClangOffloadBundler
    ClangOffloadWrapper
