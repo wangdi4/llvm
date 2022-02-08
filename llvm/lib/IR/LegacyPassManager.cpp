@@ -1794,14 +1794,15 @@ void LoopOptLimitingPassManager::add(Pass *P) {
   assert(!(ForceSkip && ForceRun) &&
          "Can't force Skip and Run at the same time!");
 
+  std::unique_ptr<Pass> UP(P);
   if (ForceSkip)
     return;
 
   if (!ForceRun) {
-    LoopOptLimiter CurrLimiter = P->getLimiter();
+    LoopOptLimiter CurrLimiter = UP->getLimiter();
     switch (CurrLimiter) {
     case LoopOptLimiter::None:
-      P->limit(Limiter);
+      UP->limit(Limiter);
       break;
     case LoopOptLimiter::NoLoopOptOnly:
       if (Limiter == LoopOptLimiter::LoopOpt ||
@@ -1814,7 +1815,7 @@ void LoopOptLimitingPassManager::add(Pass *P) {
         return;
       if (Limiter == LoopOptLimiter::FullLoopOptOnly ||
           Limiter == LoopOptLimiter::LightLoopOptOnly)
-        P->limit(Limiter);
+        UP->limit(Limiter);
       break;
     case LoopOptLimiter::FullLoopOptOnly:
       if (Limiter == LoopOptLimiter::NoLoopOptOnly ||
@@ -1829,7 +1830,7 @@ void LoopOptLimitingPassManager::add(Pass *P) {
     }
   }
 
-  UnderlyingPM.add(P);
+  UnderlyingPM.add(UP.release());
 }
 #endif // INTEL_CUSTOMIZATION
 
