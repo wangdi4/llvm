@@ -1232,7 +1232,15 @@ pi_result _pi_queue::executeCommandList(pi_command_list_ptr_t CommandList,
   // either that no command has ever been issued to the queue
   // or it means that the LastCommandEvent has been signalled and
   // therefore that this Queue is idle.
-  bool CurrentlyEmpty = this->LastCommandEvent == nullptr;
+  //
+  // NOTE: this behavior adds some flakyness to the batching
+  // since last command's event may or may not be completed by the
+  // time we get here depending on timings and system/gpu load.
+  // So, disable it for modes where we print PI traces. Printing
+  // traces incurs much different timings than real execution
+  // ansyway, and many regression tests use it.
+  //
+  bool CurrentlyEmpty = !PrintPiTrace && this->LastCommandEvent == nullptr;
 
   // The list can be empty if command-list only contains signals of proxy
   // events.
@@ -1438,6 +1446,23 @@ _pi_queue::getZeCopyCommandQueue(int *CopyQueueIndex,
   if (getOrCreateCopyCommandQueue(*CopyQueueIndex, ZeCopyCommandQueue))
     return nullptr;
   return ZeCopyCommandQueue;
+}
+
+pi_result _pi_queue::executeOpenCommandListWithEvent(pi_event Event) {
+  // TODO: see if we can reliably tell if the event is copy or compute.
+  // Meanwhile check both open command-lists.
+  using IsCopy = bool;
+  if (hasOpenCommandList(IsCopy{false}) &&
+      ComputeCommandBatch.OpenCommandList->first == Event->ZeCommandList) {
+    if (auto Res = executeOpenCommandList(IsCopy{false}))
+      return Res;
+  }
+  if (hasOpenCommandList(IsCopy{true}) &&
+      CopyCommandBatch.OpenCommandList->first == Event->ZeCommandList) {
+    if (auto Res = executeOpenCommandList(IsCopy{true}))
+      return Res;
+  }
+  return PI_SUCCESS;
 }
 
 pi_result _pi_queue::executeOpenCommandList(bool IsCopy) {
@@ -3153,19 +3178,28 @@ pi_result piQueueFinish(pi_queue Queue) {
   // Wait until command lists attached to the command queue are executed.
   PI_ASSERT(Queue, PI_INVALID_QUEUE);
 
-  // Lock automatically releases when this goes out of scope.
-  std::lock_guard<std::mutex> lock(Queue->PiQueueMutex);
+  std::vector<ze_command_queue_handle_t> ZeQueues;
+  {
+    // Lock automatically releases when this goes out of scope.
+    std::lock_guard<std::mutex> lock(Queue->PiQueueMutex);
 
-  // execute any command list that may still be open.
-  if (auto Res = Queue->executeAllOpenCommandLists())
-    return Res;
+    // execute any command list that may still be open.
+    if (auto Res = Queue->executeAllOpenCommandLists())
+      return Res;
 
-  ZE_CALL(zeHostSynchronize, (Queue->ZeComputeCommandQueue));
-  for (uint32_t i = 0; i < Queue->ZeCopyCommandQueues.size(); ++i) {
-    if (Queue->ZeCopyCommandQueues[i])
-      ZE_CALL(zeHostSynchronize, (Queue->ZeCopyCommandQueues[i]));
+    ZeQueues = Queue->ZeCopyCommandQueues;
+    ZeQueues.push_back(Queue->ZeComputeCommandQueue);
   }
 
+  // Don't hold a lock to the queue's mutex while waiting.
+  // This allows continue working with the queue from other threads.
+  for (auto ZeQueue : ZeQueues) {
+    if (ZeQueue)
+      ZE_CALL(zeHostSynchronize, (ZeQueue));
+  }
+
+  // Lock automatically releases when this goes out of scope.
+  std::lock_guard<std::mutex> lock(Queue->PiQueueMutex);
   // Prevent unneeded already finished events to show up in the wait list.
   Queue->LastCommandEvent = nullptr;
 
@@ -4998,23 +5032,7 @@ pi_result piEventGetInfo(pi_event Event, pi_event_info ParamName,
     if (Event->Queue) {
       // Lock automatically releases when this goes out of scope.
       std::lock_guard<std::mutex> lock(Event->Queue->PiQueueMutex);
-
-      // Only do the execute of the open command list if the event that
-      // is being queried and event that is to be signalled by something
-      // currently in that open command list.
-      using IsCopy = bool;
-      if (Event->Queue->hasOpenCommandList(IsCopy{false}) &&
-          Event->Queue->ComputeCommandBatch.OpenCommandList->first ==
-              Event->ZeCommandList) {
-        if (auto Res = Event->Queue->executeOpenCommandList(IsCopy{false}))
-          return Res;
-      }
-      if (Event->Queue->hasOpenCommandList(IsCopy{true}) &&
-          Event->Queue->CopyCommandBatch.OpenCommandList->first ==
-              Event->ZeCommandList) {
-        if (auto Res = Event->Queue->executeOpenCommandList(IsCopy{true}))
-          return Res;
-      }
+      Event->Queue->executeOpenCommandListWithEvent(Event);
     }
 
     // Make sure that we query a host-visible event only.
@@ -5356,6 +5374,14 @@ pi_result piextEventGetNativeHandle(pi_event Event,
 
   auto *ZeEvent = pi_cast<ze_event_handle_t *>(NativeHandle);
   *ZeEvent = Event->ZeEvent;
+
+  // Event can potentially be in an open command-list, make sure that
+  // it is submitted for execution to avoid potential deadlock if
+  // interop app is going to wait for it.
+  if (Event->Queue) {
+    std::lock_guard<std::mutex> lock(Event->Queue->PiQueueMutex);
+    Event->Queue->executeOpenCommandListWithEvent(Event);
+  }
   return PI_SUCCESS;
 }
 
@@ -5614,6 +5640,22 @@ pi_result piEnqueueEventsWaitWithBarrier(pi_queue Queue,
   PI_ASSERT(Queue, PI_INVALID_QUEUE);
   PI_ASSERT(Event, PI_INVALID_EVENT);
 
+  // Submit dependent open command lists for execution, if any
+  // Only do it for queues other than the current, since the barrier
+  // will go into current queue submission together with the waited event.
+  for (uint32_t I = 0; I < NumEventsInWaitList; I++) {
+    auto EventQueue = EventWaitList[I]->Queue;
+    if (EventQueue && EventQueue != Queue) {
+      // Lock automatically releases when this goes out of scope.
+      std::lock_guard<std::mutex> lock(Queue->PiQueueMutex);
+
+      if (EventQueue->RefCount > 0) {
+        if (auto Res = EventQueue->executeAllOpenCommandLists())
+          return Res;
+      }
+    }
+  }
+
   // Lock automatically releases when this goes out of scope.
   std::lock_guard<std::mutex> lock(Queue->PiQueueMutex);
 
@@ -5623,8 +5665,10 @@ pi_result piEnqueueEventsWaitWithBarrier(pi_queue Queue,
     return Res;
 
   // Get a new command list to be used on this call
+  bool OkToBatch = true;
   pi_command_list_ptr_t CommandList{};
-  if (auto Res = Queue->Context->getAvailableCommandList(Queue, CommandList))
+  if (auto Res = Queue->Context->getAvailableCommandList(
+          Queue, CommandList, false /*copy*/, OkToBatch))
     return Res;
 
   ze_event_handle_t ZeEvent = nullptr;
@@ -5641,7 +5685,7 @@ pi_result piEnqueueEventsWaitWithBarrier(pi_queue Queue,
 
   // Execute command list asynchronously as the event will be used
   // to track down its completion.
-  return Queue->executeCommandList(CommandList);
+  return Queue->executeCommandList(CommandList, false, OkToBatch);
 }
 
 pi_result piEnqueueMemBufferRead(pi_queue Queue, pi_mem Src,
