@@ -15,6 +15,12 @@
 #ifndef LLVM_TRANSFORMS_SCALAR_SROA_H
 #define LLVM_TRANSFORMS_SCALAR_SROA_H
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/PassManager.h"
@@ -109,6 +115,16 @@ class SROAPass : public PassInfoMixin<SROAPass> {
   /// currently in the promotable queue.
   SetVector<SelectInst *, SmallVector<SelectInst *, 2>> SpeculatableSelects;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  /// This class is used to set the DTrans type metadata on newly formed allocas
+  /// when DTrans type metadata is being used. This is needed for the DTrans
+  /// safety analyzer to perform analysis for the DTrans transformations. When
+  /// DTrans type metadata is not present in the IR, calls to methods of this
+  /// class will not do anything.
+  dtransOP::DTransTypeMetadataPropagator DTransTypeMetadataProp;
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 public:
   SROAPass() = default;
 
