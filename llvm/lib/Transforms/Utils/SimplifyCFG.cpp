@@ -3142,9 +3142,19 @@ static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
          "block must also be merge block's predecessor.");
 
   if (auto *PN = dyn_cast<PHINode>(MergeBB->begin()))
-    // FIXME: lift this restriction.
-    if (PN->getNumIncomingValues() == 2)
-      return FoldTwoEntryPHINode(PN, TTI, DTU, DL);
+#if INTEL_CUSTOMIZATION
+    // FoldPHIEntries is an Intel customized generalized version of the LLVM
+    // open source routine called FoldTwoEntryPHINode(that folds a two-entry
+    // phinode into "select") which is capable of handling any number
+    // of phi entries. It iteratively transforms each conditional into
+    // "select". Any changes (one such change could be regarding cost model)
+    // made by the LLVM community to FoldTwoEntryPHINode will need to be
+    // incorporated to this routine (FoldPHIEntries).
+    // To keep xmain as clean as possible we got rid of the FoldTwoEntryPHINode,
+    // therefore, there might be conflicts during code merge. If resolving
+    // conflicts becomes too cumbersome, we can try something different.
+    return FoldPHIEntries(PN, TTI, DTU, DL);
+#endif //INTEL_CUSTOMIZATION
 
   return false;
 }
@@ -8486,29 +8496,6 @@ bool SimplifyCFGOpt::simplifyOnce(BasicBlock *BB) {
 
   IRBuilder<> Builder(BB);
 
-<<<<<<< HEAD
-  if (Options.FoldTwoEntryPHINode) {
-    // If there is a PHI node in this basic block, and we can
-    // eliminate some of its entries, do so now.
-    if (auto *PN = dyn_cast<PHINode>(BB->begin()))
-#if INTEL_CUSTOMIZATION
-      // FoldPHIEntries is an Intel customized generalized version of the LLVM
-      // open source routine called FoldTwoEntryPHINode(that folds a two-entry
-      // phinode into "select") which is capable of handling any number
-      // of phi entries. It iteratively transforms each conditional into
-      // "select". Any changes (one such change could be regarding cost model)
-      // made by the LLVM community to FoldTwoEntryPHINode will need to be
-      // incorporated to this routine (FoldPHIEntries).
-      // To keep xmain as clean as possible we got rid of the FoldTwoEntryPHINode,
-      // therefore, there might be conflicts during code merge. If resolving
-      // conflicts becomes too cumbersome, we can try something different.
-      if (FoldPHIEntries(PN, TTI, DTU, DL))
-        return true;
-#endif //INTEL_CUSTOMIZATION
-  }
-
-=======
->>>>>>> 1e353f092288309d74d380367aa50bbd383780ed
   Instruction *Terminator = BB->getTerminator();
   Builder.SetInsertPoint(Terminator);
   switch (Terminator->getOpcode()) {

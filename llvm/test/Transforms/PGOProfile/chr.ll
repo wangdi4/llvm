@@ -1769,11 +1769,7 @@ define i32 @test_chr_19(i32* %i, i32 %sum0) !prof !14 {
 ; CHECK-NEXT:    [[SUM4_NONCHR:%.*]] = add i32 [[SUM2_NONCHR]], [[SUM4_NONCHR_V]]
 ; CHECK-NEXT:    br label [[BB3]]
 ; CHECK:       bb3:
-<<<<<<< HEAD
-; CHECK-NEXT:    [[SUM6:%.*]] = phi i32 [ [[TMP4]], [[BB0]] ], [ [[SUM0]], [[ENTRY_SPLIT_NONCHR]] ], [ [[TMP11]], [[BB0_NONCHR]] ]
-=======
 ; CHECK-NEXT:    [[SUM6:%.*]] = phi i32 [ [[TMP4]], [[BB0]] ], [ [[SUM0]], [[ENTRY_SPLIT_NONCHR]] ], [ [[SUM2_NONCHR]], [[BB0_NONCHR]] ], [ [[SUM4_NONCHR]], [[BB1_NONCHR]] ]
->>>>>>> 1e353f092288309d74d380367aa50bbd383780ed
 ; CHECK-NEXT:    ret i32 [[SUM6]]
 ;
 entry:

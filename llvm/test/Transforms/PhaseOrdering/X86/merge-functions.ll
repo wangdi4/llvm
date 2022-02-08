@@ -15,7 +15,6 @@ define i1 @test1(i32 %c) {
 
 ; CHECK-LABEL: @test1(
 ; CHECK-NEXT:  entry:
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[TMP0:%.*]] = insertelement <4 x i32> poison, i32 [[C:%.*]], i64 0
 ; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP0]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <4 x i32> [[SHUFFLE]], <i32 115, i32 109, i32 104, i32 100>
@@ -25,20 +24,6 @@ define i1 @test1(i32 %c) {
 ; CHECK-NEXT:    [[TMP4:%.*]] = or i1 [[TMP3]], [[_12]]
 ; CHECK-NEXT:    ret i1 [[TMP4]]
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[SWITCH_TABLEIDX:%.*]] = add i32 [[C:%.*]], -104
-; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult i32 [[SWITCH_TABLEIDX]], 12
-; CHECK-NEXT:    [[SWITCH_CAST:%.*]] = trunc i32 [[SWITCH_TABLEIDX]] to i12
-; CHECK-NEXT:    [[SWITCH_DOWNSHIFT:%.*]] = lshr i12 -2015, [[SWITCH_CAST]]
-; CHECK-NEXT:    [[TMP1:%.*]] = and i12 [[SWITCH_DOWNSHIFT]], 1
-; CHECK-NEXT:    [[SWITCH_MASKED:%.*]] = icmp ne i12 [[TMP1]], 0
-; CHECK-NEXT:    [[_3_0:%.*]] = select i1 [[TMP0]], i1 [[SWITCH_MASKED]], i1 false
-; CHECK-NEXT:    [[_10:%.*]] = icmp eq i32 [[C]], 100
-; CHECK-NEXT:    [[_2_0:%.*]] = select i1 [[_3_0]], i1 true, i1 [[_10]]
-; CHECK-NEXT:    [[_12:%.*]] = icmp eq i32 [[C]], 119
-; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[_2_0]], i1 true, i1 [[_12]]
-; CHECK-NEXT:    ret i1 [[SPEC_SELECT]]
->>>>>>> 1e353f092288309d74d380367aa50bbd383780ed
 ;
 entry:
   %_4 = alloca i8, align 1
@@ -111,10 +96,7 @@ bb3:                                              ; preds = %bb1, %bb2
 
 define i1 @test2(i32 %c) {
 ; CHECK-LABEL: @test2(
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-=======
->>>>>>> 1e353f092288309d74d380367aa50bbd383780ed
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[SWITCH_TABLEIDX:%.*]] = add i32 [[C:%.*]], -100
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult i32 [[SWITCH_TABLEIDX]], 20
@@ -122,14 +104,9 @@ define i1 @test2(i32 %c) {
 ; CHECK-NEXT:    [[SWITCH_DOWNSHIFT:%.*]] = lshr i20 -490991, [[SWITCH_CAST]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = and i20 [[SWITCH_DOWNSHIFT]], 1
 ; CHECK-NEXT:    [[SWITCH_MASKED:%.*]] = icmp ne i20 [[TMP1]], 0
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[TMP2:%.*]] = select i1 [[TMP0]], i1 [[SWITCH_MASKED]], i1 false
 ; CHECK-NEXT:    ret i1 [[TMP2]]
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[I_0:%.*]] = select i1 [[TMP0]], i1 [[SWITCH_MASKED]], i1 false
-; CHECK-NEXT:    ret i1 [[I_0]]
->>>>>>> 1e353f092288309d74d380367aa50bbd383780ed
 ;
 entry:
   %i = alloca i8, align 1
