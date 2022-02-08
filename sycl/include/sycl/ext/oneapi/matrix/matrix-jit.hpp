@@ -213,16 +213,10 @@ joint_matrix_fill(Group sg,
   (void)sg;
 #ifdef __SYCL_DEVICE_ONLY__
   res.spvm =
-<<<<<<< HEAD
-          __spirv_CompositeConstruct<T, NumRows, NumCols,
-                                     spv_matrix_layout_traits<Layout>::value>(
-              static_cast<T>(v));
-=======
       __spirv_CompositeConstruct<T, NumRows, NumCols,
                                  spv_matrix_layout_traits<Layout>::value>(
           static_cast<T>(v));
 
->>>>>>> b2663d833775e240b0ab1cb766839803150ef22d
 #else
   (void)res;
   (void)v;
