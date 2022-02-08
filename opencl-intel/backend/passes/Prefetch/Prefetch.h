@@ -27,6 +27,7 @@
 #include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
 #include "OclTune.h"
 
+#include <map>
 
 using namespace llvm;
 
