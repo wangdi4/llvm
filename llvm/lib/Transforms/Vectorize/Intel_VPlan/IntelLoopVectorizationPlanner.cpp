@@ -1452,6 +1452,20 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
   return true;
 }
 
+bool LoopVectorizationPlanner::canLowerVPlan(const VPlanVector &Plan) {
+  // Check if calls that require pumping can be lowered based on available
+  // support for the feature.
+  for (auto &VPI : vpinstructions(&Plan)) {
+    if (auto *VPCall = dyn_cast<VPCallInstruction>(&VPI)) {
+      if (VPCall->getPumpFactor() > 1 && !isCallPumpingSupported())
+        return false;
+    }
+  }
+
+  // All checks passed.
+  return true;
+}
+
 bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
                                                   const VPLoop &Loop) const {
   // Check for live out values that are not inductions/reductions.

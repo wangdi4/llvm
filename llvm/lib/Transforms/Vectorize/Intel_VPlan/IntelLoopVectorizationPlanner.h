@@ -355,6 +355,10 @@ public:
   /// VPlan vectorizer on which we better gracefully bail out than assert.
   bool canProcessVPlan(const VPlanVector &Plan);
 
+  /// Pre VPlan CodeGen pass to verify that we can lower the final VPlan into
+  /// corresponding vector code.
+  bool canLowerVPlan(const VPlanVector &Plan);
+
   /// Select the best plan and dispose all other VPlans.
   /// \Returns the selected vectorization factor and corresponding VPlan.
   std::pair<unsigned, VPlanVector *> selectBestPlan();
@@ -527,6 +531,9 @@ protected:
   /// bailout in such cases than assert or generate incorrect code.
   virtual bool canProcessLoopBody(const VPlanVector &Plan,
                                   const VPLoop &Loop) const;
+
+  /// Check if vectorizer supports call pumping feature.
+  virtual bool isCallPumpingSupported() const { return true; }
 
   /// Register the choosen vectorization scenario: peel/remainder configuration,
   /// vector and unroll factors for main loop
