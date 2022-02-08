@@ -65,7 +65,6 @@ set(TARGET_INCLUDE_FILES
   LoopHandler/LoopWIAnalysis.h
   OCLBranchProbability/OCLBranchProbability.h
   OCLVecClone/OCLVecClone.h
-  OCLVecClone/OCLPostVect.h
   Packetizer/Packetizer.h
   PostDominanceFrontier/PostDominanceFrontier.h
   Predication/Linearizer.h
@@ -98,7 +97,6 @@ set(TARGET_SOURCE_FILES
   LoopHandler/LoopWIAnalysis.cpp
   OCLBranchProbability/OCLBranchProbability.cpp
   OCLVecClone/OCLVecClone.cpp
-  OCLVecClone/OCLPostVect.cpp
   Packetizer/Packetizer.cpp
   Packetizer/PacketizerInstData.cpp
   PostDominanceFrontier/PostDominanceFrontier.cpp
