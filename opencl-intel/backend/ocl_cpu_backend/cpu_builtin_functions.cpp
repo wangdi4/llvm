@@ -61,8 +61,7 @@ using namespace Intel::OpenCL::DeviceBackend;
 /*****************************************************************************************************************************
 *    Synchronization functions (Section 6.11.9)
 *****************************************************************************************************************************/
-extern "C" LLVM_BACKEND_API void cpu_dbg_print(const char* fmt, ...)
-{
+extern "C" LLVM_BACKEND_API void __cpu_dbg_print(const char *fmt, ...) {
   va_list va;
   va_start(va, fmt);
 
@@ -70,8 +69,8 @@ extern "C" LLVM_BACKEND_API void cpu_dbg_print(const char* fmt, ...)
   va_end( va );
 }
 
-extern "C" LLVM_BACKEND_API void cpu_lprefetch(const char* ptr, size_t numElements, size_t elmSize)
-{
+extern "C" LLVM_BACKEND_API void
+__cpu_lprefetch(const char *ptr, size_t numElements, size_t elmSize) {
   size_t totalLines = ((numElements * elmSize) + CPU_DEV_DCU_LINE_SIZE - 1) / CPU_DEV_DCU_LINE_SIZE;
 
   for (size_t i=0; i<totalLines; ++i)
@@ -81,8 +80,7 @@ extern "C" LLVM_BACKEND_API void cpu_lprefetch(const char* ptr, size_t numElemen
   }
 }
 
-extern "C" LLVM_BACKEND_API unsigned long long cpu_get_time_counter()
-{
+extern "C" LLVM_BACKEND_API unsigned long long __cpu_get_time_counter() {
   return Intel::OpenCL::DeviceBackend::Utils::SystemInfo::HostTime();
 }
 
@@ -118,9 +116,13 @@ extern "C" LLVM_BACKEND_API void *___chkstk(size_t);
 #endif
 #endif
 
-// usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
-extern "C" LLVM_BACKEND_API int opencl_printf(const char* format, char* args, ICLDevBackendDeviceAgentCallback* pCallback, void* pHandle);
-extern "C" LLVM_BACKEND_API int opencl_snprintf(char* outstr, size_t size, const char* format, char* args, ICLDevBackendDeviceAgentCallback* pCallback, void* pHandle);
+// usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition
+extern "C" LLVM_BACKEND_API int
+__opencl_printf(const char *format, char *args,
+                ICLDevBackendDeviceAgentCallback *pCallback, void *pHandle);
+extern "C" LLVM_BACKEND_API int
+__opencl_snprintf(char *outstr, size_t size, const char *format, char *args,
+                  ICLDevBackendDeviceAgentCallback *pCallback, void *pHandle);
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_declare_local(void* addr, uint64_t var_metadata_addr, uint64_t expr_metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2) LLVM_BACKEND_NOINLINE_POST;
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_declare_global(void* addr, uint64_t var_metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2) LLVM_BACKEND_NOINLINE_POST;
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_stoppoint(uint64_t metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2) LLVM_BACKEND_NOINLINE_POST;
@@ -177,34 +179,48 @@ llvm::Error RegisterCPUBIFunctions(bool isFPGAEmuDev, llvm::orc::LLJIT *LLJIT)
 {
     llvm::JITSymbolFlags flag;
 
-    REGISTER_BI_FUNCTION("dbg_print",cpu_dbg_print)
-    REGISTER_BI_FUNCTION("lprefetch",cpu_lprefetch)
-    REGISTER_BI_FUNCTION("get_time_counter",cpu_get_time_counter)
-    REGISTER_BI_FUNCTION("opencl_printf",opencl_printf)
-    REGISTER_BI_FUNCTION("opencl_snprintf",opencl_snprintf)
-    REGISTER_BI_FUNCTION("__opencl_dbg_declare_local",__opencl_dbg_declare_local)
-    REGISTER_BI_FUNCTION("__opencl_dbg_enter_function",__opencl_dbg_enter_function)
-    REGISTER_BI_FUNCTION("__opencl_dbg_exit_function",__opencl_dbg_exit_function)
-    REGISTER_BI_FUNCTION("__opencl_dbg_declare_global",__opencl_dbg_declare_global)
-    REGISTER_BI_FUNCTION("__opencl_dbg_stoppoint",__opencl_dbg_stoppoint)
-    REGISTER_BI_FUNCTION("ocl20_get_default_queue",ocl20_get_default_queue)
-    REGISTER_BI_FUNCTION("ocl20_enqueue_kernel_basic",ocl20_enqueue_kernel_basic)
-    REGISTER_BI_FUNCTION("ocl20_enqueue_kernel_localmem",ocl20_enqueue_kernel_localmem)
-    REGISTER_BI_FUNCTION("ocl20_enqueue_kernel_events",ocl20_enqueue_kernel_events)
-    REGISTER_BI_FUNCTION("ocl20_enqueue_kernel_events_localmem",ocl20_enqueue_kernel_events_localmem)
-    REGISTER_BI_FUNCTION("ocl20_enqueue_marker",ocl20_enqueue_marker)
-    REGISTER_BI_FUNCTION("ocl20_retain_event",ocl20_retain_event)
-    REGISTER_BI_FUNCTION("ocl20_release_event",ocl20_release_event)
-    REGISTER_BI_FUNCTION("ocl20_create_user_event",ocl20_create_user_event)
-    REGISTER_BI_FUNCTION("ocl20_set_user_event_status",ocl20_set_user_event_status)
-    REGISTER_BI_FUNCTION("ocl20_capture_event_profiling_info",ocl20_capture_event_profiling_info)
-    REGISTER_BI_FUNCTION("ocl20_get_kernel_wg_size",ocl20_get_kernel_wg_size)
-    REGISTER_BI_FUNCTION("ocl20_get_kernel_preferred_wg_size_multiple",ocl20_get_kernel_preferred_wg_size_multiple)
-    REGISTER_BI_FUNCTION("ocl20_is_valid_event",ocl20_is_valid_event)
-    REGISTER_BI_FUNCTION("ocl_task_sequence_create",ocl_task_sequence_create)
-    REGISTER_BI_FUNCTION("ocl_task_sequence_async",ocl_task_sequence_async)
-    REGISTER_BI_FUNCTION("ocl_task_sequence_get",ocl_task_sequence_get)
-    REGISTER_BI_FUNCTION("ocl_task_sequence_release",ocl_task_sequence_release)
+    REGISTER_BI_FUNCTION("__dbg_print", __cpu_dbg_print)
+    REGISTER_BI_FUNCTION("__lprefetch", __cpu_lprefetch)
+    REGISTER_BI_FUNCTION("__get_time_counter", __cpu_get_time_counter)
+    REGISTER_BI_FUNCTION("__opencl_printf", __opencl_printf)
+    REGISTER_BI_FUNCTION("__opencl_snprintf", __opencl_snprintf)
+    REGISTER_BI_FUNCTION("__opencl_dbg_declare_local",
+                         __opencl_dbg_declare_local)
+    REGISTER_BI_FUNCTION("__opencl_dbg_enter_function",
+                         __opencl_dbg_enter_function)
+    REGISTER_BI_FUNCTION("__opencl_dbg_exit_function",
+                         __opencl_dbg_exit_function)
+    REGISTER_BI_FUNCTION("__opencl_dbg_declare_global",
+                         __opencl_dbg_declare_global)
+    REGISTER_BI_FUNCTION("__opencl_dbg_stoppoint", __opencl_dbg_stoppoint)
+    REGISTER_BI_FUNCTION("__ocl20_get_default_queue", __ocl20_get_default_queue)
+    REGISTER_BI_FUNCTION("__ocl20_enqueue_kernel_basic",
+                         __ocl20_enqueue_kernel_basic)
+    REGISTER_BI_FUNCTION("__ocl20_enqueue_kernel_localmem",
+                         __ocl20_enqueue_kernel_localmem)
+    REGISTER_BI_FUNCTION("__ocl20_enqueue_kernel_events",
+                         __ocl20_enqueue_kernel_events)
+    REGISTER_BI_FUNCTION("__ocl20_enqueue_kernel_events_localmem",
+                         __ocl20_enqueue_kernel_events_localmem)
+    REGISTER_BI_FUNCTION("__ocl20_enqueue_marker", __ocl20_enqueue_marker)
+    REGISTER_BI_FUNCTION("__ocl20_retain_event", __ocl20_retain_event)
+    REGISTER_BI_FUNCTION("__ocl20_release_event", __ocl20_release_event)
+    REGISTER_BI_FUNCTION("__ocl20_create_user_event", __ocl20_create_user_event)
+    REGISTER_BI_FUNCTION("__ocl20_set_user_event_status",
+                         __ocl20_set_user_event_status)
+    REGISTER_BI_FUNCTION("__ocl20_capture_event_profiling_info",
+                         __ocl20_capture_event_profiling_info)
+    REGISTER_BI_FUNCTION("__ocl20_get_kernel_wg_size",
+                         __ocl20_get_kernel_wg_size)
+    REGISTER_BI_FUNCTION("__ocl20_get_kernel_preferred_wg_size_multiple",
+                         __ocl20_get_kernel_preferred_wg_size_multiple)
+    REGISTER_BI_FUNCTION("__ocl20_is_valid_event", __ocl20_is_valid_event)
+    REGISTER_BI_FUNCTION("__ocl_task_sequence_create",
+                         __ocl_task_sequence_create)
+    REGISTER_BI_FUNCTION("__ocl_task_sequence_async", __ocl_task_sequence_async)
+    REGISTER_BI_FUNCTION("__ocl_task_sequence_get", __ocl_task_sequence_get)
+    REGISTER_BI_FUNCTION("__ocl_task_sequence_release",
+                         __ocl_task_sequence_release)
     REGISTER_BI_FUNCTION("__emutls_get_address",__opencl_emutls_get_address)
     // Floating-point extend/truncate builtins
     REGISTER_BI_FUNCTION("__gnu_f2h_ieee", __gnu_f2h_ieee)

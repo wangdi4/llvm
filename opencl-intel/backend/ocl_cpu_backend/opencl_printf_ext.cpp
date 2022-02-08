@@ -35,7 +35,8 @@ const size_t MAX_FORMAT_LEN = 128;
 // Maximal length produced by a single conversion. Note that C99 dictates in
 // 7.19.6.1 that this must be minimum 4095 to conform to the standard.
 //
-// TODO: changed to 1024 as a WORKAROUND to memory corruption / stack overflow by opencl_printf
+// TODO: changed to 1024 as a WORKAROUND to memory corruption / stack overflow
+// by __opencl_printf
 const size_t MAX_CONVERSION_LEN = 1024; // <- was 4096;
 
 // Defined in backend/libraries/ocl_builtins/soft_math
@@ -825,10 +826,9 @@ int printFormatCommon(OutputAccumulator& output, const char* format, const char*
     return rc < 0 ? rc : output.output_count();
 }
 
-extern "C" LLVM_BACKEND_API int opencl_snprintf(char *outstr, size_t size,
-                                                const char *format, char *args,
-                                                void * /*pCallback*/,
-                                                void * /*pHandle*/) {
+extern "C" LLVM_BACKEND_API int
+__opencl_snprintf(char *outstr, size_t size, const char *format, char *args,
+                  void * /*pCallback*/, void * /*pHandle*/) {
   StringOutputAccumulator output(outstr, size);
   return printFormatCommon(output, format, args);
 }

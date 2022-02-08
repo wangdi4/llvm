@@ -1,9 +1,9 @@
-// Tests for the opencl_printf builtin (accessible as a 'printf' call inside
+// Tests for the __opencl_printf builtin (accessible as a 'printf' call inside
 // kernels).
 //
-// Note: the opencl_printf is comprehensively tested in the backend. Here the
+// Note: the __opencl_printf is comprehensively tested in the backend. Here the
 // goal is only to verify that a printf call from the kernel is correctly
-// linked to the opencl_printf builtin, and allows to print vectors.
+// linked to the __opencl_printf builtin, and allows to print vectors.
 //
 #include "CL/cl.h"
 

@@ -32,16 +32,16 @@ struct task_sequence_data {
 };
 
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE size_t
-ocl_task_sequence_create(size_t ret_type_size);
+__ocl_task_sequence_create(size_t ret_type_size);
 
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void
-ocl_task_sequence_async(task_sequence *obj, unsigned invocation_capacity,
-                        void *block_invoke, void *block_literal,
-                        IDeviceCommandManager *DCM, IBlockToKernelMapper *B2K,
-                        void *RuntimeHandle);
+__ocl_task_sequence_async(task_sequence *obj, unsigned invocation_capacity,
+                          void *block_invoke, void *block_literal,
+                          IDeviceCommandManager *DCM, IBlockToKernelMapper *B2K,
+                          void *RuntimeHandle);
 
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void *
-ocl_task_sequence_get(task_sequence *obj, IDeviceCommandManager *DCM);
+__ocl_task_sequence_get(task_sequence *obj, IDeviceCommandManager *DCM);
 
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void
-ocl_task_sequence_release(task_sequence *obj);
+__ocl_task_sequence_release(task_sequence *obj);
