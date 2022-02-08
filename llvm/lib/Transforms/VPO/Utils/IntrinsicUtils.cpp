@@ -99,22 +99,6 @@ bool VPOUtils::stripDirectives(Function &F, ArrayRef<int> IDs) {
   return changed;
 }
 
-CallInst *VPOUtils::createMaskedGatherCall(Value *VecPtr,
-                                           IRBuilder<> &Builder,
-                                           unsigned Alignment,
-                                           Value *Mask,
-                                           Value *PassThru) {
-  auto *VecPtrTy = cast<VectorType>(VecPtr->getType());
-  auto *PtrTy = cast<PointerType>(VecPtrTy->getElementType());
-  ElementCount NumElts = VecPtrTy->getElementCount();
-  auto *Ty = PtrTy->getElementType();
-  auto *VecTy = VectorType::get(Ty, NumElts);
-
-  auto NewCallInst = Builder.CreateMaskedGather(VecTy, VecPtr, Align(Alignment),
-                                                Mask, PassThru);
-  return NewCallInst;
-}
-
 CallInst *VPOUtils::createMaskedScatterCall(Value *VecPtr,
                                             Value *VecData,
                                             IRBuilder<> &Builder,
@@ -122,17 +106,6 @@ CallInst *VPOUtils::createMaskedScatterCall(Value *VecPtr,
                                             Value *Mask) {
   auto NewCallInst =
       Builder.CreateMaskedScatter(VecData, VecPtr, Align(Alignment), Mask);
-  return NewCallInst;
-}
-
-CallInst *VPOUtils::createMaskedLoadCall(Value *VecPtr,
-                                         IRBuilder<> &Builder,
-                                         unsigned Alignment,
-                                         Value *Mask,
-                                         Value *PassThru) {
-  auto *VecTy = VecPtr->getType()->getPointerElementType();
-  auto NewCallInst = Builder.CreateMaskedLoad(
-      VecTy, VecPtr, assumeAligned(Alignment), Mask, PassThru);
   return NewCallInst;
 }
 

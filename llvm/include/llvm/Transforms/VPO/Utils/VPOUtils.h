@@ -266,21 +266,6 @@ public:
   /// \name Functions for vector code generation
   /// @{
 
-  /// Return a call to the `llvm.masked.gather` intrinsic. A null Mask
-  /// defaults to an unmasked gather. A null PassThru value uses undef value
-  /// for pass through value.
-  static CallInst *createMaskedGatherCall(Value *VecPtr, IRBuilder<> &Builder,
-                                          unsigned Alignment = 0,
-                                          Value *Mask = nullptr,
-                                          Value *PassThru = nullptr);
-
-  /// Return a call to the `llvm.masked.load intrinsic`. It uses the
-  /// interface provided by IRBuilder. A null PassThru value uses undef value
-  /// for pass through value.
-  static CallInst *createMaskedLoadCall(Value *VecPtr, IRBuilder<> &Builder,
-                                        unsigned Alignment, Value *Mask,
-                                        Value *PassThru = nullptr);
-
   /// Return a call to the `llvm.masked.scatter` intrinsic. A null Mask
   /// defaults to an unmasked scatter.
   static CallInst *createMaskedScatterCall(Value *VecPtr, Value *VecData,
