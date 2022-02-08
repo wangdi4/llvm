@@ -16,7 +16,7 @@ entry:
 ; CHECK-NEXT: call void @_ZGVbN16uv_sub_group_rowslice_insertelement.i16(i64 [[RID1]], <16 x i16> [[WIDEN_MUL]])
 ; CHECK-NEXT: [[MAT_UPDATE:%.*]] = call <144 x i16> @sub_group_insert_rowslice_to_matrix.v144i16(i64 [[RID1]])
 
-; CHECK-LABEL: simd.loop.header:
+; CHECK-LABEL: simd.loop
 ; CHECK: call i16 @sub_group_rowslice_extractelement.i16(i64 %rowslice.id) #[[#ATTR0:]]
 ; CHECK: call void @sub_group_rowslice_insertelement.i16(i64 %rowslice.id1, i16 %val) #[[#ATTR1:]]
   %rowslice.id = call i64 @get_sub_group_rowslice_id.v144i16.i64(<144 x i16> %mat, i32 12, i32 12, i64 %element.index)

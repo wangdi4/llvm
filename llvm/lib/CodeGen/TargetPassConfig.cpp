@@ -63,7 +63,7 @@ static cl::opt<bool> DisableMapIntrinToIml("disable-iml-trans",
   cl::init(false), cl::Hidden,
   cl::desc("Disable mapping vectorized math intrinsic calls to svml/libm."));
 
-static cl::opt<bool>
+cl::opt<bool>
 IntelLibIRCAllowed("intel-libirc-allowed",
                     cl::desc("Allow the generation of calls to libirc."),
                     cl::init(false));

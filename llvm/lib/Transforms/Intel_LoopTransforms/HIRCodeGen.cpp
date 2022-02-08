@@ -1026,17 +1026,17 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
   // want the address, the gep
   if (Ref->isRval()) {
     Instruction *LInst;
+    auto *RefDestTy = Ref->getDestType();
 
     if (GEPVal->getType()->isVectorTy()) {
-      LInst = VPOUtils::createMaskedGatherCall(GEPVal, Builder,
-                                               Ref->getAlignment(), MaskVal);
+      LInst = Builder.CreateMaskedGather(RefDestTy, GEPVal,
+                                         Align(Ref->getAlignment()), MaskVal);
     } else if (MaskVal) {
-      LInst = VPOUtils::createMaskedLoadCall(GEPVal, Builder,
-                                             Ref->getAlignment(), MaskVal);
+      LInst = Builder.CreateMaskedLoad(RefDestTy, GEPVal,
+                                       Align(Ref->getAlignment()), MaskVal);
     } else {
-      auto *ElemTy = Ref->getDestType();
       LInst = Builder.CreateAlignedLoad(
-          ElemTy, GEPVal, MaybeAlign(Ref->getAlignment()), false, "gepload");
+          RefDestTy, GEPVal, MaybeAlign(Ref->getAlignment()), false, "gepload");
     }
 
     setMetadata(LInst, Ref);
@@ -1784,8 +1784,7 @@ void CGVisitor::generateLvalStore(const HLInst *HInst, Value *StorePtr,
       //  %mload19 = load <4 x i32>, <4 x i32>* %t24
       //  %11 = select <4 x i1> %t22.18, <4 x i32> %10, <4 x i32> %mload19
       //  store <4 x i32> %11, <4 x i32>* %t24
-      auto *StorePtrTy = StorePtr->getType()->getPointerElementType();
-      auto MLoad = Builder.CreateLoad(StorePtrTy, StorePtr, "mload");
+      auto MLoad = Builder.CreateLoad(StoreVal->getType(), StorePtr, "mload");
       auto MSel = Builder.CreateSelect(MaskVal, StoreVal, MLoad);
       Builder.CreateStore(MSel, StorePtr);
     } else {
