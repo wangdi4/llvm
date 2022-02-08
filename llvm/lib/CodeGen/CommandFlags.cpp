@@ -101,6 +101,10 @@ CGOPT(bool, XRayOmitFunctionIndex)
 CGOPT(bool, DebugStrictDwarf)
 CGOPT(unsigned, AlignLoops)
 
+#if INTEL_CUSTOMIZATION
+extern cl::opt<bool> IntelLibIRCAllowed;
+#endif // INTEL_CUSTOMIZATION
+
 codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
 #define CGBINDOPT(NAME)                                                        \
   do {                                                                         \
@@ -561,6 +565,7 @@ codegen::InitTargetOptionsFromCodeGenFlags(const Triple &TheTriple) {
   Options.EmitAddrsig = getEnableAddrsig();
 #if INTEL_CUSTOMIZATION
   Options.IntelAdvancedOptim = getEnableIntelAdvancedOpts();
+  Options.IntelLibIRCAllowed = IntelLibIRCAllowed;
   Options.X87Precision = getX87Precision();
   Options.DoFMAOpt = getDoFMAOpt();
 #endif // INTEL_CUSTOMIZATION

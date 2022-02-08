@@ -1,6 +1,5 @@
 ; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
-; TODO: enable check for new passmanager when intel-libirc-allowed works
-; opt -enable-intel-advanced-opts -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; RUN: opt -enable-intel-advanced-opts -disable-simplify-libcalls -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s --check-prefix="NOLIBCALL"
 ; No disable-simplify-libcalls support in new pass manager.
