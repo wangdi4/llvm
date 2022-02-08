@@ -2,7 +2,7 @@
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -fopenmp-version=50 -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
-// CHECK-LABEL: @_Z5test1i(i32 %n) #0 {
+// CHECK-LABEL: @_Z5test1i(i32 noundef %n) #0 {
 int test1(int n) {
   int avar[n];
   // CHECK: [[NADDR:%n.addr]] = alloca i32, align 4

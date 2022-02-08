@@ -8541,14 +8541,15 @@ public:
 
   LangAS getGlobalVarAddressSpace(CodeGenModule &CGM,
                                   const VarDecl *D) const override {
-    // Check if a global/static variable is defined within address space 1
+    // Check if global/static variable is defined in address space
+    // 1~6 (__flash, __flash1, __flash2, __flash3, __flash4, __flash5)
     // but not constant.
     LangAS AS = D->getType().getAddressSpace();
-    if (isTargetAddressSpace(AS) && toTargetAddressSpace(AS) == 1 &&
-        !D->getType().isConstQualified())
+    if (isTargetAddressSpace(AS) && 1 <= toTargetAddressSpace(AS) &&
+        toTargetAddressSpace(AS) <= 6 && !D->getType().isConstQualified())
       CGM.getDiags().Report(D->getLocation(),
                             diag::err_verify_nonconst_addrspace)
-          << "__flash";
+          << "__flash*";
     return TargetCodeGenInfo::getGlobalVarAddressSpace(CGM, D);
   }
 
@@ -9569,15 +9570,8 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
   if (FD)
     setFunctionDeclAttributes(FD, F, M);
 
-  const bool IsOpenCLKernel =
-      M.getLangOpts().OpenCL && FD && FD->hasAttr<OpenCLKernelAttr>();
   const bool IsHIPKernel =
       M.getLangOpts().HIP && FD && FD->hasAttr<CUDAGlobalAttr>();
-
-  const bool IsOpenMP = M.getLangOpts().OpenMP && !FD;
-  if ((IsOpenCLKernel || IsHIPKernel || IsOpenMP) &&
-      (M.getTriple().getOS() == llvm::Triple::AMDHSA))
-    F->addFnAttr("amdgpu-implicitarg-num-bytes", "56");
 
   if (IsHIPKernel)
     F->addFnAttr("uniform-work-group-size", "true");
@@ -11718,7 +11712,7 @@ TargetCodeGenInfo::createEnqueuedBlockKernel(CodeGenFunction &CGF,
   auto &C = CGF.getLLVMContext();
   std::string Name = Invoke->getName().str() + "_kernel";
   auto *FT = llvm::FunctionType::get(llvm::Type::getVoidTy(C), ArgTys, false);
-  auto *F = llvm::Function::Create(FT, llvm::GlobalValue::InternalLinkage, Name,
+  auto *F = llvm::Function::Create(FT, llvm::GlobalValue::ExternalLinkage, Name,
                                    &CGF.CGM.getModule());
   auto IP = CGF.Builder.saveIP();
   auto *BB = llvm::BasicBlock::Create(C, "entry", F);

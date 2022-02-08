@@ -26,7 +26,7 @@ void foo() {
   // CHECK-SAME: "QUAL.OMP.SHARED"(%class.anon* [[FP1]]
   #pragma omp target teams
   {
-    // CHECK: call void @_ZZ3foovENKUliE_clEi(%class.anon* nonnull align 1 dereferenceable(1) [[FP1]]
+    // CHECK: call void @_ZZ3foovENKUliE_clEi(%class.anon* noundef [[FP1]]
     lambda(0);
   }
   // CHECK: "DIR.OMP.END.TEAMS"

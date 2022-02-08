@@ -3669,9 +3669,15 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BI__builtin_reduce_xor:
     return RValue::get(emitUnaryBuiltin(
         *this, E, llvm::Intrinsic::vector_reduce_xor, "rdx.xor"));
+  case Builtin::BI__builtin_reduce_or:
+    return RValue::get(emitUnaryBuiltin(
+        *this, E, llvm::Intrinsic::vector_reduce_or, "rdx.or"));
+  case Builtin::BI__builtin_reduce_and:
+    return RValue::get(emitUnaryBuiltin(
+        *this, E, llvm::Intrinsic::vector_reduce_and, "rdx.and"));
 
   case Builtin::BI__builtin_matrix_transpose: {
-    const auto *MatrixTy = E->getArg(0)->getType()->getAs<ConstantMatrixType>();
+    auto *MatrixTy = E->getArg(0)->getType()->castAs<ConstantMatrixType>();
     Value *MatValue = EmitScalarExpr(E->getArg(0));
     MatrixBuilder<CGBuilderTy> MB(Builder);
     Value *Result = MB.CreateMatrixTranspose(MatValue, MatrixTy->getNumRows(),
@@ -3885,6 +3891,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
 
   case Builtin::BIalloca:
   case Builtin::BI_alloca:
+  case Builtin::BI__builtin_alloca_uninitialized:
   case Builtin::BI__builtin_alloca: {
     Value *Size = EmitScalarExpr(E->getArg(0));
     const TargetInfo &TI = getContext().getTargetInfo();
@@ -3895,10 +3902,12 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
             .getAsAlign();
     AllocaInst *AI = Builder.CreateAlloca(Builder.getInt8Ty(), Size);
     AI->setAlignment(SuitableAlignmentInBytes);
-    initializeAlloca(*this, AI, Size, SuitableAlignmentInBytes);
+    if (BuiltinID != Builtin::BI__builtin_alloca_uninitialized)
+      initializeAlloca(*this, AI, Size, SuitableAlignmentInBytes);
     return RValue::get(AI);
   }
 
+  case Builtin::BI__builtin_alloca_with_align_uninitialized:
   case Builtin::BI__builtin_alloca_with_align: {
     Value *Size = EmitScalarExpr(E->getArg(0));
     Value *AlignmentInBitsValue = EmitScalarExpr(E->getArg(1));
@@ -3908,7 +3917,8 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
         CGM.getContext().toCharUnitsFromBits(AlignmentInBits).getAsAlign();
     AllocaInst *AI = Builder.CreateAlloca(Builder.getInt8Ty(), Size);
     AI->setAlignment(AlignmentInBytes);
-    initializeAlloca(*this, AI, Size, AlignmentInBytes);
+    if (BuiltinID != Builtin::BI__builtin_alloca_with_align_uninitialized)
+      initializeAlloca(*this, AI, Size, AlignmentInBytes);
     return RValue::get(AI);
   }
 
@@ -19260,6 +19270,21 @@ CodeGenFunction::EmitNVPTXBuiltinExpr(unsigned BuiltinID, const CallExpr *E) {
                                        Ptr->getType()}),
         {Ptr, ConstantInt::get(Builder.getInt32Ty(), Align.getQuantity())});
   };
+  auto MakeScopedLd = [&](unsigned IntrinsicID) {
+    Value *Ptr = EmitScalarExpr(E->getArg(0));
+    return Builder.CreateCall(
+        CGM.getIntrinsic(IntrinsicID, {Ptr->getType()->getPointerElementType(),
+                                       Ptr->getType()}),
+        {Ptr});
+  };
+  auto MakeScopedSt = [&](unsigned IntrinsicID) {
+    Value *Ptr = EmitScalarExpr(E->getArg(0));
+    return Builder.CreateCall(
+        CGM.getIntrinsic(
+            IntrinsicID,
+            {Ptr->getType(), Ptr->getType()->getPointerElementType()}),
+        {Ptr, EmitScalarExpr(E->getArg(1))});
+  };
   auto MakeScopedAtomic = [&](unsigned IntrinsicID) {
     Value *Ptr = EmitScalarExpr(E->getArg(0));
     return Builder.CreateCall(
@@ -19275,6 +19300,85 @@ CodeGenFunction::EmitNVPTXBuiltinExpr(unsigned BuiltinID, const CallExpr *E) {
         {Ptr, EmitScalarExpr(E->getArg(1)), EmitScalarExpr(E->getArg(2))});
   };
   switch (BuiltinID) {
+
+#define LD_VOLATILE_CASES(ADDR_SPACE)                                          \
+  case NVPTX::BI__nvvm_volatile_ld##ADDR_SPACE##_i:                            \
+  case NVPTX::BI__nvvm_volatile_ld##ADDR_SPACE##_l:                            \
+  case NVPTX::BI__nvvm_volatile_ld##ADDR_SPACE##_ll:                           \
+    return MakeScopedLd(Intrinsic::nvvm_ld##ADDR_SPACE##_i_volatile);          \
+  case NVPTX::BI__nvvm_volatile_ld##ADDR_SPACE##_f:                            \
+  case NVPTX::BI__nvvm_volatile_ld##ADDR_SPACE##_d:                            \
+    return MakeScopedLd(Intrinsic::nvvm_ld##ADDR_SPACE##_f_volatile);
+
+#define LD_CASES(ORDER, SCOPE, ADDR_SPACE)                                     \
+  case NVPTX::BI__nvvm##ORDER##SCOPE##_ld##ADDR_SPACE##_i:                     \
+  case NVPTX::BI__nvvm##ORDER##SCOPE##_ld##ADDR_SPACE##_l:                     \
+  case NVPTX::BI__nvvm##ORDER##SCOPE##_ld##ADDR_SPACE##_ll:                    \
+    return MakeScopedLd(Intrinsic::nvvm_ld##ADDR_SPACE##_i##ORDER##SCOPE);     \
+  case NVPTX::BI__nvvm##ORDER##SCOPE##_ld##ADDR_SPACE##_f:                     \
+  case NVPTX::BI__nvvm##ORDER##SCOPE##_ld##ADDR_SPACE##_d:                     \
+    return MakeScopedLd(Intrinsic::nvvm_ld##ADDR_SPACE##_f##ORDER##SCOPE);
+
+#define LD_CASES_AS(ORDER, SCOPE)                                              \
+  LD_CASES(ORDER, SCOPE, _gen)                                                 \
+  LD_CASES(ORDER, SCOPE, _global)                                              \
+  LD_CASES(ORDER, SCOPE, _shared)
+
+#define LD_CASES_AS_SCOPES(ORDER)                                              \
+  LD_CASES_AS(ORDER, )                                                         \
+  LD_CASES_AS(ORDER, _cta)                                                     \
+  LD_CASES_AS(ORDER, _sys)
+
+    LD_CASES_AS_SCOPES()
+    LD_CASES_AS_SCOPES(_acquire)
+    LD_VOLATILE_CASES(_gen)
+    LD_VOLATILE_CASES(_global)
+    LD_VOLATILE_CASES(_shared)
+
+#undef LD_VOLATILE_CASES
+#undef LD_CASES
+#undef LD_CASES_AS
+#undef LD_CASES_AS_SCOPES
+
+#define ST_VOLATILE_CASES(ADDR_SPACE)                                          \
+  case NVPTX::BI__nvvm_volatile_st##ADDR_SPACE##_i:                            \
+  case NVPTX::BI__nvvm_volatile_st##ADDR_SPACE##_l:                            \
+  case NVPTX::BI__nvvm_volatile_st##ADDR_SPACE##_ll:                           \
+    return MakeScopedSt(Intrinsic::nvvm_st##ADDR_SPACE##_i_volatile);          \
+  case NVPTX::BI__nvvm_volatile_st##ADDR_SPACE##_f:                            \
+  case NVPTX::BI__nvvm_volatile_st##ADDR_SPACE##_d:                            \
+    return MakeScopedSt(Intrinsic::nvvm_st##ADDR_SPACE##_f_volatile);
+
+#define ST_CASES(ORDER, SCOPE, ADDR_SPACE)                                     \
+  case NVPTX::BI__nvvm##ORDER##SCOPE##_st##ADDR_SPACE##_i:                     \
+  case NVPTX::BI__nvvm##ORDER##SCOPE##_st##ADDR_SPACE##_l:                     \
+  case NVPTX::BI__nvvm##ORDER##SCOPE##_st##ADDR_SPACE##_ll:                    \
+    return MakeScopedSt(Intrinsic::nvvm_st##ADDR_SPACE##_i##ORDER##SCOPE);     \
+  case NVPTX::BI__nvvm##ORDER##SCOPE##_st##ADDR_SPACE##_f:                     \
+  case NVPTX::BI__nvvm##ORDER##SCOPE##_st##ADDR_SPACE##_d:                     \
+    return MakeScopedSt(Intrinsic::nvvm_st##ADDR_SPACE##_f##ORDER##SCOPE);
+
+#define ST_CASES_AS(ORDER, SCOPE)                                              \
+  ST_CASES(ORDER, SCOPE, _gen)                                                 \
+  ST_CASES(ORDER, SCOPE, _global)                                              \
+  ST_CASES(ORDER, SCOPE, _shared)
+
+#define ST_CASES_AS_SCOPES(ORDER)                                              \
+  ST_CASES_AS(ORDER, )                                                         \
+  ST_CASES_AS(ORDER, _cta)                                                     \
+  ST_CASES_AS(ORDER, _sys)
+
+    ST_CASES_AS_SCOPES()
+    ST_CASES_AS_SCOPES(_release)
+    ST_VOLATILE_CASES(_gen)
+    ST_VOLATILE_CASES(_global)
+    ST_VOLATILE_CASES(_shared)
+
+#undef ST_VOLATILE_CASES
+#undef ST_CASES
+#undef ST_CASES_AS
+#undef ST_CASES_AS_SCOPES
+
   case NVPTX::BI__nvvm_atom_add_gen_i:
   case NVPTX::BI__nvvm_atom_add_gen_l:
   case NVPTX::BI__nvvm_atom_add_gen_ll:
@@ -21916,15 +22020,11 @@ Value *CodeGenFunction::EmitWebAssemblyBuiltinExpr(unsigned BuiltinID,
       llvm_unreachable("unexpected builtin ID");
     }
     llvm::Type *SrcT = Vec->getType();
-    llvm::Type *TruncT =
-        SrcT->getWithNewType(llvm::IntegerType::get(getLLVMContext(), 32));
+    llvm::Type *TruncT = SrcT->getWithNewType(Builder.getInt32Ty());
     Function *Callee = CGM.getIntrinsic(IntNo, {TruncT, SrcT});
     Value *Trunc = Builder.CreateCall(Callee, Vec);
-    Value *Splat = Builder.CreateVectorSplat(2, Builder.getInt32(0));
-    Value *ConcatMask =
-        llvm::ConstantVector::get({Builder.getInt32(0), Builder.getInt32(1),
-                                   Builder.getInt32(2), Builder.getInt32(3)});
-    return Builder.CreateShuffleVector(Trunc, Splat, ConcatMask);
+    Value *Splat = Constant::getNullValue(TruncT);
+    return Builder.CreateShuffleVector(Trunc, Splat, ArrayRef<int>{0, 1, 2, 3});
   }
   case WebAssembly::BI__builtin_wasm_shuffle_i8x16: {
     Value *Ops[18];
@@ -22544,6 +22644,8 @@ Value *CodeGenFunction::EmitRISCVBuiltinExpr(unsigned BuiltinID,
   case RISCV::BI__builtin_riscv_bcompress_64:
   case RISCV::BI__builtin_riscv_bdecompress_32:
   case RISCV::BI__builtin_riscv_bdecompress_64:
+  case RISCV::BI__builtin_riscv_bfp_32:
+  case RISCV::BI__builtin_riscv_bfp_64:
   case RISCV::BI__builtin_riscv_grev_32:
   case RISCV::BI__builtin_riscv_grev_64:
   case RISCV::BI__builtin_riscv_gorc_32:
@@ -22591,6 +22693,12 @@ Value *CodeGenFunction::EmitRISCVBuiltinExpr(unsigned BuiltinID,
     case RISCV::BI__builtin_riscv_bdecompress_32:
     case RISCV::BI__builtin_riscv_bdecompress_64:
       ID = Intrinsic::riscv_bdecompress;
+      break;
+
+    // Zbf
+    case RISCV::BI__builtin_riscv_bfp_32:
+    case RISCV::BI__builtin_riscv_bfp_64:
+      ID = Intrinsic::riscv_bfp;
       break;
 
     // Zbp

@@ -151,7 +151,7 @@ bool expandComplexInstruction(IntrinsicInst *CI, const TargetLowering *TLI,
       }
 
       AttributeList Attrs;
-      AttrBuilder AB(CI->getContext(), Attrs, 0);
+      AttrBuilder AB(CI->getContext(), Attrs.getRetAttrs());
       AB.addStructRetAttr(ComplexStructTy);
       FunctionCallee Func = CI->getModule()->getOrInsertFunction(Name, Attrs,
         Type::getVoidTy(CI->getContext()),

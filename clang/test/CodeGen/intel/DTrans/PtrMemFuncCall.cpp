@@ -17,12 +17,11 @@ void use() {
   Helper();
 }
 
-// CHECK: define linkonce_odr void @_ZN6HelperC1Ev(%struct._ZTS6Helper.Helper* nonnull align 8 dereferenceable(17) "intel_dtrans_func_index"="1" %this){{.+}}!intel.dtrans.func.type ![[CTOR1:[0-9]+]]
+// CHECK: define linkonce_odr void @_ZN6HelperC1Ev(%struct._ZTS6Helper.Helper* noundef "intel_dtrans_func_index"="1" %this){{.+}}!intel.dtrans.func.type ![[CTOR1:[0-9]+]]
 // CHECK: alloca %struct._ZTS6Helper.Helper*, align 8, !intel_dtrans_type ![[HELPER_PTR:[0-9]+]]
-// CHECK: define linkonce_odr void @_ZN6HelperC2Ev(%struct._ZTS6Helper.Helper* nonnull align 8 dereferenceable(17) "intel_dtrans_func_index"="1" %this){{.+}}!intel.dtrans.func.type ![[CTOR2:[0-9]+]]
+// CHECK: define linkonce_odr void @_ZN6HelperC2Ev(%struct._ZTS6Helper.Helper* noundef "intel_dtrans_func_index"="1" %this){{.+}}!intel.dtrans.func.type ![[CTOR2:[0-9]+]]
 // CHECK: alloca %struct._ZTS6Helper.Helper*, align 8, !intel_dtrans_type ![[HELPER_PTR:[0-9]+]]
-// CHECK: call void %{{.+}}(%struct._ZTS9SomeClass.SomeClass* nonnull align 1 dereferenceable(1) %this.adjusted, i32 0), !intel_dtrans_type ![[PMFCALL:[0-9]+]]
-
+// CHECK: call void %{{.+}}(%struct._ZTS9SomeClass.SomeClass* noundef %this.adjusted, i32 noundef 0), !intel_dtrans_type ![[PMFCALL:[0-9]+]]
 // CHECK: !intel.dtrans.types = !{![[HELPER:[0-9]+]], ![[SOMECLASS:[0-9]+]]}
 
 // CHECK: ![[HELPER]] = !{!"S", %struct._ZTS6Helper.Helper zeroinitializer, i32 3, ![[PMF_LITERAL_REF:[0-9]+]], ![[SOMECLASS_REF:[0-9]+]], ![[PADDING:[0-9]+]]}

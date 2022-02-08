@@ -140,7 +140,7 @@ void foo2() {
   // HOST: [[L3:%[0-9]+]] = load i32, i32* [[J]], align 4
   // TARG: [[L3:%[0-9]+]] = load i32, i32 addrspace(4)* [[J_CAST]], align 4
   // ALL-NEXT: {{call|invoke}}{{.*}}void {{.*}}bar
-  // ALL-SAME: (i32 42, i32 [[L2]], i32 [[L3]])
+  // ALL-SAME: (i32 noundef 42, i32 noundef [[L2]], i32 noundef [[L3]])
 
 #ifdef SPLIT
   #pragma omp target
@@ -416,7 +416,7 @@ void foo3() {
   // HOST: [[L3:%[0-9]+]] = load i32, i32* [[J]], align 4
   // TARG: [[L3:%[0-9]+]] = load i32, i32 addrspace(4)* [[J_CAST]], align 4
   // ALL-NEXT: {{call|invoke}}{{.*}}void {{.*}}bar
-  // ALL-SAME: (i32 42, i32 [[L2]], i32 [[L3]])
+  // ALL-SAME: (i32 noundef 42, i32 noundef [[L2]], i32 noundef [[L3]])
 
   // Check split with a block is not transformed.
   #pragma omp target
@@ -483,7 +483,7 @@ void foo4(int n) {
   // HOST: [[L3:%[0-9]+]] = load i32, i32* [[J]], align 4
   // TARG: [[L3:%[0-9]+]] = load i32, i32 addrspace(4)* [[J_CAST]], align 4
   // ALL-NEXT: {{call|invoke}}{{.*}}void {{.*}}bar
-  // ALL-SAME: (i32 42, i32 [[L2]], i32 [[L3]])
+  // ALL-SAME: (i32 noundef 42, i32 noundef [[L2]], i32 noundef [[L3]])
 
   // Check split with a block that cannot be transformed.
   #pragma omp target

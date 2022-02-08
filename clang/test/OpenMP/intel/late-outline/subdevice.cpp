@@ -96,7 +96,7 @@ int test(int n) {
   // subdevice(<function call>:maxint)
   //
   // CHECK: [[LD:%[0-9]+]] = load i32, i32* %a
-  // CHECK-NEXT: [[CALL:%call[0-9]*]] = call i32 @_Z4funci(i32 [[LD]])
+  // CHECK-NEXT: [[CALL:%call[0-9]*]] = call noundef i32 @_Z4funci(i32 noundef [[LD]])
   // CHECK-NEXT: store i32 [[CALL]], i32* [[CE1:%.capture_expr.[0-9]*]]
   // CHECK-NEXT: [[LD:%[0-9]+]] = load i32, i32* [[CE1]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()

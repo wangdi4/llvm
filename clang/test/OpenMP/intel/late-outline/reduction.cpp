@@ -419,16 +419,16 @@ void foo3() {
   for(i=1; i<10; i++);
 }
 
-// CHECK: define internal void @.omp_initializer.(%struct.B* noalias %0, %struct.B* noalias %1)
-// CHECK: call void @_Z9init_an_AP1Bii(%struct.B* %3, i32 1, i32 0)
+// CHECK: define internal void @.omp_initializer.(%struct.B* noalias noundef %0, %struct.B* noalias noundef %1)
+// CHECK: call void @_Z9init_an_AP1Bii(%struct.B* noundef %3, i32 noundef 1, i32 noundef 0)
 // CHECK-NEXT: ret void
 
-// CHECK: define internal void @.omp_initializer..2(%struct.A* noalias %0, %struct.A* noalias %1)
-// CHECK: call void @_ZN1AC1Eii(%struct.A* {{[^,]*}} %3, i32 1, i32 0)
+// CHECK: define internal void @.omp_initializer..2(%struct.A* noalias noundef %0, %struct.A* noalias noundef %1)
+// CHECK: call void @_ZN1AC1Eii(%struct.A* noundef %3, i32 noundef 1, i32 noundef 0)
 // CHECK-NEXT: ret void
 
-// CHECK: define internal void @.omp_initializer..4(%struct.B* noalias %0, %struct.B* noalias %1)
-// CHECK: call void @_ZN1BC1Eii(%struct.B* {{[^,]*}} %3, i32 1, i32 0)
+// CHECK: define internal void @.omp_initializer..4(%struct.B* noalias noundef %0, %struct.B* noalias noundef %1)
+// CHECK: call void @_ZN1BC1Eii(%struct.B* noundef %3, i32 noundef 1, i32 noundef 0)
 // CHECK-NEXT: ret void
 
 int con, des;
@@ -464,8 +464,8 @@ void findMinMax(Point* points, int n, Point* minPoint, Point* maxPoint) {
 //CHECK: [ "DIR.OMP.END.PARALLEL.LOOP"() ]
 }
 
-// CHECK: define internal void @.omp_initializer..11(%struct.Point* noalias %0, %struct.Point* noalias %1)
-// CHECK: call void @_ZN5PointC1Eii(%struct.Point* {{[^,]*}} %3, i32 1, i32 1000)
+// CHECK: define internal void @.omp_initializer..11(%struct.Point* noalias noundef %0, %struct.Point* noalias noundef %1)
+// CHECK: call void @_ZN5PointC1Eii(%struct.Point* noundef %3, i32 noundef 1, i32 noundef 1000)
 // CHECK-NEXT: ret void
 
 int dcnt;
@@ -554,27 +554,27 @@ void foo4() {
 //CHECK: [ "DIR.OMP.END.PARALLEL"() ]
 }
 
-// CHECK: define internal void @.[[I1]](%struct.B1* noalias %0, %struct.B1* noalias %1)
+// CHECK: define internal void @.[[I1]](%struct.B1* noalias noundef %0, %struct.B1* noalias noundef %1)
 // CHECK: %call2 = call i32 @_ZN2A1cv2B1Ev(%struct.A1* {{[^,]*}} %ref.tmp
 // CHECK-NEXT: %coerce.dive = getelementptr inbounds %struct.B1, %struct.B1* %3, i32 0, i32 0
 // CHECK-NEXT: store i32 %call2, i32* %coerce.dive, align 4
 // CHECK-NEXT: ret void
 
-// CHECK: define internal void @.[[I2]](%struct.B2* noalias %0, %struct.B2* noalias %1)
+// CHECK: define internal void @.[[I2]](%struct.B2* noalias noundef %0, %struct.B2* noalias noundef %1)
 // CHECK: call void @_ZN2B2C1E2A2(%struct.B2* {{[^,]*}} %3, i64 %9, i32 %11)
 // CHECK: ret void
 
-// CHECK: define internal void @.[[I3]](%struct.B3* noalias %0, %struct.B3* noalias %1)
+// CHECK: define internal void @.[[I3]](%struct.B3* noalias noundef %0, %struct.B3* noalias noundef %1)
 // CHECK:call void @_ZN2A3D1Ev(%struct.A3* {{[^,]*}} %ref.tmp)
 // CHECK-NEXT ret void
 
 
-// CHECK: define internal void @.[[I4]](%struct.B4* noalias %0, %struct.B4* noalias %1)
-// CHECK: call void @_ZN2B4C1E2A4(%struct.B4* {{[^,]*}} %3, %struct.A4* %agg.tmp)
+// CHECK: define internal void @.[[I4]](%struct.B4* noalias noundef %0, %struct.B4* noalias noundef %1)
+// CHECK: call void @_ZN2B4C1E2A4(%struct.B4* noundef %3, %struct.A4* noundef %agg.tmp)
 // CHECK-NEXT: call void @_ZN2A4D1Ev(%struct.A4* {{[^,]*}} %agg.tmp)
 // CHECK-NEXT: ret void
 
-// CHECK: define internal void @.[[I5]](%struct.A4* noalias %0, %struct.A4* noalias %1)
+// CHECK: define internal void @.[[I5]](%struct.A4* noalias noundef %0, %struct.A4* noalias noundef %1)
 // CHECK: call void @_Z4boo4v(%struct.A4* sret(%struct.A4) {{(align 4 )?}}%3)
 // CHECK-NEXT: ret void
 
@@ -602,8 +602,8 @@ void foo5()
 //CHECK: [ "DIR.OMP.END.PARALLEL"() ]
 }
 
-// CHECK: define internal void @.omp_initializer..{{[0-9]+}}(%struct.AA3* noalias %0, %struct.AA3* noalias %1)
-// CHECK: call void @_Z3booP3AA3(%struct.AA3* sret(%struct.AA3) {{(align 4 )?}}%agg.tmp.ensured, %struct.AA3* %3)
+// CHECK: define internal void @.omp_initializer..{{[0-9]+}}(%struct.AA3* noalias noundef %0, %struct.AA3* noalias noundef %1)
+// CHECK: call void @_Z3booP3AA3(%struct.AA3* sret(%struct.AA3) {{(align 4 )?}}%agg.tmp.ensured, %struct.AA3* noundef %3)
 // CHECK-NEXT: call void @_ZN3AA3D1Ev(%struct.AA3* {{[^,]*}} %agg.tmp.ensured)
 // CHECK-NEXT: ret void
 

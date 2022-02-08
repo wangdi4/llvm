@@ -19,14 +19,13 @@ f::f() : g(new d) {}
 // vtable for 'd'
 // CHECK: @_ZTV1d = available_externally unnamed_addr constant {{.*}} !intel_dtrans_type ![[D_VTABLE:[0-9]+]]
 // f::f()
-// CHECK: define dso_local void @_ZN1fC2Ev(%class._ZTS1f.f* nonnull align 1 dereferenceable(1) "intel_dtrans_func_index"="1" %{{.*}}){{.*}}!intel.dtrans.func.type ![[F_CTOR:[0-9]+]]
+// CHECK: define dso_local void @_ZN1fC2Ev(%class._ZTS1f.f* noundef "intel_dtrans_func_index"="1" %{{.*}}){{.*}}!intel.dtrans.func.type ![[F_CTOR:[0-9]+]]
 // Operator new.
-// CHECK: declare !intel.dtrans.func.type ![[OP_NEW:[0-9]+]] nonnull "intel_dtrans_func_index"="1" i8* @_Znwm(i64)
+// CHECK: declare !intel.dtrans.func.type ![[OP_NEW:[0-9]+]] noundef nonnull "intel_dtrans_func_index"="1" i8* @_Znwm(i64 noundef)
 // d::d()
-// CHECK: define linkonce_odr void @_ZN1dC1Ev(%class._ZTS1d.d* nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="1" %{{.*}}){{.*}} !intel.dtrans.func.type ![[D_CTOR:[0-9]+]]
+// CHECK: define linkonce_odr void @_ZN1dC1Ev(%class._ZTS1d.d* noundef "intel_dtrans_func_index"="1" %{{.*}}){{.*}} !intel.dtrans.func.type ![[D_CTOR:[0-9]+]]
 // c::c(b*)
-// CHECK: declare !intel.dtrans.func.type ![[C_CTOR:[0-9]+]] void @_ZN1cC1EP1b(%class._ZTS1c.c* nonnull align 1 dereferenceable(1) "intel_dtrans_func_index"="1", %class._ZTS1b.b* "intel_dtrans_func_index"="2")
-
+// CHECK: declare !intel.dtrans.func.type ![[C_CTOR:[0-9]+]] void @_ZN1cC1EP1b(%class._ZTS1c.c* noundef "intel_dtrans_func_index"="1", %class._ZTS1b.b* noundef  "intel_dtrans_func_index"="2")
 // CHECK: !intel.dtrans.types = !{![[F:[0-9]+]], ![[C:[0-9]+]], ![[D:[0-9]+]], ![[B:[0-9]+]]}
 
 // CHECK: ![[D_VTABLE]] = !{!"L", i32 1, ![[ARR_CHAR_PTRS:[0-9]+]]}

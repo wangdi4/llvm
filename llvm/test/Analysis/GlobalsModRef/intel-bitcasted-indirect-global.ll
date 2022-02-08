@@ -10,7 +10,7 @@
 @Glob = internal global i32 0
 @IndirectGlob = internal global i32* null
 
-declare i8* @malloc(i32)
+declare noalias i8* @malloc(i32)
 declare void @bar(i32*)
 
 define void @test() {

@@ -51,9 +51,9 @@ int addit(float a, float b) {
   // CHECK-NEXT: [[TEMP_A:%.*]] = load float, float* [[ADDR_A]], align 4
   // CHECK-NEXT: [[TEMP_B:%.*]] = load float, float* [[ADDR_B]], align 4
 
-  // CHECK:  [[CALL:%.*]] = call reassoc float @_Z4addFIfET_S0_S0_(float [[TEMP_A]], float [[TEMP_B]])
+  // CHECK:  [[CALL:%.*]] = call reassoc noundef float @_Z4addFIfET_S0_S0_(float noundef [[TEMP_A]], float noundef [[TEMP_B]])
   // CHECK-NEXT:  store float [[CALL]], float* [[F]], align 4
-  // CHECK-NEXT: [[CALL1:%.*]] = call i32 @_Z4addFIiET_S0_S0_(i32 1, i32 2)
+  // CHECK-NEXT: [[CALL1:%.*]] = call noundef i32 @_Z4addFIiET_S0_S0_(i32 noundef 1, i32 noundef 2)
   // CHECK:  store i32 [[CALL1]], i32* [[I]], align 4
 
   // CHECKSTINT-32-NEXT: [[TEMP1:%.*]] = load i32*, i32** [[P_32]], align 4
@@ -67,7 +67,7 @@ int addit(float a, float b) {
   // CHECKFAST-NEXT: store i32* [[GEP2]], i32** [[K_64]], align 8
   // CHECKFAST-NEXT: [[TEMP3:%.*]] = load float, float* [[ADDR_A]], align 4
   // CHECKFAST-NEXT: [[TEMP4:%.*]] = load float, float* [[ADDR_B]], align 4
-  // CHECKFAST-NEXT: [[CALL2:%.*]] = call reassoc float @_Z5addAFIfET_S0_S0_(float [[TEMP3]], float [[TEMP4]])
+  // CHECKFAST-NEXT: [[CALL2:%.*]] = call reassoc noundef float @_Z5addAFIfET_S0_S0_(float noundef [[TEMP3]], float noundef [[TEMP4]])
 
   // CHECKFAST:  store float [[CALL2]], float* [[AF]], align 4
 
@@ -75,7 +75,7 @@ int addit(float a, float b) {
   // CHECK-NEXT ret i32 0
 }
 
-  // CHECK: define linkonce_odr float @_Z5addAFIfET_S0_S0_(float {{.*}}, float {{.*}})
+  // CHECK: define linkonce_odr noundef float @_Z5addAFIfET_S0_S0_(float noundef {{.*}}, float noundef {{.*}})
   // CHECK: [[A:%.*]] = alloca float, align 4
   // CHECK-NEXT: [[B:%.*]] = alloca float, align 4
   // CHECK-NEXT: store float {{.*}}, float* [[A]], align 4

@@ -14,6 +14,7 @@
 
 #include "clang/Analysis/FlowSensitive/DataflowEnvironment.h"
 #include "clang/AST/Decl.h"
+#include "clang/AST/DeclCXX.h"
 #include "clang/AST/Type.h"
 #include "clang/Analysis/FlowSensitive/DataflowLattice.h"
 #include "clang/Analysis/FlowSensitive/StorageLocation.h"
@@ -38,6 +39,33 @@ llvm::DenseMap<K, V> intersectDenseMaps(const llvm::DenseMap<K, V> &Map1,
       Result.insert({Entry.first, Entry.second});
   }
   return Result;
+}
+
+Environment::Environment(DataflowAnalysisContext &DACtx,
+                         const DeclContext &DeclCtx)
+    : Environment(DACtx) {
+  if (const auto *FuncDecl = dyn_cast<FunctionDecl>(&DeclCtx)) {
+    for (const auto *ParamDecl : FuncDecl->parameters()) {
+      assert(ParamDecl != nullptr);
+      auto &ParamLoc = createStorageLocation(*ParamDecl);
+      setStorageLocation(*ParamDecl, ParamLoc);
+      if (Value *ParamVal = createValue(ParamDecl->getType()))
+        setValue(ParamLoc, *ParamVal);
+    }
+  }
+
+  if (const auto *MethodDecl = dyn_cast<CXXMethodDecl>(&DeclCtx)) {
+    if (!MethodDecl->isStatic()) {
+      QualType ThisPointeeType = MethodDecl->getThisObjectType();
+      // FIXME: Add support for union types.
+      if (!ThisPointeeType->isUnionType()) {
+        auto &ThisPointeeLoc = createStorageLocation(ThisPointeeType);
+        DACtx.setThisPointeeStorageLocation(ThisPointeeLoc);
+        if (Value *ThisPointeeVal = createValue(ThisPointeeType))
+          setValue(ThisPointeeLoc, *ThisPointeeVal);
+      }
+    }
+  }
 }
 
 bool Environment::operator==(const Environment &Other) const {
@@ -124,8 +152,24 @@ StorageLocation *Environment::getStorageLocation(const Expr &E,
   return It == ExprToLoc.end() ? nullptr : &skip(*It->second, SP);
 }
 
-void Environment::setValue(const StorageLocation &Loc, Value &Value) {
-  LocToVal[&Loc] = &Value;
+StorageLocation *Environment::getThisPointeeStorageLocation() const {
+  return DACtx->getThisPointeeStorageLocation();
+}
+
+void Environment::setValue(const StorageLocation &Loc, Value &Val) {
+  LocToVal[&Loc] = &Val;
+
+  if (auto *StructVal = dyn_cast<StructValue>(&Val)) {
+    auto &AggregateLoc = *cast<AggregateStorageLocation>(&Loc);
+
+    const QualType Type = AggregateLoc.getType();
+    assert(Type->isStructureOrClassType());
+
+    for (const FieldDecl *Field : Type->getAsRecordDecl()->fields()) {
+      assert(Field != nullptr);
+      setValue(AggregateLoc.getChild(*Field), StructVal->getChild(*Field));
+    }
+  }
 }
 
 Value *Environment::getValue(const StorageLocation &Loc) const {
@@ -147,21 +191,17 @@ Value *Environment::getValue(const Expr &E, SkipPast SP) const {
   return getValue(*Loc);
 }
 
-Value *Environment::initValueInStorageLocation(const StorageLocation &Loc,
-                                               QualType Type) {
+Value *Environment::createValue(QualType Type) {
   llvm::DenseSet<QualType> Visited;
-  return initValueInStorageLocationUnlessSelfReferential(Loc, Type, Visited);
+  return createValueUnlessSelfReferential(Type, Visited);
 }
 
-Value *Environment::initValueInStorageLocationUnlessSelfReferential(
-    const StorageLocation &Loc, QualType Type,
-    llvm::DenseSet<QualType> &Visited) {
+Value *Environment::createValueUnlessSelfReferential(
+    QualType Type, llvm::DenseSet<QualType> &Visited) {
   assert(!Type.isNull());
 
   if (Type->isIntegerType()) {
-    auto &Val = takeOwnership(std::make_unique<IntegerValue>());
-    setValue(Loc, Val);
-    return &Val;
+    return &takeOwnership(std::make_unique<IntegerValue>());
   }
 
   if (Type->isReferenceType()) {
@@ -170,14 +210,15 @@ Value *Environment::initValueInStorageLocationUnlessSelfReferential(
 
     if (!Visited.contains(PointeeType.getCanonicalType())) {
       Visited.insert(PointeeType.getCanonicalType());
-      initValueInStorageLocationUnlessSelfReferential(PointeeLoc, PointeeType,
-                                                      Visited);
+      Value *PointeeVal =
+          createValueUnlessSelfReferential(PointeeType, Visited);
       Visited.erase(PointeeType.getCanonicalType());
+
+      if (PointeeVal != nullptr)
+        setValue(PointeeLoc, *PointeeVal);
     }
 
-    auto &Val = takeOwnership(std::make_unique<ReferenceValue>(PointeeLoc));
-    setValue(Loc, Val);
-    return &Val;
+    return &takeOwnership(std::make_unique<ReferenceValue>(PointeeLoc));
   }
 
   if (Type->isPointerType()) {
@@ -186,19 +227,20 @@ Value *Environment::initValueInStorageLocationUnlessSelfReferential(
 
     if (!Visited.contains(PointeeType.getCanonicalType())) {
       Visited.insert(PointeeType.getCanonicalType());
-      initValueInStorageLocationUnlessSelfReferential(PointeeLoc, PointeeType,
-                                                      Visited);
+      Value *PointeeVal =
+          createValueUnlessSelfReferential(PointeeType, Visited);
       Visited.erase(PointeeType.getCanonicalType());
+
+      if (PointeeVal != nullptr)
+        setValue(PointeeLoc, *PointeeVal);
     }
 
-    auto &Val = takeOwnership(std::make_unique<PointerValue>(PointeeLoc));
-    setValue(Loc, Val);
-    return &Val;
+    return &takeOwnership(std::make_unique<PointerValue>(PointeeLoc));
   }
 
   if (Type->isStructureOrClassType()) {
-    auto *AggregateLoc = cast<AggregateStorageLocation>(&Loc);
-
+    // FIXME: Initialize only fields that are accessed in the context that is
+    // being analyzed.
     llvm::DenseMap<const ValueDecl *, Value *> FieldValues;
     for (const FieldDecl *Field : Type->getAsRecordDecl()->fields()) {
       assert(Field != nullptr);
@@ -209,15 +251,12 @@ Value *Environment::initValueInStorageLocationUnlessSelfReferential(
 
       Visited.insert(FieldType.getCanonicalType());
       FieldValues.insert(
-          {Field, initValueInStorageLocationUnlessSelfReferential(
-                      AggregateLoc->getChild(*Field), FieldType, Visited)});
+          {Field, createValueUnlessSelfReferential(FieldType, Visited)});
       Visited.erase(FieldType.getCanonicalType());
     }
 
-    auto &Val =
-        takeOwnership(std::make_unique<StructValue>(std::move(FieldValues)));
-    setValue(Loc, Val);
-    return &Val;
+    return &takeOwnership(
+        std::make_unique<StructValue>(std::move(FieldValues)));
   }
 
   return nullptr;
@@ -242,6 +281,11 @@ StorageLocation &Environment::skip(StorageLocation &Loc, SkipPast SP) const {
     if (auto *Val = dyn_cast_or_null<ReferenceValue>(getValue(Loc)))
       return Val->getPointeeLoc();
     return Loc;
+  case SkipPast::ReferenceThenPointer:
+    StorageLocation &LocPastRef = skip(Loc, SkipPast::Reference);
+    if (auto *Val = dyn_cast_or_null<PointerValue>(getValue(LocPastRef)))
+      return Val->getPointeeLoc();
+    return LocPastRef;
   }
   llvm_unreachable("bad SkipPast kind");
 }

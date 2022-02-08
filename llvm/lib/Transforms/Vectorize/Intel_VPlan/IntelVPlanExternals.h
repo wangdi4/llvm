@@ -19,6 +19,8 @@
 #include "IntelVPlanValue.h"
 #include "llvm/ADT/MapVector.h"
 
+#include <map>
+
 namespace llvm {
 namespace vpo {
 

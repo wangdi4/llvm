@@ -14,7 +14,7 @@ void foo()
     //CHECK: region.entry{{.*}}DIR.OMP.PARALLEL{{.*}}SHARED{{.*}}this
     #pragma omp parallel shared(z)
     {
-      //CHECK: call{{.*}}bar{{.*}}(i32 1,
+      //CHECK: call{{.*}}bar{{.*}}(i32 noundef 1,
       bar(1, z);
     }
     //CHECK: region.exit{{.*}}DIR.OMP.END.PARALLEL
@@ -25,7 +25,7 @@ void foo()
     //CHECK: region.entry{{.*}}DIR.OMP.PARALLEL{{.*}}SHARED{{.*}}this
     #pragma omp parallel
     {
-      //CHECK: call{{.*}}bar{{.*}}(i32 2,
+      //CHECK: call{{.*}}bar{{.*}}(i32 noundef 2,
       bar(2, z);
     }
     //CHECK: region.exit{{.*}}DIR.OMP.END.PARALLEL
@@ -39,7 +39,7 @@ void foo()
     #pragma omp parallel private(z)
     {
       z = 88;
-      //CHECK: call{{.*}}bar{{.*}}(i32 3,
+      //CHECK: call{{.*}}bar{{.*}}(i32 noundef 3,
       bar(3, z);
     }
     //CHECK: region.exit{{.*}}DIR.OMP.END.PARALLEL

@@ -11,14 +11,14 @@ void foo(float f) {
 // NO_ERRNO: declare double @llvm.ldexp.f64(double, i32) [[READNONE_INTRINSIC:#[0-9]+]]
 // NO_ERRNO: declare float @llvm.ldexp.f32(float, i32) [[READNONE_INTRINSIC]]
 // NO_ERRNO: declare x86_fp80 @llvm.ldexp.f80(x86_fp80, i32) [[READNONE_INTRINSIC]]
-// HAS_ERRNO: declare double @ldexp(double, i32) [[NOUNWIND:#[0-9]+]]
-// HAS_ERRNO: declare float @ldexpf(float, i32) [[NOUNWIND]]
-// HAS_ERRNO: declare x86_fp80 @ldexpl(x86_fp80, i32) [[NOUNWIND]]
+// HAS_ERRNO: declare double @ldexp(double noundef, i32 noundef) [[NOUNWIND:#[0-9]+]]
+// HAS_ERRNO: declare float @ldexpf(float noundef, i32 noundef) [[NOUNWIND]]
+// HAS_ERRNO: declare x86_fp80 @ldexpl(x86_fp80 noundef, i32 noundef) [[NOUNWIND]]
 // NO_ERRNO_WIN: declare double @llvm.ldexp.f64(double, i32) [[READNONE_INTR_WIN:#[0-9]+]]
 // NO_ERRNO_WIN: declare float @llvm.ldexp.f32(float, i32) [[READNONE_INTR_WIN]]
-// HAS_ERRNO_WIN: declare {{.*}} double @ldexp(double, i32) [[NOUNWIND_WIN:#[0-9]+]]
-// HAS_ERRNO_WIN: declare {{.*}} float @ldexpf(float, i32) [[NOUNWIND_WIN]]
-// HAS_ERRNO_WIN: declare {{.*}} double @ldexpl(double, i32) [[NOUNWIND_WIN]]
+// HAS_ERRNO_WIN: declare {{.*}} double @ldexp(double noundef, i32 noundef) [[NOUNWIND_WIN:#[0-9]+]]
+// HAS_ERRNO_WIN: declare {{.*}} float @ldexpf(float noundef, i32 noundef) [[NOUNWIND_WIN]]
+// HAS_ERRNO_WIN: declare {{.*}} double @ldexpl(double noundef, i32 noundef) [[NOUNWIND_WIN]]
 };
 
 // NO_ERRNO: attributes [[READNONE_INTRINSIC]] = { {{.*}}readnone{{.*}} }

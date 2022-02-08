@@ -26,7 +26,7 @@ void foo(int a) {
     throw 10;
   }
 }
-// CHECK: define hidden spir_func void @_Z3fooi(i32 %a)
+// CHECK: define hidden spir_func void @_Z3fooi(i32 noundef %a)
 // CHECK:  call spir_func void @__cxa_throw(i8 addrspace(4)* {{.+}}, i8 addrspace(4)* {{.+}}, i8 addrspace(4)* null)
 // CHECK: declare spir_func void @__cxa_throw(i8 addrspace(4)*, i8 addrspace(4)*, i8 addrspace(4)*)
 

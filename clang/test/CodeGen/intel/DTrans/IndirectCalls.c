@@ -29,19 +29,18 @@ int test(void *arcList) {
 // CHECK: @all_arcs = global [2 x %struct._ZTS3arc.arc*] [%struct._ZTS3arc.arc* @A1, %struct._ZTS3arc.arc* @A2], align 16, !intel_dtrans_type ![[ARC_PTR_ARRAY:[0-9]+]]
 // CHECK: @arc_cmp = global i32 (%struct._ZTS3arc.arc**, %struct._ZTS3arc.arc**)* @arcCostLess, align 8, !intel_dtrans_type ![[FPTR:[0-9]+]]
 
-// CHECK: define dso_local i32 @arcCostLess(%struct._ZTS3arc.arc** "intel_dtrans_func_index"="1" %{{.+}}, %struct._ZTS3arc.arc** "intel_dtrans_func_index"="2" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[COSTLESS_FUNC_MD:[0-9]+]]
+// CHECK: define dso_local i32 @arcCostLess(%struct._ZTS3arc.arc** noundef "intel_dtrans_func_index"="1" %{{.+}}, %struct._ZTS3arc.arc** noundef "intel_dtrans_func_index"="2" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[COSTLESS_FUNC_MD:[0-9]+]]
 // CHECK: %arc1.addr = alloca %struct._ZTS3arc.arc**, align 8, !intel_dtrans_type ![[ARC_PTR_PTR:[0-9]+]]
 // CHECK: %arc2.addr = alloca %struct._ZTS3arc.arc**, align 8, !intel_dtrans_type ![[ARC_PTR_PTR]]
 
-// CHECK: define dso_local i32 @test(i8* "intel_dtrans_func_index"="1" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[TEST_FUNC_MD:[0-9]+]]
+// CHECK: define dso_local i32 @test(i8* noundef "intel_dtrans_func_index"="1" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[TEST_FUNC_MD:[0-9]+]]
 // CHECK: %arcList.addr = alloca i8*, align 8, !intel_dtrans_type ![[VOID_PTR:[0-9]+]]
 // CHECK: %[[ARC0:.+]] = alloca %struct._ZTS3arc.arc**, align 8, !intel_dtrans_type ![[ARC_PTR_PTR]]
 // CHECK: %[[ARC1:.+]] = alloca %struct._ZTS3arc.arc**, align 8, !intel_dtrans_type ![[ARC_PTR_PTR]]
 // CHECK: %[[FUNC_LOAD:.+]] = load i32 (%struct._ZTS3arc.arc**, %struct._ZTS3arc.arc**)*, i32 (%struct._ZTS3arc.arc**, %struct._ZTS3arc.arc**)** @arc_cmp
 // CHECK: %[[ARC0_LOAD:.+]] = load %struct._ZTS3arc.arc**, %struct._ZTS3arc.arc*** %[[ARC0]]
 // CHECK: %[[ARC1_LOAD:.+]] = load %struct._ZTS3arc.arc**, %struct._ZTS3arc.arc*** %[[ARC1]]
-// CHECK: call i32 %[[FUNC_LOAD]](%struct._ZTS3arc.arc** %[[ARC0_LOAD]], %struct._ZTS3arc.arc** %[[ARC1_LOAD]]), !intel_dtrans_type ![[FUNC:[0-9]+]]
-
+// CHECK: call i32 %[[FUNC_LOAD]](%struct._ZTS3arc.arc** noundef %[[ARC0_LOAD]], %struct._ZTS3arc.arc** noundef %[[ARC1_LOAD]]), !intel_dtrans_type ![[FUNC:[0-9]+]]
 // CHECK: !intel.dtrans.types = !{![[ARC:[0-9]+]]}
 
 // CHECK: ![[ARC_PTR_ARRAY]] = !{!"A", i32 2, ![[ARC_PTR:[0-9]+]]}

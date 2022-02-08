@@ -22,13 +22,13 @@ static __forceinline int myprintf(const char* format, ...) {
   // LIN: [[FOO2:%[0-9]]] = load i32, i32* %foo2
   int r = printf("myprintf:");
   // Ensure called with no additional args.
-  // WIN: call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([10 x i8], [10 x i8]* [[MyPrintFStr]], i64 0, i64 0))
-  // LIN: call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([10 x i8], [10 x i8]* [[MyPrintFStr]], i64 0, i64 0))
+  // WIN: call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([10 x i8], [10 x i8]* [[MyPrintFStr]], i64 0, i64 0))
+  // LIN: call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([10 x i8], [10 x i8]* [[MyPrintFStr]], i64 0, i64 0))
   if (r < 0) return r;
   int s = printf(format, __builtin_va_arg_pack());
   // printf should be called with the values of foo and foo2.
-  // WIN: call i32 (i8*, ...) @printf(i8* %{{[0-9]}}, i32 [[FOO]], i32 [[FOO2]])
-  // LIN: call i32 (i8*, ...) @printf(i8* %{{[0-9]}}, i32 [[FOO]], i32 [[FOO2]])
+  // WIN: call i32 (i8*, ...) @printf(i8* noundef %{{[0-9]}}, i32 [[FOO]], i32 [[FOO2]])
+  // LIN: call i32 (i8*, ...) @printf(i8* noundef %{{[0-9]}}, i32 [[FOO]], i32 [[FOO2]])
   if (s < 0) return s;
   return r + s + __builtin_va_arg_pack_len();
   // Should add '2' for the len.

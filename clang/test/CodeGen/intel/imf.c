@@ -25,13 +25,13 @@ __m512 foo(__m512 a, float f0, double d0)
   double d1;
   __m512 v;
 
-  //CHECK: = call float @sinf(float %{{.*}}) [[ATTR4:#[0-9]+]]
-  //CHECK-TWO: = call float @sinf(float %{{.*}}) [[ATTR4A:#[0-9]+]]
-  //CHECK-THREE: = call float @sinf(float %{{.*}}) [[ATTR4B:#[0-9]+]]
+  //CHECK: = call float @sinf(float noundef %{{.*}}) [[ATTR4:#[0-9]+]]
+  //CHECK-TWO: = call float @sinf(float noundef %{{.*}}) [[ATTR4A:#[0-9]+]]
+  //CHECK-THREE: = call float @sinf(float noundef %{{.*}}) [[ATTR4B:#[0-9]+]]
   f1 = sinf(f0);
-  //CHECK: = call double @sin(double %{{.*}}) [[ATTR5:#[0-9]+]]
-  //CHECK-TWO: = call double @sin(double %{{.*}}) [[ATTR5A:#[0-9]+]]
-  //CHECK-THREE: = call double @sin(double %{{.*}}) [[ATTR5B:#[0-9]+]]
+  //CHECK: = call double @sin(double noundef %{{.*}}) [[ATTR5:#[0-9]+]]
+  //CHECK-TWO: = call double @sin(double noundef %{{.*}}) [[ATTR5A:#[0-9]+]]
+  //CHECK-THREE: = call double @sin(double noundef %{{.*}}) [[ATTR5B:#[0-9]+]]
   d1 = sin(d0);
   //CHECK: call void @otherfunc() [[ATTR6:#[0-9]+]]
   otherfunc();

@@ -1551,13 +1551,16 @@ public:
 
   /// Returns true if the target machine can represent \p V as a masked gather
   /// or scatter operation.
-  bool isLegalGatherOrScatter(Value *V) {
+  bool isLegalGatherOrScatter(Value *V,
+                              ElementCount VF = ElementCount::getFixed(1)) {
     bool LI = isa<LoadInst>(V);
     bool SI = isa<StoreInst>(V);
     if (!LI && !SI)
       return false;
     auto *Ty = getLoadStoreType(V);
     Align Align = getLoadStoreAlignment(V);
+    if (VF.isVector())
+      Ty = VectorType::get(Ty, VF);
     return (LI && TTI.isLegalMaskedGather(Ty, Align)) ||
            (SI && TTI.isLegalMaskedScatter(Ty, Align));
   }
@@ -1572,16 +1575,17 @@ public:
   }
 
   /// Returns true if \p I is an instruction that will be scalarized with
-  /// predication. Such instructions include conditional stores and
-  /// instructions that may divide by zero.
-  /// If a non-zero VF has been calculated, we check if I will be scalarized
-  /// predication for that VF.
-  bool isScalarWithPredication(Instruction *I) const;
+  /// predication when vectorizing \p I with vectorization factor \p VF. Such
+  /// instructions include conditional stores and instructions that may divide
+  /// by zero.
+  bool isScalarWithPredication(Instruction *I, ElementCount VF) const;
 
   // Returns true if \p I is an instruction that will be predicated either
   // through scalar predication or masked load/store or masked gather/scatter.
+  // \p VF is the vectorization factor that will be used to vectorize \p I.
   // Superset of instructions that return true for isScalarWithPredication.
-  bool isPredicatedInst(Instruction *I, bool IsKnownUniform = false) {
+  bool isPredicatedInst(Instruction *I, ElementCount VF,
+                        bool IsKnownUniform = false) {
     // When we know the load is uniform and the original scalar loop was not
     // predicated we don't need to mark it as a predicated instruction. Any
     // vectorised blocks created when tail-folding are something artificial we
@@ -1597,7 +1601,7 @@ public:
     // instructions.
     if (isa<LoadInst>(I) || isa<StoreInst>(I))
       return Legal->isMaskRequired(I);
-    return isScalarWithPredication(I);
+    return isScalarWithPredication(I, VF);
   }
 
   /// Returns true if \p I is a memory instruction with consecutive memory
@@ -1789,7 +1793,7 @@ private:
 
   /// Returns true if an artificially high cost for emulated masked memrefs
   /// should be used.
-  bool useEmulatedMaskMemRefHack(Instruction *I);
+  bool useEmulatedMaskMemRefHack(Instruction *I, ElementCount VF);
 
   /// Map of scalar integer values to the smallest bitwidth they can be legally
   /// represented as. The vector equivalents of these values should be truncated
@@ -2337,19 +2341,7 @@ Value *InnerLoopVectorizer::getBroadcastInstrs(Value *V) {
 static Value *getStepVector(Value *Val, Value *StartIdx, Value *Step,
                             Instruction::BinaryOps BinOp, ElementCount VF,
                             IRBuilder<> &Builder) {
-  if (VF.isScalar()) {
-    // When unrolling and the VF is 1, we only need to add a simple scalar.
-    Type *Ty = Val->getType();
-    assert(!Ty->isVectorTy() && "Val must be a scalar");
-
-    if (Ty->isFloatingPointTy()) {
-      // Floating-point operations inherit FMF via the builder's flags.
-      Value *MulOp = Builder.CreateFMul(StartIdx, Step);
-      return Builder.CreateBinOp(BinOp, Val, MulOp);
-    }
-    return Builder.CreateAdd(Val, Builder.CreateMul(StartIdx, Step),
-                             "induction");
-  }
+  assert(VF.isVector() && "only vector VFs are supported");
 
   // Create and check the types.
   auto *ValVTy = cast<VectorType>(Val->getType());
@@ -2584,7 +2576,29 @@ void InnerLoopVectorizer::widenIntOrFpInduction(
   Value *Step = CreateStepValue(ID.getStep());
   if (State.VF.isScalar()) {
     Value *ScalarIV = CreateScalarIV(Step);
-    CreateSplatIV(ScalarIV, Step);
+    Type *ScalarTy = IntegerType::get(ScalarIV->getContext(),
+                                      Step->getType()->getScalarSizeInBits());
+
+    Instruction::BinaryOps IncOp = ID.getInductionOpcode();
+    if (IncOp == Instruction::BinaryOpsEnd)
+      IncOp = Instruction::Add;
+    for (unsigned Part = 0; Part < UF; ++Part) {
+      Value *StartIdx = ConstantInt::get(ScalarTy, Part);
+      Instruction::BinaryOps MulOp = Instruction::Mul;
+      if (Step->getType()->isFloatingPointTy()) {
+        StartIdx = Builder.CreateUIToFP(StartIdx, Step->getType());
+        MulOp = Instruction::FMul;
+      }
+
+      Value *Mul = Builder.CreateBinOp(MulOp, StartIdx, Step);
+      Value *EntryPart = Builder.CreateBinOp(IncOp, ScalarIV, Mul, "induction");
+      State.set(Def, EntryPart, Part);
+      if (Trunc) {
+        assert(!Step->getType()->isFloatingPointTy() &&
+               "fp inductions shouldn't be truncated");
+        addMetadata(EntryPart, Trunc);
+      }
+    }
     return;
   }
 
@@ -4894,7 +4908,8 @@ void LoopVectorizationCostModel::collectLoopScalars(ElementCount VF) {
   Scalars[VF].insert(Worklist.begin(), Worklist.end());
 }
 
-bool LoopVectorizationCostModel::isScalarWithPredication(Instruction *I) const {
+bool LoopVectorizationCostModel::isScalarWithPredication(
+    Instruction *I, ElementCount VF) const {
   if (!blockNeedsPredicationForAnyReason(I->getParent()))
     return false;
   switch(I->getOpcode()) {
@@ -4906,11 +4921,14 @@ bool LoopVectorizationCostModel::isScalarWithPredication(Instruction *I) const {
       return false;
     auto *Ptr = getLoadStorePointerOperand(I);
     auto *Ty = getLoadStoreType(I);
+    Type *VTy = Ty;
+    if (VF.isVector())
+      VTy = VectorType::get(Ty, VF);
     const Align Alignment = getLoadStoreAlignment(I);
     return isa<LoadInst>(I) ? !(isLegalMaskedLoad(Ty, Ptr, Alignment) ||
-                                TTI.isLegalMaskedGather(Ty, Alignment))
+                                TTI.isLegalMaskedGather(VTy, Alignment))
                             : !(isLegalMaskedStore(Ty, Ptr, Alignment) ||
-                                TTI.isLegalMaskedScatter(Ty, Alignment));
+                                TTI.isLegalMaskedScatter(VTy, Alignment));
   }
   case Instruction::UDiv:
   case Instruction::SDiv:
@@ -4983,7 +5001,7 @@ bool LoopVectorizationCostModel::memoryInstructionCanBeWidened(
 
   // If the instruction is a store located in a predicated block, it will be
   // scalarized.
-  if (isScalarWithPredication(I))
+  if (isScalarWithPredication(I, VF))
     return false;
 
   // If the instruction's allocated size doesn't equal it's type size, it
@@ -5034,7 +5052,7 @@ void LoopVectorizationCostModel::collectLoopUniforms(ElementCount VF) {
                         << *I << "\n");
       return;
     }
-    if (isScalarWithPredication(I)) {
+    if (isScalarWithPredication(I, VF)) {
       LLVM_DEBUG(dbgs() << "LV: Found not uniform being ScalarWithPredication: "
                         << *I << "\n");
       return;
@@ -6463,7 +6481,8 @@ LoopVectorizationCostModel::calculateRegisterUsage(ArrayRef<ElementCount> VFs) {
   return RUs;
 }
 
-bool LoopVectorizationCostModel::useEmulatedMaskMemRefHack(Instruction *I){
+bool LoopVectorizationCostModel::useEmulatedMaskMemRefHack(Instruction *I,
+                                                           ElementCount VF) {
   // TODO: Cost model for emulated masked load/store is completely
   // broken. This hack guides the cost model to use an artificially
   // high enough value to practically disable vectorization with such
@@ -6472,8 +6491,7 @@ bool LoopVectorizationCostModel::useEmulatedMaskMemRefHack(Instruction *I){
   // from moving "masked load/store" check from legality to cost model.
   // Masked Load/Gather emulation was previously never allowed.
   // Limited number of Masked Store/Scatter emulation was allowed.
-  assert(isPredicatedInst(I) &&
-         "Expecting a scalar emulated instruction");
+  assert(isPredicatedInst(I, VF) && "Expecting a scalar emulated instruction");
   return isa<LoadInst>(I) ||
          (isa<StoreInst>(I) &&
           NumPredStores > NumberOfStoresToPredicate);
@@ -6500,13 +6518,13 @@ void LoopVectorizationCostModel::collectInstsToScalarize(ElementCount VF) {
     if (!blockNeedsPredicationForAnyReason(BB))
       continue;
     for (Instruction &I : *BB)
-      if (isScalarWithPredication(&I)) {
+      if (isScalarWithPredication(&I, VF)) {
         ScalarCostsTy ScalarCosts;
         // Do not apply discount if scalable, because that would lead to
         // invalid scalarization costs.
         // Do not apply discount logic if hacked cost is needed
         // for emulated masked memrefs.
-        if (!VF.isScalable() && !useEmulatedMaskMemRefHack(&I) &&
+        if (!VF.isScalable() && !useEmulatedMaskMemRefHack(&I, VF) &&
             computePredInstDiscount(&I, ScalarCosts, VF) >= 0)
           ScalarCostsVF.insert(ScalarCosts.begin(), ScalarCosts.end());
         // Remember that BB will remain after vectorization.
@@ -6542,7 +6560,7 @@ int LoopVectorizationCostModel::computePredInstDiscount(
 
     // If the instruction is scalar with predication, it will be analyzed
     // separately. We ignore it within the context of PredInst.
-    if (isScalarWithPredication(I))
+    if (isScalarWithPredication(I, VF))
       return false;
 
     // If any of the instruction's operands are uniform after vectorization,
@@ -6589,7 +6607,7 @@ int LoopVectorizationCostModel::computePredInstDiscount(
 
     // Compute the scalarization overhead of needed insertelement instructions
     // and phi nodes.
-    if (isScalarWithPredication(I) && !I->getType()->isVoidTy()) {
+    if (isScalarWithPredication(I, VF) && !I->getType()->isVoidTy()) {
       ScalarCost += TTI.getScalarizationOverhead(
           cast<VectorType>(ToVectorTy(I->getType(), VF)),
           APInt::getAllOnes(VF.getFixedValue()), true, false);
@@ -6752,7 +6770,7 @@ LoopVectorizationCostModel::getMemInstScalarizationCost(Instruction *I,
   // If we have a predicated load/store, it will need extra i1 extracts and
   // conditional branches, but may not be executed for each vector lane. Scale
   // the cost by the probability of executing the predicated block.
-  if (isPredicatedInst(I)) {
+  if (isPredicatedInst(I, VF)) {
     Cost /= getReciprocalPredBlockProb();
 
     // Add the cost of an i1 extract and a branch
@@ -6763,7 +6781,7 @@ LoopVectorizationCostModel::getMemInstScalarizationCost(Instruction *I,
         /*Insert=*/false, /*Extract=*/true);
     Cost += TTI.getCFInstrCost(Instruction::Br, TTI::TCK_RecipThroughput);
 
-    if (useEmulatedMaskMemRefHack(I))
+    if (useEmulatedMaskMemRefHack(I, VF))
       // Artificially setting to a high enough value to practically disable
       // vectorization with such operations.
       Cost = 3000000;
@@ -7170,7 +7188,7 @@ void LoopVectorizationCostModel::setCostBasedWideningDecision(ElementCount VF) {
       // predicated uniform stores. Today they are treated as any other
       // predicated store (see added test cases in
       // invariant-store-vectorization.ll).
-      if (isa<StoreInst>(&I) && isScalarWithPredication(&I))
+      if (isa<StoreInst>(&I) && isScalarWithPredication(&I, VF))
         NumPredStores++;
 
       if (Legal->isUniformMemOp(I)) {
@@ -7180,7 +7198,7 @@ void LoopVectorizationCostModel::setCostBasedWideningDecision(ElementCount VF) {
         // Store: Scalar store + isLoopInvariantStoreValue ? 0 : extract
         InstructionCost Cost;
         if (isa<StoreInst>(&I) && VF.isScalable() &&
-            isLegalGatherOrScatter(&I)) {
+            isLegalGatherOrScatter(&I, VF)) {
           Cost = getGatherScatterCost(&I, VF);
           setWideningDecision(&I, VF, CM_GatherScatter, Cost);
         } else {
@@ -7222,7 +7240,7 @@ void LoopVectorizationCostModel::setCostBasedWideningDecision(ElementCount VF) {
       }
 
       InstructionCost GatherScatterCost =
-          isLegalGatherOrScatter(&I)
+          isLegalGatherOrScatter(&I, VF)
               ? getGatherScatterCost(&I, VF) * NumAccesses
               : InstructionCost::getInvalid();
 
@@ -7425,7 +7443,7 @@ LoopVectorizationCostModel::getInstructionCost(Instruction *I, ElementCount VF,
     // vector lane. Get the scalarization cost and scale this amount by the
     // probability of executing the predicated block. If the instruction is not
     // predicated, we fall through to the next case.
-    if (VF.isVector() && isScalarWithPredication(I)) {
+    if (VF.isVector() && isScalarWithPredication(I, VF)) {
       InstructionCost Cost = 0;
 
       // These instructions have a non-void type, so account for the phi nodes
@@ -7972,6 +7990,40 @@ VPlan &LoopVectorizationPlanner::getBestPlanFor(ElementCount VF) const {
   llvm_unreachable("No plan found!");
 }
 
+static void AddRuntimeUnrollDisableMetaData(Loop *L) {
+  SmallVector<Metadata *, 4> MDs;
+  // Reserve first location for self reference to the LoopID metadata node.
+  MDs.push_back(nullptr);
+  bool IsUnrollMetadata = false;
+  MDNode *LoopID = L->getLoopID();
+  if (LoopID) {
+    // First find existing loop unrolling disable metadata.
+    for (unsigned i = 1, ie = LoopID->getNumOperands(); i < ie; ++i) {
+      auto *MD = dyn_cast<MDNode>(LoopID->getOperand(i));
+      if (MD) {
+        const auto *S = dyn_cast<MDString>(MD->getOperand(0));
+        IsUnrollMetadata =
+            S && S->getString().startswith("llvm.loop.unroll.disable");
+      }
+      MDs.push_back(LoopID->getOperand(i));
+    }
+  }
+
+  if (!IsUnrollMetadata) {
+    // Add runtime unroll disable metadata.
+    LLVMContext &Context = L->getHeader()->getContext();
+    SmallVector<Metadata *, 1> DisableOperands;
+    DisableOperands.push_back(
+        MDString::get(Context, "llvm.loop.unroll.runtime.disable"));
+    MDNode *DisableNode = MDNode::get(Context, DisableOperands);
+    MDs.push_back(DisableNode);
+    MDNode *NewLoopID = MDNode::get(Context, MDs);
+    // Set operand 0 to refer to the loop id itself.
+    NewLoopID->replaceOperandWith(0, NewLoopID);
+    L->setLoopID(NewLoopID);
+  }
+}
+
 void LoopVectorizationPlanner::executePlan(ElementCount BestVF, unsigned BestUF,
                                            VPlan &BestVPlan,
                                            InnerLoopVectorizer &ILV,
@@ -8024,6 +8076,9 @@ void LoopVectorizationPlanner::executePlan(ElementCount BestVF, unsigned BestUF,
     LoopVectorizeHints Hints(L, true, *ORE);
     Hints.setAlreadyVectorized();
   }
+  // Disable runtime unrolling when vectorizing the epilogue loop.
+  if (CanonicalIVStartValue)
+    AddRuntimeUnrollDisableMetaData(L);
 
   // 3. Fix the vectorized code: take care of header phi's, live-outs,
   //    predication, updating analyses.
@@ -8088,40 +8143,6 @@ void LoopVectorizationPlanner::collectTriviallyDeadInstructions(
 }
 
 Value *InnerLoopUnroller::getBroadcastInstrs(Value *V) { return V; }
-
-static void AddRuntimeUnrollDisableMetaData(Loop *L) {
-  SmallVector<Metadata *, 4> MDs;
-  // Reserve first location for self reference to the LoopID metadata node.
-  MDs.push_back(nullptr);
-  bool IsUnrollMetadata = false;
-  MDNode *LoopID = L->getLoopID();
-  if (LoopID) {
-    // First find existing loop unrolling disable metadata.
-    for (unsigned i = 1, ie = LoopID->getNumOperands(); i < ie; ++i) {
-      auto *MD = dyn_cast<MDNode>(LoopID->getOperand(i));
-      if (MD) {
-        const auto *S = dyn_cast<MDString>(MD->getOperand(0));
-        IsUnrollMetadata =
-            S && S->getString().startswith("llvm.loop.unroll.disable");
-      }
-      MDs.push_back(LoopID->getOperand(i));
-    }
-  }
-
-  if (!IsUnrollMetadata) {
-    // Add runtime unroll disable metadata.
-    LLVMContext &Context = L->getHeader()->getContext();
-    SmallVector<Metadata *, 1> DisableOperands;
-    DisableOperands.push_back(
-        MDString::get(Context, "llvm.loop.unroll.runtime.disable"));
-    MDNode *DisableNode = MDNode::get(Context, DisableOperands);
-    MDs.push_back(DisableNode);
-    MDNode *NewLoopID = MDNode::get(Context, MDs);
-    // Set operand 0 to refer to the loop id itself.
-    NewLoopID->replaceOperandWith(0, NewLoopID);
-    L->setLoopID(NewLoopID);
-  }
-}
 
 //===--------------------------------------------------------------------===//
 // EpilogueVectorizerMainLoop
@@ -8328,7 +8349,6 @@ EpilogueVectorizerEpilogueLoop::createEpilogueVectorizedLoopSkeleton() {
   createInductionResumeValues(Lp, {VecEpilogueIterationCountCheck,
                                    EPI.VectorTripCount} /* AdditionalBypass */);
 
-  AddRuntimeUnrollDisableMetaData(Lp);
   return {completeLoopSkeleton(Lp, OrigLoopID), EPResumeVal};
 }
 
@@ -8482,7 +8502,7 @@ VPValue *VPRecipeBuilder::createBlockInMask(BasicBlock *BB, VPlanPtr &Plan) {
     if (Legal->getPrimaryInduction())
       IV = Plan->getOrAddVPValue(Legal->getPrimaryInduction());
     else {
-      auto *IVRecipe = new VPWidenCanonicalIVRecipe();
+      auto *IVRecipe = new VPWidenCanonicalIVRecipe(Plan->getCanonicalIV());
       HeaderVPBB->insert(IVRecipe, NewInsertionPoint);
       IV = IVRecipe;
     }
@@ -8641,7 +8661,9 @@ VPWidenCallRecipe *VPRecipeBuilder::tryToWidenCall(CallInst *CI,
                                                    VFRange &Range) const {
 
   bool IsPredicated = LoopVectorizationPlanner::getDecisionAndClampRange(
-      [this, CI](ElementCount VF) { return CM.isScalarWithPredication(CI); },
+      [this, CI](ElementCount VF) {
+        return CM.isScalarWithPredication(CI, VF);
+      },
       Range);
 
   if (IsPredicated)
@@ -8681,7 +8703,8 @@ bool VPRecipeBuilder::shouldWiden(Instruction *I, VFRange &Range) const {
   // scalarization is profitable or it is predicated.
   auto WillScalarize = [this, I](ElementCount VF) -> bool {
     return CM.isScalarAfterVectorization(I, VF) ||
-           CM.isProfitableToScalarize(I, VF) || CM.isScalarWithPredication(I);
+           CM.isProfitableToScalarize(I, VF) ||
+           CM.isScalarWithPredication(I, VF);
   };
   return !LoopVectorizationPlanner::getDecisionAndClampRange(WillScalarize,
                                                              Range);
@@ -8755,7 +8778,7 @@ VPBasicBlock *VPRecipeBuilder::handleReplication(
       Range);
 
   bool IsPredicated = LoopVectorizationPlanner::getDecisionAndClampRange(
-      [&](ElementCount VF) { return CM.isPredicatedInst(I, IsUniform); },
+      [&](ElementCount VF) { return CM.isPredicatedInst(I, VF, IsUniform); },
       Range);
 
   // Even if the instruction is not marked as uniform, there are certain
@@ -8989,9 +9012,9 @@ void LoopVectorizationPlanner::buildVPlansWithVPRecipes(ElementCount MinVF,
   }
 }
 
-// Add a VPCanonicalIVPHIRecipe starting at 0 to the header and a
-// CanonicalIVIncrement{NUW} VPInstruction to increment it by VF * UF to the
-// latch.
+// Add a VPCanonicalIVPHIRecipe starting at 0 to the header, a
+// CanonicalIVIncrement{NUW} VPInstruction to increment it by VF * UF and a
+// BranchOnCount VPInstruction to the latch.
 static void addCanonicalIVRecipes(VPlan &Plan, Type *IdxTy, DebugLoc DL,
                                   bool HasNUW, bool IsVPlanNative) {
   Value *StartIdx = ConstantInt::get(IdxTy, 0);
@@ -9011,9 +9034,16 @@ static void addCanonicalIVRecipes(VPlan &Plan, Type *IdxTy, DebugLoc DL,
   CanonicalIVPHI->addOperand(CanonicalIVIncrement);
 
   VPBasicBlock *EB = TopRegion->getExitBasicBlock();
-  if (IsVPlanNative)
+  if (IsVPlanNative) {
     EB = cast<VPBasicBlock>(EB->getSinglePredecessor());
+    EB->setCondBit(nullptr);
+  }
   EB->appendRecipe(CanonicalIVIncrement);
+
+  auto *BranchOnCount =
+      new VPInstruction(VPInstruction::BranchOnCount,
+                        {CanonicalIVIncrement, &Plan.getVectorTripCount()}, DL);
+  EB->appendRecipe(BranchOnCount);
 }
 
 VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
@@ -9473,16 +9503,19 @@ void LoopVectorizationPlanner::adjustRecipesForReductions(
   }
 
   // If tail is folded by masking, introduce selects between the phi
-  // and the live-out instruction of each reduction, at the end of the latch.
+  // and the live-out instruction of each reduction, at the beginning of the
+  // dedicated latch block.
   if (CM.foldTailByMasking()) {
+    Builder.setInsertPoint(LatchVPBB, LatchVPBB->begin());
     for (VPRecipeBase &R : Plan->getEntry()->getEntryBasicBlock()->phis()) {
       VPReductionPHIRecipe *PhiR = dyn_cast<VPReductionPHIRecipe>(&R);
       if (!PhiR || PhiR->isInLoop())
         continue;
-      Builder.setInsertPoint(LatchVPBB);
       VPValue *Cond =
           RecipeBuilder.createBlockInMask(OrigLoop->getHeader(), Plan);
       VPValue *Red = PhiR->getBackedgeValue();
+      assert(cast<VPRecipeBase>(Red->getDef())->getParent() != LatchVPBB &&
+             "reduction recipe must be defined before latch");
       Builder.createNaryOp(Instruction::Select, {Cond, Red, PhiR});
     }
   }

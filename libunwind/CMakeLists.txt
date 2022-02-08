@@ -8,6 +8,8 @@ endif()
 
 cmake_minimum_required(VERSION 3.13.4)
 
+include(GNUInstallDirs)
+
 set(LLVM_COMMON_CMAKE_UTILS "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
 
 # Add path for custom modules
@@ -137,6 +139,11 @@ set(CMAKE_MODULE_PATH
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
     ${CMAKE_MODULE_PATH})
 
+set(LIBUNWIND_INSTALL_INCLUDE_DIR "${CMAKE_INSTALL_INCLUDEDIR}" CACHE PATH
+    "Path where built libunwind headers should be installed.")
+set(LIBUNWIND_INSTALL_RUNTIME_DIR "${CMAKE_INSTALL_BINDIR}" CACHE PATH
+    "Path where built libunwind runtime libraries should be installed.")
+
 if(LLVM_ENABLE_PER_TARGET_RUNTIME_DIR AND NOT APPLE)
   set(LIBUNWIND_LIBRARY_DIR ${LLVM_LIBRARY_OUTPUT_INTDIR}/${LLVM_DEFAULT_TARGET_TRIPLE})
   set(LIBUNWIND_INSTALL_LIBRARY_DIR lib${LLVM_LIBDIR_SUFFIX}/${LLVM_DEFAULT_TARGET_TRIPLE} CACHE PATH
@@ -154,11 +161,6 @@ else()
   set(LIBUNWIND_INSTALL_LIBRARY_DIR lib${LIBUNWIND_LIBDIR_SUFFIX} CACHE PATH
       "Path where built libunwind libraries should be installed.")
 endif()
-
-set(LIBUNWIND_INSTALL_INCLUDE_DIR include CACHE PATH
-    "Path where built libunwind headers should be installed.")
-set(LIBUNWIND_INSTALL_RUNTIME_DIR bin CACHE PATH
-    "Path where built libunwind runtime libraries should be installed.")
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LIBUNWIND_LIBRARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LIBUNWIND_LIBRARY_DIR})

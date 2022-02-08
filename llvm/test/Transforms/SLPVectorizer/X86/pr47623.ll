@@ -7,8 +7,8 @@
 ; RUN:  opt < %s -slp-vectorizer -slp-compatibility-mode -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+sse2     | FileCheck %s --check-prefixes=SSE
 ; RUN:  opt < %s -slp-vectorizer -slp-compatibility-mode -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx      | FileCheck %s --check-prefixes=AVX
 ; RUN:  opt < %s -slp-vectorizer -slp-compatibility-mode -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx2     | FileCheck %s --check-prefixes=AVX
-; RUN:  opt < %s -slp-vectorizer -slp-compatibility-mode -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx512f  | FileCheck %s --check-prefixes=AVX
-; RUN:  opt < %s -slp-vectorizer -slp-compatibility-mode -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx512vl | FileCheck %s --check-prefixes=AVX
+; RUN:  opt < %s -slp-vectorizer -slp-compatibility-mode -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx512f  | FileCheck %s --check-prefixes=AVX512
+; RUN:  opt < %s -slp-vectorizer -slp-compatibility-mode -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx512vl | FileCheck %s --check-prefixes=AVX512
 
 ; Customization note:
 ; these RUN lines invoke opt the same way as non-customized test version but
@@ -51,6 +51,12 @@ define void @foo() {
 ; AVX-NEXT:    [[SHUFFLE:%.*]] = shufflevector <8 x i32> [[TMP4]], <8 x i32> poison, <8 x i32> <i32 0, i32 1, i32 0, i32 1, i32 0, i32 1, i32 0, i32 1>
 ; AVX-NEXT:    store <8 x i32> [[SHUFFLE]], <8 x i32>* bitcast ([8 x i32]* @a to <8 x i32>*), align 16
 ; AVX-NEXT:    ret void
+;
+; AVX512-LABEL: @foo(
+; AVX512-NEXT:    [[TMP1:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> <i32* getelementptr inbounds ([8 x i32], [8 x i32]* @b, i64 0, i64 0), i32* getelementptr inbounds ([8 x i32], [8 x i32]* @b, i64 0, i64 2)>, i32 8, <2 x i1> <i1 true, i1 true>, <2 x i32> undef)
+; AVX512-NEXT:    [[SHUFFLE:%.*]] = shufflevector <2 x i32> [[TMP1]], <2 x i32> poison, <8 x i32> <i32 0, i32 1, i32 0, i32 1, i32 0, i32 1, i32 0, i32 1>
+; AVX512-NEXT:    store <8 x i32> [[SHUFFLE]], <8 x i32>* bitcast ([8 x i32]* @a to <8 x i32>*), align 16
+; AVX512-NEXT:    ret void
 ;
 ; INTEL_CUSTOMIZATION
 ; XMAINAVX-LABEL: @foo(

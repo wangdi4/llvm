@@ -12,9 +12,9 @@ class b {
 };
 void b::d() { (void)e; }
 
-// CHECK: define dso_local void @_ZN1b1dEv(%class._ZTS1b.b* nonnull align 1 dereferenceable(1) "intel_dtrans_func_index"="1" %this){{.+}}!intel.dtrans.func.type ![[B_D:[0-9]+]]
+// CHECK: define dso_local void @_ZN1b1dEv(%class._ZTS1b.b* noundef "intel_dtrans_func_index"="1" %this){{.+}}!intel.dtrans.func.type ![[B_D:[0-9]+]]
 // CHECK: alloca %class._ZTS1b.b*, align 8, !intel_dtrans_type ![[B_PTR:[0-9]+]]
-// CHECK:  call void %{{.+}}(%class._ZTS1a.a* nonnull align 1 dereferenceable(1) %this.adjusted, i16 signext 0, i32 0), !intel_dtrans_type ![[PMF:[0-9]+]]
+// CHECK:  call void %{{.+}}(%class._ZTS1a.a* noundef %this.adjusted, i16 noundef signext 0, i32 noundef 0), !intel_dtrans_type ![[PMF:[0-9]+]]
 
 // CHECK: !intel.dtrans.types = !{![[B:[0-9]+]], ![[A:[0-9]+]]}
 

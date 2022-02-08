@@ -21,6 +21,7 @@
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/LinalgInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/ModuleBufferization.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/SCFInterfaceImpl.h"
+#include "mlir/Dialect/Linalg/ComprehensiveBufferize/StdInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/TensorInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/VectorInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
@@ -38,7 +39,8 @@ namespace {
 /// A helper struct for FunctionBufferize and ModuleBufferize. Both passes are
 /// mostly identical.
 struct TestComprehensiveFunctionBufferize
-    : public PassWrapper<TestComprehensiveFunctionBufferize, FunctionPass> {
+    : public PassWrapper<TestComprehensiveFunctionBufferize,
+                         OperationPass<FuncOp>> {
   StringRef getArgument() const final {
     return "test-comprehensive-function-bufferize";
   }
@@ -55,18 +57,19 @@ struct TestComprehensiveFunctionBufferize
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<bufferization::BufferizationDialect, linalg::LinalgDialect,
                     memref::MemRefDialect, tensor::TensorDialect,
-                    vector::VectorDialect, scf::SCFDialect,
+                    vector::VectorDialect, scf::SCFDialect, StandardOpsDialect,
                     arith::ArithmeticDialect, AffineDialect>();
     affine_ext::registerBufferizableOpInterfaceExternalModels(registry);
     arith_ext::registerBufferizableOpInterfaceExternalModels(registry);
     bufferization_ext::registerBufferizableOpInterfaceExternalModels(registry);
     linalg_ext::registerBufferizableOpInterfaceExternalModels(registry);
     scf_ext::registerBufferizableOpInterfaceExternalModels(registry);
+    std_ext::registerBufferizableOpInterfaceExternalModels(registry);
     tensor_ext::registerBufferizableOpInterfaceExternalModels(registry);
     vector_ext::registerBufferizableOpInterfaceExternalModels(registry);
   }
 
-  void runOnFunction() override;
+  void runOnOperation() override;
 
   Option<bool> allowReturnMemref{
       *this, "allow-return-memref",
@@ -90,19 +93,24 @@ struct TestComprehensiveFunctionBufferize
       *this, "dialect-filter",
       llvm::cl::desc("Bufferize only ops from the specified dialects"),
       llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated};
+  Option<bool> createDeallocs{
+      *this, "create-deallocs",
+      llvm::cl::desc("Specify if buffers should be deallocated"),
+      llvm::cl::init(true)};
 };
 } // namespace
 
-void TestComprehensiveFunctionBufferize::runOnFunction() {
-  auto options = std::make_unique<BufferizationOptions>();
+void TestComprehensiveFunctionBufferize::runOnOperation() {
+  auto options = std::make_unique<AnalysisBufferizationOptions>();
 
   if (!allowReturnMemref)
-    options->addPostAnalysisStep<scf_ext::AssertDestinationPassingStyle>();
+    options->addPostAnalysisStep<scf_ext::AssertScfForAliasingProperties>();
 
   options->allowReturnMemref = allowReturnMemref;
   options->allowUnknownOps = allowUnknownOps;
   options->testAnalysisOnly = testAnalysisOnly;
   options->analysisFuzzerSeed = analysisFuzzerSeed;
+  options->createDeallocs = createDeallocs;
 
   if (dialectFilter.hasValue()) {
     options->dialectFilter.emplace();
@@ -110,7 +118,7 @@ void TestComprehensiveFunctionBufferize::runOnFunction() {
       options->dialectFilter->insert(dialectNamespace);
   }
 
-  Operation *op = getFunction().getOperation();
+  Operation *op = getOperation().getOperation();
   if (failed(runComprehensiveBufferize(op, std::move(options))))
     return;
 

@@ -3188,6 +3188,7 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       AssociativeMath = true;
       ReciprocalMath = true;
       SignedZeros = false;
+      ApproxFunc = true;
       TrappingMath = false;
       FPExceptionBehavior = "";
       break;
@@ -3195,6 +3196,7 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       AssociativeMath = false;
       ReciprocalMath = false;
       SignedZeros = true;
+      ApproxFunc = false;
       TrappingMath = true;
       FPExceptionBehavior = "strict";
 
@@ -3214,6 +3216,7 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       MathErrno = false;
       AssociativeMath = true;
       ReciprocalMath = true;
+      ApproxFunc = true;
       SignedZeros = false;
       TrappingMath = false;
       RoundingFPMath = false;
@@ -3233,6 +3236,7 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       MathErrno = TC.IsMathErrnoDefault();
       AssociativeMath = false;
       ReciprocalMath = false;
+      ApproxFunc = false;
       SignedZeros = true;
       // -fno_fast_math restores default denormal and fpcontract handling
       DenormalFPMath = DefaultDenormalFPMath;
@@ -3262,7 +3266,7 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       // If -ffp-model=strict has been specified on command line but
       // subsequent options conflict then emit warning diagnostic.
       if (HonorINFs && HonorNaNs && !AssociativeMath && !ReciprocalMath &&
-          SignedZeros && TrappingMath && RoundingFPMath &&
+          SignedZeros && TrappingMath && RoundingFPMath && !ApproxFunc &&
           DenormalFPMath == llvm::DenormalMode::getIEEE() &&
           DenormalFP32Math == llvm::DenormalMode::getIEEE() &&
           FPContract.equals("off"))
@@ -3302,7 +3306,7 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
     CmdArgs.push_back("-fmath-errno");
 
   if (!MathErrno && AssociativeMath && ReciprocalMath && !SignedZeros &&
-      !TrappingMath)
+      ApproxFunc && !TrappingMath)
     CmdArgs.push_back("-menable-unsafe-fp-math");
 
   if (!SignedZeros)
@@ -3353,7 +3357,7 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
   // -ffast-math enables the __FAST_MATH__ preprocessor macro, but check for the
   // individual features enabled by -ffast-math instead of the option itself as
   // that's consistent with gcc's behaviour.
-  if (!HonorINFs && !HonorNaNs && !MathErrno && AssociativeMath &&
+  if (!HonorINFs && !HonorNaNs && !MathErrno && AssociativeMath && ApproxFunc &&
       ReciprocalMath && !SignedZeros && !TrappingMath && !RoundingFPMath) {
     CmdArgs.push_back("-ffast-math");
     if (FPModel.equals("fast")) {
@@ -6314,6 +6318,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-treat-scalable-fixed-error-as-warning");
   }
 
+  // Enable local accessor to shared memory pass for SYCL.
+  if (isa<BackendJobAction>(JA) && IsSYCL) {
+    CmdArgs.push_back("-mllvm");
+    CmdArgs.push_back("-sycl-enable-local-accessor");
+  }
   // These two are potentially updated by AddClangCLArgs.
   codegenoptions::DebugInfoKind DebugInfoKind = codegenoptions::NoDebugInfo;
   bool EmitCodeView = false;
@@ -7903,6 +7912,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   Args.AddLastArg(CmdArgs, options::OPT_dM);
   Args.AddLastArg(CmdArgs, options::OPT_dD);
+  Args.AddLastArg(CmdArgs, options::OPT_dI);
 
   Args.AddLastArg(CmdArgs, options::OPT_fmax_tokens_EQ);
 
@@ -9597,7 +9607,11 @@ void OffloadBundler::ConstructJobMultipleOutputs(
   if (IsFPGADepUnbundle)
     TypeArg = "o";
 
-  if (InputType == types::TY_Archive && getToolChain().getTriple().isSPIR())
+  bool HasSPIRTarget = false;
+  auto SYCLTCRange = C.getOffloadToolChains<Action::OFK_SYCL>();
+  for (auto TI = SYCLTCRange.first, TE = SYCLTCRange.second; TI != TE; ++TI)
+    HasSPIRTarget |= TI->second->getTriple().isSPIR();
+  if (InputType == types::TY_Archive && HasSPIRTarget)
     TypeArg = "aoo";
 
   // Get the type.
@@ -10087,7 +10101,6 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
         ",+SPV_INTEL_fpga_invocation_pipelining_attributes"
         ",+SPV_INTEL_fpga_dsp_control"
         ",+SPV_INTEL_arithmetic_fence"
-        ",+SPV_INTEL_runtime_aligned"
         ",+SPV_INTEL_task_sequence"; // INTEL
 #if INTEL_CUSTOMIZATION
     if (!TCArgs.hasArg(options::OPT_fopenmp_target_simd)) {
@@ -10099,13 +10112,9 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
     if (!C.getDriver().isFPGAEmulationMode()) {
 #endif // INTEL_CUSTOMIZATION
-      // Enable SPV_INTEL_usm_storage_classes only for FPGA hardware,
-      // since it adds new storage classes that represent global_device and
-      // global_host address spaces, which are not supported for all
-      // targets. With the extension disabled the storage classes will be
-      // lowered to CrossWorkgroup storage class that is mapped to just
-      // global address space.
-      ExtArg += ",+SPV_INTEL_usm_storage_classes";
+      // Enable several extensions on FPGA H/W exclusively
+      ExtArg += ",+SPV_INTEL_usm_storage_classes"
+                ",+SPV_INTEL_runtime_aligned";
 #if INTEL_CUSTOMIZATION
       // Disable optnone for FPGA hardware
       ExtArg += ",-SPV_INTEL_optnone";
@@ -10499,7 +10508,7 @@ void SpirvToIrWrapper::ConstructJob(Compilation &C, const JobAction &JA,
 
   // Input File
   for (const auto &I : Inputs) {
-    if (I.getType() == types::TY_Archive)
+    if (I.getType() == types::TY_Tempfilelist)
       ForeachInputs.push_back(I);
     addArgs(CmdArgs, TCArgs, {I.getFilename()});
   }

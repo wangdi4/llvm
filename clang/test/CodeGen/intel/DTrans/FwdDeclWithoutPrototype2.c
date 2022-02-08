@@ -16,13 +16,12 @@ int main() {
 
 void test() {
 }
-
-// CHECK: define dso_local void @test2(i32* "intel_dtrans_func_index"="1" %i) {{.*}}!intel.dtrans.func.type ![[TEST2_FUNC_MD:[0-9]+]]
+// CHECK: define dso_local void @test2(i32* noundef "intel_dtrans_func_index"="1" %i) {{.*}}!intel.dtrans.func.type ![[TEST2_FUNC_MD:[0-9]+]]
 void test2(int *i) {
   // CHECK: alloca i32*, align 8, !intel_dtrans_type ![[INT_PTR:[0-9]+]]
 }
 
-// CHECK: define dso_local "intel_dtrans_func_index"="1" i32* @test3(i32* "intel_dtrans_func_index"="2" %i) {{.*}}!intel.dtrans.func.type ![[TEST3_FUNC_MD:[0-9]+]]
+// CHECK: define dso_local "intel_dtrans_func_index"="1" i32* @test3(i32* noundef "intel_dtrans_func_index"="2" %i) {{.*}}!intel.dtrans.func.type ![[TEST3_FUNC_MD:[0-9]+]]
 int *test3(int *i) {
   // CHECK: alloca i32*, align 8, !intel_dtrans_type ![[INT_PTR]]
   return i;

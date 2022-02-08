@@ -98,6 +98,11 @@ static cl::opt<bool>
     DisableInlinedAllocaMerging("disable-inlined-alloca-merging",
                                 cl::init(false), cl::Hidden);
 
+/// A flag for test, so we can print the content of the advisor when running it
+/// as part of the default (e.g. -O3) pipeline.
+static cl::opt<bool> KeepAdvisorForPrinting("keep-inline-advisor-for-printing",
+                                            cl::init(false), cl::Hidden);
+
 extern cl::opt<InlinerFunctionImportStatsOpts> InlinerFunctionImportStats;
 
 #if INTEL_CUSTOMIZATION
@@ -1044,7 +1049,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   InlineAdvisor &Advisor = getAdvisor(MAMProxy, FAM, M);
   Advisor.onPassEntry();
 
-  auto AdvisorOnExit = make_scope_exit([&] { Advisor.onPassExit(); });
+  auto AdvisorOnExit = make_scope_exit([&] { Advisor.onPassExit(&InitialC); });
 
 #if INTEL_CUSTOMIZATION
   Report->beginSCC(InitialC, this);
@@ -1151,6 +1156,10 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   // Track the dead functions to delete once finished with inlining calls. We
   // defer deleting these to make it easier to handle the call graph updates.
   SmallVector<Function *, 4> DeadFunctions;
+
+  // Track potentially dead non-local functions with comdats to see if they can
+  // be deleted as a batch after inlining.
+  SmallVector<Function *, 4> DeadFunctionsInComdats;
 
   // Loop forward over all of the calls.
   while (!Calls->empty()) {
@@ -1325,16 +1334,15 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       // Merge the attributes based on the inlining.
       AttributeFuncs::mergeAttributesForInlining(F, Callee);
 
-      // For local functions, check whether this makes the callee trivially
-      // dead. In that case, we can drop the body of the function eagerly
-      // which may reduce the number of callers of other functions to one,
-      // changing inline cost thresholds.
+      // For local functions or discardable functions without comdats, check
+      // whether this makes the callee trivially dead. In that case, we can drop
+      // the body of the function eagerly which may reduce the number of callers
+      // of other functions to one, changing inline cost thresholds. Non-local
+      // discardable functions with comdats are checked later on.
       bool CalleeWasDeleted = false;
-      if (Callee.hasLocalLinkage()) {
-        // To check this we also need to nuke any dead constant uses (perhaps
-        // made dead by this operation on other functions).
-        Callee.removeDeadConstantUsers();
-        if (Callee.use_empty() && !CG.isLibFunction(Callee)) {
+      if (Callee.isDiscardableIfUnused() && Callee.hasZeroLiveUses() &&
+          !CG.isLibFunction(Callee)) {
+        if (Callee.hasLocalLinkage() || !Callee.hasComdat()) {
           Calls->erase_if([&](const std::pair<CallBase *, int> &Call) {
             return Call.first->getCaller() == &Callee;
           });
@@ -1347,8 +1355,12 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
           assert(!is_contained(DeadFunctions, &Callee) &&
                  "Cannot put cause a function to become dead twice!");
           DeadFunctions.push_back(&Callee);
-          ILIC->invalidateFunction(&Callee);         // INTEL
+          ILIC->invalidateFunction(&Callee); // INTEL
           CalleeWasDeleted = true;
+        } else {
+          MDReport->setDead(&Callee); // INTEL
+          DeadFunctionsInComdats.push_back(&Callee);
+          ILIC->invalidateFunction(&Callee); // INTEL
         }
       }
       if (CalleeWasDeleted)
@@ -1411,6 +1423,15 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     FAM.invalidate(F, PreservedAnalyses::none());
   }
 
+  // We must ensure that we only delete functions with comdats if every function
+  // in the comdat is going to be deleted.
+  if (!DeadFunctionsInComdats.empty()) {
+    filterDeadComdatFunctions(DeadFunctionsInComdats);
+    for (auto *Callee : DeadFunctionsInComdats)
+      Callee->dropAllReferences();
+    DeadFunctions.append(DeadFunctionsInComdats);
+  }
+
   // Now that we've finished inlining all of the calls across this SCC, delete
   // all of the trivially dead functions, updating the call graph and the CGSCC
   // pass manager in the process.
@@ -1437,14 +1458,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       UR.UpdatedC = nullptr;
 
     // And delete the actual function from the module.
-    // The Advisor may use Function pointers to efficiently index various
-    // internal maps, e.g. for memoization. Function cleanup passes like
-    // argument promotion create new functions. It is possible for a new
-    // function to be allocated at the address of a deleted function. We could
-    // index using names, but that's inefficient. Alternatively, we let the
-    // Advisor free the functions when it sees fit.
-    DeadF->getBasicBlockList().clear();
-    M.getFunctionList().remove(DeadF);
+    M.getFunctionList().erase(DeadF);
 
     ++NumDeleted;
   }
@@ -1511,7 +1525,8 @@ PreservedAnalyses ModuleInlinerWrapperPass::run(Module &M,
   // Discard the InlineAdvisor, a subsequent inlining session should construct
   // its own.
   auto PA = PreservedAnalyses::all();
-  PA.abandon<InlineAdvisorAnalysis>();
+  if (!KeepAdvisorForPrinting)
+    PA.abandon<InlineAdvisorAnalysis>();
   return PA;
 }
 

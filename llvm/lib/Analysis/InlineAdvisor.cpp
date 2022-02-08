@@ -21,6 +21,7 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -173,18 +174,6 @@ InlineAdvice::InlineAdvice(InlineAdvisor *Advisor, CallBase &CB,
       DLoc(CB.getDebugLoc()), Block(CB.getParent()), ORE(ORE),
       IsInliningRecommended(IsInliningRecommended), IC(IC) {} // INTEL
 
-void InlineAdvisor::markFunctionAsDeleted(Function *F) {
-  assert((!DeletedFunctions.count(F)) &&
-         "Cannot put cause a function to become dead twice!");
-  DeletedFunctions.insert(F);
-}
-
-void InlineAdvisor::freeDeletedFunctions() {
-  for (auto *F : DeletedFunctions)
-    delete F;
-  DeletedFunctions.clear();
-}
-
 void InlineAdvice::recordInlineStatsIfNeeded() {
   if (Advisor->ImportedFunctionsStats)
     Advisor->ImportedFunctionsStats->recordInline(*Caller, *Callee);
@@ -199,7 +188,6 @@ void InlineAdvice::recordInlining() {
 void InlineAdvice::recordInliningWithCalleeDeleted() {
   markRecorded();
   recordInlineStatsIfNeeded();
-  Advisor->markFunctionAsDeleted(Callee);
   recordInliningWithCalleeDeletedImpl();
 }
 
@@ -563,8 +551,6 @@ InlineAdvisor::~InlineAdvisor() {
     ImportedFunctionsStats->dump(InlinerFunctionImportStats ==
                                  InlinerFunctionImportStatsOpts::Verbose);
   }
-
-  freeDeletedFunctions();
 }
 
 #if INTEL_CUSTOMIZATION
@@ -652,4 +638,14 @@ InlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
 
 OptimizationRemarkEmitter &InlineAdvisor::getCallerORE(CallBase &CB) {
   return FAM.getResult<OptimizationRemarkEmitterAnalysis>(*CB.getCaller());
+}
+
+PreservedAnalyses
+InlineAdvisorAnalysisPrinterPass::run(Module &M, ModuleAnalysisManager &MAM) {
+  const auto *IA = MAM.getCachedResult<InlineAdvisorAnalysis>(M);
+  if (!IA)
+    OS << "No Inline Advisor\n";
+  else
+    IA->getAdvisor()->print(OS);
+  return PreservedAnalyses::all();
 }

@@ -1374,12 +1374,18 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
   if (SYCLTargets && SYCLfpga)
     Diag(clang::diag::err_drv_option_conflict)
         << SYCLTargets->getSpelling() << SYCLfpga->getSpelling();
+
+  auto argSYCLIncompatible = [&](OptSpecifier OptId) {
+    if (!HasValidSYCLRuntime)
+      return;
+    if (Arg *IncompatArg = C.getInputArgs().getLastArg(OptId))
+      Diag(clang::diag::err_drv_fsycl_unsupported_with_opt)
+          << IncompatArg->getSpelling();
+  };
+  // -static-libstdc++ is not compatible with -fsycl.
+  argSYCLIncompatible(options::OPT_static_libstdcxx);
   // -ffreestanding cannot be used with -fsycl
-  if (HasValidSYCLRuntime &&
-      C.getInputArgs().hasArg(options::OPT_ffreestanding)) {
-    Diag(clang::diag::err_drv_option_conflict) << "-fsycl"
-                                               << "-ffreestanding";
-  }
+  argSYCLIncompatible(options::OPT_ffreestanding);
 
   // Diagnose incorrect inputs to SYCL options.
   // FIXME: Since the option definition includes the list of possible values,
@@ -5325,7 +5331,7 @@ class OffloadingActionBuilder final {
             }
             Action *ConvertSPIRVAction =
                 C.MakeAction<SpirvToIrWrapperJobAction>(
-                    Input, Input->getType() == types::TY_Archive
+                    Input, Input->getType() == types::TY_Tempfilelist
                                ? types::TY_Tempfilelist
                                : types::TY_LLVM_BC);
             LinkObjects.push_back(ConvertSPIRVAction);
@@ -6016,11 +6022,15 @@ public:
          HostAction->getType() == types::TY_PP_HIP)) {
       ActionList HostActionList;
       Action *A(HostAction);
+      bool HasSPIRTarget = false;
       // Only check for FPGA device information when using fpga SubArch.
       auto SYCLTCRange = C.getOffloadToolChains<Action::OFK_SYCL>();
-      for (auto TI = SYCLTCRange.first, TE = SYCLTCRange.second; TI != TE; ++TI)
+      for (auto TI = SYCLTCRange.first, TE = SYCLTCRange.second; TI != TE;
+           ++TI) {
         HasFPGATarget |= TI->second->getTriple().getSubArch() ==
                          llvm::Triple::SPIRSubArch_fpga;
+        HasSPIRTarget |= TI->second->getTriple().isSPIR();
+      }
       bool isArchive = !(HostAction->getType() == types::TY_Object &&
                          isObjectFile(InputArg->getAsString(Args)));
       if (!HasFPGATarget && isArchive &&
@@ -6029,7 +6039,10 @@ public:
         return false;
       if (HasFPGATarget && !updateInputForFPGA(A, InputArg, Args))
         return false;
-      auto UnbundlingHostAction = C.MakeAction<OffloadUnbundlingJobAction>(A);
+      auto UnbundlingHostAction = C.MakeAction<OffloadUnbundlingJobAction>(
+          A, (HasSPIRTarget && HostAction->getType() == types::TY_Archive)
+                 ? types::TY_Tempfilelist
+                 : A->getType());
       UnbundlingHostAction->registerDependentActionInfo(
           C.getSingleOffloadToolChain<Action::OFK_Host>(),
           /*BoundArch=*/StringRef(), Action::OFK_Host);
@@ -6161,12 +6174,12 @@ public:
     }
   }
 
-  Action *makeHostLinkAction(ActionList &LinkerInputs) {
+  void makeHostLinkAction(ActionList &LinkerInputs) {
     // Build a list of device linking actions.
     ActionList DeviceAL;
     appendDeviceLinkActions(DeviceAL);
     if (DeviceAL.empty())
-      return nullptr;
+      return;
 
     // Let builders add host linking actions.
     for (DeviceActionBuilder *SB : SpecializedBuilders) {
@@ -6175,9 +6188,6 @@ public:
       if (Action *HA = SB->appendLinkHostActions(DeviceAL))
         LinkerInputs.push_back(HA);
     }
-#if INTEL_CUSTOMIZATION
-    return nullptr;
-#endif // INTEL_CUSTOMIZATION
   }
 
   /// Processes the host linker action. This currently consists of replacing it
@@ -6393,14 +6403,6 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   Args.ClaimAllArgs(options::OPT_intel_config);
 #endif // INTEL_CUSTOMIZATION
 
-  // FIXME: Linking separate translation units for SPIR-V is not supported yet.
-  // It can be done either by LLVM IR linking before conversion of the final
-  // linked module to SPIR-V or external SPIR-V linkers can be used e.g.
-  // spirv-link.
-  if (C.getDefaultToolChain().getTriple().isSPIRV() && Inputs.size() > 1) {
-    Diag(clang::diag::warn_drv_spirv_linking_multiple_inputs_unsupported);
-  }
-
   handleArguments(C, Args, Inputs, Actions);
 
   // When compiling for -fsycl, generate the integration header files and the
@@ -6498,15 +6500,8 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
       // Queue linker inputs.
       if (Phase == phases::Link) {
         assert(Phase == PL.back() && "linking must be final compilation step.");
-        // Compilation phases are setup per language, however for SPIR-V the
-        // final linking phase is meaningless since the compilation phase
-        // produces the final binary.
-        // FIXME: OpenCL - we could strip linking phase out from OpenCL
-        // compilation phases if we could verify it is not needed by any target.
-        if (!C.getDefaultToolChain().getTriple().isSPIRV()) {
-          LinkerInputs.push_back(Current);
-          Current = nullptr;
-        }
+        LinkerInputs.push_back(Current);
+        Current = nullptr;
         break;
       }
 
@@ -7743,7 +7738,8 @@ InputInfo Driver::BuildJobsForActionNoCache(
            EffectiveTriple.getSubArch() == llvm::Triple::SPIRSubArch_fpga &&
            C.getInputArgs().hasArg(options::OPT_fsycl_link_EQ));
       if (C.getDriver().getOffloadStaticLibSeen() &&
-          JA->getType() == types::TY_Archive) {
+          (JA->getType() == types::TY_Archive ||
+           JA->getType() == types::TY_Tempfilelist)) {
         // Host part of the unbundled static archive is not used.
         if (UI.DependentOffloadKind == Action::OFK_Host)
           continue;
@@ -7752,10 +7748,11 @@ InputInfo Driver::BuildJobsForActionNoCache(
         if (UI.DependentOffloadKind == Action::OFK_Host && IsFPGAObjLink)
           continue;
         std::string TmpFileName = C.getDriver().GetTemporaryPath(
-            llvm::sys::path::stem(BaseInput), "a");
+            llvm::sys::path::stem(BaseInput),
+            JA->getType() == types::TY_Archive ? "a" : "txt");
         const char *TmpFile =
             C.addTempFile(C.getArgs().MakeArgString(TmpFileName));
-        CurI = InputInfo(types::TY_Archive, TmpFile, TmpFile);
+        CurI = InputInfo(JA->getType(), TmpFile, TmpFile);
       } else if (types::isFPGA(JA->getType())) {
         std::string Ext(types::getTypeTempSuffix(JA->getType()));
         types::ID TI = types::TY_Object;

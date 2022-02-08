@@ -12,7 +12,7 @@
 // expected-no-diagnostics
 
 #pragma omp declare target
-//CHECK: @glob = hidden target_declare{{.*}}
+//CHECK: @glob = target_declare{{.*}}
 int glob;
 
 int bar() {
