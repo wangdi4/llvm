@@ -58,12 +58,15 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
+<<<<<<< HEAD
 #include "llvm/ADT/ilist.h"
 #if INTEL_CUSTOMIZATION
 // It is not a good idea to include analyses headers in IR directory.
 // FIXME: Refactor the code to resolve this.
 #include "llvm/Analysis/Intel_OptReport/OptReport.h"
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 2d92594ad154e11845fdaf576715f7ef488c3e96
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
@@ -75,7 +78,6 @@
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
-#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/DerivedTypes.h"

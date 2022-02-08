@@ -24,15 +24,17 @@
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfoMetadata.h"
+<<<<<<< HEAD
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Operator.h"       //INTEL
+=======
+>>>>>>> 2d92594ad154e11845fdaf576715f7ef488c3e96
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Statepoint.h"
 
-#include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
 #if INTEL_CUSTOMIZATION
