@@ -2720,9 +2720,21 @@ EVT X86TargetLowering::getOptimalMemOpType(
 #if INTEL_CUSTOMIZATION
 TargetLoweringBase::ComplexABI
 X86TargetLowering::getComplexReturnABI(Type* ScalarFloatTy) const {
+  // Windows ABIs don't have dedicated _Complex rules, so they work as regular
+  // structs. These return as integers if the size is 8 bytes or fewer, or
+  // structs via memory if larger. (The size threshold is the same for both
+  // 32 and 64-bit ABIs).
+  if (Subtarget.isOSWindows()) {
+    unsigned FloatSize = ScalarFloatTy->getPrimitiveSizeInBits().getFixedSize();
+    if (FloatSize <= 32) {
+      return ComplexABI::Integer;
+    } else {
+      return ComplexABI::Memory;
+    }
+  }
   if (Subtarget.is32Bit()) {
     if (ScalarFloatTy->isFloatTy()) {
-      report_fatal_error("Cannot compile complex return ABI for i386 ABI");
+      return ComplexABI::Integer;
     } else if (ScalarFloatTy->isHalfTy()) {
       return ComplexABI::Vector;
     } else {

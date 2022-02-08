@@ -10,6 +10,8 @@
 
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/Analysis/DTransOPUtils.h"
+#include "Intel_DTrans/Analysis/DTransTypeMetadataBuilder.h"
+#include "Intel_DTrans/Analysis/DTransTypeMetadataConstants.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/DTransCommon.h"
@@ -23,29 +25,12 @@
 
 static llvm::cl::opt<bool> EnableStrictCheck(
     "dtrans-typemetadatareader-strict-check", llvm::cl::Hidden,
-    llvm::cl::init(true), llvm::cl::desc("verify that DTrans "
-    "metadata was collected for all structures"));
+    llvm::cl::init(true),
+    llvm::cl::desc("verify that DTrans "
+                   "metadata was collected for all structures"));
 
 namespace llvm {
 namespace dtransOP {
-// The tag name for the named metadata nodes that contains the list of structure
-// types. This node is used to identify all the nodes that describe the fields
-// of the structure so that we will know what all the original pointer type
-// fields were.
-const char *MDStructTypesTag = "intel.dtrans.types";
-
-// The tag name used for variables and instructions marked with DTrans type
-// information for pointer type recovery.
-const char *MDDTransTypeTag = "intel_dtrans_type";
-
-// Tag used for metadata on a Function declaration/definition to map a set
-// of metadata nodes of encoded types to attributes used on the return type
-// and parameters.
-const char *DTransFuncTypeMDTag = "intel.dtrans.func.type";
-
-// String attribute name that is set on return type and parameters to provide
-// indexing into the DTransFuncTypeMD metadata.
-const char *DTransFuncIndexTag = "intel_dtrans_func_index";
 
 NamedMDNode *TypeMetadataReader::getDTransTypesMetadata(Module &M) {
   NamedMDNode *DTMDTypes = M.getNamedMetadata(MDStructTypesTag);
@@ -71,65 +56,17 @@ MDNode *TypeMetadataReader::getDTransMDNode(const Value &V) {
   return nullptr;
 }
 
+// TODO: Remove this method once calls are changed to use
+// 'DTransTypeMetadataBuilder' directly.
 void TypeMetadataReader::addDTransMDNode(Value &V, MDNode *MD) {
-  if (auto *F = dyn_cast<Function>(&V))
-    F->setMetadata(DTransFuncTypeMDTag, MD);
-  else if (auto *I = dyn_cast<Instruction>(&V))
-    I->setMetadata(MDDTransTypeTag, MD);
-  else if (auto *G = dyn_cast<GlobalObject>(&V))
-    G->setMetadata(MDDTransTypeTag, MD);
-  else
-    llvm_unreachable("Unexpected Value type passed into addDTransMDNode");
+  DTransTypeMetadataBuilder::addDTransMDNode(V, MD);
 }
 
+// TODO: Remove this method once calls are changed to use
+// 'DTransTypeMetadataBuilder' directly.
 void TypeMetadataReader::setDTransFuncMetadata(Function *F,
                                                DTransFunctionType *FnType) {
-
-  auto RemoveDTransFuncIndexAttribute = [](Function *F, unsigned Index) {
-    F->removeAttributeAtIndex(Index, DTransFuncIndexTag);
-  };
-
-  // Add a DTrans function index attribute to 'F' if 'Ty' requires an attribute
-  // because it refers to a pointer type, and update the MDTypeList with the
-  // metadata reference to add to the function. 'Index' is used to specify the
-  // return type or argument number the attribute will be attached to.
-  auto AddAttributeIfNeeded = [](Function *F, DTransType *Ty, unsigned Index,
-                                 SmallVectorImpl<Metadata *> &MDTypeList) {
-    if (hasPointerType(Ty)) {
-      Metadata *RetMD = Ty->createMetadataReference();
-      MDTypeList.push_back(RetMD);
-      // Attribute numbering starts with 1.
-      unsigned AttrNumber = MDTypeList.size();
-      std::string Label = std::to_string(AttrNumber);
-      Attribute Attr =
-          Attribute::get(F->getContext(), DTransFuncIndexTag, Label);
-      F->addAttributeAtIndex(Index, Attr);
-    }
-  };
-
-  // Clear any existing DTrans attributes for the function, and build the new
-  // attribute and metadata information for the function type.
-  F->setMetadata("intel.dtrans.func.type", nullptr);
-  SmallVector<Metadata *, 8> MDTypeList;
-  DTransType *RetTy = FnType->getReturnType();
-  assert(RetTy && "Invalid FnType");
-  LLVMContext &Ctx = F->getContext();
-  RemoveDTransFuncIndexAttribute(F, AttributeList::ReturnIndex);
-  AddAttributeIfNeeded(F, RetTy, AttributeList::ReturnIndex, MDTypeList);
-
-  unsigned NumArgs = FnType->getNumArgs();
-  for (unsigned ArgIdx = 0; ArgIdx < NumArgs; ++ArgIdx) {
-    RemoveDTransFuncIndexAttribute(F, AttributeList::FirstArgIndex + ArgIdx);
-    DTransType *ArgTy = FnType->getArgType(ArgIdx);
-    assert(ArgTy && "Invalid FnType");
-    AddAttributeIfNeeded(F, ArgTy, AttributeList::FirstArgIndex + ArgIdx,
-                         MDTypeList);
-  }
-
-  if (!MDTypeList.empty()) {
-    auto *MDTypes = MDTuple::getDistinct(Ctx, MDTypeList);
-    F->addMetadata(DTransFuncTypeMDTag, *MDTypes);
-  }
+  DTransTypeMetadataBuilder::setDTransFuncMetadata(F, FnType);
 }
 
 bool TypeMetadataReader::initialize(Module &M, bool StrictCheck) {
@@ -374,15 +311,31 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
                                              DTransStructType *DTStTy) {
   // Metadata is of the form:
   //   { !"S", struct.type zeroinitializer, i32 NumFields [,!MDRef[,!MDRef]* ] }
-  const unsigned FieldTyStartPos = 3;
+  const unsigned FieldTyStartPos = DTransStructMDConstants::FieldNodeOffset;
 
-  assert(MD->getOperand(0) && isa<MDString>(MD->getOperand(0)) &&
-         (cast<MDString>(MD->getOperand(0)))->getString().equals("S") &&
-         "improper MD node");
-  assert(MD->getNumOperands() >= 3 &&
-         "Incorrect MD encoding for structure description");
+  if (MD->getNumOperands() < DTransStructMDConstants::MinOperandCount) {
+    LLVM_DEBUG(dbgs() << "Metadata node for structure is incomplete: "
+                      << *DTStTy << ". MDNode = " << *MD << "\n");
+    return nullptr;
+  }
 
-  auto *FieldCountMD = dyn_cast<ConstantAsMetadata>(MD->getOperand(2));
+  unsigned RecTypeOffset = DTransStructMDConstants::RecTypeOffset;
+  if (!isa<MDString>(MD->getOperand(RecTypeOffset))) {
+    LLVM_DEBUG(dbgs() << "Metadata encoding incorrect for structure: "
+                      << *DTStTy << ". MDNode = " << *MD << "\n");
+    return nullptr;
+  }
+
+  auto RecType = cast<MDString>(MD->getOperand(RecTypeOffset));
+  if (!RecType->getString().equals("S")) {
+    LLVM_DEBUG(dbgs() << "Metadata encoding incorrect for structure: "
+                      << *DTStTy << ". MDNode = " << *MD << "\n");
+    return nullptr;
+  }
+
+  unsigned FieldCountOffset = DTransStructMDConstants::FieldCountOffset;
+  auto *FieldCountMD =
+      dyn_cast<ConstantAsMetadata>(MD->getOperand(FieldCountOffset));
   assert(FieldCountMD && "Expected metadata constant");
   int32_t FieldCount =
       cast<ConstantInt>(FieldCountMD->getValue())->getSExtValue();
@@ -406,12 +359,22 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
   // possible incorrect metadata information.
   llvm::StructType *StTy =
       StructType::getTypeByName(M.getContext(), DTStTy->getName());
+  if (FieldCountU != StTy->getNumElements()) {
+    LLVM_DEBUG(dbgs() << "Incorrect field count for structure: " << *StTy
+                      << " - " << *MD << "\n ";);
+    DTStTy->setReconstructError();
+    return nullptr;
+  }
 
   unsigned FieldNum = 0;
   unsigned NumOps = MD->getNumOperands();
   for (unsigned Idx = FieldTyStartPos; Idx < NumOps; ++Idx, ++FieldNum) {
     auto *FieldMD = dyn_cast<MDNode>(MD->getOperand(Idx));
-    assert(FieldMD && "Incorrect MD encoding for structure fields");
+    if (!FieldMD) {
+      LLVM_DEBUG(dbgs() << "Metadata encoding incorrect for structure: "
+                        << *DTStTy << ". MDNode = " << *MD << "\n");
+      return nullptr;
+    }
 
     DTransType *DTFieldTy = decodeMDNode(FieldMD);
     if (!DTFieldTy) {
@@ -476,7 +439,7 @@ DTransType *TypeMetadataReader::getDTransTypeFromMD(const Value *V) {
     auto *MDTypeListNode = F->getMetadata(DTransFuncTypeMDTag);
     if (!MDTypeListNode)
       return nullptr;
-    return decodeDTransFuncType(*(const_cast<Function*>(F)), *MDTypeListNode);
+    return decodeDTransFuncType(*(const_cast<Function *>(F)), *MDTypeListNode);
   }
 
   MDNode *MD = getDTransMDNode(*V);

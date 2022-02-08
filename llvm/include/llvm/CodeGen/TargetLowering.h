@@ -663,6 +663,7 @@ public:
     Memory, ///< Indicates that a pointer to the struct is passed.
     Vector, ///< Indicates that T _Complex can be passed as <2 x T>.
     Struct, ///< Indicates that T _Complex can be passed as {T, T}.
+    Integer, ///< Indicates that an integer of the same size is passed.
   };
 
   /// Returns how a C complex type is lowered when used as the return value.
