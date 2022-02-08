@@ -1,6 +1,6 @@
 //===------- Intel_DopeVectorAnalysis.cpp ----------------------- -*------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -594,8 +594,11 @@ void DopeVectorFieldUse::collectFromCopy(const DopeVectorFieldUse& CopyDVField) 
     }
   }
 
-  if (MergeAllowed)
+  if (MergeAllowed) {
     Loads.insert(CopyDVField.Loads.begin(), CopyDVField.Loads.end());
+    NotForDVCPLoads.insert(CopyDVField.NotForDVCPLoads.begin(),
+                           CopyDVField.NotForDVCPLoads.end());
+  }
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
