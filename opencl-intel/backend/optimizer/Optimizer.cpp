@@ -110,7 +110,6 @@ llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
 llvm::Pass *createOCLReqdSubGroupSizePass();
 llvm::Pass *createOCLVecClonePass(ArrayRef<VectItem> VectInfos,
                                   const CPUDetect *, bool IsOCL);
-llvm::Pass *createOCLPostVectPass();
 llvm::Pass *createImplicitGIDPass(bool HandleBarrier);
 
 llvm::ModulePass *createInfiniteLoopCreatorPass();
@@ -624,7 +623,7 @@ static void populatePassesPostFailCheck(
           F->addFnAttr(CompilationUtils::ATTR_VECTOR_VARIANT_FAILURE,
                        CompilationUtils::ATTR_VALUE_FAILED_TO_VECTORIZE);
         }));
-        PM.add(createOCLPostVectPass());
+        PM.add(llvm::createDPCPPKernelPostVecPass());
 
         // Final cleaning up
         PM.add(createVPODirectiveCleanupPass());
