@@ -2319,20 +2319,12 @@ define i1 @icmp_v32i8_v32i1(<32 x i8>, <32 x i8>) {
 ; AVX512F-LABEL: icmp_v32i8_v32i1:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    vpcmpeqb %ymm1, %ymm0, %ymm0
-; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
-; AVX512F-NEXT:    vpxor %xmm1, %xmm0, %xmm0
-; AVX512F-NEXT:    vpmovsxbd %xmm0, %zmm0
-; AVX512F-NEXT:    vptestmd %zmm0, %zmm0, %k0
-; AVX512F-NEXT:    kshiftrw $8, %k0, %k1
-; AVX512F-NEXT:    kxorw %k1, %k0, %k0
-; AVX512F-NEXT:    kshiftrw $4, %k0, %k1
-; AVX512F-NEXT:    kxorw %k1, %k0, %k0
-; AVX512F-NEXT:    kshiftrw $2, %k0, %k1
-; AVX512F-NEXT:    kxorw %k1, %k0, %k0
-; AVX512F-NEXT:    kshiftrw $1, %k0, %k1
-; AVX512F-NEXT:    kxorw %k1, %k0, %k0
-; AVX512F-NEXT:    kmovw %k0, %eax
-; AVX512F-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512F-NEXT:    vpmovmskb %ymm0, %eax ;INTEL
+; AVX512F-NEXT:    movl %eax, %ecx ;INTEL
+; AVX512F-NEXT:    shrl $16, %ecx ;INTEL
+; AVX512F-NEXT:    xorl %eax, %ecx ;INTEL
+; AVX512F-NEXT:    xorb %ch, %cl ;INTEL
+; AVX512F-NEXT:    setnp %al ;INTEL
 ; AVX512F-NEXT:    vzeroupper
 ; AVX512F-NEXT:    retq
 ;

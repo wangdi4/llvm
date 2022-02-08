@@ -1356,9 +1356,8 @@ define i1 @bool_reduction_v32i8(<32 x i8> %x, <32 x i8> %y) {
 ;
 ; AVX512-LABEL: bool_reduction_v32i8:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpcmpeqb %ymm1, %ymm0, %ymm0 ;INTEL
-; AVX512-NEXT:    vpmovmskb %ymm0, %eax ;INTEL
-; AVX512-NEXT:    cmpl $-1, %eax ;INTEL
+; AVX512-NEXT:    vpsubb %ymm1, %ymm0, %ymm0 ;INTEL
+; AVX512-NEXT:    vptest %ymm0, %ymm0 ;INTEL
 ; AVX512-NEXT:    sete %al ;INTEL
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
