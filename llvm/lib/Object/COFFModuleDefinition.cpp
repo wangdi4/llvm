@@ -356,7 +356,107 @@ private:
 Expected<COFFModuleDefinition> parseCOFFModuleDefinition(MemoryBufferRef MB,
                                                          MachineTypes Machine,
                                                          bool MingwDef) {
-  return Parser(MB.getBuffer(), Machine, MingwDef).parse();
+#if INTEL_CUSTOMIZATION
+  // This enumerator represents which type of UTF byte order mark is being used
+  enum UTFBOMType {
+    UTF8BOM,                   // UTF-8 BOM
+    UTF16BOMLE,                // UTF-16 BOM little endian
+    UTF16BOMBE,                // UTF-16 BOM big endian
+    UTF32BOMLE,                // UTF-32 BOM little endian
+    UTF32BOMBE,                // UTF-32 BOM big endian
+    UTFNoBOM,                  // No BOM bytes detected
+  };
+
+  // Return the byte order mark identified in the input string. If there is no
+  // byte order mark, then return UTFNoBOM
+  auto CollectBOMType = [&](StringRef Buf) -> UTFBOMType {
+    if (Buf.empty())
+      return UTFNoBOM;
+
+    size_t BufferSize = Buf.size();
+
+    // UTF-16 use 2 characters for byte order mark
+    if (BufferSize < 2)
+      return UTFNoBOM;
+
+    // UTF-16 BOM for little endian use 2 characters at the beginning. The
+    // hexadecimal sequence is FF FE
+    if (Buf[0] == '\xff' && Buf[1] == '\xfe')
+      return UTF16BOMLE;
+
+    // UTF-16 BOM big endian use the sequence FE FF
+    if (Buf[0] == '\xfe' && Buf[1] == '\xff')
+      return UTF16BOMBE;
+
+    // UTF-8 use 3 characters
+    if (BufferSize < 3)
+      return UTFNoBOM;
+
+    // UTF-8 BOM hexadecimal sequence is EF BB BF.
+    if (Buf[0] == '\xef' && Buf[1] == '\xbb' && Buf[2] == '\xbf')
+      return UTF8BOM;
+
+    // UTF-32 use 4 characters
+    if (BufferSize < 4)
+      return UTFNoBOM;
+
+    // UTF-32 little endian sequence is FF FE 00 00
+    if (Buf[0] == '\xff' && Buf[1] == '\xfe' &&
+        Buf[2] == '\x00' && Buf[3] == '\x00')
+      return UTF32BOMLE;
+
+    // UTF-32 big endian sequence is 00 00 FE FF
+    if (Buf[0] == '\x00' && Buf[1] == '\x00' &&
+        Buf[2] == '\xfe' && Buf[3] == '\xff')
+      return UTF32BOMBE;
+
+    // No byte order mark was identified
+    return UTFNoBOM;
+  };
+
+  StringRef Buf = MB.getBuffer();
+
+  // Identify if there is work to be done depending on the byte order mark.
+  switch (CollectBOMType(MB.getBuffer())) {
+  // Handle UTF-8 case, which is just drop the first 3 characters
+  case UTF8BOM:
+    Buf = MB.getBuffer().drop_front(3);
+    break;
+  // TODO: Handle the encoding for UTF-16. Perhaps we may want to convert
+  // to UTF-8 since it is compatible with ASCII.
+  case UTF16BOMLE:
+  case UTF16BOMBE:
+    Buf = MB.getBuffer().drop_front(2);
+    break;
+  // TODO: Handle the encoding for UTF-32. Perhaps we may want to convert
+  // to UTF-8 since it is compatible with ASCII.
+  case UTF32BOMLE:
+  case UTF32BOMBE:
+    Buf = MB.getBuffer().drop_front(4);
+    break;
+  case UTFNoBOM:
+    break;
+  }
+
+  // NOTE: If the file doesn't have byte order mark it doesn't mean is not
+  // encoded in UTF. These are the rules from Microsoft when using UTF-X
+  // encoding:
+  //
+  // - UTF-8: file must have BOM
+  // - UTF-16:
+  //   - Little endian with or without BOM
+  //   - Big endian with or without BOM
+  // - UTF-32: Not specified
+  //
+  // In simple words, all files with UTF-8 must have byte order mark, but for
+  // UTF-16 there is no requirement. As for UTF-32, there is no specifications
+  // in the Microsoft documentation. Also, it is not common to encode files in
+  // UTF-32 nor do most of the text editors support it, but CL, clang and
+  // MS-LINK support it.
+
+  return Parser(Buf, Machine, MingwDef).parse();
+  // return Parser(MB.getBuffer(), Machine, MingwDef).parse();
+#endif // INTEL_CUSTOMIZATION
 }
 
 } // namespace object
