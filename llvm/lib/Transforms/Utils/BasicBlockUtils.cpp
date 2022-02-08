@@ -1374,7 +1374,6 @@ void llvm::SplitCleanupPadPredecessors(BasicBlock *OrigBB,
          "Cannot split other EHPads besides a CleanupPadInst.");
   assert(DT && "This function must update the DomTree.");
 
-  // CMPLRLLVM-26987:
   // Critical edge splitting means that we are moving a subset of OrigBB's
   // predecessors to a new block, separating them from the other predecessors.
   // This is used by loop rotation to guarantee that the loop exit block
@@ -1397,8 +1396,8 @@ void llvm::SplitCleanupPadPredecessors(BasicBlock *OrigBB,
   //   call terminate()
   //
   // The cleanup block has 1 pred inside the loop (the catchswitch)
-  // and 1 pred outside the loop (the function call in the catch handler).
-  // We need to separate the unwind edge from the catchswitch, so that
+  // and 1 pred outside the loop (the invoke in the catch handler).
+  // We need to separate the invoke edge from the catchswitch, so that
   // the cleanup block only has in-loop preds.
   // But this is explicitly forbidden by LLVM, as a catchswitch and its
   // catch body insts must all have the same unwind destination.
@@ -1406,7 +1405,21 @@ void llvm::SplitCleanupPadPredecessors(BasicBlock *OrigBB,
   // (from the invoke) as any path from the catchswitch outside the loop,
   // is undefined. Then we generate a new cleanup block that is only reachable
   // from inside the loop.
+  //
+  // The inverse of the above situation is not supported:
+  // omp parallel {
+  //   catch (int x) { // unwind to cleanup
+  //     for (int i = 0; i < x; i++)
+  //       foo(); // unwind to cleanup
+  //   }
+  // }
+  // cleanup:
+  //
+  // In this case, foo() is inside the loop, and the catchswitch is outside.
+  // The caller of this utility does not expect the loop exit edge from foo()
+  // to be removed.
   bool NeedCSFixup = false;
+  BasicBlock *CSPredBB = nullptr;
   for (auto *PredBB : predecessors(OrigBB)) {
     if (auto *CSI = dyn_cast<CatchSwitchInst>(PredBB->getTerminator())) {
       // If one of the preds is a catchswitch, this had better be an
@@ -1420,9 +1433,23 @@ void llvm::SplitCleanupPadPredecessors(BasicBlock *OrigBB,
         LLVM_DEBUG(dbgs() << "Cannot rotate.\n");
         return;
       } else {
-        LLVM_DEBUG(dbgs() << "In OMP loop, can break other edges.\n");
+        LLVM_DEBUG(dbgs() << "In OMP loop, can break non-loop edges.\n");
         NeedCSFixup = true;
+        CSPredBB = CSI->getParent();
         break;
+      }
+    }
+  }
+
+  // If one of the SplitPreds is dominated by a catchswitch, and that
+  // catchswitch is not in SplitPreds itself, we cannot separate them.
+  if (CSPredBB && std::find(SplitPreds.begin(), SplitPreds.end(), CSPredBB) ==
+                      SplitPreds.end()) {
+    for (auto *ToSplit : SplitPreds) {
+      if (DT->dominates(CSPredBB, ToSplit)) {
+        LLVM_DEBUG(
+            dbgs() << "Catchswitch dominates loop exit, cannot break.\n");
+        return;
       }
     }
   }
