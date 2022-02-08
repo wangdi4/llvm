@@ -12,6 +12,7 @@
 #include "llvm/Analysis/CFG.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/CFG.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"

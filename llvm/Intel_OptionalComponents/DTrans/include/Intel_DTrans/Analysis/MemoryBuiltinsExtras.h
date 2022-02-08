@@ -21,6 +21,7 @@
 #ifndef INTEL_DTRANS_ANALYSIS_MEMORY_BUILTINS_EXTRAS_H
 #define INTEL_DTRANS_ANALYSIS_MEMORY_BUILTINS_EXTRAS_H
 
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/Instructions.h"
 
 namespace llvm {

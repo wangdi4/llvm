@@ -25,12 +25,8 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/IteratedDominanceFrontier.h"
-<<<<<<< HEAD
-#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h" // INTEL
-#include "llvm/Transforms/Utils/Local.h"
-=======
->>>>>>> 2d92594ad154e11845fdaf576715f7ef488c3e96
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constant.h"
