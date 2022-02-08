@@ -2804,7 +2804,6 @@ static bool FoldCondBranchOnPHI(BranchInst *BI, DomTreeUpdater *DTU,
   return EverChanged;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// FoldPHIEntries is a generalized replacement (by Intel) for the
 /// LLVM open source routine called FoldTwoEntryPHINode(that folds
@@ -2818,12 +2817,6 @@ static bool FoldCondBranchOnPHI(BranchInst *BI, DomTreeUpdater *DTU,
 /// might be conflicts during code merge, and if resolving conflicts
 /// becomes too cumbersome, we can try something different.
 
-/// FoldPHIEntries - Given a BB that starts with the specified PHI node,
-/// see if we can fold the phi node or some of its entries.
-static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
-                           DomTreeUpdater *DTU, const DataLayout &DL) {
-  BasicBlock *BB = PN->getParent();
-=======
 static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
                                              const TargetTransformInfo &TTI,
                                              DomTreeUpdater *DTU,
@@ -2911,7 +2904,6 @@ static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
   // Don't bother if the branch will be constant folded trivially.
   if (isa<ConstantInt>(IfCond))
     return false;
->>>>>>> c5fff9095342a792bf4b9a077fe3c3a83c4e566c
 
   bool Changed = false;
 
@@ -3164,94 +3156,6 @@ static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
 }
 #endif //INTEL_CUSTOMIZATION
 
-<<<<<<< HEAD
-static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
-                                             const TargetTransformInfo &TTI,
-                                             DomTreeUpdater *DTU,
-                                             const DataLayout &DL) {
-  assert(BI->isConditional() && !isa<ConstantInt>(BI->getCondition()) &&
-         BI->getSuccessor(0) != BI->getSuccessor(1) &&
-         "Only for truly conditional branches.");
-  BasicBlock *BB = BI->getParent();
-
-  // Which ones of our successors end up with an unconditional branch?
-  SmallVector<BasicBlock *, 2> UncondSuccessors;
-  SmallVector<BasicBlock *, 2> OtherSuccessors;
-  for (BasicBlock *Succ : successors(BI)) {
-    auto *SuccBI = dyn_cast<BranchInst>(Succ->getTerminator());
-    if (SuccBI && SuccBI->isUnconditional())
-      UncondSuccessors.emplace_back(Succ);
-    else
-      OtherSuccessors.emplace_back(Succ);
-  }
-  assert(UncondSuccessors.size() + OtherSuccessors.size() == 2 &&
-         "Can not have more than two successors!");
-
-  // If none do, then we can't do anything.
-  if (UncondSuccessors.empty())
-    return false;
-
-  // We want to hoist code from the unconditional block[s] and eliminate them,
-  // but if they have their address taken, then we essentially can't do this.
-  for (BasicBlock *UncondSucc : UncondSuccessors)
-    if (UncondSucc->hasAddressTaken())
-      return false;
-
-  // All unconditional successors must have a single (and the same) predecessor.
-  // FIXME: lift this restriction.
-  for (BasicBlock *UncondSucc : UncondSuccessors)
-    if (!UncondSucc->getSinglePredecessor())
-      return false;
-
-  // Now, what is the merge point?
-  BasicBlock *MergeBB = nullptr;
-  // If there was only a single unconditional successor,
-  // then the other successor *must* be the merge point.
-  if (UncondSuccessors.size() == 1)
-    MergeBB = OtherSuccessors.front();
-
-  // All unconditional successors must have the same successor themselves.
-  for (BasicBlock *UncondSucc : UncondSuccessors) {
-    auto *SuccBI = cast<BranchInst>(UncondSucc->getTerminator());
-    assert(SuccBI->isUnconditional() && "Should be an unconditional branch.");
-    BasicBlock *SuccOfSucc = SuccBI->getSuccessor(0);
-    if (!MergeBB) // First unconditional successor, record it's successor.
-      MergeBB = SuccOfSucc;
-    else if (SuccOfSucc != MergeBB) // Do all succs have the same successor?
-      return false;
-  }
-
-  assert(MergeBB && "Should have found the merge point.");
-  assert(all_of(UncondSuccessors,
-                [MergeBB](BasicBlock *UncondSucc) {
-                  return is_contained(predecessors(MergeBB), UncondSucc);
-                }) &&
-         "All unconditional successors must be predecessors of merge block.");
-  assert((UncondSuccessors.size() != 1 ||
-          is_contained(predecessors(MergeBB), BB)) &&
-         "If there is only a single unconditional successor, then the dispatch "
-         "block must also be merge block's predecessor.");
-
-  if (auto *PN = dyn_cast<PHINode>(MergeBB->begin()))
-#if INTEL_CUSTOMIZATION
-    // FoldPHIEntries is an Intel customized generalized version of the LLVM
-    // open source routine called FoldTwoEntryPHINode(that folds a two-entry
-    // phinode into "select") which is capable of handling any number
-    // of phi entries. It iteratively transforms each conditional into
-    // "select". Any changes (one such change could be regarding cost model)
-    // made by the LLVM community to FoldTwoEntryPHINode will need to be
-    // incorporated to this routine (FoldPHIEntries).
-    // To keep xmain as clean as possible we got rid of the FoldTwoEntryPHINode,
-    // therefore, there might be conflicts during code merge. If resolving
-    // conflicts becomes too cumbersome, we can try something different.
-    return FoldPHIEntries(PN, TTI, DTU, DL);
-#endif //INTEL_CUSTOMIZATION
-
-  return false;
-}
-
-=======
->>>>>>> c5fff9095342a792bf4b9a077fe3c3a83c4e566c
 static Value *createLogicalOp(IRBuilderBase &Builder,
                               Instruction::BinaryOps Opc, Value *LHS,
                               Value *RHS, const Twine &Name = "") {
