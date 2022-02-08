@@ -59,7 +59,7 @@ declare i8* @get_special_buffer.() #1
 ; CHECK-NEXT: [[GEP12:%[0-9]+]] = getelementptr inbounds [88 x i8], [88 x i8]* %temp_arg_buf, i32 0, i32 84
 ; CHECK-NEXT: %arg_val10 = bitcast i8* [[GEP12]] to i32*
 ; CHECK-NEXT: store i32 11121314, i32* %arg_val10, align 1
-; CHECK-NEXT: %translated_opencl_printf_call = call i32 @opencl_printf(i8 addrspace(2)* getelementptr inbounds ([36 x i8], [36 x i8] addrspace(2)* @.str, i64 0, i64 0), i8* [[GEP0]]
+; CHECK-NEXT: %translated_opencl_printf_call = call i32 @__opencl_printf(i8 addrspace(2)* getelementptr inbounds ([36 x i8], [36 x i8] addrspace(2)* @.str, i64 0, i64 0), i8* [[GEP0]]
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
 define dso_local void @test(i8 addrspace(3)* noalias %pLocalMemBase, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias %pWorkDim, i64* noalias %pWGId, [4 x i64] %BaseGlbId, i8* noalias %pSpecialBuf, {}* noalias %RuntimeHandle) #2 !kernel_arg_addr_space !3 !kernel_arg_access_qual !3 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !3 !kernel_arg_name !3 !kernel_arg_host_accessible !3 !kernel_arg_pipe_depth !3 !kernel_arg_pipe_io !3 !kernel_arg_buffer_location !3 !kernel_has_sub_groups !4 !barrier_buffer_size !5 !kernel_execution_length !6 !kernel_has_global_sync !4 !recommended_vector_length !7 !private_memory_size !8 {

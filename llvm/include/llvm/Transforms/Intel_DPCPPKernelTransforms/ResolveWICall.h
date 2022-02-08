@@ -63,9 +63,9 @@ private:
   /// \returns Internal Call Type for given function name.
   TInternalCallType getCallFunctionType(StringRef FuncName);
 
-  /// Create call to opencl_printf.
+  /// Create call to __opencl_printf.
   Value *updatePrintf(IRBuilder<> &Builder, CallInst *CI);
-  /// Create call to lprefetch.
+  /// Create call to __lprefetch.
   void updatePrefetch(llvm::CallInst *CI);
 
   /// Add prefetch function declaration.
@@ -100,7 +100,7 @@ private:
   /// Returns EnqueueKernel callback function type.
   /// \param FuncType callback type {basic, localmem, event, ...}.
   FunctionType *getOrCreateEnqueueKernelFuncType(unsigned FuncType);
-  /// Returns opencl_printf function type.
+  /// Returns __opencl_printf function type.
   FunctionType *getOrCreatePrintfFuncType();
 
   /// get the pointer size for the current target, in bits (32 or 64).
