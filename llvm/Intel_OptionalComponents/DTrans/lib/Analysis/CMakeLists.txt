@@ -24,6 +24,8 @@ add_llvm_component_library(LLVMIntel_DTransAnalysis
   DTransLibraryInfo.cpp
   DTransOPUtils.cpp
   DTransSafetyAnalyzer.cpp
+  DTransTypeMetadataBuilder.cpp
+  DTransTypeMetadataPropagator.cpp
   DTransTypes.cpp
   DTransUtils.cpp
   MemoryBuiltinsExtras.cpp
