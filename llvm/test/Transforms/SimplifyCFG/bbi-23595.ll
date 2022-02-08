@@ -11,14 +11,6 @@
 ; We're expecting the dbg.label associated with 'W' to disappear, because
 ; the 'W' label was removed.
 
-<<<<<<< HEAD
-; CHECK-LABEL: _Z7test_itv()
-; CHECK:       entry:
-; CHECK-NEXT:    %0 = select i1 undef, i16 1, i16 0 ;INTEL
-; CHECK-NEXT:    ret i16 0
-
-=======
->>>>>>> 73cb542930bb28424aea4329a43de11b5b3a6761
 define i16 @_Z7test_itv() {
 ; CHECK-LABEL: @_Z7test_itv(
 ; CHECK-NEXT:  entry:
