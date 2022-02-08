@@ -4422,6 +4422,11 @@ AllocaInst *SROAPass::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
   // won't always succeed, in which case we fall back to a legal integer type
   // or an i8 array of an appropriate size.
   Type *SliceTy = nullptr;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  bool IsSliceFromPartition = false;
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   const DataLayout &DL = AI.getModule()->getDataLayout();
   std::pair<Type *, IntegerType *> CommonUseTy =
       findCommonType(P.begin(), P.end(), P.endOffset());
@@ -4431,9 +4436,15 @@ AllocaInst *SROAPass::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
       SliceTy = CommonUseTy.first;
   // If not, can we find an appropriate subtype in the original allocated type?
   if (!SliceTy)
+#if INTEL_CUSTOMIZATION
     if (Type *TypePartitionTy = getTypePartition(DL, AI.getAllocatedType(),
-                                                 P.beginOffset(), P.size()))
+                                                 P.beginOffset(), P.size())) {
+#if INTEL_FEATURE_SW_DTRANS
+      IsSliceFromPartition = true;
+#endif // INTEL_FEATURE_SW_DTRANS
       SliceTy = TypePartitionTy;
+    }
+#endif // INTEL_CUSTOMIZATION
   // If still not, can we use the largest bitwidth integer type used?
   if (!SliceTy && CommonUseTy.second)
     if (DL.getTypeAllocSize(CommonUseTy.second).getFixedSize() >= P.size())
@@ -4477,6 +4488,13 @@ AllocaInst *SROAPass::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
         AI.getName() + ".sroa." + Twine(P.begin() - AS.begin()), &AI);
     // Copy the old AI debug location over to the new one.
     NewAI->setDebugLoc(AI.getDebugLoc());
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    if (IsSliceFromPartition)
+      DTransTypeMetadataProp.updateDTransMetadata(NewAI, AI, P.beginOffset(),
+                                                  P.size());
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
     ++NumNewAllocas;
   }
 
