@@ -51,7 +51,6 @@
 #include "llvm/Support/Intel_WP_utils.h"  // INTEL
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/TypeName.h"
-#include <algorithm>
 #include <cassert>
 #include <cstring>
 #include <iterator>

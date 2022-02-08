@@ -13,11 +13,11 @@ endif()
 if (NOT TARGET LLVMGenXIntrinsics)
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
     set(LLVMGenXIntrinsics_GIT_REPO https://github.com/intel/vc-intrinsics.git)
-    # commit d2f78f24314cd5aad1f633042cf5ae49b0ecdb24
-    # Author: Sergey Semenov <sergey.semenov@intel.com>
-    # Date:   Tue Jan 25 17:59:19 2022 +0000
-    # Fix an issue with GenXIntrinsicDescription.gen includes
-    set(LLVMGenXIntrinsics_GIT_TAG d2f78f24314cd5aad1f633042cf5ae49b0ecdb24)
+    # commit a9bb6d8040c43404c5fbe3694e59c503d179d19a
+    # Author: Nikita Rudenko <nikita.rudenko@intel.com>
+    # Date:   Tue Feb 1 14:57:43 2022 +0000
+    #  Fix attributes are not forwarded for call inst with SEV
+    set(LLVMGenXIntrinsics_GIT_TAG a9bb6d8040c43404c5fbe3694e59c503d179d19a)
 
     if (INTEL_CUSTOMIZATION)
       # for xmain builds the LLVMGenXIntrinsics_GIT_REPO is constructed from
@@ -28,7 +28,7 @@ if (NOT TARGET LLVMGenXIntrinsics)
       # default repo path for public xmain builds, not using ICS
       set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel-innersource)
       set(LLVMGenXIntrinsics_GIT_REPO_NAME applications.compilers.source.vc-intrinsics.git)
-      set(LLVMGenXIntrinsics_GIT_TAG d2f78f24314cd5aad1f633042cf5ae49b0ecdb24)
+      set(LLVMGenXIntrinsics_GIT_TAG a9bb6d8040c43404c5fbe3694e59c503d179d19a)
 
       # Determine if the build is embargo and provide specific settings.
       set(IS_INTERNAL_ESIMD_BUILD FALSE)
@@ -38,7 +38,7 @@ if (NOT TARGET LLVMGenXIntrinsics)
       if (IS_INTERNAL_ESIMD_BUILD)
         # override git repo name and tag for the internal ESIMD EMBARGO build
         set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
-        set(LLVMGenXIntrinsics_GIT_TAG 5a8e6e7dba8177c7045e1385273fd61c0a72ed46)
+        set(LLVMGenXIntrinsics_GIT_TAG f37b23fbeec30576a09919079591f69aedcda046)
 
         add_compile_definitions(__INTEL_EMBARGO__)
         # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is

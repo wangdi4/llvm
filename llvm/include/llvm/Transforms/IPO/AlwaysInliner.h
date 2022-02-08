@@ -17,6 +17,7 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/IPO/Intel_InlineReport.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h" // INTEL
+#include "llvm/Pass.h"
 
 namespace llvm {
 
