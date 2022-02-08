@@ -764,7 +764,7 @@ void Module::setOverrideStackAlignment(unsigned Align) {
   addModuleFlag(ModFlagBehavior::Error, "override-stack-alignment", Align);
 }
 
-void Module::setSDKVersion(const VersionTuple &V) {
+static void addSDKVersionMD(const VersionTuple &V, Module &M, StringRef Name) {
   SmallVector<unsigned, 3> Entries;
   Entries.push_back(V.getMajor());
   if (auto Minor = V.getMinor()) {
@@ -774,8 +774,12 @@ void Module::setSDKVersion(const VersionTuple &V) {
     // Ignore the 'build' component as it can't be represented in the object
     // file.
   }
-  addModuleFlag(ModFlagBehavior::Warning, "SDK Version",
-                ConstantDataArray::get(Context, Entries));
+  M.addModuleFlag(Module::ModFlagBehavior::Warning, Name,
+                  ConstantDataArray::get(M.getContext(), Entries));
+}
+
+void Module::setSDKVersion(const VersionTuple &V) {
+  addSDKVersionMD(V, *this, "SDK Version");
 }
 
 static VersionTuple getSDKVersionMD(Metadata *MD) {
@@ -848,6 +852,15 @@ StringRef Module::getDarwinTargetVariantTriple() const {
   return "";
 }
 
+void Module::setDarwinTargetVariantTriple(StringRef T) {
+  addModuleFlag(ModFlagBehavior::Override, "darwin.target_variant.triple",
+                MDString::get(getContext(), T));
+}
+
 VersionTuple Module::getDarwinTargetVariantSDKVersion() const {
   return getSDKVersionMD(getModuleFlag("darwin.target_variant.SDK Version"));
+}
+
+void Module::setDarwinTargetVariantSDKVersion(VersionTuple Version) {
+  addSDKVersionMD(Version, *this, "darwin.target_variant.SDK Version");
 }
