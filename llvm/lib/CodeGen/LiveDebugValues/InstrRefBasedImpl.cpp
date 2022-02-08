@@ -1029,7 +1029,7 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
 
   // Only handle this instruction when we are building the variable value
   // transfer function.
-  if (!VTracker)
+  if (!VTracker && !TTracker)
     return false;
 
   unsigned InstNo = MI.getOperand(0).getImm();
@@ -1185,7 +1185,8 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
   // for DBG_INSTR_REFs as DBG_VALUEs (just, the former can refer to values that
   // aren't immediately available).
   DbgValueProperties Properties(Expr, false);
-  VTracker->defVar(MI, Properties, NewID);
+  if (VTracker)
+    VTracker->defVar(MI, Properties, NewID);
 
   // If we're on the final pass through the function, decompose this INSTR_REF
   // into a plain DBG_VALUE.
@@ -2820,35 +2821,6 @@ void InstrRefBasedLDV::dump_mloc_transfer(
 }
 #endif
 
-void InstrRefBasedLDV::emitLocations(
-    MachineFunction &MF, LiveInsT SavedLiveIns, ValueIDNum **MOutLocs,
-    ValueIDNum **MInLocs, DenseMap<DebugVariable, unsigned> &AllVarsNumbering,
-    const TargetPassConfig &TPC) {
-  TTracker = new TransferTracker(TII, MTracker, MF, *TRI, CalleeSavedRegs, TPC);
-  unsigned NumLocs = MTracker->getNumLocs();
-
-  // For each block, load in the machine value locations and variable value
-  // live-ins, then step through each instruction in the block. New DBG_VALUEs
-  // to be inserted will be created along the way.
-  for (MachineBasicBlock &MBB : MF) {
-    unsigned bbnum = MBB.getNumber();
-    MTracker->reset();
-    MTracker->loadFromArray(MInLocs[bbnum], bbnum);
-    TTracker->loadInlocs(MBB, MInLocs[bbnum], SavedLiveIns[MBB.getNumber()],
-                         NumLocs);
-
-    CurBB = bbnum;
-    CurInst = 1;
-    for (auto &MI : MBB) {
-      process(MI, MOutLocs, MInLocs);
-      TTracker->checkInstForNewValues(CurInst, MI.getIterator());
-      ++CurInst;
-    }
-  }
-
-   emitTransfers(AllVarsNumbering);
-}
-
 void InstrRefBasedLDV::initialSetup(MachineFunction &MF) {
   // Build some useful data structures.
 
@@ -2891,8 +2863,175 @@ void InstrRefBasedLDV::initialSetup(MachineFunction &MF) {
 #endif
 }
 
+// Produce an "ejection map" for blocks, i.e., what's the highest-numbered
+// lexical scope it's used in. When exploring in DFS order and we pass that
+// scope, the block can be processed and any tracking information freed.
+void InstrRefBasedLDV::makeDepthFirstEjectionMap(
+    SmallVectorImpl<unsigned> &EjectionMap,
+    const ScopeToDILocT &ScopeToDILocation,
+    ScopeToAssignBlocksT &ScopeToAssignBlocks) {
+  SmallPtrSet<const MachineBasicBlock *, 8> BlocksToExplore;
+  SmallVector<std::pair<LexicalScope *, ssize_t>, 4> WorkStack;
+  auto *TopScope = LS.getCurrentFunctionScope();
+
+  // Unlike lexical scope explorers, we explore in reverse order, to find the
+  // "last" lexical scope used for each block early.
+  WorkStack.push_back({TopScope, TopScope->getChildren().size() - 1});
+
+  while (!WorkStack.empty()) {
+    auto &ScopePosition = WorkStack.back();
+    LexicalScope *WS = ScopePosition.first;
+    ssize_t ChildNum = ScopePosition.second--;
+
+    const SmallVectorImpl<LexicalScope *> &Children = WS->getChildren();
+    if (ChildNum >= 0) {
+      // If ChildNum is positive, there are remaining children to explore.
+      // Push the child and its children-count onto the stack.
+      auto &ChildScope = Children[ChildNum];
+      WorkStack.push_back(
+          std::make_pair(ChildScope, ChildScope->getChildren().size() - 1));
+    } else {
+      WorkStack.pop_back();
+
+      // We've explored all children and any later blocks: examine all blocks
+      // in our scope. If they haven't yet had an ejection number set, then
+      // this scope will be the last to use that block.
+      auto DILocationIt = ScopeToDILocation.find(WS);
+      if (DILocationIt != ScopeToDILocation.end()) {
+        getBlocksForScope(DILocationIt->second, BlocksToExplore,
+                          ScopeToAssignBlocks.find(WS)->second);
+        for (auto *MBB : BlocksToExplore) {
+          unsigned BBNum = MBB->getNumber();
+          if (EjectionMap[BBNum] == 0)
+            EjectionMap[BBNum] = WS->getDFSOut();
+        }
+
+        BlocksToExplore.clear();
+      }
+    }
+  }
+}
+
+bool InstrRefBasedLDV::depthFirstVLocAndEmit(
+    unsigned MaxNumBlocks, const ScopeToDILocT &ScopeToDILocation,
+    const ScopeToVarsT &ScopeToVars, ScopeToAssignBlocksT &ScopeToAssignBlocks,
+    LiveInsT &Output, ValueIDNum **MOutLocs, ValueIDNum **MInLocs,
+    SmallVectorImpl<VLocTracker> &AllTheVLocs, MachineFunction &MF,
+    DenseMap<DebugVariable, unsigned> &AllVarsNumbering,
+    const TargetPassConfig &TPC) {
+  TTracker = new TransferTracker(TII, MTracker, MF, *TRI, CalleeSavedRegs, TPC);
+  unsigned NumLocs = MTracker->getNumLocs();
+  VTracker = nullptr;
+
+  // No scopes? No variable locations.
+  if (!LS.getCurrentFunctionScope())
+    return false;
+
+  // Build map from block number to the last scope that uses the block.
+  SmallVector<unsigned, 16> EjectionMap;
+  EjectionMap.resize(MaxNumBlocks, 0);
+  makeDepthFirstEjectionMap(EjectionMap, ScopeToDILocation,
+                            ScopeToAssignBlocks);
+
+  // Helper lambda for ejecting a block -- if nothing is going to use the block,
+  // we can translate the variable location information into DBG_VALUEs and then
+  // free all of InstrRefBasedLDV's data structures.
+  auto EjectBlock = [&](MachineBasicBlock &MBB) -> void {
+    unsigned BBNum = MBB.getNumber();
+    AllTheVLocs[BBNum].clear();
+
+    // Prime the transfer-tracker, and then step through all the block
+    // instructions, installing transfers.
+    MTracker->reset();
+    MTracker->loadFromArray(MInLocs[BBNum], BBNum);
+    TTracker->loadInlocs(MBB, MInLocs[BBNum], Output[BBNum], NumLocs);
+
+    CurBB = BBNum;
+    CurInst = 1;
+    for (auto &MI : MBB) {
+      process(MI, MOutLocs, MInLocs);
+      TTracker->checkInstForNewValues(CurInst, MI.getIterator());
+      ++CurInst;
+    }
+
+    // Free machine-location tables for this block.
+    delete[] MInLocs[BBNum];
+    delete[] MOutLocs[BBNum];
+    // Make ourselves brittle to use-after-free errors.
+    MInLocs[BBNum] = nullptr;
+    MOutLocs[BBNum] = nullptr;
+    // We don't need live-in variable values for this block either.
+    Output[BBNum].clear();
+    AllTheVLocs[BBNum].clear();
+  };
+
+  SmallPtrSet<const MachineBasicBlock *, 8> BlocksToExplore;
+  SmallVector<std::pair<LexicalScope *, ssize_t>, 4> WorkStack;
+  WorkStack.push_back({LS.getCurrentFunctionScope(), 0});
+  unsigned HighestDFSIn = 0;
+
+  // Proceed to explore in depth first order.
+  while (!WorkStack.empty()) {
+    auto &ScopePosition = WorkStack.back();
+    LexicalScope *WS = ScopePosition.first;
+    ssize_t ChildNum = ScopePosition.second++;
+
+    // We obesrve scopes with children twice here, once descending in, once
+    // ascending out of the scope nest. Use HighestDFSIn as a ratchet to ensure
+    // we don't process a scope twice. Additionally, ignore scopes that don't
+    // have a DILocation -- by proxy, this means we never tracked any variable
+    // assignments in that scope.
+    auto DILocIt = ScopeToDILocation.find(WS);
+    if (HighestDFSIn <= WS->getDFSIn() && DILocIt != ScopeToDILocation.end()) {
+      const DILocation *DILoc = DILocIt->second;
+      auto &VarsWeCareAbout = ScopeToVars.find(WS)->second;
+      auto &BlocksInScope = ScopeToAssignBlocks.find(WS)->second;
+
+      buildVLocValueMap(DILoc, VarsWeCareAbout, BlocksInScope, Output, MOutLocs,
+                        MInLocs, AllTheVLocs);
+    }
+
+    HighestDFSIn = std::max(HighestDFSIn, WS->getDFSIn());
+
+    // Descend into any scope nests.
+    const SmallVectorImpl<LexicalScope *> &Children = WS->getChildren();
+    if (ChildNum < (ssize_t)Children.size()) {
+      // There are children to explore -- push onto stack and continue.
+      auto &ChildScope = Children[ChildNum];
+      WorkStack.push_back(std::make_pair(ChildScope, 0));
+    } else {
+      WorkStack.pop_back();
+
+      // We've explored a leaf, or have explored all the children of a scope.
+      // Try to eject any blocks where this is the last scope it's relevant to.
+      auto DILocationIt = ScopeToDILocation.find(WS);
+      if (DILocationIt == ScopeToDILocation.end())
+        continue;
+
+      getBlocksForScope(DILocationIt->second, BlocksToExplore,
+                        ScopeToAssignBlocks.find(WS)->second);
+      for (auto *MBB : BlocksToExplore)
+        if (WS->getDFSOut() == EjectionMap[MBB->getNumber()])
+          EjectBlock(const_cast<MachineBasicBlock &>(*MBB));
+
+      BlocksToExplore.clear();
+    }
+  }
+
+  // Some artificial blocks may not have been ejected, meaning they're not
+  // connected to an actual legitimate scope. This can technically happen
+  // with things like the entry block. In theory, we shouldn't need to do
+  // anything for such out-of-scope blocks, but for the sake of being similar
+  // to VarLocBasedLDV, eject these too.
+  for (auto *MBB : ArtificialBlocks)
+    if (MOutLocs[MBB->getNumber()])
+      EjectBlock(*MBB);
+
+  return emitTransfers(AllVarsNumbering);
+}
+
 bool InstrRefBasedLDV::emitTransfers(
-        DenseMap<DebugVariable, unsigned> &AllVarsNumbering) {
+    DenseMap<DebugVariable, unsigned> &AllVarsNumbering) {
   // Go through all the transfers recorded in the TransferTracker -- this is
   // both the live-ins to a block, and any movements of values that happen
   // in the middle.
@@ -3080,31 +3219,22 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
                       << " has " << MaxNumBlocks << " basic blocks and "
                       << VarAssignCount
                       << " variable assignments, exceeding limits.\n");
-  } else {
-    // Compute the extended ranges, iterating over scopes. There might be
-    // something to be said for ordering them by size/locality, but that's for
-    // the future. For each scope, solve the variable value problem, producing
-    // a map of variables to values in SavedLiveIns.
-    for (auto &P : ScopeToVars) {
-      buildVLocValueMap(ScopeToDILocation[P.first], P.second,
-                   ScopeToAssignBlocks[P.first], SavedLiveIns, MOutLocs, MInLocs,
-                   vlocs);
+
+    // Perform memory cleanup that emitLocations would do otherwise.
+    for (int Idx = 0; Idx < MaxNumBlocks; ++Idx) {
+      delete[] MOutLocs[Idx];
+      delete[] MInLocs[Idx];
     }
-
-    // Using the computed value locations and variable values for each block,
-    // create the DBG_VALUE instructions representing the extended variable
-    // locations.
-    emitLocations(MF, SavedLiveIns, MOutLocs, MInLocs, AllVarsNumbering, *TPC);
-
-    // Did we actually make any changes? If we created any DBG_VALUEs, then yes.
-    Changed = TTracker->Transfers.size() != 0;
+  } else {
+    // Optionally, solve the variable value problem and emit to blocks by using
+    // a lexical-scope-depth search. It should be functionally identical to
+    // the "else" block of this condition.
+    Changed = depthFirstVLocAndEmit(
+        MaxNumBlocks, ScopeToDILocation, ScopeToVars, ScopeToAssignBlocks,
+        SavedLiveIns, MOutLocs, MInLocs, vlocs, MF, AllVarsNumbering, *TPC);
   }
 
-  // Common clean-up of memory.
-  for (int Idx = 0; Idx < MaxNumBlocks; ++Idx) {
-    delete[] MOutLocs[Idx];
-    delete[] MInLocs[Idx];
-  }
+  // Elements of these arrays will be deleted by emitLocations.
   delete[] MOutLocs;
   delete[] MInLocs;
 
@@ -3122,6 +3252,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   DebugPHINumToValue.clear();
   OverlapFragments.clear();
   SeenFragments.clear();
+  SeenDbgPHIs.clear();
 
   return Changed;
 }
@@ -3387,6 +3518,21 @@ Optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(MachineFunction &MF,
                                                       ValueIDNum **MLiveIns,
                                                       MachineInstr &Here,
                                                       uint64_t InstrNum) {
+  // This function will be called twice per DBG_INSTR_REF, and might end up
+  // computing lots of SSA information: memoize it.
+  auto SeenDbgPHIIt = SeenDbgPHIs.find(&Here);
+  if (SeenDbgPHIIt != SeenDbgPHIs.end())
+    return SeenDbgPHIIt->second;
+
+  Optional<ValueIDNum> Result =
+      resolveDbgPHIsImpl(MF, MLiveOuts, MLiveIns, Here, InstrNum);
+  SeenDbgPHIs.insert({&Here, Result});
+  return Result;
+}
+
+Optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIsImpl(
+    MachineFunction &MF, ValueIDNum **MLiveOuts, ValueIDNum **MLiveIns,
+    MachineInstr &Here, uint64_t InstrNum) {
   // Pick out records of DBG_PHI instructions that have been observed. If there
   // are none, then we cannot compute a value number.
   auto RangePair = std::equal_range(DebugPHINumToValue.begin(),
