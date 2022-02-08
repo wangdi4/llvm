@@ -12,8 +12,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#define DEBUG_TYPE "InstCounter"
-
 #include "InstCounter.h"
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
@@ -35,6 +33,8 @@
 
 #include <iomanip>
 #include <sstream>
+
+#define DEBUG_TYPE "InstCounter"
 
 extern bool DPCPPEnableDirectFunctionCallVectorization;
 extern bool DPCPPEnableSubgroupDirectCallVectorization;

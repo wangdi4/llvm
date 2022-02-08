@@ -12,7 +12,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#define DEBUG_TYPE "DelSWPrefetch"
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
@@ -31,6 +30,8 @@
 
 #include <sstream>
 #include <string>
+
+#define DEBUG_TYPE "DelSWPrefetch"
 
 using namespace llvm;
 using namespace intel;

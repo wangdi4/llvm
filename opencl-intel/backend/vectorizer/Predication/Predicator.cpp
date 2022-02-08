@@ -12,7 +12,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#define DEBUG_TYPE "predicate"
 #include "Predicator.h"
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
@@ -45,6 +44,8 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #include <iostream>
+
+#define DEBUG_TYPE "predicate"
 
 static cl::opt<bool>
 EnableOptMasks("optmasks", cl::init(true), cl::Hidden,

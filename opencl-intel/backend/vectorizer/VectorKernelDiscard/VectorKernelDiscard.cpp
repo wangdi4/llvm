@@ -12,7 +12,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#define DEBUG_TYPE "VectorKernelDiscard"
 
 #include "VectorKernelDiscard.h"
 #include "InitializePasses.h"
@@ -24,6 +23,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+
+#define DEBUG_TYPE "VectorKernelDiscard"
 
 using namespace intel;
 using namespace DPCPPKernelMetadataAPI;

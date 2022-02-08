@@ -44,6 +44,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Remarks/RemarkStreamer.h"
 #include "llvm/Remarks/YAMLRemarkSerializer.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"

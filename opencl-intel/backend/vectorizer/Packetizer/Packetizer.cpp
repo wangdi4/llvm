@@ -12,8 +12,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#define DEBUG_TYPE "Vectorizer"
-
 #include "CompilationUtils.h"
 #include "Packetizer.h"
 #include "Predicator.h"
@@ -30,6 +28,8 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/TypeSize.h"
+
+#define DEBUG_TYPE "Vectorizer"
 
 static const int __logs_vals[] = {-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1, 4};
 #define LOG_(x) __logs_vals[x]

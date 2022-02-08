@@ -12,8 +12,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#define DEBUG_TYPE "Vectorizer"
-
 #include "CLWGLoopBoundaries.h"
 #include "LoopUtils/LoopUtils.h"
 #include "CompilationUtils.h"
@@ -34,6 +32,8 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <set>
+
+#define DEBUG_TYPE "Vectorizer"
 
 using namespace Intel::OpenCL::DeviceBackend;
 using namespace llvm;

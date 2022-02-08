@@ -12,7 +12,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#define DEBUG_TYPE "AutoPrefetcher"
 
 #include "Prefetch.h"
 #include "InitializePasses.h"
@@ -36,6 +35,8 @@
 #include <string>
 #include <climits>
 #include <map>
+
+#define DEBUG_TYPE "AutoPrefetcher"
 
 namespace intel{
 
