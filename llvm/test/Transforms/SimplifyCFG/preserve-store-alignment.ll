@@ -18,9 +18,10 @@ define i32 @align_both_equal() local_unnamed_addr {
 ; CHECK-NEXT:    [[AND:%.*]] = and i64 [[TMP2]], 1
 ; CHECK-NEXT:    [[TOBOOL:%.*]] = icmp eq i64 [[AND]], 0
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nsw <2 x i64> [[TMP0]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP4:%.*]] = select i1 [[TOBOOL]], <2 x i64> [[TMP1]], <2 x i64> [[TMP3]]
+; CHECK-NEXT:    [[SPEC_SELECT1:%.*]] = select i1 [[TOBOOL]], <2 x i64> [[TMP1]], <2 x i64> [[TMP3]]
 ; CHECK-NEXT:    [[AND4:%.*]] = and i64 [[TMP2]], 2
 ; CHECK-NEXT:    [[TOBOOL5:%.*]] = icmp eq i64 [[AND4]], 0
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[TMP5:%.*]] = add nsw <2 x i64> [[TMP4]], <i64 1, i64 1>
 ; CHECK-NEXT:    [[TMP6:%.*]] = select i1 [[TOBOOL5]], <2 x i64> [[TMP4]], <2 x i64> [[TMP5]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = xor i1 [[TOBOOL]], true
@@ -31,6 +32,18 @@ define i32 @align_both_equal() local_unnamed_addr {
 ; CHECK-NEXT:    store <2 x i64> [[TMP6]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
 ; CHECK-NEXT:    br label [[TMP11]]
 ; CHECK:       11:
+=======
+; CHECK-NEXT:    [[TMP4:%.*]] = add nsw <2 x i64> [[SPEC_SELECT1]], <i64 1, i64 1>
+; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[TOBOOL5]], <2 x i64> [[SPEC_SELECT1]], <2 x i64> [[TMP4]]
+; CHECK-NEXT:    [[TMP5:%.*]] = xor i1 [[TOBOOL]], true
+; CHECK-NEXT:    [[TMP6:%.*]] = xor i1 [[TOBOOL5]], true
+; CHECK-NEXT:    [[TMP7:%.*]] = or i1 [[TMP5]], [[TMP6]]
+; CHECK-NEXT:    br i1 [[TMP7]], label [[TMP8:%.*]], label [[TMP9:%.*]]
+; CHECK:       8:
+; CHECK-NEXT:    store <2 x i64> [[SPEC_SELECT]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+; CHECK-NEXT:    br label [[TMP9]]
+; CHECK:       9:
+>>>>>>> 1e353f092288309d74d380367aa50bbd383780ed
 ; CHECK-NEXT:    ret i32 0
 ;
 entry:
@@ -72,9 +85,10 @@ define i32 @align_not_equal() local_unnamed_addr {
 ; CHECK-NEXT:    [[AND:%.*]] = and i64 [[TMP2]], 1
 ; CHECK-NEXT:    [[TOBOOL:%.*]] = icmp eq i64 [[AND]], 0
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nsw <2 x i64> [[TMP0]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP4:%.*]] = select i1 [[TOBOOL]], <2 x i64> [[TMP1]], <2 x i64> [[TMP3]]
+; CHECK-NEXT:    [[SPEC_SELECT1:%.*]] = select i1 [[TOBOOL]], <2 x i64> [[TMP1]], <2 x i64> [[TMP3]]
 ; CHECK-NEXT:    [[AND4:%.*]] = and i64 [[TMP2]], 2
 ; CHECK-NEXT:    [[TOBOOL5:%.*]] = icmp eq i64 [[AND4]], 0
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[TMP5:%.*]] = add nsw <2 x i64> [[TMP4]], <i64 1, i64 1>
 ; CHECK-NEXT:    [[TMP6:%.*]] = select i1 [[TOBOOL5]], <2 x i64> [[TMP4]], <2 x i64> [[TMP5]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = xor i1 [[TOBOOL]], true
@@ -85,6 +99,18 @@ define i32 @align_not_equal() local_unnamed_addr {
 ; CHECK-NEXT:    store <2 x i64> [[TMP6]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
 ; CHECK-NEXT:    br label [[TMP11]]
 ; CHECK:       11:
+=======
+; CHECK-NEXT:    [[TMP4:%.*]] = add nsw <2 x i64> [[SPEC_SELECT1]], <i64 1, i64 1>
+; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[TOBOOL5]], <2 x i64> [[SPEC_SELECT1]], <2 x i64> [[TMP4]]
+; CHECK-NEXT:    [[TMP5:%.*]] = xor i1 [[TOBOOL]], true
+; CHECK-NEXT:    [[TMP6:%.*]] = xor i1 [[TOBOOL5]], true
+; CHECK-NEXT:    [[TMP7:%.*]] = or i1 [[TMP5]], [[TMP6]]
+; CHECK-NEXT:    br i1 [[TMP7]], label [[TMP8:%.*]], label [[TMP9:%.*]]
+; CHECK:       8:
+; CHECK-NEXT:    store <2 x i64> [[SPEC_SELECT]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+; CHECK-NEXT:    br label [[TMP9]]
+; CHECK:       9:
+>>>>>>> 1e353f092288309d74d380367aa50bbd383780ed
 ; CHECK-NEXT:    ret i32 0
 ;
 entry:
@@ -126,9 +152,10 @@ define i32 @align_single_zero() local_unnamed_addr {
 ; CHECK-NEXT:    [[AND:%.*]] = and i64 [[TMP2]], 1
 ; CHECK-NEXT:    [[TOBOOL:%.*]] = icmp eq i64 [[AND]], 0
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nsw <2 x i64> [[TMP0]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP4:%.*]] = select i1 [[TOBOOL]], <2 x i64> [[TMP1]], <2 x i64> [[TMP3]]
+; CHECK-NEXT:    [[SPEC_SELECT1:%.*]] = select i1 [[TOBOOL]], <2 x i64> [[TMP1]], <2 x i64> [[TMP3]]
 ; CHECK-NEXT:    [[AND4:%.*]] = and i64 [[TMP2]], 2
 ; CHECK-NEXT:    [[TOBOOL5:%.*]] = icmp eq i64 [[AND4]], 0
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[TMP5:%.*]] = add nsw <2 x i64> [[TMP4]], <i64 1, i64 1>
 ; CHECK-NEXT:    [[TMP6:%.*]] = select i1 [[TOBOOL5]], <2 x i64> [[TMP4]], <2 x i64> [[TMP5]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = xor i1 [[TOBOOL]], true
@@ -139,6 +166,18 @@ define i32 @align_single_zero() local_unnamed_addr {
 ; CHECK-NEXT:    store <2 x i64> [[TMP6]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
 ; CHECK-NEXT:    br label [[TMP11]]
 ; CHECK:       11:
+=======
+; CHECK-NEXT:    [[TMP4:%.*]] = add nsw <2 x i64> [[SPEC_SELECT1]], <i64 1, i64 1>
+; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[TOBOOL5]], <2 x i64> [[SPEC_SELECT1]], <2 x i64> [[TMP4]]
+; CHECK-NEXT:    [[TMP5:%.*]] = xor i1 [[TOBOOL]], true
+; CHECK-NEXT:    [[TMP6:%.*]] = xor i1 [[TOBOOL5]], true
+; CHECK-NEXT:    [[TMP7:%.*]] = or i1 [[TMP5]], [[TMP6]]
+; CHECK-NEXT:    br i1 [[TMP7]], label [[TMP8:%.*]], label [[TMP9:%.*]]
+; CHECK:       8:
+; CHECK-NEXT:    store <2 x i64> [[SPEC_SELECT]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+; CHECK-NEXT:    br label [[TMP9]]
+; CHECK:       9:
+>>>>>>> 1e353f092288309d74d380367aa50bbd383780ed
 ; CHECK-NEXT:    ret i32 0
 ;
 entry:
@@ -180,9 +219,10 @@ define i32 @align_single_zero_second_greater_default() local_unnamed_addr {
 ; CHECK-NEXT:    [[AND:%.*]] = and i64 [[TMP2]], 1
 ; CHECK-NEXT:    [[TOBOOL:%.*]] = icmp eq i64 [[AND]], 0
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nsw <2 x i64> [[TMP0]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP4:%.*]] = select i1 [[TOBOOL]], <2 x i64> [[TMP1]], <2 x i64> [[TMP3]]
+; CHECK-NEXT:    [[SPEC_SELECT1:%.*]] = select i1 [[TOBOOL]], <2 x i64> [[TMP1]], <2 x i64> [[TMP3]]
 ; CHECK-NEXT:    [[AND4:%.*]] = and i64 [[TMP2]], 2
 ; CHECK-NEXT:    [[TOBOOL5:%.*]] = icmp eq i64 [[AND4]], 0
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[TMP5:%.*]] = add nsw <2 x i64> [[TMP4]], <i64 1, i64 1>
 ; CHECK-NEXT:    [[TMP6:%.*]] = select i1 [[TOBOOL5]], <2 x i64> [[TMP4]], <2 x i64> [[TMP5]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = xor i1 [[TOBOOL]], true
@@ -193,6 +233,18 @@ define i32 @align_single_zero_second_greater_default() local_unnamed_addr {
 ; CHECK-NEXT:    store <2 x i64> [[TMP6]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 16
 ; CHECK-NEXT:    br label [[TMP11]]
 ; CHECK:       11:
+=======
+; CHECK-NEXT:    [[TMP4:%.*]] = add nsw <2 x i64> [[SPEC_SELECT1]], <i64 1, i64 1>
+; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[TOBOOL5]], <2 x i64> [[SPEC_SELECT1]], <2 x i64> [[TMP4]]
+; CHECK-NEXT:    [[TMP5:%.*]] = xor i1 [[TOBOOL]], true
+; CHECK-NEXT:    [[TMP6:%.*]] = xor i1 [[TOBOOL5]], true
+; CHECK-NEXT:    [[TMP7:%.*]] = or i1 [[TMP5]], [[TMP6]]
+; CHECK-NEXT:    br i1 [[TMP7]], label [[TMP8:%.*]], label [[TMP9:%.*]]
+; CHECK:       8:
+; CHECK-NEXT:    store <2 x i64> [[SPEC_SELECT]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 16
+; CHECK-NEXT:    br label [[TMP9]]
+; CHECK:       9:
+>>>>>>> 1e353f092288309d74d380367aa50bbd383780ed
 ; CHECK-NEXT:    ret i32 0
 ;
 entry:
@@ -234,9 +286,10 @@ define i32 @align_both_zero() local_unnamed_addr {
 ; CHECK-NEXT:    [[AND:%.*]] = and i64 [[TMP2]], 1
 ; CHECK-NEXT:    [[TOBOOL:%.*]] = icmp eq i64 [[AND]], 0
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nsw <2 x i64> [[TMP0]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP4:%.*]] = select i1 [[TOBOOL]], <2 x i64> [[TMP1]], <2 x i64> [[TMP3]]
+; CHECK-NEXT:    [[SPEC_SELECT1:%.*]] = select i1 [[TOBOOL]], <2 x i64> [[TMP1]], <2 x i64> [[TMP3]]
 ; CHECK-NEXT:    [[AND4:%.*]] = and i64 [[TMP2]], 2
 ; CHECK-NEXT:    [[TOBOOL5:%.*]] = icmp eq i64 [[AND4]], 0
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[TMP5:%.*]] = add nsw <2 x i64> [[TMP4]], <i64 1, i64 1>
 ; CHECK-NEXT:    [[TMP6:%.*]] = select i1 [[TOBOOL5]], <2 x i64> [[TMP4]], <2 x i64> [[TMP5]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = xor i1 [[TOBOOL]], true
@@ -247,6 +300,18 @@ define i32 @align_both_zero() local_unnamed_addr {
 ; CHECK-NEXT:    store <2 x i64> [[TMP6]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 16
 ; CHECK-NEXT:    br label [[TMP11]]
 ; CHECK:       11:
+=======
+; CHECK-NEXT:    [[TMP4:%.*]] = add nsw <2 x i64> [[SPEC_SELECT1]], <i64 1, i64 1>
+; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[TOBOOL5]], <2 x i64> [[SPEC_SELECT1]], <2 x i64> [[TMP4]]
+; CHECK-NEXT:    [[TMP5:%.*]] = xor i1 [[TOBOOL]], true
+; CHECK-NEXT:    [[TMP6:%.*]] = xor i1 [[TOBOOL5]], true
+; CHECK-NEXT:    [[TMP7:%.*]] = or i1 [[TMP5]], [[TMP6]]
+; CHECK-NEXT:    br i1 [[TMP7]], label [[TMP8:%.*]], label [[TMP9:%.*]]
+; CHECK:       8:
+; CHECK-NEXT:    store <2 x i64> [[SPEC_SELECT]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 16
+; CHECK-NEXT:    br label [[TMP9]]
+; CHECK:       9:
+>>>>>>> 1e353f092288309d74d380367aa50bbd383780ed
 ; CHECK-NEXT:    ret i32 0
 ;
 entry:
