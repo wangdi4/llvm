@@ -166,6 +166,11 @@ static cl::opt<int>
 AndersNumConstraintsAfterOptLimit("anders-num-constraints-after-opt-limit",
                             cl::ReallyHidden, cl::init(140000));
 
+// AndersensAnalysis is disabled if size of any function exceeds this limit.
+static cl::opt<unsigned>
+AndersFunctionSizeMaxLimit("anders-function-size-max-limit",
+                            cl::ReallyHidden, cl::init(15000));
+
 // Table of all malloc-like calls that allocate memory. It is used to find
 // whether a call is allocating memory or not during Constraint Collections
 // and treat them new object creators.
@@ -713,6 +718,16 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M, bool BeforeInl)  {
   PointerSizeInBits = DL.getPointerSizeInBits();
   IndirectCallList.clear();
   DirectCallList.clear();
+  // Check basic heuristic to continue Andersens's analysis.
+  for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
+    if (F->isDeclaration())
+      continue;
+    if (F->size() > AndersFunctionSizeMaxLimit) {
+      if (PrintAndersConstraints || PrintAndersPointsTo)
+        dbgs() << "\nAnders disabled...exceeded FunctionSizeMaxLimit\n";
+      return;
+    }
+  }
   IdentifyObjects(M);
   CollectConstraints(M);
 
