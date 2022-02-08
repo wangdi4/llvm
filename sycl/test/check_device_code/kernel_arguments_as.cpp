@@ -5,8 +5,13 @@
 //
 // Check the address space of the pointer in accessor class.
 //
+<<<<<<< HEAD
 // CHECK: %struct.AccWrapper = type { %"class.cl::sycl::accessor" }
 // CHECK: %"class.cl::sycl::accessor" = type { %"class{{.*}}AccessorImplDevice", %[[UNION:.*]] }
+=======
+// CHECK: %struct.AccWrapper = type { %"class.cl::sycl::accessor[[NUMBER_SUFFIX:\.?[0-9]*]]" }
+// CHECK: %"class.cl::sycl::accessor[[NUMBER_SUFFIX]]" = type { %"class{{.*}}AccessorImplDevice", %[[UNION:.*]] }
+>>>>>>> c3e6cc29e439467c94a8a0a1f30522685fb740d3
 // CHECK-DISABLE: %[[UNION]] = type { i32 addrspace(1)* }
 // CHECK-ENABLE: %[[UNION]] = type { i32 addrspace(5)* }
 // CHECK: %struct.AccWrapper.{{[0-9]+}} = type { %"class.cl::sycl::accessor.[[NUM:[0-9]+]]" }

@@ -67,8 +67,13 @@
 
 // Helper macro to identify if fallback assert is needed
 // FIXME remove __NVPTX__ condition once devicelib supports CUDA
+<<<<<<< HEAD
 #if defined(SYCL_ENABLE_FALLBACK_ASSERT)
 #define __SYCL_USE_FALLBACK_ASSERT 1
+=======
+#if defined(SYCL_FALLBACK_ASSERT)
+#define __SYCL_USE_FALLBACK_ASSERT SYCL_FALLBACK_ASSERT
+>>>>>>> c3e6cc29e439467c94a8a0a1f30522685fb740d3
 #else
 #define __SYCL_USE_FALLBACK_ASSERT 0
 #endif
