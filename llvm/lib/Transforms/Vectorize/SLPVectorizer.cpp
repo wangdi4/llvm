@@ -6578,18 +6578,12 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       LLVM_DEBUG(dbgs() << "SLP: added a ShuffleVector op.\n");
 
       // Reorder operands if reordering would enable vectorization.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       if (isa<BinaryOperator>(VL0)) {
         SmallVector<int, 4> OpDirLeft, OpDirRight;
         ValueList Left, Right;
         reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, OpDirLeft,
                                        OpDirRight, *this);
-=======
-      if (isa<BinaryOperator>(VL0)) {
-        ValueList Left, Right;
-        reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, *this);
->>>>>>> 0c3d22a5926dd7d6fd28682683abd9d476f8e78b
         TE->setOperand(0, Left);
         TE->setOperand(1, Right);
         if (visitRightOperandFirst(VL[0])) {
