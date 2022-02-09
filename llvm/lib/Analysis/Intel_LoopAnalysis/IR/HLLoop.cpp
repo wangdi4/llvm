@@ -1241,34 +1241,40 @@ static inline bool nodeIsDirective(const HLNode *Node, int DirectiveID) {
   return I->isDirective(DirectiveID);
 }
 
-static bool nodeHasDirective(const HLNode *Node, int DirectiveID) {
+static const HLInst *getDirectiveFromNode(const HLNode *Node, int DirectiveID) {
   while ((Node = Node->getPrevNode())) {
     if (nodeIsDirective(Node, DirectiveID)) {
-      return true;
+      return cast<HLInst>(Node);
     }
   }
-  return false;
+  return nullptr;
 }
 
-bool HLLoop::hasDirective(int DirectiveID) const {
+const HLInst *HLLoop::getDirective(int DirectiveID) const {
   // Allow SIMD loop detection if directive is inside loop's Preheader.
-  if (hasPreheader() &&
-      (nodeIsDirective(getLastPreheaderNode(), DirectiveID) ||
-       nodeHasDirective(getLastPreheaderNode(), DirectiveID))) {
-    return true;
+  if (hasPreheader()) {
+    auto *LastPreheaderNode = getLastPreheaderNode();
+
+    if (nodeIsDirective(LastPreheaderNode, DirectiveID))
+      return cast<HLInst>(LastPreheaderNode);
+
+    const HLInst *DirInst =
+        getDirectiveFromNode(LastPreheaderNode, DirectiveID);
+    if (DirInst)
+      return DirInst;
   }
 
   // Allow SIMD loop detection if directive is sibling node to HLLoop.
-  if (nodeHasDirective(this, DirectiveID)) {
-    return true;
+  if (const HLInst *DirInst = getDirectiveFromNode(this, DirectiveID)) {
+    return DirInst;
   }
 
   // Allow SIMD loop detection inside if conditions inside SIMD region
   if (auto *Parent = dyn_cast<HLIf>(getParent())) {
-    return nodeHasDirective(Parent, DirectiveID);
+    return getDirectiveFromNode(Parent, DirectiveID);
   }
 
-  return false;
+  return nullptr;
 }
 
 bool HLLoop::hasVectorizeIVDepPragma() const {

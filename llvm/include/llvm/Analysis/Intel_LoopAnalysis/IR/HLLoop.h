@@ -37,6 +37,7 @@ namespace loopopt {
 class CanonExpr;
 class RegDDRef;
 class HLLoopParallelTraits;
+class HLInst;
 
 typedef std::pair<int, RegDDRef *> LevelAndFactorPairTy;
 
@@ -250,7 +251,7 @@ protected:
                                  MDNode **ExternalLoopMetadata);
 
   /// Return true if the specified directive is attached to the loop.
-  bool hasDirective(int DirectiveID) const;
+  const HLInst *getDirective(int DirectiveID) const;
 
   /// Returns underlying LLVM loop.
   const Loop *getLLVMLoop() const { return OrigLoop; }
@@ -754,7 +755,12 @@ public:
   virtual void verify() const override;
 
   /// Checks whether SIMD directive is attached to the loop.
-  bool isSIMD() const { return hasDirective(DIR_OMP_SIMD); }
+  bool isSIMD() const { return getDirective(DIR_OMP_SIMD); }
+
+  /// Return SIMD Entry intrinsic
+  const HLInst* getSIMDEntryIntrinsic() const {
+    return getDirective(DIR_OMP_SIMD);
+  }
 
   /// Checks whether SIMD directive is attached to the loop or its parents.
   bool isInSIMDRegion() const {
@@ -769,7 +775,7 @@ public:
 
   /// Checks whether we have a vectorizable loop by checking if SIMD
   /// or AUTO_VEC directive is attached to the loop.
-  bool isVecLoop() const { return isSIMD() || hasDirective(DIR_VPO_AUTO_VEC); }
+  bool isVecLoop() const { return isSIMD() || getDirective(DIR_VPO_AUTO_VEC); }
 
   unsigned getMVTag() const { return MVTag; }
 
