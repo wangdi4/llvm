@@ -925,6 +925,12 @@ def Wcxx11_narrowing : Flag<["-"], "Wc++11-narrowing">, Group<W_Group>,
   Flags<[CC1Option, CoreOption]>;
 def Wno_cxx11_narrowing : Flag<["-"], "Wno-c++11-narrowing">, Group<W_Group>,
   Flags<[CC1Option, CoreOption]>;
+def Wcheck_unicode_security : Flag<["-"], "Wcheck-unicode-security">,
+  HelpText<"Enable detection and warn about Unicode constructs that can be "
+  "exploited by using bi-directional formatting codes, zero-width characters "
+  "in strings and use of zero-width characters and homoglyphs in identifiers. "
+  "Done by using clang-tidy">;
+def Wno_check_unicode_security : Flag<["-"], "Wno-check-unicode-security">;
 #endif // INTEL_CUSTOMIZATION
 def Wa_COMMA : CommaJoined<["-"], "Wa,">,
   HelpText<"Pass the comma separated arguments in <arg> to the assembler">,
@@ -8102,6 +8108,13 @@ def _SLASH_W4 : CLFlag<"W4">, HelpText<"Enable -Wall and -Wextra">, Alias<WCL4>;
 #if INTEL_CUSTOMIZATION
 def _SLASH_Wall : CLFlag<"Wall">, HelpText<"Enable -Wall">,
   Alias<W_Joined>, AliasArgs<["all"]>;
+def _SLASH_Wcheck_unicode_security : CLFlag<"Wcheck-unicode-security">,
+  Alias<Wcheck_unicode_security>, HelpText<"Enable detection and warn about "
+  "Unicode constructs that can be exploited by using bi-directional formatting "
+  "codes, zero-width characters in strings and use of zero-width characters "
+  "and homoglyphs in identifiers. Done by using clang-tidy">;
+def _SLASH_Wno_check_unicode_security : CLFlag<"Wno-check-unicode-security">,
+  Alias<Wno_check_unicode_security>;
 #endif // INTEL_CUSTOMIZATION
 def _SLASH_WX : CLFlag<"WX">, HelpText<"Treat warnings as errors">,
   Alias<W_Joined>, AliasArgs<["error"]>;
