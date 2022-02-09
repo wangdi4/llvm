@@ -220,7 +220,7 @@ void fillPrintfs(Module &m, const OpenclRuntime * /*rt*/,
   std::set<Function *> printfFuncs;
   for (Function &f : m) {
     StringRef name = f.getName();
-    if (name.equals("printf") || name.equals("opencl_printf"))
+    if (name.equals("printf") || name.equals("__opencl_printf"))
       printfFuncs.insert(&f);
   }
   fillFuncUsersSet(printfFuncs, userFuncs);

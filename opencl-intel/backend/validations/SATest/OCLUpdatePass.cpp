@@ -122,7 +122,8 @@ namespace Validation {
 
     };
 
-    const char* OCLReferenceKernelUpdate::builtin_printf_name = "opencl_printf";
+    const char *OCLReferenceKernelUpdate::builtin_printf_name =
+        "__opencl_printf";
     char OCLReferenceKernelUpdate::ID = 0;
 
     ModulePass *createOCLReferenceKernelUpdatePass(Pass* pVect, SmallVectorImpl<Function*> &vectFunctions, 
@@ -611,9 +612,9 @@ namespace Validation {
         // Create the alloca instruction for allocating the buffer on the stack.
         // Also, handle the special case where printf got no vararg arguments:
         // printf("hello");
-        // Since we have to pass something into the 'args' argument of 
-        // opencl_printf, and 'alloca' with size 0 is undefined behavior, we
-        // just allocate a dummy buffer of size 1. opencl_printf won't look at 
+        // Since we have to pass something into the 'args' argument of
+        // __opencl_printf, and 'alloca' with size 0 is undefined behavior, we
+        // just allocate a dummy buffer of size 1. __opencl_printf won't look at
         // it anyway.
         //
         ArrayType* buf_arr_type;
@@ -671,7 +672,7 @@ namespace Validation {
         GetElementPtrInst* ptr_to_buf = GetElementPtrInst::CreateInBounds(
             buf_alloca_inst, ArrayRef<Value*>(index_args), "", pCall);
 
-        // Finally create the call to opencl_printf
+        // Finally create the call to __opencl_printf
         //
         Function* pFunc = m_pModule->getFunction(builtin_printf_name);
         assert(pFunc && "Expect builtin printf to be declared before use");
@@ -776,7 +777,7 @@ namespace Validation {
             uiSize = pVT->getBitWidth()/8;
         }
         params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext, uiSizeT), uiSize));
-        Function* pPrefetch = m_pModule->getFunction("lprefetch");
+        Function *pPrefetch = m_pModule->getFunction("__lprefetch");
         CallInst::Create(pPrefetch, ArrayRef<Value*>(params), "", pCall);
     }
 
@@ -1288,8 +1289,9 @@ namespace Validation {
         if (m_bPrintfDecl)
             return;
 
-        // The prototype of opencl_printf is:
-        // int opencl_printf(char* format, char* args, LLVMExecutable** ppExec)
+        // The prototype of __opencl_printf is:
+        // int __opencl_printf(char* format, char* args, LLVMExecutable**
+        // ppExec)
         //
         vector<Type*> params;
         params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
@@ -1317,7 +1319,8 @@ namespace Validation {
         // Element size
         params.push_back(IntegerType::get(*m_pLLVMContext, uiSizeT));
         FunctionType* pNewType = FunctionType::get(Type::getVoidTy(*m_pLLVMContext), ArrayRef<Type*>(params), false);
-        Function::Create(pNewType, (GlobalValue::LinkageTypes)0, "lprefetch", m_pModule);
+        Function::Create(pNewType, (GlobalValue::LinkageTypes)0, "__lprefetch",
+                         m_pModule);
         m_bPrefetchDecl = true;
     }
 

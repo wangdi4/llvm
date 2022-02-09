@@ -43,13 +43,14 @@ using namespace Intel::OpenCL::DeviceBackend;
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 extern "C" LLVM_BACKEND_API queue_t
-ocl20_get_default_queue(IDeviceCommandManager *DCM) {
-  LLVM_DEBUG(dbgs() << "ocl20_get_default_queue. Entry point \n");
+__ocl20_get_default_queue(IDeviceCommandManager *DCM) {
+  LLVM_DEBUG(dbgs() << "__ocl20_get_default_queue. Entry point \n");
   assert(DCM && "IDeviceCommandManager is NULL");
   
   // todo: enable call to DeviceCommandManager
   queue_t res = DCM->GetDefaultQueueForDevice();
-  LLVM_DEBUG(dbgs() << "ocl20_get_default_queue. Called GetDefaultQueueForDevice\n");
+  LLVM_DEBUG(
+      dbgs() << "__ocl20_get_default_queue. Called GetDefaultQueueForDevice\n");
   return res;
 }
 
@@ -104,11 +105,11 @@ static int enqueue_kernel_common(
 
   return res;
 }
-extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_basic(
+extern "C" LLVM_BACKEND_API int __ocl20_enqueue_kernel_basic(
     queue_t queue, kernel_enqueue_flags_t flags, _ndrange_t *ndrange,
     void *block_invoke, void *block_literal, IDeviceCommandManager *DCM,
     const IBlockToKernelMapper *Mapper, void *RuntimeHandle) {
-  LLVM_DEBUG(dbgs() << "ocl20_enqueue_kernel_basic. Entry point \n");
+  LLVM_DEBUG(dbgs() << "__ocl20_enqueue_kernel_basic. Entry point \n");
   LLVM_DEBUG(dbgs() << "Enqueued ndrange_1d \n"
                << " workDimension " << ndrange->workDimension
                << " globalWorkSize0 " << ndrange->globalWorkSize[0]
@@ -122,16 +123,17 @@ extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_basic(
                                   nullptr,    // events
                                   nullptr, 0, // local buffers
                                   DCM, Mapper, RuntimeHandle);
-  LLVM_DEBUG(dbgs() << "ocl20_enqueue_kernel_basic. Return value " << res << "\n");
+  LLVM_DEBUG(dbgs() << "__ocl20_enqueue_kernel_basic. Return value " << res
+                    << "\n");
   return res;
 }
 
-extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_localmem(
+extern "C" LLVM_BACKEND_API int __ocl20_enqueue_kernel_localmem(
     queue_t queue, kernel_enqueue_flags_t flags, _ndrange_t *ndrange,
     void *block_invoke, void *block_literal, unsigned localbuf_size_len,
     size_t *localbuf_size, IDeviceCommandManager *DCM,
     const IBlockToKernelMapper *Mapper, void *RuntimeHandle) {
-  LLVM_DEBUG(dbgs() << "ocl20_enqueue_kernel_localmem. Entry point \n");
+  LLVM_DEBUG(dbgs() << "__ocl20_enqueue_kernel_localmem. Entry point \n");
   int res =
     enqueue_kernel_common(queue, flags, ndrange,
                           block_literal, block_invoke,
@@ -141,13 +143,13 @@ extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_localmem(
   return res;
 }
 
-extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_events(
+extern "C" LLVM_BACKEND_API int __ocl20_enqueue_kernel_events(
     queue_t queue, kernel_enqueue_flags_t flags, _ndrange_t *ndrange,
     unsigned num_events_in_wait_list, clk_event_t *in_wait_list,
     clk_event_t *event_ret, void *block_invoke, void *block_literal,
     IDeviceCommandManager *DCM, const IBlockToKernelMapper *Mapper,
     void *RuntimeHandle) {
-  LLVM_DEBUG(dbgs() << "ocl20_enqueue_kernel_events. Entry point \n");
+  LLVM_DEBUG(dbgs() << "__ocl20_enqueue_kernel_events. Entry point \n");
   int res =
       enqueue_kernel_common(queue, flags, ndrange,
                             block_literal, block_invoke,
@@ -158,14 +160,15 @@ extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_events(
   return res;
 }
 
-extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_events_localmem(
+extern "C" LLVM_BACKEND_API int __ocl20_enqueue_kernel_events_localmem(
     queue_t queue, kernel_enqueue_flags_t flags, _ndrange_t *ndrange,
     unsigned num_events_in_wait_list, clk_event_t *in_wait_list,
     clk_event_t *event_ret, void *block_invoke, void *block_literal,
     unsigned localbuf_size_len, size_t *localbuf_size,
     IDeviceCommandManager *DCM, const IBlockToKernelMapper *Mapper,
     void *RuntimeHandle) {
-  LLVM_DEBUG(dbgs() << "ocl20_enqueue_kernel_events_localmem. Entry point \n");
+  LLVM_DEBUG(
+      dbgs() << "__ocl20_enqueue_kernel_events_localmem. Entry point \n");
   int res =
     enqueue_kernel_common(queue, flags, ndrange,
                           block_literal, block_invoke,
@@ -177,10 +180,10 @@ extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_events_localmem(
 }
 
 extern "C" LLVM_BACKEND_API int
-ocl20_enqueue_marker(queue_t queue, uint32_t num_events_in_wait_list,
-                     const clk_event_t *event_wait_list, clk_event_t *event_ret,
-                     IDeviceCommandManager *DCM) {
-  LLVM_DEBUG(dbgs() << "ocl20_enqueue_marker. Entry point \n");
+__ocl20_enqueue_marker(queue_t queue, uint32_t num_events_in_wait_list,
+                       const clk_event_t *event_wait_list,
+                       clk_event_t *event_ret, IDeviceCommandManager *DCM) {
+  LLVM_DEBUG(dbgs() << "__ocl20_enqueue_marker. Entry point \n");
   assert(DCM && "IDeviceCommandManager is NULL");
 
   int res = DCM->EnqueueMarker(queue,                   // queue_t queue
@@ -188,13 +191,13 @@ ocl20_enqueue_marker(queue_t queue, uint32_t num_events_in_wait_list,
                                event_wait_list,         // pEventWaitList
                                event_ret                // pEventRet
                                );
-  LLVM_DEBUG(dbgs() << "ocl20_enqueue_marker. Called EnqueueMarker\n");
+  LLVM_DEBUG(dbgs() << "__ocl20_enqueue_marker. Called EnqueueMarker\n");
   return res;
 }
 
 extern "C" LLVM_BACKEND_API void
-ocl20_retain_event(clk_event_t event, IDeviceCommandManager *DCM) {
-  LLVM_DEBUG(dbgs() << "ocl20_retain_event. Entry point \n");
+__ocl20_retain_event(clk_event_t event, IDeviceCommandManager *DCM) {
+  LLVM_DEBUG(dbgs() << "__ocl20_retain_event. Entry point \n");
   assert(DCM && "IDeviceCommandManager is NULL");
 
   int err_code = DCM->RetainEvent(event);
@@ -202,15 +205,17 @@ ocl20_retain_event(clk_event_t event, IDeviceCommandManager *DCM) {
   // declares special behavior when error is occured.
   // Lets output error code in debug stream
   if (CL_SUCCESS != err_code)
-      LLVM_DEBUG(dbgs() << "ocl20_retain_event. Failed to execute RetainEvent with Error Code " << err_code << "\n");
+    LLVM_DEBUG(dbgs() << "__ocl20_retain_event. Failed to execute RetainEvent "
+                         "with Error Code "
+                      << err_code << "\n");
 
-  LLVM_DEBUG(dbgs() << "ocl20_retain_event. Called RetainEvent\n");
+  LLVM_DEBUG(dbgs() << "__ocl20_retain_event. Called RetainEvent\n");
   return;
 }
 
 extern "C" LLVM_BACKEND_API void
-ocl20_release_event(clk_event_t event, IDeviceCommandManager *DCM) {
-  LLVM_DEBUG(dbgs() << "ocl20_release_event. Entry point \n");
+__ocl20_release_event(clk_event_t event, IDeviceCommandManager *DCM) {
+  LLVM_DEBUG(dbgs() << "__ocl20_release_event. Entry point \n");
   assert(DCM && "IDeviceCommandManager is NULL");
 
   int err_code = DCM->ReleaseEvent(event);
@@ -218,26 +223,28 @@ ocl20_release_event(clk_event_t event, IDeviceCommandManager *DCM) {
   // declares special behavior when error is occured.
   // Lets output error code in debug stream
   if(CL_SUCCESS != err_code)
-      LLVM_DEBUG(dbgs() << "ocl20_release_event. Failed to execute ReleaseEvent with Error Code " << err_code << "\n");
+    LLVM_DEBUG(dbgs() << "__ocl20_release_event. Failed to execute "
+                         "ReleaseEvent with Error Code "
+                      << err_code << "\n");
 
-  LLVM_DEBUG(dbgs() << "ocl20_release_event. Called ReleaseEvent\n");
+  LLVM_DEBUG(dbgs() << "__ocl20_release_event. Called ReleaseEvent\n");
   return;
 }
 
 extern "C" LLVM_BACKEND_API bool
-ocl20_is_valid_event(clk_event_t event, IDeviceCommandManager *DCM) {
-  LLVM_DEBUG(dbgs() << "ocl20_is_valid_event. Entry point \n");
+__ocl20_is_valid_event(clk_event_t event, IDeviceCommandManager *DCM) {
+  LLVM_DEBUG(dbgs() << "__ocl20_is_valid_event. Entry point \n");
   assert(DCM && "IDeviceCommandManager is NULL");
 
   bool res = DCM->IsValidEvent(event);
- 
-  LLVM_DEBUG(dbgs() << "ocl20_is_valid_event. Called IsValidEvent\n");
+
+  LLVM_DEBUG(dbgs() << "__ocl20_is_valid_event. Called IsValidEvent\n");
   return res;
 }
 
 extern "C" LLVM_BACKEND_API clk_event_t
-ocl20_create_user_event(IDeviceCommandManager *DCM) {
-  LLVM_DEBUG(dbgs() << "ocl20_create_user_event. Entry point \n");
+__ocl20_create_user_event(IDeviceCommandManager *DCM) {
+  LLVM_DEBUG(dbgs() << "__ocl20_create_user_event. Entry point \n");
   assert(DCM && "IDeviceCommandManager is NULL");
 
   int err_code = CL_SUCCESS;
@@ -247,16 +254,18 @@ ocl20_create_user_event(IDeviceCommandManager *DCM) {
   // declares special behavior when error is occured.
   // Lets output error code in debug stream
   if(CL_SUCCESS != err_code)
-      LLVM_DEBUG(dbgs() << "ocl20_create_user_event. Failed to execute CreateUserEvent with Error Code " << err_code << "\n");
+    LLVM_DEBUG(dbgs() << "__ocl20_create_user_event. Failed to execute "
+                         "CreateUserEvent with Error Code "
+                      << err_code << "\n");
 
-  LLVM_DEBUG(dbgs() << "ocl20_create_user_event. Called CreateUserEvent\n");
+  LLVM_DEBUG(dbgs() << "__ocl20_create_user_event. Called CreateUserEvent\n");
   return ret;
 }
 
 extern "C" LLVM_BACKEND_API void
-ocl20_set_user_event_status(clk_event_t event, uint32_t status,
-                            IDeviceCommandManager *DCM) {
-  LLVM_DEBUG(dbgs() << "ocl20_set_user_event_status. Entry point \n");
+__ocl20_set_user_event_status(clk_event_t event, uint32_t status,
+                              IDeviceCommandManager *DCM) {
+  LLVM_DEBUG(dbgs() << "__ocl20_set_user_event_status. Entry point \n");
   assert(DCM && "IDeviceCommandManager is NULL");
 
   int err_code = DCM->SetEventStatus(event, status);
@@ -264,52 +273,58 @@ ocl20_set_user_event_status(clk_event_t event, uint32_t status,
   // declares special behavior when error is occured.
   // Lets output error code in debug stream
   if(CL_SUCCESS != err_code)
-      LLVM_DEBUG(dbgs() << "ocl20_create_user_event. Failed to execute CreateUserEvent with Error Code " << err_code << "\n");
+    LLVM_DEBUG(dbgs() << "__ocl20_set_user_event_status. Failed to execute "
+                         "CreateUserEvent with Error Code "
+                      << err_code << "\n");
 
-  LLVM_DEBUG(dbgs() << "ocl20_set_user_event_status. Called SetEventStatus\n");
+  LLVM_DEBUG(
+      dbgs() << "__ocl20_set_user_event_status. Called SetEventStatus\n");
   return;
 }
 
 extern "C" LLVM_BACKEND_API void
-ocl20_capture_event_profiling_info(clk_event_t event, clk_profiling_info name,
-                                   uint64_t *value,
-                                   IDeviceCommandManager *DCM) {
-  LLVM_DEBUG(dbgs() << "ocl20_capture_event_profiling_info. Entry point \n");
+__ocl20_capture_event_profiling_info(clk_event_t event, clk_profiling_info name,
+                                     uint64_t *value,
+                                     IDeviceCommandManager *DCM) {
+  LLVM_DEBUG(dbgs() << "__ocl20_capture_event_profiling_info. Entry point \n");
   assert(DCM && "IDeviceCommandManager is NULL");
 
   DCM->CaptureEventProfilingInfo(event, name, value);
 
-  LLVM_DEBUG(dbgs() << "ocl20_capture_event_profiling_info. Called CaptureEventProfilingInfo\n");
+  LLVM_DEBUG(dbgs() << "__ocl20_capture_event_profiling_info. Called "
+                       "CaptureEventProfilingInfo\n");
   return;
 }
 
-extern "C" LLVM_BACKEND_API uint32_t ocl20_get_kernel_wg_size(
+extern "C" LLVM_BACKEND_API uint32_t __ocl20_get_kernel_wg_size(
     void *block_invoke, void * /*block_literal*/, IDeviceCommandManager *DCM,
     const IBlockToKernelMapper *Mapper) {
   assert(DCM && "IDeviceCommandManager is NULL");
   assert(Mapper && "const IBlockToKernelMapper is NULL");
-  LLVM_DEBUG(dbgs() << "ocl20_get_kernel_wg_size. Entry point \n");
+  LLVM_DEBUG(dbgs() << "__ocl20_get_kernel_wg_size. Entry point \n");
 
   // obtain entry point as block_invoke
   const ICLDevBackendKernel_ *pKernel = Mapper->Map(block_invoke);
   const ICLDevBackendKernelProporties* pKernelProps =
     pKernel->GetKernelProporties();
 
-  LLVM_DEBUG(dbgs() << "ocl20_get_kernel_wg_size. Called GetKernelWorkGroupSize\n");
-  LLVM_DEBUG(dbgs() << "ocl20_get_kernel_wg_size. return value="
-               << pKernelProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE,
-                                                    MAX_WG_PRIVATE_SIZE)
-               << "\n");
+  LLVM_DEBUG(
+      dbgs() << "__ocl20_get_kernel_wg_size. Called GetKernelWorkGroupSize\n");
+  LLVM_DEBUG(dbgs() << "__ocl20_get_kernel_wg_size. return value="
+                    << pKernelProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE,
+                                                         MAX_WG_PRIVATE_SIZE)
+                    << "\n");
   return
     pKernelProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE, MAX_WG_PRIVATE_SIZE);
 }
 
 extern "C" LLVM_BACKEND_API uint32_t
-ocl20_get_kernel_preferred_wg_size_multiple(
+__ocl20_get_kernel_preferred_wg_size_multiple(
     void *block_invoke, void * /*block_literal*/, IDeviceCommandManager *DCM,
     const IBlockToKernelMapper *Mapper) {
   LLVM_DEBUG(
-      dbgs() << "ocl20_get_kernel_preferred_wg_size_multiple. Entry point \n");
+      dbgs()
+      << "__ocl20_get_kernel_preferred_wg_size_multiple. Entry point \n");
   uint32_t ret;
   assert(DCM && "IDeviceCommandManager is NULL");
   assert(Mapper && "const IBlockToKernelMapper is NULL");
@@ -323,7 +338,7 @@ ocl20_get_kernel_preferred_wg_size_multiple(
   // ProgramService::GetKernelInfo function. SVN rev. 74469
   ret = pKernelProps->GetKernelPackCount();
 
-  LLVM_DEBUG(dbgs() << "ocl20_get_kernel_preferred_wg_size_multiple."
-               << "Called GetKernelPreferredWorkGroupSizeMultiple\n");
+  LLVM_DEBUG(dbgs() << "__ocl20_get_kernel_preferred_wg_size_multiple."
+                    << "Called GetKernelPreferredWorkGroupSizeMultiple\n");
   return ret;
 }

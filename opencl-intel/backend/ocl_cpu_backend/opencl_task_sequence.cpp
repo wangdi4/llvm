@@ -26,7 +26,7 @@
 #define DEBUG_TYPE "opencl_task_sequence"
 
 extern "C" LLVM_BACKEND_API size_t
-ocl_task_sequence_create(size_t ret_type_size) {
+__ocl_task_sequence_create(size_t ret_type_size) {
   // For each task_sequence object, other essential data is stored in
   // task_sequence_data along with it.
   task_sequence_data *data = new task_sequence_data;
@@ -40,10 +40,10 @@ ocl_task_sequence_create(size_t ret_type_size) {
 }
 
 extern "C" LLVM_BACKEND_API void
-ocl_task_sequence_async(task_sequence *obj, unsigned invocation_capacity,
-                        void *block_invoke, void *block_literal,
-                        IDeviceCommandManager *DCM, IBlockToKernelMapper *B2K,
-                        void *RuntimeHandle) {
+__ocl_task_sequence_async(task_sequence *obj, unsigned invocation_capacity,
+                          void *block_invoke, void *block_literal,
+                          IDeviceCommandManager *DCM, IBlockToKernelMapper *B2K,
+                          void *RuntimeHandle) {
   task_sequence_data *data = reinterpret_cast<task_sequence_data *>(obj->id);
   assert(data && "data of task_sequence lossed!");
   // All tasks are enqueued into the same device queue. The sequence of async
@@ -95,10 +95,11 @@ ocl_task_sequence_async(task_sequence *obj, unsigned invocation_capacity,
   assert(*addr && "Out of memory!");
 
   clk_event_t event_ret;
-  int err = ocl20_enqueue_kernel_events(
+  int err = __ocl20_enqueue_kernel_events(
       queue, flags, &ndrange, num_events_in_wait_list, event_wait_list,
       &event_ret, block_invoke, block_literal, DCM, B2K, RuntimeHandle);
-  LLVM_DEBUG(dbgs() << "ocl_task_sequence_async. Return value " << err << "\n");
+  LLVM_DEBUG(dbgs() << "__ocl_task_sequence_async. Return value " << err
+                    << "\n");
 
   // Keep the handles of result and event.
   data->results.push_back(*addr);
@@ -106,22 +107,23 @@ ocl_task_sequence_async(task_sequence *obj, unsigned invocation_capacity,
 }
 
 extern "C" LLVM_BACKEND_API void *
-ocl_task_sequence_get(task_sequence *obj, IDeviceCommandManager *DCM) {
+__ocl_task_sequence_get(task_sequence *obj, IDeviceCommandManager *DCM) {
   task_sequence_data *data = reinterpret_cast<task_sequence_data *>(obj->id);
   assert(data && "data of task_sequence lossed!");
 
   // Wait for task to finish execution.
   clk_event_t current_event = data->events[data->delivered];
   int err = DCM->WaitForEvents(1, &current_event);
-  LLVM_DEBUG(dbgs() << "ocl_task_sequence_get. Return value " << err << "\n");
+  LLVM_DEBUG(dbgs() << "__ocl_task_sequence_get. Return value " << err << "\n");
 
-  ocl20_release_event(current_event, DCM);
+  __ocl20_release_event(current_event, DCM);
   data->delivered++;
 
   return reinterpret_cast<void *>(data->results[data->delivered - 1]);
 }
 
-extern "C" LLVM_BACKEND_API void ocl_task_sequence_release(task_sequence *obj) {
+extern "C" LLVM_BACKEND_API void
+__ocl_task_sequence_release(task_sequence *obj) {
   task_sequence_data *data = reinterpret_cast<task_sequence_data *>(obj->id);
   assert(data && "data of task_sequence lossed!");
   for (auto *result : data->results)

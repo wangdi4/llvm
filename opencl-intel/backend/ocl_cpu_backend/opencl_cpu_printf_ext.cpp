@@ -26,14 +26,14 @@ using namespace Intel::OpenCL;
 
 int printFormatCommon(OutputAccumulator& output, const char* format, const char* args);
 
-// Used to ensure that only one thread executes opencl_printf simultaneously,
+// Used to ensure that only one thread executes __opencl_printf simultaneously,
 // to avoid intermingling of output from different threads.
 //
 static llvm::sys::Mutex m_lock;
 
-extern "C" LLVM_BACKEND_API int opencl_printf(const char *format, char *args,
-                                              void * /*pCallback*/,
-                                              void * /*pHandle*/) {
+extern "C" LLVM_BACKEND_API int __opencl_printf(const char *format, char *args,
+                                                void * /*pCallback*/,
+                                                void * /*pHandle*/) {
   std::lock_guard<llvm::sys::Mutex> locked(m_lock);
   StreamOutputAccumulator output(stdout);
   return printFormatCommon(output, format, args);
