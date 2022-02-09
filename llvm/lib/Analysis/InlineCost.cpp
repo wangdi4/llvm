@@ -86,6 +86,7 @@ static InlineReason bestInlineReason(const InlineReasonVector& ReasonVector,
 }
 
 extern cl::opt<bool> InlineForXmain;
+extern cl::opt<bool> DTransInlineHeuristics;
 extern cl::opt<bool> EnablePreLTOInlineCost;
 extern cl::opt<unsigned> IntelInlineReportLevel;
 
@@ -3569,3 +3570,12 @@ InlineCostAnnotationPrinterPass::run(Function &F,
   }
   return PreservedAnalyses::all();
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+extern bool intelEnableInlineDeferral(void) {
+  return InlineForXmain && DTransInlineHeuristics;
+}
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
+

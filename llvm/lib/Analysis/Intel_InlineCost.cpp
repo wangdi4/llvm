@@ -79,7 +79,7 @@ cl::opt<bool> EnablePreLTOInlineCost("pre-lto-inline-cost", cl::Hidden,
                                      cl::init(false),
                                      cl::desc("Enable pre-LTO inline cost"));
 
-static cl::opt<bool> DTransInlineHeuristics(
+cl::opt<bool> DTransInlineHeuristics(
     "dtrans-inline-heuristics", cl::Hidden, cl::init(false),
     cl::desc("inlining heuristics controlled under -qopt-mem-layout-trans"));
 

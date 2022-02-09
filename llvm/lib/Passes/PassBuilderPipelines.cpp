@@ -1159,8 +1159,13 @@ void PassBuilder::addPGOInstrPassesForO0(ModulePassManager &MPM,
   MPM.addPass(InstrProfiling(Options, IsCS));
 }
 
-static InlineParams getInlineParamsFromOptLevel(OptimizationLevel Level) {
-  return getInlineParams(Level.getSpeedupLevel(), Level.getSizeLevel());
+static InlineParams getInlineParamsFromOptLevel(OptimizationLevel Level,
+#if INTEL_CUSTOMIZATION
+                                                bool PrepareForLTO,
+                                                bool LinkForLTO) {
+  return getInlineParams(Level.getSpeedupLevel(), Level.getSizeLevel(),
+                         PrepareForLTO, LinkForLTO);
+#endif // INTEL_CUSTOMIZATION
 }
 
 ModuleInlinerWrapperPass
@@ -1171,7 +1176,10 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
 #else
                                   ThinOrFullLTOPhase Phase) {
 #endif // INTEL_COLLAB
-  InlineParams IP = getInlineParamsFromOptLevel(Level);
+#if INTEL_CUSTOMIZATION
+  InlineParams IP = getInlineParamsFromOptLevel(Level, PrepareForLTO,
+      LinkForLTO);
+#endif // INTEL_CUSTOMIZATION
   if (Phase == ThinOrFullLTOPhase::ThinLTOPreLink && PGOOpt &&
       PGOOpt->Action == PGOOptions::SampleUse)
     IP.HotCallSiteThreshold = 0;
@@ -1282,7 +1290,10 @@ PassBuilder::buildModuleInlinerPipeline(OptimizationLevel Level,
                                         ThinOrFullLTOPhase Phase) {
   ModulePassManager MPM;
 
-  InlineParams IP = getInlineParamsFromOptLevel(Level);
+#if INTEL_CUSTOMIZATION
+  InlineParams IP = getInlineParamsFromOptLevel(Level, PrepareForLTO,
+     LinkForLTO);
+#endif // INTEL_CUSTOMIZATION
   if (Phase == ThinOrFullLTOPhase::ThinLTOPreLink && PGOOpt &&
       PGOOpt->Action == PGOOptions::SampleUse)
     IP.HotCallSiteThreshold = 0;
@@ -1331,7 +1342,8 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
       !(FlattenedProfileUsed && Phase == ThinOrFullLTOPhase::ThinLTOPostLink);
 
 #if INTEL_CUSTOMIZATION
-  InlineParams IP = getInlineParamsFromOptLevel(Level);
+  InlineParams IP = getInlineParamsFromOptLevel(Level, PrepareForLTO,
+      LinkForLTO);
   if (Phase == ThinOrFullLTOPhase::ThinLTOPreLink && PGOOpt &&
       PGOOpt->Action == PGOOptions::SampleUse)
     IP.HotCallSiteThreshold = 0;
@@ -2479,6 +2491,9 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
                                      ModuleSummaryIndex *ExportSummary) {
   ModulePassManager MPM;
 
+#if INTEL_CUSTOMIZATION
+  LinkForLTO = true;
+#endif // INTEL_CUSTOMIZATION
   // Convert @llvm.global.annotations to !annotation metadata.
   MPM.addPass(Annotation2MetadataPass());
 
@@ -2792,7 +2807,10 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // valuable as the inliner doesn't currently care whether it is inlining an
   // invoke or a call.
   // Run the inliner now.
-  MPM.addPass(ModuleInlinerWrapperPass(getInlineParamsFromOptLevel(Level)));
+#if INTEL_CUSTOMIZATION
+  MPM.addPass(ModuleInlinerWrapperPass(getInlineParamsFromOptLevel(Level,
+                                           PrepareForLTO, LinkForLTO)));
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   // The global optimizer pass can convert function calls to use
   // the 'fastcc' calling convention. The following pass enables more

@@ -572,7 +572,7 @@ PassBuilder::PassBuilder(TargetMachine *TM, PipelineTuningOptions PTO,
 #if INTEL_CUSTOMIZATION
     // Add PrepareForLTO(false), AfterSLPVectorizer(false)
     : TM(TM), PTO(PTO), PGOOpt(PGOOpt), PIC(PIC),
-      PrepareForLTO(false), AfterSLPVectorizer(false) {
+      PrepareForLTO(false), LinkForLTO(false), AfterSLPVectorizer(false) {
 #endif // INTEL_CUSTOMIZATION
   if (TM)
     TM->registerPassBuilderCallbacks(*this);
