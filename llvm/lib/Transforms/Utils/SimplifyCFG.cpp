@@ -2817,92 +2817,11 @@ static bool FoldCondBranchOnPHI(BranchInst *BI, DomTreeUpdater *DTU,
 /// might be conflicts during code merge, and if resolving conflicts
 /// becomes too cumbersome, we can try something different.
 
-static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
-                                             const TargetTransformInfo &TTI,
-                                             DomTreeUpdater *DTU,
-                                             const DataLayout &DL) {
-  assert(BI->isConditional() && !isa<ConstantInt>(BI->getCondition()) &&
-         BI->getSuccessor(0) != BI->getSuccessor(1) &&
-         "Only for truly conditional branches.");
-
-  // Which ones of our successors end up with an unconditional branch?
-  SmallVector<BasicBlock *, 2> UncondSuccessors;
-  SmallVector<BasicBlock *, 2> OtherSuccessors;
-  for (BasicBlock *Succ : successors(BI)) {
-    auto *SuccBI = dyn_cast<BranchInst>(Succ->getTerminator());
-    if (SuccBI && SuccBI->isUnconditional())
-      UncondSuccessors.emplace_back(Succ);
-    else
-      OtherSuccessors.emplace_back(Succ);
-  }
-  assert(UncondSuccessors.size() + OtherSuccessors.size() == 2 &&
-         "Can not have more than two successors!");
-
-  // If none do, then we can't do anything.
-  if (UncondSuccessors.empty())
-    return false;
-
-  // We want to hoist code from the unconditional block[s] and eliminate them,
-  // but if they have their address taken, then we essentially can't do this.
-  for (BasicBlock *UncondSucc : UncondSuccessors)
-    if (UncondSucc->hasAddressTaken())
-      return false;
-
-  // All unconditional successors must have a single (and the same) predecessor.
-  // FIXME: lift this restriction.
-  for (BasicBlock *UncondSucc : UncondSuccessors)
-    if (!UncondSucc->getSinglePredecessor())
-      return false;
-
-  // Now, what is the merge point?
-  BasicBlock *MergeBB = nullptr;
-  // If there was only a single unconditional successor,
-  // then the other successor *must* be the merge point.
-  if (UncondSuccessors.size() == 1)
-    MergeBB = OtherSuccessors.front();
-
-  // All unconditional successors must have the same successor themselves.
-  for (BasicBlock *UncondSucc : UncondSuccessors) {
-    auto *SuccBI = cast<BranchInst>(UncondSucc->getTerminator());
-    assert(SuccBI->isUnconditional() && "Should be an unconditional branch.");
-    BasicBlock *SuccOfSucc = SuccBI->getSuccessor(0);
-    if (!MergeBB) // First unconditional successor, record it's successor.
-      MergeBB = SuccOfSucc;
-    else if (SuccOfSucc != MergeBB) // Do all succs have the same successor?
-      return false;
-  }
-
-  assert(MergeBB && "Should have found the merge point.");
-  assert(all_of(UncondSuccessors,
-                [MergeBB](BasicBlock *UncondSucc) {
-                  return is_contained(predecessors(MergeBB), UncondSucc);
-                }) &&
-         "All unconditional successors must be predecessors of merge block.");
-  assert((UncondSuccessors.size() != 1 ||
-          is_contained(predecessors(MergeBB), BI->getParent())) &&
-         "If there is only a single unconditional successor, then the dispatch "
-         "block must also be merge block's predecessor.");
-
-  auto *PN = dyn_cast<PHINode>(MergeBB->begin());
-  if (!PN || PN->getNumIncomingValues() != 2)
-    return false;
-
-  // Ok, this is a two entry PHI node.  Check to see if this is a simple "if
-  // statement", which has a very simple dominance structure.  Basically, we
-  // are trying to find the condition that is being branched on, which
-  // subsequently causes this merge to happen.  We really want control
-  // dependence information for this check, but simplifycfg can't keep it up
-  // to date, and this catches most of the cases we care about anyway.
-  MergeBB = PN->getParent();
-
-  BasicBlock *IfTrue, *IfFalse;
-  BranchInst *DomBI = GetIfCondition(MergeBB, IfTrue, IfFalse);
-  if (!DomBI)
-    return false;
-  Value *IfCond = DomBI->getCondition();
-  // Don't bother if the branch will be constant folded trivially.
-  if (isa<ConstantInt>(IfCond))
-    return false;
+/// FoldPHIEntries - Given a BB that starts with the specified PHI node,
+/// see if we can fold the phi node or some of its entries.
+static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
+                           DomTreeUpdater *DTU, const DataLayout &DL) {
+  BasicBlock *BB = PN->getParent();
 
   bool Changed = false;
 
@@ -2910,12 +2829,12 @@ static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
   // that leads to an "if condition".  Traverse through the predecessor list of
   // BB (where each predecessor corresponds to an entry in the PN) to look for
   // each if-condition.
-  SmallVector<BasicBlock *, 16> BBPreds(pred_begin(MergeBB), pred_end(MergeBB));
+  SmallVector<BasicBlock *, 16> BBPreds(pred_begin(BB), pred_end(BB));
   for (unsigned i = 0, e = BBPreds.size(); i != e; ++i) {
     BasicBlock *Pred = BBPreds[i];
 
     BasicBlock *IfTrue = nullptr, *IfFalse = nullptr;
-    BranchInst *DomBI = GetIfCondition(MergeBB, Pred, IfTrue, IfFalse);
+    BranchInst *DomBI = GetIfCondition(BB, Pred, IfTrue, IfFalse);
     if (!DomBI)
       continue;
     Value *IfCond = DomBI->getCondition();
@@ -2950,7 +2869,7 @@ static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
         BranchProbability BIFalseProb = BITrueProb.getCompl();
         if (IfBlocks.size() == 1) {
           BranchProbability BIBBProb =
-              DomBI->getSuccessor(0) == MergeBB ? BITrueProb : BIFalseProb;
+              DomBI->getSuccessor(0) == BB ? BITrueProb : BIFalseProb;
           if (BIBBProb >= Likely)
             return false;
         } else {
@@ -2962,7 +2881,7 @@ static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
     // Don't try to fold an unreachable block. For example, the phi node itself
     // can't be the candidate if-condition for a select that we want to form.
     if (auto *IfCondPhiInst = dyn_cast<PHINode>(IfCond))
-      if (IfCondPhiInst->getParent() == MergeBB)
+      if (IfCondPhiInst->getParent() == BB)
         continue;
 
     // Loop over the PHI's seeing if we can promote them all to select
@@ -2975,7 +2894,7 @@ static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
 
     bool CanBeSimplified = true;
     unsigned NumPhis = 0;
-    for (BasicBlock::iterator II = MergeBB->begin(); isa<PHINode>(II);) {
+    for (BasicBlock::iterator II = BB->begin(); isa<PHINode>(II);) {
       PHINode *PN = cast<PHINode>(II++);
       if (Value *V = SimplifyInstruction(PN, {DL, PN})) {
         PN->replaceAllUsesWith(V);
@@ -2988,9 +2907,9 @@ static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
       Value *FalseVal = PN->getIncomingValueForBlock(IfFalse);
 
       if (TrueVal != FalseVal) {
-        if (!CanDominateConditionalBranch(TrueVal, MergeBB, AggressiveInsts,
+        if (!CanDominateConditionalBranch(TrueVal, BB, AggressiveInsts,
                                           Cost, Budget, TTI) ||
-            !CanDominateConditionalBranch(FalseVal, MergeBB, AggressiveInsts,
+            !CanDominateConditionalBranch(FalseVal, BB, AggressiveInsts,
                                           Cost, Budget, TTI)) {
           CanBeSimplified = false;
           break;
@@ -3015,7 +2934,7 @@ static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
 
     // If we folded the first phi, PN dangles at this point.  Refresh it.  If
     // we ran out of PHIs then we simplified them all.
-    PN = dyn_cast<PHINode>(MergeBB->begin());
+    PN = dyn_cast<PHINode>(BB->begin());
     if (!PN) {
       return true;
     }
@@ -3055,7 +2974,8 @@ static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
     // worth promoting to select instructions.
     for (BasicBlock *IfBlock : IfBlocks)
       for (BasicBlock::iterator I = IfBlock->begin(); !I->isTerminator(); ++I)
-        if (!AggressiveInsts.count(&*I) && !I->isDebugOrPseudoInst()) {
+        if (!AggressiveInsts.count(&*I) && !isa<DbgInfoIntrinsic>(I) &&
+            !isa<PseudoProbeInst>(I)) {
           // This is not an aggressive instruction that we can promote.
           // Because of this, we won't be able to get rid of the control
           // flow, so the xform is not worth it.
@@ -3089,7 +3009,7 @@ static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
     // Propagate fast-math-flags from phi nodes to replacement selects.
     IRBuilder<>::FastMathFlagGuard FMFGuard(Builder);
 
-    for (BasicBlock::iterator II = MergeBB->begin(); isa<PHINode>(II);) {
+    for (BasicBlock::iterator II = BB->begin(); isa<PHINode>(II);) {
       PHINode *PN = cast<PHINode>(II++);
       if (isa<FPMathOperator>(PN)) {
         // Putting the next statement between curly because compilation
@@ -3134,11 +3054,11 @@ static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
     // At this point, all IfBlocks are empty, so our if
     // statement has been flattened.  Change CondBlock to jump directly to BB
     // to avoid other simplifycfg's kicking in on the diamond.
-    Builder.CreateBr(MergeBB);
+    Builder.CreateBr(BB);
 
     SmallVector<DominatorTree::UpdateType, 3> Updates;
     if (DTU) {
-      Updates.push_back({DominatorTree::Insert, CondBlock, MergeBB});
+      Updates.push_back({DominatorTree::Insert, CondBlock, BB});
       for (auto *Successor : successors(CondBlock))
         Updates.push_back({DominatorTree::Delete, CondBlock, Successor});
     }
@@ -8259,11 +8179,6 @@ bool SimplifyCFGOpt::simplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
         return requestResimplify();
   }
 
-  if (Options.FoldTwoEntryPHINode) {
-    if (SpeculativelyExecuteThenElseCode(BI, TTI, DTU, DL))
-      return true;
-  }
-
   // If this is a branch on a phi node in the current block, thread control
   // through this block if any PHI node entries are constants.
   if (PHINode *PN = dyn_cast<PHINode>(BI->getCondition()))
@@ -8489,6 +8404,26 @@ bool SimplifyCFGOpt::simplifyOnce(BasicBlock *BB) {
       // after which we'd need a whole EarlyCSE pass run to cleanup them.
       return true;
     }
+
+  if (Options.FoldTwoEntryPHINode) {
+    // If there is a PHI node in this basic block, and we can
+    // eliminate some of its entries, do so now.
+    if (auto *PN = dyn_cast<PHINode>(BB->begin()))
+#if INTEL_CUSTOMIZATION
+      // FoldPHIEntries is an Intel customized generalized version of the LLVM
+      // open source routine called FoldTwoEntryPHINode(that folds a two-entry
+      // phinode into "select") which is capable of handling any number
+      // of phi entries. It iteratively transforms each conditional into
+      // "select". Any changes (one such change could be regarding cost model)
+      // made by the LLVM community to FoldTwoEntryPHINode will need to be
+      // incorporated to this routine (FoldPHIEntries).
+      // To keep xmain as clean as possible we got rid of the FoldTwoEntryPHINode,
+      // therefore, there might be conflicts during code merge. If resolving
+      // conflicts becomes too cumbersome, we can try something different.
+      if (FoldPHIEntries(PN, TTI, DTU, DL))
+        return true;
+#endif //INTEL_CUSTOMIZATION
+  }
 
   IRBuilder<> Builder(BB);
 
