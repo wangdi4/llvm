@@ -317,8 +317,8 @@ VPInstructionCost HeuristicSpillFill::operator()(
   auto PHIs = (cast<VPBasicBlock>(OuterMostVPLoop->getHeader()))->getVPPhis();
   int NumberPHIs = llvm::count_if(PHIs, [&](auto& PHI) {
     return !SkipInst(&PHI);});
-  int FreeVecHWRegsNum = CM->VPTTI.getNumberOfRegisters(
-    CM->VPTTI.getRegisterClassForType(VectorRegsPressure)) - NumberPHIs;
+  int FreeVecHWRegsNum = CM->TTI.getNumberOfRegisters(
+    CM->TTI.getRegisterClassForType(VectorRegsPressure)) - NumberPHIs;
 
   for (const VPInstruction &VPInst : reverse(*VPBlock)) {
     if (SkipInst(&VPInst))
@@ -377,7 +377,7 @@ VPInstructionCost HeuristicSpillFill::operator()(
 
       if (VectorType::isValidElementType(OpScalTy))
         LiveValues[OpInst] = TranslateVPInstRPToHWRP(
-          CM->VPTTI.getNumberOfParts(getWidenedType(OpInst->getType(), VF)));
+          CM->TTI.getNumberOfParts(getWidenedType(OpInst->getType(), VF)));
       else
         // RP for aggregate types are modelled as if they serialized with
         // VF instructions.
@@ -427,9 +427,9 @@ VPInstructionCost HeuristicSpillFill::operator()(
       // Check for masked unit load/store presence in HW.
       if (CM->isUnitStrideLoadStore(&VPInst, NegativeStride)) {
         if ((IsMasked && IsLoad  &&
-             !CM->VPTTI.isLegalMaskedLoad(VTy, Alignment)) ||
+             !CM->TTI.isLegalMaskedLoad(VTy, Alignment)) ||
             (IsMasked && IsStore &&
-             !CM->VPTTI.isLegalMaskedStore(VTy, Alignment)))
+             !CM->TTI.isLegalMaskedStore(VTy, Alignment)))
           return true;
 
         return false;
@@ -446,8 +446,8 @@ VPInstructionCost HeuristicSpillFill::operator()(
 
       // Check for unsupported gather/scatter instruction.
       // Note: any gather/scatter is considered as masked.
-      if ((IsLoad && !CM->VPTTI.isLegalMaskedGather(VTy, Alignment)) ||
-          (IsStore && !CM->VPTTI.isLegalMaskedScatter(VTy, Alignment)))
+      if ((IsLoad && !CM->TTI.isLegalMaskedGather(VTy, Alignment)) ||
+          (IsStore && !CM->TTI.isLegalMaskedScatter(VTy, Alignment)))
         return true;
 
       return false;
@@ -457,12 +457,9 @@ VPInstructionCost HeuristicSpillFill::operator()(
     if (LoadStore && SerializableLoadStore(*LoadStore))
       // Estimate number of machine instructions used to serialize given
       // Load/Store basing on truncated to integer cost of given instruction.
-      NumberLiveValuesCur += TranslateVPInstRPToHWRP(
-        // VPlanTTIWrapper::estimateNumberOfInstructions(InstCost) gives
-        // an estimation of the number of instructions the serialized
-        // load/store is implemented with.
-        VPlanTTIWrapper::estimateNumberOfInstructions(
-          InstCost.getInt64Value()));
+      // int(InstCost) gives an estimation of the number of instructions the
+      // serialized load/store is implemented with.
+      NumberLiveValuesCur += TranslateVPInstRPToHWRP(InstCost.getInt64Value());
 
     LLVM_DEBUG(auto LVNs = make_second_range(LiveValues);
                dbgs() << "RP = " << NumberLiveValuesCur << ", LV# = " <<
@@ -489,13 +486,13 @@ VPInstructionCost HeuristicSpillFill::operator()(
     return 0;
 
   unsigned AS = CM->DL->getAllocaAddrSpace();
-  unsigned RegBitWidth = CM->VPTTI.getLoadStoreVecRegBitWidth(AS);
+  unsigned RegBitWidth = CM->TTI.getLoadStoreVecRegBitWidth(AS);
   unsigned RegByteWidth = RegBitWidth / 8;
   Type *VecTy = getWidenedType(Type::getInt8Ty(*Plan->getLLVMContext()),
                                RegByteWidth);
-  VPInstructionCost StoreCost = CM->VPTTI.getMemoryOpCost(
+  VPInstructionCost StoreCost = CM->TTI.getMemoryOpCost(
     Instruction::Store, VecTy, Align(RegByteWidth), AS);
-  VPInstructionCost LoadCost = CM->VPTTI.getMemoryOpCost(
+  VPInstructionCost LoadCost = CM->TTI.getMemoryOpCost(
     Instruction::Load, VecTy, Align(RegByteWidth), AS);
 
   return NumberOfSpillsPerExtraReg *
@@ -508,10 +505,10 @@ void HeuristicSpillFill::apply(
   const VPlanVector *Plan, raw_ostream *OS) const {
   // Don't run register pressure heuristics on TTI models that do not support
   // scalar or vector registers.
-  if (CM->VPTTI.getNumberOfRegisters(
-        CM->VPTTI.getRegisterClassForType(false)) == 0 ||
-      CM->VPTTI.getNumberOfRegisters(
-        CM->VPTTI.getRegisterClassForType(true)) == 0)
+  if (CM->TTI.getNumberOfRegisters(
+        CM->TTI.getRegisterClassForType(false)) == 0 ||
+      CM->TTI.getNumberOfRegisters(
+        CM->TTI.getRegisterClassForType(true)) == 0)
     return;
 
   // LiveValues map contains the liveness of the given instruction multiplied
@@ -589,8 +586,8 @@ void HeuristicGatherScatter::apply(
   // If CMGatherScatterThreshold is not specified in the command line the
   // default value for heuristic is different in ZMM-enabled context.
   if (CMGatherScatterThreshold.getNumOccurrences() == 0 &&
-      CM->VPTTI.getRegisterBitWidth(
-          TargetTransformInfo::RGK_FixedWidthVector) >= 512)
+      CM->TTI.getRegisterBitWidth(
+        TargetTransformInfo::RGK_FixedWidthVector) >= 512)
     CGThreshold = CMGatherScatterDefaultThresholdZMM;
 
   // Increase GatherScatter cost contribution in case Gathers/Scatters take too
@@ -849,8 +846,8 @@ void HeuristicPsadbw::apply(
 
   VPInstructionCost PatternCost = 0;
 
-  // Scaled PSADBW cost in terms of number of intructions.
-  VPInstructionCost PsadbwCost{1 * VPlanTTIWrapper::Multiplier};
+  // PSADBW cost in terms of number of intructions.
+  VPInstructionCost PsadbwCost = 1;
 
   for (auto PatternInstructionsEl : PsadbwPatternInsts) {
     const VPInstruction* SumCarryOut = PatternInstructionsEl.first;
@@ -1017,14 +1014,9 @@ void HeuristicOVLSMember::apply(
   // OVLSTTICostModel::getInstructionCost() implementation fetches number of
   // elements using I->getType().
   //
-  VPlanVLSCostModel VLSCM(VF, CM->VPTTI.getTTI(),
-                          LoadStore->getType()->getContext());
+  VPlanVLSCostModel VLSCM(VF, CM->TTI, LoadStore->getType()->getContext());
   VPInstructionCost VLSGroupCost = VPInstructionCost{
     OptVLSInterface::getGroupCost(*Group, VLSCM)};
-
-  /// OptVLSInterface costs are not scaled up yet.
-  if (VLSGroupCost.isValid())
-    VLSGroupCost *= VPlanTTIWrapper::Multiplier;
 
   // If current load/store instruction is part of an optimized load/store group,
   // compare VLSGroupCost to TTI based cost for doing the interleaved access
@@ -1050,7 +1042,7 @@ void HeuristicOVLSMember::apply(
       Indices.push_back(i);
 
     // Calculate the cost of the whole interleaved group.
-    VPInstructionCost TTIInterleaveCost = CM->VPTTI.getInterleavedMemoryOpCost(
+    VPInstructionCost TTIInterleaveCost = CM->TTI.getInterleavedMemoryOpCost(
         LoadStore->getOpcode(), WideVecTy, InterleaveFactor, Indices,
         cast<VPLoadStoreInst>(LoadStore)->getAlignment(), AddrSpace,
         TTI::TCK_RecipThroughput, false /* UseMaskForCond */,

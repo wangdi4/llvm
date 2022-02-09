@@ -35,19 +35,19 @@ define dso_local i64 @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP_RED_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP4:%.*]] = hir-copy i64 [[VP0]] , OriginPhiId: -1
-; CMCHECK-NEXT:    Cost 12000 for i64 [[VP5:%.*]] = mul i64 2 i64 [[VP2]]
+; CMCHECK-NEXT:    Cost 12 for i64 [[VP5:%.*]] = mul i64 2 i64 [[VP2]]
 ; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[LP0:%.*]] i64 [[VP5]]
-; CMCHECK-NEXT:    Cost 12000 for i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]] *OVLS*(+6000) AdjCost: 18000
-; CMCHECK-NEXT:    Cost 12000 for i64 [[VP6:%.*]] = mul i64 2 i64 [[VP2]]
-; CMCHECK-NEXT:    Cost 2000 for i64 [[VP7:%.*]] = add i64 [[VP6]] i64 1
+; CMCHECK-NEXT:    Cost 12 for i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]] *OVLS*(+6) AdjCost: 18
+; CMCHECK-NEXT:    Cost 12 for i64 [[VP6:%.*]] = mul i64 2 i64 [[VP2]]
+; CMCHECK-NEXT:    Cost 2 for i64 [[VP7:%.*]] = add i64 [[VP6]] i64 1
 ; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[LP0]] i64 [[VP7]]
-; CMCHECK-NEXT:    Cost 12000 for i64 [[VP_LOAD_1:%.*]] = load i64* [[VP_SUBSCRIPT_1]] *OVLS*(-12000) AdjCost: 0
-; CMCHECK-NEXT:    Cost 2000 for i64 [[VP8:%.*]] = add i64 [[VP_LOAD]] i64 [[VP4]]
-; CMCHECK-NEXT:    Cost 2000 for i64 [[VP1]] = add i64 [[VP8]] i64 [[VP_LOAD_1]]
-; CMCHECK-NEXT:    Cost 2000 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
-; CMCHECK-NEXT:    Cost 8000 for i1 [[VP9:%.*]] = icmp slt i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CMCHECK-NEXT:    Cost 12 for i64 [[VP_LOAD_1:%.*]] = load i64* [[VP_SUBSCRIPT_1]] *OVLS*(-12) AdjCost: 0
+; CMCHECK-NEXT:    Cost 2 for i64 [[VP8:%.*]] = add i64 [[VP_LOAD]] i64 [[VP4]]
+; CMCHECK-NEXT:    Cost 2 for i64 [[VP1]] = add i64 [[VP8]] i64 [[VP_LOAD_1]]
+; CMCHECK-NEXT:    Cost 2 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
+; CMCHECK-NEXT:    Cost 8 for i1 [[VP9:%.*]] = icmp slt i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CMCHECK-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
-; CMCHECK-NEXT:  [[BB2]]: base cost: 58000
+; CMCHECK-NEXT:  [[BB2]]: base cost: 58
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i64 [[VP1]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
@@ -56,7 +56,7 @@ define dso_local i64 @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CMCHECK-NEXT:    Cost 0 for br <External Block>
 ; CMCHECK-NEXT:  [[BB4]]: base cost: 0
-; CMCHECK-NEXT:  Base Cost: 58000
+; CMCHECK-NEXT:  Base Cost: 58
 ;
 ; HIRCHECK:       Function: foo
 ; HIRCHECK-EMPTY:

@@ -22,11 +22,11 @@
 
 #include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanCostModelHeuristics.h"
-#include "IntelVPlanTTIWrapper.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "IntelVPlanVLSTransform.h"
 #include "llvm/Analysis/Intel_OptVLS.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Support/SaveAndRestore.h"
 
 namespace llvm {
@@ -88,7 +88,7 @@ public:
   const unsigned VF;
   const TargetLibraryInfo *const TLI;
   const DataLayout *const DL;
-  const VPlanTTIWrapper VPTTI;
+  const TargetTransformInfo &TTI;
   const VPlanVLSAnalysis *const VLSA;
 
   /// \Returns the alignment of the load/store \p LoadStore.
@@ -129,17 +129,17 @@ protected:
   VPlanPeelingVariant* DefaultPeelingVariant = nullptr;
 
   VPlanTTICostModel(const VPlanVector *Plan, const unsigned VF,
-                    const TargetTransformInfo *TTI,
+                    const TargetTransformInfo *TTIin,
                     const TargetLibraryInfo *TLI, const DataLayout *DL,
                     VPlanVLSAnalysis *VLSAin)
-    : Plan(Plan), VF(VF), TLI(TLI), DL(DL), VPTTI(*TTI, *DL), VLSA(VLSAin),
+    : Plan(Plan), VF(VF), TLI(TLI), DL(DL), TTI(*TTIin), VLSA(VLSAin),
       VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VF) {
 
     // CallVecDecisions analysis invocation.
     VPlanCallVecDecisions CallVecDecisions(*const_cast<VPlanVector *>(Plan));
 
     // Pass native TTI into CallVecDecisions analysis.
-    CallVecDecisions.runForVF(VF, TLI, &VPTTI.getTTI());
+    CallVecDecisions.runForVF(VF, TLI, &TTI);
 
     // Compute SVA results for current VPlan in order to compute cost
     // accurately in CM.
@@ -182,6 +182,17 @@ private:
 
   // Returns TTI Cost in VPInst arbitrary VF.
   VPInstructionCost getTTICostForVF(const VPInstruction *VPInst, unsigned VF);
+
+  // Determine cost adjustment for a memref with specific Alignment.
+  VPInstructionCost getNonMaskedMemOpCostAdj(
+    unsigned Opcode, Type *Src, Align Alignment) const;
+
+  // Estimate the cost of memory operation taking into account align/misalign
+  // probability.
+  VPInstructionCost getMemoryOpCost(
+    unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
+    TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
+    const Instruction *I = nullptr) const;
 };
 
 // Class HeuristicsList is designed to hold Heuristics objects. It is a

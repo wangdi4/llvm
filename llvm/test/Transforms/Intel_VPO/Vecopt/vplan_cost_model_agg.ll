@@ -6,8 +6,8 @@
 ; The test verifies that CM doesn't crush on given input and fixes the costs
 ; of load/store of aggregate data type data.
 
-; CHECK: Cost 8000 for %complex_64bit = type { float, float } %vp{{[0-9]+}} = load %complex_64bit* %vp{{[0-9]+}}
-; CHECK: Cost 8000 for store %complex_64bit = type { float, float } %vp{{[0-9]+}} %complex_64bit* %vp{{[0-9]+}}
+; CHECK: Cost 8 for %complex_64bit = type { float, float } %vp{{[0-9]+}} = load %complex_64bit* %vp{{[0-9]+}}
+; CHECK: Cost 8 for store %complex_64bit = type { float, float } %vp{{[0-9]+}} %complex_64bit* %vp{{[0-9]+}}
 
 %complex_64bit = type { float, float }
 
