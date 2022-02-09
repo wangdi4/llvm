@@ -1,4 +1,9 @@
 // INTEL_COLLAB
+//RUN: %clang_cc1 -O0 -verify -triple x86_64-unknown-linux-gnu -fopenmp \
+//RUN:  -fintel-compatibility -fopenmp-late-outline  -fopenmp-version=51 \
+//RUN:  -fopenmp-targets=spir64 -emit-llvm %s -o - \
+//RUN:  | FileCheck %s --check-prefix HOST
+
 //RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fopenmp-version=51 \
 //RUN:  -emit-llvm-bc -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
@@ -47,7 +52,13 @@ int main()
   PMFn pf = &C::foo;
   test_5(cp, pf);
 }
-//
+// HOST: define dso_local {{.*}}zoo{{.*}} #[[DECLARE_TARGET:[0-9]+]]
+// TARG: define hidden spir_func {{.*}}zoo{{.*}} #[[DECLARE_TARGET:[0-9]+]]
+// HOST: define linkonce_odr {{.*}}baz{{.*}} #[[DECLARE_TARGET]]
+// TARG: define linkonce_odr hidden spir_func {{.*}}baz{{.*}} #[[DECLARE_TARGET]]
+// HOST: define linkonce_odr {{.*}}foo{{.*}} #[[DECLARE_TARGET]]
+// TARG: define linkonce_odr {{.*}}foo{{.*}} #[[DECLARE_TARGET]]
+// HOST: attributes #[[DECLARE_TARGET]] = {{.*}} "openmp-target-declare"="true"
 // HOST: !omp_offload.info = !{!0, !1, !2, !3, !4}
 // TARG: !omp_offload.info = !{!0, !1, !2, !3, !4}
 // HOST: !1 = !{i32 2, !"_Z3bazIfET_Pv", i32 2, float (i8*)* @_Z3bazIfET_Pv}

@@ -6138,23 +6138,6 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
   if (!GV->isDeclaration())
     return;
 
-#if INTEL_COLLAB
-  if (LangOpts.OpenMPLateOutline && LangOpts.OpenMP >= 51 &&
-      OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(D)) {
-    bool IsIndirect = false;
-    if (llvm::Optional<OMPDeclareTargetDeclAttr *> ActiveAttr =
-            OMPDeclareTargetDeclAttr::getActiveAttr(D)) {
-      IsIndirect = (*ActiveAttr)->getIndirect();
-      if (!IsIndirect)
-        if (const Expr *IndirectE = (*ActiveAttr)->getIndirectExpr())
-          IndirectE->EvaluateAsBooleanCondition(IsIndirect, getContext());
-      const auto *MD = dyn_cast<CXXMethodDecl>(D);
-      if (IsIndirect || MD && MD->isVirtual())
-        getOpenMPRuntime().registerTargetIndirectFn(getMangledName(GD), GV);
-    }
-  }
-#endif // INTEL_COLLAB
-
   // We need to set linkage and visibility on the function before
   // generating code for it because various parts of IR generation
   // want to propagate this information down (e.g. to local static
@@ -6183,6 +6166,25 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
     AddGlobalDtor(Fn, DA->getPriority(), true);
   if (D->hasAttr<AnnotateAttr>())
     AddGlobalAnnotations(D, Fn);
+
+#if INTEL_COLLAB
+  if (LangOpts.OpenMPLateOutline && LangOpts.OpenMP >= 51 &&
+      OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(D)) {
+    bool IsIndirect = false;
+    if (llvm::Optional<OMPDeclareTargetDeclAttr *> ActiveAttr =
+            OMPDeclareTargetDeclAttr::getActiveAttr(D)) {
+      IsIndirect = (*ActiveAttr)->getIndirect();
+      if (!IsIndirect)
+        if (const Expr *IndirectE = (*ActiveAttr)->getIndirectExpr())
+          IndirectE->EvaluateAsBooleanCondition(IsIndirect, getContext());
+      const auto *MD = dyn_cast<CXXMethodDecl>(D);
+      if (IsIndirect || MD && MD->isVirtual()) {
+        getOpenMPRuntime().registerTargetIndirectFn(getMangledName(GD), GV);
+        Fn->addFnAttr("openmp-target-declare", "true");
+      }
+    }
+  }
+#endif // INTEL_COLLAB
 
 #if INTEL_CUSTOMIZATION
   // CQ#411303 Intel driver requires front-end to produce special file if
