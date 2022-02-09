@@ -2910,12 +2910,12 @@ static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
   // that leads to an "if condition".  Traverse through the predecessor list of
   // BB (where each predecessor corresponds to an entry in the PN) to look for
   // each if-condition.
-  SmallVector<BasicBlock *, 16> BBPreds(pred_begin(BB), pred_end(BB));
+  SmallVector<BasicBlock *, 16> BBPreds(pred_begin(MergeBB), pred_end(MergeBB));
   for (unsigned i = 0, e = BBPreds.size(); i != e; ++i) {
     BasicBlock *Pred = BBPreds[i];
 
     BasicBlock *IfTrue = nullptr, *IfFalse = nullptr;
-    BranchInst *DomBI = GetIfCondition(BB, Pred, IfTrue, IfFalse);
+    BranchInst *DomBI = GetIfCondition(MergeBB, Pred, IfTrue, IfFalse);
     if (!DomBI)
       continue;
     Value *IfCond = DomBI->getCondition();
@@ -2950,7 +2950,7 @@ static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
         BranchProbability BIFalseProb = BITrueProb.getCompl();
         if (IfBlocks.size() == 1) {
           BranchProbability BIBBProb =
-              DomBI->getSuccessor(0) == BB ? BITrueProb : BIFalseProb;
+              DomBI->getSuccessor(0) == MergeBB ? BITrueProb : BIFalseProb;
           if (BIBBProb >= Likely)
             return false;
         } else {
@@ -2962,7 +2962,7 @@ static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
     // Don't try to fold an unreachable block. For example, the phi node itself
     // can't be the candidate if-condition for a select that we want to form.
     if (auto *IfCondPhiInst = dyn_cast<PHINode>(IfCond))
-      if (IfCondPhiInst->getParent() == BB)
+      if (IfCondPhiInst->getParent() == MergeBB)
         continue;
 
     // Loop over the PHI's seeing if we can promote them all to select
@@ -2975,7 +2975,7 @@ static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
 
     bool CanBeSimplified = true;
     unsigned NumPhis = 0;
-    for (BasicBlock::iterator II = BB->begin(); isa<PHINode>(II);) {
+    for (BasicBlock::iterator II = MergeBB->begin(); isa<PHINode>(II);) {
       PHINode *PN = cast<PHINode>(II++);
       if (Value *V = SimplifyInstruction(PN, {DL, PN})) {
         PN->replaceAllUsesWith(V);
@@ -2988,9 +2988,9 @@ static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
       Value *FalseVal = PN->getIncomingValueForBlock(IfFalse);
 
       if (TrueVal != FalseVal) {
-        if (!CanDominateConditionalBranch(TrueVal, BB, AggressiveInsts,
+        if (!CanDominateConditionalBranch(TrueVal, MergeBB, AggressiveInsts,
                                           Cost, Budget, TTI) ||
-            !CanDominateConditionalBranch(FalseVal, BB, AggressiveInsts,
+            !CanDominateConditionalBranch(FalseVal, MergeBB, AggressiveInsts,
                                           Cost, Budget, TTI)) {
           CanBeSimplified = false;
           break;
@@ -3015,7 +3015,7 @@ static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
 
     // If we folded the first phi, PN dangles at this point.  Refresh it.  If
     // we ran out of PHIs then we simplified them all.
-    PN = dyn_cast<PHINode>(BB->begin());
+    PN = dyn_cast<PHINode>(MergeBB->begin());
     if (!PN) {
       return true;
     }
@@ -3089,7 +3089,7 @@ static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
     // Propagate fast-math-flags from phi nodes to replacement selects.
     IRBuilder<>::FastMathFlagGuard FMFGuard(Builder);
 
-    for (BasicBlock::iterator II = BB->begin(); isa<PHINode>(II);) {
+    for (BasicBlock::iterator II = MergeBB->begin(); isa<PHINode>(II);) {
       PHINode *PN = cast<PHINode>(II++);
       if (isa<FPMathOperator>(PN)) {
         // Putting the next statement between curly because compilation
@@ -3134,11 +3134,11 @@ static bool SpeculativelyExecuteThenElseCode(BranchInst *BI,
     // At this point, all IfBlocks are empty, so our if
     // statement has been flattened.  Change CondBlock to jump directly to BB
     // to avoid other simplifycfg's kicking in on the diamond.
-    Builder.CreateBr(BB);
+    Builder.CreateBr(MergeBB);
 
     SmallVector<DominatorTree::UpdateType, 3> Updates;
     if (DTU) {
-      Updates.push_back({DominatorTree::Insert, CondBlock, BB});
+      Updates.push_back({DominatorTree::Insert, CondBlock, MergeBB});
       for (auto *Successor : successors(CondBlock))
         Updates.push_back({DominatorTree::Delete, CondBlock, Successor});
     }
