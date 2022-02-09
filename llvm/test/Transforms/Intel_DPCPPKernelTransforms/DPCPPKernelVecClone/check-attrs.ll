@@ -21,7 +21,8 @@ entry:
 ; CHECK-SAME: !recommended_vector_length ![[NODE0:[0-9]+]] !vectorized_width ![[NODE1:[0-9]+]] !vectorized_kernel ![[NODE2:[0-9]+]]
 
 ; CHECK: @_ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_
-; CHECK-SAME: !recommended_vector_length ![[NODE0]] !vectorized_width ![[NODE0]] !scalar_kernel ![[NODE3:[0-9]+]]
+; CHECK-SAME: !recommended_vector_length ![[NODE0]] !vectorized_width ![[NODE0]]
+; CHECK-SAME: !scalar_kernel ![[NODE3:[0-9]+]]
 
 ; CHECK-DAG: ![[NODE0]] = !{i32 16}
 ; CHECK-DAG: ![[NODE1]] = !{i32 1}
