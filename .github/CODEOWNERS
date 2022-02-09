@@ -395,6 +395,12 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 /llvm/test/Transforms/Intel_VPO/Paropt @intel-restricted/cmplrllvm-llvm-paropt
 /llvm/test/Analysis/Intel_VPOAnalysis/WRegionInfo @intel-restricted/cmplrllvm-llvm-paropt
 
+# Code owners for binary opt-report
+/llvm/include/llvm/Analysis/Intel_OptReport/OptReportSupport.h @vzakhari @andykaylor @karthik-senthil
+/llvm/include/llvm/Analysis/Intel_OptReport/opt_report_proto.proto @vzakhari @andykaylor @karthik-senthil
+/llvm/lib/Analysis/Intel_OptReport/OptReportSupport.cpp @vzakhari @andykaylor @karthik-senthil
+/llvm/test/Analysis/Intel_OptReport/Binary @vzakhari @andykaylor @karthik-senthil
+
 # JIRA: CMPLRLIBS->LLVM Offload RT
 /openmp/libomptarget/ @intel-restricted/cmplrlibs-llvm-offload-rt
 
