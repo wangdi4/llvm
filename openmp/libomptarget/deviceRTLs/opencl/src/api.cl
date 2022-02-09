@@ -185,6 +185,11 @@ EXTERN int omp_pause_resource_all(omp_pause_resource_t kind) {
   return -1;
 }
 
+EXTERN double omp_get_wtime(void) {
+  KMP_UNSUPPORTED("omp_get_wtime()");
+  return 0.0;
+}
+
 #if !KMP_ASSUME_SIMPLE_SPMD_MODE
 // Initialize global barrier
 EXTERN void kmp_global_barrier_init(void) {
