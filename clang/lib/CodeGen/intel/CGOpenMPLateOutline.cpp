@@ -814,10 +814,18 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
   }
   if (UseTypedClauses)
     CSB.setTyped();
+  bool IsRef = false;
+  if (CurrentDirectiveKind == OMPD_task && K == ICK_specified_firstprivate) {
+    const VarDecl *VD = getExplicitVarDecl(E);
+    assert(VD && "expected VarDecl in implicit firstprivate");
+    IsRef = VD->getType()->isReferenceType();
+    if (IsRef)
+      CSB.setByRef();
+  }
   addArg(CSB.getString());
   bool NeedsTypedElements =
       K == ICK_normalized_iv || K == ICK_normalized_ub ? false : true;
-  addTypedArg(E, /*IsRef=*/false, NeedsTypedElements);
+  addTypedArg(E, IsRef, NeedsTypedElements);
 }
 
 void OpenMPLateOutliner::emitImplicit(const VarDecl *VD, ImplicitClauseKind K) {
