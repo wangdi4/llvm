@@ -95,6 +95,13 @@ public:
   ///   in clang that depend on specific version of the CUDA SDK.
   llvm::VersionTuple SDKVersion;
 
+  /// The name of the darwin target- ariant triple to compile for.
+  std::string DarwinTargetVariantTriple;
+
+  /// The version of the darwin target variant SDK which was used during the
+  /// compilation.
+  llvm::VersionTuple DarwinTargetVariantSDKVersion;
+
 #ifdef INTEL_CUSTOMIZATION
   /// If given, list of names of the target CPUs to multiversion code for
   std::vector<std::string> AutoMultiVersionTargets;
