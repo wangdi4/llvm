@@ -153,7 +153,6 @@ llvm::ModulePass *createPrintfArgumentsPromotionPass();
 llvm::ModulePass *createChannelsUsageAnalysisPass();
 llvm::ModulePass *createSYCLPipesHackPass();
 llvm::ModulePass *createAddTLSGlobalsPass();
-llvm::ModulePass *createCoerceTypesPass();
 llvm::ModulePass *createRemoveAtExitPass();
 llvm::FunctionPass *createAddNTAttrPass();
 llvm::Pass *createResolveVariableTIDCallPass();
@@ -916,7 +915,7 @@ OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
     Triple TargetTriple(m_M->getTargetTriple());
     if (!m_IsEyeQEmulator && TargetTriple.isArch64Bit()) {
       if (TargetTriple.isOSLinux())
-        m_PM.add(createCoerceTypesPass());
+        m_PM.add(createCoerceTypesLegacyPass());
       else if (TargetTriple.isOSWindows())
         m_PM.add(createCoerceWin64TypesLegacyPass());
     }
