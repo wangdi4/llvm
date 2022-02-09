@@ -11,10 +11,14 @@
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-immutable-types -disable-output 2>&1 | FileCheck %s --check-prefix=IMMUTABLE
 
 ; Check that field value collection occurs, and the results of likely values are
-; transferred to the DTrans immutable analysis results.
+; transferred to the DTrans immutable analysis results. This case collects
+; multiple values for the scalar field, and multiple values for the memory
+; referenced through the pointer field.
 
-; TODO: Extend checks to include indirect array values once the analysis
-; is performed by the DTrans safety analyzer.
+; Note: At this point, the "IA Value" (indirect array value) information will
+; always be marked as incomplete, as we are recognizing only a limited number of
+; ways the indirect arrays can be assigned. This analysis is only needed for
+; heuristics at this point.
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.MYSTRUCTARRAY
@@ -23,26 +27,34 @@
 ; CHECK: 0)
 ; CHECK: DTrans Type: i32
 ; CHECK: Multiple Value: [ 0, 1 ] <complete>
+; CHECK: Multiple IA Value: [  ] <incomplete>
 ; CHECK: 1)
 ; CHECK: DTrans Type: i32
 ; CHECK: Multiple Value: [ 0, 2 ] <complete>
+; CHECK: Multiple IA Value: [  ] <incomplete>
 ; CHECK: 2)
 ; CHECK: DTrans Type: i32*
 ; CHECK: Multiple Value: [ null ] <incomplete>
+; CHECK: Multiple IA Value: [ 1, 3 ] <incomplete>
 ; CHECK: 3)
 ; CHECK: DTrans Type: i32*
 ; CHECK: Multiple Value: [ null ] <incomplete>
+; CHECK: Multiple IA Value: [ 5, 7 ] <incomplete>
 ; CHECK: End LLVMType: %struct.MYSTRUCTARRAY
 
 ; IMMUTABLE: StructType: %struct.MYSTRUCTARRAY
 ; IMMUTABLE:   Field 0:
-; IMMUTABLE:     Likely Values: 0 1
+; IMMUTABLE:     Likely Values: 0 1{{ *}}
+; IMMUTABLE:     Likely Indirect Array Values:{{ *}}
 ; IMMUTABLE:   Field 1:
-; IMMUTABLE:     Likely Values: 0 2
+; IMMUTABLE:     Likely Values: 0 2{{ *}}
+; IMMUTABLE:     Likely Indirect Array Values:{{ *}}
 ; IMMUTABLE:   Field 2:
 ; IMMUTABLE:     Likely Values: null
+; IMMUTABLE:     Likely Indirect Array Values: 1 3{{ *}}
 ; IMMUTABLE:   Field 3:
 ; IMMUTABLE:     Likely Values: null
+; IMMUTABLE:     Likely Indirect Array Values: 5 7{{ *}}
 
 %struct.MYSTRUCTARRAY = type { i32, i32, i32*, i32* }
 

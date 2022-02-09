@@ -686,7 +686,7 @@ int targetDataBegin(ident_t *loc, DeviceTy &Device, int32_t arg_num,
         // Obtain offset from the base address of PointerTgtPtrBegin.
         Device.DataMapMtx.lock();
         auto PtrLookup =
-            Device.lookupMapping(Pointer_HstPtrBegin, sizeof(void *));
+            Device.lookupMapping(nullptr, Pointer_HstPtrBegin, sizeof(void *));
         Device.DataMapMtx.unlock();
         size_t PtrOffset = (size_t)((uint64_t)Pointer_HstPtrBegin -
             (uint64_t)PtrLookup.Entry->HstPtrBase);
@@ -818,9 +818,15 @@ int targetDataEnd(ident_t *loc, DeviceTy &Device, int32_t ArgNum,
     bool HasHoldModifier = ArgTypes[I] & OMP_TGT_MAPTYPE_OMPX_HOLD;
 
     // If PTR_AND_OBJ, HstPtrBegin is address of pointee
+#if INTEL_COLLAB
+    void *TgtPtrBegin = Device.getTgtPtrBegin(
+        HstPtrBegin, HstPtrBegin, DataSize, IsLast, UpdateRef, HasHoldModifier,
+        IsHostPtr, !IsImplicit, ForceDelete);
+#else // INTEL_COLLAB
     void *TgtPtrBegin = Device.getTgtPtrBegin(
         HstPtrBegin, DataSize, IsLast, UpdateRef, HasHoldModifier, IsHostPtr,
         !IsImplicit, ForceDelete);
+#endif // INTEL_COLLAB
     if (!TgtPtrBegin && (DataSize || HasPresentModifier)) {
       DP("Mapping does not exist (%s)\n",
          (HasPresentModifier ? "'present' map type modifier" : "ignored"));
@@ -980,9 +986,15 @@ static int targetDataContiguous(ident_t *loc, DeviceTy &Device, void *ArgsBase,
                                 int64_t ArgType, AsyncInfoTy &AsyncInfo) {
   TIMESCOPE_WITH_IDENT(loc);
   bool IsLast, IsHostPtr;
+#if INTEL_COLLAB
+  void *TgtPtrBegin = Device.getTgtPtrBegin(
+      HstPtrBegin, ArgsBase, ArgSize, IsLast, /*UpdateRefCount=*/false,
+      /*UseHoldRefCount=*/false, IsHostPtr, /*MustContain=*/true);
+#else // INTEL_COLLAB
   void *TgtPtrBegin = Device.getTgtPtrBegin(
       HstPtrBegin, ArgSize, IsLast, /*UpdateRefCount=*/false,
       /*UseHoldRefCount=*/false, IsHostPtr, /*MustContain=*/true);
+#endif // INTEL_COLLAB
   if (!TgtPtrBegin) {
     DP("hst data:" DPxMOD " not found, becomes a noop\n", DPxPTR(HstPtrBegin));
     if (ArgType & OMP_TGT_MAPTYPE_PRESENT) {
@@ -1512,9 +1524,15 @@ static int processDataBefore(ident_t *loc, int64_t DeviceId, void *HostPtr,
         uint64_t Delta = (uint64_t)HstPtrBegin - (uint64_t)HstPtrBase;
         void *TgtPtrBegin = (void *)((uintptr_t)TgtPtrBase + Delta);
         void *&PointerTgtPtrBegin = AsyncInfo.getVoidPtrLocation();
+#if INTEL_COLLAB
+        PointerTgtPtrBegin = Device.getTgtPtrBegin(
+            HstPtrVal, HstPtrBegin, ArgSizes[I], IsLast,
+            /*UpdateRefCount=*/false, /*UseHoldRefCount=*/false, IsHostPtr);
+#else // INTEL_COLLAB
         PointerTgtPtrBegin = Device.getTgtPtrBegin(
             HstPtrVal, ArgSizes[I], IsLast, /*UpdateRefCount=*/false,
             /*UseHoldRefCount=*/false, IsHostPtr);
+#endif // INTEL_COLLAB
         if (!PointerTgtPtrBegin) {
           DP("No lambda captured variable mapped (" DPxMOD ") - ignored\n",
              DPxPTR(HstPtrVal));
@@ -1614,10 +1632,13 @@ static int processDataBefore(ident_t *loc, int64_t DeviceId, void *HostPtr,
     } else {
 #if INTEL_COLLAB
       if (ArgTypes[I] & OMP_TGT_MAPTYPE_PTR_AND_OBJ) {
-        TgtPtrBegin = Device.getTgtPtrBegin(HstPtrBase, sizeof(void *), IsLast, false, false, IsHostPtr);
+        TgtPtrBegin = Device.getTgtPtrBegin(HstPtrBase, HstPtrBase,
+                                            sizeof(void *), IsLast, false,
+                                            false, IsHostPtr);
         TgtBaseOffset = 0;
       } else {
-        TgtPtrBegin = Device.getTgtPtrBegin(HstPtrBegin, ArgSizes[I], IsLast,
+        TgtPtrBegin = Device.getTgtPtrBegin(HstPtrBegin, HstPtrBase,
+                                            ArgSizes[I], IsLast,
                                             /*UpdateRefCount=*/false,
                                             /*UseHoldRefCount=*/false, IsHostPtr);
         TgtBaseOffset =(intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;

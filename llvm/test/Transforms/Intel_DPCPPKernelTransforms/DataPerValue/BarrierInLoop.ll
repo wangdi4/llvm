@@ -37,4 +37,6 @@ declare void @_Z18work_group_barrierj(i32)
 ; CHECK-NEXT: *
 ; CHECK-EMPTY:
 ; CHECK-NEXT: Group-B.2 Values
+; CHECK-NEXT: Function Equivalence Classes:
+; CHECK-NEXT: [test]: test
 ; CHECK-NEXT: Buffer Total Size:

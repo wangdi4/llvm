@@ -117,12 +117,12 @@ entry:
 ; CHECK-NOT: -
 ; CHECK-NOT: *
 
-; CHECK: Buffer Total Size:
-; CHECK-NEXT: +calc : [2]
-; CHECK-NEXT: +inclusive : [2]
-; CHECK-NEXT: +test : [2]
-; CHECK-NEXT: entry(2) : (32)
-; CHECK: DONE
+; CHECK: Function Equivalence Classes:
+; CHECK-NEXT: [test]: test inclusive calc
+
+; CHECK-NEXT: Buffer Total Size:
+; CHECK-NEXT: leader(test) : (32)
+; CHECK-NEXT: DONE
 
 declare void @dummy_barrier.()
 

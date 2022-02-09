@@ -105,13 +105,16 @@ L0:
 ; CHECK-NOT: -
 ; CHECK-NOT: *
 
-; CHECK: Buffer Total Size:
-; CHECK-NOT: entry
-; CHECK: entry(0) :
-; CHECK: entry(1) : (16)
-; CHECK: entry(2) :
-; CHECK-NOT: entry
-; CHECK: DONE
+; CHECK: Function Equivalence Classes:
+; CHECK-DAG: [main]: main
+; CHECK-DAG: [foo]: foo
+; CHECK-DAG: [bar]: bar
+
+; CHECK-NEXT: Buffer Total Size:
+; CHECK-DAG: leader(main) : (96)
+; CHECK-DAG: leader(foo) : (16)
+; CHECK-DAG: leader(bar) : (0)
+; CHECK-NEXT: DONE
 
 declare void @_Z18work_group_barrierj(i32)
 declare void @dummy_barrier.()

@@ -101,9 +101,13 @@ L2:
 ; CHECK-NOT: +
 ; CHECK-NOT: -
 ; CHECK-NOT: *
-; CHECK: Buffer Total Size:
-; CHECK: entry(1) : (32)
-; CHECK: DONE
+
+; CHECK: Function Equivalence Classes:
+; CHECK-NEXT: [main]: main foo
+
+; CHECK-NEXT: Buffer Total Size:
+; CHECK-NEXT: leader(main) : (32)
+; CHECK-NEXT: DONE
 
 declare void @_Z18work_group_barrierj(i32)
 declare i64 @_Z12get_local_idj(i32)

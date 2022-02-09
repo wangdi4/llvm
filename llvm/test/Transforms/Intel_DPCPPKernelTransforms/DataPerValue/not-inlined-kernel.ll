@@ -40,13 +40,14 @@ attributes #0 = { convergent nounwind }
 ; CHECK-LABEL: Group-A Values
 ; CHECK-LABEL: Group-B.1 Values
 ; CHECK-LABEL: Group-B.2 Values
-; CHECK-LABEL: Buffer Total Size:
-; CHECK-NEXT: +foo : [0]
-; CHECK-NEXT: +bar : [2]
-; CHECK-NEXT: +kernel : [2]
-; CHECK-NEXT: entry(0) : (0)
-; CHECK-NEXT: entry(2) : (0)
-; CHECK-LABEL: DONE
+; CHECK-LABEL: Function Equivalence Classes:
+; CHECK-DAG: [foo]: foo
+; CHECK-DAG: [kernel]: kernel bar
+
+; CHECK-NEXT: Buffer Total Size:
+; CHECK-DAG: leader(foo) : (0)
+; CHECK-DAG: leader(kernel) : (0)
+; CHECK-NEXT: DONE
 
 !sycl.kernels = !{!0}
 !0 = !{void ()* @kernel}

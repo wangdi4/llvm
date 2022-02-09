@@ -2154,6 +2154,7 @@ public:
                             &Descended);
       dtrans::FieldInfo &FI = ReadStInfo->getField(ReadFieldNum);
       FI.setRead(I);
+      analyzeIndirectArrays(&FI, &I);
       DTBCA.analyzeLoad(FI, I);
       updateFieldFrequency(FI, I);
       DTInfo.addLoadMapping(&I, { ReadStInfo->getLLVMType(), ReadFieldNum });
@@ -2249,6 +2250,7 @@ public:
                           &Descended);
     dtrans::FieldInfo &FI = WrittenStInfo->getField(WrittenFieldNum);
     SetFieldInfo(I, *WrittenStInfo, FI, WrittenFieldNum, WriteVal);
+    analyzeIndirectArrays(&FI, dyn_cast<Instruction>(I.getValueOperand()));
     DTBCA.analyzeStore(FI, I);
     if (Descended || ForElementZeroAccess)
       FI.setNonGEPAccess();
@@ -2300,6 +2302,39 @@ public:
         printValue(dbgs(), Consumer);
         dbgs() << "\n";
       });
+  }
+
+  // Analyze fields which are pointers to allocated arrays. Here, 'I' is
+  // an instruction which either loads or stores the field which points
+  // to the allocated array, and 'FI' is the field info that will store
+  // the result. Because the means for storing into the allocated array
+  // fields are not exhaustively analyzed, for now, we always mark such
+  // field values as 'incomplete'.
+  void analyzeIndirectArrays(dtrans::FieldInfo *FI, Instruction *I) {
+    if (!I)
+      return;
+    for (User *U : I->users()) {
+      // TODO:  Once opaque pointers are in use, the checking of BitCast
+      // instructions can be removed. For now, this is included for
+      // compatibility with the legacy analysis.
+      auto BCI = dyn_cast<BitCastInst>(U);
+      if (BCI) {
+        analyzeIndirectArrays(FI, BCI);
+        continue;
+      }
+
+      auto GEPI = dyn_cast<GetElementPtrInst>(U);
+      if (!GEPI || GEPI->getPointerOperand() != I || GEPI->getNumIndices() != 1)
+        continue;
+      for (User *V : GEPI->users()) {
+        auto SI = dyn_cast<StoreInst>(V);
+        if (!SI)
+          continue;
+        auto CI = dyn_cast<Constant>(SI->getValueOperand());
+        if (CI)
+          FI->processNewSingleIAValue(CI);
+      }
+    }
   }
 
   void updateFieldFrequency(dtrans::FieldInfo &FI, Instruction &I) {

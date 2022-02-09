@@ -134,4 +134,24 @@ void foo4() {
   bar(xp, yp, za[0][0]);
 }
 
+
+void DoTask(int a, int b);
+void foo5(int x, int y)
+{
+// CHECK: DIR.OMP.PARALLEL
+// CHECK-SAME "QUAL.OMP.PRIVATE"(i32** %a)
+// CHECK-SAME "QUAL.OMP.PRIVATE"(i32** %aa)
+#pragma omp parallel
+  {
+   int &a = x;
+   int &aa = y;
+// CHECK: DIR.OMP.TASK
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:BYREF"(i32** %a)
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:BYREF"(i32** %aa)
+#pragma omp task
+   DoTask(a, aa);
+  }
+// CHECK: DIR.OMP.END.TASK
+// CHECK: DIR.OMP.END.PARALLEL
+}
 // end INTEL_COLLAB

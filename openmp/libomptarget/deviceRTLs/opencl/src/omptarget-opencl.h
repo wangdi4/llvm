@@ -822,6 +822,8 @@ EXTERN int omp_is_initial_device(void);
 
 EXTERN int omp_get_initial_device(void);
 
+EXTERN double omp_get_wtime(void);
+
 EXTERN void kmp_global_barrier_init(void);
 
 EXTERN void kmp_global_barrier(void);

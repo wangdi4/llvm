@@ -16,7 +16,7 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 
 define void @enqueue_kernel_localmem(%opencl.queue_t* %q, %struct.ndrange_t* %nd, %opencl.clk_event_t* addrspace(4)* %event1, %opencl.clk_event_t* addrspace(4)* %event2) nounwind {
 
-; CHECK:     call i32 @ocl20_enqueue_kernel_localmem
+; CHECK:     call i32 @__ocl20_enqueue_kernel_localmem
 ; CHECK-NOT: call i32 @__enqueue_kernel_vaargs
 
   %localsize = alloca [1 x i64]
@@ -24,15 +24,15 @@ define void @enqueue_kernel_localmem(%opencl.queue_t* %q, %struct.ndrange_t* %nd
   store i64 256, i64* %gep, align 8
   %call1 = call i32 @__enqueue_kernel_vaargs(%opencl.queue_t* %q, i32 0, %struct.ndrange_t* %nd, i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8 addrspace(4)*, i8 addrspace(3)*)* @__device_side_enqueue_block_invoke_kernel to i8*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast ({ i32, i32 } addrspace(1)* @__block_literal_global to i8 addrspace(1)*) to i8 addrspace(4)*), i32 1, i64* %gep)
 
-; CHECK:     call i32 @ocl20_enqueue_kernel_events_localmem
+; CHECK:     call i32 @__ocl20_enqueue_kernel_events_localmem
 ; CHECK-NOT: call i32 @__enqueue_kernel_events_vaargs
 
   %call2 = call i32 @__enqueue_kernel_events_vaargs(%opencl.queue_t* %q, i32 0, %struct.ndrange_t* %nd, i32 2, %opencl.clk_event_t* addrspace(4)* %event1, %opencl.clk_event_t* addrspace(4)* %event2, i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8 addrspace(4)*, i8 addrspace(3)*)* @__device_side_enqueue_block_invoke_kernel to i8*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast ({ i32, i32 } addrspace(1)* @__block_literal_global to i8 addrspace(1)*) to i8 addrspace(4)*), i32 1, i64* %gep)
   ret void
 }
 
-; CHECK: declare i32 @ocl20_enqueue_kernel_localmem
-; CHECK: declare i32 @ocl20_enqueue_kernel_events_localmem
+; CHECK: declare i32 @__ocl20_enqueue_kernel_localmem
+; CHECK: declare i32 @__ocl20_enqueue_kernel_events_localmem
 
 declare i32 @__enqueue_kernel_events_vaargs(%opencl.queue_t*, i32, %struct.ndrange_t*, i32, %opencl.clk_event_t* addrspace(4)*, %opencl.clk_event_t* addrspace(4)*, i8 addrspace(4)*, i8 addrspace(4)*, i32, i64*)
 

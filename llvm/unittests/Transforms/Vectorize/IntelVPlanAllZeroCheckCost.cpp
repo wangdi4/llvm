@@ -115,7 +115,7 @@ entry:
       // VPLoops. Cast down to VPlanCostModelBase to get cost at TTI level.
       VPInstructionCost AllZeroCheckCost =
           static_cast<VPlanCostModelBase*>(CM.get())->getTTICost(AllZeroCheck);
-      EXPECT_EQ(AllZeroCheckCost, (unsigned)2000);
+      EXPECT_EQ(AllZeroCheckCost, 2);
     }
   }
 }

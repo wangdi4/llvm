@@ -193,7 +193,7 @@ Function *ResolveWICallPass::runOnFunction(Function *F) {
     case ICT_PRINTF:
       if (!ExtExecDecls.count(ICT_PRINTF))
         addExternFunctionDeclaration(
-            CalledFuncType, getOrCreatePrintfFuncType(), "opencl_printf");
+            CalledFuncType, getOrCreatePrintfFuncType(), "__opencl_printf");
       NewRes = updatePrintf(Builder, CI);
       assert(NewRes && "Expected updatePrintf to succeed");
       break;
@@ -203,8 +203,8 @@ Function *ResolveWICallPass::runOnFunction(Function *F) {
       // separately, since they are not variadics anymore. Move their
       // implementation to built-in library
       std::string CallbackName = CalledFuncType == ICT_ENQUEUE_KERNEL_LOCALMEM
-                                     ? "ocl20_enqueue_kernel_localmem"
-                                     : "ocl20_enqueue_kernel_events_localmem";
+                                     ? "__ocl20_enqueue_kernel_localmem"
+                                     : "__ocl20_enqueue_kernel_events_localmem";
       if (!ExtExecDecls.count(CalledFuncType)) {
         FunctionType *FT = getOrCreateEnqueueKernelFuncType(CalledFuncType);
         addExternFunctionDeclaration(CalledFuncType, FT, CallbackName);
@@ -370,7 +370,7 @@ Value *ResolveWICallPass::updateGetFunctionInBound(CallInst *CI,
 // This function creates printf argument buffer and stores argument size/value
 // into the buffer.
 //
-// Memory layout of argument buffer that is passed to opencl_printf builtin:
+// Memory layout of argument buffer that is passed to __opencl_printf builtin:
 // =================================================================
 // | Byte count | Name       | Introduction                        |
 // =================================================================
@@ -416,7 +416,7 @@ Value *ResolveWICallPass::updateGetFunctionInBound(CallInst *CI,
 //   ===================================
 // * For vector argument, its element size is store in 'Size'.
 //   'DummyB' ensures that 'ArgValue' is aligned to its element size.
-//   opencl_printf builtin uses format field to identify number of elements.
+//   __opencl_printf builtin uses format field to identify number of elements.
 Value *ResolveWICallPass::updatePrintf(IRBuilder<> &Builder, CallInst *CI) {
   assert(RuntimeHandle && "Context pointer RuntimeHandle created as expected");
   const DataLayout &DL = M->getDataLayout();
@@ -435,7 +435,7 @@ Value *ResolveWICallPass::updatePrintf(IRBuilder<> &Builder, CallInst *CI) {
   SmallVector<unsigned, 16> ArgEltSizes;
   SmallVector<unsigned, 16> Sizes;
   // The first 4 bytes stores total size which is used for out-of-bound check
-  // in opencl_printf builtin implementation.
+  // in __opencl_printf builtin implementation.
   unsigned TotalArgSize = I32TySize;
   auto AlignSizeTo = [](unsigned Size, unsigned Align) {
     return (Size + Align - 1) & ~(Align - 1);
@@ -474,7 +474,7 @@ Value *ResolveWICallPass::updatePrintf(IRBuilder<> &Builder, CallInst *CI) {
   // only TotalArgSize (equals I32TySize) will be stored to the buffer.
   auto *BufArrType = ArrayType::get(IntegerType::getInt8Ty(*Ctx), TotalArgSize);
   // Alloca buffer to store size and arguments. This buffer will be parsed by
-  // opencl_printf builtin.
+  // __opencl_printf builtin.
   auto *BufAI =
       new AllocaInst(BufArrType, DL.getAllocaAddrSpace(), "temp_arg_buf",
                      &*CI->getFunction()->getEntryBlock().begin());
@@ -499,7 +499,8 @@ Value *ResolveWICallPass::updatePrintf(IRBuilder<> &Builder, CallInst *CI) {
   };
 
   // Store total size.
-  // Get a pointer to the buffer, in order to pass it to opencl_printf function.
+  // Get a pointer to the buffer, in order to pass it to __opencl_printf
+  // function.
   auto *PtrToBuf =
       CreateGEPCastStore(BufPointerOffset, I32PtrTy, "arg_buf_size",
                          ConstantInt::get(I32Ty, TotalArgSize));
@@ -528,8 +529,8 @@ Value *ResolveWICallPass::updatePrintf(IRBuilder<> &Builder, CallInst *CI) {
     BufPointerOffset = ArgValueOffset + DL.getTypeAllocSize(ArgTy);
   }
 
-  // Finally create the call to opencl_printf.
-  Function *F = M->getFunction("opencl_printf");
+  // Finally create the call to __opencl_printf.
+  Function *F = M->getFunction("__opencl_printf");
   assert(F && "Expect builtin printf to be declared before use");
 
   SmallVector<Value *, 4> Params;
@@ -565,14 +566,14 @@ void ResolveWICallPass::updatePrefetch(CallInst *CI) {
   unsigned int Size = M->getDataLayout().getPrefTypeAlignment(PT);
 
   Params.push_back(ConstantInt::get(IntegerType::get(*Ctx, SizeT), Size));
-  Function *Prefetch = M->getFunction("lprefetch");
-  assert(Prefetch && "Missing 'lprefetch' function");
+  Function *Prefetch = M->getFunction("__lprefetch");
+  assert(Prefetch && "Missing '__lprefetch' function");
   CallInst::Create(Prefetch, ArrayRef<Value *>(Params), "", CI);
 }
 
 FunctionType *ResolveWICallPass::getOrCreatePrintfFuncType() {
-  // The prototype of opencl_printf is:
-  // int opencl_printf(__constant char *format, char *args, void *Callback,
+  // The prototype of __opencl_printf is:
+  // int __opencl_printf(__constant char *format, char *args, void *Callback,
   // void *RuntimeHandle)
   std::vector<Type *> Params;
   // The 'format' string is in constant address space (address space 2).
@@ -602,7 +603,7 @@ void ResolveWICallPass::addPrefetchDeclaration() {
   Params.push_back(IntegerType::get(*Ctx, SizeT));
   FunctionType *NewType =
       FunctionType::get(Type::getVoidTy(*Ctx), Params, false);
-  Function::Create(NewType, Function::ExternalLinkage, "lprefetch", M);
+  Function::Create(NewType, Function::ExternalLinkage, "__lprefetch", M);
 
   PrefetchDecl = true;
 }
@@ -778,8 +779,8 @@ Value *ResolveWICallPass::getOrCreateRuntimeInterface() {
   return RuntimeInterface;
 }
 
-// The prototype of ocl20_enqueue_kernel_events is:
-// int ocl20_enqueue_kernel_events_localmem(
+// The prototype of __ocl20_enqueue_kernel_events is:
+// int __ocl20_enqueue_kernel_events_localmem(
 //    queue_t*, int /*kernel_enqueue_flags_t*/,
 //    ndrange_t,
 //    uint num_events_in_wait_list,

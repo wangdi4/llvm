@@ -599,4 +599,13 @@ public:
 };
 } // namespace llvm
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+// Return 'true' if inlining deferral should be performed even when the
+// community default is 'false'.
+
+extern bool intelEnableInlineDeferral(void);
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
+
 #endif

@@ -107,7 +107,12 @@ EXTERN int omp_target_is_present(const void *ptr, int device_num) {
   DeviceTy &Device = *PM->Devices[device_num];
   bool IsLast; // not used
   bool IsHostPtr;
+#if INTEL_COLLAB
+  void *TgtPtr = Device.getTgtPtrBegin(const_cast<void *>(ptr),
+                                       const_cast<void *>(ptr), 0, IsLast,
+#else // INTEL_COLLAB
   void *TgtPtr = Device.getTgtPtrBegin(const_cast<void *>(ptr), 0, IsLast,
+#endif // INTEL_COLLAB
                                        /*UpdateRefCount=*/false,
                                        /*UseHoldRefCount=*/false, IsHostPtr);
   int rc = (TgtPtr != NULL);
@@ -340,7 +345,8 @@ EXTERN void * omp_get_mapped_ptr(void *host_ptr, int device_num) {
 
   DeviceTy& Device = *PM->Devices[device_num];
   bool IsLast, IsHostPtr;
-  void * rc = Device.getTgtPtrBegin(host_ptr, 1, IsLast, false, false, IsHostPtr);
+  void * rc = Device.getTgtPtrBegin(host_ptr, host_ptr, 1, IsLast, false, false,
+                                    IsHostPtr);
   if (rc == NULL)
      DP("omp_get_mapped_ptr : cannot find device pointer\n");
   DP("omp_get_mapped_ptr returns " DPxMOD "\n", DPxPTR(rc));

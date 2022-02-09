@@ -150,7 +150,13 @@ llvm::InlineCost static getDefaultInlineAdvice(
   };
   return llvm::shouldInline(
       CB, GetInlineCost, ORE,
-      Params.EnableDeferral.getValueOr(EnableInlineDeferral));
+#if INTEL_CUSTOMIZATION
+      Params.EnableDeferral.getValueOr(EnableInlineDeferral)
+#if INTEL_FEATURE_SW_ADVANCED
+          || intelEnableInlineDeferral()
+#endif // INTEL_FEATURE_SW_ADVANCED
+      );
+#endif // INTEL_CUSTOMIZATION
 }
 
 #if INTEL_CUSTOMIZATION

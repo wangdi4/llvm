@@ -16,7 +16,6 @@
 
 #include "IntelVPlanAllZeroBypass.h"
 #include "IntelVPlanCostModel.h"
-#include "IntelVPlanTTIWrapper.h"
 #include "IntelVPlanUtils.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -30,7 +29,7 @@ using namespace llvm;
 // insert the bypass.
 static cl::opt<unsigned> RegionThreshold(
     "vplan-all-zero-bypass-region-threshold",
-    cl::init(30 * VPlanTTIWrapper::Multiplier), cl::Hidden,
+    cl::init(30), cl::Hidden,
     cl::desc("Tune bypass insertion based on cost of instructions in region"));
 
 namespace llvm {
