@@ -102,6 +102,7 @@ public:
 
 #if INTEL_CUSTOMIZATION
   bool PrepareForLTO; // We are in the compile step of an LTO compilation
+  bool LinkForLTO; // We are in the link step of an LTO compilation
   /// We are after SLP pass.
   bool AfterSLPVectorizer;
 #endif // INTEL_CUSTOMIZATION
