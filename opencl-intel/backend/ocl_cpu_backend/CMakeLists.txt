@@ -221,7 +221,6 @@ set( BACKEND_PASSES
     ChannelsUsageAnalysis
     PipeIOTransformation
     CleanupWrappedKernels
-    CoerceTypes
     RemoveAtExit
     PipeOrdering
     PipeSupport
