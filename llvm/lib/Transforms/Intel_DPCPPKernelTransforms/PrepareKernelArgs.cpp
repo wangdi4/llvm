@@ -480,12 +480,12 @@ void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
       continue;
 
     StringRef EEFName = EEF.getName();
-    if (!(EEFName.startswith("ocl20_enqueue_kernel_") ||
-          EEFName.equals("ocl20_get_kernel_wg_size") ||
-          EEFName.equals("ocl20_get_kernel_preferred_wg_size_multiple")))
+    if (!(EEFName.startswith("__ocl20_enqueue_kernel_") ||
+          EEFName.equals("__ocl20_get_kernel_wg_size") ||
+          EEFName.equals("__ocl20_get_kernel_preferred_wg_size_multiple")))
       continue;
 
-    unsigned BlockInvokeIdx = (EEFName.startswith("ocl20_enqueue_kernel_"))
+    unsigned BlockInvokeIdx = (EEFName.startswith("__ocl20_enqueue_kernel_"))
                                   ? (EEFName.contains("_events") ? 6 : 3)
                                   : 0;
 

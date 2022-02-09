@@ -965,7 +965,9 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
 }
 
 static IntrinsicInst *findRegionEntryIntrinsic(BasicBlock *BB) {
-  for (auto &Inst : *BB) {
+
+  // Walk backwards to find the last entry intrinsic in the block.
+  for (auto &Inst : make_range(BB->rbegin(), BB->rend())) {
     auto *Intrin = dyn_cast<IntrinsicInst>(&Inst);
 
     if (!Intrin) {
