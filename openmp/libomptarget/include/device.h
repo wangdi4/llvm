@@ -245,11 +245,18 @@ struct LookupResult {
     unsigned IsContained : 1;
     unsigned ExtendsBefore : 1;
     unsigned ExtendsAfter : 1;
+#if INTEL_COLLAB
+    unsigned OnlyBaseFound : 1;
+#endif // INTEL_COLLAB
   } Flags;
 
   HostDataToTargetListTy::iterator Entry;
 
+#if INTEL_COLLAB
+  LookupResult() : Flags({0, 0, 0, 0}), Entry() {}
+#else // INTEL_COLLAB
   LookupResult() : Flags({0, 0, 0}), Entry() {}
+#endif // INTEL_COLLAB
 };
 
 /// This struct will be returned by \p DeviceTy::getTargetPointer which provides
@@ -327,7 +334,11 @@ struct DeviceTy {
   // Return true if data can be copied to DstDevice directly
   bool isDataExchangable(const DeviceTy &DstDevice);
 
+#if INTEL_COLLAB
+  LookupResult lookupMapping(void *HstPtrBase, void *HstPtrBegin, int64_t Size);
+#else // INTEL_COLLAB
   LookupResult lookupMapping(void *HstPtrBegin, int64_t Size);
+#endif // INTEL_COLLAB
   /// Get the target pointer based on host pointer begin and base. If the
   /// mapping already exists, the target pointer will be returned directly. In
   /// addition, if required, the memory region pointed by \p HstPtrBegin of size
@@ -345,11 +356,23 @@ struct DeviceTy {
                    bool HasCloseModifier, bool HasPresentModifier,
                    bool HasHoldModifier, AsyncInfoTy &AsyncInfo);
   void *getTgtPtrBegin(void *HstPtrBegin, int64_t Size);
+<<<<<<< HEAD
   TargetPointerResultTy getTgtPtrBegin(void *HstPtrBegin, int64_t Size,
                                        bool &IsLast, bool UpdateRefCount,
                                        bool UseHoldRefCount, bool &IsHostPtr,
                                        bool MustContain = false,
                                        bool ForceDelete = false);
+=======
+#if INTEL_COLLAB
+  void *getTgtPtrBegin(void *HstPtrBegin, void *HstPtrBase, int64_t Size,
+                       bool &IsLast,
+#else // INTEL_COLLAB
+  void *getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
+#endif // INTEL_COLLAB
+                       bool UpdateRefCount, bool UseHoldRefCount,
+                       bool &IsHostPtr, bool MustContain = false,
+                       bool ForceDelete = false);
+>>>>>>> 196c4d780b805d541dd7aa3c04f9437ff36d8292
   /// For the map entry for \p HstPtrBegin, decrement the reference count
   /// specified by \p HasHoldModifier and, if the the total reference count is
   /// then zero, deallocate the corresponding device storage and remove the map
