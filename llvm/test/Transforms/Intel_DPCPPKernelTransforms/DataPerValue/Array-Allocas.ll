@@ -31,11 +31,12 @@ L0:
 ; CHECK: -p (0)
 ; CHECK: -p1 (16)
 
-; CHECK: Buffer Total Size:
-; CHECK-NOT: entry
-; CHECK: entry(0) : (24)
-; CHECK-NOT: entry
-; CHECK: DONE
+; CHECK: Function Equivalence Classes:
+; CHECK-NEXT: [main]: main
+
+; CHECK-NEXT: Buffer Total Size:
+; CHECK-NEXT: leader(main) : (24)
+; CHECK-NEXT: DONE
 
 !sycl.kernels = !{!0}
 

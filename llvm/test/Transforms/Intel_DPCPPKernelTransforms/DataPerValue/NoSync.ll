@@ -35,10 +35,12 @@ define void @main(i32 %x) nounwind {
 ; CHECK-NOT: -
 ; CHECK-NOT: *
 
-; CHECK: Buffer Total Size:
-; CHECK: +main : [0]
-; CHECK: entry(0) : (0)
-; CHECK: DONE
+; CHECK: Function Equivalence Classes:
+; CHECK-NEXT: [main]: main
+
+; CHECK-NEXT: Buffer Total Size:
+; CHECK-NEXT: leader(main) : (0)
+; CHECK-NEXT: DONE
 
 !sycl.kernels = !{!0}
 

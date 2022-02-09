@@ -29,6 +29,26 @@
 
 using namespace loopopt;
 
+static const constexpr unsigned DefaultCacheLineSize = 64;
+
+// TODO: TTI should return proper data.
+static cl::opt<unsigned>
+    CMCacheLineSize("vplan-cm-cache-line-size", cl::init(DefaultCacheLineSize),
+                    cl::Hidden,
+                    cl::desc("Defines size of a cache line (in bytes)"));
+
+// Cost of the store should be 1.5x greater than the cost of a load.
+// Store has two stages: allocate/read cache line(s) and place data to it. The
+// load reads data from cache line(s). Moving the data to the cache buffer is
+// more expensive than moving it from the buffer.
+static cl::opt<vpo::VPInstructionCost> CMStoreCostAdjustment(
+    "vplan-cm-store-cost-adjustment", cl::init(1), cl::Hidden,
+    cl::desc("Store cost adjustment on top of TTI value"));
+
+static cl::opt<vpo::VPInstructionCost> CMLoadCostAdjustment(
+    "vplan-cm-load-cost-adjustment", cl::init(.5f), cl::Hidden,
+    cl::desc("Load cost adjustment on top of TTI value"));
+
 /// A helper function that returns the alignment of load or store instruction.
 static unsigned getMemInstAlignment(const Value *I) {
   assert((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
@@ -158,9 +178,9 @@ unsigned VPlanTTICostModel::getLoadStoreIndexSize(
   while ((VPInst = dyn_cast<VPInstruction>(Ptr)) &&
          (VPInst->getOpcode() == Instruction::BitCast ||
           VPInst->getOpcode() == Instruction::AddrSpaceCast) &&
-         VPTTI.getCastInstrCost(VPInst->getOpcode(), VPInst->getType(),
-                                VPInst->getOperand(0)->getType(),
-                                TTI::CastContextHint::None) == 0)
+         TTI.getCastInstrCost(VPInst->getOpcode(), VPInst->getType(),
+                              VPInst->getOperand(0)->getType(),
+                              TTI::CastContextHint::None) == 0)
     Ptr = VPInst->getOperand(0);
 
   const VPInstruction *VPAddrInst = dyn_cast<VPGEPInstruction>(Ptr);
@@ -262,7 +282,7 @@ VPInstructionCost VPlanTTICostModel::getArithmeticInstructionCost(
   if (Op2)
     SetOperandValueFeatures(Op2, Op2VK, Op2VP);
 
-  return VPTTI.getArithmeticInstrCost(Opcode, VecTy,
+  return TTI.getArithmeticInstrCost(Opcode, VecTy,
     TargetTransformInfo::TCK_RecipThroughput, Op1VK, Op2VK, Op1VP, Op2VP);
 }
 
@@ -323,19 +343,19 @@ VPInstructionCost VPlanTTICostModel::getLoadStoreCost(
     if (NegativeStride) {
       assert(VF > 1 && Scale == 1 &&
              "Unexpected conditions for NegativeStride == true.");
-      Cost += VPTTI.getShuffleCost(TTI::SK_Reverse, cast<VectorType>(VecTy));
+      Cost += TTI.getShuffleCost(TTI::SK_Reverse, cast<VectorType>(VecTy));
     }
 
     Cost += IsMasked ?
-      Scale * VPTTI.getMaskedMemoryOpCost(Opcode, VecTy, Alignment, AddrSpace) :
-      Scale * VPTTI.getMemoryOpCost(Opcode, VecTy, Alignment, AddrSpace);
+      Scale * TTI.getMaskedMemoryOpCost(Opcode, VecTy, Alignment, AddrSpace) :
+      Scale * getMemoryOpCost(Opcode, VecTy, Alignment, AddrSpace);
     return Cost;
   }
 
   // TODO:
   // Currently TTI doesn't add cost of index split and data join in case
   // gather/scatter operation is implemented with two HW gathers/scatters.
-  return VPTTI.getGatherScatterOpCost(
+  return TTI.getGatherScatterOpCost(
     Opcode, VecTy, getLoadStoreIndexSize(LoadStore),
     IsMasked, Alignment.value(), AddrSpace);
 }
@@ -348,7 +368,7 @@ VPInstructionCost VPlanTTICostModel::getInsertExtractElementsCost(
   VPInstructionCost Cost = 0;
   Type *VecTy = getWidenedType(Ty, VF);
   for(unsigned Idx = 0; Idx < VF; Idx++)
-    Cost += VPTTI.getVectorInstrCost(Opcode, VecTy, Idx);
+    Cost += TTI.getVectorInstrCost(Opcode, VecTy, Idx);
   return Cost;
 }
 
@@ -397,8 +417,8 @@ VPInstructionCost VPlanTTICostModel::getIntrinsicInstrCost(
   // Intrinsics which have 0 cost are not lowered to actual code during ASM CG.
   // They are meant for intermediate analysis/transforms and will be deleted
   // before CG. Do not account the cost of serializing them.
-  if (VPTTI.getIntrinsicInstrCost(
-          IntrinsicCostAttributes(ID, CB), TTI::TCK_RecipThroughput) == 0)
+  if (TTI.getIntrinsicInstrCost(
+        IntrinsicCostAttributes(ID, CB), TTI::TCK_RecipThroughput) == 0)
     return 0;
 
   switch (VS) {
@@ -409,8 +429,8 @@ VPInstructionCost VPlanTTICostModel::getIntrinsicInstrCost(
       // The calls that missed the analysis have Unknown cost.
       return VPInstructionCost::getUnknown();
     case VPCallInstruction::CallVecScenariosTy::DoNotWiden:
-      return VPTTI.getIntrinsicInstrCost(
-          IntrinsicCostAttributes(ID, CB), TTI::TCK_RecipThroughput);
+      return TTI.getIntrinsicInstrCost(
+        IntrinsicCostAttributes(ID, CB), TTI::TCK_RecipThroughput);
     case VPCallInstruction::CallVecScenariosTy::Serialization: {
       // For a serialized call, such as: float call @foo(double arg1, int arg2)
       // calculate the cost of vectorized code that way:
@@ -438,8 +458,8 @@ VPInstructionCost VPlanTTICostModel::getIntrinsicInstrCost(
                                Instruction::ExtractElement, ArgTy, VF) : 0);
             }) +
           // The cost of VF calls to the scalar function.
-          VF * VPTTI.getIntrinsicInstrCost(
-                   IntrinsicCostAttributes(ID, CB), TTI::TCK_RecipThroughput) +
+          VF * TTI.getIntrinsicInstrCost(
+                 IntrinsicCostAttributes(ID, CB), TTI::TCK_RecipThroughput) +
           // The cost of 'vectorizing' function's result if any.
           (isVectorizableTy(CB.getType()) && !CB.getType()->isVoidTy() ?
            getInsertExtractElementsCost(Instruction::InsertElement,
@@ -457,7 +477,7 @@ VPInstructionCost VPlanTTICostModel::getIntrinsicInstrCost(
       // handle at least intrinsics that are vectorized using SVML. Other
       // SVML-vectorized library calls will be handled later.
       if (TLI->isSVMLEnabled() && VF > 1 && !CB.getType()->isVoidTy())
-        return VPTTI.getNumberOfParts(getWidenedType(CB.getType(), VF)) *
+        return TTI.getNumberOfParts(getWidenedType(CB.getType(), VF)) *
           getIntrinsicInstrCost(ID, VPCall, 1);
       break;
 
@@ -489,7 +509,7 @@ VPInstructionCost VPlanTTICostModel::getIntrinsicInstrCost(
     ParamTys.push_back(Ty);
   }
 
-  return VPTTI.getIntrinsicInstrCost(
+  return TTI.getIntrinsicInstrCost(
     IntrinsicCostAttributes(ID, RetTy, ParamTys, FMF,
                             dyn_cast<IntrinsicInst>(&CB)),
     TTI::TCK_RecipThroughput);
@@ -554,10 +574,12 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     Type *VecCmpTy =
         getWidenedType(CmpTy, cast<VectorType>(VecOpTy)->getNumElements());
 
-    VPInstructionCost CmpCost =
-      VPTTI.getCmpSelInstrCost(Instruction::ICmp, VecOpTy);
-    VPInstructionCost SelectCost =
-        VPTTI.getCmpSelInstrCost(Instruction::Select, VecOpTy, VecCmpTy);
+    VPInstructionCost CmpCost = TTI.getCmpSelInstrCost(
+      Instruction::ICmp, VecOpTy, nullptr /* CondTy */,
+      CmpInst::BAD_ICMP_PREDICATE, TTI::TCK_RecipThroughput);
+    VPInstructionCost SelectCost = TTI.getCmpSelInstrCost(
+      Instruction::Select, VecOpTy, VecCmpTy,
+      CmpInst::BAD_ICMP_PREDICATE, TTI::TCK_RecipThroughput);
     return CmpCost + SelectCost;
   }
 
@@ -582,10 +604,11 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     Type *VecSrcTy = getWidenedType(OpTy, VF);
     Type *DestTy = IntegerType::get(VPInst->getType()->getContext(), VF);
     VPInstructionCost CastCost =
-      VPTTI.getCastInstrCost(Instruction::BitCast, DestTy, VecSrcTy,
-                             TTI::CastContextHint::None);
-    VPInstructionCost CmpCost =
-      VPTTI.getCmpSelInstrCost(Instruction::ICmp, DestTy);
+      TTI.getCastInstrCost(Instruction::BitCast, DestTy, VecSrcTy,
+                           TTI::CastContextHint::None);
+    VPInstructionCost CmpCost = TTI.getCmpSelInstrCost(
+      Instruction::ICmp, DestTy, nullptr /* CondTy */,
+      CmpInst::BAD_ICMP_PREDICATE, TTI::TCK_RecipThroughput);
     return CastCost + CmpCost;
   }
 
@@ -640,7 +663,9 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
       return VPInstructionCost::getUnknown();
 
     Type *VectorTy = getWidenedType(Ty, VF);
-    return VPTTI.getCmpSelInstrCost(Opcode, VectorTy);
+    return TTI.getCmpSelInstrCost(
+      Opcode, VectorTy, nullptr /* CondTy */,
+      CmpInst::BAD_ICMP_PREDICATE, TTI::TCK_RecipThroughput);
   }
   case Instruction::Select: {
     // FIXME: Due to issues in VPlan creation VPInstruction with Select opcode
@@ -679,7 +704,7 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
       if (StructType *STy = dyn_cast<StructType>(OpTy)) {
         // Cost of extracting cond from vec cond
         for(unsigned Idx = 0; Idx < VF; Idx++)
-          ExtractCost += VPTTI.getVectorInstrCost(
+          ExtractCost += TTI.getVectorInstrCost(
             Instruction::ExtractElement, VecCondTy, Idx);
 
         /* Cost of single select instruction with struct type operands
@@ -694,7 +719,9 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
           // getCostImpl skips instructions with UnknownCost, so we will
           // follow the same logic here.
           if(!isVectorizableTy(EltTy)) continue;
-          SelectCost += VPTTI.getCmpSelInstrCost(Opcode, EltTy, CondTy);
+          SelectCost += TTI.getCmpSelInstrCost(
+            Opcode, EltTy, CondTy, CmpInst::BAD_ICMP_PREDICATE,
+            TTI::TCK_RecipThroughput);
         }
         // TotalCost = Cost of n extracts from VecCondTy +
         //             Cost of n select instructions
@@ -705,7 +732,9 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     }
 
     Type *VecOpTy = getWidenedType(OpTy, VF);
-    return VPTTI.getCmpSelInstrCost(Opcode, VecOpTy, VecCondTy);
+    return TTI.getCmpSelInstrCost(
+      Opcode, VecOpTy, VecCondTy, CmpInst::BAD_ICMP_PREDICATE,
+      TTI::TCK_RecipThroughput);
   }
   case Instruction::ZExt:
   case Instruction::SExt:
@@ -733,7 +762,7 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     // such a cast can be folded into the defining load for free. We should
     // consider adding an overload accepting VPInstruction for TTI to be able to
     // analyze that.
-    return VPTTI.getCastInstrCost(Opcode, VecDstTy, VecSrcTy,
+    return TTI.getCastInstrCost(Opcode, VecDstTy, VecSrcTy,
                                   TTI::CastContextHint::None);
   }
   case Instruction::Call: {
@@ -796,7 +825,7 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     // solution.
     if (cast<VPConflictInsn>(VPInst)->getConflictIntrinsic(VF) ==
         Intrinsic::not_intrinsic)
-      return VPlanTTIWrapper::Multiplier * 1000;
+      return 1000;
 
     const Type *Ty = VPInst->getOperand(0)->getType();
     assert(dyn_cast<VectorType>(Ty) == nullptr &&
@@ -814,28 +843,28 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
       // 4 elements VPCONFLICTD.
       case 2:
       case 4:
-        return VPlanTTIWrapper::Multiplier * 15;
+        return 15;
       case 8:
-        return VPlanTTIWrapper::Multiplier * 22;
+        return 22;
       case 16:
-        return VPlanTTIWrapper::Multiplier * 37;
+        return 37;
       case 32:
-        return VPlanTTIWrapper::Multiplier * 37 * 2;
+        return 37 * 2;
       default:
         llvm_unreachable("Unsupported number of elements for VPCONFLICTD.");
       }
     else
       switch (NumberOfElements) {
       case 2:
-        return VPlanTTIWrapper::Multiplier * 3;
+        return 3;
       case 4:
-        return VPlanTTIWrapper::Multiplier * 15;
+        return 15;
       case 8:
-        return VPlanTTIWrapper::Multiplier * 22;
+        return 22;
       case 16:
-        return VPlanTTIWrapper::Multiplier * 22 * 2;
+        return 22 * 2;
       case 32:
-        return VPlanTTIWrapper::Multiplier * 22 * 4;
+        return 22 * 4;
       default:
         llvm_unreachable("Unsupported number of elements for VPCONFLICTQ.");
       }
@@ -870,6 +899,173 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     return Cost;
   }
   }
+}
+
+// Estimate probability ([0.0f; 1.0f] range) of a memref to cross a cache line
+// boundary.
+// Alignment    - alignment of memory reference;
+// RefBytes     - how many bytes is references, a power of 2 value;
+// BytesCross   - how many bytes crosses cache line (number M of bytes).
+//               (chunk of memory that crosses the the first cache lane);
+// \/-------cache-line---------\/-------cache-line---------\/
+// ||------|-----||------|-----||------|-----||------|-----||
+//                       |---memref----|
+//                       |--N--||--M---|
+static VPInstructionCost cacheLineCrossingProbability(
+  Align Alignment, uint64_t RefBytes, unsigned &BytesCross) {
+  unsigned CacheLineSize;
+  // Enforce CacheLineSize to be a power of 2 value.
+  switch (CMCacheLineSize) {
+  case 16:
+  case 32:
+  case 64:
+  case 128:
+  case 256:
+  case 512:
+    CacheLineSize = CMCacheLineSize;
+    break;
+  default:
+    CacheLineSize = DefaultCacheLineSize;
+  }
+
+  // This method returns only powers of 2 values.
+  uint64_t Base = Alignment.value();
+
+  if (RefBytes <= CacheLineSize) {
+    if (Base >= CacheLineSize) {
+      // \/-cache-line-\/-cache-line-\/-cache-line-\/-cache-line-\/
+      // ||------|-----||------|-----||------|-----||------|-----||
+      // /\-------alignment----------/\-------alignment----------/\
+      // ||-ref1-|                   ||-ref2-|
+      BytesCross = 0;
+      return 0;
+    } else { // Base < CacheLineSize
+      if (RefBytes <= Base) {
+        // In this case we have natural alignment.
+        // \/-------cache-line---------\/-------cache-line---------\/
+        // ||------|-----||------|-----||------|-----||------|-----||
+        // /\--alignment-/\--alignment-/\--alignment-/\--alignment-/\
+        // ||----ref1----||----ref2----||----ref3----||----ref4----||
+        BytesCross = 0;
+        return 0;
+      } else { // Base < CacheLineSize && RefBytes > Base
+        // It is impossible to estimate the number of bytes crossing with
+        // certainty:
+        // \/-----------------------cache-line---------------------\/
+        // ||------|-----||------|-----||------|-----||------|-----||
+        // /\--alignment-/\--alignment-/\--alignment-/\--alignment-/\
+        // ||------------ref-----------|
+        //               ||------------ref-----------|
+        //                             ||------------ref-----------|
+        //                                           ||------------ref----...|
+
+        // We have N possible placements of RefBytes with specified alignment
+        // within cache line. Both are powers of 2.
+        unsigned N = CacheLineSize / Base;
+
+        // Out of those N placementes K do not result in cache line crossing.
+        // [0, 1, ..., K] first placements do not cross;
+        // [K + 1, ..., N] do result in crossing.
+        // 0 < K < N.
+        // The greatest natural K to satisfy
+        //   Base * K + RefBytes <= CacheLineSize
+        // is:
+        unsigned K = (CacheLineSize - RefBytes) / Base;
+
+        // Number of possibilities to read RefBytes within cache line,
+        // since K is an index that starts from 0.
+        unsigned AlignPossibilites = K + 1;
+
+        // Min/Max number of bytes crossing the cache line.
+        unsigned MinCrossBytes =
+          Base * AlignPossibilites + RefBytes - CacheLineSize;
+        unsigned MaxCrossBytes =
+          Base * (N - 1) + RefBytes - CacheLineSize;
+        // Return an average, as the best guess is uniform distribution of
+        // memory accesses.
+        BytesCross = (MinCrossBytes + MaxCrossBytes) / 2;
+
+        // Probability of an unaligned access would be
+        // 1 - AlignPossibilites / N.
+        return 1.f - static_cast<VPInstructionCost>(AlignPossibilites) /
+                     static_cast<VPInstructionCost>(N);
+      }
+    }
+  } else { // RefBytes > CacheLineSize
+    // Base >= CacheLineSize.
+    // \/-cache-line-\/-cache-line-\/-cache-line-\/-cache-line-\/
+    // ||------|-----||------|-----||------|-----||------|-----||
+    // /\-------alignment----------/\-------alignment----------/\
+    // ||-------------------------ref--------------------------|
+
+    // RefBytes > CacheLineSize && Base < CacheLineSize.
+    // \/-----------------------cache-line---------------------\/
+    // ||------|-----||------|-----||------|-----||------|-----||
+    // /\--alignment-/\--alignment-/\--alignment-/\--alignment-/\
+    // ...----------------ref--------------------|
+    // OR:
+    //               ||-----------------ref-------------------...
+    BytesCross = RefBytes - CacheLineSize;
+    return 1;
+  }
+}
+
+VPInstructionCost VPlanTTICostModel::getNonMaskedMemOpCostAdj(
+  unsigned Opcode, Type *SrcTy, Align Alignment) const {
+  // Non-vector types are handled using default costs.
+  VectorType *VecTy = cast<VectorType>(SrcTy);
+
+  // Number of parts for this Type.
+  unsigned NumReg = TTI.getNumberOfParts(VecTy);
+
+  // TTI model doesn't support vector types/registers.  Don't bother evaluating
+  // cache split cost for such targets.
+  if (NumReg == 0)
+    return 0;
+
+  assert(VecTy->getScalarType()->isSized() && "Expect only sizable types");
+
+  uint64_t TypeSizeInBits = 0;
+  if (VecTy->getScalarType()->isPointerTy())
+    TypeSizeInBits = DL->getPointerTypeSizeInBits(VecTy);
+  else {
+    TypeSizeInBits = DL->getTypeStoreSizeInBits(VecTy);
+  }
+
+  uint64_t SizeOfWholeVector = TypeSizeInBits / 8;
+  uint64_t SizeOfMemRef = SizeOfWholeVector / NumReg;
+
+  unsigned BytesCross = 0;
+  bool IsStore = Opcode == Instruction::Store;
+
+  // TODO: tune the cost model once peel/rem loops can be generated.
+  // For now the change should be miniscule enough to not have
+  // noticeable regressions. Consider a multiplier for Load/Store cost.
+  VPInstructionCost Cost = IsStore ?
+    CMStoreCostAdjustment : CMLoadCostAdjustment;
+
+  VPInstructionCost CrossProbability =
+      cacheLineCrossingProbability(Alignment, SizeOfMemRef, BytesCross);
+  return Cost * CrossProbability * NumReg;
+}
+
+VPInstructionCost VPlanTTICostModel::getMemoryOpCost(
+    unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
+    TTI::TargetCostKind CostKind, const Instruction *I) const {
+  auto TTICost = TTI.getMemoryOpCost(Opcode, Src, Alignment,
+                                     AddressSpace, CostKind, I);
+  LLVM_DEBUG(dbgs() << "TTICost: " << TTICost << '\n';);
+
+  // Return not adjusted scaled up cost for non-vector types.
+  if (!isa<FixedVectorType>(Src) ||
+      cast<FixedVectorType>(Src)->getNumElements() == 1)
+    return TTICost;
+
+  auto AdjustedCost =
+    TTICost + getNonMaskedMemOpCostAdj(Opcode, Src, Alignment);
+  LLVM_DEBUG(dbgs() << "AdjustedCost: " << AdjustedCost << '\n';);
+
+  return AdjustedCost;
 }
 
 } // namespace vpo

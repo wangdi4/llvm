@@ -45,11 +45,18 @@ L2:
 
 ; CHECK: Group-A Values
 ; CHECK-NOT: +
-; CHECK: +main
-; CHECK-NOT: +
 ; CHECK-NOT: -
 ; CHECK-NOT: -p (0)
 
+; CHECK: Group-B.1 Values
+; CHECK: Group-B.2 Values
+
+; CHECK: Function Equivalence Classes:
+; CHECK-NEXT: [main]: main
+
+; CHECK-NEXT: Buffer Total Size:
+; CHECK-NEXT: leader(main) : (0)
+; CHECK-NEXT: DONE
 
 declare void @_Z18work_group_barrierj(i32)
 declare void @dummy_barrier.()

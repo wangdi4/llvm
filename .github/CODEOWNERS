@@ -337,8 +337,6 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanSSADeconstruction.h @karthik-senthil @sguggill
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanSyncDependenceAnalysis.cpp @mamasten @karthik-senthil
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanSyncDependenceAnalysis.h @mamasten @karthik-senthil
-/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanTTIWrapper.cpp @offsake @turinevgeny
-/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanTTIWrapper.h @offsake @turinevgeny
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVConflictTransformation.cpp  @mamasten @sguggill
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVConflictTransformation.h @mamasten @sguggill
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVectorizeIndirectCalls.cpp @ivankelarev @skozhukh

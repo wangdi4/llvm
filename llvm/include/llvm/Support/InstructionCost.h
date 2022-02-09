@@ -19,9 +19,17 @@
 #define LLVM_SUPPORT_INSTRUCTIONCOST_H
 
 #include "llvm/ADT/APFixedPoint.h" // Intel
+#include "llvm/ADT/APFloat.h"      // Intel
 #include "llvm/ADT/Optional.h"
 #include "llvm/Support/MathExtras.h"
 #include <limits>
+
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#include <sstream>
+#include <iomanip>
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 
@@ -323,11 +331,33 @@ private:
       setInvalid();
   }
 
+  // Helper method to set the Value from float input Val. If Val doesn't fit
+  // the current Fixed Point Semantics it results Invalid cost.
+  void setFromFloatValue(float Val) {
+    bool Overflow = false;
+    APFloat APFloatValue(Val);
+    Value = CostType::getFromFloatValue(
+      APFloatValue, getVPInstructionCostSema(), &Overflow);
+    if (Overflow)
+      setInvalid();
+  }
+
   // The helper method to return FixedPoint semantics that is used to create
   // every VPInstructionCost object.
   static FixedPointSemantics getVPInstructionCostSema() {
+    // We reserve 6 positions for fractional bits, which corresponds to 1/64
+    // in precision. That should be enough for Alignment Analysis which may
+    // have 1/64 probability of cache line boundary crossing.
+    //
+    // We may keep overall size to be 64 leaving 58 bits for integer part of
+    // the number which corresponds to level 7 of loop nestness with default
+    // trip count value (2^58 ~ 300^7). Which means that we model up to
+    // 7 nested loops with TC capped at default TC.
+    //
+    // We may want to correct these fixed numbers once they do not provide the
+    // required precision or dynamic range.
     return FixedPointSemantics {
-      64 /* Width */, 3 /* Scale */, true /* IsSigned */,
+      64 /* Width */, 6 /* Scale */, true /* IsSigned */,
         false /* IsSaturated */, false /* HasUnsignedPadding */};
   }
 
@@ -339,6 +369,7 @@ public:
   template <typename ValTy,
             typename = std::enable_if_t<std::is_integral<ValTy>::value>>
   VPInstructionCost(ValTy Val) : VPInstructionCost() { setFromInt64Value(Val); }
+  VPInstructionCost(float Val) : VPInstructionCost() { setFromFloatValue(Val); }
   VPInstructionCost(const InstructionCost& TTICost) : VPInstructionCost() {
     if (auto MaybeCost = TTICost.getValue())
       setFromInt64Value(*MaybeCost);
@@ -388,6 +419,13 @@ public:
   // CostModel into 64 bit integer dropping fractional bits.
   int64_t getInt64Value() const {
     return getValue().getIntPart().getExtValue();
+  }
+
+  // The interface to convert VPInstructionCost returned by VPlan
+  // CostModel into 32 bit float value.
+  float getFloatValue() const {
+    return getValue().convertToFloat(APFloatBase::IEEEsingle()).
+      convertToFloat();
   }
 
   /// For all of the arithmetic operators provided here any Invalid or Unknown
@@ -455,18 +493,34 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   std::string toString(bool ForceSignPrint = false) const {
+    std::ostringstream outString;
     if (isInvalid())
-      return std::string("Invalid");
+      outString << "Invalid";
     else if (isUnknown())
-      return std::string("Unknown");
+      outString << "Unknown";
+    else {
+      if (ForceSignPrint && *this > VPInstructionCost())
+        outString << '+';
+      // We want to print out big integers as '1000000' rather than '1e+6',
+      // which is std::fixed format of float printing. On other hand we
+      // don't want to see trailing zeros, which is std::defaultfloat format.
+      // In order to satisfy these both requirements we output the value of
+      // integer type whenever fractional bits are zeros.
+      //
+      // Figure out the precision required for printing from the current Fixed
+      // Point Semantics.
+      FixedPointSemantics Sema = getVPInstructionCostSema();
 
-    std::string SignStr = "";
-    if (ForceSignPrint && *this > VPInstructionCost())
-      SignStr = "+";
-    // TODO:
-    // Currently we have no fractional costs and can ignore fractional bits.
-    // This code has to be fixed once fractional parts become non zero.
-    return SignStr + std::to_string(getInt64Value());
+      // The number takes Sema.getWidth() bits to represent it.
+      // 2^10 ~ 10^3 ==> 2^Sema.getWidth() = (2^10)^K = (10^3)^K
+      // K <= (Sema.getWidth() / 10) + 1 and Precision = 3 * K.
+      unsigned Precision = 3 * (Sema.getWidth() / 10 + 1);
+      if (getInt64Value() == getFloatValue())
+        outString << std::setprecision(Precision) << getInt64Value();
+      else
+        outString << std::setprecision(Precision) << getFloatValue();
+    }
+    return outString.str();
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
