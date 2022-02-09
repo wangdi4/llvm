@@ -597,36 +597,17 @@ static bool isValidForAlternation(unsigned Opcode) {
   return true;
 }
 
-static InstructionsState getSameOpcode(ArrayRef<Value *> VL,
-                                       unsigned BaseIndex = 0);
-
-/// Checks if the provided operands of 2 cmp instructions are compatible, i.e.
-/// compatible instructions or constants, or just some other regular values.
-static bool areCompatibleCmpOps(Value *BaseOp0, Value *BaseOp1, Value *Op0,
-                                Value *Op1) {
-  return (isConstant(BaseOp0) && isConstant(Op0)) ||
-         (isConstant(BaseOp1) && isConstant(Op1)) ||
-         (!isa<Instruction>(BaseOp0) && !isa<Instruction>(Op0) &&
-          !isa<Instruction>(BaseOp1) && !isa<Instruction>(Op1)) ||
-         getSameOpcode({BaseOp0, Op0}).getOpcode() ||
-         getSameOpcode({BaseOp1, Op1}).getOpcode();
-}
-
 /// \returns analysis of the Instructions in \p VL described in
 /// InstructionsState, the Opcode that we suppose the whole list
 /// could be vectorized even if its structure is diverse.
 static InstructionsState getSameOpcode(ArrayRef<Value *> VL,
-                                       unsigned BaseIndex) {
+                                       unsigned BaseIndex = 0) {
   // Make sure these are all Instructions.
   if (llvm::any_of(VL, [](Value *V) { return !isa<Instruction>(V); }))
     return InstructionsState(VL[BaseIndex], nullptr, nullptr);
 
   bool IsCastOp = isa<CastInst>(VL[BaseIndex]);
   bool IsBinOp = isa<BinaryOperator>(VL[BaseIndex]);
-  bool IsCmpOp = isa<CmpInst>(VL[BaseIndex]);
-  CmpInst::Predicate BasePred =
-      IsCmpOp ? cast<CmpInst>(VL[BaseIndex])->getPredicate()
-              : CmpInst::BAD_ICMP_PREDICATE;
   unsigned Opcode = cast<Instruction>(VL[BaseIndex])->getOpcode();
   unsigned AltOpcode = Opcode;
   unsigned AltIndex = BaseIndex;
@@ -658,57 +639,6 @@ static InstructionsState getSameOpcode(ArrayRef<Value *> VL,
           AltIndex = Cnt;
           continue;
         }
-      }
-    } else if (IsCmpOp && isa<CmpInst>(VL[Cnt])) {
-      auto *BaseInst = cast<Instruction>(VL[BaseIndex]);
-      auto *Inst = cast<Instruction>(VL[Cnt]);
-      Type *Ty0 = BaseInst->getOperand(0)->getType();
-      Type *Ty1 = Inst->getOperand(0)->getType();
-      if (Ty0 == Ty1) {
-        Value *BaseOp0 = BaseInst->getOperand(0);
-        Value *BaseOp1 = BaseInst->getOperand(1);
-        Value *Op0 = Inst->getOperand(0);
-        Value *Op1 = Inst->getOperand(1);
-        CmpInst::Predicate CurrentPred =
-            cast<CmpInst>(VL[Cnt])->getPredicate();
-        CmpInst::Predicate SwappedCurrentPred =
-            CmpInst::getSwappedPredicate(CurrentPred);
-        // Check for compatible operands. If the corresponding operands are not
-        // compatible - need to perform alternate vectorization.
-        if (InstOpcode == Opcode) {
-          if (BasePred == CurrentPred &&
-              areCompatibleCmpOps(BaseOp0, BaseOp1, Op0, Op1))
-            continue;
-          if (BasePred == SwappedCurrentPred &&
-              areCompatibleCmpOps(BaseOp0, BaseOp1, Op1, Op0))
-            continue;
-          if (E == 2 &&
-              (BasePred == CurrentPred || BasePred == SwappedCurrentPred))
-            continue;
-          auto *AltInst = cast<CmpInst>(VL[AltIndex]);
-          CmpInst::Predicate AltPred = AltInst->getPredicate();
-          Value *AltOp0 = AltInst->getOperand(0);
-          Value *AltOp1 = AltInst->getOperand(1);
-          // Check if operands are compatible with alternate operands.
-          if (AltPred == CurrentPred &&
-              areCompatibleCmpOps(AltOp0, AltOp1, Op0, Op1))
-            continue;
-          if (AltPred == SwappedCurrentPred &&
-              areCompatibleCmpOps(AltOp0, AltOp1, Op1, Op0))
-            continue;
-        }
-        if (BaseIndex == AltIndex && BasePred != CurrentPred) {
-          assert(isValidForAlternation(Opcode) &&
-                 isValidForAlternation(InstOpcode) &&
-                 "Cast isn't safe for alternation, logic needs to be updated!");
-          AltIndex = Cnt;
-          continue;
-        }
-        auto *AltInst = cast<CmpInst>(VL[AltIndex]);
-        CmpInst::Predicate AltPred = AltInst->getPredicate();
-        if (BasePred == CurrentPred || BasePred == SwappedCurrentPred ||
-            AltPred == CurrentPred || AltPred == SwappedCurrentPred)
-          continue;
       }
     } else if (InstOpcode == Opcode || InstOpcode == AltOpcode)
       continue;
@@ -6648,12 +6578,18 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       LLVM_DEBUG(dbgs() << "SLP: added a ShuffleVector op.\n");
 
       // Reorder operands if reordering would enable vectorization.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       if (isa<BinaryOperator>(VL0)) {
         SmallVector<int, 4> OpDirLeft, OpDirRight;
         ValueList Left, Right;
         reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, OpDirLeft,
                                        OpDirRight, *this);
+=======
+      if (isa<BinaryOperator>(VL0)) {
+        ValueList Left, Right;
+        reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, *this);
+>>>>>>> 8a1dfbc4d816fc8cef6b2f4c0b0ee7cef110c4d5
         TE->setOperand(0, Left);
         TE->setOperand(1, Right);
         if (visitRightOperandFirst(VL[0])) {
@@ -7623,8 +7559,7 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
              ((Instruction::isBinaryOp(E->getOpcode()) &&
                Instruction::isBinaryOp(E->getAltOpcode())) ||
               (Instruction::isCast(E->getOpcode()) &&
-               Instruction::isCast(E->getAltOpcode())) ||
-              (isa<CmpInst>(VL0) && isa<CmpInst>(E->getAltOp()))) &&
+               Instruction::isCast(E->getAltOpcode()))) &&
              "Invalid Shuffle Vector Operand");
       InstructionCost ScalarCost = 0;
       if (NeedToShuffleReuses) {
@@ -7672,14 +7607,6 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
         VecCost = TTI->getArithmeticInstrCost(E->getOpcode(), VecTy, CostKind);
         VecCost += TTI->getArithmeticInstrCost(E->getAltOpcode(), VecTy,
                                                CostKind);
-      } else if (auto *CI0 = dyn_cast<CmpInst>(VL0)) {
-        VecCost = TTI->getCmpSelInstrCost(E->getOpcode(), ScalarTy,
-                                          Builder.getInt1Ty(),
-                                          CI0->getPredicate(), CostKind, VL0);
-        VecCost += TTI->getCmpSelInstrCost(
-            E->getOpcode(), ScalarTy, Builder.getInt1Ty(),
-            cast<CmpInst>(E->getAltOp())->getPredicate(), CostKind,
-            E->getAltOp());
       } else {
         Type *Src0SclTy = E->getMainOp()->getOperand(0)->getType();
         Type *Src1SclTy = E->getAltOp()->getOperand(0)->getType();
@@ -7696,27 +7623,6 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
           E->Scalars, E->ReorderIndices, E->ReuseShuffleIndices,
           [E](Instruction *I) {
             assert(E->isOpcodeOrAlt(I) && "Unexpected main/alternate opcode");
-            if (auto *CI0 = dyn_cast<CmpInst>(E->getMainOp())) {
-              auto *AltCI0 = cast<CmpInst>(E->getAltOp());
-              auto *CI = cast<CmpInst>(I);
-              CmpInst::Predicate P0 = CI0->getPredicate();
-              CmpInst::Predicate AltP0 = AltCI0->getPredicate();
-              assert(P0 != AltP0 &&
-                     "Expected different main/alternate predicates.");
-              CmpInst::Predicate AltP0Swapped =
-                  CmpInst::getSwappedPredicate(AltP0);
-              CmpInst::Predicate CurrentPred = CI->getPredicate();
-              if (P0 == AltP0Swapped)
-                return (P0 == CurrentPred &&
-                        !areCompatibleCmpOps(
-                            CI0->getOperand(0), CI0->getOperand(1),
-                            CI->getOperand(0), CI->getOperand(1))) ||
-                       (AltP0 == CurrentPred &&
-                        !areCompatibleCmpOps(
-                            CI0->getOperand(0), CI0->getOperand(1),
-                            CI->getOperand(1), CI->getOperand(0)));
-              return AltP0 == CurrentPred || AltP0Swapped == CurrentPred;
-            }
             return I->getOpcode() == E->getAltOpcode();
           },
           Mask);
@@ -9383,12 +9289,11 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
              ((Instruction::isBinaryOp(E->getOpcode()) &&
                Instruction::isBinaryOp(E->getAltOpcode())) ||
               (Instruction::isCast(E->getOpcode()) &&
-               Instruction::isCast(E->getAltOpcode())) ||
-              (isa<CmpInst>(VL0) && isa<CmpInst>(E->getAltOp()))) &&
+               Instruction::isCast(E->getAltOpcode()))) &&
              "Invalid Shuffle Vector Operand");
 
       Value *LHS = nullptr, *RHS = nullptr;
-      if (Instruction::isBinaryOp(E->getOpcode()) || isa<CmpInst>(VL0)) {
+      if (Instruction::isBinaryOp(E->getOpcode())) {
         setInsertPointAfterBundle(E);
         LHS = vectorizeTree(E->getOperand(0));
         RHS = vectorizeTree(E->getOperand(1));
@@ -9408,15 +9313,6 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
             static_cast<Instruction::BinaryOps>(E->getOpcode()), LHS, RHS);
         V1 = Builder.CreateBinOp(
             static_cast<Instruction::BinaryOps>(E->getAltOpcode()), LHS, RHS);
-      } else if (auto *CI0 = dyn_cast<CmpInst>(VL0)) {
-        V0 = Builder.CreateCmp(CI0->getPredicate(), LHS, RHS);
-        auto *AltCI = cast<CmpInst>(E->getAltOp());
-        CmpInst::Predicate AltPred = AltCI->getPredicate();
-        unsigned AltIdx =
-            std::distance(E->Scalars.begin(), find(E->Scalars, AltCI));
-        if (AltCI->getOperand(0) != E->getOperand(0)[AltIdx])
-          AltPred = CmpInst::getSwappedPredicate(AltPred);
-        V1 = Builder.CreateCmp(AltPred, LHS, RHS);
       } else {
         V0 = Builder.CreateCast(
             static_cast<Instruction::CastOps>(E->getOpcode()), LHS, VecTy);
@@ -9441,27 +9337,6 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
           E->Scalars, E->ReorderIndices, E->ReuseShuffleIndices,
           [E](Instruction *I) {
             assert(E->isOpcodeOrAlt(I) && "Unexpected main/alternate opcode");
-            if (auto *CI0 = dyn_cast<CmpInst>(E->getMainOp())) {
-              auto *AltCI0 = cast<CmpInst>(E->getAltOp());
-              auto *CI = cast<CmpInst>(I);
-              CmpInst::Predicate P0 = CI0->getPredicate();
-              CmpInst::Predicate AltP0 = AltCI0->getPredicate();
-              assert(P0 != AltP0 &&
-                     "Expected different main/alternate predicates.");
-              CmpInst::Predicate AltP0Swapped =
-                  CmpInst::getSwappedPredicate(AltP0);
-              CmpInst::Predicate CurrentPred = CI->getPredicate();
-              if (P0 == AltP0Swapped)
-                return (P0 == CurrentPred &&
-                        !areCompatibleCmpOps(
-                            CI0->getOperand(0), CI0->getOperand(1),
-                            CI->getOperand(0), CI->getOperand(1))) ||
-                       (AltP0 == CurrentPred &&
-                        !areCompatibleCmpOps(
-                            CI0->getOperand(0), CI0->getOperand(1),
-                            CI->getOperand(1), CI->getOperand(0)));
-              return AltP0 == CurrentPred || AltP0Swapped == CurrentPred;
-            }
             return I->getOpcode() == E->getAltOpcode();
           },
           Mask, &OpScalars, &AltScalars);
