@@ -6189,6 +6189,14 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
                              Loc);
     break;
   }
+#else
+  case OMPC_compare: {
+    // Emit an error here.
+    unsigned DiagID = CGF.CGM.getDiags().getCustomDiagID(
+        DiagnosticsEngine::Error, "'atomic compare' is not supported for now");
+    CGF.CGM.getDiags().Report(DiagID);
+    break;
+  }
 #endif // INTEL_COLLAB
   case OMPC_if:
   case OMPC_final:
