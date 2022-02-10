@@ -45395,6 +45395,7 @@ static SDValue combineExtractVectorElt(SDNode *N, SelectionDAG &DAG,
     }
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   auto OnlyFlagUsers = [](SDNode *N) {
     for (SDNode::use_iterator UI = N->use_begin(), UE = N->use_end();
@@ -45465,6 +45466,8 @@ static SDValue combineExtractVectorElt(SDNode *N, SelectionDAG &DAG,
     return SDValue(N, 0);
   }
 
+=======
+>>>>>>> 7b03725097872fbd3369a7213c1d98b372aa2d78
   return SDValue();
 }
 
