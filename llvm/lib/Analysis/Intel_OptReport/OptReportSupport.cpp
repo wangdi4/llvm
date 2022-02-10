@@ -14,7 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_LoopAnalysis/OptReport/OptReportSupport.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportSupport.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Analysis/Intel_OptReport/Diag.h"

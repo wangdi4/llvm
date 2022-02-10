@@ -63,6 +63,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
+#include "llvm/Transforms/IPO/Intel_AutoCPUClone.h"      // INTEL
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/IPO/ThinLTOBitcodeWriter.h"
@@ -1130,6 +1131,20 @@ void EmitAssemblyHelper::EmitAssemblyWithLegacyPassManager(
 
   // Run passes. For now we do all passes at once, but eventually we
   // would like to have the option of streaming code generation.
+
+#if INTEL_CUSTOMIZATION
+  // Multiversion functions marked for auto cpu dispatching.
+  if (!CodeGenOpts.DisableLLVMPasses &&
+      !TargetOpts.AutoMultiVersionTargets.empty() &&
+      CodeGenOpts.OptimizationLevel > 1) {
+    PrettyStackTraceString CrashInfo("Auto CPU Cloning");
+    llvm::TimeTraceScope TimeScope("AutoCPUCloning");
+
+    legacy::PassManager AutoCPUCloneModulePasses;
+    AutoCPUCloneModulePasses.add(createAutoCPUCloneLegacyPass());
+    AutoCPUCloneModulePasses.run(*TheModule);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   {
     PrettyStackTraceString CrashInfo("Per-function optimization");

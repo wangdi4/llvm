@@ -63,8 +63,6 @@ add_llvm_component_library(LLVMIntel_LoopAnalysis
   TransformUtils
   )
 
-add_subdirectory(OptReport)
-
 if(INTEL_CUSTOMIZATION)
 # INTEL_FEATURE_SW_DTRANS
   is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS)
