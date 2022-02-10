@@ -1388,28 +1388,7 @@ public:
       return VLOperands::ScoreFail;
     }
 
-<<<<<<< HEAD
   private: // INTEL
-    /// Holds the values and their lanes that are taking part in the look-ahead
-    /// score calculation. This is used in the external uses cost calculation.
-    /// Need to hold all the lanes in case of splat/broadcast at least to
-    /// correctly check for the use in the different lane.
-    SmallDenseMap<Value *, SmallSet<int, 4>> InLookAheadValues;
-
-    /// \returns the additional cost due to uses of \p LHS and \p RHS that are
-    /// either external to the vectorized code, or require shuffling.
-    int getExternalUsesCost(const std::pair<Value *, int> &LHS,
-                            const std::pair<Value *, int> &RHS) {
-      int Cost = 0;
-      std::array<std::pair<Value *, int>, 2> Values = {{LHS, RHS}};
-      for (int Idx = 0, IdxE = Values.size(); Idx != IdxE; ++Idx) {
-        Value *V = Values[Idx].first;
-        if (isa<Constant>(V)) {
-          // Since this is a function pass, it doesn't make semantic sense to
-          // walk the users of a subclass of Constant. The users could be in
-          // another function, or even another module that happens to be in
-          // the same LLVMContext.
-=======
     /// \param Lane lane of the operands under analysis.
     /// \param OpIdx operand index in \p Lane lane we're looking the best
     /// candidate for.
@@ -1426,7 +1405,6 @@ public:
       SmallPtrSet<Value *, 4> Uniques;
       for (unsigned Ln = 0, E = getNumLanes(); Ln < E; ++Ln) {
         if (Ln == Lane)
->>>>>>> 802ceb8343a26f3472dc7938d72d863c23cf2a12
           continue;
         Value *OpIdxLnV = getData(OpIdx, Ln).V;
         if (!isa<Instruction>(OpIdxLnV))
@@ -4750,7 +4728,8 @@ void BoUpSLP::scheduleMultiNodeInstrs() {
 // and we count the number of matches.
 int BoUpSLP::getScoreAtLevel(Value *V1, Value *V2, int Level, int MaxLevel) {
   // Get the shallow score of V1 and V2.
-  int ShallowScoreAtThisLevel = VLOperands::getShallowScore(V1, V2, *DL, *SE, CurrentMultiNode->getNumLanes());
+  int ShallowScoreAtThisLevel = VLOperands::getShallowScore(
+      V1, V2, *DL, *SE, CurrentMultiNode->getNumLanes(), None);
 
   // If reached MaxLevel,
   // or if V1 and V2 are not instructions,
@@ -5135,9 +5114,9 @@ int BoUpSLP::getMNScore() const {
       const OperandData *OperandL = CurrentMultiNode->getOperand(Lane - 1, OpI);
       const OperandData *OperandR = CurrentMultiNode->getOperand(Lane, OpI);
       if (OperandL->getValue() == OperandR->getValue() ||
-          VLOperands::getShallowScore(OperandL->getValue(),
-                                      OperandR->getValue(), *DL,
-                                      *SE, CurrentMultiNode->getNumLanes()) == VLOperands::ScoreFail) {
+          VLOperands::getShallowScore(
+              OperandL->getValue(), OperandR->getValue(), *DL, *SE,
+              CurrentMultiNode->getNumLanes(), None) == VLOperands::ScoreFail) {
         AreConsecutive = false;
         break;
       }
