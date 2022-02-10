@@ -1,20 +1,23 @@
 // INTEL_COLLAB
 // RUN: %clang_cc1 -verify -fopenmp -fopenmp-version=51 -ast-print %s \
-// RUN:  | FileCheck %s --check-prefix=PRINT
+// RUN:  -fopenmp-late-outline | FileCheck %s --check-prefix=PRINT
 
 // RUN: %clang_cc1 -verify -fopenmp -fopenmp-version=51 -ast-dump %s \
-// RUN:  | FileCheck %s --check-prefix=DUMP
+// RUN:  -fopenmp-late-outline | FileCheck %s --check-prefix=DUMP
 
-// RUN: %clang_cc1 -verify -fopenmp -fopenmp-version=51 -emit-pch -o %t.pch %s
+// RUN: %clang_cc1 -verify -fopenmp -fopenmp-version=51 -fopenmp-late-outline \
+// RUN:   -emit-pch -o %t.pch %s
 
 // RUN: %clang_cc1 -verify -fopenmp -fopenmp-version=51 -ast-print \
-// RUN:  -include-pch %t.pch %s | FileCheck %s --check-prefix=PRINT
+// RUN:  -fopenmp-late-outline -include-pch %t.pch %s \
+// RUN:  | FileCheck %s --check-prefix=PRINT
 
 // RUN: %clang_cc1 -verify -fopenmp -fopenmp-version=51 -ast-dump-all \
-// RUN:  -include-pch %t.pch %s | FileCheck %s --check-prefix=DUMP
+// RUN:  -fopenmp-late-outline -include-pch %t.pch %s \
+// RUN:  | FileCheck %s --check-prefix=DUMP
 
 // RUN: %clang_cc1 -verify -triple i386-pc-win32 -fopenmp \
-// RUN:  -fopenmp-version=51 -ast-dump %s \
+// RUN:  -fopenmp-late-outline -fopenmp-version=51 -ast-dump %s \
 // RUN:  | FileCheck %s --check-prefix=DUMP
 
 // expected-no-diagnostics

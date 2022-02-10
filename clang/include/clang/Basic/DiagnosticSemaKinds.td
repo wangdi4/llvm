@@ -10643,13 +10643,17 @@ def err_omp_atomic_compare : Error<
   " '{x = x == e ? d : x;}', '{x = e == x ? d : x;}', or 'if(expr ordop x) {x = expr;}', 'if(x ordop expr) {x = expr;}', 'if(x == e) {x = d;}',"
   " 'if(e == x) {x = d;}' where 'x' is an lvalue expression with scalar type, 'expr', 'e', and 'd' are expressions with scalar type,"
   " and 'ordop' is one of '<' or '>'.">;
+def note_omp_atomic_compare: Note<
+  "%select{expected compound statement|expected exactly one expression statement|expected assignment statement|expected conditional operator|expect result value to be at false expression|"
+  "expect binary operator in conditional expression|expect '<', '>' or '==' as order operator|expect comparison in a form of 'x == e', 'e == x', 'x ordop expr', or 'expr ordop x'|"
+  "expect lvalue for result value|expect scalar value|expect integer value}0">;
 #if INTEL_COLLAB
 def err_omp_atomic_compare_bad_form : Error<
   "the statement for 'atomic compare' must be 'x = expr ordop x ? expr : x;', "
   "'x = x ordop expr ? expr : x;', 'x = x == e ? d : x;', "
   "'if(expr ordop x) {x=expr;}', 'if(x ordop expr) {x=expr;}', "
   "or 'if(x==e) {x=d;}' where x is an lvalue with scalar type">;
-def note_omp_atomic_compare: Note<
+def note_omp_atomic_compare_intel: Note<
   "%select{expected an if statement or assignment expression|"
   "expected expression of scalar type|expected a conditional operator|"
   "expected a '<', '>', or '==' expression|"
