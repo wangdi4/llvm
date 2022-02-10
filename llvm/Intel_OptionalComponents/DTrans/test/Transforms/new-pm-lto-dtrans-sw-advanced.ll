@@ -25,6 +25,7 @@
 ; CHECK-NEXT: Running analysis: TargetLibraryAnalysis on bar
 ; CHECK-NEXT: Running analysis: TargetIRAnalysis on foo
 ; CHECK-NEXT: Running analysis: TargetIRAnalysis on main
+; CHECK-NEXT: Running pass: OpenMPOptPass
 ; CHECK-NEXT: Running pass: GlobalDCEPass
 ; CHECK: Running pass: IPSCCPPass
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
