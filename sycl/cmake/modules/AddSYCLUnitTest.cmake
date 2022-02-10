@@ -36,6 +36,7 @@ macro(add_sycl_unittest test_dirname link_variant)
     get_target_property(SYCL_LINK_LIBS ${sycl_so_target} LINK_LIBRARIES)
   endif()
 
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
   if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
     set(TESTING_SUPPORT_LIB LLVMTestingSupport_stdcpp)
@@ -50,6 +51,30 @@ macro(add_sycl_unittest test_dirname link_variant)
     set(TESTING_SUPPORT_LIB LLVMTestingSupport)
   endif()
 
+=======
+  if (SYCL_ENABLE_COVERAGE)
+    target_compile_options(${test_dirname} PUBLIC
+      -fprofile-instr-generate -fcoverage-mapping
+    )
+    target_link_options(${test_dirname} PUBLIC
+      -fprofile-instr-generate -fcoverage-mapping
+    )
+  endif()
+
+  add_custom_target(check-sycl-${test_dirname}
+    ${CMAKE_COMMAND} -E env
+    LLVM_PROFILE_FILE="${SYCL_COVERAGE_PATH}/${test_dirname}.profraw"
+    env SYCL_CONFIG_FILE_NAME=null.cfg
+    env SYCL_DEVICELIB_NO_FALLBACK=1
+    env SYCL_CACHE_DIR="${CMAKE_BINARY_DIR}/sycl_cache"
+    ${CMAKE_CURRENT_BINARY_DIR}/${test_dirname}
+    DEPENDS
+    ${test_dirname}
+  )
+
+  add_dependencies(check-sycl-unittests check-sycl-${test_dirname})
+
+>>>>>>> 0b8acb3e82e4c1d10294626c2575cf1dd23a927c
   target_link_libraries(${test_dirname}
     PRIVATE
       ${TESTING_SUPPORT_LIB}

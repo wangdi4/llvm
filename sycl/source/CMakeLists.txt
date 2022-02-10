@@ -24,6 +24,7 @@ function(add_sycl_rt_library LIB_NAME)
   set(LIB_OBJ_NAME ${LIB_NAME}_object)
 
   add_library(${LIB_OBJ_NAME} OBJECT ${ARG_SOURCES})
+<<<<<<< HEAD
   if(INTEL_CUSTOMIZATION)
     add_library(${LIB_NAME} SHARED
                 $<TARGET_OBJECTS:${LIB_OBJ_NAME}>)
@@ -31,6 +32,22 @@ function(add_sycl_rt_library LIB_NAME)
     add_library(${LIB_NAME} SHARED
                 $<TARGET_OBJECTS:${LIB_OBJ_NAME}>
                 ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
+=======
+  add_library(${LIB_NAME} SHARED
+              $<TARGET_OBJECTS:${LIB_OBJ_NAME}>
+              ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
+
+  if (SYCL_ENABLE_COVERAGE)
+    target_compile_options(${LIB_OBJ_NAME} PUBLIC
+      -fprofile-instr-generate -fcoverage-mapping
+    )
+    target_compile_options(${LIB_NAME} PUBLIC
+      -fprofile-instr-generate -fcoverage-mapping
+    )
+    target_link_options(${LIB_NAME} PUBLIC
+      -fprofile-instr-generate -fcoverage-mapping
+    )
+>>>>>>> 0b8acb3e82e4c1d10294626c2575cf1dd23a927c
   endif()
 
   if (ARG_COMPILE_OPTIONS)
@@ -245,6 +262,7 @@ else()
   add_sycl_rt_library(sycl COMPILE_OPTIONS ${SYCL_EXTRA_OPTS} SOURCES ${SYCL_SOURCES})
 endif()
 
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 if (NOT MSVC)
 # Workaround for bug in GCC version 5 and higher.
@@ -268,6 +286,8 @@ set(SYCL_ARCHIVE_INSTALL_DIR "lib${LLVM_LIBDIR_SUFFIX}")
 set(SYCL_LIBRARY_INSTALL_DIR "lib${LLVM_LIBDIR_SUFFIX}")
 set(SYCL_RUNTIME_INSTALL_DIR "bin")
 
+=======
+>>>>>>> 0b8acb3e82e4c1d10294626c2575cf1dd23a927c
 install(TARGETS ${SYCL_RT_LIBS}
   ARCHIVE DESTINATION ${SYCL_ARCHIVE_INSTALL_DIR} COMPONENT sycl
   LIBRARY DESTINATION ${SYCL_LIBRARY_INSTALL_DIR} COMPONENT sycl
