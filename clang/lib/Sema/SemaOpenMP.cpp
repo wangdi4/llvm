@@ -12744,8 +12744,18 @@ bool OpenMPAtomicCompareChecker::checkCondUpdateStmt(IfStmt *S,
     ErrorInfo.ErrorRange = ErrorInfo.NoteRange = S->getCond()->getSourceRange();
     return false;
   }
-  if (Cond->getOpcode() != BO_EQ && Cond->getOpcode() != BO_LT &&
-      Cond->getOpcode() != BO_GT) {
+
+  switch (Cond->getOpcode()) {
+  case BO_EQ:
+    Op = OMPAtomicCompareOp::EQ;
+    break;
+  case BO_LT:
+    Op = OMPAtomicCompareOp::MIN;
+    break;
+  case BO_GT:
+    Op = OMPAtomicCompareOp::MAX;
+    break;
+  default:
     ErrorInfo.Error = ErrorTy::InvalidBinaryOp;
     ErrorInfo.ErrorLoc = ErrorInfo.NoteLoc = Cond->getExprLoc();
     ErrorInfo.ErrorRange = ErrorInfo.NoteRange = Cond->getSourceRange();
@@ -12829,8 +12839,17 @@ bool OpenMPAtomicCompareChecker::checkCondExprStmt(Stmt *S,
     return false;
   }
 
-  if (Cond->getOpcode() != BO_EQ && Cond->getOpcode() != BO_LT &&
-      Cond->getOpcode() != BO_GT) {
+  switch (Cond->getOpcode()) {
+  case BO_EQ:
+    Op = OMPAtomicCompareOp::EQ;
+    break;
+  case BO_LT:
+    Op = OMPAtomicCompareOp::MIN;
+    break;
+  case BO_GT:
+    Op = OMPAtomicCompareOp::MAX;
+    break;
+  default:
     ErrorInfo.Error = ErrorTy::InvalidBinaryOp;
     ErrorInfo.ErrorLoc = ErrorInfo.NoteLoc = Cond->getExprLoc();
     ErrorInfo.ErrorRange = ErrorInfo.NoteRange = Cond->getSourceRange();
@@ -13063,8 +13082,6 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
   Expr *V = nullptr;
   Expr *E = nullptr;
   Expr *UE = nullptr;
-  Expr *D = nullptr;
-  Expr *CE = nullptr;
   bool IsXLHSInRHSPart = false;
   bool IsPostfixUpdate = false;
 #if INTEL_COLLAB
