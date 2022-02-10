@@ -75,7 +75,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeSYCLPipesHackPass(Registry);
     intel::initializePatchCallbackArgsPass(Registry);
     intel::initializeAddTLSGlobalsPass(Registry);
-    intel::initializeCoerceTypesPass(Registry);
     intel::initializeWeightedInstCounterPass(Registry);
     intel::initializeScalarizeFunctionPass(Registry);
     intel::initializeRemoveAtExitPass(Registry);

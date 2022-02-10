@@ -24,7 +24,7 @@
 // For internal use only
 
 // Debug print
-void dbg_print(const char* fmt, ...);
+void __dbg_print(const char *fmt, ...);
 
 // Get time counter
-unsigned long get_time_counter();
+unsigned long __get_time_counter();

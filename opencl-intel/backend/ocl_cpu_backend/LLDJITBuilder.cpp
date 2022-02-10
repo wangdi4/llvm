@@ -24,6 +24,7 @@
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Mutex.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <algorithm>
@@ -116,10 +117,17 @@ void LLDJITBuilder::adjustFunctionAttributes(llvm::Module *M) {
             .addFnAttribute(F.getContext(), Attribute::NoInline));
   }
 }
+
+// Set dllexport storage class for all kernel/wrapper functions.
 void LLDJITBuilder::exportKernelSymbols(llvm::Module *M) {
-  for (llvm::Function &F : M->functions()) {
-    if (F.hasMetadata("kernel_arg_addr_space")) {
-      F.setDLLStorageClass(
+  auto Kernels = DPCPPKernelCompilationUtils::getKernels(*M);
+  for (auto *F : Kernels) {
+    F->setDLLStorageClass(
+        llvm::GlobalValue::DLLStorageClassTypes::DLLExportStorageClass);
+    auto KIMD = llvm::DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(F);
+    if (KIMD.KernelWrapper.hasValue()) {
+      auto *KernelWrapper = KIMD.KernelWrapper.get();
+      KernelWrapper->setDLLStorageClass(
           llvm::GlobalValue::DLLStorageClassTypes::DLLExportStorageClass);
     }
   }

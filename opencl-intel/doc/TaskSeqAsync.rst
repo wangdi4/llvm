@@ -179,12 +179,12 @@ saves result to the ``ResultAddr``.
 Backend Runtime Part
 ====================
 ``__create_task_sequence``, ``__release_task_sequence``, ``__async`` ``__get``
-are finally inlined, within which ``ocl_task_sequence_create``,
-``ocl_task_sequence_release``, ``ocl_task_sequence_async``,
-``ocl_task_sequence_get`` will be invoked respectively with extra implicit
+are finally inlined, within which ``__ocl_task_sequence_create``,
+``__ocl_task_sequence_release``, ``__ocl_task_sequence_async``,
+``__ocl_task_sequence_get`` will be invoked respectively with extra implicit
 runtime parameters.
 
-ocl_task_sequence_create
+__ocl_task_sequence_create
 ------------------------
 For each ``task_sequence``, a data structure is allocated. It is defined as
 follows.
@@ -203,7 +203,7 @@ to ``result_size`` in the data structure.  This size is calculated by
 middle-end and passed to this function by argument. Then the address of the
 data structure is returned as ID of this task sequence.
 
-ocl_task_sequence_async
+__ocl_task_sequence_async
 -----------------------
 The first time to enqueue an async task for the SYCL program, a device queue
 only for task sequences will be created.
@@ -216,7 +216,7 @@ execute the task, and saves result address and event (in ``results`` and
 order in one task sequence, the event of last task is in the wait list of the
 current task.
 
-ocl_task_sequence_get
+__ocl_task_sequence_get
 ---------------------
 This function waits for the task finishing its execution and returns the memory
 address of result. ``delivered`` is used to tell how many ``__get()`` has been
@@ -225,7 +225,7 @@ once current task finish its execution.
 
 This function could be blocked if current task is executing.
 
-ocl_task_sequence_release
+__ocl_task_sequence_release
 -------------------------
 All results in a task sequence could not be released util destructing the task
 sequence object. At that time, the data structure of this task sequence also

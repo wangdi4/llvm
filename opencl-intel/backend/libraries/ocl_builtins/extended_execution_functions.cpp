@@ -28,11 +28,11 @@ extern void* __attribute__((const)) __get_block_to_kernel_mapper(void);
 extern void* __attribute__((const)) __get_runtime_handle(void);
 
 ////////// - enqueue_kernel
-extern int ocl20_enqueue_kernel_events(
+extern int __ocl20_enqueue_kernel_events(
     queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t *ndrange,
     uint num_events_in_wait_list, const clk_event_t *in_wait_list,
-    clk_event_t *event_ret, void *block_invoke, void *block_literal, void* DCM,
-    void* B2K, void *RuntimeHandle);
+    clk_event_t *event_ret, void *block_invoke, void *block_literal, void *DCM,
+    void *B2K, void *RuntimeHandle);
 
 int __attribute__((always_inline))
     __enqueue_kernel_basic_events(queue_t queue, kernel_enqueue_flags_t flags,
@@ -45,16 +45,17 @@ int __attribute__((always_inline))
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();
   void *RuntimeHandle = __get_runtime_handle();
-  return ocl20_enqueue_kernel_events(queue, flags, &ndrange,
-                                     num_events_in_wait_list, event_wait_list,
-                                     event_ret, block_invoke, block_literal,
-                                     DCM, B2K, RuntimeHandle);
+  return __ocl20_enqueue_kernel_events(
+      queue, flags, &ndrange, num_events_in_wait_list, event_wait_list,
+      event_ret, block_invoke, block_literal, DCM, B2K, RuntimeHandle);
 }
 
-extern int ocl20_enqueue_kernel_basic(
-  queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t *ndrange,
-  void *block_invoke, void *block_literal, void* DCM, void* B2K,
-  void *RuntimeHandle);
+extern int __ocl20_enqueue_kernel_basic(queue_t queue,
+                                        kernel_enqueue_flags_t flags,
+                                        const ndrange_t *ndrange,
+                                        void *block_invoke, void *block_literal,
+                                        void *DCM, void *B2K,
+                                        void *RuntimeHandle);
 
 int __attribute__((always_inline))
     __enqueue_kernel_basic(queue_t queue, kernel_enqueue_flags_t flags,
@@ -63,29 +64,28 @@ int __attribute__((always_inline))
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();
   void *RuntimeHandle = __get_runtime_handle();
-  return ocl20_enqueue_kernel_basic(queue, flags, &ndrange, block_invoke,
-                                    block_literal, DCM, B2K, RuntimeHandle);
+  return __ocl20_enqueue_kernel_basic(queue, flags, &ndrange, block_invoke,
+                                      block_literal, DCM, B2K, RuntimeHandle);
 }
 
 ////////// - enqueue_marker
-extern int ocl20_enqueue_marker(queue_t queue, uint num_events_in_wait_list,
-                                const __global clk_event_t *event_wait_list,
-                                __global clk_event_t *event_ret,
-                                void* DCM);
+extern int __ocl20_enqueue_marker(queue_t queue, uint num_events_in_wait_list,
+                                  const __global clk_event_t *event_wait_list,
+                                  __global clk_event_t *event_ret, void *DCM);
 int __attribute__((always_inline)) __attribute__((overloadable))
     enqueue_marker(queue_t queue, uint num_events_in_wait_list,
                    const __global clk_event_t *event_wait_list, __global clk_event_t* event_ret) {
   void* DCM = __get_device_command_manager();
-  return ocl20_enqueue_marker(queue, num_events_in_wait_list, event_wait_list,
-                              event_ret, DCM);
+  return __ocl20_enqueue_marker(queue, num_events_in_wait_list, event_wait_list,
+                                event_ret, DCM);
 }
 
 ////////// - get_default_queue
-extern queue_t __attribute__((const)) ocl20_get_default_queue(void *DCM);
+extern queue_t __attribute__((const)) __ocl20_get_default_queue(void *DCM);
 queue_t __attribute__((const)) __attribute__((always_inline))  __attribute__((overloadable))
     get_default_queue(void) {
   void* DCM = __get_device_command_manager();
-  return ocl20_get_default_queue(DCM);
+  return __ocl20_get_default_queue(DCM);
 }
 
 ////////// - ndrange_1D, ndrange_2D, ndrange_3D
@@ -170,81 +170,84 @@ ndrange_t __attribute__((const)) __attribute__((overloadable))
 }
 
 ////////// - retain_event, release_event, create_user_event, set_user_event_status, capture_event_profiling_info, is_valid_event
-extern void ocl20_retain_event(clk_event_t event, void *DCM);
+extern void __ocl20_retain_event(clk_event_t event, void *DCM);
 void __attribute__((always_inline)) __attribute__((overloadable))
     retain_event(clk_event_t event) {
   void *DCM = __get_device_command_manager();
-  return ocl20_retain_event(event, DCM);
+  return __ocl20_retain_event(event, DCM);
 }
 
-extern void ocl20_release_event(clk_event_t event, void *DCM);
+extern void __ocl20_release_event(clk_event_t event, void *DCM);
 void __attribute__((always_inline)) __attribute__((overloadable))
     release_event(clk_event_t event) {
   void* DCM = __get_device_command_manager();
-  return ocl20_release_event(event, DCM);
+  return __ocl20_release_event(event, DCM);
 }
 
-extern clk_event_t ocl20_create_user_event(void* DCM);
+extern clk_event_t __ocl20_create_user_event(void *DCM);
 clk_event_t __attribute__((always_inline)) __attribute((overloadable))
     create_user_event() {
   void* DCM = __get_device_command_manager();
-  return ocl20_create_user_event(DCM);
+  return __ocl20_create_user_event(DCM);
 }
 
-extern void ocl20_set_user_event_status(clk_event_t event, uint status,
-                                        void *DCM);
+extern void __ocl20_set_user_event_status(clk_event_t event, uint status,
+                                          void *DCM);
 void __attribute__((always_inline)) __attribute__((overloadable))
     set_user_event_status(clk_event_t event, int status) {
   void *DCM = __get_device_command_manager();
-  return ocl20_set_user_event_status(event, status, DCM);
+  return __ocl20_set_user_event_status(event, status, DCM);
 }
 
-extern void ocl20_capture_event_profiling_info(clk_event_t event,
-                                               clk_profiling_info name,
-                                               global ulong *value, void *DCM);
+extern void __ocl20_capture_event_profiling_info(clk_event_t event,
+                                                 clk_profiling_info name,
+                                                 global ulong *value,
+                                                 void *DCM);
 void __attribute__((always_inline)) __attribute__((overloadable))
     capture_event_profiling_info(clk_event_t event, clk_profiling_info name,
                                  __global ulong *value) {
   void *DCM = __get_device_command_manager();
-  return ocl20_capture_event_profiling_info(event, name, value, DCM);
+  return __ocl20_capture_event_profiling_info(event, name, value, DCM);
 }
 void __attribute__((always_inline)) __attribute__((overloadable))
     capture_event_profiling_info(clk_event_t event, clk_profiling_info name,
                                  __global void *value) {
   void *DCM = __get_device_command_manager();
-  return ocl20_capture_event_profiling_info(event, name, (__global ulong*)value, DCM);
+  return __ocl20_capture_event_profiling_info(event, name,
+                                              (__global ulong *)value, DCM);
 }
 
-extern bool ocl20_is_valid_event(clk_event_t event, void* DCM);
+extern bool __ocl20_is_valid_event(clk_event_t event, void *DCM);
 bool __attribute__((overloadable)) __attribute__((always_inline)) is_valid_event(clk_event_t event) {
   void* DCM = __get_device_command_manager();
-  return ocl20_is_valid_event(event, DCM);
+  return __ocl20_is_valid_event(event, DCM);
 }
 
 ////////// - get_kernel_work_group_size
 extern uint __attribute__((const))
-ocl20_get_kernel_wg_size(void *block_invoke, void *block_literal,
-                         void *DCM, void *B2K);
+__ocl20_get_kernel_wg_size(void *block_invoke, void *block_literal, void *DCM,
+                           void *B2K);
 
 uint __attribute__((always_inline))
     __attribute__((const)) __get_kernel_work_group_size_impl(
       void *block_invoke, void *block_literal) {
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();
-  return ocl20_get_kernel_wg_size(block_invoke, block_literal, DCM, B2K);
+  return __ocl20_get_kernel_wg_size(block_invoke, block_literal, DCM, B2K);
 }
 
 ////////// - get_kernel_preferred_work_group_size_multiple
-extern uint ocl20_get_kernel_preferred_wg_size_multiple(
-  void *block_invoke, void *block_literal, void *DCM, void *B2K);
+extern uint __ocl20_get_kernel_preferred_wg_size_multiple(void *block_invoke,
+                                                          void *block_literal,
+                                                          void *DCM, void *B2K);
 
 uint __attribute__((always_inline))
     __get_kernel_preferred_work_group_size_multiple_impl(
       void *block_invoke, void *block_literal) {
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();
-  return ocl20_get_kernel_preferred_wg_size_multiple(
-    block_invoke, block_literal, DCM, B2K);
+  return __ocl20_get_kernel_preferred_wg_size_multiple(block_invoke,
+                                                       block_literal, DCM, B2K);
 }
 
 /// address space overloading for enqueue_kernel and enqueue_marker
@@ -318,33 +321,34 @@ __get_kernel_max_sub_group_size_for_ndrange_impl(const ndrange_t ndrange,
       return prod;
 }
 
-extern size_t ocl_task_sequence_create(size_t result_size);
+extern size_t __ocl_task_sequence_create(size_t result_size);
 size_t __attribute__((always_inline))
 __create_task_sequence(size_t result_size, unsigned max_outstanding) {
-  return ocl_task_sequence_create(result_size);
+  return __ocl_task_sequence_create(result_size);
 }
 
-extern void ocl_task_sequence_async(void *obj, unsigned invocation_capacity,
-                                    void *block_invoke, void *block_literal,
-                                    void *DCM, void *B2K, void *RuntimeHandle);
+extern void __ocl_task_sequence_async(void *obj, unsigned invocation_capacity,
+                                      void *block_invoke, void *block_literal,
+                                      void *DCM, void *B2K,
+                                      void *RuntimeHandle);
 void __attribute__((always_inline))
 __async(void *obj, unsigned invocation_capacity, void *block_invoke,
         void *block_literal) {
   void *DCM = __get_device_command_manager();
   void *B2K = __get_block_to_kernel_mapper();
   void *RuntimeHandle = __get_runtime_handle();
-  ocl_task_sequence_async(obj, invocation_capacity, block_invoke, block_literal,
-                          DCM, B2K, RuntimeHandle);
+  __ocl_task_sequence_async(obj, invocation_capacity, block_invoke,
+                            block_literal, DCM, B2K, RuntimeHandle);
 }
 
-extern void *ocl_task_sequence_get(void *obj, void *DCM);
+extern void *__ocl_task_sequence_get(void *obj, void *DCM);
 void *__attribute__((always_inline))
 __get(void *obj, unsigned response_capacity) {
   void *DCM = __get_device_command_manager();
-  return ocl_task_sequence_get(obj, DCM);
+  return __ocl_task_sequence_get(obj, DCM);
 }
 
-extern void ocl_task_sequence_release(void *obj);
+extern void __ocl_task_sequence_release(void *obj);
 void __attribute__((always_inline)) __release_task_sequence(void *obj) {
-  return ocl_task_sequence_release(obj);
+  return __ocl_task_sequence_release(obj);
 }
