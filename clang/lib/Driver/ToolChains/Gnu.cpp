@@ -996,7 +996,6 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-lm");
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Add -lm for both C and C++ compilation
   else if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) &&
@@ -1014,7 +1013,6 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-ldl");
   }
 #endif // INTEL_CUSTOMIZATION
-=======
 
   // If we are linking for the device all symbols should be bound locally. The
   // symbols are already protected which makes this redundant. This is only
@@ -1022,7 +1020,6 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   // TODO: Remove this once 'lld' becomes the only linker for offloading.
   if (JA.isDeviceOffloading(Action::OFK_OpenMP))
     CmdArgs.push_back("-Bsymbolic");
->>>>>>> eeb29c8477d96ad821b3283dad8ed060a3426118
 
   // Silence warnings when linking C code with a C++ '-stdlib' argument.
   Args.ClaimAllArgs(options::OPT_stdlib_EQ);
