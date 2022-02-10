@@ -414,6 +414,18 @@ EXTERN void __kmpc_spmd_push_num_threads(int num_threads);
 /// Pop num_threads in SPMD kernel
 EXTERN void __kmpc_spmd_pop_num_threads(void);
 
+/// Wrapper that marks begin of target region
+EXTERN void __kmpc_begin_spmd_target(void);
+
+/// Wrapper that marks end of target region
+EXTERN void __kmpc_end_spmd_target(void);
+
+/// Wrapper that marks begin of parallel region
+EXTERN void __kmpc_begin_spmd_parallel(void);
+
+/// Wrapper that marks end of parallel region
+EXTERN void __kmpc_end_spmd_parallel(void);
+
 #if !KMP_ASSUME_SIMPLE_SPMD_MODE
 /// Push simd_limit for the next region
 EXTERN void __kmpc_push_simd_limit(ident_t *loc, int tid, int simd_limit);

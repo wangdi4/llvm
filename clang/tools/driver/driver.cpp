@@ -27,6 +27,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringSwitch.h"    // INTEL
 #include "llvm/Option/ArgList.h"
 #include "llvm/Option/OptTable.h"
 #include "llvm/Option/Option.h"
@@ -72,10 +73,13 @@ std::string GetExecutablePath(const char *Argv0, bool CanonicalPrefixes) {
 }
 
 #if INTEL_CUSTOMIZATION
-static bool CheckDpcppOption(const char *Argv1) {
-  std::string Expected("--dpcpp");
-  std::string Arg(Argv1);
-  return Expected == Arg;
+static std::string GetDriverName(std::string ClangDriverName) {
+  std::string DriverName = llvm::StringSwitch<std::string>(ClangDriverName)
+                               .Case("clang", "icx")
+                               .Case("clang-cl", "icx")
+                               .Case("clang++", "icpx")
+                               .Default("icx");
+  return DriverName;
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -461,13 +465,28 @@ int main(int Argc, const char **Argv) {
   FixupDiagPrefixExeName(DiagClient, Path);
 #if INTEL_CUSTOMIZATION
   bool HasDpcppOption = false;
+  bool HasIntelOption = false;
+
+  std::string DpcppOpt("--dpcpp");
+  std::string IntelOpt("--intel");
+  auto CheckIntelOptions = [](std::string Arg, std::string Expected) {
+    return Expected == Arg;
+  };
+
   for (int i = 1, size = Args.size(); i < size; ++i) {
-    if (Args[i] != nullptr && CheckDpcppOption(Args[i])) {
+    if (Args[i] == nullptr)
+      continue;
+    if (CheckIntelOptions(Args[i], DpcppOpt)) {
       HasDpcppOption = true;
-      break;
+    }
+    if (CheckIntelOptions(Args[i], IntelOpt)) {
+      HasIntelOption = true;
     }
   }
+  assert(!(HasDpcppOption && HasIntelOption)
+          && "Both --intel and --dpcpp has been set!");
   if (HasDpcppOption)
+    // TODO: Update dpcpp output 'name' similar to icx to include dpcpp-cl
     DiagClient->setPrefix(std::string("dpcpp"));
 #endif // INTEL_CUSTOMIZATION
   IntrusiveRefCntPtr<DiagnosticIDs> DiagID(new DiagnosticIDs());
@@ -488,6 +507,17 @@ int main(int Argc, const char **Argv) {
 #if INTEL_CUSTOMIZATION
   if (HasDpcppOption)
     TheDriver.setDriverName(std::string("dpcpp"));
+  if (HasIntelOption) {
+    StringRef DrBasename(llvm::sys::path::stem(Args[0]));
+    auto DriverMode = getDriverMode(Args[0], llvm::makeArrayRef(Args).slice(1));
+    if (DrBasename.str() == "clang" && DriverMode.equals_insensitive("g++")) {
+      DiagClient->setPrefix(std::string("icpx"));
+      TheDriver.setDriverName(std::string("icpx"));
+    } else {
+      DiagClient->setPrefix(GetDriverName(DrBasename.str()));
+      TheDriver.setDriverName(GetDriverName(DrBasename.str()));
+    }
+  }
 #endif // INTEL_CUSTOMIZATION
   SetInstallDir(Args, TheDriver, CanonicalPrefixes);
   auto TargetAndMode = ToolChain::getTargetAndModeFromProgramName(Args[0]);
