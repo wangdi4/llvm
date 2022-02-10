@@ -8,6 +8,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(SYCL_ENABLE_WERROR "Treat all warnings as errors in SYCL project" OFF)
 option(SYCL_DISABLE_STL_ASSERTIONS "Disable assertions in STL containers" OFF)
 option(SYCL_ADD_DEV_VERSION_POSTFIX "Adds -V postfix to version string" ON)
+option(SYCL_ENABLE_COVERAGE "Enables code coverage for runtime and unit tests" OFF)
+
+if (NOT SYCL_COVERAGE_PATH)
+  set(SYCL_COVERAGE_PATH "${CMAKE_CURRENT_BINARY_DIR}/profiles")
+endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 include(AddSYCLExecutable)
@@ -240,6 +245,7 @@ add_custom_target(sycl-compiler
           sycl-post-link
           opencl-aot
 )
+
 add_custom_target( sycl-toolchain
   DEPENDS ${SYCL_RT_LIBS}
           sycl-compiler
@@ -255,6 +261,13 @@ list(FIND LLVM_ENABLE_PROJECTS opencl-aot OPENCL_AOT_FOUND)
 if(NOT OPENCL_AOT_FOUND EQUAL -1)
   add_dependencies(sycl-toolchain opencl-aot)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS opencl-aot)
+endif()
+
+# Enable new IN_LIST operator.
+cmake_policy(SET CMP0057 NEW)
+
+if (libdevice IN_LIST LLVM_ENABLE_PROJECTS)
+  add_dependencies(sycl-toolchain libsycldevice)
 endif()
 
 if (SYCL_ENABLE_XPTI_TRACING)
