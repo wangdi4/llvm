@@ -64,9 +64,7 @@ define internal void @test_lifetime_intrins() #3 {
 ; CHECK:       vector.body:
 ; CHECK:         [[TMP0:%.*]] = bitcast float addrspace(4)* [[XTMP_ASCAST_PRIV_ASCAST_VEC_ASCAST_BASE_ADDR_EXTRACT_0]] to i8 addrspace(4)*
 ; CHECK-NEXT:    [[TMP1:%.*]] = addrspacecast i8 addrspace(4)* [[TMP0]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[TMP1]])
 ; CHECK-NEXT:    store <2 x float> zeroinitializer, <2 x float> addrspace(4)* [[XTMP_ASCAST_PRIV_ASCAST_VEC_ASCAST]], align 4
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 8, i8* [[TMP1]])
 ;
 DIR.OMP.SIMD.4:
   %xtmp.ascast.priv = alloca float, align 4
