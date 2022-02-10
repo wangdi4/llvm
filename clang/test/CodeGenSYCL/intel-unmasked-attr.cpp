@@ -9,6 +9,7 @@ queue q;
 [[intel::device_indirectly_callable]] int bar20(int a) { return a + 20; }
 
 [[intel::unmasked]] void bar2(int) {bar10(1);}
+<<<<<<< HEAD
 // CHECK-DAG: define dso_local spir_func void @_Z4bar2i(i32 {{[^,]*}}%0) #[[ATTRS_UNMASKED:[0-9]+]]
 // CHECK-DAG: define dso_local spir_func {{[^,]*}}i32 @_Z5bar10i(i32 {{[^,]*}}%a) #[[ATTRS_NOT_UNMASKED:[0-9]+]]
 
@@ -16,6 +17,15 @@ class A {
 public:
   // CHECK-DAG: define linkonce_odr spir_func void @_ZN1AclEi(%class.A addrspace(4)* {{[^,]*}}%this, i32 {{[^,]*}}%i) #[[ATTRS_UNMASKED]]
   // CHECK-DAG: define dso_local spir_func {{[^,]*}}i32 @_Z5bar20i(i32 {{[^,]*}}%a) #[[ATTRS_NOT_UNMASKED]]
+=======
+// CHECK-DAG: define dso_local spir_func void @_Z4bar2i(i32 noundef %0) #[[ATTRS_UNMASKED:[0-9]+]]
+// CHECK-DAG: define dso_local spir_func noundef i32 @_Z5bar10i(i32 noundef %a) #[[ATTRS_NOT_UNMASKED:[0-9]+]]
+
+class A {
+public:
+  // CHECK-DAG: define linkonce_odr spir_func void @_ZN1AclEi(%class.A addrspace(4)* noundef %this, i32 noundef %i) #[[ATTRS_UNMASKED]]
+  // CHECK-DAG: define dso_local spir_func noundef i32 @_Z5bar20i(i32 noundef %a) #[[ATTRS_NOT_UNMASKED]]
+>>>>>>> 3c48dbd8de89d190fb38f3771f5fad1b62ae2ae6
   [[intel::unmasked]] void operator()(int i) { bar20(i); }
 };
 
