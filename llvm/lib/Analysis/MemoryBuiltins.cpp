@@ -492,7 +492,6 @@ Constant *llvm::getInitialValueOfAllocation(const CallBase *Alloc,
   return nullptr;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// isLibFreeFunction - Returns true if the function is a builtin free()
 bool llvm::isLibFreeFunction(const Function *F, const LibFunc TLIFn) {
@@ -519,53 +518,15 @@ bool llvm::isLibFreeFunction(const Function *F, const LibFunc TLIFn) {
   return true;
 }
 
-/// isLibDeleteFunction - Returns true if the function is a builtin delete()
-bool llvm::isLibDeleteFunction(const Function *F, const LibFunc TLIFn) {
-  unsigned ExpectedNumParams;
-#if INTEL_CUSTOMIZATION
-  if (
-#endif // INTEL_CUSTOMIZATION
-      TLIFn == LibFunc_ZdlPv || // operator delete(void*)
-      TLIFn == LibFunc_ZdaPv || // operator delete[](void*)
-      TLIFn == LibFunc_msvc_delete_ptr32 || // operator delete(void*)
-      TLIFn == LibFunc_msvc_delete_ptr64 || // operator delete(void*)
-      TLIFn == LibFunc_msvc_delete_array_ptr32 || // operator delete[](void*)
-      TLIFn == LibFunc_msvc_delete_array_ptr64)   // operator delete[](void*)
-    ExpectedNumParams = 1;
-  else if (TLIFn == LibFunc_ZdlPvj ||              // delete(void*, uint)
-           TLIFn == LibFunc_ZdlPvm ||              // delete(void*, ulong)
-           TLIFn == LibFunc_ZdlPvRKSt9nothrow_t || // delete(void*, nothrow)
-           TLIFn == LibFunc_ZdlPvSt11align_val_t || // delete(void*, align_val_t)
-           TLIFn == LibFunc_ZdaPvj ||              // delete[](void*, uint)
-           TLIFn == LibFunc_ZdaPvm ||              // delete[](void*, ulong)
-           TLIFn == LibFunc_ZdaPvRKSt9nothrow_t || // delete[](void*, nothrow)
-           TLIFn == LibFunc_ZdaPvSt11align_val_t || // delete[](void*, align_val_t)
-           TLIFn == LibFunc_msvc_delete_ptr32_int ||      // delete(void*, uint)
-           TLIFn == LibFunc_msvc_delete_ptr64_longlong || // delete(void*, ulonglong)
-           TLIFn == LibFunc_msvc_delete_ptr32_nothrow || // delete(void*, nothrow)
-           TLIFn == LibFunc_msvc_delete_ptr64_nothrow || // delete(void*, nothrow)
-           TLIFn == LibFunc_msvc_delete_array_ptr32_int ||      // delete[](void*, uint)
-           TLIFn == LibFunc_msvc_delete_array_ptr64_longlong || // delete[](void*, ulonglong)
-           TLIFn == LibFunc_msvc_delete_array_ptr32_nothrow || // delete[](void*, nothrow)
-           TLIFn == LibFunc_msvc_delete_array_ptr64_nothrow || // delete[](void*, nothrow)
-           TLIFn == LibFunc___kmpc_free_shared) // OpenMP Offloading RTL free
-    ExpectedNumParams = 2;
-  else if (TLIFn == LibFunc_ZdaPvSt11align_val_tRKSt9nothrow_t || // delete(void*, align_val_t, nothrow)
-           TLIFn == LibFunc_ZdlPvSt11align_val_tRKSt9nothrow_t || // delete[](void*, align_val_t, nothrow)
-           TLIFn == LibFunc_ZdlPvjSt11align_val_t || // delete(void*, unsigned long, align_val_t)
-           TLIFn == LibFunc_ZdlPvmSt11align_val_t || // delete(void*, unsigned long, align_val_t)
-           TLIFn == LibFunc_ZdaPvjSt11align_val_t || // delete[](void*, unsigned int, align_val_t)
-           TLIFn == LibFunc_ZdaPvmSt11align_val_t) // delete[](void*, unsigned long, align_val_t)
-    ExpectedNumParams = 3;
-  else
-=======
 struct FreeFnsTy {
   unsigned NumParams;
 };
 
 // clang-format off
 static const std::pair<LibFunc, FreeFnsTy> FreeFnData[] = {
+#if !INTEL_CUSTOMIZATION
     {LibFunc_free,                               {1}},
+#endif
     {LibFunc_ZdlPv,                              {1}}, // operator delete(void*)
     {LibFunc_ZdaPv,                              {1}}, // operator delete[](void*)
     {LibFunc_msvc_delete_ptr32,                  {1}}, // operator delete(void*)
@@ -598,14 +559,13 @@ static const std::pair<LibFunc, FreeFnsTy> FreeFnData[] = {
 };
 // clang-format on
 
-/// isLibFreeFunction - Returns true if the function is a builtin free()
-bool llvm::isLibFreeFunction(const Function *F, const LibFunc TLIFn) {
+/// isLibDeleteFunction - Returns true if the function is a builtin delete()
+bool llvm::isLibDeleteFunction(const Function *F, const LibFunc TLIFn) {
   const auto *Iter =
       find_if(FreeFnData, [TLIFn](const std::pair<LibFunc, FreeFnsTy> &P) {
         return P.first == TLIFn;
       });
   if (Iter == std::end(FreeFnData)) {
->>>>>>> bad0301cc539e2b6cf2a6e2077b1485142ff3bde
     return false;
   }
   const FreeFnsTy *FnData = &Iter->second;
