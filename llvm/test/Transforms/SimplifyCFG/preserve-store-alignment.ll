@@ -27,11 +27,11 @@ define i32 @align_both_equal() local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP7:%.*]] = xor i1 [[TOBOOL5]], true
 ; CHECK-NEXT:    [[TMP8:%.*]] = or i1 [[TMP6]], [[TMP7]]
 ; CHECK-NEXT:    br i1 [[TMP8]], label [[TMP9:%.*]], label [[TMP10:%.*]]
-; CHECK:       9:
-; CHECK-NEXT:    store <2 x i64> [[SIMPLIFYCFG_MERGE]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
-; CHECK-NEXT:    br label [[TMP10]]
-; CHECK:       10:
-; CHECK-NEXT:    ret i32 0
+; INTEL_CUSTOMIZATION
+; The llorg test has hard-coded label numbers here, which can't be guaranteed.
+; CHECK:    store <2 x i64> [[SIMPLIFYCFG_MERGE]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+; CHECK:    ret i32 0
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   %0 = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
@@ -81,11 +81,10 @@ define i32 @align_not_equal() local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP7:%.*]] = xor i1 [[TOBOOL5]], true
 ; CHECK-NEXT:    [[TMP8:%.*]] = or i1 [[TMP6]], [[TMP7]]
 ; CHECK-NEXT:    br i1 [[TMP8]], label [[TMP9:%.*]], label [[TMP10:%.*]]
-; CHECK:       9:
-; CHECK-NEXT:    store <2 x i64> [[SIMPLIFYCFG_MERGE]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
-; CHECK-NEXT:    br label [[TMP10]]
-; CHECK:       10:
-; CHECK-NEXT:    ret i32 0
+; INTEL_CUSTOMIZATION:
+; CHECK:    store <2 x i64> [[SIMPLIFYCFG_MERGE]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+; CHECK:    ret i32 0
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   %0 = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
@@ -135,11 +134,9 @@ define i32 @align_single_zero() local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP7:%.*]] = xor i1 [[TOBOOL5]], true
 ; CHECK-NEXT:    [[TMP8:%.*]] = or i1 [[TMP6]], [[TMP7]]
 ; CHECK-NEXT:    br i1 [[TMP8]], label [[TMP9:%.*]], label [[TMP10:%.*]]
-; CHECK:       9:
-; CHECK-NEXT:    store <2 x i64> [[SIMPLIFYCFG_MERGE]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
-; CHECK-NEXT:    br label [[TMP10]]
-; CHECK:       10:
-; CHECK-NEXT:    ret i32 0
+; INTEL_CUSTOMIZATION
+; CHECK:    store <2 x i64> [[SIMPLIFYCFG_MERGE]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   %0 = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
@@ -189,11 +186,10 @@ define i32 @align_single_zero_second_greater_default() local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP7:%.*]] = xor i1 [[TOBOOL5]], true
 ; CHECK-NEXT:    [[TMP8:%.*]] = or i1 [[TMP6]], [[TMP7]]
 ; CHECK-NEXT:    br i1 [[TMP8]], label [[TMP9:%.*]], label [[TMP10:%.*]]
-; CHECK:       9:
-; CHECK-NEXT:    store <2 x i64> [[SIMPLIFYCFG_MERGE]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 16
-; CHECK-NEXT:    br label [[TMP10]]
-; CHECK:       10:
-; CHECK-NEXT:    ret i32 0
+; INTEL_CUSTOMIZATION
+; CHECK:    store <2 x i64> [[SIMPLIFYCFG_MERGE]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 16
+; CHECK:    ret i32 0
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   %0 = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
@@ -243,11 +239,10 @@ define i32 @align_both_zero() local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP7:%.*]] = xor i1 [[TOBOOL5]], true
 ; CHECK-NEXT:    [[TMP8:%.*]] = or i1 [[TMP6]], [[TMP7]]
 ; CHECK-NEXT:    br i1 [[TMP8]], label [[TMP9:%.*]], label [[TMP10:%.*]]
-; CHECK:       9:
-; CHECK-NEXT:    store <2 x i64> [[SIMPLIFYCFG_MERGE]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 16
-; CHECK-NEXT:    br label [[TMP10]]
-; CHECK:       10:
-; CHECK-NEXT:    ret i32 0
+; INTEL_CUSTOMIZATION
+; CHECK:    store <2 x i64> [[SIMPLIFYCFG_MERGE]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 16
+; CHECK:    ret i32 0
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   %0 = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
