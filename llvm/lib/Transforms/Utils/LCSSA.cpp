@@ -33,8 +33,12 @@
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+<<<<<<< HEAD
 #include "llvm/Analysis/Intel_Andersens.h"    // INTEL
 #include "llvm/Analysis/Intel_WP.h"           // INTEL
+=======
+#include "llvm/Analysis/LoopInfo.h"
+>>>>>>> c6f0940d99644cd03cf6affb030205125b7cd0fb
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/ScalarEvolution.h"

@@ -23,10 +23,8 @@
 #include "llvm/Analysis/AliasAnalysis.h" // INTEL
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/IR/Instruction.h"
-#include "llvm/IR/Metadata.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/ValueHandle.h"
-#include "llvm/Support/Casting.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
