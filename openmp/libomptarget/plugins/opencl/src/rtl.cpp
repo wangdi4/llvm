@@ -831,6 +831,24 @@ struct RTLOptionTy {
   size_t ReductionSubscriptionRate = 1;
   bool ReductionSubscriptionRateIsDefault = true;
 
+  /// Loop kernels with known ND-range may be known to have
+  /// few iterations and they may not exploit the offload device
+  /// to the fullest extent.
+  /// Let's assume a device has N total HW threads available,
+  /// and the kernel requires M hardware threads with LWS set to L.
+  /// If (M < N * ThinThreadsThreshold), then we will try
+  /// to iteratively divide L by 2 to increase the number of HW
+  /// threads used for executing the kernel. Effectively, we will
+  /// end up with L less than the kernel's SIMD width, so the HW
+  /// threads will not use all their SIMD lanes. This (presumably) should
+  /// allow more parallelism, because the stalls in the SIMD lanes
+  /// will be distributed across more HW threads, and the probability
+  /// of having a stall (or a sequence of stalls) on a critical path
+  /// in the kernel should decrease.
+  /// Anyway, this is just a heuristics that seems to work well for some
+  /// kernels (which poorly expose parallelism in the first place).
+  double ThinThreadsThreshold = 0.1;
+
 #if INTEL_INTERNAL_BUILD
   /// Forced GWS/LWS only for internal experiments
   size_t ForcedLocalSizes[3] = {0, 0, 0};
@@ -1076,6 +1094,23 @@ struct RTLOptionTy {
         Flags.LinkLibDevice = 1;
       else if (Value == 0)
         Flags.LinkLibDevice = 0;
+    }
+
+    if ((Env = readEnvVar("LIBOMPTARGET_ONEAPI_THIN_THREADS_THRESHOLD"))) {
+      char *StrEnd;
+      double Value = std::strtod(Env, &StrEnd);
+      if (errno == 0 && StrEnd != Env &&
+          Value >= 0.0 && Value <= 1.0) {
+        ThinThreadsThreshold = Value;
+      } else {
+        if (errno != 0)
+          DP("Error parsing value of "
+             "LIBOMPTARGET_ONEAPI_THIN_THREADS_THRESHOLD: %s\n",
+             strerror(errno));
+        DP("Value of LIBOMPTARGET_ONEAPI_THIN_THREADS_THRESHOLD must "
+           "be a non-negative floating-point number not greater than 1.0.\n");
+        DP("Using default value: %f\n", ThinThreadsThreshold);
+      }
     }
   }
 
@@ -3815,6 +3850,42 @@ EXTERN int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
   return OFFLOAD_SUCCESS;
 }
 
+// Return the number of total HW threads required to execute
+// a loop kernel compiled with the given simdWidth, and the given
+// loop(s) trip counts and group sizes.
+// Returns UINT64_MAX, if computations overflow.
+static uint64_t computeThreadsNeeded(
+    const size_t (&tripCounts)[3], const size_t (&groupSizes)[3],
+    uint32_t simdWidth) {
+  uint64_t groupCount[3];
+  for (int i = 0; i < 3; ++i) {
+    if (tripCounts[i] == 0 || groupSizes[i] == 0)
+      return (std::numeric_limits<uint64_t>::max)();
+    groupCount[i] =
+        (uint64_t(tripCounts[i]) + groupSizes[i] - 1) / groupSizes[i];
+    if (groupCount[i] > (std::numeric_limits<uint32_t>::max)())
+      return (std::numeric_limits<uint64_t>::max)();
+  }
+  for (int i = 1; i < 3; ++i) {
+    if ((std::numeric_limits<uint64_t>::max)() / groupCount[0] <
+	groupCount[i])
+      return (std::numeric_limits<uint64_t>::max)();
+    groupCount[0] *= groupCount[i];
+  }
+  // Multiplication of the group sizes must never overflow uint64_t
+  // for any existing device.
+  uint64_t localWorkSize =
+      uint64_t(groupSizes[0]) * groupSizes[1] * groupSizes[2];
+  uint64_t threadsPerWG = ((localWorkSize + simdWidth - 1) / simdWidth);
+
+  // Check that the total number of threads fits uint64_t.
+  if ((std::numeric_limits<uint64_t>::max)() / groupCount[0] <
+      threadsPerWG)
+    return (std::numeric_limits<uint64_t>::max)();
+
+  return groupCount[0] * threadsPerWG;
+}
+
 static void decideLoopKernelGroupArguments(
     int32_t DeviceId, int32_t ThreadLimit, TgtNDRangeDescTy *LoopLevels,
     cl_kernel Kernel, size_t *GroupSizes, size_t *GroupCounts) {
@@ -3931,8 +4002,55 @@ static void decideLoopKernelGroupArguments(
       groupSizes[0] = suggestedGroupSizes[0];
       groupSizes[1] = suggestedGroupSizes[1];
       groupSizes[2] = suggestedGroupSizes[2];
-    } else if (maxGroupSize > kernelWidth) {
-      groupSizes[0] = kernelWidth;
+    } else {
+      if (maxGroupSize > kernelWidth) {
+        groupSizes[0] = kernelWidth;
+      }
+      if (distributeDim == 0 &&
+          // We need to know exact number of HW threads available
+          // on the device, so we need cl_intel_device_attribute_query
+          // extension to be supported.
+          DeviceInfo->Extensions[DeviceId].DeviceAttributeQuery ==
+          ExtensionStatusEnabled) {
+        // If there is a distribute dimension, then we do not use
+        // thin HW threads, since we do not know anything about
+        // the iteration space of the inner parallel loop regions.
+        //
+        // If there is no distribute dimension, then try to use thiner
+        // HW threads to get more independent HW threads executing
+        // the kernel - this may allow more parallelism due to
+        // the stalls being distributed across multiple HW threads rather
+        // than across SIMD lanes within one HW thread.
+	assert(groupSizes[1] == 1 && groupSizes[2] == 1 &&
+	       "Unexpected group sizes for dimensions 1 or/and 2.");
+	uint32_t simdWidth = KernelProperty.SIMDWidth;
+	auto &deviceProperties = DeviceInfo->DeviceProperties[DeviceId];
+	uint32_t numEUsPerSubslice = deviceProperties.NumEUsPerSubslice;
+	uint32_t numSubslices = deviceProperties.NumSlices *
+	    deviceProperties.NumSubslicesPerSlice;
+	uint32_t numThreadsPerEU = deviceProperties.NumThreadsPerEU;
+	uint64_t totalThreads = uint64_t(numThreadsPerEU) * numEUsPerSubslice *
+	    numSubslices;
+        totalThreads *= DeviceInfo->Option.ThinThreadsThreshold;
+
+	uint64_t groupSizePrev = groupSizes[0];
+	uint64_t threadsNeeded =
+	    computeThreadsNeeded(tripCounts, groupSizes, simdWidth);
+	while (threadsNeeded < totalThreads) {
+	  groupSizePrev = groupSizes[0];
+          // Try to half the local work size (if possible) and see
+          // how many HW threads the kernel will require with this
+          // new local work size.
+          // In most implementations the initial groupSizes[0]
+          // will be a power-of-two.
+	  if (groupSizes[0] <= 1)
+	    break;
+	  groupSizes[0] >>= 1;
+	  threadsNeeded =
+	      computeThreadsNeeded(tripCounts, groupSizes, simdWidth);
+	}
+	groupSizes[0] = groupSizePrev;
+      }
     }
   }
 
