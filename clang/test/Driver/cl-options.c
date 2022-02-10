@@ -779,7 +779,7 @@
 // RUN: %clang_cl -### --intel -fprofile-instr-generate -- %s 2>&1 | FileCheck -check-prefix=CHECK-LINK-INCREMENTAL-NO %s
 // RUN: %clang_cl -### --intel -fprofile-instr-generate %s /link /incremental -- 2>&1 | FileCheck -check-prefix=CHECK-INCREMENTAL-INVALID %s
 // CHECK-LINK-INCREMENTAL-NO: link.exe{{.*}} "-incremental:no"
-// CHECK-INCREMENTAL-INVALID: clang{{.*}} error: invalid argument '-fprofile-instr-generate' not allowed with '-incremental'
+// CHECK-INCREMENTAL-INVALID: icx{{.*}} error: invalid argument '-fprofile-instr-generate' not allowed with '-incremental'
 // end INTEL_CUSTOMIZATION
 
 void f() { }
