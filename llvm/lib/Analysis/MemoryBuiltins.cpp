@@ -560,13 +560,8 @@ static const std::pair<LibFunc, FreeFnsTy> FreeFnData[] = {
 };
 // clang-format on
 
-<<<<<<< HEAD
-/// isLibDeleteFunction - Returns true if the function is a builtin delete()
-bool llvm::isLibDeleteFunction(const Function *F, const LibFunc TLIFn) {
-=======
 Optional<FreeFnsTy> getFreeFunctionDataForFunction(const Function *Callee,
                                                    const LibFunc TLIFn) {
->>>>>>> b2d091aa5d31ffaa6715868a1401472ed5f55808
   const auto *Iter =
       find_if(FreeFnData, [TLIFn](const std::pair<LibFunc, FreeFnsTy> &P) {
         return P.first == TLIFn;
@@ -576,8 +571,8 @@ Optional<FreeFnsTy> getFreeFunctionDataForFunction(const Function *Callee,
   return Iter->second;
 }
 
-/// isLibFreeFunction - Returns true if the function is a builtin free()
-bool llvm::isLibFreeFunction(const Function *F, const LibFunc TLIFn) {
+/// isLibDeleteFunction - Returns true if the function is a builtin delete()
+bool llvm::isLibDeleteFunction(const Function *F, const LibFunc TLIFn) {
   Optional<FreeFnsTy> FnData = getFreeFunctionDataForFunction(F, TLIFn);
   if (!FnData.hasValue())
     return false;
