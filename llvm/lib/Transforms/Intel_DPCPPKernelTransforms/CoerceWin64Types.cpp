@@ -340,8 +340,13 @@ bool CoerceWin64TypesPass::runOnFunction(Function *F) {
     if (Arg.hasByValAttr()) {
       Change = true;
       Type *ArgMemTy = Arg.getParamByValType();
-      auto OldStructT = cast<StructType>(ArgMemTy);
-      uint64_t MemSize = DL.getStructLayout(OldStructT)->getSizeInBytes();
+      uint64_t MemSize = 0;
+      if (auto StructTy = dyn_cast<StructType>(ArgMemTy)) {
+        auto OldStructT = cast<StructType>(ArgMemTy);
+        MemSize = DL.getStructLayout(OldStructT)->getSizeInBytes();
+      } else
+        MemSize = DL.getTypeAllocSize(ArgMemTy);
+      assert(MemSize != 0 && "Invalid memory size for byval type!");
       ValueMap[Arg.getArgNo()] = {Arg.getParamAlignment(), MemSize};
       if (shouldPassByval(MemSize))
         NewArgTypes.push_back(getBitCastType(MemSize, C));
