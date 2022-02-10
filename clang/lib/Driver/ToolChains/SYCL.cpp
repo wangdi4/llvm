@@ -270,6 +270,10 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
         // Pass the unbundled list with '@' to be processed.
         std::string FileName(II.getFilename());
         Libs.push_back(C.getArgs().MakeArgString("@" + FileName));
+#if INTEL_CUSTOMIZATION
+      } else if (isOMPDeviceLib(II)) {
+        OMPObjs.push_back(II.getFilename());
+#endif // INTEL_CUSTOMIZATION
       } else if (II.getType() == types::TY_Archive && !LinkSYCLDeviceLibs) {
         Libs.push_back(II.getFilename());
       } else
