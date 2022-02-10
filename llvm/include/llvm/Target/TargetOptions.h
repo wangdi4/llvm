@@ -146,7 +146,7 @@ namespace llvm {
           SupportsDebugEntryValues(false), EnableDebugEntryValues(false),
           ValueTrackingVariableLocations(false), ForceDwarfFrameSection(false),
           XRayOmitFunctionIndex(false), DebugStrictDwarf(false),
-          Hotpatch(false),
+          Hotpatch(false), PPCGenScalarMASSEntries(false),
           FPDenormalMode(DenormalMode::IEEE, DenormalMode::IEEE) {}
 
     /// DisableFramePointerElim - This returns true if frame pointer elimination
@@ -368,6 +368,9 @@ namespace llvm {
 
     /// Emit the hotpatch flag in CodeView debug.
     unsigned Hotpatch : 1;
+
+    /// Enables scalar MASS conversions
+    unsigned PPCGenScalarMASSEntries : 1;
 
     /// Name of the stack usage file (i.e., .su file) if user passes
     /// -fstack-usage. If empty, it can be implied that -fstack-usage is not
