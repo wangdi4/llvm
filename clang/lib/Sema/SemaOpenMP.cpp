@@ -11825,7 +11825,7 @@ bool OpenMPAtomicUpdateChecker::checkStatement(Stmt *S, unsigned DiagId,
 #if INTEL_COLLAB
 namespace {
 /// Helper class for checking 'omp atomic compare' construct
-class OpenMPAtomicCompareChecker {
+class OpenMPAtomicCompareChecker_Intel {
   /// Error results for atomic compare.
   enum AtomicCompareCheckerErrorCode {
     NotIfOrAssignment,
@@ -11859,7 +11859,7 @@ class OpenMPAtomicCompareChecker {
   bool checkConditionOperation(Expr *Op, unsigned DiagId, unsigned NoteId);
 
 public:
-  OpenMPAtomicCompareChecker(Sema &SemaRef) : SemaRef(SemaRef) {}
+  OpenMPAtomicCompareChecker_Intel(Sema &SemaRef) : SemaRef(SemaRef) {}
   /// Check specified statement that it is suitable for 'atomic compare'
   /// constructs and extract 'x' and 'expr' or 'x', 'e', and 'd' from
   /// the original expression. If DiagId and NoteId == 0, then only check is
@@ -11889,7 +11889,7 @@ public:
 }
 
 // Check and classify the compare expression. X must have been already determined.
-bool OpenMPAtomicCompareChecker::checkConditionOperation(Expr *Op,
+bool OpenMPAtomicCompareChecker_Intel::checkConditionOperation(Expr *Op,
                                                          unsigned DiagId,
                                                          unsigned NoteId) {
   AtomicCompareCheckerErrorCode ErrorFound = NoError;
@@ -11965,7 +11965,7 @@ bool OpenMPAtomicCompareChecker::checkConditionOperation(Expr *Op,
   return ErrorFound != NoError;
 }
 
-bool OpenMPAtomicCompareChecker::checkCondExprStmt(BinaryOperator *BO,
+bool OpenMPAtomicCompareChecker_Intel::checkCondExprStmt(BinaryOperator *BO,
                                                    unsigned DiagId,
                                                    unsigned NoteId) {
   AtomicCompareCheckerErrorCode ErrorFound = NoError;
@@ -12023,7 +12023,7 @@ bool OpenMPAtomicCompareChecker::checkCondExprStmt(BinaryOperator *BO,
   return ErrorFound != NoError;
 }
 
-bool OpenMPAtomicCompareChecker::checkCondUpdateStmt(IfStmt *If,
+bool OpenMPAtomicCompareChecker_Intel::checkCondUpdateStmt(IfStmt *If,
                                                      unsigned DiagId,
                                                      unsigned NoteId) {
   AtomicCompareCheckerErrorCode ErrorFound = NoError;
@@ -12090,7 +12090,7 @@ bool OpenMPAtomicCompareChecker::checkCondUpdateStmt(IfStmt *If,
   return ErrorFound != NoError;
 }
 
-bool OpenMPAtomicCompareChecker::checkStatement(Stmt *S, unsigned DiagId,
+bool OpenMPAtomicCompareChecker_Intel::checkStatement(Stmt *S, unsigned DiagId,
                                                 unsigned NoteId) {
 
   AtomicCompareCheckerErrorCode ErrorFound = NoError;
@@ -12489,7 +12489,7 @@ bool OpenMPAtomicCompareCaptureChecker::checkCompoundStmt(CompoundStmt *CS,
           // { v = x; cond-update-stmt }
           // { cond-update-stmt; v = x; }
           // These forms use the same form as 'compare' so use that checker.
-          OpenMPAtomicCompareChecker Checker(SemaRef);
+          OpenMPAtomicCompareChecker_Intel Checker(SemaRef);
           if (Checker.checkStatement(
                   If1 ? If1 : If2,
                   diag::err_omp_atomic_compare_capture_bad_form,
@@ -12605,9 +12605,7 @@ bool OpenMPAtomicCompareCaptureChecker::checkStatement(Stmt *S, unsigned DiagId,
     X = V = Result = E = Expected = Desired = nullptr;
   return ErrorFound != NoError;
 }
-<<<<<<< HEAD
 #endif // INTEL_COLLAB
-=======
 
 /// Get the node id of the fixed point of an expression \a S.
 llvm::FoldingSetNodeID getNodeId(ASTContext &Context, const Expr *S) {
@@ -12959,7 +12957,6 @@ bool OpenMPAtomicCompareChecker::checkStmt(
 
   return checkType(ErrorInfo);
 }
->>>>>>> b35be6fe98e30b2373e8fdf024ef8c13a32121d7
 } // namespace
 
 StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
@@ -13270,7 +13267,7 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
       IsConditionalCapture = Checker.getIsConditionalCapture();
     }
   } else if (AtomicKind == OMPC_compare) {
-    OpenMPAtomicCompareChecker Checker(*this);
+    OpenMPAtomicCompareChecker_Intel Checker(*this);
     if (Checker.checkStatement(Body, diag::err_omp_atomic_compare_bad_form,
                                diag::note_omp_atomic_compare))
       return StmtError();

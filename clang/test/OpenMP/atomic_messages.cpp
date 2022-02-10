@@ -958,19 +958,3 @@ int mixed() {
   // expected-note@+1 {{in instantiation of function template specialization 'mixed<int>' requested here}}
   return mixed<int>();
 }
-<<<<<<< HEAD
-
-#if _OPENMP >= 202011
-int compare() {
-  int a, b, c;
-#pragma omp atomic compare
-// omp51-error@+2 {{he statement for 'atomic compare' must be 'x = expr ordop x ? expr : x;', 'x = x ordop expr ? expr : x;', 'x = x == e ? d : x;', 'if(expr ordop x) {x=expr;}', 'if(x ordop expr) {x=expr;}', or 'if(x==e) {x=d;}' where x is an lvalue with scalar type}}
-// omp51-note@+1 {{expected an if statement or assignment expression}}
-  {
-    if (a == b)
-      a = c;
-  }
-}
-#endif
-=======
->>>>>>> b35be6fe98e30b2373e8fdf024ef8c13a32121d7

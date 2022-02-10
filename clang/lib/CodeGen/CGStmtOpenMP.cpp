@@ -6181,7 +6181,6 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
     emitOMPAtomicCaptureExpr(CGF, AO, IsPostfixUpdate, V, X, E, UE,
                              IsXLHSInRHSPart, Loc);
     break;
-<<<<<<< HEAD
 #if INTEL_COLLAB
   case OMPC_compare: {
     bool IsPostUpdate = (V ? !IsPostfixUpdate : false);
@@ -6190,8 +6189,7 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
                              Loc);
     break;
   }
-#endif // INTEL_COLLAB
-=======
+#else
   case OMPC_compare: {
     // Emit an error here.
     unsigned DiagID = CGF.CGM.getDiags().getCustomDiagID(
@@ -6199,7 +6197,7 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
     CGF.CGM.getDiags().Report(DiagID);
     break;
   }
->>>>>>> b35be6fe98e30b2373e8fdf024ef8c13a32121d7
+#endif // INTEL_COLLAB
   case OMPC_if:
   case OMPC_final:
   case OMPC_num_threads:
