@@ -15,6 +15,7 @@
 #include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/Triple.h" // INTEL
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
