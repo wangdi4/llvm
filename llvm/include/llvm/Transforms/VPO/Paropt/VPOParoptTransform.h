@@ -290,6 +290,15 @@ private:
   SmallDenseMap<WRegionNode *, SmallPtrSet<Value *, 8>>
       LaunderIntrinsicsForRegion;
 
+  struct OmpNumThreadsCallerInfo {
+    bool Computed = false;
+    bool AddressTaken = false;
+    SmallPtrSet<Function *, 16> PotentialCallers;
+  };
+
+  /// Information about functions that may call omp_get_num_threads.
+  OmpNumThreadsCallerInfo NumThreadsCallerInfo;
+
   /// Atomic-free reduction global buffers per reduction item.
   DenseMap<ReductionItem *, GlobalVariable *> AtomicFreeRedLocalBufs;
   DenseMap<ReductionItem *, GlobalVariable *> AtomicFreeRedGlobalBufs;
@@ -1891,9 +1900,17 @@ private:
   /// Replace the use of OldV within region W with the value NewV.
   void replaceUseWithinRegion(WRegionNode *W, Value *OldV, Value *NewV);
 
-  /// \returns \b true if current Module contains the function
-  /// `omp_get_num_threads`, \b false otherwise.
-  bool moduleHasOmpGetNumThreadsFunction();
+  /// Returns the `omp_get_num_threads` function, if current Module contain it,
+  /// \b nullptr otherwise.
+  Function *getOmpGetNumThreadsFunctionIfPresent();
+
+  /// Collect information about potential callers of `omp_get_num_threads` (if
+  /// not already computed).
+  void collectOmpNumThreadsCallerInfo();
+
+  /// \returns \b true if the \p W may call `omp_get_num_threads`, or another
+  /// function that may call it. \b false otherwise.
+  bool mayCallOmpGetNumThreads(WRegionNode *W);
 
   /// \returns \b true if current function is marked with
   /// `openmp-declare-target=true` attribute, \b false otherwise.
