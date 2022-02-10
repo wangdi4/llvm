@@ -857,3 +857,14 @@
 // RUN: %clang_cl -### /Qglobal-hoist- /Qglobal-hoist %s 2>&1 | FileCheck --check-prefix=NO-GLOBAL-LOADS-UNSAFE %s
 // GLOBAL-LOADS-UNSAFE: clang{{.*}} "-mllvm" "-global-loads-unsafe"
 // NO-GLOBAL-LOADS-UNSAFE-NOT: "-mllvm" "-global-loads-unsafe"
+
+// Tests for binary output 'name' check
+// RUN: %clang -### --intel -help %s 2>&1 | FileCheck -check-prefix HELP-CHECK %s
+// RUN: %clang_cl -### --intel -help  %s 2>&1 | FileCheck -check-prefix HELP-CHECK %s
+// HELP-CHECK: USAGE: icx [options] file...
+
+// RUN: not %clang -### --intel --- %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK %s
+// SUPPORT-CHECK: icx: error: unsupported option '---'
+
+// RUN: %clang_cl -### --intel --- %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK-WIN %s
+// SUPPORT-CHECK-WIN: icx: warning: unknown argument ignored in clang-cl: '---' [-Wunknown-argument]

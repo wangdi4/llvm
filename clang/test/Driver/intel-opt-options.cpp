@@ -207,3 +207,7 @@
 // RUN:  | FileCheck -check-prefix=STREAMING_STORES_NEVER %s
 // STREAMING_STORES_ALWAYS: "-mllvm" "-hir-nontemporal-cacheline-count=0"
 // STREAMING_STORES_NEVER: "-mllvm" "-disable-hir-nontemporal-marking"
+
+// Check for a binary "name" match
+// RUN: not %clangxx --intel --- -### -c %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK1 %s
+// SUPPORT-CHECK1: icpx: error: unsupported option '---'
