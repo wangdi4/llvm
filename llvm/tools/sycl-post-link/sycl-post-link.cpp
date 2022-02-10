@@ -58,6 +58,7 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #if INTEL_COLLAB
+#include "llvm/ADT/Triple.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/MDBuilder.h"

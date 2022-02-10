@@ -28,6 +28,7 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Pass.h"
 
 #include "llvm/ADT/EquivalenceClasses.h"
