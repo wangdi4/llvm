@@ -256,19 +256,18 @@ add_custom_target( sycl-toolchain
 # end INTEL_CUSTOMIZATION
 )
 
-<<<<<<< HEAD
 # Check if opencl-aot tool is enabled.
 list(FIND LLVM_ENABLE_PROJECTS opencl-aot OPENCL_AOT_FOUND)
 if(NOT OPENCL_AOT_FOUND EQUAL -1)
   add_dependencies(sycl-toolchain opencl-aot)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS opencl-aot)
-=======
+endif()
+
 # Enable new IN_LIST operator.
 cmake_policy(SET CMP0057 NEW)
 
 if (libdevice IN_LIST LLVM_ENABLE_PROJECTS)
   add_dependencies(sycl-toolchain libsycldevice)
->>>>>>> 0b8acb3e82e4c1d10294626c2575cf1dd23a927c
 endif()
 
 if (SYCL_ENABLE_XPTI_TRACING)

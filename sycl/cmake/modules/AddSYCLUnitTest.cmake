@@ -36,7 +36,6 @@ macro(add_sycl_unittest test_dirname link_variant)
     get_target_property(SYCL_LINK_LIBS ${sycl_so_target} LINK_LIBRARIES)
   endif()
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
   if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
     set(TESTING_SUPPORT_LIB LLVMTestingSupport_stdcpp)
@@ -51,7 +50,6 @@ macro(add_sycl_unittest test_dirname link_variant)
     set(TESTING_SUPPORT_LIB LLVMTestingSupport)
   endif()
 
-=======
   if (SYCL_ENABLE_COVERAGE)
     target_compile_options(${test_dirname} PUBLIC
       -fprofile-instr-generate -fcoverage-mapping
@@ -74,7 +72,6 @@ macro(add_sycl_unittest test_dirname link_variant)
 
   add_dependencies(check-sycl-unittests check-sycl-${test_dirname})
 
->>>>>>> 0b8acb3e82e4c1d10294626c2575cf1dd23a927c
   target_link_libraries(${test_dirname}
     PRIVATE
       ${TESTING_SUPPORT_LIB}
