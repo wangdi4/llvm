@@ -3808,6 +3808,13 @@ X86
 
 .. option:: -mclzero, -mno-clzero
 
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_CMPCCXADD
+.. option:: -mcmpccxadd, -mno-cmpccxadd
+
+.. end INTEL_FEATURE_ISA_CMPCCXADD
+.. end INTEL_CUSTOMIZATION
+
 .. option:: -mcrc32, -mno-crc32
 
 .. option:: -mcx16, -mno-cx16
