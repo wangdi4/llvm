@@ -65,7 +65,7 @@ let NeedForwardDecl = 1 in {
 }
 
 //
-// VectInfo for OCLVecClone
+// VectInfo for DPCPPKernelVecClone
 //
 def work_group_all_vect_info : VectInfo<[v1i32], work_group_all, work_group_all, work_group_all, work_group_all, work_group_all, work_group_all>;
 def work_group_all_mask_vect_info : VectInfo<[v1i32], work_group_all, work_group_all_mask, work_group_all_mask, work_group_all_mask, work_group_all_mask, work_group_all_mask>;

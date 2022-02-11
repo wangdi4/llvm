@@ -449,7 +449,7 @@ foreach bi = ["sincos", "native_sincos", "modf", "fract", "native_fract"] in {
     0,1>;
 }
 
-//VecInfo for OCLVecClone
+//VecInfo for DPCPPKernelVecClone
 let KernelCallOnce = 0 in {
   let Types = [v1f32, v1f64] in {
     foreach bi = ["acos", "acosh", "acospi", "asin", "asinh", "asinpi", "atan", "atan2", "atanh", "atanpi",
