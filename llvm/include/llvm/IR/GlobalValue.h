@@ -79,15 +79,10 @@ protected:
         ValueType(Ty), Visibility(DefaultVisibility),
         UnnamedAddrVal(unsigned(UnnamedAddr::None)),
         DllStorageClass(DefaultStorageClass), ThreadLocal(NotThreadLocal),
-<<<<<<< HEAD
 #if INTEL_COLLAB
         ThreadPrivate(0), TargetDeclare(0),
 #endif // INTEL_COLLAB
-        HasLLVMReservedName(false), IsDSOLocal(false), HasPartition(false),
-        IntID((Intrinsic::ID)0U), Parent(nullptr) {
-=======
         HasLLVMReservedName(false), IsDSOLocal(false), HasPartition(false) {
->>>>>>> 949f56465bfe119174febe3be37668c88ec6da7c
     setLinkage(Linkage);
     setName(Name);
   }
