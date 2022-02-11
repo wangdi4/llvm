@@ -268,6 +268,9 @@ static cl::opt<bool> SaveTemps(
 
 static cl::opt<bool> AddOpenMPOffloadNotes(
     "add-omp-offload-notes",
+#if INTEL_COLLAB
+    cl::init(true),
+#endif // INTEL_COLLAB
     cl::desc("Add LLVMOMPOFFLOAD ELF notes to ELF device images."), cl::Hidden);
 
 namespace {
