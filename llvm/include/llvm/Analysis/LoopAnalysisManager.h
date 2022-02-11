@@ -30,7 +30,6 @@
 #define LLVM_ANALYSIS_LOOPANALYSISMANAGER_H
 
 #include "llvm/Analysis/Intel_Andersens.h"   // INTEL
-#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {

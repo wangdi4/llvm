@@ -31,7 +31,6 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/PassManager.h"
@@ -40,7 +39,6 @@
 #include "llvm/Analysis/TargetTransformInfo.h" // INTEL
 #include "llvm/Pass.h"
 #include "llvm/Support/BranchProbability.h"
-#include "llvm/Support/Casting.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
