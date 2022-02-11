@@ -498,9 +498,13 @@ unsigned FuseGraph::createFuseNode(GraphNodeMapTy &Map, HLNode *Node) {
 
   if (Loop) {
     auto &FNode = Vertex.back();
-    bool IsVectorizable = Loop->hasVectorizeEnablingPragma() ||
-                          !Loop->hasVectorizeDisablingPragma();
-    FNode.setVectorizable(IsVectorizable);
+    if (Loop->hasVectorizeEnablingPragma()) {
+      FNode.setVectorizable(true);
+    } else if (Loop->hasVectorizeDisablingPragma()) {
+      FNode.setVectorizable(false);
+    } else {
+      FNode.setVectorizable(Loop->isInnermost());
+    }
   }
 
   FuseNumber = Vertex.size();
@@ -562,10 +566,7 @@ void FuseGraph::excludePathPreventingVectorization(unsigned NodeV,
   // Skip fusion if one loop is vectorizable and another is not.
   bool NodeVVectorizable = Vertex[NodeV].isVectorizable();
   bool NodeWVectorizable = Vertex[NodeW].isVectorizable();
-  bool FusionCanSpoilVectorization =
-      (!NodeVVectorizable && NodeWVectorizable) ||
-      (NodeVVectorizable && !NodeWVectorizable);
-  if (FusionCanSpoilVectorization) {
+  if (NodeVVectorizable != NodeWVectorizable) {
     auto &BadPathFromV = BadPathFrom[NodeV];
     auto &PathFromW = PathFrom[NodeW];
     BadPathFromV.insert(PathFromW.begin(), PathFromW.end());
