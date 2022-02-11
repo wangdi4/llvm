@@ -1,7 +1,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-fusion -print-after=hir-loop-fusion -hir-create-function-level-region -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-create-function-level-region < %s 2>&1 | FileCheck %s
 
-; Test checks that non-vectorizable first loop is not fused with vecotrizable second one.
+; Test checks that non-vectorizable first loop is not fused with vectorizable second one.
 
 ;   BEGIN REGION { }
 ;      + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
