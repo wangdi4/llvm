@@ -53,17 +53,43 @@ static size_t alignSizeTo(size_t Size, size_t Align) {
 }
 
 template <typename T>
-const char *CopyAndAdvance(const char *src, const char *srcEnd, size_t size,
-                           T &dest) {
+std::enable_if_t<!std::is_integral<T>::value || !std::is_signed<T>::value,
+                 const char *>
+CopyAndAdvance(const char *src, const char *srcEnd, size_t size, T &dest) {
   if (size == 0 || (src + size) > srcEnd) {
     // Out-of-bound access happens if there are more parameter fields in format
     // string than the number of arguments, so don't advance src.
     return src;
   }
 
-  // It is undefined behavior if size is smaller than sizeof(T).
-  // Nevertheless, we may consider aligning behavior with glibc printf.
+  // It is undefined behavior if size is not equal to sizeof(T).
   std::copy(src, src + std::min(size, sizeof(T)), (char *)&dest);
+  return src + size;
+}
+
+template <typename T>
+std::enable_if_t<std::is_integral<T>::value && std::is_signed<T>::value,
+                 const char *>
+CopyAndAdvance(const char *src, const char *srcEnd, size_t size, T &dest) {
+  if (size == 0 || (src + size) > srcEnd)
+    return src;
+
+  std::copy(src, src + std::min(size, sizeof(T)), (char *)&dest);
+
+  // It is undefined behavior if size is not equal to sizeof(T).
+  // Nevertheless, we do sign extend to fix SYCL long type issue on windows:
+  // * For OpenCL, size of long is always 8 bytes.
+  // * For SYCL, long type follows host abi and its size is 4 bytes on windows.
+  //   Current implementation of "%l" assumes sizeof(long) is 8 bytes. To solve
+  //   this problem, we can either treat "%l" differently for SYCL printf
+  //   (which isn't undefined behavior any more), or do sign extend like below.
+  if (size < sizeof(T)) {
+    // Check if value is negative. If false, do nothing since dest is always
+    // initialized to 0.
+    if (dest >> (size * CHAR_BIT - 1))
+      dest |= T(-1) << (size * CHAR_BIT);
+  }
+
   return src + size;
 }
 

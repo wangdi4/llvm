@@ -1272,7 +1272,8 @@ bool CompilationUtils::isWorkGroupMax(const std::string& S) {
          isWorkGroupScanInclusiveMax(S);
 }
 
-// TODO: add ballot function, refactor OCLVecClone - opencl-vec-uniform-return.
+// TODO: add ballot function, refactor DPCPPKernelVecClone -
+// opencl-vec-uniform-return.
 bool CompilationUtils::isSubGroupUniform(const std::string &S) {
   return isGetSubGroupSize(S) || isGetSubGroupId(S) ||
          isGetMaxSubGroupSize(S) || isGetNumSubGroups(S) ||

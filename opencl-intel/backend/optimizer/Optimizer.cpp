@@ -108,8 +108,6 @@ FunctionPass *createWeightedInstCounter(bool, const CPUDetect *);
 llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
 llvm::Pass *createOCLReqdSubGroupSizePass();
-llvm::Pass *createOCLVecClonePass(ArrayRef<VectItem> VectInfos,
-                                  const CPUDetect *, bool IsOCL);
 llvm::Pass *createImplicitGIDPass(bool HandleBarrier);
 
 llvm::ModulePass *createInfiniteLoopCreatorPass();
@@ -605,8 +603,8 @@ static void populatePassesPostFailCheck(
         // We won't automatically switch vectorization dimension for SYCL.
         if (!IsSYCL)
           PM.add(llvm::createVectorizationDimensionAnalysisLegacyPass());
-        PM.add(createOCLVecClonePass(Optimizer::getVectInfos(),
-                                     pConfig->GetCpuId(), !IsSYCL && !IsOMP));
+        PM.add(llvm::createDPCPPKernelVecClonePass(Optimizer::getVectInfos(),
+                                                   ISA, !IsSYCL && !IsOMP));
 
         PM.add(llvm::createVectorVariantFillInLegacyPass());
         PM.add(llvm::createUpdateCallAttrsLegacyPass());
