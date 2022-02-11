@@ -10,7 +10,6 @@
 /llvm/lib/IR/ @andykaylor
 /llvm/lib/IRReader/ @andykaylor
 /llvm/lib/Option/ @andykaylor
-/llvm/lib/Passes/ @andykaylor
 /llvm/lib/Support/ @andykaylor
 /llvm/include/llvm/ @andykaylor
 /llvm/include/llvm/ADT/ @andykaylor
@@ -23,7 +22,6 @@
 /llvm/include/llvm/IRReader/ @andykaylor
 /llvm/include/llvm/Option/ @andykaylor
 /llvm/include/llvm/Support/ @andykaylor
-/llvm/test/Transforms/PhaseOrdering/ @andykaylor
 
 # CFE: Team owns everything in Clang unless otherwise specified.
 /clang/ @ErichKeane @mikerice1969 @aaronballman
@@ -76,7 +74,9 @@ sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-runtime
 
 # Pass pipeline creation has multiple stakeholders
 /llvm/lib/Transforms/IPO/PassManagerBuilder.cpp @andykaylor @pankaj-chawla
+/llvm/lib/Passes/ @andykaylor @pankaj-chawla
 /llvm/include/llvm/Passes/ @andykaylor @pankaj-chawla
+/llvm/test/Transforms/PhaseOrdering/ @andykaylor @pankaj-chawla
 /clang/lib/CodeGen/BackendUtil.cpp @andykaylor @pankaj-chawla @LuoYuanke @phoebewang @williamweixiao
 
 # JIRA: CMPLRLLVM->LLVM Debug Information
