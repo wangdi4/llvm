@@ -23,8 +23,15 @@
 
 ; These passes should be enabled at optimization levels over -O0
 
+; CHECK-NEWPM-O123: Running pass: SROAPass on foo
+; CHECK-NEWPM-O123: Running analysis: DominatorTreeAnalysis on foo
 ; CHECK-NEWPM-O123: Running pass: FunctionRecognizerPass on foo
+; CHECK-NEWPM-O123: Running pass: EarlyCSEPass on foo
+
+; CHECK-NEWPM-O123: Running pass: SROAPass on main
+; CHECK-NEWPM-O123: Running analysis: DominatorTreeAnalysis on main
 ; CHECK-NEWPM-O123: Running pass: FunctionRecognizerPass on main
+; CHECK-NEWPM-O123: Running pass: EarlyCSEPass on main
 
 declare void @bar() local_unnamed_addr
 

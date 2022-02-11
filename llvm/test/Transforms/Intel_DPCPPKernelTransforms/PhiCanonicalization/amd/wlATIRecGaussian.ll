@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'wlATIRecGaussian.cl'
@@ -200,3 +202,6 @@ return.loopexit:                                  ; preds = %for.body92
 return:                                           ; preds = %return.loopexit, %for.end, %entry
   ret void
 }
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function RecursiveGaussian_kernel --  br label %return
+; DEBUGIFY-NOT: WARNING

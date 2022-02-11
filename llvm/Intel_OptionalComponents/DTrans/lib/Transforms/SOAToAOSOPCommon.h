@@ -1,6 +1,6 @@
 //===-------------- SOAToAOSOPCommon.h - Part of SOAToAOSOPPass -----------===//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -401,6 +401,17 @@ inline void createAndMapNewAppendFunc(
     DenseMap<Function *, Function *> &OrigFuncToCloneFuncMap,
     DenseMap<Function *, Function *> &CloneFuncToOrigFuncMap,
     SmallDenseMap<Function *, DTransFunctionType *> &AppendsFuncToDTransTyMap) {
+
+  // For non-opaque pointers case, new update function was also created
+  // by DTransOPOptBase similar to the other member functions.
+  // Since update function is handled differently, delete the
+  // old function and create new update function with NewDTFunctionTy.
+  auto *OldF = OrigFuncToCloneFuncMap[F];
+  if (OldF) {
+    CloneFuncToOrigFuncMap[OldF] = nullptr;
+    OrigFuncToCloneFuncMap[F] = nullptr;
+    OldF->eraseFromParent();
+  }
   Function *NewF =
       Function::Create(cast<FunctionType>(NewDTFunctionTy->getLLVMType()),
                        F->getLinkage(), F->getName(), &M);

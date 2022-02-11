@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'wlATISobelFilter.cl'
@@ -108,3 +110,7 @@ declare i32 @_Z13get_global_idj(i32)
 declare i32 @get_global_size(i32)
 
 declare float @__hypotf(float, float)
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function sobel_filter --  br label %phi-split-bb1
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function sobel_filter --  br label %if.end
+; DEBUGIFY-NOT: WARNING

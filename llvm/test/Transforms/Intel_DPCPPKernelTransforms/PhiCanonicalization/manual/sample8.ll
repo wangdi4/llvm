@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'sample8.bc'
@@ -48,3 +50,5 @@ for.end48.loopexit:                               ; preds = %for.inc45
 for.end48:                                        ; preds = %for.end48.loopexit, %entry
   ret void
 }
+
+; DEBUGIFY-NOT: WARNING

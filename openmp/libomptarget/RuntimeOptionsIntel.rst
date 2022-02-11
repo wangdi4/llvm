@@ -208,6 +208,28 @@ Enables/disables fallback libdevice linking in the plugins.
 
 **Default**: Disabled
 
+``LIBOMPTARGET_ONEAPI_THIN_THREADS_THRESHOLD=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Num> is a floating point number from [0.0, 1.0] interval.
+
+Loop kernels with known ND-range may be known to have few iterations
+and they may not exploit the offload device to the fullest extent.
+Let's assume a device has ``N`` total HW threads available,
+and the kernel requires ``M`` hardware threads with local work size
+set to ``L``.
+If ``(M < N * <Num>)``, then we will try to iteratively half ``L``
+to increase the number of HW threads used for executing the kernel.
+Effectively, we will end up with ``L`` less than the kernel's SIMD width,
+so the HW threads will not use all their SIMD lanes.
+This should allow more parallelism, because the stalls in the SIMD lanes
+will be distributed across more HW threads, and the probability
+of having a stall (or a sequence of stalls) on a critical path
+in the kernel should decrease.
+
+**Default**: 0.1
+
 Plugin LevelZero
 ----------------
 

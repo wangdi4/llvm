@@ -1,6 +1,6 @@
 //===-------------- SOAToAOSOPArrays.h - Part of SOAToAOSOPPass -----------===//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1566,10 +1566,15 @@ public:
              "Some peephole idiom is not processed");
       if (OrigToCopy.count(NewBC) == 0) {
         Builder.SetInsertPoint(NewBC);
-        auto *CopyBC = Builder.CreateBitCast(
-            // Assumed all pointer types have same alignment.
-            NewBC->getOperand(0), NewBC->getType(), "copy");
-        OrigToCopy[NewBC] = CopyBC;
+	// SOAToAOS's transformation expects that mapping of bitcast
+	// instruction in OrigToCopy is also bitcast instruction.
+	// CreateBitCast() function may not return bitcast instruction
+	// when source and destination types are same. NewBC->clone()
+	// is used instead of CreateBitCast to create copy of NewBC.
+	// Anyway, this code will be removed once we move to opaque
+	// pointers completely.
+        // Assumed all pointer types have same alignment.
+        OrigToCopy[NewBC] = Builder.Insert(NewBC->clone());
         return;
       }
     };

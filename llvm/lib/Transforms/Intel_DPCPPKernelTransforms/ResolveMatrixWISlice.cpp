@@ -81,6 +81,9 @@ static Value *resolveSliceLengthCall(CallInst *CI) {
 static Value *createGetSubGroupRowSliceIdFromExtractOrInsert(CallInst *CI) {
   // Matrix is always the first arg.
   auto *Matrix = CI->getArgOperand(0);
+  assert(DPCPPKernelCompilationUtils::isValidMatrixType(
+             cast<FixedVectorType>(Matrix->getType())) &&
+         "Unsupported matrix type");
   // Matrix size are always the second, third args.
   unsigned Rows = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
   unsigned Cols = cast<ConstantInt>(CI->getArgOperand(2))->getZExtValue();

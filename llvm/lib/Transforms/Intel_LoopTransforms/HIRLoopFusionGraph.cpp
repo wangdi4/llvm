@@ -993,6 +993,92 @@ RefinedDependence FuseGraph::refineDependency(DDRef *Src, DDRef *Dst,
   return RefinedDep;
 }
 
+// Current phase ordering is
+//   1) Pre-vec complete unroll
+//   2) Collapse
+//   3) Fusion
+// The i3 loop could be vectorized without fusion.
+// In some cases, the performance is better if we unroll the i3 loop.
+// We can have i2 vectorized or as a non-vector loop where loop carried scalar
+// replacement helps.
+//
+// The fix here is to avoid fusion when the loop nests are different.
+// i.e. Avoid fusing i1-i2 loop, otherwuse i2 ends up as non-innermost.
+//
+// zperf results indicate there is no need to check for large loop body.
+// Current code checks for i3 loop with small constant trip count.
+// TODO: Could be tuned to do more later.
+bool hasDifferentLoopNests(DDRef *SrcRef, DDRef *DstRef) {
+  auto SrcLp = SrcRef->getParentLoop();
+  auto DstLp = DstRef->getParentLoop();
+
+  // Case 1
+  // do i1
+  //   do i2
+  //     (large loop body here)
+  //     SrcRef
+  //   enddo
+  // enddo
+  //
+  // do i1
+  //   do i2
+  //     DstRef
+  //     do i3 =1,8
+  //     enddo
+  //   enddo
+  // enddo
+  if (SrcLp->isInnermost() && !DstLp->isInnermost()) {
+    for (auto NodeIt = DstLp->child_begin(), E = DstLp->child_end();
+         NodeIt != E; ++NodeIt) {
+      auto *Loop = dyn_cast<HLLoop>(NodeIt);
+      if (Loop && Loop->isInnermost()) {
+        uint64_t TC;
+        if (Loop->isConstTripLoop(&TC) && TC <= 8) {
+          LLVM_DEBUG(dbgs() << "\nBail out for different loop nests, case 1 \n");
+          return true;
+        }
+      }
+    }
+  }
+
+  // Case 2
+  // do i1
+  //   do i2
+  //     (large Loop body here)
+  //     SrcRef
+  //   enddo
+  // enddo
+  //
+  // do i1
+  //   do i2
+  //     do i3 =1,8
+  //       DstRef
+  //     enddo
+  //   enddo
+  // enddo
+  if (SrcLp->isInnermost() && DstLp->isInnermost() &&
+      SrcLp->getNestingLevel() < DstLp->getNestingLevel()) {
+    uint64_t TC;
+    if (DstLp->isConstTripLoop(&TC) && TC <= 8) {
+      LLVM_DEBUG(dbgs() << "\nBail out for different loop nests, case 2 \n");
+      return true;
+    }
+  }
+  return false;
+}
+
+// Profitability check on the edge.
+bool FuseGraph::isProfitableDependency(const DDEdge &Edge) const {
+  auto *SrcRef = Edge.getSrc();
+  auto *DstRef = Edge.getSink();
+
+  if (hasDifferentLoopNests(SrcRef, DstRef)) {
+    return false;
+  }
+
+  return true;
+}
+
 bool FuseGraph::isLegalDependency(const DDEdge &Edge,
                                   unsigned CommonLevel) const {
   LLVM_DEBUG(Edge.dump());
@@ -1204,6 +1290,7 @@ void FuseGraph::constructDirectedEdges(
           FuseNode &DstFuseNode = Vertex[DstNumber];
 
           bool Legal = false;
+          bool Profitable = true;
           unsigned CommonTC =
               areFusibleWithCommonTC(FusibleCache, SrcFuseNode, DstFuseNode);
 
@@ -1212,14 +1299,24 @@ void FuseGraph::constructDirectedEdges(
           LLVM_DEBUG(DstFuseNode.print(dbgs()));
 
           if (CommonTC) {
-            LLVM_DEBUG(dbgs() << "\n");
             Legal = isLegalDependency(*DDEdge, Level);
-            LLVM_DEBUG(dbgs() << " < " << (Legal ? "OK" : "illegal") << " >\n");
+            Profitable = Legal ? isProfitableDependency(*DDEdge) : false;
+
+            LLVM_DEBUG(dbgs() << " < ");
+            if (!Legal) {
+              LLVM_DEBUG(dbgs() << "illegal");
+            } else if (!Profitable) {
+              LLVM_DEBUG(dbgs() << "unprofitable");
+            } else {
+              LLVM_DEBUG(dbgs() << "OK");
+            }
+            LLVM_DEBUG(dbgs() << " >\n");
+
           } else {
             LLVM_DEBUG(dbgs() << " may not be fused.\n");
           }
 
-          if (CommonTC && Legal) {
+          if (CommonTC && Legal && Profitable) {
             FEdge.Weight += CommonTC;
           } else {
             FEdge.IsBadEdge = true;

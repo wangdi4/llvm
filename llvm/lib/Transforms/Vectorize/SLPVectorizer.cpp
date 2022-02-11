@@ -9308,9 +9308,9 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
         WorkList.pop_back();
 
         size_t NumElements =
-            cast<VectorType>(Vec0->getType())->getNumElements();
+            cast<FixedVectorType>(Vec0->getType())->getNumElements();
 
-        assert(cast<VectorType>(Vec1->getType())->getNumElements() ==
+        assert(cast<FixedVectorType>(Vec1->getType())->getNumElements() ==
                    NumElements &&
                "Worklist is broken");
 
