@@ -74,6 +74,13 @@
 ; CHECK: Running pass: IPPredOpt
 ; CHECK: Running pass: DeadArrayOpsElimination
 
+; Check that the DTransFieldModRefAnalysis runs before getting to loop passes.
+; CHECK: Running pass: RequireAnalysisPass<llvm::DTransFieldModRefAnalysis, llvm::Module> on [module]
+; CHECK: Running analysis: DTransFieldModRefAnalysis on [module]
+; CHECK: Running pass: IntelIPODeadArgEliminationPass on [module]
+; CHECK: Running pass: LoopSimplifyPass on foo
+; CHECK: Running pass: LCSSAPass on foo
+
 ; Make sure we get the IR back out without changes when we print the module.
 ; CHECK-LABEL: define internal fastcc void @foo(i32 %n) unnamed_addr #0 {
 ; CHECK-NEXT: entry:

@@ -5574,6 +5574,12 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
     i = 2; l = 0; u = 7;
     break;
 #endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
+#if INTEL_FEATURE_ISA_CMPCCXADD
+  case X86::BI__builtin_ia32_cmpccxadd32:
+  case X86::BI__builtin_ia32_cmpccxadd64:
+    i = 3; l = 0; u = 15;
+    break;
+#endif // INTEL_FEATURE_ISA_CMPCCXADD
 #endif // INTEL_CUSTOMIZATION
   }
 

@@ -2166,11 +2166,6 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
     MPM.addPass(RequireAnalysisPass<AndersensAA, Module>());
   }
 
-#if INTEL_FEATURE_SW_DTRANS
-  if (DTransEnabled)
-    MPM.addPass(RequireAnalysisPass<DTransFieldModRefAnalysis, Module>());
-#endif // INTEL_FEATURE_SW_DTRANS
-
 #endif // INTEL_CUSTOMIZATION
   // Re-require GloblasAA here prior to function passes. This is particularly
   // useful as the above will have inlined, DCE'ed, and function-attr
@@ -2919,7 +2914,15 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(
       createModuleToFunctionPassAdaptor(InvalidateAnalysisPass<AAManager>()));
 
-  MPM.addPass(IntelIPODeadArgEliminationPass()); // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  // Loop transformations need information about structure fields that are
+  // modified/referenced during function calls.
+  if (DTransEnabled)
+    MPM.addPass(RequireAnalysisPass<DTransFieldModRefAnalysis, Module>());
+#endif // INTEL_FEATURE_SW_DTRANS
+  MPM.addPass(IntelIPODeadArgEliminationPass());
+#endif // INTEL_CUSTOMIZATION
 
   FunctionPassManager MainFPM;
   MainFPM.addPass(createFunctionToLoopPassAdaptor(
