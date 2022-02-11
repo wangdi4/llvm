@@ -304,6 +304,10 @@ void KernelBarrier::fixSynclessTIDUsers(Module &M,
     Constant *NewCE = ConstantExpr::getPointerCast(F, CE->getType());
     CE->replaceAllUsesWith(NewCE);
   }
+
+  // Erase the functions since they're replaced with the ones patched
+  for (Function *OldF : FuncsToPatch)
+    OldF->eraseFromParent();
 }
 
 void KernelBarrier::findSyncBBSuccessors() {
