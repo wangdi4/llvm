@@ -258,6 +258,8 @@ public:
     return encode() + ScalarFuncName.str();
   }
 
+  std::string getBaseName() const { return BaseName; }
+
   Optional<std::string> getName() const {
     if (!Alias.empty())
       return Alias;

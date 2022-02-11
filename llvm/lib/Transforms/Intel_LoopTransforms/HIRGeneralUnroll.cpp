@@ -377,6 +377,12 @@ void HIRGeneralUnroll::replaceBySwitch(HLLoop *RemainderLoop,
     return;
   }
 
+  OptReportBuilder &ORBuilder =
+      RemainderLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
+  ORBuilder(*RemainderLoop)
+      .addRemark(OptReportVerbosity::Low, 25585u)
+      .preserveLostOptReport();
+
   HIRInvalidationUtils::invalidateBody(RemainderLoop);
 
   RegDDRef *ConditionRef = RemainderLoop->removeUpperDDRef();

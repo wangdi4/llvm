@@ -1040,11 +1040,50 @@ FuncSet getAllSyncBuiltinsDeclsForKernelUniformCallAttr(Module &M) {
   return FSet;
 }
 
+static std::string addSuffixInFunctionName(std::string FuncName,
+                                           StringRef Suffix) {
+  return (Twine("__") + FuncName + Twine("_before.") + Suffix).str();
+}
+
+static void replaceScalarAndVectorizedKernelInMetadata(Function *OldF,
+                                                       Function *NewF,
+                                                       StringRef Suffix) {
+  // NewF name is original function without suffix
+  std::string NewFName = NewF->getName().str();
+  if (!VectorVariant::isVectorVariant(NewFName))
+    return;
+  VectorVariant Variant(NewFName);
+  std::string ScalarFuncName = Variant.getBaseName();
+  Function *ScalarFunc = NewF->getParent()->getFunction(ScalarFuncName);
+  if (ScalarFunc == nullptr)
+    return;
+  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(ScalarFunc);
+  if (KIMD.VectorizedKernel.hasValue()) {
+    Function *VectorizedF = KIMD.VectorizedKernel.get();
+    if (VectorizedF == OldF)
+      KIMD.VectorizedKernel.set(NewF);
+  }
+  if (KIMD.VectorizedMaskedKernel.hasValue()) {
+    Function *VectorizedMaskedF = KIMD.VectorizedMaskedKernel.get();
+    if (VectorizedMaskedF == OldF)
+      KIMD.VectorizedMaskedKernel.set(NewF);
+  }
+
+  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI VKIMD(NewF);
+  if (VKIMD.ScalarKernel.hasValue()) {
+    Function *ScalarF = VKIMD.ScalarKernel.get();
+    std::string ScalarFuncNameWithSuffix =
+        addSuffixInFunctionName(ScalarFuncName, Suffix);
+    if (ScalarF->getName() == ScalarFuncNameWithSuffix)
+      VKIMD.ScalarKernel.set(ScalarFunc);
+  }
+}
+
 Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
-                            ArrayRef<const char *> NewNames,
-                            ArrayRef<AttributeSet> NewAttrs, StringRef Prefix) {
-  assert(NewTypes.size() == NewNames.size());
-  // Initialize with all original arguments in the function sugnature.
+                            ArrayRef<const char *> NewArgumentNames,
+                            ArrayRef<AttributeSet> NewAttrs, StringRef Suffix) {
+  assert(NewTypes.size() == NewArgumentNames.size());
+  // Initialize with all original arguments in the function signature.
   SmallVector<Type *, 16> Types;
 
   for (Function::const_arg_iterator I = F->arg_begin(), E = F->arg_end();
@@ -1054,11 +1093,12 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
   Types.append(NewTypes.begin(), NewTypes.end());
   FunctionType *NewFTy = FunctionType::get(F->getReturnType(), Types, false);
   // Change original function name.
-  std::string Name = F->getName().str();
-  F->setName((Twine("__") + F->getName() + Twine("_before.") + Prefix).str());
+  std::string OrigFuncName = F->getName().str();
+  F->setName(addSuffixInFunctionName(OrigFuncName, Suffix));
+
   // Create a new function with explicit and implict arguments types
   Function *NewF =
-      Function::Create(NewFTy, F->getLinkage(), Name, F->getParent());
+      Function::Create(NewFTy, F->getLinkage(), OrigFuncName, F->getParent());
   // Copy old function attributes (including attributes on original arguments)
   // to new function.
   NewF->copyAttributesFrom(F);
@@ -1070,19 +1110,20 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
     NewI->setName(I->getName());
   }
   // Set new arguments' names.
-  for (unsigned I = 0, E = NewNames.size(); I < E; ++I, ++NewI) {
+  for (unsigned I = 0, E = NewArgumentNames.size(); I < E; ++I, ++NewI) {
     Argument *A = &*NewI;
-    A->setName(NewNames[I]);
+    A->setName(NewArgumentNames[I]);
     if (!NewAttrs.empty())
       for (auto Attr : NewAttrs[I])
         A->addAttr(Attr);
   }
+
   // Since we have now created the new function, splice the body of the old
   // function right into the new function, leaving the old body of the function
   // empty.
   NewF->getBasicBlockList().splice(NewF->begin(), F->getBasicBlockList());
   assert(F->isDeclaration() &&
-         "splice did not work, original function body is not empty!");
+         "splice does not work, original function body is not empty!");
 
   // Set DISubprogram as an original function has. Do it before delete body
   // since DISubprogram will be deleted too.
@@ -1091,6 +1132,12 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
   // Add comdat to newF and drop from F.
   NewF->setComdat(F->getComdat());
   F->setComdat(nullptr);
+
+  // Since the name of F function is added with suffix, we have to replace it
+  // with original name of F function (now it's name of NewF function) with NewF
+  // function name in the metadata for vectorized kernel, masked kernel and
+  // scalar kernel
+  replaceScalarAndVectorizedKernelInMetadata(F, NewF, Suffix);
 
   // Delete original function body - this is needed to remove linkage (if
   // exists).
@@ -1270,6 +1317,7 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
   size_t ArgsCount = F->arg_size();
   if (!UseTLSGlobals)
     ArgsCount -= ImplicitArgsUtils::NUM_IMPLICIT_ARGS;
+
   unsigned int LocalMemCount = 0;
   unsigned int CurrentOffset = 0;
   Function::arg_iterator arg_it = F->arg_begin();
