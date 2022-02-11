@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'PhiCanonSwitchCase1'
@@ -50,3 +52,8 @@ END:
 
 declare i32 @_Z13get_global_idj(i32) readnone
 declare i32 @_Z12get_local_idj(i32) readnone
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function PhiCanonSwitchCase1 --  br label %phi-split-bb1
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function PhiCanonSwitchCase1 --  br label %BB3
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function PhiCanonSwitchCase1 --  br label %END
+; DEBUGIFY-NOT: WARNING

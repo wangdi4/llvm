@@ -27,6 +27,7 @@ namespace llvm {
 class Module;
 class WholeProgramInfo;
 class TargetLibraryInfo;
+class DominatorTree;
 
 namespace dtransOP {
 class DTransSafetyInfo;
@@ -39,7 +40,8 @@ public:
   // This is used to share the core implementation with the legacy pass.
   bool
   runImpl(Module &M, DTransSafetyInfo &DTInfo, WholeProgramInfo &WPInfo,
-          std::function<const TargetLibraryInfo &(const Function &)> GetTLI);
+          std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
+	  std::function<llvm::DominatorTree&(llvm::Function&)> GetDT);
 };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'amd_convolution.cl'
@@ -109,3 +111,6 @@ for.end119:                                       ; preds = %for.end119.loopexit
 }
 
 declare i32 @_Z13get_global_idj(i32)
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function simpleConvolution --  br label %for.end119
+; DEBUGIFY-NOT: WARNING

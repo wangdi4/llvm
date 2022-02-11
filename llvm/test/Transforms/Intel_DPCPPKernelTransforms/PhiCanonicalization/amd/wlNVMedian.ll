@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'wlNVMedian.cl'
@@ -471,3 +473,11 @@ declare i32 @__mul24_1u32(i32, i32)
 declare i32 @get_group_id(i32)
 
 declare void @_Z7barrierm(i32)
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function ckMedian --  br label %if.end63
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function ckMedian --  br label %phi-split-bb2
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function ckMedian --  br label %phi-split-bb3
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function ckMedian --  br label %if.end226
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function ckMedian --  br label %phi-split-bb5
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function ckMedian --  br label %if.end226
+; DEBUGIFY-NOT: WARNING

@@ -265,6 +265,9 @@ private:
                                      unsigned CommonLevel,
                                      unsigned MaxLevel) const;
 
+  // Returns true if \p Edge is profitable for fusion.
+  bool isProfitableDependency(const DDEdge &Edge) const;
+
   // Returns true if \p Edge does not prevent fusion.
   bool isLegalDependency(const DDEdge &Edge, unsigned CommonLevel) const;
 

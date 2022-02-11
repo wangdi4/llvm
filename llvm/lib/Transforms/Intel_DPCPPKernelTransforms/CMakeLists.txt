@@ -67,6 +67,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   WorkItemAnalysis.cpp
 
   Utils/CPUDetect.cpp
+  Utils/DPCPPStatistic.cpp
   Utils/FunctionDescriptor.cpp
   Utils/ImplicitArgsUtils.cpp
   Utils/LoopPeeling.cpp

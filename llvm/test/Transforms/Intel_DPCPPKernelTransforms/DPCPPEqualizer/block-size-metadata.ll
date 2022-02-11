@@ -32,7 +32,9 @@
 ; Compilation command:
 ; clang -cc1 -x cl -cl-std=CL2.0 -triple spir64 -emit-llvm -disable-llvm-passes -finclude-default-header set_block_size_metadata.cl -o set_block_size_metadata.ll
 
+; RUN: opt -dpcpp-kernel-equalizer %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-equalizer %s -S | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-equalizer %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-equalizer %s -S | FileCheck %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
@@ -221,3 +223,5 @@ attributes #3 = { nounwind }
 !17 = !{!18, !18, i64 0}
 !18 = !{!"queue_t", !12, i64 0}
 !19 = !{i64 0, i64 4, !14, i64 8, i64 24, !16, i64 32, i64 24, !16, i64 56, i64 24, !16}
+
+; DEBUGIFY-NOT: WARNING

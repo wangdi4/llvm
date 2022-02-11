@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'tcc.cl'
@@ -407,3 +409,5 @@ for.end:                                          ; preds = %for.end.loopexit, %
 declare signext i16 @__min_1i16(i16 signext, i16 signext)
 
 declare signext i16 @__max_1i16(i16 signext, i16 signext)
+
+; DEBUGIFY-NOT: WARNING
