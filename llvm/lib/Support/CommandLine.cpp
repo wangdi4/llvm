@@ -2237,7 +2237,7 @@ protected:
 
 public:
   explicit HelpPrinter(bool showHidden) : ShowHidden(showHidden) {}
-  virtual ~HelpPrinter() {}
+  virtual ~HelpPrinter() = default;
 
   // Invoke the printer.
   void operator=(bool Value) {

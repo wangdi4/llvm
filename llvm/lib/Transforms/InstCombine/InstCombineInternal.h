@@ -79,7 +79,7 @@ public:
   }
 #endif // INTEL_CUSTOMIZATION
 
-  virtual ~InstCombinerImpl() {}
+  virtual ~InstCombinerImpl() = default;
 
   /// Run the combiner over the entire worklist until it is empty.
   ///

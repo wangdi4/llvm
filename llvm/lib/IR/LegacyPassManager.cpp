@@ -1948,4 +1948,4 @@ void FunctionPass::assignPassManager(PMStack &PMS,
   PM->add(this);
 }
 
-legacy::PassManagerBase::~PassManagerBase() {}
+legacy::PassManagerBase::~PassManagerBase() = default;

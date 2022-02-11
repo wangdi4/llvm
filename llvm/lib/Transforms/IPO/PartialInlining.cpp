@@ -205,7 +205,7 @@ struct FunctionOutliningInfo {
 };
 
 struct FunctionOutliningMultiRegionInfo {
-  FunctionOutliningMultiRegionInfo() {}
+  FunctionOutliningMultiRegionInfo() = default;
 
   // Container for outline regions
   struct OutlineRegionInfo {
