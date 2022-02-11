@@ -588,13 +588,6 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
   // scalars.
   FPM.addPass(SROAPass());
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_ADVANCED
-  if (DTransEnabled)
-    FPM.addPass(FunctionRecognizerPass());
-#endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_CUSTOMIZATION
-
   // Catch trivial redundancies
   FPM.addPass(EarlyCSEPass(true /* Enable mem-ssa. */));
 
@@ -764,13 +757,6 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // Form SSA out of local memory accesses after breaking apart aggregates into
   // scalars.
   FPM.addPass(SROAPass());
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_ADVANCED
-  if (DTransEnabled)
-    FPM.addPass(FunctionRecognizerPass());
-#endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_CUSTOMIZATION
 
   // Catch trivial redundancies
   FPM.addPass(EarlyCSEPass(true /* Enable mem-ssa. */));
@@ -1358,6 +1344,12 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   EarlyFPM.addPass(LowerExpectIntrinsicPass());
   EarlyFPM.addPass(SimplifyCFGPass());
   EarlyFPM.addPass(SROAPass());
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+  if (DTransEnabled && PrepareForLTO)
+    EarlyFPM.addPass(FunctionRecognizerPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
   EarlyFPM.addPass(EarlyCSEPass());
   EarlyFPM.addPass(CoroEarlyPass());
 #if INTEL_COLLAB
