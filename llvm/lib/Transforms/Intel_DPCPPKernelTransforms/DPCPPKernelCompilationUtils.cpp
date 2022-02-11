@@ -1913,6 +1913,26 @@ void insertPrintf(const Twine &Prefix, Instruction *IP,
   Builder.CreateCall(PrintFunc, Args, "PRINT.");
 }
 
+bool isValidMatrixType(FixedVectorType *MatrixType) {
+  Type *DataType = MatrixType->getElementType();
+  switch (DataType->getTypeID()) {
+  case Type::IntegerTyID:
+    switch (DataType->getIntegerBitWidth()) {
+    case 8:
+    case 16: // bf16 is implemented using i16 in DPC++ header
+    case 32:
+      return true;
+    default:
+      return false;
+    }
+  case Type::FloatTyID:
+  case Type::BFloatTyID:
+    return true;
+  default:
+    return false;
+  }
+}
+
 /// Copied from llvm/lib/IR/Function.cpp:813
 /// Returns a stable mangling for the type specified for use in the name
 /// mangling scheme used by 'any' types in intrinsic signatures.  The mangling
@@ -2034,6 +2054,7 @@ CallInst *createGetSubGroupRowSliceIdCall(Value *Matrix, unsigned R, unsigned C,
                                           Value *Index, Instruction *IP,
                                           const Twine &Name) {
   auto *MatrixType = cast<FixedVectorType>(Matrix->getType());
+  assert(isValidMatrixType(MatrixType) && "Unsupported matrix type");
   assert(MatrixType->getNumElements() == (R * C) &&
          "Matrix size doesn't match");
   IRBuilder<> Builder(IP);

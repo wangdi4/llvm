@@ -570,6 +570,9 @@ void initializeVectInfoOnce(
 void insertPrintf(const Twine &Prefix, Instruction *IP,
                   ArrayRef<Value *> Inputs = None);
 
+/// Check whether the given FixedVectorType represents a valid SYCL matrix.
+bool isValidMatrixType(FixedVectorType *MatrixType);
+
 /// Create a get_sub_group_slice_length.() call.
 /// SIGNATURE:
 ///   i64 get_sub_group_slice_length.(i32 immarg %total.element.count)
