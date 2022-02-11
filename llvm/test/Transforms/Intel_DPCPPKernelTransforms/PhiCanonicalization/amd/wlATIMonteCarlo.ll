@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'wlATIMonteCarlo.cl'
@@ -793,3 +795,15 @@ declare <4 x float> @__expf4(<4 x float>)
 declare void @llvm.lifetime.start(i64, i8* nocapture) nounwind
 
 declare void @llvm.lifetime.end(i64, i8* nocapture) nounwind
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function generateRand --  br label %phi-split-bb1
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function generateRand --  br label %NewDefault
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function generateRand --  br label %phi-split-bb10
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function generateRand --  br label %phi-split-bb10
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function generateRand --  br label %sw.epilog
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function calPriceVega --  br label %phi-split-bb1
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function calPriceVega --  br label %NewDefault
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function calPriceVega --  br label %phi-split-bb10
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function calPriceVega --  br label %phi-split-bb10
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function calPriceVega --  br label %sw.epilog.i
+; DEBUGIFY-NOT: WARNING
