@@ -2233,6 +2233,22 @@ private:
     ///       leaves, not trunks. By the time we reach the leaves it is too late.
     size_t NumLanes = 0;
 
+    // MultiNode is essentially implementing look-ahead build of the SLP tree
+    // that we use for two purposes:
+    //
+    //   1. Leafs reorder
+    //   2. Path steering
+    //
+    // The second might be beneficial and is happenning even when no actual
+    // reorder is needed. However, legality constraints for (1) might require us
+    // to stop the MultiNode construction way too early making it impossible to
+    // analyze the path steering data. Ideally, the optimizations should not be
+    // so tightly coupled, but our whole customization here is very ad-hoc. As
+    // such, one more HACK wouldn't harm. This field is used to indicate that
+    // the current MultiNode is being built only for the purpose of path
+    // steering.
+    bool DisableReorder = false;
+
   public:
     size_t getNumLanes() const { return NumLanes; }
     int getNumOperands() const {
@@ -2253,6 +2269,9 @@ private:
     void set(int Lane, int OpI, OperandData &Op) { Leaves[Lane][OpI] = Op; }
     void append(int Lane, OperandData Op) { Leaves[Lane].push_back(Op); }
     void clear() { Leaves.clear(); }
+
+    void disableReorder() { DisableReorder = true; }
+    bool isReorderDisabled() const { return DisableReorder; }
 
     // Undo the code motion that moves all frontier nodes towards the root.
     void undoMultiNodeScheduling();
@@ -5444,6 +5463,9 @@ bool BoUpSLP::findMultiNodeOrder() {
   if (EnablePathSteering && !SteerTowards.isUninit())
     steerPath(SteerTowards);
 
+  if (CurrentMultiNode->isReorderDisabled())
+    return false;
+
   return DoCodeGen;
 }
 
@@ -5946,6 +5968,25 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         return I0->getParent() == RootI0->getParent();
       };
 
+      auto HasExternalUsesToMultiNode = [this](ArrayRef<Value *> VL) {
+        assert((!getTreeEntry(VL[0]) || getTreeEntry(VL[0])->Idx != 0) &&
+               "This VL is at the root!");
+
+        for (Value *Scalar : VL) {
+          if (llvm::any_of(Scalar->users(), [this](User *U) {
+                // If a user is not in ScalarToTreeEntry, then it is not even in
+                // the SLP-tree, so definitely not in the Multi-Node.
+                // If the user is not in current MultiNode, then it is
+                // an external user.
+                return !ScalarToTreeEntry.count(U) ||
+                       !CurrentMultiNode->containsTrunk(
+                           ScalarToTreeEntry[U]->Idx);
+              }))
+            return true;
+        }
+        return false;
+      };
+
       if (CurrentMultiNode->numOfTrunks() >= MultiNodeSizeLimit ||
           !MultiNodeCompatibleInstructions)
         return false;
@@ -5954,13 +5995,18 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       if (CurrentMultiNode->numOfTrunks() == 0)
         return true;
 
-      // Here are few additional checks for a non-empty ones.
+      /// MultiNode reorder can't happen if its effect is effectively
+      /// "multiplied" by being used multiple times. HACK: Path steering is
+      /// still OK though.
+      if (!all_of(VL, [](const Value *V) { return V->hasOneUse(); }))
+        CurrentMultiNode->disableReorder();
+
       // We have to keep the vector-length constant across the Multi-Node.
       return VL.size() == CurrentMultiNode->getNumLanes() &&
-             // We want VL to become a trunk. If it would have multiple uses
-             // then reorders of its operand would result in applying it
-             // multiple times which would be wrong.
-             all_of(VL, [](const Value *V) { return V->hasOneUse(); }) &&
+             // Only the root can have external uses.
+             // HACK: This condition is covered by hasOneUse check above for
+             // reordering, but we need it for path steering as well.
+             !HasExternalUsesToMultiNode(VL) &&
              // Should not cross BB
              // TODO: we should remove this restriction in the future.
              // Note that we likely want to take BB size into account once the
