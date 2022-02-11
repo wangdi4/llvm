@@ -353,6 +353,11 @@ endif()
 if (WIN32)
     set( TBB_LIB_DIR ${TBB_ROOT_DIR}/lib/${TBB_ARCH}/vc14 )
     set( TBB_LIBRARY_DIR ${TBB_ROOT_DIR}/redist/${TBB_ARCH}/vc14 )
+
+    # Copy TBB libraries to deploy. This is to support windows QA.
+    # TBB is used by task_executor.
+    install_to(${TBB_LIBRARY_DIR}/ COMPONENT ocl-task_executor
+               DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${OUTPUT_ARCH_SUFF})
 else (WIN32)
     set( TBB_LIB_DIR ${TBB_ROOT_DIR}/lib/${TBB_ARCH}/gcc4.8 )
     set( TBB_LIBRARY_DIR ${TBB_LIB_DIR} )
