@@ -1380,9 +1380,6 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
   // arguments (or appropriate addressing into struct) instead.
   for (unsigned i = 0, e = inputs.size(), aggIdx = 0; i != e; ++i) {
     Value *RewriteVal;
-#if INTEL_COLLAB
-    Instruction *TI = newFunction->begin()->getTerminator();
-#endif // INTEL_COLLAB
     if (AggregateArgs && StructValues.contains(inputs[i])) {
       Value *Idx[2];
       Idx[0] = Constant::getNullValue(Type::getInt32Ty(header->getContext()));
