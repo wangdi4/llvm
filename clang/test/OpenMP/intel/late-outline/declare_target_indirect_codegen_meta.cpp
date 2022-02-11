@@ -52,12 +52,12 @@ int main()
   PMFn pf = &C::foo;
   test_5(cp, pf);
 }
-// HOST: define dso_local {{.*}}zoo{{.*}} #[[DECLARE_TARGET:[0-9]+]]
-// TARG: define hidden spir_func {{.*}}zoo{{.*}} #[[DECLARE_TARGET:[0-9]+]]
-// HOST: define linkonce_odr {{.*}}baz{{.*}} #[[DECLARE_TARGET]]
-// TARG: define linkonce_odr hidden spir_func {{.*}}baz{{.*}} #[[DECLARE_TARGET]]
-// HOST: define linkonce_odr {{.*}}foo{{.*}} #[[DECLARE_TARGET]]
-// TARG: define linkonce_odr {{.*}}foo{{.*}} #[[DECLARE_TARGET]]
+// HOST: define {{.*}}zoo{{.*}} #[[DECLARE_TARGET:[0-9]+]]
+// TARG: define {{.*}} spir_func {{.*}}zoo{{.*}} #[[DECLARE_TARGET:[0-9]+]]
+// HOST: define {{.*}}baz{{.*}} #[[DECLARE_TARGET]]
+// TARG: define {{.*}}spir_func {{.*}}baz{{.*}} #[[DECLARE_TARGET]]
+// HOST: define {{.*}}foo{{.*}} #[[DECLARE_TARGET]]
+// TARG: define {{.*}} spir_func {{.*}}foo{{.*}} #[[DECLARE_TARGET]]
 // HOST: attributes #[[DECLARE_TARGET]] = {{.*}} "openmp-target-declare"="true"
 // HOST: !omp_offload.info = !{!0, !1, !2, !3, !4}
 // TARG: !omp_offload.info = !{!0, !1, !2, !3, !4}
