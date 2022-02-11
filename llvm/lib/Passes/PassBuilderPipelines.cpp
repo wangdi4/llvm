@@ -2639,20 +2639,15 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(ReversePostOrderFunctionAttrsPass());
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-  if (DTransEnabled) {
-    // These passes get the IR into a form that DTrans is able to analyze.
-    MPM.addPass(createModuleToFunctionPassAdaptor(InstSimplifyPass()));
-    MPM.addPass(createModuleToFunctionPassAdaptor(SimplifyCFGPass()));
-    // This call adds the DTrans passes.
-    addDTransPasses(MPM);
-  }
-#endif // INTEL_FEATURE_SW_DTRANS
-  MPM.addPass(DopeVectorConstPropPass());
-  MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(
-              ArgumentPromotionPass()));
   // Optimize some dynamic_cast calls.
   MPM.addPass(OptimizeDynamicCastsPass());
+  if (Level.getSpeedupLevel() > 1) {
+    // Run the instruction simplify and CFG simplify passes before
+    // devirtualization to clean the IR after lowering the
+    // llvm.intel.wholeprogramsafe intrinsic.
+    MPM.addPass(createModuleToFunctionPassAdaptor(InstSimplifyPass()));
+    MPM.addPass(createModuleToFunctionPassAdaptor(SimplifyCFGPass()));
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // Use in-range annotations on GEP indices to split globals where beneficial.
@@ -2677,6 +2672,17 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
     return MPM;
   }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  if (DTransEnabled)
+    // This call adds the DTrans passes.
+    addDTransPasses(MPM);
+#endif // INTEL_FEATURE_SW_DTRANS
+  MPM.addPass(DopeVectorConstPropPass());
+  MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(
+              ArgumentPromotionPass()));
+#endif // INTEL_CUSTOMIZATION
 
   // Optimize globals to try and fold them into constants.
   MPM.addPass(GlobalOptPass());
