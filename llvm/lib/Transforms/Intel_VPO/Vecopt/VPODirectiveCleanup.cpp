@@ -14,7 +14,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
-#define DEBUG_TYPE "VPODirectiveCleanup"
 
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
@@ -27,6 +26,8 @@
 
 using namespace llvm;
 using namespace llvm::vpo;
+
+#define DEBUG_TYPE "VPODirectiveCleanup"
 
 static cl::opt<bool>
     DisableVPODirectiveCleanup("disable-vpo-directive-cleanup", cl::init(false),
