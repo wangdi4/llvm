@@ -1486,13 +1486,9 @@ _pi_queue::getZeCopyCommandQueue(int *CopyQueueIndex,
         *CopyQueueGroupIndex = Device->ZeMainCopyQueueGroupIndex;
       else
         *CopyQueueGroupIndex = Device->ZeLinkCopyQueueGroupIndex;
-<<<<<<< HEAD
-=======
       zePrint("Note: CopyQueueGroupIndex = %d\n", *CopyQueueGroupIndex);
->>>>>>> 485510f0ac09826f65d8ed32c364d43b899a9650
     }
     zePrint("Note: CopyQueueIndex = %d\n", *CopyQueueIndex);
-    zePrint("Note: CopyQueueGroupIndex = %d\n", *CopyQueueGroupIndex);
     ze_command_queue_handle_t ZeCopyCommandQueue = nullptr;
     if (getOrCreateCopyCommandQueue(0, ZeCopyCommandQueue))
       return nullptr;
