@@ -127,8 +127,11 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &) {
     if (Fn.hasAvailableExternallyLinkage())
       continue;
 
-    // TODO: Try to remove this restriction for ifunc based solution.
-    if (Fn.hasAddressTaken())
+    // Skip functions that have addresses of their basic blocks taken, this can
+    // happen when an address of a label is taken to do indirect goto later.
+    // Skip them because Value::replaceAllUsesWith cannot handle them.
+    // TODO: See if we can update such usages manually.
+    if (any_of(Fn.users(), [](User *U) { return isa<BlockAddress>(U); }))
       continue;
 
     MDNode *AutoCPUDispatchMD = Fn.getMetadata("llvm.auto.cpu.dispatch");
