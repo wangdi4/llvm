@@ -120,7 +120,7 @@ void LLDJITBuilder::adjustFunctionAttributes(llvm::Module *M) {
 
 // Set dllexport storage class for all kernel/wrapper functions.
 void LLDJITBuilder::exportKernelSymbols(llvm::Module *M) {
-  auto Kernels = DPCPPKernelCompilationUtils::getKernels(*M);
+  auto Kernels = DPCPPKernelCompilationUtils::getAllKernels(*M);
   for (auto *F : Kernels) {
     F->setDLLStorageClass(
         llvm::GlobalValue::DLLStorageClassTypes::DLLExportStorageClass);
