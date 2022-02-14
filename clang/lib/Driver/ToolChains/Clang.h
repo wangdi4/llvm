@@ -92,6 +92,9 @@ private:
                       llvm::opt::ArgStringList &CmdArgs,
                       codegenoptions::DebugInfoKind *DebugInfoKind,
                       bool *EmitCodeView, const JobAction &JA) const;
+  void ClangTidySourceCheck(Compilation &C, const JobAction &JA,
+                            const InputInfoList &Inputs,
+                            const llvm::opt::ArgList &TCArgs) const;
 #endif // INTEL_CUSTOMIZATION
 
   void ConstructHostCompilerJob(Compilation &C, const JobAction &JA,

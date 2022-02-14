@@ -4730,6 +4730,35 @@ static bool ContainsWrapperAction(const Action *A) {
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+void Clang::ClangTidySourceCheck(Compilation &C, const JobAction &JA,
+                                 const InputInfoList &Inputs,
+                                 const llvm::opt::ArgList &TCArgs) const {
+  ArgStringList ClangTidyArgs;
+  const InputInfo &InputFile = Inputs.front();
+
+  // Input file.
+  ClangTidyArgs.push_back(InputFile.getFilename());
+  ClangTidyArgs.push_back("--checks=misc-misleading-bidirectional"
+                          ",misc-misleading-identifier"
+                          ",misc-homoglyph");
+  ClangTidyArgs.push_back("--quiet");
+
+  // Add the command line options
+  ClangTidyArgs.push_back("--");
+  for (Arg *A : TCArgs)
+    ClangTidyArgs.push_back(TCArgs.MakeArgString(A->getAsString(TCArgs)));
+
+  // Find clang-tidy.
+  SmallString<128> ClangTidyPath(C.getDriver().Dir);
+  llvm::sys::path::append(ClangTidyPath, "clang-tidy");
+  const char *ClangTidy = TCArgs.MakeArgString(ClangTidyPath);
+  auto Cmd = std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
+                                       ClangTidy, ClangTidyArgs, None);
+  C.addCommand(std::move(Cmd));
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Put together an external compiler compilation call which is used instead
 // of the clang invocation for the host compile of an offload compilation.
 // Enabling command line:  clang++ -fsycl -fsycl-host-compiler=<HostExe>
@@ -6561,11 +6590,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
 #if INTEL_CUSTOMIZATION
+  if (Args.hasFlag(options::OPT_Wcheck_unicode_security,
+                   options::OPT_Wno_check_unicode_security, false))
+    ClangTidySourceCheck(C, JA, Inputs, Args);
+
   if (Args.hasFlag(options::OPT_pedantic, options::OPT_no_pedantic, false)
       || Args.hasArg(options::OPT_strict_ansi))
-#else //INTEL_CUSTOMIZATION
-  if (Args.hasFlag(options::OPT_pedantic, options::OPT_no_pedantic, false))
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-pedantic");
 
   Args.AddLastArg(CmdArgs, options::OPT_pedantic_errors);
