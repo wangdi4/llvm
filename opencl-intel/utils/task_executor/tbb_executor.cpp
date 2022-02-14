@@ -15,8 +15,10 @@
 #include "tbb_executor.h"
 
 #include "base_command_list.hpp"
+#include "cl_config.h"
 #include "cl_shared_ptr.hpp"
 #include "cl_user_logger.h"
+#include "cl_utils.h"
 #include "cpu_dev_limits.h"
 #include "task_group.hpp"
 #include "tbb_execution_schedulers.h"
@@ -530,11 +532,19 @@ bool TBBTaskExecutor::LoadTBBLibrary()
 
     m_err = m_dllTBBLib.Load(modulePath.c_str());
     if (m_err != 0) {
-      // Load TBB from full path defiend by TBB_DLL_PATH env variable.
-      std::string TBBLocation;
-      if (Intel::OpenCL::Utils::getEnvVar(TBBLocation, "TBB_DLL_PATH")) {
-        std::string tbbFullPath = TBBLocation + "/" + tbbPath;
-
+      char cszLibraryName[1024] = {0};
+      BasicCLConfigWrapper basicConfig;
+      basicConfig.Initialize(GetConfigFilePath());
+      std::string tbbLocInReg =
+          "SOFTWARE\\Intel\\oneAPI\\TBB\\" + basicConfig.GetTBBVersion();
+      // Get TBB location defined under
+      // "SOFTWARE\\Intel\\oneAPI\\TBB\\TBB_VERSION\\" location. The key name is
+      // TBB_DLL_PATH
+      bool keyret = GetStringValueFromRegistryOrETC(
+          HKEY_LOCAL_MACHINE, tbbLocInReg.c_str(), "TBB_DLL_PATH",
+          cszLibraryName, 1024);
+      if (keyret) {
+        std::string tbbFullPath = std::string(cszLibraryName) + "\\" + tbbPath;
         m_err = m_dllTBBLib.Load(tbbFullPath.c_str());
 
         if (m_err != 0) {
@@ -542,7 +552,7 @@ bool TBBTaskExecutor::LoadTBBLibrary()
                     tbbFullPath.c_str());
         }
       } else {
-        LOG_ERROR(TEXT("TBB full path is not configured."));
+        LOG_ERROR(TEXT("TBB path is not configured in windows registry."));
       }
     }
 #endif
