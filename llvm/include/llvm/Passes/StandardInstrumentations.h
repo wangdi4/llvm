@@ -503,7 +503,9 @@ class StandardInstrumentations {
   PrintPassInstrumentation PrintPass;
   TimePassesHandler TimePasses;
   OptNoneInstrumentation OptNone;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   OptBisectInstrumentation OptBisect;
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   PreservedCFGCheckerInstrumentation PreservedCFGChecker;
   IRChangedPrinter PrintChangedIR;
   PseudoProbeVerifier PseudoProbeVerification;
