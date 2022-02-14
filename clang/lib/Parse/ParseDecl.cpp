@@ -324,6 +324,15 @@ static bool attributeHasVariadicIdentifierArg(const IdentifierInfo &II) {
 #undef CLANG_ATTR_VARIADIC_IDENTIFIER_ARG_LIST
 }
 
+/// Determine if an attribute accepts parameter packs.
+static bool attributeAcceptsExprPack(const IdentifierInfo &II) {
+#define CLANG_ATTR_ACCEPTS_EXPR_PACK
+  return llvm::StringSwitch<bool>(normalizeAttrName(II.getName()))
+#include "clang/Parse/AttrParserStringSwitches.inc"
+      .Default(false);
+#undef CLANG_ATTR_ACCEPTS_EXPR_PACK
+}
+
 /// Determine whether the given attribute parses a type argument.
 static bool attributeIsTypeArgAttr(const IdentifierInfo &II,
                                       ParsedAttr::Syntax Syntax,
@@ -367,6 +376,15 @@ static bool attributeHasVariadicIdentifierArg(const IdentifierInfo &II) {
 #include "clang/Parse/AttrParserStringSwitches.inc"
            .Default(false);
 #undef CLANG_ATTR_VARIADIC_IDENTIFIER_ARG_LIST
+}
+
+/// Determine if an attribute accepts parameter packs.
+static bool attributeAcceptsExprPack(const IdentifierInfo &II) {
+#define CLANG_ATTR_ACCEPTS_EXPR_PACK
+  return llvm::StringSwitch<bool>(normalizeAttrName(II.getName()))
+#include "clang/Parse/AttrParserStringSwitches.inc"
+      .Default(false);
+#undef CLANG_ATTR_ACCEPTS_EXPR_PACK
 }
 
 /// Determine whether the given attribute parses a type argument.
@@ -444,7 +462,9 @@ unsigned Parser::ParseAttributeArgsCommon(
   ConsumeParen();
 
   bool ChangeKWThisToIdent = attributeTreatsKeywordThisAsIdentifier(*AttrName);
-  bool AttributeIsTypeArgAttr = attributeIsTypeArgAttr(*AttrName, Syntax, ScopeName);
+  bool AttributeIsTypeArgAttr = attributeIsTypeArgAttr(*AttrName, Syntax, ScopeName); // INTEL
+  bool AttributeHasVariadicIdentifierArg =
+      attributeHasVariadicIdentifierArg(*AttrName);
 
   // Interpret "kw_this" as an identifier if the attributed requests it.
   if (ChangeKWThisToIdent && Tok.is(tok::kw_this))
@@ -454,9 +474,8 @@ unsigned Parser::ParseAttributeArgsCommon(
   if (Tok.is(tok::identifier)) {
     // If this attribute wants an 'identifier' argument, make it so.
 #if INTEL_CUSTOMIZATION
-    bool IsIdentifierArg =
-        attributeHasIdentifierArg(*AttrName, Syntax, ScopeName) ||
-                           attributeHasVariadicIdentifierArg(*AttrName);
+    bool IsIdentifierArg = AttributeHasVariadicIdentifierArg ||
+                           attributeHasIdentifierArg(*AttrName, Syntax, ScopeName);
 #endif // INTEL_CUSTOMIZATION
     ParsedAttr::Kind AttrKind =
         ParsedAttr::getParsedKind(AttrName, ScopeName, Syntax);
@@ -479,45 +498,87 @@ unsigned Parser::ParseAttributeArgsCommon(
     if (!ArgExprs.empty())
       ConsumeToken();
 
-    // Parse the non-empty comma-separated list of expressions.
-    do {
-      // Interpret "kw_this" as an identifier if the attributed requests it.
-      if (ChangeKWThisToIdent && Tok.is(tok::kw_this))
-        Tok.setKind(tok::identifier);
+    if (AttributeIsTypeArgAttr) {
+      // FIXME: Multiple type arguments are not implemented.
+      TypeResult T = ParseTypeName();
+      if (T.isInvalid()) {
+        SkipUntil(tok::r_paren, StopAtSemi);
+        return 0;
+      }
+      if (T.isUsable())
+        TheParsedType = T.get();
+    } else if (AttributeHasVariadicIdentifierArg) {
+      // Parse variadic identifier arg. This can either consume identifiers or
+      // expressions. Variadic identifier args do not support parameter packs
+      // because those are typically used for attributes with enumeration
+      // arguments, and those enumerations are not something the user could
+      // express via a pack.
+      do {
+        // Interpret "kw_this" as an identifier if the attributed requests it.
+        if (ChangeKWThisToIdent && Tok.is(tok::kw_this))
+          Tok.setKind(tok::identifier);
 
-      ExprResult ArgExpr;
-      if (AttributeIsTypeArgAttr) {
-        TypeResult T = ParseTypeName();
-        if (T.isInvalid()) {
-          SkipUntil(tok::r_paren, StopAtSemi);
-          return 0;
-        }
-        if (T.isUsable())
-          TheParsedType = T.get();
-        break; // FIXME: Multiple type arguments are not implemented.
-      } else if (Tok.is(tok::identifier) &&
-                 attributeHasVariadicIdentifierArg(*AttrName)) {
-        ArgExprs.push_back(ParseIdentifierLoc());
-      } else {
+        ExprResult ArgExpr;
+        if (Tok.is(tok::identifier)) {
+          ArgExprs.push_back(ParseIdentifierLoc());
+        } else {
 #if INTEL_CUSTOMIZATION
-        bool Uneval = attributeParsedArgsUnevaluated(*AttrName, Syntax,
+          bool Uneval = attributeParsedArgsUnevaluated(*AttrName, Syntax,
+                                                       ScopeName);
+#endif // INTEL_CUSTOMIZATION
+          EnterExpressionEvaluationContext Unevaluated(
+              Actions,
+              Uneval ? Sema::ExpressionEvaluationContext::Unevaluated
+                     : Sema::ExpressionEvaluationContext::ConstantEvaluated);
+
+          ExprResult ArgExpr(
+              Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression()));
+
+          if (ArgExpr.isInvalid()) {
+            SkipUntil(tok::r_paren, StopAtSemi);
+            return 0;
+          }
+          ArgExprs.push_back(ArgExpr.get());
+        }
+        // Eat the comma, move to the next argument
+      } while (TryConsumeToken(tok::comma));
+    } else {
+      // General case. Parse all available expressions.
+#if INTEL_CUSTOMIZATION
+      bool Uneval = attributeParsedArgsUnevaluated(*AttrName, Syntax,
                                                    ScopeName);
 #endif // INTEL_CUSTOMIZATION
-        EnterExpressionEvaluationContext Unevaluated(
-            Actions,
-            Uneval ? Sema::ExpressionEvaluationContext::Unevaluated
-                   : Sema::ExpressionEvaluationContext::ConstantEvaluated);
+      EnterExpressionEvaluationContext Unevaluated(
+          Actions, Uneval
+                       ? Sema::ExpressionEvaluationContext::Unevaluated
+                       : Sema::ExpressionEvaluationContext::ConstantEvaluated);
 
-        ExprResult ArgExpr(
-            Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression()));
-        if (ArgExpr.isInvalid()) {
+      CommaLocsTy CommaLocs;
+      ExprVector ParsedExprs;
+      if (ParseExpressionList(ParsedExprs, CommaLocs,
+                              llvm::function_ref<void()>(),
+                              /*FailImmediatelyOnInvalidExpr=*/true,
+                              /*EarlyTypoCorrection=*/true)) {
+        SkipUntil(tok::r_paren, StopAtSemi);
+        return 0;
+      }
+
+      // Pack expansion must currently be explicitly supported by an attribute.
+      for (size_t I = 0; I < ParsedExprs.size(); ++I) {
+        if (!isa<PackExpansionExpr>(ParsedExprs[I]))
+          continue;
+
+        if (!attributeAcceptsExprPack(*AttrName)) {
+          Diag(Tok.getLocation(),
+               diag::err_attribute_argument_parm_pack_not_supported)
+              << AttrName;
           SkipUntil(tok::r_paren, StopAtSemi);
           return 0;
         }
-        ArgExprs.push_back(ArgExpr.get());
       }
-      // Eat the comma, move to the next argument
-    } while (TryConsumeToken(tok::comma));
+
+      ArgExprs.insert(ArgExprs.end(), ParsedExprs.begin(), ParsedExprs.end());
+    }
   }
 
   SourceLocation RParen = Tok.getLocation();
