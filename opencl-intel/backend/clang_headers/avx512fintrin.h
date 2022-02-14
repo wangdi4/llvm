@@ -26,6 +26,10 @@ typedef unsigned short __v32hu __attribute__((__vector_size__(64)));
 typedef unsigned long __v8du __attribute__((__vector_size__(64)));
 typedef unsigned int __v16su __attribute__((__vector_size__(64)));
 
+/* We need an explicitly signed variant for char. Note that this shouldn't
+ * appear in the interface though. */
+typedef signed char __v64qs __attribute__((__vector_size__(64)));
+
 typedef float __m512 __attribute__((__vector_size__(64), __aligned__(64)));
 typedef double __m512d __attribute__((__vector_size__(64), __aligned__(64)));
 typedef long __m512i __attribute__((__vector_size__(64), __aligned__(64)));
