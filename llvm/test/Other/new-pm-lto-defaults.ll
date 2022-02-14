@@ -105,12 +105,14 @@
 ; COM: CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy ;INTEL
 ; CHECK-O-NEXT: Running pass: ReversePostOrderFunctionAttrsPass
 ; CHECK-O-NEXT: Running analysis: CallGraphAnalysis
-; CHECK-O-NEXT: Running pass: DopeVectorConstPropPass ;INTEL
-; CHECK-O-NEXT: Running pass: ArgumentPromotionPass on (foo) ;INTEL
 ; CHECK-O-NEXT: Running pass: OptimizeDynamicCastsPass ;INTEL
+; CHECK-O23SZ-NEXT: Running pass: InstSimplifyPass ;INTEL
+; CHECK-O23SZ-NEXT: Running pass: SimplifyCFGPass ;INTEL
 ; CHECK-O-NEXT: Running pass: GlobalSplitPass
 ; CHECK-O-NEXT: Running pass: WholeProgramDevirtPass
 ; CHECK-O1-NEXT: Running pass: LowerTypeTestsPass
+; CHECK-O23SZ-NEXT: Running pass: DopeVectorConstPropPass ;INTEL
+; CHECK-O23SZ-NEXT: Running pass: ArgumentPromotionPass on (foo) ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: GlobalOptPass
 ; CHECK-O23SZ-NEXT: Running pass: PromotePass
 ; CHECK-O23SZ-NEXT: Running pass: ConstantMergePass

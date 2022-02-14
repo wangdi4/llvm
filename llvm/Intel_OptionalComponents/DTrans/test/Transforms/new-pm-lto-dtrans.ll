@@ -28,8 +28,11 @@
 ; CHECK-NEXT: Running pass: IntelFoldWPIntrinsicPass
 ; CHECK: Running pass: ForceFunctionAttrsPass
 ; CHECK-NEXT: Running pass: InferFunctionAttrsPass
+; CHECK: Running pass: OptimizeDynamicCastsPass
 ; CHECK: Running pass: {{.*}}SimplifyCFGPass{{.*}}
 ; CHECK-NEXT: Running pass: {{.*}}SimplifyCFGPass{{.*}}
+; CHECK-NEXT: Running pass: GlobalSplitPass
+; CHECK-NEXT: Running pass: WholeProgramDevirtPass
 
 ; Verify that resolve types does not invoke DTransAnalysis
 ; CHECK-NEXT: Running pass: dtrans::ResolveTypes
@@ -59,7 +62,6 @@
 ; CHECK-NEXT: Running pass: DopeVectorConstProp
 ; CHECK: Running pass: ArgumentPromotionPass on (foo)
 ; CHECK: Running pass: ArgumentPromotionPass on (main)
-; CHECK-NEXT: Running pass: OptimizeDynamicCastsPass
 
 ; Make sure we get the IR back out without changes when we print the module.
 ; CHECK-LABEL: define internal fastcc void @foo(i32 %n) unnamed_addr #0 {

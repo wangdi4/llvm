@@ -1,3 +1,8 @@
+; XFAIL: *
+; CMPLRLLVM-35135: Test case marked as XFAIL. It needs to be updated due to
+; enabling instruction simplify and CFG simplify passes before devirtualization
+; in the new pass manager (CMPLRLLVM-34961).
+
 ; Reduced from polyhedron2011F/gas_dyn2.
 ; CMPLRLLVM-28038.
 ; We don't want to run hoisting in the back part of the LTO-only pipeline.

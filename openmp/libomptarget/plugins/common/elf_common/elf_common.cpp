@@ -27,6 +27,63 @@
 using namespace llvm;
 using namespace llvm::ELF;
 using namespace llvm::object;
+#if INTEL_COLLAB
+static const char *getOffloadNoteTypeName(uint64_t Type) {
+  struct NoteType {
+    uint64_t ID;
+    const char *Name;
+  };
+
+  static constexpr const NoteType LLVMOMPOFFLOADNoteTypes[] = {
+      {NT_LLVM_OPENMP_OFFLOAD_VERSION, "NT_LLVM_OPENMP_OFFLOAD_VERSION"},
+      {NT_LLVM_OPENMP_OFFLOAD_PRODUCER, "NT_LLVM_OPENMP_OFFLOAD_PRODUCER"},
+      {NT_LLVM_OPENMP_OFFLOAD_PRODUCER_VERSION,
+       "NT_LLVM_OPENMP_OFFLOAD_PRODUCER_VERSION"},
+  };
+
+  for (const NoteType &N : LLVMOMPOFFLOADNoteTypes) {
+    if (N.ID == Type)
+      return N.Name;
+  }
+
+  return "";
+}
+
+template <typename ELFT>
+static void printELFNotes(const ELFObjectFile<ELFT> *Object) {
+  auto &ELFFile = Object->getELFFile();
+  using Elf_Shdr_Range = typename ELFT::ShdrRange;
+  Expected<Elf_Shdr_Range> Sections = ELFFile.sections();
+  if (!Sections)
+    return;
+
+  for (auto SB = Sections->begin(), SE = Sections->end(); SB != SE; ++SB) {
+    if (SB->sh_type != ELF::SHT_NOTE)
+      continue;
+    Error Err = Error::success();
+    for (auto Note : ELFFile.notes(*SB, Err)) {
+      StringRef Name = Note.getName();
+      if (!Name.equals("LLVMOMPOFFLOAD"))
+        continue;
+
+      uint64_t Type = static_cast<uint64_t>(Note.getType());
+      switch (Type) {
+      default:
+        DP("LLVMOMPOFFLOAD ELF note with unknown type %" PRIu64 ".\n", Type);
+        break;
+      case NT_LLVM_OPENMP_OFFLOAD_VERSION:
+      case NT_LLVM_OPENMP_OFFLOAD_PRODUCER:
+      case NT_LLVM_OPENMP_OFFLOAD_PRODUCER_VERSION: {
+        StringRef Desc = Note.getDescAsStringRef();
+        DP("LLVMOMPOFFLOAD ELF note %s with value: '%s'\n",
+           getOffloadNoteTypeName(Type), Desc.str().c_str());
+        break;
+      }
+      }
+    }
+  }
+}
+#endif // INTEL_COLLAB
 
 /// If the given range of bytes [\p BytesBegin, \p BytesEnd) represents
 /// a valid ELF, then invoke \p Callback on the ELFObjectFileBase
@@ -71,6 +128,25 @@ int32_t elf_check_machine(__tgt_device_image *image, uint16_t target_id) {
   auto CheckMachine = [target_id](const ELFObjectFileBase *Object) {
     return target_id == Object->getEMachine();
   };
+#if INTEL_COLLAB
+  if (getDebugLevel() > 0) {
+    auto PrintELFNotes = [](const ELFObjectFileBase *Object) {
+      if (auto *Obj = dyn_cast<ELF64LEObjectFile>(Object))
+        printELFNotes(Obj);
+      else if (auto *Obj = dyn_cast<ELF64BEObjectFile>(Object))
+        printELFNotes(Obj);
+      else if (auto *Obj = dyn_cast<ELF32LEObjectFile>(Object))
+        printELFNotes(Obj);
+      else if (auto *Obj = dyn_cast<ELF32BEObjectFile>(Object))
+        printELFNotes(Obj);
+      return 0;
+    };
+
+    (void)withBytesAsElf(reinterpret_cast<char *>(image->ImageStart),
+                         reinterpret_cast<char *>(image->ImageEnd),
+                         PrintELFNotes);
+  }
+#endif // INTEL_COLLAB
   return withBytesAsElf(reinterpret_cast<char *>(image->ImageStart),
                         reinterpret_cast<char *>(image->ImageEnd),
                         CheckMachine);

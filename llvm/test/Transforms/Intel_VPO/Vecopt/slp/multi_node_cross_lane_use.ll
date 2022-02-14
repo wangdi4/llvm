@@ -14,10 +14,10 @@ define void @main(i32* %arg, i32 %arg1, i32 %arg2) {
 ; CHECK-NEXT:    [[T6:%.*]] = add i32 [[ARG2:%.*]], 42
 ; CHECK-NEXT:    [[TMP0:%.*]] = insertelement <4 x i32> poison, i32 [[ARG2]], i32 0
 ; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP0]], <4 x i32> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP1:%.*]] = insertelement <4 x i32> <i32 7, i32 13, i32 poison, i32 poison>, i32 [[T6]], i32 2
-; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <4 x i32> [[TMP1]], i32 [[T6]], i32 3
-; CHECK-NEXT:    [[TMP3:%.*]] = add <4 x i32> [[SHUFFLE]], [[TMP2]]
-; CHECK-NEXT:    [[TMP4:%.*]] = add <4 x i32> [[TMP3]], <i32 7, i32 3, i32 13, i32 9>
+; CHECK-NEXT:    [[TMP1:%.*]] = insertelement <4 x i32> <i32 7, i32 13, i32 13, i32 poison>, i32 [[T6]], i32 3
+; CHECK-NEXT:    [[TMP2:%.*]] = add <4 x i32> [[SHUFFLE]], [[TMP1]]
+; CHECK-NEXT:    [[TMP3:%.*]] = insertelement <4 x i32> <i32 7, i32 3, i32 poison, i32 9>, i32 [[T6]], i32 2
+; CHECK-NEXT:    [[TMP4:%.*]] = add <4 x i32> [[TMP2]], [[TMP3]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = insertelement <4 x i32> <i32 poison, i32 13, i32 13, i32 13>, i32 [[ARG2]], i32 0
 ; CHECK-NEXT:    [[TMP6:%.*]] = add <4 x i32> [[TMP5]], [[TMP4]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = extractelement <4 x i32> [[TMP4]], i32 1
