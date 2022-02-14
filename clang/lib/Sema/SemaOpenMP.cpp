@@ -18577,6 +18577,11 @@ OMPClause *Sema::ActOnOpenMPPrivateClause(ArrayRef<Expr *> VarList,
       continue;
     }
 
+#if INTEL_COLLAB
+    if (isUnsupportedVLAType(Type, ELoc))
+      continue;
+#endif // INTEL_COLLAB
+
     // OpenMP 4.5 [2.15.5.1, Restrictions, p.3]
     // A list item cannot appear in both a map clause and a data-sharing
     // attribute clause on the same construct
@@ -18640,6 +18645,18 @@ OMPClause *Sema::ActOnOpenMPPrivateClause(ArrayRef<Expr *> VarList,
   return OMPPrivateClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars,
                                   PrivateCopies);
 }
+
+#if INTEL_COLLAB
+bool Sema::isUnsupportedVLAType(QualType Ty, SourceLocation ELoc) {
+  if (LangOpts.OpenMPLateOutline && !Context.getTargetInfo().isVLASupported() &&
+      !Ty->isAnyPointerType() && Ty->isVariablyModifiedType() &&
+      isOpenMPNestingTeamsDirective(DSAStack->getCurrentDirective())) {
+    targetDiag(ELoc, diag::err_vla_unsupported);
+    return true;
+  }
+  return false;
+}
+#endif // INTEL_COLLAB
 
 OMPClause *Sema::ActOnOpenMPFirstprivateClause(ArrayRef<Expr *> VarList,
                                                SourceLocation StartLoc,
@@ -18843,13 +18860,8 @@ OMPClause *Sema::ActOnOpenMPFirstprivateClause(ArrayRef<Expr *> VarList,
     }
 
 #if INTEL_COLLAB
-    if (LangOpts.OpenMPLateOutline &&
-        !Context.getTargetInfo().isVLASupported() &&
-        !Type->isAnyPointerType() && Type->isVariablyModifiedType() &&
-        isOpenMPNestingTeamsDirective(DSAStack->getCurrentDirective())) {
-      targetDiag(ELoc, diag::err_vla_unsupported);
+    if (isUnsupportedVLAType(Type, ELoc))
       continue;
-    }
 #endif // INTEL_COLLAB
 
     Type = Type.getUnqualifiedType();

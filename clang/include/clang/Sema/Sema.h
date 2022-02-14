@@ -11003,6 +11003,10 @@ public:
 
 #if INTEL_COLLAB
   bool isOpenMPTargetLastPrivate(ValueDecl *D);
+
+  /// Diagnose and return true if \b Ty is a variable-length array type
+  /// that is not supported in the current context.
+  bool isUnsupportedVLAType(QualType Ty, SourceLocation ELoc);
 #endif // INTEL_COLLAB
 
   /// Check if the specified variable is used in one of the private

@@ -128,6 +128,15 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &) {
     if (Fn.hasAvailableExternallyLinkage())
       continue;
 
+    // Skip weakly defined functions, as GNU ld handles them correctly starting
+    // from binutils 2.31 while support for older linkers is required.
+    // Commit which adds support for such ifuncs:
+    // https://github.com/bminor/binutils-gdb/commit/4ec0995016801cc5d5cf13baf6e10163861e6852
+    //
+    // TODO: Remove this restriction.
+    if (Fn.isWeakForLinker())
+      continue;
+
     // Skip functions that have addresses of their basic blocks taken, this can
     // happen when an address of a label is taken to do indirect goto later.
     // Skip them because Value::replaceAllUsesWith cannot handle them.
