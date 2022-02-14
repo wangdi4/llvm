@@ -59,5 +59,19 @@ void foo(int nx, int ny) {
   {
     x[i][0] = 1.0f;
   }
+
+  // expected-error@+2 {{variable length arrays are not supported for the current target}}
+  #pragma omp target
+  #pragma omp teams private(x) // not ok, VLA in private clause in teams
+  {
+    x[0][0] = 1.0f;
+  }
+  // expected-error@+3 {{cannot generate code for reduction on variable length array}}
+  // expected-note@+2 {{variable length arrays are not supported for the current target}}
+  #pragma omp target
+  #pragma omp teams reduction(+:x) // not ok, VLA in reduction clause
+  {
+    x[0][0] = 1.0f;
+  }
 }
 // end INTEL_COLLAB
