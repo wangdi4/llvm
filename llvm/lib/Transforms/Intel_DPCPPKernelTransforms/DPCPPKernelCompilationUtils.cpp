@@ -1045,37 +1045,66 @@ static std::string addSuffixInFunctionName(std::string FuncName,
   return (Twine("__") + FuncName + Twine("_before.") + Suffix).str();
 }
 
-static void replaceScalarAndVectorizedKernelInMetadata(Function *OldF,
-                                                       Function *NewF,
-                                                       StringRef Suffix) {
-  // NewF name is original function without suffix
-  std::string NewFName = NewF->getName().str();
-  if (!VectorVariant::isVectorVariant(NewFName))
+static void
+replaceScalarKernelInVectorizerMetadata(Function *VFunc, Function *ScalarFunc,
+                                        StringRef ScalarFuncNameWithSuffix) {
+  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI VKIMD(VFunc);
+  if (!VKIMD.ScalarKernel.hasValue())
     return;
+  Function *ScalarF = VKIMD.ScalarKernel.get();
+  if (ScalarF->getName() == ScalarFuncNameWithSuffix)
+    VKIMD.ScalarKernel.set(ScalarFunc);
+}
+
+static void replaceScalarKernelInMetadata(Function *ScalarFunc,
+                                          StringRef Suffix) {
+  std::string ScalarFuncName = ScalarFunc->getName().str();
+  assert(ScalarFuncName.find(Suffix.str()) == std::string::npos &&
+         "Invalid scalar function name having suffix!");
+  assert(!VectorVariant::isVectorVariant(ScalarFuncName) &&
+         "Expect scalar function but it's vector variant.");
+  std::string ScalarFuncNameWithSuffix =
+      addSuffixInFunctionName(ScalarFuncName, Suffix);
+
+  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(ScalarFunc);
+  if (KIMD.VectorizedKernel.hasValue()) {
+    Function *VectorizedF = KIMD.VectorizedKernel.get();
+    replaceScalarKernelInVectorizerMetadata(VectorizedF, ScalarFunc,
+                                            ScalarFuncNameWithSuffix);
+  }
+  if (KIMD.VectorizedMaskedKernel.hasValue()) {
+    Function *VectorizedMaskedF = KIMD.VectorizedMaskedKernel.get();
+    replaceScalarKernelInVectorizerMetadata(VectorizedMaskedF, ScalarFunc,
+                                            ScalarFuncNameWithSuffix);
+  }
+}
+
+static void replaceVectorizedKernelInMetadata(Function *OldF, Function *NewF,
+                                              StringRef Suffix) {
+  std::string NewFName = NewF->getName().str();
+  assert(NewFName.find(Suffix.str()) == std::string::npos &&
+         "Invalid vectorized function name having suffix!");
+  assert(VectorVariant::isVectorVariant(NewFName) &&
+         "Expect vector variant but it's not.");
+
   VectorVariant Variant(NewFName);
   std::string ScalarFuncName = Variant.getBaseName();
   Function *ScalarFunc = NewF->getParent()->getFunction(ScalarFuncName);
   if (ScalarFunc == nullptr)
     return;
   DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(ScalarFunc);
-  if (KIMD.VectorizedKernel.hasValue()) {
-    Function *VectorizedF = KIMD.VectorizedKernel.get();
-    if (VectorizedF == OldF)
+  if (!Variant.isMasked()) {
+    if (KIMD.VectorizedKernel.hasValue()) {
+      assert(KIMD.VectorizedKernel.get() == OldF &&
+             "Invalid vectorized masked function!");
       KIMD.VectorizedKernel.set(NewF);
-  }
-  if (KIMD.VectorizedMaskedKernel.hasValue()) {
-    Function *VectorizedMaskedF = KIMD.VectorizedMaskedKernel.get();
-    if (VectorizedMaskedF == OldF)
+    }
+  } else {
+    if (KIMD.VectorizedMaskedKernel.hasValue()) {
+      assert(KIMD.VectorizedMaskedKernel.get() == OldF &&
+             "Invalid vectorized masked function!");
       KIMD.VectorizedMaskedKernel.set(NewF);
-  }
-
-  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI VKIMD(NewF);
-  if (VKIMD.ScalarKernel.hasValue()) {
-    Function *ScalarF = VKIMD.ScalarKernel.get();
-    std::string ScalarFuncNameWithSuffix =
-        addSuffixInFunctionName(ScalarFuncName, Suffix);
-    if (ScalarF->getName() == ScalarFuncNameWithSuffix)
-      VKIMD.ScalarKernel.set(ScalarFunc);
+    }
   }
 }
 
@@ -1103,6 +1132,7 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
   // to new function.
   NewF->copyAttributesFrom(F);
   NewF->copyMetadata(F, 0);
+
   // Set original arguments' names.
   Function::arg_iterator NewI = NewF->arg_begin();
   for (Function::const_arg_iterator I = F->arg_begin(), E = F->arg_end();
@@ -1133,12 +1163,6 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
   NewF->setComdat(F->getComdat());
   F->setComdat(nullptr);
 
-  // Since the name of F function is added with suffix, we have to replace it
-  // with original name of F function (now it's name of NewF function) with NewF
-  // function name in the metadata for vectorized kernel, masked kernel and
-  // scalar kernel
-  replaceScalarAndVectorizedKernelInMetadata(F, NewF, Suffix);
-
   // Delete original function body - this is needed to remove linkage (if
   // exists).
   F->deleteBody();
@@ -1150,7 +1174,6 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
     // Replace the users to the new version.
     I->replaceAllUsesWith(&*NI);
   }
-
   // Replace F by NewF in KernelList module Metadata (if any)
   using namespace DPCPPKernelMetadataAPI;
   llvm::Module *M = F->getParent();
@@ -1160,6 +1183,15 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
       std::begin(Kernels), std::end(Kernels),
       [F](llvm::Function *Func) { return F == Func; }, NewF);
   KernelList(M).set(Kernels);
+
+  // Since the name of F function is added with suffix, we have to replace it
+  // with original name of F function (now it's name of NewF function) with NewF
+  // function name in the metadata for vectorized kernel, masked kernel and
+  // scalar kernel
+  if (VectorVariant::isVectorVariant(NewF->getName().str()))
+    replaceVectorizedKernelInMetadata(F, NewF, Suffix);
+  else
+    replaceScalarKernelInMetadata(NewF, Suffix);
 
   return NewF;
 }

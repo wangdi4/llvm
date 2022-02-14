@@ -11,7 +11,7 @@
 ; CHECK-NOT: before.BarrierPass
 ; CHECK-DAG: @test(i32 addrspace(1)* %{{.*}}, [3 x i64]* noalias %{{.*}}) {{.*}} !vectorized_kernel ![[VECTORIZED_KERNEL_METADATA:[0-9]+]] !vectorized_masked_kernel ![[VECTORIZED_MASKED_KERNEL_METADATA:[0-9]+]]
 ; CHECK-DAG: @_ZGVeN16u_test(i32 addrspace(1)* %{{.*}}, [3 x i64]* noalias %{{.*}}) {{.*}} !scalar_kernel ![[SCALAR_KERNEL_METADATA:[0-9]+]]
-; CHECK-DAG: @_ZGVeM16u_test(i32 addrspace(1)* %{{.*}}, <16 x i32> %{{.*}}, [3 x i64]* noalias %{{.*}}) {{.*}} !scalar_kernel ![[SCALAR_KERNEL_METADATA:[0-9]+]]
+; CHECK-DAG: @_ZGVeM16u_test(i32 addrspace(1)* %{{.*}}, <16 x i32> %{{.*}}, [3 x i64]* noalias %{{.*}}) {{.*}} !scalar_kernel ![[SCALAR_KERNEL_METADATA]]
 ; CHECK: ![[SCALAR_KERNEL_METADATA]] = !{void (i32 addrspace(1)*, [3 x i64]*)* @test}
 ; CHECK: ![[VECTORIZED_KERNEL_METADATA]] = !{void (i32 addrspace(1)*, [3 x i64]*)* @_ZGVeN16u_test}
 ; CHECK: ![[VECTORIZED_MASKED_KERNEL_METADATA]] = !{void (i32 addrspace(1)*, <16 x i32>, [3 x i64]*)* @_ZGVeM16u_test}

@@ -4020,23 +4020,25 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     return;
   }
 
-  // Skip loop related VPInstructions other than IV-updates.
-  // TODO: Revisit when HIR vectorizer supports outer-loop vectorization.
+  // TODO: VPValue based code generation should stop relying on underlying
+  // IR validity information. The following special casing is expected to
+  // be removed as part of the move to merged CFG currently in progress.
+  // To avoid duplication of this work for the non-merged CFG path, we avoid
+  // generating code for loop related instructions outside the outermost
+  // loop as the loop generation is done using HIR utilities in this path.
   if (VPInst->isUnderlyingIRValid()) {
     const HLNode *HNode =
         VPInst->HIR().isMaster()
             ? VPInst->HIR().getUnderlyingNode()
             : VPInst->HIR().getMaster()->HIR().getUnderlyingNode();
     if (isa<HLLoop>(HNode) && HNode == OrigLoop) {
-      if (isMergedCFG()) {
-        // For merged CFG we can only ignore the backedge cmp. Other main loop
-        // IV associated instructions like vector-tc needs to be handled
-        // explicitly.
-        if (VPInst->getOpcode() == Instruction::ICmp)
-          return;
-      } else if (VPInst->getOpcode() != Instruction::Add) {
+      // Ignore backedge compare.
+      if (VPInst->getOpcode() == Instruction::ICmp)
         return;
-      }
+
+      if (!isMergedCFG() &&
+          !Plan->getVPLoopInfo()->getLoopFor(VPInst->getParent()))
+        return;
     }
   }
 
