@@ -15,12 +15,13 @@
 
 #include "ExecutionContext.h"
 #include "ICLDevBackendServiceFactory.h"
-#include "cpu_dev_limits.h"
 #include "SystemInfo.h"
+#include "cl_utils.h"
+#include "cpu_dev_limits.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ExecutionEngine/Orc/LLJIT.h"
-#include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/DataTypes.h"
+#include "llvm/Support/DynamicLibrary.h"
 
 #include <stdio.h>
 
@@ -155,6 +156,13 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void _ZSt14_Xlength_errorP
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void _ZdlPv(void*) LLVM_BACKEND_NOINLINE_POST;
 #endif
 
+extern "C" LLVM_BACKEND_API unsigned __opencl_get_cpu_node_id() {
+  return getCpuNodeId();
+}
+extern "C" LLVM_BACKEND_API unsigned __opencl_get_hw_thread_id() {
+  return getHWThreadId();
+}
+
 // OpenCL20. Extended execution
 class IDeviceCommandManager;
 class IBlockToKernelMapper;
@@ -193,6 +201,8 @@ llvm::Error RegisterCPUBIFunctions(bool isFPGAEmuDev, llvm::orc::LLJIT *LLJIT)
     REGISTER_BI_FUNCTION("__opencl_dbg_declare_global",
                          __opencl_dbg_declare_global)
     REGISTER_BI_FUNCTION("__opencl_dbg_stoppoint", __opencl_dbg_stoppoint)
+    REGISTER_BI_FUNCTION("__opencl_get_cpu_node_id", __opencl_get_cpu_node_id)
+    REGISTER_BI_FUNCTION("__opencl_get_hw_thread_id", __opencl_get_hw_thread_id)
     REGISTER_BI_FUNCTION("__ocl20_get_default_queue", __ocl20_get_default_queue)
     REGISTER_BI_FUNCTION("__ocl20_enqueue_kernel_basic",
                          __ocl20_enqueue_kernel_basic)

@@ -365,3 +365,10 @@ bool GetStringValueFromRegistryOrETC( HKEY       top_hkey,
  */
 string ReadFileContents(const string& filePath);
 
+// Identify the node on which the calling thread is current running.
+// The return value should lie in the range [0, max_node_count).
+unsigned getCpuNodeId();
+
+// Identify the processor on which the calling thread is current running.
+// The return value should lie in the range [0, max_processor_count).
+unsigned getHWThreadId();

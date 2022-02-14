@@ -354,8 +354,13 @@ if (WIN32)
     set( TBB_LIB_DIR ${TBB_ROOT_DIR}/lib/${TBB_ARCH}/vc14 )
     set( TBB_LIBRARY_DIR ${TBB_ROOT_DIR}/redist/${TBB_ARCH}/vc14 )
 
-    # Copy TBB libraries to deploy. This is to support windows QA.
+    # Copy TBB libraries to deploy and build folder. This is to support windows QA.
     # TBB is used by task_executor.
+    set (TBB_BINARIES_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/lib/${OUTPUT_ARCH_SUFF})
+    add_custom_target(tbb ALL
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${TBB_LIBRARY_DIR} ${TBB_BINARIES_BUILD_DIR}
+	COMMENT "Copying tbb libraries from ${TBB_LIBRARY_DIR} to ${TBB_BINARIES_BUILD_DIR}")
+
     install_to(${TBB_LIBRARY_DIR}/ COMPONENT ocl-task_executor
                DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${OUTPUT_ARCH_SUFF})
 else (WIN32)

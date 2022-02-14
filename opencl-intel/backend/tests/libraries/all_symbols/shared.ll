@@ -8182,6 +8182,7 @@
 ; CHECK-NEXT: _Z30intel_sub_group_block_write8_8Dv8_14ocl_image2d_rwDv16_iDv64_jDv8_j
 ; CHECK-NEXT: _Z30intel_sub_group_block_write8_8Dv8_14ocl_image2d_woDv16_iDv64_jDv8_j
 ; CHECK-NEXT: _Z30intel_sub_group_block_write8_8Dv8_PU3AS1jDv64_jDv8_j
+; CHECK-NEXT: _Z31__spirv_BuiltInSubDeviceIDINTELv
 ; CHECK-NEXT: _Z31intel_sub_group_block_write1_16Dv16_14ocl_image2d_rwDv32_iDv16_jS2_
 ; CHECK-NEXT: _Z31intel_sub_group_block_write1_16Dv16_14ocl_image2d_woDv32_iDv16_jS2_
 ; CHECK-NEXT: _Z31intel_sub_group_block_write1_16Dv16_PU3AS1jDv16_jS2_
@@ -8728,6 +8729,7 @@
 ; CHECK-NEXT: _Z35intel_sub_group_block_write_uc16_64Dv64_14ocl_image2d_rwDv128_iDv1024_hDv64_j
 ; CHECK-NEXT: _Z35intel_sub_group_block_write_uc16_64Dv64_14ocl_image2d_woDv128_iDv1024_hDv64_j
 ; CHECK-NEXT: _Z35intel_sub_group_block_write_uc16_64Dv64_PU3AS1hDv1024_hDv64_j
+; CHECK-NEXT: _Z36__spirv_BuiltInGlobalHWThreadIDINTELv
 ; CHECK-NEXT: _Z38__spirv_CreatePipeFromPipeStorage_readPU3AS419ConstantPipeStorage
 ; CHECK-NEXT: _Z38__spirv_CreatePipeFromPipeStorage_readPU3AS427__spirv_ConstantPipeStorage
 ; CHECK-NEXT: _Z39__spirv_CreatePipeFromPipeStorage_writePU3AS419ConstantPipeStorage

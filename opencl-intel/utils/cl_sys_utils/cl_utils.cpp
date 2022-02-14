@@ -155,6 +155,18 @@ threadid_t clMyParentThreadId()
     return clMyThreadId();
 }
 
+unsigned getCpuNodeId() {
+  PROCESSOR_NUMBER PN;
+  GetCurrentProcessorNumberEx(&PN);
+  return PN.Group;
+}
+
+unsigned getHWThreadId() {
+  PROCESSOR_NUMBER PN;
+  GetCurrentProcessorNumberEx(&PN);
+  // See https://docs.microsoft.com/en-us/windows/win32/procthread/processor-groups
+  return 64 * PN.Group + PN.Number;
+}
 #else
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -256,6 +268,17 @@ threadid_t clMyParentThreadId()
     return getpid();
 }
 
+unsigned getCpuNodeId() {
+  unsigned Node;
+  syscall(SYS_getcpu, nullptr, &Node, nullptr);
+  return Node;
+}
+
+unsigned getHWThreadId() {
+  unsigned CPU;
+  syscall(SYS_getcpu, &CPU, nullptr, nullptr);
+  return CPU;
+}
 #endif
 
 const char* ClErrTxt(cl_err_code error_code)

@@ -150,7 +150,6 @@ llvm::ImmutablePass *createOCLAliasAnalysisPass();
 llvm::ModulePass *createPrintfArgumentsPromotionPass();
 llvm::ModulePass *createChannelsUsageAnalysisPass();
 llvm::ModulePass *createSYCLPipesHackPass();
-llvm::ModulePass *createAddTLSGlobalsPass();
 llvm::ModulePass *createRemoveAtExitPass();
 llvm::FunctionPass *createAddNTAttrPass();
 llvm::Pass *createResolveVariableTIDCallPass();
@@ -746,7 +745,7 @@ static void populatePassesPostFailCheck(
   // The following three passes (AddImplicitArgsLegacy/AddTLSGlobals,
   // ResolveWICall, LocalBuffer) must run before createBuiltinImportLegacyPass!
   if (UseTLSGlobals)
-    PM.add(createAddTLSGlobalsPass());
+    PM.add(llvm::createAddTLSGlobalsLegacyPass());
   else
     PM.add(llvm::createAddImplicitArgsLegacyPass());
 
