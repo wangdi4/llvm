@@ -174,12 +174,8 @@ static int lldMain(int argc, const char **argv, llvm::raw_ostream &stdoutOS,
       die("lld is a generic driver.\n"
           "Invoke ld.lld (Unix), ld64.lld (macOS), lld-link (Windows), wasm-ld"
           " (WebAssembly) instead");
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
-  };
-=======
   }();
->>>>>>> bb8be26a7ec36d32c605a5a15b92b5614453391f
   // Run the driver. If an error occurs, false will be returned.
   bool r = link(args, stdoutOS, stderrOS, exitEarly, inTestOutputDisabled);
 
