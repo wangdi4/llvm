@@ -1,4 +1,4 @@
-; RUN: %oclopt -add-tls-globals -patch-callback-args -use-tls-globals -S %s -o -| FileCheck %s
+; RUN: %oclopt -dpcpp-kernel-add-tls-globals -patch-callback-args -dpcpp-kernel-enable-tls-globals -S %s -o -| FileCheck %s
 
 ; Check thread-local storage globals mode in PatchCallbackArgs pass
 

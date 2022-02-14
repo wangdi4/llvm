@@ -24,7 +24,7 @@
 
 using namespace llvm;
 
-extern bool OptUseTLSGlobals;
+extern bool EnableTLSGlobals;
 
 namespace intel {
 
@@ -41,7 +41,7 @@ class PatchCallbackArgs : public ModulePass {
 public:
   static char ID;
   PatchCallbackArgs(bool UseTLSGlobals = false)
-      : ModulePass(ID), UseTLSGlobals(UseTLSGlobals || OptUseTLSGlobals) {}
+      : ModulePass(ID), UseTLSGlobals(UseTLSGlobals || EnableTLSGlobals) {}
   virtual llvm::StringRef getPassName() const override {
     return "PatchCallbackArgs";
   }
