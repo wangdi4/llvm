@@ -324,6 +324,15 @@ static bool attributeHasVariadicIdentifierArg(const IdentifierInfo &II) {
 #undef CLANG_ATTR_VARIADIC_IDENTIFIER_ARG_LIST
 }
 
+/// Determine if an attribute accepts parameter packs.
+static bool attributeAcceptsExprPack(const IdentifierInfo &II) {
+#define CLANG_ATTR_ACCEPTS_EXPR_PACK
+  return llvm::StringSwitch<bool>(normalizeAttrName(II.getName()))
+#include "clang/Parse/AttrParserStringSwitches.inc"
+      .Default(false);
+#undef CLANG_ATTR_ACCEPTS_EXPR_PACK
+}
+
 /// Determine whether the given attribute parses a type argument.
 static bool attributeIsTypeArgAttr(const IdentifierInfo &II,
                                       ParsedAttr::Syntax Syntax,
@@ -453,13 +462,9 @@ unsigned Parser::ParseAttributeArgsCommon(
   ConsumeParen();
 
   bool ChangeKWThisToIdent = attributeTreatsKeywordThisAsIdentifier(*AttrName);
-<<<<<<< HEAD
-  bool AttributeIsTypeArgAttr = attributeIsTypeArgAttr(*AttrName, Syntax, ScopeName);
-=======
-  bool AttributeIsTypeArgAttr = attributeIsTypeArgAttr(*AttrName);
+  bool AttributeIsTypeArgAttr = attributeIsTypeArgAttr(*AttrName, Syntax, ScopeName); // INTEL
   bool AttributeHasVariadicIdentifierArg =
       attributeHasVariadicIdentifierArg(*AttrName);
->>>>>>> 63c3921d8624b9a1f741086dd00d99359187f9a4
 
   // Interpret "kw_this" as an identifier if the attributed requests it.
   if (ChangeKWThisToIdent && Tok.is(tok::kw_this))
@@ -468,16 +473,10 @@ unsigned Parser::ParseAttributeArgsCommon(
   ArgsVector ArgExprs;
   if (Tok.is(tok::identifier)) {
     // If this attribute wants an 'identifier' argument, make it so.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-    bool IsIdentifierArg =
-        attributeHasIdentifierArg(*AttrName, Syntax, ScopeName) ||
-                           attributeHasVariadicIdentifierArg(*AttrName);
-#endif // INTEL_CUSTOMIZATION
-=======
     bool IsIdentifierArg = AttributeHasVariadicIdentifierArg ||
-                           attributeHasIdentifierArg(*AttrName);
->>>>>>> 63c3921d8624b9a1f741086dd00d99359187f9a4
+                           attributeHasIdentifierArg(*AttrName, Syntax, ScopeName);
+#endif // INTEL_CUSTOMIZATION
     ParsedAttr::Kind AttrKind =
         ParsedAttr::getParsedKind(AttrName, ScopeName, Syntax);
 
@@ -523,7 +522,10 @@ unsigned Parser::ParseAttributeArgsCommon(
         if (Tok.is(tok::identifier)) {
           ArgExprs.push_back(ParseIdentifierLoc());
         } else {
-          bool Uneval = attributeParsedArgsUnevaluated(*AttrName);
+#if INTEL_CUSTOMIZATION
+          bool Uneval = attributeParsedArgsUnevaluated(*AttrName, Syntax,
+                                                       ScopeName);
+#endif // INTEL_CUSTOMIZATION
           EnterExpressionEvaluationContext Unevaluated(
               Actions,
               Uneval ? Sema::ExpressionEvaluationContext::Unevaluated
@@ -538,32 +540,14 @@ unsigned Parser::ParseAttributeArgsCommon(
           }
           ArgExprs.push_back(ArgExpr.get());
         }
-<<<<<<< HEAD
-        if (T.isUsable())
-          TheParsedType = T.get();
-        break; // FIXME: Multiple type arguments are not implemented.
-      } else if (Tok.is(tok::identifier) &&
-                 attributeHasVariadicIdentifierArg(*AttrName)) {
-        ArgExprs.push_back(ParseIdentifierLoc());
-      } else {
-#if INTEL_CUSTOMIZATION
-        bool Uneval = attributeParsedArgsUnevaluated(*AttrName, Syntax,
-                                                   ScopeName);
-#endif // INTEL_CUSTOMIZATION
-        EnterExpressionEvaluationContext Unevaluated(
-            Actions,
-            Uneval ? Sema::ExpressionEvaluationContext::Unevaluated
-                   : Sema::ExpressionEvaluationContext::ConstantEvaluated);
-
-        ExprResult ArgExpr(
-            Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression()));
-        if (ArgExpr.isInvalid()) {
-=======
         // Eat the comma, move to the next argument
       } while (TryConsumeToken(tok::comma));
     } else {
       // General case. Parse all available expressions.
-      bool Uneval = attributeParsedArgsUnevaluated(*AttrName);
+#if INTEL_CUSTOMIZATION
+      bool Uneval = attributeParsedArgsUnevaluated(*AttrName, Syntax,
+                                                   ScopeName);
+#endif // INTEL_CUSTOMIZATION
       EnterExpressionEvaluationContext Unevaluated(
           Actions, Uneval
                        ? Sema::ExpressionEvaluationContext::Unevaluated
@@ -588,7 +572,6 @@ unsigned Parser::ParseAttributeArgsCommon(
           Diag(Tok.getLocation(),
                diag::err_attribute_argument_parm_pack_not_supported)
               << AttrName;
->>>>>>> 63c3921d8624b9a1f741086dd00d99359187f9a4
           SkipUntil(tok::r_paren, StopAtSemi);
           return 0;
         }

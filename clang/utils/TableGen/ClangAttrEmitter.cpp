@@ -2253,7 +2253,6 @@ static void forEachUniqueSpelling(const Record &Attr, Fn &&F) {
   }
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 template <typename Fn>
 static void forEachSpelling(const Record &Attr, Fn &&F) {
@@ -2263,12 +2262,11 @@ static void forEachSpelling(const Record &Attr, Fn &&F) {
   }
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 static bool isTypeArgument(const Record *Arg) {
   return !Arg->getSuperClasses().empty() &&
          Arg->getSuperClasses().back().first->getName() == "TypeArgument";
 }
->>>>>>> 63c3921d8624b9a1f741086dd00d99359187f9a4
 
 /// Emits the first-argument-is-type property for attributes.
 static void emitClangAttrTypeArgList(RecordKeeper &Records, raw_ostream &OS) {
