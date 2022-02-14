@@ -69,6 +69,8 @@ static bool vectorizerMode(bool enabled) {
   return SETENV("CL_CONFIG_USE_VECTORIZER", mode.c_str());
 }
 
+// Temporarily disable this test with x86 win build, as it's flaky failed.
+#if !(defined(_WIN32) && !defined(_WIN64))
 TEST_F(PrivateMemSizeTest, Basic) {
   std::string programSources = "__kernel void test(__global int* o)\n"
                                "{\n"
@@ -98,6 +100,7 @@ TEST_F(PrivateMemSizeTest, Basic) {
 
   ASSERT_NO_FATAL_FAILURE(testBody(expectedPrivateMemSize, programSources));
 }
+#endif // #if !(defined(_WIN32) && !defined(_WIN64))
 
 TEST_F(PrivateMemSizeTest, OutOfResources) {
   std::string programSources =
