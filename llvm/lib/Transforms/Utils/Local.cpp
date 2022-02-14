@@ -76,6 +76,10 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Support/raw_ostream.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
@@ -2217,6 +2221,10 @@ CallInst *llvm::changeToCall(InvokeInst *II, DomTreeUpdater *DTU) {
   CallInst *NewCall = createCallMatchingInvoke(II);
   NewCall->takeName(II);
   NewCall->insertBefore(II);
+#if INTEL_CUSTOMIZATION
+  getInlineReport()->replaceCallBaseWithCallBase(II, NewCall);
+  getMDInlineReport()->replaceCallBaseWithCallBase(II, NewCall);
+#endif // INTEL_CUSTOMIZATION
   II->replaceAllUsesWith(NewCall);
 
   // Follow the call by a branch to the normal destination.
