@@ -43,11 +43,8 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
-<<<<<<< HEAD
-#include "llvm/Transforms/Utils/Intel_IMLUtils.h" // INTEL
-=======
 #include "llvm/IR/Type.h"
->>>>>>> 45084eab5e63550bf2fdbf325d8fa5498263130d
+#include "llvm/Transforms/Utils/Intel_IMLUtils.h" // INTEL
 #include "llvm/Transforms/Utils/Local.h"
 using namespace clang;
 using namespace CodeGen;
