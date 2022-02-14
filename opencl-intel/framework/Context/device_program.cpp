@@ -24,6 +24,7 @@
 
 #include "llvm/ADT/Triple.h"
 #include "llvm/Bitcode/BitcodeReader.h"
+#include "llvm/Support/MemoryBuffer.h"
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;

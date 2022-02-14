@@ -22,6 +22,8 @@
 #include "common_clang.h"
 #include "common_utils.h"
 
+#include <llvm/Support/MemoryBuffer.h>
+
 #include <algorithm>
 
 using namespace Intel::OpenCL::ClangFE;
