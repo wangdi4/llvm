@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_DEMANGLE_ITANIUMDEMANGLE_H
-#define LLVM_DEMANGLE_ITANIUMDEMANGLE_H
+#ifndef DEMANGLE_ITANIUMDEMANGLE_H
+#define DEMANGLE_ITANIUMDEMANGLE_H
 
 // FIXME: (possibly) incomplete list of features that clang mangles that this
 // file does not yet support:
@@ -1812,7 +1812,13 @@ public:
   void printLeft(OutputBuffer &OB) const override {
     LHS->print(OB);
     OB += Kind;
+    // Parenthesize pointer-to-member deference argument.
+    bool IsPtr = Kind.back() == '*';
+    if (IsPtr)
+      OB += '(';
     RHS->print(OB);
+    if (IsPtr)
+      OB += ')';
   }
 };
 
@@ -4882,9 +4888,16 @@ Node *AbstractManglingParser<Derived, Alloc>::parseExpr() {
     return nullptr;
   case 'p':
     switch (First[1]) {
-    case 'm':
+    case 'm': {
       First += 2;
-      return getDerived().parseBinaryExpr("->*");
+      Node *LHS = getDerived().parseExpr();
+      if (LHS == nullptr)
+        return LHS;
+      Node *RHS = getDerived().parseExpr();
+      if (RHS == nullptr)
+        return nullptr;
+      return make<MemberExpr>(LHS, "->*", RHS);
+    }
     case 'l':
       First += 2;
       return getDerived().parseBinaryExpr("+");
@@ -5773,4 +5786,4 @@ struct ManglingParser : AbstractManglingParser<ManglingParser<Alloc>, Alloc> {
 
 DEMANGLE_NAMESPACE_END
 
-#endif // LLVM_DEMANGLE_ITANIUMDEMANGLE_H
+#endif // DEMANGLE_ITANIUMDEMANGLE_H
