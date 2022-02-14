@@ -620,30 +620,15 @@ static bool allCallersPassValidPointerForArgument(Argument *Arg, Type *Ty) {
     return true;
 
 #if INTEL_CUSTOMIZATION
-  // Check if Arg is marked with dereferenceable attribute.
-  if (isDereferenceablePointer(Arg, Ty, DL))
-    return true;
-  // Look at all call sites of the function.  At this point we know we only have
-<<<<<<< HEAD
   // direct or callback callees.
-  for (const Use &U : Callee->uses()) {
+  return all_of(Callee->uses(), [&](const Use &U) {
     AbstractCallSite CS(&U);
     assert((CS.isDirectCall() || CS.isCallbackCall()) &&
            "Should only have direct or callback calls!");
-
-    if (!isDereferenceablePointer(CS.getCallArgOperand(ArgNo), Ty, DL))
-      return false;
-  }
-#endif // INTEL_CUSTOMIZATION
-  return true;
-=======
-  // direct callees.
-  return all_of(Callee->users(), [&](User *U) {
-    CallBase &CB = cast<CallBase>(*U);
     return isDereferenceableAndAlignedPointer(
-        CB.getArgOperand(Arg->getArgNo()), NeededAlign, Bytes, DL);
+        CS.getCallArgOperand(Arg->getArgNo()), NeededAlign, Bytes, DL);
   });
->>>>>>> b896334834305c8b68b9b6e6cb4386adb4ed1a07
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// Returns true if Prefix is a prefix of longer. That means, Longer has a size
