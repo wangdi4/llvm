@@ -1,8 +1,8 @@
 
 ; This test checks that the TLS globals are not internalized by the pass
 
-; RUN: %oclopt -add-tls-globals -internalize-global-variables %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -add-tls-globals -internalize-global-variables %s -S | FileCheck %s
+; RUN: %oclopt -dpcpp-kernel-add-tls-globals -internalize-global-variables %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt -dpcpp-kernel-add-tls-globals -internalize-global-variables %s -S | FileCheck %s
 
 ; CHECK: @pLocalMemBase = linkonce_odr thread_local global i8 addrspace(3)* undef
 ; CHECK: @pWorkDim = linkonce_odr thread_local global { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* undef

@@ -1080,4 +1080,16 @@ define <4 x i32> @intel_sub_group_ballot_vf4(<4 x i1> %pred, <4 x i32> %vec_mask
   ret <4 x i32> %splat.splat
 }
 
+declare i32 @__opencl_get_cpu_node_id()
+define i32 @_Z31__spirv_BuiltInSubDeviceIDINTELv() {
+  %node.id = call i32 @__opencl_get_cpu_node_id()
+  ret i32 %node.id
+}
+
+declare i32 @__opencl_get_hw_thread_id()
+define i32 @_Z36__spirv_BuiltInGlobalHWThreadIDINTELv() {
+  %thread.id = call i32 @__opencl_get_hw_thread_id()
+  ret i32 %thread.id
+}
+
 attributes #1 = { norecurse nounwind readnone }
