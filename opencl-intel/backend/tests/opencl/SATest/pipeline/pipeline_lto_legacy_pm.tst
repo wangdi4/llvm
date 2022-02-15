@@ -37,7 +37,7 @@
 ; CHECK:          CreateSimdVariantPropagationLegacy
 ; CHECK:          SGSizeCollectorLegacy
 ; CHECK:          SGSizeCollectorIndirectLegacy
-; CHECK-NEXT:     DPCPPKernelVecCloneLegacy
+; CHECK:          DPCPPKernelVecCloneLegacy
 ; CHECK-NEXT:     Fill-in addresses of vector variants
 ; CHECK-NEXT:     UpdateCallAttrs
 ; CHECK:          FunctionPass Manager
@@ -68,7 +68,7 @@
 ; CHECK-NEXT:     LocalBufferAnalysisLegacy
 ; CHECK-NEXT:     LocalBuffersLegacy
 ; CHECK-NEXT:     BuiltinImportLegacy
-; CHECK-NEXT:     FunctionPass Manager
+; CHECK:          FunctionPass Manager
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
 ; CHECK:          Function Integration/Inlining
 ; CHECK:          Dead Argument Elimination
