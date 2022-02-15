@@ -56,19 +56,6 @@ MDNode *TypeMetadataReader::getDTransMDNode(const Value &V) {
   return nullptr;
 }
 
-// TODO: Remove this method once calls are changed to use
-// 'DTransTypeMetadataBuilder' directly.
-void TypeMetadataReader::addDTransMDNode(Value &V, MDNode *MD) {
-  DTransTypeMetadataBuilder::addDTransMDNode(V, MD);
-}
-
-// TODO: Remove this method once calls are changed to use
-// 'DTransTypeMetadataBuilder' directly.
-void TypeMetadataReader::setDTransFuncMetadata(Function *F,
-                                               DTransFunctionType *FnType) {
-  DTransTypeMetadataBuilder::setDTransFuncMetadata(F, FnType);
-}
-
 bool TypeMetadataReader::initialize(Module &M, bool StrictCheck) {
   NamedMDNode *DTMDTypes = getDTransTypesMetadata(M);
   if (!DTMDTypes)
