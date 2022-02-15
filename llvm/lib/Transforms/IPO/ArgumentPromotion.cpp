@@ -256,11 +256,6 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
   F->getParent()->getFunctionList().insert(F->getIterator(), NF);
   NF->takeName(F);
 
-#if INTEL_CUSTOMIZATION
-  if (F->hasComdat())
-    NF->setComdat(F->getComdat());
-#endif // INTEL_CUSTOMIZATION
-
   // Loop over all of the callers of the function, transforming the call sites
   // to pass in the loaded pointers.
   //
@@ -472,6 +467,14 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
   // function right into the new function, leaving the old rotting hulk of the
   // function empty.
   NF->getBasicBlockList().splice(NF->begin(), F->getBasicBlockList());
+#if INTEL_CUSTOMIZATION
+  if (F->hasComdat()) {
+    NF->setComdat(F->getComdat());
+    // Set comdat to nullptr once the body is deleted.
+    F->setComdat(nullptr);
+  }
+#endif // INTEL_CUSTOMIZATION
+
 
 #if INTEL_CUSTOMIZATION
   auto MaybeCastFrom = [&](Value *Val, Instruction *Inst) {
