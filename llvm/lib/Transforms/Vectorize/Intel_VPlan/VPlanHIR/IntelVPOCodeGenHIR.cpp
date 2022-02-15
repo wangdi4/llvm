@@ -4276,6 +4276,100 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // Do nothing.
     return;
 
+  case VPInstruction::HIRCopy: {
+    int OriginPhiId = cast<VPHIRCopyInst>(VPInst)->getOriginPhiId();
+    VPValue *CopiedVPVal = VPInst->getOperand(0);
+    RegDDRef *LValTmp = nullptr;
+    if (OriginPhiId != -1) {
+      if (auto *ExistingTmp = getLValTempForPhiId(OriginPhiId)) {
+        // If a HIR temp was already created for this PHI ID, then re-use it
+        // as Lval.
+        LValTmp = ExistingTmp->clone();
+      } else {
+        // First occurrence of PHI ID, create a new HIR temp to be used as
+        // Lval for all copies. TODO: Use SVA in future to decide between
+        // vector/scalar type here.
+        LValTmp = HLNodeUtilities.createTemp(
+            getWidenedType(VPInst->getType(), getVF()), "phi.temp");
+        PhiIdLValTempsMap[OriginPhiId] = LValTmp;
+      }
+    }
+
+    HLInst *NewInst = HLNodeUtilities.createCopyInst(
+        widenRef(CopiedVPVal, getVF()), ".copy", LValTmp);
+
+    // If this is a copy of reduction-init value then it should be inserted
+    // along with other reduction initialization related instructions i.e based
+    // on hoist loop. We also conservatively mark the copy's temp as live-in for
+    // loop nest.
+    if (isa<VPReductionInit>(CopiedVPVal)) {
+      HLContainerTy RedInitCopy;
+      RedInitCopy.push_back(*NewInst);
+      insertReductionInit(&RedInitCopy);
+
+      // Add the reduction init ref as a live-in for each loop up to and
+      // including the hoist loop starting from MainLoop's parent loop. The
+      // livein information for MainLoop will be added by setupLiveInLiveOut
+      // call.
+      auto LvalSymbase = NewInst->getLvalDDRef()->getSymbase();
+      assert(LValTmp && LValTmp->getSymbase() == LvalSymbase &&
+             "Inconsistent lval/symbase used for copies.");
+      HLLoop *ThisLoop = MainLoop->getParentLoop();
+      while (ThisLoop != RednHoistLp->getParentLoop()) {
+        ThisLoop->addLiveInTemp(LvalSymbase);
+        ThisLoop = ThisLoop->getParentLoop();
+      }
+
+      addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());
+      return;
+    }
+
+    auto IsExtDefUsedForCondLastPriv = [](VPExternalDef *ExtDef) {
+      return llvm::any_of(ExtDef->users(),
+                          [](VPUser *U) { return isa<VPPrivateFinalCond>(U); });
+    };
+
+    // Special case handling of copies generated for conditional last private
+    // recurrent PHIs. Conditional last private entity is recognized by
+    // inspecting the RHS value of this hir-copy instruction.
+    // TODO: This special casing should be removed after updating VPLoopEntities
+    // & PrivateFinalInstruction processing transforms to use undef to intialize
+    // conditional last privates instead of original start value.
+    if (isa<VPExternalDef>(CopiedVPVal) &&
+        IsExtDefUsedForCondLastPriv(cast<VPExternalDef>(CopiedVPVal))) {
+      auto *RValTmp = NewInst->getRvalDDRef();
+      if (RValTmp->isSelfBlob()) {
+        unsigned RvalSym = RValTmp->getSymbase();
+        // Make the r-val temp of pre-loop copies non-linear if we know that
+        // temp will be liveout of current loop. Pre-loop copies are introduced
+        // by deconstruction of loop header reccurrent PHIs. Liveout r-val temps
+        // have to be made non-linear since they will have a definition in the
+        // loop post-exit (finalization) -
+        // DO i1
+        //     %vec = %t
+        //   DO i2
+        //     %vec =
+        //   END DO
+        //     %t = %vec // This definition makes %t non-linear
+        // END DO
+        if (MainLoop->isLiveOut(RvalSym)) {
+          auto *RvalTempCE = RValTmp->getSingleCanonExpr();
+          RvalTempCE->setNonLinear();
+        }
+        // Since we are adding a new r-val use of temp outside the loop, make
+        // the temp live-in at all parent loop levels.
+        makeSymLiveInForParentLoops(RvalSym);
+      }
+      addInstUnmasked(NewInst);
+      addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());
+      return;
+    }
+
+    addInst(NewInst, Mask);
+    addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());
+    return;
+  }
+
   case VPInstruction::VectorTripCountCalculation: {
     // TODO: Revisit for constant TC.
     auto *VPVectorTC = cast<VPVectorTripCountCalculation>(VPInst);
@@ -5048,97 +5142,6 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // set the current mask value.
     setCurMaskValue(RefOp0);
     return;
-
-  case VPInstruction::HIRCopy: {
-    int OriginPhiId = cast<VPHIRCopyInst>(VPInst)->getOriginPhiId();
-    RegDDRef *LValTmp = nullptr;
-    if (OriginPhiId != -1) {
-      if (auto *ExistingTmp = getLValTempForPhiId(OriginPhiId)) {
-        // If a HIR temp was already created for this PHI ID, then re-use it
-        // as Lval.
-        LValTmp = ExistingTmp->clone();
-      } else {
-        // First occurrence of PHI ID, create a new HIR temp to be used as
-        // Lval for all copies. TODO: Use SVA in future to decide between
-        // vector/scalar type here.
-        LValTmp = HLNodeUtilities.createTemp(
-            getWidenedType(VPInst->getType(), getVF()), "phi.temp");
-        PhiIdLValTempsMap[OriginPhiId] = LValTmp;
-      }
-    }
-
-    NewInst = HLNodeUtilities.createCopyInst(RefOp0, ".copy", LValTmp);
-
-    // If this is a copy of reduction-init value then it should be inserted
-    // along with other reduction initialization related instructions i.e based
-    // on hoist loop. We also conservatively mark the copy's temp as live-in for
-    // loop nest.
-    if (isa<VPReductionInit>(VPInst->getOperand(0))) {
-      HLContainerTy RedInitCopy;
-      RedInitCopy.push_back(*NewInst);
-      insertReductionInit(&RedInitCopy);
-
-      // Add the reduction init ref as a live-in for each loop up to and
-      // including the hoist loop starting from MainLoop's parent loop. The
-      // livein information for MainLoop will be added by setupLiveInLiveOut
-      // call.
-      auto LvalSymbase = NewInst->getLvalDDRef()->getSymbase();
-      assert(LValTmp && LValTmp->getSymbase() == LvalSymbase &&
-             "Inconsistent lval/symbase used for copies.");
-      HLLoop *ThisLoop = MainLoop->getParentLoop();
-      while (ThisLoop != RednHoistLp->getParentLoop()) {
-        ThisLoop->addLiveInTemp(LvalSymbase);
-        ThisLoop = ThisLoop->getParentLoop();
-      }
-
-      addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());
-      return;
-    }
-
-    auto IsExtDefUsedForCondLastPriv = [](VPExternalDef *ExtDef) {
-      return llvm::any_of(ExtDef->users(),
-                          [](VPUser *U) { return isa<VPPrivateFinalCond>(U); });
-    };
-
-    // Special case handling of copies generated for conditional last private
-    // recurrent PHIs. Conditional last private entity is recognized by
-    // inspecting the RHS value of this hir-copy instruction.
-    // TODO: This special casing should be removed after updating VPLoopEntities
-    // & PrivateFinalInstruction processing transforms to use undef to intialize
-    // conditional last privates instead of original start value.
-    VPValue *CopiedVal = VPInst->getOperand(0);
-    if (isa<VPExternalDef>(CopiedVal) &&
-        IsExtDefUsedForCondLastPriv(cast<VPExternalDef>(CopiedVal))) {
-      auto *RValTmp = NewInst->getRvalDDRef();
-      if (RValTmp->isSelfBlob()) {
-        unsigned RvalSym = RValTmp->getSymbase();
-        // Make the r-val temp of pre-loop copies non-linear if we know that
-        // temp will be liveout of current loop. Pre-loop copies are introduced
-        // by deconstruction of loop header reccurrent PHIs. Liveout r-val temps
-        // have to be made non-linear since they will have a definition in the
-        // loop post-exit (finalization) -
-        // DO i1
-        //     %vec = %t
-        //   DO i2
-        //     %vec =
-        //   END DO
-        //     %t = %vec // This definition makes %t non-linear
-        // END DO
-        if (MainLoop->isLiveOut(RvalSym)) {
-          auto *RvalTempCE = RValTmp->getSingleCanonExpr();
-          RvalTempCE->setNonLinear();
-        }
-        // Since we are adding a new r-val use of temp outside the loop, make
-        // the temp live-in at all parent loop levels.
-        makeSymLiveInForParentLoops(RvalSym);
-      }
-      addInstUnmasked(NewInst);
-      addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());
-      return;
-    }
-
-    break;
-  }
 
   case VPInstruction::AllZeroCheck: {
     RegDDRef *A = RefOp0;
