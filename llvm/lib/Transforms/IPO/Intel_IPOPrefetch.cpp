@@ -1681,9 +1681,9 @@ bool IPOPrefetcher::identifyPrefetchPositions(Function *F) {
 
       // entry1:
       BasicBlockInfo(nullptr,        /* BasicBlock * BB  */
-                     138,            /* unsigned Index   */
-                     26,             /* unsigned NumInst */
-                     4,              /* unsigned NumPred */
+                     137,            /* unsigned Index   */
+                     25,             /* unsigned NumInst */
+                     3,              /* unsigned NumPred */
                      2,              /* unsigned NumSucc */
                      BBSC_Large,     /* BasicBlockSizeCategory SizeCategory */
                      BBIR_4thQuarter /*BasicBlockIndexRange IndexRange)*/
