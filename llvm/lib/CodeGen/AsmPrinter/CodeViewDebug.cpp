@@ -1733,6 +1733,39 @@ static uint32_t getF90DescriptorSize(Triple::ArchType Arch, uint32_t ArrayDims) 
          (FieldSize * numberOfFieldsPerDim * ArrayDims);  // size of dimension fields
 }
 
+static bool isValidDescriptorExpression(DIExpression *Exp) {
+  // DW_OP_push_object_address opcode in the location expression
+  // of the bounds implies the array uses a descriptor.
+  return Exp && Exp->getNumElements() > 0 &&
+         Exp->getElement(0) == dwarf::DW_OP_push_object_address;
+}
+
+static bool isDescribedSubrange(const DISubrange *Subrange) {
+  auto *LE = Subrange->getLowerBound().dyn_cast<DIExpression *>();
+  auto *UE = Subrange->getUpperBound().dyn_cast<DIExpression *>();
+
+  return isValidDescriptorExpression(LE) || isValidDescriptorExpression(UE);
+}
+
+static int64_t getConstantLowerBound(const DISubrange *Subrange) {
+  auto *LI = Subrange->getLowerBound().dyn_cast<ConstantInt *>();
+  // The default lowerbound of an array dimension in Fortran is 1.
+  int64_t LowerBound = (LI) ? LI->getSExtValue() : 1;
+  return LowerBound;
+}
+
+static bool isOneDimensionalWithDefaultLowerBound(const DICompositeType *Ty) {
+  DINodeArray Elements = Ty->getElements();
+  uint16_t Rank = Elements.size();
+  if (Rank != 1)
+    return false;
+
+  const DISubrange *Subrange = cast<DISubrange>(Elements[0]);
+  int64_t LowerBound = getConstantLowerBound(Subrange);
+
+  return LowerBound == 1;
+}
+
 // Construct a Descriptor OEM Record, which has the following layout:
 //   LF_OEM (2)    0x100F
 //   OEM    (2)    LF_OEM_IDENT_MSF90
@@ -1800,6 +1833,69 @@ TypeIndex CodeViewDebug::lowerTypeOemMSF90DescribedArray(const DICompositeType *
 
   return TypeTable.writeLeafType(OEM);
 }
+
+codeview::TypeIndex CodeViewDebug::getDimInfo(const DINodeArray Subranges) {
+  // Check if we have already created an index for Subranges.
+  const MDTuple *Tuple = Subranges.get();
+  auto I = DimInfoIndices.find(Tuple);
+  if (I != DimInfoIndices.end())
+    return I->second;
+
+  // Collect bounds.
+  SmallVector<int64_t, 5> Bounds;
+  uint16_t Rank = Subranges.size();
+  for (int i = 0; i < Rank; i++) {
+    const DISubrange *Subrange = cast<DISubrange>(Subranges[i]);
+
+    // FIXME: Once we support LF_REFSYM/LF_DIMVARLU, we should
+    // check for variable lowerbound and encode it using those
+    // records. For now, we use the constant lowerbound 1 in
+    // place of the variable lowerbound.
+    int64_t LowerBound = getConstantLowerBound(Subrange);
+    Bounds.push_back(LowerBound);
+
+    if (auto *UI = Subrange->getUpperBound().dyn_cast<ConstantInt *>()) {
+      int64_t UpperBound = UI->getSExtValue();
+      Bounds.push_back(UpperBound);
+    } else if (auto *CI = Subrange->getCount().dyn_cast<ConstantInt *>()) {
+      int64_t Count = CI->getSExtValue();
+      Bounds.push_back(Count - LowerBound + 1);
+    } else if (auto *UI = Subrange->getUpperBound().dyn_cast<DIVariable *>()) {
+      // FIXME: In this case, we should use LF_REFSYM/LF_DIMVARLU to encode
+      // the bounds. Until the handling of those LF records are in place,
+      // let's make upperbound the same as lowerbound.
+      Bounds.push_back(LowerBound);
+    } else {
+      llvm_unreachable("Insufficient Fortran array bound information.");
+    }
+  }
+
+  TypeIndex IndexType = getPointerSizeInBytes() == 8
+                            // Should be
+                            //   ? TypeIndex(SimpleTypeKind::Int64Quad)
+                            // but FEE can only handle int32 bounds.
+                            ? TypeIndex(SimpleTypeKind::Int32Long)
+                            : TypeIndex(SimpleTypeKind::Int32Long);
+  DimConLURecord DCR(IndexType, Rank, Bounds);
+  TypeIndex DimInfo = TypeTable.writeLeafType(DCR);
+  auto InsertResult = DimInfoIndices.insert({Tuple, DimInfo});
+  (void)InsertResult;
+  assert(InsertResult.second && "Subranges was already assigned a type index");
+  return DimInfo;
+}
+
+TypeIndex CodeViewDebug::lowerTypeFortranExplicitArray(const DICompositeType *Ty) {
+  const DINodeArray Subranges = Ty->getElements();
+  TypeIndex DimInfo = getDimInfo(Subranges);
+
+  const DIType *ElementType = Ty->getBaseType();
+  TypeIndex ElementTypeIndex = getTypeIndex(ElementType);
+  StringRef Name = Ty->getName();
+  DimArrayRecord DAR(ElementTypeIndex, DimInfo, Name);
+  TypeIndex ResultTypeIndex = TypeTable.writeLeafType(DAR);
+
+  return ResultTypeIndex;
+}
 #endif // INTEL_CUSTOMIZATION
 
 TypeIndex CodeViewDebug::lowerTypeArray(const DICompositeType *Ty) {
@@ -1810,12 +1906,14 @@ TypeIndex CodeViewDebug::lowerTypeArray(const DICompositeType *Ty) {
        Elements.size() > 0) {
     assert(Elements[0]->getTag() == dwarf::DW_TAG_subrange_type);
     const DISubrange *Subrange = cast<DISubrange>(Elements[0]);
-    auto *LE = Subrange->getLowerBound().dyn_cast<DIExpression *>();
-    if (LE && LE->getNumElements() > 0 &&
-        LE->getElement(0) == dwarf::DW_OP_push_object_address) {
-      // DW_OP_push_object_address opcode in the location expression
-      // of the bounds implies the array uses a descriptor.
+    if (isDescribedSubrange(Subrange)) {
       return lowerTypeOemMSF90DescribedArray(Ty);
+    } else if (!isOneDimensionalWithDefaultLowerBound(Ty)) {
+      // An explicit array uses various LF_DIM* records to encode
+      // the rank and bound information. Those records are no longer
+      // recognized by recent versions of VS debugger. Therefore,
+      // we only emit them when Intel CodeView extensions are enabled.
+      return lowerTypeFortranExplicitArray(Ty);
     }
   }
 #endif // INTEL_CUSTOMIZATION
@@ -2434,6 +2532,9 @@ void CodeViewDebug::clear() {
   CompleteTypeIndices.clear();
   ScopeGlobals.clear();
   CVGlobalVariableOffsets.clear();
+#if INTEL_CUSTOMIZATION
+  DimInfoIndices.clear();
+#endif // INTEL_CUSTOMIZATION
 }
 
 #if INTEL_CUSTOMIZATION

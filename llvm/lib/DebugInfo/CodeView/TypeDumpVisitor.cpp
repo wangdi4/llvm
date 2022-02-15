@@ -614,4 +614,25 @@ Error TypeDumpVisitor::visitKnownRecord(CVType &CVR,
 
   return Error::success();
 }
+
+Error TypeDumpVisitor::visitKnownRecord(CVType &CVR,
+                                        DimArrayRecord &DAT) {
+  printTypeIndex("ElementType", DAT.getElementType());
+  printTypeIndex("DimInfo", DAT.getDimInfo());
+  W->printString("Name", DAT.getName());
+  return Error::success();
+}
+
+Error TypeDumpVisitor::visitKnownRecord(CVType &CVR,
+                                        DimConLURecord &DCT) {
+  auto Rank = DCT.getRank();
+  printTypeIndex("IndexType", DCT.getIndexType());
+  W->printNumber("Rank", Rank);
+  auto Bounds = DCT.getBounds();
+  for (uint16_t i = 0; i < Rank; i++) {
+    W->printNumber("LowerBound", Bounds[2 * i]);
+    W->printNumber("UpperBound", Bounds[2 * i + 1]);
+  }
+  return Error::success();
+}
 #endif //INTEL_CUSTOMIZATION

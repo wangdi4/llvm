@@ -1,9 +1,5 @@
 ; RUN: opt < %s -simplifycfg -simplifycfg-require-and-preserve-domtree=1 -S | FileCheck %s
 
-; INTEL CUSTOMIZATION: This test fails in xmain.  CQ 410005.
-; XFAIL: *
-; END INTEL CUSTOMIZATION
-
 ; Use a select to make this a single BB.
 ; Also, make sure the profile metadata is propagated to the select (PR26636).
 
@@ -23,10 +19,14 @@ Cont:
 
 ; CHECK-LABEL: @FoldTwoEntryPHINode(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:  %V5 = sext i16 %V3 to i32
-; CHECK-NEXT:  %V4 = or i32 %V2, %V1
-; CHECK-NEXT:  %V6 = select i1 %C, i32 %V4, i32 %V5, !prof !0, !unpredictable !1
-; CHECK-NEXT:  %0 = call i32 @FoldTwoEntryPHINode(i1 false, i32 0, i32 0, i16 0)
+; INTEL_CUSTOMIZATION
+; xmain multi-input phi optimization will reorder these instructions, but
+; the semantics are the same.
+; CHECK-DAG:  %V5 = sext i16 %V3 to i32
+; CHECK-DAG:  %V4 = or i32 %V2, %V1
+; CHECK-NEXT: [[SR:%.*]]  = select i1 %C, i32 %V4, i32 %V5, !prof !0, !unpredictable !1
+; CHECK-NEXT: [[CR:%.*]] = call i32 @FoldTwoEntryPHINode(i1 false, i32 0, i32 0, i16 0)
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:  ret i32 %V1
 }
 

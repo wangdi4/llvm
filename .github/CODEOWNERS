@@ -92,6 +92,10 @@ sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-runtime
 /llvm/lib/CodeGen/LiveDebugVariables* @bwyma @stevemerr
 /llvm/lib/DebugInfo/CodeView/ @bwyma @stevemerr
 /llvm/lib/DebugInfo/DWARF/ @bwyma @stevemerr
+/llvm/lib/ObjectYAML/CodeViewYAMLTypes.cpp @bwyma @stevemerr
+/llvm/test/DebugInfo/COFF/ @bwyma @stevemerr
+/llvm/tools/llvm-pdbutil/ @bwyma @stevemerr
+/llvm/unittests/DebugInfo/ @bwyma @stevemerr
 
 # JIRA: CMPLRLLVM->LLVM Interprocedural Optimization
 /llvm/docs/Intel/DTrans/ @robertcox-github @pvbattin
@@ -369,7 +373,7 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 /llvm/test/Transforms/Reassociate/Intel_addsub* @valerydmit @aelovikov-intel
 /llvm/test/Transforms/SLPVectorizer/ @valerydmit @aelovikov-intel
 
-/llvm/lib/Analysis/Intel_OptVLS.cpp @clin111 @aelovikov-intel @skozhukh @sguggill @karthik-senthil 
+/llvm/lib/Analysis/Intel_OptVLS.cpp @clin111 @aelovikov-intel @skozhukh @sguggill @karthik-senthil
 /llvm/include/llvm/Analysis/Intel_OptVLS.h @clin111 @aelovikov-intel @skozhukh @sguggill @karthik-senthil
 
 # JIRA: CMPLRLLVM->LLVM Loop Optimizer

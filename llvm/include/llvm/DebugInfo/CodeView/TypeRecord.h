@@ -1005,6 +1005,66 @@ public:
   SmallVector<TypeIndex, 2> TypeIndices;  // Max used is 2 for known records.
   SmallVector<uint32_t, 2> Data;          // Max used is 2 for known records.
 };
+
+// LF_DIMARRAY
+// This is used to encode a Fortran explicit array, with the following format:
+//    2 bytes          4 bytes     4 bytes    variable
+//   +----------------+-----------+----------+-------------+
+//   | LF_DIMARRAY    | @utype    | @diminfo | name        |
+//   +----------------+-----------+----------+-------------+
+//
+//   @utype:   Underlying type of the array.
+//   @diminfo: Index of the type record containing the dimension information.
+//   name:     Zero terminated UTF-8 encoded name of the array.
+//
+class DimArrayRecord : public TypeRecord {
+public:
+  DimArrayRecord() = default;
+  explicit DimArrayRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
+  DimArrayRecord(TypeIndex ElementType, TypeIndex DimInfo, StringRef Name)
+      : TypeRecord(TypeRecordKind::DimArray), ElementType(ElementType),
+        DimInfo(DimInfo), Name(Name) {}
+
+  TypeIndex getElementType() const { return ElementType; }
+  TypeIndex getDimInfo() const { return DimInfo; }
+  StringRef getName() const { return Name; }
+
+  TypeIndex ElementType;
+  TypeIndex DimInfo;
+  StringRef Name;
+};
+
+// LF_DIMCONLU
+// This is used to encode the dimension info of a Fortran explicit array.
+//    2 bytes          4 bytes     2 bytes    2*s*rank
+//   +----------------+-----------+----------+-------------+
+//   | LF_DIMCONLU    | @index    | rank     | bounds      |
+//   +----------------+-----------+----------+-------------+
+//
+//   @index: The type of the array index.
+//   rank:   The number of dimensions.
+//   bounds: Pairs of constants for the lower and upper bound
+//           of each dimension of the array. Each constant is
+//           of the size s specified by @index. The ordering
+//           is lower bound followed by upper bound for each
+//           dimension.
+//
+class DimConLURecord : public TypeRecord {
+public:
+  DimConLURecord() = default;
+  explicit DimConLURecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
+  DimConLURecord(TypeIndex IndexType, uint16_t Rank, ArrayRef<int64_t> Bounds)
+      : TypeRecord(TypeRecordKind::DimConLU), IndexType(IndexType), Rank(Rank),
+        Bounds(Bounds.begin(), Bounds.end()) {}
+
+  TypeIndex getIndexType() const { return IndexType; }
+  uint16_t  getRank() const { return Rank; }
+  ArrayRef<int64_t> getBounds() const { return Bounds; }
+
+  TypeIndex IndexType;
+  uint16_t Rank;
+  SmallVector<int64_t, 5> Bounds;
+};
 #endif //INTEL_CUSTOMIZATION
 
 } // end namespace codeview
