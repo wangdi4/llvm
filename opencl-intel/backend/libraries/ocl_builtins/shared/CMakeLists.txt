@@ -13,6 +13,19 @@ tblgenoclblt(OCL_TABLEGEN_SOURCE
   ${CMD_ARGS}
 )
 
+# generate shared LL builtin implementations
+set(SHARED_LL_TD_FILES
+  GENERIC/ll_sub_group_block_assume_uniform.td
+)
+set(SHARED_LL_IMPLS)
+foreach(FILE ${SHARED_LL_TD_FILES})
+  tblgenllblt(LL_OUTPUT
+    ${INTERMEDIATE_OUTPUT_DIR}
+    ${FILE}
+  )
+  list(APPEND SHARED_LL_IMPLS ${LL_OUTPUT})
+endforeach(FILE)
+
 # build .rtl file out of OCL code (by clang) and copy it to install directory
 set (OUTPUT_FILE ${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION})
 set (PROC core2)
@@ -23,12 +36,10 @@ foreach (FILE ${OCL_TABLEGEN_SOURCE})
 endforeach (FILE)
 
 list(APPEND TMP_FILES ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll)
-list(APPEND TMP_FILES ${CL_BUILTIN_SOURCE_DIR}/GENERIC/sub_group_block_assume_uniform.ll)
-
 add_custom_command (OUTPUT ${BUILTINS_SHARED_OUTPUT_DIR}/${OUTPUT_FILE}
   COMMENT "Linking ${INTERMEDIATE_OUTPUT_DIR}/${OUTPUT_FILE}"
-  COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${BUILTINS_SHARED_OUTPUT_DIR}/${OUTPUT_FILE} ${TMP_FILES}
-  DEPENDS ${LLVM_LINK} ${TMP_FILES}
+  COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${BUILTINS_SHARED_OUTPUT_DIR}/${OUTPUT_FILE} ${TMP_FILES} ${SHARED_LL_IMPLS}
+  DEPENDS ${LLVM_LINK} ${TMP_FILES} ${SHARED_LL_IMPLS}
   VERBATIM
   )
 

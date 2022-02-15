@@ -282,6 +282,27 @@ function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR INPUT_DIR IFN OFN)
     set(${OUTPUT_VAR} ${OUTPUT_DIR}/${OFN} PARENT_SCOPE)
 endfunction(tblgenoclblt)
 
+function(tblgenllblt OUTPUT_VAR OUTPUT_DIR INPUT_FILE)
+  get_filename_component(RELATIVE_DIR ${INPUT_FILE} DIRECTORY)
+  make_directory(${OUTPUT_DIR}/${RELATIVE_DIR})
+  set(JSON_FILE ${OUTPUT_DIR}/${INPUT_FILE}.json)
+  set(LL_FILE ${OUTPUT_DIR}/${INPUT_FILE}.ll)
+  add_custom_command(
+    OUTPUT ${JSON_FILE}
+    COMMAND ${LLVM_TBLGEN} ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} -dump-json -o ${JSON_FILE} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_FILE}
+    DEPENDS ${LLVM_TBLGEN} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_FILE}
+    COMMENT "Generating ${JSON_FILE}"
+  )
+  add_custom_command(
+    OUTPUT ${LL_FILE}
+    COMMAND python ${CL_BUILTIN_SOURCE_DIR}/utils/LLTableGen/emit_ll.py ${JSON_FILE} -o ${LL_FILE} && rm ${JSON_FILE}
+    DEPENDS ${LLVM_TBLGEN} ${JSON_FILE}
+    COMMENT "Generating ${LL_FILE}"
+  )
+  set_source_files_properties(${LL_FILE} PROPERTIES GENERATED 1)
+  set(${OUTPUT_VAR} ${LL_FILE} PARENT_SCOPE)
+endfunction(tblgenllblt)
+
 #
 # create_target( PROC ARCH PREBUILD_IMAGE_LIBRARY)
 #
