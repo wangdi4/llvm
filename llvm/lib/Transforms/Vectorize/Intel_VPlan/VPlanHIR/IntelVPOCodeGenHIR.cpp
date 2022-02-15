@@ -3152,17 +3152,7 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
   // Check if  PHI is the loop IV and widen it by generating the ref i1 +
   // <0, 1, 2, .. VF-1>. TODO: Need to handle all IVs in general here.
   if (LoopIVPhis.count(VPPhi)) {
-    auto RefDestTy = VPPhi->getType();
-    auto *NewRef = generateLoopInductionRef(RefDestTy);
-    addVPValueWideRefMapping(VPPhi, NewRef);
-
-    // Create a scalar value for IV as well.
-    auto *CE = CanonExprUtilities.createCanonExpr(RefDestTy);
-    CE->addIV(OrigLoop->getNestingLevel(), InvalidBlobIndex /* no blob */,
-              1 /* constant IV coefficient */);
-    auto *ScalRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, CE);
-    addVPValueScalRefMapping(VPPhi, ScalRef, 0);
-
+    generateLoopInductionRef(VPPhi);
     return;
   }
 
@@ -3177,22 +3167,34 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
   addVPValueWideRefMapping(VPPhi, PhiTemp);
 }
 
-RegDDRef *VPOCodeGenHIR::generateLoopInductionRef(Type *RefDestTy) {
-  auto VecRefDestTy = getWidenedType(RefDestTy, VF);
+void VPOCodeGenHIR::generateLoopInductionRef(const VPPHINode *VPPhi) {
+  auto *RefDestTy = VPPhi->getType();
+  auto *VecRefDestTy = getWidenedType(RefDestTy, VF);
+  auto *VPLp = Plan->getVPLoopInfo()->getLoopFor(VPPhi->getParent());
+  assert(VPLp && "Unexpected null VPLoop for induction Phi");
+  auto *HLoop = VPLoopHLLoopMap[VPLp];
+  assert(HLoop && "Unexpected null HLLoop mapping");
 
-  auto *CE = CanonExprUtilities.createCanonExpr(RefDestTy);
-  CE->setSrcType(VecRefDestTy);
-  CE->setDestType(VecRefDestTy);
-  CE->addIV(OrigLoop->getNestingLevel(), InvalidBlobIndex /* no blob */,
-            1 /* constant IV coefficient */);
+  // Create a vector value for IV and add it to wide ref map.
+  auto *VecCE = CanonExprUtilities.createCanonExpr(VecRefDestTy);
+  VecCE->addIV(HLoop->getNestingLevel(), InvalidBlobIndex /* no blob */,
+               1 /* constant IV coefficient */);
   SmallVector<Constant *, 4> ConstVec;
   for (unsigned i = 0; i < VF; ++i)
     ConstVec.push_back(ConstantInt::getSigned(RefDestTy, i));
   unsigned Idx = 0;
   BlobUtilities.createConstantBlob(ConstantVector::get(ConstVec), true, &Idx);
-  CE->addBlob(Idx, 1);
-  auto *NewRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, CE);
-  return NewRef;
+  VecCE->addBlob(Idx, 1);
+  auto *VecRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, VecCE);
+  addVPValueWideRefMapping(VPPhi, VecRef);
+
+  // Create a scalar value for IV and add it to scalar ref map.
+  auto *ScalCE = CanonExprUtilities.createCanonExpr(RefDestTy);
+  ScalCE->addIV(HLoop->getNestingLevel(), InvalidBlobIndex /* no blob */,
+                1 /* constant IV coefficient */);
+  auto *ScalRef =
+      DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, ScalCE);
+  addVPValueScalRefMapping(VPPhi, ScalRef, 0);
 }
 
 RegDDRef *VPOCodeGenHIR::getOrCreateScalarRef(const VPValue *VPVal,
@@ -5292,10 +5294,10 @@ void VPOCodeGenHIR::collectLoopEntityInsts() {
         }
       };
 
-  // Capture main loop IV instructions.
-  auto captureLoopIVPhis = [&](VPBasicBlock *LpPreheader) {
+  // Capture outer loop IV instructions.
+  auto captureOuterLoopIVPhi = [&](VPBasicBlock *OuterLpPreheader) {
     bool LoopIVCaptured = false;
-    for (VPInstruction &Inst : *LpPreheader) {
+    for (VPInstruction &Inst : *OuterLpPreheader) {
       if (!isa<VPInductionInit>(&Inst))
         continue;
 
@@ -5313,14 +5315,15 @@ void VPOCodeGenHIR::collectLoopEntityInsts() {
   };
 
   auto *VPLI = Plan->getVPLoopInfo();
-  for (auto *Lp : *VPLI) {
-    VPBasicBlock *LpPreheader = cast<VPBasicBlock>(Lp->getLoopPreheader());
-    for (VPInstruction &Inst : *LpPreheader) {
+  for (auto *OuterLp : *VPLI) {
+    VPBasicBlock *OuterLpPreheader =
+        cast<VPBasicBlock>(OuterLp->getLoopPreheader());
+    for (VPInstruction &Inst : *OuterLpPreheader) {
       if (auto *RedInit = dyn_cast<VPReductionInit>(&Inst)) {
         collectRednVPInsts(RedInit);
       }
     }
-    captureLoopIVPhis(LpPreheader);
+    captureOuterLoopIVPhi(OuterLpPreheader);
   }
 
   for (auto *V : LoopIVPhis) {
