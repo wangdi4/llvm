@@ -428,6 +428,13 @@ class LLVM_LIBRARY_VISIBILITY CodeViewDebug : public DebugHandlerBase {
       const DIStringType *Ty,
       codeview::TypeIndex RefType);
   codeview::TypeIndex lowerTypeOemMSF90DescribedArray(const DICompositeType *Ty);
+  // We create a TypeIndex cache specifically for DimInfo because,
+  // unlike other type indices that have a 1-to-1 mapping to a DINode,
+  // DimInfo consists of multiple DINode's (or MDTuple), which as
+  // a whole maps to one type index.
+  DenseMap<const MDTuple *, codeview::TypeIndex> DimInfoIndices;
+  codeview::TypeIndex getDimInfo(const DINodeArray Subranges);
+  codeview::TypeIndex lowerTypeFortranExplicitArray(const DICompositeType *Ty);
 #endif // INTEL_CUSTOMIZATION
   codeview::TypeIndex lowerTypeArray(const DICompositeType *Ty);
   codeview::TypeIndex lowerTypeString(const DIStringType *Ty);

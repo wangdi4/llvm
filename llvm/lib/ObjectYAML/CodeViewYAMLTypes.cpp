@@ -617,6 +617,18 @@ template <> void LeafRecordImpl<OEMTypeRecord>::map(IO &IO) {
   IO.mapRequired("TypeIndices", Record.TypeIndices);
   IO.mapRequired("Data", Record.Data);
 }
+
+template <> void LeafRecordImpl<DimArrayRecord>::map(IO &IO) {
+  IO.mapRequired("ElementType", Record.ElementType);
+  IO.mapRequired("DimInfo", Record.DimInfo);
+  IO.mapRequired("Name", Record.Name);
+}
+
+template <> void LeafRecordImpl<DimConLURecord>::map(IO &IO) {
+  IO.mapRequired("IndexType", Record.IndexType);
+  IO.mapRequired("Rank", Record.Rank);
+  IO.mapRequired("Bounds", Record.Bounds);
+}
 #endif //INTEL_CUSTOMIZATION
 
 template <> void MemberRecordImpl<OneMethodRecord>::map(IO &IO) {

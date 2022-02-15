@@ -373,6 +373,12 @@ static void discoverTypeIndices(ArrayRef<uint8_t> Content, TypeLeafKind Kind,
     if (Count > 0)
       Refs.push_back({TiRefKind::TypeRef, 8, Count});
     break;
+  case TypeLeafKind::LF_DIMARRAY:
+    Refs.push_back({TiRefKind::TypeRef, 0, 2});
+    break;
+  case TypeLeafKind::LF_DIMCONLU:
+    Refs.push_back({TiRefKind::TypeRef, 0, 1});
+    break;
 #endif //INTEL_CUSTOMIZATION
   default:
     break;

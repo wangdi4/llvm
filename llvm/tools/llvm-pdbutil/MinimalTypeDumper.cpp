@@ -546,6 +546,30 @@ Error MinimalTypeDumpVisitor::visitKnownRecord(CVType &CVR,
   }
   return Error::success();
 }
+
+Error MinimalTypeDumpVisitor::visitKnownRecord(CVType &CVR,
+                                               DimArrayRecord &DAT) {
+  if (DAT.Name.empty()) {
+    P.formatLine("dim info: {0}, element type: {1}", DAT.DimInfo,
+                 DAT.ElementType);
+  } else {
+    P.formatLine("name: {0}, dim info: {1}, element type: {2}",
+                 DAT.Name, DAT.DimInfo, DAT.ElementType);
+  }
+  return Error::success();
+}
+
+Error MinimalTypeDumpVisitor::visitKnownRecord(CVType &CVR,
+                                               DimConLURecord &DCT) {
+  uint16_t Rank = DCT.Rank;
+  P.formatLine("index type: {0}, rank: {1}", DCT.IndexType,
+               Rank);
+  for (uint16_t i = 0; i < Rank; i++)
+    P.formatLine("Rank {0} bounds: ({1}, {2})", i + 1, DCT.Bounds[2 * i],
+                 DCT.Bounds[2 * i + 1]);
+
+  return Error::success();
+}
 #endif //INTEL_CUSTOMIZATION
 
 Error MinimalTypeDumpVisitor::visitKnownMember(CVMemberRecord &CVR,
