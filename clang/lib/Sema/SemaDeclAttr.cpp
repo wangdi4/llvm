@@ -4035,18 +4035,6 @@ static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (D->isInvalidDecl())
     return;
 
-#if INTEL_CUSTOMIZATION
-  if (AL.getKind() == ParsedAttr::AT_SYCLIntelMaxWorkGroupSize) {
-    if (AL.getSyntax() == AttributeCommonInfo::AS_GNU &&
-        !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
-      S.Diag(AL.getLoc(), diag::warn_unknown_attribute_ignored) << AL;
-      return;
-    }
-
-    if (checkValidSYCLSpelling(S, AL))
-      return;
-  }
-#endif // INTEL_CUSTOMIZATION
   S.CheckDeprecatedSYCLAttributeSpelling(AL);
   // __attribute__((reqd_work_group_size)) and [[cl::reqd_work_group_size]]
   // all require exactly three arguments.
@@ -4409,6 +4397,17 @@ SYCLIntelMaxWorkGroupSizeAttr *Sema::MergeSYCLIntelMaxWorkGroupSizeAttr(
 
 static void handleSYCLIntelMaxWorkGroupSize(Sema &S, Decl *D,
                                             const ParsedAttr &AL) {
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, AL))
+    return;
+
+  if (AL.getSyntax() == AttributeCommonInfo::AS_GNU &&
+      !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(AL.getLoc(), diag::warn_unknown_attribute_ignored) << AL;
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   S.AddSYCLIntelMaxWorkGroupSizeAttr(D, AL, AL.getArgAsExpr(0),
                                      AL.getArgAsExpr(1), AL.getArgAsExpr(2));
 }

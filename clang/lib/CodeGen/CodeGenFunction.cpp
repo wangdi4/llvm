@@ -903,6 +903,16 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
       Fn->setMetadata("max_work_group_size",
                       llvm::MDNode::get(Context, AttrMDArgs));
     }
+#if INTEL_CUSTOMIZATION
+    else {
+      llvm::Metadata *AttrMDArgs[] = {
+          llvm::ConstantAsMetadata::get(Builder.getInt(*A->getXDimVal())),
+          llvm::ConstantAsMetadata::get(Builder.getInt(*A->getYDimVal())),
+          llvm::ConstantAsMetadata::get(Builder.getInt(*A->getZDimVal()))};
+      Fn->setMetadata("max_work_group_size",
+                      llvm::MDNode::get(Context, AttrMDArgs));
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   if (const auto *A = FD->getAttr<SYCLIntelNoGlobalWorkOffsetAttr>()) {
