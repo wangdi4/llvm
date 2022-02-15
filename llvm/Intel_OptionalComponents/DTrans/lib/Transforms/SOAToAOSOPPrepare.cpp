@@ -210,6 +210,7 @@
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
+#include "Intel_DTrans/Analysis/DTransTypeMetadataBuilder.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
@@ -843,7 +844,7 @@ void SOAToAOSPrepCandidateInfo::replicateMemberFunctions() {
                       CloneFunctionChangeType::LocalChangesOnly, Returns, "",
                       &CodeInfo, &TypeRemapper);
 
-    TypeMetadataReader::setDTransFuncMetadata(NewF, NewDTFuncTy);
+    DTransTypeMetadataBuilder::setDTransFuncMetadata(NewF, NewDTFuncTy);
 
     DEBUG_WITH_TYPE(DTRANS_SOATOAOSOPPREPARE, {
       dbgs() << "    Cloning " << OrigF->getName() << "\n";
@@ -1427,7 +1428,7 @@ Function *SOAToAOSPrepCandidateInfo::applyCtorTransformations() {
     auto *RDType = DTFuncTy->getReturnType();
     auto *NewDTFuncTy =
         DTransFunctionType::get(TM, RDType, DTParams, DTFuncTy->isVarArg());
-    TypeMetadataReader::setDTransFuncMetadata(NF, NewDTFuncTy);
+    DTransTypeMetadataBuilder::setDTransFuncMetadata(NF, NewDTFuncTy);
     NewFuncDTTypeMap[NF] = NewDTFuncTy;
 
     // Collect all uses before use list is modified.
@@ -1993,7 +1994,7 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
     auto *DTFuncTy = dyn_cast_or_null<DTransFunctionType>(
         DTInfo.getTypeMetadataReader().getDTransTypeFromMD(SetFunc));
     assert(DTFuncTy && "Must have type if function is being transformed");
-    TypeMetadataReader::setDTransFuncMetadata(NF, DTFuncTy);
+    DTransTypeMetadataBuilder::setDTransFuncMetadata(NF, DTFuncTy);
 
     // Add instructions to set an element at given position.
     //
@@ -2206,7 +2207,7 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
     CCtorF->addParamAttr(1, Attribute::NoCapture);
     CCtorF->addParamAttr(1, Attribute::ReadOnly);
     NewF->eraseFromParent();
-    TypeMetadataReader::setDTransFuncMetadata(CCtorF, NewDTFuncTy);
+    DTransTypeMetadataBuilder::setDTransFuncMetadata(CCtorF, NewDTFuncTy);
 
     DEBUG_WITH_TYPE(DTRANS_SOATOAOSOPPREPARE, {
       dbgs() << "  New simple CCtor function created: \n";
@@ -2473,7 +2474,7 @@ void SOAToAOSPrepCandidateInfo::reverseArgPromote() {
   NF->addParamAttr(1, Attribute::ReadOnly);
   auto *NewDTFuncTy =
       DTransFunctionType::get(TM, RDType, DTParams, DTFuncTy->isVarArg());
-  TypeMetadataReader::setDTransFuncMetadata(NF, NewDTFuncTy);
+  DTransTypeMetadataBuilder::setDTransFuncMetadata(NF, NewDTFuncTy);
 
   // Fix CallBase by passing address of original param.
   Function *CallerF = CB->getParent()->getParent();

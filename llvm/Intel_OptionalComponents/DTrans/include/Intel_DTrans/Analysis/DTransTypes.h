@@ -1,6 +1,6 @@
 //===-----------DTransTypes.h - Type model for DTrans ---------------------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1029,6 +1029,27 @@ private:
   // created yet or not: TypeInfoMap, StructTypeInfoMap, PointerTypeInfoMap,
   // ArrayTypeInfoMap, VecTypeInfoMap, FunctionTypeNodes.
   DTransTypesVector AllDTransTypes;
+};
+
+// This class provides a simple interface for passes that need to create DTrans
+// type metadata.
+class DTransTypeBuilder {
+public:
+  DTransTypeBuilder(DTransTypeManager &TM) : TM(TM) {}
+
+  DTransType *getVoidTy();
+  DTransType *getIntNTy(unsigned N);
+  DTransPointerType *getPointerToTy(DTransType *DTy);
+  DTransStructType *getStructTy(StructType *Ty);
+  DTransFunctionType *getFunctionType(DTransType *DTRetTy,
+                                      ArrayRef<DTransType *> ParamTypes,
+                                      bool IsVarArg);
+
+  void populateDTransStructType(DTransStructType *DStructTy,
+                                ArrayRef<DTransType *> FieldTypes);
+
+private:
+  DTransTypeManager &TM;
 };
 
 } // namespace dtransOP

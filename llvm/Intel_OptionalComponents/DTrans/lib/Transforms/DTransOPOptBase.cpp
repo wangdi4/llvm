@@ -1,6 +1,6 @@
 //===--- DTransOPOptBase.cpp - Base class for DTrans Transforms -----==//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -20,6 +20,7 @@
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransOPUtils.h"
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
+#include "Intel_DTrans/Analysis/DTransTypeMetadataBuilder.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
@@ -867,7 +868,7 @@ void DTransOPOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
       // However, the DTrans type metadata attached to the variable may need to
       // be updated in this case.
       if (MDNode *MD = TypeMetadataReader::getDTransMDNode(GV))
-        TypeMetadataReader::addDTransMDNode(GV, Mapper.mapMDNode(*MD));
+        DTransTypeMetadataBuilder::addDTransMDNode(GV, Mapper.mapMDNode(*MD));
     }
   }
 
@@ -904,7 +905,8 @@ void DTransOPOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
       NewGV->copyMetadata(GV, /*Offset=*/0);
 
       if (MDNode *MD = TypeMetadataReader::getDTransMDNode(*NewGV))
-        TypeMetadataReader::addDTransMDNode(*NewGV, Mapper.mapMDNode(*MD));
+        DTransTypeMetadataBuilder::addDTransMDNode(*NewGV,
+                                                   Mapper.mapMDNode(*MD));
     }
 
     // Save the mapping in our local list for use when filling in the
@@ -1127,7 +1129,7 @@ void DTransOPOptBase::transformIR(Module &M, ValueMapper &Mapper) {
         Remaps.emplace_back(Mapper.mapMDNode(*cast<MDNode>(TypeNode.get())));
 
       auto *UpdatedMDTypes = MDTuple::getDistinct(F.getContext(), Remaps);
-      TypeMetadataReader::addDTransMDNode(*ResultFunc, UpdatedMDTypes);
+      DTransTypeMetadataBuilder::addDTransMDNode(*ResultFunc, UpdatedMDTypes);
     }
   }
 

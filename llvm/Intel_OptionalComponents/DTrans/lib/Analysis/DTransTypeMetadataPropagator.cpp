@@ -329,5 +329,16 @@ bool DTransTypeMetadataPropagator::identifyFieldRange(
   return true;
 }
 
+void DTransTypeMetadataPropagator::copyDTransMetadata(Value *DestValue,
+                                                      const Value *SrcValue) {
+  // Functions use a different type of metadata. For now, those need to be dealt
+  // with differently, such as by using
+  // DTransTypeMetadataBuilder::setDTransFuncMetadata.
+  assert(!isa<Function>(SrcValue) && "Function values not currently supported");
+
+  if (MDNode *MD = dtransOP::TypeMetadataReader::getDTransMDNode(*SrcValue))
+    DTransTypeMetadataBuilder::addDTransMDNode(*DestValue, MD);
+}
+
 } // end namespace dtransOP
 } // end namespace llvm

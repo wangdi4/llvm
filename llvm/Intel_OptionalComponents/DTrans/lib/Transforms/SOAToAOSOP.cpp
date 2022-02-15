@@ -18,6 +18,7 @@
 
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
+#include "Intel_DTrans/Analysis/DTransTypeMetadataBuilder.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
@@ -396,7 +397,7 @@ private:
         bool IsCloned) {
 
       auto &TM = Impl.DTInfo->getTypeManager();
-      auto &MD = Impl.DTInfo->getTypeMetadataReader();
+
       // Get original class type of OrigFunc.
       auto *ArrType = FunctionOrigClassTypeMap[&OrigFunc];
       assert(ArrType && "Expected class type for array method");
@@ -523,7 +524,7 @@ private:
           IsCloned ? Impl.OrigFuncToCloneFuncMap[&OrigFunc] : &OrigFunc;
       auto *AppendFuncDTy = AppendsFuncToDTransTyMap[NewFunc];
       if (AppendFuncDTy)
-        MD.setDTransFuncMetadata(NewFunc, AppendFuncDTy);
+        DTransTypeMetadataBuilder::setDTransFuncMetadata(NewFunc, AppendFuncDTy);
     }
 
     void postprocessFunction(SOAToAOSOPTransformImpl &Impl, Function &OrigFunc,
