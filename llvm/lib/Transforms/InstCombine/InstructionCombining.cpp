@@ -2839,6 +2839,16 @@ static bool isAllocSiteRemovable(Instruction *AI,
   SmallVector<Instruction*, 4> Worklist;
   Worklist.push_back(AI);
 
+#if INTEL_CUSTOMIZATION
+  // 35044: If the alloc has a definition in the current compilation unit,
+  // it's not a library function and may have user defined side effects.
+  if (auto *CI = dyn_cast<CallInst>(AI)) {
+    auto *F = CI->getCalledFunction();
+    if (F && !F->isDeclaration())
+      return false;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   do {
     Instruction *PI = Worklist.pop_back_val();
     for (User *U : PI->users()) {
