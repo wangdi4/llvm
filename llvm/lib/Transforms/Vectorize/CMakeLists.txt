@@ -87,7 +87,6 @@ add_llvm_component_library(LLVMVectorize
 # INTEL_CUSTOMIZATION
   Intel_LoopAnalysis
   Intel_LoopTransforms
-  Intel_OptReport
   VPOAnalysis
   VPOTransforms
 # end INTEL_CUSTOMIZATION

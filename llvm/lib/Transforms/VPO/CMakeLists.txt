@@ -94,7 +94,6 @@ add_llvm_component_library(LLVMVPOTransforms
 # INTEL_CUSTOMIZATION
   Intel_LoopAnalysis
   Intel_LoopTransforms
-  Intel_OptReport
 # end INTEL_CUSTOMIZATION
   Scalar
   Support

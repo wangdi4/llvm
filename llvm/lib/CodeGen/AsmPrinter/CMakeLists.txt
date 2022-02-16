@@ -54,7 +54,3 @@ add_llvm_component_library(LLVMAsmPrinter
   Target
   )
 
-if(INTEL_CUSTOMIZATION)
-  target_link_libraries(LLVMAsmPrinter PRIVATE LLVMIntel_OptReport)
-endif(INTEL_CUSTOMIZATION)
-

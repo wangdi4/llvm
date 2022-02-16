@@ -83,7 +83,6 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         Analysis
         Core
         Intel_LoopAnalysis
-        Intel_OptReport
         Support
         TransformUtils
         )

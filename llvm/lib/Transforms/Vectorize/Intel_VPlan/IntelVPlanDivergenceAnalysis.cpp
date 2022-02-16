@@ -509,13 +509,6 @@ bool VPlanDivergenceAnalysis::propagateJoinDivergence(
   return false;
 }
 
-#if INTEL_CUSTOMIZATION
-// Main source of community code divergence here is that we don't represent
-// branch instructions explicitly in VPlan yet. Thus, we have to use the
-// condition of the branch to determine if the branch is divergent. Not a big
-// deal, but we should be able to easily match the community code once VPlan
-// is updated.
-#endif // INTEL_CUSTOMIZATION
 void VPlanDivergenceAnalysis::propagateBranchDivergence(
     const VPBasicBlock *CondBlock) {
   LLVM_DEBUG(dbgs() << "propBranchDiv " << CondBlock->getName() << "\n");
@@ -604,18 +597,18 @@ void VPlanDivergenceAnalysis::computeImpl() {
       ShapeUpdated |= updateVectorShape(&I, NewShape);
     }
 
-    if (ShapeUpdated) {
-      pushUsers(I);
+    if (!ShapeUpdated)
+      continue;
 
-      // Propagate branch divergence from the block(s) containing the CondBit.
-      // TODO: this code should be removed after the introduction of the
-      // VPInstruction for branches.
-      if (!NewShape.isUniform() && CondBit2BlockMap.count(&I)) {
-        // propagate control divergence to affected instructions
-        for (auto *Block : CondBit2BlockMap[&I])
-          propagateBranchDivergence(Block);
-      }
-    }
+    pushUsers(I);
+
+    // Branches are special - we need to propagate divergence to the
+    // VPBasicBlocks.
+    auto *Br = dyn_cast<VPBranchInst>(&I);
+    if (!Br || NewShape.isUniform())
+      continue;
+
+    propagateBranchDivergence(Br->getParent());
   }
 }
 
@@ -1681,23 +1674,9 @@ void VPlanDivergenceAnalysis::compute(VPlanVector *P, VPLoop *CandidateLoop,
       VPDomTree, VPPostDomTree, *VPLInfo);
   // Push everything to the worklist.
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan->getEntryBlock());
-  for (auto *BB : RPOT) {
-    // Sometimes the CondBit exists in a different block than the instruction
-    // forming the CondBit. To properly propagate branch divergence, what we
-    // really need to know is which Block uses the instruction as the CondBit.
-    // This code piggybacks off the RPO traversal here to prevent further cost
-    // in computeImpl() and keeps a map of the Instruction to the block(s)
-    // containing the CondBit that computeImpl() will use to properly propagate
-    // branch divergence. CondBits using VPExternalDefs not included here, but
-    // we should be doing the right thing in computeImpl() by not propagating
-    // divergence for them anyway. Please see vplan_da_condbit_separate_block.ll
-    // as an example.
-    if (VPInstruction *CondBitInst =
-            dyn_cast_or_null<VPInstruction>(BB->getCondBit()))
-      CondBit2BlockMap[CondBitInst].push_back(BB);
+  for (auto *BB : RPOT)
     for (auto &Inst : *BB)
       pushToWorklist(Inst);
-  }
 
   // Compute the shapes of instructions - iterate until fixed point is reached.
   computeImpl();

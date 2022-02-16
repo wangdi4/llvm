@@ -273,7 +273,6 @@ add_llvm_component_library(LLVMCodeGen
   Core
 # INTEL_CUSTOMIZATION
   Intel_MapIntrinToIml
-  Intel_OptReport
 # end INTEL_CUSTOMIZATION
   MC
   ProfileData

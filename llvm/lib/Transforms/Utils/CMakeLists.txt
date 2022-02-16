@@ -106,8 +106,5 @@ add_llvm_component_library(LLVMTransformUtils
   LINK_COMPONENTS
   Analysis
   Core
-# INTEL_CUSTOMIZATION
-  Intel_OptReport
-# end INTEL_CUSTOMIZATION
   Support
   )
