@@ -99,8 +99,6 @@ Improvements to clang-tidy
 New checks
 ^^^^^^^^^^
 
-<<<<<<< HEAD
-=======
 - New :doc:`bugprone-stringview-nullptr
   <clang-tidy/checks/bugprone-stringview-nullptr>` check.
 
@@ -155,7 +153,6 @@ New checks
 ..
   end INTEL_CUSTOMIZATION
 
->>>>>>> 77fae35910cba043e49e07879841fd0ad38fe888
 New check aliases
 ^^^^^^^^^^^^^^^^^
 
