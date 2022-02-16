@@ -3032,11 +3032,15 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
 #if INTEL_CUSTOMIZATION // This should be upstreamed.
         DenormalFPMath = llvm::DenormalMode::getPreserveSign();
         DenormalFP32Math = llvm::DenormalMode::getPreserveSign();
+      // -fp-model=consistent implies -fp-model=precise
+      } else if (Val.equals("precise") || Val.equals("consistent")) {
 #endif // INTEL_CUSTOMIZATION
-      } else if (Val.equals("precise")) {
         optID = options::OPT_ffp_contract;
         FPModel = Val;
-        FPContract = "on";
+#if INTEL_CUSTOMIZATION
+        // -fp-model=consistent implies -no-fma
+        FPContract = Val.equals("precise") ? "on" : "off";
+#endif // INTEL_CUSTOMIZATION
         PreciseFPModel = true;
       } else if (Val.equals("strict")) {
         StrictFPModel = true;
@@ -6157,6 +6161,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   for (const Arg *A : Args) {
     unsigned OptionID = A->getOption().getID();
     switch (OptionID) {
+    // -fp-model=consistent implies -fimf-arch-consistency=true
+    case options::OPT_ffp_model_EQ:
+      if (StringRef(A->getValue()).equals("consistent"))
+        addToImfAttr(Twine("arch-consistency:true"));
+      A->claim();
+      break;
     case options::OPT_fimf_arch_consistency_EQ:
       addToImfAttr(Twine("arch-consistency:") + A->getValue());
       A->claim();
