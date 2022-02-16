@@ -868,3 +868,31 @@
 
 // RUN: %clang_cl -### --intel --- %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK-WIN %s
 // SUPPORT-CHECK-WIN: icx: warning: unknown argument ignored in clang-cl: '---' [-Wunknown-argument]
+
+// -fp-model=consistent is equivalent to -fp-model=precise -fimf-arch-consistency=true -no-fma
+// RUN: %clang -### -fp-model=consistent -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=FP-MODEL-CONSISTENT %s
+// RUN: %clang -### -fp-model=consistent -ffp-contract=on -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefixes=FFP-CONTRACT-ON,ARCH-CONSISTENCY-TRUE %s
+// RUN: %clang -### -ffp-contract=on -fp-model=consistent -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefixes=FFP-CONTRACT-OFF,ARCH-CONSISTENCY-TRUE %s
+// RUN: %clang -### -fp-model=consistent -fp-model=fast -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefixes=FDENORMAL-FP-MATH,FFP-CONTRACT-FAST,ARCH-CONSISTENCY-TRUE %s
+// RUN: %clang -### -fp-model=fast -fp-model=consistent -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefixes=NO-FDENORMAL-FP-MATH,FFP-CONTRACT-OFF,ARCH-CONSISTENCY-TRUE %s
+// RUN: %clang -### -fp-model=consistent -fp-model=precise -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefixes=FFP-CONTRACT-ON,ARCH-CONSISTENCY-TRUE %s
+// RUN: %clang -### -fp-model=precise -fp-model=consistent -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefixes=FFP-CONTRACT-OFF,ARCH-CONSISTENCY-TRUE %s
+// RUN: %clang -### -fp-model=consistent -fp-model=strict -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefixes=FFP-CONTRACT-OFF,FFP-EXCEPTION-BEHAVIOR-STRICT,ARCH-CONSISTENCY-TRUE %s
+// RUN: %clang -### -fp-model=strict -fp-model=consistent -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefixes=FFP-CONTRACT-OFF,FFP-EXCEPTION-BEHAVIOR-STRICT,ARCH-CONSISTENCY-TRUE %s
+// FP-MODEL-CONSISTENT: "-cc1"{{.*}} "-fmath-errno" "-ffp-contract=off"{{.*}} "-mGLOB_imf_attr=arch-consistency:true"
+// FFP-CONTRACT-ON: "-ffp-contract=on"
+// FFP-CONTRACT-OFF: "-ffp-contract=off"
+// FDENORMAL-FP-MATH: "-fdenormal-fp-math=preserve-sign,preserve-sign"
+// FFP-CONTRACT-FAST: "-ffp-contract=fast"
+// NO-FDENORMAL-FP-MATH-NOT: "-fdenormal-fp-math=preserve-sign,preserve-sign"
+// FFP-EXCEPTION-BEHAVIOR-STRICT: "-ffp-exception-behavior=strict"
+// ARCH-CONSISTENCY-TRUE: "-mGLOB_imf_attr=arch-consistency:true"

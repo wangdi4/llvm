@@ -37,6 +37,10 @@
 
 # DPC++ runtime library
 sycl/ @intel-restricted/llvm-reviewers-runtime
+
+# ESIMD device library
+sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov @sndmitriev
+
 # Documentation
 sycl/doc/extensions/ @intel-restricted/llvm-reviewers-runtime
 # CUDA plugin
