@@ -26,7 +26,6 @@ set(LLVM_LINK_COMPONENTS
   Intel_LoopAnalysis
   Intel_LoopTransforms
   Intel_MapIntrinToIml
-  Intel_OptReport
 # end INTEL_CUSTOMIZATION
 # INTEL_COLLAB
   VPOAnalysis

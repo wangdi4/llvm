@@ -56,7 +56,6 @@ add_llvm_component_library(LLVMIntel_LoopAnalysis
   LINK_COMPONENTS
   Analysis
   Core
-  Intel_OptReport
   Support
   ProfileData
   Object

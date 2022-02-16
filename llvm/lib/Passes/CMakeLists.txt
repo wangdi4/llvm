@@ -37,7 +37,6 @@ add_llvm_component_library(LLVMPasses
   Intel_LoopTransforms
   Intel_MapIntrinToIml
   Intel_OpenCLTransforms
-  Intel_OptReport
   VPOAnalysis
   VPOTransforms
 # end INTEL_CUSTOMIZATION

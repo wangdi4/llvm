@@ -24,9 +24,6 @@ set(LLVM_LINK_COMPONENTS
   Vectorize
   Passes
   SYCLLowerIR
-# INTEL_CUSTOMIZATION
-  Intel_OptReport
-# end INTEL_CUSTOMIZATION
 )
 
 add_llvm_fuzzer(llvm-opt-fuzzer
