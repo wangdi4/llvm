@@ -477,11 +477,6 @@ private:
   // Unique-elements of the Worklist.
   DenseSet<const VPInstruction*> OnWorklist;
 
-  // Keep track of instructions that form CondBits and the actual block(s)
-  // containing the CondBit.
-  using BlockVectorTy = SmallVector<const VPBasicBlock *, 4>;
-  DenseMap<const VPValue *, BlockVectorTy> CondBit2BlockMap;
-
   // Disable DA recalculation.
   bool DARecomputationDisabled = false;
 };
