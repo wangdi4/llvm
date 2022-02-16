@@ -39,10 +39,10 @@
 
 #ifdef _WIN32
 #include "lld/Common/TargetOptionsCommandFlags.h"
-#else
-#include "llvm/CodeGen/CommandFlags.h"
-static codegen::RegisterCodeGenFlags CGF;
 #endif
+#include "llvm/CodeGen/CommandFlags.h"
+
+static codegen::RegisterCodeGenFlags CGF;
 
 #include <sstream>
 #include <string>
