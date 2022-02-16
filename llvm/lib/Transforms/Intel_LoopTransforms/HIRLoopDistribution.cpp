@@ -198,7 +198,7 @@ bool HIRLoopDistribution::run() {
       processPiBlocksToHLNodes(PG, NewOrdering, DistributedLoops);
 
       // Do scalar expansion analysis.
-      ScalarExpansion SCEX(Lp, false, DistributedLoops);
+      ScalarExpansion SCEX(Lp->getNestingLevel(), false, DistributedLoops);
       LLVM_DEBUG(dbgs() << "Scalar Expansion analysis:\n"; SCEX.dump(););
 
       // Can't do the following assertion because scalar expansion is allowed in
@@ -215,6 +215,16 @@ bool HIRLoopDistribution::run() {
         LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: "
                           << "Number of temps required for distribution exceed "
                              "MaxArrayTempsAllowed\n");
+        continue;
+      }
+
+      // Bail out if scalar expansion would introduce new dependencies that
+      // require additional temps
+      if (SCEX.hasBadCandidate()) {
+        LLVM_DEBUG(
+            dbgs()
+            << "LOOP DISTRIBUTION: "
+            << "Distribution disabled due to def/use in cloned if for scex\n");
         continue;
       }
 
@@ -474,10 +484,10 @@ bool ScalarExpansion::isScalarExpansionCandidate(const DDRef *Ref) const {
   return !IsMemRef;
 }
 
-ScalarExpansion::ScalarExpansion(HLLoop *Loop, bool HasDistributePoint,
+ScalarExpansion::ScalarExpansion(unsigned Level, bool HasDistributePoint,
                                  ArrayRef<HLDDNodeList> Chunks)
-    : Lp(Loop), Level(Loop->getNestingLevel()),
-      HasDistributePoint(HasDistributePoint) {
+    : Level(Level),
+      HasDistributePoint(HasDistributePoint), HasBadCandidate(false) {
   analyze(Chunks);
 }
 
@@ -595,6 +605,15 @@ static HLNode *getInsertionNodeForIf(RegDDRef *Src, DDRef *Dst,
   HLIf *SrcParentIf = dyn_cast_or_null<HLIf>(Src->getHLDDNode()->getParent());
   HLIf *DstParentIf = dyn_cast_or_null<HLIf>(Dst->getHLDDNode()->getParent());
 
+  // TODO: Dst could be used in an If predicate. Need to handle when Src Node
+  // is inside the same If.
+  // bool DstInIfPred = true;
+  // HLIf *DstParentIf = dyn_cast<HLIf>(Dst->getHLDDNode());
+  // if (!DstParentIf) {
+  //   DstParentIf = dyn_cast_or_null<HLIf>(Dst->getHLDDNode()->getParent());
+  //   DstInIfPred = false;
+  // }
+
   if (!SrcParentIf || !DstParentIf) {
     return FirstNode;
   }
@@ -633,6 +652,14 @@ static HLNode *getInsertionNodeForIf(RegDDRef *Src, DDRef *Dst,
   };
 
   bool SrcPath = SrcParentIf->isThenChild(Src->getHLDDNode());
+
+  // TODO: Return the Node in DstPath corresponding to the def in the first
+  // chunk for predicate case.
+  // if (DstInIfPred) {
+  //   return SrcPath ? DstParentIf->getFirstThenChild()
+  //                  : DstParentIf->getFirstElseChild();
+  // }
+
   // Use DstIfAncestor that we saved earlier as it is the direct child of the If
   // node where the original Ref is defined. DstPath is detached so we need to
   // manually iterate the nodes
@@ -721,6 +748,14 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
           if (!isScalarExpansionCandidate(DstRef)) {
             TempRedefined = true;
             continue;
+          }
+
+          // If scalar expansion would introduce extra dependencies from SrcLoop
+          // to DstLoop, set SCEX.hasBadCandidate.
+          if (isa<HLIf>(DstRef->getHLDDNode()) && isa<HLIf>(SrcRef->getParent())
+            && HLNodeUtils::areEqualConditions(cast<HLIf>(DstRef->getHLDDNode()), cast<HLIf>(SrcRef->getParent()))) {
+            this->HasBadCandidate = true;
+            break;
           }
 
           Candidate &Cand = GetCandidateForSymbase(SB);
@@ -1054,6 +1089,9 @@ void HIRLoopDistribution::distributeLoop(
   if (DistCostModel != DistHeuristics::NestFormation) {
     RegionNode->setGenCode();
   }
+
+  LLVM_DEBUG(dbgs() << "New Region with Transformed Loops:\n";
+             RegionNode->dump(););
 }
 
 void HIRLoopDistribution::fixTempArrayCoeff(HLLoop *Loop) {
@@ -1565,7 +1603,7 @@ unsigned HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
 
   SmallVector<HLDDNodeList, 8> DistributedLoops;
   collectHNodesForDirective(Lp, DistributedLoops, CurLoopHLDDNodeList);
-  ScalarExpansion SCEX(Lp, true, DistributedLoops);
+  ScalarExpansion SCEX(Lp->getNestingLevel(), true, DistributedLoops);
   distributeLoop(Lp, DistributedLoops, SCEX, HIRF.getORBuilder(), true);
   return Success;
 }

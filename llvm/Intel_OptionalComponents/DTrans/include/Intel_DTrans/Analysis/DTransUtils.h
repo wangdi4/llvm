@@ -21,6 +21,8 @@
 #define INTEL_DTRANS_ANALYSIS_DTRANSUTILS_H
 
 #include "llvm/ADT/SetVector.h"
+#include "llvm/IR/GlobalAlias.h"
+#include "llvm/IR/InstrTypes.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -170,6 +172,25 @@ bool isDummyFuncWithThisAndIntArgs(const CallBase *Call,
 /// pointer) and is dummy.
 bool isDummyFuncWithThisAndPtrArgs(const CallBase *Call,
                                    const TargetLibraryInfo &TLI);
+
+/// There is a possibility that a call to be analyzed is inside a BitCast, in
+/// which case we need to strip the pointer casting from the \p Call operand to
+/// identify the Function. The call may also be using an Alias to a Function,
+/// in which case we need to get the aliasee. If a function is found, return it.
+/// Otherwise, return nullptr.
+inline Function *getCalledFunction(const CallBase &Call) {
+  Value *CalledValue = Call.getCalledOperand()->stripPointerCasts();
+  if (auto *CalledF = dyn_cast<Function>(CalledValue))
+    return CalledF;
+
+  if (auto *GA = dyn_cast<GlobalAlias>(CalledValue))
+    if (!GA->isInterposable())
+      if (auto *AliasF =
+              dyn_cast<Function>(GA->getAliasee()->stripPointerCasts()))
+        return AliasF;
+
+  return nullptr;
+}
 
 } // namespace dtrans
 } // namespace llvm

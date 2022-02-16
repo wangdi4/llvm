@@ -355,6 +355,20 @@ RegDDRef *HLInst::getLvalDDRef() {
   return nullptr;
 }
 
+unsigned HLInst::getLvalBlobIndex() const {
+    auto *LRef = getLvalDDRef();
+
+    if (!LRef || !LRef->isTerminalRef()) {
+      return InvalidBlobIndex;
+    }
+
+    auto &BU = getBlobUtils();
+
+    return LRef->isSelfBlob() ? LRef->getSelfBlobIndex()
+                        : BU.findTempBlobIndex(LRef->getSymbase());
+
+}
+
 RegDDRef *HLInst::removeLvalDDRef() {
   auto TRef = getLvalDDRef();
 

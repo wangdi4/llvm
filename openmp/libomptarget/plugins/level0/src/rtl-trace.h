@@ -809,6 +809,18 @@ TRACE_FN_DEF(zeModuleGetProperties)(
   return rc;
 }
 
+TRACE_FN_DEF(zeModuleGetKernelNames)(
+    ze_module_handle_t hModule,
+    uint32_t *pCount,
+    const char **pNames) {
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hModule);
+  TRACE_FN_ARG_PTR(pCount);
+  TRACE_FN_ARG_PTR(pNames);
+  TRACE_FN_ARG_END();
+  return zeModuleGetKernelNames(hModule, pCount, pNames);
+}
+
 #define CALL_ZE(Rc, Fn, ...)                                                   \
   do {                                                                         \
     if (DebugLevel > 1) {                                                      \
