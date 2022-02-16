@@ -38,7 +38,20 @@ namespace vpo {
 //     A[index] = A[index] + 100;
 //   }
 //
-// the code after processVConflictIdiom will be:
+// To calculate the conflicts in the array A, we use vpconflict and vpopcnt
+// instructions. First, vpconflict detects the conflicts in the array. For each
+// element of the array, vpconflict finds how many times the current value
+// appears in the previous elements. Next, vpopcnt calculates the number of
+// conflicts for each lane. The outcome of vpopcnt is incremented across all
+// lanes by 1. This is because all lanes should be counted and vpconflict
+// excludes the first (non-conflict) lane. Next, we multiply the number of
+// conflicts by the uniform value. This is better than incrementing each value
+// each time. After that, we load array A and add it to the outcome of the
+// multiplication. The result is stored back to A by using scatter. Scatter
+// updates each lane separately and for conflict indexes, it stores the latest
+// value.
+//
+// The code after processVConflictIdiom will be:
 //
 // i64 %vp.vconflict.index = sext i32 %vp.load.B to i64
 // i32* %A.subscript = subscript inbounds i32* %A i64 %vp.vconflict.index
@@ -49,40 +62,47 @@ namespace vpo {
 //                          i32 100 { Redux Opcode: add }
 // store i32 %vp.tree.conflict i32* %A.subscript
 //
-// and the code after optimizing VConflict idiom will be:
+// and the code after optimizing VConflict idiom to Histogram will be:
 //
 // i64 %vp.vconflict.index = sext i32 %vp.load.B to i64
 // i32* %A.subscript = subscript inbounds i32* %A i64 %vp.vconflict.index
 // i32 %vp.load.A = load i32* %A.subscript
 // i64 %B.sext = sext i32 %vp.load.B to i64
 // i32* %A.subscript = subscript inbounds i32* %A i64 %B.sext
-// VConlfict instruction finds the conflicting lanes in array A:
+//
+// VConflict instruction finds the conflicting lanes in array A:
 // i64 %vp.vpconfict.intrinsic = vpconflict-insn i64 %vp.vconflict.index
+//
 // VPopcnt finds the number of conflicts in each lane:
 // i64 %vp.pop.count = call i64 %vp.vpconfict.intrinsic llvm.ctpop.v2i64 [x 1]
 // i32 %trunc = trunc i64 %vp.pop.count to i32
+//
 // VConflict does not count the current lane. Hence, we have to add 1 to the
 // number of conflicts:
 // i32 %add = add i32 %trunc i32 1
+//
 // Multiply the number of conflicts with 100:
 // i32 %mul = mul i32 %add1 i32 100
+//
 // Add the result to A[index]:
 // i32 %res = add i32 %vp.load.A i32 %vp62140
+//
 // Store the result:
 // store i32 %res i32* %A.subscript
 //
 static bool lowerHistogram(VPTreeConflict *TreeConflict, Function &Fn) {
   VPlan *Plan = TreeConflict->getParent()->getParent();
+  auto *DA = Plan->getVPlanDA();
 
   VPBuilder VPBldr;
   VPBldr.setInsertPoint(TreeConflict);
   VPInstruction *ConflictIndex =
       cast<VPInstruction>(TreeConflict->getConflictIndex());
 
-  SmallVector<VPValue *, 2> EmittedInsns;
+  // Detect conflicts.
   auto *ConflictInst = VPBldr.create<VPConflictInsn>(
       "vpconfict.intrinsic", ConflictIndex->getType(), ConflictIndex);
-  EmittedInsns.push_back(ConflictInst);
+  DA->markDivergent(*ConflictInst);
 
   // Emit pop count intrinsic.
   auto *PopCountFn = Intrinsic::getDeclaration(Fn.getParent(), Intrinsic::ctpop,
@@ -92,17 +112,16 @@ static bool lowerHistogram(VPTreeConflict *TreeConflict, Function &Fn) {
                     ArrayRef<VPValue *>>(
           "vp.pop.count", Plan->getVPConstant(PopCountFn),
           PopCountFn->getFunctionType(), {ConflictInst});
-  Plan->getVPlanDA()->markUniform(*PopCountCall->getCalledValue());
+  DA->markUniform(*PopCountCall->getCalledValue());
   PopCountCall->setVectorizeWithIntrinsic(Intrinsic::ctpop);
-  EmittedInsns.push_back(PopCountCall);
+  DA->markDivergent(*PopCountCall);
 
-  // Get the value that we need to multiply. For histogram this will be the
-  // uniform reduction update value.
-  VPValue *MulVal = TreeConflict->getRednUpdateOp();
-  assert(Plan->getVPlanDA()->isUniform(*MulVal) &&
+  // Get the uniform reduction update value.
+  VPValue *UpdateVal = TreeConflict->getRednUpdateOp();
+  assert(DA->isUniform(*UpdateVal) &&
          "Live-in value for histogram expected to be uniform.");
 
-  auto CalcTy = MulVal->getType();
+  auto CalcTy = UpdateVal->getType();
   VPValue *PopCountCallCast = nullptr;
   if (PopCountCall->getType() != CalcTy) {
     if (CalcTy->isFloatingPointTy()) {
@@ -112,7 +131,7 @@ static bool lowerHistogram(VPTreeConflict *TreeConflict, Function &Fn) {
              "Truncate does not work for smaller data types.");
       PopCountCallCast = VPBldr.createZExtOrTrunc(PopCountCall, CalcTy);
     }
-    EmittedInsns.push_back(PopCountCallCast);
+    DA->markDivergent(*PopCountCallCast);
   }
 
   // Add 1 to pop count.
@@ -120,21 +139,21 @@ static bool lowerHistogram(VPTreeConflict *TreeConflict, Function &Fn) {
   if (CalcTy->isFloatingPointTy())
     Add = VPBldr.createFAdd(
         PopCountCallCast ? PopCountCallCast : PopCountCall,
-        Plan->getVPConstant(ConstantFP::get(MulVal->getType(), 1)));
+        Plan->getVPConstant(ConstantFP::get(UpdateVal->getType(), 1)));
   else
     Add = VPBldr.createAdd(
         PopCountCallCast ? PopCountCallCast : PopCountCall,
-        Plan->getVPConstant(ConstantInt::get(MulVal->getType(), 1)));
-  EmittedInsns.push_back(Add);
+        Plan->getVPConstant(ConstantInt::get(UpdateVal->getType(), 1)));
+  DA->markDivergent(*Add);
 
-  // Multiply the Add with the uniform value(MulVal).
+  // Multiply the Add with the uniform value(UpdateVal).
   VPValue *Mul = nullptr;
   unsigned Opcode = TreeConflict->getRednOpcode();
   if (Opcode == Instruction::FAdd)
-    Mul = VPBldr.createFMul(Add, MulVal);
+    Mul = VPBldr.createFMul(Add, UpdateVal);
   else
-    Mul = VPBldr.createMul(Add, MulVal);
-  EmittedInsns.push_back(Mul);
+    Mul = VPBldr.createMul(Add, UpdateVal);
+  DA->markDivergent(*Mul);
 
   // Update VConflictLoad with the result using RednOpcode operation.
   auto *VConflictLoad = TreeConflict->getConflictLoad();
@@ -143,7 +162,7 @@ static bool lowerHistogram(VPTreeConflict *TreeConflict, Function &Fn) {
     Res = VPBldr.createFAdd(VConflictLoad, Mul);
   else
     Res = VPBldr.createAdd(VConflictLoad, Mul);
-  EmittedInsns.push_back(Res);
+  DA->markDivergent(*Res);
 
   // Update VConflictStore with the outcome of VConflict pattern. TODO: Can we
   // use RAUW instead?
@@ -154,9 +173,6 @@ static bool lowerHistogram(VPTreeConflict *TreeConflict, Function &Fn) {
   // Remove VPTreeConflict instruction.
   auto *CurrentBB = TreeConflict->getParent();
   CurrentBB->eraseInstruction(TreeConflict);
-  // Update DA of the new instructions.
-  for (auto &VPI : EmittedInsns)
-    Plan->getVPlanDA()->markDivergent(*VPI);
 
   return true;
 }
