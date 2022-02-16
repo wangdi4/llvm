@@ -4775,12 +4775,15 @@ void Clang::ClangTidySourceCheck(Compilation &C, const JobAction &JA,
   ClangTidyArgs.push_back("--checks=misc-misleading-bidirectional"
                           ",misc-misleading-identifier"
                           ",misc-homoglyph");
-  ClangTidyArgs.push_back("--quiet");
 
   // Add the command line options
   ClangTidyArgs.push_back("--");
-  for (Arg *A : TCArgs)
+  for (Arg *A : TCArgs) {
+    // Skip -Wcheck-unicode-security
+    if (A->getOption().matches(options::OPT_Wcheck_unicode_security))
+      continue;
     ClangTidyArgs.push_back(TCArgs.MakeArgString(A->getAsString(TCArgs)));
+  }
 
   // Find clang-tidy.
   SmallString<128> ClangTidyPath(C.getDriver().Dir);
