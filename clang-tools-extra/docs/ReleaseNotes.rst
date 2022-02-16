@@ -132,6 +132,14 @@ New checks
   Inspects string literal and comments for unterminated bidirectional Unicode
   characters.
 
+..
+  INTEL_CUSTOMIZATION
+- New :doc:`misc-homoglyph <clang-tidy/checks/misc-homoglyph>` check.
+
+  Detects confusable unicode identifiers.
+..
+  end INTEL_CUSTOMIZATION
+
 New check aliases
 ^^^^^^^^^^^^^^^^^
 
