@@ -860,15 +860,6 @@ public:
   }
 };
 
-/// Per-device global entry table
-struct FuncOrGblEntryTy {
-  __tgt_target_table Table;
-  std::vector<__tgt_offload_entry> Entries;
-  std::vector<ze_kernel_handle_t> Kernels;
-  std::vector<ze_module_handle_t> Modules;
-  std::unordered_map<ze_kernel_handle_t, KernelInfoTy> KernelInfo;
-};
-
 /// Program data to be initialized by plugin
 struct ProgramDataTy {
   int Initialized = 0;
@@ -879,6 +870,121 @@ struct ProgramDataTy {
   uintptr_t DynamicMemoryLB = 0;
   uintptr_t DynamicMemoryUB = 0;
   int DeviceType = 0;
+};
+
+/// Level Zero program that can contain multiple modules.
+class LevelZeroProgramTy {
+  struct DeviceOffloadEntryTy {
+    /// Common part with the host offload table.
+    __tgt_offload_entry Base;
+    /// Length of the Base.name string in bytes including
+    /// the null terminator.
+    size_t NameSize;
+  };
+
+  /// Cached device image
+  __tgt_device_image *Image = nullptr;
+
+  /// Cached Level Zero context
+  ze_context_handle_t Context = nullptr;
+
+  /// Cached Level Zero device
+  ze_device_handle_t Device = nullptr;
+
+  /// Cached OpenMP device ID
+  int32_t DeviceId = 0;
+
+  /// Target table
+  __tgt_target_table Table;
+
+  /// Target entries
+  std::vector<__tgt_offload_entry> Entries;
+
+  /// Internal offload entries
+  std::vector<DeviceOffloadEntryTy> OffloadEntries;
+
+  /// Handle multiple modules within a single target image
+  std::vector<ze_module_handle_t> Modules;
+
+  /// Kernels created from the target image
+  std::vector<ze_kernel_handle_t> Kernels;
+
+  /// Kernel info added by compiler
+  std::unordered_map<ze_kernel_handle_t, KernelInfoTy> KernelInfo;
+
+  /// Program data copied to device
+  ProgramDataTy PGMData;
+
+  /// Cached address of the program data on device
+  void *PGMDataPtr = nullptr;
+
+  /// Module that contains global data including device RTL
+  ze_module_handle_t GlobalModule = nullptr;
+
+  /// Requires module link
+  bool RequiresModuleLink = false;
+
+  /// Loads the device version of the offload table for device \p DeviceId.
+  /// The table is expected to have \p NumEntries entries.
+  /// Returns true, if the load was successful, false - otherwise.
+  bool loadOffloadTable(size_t NumEntries);
+
+  /// Build a single module with the given image, build option, and format.
+  int32_t addModule(const size_t Size, const uint8_t *Image,
+                    const std::string &BuildOption, ze_module_format_t Format);
+
+  /// Looks up an OpenMP declare target global variable with the given
+  /// \p Name and \p Size in the device environment for the current device.
+  /// The lookup is first done via the device offload table. If it fails,
+  /// then the lookup falls back to non-OpenMP specific lookup on the device.
+  void *getOffloadVarDeviceAddr(const char *Name, size_t Size);
+
+  /// Read KernelInfo auxiliary information for the specified kernel.
+  /// The information is stored in \p KernelInfo.
+  /// The function is called during the binary loading.
+  bool readKernelInfo(const __tgt_offload_entry &KernelEntry);
+
+public:
+  LevelZeroProgramTy() = default;
+
+  LevelZeroProgramTy(__tgt_device_image *Image_, ze_context_handle_t Context_,
+                     ze_device_handle_t Device_, int32_t DeviceId_) :
+      Image(Image_), Context(Context_), Device(Device_), DeviceId(DeviceId_) {}
+
+  ~LevelZeroProgramTy();
+
+  /// Build modules from the target image description
+  int32_t buildModules(std::string &BuildOptions);
+
+  /// Link modules stored in \p Modules.
+  int32_t linkModules();
+
+  /// Looks up an external global variable with the given \p Name
+  /// in the device environment for device \p DeviceId.
+  /// \p Size must not be null. If (*SizePtr) is not zero, then
+  /// the lookup verifies that the found variable's size matches
+  /// (*SizePtr), otherwise, the found variable's size is returned
+  /// via \p Size.
+  void *getVarDeviceAddr(const char *Name, size_t *SizePtr);
+
+  /// Looks up an external global variable with the given \p Name
+  /// and \p Size in the device environment for device \p DeviceId.
+  void *getVarDeviceAddr(const char *Name, size_t Size);
+
+  /// Build kernels from all modules.
+  int32_t buildKernels();
+
+  /// Initialize program data on device.
+  int32_t initProgramData();
+
+  /// Reset program data on device.
+  int32_t resetProgramData();
+
+  /// Return the pointer to the offload table.
+  __tgt_target_table *getTablePtr() { return &Table; }
+
+  /// Returns the auxiliary kernel information for the specified kernel.
+  const KernelInfoTy *getKernelInfo(ze_kernel_handle_t Kernel) const;
 };
 
 /// RTL profile -- only host timer for now
@@ -2009,17 +2115,6 @@ struct RTLOptionTy {
 
 /// Device information
 class RTLDeviceInfoTy {
-  /// Type of the device version of the offload table.
-  /// The type may not match the host offload table's type
-  /// due to extensions.
-  struct DeviceOffloadEntryTy {
-    /// Common part with the host offload table.
-    __tgt_offload_entry Base;
-    /// Length of the Base.name string in bytes including
-    /// the null terminator.
-    size_t NameSize;
-  };
-
   /// Memory stats
   struct MemStatTy {
     size_t Requested[2] = {0, 0};   // Requested bytes
@@ -2074,23 +2169,16 @@ class RTLDeviceInfoTy {
   }; // MemStatTy
 
 public:
-  /// Looks up an external global variable with the given \p Name
-  /// and \p Size in the device environment for device \p DeviceId.
-  void *getVarDeviceAddr(int32_t DeviceId, const char *Name, size_t Size);
-
-  /// Looks up an external global variable with the given \p Name
-  /// in the device environment for device \p DeviceId.
-  /// \p Size must not be null. If (*Size) is not zero, then
-  /// the lookup verifies that the found variable's size matches
-  /// (*Size), otherwise, the found variable's size is returned
-  /// via \p Size.
-  void *getVarDeviceAddr(int32_t DeviceId, const char *Name, size_t *Size);
-
   uint32_t NumDevices = 0;
+
   uint32_t SubDeviceLevels = 1; // L0 API does not support recursive queries
+
   uint32_t NumRootDevices = 0;
+
   ze_driver_handle_t Driver = nullptr;
+
   ze_context_handle_t Context = nullptr;
+
   ze_api_version_t DriverAPIVersion = ZE_API_VERSION_CURRENT;
 
   // Driver extensions
@@ -2100,6 +2188,7 @@ public:
   KernelProfileEventsTy ProfileEvents;
 
   std::vector<ze_device_properties_t> DeviceProperties;
+
   std::vector<ze_device_compute_properties_t> ComputeProperties;
   std::vector<ze_device_memory_properties_t> MemoryProperties;
   std::vector<ze_device_cache_properties_t> CacheProperties;
@@ -2136,7 +2225,8 @@ public:
   // Command lists/queues specialized for kernel batching
   std::vector<KernelBatchTy> BatchCmdQueues;
 
-  std::vector<std::list<FuncOrGblEntryTy>> FuncGblEntries;
+  std::vector<std::list<LevelZeroProgramTy>> Programs;
+
   std::vector<std::map<ze_kernel_handle_t, KernelPropertiesTy>>
       KernelProperties;
 
@@ -2154,7 +2244,6 @@ public:
   /// For kernel preparation
   std::unique_ptr<std::mutex[]> KernelMutexes;
 
-  std::vector<std::list<std::vector<DeviceOffloadEntryTy>>> OffloadTables;
   std::vector<std::vector<RTLProfileTy *>> Profiles;
 
   /// Host memory pool for all devices
@@ -2343,25 +2432,6 @@ public:
     getTLS()->setSubDeviceCode(Code);
   }
 
-  /// Loads the device version of the offload table for device \p DeviceId.
-  /// The table is expected to have \p NumEntries entries.
-  /// Returns true, if the load was successful, false - otherwise.
-  bool loadOffloadTable(int32_t DeviceId, size_t NumEntries);
-
-  /// Deallocates resources allocated for the device offload table
-  /// of \p DeviceId device.
-  void unloadOffloadTable(int32_t DeviceId);
-
-  /// Looks up an OpenMP declare target global variable with the given
-  /// \p Name and \p Size in the device environment for device \p DeviceId.
-  /// The lookup is first done via the device offload table. If it fails,
-  /// then the lookup falls back to non-OpenMP specific lookup on the device.
-  void *getOffloadVarDeviceAddr(
-      int32_t DeviceId, const char *Name, size_t Size);
-
-  /// Initialize program data on device
-  int32_t initProgramData(int32_t DeviceId);
-
   /// Reset program data
   int32_t resetProgramData(int32_t DeviceId);
 
@@ -2397,11 +2467,6 @@ public:
 
   /// Get thread-local staging buffer for copying
   StagingBufferTy &getStagingBuffer();
-
-  /// Read KernelInfo auxiliary information for the specified kernel.
-  /// The information is stored in FuncGblEntries array.
-  /// The function is called during the binary loading.
-  bool readKernelInfo(int32_t DeviceId, const __tgt_offload_entry &KernelEntry);
 
   /// For the given kernel return its KernelInfo auxiliary information
   /// that was previously read by readKernelInfo().
@@ -2484,176 +2549,6 @@ static int32_t readSPVFile(const char *FileName, std::vector<uint8_t> &OutSPV) {
     return OFFLOAD_FAIL;
   }
   return OFFLOAD_SUCCESS;
-}
-
-/// Create module with target program image and fallback libdevice.
-/// zeModuleDynamicLink does not seem stable now, so we use module program
-/// extension.
-static ze_module_handle_t createModuleWithLib(
-    ze_context_handle_t Context, ze_device_handle_t Device, size_t Size,
-    const uint8_t *Image, const char *Flags,
-    const ze_module_constants_t *Constants,
-    ze_module_build_log_handle_t *BuildLog, ze_result_t *RC) {
-  // Check if driver is capable of creating module from multiple SPV images.
-  if (!DeviceInfo->isExtensionSupported("ZE_experimental_module_program")) {
-    DP("Error: Module creation from multiple images is not supported\n");
-    return nullptr;
-  }
-
-  std::vector<const char *> LibDeviceNames {
-    "libomp-fallback-cassert.spv",
-    "libomp-fallback-cmath.spv",
-    "libomp-fallback-cmath-fp64.spv",
-    "libomp-fallback-complex.spv",
-    "libomp-fallback-complex-fp64.spv",
-    "libomp-fallback-cstring.spv"
-  };
-
-  uint32_t NumImages = LibDeviceNames.size() + 1;
-  std::vector<std::vector<uint8_t>> LibImages;
-  std::vector<size_t> SPVSizes;
-  std::vector<const uint8_t *> SPVImages;
-  std::vector<const char *> SPVFlags(NumImages, Flags);
-  std::vector<const ze_module_constants_t *> SPVConstants(NumImages, nullptr);
-
-  // Main program
-  SPVSizes.push_back(Size);
-  SPVImages.push_back(Image);
-  SPVConstants[0] = Constants;
-
-  // Read Library SPV files
-  for (auto *Name : LibDeviceNames) {
-    LibImages.emplace_back();
-    if (readSPVFile(Name, LibImages.back()) != OFFLOAD_SUCCESS)
-      return nullptr;
-    SPVSizes.push_back(LibImages.back().size());
-    SPVImages.push_back(LibImages.back().data());
-  }
-
-  DP("Building module with %" PRIu32 " SPIR-V images\n", NumImages);
-
-  ze_module_program_exp_desc_t ProgramDesc = {
-    ZE_STRUCTURE_TYPE_MODULE_PROGRAM_EXP_DESC,
-    nullptr,
-    NumImages,
-    SPVSizes.data(),
-    SPVImages.data(),
-    SPVFlags.data(),
-    SPVConstants.data()
-  };
-
-  ze_module_desc_t ModuleDesc = {
-    ZE_STRUCTURE_TYPE_MODULE_DESC,
-    &ProgramDesc,
-    ZE_MODULE_FORMAT_IL_SPIRV,
-    0,
-    nullptr,
-    nullptr,
-    nullptr
-  };
-
-  ze_module_handle_t Module = nullptr;
-  CALL_ZE_RC(*RC, zeModuleCreate, Context, Device, &ModuleDesc, &Module,
-             BuildLog);
-  return Module;
-}
-
-/// Create a module from SPIR-V
-static ze_module_handle_t createModule(
-    ze_context_handle_t Context, ze_device_handle_t Device, size_t Size,
-    const uint8_t *Image, const char *Flags, ze_module_format_t Format) {
-  ze_module_constants_t specConstants =
-      DeviceInfo->Option.CommonSpecConstants.getModuleConstants();
-
-  ze_module_handle_t module = nullptr;
-  ze_module_build_log_handle_t buildLog = nullptr;
-  ze_module_build_log_handle_t linkLog = nullptr;
-  ze_result_t rc;
-
-  if (DeviceInfo->Option.Flags.LinkLibDevice &&
-      Format == ZE_MODULE_FORMAT_IL_SPIRV) {
-    module = createModuleWithLib(Context, Device, Size, Image, Flags,
-                                 &specConstants, &buildLog, &rc);
-  } else {
-    ze_module_desc_t moduleDesc = {
-      ZE_STRUCTURE_TYPE_MODULE_DESC,
-      nullptr, // extension
-      Format,
-      Size,
-      Image,
-      Flags,
-      &specConstants
-    };
-    CALL_ZE_RC(rc, zeModuleCreate, Context, Device, &moduleDesc, &module,
-               &buildLog);
-  }
-
-  bool buildFailed = (rc != ZE_RESULT_SUCCESS);
-  bool linkFailed = false;
-  bool showBuildLog = DeviceInfo->Option.Flags.ShowBuildLog;
-
-  if (!buildFailed) {
-    // Module creation allows unresolved symbols, so module link is required to
-    // finalize module build if there is any imports.
-    ze_module_properties_t ModuleProperties = {
-      ZE_STRUCTURE_TYPE_MODULE_PROPERTIES, nullptr, 0
-    };
-    CALL_ZE_RET_NULL(zeModuleGetProperties, module, &ModuleProperties);
-    if (ModuleProperties.flags & ZE_MODULE_PROPERTY_FLAG_IMPORTS) {
-      CALL_ZE_RC(rc, zeModuleDynamicLink, 1, &module, &linkLog);
-      linkFailed = (rc != ZE_RESULT_SUCCESS);
-    }
-  }
-
-  if (buildFailed || linkFailed || showBuildLog) {
-    if (buildFailed || linkFailed)
-      DP("Warning: module creation failed\n");
-    if (DebugLevel > 0 || showBuildLog) {
-      MESSAGE0("Target build log:");
-      size_t logSize = 0;
-      size_t linkLogSize = 0;
-      CALL_ZE_RET_NULL(zeModuleBuildLogGetString, buildLog, &logSize, nullptr);
-      if (linkLog)
-        CALL_ZE_RET_NULL(zeModuleBuildLogGetString, linkLog, &linkLogSize,
-                         nullptr);
-      // The build log is a null-terminated string, so it must be
-      // longer than 1-character string to be non-empty.
-      if (logSize > 1 || linkLogSize > 1) {
-        std::string finalLog;
-        if (logSize > 1) {
-          std::vector<char> logString(logSize);
-          CALL_ZE_RET_NULL(zeModuleBuildLogGetString, buildLog, &logSize,
-                           logString.data());
-          finalLog.append(logString.data());
-        }
-        if (linkLogSize > 1) {
-          std::vector<char> logString(linkLogSize);
-          CALL_ZE_RET_NULL(zeModuleBuildLogGetString, linkLog, &linkLogSize,
-                           logString.data());
-          finalLog.append(logString.data());
-        }
-        std::stringstream Str(finalLog);
-        std::string Line;
-        while (std::getline(Str, Line, '\n'))
-          MESSAGE("  '%s'", Line.c_str());
-      } else {
-        MESSAGE0("  <empty>");
-      }
-    }
-    if (buildFailed) {
-      CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, buildLog);
-      return nullptr;
-    }
-    if (linkFailed) {
-      CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, linkLog);
-      return nullptr;
-    }
-  }
-  CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, buildLog);
-  if (linkLog)
-    CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, linkLog);
-
-  return module;
 }
 
 #if ENABLE_LIBDEVICE_LINKING
@@ -2901,18 +2796,9 @@ static void closeRTL() {
       CALL_ZE_EXIT_FAIL(zeMemFree, DeviceInfo->Context, mem);
     }
 
-    for (auto &Entries : DeviceInfo->FuncGblEntries[i]) {
-      for (auto Kernel : Entries.Kernels)
-        if (Kernel)
-          CALL_ZE_EXIT_FAIL(zeKernelDestroy, Kernel);
-      for (auto Module : Entries.Modules)
-        CALL_ZE_EXIT_FAIL(zeModuleDestroy, Module);
-    }
+    DeviceInfo->Programs[i].clear();
 
     DeviceInfo->Mutexes[i].unlock();
-
-    if (DeviceInfo->Option.Flags.EnableTargetGlobals)
-      DeviceInfo->unloadOffloadTable(i);
   }
 
   if (TLSList)
@@ -3289,60 +3175,13 @@ void MemoryPoolTy::init(int32_t allocKind, RTLDeviceInfoTy *RTL) {
      BlockCapacity, PoolSizeMax);
 }
 
-/// Initialize program data
-int32_t RTLDeviceInfoTy::initProgramData(int32_t DeviceId) {
-  // Prepare host data to copy
-  auto &P = DeviceProperties[DeviceId];
-  uint32_t totalEUs =
-      P.numSlices * P.numSubslicesPerSlice * P.numEUsPerSubslice;
-
-  // Allocate dynamic memory for in-kernel allocation
-  void *memLB = 0;
-  uintptr_t memUB = 0;
-  if (Option.KernelDynamicMemorySize > 0)
-    memLB = allocDataExplicit(Devices[DeviceId], Option.KernelDynamicMemorySize,
-                              TARGET_ALLOC_DEVICE);
-  if (memLB) {
-    OwnedMemory[DeviceId].push_back(memLB);
-    memUB = (uintptr_t)memLB + Option.KernelDynamicMemorySize;
-  }
-
-  ProgramDataTy hostData = {
-    1,                   // Initialized
-    (int32_t)NumDevices, // Number of devices
-    DeviceId,            // Device ID
-    totalEUs,            // Total EUs
-    P.numThreadsPerEU,   // HW threads per EU
-    (uintptr_t)memLB,    // Dynamic memory LB
-    memUB,               // Dynamic memory UB
-    0                    // Device type (0 for GPU, 1 for CPU)
-  };
-
-  ProgramData[DeviceId] = hostData;
-
-  // Look up program data location on device
-  void *dataPtr = getVarDeviceAddr(DeviceId, "__omp_spirv_program_data",
-                                   sizeof(ProgramDataTy));
-  if (!dataPtr) {
-    DP("Warning: cannot find program data location on device.\n");
-    return OFFLOAD_SUCCESS;
-  }
-
-  return enqueueMemCopy(DeviceId, dataPtr, &hostData, sizeof(hostData));
-}
-
 /// Reset target program data
 int32_t RTLDeviceInfoTy::resetProgramData(int32_t DeviceId) {
-  // Look up program data location on device
-  void *DataPtr = getVarDeviceAddr(DeviceId, "__omp_spirv_program_data",
-                                   sizeof(ProgramDataTy));
-  if (!DataPtr) {
-    DP("Warning: cannot find program data location on device.\n");
-    return OFFLOAD_SUCCESS;
-  }
+  for (auto &PGM : Programs[DeviceId])
+    if (PGM.resetProgramData() != OFFLOAD_SUCCESS)
+      return OFFLOAD_FAIL;
 
-  return enqueueMemCopy(DeviceId, DataPtr, &ProgramData[DeviceId],
-                        sizeof(ProgramDataTy), true /* Locked */);
+  return OFFLOAD_SUCCESS;
 }
 
 /// Get kernel indirect access flags
@@ -3496,103 +3335,12 @@ StagingBufferTy &RTLDeviceInfoTy::getStagingBuffer() {
   return Buffer;
 }
 
-bool RTLDeviceInfoTy::readKernelInfo(
-    int32_t DeviceId, const __tgt_offload_entry &KernelEntry) {
-  const ze_kernel_handle_t *KernelPtr =
-      reinterpret_cast<const ze_kernel_handle_t *>(KernelEntry.addr);
-  const char *Name = KernelEntry.name;
-  std::string InfoVarName(Name);
-  InfoVarName += "_kernel_info";
-  size_t InfoVarSize = 0;
-  void *InfoVarAddr =
-      getVarDeviceAddr(DeviceId, InfoVarName.c_str(), &InfoVarSize);
-  // If there is no kernel info variable, then the kernel might have been
-  // produced by older toolchain - this is acceptable, so return success.
-  if (!InfoVarAddr)
-    return true;
-  if (InfoVarSize == 0) {
-    DP("Error: kernel info variable cannot have 0 size.\n");
-    return false;
-  }
-  std::vector<char> InfoBuffer;
-  InfoBuffer.resize(InfoVarSize);
-  auto RC = enqueueMemCopy(DeviceId, InfoBuffer.data(), InfoVarAddr,
-                           InfoVarSize);
-  if (RC != OFFLOAD_SUCCESS)
-    return false;
-  // TODO: add support for big-endian devices, if needed.
-  //       Currently supported devices are little-endian.
-  char *ReadPtr = InfoBuffer.data();
-  uint32_t Version = llvm::support::endian::read32le(ReadPtr);
-  if (Version == 0) {
-    DP("Error: version 0 of kernel info structure is illegal.\n");
-    return false;
-  }
-  if (Version > 4) {
-    DP("Error: unsupported version (%" PRIu32 ") of kernel info structure.\n",
-       Version);
-    DP("Error: please use newer OpenMP offload runtime.\n");
-    return false;
-  }
-  ReadPtr += 4;
-  uint32_t KernelArgsNum = llvm::support::endian::read32le(ReadPtr);
-  size_t ExpectedInfoVarSize = static_cast<size_t>(KernelArgsNum) * 8 + 8;
-  // Support Attributes1 since version 2.
-  if (Version > 1)
-    ExpectedInfoVarSize += 8;
-  // Support WGNum since version 3.
-  if (Version > 2)
-    ExpectedInfoVarSize += 8;
-  if (Version > 3)
-    ExpectedInfoVarSize += 8;
-  if (InfoVarSize != ExpectedInfoVarSize) {
-    DP("Error: expected kernel info variable size %zu - got %zu\n",
-       ExpectedInfoVarSize, InfoVarSize);
-    return false;
-  }
-  KernelInfoTy Info(Version);
-  ReadPtr += 4;
-  for (uint64_t I = 0; I < KernelArgsNum; ++I) {
-    bool ArgIsLiteral = (llvm::support::endian::read32le(ReadPtr) != 0);
-    ReadPtr += 4;
-    uint32_t ArgSize = llvm::support::endian::read32le(ReadPtr);
-    ReadPtr += 4;
-    Info.addArgInfo(ArgIsLiteral, ArgSize);
-  }
-
-  if (Version > 1) {
-    // Read 8-byte Attributes1 since version 2.
-    uint64_t Attributes1 = llvm::support::endian::read64le(ReadPtr);
-    Info.setAttributes1(Attributes1);
-    ReadPtr += 8;
-  }
-
-  if (Version > 2) {
-    // Read 8-byte WGNum since version 3.
-    uint32_t WGNum = llvm::support::endian::read64le(ReadPtr);
-    Info.setWGNum(WGNum);
-    ReadPtr += 8;
-  }
-
-  if (Version > 3) {
-    // Read 8-byte WGNum since version 3.
-    uint32_t WINum = llvm::support::endian::read64le(ReadPtr);
-    Info.setWINum(WINum);
-    ReadPtr += 8;
-  }
-
-  FuncGblEntries[DeviceId].back().KernelInfo.emplace(
-      std::make_pair(*KernelPtr, std::move(Info)));
-  return true;
-}
-
 const KernelInfoTy *RTLDeviceInfoTy::getKernelInfo(
     int32_t DeviceId, const ze_kernel_handle_t &Kernel) const {
-  for (auto &Entry : FuncGblEntries[DeviceId]) {
-    auto &KernelInfo = Entry.KernelInfo;
-    auto It = KernelInfo.find(Kernel);
-    if (It != KernelInfo.end())
-      return &(It->second);
+  for (auto &Program : Programs[DeviceId]) {
+    auto *KernelInfo = Program.getKernelInfo(Kernel);
+    if (KernelInfo)
+      return KernelInfo;
   }
 
   return nullptr;
@@ -4059,11 +3807,10 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
       DP("-- %s\n", E.name);
   }
 
-  DeviceInfo->FuncGblEntries.resize(DeviceInfo->NumDevices);
+  DeviceInfo->Programs.resize(DeviceInfo->NumDevices);
   DeviceInfo->KernelProperties.resize(DeviceInfo->NumDevices);
   DeviceInfo->OwnedMemory.resize(DeviceInfo->NumDevices);
   DeviceInfo->Initialized.resize(DeviceInfo->NumDevices);
-  DeviceInfo->OffloadTables.resize(DeviceInfo->NumDevices);
   DeviceInfo->Profiles.resize(DeviceInfo->NumDevices);
   DeviceInfo->Context = createContext(DeviceInfo->Driver);
   if (DeviceInfo->Option.Flags.EnableProfile)
@@ -4130,397 +3877,55 @@ EXTERN int32_t __tgt_rtl_init_device(int32_t DeviceId) {
   return OFFLOAD_SUCCESS;
 }
 
-static ze_module_handle_t getModuleForImage(ze_context_handle_t Context,
-                                            ze_device_handle_t Device,
-                                            __tgt_device_image *Image,
-                                            std::string &CompilationOptions) {
-  uint64_t MajorVer, MinorVer;
-  if (!isValidOneOmpImage(Image, MajorVer, MinorVer)) {
-    // Handle legacy plain SPIR-V image.
-    uint8_t *ImgBegin = reinterpret_cast<uint8_t *>(Image->ImageStart);
-    uint8_t *ImgEnd = reinterpret_cast<uint8_t *>(Image->ImageEnd);
-    size_t ImgSize = ImgEnd - ImgBegin;
-    dumpImageToFile(ImgBegin, ImgSize, "OpenMP");
-    return createModule(Context, Device, ImgSize,
-                        ImgBegin, CompilationOptions.c_str(),
-                        ZE_MODULE_FORMAT_IL_SPIRV);
-  }
-
-  // Iterate over the images and pick the first one that fits.
-  char *ImgBegin = reinterpret_cast<char *>(Image->ImageStart);
-  char *ImgEnd = reinterpret_cast<char *>(Image->ImageEnd);
-  size_t ImgSize = ImgEnd - ImgBegin;
-  ElfL E(ImgBegin, ImgSize);
-  assert(E.isValidElf() &&
-         "isValidOneOmpImage() returns true for invalid ELF image.");
-  assert(MajorVer == 1 && MinorVer == 0 &&
-         "FIXME: update image processing for new oneAPI OpenMP version.");
-  // Collect auxiliary information.
-  uint64_t ImageCount = 0;
-  uint64_t MaxImageIdx = 0;
-  struct V1ImageInfo {
-    // 0 - native, 1 - SPIR-V
-    uint64_t Format =  (std::numeric_limits<uint64_t>::max)();
-    std::string CompileOpts;
-    std::string LinkOpts;
-    const uint8_t *Begin;
-    uint64_t Size;
-
-    V1ImageInfo(uint64_t Format, std::string CompileOpts,
-                std::string LinkOpts, const uint8_t *Begin, uint64_t Size)
-      : Format(Format), CompileOpts(CompileOpts),
-        LinkOpts(LinkOpts), Begin(Begin), Size(Size) {}
-  };
-
-  std::unordered_map<uint64_t, V1ImageInfo> AuxInfo;
-
-  for (auto I = E.section_notes_begin(), IE = E.section_notes_end(); I != IE;
-       ++I) {
-    ElfLNote Note = *I;
-    if (Note.getNameSize() == 0)
-      continue;
-    std::string NameStr(Note.getName(), Note.getNameSize());
-    if (NameStr != "INTELONEOMPOFFLOAD")
-      continue;
-    uint64_t Type = Note.getType();
-    std::string DescStr(reinterpret_cast<const char *>(Note.getDesc()),
-                        Note.getDescSize());
-    switch (Type) {
-    default:
-      DP("Warning: unrecognized INTELONEOMPOFFLOAD note.\n");
-      break;
-    case NT_INTEL_ONEOMP_OFFLOAD_VERSION:
-      break;
-    case NT_INTEL_ONEOMP_OFFLOAD_IMAGE_COUNT:
-      ImageCount = std::stoull(DescStr);
-      break;
-    case NT_INTEL_ONEOMP_OFFLOAD_IMAGE_AUX: {
-      std::vector<std::string> Parts;
-      do {
-        auto DelimPos = DescStr.find('\0');
-        if (DelimPos == std::string::npos) {
-          Parts.push_back(DescStr);
-          break;
-        }
-        Parts.push_back(DescStr.substr(0, DelimPos));
-        DescStr.erase(0, DelimPos + 1);
-      } while (Parts.size() < 4);
-
-      // Ignore records with less than 4 strings.
-      if (Parts.size() != 4) {
-        DP("Warning: short NT_INTEL_ONEOMP_OFFLOAD_IMAGE_AUX "
-           "record is ignored.\n");
-        continue;
-      }
-
-      uint64_t Idx = std::stoull(Parts[0]);
-      MaxImageIdx = (std::max)(MaxImageIdx, Idx);
-      if (AuxInfo.find(Idx) != AuxInfo.end()) {
-        DP("Warning: duplicate auxiliary information for image %" PRIu64
-           " is ignored.\n", Idx);
-        continue;
-      }
-      AuxInfo.emplace(std::piecewise_construct,
-                      std::forward_as_tuple(Idx),
-                      std::forward_as_tuple(std::stoull(Parts[1]),
-                                            Parts[2], Parts[3],
-                                            // Image pointer and size
-                                            // will be initialized later.
-                                            nullptr, 0));
-    }
-    }
-  }
-
-  if (MaxImageIdx >= ImageCount)
-    DP("Warning: invalid image index found in auxiliary information.\n");
-
-  for (auto I = E.sections_begin(), IE = E.sections_end(); I != IE; ++I) {
-    const char *Prefix = "__openmp_offload_spirv_";
-    std::string SectionName((*I).getName() ? (*I).getName() : "");
-    if (SectionName.find(Prefix) != 0)
-      continue;
-    SectionName.erase(0, std::strlen(Prefix));
-    uint64_t Idx = std::stoull(SectionName);
-    if (Idx >= ImageCount) {
-      DP("Warning: ignoring image section (index %" PRIu64
-         " is out of range).\n", Idx);
-      continue;
-    }
-
-    auto AuxInfoIt = AuxInfo.find(Idx);
-    if (AuxInfoIt == AuxInfo.end()) {
-      DP("Warning: ignoring image section (no aux info).\n");
-      continue;
-    }
-
-    AuxInfoIt->second.Begin = (*I).getContents();
-    AuxInfoIt->second.Size = (*I).getSize();
-  }
-
-  for (uint64_t Idx = 0; Idx < ImageCount; ++Idx) {
-    auto It = AuxInfo.find(Idx);
-    if (It == AuxInfo.end()) {
-      DP("Warning: image %" PRIu64
-         " without auxiliary information is ingored.\n", Idx);
-      continue;
-    }
-
-    const unsigned char *ImgBegin =
-        reinterpret_cast<const unsigned char *>(It->second.Begin);
-    size_t ImgSize = It->second.Size;
-    dumpImageToFile(ImgBegin, ImgSize, "OpenMP");
-    ze_module_handle_t Module = nullptr;
-    bool IsBinary = false;
-    std::string Options = CompilationOptions;
-    if (DeviceInfo->Option.Flags.UseImageOptions)
-      Options += " " + It->second.CompileOpts + " " + It->second.LinkOpts;
-
-    if (It->second.Format == 0) {
-      // Native format.
-      IsBinary = true;
-      Module = createModule(Context, Device, ImgSize,
-                            ImgBegin, Options.c_str(),
-                            ZE_MODULE_FORMAT_NATIVE);
-    } else if (It->second.Format == 1) {
-      // SPIR-V format.
-      Module = createModule(Context, Device, ImgSize,
-                            ImgBegin, Options.c_str(),
-                            ZE_MODULE_FORMAT_IL_SPIRV);
-    } else {
-      DP("Warning: image %" PRIu64 "is ignored due to unknown format.\n", Idx);
-      continue;
-    }
-
-    if (!Module) {
-      DP("Warning: failed to create program from %s (%" PRIu64 ").\n",
-         IsBinary ? "binary" : "SPIR-V", Idx);
-      continue;
-    }
-
-    DP("Created module from image #%" PRIu64 ".\n", Idx);
-    CompilationOptions = Options;
-    return Module;
-  }
-
-  return nullptr;
-}
-
-EXTERN
-__tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
-                                          __tgt_device_image *Image) {
+EXTERN __tgt_target_table *__tgt_rtl_load_binary(
+    int32_t DeviceId, __tgt_device_image *Image) {
   DP("Device %" PRId32 ": Loading binary from " DPxMOD "\n", DeviceId,
      DPxPTR(Image->ImageStart));
 
-  size_t imageSize = (size_t)Image->ImageEnd - (size_t)Image->ImageStart;
-  size_t numEntries = (size_t)(Image->EntriesEnd - Image->EntriesBegin);
-  DP("Expecting to have %zu entries defined\n", numEntries);
+  size_t ImageSize = (size_t)Image->ImageEnd - (size_t)Image->ImageStart;
+  size_t NumEntries = (size_t)(Image->EntriesEnd - Image->EntriesBegin);
 
-  std::string compilationOptions(
-      DeviceInfo->Option.CompilationOptions + " " +
-      DeviceInfo->Option.UserCompilationOptions);
-  DP("Base L0 module compilation options: %s\n", compilationOptions.c_str());
-  compilationOptions += " " + DeviceInfo->Option.InternalCompilationOptions;
+  DP("Expecting to have %zu entries defined\n", NumEntries);
 
-  dumpImageToFile(Image->ImageStart, imageSize, "OpenMP");
+  auto &Option = DeviceInfo->Option;
+  std::string CompilationOptions(Option.CompilationOptions + " " +
+                                 Option.UserCompilationOptions);
 
-  auto context = DeviceInfo->Context;
-  auto device = DeviceInfo->Devices[DeviceId];
+  DP("Base L0 module compilation options: %s\n", CompilationOptions.c_str());
 
-  ScopedTimerTy tmModuleCompile(DeviceId, "Compiling");
+  CompilationOptions += " " + Option.InternalCompilationOptions;
 
-  DeviceInfo->FuncGblEntries[DeviceId].emplace_back();
-  auto &FuncGblEntries = DeviceInfo->FuncGblEntries[DeviceId].back();
-  auto &modules = FuncGblEntries.Modules;
-  auto mainModule = getModuleForImage(context, device, Image,
-                                      compilationOptions);
-  if (!mainModule) {
-    DP("Error: failed to create main module\n");
+  dumpImageToFile(Image->ImageStart, ImageSize, "OpenMP");
+
+  auto Context = DeviceInfo->Context;
+  auto Device = DeviceInfo->Devices[DeviceId];
+  DeviceInfo->Programs[DeviceId].emplace_back(Image, Context, Device, DeviceId);
+  auto &Program = DeviceInfo->Programs[DeviceId].back();
+
+  int32_t RC = Program.buildModules(CompilationOptions);
+  if (RC != OFFLOAD_SUCCESS)
     return nullptr;
-  }
 
-  DPI("Final L0 module compilation options: %s\n", compilationOptions.c_str());
-  modules.push_back(mainModule);
-
-  tmModuleCompile.stop();
-
-#if ENABLE_LIBDEVICE_LINKING
-  std::vector<const char *> deviceLibNames {
-    "libomp-fallback-cassert.spv",
-    "libomp-fallback-cmath.spv",
-    "libomp-fallback-cmath-fp64.spv",
-    "libomp-fallback-complex.spv",
-    "libomp-fallback-complex-fp64.spv"
-  };
-
-  for (auto name : deviceLibNames) {
-    auto deviceLibModule = createModule(context, device, name,
-                                        compilationOptions.c_str(),
-                                        ZE_MODULE_FORMAT_IL_SPIRV);
-    if (deviceLibModule) {
-      DP("Created a module for %s\n", name);
-      modules.push_back(deviceLibModule);
-    }
-  }
-
-  ScopedTimerTy tmModuleLink(DeviceId, "Linking");
-
-  if (DeviceInfo->Option.Flags.LinkLibDevice) {
-    int32_t rc;
-    ze_module_build_log_handle_t linkLog;
-    CALL_ZE_RC(rc, zeModuleDynamicLink, modules.size(), modules.data(), &linkLog);
-    if (rc != ZE_RESULT_SUCCESS) {
-      if (DebugLevel > 0) {
-        size_t logSize;
-        CALL_ZE_RET_NULL(zeModuleBuildLogGetString, linkLog, &logSize, nullptr);
-        std::vector<char> logString(logSize);
-        CALL_ZE_RET_NULL(zeModuleBuildLogGetString, linkLog, &logSize,
-                         logString.data());
-        DP("Error: module link failed -- see below for details.\n");
-        fprintf(stderr, "%s\n", logString.data());
-      }
-      CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, linkLog);
-      return nullptr;
-    }
-    CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, linkLog);
-  }
-
-  tmModuleLink.stop();
-#endif // ENABLE_LIBDEVICE_LINKING
-
-  auto &entries = FuncGblEntries.Entries;
-  auto &kernels = FuncGblEntries.Kernels;
-  entries.resize(numEntries);
-  kernels.resize(numEntries);
-
-  // FIXME: table loading does not work at all on XeLP.
-  // Enable it after CMPLRLIBS-33285 is fixed.
-  ScopedTimerTy tmOffloadEntriesInit(DeviceId, "OffloadEntriesInit");
-  if (DeviceInfo->Option.Flags.EnableTargetGlobals &&
-      DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_XeLP &&
-      !DeviceInfo->loadOffloadTable(DeviceId, numEntries))
-    DP("Warning: offload table loading failed.\n");
-  tmOffloadEntriesInit.stop();
-
-  for (uint32_t i = 0; i < numEntries; i++) {
-    auto size = Image->EntriesBegin[i].size;
-
-    if (size != 0) {
-      // Entry is a global variable
-      auto hstAddr = Image->EntriesBegin[i].addr;
-      auto name = Image->EntriesBegin[i].name;
-      void *tgtAddr = nullptr;
-      if (DeviceInfo->Option.Flags.EnableTargetGlobals)
-        tgtAddr = DeviceInfo->getOffloadVarDeviceAddr(DeviceId, name, size);
-
-      if (!tgtAddr) {
-        tgtAddr = allocDataExplicit(DeviceId, size,
-                                    DeviceInfo->AllocKinds[DeviceId]);
-        __tgt_rtl_data_submit(DeviceId, tgtAddr, hstAddr, size);
-        std::unique_lock<std::mutex> lock(DeviceInfo->DataMutexes[DeviceId]);
-        DeviceInfo->OwnedMemory[DeviceId].push_back(tgtAddr);
-        DP("Warning: global variable '%s' allocated. "
-           "Direct references will not work properly.\n", name);
-      }
-
-      DP("Global variable mapped: Name = %s, Size = %zu, "
-         "HostPtr = " DPxMOD ", TgtPtr = " DPxMOD "\n",
-         name, size, DPxPTR(hstAddr), DPxPTR(tgtAddr));
-      entries[i].addr = tgtAddr;
-      entries[i].name = name;
-      entries[i].size = size;
-      kernels[i] = nullptr;
-      continue;
-    }
-
-    // Entry is a kernel
-    char *name = Image->EntriesBegin[i].name;
-#if _WIN32
-    // FIXME: temporary allow zero padding bytes in the entries table
-    //        added by MSVC linker (e.g. for incremental linking).
-    if (!name) {
-      // Initialize the members to be on the safe side.
-      DP("Warning: Entry with a nullptr name!!!\n");
-      entries[i].addr = nullptr;
-      entries[i].name = nullptr;
-      continue;
-    }
-#endif
-    ze_kernel_desc_t kernelDesc = {
-      ZE_STRUCTURE_TYPE_KERNEL_DESC,
-      nullptr, // extension
-      0, // flags
-      name,
-    };
-    ze_result_t rc = ZE_RESULT_ERROR_UNKNOWN;
-    CALL_ZE_RC(rc, zeKernelCreate, mainModule, &kernelDesc, &kernels[i]);
-    if (rc != ZE_RESULT_SUCCESS) {
-      // If a kernel was deleted by optimizations (e.g. DCE), then
-      // zeCreateKernel will fail. We expect that such a kernel
-      // will never be actually invoked.
-      DP("Warning: Failed to create kernel %s\n", name);
-      kernels[i] = nullptr;
-    }
-    entries[i].addr = &kernels[i];
-    entries[i].name = name;
-
-    // Do not try to query information for deleted kernels.
-    if (!kernels[i])
-      continue;
-
-    if (!DeviceInfo->readKernelInfo(DeviceId, entries[i])) {
-      DP("Error: failed to read kernel info for kernel %s\n", name);
-      return nullptr;
-    }
-
-    // Store kernel name in the property.
-    auto &RTLKernelProperties =
-        DeviceInfo->KernelProperties[DeviceId][kernels[i]];
-    RTLKernelProperties.Name = name;
-
-    // Retrieve kernel group size info.
-    ze_kernel_properties_t kernelProperties = KernelPropertiesInit;
-    CALL_ZE(rc, zeKernelGetProperties, kernels[i], &kernelProperties);
-    if (DeviceInfo->Option.ForcedKernelWidth > 0) {
-      RTLKernelProperties.Width = DeviceInfo->Option.ForcedKernelWidth;
-    } else {
-      RTLKernelProperties.Width = kernelProperties.maxSubgroupSize;
-      RTLKernelProperties.SIMDWidth = kernelProperties.maxSubgroupSize;
-      // Temporary workaround before ze_kernel_preferred_group_size_properties_t
-      // becomes available with L0 1.2.
-      // Here we try to match OpenCL kernel property
-      // CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE.
-      if (DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_Gen9)
-        RTLKernelProperties.Width *= 2;
-    }
-    if (DebugLevel > 0) {
-      void *entryAddr = Image->EntriesBegin[i].addr;
-      const char *entryName = Image->EntriesBegin[i].name;
-      DP("Kernel %" PRIu32 ": Entry = " DPxMOD ", Name = %s, NumArgs = %"
-         PRIu32 ", Handle = " DPxMOD "\n", i, DPxPTR(entryAddr), entryName,
-         kernelProperties.numKernelArgs, DPxPTR(kernels[i]));
-    }
-#if 0
-    // Enable this with 0.95.55 Level Zero.
-    DeviceInfo->KernelProperties[DeviceId][kernels[i]].MaxThreadGroupSize =
-        kernelProperties.maxSubgroupSize * kernelProperties.maxNumSubgroups;
-#else
-    DeviceInfo->KernelProperties[DeviceId][kernels[i]].MaxThreadGroupSize =
-        (std::numeric_limits<uint32_t>::max)();
-#endif
-    // TODO: show kernel information
-  }
-
-  if (DeviceInfo->initProgramData(DeviceId) != OFFLOAD_SUCCESS)
+  RC = Program.linkModules();
+  if (RC != OFFLOAD_SUCCESS)
     return nullptr;
-  __tgt_target_table &table = FuncGblEntries.Table;
-  table.EntriesBegin = &(entries.data()[0]);
-  table.EntriesEnd = &(entries.data()[entries.size()]);
 
+  RC = Program.buildKernels();
+  if (RC != OFFLOAD_SUCCESS)
+    return nullptr;
+
+  RC = Program.initProgramData();
+  if (RC != OFFLOAD_SUCCESS)
+    return nullptr;
+
+  auto *Table = Program.getTablePtr();
+
+  // Handle subdevice clause
   if ((uint32_t)DeviceId < DeviceInfo->NumRootDevices) {
-    for (auto &subIdList : DeviceInfo->SubDeviceIds[DeviceId])
-      for (auto subId : subIdList)
+    for (auto &SubIdList : DeviceInfo->SubDeviceIds[DeviceId])
+      for (auto SubId : SubIdList)
         // Use root module while copying kernel properties from root.
-        DeviceInfo->KernelProperties[subId] =
+        DeviceInfo->KernelProperties[SubId] =
             DeviceInfo->KernelProperties[DeviceId];
   }
 
@@ -4528,12 +3933,12 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
                 "" /* filename */,
                 -1 /* offset_in_file */,
                 nullptr /* vma_in_file */,
-                table.EntriesEnd - table.EntriesBegin /* bytes */,
-                table.EntriesBegin /* host_addr */,
+                Table->EntriesEnd - Table->EntriesBegin /* bytes */,
+                Table->EntriesBegin /* host_addr */,
                 nullptr /* device_addr */,
                 0 /* module_id */);
 
-  return &table;
+  return Table;
 }
 
 void *RTLDeviceInfoTy::allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
@@ -6146,14 +5551,16 @@ EXTERN int32_t __tgt_rtl_set_function_ptr_map(
     return OFFLOAD_SUCCESS;
 
   ScopedTimerTy Timer(DeviceId, "Function pointers init");
-  void *DeviceMapSizeVarAddr = DeviceInfo->getVarDeviceAddr(
-      DeviceId, "__omp_offloading_fptr_map_size", sizeof(uint64_t));
+  // FIXME: What happens if we have multiple programs?
+  auto &Program = DeviceInfo->Programs[DeviceId].back();
+  void *DeviceMapSizeVarAddr = Program.getVarDeviceAddr(
+      "__omp_offloading_fptr_map_size", sizeof(uint64_t));
 
   // getVarDeviceAddr() will return the device pointer size
   // in DeviceMapPtrVarSize.
   size_t DeviceMapPtrVarSize = 0;
-  void *DeviceMapPtrVarAddr = DeviceInfo->getVarDeviceAddr(
-      DeviceId, "__omp_offloading_fptr_map_p", &DeviceMapPtrVarSize);
+  void *DeviceMapPtrVarAddr = Program.getVarDeviceAddr(
+      "__omp_offloading_fptr_map_p", &DeviceMapPtrVarSize);
   if (!DeviceMapSizeVarAddr || !DeviceMapPtrVarAddr)
     return OFFLOAD_FAIL;
 
@@ -6249,54 +5656,381 @@ EXTERN void __tgt_rtl_free_per_hw_thread_scratch(int32_t DeviceId, void *Ptr) {
   DeviceInfo->dataDelete(DeviceId, Ptr);
 }
 
-void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(
-    int32_t DeviceId, const char *Name, size_t Size) {
-  DP("Looking up OpenMP global variable '%s' of size %zu bytes on device %d.\n",
-     Name, Size, DeviceId);
-
-  const std::vector<DeviceOffloadEntryTy> *OffloadTable = nullptr;
-
-  if (!OffloadTables[DeviceId].empty())
-    OffloadTable = &OffloadTables[DeviceId].back();
-
-  if (OffloadTable && !OffloadTable->empty()) {
-    size_t NameSize = strlen(Name) + 1;
-    auto I = std::lower_bound(
-        OffloadTable->begin(), OffloadTable->end(), Name,
-        [NameSize](const DeviceOffloadEntryTy &E, const char *Name) {
-          return strncmp(E.Base.name, Name, NameSize) < 0;
-        });
-
-    if (I != OffloadTable->end() &&
-        strncmp(I->Base.name, Name, NameSize) == 0) {
-      DP("Global variable '%s' found in the offload table at position %zu.\n",
-         Name, std::distance(OffloadTable->begin(), I));
-      return I->Base.addr;
-    }
-
-    DP("Warning: global variable '%s' was not found in the offload table.\n",
-       Name);
-  } else
-    DP("Warning: offload table is not loaded for device %d.\n", DeviceId);
-
-  // Fallback to the lookup by name.
-  return getVarDeviceAddr(DeviceId, Name, Size);
+bool RTLDeviceInfoTy::isExtensionSupported(const char *ExtName) {
+  for (auto &E : DriverExtensions) {
+    std::string Supported(E.name);
+    if (Supported.find(ExtName) != std::string::npos)
+      return true;
+  }
+  return false;
 }
 
-void *RTLDeviceInfoTy::getVarDeviceAddr(
-    int32_t DeviceId, const char *Name, size_t *SizePtr) {
+LevelZeroProgramTy::~LevelZeroProgramTy() {
+  for (auto Kernel : Kernels) {
+    if (Kernel)
+      CALL_ZE_RET_VOID(zeKernelDestroy, Kernel);
+  }
+  for (auto Module : Modules) {
+    CALL_ZE_RET_VOID(zeModuleDestroy, Module);
+  }
+  // Unload offload entries
+  for (auto &Entry : OffloadEntries)
+    delete[] Entry.Base.name;
+}
+
+int32_t LevelZeroProgramTy::addModule(
+    size_t Size, const uint8_t *Image, const std::string &BuildOptions,
+    ze_module_format_t Format) {
+  ze_module_constants_t SpecConstants =
+      DeviceInfo->Option.CommonSpecConstants.getModuleConstants();
+
+  ze_module_desc_t ModuleDesc{ZE_STRUCTURE_TYPE_MODULE_DESC, nullptr, Format};
+
+  if (DeviceInfo->Option.Flags.LinkLibDevice &&
+      Format == ZE_MODULE_FORMAT_IL_SPIRV && Modules.size() == 0) {
+    // Handle link libdevice option. Do this only for the first moudle build
+
+    // Check if driver is capable of creating module from multiple SPV images.
+    if (!DeviceInfo->isExtensionSupported("ZE_experimental_module_program")) {
+      DP("Error: Module creation from multiple images is not supported\n");
+      return OFFLOAD_FAIL;
+    }
+    std::vector<const char *> LibDeviceNames {
+      "libomp-fallback-cassert.spv",
+      "libomp-fallback-cmath.spv",
+      "libomp-fallback-cmath-fp64.spv",
+      "libomp-fallback-complex.spv",
+      "libomp-fallback-complex-fp64.spv",
+      "libomp-fallback-cstring.spv"
+    };
+
+    uint32_t NumImages = LibDeviceNames.size() + 1;
+    std::vector<std::vector<uint8_t>> LibImages;
+    std::vector<size_t> SPVSizes;
+    std::vector<const uint8_t *> SPVImages;
+    std::vector<const char *> SPVFlags(NumImages, BuildOptions.c_str());
+    std::vector<const ze_module_constants_t *> SPVConstants(NumImages, nullptr);
+
+    // Main program
+    SPVSizes.push_back(Size);
+    SPVImages.push_back(Image);
+    SPVConstants[0] = &SpecConstants;
+
+    // Read Library SPV files
+    for (auto *Name : LibDeviceNames) {
+      LibImages.emplace_back();
+      if (readSPVFile(Name, LibImages.back()) != OFFLOAD_SUCCESS)
+        return OFFLOAD_FAIL;
+      SPVSizes.push_back(LibImages.back().size());
+      SPVImages.push_back(LibImages.back().data());
+    }
+
+    DP("Building module with %" PRIu32 " SPIR-V images\n", NumImages);
+
+    ze_module_program_exp_desc_t ProgramDesc = {
+      ZE_STRUCTURE_TYPE_MODULE_PROGRAM_EXP_DESC,
+      nullptr,
+      NumImages,
+      SPVSizes.data(),
+      SPVImages.data(),
+      SPVFlags.data(),
+      SPVConstants.data()
+    };
+    ModuleDesc.pNext = &ProgramDesc;
+    ModuleDesc.inputSize = 0;
+    ModuleDesc.pInputModule = nullptr;
+    ModuleDesc.pBuildFlags = nullptr;
+    ModuleDesc.pConstants = nullptr;
+  } else {
+    // Build a single module from a single image
+    ModuleDesc.inputSize = Size;
+    ModuleDesc.pInputModule = Image;
+    ModuleDesc.pBuildFlags = BuildOptions.c_str();
+    ModuleDesc.pConstants = &SpecConstants;
+  }
+
+  ze_module_handle_t Module = nullptr;
+  ze_module_build_log_handle_t BuildLog = nullptr;
+  ze_result_t RC;
+  CALL_ZE_RC(RC, zeModuleCreate, Context, Device, &ModuleDesc, &Module,
+             &BuildLog);
+
+  bool BuildFailed = (RC != ZE_RESULT_SUCCESS);
+  bool ShowBuildLog = DeviceInfo->Option.Flags.ShowBuildLog;
+  if (BuildFailed || ShowBuildLog) {
+    if (BuildFailed)
+      DP("Error: module creation failed\n");
+    if (DebugLevel > 0 || ShowBuildLog) {
+      MESSAGE0("Target build log:");
+      size_t LogSize = 0;
+      CALL_ZE_RET_FAIL(zeModuleBuildLogGetString, BuildLog, &LogSize, nullptr);
+      if (LogSize > 1) {
+        std::vector<char> LogString(LogSize);
+        CALL_ZE_RET_FAIL(zeModuleBuildLogGetString, BuildLog, &LogSize,
+                         LogString.data());
+        std::stringstream Str(LogString.data());
+        std::string Line;
+        while (std::getline(Str, Line, '\n'))
+          MESSAGE("  '%s'", Line.c_str());
+      } else {
+        MESSAGE0("  <empty>");
+      }
+    }
+  }
+  CALL_ZE_RET_FAIL(zeModuleBuildLogDestroy, BuildLog);
+
+  if (BuildFailed) {
+    return OFFLOAD_FAIL;
+  } else {
+    // Check if module link is required
+    if (!RequiresModuleLink) {
+      ze_module_properties_t Properties = {
+        ZE_STRUCTURE_TYPE_MODULE_PROPERTIES, nullptr, 0
+      };
+      CALL_ZE_RET_FAIL(zeModuleGetProperties, Module, &Properties);
+      RequiresModuleLink = Properties.flags & ZE_MODULE_PROPERTY_FLAG_IMPORTS;
+    }
+    // For now, assume the first module contains libraries, globals.
+    if (Modules.empty())
+      GlobalModule = Module;
+    Modules.push_back(Module);
+    return OFFLOAD_SUCCESS;
+  }
+}
+
+int32_t LevelZeroProgramTy::linkModules() {
+  ScopedTimerTy MoudleLinkTimer(DeviceId, "Linking");
+
+  if (!RequiresModuleLink) {
+    DP("Module link is not required\n");
+    return OFFLOAD_SUCCESS;
+  }
+
+  if (Modules.empty()) {
+    DP("Invalid number of modules when linking modules\n");
+    return OFFLOAD_FAIL;
+  }
+
+  ze_result_t RC;
+  ze_module_build_log_handle_t LinkLog = nullptr;
+  CALL_ZE_RC(RC, zeModuleDynamicLink, (uint32_t)Modules.size(), Modules.data(),
+             &LinkLog);
+  bool LinkFailed = (RC != ZE_RESULT_SUCCESS);
+  bool ShowBuildLog = DeviceInfo->Option.Flags.ShowBuildLog;
+
+  if (LinkFailed || ShowBuildLog) {
+    if (LinkFailed)
+      DP("Error: module link failed\n");
+    if (DebugLevel > 0 || ShowBuildLog) {
+      MESSAGE0("Target link log:");
+      size_t LogSize = 0;
+      CALL_ZE_RET_FAIL(zeModuleBuildLogGetString, LinkLog, &LogSize, nullptr);
+      if (LogSize > 1) {
+        std::vector<char> LogString(LogSize);
+        CALL_ZE_RET_FAIL(zeModuleBuildLogGetString, LinkLog, &LogSize,
+                         LogString.data());
+        std::stringstream Str(LogString.data());
+        std::string Line;
+        while (std::getline(Str, Line, '\n'))
+          MESSAGE("  '%s'", Line.c_str());
+      } else {
+        MESSAGE0("  <empty>");
+      }
+    }
+  }
+  CALL_ZE_RET_FAIL(zeModuleBuildLogDestroy, LinkLog);
+
+  if (LinkFailed)
+    return OFFLOAD_FAIL;
+  else
+    return OFFLOAD_SUCCESS;
+}
+
+int32_t LevelZeroProgramTy::buildModules(std::string &BuildOptions) {
+  ScopedTimerTy ModuleBuildTimer(DeviceId, "Compiling");
+  uint64_t MajorVer, MinorVer;
+  if (!isValidOneOmpImage(Image, MajorVer, MinorVer)) {
+    // Handle legacy plain SPIR-V image.
+    uint8_t *ImgBegin = reinterpret_cast<uint8_t *>(Image->ImageStart);
+    uint8_t *ImgEnd = reinterpret_cast<uint8_t *>(Image->ImageEnd);
+    size_t ImgSize = ImgEnd - ImgBegin;
+    dumpImageToFile(ImgBegin, ImgSize, "OpenMP");
+    return addModule(ImgSize, ImgBegin, BuildOptions,
+                     ZE_MODULE_FORMAT_IL_SPIRV);
+  }
+
+  // Iterate over the images and pick the first one that fits.
+  char *ImgBegin = reinterpret_cast<char *>(Image->ImageStart);
+  char *ImgEnd = reinterpret_cast<char *>(Image->ImageEnd);
+  size_t ImgSize = ImgEnd - ImgBegin;
+  ElfL E(ImgBegin, ImgSize);
+  assert(E.isValidElf() &&
+         "isValidOneOmpImage() returns true for invalid ELF image.");
+  assert(MajorVer == 1 && MinorVer == 0 &&
+         "FIXME: update image processing for new oneAPI OpenMP version.");
+  // Collect auxiliary information.
+  uint64_t ImageCount = 0;
+  uint64_t MaxImageIdx = 0;
+  struct V1ImageInfo {
+    // 0 - native, 1 - SPIR-V
+    uint64_t Format =  (std::numeric_limits<uint64_t>::max)();
+    std::string CompileOpts;
+    std::string LinkOpts;
+    const uint8_t *Begin;
+    uint64_t Size;
+
+    V1ImageInfo(uint64_t Format, std::string CompileOpts,
+                std::string LinkOpts, const uint8_t *Begin, uint64_t Size)
+      : Format(Format), CompileOpts(CompileOpts),
+        LinkOpts(LinkOpts), Begin(Begin), Size(Size) {}
+  };
+
+  std::unordered_map<uint64_t, V1ImageInfo> AuxInfo;
+
+  for (auto I = E.section_notes_begin(), IE = E.section_notes_end(); I != IE;
+       ++I) {
+    ElfLNote Note = *I;
+    if (Note.getNameSize() == 0)
+      continue;
+    std::string NameStr(Note.getName(), Note.getNameSize());
+    if (NameStr != "INTELONEOMPOFFLOAD")
+      continue;
+    uint64_t Type = Note.getType();
+    std::string DescStr(reinterpret_cast<const char *>(Note.getDesc()),
+                        Note.getDescSize());
+    switch (Type) {
+    default:
+      DP("Warning: unrecognized INTELONEOMPOFFLOAD note.\n");
+      break;
+    case NT_INTEL_ONEOMP_OFFLOAD_VERSION:
+      break;
+    case NT_INTEL_ONEOMP_OFFLOAD_IMAGE_COUNT:
+      ImageCount = std::stoull(DescStr);
+      break;
+    case NT_INTEL_ONEOMP_OFFLOAD_IMAGE_AUX: {
+      std::vector<std::string> Parts;
+      do {
+        auto DelimPos = DescStr.find('\0');
+        if (DelimPos == std::string::npos) {
+          Parts.push_back(DescStr);
+          break;
+        }
+        Parts.push_back(DescStr.substr(0, DelimPos));
+        DescStr.erase(0, DelimPos + 1);
+      } while (Parts.size() < 4);
+
+      // Ignore records with less than 4 strings.
+      if (Parts.size() != 4) {
+        DP("Warning: short NT_INTEL_ONEOMP_OFFLOAD_IMAGE_AUX "
+           "record is ignored.\n");
+        continue;
+      }
+
+      uint64_t Idx = std::stoull(Parts[0]);
+      MaxImageIdx = (std::max)(MaxImageIdx, Idx);
+      if (AuxInfo.find(Idx) != AuxInfo.end()) {
+        DP("Warning: duplicate auxiliary information for image %" PRIu64
+           " is ignored.\n", Idx);
+        continue;
+      }
+      AuxInfo.emplace(std::piecewise_construct,
+                      std::forward_as_tuple(Idx),
+                      std::forward_as_tuple(std::stoull(Parts[1]),
+                                            Parts[2], Parts[3],
+                                            // Image pointer and size
+                                            // will be initialized later.
+                                            nullptr, 0));
+    }
+    }
+  }
+
+  if (MaxImageIdx >= ImageCount)
+    DP("Warning: invalid image index found in auxiliary information.\n");
+
+  for (auto I = E.sections_begin(), IE = E.sections_end(); I != IE; ++I) {
+    const char *Prefix = "__openmp_offload_spirv_";
+    std::string SectionName((*I).getName() ? (*I).getName() : "");
+    if (SectionName.find(Prefix) != 0)
+      continue;
+    SectionName.erase(0, std::strlen(Prefix));
+    uint64_t Idx = std::stoull(SectionName);
+    if (Idx >= ImageCount) {
+      DP("Warning: ignoring image section (index %" PRIu64
+         " is out of range).\n", Idx);
+      continue;
+    }
+
+    auto AuxInfoIt = AuxInfo.find(Idx);
+    if (AuxInfoIt == AuxInfo.end()) {
+      DP("Warning: ignoring image section (no aux info).\n");
+      continue;
+    }
+
+    AuxInfoIt->second.Begin = (*I).getContents();
+    AuxInfoIt->second.Size = (*I).getSize();
+  }
+
+  for (uint64_t Idx = 0; Idx < ImageCount; ++Idx) {
+    auto It = AuxInfo.find(Idx);
+    if (It == AuxInfo.end()) {
+      DP("Warning: image %" PRIu64
+         " without auxiliary information is ingored.\n", Idx);
+      continue;
+    }
+
+    const unsigned char *ImgBegin =
+        reinterpret_cast<const unsigned char *>(It->second.Begin);
+    size_t ImgSize = It->second.Size;
+    dumpImageToFile(ImgBegin, ImgSize, "OpenMP");
+    int32_t RC = OFFLOAD_FAIL;
+    bool IsBinary = false;
+    std::string Options = BuildOptions;
+    if (DeviceInfo->Option.Flags.UseImageOptions)
+      Options += " " + It->second.CompileOpts + " " + It->second.LinkOpts;
+
+    if (It->second.Format == 0) {
+      // Native format.
+      IsBinary = true;
+      RC = addModule(ImgSize, ImgBegin, Options, ZE_MODULE_FORMAT_NATIVE);
+    } else if (It->second.Format == 1) {
+      // SPIR-V format.
+      RC = addModule(ImgSize, ImgBegin, Options, ZE_MODULE_FORMAT_IL_SPIRV);
+    } else {
+      DP("Warning: image %" PRIu64 "is ignored due to unknown format.\n", Idx);
+      continue;
+    }
+
+    if (RC != OFFLOAD_SUCCESS) {
+      DP("Warning: failed to create program from %s (%" PRIu64 ").\n",
+         IsBinary ? "binary" : "SPIR-V", Idx);
+      continue;
+    }
+
+    DP("Created module from image #%" PRIu64 ".\n", Idx);
+    BuildOptions = Options;
+    return RC;
+  }
+
+  return OFFLOAD_FAIL;
+}
+
+void *LevelZeroProgramTy::getVarDeviceAddr(const char *Name, size_t *SizePtr) {
+  if (!Name || !SizePtr)
+    return nullptr;
+
   void *TgtAddr = nullptr;
   size_t TgtSize = 0;
   size_t Size = *SizePtr;
   bool SizeIsKnown = (Size != 0);
-  if (SizeIsKnown)
+
+  if (SizeIsKnown) {
     DP("Looking up device global variable '%s' of size %zu bytes "
        "on device %d.\n", Name, Size, DeviceId);
-  else
+  } else {
     DP("Looking up device global variable '%s' of unknown size "
        "on device %d.\n", Name, DeviceId);
-  CALL_ZE_RET_NULL(zeModuleGetGlobalPointer,
-                   FuncGblEntries[DeviceId].back().Modules[0], Name, &TgtSize,
+  }
+  CALL_ZE_RET_NULL(zeModuleGetGlobalPointer, GlobalModule, Name, &TgtSize,
                    &TgtAddr);
 
   if (Size != TgtSize && SizeIsKnown) {
@@ -6314,15 +6048,45 @@ void *RTLDeviceInfoTy::getVarDeviceAddr(
   return TgtAddr;
 }
 
-void *RTLDeviceInfoTy::getVarDeviceAddr(
-    int32_t DeviceId, const char *Name, size_t Size) {
-  return getVarDeviceAddr(DeviceId, Name, &Size);
+void *LevelZeroProgramTy::getVarDeviceAddr(const char *Name, size_t Size) {
+  return getVarDeviceAddr(Name, &Size);
 }
 
-bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
+void *LevelZeroProgramTy::getOffloadVarDeviceAddr(
+    const char *Name, size_t Size) {
+  DP("Looking up OpenMP global variable '%s' of size %zu bytes.\n", Name, Size);
+
+  if (!OffloadEntries.empty()) {
+    size_t NameSize = strlen(Name) + 1;
+    auto I = std::lower_bound(
+        OffloadEntries.begin(), OffloadEntries.end(), Name,
+        [NameSize](const DeviceOffloadEntryTy &E, const char *Name) {
+          return strncmp(E.Base.name, Name, NameSize) < 0;
+        });
+
+    if (I != OffloadEntries.end() &&
+        strncmp(I->Base.name, Name, NameSize) == 0) {
+      DP("Global variable '%s' found in the offload table at position %zu.\n",
+         Name, std::distance(OffloadEntries.begin(), I));
+      return I->Base.addr;
+    }
+
+    DP("Warning: global variable '%s' was not found in the offload table.\n",
+       Name);
+  } else {
+    DP("Warning: offload table is not loaded for device %d.\n", DeviceId);
+  }
+
+  // Fallback to the lookup by name.
+  return getVarDeviceAddr(Name, Size);
+}
+
+bool LevelZeroProgramTy::loadOffloadTable(size_t NumEntries) {
+  ScopedTimerTy OffloadTableInitTimer(DeviceId, "OffloadEntriesInit");
+
   const char *OffloadTableSizeVarName = "__omp_offloading_entries_table_size";
   void *OffloadTableSizeVarAddr =
-      getVarDeviceAddr(DeviceId, OffloadTableSizeVarName, sizeof(int64_t));
+      getVarDeviceAddr(OffloadTableSizeVarName, sizeof(int64_t));
 
   if (!OffloadTableSizeVarAddr) {
     DP("Warning: cannot get device value for global variable '%s'.\n",
@@ -6331,10 +6095,11 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
   }
 
   int64_t TableSizeVal = 0;
-  auto rc = enqueueMemCopy(DeviceId, &TableSizeVal, OffloadTableSizeVarAddr,
-                           sizeof(int64_t));
-  if (rc != OFFLOAD_SUCCESS)
+  auto RC = DeviceInfo->enqueueMemCopy(
+      DeviceId, &TableSizeVal, OffloadTableSizeVarAddr, sizeof(int64_t));
+  if (RC != OFFLOAD_SUCCESS)
     return false;
+
   size_t TableSize = (size_t)TableSizeVal;
 
   if ((TableSize % sizeof(DeviceOffloadEntryTy)) != 0) {
@@ -6352,19 +6117,17 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
 
   const char *OffloadTableVarName = "__omp_offloading_entries_table";
   void *OffloadTableVarAddr =
-      getVarDeviceAddr(DeviceId, OffloadTableVarName, TableSize);
+      getVarDeviceAddr(OffloadTableVarName, TableSize);
   if (!OffloadTableVarAddr) {
     DP("Warning: cannot get device value for global variable '%s'.\n",
        OffloadTableVarName);
     return false;
   }
 
-  OffloadTables[DeviceId].emplace_back();
-  auto &DeviceTable = OffloadTables[DeviceId].back();
-  DeviceTable.resize(DeviceNumEntries);
-  rc = enqueueMemCopy(DeviceId, DeviceTable.data(),
-                      OffloadTableVarAddr, TableSize);
-  if (rc != OFFLOAD_SUCCESS)
+  OffloadEntries.resize(DeviceNumEntries);
+  RC = DeviceInfo->enqueueMemCopy(DeviceId, OffloadEntries.data(),
+                                  OffloadTableVarAddr, TableSize);
+  if (RC != OFFLOAD_SUCCESS)
     return false;
 
   size_t I = 0;
@@ -6372,7 +6135,7 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
   bool PreviousIsVar = false;
 
   for (; I < DeviceNumEntries; ++I) {
-    DeviceOffloadEntryTy &Entry = DeviceTable[I];
+    DeviceOffloadEntryTy &Entry = OffloadEntries[I];
     size_t NameSize = Entry.NameSize;
     void *NameTgtAddr = Entry.Base.name;
     Entry.Base.name = nullptr;
@@ -6387,8 +6150,9 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
     }
 
     Entry.Base.name = new char[NameSize];
-    rc = enqueueMemCopy(DeviceId, Entry.Base.name, NameTgtAddr, NameSize);
-    if (rc != OFFLOAD_SUCCESS)
+    RC = DeviceInfo->enqueueMemCopy(DeviceId, Entry.Base.name, NameTgtAddr,
+                                    NameSize);
+    if (RC != OFFLOAD_SUCCESS)
       break;
 
     if (strnlen(Entry.Base.name, NameSize) != NameSize - 1) {
@@ -6417,38 +6181,304 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
     // Errors during the table processing.
     // Deallocate all memory allocated in the loop.
     for (size_t J = 0; J <= I; ++J) {
-      DeviceOffloadEntryTy &Entry = DeviceTable[J];
+      DeviceOffloadEntryTy &Entry = OffloadEntries[J];
       if (Entry.Base.name)
         delete[] Entry.Base.name;
     }
 
-    DeviceTable.clear();
+    OffloadEntries.clear();
     return false;
   }
 
   if (DebugLevel > 0) {
     DP("Device offload table loaded:\n");
     for (size_t I = 0; I < DeviceNumEntries; ++I)
-      DP("\t%zu:\t%s\n", I, DeviceTable[I].Base.name);
+      DP("\t%zu:\t%s\n", I, OffloadEntries[I].Base.name);
   }
 
   return true;
 }
 
-void RTLDeviceInfoTy::unloadOffloadTable(int32_t DeviceId) {
-  for (auto &T : OffloadTables[DeviceId])
-    for (auto &E : T)
-      delete[] E.Base.name;
+bool LevelZeroProgramTy::readKernelInfo(
+    const __tgt_offload_entry &KernelEntry) {
+  const ze_kernel_handle_t *KernelPtr =
+      reinterpret_cast<const ze_kernel_handle_t *>(KernelEntry.addr);
+  const char *Name = KernelEntry.name;
+  std::string InfoVarName(Name);
+  InfoVarName += "_kernel_info";
+  size_t InfoVarSize = 0;
+  void *InfoVarAddr = getVarDeviceAddr(InfoVarName.c_str(), &InfoVarSize);
+  // If there is no kernel info variable, then the kernel might have been
+  // produced by older toolchain - this is acceptable, so return success.
+  if (!InfoVarAddr)
+    return true;
+  if (InfoVarSize == 0) {
+    DP("Error: kernel info variable cannot have 0 size.\n");
+    return false;
+  }
+  std::vector<char> InfoBuffer;
+  InfoBuffer.resize(InfoVarSize);
+  auto RC = DeviceInfo->enqueueMemCopy(DeviceId, InfoBuffer.data(), InfoVarAddr,
+                                       InfoVarSize);
+  if (RC != OFFLOAD_SUCCESS)
+    return false;
+  // TODO: add support for big-endian devices, if needed.
+  //       Currently supported devices are little-endian.
+  char *ReadPtr = InfoBuffer.data();
+  uint32_t Version = llvm::support::endian::read32le(ReadPtr);
+  if (Version == 0) {
+    DP("Error: version 0 of kernel info structure is illegal.\n");
+    return false;
+  }
+  if (Version > 4) {
+    DP("Error: unsupported version (%" PRIu32 ") of kernel info structure.\n",
+       Version);
+    DP("Error: please use newer OpenMP offload runtime.\n");
+    return false;
+  }
+  ReadPtr += 4;
+  uint32_t KernelArgsNum = llvm::support::endian::read32le(ReadPtr);
+  size_t ExpectedInfoVarSize = static_cast<size_t>(KernelArgsNum) * 8 + 8;
+  // Support Attributes1 since version 2.
+  if (Version > 1)
+    ExpectedInfoVarSize += 8;
+  // Support WGNum since version 3.
+  if (Version > 2)
+    ExpectedInfoVarSize += 8;
+  if (Version > 3)
+    ExpectedInfoVarSize += 8;
+  if (InfoVarSize != ExpectedInfoVarSize) {
+    DP("Error: expected kernel info variable size %zu - got %zu\n",
+       ExpectedInfoVarSize, InfoVarSize);
+    return false;
+  }
+  KernelInfoTy Info(Version);
+  ReadPtr += 4;
+  for (uint64_t I = 0; I < KernelArgsNum; ++I) {
+    bool ArgIsLiteral = (llvm::support::endian::read32le(ReadPtr) != 0);
+    ReadPtr += 4;
+    uint32_t ArgSize = llvm::support::endian::read32le(ReadPtr);
+    ReadPtr += 4;
+    Info.addArgInfo(ArgIsLiteral, ArgSize);
+  }
 
-  OffloadTables[DeviceId].clear();
+  if (Version > 1) {
+    // Read 8-byte Attributes1 since version 2.
+    uint64_t Attributes1 = llvm::support::endian::read64le(ReadPtr);
+    Info.setAttributes1(Attributes1);
+    ReadPtr += 8;
+  }
+
+  if (Version > 2) {
+    // Read 8-byte WGNum since version 3.
+    uint32_t WGNum = llvm::support::endian::read64le(ReadPtr);
+    Info.setWGNum(WGNum);
+    ReadPtr += 8;
+  }
+
+  if (Version > 3) {
+    // Read 8-byte WGNum since version 3.
+    uint32_t WINum = llvm::support::endian::read64le(ReadPtr);
+    Info.setWINum(WINum);
+    ReadPtr += 8;
+  }
+
+  KernelInfo.emplace(std::make_pair(*KernelPtr, std::move(Info)));
+  return true;
 }
 
-bool RTLDeviceInfoTy::isExtensionSupported(const char *ExtName) {
-  for (auto &E : DriverExtensions) {
-    std::string Supported(E.name);
-    if (Supported.find(ExtName) != std::string::npos)
-      return true;
+const KernelInfoTy *LevelZeroProgramTy::getKernelInfo(
+    const ze_kernel_handle_t Kernel) const {
+  auto I = KernelInfo.find(Kernel);
+  if (I != KernelInfo.end())
+    return &(I->second);
+  else
+    return nullptr;
+}
+
+int32_t LevelZeroProgramTy::buildKernels() {
+  size_t NumEntries = (size_t)(Image->EntriesEnd - Image->EntriesBegin);
+
+  Entries.resize(NumEntries);
+  Kernels.resize(NumEntries);
+
+  auto EnableTargetGlobals = DeviceInfo->Option.Flags.EnableTargetGlobals;
+  if (EnableTargetGlobals &&
+      DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_XeLP &&
+      !loadOffloadTable(NumEntries)) {
+    DP("Warning: could not load offload table.\n");
   }
-  return false;
+
+  // We need to build kernels here before filling the offload entries since we
+  // don't know which module contains a specific kernel with a name.
+  std::unordered_map<std::string, ze_kernel_handle_t> ModuleKernels;
+  for (auto Module : Modules) {
+    uint32_t Count = 0;
+    CALL_ZE_RET_FAIL(zeModuleGetKernelNames, Module, &Count, nullptr);
+    if (Count == 0)
+      continue;
+
+    std::vector<const char *> Names(Count);
+    CALL_ZE_RET_FAIL(zeModuleGetKernelNames, Module, &Count, Names.data());
+
+    ze_kernel_desc_t KernelDesc = {ZE_STRUCTURE_TYPE_KERNEL_DESC, nullptr, 0};
+    for (auto *Name : Names) {
+      KernelDesc.pKernelName = Name;
+      ze_kernel_handle_t Kernel = nullptr;
+      CALL_ZE_RET_FAIL(zeKernelCreate, Module, &KernelDesc, &Kernel);
+      ModuleKernels.emplace(Name, Kernel);
+    }
+  }
+
+  for (auto I = 0; I < NumEntries; I++) {
+    auto Size = Image->EntriesBegin[I].size;
+    auto *Name = Image->EntriesBegin[I].name;
+
+    if (Size != 0) {
+      // Entry is a global variable
+      auto HstAddr = Image->EntriesBegin[I].addr;
+      void *TgtAddr = nullptr;
+
+      if (EnableTargetGlobals)
+        TgtAddr = getOffloadVarDeviceAddr(Name, Size);
+
+      if (!TgtAddr) {
+        TgtAddr = allocDataExplicit(DeviceId, Size,
+                                    DeviceInfo->AllocKinds[DeviceId]);
+        __tgt_rtl_data_submit(DeviceId, TgtAddr, HstAddr, Size);
+        std::unique_lock<std::mutex> Lock(DeviceInfo->DataMutexes[DeviceId]);
+        DeviceInfo->OwnedMemory[DeviceId].push_back(TgtAddr);
+        DP("Warning: global variable '%s' allocated. "
+           "Direct references will not work properly.\n", Name);
+      }
+
+      DP("Global variable mapped: Name = %s, Size = %zu, "
+         "HostPtr = " DPxMOD ", TgtPtr = " DPxMOD "\n",
+         Name, Size, DPxPTR(HstAddr), DPxPTR(TgtAddr));
+      Entries[I].addr = TgtAddr;
+      Entries[I].name = Name;
+      Entries[I].size = Size;
+      Kernels[I] = nullptr;
+      continue;
+    }
+
+    // Entry is a kernel
+#if _WIN32
+    // FIXME: temporary allow zero padding bytes in the entries table
+    //        added by MSVC linker (e.g. for incremental linking).
+    if (!Name) {
+      // Initialize the members to be on the safe side.
+      DP("Warning: Entry with a nullptr name!!!\n");
+      Entries[I].addr = nullptr;
+      Entries[I].name = nullptr;
+      continue;
+    }
+#endif
+
+    Entries[I].addr = &Kernels[I];
+    Entries[I].name = Name;
+
+    auto K = ModuleKernels.find(std::string(Name));
+    if (K == ModuleKernels.end()) {
+      // If a kernel was deleted by optimizations (e.g. DCE), then
+      // zeCreateKernel will fail. We expect that such a kernel
+      // will never be actually invoked.
+      DP("Warning: cannot find kernel %s\n", Name);
+      Kernels[I] = nullptr;
+      continue;
+    } else {
+      Kernels[I] = K->second;
+    }
+
+    // Retrieve kernel info generated by compiler
+    if (!readKernelInfo(Entries[I])) {
+      DP("Error: failed to read kernel info for kernel %s\n", Name);
+      return OFFLOAD_FAIL;
+    }
+
+    // Retrieve kernel properties
+    auto &KernelProperties = DeviceInfo->KernelProperties[DeviceId][Kernels[I]];
+    KernelProperties.Name = Name;
+    ze_kernel_properties_t KP = KernelPropertiesInit;
+    CALL_ZE_RET_FAIL(zeKernelGetProperties, Kernels[I], &KP);
+    if (DeviceInfo->Option.ForcedKernelWidth > 0) {
+      KernelProperties.Width = DeviceInfo->Option.ForcedKernelWidth;
+    } else {
+      KernelProperties.Width = KP.maxSubgroupSize;
+      KernelProperties.SIMDWidth = KP.maxSubgroupSize;
+      // Temporary workaround before ze_kernel_preferred_group_size_properties_t
+      // becomes available with L0 1.2.
+      // Here we try to match OpenCL kernel property
+      // CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE.
+      if (DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_Gen9)
+        KernelProperties.Width *= 2;
+    }
+    DP("Kernel %" PRIu32 ": Entry = " DPxMOD ", Name = %s, "
+       "NumArgs = %" PRIu32 ", Handle = " DPxMOD "\n", I,
+       DPxPTR(Image->EntriesBegin[I].addr), Image->EntriesBegin[I].name,
+       KP.numKernelArgs, DPxPTR(Kernels[I]));
+#if 0
+    // Enable this with 0.95.55 Level Zero.
+    KernelProperties.MaxThreadGroupSize =
+        kernelProperties.maxSubgroupSize * kernelProperties.maxNumSubgroups;
+#else
+    KernelProperties.MaxThreadGroupSize =
+        (std::numeric_limits<uint32_t>::max)();
+#endif
+  }
+
+  Table.EntriesBegin = &(Entries.data()[0]);
+  Table.EntriesEnd = &(Entries.data()[Entries.size()]);
+
+  return OFFLOAD_SUCCESS;
+}
+
+int32_t LevelZeroProgramTy::initProgramData() {
+  // Look up program data location on device
+  PGMDataPtr = getVarDeviceAddr("__omp_spirv_program_data", sizeof(PGMData));
+  if (!PGMDataPtr) {
+    DP("Warning: cannot find program data location on device.\n");
+    return OFFLOAD_SUCCESS;
+  }
+
+  // Prepare host data to copy
+  auto &P = DeviceInfo->DeviceProperties[DeviceId];
+  uint32_t TotalEUs =
+      P.numSlices * P.numSubslicesPerSlice * P.numEUsPerSubslice;
+
+  // Allocate dynamic memory for in-kernel allocation
+  void *MemLB = 0;
+  uintptr_t MemUB = 0;
+  size_t MemSize = DeviceInfo->Option.KernelDynamicMemorySize;
+  if (MemSize > 0)
+    MemLB = allocDataExplicit(Device, MemSize, TARGET_ALLOC_DEVICE);
+
+  if (MemLB) {
+    DeviceInfo->OwnedMemory[DeviceId].push_back(MemLB);
+    MemUB = (uintptr_t)MemLB + MemSize;
+  }
+
+  PGMData = {
+    1,                   // Initialized
+    (int32_t)DeviceInfo->NumRootDevices,
+                         // Number of OpenMP devices
+    DeviceId,            // Device ID
+    TotalEUs,            // Total EUs
+    P.numThreadsPerEU,   // HW threads per EU
+    (uintptr_t)MemLB,    // Dynamic memory LB
+    MemUB,               // Dynamic memory UB
+    0                    // Device type (0 for GPU, 1 for CPU)
+  };
+
+  return DeviceInfo->enqueueMemCopy(DeviceId, PGMDataPtr, &PGMData,
+                                    sizeof(PGMData));
+}
+
+int32_t LevelZeroProgramTy::resetProgramData() {
+  if (!PGMDataPtr)
+    return OFFLOAD_SUCCESS;
+
+  return DeviceInfo->enqueueMemCopy(DeviceId, PGMDataPtr, &PGMData,
+                                    sizeof(PGMData), true /* Locked */);
 }
 #endif // INTEL_CUSTOMIZATION
