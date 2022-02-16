@@ -98,7 +98,6 @@ using namespace llvm;
 STATISTIC(NumArgumentsPromoted, "Number of pointer arguments promoted");
 STATISTIC(NumByValArgsPromoted, "Number of byval arguments promoted");
 STATISTIC(NumArgumentsDead, "Number of dead pointer args eliminated");
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Force removal of homed arguments. Primarily intended for LIT tests.
 // Would not normally be enabled.
@@ -106,9 +105,6 @@ static cl::opt<bool>
   ForceRemoveHomedArguments("argpro-force-remove-homed-arguments",
     cl::init(false), cl::ReallyHidden);
 #endif // INTEL_CUSTOMIZATION
-/// A vector used to hold the indices of a single GEP instruction
-using IndicesVector = std::vector<uint64_t>;
-=======
 
 struct ArgPart {
   Type *Ty;
@@ -165,27 +161,18 @@ static Value *createByteGEP(IRBuilderBase &IRB, const DataLayout &DL,
   }
   return IRB.CreateBitCast(Ptr, ResElemTy->getPointerTo(AddrSpace));
 }
->>>>>>> 68c1eeb4bad18753dbaa053a6c919c8f1a23fb9c
 
 /// DoPromotion - This method actually performs the promotion of the specified
 /// arguments, and returns the new function.  At this point, we know that it's
 /// safe to do so.
-<<<<<<< HEAD
-static Function *
-doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
-            SmallPtrSetImpl<Argument *> &ByValArgsToTransform,
-            bool isCallback, // INTEL
-            Optional<function_ref<void(CallBase &OldCS, CallBase &NewCS)>>
-                ReplaceCallSite) {
-  getInlineReport()->initFunctionClosure(F); // INTEL
-=======
 static Function *doPromotion(
     Function *F,
     const DenseMap<Argument *, SmallVector<OffsetAndArgPart, 4>> &ArgsToPromote,
     SmallPtrSetImpl<Argument *> &ByValArgsToTransform,
+    bool isCallback, // INTEL
     Optional<function_ref<void(CallBase &OldCS, CallBase &NewCS)>>
         ReplaceCallSite) {
->>>>>>> 68c1eeb4bad18753dbaa053a6c919c8f1a23fb9c
+  getInlineReport()->initFunctionClosure(F); // INTEL
   // Start by computing a new prototype for the function, which is the same as
   // the old function, but has modified arguments.
   FunctionType *FTy = F->getFunctionType();
@@ -218,61 +205,14 @@ static Function *doPromotion(
       // Dead argument (which are always marked as promotable)
       ++NumArgumentsDead;
     } else {
-<<<<<<< HEAD
-      // Okay, this is being promoted. This means that the only uses are loads
-      // or GEPs which are only used by loads
-
-      // In this table, we will track which indices are loaded from the argument
-      // (where direct loads are tracked as no indices).
-      ScalarizeTable &ArgIndices = ScalarizedElements[&*I];
-      for (User *U : make_early_inc_range(I->users())) {
-        Instruction *UI = cast<Instruction>(U);
-        Type *SrcTy;
-        if (LoadInst *L = dyn_cast<LoadInst>(UI))
-          SrcTy = L->getType();
-        else
-          SrcTy = cast<GetElementPtrInst>(UI)->getSourceElementType();
-        // Skip dead GEPs and remove them.
-        if (isa<GetElementPtrInst>(UI) && UI->use_empty()) {
-          UI->eraseFromParent();
-          continue;
-        }
-
-        IndicesVector Indices;
-        Indices.reserve(UI->getNumOperands() - 1);
-        // Since loads will only have a single operand, and GEPs only a single
-        // non-index operand, this will record direct loads without any indices,
-        // and gep+loads with the GEP indices.
-        for (const Use &I : llvm::drop_begin(UI->operands()))
-          Indices.push_back(cast<ConstantInt>(I)->getSExtValue());
-        // GEPs with a single 0 index can be merged with direct loads
-        if (Indices.size() == 1 && Indices.front() == 0)
-          Indices.clear();
-        ArgIndices.insert(std::make_pair(SrcTy, Indices));
-        LoadInst *OrigLoad;
-        if (LoadInst *L = dyn_cast<LoadInst>(UI))
-          OrigLoad = L;
-        else
-          // Take any load, we will use it only to update Alias Analysis
-          OrigLoad = cast<LoadInst>(UI->user_back());
-        OriginalLoads[std::make_pair(&*I, Indices)] = OrigLoad;
-      }
-
-      // Add a parameter to the function for each element passed in.
-      for (const auto &ArgIndex : ArgIndices) {
-        // not allowed to dereference ->begin() if size() is 0
+      const auto &ArgParts = ArgsToPromote.find(&*I)->second;
+      for (const auto &Pair : ArgParts) {
 #if INTEL_CUSTOMIZATION
-        Type *ParamTy = GetElementPtrInst::getIndexedType(
-            I->getType()->getPointerElementType(), ArgIndex.second);
+        Type *ParamTy = Pair.second.Ty;
         if (isCallback && !isa<PointerType>(ParamTy))
           ParamTy = DL.getIntPtrType(I->getType());
         Params.push_back(ParamTy);
 #endif // INTEL_CUSTOMIZATION
-=======
-      const auto &ArgParts = ArgsToPromote.find(&*I)->second;
-      for (const auto &Pair : ArgParts) {
-        Params.push_back(Pair.second.Ty);
->>>>>>> 68c1eeb4bad18753dbaa053a6c919c8f1a23fb9c
         ArgAttrVec.push_back(AttributeSet());
       }
       ++NumArgumentsPromoted;
@@ -415,27 +355,7 @@ static Function *doPromotion(
             // TODO: Transfer other metadata like !nonnull here.
             LI->setAAMetadata(Pair.second.MustExecLoad->getAAMetadata());
           }
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-          // For callback call sites type of the actual argument may differ
-          // from the formal, so add a type cast if necessary.
-          if (ACS.isCallbackCall() &&
-              OrigLoad->getPointerOperandType() != V->getType())
-            V = IRB.CreatePointerCast(V, OrigLoad->getPointerOperandType(),
-                                      V->getName() + ".cst");
-#endif // INTEL_CUSTOMIZATION
-          // Since we're replacing a load make sure we take the alignment
-          // of the previous load.
-          LoadInst *newLoad =
-              IRB.CreateLoad(OrigLoad->getType(), V, V->getName() + ".val");
-          newLoad->setAlignment(OrigLoad->getAlign());
-          // Transfer the AA info too.
-          newLoad->setAAMetadata(OrigLoad->getAAMetadata());
-
-          Args.push_back(MaybeCastTo(newLoad, *I)); // INTEL
-=======
-          Args.push_back(LI);
->>>>>>> 68c1eeb4bad18753dbaa053a6c919c8f1a23fb9c
+          Args.push_back(MaybeCastTo(LI, *I)); // INTEL
           ArgAttrVec.push_back(AttributeSet());
         }
       }
@@ -595,39 +515,6 @@ static Function *doPromotion(
     }
 
     // Otherwise, if we promoted this argument, then all users are load
-<<<<<<< HEAD
-    // instructions (or GEPs with only load users), and all loads should be
-    // using the new argument that we added.
-    ScalarizeTable &ArgIndices = ScalarizedElements[&Arg];
-
-    while (!Arg.use_empty()) {
-      if (LoadInst *LI = dyn_cast<LoadInst>(Arg.user_back())) {
-        assert(ArgIndices.begin()->second.empty() &&
-               "Load element should sort to front!");
-        I2->setName(Arg.getName() + ".val");
-        LI->replaceAllUsesWith(MaybeCastFrom(&*I2, LI)); // INTEL
-        LI->eraseFromParent();
-        LLVM_DEBUG(dbgs() << "*** Promoted load of argument '" << Arg.getName()
-                          << "' in function '" << F->getName() << "'\n");
-      } else {
-        GetElementPtrInst *GEP = cast<GetElementPtrInst>(Arg.user_back());
-        assert(!GEP->use_empty() &&
-               "GEPs without uses should be cleaned up already");
-        IndicesVector Operands;
-        Operands.reserve(GEP->getNumIndices());
-        for (const Use &Idx : GEP->indices())
-          Operands.push_back(cast<ConstantInt>(Idx)->getSExtValue());
-
-        // GEPs with a single 0 index can be merged with direct loads
-        if (Operands.size() == 1 && Operands.front() == 0)
-          Operands.clear();
-
-        Function::arg_iterator TheArg = I2;
-        for (ScalarizeTable::iterator It = ArgIndices.begin();
-             It->second != Operands; ++It, ++TheArg) {
-          assert(It != ArgIndices.end() && "GEP not handled??");
-        }
-=======
     // instructions (with possible casts and GEPs in between).
 
     SmallVector<Value *, 16> Worklist;
@@ -640,7 +527,6 @@ static Function *doPromotion(
         append_range(Worklist, V->users());
         continue;
       }
->>>>>>> 68c1eeb4bad18753dbaa053a6c919c8f1a23fb9c
 
       if (auto *LI = dyn_cast<LoadInst>(V)) {
         Value *Ptr = LI->getPointerOperand();
@@ -649,7 +535,8 @@ static Function *doPromotion(
             Ptr->stripAndAccumulateConstantOffsets(DL, Offset,
                                                    /* AllowNonInbounds */ true);
         assert(Ptr == &Arg && "Not constant offset from arg?");
-        LI->replaceAllUsesWith(OffsetToArg[Offset.getSExtValue()]);
+        LI->replaceAllUsesWith(                                     // INTEL
+            MaybeCastFrom(OffsetToArg[Offset.getSExtValue()], LI)); // INTEL
         DeadInsts.push_back(LI);
         continue;
       }
@@ -657,26 +544,10 @@ static Function *doPromotion(
       llvm_unreachable("Unexpected user");
     }
 
-<<<<<<< HEAD
-        // All of the uses must be load instructions.  Replace them all with
-        // the argument specified by ArgNo.
-        while (!GEP->use_empty()) {
-          LoadInst *L = cast<LoadInst>(GEP->user_back());
-          L->replaceAllUsesWith(MaybeCastFrom(&*TheArg, L)); // INTEL
-          L->eraseFromParent();
-        }
-        GEP->eraseFromParent();
-      }
-    }
-
-    // Increment I2 past all of the arguments added for this promoted pointer.
-    std::advance(I2, ArgIndices.size());
-=======
     for (Instruction *I : DeadInsts) {
       I->replaceAllUsesWith(UndefValue::get(I->getType()));
       I->eraseFromParent();
     }
->>>>>>> 68c1eeb4bad18753dbaa053a6c919c8f1a23fb9c
   }
 
   return NF;
@@ -707,86 +578,20 @@ static bool allCallersPassValidPointerForArgument(Argument *Arg,
 #endif // INTEL_CUSTOMIZATION
 }
 
-<<<<<<< HEAD
-/// Returns true if Prefix is a prefix of longer. That means, Longer has a size
-/// that is greater than or equal to the size of prefix, and each of the
-/// elements in Prefix is the same as the corresponding elements in Longer.
-///
-/// This means it also returns true when Prefix and Longer are equal!
-static bool isPrefix(const IndicesVector &Prefix, const IndicesVector &Longer) {
-  if (Prefix.size() > Longer.size())
-    return false;
-  return std::equal(Prefix.begin(), Prefix.end(), Longer.begin());
-}
-
-/// Checks if Indices, or a prefix of Indices, is in Set.
-static bool prefixIn(const IndicesVector &Indices,
-                     std::set<IndicesVector> &Set) {
-  std::set<IndicesVector>::iterator Low;
-  Low = Set.upper_bound(Indices);
-  if (Low != Set.begin())
-    Low--;
-  // Low is now the last element smaller than or equal to Indices. This means
-  // it points to a prefix of Indices (possibly Indices itself), if such
-  // prefix exists.
-  //
-  // This load is safe if any prefix of its operands is safe to load.
-  return Low != Set.end() && isPrefix(*Low, Indices);
-}
-
-/// Mark the given indices (ToMark) as safe in the given set of indices
-/// (Safe). Marking safe usually means adding ToMark to Safe. However, if there
-/// is already a prefix of Indices in Safe, Indices are implicitely marked safe
-/// already. Furthermore, any indices that Indices is itself a prefix of, are
-/// removed from Safe (since they are implicitely safe because of Indices now).
-static void markIndicesSafe(const IndicesVector &ToMark,
-                            std::set<IndicesVector> &Safe) {
-  std::set<IndicesVector>::iterator Low;
-  Low = Safe.upper_bound(ToMark);
-  // Guard against the case where Safe is empty
-  if (Low != Safe.begin())
-    Low--;
-  // Low is now the last element smaller than or equal to Indices. This
-  // means it points to a prefix of Indices (possibly Indices itself), if
-  // such prefix exists.
-  if (Low != Safe.end()) {
-    if (isPrefix(*Low, ToMark))
-      // If there is already a prefix of these indices (or exactly these
-      // indices) marked a safe, don't bother adding these indices
-      return;
-
-    // Increment Low, so we can use it as a "insert before" hint
-    ++Low;
-  }
-  // Insert
-  Low = Safe.insert(Low, ToMark);
-  ++Low;
-  // If there we're a prefix of longer index list(s), remove those
-  std::set<IndicesVector>::iterator End = Safe.end();
-  while (Low != End && isPrefix(ToMark, *Low)) {
-    std::set<IndicesVector>::iterator Remove = Low;
-    ++Low;
-    Safe.erase(Remove);
-  }
-}
-
-/// isSafeToPromoteArgument - As you might guess from the name of this method,
-/// it checks to see if it is both safe and useful to promote the argument.
-/// This method limits promotion of aggregates to only promote up to three
-/// elements of the aggregate in order to avoid exploding the number of
-/// arguments passed in.
-static bool isSafeToPromoteArgument(Argument *Arg, Type *ByValTy, AAResults &AAR,
-                                    bool isCallback,             // INTEL
-                                    bool RemoveHomedArguments,   // INTEL
-                                    unsigned MaxElements) {
-  using GEPIndicesSet = std::set<IndicesVector>;
+/// Determine that this argument is safe to promote, and find the argument
+/// parts it can be promoted into.
+static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
+                         unsigned MaxElements, bool IsSelfRecursive,
+                         bool isCallback,           // INTEL
+                         bool RemoveHomedArguments, // INTEL
+                         SmallVectorImpl<OffsetAndArgPart> &ArgPartsVec) {
 #if INTEL_CUSTOMIZATION
   //
   // Return the unique LoadInst, if it exists, which retrieves the
   // Argument 'A' that is homed by the StoreInst 'U'.
   //
-  auto UniqueLoadInst = [](Argument *A, User *U) -> LoadInst * {
-    StoreInst *SI = dyn_cast<StoreInst>(U);
+  auto UniqueLoadInst = [](Argument *A, Value *V) -> LoadInst * {
+    StoreInst *SI = dyn_cast<StoreInst>(V);
     if (!SI || SI->getValueOperand() != A)
       return nullptr;
     auto AI = dyn_cast<AllocaInst>(SI->getPointerOperand());
@@ -809,26 +614,19 @@ static bool isSafeToPromoteArgument(Argument *Arg, Type *ByValTy, AAResults &AAR
   // AllocaInst to enable argument promotion and update 'TestUsers' with new
   // Users that now have 'Arg' as their pointer operand.
   //
-  auto RemoveHomedStore = [](SmallVectorImpl<User *> &TestUsers,
-                             LoadInst *LI, StoreInst *SI) {
-      auto Arg = cast<Argument>(SI->getValueOperand());
-      auto AI = cast<AllocaInst>(SI->getPointerOperand());
-      for (User *U : LI->users())
-        TestUsers.push_back(U);
-      LI->replaceAllUsesWith(Arg);
-      LI->eraseFromParent();
-      SI->eraseFromParent();
-      AI->eraseFromParent();
+  auto RemoveHomedStore = [](SmallVectorImpl<Value *> &Worklist, LoadInst *LI,
+                             StoreInst *SI) {
+    auto Arg = cast<Argument>(SI->getValueOperand());
+    auto AI = cast<AllocaInst>(SI->getPointerOperand());
+    for (User *U : LI->users())
+      Worklist.push_back(U);
+    LI->replaceAllUsesWith(Arg);
+    LI->eraseFromParent();
+    SI->eraseFromParent();
+    AI->eraseFromParent();
   };
 #endif // INTEL_CUSTOMIZATION
 
-=======
-/// Determine that this argument is safe to promote, and find the argument
-/// parts it can be promoted into.
-static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
-                         unsigned MaxElements, bool IsSelfRecursive,
-                         SmallVectorImpl<OffsetAndArgPart> &ArgPartsVec) {
->>>>>>> 68c1eeb4bad18753dbaa053a6c919c8f1a23fb9c
   // Quick exit for unused arguments
   if (Arg->use_empty())
     return !isCallback; // INTEL
@@ -878,6 +676,13 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
     // then promoting it might lead to recursive promotion.
     if (IsSelfRecursive && Ty->isPointerTy())
       return false;
+
+#if INTEL_CUSTOMIZATION
+    if (isCallback)
+      // Promoted argument should fit into pointer size.
+      if (Size > DL.getTypeStoreSize(Arg->getType()))
+        return false;
+#endif // INTEL_CUSTOMIZATION
 
     int64_t Off = Offset.getSExtValue();
     auto Pair = ArgParts.try_emplace(
@@ -941,24 +746,6 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
   SmallVector<Value *, 16> Worklist;
   SmallPtrSet<Value *, 16> Visited;
   SmallVector<LoadInst *, 16> Loads;
-<<<<<<< HEAD
-  IndicesVector Operands;
-#if INTEL_CUSTOMIZATION
-  SmallVector<User *, 16> TestUsers;
-  TestUsers.append(Arg->users().begin(), Arg->users().end());
-  while (!TestUsers.empty()) {
-    User *UR = TestUsers.back();
-    TestUsers.pop_back();
-#endif // INTEL_CUSTOMIZATION
-    Operands.clear();
-    if (LoadInst *LI = dyn_cast<LoadInst>(UR)) {
-      // Don't hack volatile/atomic loads
-      if (!LI->isSimple())
-        return false;
-      Loads.push_back(LI);
-      // Direct loads are equivalent to a GEP with a zero index and then a load.
-      Operands.push_back(0);
-=======
   auto AppendUsers = [&](Value *V) {
     for (User *U : V->users())
       if (Visited.insert(U).second)
@@ -971,7 +758,6 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
       AppendUsers(V);
       continue;
     }
->>>>>>> 68c1eeb4bad18753dbaa053a6c919c8f1a23fb9c
 
     if (auto *GEP = dyn_cast<GetElementPtrInst>(V)) {
       if (!GEP->hasAllConstantIndices())
@@ -983,40 +769,16 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
     if (auto *LI = dyn_cast<LoadInst>(V)) {
       if (!*HandleLoad(LI, /* GuaranteedToExecute */ false))
         return false;
-<<<<<<< HEAD
+      Loads.push_back(LI);
+      continue;
+    }
 
-      // Ensure that all of the indices are constants.
-      for (Use &Idx : GEP->indices())
-        if (ConstantInt *C = dyn_cast<ConstantInt>(Idx))
-          Operands.push_back(C->getSExtValue());
-        else
-          return false; // Not a constant operand GEP!
-
-      // Ensure that the only users of the GEP are load instructions.
-      for (User *GEPU : GEP->users())
-        if (LoadInst *LI = dyn_cast<LoadInst>(GEPU)) {
-          // Don't hack volatile/atomic loads
-          if (!LI->isSimple())
-            return false;
-          Loads.push_back(LI);
-        } else {
-          // Other uses than load?
-          return false;
-        }
-#if INTEL_CUSTOMIZATION
-    } else if (RemoveHomedArguments) {
-      if (auto LI = UniqueLoadInst(Arg, UR)) {
-        RemoveHomedStore(TestUsers, LI, cast<StoreInst>(UR));
+    if (RemoveHomedArguments) {
+      if (auto LI = UniqueLoadInst(Arg, V)) {
+        RemoveHomedStore(Worklist, LI, cast<StoreInst>(V));
         continue;
       }
       return false;
-#endif // INTEL_CUSTOMIZATION
-    } else {
-      return false; // Not a load or a GEP.
-=======
-      Loads.push_back(LI);
-      continue;
->>>>>>> 68c1eeb4bad18753dbaa053a6c919c8f1a23fb9c
     }
 
     // Unknown user.
@@ -1038,27 +800,14 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
   if (ArgParts.empty())
     return true; // No users, this is a dead argument.
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (isCallback) {
     // We cannot change the number of arguments for callbacks.
-    if (ToPromote.size() > 1)
-      return false;
-
-    // Promoted argument should fit into pointer size.
-    const DataLayout &DL = Arg->getParent()->getParent()->getDataLayout();
-    if (DL.getTypeStoreSize(BaseTy) > DL.getTypeStoreSize(Arg->getType()))
+    if (ArgParts.size() > 1)
       return false;
   }
-
-  // Since the argument is only used by load instructions (i.e not escaped)
-  // and the argument is marked with NoAlias, we don't need to prove that
-  // the argument pointer is not modified before its uses. It is safe to
-  // assume that the argument pointer is not modified in the current routine.
-  if (isNoAliasOrByValArgument(Arg))
-    return true;
 #endif // INTEL_CUSTOMIZATION
-=======
+
   // Sort parts by offset.
   append_range(ArgPartsVec, ArgParts);
   sort(ArgPartsVec,
@@ -1074,7 +823,15 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
 
     Offset = Pair.first + DL.getTypeStoreSize(Pair.second.Ty);
   }
->>>>>>> 68c1eeb4bad18753dbaa053a6c919c8f1a23fb9c
+
+#if INTEL_CUSTOMIZATION
+  // Since the argument is only used by load instructions (i.e not escaped)
+  // and the argument is marked with NoAlias, we don't need to prove that
+  // the argument pointer is not modified before its uses. It is safe to
+  // assume that the argument pointer is not modified in the current routine.
+  if (isNoAliasOrByValArgument(Arg))
+    return true;
+#endif // INTEL_CUSTOMIZATION
 
   // Okay, now we know that the argument is only used by load instructions and
   // it is safe to unconditionally perform all of them. Use alias analysis to
@@ -1182,22 +939,11 @@ static bool canPaddingBeAccessed(Argument *arg) {
   return false;
 }
 
-<<<<<<< HEAD
-/// Check if callers and the callee \p F agree how promoted arguments would be
-/// passed. The ones that they do not agree on are eliminated from the sets but
-/// the return value has to be observed as well.
-static bool areFunctionArgsABICompatible(
-    const Function &F, const TargetTransformInfo &TTI,
-    SmallPtrSetImpl<Argument *> &ArgsToPromote,
-    SmallPtrSetImpl<Argument *> &ByValArgsToTransform) {
-  // TODO: Check individual arguments so we can promote a subset?
-  SmallVector<Type *, 32> Types;
-  for (Argument *Arg : ArgsToPromote)
-    Types.push_back(Arg->getType()->getPointerElementType());
-  for (Argument *Arg : ByValArgsToTransform)
-    Types.push_back(Arg->getParamByValType());
-
-  for (const Use &U : F.uses()) {
+/// Check if callers and callee agree on how promoted arguments would be
+/// passed.
+static bool areTypesABICompatible(ArrayRef<Type *> Types, const Function &F,
+                                  const TargetTransformInfo &TTI) {
+  return all_of(F.uses(), [&](const Use &U) {
 #ifdef INTEL_CUSTOMIZATION
     AbstractCallSite CS(&U);
     if (!CS)
@@ -1205,25 +951,8 @@ static bool areFunctionArgsABICompatible(
     const Function *Caller = CS.getInstruction()->getCaller();
     const Function *Callee = CS.getCalledFunction();
 #endif // INTEL_CUSTOMIZATION
-    if (!TTI.areTypesABICompatible(Caller, Callee, Types))
-      return false;
-  }
-  return true;
-=======
-/// Check if callers and callee agree on how promoted arguments would be
-/// passed.
-static bool areTypesABICompatible(ArrayRef<Type *> Types, const Function &F,
-                                  const TargetTransformInfo &TTI) {
-  return all_of(F.uses(), [&](const Use &U) {
-    CallBase *CB = dyn_cast<CallBase>(U.getUser());
-    if (!CB)
-      return false;
-
-    const Function *Caller = CB->getCaller();
-    const Function *Callee = CB->getCalledFunction();
     return TTI.areTypesABICompatible(Caller, Callee, Types);
   });
->>>>>>> 68c1eeb4bad18753dbaa053a6c919c8f1a23fb9c
 }
 
 /// PromoteArguments - This method checks the specified function to see if there
@@ -1353,11 +1082,11 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
     //
     // Only handle arguments with specified alignment; if it's unspecified, the
     // actual alignment of the argument is target-specific.
-<<<<<<< HEAD
-    bool isSafeToPromote = PtrArg->hasByValAttr() && PtrArg->getParamAlign() &&
-                           !isCallback && // INTEL
-                           (ArgumentPromotionPass::isDenselyPacked(AgTy, DL) ||
-                            !canPaddingBeAccessed(PtrArg));
+    Type *ByValTy = PtrArg->getParamByValType();
+    bool isSafeToPromote =
+        ByValTy && PtrArg->getParamAlign() && !isCallback && // INTEL
+        (ArgumentPromotionPass::isDenselyPacked(ByValTy, DL) ||
+         !canPaddingBeAccessed(PtrArg));
 #if INTEL_COLLAB
     if (cast<PointerType>(PtrArg->getType())->getAddressSpace() !=
         DL.getAllocaAddrSpace()) {
@@ -1375,13 +1104,6 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
       isSafeToPromote = false;
     }
 #endif // INTEL_COLLAB
-=======
-    Type *ByValTy = PtrArg->getParamByValType();
-    bool isSafeToPromote =
-        ByValTy && PtrArg->getParamAlign() &&
-        (ArgumentPromotionPass::isDenselyPacked(ByValTy, DL) ||
-         !canPaddingBeAccessed(PtrArg));
->>>>>>> 68c1eeb4bad18753dbaa053a6c919c8f1a23fb9c
     if (isSafeToPromote) {
       if (StructType *STy = dyn_cast<StructType>(ByValTy)) {
         if (MaxElements > 0 && STy->getNumElements() > MaxElements) {
@@ -1411,17 +1133,9 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
     }
 
     // Otherwise, see if we can promote the pointer to its value.
-<<<<<<< HEAD
-    Type *ByValTy =
-        PtrArg->hasByValAttr() ? PtrArg->getParamByValType() : nullptr;
-#if INTEL_CUSTOMIZATION
-    if (isSafeToPromoteArgument(PtrArg, ByValTy, AAR, isCallback,
-                                RemoveHomedArguments, MaxElements))
-#endif // INTEL_CUSTOMIZATION
-      ArgsToPromote.insert(PtrArg);
-=======
     SmallVector<OffsetAndArgPart, 4> ArgParts;
-    if (findArgParts(PtrArg, DL, AAR, MaxElements, isSelfRecursive, ArgParts)) {
+    if (findArgParts(PtrArg, DL, AAR, MaxElements, isSelfRecursive, // INTEL
+                     isCallback, RemoveHomedArguments, ArgParts)) { // INTEL
       SmallVector<Type *, 4> Types;
       for (const auto &Pair : ArgParts)
         Types.push_back(Pair.second.Ty);
@@ -1429,23 +1143,14 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
       if (areTypesABICompatible(Types, *F, TTI))
         ArgsToPromote.insert({PtrArg, std::move(ArgParts)});
     }
->>>>>>> 68c1eeb4bad18753dbaa053a6c919c8f1a23fb9c
   }
 
   // No promotable pointer arguments.
   if (ArgsToPromote.empty() && ByValArgsToTransform.empty())
     return nullptr;
 
-<<<<<<< HEAD
-  if (!areFunctionArgsABICompatible(
-          *F, TTI, ArgsToPromote, ByValArgsToTransform))
-    return nullptr;
-
   return doPromotion(F, ArgsToPromote, ByValArgsToTransform, // INTEL
                      isCallback, ReplaceCallSite);           // INTEL
-=======
-  return doPromotion(F, ArgsToPromote, ByValArgsToTransform, ReplaceCallSite);
->>>>>>> 68c1eeb4bad18753dbaa053a6c919c8f1a23fb9c
 }
 
 PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
