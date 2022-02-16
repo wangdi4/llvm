@@ -13,8 +13,8 @@
 ; Check that argument promotion was applied and the result of
 ; the traditional inline report is correct.
 
-; CHECK-NO-MD:      define internal float @bar(float %.val) #0 {
-; CHECK-NO-MD-NEXT:   ret float %.val
+; CHECK-NO-MD:      define internal float @bar(float %.0.val) #0 {
+; CHECK-NO-MD-NEXT:   ret float %.0.val
 ; CHECK-NO-MD-NEXT: }
 
 ; CHECK-NO-MD:      define float @foo(i64 %0) #1 {
@@ -32,8 +32,8 @@
 ; CHECK-MD: COMPILE FUNC: foo
 ; CHECK-MD:   bar{{.*}}Callee has noinline attribute
 
-; CHECK-MD:      define internal float @bar(float %.val) #0 !intel.function.inlining.report !0 {
-; CHECK-MD-NEXT:   ret float %.val
+; CHECK-MD:      define internal float @bar(float %.0.val) #0 !intel.function.inlining.report !0 {
+; CHECK-MD-NEXT:   ret float %.0.val
 
 ; CHECK-MD:      define float @foo(i64 %0) #1 !intel.function.inlining.report !8 {
 ; CHECK-MD-NEXT:   %2 = alloca float, i64 %0, align 4
