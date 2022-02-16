@@ -130,20 +130,6 @@ StringRef dtrans::CRuleTypeKindName(CRuleTypeKind Kind) {
   llvm_unreachable("Unexpected continuation past CRuleTypeKind switch.");
 }
 
-Function *dtrans::getCalledFunction(const CallBase &Call) {
-  Value *CalledValue = Call.getCalledOperand()->stripPointerCasts();
-  if (auto *CalledF = dyn_cast<Function>(CalledValue))
-    return CalledF;
-
-  if (auto *GA = dyn_cast<GlobalAlias>(CalledValue))
-    if (!GA->isInterposable())
-      if (auto *AliasF =
-              dyn_cast<Function>(GA->getAliasee()->stripPointerCasts()))
-        return AliasF;
-
-  return nullptr;
-}
-
 bool dtrans::isValueConstant(const Value *Val, uint64_t *ConstValue) {
   if (!Val)
     return false;

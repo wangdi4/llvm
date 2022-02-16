@@ -1113,6 +1113,10 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
+    // We would wrap the following call inside INTEL FEATURE SW DTRANS, but the
+    // current FIF tool does not permit nesting of that within INTEL FEATURE SW
+    // ADVANCED.
+    collectDTransFuncs(*F.getParent(), Params);
     if (auto IR = intelWorthNotInlining(CandidateCall, Params, TLI, CalleeTTI,
         PSI, ILIC, &QueuedCallers, NoReasonVector))
       return IR.getValue();
