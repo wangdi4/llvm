@@ -99,6 +99,60 @@ Improvements to clang-tidy
 New checks
 ^^^^^^^^^^
 
+- New :doc:`bugprone-stringview-nullptr
+  <clang-tidy/checks/bugprone-stringview-nullptr>` check.
+
+  Checks for various ways that the ``const CharT*`` constructor of
+  ``std::basic_string_view`` can be passed a null argument.
+
+- New :doc:`abseil-cleanup-ctad
+  <clang-tidy/checks/abseil-cleanup-ctad>` check.
+
+  Suggests switching the initialization pattern of ``absl::Cleanup``
+  instances from the factory function to class template argument
+  deduction (CTAD), in C++17 and higher.
+
+- New :doc:`bugprone-suspicious-memory-comparison
+  <clang-tidy/checks/bugprone-suspicious-memory-comparison>` check.
+
+  Finds potentially incorrect calls to ``memcmp()`` based on properties of the
+  arguments.
+
+- New :doc:`cppcoreguidelines-virtual-class-destructor
+  <clang-tidy/checks/cppcoreguidelines-virtual-class-destructor>` check.
+
+  Finds virtual classes whose destructor is neither public and virtual nor
+  protected and non-virtual.
+
+- New :doc:`misc-misleading-identifier <clang-tidy/checks/misc-misleading-identifier>` check.
+
+  Reports identifier with unicode right-to-left characters.
+
+- New :doc:`readability-container-data-pointer
+  <clang-tidy/checks/readability-container-data-pointer>` check.
+
+  Finds cases where code could use ``data()`` rather than the address of the
+  element at index 0 in a container.
+
+- New :doc:`readability-identifier-length
+  <clang-tidy/checks/readability-identifier-length>` check.
+
+  Reports identifiers whose names are too short. Currently checks local
+  variables and function parameters only.
+
+- New :doc:`misc-misleading-bidirectional <clang-tidy/checks/misc-misleading-bidirectional>` check.
+
+  Inspects string literal and comments for unterminated bidirectional Unicode
+  characters.
+
+..
+  INTEL_CUSTOMIZATION
+- New :doc:`misc-homoglyph <clang-tidy/checks/misc-homoglyph>` check.
+
+  Detects confusable unicode identifiers.
+..
+  end INTEL_CUSTOMIZATION
+
 New check aliases
 ^^^^^^^^^^^^^^^^^
 
