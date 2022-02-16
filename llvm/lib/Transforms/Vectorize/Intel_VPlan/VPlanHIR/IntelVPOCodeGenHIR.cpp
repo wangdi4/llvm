@@ -113,6 +113,11 @@ static cl::opt<unsigned> TinyTripCountThreshold(
     cl::desc("Don't vectorize loops with a constant "
              "trip count that is smaller than this value."));
 
+static cl::opt<bool> VPlanAssumeMaskedFabsProfitable(
+    "vplan-assume-masked-fabs-profitable", cl::init(false), cl::Hidden,
+    cl::desc("Allow VPlan codegen to vectorize masked fabs intrinsic assuming "
+             "profitability."));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool> PrintHIRAfterVPlan(
     "print-hir-after-vplan", cl::init(false),
@@ -642,6 +647,28 @@ void HandledCheck::visit(HLDDNode *Node) {
       }
 
       StringRef CalledFunc = Fn->getName();
+      Intrinsic::ID ID = getVectorIntrinsicIDForCall(Call, TLI);
+
+      // Prevent vectorization of loop if masked fabs intrinsic vectorization is
+      // not profitable specifically for ADL target. Masked fabs intrinsics is
+      // used to catch the pattern. Slowdown is caused by gathers that are slow
+      // on ADL-E cores but not CM'ed properly.
+      // Check JIRAS : CMPLRLLVM-34347, CMPLRLLVM-35171.
+      // Once issues with TTI cost modelling for ADL gathers are resolved this
+      // bailout is expected to be removed.
+      bool IsUnprofitableFabs = ID == Intrinsic::fabs &&
+                                !VPlanAssumeMaskedFabsProfitable &&
+                                CG->getFunction().getFnAttribute("target-cpu").
+                                  getValueAsString() == "alderlake";
+      if (isa<HLIf>(Inst->getParent()) && VF > 1 && IsUnprofitableFabs) {
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
+                        dbgs() << "VPLAN_OPTREPORT: Loop not handled - masked "
+                        "fabs intrinsic for AlderLake.\n");
+        IsHandled = false;
+        return;
+      }
+
       // Quick hack to avoid loops containing fabs in 447.dealII from becoming
       // vectorized due to bug in unrolling. The problem involves loop index
       // variable that spans outside the array range, resulting in segfault.
@@ -3153,17 +3180,7 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
   // Check if  PHI is the loop IV and widen it by generating the ref i1 +
   // <0, 1, 2, .. VF-1>. TODO: Need to handle all IVs in general here.
   if (LoopIVPhis.count(VPPhi)) {
-    auto RefDestTy = VPPhi->getType();
-    auto *NewRef = generateLoopInductionRef(RefDestTy);
-    addVPValueWideRefMapping(VPPhi, NewRef);
-
-    // Create a scalar value for IV as well.
-    auto *CE = CanonExprUtilities.createCanonExpr(RefDestTy);
-    CE->addIV(OrigLoop->getNestingLevel(), InvalidBlobIndex /* no blob */,
-              1 /* constant IV coefficient */);
-    auto *ScalRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, CE);
-    addVPValueScalRefMapping(VPPhi, ScalRef, 0);
-
+    generateLoopInductionRef(VPPhi);
     return;
   }
 
@@ -3178,22 +3195,34 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
   addVPValueWideRefMapping(VPPhi, PhiTemp);
 }
 
-RegDDRef *VPOCodeGenHIR::generateLoopInductionRef(Type *RefDestTy) {
-  auto VecRefDestTy = getWidenedType(RefDestTy, VF);
+void VPOCodeGenHIR::generateLoopInductionRef(const VPPHINode *VPPhi) {
+  auto *RefDestTy = VPPhi->getType();
+  auto *VecRefDestTy = getWidenedType(RefDestTy, VF);
+  auto *VPLp = Plan->getVPLoopInfo()->getLoopFor(VPPhi->getParent());
+  assert(VPLp && "Unexpected null VPLoop for induction Phi");
+  auto *HLoop = VPLoopHLLoopMap[VPLp];
+  assert(HLoop && "Unexpected null HLLoop mapping");
 
-  auto *CE = CanonExprUtilities.createCanonExpr(RefDestTy);
-  CE->setSrcType(VecRefDestTy);
-  CE->setDestType(VecRefDestTy);
-  CE->addIV(OrigLoop->getNestingLevel(), InvalidBlobIndex /* no blob */,
-            1 /* constant IV coefficient */);
+  // Create a vector value for IV and add it to wide ref map.
+  auto *VecCE = CanonExprUtilities.createCanonExpr(VecRefDestTy);
+  VecCE->addIV(HLoop->getNestingLevel(), InvalidBlobIndex /* no blob */,
+               1 /* constant IV coefficient */);
   SmallVector<Constant *, 4> ConstVec;
   for (unsigned i = 0; i < VF; ++i)
     ConstVec.push_back(ConstantInt::getSigned(RefDestTy, i));
   unsigned Idx = 0;
   BlobUtilities.createConstantBlob(ConstantVector::get(ConstVec), true, &Idx);
-  CE->addBlob(Idx, 1);
-  auto *NewRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, CE);
-  return NewRef;
+  VecCE->addBlob(Idx, 1);
+  auto *VecRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, VecCE);
+  addVPValueWideRefMapping(VPPhi, VecRef);
+
+  // Create a scalar value for IV and add it to scalar ref map.
+  auto *ScalCE = CanonExprUtilities.createCanonExpr(RefDestTy);
+  ScalCE->addIV(HLoop->getNestingLevel(), InvalidBlobIndex /* no blob */,
+                1 /* constant IV coefficient */);
+  auto *ScalRef =
+      DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, ScalCE);
+  addVPValueScalRefMapping(VPPhi, ScalRef, 0);
 }
 
 RegDDRef *VPOCodeGenHIR::getOrCreateScalarRef(const VPValue *VPVal,
@@ -5293,10 +5322,10 @@ void VPOCodeGenHIR::collectLoopEntityInsts() {
         }
       };
 
-  // Capture main loop IV instructions.
-  auto captureLoopIVPhis = [&](VPBasicBlock *LpPreheader) {
+  // Capture outer loop IV instructions.
+  auto captureOuterLoopIVPhi = [&](VPBasicBlock *OuterLpPreheader) {
     bool LoopIVCaptured = false;
-    for (VPInstruction &Inst : *LpPreheader) {
+    for (VPInstruction &Inst : *OuterLpPreheader) {
       if (!isa<VPInductionInit>(&Inst))
         continue;
 
@@ -5314,14 +5343,15 @@ void VPOCodeGenHIR::collectLoopEntityInsts() {
   };
 
   auto *VPLI = Plan->getVPLoopInfo();
-  for (auto *Lp : *VPLI) {
-    VPBasicBlock *LpPreheader = cast<VPBasicBlock>(Lp->getLoopPreheader());
-    for (VPInstruction &Inst : *LpPreheader) {
+  for (auto *OuterLp : *VPLI) {
+    VPBasicBlock *OuterLpPreheader =
+        cast<VPBasicBlock>(OuterLp->getLoopPreheader());
+    for (VPInstruction &Inst : *OuterLpPreheader) {
       if (auto *RedInit = dyn_cast<VPReductionInit>(&Inst)) {
         collectRednVPInsts(RedInit);
       }
     }
-    captureLoopIVPhis(LpPreheader);
+    captureOuterLoopIVPhi(OuterLpPreheader);
   }
 
   for (auto *V : LoopIVPhis) {

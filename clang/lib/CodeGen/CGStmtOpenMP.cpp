@@ -8206,6 +8206,7 @@ void CodeGenFunction::EmitSimpleOMPExecutableDirective(
 bool CodeGenFunction::useFrontEndOutlining(const Stmt *S) {
   switch (S->getStmtClass()) {
   case Stmt::OMPTileDirectiveClass:
+  case Stmt::OMPUnrollDirectiveClass:
     return true;
   case Stmt::OMPTargetDirectiveClass:
     return !CGM.getLangOpts().OpenMPLateOutlineTarget;

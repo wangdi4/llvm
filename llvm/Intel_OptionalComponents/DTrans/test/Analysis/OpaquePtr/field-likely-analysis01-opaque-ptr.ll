@@ -40,6 +40,28 @@
 ; CHECK: Multiple IA Value: [ 5, 7 ] <incomplete>
 ; CHECK: End LLVMType: %struct.MYSTRUCTARRAY
 
+; CHECK: DTRANS_StructInfo:
+; CHECK: LLVMType: %struct.YOURSTRUCTARRAY
+; CHECK: Name: struct.YOURSTRUCTARRAY
+; CHECK: Number of fields: 4
+; CHECK: 0)
+; CHECK: DTrans Type: i32
+; CHECK: Multiple Value: [ 0, 11 ] <complete>
+; CHECK: Multiple IA Value: [  ] <incomplete>
+; CHECK: 1)
+; CHECK: DTrans Type: i32
+; CHECK: Multiple Value: [ 0, 21 ] <complete>
+; CHECK: Multiple IA Value: [  ] <incomplete>
+; CHECK: 2)
+; CHECK: DTrans Type: i32*
+; CHECK: Multiple Value: [ null ] <incomplete>
+; CHECK: Multiple IA Value: [ 101, 103 ] <incomplete>
+; CHECK: 3)
+; CHECK: DTrans Type: i32*
+; CHECK: Multiple Value: [ null ] <incomplete>
+; CHECK: Multiple IA Value: [ 105, 107 ] <incomplete>
+; CHECK: End LLVMType: %struct.YOURSTRUCTARRAY
+
 ; IMMUTABLE: StructType: %struct.MYSTRUCTARRAY
 ; IMMUTABLE:   Field 0:
 ; IMMUTABLE:     Likely Values: 0 1{{ *}}
@@ -54,10 +76,58 @@
 ; IMMUTABLE:     Likely Values: null
 ; IMMUTABLE:     Likely Indirect Array Values: 5 7{{ *}}
 
+; IMMUTABLE: StructType: %struct.YOURSTRUCTARRAY
+; IMMUTABLE:   Field 0:
+; IMMUTABLE:     Likely Values: 0 11{{ *}}
+; IMMUTABLE:     Likely Indirect Array Values:{{ *}}
+; IMMUTABLE:   Field 1:
+; IMMUTABLE:     Likely Values: 0 21{{ *}}
+; IMMUTABLE:     Likely Indirect Array Values:{{ *}}
+; IMMUTABLE:   Field 2:
+; IMMUTABLE:     Likely Values: null
+; IMMUTABLE:     Likely Indirect Array Values: 101 103{{ *}}
+; IMMUTABLE:   Field 3:
+; IMMUTABLE:     Likely Values: null
+; IMMUTABLE:     Likely Indirect Array Values: 105 107{{ *}}
+%struct.YOURSTRUCTARRAY = type { i32, i32, ptr, ptr }
 %struct.MYSTRUCTARRAY = type { i32, i32, ptr, ptr }
+
+@ethel = internal global %struct.YOURSTRUCTARRAY zeroinitializer, align 8
+@martha = internal global %struct.YOURSTRUCTARRAY zeroinitializer, align 8
 
 @george = internal global %struct.MYSTRUCTARRAY zeroinitializer, align 8
 @fred = internal global %struct.MYSTRUCTARRAY zeroinitializer, align 8
+
+define void @test() {
+ ; Set field values for the structures.
+  store i32 11, ptr getelementptr inbounds (%struct.YOURSTRUCTARRAY, ptr @ethel, i64 0, i32 0), align 8
+  store i32 21, ptr getelementptr inbounds (%struct.YOURSTRUCTARRAY, ptr @ethel, i64 0, i32 1), align 4
+  %alloc1 = tail call ptr @malloc(i64 80)
+  store ptr %alloc1, ptr getelementptr inbounds (%struct.YOURSTRUCTARRAY, ptr @ethel, i64 0, i32 2), align 8
+  %alloc2 = tail call ptr @malloc(i64 80)
+  store ptr %alloc2, ptr getelementptr inbounds (%struct.YOURSTRUCTARRAY, ptr @ethel, i64 0, i32 3), align 8
+  %alloc3 = tail call ptr @malloc(i64 160)
+  store ptr %alloc3, ptr getelementptr inbounds (%struct.YOURSTRUCTARRAY, ptr @martha, i64 0, i32 2), align 8
+  %alloc4 = tail call ptr @malloc(i64 160)
+  store ptr %alloc4, ptr getelementptr inbounds (%struct.YOURSTRUCTARRAY, ptr @martha, i64 0, i32 3), align 8
+
+  ; Set values for the allocated arrays of the structures.
+  store i32 101, ptr %alloc1, align 4
+  store i32 105, ptr %alloc2, align 4
+  %ar1.2 = getelementptr inbounds i32, ptr %alloc1, i64 2
+  store i32 101, ptr %ar1.2, align 4
+  %ar2.2 = getelementptr inbounds i32, ptr %alloc2, i64 2
+  store i32 105, ptr %ar2.2, align 4
+  %ar3.1 = getelementptr inbounds i32, ptr %alloc3, i64 1
+  store i32 103, ptr %ar3.1, align 4
+  %ar4.1 = getelementptr inbounds i32, ptr %alloc4, i64 1
+  store i32 107, ptr %ar4.1, align 4
+  %ar3.3 = getelementptr inbounds i32, ptr %alloc3, i64 3
+  store i32 103, ptr %ar3.3, align 4
+  %ar4.3 = getelementptr inbounds i32, ptr %alloc4, i64 3
+  store i32 107, ptr %ar4.3, align 4
+  ret void
+}
 
 define i32 @main() {
  ; Set field values for the structures.
@@ -97,6 +167,6 @@ declare !intel.dtrans.func.type !4 "intel_dtrans_func_index"="1" ptr @malloc(i64
 !3 = !{i8 0, i32 1}  ; i8*
 !4 = distinct !{!3}
 !5 = !{!"S", %struct.MYSTRUCTARRAY zeroinitializer, i32 4, !1, !1, !2, !2} ; { i32, i32, i32*, i32* }
+!6 = !{!"S", %struct.YOURSTRUCTARRAY zeroinitializer, i32 4, !1, !1, !2, !2} ; { i32, i32, i32*, i32* }
 
-!intel.dtrans.types = !{!5}
-
+!intel.dtrans.types = !{!5, !6}

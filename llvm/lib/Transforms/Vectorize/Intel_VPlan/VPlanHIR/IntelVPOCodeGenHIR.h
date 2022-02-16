@@ -437,9 +437,9 @@ public:
   // if one is not found.
   RegDDRef *widenRef(const VPValue *VPVal, unsigned VF);
 
-  // Returns the expression IV + <0, 1, .., VF-1> where IV is the current loop's
-  // main induction variable.
-  RegDDRef *generateLoopInductionRef(Type *RefDestTy);
+  // Generate Scalar and Vector IV Refs corresponding to the IV Phi VPPhi
+  // and add them to wide/scalar ref maps.
+  void generateLoopInductionRef(const VPPHINode *VPPhi);
 
   // Given a pointer ref that is a selfblob, create and return memory reference
   // for PtrRef[Index]. IdxBcastFactor if greater than 1 is used to set the
