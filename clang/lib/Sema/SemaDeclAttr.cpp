@@ -11198,7 +11198,15 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
 
   // Argument number check must be skipped if arguments are delayed.
   if (S.checkCommonAttributeFeatures(D, AL, MustDelayArgs))
+<<<<<<< HEAD
     return;
+
+  if (MustDelayArgs) {
+    AL.handleAttrWithDelayedArgs(S, D);
+=======
+>>>>>>> 1676e599368b79d7c570d57ed2b7356176520533
+    return;
+  }
 
   if (MustDelayArgs) {
     AL.handleAttrWithDelayedArgs(S, D);
