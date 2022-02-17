@@ -96,6 +96,7 @@ target_link_libraries(${TARGET_NAME}
     DataGenerator
     NEAT
     REFALU
+    LLVMInterpreterPluggable
     PlugInNEAT
     OCLBuiltinsRef
     gtest
@@ -104,9 +105,6 @@ target_link_libraries(${TARGET_NAME}
     cl_sys_utils
     tinyxml_STL
     ${LLVM_MODULE_LIBS}
-    LLVMAsmParser
-    LLVMInterpreterPluggable
-    LLVMTransformUtils
 )
 
 add_dependencies( ${TARGET_NAME} cl_sys_utils)

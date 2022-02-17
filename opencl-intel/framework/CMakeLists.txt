@@ -1,10 +1,8 @@
-if(NOT OPENCL_INTREE_BUILD)
-  if( NOT DEFINED LLVM_PATH_FE )
+if( NOT DEFINED LLVM_PATH_FE )
     message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for backend using LLVM_PATH_FE parameter to CMAKE" )
-  endif()
-  set(LLVM_PATH ${LLVM_PATH_FE})
-  find_package(LLVM REQUIRED)
 endif()
+set(LLVM_PATH ${LLVM_PATH_FE})
+find_package(LLVM REQUIRED)
 
 if (NOT WIN32)
   # disable warnings inherited from external componennts
@@ -77,8 +75,6 @@ set(FRAMEWORK_LINK_LIBS
     Tracing
     cl_sys_utils
     CLElfLib
-    LLVMBitReader
-    LLVMSupport
 )
 
 # add a target named ${TARGET_NAME}

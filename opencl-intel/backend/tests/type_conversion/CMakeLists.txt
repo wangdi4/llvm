@@ -17,7 +17,7 @@ target_link_libraries(
   ${TARGET_NAME}
   OclBackendUtils
   gtest
-  LLVMCore
+  ${LLVM_MODULE_LIBS}
 )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_TESTS_FOLDER_NAME} )

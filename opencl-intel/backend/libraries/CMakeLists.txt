@@ -12,15 +12,13 @@ project(libraries)
 # assumption above and configure LLVM for the back-end right here.
 set(BE_LLVM_BINARY_DIR ${LLVM_BINARY_DIR})
 
-if (NOT OPENCL_INTREE_BUILD)
-  if( NOT DEFINED LLVM_PATH_FE )
-    message(FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM "
-        "library location for fronted using LLVM_PATH_FE parameter to CMAKE")
-  endif()
-
-  set(LLVM_PATH ${LLVM_PATH_FE})
-  find_package(LLVM REQUIRED)
+if( NOT DEFINED LLVM_PATH_FE )
+  message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM "
+      "library location for fronted using LLVM_PATH_FE parameter to CMAKE" )
 endif()
+
+set(LLVM_PATH ${LLVM_PATH_FE})
+find_package(LLVM REQUIRED)
 
 set(CL_LIBRARY_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(TOOL_BINARY_DIR "${BE_LLVM_BINARY_DIR}")
@@ -59,24 +57,15 @@ endif()
 set(OCL_TBLGEN ocl-tblgen)
 set(LLVM_TBLGEN llvm-tblgen)
 
-if(NOT OPENCL_INTREE_BUILD)
-  if(NOT DEFINED OCL_HOST_LLVM_LINK)
-    set(LLVM_LINK "${TOOL_BINARY_DIR}/llvm-link")
-  else()
-    set(LLVM_LINK OCL_HOST_LLVM_LINK)
-  endif()
+if(NOT DEFINED OCL_HOST_LLVM_LINK)
+  set(LLVM_LINK "${TOOL_BINARY_DIR}/llvm-link")
 else()
-  set(LLVM_LINK llvm-link)
+  set(LLVM_LINK OCL_HOST_LLVM_LINK)
 endif()
-
-if(NOT OPENCL_INTREE_BUILD)
-  if(NOT DEFINED OCL_HOST_LLC)
-    set(LLC "${TOOL_BINARY_DIR}/llc")
-  else()
-    set (LLC OCL_HOST_LLC)
-  endif()
+if(NOT DEFINED OCL_HOST_LLC)
+  set(LLC "${TOOL_BINARY_DIR}/llc")
 else()
-  set(LLC llc)
+  set (LLC OCL_HOST_LLC)
 endif()
 
 # LLVM triple is per OS and Arch (keep consistent with Materializer),

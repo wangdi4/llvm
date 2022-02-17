@@ -62,7 +62,7 @@ add_opencl_library (${TARGET_NAME} SHARED
     ${SOCKETLIB}
     cl_sys_utils
     protobuf
-    LLVMCore
+    ${LLVM_MODULE_LIBS}
 
     RC_TEMPLATE
     ${CMAKE_CURRENT_SOURCE_DIR}/OclCpuDebugging.rc.in
