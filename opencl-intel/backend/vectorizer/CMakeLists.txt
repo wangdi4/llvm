@@ -2,6 +2,7 @@ use_rtti( FALSE )
 set( TARGET_NAME LLVMVectorizer)
 
 set(VECTORIZATION_INFO_GEN ${OCL_BINARY_DIR}/include/VectInfo.gen)
+file(MAKE_DIRECTORY ${OCL_BINARY_DIR}/include)
 add_custom_command(
   OUTPUT ${VECTORIZATION_INFO_GEN}
   COMMAND ocl-tblgen -gen-vectorization-info

@@ -49,18 +49,56 @@ set(OCL_BE_PASSES_DEPS
     reflection_module
 )
 
-# Remove unused LLVM libs for oclopt to avoid duplicate command line option
-# registration issue in shared link.
-set(UNUSED_LLVM_LIBS
-  LLVMCoverage LLVMDebugInfoGSYM LLVMDebugInfoPDB LLVMDlltoolDriver
-  LLVMDWARFLinker LLVMExecutionEngine LLVMFrontendOpenACC LLVMFuzzMutate
-  LLVMIntelJITEvents LLVMInterpreter LLVMJITLink LLVMLibDriver LLVMLineEditor
-  LLVMLTO LLVMMCA LLVMMCJIT LLVMMIRParser LLVMObjectYAML LLVMOption
-  LLVMOrcError LLVMOrcJIT LLVMRuntimeDyld LLVMSymbolize LLVMTableGen
-  LLVMWindowsManifest LLVMX86Disassembler LLVMXRay
-)
-list(REMOVE_ITEM LLVM_MODULE_LIBS ${UNUSED_LLVM_LIBS})
-
+if (OPENCL_INTREE_BUILD)
+  llvm_map_components_to_libnames(LLVM_MODULE_LIBS
+    AllTargetsAsmParsers
+    AllTargetsCodeGens
+    AllTargetsDescs
+    AllTargetsInfos
+    AggressiveInstCombine
+    Analysis
+    AsmParser
+    BitWriter
+    CodeGen
+    Core
+    Coroutines
+    Extensions
+    IPO
+    IRReader
+    InstCombine
+    Instrumentation
+    MC
+    ObjCARCOpts
+    Remarks
+    ScalarOpts
+    Support
+    SYCLLowerIR
+    Target
+    TransformUtils
+    Vectorize
+    Passes
+    Intel_DPCPPKernelTransforms
+    Intel_LoopAnalysis
+    Intel_LoopTransforms
+    Intel_MapIntrinToIml
+    Intel_OpenCLTransforms
+    Intel_OptReport
+    VPOAnalysis
+    VPOTransforms
+  )
+else()
+  # Remove unused LLVM libs for oclopt to avoid duplicate command line option
+  # registration issue in shared link.
+  set(UNUSED_LLVM_LIBS
+    LLVMCoverage LLVMDebugInfoGSYM LLVMDebugInfoPDB LLVMDlltoolDriver
+    LLVMDWARFLinker LLVMExecutionEngine LLVMFrontendOpenACC LLVMFuzzMutate
+    LLVMIntelJITEvents LLVMInterpreter LLVMJITLink LLVMLibDriver LLVMLineEditor
+    LLVMLTO LLVMMCA LLVMMCJIT LLVMMIRParser LLVMObjectYAML LLVMOption
+    LLVMOrcError LLVMOrcJIT LLVMRuntimeDyld LLVMSymbolize LLVMTableGen
+    LLVMWindowsManifest LLVMX86Disassembler LLVMXRay
+  )
+  list(REMOVE_ITEM LLVM_MODULE_LIBS ${UNUSED_LLVM_LIBS})
+endif()
 
 # INTEL_FEATURE_SW_DTRANS
 # Don't know why the following 3 components are not in LLVM_MODULE_LIBS. Add

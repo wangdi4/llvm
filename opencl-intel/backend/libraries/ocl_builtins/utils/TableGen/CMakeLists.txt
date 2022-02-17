@@ -1,14 +1,19 @@
 use_eh(TRUE)
 
-if( NOT DEFINED LLVM_PATH_FE )
+if (NOT OPENCL_INTREE_BUILD)
+  if( NOT DEFINED LLVM_PATH_FE )
     message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for backend using LLVM_PATH_FE parameter to CMAKE" )
+  endif()
+
+  set(LLVM_PATH ${LLVM_PATH_FE})
+  find_package(LLVM REQUIRED)
+
+  set(CLANG_BIN_PATH "${LLVM_BINARY_DIR}/clang")
+else()
+  set(CLANG_BIN_PATH clang)
 endif()
 
-set(LLVM_PATH ${LLVM_PATH_FE})
-find_package(LLVM REQUIRED)
-
 set(TARGET_NAME ${OCL_TBLGEN})
-set(CLANG_BIN_PATH "${LLVM_BINARY_DIR}/clang")
 
 add_definitions(
   -D CCLANG_INCLUDE_PATH=${CCLANG_DEV_INCLUDE_DIRS}
@@ -26,6 +31,16 @@ include_directories(
   ${OCL_SOURCE_DIR}/cl_api
 )
 
+if (OPENCL_INTREE_BUILD)
+  llvm_map_components_to_libnames(LLVM_MODULE_LIBS
+    Analysis
+    Core
+    IRReader
+    Support
+    TableGen
+    Intel_DPCPPKernelTransforms
+  )
+endif()
 
 add_opencl_executable(${TARGET_NAME}
   OclBuiltinEmitter.cpp

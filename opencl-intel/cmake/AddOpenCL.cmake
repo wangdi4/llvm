@@ -22,12 +22,14 @@ add_definitions( -DOUTPUT_EMU_SUFF="_${OUTPUT_EMU_SUFF}" )
 # version of LLVM and 'y' is an internally agreed digit.
 macro(set_opencl_version)
     if( NOT DEFINED VERSIONSTRING )
-        if( NOT DEFINED LLVM_PATH_FE )
+        if (NOT OPENCL_INTREE_BUILD)
+          if( NOT DEFINED LLVM_PATH_FE )
             message( FATAL_ERROR "LLVM_PATH_FE is not specified." )
-        endif()
+          endif()
 
-        set(LLVM_PATH ${LLVM_PATH_FE})
-        find_package(LLVM REQUIRED)
+          set(LLVM_PATH ${LLVM_PATH_FE})
+          find_package(LLVM REQUIRED)
+        endif()
         math(EXPR LLVM_RELEASE_VER "${LLVM_VERSION_MAJOR} - 1")
         set(VERSIONSTRING "${PRODUCTVER_MAJOR}.${LLVM_RELEASE_VER}.${PRODUCTVER_MINOR}")
         # Get branch info

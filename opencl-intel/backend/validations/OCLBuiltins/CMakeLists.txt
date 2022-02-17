@@ -88,6 +88,7 @@ add_opencl_library(OCLBuiltinsRef SHARED
     ${REF_CL_BUILTIN_SOURCE_DIR}
 
   LINK_LIBS
+    LLVMIntel_DPCPPKernelTransforms
     REFALU
 )
 
