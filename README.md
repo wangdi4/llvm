@@ -2,9 +2,6 @@
 
 This directory and its subdirectories contain source code for LLVM,
 a toolkit for the construction of highly optimized compilers,
-<<<<<<< HEAD
-optimizers, and runtime environments.
-=======
 optimizers, and run-time environments.
 
 The README briefly describes how to get started with building LLVM.
@@ -122,4 +119,3 @@ Join [LLVM Discourse forums](https://discourse.llvm.org/), [discord chat](https:
 
 The LLVM project has adopted a [code of conduct](https://llvm.org/docs/CodeOfConduct.html) for
 participants to all modes of communication within the project.
->>>>>>> 4ae83bb2b1e27628f6bd14d746aef964ed776d52
