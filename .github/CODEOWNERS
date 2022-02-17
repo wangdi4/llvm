@@ -26,6 +26,9 @@
 # CFE: Team owns everything in Clang unless otherwise specified.
 /clang/ @ErichKeane @mikerice1969 @aaronballman
 
+# clang-tools-extra (includes clang-tidy)
+/clang-tools-extra/ @aaronballman
+
 # CFE/OpenMP
 /llvm/include/llvm/Frontend/OpenMP/ @mikerice1969 @jyu2-git
 /llvm/lib/Frontend/OpenMP/ @mikerice1969 @jyu2-git
