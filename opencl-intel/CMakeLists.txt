@@ -196,6 +196,11 @@ set_property(GLOBAL PROPERTY C_STANDARD 99)
 
 set(COMMON_CLANG common_clang${BUILD_PLATFORM})
 if (OPENCL_INTREE_BUILD)
+  get_target_property(CCLANG_USER_INCLUDE_DIRS cl_headers BINARY_DIR)
+  if (NOT CCLANG_USER_INCLUDE_DIRS)
+    message(FATAL_ERROR "Cannot find BINARY_DIR for cl_headers library.")
+  endif()
+
   get_target_property(COMMON_CLANG_H_LOC ${COMMON_CLANG} SOURCE_DIR)
   if ((NOT COMMON_CLANG_H_LOC) OR
       (NOT EXISTS "${COMMON_CLANG_H_LOC}/common_clang.h"))
@@ -203,6 +208,8 @@ if (OPENCL_INTREE_BUILD)
       "Cannot find common_clang.h from common_clang project (in ${COMMON_CLANG_H_LOC}).")
   endif()
   copy_to(${COMMON_CLANG_H_LOC}/common_clang.h DESTINATION include/cclang)
+  set(CCLANG_DEV_INCLUDE_DIRS ${OCL_BINARY_DIR}/include/cclang)
+  set(LLVM_INCLUDE_DIRS ${LLVM_MAIN_INCLUDE_DIR})
 endif()
 
 FIND_PACKAGE ( Threads REQUIRED )

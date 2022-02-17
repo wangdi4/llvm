@@ -24,7 +24,6 @@
 ; CHECK-NEXT:     LinearIdResolverLegacy
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
-; CHECK:          DPCPPKernelAnalysisLegacy
 ; CHECK-NOT:      VFAnalysisLegacy
 ; CHECK-NOT:      SetVectorizationFactorLegacy
 ; CHECK-NOT:      VectorVariantLoweringLegacy
@@ -33,6 +32,7 @@
 ; CHECK-NOT:      SGSizeCollectorIndirectLegacy
 ; CHECK-NOT:      DPCPPKernelVecCloneLegacy
 ; CHECK-NOT:      VecClone
+; CHECK:          DPCPPKernelAnalysisLegacy
 ; CHECK:          ResolveSubGroupWICallLegacy
 ; CHECK:          WGLoopCreatorLegacy
 ; CHECK:          Lowering __intel_indirect_call scalar calls

@@ -121,7 +121,7 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
         MPM.addPass(AddFunctionAttrsPass());
         MPM.addPass(LinearIdResolverPass());
         MPM.addPass(createModuleToFunctionPassAdaptor(BuiltinCallToInstPass()));
-        MPM.addPass(DPCPPKernelAnalysisPass());
+        MPM.addPass(DPCPPKernelAnalysisPass()); // FIXME move to VectorizerStart
       });
 }
 
