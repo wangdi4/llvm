@@ -4874,33 +4874,47 @@ void VPOParoptUtils::insertCallsAtRegionBoundary(WRegionNode *W,
   }
 }
 
-std::pair<CallInst *, CallInst *>
-VPOParoptUtils::genKmpcSpmdPushPopNumThreadsCalls(Module *M,
-                                                  Value *NumThreads) {
+CallInst *VPOParoptUtils::genKmpcSpmdCallImpl(Module *M, StringRef FnName) {
   assert(M && "Module is null.");
+  assert(VPOAnalysisUtils::isTargetSPIRV(M) &&
+         "SPMD calls should be emitted only for spirv target.");
 
   LLVMContext &C = M->getContext();
   auto *VoidTy = Type::getVoidTy(C);
-  auto *RetTy = VoidTy;
 
-  if (!NumThreads)
-    NumThreads = ConstantInt::get(Type::getInt32Ty(C), 1);
+  CallInst *Call = genCall(M, FnName, VoidTy, {});
+  assert(Call && "Could not emit spmd call.");
 
-  CallInst *PushCall =
-      genCall(M, "__kmpc_spmd_push_num_threads", RetTy, {NumThreads});
-  assert(PushCall && "Could not emit __kmpc_spmd_push_num_threads");
+  Call->getCalledFunction()->setConvergent();
+  setFuncCallingConv(Call, M);
 
-  CallInst *PopCall = genCall(M, "__kmpc_spmd_pop_num_threads", RetTy, {});
-  assert(PopCall && "Could not emit __kmpc_spmd_pop_num_threads");
+  return Call;
+}
 
-  PushCall->getCalledFunction()->setConvergent();
-  setFuncCallingConv(PushCall, M);
-  PopCall->getCalledFunction()->setConvergent();
-  setFuncCallingConv(PopCall, M);
+std::pair<CallInst *, CallInst *>
+VPOParoptUtils::genKmpcBeginEndSpmdParallelCalls(Module *M) {
+
+  CallInst *BeginCall =
+      VPOParoptUtils::genKmpcSpmdCallImpl(M, "__kmpc_begin_spmd_parallel");
+  CallInst *EndCall =
+      VPOParoptUtils::genKmpcSpmdCallImpl(M, "__kmpc_end_spmd_parallel");
 
   LLVM_DEBUG(dbgs() << __FUNCTION__
-                    << ": Push/Pop num_threads calls generated.\n");
-  return {PushCall, PopCall};
+                    << ": begin/end_spmd_parallel calls generated.\n");
+  return {BeginCall, EndCall};
+}
+
+std::pair<CallInst *, CallInst *>
+VPOParoptUtils::genKmpcBeginEndSpmdTargetCalls(Module *M) {
+
+  CallInst *BeginCall =
+      VPOParoptUtils::genKmpcSpmdCallImpl(M, "__kmpc_begin_spmd_target");
+  CallInst *EndCall =
+      VPOParoptUtils::genKmpcSpmdCallImpl(M, "__kmpc_end_spmd_target");
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__
+                    << ": begin/end_spmd_target calls generated.\n");
+  return {BeginCall, EndCall};
 }
 
 // Emit Constructor Call and insert it via created IRBuilder

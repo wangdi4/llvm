@@ -41,7 +41,7 @@
 ;   return 0;
 ; }
 
-; Check that we emit the spmd_push/pop calls for the first three regions, but
+; Check that we emit the begin/end_spmd calls for the first three regions, but
 ; not the last three.
 ; DEFAULT:  collectOmpNumThreadsCallerInfo: @main may call omp_get_num_threads.
 ; DEFAULT:  collectOmpNumThreadsCallerInfo: @f2 may call omp_get_num_threads.
@@ -73,36 +73,36 @@
 ; ALL:      mayCallOmpGetNumThreads: Region #6 (target) may call omp_get_num_threads: Yes.
 
 ; ALL: call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(){{.*}}]
-; DEFAULT-NOT: call spir_func void @__kmpc_spmd_{{.*}}_num_threads
-; NOFRUGAL:    call spir_func void @__kmpc_spmd_push_num_threads(i32 1)
-; NOFRUGAL:    call spir_func void @__kmpc_spmd_pop_num_threads()
+; DEFAULT-NOT: call spir_func void @__kmpc_{{.*}}spmd_target
+; NOFRUGAL:    call spir_func void @__kmpc_begin_spmd_target()
+; NOFRUGAL:    call spir_func void @__kmpc_end_spmd_target()
 ; ALL:         call void @llvm.directive.region.exit({{.*}}) [ "DIR.OMP.END.TARGET"() ]
 
 ; ALL: call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(){{.*}}]
-; DEFAULT-NOT: call spir_func void @__kmpc_spmd_{{.*}}_num_threads
-; NOFRUGAL:    call spir_func void @__kmpc_spmd_push_num_threads(i32 1)
-; NOFRUGAL:    call spir_func void @__kmpc_spmd_pop_num_threads()
+; DEFAULT-NOT: call spir_func void @__kmpc_{{.*}}spmd_target
+; NOFRUGAL:    call spir_func void @__kmpc_begin_spmd_target()
+; NOFRUGAL:    call spir_func void @__kmpc_end_spmd_target()
 ; ALL:         call void @llvm.directive.region.exit({{.*}}) [ "DIR.OMP.END.TARGET"() ]
 
 ; ALL: call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(){{.*}}]
-; DEFAULT-NOT: call spir_func void @__kmpc_spmd_{{.*}}_num_threads
-; NOFRUGAL:    call spir_func void @__kmpc_spmd_push_num_threads(i32 1)
-; NOFRUGAL:    call spir_func void @__kmpc_spmd_pop_num_threads()
+; DEFAULT-NOT: call spir_func void @__kmpc_{{.*}}spmd_target
+; NOFRUGAL:    call spir_func void @__kmpc_begin_spmd_target()
+; NOFRUGAL:    call spir_func void @__kmpc_end_spmd_target()
 ; ALL:         call void @llvm.directive.region.exit({{.*}}) [ "DIR.OMP.END.TARGET"() ]
 
 ; ALL:         call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(){{.*}}]
-; ALL:         call spir_func void @__kmpc_spmd_push_num_threads(i32 1)
-; ALL:         call spir_func void @__kmpc_spmd_pop_num_threads()
+; ALL:         call spir_func void @__kmpc_begin_spmd_target()
+; ALL:         call spir_func void @__kmpc_end_spmd_target()
 ; ALL:         call void @llvm.directive.region.exit({{.*}}) [ "DIR.OMP.END.TARGET"() ]
 
 ; ALL:         call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(){{.*}}]
-; ALL:         call spir_func void @__kmpc_spmd_push_num_threads(i32 1)
-; ALL:         call spir_func void @__kmpc_spmd_pop_num_threads()
+; ALL:         call spir_func void @__kmpc_begin_spmd_target()
+; ALL:         call spir_func void @__kmpc_end_spmd_target()
 ; ALL:         call void @llvm.directive.region.exit({{.*}}) [ "DIR.OMP.END.TARGET"() ]
 
 ; ALL:         call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(){{.*}}]
-; ALL:         call spir_func void @__kmpc_spmd_push_num_threads(i32 1)
-; ALL:         call spir_func void @__kmpc_spmd_pop_num_threads()
+; ALL:         call spir_func void @__kmpc_begin_spmd_target()
+; ALL:         call spir_func void @__kmpc_end_spmd_target()
 ; ALL:         call void @llvm.directive.region.exit({{.*}}) [ "DIR.OMP.END.TARGET"() ]
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
