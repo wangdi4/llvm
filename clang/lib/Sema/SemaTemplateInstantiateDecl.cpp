@@ -255,19 +255,11 @@ static void instantiateDependentAnnotationAttr(
     if (Args.size() < 1) {
       S.Diag(Attr->getLoc(), diag::err_attribute_too_few_arguments)
           << Attr << 1;
-<<<<<<< HEAD
       return;
     }
 
     if (!S.checkStringLiteralArgumentAttr(*Attr, Args[0], Str))
       return;
-=======
-      return;
-    }
-
-    if (!S.checkStringLiteralArgumentAttr(*Attr, Args[0], Str))
-      return;
->>>>>>> 1676e599368b79d7c570d57ed2b7356176520533
 
     llvm::SmallVector<Expr *, 4> ActualArgs;
     ActualArgs.insert(ActualArgs.begin(), Args.begin() + 1, Args.end());

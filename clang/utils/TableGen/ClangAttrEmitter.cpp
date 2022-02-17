@@ -2253,7 +2253,6 @@ static void forEachUniqueSpelling(const Record &Attr, Fn &&F) {
   }
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 template <typename Fn>
 static void forEachSpelling(const Record &Attr, Fn &&F) {
@@ -2264,8 +2263,6 @@ static void forEachSpelling(const Record &Attr, Fn &&F) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 1676e599368b79d7c570d57ed2b7356176520533
 static bool isTypeArgument(const Record *Arg) {
   return !Arg->getSuperClasses().empty() &&
          Arg->getSuperClasses().back().first->getName() == "TypeArgument";

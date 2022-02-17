@@ -471,11 +471,7 @@ unsigned Parser::ParseAttributeArgsCommon(
   ConsumeParen();
 
   bool ChangeKWThisToIdent = attributeTreatsKeywordThisAsIdentifier(*AttrName);
-<<<<<<< HEAD
   bool AttributeIsTypeArgAttr = attributeIsTypeArgAttr(*AttrName, Syntax, ScopeName); // INTEL
-=======
-  bool AttributeIsTypeArgAttr = attributeIsTypeArgAttr(*AttrName);
->>>>>>> 1676e599368b79d7c570d57ed2b7356176520533
   bool AttributeHasVariadicIdentifierArg =
       attributeHasVariadicIdentifierArg(*AttrName);
 
@@ -486,15 +482,10 @@ unsigned Parser::ParseAttributeArgsCommon(
   ArgsVector ArgExprs;
   if (Tok.is(tok::identifier)) {
     // If this attribute wants an 'identifier' argument, make it so.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     bool IsIdentifierArg = AttributeHasVariadicIdentifierArg ||
                            attributeHasIdentifierArg(*AttrName, Syntax, ScopeName);
 #endif // INTEL_CUSTOMIZATION
-=======
-    bool IsIdentifierArg = AttributeHasVariadicIdentifierArg ||
-                           attributeHasIdentifierArg(*AttrName);
->>>>>>> 1676e599368b79d7c570d57ed2b7356176520533
     ParsedAttr::Kind AttrKind =
         ParsedAttr::getParsedKind(AttrName, ScopeName, Syntax);
 
@@ -540,14 +531,10 @@ unsigned Parser::ParseAttributeArgsCommon(
         if (Tok.is(tok::identifier)) {
           ArgExprs.push_back(ParseIdentifierLoc());
         } else {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
           bool Uneval = attributeParsedArgsUnevaluated(*AttrName, Syntax,
                                                        ScopeName);
 #endif // INTEL_CUSTOMIZATION
-=======
-          bool Uneval = attributeParsedArgsUnevaluated(*AttrName);
->>>>>>> 1676e599368b79d7c570d57ed2b7356176520533
           EnterExpressionEvaluationContext Unevaluated(
               Actions,
               Uneval ? Sema::ExpressionEvaluationContext::Unevaluated
@@ -566,14 +553,10 @@ unsigned Parser::ParseAttributeArgsCommon(
       } while (TryConsumeToken(tok::comma));
     } else {
       // General case. Parse all available expressions.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       bool Uneval = attributeParsedArgsUnevaluated(*AttrName, Syntax,
                                                    ScopeName);
 #endif // INTEL_CUSTOMIZATION
-=======
-      bool Uneval = attributeParsedArgsUnevaluated(*AttrName);
->>>>>>> 1676e599368b79d7c570d57ed2b7356176520533
       EnterExpressionEvaluationContext Unevaluated(
           Actions, Uneval
                        ? Sema::ExpressionEvaluationContext::Unevaluated
