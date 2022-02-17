@@ -62,6 +62,8 @@ public:
 #endif // INTEL_CUSTOMIZATION
     csky,           // CSKY: csky
     hexagon,        // Hexagon: hexagon
+    loongarch32,    // LoongArch (32-bit): loongarch32
+    loongarch64,    // LoongArch (64-bit): loongarch64
     m68k,           // M68k: Motorola 680x0 family
     mips,           // MIPS: mips, mipsallegrex, mipsr6
     mipsel,         // MIPSEL: mipsel, mipsallegrexe, mipsr6el
@@ -800,6 +802,11 @@ public:
                    getEnvironment() == Triple::GNUILP32
                ? PointerWidth == 32
                : PointerWidth == 64;
+  }
+
+  /// Tests whether the target is LoongArch (32- and 64-bit).
+  bool isLoongArch() const {
+    return getArch() == Triple::loongarch32 || getArch() == Triple::loongarch64;
   }
 
   /// Tests whether the target is MIPS 32-bit (little and big endian).
