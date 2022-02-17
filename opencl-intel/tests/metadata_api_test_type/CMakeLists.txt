@@ -14,10 +14,7 @@ add_ocl_unittest(
 
   LINK_LIBRARIES
     metadataapi
-    LLVMCore
-    LLVMIRReader
-    LLVMSupport
-    LLVMTransformUtils
+    ${LLVM_MODULE_LIBS}
     test_utils
 )
 

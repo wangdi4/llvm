@@ -86,10 +86,7 @@ if (WIN32)
 
     link_directories( "${ICC_WIN32_PATH}/compiler/lib/${ICC_PLATFORM}" )
 endif(WIN32)
-
-if (NOT OPENCL_INTREE_BUILD)
-  link_directories(${LLVM_LIBRARY_DIRS})
-endif()
+link_directories(${LLVM_LIBRARY_DIRS})
 
 SET(QT_USE_QTXML TRUE)
 file(GLOB SATESTGUI_SRCS *.cpp)
@@ -142,7 +139,9 @@ ${TARGET_NAME}
     OpenCLKernelArgumentsParser
     OCLKernelDataGenerator
     Comparator
+    LLVMInterpreterPluggable
     OclBackendUtils
+    LLVMInterpreter
     OCLBuiltins
     NEAT
     REFALU
@@ -152,8 +151,6 @@ ${TARGET_NAME}
     cl_sys_utils
     ProgramConfiguration
     ${LLVM_MODULE_LIBS}
-    LLVMInterpreter
-    LLVMInterpreterPluggable
     ${QT_LIBRARIES}
 )
 
