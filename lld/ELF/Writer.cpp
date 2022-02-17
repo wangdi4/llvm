@@ -168,7 +168,7 @@ static Defined *addOptionalRegular(StringRef name, SectionBase *sec,
     return nullptr;
 
   s->resolve(Defined{nullptr, StringRef(), STB_GLOBAL, stOther, STT_NOTYPE, val,
-                     /*size=*/0, sec});
+                     /*size=*/0, sec}, name);                          // INTEL
   return cast<Defined>(s);
 }
 
@@ -231,7 +231,8 @@ void elf::addReservedSymbols() {
       gotOff = 0x8000;
 
     s->resolve(Defined{/*file=*/nullptr, StringRef(), STB_GLOBAL, STV_HIDDEN,
-                       STT_NOTYPE, gotOff, /*size=*/0, Out::elfHeader});
+                       STT_NOTYPE, gotOff, /*size=*/0,                 // INTEL
+                       Out::elfHeader}, gotSymName);                   // INTEL
     ElfSym::globalOffsetTable = cast<Defined>(s);
   }
 
@@ -1862,7 +1863,7 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
     if (s && s->isUndefined()) {
       s->resolve(Defined{/*file=*/nullptr, StringRef(), STB_GLOBAL, STV_HIDDEN,
                          STT_TLS, /*value=*/0, 0,
-                         /*section=*/nullptr});
+                         /*section=*/nullptr}, s->getName());          // INTEL
       ElfSym::tlsModuleBase = cast<Defined>(s);
     }
   }

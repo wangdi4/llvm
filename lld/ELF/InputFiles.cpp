@@ -282,10 +282,10 @@ StringRef InputFile::getNameForScript() const {
 }
 
 #if INTEL_CUSTOMIZATION
-// Return the "gnu.linkonce.T." section associated with the input symbol
+// Return the "gnu.linkonce.T." section associated with the input symbol name
 InputSectionBase*
-InputFile::getGNULinkOnceSectionForSymbol(const Symbol *sym) {
-  if (!sym)
+InputFile::getGNULinkOnceSectionForSymbol(StringRef symbolName) {
+  if (symbolName.empty())
     return nullptr;
 
   StringRef linkOnceName;
@@ -302,8 +302,8 @@ InputFile::getGNULinkOnceSectionForSymbol(const Symbol *sym) {
     // character 14 represents the type and 15 the delimiter ('.'). The symbol
     // name starts at character 16.
     size_t gnuLinkOnceSize = strlen(".gnu.linkonce.");
-    StringRef symbolName = secName.drop_front(gnuLinkOnceSize + 2);
-    if (symbolName == sym->getName()) {
+    StringRef currSymbolName = secName.drop_front(gnuLinkOnceSize + 2);
+    if (currSymbolName == symbolName) {
       if (isalpha(secName[gnuLinkOnceSize]) &&
           secName[gnuLinkOnceSize + 1] == '.') {
         linkOnceName = secName;
@@ -1202,7 +1202,8 @@ void ObjFile<ELFT>::initializeSymbols(const object::ELFFile<ELFT> &obj) {
               "' has invalid alignment: " + Twine(value));
       hasCommonSyms = true;
       sym->resolve(
-          CommonSymbol{this, StringRef(), binding, stOther, type, value, size});
+          CommonSymbol{this, StringRef(), binding, stOther, type,      // INTEL
+                       value, size}, sym->getName());                  // INTEL
       continue;
     }
 
@@ -1226,7 +1227,7 @@ void ObjFile<ELFT>::initializeSymbols(const object::ELFFile<ELFT> &obj) {
         // reference to this symbol from this file.
         sym->isUsedInRegularObj = true;
       } else
-        sym->resolve(und);
+        sym->resolve(und, sym->getName());                             // INTEL
       continue;
     }
 
@@ -1234,7 +1235,8 @@ void ObjFile<ELFT>::initializeSymbols(const object::ELFFile<ELFT> &obj) {
     if (binding == STB_GLOBAL || binding == STB_WEAK ||
         binding == STB_GNU_UNIQUE) {
       sym->resolve(
-          Defined{this, StringRef(), binding, stOther, type, value, size, sec});
+          Defined{this, StringRef(), binding, stOther, type, value,    // INTEL
+                  size, sec}, sym->getName());                         // INTEL
       continue;
     }
 
@@ -1251,7 +1253,7 @@ void ObjFile<ELFT>::initializeSymbols(const object::ELFFile<ELFT> &obj) {
     const Elf_Sym &eSym = eSyms[i];
     Symbol *sym = symbols[i];
     sym->resolve(Undefined{this, StringRef(), eSym.getBinding(), eSym.st_other,
-                           eSym.getType()});
+                           eSym.getType()}, sym->getName());           // INTEL
     sym->referenced = true;
   }
 }
@@ -1797,10 +1799,11 @@ createBitcodeSymbol(Symbol *&sym, const std::vector<bool> &keptComdats,
   if (!sym)
     sym = symtab->insert(saver().save(objSym.getName()));
 
+  StringRef name = sym->getName();                                     // INTEL
   int c = objSym.getComdatIndex();
   if (objSym.isUndefined() || (c != -1 && !keptComdats[c])) {
     Undefined newSym(&f, StringRef(), binding, visibility, type);
-    sym->resolve(newSym);
+    sym->resolve(newSym, name);                                        // INTEL
     sym->referenced = true;
     return;
   }
@@ -1808,12 +1811,12 @@ createBitcodeSymbol(Symbol *&sym, const std::vector<bool> &keptComdats,
   if (objSym.isCommon()) {
     sym->resolve(CommonSymbol{&f, StringRef(), binding, visibility, STT_OBJECT,
                               objSym.getCommonAlignment(),
-                              objSym.getCommonSize()});
+                              objSym.getCommonSize()}, name);          // INTEL
   } else {
     Defined newSym(&f, StringRef(), binding, visibility, type, 0, 0, nullptr);
     if (objSym.canBeOmittedFromSymbolTable())
       newSym.exportDynamic = false;
-    sym->resolve(newSym);
+    sym->resolve(newSym, name);                                        // INTEL
   }
 }
 
@@ -1841,8 +1844,9 @@ void BitcodeFile::parseLazy() {
   symbols.resize(obj->symbols().size());
   for (auto it : llvm::enumerate(obj->symbols()))
     if (!it.value().isUndefined()) {
-      auto *sym = symtab.insert(saver().save(it.value().getName()));
-      sym->resolve(LazyObject{*this});
+      StringRef name = saver().save(it.value().getName());             // INTEL
+      auto *sym = symtab.insert(name);                                 // INTEL
+      sym->resolve(LazyObject{*this}, name);                           // INTEL
       symbols[it.index()] = sym;
     }
 }
@@ -1918,7 +1922,7 @@ template <class ELFT> void ObjFile<ELFT>::parseLazy() {
   // exit from the loop early.
   for (Symbol *sym : makeArrayRef(symbols).slice(firstGlobal))
     if (sym) {
-      sym->resolve(LazyObject{*this});
+      sym->resolve(LazyObject{*this}, sym->getName());                 // INTEL
       if (!lazy)
         return;
     }

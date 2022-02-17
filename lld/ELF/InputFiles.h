@@ -145,8 +145,8 @@ public:
   bool ppc64DisableTLSRelax = false;
 
 #if INTEL_CUSTOMIZATION
-  // Return the ".gnu.linkonce." section mapped to the input symbol
-  InputSectionBase *getGNULinkOnceSectionForSymbol(const Symbol *sym);
+  // Return the ".gnu.linkonce." section mapped to the input symbol name
+  InputSectionBase *getGNULinkOnceSectionForSymbol(StringRef symbolName);
 
   // True if the file contains the GNU LTO section
   bool isGNULTOFile = false;

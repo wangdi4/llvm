@@ -215,7 +215,9 @@ public:
   // For example, if "this" is an undefined symbol and a new symbol is
   // a defined symbol, "this" is replaced with the new symbol.
   void mergeProperties(const Symbol &other);
-  void resolve(const Symbol &other);
+#if INTEL_CUSTOMIZATION
+  void resolve(const Symbol &other, StringRef otherName = StringRef());
+#endif // INTEL_CUSTOMIZATION
 
   // If this is a lazy symbol, extract an input file and add the symbol
   // in the file to the symbol table. Calling this function on
@@ -224,12 +226,16 @@ public:
 
 private:
   void resolveUndefined(const Undefined &other);
-  void resolveCommon(const CommonSymbol &other);
-  void resolveDefined(const Defined &other);
+#if INTEL_CUSTOMIZATION
+  void resolveCommon(const CommonSymbol &other, StringRef otherName);
+  void resolveDefined(const Defined &other, StringRef otherName);
+#endif // INTEL_CUSTOMIZATION
   template <class LazyT> void resolveLazy(const LazyT &other);
   void resolveShared(const SharedSymbol &other);
 
-  int compare(const Symbol *other) const;
+#if INTEL_CUSTOMIZATION
+  int compare(const Symbol *other, StringRef otherName) const;
+#endif // INTEL_CUSTOMIZATION
 
   inline size_t getSymbolSize() const;
 

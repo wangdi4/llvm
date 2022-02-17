@@ -410,7 +410,11 @@ void Symbol::mergeProperties(const Symbol &other) {
     visibility = getMinVisibility(visibility, other.visibility);
 }
 
-void Symbol::resolve(const Symbol &other) {
+#if INTEL_CUSTOMIZATION
+// We include the real name of the other symbol since there is a chance that
+// the symbol was created without a name.
+void Symbol::resolve(const Symbol &other, StringRef otherName) {
+#endif // INTEL_CUSTOMIZATION
   mergeProperties(other);
 
   if (isPlaceholder()) {
@@ -423,10 +427,10 @@ void Symbol::resolve(const Symbol &other) {
     resolveUndefined(cast<Undefined>(other));
     break;
   case Symbol::CommonKind:
-    resolveCommon(cast<CommonSymbol>(other));
+    resolveCommon(cast<CommonSymbol>(other), otherName);             // INTEL
     break;
   case Symbol::DefinedKind:
-    resolveDefined(cast<Defined>(other));
+    resolveDefined(cast<Defined>(other), otherName);                 // INTEL
     break;
   case Symbol::LazyArchiveKind:
     resolveLazy(cast<LazyArchive>(other));
@@ -555,12 +559,14 @@ void Symbol::resolveUndefined(const Undefined &other) {
 //   0 := let the linker decide which resolution will be used
 //   1 := use the resolution from newSym
 //  -1 := use the resolution from oldSym
-static int compareGNULinkOnce(const Symbol *oldSym, const Symbol *newSym) {
+static int compareGNULinkOnce(const Symbol *oldSym, const Symbol *newSym,
+                              StringRef newSymbolName) {
 
   // Collect the input file associated with the symbols and
   // check if there is a "gnu.linkonce." section associated
   // with the symbol name.
-  auto getLinkOnceSection = [](const Symbol *sym) -> SectionBase * {
+  auto getLinkOnceSection = [](const Symbol *sym,
+                               StringRef symbolName) -> SectionBase * {
     if (!sym)
       return nullptr;
 
@@ -577,17 +583,23 @@ static int compareGNULinkOnce(const Symbol *oldSym, const Symbol *newSym) {
     // Else, check if we can find the ".gnu.linkonce." section from the
     // input file
     return dyn_cast_or_null<SectionBase>(
-        file->getGNULinkOnceSectionForSymbol(sym));
+        file->getGNULinkOnceSectionForSymbol(symbolName));
   };
 
-  // Name mismatch
-  if (oldSym->getName() != newSym->getName())
+  // Find the name that matches between both symbols
+  StringRef oldSymName = oldSym->getName();
+  StringRef newSymName;
+  if (oldSym->getName() == newSym->getName())
+    newSymName = newSym->getName();
+  else if (newSym->getName().empty() && oldSym->getName() == newSymbolName)
+    newSymName = newSymbolName;
+  else
     return 0;
 
   // Check if we can find a ".gnu.linkonce." section associated
   // with the input symbol
-  auto oldLinkOnceSec = getLinkOnceSection(oldSym);
-  auto newLinkOnceSec = getLinkOnceSection(newSym);
+  auto oldLinkOnceSec = getLinkOnceSection(oldSym, oldSymName);
+  auto newLinkOnceSec = getLinkOnceSection(newSym, newSymName);
 
   // Neither symbol has a "linkonce" section, let the linker decide
   if (!oldLinkOnceSec && !newLinkOnceSec)
@@ -605,7 +617,11 @@ static int compareGNULinkOnce(const Symbol *oldSym, const Symbol *newSym) {
 
 // Compare two symbols. Return 1 if the new symbol should win, -1 if
 // the new symbol should lose, or 0 if there is a conflict.
-int Symbol::compare(const Symbol *other) const {
+#if INTEL_CUSTOMIZATION
+// We include the real name of the other symbol since there is a chance that
+// the symbol was created without a name.
+int Symbol::compare(const Symbol *other, StringRef otherName) const {
+#endif // INTEL_CUSTOMIZATION
   assert(other->isDefined() || other->isCommon());
 
   if (!isDefined() && !isCommon())
@@ -614,7 +630,7 @@ int Symbol::compare(const Symbol *other) const {
 #if INTEL_CUSTOMIZATION
   // Check if the current symbol (*this) and the input symbol (other)
   // are associated with a "gnu.linkonce.t" section
-  int cmpGNU = compareGNULinkOnce(this, other);
+  int cmpGNU = compareGNULinkOnce(this, other, otherName);
   if (cmpGNU != 0)
     return cmpGNU;
 #endif // INTEL_CUSTOMIZATION
@@ -702,8 +718,12 @@ static void reportDuplicate(Symbol *sym, InputFile *newFile,
   error(msg);
 }
 
-void Symbol::resolveCommon(const CommonSymbol &other) {
-  int cmp = compare(&other);
+#if INTEL_CUSTOMIZATION
+// We include the real name of the other symbol since there is a chance that
+// the symbol was created without a name.
+void Symbol::resolveCommon(const CommonSymbol &other, StringRef otherName) {
+  int cmp = compare(&other, otherName);
+#endif // INTEL_CUSTOMIZATION
   if (cmp < 0)
     return;
 
@@ -732,8 +752,12 @@ void Symbol::resolveCommon(const CommonSymbol &other) {
   }
 }
 
-void Symbol::resolveDefined(const Defined &other) {
-  int cmp = compare(&other);
+#if INTEL_CUSTOMIZATION
+// We include the real name of the other symbol since there is a chance that
+// the symbol was created without a name.
+void Symbol::resolveDefined(const Defined &other, StringRef otherName) {
+  int cmp = compare(&other, otherName);
+#endif // INTEL_CUSTOMIZATION
   if (cmp > 0)
     replace(other);
   else if (cmp == 0)

@@ -198,7 +198,8 @@ static bool addOptional(StringRef name, uint64_t value,
     return false;
   sym->resolve(Defined{/*file=*/nullptr, StringRef(), STB_GLOBAL, STV_HIDDEN,
                        STT_FUNC, value,
-                       /*size=*/0, /*section=*/nullptr});
+                       /*size=*/0, /*section=*/nullptr},               // INTEL
+               saver().save(name));                                    // INTEL
   defined.push_back(cast<Defined>(sym));
   return true;
 }
