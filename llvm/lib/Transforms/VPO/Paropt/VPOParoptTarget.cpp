@@ -1337,8 +1337,8 @@ void VPOParoptTransform::guardSideEffectStatements(
     VPOUtils::stripDirectives(*KernelExitDir->getParent());
 }
 
-bool VPOParoptTransform::callPopPushNumThreadsAtRegionBoundary(
-    WRegionNode *W, bool InsideRegion) {
+bool VPOParoptTransform::callBeginEndSpmdParallelAtRegionBoundary(
+    WRegionNode *W) {
 
   if (!SimulateGetNumThreadsInTarget || !mayCallOmpGetNumThreads(W))
     return false;
@@ -1348,19 +1348,19 @@ bool VPOParoptTransform::callPopPushNumThreadsAtRegionBoundary(
   Instruction *EntryDir = W->getEntryDirective();
   assert(EntryDir && "Null Entry directive.");
 
-  CallInst *PushCall, *PopCall;
-  std::tie(PushCall, PopCall) =
-      VPOParoptUtils::genKmpcSpmdPushPopNumThreadsCalls(EntryDir->getModule());
+  CallInst *BeginCall, *EndCall;
+  std::tie(BeginCall, EndCall) =
+      VPOParoptUtils::genKmpcBeginEndSpmdParallelCalls(EntryDir->getModule());
 
-  VPOParoptUtils::insertCallsAtRegionBoundary(W, PopCall, PushCall,
-                                              InsideRegion);
-  VPOParoptUtils::addFuncletOperandBundle(PushCall, W->getDT());
-  VPOParoptUtils::addFuncletOperandBundle(PopCall, W->getDT());
+  VPOParoptUtils::insertCallsAtRegionBoundary(W, BeginCall, EndCall,
+                                              /*InsideRegion=*/false);
+  VPOParoptUtils::addFuncletOperandBundle(BeginCall, W->getDT());
+  VPOParoptUtils::addFuncletOperandBundle(EndCall, W->getDT());
   return true;
 }
 
-bool VPOParoptTransform::callPushPopNumThreadsAtRegionBoundary(
-    WRegionNode *W, bool InsideRegion) {
+bool VPOParoptTransform::callBeginEndSpmdTargetAtRegionBoundary(
+    WRegionNode *W) {
   assert(W && "WRegionNode is null.");
 
   if (!SimulateGetNumThreadsInTarget || !mayCallOmpGetNumThreads(W))
@@ -1369,14 +1369,14 @@ bool VPOParoptTransform::callPushPopNumThreadsAtRegionBoundary(
   Instruction *EntryDir = W->getEntryDirective();
   assert(EntryDir && "Null Entry directive.");
 
-  CallInst *PushCall, *PopCall;
-  std::tie(PushCall, PopCall) =
-      VPOParoptUtils::genKmpcSpmdPushPopNumThreadsCalls(EntryDir->getModule());
+  CallInst *BeginCall, *EndCall;
+  std::tie(BeginCall, EndCall) =
+      VPOParoptUtils::genKmpcBeginEndSpmdTargetCalls(EntryDir->getModule());
 
-  VPOParoptUtils::insertCallsAtRegionBoundary(W, PushCall, PopCall,
-                                              InsideRegion);
-  VPOParoptUtils::addFuncletOperandBundle(PushCall, W->getDT());
-  VPOParoptUtils::addFuncletOperandBundle(PopCall, W->getDT());
+  VPOParoptUtils::insertCallsAtRegionBoundary(W, BeginCall, EndCall,
+                                              /*InsideRegion=*/true);
+  VPOParoptUtils::addFuncletOperandBundle(BeginCall, W->getDT());
+  VPOParoptUtils::addFuncletOperandBundle(EndCall, W->getDT());
   return true;
 }
 

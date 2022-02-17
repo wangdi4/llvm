@@ -1118,7 +1118,7 @@ private:
   /// Rename duplicate values in \p W's map clauses.
   void renameDuplicateBasesInMapClauses(WRegionNode *W);
 
-  /// \name Utilities to emit kmpc_spmd_push/pop_num_threads for offloading.
+  /// \name Utilities to emit kmpc_begin/end_spmd calls for offloading.
   ///
   /// Code generation like this is needed to support `omp_get_num_threads()`
   /// in user code when hierarchical parallelism is used.
@@ -1126,43 +1126,37 @@ private:
   /// \code
   ///   #pragma omp target
   ///   {
-  ///     __kmpc_spmd_push_num_threads(1);
+  ///     __kmpc_begin_spmd_target();
   ///       ...
-  ///       __kmpc_spmd_pop_num_threads();
+  ///       __kmpc_begin_spmd_parallel();
   ///       #pragma omp parallel
   ///       {}
-  ///       __kmpc_spmd_push_num_threads(1)
+  ///       __kmpc_end_spmd_parallel()
   ///       ...
-  ///     __kmpc_spmd_pop_num_threads();
+  ///     __kmpc_end_spmd_target();
   ///   }
   /// \endcode
   ///
   /// Note that these calls are emitted only if the current module
-  /// contains `omp_get_num_threads` function, to avoid performance impact
-  /// of these calls and the barriers associated with them.
+  /// contains `omp_get_num_threads` function and Paropt determines that a
+  /// region may call it, to avoid performance impact of these calls and
+  /// the barriers associated with them.
   ///
   /// Emission of these calls can also be disabled using the command line flag:
   ///   -vpo-paropt-simulate-get-num-threads-in-target=false
   ///
   /// @{
   ///
-  /// Inserts calls to `__kmpc_spmd_pop_num_threads` and
-  /// `__kmpc_spmd_push_num_threads` around \p W. If \p InsideRegion is \b true,
-  /// the pop call is inserted after \p W's entry directive, and the push call
-  /// is inserted before \p W's exit directive. Otherwise, the pop call is
-  /// inserted before the entry directive, and push call is inserted after the
-  /// exit directive. By default, \p InsideRegion is false.
-  bool callPopPushNumThreadsAtRegionBoundary(WRegionNode *W,
-                                             bool InsideRegion = false);
+  /// Inserts calls to `__kmpc_begin_spmd_parallel` and
+  /// `__kmpc_end_spmd_parallel` around \p W. The calls are inserted outside
+  /// \p W's region entry/exit directives.
+  bool callBeginEndSpmdParallelAtRegionBoundary(WRegionNode *W);
 
-  /// Inserts calls to `__kmpc_spmd_push_num_threads` and
-  /// `__kmpc_spmd_pop_num_threads` around \p W. If \p InsideRegion is \b true,
-  /// the push call is inserted after \p W's entry directive, and the pop call
-  /// is inserted before \p W's exit directive. Otherwise, the push call is
-  /// inserted before the entry directive, and pop call is inserted after the
-  /// exit directive. By default, \p InsideRegion is false.
-  bool callPushPopNumThreadsAtRegionBoundary(WRegionNode *W,
-                                             bool InsideRegion = false);
+  /// Inserts calls to `__kmpc_begin_spmd_target` and
+  /// `__kmpc_end_spmd_target` at the boundary of \p W. The begin call is
+  /// inserted after \p W's entry directive, and the end call is inserted
+  /// before \p W's exit directive.
+  bool callBeginEndSpmdTargetAtRegionBoundary(WRegionNode *W);
 
   /// @}
 
