@@ -143,6 +143,10 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
         MPM.add(createSGSizeCollectorLegacyPass(ISA));
         MPM.add(createSGSizeCollectorIndirectLegacyPass(ISA));
 
+        // We won't automatically switch vectorization dimension for SYCL.
+        if (!m_IsSYCL)
+          MPM.add(createVectorizationDimensionAnalysisLegacyPass());
+
         MPM.add(createDPCPPKernelVecClonePass(getVectInfos(), ISA,
                                               !m_IsSYCL && !m_IsOMP));
         MPM.add(createVectorVariantFillInLegacyPass());
@@ -166,6 +170,8 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
         MPM.add(createAggressiveDCEPass());
         MPM.add(createResolveSubGroupWICallLegacyPass(
             m_RtlModules, /*ResolveSGBarrier*/ false));
+        if (Config->GetStreamingAlways())
+          MPM.add(createAddNTAttrLegacyPass());
         MPM.add(createDPCPPKernelWGLoopCreatorLegacyPass());
         // Resolve __intel_indirect_call for scalar kernels.
         MPM.add(createIndirectCallLoweringLegacyPass());
@@ -192,6 +198,7 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
         MPM.add(createResolveWICallLegacyPass(false, false));
         MPM.add(createLocalBuffersLegacyPass(/*UseTLSGlobals*/false));
         MPM.add(createBuiltinImportLegacyPass(m_RtlModules, CPUPrefix));
+        MPM.add(createGlobalDCEPass());
         MPM.add(createBuiltinCallToInstLegacyPass());
         MPM.add(createFunctionInliningPass(4096));
         // AddImplicitArgs pass may create dead implicit arguments.
@@ -218,6 +225,14 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
         // Therefore, we basically should run the most optimization passes
         // (especially AliasAnalysis-related) before the PrepareKernelArgs pass.
         MPM.add(createPrepareKernelArgsLegacyPass(false));
+
+        // These passes come after PrepareKernelArgsLegacyPass to eliminate the
+        // redundancy produced by it.
+        MPM.add(createCFGSimplificationPass());
+        MPM.add(createInstructionCombiningPass());
+        MPM.add(createDeadCodeEliminationPass());
+        MPM.add(createDeadStoreEliminationPass());
+        MPM.add(createEarlyCSEPass());
       });
 }
 

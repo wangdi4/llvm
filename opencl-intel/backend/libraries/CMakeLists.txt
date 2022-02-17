@@ -55,6 +55,7 @@ else()
   set(OPT OCL_HOST_OPT)
 endif()
 set(OCL_TBLGEN ocl-tblgen)
+set(LLVM_TBLGEN llvm-tblgen)
 
 if(NOT DEFINED OCL_HOST_LLVM_LINK)
   set(LLVM_LINK "${TOOL_BINARY_DIR}/llvm-link")

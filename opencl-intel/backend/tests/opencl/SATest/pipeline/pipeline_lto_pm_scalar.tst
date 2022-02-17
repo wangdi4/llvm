@@ -46,7 +46,7 @@
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: BuiltinImportPass
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy
+; CHECK:      Running analysis: InnerAnalysisManagerProxy
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
 ; CHECK:      Running pass: InlinerPass
 ; CHECK:      Running pass: DeadArgumentEliminationPass

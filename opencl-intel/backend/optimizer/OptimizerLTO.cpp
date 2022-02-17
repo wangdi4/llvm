@@ -22,8 +22,14 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/DeadArgumentElimination.h"
+#include "llvm/Transforms/IPO/GlobalDCE.h"
 #include "llvm/Transforms/IPO/Inliner.h"
+#include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
+#include "llvm/Transforms/Scalar/DCE.h"
+#include "llvm/Transforms/Scalar/DeadStoreElimination.h"
+#include "llvm/Transforms/Scalar/EarlyCSE.h"
+#include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
@@ -131,6 +137,8 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
                                          OptimizationLevel Level) {
     MPM.addPass(
         ResolveSubGroupWICallPass(m_RtlModules, /*ResolveSGBarrier*/ false));
+    if (Level != OptimizationLevel::O0 && Config->GetStreamingAlways())
+      MPM.addPass(createModuleToFunctionPassAdaptor(AddNTAttrPass()));
     MPM.addPass(DPCPPKernelWGLoopCreatorPass());
     // Barrier passes begin.
     if (Level != OptimizationLevel::O0) {
@@ -156,6 +164,8 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     MPM.addPass(ResolveWICallPass());
     MPM.addPass(LocalBuffersPass(/*UseTLSGlobals*/ false));
     MPM.addPass(BuiltinImportPass(m_RtlModules, CPUPrefix));
+    if (Level != OptimizationLevel::O0)
+      MPM.addPass(GlobalDCEPass());
     MPM.addPass(createModuleToFunctionPassAdaptor(BuiltinCallToInstPass()));
     if (Level != OptimizationLevel::O0) {
       auto InlineParams = getInlineParams();
@@ -166,6 +176,18 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     } else
       MPM.addPass(AlwaysInlinerPass());
     MPM.addPass(PrepareKernelArgsPass());
+
+    if (Level != OptimizationLevel::O0) {
+      // These passes come after PrepareKernelArgsLegacyPass to eliminate the
+      // redundancy produced by it.
+      FunctionPassManager FPM;
+      FPM.addPass(SimplifyCFGPass());
+      FPM.addPass(InstCombinePass());
+      FPM.addPass(DCEPass());
+      FPM.addPass(DSEPass());
+      FPM.addPass(EarlyCSEPass());
+      MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+    }
   });
 }
 
