@@ -1792,7 +1792,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= canonicalizeGlobalVariableReferences(W);
           if (isTargetSPIRV() && isa<WRNParallelNode>(W) &&
               WRegionUtils::hasParentTarget(W))
-            Changed |= callPopPushNumThreadsAtRegionBoundary(W);
+            Changed |= callBeginEndSpmdParallelAtRegionBoundary(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= propagateCancellationPointsToIR(W);
           if (auto *WT = dyn_cast<WRNTeamsNode>(W))
@@ -1867,7 +1867,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           if (isTargetSPIRV() && WRegionUtils::hasParentTarget(W))
-            Changed |= callPopPushNumThreadsAtRegionBoundary(W);
+            Changed |= callBeginEndSpmdParallelAtRegionBoundary(W);
           Changed |= propagateCancellationPointsToIR(W);
           Changed |= fixupKnownNDRange(W);
         }
@@ -2105,7 +2105,7 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= addFastGlobalRedBufMap(W);
           Changed |= canonicalizeGlobalVariableReferences(W);
           if (isTargetSPIRV() && !WRegionUtils::hasParentTarget(W))
-            Changed |= callPushPopNumThreadsAtRegionBoundary(W, true);
+            Changed |= callBeginEndSpmdTargetAtRegionBoundary(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= constructNDRangeInfo(W);

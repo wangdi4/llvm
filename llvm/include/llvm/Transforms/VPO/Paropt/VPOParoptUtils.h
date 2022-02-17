@@ -924,11 +924,21 @@ public:
                                           CallInst *Call2,
                                           bool InsideRegion = false);
 
-  /// Returns a pair containing calls to `__kmpc_spmd_push_num_threads` and
-  /// `__kmpc_spmd_pop_num_threads`. If provided, \p NumThreads is used for the
-  /// push_num_threads call, otherwise, \b 1 is used by default.
+  /// \name Utilities to emit __kmpc_[begin/end]_spmd_[target/parallel] calls.
+  /// @{
+  /// Generates an spmd codegen specific call to the function \p FnName.
+  static CallInst *genKmpcSpmdCallImpl(Module *M, StringRef FnName);
+
+  /// Returns a pair containing calls to `__kmpc_begin_spmd_parallel` and
+  /// `__kmpc_end_spmd_parallel`.
   static std::pair<CallInst *, CallInst *>
-  genKmpcSpmdPushPopNumThreadsCalls(Module *M, Value *NumThreads = nullptr);
+  genKmpcBeginEndSpmdParallelCalls(Module *M);
+
+  /// Returns a pair containing calls to `__kmpc_begin_spmd_target` and
+  /// `__kmpc_end_spmd_target`.
+  static std::pair<CallInst *, CallInst *>
+  genKmpcBeginEndSpmdTargetCalls(Module *M);
+  /// @}
 
   /// \name Utilities to emit calls to ctor, dtor, cctor, and copyassign.
   /// @{
