@@ -21,18 +21,11 @@ vector.body:                                      ; preds = %vector.body, %vecto
 for.end:                                          ; preds = %vector.body
   ret void
 
-<<<<<<< HEAD
-; CORE2: Printing analysis 'Cost Model Analysis' for function 'test1':
 ; INTEL_CUSTOMIZATION
+; CORE2: function 'test1'
 ; CORE2: Cost Model: Found an estimated cost of 110 for instruction:   %2 = call <4 x float> @llvm.ceil.v4f32(<4 x float> %wide.load)
 ; end INTEL_CUSTOMIZATION
-; COREI7: Printing analysis 'Cost Model Analysis' for function 'test1':
-=======
-; CORE2: function 'test1'
-; CORE2: Cost Model: Found an estimated cost of 46 for instruction:   %2 = call <4 x float> @llvm.ceil.v4f32(<4 x float> %wide.load)
-
 ; COREI7: function 'test1'
->>>>>>> 15ba588d6d423f0d68491970f1dc86d19beb2348
 ; COREI7: Cost Model: Found an estimated cost of 1 for instruction:   %2 = call <4 x float> @llvm.ceil.v4f32(<4 x float> %wide.load)
 
 }
@@ -57,18 +50,12 @@ vector.body:                                      ; preds = %vector.body, %vecto
 for.end:                                          ; preds = %vector.body
   ret void
 
-<<<<<<< HEAD
-; CORE2: Printing analysis 'Cost Model Analysis' for function 'test2':
+; CORE2: function 'test2'
 ; INTEL_CUSTOMIZATION
 ; CORE2: Cost Model: Found an estimated cost of 110 for instruction:   %2 = call <4 x float> @llvm.nearbyint.v4f32(<4 x float> %wide.load)
 ; end INTEL_CUSTOMIZATION
 ; COREI7: Printing analysis 'Cost Model Analysis' for function 'test2':
-=======
-; CORE2: function 'test2'
-; CORE2: Cost Model: Found an estimated cost of 46 for instruction:   %2 = call <4 x float> @llvm.nearbyint.v4f32(<4 x float> %wide.load)
-
 ; COREI7: function 'test2'
->>>>>>> 15ba588d6d423f0d68491970f1dc86d19beb2348
 ; COREI7: Cost Model: Found an estimated cost of 1 for instruction:   %2 = call <4 x float> @llvm.nearbyint.v4f32(<4 x float> %wide.load)
 
 }
