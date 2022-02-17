@@ -328,6 +328,16 @@ endif()
 set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of library directory name (32/64)" )
 
 # INTEL_CUSTOMIZATION
+
+# This is a transitional option which enables the new unified 2023 OneAPI
+# directory layout as per PREQS-1605. Currently the ICS "xmain" project builds
+# with this disabled, and "xmain-2023" builds with it enabled.
+set(INTEL_DEPLOY_UNIFIED_LAYOUT OFF CACHE BOOL "Build and deploy for a unified OneAPI directory layout")
+
+if(INTEL_DEPLOY_UNIFIED_LAYOUT)
+  add_compile_definitions(INTEL_DEPLOY_UNIFIED_LAYOUT=1)
+endif()
+
 set(LLVM_TOOLS_INSTALL_DIR "bin-llvm" CACHE STRING "Path for binary subdirectory (defaults to 'bin-llvm')")
 
 # If configured to install a separate tools directory (as is the default)
