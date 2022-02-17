@@ -106,9 +106,9 @@ public:
   };
 
 private:
-  HLLoop *Lp;
   unsigned Level;
   bool HasDistributePoint;
+  bool HasBadCandidate;
 
   SmallVector<Candidate, 8> Candidates;
 
@@ -116,7 +116,7 @@ private:
   using SymbaseLoopSetTy = SmallSet<std::pair<unsigned, unsigned>, 8>;
 
 public:
-  ScalarExpansion(HLLoop *Loop, bool HasDistributePoint,
+  ScalarExpansion(unsigned Level, bool HasDistributePoint,
                   ArrayRef<HLDDNodeList> Chunks);
 
   ArrayRef<Candidate> getCandidates() const { return Candidates; }
@@ -135,7 +135,7 @@ public:
                          isTempRequiredPredicate);
   }
 
-  bool hasBadCandidate() const;
+  bool hasBadCandidate() const {return HasBadCandidate;}
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DUMP_METHOD void dump() {

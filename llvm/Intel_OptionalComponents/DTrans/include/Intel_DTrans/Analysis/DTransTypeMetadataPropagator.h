@@ -29,6 +29,7 @@ class MDNode;
 class Module;
 class StructType;
 class Type;
+class Value;
 
 namespace dtransOP {
 
@@ -76,6 +77,10 @@ public:
   //
   void updateDTransMetadata(AllocaInst *NewAI, AllocaInst &OrigAI,
                             uint64_t Offset, uint64_t Size);
+
+  // Helper to copy DTrans type metadata attachment from 'SrcValue' to
+  // 'DestValue', if it exists.
+  static void copyDTransMetadata(Value *DestValue, const Value *SrcValue);
 
 private:
   void initialize(Module &M);

@@ -283,6 +283,11 @@ public:
     return rval_fake_ddref_begin() != rval_fake_ddref_end();
   }
 
+  /// Returns true if node uses \p BlobIndex
+  /// Returns false if \p BlobIndex is InvalidBlobIndex or node does not use \p
+  /// BlobIndex
+  bool usesTempBlob(unsigned BlobIndex) const;
+
   /// Returns the DDRef associated with the Nth operand (starting with 0).
   RegDDRef *getOperandDDRef(unsigned OperandNum) {
     assert(OperandNum < getNumOperands() && "Operand is out of range!");

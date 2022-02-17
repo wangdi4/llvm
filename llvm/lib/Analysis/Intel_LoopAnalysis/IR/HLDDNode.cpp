@@ -112,6 +112,21 @@ bool HLDDNode::isFakeRval(const RegDDRef *Ref) const {
   return (It != rval_fake_ddref_end());
 }
 
+bool HLDDNode::usesTempBlob(unsigned BlobIndex) const{
+  if (BlobIndex == InvalidBlobIndex) {
+    return false;
+  }
+
+  for (auto *Ref :
+         make_range(ddref_begin(), ddref_end())) {
+    if (Ref->usesTempBlob(BlobIndex)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 void HLDDNode::setMaskDDRef(RegDDRef *Ref) {
   if (MaskDDRef) {
     removeFakeDDRef(MaskDDRef);

@@ -142,7 +142,14 @@ declare void @llvm.assume(i1)
 
 define void @test8() {
 ; CHECK-LABEL: @test8(
-; CHECK-NEXT:    ret void
+; INTEL_CUSTOMIZATION
+; Znwj has a locally-defined custom function, we can't delete it because
+; it may have observable side effects. Verify that we are not doing this
+; (CMPLRLLVM-35044)
+; CHECK: call{{.*}}_Znwj
+; CHECK: call{{.*}}ZdlPvj
+; CHECK: ret void
+; end INTEL_CUSTOMIZATION
 ;
   %nt = alloca i8
   %nw = call i8* @_Znwm(i64 32) builtin

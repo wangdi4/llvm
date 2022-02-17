@@ -19,6 +19,7 @@
 #include "SOAToAOSOPStruct.h"
 
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
+#include "Intel_DTrans/Analysis/DTransTypeMetadataBuilder.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
 #include "Intel_DTrans/Transforms/SOAToAOSOP.h"
 
@@ -430,9 +431,8 @@ public:
     // Fix DTransFunctionType of new “Append” member function.
     auto *NewFunc = isCloned ? OrigFuncToCloneFuncMap[&OrigFunc] : &OrigFunc;
     auto *AppendFuncDTy = AppendsFuncToDTransTyMap[NewFunc];
-    auto &MD = DTInfo->getTypeMetadataReader();
     if (AppendFuncDTy)
-      MD.setDTransFuncMetadata(NewFunc, AppendFuncDTy);
+      DTransTypeMetadataBuilder::setDTransFuncMetadata(NewFunc, AppendFuncDTy);
   }
 
 private:

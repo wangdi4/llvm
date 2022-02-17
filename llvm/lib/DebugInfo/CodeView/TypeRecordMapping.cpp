@@ -821,4 +821,54 @@ Error TypeRecordMapping::visitKnownRecord(CVType &CVR,
 
   return Error::success();
 }
+
+Error TypeRecordMapping::visitKnownRecord(CVType &CVR, DimArrayRecord &Record) {
+  error(IO.mapInteger(Record.ElementType, "ElementType"));
+  error(IO.mapInteger(Record.DimInfo, "DimInfo"));
+  error(IO.mapStringZ(Record.Name, "Name"));
+
+  return Error::success();
+}
+
+static bool isInt32(TypeIndex TI) {
+  SimpleTypeKind STK = TI.getSimpleKind();
+  return (STK == SimpleTypeKind::Int32 || STK == SimpleTypeKind::Int32Long);
+}
+
+static bool isInt64(TypeIndex TI) {
+  SimpleTypeKind STK = TI.getSimpleKind();
+  return (STK == SimpleTypeKind::Int64 || STK == SimpleTypeKind::Int64Quad);
+}
+
+Error TypeRecordMapping::visitKnownRecord(CVType &CVR, DimConLURecord &Record) {
+  error(IO.mapInteger(Record.IndexType, "IndexType"));
+  error(IO.mapInteger(Record.Rank, "Rank"));
+  TypeIndex TI = Record.IndexType;
+  for (int i = 0; i < 2 * Record.Rank; i++) {
+    if (IO.isReading()) {
+      if (isInt32(TI)) {
+        int32_t B;
+        error(IO.mapInteger(B, "Bound"));
+        Record.Bounds.push_back(B);
+      } else if (isInt64(TI)) {
+        int64_t B;
+        error(IO.mapInteger(B, "Bound"));
+        Record.Bounds.push_back(B);
+      } else {
+        return make_error<CodeViewError>(cv_error_code::corrupt_record);
+      }
+    } else {
+      if (isInt32(TI)) {
+        int32_t B = Record.Bounds[i];
+        error(IO.mapInteger(B, "Bound"));
+      } else if (isInt64(TI)) {
+        error(IO.mapInteger(Record.Bounds[i], "Bound"));
+      } else {
+        return make_error<CodeViewError>(cv_error_code::corrupt_record);
+      }
+    }
+  }
+
+  return Error::success();
+}
 #endif //INTEL_CUSTOMIZATION

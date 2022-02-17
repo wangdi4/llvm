@@ -59,6 +59,13 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
                                      const TargetTransformInfo &CalleeTTI,
                                      WholeProgramInfo *WPI);
 
+// We would wrap the following function declaration inside INTEL FEATURE SW
+// DTRANS, but the current FIF tool does not permit nesting of that within
+// INTEL FEATURE SW ADVANCED.
+
+// Set inline/noninline attributes for DTrans inlining heuristics.
+extern void collectDTransFuncs(Module &M, const InlineParams &Params);
+
 // Return an 'InlineResult' if 'CandidateCall' is a callsite that is not
 // worth inlining according to some special Intel inlining heuristic.
 // If there is no special reason to inhibit the inlining, return 'None'.

@@ -47,6 +47,7 @@
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/Analysis/DTransTypes.h"
+#include "Intel_DTrans/Analysis/DTransTypeMetadataBuilder.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #endif // INTEL_FEATURE_SW_DTRANS
 
@@ -186,15 +187,13 @@ VPOParoptUtils::getOrCreateStructType(Function *F, StringRef Name,
 //   typedef void(*kmpc_micro)(kmp_int32 *global_tid, kmp_int32 *bound_tid, ...)
 dtransOP::DTransFunctionType *VPOParoptUtils::getKmpcMicroDTransType(
     dtransOP::DTransTypeManager &TM) {
-  LLVMContext &C = TM.getContext();
-  dtransOP::DTransType *DVoidTy = TM.getOrCreateAtomicType(Type::getVoidTy(C));
-  dtransOP::DTransType *DInt32Ty =
-      TM.getOrCreateAtomicType(Type::getInt32Ty(C));
-  dtransOP::DTransType *DInt32PtrTy =
-      TM.getOrCreatePointerType(DInt32Ty);
+  dtransOP::DTransTypeBuilder DTB(TM);
+  dtransOP::DTransType *DVoidTy = DTB.getVoidTy();
+  dtransOP::DTransType *DInt32Ty = DTB.getIntNTy(32);
+  dtransOP::DTransType *DInt32PtrTy = DTB.getPointerToTy(DInt32Ty);
   dtransOP::DTransType *ArgTypes[] = {DInt32PtrTy, DInt32PtrTy};
   dtransOP::DTransFunctionType *DKmpcMicroTy =
-      TM.getOrCreateFunctionType(DVoidTy, ArgTypes, /*IsVarArg=*/true);
+      DTB.getFunctionType(DVoidTy, ArgTypes, /*IsVarArg=*/true);
   return DKmpcMicroTy;
 }
 
@@ -214,32 +213,22 @@ dtransOP::DTransStructType *VPOParoptUtils::getIdentStructDTransType(
   if (DStructTy)
     return DStructTy;
 
-  LLVMContext &C = TM.getContext();
+  dtransOP::DTransTypeBuilder DTB(TM);
 
   // Create a representation of the ident_t in the DTrans type space.
-  DStructTy = TM.getOrCreateStructType(IdentTy);
+  DStructTy = DTB.getStructTy(IdentTy);
 
   // Get the DTransTypes for the fields.
-  dtransOP::DTransType *DInt32Ty =
-      TM.getOrCreateAtomicType(Type::getInt32Ty(C));
-  dtransOP::DTransType *DInt8PtrTy =
-      TM.getOrCreateAtomicType(Type::getInt8Ty(C));
-  DInt8PtrTy = TM.getOrCreatePointerType(DInt8PtrTy);
+  dtransOP::DTransType *DInt32Ty = DTB.getIntNTy(32);
+  dtransOP::DTransType *DInt8Ty = DTB.getIntNTy(8);
+  dtransOP::DTransType *DInt8PtrTy = DTB.getPointerToTy(DInt8Ty);
 
   dtransOP::DTransType *DTransDataTypes[] = {DInt32Ty,
                                              DInt32Ty,
                                              DInt32Ty,
                                              DInt32Ty,
                                              DInt8PtrTy};
-
-  // Populate the body of the structure,
-  // and then ask for a metadata encoding of it.
-  for (unsigned I = 0, NumFields = DStructTy->getNumFields();
-       I < NumFields; ++I) {
-    dtransOP::DTransFieldMember &Field = DStructTy->getField(I);
-    Field.addResolvedType(DTransDataTypes[I]);
-  }
-
+  DTB.populateDTransStructType(DStructTy, DTransDataTypes);
   return DStructTy;
 }
 #endif // INTEL_FEATURE_SW_DTRANS

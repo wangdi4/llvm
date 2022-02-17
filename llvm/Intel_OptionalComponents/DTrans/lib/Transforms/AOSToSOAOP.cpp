@@ -63,6 +63,7 @@
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/Analysis/DTransOPUtils.h"
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
+#include "Intel_DTrans/Analysis/DTransTypeMetadataBuilder.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/DTransCommon.h"
@@ -1540,7 +1541,7 @@ void AOSToSOAOPTransformImpl::postprocessFunction(Function &OrigFunc,
     //      ; %__SOADTstruct.test01dep*
     //
     auto *DReplTy = cast<DTransFunctionType>(TypeRemapper.remapType(DTy));
-    TypeMetadataReader::setDTransFuncMetadata(Func, DReplTy);
+    DTransTypeMetadataBuilder::setDTransFuncMetadata(Func, DReplTy);
   }
 
   DEBUG_WITH_TYPE(AOSTOSOA_VERBOSE,
@@ -2714,7 +2715,7 @@ void AOSToSOAOPTransformImpl::updateDTransMetadata(Instruction *I,
   DTransType *NewTy = TypeRemapper.remapType(Ty);
   MDNode *NewMD =
       hasPointerType(NewTy) ? NewTy->createMetadataReference() : nullptr;
-  TypeMetadataReader::addDTransMDNode(*I, NewMD);
+  DTransTypeMetadataBuilder::addDTransMDNode(*I, NewMD);
 }
 
 void AOSToSOAOPTransformImpl::updateCallAttributes(CallBase *Call) {

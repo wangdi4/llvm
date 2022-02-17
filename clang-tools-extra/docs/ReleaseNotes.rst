@@ -103,6 +103,14 @@ New checks
 
   Finds initializations of C++ shared pointers to non-array type that are initialized with an array.
 
+..
+  INTEL_CUSTOMIZATION
+- New :doc:`misc-homoglyph <clang-tidy/checks/misc-homoglyph>` check.
+
+  Detects confusable unicode identifiers.
+..
+  end INTEL_CUSTOMIZATION
+
 New check aliases
 ^^^^^^^^^^^^^^^^^
 

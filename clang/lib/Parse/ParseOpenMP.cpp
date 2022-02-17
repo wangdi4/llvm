@@ -2716,9 +2716,8 @@ bool Parser::isIgnoredOpenMPDirective() {
 #endif // INTEL_COLLAB
 ///         annot_pragma_openmp_end
 ///
-StmtResult
-Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
-  static bool ReadDirectiveWithinMetadirective = false;
+StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
+    ParsedStmtContext StmtCtx, bool ReadDirectiveWithinMetadirective) {
   if (!ReadDirectiveWithinMetadirective)
     assert(Tok.isOneOf(tok::annot_pragma_openmp, tok::annot_attr_openmp) &&
            "Not an OpenMP directive!");
@@ -2880,9 +2879,9 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
       }
 
       // Parse Directive
-      ReadDirectiveWithinMetadirective = true;
-      Directive = ParseOpenMPDeclarativeOrExecutableDirective(StmtCtx);
-      ReadDirectiveWithinMetadirective = false;
+      Directive = ParseOpenMPDeclarativeOrExecutableDirective(
+          StmtCtx,
+          /*ReadDirectiveWithinMetadirective=*/true);
       break;
     }
     break;
