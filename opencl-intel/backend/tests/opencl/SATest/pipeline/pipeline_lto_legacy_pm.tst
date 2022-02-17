@@ -24,13 +24,13 @@
 ; CHECK-NEXT:     LinearIdResolverLegacy
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
-; CHECK:          DPCPPKernelAnalysisLegacy
 
 ; CHECK:          Call Graph SCC Pass Manager
 ; CHECK:            FunctionPass Manager
 ; CHECK:              Loop Pass Manager
 ; CHECK:                Unroll loops
 
+; CHECK:          DPCPPKernelAnalysisLegacy
 ; CHECK:          VFAnalysisLegacy
 ; CHECK:          SetVectorizationFactorLegacy
 ; CHECK:          VectorVariantLoweringLegacy

@@ -50,6 +50,9 @@ private:
   /// Register passes that run at the end of pipeline.
   void registerLastPasses(llvm::PassManagerBuilder &PMBuilder);
 
+  /// Method shared by registerOptimizerLastCallback and registerLastPasses.
+  void addLastPassesImpl(unsigned OptLevel, llvm::legacy::PassManagerBase &MPM);
+
   std::unique_ptr<llvm::TargetLibraryInfoImpl> TLII;
 
   //  CodeGenOptions m_CodeGenOpts;

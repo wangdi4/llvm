@@ -121,7 +121,6 @@ void OptimizerLTOLegacyPM::registerPipelineStartCallback(
         MPM.add(createAddFunctionAttrsLegacyPass());
         MPM.add(createLinearIdResolverPass());
         MPM.add(createBuiltinCallToInstLegacyPass());
-        MPM.add(createDPCPPKernelAnalysisLegacyPass());
       });
 }
 
@@ -130,6 +129,7 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
   PMBuilder.addExtension(
       PassManagerBuilder::EP_VectorizerStart,
       [&](const PassManagerBuilder &, legacy::PassManagerBase &MPM) {
+        MPM.add(createDPCPPKernelAnalysisLegacyPass());
         if (Config->GetTransposeSize() == 1)
           return;
         VectorVariant::ISAClass ISA =
@@ -159,111 +159,106 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
   PMBuilder.addExtension(
       PassManagerBuilder::EP_OptimizerLast,
       [&](const PassManagerBuilder &, legacy::PassManagerBase &MPM) {
-        if (Config->GetTransposeSize() != 1) {
-          MPM.add(createDPCPPKernelPostVecPass());
-          MPM.add(createVPODirectiveCleanupPass());
-          MPM.add(createHandleVPlanMaskLegacyPass(&getVPlanMaskedFuncs()));
-        }
-        MPM.add(createInstructionCombiningPass());
-        MPM.add(createCFGSimplificationPass());
-        MPM.add(createPromoteMemoryToRegisterPass());
-        MPM.add(createAggressiveDCEPass());
-        MPM.add(createResolveSubGroupWICallLegacyPass(
-            m_RtlModules, /*ResolveSGBarrier*/ false));
-        if (Config->GetStreamingAlways())
-          MPM.add(createAddNTAttrLegacyPass());
-        MPM.add(createDPCPPKernelWGLoopCreatorLegacyPass());
-        // Resolve __intel_indirect_call for scalar kernels.
-        MPM.add(createIndirectCallLoweringLegacyPass());
-        // Barrier passes begin.
-        // TODO: insert ReplaceScalarWithMask pass here
-
-        // Resolve subgreoup call introduced by ReplaceScalarWithMask pass.
-        MPM.add(createResolveSubGroupWICallLegacyPass(
-            m_RtlModules, /*ResolveSGBarrier*/ false));
-        MPM.add(createPhiCanonicalizationLegacyPass());
-        MPM.add(createRedundantPhiNodeLegacyPass());
-        MPM.add(createGroupBuiltinLegacyPass());
-        MPM.add(createBarrierInFunctionLegacyPass());
-
-        // Resolve subgroup barriers after subgroup emulation passes
-        MPM.add(createResolveSubGroupWICallLegacyPass(
-            m_RtlModules, /*ResolveSGBarrier*/ true));
-        MPM.add(createSplitBBonBarrierLegacyPass());
-        MPM.add(createKernelBarrierLegacyPass(m_debugType == intel::Native,
-                                              /*UseTLSGlobals*/ false));
-        // Barrier passes end.
-
-        MPM.add(createAddImplicitArgsLegacyPass());
-        MPM.add(createResolveWICallLegacyPass(false, false));
-        MPM.add(createLocalBuffersLegacyPass(/*UseTLSGlobals*/false));
-        MPM.add(createBuiltinImportLegacyPass(m_RtlModules, CPUPrefix));
-        MPM.add(createGlobalDCEPass());
-        MPM.add(createBuiltinCallToInstLegacyPass());
-        MPM.add(createFunctionInliningPass(4096));
-        // AddImplicitArgs pass may create dead implicit arguments.
-        MPM.add(createDeadArgEliminationPass());
-        MPM.add(createSROAPass());
-        MPM.add(createLICMPass());
-        MPM.add(createLoopIdiomPass());
-        MPM.add(createCFGSimplificationPass());
-        // PrepareKernelArgs pass creates a wrapper function and inlines the
-        // original kernel to the wrapper. The kernel usually contains several
-        // "noalias" pointer args, such as '%pSpecialBuf', '%pWorkDim', '%pWGId'
-        // and '%pLocalMemBase', and inliner (which is explicitly invoked in
-        // PrepareKernelArgs pass) would try to add new alias scopes for each
-        // noalias argument.
-        // See llvm/lib/Transforms/Utils/InlineFunction.cpp::AddAliasScopeMetadata()
-        // However, the added alias scopes are of relatively coarse granularity:
-        // e.g. A load from '%pSpecialBuf' with limited offset might be assumed
-        // to potentially access arbitrary memory range based on '%pSpecialBuf'
-        // after inlining.
-        // This makes AliasAnalysis-related transforms hard to optimize after
-        // PrepareKernelArgs pass.
-        // Also, PrepareKernelArgs only creates a thin wrapper for the kernel --
-        // this pass itself won't generate much suboptimal codes.
-        // Therefore, we basically should run the most optimization passes
-        // (especially AliasAnalysis-related) before the PrepareKernelArgs pass.
-        MPM.add(createPrepareKernelArgsLegacyPass(false));
-
-        // These passes come after PrepareKernelArgsLegacyPass to eliminate the
-        // redundancy produced by it.
-        MPM.add(createCFGSimplificationPass());
-        MPM.add(createInstructionCombiningPass());
-        MPM.add(createDeadCodeEliminationPass());
-        MPM.add(createDeadStoreEliminationPass());
-        MPM.add(createEarlyCSEPass());
+        addLastPassesImpl(PMBuilder.OptLevel, MPM);
       });
+}
+
+void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
+                                             legacy::PassManagerBase &MPM) {
+  if (OptLevel > 0) {
+    if (Config->GetTransposeSize() != 1) {
+      MPM.add(createDPCPPKernelPostVecPass());
+      MPM.add(createVPODirectiveCleanupPass());
+      MPM.add(createHandleVPlanMaskLegacyPass(&getVPlanMaskedFuncs()));
+    }
+    MPM.add(createInstructionCombiningPass());
+    MPM.add(createCFGSimplificationPass());
+    MPM.add(createPromoteMemoryToRegisterPass());
+    MPM.add(createAggressiveDCEPass());
+  }
+  MPM.add(createResolveSubGroupWICallLegacyPass(m_RtlModules,
+                                                /*ResolveSGBarrier*/ false));
+  if (OptLevel > 0 && Config->GetStreamingAlways())
+    MPM.add(createAddNTAttrLegacyPass());
+  MPM.add(createDPCPPKernelWGLoopCreatorLegacyPass());
+  // Resolve __intel_indirect_call for scalar kernels.
+  MPM.add(createIndirectCallLoweringLegacyPass());
+
+  // Barrier passes begin.
+  if (OptLevel > 0) {
+    // TODO: insert ReplaceScalarWithMask pass here
+    // Resolve subgreoup call introduced by ReplaceScalarWithMask pass.
+    MPM.add(createResolveSubGroupWICallLegacyPass(m_RtlModules,
+                                                  /*ResolveSGBarrier*/ false));
+  }
+  MPM.add(createPhiCanonicalizationLegacyPass());
+  MPM.add(createRedundantPhiNodeLegacyPass());
+  MPM.add(createGroupBuiltinLegacyPass());
+  MPM.add(createBarrierInFunctionLegacyPass());
+
+  // Resolve subgroup barriers after subgroup emulation passes
+  MPM.add(createResolveSubGroupWICallLegacyPass(m_RtlModules,
+                                                /*ResolveSGBarrier*/ true));
+  MPM.add(createSplitBBonBarrierLegacyPass());
+  MPM.add(createKernelBarrierLegacyPass(m_debugType == intel::Native,
+                                        /*UseTLSGlobals*/ false));
+  // Barrier passes end.
+
+  MPM.add(createAddImplicitArgsLegacyPass());
+  MPM.add(createResolveWICallLegacyPass(false, false));
+  MPM.add(createLocalBuffersLegacyPass(/*UseTLSGlobals*/ false));
+  MPM.add(createBuiltinImportLegacyPass(m_RtlModules, CPUPrefix));
+  if (OptLevel > 0)
+    MPM.add(createGlobalDCEPass());
+  MPM.add(createBuiltinCallToInstLegacyPass());
+  if (OptLevel > 0) {
+    MPM.add(createFunctionInliningPass(4096));
+    // AddImplicitArgs pass may create dead implicit arguments.
+    MPM.add(createDeadArgEliminationPass());
+    MPM.add(createSROAPass());
+    MPM.add(createLICMPass());
+    MPM.add(createLoopIdiomPass());
+    MPM.add(createCFGSimplificationPass());
+  } else {
+    MPM.add(createAlwaysInlinerLegacyPass());
+  }
+  // PrepareKernelArgs pass creates a wrapper function and inlines the
+  // original kernel to the wrapper. The kernel usually contains several
+  // "noalias" pointer args, such as '%pSpecialBuf', '%pWorkDim', '%pWGId'
+  // and '%pLocalMemBase', and inliner (which is explicitly invoked in
+  // PrepareKernelArgs pass) would try to add new alias scopes for each
+  // noalias argument.
+  // See llvm/lib/Transforms/Utils/InlineFunction.cpp::AddAliasScopeMetadata()
+  // However, the added alias scopes are of relatively coarse granularity:
+  // e.g. A load from '%pSpecialBuf' with limited offset might be assumed
+  // to potentially access arbitrary memory range based on '%pSpecialBuf'
+  // after inlining.
+  // This makes AliasAnalysis-related transforms hard to optimize after
+  // PrepareKernelArgs pass.
+  // Also, PrepareKernelArgs only creates a thin wrapper for the kernel --
+  // this pass itself won't generate much suboptimal codes.
+  // Therefore, we basically should run the most optimization passes
+  // (especially AliasAnalysis-related) before the PrepareKernelArgs pass.
+  MPM.add(createPrepareKernelArgsLegacyPass(false));
+
+  if (OptLevel > 0) {
+    // These passes come after PrepareKernelArgsLegacyPass to eliminate the
+    // redundancy produced by it.
+    MPM.add(createCFGSimplificationPass());
+    MPM.add(createInstructionCombiningPass());
+    MPM.add(createDeadCodeEliminationPass());
+    MPM.add(createDeadStoreEliminationPass());
+    MPM.add(createEarlyCSEPass());
+  }
 }
 
 void OptimizerLTOLegacyPM::registerLastPasses(
     llvm::PassManagerBuilder &PMBuilder) {
   if (PMBuilder.OptLevel == 0) {
     // In O0 pipeline, there is no EP_OptimizerLast extension point, so we add
-    // following passes to the end of pipeline.
-    MPM.add(createResolveSubGroupWICallLegacyPass(m_RtlModules,
-                                                  /*ResolveSGBarrier*/ false));
-    MPM.add(createDPCPPKernelWGLoopCreatorLegacyPass());
-    MPM.add(createIndirectCallLoweringLegacyPass());
-    // Barrier passes begin.
-    MPM.add(createPhiCanonicalizationLegacyPass());
-    MPM.add(createRedundantPhiNodeLegacyPass());
-    MPM.add(createGroupBuiltinLegacyPass());
-    MPM.add(createBarrierInFunctionLegacyPass());
-    // Resolve subgroup barriers after subgroup emulation passes
-    MPM.add(createResolveSubGroupWICallLegacyPass(m_RtlModules,
-                                                  /*ResolveSGBarrier*/ true));
-    MPM.add(createSplitBBonBarrierLegacyPass());
-    MPM.add(createKernelBarrierLegacyPass(m_debugType == intel::Native,
-                                          /*UseTLSGlobals*/ false));
-    // Barrier passes end.
-    MPM.add(createAddImplicitArgsLegacyPass());
-    MPM.add(createResolveWICallLegacyPass(false, false));
-    MPM.add(createLocalBuffersLegacyPass(/*UseTLSGlobals*/false));
-    MPM.add(createBuiltinImportLegacyPass(m_RtlModules, CPUPrefix));
-    MPM.add(createBuiltinCallToInstLegacyPass());
-    MPM.add(createAlwaysInlinerLegacyPass());
-    MPM.add(createPrepareKernelArgsLegacyPass(false));
+    // passes to the end of pipeline.
+    MPM.add(createDPCPPKernelAnalysisLegacyPass());
+    addLastPassesImpl(PMBuilder.OptLevel, MPM);
   }
 
   MPM.add(createCleanupWrappedKernelLegacyPass());
