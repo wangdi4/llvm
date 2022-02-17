@@ -782,4 +782,4 @@
 // CHECK-INCREMENTAL-INVALID: icx{{.*}} error: invalid argument '-fprofile-instr-generate' not allowed with '-incremental'
 // end INTEL_CUSTOMIZATION
 
-void f() { }
+void f(void) { }
