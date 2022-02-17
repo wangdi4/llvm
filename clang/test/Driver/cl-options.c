@@ -781,5 +781,9 @@
 // CHECK-LINK-INCREMENTAL-NO: link.exe{{.*}} "-incremental:no"
 // CHECK-INCREMENTAL-INVALID: icx{{.*}} error: invalid argument '-fprofile-instr-generate' not allowed with '-incremental'
 // end INTEL_CUSTOMIZATION
+// Accept both the -target and --target= spellings.
+// RUN: %clang_cl --target=i686-pc-windows-msvc19.14.0 -### -- %s 2>&1 | FileCheck -check-prefix=TARGET %s
+// RUN: %clang_cl -target i686-pc-windows-msvc19.14.0  -### -- %s 2>&1 | FileCheck -check-prefix=TARGET %s
+// TARGET: "-triple" "i686-pc-windows-msvc19.14.0"
 
 void f(void) { }
