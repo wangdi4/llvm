@@ -267,7 +267,9 @@ endif()
 cmake_policy(SET CMP0057 NEW)
 
 if (libdevice IN_LIST LLVM_ENABLE_PROJECTS)
-  add_dependencies(sycl-toolchain libsycldevice)
+  # INTEL_CUSTOMIZATION
+  add_dependencies(sycl libsycldevice)
+  # end INTEL_CUSTOMIZATION
 endif()
 
 if (SYCL_ENABLE_XPTI_TRACING)
