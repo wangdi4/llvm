@@ -774,7 +774,6 @@
 // FAKEDIR: "-libpath:/foo{{/|\\\\}}Lib{{/|\\\\}}10.0.12345.0{{/|\\\\}}ucrt
 // FAKEDIR: "-libpath:/foo{{/|\\\\}}Lib{{/|\\\\}}10.0.12345.0{{/|\\\\}}um
 
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // Validate -fprofile-instr-generate cannot work with incremental linking with MSVC linker
 // RUN: %clang_cl -### --intel -fprofile-instr-generate -- %s 2>&1 | FileCheck -check-prefix=CHECK-LINK-INCREMENTAL-NO %s
@@ -783,7 +782,4 @@
 // CHECK-INCREMENTAL-INVALID: icx{{.*}} error: invalid argument '-fprofile-instr-generate' not allowed with '-incremental'
 // end INTEL_CUSTOMIZATION
 
-void f() { }
-=======
 void f(void) { }
->>>>>>> 7de71613049fa1333ef819b6dc740356ff4efff5
