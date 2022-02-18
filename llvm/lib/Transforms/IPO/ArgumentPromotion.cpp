@@ -585,7 +585,7 @@ static bool allCallersPassValidPointerForArgument(Argument *Arg,
 /// Determine that this argument is safe to promote, and find the argument
 /// parts it can be promoted into.
 static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
-                         unsigned MaxElements, bool IsSelfRecursive,
+                         unsigned MaxElements, bool IsRecursive,
                          bool isCallback,           // INTEL
                          bool RemoveHomedArguments, // INTEL
                          SmallVectorImpl<OffsetAndArgPart> &ArgPartsVec) {
@@ -676,9 +676,9 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
     if (Size.isScalable())
       return false;
 
-    // If this is a self-recursive function and one of the types is a pointer,
+    // If this is a recursive function and one of the types is a pointer,
     // then promoting it might lead to recursive promotion.
-    if (IsSelfRecursive && Ty->isPointerTy())
+    if (IsRecursive && Ty->isPointerTy())
       return false;
 
 #if INTEL_CUSTOMIZATION
@@ -968,7 +968,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
                  bool RemoveHomedArguments, unsigned MaxElements, // INTEL
                  Optional<function_ref<void(CallBase &OldCS, CallBase &NewCS)>>
                      ReplaceCallSite,
-                 const TargetTransformInfo &TTI) {
+                 const TargetTransformInfo &TTI, bool IsRecursive) {
   RemoveHomedArguments |= ForceRemoveHomedArguments; // INTEL
   // Don't perform argument promotion for naked functions; otherwise we can end
   // up removing parameters that are seemingly 'not used' as they are referred
@@ -1003,8 +1003,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
 
   // Second check: make sure that all callers are direct callers.  We can't
   // transform functions that have indirect callers.  Also see if the function
-  // is self-recursive and check that target features are compatible.
-  bool isSelfRecursive = false;
+  // is self-recursive.
   bool isCallback = false; // INTEL
   for (Use &U : F->uses()) {
 #if INTEL_CUSTOMIZATION
@@ -1019,7 +1018,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
         return nullptr;
 
       if (CS.getInstruction()->getParent()->getParent() == F)
-        isSelfRecursive = true;
+        IsRecursive = true;
     }
 
     if (CS.isCallbackCall())
@@ -1138,7 +1137,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
 
     // Otherwise, see if we can promote the pointer to its value.
     SmallVector<OffsetAndArgPart, 4> ArgParts;
-    if (findArgParts(PtrArg, DL, AAR, MaxElements, isSelfRecursive, // INTEL
+    if (findArgParts(PtrArg, DL, AAR, MaxElements, IsRecursive, // INTEL
                      isCallback, RemoveHomedArguments, ArgParts)) { // INTEL
       SmallVector<Type *, 4> Types;
       for (const auto &Pair : ArgParts)
@@ -1170,6 +1169,7 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
     FunctionAnalysisManager &FAM =
         AM.getResult<FunctionAnalysisManagerCGSCCProxy>(C, CG).getManager();
 
+    bool IsRecursive = C.size() > 1;
     for (LazyCallGraph::Node &N : C) {
       Function &OldF = N.getFunction();
 
@@ -1184,7 +1184,7 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
 #if INTEL_CUSTOMIZATION
       Function *NewF =
           promoteArguments(&OldF, AARGetter, RemoveHomedArguments, MaxElements,
-                           None, TTI);
+                           None, TTI, IsRecursive);
 #endif // INTEL_CUSTOMIZATION
       if (!NewF)
         continue;
@@ -1316,6 +1316,7 @@ bool ArgPromotion::runOnSCC(CallGraphSCC &SCC) {
   do {
     LocalChange = false;
     // Attempt to promote arguments from all functions in this SCC.
+    bool IsRecursive = SCC.size() > 1;
     for (CallGraphNode *OldNode : SCC) {
       Function *OldF = OldNode->getFunction();
       if (!OldF)
@@ -1333,10 +1334,10 @@ bool ArgPromotion::runOnSCC(CallGraphSCC &SCC) {
       const TargetTransformInfo &TTI =
           getAnalysis<TargetTransformInfoWrapperPass>().getTTI(*OldF);
 #if INTEL_CUSTOMIZATION
-      if (Function *NewF = promoteArguments(OldF, AARGetter,
-                                            RemoveHomedArguments,
-                                            MaxElements,
-                                           {ReplaceCallSite}, TTI)) {
+      if (Function *NewF =
+              promoteArguments(OldF, AARGetter, RemoveHomedArguments,
+                               MaxElements, {ReplaceCallSite}, TTI,
+                               IsRecursive)) {
 #endif // INTEL_CUSTOMIZATION
         LocalChange = true;
 
