@@ -871,7 +871,7 @@ static void inversePermutation(ArrayRef<unsigned> Indices,
 
 /// \returns inserting index of InsertElement or InsertValue instruction,
 /// using Offset as base offset for index.
-static Optional<int> getInsertIndex(Value *InsertInst, unsigned Offset) {
+static Optional<int> getInsertIndex(Value *InsertInst, unsigned Offset = 0) {
   int Index = Offset;
   if (auto *IE = dyn_cast<InsertElementInst>(InsertInst)) {
     if (auto *CI = dyn_cast<ConstantInt>(IE->getOperand(2))) {
@@ -6231,7 +6231,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       int MinIdx = std::numeric_limits<int>::max();
       for (Value *V : VL) {
         SourceVectors.insert(cast<Instruction>(V)->getOperand(0));
-        Optional<int> Idx = *getInsertIndex(V, 0);
+        Optional<int> Idx = *getInsertIndex(V);
         if (!Idx || *Idx == UndefMaskElem)
           continue;
         MinIdx = std::min(MinIdx, *Idx);
@@ -6256,7 +6256,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
                     decltype(OrdCompare)>
           Indices(OrdCompare);
       for (int I = 0, E = VL.size(); I < E; ++I) {
-        Optional<int> Idx = *getInsertIndex(VL[I], 0);
+        Optional<int> Idx = *getInsertIndex(VL[I]);
         if (!Idx || *Idx == UndefMaskElem)
           continue;
         Indices.emplace(*Idx, I);
@@ -7497,12 +7497,12 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
         Mask.assign(NumElts, UndefMaskElem);
         std::iota(Mask.begin(), std::next(Mask.begin(), NumScalars), 0);
       }
-      unsigned Offset = *getInsertIndex(VL0, 0);
+      unsigned Offset = *getInsertIndex(VL0);
       bool IsIdentity = true;
       SmallVector<int> PrevMask(NumElts, UndefMaskElem);
       Mask.swap(PrevMask);
       for (unsigned I = 0; I < NumScalars; ++I) {
-        Optional<int> InsertIdx = getInsertIndex(VL[PrevMask[I]], 0);
+        Optional<int> InsertIdx = getInsertIndex(VL[PrevMask[I]]);
         if (!InsertIdx || *InsertIdx == UndefMaskElem)
           continue;
         DemandedElts.setBit(*InsertIdx);
@@ -8237,7 +8237,7 @@ InstructionCost BoUpSLP::getTreeCost(ArrayRef<Value *> VectorizedVals,
     // to detect it as a final shuffled/identity match.
     if (auto *VU = dyn_cast_or_null<InsertElementInst>(EU.User)) {
       if (auto *FTy = dyn_cast<FixedVectorType>(VU->getType())) {
-        Optional<int> InsertIdx = getInsertIndex(VU, 0);
+        Optional<int> InsertIdx = getInsertIndex(VU);
         if (!InsertIdx || *InsertIdx == UndefMaskElem)
           continue;
         auto *It = find_if(FirstUsers, [VU](Value *V) {
@@ -9049,7 +9049,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
           cast<FixedVectorType>(FirstInsert->getType())->getNumElements();
       const unsigned NumScalars = E->Scalars.size();
 
-      unsigned Offset = *getInsertIndex(VL0, 0);
+      unsigned Offset = *getInsertIndex(VL0);
       assert(Offset < NumElts && "Failed to find vector index offset");
 
       // Create shuffle to resize vector
@@ -9067,7 +9067,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       Mask.swap(PrevMask);
       for (unsigned I = 0; I < NumScalars; ++I) {
         Value *Scalar = E->Scalars[PrevMask[I]];
-        Optional<int> InsertIdx = getInsertIndex(Scalar, 0);
+        Optional<int> InsertIdx = getInsertIndex(Scalar);
         if (!InsertIdx || *InsertIdx == UndefMaskElem)
           continue;
         IsIdentity &= *InsertIdx - Offset == I;
