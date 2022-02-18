@@ -605,7 +605,6 @@ int main(int argc, char **argv) {
   initializeHardwareLoopsPass(Registry);
   initializeTypePromotionPass(Registry);
   initializeReplaceWithVeclibLegacyPass(Registry);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   initializeIntel_DPCPPKernelTransforms(Registry);
   initializeIntel_LoopAnalysis(Registry);
@@ -615,9 +614,7 @@ int main(int argc, char **argv) {
   initializeFloat128ExpandPass(Registry);
   initializeFoldLoadsToGatherPass(Registry);
   initializeIntel_OpenCLTransforms(Registry);
-=======
   initializeJMCInstrumenterPass(Registry);
->>>>>>> d490ed3bd68051482ff38404997c24b7e01dbdee
   initializeSYCLLowerWGScopeLegacyPassPass(Registry);
   initializeSYCLLowerESIMDLegacyPassPass(Registry);
   initializeParseAnnotateAttributesLegacyPass(Registry);
