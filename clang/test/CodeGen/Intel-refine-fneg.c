@@ -18,6 +18,6 @@ void compute(const float* in, float* out) {
 }
 
 //CHECK-LABEL: compute
-//CHECK: %{{.*}} = tail call <8 x float> @llvm.fma.v8f32(<8 x float> %0, <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 3.000000e+00, float 2.000000e+00, float 1.000000e+00, float 0.000000e+00>, <8 x float> %{{.*}})
+//CHECK: %{{.*}} = tail call <8 x float> @llvm.fma.v8f32(<8 x float> %{{.*}}, <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 3.000000e+00, float 2.000000e+00, float 1.000000e+00, float 0.000000e+00>, <8 x float> %{{.*}})
 //CHECK:   %{{.*}} = fneg <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 3.000000e+00, float 2.000000e+00, float 1.000000e+00, float 0.000000e+00>
 //CHECK:   %{{.*}} = tail call <8 x float> @llvm.fma.v8f32(<8 x float> %{{.*}}, <8 x float> %{{.*}}, <8 x float> %{{.*}})
