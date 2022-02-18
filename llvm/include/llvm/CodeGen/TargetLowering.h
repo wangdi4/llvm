@@ -2550,14 +2550,11 @@ public:
     case ISD::FMAXNUM_IEEE:
     case ISD::FMINIMUM:
     case ISD::FMAXIMUM:
-<<<<<<< HEAD
     case ISD::COMPLEX_MUL: // INTEL
-=======
     case ISD::AVGFLOORS:
     case ISD::AVGFLOORU:
     case ISD::AVGCEILS:
     case ISD::AVGCEILU:
->>>>>>> 4072e362c0307f736c3d8095a0a136b46730cffe
       return true;
     default: return false;
     }
