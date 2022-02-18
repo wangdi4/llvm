@@ -1,12 +1,8 @@
-<<<<<<< HEAD
 // if INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 %s -D NO_CHECK -fblocks -verify -pedantic -fsyntax-only -ferror-limit 100
+// RUN: %clang_cc1 %s -D NO_CHECK -fblocks -verify -pedantic -fsyntax-only -ferror-limit 100 -cl-std=CL1.2
+// RUN: %clang_cc1 %s -D NO_CHECK -fblocks -verify -pedantic -fsyntax-only -ferror-limit 100 -cl-std=CL3.0 -cl-ext=-__opencl_c_device_enqueue,-__opencl_c_generic_address_space,-__opencl_c_pipes
 // endif INTEL_CUSTOMIZATION
-=======
-// RUN: %clang_cc1 %s -fblocks -verify -pedantic -fsyntax-only -ferror-limit 100
-// RUN: %clang_cc1 %s -fblocks -verify -pedantic -fsyntax-only -ferror-limit 100 -cl-std=CL1.2
-// RUN: %clang_cc1 %s -fblocks -verify -pedantic -fsyntax-only -ferror-limit 100 -cl-std=CL3.0 -cl-ext=-__opencl_c_device_enqueue,-__opencl_c_generic_address_space,-__opencl_c_pipes
->>>>>>> bee4bd70f76952b2c6296feb46a087b497322376
 
 // Confirm CL2.0 Clang builtins are not available in earlier versions and in OpenCL C 3.0 without required features.
 

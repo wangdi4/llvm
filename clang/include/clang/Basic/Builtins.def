@@ -1900,7 +1900,6 @@ LANGBUILTIN(__builtin_coro_suspend, "cIb", "n", COR_LANG)
 #if INTEL_CUSTOMIZATION
 // OpenCL v2.0 s6.13.16, s9.17.3.5 - Pipe functions.
 // We need the generic prototype, since the packet type could be anything.
-<<<<<<< HEAD
 OPENCLBUILTIN(read_pipe, "i.", "tn", OCLC2P_LANG, "__opencl_c_pipes")
 OPENCLBUILTIN(write_pipe, "i.", "tn", OCLC2P_LANG, "__opencl_c_pipes")
 
@@ -1936,44 +1935,10 @@ OPENCLBUILTIN(get_kernel_preferred_work_group_size_multiple, "Ui.", "tn",
 OPENCLBUILTIN(get_kernel_max_sub_group_size_for_ndrange, "Ui.", "tn",
               OCLC2P_LANG, "__opencl_c_device_enqueue")
 OPENCLBUILTIN(get_kernel_sub_group_count_for_ndrange, "Ui.", "tn", OCLC2P_LANG, "__opencl_c_device_enqueue")
-=======
-LANGBUILTIN(read_pipe, "i.", "tn", OCL_PIPE)
-LANGBUILTIN(write_pipe, "i.", "tn", OCL_PIPE)
-
-LANGBUILTIN(reserve_read_pipe, "i.", "tn", OCL_PIPE)
-LANGBUILTIN(reserve_write_pipe, "i.", "tn", OCL_PIPE)
-
-LANGBUILTIN(commit_write_pipe, "v.", "tn", OCL_PIPE)
-LANGBUILTIN(commit_read_pipe, "v.", "tn", OCL_PIPE)
-
-LANGBUILTIN(sub_group_reserve_read_pipe, "i.", "tn", OCL_PIPE)
-LANGBUILTIN(sub_group_reserve_write_pipe, "i.", "tn", OCL_PIPE)
-
-LANGBUILTIN(sub_group_commit_read_pipe, "v.", "tn", OCL_PIPE)
-LANGBUILTIN(sub_group_commit_write_pipe, "v.", "tn", OCL_PIPE)
-
-LANGBUILTIN(work_group_reserve_read_pipe, "i.", "tn", OCL_PIPE)
-LANGBUILTIN(work_group_reserve_write_pipe, "i.", "tn", OCL_PIPE)
-
-LANGBUILTIN(work_group_commit_read_pipe, "v.", "tn", OCL_PIPE)
-LANGBUILTIN(work_group_commit_write_pipe, "v.", "tn", OCL_PIPE)
-
-LANGBUILTIN(get_pipe_num_packets, "Ui.", "tn", OCL_PIPE)
-LANGBUILTIN(get_pipe_max_packets, "Ui.", "tn", OCL_PIPE)
-
-// OpenCL v2.0 s6.13.17 - Enqueue kernel functions.
-// Custom builtin check allows to perform special check of passed block arguments.
-LANGBUILTIN(enqueue_kernel, "i.", "tn", OCL_DSE)
-LANGBUILTIN(get_kernel_work_group_size, "Ui.", "tn", OCL_DSE)
-LANGBUILTIN(get_kernel_preferred_work_group_size_multiple, "Ui.", "tn", OCL_DSE)
-LANGBUILTIN(get_kernel_max_sub_group_size_for_ndrange, "Ui.", "tn", OCL_DSE)
-LANGBUILTIN(get_kernel_sub_group_count_for_ndrange, "Ui.", "tn", OCL_DSE)
->>>>>>> bee4bd70f76952b2c6296feb46a087b497322376
 
 // OpenCL v2.0 s6.13.9 - Address space qualifier functions.
 // FIXME: Pointer parameters of OpenCL builtins should have their address space
 // requirement defined.
-<<<<<<< HEAD
 OPENCLBUILTIN(to_global, "v*v*", "tn", OCLC2P_LANG, "__opencl_c_generic_address_space")
 OPENCLBUILTIN(to_local, "v*v*", "tn", OCLC2P_LANG, "__opencl_c_generic_address_space")
 OPENCLBUILTIN(to_private, "v*v*", "tn", OCLC2P_LANG, "__opencl_c_generic_address_space")
@@ -1984,17 +1949,6 @@ OPENCLBUILTIN(__builtin_store_halff, "vfh*", "n", ALL_OCLC_LANGUAGES, "")
 OPENCLBUILTIN(__builtin_load_half, "dhC*", "nc", ALL_OCLC_LANGUAGES, "")
 OPENCLBUILTIN(__builtin_load_halff, "fhC*", "nc", ALL_OCLC_LANGUAGES, "")
 #endif // INTEL_CUSTOMIZATION
-=======
-LANGBUILTIN(to_global, "v*v*", "tn", OCL_GAS)
-LANGBUILTIN(to_local, "v*v*", "tn", OCL_GAS)
-LANGBUILTIN(to_private, "v*v*", "tn", OCL_GAS)
-
-// OpenCL half load/store builtin
-LANGBUILTIN(__builtin_store_half, "vdh*", "n", ALL_OCL_LANGUAGES)
-LANGBUILTIN(__builtin_store_halff, "vfh*", "n", ALL_OCL_LANGUAGES)
-LANGBUILTIN(__builtin_load_half, "dhC*", "nc", ALL_OCL_LANGUAGES)
-LANGBUILTIN(__builtin_load_halff, "fhC*", "nc", ALL_OCL_LANGUAGES)
->>>>>>> bee4bd70f76952b2c6296feb46a087b497322376
 
 // Builtins for os_log/os_trace
 BUILTIN(__builtin_os_log_format_buffer_size, "zcC*.", "p:0:nut")

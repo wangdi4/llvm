@@ -28,7 +28,6 @@ class IdentifierTable;
 class LangOptions;
 
 enum LanguageID {
-<<<<<<< HEAD
   GNU_LANG = 0x1,     // builtin requires GNU mode.
   C_LANG = 0x2,       // builtin for c only.
   CXX_LANG = 0x4,     // builtin for cplusplus only.
@@ -48,23 +47,6 @@ enum LanguageID {
 #if INTEL_CUSTOMIZATION
   ALL_OCLC_LANGUAGES = OCLC1X_LANG | OCLC2P_LANG // builtin for OCLC languages.
 #endif // INTEL_CUSTOMIZATION
-=======
-  GNU_LANG = 0x1,            // builtin requires GNU mode.
-  C_LANG = 0x2,              // builtin for c only.
-  CXX_LANG = 0x4,            // builtin for cplusplus only.
-  OBJC_LANG = 0x8,           // builtin for objective-c and objective-c++
-  MS_LANG = 0x10,            // builtin requires MS mode.
-  OMP_LANG = 0x20,           // builtin requires OpenMP.
-  CUDA_LANG = 0x40,          // builtin requires CUDA.
-  COR_LANG = 0x80,           // builtin requires use of 'fcoroutine-ts' option.
-  OCL_GAS = 0x100,           // builtin requires OpenCL generic address space.
-  OCL_PIPE = 0x200,          // builtin requires OpenCL pipe.
-  OCL_DSE = 0x400,           // builtin requires OpenCL device side enqueue.
-  ALL_OCL_LANGUAGES = 0x800, // builtin for OCL languages.
-  ALL_LANGUAGES = C_LANG | CXX_LANG | OBJC_LANG, // builtin for all languages.
-  ALL_GNU_LANGUAGES = ALL_LANGUAGES | GNU_LANG,  // builtin requires GNU mode.
-  ALL_MS_LANGUAGES = ALL_LANGUAGES | MS_LANG     // builtin requires MS mode.
->>>>>>> bee4bd70f76952b2c6296feb46a087b497322376
 };
 
 namespace Builtin {
