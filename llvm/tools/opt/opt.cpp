@@ -530,7 +530,8 @@ static bool shouldPinPassToLegacyPM(StringRef Pass) {
       "generic-to-nvvm",      "expandmemcmp",
       "loop-reduce",          "lower-amx-type",
       "pre-amx-config",       "lower-amx-intrinsics",
-      "polyhedral-info",      "replace-with-veclib"};
+      "polyhedral-info",      "replace-with-veclib",
+      "jmc-instrument"};
   for (const auto &P : PassNamePrefix)
     if (Pass.startswith(P))
       return true;
@@ -604,6 +605,7 @@ int main(int argc, char **argv) {
   initializeHardwareLoopsPass(Registry);
   initializeTypePromotionPass(Registry);
   initializeReplaceWithVeclibLegacyPass(Registry);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   initializeIntel_DPCPPKernelTransforms(Registry);
   initializeIntel_LoopAnalysis(Registry);
@@ -613,6 +615,9 @@ int main(int argc, char **argv) {
   initializeFloat128ExpandPass(Registry);
   initializeFoldLoadsToGatherPass(Registry);
   initializeIntel_OpenCLTransforms(Registry);
+=======
+  initializeJMCInstrumenterPass(Registry);
+>>>>>>> d490ed3bd68051482ff38404997c24b7e01dbdee
   initializeSYCLLowerWGScopeLegacyPassPass(Registry);
   initializeSYCLLowerESIMDLegacyPassPass(Registry);
   initializeParseAnnotateAttributesLegacyPass(Registry);
