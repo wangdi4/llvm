@@ -412,7 +412,7 @@ MismatchedElementAccessConditional
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Indicates that a mismtched element access will occur only if specific
-conditions are not fulfilled.  These conditions are noted by the bad 
+conditions are not fulfilled.  These conditions are noted by the bad
 casting analyzer, and involve certain functions' arguments being nullptr
 on entry to those functions. (See the description of the Bad Casting
 Analyzer below.) `Bad Casting Analyzer`_
@@ -478,6 +478,39 @@ FieldAddressTakenReturn
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 This safety data is used when the address of a field is returned by a function.
+
+StructCouldHaveABIPadding
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This safety data is used when a structure may have an extra field at the end
+that could be used for ABI padding. There will be a base structure too that
+doesn't have the extra field and uses the same name with '.base' at the end.
+For example:
+
+.. code-block:: llvm
+
+  %struct.test.a = type <{ i32, i32, [4 x i8] }>
+  %struct.test.a.base = type <{ i32, i32 }>
+
+The structure %struct.test.a is set as StructCouldHaveABIPadding since the last
+field is used for padding, and the structure %struct.test.a.base is the base
+structure.
+
+StructCouldBeBaseABIPadding
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This safety data is set when a structure is used as base structure for ABI
+padding. The structure will have '.base' at the end the of name, and there will
+be another structure related to it that have an extra field for padding.
+For example:
+
+.. code-block:: llvm
+
+  %struct.test.a = type <{ i32, i32, [4 x i8] }>
+  %struct.test.a.base = type <{ i32, i32 }>
+
+The structure %struct.test.a.base is set as StructCouldBeBaseABIPadding since
+it is the base structure of %struct.test.a, which is the padded structure.
 
 UnhandledUse
 ~~~~~~~~~~~~

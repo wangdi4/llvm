@@ -9450,7 +9450,7 @@ bool DTransAnalysisInfo::analyzeModule(
 
   // Go through the multiple StructInfo and check if there is a safety
   // violation that makes the padded field dirty. Also, this is the moment
-  // where we are going to merge the safety violations.
+  // where we are going to set which structures are base and padded structures.
   //
   // NOTE: A dirty padded field means that we don't have enough information
   // to make sure if the field is not being modified.
@@ -9469,49 +9469,97 @@ bool DTransAnalysisInfo::analyzeModule(
         size_t NumFields = StrInfo->getNumFields();
         auto &PaddedField = StrInfo->getField(NumFields - 1);
 
-        // NOTE: We don't check whether isValueUnused() is set since we don't
-        // want to trigger any transformation that depends on it (e.g.
-        // delete fields).
+        if (!PaddedField.isPaddedField())
+          return false;
+
+        // These are the conditions we use to invalidate the padded field.
+        // Perhaps some of them could be relaxed like address taken and
+        // complex use.
         if (PaddedField.isRead() || PaddedField.isWritten() ||
             PaddedField.hasComplexUse() || PaddedField.isAddressTaken() ||
-            PaddedField.isMismatchedElementAccess() ||
             !PaddedField.isNoValue() || !PaddedField.isTopAllocFunction())
           return true;
 
         return false;
       };
 
+      // Return true if the input structures are padded and base structures.
+      auto ArePaddedAndBaseStructures = [](dtrans::StructInfo *PaddedStruct,
+          dtrans::StructInfo *BaseStruct) -> bool {
+
+        assert((PaddedStruct->getRelatedType() == BaseStruct &&
+                BaseStruct->getRelatedType() == PaddedStruct) &&
+                "Incorrect related types set");
+
+        unsigned NumFieldsPadded = PaddedStruct->getNumFields();
+        unsigned NumFieldsBase = BaseStruct->getNumFields();
+
+        if (NumFieldsPadded - NumFieldsBase != 1)
+          return false;
+
+        // We know that there will be at least one field in the padded
+        // structures
+        auto &LastFieldPadded = PaddedStruct->getField(NumFieldsPadded - 1);
+        if (!LastFieldPadded.isPaddedField())
+          return false;
+
+        // If the base structure is not empty then the last field shouldn't
+        // be marked for ABI padding
+        if (NumFieldsBase > 0) {
+          auto &LastFieldBase = BaseStruct->getField(NumFieldsBase - 1);
+          if (LastFieldBase.isPaddedField())
+            return false;
+        }
+
+        return true;
+      };
+
       dtrans::StructInfo *RelatedTypeInfo = STInfo->getRelatedType();
       if (!RelatedTypeInfo)
         continue;
 
-      // If the safety test fails then mark the padded field as dirty.
-      // Also, check if the padded field has any safety violation that
+      const dtrans::SafetyData ABIPaddingSet =
+          dtrans::StructCouldHaveABIPadding |
+          dtrans::StructCouldBeBaseABIPadding;
+
+      // Skip those the structures that were analyzed already
+      if (STInfo->testSafetyData(ABIPaddingSet))
+        continue;
+
+      // Identify the base and padded structures
+      dtrans::StructInfo *BaseStruct = nullptr;
+      dtrans::StructInfo *PaddedStruct = nullptr;
+
+      if (ArePaddedAndBaseStructures(STInfo, RelatedTypeInfo)) {
+        PaddedStruct = STInfo;
+        BaseStruct = RelatedTypeInfo;
+      }
+      else if (ArePaddedAndBaseStructures(RelatedTypeInfo, STInfo)) {
+        PaddedStruct = RelatedTypeInfo;
+        BaseStruct = STInfo;
+      } else {
+        llvm_unreachable("Incorrect base and padded structures set");
+      }
+
+      // Check if the padded field has any safety violation that
       // could break the relationship.
-      bool BadSafetyData =
-          STInfo->testSafetyData(dtrans::SDPaddedStructures) ||
-          RelatedTypeInfo->testSafetyData(dtrans::SDPaddedStructures) ||
-          HasInvalidPaddedField(STInfo);
+      bool BadSafetyData = HasInvalidPaddedField(PaddedStruct);
 
       if (BadSafetyData) {
-        size_t NumFields = STInfo->getNumFields();
-        auto &Field = STInfo->getField(NumFields - 1);
-        if (Field.isPaddedField())
-          Field.invalidatePaddedField();
+        size_t NumFields = PaddedStruct->getNumFields();
+        auto &Field = PaddedStruct->getField(NumFields - 1);
+        Field.invalidatePaddedField();
       }
 
       // DTransTestPaddedStructs is used for testing purposes.
       if (!BadSafetyData || DTransTestPaddedStructs) {
-        STInfo->mergeSafetyDataWithRelatedType();
-        RelatedTypeInfo->mergeSafetyDataWithRelatedType();
-
-        // NOTE: We might want to merge the fields info. For now, the
-        // information related to the base and padded structures can be
-        // collected by referring the related type.
+        PaddedStruct->setSafetyData(dtrans::StructCouldHaveABIPadding);
+        BaseStruct->setSafetyData(dtrans::StructCouldBeBaseABIPadding);
       } else {
         // If the safety data fails then break the relationship between
         // padded and base.
-        STInfo->unsetRelatedType();
+        PaddedStruct->unsetRelatedType();
+        BaseStruct->unsetRelatedType();
       }
     }
   }

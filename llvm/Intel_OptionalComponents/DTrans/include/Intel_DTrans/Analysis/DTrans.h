@@ -586,6 +586,32 @@ const SafetyData FieldAddressTakenCall = 0x0000'0800'0000'0000;
 /// function.
 const SafetyData FieldAddressTakenReturn = 0x0000'1000'0000'0000;
 
+/// This safety data is used when a structure may have an extra field at the
+/// end that could be used for ABI padding. There will be a base structure too
+/// that doesn't have the extra field and uses the same name with '.base' at
+/// the end. For example:
+///
+///   %struct.test.a = type <{ i32, i32, [4 x i8] }>
+///   %struct.test.a.base = type <{ i32, i32 }>
+///
+/// The structure %struct.test.a is set as StructCouldHaveABIPadding since the
+/// last field is used for padding, and the structure %struct.test.a.base is
+/// the base structure.
+const SafetyData StructCouldHaveABIPadding = 0x0000'2000'0000'0000;
+
+/// This safety data is set when a structure is used as base structure for ABI
+/// padding. The structure will have '.base' at the end the of name, and there
+/// will be another structure related to it that have an extra field for
+/// padding. For example:
+///
+///   %struct.test.a = type <{ i32, i32, [4 x i8] }>
+///   %struct.test.a.base = type <{ i32, i32 }>
+///
+/// The structure %struct.test.a.base is set as StructCouldBeBaseABIPadding
+/// since it is the base structure of %struct.test.a, which is the padded
+/// structure.
+const SafetyData StructCouldBeBaseABIPadding = 0x0000'4000'0000'0000;
+
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
 /// or unsafe, but we will conservatively assume it is unsafe.
@@ -602,6 +628,8 @@ static const SafetyData AnyFieldAddressTaken =
 //
 // Safety conditions for field reordering and deletion.
 //
+
+// TODO: Delete fields need to be updated to enable the cases with ABI padding
 const SafetyData SDDeleteField =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
     VolatileData | MismatchedElementAccess | WholeStructureReference |
@@ -613,7 +641,8 @@ const SafetyData SDDeleteField =
     MismatchedElementAccessConditional | DopeVector |
     BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
     MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
-    MemFuncNestedStructsPartialWrite | ComplexAllocSize;
+    MemFuncNestedStructsPartialWrite | ComplexAllocSize |
+    StructCouldHaveABIPadding | StructCouldBeBaseABIPadding;
 
 const SafetyData SDReorderFields =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -627,7 +656,7 @@ const SafetyData SDReorderFields =
     UnhandledUse | DopeVector | BadCastingForRelatedTypes |
     BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
     UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
-    ComplexAllocSize;
+    ComplexAllocSize | StructCouldHaveABIPadding | StructCouldBeBaseABIPadding;
 
 const SafetyData SDReorderFieldsDependent =
     BadPtrManipulation | GlobalInstance | HasInitializerList |
@@ -636,7 +665,7 @@ const SafetyData SDReorderFieldsDependent =
     UnhandledUse | WholeStructureReference | VolatileData | BadMemFuncSize |
     BadMemFuncManipulation | AmbiguousPointerTarget | DopeVector |
     BadPtrManipulationForRelatedTypes | MemFuncNestedStructsPartialWrite |
-    ComplexAllocSize;
+    ComplexAllocSize | StructCouldHaveABIPadding | StructCouldBeBaseABIPadding;
 
 //
 // Safety conditions for field single value analysis
@@ -688,10 +717,10 @@ const SafetyData SDAOSToSOA =
     LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
     HasCppHandling | HasZeroSizedArray | BadCastingConditional |
     UnsafePointerStoreConditional | MismatchedElementAccessConditional |
-    DopeVector | BadCastingForRelatedTypes | 
+    DopeVector | BadCastingForRelatedTypes |
     BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
     UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
-    ComplexAllocSize;
+    ComplexAllocSize | StructCouldHaveABIPadding | StructCouldBeBaseABIPadding;
 
 //
 // Safety conditions for a structure type that contains a pointer to a
@@ -706,7 +735,8 @@ const SafetyData SDAOSToSOADependent =
     UnsafePointerStoreConditional | MismatchedElementAccessConditional |
     DopeVector | BadCastingForRelatedTypes |
     BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
-    UnsafePointerStoreRelatedTypes | ComplexAllocSize;
+    UnsafePointerStoreRelatedTypes | ComplexAllocSize |
+    StructCouldHaveABIPadding | StructCouldBeBaseABIPadding;
 
 //
 // Safety conditions for a structure type that contains a pointer to a
@@ -725,7 +755,8 @@ const SafetyData SDAOSToSOADependentIndex32 =
     MismatchedElementAccessConditional | DopeVector |
     BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
     MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
-    MemFuncNestedStructsPartialWrite | ComplexAllocSize;
+    MemFuncNestedStructsPartialWrite | ComplexAllocSize |
+    StructCouldHaveABIPadding | StructCouldBeBaseABIPadding;
 
 const SafetyData SDDynClone =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -752,7 +783,7 @@ const SafetyData SDSOAToAOS =
     UnhandledUse | DopeVector | BadCastingForRelatedTypes |
     BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
     UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
-    ComplexAllocSize;
+    ComplexAllocSize | StructCouldHaveABIPadding | StructCouldBeBaseABIPadding;
 
 const SafetyData SDMemInitTrimDown =
     BadCasting | BadPtrManipulation | VolatileData | MismatchedElementAccess |
@@ -765,15 +796,7 @@ const SafetyData SDMemInitTrimDown =
     UnhandledUse | DopeVector | BadCastingForRelatedTypes |
     BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
     UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
-    ComplexAllocSize;
-
-// Safety conditions for structures with padding
-const SafetyData SDPaddedStructures =
-    BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
-    VolatileData | MismatchedElementAccess | UnsafePointerStore |
-    UnsafePtrMerge | BadMemFuncSize | BadMemFuncManipulation |
-    AmbiguousPointerTarget | AddressTaken | MismatchedArgUse |
-    MismatchedElementAccessConditional | UnhandledUse;
+    ComplexAllocSize | StructCouldHaveABIPadding | StructCouldBeBaseABIPadding;
 
 // Safety conditions for arrays with constant entries
 // NOTE: FieldAddressTakenReturn is conservative. We can extend the analysis
