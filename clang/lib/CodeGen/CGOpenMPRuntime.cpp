@@ -12445,13 +12445,15 @@ static unsigned evaluateCDTSize(const FunctionDecl *FD,
   return C.getTypeSize(CDT);
 }
 
-static void
-emitX86DeclareSimdFunction(const FunctionDecl *FD, llvm::Function *Fn,
-                           const llvm::APSInt &VLENVal,
-                           ArrayRef<ParamAttrTy> ParamAttrs,
-                           OMPDeclareSimdDeclAttr::BranchStateTy State) {
-  if (Fn->getReturnType()->isStructTy()) // INTEL
-    return; // INTEL
+static void emitX86DeclareSimdFunction(
+    const FunctionDecl *FD, llvm::Function *Fn, const llvm::APSInt &VLENVal,
+    ArrayRef<ParamAttrTy> ParamAttrs,
+    OMPDeclareSimdDeclAttr::BranchStateTy State) {
+#if INTEL_CUSTOMIZATION
+  QualType RetTy = FD->getReturnType();
+  if (RetTy->isComplexType() || RetTy->isStructureType())
+    return;
+#endif // INTEL_CUSTOMIZATION
   struct ISADataTy {
     char ISA;
     unsigned VecRegSize;
@@ -12942,8 +12944,8 @@ void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
       OMPDeclareSimdDeclAttr::BranchStateTy State = Attr->getBranchState();
 #if INTEL_CUSTOMIZATION
       if (CGM.getTriple().isX86() || CGM.getTriple().isSPIR()) {
-#endif // INTEL_CUSTOMIZATION
         emitX86DeclareSimdFunction(FD, Fn, VLENVal, ParamAttrs, State);
+#endif // INTEL_CUSTOMIZATION
       } else if (CGM.getTriple().getArch() == llvm::Triple::aarch64) {
         unsigned VLEN = VLENVal.getExtValue();
         StringRef MangledName = Fn->getName();

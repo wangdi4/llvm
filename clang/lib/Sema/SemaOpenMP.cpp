@@ -6783,6 +6783,17 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareSimdDirective(
     Diag(E->getExprLoc(), diag::err_omp_param_or_this_in_clause)
         << FD->getDeclName() << (isa<CXXMethodDecl>(ADecl) ? 1 : 0);
   }
+
+#if INTEL_CUSTOMIZATION
+  // OpenMP [2.8.2, declare simd construct, Description]
+  // A function marked with declare simd clause must not have a struct, complex
+  // or other composit return type like {double, double}. Otherwise we don't
+  // support its vectorization.
+  QualType RetTy = FD->getReturnType();
+  if (RetTy->isComplexType() || RetTy->isStructureType())
+    Diag(ADecl->getLocation(), diag::warn_no_vec_for_struct_return);
+#endif // INTEL_CUSTOMIZATION
+
   // OpenMP [2.8.2, declare simd construct, Description]
   // The aligned clause declares that the object to which each list item points
   // is aligned to the number of bytes expressed in the optional parameter of
