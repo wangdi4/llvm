@@ -662,6 +662,11 @@ private:
   // Collection of VPPHINodes that correspond to loop IV.
   SmallPtrSet<const VPPHINode *, 8> LoopIVPhis;
 
+  // Map of VPLoop and its IV Phi if one exists. Outer level VPLoop is
+  // always expected to have an IV. Inner VPLoops have an IV Phi only
+  // if it is canonical(Start value of 0 and induction step is 1).
+  DenseMap<const VPLoop *, const VPPHINode *> VPLoopIVPhiMap;
+
   // Map of VPlan's private memory objects and their corresponding HIR BlobDDRef
   // and unique symbase created to represent accesses within vector loop.
   DenseMap<const VPAllocatePrivate *, std::pair<BlobDDRef *, unsigned>>
@@ -721,6 +726,10 @@ private:
       return false;
     }
   }
+
+  // Capture canonical IV(integer type IV with start value of 0 and stride of 1)
+  // for given VPLoop. This is expected to be called only for inner loops.
+  void captureCanonicalIV(VPLoop *VPLp);
 
   // Add entry to WidenMap and handle generating code for liveout/reduction at
   // the end of loop specified by /p HoistLp.
