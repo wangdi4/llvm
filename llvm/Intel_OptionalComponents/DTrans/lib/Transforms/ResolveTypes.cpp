@@ -1,6 +1,6 @@
 //===--------------- ResolveTypes.cpp - DTransResolveTypesPass ------------===//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -2027,8 +2027,16 @@ bool dtrans::ResolveTypesPass::runImpl(
     Module &M,
     std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
     WholeProgramInfo &WPInfo) {
-  if (!WPInfo.isWholeProgramSafe())
+  if (!M.getContext().supportsTypedPointers()) {
+    LLVM_DEBUG(
+        dbgs() << "resolve-types inhibited: opaque pointers not supported\n");
     return false;
+  }
+
+  if (!WPInfo.isWholeProgramSafe()) {
+    LLVM_DEBUG(dbgs() << "resolve-types inhibited: not whole program safe\n");
+    return false;
+  }
 
   DTransTypeRemapper TypeRemapper;
   ResolveTypesImpl Transformer(M.getContext(), M.getDataLayout(), GetTLI,
