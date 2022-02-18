@@ -170,13 +170,11 @@ private:
 
   llvm::StringSet<> directivesExports;
   COFFLinkerContext &ctx;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Return true if argv contains an response file (@) and the file
   // contains /lib, else return false.
   bool processLibInResponseFile(llvm::ArrayRef<const char *> argv);
 #endif // INTEL_CUSTOMIZATION
-=======
 
   llvm::ToolsetLayout vsLayout = llvm::ToolsetLayout::OlderVS;
   std::string vcToolChainPath;
@@ -185,7 +183,6 @@ private:
   llvm::SmallString<128> universalCRTLibPath;
   int sdkMajor = 0;
   llvm::SmallString<128> windowsSdkLibPath;
->>>>>>> 73e585e44d68cf77e2e3274e98c9615156a7d909
 };
 
 // Functions below this line are defined in DriverUtils.cpp.
