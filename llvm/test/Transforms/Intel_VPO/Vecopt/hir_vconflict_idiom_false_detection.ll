@@ -127,8 +127,7 @@ for.body:                                         ; preds = %entry, %for.body
 ; <26>               + END LOOP
 
 ; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM7:[0-9]+]]>         (%A)[%0] = %add;
-; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM8:[0-9]+]]>         %1 = (%A)[i2];
-; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Wrong memory dependency.
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Invariant index is not supported.
 
 ; CHECK-NO-VCONFLICT: No idioms detected.
 
@@ -440,9 +439,14 @@ for.body:                                         ; preds = %entry, %for.body
 ; <20>               |   (%A)[%index.0.lcssa] = %temp2.0.lcssa;
 ; <27>               + END LOOP
 
+; Note: %index.0.lcssa is not currently supported as vconflict index for one of two
+; reasons:
+;   1) num incoming edges to the store <20> > 1
+;   2) definition is coming from two different parents
+; Either is ok at the moment for preventing the idiom from working.
+; There really shouldn't be a reason we can't support this case in the future.
 ; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM32:[0-9]+]]>         (%A)[%index.0.lcssa] = %temp2.0.lcssa;
-; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM33:[0-9]+]]>         %2 = (%A)[%1];
-; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Sink node has another parent.
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Conflict index not supported
 
 ; CHECK-NO-VCONFLICT: No idioms detected.
 
