@@ -2021,7 +2021,6 @@ static void replaceCommonSymbols() {
   }
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // This is the same function as replaceCommonSymbols but it checks the common
 // symbols that could be added by the GNU LTO files. These files contain at
@@ -2045,20 +2044,12 @@ static void replaceGNUCommonSymbols() {
 }
 #endif // INTEL_CUSTOMIZATION
 
-// If all references to a DSO happen to be weak, the DSO is not added
-// to DT_NEEDED. If that happens, we need to eliminate shared symbols
-// created from the DSO. Otherwise, they become dangling references
-// that point to a non-existent DSO.
-static void demoteSharedSymbols() {
-  llvm::TimeTraceScope timeScope("Demote shared symbols");
-=======
 // If all references to a DSO happen to be weak, the DSO is not added to
 // DT_NEEDED. If that happens, replace ShardSymbol with Undefined to avoid
 // dangling references to an unneeded DSO. Use a weak binding to avoid
 // --no-allow-shlib-undefined diagnostics. Similarly, demote lazy symbols.
 static void demoteSharedAndLazySymbols() {
   llvm::TimeTraceScope timeScope("Demote shared and lazy symbols");
->>>>>>> 8b01b638d0145473d27a0dd99ded48cc5a8b85a1
   for (Symbol *sym : symtab->symbols()) {
     auto *s = dyn_cast<SharedSymbol>(sym);
     if (!(s && !s->getFile().isNeeded) && !sym->isLazy())
