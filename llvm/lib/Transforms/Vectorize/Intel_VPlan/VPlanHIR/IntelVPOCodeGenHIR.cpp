@@ -2096,6 +2096,45 @@ HLInst *VPOCodeGenHIR::replicateVectorElts(RegDDRef *Input,
   return ReplVecInst;
 }
 
+RegDDRef *VPOCodeGenHIR::extractSubVector(RegDDRef *Input, unsigned Part,
+                                          unsigned NumParts) {
+  if (!Input)
+    return nullptr; // No vector to extract from.
+
+  assert(NumParts > 0 && "Invalid number of subparts of vector.");
+
+  if (NumParts == 1) {
+    // Return the original vector as there is only one Part.
+    return Input;
+  }
+
+  assert(isa<VectorType>(Input->getDestType()) &&
+         "Cannot generate shuffles for non-vector values.");
+  unsigned VecLen = cast<VectorType>(Input->getDestType())->getNumElements();
+  assert(VecLen % NumParts == 0 &&
+         "Vector cannot be divided into unequal parts for extraction.");
+  assert(Part < NumParts && "Invalid subpart to be extracted from vector.");
+
+  unsigned SubVecLen = VecLen / NumParts;
+  SmallVector<Constant *, 4> ShuffleMask;
+
+  unsigned ElemIdx = Part * SubVecLen;
+
+  for (unsigned K = 0; K < SubVecLen; K++) {
+    Constant *Mask = ConstantInt::get(Type::getInt32Ty(Context), ElemIdx + K);
+    ShuffleMask.push_back(Mask);
+  }
+
+  auto *SubVec =
+      createShuffleWithUndef(Input, ShuffleMask, ".extracted.subvec");
+  LLVM_DEBUG(dbgs() << "[VPOCGHIR] ExtractSubVec: "; SubVec->dump();
+             dbgs() << "\n");
+
+  // Attach sub-vector instruction to HIR.
+  addInstUnmasked(SubVec);
+  return SubVec->getLvalDDRef()->clone();
+}
+
 HLInst *VPOCodeGenHIR::createBitCast(Type *Ty, RegDDRef *Ref,
                                      HLContainerTy *Container,
                                      const Twine &Name) {
@@ -2454,46 +2493,92 @@ void VPOCodeGenHIR::generateStoreForSinCos(const HLInst *HInst,
                 "sincos.cos.store");
 }
 
-HLInst *VPOCodeGenHIR::widenLibraryCall(const VPCallInstruction *VPCall,
-                                        RegDDRef *Mask) {
+void VPOCodeGenHIR::widenLibraryCall(const VPCallInstruction *VPCall,
+                                     RegDDRef *Mask) {
   assert(VPCall->getVectorizationScenario() ==
              VPCallInstruction::CallVecScenariosTy::LibraryFunc &&
          "widenLibraryCall called for mismatched scenario.");
   Function *CalledFunc = VPCall->getCalledFunction();
   assert(CalledFunc && "Unexpected null called function.");
+  unsigned PumpFactor = VPCall->getPumpFactor();
 
-  auto *WideCall = generateWideCall(
-      VPCall, Mask, Intrinsic::not_intrinsic /*No vector intrinsic*/);
+  SmallVector<HLInst *, 4> CallResults;
+  generateWideCalls(VPCall, PumpFactor, Mask,
+                    Intrinsic::not_intrinsic /*No vector intrinsic*/,
+                    CallResults);
 
-  assert(WideCall && WideCall->isCallInst() &&
-         "Widened call instruction expected.");
-  CallInst *WideLLVMCall = const_cast<CallInst *>(WideCall->getCallInst());
-  Function *CalledLLVMFunc = WideLLVMCall->getCalledFunction();
-  assert(CalledLLVMFunc && "Called function expected for the call");
   // Set calling conventions for SVML function calls
-  if (isSVMLFunction(TLI, CalledFunc->getName(), CalledLLVMFunc->getName())) {
-    WideLLVMCall->setCallingConv(CallingConv::SVML);
+  for (auto *WideCall : CallResults) {
+    assert(WideCall->isCallInst() && "Widened call instruction expected.");
+    CallInst *WideLLVMCall = const_cast<CallInst *>(WideCall->getCallInst());
+    Function *CalledLLVMFunc = WideLLVMCall->getCalledFunction();
+    assert(CalledLLVMFunc && "Called function expected for the call");
+    if (isSVMLFunction(TLI, CalledFunc->getName(), CalledLLVMFunc->getName())) {
+      WideLLVMCall->setCallingConv(CallingConv::SVML);
+    }
   }
 
-  return WideCall;
+  // Post process generated vector calls.
+  HLInst *CombinedResult = nullptr;
+  Type *ReturnTy = CallResults[0]->getLvalDDRef()->getDestType();
+  if (PumpFactor > 1 && ReturnTy->isStructTy())
+    CombinedResult = getCombinedCallResultsForStructTy(CallResults);
+  else
+    CombinedResult = getCombinedCallResults(CallResults, Mask);
+
+  assert(CombinedResult && "Unexpected null combined result.");
+  assert(CombinedResult->isAttached() &&
+         "Combined result for calls is expected to be attached.");
+
+  // Handle results of SVML sincos function calls
+  // sincos function has two return values. The scalar sincos function uses
+  // pointers as out-parameters. SVML sincos function, instead, returns them in
+  // a struct directly. This bridges the gap between these two approaches.
+  const class CallInst *Call = CallResults[0]->getCallInst();
+  if (Call->getCalledFunction()->getName().startswith("__svml_sincos")) {
+    // TODO: sincos handling uses underlying HLInst since it's designed to work
+    // even for scalar remainder loop (replaceLibCallsInRemainderLoop).
+    auto *UnderlyingHLInst = cast<HLInst>(VPCall->HIR().getUnderlyingNode());
+    generateStoreForSinCos(UnderlyingHLInst, CombinedResult, Mask,
+                           false /* IsRemainderLoop */);
+    return;
+  }
+
+  // Update wide-ref mapping.
+  addVPValueWideRefMapping(VPCall, CombinedResult->getLvalDDRef());
 }
 
-HLInst *VPOCodeGenHIR::widenTrivialIntrinsic(const VPCallInstruction *VPCall) {
+void VPOCodeGenHIR::widenTrivialIntrinsic(const VPCallInstruction *VPCall) {
   assert(VPCall->getVectorizationScenario() ==
              VPCallInstruction::CallVecScenariosTy::TrivialVectorIntrinsic &&
          "widenTrivialIntrinsic called for mismatched scenario.");
+  unsigned PumpFactor = VPCall->getPumpFactor();
   Intrinsic::ID VectorIntrinID = VPCall->getVectorIntrinsic();
   assert(VectorIntrinID != Intrinsic::not_intrinsic &&
          "Unexpected non-intrinsic call.");
 
   // Trivial vector intrinsics are always unmasked.
-  auto *WideCall = generateWideCall(VPCall, nullptr /*Mask*/, VectorIntrinID);
-  return WideCall;
+  SmallVector<HLInst *, 4> CallResults;
+  assert(PumpFactor == 1 &&
+         "Pumping feature is not expected for trivial vector intrinsics.");
+  generateWideCalls(VPCall, PumpFactor, nullptr /*Mask*/, VectorIntrinID,
+                    CallResults);
+  assert(CallResults.size() == 1 &&
+         "Expected single widened call for trivial vector intrinsic.");
+  HLInst *CallResult = CallResults[0];
+
+  // Update wide-ref mapping.
+  addVPValueWideRefMapping(VPCall, CallResult->getLvalDDRef());
 }
 
-HLInst *VPOCodeGenHIR::generateWideCall(const VPCallInstruction *VPCall,
-                                        RegDDRef *Mask,
-                                        Intrinsic::ID VectorIntrinID) {
+void VPOCodeGenHIR::widenCallArgs(const VPCallInstruction *VPCall,
+                                  RegDDRef *Mask, Intrinsic::ID VectorIntrinID,
+                                  unsigned PumpPart, unsigned PumpFactor,
+                                  SmallVectorImpl<RegDDRef *> &CallArgs,
+                                  SmallVectorImpl<Type *> &ArgTys,
+                                  SmallVectorImpl<AttributeSet> &ArgAttrs) {
+  unsigned PumpedVF = getVF() / PumpFactor;
+
   Function *Fn = VPCall->getCalledFunction();
   assert(Fn && "Unexpected null called function");
   StringRef FnName = Fn->getName();
@@ -2508,36 +2593,20 @@ HLInst *VPOCodeGenHIR::generateWideCall(const VPCallInstruction *VPCall,
 
   AttributeList Attrs = VPCall->getOrigCallAttrs();
 
-  SmallVector<RegDDRef *, 4> CallArgs;
-  SmallVector<Type *, 1> ArgTys;
-  SmallVector<AttributeSet, 1> ArgAttrs;
   for (unsigned I = 0; I < VPCall->getNumArgOperands() - ArgIgnored; I++) {
-    // TODO: Consider integrating the check below for scalarizing intrinsic call
-    // args here.
-    auto *WideArg = widenRef(VPCall->getOperand(I), VF);
+    RegDDRef *WideArg = nullptr;
+    if (!hasVectorInstrinsicScalarOpd(VectorIntrinID, I)) {
+      WideArg = widenRef(VPCall->getOperand(I), VF);
+      WideArg = extractSubVector(WideArg, PumpPart, PumpFactor);
+      assert(WideArg && "Vectorized call arg cannot be nullptr.");
+    } else {
+      assert(PumpFactor == 1 &&
+             "Pumping feature is not expected for trivial vector intrinsics.");
+      WideArg = getOrCreateScalarRef(VPCall->getOperand(I), 0 /*Lane*/);
+    }
     CallArgs.push_back(WideArg);
     ArgTys.push_back(WideArg->getDestType());
     ArgAttrs.push_back(Attrs.getParamAttrs(I));
-  }
-
-  if (VectorIntrinID != Intrinsic::not_intrinsic) {
-    // Scalarize argument operands of intrinsic calls, if needed.
-    // TODO: For VPValue-based CG scalarization decision about operands should
-    // be done in general earlier. We should not blindly widen all operands of
-    // an instruction.
-    for (unsigned I = 0; I < CallArgs.size(); ++I) {
-      if (hasVectorInstrinsicScalarOpd(VectorIntrinID, I)) {
-        assert(CallArgs[I]->isTerminalRef() &&
-               "Scalar operand of intrinsic is not terminal ref.");
-        auto *OperandCE = CallArgs[I]->getSingleCanonExpr();
-        assert(OperandCE->isInvariantAtLevel(OrigLoop->getNestingLevel()) &&
-               "Scalar operand of intrinsic is loop variant.");
-        Type *OperandScalarDestTy = OperandCE->getDestType()->getScalarType();
-        OperandCE->setSrcType(OperandCE->getSrcType()->getScalarType());
-        OperandCE->setDestType(OperandScalarDestTy);
-        ArgTys[I] = OperandScalarDestTy;
-      }
-    }
   }
 
   bool Masked = Mask != nullptr;
@@ -2547,40 +2616,155 @@ HLInst *VPOCodeGenHIR::generateWideCall(const VPCallInstruction *VPCall,
     // lanes during HIR-CG.
     assert(VectorIntrinID == Intrinsic::not_intrinsic &&
            "Vectorization of trivial intrinsics is not expected to be masked.");
-    StringRef VecFuncName =
-        TLI->getVectorizedFunction(Fn->getName(), ElementCount::getFixed(VF),
-                                   Masked);
+    // Compute mask paramter for current part being pumped.
+    RegDDRef *PumpPartMask = extractSubVector(Mask, PumpPart, PumpFactor);
+    StringRef VecFuncName = TLI->getVectorizedFunction(
+        Fn->getName(), ElementCount::getFixed(PumpedVF), Masked);
     // Masks of SVML function calls need special treatment, it's different from
     // the normal case for AVX512.
     if (!VecFuncName.empty() &&
         isSVMLFunction(TLI, Fn->getName(), VecFuncName)) {
-      addMaskToSVMLCall(Fn, Attrs, CallArgs, ArgTys, ArgAttrs, Mask);
+      addMaskToSVMLCall(Fn, Attrs, CallArgs, ArgTys, ArgAttrs, PumpPartMask);
     } else {
-      auto CE = Mask->getSingleCanonExpr();
+      auto CE = PumpPartMask->getSingleCanonExpr();
       ArgTys.push_back(CE->getDestType());
-      CallArgs.push_back(Mask->clone());
+      CallArgs.push_back(PumpPartMask->clone());
       ArgAttrs.push_back(AttributeSet());
     }
   }
+}
 
-  Function *VectorF = getOrInsertVectorLibFunction(
-      Fn, VF, ArgTys, TLI, VectorIntrinID, Masked);
-  assert(VectorF && "Can't create vector function.");
+HLInst *VPOCodeGenHIR::getCombinedCallResults(ArrayRef<HLInst *> CallResults,
+                                              RegDDRef *Mask) {
+  if (CallResults.size() == 1)
+    return CallResults[0];
 
-  FastMathFlags FMF =
-      VPCall->hasFastMathFlags() ? VPCall->getFastMathFlags() : FastMathFlags();
-  auto *WideInst = HLNodeUtilities.createCall(
-      VectorF, CallArgs, VectorF->getName(), nullptr /*Lval*/, {} /*Bundle*/,
-      {} /*BundleOps*/, FMF);
-  CallInst *VecCall = const_cast<CallInst *>(WideInst->getCallInst());
-  assert(VecCall && "Call instruction is expected to be exist");
+  assert(CallResults.size() >= 2 && isPowerOf2_32(CallResults.size()) &&
+         "Number of pumped vector calls to combine must be a power of 2.");
+  Type *RetTy = CallResults[0]->getLvalDDRef()->getDestType();
+  if (RetTy->isVectorTy()) {
+    SmallVector<RegDDRef *, 4> Lvals;
+    for (auto *Call : CallResults)
+      Lvals.push_back(Call->getLvalDDRef());
+    RegDDRef *Combined = concatenateVectors(Lvals, Mask);
+    assert(Combined->isLval() &&
+           "Expected l-val as return value from concatenateVectors.");
+    return cast<HLInst>(Combined->getHLDDNode());
+  } else {
+    llvm_unreachable("Expect vector result from vector calls.");
+  }
+}
 
-  // Make sure we don't lose attributes at the call site. E.g., IMF
-  // attributes are taken from call sites in MapIntrinToIml to refine
-  // SVML calls for precision.
-  setRequiredAttributes(VPCall->getOrigCallAttrs(), VecCall, ArgAttrs);
+HLInst *VPOCodeGenHIR::getCombinedCallResultsForStructTy(
+    ArrayRef<HLInst *> CallResults) {
+  assert(
+      llvm::all_of(CallResults,
+                   [](HLInst *Call) {
+                     return Call->getLvalDDRef()->getDestType()->isStructTy();
+                   }) &&
+      "Calls returning StructTy expected here.");
 
-  return WideInst;
+  // If the return type is not a vector, then it must be a struct of vectors
+  // (returned by sincos function). Create a widened struct type by widening
+  // every element type.
+  // For example, if CallResults[0] is { <2 x float>, <2 x float> } and
+  // PumpFactor is 2, the combined type will be
+  // { <4 x float>, <4 x float> }.
+  auto *ReturnTy = CallResults[0]->getLvalDDRef()->getDestType();
+  StructType *ReturnStructType = cast<StructType>(ReturnTy);
+  SmallVector<Type *, 2> ElementTypes;
+  for (unsigned I = 0; I < ReturnStructType->getStructNumElements(); I++) {
+    VectorType *ElementType =
+        cast<VectorType>(ReturnStructType->getStructElementType(I));
+    ElementTypes.push_back(
+        VectorType::get(ElementType->getElementType(),
+                        ElementType->getElementCount() * CallResults.size()));
+  }
+  StructType *CombinedReturnType =
+      StructType::get(ReturnTy->getContext(), ElementTypes);
+
+  // Then combine the pumped call results: for each vector element of
+  // struct, extract the result from the return value of pumped calls,
+  // combine them and insert to the combined struct:
+  //
+  // ; extract and combine sin field of the return values
+  // %sin0 = extractvalue { <2 x float>, <2 x float> } %callResults0, 0
+  // %sin1 = extractvalue { <2 x float>, <2 x float> } %callResults1, 0
+  // %sin.combined = shufflevector <2 x float> %sin0, <2 x float> %sin1,
+  //                               <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  // %result.tmp = insertvalue { <4 x float>, <4 x float> } undef,
+  //                           <4 x float> %sin.combined, 0
+  //
+  // ; extract and combine cos field of the return values
+  // %cos0 = extractvalue { <2 x float>, <2 x float> } %callResults0, 1
+  // %cos1 = extractvalue { <2 x float>, <2 x float> } %callResults1, 1
+  // %cos.combined = shufflevector <2 x float> %cos0, <2 x float> %cos1,
+  //                               <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  // %result = insertvalue { <4 x float>, <4 x float> } %result.tmp,
+  //                       <4 x float> %cos.combined, 1
+  RegDDRef *Combined = DDRefUtilities.createUndefDDRef(CombinedReturnType);
+  for (unsigned I = 0; I < CombinedReturnType->getNumElements(); I++) {
+    SmallVector<RegDDRef *, 4> Parts;
+    for (unsigned J = 0; J < CallResults.size(); J++) {
+      HLInst *ExtractVal = HLNodeUtilities.createExtractValueInst(
+          CallResults[J]->getLvalDDRef()->clone(), I, "extract.result");
+      addInstUnmasked(ExtractVal);
+      Parts.push_back(ExtractVal->getLvalDDRef());
+    }
+
+    RegDDRef *CombinedVector = concatenateVectors(Parts, nullptr /*Mask*/);
+    HLInst *InsertVal = HLNodeUtilities.createInsertValueInst(
+        Combined->clone(), CombinedVector->clone(), I, "insert.result");
+    addInstUnmasked(InsertVal);
+    Combined = InsertVal->getLvalDDRef();
+  }
+
+  return cast<HLInst>(Combined->getHLDDNode());
+}
+
+void VPOCodeGenHIR::generateWideCalls(const VPCallInstruction *VPCall,
+                                      unsigned PumpFactor, RegDDRef *Mask,
+                                      Intrinsic::ID VectorIntrinID,
+                                      SmallVectorImpl<HLInst *> &CallResults) {
+  Function *Fn = VPCall->getCalledFunction();
+  assert(Fn && "Unexpected null called function");
+
+  LLVM_DEBUG(dbgs() << "[VPOCGHIR] Function " << Fn->getName() << " is pumped "
+                    << PumpFactor << "-way.\n");
+
+  for (unsigned PumpPart = 0; PumpPart < PumpFactor; ++PumpPart) {
+    LLVM_DEBUG(dbgs() << "[VPOCGHIR] Pumping part " << PumpPart << "/"
+                      << PumpFactor << "\n");
+
+    SmallVector<RegDDRef *, 4> CallArgs;
+    SmallVector<Type *, 1> ArgTys;
+    SmallVector<AttributeSet, 1> ArgAttrs;
+    widenCallArgs(VPCall, Mask, VectorIntrinID, PumpPart, PumpFactor, CallArgs,
+                  ArgTys, ArgAttrs);
+
+    bool Masked = Mask != nullptr;
+    Function *VectorF = getOrInsertVectorLibFunction(
+        Fn, VF / PumpFactor, ArgTys, TLI, VectorIntrinID, Masked);
+    assert(VectorF && "Can't create vector function.");
+
+    FastMathFlags FMF = VPCall->hasFastMathFlags() ? VPCall->getFastMathFlags()
+                                                   : FastMathFlags();
+    auto *WideInst = HLNodeUtilities.createCall(
+        VectorF, CallArgs, VectorF->getName(), nullptr /*Lval*/, {} /*Bundle*/,
+        {} /*BundleOps*/, FMF);
+    CallInst *VecCall = const_cast<CallInst *>(WideInst->getCallInst());
+    assert(VecCall && "Call instruction is expected to be exist");
+
+    // Make sure we don't lose attributes at the call site. E.g., IMF
+    // attributes are taken from call sites in MapIntrinToIml to refine
+    // SVML calls for precision.
+    setRequiredAttributes(VPCall->getOrigCallAttrs(), VecCall, ArgAttrs);
+
+    // Attach generated vector call. Mask is ignored here since they are
+    // explicitly passed as operand to call.
+    addInstUnmasked(WideInst);
+    CallResults.push_back(WideInst);
+  }
 }
 
 HLInst *VPOCodeGenHIR::generateScalarCall(const VPCallInstruction *VPCall,
@@ -5018,14 +5202,14 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
     switch (VPCall->getVectorizationScenario()) {
     case VPCallInstruction::CallVecScenariosTy::LibraryFunc: {
-      NewInst = widenLibraryCall(VPCall, Mask);
+      widenLibraryCall(VPCall, Mask);
       ++OptRptStats.VectorMathCalls;
-      break;
+      return;
     }
     case VPCallInstruction::CallVecScenariosTy::TrivialVectorIntrinsic: {
-      NewInst = widenTrivialIntrinsic(VPCall);
+      widenTrivialIntrinsic(VPCall);
       ++OptRptStats.VectorMathCalls;
-      break;
+      return;
     }
     // TODO: Vector variant based CG is not supported yet, serialize
     // temporarily.
@@ -5239,22 +5423,6 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   default:
     LLVM_DEBUG(VPInst->dump());
     llvm_unreachable("Unexpected VPInstruction opcode");
-  }
-
-  // Handle results of SVML sincos function calls
-  // sincos function has two return values. The scalar sincos function uses
-  // pointers as out-parameters. SVML sincos function, instead, returns them in
-  // a struct directly. This bridges the gap between these two approaches.
-  const class CallInst *Call = NewInst->getCallInst();
-  if (Call &&
-      Call->getCalledFunction()->getName().startswith("__svml_sincos")) {
-    addInst(NewInst, nullptr);
-    // TODO: sincos handling uses underlying HLInst since it's designed to work
-    // even for scalar remainder loop (replaceLibCallsInRemainderLoop).
-    auto *UnderlyingHLInst = cast<HLInst>(VPInst->HIR().getUnderlyingNode());
-    generateStoreForSinCos(UnderlyingHLInst, NewInst, Mask,
-                           false /* IsRemainderLoop */);
-    return;
   }
 
   addInst(NewInst, Mask);
