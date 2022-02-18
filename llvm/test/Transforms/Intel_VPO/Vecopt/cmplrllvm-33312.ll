@@ -17,7 +17,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define float @foo(float **%a, i1 %c) {
 ;               *** IR Dump After VPlan HIR Vectorizer (hir-vplan-vec) ***
-; CHECK:       Function: foo
+; CHECK-LABEL:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  BEGIN REGION { modified }
 ; CHECK-NEXT:        + Ztt: No
@@ -140,8 +140,8 @@ define float @foo(float **%a, i1 %c) {
 ; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i1> [[CMP0]] {sb:42}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[PHI_TEMP210:%.*]] = [[FLT_LAST0]]
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR <16 x float> [[PHI_TEMP210]] {sb:44}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x float> [[FLT_LAST0]] {sb:4}
+; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR float [[PHI_TEMP210]] {sb:44}
+; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR float [[FLT_LAST0]] {sb:4}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[UNIFCOND0:%.*]] = extractelement [[ALL_ZERO_CHECK0]],  0
 ; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i1 [[UNIFCOND0]] {sb:45}
@@ -176,8 +176,8 @@ define float @foo(float **%a, i1 %c) {
 ; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i16 [[BSF0]] {sb:49}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[PHI_TEMP210]] = [[FLT_LAST0]]
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR <16 x float> [[PHI_TEMP210]] {sb:44}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x float> [[FLT_LAST0]] {sb:4}
+; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR float [[PHI_TEMP210]] {sb:44}
+; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR float [[FLT_LAST0]] {sb:4}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[BB0]].74:
 ; CHECK-NEXT:        |   [[DOTVEC240:%.*]] = [[SELECT140]] != -1
@@ -197,8 +197,8 @@ define float @foo(float **%a, i1 %c) {
 ; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i1> [[CMP250]] {sb:52}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[PHI_TEMP270:%.*]] = [[I32_LAST0]]
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR <16 x i32> [[PHI_TEMP270]] {sb:54}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i32> [[I32_LAST0]] {sb:3}
+; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i32 [[PHI_TEMP270]] {sb:54}
+; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i32 [[I32_LAST0]] {sb:3}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[UNIFCOND290:%.*]] = extractelement [[ALL_ZERO_CHECK260]],  0
 ; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i1 [[UNIFCOND290]] {sb:55}
@@ -233,8 +233,8 @@ define float @foo(float **%a, i1 %c) {
 ; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i16 [[BSF330]] {sb:59}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[PHI_TEMP270]] = [[I32_LAST0]]
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR <16 x i32> [[PHI_TEMP270]] {sb:54}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i32> [[I32_LAST0]] {sb:3}
+; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i32 [[PHI_TEMP270]] {sb:54}
+; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i32 [[I32_LAST0]] {sb:3}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[BB1]].91:
 ; CHECK-NEXT:        |   [[FLT_LAST_OUT0:%.*]] = [[FLT_LAST0]]

@@ -129,6 +129,17 @@ namespace llvm {
 // decided based on status of compiler options that control CFGMerger.
 static bool isMergedCFG() { return EnableNewCFGMerge && EnableNewCFGMergeHIR; }
 
+// Helper method to determine if instruction should be scalarized. This is
+// currently done only for uniform instructions outside vector loops. TODO: This
+// decision should be SVA-driven in the future.
+static bool instShouldBeScalar(const VPInstruction *VPInst) {
+  auto *Plan = cast<VPlanVector>(VPInst->getParent()->getParent());
+  auto *VPLI = Plan->getVPLoopInfo();
+  bool IsUni = Plan->getVPlanDA()->isUniform(*VPInst);
+  bool IsOutsideLp = VPLI->getLoopFor(VPInst->getParent()) == nullptr;
+  return IsUni && IsOutsideLp;
+}
+
 static RegDDRef *getConstantSplatDDRef(DDRefUtils &DDRU, Constant *ConstVal,
                                        unsigned VF) {
   Constant *ConstVec =
@@ -3187,11 +3198,17 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
          "Non-reduction/induction PHI was not deconstructed.");
   // PHI that was deconstructed via copies during SSA deconstruction is mapped
   // to the common Lval temp that the copies write into.
-  int OriginPhiId = cast<VPHIRCopyInst>(VPPhi->getOperand(0))->getOriginPhiId();
+  auto *HIRCopy = cast<VPHIRCopyInst>(VPPhi->getOperand(0));
+  int OriginPhiId = HIRCopy->getOriginPhiId();
   RegDDRef *PhiTemp = getLValTempForPhiId(OriginPhiId);
   assert(PhiTemp && "Deconstructed PHI does not have a LVal temp.");
 
-  addVPValueWideRefMapping(VPPhi, PhiTemp);
+  // Update mapping in scalar/vector maps based on nature of deconstructed
+  // copies created for the PHI.
+  if (instShouldBeScalar(HIRCopy))
+    addVPValueScalRefMapping(VPPhi, PhiTemp, 0 /*Lane*/);
+  else
+    addVPValueWideRefMapping(VPPhi, PhiTemp);
 }
 
 void VPOCodeGenHIR::generateLoopInductionRef(const VPPHINode *VPPhi) {
@@ -3231,7 +3248,7 @@ RegDDRef *VPOCodeGenHIR::getOrCreateScalarRef(const VPValue *VPVal,
     return ScalarRef->clone();
 
   if (isa<VPExternalDef>(VPVal) || isa<VPConstant>(VPVal) ||
-      isa<VPMetadataAsValue>(VPVal))
+      isa<VPMetadataAsValue>(VPVal) || isa<VPLiveOutValue>(VPVal))
     return getUniformScalarRef(VPVal);
 
   assert(ScalarLaneID < getVF() && "Invalid lane ID.");
@@ -4032,7 +4049,7 @@ RegDDRef *VPOCodeGenHIR::getVLSLoadStoreMask(VectorType *WideValueType,
 void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                                 bool Widen, unsigned ScalarLaneID) {
   assert((Widen || isOpcodeForScalarInst(VPInst->getOpcode()) ||
-          isa<VPCallInstruction>(VPInst)) &&
+          isa<VPCallInstruction>(VPInst) || isa<VPHIRCopyInst>(VPInst)) &&
          "Unxpected instruction for scalar constructs");
 
   HLInst *NewInst = nullptr;
@@ -4287,22 +4304,28 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         LValTmp = ExistingTmp->clone();
       } else {
         // First occurrence of PHI ID, create a new HIR temp to be used as
-        // Lval for all copies. TODO: Use SVA in future to decide between
-        // vector/scalar type here.
-        LValTmp = HLNodeUtilities.createTemp(
-            getWidenedType(VPInst->getType(), getVF()), "phi.temp");
+        // Lval for all copies.
+        Type *TmpTy = Widen ? getWidenedType(VPInst->getType(), getVF())
+                            : VPInst->getType();
+        LValTmp = HLNodeUtilities.createTemp(TmpTy, "phi.temp");
         PhiIdLValTempsMap[OriginPhiId] = LValTmp;
       }
     }
 
-    HLInst *NewInst = HLNodeUtilities.createCopyInst(
-        widenRef(CopiedVPVal, getVF()), ".copy", LValTmp);
+    RegDDRef *CopiedRef = Widen
+                              ? widenRef(CopiedVPVal, getVF())
+                              : getOrCreateScalarRef(CopiedVPVal, ScalarLaneID);
+
+    HLInst *NewInst =
+        HLNodeUtilities.createCopyInst(CopiedRef, ".copy", LValTmp);
 
     // If this is a copy of reduction-init value then it should be inserted
     // along with other reduction initialization related instructions i.e based
     // on hoist loop. We also conservatively mark the copy's temp as live-in for
     // loop nest.
     if (isa<VPReductionInit>(CopiedVPVal)) {
+      assert(Widen &&
+             "Copies from reduction-init expected to be widened only.");
       HLContainerTy RedInitCopy;
       RedInitCopy.push_back(*NewInst);
       insertReductionInit(&RedInitCopy);
@@ -4361,12 +4384,13 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         makeSymLiveInForParentLoops(RvalSym);
       }
       addInstUnmasked(NewInst);
-      addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());
+      addVPValueRefToMaps(VPInst, NewInst->getLvalDDRef(), Widen, ScalarLaneID);
       return;
     }
 
     addInst(NewInst, Mask);
-    addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());
+    addVPValueRefToMaps(VPInst, NewInst->getLvalDDRef(), Widen, ScalarLaneID);
+
     return;
   }
 
@@ -5273,6 +5297,12 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask) {
         UserInst->getOperand(0) == VPInst &&
         llvm::count(UserInst->operands(), VPInst) == 1)
       return;
+  }
+
+  // Scalarize HIR copy instructions that are outside vector loops.
+  if (isa<VPHIRCopyInst>(VPInst) && instShouldBeScalar(VPInst)) {
+    generateHIR(VPInst, Mask, false /*Widen*/, 0 /*LaneID*/);
+    return;
   }
 
   // Generate wide constructs for all VPInstuctions. This will be changed later

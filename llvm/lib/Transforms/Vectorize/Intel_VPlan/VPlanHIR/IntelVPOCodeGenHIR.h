@@ -272,6 +272,15 @@ public:
   // generated, else an extractelement operation is performed before the store
   HLInst *widenNonMaskedUniformStore(const HLInst *Inst);
 
+  // Updates VPValWideRefMap or VPValScalRefMap based on Widen.
+  void addVPValueRefToMaps(const VPValue *VPVal, RegDDRef *Ref, bool Widen,
+                           unsigned Lane) {
+    if (!Widen)
+      addVPValueScalRefMapping(VPVal, Ref, Lane);
+    else
+      addVPValueWideRefMapping(VPVal, Ref);
+  }
+
   // Add WideVal as the widened vector value corresponding  to VPVal
   void addVPValueWideRefMapping(const VPValue *VPVal, RegDDRef *WideVal) {
     VPValWideRefMap[VPVal] = WideVal;
