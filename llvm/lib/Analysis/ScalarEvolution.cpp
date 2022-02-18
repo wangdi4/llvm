@@ -15533,19 +15533,25 @@ public:
   /// \p NewPreds such that the result will be an AddRecExpr.
   static const SCEV *rewrite(const SCEV *S, const Loop *L, ScalarEvolution &SE,
                              SmallPtrSetImpl<const SCEVPredicate *> *NewPreds,
-                             const SCEVUnionPredicate *Pred) {
+                             const SCEVPredicate *Pred) {
     SCEVPredicateRewriter Rewriter(L, SE, NewPreds, Pred);
     return Rewriter.visit(S);
   }
 
   const SCEV *visitUnknown(const SCEVUnknown *Expr) {
     if (Pred) {
-      auto ExprPreds = Pred->getPredicatesForExpr(Expr);
-      for (auto *Pred : ExprPreds)
-        if (const auto *IPred = dyn_cast<SCEVComparePredicate>(Pred))
-          if (IPred->getLHS() == Expr &&
-              IPred->getPredicate() == ICmpInst::ICMP_EQ)
-            return IPred->getRHS();
+      if (auto *U = dyn_cast<SCEVUnionPredicate>(Pred)) {
+        auto ExprPreds = U->getPredicatesForExpr(Expr);
+        for (auto *Pred : ExprPreds)
+          if (const auto *IPred = dyn_cast<SCEVComparePredicate>(Pred))
+            if (IPred->getLHS() == Expr &&
+                IPred->getPredicate() == ICmpInst::ICMP_EQ)
+              return IPred->getRHS();
+      } else if (const auto *IPred = dyn_cast<SCEVComparePredicate>(Pred)) {
+        if (IPred->getLHS() == Expr &&
+            IPred->getPredicate() == ICmpInst::ICMP_EQ)
+          return IPred->getRHS();
+      }
     }
     return convertToAddRecWithPreds(Expr);
   }
@@ -15585,7 +15591,7 @@ public:
 private:
   explicit SCEVPredicateRewriter(const Loop *L, ScalarEvolution &SE,
                         SmallPtrSetImpl<const SCEVPredicate *> *NewPreds,
-                        const SCEVUnionPredicate *Pred)
+                        const SCEVPredicate *Pred)
       : SCEVRewriteVisitor(SE), NewPreds(NewPreds), Pred(Pred), L(L) {}
 
   bool addOverflowAssumption(const SCEVPredicate *P) {
@@ -15630,7 +15636,7 @@ private:
   }
 
   SmallPtrSetImpl<const SCEVPredicate *> *NewPreds;
-  const SCEVUnionPredicate *Pred;
+  const SCEVPredicate *Pred;
   const Loop *L;
 };
 
@@ -15638,7 +15644,7 @@ private:
 
 const SCEV *
 ScalarEvolution::rewriteUsingPredicate(const SCEV *S, const Loop *L,
-                                       const SCEVUnionPredicate &Preds) {
+                                       const SCEVPredicate &Preds) {
   return SCEVPredicateRewriter::rewrite(S, L, *this, nullptr, &Preds);
 }
 
@@ -15868,7 +15874,7 @@ void PredicatedScalarEvolution::addPredicate(const SCEVPredicate &Pred) {
   updateGeneration();
 }
 
-const SCEVUnionPredicate &PredicatedScalarEvolution::getUnionPredicate() const {
+const SCEVPredicate &PredicatedScalarEvolution::getPredicate() const {
   return *Preds;
 }
 
