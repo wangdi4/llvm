@@ -407,10 +407,10 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 /llvm/test/Analysis/Intel_VPOAnalysis/WRegionInfo @intel-restricted/cmplrllvm-llvm-paropt
 
 # Code owners for binary opt-report
-/llvm/include/llvm/Analysis/Intel_OptReport/OptReportSupport.h @vzakhari @andykaylor @karthik-senthil
-/llvm/include/llvm/Analysis/Intel_OptReport/opt_report_proto.proto @vzakhari @andykaylor @karthik-senthil
-/llvm/lib/Analysis/Intel_OptReport/OptReportSupport.cpp @vzakhari @andykaylor @karthik-senthil
-/llvm/test/Analysis/Intel_OptReport/Binary @vzakhari @andykaylor @karthik-senthil
+/llvm/include/llvm/Analysis/Intel_OptReport/OptReportSupport.h @andykaylor @karthik-senthil
+/llvm/include/llvm/Analysis/Intel_OptReport/opt_report_proto.proto @andykaylor @karthik-senthil
+/llvm/lib/Analysis/Intel_OptReport/OptReportSupport.cpp @andykaylor @karthik-senthil
+/llvm/test/Analysis/Intel_OptReport/Binary @andykaylor @karthik-senthil
 
 # JIRA: CMPLRLIBS->LLVM Offload RT
 /openmp/libomptarget/ @intel-restricted/cmplrlibs-llvm-offload-rt
@@ -641,8 +641,8 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 /llvm/lib/Analysis/ConstraintSystem.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 
 # JIRA: CMPLRLLVM->Cmake
-**/CMakeLists.txt* @intel-restricted/cmplrllvm-cmake @vzakhari
-**/cmake/ @intel-restricted/cmplrllvm-cmake @vzakhari
+**/CMakeLists.txt* @intel-restricted/cmplrllvm-cmake
+**/cmake/ @intel-restricted/cmplrllvm-cmake
 
 # XPTI instrumentation utilities
 xpti/ @intel-restricted/llvm-reviewers-runtime
@@ -670,8 +670,8 @@ xptifw/ @intel-restricted/llvm-reviewers-runtime
 /llvm/test/Transforms/GVNSink/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/IRCE/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/IndVarSimplify/ @tcreech-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
-/llvm/test/Transforms/InferAddressSpaces/ @vzakhari
-/llvm/test/Transforms/InstCombine/ @vzakhari @tcreech-intel @sndmitriev @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/InferAddressSpaces/ @intel-restricted/cmplrllvm-llvm-paropt
+/llvm/test/Transforms/InstCombine/ @tcreech-intel @sndmitriev @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/InstSimplify/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/Intel_ForcedCMOVGeneration/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/Intel_MapIntrinToIml/ @LuoYuanke @phoebewang @williamweixiao
@@ -695,9 +695,9 @@ xptifw/ @intel-restricted/llvm-reviewers-runtime
 /llvm/test/Transforms/NaryReassociate/ @asudarsa @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/Reassociate/ @asudarsa @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/SCCP/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
-/llvm/test/Transforms/SROA/ @vzakhari @jcranmer-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/SROA/ @jcranmer-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/SimpleLoopUnswitch/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
-/llvm/test/Transforms/SimplifyCFG/ @vzakhari @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/SimplifyCFG/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Verifier/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 
 # JIRA: CMPLRLLVM->DPC++ Tools

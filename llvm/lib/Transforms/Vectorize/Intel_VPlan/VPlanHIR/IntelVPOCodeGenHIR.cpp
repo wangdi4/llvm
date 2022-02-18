@@ -1057,8 +1057,16 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
         VPLoopHLLoopMap[VPLp] =
             isMergedCFG() ? getMergedCFGVecHLLoop(VPLp) : MainLoop;
       } else {
-        auto Int64Ty = Type::getInt64Ty(HLNodeUtilities.getContext());
-        auto *DDR = DDRefUtilities.createConstDDRef(Int64Ty, 0);
+        Type *IVTy;
+
+        // Use canonical IV type if one exists, use int64 type othewise.
+        auto Itr = VPLoopIVPhiMap.find(VPLp);
+        if (Itr != VPLoopIVPhiMap.end())
+          IVTy = Itr->second->getType();
+        else
+          IVTy = Type::getInt64Ty(HLNodeUtilities.getContext());
+
+        auto *DDR = DDRefUtilities.createConstDDRef(IVTy, 0);
         auto *UnknownLoop =
             HLNodeUtilities.createHLLoop(nullptr /* ZttIf */, DDR, DDR->clone(),
                                          DDR->clone(), 1 /* NumEx */);
@@ -3218,18 +3226,25 @@ void VPOCodeGenHIR::generateLoopInductionRef(const VPPHINode *VPPhi) {
   auto *VPLp = Plan->getVPLoopInfo()->getLoopFor(VPPhi->getParent());
   assert(VPLp && "Unexpected null VPLoop for induction Phi");
   auto *HLoop = VPLoopHLLoopMap[VPLp];
-  assert(HLoop && "Unexpected null HLLoop mapping");
+  assert(HLoop && HLoop->isAttached() &&
+         "Expected non-null attached HLLoop mapping");
 
   // Create a vector value for IV and add it to wide ref map.
   auto *VecCE = CanonExprUtilities.createCanonExpr(VecRefDestTy);
   VecCE->addIV(HLoop->getNestingLevel(), InvalidBlobIndex /* no blob */,
                1 /* constant IV coefficient */);
-  SmallVector<Constant *, 4> ConstVec;
-  for (unsigned i = 0; i < VF; ++i)
-    ConstVec.push_back(ConstantInt::getSigned(RefDestTy, i));
-  unsigned Idx = 0;
-  BlobUtilities.createConstantBlob(ConstantVector::get(ConstVec), true, &Idx);
-  VecCE->addBlob(Idx, 1);
+
+  // We only vectorize at outer most(candidate) loop level. Value increment
+  // for each lane only applies at the candidate loop level.
+  if (!VPLp->getParentLoop()) {
+    SmallVector<Constant *, 4> ConstVec;
+    for (unsigned i = 0; i < VF; ++i)
+      ConstVec.push_back(ConstantInt::getSigned(RefDestTy, i));
+    unsigned Idx = 0;
+    BlobUtilities.createConstantBlob(ConstantVector::get(ConstVec), true, &Idx);
+    VecCE->addBlob(Idx, 1);
+  }
+
   auto *VecRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, VecCE);
   addVPValueWideRefMapping(VPPhi, VecRef);
 
@@ -5328,6 +5343,77 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask) {
     generateHIR(VPInst, Mask, false /*Widen*/, 0 /*LaneID*/);
 }
 
+void VPOCodeGenHIR::captureCanonicalIV(VPLoop *VPLp) {
+  assert(VPLp->getParentLoop() &&
+         "Unexpected canonical IV capture call for outermost loop");
+  VPBasicBlock *Header = VPLp->getHeader();
+  VPBasicBlock *PreHeader = VPLp->getLoopPreheader();
+  VPBasicBlock *Latch = VPLp->getLoopLatch();
+
+  // Loop over all of the PHI nodes in the header, looking for a canonical
+  // induction variable.
+  for (VPPHINode &VPPhi : Header->getVPPhis()) {
+    // Search for a PHI of the form and add it as canonical IV for VPLp
+    //  BB4: # preds: BB3
+    //    ...
+    //    [DA: Uni] i64 %vp29572 = hir-copy i64 0 , OriginPhiId: 0
+    //    [DA: Uni] br BB5
+    //
+    //  BB5: # preds: BB4, BB5
+    //    [DA: Uni] i64 %vp22876 = phi [i64 %vp29572, BB4], [i64 %vp29600, BB5]
+    //    ...
+    //    [DA: Uni] i64 %vp21868 = add i64 %vp22876 i64 1
+    //    ...
+    //    [DA: Uni] i64 %vp29600 = hir-copy i64 %vp21868 , OriginPhiId: 0
+    //    [DA: Uni] br i1 %vp23080, BB5, BB6
+    //
+    //  BB6: # preds: BB5
+    if (!VPPhi.getType()->isIntegerTy() ||
+        Plan->getVPlanDA()->isDivergent(VPPhi))
+      continue;
+
+    // Check for constant start value of 0.
+    VPHIRCopyInst *PHCopy =
+        dyn_cast<VPHIRCopyInst>(VPPhi.getIncomingValue(PreHeader));
+    if (!PHCopy)
+      continue;
+    VPConstant *StartVPConst = dyn_cast<VPConstant>(PHCopy->getOperand(0));
+    if (!StartVPConst || !StartVPConst->getConstant()->isNullValue())
+      continue;
+
+    // Check for constant stride of 1.
+    VPHIRCopyInst *LatchCopy =
+        dyn_cast<VPHIRCopyInst>(VPPhi.getIncomingValue(Latch));
+    if (!LatchCopy)
+      continue;
+
+    VPInstruction *Inc = dyn_cast<VPInstruction>(LatchCopy->getOperand(0));
+    if (!Inc || Inc->getOpcode() != Instruction::Add)
+      continue;
+
+    VPConstant *IncConst;
+    if (Inc->getOperand(0) == &VPPhi)
+      IncConst = dyn_cast<VPConstant>(Inc->getOperand(1));
+    else if (Inc->getOperand(1) == &VPPhi)
+      IncConst = dyn_cast<VPConstant>(Inc->getOperand(0));
+    else
+      continue;
+
+    // HIR loops can have only one IV. If a VPlan transformation for some
+    // reason introduces more than one IV, it would still be correct to
+    // capture the first one. The other inductions would be handled using
+    // the ref for SSA deconstructed copies. However, there could be cases
+    // where capturing for example the widest type or the IV used in the
+    // latch compare check would be better. This code can be revisited if
+    // we such a need.
+    if (IncConst && IncConst->getConstant()->isOneValue()) {
+      LoopIVPhis.insert(&VPPhi);
+      VPLoopIVPhiMap[VPLp] = &VPPhi;
+      return;
+    }
+  }
+}
+
 void VPOCodeGenHIR::collectLoopEntityInsts() {
   // Collect set of VPInstructions that are involved in a reduction. This set
   // is used to avoid folding instructions involved in reductions. This is
@@ -5356,7 +5442,8 @@ void VPOCodeGenHIR::collectLoopEntityInsts() {
       };
 
   // Capture outer loop IV instructions.
-  auto captureOuterLoopIVPhi = [&](VPBasicBlock *OuterLpPreheader) {
+  auto captureOuterLoopIVPhi = [&](VPBasicBlock *OuterLpPreheader,
+                                   VPLoop *OuterLp) {
     bool LoopIVCaptured = false;
     for (VPInstruction &Inst : *OuterLpPreheader) {
       if (!isa<VPInductionInit>(&Inst))
@@ -5372,6 +5459,7 @@ void VPOCodeGenHIR::collectLoopEntityInsts() {
       auto *User = *(IndInit->users().begin());
       VPPHINode *IndPHI = cast<VPPHINode>(User);
       LoopIVPhis.insert(IndPHI);
+      VPLoopIVPhiMap[OuterLp] = IndPHI;
     }
   };
 
@@ -5384,7 +5472,14 @@ void VPOCodeGenHIR::collectLoopEntityInsts() {
         collectRednVPInsts(RedInit);
       }
     }
-    captureOuterLoopIVPhi(OuterLpPreheader);
+    captureOuterLoopIVPhi(OuterLpPreheader, OuterLp);
+
+    // Capture inner loop canonical IV
+    for (auto *VPLp : post_order(OuterLp)) {
+      if (VPLp == OuterLp)
+        continue;
+      captureCanonicalIV(VPLp);
+    }
   }
 
   for (auto *V : LoopIVPhis) {
