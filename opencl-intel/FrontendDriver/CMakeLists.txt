@@ -5,12 +5,15 @@
 use_eh(TRUE)
 use_rtti(FALSE)
 
-if( NOT DEFINED LLVM_PATH_FE )
+if (NOT OPENCL_INTREE_BUILD)
+  if( NOT DEFINED LLVM_PATH_FE )
     message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM libraries location using LLVM_PATH_FE parameter to CMAKE" )
+  endif()
+
+  set(LLVM_PATH ${LLVM_PATH_FE})
+  find_package(LLVM REQUIRED)
 endif()
 
-set(LLVM_PATH ${LLVM_PATH_FE})
-find_package(LLVM REQUIRED)
 # align with the definition in ocl-clang.
 math(EXPR CCLANG_MAJOR_VERSION "${LLVM_VERSION_MAJOR} - 1")
 set( CCLANG_LIBRARY_VERSION "${PRODUCTVER_MAJOR}.${CCLANG_MAJOR_VERSION}.${PRODUCTVER_MINOR}" )
@@ -66,12 +69,16 @@ if (OPENCL_INTREE_BUILD)
   endif()
 endif()
 
-if (WIN32)
+if (OPENCL_INTREE_BUILD)
+  set(COMMON_CLANG_LIB ${COMMON_CLANG})
+else()
+  if (WIN32)
     set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIRS}/${COMMON_CLANG}.lib)
-else (WIN32)
+  else (WIN32)
     set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIR}/lib${COMMON_CLANG}.so.${CCLANG_LIBRARY_VERSION})
     set(COMMON_CLANG_SYMLINK ${LLVM_LIBRARY_DIR}/lib${COMMON_CLANG}.so)
-endif (WIN32)
+  endif (WIN32)
+endif()
 
 add_subdirectory(header_linker)
 
@@ -118,7 +125,6 @@ set(LINK_LIBS
     # be actually used for every particular call to LLVM.
     LLVMBitReader
     LLVMBitWriter
-    LLVMCore
     LLVMIntel_DPCPPKernelTransforms
     LLVMLinker
     LLVMOption
@@ -177,17 +183,25 @@ set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${FRONTEND_FOLDER_NAME} 
 set_target_properties( ${TARGET_NAME_EMU} PROPERTIES FOLDER ${FRONTEND_FOLDER_NAME} )
 
 if (WIN32)
-    add_definitions(-DCCLANG_LIB_NAME="${COMMON_CLANG}.dll")
+  add_definitions(-DCCLANG_LIB_NAME="${COMMON_CLANG}.dll")
+  if (OPENCL_INTREE_BUILD)
+    set (COMMON_CLANG_FILES ${LLVM_BINARY_DIR}/bin/${COMMON_CLANG}.dll)
+  else()
     set (COMMON_CLANG_FILES ${LLVM_BINARY_DIR}/${COMMON_CLANG}.dll)
+  endif()
 else (WIN32)
-    set (COMMON_CLANG_FILES ${COMMON_CLANG_LIB} ${COMMON_CLANG_SYMLINK})
+  set (COMMON_CLANG_FILES ${COMMON_CLANG_LIB} ${COMMON_CLANG_SYMLINK})
 endif (WIN32)
 if (WIN32)
-    GET_ICS_BUILD_TYPE( ICS_BUILD_TYPE )
-    # Disable PDB installation in release build
-    if (NOT ICS_BUILD_TYPE STREQUAL "release")
-        list (APPEND COMMON_CLANG_FILES ${LLVM_BINARY_DIR}/${COMMON_CLANG}.pdb)
-    endif ()
+  GET_ICS_BUILD_TYPE( ICS_BUILD_TYPE )
+  # Disable PDB installation in release build
+  if (NOT ICS_BUILD_TYPE STREQUAL "release")
+    if (OPENCL_INTREE_BUILD)
+      list (APPEND COMMON_CLANG_FILES ${LLVM_BINARY_DIR}/bin/${COMMON_CLANG}.pdb)
+    else()
+      list (APPEND COMMON_CLANG_FILES ${LLVM_BINARY_DIR}/${COMMON_CLANG}.pdb)
+    endif()
+  endif ()
 endif (WIN32)
 
 SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} FrontendDriver.map )

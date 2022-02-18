@@ -20,10 +20,14 @@ if( NOT DEFINED LLVM_PATH_FE )
   message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for frontend using LLVM_PATH_FE parameter to CMAKE" )
 endif()
 
-set(LLVM_PATH ${LLVM_PATH_FE})
-find_package(LLVM REQUIRED)
+if (NOT OPENCL_INTREE_BUILD)
+  set(LLVM_PATH ${LLVM_PATH_FE})
+  find_package(LLVM REQUIRED)
+  set(CLANG "${LLVM_BINARY_DIR}/clang" )
+else()
+  set(CLANG clang)
+endif()
 
-set(CLANG "${LLVM_BINARY_DIR}/clang" )
 set(SPIRV_CONVERTER  "${LLVM_PATH_BE}/bin/llvm-spirv")
 set(GTEST_INCLUDE_DIR "${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include")
 

@@ -91,7 +91,7 @@ add_opencl_library (${TARGET_NAME} SHARED
         tinyxml_STL
         DataManager
         OclPluginManager
-        ${LLVM_MODULE_LIBS}
+        LLVMCore
         NEAT
 
     RC_TEMPLATE DEFAULT

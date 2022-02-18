@@ -29,8 +29,11 @@ endif(WIN32)
 
 link_directories(
     ${OCL_OUTPUT_LIBRARY_DIR}
-    ${LLVM_LIBRARY_DIRS}
 )
+
+if (NOT OPENCL_INTREE_BUILD)
+  link_directories(${LLVM_LIBRARY_DIRS})
+endif()
 
 include_directories(
   ${LLVM_INCLUDE_DIRS}
@@ -97,9 +100,7 @@ target_link_libraries(${TARGET_NAME}
     DataManager
     DataVersion
     Comparator
-    LLVMInterpreterPluggable
     OclBackendUtils
-    LLVMInterpreter
     OCLBuiltinsRef
     NEAT
     REFALU
@@ -109,6 +110,11 @@ target_link_libraries(${TARGET_NAME}
     ImathLibd
     cl_sys_utils
     ${LLVM_MODULE_LIBS}
+    LLVMAsmParser
+    LLVMBitReader
+    LLVMInterpreter
+    LLVMInterpreterPluggable
+    LLVMTransformUtils
     )
 
 if(NOT WIN32)

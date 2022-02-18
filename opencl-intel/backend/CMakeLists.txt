@@ -1,11 +1,12 @@
-# LLVM
-
-if( NOT DEFINED LLVM_PATH_BE )
+if (NOT OPENCL_INTREE_BUILD)
+  # LLVM
+  if( NOT DEFINED LLVM_PATH_BE )
     message( FATAL_ERROR "LLVM_PATH_BE is not specified. Please specify LLVM library location for backend using LLVM_PATH_BE parameter to CMAKE" )
-endif()
+  endif()
 
-set(LLVM_PATH ${LLVM_PATH_BE})
-find_package(LLVM REQUIRED)
+  set(LLVM_PATH ${LLVM_PATH_BE})
+  find_package(LLVM REQUIRED)
+endif()
 
 set( INTEL_COLLAB ON )
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_COLLAB=1" )
@@ -57,6 +58,36 @@ include_directories (BEFORE
                      ${BACKEND_ROOT_DIR}/utils
                      ${OCL_SOURCE_DIR}/cl_api
                      ${LLVM_MAIN_SRC_DIR}/lib/Transforms/Intel_DPCPPKernelTransforms/Utils)
+
+if (OPENCL_INTREE_BUILD)
+  llvm_map_components_to_libnames(LLVM_MODULE_LIBS
+    AllTargetsAsmParsers
+    AllTargetsCodeGens
+    AllTargetsDescs
+    AllTargetsDisassemblers
+    AllTargetsInfos
+    Analysis
+    BitWriter
+    CodeGen
+    Core
+    ExecutionEngine
+    MCJIT
+    IPO
+    IRReader
+    InstCombine
+    Linker
+    Option
+    OrcJIT
+    Passes
+    ScalarOpts
+    Support
+    Target
+    TransformUtils
+    Vectorize
+    Intel_DPCPPKernelTransforms
+    Intel_OpenCLTransforms
+  )
+endif()
 
 if (LLVM_BUILD_OCL_CPU_BACKEND)
     add_subdirectory(barrier                "${CMAKE_CURRENT_BINARY_DIR}/barrier")
