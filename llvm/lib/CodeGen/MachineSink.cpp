@@ -1081,12 +1081,16 @@ using MIRegs = std::pair<MachineInstr *, SmallVector<unsigned, 2>>;
 /// Sink an instruction and its associated debug instructions.
 static void performSink(MachineInstr &MI, MachineBasicBlock &SuccToSinkTo,
                         MachineBasicBlock::iterator InsertPos,
+<<<<<<< HEAD
                         SmallVectorImpl<MIRegs> &DbgValuesToSink) {
 
 #if INTEL_CUSTOMIZATION
   // INTEL - Sinking a machine instruction does not invalidate the source
   //         correlation, so leave it alone.
   //
+=======
+                        ArrayRef<MIRegs> DbgValuesToSink) {
+>>>>>>> bee4531bee0c1d9ce64ee80ce26ddd92c23b9ade
   // If we cannot find a location to use (merge with), then we erase the debug
   // location to prevent debug-info driven tools from potentially reporting
   // wrong location information.
@@ -1106,7 +1110,7 @@ static void performSink(MachineInstr &MI, MachineBasicBlock &SuccToSinkTo,
   // DBG_VALUE location as 'undef', indicating that any earlier variable
   // location should be terminated as we've optimised away the value at this
   // point.
-  for (auto DbgValueToSink : DbgValuesToSink) {
+  for (const auto &DbgValueToSink : DbgValuesToSink) {
     MachineInstr *DbgMI = DbgValueToSink.first;
     MachineInstr *NewDbgMI = DbgMI->getMF()->CloneMachineInstr(DbgMI);
     SuccToSinkTo.insert(InsertPos, NewDbgMI);
@@ -1689,14 +1693,6 @@ static bool hasRegisterDependency(MachineInstr *MI,
   return HasRegDependency;
 }
 
-static SmallSet<MCRegister, 4> getRegUnits(MCRegister Reg,
-                                           const TargetRegisterInfo *TRI) {
-  SmallSet<MCRegister, 4> RegUnits;
-  for (auto RI = MCRegUnitIterator(Reg, TRI); RI.isValid(); ++RI)
-    RegUnits.insert(*RI);
-  return RegUnits;
-}
-
 bool PostRAMachineSinking::tryToSinkCopy(MachineBasicBlock &CurBB,
                                          MachineFunction &MF,
                                          const TargetRegisterInfo *TRI,
@@ -1742,14 +1738,15 @@ bool PostRAMachineSinking::tryToSinkCopy(MachineBasicBlock &CurBB,
           }
 
           // Record debug use of each reg unit.
-          SmallSet<MCRegister, 4> RegUnits = getRegUnits(MO.getReg(), TRI);
-          for (MCRegister Reg : RegUnits)
-            MIUnits[Reg].push_back(MO.getReg());
+          for (auto RI = MCRegUnitIterator(MO.getReg(), TRI); RI.isValid();
+               ++RI)
+            MIUnits[*RI].push_back(MO.getReg());
         }
       }
       if (IsValid) {
-        for (auto RegOps : MIUnits)
-          SeenDbgInstrs[RegOps.first].push_back({&MI, RegOps.second});
+        for (auto &RegOps : MIUnits)
+          SeenDbgInstrs[RegOps.first].emplace_back(&MI,
+                                                   std::move(RegOps.second));
       }
       continue;
     }
@@ -1796,17 +1793,15 @@ bool PostRAMachineSinking::tryToSinkCopy(MachineBasicBlock &CurBB,
       if (!MO.isReg() || !MO.isDef())
         continue;
 
-      SmallSet<MCRegister, 4> Units = getRegUnits(MO.getReg(), TRI);
-      for (MCRegister Reg : Units) {
-        for (auto MIRegs : SeenDbgInstrs.lookup(Reg)) {
+      for (auto RI = MCRegUnitIterator(MO.getReg(), TRI); RI.isValid(); ++RI) {
+        for (const auto &MIRegs : SeenDbgInstrs.lookup(*RI)) {
           auto &Regs = DbgValsToSinkMap[MIRegs.first];
           for (unsigned Reg : MIRegs.second)
             Regs.push_back(Reg);
         }
       }
     }
-    SmallVector<MIRegs, 4> DbgValsToSink(DbgValsToSinkMap.begin(),
-                                         DbgValsToSinkMap.end());
+    auto DbgValsToSink = DbgValsToSinkMap.takeVector();
 
     // Clear the kill flag if SrcReg is killed between MI and the end of the
     // block.
