@@ -28,6 +28,8 @@ using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-local-buffers"
 
+extern bool EnableTLSGlobals;
+
 namespace {
 
 /// Legacy LocalBuffers Pass
@@ -38,7 +40,7 @@ public:
   static char ID;
 
   LocalBuffersLegacy(bool UseTLSGlobals = false)
-      : ModulePass(ID), Impl(UseTLSGlobals || EnableTLSGlobals) {
+      : ModulePass(ID), Impl(UseTLSGlobals) {
     initializeLocalBuffersLegacyPass(*PassRegistry::getPassRegistry());
   }
 
@@ -91,6 +93,7 @@ bool LocalBuffersPass::runImpl(Module &M, LocalBufferInfo *LBInfo) {
   this->M = &M;
   this->LBInfo = LBInfo;
 
+  UseTLSGlobals |= EnableTLSGlobals;
   Context = &M.getContext();
 
   DIFinder = DebugInfoFinder();
