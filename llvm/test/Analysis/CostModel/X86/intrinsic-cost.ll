@@ -54,7 +54,6 @@ for.end:                                          ; preds = %vector.body
 ; INTEL_CUSTOMIZATION
 ; CORE2: Cost Model: Found an estimated cost of 110 for instruction:   %2 = call <4 x float> @llvm.nearbyint.v4f32(<4 x float> %wide.load)
 ; end INTEL_CUSTOMIZATION
-; COREI7: Printing analysis 'Cost Model Analysis' for function 'test2':
 ; COREI7: function 'test2'
 ; COREI7: Cost Model: Found an estimated cost of 1 for instruction:   %2 = call <4 x float> @llvm.nearbyint.v4f32(<4 x float> %wide.load)
 
