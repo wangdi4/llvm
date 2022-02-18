@@ -1,4 +1,5 @@
 ; RUN: opt -auto-cpu-clone < %s -S | FileCheck %s
+; XFAIL: *
 
 ; The test verifies that variadic functions are multiversioned correctly.
 ; Original C code:

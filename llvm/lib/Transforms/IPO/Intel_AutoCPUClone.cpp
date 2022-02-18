@@ -95,6 +95,8 @@ libIRCMVResolverOptionComparator(const MultiVersionResolverOption &LHS,
 }
 
 PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &) {
+  // It was decided to disable this feature for 2022.1
+  return PreservedAnalyses::all();
 
   // Windows is not supported so far.
   const Triple TT{M.getTargetTriple()};
