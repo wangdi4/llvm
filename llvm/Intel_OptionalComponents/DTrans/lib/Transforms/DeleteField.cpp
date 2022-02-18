@@ -425,6 +425,11 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
     OrigToNewTypeMapping[OrigTy] = NewStructTy;
   }
 
+  // TODO: We need to extend delete fields for working with base and padded
+  // structures. The basic idea is to make sure that both structures pass
+  // the safety tests, and the fields selected for deletion can be removed
+  // in both cases.
+
   return true;
 }
 

@@ -70,7 +70,7 @@ InlineReportCallSite::cloneBase(const ValueToValueMapTy &IIMap,
   CallBase *CB = nullptr;
   if (VMI != IIMap.end() && VMI->second)
     CB = cast<CallBase>(VMI->second);
-  if (IsRecursiveCopy) {
+  if (IsRecursiveCopy && CB) {
     // Start with a clean copy, as this is a newly created callsite produced
     // by recursive inlining.
     IRCSk = new InlineReportCallSite(this->IRCallee, false, NinlrNoReason,
