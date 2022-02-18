@@ -36,7 +36,7 @@ private:
   /// as argument, creates load instructions that load the function arguments
   /// from the buffer, creates a call to the given funciton with the loaded
   /// arguments.
-  /// \param pKernel The kernel which is wrapped by the wrapper.
+  /// \param F The kernel which is wrapped by the wrapper.
   /// \returns true if changed.
   bool runOnFunction(Function *F);
 
