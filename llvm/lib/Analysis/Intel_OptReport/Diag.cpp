@@ -518,6 +518,7 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {25583, "Number of Array Refs Scalar Replaced In Loop: %d"},
     {25584, "Inner loop sums optimized with sum window reuse"},
     {25585, "Loop converted to switch"},
+    {25586, "Peeled loop for fusion"}
 };
 
 const char *OptReportDiag::getMsg(unsigned Id) {
