@@ -1081,16 +1081,12 @@ using MIRegs = std::pair<MachineInstr *, SmallVector<unsigned, 2>>;
 /// Sink an instruction and its associated debug instructions.
 static void performSink(MachineInstr &MI, MachineBasicBlock &SuccToSinkTo,
                         MachineBasicBlock::iterator InsertPos,
-<<<<<<< HEAD
-                        SmallVectorImpl<MIRegs> &DbgValuesToSink) {
+                        ArrayRef<MIRegs> DbgValuesToSink) {
 
 #if INTEL_CUSTOMIZATION
   // INTEL - Sinking a machine instruction does not invalidate the source
   //         correlation, so leave it alone.
   //
-=======
-                        ArrayRef<MIRegs> DbgValuesToSink) {
->>>>>>> bee4531bee0c1d9ce64ee80ce26ddd92c23b9ade
   // If we cannot find a location to use (merge with), then we erase the debug
   // location to prevent debug-info driven tools from potentially reporting
   // wrong location information.
