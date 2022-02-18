@@ -586,9 +586,6 @@ namespace llvm {
   /// When learning an eviction policy, extract score(reward) information,
   /// otherwise this does nothing
   FunctionPass *createRegAllocScoringPass();
-
-  /// JMC instrument pass.
-  ModulePass *createJMCInstrumenterPass();
 } // End llvm namespace
 
 #endif

@@ -530,8 +530,7 @@ static bool shouldPinPassToLegacyPM(StringRef Pass) {
       "generic-to-nvvm",      "expandmemcmp",
       "loop-reduce",          "lower-amx-type",
       "pre-amx-config",       "lower-amx-intrinsics",
-      "polyhedral-info",      "replace-with-veclib",
-      "jmc-instrument"};
+      "polyhedral-info",      "replace-with-veclib"};
   for (const auto &P : PassNamePrefix)
     if (Pass.startswith(P))
       return true;
@@ -634,7 +633,6 @@ int main(int argc, char **argv) {
   initializeESIMDVerifierPass(Registry);
   initializeSYCLLowerWGLocalMemoryLegacyPass(Registry);
   initializeSYCLMutatePrintfAddrspaceLegacyPassPass(Registry);
-  initializeJMCInstrumenterPass(Registry);
 
 #ifdef BUILD_EXAMPLES
   initializeExampleIRTransforms(Registry);
