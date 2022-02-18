@@ -176,6 +176,15 @@ int main() {
 
   // expected-warning@+1{{'barrier' is deprecated: use 'ext_oneapi_barrier' instead}}
   Queue.submit([&](sycl::handler &CGH) { CGH.barrier(); });
-  
+
+  cl::sycl::group<1> group =
+      cl::sycl::detail::Builder::createGroup<1>({8}, {4}, {1});
+  // expected-warning@+1{{'get_id' is deprecated: use sycl::group::get_group_id() instead}}
+  group.get_id();
+  // expected-warning@+1{{'get_id' is deprecated: use sycl::group::get_group_id() instead}}
+  group.get_id(1);
+  // expected-warning@+1{{'get_linear_id' is deprecated: use sycl::group::get_group_linear_id() instead}}
+  group.get_linear_id();
+
   return 0;
 }
