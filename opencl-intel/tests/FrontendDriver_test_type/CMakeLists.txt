@@ -26,6 +26,9 @@ add_ocl_unittest( ${TARGET}
       FrontendDriver_test_type.cpp
     LINK_LIBRARIES
       clang_compiler${BUILD_PLATFORM}
-      test_utils)
+      test_utils
+      LLVMCore
+      LLVMSupport
+)
 
 add_dependencies(${TARGET} ${TEST_SPV_FILE})

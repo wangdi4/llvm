@@ -206,7 +206,7 @@ if( LLVM_USE_OPROFILE )
     link_directories ( ${LLVM_OPROFILE_INCDIR} )
 endif( LLVM_USE_OPROFILE )
 
-if( WIN32 )
+if( WIN32 AND NOT OPENCL_INTREE_BUILD)
     # Libraries in LLD_LIBS are in LLVM_LIBRARY_DIRS directory
     link_directories(${LLVM_LIBRARY_DIRS})
 endif( WIN32 )
@@ -268,7 +268,10 @@ set(LINK_LIBS
     emutls
     soft_math
     ObjDump
+    ${LLVM_MODULE_LIBS}
+    LLVMIntelJITEvents
     LLVMSPIRVLib
+    LLVMSymbolize
 )
 
 if (WIN32)
@@ -294,9 +297,6 @@ add_opencl_library (${TARGET_NAME} SHARED
       ${LINK_LIBS}
       ${LLD_LIBS}
 
-      # LLVM LIBS
-      ${LLVM_MODULE_LIBS}
-
     RC_TEMPLATE DEFAULT
 
     INSTALL_PATH ${OUTPUT_ARCH_SUFF}
@@ -316,9 +316,6 @@ add_opencl_library (${TARGET_NAME_EMU} SHARED
 
       ${LINK_LIBS}
       ${LLD_LIBS}
-
-      # LLVM LIBS
-      ${LLVM_MODULE_LIBS}
 
     RC_TEMPLATE DEFAULT
 
