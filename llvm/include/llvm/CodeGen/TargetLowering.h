@@ -2551,6 +2551,10 @@ public:
     case ISD::FMINIMUM:
     case ISD::FMAXIMUM:
     case ISD::COMPLEX_MUL: // INTEL
+    case ISD::AVGFLOORS:
+    case ISD::AVGFLOORU:
+    case ISD::AVGCEILS:
+    case ISD::AVGCEILU:
       return true;
     default: return false;
     }
