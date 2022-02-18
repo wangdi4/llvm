@@ -527,6 +527,10 @@ const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
     return "Field address taken call";
   if (SafetyInfo & dtrans::FieldAddressTakenReturn)
     return "Field address taken return";
+  if (SafetyInfo & dtrans::StructCouldHaveABIPadding)
+    return "Structure may have ABI padding";
+  if (SafetyInfo & dtrans::StructCouldBeBaseABIPadding)
+    return "Structure could be base for ABI padding";
   if (SafetyInfo & dtrans::UnhandledUse)
     return "Unhandled use";
 
@@ -564,7 +568,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::UnsafePointerStoreRelatedTypes |
       dtrans::MemFuncNestedStructsPartialWrite | dtrans::ComplexAllocSize |
       dtrans::FieldAddressTakenCall | dtrans::FieldAddressTakenReturn |
-      dtrans::UnhandledUse;
+      dtrans::StructCouldHaveABIPadding |
+      dtrans:: StructCouldBeBaseABIPadding | dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
   static_assert(
@@ -594,7 +599,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::UnsafePointerStoreRelatedTypes ^
            dtrans::MemFuncNestedStructsPartialWrite ^ dtrans::ComplexAllocSize ^
            dtrans::FieldAddressTakenCall ^ dtrans::FieldAddressTakenReturn ^
-           dtrans::UnhandledUse),
+           dtrans::StructCouldHaveABIPadding ^
+           dtrans:: StructCouldBeBaseABIPadding ^ dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
 
   // Go through the issues in the order of LSB to MSB, and print the names of

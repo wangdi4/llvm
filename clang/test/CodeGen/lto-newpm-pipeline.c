@@ -25,6 +25,21 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm-bc -o /dev/null -fexperimental-new-pass-manager -fdebug-pass-manager -flto=thin -Oz %s 2>&1 | FileCheck %s \
 // RUN:   -check-prefix=CHECK-THIN-OPTIMIZED
 
+// INTEL_CUSTOMIZATION
+// LoopVectorizePass is disabled by default.
+// Execute CHECKs with -mllvm -enable-lv
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm-bc -o /dev/null -fexperimental-new-pass-manager -fdebug-pass-manager -flto=full -O1 -mllvm -enable-lv %s 2>&1 | FileCheck %s \
+// RUN:   -check-prefix=CHECK-FULL-OPTIMIZED-LV
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm-bc -o /dev/null -fexperimental-new-pass-manager -fdebug-pass-manager -flto=full -O2 -mllvm -enable-lv %s 2>&1 | FileCheck %s \
+// RUN:   -check-prefix=CHECK-FULL-OPTIMIZED-LV
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm-bc -o /dev/null -fexperimental-new-pass-manager -fdebug-pass-manager -flto=full -O3 -mllvm -enable-lv %s 2>&1 | FileCheck %s \
+// RUN:   -check-prefix=CHECK-FULL-OPTIMIZED-LV
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm-bc -o /dev/null -fexperimental-new-pass-manager -fdebug-pass-manager -flto=full -Os -mllvm -enable-lv %s 2>&1 | FileCheck %s \
+// RUN:   -check-prefix=CHECK-FULL-OPTIMIZED-LV
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm-bc -o /dev/null -fexperimental-new-pass-manager -fdebug-pass-manager -flto=full -Oz -mllvm -enable-lv %s 2>&1 | FileCheck %s \
+// RUN:   -check-prefix=CHECK-FULL-OPTIMIZED-LV
+// END INTEL_CUSTOMIZATION
+
 // CHECK-FULL-O0: Running pass: AlwaysInlinerPass
 // CHECK-FULL-O0-NEXT: Running analysis: InnerAnalysisManagerProxy
 // CHECK-FULL-O0-NEXT: Running analysis: ProfileSummaryAnalysis
@@ -55,8 +70,13 @@
 // TODO: The LTO pre-link pipeline currently invokes
 //       buildPerModuleDefaultPipeline(), which contains LoopVectorizePass.
 //       This may change as the pipeline gets implemented.
-// CHECK-FULL-OPTIMIZED: Running pass: LoopVectorizePass
+// INTEL - LoopVectorizePass is disabled by default, so CHECKs are removed.
 // CHECK-FULL-OPTIMIZED: Running pass: BitcodeWriterPass
+
+// INTEL_CUSTOMIZATION
+// CHECK-FULL-OPTIMIZED-LV: Running pass: LoopVectorizePass
+// CHECK-FULL-OPTIMIZED-LV: Running pass: BitcodeWriterPass
+// END INTEL_CUSTOMIZATION
 
 // The ThinLTO pre-link pipeline shouldn't contain passes like
 // LoopVectorizePass.

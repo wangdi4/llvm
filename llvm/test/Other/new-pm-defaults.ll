@@ -250,9 +250,9 @@
 ; CHECK-O-NEXT: Running pass: LoopDeletionPass
 ; CHECK-O-NEXT: Running pass: LoopDistributePass
 ; CHECK-O-NEXT: Running pass: InjectTLIMappings
-; CHECK-O-NEXT: Running pass: LoopVectorizePass
-; CHECK-O-NEXT: Running analysis: BlockFrequencyAnalysis
-; CHECK-O-NEXT: Running analysis: BranchProbabilityAnalysis
+; INTEL_CUSTOMIZATION
+; Removed LoopVectorizePass pass as it is disabled by default
+; END INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: LoopLoadEliminationPass
 ; CHECK-O-NEXT: Running analysis: LoopAccessAnalysis
 ; CHECK-O-NEXT: Running pass: InstCombinePass
@@ -272,6 +272,8 @@
 ; CHECK-O-NEXT: Running pass: LICMPass
 ; CHECK-O-NEXT: Running pass: AlignmentFromAssumptionsPass
 ; CHECK-O-NEXT: Running pass: LoopSinkPass
+; CHECK-O-NEXT: Running analysis: BlockFrequencyAnalysis ;INTEL
+; CHECK-O-NEXT: Running analysis: BranchProbabilityAnalysis ;INTEL
 ; CHECK-O-NEXT: Running pass: InstSimplifyPass
 ; CHECK-O-NEXT: Running pass: DivRemPairsPass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass

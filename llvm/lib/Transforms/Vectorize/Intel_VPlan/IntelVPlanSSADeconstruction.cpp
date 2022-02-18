@@ -121,7 +121,13 @@ void VPlanSSADeconstruction::run() {
                    dbgs() << " is mapped to the origin PHI ID: " << PhiId
                           << "\n");
         // TODO: Update SVA of new instruction. Should be same as IncomingValue.
-        if (!Plan.getVPlanDA()->isDivergent(*IncomingValue))
+        // NOTE: The code below assumes that DA is not recomputed between SSA
+        // deconstruction and CG. Consider the alternate solution if that's
+        // needed in future - capture the deconstructed PHI's property in
+        // HIRCopyInst and use that in DA to determine divergence/uniformity.
+        if (Plan.getVPlanDA()->isDivergent(Phi))
+          Plan.getVPlanDA()->markDivergent(*CopyInst);
+        else
           Plan.getVPlanDA()->markUniform(*CopyInst);
 
         PhiInValUpdates[IncomingBlock] = CopyInst;

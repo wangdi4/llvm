@@ -452,6 +452,7 @@ PipelineTuningOptions::PipelineTuningOptions() {
 }
 #if INTEL_CUSTOMIZATION
 extern cl::opt<bool> ConvertToSubs;
+extern cl::opt<bool> EnableLV;
 enum class ThroughputMode { None, SingleJob, MultipleJob };
 extern cl::opt<ThroughputMode> ThroughputModeOpt;
 #endif // INTEL_CUSTOMIZATION
@@ -1546,7 +1547,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
 #if INTEL_CUSTOMIZATION
   // In LTO mode, loopopt runs in link phase along with community vectorizer
   // after it.
-  if (!PrepareForLTO || !isLoopOptEnabled(Level))
+  if (EnableLV && (!PrepareForLTO || !isLoopOptEnabled(Level)))
 #endif // INTEL_CUSTOMIZATION
   FPM.addPass(LoopVectorizePass(
       LoopVectorizeOptions(!PTO.LoopInterleaving, !PTO.LoopVectorization)));

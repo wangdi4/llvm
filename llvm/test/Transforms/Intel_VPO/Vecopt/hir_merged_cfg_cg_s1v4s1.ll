@@ -49,43 +49,39 @@
 ; CHECK-NEXT:           }
 ; CHECK-NEXT:           %tgu = %N  /u  4;
 ; CHECK-NEXT:           %vec.tc = %tgu  *  4;
-; CHECK-NEXT:           %extract.0. = extractelement %phi.temp4,  0;
 ; CHECK-NEXT:           %red.init = 0;
-; CHECK-NEXT:           %red.init.insert = insertelement %red.init,  %extract.0.,  0;
-; CHECK-NEXT:           %extract.0.12 = extractelement %phi.temp6,  0;
-; CHECK-NEXT:           %phi.temp13 = %red.init.insert;
+; CHECK-NEXT:           %red.init.insert = insertelement %red.init,  %phi.temp4,  0;
+; CHECK-NEXT:           %phi.temp12 = %red.init.insert;
 
-; CHECK:                + DO i1 = %extract.0.12, %vec.tc + -1, 4   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:           |   %.vec15 = (<4 x i32>*)(%A)[i1];
-; CHECK-NEXT:           |   %.vec16 = %.vec15  +  %phi.temp13;
-; CHECK-NEXT:           |   %phi.temp13 = %.vec16;
+; CHECK:                + DO i1 = %phi.temp6, %vec.tc + -1, 4   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:           |   %.vec14 = (<4 x i32>*)(%A)[i1];
+; CHECK-NEXT:           |   %.vec15 = %.vec14  +  %phi.temp12;
+; CHECK-NEXT:           |   %phi.temp12 = %.vec15;
 ; CHECK-NEXT:           + END LOOP
 
-; CHECK:                %sum.07 = @llvm.vector.reduce.add.v4i32(%.vec16);
-; CHECK-NEXT:           %.vec18 = %N == %vec.tc;
+; CHECK:                %sum.07 = @llvm.vector.reduce.add.v4i32(%.vec15);
+; CHECK-NEXT:           %.vec17 = %N == %vec.tc;
 ; CHECK-NEXT:           %phi.temp = %sum.07;
 ; CHECK-NEXT:           %phi.temp2 = %vec.tc;
-; CHECK-NEXT:           %phi.temp21 = %sum.07;
-; CHECK-NEXT:           %phi.temp23 = %vec.tc;
-; CHECK-NEXT:           %unifcond25 = extractelement %.vec18,  0;
-; CHECK-NEXT:           if (%unifcond25 == 1)
+; CHECK-NEXT:           %phi.temp20 = %sum.07;
+; CHECK-NEXT:           %phi.temp22 = %vec.tc;
+; CHECK-NEXT:           %unifcond24 = extractelement %.vec17,  0;
+; CHECK-NEXT:           if (%unifcond24 == 1)
 ; CHECK-NEXT:           {
-; CHECK-NEXT:              goto final.merge.81;
+; CHECK-NEXT:              goto final.merge.79;
 ; CHECK-NEXT:           }
 ; CHECK-NEXT:           merge.blk12.31:
-; CHECK-NEXT:           %extract.0.26 = extractelement %phi.temp2,  0;
-; CHECK-NEXT:           %lb.tmp = %extract.0.26;
-; CHECK-NEXT:           %extract.0.28 = extractelement %phi.temp,  0;
-; CHECK-NEXT:           %sum.07 = %extract.0.28;
+; CHECK-NEXT:           %lb.tmp = %phi.temp2;
+; CHECK-NEXT:           %sum.07 = %phi.temp;
 
 ; CHECK:                + DO i1 = %lb.tmp, %N + -1, 1   <DO_LOOP> <vectorize>
 ; CHECK-NEXT:           |   %A.i = (%A)[i1];
 ; CHECK-NEXT:           |   %sum.07 = %A.i  +  %sum.07;
 ; CHECK-NEXT:           + END LOOP
 
-; CHECK:                %phi.temp21 = %sum.07;
-; CHECK-NEXT:           %phi.temp23 = %N + -1;
-; CHECK-NEXT:           final.merge.81:
+; CHECK:                %phi.temp20 = %sum.07;
+; CHECK-NEXT:           %phi.temp22 = %N + -1;
+; CHECK-NEXT:           final.merge.79:
 ; CHECK-NEXT:     END REGION
 
 
