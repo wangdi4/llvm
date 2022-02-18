@@ -93,6 +93,7 @@ bool Builtin::Context::builtinIsSupported(const Builtin::Info &BuiltinInfo,
   bool MSModeUnsupported =
       !LangOpts.MicrosoftExt && (BuiltinInfo.Langs & MS_LANG);
   bool ObjCUnsupported = !LangOpts.ObjC && BuiltinInfo.Langs == OBJC_LANG;
+<<<<<<< HEAD
   bool OclC1Unsupported = (LangOpts.OpenCLVersion / 100) != 1 &&
                           (BuiltinInfo.Langs & ALL_OCLC_LANGUAGES ) ==  OCLC1X_LANG;
 #if INTEL_CUSTOMIZATION
@@ -103,10 +104,24 @@ bool Builtin::Context::builtinIsSupported(const Builtin::Info &BuiltinInfo,
 #endif // INTEL_CUSTOMIZATION
   bool OclCUnsupported = !LangOpts.OpenCL &&
                          (BuiltinInfo.Langs & ALL_OCLC_LANGUAGES);
+=======
+  bool OclCUnsupported =
+      !LangOpts.OpenCL && (BuiltinInfo.Langs & ALL_OCL_LANGUAGES);
+  bool OclGASUnsupported =
+      !LangOpts.OpenCLGenericAddressSpace && (BuiltinInfo.Langs & OCL_GAS);
+  bool OclPipeUnsupported =
+      !LangOpts.OpenCLPipes && (BuiltinInfo.Langs & OCL_PIPE);
+  // Device side enqueue is not supported until OpenCL 2.0. In 2.0 and higher
+  // support is indicated with language option for blocks.
+  bool OclDSEUnsupported =
+      (LangOpts.getOpenCLCompatibleVersion() < 200 || !LangOpts.Blocks) &&
+      (BuiltinInfo.Langs & OCL_DSE);
+>>>>>>> bee4bd70f76952b2c6296feb46a087b497322376
   bool OpenMPUnsupported = !LangOpts.OpenMP && BuiltinInfo.Langs == OMP_LANG;
   bool CUDAUnsupported = !LangOpts.CUDA && BuiltinInfo.Langs == CUDA_LANG;
   bool CPlusPlusUnsupported =
       !LangOpts.CPlusPlus && BuiltinInfo.Langs == CXX_LANG;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // First parameter should be exactly the return statement from community.
   return CheckIntelBuiltinSupported(
@@ -116,6 +131,13 @@ bool Builtin::Context::builtinIsSupported(const Builtin::Info &BuiltinInfo,
          !MSModeUnsupported && !ObjCUnsupported && !CPlusPlusUnsupported &&
          !CUDAUnsupported), BuiltinInfo, LangOpts);
 #endif // INTEL_CUSTOMIZATION
+=======
+  return !BuiltinsUnsupported && !CorBuiltinsUnsupported &&
+         !MathBuiltinsUnsupported && !OclCUnsupported && !OclGASUnsupported &&
+         !OclPipeUnsupported && !OclDSEUnsupported && !OpenMPUnsupported &&
+         !GnuModeUnsupported && !MSModeUnsupported && !ObjCUnsupported &&
+         !CPlusPlusUnsupported && !CUDAUnsupported;
+>>>>>>> bee4bd70f76952b2c6296feb46a087b497322376
 }
 
 /// initializeBuiltins - Mark the identifiers for all the builtins with their
