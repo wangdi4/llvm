@@ -50,8 +50,8 @@ void foo() {
   });
 }
 
-// CHECK: [[ASPECTS1]] = !{i32 1}
 // CHECK: [[EMPTYASPECTS]] = !{}
+// CHECK: [[ASPECTS1]] = !{i32 1}
 // CHECK: [[ASPECTS2]] = !{i32 5, i32 2}
 // CHECK: [[ASPECTS3]] = !{i32 0}
 // CHECK: [[ASPECTS4]] = !{i32 2}
