@@ -1,8 +1,11 @@
-; RUN: opt -analyze -dpcpp-kernel-analysis < %s -S -o - | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-analysis %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=dpcpp-kernel-analysis %s -S -debug -disable-output 2>&1| FileCheck %s
+; RUN: opt -dpcpp-kernel-analysis %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -dpcpp-kernel-analysis %s -S -debug -disable-output 2>&1| FileCheck %s
 
 ; CHECK: KernelAnalysis
-; CHECK-DAG: Kernel <kernel_call_func_with_lid>: NoBarrierPath=0
-; CHECK-DAG: Kernel <kernel_call_func_without_tid>: NoBarrierPath=1
+; CHECK: Kernel <kernel_call_func_with_lid>: NoBarrierPath=0
+; CHECK: Kernel <kernel_call_func_without_tid>: NoBarrierPath=1
 
 ;; CFG for call chain with TID
 
@@ -74,3 +77,5 @@ declare i32 @_Z12get_local_idj(i32)
 
 !sycl.kernels = !{!0}
 !0 = !{void (i32 addrspace(1)*)* @kernel_call_func_with_lid, void (i32 addrspace(1)*)* @kernel_call_func_without_tid}
+
+; DEBUGIFY-NOT: WARNING

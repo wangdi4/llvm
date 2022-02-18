@@ -34,6 +34,8 @@
 
 using namespace llvm;
 
+extern bool EnableTLSGlobals;
+
 static cl::opt<bool> OptEnableNativeDebug("enable-native-debug",
                                           cl::init(false), cl::Hidden,
                                           cl::desc("enable native debug"));

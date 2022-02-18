@@ -24,8 +24,6 @@
 
 #include <map>
 
-extern bool EnableTLSGlobals;
-
 namespace llvm {
 
 /// Barrier pass is a module pass that handles

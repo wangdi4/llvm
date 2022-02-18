@@ -1,17 +1,20 @@
-; RUN: opt -analyze -dpcpp-kernel-analysis < %s -S -o - | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-analysis %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=dpcpp-kernel-analysis %s -S -debug -disable-output 2>&1| FileCheck %s
+; RUN: opt -dpcpp-kernel-analysis %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -dpcpp-kernel-analysis %s -S -debug -disable-output 2>&1| FileCheck %s
 
 ; CHECK: DPCPPKernelAnalysisPass
-; CHECK-DAG: Kernel <kernel_contains_wg_all>: NoBarrierPath=0
-; CHECK-DAG: Kernel <kernel_contains_wg_any>: NoBarrierPath=0
-; CHECK-DAG: Kernel <kernel_contains_wg_broadcastij>: NoBarrierPath=0
-; CHECK-DAG: Kernel <kernel_contains_wg_broadcastijj>: NoBarrierPath=0
-; CHECK-DAG: Kernel <kernel_contains_wg_broadcastijjj>: NoBarrierPath=0
-; CHECK-DAG: Kernel <kernel_contains_wg_reduce_add>: NoBarrierPath=0
-; CHECK-DAG: Kernel <kernel_contains_wg_reduce_min>: NoBarrierPath=0
-; CHECK-DAG: Kernel <kernel_contains_wg_scan_exclusive_add>: NoBarrierPath=0
-; CHECK-DAG: Kernel <kernel_contains_wg_scan_exclusive_min>: NoBarrierPath=0
-; CHECK-DAG: Kernel <kernel_contains_wg_scan_inclusive_add>: NoBarrierPath=0
-; CHECK-DAG: Kernel <kernel_contains_wg_scan_inclusive_min>: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_all>: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_any>: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_broadcastij>: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_broadcastijj>: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_broadcastijjj>: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_reduce_add>: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_reduce_min>: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_scan_exclusive_add>: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_scan_exclusive_min>: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_scan_inclusive_add>: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_scan_inclusive_min>: NoBarrierPath=0
 
 define void @kernel_contains_wg_all() {
 entry:
@@ -95,3 +98,5 @@ attributes #0 = { convergent }
 
 !sycl.kernels = !{!0}
 !0 = !{void ()* @kernel_contains_wg_all, void ()* @kernel_contains_wg_any, void ()* @kernel_contains_wg_broadcastij, void ()* @kernel_contains_wg_broadcastijj, void ()* @kernel_contains_wg_broadcastijjj, void ()* @kernel_contains_wg_reduce_add, void ()* @kernel_contains_wg_reduce_min, void ()* @kernel_contains_wg_scan_exclusive_add, void ()* @kernel_contains_wg_scan_exclusive_min, void ()* @kernel_contains_wg_scan_inclusive_add, void ()* @kernel_contains_wg_scan_inclusive_min}
+
+; DEBUGIFY-NOT: WARNING

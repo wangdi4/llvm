@@ -56,10 +56,8 @@
 ; CHECK-NEXT:              goto final.merge.59;
 ; CHECK-NEXT:           }
 ; CHECK-NEXT:           merge.blk10.31:
-; CHECK-NEXT:           %extract.0. = extractelement %phi.temp2,  0;
-; CHECK-NEXT:           %lb.tmp = %extract.0.;
-; CHECK-NEXT:           %extract.0.19 = extractelement %phi.temp,  0;
-; CHECK-NEXT:           %sum.07 = %extract.0.19;
+; CHECK-NEXT:           %lb.tmp = %phi.temp2;
+; CHECK-NEXT:           %sum.07 = %phi.temp;
 
 ; CHECK:                + DO i1 = %lb.tmp, %N + -1, 1   <DO_LOOP> <vectorize>
 ; CHECK-NEXT:           |   %A.i = (%A)[i1];

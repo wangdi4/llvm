@@ -2,6 +2,7 @@
 ; For now the only difference is between -O1 and everything else, so
 ; -O2, -O3, -Os, -Oz are the same.
 
+;; INTEL - LoopVectorizer is not enabled by default, the respective CHECKs removed.
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='lto<O1>' -S %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O --check-prefix=CHECK-O1
@@ -217,10 +218,6 @@
 ; CHECK-O23SZ-NEXT: Running pass: LoopFullUnrollPass on Loop
 ; CHECK-O23SZ-NEXT: Running analysis:  OuterAnalysisManagerProxy{{.*}}on Loop at depth 1 containing: %loop<header><latch><exiting> ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: LoopDistributePass on foo
-; CHECK-O23SZ-NEXT: Running pass: LoopVectorizePass on foo
-; CHECK-O23SZ-NEXT: Running analysis: BlockFrequencyAnalysis on foo
-; CHECK-O23SZ-NEXT: Running analysis: BranchProbabilityAnalysis on foo
-; CHECK-O23SZ-NEXT: Running analysis: DemandedBitsAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running pass: LoopUnrollPass on foo
 ; CHECK-O23SZ-NEXT: OptReportOptionsAnalysis on foo ;INTEL
 ; CHECK-O23SZ-NEXT: WarnMissedTransformationsPass on foo
@@ -229,6 +226,7 @@
 ; CHECK-O23SZ-NEXT: Running pass: SCCPPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: InstCombinePass on foo
 ; CHECK-O23SZ-NEXT: Running pass: BDCEPass on foo
+; CHECK-O23SZ-NEXT: Running analysis: DemandedBitsAnalysis on foo ;INTEL
 ; CHECK-O2-NEXT: Running pass: SLPVectorizerPass on foo
 ; CHECK-O3-NEXT: Running pass: SLPVectorizerPass on foo
 ; CHECK-OS-NEXT: Running pass: SLPVectorizerPass on foo

@@ -4913,6 +4913,7 @@ static int32_t runTargetTeamRegionSub(
                        nullptr);
   DP("Submitted kernel " DPxMOD " to subdevice %s\n", DPxPTR(Kernel), SubIdStr);
   CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+  CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
   KernelTimer.updateDeviceTime(Event);
 
   LEVEL0_KERNEL_END(RootId);
