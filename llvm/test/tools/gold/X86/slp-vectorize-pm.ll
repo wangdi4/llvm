@@ -1,6 +1,9 @@
 ; RUN: opt -module-summary %s -o %t.o
 
 ; Test SLP and Loop Vectorization are enabled by default at O2 and O3.
+;; INTEL - Loop Vectorization is disabled by default.
+;; INTEL - TODO: Expect vectorization to happen after VPO pases are ported
+;; INTEL - to the new PM.
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:     --plugin-opt=thinlto \
 ; RUN:     --plugin-opt=new-pass-manager \
@@ -51,8 +54,10 @@
 ; CHECK-O3-SLP: Running pass: SLPVectorizerPass
 ; CHECK-O0-LPV-NOT: = !{!"llvm.loop.isvectorized", i32 1}
 ; CHECK-O1-LPV-NOT: = !{!"llvm.loop.isvectorized", i32 1}
-; CHECK-O2-LPV: = !{!"llvm.loop.isvectorized", i32 1}
-; CHECK-O3-LPV: = !{!"llvm.loop.isvectorized", i32 1}
+; INTEL_CUSTOMIZATION
+; CHECK-O2-LPV-NOT: = !{!"llvm.loop.isvectorized", i32 1}
+; CHECK-O3-LPV-NOT: = !{!"llvm.loop.isvectorized", i32 1}
+; END INTEL_CUSTOMIZATION
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

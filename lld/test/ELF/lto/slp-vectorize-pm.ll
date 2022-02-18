@@ -14,14 +14,21 @@
 ; RUN: ld.lld --plugin-opt=new-pass-manager --plugin-opt=debug-pass-manager --plugin-opt=O3 --plugin-opt=save-temps -shared -o %t4.o %t.o 2>&1 | FileCheck %s --check-prefix=CHECK-O3-SLP
 ; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-O3-LPV
 
+;; INTEL - Loop Vectorization is disabled by default.
+;; INTEL - TODO: Expect vectorization to happen after VPO pases are ported
+;; INTEL - to the new PM.
+
 ; CHECK-O0-SLP-NOT: Running pass: SLPVectorizerPass
 ; CHECK-O1-SLP-NOT: Running pass: SLPVectorizerPass
 ; CHECK-O2-SLP: Running pass: SLPVectorizerPass
 ; CHECK-O3-SLP: Running pass: SLPVectorizerPass
 ; CHECK-O0-LPV-NOT: = !{!"llvm.loop.isvectorized", i32 1}
 ; CHECK-O1-LPV-NOT: = !{!"llvm.loop.isvectorized", i32 1}
-; CHECK-O2-LPV: = !{!"llvm.loop.isvectorized", i32 1}
-; CHECK-O3-LPV: = !{!"llvm.loop.isvectorized", i32 1}
+; INTEL_CUSTOMIZATION
+; This should fail when TODO above is resolved, just remove NOT then.
+; CHECK-O2-LPV-NOT: = !{!"llvm.loop.isvectorized", i32 1}
+; CHECK-O3-LPV-NOT: = !{!"llvm.loop.isvectorized", i32 1}
+; END INTEL_CUSTOMIZATION
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

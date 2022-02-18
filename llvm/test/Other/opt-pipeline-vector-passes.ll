@@ -1,5 +1,7 @@
 ; RUN: opt -disable-verify -debug-pass-manager -passes='default<O1>' -force-vector-width=4 -S %s 2>&1 | FileCheck %s --check-prefixes=O1
+; RUN: opt -disable-verify -debug-pass-manager -passes='default<O1>' -enable-lv -force-vector-width=4 -S %s 2>&1 | FileCheck %s --check-prefixes=O1-LV
 ; RUN: opt -disable-verify -debug-pass-manager -passes='default<O2>' -force-vector-width=4 -S %s 2>&1 | FileCheck %s --check-prefixes=O2
+; RUN: opt -disable-verify -debug-pass-manager -passes='default<O2>' -enable-lv -force-vector-width=4 -S %s 2>&1 | FileCheck %s --check-prefixes=O2-LV ;INTEL
 ; RUN: opt -disable-verify -debug-pass-manager -passes='default<O2>' -force-vector-width=4 -extra-vectorizer-passes -S %s 2>&1 | FileCheck %s --check-prefixes=O2_EXTRA
 
 ; When the loop doesn't get vectorized, no extra vector passes should run.
@@ -7,26 +9,40 @@
 
 ; REQUIRES: asserts
 
-; The loop vectorizer still runs at both -O1/-O2 even with the
-; debug flag, but it only works on loops explicitly annotated
-; with pragmas.
+; INTEL_CUSTOMIZATION
+; The loop vectorizer is not run by default at both -O1/-O2.
+
+; Removed LoopVectorizePass pass as it is disabled by default
 
 ; SLP does not run at -O1. Loop vectorization runs, but it only
 ; works on loops explicitly annotated with pragmas.
-; O1-LABEL:  Running pass: LoopVectorizePass
 ; O1-NOT:    Running pass: SLPVectorizerPass
 ; O1:        Running pass: VectorCombinePass
 
-; Everything runs at -O2.
-; O2-LABEL:  Running pass: LoopVectorizePass
-; O2-NOT:    Running pass: EarlyCSEPass
-; O2-NOT:    Running pass: LICMPass
+; With the enable-lv option:
+; The loop vectorizer still runs at both -O1/-O2 even with the
+; debug flag, but it only works on loops explicitly annotated
+; with pragmas.
+; SLP does not run at -O1. Loop vectorization runs, but it only
+; works on loops explicitly annotated with pragmas.
+; O1-LV-LABEL:  Running pass: LoopVectorizePass
+; O1-LV-NOT:    Running pass: SLPVectorizerPass
+; O1-LV:        Running pass: VectorCombinePass
+
+; Everything runs at -O2, except LV, which is disabled by default
 ; O2:        Running pass: SLPVectorizerPass
 ; O2:        Running pass: VectorCombinePass
 
+; Everything runs at -O2 with -enable-lv, including LV.
+; O2-LV-LABEL:  Running pass: LoopVectorizePass
+; O2-LV-NOT:    Running pass: EarlyCSEPass
+; O2-LV-NOT:    Running pass: LICMPass
+; O2-LV:        Running pass: SLPVectorizerPass
+; O2-LV:        Running pass: VectorCombinePass
+; END INTEL_CUSTOMIZATION
+
 ; Optionally run cleanup passes.
-; O2_EXTRA-LABEL: Running pass: LoopVectorizePass
-; O2_EXTRA: Running pass: EarlyCSEPass
+; O2_EXTRA-LABEL: Running pass: EarlyCSEPass ;INTEL
 ; O2_EXTRA: Running pass: CorrelatedValuePropagationPass
 ; O2_EXTRA: Running pass: InstCombinePass
 ; O2_EXTRA: Running pass: LICMPass
