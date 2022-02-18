@@ -138,6 +138,8 @@ static cl::opt<uint64_t> MaxInstTimesBB(
 struct llvm::GVNPass::Expression {
   uint32_t opcode;
   bool commutative = false;
+  // The type is not necessarily the result type of the expression, it may be
+  // any additional type needed to disambiguate the expression.
   Type *type = nullptr;
   SmallVector<uint32_t, 4> varargs;
 
@@ -319,7 +321,13 @@ struct llvm::gvn::AvailableValueInBlock {
 
 GVNPass::Expression GVNPass::ValueTable::createExpr(Instruction *I) {
   Expression e;
-  e.type = I->getType();
+  // For GEPs, disambiguate based on the source element type, which is not
+  // implied by the result type with opaque pointers. (Conversely, the source
+  // element type together with the operand types does imply the result type.)
+  if (const auto *GEP = dyn_cast<GetElementPtrInst>(I))
+    e.type = GEP->getSourceElementType();
+  else
+    e.type = I->getType();
   e.opcode = I->getOpcode();
   if (const GCRelocateInst *GCR = dyn_cast<GCRelocateInst>(I)) {
     // gc.relocate is 'special' call: its second and third operands are
