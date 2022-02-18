@@ -21,10 +21,9 @@
 
 
 ; CHECK:            + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>
-; CHECK-NEXT:       |   %llvm.exp.v4f64 = undef
 ; CHECK-NEXT:       |   %.vec = (<4 x double>*)(%y)[i1];
 ; CHECK-NEXT:       |   [[CMP:%.*]] = %.vec == %key;
-; CHECK-NEXT:       |   %llvm.exp.v4f64 = @llvm.exp.v4f64(%.vec), Mask = @{[[CMP]]};
+; CHECK-NEXT:       |   %llvm.exp.v4f64 = @llvm.exp.v4f64(%.vec);
 ; CHECK-NEXT:       |   (<4 x double>*)(%x)[i1] = %llvm.exp.v4f64, Mask = @{[[CMP]]};
 ; CHECK-NEXT:       + END LOOP
 

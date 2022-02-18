@@ -61,9 +61,6 @@ protected:
 
   void createLiveInOutLists(VPlanVector &Plan) override;
 
-  /// Check if HIR vectorizer suuports call pumping feature.
-  bool isCallPumpingSupported() const override { return false; }
-
 public:
   LoopVectorizationPlannerHIR(WRNVecLoopNode *WRL, HLLoop *Lp,
                               const TargetLibraryInfo *TLI,
