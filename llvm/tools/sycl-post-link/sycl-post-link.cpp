@@ -1051,7 +1051,6 @@ TableFiles processOneModule(std::unique_ptr<Module> M, bool IsEsimd,
   if (IsEsimd && LowerEsimd)
     lowerEsimdConstructs(*M);
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   bool DoLinkOmpOffloadEntries =
       OmpOffloadEntriesSymbol.getNumOccurrences() > 0;
@@ -1083,13 +1082,10 @@ TableFiles processOneModule(std::unique_ptr<Module> M, bool IsEsimd,
 #endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
 
-  EntryPointsGroupScope Scope = selectDeviceCodeGroupScope(*M);
-=======
   EntryPointGroupMap GMap =
       groupEntryPoints(*M, selectDeviceCodeGroupScope(*M));
   if (DeviceGlobals)
     checkImageScopedDeviceGlobals(*M, GMap);
->>>>>>> bc3cf094b850a861533c8ee27e5b0a71af0513ba
   bool DoSplit = (SplitMode.getNumOccurrences() > 0);
   ModuleSplitter MSplit(std::move(M), DoSplit, std::move(GMap));
 
