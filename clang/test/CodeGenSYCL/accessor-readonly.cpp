@@ -15,7 +15,11 @@ void f0(cl::sycl::queue &myQueue, cl::sycl::buffer<int, 1> &in_buf, cl::sycl::bu
 // CHECK: spir_kernel{{.*}}f1_kernel
 // CHECK-NOT: readonly
 // CHECK-SAME: %_arg_{{.*}}%_arg_1{{.*}}%_arg_2{{.*}}%_arg_3
+<<<<<<< HEAD
 // CHECK-SAME: readonly align 4 %_arg_4
+=======
+// CHECK-SAME:  readonly align 4 %_arg_4
+>>>>>>> d7166ba1a66e1264338ee479617db3428831eac7
 void f1(cl::sycl::queue &myQueue, cl::sycl::buffer<int, 1> &in_buf, cl::sycl::buffer<int, 1> &out_buf) {
   myQueue.submit([&](cl::sycl::handler &cgh) {
     auto write_acc = out_buf.get_access<cl::sycl::access::mode::write>(cgh);
