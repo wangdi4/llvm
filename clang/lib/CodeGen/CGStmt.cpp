@@ -2509,15 +2509,6 @@ std::pair<llvm::Value*, llvm::Type *> CodeGenFunction::EmitAsmInputLValue(
     if ((Size <= 64 && llvm::isPowerOf2_64(Size)) ||
         getTargetHooks().isScalarizableAsmOperand(*this, Ty)) {
       Ty = llvm::IntegerType::get(getLLVMContext(), Size);
-<<<<<<< HEAD
-#if INTEL_COLLAB
-        llvm::PointerType *PTy = InputValue.getAddress(*this).getType();
-        Ty = llvm::PointerType::get(Ty, PTy->getAddressSpace());
-#else // INTEL_COLLAB
-        Ty = llvm::PointerType::getUnqual(Ty);
-#endif // INTEL_COLLAB
-=======
->>>>>>> f208644ed3618fb1db195adbd35ae0acf2819f23
 
       return {Builder.CreateLoad(Builder.CreateElementBitCast(
                   InputValue.getAddress(*this), Ty)),
