@@ -151,6 +151,8 @@ config.substitutions.append( ('%sycl_triple',  triple ) )
 if triple == 'nvptx64-nvidia-cuda-sycldevice':
     config.available_features.add('cuda')
 
+additional_flags = config.sycl_clang_extra_flags.split(' ')
+
 if config.cuda_be == "ON":
     config.available_features.add('cuda_be')
 
@@ -166,12 +168,13 @@ if triple == 'nvptx64-nvidia-cuda':
 if triple == 'amdgcn-amd-amdhsa':
     config.available_features.add('hip_amd')
     # For AMD the specific GPU has to be specified with --offload-arch
-    if not re.match('.*--offload-arch.*', config.sycl_clang_extra_flags):
-        raise Exception("Error: missing --offload-arch flag when trying to "  \
-                        "run lit tests for AMD GPU, please add "              \
-                        "--hip-amd-arch=<target> to buildbot/configure.py or add"  \
-                        "`-Xsycl-target-backend=amdgcn-amd-amdhsa --offload-arch=<target>` to " \
-                        "the CMake variable SYCL_CLANG_EXTRA_FLAGS")
+    if not any([f.startswith('--offload-arch') for f in additional_flags]):
+        # If the offload arch wasn't specified in SYCL_CLANG_EXTRA_FLAGS,
+        # hardcode it to gfx906, this is fine because only compiler tests
+        additional_flags += ['-Xsycl-target-backend=amdgcn-amd-amdhsa',
+                            '--offload-arch=gfx906']
+
+llvm_config.use_clang(additional_flags=additional_flags)
 
 # INTEL_CUSTOMIZATION
 # Needed for disable some test in case of use of particular linker
