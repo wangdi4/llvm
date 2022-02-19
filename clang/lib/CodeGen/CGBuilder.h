@@ -158,6 +158,7 @@ public:
                                             Ordering, SSID);
   }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
   llvm::Value *CreateBitCast(llvm::Value *Ptr, llvm::Type *Ty,
                              const llvm::Twine &Name = "") {
@@ -193,6 +194,8 @@ public:
                    Addr.getAlignment());
   }
 
+=======
+>>>>>>> f208644ed3618fb1db195adbd35ae0acf2819f23
   using CGBuilderBaseTy::CreateAddrSpaceCast;
   Address CreateAddrSpaceCast(Address Addr, llvm::Type *Ty,
                               const llvm::Twine &Name = "") {
