@@ -35,7 +35,6 @@ config.test_source_root = os.path.dirname(__file__)
 # test_exec_root: The root path where tests should be run.
 config.test_exec_root = os.path.join(config.sycl_obj_root, 'test')
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 def getAdditionalFlags():
     flags = config.sycl_clang_extra_flags.split(' ')
@@ -75,8 +74,6 @@ if sycl_hpp_available[0] != 0:
         llvm_config.with_environment('CPATH', config.extra_include, append_path=True)
 # end INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 1600218bd56958fdf8a82dd7fc40219bca082d34
 # Propagate some variables from the host environment.
 llvm_config.with_system_environment(['PATH', 'OCL_ICD_FILENAMES', 'SYCL_DEVICE_ALLOWLIST', 'SYCL_CONFIG_FILE_NAME'])
 llvm_config.with_system_environment(['TC_WRAPPER_PATH']) # INTEL_CUSTOMIZATION
