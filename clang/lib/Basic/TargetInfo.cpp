@@ -449,10 +449,7 @@ void TargetInfo::adjust(DiagnosticsEngine &Diags, LangOptions &Opts) {
     } else if (Opts.LongDoubleSize == 128) {
       LongDoubleWidth = LongDoubleAlign = 128;
       LongDoubleFormat = &llvm::APFloat::IEEEquad();
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-=======
->>>>>>> 3e19ba36fca9fa0b6aba0de2767f26dfd463cb5a
     } else if (Opts.LongDoubleSize == 80) {
       LongDoubleFormat = &llvm::APFloat::x87DoubleExtended();
       if (getTriple().isWindowsMSVCEnvironment()) {
@@ -467,10 +464,7 @@ void TargetInfo::adjust(DiagnosticsEngine &Diags, LangOptions &Opts) {
           LongDoubleAlign = 128;
         }
       }
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 3e19ba36fca9fa0b6aba0de2767f26dfd463cb5a
     }
   }
 

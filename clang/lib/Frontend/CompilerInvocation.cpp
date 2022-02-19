@@ -4152,10 +4152,6 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
   Opts.NoBuiltin = Args.hasArg(OPT_fno_builtin) || Opts.Freestanding;
   if (!Opts.NoBuiltin)
     getAllNoBuiltinFuncValues(Args, Opts.NoBuiltinFuncs);
-<<<<<<< HEAD
-  Opts.LongDoubleSize = Args.hasArg(OPT_mlong_double_128)
-                            ? 128
-                            : Args.hasArg(OPT_mlong_double_64) ? 64 : 0;
 #if INTEL_CUSTOMIZATION
   if (const Arg *A = Args.getLastArg(OPT_fintel_long_double_size_EQ)) {
     StringRef Value = A->getValue();
@@ -4177,7 +4173,6 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
                    (Opts.MicrosoftExt || Opts.Borland ||
                     Opts.CUDA || Opts.IntelCompat));
 #endif // INTEL_CUSTOMIZATION
-=======
   if (Arg *A = Args.getLastArg(options::OPT_LongDouble_Group)) {
     if (A->getOption().matches(options::OPT_mlong_double_64))
       Opts.LongDoubleSize = 64;
@@ -4188,7 +4183,6 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
     else
       Opts.LongDoubleSize = 0;
   }
->>>>>>> 3e19ba36fca9fa0b6aba0de2767f26dfd463cb5a
   if (Opts.FastRelaxedMath)
     Opts.setDefaultFPContractMode(LangOptions::FPM_Fast);
   llvm::sort(Opts.ModuleFeatures);
