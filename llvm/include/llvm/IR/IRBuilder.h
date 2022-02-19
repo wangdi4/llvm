@@ -125,23 +125,19 @@ protected:
   MDNode *DefaultFPMathTag;
   FastMathFlags FMF;
 
-  bool IsFPConstrained;
-  bool IsFPHonorNaNCompares; // INTEL
-  fp::ExceptionBehavior DefaultConstrainedExcept;
-  RoundingMode DefaultConstrainedRounding;
+  bool IsFPConstrained = false;
+  bool IsFPHonorNaNCompares = false; // INTEL
+  fp::ExceptionBehavior DefaultConstrainedExcept = fp::ebStrict;
+  RoundingMode DefaultConstrainedRounding = RoundingMode::Dynamic;
 
   ArrayRef<OperandBundleDef> DefaultOperandBundles;
 
 public:
   IRBuilderBase(LLVMContext &context, const IRBuilderFolder &Folder,
-                const IRBuilderDefaultInserter &Inserter,
-                MDNode *FPMathTag, ArrayRef<OperandBundleDef> OpBundles)
+                const IRBuilderDefaultInserter &Inserter, MDNode *FPMathTag,
+                ArrayRef<OperandBundleDef> OpBundles)
       : Context(context), Folder(Folder), Inserter(Inserter),
-        DefaultFPMathTag(FPMathTag), IsFPConstrained(false),
-        IsFPHonorNaNCompares(false), // INTEL
-        DefaultConstrainedExcept(fp::ebStrict),
-        DefaultConstrainedRounding(RoundingMode::Dynamic),
-        DefaultOperandBundles(OpBundles) {
+        DefaultFPMathTag(FPMathTag), DefaultOperandBundles(OpBundles) {
     ClearInsertionPoint();
   }
 
