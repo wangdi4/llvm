@@ -1664,6 +1664,8 @@ Error BitcodeReader::parseAttributeGroupBlock() {
             B.addStructRetAttr(nullptr);
           else if (Kind == Attribute::InAlloca)
             B.addInAllocaAttr(nullptr);
+          else if (Kind == Attribute::UWTable)
+            B.addUWTableAttr(UWTableKind::Default);
           else if (Attribute::isEnumAttrKind(Kind))
             B.addAttribute(Kind);
           else
@@ -1686,6 +1688,8 @@ Error BitcodeReader::parseAttributeGroupBlock() {
             B.addAllocSizeAttrFromRawRepr(Record[++i]);
           else if (Kind == Attribute::VScaleRange)
             B.addVScaleRangeAttrFromRawRepr(Record[++i]);
+          else if (Kind == Attribute::UWTable)
+            B.addUWTableAttr(UWTableKind(Record[++i]));
         } else if (Record[i] == 3 || Record[i] == 4) { // String attribute
           bool HasValue = (Record[i++] == 4);
           SmallString<64> KindStr;
