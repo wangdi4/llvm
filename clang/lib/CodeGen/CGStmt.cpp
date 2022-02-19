@@ -2509,15 +2509,9 @@ std::pair<llvm::Value*, llvm::Type *> CodeGenFunction::EmitAsmInputLValue(
     if ((Size <= 64 && llvm::isPowerOf2_64(Size)) ||
         getTargetHooks().isScalarizableAsmOperand(*this, Ty)) {
       Ty = llvm::IntegerType::get(getLLVMContext(), Size);
-#if INTEL_COLLAB
-        llvm::PointerType *PTy = InputValue.getAddress(*this).getType();
-        Ty = llvm::PointerType::get(Ty, PTy->getAddressSpace());
-#else // INTEL_COLLAB
-        Ty = llvm::PointerType::getUnqual(Ty);
-#endif // INTEL_COLLAB
 
-      return {Builder.CreateLoad(
-                  Builder.CreateBitCast(InputValue.getAddress(*this), Ty)),
+      return {Builder.CreateLoad(Builder.CreateElementBitCast(
+                  InputValue.getAddress(*this), Ty)),
               nullptr};
     }
   }
@@ -3106,8 +3100,8 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
     // ResultTypeRequiresCast.size() elements of RegResults.
     if ((i < ResultTypeRequiresCast.size()) && ResultTypeRequiresCast[i]) {
       unsigned Size = getContext().getTypeSize(ResultRegQualTys[i]);
-      Address A = Builder.CreateBitCast(Dest.getAddress(*this),
-                                        ResultRegTypes[i]->getPointerTo());
+      Address A = Builder.CreateElementBitCast(Dest.getAddress(*this),
+                                               ResultRegTypes[i]);
       if (getTargetHooks().isScalarizableAsmOperand(*this, TruncTy)) {
         Builder.CreateStore(Tmp, A);
         continue;
