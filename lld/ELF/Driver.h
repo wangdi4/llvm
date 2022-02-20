@@ -42,7 +42,6 @@ private:
   std::unique_ptr<BitcodeCompiler> lto;
 
   std::vector<InputFile *> files;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // If there is at least one GNU LTO file in the linking command
   // then pass it to G++ in order to do LTO and build a temporary
@@ -50,11 +49,9 @@ private:
   // the linking process.
   template <class ELFT> void doGnuLTOLinking();
 #endif // INTEL_CUSTOMIZATION
-=======
 
 public:
   SmallVector<std::pair<StringRef, unsigned>, 0> archiveFiles;
->>>>>>> 3d85424096ff1e20ca735cbe455870cea7ed098f
 };
 
 // Parses command line options.
