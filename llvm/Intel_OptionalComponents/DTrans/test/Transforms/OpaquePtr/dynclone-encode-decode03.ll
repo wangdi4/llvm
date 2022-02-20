@@ -73,7 +73,7 @@ define void @proc1() {
   call void @proc3(i64 30, %struct.test.01* %tp2);
 
 ; CHECK: [[LD0:%[0-9]+]] = load i16, i16* %3, align 2
-; CHECK:  %LF1 = sext i16 [[LD0]] to i64
+; CHECK:  %LF1 = zext i16 [[LD0]] to i64
 ; CHECK:  call void @proc3(i64 %LF1, %struct.test.01* %tp2)
 ; CHECK:  call void @proc3(i64 30, %struct.test.01* %tp2)
 

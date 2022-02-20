@@ -1,5 +1,6 @@
 ; This test verifies that fields 1 and 4 of %struct.test.01 are packed using
-; bit-fields. It also verifies that transformations are done correctly for
+; only 1 bit-field because values of field 4 can fit in 1 bit.
+; It also verifies that transformations are done correctly for
 ; the following
 ;    1. New layout
 ;    2. General loads / stores of packed fields in @proc1
@@ -70,7 +71,7 @@ define void @init() {
 ; CHECK: [[DG2:%[0-9]+]] = getelementptr inbounds %__DYN_struct.test.01, %__DYN_struct.test.01* [[DST]], i64 [[LI]], i32 5
 ; CHECK: [[BC1:%[0-9]+]] = trunc i64 [[LD1]] to i16
 ; CHECK: [[NLI1:%[0-9]+]] = load i16, i16* [[DG2]]
-; CHECK: [[AND1:%[0-9]+]] = and i16 [[NLI1]], -16384
+; CHECK: [[AND1:%[0-9]+]] = and i16 [[NLI1]], -32768
 ; CHECK: [[OR1:%[0-9]+]] = or i16 [[AND1]], [[BC1]]
 ; CHECK: store i16 [[OR1]], i16* [[DG2]]
 ; CHECK: [[DG3:%[0-9]+]] = getelementptr inbounds %__DYN_struct.test.01, %__DYN_struct.test.01* [[DST]], i64 [[LI]], i32 2
@@ -82,8 +83,8 @@ define void @init() {
 ;
 ; CHECK: [[BDG5:%[0-9]+]] = getelementptr inbounds %__DYN_struct.test.01, %__DYN_struct.test.01* [[DST]], i64 [[LI]], i32 5
 ; CHECK: [[NLD2:%[0-9]+]] = load i16, i16* [[BDG5]]
-; CHECK: [[SHL2:%[0-9]+]] = shl i16 [[LD4]], 14
-; CHECK: [[AND2:%[0-9]+]] = and i16 [[NLD2]], 16383
+; CHECK: [[SHL2:%[0-9]+]] = shl i16 [[LD4]], 15
+; CHECK: [[AND2:%[0-9]+]] = and i16 [[NLD2]], 32767
 ; CHECK: [[OR2:%[0-9]+]] = or i16 [[AND2]], [[SHL2]]
 ; CHECK: store i16 [[OR2]], i16* [[BDG5]]
 ; CHECK: [[DG0:%[0-9]+]] = getelementptr inbounds %__DYN_struct.test.01, %__DYN_struct.test.01* [[DST]], i64 [[LI]], i32 0
@@ -127,7 +128,7 @@ define void @proc1() {
 ; CHECK: [[PT1:%[0-9]+]] = trunc i64 %L1 to i16
 ; CHECK: [[PBC1:%[0-9]+]] = bitcast i64* %F1 to i16*
 ; CHECK: [[PLD1:%[0-9]+]] = load i16, i16* [[PBC1]]
-; CHECK: [[PAND1:%[0-9]+]] = and i16 [[PLD1]], -16384
+; CHECK: [[PAND1:%[0-9]+]] = and i16 [[PLD1]], -32768
 ; CHECK: [[POR1:%[0-9]+]] = or i16 [[PAND1]], [[PT1]]
 ; CHECK: store i16 [[POR1]], i16* [[PBC1]], align 2
 
@@ -138,7 +139,7 @@ define void @proc1() {
 ;
 ; CHECK: [[PBC2:%[0-9]+]] = bitcast i64* %F1 to i16*
 ; CHECK: [[PLD2:%[0-9]+]] = load i16, i16* [[PBC2]], align 2
-; CHECK: [[PAND2:%[0-9]+]] = and i16 [[PLD2]], 16383
+; CHECK: [[PAND2:%[0-9]+]] = and i16 [[PLD2]], 32767
 ; CHECK: %L2 = zext i16 [[PAND2]] to i64
 
   %L2 = load i64, i64* %F1
@@ -151,8 +152,8 @@ define void @proc1() {
 ; CHECK: [[PC1:%[0-9]+]] = bitcast i16 0 to i16
 ; CHECK: [[PBC3:%[0-9]+]] = bitcast i16* %F4 to i16*
 ; CHECK: [[PLD3:%[0-9]+]] = load i16, i16* [[PBC3]]
-; CHECK: [[PSHL3:%[0-9]+]] = shl i16 [[PC1]], 14
-; CHECK: [[PAND3:%[0-9]+]] = and i16 [[PLD3]], 16383
+; CHECK: [[PSHL3:%[0-9]+]] = shl i16 [[PC1]], 15
+; CHECK: [[PAND3:%[0-9]+]] = and i16 [[PLD3]], 32767
 ; CHECK: [[POR3:%[0-9]+]] = or i16 [[PAND3]], [[PSHL3]]
 ; CHECK: store i16 [[POR3]], i16* [[PBC3]], align 2
 
@@ -164,13 +165,13 @@ define void @proc1() {
 ; CHECK: [[PC2:%[0-9]+]] = bitcast i16 %S1 to i16
 ; CHECK: [[PBC4:%[0-9]+]] = bitcast i16* %F4 to i16*
 ; CHECK: [[PLD4:%[0-9]+]] = load i16, i16* [[PBC4]]
-; CHECK: [[PSHL4:%[0-9]+]] = shl i16 [[PC2]], 14
-; CHECK: [[PAND4:%[0-9]+]] = and i16 [[PLD4]], 16383
+; CHECK: [[PSHL4:%[0-9]+]] = shl i16 [[PC2]], 15
+; CHECK: [[PAND4:%[0-9]+]] = and i16 [[PLD4]], 32767
 ; CHECK: [[POR4:%[0-9]+]] = or i16 [[PAND4]], [[PSHL4]]
 ; CHECK: store i16 [[POR4]], i16* [[PBC4]], align 2
 
   %C1 = icmp eq i64 %L2, 2
-  %S1 = select i1 %C1, i16 1, i16 2
+  %S1 = select i1 %C1, i16 1, i16 0
   store i16 %S1, i16* %F4
 
 ;
@@ -178,7 +179,7 @@ define void @proc1() {
 ;
 ; CHECK: [[PBC5:%[0-9]+]] = bitcast i16* %F4 to i16*
 ; CHECK: [[PLD5:%[0-9]+]] = load i16, i16* [[PBC5]], align 2
-; CHECK: [[PSHL5:%[0-9]+]] = lshr i16 [[PLD5]], 14
+; CHECK: [[PSHL5:%[0-9]+]] = lshr i16 [[PLD5]], 15
 ; CHECK: %L3 = bitcast i16 [[PSHL5]] to i16
 
   %L3 = load i16, i16* %F4
