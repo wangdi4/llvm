@@ -248,6 +248,20 @@ LLVM_NODISCARD Value *Negator::visitImpl(Value *V, unsigned Depth) {
     return nullptr;
 
   switch (I->getOpcode()) {
+  case Instruction::And: {
+    Constant *ShAmt;
+    // sub(y,and(lshr(x,C),1)) --> add(ashr(shl(x,(BW-1)-C),BW-1),y)
+    if (match(I, m_c_And(m_OneUse(m_TruncOrSelf(
+                             m_LShr(m_Value(X), m_ImmConstant(ShAmt)))),
+                         m_One()))) {
+      unsigned BW = X->getType()->getScalarSizeInBits();
+      Constant *BWMinusOne = ConstantInt::get(X->getType(), BW - 1);
+      Value *R = Builder.CreateShl(X, Builder.CreateSub(BWMinusOne, ShAmt));
+      R = Builder.CreateAShr(R, BWMinusOne);
+      return Builder.CreateTruncOrBitCast(R, I->getType());
+    }
+    break;
+  }
   case Instruction::SDiv:
     // `sdiv` is negatible if divisor is not undef/INT_MIN/1.
     // While this is normally not behind a use-check,
@@ -264,22 +278,6 @@ LLVM_NODISCARD Value *Negator::visitImpl(Value *V, unsigned Depth) {
       }
     }
     break;
-#if INTEL_CUSTOMIZATION
-  case Instruction::And: {
-    // -((X >> C) & 1) -> (X << (BitWidth - C - 1)) >>s (BitWidth - 1)
-    const APInt *Mask, *ShAmt;
-    if (match(I->getOperand(0), m_LShr(m_Value(X), m_APInt(ShAmt))) &&
-        match(I->getOperand(1), m_APInt(Mask)) &&
-        Mask->isOneValue() && ShAmt->ult(BitWidth)) {
-      Value *Shl = Builder.CreateShl(X,
-                                     ConstantInt::get(I->getType(),
-                                                      BitWidth - *ShAmt - 1));
-      return Builder.CreateAShr(Shl, ConstantInt::get(I->getType(),
-                                                      BitWidth - 1));
-    }
-    break;
-  }
-#endif // INTEL_CUSTOMIZATION
   }
 
   // Rest of the logic is recursive, so if it's time to give up then it's time.
