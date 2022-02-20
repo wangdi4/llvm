@@ -557,7 +557,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnCPUAndFPGA) {
       spv::CapabilityAtomicFloat32MinMaxEXT, SPIRVOpCapability,
       spv::CapabilityAtomicFloat64MinMaxEXT, SPIRVOpCapability,
       spv::internal::CapabilityOptNoneINTEL, SPIRVOpCapability,
-      spv::internal::CapabilityMemoryAccessAliasingINTEL, SPIRVOpCapability,
+      spv::CapabilityMemoryAccessAliasingINTEL, SPIRVOpCapability,
       spv::internal::CapabilityTokenTypeINTEL, SPIRVOpCapability,
       spv::CapabilityDebugInfoModuleINTEL, SPIRVOpCapability,
       spv::internal::CapabilityRuntimeAlignedAttributeINTEL,
