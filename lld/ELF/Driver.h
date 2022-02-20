@@ -49,6 +49,9 @@ private:
   // the linking process.
   template <class ELFT> void doGnuLTOLinking();
 #endif // INTEL_CUSTOMIZATION
+
+public:
+  SmallVector<std::pair<StringRef, unsigned>, 0> archiveFiles;
 };
 
 // Parses command line options.

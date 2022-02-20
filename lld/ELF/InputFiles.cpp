@@ -43,7 +43,6 @@ bool InputFile::isInGroup;
 uint32_t InputFile::nextGroupId;
 
 SmallVector<std::unique_ptr<MemoryBuffer>> elf::memoryBuffers;
-SmallVector<ArchiveFile *, 0> elf::archiveFiles;
 SmallVector<BinaryFile *, 0> elf::binaryFiles;
 SmallVector<BitcodeFile *, 0> elf::bitcodeFiles;
 SmallVector<BitcodeFile *, 0> elf::lazyBitcodeFiles;
@@ -173,13 +172,6 @@ template <class ELFT> static void doParseFile(InputFile *file) {
   // Binary file
   if (auto *f = dyn_cast<BinaryFile>(file)) {
     binaryFiles.push_back(f);
-    f->parse();
-    return;
-  }
-
-  // .a file
-  if (auto *f = dyn_cast<ArchiveFile>(file)) {
-    archiveFiles.push_back(f);
     f->parse();
     return;
   }
@@ -1214,14 +1206,12 @@ void ObjFile<ELFT>::initializeSymbols(const object::ELFFile<ELFT> &obj) {
     // defined symbol in a .eh_frame becomes dangling symbols.
     if (sec == &InputSection::discarded) {
       Undefined und{this, StringRef(), binding, stOther, type, secIdx};
-      // !ArchiveFile::parsed or !LazyObjFile::lazy means that the file
-      // containing this object has not finished processing, i.e. this symbol is
-      // a result of a lazy symbol extract. We should demote the lazy symbol to
-      // an Undefined so that any relocations outside of the group to it will
-      // trigger a discarded section error.
-      if ((sym->symbolKind == Symbol::LazyArchiveKind &&
-           !cast<ArchiveFile>(sym->file)->parsed) ||
-          (sym->symbolKind == Symbol::LazyObjectKind && !sym->file->lazy)) {
+      // !LazyObjFile::lazy indicates that the file containing this object has
+      // not finished processing, i.e. this symbol is a result of a lazy symbol
+      // extract. We should demote the lazy symbol to an Undefined so that any
+      // relocations outside of the group to it will trigger a discarded section
+      // error.
+      if (sym->symbolKind == Symbol::LazyObjectKind && !sym->file->lazy) {
         sym->replace(und);
         // Prevent LTO from internalizing the symbol in case there is a
         // reference to this symbol from this file.
@@ -1256,70 +1246,6 @@ void ObjFile<ELFT>::initializeSymbols(const object::ELFFile<ELFT> &obj) {
                            eSym.getType()}, sym->getName());           // INTEL
     sym->referenced = true;
   }
-}
-
-ArchiveFile::ArchiveFile(std::unique_ptr<Archive> &&file)
-    : InputFile(ArchiveKind, file->getMemoryBufferRef()),
-      file(std::move(file)) {}
-
-void ArchiveFile::parse() {
-  SymbolTable &symtab = *elf::symtab;
-  for (const Archive::Symbol &sym : file->symbols())
-    symtab.addSymbol(LazyArchive{*this, sym});
-
-  // Inform a future invocation of ObjFile<ELFT>::initializeSymbols() that this
-  // archive has been processed.
-  parsed = true;
-}
-
-// Returns a buffer pointing to a member file containing a given symbol.
-void ArchiveFile::extract(const Archive::Symbol &sym) {
-  Archive::Child c =
-      CHECK(sym.getMember(), toString(this) +
-                                 ": could not get the member for symbol " +
-                                 toELFString(sym));
-
-  if (!seen.insert(c.getChildOffset()).second)
-    return;
-
-  MemoryBufferRef mb =
-      CHECK(c.getMemoryBufferRef(),
-            toString(this) +
-                ": could not get the buffer for the member defining symbol " +
-                toELFString(sym));
-
-#if INTEL_CUSTOMIZATION
-  // If the parent is a thin archive and the child is an archive that
-  // isn't ELF or Bitcode file then there is a possibility that is an
-  // archive with a GNU LTO member. In this case we just pull that
-  // archive and parse it.
-  //
-  // Note: Archives within archives are not permitted, only thin archives
-  // with archives.
-  if (c.getParent()->isThin() &&
-      !mb.getBuffer().startswith(ElfMagic) &&
-      !isBitcode(mb)) {
-    auto binaryOrErr = CHECK(createBinary(mb), ": could not get the buffer "
-                             "for the archive");
-    Binary *bin = binaryOrErr.get();
-
-    if (bin && bin->isArchive()) {
-      std::unique_ptr<Archive> archFile =
-          CHECK(Archive::create(mb), bin->getFileName() +
-            ": failed to parse archive");
-      ArchiveFile *newArchFile = make<ArchiveFile>(std::move(archFile));
-      parseFile(newArchFile);
-      return;
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
-
-  if (tar && c.getParent()->isThin())
-    tar->append(relativeToRoot(CHECK(c.getFullName(), this)), mb.getBuffer());
-
-  InputFile *file = createObjectFile(mb, getName(), c.getChildOffset());
-  file->groupId = groupId;
-  parseFile(file);
 }
 
 // The handling of tentative definitions (COMMON symbols) in archives is murky.
@@ -1386,36 +1312,6 @@ static bool isNonCommonDef(MemoryBufferRef mb, StringRef symName,
   default:
     llvm_unreachable("getELFKind");
   }
-}
-
-bool ArchiveFile::shouldExtractForCommon(const Archive::Symbol &sym) {
-  Archive::Child c =
-      CHECK(sym.getMember(), toString(this) +
-                                 ": could not get the member for symbol " +
-                                 toELFString(sym));
-  MemoryBufferRef mb =
-      CHECK(c.getMemoryBufferRef(),
-            toString(this) +
-                ": could not get the buffer for the member defining symbol " +
-                toELFString(sym));
-
-  if (isBitcode(mb))
-    return isBitcodeNonCommonDef(mb, sym.getName(), getName());
-
-  return isNonCommonDef(mb, sym.getName(), getName());
-}
-
-size_t ArchiveFile::getMemberCount() const {
-  size_t count = 0;
-  Error err = Error::success();
-  for (const Archive::Child &c : file->children(err)) {
-    (void)c;
-    ++count;
-  }
-  // This function is used by --print-archive-stats=, where an error does not
-  // really matter.
-  consumeError(std::move(err));
-  return count;
 }
 
 unsigned SharedFile::vernauxNum;
