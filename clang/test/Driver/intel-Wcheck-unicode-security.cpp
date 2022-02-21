@@ -18,3 +18,10 @@
 // CHECK_SECURITY-SAME: "--checks=misc-misleading-bidirectional,misc-misleading-identifier,misc-homoglyph"
 // CHECK_SECURITY-SAME: "--"
 // CHECK_SECURITY-SAME: "-D FOO" "-c"
+
+// -Wcheck-unicode-security should not be passed to clang-tidy
+// RUN: %clangxx -Wcheck-unicode-security -### %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=NO_SECURITY_OPT %s
+// RUN: %clang_cl /Wcheck-unicode-security -### %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=NO_SECURITY_OPT %s
+// NO_SECURITY_OPT-NOT: clang-tidy{{.*}} .*Wcheck-unicode-security
