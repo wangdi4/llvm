@@ -295,7 +295,7 @@ function(tblgenllblt OUTPUT_VAR OUTPUT_DIR INPUT_FILE)
   )
   add_custom_command(
     OUTPUT ${LL_FILE}
-    COMMAND python ${CL_BUILTIN_SOURCE_DIR}/utils/LLTableGen/emit_ll.py ${JSON_FILE} -o ${LL_FILE} && rm ${JSON_FILE}
+    COMMAND python ${CL_BUILTIN_SOURCE_DIR}/utils/LLTableGen/emit_ll.py ${JSON_FILE} -o ${LL_FILE}
     DEPENDS ${LLVM_TBLGEN} ${JSON_FILE}
     COMMENT "Generating ${LL_FILE}"
   )
