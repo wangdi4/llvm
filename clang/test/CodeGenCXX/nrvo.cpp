@@ -20,12 +20,18 @@ template<typename T> struct Y {
 };
 
 // CHECK-LABEL: @_Z5test0v(
-// CHECK-NEXT:  entry:
+// INTEL_CUSTOMIZATION
+// Jump threading's customized stack is using different label values when it
+// folds these.
+// CHECK-NEXT:  nrvo.skipdtor:
+// end INTEL_CUSTOMIZATION
 // CHECK-NEXT:    call void @_ZN1XC1Ev(%class.X* noundef nonnull align 1 dereferenceable(1) [[AGG_RESULT:%.*]]) #[[ATTR5:[0-9]+]]
 // CHECK-NEXT:    ret void
 //
 // CHECK-EH-LABEL: @_Z5test0v(
-// CHECK-EH-NEXT:  entry:
+// INTEL_CUSTOMIZATION
+// CHECK-EH-NEXT:  nrvo.skipdtor:
+// end INTEL_CUSTOMIZATION
 // CHECK-EH-NEXT:    call void @_ZN1XC1Ev(%class.X* noundef nonnull align 1 dereferenceable(1) [[AGG_RESULT:%.*]])
 // CHECK-EH-NEXT:    ret void
 //
@@ -258,7 +264,9 @@ extern "C" void exit(int) throw();
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    call void @_ZN1XC1Ev(%class.X* noundef nonnull align 1 dereferenceable(1) [[AGG_RESULT:%.*]]) #[[ATTR5]]
 // CHECK-NEXT:    br i1 [[B:%.*]], label [[RETURN:%.*]], label [[NRVO_UNUSED:%.*]]
-// CHECK:       nrvo.unused:
+// INTEL_CUSTOMIZATION
+// CHECK:       cleanup.cont:
+// end INTEL_CUSTOMIZATION
 // CHECK-NEXT:    call void @_ZN1XD1Ev(%class.X* noundef nonnull align 1 dereferenceable(1) [[AGG_RESULT]]) #[[ATTR5]]
 // CHECK-NEXT:    call void @exit(i32 noundef 1) #[[ATTR5]]
 // CHECK-NEXT:    unreachable
@@ -269,7 +277,9 @@ extern "C" void exit(int) throw();
 // CHECK-EH-03-NEXT:  entry:
 // CHECK-EH-03-NEXT:    call void @_ZN1XC1Ev(%class.X* noundef nonnull align 1 dereferenceable(1) [[AGG_RESULT:%.*]])
 // CHECK-EH-03-NEXT:    br i1 [[B:%.*]], label [[RETURN:%.*]], label [[NRVO_UNUSED:%.*]]
-// CHECK-EH-03:       nrvo.unused:
+// INTEL_CUSTOMIZATION
+// CHECK-EH-03:       cleanup.cont:
+// end INTEL_CUSTOMIZATION
 // CHECK-EH-03-NEXT:    call void @_ZN1XD1Ev(%class.X* noundef nonnull align 1 dereferenceable(1) [[AGG_RESULT]])
 // CHECK-EH-03-NEXT:    call void @exit(i32 noundef 1) #[[ATTR7]]
 // CHECK-EH-03-NEXT:    unreachable
@@ -280,7 +290,9 @@ extern "C" void exit(int) throw();
 // CHECK-EH-11-NEXT:  entry:
 // CHECK-EH-11-NEXT:    call void @_ZN1XC1Ev(%class.X* noundef nonnull align 1 dereferenceable(1) [[AGG_RESULT:%.*]])
 // CHECK-EH-11-NEXT:    br i1 [[B:%.*]], label [[RETURN:%.*]], label [[NRVO_UNUSED:%.*]]
-// CHECK-EH-11:       nrvo.unused:
+// INTEL_CUSTOMIZATION
+// CHECK-EH-11:       cleanup.cont:
+// end INTEL_CUSTOMIZATION
 // CHECK-EH-11-NEXT:    call void @_ZN1XD1Ev(%class.X* noundef nonnull align 1 dereferenceable(1) [[AGG_RESULT]]) #[[ATTR7]]
 // CHECK-EH-11-NEXT:    call void @exit(i32 noundef 1) #[[ATTR7]]
 // CHECK-EH-11-NEXT:    unreachable
