@@ -3223,15 +3223,6 @@ AbstractManglingParser<Derived, Alloc>::parseNestedName(NameState *State) {
 
   Node *SoFar = nullptr;
   while (!consumeIf('E')) {
-    consumeIf('L'); // extension
-
-    if (consumeIf('M')) {
-      // <data-member-prefix> := <member source-name> [<template-args>] M
-      if (SoFar == nullptr)
-        return nullptr;
-      continue;
-    }
-
     if (State)
       // Only set end-with-template on the case that does that.
       State->EndsWithTemplateArgs = false;
@@ -3276,12 +3267,17 @@ AbstractManglingParser<Derived, Alloc>::parseNestedName(NameState *State) {
         return nullptr;
       continue; // Do not push a new substitution.
     } else {
+      consumeIf('L'); // extension
       //          ::= [<prefix>] <unqualified-name>
       SoFar = getDerived().parseUnqualifiedName(State, SoFar);
     }
     if (SoFar == nullptr)
       return nullptr;
     Subs.push_back(SoFar);
+
+    // No longer used.
+    // <data-member-prefix> := <member source-name> [<template-args>] M
+    consumeIf('M');
   }
 
   if (SoFar == nullptr || Subs.empty())
