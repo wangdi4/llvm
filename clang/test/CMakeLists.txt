@@ -116,7 +116,7 @@ if (CLANG_ENABLE_ARCMT)
   )
 endif ()
 
-if (CLANG_BUILD_EXAMPLES)
+if(CLANG_BUILD_EXAMPLES AND CLANG_PLUGIN_SUPPORT)
   list(APPEND CLANG_TEST_DEPS
     Attribute
     AnnotateFunctions
@@ -168,8 +168,8 @@ if( NOT CLANG_BUILT_STANDALONE )
   endif()
 endif()
 
-if (CLANG_ENABLE_STATIC_ANALYZER)
-  if (CLANG_PLUGIN_SUPPORT)
+if(CLANG_ENABLE_STATIC_ANALYZER)
+  if(CLANG_PLUGIN_SUPPORT AND LLVM_ENABLE_PLUGINS) # Determine if we built them
     list(APPEND CLANG_TEST_DEPS
       SampleAnalyzerPlugin
       CheckerDependencyHandlingAnalyzerPlugin
