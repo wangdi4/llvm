@@ -224,7 +224,7 @@ bool PrintSVAResults = false;
 bool PrintAfterCallVecDecisions = false;
 bool LoopMassagingEnabled = true;
 bool EnableSOAAnalysis = true;
-bool EnableSOAAnalysisHIR = false;
+bool EnableSOAAnalysisHIR = true;
 bool EnableNewCFGMerge = true;
 bool EnableNewCFGMergeHIR = false;
 bool VPlanEnablePeeling = false;
@@ -1551,6 +1551,16 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
 }
 
 bool LoopVectorizationPlanner::canLowerVPlan(const VPlanVector &Plan) {
+  for (auto &VPI : vpinstructions(&Plan)) {
+    // Check if an array private is marked as SOA profitable and if we
+    // lack the needed codegen support.
+    if (auto *AllocaPriv = dyn_cast<VPAllocatePrivate>(&VPI))
+      if (AllocaPriv->isSOASafe() && AllocaPriv->isSOAProfitable() &&
+          !isSOACodegenSupported() &&
+          AllocaPriv->getAllocatedType()->isArrayTy())
+        return false;
+  }
+
   // All checks passed.
   return true;
 }
