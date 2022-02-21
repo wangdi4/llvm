@@ -1,6 +1,6 @@
 //===---------------- DynClone.cpp - DTransDynClonePass -------------------===//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -51,7 +51,7 @@ using namespace PatternMatch;
 namespace {
 
 // Maximum number of special constants allowed for encoding/decoding.
-constexpr static int MaxSpecialConstantsAllowed = 10;
+constexpr static int MaxSpecialConstantsAllowed = 8;
 
 // This option controls whether the DynClone use bitfields or not to
 // shrink struct size. If this option is true, it tries to pack
@@ -84,6 +84,19 @@ static cl::opt<bool> DTransDynCloneUseBitFields("dtrans-dynclone-use-bitfields",
                                                 cl::init(true),
                                                 cl::ReallyHidden);
 
+// Simple DynClone is triggered when application has more than
+// MaxSpecialConstantsAllowed large constants (heuristic). When simple
+// DynClone is triggered, candidate fields are reduced to 32-bit without
+// using any techniques like bitfields and encoding/decoding to reduce
+// the size of the fields further.
+static cl::opt<int>
+    DTransSimpleDynCloneShrTyWidth("dtrans-simple-dynclone-shrunken-type-width",
+                                   cl::init(32), cl::ReallyHidden);
+
+// This option is used to disable Simple DynClone.
+static cl::opt<bool> DTransSimpleDynCloneEnable("dtrans-simple-dynclone-enable",
+                                                cl::init(true),
+                                                cl::ReallyHidden);
 // Shrunken int type width
 static cl::opt<int>
     DTransDynCloneShrTyWidth("dtrans-dynclone-shrunken-type-width",
@@ -95,19 +108,6 @@ static cl::opt<int>
 static cl::opt<int>
     DTransDynCloneShrTyDelta("dtrans-dynclone-shrunken-type-width-delta",
                              cl::init(2), cl::ReallyHidden);
-
-// Max value for uint type with the width equal (DTransDynCloneShrTyWidth -
-// DTransDynCloneShrTyDelta). Calculated as umax for intX = 2^(X)-1.
-int64_t getUMaxShrIntTyValueWithDelta() {
-  if (DTransDynCloneShrTyWidth - DTransDynCloneShrTyDelta > 0)
-    return std::pow(2, DTransDynCloneShrTyWidth - DTransDynCloneShrTyDelta) -
-           MaxSpecialConstantsAllowed - 1;
-  llvm_unreachable("Unexpected type width for shrinking");
-}
-
-// Min value for uint type with the width equal (DTransDynCloneShrTyWidth -
-// DTransDynCloneShrTyDelta).
-int64_t getUMinShrIntTyValueWithDelta() { return 0; }
 
 class DTransDynCloneWrapper : public ModulePass {
 private:
@@ -255,8 +255,7 @@ public:
   }
 };
 
-template<class InfoClass>
-class DynCloneImpl {
+template <class InfoClass> class DynCloneImpl {
 
   // Functor that compares Function* using alphabetical ordering of the
   // function's name.
@@ -287,11 +286,9 @@ public:
       : M(M), DL(DL), DTInfo(DTInfo), GetLI(GetLI), GetTLI(GetTLI),
         ShrunkenIntTy(
             Type::getIntNTy(M.getContext(), DTransDynCloneShrTyWidth)),
-        ShrunkenIntTyWithDelta(
-            Type::getIntNTy(M.getContext(), DTransDynCloneShrTyWidth -
-                                                DTransDynCloneShrTyDelta)),
-        InitRoutine(nullptr), ShrinkHappenedVar(nullptr),
-        DynFieldEncodeFunc(nullptr), DynFieldDecodeFunc(nullptr){};
+        ShrunkenIntTyWithDelta(nullptr), InitRoutine(nullptr),
+        ShrinkHappenedVar(nullptr), DynFieldEncodeFunc(nullptr),
+        DynFieldDecodeFunc(nullptr){};
 
   bool run(void);
 
@@ -439,6 +436,18 @@ private:
   // InitRoutine.
   DenseMap<DynField, std::set<Value *>> DynFieldTracedToConstantValues;
 
+  // Possible candidates for bitfields. These are collected based on field
+  // values even before actual analysis is started.
+  DynFieldSet BitFieldCandidates;
+
+  // Maximum bitfield width that is needed by any candidate bitfield.
+  // Same "MaxBitFieldWidth" bits are used for all bitfield candidates
+  // to make implementation simple.
+  int32_t MaxBitFieldWidth = 0;
+
+  // Flag to indicate Simple DynClone is triggered.
+  bool EnableSimpleDynClone = false;
+
   bool gatherPossibleCandidateFields(void);
   bool prunePossibleCandidateFields(void);
   bool verifyMultiFieldLoadStores(void);
@@ -463,18 +472,21 @@ private:
   void printCandidateFields(raw_ostream &OS) const;
   void printDynField(raw_ostream &OS, const DynField &DField) const;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  bool isBitFieldCandidate(StructType *STy, unsigned I);
+  bool isBitFieldCandidate(DynField &DField);
+  bool isBitFieldLegal(StructType *STy, unsigned I);
   bool isPackedField(DynField &DField) const;
   bool isPackedBitFieldField(DynField &DField) const;
   Value *generateBitFieldLoad(DynField &Elem, Value *Val, IRBuilder<> &IRB);
   Value *generateBitFieldStore(DynField &Elem, Value *Val, llvm::Type *SrcTy,
                                Value *SrcOp, IRBuilder<> &IRB);
+  int64_t getUMaxShrIntTyValueWithDelta();
+  int64_t getUMinShrIntTyValueWithDelta();
+  void collectBitFieldCandidates();
+  bool isValueValidForShrunkenIntTyWithDelta(int64_t);
 };
 
-// Returns true if all possible values of field at "I" of struct "STy"
-// fits in "DTransDynCloneShrTyDelta" bits.
 template <class InfoClass>
-bool DynCloneImpl<InfoClass>::isBitFieldCandidate(StructType *STy, unsigned I) {
+bool DynCloneImpl<InfoClass>::isBitFieldLegal(StructType *STy, unsigned I) {
   if (!DTransDynCloneUseBitFields)
     return false;
   StructInfo *StInfo = DTInfo.getStructTypeInfo(STy);
@@ -494,21 +506,24 @@ bool DynCloneImpl<InfoClass>::isBitFieldCandidate(StructType *STy, unsigned I) {
   if (!FI.isValueSetComplete())
     return false;
 
-  // Find minimum and maximum positive values that fits in
-  // "DTransDynCloneShrTyDelta" bits.
-  int64_t MinVal = 0;
-  int64_t MaxVal = (1ULL << DTransDynCloneShrTyDelta) - 1;
+  // Basic Check: "DTransDynCloneShrTyDelta" bits are enough to represent
+  // all values of FI.
+  if (FI.values().size() > (1ULL << DTransDynCloneShrTyDelta))
+    return false;
 
-  // Make sure all possible values fits in "DTransDynCloneShrTyDelta" bits.
-  for (auto *C : FI.values()) {
-    ConstantInt *CurrC = cast<ConstantInt>(C);
-    int64_t Const = CurrC->getSExtValue();
-    if (Const < MinVal || Const > MaxVal)
-      return false;
-  }
-  // No need to check for any other safety violations since the struct
-  // is already verified for DynClone transformation.
   return true;
+}
+
+// Returns true if "DField" is a possible bitfield candidate.
+template <class InfoClass>
+bool DynCloneImpl<InfoClass>::isBitFieldCandidate(DynField &DField) {
+  if (!BitFieldCandidates.size())
+    return false;
+  assert(MaxBitFieldWidth && "Expected BitFieldWidth");
+  for (auto &CandidatePair : BitFieldCandidates)
+    if (CandidatePair == DField)
+      return true;
+  return false;
 }
 
 // Generate special instructions to load packed fields
@@ -814,7 +829,7 @@ bool DynCloneImpl<InfoClass>::prunePossibleCandidateFields(void) {
   auto CheckConstInt = [&](Value *V, int64_t CValue, DynField &StElem) {
     // If constant does not fit into shrunken type with delta, then add the
     // constant to the encoding constants set.
-    if (!ConstantInt::isValueValidForType(ShrunkenIntTyWithDelta, CValue)) {
+    if (!isValueValidForShrunkenIntTyWithDelta(CValue)) {
       DynFieldTracedToConstantValues[StElem].insert(V);
       DynFieldConstValueMap[StElem].insert(CValue);
       DEBUG_WITH_TYPE(REENCODING, dbgs() << "        (Reencoding) "
@@ -1120,6 +1135,10 @@ bool DynCloneImpl<InfoClass>::prunePossibleCandidateFields(void) {
     return false;
   };
 
+  // Create ShrunkenIntTyWithDelta type with MaxBitFieldWidth that
+  // is already computed.
+  ShrunkenIntTyWithDelta = Type::getIntNTy(
+      M.getContext(), DTransDynCloneShrTyWidth - MaxBitFieldWidth);
   for (Function &F : M) {
     if (F.isDeclaration() || F.isIntrinsic())
       continue;
@@ -1305,16 +1324,45 @@ bool DynCloneImpl<InfoClass>::prunePossibleCandidateFields(void) {
   }
 
   // (Reencoding) Delta is needed to encode those constants that doesn't fit
-  // into ShunkenIntType. Limit number of constants to 10 for runtime
+  // into ShunkenIntType. Limit number of constants to 8 for runtime
   // effectiveness.
   if (AllDynFieldConstSet.size() > MaxSpecialConstantsAllowed) {
-    DEBUG_WITH_TYPE(
-        REENCODING,
-        dbgs()
-            << "    Too many large constants for encoding...Skip DynClone\n");
-    CandidateFields.clear();
-    return false;
+    // Skip DynClone if Simple DynClone is not enabled.
+    if (!DTransSimpleDynCloneEnable) {
+      DEBUG_WITH_TYPE(
+          REENCODING,
+          dbgs()
+              << "    Too many large constants for encoding...Skip DynClone\n");
+      return false;
+    }
+    DEBUG_WITH_TYPE(REENCODING, dbgs() << "    Too many large constants for "
+                                          "encoding... do Simple DynClone\n");
+
+    // Try to enable Simple DynClone without encoding/decoding and bitfields.
+    EnableSimpleDynClone = true;
+    ShrunkenIntTyWithDelta =
+        Type::getIntNTy(M.getContext(), DTransSimpleDynCloneShrTyWidth);
+    ShrunkenIntTy =
+        Type::getIntNTy(M.getContext(), DTransSimpleDynCloneShrTyWidth);
+
+    // Makes sure all large constants fit in 32-bit. Otherwise, skip DynClone.
+    for (int64_t ConstValue : AllDynFieldConstSet) {
+      // Makes sure all constants fit in 32-bit if decided to go with
+      // simple cloning.
+      if (!ConstantInt::isValueValidForType(ShrunkenIntTy, ConstValue)) {
+        DEBUG_WITH_TYPE(REENCODING, dbgs()
+                                        << "    Too big constants for Simple "
+                                           "cloning ...Skip DynClone\n");
+        return false;
+      }
+    }
+    // Disable encoding/decoding and bitfields.
+    AllDynFieldConstSet.clear();
+    BitFieldCandidates.clear();
+    MaxBitFieldWidth = 0;
   }
+  DEBUG_WITH_TYPE(REENCODING, dbgs() << "   Number of special constants: "
+                                     << AllDynFieldConstSet.size() << "\n");
   LLVM_DEBUG(dbgs() << "  Candidate fields after Pruning: \n";
              printCandidateFields(dbgs()));
 
@@ -1350,6 +1398,121 @@ bool DynCloneImpl<InfoClass>::prunePossibleCandidateFields(void) {
   LLVM_DEBUG(dbgs() << "  Init Routine: " << InitRoutine->getName() << "\n");
 
   return !CandidateFields.empty();
+}
+
+template <class InfoClass>
+void DynCloneImpl<InfoClass>::collectBitFieldCandidates(void) {
+
+  // Returns true if values of FI is in between MinVal and MaxVal.
+  auto AreValuesFitInBitField = [](dtrans::FieldInfo &FI, int64_t MinVal,
+                                   int64_t MaxVal) {
+    // Make sure all possible values fits in "MaxBitFieldWidth" bits.
+    for (auto *C : FI.values()) {
+      ConstantInt *CurrC = cast<ConstantInt>(C);
+      int64_t Const = CurrC->getSExtValue();
+      if (Const < MinVal || Const > MaxVal)
+        return false;
+    }
+    return true;
+  };
+
+  // Make sure there is single candidate struct.
+  Type *StType = nullptr;
+  for (auto &CandidatePair : CandidateFields) {
+    if (!StType)
+      StType = CandidatePair.first;
+    else if (CandidatePair.first != StType)
+      return;
+  }
+  assert(StType && "Expected struct type");
+  auto StructT = cast<StructType>(StType);
+  StructInfo *StInfo = DTInfo.getStructTypeInfo(StructT);
+
+  // Compute maximum number of bits needed for bitfield candidates.
+  int32_t MaxNumBits = 0;
+  for (unsigned I = 0; I < StructT->getNumElements(); ++I) {
+    DynField FD(std::make_pair(StructT, I));
+    if (isCandidateField(FD))
+      continue;
+    if (!isBitFieldLegal(StructT, I))
+      continue;
+    dtrans::FieldInfo &FI = StInfo->getField(I);
+    int32_t ValuesSize = FI.values().size();
+    assert(ValuesSize > 1 && "Unexpected number of values");
+    int32_t NumBits = Log2_32_Ceil(ValuesSize);
+    if (MaxNumBits < NumBits)
+      MaxNumBits = NumBits;
+  }
+  assert((MaxNumBits <= DTransDynCloneShrTyDelta) && "Unexpected MaxNumBits");
+
+  // Find minimum and maximum positive values that fit in
+  // "MaxBitFieldWidth" bits.
+  int64_t MinVal = 0;
+  int64_t MaxVal = (1ULL << MaxNumBits) - 1;
+
+  // Now, collect possible bitfield candidates using MinVal
+  // and MaxVal.
+  for (unsigned I = 0; I < StructT->getNumElements(); ++I) {
+    DynField FD(std::make_pair(StructT, I));
+    if (isCandidateField(FD))
+      continue;
+    if (!isBitFieldLegal(StructT, I))
+      continue;
+    dtrans::FieldInfo &FI = StInfo->getField(I);
+    if (!AreValuesFitInBitField(FI, MinVal, MaxVal))
+      continue;
+    BitFieldCandidates.insert(FD);
+  }
+  if (!BitFieldCandidates.size()) {
+    LLVM_DEBUG(dbgs() << "  No BitField candidates found\n");
+    return;
+  }
+  // Set MaxBitFieldWidth
+  MaxBitFieldWidth = MaxNumBits;
+}
+
+// This is used by encoding/decoding large constants.
+// Returns true if "CVal" fits in "ShrunkenIntTyWithDelta" bits by considering
+// some locations (i.e "MaxSpecialConstantsAllowed") are reserved for
+// encoding/decoding. MaxSpecialConstantsAllowed number of locations are used
+// since exact number of large constants is not known yet.
+template <class InfoClass>
+bool DynCloneImpl<InfoClass>::isValueValidForShrunkenIntTyWithDelta(
+    int64_t CVal) {
+  int64_t MaxVal = std::pow(2, DTransDynCloneShrTyWidth - MaxBitFieldWidth) -
+                   MaxSpecialConstantsAllowed - 1;
+  int64_t MinVal = 0;
+  if (CVal < MinVal || CVal > MaxVal)
+    return false;
+  return true;
+}
+
+// Max value for uint type with the width equal (DTransDynCloneShrTyWidth -
+// MaxBitFieldWidth) but "AllDynFieldConstSet.size()" locations are reserved
+// for encoding/decoding.
+template <class InfoClass>
+int64_t DynCloneImpl<InfoClass>::getUMaxShrIntTyValueWithDelta(void) {
+  // 32-bit Max is used for Simple DynClone.
+  if (EnableSimpleDynClone)
+    return std::numeric_limits<int32_t>::max();
+  assert(AllDynFieldConstSet.size() <= MaxSpecialConstantsAllowed &&
+         "Unexpected special constants");
+  if (DTransDynCloneShrTyWidth - MaxBitFieldWidth > 0)
+    return std::pow(2, DTransDynCloneShrTyWidth - MaxBitFieldWidth) -
+           AllDynFieldConstSet.size() - 1;
+  llvm_unreachable("Unexpected type width for shrinking");
+}
+
+// Min value for uint type with the width equal (DTransDynCloneShrTyWidth -
+// DTransDynCloneShrTyDelta).
+template <class InfoClass>
+int64_t DynCloneImpl<InfoClass>::getUMinShrIntTyValueWithDelta() {
+  // 32-bit min is used for Simple DynClone.
+  if (EnableSimpleDynClone)
+    return std::numeric_limits<int32_t>::min();
+
+  // For now, negative numbers are not supported.
+  return 0;
 }
 
 // Analyze all MultiElem Load/Store instructions that are collected.
@@ -2423,7 +2586,7 @@ void DynCloneImpl<InfoClass>::createShrunkenTypes(void) {
     DynFieldList ShrunkenFieldsInStruct;
     for (unsigned I = 0; I < StructT->getNumElements(); ++I) {
       DynField FD(std::make_pair(StructT, I));
-      if (isBitFieldCandidate(StructT, I))
+      if (isBitFieldCandidate(FD))
         BitFieldsInStruct.push_back(FD);
       else if (isCandidateField(FD))
         ShrunkenFieldsInStruct.push_back(FD);
@@ -2454,14 +2617,14 @@ void DynCloneImpl<InfoClass>::createShrunkenTypes(void) {
       PackedFields.push_back(ShrunkenFieldC);
 
       // Save bit sizes for the packed fields.
-      PackedFieldBitSizeMap[BitFieldC] = DTransDynCloneShrTyDelta;
+      PackedFieldBitSizeMap[BitFieldC] = MaxBitFieldWidth;
       PackedFieldBitSizeMap[ShrunkenFieldC] =
-          DTransDynCloneShrTyWidth - DTransDynCloneShrTyDelta;
+          DTransDynCloneShrTyWidth - MaxBitFieldWidth;
 
       // Save bit offsets for the packed fields.
       PackedFieldBitOffsetMap[ShrunkenFieldC] = 0;
       PackedFieldBitOffsetMap[BitFieldC] =
-          DTransDynCloneShrTyWidth - DTransDynCloneShrTyDelta;
+          DTransDynCloneShrTyWidth - MaxBitFieldWidth;
     }
 
     // Shrink candidate fields and then apply reordering.
@@ -2498,8 +2661,8 @@ void DynCloneImpl<InfoClass>::createShrunkenTypes(void) {
       DynField Cand = Pair.second;
       NewIdxVec[BFCand.second] = NewIdxVec[Cand.second];
       LLVM_DEBUG(dbgs() << "Packed fields using BitFields: ( ";
-                 dbgs() << DTransDynCloneShrTyDelta << " bits + ";
-                 dbgs() << DTransDynCloneShrTyWidth - DTransDynCloneShrTyDelta
+                 dbgs() << MaxBitFieldWidth << " bits + ";
+                 dbgs() << DTransDynCloneShrTyWidth - MaxBitFieldWidth
                         << " bits )\n";
                  dbgs() << "    "; printDynField(dbgs(), BFCand);
                  dbgs() << "    "; printDynField(dbgs(), Cand));
@@ -4023,8 +4186,14 @@ template <class InfoClass> void DynCloneImpl<InfoClass>::transformIR(void) {
       DEBUG_WITH_TYPE(
           REENCODING,
           dbgs() << "   (Reencoding) Insert a call to decoder function\n");
-    } else
-      Res = CastInst::CreateSExtOrBitCast(NewVal, LI->getType(), "", LI);
+    } else {
+      // When EnableSimpleDynClone is not triggered, negative numbers are
+      // not expected.
+      if (EnableSimpleDynClone)
+        Res = CastInst::CreateSExtOrBitCast(NewVal, LI->getType(), "", LI);
+      else
+        Res = CastInst::CreateZExtOrBitCast(NewVal, LI->getType(), "", LI);
+    }
 
     LI->replaceAllUsesWith(Res);
     Res->takeName(LI);
@@ -4047,7 +4216,7 @@ template <class InfoClass> void DynCloneImpl<InfoClass>::transformIR(void) {
   //
   auto ProcessStore = [&](StoreInst *SI, DynField &StElem, bool NeedsEncoding) {
     LLVM_DEBUG(dbgs() << "Store before convert: " << *SI << "\n");
-    AAMDNodes AATags = SI->getAAMetadata() ;
+    AAMDNodes AATags = SI->getAAMetadata();
 
     StructType *OldTy = cast<StructType>(StElem.first);
     StructType *NewSt = TransformedTypeMap[OldTy];
@@ -4157,8 +4326,8 @@ template <class InfoClass> void DynCloneImpl<InfoClass>::transformIR(void) {
           auto *CB = cast<CallBase>(U);
           Value *ArgOp = CB->getArgOperand(ArgNo);
           if (auto *CInt = dyn_cast<ConstantInt>(ArgOp)) {
-            if (ConstantInt::isValueValidForType(
-                    ShrunkenIntTyWithDelta, CInt->getValue().getLimitedValue()))
+            if (isValueValidForShrunkenIntTyWithDelta(
+                    CInt->getValue().getLimitedValue()))
               continue;
 
             // Encoding and decoding can't be skipped if constant needs encoding
@@ -4471,7 +4640,10 @@ void DynCloneImpl<InfoClass>::fillupCoderRoutine(Function *F, bool IsEncoder) {
       IRB.CreateSwitch(F->arg_begin(), DefaultBB, AllDynFieldConstSet.size());
   BasicBlock *ReturnBB = BasicBlock::Create(M.getContext(), "return", F);
   IRBuilder<> IRBDefault(DefaultBB);
-  Value *Trunc = IRBDefault.CreateSExtOrTrunc(F->arg_begin(), DstType);
+  // When encoding/decoding is triggered, negative numbers are not
+  // expected.
+  // TODO: Need to fix this if negative numbers are supported later.
+  Value *Trunc = IRBDefault.CreateZExtOrTrunc(F->arg_begin(), DstType);
   IRBDefault.CreateBr(ReturnBB);
   IRBuilder<> IRBReturn(ReturnBB);
   PHINode *Phi = IRBReturn.CreatePHI(DstType, 0, "phival");
@@ -4508,6 +4680,10 @@ template <class InfoClass> bool DynCloneImpl<InfoClass>::run(void) {
 
   LLVM_DEBUG(dbgs() << "    Possible Candidate fields: \n";
              printCandidateFields(dbgs()));
+
+  collectBitFieldCandidates();
+  LLVM_DEBUG(dbgs() << "  MaxBitFieldWidth computed: " << MaxBitFieldWidth
+                    << "\n");
 
   if (!prunePossibleCandidateFields())
     return false;
@@ -4575,7 +4751,8 @@ bool DynClonePass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
 
   auto &DL = M.getDataLayout();
   DTransAnalysisInfoAdapter AIAdaptor(DTInfo);
-  DynCloneImpl<DTransAnalysisInfoAdapter> DynCloneI(M, DL, AIAdaptor, GetLI, GetTLI);
+  DynCloneImpl<DTransAnalysisInfoAdapter> DynCloneI(M, DL, AIAdaptor, GetLI,
+                                                    GetTLI);
   return DynCloneI.run();
 }
 

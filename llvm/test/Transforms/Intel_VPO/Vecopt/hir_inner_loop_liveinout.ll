@@ -46,26 +46,21 @@ define dso_local void @foo(i64 %n1, i64 %n2) local_unnamed_addr #0 {
 ; CHECK:       |   %phi.temp4 = 0;
 ; CHECK:       |   <LVAL-REG> NON-LINEAR <4 x i64> %phi.temp4 {sb:24}
 ; CHECK:       |   + LiveIn symbases: 9, 10, 23, 24
-; CHECK:       |   + LiveOut symbases: 30
+; CHECK:       |   + LiveOut symbases: 29
 ; CHECK:       |   + Loop metadata: No
 ; CHECK:       |   + UNKNOWN LOOP i2
 ; CHECK:       |   |   <i2 = 0>
 ; CHECK:       |   |   [[BB0:BB[0-9]+]].46:
-; CHECK:       |   |   %extract.0. = extractelement 2 * %n2 + %phi.temp4,  0;
-; CHECK:       |   |      <BLOB> LINEAR i64 %n2 {sb:10}
-; CHECK:       |   |      <BLOB> NON-LINEAR <4 x i64> %phi.temp4 {sb:24}
-; CHECK:       |   |   %.vec = (<4 x i64>*)(@larr2)[0][%extract.0.][i1];
+; CHECK:       |   |   %.vec = (<4 x i64>*)(@larr2)[0][i2 + 2 * %n2][i1];
 ; CHECK:       |   |      <BLOB> LINEAR [100 x [100 x i64]]* @larr2 {sb:9}
-; CHECK:       |   |   %.vec6 = %phi.temp4 + 1 < 100;
-; CHECK:       |   |      <BLOB> NON-LINEAR <4 x i64> %phi.temp4 {sb:24}
+; CHECK:       |   |   %.vec6 = i2 + 1 < 100;
 ; CHECK:       |   |   %phi.temp = %phi.temp + %.vec;
 ; CHECK:       |   |   <LVAL-REG> NON-LINEAR <4 x i64> %phi.temp {sb:23}
 ; CHECK:       |   |      <BLOB> NON-LINEAR <4 x i64> %phi.temp {sb:23}
-; CHECK:       |   |   %phi.temp4 = %phi.temp4 + 1;
+; CHECK:       |   |   %phi.temp4 = i2 + 1;
 ; CHECK:       |   |   <LVAL-REG> NON-LINEAR <4 x i64> %phi.temp4 {sb:24}
-; CHECK:       |   |      <BLOB> NON-LINEAR <4 x i64> %phi.temp4 {sb:24}
 ; CHECK:       |   |   %phi.temp9 = %phi.temp + %.vec;
-; CHECK:       |   |   <LVAL-REG> NON-LINEAR <4 x i64> %phi.temp9 {sb:30}
+; CHECK:       |   |   <LVAL-REG> NON-LINEAR <4 x i64> %phi.temp9 {sb:29}
 ; CHECK:       |   |      <BLOB> NON-LINEAR <4 x i64> %phi.temp {sb:23}
 ; CHECK:       |   |   %unifcond = extractelement %.vec6,  0;
 ; CHECK:       |   |   if (%unifcond == 1)
@@ -78,7 +73,7 @@ define dso_local void @foo(i64 %n1, i64 %n2) local_unnamed_addr #0 {
 ; CHECK:       |      <BLOB> LINEAR [100 x i64]* @larr1 {sb:16}
 ; CHECK:       |      <BLOB> LINEAR i64 %n2 {sb:10}
 ; CHECK:       |      <BLOB> LINEAR i64 %n1 {sb:17}
-; CHECK:       |   <RVAL-REG> NON-LINEAR <4 x i64> %phi.temp9 {sb:30}
+; CHECK:       |   <RVAL-REG> NON-LINEAR <4 x i64> %phi.temp9 {sb:29}
 ; CHECK:       + END LOOP
 ;
 entry:

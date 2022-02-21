@@ -26,10 +26,9 @@
 
 ; Check that loop is vectorized if compiled for AVX2 target.
 ; VEC:            + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>
-; VEC-NEXT:       |   %llvm.fabs.v4f64 = undef
 ; VEC-NEXT:       |   %.vec = (<4 x double>*)(%y)[i1];
 ; VEC-NEXT:       |   [[CMP:%.*]] = %.vec == %key;
-; VEC-NEXT:       |   %llvm.fabs.v4f64 = @llvm.fabs.v4f64(%.vec), Mask = @{[[CMP]]}
+; VEC-NEXT:       |   %llvm.fabs.v4f64 = @llvm.fabs.v4f64(%.vec)
 ; VEC-NEXT:       |   (<4 x double>*)(%x)[i1] = %llvm.fabs.v4f64, Mask = @{[[CMP]]}
 ; VEC-NEXT:       + END LOOP
 

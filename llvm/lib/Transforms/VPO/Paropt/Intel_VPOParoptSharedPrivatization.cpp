@@ -257,12 +257,19 @@ static bool containsValue(const ClauseTy *C, Value *V) {
   return any_of(C->items(), [V](auto *I) { return I->getOrig() == V; });
 }
 
+// Returns private item for value V if it is private in the work region W, or
+// nullptr otherwise.
+static PrivateItem *getWRNPrivate(WRegionNode *W, Value *V) {
+  if (PrivateClause *C = W->getPrivIfSupported())
+    for (auto *I : C->items())
+      if (I->getOrig() == V)
+        return I;
+  return nullptr;
+}
+
 // Returns true if value V is private in the work region W.
 static bool isWRNPrivate(WRegionNode *W, Value *V) {
-  if (PrivateClause *C = W->getPrivIfSupported())
-    if (containsValue(C, V))
-      return true;
-  return false;
+  return getWRNPrivate(W, V);
 }
 
 // Returns true if value V is first-private in the work region W.
@@ -338,7 +345,13 @@ static bool hasWRNUses(WRegionNode *W, Value *V) {
     for (WRegionNode *CW : W->getChildren()) {
       // If item is private on the nested child exclude its blocks from
       // the set.
-      if (isWRNPrivate(CW, V)) {
+      if (PrivateItem *I = getWRNPrivate(CW, V)) {
+#if INTEL_CUSTOMIZATION
+        // Dope-vectors, even if they are private, use the original item for
+        // initializing private instance. So such items have uses in the region.
+        if (I->getIsF90DopeVector())
+          return true;
+#endif // INTEL_CUSTOMIZATION
         for_each(CW->blocks(), [&BBs](BasicBlock *BB) { BBs.erase(BB); });
         continue;
       }

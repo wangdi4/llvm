@@ -181,10 +181,10 @@ public:
 
   /// Widen call instruction \p VPCall using vector library function. \p Mask is
   /// used to generate masked version of widened calls, if needed.
-  HLInst *widenLibraryCall(const VPCallInstruction *VPCall, RegDDRef *Mask);
+  void widenLibraryCall(const VPCallInstruction *VPCall, RegDDRef *Mask);
 
   /// Widen call instruction \p VPCall using vector intrinsic.
-  HLInst *widenTrivialIntrinsic(const VPCallInstruction *VPCall);
+  void widenTrivialIntrinsic(const VPCallInstruction *VPCall);
 
   // A helper function for concatenating vectors. This function concatenates two
   // vectors having the same element type. If the second vector has fewer
@@ -228,6 +228,15 @@ public:
   /// LLVM-IR version in VectorUtils.cpp. Example -
   /// {v0, v1, v2, v3} -> RF = 2 -> { v0, v0, v1, v1, v2, v2, v3, v3 }
   HLInst *replicateVectorElts(RegDDRef *Input, unsigned ReplicationFactor);
+
+  /// Helper method to extract a subvector of vector value \p Input. The number
+  /// of parts that vector should be divided into is \p NumParts and \p Part
+  /// defines the position of the part to extract i.e. starts from
+  /// Part*(subvector size)-th element of the vector. Subvector size is
+  /// determined by given vector size and number of parts to be divided into.
+  /// Generated instruction is also attached to outgoing IR and l-val is
+  /// returned.
+  RegDDRef *extractSubVector(RegDDRef *Input, unsigned Part, unsigned NumParts);
 
   HLInst *createReverseVector(RegDDRef *ValRef);
 
@@ -662,6 +671,11 @@ private:
   // Collection of VPPHINodes that correspond to loop IV.
   SmallPtrSet<const VPPHINode *, 8> LoopIVPhis;
 
+  // Map of VPLoop and its IV Phi if one exists. Outer level VPLoop is
+  // always expected to have an IV. Inner VPLoops have an IV Phi only
+  // if it is canonical(Start value of 0 and induction step is 1).
+  DenseMap<const VPLoop *, const VPPHINode *> VPLoopIVPhiMap;
+
   // Map of VPlan's private memory objects and their corresponding HIR BlobDDRef
   // and unique symbase created to represent accesses within vector loop.
   DenseMap<const VPAllocatePrivate *, std::pair<BlobDDRef *, unsigned>>
@@ -721,6 +735,10 @@ private:
       return false;
     }
   }
+
+  // Capture canonical IV(integer type IV with start value of 0 and stride of 1)
+  // for given VPLoop. This is expected to be called only for inner loops.
+  void captureCanonicalIV(VPLoop *VPLp);
 
   // Add entry to WidenMap and handle generating code for liveout/reduction at
   // the end of loop specified by /p HoistLp.
@@ -885,15 +903,33 @@ private:
                            RegDDRef *RednDescriptor, HLContainerTy &RedTail,
                            HLInst *&WInst);
 
-  // Helper utility to generate a widened Call HLInst for given VPCall
-  // instruction. Call arguments are widened in this utility (scalarized where
-  // applicable) and Mask is used to adjust the arguments accordingly. Currently
-  // this utility can handle call vectorization scenarios based on vector
-  // library or trivial vector intrinsics.
+  // Helper utility to generate a widened Call HLInst(s) for given VPCall, using
+  // vector library function or vector intrinsics. The generated call(s) are
+  // returned via \p CallResults.
   // TODO: Extend this utility to support call vectorization using
   // vector-variants.
-  HLInst *generateWideCall(const VPCallInstruction *VPCall, RegDDRef *Mask,
-                           Intrinsic::ID VectorIntrinID);
+  void generateWideCalls(const VPCallInstruction *VPCall, unsigned PumpFactor,
+                         RegDDRef *Mask, Intrinsic::ID VectorIntrinID,
+                         SmallVectorImpl<HLInst *> &CallResults);
+
+  // Vectorize call arguments, or for trivial vector intrinsics scalarize if the
+  // arg is always scalar. If the call is being pumped by \p PumpFactor times,
+  // then the appropriate sub-vector is extracted for given \p PumpPart.
+  void widenCallArgs(const VPCallInstruction *VPCall, RegDDRef *Mask,
+                     Intrinsic::ID VectorIntrinID, unsigned PumpPart,
+                     unsigned PumpFactor, SmallVectorImpl<RegDDRef *> &CallArgs,
+                     SmallVectorImpl<Type *> &ArgTys,
+                     SmallVectorImpl<AttributeSet> &ArgAttrs);
+
+  // Helper utility to combine pumped call results into a single vector for
+  // current VF context. If pumping is not done then the single element of \p
+  // CallResults is trivially returned.
+  HLInst *getCombinedCallResults(ArrayRef<HLInst *> CallResults,
+                                 RegDDRef *Mask);
+
+  // Helper utility to combine pumped call results when return type of call is a
+  // struct of vectors (for example, sincos function).
+  HLInst *getCombinedCallResultsForStructTy(ArrayRef<HLInst *> CallResults);
 
   // Helper utility to generate a scalar Call HLInst for given VPCall
   // instruction. Scalar values of the call arguments for given vector lane are

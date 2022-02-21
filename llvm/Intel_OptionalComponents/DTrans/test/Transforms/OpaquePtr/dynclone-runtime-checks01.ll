@@ -7,7 +7,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; 1 and 6 fields are qualified as final candidates.
+; 1 and 6 fields are qualified as final candidates. Reduced to 16 bits.
 %struct.test.01 = type { i32, i64, i32, i32, i16, i64*, i64 }
 
 ; This routine is selected as InitRoutine. Runtime checks are generated
@@ -22,7 +22,7 @@ define void @init() {
 ; CHECK:   [[ALLOC_MAX:%d.max[0-9]*]] = alloca i64
 ; CHECK-NEXT:  store i64 0, i64* [[ALLOC_MAX]]
 ; CHECK-NEXT:  [[ALLOC_MIN:%d.min[0-9]*]] = alloca i64
-; CHECK-NEXT:  store i64 16373, i64* [[ALLOC_MIN]]
+; CHECK-NEXT:  store i64 65535, i64* [[ALLOC_MIN]]
 
 ; CHECK: store i8 1, i8* [[ALLOC_SAFE]]
   %call1 = tail call i8* @calloc(i64 10, i64 48)
@@ -72,7 +72,7 @@ define void @init() {
 ; CHECK:  [[MIN_LD_3:%d.ld[0-9]*]] = load i64, i64* [[ALLOC_MIN]]
 ; CHECK-NEXT:  [[MIN_CMP_3:%d.cmp[0-9]*]] = icmp slt i64 [[MIN_LD_3]], 0
 ; CHECK-NEXT:  [[MAX_LD_3:%d.ld[0-9]*]] = load i64, i64* [[ALLOC_MAX]]
-; CHECK-NEXT:  [[MAX_CMP_3:%d.cmp[0-9]*]] = icmp sgt i64 [[MAX_LD_3]], 16373
+; CHECK-NEXT:  [[MAX_CMP_3:%d.cmp[0-9]*]] = icmp sgt i64 [[MAX_LD_3]], 65535
 ; CHECK-NEXT:  [[OR_1:%d.or[0-9]*]] = or i1 [[MIN_CMP_3]], [[MAX_CMP_3]]
 ; CHECK-NEXT:  [[MAX_LD_4:%d.ld[0-9]*]] = load i8, i8* [[ALLOC_SAFE]]
 ; CHECK-NEXT:  [[MAX_CMP_4:%d.cmp[0-9]*]] = icmp eq i8 [[MAX_LD_4]], 0

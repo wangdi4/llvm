@@ -39,9 +39,9 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; CHECK-NEXT:  <31>               |   + UNKNOWN LOOP i2
 ; CHECK-NEXT:  <39>               |   |   <i2 = 0>
 ; CHECK-NEXT:  <39>               |   |   BB5.39:
-; CHECK-NEXT:  <40>               |   |   (<4 x i64>*)(@arr)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][%phi.temp] = i1 + <i64 0, i64 1, i64 2, i64 3> + %phi.temp
-; CHECK-NEXT:  <41>               |   |   %.vec = %phi.temp + 1 < 128
-; CHECK-NEXT:  <42>               |   |   %phi.temp = %phi.temp + 1
+; CHECK-NEXT:  <40>               |   |   (<4 x i64>*)(@arr)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][i2] = i1 + i2 + <i64 0, i64 1, i64 2, i64 3>
+; CHECK-NEXT:  <41>               |   |   %.vec = i2 + 1 < 128
+; CHECK-NEXT:  <42>               |   |   %phi.temp = i2 + 1
 ; CHECK-NEXT:  <43>               |   |   %unifcond = extractelement %.vec,  0
 ; CHECK-NEXT:  <44>               |   |   if (%unifcond == 1)
 ; CHECK-NEXT:  <44>               |   |   {
