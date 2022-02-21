@@ -550,6 +550,9 @@ protected:
   virtual bool canProcessLoopBody(const VPlanVector &Plan,
                                   const VPLoop &Loop) const;
 
+  /// Check if vectorizer supports SOA privates.
+  virtual bool isSOACodegenSupported() const { return true; }
+
   /// Register the choosen vectorization scenario: peel/remainder configuration,
   /// vector and unroll factors for main loop
   void updateVecScenario(VPlanPeelEvaluator const &PE,
