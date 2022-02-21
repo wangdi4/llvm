@@ -28,7 +28,11 @@ if (NOT TARGET LLVMGenXIntrinsics)
       # default repo path for public xmain builds, not using ICS
       set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel-innersource)
       set(LLVMGenXIntrinsics_GIT_REPO_NAME applications.compilers.source.vc-intrinsics.git)
-      set(LLVMGenXIntrinsics_GIT_TAG a9bb6d8040c43404c5fbe3694e59c503d179d19a)
+      # commit a3ca3a364a92ed966a337d9154f9f2d02b0efc5a
+      # Author: Nikita Rudenko <nikita.rudenko@intel.com>
+      # Date: Thu Feb 3 14:10:33 2022 +0000
+      # Set some tests to XFAIL on latest LLVM 15
+      set(LLVMGenXIntrinsics_GIT_TAG a3ca3a364a92ed966a337d9154f9f2d02b0efc5a)
 
       # Determine if the build is embargo and provide specific settings.
       set(IS_INTERNAL_ESIMD_BUILD FALSE)
@@ -38,7 +42,11 @@ if (NOT TARGET LLVMGenXIntrinsics)
       if (IS_INTERNAL_ESIMD_BUILD)
         # override git repo name and tag for the internal ESIMD EMBARGO build
         set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
-        set(LLVMGenXIntrinsics_GIT_TAG f37b23fbeec30576a09919079591f69aedcda046)
+        # commit 86c90afd3c5e56bf24d1a368bbb2bbf1714de9e8
+        # Author: Nikita Rudenko <nikita.rudenko@intel.com>
+        # Date:   Wed Feb 2 20:47:10 2022 +0300
+        # Put DEBUG_TYPE macro after includes
+        set(LLVMGenXIntrinsics_GIT_TAG 86c90afd3c5e56bf24d1a368bbb2bbf1714de9e8)
 
         add_compile_definitions(__INTEL_EMBARGO__)
         # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is
