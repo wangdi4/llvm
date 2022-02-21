@@ -1232,8 +1232,10 @@ raw_send_store(simd<T1, n1> msgSrc0, uint32_t exDesc, uint32_t msgDesc,
                                         numSrc0, sfid, exDesc, msgDesc,
                                         msgSrc0.data());
 }
+
 /// @} sycl_esimd_raw_send
 
+<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
@@ -1241,18 +1243,38 @@ raw_send_store(simd<T1, n1> msgSrc0, uint32_t exDesc, uint32_t msgDesc,
 // Available only on PVC+
 //
 // @param id  - named barrier id
+=======
+/// @defgroup sycl_esimd_memory_nbarrier Named barrier APIs.
+/// @ingroup sycl_esimd_memory
+
+/// @addtogroup sycl_esimd_memory_nbarrier
+/// @{
+
+/// Wait on a named barrier
+/// Available only on PVC
+///
+/// @param id  - named barrier id
+>>>>>>> 1df003896532b3aa4454ea5c061eaf9b25ada045
 __ESIMD_API void nbarrier_wait(uint8_t id) {
   __esimd_nbarrier(0 /*wait*/, id, 0 /*thread count*/);
 }
 
+<<<<<<< HEAD
 // Initialize number of named barriers for a kernel
 // Available only on PVC+.
 //
 // @tparam NbarCount  - number of named barriers
+=======
+/// Initialize number of named barriers for a kernel
+/// Available only on PVC
+///
+/// @tparam NbarCount  - number of named barriers
+>>>>>>> 1df003896532b3aa4454ea5c061eaf9b25ada045
 template <uint8_t NbarCount> __ESIMD_API void nbarrier_init() {
   __esimd_nbarrier_init(NbarCount);
 }
 
+<<<<<<< HEAD
 // Perform signal operation for the given named barrier
 // Available only on PVC+.
 //
@@ -1265,6 +1287,20 @@ template <uint8_t NbarCount> __ESIMD_API void nbarrier_init() {
 // @param num_producers  - number of producers
 //
 // @param num_consumers  - number of consumers
+=======
+/// Perform signal operation for the given named barrier
+/// Available only on PVC
+///
+/// @param barrier_id  - named barrier id
+///
+/// @param producer_consumer_mode  - 2-bit flag to indicate if it's producer
+/// mode (0x1) or consumer mode (0x2). User must ensure the input value is set
+/// correctly and higher order bits are cleared.
+///
+/// @param num_producers  - number of producers
+///
+/// @param num_consumers  - number of consumers
+>>>>>>> 1df003896532b3aa4454ea5c061eaf9b25ada045
 __ESIMD_API void nbarrier_signal(uint8_t barrier_id,
                                  uint8_t producer_consumer_mode,
                                  uint32_t num_producers,
@@ -1283,6 +1319,7 @@ __ESIMD_API void nbarrier_signal(uint8_t barrier_id,
       0 /*sendc*/, gateway, descriptor, payload, 1 /*pred*/);
 }
 
+<<<<<<< HEAD
 // Wait for source val to be ready
 __ESIMD_API void wait(uint16_t val) {
   __esimd_wait(val);
@@ -2611,6 +2648,9 @@ __ESIMD_API void lsc_fence(simd_mask<N> pred = 1) {
 
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
+=======
+/// @} sycl_esimd_memory_nbarrier
+>>>>>>> 1df003896532b3aa4454ea5c061eaf9b25ada045
 
 #undef __ESIMD_GET_SURF_HANDLE
 
