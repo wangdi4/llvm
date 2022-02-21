@@ -198,7 +198,7 @@ bool HIRLoopDistribution::run() {
       processPiBlocksToHLNodes(PG, NewOrdering, DistributedLoops);
 
       // Do scalar expansion analysis.
-      ScalarExpansion SCEX(Lp, false, DistributedLoops);
+      ScalarExpansion SCEX(Lp->getNestingLevel(), false, DistributedLoops);
       LLVM_DEBUG(dbgs() << "Scalar Expansion analysis:\n"; SCEX.dump(););
 
       // Can't do the following assertion because scalar expansion is allowed in
@@ -215,6 +215,16 @@ bool HIRLoopDistribution::run() {
         LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: "
                           << "Number of temps required for distribution exceed "
                              "MaxArrayTempsAllowed\n");
+        continue;
+      }
+
+      // Bail out if scalar expansion would introduce new dependencies that
+      // require additional temps
+      if (SCEX.hasBadCandidate()) {
+        LLVM_DEBUG(
+            dbgs()
+            << "LOOP DISTRIBUTION: "
+            << "Distribution disabled due to def/use in cloned if for scex\n");
         continue;
       }
 
@@ -474,10 +484,10 @@ bool ScalarExpansion::isScalarExpansionCandidate(const DDRef *Ref) const {
   return !IsMemRef;
 }
 
-ScalarExpansion::ScalarExpansion(HLLoop *Loop, bool HasDistributePoint,
+ScalarExpansion::ScalarExpansion(unsigned Level, bool HasDistributePoint,
                                  ArrayRef<HLDDNodeList> Chunks)
-    : Lp(Loop), Level(Loop->getNestingLevel()),
-      HasDistributePoint(HasDistributePoint) {
+    : Level(Level),
+      HasDistributePoint(HasDistributePoint), HasBadCandidate(false) {
   analyze(Chunks);
 }
 
@@ -593,27 +603,37 @@ bool ScalarExpansion::isSafeToRecompute(const RegDDRef *SrcRef,
 // default node used by SCEX.
 static HLNode *getInsertionNodeForIf(RegDDRef *Src, DDRef *Dst,
                                      HLNode *FirstNode) {
-  HLIf *SrcParent = dyn_cast_or_null<HLIf>(Src->getHLDDNode()->getParent());
-  HLIf *DstParent = dyn_cast_or_null<HLIf>(Dst->getHLDDNode()->getParent());
+  HLIf *SrcParentIf = dyn_cast_or_null<HLIf>(Src->getHLDDNode()->getParent());
+  HLIf *DstParentIf = dyn_cast_or_null<HLIf>(Dst->getHLDDNode()->getParent());
 
-  if (!SrcParent || !DstParent) {
+  // TODO: Dst could be used in an If predicate. Need to handle when Src Node
+  // is inside the same If.
+  // bool DstInIfPred = true;
+  // HLIf *DstParentIf = dyn_cast<HLIf>(Dst->getHLDDNode());
+  // if (!DstParentIf) {
+  //   DstParentIf = dyn_cast_or_null<HLIf>(Dst->getHLDDNode()->getParent());
+  //   DstInIfPred = false;
+  // }
+
+  if (!SrcParentIf || !DstParentIf) {
     return FirstNode;
   }
-
   // Find equivalent HLIf parent for both Src and Dst. The Dst may be at a
   // deeper if nesting than the src, so we traverse up the Dst parent chain.
-  // If there is a deeper nesting, also track the then/else path so we can
-  // match with the Src. Note that Dst is detached HIR at this time.
+  // If there is a deeper nesting, save the if ancestor that is the immediate
+  // child of the matching Dst Ifparent. We use that child to verify the
+  // then/else path of the ifs. This is due to Dst being detached HIR at this
+  // time.
   bool FoundEqualIf = false;
-  HLNode *DstNodeParent = cast<HLNode>(DstParent);
-  HLIf *DstPathIf = nullptr;
+  HLNode *DstNodeParent = DstParentIf;
+  HLIf *DstIfAncestor = nullptr;
   while (DstNodeParent && isa<HLIf>(DstNodeParent)) {
-    DstParent = cast<HLIf>(DstNodeParent);
-    if (HLNodeUtils::areEqualConditions(SrcParent, DstParent)) {
+    DstParentIf = cast<HLIf>(DstNodeParent);
+    if (HLNodeUtils::areEqualConditions(SrcParentIf, DstParentIf)) {
       FoundEqualIf = true;
       break;
     }
-    DstPathIf = DstParent;
+    DstIfAncestor = DstParentIf;
     DstNodeParent = DstNodeParent->getParent();
   }
 
@@ -630,20 +650,25 @@ static HLNode *getInsertionNodeForIf(RegDDRef *Src, DDRef *Dst,
     }
     return false;
   };
+  bool SrcPath = SrcParentIf->isThenChild(Src->getHLDDNode());
 
-  bool SrcPath = SrcParent->isThenChild(Src->getHLDDNode());
-  // Use DstPathIf that we saved earlier as it is the direct child of the If
+  // TODO: Return the Node in DstPath corresponding to the def in the first
+  // chunk for predicate case.
+  // if (DstInIfPred) {
+  //   return SrcPath ? DstParentIf->getFirstThenChild()
+  //                  : DstParentIf->getFirstElseChild();
+  // }
+
+  // Use DstIfAncestor that we saved earlier as it is the direct child of the If
   // node where the original Ref is defined. DstPath is detached so we need to
   // manually iterate the nodes
-  bool DstPath =
-      isNodeInThenPath(DstParent, DstPathIf ? DstPathIf : Dst->getHLDDNode());
-
+  bool DstPath = isNodeInThenPath(
+      DstParentIf, DstIfAncestor ? DstIfAncestor : Dst->getHLDDNode());
   if (SrcPath != DstPath) {
     return FirstNode;
   }
-
-  return DstPath ? DstParent->getFirstThenChild()
-                 : DstParent->getFirstElseChild();
+  return DstPath ? DstParentIf->getFirstThenChild()
+                 : DstParentIf->getFirstElseChild();
 }
 
 void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
@@ -720,6 +745,14 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
           if (!isScalarExpansionCandidate(DstRef)) {
             TempRedefined = true;
             continue;
+          }
+
+          // If scalar expansion would introduce extra dependencies from SrcLoop
+          // to DstLoop, set SCEX.hasBadCandidate.
+          if (isa<HLIf>(DstRef->getHLDDNode()) && isa<HLIf>(SrcRef->getParent())
+            && HLNodeUtils::areEqualConditions(cast<HLIf>(DstRef->getHLDDNode()), cast<HLIf>(SrcRef->getParent()))) {
+            this->HasBadCandidate = true;
+            break;
           }
 
           Candidate &Cand = GetCandidateForSymbase(SB);
@@ -1053,6 +1086,9 @@ void HIRLoopDistribution::distributeLoop(
   if (DistCostModel != DistHeuristics::NestFormation) {
     RegionNode->setGenCode();
   }
+
+  LLVM_DEBUG(dbgs() << "New Region with Transformed Loops:\n";
+             RegionNode->dump(););
 }
 
 void HIRLoopDistribution::fixTempArrayCoeff(HLLoop *Loop) {
@@ -1564,7 +1600,7 @@ unsigned HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
 
   SmallVector<HLDDNodeList, 8> DistributedLoops;
   collectHNodesForDirective(Lp, DistributedLoops, CurLoopHLDDNodeList);
-  ScalarExpansion SCEX(Lp, true, DistributedLoops);
+  ScalarExpansion SCEX(Lp->getNestingLevel(), true, DistributedLoops);
   distributeLoop(Lp, DistributedLoops, SCEX, HIRF.getORBuilder(), true);
   return Success;
 }
