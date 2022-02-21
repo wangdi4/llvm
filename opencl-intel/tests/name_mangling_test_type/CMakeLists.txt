@@ -14,7 +14,8 @@ add_ocl_unittest(
   SOURCE_FILES
     MangleTest.cpp
   LINK_LIBRARIES
-    ${LLVM_MODULE_LIBS}
+    LLVMSupport
+    LLVMIntel_DPCPPKernelTransforms
 )
 
 add_dependencies(${TARGET_NAME} reflection_module)

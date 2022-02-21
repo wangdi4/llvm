@@ -56,7 +56,7 @@ add_ocl_unittest( ${TARGET_NAME}
     dynamic_load
     cl_sys_utils
     test_utils
-    ${LLVM_MODULE_LIBS})
+    LLVMCore)
 
 
 add_ocl_unittest_artifacts(
