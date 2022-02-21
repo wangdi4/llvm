@@ -61,6 +61,9 @@ protected:
 
   void createLiveInOutLists(VPlanVector &Plan) override;
 
+  /// Check if HIR vectorizer supports SOA privates.
+  bool isSOACodegenSupported() const override { return false; }
+
 public:
   LoopVectorizationPlannerHIR(WRNVecLoopNode *WRL, HLLoop *Lp,
                               const TargetLibraryInfo *TLI,
