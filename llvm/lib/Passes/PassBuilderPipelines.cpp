@@ -595,14 +595,9 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(EarlyCSEPass(true /* Enable mem-ssa. */));
 
   // Hoisting of scalars and load expressions.
-<<<<<<< HEAD
-  FPM.addPass(SimplifyCFGPass());
-  addInstCombinePass(FPM, !DTransEnabled); //INTEL
-=======
   FPM.addPass(
       SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
-  FPM.addPass(InstCombinePass());
->>>>>>> e1c2e846fe3b60230f061864a7e0c05bee569c00
+  addInstCombinePass(FPM, !DTransEnabled); //INTEL
 
   FPM.addPass(LibCallsShrinkWrapPass());
 
@@ -700,14 +695,9 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
         createFunctionToLoopPassAdaptor(std::move(LPM1),
                                         /*UseMemorySSA=*/true,
                                         /*UseBlockFrequencyInfo=*/true));
-<<<<<<< HEAD
-    FPM.addPass(SimplifyCFGPass());
-    addInstCombinePass(FPM, !DTransEnabled); // INTEL
-=======
     FPM.addPass(
         SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
-    FPM.addPass(InstCombinePass());
->>>>>>> e1c2e846fe3b60230f061864a7e0c05bee569c00
+    addInstCombinePass(FPM, !DTransEnabled); // INTEL
     // The loop passes in LPM2 (LoopFullUnrollPass) do not preserve MemorySSA.
     // *All* loop passes must preserve it, in order to be able to use it.
     FPM.addPass(
@@ -745,14 +735,9 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
   // the simplifications and basic cleanup after all the simplifications.
   // TODO: Investigate if this is too expensive.
   FPM.addPass(ADCEPass());
-<<<<<<< HEAD
-  FPM.addPass(SimplifyCFGPass());
-  addInstCombinePass(FPM, !DTransEnabled); // INTEL
-=======
   FPM.addPass(
       SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
-  FPM.addPass(InstCombinePass());
->>>>>>> e1c2e846fe3b60230f061864a7e0c05bee569c00
+  addInstCombinePass(FPM, !DTransEnabled); // INTEL
   invokePeepholeEPCallbacks(FPM, Level);
 
   return FPM;
@@ -818,18 +803,13 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(JumpThreadingPass());
   FPM.addPass(CorrelatedValuePropagationPass());
 
-<<<<<<< HEAD
-  FPM.addPass(SimplifyCFGPass());
+  FPM.addPass(
+      SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
 #if INTEL_CUSTOMIZATION
   // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
   // IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled);
 #endif // INTEL_CUSTOMIZATION
-=======
-  FPM.addPass(
-      SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
-  FPM.addPass(InstCombinePass());
->>>>>>> e1c2e846fe3b60230f061864a7e0c05bee569c00
   if (Level == OptimizationLevel::O3)
     FPM.addPass(AggressiveInstCombinePass());
 
@@ -844,7 +824,6 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
       !Level.isOptimizingForSize())
     FPM.addPass(PGOMemOPSizeOpt());
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   bool SkipRecProgression = PrepareForLTO && DTransEnabled;
@@ -854,12 +833,8 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // TODO: Investigate the cost/benefit of tail call elimination on debugging.
   FPM.addPass(TailCallElimPass(SkipRecProgression));
 #endif // INTEL_CUSTOMIZATION
-  FPM.addPass(SimplifyCFGPass());
-=======
-  FPM.addPass(TailCallElimPass());
   FPM.addPass(
       SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
->>>>>>> e1c2e846fe3b60230f061864a7e0c05bee569c00
 
   // Form canonically associated expression trees, and simplify the trees using
   // basic mathematical properties. For example, this will form (nearly)
@@ -956,17 +931,13 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
         createFunctionToLoopPassAdaptor(std::move(LPM1),
                                         /*UseMemorySSA=*/true,
                                         /*UseBlockFrequencyInfo=*/true));
-<<<<<<< HEAD
-    FPM.addPass(SimplifyCFGPass());
+    FPM.addPass(
+        SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
 #if INTEL_CUSTOMIZATION
     // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
     // IP ArrayTranspose is enabled.
     addInstCombinePass(FPM, !DTransEnabled);
 #else // INTEL_CUSTOMIZATION
-=======
-    FPM.addPass(
-        SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
->>>>>>> e1c2e846fe3b60230f061864a7e0c05bee569c00
     FPM.addPass(InstCombinePass());
 #endif // INTEL_CUSTOMIZATION
     // The loop passes in LPM2 (LoopIdiomRecognizePass, IndVarSimplifyPass,
@@ -1050,7 +1021,6 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   for (auto &C : ScalarOptimizerLateEPCallbacks)
     C(FPM, Level);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Hoisting of common instructions can result in unstructured CFG input to
   // loopopt. Loopopt has its own pass which hoists conditional loads/stores.
@@ -1060,23 +1030,15 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
     if (SYCLOptimizationMode)
       FPM.addPass(SimplifyCFGPass());
     else
-      FPM.addPass(SimplifyCFGPass(
-          SimplifyCFGOptions().hoistCommonInsts(true).sinkCommonInsts(true)));
+      FPM.addPass(SimplifyCFGPass(SimplifyCFGOptions()
+                                      .convertSwitchRangeToICmp(true)
+                                      .hoistCommonInsts(true)
+                                      .sinkCommonInsts(true)));
   }
-// Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
+  // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
   // IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled);
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (SYCLOptimizationMode)
-    FPM.addPass(SimplifyCFGPass());
-  else
-    FPM.addPass(SimplifyCFGPass(SimplifyCFGOptions()
-                                    .convertSwitchRangeToICmp(true)
-                                    .hoistCommonInsts(true)
-                                    .sinkCommonInsts(true)));
-  FPM.addPass(InstCombinePass());
->>>>>>> e1c2e846fe3b60230f061864a7e0c05bee569c00
   invokePeepholeEPCallbacks(FPM, Level);
 
   if (EnableCHR && Level == OptimizationLevel::O3 && PGOOpt &&
@@ -1120,18 +1082,13 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM,
     FunctionPassManager FPM;
     FPM.addPass(SROAPass());
     FPM.addPass(EarlyCSEPass());    // Catch trivial redundancies.
-<<<<<<< HEAD
-    FPM.addPass(SimplifyCFGPass()); // Merge & remove basic blocks.
+    FPM.addPass(SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
+        true)));                    // Merge & remove basic blocks.
 #if INTEL_CUSTOMIZATION
     // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1
     // if IP ArrayTranspose is enabled.
     addInstCombinePass(FPM, !DTransEnabled);
 #endif // INTEL_CUSTOMIZATION
-=======
-    FPM.addPass(SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
-        true)));                    // Merge & remove basic blocks.
-    FPM.addPass(InstCombinePass()); // Combine silly sequences.
->>>>>>> e1c2e846fe3b60230f061864a7e0c05bee569c00
     invokePeepholeEPCallbacks(FPM, Level);
 
     CGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
@@ -3064,13 +3021,14 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   // Add late LTO optimization passes.
   // Delete basic blocks, which optimization passes may have killed.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // 28038: Avoid excessive hoisting as it increases register pressure and
   // select conversion without clear gains.
   // MPM.addPass(createModuleToFunctionPassAdaptor(
   //   SimplifyCFGPass(SimplifyCFGOptions().hoistCommonInsts(true))));
-  MPM.addPass(createModuleToFunctionPassAdaptor(SimplifyCFGPass()));
+  MPM.addPass(createModuleToFunctionPassAdaptor(SimplifyCFGPass(
+      SimplifyCFGOptions().convertSwitchRangeToICmp(true).hoistCommonInsts(
+          true))));
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -3079,12 +3037,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   if (isLoopOptEnabled(Level))
     MPM.addPass(GlobalOptPass());
 #endif // INTEL_CUSTOMIZATION
-=======
-  MPM.addPass(createModuleToFunctionPassAdaptor(SimplifyCFGPass(
-      SimplifyCFGOptions().convertSwitchRangeToICmp(true).hoistCommonInsts(
-          true))));
 
->>>>>>> e1c2e846fe3b60230f061864a7e0c05bee569c00
   // Drop bodies of available eternally objects to improve GlobalDCE.
   MPM.addPass(EliminateAvailableExternallyPass());
 

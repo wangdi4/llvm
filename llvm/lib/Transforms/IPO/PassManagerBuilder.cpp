@@ -721,18 +721,13 @@ void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM,
     MPM.add(createFunctionInliningPass(IP));
     MPM.add(createSROAPass());
     MPM.add(createEarlyCSEPass());             // Catch trivial redundancies
-<<<<<<< HEAD
-    MPM.add(createCFGSimplificationPass());    // Merge & remove BBs
+    MPM.add(createCFGSimplificationPass(
+        SimplifyCFGOptions().convertSwitchRangeToICmp(
+            true)));                           // Merge & remove BBs
 #if INTEL_CUSTOMIZATION
     // Combine silly seq's
     addInstructionCombiningPass(MPM, !DTransEnabled);
 #endif // INTEL_CUSTOMIZATION
-=======
-    MPM.add(createCFGSimplificationPass(
-        SimplifyCFGOptions().convertSwitchRangeToICmp(
-            true)));                           // Merge & remove BBs
-    MPM.add(createInstructionCombiningPass()); // Combine silly seq's
->>>>>>> e1c2e846fe3b60230f061864a7e0c05bee569c00
     addExtensionsToPM(EP_Peephole, MPM);
   }
   if ((EnablePGOInstrGen && !IsCS) || (EnablePGOCSInstrGen && IsCS)) {
@@ -822,17 +817,12 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 #endif // INTEL_FEATURE_SW_DTRANS
   // TODO: Investigate the cost/benefit of tail call elimination on debugging.
   if (OptLevel > 1)
-<<<<<<< HEAD
     MPM.add(createTailCallEliminationPass(SkipRecProgression));
                                               // Eliminate tail calls
 #endif // INTEL_CUSTOMIZATION
-  MPM.add(createCFGSimplificationPass());      // Merge & remove BBs
-=======
-    MPM.add(createTailCallEliminationPass()); // Eliminate tail calls
   MPM.add(
       createCFGSimplificationPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
           true)));                            // Merge & remove BBs
->>>>>>> e1c2e846fe3b60230f061864a7e0c05bee569c00
   // FIXME: re-association increases variables liveness and therefore register
   // pressure.
 #if INTEL_COLLAB
@@ -880,14 +870,9 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     // FIXME: We break the loop pass pipeline here in order to do full
     // simplifycfg. Eventually loop-simplifycfg should be enhanced to replace
     // the need for this.
-<<<<<<< HEAD
-    MPM.add(createCFGSimplificationPass());
-    addInstructionCombiningPass(MPM, !DTransEnabled);  // INTEL
-=======
     MPM.add(createCFGSimplificationPass(
         SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
-    MPM.add(createInstructionCombiningPass());
->>>>>>> e1c2e846fe3b60230f061864a7e0c05bee569c00
+    addInstructionCombiningPass(MPM, !DTransEnabled);  // INTEL
     // We resume loop passes creating a second loop pipeline here.
     if (EnableLoopFlatten) {
       MPM.add(createLoopFlattenPass()); // Flatten loops
@@ -1097,14 +1082,9 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
     addInstructionCombiningPass(PM, !DTransEnabled); // INTEL
     PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
     PM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3, DivergentTarget));
-<<<<<<< HEAD
-    PM.add(createCFGSimplificationPass());
-    addInstructionCombiningPass(PM, !DTransEnabled); // INTEL
-=======
     PM.add(createCFGSimplificationPass(
         SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
-    PM.add(createInstructionCombiningPass());
->>>>>>> e1c2e846fe3b60230f061864a7e0c05bee569c00
+    addInstructionCombiningPass(PM, !DTransEnabled); // INTEL
   }
 
 #if INTEL_CUSTOMIZATION
@@ -1379,15 +1359,11 @@ void PassManagerBuilder::populateModulePassManager(
   addInstructionCombiningPass(MPM, !DTransEnabled);
 #endif // INTEL_CUSTOMIZATION
   addExtensionsToPM(EP_Peephole, MPM);
-<<<<<<< HEAD
   if (EarlyJumpThreading && !SYCLOptimizationMode)                // INTEL
     MPM.add(createJumpThreadingPass(/*FreezeSelectCond*/ false)); // INTEL
-  MPM.add(createCFGSimplificationPass()); // Clean up after IPCP & DAE
-=======
   MPM.add(
       createCFGSimplificationPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
           true))); // Clean up after IPCP & DAE
->>>>>>> e1c2e846fe3b60230f061864a7e0c05bee569c00
 
 #if INTEL_CUSTOMIZATION
   // Handle '#pragma vector aligned'.
