@@ -20,7 +20,7 @@
 #ifndef INTEL_DTRANS_ANALYSIS_DTRANSTYPEMETADATAPROPAGATOR_H
 #define INTEL_DTRANS_ANALYSIS_DTRANSTYPEMETADATAPROPAGATOR_H
 
-#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/MapVector.h"
 
 namespace llvm {
 class AllocaInst;
@@ -95,7 +95,7 @@ private:
 
   bool Initialized = false;
   bool DTransTypeMetadataAvailable = false;
-  DenseMap<llvm::StructType *, MDNode *> StructToMDDescriptor;
+  MapVector<llvm::StructType *, MDNode *> StructToMDDescriptor;
 };
 
 } // end namespace dtransOP

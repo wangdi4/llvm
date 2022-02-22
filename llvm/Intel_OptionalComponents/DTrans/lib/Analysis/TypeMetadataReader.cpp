@@ -37,6 +37,60 @@ NamedMDNode *TypeMetadataReader::getDTransTypesMetadata(Module &M) {
   return DTMDTypes;
 }
 
+bool TypeMetadataReader::mapStructsToMDNodes(
+    Module &M, MapVector<StructType *, MDNode *> &Mapping, bool IncludeOpaque) {
+  NamedMDNode *DTransMD = TypeMetadataReader::getDTransTypesMetadata(M);
+  if (!DTransMD)
+    return false;
+
+  MapVector<StructType *, MDNode *> OpaqueTyMap;
+  for (auto *MD : DTransMD->operands()) {
+    if (MD->getNumOperands() < DTransStructMDConstants::MinOperandCount)
+      continue;
+
+    if (auto *MDS = dyn_cast<MDString>(
+            MD->getOperand(DTransStructMDConstants::RecTypeOffset)))
+      if (!MDS->getString().equals("S"))
+        continue;
+
+    // Ignore opaque structure definitions or malformed metadata
+    auto *FieldCountMD = dyn_cast<ConstantAsMetadata>(
+        MD->getOperand(DTransStructMDConstants::FieldCountOffset));
+    if (!FieldCountMD)
+      continue;
+
+    auto *TyMD = dyn_cast<ConstantAsMetadata>(
+        MD->getOperand(DTransStructMDConstants::StructTypeOffset));
+    if (!TyMD)
+      continue;
+    llvm::StructType *StTy = cast<llvm::StructType>(TyMD->getType());
+
+    int32_t FieldCount =
+        cast<ConstantInt>(FieldCountMD->getValue())->getSExtValue();
+    bool IsOpaqueStructTy = (FieldCount == -1);
+    if (IsOpaqueStructTy) {
+      // Opaque structure types will get added later, if requested when there is
+      // not a non-opaque version available.
+      OpaqueTyMap.insert({StTy, MD});
+      continue;
+    }
+
+    auto Res = Mapping.insert({StTy, MD});
+    if (!Res.second && Res.first->second != MD)
+      LLVM_DEBUG(dbgs() << "Structure " << *TyMD
+                        << " described by more than one metadata node");
+  }
+
+  if (IncludeOpaque) {
+    // Add any types that are not already in the mapping because only opaque
+    // type definitions were seen.
+    for (auto &KV : OpaqueTyMap)
+      Mapping.insert({KV.first, KV.second});
+  }
+
+  return true;
+}
+
 MDNode *TypeMetadataReader::getDTransMDNode(const Value &V) {
   if (auto *F = dyn_cast<Function>(&V)) {
     MDNode *MD = F->getMetadata(DTransFuncTypeMDTag);

@@ -34,40 +34,10 @@ void DTransTypeMetadataPropagator::initialize(Module &M) {
     return;
 
   Initialized = true;
-  NamedMDNode *DTransMD = TypeMetadataReader::getDTransTypesMetadata(M);
-  if (!DTransMD)
-    return;
-
-  DTransTypeMetadataAvailable = true;
-  for (auto *MD : DTransMD->operands()) {
-    if (MD->getNumOperands() < DTransStructMDConstants::MinOperandCount)
-      continue;
-
-    if (auto *MDS = dyn_cast<MDString>(
-            MD->getOperand(DTransStructMDConstants::RecTypeOffset)))
-      if (!MDS->getString().equals("S"))
-        continue;
-
-    // Ignore opaque structure definitions or malformed metadata
-    auto *FieldCountMD = dyn_cast<ConstantAsMetadata>(
-        MD->getOperand(DTransStructMDConstants::FieldCountOffset));
-    if (!FieldCountMD)
-      continue;
-    int32_t FieldCount =
-        cast<ConstantInt>(FieldCountMD->getValue())->getSExtValue();
-    if (FieldCount == -1)
-      continue;
-
-    auto *TyMD = dyn_cast<ConstantAsMetadata>(
-        MD->getOperand(DTransStructMDConstants::StructTypeOffset));
-    if (!TyMD)
-      continue;
-    llvm::StructType *StTy = cast<llvm::StructType>(TyMD->getType());
-    auto Res = StructToMDDescriptor.insert({StTy, MD});
-    if (!Res.second && Res.first->second != MD)
-      LLVM_DEBUG(dbgs() << "Structure " << *TyMD
-                        << " described by more than one metadata node");
-  }
+  bool HasDTransMD = TypeMetadataReader::mapStructsToMDNodes(
+      M, StructToMDDescriptor, /*IncludeOpaque=*/false);
+  if (HasDTransMD)
+    DTransTypeMetadataAvailable = true;
 }
 
 // Return the MDNode that describes the structure.
