@@ -59,6 +59,7 @@ set(LLVM_TEST_DEPENDS
           BugpointPasses
           FileCheck
           LLVMHello
+          LLVMWindowsDriver
           UnitTests
           append-file
           bugpoint
