@@ -23,6 +23,7 @@
 ///////////////////////////////////////////////////////////
 
 #include "cl_config.h"
+#include "cl_device_api.h"
 #include "cl_sys_info.h"
 #include "cl_utils.h"
 #include "common_utils.h"
@@ -35,6 +36,7 @@
 #include "program_service_test.h"
 #include "task_executor.h"
 
+#include <CL/cl_ext.h>
 #include <assert.h>
 #include <gtest/gtest.h>
 #include <random>
@@ -42,6 +44,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <tbb/global_control.h>
+#include <thread>
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -455,6 +458,83 @@ bool clGetDeviceInfo_QueueProperties()
 	}
 
 }
+
+// Extension: cl_intel_device_attribute_query
+// https://github.com/KhronosGroup/OpenCL-Docs/blob/master/extensions/cl_intel_device_attribute_query.asciidoc
+// GetDeviceInfo with CL_DEVICE_IP_VERSION_INTEL, CL_DEVICE_ID_INTEL,
+// CL_DEVICE_NUM_SLICES_INTEL, CL_DEVICE_NUM_SUB_SLICES_PER_SLICE_INTEL,
+// CL_DEVICE_NUM_EUS_PER_SUB_SLICE_INTEL, CL_DEVICE_NUM_THREADS_PER_EU_INTEL,
+// CL_DEVICE_FEATURE_CAPABILITIES_INTEL
+bool clGetDeviceInfo_DeviceAttributeQueries() {
+  cl_version DeviceIPVer;
+  size_t SizeRet;
+  cl_int Res = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_IP_VERSION_INTEL,
+                                  sizeof(cl_version), &DeviceIPVer, &SizeRet);
+  EXPECT_EQ(Res, CL_DEV_SUCCESS)
+      << "clDevGetDeviceInfo failed for CL_DEVICE_IP_VERSION_INTEL: "
+      << clDevErr2Txt((cl_dev_err_code)Res);
+  printf("Device IP version: 0x%x\n", DeviceIPVer);
+
+  cl_uint DeviceID;
+  Res = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_ID_INTEL, sizeof(cl_uint),
+                           &DeviceID, &SizeRet);
+  EXPECT_EQ(Res, CL_DEV_SUCCESS)
+      << "clDevGetDeviceInfo failed for CL_DEVICE_ID_INTEL: "
+      << clDevErr2Txt((cl_dev_err_code)Res);
+  printf("Device ID: 0x%x\n", DeviceID);
+
+  cl_uint NumSlices;
+  Res = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_NUM_SLICES_INTEL,
+                           sizeof(cl_uint), &NumSlices, &SizeRet);
+  EXPECT_EQ(Res, CL_DEV_SUCCESS)
+      << "clDevGetDeviceInfo failed for CL_DEVICE_NUM_SLICES_INTEL: "
+      << clDevErr2Txt((cl_dev_err_code)Res);
+  printf("Number of slices (NUMA nodes): %u\n", NumSlices);
+
+  cl_uint SubslicesPerSlice;
+  Res = clDevGetDeviceInfo(gDeviceIdInType,
+                           CL_DEVICE_NUM_SUB_SLICES_PER_SLICE_INTEL,
+                           sizeof(cl_uint), &SubslicesPerSlice, &SizeRet);
+  EXPECT_EQ(Res, CL_DEV_SUCCESS) << "clDevGetDeviceInfo failed for "
+                                    "CL_DEVICE_NUM_SUB_SLICES_PER_SLICE_INTEL: "
+                                 << clDevErr2Txt((cl_dev_err_code)Res);
+  EXPECT_EQ(SubslicesPerSlice, 1)
+      << "CL_DEVICE_NUM_SUB_SLICES_PER_SLICE_INTEL always return 1";
+
+  cl_uint EUsPerSubslice;
+  Res =
+      clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_NUM_EUS_PER_SUB_SLICE_INTEL,
+                         sizeof(cl_uint), &EUsPerSubslice, &SizeRet);
+  EXPECT_EQ(Res, CL_DEV_SUCCESS) << "clDevGetDeviceInfo failed for "
+                                    "CL_DEVICE_NUM_EUS_PER_SUB_SLICE_INTEL: "
+                                 << clDevErr2Txt((cl_dev_err_code)Res);
+  printf("Number of EUs per subslice (physical cores per NUMA node): %u\n",
+         EUsPerSubslice);
+
+  cl_uint ThreadsPerEU;
+  Res = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_NUM_THREADS_PER_EU_INTEL,
+                           sizeof(cl_uint), &ThreadsPerEU, &SizeRet);
+  EXPECT_EQ(Res, CL_DEV_SUCCESS) << "clDevGetDeviceInfo failed for "
+                                    "CL_DEVICE_NUM_THREADS_PER_EU_INTEL: "
+                                 << clDevErr2Txt((cl_dev_err_code)Res);
+  printf("Number of threads per EU (threads per physical core): %u\n",
+         ThreadsPerEU);
+
+  EXPECT_EQ(NumSlices * SubslicesPerSlice * EUsPerSubslice * ThreadsPerEU,
+            std::thread::hardware_concurrency())
+      << "Total number of threads is incorrect!";
+
+  cl_device_feature_capabilities_intel Features;
+  Res = clDevGetDeviceInfo(
+      gDeviceIdInType, CL_DEVICE_FEATURE_CAPABILITIES_INTEL,
+      sizeof(cl_device_feature_capabilities_intel), &Features, &SizeRet);
+  EXPECT_EQ(Res, CL_DEV_SUCCESS) << "clDevGetDeviceInfo failed for "
+                                    "CL_DEVICE_FEATURE_CAPABILITIES_INTEL: "
+                                 << clDevErr2Txt((cl_dev_err_code)Res);
+  EXPECT_EQ(Features, 0) << "No feature to support on CPU";
+  return true;
+}
+
 //GetDeviceInfo with CL_DEVICE_NAME, CL_DEVICE_VENDOR, CL_DEVICE_PROFILE, CL_DEVICE_VERSION test
 bool clGetDeviceInfo_DeviceStrings()
 {
@@ -652,6 +732,10 @@ TEST(CpuDeviceTestType, Test_clGetDeviceInfo_DeviceExecutionProperties)
 TEST(CpuDeviceTestType, Test_clGetDeviceInfo_QueueProperties)
 {
 	EXPECT_TRUE(clGetDeviceInfo_QueueProperties());
+}
+
+TEST(CpuDeviceTestType, Test_clGetDeviceInfo_DeviceAttributeQueries) {
+  EXPECT_TRUE(clGetDeviceInfo_DeviceAttributeQueries());
 }
 
 TEST(CpuDeviceTestType, Test_clGetDeviceInfo_DeviceStrings)

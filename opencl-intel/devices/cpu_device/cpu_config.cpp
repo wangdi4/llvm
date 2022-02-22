@@ -232,6 +232,7 @@ CPUDeviceConfig::GetExtensionsWithVersion() const
 
     // common Intel extensions
     GET_EXT_VER(OCL_EXT_INTEL_UNIFIED_SHARED_MEMORY, 1, 0, 0);
+    GET_EXT_VER(OCL_EXT_INTEL_DEVICE_ATTRIBUTE_QUERY, 1, 0, 0);
 
     if (GetUseNativeSubgroups()) {
 // Need to add generic implementation for the khr subgroups built-ins before

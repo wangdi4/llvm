@@ -436,6 +436,7 @@ unsigned long Intel::OpenCL::Utils::GetMaxNumaNode()
     }
 
     closedir(dir);
+    assert(numNodes > 0 && "Failed to get number of NUMA nodes");
     return numNodes;
 }
 
