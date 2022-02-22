@@ -23,6 +23,7 @@
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/Demangle/ItaniumDemangle.h"
 #include "llvm/GenXIntrinsics/GenXIntrinsics.h"
+#include "llvm/GenXIntrinsics/GenXMetadata.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
@@ -511,8 +512,13 @@ public:
         {"tf32_cvt", { "tf32.cvt", { a(0) }}},
         {"qf_cvt", { "qf.cvt", { a(0) }}},
         {"srnd", {"srnd", {a(0), a(1)}}},
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
         {"nbarrier", {"nbarrier", {a(0), a(1), a(2)}}},
-        {"raw_send_nbarrier_signal", {"raw.send.noresult", {a(0), ai1(4), a(1), a(2), a(3)}}},
+        {"raw_send_nbarrier_signal",
+         {"raw.send.noresult", {a(0), ai1(4), a(1), a(2), a(3)}}},
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
         {"lsc_load_slm",
          {"lsc.load.slm",
           {ai1(0), c8(lsc_subopcode::load), t8(1), t8(2), t16(3), t32(4), t8(5),
@@ -1046,16 +1052,14 @@ static void translateUnPackMask(CallInst &CI) {
   CI.replaceAllUsesWith(TransCI);
 }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
-
 // This function sets VCNamedBarrierCount attribute to set
 // the number of named barriers required by a kernel
 static void translateNbarrierInit(CallInst &CI) {
-  auto F = CI.getParent()->getParent();
+  auto *F = CI.getFunction();
 
   auto *ArgV = CI.getArgOperand(0);
-  assert(isa<ConstantInt>(ArgV) && "integral constant expected for nbarrier count");
+  assert(isa<ConstantInt>(ArgV) &&
+         "integral constant expected for nbarrier count");
 
   auto NewVal = cast<llvm::ConstantInt>(ArgV)->getZExtValue();
   assert(NewVal != 0 && "zero nbarrier count being requested");
@@ -1075,9 +1079,6 @@ static void translateNbarrierInit(CallInst &CI) {
     llvm_unreachable("esimd_nbarrier_init can only be called by a kernel");
   }
 }
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
-
 
 static bool translateVLoad(CallInst &CI, SmallPtrSet<Type *, 4> &GVTS) {
   if (GVTS.find(CI.getType()) != GVTS.end())
@@ -1600,14 +1601,10 @@ void generateKernelMetadata(Module &M) {
         getMD(llvm::ConstantInt::getNullValue(I32Ty)), // SLM size in bytes
         getMD(llvm::ConstantInt::getNullValue(I32Ty)), // arg offsets
         IOKinds,
-#if INTEL_CUSTOMIZATION
         ArgDescs,
-#if INTEL_FEATURE_ESIMD_EMBARGO
         getMD(llvm::ConstantInt::getNullValue(I32Ty)), // named barrier count
         getMD(llvm::ConstantInt::getNullValue(I32Ty))  // regular barrier count
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
     };
-#endif // INTEL_CUSTOMIZATION
 
     // Add this kernel to the root.
     Kernels->addOperand(MDNode::get(Ctx, MDArgs));
@@ -1728,15 +1725,11 @@ size_t SYCLLowerESIMDPass::runOnFunction(Function &F,
         ToErase.push_back(CI);
         continue;
       }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
       if (Name.startswith("__esimd_nbarrier_init")) {
         translateNbarrierInit(*CI);
         ToErase.push_back(CI);
         continue;
       }
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
       if (Name.startswith("__esimd_pack_mask")) {
         translatePackMask(*CI);
         ToErase.push_back(CI);

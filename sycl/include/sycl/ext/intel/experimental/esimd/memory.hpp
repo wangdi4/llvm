@@ -1232,39 +1232,43 @@ raw_send_store(simd<T1, n1> msgSrc0, uint32_t exDesc, uint32_t msgDesc,
                                         numSrc0, sfid, exDesc, msgDesc,
                                         msgSrc0.data());
 }
+
 /// @} sycl_esimd_raw_send
 
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
+/// @defgroup sycl_esimd_memory_nbarrier Named barrier APIs.
+/// @ingroup sycl_esimd_memory
 
-// Wait on a named barrier
-// Available only on PVC+
-//
-// @param id  - named barrier id
+/// @addtogroup sycl_esimd_memory_nbarrier
+/// @{
+
+/// Wait on a named barrier
+/// Available only on PVC
+///
+/// @param id  - named barrier id
 __ESIMD_API void nbarrier_wait(uint8_t id) {
   __esimd_nbarrier(0 /*wait*/, id, 0 /*thread count*/);
 }
 
-// Initialize number of named barriers for a kernel
-// Available only on PVC+.
-//
-// @tparam NbarCount  - number of named barriers
+/// Initialize number of named barriers for a kernel
+/// Available only on PVC
+///
+/// @tparam NbarCount  - number of named barriers
 template <uint8_t NbarCount> __ESIMD_API void nbarrier_init() {
   __esimd_nbarrier_init(NbarCount);
 }
 
-// Perform signal operation for the given named barrier
-// Available only on PVC+.
-//
-// @param barrier_id  - named barrier id
-//
-// @param producer_consumer_mode  - 2-bit flag to indicate if it's producer mode (0x1)
-// or consumer mode (0x2). User must ensure the input value is set correctly and higher
-// order bits are cleared.
-//
-// @param num_producers  - number of producers
-//
-// @param num_consumers  - number of consumers
+/// Perform signal operation for the given named barrier
+/// Available only on PVC
+///
+/// @param barrier_id  - named barrier id
+///
+/// @param producer_consumer_mode  - 2-bit flag to indicate if it's producer
+/// mode (0x1) or consumer mode (0x2). User must ensure the input value is set
+/// correctly and higher order bits are cleared.
+///
+/// @param num_producers  - number of producers
+///
+/// @param num_consumers  - number of consumers
 __ESIMD_API void nbarrier_signal(uint8_t barrier_id,
                                  uint8_t producer_consumer_mode,
                                  uint32_t num_producers,
@@ -1282,6 +1286,11 @@ __ESIMD_API void nbarrier_signal(uint8_t barrier_id,
   __esimd_raw_send_nbarrier_signal<uint32_t, 8>(
       0 /*sendc*/, gateway, descriptor, payload, 1 /*pred*/);
 }
+
+/// @} sycl_esimd_memory_nbarrier
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
 
 // Wait for source val to be ready
 __ESIMD_API void wait(uint16_t val) {
