@@ -1867,7 +1867,10 @@ codeview::TypeIndex CodeViewDebug::getDimInfo(const DINodeArray Subranges) {
       // let's make upperbound the same as lowerbound.
       Bounds.push_back(LowerBound);
     } else {
-      llvm_unreachable("Insufficient Fortran array bound information.");
+      // When we reach here, the array is assumed size (e.g. A(5,*)).
+      // Emulating what ifort does in this case, we make upperbound
+      // the same as lowerbound.
+      Bounds.push_back(LowerBound);
     }
   }
 
