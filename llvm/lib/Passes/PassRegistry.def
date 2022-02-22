@@ -121,6 +121,7 @@ MODULE_PASS("dpcpp-kernel-sg-size-collector-indirect", SGSizeCollectorIndirectPa
 MODULE_PASS("dpcpp-kernel-handle-taskseq-async", TaskSeqAsyncHandling())
 MODULE_PASS("dpcpp-kernel-indirect-call-lowering", IndirectCallLowering())
 MODULE_PASS("dpcpp-kernel-convert-vplan-mask", HandleVPlanMask())
+MODULE_PASS("dpcpp-kernel-wg-loop-bound", WGLoopBoundariesPass())
 
 MODULE_PASS("print<dpcpp-kernel-builtin-info-analysis>", BuiltinLibInfoAnalysisPrinter(dbgs()))
 MODULE_PASS("print<dpcpp-kernel-data-per-barrier-analysis>", DataPerBarrierPrinter(dbgs()))

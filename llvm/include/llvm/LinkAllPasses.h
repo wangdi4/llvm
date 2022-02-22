@@ -479,6 +479,7 @@ namespace {
       (void)llvm::createCreateSimdVariantPropagationLegacyPass();
       (void)llvm::createLinearIdResolverPass();
       (void)llvm::createVectorizationDimensionAnalysisLegacyPass();
+      (void)llvm::createWGLoopBoundariesLegacyPass();
       (void)llvm::createWorkItemAnalysisLegacyPass();
 
       // Optimize math calls

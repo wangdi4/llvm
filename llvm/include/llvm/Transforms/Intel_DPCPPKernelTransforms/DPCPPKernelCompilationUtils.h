@@ -263,9 +263,17 @@ bool isWorkGroupBarrier(StringRef S);
 
 /// Returns true if \p S is a name of workgroup builtin, and it's uniform inside
 /// a workgroup.
-bool isWorkGroupUniform(StringRef S);
+bool isWorkGroupBuiltinUniform(StringRef S);
 
 /// Returns true if \p S is a name of workgroup builtin, and it's divergent
+/// inside a workgroup.
+bool isWorkGroupBuiltinDivergent(StringRef S);
+
+/// Returns true if \p S is a workgroup or subgroup builtin, and it is uniform
+/// inside a workgroup.
+bool isWorkGroupUniform(StringRef S);
+
+/// Returns true if \p S is a workgroup or subgroup builtin, and it is divergent
 /// inside a workgroup.
 bool isWorkGroupDivergent(StringRef S);
 

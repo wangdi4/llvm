@@ -536,7 +536,7 @@ bool isWorkGroupScan(StringRef S) {
          isWorkGroupScanExclusiveMax(S) || isWorkGroupScanInclusiveMax(S);
 }
 
-bool isWorkGroupUniform(StringRef S) {
+bool isWorkGroupBuiltinUniform(StringRef S) {
   return isWorkGroupAll(S) || isWorkGroupAny(S) || isWorkGroupBroadCast(S) ||
          isWorkGroupReduceAdd(S) || isWorkGroupReduceMin(S) ||
          isWorkGroupReduceMax(S);
@@ -552,7 +552,17 @@ bool isWorkGroupMax(StringRef S) {
          isWorkGroupScanInclusiveMax(S);
 }
 
-bool isWorkGroupDivergent(StringRef S) { return isWorkGroupScan(S); }
+bool isWorkGroupBuiltinDivergent(StringRef S) { return isWorkGroupScan(S); }
+
+bool isWorkGroupUniform(StringRef S) {
+  return isWorkGroupBuiltinUniform(S) || isGetMaxSubGroupSize(S) ||
+         isGetNumSubGroups(S) || isGetEnqueuedNumSubGroups(S);
+}
+
+bool isWorkGroupDivergent(StringRef S) {
+  return isWorkGroupBuiltinDivergent(S) ||
+         (isSubGroupBuiltin(S) && !isWorkGroupUniform(S));
+}
 
 bool hasWorkGroupFinalizePrefix(StringRef S) {
   if (!isMangledName(S))
@@ -577,7 +587,7 @@ std::string removeWorkGroupFinalizePrefix(StringRef S) {
 }
 
 bool isWorkGroupBuiltin(StringRef S) {
-  return isWorkGroupUniform(S) || isWorkGroupDivergent(S);
+  return isWorkGroupBuiltinUniform(S) || isWorkGroupBuiltinDivergent(S);
 }
 
 bool isWorkGroupBarrier(StringRef S) {

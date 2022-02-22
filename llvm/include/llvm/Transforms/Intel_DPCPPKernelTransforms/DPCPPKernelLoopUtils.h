@@ -1,6 +1,6 @@
 //==-------- DPCPPKernelLoopUtils.h - Function declarations -*- C++---------==//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -95,7 +95,7 @@ void collectTIDCallInst(StringRef TIDName, InstVecVec &TidCalls, Function *F);
 ///       (also indirect users) into userFuncs.
 /// Roots - function to obtain their user functions.
 /// UserFuncs - set to fill with users of roots
-void fillFuncUsersSet(FuncSet &Roots, FuncSet &UserFuncs);
+void fillFuncUsersSet(const FuncSet &Roots, FuncSet &UserFuncs);
 
 /// Fills direct user functions through instructions of functions in
 ///       funcs set into userFuncs. If a function is introduced into
@@ -103,7 +103,8 @@ void fillFuncUsersSet(FuncSet &Roots, FuncSet &UserFuncs);
 /// Funcs - function to obtain direct users.
 /// UserFuncs - set of users functions to fills.
 /// NewUsers - set of newly found users.
-void fillDirectUsers(FuncSet *Funcs, FuncSet *UserFuncs, FuncSet *NewUsers);
+void fillDirectUsers(const FuncSet *Funcs, FuncSet *UserFuncs,
+                     FuncSet *NewUsers);
 
 /// Fill the user instructions (including users via other values)
 ///        of the input Function into the input vector.

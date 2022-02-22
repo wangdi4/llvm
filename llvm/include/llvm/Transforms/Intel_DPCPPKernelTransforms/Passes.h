@@ -61,6 +61,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorVariant/VectorVariantFillIn.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorVariant/VectorVariantLowering.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorizationDimensionAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/WGLoopBoundaries.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WorkItemAnalysis.h"
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_PASSES_H
