@@ -1,5 +1,7 @@
-; RUN: opt -analyze -xmain-opt-level=2 -hir-ssa-deconstruction -hir-framework -debug-only=hir-region-identification < %s 2>&1 | FileCheck %s -check-prefix=CHECK2
-; RUN: opt -analyze -xmain-opt-level=3 -hir-ssa-deconstruction -hir-framework -debug-only=hir-region-identification < %s 2>&1 | FileCheck %s -check-prefix=CHECK3
+; RUN: opt -enable-new-pm=0 -analyze -xmain-opt-level=2 -hir-ssa-deconstruction -hir-framework -debug-only=hir-region-identification < %s 2>&1 | FileCheck %s -check-prefix=CHECK2
+; RUN: opt %s -xmain-opt-level=2 -passes="hir-ssa-deconstruction,print<hir-framework>" -debug-only=hir-region-identification -disable-output 2>&1 | FileCheck %s -check-prefix=CHECK2
+; RUN: opt -enable-new-pm=0 -analyze -xmain-opt-level=3 -hir-ssa-deconstruction -hir-framework -debug-only=hir-region-identification < %s 2>&1 | FileCheck %s -check-prefix=CHECK3
+; RUN: opt %s -xmain-opt-level=3 -passes="hir-ssa-deconstruction,print<hir-framework>" -debug-only=hir-region-identification -disable-output 2>&1 | FileCheck %s -check-prefix=CHECK3
 
 ; Verify that 4 level of IF nesting is allowed for inner loops @ O3.
 
