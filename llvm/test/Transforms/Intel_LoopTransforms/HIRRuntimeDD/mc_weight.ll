@@ -1,4 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -disable-output -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -disable-output -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -disable-output 2>&1 | FileCheck %s
 
 ; Verify that struct references are supported by RTDD.
 

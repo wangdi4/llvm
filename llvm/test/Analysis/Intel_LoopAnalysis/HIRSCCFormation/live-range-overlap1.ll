@@ -1,4 +1,5 @@
-; RUN: opt < %s -analyze -hir-scc-formation | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -analyze -hir-scc-formation | FileCheck %s
+; RUN: opt %s -passes="print<hir-scc-formation>" -disable-output 2>&1 | FileCheck %s
 
 ; Check that only one SCCs with %mul is formed for this loop. The SCC (%sub13 -> %0 -> %add7189 -> %sub18) should have been invalidated because %sub13 is used in the merge phi %add7189 despite %sub18 from the same SCC being defined later in the same bblock causing live range overlap.
 

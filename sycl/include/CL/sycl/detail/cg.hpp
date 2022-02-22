@@ -15,9 +15,6 @@
 #include <CL/sycl/detail/common.hpp>
 #include <CL/sycl/detail/export.hpp>
 #include <CL/sycl/detail/helpers.hpp>
-/* INTEL_CUSTOMIZATION */
-#include <CL/sycl/detail/host_device_intel/backend.hpp>
-/* end INTEL_CUSTOMIZATION */
 #include <CL/sycl/detail/host_profiling_info.hpp>
 #include <CL/sycl/detail/kernel_desc.hpp>
 #include <CL/sycl/detail/type_traits.hpp>
