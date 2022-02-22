@@ -1321,10 +1321,10 @@ VPInstruction *VPDecomposerHIR::createLoopZtt(HLLoop *HLp,
   for (auto PredIt = PredBegin; PredIt != PredEnd; ++PredIt) {
     // Generate VPValues for the LHS and RHS of the DDRefs corresponding
     // to PredIt and generate Cmp instruction using predicate from PredIt.
-    auto *VPOp1 = decomposeVPOperand(
-        HLp->getZttPredicateOperandDDRef(PredIt, true /* IsLHS */));
-    auto *VPOp2 = decomposeVPOperand(
-        HLp->getZttPredicateOperandDDRef(PredIt, false /* IsLHS */));
+    auto *VPOp1 =
+        decomposeVPOperand(HLp->getLHSZttPredicateOperandDDRef(PredIt));
+    auto *VPOp2 =
+        decomposeVPOperand(HLp->getRHSZttPredicateOperandDDRef(PredIt));
     auto *CurVPInst = createCmpInst(*PredIt, VPOp1, VPOp2);
 
     // Combine using 'And' into CombinedVPInst if non-null

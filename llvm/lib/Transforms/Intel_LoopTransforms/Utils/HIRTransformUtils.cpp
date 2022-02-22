@@ -503,9 +503,9 @@ void HIRTransformUtils::addExplicitZttIf(HLLoop *Loop) {
 
   // Make Consistent of If's predicate
   for (auto PI = ZttIf->pred_begin(), PE = ZttIf->pred_end(); PI != PE; ++PI) {
-    ZttIf->getPredicateOperandDDRef(PI, true)->makeConsistent(
+    ZttIf->getLHSPredicateOperandDDRef(PI)->makeConsistent(
         {Loop->getUpperDDRef()});
-    ZttIf->getPredicateOperandDDRef(PI, false)->makeConsistent(
+    ZttIf->getRHSPredicateOperandDDRef(PI)->makeConsistent(
         {Loop->getUpperDDRef()});
   }
 }
@@ -1213,11 +1213,11 @@ void HIRTransformUtils::cloneOrRemoveZttPredicates(
     RegDDRef *RHS;
 
     if (Clone) {
-      LHS = Loop->getZttPredicateOperandDDRef(PredI, true)->clone();
-      RHS = Loop->getZttPredicateOperandDDRef(PredI, false)->clone();
+      LHS = Loop->getLHSZttPredicateOperandDDRef(PredI)->clone();
+      RHS = Loop->getRHSZttPredicateOperandDDRef(PredI)->clone();
     } else {
-      LHS = Loop->removeZttPredicateOperandDDRef(PredI, true);
-      RHS = Loop->removeZttPredicateOperandDDRef(PredI, false);
+      LHS = Loop->removeLHSZttPredicateOperandDDRef(PredI);
+      RHS = Loop->removeRHSZttPredicateOperandDDRef(PredI);
     }
 
     ZTTs.emplace_back(LHS, *PredI, RHS);

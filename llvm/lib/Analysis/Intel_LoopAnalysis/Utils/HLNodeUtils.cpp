@@ -4621,9 +4621,15 @@ struct PredicateTraits {
   }
 
   static const RegDDRef *
-  getPredicateOperandDDRef(const HLIf *If, HLIf::const_pred_iterator CPredI,
-                           bool IsLHS) {
-    return If->getPredicateOperandDDRef(CPredI, IsLHS);
+  getLHSPredicateOperandDDRef(const HLIf *If,
+                              HLIf::const_pred_iterator CPredI) {
+    return If->getLHSPredicateOperandDDRef(CPredI);
+  }
+
+  static const RegDDRef *
+  getRHSPredicateOperandDDRef(const HLIf *If,
+                              HLIf::const_pred_iterator CPredI) {
+    return If->getRHSPredicateOperandDDRef(CPredI);
   }
 };
 
@@ -4641,9 +4647,15 @@ struct ZttPredicateTraits {
   }
 
   static const RegDDRef *
-  getPredicateOperandDDRef(const HLLoop *Loop,
-                           HLLoop::const_ztt_pred_iterator CPredI, bool IsLHS) {
-    return Loop->getZttPredicateOperandDDRef(CPredI, IsLHS);
+  getLHSPredicateOperandDDRef(const HLLoop *Loop,
+                              HLLoop::const_ztt_pred_iterator CPredI) {
+    return Loop->getLHSZttPredicateOperandDDRef(CPredI);
+  }
+
+  static const RegDDRef *
+  getRHSPredicateOperandDDRef(const HLLoop *Loop,
+                              HLLoop::const_ztt_pred_iterator CPredI) {
+    return Loop->getRHSZttPredicateOperandDDRef(CPredI);
   }
 };
 
@@ -4667,10 +4679,10 @@ static bool areEqualConditionsImpl(const T *NodeA, const T *NodeB) {
       return false;
     }
 
-    if (!DDRefUtils::areEqual(PT::getPredicateOperandDDRef(NodeA, IA, true),
-                              PT::getPredicateOperandDDRef(NodeB, IB, true)) ||
-        !DDRefUtils::areEqual(PT::getPredicateOperandDDRef(NodeA, IA, false),
-                              PT::getPredicateOperandDDRef(NodeB, IB, false))) {
+    if (!DDRefUtils::areEqual(PT::getLHSPredicateOperandDDRef(NodeA, IA),
+                              PT::getLHSPredicateOperandDDRef(NodeB, IB)) ||
+        !DDRefUtils::areEqual(PT::getRHSPredicateOperandDDRef(NodeA, IA),
+                              PT::getRHSPredicateOperandDDRef(NodeB, IB))) {
       return false;
     }
   }
