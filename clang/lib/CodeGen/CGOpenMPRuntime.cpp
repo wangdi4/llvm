@@ -2026,23 +2026,17 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       CtorCGF.StartFunction(GlobalDecl(), CGM.getContext().VoidTy, Fn, FI,
                             FunctionArgList(), Loc, Loc);
       auto AL = ApplyDebugLocation::CreateArtificial(CtorCGF);
-<<<<<<< HEAD
       CtorCGF.EmitAnyExprToMem(Init,
 #if INTEL_COLLAB
                                Address(CGM.GetAddrOfGlobalVar(VD),
                                        CtorCGF.ConvertTypeForMem(VD->getType()),
                                        CGM.getContext().getDeclAlign(VD)),
 #else  // INTEL_COLLAB
-                               Address(Addr, CGM.getContext().getDeclAlign(VD)),
+                               Address::deprecated(Addr, CGM.getContext().
+                                                             getDeclAlign(VD)),
 #endif // INTEL_COLLAB
                                Init->getType().getQualifiers(),
                                /*IsInitializer=*/true);
-=======
-      CtorCGF.EmitAnyExprToMem(
-          Init, Address::deprecated(Addr, CGM.getContext().getDeclAlign(VD)),
-          Init->getType().getQualifiers(),
-          /*IsInitializer=*/true);
->>>>>>> 8d270a78378f6cc1c31c11c62135824c1e57b1ac
       CtorCGF.FinishFunction();
       Ctor = Fn;
       ID = llvm::ConstantExpr::getBitCast(Fn, CGM.Int8PtrTy);
@@ -2091,22 +2085,17 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       // Create a scope with an artificial location for the body of this
       // function.
       auto AL = ApplyDebugLocation::CreateArtificial(DtorCGF);
-<<<<<<< HEAD
 #if INTEL_COLLAB
-      DtorCGF.emitDestroy(Address(CGM.GetAddrOfGlobalVar(VD),
-                                  DtorCGF.ConvertTypeForMem(VD->getType()),
-                                  CGM.getContext().getDeclAlign(VD)),
+      DtorCGF.emitDestroy(
+          Address(CGM.GetAddrOfGlobalVar(VD),
+                  DtorCGF.ConvertTypeForMem(VD->getType()),
+                  CGM.getContext().getDeclAlign(VD)), ASTTy,
 #else // INTEL_COLLAB
-      DtorCGF.emitDestroy(Address(Addr, CGM.getContext().getDeclAlign(VD)),
-#endif // INTEL_COLLAB
-                          ASTTy, DtorCGF.getDestroyer(ASTTy.isDestructedType()),
-                          DtorCGF.needsEHCleanup(ASTTy.isDestructedType()));
-=======
       DtorCGF.emitDestroy(
           Address::deprecated(Addr, CGM.getContext().getDeclAlign(VD)), ASTTy,
+#endif // INTEL_COLLAB
           DtorCGF.getDestroyer(ASTTy.isDestructedType()),
           DtorCGF.needsEHCleanup(ASTTy.isDestructedType()));
->>>>>>> 8d270a78378f6cc1c31c11c62135824c1e57b1ac
       DtorCGF.FinishFunction();
       Dtor = Fn;
       ID = llvm::ConstantExpr::getBitCast(Fn, CGM.Int8PtrTy);
@@ -8425,10 +8414,10 @@ public:
           return BaseLV;
         };
         if (OAShE) {
-<<<<<<< HEAD
-          LowestElem = LB = Address(CGF.EmitScalarExpr(OAShE->getBase()),
-                                    CGF.getContext().getTypeAlignInChars(
-                                        OAShE->getBase()->getType()));
+          LowestElem = LB =
+              Address::deprecated(CGF.EmitScalarExpr(OAShE->getBase()),
+                                  CGF.getContext().getTypeAlignInChars(
+                                      OAShE->getBase()->getType()));
 #if INTEL_COLLAB
         } else if (CGF.CGM.getLangOpts().OpenMPLateOutline && OASE &&
                    isa<CXXThisExpr>(OASE->getBase()->IgnoreParenImpCasts())) {
@@ -8439,12 +8428,6 @@ public:
                           PTy->getAs<PointerType>()->getPointeeType()),
                       CGF.getContext().getTypeAlignInChars(PTy));
 #endif  // INTEL_COLLAB
-=======
-          LowestElem = LB =
-              Address::deprecated(CGF.EmitScalarExpr(OAShE->getBase()),
-                                  CGF.getContext().getTypeAlignInChars(
-                                      OAShE->getBase()->getType()));
->>>>>>> 8d270a78378f6cc1c31c11c62135824c1e57b1ac
         } else if (IsMemberReference) {
           const auto *ME = cast<MemberExpr>(I->getAssociatedExpression());
           LValue BaseLVal = EmitMemberExprBase(CGF, ME);
@@ -9613,8 +9596,9 @@ public:
     assert(ClassDecl && "not a class decl");
     CodeGenModule::InTargetRegionRAII ITR(CGF.CGM, /*ShouldEnter=*/true);
     for (const CodeGenFunction::VPtr &Vptr : CGF.getVTablePointers(ClassDecl)) {
-      Address This = Address(PartialStruct.Base.getPointer(),
-                             CGF.CGM.getContext().getTypeAlignInChars(ClassTy));
+      Address This = Address::deprecated(
+          PartialStruct.Base.getPointer(),
+          CGF.CGM.getContext().getTypeAlignInChars(ClassTy));
       llvm::Value *VPtrValue = CGF.GetVptr(Vptr, This);
       if (!VPtrValue)
         continue;
