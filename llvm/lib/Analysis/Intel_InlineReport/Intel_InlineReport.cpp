@@ -89,61 +89,65 @@ InlineReportCallSite::cloneBase(const ValueToValueMapTy &IIMap,
 ///
 /// Print a simple message.
 ///
+/// OS: The output stream to print to
 /// message: The message being printed
 /// indentCount: The number of indentations before printing the message
 /// level: The level N from '-inline-report=N'
 ///
-static void printSimpleMessage(const char *Message, unsigned IndentCount,
-                               unsigned Level, bool IsInline) {
+static void printSimpleMessage(formatted_raw_ostream &OS, const char *Message,
+                               unsigned IndentCount, unsigned Level,
+                               bool IsInline) {
 #if !INTEL_PRODUCT_RELEASE
   if (Level & InlineReportOptions::Reasons) {
     if (Level & InlineReportOptions::SameLine) {
-      llvm::errs() << " ";
+      OS << " ";
     } else {
-      llvm::errs() << "\n";
-      printIndentCount(IndentCount + 1);
+      OS << "\n";
+      printIndentCount(OS, IndentCount + 1);
     }
-    llvm::errs() << (IsInline ? "<<" : "[[");
-    llvm::errs() << Message;
-    llvm::errs() << (IsInline ? ">>" : "]]");
-    llvm::errs() << "\n";
+    OS << (IsInline ? "<<" : "[[");
+    OS << Message;
+    OS << (IsInline ? ">>" : "]]");
+    OS << "\n";
     return;
   }
 #endif // !INTEL_PRODUCT_RELEASE
-  llvm::errs() << "\n";
+  OS << "\n";
 }
 
 ///
 /// Print the inlining cost and threshold values
 ///
-void InlineReportCallSite::printCostAndThreshold(unsigned Level) {
+void InlineReportCallSite::printCostAndThreshold(formatted_raw_ostream &OS,
+                                                 unsigned Level) {
   if (!(Level & InlineReportOptions::EarlyExitCost))
     return;
-  llvm::errs() << " (" << getInlineCost();
+  OS << " (" << getInlineCost();
   if (getIsInlined())
-    llvm::errs() << "<=";
+    OS << "<=";
   else
-    llvm::errs() << ">";
-  llvm::errs() << getInlineThreshold();
+    OS << ">";
+  OS << getInlineThreshold();
   if (((Level & InlineReportOptions::RealCost) != 0) && isEarlyExit() &&
       !getIsInlined()) {
     // Under RealCost flag we compute both real and "early exit" costs and
     // thresholds of inlining.
-    llvm::errs() << " [EE:" << getEarlyExitInlineCost();
-    llvm::errs() << ">";
-    llvm::errs() << getEarlyExitInlineThreshold() << "]";
+    OS << " [EE:" << getEarlyExitInlineCost();
+    OS << ">";
+    OS << getEarlyExitInlineThreshold() << "]";
   }
-  llvm::errs() << ")";
+  OS << ")";
 }
 
 ///
 /// Print the outer inlining cost and threshold values
 ///
-void InlineReportCallSite::printOuterCostAndThreshold(unsigned Level) {
+void InlineReportCallSite::printOuterCostAndThreshold(formatted_raw_ostream &OS,
+                                                      unsigned Level) {
   if (!(Level & InlineReportOptions::EarlyExitCost))
     return;
-  llvm::errs() << " (" << getOuterInlineCost() << ">" << getInlineCost() << ">"
-               << getInlineThreshold() << ")";
+  OS << " (" << getOuterInlineCost() << ">" << getInlineCost() << ">"
+     << getInlineThreshold() << ")";
 }
 
 ///
@@ -152,10 +156,11 @@ void InlineReportCallSite::printOuterCostAndThreshold(unsigned Level) {
 /// For an explanation of the meaning of these letters,
 /// see Intel_InlineReport.h.
 ///
-static void printFunctionLinkage(unsigned Level, InlineReportFunction *IRF) {
+static void printFunctionLinkage(formatted_raw_ostream &OS, unsigned Level,
+                                 InlineReportFunction *IRF) {
   if (!(Level & InlineReportOptions::Linkage))
     return;
-  llvm::errs() << IRF->getLinkageChar() << " ";
+  OS << IRF->getLinkageChar() << " ";
 }
 
 ///
@@ -164,83 +169,87 @@ static void printFunctionLinkage(unsigned Level, InlineReportFunction *IRF) {
 /// For an explanation of the meaning of these letters,
 /// see Intel_InlineReport.h.
 ///
-static void printFunctionLanguage(unsigned Level, InlineReportFunction *IRF) {
+static void printFunctionLanguage(formatted_raw_ostream &OS, unsigned Level,
+                                  InlineReportFunction *IRF) {
   if (!(Level & InlineReportOptions::Language))
     return;
-  llvm::errs() << IRF->getLanguageChar() << " ";
+  OS << IRF->getLanguageChar() << " ";
 }
 
 ///
 /// Print optionally the callee linkage and language, and then the
 /// callee name, and if non-zero, the line and column number of the call site
 ///
-void InlineReportCallSite::printCalleeNameModuleLineCol(unsigned Level) {
+void InlineReportCallSite::printCalleeNameModuleLineCol(
+    formatted_raw_ostream &OS, unsigned Level) {
   if (getIRCallee()) {
-    printFunctionLinkage(Level, getIRCallee());
-    printFunctionLanguage(Level, getIRCallee());
-    llvm::errs() << getIRCallee()->getName();
+    printFunctionLinkage(OS, Level, getIRCallee());
+    printFunctionLanguage(OS, Level, getIRCallee());
+    OS << getIRCallee()->getName();
   }
   if (Level & InlineReportOptions::File)
-    llvm::errs() << " " << M->getModuleIdentifier();
+    OS << " " << M->getModuleIdentifier();
   if ((Level & InlineReportOptions::LineCol) && (Line != 0 || Col != 0))
-    llvm::errs() << " (" << Line << "," << Col << ")";
+    OS << " (" << Line << "," << Col << ")";
 }
 
 ///
 /// Print a representation of the inlining instance.
 ///
+/// OS: The output stream to print to
 /// indentCount: The number of indentations to print
 /// level: The level N from '-inline-report=N'
 ///
-void InlineReportCallSite::print(unsigned IndentCount, unsigned Level) {
+void InlineReportCallSite::print(formatted_raw_ostream &OS,
+                                 unsigned IndentCount, unsigned Level) {
   assert(InlineReasonText[getReason()].Type != InlPrtNone);
-  printIndentCount(IndentCount);
+  printIndentCount(OS, IndentCount);
   if (getIsInlined()) {
-    llvm::errs() << "-> INLINE: ";
-    printCalleeNameModuleLineCol(Level);
+    OS << "-> INLINE: ";
+    printCalleeNameModuleLineCol(OS, Level);
     if (InlineReasonText[getReason()].Type == InlPrtCost)
-      printCostAndThreshold(Level);
-    printSimpleMessage(InlineReasonText[getReason()].Message, IndentCount,
+      printCostAndThreshold(OS, Level);
+    printSimpleMessage(OS, InlineReasonText[getReason()].Message, IndentCount,
                        Level, true);
   } else {
     if (InlineReasonText[getReason()].Type == InlPrtSpecial) {
       switch (getReason()) {
       case NinlrDeleted:
-        llvm::errs() << "-> DELETE: ";
-        printCalleeNameModuleLineCol(Level);
-        llvm::errs() << "\n";
+        OS << "-> DELETE: ";
+        printCalleeNameModuleLineCol(OS, Level);
+        OS << "\n";
         break;
       case NinlrExtern:
         if (Level & InlineReportOptions::Externs) {
-          llvm::errs() << "-> EXTERN: ";
-          printCalleeNameModuleLineCol(Level);
-          llvm::errs() << "\n";
+          OS << "-> EXTERN: ";
+          printCalleeNameModuleLineCol(OS, Level);
+          OS << "\n";
         }
         break;
       case NinlrIndirect:
         if (Level & InlineReportOptions::Indirects) {
-          llvm::errs() << "-> INDIRECT: ";
-          printCalleeNameModuleLineCol(Level);
-          printSimpleMessage(InlineReasonText[getReason()].Message, IndentCount,
-                             Level, false);
+          OS << "-> INDIRECT: ";
+          printCalleeNameModuleLineCol(OS, Level);
+          printSimpleMessage(OS, InlineReasonText[getReason()].Message,
+                             IndentCount, Level, false);
         }
         break;
       case NinlrOuterInlining:
-        llvm::errs() << "-> ";
-        printCalleeNameModuleLineCol(Level);
-        printOuterCostAndThreshold(Level);
-        printSimpleMessage(InlineReasonText[getReason()].Message, IndentCount,
-                           Level, false);
+        OS << "-> ";
+        printCalleeNameModuleLineCol(OS, Level);
+        printOuterCostAndThreshold(OS, Level);
+        printSimpleMessage(OS, InlineReasonText[getReason()].Message,
+                           IndentCount, Level, false);
         break;
       default:
         assert(0);
       }
     } else {
-      llvm::errs() << "-> ";
-      printCalleeNameModuleLineCol(Level);
+      OS << "-> ";
+      printCalleeNameModuleLineCol(OS, Level);
       if (InlineReasonText[getReason()].Type == InlPrtCost)
-        printCostAndThreshold(Level);
-      printSimpleMessage(InlineReasonText[getReason()].Message, IndentCount,
+        printCostAndThreshold(OS, Level);
+      printSimpleMessage(OS, InlineReasonText[getReason()].Message, IndentCount,
                          Level, false);
     }
   }
@@ -653,34 +662,37 @@ void InlineReport::setReasonNotInlined(CallBase *Call, const InlineCost &IC,
 ///
 /// Print the callsites in the 'Vector'.
 ///
+/// OS: The output stream to print to
 /// indentCount: The number of indentations to print
 /// level: The level N from '-inline-report=N'
 ///
 static void
-printInlineReportCallSiteVector(const InlineReportCallSiteVector &Vector,
+printInlineReportCallSiteVector(formatted_raw_ostream &OS,
+                                const InlineReportCallSiteVector &Vector,
                                 unsigned IndentCount, unsigned Level) {
   for (unsigned I = 0, E = Vector.size(); I < E; ++I) {
     InlineReportCallSite *IRCS = Vector[I];
     if (IRCS->getSuppressPrint())
       continue;
-    IRCS->print(IndentCount, Level);
-    printInlineReportCallSiteVector(IRCS->getChildren(), IndentCount + 1,
+    IRCS->print(OS, IndentCount, Level);
+    printInlineReportCallSiteVector(OS, IRCS->getChildren(), IndentCount + 1,
                                     Level);
   }
 }
 
-void InlineReportFunction::print(unsigned Level) const {
+void InlineReportFunction::print(formatted_raw_ostream &OS,
+                                 unsigned Level) const {
   if (!Level || (Level & InlineReportTypes::BasedOnMetadata))
     return;
-  printInlineReportCallSiteVector(CallSites, 1, Level);
+  printInlineReportCallSiteVector(OS, CallSites, 1, Level);
 }
 
 void InlineReport::print() const {
   if (!isClassicIREnabled())
     return;
-  llvm::errs() << "---- Begin Inlining Report ----\n";
+  OS << "---- Begin Inlining Report ----\n";
   if (Level & InlineReportOptions::Options)
-    printOptionValues();
+    printOptionValues(OS);
   auto &IRDFS = IRDeadFunctionSet;
   if (Level & InlineReportOptions::DeadStatics) {
     for (auto I = IRDFS.begin(), E = IRDFS.end(); I != E; ++I) {
@@ -688,10 +700,10 @@ void InlineReport::print() const {
       // Suppress inline report on any Function with Suppress mark on
       if (IRF->getSuppressPrint())
         continue;
-      llvm::errs() << "DEAD STATIC FUNC: ";
-      printFunctionLinkage(Level, IRF);
-      printFunctionLanguage(Level, IRF);
-      llvm::errs() << IRF->getName() << "\n\n";
+      OS << "DEAD STATIC FUNC: ";
+      printFunctionLinkage(OS, Level, IRF);
+      printFunctionLanguage(OS, Level, IRF);
+      OS << IRF->getName() << "\n\n";
     }
   }
 
@@ -705,16 +717,16 @@ void InlineReport::print() const {
     if (IRF->getSuppressPrint())
       continue;
     if (!IRF->getIsDeclaration()) {
-      llvm::errs() << "COMPILE FUNC: ";
-      printFunctionLinkage(Level, IRF);
-      printFunctionLanguage(Level, IRF);
-      llvm::errs() << IRF->getName() << "\n";
+      OS << "COMPILE FUNC: ";
+      printFunctionLinkage(OS, Level, IRF);
+      printFunctionLanguage(OS, Level, IRF);
+      OS << IRF->getName() << "\n";
       InlineReportFunction *IRF = Mit->second;
-      IRF->print(Level);
-      llvm::errs() << "\n";
+      IRF->print(OS, Level);
+      OS << "\n";
     }
   }
-  llvm::errs() << "---- End Inlining Report ------\n";
+  OS << "---- End Inlining Report ------\n";
 }
 
 void InlineReport::testAndPrint(void *Inliner) {
@@ -746,7 +758,7 @@ bool InlineReport::validateFunction(Function *F) {
   if (MapIt == IRFunctionMap.end())
     return false;
   InlineReportFunction *IRF = MapIt->second;
-  IRF->print(Level);
+  IRF->print(llvm::ferrs(), Level);
   std::map<CallBase *, bool> OriginalCalls;
   const InlineReportCallSiteVector &Vec = IRF->getCallSites();
   for (unsigned I = 0, E = Vec.size(); I < E; ++I)
