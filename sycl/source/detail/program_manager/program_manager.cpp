@@ -1190,7 +1190,6 @@ void ProgramManager::addImages(pi_device_binaries DeviceBinary) {
         for (_pi_offload_entry EntriesIt = EntriesB; EntriesIt != EntriesE;
              ++EntriesIt) {
           KSIdMap.insert(std::make_pair(EntriesIt->name, KSId));
-<<<<<<< HEAD
         }
       }
       // ... and initialize associated device_global information
@@ -1217,8 +1216,6 @@ void ProgramManager::addImages(pi_device_binaries DeviceBinary) {
               *reinterpret_cast<const std::uint32_t *>(&DeviceGlobalInfo[8]);
           const std::uint32_t DeviceImageScopeDecorated = DeviceGlobalInfo[12];
           Entry->second.initialize(TypeSize, DeviceImageScopeDecorated);
-=======
->>>>>>> a6df14b11f6bddc17f33cc151e9b6a8353455d14
         }
       }
       m_DeviceImages[KSId].reset(new std::vector<RTDeviceBinaryImageUPtr>());
