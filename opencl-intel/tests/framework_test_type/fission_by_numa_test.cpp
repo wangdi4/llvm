@@ -18,6 +18,7 @@
 //|
 //| Return true in case of SUCCESS.
 
+#include "CL/cl_ext.h"
 #include "FrameworkTest.h"
 #include "cl_sys_info.h"
 #include <CL/cl.h>
@@ -103,6 +104,13 @@ void fission_by_numa_test() {
     ASSERT_EQ(err, CL_SUCCESS) << "failed to get device info.";
     ASSERT_EQ(computeUnits, maxComputeUnits / numDevices)
         << "The number of compute units of subdevice is not correct.";
+
+    cl_uint NumSlices;
+    err = clGetDeviceInfo(subDevIds[i], CL_DEVICE_NUM_SLICES_INTEL,
+                          sizeof(NumSlices), &NumSlices, nullptr);
+    ASSERT_EQ(err, CL_SUCCESS) << "failed to get device info.";
+    ASSERT_EQ(NumSlices, 1)
+        << "Each subdevice should be bond to one NUMA node.";
 
     // create context
     context[i] =

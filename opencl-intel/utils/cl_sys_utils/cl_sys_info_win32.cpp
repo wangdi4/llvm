@@ -329,11 +329,24 @@ bool Intel::OpenCL::Utils::IsHyperThreadingEnabled()
 ///////////////////////////////////////////////////////////////////////////////////////////
 // return the number of NUMA nodes on the system
 ////////////////////////////////////////////////////////////////////
-unsigned long Intel::OpenCL::Utils::GetMaxNumaNode()
-{
-    unsigned long ret = 0;
-    GetNumaHighestNodeNumber(&ret);
-    return ret;
+unsigned long Intel::OpenCL::Utils::GetMaxNumaNode() {
+  static unsigned int NumNodes = 0;
+  if (0 == NumNodes) {
+    DWORD Size;
+    std::vector<unsigned char> Bytes;
+    BOOL Status = GetProcessorInfo(RelationNumaNode, Bytes, Size);
+    if (!Status)
+      return 1;
+
+    unsigned char *PI = Bytes.data(), *PE = Bytes.data() + Size;
+    while (PI < PE) {
+      auto LPI = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)PI;
+      NumNodes++;
+      PI += LPI->Size;
+    }
+  }
+  assert(NumNodes > 0 && "Number of NUMA nodes should not be 0");
+  return NumNodes;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////

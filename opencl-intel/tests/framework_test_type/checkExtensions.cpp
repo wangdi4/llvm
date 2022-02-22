@@ -63,6 +63,7 @@ const std::map<std::string, cl_version> extRefCPU = {
     {"cl_khr_spir", CL_MAKE_VERSION(1, 0, 0)},
     {"cl_khr_fp64", CL_MAKE_VERSION(1, 0, 0)},
     {"cl_khr_image2d_from_buffer", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_intel_device_attribute_query", CL_MAKE_VERSION(1, 0, 0)},
     {"cl_intel_required_subgroup_size", CL_MAKE_VERSION(1, 0, 0)},
     {"cl_intel_spirv_subgroups", CL_MAKE_VERSION(1, 0, 0)},
     {"cl_intel_subgroups", CL_MAKE_VERSION(1, 0, 0)},
