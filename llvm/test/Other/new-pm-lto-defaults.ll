@@ -134,10 +134,14 @@
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ: Running pass: PartialInlinerPass
 ; CHECK-O23SZ: Running pass: CallTreeCloningPass
+; CHECK-O23SZ: Running pass: IPSCCPPass
+; CHECK-O23SZ-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Module
+; CHECK-O23SZ-NEXT: Running analysis: DominatorTreeAnalysis on foo
+; CHECK-O23SZ-NEXT: Running analysis: AssumptionAnalysis on foo
+; CHECK-O23SZ-NEXT: Running analysis: TargetIRAnalysis on foo
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ: Running pass: GlobalDCEPass
 ; INTEL_CUSTOMIZATION
-; CHECK-O23SZ-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Module
 ; CHECK-O23SZ-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Module
 ; CHECK-O23SZ-NEXT: Running analysis: LazyCallGraphAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: TargetLibraryAnalysis
@@ -145,12 +149,9 @@
 ; CHECK-O23SZ-NEXT: Running analysis: OuterAnalysisManagerProxy
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: ArgumentPromotionPass
-; CHECK-O23SZ-NEXT: Running analysis: TargetIRAnalysis ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: IPArrayTransposePass ;INTEL
 ; CHECK-O23SZ: Running pass: InstCombinePass
 ; INTEL_CUSTOMIZATION
-; CHECK-O23SZ-NEXT: Running analysis: AssumptionAnalysis on foo
-; CHECK-O23SZ-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: AAManager
 ; CHECK-O23SZ-NEXT: Running analysis: BasicAA
