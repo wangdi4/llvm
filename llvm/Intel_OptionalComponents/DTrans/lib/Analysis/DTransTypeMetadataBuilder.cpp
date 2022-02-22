@@ -57,19 +57,24 @@ void DTransTypeMetadataBuilder::setDTransFuncMetadata(
     }
   };
 
-  // Clear any existing DTrans attributes for the function, and build the new
-  // attribute and metadata information for the function type.
+  // Clear any existing DTrans attributes for the function
   F->setMetadata(DTransFuncTypeMDTag, nullptr);
-  SmallVector<Metadata *, 8> MDTypeList;
-  DTransType *RetTy = FnType->getReturnType();
-  assert(RetTy && "Invalid FnType");
-  LLVMContext &Ctx = F->getContext();
   RemoveDTransFuncIndexAttribute(F, AttributeList::ReturnIndex);
-  AddAttributeIfNeeded(F, RetTy, AttributeList::ReturnIndex, MDTypeList);
-
-  unsigned NumArgs = FnType->getNumArgs();
-  for (unsigned ArgIdx = 0; ArgIdx < NumArgs; ++ArgIdx) {
+  unsigned NumArgs = F->arg_size();
+  for (unsigned ArgIdx = 0; ArgIdx < NumArgs; ++ArgIdx)
     RemoveDTransFuncIndexAttribute(F, AttributeList::FirstArgIndex + ArgIdx);
+
+  if (!FnType)
+    return;
+
+  // Build the new attribute and metadata information for the function type.
+  DTransType *RetTy = FnType->getReturnType();
+  assert(FnType->getNumArgs() == NumArgs && "Invalid FnType");
+  assert(RetTy && "Invalid FnType");
+
+  SmallVector<Metadata *, 8> MDTypeList;
+  AddAttributeIfNeeded(F, RetTy, AttributeList::ReturnIndex, MDTypeList);
+  for (unsigned ArgIdx = 0; ArgIdx < NumArgs; ++ArgIdx) {
     DTransType *ArgTy = FnType->getArgType(ArgIdx);
     assert(ArgTy && "Invalid FnType");
     AddAttributeIfNeeded(F, ArgTy, AttributeList::FirstArgIndex + ArgIdx,
@@ -77,7 +82,7 @@ void DTransTypeMetadataBuilder::setDTransFuncMetadata(
   }
 
   if (!MDTypeList.empty()) {
-    auto *MDTypes = MDTuple::getDistinct(Ctx, MDTypeList);
+    auto *MDTypes = MDTuple::getDistinct(F->getContext(), MDTypeList);
     F->addMetadata(DTransFuncTypeMDTag, *MDTypes);
   }
 }

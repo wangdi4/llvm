@@ -21,6 +21,7 @@
 #define INTEL_DTRANS_ANALYSIS_TYPEMETADATAREADER_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 
@@ -63,6 +64,22 @@ public:
   // Get the NameMDNode for the module that contains the list of metadata nodes
   // used to describe all the structure types.
   static NamedMDNode* getDTransTypesMetadata(Module &M);
+
+  // Walk the '!intel.dtrans.types', if it exists, populating 'Mapping' with the
+  // StructType to MDNode that describes the structure. A MapVector is used to
+  // help with testing to maintain an ordering of the items for checking the
+  // output in a deterministic manner. However, the order may differ than the
+  // original metadata node because opaque structure types will be placed into
+  // the vector after all the non-opaque structures.
+  //
+  // When IncludeOpaque = false, opaque structure types will not be placed in
+  // the map. Otherwise, opaque structure types will be placed in the map if
+  // there is not a non-opaque structure available for it.
+  //
+  // Returns 'false' if '!intel.dtrans.types' does not exist.
+  static bool mapStructsToMDNodes(Module &M,
+                                  MapVector<StructType *, MDNode *> &Mapping,
+                                  bool IncludeOpaque);
 
   // Get the DTrans metadata node for a specific value. This can be used by
   // the transformations to be able to update the metadata when changing types.

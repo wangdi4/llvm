@@ -192,6 +192,13 @@ inline Function *getCalledFunction(const CallBase &Call) {
   return nullptr;
 }
 
+/// Compare two structure names for sorted output. If the structure does
+/// not have a name, compare it by the printed representation. Treat named
+/// structures as less than literal structures.
+/// Returns 'true' if 'Ty1' < 'Ty2'
+bool compareStructName(const llvm::StructType *Ty1,
+                       const llvm::StructType *Ty2);
+
 } // namespace dtrans
 } // namespace llvm
 
