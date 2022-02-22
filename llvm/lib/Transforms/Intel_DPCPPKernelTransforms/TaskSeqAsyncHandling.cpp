@@ -199,6 +199,7 @@ void Impl::generateInvokeMappers() {
     // Set the first block invoke as the default value.
     auto AsyncIt = AsyncFuncs.begin();
     auto *BlockInvoke = M.getFunction(getInovkeName(*AsyncIt));
+    assert(BlockInvoke && "Invoker function missed.");
     Value *LastVal = BlockInvoke;
 
     // Select the proper invoke based on the given async function using 'icmp'
@@ -210,6 +211,7 @@ void Impl::generateInvokeMappers() {
       auto *AsyncFuncVal = ConstantExpr::getPtrToInt(*AsyncIt, IntPtrTy);
       auto *Cmp = IRB.CreateICmp(CmpInst::ICMP_EQ, AsyncFuncVar, AsyncFuncVal);
       BlockInvoke = M.getFunction(getInovkeName(*AsyncIt));
+      assert(BlockInvoke && "Invoker function missed.");
       auto *Select = IRB.CreateSelect(Cmp, BlockInvoke, LastVal);
       LastVal = Select;
     }
