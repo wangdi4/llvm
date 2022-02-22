@@ -7363,9 +7363,9 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
 
   bool IsTargetVariantDispatchCase = false;
   if (HasTargetVariantDispatchConstruct) {
-    auto *PTy = dyn_cast<FunctionProtoType>(FD->getType());
-    auto *FTy = dyn_cast<FunctionNoProtoType>(FD->getType());
-    auto *VPTy = dyn_cast<FunctionProtoType>(VariantRef->getType());
+    auto *PTy = FD->getType()->getAsAdjusted<FunctionProtoType>();
+    auto *FTy = FD->getType()->getAsAdjusted<FunctionNoProtoType>();
+    auto *VPTy = VariantRef->getType()->getAsAdjusted<FunctionProtoType>();
     if (!PTy && FTy) {
       FunctionType::ExtInfo Ext = FTy->getExtInfo();
       FunctionProtoType::ExtProtoInfo EPI;
