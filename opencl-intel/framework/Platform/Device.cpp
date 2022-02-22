@@ -847,6 +847,18 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void 
         pValue = m_cachedFissionMode;
         break;
 
+    case CL_DEVICE_NUM_SLICES_INTEL:
+      // The term 'SLICE' is equivalent to a NUMA node on CPU.
+      // If the subdevice is partitioned by NUMA node, we can return 1.
+      if (m_cachedFissionLength >= 2 &&
+          m_cachedFissionMode[1] == CL_DEVICE_AFFINITY_DOMAIN_NUMA) {
+        const static cl_uint NUMAPerSubDeivce = 1;
+        szParamValueSize = sizeof(cl_uint);
+        pValue = &NUMAPerSubDeivce;
+        break;
+      }
+      // Otherwise, fallback to root device API.
+      // fallthrough
     default:
         return m_pRootDevice->GetInfo(param_name, param_value_size, param_value, param_value_size_ret);
     }

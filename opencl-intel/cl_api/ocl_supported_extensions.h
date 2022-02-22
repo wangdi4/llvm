@@ -62,3 +62,5 @@
 #define OCL_EXT_ES_KHR_INT64                           "cles_khr_int64"
 
 #define OCL_EXT_KHR_SPIRV_LINKONCE_ODR                 "cl_khr_spirv_linkonce_odr"
+
+#define OCL_EXT_INTEL_DEVICE_ATTRIBUTE_QUERY           "cl_intel_device_attribute_query"

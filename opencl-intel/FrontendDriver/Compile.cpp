@@ -167,6 +167,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   for (auto Ext : ExtVec)
     optionsEx << ",+" << Ext.str();
 
+  optionsEx << " -Dcl_intel_device_attribute_query";
   optionsEx << " -Dcl_intel_required_subgroup_size";
   optionsEx << " -Dcl_intel_subgroups_char";
   optionsEx << " -Dcl_intel_subgroups_long";

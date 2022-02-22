@@ -827,6 +827,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
   size_t internalRetunedValueSize = valSize;
   size_t *pinternalRetunedValueSize;
   unsigned int viCPUInfo[4] = {(unsigned int)-1};
+  const static cl_uint ThreadsPerCore = IsHyperThreadingEnabled() ? 2 : 1;
 
   // Do static initialize of the OpenCL Version
   static OPENCL_VERSION ver = OPENCL_VERSION_UNKNOWN;
@@ -1774,6 +1775,11 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
 
             return CL_DEV_SUCCESS;
         }
+
+        // The IP version for the device. The meaning of this version is
+        // implementation-defined, but newer devices should have a higher
+        // version than older devices.
+        case CL_DEVICE_IP_VERSION_INTEL:
         case CL_DEVICE_NUMERIC_VERSION:
         {
             cl_version openclVerNum = 0;
@@ -2335,6 +2341,63 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
                   CL_DEVICE_ATOMIC_SCOPE_DEVICE |
                   CL_DEVICE_ATOMIC_SCOPE_WORK_ITEM;
           }
+          return CL_DEV_SUCCESS;
+        case CL_DEVICE_ID_INTEL:
+          *pinternalRetunedValueSize = sizeof(cl_uint);
+          if (paramVal && valSize < *pinternalRetunedValueSize)
+            return CL_DEV_INVALID_VALUE;
+          if (paramVal) {
+            // Get processor info.
+            CPUID(viCPUInfo, 1);
+            // CPU's stepping, model, and family information in register EAX
+            *reinterpret_cast<cl_uint *>(paramVal) = (cl_uint)viCPUInfo[0];
+          }
+          return CL_DEV_SUCCESS;
+        case CL_DEVICE_NUM_SLICES_INTEL:
+          // The term 'SLICE' is equivalent to NUMA node on CPU.
+          *pinternalRetunedValueSize = sizeof(cl_uint);
+          if (paramVal && valSize < *pinternalRetunedValueSize)
+            return CL_DEV_INVALID_VALUE;
+          if (paramVal)
+            *reinterpret_cast<cl_uint *>(paramVal) = (cl_uint)GetMaxNumaNode();
+          return CL_DEV_SUCCESS;
+        case CL_DEVICE_NUM_SUB_SLICES_PER_SLICE_INTEL:
+          // 'SUBSLICE' doesn't make sense on CPU, just return 1.
+          *pinternalRetunedValueSize = sizeof(cl_uint);
+          if (paramVal && valSize < *pinternalRetunedValueSize)
+            return CL_DEV_INVALID_VALUE;
+          if (paramVal)
+            *reinterpret_cast<cl_uint *>(paramVal) = 1;
+          return CL_DEV_SUCCESS;
+        case CL_DEVICE_NUM_EUS_PER_SUB_SLICE_INTEL:
+          // Returns number of physical cores per NUMA node.
+          *pinternalRetunedValueSize = sizeof(cl_uint);
+          if (paramVal && valSize < *pinternalRetunedValueSize)
+            return CL_DEV_INVALID_VALUE;
+          if (paramVal) {
+            const static cl_uint NumPhysicalCores =
+                (cl_uint)GetNumberOfProcessors() / ThreadsPerCore;
+            const static cl_uint PhysicalCoresPerNode =
+                NumPhysicalCores / (cl_uint)GetMaxNumaNode();
+            *reinterpret_cast<cl_uint *>(paramVal) = PhysicalCoresPerNode;
+          }
+          return CL_DEV_SUCCESS;
+        case CL_DEVICE_NUM_THREADS_PER_EU_INTEL:
+          *pinternalRetunedValueSize = sizeof(cl_uint);
+          if (paramVal && valSize < *pinternalRetunedValueSize)
+            return CL_DEV_INVALID_VALUE;
+          if (paramVal)
+            *reinterpret_cast<cl_uint *>(paramVal) = ThreadsPerCore;
+          return CL_DEV_SUCCESS;
+        case CL_DEVICE_FEATURE_CAPABILITIES_INTEL:
+          *pinternalRetunedValueSize =
+              sizeof(cl_device_feature_capabilities_intel);
+          if (paramVal && valSize < *pinternalRetunedValueSize)
+            return CL_DEV_INVALID_VALUE;
+          // This currently is for GPU feature query only. Returns 0 for CPU.
+          if (paramVal)
+            *reinterpret_cast<cl_device_feature_capabilities_intel *>(
+                paramVal) = 0;
           return CL_DEV_SUCCESS;
         default:
             return CL_DEV_INVALID_VALUE;
