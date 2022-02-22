@@ -2272,3 +2272,27 @@ bool dtrans::analyzePartialAccessNestedStructures(const DataLayout &DL,
 
   return false;
 }
+
+bool dtrans::compareStructName(const llvm::StructType *Ty1,
+                               const llvm::StructType *Ty2) {
+  if (Ty1->hasName() && Ty2->hasName())
+    return Ty1->getName() < Ty2->getName();
+
+  // Named structures before literal structures
+  if (Ty1->hasName())
+    return true;
+  if (Ty2->hasName())
+    return false;
+
+  // Compare the printed forms of two literal structures
+  std::string Lit1;
+  raw_string_ostream OS1(Lit1);
+  OS1 << *Ty1;
+  OS1.flush();
+
+  std::string Lit2;
+  raw_string_ostream OS2(Lit2);
+  OS2 << *Ty2;
+  OS2.flush();
+  return Lit1 < Lit2;
+}

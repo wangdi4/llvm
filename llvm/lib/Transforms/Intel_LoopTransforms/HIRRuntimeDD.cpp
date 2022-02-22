@@ -627,7 +627,7 @@ void HIRRuntimeDD::createUnknownLoopUBInsts(LoopContext &Context) {
   // Clone temp from the bottom test's RHS instead of the cloned Load's lval.
   // (This way we don't have to check sext/zext).
   auto *PredIt = BottomTest->pred_begin();
-  auto *UBRef = BottomTest->getPredicateOperandDDRef(PredIt, false)->clone();
+  auto *UBRef = BottomTest->getRHSPredicateOperandDDRef(PredIt)->clone();
   auto *UBCE = UBRef->getSingleCanonExpr();
   UBCE->convertToStandAloneBlobOrConstant();
 
@@ -1108,8 +1108,8 @@ bool HIRRuntimeDD::isConvertibleUnknownLoop(const HLLoop *Loop) {
     return false;
   }
 
-  auto *LHSRef = BottomTest->getPredicateOperandDDRef(PredIt, true);
-  auto *RHSRef = BottomTest->getPredicateOperandDDRef(PredIt, false);
+  auto *LHSRef = BottomTest->getLHSPredicateOperandDDRef(PredIt);
+  auto *RHSRef = BottomTest->getRHSPredicateOperandDDRef(PredIt);
   if (!LHSRef->isTerminalRef() || !RHSRef->isTerminalRef()) {
     return false;
   }

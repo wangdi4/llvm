@@ -30,9 +30,9 @@
 /clang-tools-extra/ @aaronballman
 
 # CFE/OpenMP
-/llvm/include/llvm/Frontend/OpenMP/ @mikerice1969 @jyu2-git
-/llvm/lib/Frontend/OpenMP/ @mikerice1969 @jyu2-git
-/clang/**/*OpenMP* @mikerice1969 @jyu2-git
+/llvm/include/llvm/Frontend/OpenMP/ @mikerice1969 @jyu2-git @ddpagan
+/llvm/lib/Frontend/OpenMP/ @mikerice1969 @jyu2-git @ddpagan
+/clang/**/*OpenMP* @mikerice1969 @jyu2-git @ddpagan
 
 # JIRA: CMPLRLLVM->LLVM Driver
 /clang/**/Driver @intel-restricted/cmplrllvm-llvm-driver

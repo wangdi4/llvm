@@ -568,8 +568,8 @@ bool HIRLoopInterchange::CollectCandidateLoops::isJumpThreadingFriendly(
   }
 
   // Check Pred Operands - first If
-  const RegDDRef *LHS = If->getPredicateOperandDDRef(PredI, true);
-  const RegDDRef *RHS = If->getPredicateOperandDDRef(PredI, false);
+  const RegDDRef *LHS = If->getLHSPredicateOperandDDRef(PredI);
+  const RegDDRef *RHS = If->getRHSPredicateOperandDDRef(PredI);
 
   // We are looking for a specific pattern, where conditions of if-stmt
   // are same across one or more iterations.
@@ -618,8 +618,8 @@ bool HIRLoopInterchange::CollectCandidateLoops::isJumpThreadingFriendly(
   // Compare remaining Ifs against the first If
   for (const HLIf *I : make_range(std::next(IfVec.begin()), IfVec.end())) {
 
-    const RegDDRef *ILhs = I->getPredicateOperandDDRef(I->pred_begin(), true);
-    const RegDDRef *IRhs = I->getPredicateOperandDDRef(I->pred_begin(), false);
+    const RegDDRef *ILhs = I->getLHSPredicateOperandDDRef(I->pred_begin());
+    const RegDDRef *IRhs = I->getRHSPredicateOperandDDRef(I->pred_begin());
 
     const RegDDRef *InputRefs[2] = {ILhs, IRhs};
     const RegDDRef *LoadSrcRefs[2] = {nullptr, nullptr};

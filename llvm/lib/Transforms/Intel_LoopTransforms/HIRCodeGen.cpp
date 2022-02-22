@@ -1307,8 +1307,8 @@ Value *CGVisitor::generatePredicate(HLIf *HIf, HLIf::const_pred_iterator P) {
   Value *CurPred = nullptr;
   Value *LHSVal, *RHSVal;
 
-  RegDDRef *LHSRef = HIf->getPredicateOperandDDRef(P, true);
-  RegDDRef *RHSRef = HIf->getPredicateOperandDDRef(P, false);
+  RegDDRef *LHSRef = HIf->getLHSPredicateOperandDDRef(P);
+  RegDDRef *RHSRef = HIf->getRHSPredicateOperandDDRef(P);
 
   // For undef predicate, we don't need to CG operands since end result
   // is undef anyway.

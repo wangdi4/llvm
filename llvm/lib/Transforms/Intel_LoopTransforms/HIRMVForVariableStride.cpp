@@ -536,9 +536,9 @@ bool HIRMVForVariableStride::MVTransformer::transformLoop(
 
   // Consistency of if-conditions
   for (auto PI = If->pred_begin(), E = If->pred_end(); PI != E; PI++) {
-    If->getPredicateOperandDDRef(PI, true)->makeConsistent(
+    If->getLHSPredicateOperandDDRef(PI)->makeConsistent(
         RefsToRewrite, OuterLoopToMV->getNestingLevel() - 1);
-    If->getPredicateOperandDDRef(PI, false)->makeConsistent(
+    If->getRHSPredicateOperandDDRef(PI)->makeConsistent(
         RefsToRewrite, OuterLoopToMV->getNestingLevel() - 1);
   }
 

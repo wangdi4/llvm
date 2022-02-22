@@ -277,8 +277,8 @@ public:
     // conditions.
     bool BothSidesIV = false;
     for (auto Iter = If->pred_begin(), E = If->pred_end(); Iter != E; ++Iter) {
-      const RegDDRef *LHSRef = If->getPredicateOperandDDRef(Iter, true);
-      const RegDDRef *RHSRef = If->getPredicateOperandDDRef(Iter, false);
+      const RegDDRef *LHSRef = If->getLHSPredicateOperandDDRef(Iter);
+      const RegDDRef *RHSRef = If->getRHSPredicateOperandDDRef(Iter);
 
       bool LHSIV;
       bool RHSIV;
@@ -362,8 +362,8 @@ void HIROptVarPredicate::replaceIfCondWithConvertedBlob(
   // Take care of the first If
   HLIf *IfCandidate = Candidate.front();
   auto PredI = IfCandidate->pred_begin();
-  RegDDRef *OrigLHS = IfCandidate->getPredicateOperandDDRef(PredI, true);
-  RegDDRef *OrigRHS = IfCandidate->getPredicateOperandDDRef(PredI, false);
+  RegDDRef *OrigLHS = IfCandidate->getLHSPredicateOperandDDRef(PredI);
+  RegDDRef *OrigRHS = IfCandidate->getRHSPredicateOperandDDRef(PredI);
   RegDDRef *OldRef = IsLHSConverted ? OrigLHS : OrigRHS;
   IfCandidate->replaceOperandDDRef(OldRef, NewBlob);
 
@@ -378,8 +378,8 @@ void HIROptVarPredicate::replaceIfCondWithConvertedBlob(
   for (HLIf *IfCandidate :
        make_range(std::next(Candidate.begin()), Candidate.end())) {
     auto PredI = IfCandidate->pred_begin();
-    RegDDRef *OrigLHS = IfCandidate->getPredicateOperandDDRef(PredI, true);
-    RegDDRef *OrigRHS = IfCandidate->getPredicateOperandDDRef(PredI, false);
+    RegDDRef *OrigLHS = IfCandidate->getLHSPredicateOperandDDRef(PredI);
+    RegDDRef *OrigRHS = IfCandidate->getRHSPredicateOperandDDRef(PredI);
     RegDDRef *OldRef = IsLHSConverted ? OrigLHS : OrigRHS;
     IfCandidate->replaceOperandDDRef(OldRef, NewBlob->clone());
   }
@@ -1009,8 +1009,8 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
     }
 
     auto PredI = IfCandidate->pred_begin();
-    RegDDRef *LHS = IfCandidate->getPredicateOperandDDRef(PredI, true);
-    RegDDRef *RHS = IfCandidate->getPredicateOperandDDRef(PredI, false);
+    RegDDRef *LHS = IfCandidate->getLHSPredicateOperandDDRef(PredI);
+    RegDDRef *RHS = IfCandidate->getRHSPredicateOperandDDRef(PredI);
 
     PredicateTy Pred = *PredI;
 

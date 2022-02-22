@@ -168,8 +168,8 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
       HasIf = true;
 
       for (auto I = If->pred_begin(), E = If->pred_end(); I != E; ++I) {
-        const RegDDRef *LhsRef = If->getPredicateOperandDDRef(I, true);
-        const RegDDRef *RhsRef = If->getPredicateOperandDDRef(I, false);
+        const RegDDRef *LhsRef = If->getLHSPredicateOperandDDRef(I);
+        const RegDDRef *RhsRef = If->getRHSPredicateOperandDDRef(I);
         if (*I != PredicateTy::ICMP_NE) {
           LLVM_DEBUG(dbgs() << "        PredicateTy " << *I;
                      dbgs() << " is unsafe.\n");
@@ -328,9 +328,9 @@ VPlanIdioms::isPtrEqSearchLoop(const VPBasicBlock *Block,
       return VPlanIdioms::Unsafe;
     }
 
-    const RegDDRef *PredLhs = If->getPredicateOperandDDRef(PredIt, true);
+    const RegDDRef *PredLhs = If->getLHSPredicateOperandDDRef(PredIt);
     Type *PredLhsType = PredLhs->getDestType();
-    const RegDDRef *PredRhs = If->getPredicateOperandDDRef(PredIt, false);
+    const RegDDRef *PredRhs = If->getRHSPredicateOperandDDRef(PredIt);
 
     LLVM_DEBUG(dbgs() << "PtrEq: Pred:" << *PredIt << "\nPredLhs:";
                PredLhs->dump(true); dbgs() << "\nPredRhs:"; PredRhs->dump(true);

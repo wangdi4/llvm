@@ -115,29 +115,10 @@ void DTransImmutableInfo::print(raw_ostream &OS) const {
   llvm::sort(StructsAndInfos,
              [](const std::pair<StructType *, StructInfo *> &Entry1,
                 const std::pair<StructType *, StructInfo *> &Entry2) {
-              StructType *Ty1 = Entry1.first;
-              StructType *Ty2 = Entry2.first;
-              if (Ty1->hasName() && Ty2->hasName())
-                return Ty1->getName() < Ty2->getName();
-
-              // Named structures before literal structures
-              if (Ty1->hasName())
-                return true;
-              if (Ty2->hasName())
-                return false;
-
-              // Compare the printed forms of two literal structures
-              std::string Lit1;
-              raw_string_ostream OS1(Lit1);
-              OS1 << *Ty1;
-              OS1.flush();
-
-              std::string Lit2;
-              raw_string_ostream OS2(Lit2);
-              OS2 << *Ty2;
-              OS2.flush();
-              return Lit1 < Lit2;
-            });
+               StructType *Ty1 = Entry1.first;
+               StructType *Ty2 = Entry2.first;
+               return dtrans::compareStructName(Ty1, Ty2);
+             });
 
   for (auto &Info : StructsAndInfos) {
     OS << "StructType: ";
