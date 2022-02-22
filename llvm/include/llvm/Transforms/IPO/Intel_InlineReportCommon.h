@@ -18,6 +18,7 @@
 
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Support/FormattedStream.h"
 
 namespace llvm {
 
@@ -266,13 +267,14 @@ static_assert(sizeof(InlineReasonText) ==
               "Missing report message");
 
 // Print indent
-void printIndentCount(unsigned indentCount);
+void printIndentCount(formatted_raw_ostream &OS, unsigned indentCount);
 // Get string value from metadata consuming 'Front' of the MDString
 StringRef getOpStr(Metadata *Node, StringRef Front);
 // Get integer value from metadata consuming 'Front' of the MDString
 void getOpVal(Metadata *Node, StringRef Front, int64_t *Val);
 // Print the inlining option values
-void printOptionValues(unsigned OptLevel = 0, unsigned SizeLevel = 0);
+void printOptionValues(formatted_raw_ostream &OS, unsigned OptLevel = 0,
+                       unsigned SizeLevel = 0);
 // Print function inline report
 void printFunctionInlineReport(Function *F, unsigned Level);
 // Print call site inline report

@@ -17,6 +17,7 @@
 //
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"
 
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
@@ -42,7 +43,7 @@ public:
   IREmitterInfo(Module &M, unsigned Level, unsigned OptLevel,
                 unsigned SizeLevel, bool PrepareForLTO)
       : M(M), Level(Level), OptLevel(OptLevel), SizeLevel(SizeLevel),
-        PrepareForLTO(PrepareForLTO) {}
+        PrepareForLTO(PrepareForLTO), OS(OptReportOptions::getOutputStream()) {}
 
   // Run the inline report emitter
   bool runImpl();
@@ -55,6 +56,7 @@ private:
   bool PrepareForLTO;     // True in the LTO "Compile Step"
   std::set<StringRef>            // Names of dead Fortran Functions, used
      DeadFortranFunctionNames;   // to provide language char.
+  formatted_raw_ostream &OS;     // Stream to print Inline Report to
 
   // Print the linkage character for the Function with name 'CalleeName'.
   void printFunctionLinkageChar(StringRef CalleeName);
@@ -105,25 +107,25 @@ void IREmitterInfo::printFunctionLinkageChar(StringRef CalleeName) {
   if (!(Level & InlineReportOptions::Linkage))
     return;
   if (Function *F = M.getFunction(CalleeName)) {
-    llvm::errs() << llvm::getLinkageStr(F) << ' ';
+    OS << llvm::getLinkageStr(F) << ' ';
     return;
   }
   // If we can't find a function in the module, then it is dead. Which means it
   // should have local linkage.
-  llvm::errs() << "L ";
+  OS << "L ";
 }
 
 void IREmitterInfo::printFunctionLanguageChar(StringRef CalleeName) {
   if (!(Level & InlineReportOptions::Language))
     return;
   if (Function *F = M.getFunction(CalleeName)) {
-    llvm::errs() << llvm::getLanguageStr(F) << ' ';
+    OS << llvm::getLanguageStr(F) << ' ';
     return;
   }
   // If we can't find a function in the module, then it is dead.
   // Use the DeadFortranFunctionNames set to find its language.
   bool IsFortran = DeadFortranFunctionNames.count(CalleeName);
-  llvm::errs() << (IsFortran ? "F" : "C") << ' ';
+  OS << (IsFortran ? "F" : "C") << ' ';
 }
 
 void IREmitterInfo::printCalleeNameModuleLineCol(MDTuple *MD) {
@@ -131,14 +133,13 @@ void IREmitterInfo::printCalleeNameModuleLineCol(MDTuple *MD) {
   StringRef CalleeName = CSIR.getName();
   printFunctionLinkageChar(CalleeName);
   printFunctionLanguageChar(CalleeName);
-  llvm::errs() << CalleeName;
+  OS << CalleeName;
   unsigned LineNum = 0, ColNum = 0;
   CSIR.getLineAndCol(&LineNum, &ColNum);
   if (Level & InlineReportOptions::File)
-    llvm::errs() << ' '
-                 << getOpStr(MD->getOperand(CSMDIR_ModuleName), "moduleName: ");
+    OS << ' ' << getOpStr(MD->getOperand(CSMDIR_ModuleName), "moduleName: ");
   if ((Level & InlineReportOptions::LineCol) && (LineNum != 0 || ColNum != 0))
-    llvm::errs() << " (" << LineNum << "," << ColNum << ")";
+    OS << " (" << LineNum << "," << ColNum << ")";
 }
 
 void IREmitterInfo::printSimpleMessage(const char *Message, bool IsInlined,
@@ -146,19 +147,19 @@ void IREmitterInfo::printSimpleMessage(const char *Message, bool IsInlined,
 #if !INTEL_PRODUCT_RELEASE
   if (Level & InlineReportOptions::Reasons) {
     if (Level & InlineReportOptions::SameLine) {
-      llvm::errs() << " ";
+      OS << " ";
     } else {
-      llvm::errs() << "\n";
-      printIndentCount(IndentCount + 1);
+      OS << "\n";
+      printIndentCount(OS, IndentCount + 1);
     }
-    llvm::errs() << (IsInlined ? "<<" : "[[");
-    llvm::errs() << Message;
-    llvm::errs() << (IsInlined ? ">>" : "]]");
-    llvm::errs() << "\n";
+    OS << (IsInlined ? "<<" : "[[");
+    OS << Message;
+    OS << (IsInlined ? ">>" : "]]");
+    OS << "\n";
     return;
   }
 #endif // !INTEL_PRODUCT_RELEASE
-  llvm::errs() << "\n";
+  OS << "\n";
 }
 
 void IREmitterInfo::printCostAndThreshold(MDTuple *MD, bool IsInlined) {
@@ -169,12 +170,12 @@ void IREmitterInfo::printCostAndThreshold(MDTuple *MD, bool IsInlined) {
   int64_t InlineThreshold = -1;
   getOpVal(MD->getOperand(7), "inlineThreshold: ", &InlineThreshold);
 
-  llvm::errs() << " (" << InlineCost;
+  OS << " (" << InlineCost;
   if (IsInlined)
-    llvm::errs() << "<=";
+    OS << "<=";
   else
-    llvm::errs() << ">";
-  llvm::errs() << InlineThreshold;
+    OS << ">";
+  OS << InlineThreshold;
 
   int64_t EECost = INT_MAX;
   getOpVal(MD->getOperand(CSMDIR_EarlyExitCost), "earlyExitCost: ", &EECost);
@@ -186,11 +187,11 @@ void IREmitterInfo::printCostAndThreshold(MDTuple *MD, bool IsInlined) {
       !IsInlined) {
     // Under RealCost flag we compute both real and "early exit" costs and
     // thresholds of inlining.
-    llvm::errs() << " [EE:" << EECost;
-    llvm::errs() << ">";
-    llvm::errs() << EEThreshold << "]";
+    OS << " [EE:" << EECost;
+    OS << ">";
+    OS << EEThreshold << "]";
   }
-  llvm::errs() << ")";
+  OS << ")";
 }
 
 void IREmitterInfo::printOuterCostAndThreshold(MDTuple *MD) {
@@ -202,8 +203,7 @@ void IREmitterInfo::printOuterCostAndThreshold(MDTuple *MD) {
   int64_t InlineThreshold = -1;
   getOpVal(MD->getOperand(CSMDIR_InlineThreshold),
            "inlineThreshold: ", &InlineThreshold);
-  llvm::errs() << " (" << OuterCost << ">" << InlineCost << ">"
-               << InlineThreshold << ")";
+  OS << " (" << OuterCost << ">" << InlineCost << ">" << InlineThreshold << ")";
 }
 
 void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
@@ -223,11 +223,11 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
   int64_t Reason = 0;
   getOpVal(CSIR->getOperand(CSMDIR_InlineReason), "reason: ", &Reason);
   assert(InlineReasonText[Reason].Type != InlPrtNone);
-  printIndentCount(IndentCount);
+  printIndentCount(OS, IndentCount);
   int64_t IsInlined = 0;
   getOpVal(CSIR->getOperand(CSMDIR_IsInlined), "isInlined: ", &IsInlined);
   if (IsInlined) {
-    llvm::errs() << "-> INLINE: ";
+    OS << "-> INLINE: ";
     printCalleeNameModuleLineCol(CSIR);
     if (InlineReasonText[Reason].Type == InlPrtCost) {
       printCostAndThreshold(CSIR, true);
@@ -237,27 +237,27 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
     if (InlineReasonText[Reason].Type == InlPrtSpecial) {
       switch (Reason) {
       case NinlrDeleted:
-        llvm::errs() << "-> DELETE: ";
+        OS << "-> DELETE: ";
         printCalleeNameModuleLineCol(CSIR);
-        llvm::errs() << "\n";
+        OS << "\n";
         break;
       case NinlrExtern:
         if (Level & InlineReportOptions::Externs) {
-          llvm::errs() << "-> EXTERN: ";
+          OS << "-> EXTERN: ";
           printCalleeNameModuleLineCol(CSIR);
-          llvm::errs() << "\n";
+          OS << "\n";
         }
         break;
       case NinlrIndirect:
         if (Level & InlineReportOptions::Indirects) {
-          llvm::errs() << "-> INDIRECT: ";
+          OS << "-> INDIRECT: ";
           printCalleeNameModuleLineCol(CSIR);
           printSimpleMessage(InlineReasonText[Reason].Message, false,
                              IndentCount);
         }
         break;
       case NinlrOuterInlining:
-        llvm::errs() << "-> ";
+        OS << "-> ";
         printCalleeNameModuleLineCol(CSIR);
         printOuterCostAndThreshold(CSIR);
         printSimpleMessage(InlineReasonText[Reason].Message, false,
@@ -267,7 +267,7 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
         assert(0);
       }
     } else {
-      llvm::errs() << "-> ";
+      OS << "-> ";
       printCalleeNameModuleLineCol(CSIR);
       if (InlineReasonText[Reason].Type == InlPrtCost)
         printCostAndThreshold(CSIR, false);
@@ -337,26 +337,23 @@ void IREmitterInfo::printFunctionInlineReportFromMetadata(MDNode *Node) {
 
   // Special output for dead static functions.
   if (IsDead && (Level & InlineReportOptions::DeadStatics)) {
-    llvm::errs() << "DEAD STATIC FUNC: ";
+    OS << "DEAD STATIC FUNC: ";
     if (Level & InlineReportOptions::Linkage) {
       // Linkage letter
-      llvm::errs() << getOpStr(FuncReport->getOperand(FMDIR_LinkageStr),
-                               "linkage: ")
-                   << ' ';
+      OS << getOpStr(FuncReport->getOperand(FMDIR_LinkageStr), "linkage: ")
+         << ' ';
     }
     if (Level & InlineReportOptions::Language)
       // Language letter
-      llvm::errs() << getOpStr(FuncReport->getOperand(FMDIR_LanguageStr),
-                               "language: ")
-                   << ' ';
+      OS << getOpStr(FuncReport->getOperand(FMDIR_LanguageStr), "language: ")
+         << ' ';
     // Function name
-    llvm::errs() << getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: ");
+    OS << getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: ");
     // Module name
     if (Level & InlineReportOptions::File)
-      llvm::errs() << ' '
-                   << getOpStr(FuncReport->getOperand(FMDIR_ModuleName),
-                               "moduleName: ");
-    llvm::errs() << "\n\n";
+      OS << ' '
+         << getOpStr(FuncReport->getOperand(FMDIR_ModuleName), "moduleName: ");
+    OS << "\n\n";
     return;
   }
 
@@ -366,7 +363,7 @@ void IREmitterInfo::printFunctionInlineReportFromMetadata(MDNode *Node) {
            "isDeclaration: ", &IsDecl);
   if (IsDecl)
     return;
-  llvm::errs() << "COMPILE FUNC: ";
+  OS << "COMPILE FUNC: ";
   std::string Name =
       std::string(getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: "));
   // Update linkage last time before printing.
@@ -377,12 +374,11 @@ void IREmitterInfo::printFunctionInlineReportFromMetadata(MDNode *Node) {
         M.getContext(), llvm::MDString::get(M.getContext(), LinkageStr));
     FuncReport->replaceOperandWith(FMDIR_LinkageStr, LinkageMD);
     if (Level & InlineReportOptions::Linkage)
-      llvm::errs() << Linkage << ' ';
+      OS << Linkage << ' ';
   } else {
     if (Level & InlineReportOptions::Linkage)
-      llvm::errs() << getOpStr(FuncReport->getOperand(FMDIR_LinkageStr),
-                               "linkage: ")
-                   << ' ';
+      OS << getOpStr(FuncReport->getOperand(FMDIR_LinkageStr), "linkage: ")
+         << ' ';
   }
   // Update language last time before printing.
   if (Function *F = M.getFunction(Name)) {
@@ -392,17 +388,16 @@ void IREmitterInfo::printFunctionInlineReportFromMetadata(MDNode *Node) {
         M.getContext(), llvm::MDString::get(M.getContext(), LanguageStr));
     FuncReport->replaceOperandWith(FMDIR_LanguageStr, LanguageMD);
     if (Level & InlineReportOptions::Language)
-      llvm::errs() << Language << ' ';
+      OS << Language << ' ';
   } else {
     if (Level & InlineReportOptions::Language)
-      llvm::errs() << getOpStr(FuncReport->getOperand(FMDIR_LanguageStr),
-                               "language: ")
-                   << ' ';
+      OS << getOpStr(FuncReport->getOperand(FMDIR_LanguageStr), "language: ")
+         << ' ';
   }
 
-  llvm::errs() << Name << '\n';
+  OS << Name << '\n';
   printCallSiteInlineReports(FuncReport->getOperand(FMDIR_CSs), 1);
-  llvm::errs() << '\n';
+  OS << '\n';
 
   return;
 }
@@ -412,10 +407,10 @@ bool IREmitterInfo::runImpl() {
     return false;
   if (PrepareForLTO && (Level & InlineReportOptions::CompositeReport))
     return false;
-  llvm::errs() << "---- Begin Inlining Report ---- (via metadata)\n";
+  OS << "---- Begin Inlining Report ---- (via metadata)\n";
 
   if (Level & InlineReportOptions::Options)
-    llvm::printOptionValues(OptLevel, SizeLevel);
+    llvm::printOptionValues(OS, OptLevel, SizeLevel);
   NamedMDNode *ModuleInlineReport =
       M.getOrInsertNamedMetadata("intel.module.inlining.report");
   if (!ModuleInlineReport) {
@@ -429,7 +424,7 @@ bool IREmitterInfo::runImpl() {
     printFunctionInlineReportFromMetadata(Node);
   }
 
-  llvm::errs() << "---- End Inlining Report ------ (via metadata)\n";
+  OS << "---- End Inlining Report ------ (via metadata)\n";
   return true;
 }
 
