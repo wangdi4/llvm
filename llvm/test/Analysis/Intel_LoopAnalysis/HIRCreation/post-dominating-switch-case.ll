@@ -1,4 +1,5 @@
-; RUN: opt < %s -analyze -hir-framework -hir-framework-debug=creation | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -analyze -hir-framework -hir-framework-debug=creation | FileCheck %s
+; RUN: opt %s -passes="print<hir-framework>" -hir-framework-debug=creation -disable-output 2>&1 | FileCheck %s
 
 ; Check that the cross-linked case L2 and post-dominating switch case (L3 bblock) is linked after the switch while creating lexical links.
 ; CHECK: switch

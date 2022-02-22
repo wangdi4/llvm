@@ -1,6 +1,7 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -analyze -hir-framework -hir-framework-debug=creation -debug-only=hir-framework -hir-cost-model-throttling=0 | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -analyze -hir-framework -hir-framework-debug=creation -debug-only=hir-framework -hir-cost-model-throttling=0 | FileCheck %s
+; RUN: opt %s -passes="print<hir-framework>" -hir-framework-debug=creation -debug-only=hir-framework -hir-cost-model-throttling=0 -disable-output 2>&1 | FileCheck %s
 
 ; Check that the lexical links for the loop are created correctly when the loop header directly dominates loop latch block. Loop latch should be the lexically last bblock.
 ; CHECK: for.body.12:

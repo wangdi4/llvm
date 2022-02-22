@@ -1,4 +1,5 @@
-; RUN: opt < %s -analyze -hir-scc-formation | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -analyze -hir-scc-formation | FileCheck %s
+; RUN: opt %s -passes="print<hir-scc-formation>" -disable-output 2>&1 | FileCheck %s
 
 ; Verify that we do not create SCC (%add80376 -> %add47 -> %add80375) which has live-range overlap because %add80376 is used in %add80375 after being killed by %add47 in the same bblock.
 

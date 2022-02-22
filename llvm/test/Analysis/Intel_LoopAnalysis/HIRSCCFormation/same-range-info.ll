@@ -1,6 +1,8 @@
-; RUN: opt < %s -analyze -hir-scc-formation | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -analyze -hir-scc-formation | FileCheck %s
+; RUN: opt %s -passes="print<hir-scc-formation>" -disable-output 2>&1 | FileCheck %s
 
-; RUN: opt < %s -analyze -scalar-evolution | FileCheck %s --check-prefix=SCEV
+; RUN: opt < %s -enable-new-pm=0 -analyze -scalar-evolution | FileCheck %s --check-prefix=SCEV
+; RUN: opt %s -passes="print<scalar-evolution>" -disable-output 2>&1 | FileCheck %s --check-prefix=SCEV
 
 ; Verify that we create the SCC (%shr87321 -> %shr87) even though %shr87321 has singled range info because its range info is the same as the other SCC node (%shr87).
 

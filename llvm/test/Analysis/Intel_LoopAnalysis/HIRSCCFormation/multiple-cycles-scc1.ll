@@ -1,4 +1,15 @@
-; RUN: opt < %s -analyze -hir-scc-formation | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -analyze -hir-scc-formation | FileCheck %s
+
+; We use the --allow-empty flag with FileCheck for the new-format opt because:
+;
+; - new-format opt output is empty for this test, (old-format opt emits just one
+;       line: Printing analysis 'HIR SCC Formation' for function...).
+; - The check consists of 'CHECK-NOT' only, and has no 'CHECK' lines.
+;
+; TODO: If the lit-test is modified, and new-format opt is no longer empty,
+;     please make sure to remove the --allow-empty flag, and this comment.
+;
+; RUN: opt %s -passes="print<hir-scc-formation>" -disable-output 2>&1 | FileCheck --allow-empty %s
 
 ; Verify that we do not construct the SCC (%0 -> %mul -> %add10 -> %add14) (by removing intermediate temp %mul) which contains two different cycles in it (%0 -> %mul -> %add10 -> %add14) and (%0 -> %add14).
 ; CHECK-NOT: SCC1
