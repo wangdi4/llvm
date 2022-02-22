@@ -284,13 +284,13 @@ static bool canHandleZtt(const HLLoop *Loop1, const HLLoop *Loop2,
   };
 
   auto *Loop1LHS =
-      GetSingleCEOrNull(Loop1->getZttPredicateOperandDDRef(PredI1, true));
+      GetSingleCEOrNull(Loop1->getLHSZttPredicateOperandDDRef(PredI1));
   auto *Loop1RHS =
-      GetSingleCEOrNull(Loop1->getZttPredicateOperandDDRef(PredI1, false));
+      GetSingleCEOrNull(Loop1->getRHSZttPredicateOperandDDRef(PredI1));
   auto *Loop2LHS =
-      GetSingleCEOrNull(Loop2->getZttPredicateOperandDDRef(PredI2, true));
+      GetSingleCEOrNull(Loop2->getLHSZttPredicateOperandDDRef(PredI2));
   auto *Loop2RHS =
-      GetSingleCEOrNull(Loop2->getZttPredicateOperandDDRef(PredI2, false));
+      GetSingleCEOrNull(Loop2->getRHSZttPredicateOperandDDRef(PredI2));
 
   if (!Loop1LHS || !Loop1RHS || !Loop2LHS || !Loop2RHS) {
     return false;

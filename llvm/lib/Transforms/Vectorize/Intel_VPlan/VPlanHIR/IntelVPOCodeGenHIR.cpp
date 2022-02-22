@@ -1823,8 +1823,8 @@ HLInst *VPOCodeGenHIR::widenPred(const HLIf *HIf,
                                  HLIf::const_pred_iterator PredIt,
                                  RegDDRef *Mask) {
 
-  auto PredLHS = HIf->getPredicateOperandDDRef(PredIt, true);
-  auto PredRHS = HIf->getPredicateOperandDDRef(PredIt, false);
+  auto PredLHS = HIf->getLHSPredicateOperandDDRef(PredIt);
+  auto PredRHS = HIf->getRHSPredicateOperandDDRef(PredIt);
   RegDDRef *WideLHS = widenRef(PredLHS, getVF());
   RegDDRef *WideRHS = widenRef(PredRHS, getVF());
 

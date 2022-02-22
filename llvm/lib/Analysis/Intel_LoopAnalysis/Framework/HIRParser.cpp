@@ -2836,12 +2836,12 @@ void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
     }
 
     HLoop->replaceZttPredicate(BeginPredIter, Preds[0]);
-    HLoop->setZttPredicateOperandDDRef(Refs[0], BeginPredIter, true);
-    HLoop->setZttPredicateOperandDDRef(Refs[1], BeginPredIter, false);
+    HLoop->setLHSZttPredicateOperandDDRef(Refs[0], BeginPredIter);
+    HLoop->setRHSZttPredicateOperandDDRef(Refs[1], BeginPredIter);
   } else {
     If->replacePredicate(BeginPredIter, Preds[0]);
-    If->setPredicateOperandDDRef(Refs[0], BeginPredIter, true);
-    If->setPredicateOperandDDRef(Refs[1], BeginPredIter, false);
+    If->setLHSPredicateOperandDDRef(Refs[0], BeginPredIter);
+    If->setRHSPredicateOperandDDRef(Refs[1], BeginPredIter);
   }
 
   for (unsigned I = 1, E = Preds.size(); I < E; ++I) {

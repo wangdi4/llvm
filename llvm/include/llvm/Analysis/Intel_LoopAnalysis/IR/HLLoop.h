@@ -279,6 +279,21 @@ protected:
     PrefetchingInfoVec.emplace_back(Var, Hint, Dist);
   }
 
+  /// Returns the LHS/RHS operand DDRef of the predicate based on the
+  /// IsLHS flag.
+  RegDDRef *getZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
+                                        bool IsLHS) const;
+
+  /// Sets the LHS/RHS operand DDRef of the predicate based on the IsLHS
+  /// flag.
+  void setZttPredicateOperandDDRef(RegDDRef *Ref,
+                                   const_ztt_pred_iterator CPredI, bool IsLHS);
+
+  /// Removes and returns the LHS/RHS operand DDRef of the predicate
+  /// based on the IsLHS flag.
+  RegDDRef *removeZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
+                                           bool IsLHS);
+
 public:
   /// Prints preheader of loop.
   void printPreheader(formatted_raw_ostream &OS, unsigned Depth,
@@ -382,20 +397,39 @@ public:
   /// Inverts PredicateTy in CPredI.
   void invertZttPredicate(const_ztt_pred_iterator CPredI);
 
-  /// Returns the LHS/RHS operand DDRef of the predicate based on the
-  /// IsLHS flag.
-  RegDDRef *getZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
-                                        bool IsLHS) const;
+  /// Returns the LHS operand DDRef of the predicate.
+  RegDDRef *
+  getLHSZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI) const {
+    return getZttPredicateOperandDDRef(CPredI, true);
+  }
 
-  /// Sets the LHS/RHS operand DDRef of the predicate based on the IsLHS
-  /// flag.
-  void setZttPredicateOperandDDRef(RegDDRef *Ref,
-                                   const_ztt_pred_iterator CPredI, bool IsLHS);
+  /// Returns the RHS operand DDRef of the predicate.
+  RegDDRef *
+  getRHSZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI) const {
+    return getZttPredicateOperandDDRef(CPredI, false);
+  }
 
-  /// Removes and returns the LHS/RHS operand DDRef of the predicate
-  /// based on the IsLHS flag.
-  RegDDRef *removeZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
-                                           bool IsLHS);
+  /// Sets the LHS operand DDRef of the predicate.
+  void setLHSZttPredicateOperandDDRef(RegDDRef *Ref,
+                                      const_ztt_pred_iterator CPredI) {
+    setZttPredicateOperandDDRef(Ref, CPredI, true);
+  }
+
+  /// Sets the RHS operand DDRef of the predicate.
+  void setRHSZttPredicateOperandDDRef(RegDDRef *Ref,
+                                      const_ztt_pred_iterator CPredI) {
+    setZttPredicateOperandDDRef(Ref, CPredI, false);
+  }
+
+  /// Removes and returns the LHS operand DDRef of the predicate.
+  RegDDRef *removeLHSZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI) {
+    return removeZttPredicateOperandDDRef(CPredI, true);
+  }
+
+  /// Removes and returns the RHS operand DDRef of the predicate.
+  RegDDRef *removeRHSZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI) {
+    return removeZttPredicateOperandDDRef(CPredI, false);
+  }
 
   /// Returns true if this Ref belongs to ztt.
   bool isZttOperandDDRef(const RegDDRef *Ref) const;

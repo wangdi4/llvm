@@ -140,9 +140,9 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
 
     for (auto ZIt = ztt_pred_begin(), EZIt = ztt_pred_end(); ZIt != EZIt;
          ++ZIt) {
-      setZttPredicateOperandDDRef((*ZttRefIt)->clone(), ZIt, true);
+      setLHSZttPredicateOperandDDRef((*ZttRefIt)->clone(), ZIt);
       ++ZttRefIt;
-      setZttPredicateOperandDDRef((*ZttRefIt)->clone(), ZIt, false);
+      setRHSZttPredicateOperandDDRef((*ZttRefIt)->clone(), ZIt);
       ++ZttRefIt;
     }
   }
@@ -633,18 +633,18 @@ void HLLoop::addZttPredicate(const HLPredicate &Pred, RegDDRef *Ref1,
   RegDDRefs.resize(getNumOperandsInternal(), nullptr);
 
   /// Move the RegDDRefs to loop.
-  setZttPredicateOperandDDRef(Ztt->removePredicateOperandDDRef(LastIt, true),
-                              LastIt, true);
-  setZttPredicateOperandDDRef(Ztt->removePredicateOperandDDRef(LastIt, false),
-                              LastIt, false);
+  setLHSZttPredicateOperandDDRef(Ztt->removeLHSPredicateOperandDDRef(LastIt),
+                                 LastIt);
+  setRHSZttPredicateOperandDDRef(Ztt->removeRHSPredicateOperandDDRef(LastIt),
+                                 LastIt);
 }
 
 void HLLoop::removeZttPredicate(const_ztt_pred_iterator CPredI) {
   assert(hasZtt() && "Ztt is absent!");
 
   // Remove RegDDRefs from loop.
-  removeZttPredicateOperandDDRef(CPredI, true);
-  removeZttPredicateOperandDDRef(CPredI, false);
+  removeLHSZttPredicateOperandDDRef(CPredI);
+  removeRHSZttPredicateOperandDDRef(CPredI);
 
   // Erase the DDRef slots from loop.
   // Since erasing from the vector leads to shifting of elements, it is better
@@ -756,10 +756,9 @@ void HLLoop::setZtt(HLIf *ZttIf) {
 
   /// Move DDRef pointers to avoid unnecessary cloning.
   for (auto I = ztt_pred_begin(), E = ztt_pred_end(); I != E; I++) {
-    setZttPredicateOperandDDRef(Ztt->removePredicateOperandDDRef(I, true), I,
-                                true);
-    setZttPredicateOperandDDRef(Ztt->removePredicateOperandDDRef(I, false), I,
-                                false);
+    setLHSZttPredicateOperandDDRef(Ztt->removeLHSPredicateOperandDDRef(I), I),
+        setRHSZttPredicateOperandDDRef(Ztt->removeRHSPredicateOperandDDRef(I),
+                                       I);
   }
 }
 
@@ -773,10 +772,8 @@ HLIf *HLLoop::removeZtt() {
 
   /// Move Ztt DDRefs back to If.
   for (auto I = ztt_pred_begin(), E = ztt_pred_end(); I != E; I++) {
-    If->setPredicateOperandDDRef(removeZttPredicateOperandDDRef(I, true), I,
-                                 true);
-    If->setPredicateOperandDDRef(removeZttPredicateOperandDDRef(I, false), I,
-                                 false);
+    If->setLHSPredicateOperandDDRef(removeLHSZttPredicateOperandDDRef(I), I);
+    If->setRHSPredicateOperandDDRef(removeRHSZttPredicateOperandDDRef(I), I);
   }
 
   Ztt = nullptr;
@@ -1995,11 +1992,11 @@ HLLoop *HLLoop::peelFirstIteration(bool UpdateMainLoop) {
     auto *PredI = PeelBottomTest->pred_begin();
     PeelBottomTest->replacePredicate(PredI, PredicateTy::FCMP_FALSE);
 
-    auto *LHS = PeelBottomTest->getPredicateOperandDDRef(PredI, true);
+    auto *LHS = PeelBottomTest->getLHSPredicateOperandDDRef(PredI);
     auto *UndefOp = getDDRefUtils().createUndefDDRef(LHS->getDestType());
 
-    PeelBottomTest->setPredicateOperandDDRef(UndefOp, PredI, true);
-    PeelBottomTest->setPredicateOperandDDRef(UndefOp->clone(), PredI, false);
+    PeelBottomTest->setLHSPredicateOperandDDRef(UndefOp, PredI);
+    PeelBottomTest->setRHSPredicateOperandDDRef(UndefOp->clone(), PredI);
 
   } else {
     // Since the loop is normalized, set peel loop UB to 0 so that it executes

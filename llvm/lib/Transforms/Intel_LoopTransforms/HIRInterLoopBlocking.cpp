@@ -3179,8 +3179,8 @@ private:
 
     // Consistency of if-conditions
     for (auto PI = Guard->pred_begin(), E = Guard->pred_end(); PI != E; PI++) {
-      Guard->getPredicateOperandDDRef(PI, true)->makeConsistent(AuxRefs);
-      Guard->getPredicateOperandDDRef(PI, false)->makeConsistent(AuxRefs);
+      Guard->getLHSPredicateOperandDDRef(PI)->makeConsistent(AuxRefs);
+      Guard->getRHSPredicateOperandDDRef(PI)->makeConsistent(AuxRefs);
     }
   }
 
