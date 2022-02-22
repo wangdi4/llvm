@@ -2847,14 +2847,25 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   if (RunLTOPartialInlining)
     MPM.addPass(PartialInlinerPass(true /*RunLTOPartialInline*/,
                                    false /*EnableSpecialCases*/));
-
+  if (
 #if INTEL_FEATURE_SW_ADVANCED
-  if (EnableIPCloning)
-    MPM.addPass(IPCloningPass(/*AfterInl*/ true,
-                              /*IFSwitchHeuristic*/ DTransEnabled));
+      EnableIPCloning ||
 #endif // INTEL_FEATURE_SW_ADVANCED
-  if (EnableCallTreeCloning)
-    MPM.addPass(CallTreeCloningPass());
+      EnableCallTreeCloning) {
+#if INTEL_FEATURE_SW_ADVANCED
+    if (EnableIPCloning) {
+      // Enable generic IPCloning after Inlining.
+      MPM.addPass(IPCloningPass(/*AfterInl*/ true,
+                              /*IFSwitchHeuristic*/ DTransEnabled));
+    }
+#endif // INTEL_FEATURE_SW_ADVANCED
+    if (EnableCallTreeCloning) {
+      // Do function cloning along call trees
+      MPM.addPass(CallTreeCloningPass());
+    }
+    // Call IPCP to propagate constants
+    MPM.addPass(IPSCCPPass());
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // Garbage collect dead functions.
