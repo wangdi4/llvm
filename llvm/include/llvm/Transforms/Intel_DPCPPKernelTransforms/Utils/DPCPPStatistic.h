@@ -177,8 +177,8 @@ public:
 private:
 public:
   unsigned getValue() const { return 0; }
-  StringRef getName() const { return nullptr; }
-  StringRef getDesc() const { return nullptr; }
+  StringRef getName() const { return ""; }
+  StringRef getDesc() const { return ""; }
 
   /// construct - This should only be called for non-global statistics.
   DPCPPStatistic(StringRef Category, StringRef Name, StringRef Desc,
