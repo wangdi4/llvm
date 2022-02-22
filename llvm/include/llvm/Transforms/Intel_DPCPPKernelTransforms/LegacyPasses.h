@@ -94,6 +94,7 @@ ModulePass *createVFAnalysisLegacyPass();
 ModulePass *createVectorizationDimensionAnalysisLegacyPass();
 ModulePass *
 createHandleVPlanMaskLegacyPass(const StringSet<> *VPlanMaskedFuncs);
+ModulePass *createWGLoopBoundariesLegacyPass();
 FunctionPass *createWorkItemAnalysisLegacyPass(unsigned VectorizeDim = 0);
 } // namespace llvm
 

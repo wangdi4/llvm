@@ -1,6 +1,6 @@
 //===------ DPCPPKernelLoopUtils.cpp - Function definitions -*- C++ -------===//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -80,7 +80,7 @@ void getAllCallInFunc(StringRef FuncName, Function *FuncToSearch,
 
   for (auto *U : F->users()) {
     CallInst *CI = cast<CallInst>(U);
-    Function *ParentFunc = CI->getParent()->getParent();
+    Function *ParentFunc = CI->getFunction();
     if (ParentFunc == FuncToSearch)
       Calls.push_back(CI);
   }
@@ -172,7 +172,7 @@ LoopRegion createLoop(BasicBlock *Head, BasicBlock *Latch, Value *Begin,
   return LoopRegion(PreHead, Exit);
 }
 
-void fillFuncUsersSet(FuncSet &Roots, FuncSet &UserFuncs) {
+void fillFuncUsersSet(const FuncSet &Roots, FuncSet &UserFuncs) {
   FuncSet NewUsers1, NewUsers2;
   FuncSet *NewUsersPtr = &NewUsers1;
   FuncSet *RootsPtr = &NewUsers2;
@@ -187,7 +187,8 @@ void fillFuncUsersSet(FuncSet &Roots, FuncSet &UserFuncs) {
   }
 }
 
-void fillDirectUsers(FuncSet *Funcs, FuncSet *UserFuncs, FuncSet *NewUsers) {
+void fillDirectUsers(const FuncSet *Funcs, FuncSet *UserFuncs,
+                     FuncSet *NewUsers) {
   // Go through all of the Funcs.
   SmallVector<Instruction *, 8> UserInst;
   for (Function *F : *Funcs) {
