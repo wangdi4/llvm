@@ -13015,40 +13015,18 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
   SourceLocation AtomicKindLoc;
   OpenMPClauseKind MemOrderKind = OMPC_unknown;
   SourceLocation MemOrderLoc;
-<<<<<<< HEAD
-#if INTEL_COLLAB
-  bool IsCompareCapture = false;
-#endif // INTEL_COLLAB
-=======
   bool MutexClauseEncountered = false;
   llvm::SmallSet<OpenMPClauseKind, 2> EncounteredAtomicKinds;
->>>>>>> ccebf8ac8c61cbd46223abbeb4f29f4e1f7b490c
   for (const OMPClause *C : Clauses) {
     switch (C->getClauseKind()) {
     case OMPC_read:
     case OMPC_write:
     case OMPC_update:
-<<<<<<< HEAD
-#if INTEL_COLLAB
-    case OMPC_compare:
-#endif // INTEL_COLLAB
-    case OMPC_capture: {
-#if INTEL_COLLAB
-      if (!IsCompareCapture &&
-          ((C->getClauseKind() == OMPC_capture && AtomicKind == OMPC_compare) ||
-           (C->getClauseKind() == OMPC_compare &&
-            AtomicKind == OMPC_capture))) {
-        IsCompareCapture = true;
-      } else
-#endif // INTEL_COLLAB
-      if (AtomicKind != OMPC_unknown) {
-=======
       MutexClauseEncountered = true;
       LLVM_FALLTHROUGH;
     case OMPC_capture:
     case OMPC_compare: {
       if (AtomicKind != OMPC_unknown && MutexClauseEncountered) {
->>>>>>> ccebf8ac8c61cbd46223abbeb4f29f4e1f7b490c
         Diag(C->getBeginLoc(), diag::err_omp_atomic_several_clauses)
             << SourceRange(C->getBeginLoc(), C->getEndLoc());
         Diag(AtomicKindLoc, diag::note_omp_previous_mem_order_clause)

@@ -6166,16 +6166,12 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
                               llvm::AtomicOrdering AO, bool IsPostfixUpdate,
                               const Expr *X, const Expr *V, const Expr *E,
                               const Expr *UE, bool IsXLHSInRHSPart,
-<<<<<<< HEAD
 #if INTEL_COLLAB
                               const Expr *Expected, const Expr *Result,
                               bool IsCompareMin, bool IsCompareMax,
                               bool IsConditionalCapture,
 #endif // INTEL_COLLAB
-                              SourceLocation Loc) {
-=======
                               bool IsCompareCapture, SourceLocation Loc) {
->>>>>>> ccebf8ac8c61cbd46223abbeb4f29f4e1f7b490c
   switch (Kind) {
   case OMPC_read:
     emitOMPAtomicReadExpr(CGF, AO, X, V, Loc);
@@ -6343,21 +6339,6 @@ void CodeGenFunction::EmitOMPAtomicDirective(const OMPAtomicDirective &S) {
   for (const OMPClause *C : S.clauses()) {
     // Find first clause (skip seq_cst|acq_rel|aqcuire|release|relaxed clause,
     // if it is first).
-<<<<<<< HEAD
-    if (C->getClauseKind() != OMPC_seq_cst &&
-        C->getClauseKind() != OMPC_acq_rel &&
-        C->getClauseKind() != OMPC_acquire &&
-        C->getClauseKind() != OMPC_release &&
-        C->getClauseKind() != OMPC_relaxed && C->getClauseKind() != OMPC_hint) {
-      Kind = C->getClauseKind();
-#if INTEL_COLLAB
-      // Use 'compare' Kind if 'compare' and 'capture'.
-      if (Kind == OMPC_capture)
-        continue;
-#endif // INTEL_COLLAB
-      break;
-    }
-=======
     OpenMPClauseKind K = C->getClauseKind();
     if (K == OMPC_seq_cst || K == OMPC_acq_rel || K == OMPC_acquire ||
         K == OMPC_release || K == OMPC_relaxed || K == OMPC_hint)
@@ -6370,7 +6351,6 @@ void CodeGenFunction::EmitOMPAtomicDirective(const OMPAtomicDirective &S) {
       KindsEncountered.contains(OMPC_capture)) {
     IsCompareCapture = true;
     Kind = OMPC_compare;
->>>>>>> ccebf8ac8c61cbd46223abbeb4f29f4e1f7b490c
   }
   if (!MemOrderingSpecified) {
     llvm::AtomicOrdering DefaultOrder =
@@ -6394,15 +6374,11 @@ void CodeGenFunction::EmitOMPAtomicDirective(const OMPAtomicDirective &S) {
   EmitStopPoint(S.getAssociatedStmt());
   emitOMPAtomicExpr(*this, Kind, AO, S.isPostfixUpdate(), S.getX(), S.getV(),
                     S.getExpr(), S.getUpdateExpr(), S.isXLHSInRHSPart(),
-<<<<<<< HEAD
 #if INTEL_COLLAB
                     S.getExpected(), S.getResult(), S.isCompareMin(),
                     S.isCompareMax(), S.isConditionalCapture(),
 #endif // INTEL_COLLAB
-                    S.getBeginLoc());
-=======
                     IsCompareCapture, S.getBeginLoc());
->>>>>>> ccebf8ac8c61cbd46223abbeb4f29f4e1f7b490c
 }
 
 static void emitCommonOMPTargetDirective(CodeGenFunction &CGF,
