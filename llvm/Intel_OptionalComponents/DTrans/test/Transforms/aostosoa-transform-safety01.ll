@@ -2,11 +2,11 @@
 ; the dynclone pass in order to trigger the analysis of the modified structures
 ; to occur, because it is being lazily recomputed when invalidated by a
 ; transformation.
-; RUN: opt < %s -disable-output -dtrans-aostosoa -dtrans-aostosoa-index32 -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume -dtrans-dynclone -dtrans-print-types 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -dtrans-aostosoa -dtrans-aostosoa-index32 -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume -dtrans-dynclone -dtrans-print-types 2>&1 | FileCheck %s
 
 ; New pass manager will detect that analysis should be run again when the
 ; aos-to-soa pass makes modifications.
-; RUN: opt < %s -disable-output -passes='dtrans-aostosoa,require<dtransanalysis>' -dtrans-aostosoa-index32 -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume -dtrans-print-types 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes='dtrans-aostosoa,require<dtransanalysis>' -dtrans-aostosoa-index32 -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume -dtrans-print-types 2>&1 | FileCheck %s
 
 ; This test checks the safety data on the new data types created by the
 ; AOS-to-SOA transformation. Specifically, this is to check the safety data
@@ -32,10 +32,10 @@ define i32 @main(i32 %argc, i8** %argv) {
   ret i32 0
 }
 
-; During the AOS-to-SOA processing, this function performs a bitcast field address
-; pointer to convert it into a 32-bit pointer. These bitcasts must be removed by
-; the transform to prevent the resultant dependent structure from being marked
-; as bad bitcast.
+; During the AOS-to-SOA processing, this function creates a bitcast pointer of
+; a field address to convert it into a 32-bit pointer. These bitcasts must be
+; removed by the transform to prevent the resultant dependent structure from
+; being marked as bad bitcast.
 define void @test1(%struct.test01dep* %in) {
   %faddr = getelementptr %struct.test01dep, %struct.test01dep* %in, i64 0, i32 1
   %faddr_p64 = bitcast %struct.test01** %faddr to i64*

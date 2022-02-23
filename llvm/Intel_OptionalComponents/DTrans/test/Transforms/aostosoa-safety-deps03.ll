@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-outofboundsok=false -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume 2>&1 | FileCheck %s
-; RUN: opt < %s -S -dtrans-outofboundsok=false -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume 2>&1 | FileCheck %s
+; RUN: opt < %s -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -dtrans-outofboundsok=false -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume 2>&1 | FileCheck %s
+; RUN: opt < %s -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -dtrans-outofboundsok=false -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume 2>&1 | FileCheck %s
 
 ; This test verifies that passing the address of a field within a dependent
 ; data structure, but not taking the address of pointer to type being transformed
