@@ -1,4 +1,5 @@
-; RUN: opt %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-cg -intel-ir-optreport-emitter -intel-loop-optreport=medium -force-hir-cg -print-before=hir-vec-dir-insert -disable-output 2>&1 | FileCheck %s
+; RUN: opt %s -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-cg -intel-ir-optreport-emitter -intel-loop-optreport=medium -force-hir-cg -print-before=hir-vec-dir-insert -disable-output 2>&1 | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir>,hir-vec-dir-insert,hir-cg,intel-ir-optreport-emitter" -intel-loop-optreport=medium -force-hir-cg -aa-pipeline=basic-aa -disable-output 2>&1 | FileCheck %s
 
 ; CHECK:      BEGIN REGION { }
 ; CHECK-NEXT:       + DO i1 = 0, zext.i32.i64((2 * %n)) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967294>
