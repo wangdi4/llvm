@@ -33,8 +33,8 @@ define void @foo() {
 ; CHECK-NEXT:     br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB3]]
-; CHECK-NEXT:     i32* [[VP_I]] = allocate-priv i32*, OrigAlign = 4
 ; CHECK-NEXT:     [1024 x i32]* [[VP_ARR]] = allocate-priv [1024 x i32]*, OrigAlign = 4
+; CHECK-NEXT:     i32* [[VP_I]] = allocate-priv i32*, OrigAlign = 4
 ; CHECK-NEXT:     i32 [[VP_STOREMERGE10_IND_INIT]] = induction-init{add} i32 live-in1 i32 1
 ; CHECK-NEXT:     i32 [[VP_STOREMERGE10_IND_INIT_STEP]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     i32 [[VP_VF:%.*]] = induction-init-step{add} i32 1

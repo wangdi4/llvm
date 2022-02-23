@@ -51,16 +51,16 @@ define dso_local i32 @foo1(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%2}
 ; CHECK-DAG:     [[VP1:%.*]] = {%c.promoted}
-; CHECK-DAG:     [[VP2:%.*]] = {%ptr.addr.promoted}
-; CHECK-DAG:     [[VP3:%.*]] = {%n + -1}
+; CHECK-DAG:     [[VP2:%.*]] = {%n + -1}
+; CHECK-DAG:     [[VP3:%.*]] = {%ptr.addr.promoted}
 ; CHECK-DAG:     [[VP4:%.*]] = {%s}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     i32 [[VP5:%.*]] = add i32 [[VP3]] i32 1
 ; CHECK-NEXT:     i32* [[VP_S:%.*]] = allocate-priv i32*, OrigAlign = 4
+; CHECK-NEXT:     i32 [[VP5:%.*]] = add i32 [[VP2]] i32 1
 ; CHECK-NEXT:     i32 [[VP_SRED_INIT:%.*]] = reduction-init i32 0 i32 [[TMP2:%.*]]
 ; CHECK-NEXT:     store i32 [[VP_SRED_INIT]] i32* [[VP_S]]
 ; CHECK-NEXT:     i32 [[VP__IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
@@ -175,8 +175,8 @@ define dso_local i32 @foo2(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     i32 [[VP5:%.*]] = add i32 [[VP1]] i32 1
 ; CHECK-NEXT:     i32* [[VP_S:%.*]] = allocate-priv i32*, OrigAlign = 4
+; CHECK-NEXT:     i32 [[VP5:%.*]] = add i32 [[VP1]] i32 1
 ; CHECK-NEXT:     i32 [[VP_SRED_INIT:%.*]] = reduction-init i32 0 i32 [[TMP2:%.*]]
 ; CHECK-NEXT:     store i32 [[VP_SRED_INIT]] i32* [[VP_S]]
 ; CHECK-NEXT:     i32 [[VP__IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
