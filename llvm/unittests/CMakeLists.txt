@@ -35,15 +35,12 @@ add_subdirectory(Linker)
 add_subdirectory(MC)
 add_subdirectory(MI)
 add_subdirectory(MIR)
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 if(";${LLVM_TARGETS_TO_BUILD};" MATCHES ";X86;")
   add_subdirectory(Intel_MIRMatcher)
 endif()
 # end INTEL_CUSTOMIZATION
-=======
 add_subdirectory(ObjCopy)
->>>>>>> 0b57e6c46b707c0e7a123efe82abf3c1e7b5a503
 add_subdirectory(Object)
 add_subdirectory(ObjectYAML)
 add_subdirectory(Option)
