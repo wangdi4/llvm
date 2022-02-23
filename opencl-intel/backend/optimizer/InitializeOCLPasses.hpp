@@ -18,7 +18,6 @@
 static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializePhiCanonPass(Registry);
     intel::initializePredicatorPass(Registry);
-    intel::initializeWIAnalysisPass(Registry);
     intel::initializeScalarizeFunctionPass(Registry);
     intel::initializeSimplifyGEPPass(Registry);
     intel::initializePacketizeFunctionPass(Registry);
