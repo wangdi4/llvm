@@ -44,7 +44,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <tbb/global_control.h>
-#include <thread>
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -520,9 +519,11 @@ bool clGetDeviceInfo_DeviceAttributeQueries() {
   printf("Number of threads per EU (threads per physical core): %u\n",
          ThreadsPerEU);
 
-  EXPECT_EQ(NumSlices * SubslicesPerSlice * EUsPerSubslice * ThreadsPerEU,
-            std::thread::hardware_concurrency())
-      << "Total number of threads is incorrect!";
+  // FIXME: std::thread::hardware_concurrency() is just a hint of total number
+  // of threads. Replace it with a more reliable API.
+  // EXPECT_EQ(NumSlices * SubslicesPerSlice * EUsPerSubslice * ThreadsPerEU,
+  //           std::thread::hardware_concurrency())
+  //     << "Total number of threads is incorrect!";
 
   cl_device_feature_capabilities_intel Features;
   Res = clDevGetDeviceInfo(
