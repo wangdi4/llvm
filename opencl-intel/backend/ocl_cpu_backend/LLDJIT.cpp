@@ -115,7 +115,7 @@ void LLDJIT::DeleteTempFiles(
     const llvm::SmallVectorImpl<std::string> &FilesToDelete) {
   const std::string *B = FilesToDelete.begin();
   const std::string *E = FilesToDelete.end();
-  for (int i = 0; i < OwnedTempFiles.size(); i++) {
+  for (size_t i = 0; i < OwnedTempFiles.size(); i++) {
     TmpFile &TempFile = OwnedTempFiles[i];
     if (std::find(B, E, TempFile.FileName()) != E) {
       std::swap(TempFile, OwnedTempFiles.back());
