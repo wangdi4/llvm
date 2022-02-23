@@ -8424,15 +8424,25 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   // -qopt-mem-layout-trans > 2 with LTO enables whole-program-vtables
   bool LayoutLTO = false;
-  if (Args.hasArg(options::OPT_qopt_mem_layout_trans_EQ) && D.isUsingLTO()) {
-    Arg *A = Args.getLastArg(options::OPT_qopt_mem_layout_trans_EQ);
-    StringRef Value(A->getValue());
-    if (!Value.empty()) {
-      int ValInt = 0;
-      if (!Value.getAsInteger(0, ValInt))
-        LayoutLTO = (ValInt > 2);
+  bool MArchAVX2Enabled = false;
+  if (Args.hasArg(clang::driver::options::OPT_march_EQ)) {
+    StringRef Value = Args.getLastArgValue(options::OPT_march_EQ);
+    if (!Value.empty())
+      MArchAVX2Enabled =
+          x86::getCPUForIntel(Value, TC.getTriple()) == "core-avx2";
+  }
+
+  if (!MArchAVX2Enabled) {
+    if (Args.hasArg(options::OPT_qopt_mem_layout_trans_EQ) && D.isUsingLTO()) {
+      StringRef Value = Args.getLastArgValue(options::OPT_qopt_mem_layout_trans_EQ);
+      if (!Value.empty()) {
+        int ValInt = 0;
+        if (!Value.getAsInteger(0, ValInt))
+          LayoutLTO = (ValInt > 2);
+      }
     }
   }
+
   bool WholeProgramVTables = Args.hasFlag(
       options::OPT_fwhole_program_vtables,
       options::OPT_fno_whole_program_vtables,
