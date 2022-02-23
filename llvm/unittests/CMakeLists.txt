@@ -40,6 +40,7 @@ if(";${LLVM_TARGETS_TO_BUILD};" MATCHES ";X86;")
   add_subdirectory(Intel_MIRMatcher)
 endif()
 # end INTEL_CUSTOMIZATION
+add_subdirectory(ObjCopy)
 add_subdirectory(Object)
 add_subdirectory(ObjectYAML)
 add_subdirectory(Option)
