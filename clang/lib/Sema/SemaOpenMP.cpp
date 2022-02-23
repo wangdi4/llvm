@@ -12707,8 +12707,6 @@ private:
   Expr *C = nullptr;
   /// True if the cond expr is in the form of 'x ordop expr'.
   bool IsXBinopExpr = true;
-  /// The atomic compare operator.
-  OMPAtomicCompareOp Op;
 
   /// Check if it is a valid conditional update statement (cond-update-stmt).
   bool checkCondUpdateStmt(IfStmt *S, ErrorInfoTy &ErrorInfo);
@@ -12765,23 +12763,7 @@ bool OpenMPAtomicCompareChecker::checkCondUpdateStmt(IfStmt *S,
   }
 
   switch (Cond->getOpcode()) {
-  case BO_EQ:
-    Op = OMPAtomicCompareOp::EQ;
-    break;
-  case BO_LT:
-    Op = OMPAtomicCompareOp::MIN;
-    break;
-  case BO_GT:
-    Op = OMPAtomicCompareOp::MAX;
-    break;
-  default:
-    ErrorInfo.Error = ErrorTy::InvalidBinaryOp;
-    ErrorInfo.ErrorLoc = ErrorInfo.NoteLoc = Cond->getExprLoc();
-    ErrorInfo.ErrorRange = ErrorInfo.NoteRange = Cond->getSourceRange();
-    return false;
-  }
-
-  if (Cond->getOpcode() == BO_EQ) {
+  case BO_EQ: {
     C = Cond;
     D = BO->getRHS();
     if (checkIfTwoExprsAreSame(ContextRef, X, Cond->getLHS())) {
@@ -12794,7 +12776,10 @@ bool OpenMPAtomicCompareChecker::checkCondUpdateStmt(IfStmt *S,
       ErrorInfo.ErrorRange = ErrorInfo.NoteRange = Cond->getSourceRange();
       return false;
     }
-  } else {
+    break;
+  }
+  case BO_LT:
+  case BO_GT: {
     E = BO->getRHS();
     if (checkIfTwoExprsAreSame(ContextRef, X, Cond->getLHS()) &&
         checkIfTwoExprsAreSame(ContextRef, E, Cond->getRHS())) {
@@ -12809,6 +12794,13 @@ bool OpenMPAtomicCompareChecker::checkCondUpdateStmt(IfStmt *S,
       ErrorInfo.ErrorRange = ErrorInfo.NoteRange = Cond->getSourceRange();
       return false;
     }
+    break;
+  }
+  default:
+    ErrorInfo.Error = ErrorTy::InvalidBinaryOp;
+    ErrorInfo.ErrorLoc = ErrorInfo.NoteLoc = Cond->getExprLoc();
+    ErrorInfo.ErrorRange = ErrorInfo.NoteRange = Cond->getSourceRange();
+    return false;
   }
 
   return true;
@@ -12859,23 +12851,7 @@ bool OpenMPAtomicCompareChecker::checkCondExprStmt(Stmt *S,
   }
 
   switch (Cond->getOpcode()) {
-  case BO_EQ:
-    Op = OMPAtomicCompareOp::EQ;
-    break;
-  case BO_LT:
-    Op = OMPAtomicCompareOp::MIN;
-    break;
-  case BO_GT:
-    Op = OMPAtomicCompareOp::MAX;
-    break;
-  default:
-    ErrorInfo.Error = ErrorTy::InvalidBinaryOp;
-    ErrorInfo.ErrorLoc = ErrorInfo.NoteLoc = Cond->getExprLoc();
-    ErrorInfo.ErrorRange = ErrorInfo.NoteRange = Cond->getSourceRange();
-    return false;
-  }
-
-  if (Cond->getOpcode() == BO_EQ) {
+  case BO_EQ: {
     C = Cond;
     D = CO->getTrueExpr();
     if (checkIfTwoExprsAreSame(ContextRef, X, Cond->getLHS())) {
@@ -12888,7 +12864,10 @@ bool OpenMPAtomicCompareChecker::checkCondExprStmt(Stmt *S,
       ErrorInfo.ErrorRange = ErrorInfo.NoteRange = Cond->getSourceRange();
       return false;
     }
-  } else {
+    break;
+  }
+  case BO_LT:
+  case BO_GT: {
     E = CO->getTrueExpr();
     if (checkIfTwoExprsAreSame(ContextRef, X, Cond->getLHS()) &&
         checkIfTwoExprsAreSame(ContextRef, E, Cond->getRHS())) {
@@ -12903,6 +12882,13 @@ bool OpenMPAtomicCompareChecker::checkCondExprStmt(Stmt *S,
       ErrorInfo.ErrorRange = ErrorInfo.NoteRange = Cond->getSourceRange();
       return false;
     }
+    break;
+  }
+  default:
+    ErrorInfo.Error = ErrorTy::InvalidBinaryOp;
+    ErrorInfo.ErrorLoc = ErrorInfo.NoteLoc = Cond->getExprLoc();
+    ErrorInfo.ErrorRange = ErrorInfo.NoteRange = Cond->getSourceRange();
+    return false;
   }
 
   return true;
@@ -12912,8 +12898,7 @@ bool OpenMPAtomicCompareChecker::checkType(ErrorInfoTy &ErrorInfo) const {
   // 'x' and 'e' cannot be nullptr
   assert(X && E && "X and E cannot be nullptr");
 
-  auto CheckValue = [&ErrorInfo](const Expr *E, OMPAtomicCompareOp Op,
-                                 bool ShouldBeLValue) {
+  auto CheckValue = [&ErrorInfo](const Expr *E, bool ShouldBeLValue) {
     if (ShouldBeLValue && !E->isLValue()) {
       ErrorInfo.Error = ErrorTy::XNotLValue;
       ErrorInfo.ErrorLoc = ErrorInfo.NoteLoc = E->getExprLoc();
@@ -12930,7 +12915,7 @@ bool OpenMPAtomicCompareChecker::checkType(ErrorInfoTy &ErrorInfo) const {
         return false;
       }
 
-      if (Op != OMPAtomicCompareOp::EQ && !QTy->isIntegerType()) {
+      if (!QTy->isIntegerType()) {
         ErrorInfo.Error = ErrorTy::NotInteger;
         ErrorInfo.ErrorLoc = ErrorInfo.NoteLoc = E->getExprLoc();
         ErrorInfo.ErrorRange = ErrorInfo.NoteRange = E->getSourceRange();
@@ -12941,13 +12926,13 @@ bool OpenMPAtomicCompareChecker::checkType(ErrorInfoTy &ErrorInfo) const {
     return true;
   };
 
-  if (!CheckValue(X, Op, true))
+  if (!CheckValue(X, true))
     return false;
 
-  if (!CheckValue(E, Op, false))
+  if (!CheckValue(E, false))
     return false;
 
-  if (D && !CheckValue(D, Op, false))
+  if (D && !CheckValue(D, false))
     return false;
 
   return true;

@@ -45251,6 +45251,7 @@ static SDValue combineArithReduction(SDNode *ExtElt, SelectionDAG &DAG,
     return SDValue();
 
   SDLoc DL(ExtElt);
+  unsigned NumElts = VecVT.getVectorNumElements();
 
   // Extend v4i8/v8i8 vector to v16i8, with undef upper 64-bits.
   auto WidenToV16I8 = [&](SDValue V, bool ZeroExtend) {
@@ -45272,7 +45273,6 @@ static SDValue combineArithReduction(SDNode *ExtElt, SelectionDAG &DAG,
 
   // vXi8 mul reduction - promote to vXi16 mul reduction.
   if (Opc == ISD::MUL) {
-    unsigned NumElts = VecVT.getVectorNumElements();
     if (VT != MVT::i8 || NumElts < 4 || !isPowerOf2_32(NumElts))
       return SDValue();
     if (VecVT.getSizeInBits() >= 128) {
@@ -45315,8 +45315,7 @@ static SDValue combineArithReduction(SDNode *ExtElt, SelectionDAG &DAG,
   }
 
   // Must be a >=128-bit vector with pow2 elements.
-  if ((VecVT.getSizeInBits() % 128) != 0 ||
-      !isPowerOf2_32(VecVT.getVectorNumElements()))
+  if ((VecVT.getSizeInBits() % 128) != 0 || !isPowerOf2_32(NumElts))
     return SDValue();
 
   // vXi8 add reduction - sum lo/hi halves then use PSADBW.

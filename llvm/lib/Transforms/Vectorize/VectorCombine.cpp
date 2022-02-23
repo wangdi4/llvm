@@ -1025,12 +1025,8 @@ bool VectorCombine::scalarizeLoadExtract(Instruction &I) {
           return false;
         NumInstChecked++;
       }
+      LastCheckedInst = UI;
     }
-
-    if (!LastCheckedInst)
-      LastCheckedInst = UI;
-    else if (LastCheckedInst->comesBefore(UI))
-      LastCheckedInst = UI;
 
     auto ScalarIdx = canScalarizeAccess(FixedVT, UI->getOperand(1), &I, AC, DT);
     if (!ScalarIdx.isSafe()) {
