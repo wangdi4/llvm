@@ -395,7 +395,6 @@ void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
                        "__cyg_profile_func_exit");
   }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   // If we are finishing a function during device compilation add the
   // appropriate attribute. This picks up compiler-generated routines that
@@ -405,8 +404,6 @@ void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
   if (ShouldSkipSanitizerInstrumentation())
     CurFn->addFnAttr(llvm::Attribute::DisableSanitizerInstrumentation);
 
-=======
->>>>>>> c85a26454d4b3dab383555c3864568b7aff9c225
   // Emit debug descriptor for function end.
   if (CGDebugInfo *DI = getDebugInfo())
     DI->EmitFunctionEnd(Builder, CurFn);
