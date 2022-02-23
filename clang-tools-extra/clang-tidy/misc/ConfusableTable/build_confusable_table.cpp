@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
@@ -19,7 +20,7 @@ int main(int argc, char *argv[]) {
   StringRef Content = Buffer->getBuffer();
   Content = Content.drop_until([](char c) { return c == '#'; });
   SmallVector<StringRef> Lines;
-  Content.split(Lines, '\n', -1, false);
+  SplitString(Content, Lines, "\r\n");
 
   std::vector<std::pair<llvm::UTF32, SmallVector<llvm::UTF32>>> Entries;
   for (StringRef Line : Lines) {
