@@ -1344,6 +1344,8 @@ public:
 //   DepSourceItem (for the depend(source) clause in ordered constructs)
 //   AlignedItem   (for the aligned clause in simd constructs)
 //   FlushItem     (for the flush clause)
+//   SizesItem     (for the sizes clause in tile constructs)
+//   LiveinItem    (for the auxiliary livein clause)
 //   AllocateItem  (for the allocate clause)
 //   DataItem      (for the data clause in prefetch constructs)
 //   NontemporalItem (for the nontemporal clause in simd constructs)
@@ -1578,6 +1580,44 @@ class FlushItem
     FlushItem(VAR V=nullptr) : Var(V) {}
     void setOrig(VAR V)      { Var = V; }
     VAR  getOrig()  const { return Var; }
+
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      OS << "(" ;
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ") ";
+    }
+};
+
+// For the SIZES(s1,s2,...) clause of TILE construct
+class SizesItem
+{
+  private:
+    Value *Val;
+
+  public:
+    SizesItem(Value *V) : Val(V) {}
+    void setOrig(Value *V) { Val = V; }
+    Value *getOrig() const { return Val; }
+
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      OS << "(" ;
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ") ";
+    }
+};
+
+// For the LIVEIN(v1,v2,....) clause, which is not in OpenMP, but a
+// clause artificially introduced for variables in an OpenMP region
+// that are not listed in any of its data-environment clauses.
+class LiveinItem
+{
+  private:
+    VAR  Var;
+
+  public:
+    LiveinItem(VAR V=nullptr) : Var(V) {}
+    void setOrig(VAR V) { Var = V; }
+    VAR getOrig() const { return Var; }
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
       OS << "(" ;
@@ -1895,6 +1935,8 @@ typedef Clause<DepSourceItem>     DepSourceClause;
 typedef Clause<AlignedItem>       AlignedClause;
 typedef Clause<NontemporalItem>   NontemporalClause;
 typedef Clause<FlushItem>         FlushSet;
+typedef Clause<SizesItem>         SizesClause;
+typedef Clause<LiveinItem>        LiveinClause;
 typedef Clause<AllocateItem>      AllocateClause;
 typedef Clause<DataItem>          DataClause;
 
@@ -1918,6 +1960,7 @@ typedef std::vector<DepSourceItem>::iterator     DepSourceIter;
 typedef std::vector<AlignedItem>::iterator       AlignedIter;
 typedef std::vector<NontemporalItem>::iterator   NontemporalIter;
 typedef std::vector<FlushItem>::iterator         FlushIter;
+typedef std::vector<LiveinItem>::iterator        LiveinIter;
 typedef std::vector<AllocateItem>::iterator      AllocateIter;
 typedef std::vector<DataItem>::iterator          DataIter;
 

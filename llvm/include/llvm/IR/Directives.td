@@ -146,6 +146,9 @@ def "DIR.OMP.END.PREFETCH" : Directive;
 def "DIR.OMP.SCOPE" : Directive;
 def "DIR.OMP.END.SCOPE" : Directive;
 
+def "DIR.OMP.TILE" : Directive;
+def "DIR.OMP.END.TILE" : Directive;
+
 #if INTEL_CUSTOMIZATION
 // Directives used to mark begin/end of a loop determined by VPO vectorizer
 // legality analysis to be legal to vectorize.
@@ -310,6 +313,7 @@ def "QUAL.OMP.ALLOCATE" : Clause;
 def "QUAL.OMP.NOCONTEXT" : Clause;
 def "QUAL.OMP.NOVARIANTS" : Clause;
 def "QUAL.OMP.DATA" : Clause;
+def "QUAL.OMP.SIZES" : Clause;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 // Support Intel extension for CSA.
@@ -328,6 +332,7 @@ def "QUAL.OMP.IMPLICIT" : Clause;
 def "QUAL.OMP.DISPATCH.CALL" : Clause;
 def "QUAL.OMP.NORMALIZED.IV" : Clause;
 def "QUAL.OMP.NORMALIZED.UB" : Clause;
+def "QUAL.OMP.LIVEIN" : Clause;
 def "QUAL.OMP.CANCELLATION.POINTS" : Clause;
 def "QUAL.OMP.OPERAND.ADDR" : Clause;
 def "QUAL.OMP.JUMP.TO.END.IF" : Clause;

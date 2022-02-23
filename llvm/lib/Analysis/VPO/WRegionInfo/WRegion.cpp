@@ -994,6 +994,17 @@ void WRNScopeNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   vpo::printBool("NOWAIT", getNowait(), OS, 2*Depth, Verbosity);
 }
 
+//
+// Methods for WRNTileNode
+//
+
+// constructor
+WRNTileNode::WRNTileNode(BasicBlock *BB, LoopInfo *Li)
+    : WRegionNode(WRegionNode::WRNTile, BB), WRNLI(Li) {
+  setIsOmpLoopTransform();
+
+  LLVM_DEBUG(dbgs() << "\nCreated WRNTileNode<" << getNumber() << ">\n");
+}
 
 //
 // Methods for WRNGenericLoopNode

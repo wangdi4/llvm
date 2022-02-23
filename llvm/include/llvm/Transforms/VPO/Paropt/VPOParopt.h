@@ -72,7 +72,8 @@ enum VPOParoptMode {
   AutoPar         = 0x00000080,
   OmpTbb          = 0x00000100, // emit tbb_omp_task_* calls (vs kmpc_task_*)
   OmpNoFECollapse = 0x00000200, // FE doesn't collapse loops
-  OmpSimt         = 0x00000400  // SIMT mode
+  OmpSimt         = 0x00000400, // SIMT mode
+  LoopTransform   = 0x00000800  // Loop Transforms pass: TILE, etc.
 };
 
 } // end namespace vpo

@@ -273,6 +273,9 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
     case DIR_OMP_SCOPE:
       W = new WRNScopeNode(EntryBB);
       break;
+    case DIR_OMP_TILE:
+      W = new WRNTileNode(EntryBB, LI);
+      break;
   }
   if (W) {
     W->setLevel(NestingLevel);

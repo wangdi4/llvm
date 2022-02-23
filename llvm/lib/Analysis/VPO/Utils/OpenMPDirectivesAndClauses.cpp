@@ -300,6 +300,7 @@ bool VPOAnalysisUtils::isBeginDirective(int DirID) {
   case DIR_OMP_DISTRIBUTE_PARLOOP:
   case DIR_OMP_GENERICLOOP:
   case DIR_OMP_SCOPE:
+  case DIR_OMP_TILE:
 #if INTEL_CUSTOMIZATION
   case DIR_VPO_AUTO_VEC:
   case DIR_PRAGMA_IVDEP:
@@ -334,6 +335,7 @@ bool VPOAnalysisUtils::isBeginLoopDirective(int DirID) {
   case DIR_OMP_DISTRIBUTE:
   case DIR_OMP_DISTRIBUTE_PARLOOP:
   case DIR_OMP_GENERICLOOP:
+  case DIR_OMP_TILE:
   case DIR_PRAGMA_BLOCK_LOOP:
     return true;
   }
@@ -378,6 +380,7 @@ bool VPOAnalysisUtils::isEndDirective(int DirID) {
   case DIR_OMP_END_DISTRIBUTE_PARLOOP:
   case DIR_OMP_END_GENERICLOOP:
   case DIR_OMP_END_SCOPE:
+  case DIR_OMP_END_TILE:
 #if INTEL_CUSTOMIZATION
   case DIR_VPO_END_AUTO_VEC:
   case DIR_PRAGMA_END_IVDEP:
@@ -412,6 +415,7 @@ bool VPOAnalysisUtils::isEndLoopDirective(int DirID) {
   case DIR_OMP_END_DISTRIBUTE:
   case DIR_OMP_END_DISTRIBUTE_PARLOOP:
   case DIR_OMP_END_GENERICLOOP:
+  case DIR_OMP_END_TILE:
   case DIR_PRAGMA_END_BLOCK_LOOP:
     return true;
   }
@@ -590,6 +594,8 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
     return DIR_OMP_END_DISTRIBUTE_PARLOOP;
   case DIR_OMP_SCOPE:
       return DIR_OMP_END_SCOPE;
+  case DIR_OMP_TILE:
+      return DIR_OMP_END_TILE;
 
 #if INTEL_CUSTOMIZATION
   // Non-OpenMP Directives
