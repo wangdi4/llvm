@@ -7130,8 +7130,7 @@ ScalarEvolution::getRangeRef(const SCEV *S,
           RangeType);
 
     // A range of Phi is a subset of union of all ranges of its input.
-<<<<<<< HEAD
-    if (const PHINode *Phi = dyn_cast<PHINode>(U->getValue())) {
+    if (const PHINode *Phi = dyn_cast<PHINode>(U->getValue())){
 #if INTEL_CUSTOMIZATION
       // Recursion check before we call getSCEV recursively on each Op.
       // A chain of phi and arithmetic will cause N^2 recursion.
@@ -7139,20 +7138,9 @@ ScalarEvolution::getRangeRef(const SCEV *S,
         return setRange(U, SignHint, std::move(ConservativeResult));
 #endif // INTEL_CUSTOMIZATION
 
-      // Make sure that we do not run over cycled Phis.
-      if (PendingPhiRanges.insert(Phi).second) {
-        ConstantRange RangeFromOps(BitWidth, /*isFullSet=*/false);
-        for (auto &Op : Phi->operands()) {
-          auto OpRange = getRangeRef(getSCEV(Op), SignHint);
-          RangeFromOps = RangeFromOps.unionWith(OpRange);
-          // No point to continue if we already have a full set.
-          if (RangeFromOps.isFullSet())
-            break;
-=======
-    if (const PHINode *Phi = dyn_cast<PHINode>(U->getValue()))
       if (!PendingPhiRanges.count(Phi))
         sharpenPhiSCCRange(Phi, ConservativeResult, SignHint);
-
+    }
     return setRange(U, SignHint, std::move(ConservativeResult));
   }
 
@@ -7185,7 +7173,6 @@ bool ScalarEvolution::collectSCC(const PHINode *Phi,
             return Bail();
           if (Reachable.insert(PhiOp).second)
             Worklist.push_back(PhiOp);
->>>>>>> fc539b0004d4fe8072aca00e38599a2300a955ce
         }
       }
     }
