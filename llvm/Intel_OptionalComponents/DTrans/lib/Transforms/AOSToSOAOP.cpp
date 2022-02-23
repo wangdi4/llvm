@@ -3024,8 +3024,9 @@ bool AOSToSOAOPPass::runImpl(Module &M, DTransSafetyInfo *DTInfo,
                              AOSToSOAOPPass::GetTLIFuncType &GetTLI,
                              AOSToSOAOPPass::DominatorTreeFuncType &GetDT) {
   LLVM_DEBUG(dbgs() << "Running AOS-to-SOA for opaque pointers pass\n");
-  if (!WPInfo.isWholeProgramSafe()) {
-    LLVM_DEBUG(dbgs() << "  Not whole program safe\n");
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
+  if (!WPInfo.isWholeProgramSafe() || !WPInfo.isAdvancedOptEnabled(TTIAVX2)) {
+    LLVM_DEBUG(dbgs() << "  Not whole program safe or not AVX2\n");
     return false;
   }
 
