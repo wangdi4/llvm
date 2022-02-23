@@ -27,7 +27,6 @@ add_custom_target(VectorizationInfoGen ALL
 include_directories(BEFORE "Heuristic")
 include_directories(BEFORE "PostDominanceFrontier")
 include_directories(BEFORE "Utils")
-include_directories(BEFORE "WIAnalysis")
 include_directories(BEFORE "Predication")
 include_directories(BEFORE "OCLBranchProbability")
 include_directories(BEFORE "ChooseVectorizationDimension")
@@ -83,7 +82,6 @@ set(TARGET_INCLUDE_FILES
   Utils/VectorizerCore.h
   VectorKernelDiscard/VectorKernelDiscard.h
   VolcanoWrapper/Main.h
-  WIAnalysis/WIAnalysis.h
   ${TARGET_EXTRA_INCLUDE_FILES}
 )
 
@@ -115,7 +113,6 @@ set(TARGET_SOURCE_FILES
   Utils/VectorizerCommon.cpp
   VectorKernelDiscard/VectorKernelDiscard.cpp
   VolcanoWrapper/Main.cpp
-  WIAnalysis/WIAnalysis.cpp
   ${TARGET_EXTRA_SOURCE_FILES}
 )
 

@@ -27,7 +27,6 @@ namespace llvm {
 namespace intel {
 void initializePhiCanonPass(llvm::PassRegistry&);
 void initializePredicatorPass(llvm::PassRegistry&);
-void initializeWIAnalysisPass(llvm::PassRegistry&);
 void initializeOCLBranchProbabilityPass(llvm::PassRegistry&);
 void initializeScalarizeFunctionPass(llvm::PassRegistry&);
 void initializeSimplifyGEPPass(llvm::PassRegistry&);
