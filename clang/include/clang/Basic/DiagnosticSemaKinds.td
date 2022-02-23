@@ -3581,7 +3581,6 @@ def warn_attribute_not_on_decl : Warning<
   "%0 attribute ignored when parsing type">, InGroup<IgnoredAttributes>;
 def err_base_specifier_attribute : Error<
   "%0 attribute cannot be applied to a base specifier">;
-<<<<<<< HEAD
 // if INTEL_CUSTOMIZATION
 def err_interrupt_function_wrong_return_type : Error<
   "interrupt service routine must have void return value">;
@@ -3594,8 +3593,6 @@ def err_interrupt_function_wrong_second_arg : Error<
 // endif INTEL_CUSTOMIZATION
 def err_invalid_attribute_on_virtual_function : Error<
   "%0 attribute cannot be applied to virtual functions">;
-=======
->>>>>>> 7dd660fe7f4698fb7998ccdaed6b9b2eeb4e6d11
 def warn_declspec_allocator_nonpointer : Warning<
   "ignoring __declspec(allocator) because the function return type %0 is not "
   "a pointer or reference type">, InGroup<IgnoredAttributes>;
