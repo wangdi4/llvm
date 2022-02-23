@@ -85,6 +85,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/SIMDIntrinsicChecker.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
@@ -110,13 +111,13 @@ static cl::list<unsigned>
     TransformNodes(OPT_SWITCH "-nodes", cl::Hidden,
                    cl::desc("List nodes to transform by " OPT_DESC));
 
-static cl::opt<bool> BypassSIMDLoop(OPT_SWITCH "-bypass-simd", cl::init(true),
-                                  cl::Hidden,
-                                  cl::desc(OPT_DESC " skipps simd loops"));
+static cl::opt<bool> BypassSIMDLoop(OPT_SWITCH "-bypass-simd", cl::init(false),
+                                    cl::Hidden,
+                                    cl::desc(OPT_DESC " skipps simd loops"));
 
 static cl::opt<bool>
     SkipIVOverflowCheck(OPT_SWITCH "-relax-ov", cl::init(false), cl::Hidden,
-                 cl::desc(OPT_DESC " relaxes IV overflow check"));
+                        cl::desc(OPT_DESC " relaxes IV overflow check"));
 
 STATISTIC(LoopsSplit, "Loops split during optimization of predicates.");
 
@@ -209,14 +210,17 @@ private:
   void addVarPredicateRemark(const EqualCandidates &Candidates, HLLoop *Loop,
                              OptReportBuilder &ORBuilder, unsigned RemarkID);
 
-  std::tuple<HLInst*, RegDDRef*, bool>
-  convertOneSideToStandAloneBlob(const RegDDRef* LHS, const RegDDRef* RHS,
-                              unsigned Level);
+  std::tuple<HLInst *, RegDDRef *, bool>
+  convertOneSideToStandAloneBlob(const RegDDRef *LHS, const RegDDRef *RHS,
+                                 unsigned Level);
 
   static void replaceIfCondWithConvertedBlob(const EqualCandidates &Candidate,
                                              HLInst *CopyInst,
                                              RegDDRef *NewBlob,
                                              bool IsLHSConverted, HLLoop *Loop);
+
+  static void cloneSIMDDirs(ArrayRef<HLLoop *> OutLoops,
+                            const SIMDIntrinsicChecker &SIC);
 };
 } // namespace
 
@@ -295,9 +299,9 @@ public:
       // Exactly one of LHS or RHS has IV at Level.
       // See if the other side has IV at another Level.
       if (LHSIV && RHSRef->getSingleCanonExpr()->getFirstIVLevel() &&
-          RHSRef->isStructurallyInvariantAtLevel(Level) ||
+              RHSRef->isStructurallyInvariantAtLevel(Level) ||
           RHSIV && LHSRef->getSingleCanonExpr()->getFirstIVLevel() &&
-          LHSRef->isStructurallyInvariantAtLevel(Level)) {
+              LHSRef->isStructurallyInvariantAtLevel(Level)) {
         BothSidesIV = true;
       }
     }
@@ -325,14 +329,14 @@ public:
   bool skipRecursion(const HLNode *Node) const { return SkipNode == Node; }
 };
 
-std::tuple<HLInst*, RegDDRef*, bool>
-HIROptVarPredicate::convertOneSideToStandAloneBlob(const RegDDRef* LHS,
-                                                   const RegDDRef* RHS,
+std::tuple<HLInst *, RegDDRef *, bool>
+HIROptVarPredicate::convertOneSideToStandAloneBlob(const RegDDRef *LHS,
+                                                   const RegDDRef *RHS,
                                                    unsigned Level) {
   bool hasLHSIV = LHS->hasIV(Level);
   bool hasRHSIV = RHS->hasIV(Level);
   assert(hasLHSIV != hasRHSIV);
-  (void) hasLHSIV;
+  (void)hasLHSIV;
 
   bool IsLHSReplaced = false;
   if (hasRHSIV) {
@@ -343,8 +347,9 @@ HIROptVarPredicate::convertOneSideToStandAloneBlob(const RegDDRef* LHS,
   // ConvertToStandAloneBlob doesnt work when iv is present.
   // Add following copy to Blobify (c*iv + k).
   // %ivcopy = coeff * iv_anotherLevel + {const} + {blob}
-  HLInst* CopyInst = HIRF.getHLNodeUtils().createCopyInst(RHS->clone(), "ivcopy");
-  RegDDRef* BlobRHS = CopyInst->getLvalDDRef()->clone();
+  HLInst *CopyInst =
+      HIRF.getHLNodeUtils().createCopyInst(RHS->clone(), "ivcopy");
+  RegDDRef *BlobRHS = CopyInst->getLvalDDRef()->clone();
 
   // CopyInst is not inserted. BlobRHS is not yet attached either.
   // Thus, using CopyInst's Lval as AuxRef for calling makeConsistent() of
@@ -382,6 +387,72 @@ void HIROptVarPredicate::replaceIfCondWithConvertedBlob(
     RegDDRef *OrigRHS = IfCandidate->getRHSPredicateOperandDDRef(PredI);
     RegDDRef *OldRef = IsLHSConverted ? OrigLHS : OrigRHS;
     IfCandidate->replaceOperandDDRef(OldRef, NewBlob->clone());
+  }
+}
+
+static inline void cloneDirEntry(HLNode *Pos, const HLInst *DirSIMD,
+                                 ArrayRef<const HLInst *> AuxInsts) {
+  HLInst *Entry = DirSIMD->clone();
+  HLNodeUtils::insertBefore(Pos, Entry);
+  for (const HLInst *Load : AuxInsts)
+    HLNodeUtils::insertBefore(Pos, Load->clone());
+}
+
+static inline void cloneDirExit(HLNode *Pos, const HLInst *DirSIMDExit,
+                                ArrayRef<const HLInst *> AuxInsts) {
+  HLInst *Exit = DirSIMDExit->clone();
+  HLNodeUtils::insertAfter(Pos, Exit);
+  for (const HLInst *Store : AuxInsts)
+    HLNodeUtils::insertBefore(Exit, Store->clone());
+}
+
+void HIROptVarPredicate::cloneSIMDDirs(
+    ArrayRef<HLLoop *> OutLoops,
+    const SIMDIntrinsicChecker &SIC) {
+
+  unsigned NumOutLoops = OutLoops.size();
+  // If there is only one output loop, no more cloning is needed,
+  // so just return.
+  if (NumOutLoops <= 1)
+    return;
+
+  const HLInst *DirSIMD = SIC.getSIMDEntryInst();
+  const HLInst *DirSIMDExit = SIC.getSIMDExitInst();
+
+  // NumOutLoops >= 2
+  // Figure out if the there is a non-loop middle node
+  HLLoop *FirstLp = OutLoops.front();
+  HLLoop *LastLp = OutLoops[NumOutLoops - 1];
+  HLNode *NextNode = FirstLp->getNextNode();
+  if (!isa<HLLoop>(NextNode) && NextNode != LastLp) {
+    // If there is a non-loop middle node, clone/insert pre/post loops.
+    dbgs() << "Hit here\n";
+    if (HLIf* If = dyn_cast<HLIf>(NextNode)) {
+    dbgs() << "Hit if\n";
+      assert(If->getNumElseChildren() == 0);
+      cloneDirEntry(If->getFirstThenChild(), DirSIMD, SIC.getRedPreLoopInsts());
+      cloneDirExit(If->getLastThenChild(), DirSIMDExit, SIC.getRedPostLoopInsts());
+    } else {
+    dbgs() << "Hit non-if\n";
+      cloneDirEntry(NextNode, DirSIMD, SIC.getRedPreLoopInsts());
+      cloneDirExit(NextNode, DirSIMDExit, SIC.getRedPostLoopInsts());
+    }
+  }
+
+  // First and last loops are handled differently
+  // First loop - add exit only
+  cloneDirExit(FirstLp, DirSIMDExit, SIC.getRedPostLoopInsts());
+
+  // Last - add entry only
+  cloneDirEntry(LastLp, DirSIMD, SIC.getRedPreLoopInsts());
+
+  // Middle loops, if any
+  for (unsigned I = 1; I < NumOutLoops - 1; I++) {
+    HLLoop *Lp = OutLoops[I];
+    // Exit
+    cloneDirExit(Lp, DirSIMDExit, SIC.getRedPostLoopInsts());
+    // Entry
+    cloneDirEntry(Lp, DirSIMD, SIC.getRedPreLoopInsts());
   }
 }
 
@@ -955,9 +1026,18 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
     return false;
   }
 
-  if (BypassSIMDLoop && Loop->isSIMD()) {
-    LLVM_DEBUG(dbgs() << "SIMD Loop skipped\n");
-    return false;
+  const HLInst *DirSIMD = Loop->getSIMDEntryIntrinsic();
+  SIMDIntrinsicChecker SIC(BypassSIMDLoop ? nullptr : DirSIMD, Loop);
+  if (DirSIMD) {
+    if (BypassSIMDLoop) {
+      LLVM_DEBUG(dbgs() << "SIMD Loop skipped.\n");
+      return false;
+    }
+
+    if (!SIC.isHandleable() || !SIC.areAllInPreAndPostLoop()) {
+      LLVM_DEBUG(dbgs() << "Unhandleable SIMD Loop.\n");
+      return false;
+    }
   }
 
   SmallVector<EqualCandidates, 4> Candidates;
@@ -1016,8 +1096,8 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
 
     bool HaveBothSidesIV = Candidate.BothSidesIV;
     bool IsLHSConverted = false;
-    HLInst* CopyInst = nullptr;
-    RegDDRef* NewBlob = nullptr;
+    HLInst *CopyInst = nullptr;
+    RegDDRef *NewBlob = nullptr;
     if (HaveBothSidesIV) {
       // In case of BothSidesIV
       // - createCopyInst of RHS or LHS
@@ -1025,7 +1105,7 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
       // Note that actual insertion and replacement of operands
       // do not happen yet.
       std::tie(CopyInst, NewBlob, IsLHSConverted) =
-        convertOneSideToStandAloneBlob(LHS, RHS, Level);
+          convertOneSideToStandAloneBlob(LHS, RHS, Level);
 
       if (IsLHSConverted)
         LHS = NewBlob;
@@ -1065,15 +1145,20 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
       // - replace Ifs in Candidates with the new condition using new L/Rval
       replaceIfCondWithConvertedBlob(Candidate, CopyInst, NewBlob,
                                      IsLHSConverted, Loop);
-      LLVM_DEBUG(dbgs() << "BothSidesIV - Before splitLoop:\n";
-                 Loop->dump());
+      LLVM_DEBUG(dbgs() << "BothSidesIV - Before splitLoop:\n"; Loop->dump());
     }
 
     HLLoop *ParentLoop = Loop->getParentLoop();
     HLRegion *Region = Loop->getParentRegion();
 
+    SmallVector<HLLoop *, 4> OutLoopsVec;
+    if (DirSIMD && !OutLoops)
+      OutLoops = &OutLoopsVec;
     splitLoop(Loop, Candidate, LHS, Pred, RHS, LowerCE.get(), UpperCE.get(),
               SplitPoint.get(), ShouldInvertCondition, OutLoops);
+
+    if (DirSIMD)
+      cloneSIMDDirs(*OutLoops, SIC);
 
     if (SetRegionModified && Candidate.shouldGenCode(Loop)) {
       Region->setGenCode();
