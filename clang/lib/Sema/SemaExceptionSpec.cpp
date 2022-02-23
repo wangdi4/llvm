@@ -342,8 +342,7 @@ bool Sema::CheckEquivalentExceptionSpec(FunctionDecl *Old, FunctionDecl *New) {
   if (!MissingExceptionSpecification)
     return ReturnValueOnError;
 
-  const FunctionProtoType *NewProto =
-    New->getType()->castAs<FunctionProtoType>();
+  const auto *NewProto = New->getType()->castAs<FunctionProtoType>();
 
   // The new function declaration is only missing an empty exception
   // specification "throw()". If the throw() specification came from a
@@ -353,6 +352,7 @@ bool Sema::CheckEquivalentExceptionSpec(FunctionDecl *Old, FunctionDecl *New) {
   // specifications.
   //
   // Likewise if the old function is a builtin.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   FunctionDecl *First = Old->getFirstDecl();
   if ((MissingEmptyExceptionSpecification && NewProto) &&
@@ -366,14 +366,20 @@ bool Sema::CheckEquivalentExceptionSpec(FunctionDecl *Old, FunctionDecl *New) {
 	     Context.getSourceManager().isInSystemHeader(First->getLocation())))))
 #endif // INTEL_CUSTOMIZATION
 	)) {
+=======
+  if (MissingEmptyExceptionSpecification &&
+      (Old->getLocation().isInvalid() ||
+       Context.getSourceManager().isInSystemHeader(Old->getLocation()) ||
+       Old->getBuiltinID()) &&
+      Old->isExternC()) {
+>>>>>>> 5fe64d238b8b5ed1861de63a2072ddf3e81af806
     New->setType(Context.getFunctionType(
         NewProto->getReturnType(), NewProto->getParamTypes(),
         NewProto->getExtProtoInfo().withExceptionSpec(EST_DynamicNone)));
     return false;
   }
 
-  const FunctionProtoType *OldProto =
-    Old->getType()->castAs<FunctionProtoType>();
+  const auto *OldProto = Old->getType()->castAs<FunctionProtoType>();
 
   FunctionProtoType::ExceptionSpecInfo ESI = OldProto->getExceptionSpecType();
   if (ESI.Type == EST_Dynamic) {
