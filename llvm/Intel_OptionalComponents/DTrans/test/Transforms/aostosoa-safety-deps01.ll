@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -disable-output -dtrans-aostosoa -debug-only=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -passes=dtrans-aostosoa -debug-only=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -dtrans-aostosoa -debug-only=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes=dtrans-aostosoa -debug-only=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume 2>&1 | FileCheck %s
 
 ; This test verifies that the AOS-to-SOA transformation of a
 ; type gets inhibited if a safety check for a dependent type

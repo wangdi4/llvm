@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt  -whole-program-assume < %s -disable-output -dtrans-aostosoa -dtrans-ignore-bfi=true -dtrans-aostosoa-frequency-threshold=20 -debug-only=dtrans-aostosoa 2>&1 | FileCheck %s
-; RUN: opt  -whole-program-assume < %s -disable-output -passes=dtrans-aostosoa -dtrans-ignore-bfi=true -dtrans-aostosoa-frequency-threshold=20 -debug-only=dtrans-aostosoa 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -whole-program-assume -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -dtrans-aostosoa -dtrans-ignore-bfi=true -dtrans-aostosoa-frequency-threshold=20 -debug-only=dtrans-aostosoa 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -whole-program-assume -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes=dtrans-aostosoa -dtrans-ignore-bfi=true -dtrans-aostosoa-frequency-threshold=20 -debug-only=dtrans-aostosoa 2>&1 | FileCheck %s
 
 ; This test verifies that a type that passes all the safety conditions will
 ; not be selected for being transformed when it does not pass the hotness
