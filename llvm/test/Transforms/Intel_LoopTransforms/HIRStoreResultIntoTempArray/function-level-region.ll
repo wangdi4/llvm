@@ -7,7 +7,7 @@
 ;Function: jacobian_
 ;
 ;<0>          BEGIN REGION { }
-;<2>                if (%or.cond487 == 0)
+;<2>                if (%umax(%rel9, %rel5, %rel) == 0)
 ;<2>                {
 ;<6>                   %"jacobian_$N_fetch" = (%"jacobian_$N")[0];
 ;<8>                   %"jacobian_$M.13" = undef;
@@ -94,7 +94,7 @@
 ; CHECK:           %array_size = sext.i32.i64(%"jacobian_$NY_fetch") + 1  *  sext.i32.i64(%"jacobian_$NX_fetch") + 1;
 ; CHECK:           %array_size9 = sext.i32.i64(%"jacobian_$NZ_fetch1") + 4  *  %array_size;
 ; CHECK:           %TempArray = alloca %array_size9;
-; CHECK:           if (%or.cond487 == 0)
+; CHECK:           if (umax(%rel9, %rel5, %rel) == 0)
 ; CHECK:           {
 ; CHECK:              %"jacobian_$N_fetch" = (%"jacobian_$N")[0];
 ; CHECK:              %"jacobian_$M.13" = undef;

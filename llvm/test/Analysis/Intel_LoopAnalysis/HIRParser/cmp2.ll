@@ -12,7 +12,7 @@
 ;  q[i] += p[i];
 ;}
 
-; CHECK: if (%or.cond != 0)
+; CHECK: if (umin(%cmp2, %cmp4) != 0)
 
 
 ; ModuleID = 'compare.c'
