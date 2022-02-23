@@ -3955,14 +3955,14 @@ bool VPOParoptTransform::mayCallOmpGetNumThreads(WRegionNode *W) {
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": The region calls ";
                  CalledF->printAsOperand(dbgs(), false); dbgs() << ".\n");
 
-      if (!CalledF->hasExactDefinition()) {
+      if (CalledF->isDeclaration()) {
         // If we cannot see the definition of a function, we assume that it may
         // call omp_get_num_threads. If this is not sufficient, this kind of
         // optimization would probably need to happen in the openmpopt pass
         // (which is in the inliner's pipeline).
         LLVM_DEBUG(dbgs() << __FUNCTION__ << ": ";
                    CalledF->printAsOperand(dbgs(), false);
-                   dbgs() << " does not have an exact definition. It may call "
+                   dbgs() << " does not have a definition. It may call "
                              "omp_get_num_threads.\n");
         return logAndReturn(true);
       }
