@@ -5419,6 +5419,16 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     return;
   }
 
+  case VPInstruction::PrivateLastValueNonPOD: {
+    RegDDRef *Orig = getScalRefForVPVal(VPInst->getOperand(1), 0)->clone();
+    VPAllocatePrivate *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
+    RegDDRef *Res = getOrCreateScalarRef(Priv, getVF() - 1);
+    auto *CopyAssignFn =
+        cast<VPPrivateLastValueNonPODInst>(VPInst)->getCopyAssign();
+    NewInst = HLNodeUtilities.createCall(CopyAssignFn, {Orig, Res});
+    break;
+  }
+
   default:
     LLVM_DEBUG(VPInst->dump());
     llvm_unreachable("Unexpected VPInstruction opcode");
