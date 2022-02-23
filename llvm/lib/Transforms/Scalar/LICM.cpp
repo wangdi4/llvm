@@ -472,11 +472,8 @@ bool LoopInvariantCodeMotion::runOnLoop(
              collectPromotionCandidates(MSSA, AA, L)) {
           LocalPromoted |= promoteLoopAccessesToScalars(
               PointerMustAliases, ExitBlocks, InsertPts, MSSAInsertPts, PIC, LI,
-<<<<<<< HEAD
-              DT, TLI, TTI, L, &MSSAU, &SafetyInfo, ORE); // INTEL + TTI
-=======
-              DT, TLI, L, &MSSAU, &SafetyInfo, ORE, LicmAllowSpeculation);
->>>>>>> 1db11106f6eebf92c0cb3995b12548127eb1d036
+              DT, TLI, TTI, L, &MSSAU, &SafetyInfo, ORE, // INTEL + TTI
+              LicmAllowSpeculation);  // INTEL + TTI
         }
         Promoted |= LocalPromoted;
       } while (LocalPromoted);

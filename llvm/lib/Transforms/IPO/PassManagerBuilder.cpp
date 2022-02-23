@@ -855,17 +855,13 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     // will destroy metadata that may not need to be destroyed if run
     // after loop rotation.
     // TODO: Investigate promotion cap for O1.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // 27770/28531: This extra pass causes high spill rates in some
     // benchmarks.
     if (!DTransEnabled)
-      MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
+      MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
+                             /*AllowSpeculation=*/false));
 #endif // INTEL_CUSTOMIZATION
-=======
-    MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
-                           /*AllowSpeculation=*/false));
->>>>>>> 1db11106f6eebf92c0cb3995b12548127eb1d036
     // Rotate Loop - disable header duplication at -Oz
     MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, PrepareForLTO));
     // TODO: Investigate promotion cap for O1.
@@ -1089,14 +1085,9 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
     // dead (or speculatable) control flows or more combining opportunities.
     PM.add(createEarlyCSEPass());
     PM.add(createCorrelatedValuePropagationPass());
-<<<<<<< HEAD
     addInstructionCombiningPass(PM, !DTransEnabled); // INTEL
-    PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
-=======
-    PM.add(createInstructionCombiningPass());
     PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
                           /*AllowSpeculation=*/true));
->>>>>>> 1db11106f6eebf92c0cb3995b12548127eb1d036
     PM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3, DivergentTarget));
     PM.add(createCFGSimplificationPass(
         SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
@@ -1208,13 +1199,9 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
       // unrolled loop is a inner loop, then the prologue will be inside the
       // outer loop. LICM pass can help to promote the runtime check out if the
       // checked value is loop invariant.
-<<<<<<< HEAD
-      PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
-      INTEL_LIMIT_END // INTEL
-=======
       PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
                             /*AllowSpeculation=*/true));
->>>>>>> 1db11106f6eebf92c0cb3995b12548127eb1d036
+      INTEL_LIMIT_END // INTEL
     }
 
     // Postpone warnings to LTO link phase. Most transformations which process
@@ -2113,7 +2100,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // Run a few AA driven optimizations here and now, to cleanup the code.
   PM.add(createGlobalsAAWrapperPass()); // IP alias analysis.
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (EnableAndersen)
     PM.add(createAndersensAAWrapperPass());
@@ -2125,11 +2111,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createIntelIPODeadArgEliminationWrapperPass());
 #endif // INTEL_CUSTOMIZATION
 
-  PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
-=======
   PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
                         /*AllowSpeculation=*/true));
->>>>>>> 1db11106f6eebf92c0cb3995b12548127eb1d036
   PM.add(NewGVN ? createNewGVNPass()
                 : createGVNPass(DisableGVNLoadPRE)); // Remove redundancies.
   PM.add(createDopeVectorHoistWrapperPass());  // INTEL
