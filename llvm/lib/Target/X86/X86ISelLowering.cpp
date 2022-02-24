@@ -519,7 +519,14 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setOperationAction(ISD::SRL_PARTS, VT, Custom);
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_PREFETCHST2
+  if (Subtarget.hasSSEPrefetch() || Subtarget.has3DNow() ||
+      Subtarget.hasPREFETCHST2())
+#else // INTEL_FEATURE_ISA_PREFETCHST2
   if (Subtarget.hasSSEPrefetch() || Subtarget.has3DNow())
+#endif // INTEL_FEATURE_ISA_PREFETCHST2
+#endif // INTEL_CUSTOMIZATION
     setOperationAction(ISD::PREFETCH      , MVT::Other, Legal);
 
   setOperationAction(ISD::ATOMIC_FENCE  , MVT::Other, Custom);

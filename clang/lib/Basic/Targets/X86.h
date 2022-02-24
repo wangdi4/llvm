@@ -132,6 +132,11 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasCLFLUSHOPT = false;
   bool HasCLWB = false;
   bool HasMOVBE = false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_PREFETCHST2
+  bool HasPREFETCHST2 = false;
+#endif // INTEL_FEATURE_ISA_PREFETCHST2
+#endif // INTEL_CUSTOMIZATION
   bool HasPREFETCHWT1 = false;
   bool HasRDPID = false;
   bool HasRetpolineExternalThunk = false;

@@ -72,6 +72,11 @@ public:
 
 bool IsPrefetchOpcode(unsigned Opcode) {
   return Opcode == X86::PREFETCHNTA || Opcode == X86::PREFETCHT0 ||
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_PREFETCHST2
+         Opcode == X86::PREFETCHST2 ||
+#endif // INTEL_FEATURE_ISA_PREFETCHST2
+#endif // INTEL_CUSTOMIZATION
          Opcode == X86::PREFETCHT1 || Opcode == X86::PREFETCHT2;
 }
 } // end anonymous namespace
