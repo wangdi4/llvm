@@ -110,7 +110,7 @@ VPValue *VPlanPredicator::getOrCreateNot(VPValue *Cond) {
     else
       Builder.setInsertPoint(Inst->getParent(), ++Inst->getIterator());
   else
-    Builder.setInsertPointFirstNonPhi(Plan.getEntryBlock());
+    Builder.setInsertPointFirstNonPhi(&Plan.getEntryBlock());
 
   auto *Not = Builder.createNot(Cond, Cond->getName() + ".not");
 
@@ -335,7 +335,7 @@ VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
   // as it will be a single-succ/single-pred edge for Block/SplitBlock).
   VPBasicBlock *Block = Term.OriginBlock;
 
-  SmallPtrSet<VPBasicBlock *, 2> DefBlocks = {Block, Plan.getEntryBlock()};
+  SmallPtrSet<VPBasicBlock *, 2> DefBlocks = {Block, &Plan.getEntryBlock()};
   SmallPtrSet<VPBasicBlock *, 16> LiveInBlocks;
   SmallVector<VPBasicBlock *, 8> IDFPHIBlocks;
   computeLiveInsForIDF(Term, LiveInBlocks);
@@ -1188,7 +1188,7 @@ void VPlanPredicator::predicate() {
 
   // Calculate predicates for the blocks in the Plan, but don't lower them into
   // explicit VPInstructions.
-  Block2PredicateTermsAndUniformity[Plan.getEntryBlock()] = {{}, true};
+  Block2PredicateTermsAndUniformity[&Plan.getEntryBlock()] = {{}, true};
   for (VPBasicBlock *Block : RPOT)
     calculatePredicateTerms(Block);
 
@@ -1211,7 +1211,7 @@ void VPlanPredicator::predicate() {
   {
     // Name scope to ensure stale RPOT after std::swap below won't be misused.
     ReversePostOrderTraversal<VPBasicBlock *> PostLinearizationRPOT(
-        Plan.getEntryBlock());
+        &Plan.getEntryBlock());
     std::swap(RPOT, PostLinearizationRPOT);
   }
 
@@ -1240,4 +1240,4 @@ void VPlanPredicator::predicate() {
 }
 
 VPlanPredicator::VPlanPredicator(VPlanVector &Plan)
-    : Plan(Plan), VPLI(Plan.getVPLoopInfo()), RPOT(Plan.getEntryBlock()) {}
+    : Plan(Plan), VPLI(Plan.getVPLoopInfo()), RPOT(&Plan.getEntryBlock()) {}

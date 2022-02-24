@@ -473,7 +473,7 @@ public:
              " with VF = " <<VF << ":\n";);
 
     VPInstructionCost BaseCost =
-      getRangeCost(depth_first(Plan->getEntryBlock()), OS);
+      getRangeCost(depth_first(&Plan->getEntryBlock()), OS);
 
     CM_DEBUG(OS, *OS << "Base Cost: " << BaseCost << '\n';);
 

@@ -4217,15 +4217,15 @@ public:
   const VPBasicBlock &back() const { return VPBasicBlocks.back(); }
   VPBasicBlock &back() { return VPBasicBlocks.back(); }
 
-  VPBasicBlock *getEntryBlock() {
+  VPBasicBlock &getEntryBlock() {
     assert(front().getNumPredecessors() == 0 &&
            "Entry block should not have predecesors.");
-    return &front();
+    return front();
   }
-  const VPBasicBlock *getEntryBlock() const {
+  const VPBasicBlock &getEntryBlock() const {
     assert(front().getNumPredecessors() == 0 &&
            "Entry block should not have predecesors.");
-    return &front();
+    return front();
   }
 
   /// Return the last VPBasicBlock in VPlan, i.e. the one with no successors.
@@ -5038,16 +5038,16 @@ struct GraphTraits<vpo::VPlan *> : public GraphTraits<vpo::VPBasicBlock *> {
   using nodes_iterator = df_iterator<NodeRef>;
 
   static NodeRef getEntryNode(vpo::VPlan *Plan) {
-    return Plan->getEntryBlock();
+    return &Plan->getEntryBlock();
   }
 
   static inline nodes_iterator nodes_begin(vpo::VPlan *Plan) {
-    return nodes_iterator::begin(Plan->getEntryBlock());
+    return nodes_iterator::begin(&Plan->getEntryBlock());
   }
 
   static inline nodes_iterator nodes_end(vpo::VPlan *Plan) {
     // df_iterator returns an empty iterator so the node used doesn't matter.
-    return nodes_iterator::end(Plan->getEntryBlock());
+    return nodes_iterator::end(&Plan->getEntryBlock());
   }
 
   static size_t size(vpo::VPlan *Plan) { return Plan->size(); }

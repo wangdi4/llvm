@@ -409,7 +409,7 @@ eh.resume:                                        ; preds = %lpad26, %lpad
 
 declare !intel.dtrans.func.type !691 dso_local nonnull "intel_dtrans_func_index"="1" i8* @_Znwm(i64)
 
-define void @"F::F()"(%class.F* nocapture "intel_dtrans_func_index"="1" %this) align 2 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) !dbg !235 !intel.dtrans.func.type !693 {
+define void @"F::F()"(%class.F* nocapture noundef "intel_dtrans_func_index"="1" %this) align 2 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) !dbg !235 !intel.dtrans.func.type !693 {
 entry:
   call void @llvm.dbg.value(metadata %class.F* %this, metadata !236, metadata !DIExpression()), !dbg !237
   %call = call i8* @_Znwm(i64 32), !dbg !238

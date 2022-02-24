@@ -31,7 +31,7 @@
 ; CHECK-NEXT:           %unifcond = extractelement %.vec,  0;
 ; CHECK-NEXT:           if (%unifcond == 1)
 ; CHECK-NEXT:           {
-; CHECK-NEXT:              goto merge.blk15.32;
+; CHECK-NEXT:              goto merge.blk15.31;
 ; CHECK-NEXT:           }
 ; CHECK-NEXT:           %tgu4 = %N  /u  4;
 ; CHECK-NEXT:           %vec.tc5 = %tgu4  *  4;
@@ -41,7 +41,7 @@
 ; CHECK-NEXT:           %unifcond11 = extractelement %.vec6,  0;
 ; CHECK-NEXT:           if (%unifcond11 == 1)
 ; CHECK-NEXT:           {
-; CHECK-NEXT:              goto merge.blk19.43;
+; CHECK-NEXT:              goto merge.blk19.42;
 ; CHECK-NEXT:           }
 ; CHECK-NEXT:           %tgu12 = %N  /u  4;
 ; CHECK-NEXT:           %vec.tc13 = %tgu12  *  4;
@@ -66,16 +66,16 @@
 ; CHECK-NEXT:           %unifcond28 = extractelement %.vec21,  0;
 ; CHECK-NEXT:           if (%unifcond28 == 1)
 ; CHECK-NEXT:           {
-; CHECK-NEXT:              goto merge.blk18.73;
+; CHECK-NEXT:              goto merge.blk18.72;
 ; CHECK-NEXT:           }
-; CHECK-NEXT:           merge.blk19.43:
+; CHECK-NEXT:           merge.blk19.42:
 ; CHECK-NEXT:           %tgu29 = %N  /u  2;
 ; CHECK-NEXT:           %vec.tc30 = %tgu29  *  2;
 ; CHECK-NEXT:           %red.init31 = 0;
 ; CHECK-NEXT:           %red.init.insert32 = insertelement %red.init31,  %phi.temp7,  0;
 ; CHECK-NEXT:           %phi.temp33 = %red.init.insert32;
 
-; CHECK:                + DO i1 = %phi.temp9, %vec.tc30 + -1, 2   <DO_LOOP> <vectorize>
+; CHECK:                + DO i1 = %phi.temp9, %vec.tc30 + -1, 2   <DO_LOOP> <novectorize>
 ; CHECK-NEXT:           |   %.vec35 = (<2 x i32>*)(%A)[i1];
 ; CHECK-NEXT:           |   %.vec36 = %.vec35  +  %phi.temp33;
 ; CHECK-NEXT:           |   %phi.temp33 = %.vec36;
@@ -84,7 +84,7 @@
 ; CHECK:                %sum.07 = @llvm.vector.reduce.add.v2i32(%.vec36);
 ; CHECK-NEXT:           %phi.temp24 = %sum.07;
 ; CHECK-NEXT:           %phi.temp26 = %vec.tc30;
-; CHECK-NEXT:           merge.blk18.73:
+; CHECK-NEXT:           merge.blk18.72:
 ; CHECK-NEXT:           %tgu41 = %N  /u  2;
 ; CHECK-NEXT:           %vec.tc42 = %tgu41  *  2;
 ; CHECK-NEXT:           %.vec43 = %N == %vec.tc42;
@@ -97,7 +97,7 @@
 ; CHECK-NEXT:           {
 ; CHECK-NEXT:              goto final.merge.107;
 ; CHECK-NEXT:           }
-; CHECK-NEXT:           merge.blk15.32:
+; CHECK-NEXT:           merge.blk15.31:
 ; CHECK-NEXT:           %lb.tmp = %phi.temp2;
 ; CHECK-NEXT:           %sum.07 = %phi.temp;
 

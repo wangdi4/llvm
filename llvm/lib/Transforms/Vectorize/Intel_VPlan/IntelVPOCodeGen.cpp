@@ -498,7 +498,7 @@ void VPOCodeGen::finalizeLoop() {
     cast<BranchInst>(OrigPreHeader->getTerminator())
         ->setOperand(0, getScalarValue(
                             // FIXME: Better consts everywhere.
-                            Plan->getEntryBlock(), 0));
+                            &Plan->getEntryBlock(), 0));
     // Find last block in cfg.
     auto LastVPBB = Plan->getExitBlock();
     BasicBlock *LastBB = cast<BasicBlock>(getScalarValue(&*LastVPBB, 0));

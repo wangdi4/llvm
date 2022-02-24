@@ -209,7 +209,7 @@ VPVectorTripCountCalculation *VPlanCFGMerger::findVectorUB(VPlan &P) const {
 }
 
 VPBasicBlock *VPlanCFGMerger::findFirstNonEmptyBB() const {
-  VPBasicBlock *BB = Plan.getEntryBlock();
+  VPBasicBlock *BB = &Plan.getEntryBlock();
   for (; BB && BB->terminator() == BB->begin(); BB = BB->getSingleSuccessor())
     ;
   assert(BB && "Non-empty VPlan expected");
@@ -718,7 +718,7 @@ void VPlanCFGMerger::createSimpleVectorRemainderChain(Loop *OrigLoop) {
 }
 
 void VPlanCFGMerger::insertPushPopVF(VPlan &P, unsigned VF, unsigned UF) {
-  VPBasicBlock *FirstBB = P.getEntryBlock();
+  VPBasicBlock *FirstBB = &P.getEntryBlock();
   VPBuilder Builder;
   Builder.setInsertPoint(FirstBB, FirstBB->begin());
   VPInstruction *PushVF =
@@ -1826,7 +1826,7 @@ void VPlanCFGMerger::mergeVPlanBodies(std::list<PlanDescr> &Plans) {
     if (P.Type == LT::LTMain)
       continue;
     // Move blocks from inner VPlan into main VPlan.
-    VPBasicBlock *Begin = P.Plan->getEntryBlock();
+    VPBasicBlock *Begin = &P.Plan->getEntryBlock();
     VPBasicBlock *End = &*find_if(*P.Plan, [](const VPBasicBlock &BB) {
       return BB.getNumSuccessors() == 0;
     });

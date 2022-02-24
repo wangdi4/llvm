@@ -914,7 +914,7 @@ void VPlanVector::execute(VPTransformState *State) {
     State->CFG.InsertBefore = MiddleBlock;
   }
 
-  ReversePostOrderTraversal<VPBasicBlock *> RPOT(getEntryBlock());
+  ReversePostOrderTraversal<VPBasicBlock *> RPOT(&getEntryBlock());
   for (VPBasicBlock *BB : RPOT) {
     LLVM_DEBUG(dbgs() << "LV: VPBlock in RPO " << BB->getName() << '\n');
     BB->execute(State);
@@ -961,7 +961,7 @@ void VPlanVector::execute(VPTransformState *State) {
 
 #if INTEL_CUSTOMIZATION
 void VPlanVector::executeHIR(VPOCodeGenHIR *CG) {
-  ReversePostOrderTraversal<VPBasicBlock *> RPOT(getEntryBlock());
+  ReversePostOrderTraversal<VPBasicBlock *> RPOT(&getEntryBlock());
 
   for (VPBasicBlock *VPBB : RPOT) {
     LLVM_DEBUG(dbgs() << "HIRV: VPBlock in RPO " << VPBB->getName() << '\n');
@@ -1112,10 +1112,10 @@ const Twine VPlanPrinter::getOrCreateName(const VPBasicBlock *BB) {
 }
 
 void VPlan::print(raw_ostream &OS, unsigned Indent) const {
-  ReversePostOrderTraversal<const VPBasicBlock *> RPOT(getEntryBlock());
+  ReversePostOrderTraversal<const VPBasicBlock *> RPOT(&getEntryBlock());
   SetVector<const VPBasicBlock *> Printed;
   SetVector<const VPBasicBlock *> SuccList;
-  SuccList.insert(getEntryBlock());
+  SuccList.insert(&getEntryBlock());
   std::string StrIndent = std::string(2, ' ');
   for (const VPBasicBlock *VPBB : RPOT) {
     VPBB->print(OS, Indent + SuccList.size() - 1);
@@ -1211,7 +1211,7 @@ void VPlanPrinter::dump(bool CFGOnly) {
   OS << "edge [fontname=Courier, fontsize=30]\n";
   OS << "compound=true\n";
 
-  for (const VPBasicBlock *BB : depth_first(Plan.getEntryBlock()))
+  for (const VPBasicBlock *BB : depth_first(&Plan.getEntryBlock()))
     dumpBasicBlock(BB, CFGOnly);
 
   OS << "}\n";
