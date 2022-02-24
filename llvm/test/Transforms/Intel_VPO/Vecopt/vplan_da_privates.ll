@@ -52,8 +52,8 @@ define i32 @getElement(i32 %RetIdx) {
 ; CHECK-NEXT: Divergent: [Shape: Random] store i32 [[VAL_TO_STORE]] i32* [[PRIV_GEP3]]
 
 ; CHECK: VPlan after predicator
-; CHECK:  [DA: Div] i32* [[PRIV2:%.*]] = allocate-priv i32*
-; CHECK-NEXT:  [DA: Div] [1024 x i32]* [[PRIV1:%.*]] = allocate-priv [1024 x i32]*
+; CHECK:  [DA: Div] [1024 x i32]* [[PRIV1:%.*]] = allocate-priv [1024 x i32]*
+; CHECK-NEXT:  [DA: Div] i32* [[PRIV2:%.*]] = allocate-priv i32*
 ; CHECK-NEXT:  [DA: Div] i32* [[GEP1:%.*]]  = getelementptr inbounds [1024 x i32]* [[PRIV1]] i64 0 i64 0
 ; CHECK-NEXT:  [DA: Div] i8* [[BC1:%.*]] = bitcast i32* [[GEP1]]
 ; CHECK-NEXT:  [DA: Div] i82* [[BC2:%.*]] = bitcast i8* [[BC1]]
@@ -75,6 +75,7 @@ define i32 @getElement(i32 %RetIdx) {
 ; CHECK-NEXT:  [DA: Div] i64 [[L6:%.*]] = load i64* [[GEP2]]
 ; CHECK:  [DA: Div] i32* [[GEP5:%.*]] = getelementptr inbounds [1024 x i32]* [[PRIV1]] i64 0 i64 {{.*}}
 ; CHECK-NEXT:  [DA: Div] store i32 {{.*}} i32* [[GEP5]]
+
 omp.inner.for.body.lr.ph:
   %arr1.priv = alloca [1024 x i32], align 4
   %inv.arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr1.priv, i64 0, i64 0
@@ -177,15 +178,17 @@ define i32 @scalPrivate(i32 %RetIdx) {
 ; CHECK: Divergent: [Shape: Random] i32 [[ADD2:%.*]] = add i32 [[H2]] i32 [[H1]]
 
 ; CHECK: VPlan after predicator
+; CHECK:      [DA: Div] i32* [[L_PRIV:%.*]] = allocate-priv i32*
 ; CHECK:      [DA: Div] i32* [[PRIV2:%.*]] = allocate-priv i32*
-; CHECK-NEXT: [DA: Div] i32* [[L_PRIV:%.*]] = allocate-priv i32*
-
+;
 ; CHECK:      [DA: Div] i32 [[PHI5:%.*]] = phi  [ i32 {{.*}}, {{.*}} ],  [ i32 [[ADD1:%.*]], {{.*}}]
 ; CHECK:      [DA: Div] store i32 [[PHI5]] i32* [[PRIV2]]
 ; CHECK:      [DA: Div] store i32 {{.*}} i32* [[L_PRIV]]
 ; CHECK-NEXT: [DA: Div] i32 {{.*}} = call i32 {{.*}} i32 (i32)* @helper
 ; CHECK-NEXT: [DA: Div] i32 {{.*}} = call i32* [[L_PRIV]] i32 (i32*)* @helperPtr
 ; CHECK:      [DA: Div] i32 [[ADD1]] = add i32 [[PHI5]] i32 {{.*}}
+
+
 omp.inner.for.body.lr.ph:
   %j.priv = alloca i32, align 4
   %i.lpriv = alloca i32, align 4

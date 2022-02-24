@@ -383,6 +383,9 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 /llvm/lib/Analysis/Intel_OptVLS.cpp @clin111 @aelovikov-intel @skozhukh @sguggill @karthik-senthil
 /llvm/include/llvm/Analysis/Intel_OptVLS.h @clin111 @aelovikov-intel @skozhukh @sguggill @karthik-senthil
 
+/llvm/include/llvm/IR/Intel_VPlanTemplateHelper.h @aelovikov-intel @offsake
+/llvm/include/llvm/IR/Intel_VPlanTemplateHelper.inc @aelovikov-intel @offsake
+
 # JIRA: CMPLRLLVM->LLVM Loop Optimizer
 /llvm/include/llvm/Transforms/Intel_LoopTransforms/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @linayu118211 @fismail2
 /llvm/include/llvm/Analysis/Intel_LoopAnalysis/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @linayu118211 @fismail2

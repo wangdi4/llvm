@@ -227,3 +227,21 @@
 // RUN: %clangxx --intel -### -target x86_64-pc-windows-msvc -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix CHECK-HEADER-BASE %s
 // CHECK-HEADER-BASE: "-header-base-path"
+
+// -fp-model=fast should be the default for Intel mode, this also makes sure
+// that the intel defaults match -fp-model=fast
+// RUN: %clangxx -### --intel -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=FP_MODEL_FAST_INTEL %s
+// RUN: %clangxx -### -fp-model=fast -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=FP_MODEL_FAST_INTEL %s
+// FP_MODEL_FAST_INTEL: "-menable-no-infs"
+// FP_MODEL_FAST_INTEL: "-menable-no-nans"
+// FP_MODEL_FAST_INTEL: "-fapprox-func"
+// FP_MODEL_FAST_INTEL: "-menable-unsafe-fp-math"
+// FP_MODEL_FAST_INTEL: "-fno-signed-zeros"
+// FP_MODEL_FAST_INTEL: "-mreassociate"
+// FP_MODEL_FAST_INTEL: "-freciprocal-math"
+// FP_MODEL_FAST_INTEL: "-fdenormal-fp-math=preserve-sign,preserve-sign"
+// FP_MODEL_FAST_INTEL: "-ffp-contract=fast"
+// FP_MODEL_FAST_INTEL: "-ffast-math"
+// FP_MODEL_FAST_INTEL: "-ffinite-math-only"

@@ -44,7 +44,8 @@ add_llvm_component_library(LLVMIntel_LoopAnalysis
   Utils/HLNodeUtils.cpp
   Utils/CanonExprUtils.cpp
   Utils/DDRefUtils.cpp
-  
+  Utils/SIMDIntrinsicChecker.cpp
+
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis/Intel_LoopAnalysis

@@ -59,6 +59,7 @@
 ///   WRNTaskyieldNode        | #pragma omp taskyield
 ///   WRNInteropNode          | #pragma omp interop
 ///   WRNScopeNode            | #pragma omp scope
+///   WRNTileNode             | #pragma omp tile
 ///
 /// One exception is WRNTaskloopNode, which is derived from WRNTasknode.
 //===----------------------------------------------------------------------===//
@@ -416,6 +417,12 @@ public:
   WRNProcBindKind getProcBind() const override { return ProcBind; }
   int getCollapse() const override { return Collapse; }
   int getOrdered() const override { return Ordered; }
+  int getOmpLoopDepth() {
+    // Depth of associated loop. Ordered >= Collapse if both exist
+    assert((Ordered <= 0 || Ordered >= Collapse) &&
+           "Ordered must be >= Collapse when both are specified.");
+    return Ordered > 0 ? Ordered : (Collapse > 0 ? Collapse : 1);
+  }
   WRNLoopOrderKind getLoopOrder() const override { return LoopOrder; }
   void addOrderedTripCount(Value *TC) override { OrderedTripCounts.push_back(TC); }
   const SmallVectorImpl<Value *> &getOrderedTripCounts() const override {
@@ -710,6 +717,12 @@ public:
   WRNProcBindKind getProcBind() const override { return ProcBind; }
   int getCollapse() const override { return Collapse; }
   int getOrdered() const override { return Ordered; }
+  int getOmpLoopDepth() {
+    // Depth of associated loop. Ordered >= Collapse if both exist
+    assert((Ordered <= 0 || Ordered >= Collapse) &&
+           "Ordered must be >= Collapse when both are specified.");
+    return Ordered > 0 ? Ordered : (Collapse > 0 ? Collapse : 1);
+  }
   WRNLoopOrderKind getLoopOrder() const override { return LoopOrder; }
 
   void setTreatDistributeParLoopAsDistribute(bool Flag) override {
@@ -1289,6 +1302,7 @@ public:
   EXPR getNumTasks() const override { return NumTasks; }
   int getSchedCode() const override { return SchedCode; }
   int getCollapse() const override { return Collapse; }
+  int getOmpLoopDepth() { return Collapse > 0 ? Collapse : 1; }
   bool getNogroup() const override { return Nogroup; }
 
   // Defined in parent class WRNTaskNode
@@ -1319,6 +1333,7 @@ class WRNVecLoopNode : public WRegionNode {
 private:
   PrivateClause Priv;
   LastprivateClause Lpriv;
+  LiveinClause Livein;
   ReductionClause Reduction;
   LinearClause Linear;
   AlignedClause Aligned;
@@ -1364,19 +1379,21 @@ public:
   void setHLLoop(loopopt::HLLoop *L)  override { HLp = L; }
 #endif //INTEL_CUSTOMIZATION
 
-  DEFINE_GETTER(PrivateClause,     getPriv,    Priv)
-  DEFINE_GETTER(LastprivateClause, getLpriv,   Lpriv)
-  DEFINE_GETTER(ReductionClause,   getRed,     Reduction)
-  DEFINE_GETTER(LinearClause,      getLinear,  Linear)
-  DEFINE_GETTER(AlignedClause,     getAligned, Aligned)
+  DEFINE_GETTER(PrivateClause,     getPriv,        Priv)
+  DEFINE_GETTER(LastprivateClause, getLpriv,       Lpriv)
+  DEFINE_GETTER(LiveinClause,      getLivein,      Livein)
+  DEFINE_GETTER(ReductionClause,   getRed,         Reduction)
+  DEFINE_GETTER(LinearClause,      getLinear,      Linear)
+  DEFINE_GETTER(AlignedClause,     getAligned,     Aligned)
   DEFINE_GETTER(NontemporalClause, getNontemporal, Nontemporal)
-  DEFINE_GETTER(UniformClause,     getUniform, Uniform)
+  DEFINE_GETTER(UniformClause,     getUniform,     Uniform)
   DEFINE_GETTER(WRNLoopInfo,       getWRNLoopInfo, WRNLI)
 
   EXPR getIf() const override { return IfExpr; }
   int getSimdlen() const override{ return Simdlen; }
   int getSafelen() const override{ return Safelen; }
   int getCollapse() const override{ return Collapse; }
+  int getOmpLoopDepth() { return Collapse > 0 ? Collapse : 1; }
   WRNLoopOrderKind getLoopOrder() const override{ return LoopOrder; }
 
 #if INTEL_CUSTOMIZATION
@@ -1422,6 +1439,7 @@ private:
   PrivateClause Priv;
   FirstprivateClause Fpriv;
   LastprivateClause Lpriv;
+  LiveinClause Livein;
   ReductionClause Reduction;
   AllocateClause Alloc;
   LinearClause Linear;
@@ -1450,13 +1468,14 @@ protected:
   void setNowait(bool Flag) override { Nowait = Flag; }
 
 public:
-  DEFINE_GETTER(PrivateClause,      getPriv,     Priv)
-  DEFINE_GETTER(FirstprivateClause, getFpriv,    Fpriv)
-  DEFINE_GETTER(LastprivateClause,  getLpriv,    Lpriv)
-  DEFINE_GETTER(ReductionClause,    getRed,      Reduction)
-  DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
-  DEFINE_GETTER(LinearClause,       getLinear,   Linear)
-  DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
+  DEFINE_GETTER(PrivateClause,      getPriv,        Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,       Fpriv)
+  DEFINE_GETTER(LastprivateClause,  getLpriv,       Lpriv)
+  DEFINE_GETTER(LiveinClause,       getLivein,      Livein)
+  DEFINE_GETTER(ReductionClause,    getRed,         Reduction)
+  DEFINE_GETTER(AllocateClause,     getAllocate,    Alloc)
+  DEFINE_GETTER(LinearClause,       getLinear,      Linear)
+  DEFINE_GETTER(ScheduleClause,     getSchedule,    Schedule)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1466,6 +1485,12 @@ public:
 
   int getCollapse() const override{ return Collapse; }
   int getOrdered() const override { return Ordered; }
+  int getOmpLoopDepth() {
+    assert((Ordered <= 0 || Ordered >= Collapse) &&
+           "Ordered must be >= Collapse when both are specified.");
+    // Depth of associated loop. Ordered >= Collapse if both exist
+    return Ordered > 0 ? Ordered : (Collapse > 0 ? Collapse : 1);
+  }
   WRNLoopOrderKind getLoopOrder() const override{ return LoopOrder; }
   bool getNowait() const override { return Nowait; }
 
@@ -1621,6 +1646,7 @@ public:
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo,  WRNLI)
 
   int getCollapse() const override  { return Collapse; }
+  int getOmpLoopDepth() { return Collapse > 0 ? Collapse : 1; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const override ;
@@ -1737,6 +1763,35 @@ public:
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNScope;
+  }
+};
+
+/// WRN for
+/// \code
+///   #pragma omp tile
+/// \endcode
+class WRNTileNode : public WRegionNode {
+private:
+  // TODO: To avoid confusion, when possible use the auxiliary Livein clause
+  // instead of Firstprivate, which is not allowed for this construct per
+  // OpenMP spec.
+  FirstprivateClause Fpriv;  // Not allowed in spec
+  LiveinClause Livein;
+  SizesClause Sizes;
+  WRNLoopInfo WRNLI;
+
+public:
+  WRNTileNode(BasicBlock *BB, LoopInfo *L);
+  DEFINE_GETTER(FirstprivateClause, getFpriv,       Fpriv)
+  DEFINE_GETTER(LiveinClause,       getLivein,      Livein)
+  DEFINE_GETTER(SizesClause,        getSizes,       Sizes)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
+
+  int getOmpLoopDepth() { return Sizes.size(); }
+
+  /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNTile;
   }
 };
 
@@ -2010,10 +2065,14 @@ private:
   // maps the loop construct to the underlying loop-related directive, checks
   // the clauses are needed by the underlying directive, and decides to keep or
   // drop the clauses.
-  SharedClause Shared;
+  //
+  // TODO: To avoid confusion, when possible use the auxiliary Livein clause
+  // instead of Shared, which is not allowed for this construct per OMP spec.
+  SharedClause Shared;      // Not allowed in spec
   PrivateClause Priv;
-  FirstprivateClause Fpriv;
+  FirstprivateClause Fpriv; // Not allowed in spec
   LastprivateClause Lpriv;
+  LiveinClause Livein;
   ReductionClause Reduction;
   int Collapse;
 
@@ -2033,14 +2092,16 @@ protected:
   void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
 
 public:
-  DEFINE_GETTER(SharedClause, getShared, Shared)
-  DEFINE_GETTER(PrivateClause, getPriv, Priv)
-  DEFINE_GETTER(FirstprivateClause, getFpriv, Fpriv)
-  DEFINE_GETTER(LastprivateClause, getLpriv, Lpriv)
-  DEFINE_GETTER(ReductionClause, getRed, Reduction)
-  DEFINE_GETTER(WRNLoopInfo, getWRNLoopInfo, WRNLI)
+  DEFINE_GETTER(SharedClause,       getShared,      Shared)
+  DEFINE_GETTER(PrivateClause,      getPriv,        Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,       Fpriv)
+  DEFINE_GETTER(LastprivateClause,  getLpriv,       Lpriv)
+  DEFINE_GETTER(LiveinClause,       getLivein,      Livein)
+  DEFINE_GETTER(ReductionClause,    getRed,         Reduction)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   int getCollapse() const override { return Collapse; }
+  int getOmpLoopDepth() { return Collapse > 0 ? Collapse : 1; }
   bool getIsDoConcurrent() const override { return IsDoConcurrent; }
 
   WRNLoopBindKind getLoopBind() const override { return LoopBind; }

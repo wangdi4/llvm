@@ -44,7 +44,7 @@
 ; NOFRUGAL: mayCallOmpGetNumThreads: Region #4 (parallel) may call omp_get_num_threads: Yes.
 
 ; DEFAULT:  mayCallOmpGetNumThreads: The region calls @__kmpc_begin_spmd_parallel.
-; DEFAULT:  mayCallOmpGetNumThreads: @__kmpc_begin_spmd_parallel does not have an exact definition. It may call omp_get_num_threads.
+; DEFAULT:  mayCallOmpGetNumThreads: @__kmpc_begin_spmd_parallel does not have a definition. It may call omp_get_num_threads.
 ; ALL:      mayCallOmpGetNumThreads: Region #1 (target) may call omp_get_num_threads: Yes.
 
 ; ALL:         call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(){{.*}}]

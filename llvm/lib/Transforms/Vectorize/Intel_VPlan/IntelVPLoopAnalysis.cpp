@@ -202,8 +202,10 @@ VPLoopEntity::~VPLoopEntity() {}
 VPPrivate::~VPPrivate() {
   for (auto &AliasMapIt : aliases())
     // Drop references to alias instruction if it is not attached to VPlan CFG.
-    if (!AliasMapIt.second->getParent())
-      AliasMapIt.second->dropAllReferences();
+    if (!AliasMapIt.second.first->getParent()) {
+      AliasMapIt.second.first->dropAllReferences();
+      delete AliasMapIt.second.first;
+    }
 }
 
 static VPValue *getLiveInOrConstOperand(const VPInstruction *Instr,
@@ -584,12 +586,14 @@ void VPLoopEntityList::finalizeImport() {
 }
 
 VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
-                                               VPBuilder &Builder,
-                                               VPValue *&AI) {
+                                               VPBuilder &Builder, VPValue *&AI,
+                                               VPBasicBlock *Preheader) {
   AI = nullptr;
   const VPLoopEntityMemoryDescriptor *MemDescr = getMemoryDescriptor(&E);
   if (!MemDescr || MemDescr->canRegisterize())
     return nullptr;
+  VPBuilder::InsertPointGuard Guard(Builder);
+  Builder.setInsertPoint(Preheader, Preheader->begin());
   AI = MemDescr->getMemoryPtr();
   assert((isa<VPExternalDef>(AI) || isa<VPConstant>(AI)) &&
          "Original AI for private is not external.");
@@ -687,7 +691,7 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
 
   VPValue *Identity = getReductionIdentity(Reduction);
   Type *Ty = Reduction->getRecurrenceType();
-  VPValue *PrivateMem = createPrivateMemory(*Reduction, Builder, AI);
+  VPValue *PrivateMem = createPrivateMemory(*Reduction, Builder, AI, Preheader);
   if (Reduction->getIsMemOnly() && !isa<VPConstant>(Identity))
     // min/max in-memory reductions. Need to generate a load.
     Identity = Builder.createLoad(Ty, AI);
@@ -980,7 +984,8 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
     Builder.setInsertPoint(Preheader);
     Builder.setCurrentDebugLocation(
         Preheader->getTerminator()->getDebugLocation());
-    VPValue *PrivateMem = createPrivateMemory(*Induction, Builder, AI);
+    VPValue *PrivateMem =
+        createPrivateMemory(*Induction, Builder, AI, Preheader);
     VPValue *Start = Induction->getStartValue();
     Type *Ty = Start->getType();
     if (Induction->getIsMemOnly())
@@ -1243,10 +1248,15 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
 
   Builder.setInsertPoint(Preheader, Preheader->begin());
 
+  // Keep track of already added aliases. We can have two
+  // different aliases for the same Instruciton (coming from
+  // different privates) and we should not create those duplicates.
+  SmallPtrSet<const Instruction*, 4> AddedAliasInstrs;
+
   // Process the list of Privates.
   for (VPPrivate *Private : vpprivates()) {
     VPValue *AI = nullptr;
-    VPValue *PrivateMem = createPrivateMemory(*Private, Builder, AI);
+    VPValue *PrivateMem = createPrivateMemory(*Private, Builder, AI, Preheader);
     if (PrivateMem)
       LLVM_DEBUG(dbgs() << "Replacing all instances of {" << AI << "} with "
                         << *PrivateMem << "\n");
@@ -1254,18 +1264,21 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
     // Handle aliases in two passes.
     // Insert the aliases into the Loop preheader in the regular order first.
     for (auto const &ValInstPair : Private->aliases()) {
-      auto *VPInst = ValInstPair.second;
-      Builder.insert(VPInst);
-    }
-
-    // Now do the replacement. We first replace all instances of VPOperand
-    // with VPInst within the preheader, where all aliases have been inserted.
-    // Then replace all instances of VPOperand with VPInst in the loop.
-    for (auto const &ValInstPair : Private->aliases()) {
-      auto *VPOperand = ValInstPair.first;
-      auto *VPInst = ValInstPair.second;
-      VPOperand->replaceAllUsesWithInBlock(VPInst, *Preheader);
-      VPOperand->replaceAllUsesWithInLoop(VPInst, Loop);
+      const Instruction *Inst = ValInstPair.second.second;
+      VPInstruction *VPInst = ValInstPair.second.first;
+      if (AddedAliasInstrs.insert(Inst).second) {
+        VPBuilder::InsertPointGuard Guard(Builder);
+        for (auto &PhInst: *Preheader) {
+          // The aliases for one private may contain uses of aliases of another
+          // private. Try to find a first use of the non-emitted alias - it may
+          // come from another private. See priv_alias_select2.ll.
+          if (PhInst.getOperandIndex(ValInstPair.first) != -1) {
+            Builder.setInsertPoint(Preheader, PhInst.getIterator());
+            break;
+          }
+        }
+        Builder.insert(VPInst);
+      }
     }
 
     if (PrivateMem) {
@@ -1367,6 +1380,21 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
                         Exit);
     }
   }
+  // Now do the replacement of Aliases. We first replace all instances of
+  // VPOperand with VPInst within the preheader, where all aliases have been
+  // inserted. Then replace all instances of VPOperand with VPInst in the loop.
+  for (VPPrivate *Private : vpprivates()) {
+    for (auto const &ValInstPair : Private->aliases()) {
+      auto *VPOperand = ValInstPair.first;
+      const Instruction *Inst = ValInstPair.second.second;
+      VPInstruction *VPInst = ValInstPair.second.first;
+      if (AddedAliasInstrs.find(Inst) != AddedAliasInstrs.end()) {
+        VPOperand->replaceAllUsesWithInBlock(VPInst, *Preheader);
+        VPOperand->replaceAllUsesWithInLoop(VPInst, Loop);
+      }
+    }
+  }
+
   LLVM_DEBUG(
       dbgs()
       << "After replacement of private and aliases within the preheader.\n");

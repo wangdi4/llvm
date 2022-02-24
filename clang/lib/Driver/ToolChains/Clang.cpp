@@ -2988,6 +2988,7 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
     AssociativeMath = true;
     ReciprocalMath = true;
     SignedZeros = false;
+    ApproxFunc = true;
     TrappingMath = false;
     RoundingFPMath = false;
     MathErrno = false;
@@ -3022,6 +3023,7 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       AssociativeMath = false;
       ReciprocalMath = false;
       SignedZeros = true;
+      ApproxFunc = false;  // INTEL
       // -fno_fast_math restores default denormal and fpcontract handling
       FPContract = "on";
       DenormalFPMath = llvm::DenormalMode::getIEEE();

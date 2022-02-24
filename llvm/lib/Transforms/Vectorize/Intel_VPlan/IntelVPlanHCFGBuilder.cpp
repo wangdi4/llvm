@@ -502,7 +502,7 @@ class PrivatesListCvt : public VPEntityConverterBase {
             WorkList.insert(Inst);
             VPInstruction *VPInst = Builder.createVPInstruction(Inst);
             assert(VPInst && "Expect a valid VPInst to be created.");
-            Descriptor.addAlias(NewVPOperand, VPInst);
+            Descriptor.addAlias(NewVPOperand, VPInst, Inst);
           }
         }
       }

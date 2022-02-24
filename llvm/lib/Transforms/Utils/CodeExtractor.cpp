@@ -2060,15 +2060,59 @@ static void updateDebugPostExtraction(Function *OldF, Function *NewF) {
   // Update the instructions/metadata to use the new subprogram scope.
   // This is based on similar code from CloneFunctionInto().
   ValueToValueMapTy VMap;
-  for (DISubprogram *SP : DIFinder.subprograms())
-    if (SP != OSP)
-      VMap.MD()[SP].reset(SP);
+  auto &MDMap = VMap.MD();
   for (DICompileUnit *CU : DIFinder.compile_units())
-    VMap.MD()[CU].reset(CU);
-  for (DIType *T : DIFinder.types())
-    VMap.MD()[T].reset(T);
-  VMap.MD()[OSP].reset(NSP);
-  VMap.MD()[NSP].reset(NSP);
+    MDMap[CU].reset(CU);
+  for (DISubprogram *SP : DIFinder.subprograms())
+    MDMap[SP].reset(SP);
+  //
+  // We need to be very careful about not letting RemapFunction handle the
+  // type information. Distinct types are either always not cloned or always
+  // cloned in ValueMapper, and never cloned only if necessary.
+  //
+  // The difficulty here is types are part of the scope heirarchy, and
+  // traversing the types means also traversing subprograms and we cannot
+  // duplicate subprograms because of their one-to-one mapping with functions.
+  // The following code attempts to isolate types which can be cloned from
+  // those that cannot be cloned, and then eliminates those types which can
+  // be cloned but don't need to be cloned. This should result in a set of
+  // clonable type information which can be walked by RemapFunction.
+  //
+  // Although the type hierarchy can be very complicated, some cases are
+  // currently validated by this test:
+  //   * LLVM :: Transforms/Intel_VPO/Paropt/paropt_debug_types.ll
+  //
+  for (DIType *T : DIFinder.types()) {
+    LLVM_DEBUG(dbgs() << "TYPE: " << *T << "\n");
+    if (isa<DIDerivedType>(T)) {
+      LLVM_DEBUG(dbgs() << "      Skipping derived type.\n");
+      continue;
+    }
+    DIScope *S = T->getScope();
+    if (!S) {
+      LLVM_DEBUG(dbgs() << "      No scope, reset.\n");
+      MDMap[T].reset(T);
+      continue;
+    }
+    if (DIType *P = dyn_cast<DIType>(S)) {
+      LLVM_DEBUG(dbgs() << "      Skipping nested type.\n");
+      continue;
+    }
+    DILocalScope *LS = dyn_cast<DILocalScope>(S);
+    if (!LS) {
+      LLVM_DEBUG(dbgs() << "      Not inside a local scope, resetting...\n");
+      MDMap[T].reset(T);
+      continue;
+    }
+    if (LS->getSubprogram() != OSP) {
+      LLVM_DEBUG(dbgs() << "      Type not declared within old subprogram, resetting...\n");
+      MDMap[T].reset(T);
+      continue;
+    }
+    LLVM_DEBUG(dbgs() << "      Ignoring locally scoped type.\n");
+  }
+  MDMap[OSP].reset(NSP);
+  MDMap[NSP].reset(NSP);
   RemapFunction(*NewF, VMap, RF_IgnoreMissingLocals);
 }
 #endif

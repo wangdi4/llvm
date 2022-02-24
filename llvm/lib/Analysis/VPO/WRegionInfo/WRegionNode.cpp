@@ -69,7 +69,8 @@ DenseMap<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNTaskgroup, "taskgroup"},
     {WRegionNode::WRNTaskwait, "taskwait"},
     {WRegionNode::WRNTaskyield, "taskyield"},
-    {WRegionNode::WRNScope, "scope"}};
+    {WRegionNode::WRNScope, "scope"},
+    {WRegionNode::WRNTile, "tile"}};
 
 // constructor for LLVM IR representation
 WRegionNode::WRegionNode(unsigned SCID, BasicBlock *BB)
@@ -104,7 +105,7 @@ WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
 /// 1. Update the WRN's ExitDir and ExitBB
 /// 2. Some clause operands appear in multiple clauses (eg firstprivate and
 //     lastprivate). Mark the affected ClauseItems accordingly.
-/// 3. If the WRN is for a loop construct:
+/// 3. If the WRN is for a loop or loop-transform construct:
 ///    3a. Find the associated Loop from the LoopInfo.
 ///    3b. If the WRN is a taskloop, set its SchedCode for grainsize/numtasks.
 void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
@@ -249,7 +250,7 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
     } // for (AllocateItem *AllocI : getAllocate().items())
   }   // if (hastAllocate)
 
-  if (getIsOmpLoop()) {
+  if (getIsOmpLoop() || getIsOmpLoopTransform()) {
     LoopInfo *LI = getWRNLoopInfo().getLoopInfo();
     assert(LI && "LoopInfo not present in a loop construct");
     BasicBlock *EntryBB = getEntryBBlock();
@@ -429,7 +430,7 @@ void WRegionNode::printBody(formatted_raw_ostream &OS, bool PrintChildren,
 #endif // INTEL_CUSTOMIZATION
   {
     printEntryExitBB(OS, Depth, Verbosity);
-    if (getIsOmpLoop())
+    if (getIsOmpLoop() || getIsOmpLoopTransform())
       printLoopBB(OS, Depth, Verbosity);
   }
 
@@ -471,6 +472,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
 
   if (canHaveLastprivate())
     PrintedSomething |= getLpriv().print(OS, Depth, Verbosity);
+
+  if (canHaveLivein())
+    PrintedSomething |= getLivein().print(OS, Depth, Verbosity);
 
   if (canHaveInReduction())
     PrintedSomething |= getInRed().print(OS, Depth, Verbosity);
@@ -529,6 +533,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveData())
     PrintedSomething |= getData().print(OS, Depth, Verbosity);
 
+  if (canHaveSizes())
+    PrintedSomething |= getSizes().print(OS, Depth, Verbosity);
+
   if (PrintedSomething)
     OS << "\n";
 }
@@ -572,7 +579,7 @@ void WRegionNode::printEntryExitBB(formatted_raw_ostream &OS, unsigned Depth,
 
 void WRegionNode::printLoopBB(formatted_raw_ostream &OS, unsigned Depth,
                               unsigned Verbosity) const {
-  if (getIsOmpLoop())
+  if (getIsOmpLoop() || getIsOmpLoopTransform())
     getWRNLoopInfo().print(OS, Depth, Verbosity);
 }
 
@@ -1740,6 +1747,14 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     extractQualOpndList<FlushSet>(Args, NumArgs, ClauseID, getFlush());
     break;
   }
+  case QUAL_OMP_SIZES: {
+    extractQualOpndList<SizesClause>(Args, NumArgs, ClauseID, getSizes());
+    break;
+  }
+  case QUAL_OMP_LIVEIN: {
+    extractQualOpndList<LiveinClause>(Args, NumArgs, ClauseID, getLivein());
+    break;
+  }
   case QUAL_OMP_ALLOCATE: {
     // The IR can have 3 or 2 operands:
     //        "QUAL.OMP.ALLOCATE"(size_t alignment, TYPE* %p, i64 %handle)
@@ -2127,9 +2142,8 @@ bool WRegionNode::canHavePrivate() const {
 
 bool WRegionNode::canHaveFirstprivate() const {
   unsigned SubClassID = getWRegionKindID();
-
-  // similar to canHavePrivate except for SIMD,
-  // which has Private but not Firstprivate
+  if (SubClassID == WRNTile) // TODO: remove Firstprivate from Tile
+    return true;
   if (SubClassID == WRNVecLoop || SubClassID == WRNGenericLoop ||
       SubClassID == WRNScope)
     return false;
@@ -2429,6 +2443,27 @@ bool WRegionNode::canHaveIf() const {
   case WRNTaskloop:
   case WRNVecLoop:
   case WRNCancel:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveSizes() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNTile:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveLivein() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNGenericLoop:
+  case WRNVecLoop:
+  case WRNWksLoop:
+  case WRNTile:
     return true;
   }
   return false;

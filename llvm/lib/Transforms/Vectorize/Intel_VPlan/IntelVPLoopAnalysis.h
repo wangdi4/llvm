@@ -307,8 +307,12 @@ public:
   ~VPPrivate();
 
   // Currently only used for VPPrivates. In future, this can be hoisted to
-  // VPLoopEntity.
-  using VPEntityAliasesTy = MapVector<VPValue *, VPInstruction *>;
+  // VPLoopEntity. The map links a VPValue (typically VPExternalDef), that was
+  // created for a private memory alias, with the pair <VPInstruction *,
+  // Instruction *>. The Instruction in this pair is underlying instruction that
+  // creates the alias in underlying IR, VPInstruction is its VPlan equivalent.
+  using VPEntityAliasesTy =
+      MapVector<VPValue *, std::pair<VPInstruction *, const Instruction *>>;
 
   VPPrivate(VPInstruction *ExitI, VPEntityAliasesTy &&InAliases, PrivateKind K,
             bool Explicit, Type *AllocatedTy, bool IsMemOnly = false,
@@ -782,8 +786,10 @@ private:
   // into \p AI, and returns a newly created VPAllocatePrivate. In case of
   // in-register entity (i.e. no descriptor exists), the nullptr is stored in \p
   // AI and nullptr is returned.
+  // If the VPAlloca is created it is placed at the beginning of the
+  // \p Preheader.
   VPValue *createPrivateMemory(VPLoopEntity &E, VPBuilder &Builder,
-                               VPValue *&AI);
+                               VPValue *&AI, VPBasicBlock* Preheader);
 
   // Process initial value \p Init of entity \p E.
   // If the private memory \p PrivateMem is not null then an instruction
@@ -1232,7 +1238,9 @@ public:
   void setIsExplicit(bool IsExplicitVal) { IsExplicit = IsExplicitVal; }
   void setIsMemOnly(bool IsMem) { setValidMemOnly(IsMem); }
   void setExitInst(VPInstruction *EI) { ExitInst = EI; }
-  void addAlias(VPValue *Alias, VPInstruction *I) { PtrAliases[Alias] = I; }
+  void addAlias(VPValue *Alias, VPInstruction *VPI, const Instruction *I) {
+    PtrAliases[Alias] = std::make_pair(VPI, I);
+  }
   void setCtor(Function *CtorFn) { Ctor = CtorFn; }
   void setDtor(Function *DtorFn) { Dtor = DtorFn; }
   void setCopyAssign(Function *CopyAssignFn) { CopyAssign = CopyAssignFn; }

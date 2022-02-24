@@ -202,7 +202,7 @@ public:
     return bundle_op_ddref_begin(BundleNum) + getNumBundleOperands(BundleNum);
   }
   const_ddref_iterator bundle_op_ddref_end(unsigned BundleNum) const {
-    return const_cast<HLInst *>(this)->bundle_op_ddref_begin(BundleNum);
+    return const_cast<HLInst *>(this)->bundle_op_ddref_end(BundleNum);
   }
 
   /// Returns true if this is in a loop's preheader.
