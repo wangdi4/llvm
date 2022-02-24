@@ -63,7 +63,7 @@ void VPlanCallVecDecisions::runForMergedCFG(const TargetLibraryInfo *TLI,
   // Current VF that must be used to analyze a call. It effecively tracks the
   // stack's top element.
   unsigned CurrentVF;
-  ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan.getEntryBlock());
+  ReversePostOrderTraversal<VPBasicBlock *> RPOT(&Plan.getEntryBlock());
   for (VPBasicBlock *VPBB : RPOT) {
     for (VPInstruction &Inst : *VPBB) {
       if (auto *PushVF = dyn_cast<VPPushVF>(&Inst))

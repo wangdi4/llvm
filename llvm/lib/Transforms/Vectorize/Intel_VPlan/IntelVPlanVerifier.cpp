@@ -81,7 +81,7 @@ void VPlanVerifier::verifyLoops(
 #endif
 
   unsigned BBNum = 0;
-  for (const VPBasicBlock *VPBB : depth_first(Plan->getEntryBlock())) {
+  for (const VPBasicBlock *VPBB : depth_first(&Plan->getEntryBlock())) {
     verifyBlock(VPBB);
     ++BBNum;
   }

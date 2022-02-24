@@ -75,7 +75,7 @@ entry:
   auto *DA = Plan->getVPlanDA();
   DA->compute(Plan.get(), nullptr, Plan->getVPLoopInfo(),
               *Plan->getDT(), *Plan->getPDT(), false /*Not in LCSSA form.*/);
-  auto *EntryBB = Plan->getEntryBlock();
+  auto *EntryBB = &Plan->getEntryBlock();
   VPBuilder Builder;
   Builder.setInsertPoint(EntryBB, EntryBB->begin());
 

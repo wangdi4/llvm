@@ -752,7 +752,7 @@ void VPlanDivergenceAnalysis::verifyBasicBlock(const VPBasicBlock *VPBB) {
 // Also ensure that divergent/uniform properties are consistent with vector
 // shapes.
 void VPlanDivergenceAnalysis::verifyVectorShapes() {
-  for (VPBasicBlock *VPBB : depth_first(Plan->getEntryBlock()))
+  for (VPBasicBlock *VPBB : depth_first(&Plan->getEntryBlock()))
     verifyBasicBlock(VPBB);
 }
 
@@ -762,7 +762,7 @@ void VPlanDivergenceAnalysis::verifyVectorShapes() {
 // based and not Module based (function DA).
 void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) {
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(VPLp ? VPLp->getHeader()
-                                                      : Plan->getEntryBlock());
+                                                      : &Plan->getEntryBlock());
   OS << "\nPrinting Divergence info for ";
   if (VPLp)
     OS << *VPLp;
@@ -1670,10 +1670,10 @@ void VPlanDivergenceAnalysis::compute(VPlanVector *P, VPLoop *CandidateLoop,
   PDT = &VPPostDomTree;
   IsLCSSAForm = IsLCSSA;
   SDA = std::make_unique<SyncDependenceAnalysis>(
-      CandidateLoop ? CandidateLoop->getHeader() : P->getEntryBlock(),
+      CandidateLoop ? CandidateLoop->getHeader() : &P->getEntryBlock(),
       VPDomTree, VPPostDomTree, *VPLInfo);
   // Push everything to the worklist.
-  ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan->getEntryBlock());
+  ReversePostOrderTraversal<VPBasicBlock *> RPOT(&Plan->getEntryBlock());
   for (auto *BB : RPOT)
     for (auto &Inst : *BB)
       pushToWorklist(Inst);
