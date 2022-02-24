@@ -148,7 +148,7 @@ static bool searchTypeInType(llvm::Type *Ty1, llvm::Type *Ty2, bool IgnorePtrs,
     return searchTypeInType(cast<ArrayType>(Ty1)->getElementType(), Ty2,
                             IgnorePtrs, TypesList);
 
-  if (!IgnorePtrs && Ty1->isPointerTy()) {
+  if (!IgnorePtrs && Ty1->isPointerTy() && !Ty1->isOpaquePointerTy()) {
     // prevent infinte loop (such as a struct that conatins a pointer to itself)
     if (TypesList.count(Ty1->getPointerElementType()) > 0)
       return false;
