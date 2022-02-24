@@ -6106,6 +6106,7 @@ static void emitOMPAtomicCaptureExpr(CodeGenFunction &CGF,
   }
 }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 static void emitOMPAtomicCompareExpr(
     CodeGenFunction &CGF, llvm::AtomicOrdering AO, bool IsPostCapture,
@@ -6161,10 +6162,50 @@ static void emitOMPAtomicCompareExpr(
   }
 }
 #endif // INTEL_COLLAB
+=======
+static void emitOMPAtomicCompareExpr(CodeGenFunction &CGF,
+                                     llvm::AtomicOrdering AO, const Expr *X,
+                                     const Expr *E, const Expr *D,
+                                     const Expr *CE, bool IsXBinopExpr,
+                                     SourceLocation Loc) {
+  llvm::OpenMPIRBuilder &OMPBuilder =
+      CGF.CGM.getOpenMPRuntime().getOMPBuilder();
+
+  OMPAtomicCompareOp Op;
+  assert(isa<BinaryOperator>(CE) && "CE is not a BinaryOperator");
+  switch (cast<BinaryOperator>(CE)->getOpcode()) {
+  case BO_EQ:
+    Op = OMPAtomicCompareOp::EQ;
+    break;
+  case BO_LT:
+    Op = OMPAtomicCompareOp::MIN;
+    break;
+  case BO_GT:
+    Op = OMPAtomicCompareOp::MAX;
+    break;
+  default:
+    llvm_unreachable("unsupported atomic compare binary operator");
+  }
+
+  LValue XLVal = CGF.EmitLValue(X);
+  llvm::Value *XPtr = XLVal.getPointer(CGF);
+  llvm::Value *EVal = CGF.EmitScalarExpr(E);
+  llvm::Value *DVal = D ? CGF.EmitScalarExpr(D) : nullptr;
+
+  llvm::OpenMPIRBuilder::AtomicOpValue XOpVal{
+      XPtr, XPtr->getType()->getPointerElementType(),
+      X->getType().isVolatileQualified(),
+      X->getType()->hasSignedIntegerRepresentation()};
+
+  CGF.Builder.restoreIP(OMPBuilder.createAtomicCompare(
+      CGF.Builder, XOpVal, EVal, DVal, AO, Op, IsXBinopExpr));
+}
+>>>>>>> 104d9a674312c314699558ad8ee48b70624fdb6c
 
 static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
                               llvm::AtomicOrdering AO, bool IsPostfixUpdate,
                               const Expr *X, const Expr *V, const Expr *E,
+<<<<<<< HEAD
                               const Expr *UE, bool IsXLHSInRHSPart,
 #if INTEL_COLLAB
                               const Expr *Expected, const Expr *Result,
@@ -6172,6 +6213,11 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
                               bool IsConditionalCapture,
 #endif // INTEL_COLLAB
                               bool IsCompareCapture, SourceLocation Loc) {
+=======
+                              const Expr *UE, const Expr *D, const Expr *CE,
+                              bool IsXLHSInRHSPart, bool IsCompareCapture,
+                              SourceLocation Loc) {
+>>>>>>> 104d9a674312c314699558ad8ee48b70624fdb6c
   switch (Kind) {
   case OMPC_read:
     emitOMPAtomicReadExpr(CGF, AO, X, V, Loc);
@@ -6204,11 +6250,7 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
           "'atomic compare capture' is not supported for now");
       CGF.CGM.getDiags().Report(DiagID);
     } else {
-      // Emit an error here.
-      unsigned DiagID = CGF.CGM.getDiags().getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "'atomic compare' is not supported for now");
-      CGF.CGM.getDiags().Report(DiagID);
+      emitOMPAtomicCompareExpr(CGF, AO, X, E, D, CE, IsXLHSInRHSPart, Loc);
     }
     break;
   }
@@ -6373,12 +6415,17 @@ void CodeGenFunction::EmitOMPAtomicDirective(const OMPAtomicDirective &S) {
   LexicalScope Scope(*this, S.getSourceRange());
   EmitStopPoint(S.getAssociatedStmt());
   emitOMPAtomicExpr(*this, Kind, AO, S.isPostfixUpdate(), S.getX(), S.getV(),
+<<<<<<< HEAD
                     S.getExpr(), S.getUpdateExpr(), S.isXLHSInRHSPart(),
 #if INTEL_COLLAB
                     S.getExpected(), S.getResult(), S.isCompareMin(),
                     S.isCompareMax(), S.isConditionalCapture(),
 #endif // INTEL_COLLAB
                     IsCompareCapture, S.getBeginLoc());
+=======
+                    S.getExpr(), S.getUpdateExpr(), S.getD(), S.getCondExpr(),
+                    S.isXLHSInRHSPart(), IsCompareCapture, S.getBeginLoc());
+>>>>>>> 104d9a674312c314699558ad8ee48b70624fdb6c
 }
 
 static void emitCommonOMPTargetDirective(CodeGenFunction &CGF,

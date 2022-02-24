@@ -1181,6 +1181,7 @@ OMPOrderedDirective *OMPOrderedDirective::CreateEmpty(const ASTContext &C,
                                                    !IsStandalone);
 }
 
+<<<<<<< HEAD
 OMPAtomicDirective *OMPAtomicDirective::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
     ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt, Expr *X, Expr *V,
@@ -1197,6 +1198,16 @@ OMPAtomicDirective *OMPAtomicDirective::Create(
 #else // INTEL_COLLAB
       C, Clauses, AssociatedStmt, /*NumChildren=*/4, StartLoc, EndLoc);
 #endif // INTEL_COLLAB
+=======
+OMPAtomicDirective *
+OMPAtomicDirective::Create(const ASTContext &C, SourceLocation StartLoc,
+                           SourceLocation EndLoc, ArrayRef<OMPClause *> Clauses,
+                           Stmt *AssociatedStmt, Expr *X, Expr *V, Expr *E,
+                           Expr *UE, Expr *D, Expr *Cond, bool IsXLHSInRHSPart,
+                           bool IsPostfixUpdate) {
+  auto *Dir = createDirective<OMPAtomicDirective>(
+      C, Clauses, AssociatedStmt, /*NumChildren=*/6, StartLoc, EndLoc);
+>>>>>>> 104d9a674312c314699558ad8ee48b70624fdb6c
   Dir->setX(X);
   Dir->setV(V);
   Dir->setExpr(E);
@@ -1205,6 +1216,8 @@ OMPAtomicDirective *OMPAtomicDirective::Create(
   Dir->setResult(Result);
 #endif // INTEL_COLLAB
   Dir->setUpdateExpr(UE);
+  Dir->setD(D);
+  Dir->setCond(Cond);
   Dir->IsXLHSInRHSPart = IsXLHSInRHSPart;
   Dir->IsPostfixUpdate = IsPostfixUpdate;
 #if INTEL_COLLAB
@@ -1219,11 +1232,15 @@ OMPAtomicDirective *OMPAtomicDirective::CreateEmpty(const ASTContext &C,
                                                     unsigned NumClauses,
                                                     EmptyShell) {
   return createEmptyDirective<OMPAtomicDirective>(
+<<<<<<< HEAD
 #if INTEL_COLLAB
       C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/6);
 #else // INTEL_COLLAB
       C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/4);
 #endif // INTEL_COLLAB
+=======
+      C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/6);
+>>>>>>> 104d9a674312c314699558ad8ee48b70624fdb6c
 }
 
 OMPTargetDirective *OMPTargetDirective::Create(const ASTContext &C,
