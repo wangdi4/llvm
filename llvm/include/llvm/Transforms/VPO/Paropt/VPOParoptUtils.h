@@ -2193,6 +2193,12 @@ public:
   /// It is vpo::ADDRESS_SPACE_GENERIC for SPIR-V targets, 0 - otherwise.
   /// \p M is used to identify the current target.
   static unsigned getDefaultAS(const Module *M);
+
+  /// Check if reduction item \p RedI is supported by atomic-free reduction.
+  /// It is necessary to correctly match global buffers created at prepare
+  /// pass when making actual codegen at transform pass.
+  /// \param [in] RedI Reduction Item to Check
+  static bool supportsAtomicFreeReduction(const ReductionItem *RedI);
 };
 
 } // namespace vpo

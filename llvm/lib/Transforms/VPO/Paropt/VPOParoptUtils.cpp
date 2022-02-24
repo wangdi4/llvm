@@ -6593,4 +6593,29 @@ VPOParoptUtils::getItemInfo(const Item *I) {
 unsigned VPOParoptUtils::getDefaultAS(const Module *M) {
   return VPOAnalysisUtils::isTargetSPIRV(M) ? vpo::ADDRESS_SPACE_GENERIC : 0;
 }
+
+bool VPOParoptUtils::supportsAtomicFreeReduction(const ReductionItem *RedI) {
+  if (RedI->getType() == ReductionItem::WRNReductionUdr)
+    return false;
+#if INTEL_CUSTOMIZATION
+  if (RedI->getIsF90DopeVector())
+    return false;
+#endif // INTEL_CUSTOMIZATION
+
+  if (RedI->getIsArraySection()) {
+    const auto &ArrSecInfo = RedI->getArraySectionInfo();
+
+    // computeArraySectionTypeOffsetSize() may insert computations
+    // before the target region, if an array section dimension's
+    // lower bound or/and size is not constant. Since the dimension
+    // lb/size values definition may be dominated by the target region,
+    // we cannot easily use them before the target region.
+    // We need more sophisticated code here to be able to do that
+    // correctly. For now just support array sections with constant
+    // section specifiers.
+    if (ArrSecInfo.isArraySectionWithVariableLengthOrOffset())
+      return false;
+  }
+  return true;
+}
 #endif // INTEL_COLLAB
