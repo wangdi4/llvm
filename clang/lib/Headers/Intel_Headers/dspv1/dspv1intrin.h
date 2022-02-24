@@ -304,40 +304,40 @@ _mm_dsp_phaddlsdq_epi32(__m128i __A) {
 }
 
 #define _mm_max_epi16(__a, __b)                                                \
-  ((__m128i)__builtin_ia32_pmaxsw128((__v8hi)(__a), (__v8hi)(__b)))
+    ((__m128i)__builtin_elementwise_max((__v8hi)(__a), (__v8hi)(__b)))
 
 #define _mm_max_epu8(__a, __b)                                                 \
-  ((__m128i)__builtin_ia32_pmaxub128((__v16qi)(__a), (__v16qi)(__b)))
+  ((__m128i)__builtin_elementwise_max((__v16qu)(__a), (__v16qu)(__b)))
 
 #define _mm_min_epi16(__a, __b)                                                \
-  ((__m128i)__builtin_ia32_pminsw128((__v8hi)(__a), (__v8hi)(__b)))
+  ((__m128i)__builtin_elementwise_min((__v8hi)(__a), (__v8hi)(__b)))
 
 #define _mm_min_epu8(__a, __b)                                                 \
-  ((__m128i)__builtin_ia32_pminub128((__v16qi)(__a), (__v16qi)(__b)))
+  ((__m128i)__builtin_elementwise_min((__v16qu)(__a), (__v16qu)(__b)))
 
 #define _mm_min_epi8(__V1, __V2)                                               \
-  ((__m128i)__builtin_ia32_pminsb128((__v16qi)(__V1), (__v16qi)(__V2)))
+  ((__m128i)__builtin_elementwise_min((__v16qs)(__V1), (__v16qs)(__V2)))
 
 #define _mm_max_epi8(__V1, __V2)                                               \
-  ((__m128i)__builtin_ia32_pmaxsb128((__v16qi)(__V1), (__v16qi)(__V2)))
+  ((__m128i)__builtin_elementwise_max((__v16qs)(__V1), (__v16qs)(__V2)))
 
 #define _mm_min_epu16(__V1, __V2)                                              \
-  ((__m128i)__builtin_ia32_pminuw128((__v8hi)(__V1), (__v8hi)(__V2)))
+  ((__m128i)__builtin_elementwise_min((__v8hu)(__V1), (__v8hu)(__V2)))
 
 #define _mm_max_epu16(__V1, __V2)                                              \
-  ((__m128i)__builtin_ia32_pmaxuw128((__v8hi)(__V1), (__v8hi)(__V2)))
+  ((__m128i)__builtin_elementwise_max((__v8hu)(__V1), (__v8hu)(__V2)))
 
 #define _mm_min_epi32(__V1, __V2)                                              \
-  ((__m128i)__builtin_ia32_pminsd128((__v4si)(__V1), (__v4si)(__V2)))
+  ((__m128i)__builtin_elementwise_min((__v4si)(__V1), (__v4si)(__V2)))
 
 #define _mm_max_epi32(__V1, __V2)                                              \
-  ((__m128i)__builtin_ia32_pmaxsd128((__v4si)(__V1), (__v4si)(__V2)))
+  ((__m128i)__builtin_elementwise_max((__v4si)(__V1), (__v4si)(__V2)))
 
 #define _mm_min_epu32(__V1, __V2)                                              \
-  ((__m128i)__builtin_ia32_pminud128((__v4si)(__V1), (__v4si)(__V2)))
+  ((__m128i)__builtin_elementwise_min((__v4su)(__V1), (__v4su)(__V2)))
 
 #define _mm_max_epu32(__V1, __V2)                                              \
-  ((__m128i)__builtin_ia32_pmaxud128((__v4si)(__V1), (__v4si)(__V2)))
+  ((__m128i)__builtin_elementwise_max((__v4su)(__V1), (__v4su)(__V2)))
 
 #define _mm_dpbusd_epi32(S, A, B)                                              \
   ((__m128i)__builtin_ia32_vpdpbusd128((__v4si)(S), (__v4si)(A), (__v4si)(B)))

@@ -262,14 +262,6 @@ TARGET_BUILTIN(__builtin_ia32_maxsd, "V2dV2dV2d", "ncV:128:", "sse2")
 TARGET_BUILTIN(__builtin_ia32_pmulhw128, "V8sV8sV8s", "ncV:128:", "sse2")
 TARGET_BUILTIN(__builtin_ia32_pavgb128, "V16cV16cV16c", "ncV:128:", "sse2")
 TARGET_BUILTIN(__builtin_ia32_pavgw128, "V8sV8sV8s", "ncV:128:", "sse2")
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_DSPV1
-TARGET_BUILTIN(__builtin_ia32_pmaxub128, "V16cV16cV16c", "ncV:128:", "dspv1")
-TARGET_BUILTIN(__builtin_ia32_pmaxsw128, "V8sV8sV8s", "ncV:128:", "dspv1")
-TARGET_BUILTIN(__builtin_ia32_pminub128, "V16cV16cV16c", "ncV:128:", "dspv1")
-TARGET_BUILTIN(__builtin_ia32_pminsw128, "V8sV8sV8s", "ncV:128:", "dspv1")
-#endif // INTEL_FEATURE_ISA_DSPV1
-#endif // INTEL_CUSTOMIZATION
 TARGET_BUILTIN(__builtin_ia32_packsswb128, "V16cV8sV8s", "ncV:128:", "sse2")
 TARGET_BUILTIN(__builtin_ia32_packssdw128, "V8sV4iV4i", "ncV:128:", "sse2")
 TARGET_BUILTIN(__builtin_ia32_packuswb128, "V16cV8sV8s", "ncV:128:", "sse2")
@@ -384,18 +376,6 @@ TARGET_BUILTIN(__builtin_ia32_blendvpd, "V2dV2dV2dV2d", "ncV:128:", "sse4.1")
 TARGET_BUILTIN(__builtin_ia32_blendvps, "V4fV4fV4fV4f", "ncV:128:", "sse4.1")
 TARGET_BUILTIN(__builtin_ia32_packusdw128, "V8sV4iV4i", "ncV:128:", "sse4.1")
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_DSPV1
-TARGET_BUILTIN(__builtin_ia32_pmaxsb128, "V16cV16cV16c", "ncV:128:", "dspv1")
-TARGET_BUILTIN(__builtin_ia32_pmaxsd128, "V4iV4iV4i", "ncV:128:", "dspv1")
-TARGET_BUILTIN(__builtin_ia32_pmaxud128, "V4iV4iV4i", "ncV:128:", "dspv1")
-TARGET_BUILTIN(__builtin_ia32_pmaxuw128, "V8sV8sV8s", "ncV:128:", "dspv1")
-TARGET_BUILTIN(__builtin_ia32_pminsb128, "V16cV16cV16c", "ncV:128:", "dspv1")
-TARGET_BUILTIN(__builtin_ia32_pminsd128, "V4iV4iV4i", "ncV:128:", "dspv1")
-TARGET_BUILTIN(__builtin_ia32_pminud128, "V4iV4iV4i", "ncV:128:", "dspv1")
-TARGET_BUILTIN(__builtin_ia32_pminuw128, "V8sV8sV8s", "ncV:128:", "dspv1")
-#endif // INTEL_FEATURE_ISA_DSPV1
-#endif // INTEL_CUSTOMIZATION
 TARGET_BUILTIN(__builtin_ia32_pmuldq128, "V2OiV4iV4i", "ncV:128:", "sse4.1")
 TARGET_BUILTIN(__builtin_ia32_roundps, "V4fV4fIi", "ncV:128:", "sse4.1")
 TARGET_BUILTIN(__builtin_ia32_roundss, "V4fV4fV4fIi", "ncV:128:", "sse4.1")
