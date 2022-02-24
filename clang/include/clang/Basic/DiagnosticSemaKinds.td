@@ -10655,8 +10655,8 @@ def err_omp_atomic_compare_capture : Error<
 def note_omp_atomic_compare: Note<
   "%select{expected compound statement|expected exactly one expression statement|expected assignment statement|expected conditional operator|expect result value to be at false expression|"
   "expect binary operator in conditional expression|expect '<', '>' or '==' as order operator|expect comparison in a form of 'x == e', 'e == x', 'x ordop expr', or 'expr ordop x'|"
-<<<<<<< HEAD
-  "expect lvalue for result value|expect scalar value|expect integer value|unexpected 'else' statement}0">;
+  "expect lvalue for result value|expect scalar value|expect integer value|unexpected 'else' statement|expect '==' operator|expect an assignment statement 'v = x'|"
+  "expect a 'if' statement|expect no more than two statements|expect a compound statement|expect 'else' statement|expect a form 'r = x == e; if (r) ...'}0">;
 #if INTEL_COLLAB
 def err_omp_atomic_compare_bad_form : Error<
   "the statement for 'atomic compare' must be 'x = expr ordop x ? expr : x;', "
@@ -10688,10 +10688,6 @@ def note_omp_atomic_compare_capture: Note<
   "expected '==' operator|result must be of integral type|"
   "expected an lvalue expression|cannot match 'r' component in expression}0">;
 #endif // INTEL_COLLAB
-=======
-  "expect lvalue for result value|expect scalar value|expect integer value|unexpected 'else' statement|expect '==' operator|expect an assignment statement 'v = x'|"
-  "expect a 'if' statement|expect no more than two statements|expect a compound statement|expect 'else' statement|expect a form 'r = x == e; if (r) ...'}0">;
->>>>>>> e2855e17601e8a193bf07b0533be69dbf85b811c
 def err_omp_atomic_several_clauses : Error<
   "directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update', 'capture', or 'compare' clause">;
 def err_omp_several_mem_order_clauses : Error<

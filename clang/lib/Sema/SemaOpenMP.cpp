@@ -12173,7 +12173,7 @@ bool OpenMPAtomicCompareCheckerIntel::checkStatement(Stmt *S, unsigned DiagId,
 
 namespace {
 /// Helper class for checking 'omp atomic compare capture' construct
-class OpenMPAtomicCompareCaptureChecker {
+class OpenMPAtomicCompareCaptureCheckerIntel {
   /// Error results for atomic compare capture.
   enum AtomicCompareCaptureCheckerErrorCode {
     NotAnAssignmentOp,
@@ -12232,7 +12232,7 @@ class OpenMPAtomicCompareCaptureChecker {
   }
 
 public:
-  OpenMPAtomicCompareCaptureChecker(Sema &SemaRef) : SemaRef(SemaRef) {}
+  OpenMPAtomicCompareCaptureCheckerIntel(Sema &SemaRef) : SemaRef(SemaRef) {}
   /// Checks that statement is suitable for 'atomic compare capture'
   /// constructs and extracts 'x', 'v', 'r', 'expr', 'e', and 'd' from
   /// the original expression. If DiagId and NoteId == 0, then only check is
@@ -12270,9 +12270,9 @@ public:
 /// and 'e' in the expected value.
 /// If the correct form is found, return false and set X and Expected.
 /// If incorrect form is found, return true.
-bool OpenMPAtomicCompareCaptureChecker::checkCondition(Expr *Cond,
-                                                       unsigned DiagId,
-                                                       unsigned NoteId) {
+bool OpenMPAtomicCompareCaptureCheckerIntel::checkCondition(Expr *Cond,
+                                                            unsigned DiagId,
+                                                            unsigned NoteId) {
   AtomicCompareCaptureCheckerErrorCode ErrorFound = NoError;
   SourceLocation ErrorLoc, NoteLoc;
   SourceRange ErrorRange, NoteRange;
@@ -12310,8 +12310,9 @@ bool OpenMPAtomicCompareCaptureChecker::checkCondition(Expr *Cond,
 /// A compound statement with a single assignment is expected: { x = d; }
 /// If the correct form is found, return false and set Desired.
 /// If incorrect form is found, return true.
-bool OpenMPAtomicCompareCaptureChecker::checkThenBlock(Stmt *S, unsigned DiagId,
-                                                       unsigned NoteId) {
+bool OpenMPAtomicCompareCaptureCheckerIntel::checkThenBlock(Stmt *S,
+                                                            unsigned DiagId,
+                                                            unsigned NoteId) {
   AtomicCompareCaptureCheckerErrorCode ErrorFound = NoError;
   SourceLocation ErrorLoc, NoteLoc;
   SourceRange ErrorRange, NoteRange;
@@ -12371,8 +12372,9 @@ bool OpenMPAtomicCompareCaptureChecker::checkThenBlock(Stmt *S, unsigned DiagId,
 /// A compound statement with a single assignment is expected: { v = x; }
 /// If the correct form is found, return false and set V.
 /// If incorrect form is found, return true.
-bool OpenMPAtomicCompareCaptureChecker::checkElseBlock(Stmt *S, unsigned DiagId,
-                                                       unsigned NoteId) {
+bool OpenMPAtomicCompareCaptureCheckerIntel::checkElseBlock(Stmt *S,
+                                                            unsigned DiagId,
+                                                            unsigned NoteId) {
   AtomicCompareCaptureCheckerErrorCode ErrorFound = NoError;
   SourceLocation ErrorLoc, NoteLoc;
   SourceRange ErrorRange, NoteRange;
@@ -12443,9 +12445,8 @@ bool OpenMPAtomicCompareCaptureChecker::checkElseBlock(Stmt *S, unsigned DiagId,
 ///
 /// If the correct form is found, return false and set the needed
 /// subexpressions. If incorrect form is found, return true.
-bool OpenMPAtomicCompareCaptureChecker::checkCompoundStmt(CompoundStmt *CS,
-                                                          unsigned DiagId,
-                                                          unsigned NoteId) {
+bool OpenMPAtomicCompareCaptureCheckerIntel::checkCompoundStmt(
+    CompoundStmt *CS, unsigned DiagId, unsigned NoteId) {
   AtomicCompareCaptureCheckerErrorCode ErrorFound = NoError;
   SourceLocation ErrorLoc, NoteLoc;
   SourceRange ErrorRange, NoteRange;
@@ -12567,8 +12568,9 @@ bool OpenMPAtomicCompareCaptureChecker::checkCompoundStmt(CompoundStmt *CS,
 ///
 /// If the correct form is found, return false and set X, Expected, Desired, and
 /// V. If incorrect form is found, return true.
-bool OpenMPAtomicCompareCaptureChecker::checkIfStmt(IfStmt *If, unsigned DiagId,
-                                                    unsigned NoteId) {
+bool OpenMPAtomicCompareCaptureCheckerIntel::checkIfStmt(IfStmt *If,
+                                                         unsigned DiagId,
+                                                         unsigned NoteId) {
   AtomicCompareCaptureCheckerErrorCode ErrorFound = NoError;
   SourceLocation ErrorLoc, NoteLoc;
   SourceRange ErrorRange, NoteRange;
@@ -12597,8 +12599,9 @@ bool OpenMPAtomicCompareCaptureChecker::checkIfStmt(IfStmt *If, unsigned DiagId,
   return ErrorFound != NoError;
 }
 
-bool OpenMPAtomicCompareCaptureChecker::checkStatement(Stmt *S, unsigned DiagId,
-                                                       unsigned NoteId) {
+bool OpenMPAtomicCompareCaptureCheckerIntel::checkStatement(Stmt *S,
+                                                            unsigned DiagId,
+                                                            unsigned NoteId) {
 
   AtomicCompareCaptureCheckerErrorCode ErrorFound = NoError;
   SourceLocation ErrorLoc, NoteLoc;
@@ -13701,7 +13704,7 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
     }
 #if INTEL_COLLAB
   } else if (LangOpts.OpenMPLateOutline && IsCompareCapture) {
-    OpenMPAtomicCompareCaptureChecker Checker(*this);
+    OpenMPAtomicCompareCaptureCheckerIntel Checker(*this);
     if (Checker.checkStatement(Body,
                                diag::err_omp_atomic_compare_capture_bad_form,
                                diag::note_omp_atomic_compare_capture))
