@@ -67,8 +67,8 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt < %s -wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes=wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -S 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -S 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes=wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -S 2>&1 | FileCheck %s
 
 %"class.std::ios_base::Init" = type { i8 }
 %class.Base = type { i32 (...)** }
@@ -456,7 +456,7 @@ attributes #11 = { noreturn nounwind }
 ; CHECK-NEXT:            catch i8* bitcast (i8** @_ZTIPKc to i8*)
 ; CHECK-NEXT:   %tmp4 = extractvalue { i8*, i32 } %tmp3, 0
 ; CHECK-NEXT:   %tmp5 = extractvalue { i8*, i32 } %tmp3, 1
-; CHECK-NEXT:   %tmp6 = tail call i32 @llvm.eh.typeid.for(i8* bitcast (i8** @_ZTIPKc to i8*)) #2
+; CHECK-NEXT:   %tmp6 = tail call i32 @llvm.eh.typeid.for(i8* bitcast (i8** @_ZTIPKc to i8*))
 ; CHECK-NEXT:   %matches = icmp eq i32 %tmp5, %tmp6
 ; CHECK-NEXT:   br i1 %matches, label %catch, label %eh.resume
 
