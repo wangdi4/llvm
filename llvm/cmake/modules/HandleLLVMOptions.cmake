@@ -568,7 +568,7 @@ if( MSVC )
      ${CMAKE_SHARED_LINKER_FLAGS})
   string(TOUPPER "${all_linker_flags_uppercase}" all_linker_flags_uppercase)
 
-  if (CLANG_CL AND LINKER_IS_LLD)
+  if (CLANG_CL AND LINKER_IS_LLD AND FALSE) # INTEL: disable gcodeview-ghash.
     # If we are using clang-cl with lld-link and /debug is present in any of the
     # linker flag variables, pass -gcodeview-ghash to the compiler to speed up
     # linking. This flag is orthogonal from /Zi, /Z7, and other flags that
