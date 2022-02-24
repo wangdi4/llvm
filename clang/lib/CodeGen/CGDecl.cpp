@@ -2629,13 +2629,6 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, ParamValue Arg,
       assert(getContext().getTargetAddressSpace(SrcLangAS) ==
              CGM.getDataLayout().getAllocaAddrSpace());
       auto DestAS = getContext().getTargetAddressSpace(DestLangAS);
-<<<<<<< HEAD
-      auto *T = V->getType()->getPointerElementType()->getPointerTo(DestAS);
-      DeclPtr =
-          Address::deprecated(getTargetHooks().performAddrSpaceCast(
-                                  *this, V, SrcLangAS, DestLangAS, T, true),
-                              DeclPtr.getAlignment());
-=======
 #if INTEL_CUSTOMIZATION
       auto *T = llvm::PointerType::getWithSamePointeeType(cast<llvm::PointerType>(V->getType()), DestAS);
       DeclPtr = Address(getTargetHooks().performAddrSpaceCast(
@@ -2643,7 +2636,6 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, ParamValue Arg,
                         DeclPtr.getElementType(),
                         DeclPtr.getAlignment());
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 9f113c7ace0fb56237e9f537cfafdb7a0c5fa006
     }
 
     // Push a destructor cleanup for this parameter if the ABI requires it.
