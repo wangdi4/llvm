@@ -929,6 +929,122 @@ void VPOCodeGenHIR::setRednHoistPtForVectorLoop() {
     RednHoistLp = OrigLoop;
 }
 
+VPValue *VPOCodeGenHIR::getLoopIVUpper(const VPLoop *VPLp,
+                                       const VPPHINode *IVPhi) {
+  assert(VPLp->getParentLoop() &&
+         "Unexpected getLoopIVUpper call for outermost VPLoop");
+  assert(VPLoopIVPhiMap[VPLp] == IVPhi &&
+         "IVPhi is expected to be VPLp's IV PHI");
+  auto *ExitingBlock = VPLp->getExitingBlock();
+  assert(ExitingBlock && "Expected non-null exiting block");
+
+  auto *ExitChk = ExitingBlock->getCondBit();
+  assert(ExitChk && "Expected non-null exit check");
+
+  // Backedge compare is expected to be in the following form to determine
+  // IVUpper.
+  //
+  // BB5:
+  //   [DA: Uni] i64 %ivphi = phi  [ i64 %vp31772, BB4 ],  [ i64 %vp31800, BB5 ]
+  //   ...
+  //   ...
+  //   [DA: Uni] i64 %vp24002 = add i64 %ivphi i64 1
+  //   [DA: Uni] i1 %vp25292 = icmp slt/ult i64 %vp24002 i64 100
+  //   [DA: Uni] i64 %vp31800 = hir-copy i64 %vp24002 , OriginPhiId: 0
+  //   [DA: Uni] br i1 %vp25292, BB5, BB6
+  auto *CmpInst = dyn_cast<VPCmpInst>(ExitChk);
+  if (!CmpInst)
+    return nullptr;
+
+  auto CmpPred = CmpInst->getPredicate();
+  if (CmpPred != CmpInst::ICMP_SLT && CmpPred != CmpInst::ICMP_ULT)
+    return nullptr;
+
+  auto *CmpOp0 = CmpInst->getOperand(0);
+  auto *CmpOp1 = CmpInst->getOperand(1);
+  assert(!Plan->getVPlanDA()->isDivergent(*CmpInst) &&
+         !Plan->getVPlanDA()->isDivergent(*CmpOp1) &&
+         "Expected uniform loop bottom test");
+
+  auto *AddInst = dyn_cast<VPInstruction>(CmpOp0);
+  if (!AddInst || AddInst->getOpcode() != Instruction::Add)
+    return nullptr;
+
+  // Check that AddInst copy is used as IVPhi's incoming value for Latch.
+  auto *Latch = VPLp->getLoopLatch();
+  assert(Latch && "Expected non-null loop latch");
+  VPHIRCopyInst *LatchCopy =
+      cast<VPHIRCopyInst>(IVPhi->getIncomingValue(Latch));
+  if (LatchCopy->getOperand(0) != AddInst)
+    return nullptr;
+
+  // The second operand of the compare is the IV upper value.
+  return CmpOp1;
+}
+
+void VPOCodeGenHIR::setupHLLoop(const VPLoop *VPLp) {
+  // For merged CFG we reuse the MainLoop created earlier for first top-level
+  // loop, and for all other top-level loops (vectorized remainder for example)
+  // we use an empty clone of MainLoop.
+  auto getMergedCFGVecHLLoop = [&](const VPLoop *VLp) {
+    if (*Plan->getVPLoopInfo()->begin() == VLp)
+      return MainLoop;
+    return MainLoop->cloneEmpty();
+  };
+
+  assert(MainLoop && "Expected non-null MainLoop");
+  HLLoop *HLoop;
+  if (!VPLp->getParentLoop()) {
+    HLoop = isMergedCFG() ? getMergedCFGVecHLLoop(VPLp) : MainLoop;
+  } else {
+    Type *IVTy;
+    VPValue *IVUpper = nullptr;
+    auto Itr = VPLoopIVPhiMap.find(VPLp);
+    if (Itr != VPLoopIVPhiMap.end()) {
+      IVTy = Itr->second->getType();
+      IVUpper = getLoopIVUpper(VPLp, Itr->second);
+    } else {
+      IVTy = Type::getInt64Ty(HLNodeUtilities.getContext());
+    }
+
+    // If we have a known IV upper bound, we can generate a DO loop with
+    // lower(0), upper(IVUpper - 1), and stride(1).
+    if (IVUpper) {
+      auto *LowerRef = DDRefUtilities.createConstDDRef(IVTy, 0);
+      auto *StrideRef = DDRefUtilities.createConstDDRef(IVTy, 1);
+      auto *UpperRef = getOrCreateScalarRef(IVUpper, 0 /*ScalarLaneID*/);
+
+      // HIR DO loop upper bound is inclusive, subtract 1 to account for
+      // the same.
+      if (UpperRef->isConstant()) {
+        UpperRef->getSingleCanonExpr()->addConstant(-1, true);
+      } else {
+        HLInst *AddInst = HLNodeUtilities.createAdd(
+            UpperRef, DDRefUtilities.createConstDDRef(IVTy, -1), "upper");
+        addInstUnmasked(AddInst);
+        auto *CurLoop = InsertPoint->getParentLoop();
+        assert(CurLoop && "Unexpected null current loop");
+        UpperRef = AddInst->getLvalDDRef()->clone();
+        UpperRef->getSingleCanonExpr()->setDefinedAtLevel(
+            CurLoop->getNestingLevel());
+      }
+      HLoop = HLNodeUtilities.createHLLoop(nullptr /* ZttIf */, LowerRef,
+                                           UpperRef, StrideRef, 1 /* NumEx */);
+      // Add UpperRef as livein for the non-constant case.
+      if (!UpperRef->isConstant())
+        HLoop->addLiveInTemp(UpperRef);
+    } else {
+      auto *DDR = DDRefUtilities.createConstDDRef(IVTy, 0);
+      HLoop = HLNodeUtilities.createHLLoop(
+          nullptr /* ZttIf */, DDR, DDR->clone(), DDR->clone(), 1 /* NumEx */);
+    }
+  }
+
+  // Add HLLoop to the map and mark it do not vectorize.
+  VPLoopHLLoopMap[VPLp] = HLoop;
+  HLoop->markDoNotVectorize();
+}
+
 bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
   assert(VF > 1);
   setVF(VF);
@@ -1036,41 +1152,12 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
     }
   }
 
-  // For merged CFG we reuse the MainLoop created above for first top-level
-  // loop, and for all other top-level loops (vectorized remainder for example)
-  // we use an empty clone of MainLoop.
-  auto getMergedCFGVecHLLoop = [&](VPLoop *VLp) {
-    if (*Plan->getVPLoopInfo()->begin() == VLp)
-      return MainLoop;
-    return MainLoop->cloneEmpty();
-  };
-
-  // Setup skeleton loop for every VPLoop in VPlan. We use MainLoop
-  // for the outer loops and create a new unknown loop for others.
+  // Collect vploop preheader/header/exit blocks.
   for (VPLoop *OuterLoop : *Plan->getVPLoopInfo()) {
     for (auto *VPLp : post_order(OuterLoop)) {
       LoopPreheaderBlocks.insert(VPLp->getLoopPreheader());
       LoopHeaderBlocks.insert(VPLp->getHeader());
       LoopExitBlocks.insert(VPLp->getExitBlock());
-      if (VPLp == OuterLoop) {
-        VPLoopHLLoopMap[VPLp] =
-            isMergedCFG() ? getMergedCFGVecHLLoop(VPLp) : MainLoop;
-      } else {
-        Type *IVTy;
-
-        // Use canonical IV type if one exists, use int64 type othewise.
-        auto Itr = VPLoopIVPhiMap.find(VPLp);
-        if (Itr != VPLoopIVPhiMap.end())
-          IVTy = Itr->second->getType();
-        else
-          IVTy = Type::getInt64Ty(HLNodeUtilities.getContext());
-
-        auto *DDR = DDRefUtilities.createConstDDRef(IVTy, 0);
-        auto *UnknownLoop =
-            HLNodeUtilities.createHLLoop(nullptr /* ZttIf */, DDR, DDR->clone(),
-                                         DDR->clone(), 1 /* NumEx */);
-        VPLoopHLLoopMap[VPLp] = UnknownLoop;
-      }
     }
   }
 
@@ -1120,6 +1207,9 @@ void VPOCodeGenHIR::dumpFinalHIR() {
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 void VPOCodeGenHIR::setupLiveInLiveOut() {
+  if (isSearchLoop())
+    return;
+
   auto addLiveInLiveOut = [this](const VPValue *Def, const VPUser *User,
                                  const RegDDRef *DefRef) -> void {
     const VPLoop *DefVPLoop = nullptr, *UseVPLoop = nullptr;
@@ -5967,6 +6057,7 @@ void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
   } else if (LoopHeaderBlocks.count(VPBB)) {
     auto *CurVPLoop = Plan->getVPLoopInfo()->getLoopFor(VPBB);
     assert(CurVPLoop && "Non-null CurVPLoop expected.");
+    setupHLLoop(CurVPLoop);
     auto *CurHLLoop = VPLoopHLLoopMap[CurVPLoop];
     // Main vector loop is already linked in (except in case merged CFG)
     if (isMergedCFG() || CurVPLoop->getLoopDepth() > 1)
@@ -5997,14 +6088,13 @@ void VPOCodeGenHIR::emitBlockTerminatorNaive(const VPBasicBlock *SourceBB) {
     return Goto;
   };
 
-  // The loop backedge/exit is implicit in outermost loops. Do not emit
-  // gotos in the vector loops latch block. TODO - look into why we need
+  // The loop backedge/exit is implicit in DO loops. Do not emit
+  // gotos in the vector DO-loops latch block. TODO - look into why we need
   // to suppress goto in PreHeader.
-  auto *OuterLoop = Plan->getVPLoopInfo()->getLoopFor(SourceBB);
-  bool IsOuterLoopLatch = OuterLoop != nullptr &&
-                          OuterLoop->getLoopDepth() == 1 &&
-                          OuterLoop->isLoopLatch(SourceBB);
-  if (SourceBB->getNumSuccessors() && !IsOuterLoopLatch &&
+  auto *VLoop = Plan->getVPLoopInfo()->getLoopFor(SourceBB);
+  bool IsDoLoopLatch = VLoop != nullptr && VLoop->isLoopLatch(SourceBB) &&
+                       VPLoopHLLoopMap[VLoop]->isDo();
+  if (SourceBB->getNumSuccessors() && !IsDoLoopLatch &&
       !LoopPreheaderBlocks.count(SourceBB)) {
     const VPBasicBlock *Succ1 = SourceBB->getSuccessor(0);
 
@@ -6080,14 +6170,13 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
       HLNodeUtils::insertAfter(Goto, Label);
   };
 
-  // The loop backedge/exit is implicit in the outermost loop. Do not emit
-  // gotos in the main vector loop latch block. TODO - look into why we need
+  // The loop backedge/exit is implicit in DO loops. Do not emit
+  // gotos in the vector DO-loop latch block. TODO - look into why we need
   // to suppress goto in PreHeader.
-  auto *OuterLoop = Plan->getVPLoopInfo()->getLoopFor(SourceBB);
-  bool IsOuterLoopLatch = OuterLoop != nullptr &&
-                          OuterLoop->getLoopDepth() == 1 &&
-                          OuterLoop->isLoopLatch(SourceBB);
-  if (SourceBB->getNumSuccessors() && !IsOuterLoopLatch &&
+  auto *VLoop = Plan->getVPLoopInfo()->getLoopFor(SourceBB);
+  bool IsDoLoopLatch = VLoop != nullptr && VLoop->isLoopLatch(SourceBB) &&
+                       VPLoopHLLoopMap[VLoop]->isDo();
+  if (SourceBB->getNumSuccessors() && !IsDoLoopLatch &&
       !LoopPreheaderBlocks.count(SourceBB)) {
     const VPBasicBlock *Succ1 = SourceBB->getSuccessor(0);
 

@@ -24,19 +24,12 @@ define dso_local void @foo(i64 %n1, i64 %n2) local_unnamed_addr #0 {
 ; CHECK-NEXT:  |   if (%unifcond == 1)
 ; CHECK-NEXT:  |   {
 ; CHECK-NEXT:  |      %phi.temp = 0;
+; CHECK-NEXT:  |      %upper = %n2 + -1;
 ; CHECK-NEXT:  |
-; CHECK-NEXT:  |      + UNKNOWN LOOP i2
-; CHECK-NEXT:  |      |   <i2 = 0>
-; CHECK-NEXT:  |      |   [[BB0:BB[0-9]+]].52:
+; CHECK-NEXT:  |      + DO i2 = 0, %upper, 1   <DO_LOOP>
 ; CHECK-NEXT:  |      |   (<4 x i64>*)(@arr)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][i2] = i1 + i2 + <i64 0, i64 1, i64 2, i64 3> + 1111;
 ; CHECK-NEXT:  |      |   %.vec3 = i2 + 1 < %n2;
 ; CHECK-NEXT:  |      |   %phi.temp = i2 + 1;
-; CHECK-NEXT:  |      |   %unifcond5 = extractelement %.vec3,  0;
-; CHECK-NEXT:  |      |   if (%unifcond5 == 1)
-; CHECK-NEXT:  |      |   {
-; CHECK-NEXT:  |      |      <i2 = i2 + 1>
-; CHECK-NEXT:  |      |      goto [[BB0]].52;
-; CHECK-NEXT:  |      |   }
 ; CHECK-NEXT:  |      + END LOOP
 ; CHECK-NEXT:  |   }
 ; CHECK-NEXT:  + END LOOP

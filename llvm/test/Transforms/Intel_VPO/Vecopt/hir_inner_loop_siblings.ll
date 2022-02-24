@@ -27,34 +27,18 @@ define dso_local void @foo(i64** nocapture readnone %lpp) local_unnamed_addr #0 
 ; CHECK:       + DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK-NEXT:  |   %phi.temp = 0;
 ; CHECK-NEXT:  |
-; CHECK-NEXT:  |   + UNKNOWN LOOP i2
-; CHECK-NEXT:  |   |   <i2 = 0>
-; CHECK-NEXT:  |   |   [[BB0:BB[0-9]+]].54:
+; CHECK-NEXT:  |   + DO i2 = 0, 99, 1   <DO_LOOP>
 ; CHECK-NEXT:  |   |   (<4 x i64>*)(@larr1)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][i2] = i1 + i2 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:  |   |   %.vec = i2 + 1 < 100;
 ; CHECK-NEXT:  |   |   %phi.temp = i2 + 1;
-; CHECK-NEXT:  |   |   %unifcond = extractelement %.vec,  0;
-; CHECK-NEXT:  |   |   if (%unifcond == 1)
-; CHECK-NEXT:  |   |   {
-; CHECK-NEXT:  |   |      <i2 = i2 + 1>
-; CHECK-NEXT:  |   |      goto [[BB0]].54;
-; CHECK-NEXT:  |   |   }
 ; CHECK-NEXT:  |   + END LOOP
 ; CHECK-NEXT:  |
 ; CHECK-NEXT:  |   %phi.temp5 = 0;
 ; CHECK-NEXT:  |
-; CHECK-NEXT:  |   + UNKNOWN LOOP i2
-; CHECK-NEXT:  |   |   <i2 = 0>
-; CHECK-NEXT:  |   |   [[BB1:BB[0-9]+]].65:
+; CHECK-NEXT:  |   + DO i2 = 0, 99, 1   <DO_LOOP>
 ; CHECK-NEXT:  |   |   (<4 x i64>*)(@larr2)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][i2] = i1 + i2 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:  |   |   %.vec7 = i2 + 1 < 100;
 ; CHECK-NEXT:  |   |   %phi.temp5 = i2 + 1;
-; CHECK-NEXT:  |   |   %unifcond9 = extractelement %.vec7,  0;
-; CHECK-NEXT:  |   |   if (%unifcond9 == 1)
-; CHECK-NEXT:  |   |   {
-; CHECK-NEXT:  |   |      <i2 = i2 + 1>
-; CHECK-NEXT:  |   |      goto [[BB1]].65;
-; CHECK-NEXT:  |   |   }
 ; CHECK-NEXT:  |   + END LOOP
 ; CHECK-NEXT:  + END LOOP
 ;

@@ -32,27 +32,18 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local void @foo() local_unnamed_addr #0 {
 ; CHECK:       Function: foo
 ; CHECK-EMPTY:
-; CHECK-NEXT:  <0>          BEGIN REGION { modified }
-; CHECK-NEXT:  <30>               + DO i1 = 0, 127, 4   <DO_LOOP> <simd-vectorized> <novectorize>
-; CHECK-NEXT:  <38>               |   %phi.temp = 0
-; CHECK-NEXT:  <31>               |
-; CHECK-NEXT:  <31>               |   + UNKNOWN LOOP i2
-; CHECK-NEXT:  <39>               |   |   <i2 = 0>
-; CHECK-NEXT:  <39>               |   |   BB5.39:
-; CHECK-NEXT:  <40>               |   |   (<4 x i64>*)(@arr)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][i2] = i1 + i2 + <i64 0, i64 1, i64 2, i64 3>
-; CHECK-NEXT:  <41>               |   |   %.vec = i2 + 1 < 128
-; CHECK-NEXT:  <42>               |   |   %phi.temp = i2 + 1
-; CHECK-NEXT:  <43>               |   |   %unifcond = extractelement %.vec,  0
-; CHECK-NEXT:  <44>               |   |   if (%unifcond == 1)
-; CHECK-NEXT:  <44>               |   |   {
-; CHECK-NEXT:  <44>               |   |      <i2 = i2 + 1>
-; CHECK-NEXT:  <45>               |   |      goto BB5.39
-; CHECK-NEXT:  <44>               |   |   }
-; CHECK-NEXT:  <31>               |   + END LOOP
-; CHECK-NEXT:  <30>               + END LOOP
-; CHECK-NEXT:  <30>
-; CHECK-NEXT:  <27>               ret
-; CHECK-NEXT:  <0>          END REGION
+; CHECK-NEXT:               BEGIN REGION { modified }
+; CHECK-NEXT:                     + DO i1 = 0, 127, 4   <DO_LOOP> <simd-vectorized> <novectorize>
+; CHECK-NEXT:                     |   %phi.temp = 0
+; CHECK-NEXT:                     |
+; CHECK-NEXT:                     |   + DO i2 = 0, 127, 1   <DO_LOOP>
+; CHECK-NEXT:                     |   |   (<4 x i64>*)(@arr)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][i2] = i1 + i2 + <i64 0, i64 1, i64 2, i64 3>
+; CHECK-NEXT:                     |   |   %.vec = i2 + 1 < 128
+; CHECK-NEXT:                     |   |   %phi.temp = i2 + 1
+; CHECK-NEXT:                     |   + END LOOP
+; CHECK-NEXT:                     + END LOOP
+; CHECK:                          ret
+; CHECK-NEXT:               END REGION
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
