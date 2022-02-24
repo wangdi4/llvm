@@ -1959,7 +1959,7 @@ public:
     });
   }
 
-  bool run(Module &M, Analyses &Anl,
+  bool run(Module &M, Analyses &Anl, WholeProgramInfo &WPInfo,
            std::function<const TargetLibraryInfo &(Function &F)> GetTLI,
            PreservedAnalyses &PA);
 
@@ -2448,9 +2448,13 @@ public:
 } // end of namespace llvm
 
 bool CallTreeCloningImpl::run(
-    Module &M, Analyses &Anls,
+    Module &M, Analyses &Anls, WholeProgramInfo &WPInfo,
     std::function<const TargetLibraryInfo &(Function &F)> GetTLI,
     PreservedAnalyses &PA) {
+
+  auto IAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
+  if (!WPInfo.isAdvancedOptEnabled(IAVX2))
+    return false;
 
   if (!checkThreshold(M)) {
     LLVM_DEBUG({
@@ -2590,9 +2594,12 @@ bool llvm::CallTreeCloningLegacyPass::runOnModule(Module &M) {
   auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
     return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   };
+  WholeProgramInfo &WPInfo =
+    getAnalysis<WholeProgramWrapperPass>().getResult();
+
   PreservedAnalyses PA;
   CallTreeCloningImpl Impl;
-  bool ModuleChanged = Impl.run(M, Anls, GetTLI, PA);
+  bool ModuleChanged = Impl.run(M, Anls, WPInfo, GetTLI, PA);
   if (ForceInlineReportAfterCallTreeCloning)
     getInlineReport()->testAndPrint(nullptr);
 
@@ -4253,9 +4260,10 @@ llvm::CallTreeCloningLegacyPass::CallTreeCloningLegacyPass() : ModulePass(ID) {
 }
 
 void CallTreeCloningLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addPreserved<WholeProgramWrapperPass>();
   AU.addRequired<LoopInfoWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
+  AU.addRequired<WholeProgramWrapperPass>();
+  AU.addPreserved<WholeProgramWrapperPass>();
 }
 
 llvm::ModulePass *llvm::createCallTreeCloningPass() {
@@ -4268,6 +4276,7 @@ char llvm::CallTreeCloningLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(CallTreeCloningLegacyPass, PASS_NAME, PASS_DESC, false,
                       false)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(CallTreeCloningLegacyPass, PASS_NAME, PASS_DESC, false,
                     false)
 
@@ -4281,11 +4290,12 @@ PreservedAnalyses CallTreeCloningPass::run(Module &M,
   auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
     return FAM.getResult<TargetLibraryAnalysis>(F);
   };
+  auto &WPInfo = MAM.getResult<WholeProgramAnalysis>(M);
   PreservedAnalyses PA;
 
   // TODO FIXME add preserved analyses
   CallTreeCloningImpl Impl;
-  bool ModuleChanged = Impl.run(M, Anls, GetTLI, PA);
+  bool ModuleChanged = Impl.run(M, Anls, WPInfo, GetTLI, PA);
   if (ForceInlineReportAfterCallTreeCloning)
     getInlineReport()->testAndPrint(nullptr);
 
