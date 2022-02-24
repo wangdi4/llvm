@@ -1181,21 +1181,22 @@ OMPOrderedDirective *OMPOrderedDirective::CreateEmpty(const ASTContext &C,
                                                    !IsStandalone);
 }
 
-OMPAtomicDirective *OMPAtomicDirective::Create(
-    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
-    ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt, Expr *X, Expr *V,
+OMPAtomicDirective *
+OMPAtomicDirective::Create(const ASTContext &C, SourceLocation StartLoc,
+                           SourceLocation EndLoc, ArrayRef<OMPClause *> Clauses,
+                           Stmt *AssociatedStmt, Expr *X, Expr *V, Expr *E,
+                           Expr *UE, Expr *D, Expr *Cond, bool IsXLHSInRHSPart,
 #if INTEL_COLLAB
-    Expr *E, Expr *Expected, Expr *Result, Expr *UE, bool IsXLHSInRHSPart,
-    bool IsPostfixUpdate, bool IsCompareMin, bool IsCompareMax,
-    bool IsConditionalCapture) {
-#else // INTEL_COLLAB
-    Expr *E, Expr *UE, bool IsXLHSInRHSPart, bool IsPostfixUpdate) {
+                           Expr *Expected, Expr *Result, bool IsCompareMin,
+                           bool IsCompareMax, bool IsConditionalCapture,
 #endif // INTEL_COLLAB
-  auto *Dir = createDirective<OMPAtomicDirective>(
+                           bool IsPostfixUpdate) {
 #if INTEL_COLLAB
-      C, Clauses, AssociatedStmt, /*NumChildren=*/6, StartLoc, EndLoc);
+  auto *Dir = createDirective<OMPAtomicDirective>(
+      C, Clauses, AssociatedStmt, /*NumChildren=*/8, StartLoc, EndLoc);
 #else // INTEL_COLLAB
-      C, Clauses, AssociatedStmt, /*NumChildren=*/4, StartLoc, EndLoc);
+  auto *Dir = createDirective<OMPAtomicDirective>(
+      C, Clauses, AssociatedStmt, /*NumChildren=*/6, StartLoc, EndLoc);
 #endif // INTEL_COLLAB
   Dir->setX(X);
   Dir->setV(V);
@@ -1205,6 +1206,8 @@ OMPAtomicDirective *OMPAtomicDirective::Create(
   Dir->setResult(Result);
 #endif // INTEL_COLLAB
   Dir->setUpdateExpr(UE);
+  Dir->setD(D);
+  Dir->setCond(Cond);
   Dir->IsXLHSInRHSPart = IsXLHSInRHSPart;
   Dir->IsPostfixUpdate = IsPostfixUpdate;
 #if INTEL_COLLAB
@@ -1220,9 +1223,9 @@ OMPAtomicDirective *OMPAtomicDirective::CreateEmpty(const ASTContext &C,
                                                     EmptyShell) {
   return createEmptyDirective<OMPAtomicDirective>(
 #if INTEL_COLLAB
-      C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/6);
+      C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/8);
 #else // INTEL_COLLAB
-      C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/4);
+      C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/6);
 #endif // INTEL_COLLAB
 }
 

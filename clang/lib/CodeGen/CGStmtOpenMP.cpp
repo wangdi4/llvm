@@ -6107,7 +6107,7 @@ static void emitOMPAtomicCaptureExpr(CodeGenFunction &CGF,
 }
 
 #if INTEL_COLLAB
-static void emitOMPAtomicCompareExpr(
+static void emitOMPAtomicCompareExprIntel(
     CodeGenFunction &CGF, llvm::AtomicOrdering AO, bool IsPostCapture,
     const Expr *V, const Expr *X, const Expr *E, const Expr *Expected,
     const Expr *Result, bool IsCompareMin, bool IsCompareMax,
@@ -6162,16 +6162,56 @@ static void emitOMPAtomicCompareExpr(
 }
 #endif // INTEL_COLLAB
 
+static void emitOMPAtomicCompareExpr(CodeGenFunction &CGF,
+                                     llvm::AtomicOrdering AO, const Expr *X,
+                                     const Expr *E, const Expr *D,
+                                     const Expr *CE, bool IsXBinopExpr,
+                                     SourceLocation Loc) {
+  llvm::OpenMPIRBuilder &OMPBuilder =
+      CGF.CGM.getOpenMPRuntime().getOMPBuilder();
+
+  OMPAtomicCompareOp Op;
+  assert(isa<BinaryOperator>(CE) && "CE is not a BinaryOperator");
+  switch (cast<BinaryOperator>(CE)->getOpcode()) {
+  case BO_EQ:
+    Op = OMPAtomicCompareOp::EQ;
+    break;
+  case BO_LT:
+    Op = OMPAtomicCompareOp::MIN;
+    break;
+  case BO_GT:
+    Op = OMPAtomicCompareOp::MAX;
+    break;
+  default:
+    llvm_unreachable("unsupported atomic compare binary operator");
+  }
+
+  LValue XLVal = CGF.EmitLValue(X);
+  llvm::Value *XPtr = XLVal.getPointer(CGF);
+  llvm::Value *EVal = CGF.EmitScalarExpr(E);
+  llvm::Value *DVal = D ? CGF.EmitScalarExpr(D) : nullptr;
+
+  llvm::OpenMPIRBuilder::AtomicOpValue XOpVal{
+      XPtr, XPtr->getType()->getPointerElementType(),
+      X->getType().isVolatileQualified(),
+      X->getType()->hasSignedIntegerRepresentation()};
+
+  CGF.Builder.restoreIP(OMPBuilder.createAtomicCompare(
+      CGF.Builder, XOpVal, EVal, DVal, AO, Op, IsXBinopExpr));
+}
+
 static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
                               llvm::AtomicOrdering AO, bool IsPostfixUpdate,
                               const Expr *X, const Expr *V, const Expr *E,
-                              const Expr *UE, bool IsXLHSInRHSPart,
+                              const Expr *UE, const Expr *D, const Expr *CE,
+                              bool IsXLHSInRHSPart, bool IsCompareCapture,
 #if INTEL_COLLAB
                               const Expr *Expected, const Expr *Result,
                               bool IsCompareMin, bool IsCompareMax,
                               bool IsConditionalCapture,
 #endif // INTEL_COLLAB
-                              bool IsCompareCapture, SourceLocation Loc) {
+                              SourceLocation Loc) {
+
   switch (Kind) {
   case OMPC_read:
     emitOMPAtomicReadExpr(CGF, AO, X, V, Loc);
@@ -6187,16 +6227,15 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
     emitOMPAtomicCaptureExpr(CGF, AO, IsPostfixUpdate, V, X, E, UE,
                              IsXLHSInRHSPart, Loc);
     break;
+  case OMPC_compare: {
 #if INTEL_COLLAB
-  case OMPC_compare: {
-    bool IsPostUpdate = (V ? !IsPostfixUpdate : false);
-    emitOMPAtomicCompareExpr(CGF, AO, IsPostUpdate, V, X, E, Expected, Result,
-                             IsCompareMin, IsCompareMax, IsConditionalCapture,
-                             Loc);
-    break;
-  }
-#else
-  case OMPC_compare: {
+    if (CGF.CGM.getLangOpts().OpenMPLateOutline) {
+      bool IsPostUpdate = (V ? !IsPostfixUpdate : false);
+      emitOMPAtomicCompareExprIntel(CGF, AO, IsPostUpdate, V, X, E, Expected,
+                                    Result, IsCompareMin, IsCompareMax,
+                                    IsConditionalCapture, Loc);
+    } else
+#endif // INTEL_COLLAB
     if (IsCompareCapture) {
       // Emit an error here.
       unsigned DiagID = CGF.CGM.getDiags().getCustomDiagID(
@@ -6204,15 +6243,10 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
           "'atomic compare capture' is not supported for now");
       CGF.CGM.getDiags().Report(DiagID);
     } else {
-      // Emit an error here.
-      unsigned DiagID = CGF.CGM.getDiags().getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "'atomic compare' is not supported for now");
-      CGF.CGM.getDiags().Report(DiagID);
+      emitOMPAtomicCompareExpr(CGF, AO, X, E, D, CE, IsXLHSInRHSPart, Loc);
     }
     break;
   }
-#endif // INTEL_COLLAB
   case OMPC_if:
   case OMPC_final:
   case OMPC_num_threads:
@@ -6373,12 +6407,15 @@ void CodeGenFunction::EmitOMPAtomicDirective(const OMPAtomicDirective &S) {
   LexicalScope Scope(*this, S.getSourceRange());
   EmitStopPoint(S.getAssociatedStmt());
   emitOMPAtomicExpr(*this, Kind, AO, S.isPostfixUpdate(), S.getX(), S.getV(),
-                    S.getExpr(), S.getUpdateExpr(), S.isXLHSInRHSPart(),
+                    S.getExpr(), S.getUpdateExpr(), S.getD(), S.getCondExpr(),
 #if INTEL_COLLAB
+                    S.isXLHSInRHSPart(), IsCompareCapture,
                     S.getExpected(), S.getResult(), S.isCompareMin(),
                     S.isCompareMax(), S.isConditionalCapture(),
+                    S.getBeginLoc());
+#else // INTEL_COLLAB
+                    S.isXLHSInRHSPart(), IsCompareCapture, S.getBeginLoc());
 #endif // INTEL_COLLAB
-                    IsCompareCapture, S.getBeginLoc());
 }
 
 static void emitCommonOMPTargetDirective(CodeGenFunction &CGF,
