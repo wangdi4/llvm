@@ -211,6 +211,7 @@ public:
     ELFIAMCU,
     TvOS,       // Apple tvOS
     WatchOS,    // Apple watchOS
+    DriverKit,  // Apple DriverKit
     Mesa3D,
     Contiki,
     AMDPAL,     // AMD PAL Runtime
@@ -377,6 +378,9 @@ public:
   /// with WatchOS or generic triples.
   VersionTuple getWatchOSVersion() const;
 
+  /// Parse the version number as with getOSVersion.
+  VersionTuple getDriverKitVersion() const;
+
   /// @}
   /// @name Direct Component Access
   /// @{
@@ -479,11 +483,14 @@ public:
     return getSubArch() == Triple::ARMSubArch_v7k;
   }
 
+  /// Is this an Apple DriverKit triple.
+  bool isDriverKit() const { return getOS() == Triple::DriverKit; }
+
   bool isOSzOS() const { return getOS() == Triple::ZOS; }
 
   /// Is this a "Darwin" OS (macOS, iOS, tvOS or watchOS).
   bool isOSDarwin() const {
-    return isMacOSX() || isiOS() || isWatchOS();
+    return isMacOSX() || isiOS() || isWatchOS() || isDriverKit();
   }
 
   bool isSimulatorEnvironment() const {

@@ -9073,7 +9073,6 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
     if (LoopUsersItr != LoopUsers.end()) {
       ToForget.insert(ToForget.end(), LoopUsersItr->second.begin(),
                 LoopUsersItr->second.end());
-      LoopUsers.erase(LoopUsersItr);
     }
 
     // Drop information about expressions based on loop-header PHIs.
