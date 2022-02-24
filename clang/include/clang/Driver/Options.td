@@ -6964,6 +6964,9 @@ def fintel_compatibility_doc
 def fintel_advanced_optim : Flag<["-"], "fintel-advanced-optim">,
   HelpText<"Enable Intel specific advanced optimizations">,
   MarshallingInfoFlag<CodeGenOpts<"IntelAdvancedOptim">>;
+def fintel_spill_params : Flag<["-"], "fintel-spill-parms">,
+  HelpText<"Enable Intel specific parameters spill">,
+  MarshallingInfoFlag<CodeGenOpts<"IntelSpillParms">>;
 // CQ#366796 - support '--no_expr_source_pos' option.
 def no_expr_source_pos : Flag<["--"], "no_expr_source_pos">,
   HelpText<"Disable emitting debug source positions for expressions">,

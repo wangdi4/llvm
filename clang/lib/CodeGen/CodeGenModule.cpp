@@ -1020,6 +1020,8 @@ void CodeGenModule::Release() {
 #if INTEL_CUSTOMIZATION
   if (!getCodeGenOpts().Sox.empty())
     EmitSoxIdentMetadata();
+  if (getCodeGenOpts().IntelSpillParms)
+    getModule().addModuleFlag(llvm::Module::Override, "IntelSpillParms", 1);
 #endif // INTEL_CUSTOMIZATION
 
   if (!getCodeGenOpts().RecordCommandLine.empty())
