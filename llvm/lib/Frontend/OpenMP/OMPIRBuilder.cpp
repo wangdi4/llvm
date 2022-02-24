@@ -3607,7 +3607,7 @@ void OpenMPIRBuilder::initializeTypes(Module &M) {
     if (unsigned PointerAS = getPointerAddressSpace(M))                        \
       for (unsigned I = 0, E = VarName##Types.size(); I < E; ++I)              \
         if (auto *PT = dyn_cast<PointerType>(VarName##Types[I]))               \
-          VarName##Types[I] = llvm::PointerType::get(PT->getElementType(), PointerAS);  \
+          VarName##Types[I] = llvm::PointerType::getWithSamePointeeType(PT, PointerAS);  \
     T = StructType::create(Ctx, VarName##Types, StructName);                   \
   }                                                                            \
   VarName = T;                                                                 \
