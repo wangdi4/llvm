@@ -204,6 +204,11 @@
 #define bit_AVXVNNI       0x00000010
 #define bit_AVX512BF16    0x00000020
 #define bit_HRESET        0x00400000
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_PREFETCHST2 */
+// TODO: CPUID bit is TBD.
+/* end INTEL_FEATURE_ISA_PREFETCHST2 */
+/* end INTEL_CUSTOMIZATION */
 
 /* Features in %eax for leaf 13 sub-leaf 1 */
 #define bit_XSAVEOPT    0x00000001

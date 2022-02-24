@@ -92,6 +92,7 @@ CGOPT(bool, EnableAddrsig)
 CGOPT(bool, EnableIntelAdvancedOpts)
 CGOPT(int, X87Precision)
 CGOPT(bool, DoFMAOpt)
+CGOPT(bool, IntelSpillParms)
 #endif // INTEL_CUSTOMIZATION
 CGOPT(bool, EmitCallSiteInfo)
 CGOPT(bool, EnableMachineFunctionSplitter)
@@ -455,6 +456,12 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
                                 cl::desc("Enable the global FMA opt."),
                                 cl::init(true), cl::Hidden);
   CGBINDOPT(DoFMAOpt);
+
+  /// This internal switch can be used to turn on the spill parameters feature.
+  static cl::opt<bool> IntelSpillParms("intel-spill-parms",
+                                       cl::desc("Enable spill parameters."),
+                                       cl::init(false), cl::Hidden);
+  CGBINDOPT(IntelSpillParms);
 #endif // INTEL_CUSTOMIZATION
 
   static cl::opt<bool> EmitCallSiteInfo(
@@ -569,6 +576,7 @@ codegen::InitTargetOptionsFromCodeGenFlags(const Triple &TheTriple) {
   Options.IntelLibIRCAllowed = IntelLibIRCAllowed;
   Options.X87Precision = getX87Precision();
   Options.DoFMAOpt = getDoFMAOpt();
+  Options.IntelSpillParms = getIntelSpillParms();
 #endif // INTEL_CUSTOMIZATION
   Options.EmitCallSiteInfo = getEmitCallSiteInfo();
   Options.EnableDebugEntryValues = getEnableDebugEntryValues();
