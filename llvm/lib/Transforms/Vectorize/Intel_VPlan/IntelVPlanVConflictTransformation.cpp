@@ -149,19 +149,34 @@ static bool lowerHistogram(VPTreeConflict *TreeConflict, Function &Fn) {
   // Multiply the Add with the uniform value(UpdateVal).
   VPValue *Mul = nullptr;
   unsigned Opcode = TreeConflict->getRednOpcode();
-  if (Opcode == Instruction::FAdd)
+  if (Opcode == Instruction::FAdd || Opcode == Instruction::FSub) {
     Mul = VPBldr.createFMul(Add, UpdateVal);
-  else
+    cast<VPInstruction>(Mul)->setFastMathFlags(
+        TreeConflict->getFastMathFlags());
+  } else {
+    assert((Opcode == Instruction::Add || Opcode == Instruction::Sub) &&
+           "Expected add or sub opcode");
     Mul = VPBldr.createMul(Add, UpdateVal);
+  }
   DA->markDivergent(*Mul);
 
   // Update VConflictLoad with the result using RednOpcode operation.
   auto *VConflictLoad = TreeConflict->getConflictLoad();
   VPValue *Res = nullptr;
-  if (Opcode == Instruction::FAdd)
+  if (Opcode == Instruction::FAdd) {
     Res = VPBldr.createFAdd(VConflictLoad, Mul);
-  else
+    cast<VPInstruction>(Res)->setFastMathFlags(
+        TreeConflict->getFastMathFlags());
+  } else if (Opcode == Instruction::FSub) {
+    Res = VPBldr.createFSub(VConflictLoad, Mul);
+    cast<VPInstruction>(Res)->setFastMathFlags(
+        TreeConflict->getFastMathFlags());
+  } else if (Opcode == Instruction::Add)
     Res = VPBldr.createAdd(VConflictLoad, Mul);
+  else {
+    assert(Opcode == Instruction::Sub && "Expected sub opcode");
+    Res = VPBldr.createSub(VConflictLoad, Mul);
+  }
   DA->markDivergent(*Res);
 
   // Update VConflictStore with the outcome of VConflict pattern. TODO: Can we
@@ -195,15 +210,28 @@ tryReplaceWithTreeConflict(VPGeneralMemOptConflict *VPConflict) {
   // Check if the opcode of the single instruction in VConflict region is a
   // reduction operation. This is a requirement for both tree-conflict and
   // histogram.
-  auto HasReductionOpcode = [](VPInstruction *I) -> bool {
+  auto HasReductionOpcode = [ConflictRegion](VPInstruction *I) -> bool {
     switch (I->getOpcode()) {
     case Instruction::Add:
+      return true;
+    case Instruction::Sub:
+      // sub not commutative, so enforce a[idx] = a[idx] - C.
+      // Same for fsub below
+      if (I->getOperand(1) == *ConflictRegion->getLiveIns().begin())
+        return false;
       return true;
     case Instruction::FAdd:
       // We need fast math enabled in order to use the optimized histogram to
       // generate the following code
       // a[index] = a[index] + addVal * numConflicts
       return I->hasFastMathFlags();
+    case Instruction::FSub: {
+      // Here, we need the renamed value of VPConflictLoad. The first live-in of
+      // the conflict region is the renamed value of VPConflictLoad.
+      if (I->getOperand(1) == *ConflictRegion->getLiveIns().begin())
+        return false;
+      return I->hasFastMathFlags();
+    }
       // TODO: Add support for other reduction operations.
     default:
       return false;
@@ -244,6 +272,8 @@ tryReplaceWithTreeConflict(VPGeneralMemOptConflict *VPConflict) {
               "vp.tree.conflict", VPConflict->getConflictIndex(),
               VPConflict->getConflictLoad(), RednUpdateOp, RednOpcode);
   VPConflict->replaceAllUsesWith(TreeConflict);
+  if (InsnInVConflictRegion->hasFastMathFlags())
+    TreeConflict->setFastMathFlags(InsnInVConflictRegion->getFastMathFlags());
   // Update DA for the new tree-conflict instruction.
   DA->updateDivergence(*TreeConflict);
 

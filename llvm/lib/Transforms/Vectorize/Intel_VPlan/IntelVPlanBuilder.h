@@ -180,6 +180,25 @@ public:
                              Name);
   }
 
+  VPValue *createSub(VPValue *LHS, VPValue *RHS, const Twine &Name = "") {
+     assert(LHS->getType() == RHS->getType() &&
+           "LHS and RHS do not have the same types.");
+     assert(LHS->getType()->isIntOrIntVectorTy() &&
+            "Integer arithmetic operators only work with integral types!");
+     return createInstruction(Instruction::BinaryOps::Sub, LHS->getType(),
+                              {LHS, RHS}, Name);
+  }
+
+  VPInstruction *createFSub(VPValue *LHS, VPValue *RHS,
+                            const Twine &Name = "") {
+    assert(LHS->getType() == RHS->getType() &&
+           "LHS and RHS do not have the same types.");
+    assert(LHS->getType()->isFPOrFPVectorTy() &&
+           "Floating-point arithmetic operators only work with floating-point types!");
+    return createInstruction(Instruction::FSub, LHS->getType(), {LHS, RHS},
+                             Name);
+  }
+
   VPValue *createMul(VPValue *LHS, VPValue *RHS, const Twine &Name = "") {
     assert(LHS->getType() == RHS->getType() &&
            "LHS and RHs do not have the same types.");
