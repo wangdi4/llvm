@@ -2637,10 +2637,13 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, ParamValue Arg,
       assert(getContext().getTargetAddressSpace(SrcLangAS) ==
              CGM.getDataLayout().getAllocaAddrSpace());
       auto DestAS = getContext().getTargetAddressSpace(DestLangAS);
-      auto *T = V->getType()->getPointerElementType()->getPointerTo(DestAS);
+#if INTEL_CUSTOMIZATION
+      auto *T = llvm::PointerType::getWithSamePointeeType(cast<llvm::PointerType>(V->getType()), DestAS);
       DeclPtr = Address(getTargetHooks().performAddrSpaceCast(
                             *this, V, SrcLangAS, DestLangAS, T, true),
+                        DeclPtr.getElementType(),
                         DeclPtr.getAlignment());
+#endif // INTEL_CUSTOMIZATION
     }
 
     // Push a destructor cleanup for this parameter if the ABI requires it.
