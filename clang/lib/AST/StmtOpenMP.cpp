@@ -1181,33 +1181,23 @@ OMPOrderedDirective *OMPOrderedDirective::CreateEmpty(const ASTContext &C,
                                                    !IsStandalone);
 }
 
-<<<<<<< HEAD
-OMPAtomicDirective *OMPAtomicDirective::Create(
-    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
-    ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt, Expr *X, Expr *V,
-#if INTEL_COLLAB
-    Expr *E, Expr *Expected, Expr *Result, Expr *UE, bool IsXLHSInRHSPart,
-    bool IsPostfixUpdate, bool IsCompareMin, bool IsCompareMax,
-    bool IsConditionalCapture) {
-#else // INTEL_COLLAB
-    Expr *E, Expr *UE, bool IsXLHSInRHSPart, bool IsPostfixUpdate) {
-#endif // INTEL_COLLAB
-  auto *Dir = createDirective<OMPAtomicDirective>(
-#if INTEL_COLLAB
-      C, Clauses, AssociatedStmt, /*NumChildren=*/6, StartLoc, EndLoc);
-#else // INTEL_COLLAB
-      C, Clauses, AssociatedStmt, /*NumChildren=*/4, StartLoc, EndLoc);
-#endif // INTEL_COLLAB
-=======
 OMPAtomicDirective *
 OMPAtomicDirective::Create(const ASTContext &C, SourceLocation StartLoc,
                            SourceLocation EndLoc, ArrayRef<OMPClause *> Clauses,
                            Stmt *AssociatedStmt, Expr *X, Expr *V, Expr *E,
                            Expr *UE, Expr *D, Expr *Cond, bool IsXLHSInRHSPart,
+#if INTEL_COLLAB
+                           Expr *Expected, Expr *Result, bool IsCompareMin,
+                           bool IsCompareMax, bool IsConditionalCapture,
+#endif // INTEL_COLLAB
                            bool IsPostfixUpdate) {
+#if INTEL_COLLAB
+  auto *Dir = createDirective<OMPAtomicDirective>(
+      C, Clauses, AssociatedStmt, /*NumChildren=*/8, StartLoc, EndLoc);
+#else // INTEL_COLLAB
   auto *Dir = createDirective<OMPAtomicDirective>(
       C, Clauses, AssociatedStmt, /*NumChildren=*/6, StartLoc, EndLoc);
->>>>>>> 104d9a674312c314699558ad8ee48b70624fdb6c
+#endif // INTEL_COLLAB
   Dir->setX(X);
   Dir->setV(V);
   Dir->setExpr(E);
@@ -1232,15 +1222,11 @@ OMPAtomicDirective *OMPAtomicDirective::CreateEmpty(const ASTContext &C,
                                                     unsigned NumClauses,
                                                     EmptyShell) {
   return createEmptyDirective<OMPAtomicDirective>(
-<<<<<<< HEAD
 #if INTEL_COLLAB
-      C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/6);
+      C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/8);
 #else // INTEL_COLLAB
-      C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/4);
-#endif // INTEL_COLLAB
-=======
       C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/6);
->>>>>>> 104d9a674312c314699558ad8ee48b70624fdb6c
+#endif // INTEL_COLLAB
 }
 
 OMPTargetDirective *OMPTargetDirective::Create(const ASTContext &C,

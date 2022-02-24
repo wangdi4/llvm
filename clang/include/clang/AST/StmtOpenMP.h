@@ -3557,15 +3557,12 @@ class OMPAtomicDirective : public OMPExecutableDirective {
     POS_V,
     POS_E,
     POS_UpdateExpr,
-<<<<<<< HEAD
+    POS_D,
+    POS_Cond,
 #if INTEL_COLLAB
     POS_Expected,
     POS_Result,
 #endif
-=======
-    POS_D,
-    POS_Cond,
->>>>>>> 104d9a674312c314699558ad8ee48b70624fdb6c
   };
 
   /// Set 'x' part of the associated expression/statement.
@@ -3583,7 +3580,6 @@ class OMPAtomicDirective : public OMPExecutableDirective {
   /// This is also in the CAS 'compare' form for the 'desired' value.
 #endif // INTEL_COLLAB
   void setExpr(Expr *E) { Data->getChildren()[DataPositionTy::POS_E] = E; }
-<<<<<<< HEAD
 #if INTEL_COLLAB
   /// Set 'expected' part of the associated expression/statement.
   /// This is used in the CAS 'compare' forms.
@@ -3596,12 +3592,10 @@ class OMPAtomicDirective : public OMPExecutableDirective {
     Data->getChildren()[DataPositionTy::POS_Result] = E;
   }
 #endif // INTEL_COLLAB
-=======
   /// Set 'd' part of the associated expression/statement.
   void setD(Expr *D) { Data->getChildren()[DataPositionTy::POS_D] = D; }
   /// Set conditional expression in `atomic compare`.
   void setCond(Expr *C) { Data->getChildren()[DataPositionTy::POS_Cond] = C; }
->>>>>>> 104d9a674312c314699558ad8ee48b70624fdb6c
 
 public:
   /// Creates directive with a list of \a Clauses and 'x', 'v' and 'expr'
@@ -3637,18 +3631,12 @@ public:
   static OMPAtomicDirective *
   Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
          ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt, Expr *X, Expr *V,
-<<<<<<< HEAD
-#if INTEL_COLLAB
-         Expr *E, Expr *Expected, Expr *Result, Expr *UE, bool IsXLHSInRHSPart,
-         bool IsPostfixUpdate, bool IsCompareMin, bool IsCompareMax,
-         bool IsConditionalCapture);
-#else // INTEL_COLLAB
-         Expr *E, Expr *UE, bool IsXLHSInRHSPart, bool IsPostfixUpdate);
-#endif // INTEL_COLLAB
-=======
          Expr *E, Expr *UE, Expr *D, Expr *Cond, bool IsXLHSInRHSPart,
+#if INTEL_COLLAB
+         Expr *Expected, Expr *Result, bool IsCompareMin, bool IsCompareMax,
+         bool IsConditionalCapture,
+#endif // INTEL_COLLAB
          bool IsPostfixUpdate);
->>>>>>> 104d9a674312c314699558ad8ee48b70624fdb6c
 
   /// Creates an empty directive with the place for \a NumClauses
   /// clauses.

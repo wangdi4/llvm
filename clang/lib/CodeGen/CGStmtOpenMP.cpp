@@ -6106,9 +6106,8 @@ static void emitOMPAtomicCaptureExpr(CodeGenFunction &CGF,
   }
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
-static void emitOMPAtomicCompareExpr(
+static void emitOMPAtomicCompareExprIntel(
     CodeGenFunction &CGF, llvm::AtomicOrdering AO, bool IsPostCapture,
     const Expr *V, const Expr *X, const Expr *E, const Expr *Expected,
     const Expr *Result, bool IsCompareMin, bool IsCompareMax,
@@ -6162,7 +6161,7 @@ static void emitOMPAtomicCompareExpr(
   }
 }
 #endif // INTEL_COLLAB
-=======
+
 static void emitOMPAtomicCompareExpr(CodeGenFunction &CGF,
                                      llvm::AtomicOrdering AO, const Expr *X,
                                      const Expr *E, const Expr *D,
@@ -6200,24 +6199,19 @@ static void emitOMPAtomicCompareExpr(CodeGenFunction &CGF,
   CGF.Builder.restoreIP(OMPBuilder.createAtomicCompare(
       CGF.Builder, XOpVal, EVal, DVal, AO, Op, IsXBinopExpr));
 }
->>>>>>> 104d9a674312c314699558ad8ee48b70624fdb6c
 
 static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
                               llvm::AtomicOrdering AO, bool IsPostfixUpdate,
                               const Expr *X, const Expr *V, const Expr *E,
-<<<<<<< HEAD
-                              const Expr *UE, bool IsXLHSInRHSPart,
+                              const Expr *UE, const Expr *D, const Expr *CE,
+                              bool IsXLHSInRHSPart, bool IsCompareCapture,
 #if INTEL_COLLAB
                               const Expr *Expected, const Expr *Result,
                               bool IsCompareMin, bool IsCompareMax,
                               bool IsConditionalCapture,
 #endif // INTEL_COLLAB
-                              bool IsCompareCapture, SourceLocation Loc) {
-=======
-                              const Expr *UE, const Expr *D, const Expr *CE,
-                              bool IsXLHSInRHSPart, bool IsCompareCapture,
                               SourceLocation Loc) {
->>>>>>> 104d9a674312c314699558ad8ee48b70624fdb6c
+
   switch (Kind) {
   case OMPC_read:
     emitOMPAtomicReadExpr(CGF, AO, X, V, Loc);
@@ -6233,16 +6227,15 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
     emitOMPAtomicCaptureExpr(CGF, AO, IsPostfixUpdate, V, X, E, UE,
                              IsXLHSInRHSPart, Loc);
     break;
+  case OMPC_compare: {
 #if INTEL_COLLAB
-  case OMPC_compare: {
-    bool IsPostUpdate = (V ? !IsPostfixUpdate : false);
-    emitOMPAtomicCompareExpr(CGF, AO, IsPostUpdate, V, X, E, Expected, Result,
-                             IsCompareMin, IsCompareMax, IsConditionalCapture,
-                             Loc);
-    break;
-  }
-#else
-  case OMPC_compare: {
+    if (CGF.CGM.getLangOpts().OpenMPLateOutline) {
+      bool IsPostUpdate = (V ? !IsPostfixUpdate : false);
+      emitOMPAtomicCompareExprIntel(CGF, AO, IsPostUpdate, V, X, E, Expected,
+                                    Result, IsCompareMin, IsCompareMax,
+                                    IsConditionalCapture, Loc);
+    } else
+#endif // INTEL_COLLAB
     if (IsCompareCapture) {
       // Emit an error here.
       unsigned DiagID = CGF.CGM.getDiags().getCustomDiagID(
@@ -6254,7 +6247,6 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
     }
     break;
   }
-#endif // INTEL_COLLAB
   case OMPC_if:
   case OMPC_final:
   case OMPC_num_threads:
@@ -6415,17 +6407,15 @@ void CodeGenFunction::EmitOMPAtomicDirective(const OMPAtomicDirective &S) {
   LexicalScope Scope(*this, S.getSourceRange());
   EmitStopPoint(S.getAssociatedStmt());
   emitOMPAtomicExpr(*this, Kind, AO, S.isPostfixUpdate(), S.getX(), S.getV(),
-<<<<<<< HEAD
-                    S.getExpr(), S.getUpdateExpr(), S.isXLHSInRHSPart(),
+                    S.getExpr(), S.getUpdateExpr(), S.getD(), S.getCondExpr(),
 #if INTEL_COLLAB
+                    S.isXLHSInRHSPart(), IsCompareCapture,
                     S.getExpected(), S.getResult(), S.isCompareMin(),
                     S.isCompareMax(), S.isConditionalCapture(),
-#endif // INTEL_COLLAB
-                    IsCompareCapture, S.getBeginLoc());
-=======
-                    S.getExpr(), S.getUpdateExpr(), S.getD(), S.getCondExpr(),
+                    S.getBeginLoc());
+#else // INTEL_COLLAB
                     S.isXLHSInRHSPart(), IsCompareCapture, S.getBeginLoc());
->>>>>>> 104d9a674312c314699558ad8ee48b70624fdb6c
+#endif // INTEL_COLLAB
 }
 
 static void emitCommonOMPTargetDirective(CodeGenFunction &CGF,
