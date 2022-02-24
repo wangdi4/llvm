@@ -574,6 +574,7 @@ static bool initTargetOptions(DiagnosticsEngine &Diags,
   Options.UnsafeFPMath = LangOpts.UnsafeFPMath;
 #if INTEL_CUSTOMIZATION
   Options.IntelAdvancedOptim = CodeGenOpts.IntelAdvancedOptim;
+  Options.IntelSpillParms = CodeGenOpts.IntelSpillParms;
 #endif // INTEL_CUSTOMIZATION
   Options.ApproxFuncFPMath = LangOpts.ApproxFunc;
 

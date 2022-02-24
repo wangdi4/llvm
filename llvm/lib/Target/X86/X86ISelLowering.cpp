@@ -519,7 +519,14 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setOperationAction(ISD::SRL_PARTS, VT, Custom);
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_PREFETCHST2
+  if (Subtarget.hasSSEPrefetch() || Subtarget.has3DNow() ||
+      Subtarget.hasPREFETCHST2())
+#else // INTEL_FEATURE_ISA_PREFETCHST2
   if (Subtarget.hasSSEPrefetch() || Subtarget.has3DNow())
+#endif // INTEL_FEATURE_ISA_PREFETCHST2
+#endif // INTEL_CUSTOMIZATION
     setOperationAction(ISD::PREFETCH      , MVT::Other, Legal);
 
   setOperationAction(ISD::ATOMIC_FENCE  , MVT::Other, Custom);
@@ -4149,6 +4156,22 @@ SDValue X86TargetLowering::LowerFormalArguments(
                                DAG.getValueType(VA.getValVT()));
       else if (VA.getLocInfo() == CCValAssign::BCvt)
         ArgValue = DAG.getBitcast(VA.getValVT(), ArgValue);
+
+#if INTEL_CUSTOMIZATION
+      if (Subtarget.is64Bit() && VA.getValVT().isInteger() &&
+          (DAG.getTarget().Options.IntelSpillParms ||
+           F.getParent()->getModuleFlag("IntelSpillParms"))) {
+        int FI = MF.getFrameInfo().CreateStackObject(8, Align(8), false);
+        SDValue NewArg = ArgValue;
+        if (VA.getValVT() != MVT::i64)
+          NewArg = DAG.getNode(ISD::ANY_EXTEND, dl, MVT::i64, NewArg,
+                               DAG.getValueType(VA.getValVT()));
+        SDValue St = DAG.getStore(DAG.getEntryNode(), dl, NewArg,
+                                  DAG.getFrameIndex(FI, MVT::i64),
+                                  MachinePointerInfo::getFixedStack(MF, FI));
+        Chain = DAG.getNode(ISD::TokenFactor, dl, MVT::Other, St, Chain);
+      }
+#endif // INTEL_CUSTOMIZATION
 
       if (VA.isExtInLoc()) {
         // Handle MMX values passed in XMM regs.

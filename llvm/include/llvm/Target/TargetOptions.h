@@ -132,6 +132,7 @@ namespace llvm {
           IntelLibIRCAllowed(false),               // INTEL
           X87Precision(0),                         // INTEL
           DoFMAOpt(true),                          // INTEL
+          IntelSpillParms(false),                  // INTEL
           GuaranteedTailCallOpt(false), StackSymbolOrdering(true),
           EnableFastISel(false), EnableGlobalISel(false), UseInitArray(false),
           DisableIntegratedAS(false), RelaxELFRelocations(false),
@@ -232,6 +233,15 @@ namespace llvm {
 
     /// DoFMAOpt - Enable the global FMA opt.
     unsigned DoFMAOpt : 1;
+
+    /// IntelSpillParms - Enable incoming parameters spill.
+    /// This is a "special" flag for oracle.
+    /// Oracle wants all incoming parameters passed in integer registers to be
+    /// spilled onto the stack (they don't care where). Not only do they want
+    /// them spilled, but they also want all spilled registers to be full 64bit
+    /// registers (for x86-64). These spills will get picked up by their own
+    /// internal tools.
+    unsigned IntelSpillParms : 1;
 #endif // INTEL_CUSTOMIZATION
 
     /// GuaranteedTailCallOpt - This flag is enabled when -tailcallopt is

@@ -5533,6 +5533,10 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
     if (isTargetSPIRV() && isAtomicFreeReductionGlobalEnabled() &&
         W->getIsTeams()) {
       for (ReductionItem *RedI : RedClause.items()) {
+        if (!VPOParoptUtils::supportsAtomicFreeReduction(RedI)) {
+          ItemIndex++;
+          continue;
+        }
         if (auto *WTarget =
                 WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget)) {
           auto &MapClause = WTarget->getMap();

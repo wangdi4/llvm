@@ -13405,7 +13405,9 @@ Syntax:
 
 ::
 
-      declare void @llvm.prefetch(i8* <address>, i32 <rw>, i32 <locality>, i32 <cache type>)
+.. INTEL_CUSTOMIZATION
+      declare void @llvm.prefetch(i8* <address>, i32 <rws>, i32 <locality>, i32 <cache type>)
+.. END INTEL_CUSTOMIZATION
 
 Overview:
 """""""""
@@ -13418,13 +13420,15 @@ its performance characteristics.
 Arguments:
 """"""""""
 
-``address`` is the address to be prefetched, ``rw`` is the specifier
-determining if the fetch should be for a read (0) or write (1), and
-``locality`` is a temporal locality specifier ranging from (0) - no
-locality, to (3) - extremely local keep in cache. The ``cache type``
-specifies whether the prefetch is performed on the data (1) or
-instruction (0) cache. The ``rw``, ``locality`` and ``cache type``
-arguments must be constant integers.
+.. INTEL_CUSTOMIZATION
+``address`` is the address to be prefetched, ``rws`` is the specifier
+determining if the fetch should be for a read (0), write (1) or shared
+between read and write (2), and ``locality`` is a temporal locality
+specifier ranging from (0) - no locality, to (3) - extremely local keep
+in cache. The ``cache type`` specifies whether the prefetch is performed
+on the data (1) or instruction (0) cache. The ``rws``, ``locality`` and
+``cache type`` arguments must be constant integers.
+.. END INTEL_CUSTOMIZATION
 
 Semantics:
 """"""""""

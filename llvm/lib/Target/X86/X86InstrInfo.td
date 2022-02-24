@@ -1068,6 +1068,11 @@ def HasSSEPrefetch : Predicate<"Subtarget->hasSSEPrefetch()">;
 def NoSSEPrefetch : Predicate<"!Subtarget->hasSSEPrefetch()">;
 def HasPrefetchW : Predicate<"Subtarget->hasPrefetchW()">;
 def HasPREFETCHWT1 : Predicate<"Subtarget->hasPREFETCHWT1()">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_PREFETCHST2
+def HasPREFETCHST2 : Predicate<"Subtarget->hasPREFETCHST2()">;
+#endif // INTEL_FEATURE_ISA_PREFETCHST2
+#endif // INTEL_CUSTOMIZATION
 def HasLAHFSAHF  : Predicate<"Subtarget->hasLAHFSAHF()">;
 def HasMWAITX    : Predicate<"Subtarget->hasMWAITX()">;
 def HasCLZERO    : Predicate<"Subtarget->hasCLZERO()">;
@@ -3263,6 +3268,17 @@ let Predicates = [HasUINTR, In64BitMode], SchedRW = [WriteSystem] in {
     def TESTUI : I<0x01, MRM_ED, (outs), (ins), "testui",
                    [(set EFLAGS, (X86testui))]>, XS;
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_PREFETCHST2
+//===----------------------------------------------------------------------===//
+// PREFETCHST2 Instruction
+//
+let Predicates = [HasPREFETCHST2], SchedRW = [WriteLoad] in
+  def PREFETCHST2 : I<0x18, MRM4m, (outs), (ins i8mem:$src),
+    "prefetchst2\t$src", [(prefetch addr:$src, (i32 2), (i32 1), (i32 1))]>, TB;
+#endif // INTEL_FEATURE_ISA_PREFETCHST2
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // Pattern fragments to auto generate TBM instructions.

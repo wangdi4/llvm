@@ -8801,7 +8801,13 @@ bool Sema::SemaBuiltinPrefetch(CallExpr *TheCall) {
   // Argument 0 is checked for us and the remaining arguments must be
   // constant integers.
   for (unsigned i = 1; i != NumArgs; ++i)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_PREFETCHST2
+    if (SemaBuiltinConstantArgRange(TheCall, i, 0, i == 1 ? 2 : 3))
+#else // INTEL_FEATURE_ISA_PREFETCHST2
     if (SemaBuiltinConstantArgRange(TheCall, i, 0, i == 1 ? 1 : 3))
+#endif // INTEL_FEATURE_ISA_PREFETCHST2
+#endif // INTEL_CUSTOMIZATION
       return true;
 
   return false;

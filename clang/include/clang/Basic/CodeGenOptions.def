@@ -64,6 +64,7 @@ CODEGENOPT(DiscardValueNames , 1, 0) ///< Discard Value Names from the IR (LLVMC
 //                emitted without exposing Intel IP.
 CODEGENOPT(DisableIntelProprietaryOpts, 1, 0)
 CODEGENOPT(IntelAdvancedOptim, 1, 0)
+CODEGENOPT(IntelSpillParms, 1, 0)
 #if INTEL_FEATURE_SW_DTRANS
 CODEGENOPT(EmitDTransInfo, 1, 0)
 CODEGENOPT(DisableDTransAsserts, 1, 0)

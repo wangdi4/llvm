@@ -55,4 +55,32 @@ _m_prefetchw(volatile const void *__P)
 #pragma clang diagnostic pop
 }
 
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_PREFETCHST2 */
+#if defined(__PREFETCHST2__)
+/// Loads a memory sequence containing the specified memory address into
+///    the L3 data cache. Data will be shared (read/written) to by requesting
+///    core and other cores.
+///
+///    Note that the effect of this intrinsic is dependent on the processor
+///    implementation.
+///
+/// \headerfile <x86intrin.h>
+///
+/// This intrinsic corresponds to the \c PREFETCHS instruction.
+///
+/// \param __P
+///    A pointer specifying the memory address to be prefetched.
+static __inline__ void __attribute__((__always_inline__, __nodebug__))
+_m_prefetchs(volatile const void *__P)
+{
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcast-qual"
+  __builtin_prefetch ((const void*)__P, 2, 1 /* _MM_HINT_T2 */);
+#pragma clang diagnostic pop
+}
+#endif
+/* end INTEL_FEATURE_ISA_PREFETCHST2 */
+/* end INTEL_CUSTOMIZATION */
+
 #endif /* __PRFCHWINTRIN_H */

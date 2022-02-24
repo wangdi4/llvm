@@ -224,6 +224,13 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   /// Processor has Prefetch with intent to Write instruction
   bool HasPREFETCHWT1 = false;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_PREFETCHST2
+  /// Processor has Prefetch with intent to Read/Write instructions
+  bool HasPREFETCHST2 = false;
+#endif // INTEL_FEATURE_ISA_PREFETCHST2
+#endif // INTEL_CUSTOMIZATION
+
   /// True if SHLD instructions are slow.
   bool IsSHLDSlow = false;
 
@@ -943,6 +950,11 @@ public:
   bool hasSHA() const { return HasSHA; }
   bool hasPRFCHW() const { return HasPRFCHW; }
   bool hasPREFETCHWT1() const { return HasPREFETCHWT1; }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_PREFETCHST2
+  bool hasPREFETCHST2() const { return HasPREFETCHST2; }
+#endif // INTEL_FEATURE_ISA_PREFETCHST2
+#endif // INTEL_CUSTOMIZATION
   bool hasPrefetchW() const {
     // The PREFETCHW instruction was added with 3DNow but later CPUs gave it
     // its own CPUID bit as part of deprecating 3DNow. Intel eventually added
