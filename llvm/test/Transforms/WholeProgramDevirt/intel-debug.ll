@@ -5,8 +5,8 @@
 
 ; This test case checks that the debug data is printed correctly.
 
-; RUN: opt < %s -wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -debug-only=intel-wholeprogramdevirt -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes=wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -debug-only=intel-wholeprogramdevirt -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -debug-only=intel-wholeprogramdevirt -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes=wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -debug-only=intel-wholeprogramdevirt -disable-output 2>&1 | FileCheck %s
 
 %"class.std::ios_base::Init" = type { i8 }
 %class.Base = type { i32 (...)** }

@@ -179,8 +179,8 @@
 ;                                    -wholeprogramdevirt-multiversion-verify -wholeprogramdevirt-assume-safe
 ; 4) Partial inliner: -partial-inliner -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions
 
-; RUN: opt < %s -enable-new-pm=0 -wholeprogramanalysis -whole-program-assume -intel-fold-wp-intrinsic -internalize -simplifycfg -wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -instnamer -partial-inliner -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='require<wholeprogram>,module(intel-fold-wp-intrinsic),module(internalize),function(simplifycfg),module(wholeprogramdevirt),function(instnamer),module(partial-inliner)' -whole-program-assume -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -S 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -enable-new-pm=0 -wholeprogramanalysis -whole-program-assume -intel-fold-wp-intrinsic -internalize -simplifycfg -wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -instnamer -partial-inliner -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -S 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes='require<wholeprogram>,module(intel-fold-wp-intrinsic),module(internalize),function(simplifycfg),module(wholeprogramdevirt),function(instnamer),module(partial-inliner)' -whole-program-assume -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -S 2>&1 | FileCheck %s
 
 ; ModuleID = 'test.cpp'
 source_filename = "test.cpp"
@@ -589,7 +589,7 @@ attributes #12 = { builtin nounwind }
 ;
 ; Call the outline function of Derived::foo
 ; CHECK: codeRepl.i[[V2]]:                                     ; preds = %for.cond.preheader.i[[V5]]
-; CHECK:         call void @_ZN7Derived3fooEPvi.2.for.body.preheader(i32 %Size, i32* %A) #2
+; CHECK:         call void @_ZN7Derived3fooEPvi.2.for.body.preheader(i32 %Size, i32* %A)
 ; CHECK-NEXT:    br label %_ZN7Derived3fooEPvi.2.exit
 ;
 ; CHECK: _ZN7Derived3fooEPvi.2.exit:                       ; preds = %BBDevirt__ZN7Derived3fooEPvi, %for.cond.preheader.i[[V5]], %codeRepl.i[[V2]]
@@ -608,7 +608,7 @@ attributes #12 = { builtin nounwind }
 ;
 ; Call the outline function of Derived2:foo
 ; CHECK-LABEL: codeRepl.i:                                       ; preds = %for.cond.preheader.i
-; CHECK:         call void @_ZN8Derived23fooEPvi.1.for.body.preheader(i32 %Size, i32* %A) #2
+; CHECK:         call void @_ZN8Derived23fooEPvi.1.for.body.preheader(i32 %Size, i32* %A)
 ; CHECK-NEXT:    br label %_ZN8Derived23fooEPvi.1.exit
 ;
 ; CHECK_LABEL: _ZN8Derived23fooEPvi.1.exit:

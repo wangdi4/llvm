@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_DTRANS
 //=- Intel_DevirtMultiversioning.cpp - Intel Devirtualization Multiversion --=//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -157,8 +157,11 @@ static cl::opt<bool>
 IntelDevirtMultiversion::IntelDevirtMultiversion(
     Module &M, WholeProgramInfo &WPInfo,
     std::function<const TargetLibraryInfo &(const Function &F)> GetTLI)
-    : M(M), WPInfo(WPInfo), GetTLI(GetTLI),
-      EnableDevirtMultiversion(WPDevirtMultiversion) {
+    : M(M), WPInfo(WPInfo), GetTLI(GetTLI) {
+
+  auto IAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
+  EnableDevirtMultiversion = WPDevirtMultiversion &&
+                             WPInfo.isAdvancedOptEnabled(IAVX2);
 
   DevirtCallMDNode = MDNode::get(
       M.getContext(), MDString::get(M.getContext(), "_Intel.Devirt.Call"));
