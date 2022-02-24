@@ -709,7 +709,7 @@ void VPlanScalVecAnalysis::compute(VPlanVector *P) {
 
   // TODO: Is it okay to clear the table before a fresh compute cycle?
   clear();
-  VPBasicBlock *CFGEntry = Plan->getEntryBlock();
+  VPBasicBlock *CFGEntry = &Plan->getEntryBlock();
   for (auto *VPBB : post_order(CFGEntry)) {
     LLVM_DEBUG(dbgs() << "[SVA] Visiting BB " << VPBB->getName() << "\n");
     for (VPInstruction &Inst : reverse(*VPBB)) {
@@ -936,7 +936,7 @@ void VPlanScalVecAnalysisBase::print(raw_ostream &OS,
 
 void VPlanScalVecAnalysisBase::print(raw_ostream &OS) {
   OS << "\nPrinting ScalVec analysis results for " << Plan->getName() << "\n";
-  ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan->getEntryBlock());
+  ReversePostOrderTraversal<VPBasicBlock *> RPOT(&Plan->getEntryBlock());
   for (VPBasicBlock *VPBB : make_range(RPOT.begin(), RPOT.end())) {
     OS << "Basic Block: " << VPBB->getName() << "\n";
     print(OS, VPBB);

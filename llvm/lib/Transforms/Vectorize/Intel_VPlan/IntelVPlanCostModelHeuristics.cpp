@@ -258,7 +258,7 @@ void HeuristicSLP::apply(
 
   // Gather all Store and Load Memrefs since SLP starts pattern search on
   // stores and on our cases we have consequent loads as well.
-  for (const VPBasicBlock *Block : depth_first(Plan->getEntryBlock()))
+  for (const VPBasicBlock *Block : depth_first(&Plan->getEntryBlock()))
     for (const VPInstruction &VPInst : *Block) {
       if (auto DDRef = getHIRMemref(&VPInst)) {
         if (VPInst.getOpcode() == Instruction::Store)
@@ -532,7 +532,7 @@ void HeuristicSpillFill::apply(
   // Keep track of vector and scalar live values in separate maps.
   LiveValuesTy VecLiveValues, ScalLiveValues;
 
-  for (auto *Block : post_order(Plan->getEntryBlock())) {
+  for (auto *Block : post_order(&Plan->getEntryBlock())) {
     // For simplicity we pass LiveOut from previous block as LiveIn to the next
     // block in walk like walking through a linear sequence of BBs.
     // TODO:
@@ -576,7 +576,7 @@ void HeuristicGatherScatter::apply(
     return;
 
   VPInstructionCost GSCost = 0;
-  for (auto *Block : depth_first(Plan->getEntryBlock()))
+  for (auto *Block : depth_first(&Plan->getEntryBlock()))
     // FIXME: Use Block Frequency Info (or similar VPlan-specific analysis) to
     // correctly scale the cost of the basic block.
     GSCost += (*this)(Block);

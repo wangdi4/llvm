@@ -740,6 +740,16 @@ private:
   // for given VPLoop. This is expected to be called only for inner loops.
   void captureCanonicalIV(VPLoop *VPLp);
 
+  // Return the upper bound of VPLp's IVPhi if this can be determined given the
+  // canonical IVPhi of VPLp. If this can be determined, we can use this to
+  // generate a DO loop corresponding to VPLp with LowerRef(0), StrideRef(1),
+  // and UpperRef(upper bound - 1). If the upper bound cannot be determined,
+  // return null.
+  VPValue *getLoopIVUpper(const VPLoop *VPLp, const VPPHINode *IVPhi);
+
+  // Setup HLLoop corresponding tp VPLp for generating code.
+  void setupHLLoop(const VPLoop *VPLp);
+
   // Add entry to WidenMap and handle generating code for liveout/reduction at
   // the end of loop specified by /p HoistLp.
   void addToMapAndHandleLiveOut(const RegDDRef *ScalRef, HLInst *WideInst,

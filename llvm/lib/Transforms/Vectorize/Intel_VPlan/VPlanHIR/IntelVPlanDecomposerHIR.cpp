@@ -1506,7 +1506,7 @@ void VPDecomposerHIR::addIDFPhiNodes() {
   DenseMap<unsigned, SmallPtrSet<VPBasicBlock *, 8>> SymbaseUsingBlocks;
   Plan->computeDT();
   VPDominatorTree &DT = *(Plan->getDT());
-  VPBasicBlock *PlanEntry = Plan->getEntryBlock();
+  VPBasicBlock *PlanEntry = &Plan->getEntryBlock();
 
   ///// Populate use-def blocks of each tracked symbase //////
 
@@ -1730,7 +1730,7 @@ void VPDecomposerHIR::fixPhiNodes() {
 
   assert(Builder.getInsertBlock() &&
          "Current insertion VPBB for builder cannot be null.");
-  VPBasicBlock *PlanEntry = Plan->getEntryBlock();
+  VPBasicBlock *PlanEntry = &Plan->getEntryBlock();
   assert(PlanEntry && "Entry VPBB for Plan cannot be null.");
   LLVM_DEBUG(dbgs() << "PlanEntry: "; PlanEntry->getParent()->dump();
              dbgs() << "\n");

@@ -431,7 +431,7 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
   // is possible to begin a region with a block containing multiple successors,
   // but this seems unlikely.
   SmallVector<VPBasicBlock *, 16> CandidateBlocks;
-  ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan.getEntryBlock());
+  ReversePostOrderTraversal<VPBasicBlock *> RPOT(&Plan.getEntryBlock());
   for (auto *Block : RPOT) {
     VPValue *BlockPred = Block->getPredicate();
     if (!BlockPred || !Block->getSingleSuccessor() ||

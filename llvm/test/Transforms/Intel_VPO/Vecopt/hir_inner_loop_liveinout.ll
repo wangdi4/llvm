@@ -47,10 +47,8 @@ define dso_local void @foo(i64 %n1, i64 %n2) local_unnamed_addr #0 {
 ; CHECK:       |   <LVAL-REG> NON-LINEAR <4 x i64> %phi.temp4 {sb:24}
 ; CHECK:       |   + LiveIn symbases: 9, 10, 23, 24
 ; CHECK:       |   + LiveOut symbases: 29
-; CHECK:       |   + Loop metadata: No
-; CHECK:       |   + UNKNOWN LOOP i2
-; CHECK:       |   |   <i2 = 0>
-; CHECK:       |   |   [[BB0:BB[0-9]+]].46:
+; CHECK:       |   + Loop metadata:
+; CHECK:       |   + DO i64 i2 = 0, 99, 1   <DO_LOOP> <novectorize>
 ; CHECK:       |   |   %.vec = (<4 x i64>*)(@larr2)[0][i2 + 2 * %n2][i1];
 ; CHECK:       |   |      <BLOB> LINEAR [100 x [100 x i64]]* @larr2 {sb:9}
 ; CHECK:       |   |   %.vec6 = i2 + 1 < 100;
@@ -62,12 +60,6 @@ define dso_local void @foo(i64 %n1, i64 %n2) local_unnamed_addr #0 {
 ; CHECK:       |   |   %phi.temp9 = %phi.temp + %.vec;
 ; CHECK:       |   |   <LVAL-REG> NON-LINEAR <4 x i64> %phi.temp9 {sb:29}
 ; CHECK:       |   |      <BLOB> NON-LINEAR <4 x i64> %phi.temp {sb:23}
-; CHECK:       |   |   %unifcond = extractelement %.vec6,  0;
-; CHECK:       |   |   if (%unifcond == 1)
-; CHECK:       |   |   {
-; CHECK:       |   |      <i2 = i2 + 1>
-; CHECK:       |   |      goto [[BB0]].46;
-; CHECK:       |   |   }
 ; CHECK:       |   + END LOOP
 ; CHECK:       |   (<4 x i64>*)(@larr1)[0][i1 + 2 * %n2 + %n1] = %phi.temp9;
 ; CHECK:       |      <BLOB> LINEAR [100 x i64]* @larr1 {sb:16}
