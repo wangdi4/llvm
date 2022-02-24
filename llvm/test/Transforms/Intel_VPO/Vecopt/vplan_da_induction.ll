@@ -13,9 +13,9 @@ define void @test_induction_strides(i64* %g.arr) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] [1024 x i32]* [[VP_ARR_PRIV:%.*]] = allocate-priv [1024 x i32]*, OrigAlign = 4
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV]] i64 0 i64 0
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV]] i64 0 i64 0
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_ARRAYIDX_CURRENT_IND_INIT:%.*]] = induction-init{getelementptr} i32* live-in1 i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_ARRAYIDX_CURRENT_IND_INIT_STEP:%.*]] = induction-init-step{getelementptr} i64 1
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i64* [[VP_G_ARRAYIDX_CURRENT_IND_INIT:%.*]] = induction-init{getelementptr} i64* live-in2 i64 1

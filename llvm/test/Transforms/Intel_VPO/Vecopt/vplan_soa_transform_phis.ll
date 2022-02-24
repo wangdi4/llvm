@@ -239,8 +239,8 @@ define void @merge_aos_soa_geps() {
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] [1024 x i64]* [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4 (SVAOpBits )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] [1024 x i64]* [[VP_ARR_AOS_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4 (SVAOpBits )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] [1024 x i64]* [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4 (SVAOpBits )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1 (SVAOpBits 0->F )

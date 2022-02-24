@@ -726,7 +726,12 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
             CGM.getIntrinsic(llvm::Intrinsic::load_relative,
                              {VTableOffset->getType()}),
             {VTable, VTableOffset});
+#if INTEL_COLLAB
+        VirtualFn =
+            CGF.Builder.CreateBitCastFPT(VirtualFn, FTy->getPointerTo());
+#else // INTEL_COLLAB
         VirtualFn = CGF.Builder.CreateBitCast(VirtualFn, FTy->getPointerTo());
+#endif // INTEL_COLLAB
       } else {
         llvm::Value *VFPAddr =
             CGF.Builder.CreateGEP(CGF.Int8Ty, VTable, VTableOffset);
@@ -1935,12 +1940,21 @@ llvm::Value *ItaniumCXXABI::getVTableAddressPointInStructorWithVTT(
   /// Load the VTT.
   llvm::Value *VTT = CGF.LoadCXXVTT();
   if (VirtualPointerIndex)
+#if INTEL_COLLAB
+    VTT = CGF.Builder.CreateConstInBoundsGEP1_64(
+        CGF.TargetInt8PtrTy, VTT, VirtualPointerIndex);
+
+  // And load the address point from the VTT.
+  return CGF.Builder.CreateAlignedLoad(CGF.TargetInt8PtrTy, VTT,
+                                       CGF.getPointerAlign());
+#else // INTEL_COLLAB
     VTT = CGF.Builder.CreateConstInBoundsGEP1_64(
         CGF.VoidPtrTy, VTT, VirtualPointerIndex);
 
   // And load the address point from the VTT.
   return CGF.Builder.CreateAlignedLoad(CGF.VoidPtrTy, VTT,
                                        CGF.getPointerAlign());
+#endif  // INTEL_COLLAB
 }
 
 llvm::Constant *ItaniumCXXABI::getVTableAddressPointForConstExpr(
@@ -2043,7 +2057,11 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
       llvm::Value *Load = CGF.Builder.CreateCall(
           CGM.getIntrinsic(llvm::Intrinsic::load_relative, {CGM.Int32Ty}),
           {VTable, llvm::ConstantInt::get(CGM.Int32Ty, 4 * VTableIndex)});
+#if INTEL_COLLAB
+      VFuncLoad = CGF.Builder.CreateBitCastFPT(Load, TyPtr);
+#else // INTEL_COLLAB
       VFuncLoad = CGF.Builder.CreateBitCast(Load, TyPtr);
+#endif // INTEL_COLLAB
     } else {
       VTable =
           CGF.Builder.CreateBitCast(VTable, TyPtr->getPointerTo());

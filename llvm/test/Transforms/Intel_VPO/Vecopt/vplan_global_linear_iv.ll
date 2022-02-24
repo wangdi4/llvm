@@ -6,14 +6,14 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @linear_iv_test(i32* nocapture %k) {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
-; CHECK-NEXT:  VPlan IR for: linear_iv_test:simd.loop
+; CHECK-NEXT:  VPlan IR for: linear_iv_test:simd.loop.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     i32* [[VP_K:%.*]] = allocate-priv i32*, OrigAlign = 4
 ; CHECK-NEXT:     i64 [[VP_INDEX_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDEX_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:     i32* [[VP_K:%.*]] = allocate-priv i32*, OrigAlign = 4
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[K0:%.*]]
 ; CHECK-NEXT:     i32 [[VP_K_IND_INIT:%.*]] = induction-init{add} i32 [[VP_LOAD]] i32 1
 ; CHECK-NEXT:     store i32 [[VP_K_IND_INIT]] i32* [[VP_K]]

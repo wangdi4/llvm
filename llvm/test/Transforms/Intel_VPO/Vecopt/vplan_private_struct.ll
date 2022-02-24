@@ -14,15 +14,15 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NEXT:    [[BLOCK0:%.*]] = alloca <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>, align 8
 ; CHECK-NEXT:    [[TMP0:%.*]] = alloca [[STRUCT_NDRANGE_T_60]], align 8
 ; CHECK-NEXT:    [[CALL_I_I0:%.*]] = tail call i64 @_Z13get_global_idj(i32 0)
-; CHECK-NEXT:    [[NDRANGE_I_I_VEC0:%.*]] = alloca [2 x %struct.ndrange_t.6], align 8
-; CHECK-NEXT:    [[NDRANGE_I_I_VEC_BC0:%.*]] = bitcast [2 x %struct.ndrange_t.6]* [[NDRANGE_I_I_VEC0]] to %struct.ndrange_t.6*
-; CHECK-NEXT:    [[NDRANGE_I_I_VEC_BASE_ADDR0:%.*]] = getelementptr [[STRUCT_NDRANGE_T_60]], %struct.ndrange_t.6* [[NDRANGE_I_I_VEC_BC0]], <2 x i32> <i32 0, i32 1>
-; CHECK-NEXT:    [[BLOCK_VEC0:%.*]] = alloca [2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>], align 8
-; CHECK-NEXT:    [[BLOCK_VEC_BC0:%.*]] = bitcast [2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>]* [[BLOCK_VEC0]] to <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>*
-; CHECK-NEXT:    [[BLOCK_VEC_BASE_ADDR0:%.*]] = getelementptr <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>, <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>* [[BLOCK_VEC_BC0]], <2 x i32> <i32 0, i32 1>
 ; CHECK-NEXT:    [[TMP_VEC0:%.*]] = alloca [2 x %struct.ndrange_t.6], align 8
 ; CHECK-NEXT:    [[TMP_VEC_BC0:%.*]] = bitcast [2 x %struct.ndrange_t.6]* [[TMP_VEC0]] to %struct.ndrange_t.6*
 ; CHECK-NEXT:    [[TMP_VEC_BASE_ADDR0:%.*]] = getelementptr [[STRUCT_NDRANGE_T_60]], %struct.ndrange_t.6* [[TMP_VEC_BC0]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[BLOCK_VEC0:%.*]] = alloca [2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>], align 8
+; CHECK-NEXT:    [[BLOCK_VEC_BC0:%.*]] = bitcast [2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>]* [[BLOCK_VEC0]] to <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>*
+; CHECK-NEXT:    [[BLOCK_VEC_BASE_ADDR0:%.*]] = getelementptr <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>, <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>* [[BLOCK_VEC_BC0]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[NDRANGE_I_I_VEC0:%.*]] = alloca [2 x %struct.ndrange_t.6], align 8
+; CHECK-NEXT:    [[NDRANGE_I_I_VEC_BC0:%.*]] = bitcast [2 x %struct.ndrange_t.6]* [[NDRANGE_I_I_VEC0]] to %struct.ndrange_t.6*
+; CHECK-NEXT:    [[NDRANGE_I_I_VEC_BASE_ADDR0:%.*]] = getelementptr [[STRUCT_NDRANGE_T_60]], %struct.ndrange_t.6* [[NDRANGE_I_I_VEC_BC0]], <2 x i32> <i32 0, i32 1>
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:

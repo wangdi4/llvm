@@ -21,19 +21,19 @@ define void @foo(i64 %n1, i32 %k1, float* nocapture %accumulated_grid, i32* noca
 ; CHECK-NEXT:    [[A20:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i64* [[COUNT0]] to i8*
 ; CHECK-NEXT:    [[CMP0:%.*]] = icmp sgt i64 [[N10]], 0
-; CHECK-NEXT:    [[COUNT_VEC0:%.*]] = alloca <4 x i64>, align 32
-; CHECK-NEXT:    [[COUNT_VEC_BC0:%.*]] = bitcast <4 x i64>* [[COUNT_VEC0]] to i64*
-; CHECK-NEXT:    [[COUNT_VEC_BASE_ADDR0:%.*]] = getelementptr i64, i64* [[COUNT_VEC_BC0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC0:%.*]] = alloca <4 x float>, align 16
-; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC_BC0:%.*]] = bitcast <4 x float>* [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC0]] to float*
-; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC_BASE_ADDR0:%.*]] = getelementptr float, float* [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC_BC0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK-NEXT:    [[A2_VEC0:%.*]] = alloca <4 x i32>, align 16
-; CHECK-NEXT:    [[A2_VEC_BC0:%.*]] = bitcast <4 x i32>* [[A2_VEC0]] to i32*
-; CHECK-NEXT:    [[A2_VEC_BASE_ADDR0:%.*]] = getelementptr i32, i32* [[A2_VEC_BC0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_INPUT_VEC0:%.*]] = alloca <4 x float>, align 16
 ; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BC0:%.*]] = bitcast <4 x float>* [[ACCUMULATED_OCCUPANCY_INPUT_VEC0]] to float*
 ; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BASE_ADDR0:%.*]] = getelementptr float, float* [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BC0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BASE_ADDR_EXTRACT_0_0:%.*]] = extractelement <4 x float*> [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BASE_ADDR0]], i32 0
+; CHECK-NEXT:    [[A2_VEC0:%.*]] = alloca <4 x i32>, align 16
+; CHECK-NEXT:    [[A2_VEC_BC0:%.*]] = bitcast <4 x i32>* [[A2_VEC0]] to i32*
+; CHECK-NEXT:    [[A2_VEC_BASE_ADDR0:%.*]] = getelementptr i32, i32* [[A2_VEC_BC0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC0:%.*]] = alloca <4 x float>, align 16
+; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC_BC0:%.*]] = bitcast <4 x float>* [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC0]] to float*
+; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC_BASE_ADDR0:%.*]] = getelementptr float, float* [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC_BC0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[COUNT_VEC0:%.*]] = alloca <4 x i64>, align 32
+; CHECK-NEXT:    [[COUNT_VEC_BC0:%.*]] = bitcast <4 x i64>* [[COUNT_VEC0]] to i64*
+; CHECK-NEXT:    [[COUNT_VEC_BASE_ADDR0:%.*]] = getelementptr i64, i64* [[COUNT_VEC_BC0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    br i1 [[CMP0]], label [[OMP_PRECOND_THEN0:%.*]], label [[OMP_PRECOND_END0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  omp.precond.then:

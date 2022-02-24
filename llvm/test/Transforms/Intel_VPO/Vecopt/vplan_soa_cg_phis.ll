@@ -30,8 +30,8 @@ define void @merge_uniform_soa_geps() {
 ; CHECK:       VPlannedBB6:
 ; CHECK-NEXT:    [[UNI_PHI8:%.*]] = phi <2 x i64>* [ [[SOA_SCALAR_GEP5]], [[VPLANNEDBB4]] ], [ [[SOA_SCALAR_GEP7]], [[VPLANNEDBB3]] ]
 ; CHECK-NEXT:    [[WIDE_LOAD9:%.*]] = load <2 x i64>, <2 x i64>* [[UNI_PHI8]], align 4
-; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds <2 x i64>, <2 x i64>* [[UNI_PHI8]], <2 x i64> [[WIDE_LOAD9]], <2 x i64> <i64 0, i64 1>
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[MM_VECTORGEP]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> undef)
+; CHECK-NEXT:    [[SOA_VECTORGEP:%.*]] = getelementptr inbounds <2 x i64>, <2 x i64>* [[UNI_PHI8]], <2 x i64> [[WIDE_LOAD9]], <2 x i64> <i64 0, i64 1>
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[SOA_VECTORGEP]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> undef)
 ; CHECK-NEXT:    [[TMP0]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw i64 [[UNI_PHI]], 2
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i64 [[TMP1]], 1024
@@ -100,21 +100,21 @@ define void @merge_uniform_strided_soa_geps() {
 ; CHECK:       VPlannedBB4:
 ; CHECK-NEXT:    [[SOA_SCALAR_GEP5:%.*]] = getelementptr inbounds [1024 x <2 x i64>], [1024 x <2 x i64>]* [[ARR_SOA_PRIV64_SOA_VEC]], i64 0, i64 1
 ; CHECK-NEXT:    [[SOA_SCALAR_GEP6:%.*]] = getelementptr inbounds [1024 x <2 x i64>], [1024 x <2 x i64>]* [[ARR_SOA_PRIV64_SOA_VEC]], i64 0, i64 1
-; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr <2 x i64>, <2 x i64>* [[SOA_SCALAR_GEP6]], <2 x i64> zeroinitializer, <2 x i64> <i64 0, i64 1>
+; CHECK-NEXT:    [[SOA_VECTORGEP:%.*]] = getelementptr <2 x i64>, <2 x i64>* [[SOA_SCALAR_GEP6]], <2 x i64> zeroinitializer, <2 x i64> <i64 0, i64 1>
 ; CHECK-NEXT:    [[WIDE_LOAD7:%.*]] = load <2 x i64>, <2 x i64>* [[SOA_SCALAR_GEP5]], align 4
 ; CHECK-NEXT:    br label [[VPLANNEDBB8]]
 ; CHECK:       VPlannedBB3:
-; CHECK-NEXT:    [[MM_VECTORGEP9:%.*]] = getelementptr inbounds [1024 x <2 x i64>], [1024 x <2 x i64>]* [[ARR_SOA_PRIV64_SOA_VEC]], <2 x i64> zeroinitializer, <2 x i64> [[VEC_PHI]], <2 x i64> <i64 0, i64 1>
+; CHECK-NEXT:    [[SOA_VECTORGEP9:%.*]] = getelementptr inbounds [1024 x <2 x i64>], [1024 x <2 x i64>]* [[ARR_SOA_PRIV64_SOA_VEC]], <2 x i64> zeroinitializer, <2 x i64> [[VEC_PHI]], <2 x i64> <i64 0, i64 1>
 ; CHECK-NEXT:    br label [[VPLANNEDBB8]]
 ; CHECK:       VPlannedBB8:
-; CHECK-NEXT:    [[VEC_PHI10:%.*]] = phi <2 x i64*> [ [[MM_VECTORGEP]], [[VPLANNEDBB4]] ], [ [[MM_VECTORGEP9]], [[VPLANNEDBB3]] ]
+; CHECK-NEXT:    [[VEC_PHI10:%.*]] = phi <2 x i64*> [ [[SOA_VECTORGEP]], [[VPLANNEDBB4]] ], [ [[SOA_VECTORGEP9]], [[VPLANNEDBB3]] ]
 ; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[VEC_PHI10]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> undef)
-; CHECK-NEXT:    [[MM_VECTORGEP11:%.*]] = getelementptr inbounds i64, <2 x i64*> [[VEC_PHI10]], <2 x i64> [[WIDE_MASKED_GATHER]]
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER12:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[MM_VECTORGEP11]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> undef)
+; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i64, <2 x i64*> [[VEC_PHI10]], <2 x i64> [[WIDE_MASKED_GATHER]]
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER11:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[MM_VECTORGEP]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> undef)
 ; CHECK-NEXT:    [[TMP0]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw i64 [[UNI_PHI]], 2
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i64 [[TMP1]], 1024
-; CHECK-NEXT:    br i1 [[TMP2]], label [[VECTOR_BODY]], label [[VPLANNEDBB13:%.*]], !llvm.loop [[LOOP2:![0-9]+]]
+; CHECK-NEXT:    br i1 [[TMP2]], label [[VECTOR_BODY]], label [[VPLANNEDBB12:%.*]], !llvm.loop [[LOOP2:![0-9]+]]
 ; CHECK:       VPlannedBB13:
 ;
 entry:
@@ -238,12 +238,12 @@ define void @merge_aos_soa_geps() {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ARR_SOA_PRIV64:%.*]] = alloca [1024 x i64], align 4
 ; CHECK-NEXT:    [[ARR_AOS_PRIV64:%.*]] = alloca [1024 x i64], align 4
-; CHECK-NEXT:    [[ARR_SOA_PRIV64_VEC:%.*]] = alloca [2 x [1024 x i64]], align 8
-; CHECK-NEXT:    [[ARR_SOA_PRIV64_VEC_BC:%.*]] = bitcast [2 x [1024 x i64]]* [[ARR_SOA_PRIV64_VEC]] to [1024 x i64]*
-; CHECK-NEXT:    [[ARR_SOA_PRIV64_VEC_BASE_ADDR:%.*]] = getelementptr [1024 x i64], [1024 x i64]* [[ARR_SOA_PRIV64_VEC_BC]], <2 x i32> <i32 0, i32 1>
 ; CHECK-NEXT:    [[ARR_AOS_PRIV64_VEC:%.*]] = alloca [2 x [1024 x i64]], align 8
 ; CHECK-NEXT:    [[ARR_AOS_PRIV64_VEC_BC:%.*]] = bitcast [2 x [1024 x i64]]* [[ARR_AOS_PRIV64_VEC]] to [1024 x i64]*
 ; CHECK-NEXT:    [[ARR_AOS_PRIV64_VEC_BASE_ADDR:%.*]] = getelementptr [1024 x i64], [1024 x i64]* [[ARR_AOS_PRIV64_VEC_BC]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[ARR_SOA_PRIV64_VEC:%.*]] = alloca [2 x [1024 x i64]], align 8
+; CHECK-NEXT:    [[ARR_SOA_PRIV64_VEC_BC:%.*]] = bitcast [2 x [1024 x i64]]* [[ARR_SOA_PRIV64_VEC]] to [1024 x i64]*
+; CHECK-NEXT:    [[ARR_SOA_PRIV64_VEC_BASE_ADDR:%.*]] = getelementptr [1024 x i64], [1024 x i64]* [[ARR_SOA_PRIV64_VEC_BC]], <2 x i32> <i32 0, i32 1>
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION:%.*]]
 ; CHECK:       simd.begin.region:
 ; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER:%.*]]

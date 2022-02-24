@@ -284,6 +284,8 @@ public:
   bool canHaveAllocate() const;
   bool canHaveOrderedTripCounts() const;
   bool canHaveIf() const;
+  bool canHaveSizes() const;
+  bool canHaveLivein() const;
   bool canHaveDoConcurrent() const;
   /// @}
 
@@ -358,6 +360,7 @@ public:
                                             {WRNERROR(QUAL_OMP_IS_DEVICE_PTR);}
   virtual LastprivateClause &getLpriv()      {WRNERROR(QUAL_OMP_LASTPRIVATE); }
   virtual LinearClause &getLinear()          {WRNERROR(QUAL_OMP_LINEAR);      }
+  virtual LiveinClause &getLivein()          {WRNERROR(QUAL_OMP_LIVEIN);      }
   virtual MapClause &getMap()                {WRNERROR("MAP");                }
   virtual PrivateClause &getPriv()           {WRNERROR(QUAL_OMP_PRIVATE);     }
   virtual ReductionClause &getInRed()        {WRNERROR("IN_REDUCTION");       }
@@ -372,6 +375,7 @@ public:
 #endif //INTEL_CUSTOMIZATION
 
   virtual SharedClause &getShared()          {WRNERROR(QUAL_OMP_SHARED);      }
+  virtual SizesClause &getSizes()            {WRNERROR(QUAL_OMP_SIZES);       }
   virtual UniformClause &getUniform()        {WRNERROR(QUAL_OMP_UNIFORM);     }
   virtual UseDevicePtrClause &getUseDevicePtr()
                                            {WRNERROR(QUAL_OMP_USE_DEVICE_PTR);}
@@ -406,6 +410,8 @@ public:
                                            {WRNERROR(QUAL_OMP_LASTPRIVATE); }
   virtual const LinearClause &getLinear() const
                                            {WRNERROR(QUAL_OMP_LINEAR);      }
+  virtual const LiveinClause &getLivein() const
+                                           {WRNERROR(QUAL_OMP_LIVEIN);      }
   virtual const MapClause &getMap() const  {WRNERROR("MAP");                }
   virtual const PrivateClause &getPriv() const
                                            {WRNERROR(QUAL_OMP_PRIVATE);     }
@@ -425,6 +431,8 @@ public:
 #endif //INTEL_CUSTOMIZATION
   virtual const SharedClause &getShared() const
                                            {WRNERROR(QUAL_OMP_SHARED);      }
+  virtual const SizesClause &getSizes() const
+                                           {WRNERROR(QUAL_OMP_SIZES);       }
   virtual const UniformClause &getUniform() const
                                            {WRNERROR(QUAL_OMP_UNIFORM);     }
   virtual const UseDevicePtrClause &getUseDevicePtr() const
@@ -826,6 +834,7 @@ public:
   void setIsDistribute()         { Attributes |= WRNIsDistribute; }
   void setIsPar()                { Attributes |= WRNIsPar; }
   void setIsOmpLoop()            { Attributes |= WRNIsOmpLoop; }
+  void setIsOmpLoopTransform()   { Attributes |= WRNIsOmpLoopTransform; }
   void setIsSections()           { Attributes |= WRNIsSections; }
   void setIsTarget()             { Attributes |= WRNIsTarget; }
   void setIsTask()               { Attributes |= WRNIsTask; }
@@ -837,6 +846,9 @@ public:
   bool getIsDistribute()   const { return Attributes & WRNIsDistribute; }
   bool getIsPar()          const { return Attributes & WRNIsPar; }
   bool getIsOmpLoop()      const { return Attributes & WRNIsOmpLoop; }
+  bool getIsOmpLoopTransform() const {
+    return Attributes & WRNIsOmpLoopTransform;
+  }
   bool getIsSections()     const { return Attributes & WRNIsSections; }
   bool getIsTarget()       const { return Attributes & WRNIsTarget; }
   bool getIsTask()         const { return Attributes & WRNIsTask; }
@@ -902,6 +914,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
     WRNWorkshare,                     // IsOmpLoop
     WRNDistribute,                    // IsOmpLoop, IsDistribute
+    WRNTile,                          // IsOmpLoopTransform
     WRNAtomic,
     WRNBarrier,
     WRNCancel,
@@ -921,14 +934,15 @@ public:
 
   /// WRN primary attributes
   enum WRNAttributes : uint32_t {
-    WRNIsDistribute = 0x00000001,
-    WRNIsPar        = 0x00000002,
-    WRNIsOmpLoop    = 0x00000004,
-    WRNIsSections   = 0x00000008,
-    WRNIsTarget     = 0x00000010,
-    WRNIsTask       = 0x00000020,
-    WRNIsTeams      = 0x00000040,
-    WRNIsInterop    = 0x00000080
+    WRNIsDistribute       = 0x00000001,
+    WRNIsPar              = 0x00000002,
+    WRNIsOmpLoop          = 0x00000004,
+    WRNIsSections         = 0x00000008,
+    WRNIsTarget           = 0x00000010,
+    WRNIsTask             = 0x00000020,
+    WRNIsTeams            = 0x00000040,
+    WRNIsInterop          = 0x00000080,
+    WRNIsOmpLoopTransform = 0x00000100
   };
 
 private:
