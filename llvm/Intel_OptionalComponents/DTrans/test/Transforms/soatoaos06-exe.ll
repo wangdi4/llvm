@@ -398,7 +398,7 @@ eh.resume:                                        ; preds = %lpad26, %lpad
 
 declare noalias i8* @_Znwm(i64)
 
-define void @"F::F()"(%class.F* nocapture %this) align 2 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) !dbg !235 {
+define void @"F::F()"(%class.F* nocapture noundef %this) align 2 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) !dbg !235 {
 entry:
   call void @llvm.dbg.value(metadata %class.F* %this, metadata !236, metadata !DIExpression()), !dbg !237
   %call = call i8* @_Znwm(i64 32), !dbg !238
