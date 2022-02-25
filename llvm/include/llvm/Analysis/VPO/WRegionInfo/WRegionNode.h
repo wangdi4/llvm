@@ -286,7 +286,9 @@ public:
   bool canHaveIf() const;
   bool canHaveSizes() const;
   bool canHaveLivein() const;
+#if INTEL_CUSTOMIZATION
   bool canHaveDoConcurrent() const;
+#endif // INTEL_CUSTOMIZATION
   /// @}
 
   /// Returns `true` if the construct needs to be outlined into a separate
@@ -450,8 +452,10 @@ public:
   virtual CallInst *getCall()             const {WRNERROR("DISPATCH CALL");   }
   virtual void setCancelKind(WRNCancelKind CK)  {WRNERROR("CANCEL TYPE");     }
   virtual WRNCancelKind getCancelKind()   const {WRNERROR("CANCEL TYPE");     }
+#if INTEL_CUSTOMIZATION
   virtual void setIsDoConcurrent(bool B)    {WRNERROR(QUAL_EXT_DO_CONCURRENT);}
   virtual bool getIsDoConcurrent() const    {WRNERROR(QUAL_EXT_DO_CONCURRENT);}
+#endif // INTEL_CUSTOMIZATION
   virtual void setCollapse(int N)               {WRNERROR(QUAL_OMP_COLLAPSE); }
   virtual int getCollapse()               const {WRNERROR(QUAL_OMP_COLLAPSE); }
   virtual void setDefault(WRNDefaultKind T)     {WRNERROR("DEFAULT");         }
