@@ -215,6 +215,8 @@ public:
   // non-lazy object causes a runtime error.
   void extract() const;
 
+  void checkDuplicate(const Defined &other) const;
+
 private:
   void resolveUndefined(const Undefined &other);
 #if INTEL_CUSTOMIZATION
@@ -575,6 +577,8 @@ template <typename... T> Defined *makeDefined(T &&...args) {
       Defined(std::forward<T>(args)...);
 }
 
+void reportDuplicate(const Symbol &sym, InputFile *newFile,
+                     InputSectionBase *errSec, uint64_t errOffset);
 void maybeWarnUnorderableSymbol(const Symbol *sym);
 bool computeIsPreemptible(const Symbol &sym);
 void reportBackrefs();
