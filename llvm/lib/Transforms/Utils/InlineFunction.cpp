@@ -2509,6 +2509,12 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
         }
 
         Instruction *NewI = CallBase::Create(ICS, OpDefs, ICS);
+#if INTEL_CUSTOMIZATION
+        if (IR && IR->isClassicIREnabled())
+          IR->updateActiveCallSiteTarget(ICS, NewI);
+        if (MDIR && MDIR->isMDIREnabled())
+          MDIR->updateActiveCallSiteTarget(ICS, NewI);
+#endif // INTEL_CUSTOMIZATION
 
         // Note: the RAUW does the appropriate fixup in VMap, so we need to do
         // this even if the call returns void.
@@ -2664,6 +2670,12 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
           Params.append(VarArgsToForward.begin(), VarArgsToForward.end());
           CallInst *NewCI = CallInst::Create(
               CI->getFunctionType(), CI->getCalledOperand(), Params, "", CI);
+#if INTEL_CUSTOMIZATION
+          if (IR && IR->isClassicIREnabled())
+            IR->updateActiveCallSiteTarget(CI, NewCI);
+          if (MDIR && MDIR->isMDIREnabled())
+            MDIR->updateActiveCallSiteTarget(CI, NewCI);
+#endif // INTEL_CUSTOMIZATION
           NewCI->setDebugLoc(CI->getDebugLoc());
           NewCI->setAttributes(Attrs);
           NewCI->setCallingConv(CI->getCallingConv());
@@ -2842,6 +2854,12 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
         OpBundles.emplace_back("funclet", CallSiteEHPad);
 
         Instruction *NewInst = CallBase::Create(I, OpBundles, I);
+#if INTEL_CUSTOMIZATION
+        if (IR && IR->isClassicIREnabled())
+          IR->updateActiveCallSiteTarget(I, NewInst);
+        if (MDIR && MDIR->isMDIREnabled())
+          MDIR->updateActiveCallSiteTarget(I, NewInst);
+#endif // INTEL_CUSTOMIZATION
         NewInst->takeName(I);
         I->replaceAllUsesWith(NewInst);
         I->eraseFromParent();
