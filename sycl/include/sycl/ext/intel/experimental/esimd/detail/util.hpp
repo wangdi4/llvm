@@ -119,7 +119,6 @@ using is_fp_or_dword_type =
     typename std::bool_constant<is_fp_type<T>::value ||
                                 is_dword_type<T>::value>;
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
@@ -138,10 +137,7 @@ template <typename T, int N> struct is_hf_type<simd<T, N>> {
   static const bool value = is_hf_type<T>::value;
 };
 
-// compile-time checks if first template parameter is equal for any other
-=======
 /// Compile-time checks if first template parameter is equal for any other
->>>>>>> eae2c8ff023b703215d75db3d16dc243016fe42c
 template <typename...> struct is_one_of {
   static constexpr bool value = false;
 };
@@ -156,13 +152,8 @@ struct is_one_of<Checked, First, Other...> {
 template <typename Checked, typename... T>
 inline constexpr bool is_one_of_v = is_one_of<Checked, T...>::value;
 
-<<<<<<< HEAD
-// compile-time checks if compile-time known  element of enum class is equal for
-// any other compile-time known elements of enum
-=======
 /// Compile-time checks if compile-time known  element of enum class is equal
 /// for any other compile-time known elements of enum
->>>>>>> eae2c8ff023b703215d75db3d16dc243016fe42c
 template <typename enumClass, enumClass... E> struct is_one_of_enum {
   static constexpr bool value = false;
 };
@@ -176,12 +167,9 @@ struct is_one_of_enum<enumClass, Checked, First, Else...> {
 template <typename enumClass, enumClass... T>
 inline constexpr bool is_one_of_enum_v = is_one_of_enum<enumClass, T...>::value;
 
-<<<<<<< HEAD
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
-=======
->>>>>>> eae2c8ff023b703215d75db3d16dc243016fe42c
 /// Convert types into vector types
 template <typename T> struct simd_type { using type = simd<T, 1>; };
 template <typename T, int N> struct simd_type<raw_vector_type<T, N>> {

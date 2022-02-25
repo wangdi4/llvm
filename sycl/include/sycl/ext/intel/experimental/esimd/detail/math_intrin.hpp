@@ -279,26 +279,15 @@ __ESIMD_INTRIN __ESIMD_raw_vec_t(T, N)
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-
-template <typename T, typename T0, typename T1, typename T2,
-          int N, int N1, int N2>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<T, N>
-__esimd_dpas(__SEIEED::vector_type_t<T0, N> src0,
-             __SEIEED::vector_type_t<T1, N1> src1,
-             __SEIEED::vector_type_t<T2, N2> src2,
-             int src1_precision, int src2_precision,
-             int depth, int repeat, int sign_res, int sign_acc);
-=======
 template <typename T, typename T0, typename T1, typename T2, int N, int N1,
           int N2>
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<T, N> __esimd_dpas(
     __SEIEED::vector_type_t<T0, N> src0, __SEIEED::vector_type_t<T1, N1> src1,
     __SEIEED::vector_type_t<T2, N2> src2, int src1_precision,
     int src2_precision, int depth, int repeat, int sign_res, int sign_acc);
->>>>>>> eae2c8ff023b703215d75db3d16dc243016fe42c
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
 
 template <typename T, typename T1, typename T2, int N, int N1, int N2>
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<T, N>
@@ -316,7 +305,6 @@ SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<T, N>
 __esimd_dpasw2(__SEIEED::vector_type_t<T1, N1> src1,
                __SEIEED::vector_type_t<T2, N2> src2, int dpas_info);
 
-<<<<<<< HEAD
 template <int N>
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<__SEIEE::bfloat16, N>
 __esimd_bf_cvt(__SEIEED::vector_type_t<float, N> src);
@@ -349,8 +337,6 @@ __esimd_srnd(__SEIEED::vector_type_t<SrcType, N> src1,
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
-=======
->>>>>>> eae2c8ff023b703215d75db3d16dc243016fe42c
 #ifdef __SYCL_DEVICE_ONLY__
 
 // lane-id for reusing scalar math functions.
@@ -1270,27 +1256,6 @@ __ESIMD_INTRIN __ESIMD_raw_vec_t(T, N)
   return retv;
 }
 
-<<<<<<< HEAD
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-
-inline constexpr __SEIEE::uint
-__esimd_dpas_bits_precision(__SEIEE::EsimdPrecisionType precisionType) {
-  return precisionType == __SEIEE::EsimdPrecisionType::TF32
-             ? 32
-         : precisionType == __SEIEE::EsimdPrecisionType::BF16 ||
-                 precisionType == __SEIEE::EsimdPrecisionType::FP16
-             ? 16
-         : precisionType == __SEIEE::EsimdPrecisionType::S8 ||
-                 precisionType == __SEIEE::EsimdPrecisionType::U8 ||
-                     precisionType == __SEIEE::EsimdPrecisionType::BF8
-             ? 8
-         : precisionType == __SEIEE::EsimdPrecisionType::S4 ||
-                 precisionType == __SEIEE::EsimdPrecisionType::U4
-             ? 4
-         : precisionType == __SEIEE::EsimdPrecisionType::S2 ||
-                 precisionType == __SEIEE::EsimdPrecisionType::U2
-=======
 inline constexpr __SEIEE::uint
 __esimd_dpas_bits_precision(__SEIEE::argument_type precisionType) {
   return precisionType == __SEIEE::argument_type::TF32 ? 32
@@ -1305,18 +1270,12 @@ __esimd_dpas_bits_precision(__SEIEE::argument_type precisionType) {
              ? 4
          : precisionType == __SEIEE::argument_type::S2 ||
                  precisionType == __SEIEE::argument_type::U2
->>>>>>> eae2c8ff023b703215d75db3d16dc243016fe42c
              ? 2
              : 1;
 }
 
-<<<<<<< HEAD
-template <__SEIEE::EsimdPrecisionType src1_precision,
-          __SEIEE::EsimdPrecisionType src2_precision, int systolic_depth,
-=======
 template <__SEIEE::argument_type src1_precision,
           __SEIEE::argument_type src2_precision, int systolic_depth,
->>>>>>> eae2c8ff023b703215d75db3d16dc243016fe42c
           int repeat_count, typename RT, typename T1, typename T2,
           __SEIEE::uint SZ, __SEIEE::uint N1, __SEIEE::uint N2>
 inline __SEIEED::vector_type_t<RT, SZ>
@@ -1330,17 +1289,6 @@ __esimd_dpas_inner(const __SEIEED::vector_type_t<RT, SZ> *src0,
       __SEIEEED::SetSatur<T2, __SEIEEED::is_inttype<RT>::value>::set();
 
   constexpr __SEIEE::uint ops_per_chan =
-<<<<<<< HEAD
-      src1_precision == __SEIEE::EsimdPrecisionType::BF16 ||
-              src1_precision == __SEIEE::EsimdPrecisionType::FP16 ||
-              src2_precision == __SEIEE::EsimdPrecisionType::BF16 ||
-              src2_precision == __SEIEE::EsimdPrecisionType::FP16
-          ? 2
-      : src1_precision == __SEIEE::EsimdPrecisionType::S8 ||
-              src1_precision == __SEIEE::EsimdPrecisionType::U8 ||
-              src2_precision == __SEIEE::EsimdPrecisionType::S8 ||
-              src2_precision == __SEIEE::EsimdPrecisionType::U8
-=======
       src1_precision == __SEIEE::argument_type::BF16 ||
               src1_precision == __SEIEE::argument_type::FP16 ||
               src2_precision == __SEIEE::argument_type::BF16 ||
@@ -1350,7 +1298,6 @@ __esimd_dpas_inner(const __SEIEED::vector_type_t<RT, SZ> *src0,
               src1_precision == __SEIEE::argument_type::U8 ||
               src2_precision == __SEIEE::argument_type::S8 ||
               src2_precision == __SEIEE::argument_type::U8
->>>>>>> eae2c8ff023b703215d75db3d16dc243016fe42c
           ? 4
           : 8;
 
@@ -1359,23 +1306,6 @@ __esimd_dpas_inner(const __SEIEED::vector_type_t<RT, SZ> *src0,
   constexpr auto src1_el_bits = __esimd_dpas_bits_precision(src1_precision);
   constexpr auto src2_el_bits = __esimd_dpas_bits_precision(src2_precision);
 
-<<<<<<< HEAD
-  uint32_t src1_signed =
-      src1_precision == __SEIEE::EsimdPrecisionType::S2 ||
-              src1_precision == __SEIEE::EsimdPrecisionType::S4 ||
-              src1_precision == __SEIEE::EsimdPrecisionType::S8
-          ? 1
-          : 0;
-
-  uint32_t src2_signed =
-      src2_precision == __SEIEE::EsimdPrecisionType::S2 ||
-              src2_precision == __SEIEE::EsimdPrecisionType::S4 ||
-              src2_precision == __SEIEE::EsimdPrecisionType::S8
-          ? 1
-          : 0;
-
-#if defined(ESIMD_GEN12_7)
-=======
   uint32_t src1_signed = src1_precision == __SEIEE::argument_type::S2 ||
                                  src1_precision == __SEIEE::argument_type::S4 ||
                                  src1_precision == __SEIEE::argument_type::S8
@@ -1388,8 +1318,9 @@ __esimd_dpas_inner(const __SEIEED::vector_type_t<RT, SZ> *src0,
                              ? 1
                              : 0;
 
-#if defined(ESIMD_XE_HPC) || defined(ESIMD_XE_HPG)
->>>>>>> eae2c8ff023b703215d75db3d16dc243016fe42c
+// INTEL
+#if defined(ESIMD_XE_HPC) || defined(ESIMD_XE_HPG) || defined(ESIMD_GEN12_7)
+// INTEL
   constexpr bool isPvc = true;
   constexpr size_t SIMDSize = 16;
 #else
@@ -1403,16 +1334,6 @@ __esimd_dpas_inner(const __SEIEED::vector_type_t<RT, SZ> *src0,
       pvcBfOrHfDest = pvcBfDest || pvcHfDest,
 
       pvcBfDestChecks = pvcBfDest &&
-<<<<<<< HEAD
-                        src1_precision == __SEIEE::EsimdPrecisionType::BF16 &&
-                        src2_precision == __SEIEE::EsimdPrecisionType::BF16,
-
-      pvcHfDestChecks =
-          pvcHfDest && ((src1_precision == __SEIEE::EsimdPrecisionType::FP16 &&
-                         src2_precision == __SEIEE::EsimdPrecisionType::FP16) ||
-                        (src1_precision == __SEIEE::EsimdPrecisionType::BF16 &&
-                         src2_precision == __SEIEE::EsimdPrecisionType::BF16)),
-=======
                         src1_precision == __SEIEE::argument_type::BF16 &&
                         src2_precision == __SEIEE::argument_type::BF16,
 
@@ -1421,7 +1342,6 @@ __esimd_dpas_inner(const __SEIEED::vector_type_t<RT, SZ> *src0,
                          src2_precision == __SEIEE::argument_type::FP16) ||
                         (src1_precision == __SEIEE::argument_type::BF16 &&
                          src2_precision == __SEIEE::argument_type::BF16)),
->>>>>>> eae2c8ff023b703215d75db3d16dc243016fe42c
 
       destTypeChk =
           (!pvcBfOrHfDest && __SEIEEED::is_fp_or_dword_type<RT>::value) ||
@@ -1491,11 +1411,7 @@ __esimd_dpas_inner(const __SEIEED::vector_type_t<RT, SZ> *src0,
           p = d + (s % src1_ops_per_dword) * ops_per_chan;
           uint32_t extension_temp = false;
 
-<<<<<<< HEAD
-          if (src2_precision == __SEIEE::EsimdPrecisionType::BF16) {
-=======
           if (src2_precision == __SEIEE::argument_type::BF16) {
->>>>>>> eae2c8ff023b703215d75db3d16dc243016fe42c
             const auto s1 =
                 extract<uint32_t>(src1_el_bits, p * src1_el_bits,
                                   src1[U * SIMDSize + n], extension_temp)
@@ -1506,11 +1422,7 @@ __esimd_dpas_inner(const __SEIEED::vector_type_t<RT, SZ> *src0,
                 << 16;
             simdAcc[n] += reinterpret_cast<const float &>(s2) *
                           reinterpret_cast<const float &>(s1);
-<<<<<<< HEAD
-          } else if (src2_precision == __SEIEE::EsimdPrecisionType::FP16) {
-=======
           } else if (src2_precision == __SEIEE::argument_type::FP16) {
->>>>>>> eae2c8ff023b703215d75db3d16dc243016fe42c
             const auto s1 =
                 extract<short>(src1_el_bits, p * src1_el_bits,
                                src1[U * SIMDSize + n], extension_temp);
@@ -1558,16 +1470,9 @@ __esimd_dpas_inner(const __SEIEED::vector_type_t<RT, SZ> *src0,
   return retv;
 }
 
-<<<<<<< HEAD
-template <__SEIEE::EsimdPrecisionType src1_precision,
-          __SEIEE::EsimdPrecisionType src2_precision,
-          int systolic_depth, int repeat_count,
-          typename T, typename T0, typename T1, typename T2,
-=======
 template <__SEIEE::argument_type src1_precision,
           __SEIEE::argument_type src2_precision, int systolic_depth,
           int repeat_count, typename T, typename T0, typename T1, typename T2,
->>>>>>> eae2c8ff023b703215d75db3d16dc243016fe42c
           int N, int N1, int N2>
 inline __SEIEED::vector_type_t<T, N>
 __esimd_dpas(__SEIEED::vector_type_t<T0, N> src0,
@@ -1583,13 +1488,8 @@ __esimd_dpas(__SEIEED::vector_type_t<T0, N> src0,
 #endif // __SYCL_EXPLICIT_SIMD_PLUGIN__
 }
 
-<<<<<<< HEAD
-template <__SEIEE::EsimdPrecisionType src1_precision,
-          __SEIEE::EsimdPrecisionType src2_precision, int systolic_depth,
-=======
 template <__SEIEE::argument_type src1_precision,
           __SEIEE::argument_type src2_precision, int systolic_depth,
->>>>>>> eae2c8ff023b703215d75db3d16dc243016fe42c
           int repeat_count, typename T, typename T1, typename T2, int N, int N1,
           int N2>
 inline __SEIEED::vector_type_t<T, N>
@@ -1605,13 +1505,8 @@ __esimd_dpas2(__SEIEED::vector_type_t<T1, N1> src1,
 #endif // __SYCL_EXPLICIT_SIMD_PLUGIN__
 }
 
-<<<<<<< HEAD
-template <__SEIEE::EsimdPrecisionType src1_precision,
-          __SEIEE::EsimdPrecisionType src2_precision, int systolic_depth,
-=======
 template <__SEIEE::argument_type src1_precision,
           __SEIEE::argument_type src2_precision, int systolic_depth,
->>>>>>> eae2c8ff023b703215d75db3d16dc243016fe42c
           int repeat_count, typename T, typename T1, typename T2, int N, int N1,
           int N2>
 inline __SEIEED::vector_type_t<T, N>
@@ -1622,13 +1517,8 @@ __esimd_dpasw(__SEIEED::vector_type_t<T, N> src0,
   return __SEIEED::vector_type_t<T, N>();
 }
 
-<<<<<<< HEAD
-template <__SEIEE::EsimdPrecisionType src1_precision,
-          __SEIEE::EsimdPrecisionType src2_precision, int systolic_depth,
-=======
 template <__SEIEE::argument_type src1_precision,
           __SEIEE::argument_type src2_precision, int systolic_depth,
->>>>>>> eae2c8ff023b703215d75db3d16dc243016fe42c
           int repeat_count, typename T, typename T1, typename T2, int N, int N1,
           int N2>
 inline __SEIEED::vector_type_t<T, N>
@@ -1638,7 +1528,9 @@ __esimd_dpasw2(__SEIEED::vector_type_t<T1, N1> src1,
   return __SEIEED::vector_type_t<T, N>();
 }
 
-<<<<<<< HEAD
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+
 template <int N>
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<uint16_t, N>
 __esimd_bf_cvt(__SEIEED::vector_type_t<float, N> src) {
@@ -1670,8 +1562,6 @@ __esimd_qf_cvt(__SEIEED::vector_type_t<SrcType, N> src) {
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
-=======
->>>>>>> eae2c8ff023b703215d75db3d16dc243016fe42c
 #endif // #ifdef __SYCL_DEVICE_ONLY__
 
 #undef __ESIMD_raw_vec_t
