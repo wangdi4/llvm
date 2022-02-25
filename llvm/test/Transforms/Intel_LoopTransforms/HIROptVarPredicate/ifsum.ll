@@ -12,7 +12,7 @@
 ;  }
 ;
 ; REQUIRES: asserts
-; : opt < %s  -enable-new-pm=0 -hir-ssa-deconstruction   -hir-temp-cleanup  -analyze -hir-safe-reduction-analysis -hir-opt-var-predicate  -print-after=hir-opt-var-predicate | FileCheck %s
+; RUN: opt < %s  -enable-new-pm=0 -hir-ssa-deconstruction   -hir-temp-cleanup  -analyze -hir-safe-reduction-analysis -hir-opt-var-predicate  -print-after=hir-opt-var-predicate | FileCheck %s
 ; RUN: opt < %s  -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>,hir-opt-var-predicate,print<hir>"  2>&1 -disable-output | FileCheck %s
 ;
 ; CHECK: <Safe Reduction>
