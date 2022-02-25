@@ -117,6 +117,18 @@ New checks
   Reports identifiers whose names are too short. Currently checks local
   variables and function parameters only.
 
+- New :doc:`misc-misleading-bidirectional <clang-tidy/checks/misc-misleading-bidirectional>` check.
+
+  Inspects string literal and comments for unterminated bidirectional Unicode
+  characters.
+
+..
+  INTEL_CUSTOMIZATION
+- New :doc:`misc-homoglyph <clang-tidy/checks/misc-homoglyph>` check.
+
+  Detects confusable unicode identifiers.
+..
+  end INTEL_CUSTOMIZATION
 
 New check aliases
 ^^^^^^^^^^^^^^^^^
