@@ -1040,9 +1040,8 @@ void VPOCodeGenHIR::setupHLLoop(const VPLoop *VPLp) {
     }
   }
 
-  // Add HLLoop to the map and mark it do not vectorize.
+  // Add HLLoop to the map.
   VPLoopHLLoopMap[VPLp] = HLoop;
-  HLoop->markDoNotVectorize();
 }
 
 bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
@@ -1187,12 +1186,6 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
   setMainLoop(MainLoop);
   addInsertRegion(MainLoop);
 
-  // Disable further vectorization attempts on main and remainder loops
-  MainLoop->markDoNotVectorize();
-  if (NeedRemainderLoop) {
-    OrigLoop->markDoNotVectorize();
-  }
-
   return true;
 }
 
@@ -1335,7 +1328,13 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
     //       changed to an assert.
     LLVM_DEBUG(dbgs() << "\n\n\nRemoving empty loop\n");
     HLNodeUtils::removeEmptyNodes(MainLoop, true);
-  } else {
+  }
+
+  // Mark generated loops as novectorize and nounroll as needed.
+  for (auto &VPLpHLoop : VPLoopHLLoopMap) {
+    HLLoop *HLoop = VPLpHLoop.second;
+    HLoop->markDoNotVectorize();
+
     // Prevent LLVM from possibly unrolling vectorized loops with non-constant
     // trip counts. See loop in function fxpAutoCorrelation() that is part of
     // telecom/autcor00data_1 (opt_base_st_64_hsw). Inner loop has max trip
@@ -1343,9 +1342,21 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
     // However, the inner loop does not always have a constant 16 trip count,
     // leading to a performance degradation caused by entering the scalar code
     // path.
-    if (!MainLoop->isConstTripLoop()) {
+    // TODO - currently this workaround only kicks in for loops at the
+    // vectorization level. This marking may be extended to inner loops inside
+    // a vectorized outer loop.
+    if (!VPLpHLoop.first->getParentLoop() && !HLoop->isConstTripLoop())
+      HLoop->markDoNotUnroll();
+  }
+  if (NeedRemainderLoop)
+    OrigLoop->markDoNotVectorize();
+
+  // Disable further vectorization/unroll attempts on main loop for search loop
+  // case explicitly until VPlan representation is made explicit.
+  if (isSearchLoop()) {
+    MainLoop->markDoNotVectorize();
+    if (!MainLoop->isConstTripLoop())
       MainLoop->markDoNotUnroll();
-    }
   }
 
   // If a remainder loop is not needed get rid of the OrigLoop at this point.
