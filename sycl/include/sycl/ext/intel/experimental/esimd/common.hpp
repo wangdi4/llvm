@@ -113,6 +113,24 @@ static inline constexpr saturation_on_tag saturation_on{};
 
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
+
+// TODO FIXME Remove after embargo API open-source {
+
+// Defines a deprecated enum value. Use of this value will cause a deprecation
+// message printed out by the compiler.
+#define __ESIMD_DEPR_ENUM_V(old, new, t)                                       \
+  old __ESIMD_DEPRECATED(new) = static_cast<t>(new)
+
+/// Gen hardware supports applying saturation to results of some operation.
+/// This enum allows to control this behavior.
+enum class saturation : uint8_t { off, on };
+
+enum {
+  __ESIMD_DEPR_ENUM_V(GENX_NOSAT, saturation::off, uint8_t),
+  __ESIMD_DEPR_ENUM_V(GENX_SAT, saturation::on, uint8_t)
+};
+// }
+
 enum class EsimdPrecisionType {
   U1 = 0,   // unsigned 1 bit
   S1 = 1,   // signed 1 bit
@@ -224,6 +242,14 @@ enum class atomic_op : uint8_t {
   /// Compare and exchange (floating point).
   /// <code>if (*addr == src0) *addr = src1;</code>
   fcmpwr = 0x12,
+  /* INTEL_CUSTOMIZATION */
+  /* INTEL_FEATURE_ESIMD_EMBARGO */
+  fadd = 0x13,
+  fsub = 0x14,
+  load = 0x15,
+  store = 0x16,
+  /* end INTEL_FEATURE_ESIMD_EMBARGO */
+  /* end INTEL_CUSTOMIZATION */
   /// Decrement: <code>*addr = *addr - 1</code>. The only operation which
   /// returns new value of the destination rather than old.
   predec = 0xff,
@@ -493,10 +519,21 @@ constexpr lsc_data_size finalize_data_size() {
 
 } // namespace detail
 
+// TODO FIXME Remove after embargo API open-source
+// TODO Cache hints APIs are being reworked.
+// L1 or L3 cache hint kinds.
+enum class CacheHint : uint8_t {
+  None = 0,
+  Uncached = 1,
+  Cached = 2,
+  WriteBack = 3,
+  WriteThrough = 4,
+  Streaming = 5,
+  ReadInvalidate = 6
+};
+
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
-
-};
 
 /// Represents a split barrier action.
 enum class split_barrier_action : uint8_t {
