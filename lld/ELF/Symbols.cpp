@@ -650,21 +650,11 @@ int Symbol::compare(const Symbol *other, StringRef otherName) const {
     return -1;
   }
 
-  auto *oldSym = cast<Defined>(this);
-  auto *newSym = cast<Defined>(other);
-
-  if (isa_and_nonnull<BitcodeFile>(other->file))
-    return 0;
-
-  if (!oldSym->section && !newSym->section && oldSym->value == newSym->value &&
-      newSym->binding == STB_GLOBAL)
-    return -1;
-
   return 0;
 }
 
-static void reportDuplicate(const Symbol &sym, InputFile *newFile,
-                            InputSectionBase *errSec, uint64_t errOffset) {
+void elf::reportDuplicate(const Symbol &sym, InputFile *newFile,
+                          InputSectionBase *errSec, uint64_t errOffset) {
   if (config->allowMultipleDefinition)
     return;
   const Defined *d = cast<Defined>(&sym);
@@ -695,6 +685,13 @@ static void reportDuplicate(const Symbol &sym, InputFile *newFile,
     msg += src2 + "\n>>>            ";
   msg += obj2;
   error(msg);
+}
+
+void Symbol::checkDuplicate(const Defined &other) const {
+  if (compare(&other, StringRef()) == 0)
+    reportDuplicate(*this, other.file,
+                    dyn_cast_or_null<InputSectionBase>(other.section),
+                    other.value);
 }
 
 #if INTEL_CUSTOMIZATION
@@ -739,10 +736,6 @@ void Symbol::resolveDefined(const Defined &other, StringRef otherName) {
 #endif // INTEL_CUSTOMIZATION
   if (cmp > 0)
     replace(other);
-  else if (cmp == 0)
-    reportDuplicate(*this, other.file,
-                    dyn_cast_or_null<InputSectionBase>(other.section),
-                    other.value);
 }
 
 template <class LazyT>
