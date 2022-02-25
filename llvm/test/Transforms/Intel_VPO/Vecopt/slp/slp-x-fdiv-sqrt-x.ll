@@ -60,6 +60,8 @@ define hidden void @foo(double* nocapture %p, double* nocapture readonly %p1, do
 ; FORCED-NEXT:    [[I238:%.*]] = fadd fast double [[X]], [[C:%.*]]
 ; FORCED-NEXT:    [[I239:%.*]] = fmul fast double [[I165]], [[I165]]
 ; FORCED-NEXT:    [[I240:%.*]] = fsub fast double [[I238]], [[I239]]
+; FORCED-NEXT:    [[GEP1:%.*]] = getelementptr double, double* [[P:%.*]], i32 0
+; FORCED-NEXT:    [[GEP2:%.*]] = getelementptr double, double* [[P]], i32 1
 ; FORCED-NEXT:    [[TMP0:%.*]] = insertelement <2 x double> poison, double [[I162]], i32 0
 ; FORCED-NEXT:    [[TMP1:%.*]] = insertelement <2 x double> [[TMP0]], double [[I166]], i32 1
 ; FORCED-NEXT:    [[TMP2:%.*]] = insertelement <2 x double> poison, double [[B:%.*]], i32 0
@@ -82,8 +84,6 @@ define hidden void @foo(double* nocapture %p, double* nocapture readonly %p1, do
 ; FORCED-NEXT:    [[TMP16:%.*]] = fmul fast <2 x double> [[TMP15]], [[TMP12]]
 ; FORCED-NEXT:    [[TMP17:%.*]] = fadd fast <2 x double> [[TMP15]], [[TMP12]]
 ; FORCED-NEXT:    [[TMP18:%.*]] = shufflevector <2 x double> [[TMP16]], <2 x double> [[TMP17]], <2 x i32> <i32 0, i32 3>
-; FORCED-NEXT:    [[GEP1:%.*]] = getelementptr double, double* [[P:%.*]], i32 0
-; FORCED-NEXT:    [[GEP2:%.*]] = getelementptr double, double* [[P]], i32 1
 ; FORCED-NEXT:    [[TMP19:%.*]] = bitcast double* [[GEP1]] to <2 x double>*
 ; FORCED-NEXT:    store <2 x double> [[TMP18]], <2 x double>* [[TMP19]], align 8
 ; FORCED-NEXT:    br label [[BB3]]
