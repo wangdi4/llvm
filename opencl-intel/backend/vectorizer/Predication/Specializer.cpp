@@ -509,7 +509,7 @@ void FunctionSpecializer::CollectDominanceInfo() {
         continue;
 
       if (m_OBP->isEdgeHot(bb, br->getSuccessor(i))) {
-        OCLSTAT_GATHER_CHECK(
+        DPCPP_STAT_GATHER_CHECK(
           // statistics:: ///////////////////////////////////////////////////////
           // count statistics Edge_Not_Being_Specialized_Because_EdgeHot,
           // and Edge_Not_Being_Specialized_Because_EdgeHot_At_Least_50Insts

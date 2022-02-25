@@ -50,11 +50,12 @@ OCL_INITIALIZE_PASS_END(CLWGLoopBoundaries, "cl-loop-bound",
 
 CLWGLoopBoundaries::CLWGLoopBoundaries()
     : ModulePass(ID), m_clRtServices(nullptr),
-      OCLSTAT_INIT(Created_Early_Exit,
-                   "one if early exit (or late start) was done for the kernel."
-                   " Value is never greater for one, even if early-exit done "
-                   "for several dimensions.",
-                   m_kernelStats) {
+      DPCPP_STAT_INIT(
+          Created_Early_Exit,
+          "one if early exit (or late start) was done for the kernel."
+          " Value is never greater for one, even if early-exit done "
+          "for several dimensions.",
+          m_kernelStats) {
   initializeCLWGLoopBoundariesPass(*PassRegistry::getPassRegistry());
 }
 
@@ -229,7 +230,7 @@ bool CLWGLoopBoundaries::runOnFunction(Function& F) {
     if (I->getNumUses() == 0)
       I->eraseFromParent();
   }
-  intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
+  DPCPPStatistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
   return true;
 }
 

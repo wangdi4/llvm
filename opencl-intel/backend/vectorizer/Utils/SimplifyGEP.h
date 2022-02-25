@@ -16,7 +16,7 @@
 #define __SIMPLIFY_GEP_H_
 
 #include "Logger.h"
-#include "OclTune.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
@@ -100,9 +100,9 @@ namespace intel {
     /// @brief This holds DataLayout of processed module
     const DataLayout *m_pDL;
 
-    Statistic::ActiveStatsT m_kernelStats;
-    Statistic Simplified_Multi_Indices_GEPs;
-    Statistic Simplified_Phi_Node_GEPs;
+    DPCPPStatistic::ActiveStatsT m_kernelStats;
+    DPCPPStatistic Simplified_Multi_Indices_GEPs;
+    DPCPPStatistic Simplified_Phi_Node_GEPs;
   };
 } // namespace
 

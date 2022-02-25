@@ -14,11 +14,10 @@
 
 #include "MetadataAPITestFixture.h"
 
-#include "MetadataStatsAPI.h"
-
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataStatsAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
@@ -27,8 +26,6 @@
 #include <algorithm>
 #include <utility>
 
-using namespace Intel;
-using namespace MetadataAPI;
 using namespace llvm::DPCPPKernelMetadataAPI;
 
 TEST_F(MetadataTest, Test_RecursiveCallMetadata) {

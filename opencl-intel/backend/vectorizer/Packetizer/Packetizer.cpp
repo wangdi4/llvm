@@ -76,88 +76,95 @@ OCL_INITIALIZE_PASS_END(PacketizeFunction, "packetize", "packetize functions", f
 PacketizeFunction::PacketizeFunction(Intel::OpenCL::Utils::ECPU Cpu,
                                      unsigned int vectorizationDimension)
     : FunctionPass(ID), m_Cpu(Cpu),
-      OCLSTAT_INIT(GEP_With_2_Indices,
-                   "Loads and stores of an address with exactly two indices",
-                   m_kernelStats),
-      OCLSTAT_INIT(GEP_With_More_Than_2_Indices,
-                   "Loads and stores of addresses with more than two indices "
-                   "that are scalarized instead of gathered / scattered",
-                   m_kernelStats),
-      OCLSTAT_INIT(Array_Of_Structs_Store_Or_Loads,
-                   "Gathered / scattered stores and loads in an A[id].x format",
-                   m_kernelStats),
-      OCLSTAT_INIT(
+      DPCPP_STAT_INIT(GEP_With_2_Indices,
+                      "Loads and stores of an address with exactly two indices",
+                      m_kernelStats),
+      DPCPP_STAT_INIT(
+          GEP_With_More_Than_2_Indices,
+          "Loads and stores of addresses with more than two indices "
+          "that are scalarized instead of gathered / scattered",
+          m_kernelStats),
+      DPCPP_STAT_INIT(
+          Array_Of_Structs_Store_Or_Loads,
+          "Gathered / scattered stores and loads in an A[id].x format",
+          m_kernelStats),
+      DPCPP_STAT_INIT(
           Cant_Load_Transpose_Because_Of_Non_Extract_Users,
           "Load of vector types, where the load value is used both by extracts "
           "and by non-extrats instructions, and thus not transposed",
           m_kernelStats),
-      OCLSTAT_INIT(
+      DPCPP_STAT_INIT(
           Cant_Load_Transpose_Because_Multiple_Extract_Users_With_The_Same_Index,
           "Load of vector types, where the loaded value has two extract "
           "instructions that extracts the same index",
           m_kernelStats),
-      OCLSTAT_INIT(Load_Transpose_Created_For_A_Single_Scalar_Value,
-                   "Load transpose created, where only a single scalar of the "
-                   "vector is actually used",
-                   m_kernelStats),
-      OCLSTAT_INIT(
+      DPCPP_STAT_INIT(
+          Load_Transpose_Created_For_A_Single_Scalar_Value,
+          "Load transpose created, where only a single scalar of the "
+          "vector is actually used",
+          m_kernelStats),
+      DPCPP_STAT_INIT(
           Store_Transpose_Given_Up_Because_Of_Multiple_Users_Of_The_Stored_Vector,
           "Store transpose not created because the stored vector is used by "
           "more than one instruction",
           m_kernelStats),
-      OCLSTAT_INIT(
+      DPCPP_STAT_INIT(
           Store_Transpose_Given_Up_Due_To_Not_Supported_Vector_Size,
           "Store transpose not created because vector size is not supported",
           m_kernelStats),
-      OCLSTAT_INIT(Store_Transpose_Created_For_A_Single_Scalar,
-                   "Store transpose created, even though only a single scalar "
-                   "value is likely to benefit of it",
-                   m_kernelStats),
-      OCLSTAT_INIT(
+      DPCPP_STAT_INIT(
+          Store_Transpose_Created_For_A_Single_Scalar,
+          "Store transpose created, even though only a single scalar "
+          "value is likely to benefit of it",
+          m_kernelStats),
+      DPCPP_STAT_INIT(
           Insert_Element_Transpose_Given_Up_Due_To_Not_supported_Vector_Size,
           "Insert element transpose not created because vector size is not "
           "supported",
           m_kernelStats),
-      OCLSTAT_INIT(Transposing_ExtractElement_For_A_Single_Extract,
-                   "created a transpose sequence because of a single "
-                   "extractElement instruction",
-                   m_kernelStats),
-      OCLSTAT_INIT(
+      DPCPP_STAT_INIT(Transposing_ExtractElement_For_A_Single_Extract,
+                      "created a transpose sequence because of a single "
+                      "extractElement instruction",
+                      m_kernelStats),
+      DPCPP_STAT_INIT(
           Scalarize_An_Instruction_That_Does_Not_Have_Vector_Support,
           "Shuffle, Extract, Insert, return type non-integer/float, etc.",
           m_kernelStats),
-      OCLSTAT_INIT(Scalarize_Memory_Operand_That_Does_Not_Have_Vector_Support,
-                   "Scalarizing a Store / Load, for a type that does not have "
-                   "a vector support",
-                   m_kernelStats),
-      OCLSTAT_INIT(Wide_Unmasked_Memory_Operation_Created,
-                   "Created a wide (vector) load / store.", m_kernelStats),
-      OCLSTAT_INIT(Wide_Masked_Memory_Operation_Created,
-                   "Created a wide masked consecutive load / store.",
-                   m_kernelStats),
-      OCLSTAT_INIT(Gather_Scatter_Created, "Created a gather / scatter.",
-                   m_kernelStats),
-      OCLSTAT_INIT(
+      DPCPP_STAT_INIT(
+          Scalarize_Memory_Operand_That_Does_Not_Have_Vector_Support,
+          "Scalarizing a Store / Load, for a type that does not have "
+          "a vector support",
+          m_kernelStats),
+      DPCPP_STAT_INIT(Wide_Unmasked_Memory_Operation_Created,
+                      "Created a wide (vector) load / store.", m_kernelStats),
+      DPCPP_STAT_INIT(Wide_Masked_Memory_Operation_Created,
+                      "Created a wide masked consecutive load / store.",
+                      m_kernelStats),
+      DPCPP_STAT_INIT(Gather_Scatter_Created, "Created a gather / scatter.",
+                      m_kernelStats),
+      DPCPP_STAT_INIT(
           Scalarize_Memory_Operand_Because_Cant_Create_Gather_Scatter,
           "Memory operand does have vector type support, but we couldnt use it",
           m_kernelStats),
-      OCLSTAT_INIT(Scalarize_Function_Call, "Scalarizing a Call Instruction",
-                   m_kernelStats),
-      OCLSTAT_INIT(Scalarize_ExtractElement_Because_Cant_Transpose,
-                   "Scalarizing an extract element instruction", m_kernelStats),
-      OCLSTAT_INIT(Created_Transpose_For_Insert_Element,
-                   "Created a transpose sequence when vectorizing an insert "
-                   "element instruction",
-                   m_kernelStats),
-      OCLSTAT_INIT(Created_Transpose_For_Extract_Element,
-                   "Created a transpose sequence when vectorizing an extract "
-                   "element instruction",
-                   m_kernelStats),
-      OCLSTAT_INIT(
+      DPCPP_STAT_INIT(Scalarize_Function_Call, "Scalarizing a Call Instruction",
+                      m_kernelStats),
+      DPCPP_STAT_INIT(Scalarize_ExtractElement_Because_Cant_Transpose,
+                      "Scalarizing an extract element instruction",
+                      m_kernelStats),
+      DPCPP_STAT_INIT(Created_Transpose_For_Insert_Element,
+                      "Created a transpose sequence when vectorizing an insert "
+                      "element instruction",
+                      m_kernelStats),
+      DPCPP_STAT_INIT(
+          Created_Transpose_For_Extract_Element,
+          "Created a transpose sequence when vectorizing an extract "
+          "element instruction",
+          m_kernelStats),
+      DPCPP_STAT_INIT(
           Created_Load_And_Transpose,
           "Created a load + transpose when vectorizing a load instruction",
           m_kernelStats),
-      OCLSTAT_INIT(
+      DPCPP_STAT_INIT(
           Created_Transpose_And_Store,
           "Created a transpose + store when vectorizing a store instruction",
           m_kernelStats) {
@@ -326,7 +333,7 @@ bool PacketizeFunction::runOnFunction(Function &F)
   )
 
   V_PRINT(packetizer, "\nCompleted vectorizing function: " << m_currFunc->getName() << "\n");
-  intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
+  DPCPPStatistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
   return true;
 }
 

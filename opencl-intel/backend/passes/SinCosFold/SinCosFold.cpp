@@ -43,11 +43,14 @@ namespace intel {
   OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
   OCL_INITIALIZE_PASS_END(SinCosFold, "cos-sin-pass", "Folds cos(x) and sin(x) functions with a single sincos function", false, false)
 
-  SinCosFold::SinCosFold() : ModulePass(ID), OCLSTAT_INIT(Additinal_sin_cos_not_replaced,
-    "stores if there are extra sin and cos that should have been replaced, but were not",
-    m_kernelStats) {
-      initializeSinCosFoldPass(*llvm::PassRegistry::getPassRegistry());
-    }
+  SinCosFold::SinCosFold()
+      : ModulePass(ID),
+        DPCPP_STAT_INIT(Additinal_sin_cos_not_replaced,
+                        "stores if there are extra sin and cos that should "
+                        "have been replaced, but were not",
+                        m_kernelStats) {
+    initializeSinCosFoldPass(*llvm::PassRegistry::getPassRegistry());
+  }
 
   void SinCosFold::replaceSingleInst(CallInst *it, Value * val) {
     it->replaceAllUsesWith(val);
@@ -154,7 +157,7 @@ namespace intel {
           changedModule = changedModule || replaced;
         }
       }
-      intel::Statistic::pushFunctionStats(m_kernelStats, (*fn), DEBUG_TYPE);
+      DPCPPStatistic::pushFunctionStats(m_kernelStats, (*fn), DEBUG_TYPE);
     }
     return changedModule;
   }

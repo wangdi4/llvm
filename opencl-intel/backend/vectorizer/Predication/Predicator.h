@@ -16,7 +16,6 @@
 #define __PREDICATOR_H_
 #include "BuiltinLibInfo.h"
 #include "Linearizer.h"
-#include "OclTune.h"
 #include "PhiCanon.h"
 #include "Specializer.h"
 
@@ -32,6 +31,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WorkItemAnalysis.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -544,21 +544,23 @@ private:
   /// UCF region scheduling constraints
   WorkItemInfo::SchdConstMap m_ucfSchedulingConstraints;
 
-  // Statistics:
-  Statistic::ActiveStatsT m_kernelStats;
-  Statistic Predicated_Uniform_Store_Or_Loads;
-  Statistic AllOnes_Bypasses;
-  Statistic AllOnes_Bypasses_Due_To_Non_Consecutive_Store_Load;
-  Statistic Predicated;
-  Statistic Unpredicated_Uniform_Store_Load;
-  Statistic Unpredicated_Cosecutive_Local_Memory_Load;
-  Statistic Predicated_Consecutive_Local_Memory_Load;
-  Statistic Preserved_Uniform_Conrol_Flow_Regions;
-  public: Statistic Edge_Not_Being_Specialized_Because_EdgeHot;
-  public: Statistic Edge_Not_Being_Specialized_Because_EdgeHot_At_Least_50Insts;
-  public: Statistic Edge_Not_Being_Specialized_Because_Should_Not_Specialize;
-  public: Statistic Edge_Not_Being_Specialized_Break_Inside_A_Loop;
-  public: Statistic Zero_Bypasses;
+  // DPCPPStatistics:
+  DPCPPStatistic::ActiveStatsT m_kernelStats;
+  DPCPPStatistic Predicated_Uniform_Store_Or_Loads;
+  DPCPPStatistic AllOnes_Bypasses;
+  DPCPPStatistic AllOnes_Bypasses_Due_To_Non_Consecutive_Store_Load;
+  DPCPPStatistic Predicated;
+  DPCPPStatistic Unpredicated_Uniform_Store_Load;
+  DPCPPStatistic Unpredicated_Cosecutive_Local_Memory_Load;
+  DPCPPStatistic Predicated_Consecutive_Local_Memory_Load;
+  DPCPPStatistic Preserved_Uniform_Conrol_Flow_Regions;
+
+public:
+  DPCPPStatistic Edge_Not_Being_Specialized_Because_EdgeHot;
+  DPCPPStatistic Edge_Not_Being_Specialized_Because_EdgeHot_At_Least_50Insts;
+  DPCPPStatistic Edge_Not_Being_Specialized_Because_Should_Not_Specialize;
+  DPCPPStatistic Edge_Not_Being_Specialized_Break_Inside_A_Loop;
+  DPCPPStatistic Zero_Bypasses;
 };
 
 }
