@@ -3,23 +3,16 @@
 # Test for checking that LLD links GNU LTO objects.
 # This test case handles when ELF and GNU LTO files are in the command line.
 
-# Copy the files into the temporary directory, this is to prevent multiple
-# processes accessing the same files when running the test system in parallel.
-# RUN: cp %S/Inputs/driver.cpp driver_test_2.cpp
-# RUN: cp %S/Inputs/foo.cpp foo_test_2.cpp
-# RUN: cp %S/Inputs/bar.cpp bar_test_2.cpp
-# RUN: cp %S/Inputs/baz.cpp baz_test_2.cpp
-
 # Compile with clang++ and no LTO (generate regular ELF)
-# RUN: clang++ -c driver_test_2.cpp
-# RUN: clang++ -c foo_test_2.cpp
+# RUN: clang++ -c %S/Inputs/driver.cpp -o %t_driver.o
+# RUN: clang++ -c %S/Inputs/foo.cpp -o %t_foo.o
 
-# Compile with G++ and LTO
-# RUN: g++ -c -flto bar_test_2.cpp
-# RUN: g++ -c -flto baz_test_2.cpp
+# Compile with g++ and LTO
+# RUN: g++ -c -flto %S/Inputs/bar.cpp -o %t_bar.o
+# RUN: g++ -c -flto %S/Inputs/baz.cpp -o %t_baz.o
 
 # Link
-# RUN: clang++ -fuse-ld=lld driver_test_2.o foo_test_2.o bar_test_2.o baz_test_2.o -o gnu_lto_test_2 > %t_out.txt 2>&1
+# RUN: clang++ -fuse-ld=lld %t_driver.o %t_foo.o %t_bar.o %t_baz.o -o %t_gnu_lto_test_2 > %t_out.txt 2>&1
 # RUN: cat %t_out.txt | FileCheck -check-prefix=CHECKLINK %s -allow-empty
 
 # Check that the files were linked correctly
@@ -28,10 +21,7 @@ CHECKLINK-NOT: error: undefined symbol: baz
 CHECKLINK: GNU LTO files found in the command line.
 
 # Check that the executable runs correctly
-# RUN: ./gnu_lto_test_2 | FileCheck -check-prefix=CHECKRUN2 %s
+# RUN: %t_gnu_lto_test_2 | FileCheck -check-prefix=CHECKRUN2 %s
 CHECKRUN2: FOO: 1
 CHECKRUN2: BAR: 2
 CHECKRUN2: BAZ: 3
-
-# RUN: rm driver_test_2.o foo_test_2.o bar_test_2.o baz_test_2.o
-# RUN: rm gnu_lto_test_2

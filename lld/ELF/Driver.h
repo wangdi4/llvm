@@ -43,11 +43,13 @@ private:
 
   std::vector<InputFile *> files;
 #if INTEL_CUSTOMIZATION
-  // If there is at least one GNU LTO file in the linking command
-  // then pass it to G++ in order to do LTO and build a temporary
-  // object. Then collect the ELF object generated and add it to
-  // the linking process.
-  template <class ELFT> void doGnuLTOLinking();
+  // Pass to g++ the input vector of GNU LTO files in order to do LTO and
+  // build a temporary object. Then collect the ELF object generated and
+  // add it to the linking process either as a regular object file or
+  // lazy object (archive members).
+  template <class ELFT> void
+      doGnuLTOLinking(llvm::SmallVectorImpl<InputFile *> &gnuLTOFiles,
+                      bool isLazyFile);
 #endif // INTEL_CUSTOMIZATION
 
 public:

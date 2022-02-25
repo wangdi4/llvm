@@ -3,26 +3,22 @@
 # Test for checking that LLD links GNU LTO objects.
 # This test case handles when linking with archives that have GNU LTO members.
 
-# Copy the files into the temporary directory, this is to prevent multiple
-# processes accessing the same files when running the test system in parallel.
-# RUN: cp %S/Inputs/driver.cpp driver_test_4.cpp
-# RUN: cp %S/Inputs/foo.cpp foo_test_4.cpp
-# RUN: cp %S/Inputs/bar.cpp bar_test_4.cpp
-# RUN: cp %S/Inputs/baz.cpp baz_test_4.cpp
+# Make sure the archives doesn't exists
+# RUN: rm -f %t_arch.a
 
 # Compile with clang++ and LTO
-# RUN: clang++ -c -flto driver_test_4.cpp
-# RUN: clang++ -c -flto foo_test_4.cpp
+# RUN: clang++ -c -flto %S/Inputs/driver.cpp -o %t_driver.o
+# RUN: clang++ -c -flto %S/Inputs/foo.cpp -o %t_foo.o
 
-# Compile with G++ and LTO
-# RUN: g++ -c -flto bar_test_4.cpp
-# RUN: g++ -c -flto baz_test_4.cpp
+# Compile with g++ and LTO
+# RUN: g++ -c -flto %S/Inputs/bar.cpp -o %t_bar.o
+# RUN: g++ -c -flto %S/Inputs/baz.cpp -o %t_baz.o
 
 # Create archive, call gcc-ar since it passes the LTO plugin to AR
-# RUN: gcc-ar rus arch_test_4.a bar_test_4.o baz_test_4.o
+# RUN: gcc-ar rus %t_arch.a %t_bar.o %t_baz.o
 
 # Link
-# RUN: clang++ -fuse-ld=lld driver_test_4.o foo_test_4.o arch_test_4.a -o gnu_lto_test_4 > %t_out.txt 2>&1
+# RUN: clang++ -fuse-ld=lld %t_driver.o %t_foo.o %t_arch.a -o %t_gnu_lto_test_4 > %t_out.txt 2>&1
 # RUN: cat %t_out.txt | FileCheck -check-prefix=CHECKLINK %s -allow-empty
 
 # Check that the files were linked correctly
@@ -31,11 +27,7 @@ CHECKLINK-NOT: error: undefined symbol: baz
 CHECKLINK: GNU LTO files found in the command line.
 
 # Check that the executable runs correctly
-# RUN: ./gnu_lto_test_4 | FileCheck -check-prefix=CHECKRUN4 %s
+# RUN: %t_gnu_lto_test_4 | FileCheck -check-prefix=CHECKRUN4 %s
 CHECKRUN4: FOO: 1
 CHECKRUN4: BAR: 2
 CHECKRUN4: BAZ: 3
-
-# RUN: rm driver_test_4.o foo_test_4.o bar_test_4.o baz_test_4.o
-# RUN: rm gnu_lto_test_4
-# RUN: rm arch_test_4.a

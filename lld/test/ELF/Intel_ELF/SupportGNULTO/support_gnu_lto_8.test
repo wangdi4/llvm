@@ -7,7 +7,7 @@
 # processes accessing the same files when running the test system in parallel.
 # RUN: cp %S/Inputs/test_file_8.cpp test_file_8.cpp
 
-# Compile with G++ and LTO
+# Compile with g++ and LTO
 # RUN: g++ -c -flto test_file_8.cpp
 
 # Make sure the temporary directory doesn't exists

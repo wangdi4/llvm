@@ -48,7 +48,7 @@ SmallVector<BitcodeFile *, 0> elf::bitcodeFiles;
 SmallVector<BitcodeFile *, 0> elf::lazyBitcodeFiles;
 SmallVector<ELFFileBase *, 0> elf::objectFiles;
 SmallVector<SharedFile *, 0> elf::sharedFiles;
-SmallVector<InputFile *, 0> elf::gNULTOFiles; // INTEL
+SmallVector<InputFile *, 0> elf::gnuLTOFiles; // INTEL
 
 std::unique_ptr<TarWriter> elf::tar;
 
@@ -211,7 +211,7 @@ template <class ELFT> static void doParseFile(InputFile *file) {
   // into the GNULTOFiles vector.
   if (file->isGNULTOFile) {
     objectFiles.pop_back();
-    gNULTOFiles.push_back(file);
+    gnuLTOFiles.push_back(file);
   }
 #endif // INTEL_CUSTOMIZATION
 }
@@ -411,6 +411,20 @@ template <class ELFT> void ELFFileBase::init() {
   const Elf_Shdr *symtabSec =
       findSection(sections, isDSO ? SHT_DYNSYM : SHT_SYMTAB);
 
+#if INTEL_CUSTOMIZATION
+  // We identify if an object contains GNU LTO information by checking if at
+  // least one section's name starts with ".gnu.lto". GNU LTO objects have a
+  // symbol called __gnu_lto_slim, but we shouldn't rely on it since there
+  // are discussions in the GNU community to remove it.
+  for (const Elf_Shdr &sec : sections) {
+    StringRef sectionName = CHECK(obj.getSectionName(sec), this);
+    if (sectionName.startswith(".gnu.lto")) {
+      this->isGNULTOFile = true;
+      break;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (!symtabSec)
     return;
 
@@ -588,14 +602,6 @@ void ObjFile<ELFT>::initializeSections(bool ignoreComdats,
     if (this->sections[i] == &InputSection::discarded)
       continue;
     const Elf_Shdr &sec = objSections[i];
-
-#if INTEL_CUSTOMIZATION
-    // If the section name starts with .gnu.lto then a GNU
-    // LTO file was found.
-    StringRef sectionName = CHECK(getObj().getSectionName(sec), this);
-    if (sectionName.startswith(".gnu.lto"))
-      this->isGNULTOFile = true;
-#endif
 
     // SHF_EXCLUDE'ed sections are discarded by the linker. However,
     // if -r is given, we'll let the final link discard such sections.
