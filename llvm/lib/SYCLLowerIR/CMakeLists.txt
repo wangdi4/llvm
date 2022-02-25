@@ -29,11 +29,12 @@ if (NOT TARGET LLVMGenXIntrinsics)
       # default repo path for public xmain builds, not using ICS
       set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel-innersource)
       set(LLVMGenXIntrinsics_GIT_REPO_NAME applications.compilers.source.vc-intrinsics.git)
-      # commit a3ca3a364a92ed966a337d9154f9f2d02b0efc5a
-      # Author: Nikita Rudenko <nikita.rudenko@intel.com>
-      # Date: Thu Feb 3 14:10:33 2022 +0000
-      # Set some tests to XFAIL on latest LLVM 15
-      set(LLVMGenXIntrinsics_GIT_TAG a3ca3a364a92ed966a337d9154f9f2d02b0efc5a)
+      # commit 8b6e209fe1269a2c6470b36dfbaa0e051d2a100f (master)
+      # Author: Konstantin Vladimirov <konstantin.vladimirov@intel.com>
+      # Date:   Tue Feb 8 10:47:03 2022 +0000
+      # introducing named barrier support in adaptor pass
+      # named barrier required for DPC++ and other customers
+      set(LLVMGenXIntrinsics_GIT_TAG 8b6e209fe1269a2c6470b36dfbaa0e051d2a100f)
 
       # Determine if the build is embargo and provide specific settings.
       set(IS_INTERNAL_ESIMD_BUILD FALSE)
