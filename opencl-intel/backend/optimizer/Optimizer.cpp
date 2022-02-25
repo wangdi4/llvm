@@ -151,7 +151,6 @@ llvm::ModulePass *createPrintfArgumentsPromotionPass();
 llvm::ModulePass *createChannelsUsageAnalysisPass();
 llvm::ModulePass *createSYCLPipesHackPass();
 llvm::ModulePass *createRemoveAtExitPass();
-llvm::FunctionPass *createAddNTAttrPass();
 llvm::Pass *createResolveVariableTIDCallPass();
 llvm::ModulePass *createVectorKernelDiscardPass(const intel::OptimizerConfig *);
 llvm::ModulePass *createSetPreferVectorWidthPass(const CPUDetect *CPUID);
@@ -703,7 +702,7 @@ static void populatePassesPostFailCheck(
   if (OptLevel > 0) {
     PM.add(createDeduceMaxWGDimPass());
     if (pConfig->GetStreamingAlways())
-      PM.add(createAddNTAttrPass());
+      PM.add(createAddNTAttrLegacyPass());
     if (debugType == Native)
       PM.add(createImplicitGIDPass(/*HandleBarrier*/ false));
     PM.add(llvm::createDPCPPKernelWGLoopCreatorLegacyPass());

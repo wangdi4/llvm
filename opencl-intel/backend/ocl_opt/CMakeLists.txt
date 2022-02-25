@@ -37,7 +37,6 @@ set(OCL_BE_PASSES
     OCLAliasAnalysis
     PrintfArgumentsPromotion
     SYCLPipesHack
-    AddNTAttr
     ResolveVariableTIDCall
     UndefExternalFuncs
 )
