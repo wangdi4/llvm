@@ -3356,7 +3356,6 @@ private:
       ++SchedulingRegionID;
     }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // Clear the scheduler's state.
     void deepClear() {
@@ -3375,12 +3374,8 @@ private:
     }
 #endif // INTEL_CUSTOMIZATION
 
-    ScheduleData *getScheduleData(Value *V) {
-      ScheduleData *SD = ScheduleDataMap[V];
-=======
     ScheduleData *getScheduleData(Instruction *I) {
       ScheduleData *SD = ScheduleDataMap[I];
->>>>>>> 9a40f9f6814923a27ddeb439dd216d967de0d2d1
       if (SD && isInSchedulingRegion(SD))
         return SD;
       return nullptr;
