@@ -40,7 +40,7 @@ D::D() { }
 // CHECK-NEXT:    [[D:%.*]] = alloca %"struct.PR6251::D", align 8
 // CHECK-NEXT:    [[D_ASCAST:%.*]] = addrspacecast %"struct.PR6251::D"* [[D]] to %"struct.PR6251::D" addrspace(4)*
 // CHECK-NEXT:    [[TMP0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.PRIVATE"(%"struct.PR6251::D" addrspace(4)* [[D_ASCAST]]) ]
-// CHECK-NEXT:    call spir_func void @_ZN6PR62511DC1Ev(%"struct.PR6251::D" addrspace(4)* noundef [[D_ASCAST]]) #[[ATTR5:[0-9]+]]
+// CHECK-NEXT:    call spir_func void @_ZN6PR62511DC1Ev(%"struct.PR6251::D" addrspace(4)* {{.*}} [[D_ASCAST]]) #[[ATTR5:[0-9]+]]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP0]]) [ "DIR.OMP.END.TARGET"() ]
 // CHECK-NEXT:    ret void
 //
