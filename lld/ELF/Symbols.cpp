@@ -687,24 +687,19 @@ void elf::reportDuplicate(const Symbol &sym, InputFile *newFile,
   error(msg);
 }
 
-<<<<<<< HEAD
+void Symbol::checkDuplicate(const Defined &other) const {
+  if (compare(&other, StringRef()) == 0)
+    reportDuplicate(*this, other.file,
+                    dyn_cast_or_null<InputSectionBase>(other.section),
+                    other.value);
+}
+
 #if INTEL_CUSTOMIZATION
 // We include the real name of the other symbol since there is a chance that
 // the symbol was created without a name.
 void Symbol::resolveCommon(const CommonSymbol &other, StringRef otherName) {
   int cmp = compare(&other, otherName);
 #endif // INTEL_CUSTOMIZATION
-=======
-void Symbol::checkDuplicate(const Defined &other) const {
-  if (compare(&other) == 0)
-    reportDuplicate(*this, other.file,
-                    dyn_cast_or_null<InputSectionBase>(other.section),
-                    other.value);
-}
-
-void Symbol::resolveCommon(const CommonSymbol &other) {
-  int cmp = compare(&other);
->>>>>>> 88d66f6ed1e5a3a9370a3181b7307fe65590e3ac
   if (cmp < 0)
     return;
 
