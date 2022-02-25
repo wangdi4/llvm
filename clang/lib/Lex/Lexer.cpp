@@ -1985,17 +1985,10 @@ const char *Lexer::LexUDSuffix(Token &Result, const char *CurPtr,
 
     if (!IsUDSuffix) {
       if (!isLexingRawMode())
-<<<<<<< HEAD
-        Diag(CurPtr, getLangOpts().MSVCCompat
-	     ? diag::ext_ms_reserved_user_defined_literal
-	     : diag::ext_reserved_user_defined_literal)
-          << FixItHint::CreateInsertion(getSourceLocation(CurPtr), " ");
-=======
         Diag(CurPtr, LangOpts.MSVCCompat
                          ? diag::ext_ms_reserved_user_defined_literal
                          : diag::ext_reserved_user_defined_literal)
             << FixItHint::CreateInsertion(getSourceLocation(CurPtr), " ");
->>>>>>> fbe38a784e2852b22f5a44ad417e071ff583d57d
       return CurPtr;
     }
 
