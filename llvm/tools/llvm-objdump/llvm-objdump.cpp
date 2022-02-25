@@ -2819,11 +2819,13 @@ int main(int argc, char **argv) {
       !Relocations && !SectionHeaders && !TraceBack && !SectionContents &&
       !SymbolTable && !DynamicSymbolTable && !UnwindInfo && !FaultMapSection &&
 #endif // INTEL_CUSTOMIZATION
-      !(MachOOpt &&
-        (Bind || DataInCode || DylibId || DylibsUsed || ExportsTrie ||
-         FirstPrivateHeader || FunctionStarts || IndirectSymbols || InfoPlist ||
-         LazyBind || LinkOptHints || ObjcMetaData || Rebase || Rpaths ||
-         UniversalHeaders || WeakBind || !FilterSections.empty()))) {
+      !Relocations && !SectionHeaders && !SectionContents && !SymbolTable &&
+      !DynamicSymbolTable && !UnwindInfo && !FaultMapSection &&
+      !(MachOOpt && (Bind || DataInCode || DyldInfo || DylibId || DylibsUsed ||
+                     ExportsTrie || FirstPrivateHeader || FunctionStarts ||
+                     IndirectSymbols || InfoPlist || LazyBind || LinkOptHints ||
+                     ObjcMetaData || Rebase || Rpaths || UniversalHeaders ||
+                     WeakBind || !FilterSections.empty()))) {
     T->printHelp(ToolName);
     return 2;
   }
