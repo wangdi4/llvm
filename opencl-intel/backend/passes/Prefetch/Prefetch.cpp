@@ -17,19 +17,19 @@
 #include "InitializePasses.h"
 #include "OCLAddressSpace.h"
 #include "OCLPassSupport.h"
-#include "OclTune.h"
 #include "cl_env.h"
 #include "mic_dev_limits.h"
 
-#include "llvm/InitializePasses.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/BranchProbability.h"
 #include "llvm/IR/CFG.h"
-#include "llvm/Support/Debug.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Type.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/Support/BranchProbability.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 
 #include <sstream>
 #include <string>
@@ -149,28 +149,28 @@ OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_END(Prefetch, "prefetch", "Auto Prefetch in Function", false, false)
 
 Prefetch::Prefetch(int level) : FunctionPass(ID), m_level(level),
-  OCLSTAT_INIT(Ignore_BB_lacking_vector_instructions, "Accesses not considered for prefetch since their BB has no vector instructions", m_kernelStats),
-  OCLSTAT_INIT(Ignore_BB_not_in_loop, "Basic blocks that are not in a loop", m_kernelStats),
-  OCLSTAT_INIT(Accesses_merged_to_1_PF_have_large_diff_256, "Accesses that were merged although had distance > 256 < 1024", m_kernelStats),
-  OCLSTAT_INIT(Accesses_not_merged_to_1_PF_have_large_diff_1024, "Accesses that were not merged since had distance > 1024", m_kernelStats),
-  OCLSTAT_INIT(Ignore_non_simple_load, "Non simple loads that were ignored for prefetching", m_kernelStats),
-  OCLSTAT_INIT(Ignore_local_load, "Loads from the local space that were ignored for prefetching", m_kernelStats),
-  OCLSTAT_INIT(Ignore_private_load, "Loads from the private space that were ignored for prefetching", m_kernelStats),
-  OCLSTAT_INIT(Ignore_non_simple_store, "Non simple stores that were ignored for prefetching", m_kernelStats),
-  OCLSTAT_INIT(Ignore_local_store, "Stores to the local space that were ignored for prefetching", m_kernelStats),
-  OCLSTAT_INIT(Ignore_private_store, "Stores to the private space that were ignored for prefetching", m_kernelStats),
+  DPCPP_STAT_INIT(Ignore_BB_lacking_vector_instructions, "Accesses not considered for prefetch since their BB has no vector instructions", m_kernelStats),
+  DPCPP_STAT_INIT(Ignore_BB_not_in_loop, "Basic blocks that are not in a loop", m_kernelStats),
+  DPCPP_STAT_INIT(Accesses_merged_to_1_PF_have_large_diff_256, "Accesses that were merged although had distance > 256 < 1024", m_kernelStats),
+  DPCPP_STAT_INIT(Accesses_not_merged_to_1_PF_have_large_diff_1024, "Accesses that were not merged since had distance > 1024", m_kernelStats),
+  DPCPP_STAT_INIT(Ignore_non_simple_load, "Non simple loads that were ignored for prefetching", m_kernelStats),
+  DPCPP_STAT_INIT(Ignore_local_load, "Loads from the local space that were ignored for prefetching", m_kernelStats),
+  DPCPP_STAT_INIT(Ignore_private_load, "Loads from the private space that were ignored for prefetching", m_kernelStats),
+  DPCPP_STAT_INIT(Ignore_non_simple_store, "Non simple stores that were ignored for prefetching", m_kernelStats),
+  DPCPP_STAT_INIT(Ignore_local_store, "Stores to the local space that were ignored for prefetching", m_kernelStats),
+  DPCPP_STAT_INIT(Ignore_private_store, "Stores to the private space that were ignored for prefetching", m_kernelStats),
 
-  OCLSTAT_INIT(Access_has_no_scalar_evolution_in_loop, "Memory access in loop w/o scalar evolution", m_kernelStats),
-  OCLSTAT_INIT(Access_step_is_loop_variant, "Memory access pattern is non-stride", m_kernelStats),
-  OCLSTAT_INIT(Access_step_is_loop_invariant, "Memory access is constant in inner-most loop, has scalar evolution in an outer loop", m_kernelStats),
-  OCLSTAT_INIT(Access_match_in_same_BB, "Access match in the same BB", m_kernelStats),
-  OCLSTAT_INIT(Access_match_in_dominating_BB, "Access match in a dominating BB", m_kernelStats),
-  OCLSTAT_INIT(Access_exact_match, "Access address exact match", m_kernelStats),
-  OCLSTAT_INIT(Access_match_same_cache_line, "Access address match same cache line", m_kernelStats),
-  OCLSTAT_INIT(PF_triggered_by_partial_cache_line_access, "PF triggered by partial cache line access", m_kernelStats),
-  OCLSTAT_INIT(PF_triggered_by_full_cache_line_access, "PF triggered by full cache line access", m_kernelStats),
-  OCLSTAT_INIT(PF_triggered_by_multiple_cache_line_access, "PF triggered by multiple line access", m_kernelStats),
-  OCLSTAT_INIT(Access_step_is_variable, "Access step is variable (non-constant or unknown constant))", m_kernelStats),
+  DPCPP_STAT_INIT(Access_has_no_scalar_evolution_in_loop, "Memory access in loop w/o scalar evolution", m_kernelStats),
+  DPCPP_STAT_INIT(Access_step_is_loop_variant, "Memory access pattern is non-stride", m_kernelStats),
+  DPCPP_STAT_INIT(Access_step_is_loop_invariant, "Memory access is constant in inner-most loop, has scalar evolution in an outer loop", m_kernelStats),
+  DPCPP_STAT_INIT(Access_match_in_same_BB, "Access match in the same BB", m_kernelStats),
+  DPCPP_STAT_INIT(Access_match_in_dominating_BB, "Access match in a dominating BB", m_kernelStats),
+  DPCPP_STAT_INIT(Access_exact_match, "Access address exact match", m_kernelStats),
+  DPCPP_STAT_INIT(Access_match_same_cache_line, "Access address match same cache line", m_kernelStats),
+  DPCPP_STAT_INIT(PF_triggered_by_partial_cache_line_access, "PF triggered by partial cache line access", m_kernelStats),
+  DPCPP_STAT_INIT(PF_triggered_by_full_cache_line_access, "PF triggered by full cache line access", m_kernelStats),
+  DPCPP_STAT_INIT(PF_triggered_by_multiple_cache_line_access, "PF triggered by multiple line access", m_kernelStats),
+  DPCPP_STAT_INIT(Access_step_is_variable, "Access step is variable (non-constant or unknown constant))", m_kernelStats),
   m_stats(m_kernelStats)
 {
   initializePrefetchPass(*PassRegistry::getPassRegistry());
@@ -181,30 +181,30 @@ Prefetch::~Prefetch() {
 }
 
 // construct prefetch stats that will be used in static methods.
-PrefetchStats::PrefetchStats(Statistic::ActiveStatsT &statList) :
-  OCLSTAT_INIT(Candidate_global_gather, "Gather from Global address space", statList),
-  OCLSTAT_INIT(Candidate_local_gather, "Gather from Local address space", statList),
-  OCLSTAT_INIT(Candidate_constant_gather, "Gather from Constant address space", statList),
-  OCLSTAT_INIT(Candidate_private_gather, "Gather from Private address space", statList),
-  OCLSTAT_INIT(Candidate_global_masked_gather, "Mask Gather from Global address space", statList),
-  OCLSTAT_INIT(Candidate_local_masked_gather, "Mask Gather from Local address space", statList),
-  OCLSTAT_INIT(Candidate_constant_masked_gather, "Mask Gather from Constant address space", statList),
-  OCLSTAT_INIT(Candidate_private_masked_gather, "Mask Gather from Private address space", statList),
-  OCLSTAT_INIT(Candidate_global_scatter, "Scatter to Global address space", statList),
-  OCLSTAT_INIT(Candidate_local_scatter, "Scatter to Local address space", statList),
-  OCLSTAT_INIT(Candidate_constant_scatter, "Scatter to Constant address space", statList),
-  OCLSTAT_INIT(Candidate_private_scatter, "Scatter to Private address space", statList),
-  OCLSTAT_INIT(Candidate_global_masked_scatter, "Mask Scatter to Global address space", statList),
-  OCLSTAT_INIT(Candidate_local_masked_scatter, "Mask Scatter to Local address space", statList),
-  OCLSTAT_INIT(Candidate_constant_masked_scatter, "Mask Scatter to Constant address space", statList),
-  OCLSTAT_INIT(Candidate_private_masked_scatter, "Mask Scatter to Private address space", statList),
-  OCLSTAT_INIT(PF_triggered_by_masked_unaligned_loads, "PF triggered by masked unaligned loads", statList),
-  OCLSTAT_INIT(PF_triggered_by_masked_unaligned_stores, "PF triggered by masked unaligned stores", statList),
-  OCLSTAT_INIT(PF_triggered_by_masked_random_gather, "PF triggered by masked random gathers", statList),
-  OCLSTAT_INIT(PF_triggered_by_masked_random_scatter, "PF triggered by masked random scatters", statList),
-  OCLSTAT_INIT(PF_triggered_by_random_gather, "PF triggered by full random gathers", statList),
-  OCLSTAT_INIT(PF_triggered_by_random_scatter, "PF triggered by full random scatters", statList),
-  OCLSTAT_INIT(Abort_APF_since_detected_manual_PF, "Abort memory access search since prefetch intrinsic was found", statList)
+PrefetchStats::PrefetchStats(DPCPPStatistic::ActiveStatsT &statList) :
+  DPCPP_STAT_INIT(Candidate_global_gather, "Gather from Global address space", statList),
+  DPCPP_STAT_INIT(Candidate_local_gather, "Gather from Local address space", statList),
+  DPCPP_STAT_INIT(Candidate_constant_gather, "Gather from Constant address space", statList),
+  DPCPP_STAT_INIT(Candidate_private_gather, "Gather from Private address space", statList),
+  DPCPP_STAT_INIT(Candidate_global_masked_gather, "Mask Gather from Global address space", statList),
+  DPCPP_STAT_INIT(Candidate_local_masked_gather, "Mask Gather from Local address space", statList),
+  DPCPP_STAT_INIT(Candidate_constant_masked_gather, "Mask Gather from Constant address space", statList),
+  DPCPP_STAT_INIT(Candidate_private_masked_gather, "Mask Gather from Private address space", statList),
+  DPCPP_STAT_INIT(Candidate_global_scatter, "Scatter to Global address space", statList),
+  DPCPP_STAT_INIT(Candidate_local_scatter, "Scatter to Local address space", statList),
+  DPCPP_STAT_INIT(Candidate_constant_scatter, "Scatter to Constant address space", statList),
+  DPCPP_STAT_INIT(Candidate_private_scatter, "Scatter to Private address space", statList),
+  DPCPP_STAT_INIT(Candidate_global_masked_scatter, "Mask Scatter to Global address space", statList),
+  DPCPP_STAT_INIT(Candidate_local_masked_scatter, "Mask Scatter to Local address space", statList),
+  DPCPP_STAT_INIT(Candidate_constant_masked_scatter, "Mask Scatter to Constant address space", statList),
+  DPCPP_STAT_INIT(Candidate_private_masked_scatter, "Mask Scatter to Private address space", statList),
+  DPCPP_STAT_INIT(PF_triggered_by_masked_unaligned_loads, "PF triggered by masked unaligned loads", statList),
+  DPCPP_STAT_INIT(PF_triggered_by_masked_unaligned_stores, "PF triggered by masked unaligned stores", statList),
+  DPCPP_STAT_INIT(PF_triggered_by_masked_random_gather, "PF triggered by masked random gathers", statList),
+  DPCPP_STAT_INIT(PF_triggered_by_masked_random_scatter, "PF triggered by masked random scatters", statList),
+  DPCPP_STAT_INIT(PF_triggered_by_random_gather, "PF triggered by full random gathers", statList),
+  DPCPP_STAT_INIT(PF_triggered_by_random_scatter, "PF triggered by full random scatters", statList),
+  DPCPP_STAT_INIT(Abort_APF_since_detected_manual_PF, "Abort memory access search since prefetch intrinsic was found", statList)
 {}
 
 
@@ -240,7 +240,8 @@ void Prefetch::init() {
     m_disableAPFGS = true;
     // if stats are disabled for this module disable stat collection
     // for DISAPFGS
-    if (!Statistic::isEnabled() || !Statistic::isCurrentStatType(DEBUG_TYPE))
+    if (!DPCPPStatistic::isEnabled() ||
+        !DPCPPStatistic::isCurrentStatType(DEBUG_TYPE))
       m_disableAPFGSTune = true;
   }
 
@@ -251,8 +252,8 @@ void Prefetch::init() {
 // getConstStep - calculate loop step.
 // step is non zero iff SAddr is AddRecExpr, i.e. it has step, and the
 // step is constant
-static int getConstStep (const SCEV *S, ScalarEvolution &SE,
-    Statistic &Access_step_is_variable) {
+static int getConstStep(const SCEV *S, ScalarEvolution &SE,
+                        DPCPPStatistic &Access_step_is_variable) {
   if (S->getSCEVType() == scAddRecExpr) {
     const SCEVAddRecExpr *AR = cast<SCEVAddRecExpr>(S);
     const SCEV * SAddrStep = AR->getStepRecurrence(SE);
@@ -525,7 +526,7 @@ bool Prefetch::memAccessExists (memAccess &access, memAccessV &MAV,
         diffSteps = -diffSteps;
       // if accesses are in the same cache line in another iteration
       if (iterOffset >= 0 && iterOffset < UarchInfo::CacheLineSize) {
-        OCLSTAT_GATHER_CHECK(
+        DPCPP_STAT_GATHER_CHECK(
           if (diffSteps > 256 && diffSteps <=1024)
             Accesses_merged_to_1_PF_have_large_diff_256++;
           if (diffSteps > 1024)
@@ -624,7 +625,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
           addr = pLoadInst->getPointerOperand();
           accessSize = getSize(I->getType());
         } else {
-          OCLSTAT_GATHER_CHECK(
+          DPCPP_STAT_GATHER_CHECK(
             if (!pLoadInst->isSimple()) Ignore_non_simple_load++;
             if (pLoadInst->getPointerAddressSpace() == Utils::OCLAddressSpace::Local)
               Ignore_local_load++;
@@ -641,7 +642,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
           accessSize = getSize(pStoreInst->getValueOperand()->getType());
           pfExclusive = true;
         } else {
-          OCLSTAT_GATHER_CHECK(
+          DPCPP_STAT_GATHER_CHECK(
             if (!pStoreInst->isSimple()) Ignore_non_simple_store++;
             if (pStoreInst->getPointerAddressSpace() == Utils::OCLAddressSpace::Local)
               Ignore_local_store++;
@@ -682,7 +683,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
       // in outer loop
       // Random accesses can be loop variant
       if (!isRandom && !m_SE->hasComputableLoopEvolution(SAddr, L)) {
-        OCLSTAT_GATHER_CHECK(switch (m_SE->getLoopDisposition(SAddr, L)) {
+        DPCPP_STAT_GATHER_CHECK(switch (m_SE->getLoopDisposition(SAddr, L)) {
           default: /*ScalarEvolution::LoopComputable*/
             assert(false && "unexpected loop disposition detected in SCEV");
             break;
@@ -879,7 +880,7 @@ void Prefetch::countPFPerLoop () {
         }
         if (MAV[i].isRandom())
           numRandom++;
-        OCLSTAT_GATHER_CHECK (
+        DPCPP_STAT_GATHER_CHECK (
           int accessSize = 0;
           StoreInst *pStoreInst = nullptr;
           LoadInst *pLoadInst = nullptr;
@@ -1369,7 +1370,7 @@ bool Prefetch::runOnFunction(Function &F) {
   m_LoopInfo.clear();
   m_isVectorized.clear();
 
-  intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
+  DPCPPStatistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
   return modified;
 }
 
@@ -1500,7 +1501,7 @@ bool PrefetchCandidateUtils::isPrefetchCandidate (CallInst *pCallInst,
       return false;
     addrV = addr;
     addrSpace = detectAddressSpace(addr);
-    OCLSTAT_GATHER_CHECK (
+    DPCPP_STAT_GATHER_CHECK (
       switch (addrSpace) {
         default: assert(false && "Unknown address space detected for gather");
           break;
@@ -1534,7 +1535,7 @@ bool PrefetchCandidateUtils::isPrefetchCandidate (CallInst *pCallInst,
       return false;
     addrV = addr;
     addrSpace = detectAddressSpace(addr);
-    OCLSTAT_GATHER_CHECK (
+    DPCPP_STAT_GATHER_CHECK (
       switch (addrSpace) {
         default: assert(false &&
             "Unknown address space detected for masked gather"); break;
@@ -1569,7 +1570,7 @@ bool PrefetchCandidateUtils::isPrefetchCandidate (CallInst *pCallInst,
       return false;
     addrV = addr;
     addrSpace = detectAddressSpace(addr);
-    OCLSTAT_GATHER_CHECK (
+    DPCPP_STAT_GATHER_CHECK (
       switch (addrSpace) {
         default: assert(false && "Unknown address space detected for scatter");
         break;
@@ -1601,7 +1602,7 @@ bool PrefetchCandidateUtils::isPrefetchCandidate (CallInst *pCallInst,
       return false;
     addrV = addr;
     addrSpace = detectAddressSpace(addr);
-    OCLSTAT_GATHER_CHECK(
+    DPCPP_STAT_GATHER_CHECK(
       switch (addrSpace) {
         default: assert(false &&
             "Unknown address space detected for masked scatter"); break;
@@ -1621,7 +1622,7 @@ bool PrefetchCandidateUtils::isPrefetchCandidate (CallInst *pCallInst,
     return true;
   }
 
-  OCLSTAT_GATHER_CHECK(
+  DPCPP_STAT_GATHER_CHECK(
     if (Name.find(m_prefetchIntrinsicName) != std::string::npos ||
         Name.find(m_gatherPrefetchIntrinsicStr) != std::string::npos ||
         Name.find(m_scatterPrefetchIntrinsicStr) != std::string::npos) {

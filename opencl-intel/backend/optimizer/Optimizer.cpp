@@ -16,10 +16,10 @@
 #include "CompilationUtils.h"
 #include "InitializeOCLPasses.hpp"
 #include "OCLAliasAnalysis.h"
-#include "OclTune.h"
 #include "PrintIRPass.h"
 #include "VecConfig.h"
 #include "mic_dev_limits.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 
 #include "VectorizerCommon.h"
 #include "cl_config.h"
@@ -398,7 +398,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   }
   std::string Env;
   if (Intel::OpenCL::Utils::getEnvVar(Env, "DISMPF") ||
-      intel::Statistic::isEnabled())
+      DPCPPStatistic::isEnabled())
     PM.add(createRemovePrefetchPass());
 
   PM.add(llvm::createBuiltinCallToInstLegacyPass());

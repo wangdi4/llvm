@@ -12,13 +12,12 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "MetadataStatsAPI.h"
-
-#include "llvm/IRReader/IRReader.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/SourceMgr.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataStatsAPI.h"
 
 #include <algorithm>
 #include <fstream>
@@ -27,8 +26,7 @@
 #include "Stats.h"
 
 using namespace llvm;
-using namespace Intel;
-using namespace MetadataAPI;
+using namespace DPCPPKernelMetadataAPI;
 
 extern "C" LLVMContextRef LLVMGetGlobalContext(void);
 
@@ -59,7 +57,7 @@ bool getFlist (vector<string> &flist)
 {
   bool result = true;
   for (unsigned i = 0; i != inDirs.size(); i++) {
-    result = result && getIRFileNames(inDirs[i].c_str(), flist);
+    result = result && Intel::getIRFileNames(inDirs[i].c_str(), flist);
   }
   cout << "Found " << flist.size() << " files in " << inDirs.size() <<
       " directories.\n";

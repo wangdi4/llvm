@@ -29,6 +29,10 @@
 #include "llvm/Transforms/Scalar/DCE.h"
 #include "llvm/Transforms/Scalar/DeadStoreElimination.h"
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
+#include "llvm/Transforms/Scalar/LICM.h"
+#include "llvm/Transforms/Scalar/LoopDeletion.h"
+#include "llvm/Transforms/Scalar/LoopIdiomRecognize.h"
+#include "llvm/Transforms/Scalar/SROA.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
@@ -173,6 +177,17 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       MPM.addPass(ModuleInlinerWrapperPass(InlineParams));
       // AddImplicitArgs pass may create dead implicit arguments.
       MPM.addPass(DeadArgumentEliminationPass());
+      FunctionPassManager FPM;
+      FPM.addPass(SROAPass());
+      FPM.addPass(LoopSimplifyPass());
+      FPM.addPass(createFunctionToLoopPassAdaptor(
+          LICMPass(), /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/true));
+      LoopPassManager LPM;
+      LPM.addPass(LoopIdiomRecognizePass());
+      LPM.addPass(LoopDeletionPass());
+      FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM)));
+      FPM.addPass(SimplifyCFGPass());
+      MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
     } else
       MPM.addPass(AlwaysInlinerPass());
     MPM.addPass(PrepareKernelArgsPass());

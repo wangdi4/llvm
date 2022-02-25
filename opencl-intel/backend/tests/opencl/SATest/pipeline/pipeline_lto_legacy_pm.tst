@@ -31,6 +31,7 @@
 ; CHECK:                Unroll loops
 
 ; CHECK:          DPCPPKernelAnalysisLegacy
+; CHECK:          WGLoopBoundariesLegacy
 ; CHECK:          VFAnalysisLegacy
 ; CHECK:          SetVectorizationFactorLegacy
 ; CHECK:          VectorVariantLoweringLegacy
@@ -75,6 +76,7 @@
 ; CHECK:          SROA
 ; CHECK:          Loop Invariant Code Motion
 ; CHECK:          Recognize loop idioms
+; CHECK:          Delete dead loops
 ; CHECK:          Simplify the CFG
 ; CHECK:          PrepareKernelArgsLegacy
 ; CHECK:          CleanupWrappedKernelLegacy

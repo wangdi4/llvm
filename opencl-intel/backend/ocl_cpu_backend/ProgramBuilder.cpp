@@ -26,7 +26,6 @@
 #include "KernelProperties.h"
 #include "ObjectCodeCache.h"
 #include "ObjectCodeContainer.h"
-#include "OclTune.h"
 #include "Optimizer.h"
 #include "Program.h"
 #include "SystemInfo.h"
@@ -36,6 +35,7 @@
 #include "cl_types.h"
 #include "cpu_dev_limits.h"
 #include "exceptions.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 
 #define DEBUG_TYPE "ProgramBuilder"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -154,7 +154,7 @@ ProgramBuilder::ProgramBuilder(IAbstractBackendFactory *pBackendFactory,
     if (name.empty())
       name = "Program";
     m_dumpFilenamePrefix += name;
-    if (intel::Statistic::isEnabled())
+    if (DPCPPStatistic::isEnabled())
       m_statWkldName = name;
   }
 }
@@ -173,7 +173,7 @@ ProgramBuilder::generateDumpFilename(const std::string &hash, unsigned fileId,
 void ProgramBuilder::DumpModuleStats(Program *program, Module *pModule,
                                      bool isEqualizerStats) {
 #ifndef INTEL_PRODUCT_RELEASE
-  if (!intel::Statistic::isEnabled())
+  if (!DPCPPStatistic::isEnabled())
     return;
 
   // use sequential number to distinguish dumped files
@@ -184,9 +184,9 @@ void ProgramBuilder::DumpModuleStats(Program *program, Module *pModule,
       generateDumpFilename(program->GenerateHash(), fileId, suffix);
 
   // if stats are enabled dump module info
-  if (intel::Statistic::isEnabled()) {
-    intel::Statistic::setModuleStatInfo(
-        pModule,
+  if (DPCPPStatistic::isEnabled()) {
+    DPCPPStatistic::setModuleStatInfo(
+        pModule, VERSIONSTRING,
         m_statWkldName.c_str(),                           // workload name
         (m_statWkldName + std::to_string(fileId)).c_str() // module name
     );

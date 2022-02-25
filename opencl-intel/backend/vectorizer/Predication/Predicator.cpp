@@ -114,43 +114,43 @@ Predicator::Predicator() :
   m_LI(nullptr),
   m_DL(nullptr),
 
-  OCLSTAT_INIT(Predicated_Uniform_Store_Or_Loads,
+  DPCPP_STAT_INIT(Predicated_Uniform_Store_Or_Loads,
     "store or loads with uniform address and value but with masks, that are not zerobypassed and thus predicated"
     , m_kernelStats),
-  OCLSTAT_INIT(AllOnes_Bypasses,
+  DPCPP_STAT_INIT(AllOnes_Bypasses,
     "total number of allones bypasses inserted",
     m_kernelStats),
-  OCLSTAT_INIT(AllOnes_Bypasses_Due_To_Non_Consecutive_Store_Load,
+  DPCPP_STAT_INIT(AllOnes_Bypasses_Due_To_Non_Consecutive_Store_Load,
     "number of allones bypasses for blocks that do not contain consecutive store or load instructions",
     m_kernelStats),
-  OCLSTAT_INIT(Predicated,
+  DPCPP_STAT_INIT(Predicated,
     "one if the function is predicated, zero otherwise",
     m_kernelStats),
-  OCLSTAT_INIT(Unpredicated_Uniform_Store_Load,
+  DPCPP_STAT_INIT(Unpredicated_Uniform_Store_Load,
     "instructions being unpredicated because they are uniform store/load",
     m_kernelStats),
-  OCLSTAT_INIT(Unpredicated_Cosecutive_Local_Memory_Load,
+  DPCPP_STAT_INIT(Unpredicated_Cosecutive_Local_Memory_Load,
     "instructions being unpredicated because they are consecuitve local memory load",
     m_kernelStats),
-  OCLSTAT_INIT(Predicated_Consecutive_Local_Memory_Load,
+  DPCPP_STAT_INIT(Predicated_Consecutive_Local_Memory_Load,
     "load instructions of local memory that could potentially be unmasked, but currently aren't",
     m_kernelStats),
-  OCLSTAT_INIT(Preserved_Uniform_Conrol_Flow_Regions,
+  DPCPP_STAT_INIT(Preserved_Uniform_Conrol_Flow_Regions,
     "preserved Uniform Control Flow regions inside Divergent Control Flow regions",
     m_kernelStats),
-  OCLSTAT_INIT(Edge_Not_Being_Specialized_Because_EdgeHot,
+  DPCPP_STAT_INIT(Edge_Not_Being_Specialized_Because_EdgeHot,
     "edges that were chosen not to be specialized because of the EdgeHot heuristic",
     m_kernelStats),
-  OCLSTAT_INIT(Edge_Not_Being_Specialized_Because_EdgeHot_At_Least_50Insts,
+  DPCPP_STAT_INIT(Edge_Not_Being_Specialized_Because_EdgeHot_At_Least_50Insts,
     "edges that were chosen not to be specialized because of the EdgeHot heuristic, AND the bypassed region consists of at least 50 insts",
     m_kernelStats),
-  OCLSTAT_INIT(Edge_Not_Being_Specialized_Because_Should_Not_Specialize,
+  DPCPP_STAT_INIT(Edge_Not_Being_Specialized_Because_Should_Not_Specialize,
     "edges that were chosen not to be specialzied only because of the ShouldSpecialize heuristic",
     m_kernelStats),
-  OCLSTAT_INIT(Edge_Not_Being_Specialized_Break_Inside_A_Loop,
+  DPCPP_STAT_INIT(Edge_Not_Being_Specialized_Break_Inside_A_Loop,
     "edges that were not specialized because they are (probably) break instructions inside a loop that has a conditional latch",
     m_kernelStats),
-  OCLSTAT_INIT(Zero_Bypasses,
+  DPCPP_STAT_INIT(Zero_Bypasses,
     "total number of zero bypasses inserted",
     m_kernelStats)
 {
@@ -232,11 +232,11 @@ bool Predicator::runOnFunction(Function &F) {
   if (needPredication(F)) {
     Predicated++; // statistics
     predicateFunction(&F);
-    intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
+    DPCPPStatistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
     return true;
   }
   // Did not change this function.
-  intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
+  DPCPPStatistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
   return false;
 }
 
@@ -2063,7 +2063,7 @@ void Predicator::predicateFunction(Function *F) {
   // collect instructions to predicate and instructions
   // with outside users
   V_STAT(
-  V_PRINT(vectorizer_stat, "Predicator Statistics on function "<<F->getName()<<":\n");
+  V_PRINT(vectorizer_stat, "Predicator DPCPPStatistics on function "<<F->getName()<<":\n");
   V_PRINT(vectorizer_stat, "======================================================\n");
   m_maskedLoadCtr = 0;
   m_maskedStoreCtr = 0;
@@ -3153,7 +3153,7 @@ bool Predicator::blockHasLoadStore(BasicBlock* BB) {
     // number of allones bypasses due to non-consecutive
     // store/loads.
     if (isa<LoadInst>(it)) {
-      OCLSTAT_GATHER_CHECK(
+      DPCPP_STAT_GATHER_CHECK(
         Value* operand = cast<LoadInst>(it)->getPointerOperand();
         WorkItemInfo::Dependency dep = m_WIA->whichDepend(operand);
         if (dep == WorkItemInfo::PTR_CONSECUTIVE) {
@@ -3168,7 +3168,7 @@ bool Predicator::blockHasLoadStore(BasicBlock* BB) {
       return true;
     }
     if (isa<StoreInst>(it)) {
-      OCLSTAT_GATHER_CHECK(
+      DPCPP_STAT_GATHER_CHECK(
         Value* operand = cast<StoreInst>(it)->getPointerOperand();
         WorkItemInfo::Dependency dep = m_WIA->whichDepend(operand);
         if (dep == WorkItemInfo::PTR_CONSECUTIVE) {
