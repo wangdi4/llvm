@@ -396,10 +396,11 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
     return nullptr;
   }
 
-  // If the module has the corresponding structure, we will use it to check for
-  // possible incorrect metadata information.
-  llvm::StructType *StTy =
-      StructType::getTypeByName(M.getContext(), DTStTy->getName());
+  llvm::StructType *StTy = cast<llvm::StructType>(DTStTy->getLLVMType());
+  assert(StTy && "DTransStructType incorrectly initialized during "
+                 "constructDTransStructType");
+
+  // Check that the metadata information matches with the structure definition.
   if (FieldCountU != StTy->getNumElements()) {
     LLVM_DEBUG(dbgs() << "Incorrect field count for structure: " << *StTy
                       << " - " << *MD << "\n ";);
@@ -425,15 +426,13 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
       continue;
     }
 
-    if (StTy) {
-      llvm::Type *IRFieldType = StTy->getElementType(FieldNum);
-      bool ExpectPointer = IRFieldType->isPointerTy();
-      bool GotPointer = DTFieldTy->isPointerTy();
-      if (ExpectPointer ^ GotPointer) {
-        DTStTy->setReconstructError();
-        LLVM_DEBUG(dbgs() << "Mismatch occurred:\n  Expected: " << *IRFieldType
-                          << "\n  Found: " << *DTFieldTy << "\n");
-      }
+    llvm::Type *IRFieldType = StTy->getElementType(FieldNum);
+    bool ExpectPointer = IRFieldType->isPointerTy();
+    bool GotPointer = DTFieldTy->isPointerTy();
+    if (ExpectPointer ^ GotPointer) {
+      DTStTy->setReconstructError();
+      LLVM_DEBUG(dbgs() << "Mismatch occurred:\n  Expected: " << *IRFieldType
+                        << "\n  Found: " << *DTFieldTy << "\n");
     }
 
     DTransFieldMember &Field = DTStTy->getField(FieldNum);
