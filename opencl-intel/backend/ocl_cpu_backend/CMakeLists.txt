@@ -219,7 +219,6 @@ set( BACKEND_PASSES
     ChannelPipeTransformation
     ChannelsUsageAnalysis
     PipeIOTransformation
-    CleanupWrappedKernels
     RemoveAtExit
     PipeOrdering
     PipeSupport

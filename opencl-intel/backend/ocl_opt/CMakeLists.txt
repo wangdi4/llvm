@@ -9,7 +9,6 @@ set(OCL_BE_PASSES
     BuiltinLibInfo
     ChannelPipeTransformation
     ChannelsUsageAnalysis
-    CleanupWrappedKernels
     RemoveAtExit
     DebugInfoPass
     DetectRecursion
