@@ -50,4 +50,8 @@
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
 ; CHECK:      Running pass: InlinerPass
 ; CHECK:      Running pass: DeadArgumentEliminationPass
-; CHECK-NEXT: Running pass: PrepareKernelArgsPass
+; CHECK:      Running pass: LoopSimplifyPass
+; CHECK:      Running pass: LICMPass
+; CHECK:      Running pass: LoopIdiomRecognizePass
+; CHECK:      Running pass: LoopDeletionPass
+; CHECK:      Running pass: PrepareKernelArgsPass

@@ -219,8 +219,10 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
     // AddImplicitArgs pass may create dead implicit arguments.
     MPM.add(createDeadArgEliminationPass());
     MPM.add(createSROAPass());
+    MPM.add(createLoopSimplifyPass());
     MPM.add(createLICMPass());
     MPM.add(createLoopIdiomPass());
+    MPM.add(createLoopDeletionPass());
     MPM.add(createCFGSimplificationPass());
   } else {
     MPM.add(createAlwaysInlinerLegacyPass());
