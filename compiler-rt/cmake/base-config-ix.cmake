@@ -73,6 +73,9 @@ if (LLVM_TREE_AVAILABLE)
     string(REGEX REPLACE "/bin/[^/]*" "" COMPILER_ROOT "${COMPILER_ROOT}")
     append("--gcc-toolchain=${COMPILER_ROOT}" COMPILER_RT_TEST_COMPILER_CFLAGS)
   endif()
+  # If configured for MSVC-style linking directly via lld-link, ensure that we
+  # still use lld when switching to Unix-style linking via clang.
+  append_if(LINKER_IS_LLD_LINK "-fuse-ld=lld" COMPILER_RT_TEST_COMPILER_CFLAGS)
 # end INTEL_CUSTOMIZATION
 else()
     # Take output dir and install path from the user.

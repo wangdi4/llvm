@@ -124,6 +124,12 @@ Value *generateRemainderMask(unsigned VF, unsigned LoopLen, Instruction *IP);
 Value *generateRemainderMask(unsigned VF, Value *LoopLen, IRBuilder<> &Builder,
                              Module *M);
 
+/// Return true if basic block \p BB is in a subloop of \p CurLoop.
+bool inSubLoop(BasicBlock *BB, Loop *CurLoop, LoopInfo *LI);
+
+/// Return true if instruction \p I is in a subloop of \p CurLoop.
+bool inSubLoop(Instruction *I, Loop *CurLoop, LoopInfo *LI);
+
 } // namespace DPCPPKernelLoopUtils
 } // namespace llvm
 
