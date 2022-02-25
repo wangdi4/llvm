@@ -1370,14 +1370,14 @@ load_2d_stateless(const T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
                   unsigned SurfacePitch, int X, int Y) {
   simd<T, N> oldDst;
   simd<unsigned int, 16> payload(0);
-  payload.template format<uint64_t>().template select<1, 1>(0) = (uint64_t)Ptr;
+  payload.template bit_cast_view<uint64_t>().template select<1, 1>(0) = (uint64_t)Ptr;
   payload.template select<1, 1>(2) = SurfaceWidth;
   payload.template select<1, 1>(3) = SurfaceHeight;
   payload.template select<1, 1>(4) = SurfacePitch;
   payload.template select<1, 1>(5) = X;
   payload.template select<1, 1>(6) = Y;
-  payload.template format<uchar>().template select<1, 1>(28) = Width - 1;
-  payload.template format<uchar>().template select<1, 1>(29) = Height - 1;
+  payload.template bit_cast_view<uchar>().template select<1, 1>(28) = Width - 1;
+  payload.template bit_cast_view<uchar>().template select<1, 1>(29) = Height - 1;
   uint exDesc = 0x0;
   uint desc = 0x28A0403;
   constexpr uchar execSize = 0x0;
@@ -1417,14 +1417,14 @@ ESIMD_INLINE SYCL_ESIMD_FUNCTION void
 store_2d_stateless(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
                    unsigned SurfacePitch, int X, int Y, simd<T, N> Data) {
   simd<unsigned int, 16> payload = 0;
-  payload.template format<uint64_t>().template select<1, 1>(0) = (uint64_t)Ptr;
+  payload.template bit_cast_view<uint64_t>().template select<1, 1>(0) = (uint64_t)Ptr;
   payload.template select<1, 1>(2) = SurfaceWidth;
   payload.template select<1, 1>(3) = SurfaceHeight;
   payload.template select<1, 1>(4) = SurfacePitch;
   payload.template select<1, 1>(5) = X;
   payload.template select<1, 1>(6) = Y;
-  payload.template format<uchar>().template select<1, 1>(28) = Width - 1;
-  payload.template format<uchar>().template select<1, 1>(29) = Height - 1;
+  payload.template bit_cast_view<uchar>().template select<1, 1>(28) = Width - 1;
+  payload.template bit_cast_view<uchar>().template select<1, 1>(29) = Height - 1;
   uint exDesc = 0x0;
   uint desc = 0x2040407;
   constexpr uchar execSize = 0x0;
