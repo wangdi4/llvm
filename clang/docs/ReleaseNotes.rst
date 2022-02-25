@@ -205,6 +205,8 @@ Build System Changes
 AST Matchers
 ------------
 
+- Expanded ``isInline`` narrowing matcher to support c++17 inline variables.
+
 clang-format
 ------------
 
