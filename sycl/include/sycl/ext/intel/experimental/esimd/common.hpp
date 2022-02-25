@@ -118,10 +118,6 @@ static inline constexpr uint8_t saturation_on =
 #define __ESIMD_DEPR_ENUM_V(old, new, t)                                       \
   old __ESIMD_DEPRECATED(new) = static_cast<t>(new)
 
-/// Gen hardware supports applying saturation to results of some operation.
-/// This enum allows to control this behavior.
-enum class saturation : uint8_t { off, on };
-
 enum {
   __ESIMD_DEPR_ENUM_V(GENX_NOSAT, saturation::off, uint8_t),
   __ESIMD_DEPR_ENUM_V(GENX_SAT, saturation::on, uint8_t)
