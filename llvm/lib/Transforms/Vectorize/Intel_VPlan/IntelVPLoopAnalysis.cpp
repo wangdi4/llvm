@@ -1874,10 +1874,8 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
   if (!Exit) {
     // Explicit reduction descriptors need further analysis to identify Exit
     // VPInstruction. Auto-recognized reductions don't need this.
-    bool AliasAnalysisSuccess = replaceOrigWithAlias();
-    if (!AliasAnalysisSuccess)
-      return;
-    Exit = getLoopExitVPInstr(Loop);
+    if (replaceOrigWithAlias())
+      Exit = getLoopExitVPInstr(Loop);
   }
   if (StartPhi == nullptr && Exit != nullptr) {
     if (!Loop->isLiveOut(Exit)) {
@@ -1909,12 +1907,10 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
                  Exit->dump());
     }
   }
-  if (StartPhi == nullptr) {
+  if (StartPhi == nullptr && Start) {
     // The start PHI could potentially be associated with one of the
     // LinkedVPVals of the reduction descriptor
     // TODO: Need a LIT test for this.
-    assert(Start &&
-           "Start is not available to check for PHIs via LinkedVPValues.");
     for (auto *LVPV : LinkedVPVals) {
       for (auto *User : LVPV->users()) {
         if (auto *Instr = dyn_cast<VPPHINode>(User))
@@ -1931,8 +1927,17 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
   }
   if (StartPhi == nullptr) {
     // The phi was not found. That means we have an explicit reduction.
+    if (!Start) {
+      // We are not able to identify anything. That happens when reduction
+      // is optimized out or fully registerized. In case of the full
+      // registerization it will be most probably auto-recognized. Otherwise we
+      // will bailout on unrecognized recursion.
+      Importing = false;
+      return;
+    }
     assert(isa<VPExternalDef>(Start) && "Reduction is not properly defined");
-    findMemoryUses(Start, Loop);
+    Importing = hasRealUserInLoop(Start, Loop);
+    ValidMemOnly = true;
   } else if (Start == nullptr) {
     Start = getLiveInOrConstOperand(StartPhi, *Loop);
     assert(Start && "Can't identify reduction start value");
@@ -2249,7 +2254,12 @@ VPValue *VPEntityImportDescr::findMemoryUses(VPValue *Start,
                                              const VPLoop *Loop) {
   Importing = hasRealUserInLoop(Start, Loop);
   ValidMemOnly = true;
+
   if (Importing) {
+    // For reductions, we don't need to execute the code below. We have another,
+    // simpler, way to obtain reduction data type. The code is left for
+    // inductions to implement the TODO below and will be removed after that.
+
     // Try to find either load or store. Not having them we can't proceed
     // further. E.g., the code might be something like below. We can't guess
     // which/whether a call is an update and create a correct code.

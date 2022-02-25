@@ -301,15 +301,19 @@ public:
     auto *RednStore = cast<VPLoadStoreInst>(
         Builder.getOrCreateVPOperand(CurValue.second.second));
     assertIsSingleElementAlloca(CurValue.first);
-    VPValue *AllocaInst = Builder.getOrCreateVPOperand(CurValue.first);
+    VPValue *OrigAlloca = Builder.getOrCreateVPOperand(CurValue.first);
     Descriptor.setStartPhi(nullptr);
-    Descriptor.setStart(AllocaInst);
+    Descriptor.setStart(OrigAlloca);
     Descriptor.addUpdateVPInst(RednStore);
     Descriptor.setExit(nullptr);
     Descriptor.setKind(CurValue.second.first);
-    Descriptor.setRecType(RednStore->getValueType());
+    // According to discussion with paropt team, we can have either alloca
+    // or cast<>(alloca) or addrspace_cast<>(alloca) in the reduction clause for
+    // non-arrays.
+    auto *AI = cast<AllocaInst>(CurValue.first->stripPointerCasts());
+    Descriptor.setRecType(AI->getAllocatedType());
     Descriptor.setSigned(false);
-    Descriptor.setAllocaInst(AllocaInst);
+    Descriptor.setAllocaInst(OrigAlloca); // Keep original value from clause.
     Descriptor.setLinkPhi(nullptr);
   }
 };
