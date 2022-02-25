@@ -358,6 +358,7 @@ private:
   /// used directly inside the outlined function created for the WRegion.
   SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
 #if INTEL_CUSTOMIZATION
+  bool IsDoConcurrent; // Used from Fortran DO Concurrent
   loopopt::HLNode *EntryHLNode; // for HIR only
   loopopt::HLNode *ExitHLNode;  // for HIR only
   loopopt::HLLoop *HLp;         // for HIR only
@@ -385,6 +386,7 @@ protected:
   void setLoopOrder(WRNLoopOrderKind LO) override { LoopOrder = LO; }
 
 #if INTEL_CUSTOMIZATION
+  void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
   void setEntryHLNode(loopopt::HLNode *E) override { EntryHLNode = E; }
   void setExitHLNode(loopopt::HLNode *X) override { ExitHLNode = X; }
   void setHLLoop(loopopt::HLLoop *L) override { HLp = L; }
@@ -431,6 +433,8 @@ public:
   const SmallVectorImpl<Instruction *> &getCancellationPoints() const override {
     return CancellationPoints;
   }
+
+
   void addCancellationPoint(Instruction *I) override { CancellationPoints.push_back(I); }
   const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const override {
     return CancellationPointAllocas;
@@ -446,6 +450,7 @@ public:
   }
 
 #if INTEL_CUSTOMIZATION
+  bool getIsDoConcurrent() const override { return IsDoConcurrent; }
   loopopt::HLNode *getEntryHLNode() const override { return EntryHLNode; }
   loopopt::HLNode *getExitHLNode() const override { return ExitHLNode; }
   loopopt::HLLoop *getHLLoop() const override  { return HLp; }
@@ -607,9 +612,9 @@ private:
   EXPR NumTeams;
   Type *NumTeamsTy = nullptr;
   WRNDefaultKind Default;
-  bool IsDoConcurrent;
 
 #if INTEL_CUSTOMIZATION
+  bool IsDoConcurrent; // Used for Fortran Do Concurrent
   uint64_t ConfiguredThreadLimit = 0;
 #endif // INTEL_CUSTOMIZATION
 
@@ -622,7 +627,9 @@ protected:
   void setNumTeams(EXPR E) override { NumTeams = E; }
   void setNumTeamsType(Type *T) override { NumTeamsTy = T; }
   void setDefault(WRNDefaultKind D) override { Default = D; }
+#if INTEL_CUSTOMIZATION
   void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
+#endif // INTEL_CUSTOMIZATION
 
 public:
   DEFINE_GETTER(SharedClause,       getShared,   Shared)
@@ -636,9 +643,9 @@ public:
   EXPR getNumTeams() const override  { return NumTeams; }
   Type *getNumTeamsType() const override { return NumTeamsTy; }
   WRNDefaultKind getDefault() const override { return Default; }
-  bool getIsDoConcurrent() const override { return IsDoConcurrent; }
 
 #if INTEL_CUSTOMIZATION
+  bool getIsDoConcurrent() const override { return IsDoConcurrent; }
   void setConfiguredThreadLimit(uint64_t TL) override {
     ConfiguredThreadLimit = TL;
   }
@@ -686,6 +693,10 @@ private:
   /// used directly inside the outlined function created for the WRegion.
   SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
 
+#if INTEL_CUSTOMIZATION
+  bool IsDoConcurrent; // Used for Fortran DO Concurrent.
+#endif // INTEL_CUSTOMIZATION
+
 public:
   WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *L);
 
@@ -697,6 +708,9 @@ protected:
   void setCollapse(int N) override { Collapse = N; }
   void setOrdered(int N) override { Ordered = N; }
   void setLoopOrder(WRNLoopOrderKind LO) override { LoopOrder = LO; }
+#if INTEL_CUSTOMIZATION
+  void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
+#endif // INTEL_CUSTOMIZATION
 
 public:
   DEFINE_GETTER(SharedClause,       getShared,       Shared)
@@ -731,6 +745,10 @@ public:
   bool getTreatDistributeParLoopAsDistribute() const override {
     return TreatDistributeParLoopAsDistribute;
   }
+
+#if INTEL_CUSTOMIZATION
+  bool getIsDoConcurrent() const override { return IsDoConcurrent; }
+#endif // INTEL_CUSTOMIZATION
 
   const SmallVectorImpl<Value *> &getDirectlyUsedNonPointerValues() const override {
     return DirectlyUsedNonPointerValues;
@@ -774,7 +792,9 @@ private:
   uint8_t NDRangeDistributeDim = 0;
   unsigned SPIRVSIMDWidth = 0;
   bool HasTeamsReduction = false;
-  bool IsDoConcurrent;
+#if INTEL_CUSTOMIZATION
+  bool IsDoConcurrent;  // Used fro Fortran Do Concurrent
+#endif // INTEL_CUSTOMIZATION
 
 public:
   WRNTargetNode(BasicBlock *BB);
@@ -783,7 +803,9 @@ protected:
   void setIf(EXPR E) override { IfExpr = E; }
   void setDevice(EXPR E) override { Device = E; }
   void setNowait(bool Flag) override { Nowait = Flag; }
+#if INTEL_CUSTOMIZATION
   void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
+#endif // INTEL_CUSTOMIZATION
   void setDefaultmap(WRNDefaultmapCategory C, WRNDefaultmapBehavior B) override {
     Defaultmap[C] = B;
   }
@@ -819,7 +841,9 @@ protected:
   EXPR getIf() const override { return IfExpr; }
   EXPR getDevice() const override { return Device; }
   bool getNowait() const override { return Nowait; }
+#if INTEL_CUSTOMIZATION
   bool getIsDoConcurrent() const override { return IsDoConcurrent; }
+#endif // INTEL_CUSTOMIZATION
 
   WRNDefaultmapBehavior getDefaultmap(WRNDefaultmapCategory C) const override {
     return Defaultmap[C];
@@ -1339,15 +1363,17 @@ private:
   AlignedClause Aligned;
   NontemporalClause Nontemporal;
   UniformClause Uniform; // The simd construct does not take a uniform clause,
-                          // so we won't get this from the front-end, but this
-                          // list can/will be populated by the vector backend
+                         // so we won't get this from the front-end, but this
+                         // list can/will be populated by the vector backend
   EXPR IfExpr;
   int Simdlen;
   int Safelen;
   int Collapse;
+
   WRNLoopOrderKind LoopOrder;
   WRNLoopInfo WRNLI;
 #if INTEL_CUSTOMIZATION
+  bool IsDoConcurrent; // Used for Fortran Do Concurrent
   bool IsAutoVec;
   bool HasVectorAlways;
   loopopt::HLNode *EntryHLNode; // for HIR only
@@ -1372,6 +1398,7 @@ public:
   void setLoopOrder(WRNLoopOrderKind LO)  override { LoopOrder = LO; }
 
 #if INTEL_CUSTOMIZATION
+  void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
   void setIsAutoVec(bool Flag)  override{ IsAutoVec = Flag; }
   void setHasVectorAlways(bool Flag)  override{ HasVectorAlways = Flag; }
   void setEntryHLNode(loopopt::HLNode *E)  override{ EntryHLNode = E; }
@@ -1397,6 +1424,7 @@ public:
   WRNLoopOrderKind getLoopOrder() const override{ return LoopOrder; }
 
 #if INTEL_CUSTOMIZATION
+  bool getIsDoConcurrent() const override { return IsDoConcurrent; }
   bool getIsAutoVec() const override{ return IsAutoVec; }
   bool getHasVectorAlways() const override{ return HasVectorAlways; }
   loopopt::HLNode *getEntryHLNode() const override{ return EntryHLNode; }
@@ -1448,11 +1476,13 @@ private:
   int Ordered;
   WRNLoopOrderKind LoopOrder;
   bool Nowait;
+
   WRNLoopInfo WRNLI;
   SmallVector<Value *, 2> OrderedTripCounts;
   SmallVector<Instruction *, 2> CancellationPoints;
   SmallVector<AllocaInst *, 2> CancellationPointAllocas;
 #if INTEL_CUSTOMIZATION
+  bool IsDoConcurrent; // Used for Fortran Do Concurrent
 #if INTEL_FEATURE_CSA
   ScheduleClause WorkerSchedule;
 #endif // INTEL_FEATURE_CSA
@@ -1466,6 +1496,9 @@ protected:
   void setOrdered(int N) override { Ordered = N; }
   void setLoopOrder(WRNLoopOrderKind LO) override{ LoopOrder = LO; }
   void setNowait(bool Flag) override { Nowait = Flag; }
+#if INTEL_CUSTOMIZATION
+  void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
+#endif // INTEL_CUSTOMIZATION
 
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,        Priv)
@@ -1493,6 +1526,9 @@ public:
   }
   WRNLoopOrderKind getLoopOrder() const override{ return LoopOrder; }
   bool getNowait() const override { return Nowait; }
+#if INTEL_CUSTOMIZATION
+  bool getIsDoConcurrent() const override { return IsDoConcurrent; }
+#endif // INTEL_CUSTOMIZATION
 
   void addOrderedTripCount(Value *TC) override { OrderedTripCounts.push_back(TC); }
   const SmallVectorImpl<Value *> &getOrderedTripCounts() const override {
@@ -2080,7 +2116,9 @@ private:
   WRNLoopOrderKind LoopOrder;
   WRNLoopInfo WRNLI;
   int MappedDir;
-  bool IsDoConcurrent;
+#if INTEL_CUSTOMIZATION
+  bool IsDoConcurrent; // used for Fortran Do Concurrent
+#endif // INTEL_CUSTOMIZATION
 
 public:
   WRNGenericLoopNode(BasicBlock *BB, LoopInfo *L);
@@ -2089,7 +2127,9 @@ protected:
   void setLoopBind(WRNLoopBindKind LB) override { LoopBind = LB; }
   void setLoopOrder(WRNLoopOrderKind LO) override { LoopOrder = LO; }
   void setCollapse(int N) override { Collapse = N; }
+#if INTEL_CUSTOMIZATION
   void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
+#endif // INTEL_CUSTOMIZATION
 
 public:
   DEFINE_GETTER(SharedClause,       getShared,      Shared)
@@ -2102,8 +2142,9 @@ public:
 
   int getCollapse() const override { return Collapse; }
   int getOmpLoopDepth() { return Collapse > 0 ? Collapse : 1; }
+#if INTEL_CUSTOMIZATION
   bool getIsDoConcurrent() const override { return IsDoConcurrent; }
-
+#endif // INTEL_CUSTOMIZATION
   WRNLoopBindKind getLoopBind() const override { return LoopBind; }
   WRNLoopOrderKind getLoopOrder() const override { return LoopOrder; }
 

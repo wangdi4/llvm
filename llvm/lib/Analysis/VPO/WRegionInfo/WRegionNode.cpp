@@ -781,9 +781,11 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
   case QUAL_OMP_OFFLOAD_HAS_TEAMS_REDUCTION:
     setHasTeamsReduction();
     break;
+#if INTEL_CUSTOMIZATION
   case QUAL_EXT_DO_CONCURRENT:
     setIsDoConcurrent(true);
     break;
+#endif // INTEL_CUSTOMIZATION
   default:
     llvm_unreachable("Unknown ClauseID in handleQual()");
   }
@@ -2382,6 +2384,7 @@ bool WRegionNode::canHaveCollapse() const {
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
 bool WRegionNode::canHaveDoConcurrent() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
@@ -2393,6 +2396,7 @@ bool WRegionNode::canHaveDoConcurrent() const {
 
   return false;
 }
+#endif // INTEL_CUSTOMIZATION
 
 bool WRegionNode::canHaveAllocate() const {
   unsigned SubClassID = getWRegionKindID();
