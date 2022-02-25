@@ -29,7 +29,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeCLBuiltinLICMPass(Registry);
     intel::initializeCLWGLoopBoundariesPass(Registry);
     intel::initializeCLStreamSamplerPass(Registry);
-    intel::initializeCleanupWrappedKernelsPass(Registry);
     intel::initializeRemoveDuplicationBarrierPass(Registry);
 
     // SGEmulation

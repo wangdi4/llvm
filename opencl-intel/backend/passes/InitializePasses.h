@@ -38,7 +38,6 @@ void initializeSpecialCaseBuiltinResolverPass(llvm::PassRegistry&);
 void initializeCLBuiltinLICMPass(llvm::PassRegistry&);
 void initializeCLWGLoopBoundariesPass(llvm::PassRegistry&);
 void initializeCLStreamSamplerPass(llvm::PassRegistry&);
-void initializeCleanupWrappedKernelsPass(llvm::PassRegistry&);
 void initializeRemoveDuplicationBarrierPass(llvm::PassRegistry&);
 void initializeSinCosFoldPass(llvm::PassRegistry&);
 // SGEmulation passes
