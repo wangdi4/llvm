@@ -1,15 +1,17 @@
-; This test verifies that DynClone+Reencoding transformation is not
-; triggered because there are too many large constants to be reencoded
-; when -dtrans-simple-dynclone-enable=false.
+; This test verifies that even simple DynClone transformation is not
+; triggered because there is too large constant that doesn't (300000000005)
+; fit in 32-bits.
 
 ; REQUIRES: asserts
-;  RUN: opt < %s -S -dtrans-simple-dynclone-enable=false -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-dynclone -debug-only=dtrans-dynclone-reencoding 2>&1 | FileCheck %s
-;  RUN: opt < %s -S -dtrans-simple-dynclone-enable=false -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-dynclone -debug-only=dtrans-dynclone-reencoding 2>&1 | FileCheck %s
+;  RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-dynclone -debug-only=dtrans-dynclone-reencoding 2>&1 | FileCheck %s
+;  RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-dynclone -debug-only=dtrans-dynclone-reencoding 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; CHECK: Too many large constants for encoding...Skip DynClone
+; CHECK: Too many large constants for encoding... do Simple DynClone
+; CHECK: Too big constants for Simple cloning ...Skip DynClone
+; CHECK-NOT: %__DYN_struct.test.01 = type <{ i64*, i32, i32, i32, i32, i32, i32, i16 }>
 ; CHECK-NOT: store i8 1, i8* @__Shrink__Happened__
 
 %struct.test.01 = type { i32, i64, i32, i32, i16, i64*, i64, i32 }
@@ -41,7 +43,7 @@ define void @proc2() {
   store i64 300002, i64* %F6, align 8
   store i64 300003, i64* %F6, align 8
   store i64 300004, i64* %F6, align 8
-  store i64 300005, i64* %F6, align 8
+  store i64 300000000005, i64* %F6, align 8
   ret void
 }
 

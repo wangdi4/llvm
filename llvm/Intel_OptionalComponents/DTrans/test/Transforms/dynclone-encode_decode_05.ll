@@ -1,16 +1,28 @@
-; This test verifies that DynClone+Reencoding transformation is not
-; triggered because there are too many large constants to be reencoded
-; when -dtrans-simple-dynclone-enable=false.
+; This test verifies that simple DynClone is triggered but not Reencoding
+; transformation because this test has more than 8 large constants.
+; Verifies that simple DynClone is triggered and __DYN_encoder/__DYN_decoder
+; are not generated.
 
 ; REQUIRES: asserts
-;  RUN: opt < %s -S -dtrans-simple-dynclone-enable=false -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-dynclone -debug-only=dtrans-dynclone-reencoding 2>&1 | FileCheck %s
-;  RUN: opt < %s -S -dtrans-simple-dynclone-enable=false -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-dynclone -debug-only=dtrans-dynclone-reencoding 2>&1 | FileCheck %s
+;  RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-dynclone -debug-only=dtrans-dynclone-reencoding 2>&1 | FileCheck %s
+;  RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-dynclone -debug-only=dtrans-dynclone-reencoding 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; CHECK: Too many large constants for encoding...Skip DynClone
-; CHECK-NOT: store i8 1, i8* @__Shrink__Happened__
+; CHECK: Too many large constants for encoding... do Simple DynClone
+; CHECK: %__DYN_struct.test.01 = type <{ i64*, i32, i32, i32, i32, i32, i32, i16 }>
+
+; CHECK:  [[ALLOC_SAFE:%dyn.safe[0-9]*]] = alloca i8
+; CHECK:  store i8 0, i8* [[ALLOC_SAFE]]
+; CHECK:   [[ALLOC_MAX:%d.max[0-9]*]] = alloca i64
+; CHECK-NEXT:  store i64 -2147483648, i64* [[ALLOC_MAX]]
+; CHECK-NEXT:  [[ALLOC_MIN:%d.min[0-9]*]] = alloca i64
+; CHECK-NEXT:  store i64 2147483647, i64* [[ALLOC_MIN]]
+
+; CHECK: store i8 1, i8* @__Shrink__Happened__
+; CHECK-NOT: @__DYN_encoder
+; CHECK-NOT: @__DYN_decoder
 
 %struct.test.01 = type { i32, i64, i32, i32, i16, i64*, i64, i32 }
 %struct.nw = type { i32, i64 }

@@ -55,7 +55,7 @@ define void @proc1() {
   %LF1 = load i64, i64* %F1, align 8
 ; CHECK: [[BC3:%[0-9]+]] = bitcast i64* %F1 to i16*
 ; CHECK: [[LD1:%[0-9]+]] = load i16, i16* [[BC3]], align 2
-; CHECK: %LF1 = sext i16 [[LD1]] to i64
+; CHECK: %LF1 = zext i16 [[LD1]] to i64
 
 ; Accessing 2nd field, which is not shrunken.
   %F2 = getelementptr %struct.test.01, %struct.test.01* %tp2, i32 0, i32 2

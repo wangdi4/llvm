@@ -20,7 +20,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; 1 and 6 fields are shrunk to i16.
+; 1 and 6 fields are shrunk to 16 with encoding for large constants.
 ; Size of original %struct.test.01: 56
 ; Size after transformation: 30
 ;
@@ -51,7 +51,7 @@ define void @proc1() {
   %LF1 = load i64, i64* %F1, align 8
 ; CHECK: [[BC3:%[0-9]+]] = bitcast i64* %F1 to i16*
 ; CHECK: [[LD1:%[0-9]+]] = load i16, i16* [[BC3]], align 2
-; CHECK: %LF1 = sext i16 [[LD1]] to i64
+; CHECK: %LF1 = zext i16 [[LD1]] to i64
 
 ; Accessing 6th field, which is shrunken.
   %F6 = getelementptr %struct.test.01, %struct.test.01* %tp2, i32 0, i32 6
@@ -113,7 +113,7 @@ define void @init() {
 ; CHECK:   [[DMAX:%d.max]] = alloca i64
 ; CHECK:   store i64 0, i64* [[DMAX]]
 ; CHECK:   [[DMIN:%d.min]] = alloca i64
-; CHECK:   store i64 16373, i64* [[DMIN]]
+; CHECK:   store i64 65529, i64* [[DMIN]]
 
 ; Initialize nw.field_1
   store i64 2000000, i64* getelementptr (%struct.nw, %struct.nw* @nw, i64 0, i32 1), align 8
@@ -182,7 +182,7 @@ define void @init() {
 
 ; CHECK-LABEL: define internal i16 @__DYN_encoder(i64 %0) #1 {
 ; CHECK: entry:
-; CHECK:  [[CMP1:%[0-9]+]] = icmp ule i64 [[ARG:%[0-9]+]], 16373
+; CHECK:  [[CMP1:%[0-9]+]] = icmp ule i64 [[ARG:%[0-9]+]], 65529
 ; CHECK:  br i1 [[CMP1]], label %default, label %switch_bb
 ; CHECK: switch_bb:
 ; CHECK:    switch i64 %0, label %default [
@@ -197,7 +197,7 @@ define void @init() {
 ; CHECK:    [[TR1:%[0-9]+]] = trunc i64 [[ARG:%[0-9]+]] to i16
 ; CHECK:    br label %return
 ; CHECK:  return:
-; CHECK:    %phival = phi i16 [ [[TR1]], %default ], [ 16374, %case ], [ 16375, %case1 ], [ 16376, %case2 ], [ 16377, %case3 ], [ 16378, %case4 ]
+; CHECK:    %phival = phi i16 [ [[TR1]], %default ], [ -6, %case ], [ -5, %case1 ], [ -4, %case2 ], [ -3, %case3 ], [ -2, %case4 ], [ -1, %case5 ]
 ; CHECK:    ret i16 %phival
 ; CHECK:  case:
 ; CHECK:    br label %return
@@ -212,19 +212,19 @@ define void @init() {
 
 ; CHECK-LABEL: define internal i64 @__DYN_decoder(i16 %0) #1 {
 ; CHECK: entry:
-; CHECK:  [[CMP2:%[0-9]+]] = icmp ule i16 [[ARG:%[0-9]+]], 16373
+; CHECK:  [[CMP2:%[0-9]+]] = icmp ule i16 [[ARG:%[0-9]+]], -7
 ; CHECK:  br i1 [[CMP2]], label %default, label %switch_bb
 ; CHECK: switch_bb:
 ; CHECK:  switch i16 [[ARG:%[0-9]+]], label %default [
-; CHECK:  i16 16374, label %case
-; CHECK:  i16 16375, label %case1
-; CHECK:  i16 16376, label %case2
-; CHECK:  i16 16377, label %case3
-; CHECK:  i16 16378, label %case4
-; CHECK:  i16 16379, label %case5
+; CHECK:  i16 -6, label %case
+; CHECK:  i16 -5, label %case1
+; CHECK:  i16 -4, label %case2
+; CHECK:  i16 -3, label %case3
+; CHECK:  i16 -2, label %case4
+; CHECK:  i16 -1, label %case5
 ; CHECK:  ]
 ; CHECK: default:
-; CHECK:  [[TRUNC:%[0-9]+]] = sext i16 [[ARG]] to i64
+; CHECK:  [[TRUNC:%[0-9]+]] = zext i16 [[ARG]] to i64
 ; CHECK:  br label %return
 ; CHECK: return:
 ; CHECK:  %phival = phi i64 [ [[TRUNC]], %default ], [ -20000000, %case ], [ 300000, %case1 ], [ 2000000, %case2 ], [ 2000015, %case3 ], [ 4000000, %case4 ], [ 4000015, %case5 ]

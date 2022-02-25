@@ -133,7 +133,7 @@ define void @proc1() {
 ;
 ; CHECK: [[PLD2:%[0-9]+]] = load i16, ptr %F1, align 2
 ; CHECK: [[PAND2:%[0-9]+]] = and i16 [[PLD2]], 16383
-; CHECK: %L2 = sext i16 [[PAND2]] to i64
+; CHECK: %L2 = zext i16 [[PAND2]] to i64
 
   %L2 = load i64, ptr %F1
   %F4 = getelementptr %struct.test.01, ptr %tp2, i32 0, i32 4
