@@ -279,5 +279,14 @@ Value *generateRemainderMask(unsigned VF, unsigned LoopLen, Instruction *IP) {
   return generateRemainderMask(VF, LoopLenVal, IP);
 }
 
+bool inSubLoop(BasicBlock *BB, Loop *CurLoop, LoopInfo *LI) {
+  assert(CurLoop->contains(BB) && "BB not in CurLoop");
+  return LI->getLoopFor(BB) != CurLoop;
+}
+
+bool inSubLoop(Instruction *I, Loop *CurLoop, LoopInfo *LI) {
+  return inSubLoop(I->getParent(), CurLoop, LI);
+}
+
 } // namespace DPCPPKernelLoopUtils
 } // namespace llvm

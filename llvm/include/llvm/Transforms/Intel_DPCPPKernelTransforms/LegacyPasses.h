@@ -16,6 +16,7 @@
 namespace llvm {
 
 class FunctionPass;
+class LoopPass;
 class ModulePass;
 class Pass;
 template <typename T, unsigned N> class SmallVector;
@@ -61,6 +62,7 @@ ModulePass *createInternalizeNonKernelFuncLegacyPass();
 ModulePass *createLinearIdResolverPass();
 ModulePass *createLocalBufferAnalysisLegacyPass();
 ModulePass *createLocalBuffersLegacyPass(bool UseTLSGlobals);
+LoopPass *createLoopWIAnalysisLegacyPass();
 FunctionPass *createAddNTAttrLegacyPass();
 ModulePass *createAddImplicitArgsLegacyPass();
 FunctionPass *createAddFastMathLegacyPass();
