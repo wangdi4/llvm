@@ -475,7 +475,8 @@ class VPInstruction : public VPUser,
       case Instruction::Select:
       case Instruction::Call:
       case VPInstruction::HIRCopy:
-      case VPInstruction::ReductionFinal: {
+      case VPInstruction::ReductionFinal:
+      case VPInstruction::TreeConflict: {
         // Conservatively return UnknownOperatorFlags if instruction type info
         // is not provided for opcode.
         if (!InstTy)
@@ -4021,6 +4022,8 @@ public:
     switch (Opcode) {
     case Instruction::Add:
     case Instruction::FAdd:
+    case Instruction::Sub:
+    case Instruction::FSub:
       return true;
     default:
       return false;

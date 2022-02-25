@@ -257,12 +257,6 @@ static bool isDeviceBinaryTypeSupported(const context &C,
   if (ContextBackend == backend::ext_oneapi_cuda)
     return false;
 
-#if INTEL_CUSTOMIZATION
-  // TODO: can we just query piDeviceGetInfo(PI_DEVICE_INFO_COMPILER_AVAILABLE)?
-  if (ContextBackend == backend::level_zero)
-    return true;
-#endif // INTEL_CUSTOMIZATION
-
   std::vector<device> Devices = C.get_devices();
 
   // Program type is SPIR-V, so we need a device compiler to do JIT.
@@ -934,17 +928,6 @@ static std::vector<RT::PiProgram> getDeviceLibPrograms(
 
   // Load a fallback library for an extension if the device does not
   // support it.
-#if INTEL_CUSTOMIZATION
-    // Allow extensions to be specified as available, manually.
-    // This is useful for specifying extensions that we know are supported
-    // but which the device does not report as available yet.
-    // For example, SYCL_DEVICE_FORCE_EXTENSION=cl_intel_devicelib_dot_product
-    // to use the dot-product extension if that extension is not reported
-    // as available but we know the device supports it.
-    if (const char* Env = getenv("SYCL_DEVICE_FORCE_EXTENSION")) {
-      DevExtList.append(Env);
-    }
-#endif // INTEL_CUSTOMIZATION
   for (auto &Pair : RequiredDeviceLibExt) {
     DeviceLibExt Ext = Pair.first;
     bool &FallbackIsLoaded = Pair.second;
