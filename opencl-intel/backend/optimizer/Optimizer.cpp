@@ -528,6 +528,7 @@ static void populatePassesPostFailCheck(
   if (OptLevel > 0) {
     PM.add(llvm::createCFGSimplificationPass());
     PM.add(llvm::createDPCPPKernelAnalysisLegacyPass());
+    PM.add(createDeduceMaxWGDimPass());
     PM.add(createCLWGLoopBoundariesPass());
     PM.add(llvm::createDeadCodeEliminationPass());
     PM.add(llvm::createCFGSimplificationPass());
@@ -699,7 +700,6 @@ static void populatePassesPostFailCheck(
 
   // Adding WG loops
   if (OptLevel > 0) {
-    PM.add(createDeduceMaxWGDimPass());
     if (pConfig->GetStreamingAlways())
       PM.add(createAddNTAttrLegacyPass());
     if (debugType == Native)
