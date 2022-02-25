@@ -137,7 +137,7 @@ template <typename T, int N> struct is_hf_type<simd<T, N>> {
   static const bool value = is_hf_type<T>::value;
 };
 
-// compile-time checks if first template parameter is equal for any other
+/// Compile-time checks if first template parameter is equal for any other
 template <typename...> struct is_one_of {
   static constexpr bool value = false;
 };
@@ -152,8 +152,8 @@ struct is_one_of<Checked, First, Other...> {
 template <typename Checked, typename... T>
 inline constexpr bool is_one_of_v = is_one_of<Checked, T...>::value;
 
-// compile-time checks if compile-time known  element of enum class is equal for
-// any other compile-time known elements of enum
+/// Compile-time checks if compile-time known  element of enum class is equal
+/// for any other compile-time known elements of enum
 template <typename enumClass, enumClass... E> struct is_one_of_enum {
   static constexpr bool value = false;
 };

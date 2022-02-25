@@ -2725,12 +2725,12 @@ __ESIMD_API simd<DstType, N> convert_from_bf8(simd<uint8_t, N> src0) {
 }
 
 // TODO: we need a more generic solution to derive storage types
-template <EsimdPrecisionType> struct SrndPrecisionTypeStorage;
+template <argument_type> struct SrndPrecisionTypeStorage;
 
-template <> struct SrndPrecisionTypeStorage<EsimdPrecisionType::BF8> {
+template <> struct SrndPrecisionTypeStorage<argument_type::BF8> {
   using StorageT = uint8_t;
 };
-template <> struct SrndPrecisionTypeStorage<EsimdPrecisionType::FP16> {
+template <> struct SrndPrecisionTypeStorage<argument_type::FP16> {
   using StorageT = cl::sycl::detail::half_impl::StorageT;
 };
 
@@ -2744,16 +2744,16 @@ template <> struct SrndPrecisionTypeStorage<EsimdPrecisionType::FP16> {
 /// \param src0 the operand to be rounded
 /// \param src1 random number used for rounding
 /// \return the converted value
-template <EsimdPrecisionType DstPrecision, int N, typename SrcType>
+template <argument_type DstPrecision, int N, typename SrcType>
 __ESIMD_API simd<typename SrndPrecisionTypeStorage<DstPrecision>::StorageT, N>
 srnd(simd<SrcType, N> src0, simd<SrcType, N> src1) {
 
   using DstStorageT = typename SrndPrecisionTypeStorage<DstPrecision>::StorageT;
-  constexpr bool is_bf8_fp32 = (DstPrecision == EsimdPrecisionType::BF8) &&
+  constexpr bool is_bf8_fp32 = (DstPrecision == argument_type::BF8) &&
                                detail::is_fp_type<SrcType>::value;
-  constexpr bool is_hf16_fp32 = (DstPrecision == EsimdPrecisionType::FP16) &&
+  constexpr bool is_hf16_fp32 = (DstPrecision == argument_type::FP16) &&
                                 detail::is_fp_type<SrcType>::value;
-  constexpr bool is_bf8_hf16 = (DstPrecision == EsimdPrecisionType::BF8) &&
+  constexpr bool is_bf8_hf16 = (DstPrecision == argument_type::BF8) &&
                                detail::is_hf_type<SrcType>::value;
 
   static_assert((is_bf8_fp32 || is_hf16_fp32 || is_bf8_hf16),
@@ -2770,73 +2770,80 @@ srnd(simd<SrcType, N> src0, simd<SrcType, N> src1) {
   }
 }
 
+/* end INTEL_CUSTOMIZATION */
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+
 // dpas helpers
 namespace detail {
 
-enum class EsimdDpasOptPerChannel : unsigned {
+enum class dpas_ops_per_channel : unsigned {
   OP1 = 1u,
   OP2 = 2u,
   OP4 = 4u,
   OP8 = 8u,
   INVALID = 0xffffffffu
 };
-constexpr EsimdDpasOptPerChannel
-get_ops_per_channel(EsimdPrecisionType src1_precision,
-                    EsimdPrecisionType src2_precision) {
-  if ((src1_precision == EsimdPrecisionType::U8) ||
-      (src1_precision == EsimdPrecisionType::S8)) {
-    if ((src2_precision == EsimdPrecisionType::U8) ||
-        (src2_precision == EsimdPrecisionType::S8) ||
-        (src2_precision == EsimdPrecisionType::U4) ||
-        (src2_precision == EsimdPrecisionType::S4) ||
-        (src2_precision == EsimdPrecisionType::U2) ||
-        (src2_precision == EsimdPrecisionType::S2)) {
-      return EsimdDpasOptPerChannel::OP4;
+constexpr dpas_ops_per_channel
+get_ops_per_channel(argument_type src1_precision,
+                    argument_type src2_precision) {
+  if ((src1_precision == argument_type::U8) ||
+      (src1_precision == argument_type::S8)) {
+    if ((src2_precision == argument_type::U8) ||
+        (src2_precision == argument_type::S8) ||
+        (src2_precision == argument_type::U4) ||
+        (src2_precision == argument_type::S4) ||
+        (src2_precision == argument_type::U2) ||
+        (src2_precision == argument_type::S2)) {
+      return dpas_ops_per_channel::OP4;
     }
-  } else if ((src1_precision == EsimdPrecisionType::U4) ||
-             (src1_precision == EsimdPrecisionType::S4) ||
-             (src1_precision == EsimdPrecisionType::U2) ||
-             (src1_precision == EsimdPrecisionType::S2)) {
-    if ((src2_precision == EsimdPrecisionType::U8) ||
-        (src2_precision == EsimdPrecisionType::S8)) {
-      return EsimdDpasOptPerChannel::OP4;
-    } else if ((src2_precision == EsimdPrecisionType::U4) ||
-               (src2_precision == EsimdPrecisionType::S4) ||
-               (src2_precision == EsimdPrecisionType::U2) ||
-               (src2_precision == EsimdPrecisionType::S2)) {
-      return EsimdDpasOptPerChannel::OP8;
+  } else if ((src1_precision == argument_type::U4) ||
+             (src1_precision == argument_type::S4) ||
+             (src1_precision == argument_type::U2) ||
+             (src1_precision == argument_type::S2)) {
+    if ((src2_precision == argument_type::U8) ||
+        (src2_precision == argument_type::S8)) {
+      return dpas_ops_per_channel::OP4;
+    } else if ((src2_precision == argument_type::U4) ||
+               (src2_precision == argument_type::S4) ||
+               (src2_precision == argument_type::U2) ||
+               (src2_precision == argument_type::S2)) {
+      return dpas_ops_per_channel::OP8;
     }
-  } else if ((src1_precision == EsimdPrecisionType::BF16) &&
-             (src2_precision == EsimdPrecisionType::BF16)) {
-    return EsimdDpasOptPerChannel::OP2;
-  } else if ((src1_precision == EsimdPrecisionType::FP16) &&
-             (src2_precision == EsimdPrecisionType::FP16)) {
-    return EsimdDpasOptPerChannel::OP2;
-  } else if ((src1_precision == EsimdPrecisionType::BF8) &&
-             (src2_precision == EsimdPrecisionType::BF8)) {
-    return EsimdDpasOptPerChannel::OP4;
-  } else if ((src1_precision == EsimdPrecisionType::TF32) &&
-             (src2_precision == EsimdPrecisionType::TF32)) {
-    return EsimdDpasOptPerChannel::OP1;
+  } else if ((src1_precision == argument_type::BF16) &&
+             (src2_precision == argument_type::BF16)) {
+    return dpas_ops_per_channel::OP2;
+  } else if ((src1_precision == argument_type::FP16) &&
+             (src2_precision == argument_type::FP16)) {
+    return dpas_ops_per_channel::OP2;
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+  } else if ((src1_precision == argument_type::BF8) &&
+             (src2_precision == argument_type::BF8)) {
+    return dpas_ops_per_channel::OP4;
+/* end INTEL_CUSTOMIZATION */
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+  } else if ((src1_precision == argument_type::TF32) &&
+             (src2_precision == argument_type::TF32)) {
+    return dpas_ops_per_channel::OP1;
   }
-  return EsimdDpasOptPerChannel::INVALID;
+  return dpas_ops_per_channel::INVALID;
 }
 
-constexpr unsigned get_precision_bits(EsimdPrecisionType src_precision) {
-  if ((src_precision == EsimdPrecisionType::U8) ||
-      (src_precision == EsimdPrecisionType::S8) ||
-      (src_precision == EsimdPrecisionType::BF8)) {
+constexpr unsigned get_precision_bits(argument_type src_precision) {
+  if ((src_precision == argument_type::U8) ||
+      (src_precision == argument_type::S8) ||
+      (src_precision == argument_type::BF8)) {
     return 8;
-  } else if ((src_precision == EsimdPrecisionType::U4) ||
-             (src_precision == EsimdPrecisionType::S4)) {
+  } else if ((src_precision == argument_type::U4) ||
+             (src_precision == argument_type::S4)) {
     return 4;
-  } else if ((src_precision == EsimdPrecisionType::U2) ||
-             (src_precision == EsimdPrecisionType::S2)) {
+  } else if ((src_precision == argument_type::U2) ||
+             (src_precision == argument_type::S2)) {
     return 2;
-  } else if ((src_precision == EsimdPrecisionType::BF16) ||
-             (src_precision == EsimdPrecisionType::FP16)) {
+  } else if ((src_precision == argument_type::BF16) ||
+             (src_precision == argument_type::FP16)) {
     return 16;
-  } else if (src_precision == EsimdPrecisionType::TF32) {
+  } else if (src_precision == argument_type::TF32) {
     return 32;
   }
   return 0;
@@ -2857,7 +2864,7 @@ constexpr unsigned get_precision_bits(EsimdPrecisionType src_precision) {
 /// by src2_precision.
 /// \param flag is the saturation flag, which has default value of GENX_NOSAT.
 /// \return the vector value of DPAS computation result.
-template <EsimdPrecisionType src1_precision, EsimdPrecisionType src2_precision,
+template <argument_type src1_precision, argument_type src2_precision,
           typename T, int systolic_depth, int repeat_count, typename T0,
           typename T1, typename T2, int N, int N1, int N2>
 __ESIMD_API simd<T, N> dpas(simd<T0, N> src0, simd<T1, N1> src1,
@@ -2870,32 +2877,34 @@ __ESIMD_API simd<T, N> dpas(simd<T0, N> src0, simd<T1, N1> src1,
   constexpr bool check_integer =
       detail::is_one_of_v<T, unsigned int, int> &&
       detail::is_one_of_v<T0, unsigned int, int> &&
-      detail::is_one_of_enum_v<EsimdPrecisionType, src1_precision,
-                               EsimdPrecisionType::S8, EsimdPrecisionType::U8,
-                               EsimdPrecisionType::U4, EsimdPrecisionType::S4,
-                               EsimdPrecisionType::U2,
-                               EsimdPrecisionType::S2> &&
-      detail::is_one_of_enum_v<EsimdPrecisionType, src2_precision,
-                               EsimdPrecisionType::S8, EsimdPrecisionType::U8,
-                               EsimdPrecisionType::U4, EsimdPrecisionType::S4,
-                               EsimdPrecisionType::U2, EsimdPrecisionType::S2>;
+      detail::is_one_of_enum_v<argument_type, src1_precision,
+                               argument_type::S8, argument_type::U8,
+                               argument_type::U4, argument_type::S4,
+                               argument_type::U2,
+                               argument_type::S2> &&
+      detail::is_one_of_enum_v<argument_type, src2_precision,
+                               argument_type::S8, argument_type::U8,
+                               argument_type::U4, argument_type::S4,
+                               argument_type::U2, argument_type::S2>;
   // f, bf | f, bf | bf | bf
   constexpr bool check_bf16 =
       detail::is_one_of_v<T, float, short> &&
       detail::is_one_of_v<T0, float, short> &&
-      detail::is_one_of_enum_v<EsimdPrecisionType, src1_precision,
-                               EsimdPrecisionType::BF16> &&
-      detail::is_one_of_enum_v<EsimdPrecisionType, src2_precision,
-                               EsimdPrecisionType::BF16>;
+      detail::is_one_of_enum_v<argument_type, src1_precision,
+                               argument_type::BF16> &&
+      detail::is_one_of_enum_v<argument_type, src2_precision,
+                               argument_type::BF16>;
   // f,hf | f, hf | hf | hf
   constexpr bool check_hf =
       detail::is_one_of_v<T, float, half> &&
       detail::is_one_of_v<T0, float, half> &&
-      detail::is_one_of_enum_v<EsimdPrecisionType, src1_precision,
-                               EsimdPrecisionType::FP16> &&
-      detail::is_one_of_enum_v<EsimdPrecisionType, src2_precision,
-                               EsimdPrecisionType::FP16>;
+      detail::is_one_of_enum_v<argument_type, src1_precision,
+                               argument_type::FP16> &&
+      detail::is_one_of_enum_v<argument_type, src2_precision,
+                               argument_type::FP16>;
 
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
 // PVC-EMBARGO-SECTION: ESIMD_GEN12_7, ESIMD_GEN12_9
 #if defined(ESIMD_GEN12_7) || defined(ESIMD_GEN12_9)
   // NOTE: this part is related valid for PVC, care should be taken during OS
@@ -2903,17 +2912,17 @@ __ESIMD_API simd<T, N> dpas(simd<T0, N> src0, simd<T1, N1> src1,
   constexpr bool check_bf8 =
       detail::is_one_of_v<T, float, half, short> &&
       detail::is_one_of_v<T0, float, half, short> &&
-      detail::is_one_of_enum_v<EsimdPrecisionType, src1_precision,
-                               EsimdPrecisionType::BF8> &&
-      detail::is_one_of_enum_v<EsimdPrecisionType, src2_precision,
-                               EsimdPrecisionType::BF8>;
+      detail::is_one_of_enum_v<argument_type, src1_precision,
+                               argument_type::BF8> &&
+      detail::is_one_of_enum_v<argument_type, src2_precision,
+                               argument_type::BF8>;
   // f | f | tf32 | tf32
   constexpr bool check_tf32 =
       detail::is_one_of_v<T, float> && detail::is_one_of_v<T0, float> &&
-      detail::is_one_of_enum_v<EsimdPrecisionType, src1_precision,
-                               EsimdPrecisionType::TF32> &&
-      detail::is_one_of_enum_v<EsimdPrecisionType, src2_precision,
-                               EsimdPrecisionType::TF32>;
+      detail::is_one_of_enum_v<argument_type, src1_precision,
+                               argument_type::TF32> &&
+      detail::is_one_of_enum_v<argument_type, src2_precision,
+                               argument_type::TF32>;
 #endif // defined(ESIMD_GEN12_7) || defined(ESIMD_GEN12_9)
 
 // PVC-EMBARGO-SECTION: ESIMD_GEN12_7, ESIMD_GEN12_9
@@ -2952,6 +2961,8 @@ __ESIMD_API simd<T, N> dpas(simd<T0, N> src0, simd<T1, N1> src1,
   // ATS-EMBARGO-SECTION (TGL):
   static_assert((N == 8 * repeat_count), "Execution size must be 8");
 #endif
+/* end INTEL_CUSTOMIZATION */
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
 
   static_assert((systolic_depth == 8) || (systolic_depth == 4),
                 "systolic_depth must be 8 or 4");
@@ -2961,7 +2972,7 @@ __ESIMD_API simd<T, N> dpas(simd<T0, N> src0, simd<T1, N1> src1,
 
   constexpr auto en_ops_per_channel =
       detail::get_ops_per_channel(src1_precision, src2_precision);
-  static_assert(en_ops_per_channel != detail::EsimdDpasOptPerChannel::INVALID,
+  static_assert(en_ops_per_channel != detail::dpas_ops_per_channel::INVALID,
                 "invalid combination of Src1/Src2 precision");
   constexpr auto ops_per_channel = static_cast<unsigned>(en_ops_per_channel);
 
@@ -3015,7 +3026,7 @@ __ESIMD_API simd<T, N> dpas(simd<T0, N> src0, simd<T1, N1> src1,
 /// by src2_precision.
 /// \param flag is the saturation flag, which has default value of GENX_NOSAT.
 /// \return the vector value of DPAS computation result.
-template <EsimdPrecisionType src1_precision, EsimdPrecisionType src2_precision,
+template <argument_type src1_precision, argument_type src2_precision,
           int systolic_depth, int repeat_count, typename T, typename T1,
           typename T2, int N, int N1, int N2>
 __ESIMD_API simd<T, N> dpas(simd<T, N> src0, simd<T1, N1> src1,
@@ -3031,7 +3042,7 @@ __ESIMD_API simd<T, N> dpas(simd<T, N> src0, simd<T1, N1> src1,
 /// by src2_precision.
 /// \param flag is the saturation flag, which has default value of GENX_NOSAT.
 /// \return the vector value of DPAS computation result.
-template <EsimdPrecisionType src1_precision, EsimdPrecisionType src2_precision,
+template <argument_type src1_precision, argument_type src2_precision,
           int systolic_depth, int repeat_count, typename T, typename T1,
           typename T2, int N, int N1, int N2>
 __ESIMD_API simd<T, N> dpas(simd<T1, N1> src1, simd<T2, N2> src2,
@@ -3055,7 +3066,7 @@ __ESIMD_API simd<T, N> dpas(simd<T1, N1> src1, simd<T2, N2> src2,
 
   constexpr auto en_ops_per_channel =
       detail::get_ops_per_channel(src1_precision, src2_precision);
-  static_assert(en_ops_per_channel != detail::EsimdDpasOptPerChannel::INVALID,
+  static_assert(en_ops_per_channel != detail::dpas_ops_per_channel::INVALID,
                 "invalid combination of Src1/Src2 precision");
   constexpr auto ops_per_channel = static_cast<unsigned>(en_ops_per_channel);
 
@@ -3100,7 +3111,7 @@ __ESIMD_API simd<T, N> dpas(simd<T1, N1> src1, simd<T2, N2> src2,
 /// by src2_precision.
 /// \param flag is the saturation flag, which has default value of GENX_NOSAT.
 /// \return the vector value of DPAS computation result.
-template <EsimdPrecisionType src1_precision, EsimdPrecisionType src2_precision,
+template <argument_type src1_precision, argument_type src2_precision,
           int systolic_depth, int repeat_count, typename T, typename T1,
           typename T2, int N, int N1, int N2>
 __ESIMD_API simd<T, N> dpasw(simd<T, N> src0, simd<T1, N1> src1,
@@ -3108,11 +3119,11 @@ __ESIMD_API simd<T, N> dpasw(simd<T, N> src0, simd<T1, N1> src1,
   constexpr bool is_4xhf =
       (detail::is_type<T, cl::sycl::detail::half_impl::StorageT>()) &&
       src1_precision == src2_precision &&
-      src1_precision == EsimdPrecisionType::FP16;
+      src1_precision == argument_type::FP16;
 
   constexpr bool is_4xbf = detail::is_word_type<T>::value &&
                            src1_precision == src2_precision &&
-                           src1_precision == EsimdPrecisionType::BF16;
+                           src1_precision == argument_type::BF16;
 
   constexpr bool is_common_dpas = detail::is_fp_or_dword_type<T>::value;
 
@@ -3134,7 +3145,7 @@ __ESIMD_API simd<T, N> dpasw(simd<T, N> src0, simd<T1, N1> src1,
 
   constexpr auto en_ops_per_channel =
       detail::get_ops_per_channel(src1_precision, src2_precision);
-  static_assert(en_ops_per_channel != detail::EsimdDpasOptPerChannel::INVALID,
+  static_assert(en_ops_per_channel != detail::dpas_ops_per_channel::INVALID,
                 "invalid combination of Src1/Src2 precision");
   constexpr auto ops_per_channel = static_cast<unsigned>(en_ops_per_channel);
 
@@ -3177,7 +3188,7 @@ __ESIMD_API simd<T, N> dpasw(simd<T, N> src0, simd<T1, N1> src1,
 /// by src2_precision.
 /// \param flag is the saturation flag, which has default value of GENX_NOSAT.
 /// \return the vector value of DPAS computation result.
-template <EsimdPrecisionType src1_precision, EsimdPrecisionType src2_precision,
+template <argument_type src1_precision, argument_type src2_precision,
           int systolic_depth, int repeat_count, typename T, typename T1,
           typename T2, int N, int N1, int N2>
 __ESIMD_API simd<T, N> dpasw2(simd<T1, N1> src1, simd<T2, N2> src2,
@@ -3185,11 +3196,11 @@ __ESIMD_API simd<T, N> dpasw2(simd<T1, N1> src1, simd<T2, N2> src2,
   constexpr bool is_4xhf =
       (is_type<T, cl::sycl::detail::half_impl::StorageT>()) &&
       src1_precision == src2_precision &&
-      src1_precision == EsimdPrecisionType::FP16;
+      src1_precision == argument_type::FP16;
 
   constexpr bool is_4xbf = detail::is_word_type<T>::value &&
                            src1_precision == src2_precision &&
-                           src1_precision == EsimdPrecisionType::BF16;
+                           src1_precision == argument_type::BF16;
 
   constexpr bool is_common_dpas = detail::is_fp_or_dword_type<T>::value;
 
@@ -3211,7 +3222,7 @@ __ESIMD_API simd<T, N> dpasw2(simd<T1, N1> src1, simd<T2, N2> src2,
 
   constexpr auto en_ops_per_channel =
       detail::get_ops_per_channel(src1_precision, src2_precision);
-  static_assert(en_ops_per_channel != detail::EsimdDpasOptPerChannel::INVALID,
+  static_assert(en_ops_per_channel != detail::dpas_ops_per_channel::INVALID,
                 "invalid combination of Src1/Src2 precision");
   constexpr auto ops_per_channel = static_cast<unsigned>(en_ops_per_channel);
 
@@ -3247,9 +3258,6 @@ __ESIMD_API simd<T, N> dpasw2(simd<T1, N1> src1, simd<T2, N2> src2,
   return saturate<T>(result);
 }
 /// @}
-
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
 
 /// @} sycl_esimd_math
 

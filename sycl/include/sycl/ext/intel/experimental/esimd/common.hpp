@@ -110,7 +110,6 @@ static inline constexpr saturation_off_tag saturation_off{};
 /// Type tag object representing "saturation on" behavior.
 static inline constexpr saturation_on_tag saturation_on{};
 
-
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
@@ -131,7 +130,10 @@ enum {
 };
 // }
 
-enum class EsimdPrecisionType {
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+
+enum class argument_type {
   U1 = 0,   // unsigned 1 bit
   S1 = 1,   // signed 1 bit
   U2 = 2,   // unsigned 2 bits
@@ -142,11 +144,9 @@ enum class EsimdPrecisionType {
   S8 = 7,   // signed 8 bits
   BF16 = 8, // bfloat 16
   FP16 = 9, // half float
-  BF8 = 10, // bfloat 8
+  BF8 = 10, // bfloat 8 // INTEL_FEATURE_ESIMD_EMBARGO
   TF32 = 11 // tensorfloat 32
 };
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
 
 /// Represents a pixel's channel.
 enum class rgba_channel : uint8_t { R, G, B, A };
