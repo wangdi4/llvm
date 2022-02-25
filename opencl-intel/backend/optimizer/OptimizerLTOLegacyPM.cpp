@@ -130,6 +130,9 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
       PassManagerBuilder::EP_VectorizerStart,
       [&](const PassManagerBuilder &, legacy::PassManagerBase &MPM) {
         MPM.add(createDPCPPKernelAnalysisLegacyPass());
+        MPM.add(createWGLoopBoundariesLegacyPass());
+        MPM.add(createDeadCodeEliminationPass());
+        MPM.add(createCFGSimplificationPass());
         if (Config->GetTransposeSize() == 1)
           return;
         VectorVariant::ISAClass ISA =

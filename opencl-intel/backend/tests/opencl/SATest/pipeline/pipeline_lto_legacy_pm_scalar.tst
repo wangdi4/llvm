@@ -24,6 +24,7 @@
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
 ; CHECK:          DPCPPKernelAnalysisLegacy
+; CHECK:          WGLoopBoundariesLegacy
 
 ; CHECK:          Call Graph SCC Pass Manager
 ; CHECK:            FunctionPass Manager

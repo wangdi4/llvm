@@ -31,6 +31,7 @@
 ; CHECK:                Unroll loops
 
 ; CHECK:          DPCPPKernelAnalysisLegacy
+; CHECK:          WGLoopBoundariesLegacy
 ; CHECK:          VFAnalysisLegacy
 ; CHECK:          SetVectorizationFactorLegacy
 ; CHECK:          VectorVariantLoweringLegacy
