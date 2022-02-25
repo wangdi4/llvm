@@ -247,7 +247,6 @@ set( BACKEND_PASSES
     OCLAliasAnalysis
     PrintfArgumentsPromotion
     SYCLPipesHack
-    AddNTAttr
     ResolveVariableTIDCall
 )
 
