@@ -18,12 +18,12 @@
 #include "BuiltinLibInfo.h"
 #include "Logger.h"
 #include "Mangler.h"
-#include "OclTune.h"
 #include "VectorizerCommon.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SoaAllocaAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WorkItemAnalysis.h"
 
 #include "llvm/IR/DataLayout.h"
@@ -549,31 +549,34 @@ private:
   // @brief target CPU
   Intel::OpenCL::Utils::ECPU m_Cpu;
 
-  // Statistics:
-  Statistic::ActiveStatsT m_kernelStats;
-  Statistic GEP_With_2_Indices;
-  Statistic GEP_With_More_Than_2_Indices;
-  Statistic Array_Of_Structs_Store_Or_Loads;
-  Statistic Cant_Load_Transpose_Because_Of_Non_Extract_Users;
-  Statistic Cant_Load_Transpose_Because_Multiple_Extract_Users_With_The_Same_Index;
-  Statistic Load_Transpose_Created_For_A_Single_Scalar_Value;
-  Statistic Store_Transpose_Given_Up_Because_Of_Multiple_Users_Of_The_Stored_Vector;
-  Statistic Store_Transpose_Given_Up_Due_To_Not_Supported_Vector_Size;
-  Statistic Store_Transpose_Created_For_A_Single_Scalar;
-  Statistic Insert_Element_Transpose_Given_Up_Due_To_Not_supported_Vector_Size;
-  Statistic Transposing_ExtractElement_For_A_Single_Extract;
-  Statistic Scalarize_An_Instruction_That_Does_Not_Have_Vector_Support;
-  Statistic Scalarize_Memory_Operand_That_Does_Not_Have_Vector_Support;
-  Statistic Wide_Unmasked_Memory_Operation_Created;
-  Statistic Wide_Masked_Memory_Operation_Created;
-  Statistic Gather_Scatter_Created;
-  Statistic Scalarize_Memory_Operand_Because_Cant_Create_Gather_Scatter;
-  Statistic Scalarize_Function_Call;
-  Statistic Scalarize_ExtractElement_Because_Cant_Transpose;
-  Statistic Created_Transpose_For_Insert_Element;
-  Statistic Created_Transpose_For_Extract_Element;
-  Statistic Created_Load_And_Transpose;
-  Statistic Created_Transpose_And_Store;
+  // DPCPPStatistics:
+  DPCPPStatistic::ActiveStatsT m_kernelStats;
+  DPCPPStatistic GEP_With_2_Indices;
+  DPCPPStatistic GEP_With_More_Than_2_Indices;
+  DPCPPStatistic Array_Of_Structs_Store_Or_Loads;
+  DPCPPStatistic Cant_Load_Transpose_Because_Of_Non_Extract_Users;
+  DPCPPStatistic
+      Cant_Load_Transpose_Because_Multiple_Extract_Users_With_The_Same_Index;
+  DPCPPStatistic Load_Transpose_Created_For_A_Single_Scalar_Value;
+  DPCPPStatistic
+      Store_Transpose_Given_Up_Because_Of_Multiple_Users_Of_The_Stored_Vector;
+  DPCPPStatistic Store_Transpose_Given_Up_Due_To_Not_Supported_Vector_Size;
+  DPCPPStatistic Store_Transpose_Created_For_A_Single_Scalar;
+  DPCPPStatistic
+      Insert_Element_Transpose_Given_Up_Due_To_Not_supported_Vector_Size;
+  DPCPPStatistic Transposing_ExtractElement_For_A_Single_Extract;
+  DPCPPStatistic Scalarize_An_Instruction_That_Does_Not_Have_Vector_Support;
+  DPCPPStatistic Scalarize_Memory_Operand_That_Does_Not_Have_Vector_Support;
+  DPCPPStatistic Wide_Unmasked_Memory_Operation_Created;
+  DPCPPStatistic Wide_Masked_Memory_Operation_Created;
+  DPCPPStatistic Gather_Scatter_Created;
+  DPCPPStatistic Scalarize_Memory_Operand_Because_Cant_Create_Gather_Scatter;
+  DPCPPStatistic Scalarize_Function_Call;
+  DPCPPStatistic Scalarize_ExtractElement_Because_Cant_Transpose;
+  DPCPPStatistic Created_Transpose_For_Insert_Element;
+  DPCPPStatistic Created_Transpose_For_Extract_Element;
+  DPCPPStatistic Created_Load_And_Transpose;
+  DPCPPStatistic Created_Transpose_And_Store;
 };
 
 } //namespace

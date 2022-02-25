@@ -38,7 +38,6 @@ void initializeSpecialCaseBuiltinResolverPass(llvm::PassRegistry&);
 void initializeCLBuiltinLICMPass(llvm::PassRegistry&);
 void initializeCLWGLoopBoundariesPass(llvm::PassRegistry&);
 void initializeCLStreamSamplerPass(llvm::PassRegistry&);
-void initializeCleanupWrappedKernelsPass(llvm::PassRegistry&);
 void initializeRemoveDuplicationBarrierPass(llvm::PassRegistry&);
 void initializeSinCosFoldPass(llvm::PassRegistry&);
 // SGEmulation passes
@@ -89,7 +88,6 @@ void initializePatchCallbackArgsPass(llvm::PassRegistry &);
 void initializeWeightedInstCounterPass(llvm::PassRegistry &);
 void initializeScalarizeFunctionPass(llvm::PassRegistry &);
 void initializeRemoveAtExitPass(llvm::PassRegistry &);
-void initializeAddNTAttrPass(llvm::PassRegistry &);
 void initializeChooseVectorizationDimensionPass(llvm::PassRegistry &);
 void initializeCoerceWin64TypesPass(llvm::PassRegistry &);
 void initializeVectorKernelDiscardPass(llvm::PassRegistry &);

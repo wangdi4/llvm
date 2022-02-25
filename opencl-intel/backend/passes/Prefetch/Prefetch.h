@@ -15,17 +15,17 @@
 #ifndef __PREFETCH_H_
 #define __PREFETCH_H_
 
-#include "llvm/Pass.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 #include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
-#include "OclTune.h"
 
 #include <map>
 
@@ -49,36 +49,36 @@ namespace intel{
   // class PrefetchCandidateUtils static methods, since stats can't be static
   class PrefetchStats {
   public:
-    PrefetchStats(Statistic::ActiveStatsT &statList);
+    PrefetchStats(DPCPPStatistic::ActiveStatsT &statList);
 
-    // Statistics
-    Statistic Candidate_global_gather;
-    Statistic Candidate_local_gather;
-    Statistic Candidate_constant_gather;
-    Statistic Candidate_private_gather;
+    // DPCPPStatistics
+    DPCPPStatistic Candidate_global_gather;
+    DPCPPStatistic Candidate_local_gather;
+    DPCPPStatistic Candidate_constant_gather;
+    DPCPPStatistic Candidate_private_gather;
 
-    Statistic Candidate_global_masked_gather;
-    Statistic Candidate_local_masked_gather;
-    Statistic Candidate_constant_masked_gather;
-    Statistic Candidate_private_masked_gather;
+    DPCPPStatistic Candidate_global_masked_gather;
+    DPCPPStatistic Candidate_local_masked_gather;
+    DPCPPStatistic Candidate_constant_masked_gather;
+    DPCPPStatistic Candidate_private_masked_gather;
 
-    Statistic Candidate_global_scatter;
-    Statistic Candidate_local_scatter;
-    Statistic Candidate_constant_scatter;
-    Statistic Candidate_private_scatter;
+    DPCPPStatistic Candidate_global_scatter;
+    DPCPPStatistic Candidate_local_scatter;
+    DPCPPStatistic Candidate_constant_scatter;
+    DPCPPStatistic Candidate_private_scatter;
 
-    Statistic Candidate_global_masked_scatter;
-    Statistic Candidate_local_masked_scatter;
-    Statistic Candidate_constant_masked_scatter;
-    Statistic Candidate_private_masked_scatter;
-    Statistic PF_triggered_by_masked_unaligned_loads;
-    Statistic PF_triggered_by_masked_unaligned_stores;
-    Statistic PF_triggered_by_masked_random_gather;
-    Statistic PF_triggered_by_masked_random_scatter;
-    Statistic PF_triggered_by_random_gather;
-    Statistic PF_triggered_by_random_scatter;
+    DPCPPStatistic Candidate_global_masked_scatter;
+    DPCPPStatistic Candidate_local_masked_scatter;
+    DPCPPStatistic Candidate_constant_masked_scatter;
+    DPCPPStatistic Candidate_private_masked_scatter;
+    DPCPPStatistic PF_triggered_by_masked_unaligned_loads;
+    DPCPPStatistic PF_triggered_by_masked_unaligned_stores;
+    DPCPPStatistic PF_triggered_by_masked_random_gather;
+    DPCPPStatistic PF_triggered_by_masked_random_scatter;
+    DPCPPStatistic PF_triggered_by_random_gather;
+    DPCPPStatistic PF_triggered_by_random_scatter;
 
-    Statistic Abort_APF_since_detected_manual_PF;
+    DPCPPStatistic Abort_APF_since_detected_manual_PF;
   };
 
   class Prefetch : public FunctionPass {
@@ -201,30 +201,30 @@ namespace intel{
       // holds all memory accesses that deserve prefetching
       BBAccesses m_addresses;
 
-      // Statistics
-      Statistic::ActiveStatsT m_kernelStats;
-      Statistic Ignore_BB_lacking_vector_instructions;
-      Statistic Ignore_BB_not_in_loop;
-      Statistic Accesses_merged_to_1_PF_have_large_diff_256;
-      Statistic Accesses_not_merged_to_1_PF_have_large_diff_1024;
-      Statistic Ignore_non_simple_load;
-      Statistic Ignore_local_load;
-      Statistic Ignore_private_load;
-      Statistic Ignore_non_simple_store;
-      Statistic Ignore_local_store;
-      Statistic Ignore_private_store;
+      // DPCPPStatistics
+      DPCPPStatistic::ActiveStatsT m_kernelStats;
+      DPCPPStatistic Ignore_BB_lacking_vector_instructions;
+      DPCPPStatistic Ignore_BB_not_in_loop;
+      DPCPPStatistic Accesses_merged_to_1_PF_have_large_diff_256;
+      DPCPPStatistic Accesses_not_merged_to_1_PF_have_large_diff_1024;
+      DPCPPStatistic Ignore_non_simple_load;
+      DPCPPStatistic Ignore_local_load;
+      DPCPPStatistic Ignore_private_load;
+      DPCPPStatistic Ignore_non_simple_store;
+      DPCPPStatistic Ignore_local_store;
+      DPCPPStatistic Ignore_private_store;
 
-      Statistic Access_has_no_scalar_evolution_in_loop;
-      Statistic Access_step_is_loop_variant;
-      Statistic Access_step_is_loop_invariant;
-      Statistic Access_match_in_same_BB;
-      Statistic Access_match_in_dominating_BB;
-      Statistic Access_exact_match;
-      Statistic Access_match_same_cache_line;
-      Statistic PF_triggered_by_partial_cache_line_access;
-      Statistic PF_triggered_by_full_cache_line_access;
-      Statistic PF_triggered_by_multiple_cache_line_access;
-      Statistic Access_step_is_variable;
+      DPCPPStatistic Access_has_no_scalar_evolution_in_loop;
+      DPCPPStatistic Access_step_is_loop_variant;
+      DPCPPStatistic Access_step_is_loop_invariant;
+      DPCPPStatistic Access_match_in_same_BB;
+      DPCPPStatistic Access_match_in_dominating_BB;
+      DPCPPStatistic Access_exact_match;
+      DPCPPStatistic Access_match_same_cache_line;
+      DPCPPStatistic PF_triggered_by_partial_cache_line_access;
+      DPCPPStatistic PF_triggered_by_full_cache_line_access;
+      DPCPPStatistic PF_triggered_by_multiple_cache_line_access;
+      DPCPPStatistic Access_step_is_variable;
 
       PrefetchStats m_stats;
 

@@ -25,8 +25,8 @@
 
 #include "InitializePasses.h"
 #include "OCLPassSupport.h"
-#include "OclTune.h"
 #include "cl_env.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 
 #include <sstream>
 #include <string>
@@ -67,15 +67,16 @@ namespace intel {
 
     // do not execute this pass unless the user asked to remove manual
     // prefetches or the user is collecting stats for this pass
-    if (removePF && !intel::Statistic::isEnabled() &&
-        !Statistic::isCurrentStatType(DEBUG_TYPE))
+    if (removePF && !DPCPPStatistic::isEnabled() &&
+        !DPCPPStatistic::isCurrentStatType(DEBUG_TYPE))
       return false;
 
     std::vector<Instruction *> removedInst;
 
-    Statistic::ActiveStatsT kernelStats;
-    OCLSTAT_DEFINE(SWPrefetches,
-        "Number of SW prefetches detected in the code",kernelStats);
+    DPCPPStatistic::ActiveStatsT kernelStats;
+    DPCPP_STAT_DEFINE(SWPrefetches,
+                      "Number of SW prefetches detected in the code",
+                      kernelStats);
 
     // Find all prefetch builtin function calls and keep them
     for (Module::iterator FI = M.begin(), FE = M.end(); FI != FE; ++FI) {
@@ -98,7 +99,7 @@ namespace intel {
           }
         }
       }
-      intel::Statistic::pushFunctionStats (kernelStats, *F, DEBUG_TYPE);
+      DPCPPStatistic::pushFunctionStats(kernelStats, *F, DEBUG_TYPE);
     }
 
     // remove all prefetch builtin calls

@@ -13,13 +13,13 @@
 // License.
 
 #include "CompilerConfig.h"
-#include "OclTune.h"
 #include "PipeCommon.h"
 #include "cl_config.h"
 #include "cl_env.h"
 #include "cl_sys_defines.h"
 #include "cl_utils.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 
 #include <sstream>
 #include <string.h>
@@ -60,15 +60,15 @@ void GlobalCompilerConfig::LoadConfig()
     // statistic will be dumped, otherwise, only statistic with specified type
     // will be dumped.
     if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_STATS") && !Env.empty()) {
-      intel::Statistic::enableStats();
+      DPCPPStatistic::enableStats();
       if (STRCASECMP("all", Env.c_str()))
-        intel::Statistic::setCurrentStatType(Env.c_str());
+        DPCPPStatistic::setCurrentStatType(Env.c_str());
     }
     if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_EQUALIZER_STATS") &&
         !Env.empty()) {
-      intel::Statistic::enableStats();
+      DPCPPStatistic::enableStats();
       if (STRCASECMP("all", Env.c_str()))
-        intel::Statistic::setCurrentStatType(Env.c_str());
+        DPCPPStatistic::setCurrentStatType(Env.c_str());
     }
 #endif // INTEL_PRODUCT_RELEASE
 

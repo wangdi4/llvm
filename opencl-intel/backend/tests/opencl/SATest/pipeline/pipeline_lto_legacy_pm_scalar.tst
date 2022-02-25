@@ -24,6 +24,7 @@
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
 ; CHECK:          DPCPPKernelAnalysisLegacy
+; CHECK:          WGLoopBoundariesLegacy
 
 ; CHECK:          Call Graph SCC Pass Manager
 ; CHECK:            FunctionPass Manager
@@ -69,6 +70,7 @@
 ; CHECK:          SROA
 ; CHECK:          Loop Invariant Code Motion
 ; CHECK:          Recognize loop idioms
+; CHECK:          Delete dead loops
 ; CHECK:          Simplify the CFG
 ; CHECK:          PrepareKernelArgsLegacy
 ; CHECK:          CleanupWrappedKernelLegacy

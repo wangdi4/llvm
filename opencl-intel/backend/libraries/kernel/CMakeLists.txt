@@ -22,7 +22,7 @@ function(create_ocl_kernel_target CLANG_FLAGS INPUT_CL TMP_DIR OUTPUT_DIR OUTPUT
             -dpcpp-kernel-wgloop-creator
             -loop-idiom -loop-deletion -dpcpp-kernel-add-implicit-args
             -dpcpp-kernel-resolve-wi-call -dpcpp-kernel-prepare-args -inline
-            -dce -globaldce -instcombine -cleanup-wrapped-kernels
+            -dce -globaldce -instcombine -dpcpp-kernel-cleanup-wrapped
             -o ${OUTPUT_OPT_FILE}
     COMMENT "Compiling ${OPT_RTL_FILE}"
   )

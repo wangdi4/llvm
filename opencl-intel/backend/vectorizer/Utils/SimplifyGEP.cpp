@@ -32,16 +32,15 @@ OCL_INITIALIZE_PASS_BEGIN(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP 
 OCL_INITIALIZE_PASS_DEPENDENCY(WorkItemAnalysisLegacy)
 OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP instructions", false, false)
 
-  SimplifyGEP::SimplifyGEP() : FunctionPass(ID), m_pDL(nullptr),
-    OCLSTAT_INIT(Simplified_Multi_Indices_GEPs,
-                "Simplified multi indices GEP instructions",
-                m_kernelStats),
-    OCLSTAT_INIT(Simplified_Phi_Node_GEPs,
-                "Simplified Phi GEP instructions",
-                m_kernelStats)
-  {
-    initializeSimplifyGEPPass(*llvm::PassRegistry::getPassRegistry());
-  }
+SimplifyGEP::SimplifyGEP()
+    : FunctionPass(ID), m_pDL(nullptr),
+      DPCPP_STAT_INIT(Simplified_Multi_Indices_GEPs,
+                      "Simplified multi indices GEP instructions",
+                      m_kernelStats),
+      DPCPP_STAT_INIT(Simplified_Phi_Node_GEPs,
+                      "Simplified Phi GEP instructions", m_kernelStats) {
+  initializeSimplifyGEPPass(*llvm::PassRegistry::getPassRegistry());
+}
 
   bool SimplifyGEP::runOnFunction(Function &F) {
     // obtain TagetData of the module
@@ -61,7 +60,7 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
     }
     changed = FixMultiIndicesGEP(F) || changed;
 
-    intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
+    DPCPPStatistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
     return changed;
   }
 

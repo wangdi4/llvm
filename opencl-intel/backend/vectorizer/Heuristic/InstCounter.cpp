@@ -19,9 +19,9 @@
 #include "LoopUtils/LoopUtils.h"
 #include "Mangler.h"
 #include "OCLPassSupport.h"
-#include "OclTune.h"
 #include "OpenclRuntime.h"
 #include "Predicator.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 
 #include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -169,9 +169,7 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
   if (CompilationUtils::isGlobalCtorDtor(&F))
     return false;
   // for statistics:
-  OCLSTAT_GATHER_CHECK(
-    m_blockCosts.clear();
-  );
+  DPCPP_STAT_GATHER_CHECK(m_blockCosts.clear(););
 
   //This is for safety - don't return 0.
   m_totalWeight = 1;
@@ -257,9 +255,7 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
                       << " Prob: " << format("%4.2f", Probability)
                       << " TripCount: " << TripCount << '\n');
     // for statistics:
-    OCLSTAT_GATHER_CHECK(
-      m_blockCosts[BB] = blockWeights;
-    );
+    DPCPP_STAT_GATHER_CHECK(m_blockCosts[BB] = blockWeights;);
   }
   LLVM_DEBUG(dbgs() << "Cost of function " << F.getName() << ": "
                     << format("%.2f", m_totalWeight) << '\n');
@@ -1320,7 +1316,7 @@ void WeightedInstCounter::estimateDataDependence(Function &F,
 }
 
 void WeightedInstCounter::copyBlockCosts(std::map<BasicBlock*,int>* dest) {
-  OCLSTAT_GATHER_CHECK(
+  DPCPP_STAT_GATHER_CHECK(
   dest->insert(m_blockCosts.begin(), m_blockCosts.end());
   );
 }
@@ -1328,8 +1324,8 @@ void WeightedInstCounter::copyBlockCosts(std::map<BasicBlock*,int>* dest) {
 void WeightedInstCounter::countPerBlockHeuristics(
   Function &F, std::map<BasicBlock*, int>* preCosts, int packetWidth) {
   // this method is just for statistical purposes.
-  OCLSTAT_GATHER_CHECK(
-  Statistic::ActiveStatsT kernelStats;
+  DPCPP_STAT_GATHER_CHECK(
+  DPCPPStatistic::ActiveStatsT kernelStats;
   int vectorizedVersionIsBetter = 0;
   int scalarVersionIsBetter = 0;
   for (std::map<BasicBlock*, int>::iterator it = preCosts->begin(),
@@ -1346,11 +1342,11 @@ void WeightedInstCounter::countPerBlockHeuristics(
       else
         vectorizedVersionIsBetter++;
   }
-  OCLSTAT_DEFINE(Blocks_That_Are_Better_Vectorized,"blocks for which the heuristics says it is better to vectorize",kernelStats);
+  DPCPP_STAT_DEFINE(Blocks_That_Are_Better_Vectorized,"blocks for which the heuristics says it is better to vectorize",kernelStats);
   Blocks_That_Are_Better_Vectorized = vectorizedVersionIsBetter;
-  OCLSTAT_DEFINE(Blocks_That_Are_Better_Scalarized,"blocks for which the heuristics says it is better to leave scalar version",kernelStats);
+  DPCPP_STAT_DEFINE(Blocks_That_Are_Better_Scalarized,"blocks for which the heuristics says it is better to leave scalar version",kernelStats);
   Blocks_That_Are_Better_Scalarized = scalarVersionIsBetter;
-  intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
+  DPCPPStatistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
   );
 }
 
@@ -1365,12 +1361,14 @@ bool VectorizationPossibilityPass::runOnFunction(Function & F)
 
 bool CanVectorizeImpl::canVectorizeForVPO(Function &F, RuntimeServices *services)
 {
-  Statistic::ActiveStatsT kernelStats;
+  DPCPPStatistic::ActiveStatsT kernelStats;
   if (hasVariableGetTIDAccess(F, services)) {
     LLVM_DEBUG(dbgs() << "Variable TID access, can not vectorize\n");
-    OCLSTAT_DEFINE(CantVectGIDMess,"Unable to vectorize because get_global_id is messed up",kernelStats);
+    DPCPP_STAT_DEFINE(CantVectGIDMess,
+                      "Unable to vectorize because get_global_id is messed up",
+                      kernelStats);
     CantVectGIDMess++;
-    intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
+    DPCPPStatistic::pushFunctionStats(kernelStats, F, DEBUG_TYPE);
     return false;
   }
 
@@ -1382,78 +1380,95 @@ bool CanVectorizeImpl::canVectorizeForVPO(Function &F, RuntimeServices *services
       if (hasNonInlineUnsupportedFunctions(F)) {
         LLVM_DEBUG(
             dbgs() << "Call to unsupported functions, can not vectorize\n");
-        OCLSTAT_DEFINE(CantVectNonInlineUnsupportedFunctions,
-                       "Unable to vectorize because of calls to functions that "
-                       "can't be inlined",
-                       kernelStats);
+        DPCPP_STAT_DEFINE(
+            CantVectNonInlineUnsupportedFunctions,
+            "Unable to vectorize because of calls to functions that "
+            "can't be inlined",
+            kernelStats);
         CantVectNonInlineUnsupportedFunctions++;
-        intel::Statistic::pushFunctionStats(kernelStats, F, DEBUG_TYPE);
+        DPCPPStatistic::pushFunctionStats(kernelStats, F, DEBUG_TYPE);
         return false;
       }
     }
   }
 
-  OCLSTAT_DEFINE(CanVect,"Code is vectorizable",kernelStats);
+  DPCPP_STAT_DEFINE(CanVect, "Code is vectorizable", kernelStats);
   CanVect++;
-  intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
+  DPCPPStatistic::pushFunctionStats(kernelStats, F, DEBUG_TYPE);
   return true;
 }
 
 bool CanVectorizeImpl::canVectorize(Function &F, DominatorTree &DT, RuntimeServices* services)
 {
-  Statistic::ActiveStatsT kernelStats;
+  DPCPPStatistic::ActiveStatsT kernelStats;
 
   if (hasVariableGetTIDAccess(F, services)) {
     LLVM_DEBUG(dbgs() << "Variable TID access, can not vectorize\n");
-    OCLSTAT_DEFINE(CantVectGIDMess,"Unable to vectorize because get_global_id is messed up",kernelStats);
+    DPCPP_STAT_DEFINE(CantVectGIDMess,
+                      "Unable to vectorize because get_global_id is messed up",
+                      kernelStats);
     CantVectGIDMess++;
-    intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
+    DPCPPStatistic::pushFunctionStats(kernelStats, F, DEBUG_TYPE);
     return false;
   }
 
   if (!isReducibleControlFlow(F, DT)) {
     LLVM_DEBUG(dbgs() << "Irreducible control flow, can not vectorize\n");
-    OCLSTAT_DEFINE(CantVectNonReducable,"Unable to vectorize because the control flow is irreducible",kernelStats);
+    DPCPP_STAT_DEFINE(
+        CantVectNonReducable,
+        "Unable to vectorize because the control flow is irreducible",
+        kernelStats);
     CantVectNonReducable++;
-    intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
+    DPCPPStatistic::pushFunctionStats(kernelStats, F, DEBUG_TYPE);
     return false;
   }
 
   if (hasIllegalTypes(F)) {
     LLVM_DEBUG(dbgs() << "Types unsupported by codegen, can not vectorize\n");
-    OCLSTAT_DEFINE(CantVectIllegalTypes,"Unable to vectorize because of unsupported opcodes",kernelStats);
+    DPCPP_STAT_DEFINE(CantVectIllegalTypes,
+                      "Unable to vectorize because of unsupported opcodes",
+                      kernelStats);
     CantVectIllegalTypes++;
-    intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
+    DPCPPStatistic::pushFunctionStats(kernelStats, F, DEBUG_TYPE);
     return false;
   }
 
   if (hasNonInlineUnsupportedFunctions(F)) {
     LLVM_DEBUG(dbgs() << "Call to unsupported functions, can not vectorize\n");
-    OCLSTAT_DEFINE(CantVectNonInlineUnsupportedFunctions,"Unable to vectorize because of calls to functions that can't be inlined",kernelStats);
+    DPCPP_STAT_DEFINE(CantVectNonInlineUnsupportedFunctions,
+                      "Unable to vectorize because of calls to functions that "
+                      "can't be inlined",
+                      kernelStats);
     CantVectNonInlineUnsupportedFunctions++;
-    intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
+    DPCPPStatistic::pushFunctionStats(kernelStats, F, DEBUG_TYPE);
     return false;
   }
 
   if (hasDirectStreamCalls(F, services)) {
     LLVM_DEBUG(dbgs() << "Has direct calls to stream functions, can not vectorize\n");
-    OCLSTAT_DEFINE(CantVectStreamCalls,"Unable to vectorize because the code contains direct stream calls",kernelStats);
+    DPCPP_STAT_DEFINE(
+        CantVectStreamCalls,
+        "Unable to vectorize because the code contains direct stream calls",
+        kernelStats);
     CantVectStreamCalls++;
-    intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
+    DPCPPStatistic::pushFunctionStats(kernelStats, F, DEBUG_TYPE);
     return false;
   }
 
   if (hasUnreachableInstructions(F)) {
     LLVM_DEBUG(dbgs() << "Has unreachable instructions, can not vectorize\n");
-    OCLSTAT_DEFINE(CantVectUnreachableCode,"Unable to vectorize because the code contains unreachable code",kernelStats);
+    DPCPP_STAT_DEFINE(
+        CantVectUnreachableCode,
+        "Unable to vectorize because the code contains unreachable code",
+        kernelStats);
     CantVectUnreachableCode++;
-    intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
+    DPCPPStatistic::pushFunctionStats(kernelStats, F, DEBUG_TYPE);
     return false;
   }
 
-  OCLSTAT_DEFINE(CanVect,"Code is vectorizable",kernelStats);
+  DPCPP_STAT_DEFINE(CanVect, "Code is vectorizable", kernelStats);
   CanVect++;
-  intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
+  DPCPPStatistic::pushFunctionStats(kernelStats, F, DEBUG_TYPE);
   return true;
 }
 

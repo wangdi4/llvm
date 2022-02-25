@@ -14,7 +14,7 @@
 
 #include "Main.h"
 #include "VectorizerCore.h"
-#include "OclTune.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -167,12 +167,12 @@ bool Vectorizer::runOnModule(Module &M)
       vectDim = vectCore->getVectorizationDim();
       canUniteWorkgroups = vectCore->getCanUniteWorkgroups();
       // copy stats from the original function to the new one
-      intel::Statistic::copyFunctionStats(*F, *clone);
+      DPCPPStatistic::copyFunctionStats(*F, *clone);
     } else {
       // We can't or choose not to vectorize the kernel, erase the clone from the module.
       // but first copy the vectorizer stats back to the original function
-      intel::Statistic::copyFunctionStats(*clone, *F);
-      intel::Statistic::removeFunctionStats(*clone);
+      DPCPPStatistic::copyFunctionStats(*clone, *F);
+      DPCPPStatistic::removeFunctionStats(*clone);
       clone->eraseFromParent();
     }
     V_ASSERT(vectFuncWidth > 0 && "vect width for non vectoized kernels should be 1");

@@ -16,10 +16,10 @@
 #include "CompilationUtils.h"
 #include "InitializeOCLPasses.hpp"
 #include "OCLAliasAnalysis.h"
-#include "OclTune.h"
 #include "PrintIRPass.h"
 #include "VecConfig.h"
 #include "mic_dev_limits.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 
 #include "VectorizerCommon.h"
 #include "cl_config.h"
@@ -122,7 +122,6 @@ llvm::Pass *createRelaxedPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
 llvm::ModulePass *createChannelPipeTransformationPass();
 llvm::ModulePass *createPipeIOTransformationPass();
-llvm::ModulePass *createCleanupWrappedKernelsPass();
 llvm::ModulePass *createPipeOrderingPass();
 llvm::ModulePass *createPipeSupportPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
@@ -151,7 +150,6 @@ llvm::ModulePass *createPrintfArgumentsPromotionPass();
 llvm::ModulePass *createChannelsUsageAnalysisPass();
 llvm::ModulePass *createSYCLPipesHackPass();
 llvm::ModulePass *createRemoveAtExitPass();
-llvm::FunctionPass *createAddNTAttrPass();
 llvm::Pass *createResolveVariableTIDCallPass();
 llvm::ModulePass *createVectorKernelDiscardPass(const intel::OptimizerConfig *);
 llvm::ModulePass *createSetPreferVectorWidthPass(const CPUDetect *CPUID);
@@ -400,7 +398,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   }
   std::string Env;
   if (Intel::OpenCL::Utils::getEnvVar(Env, "DISMPF") ||
-      intel::Statistic::isEnabled())
+      DPCPPStatistic::isEnabled())
     PM.add(createRemovePrefetchPass());
 
   PM.add(llvm::createBuiltinCallToInstLegacyPass());
@@ -530,6 +528,7 @@ static void populatePassesPostFailCheck(
   if (OptLevel > 0) {
     PM.add(llvm::createCFGSimplificationPass());
     PM.add(llvm::createDPCPPKernelAnalysisLegacyPass());
+    PM.add(createDeduceMaxWGDimPass());
     PM.add(createCLWGLoopBoundariesPass());
     PM.add(llvm::createDeadCodeEliminationPass());
     PM.add(llvm::createCFGSimplificationPass());
@@ -701,9 +700,8 @@ static void populatePassesPostFailCheck(
 
   // Adding WG loops
   if (OptLevel > 0) {
-    PM.add(createDeduceMaxWGDimPass());
     if (pConfig->GetStreamingAlways())
-      PM.add(createAddNTAttrPass());
+      PM.add(createAddNTAttrLegacyPass());
     if (debugType == Native)
       PM.add(createImplicitGIDPass(/*HandleBarrier*/ false));
     PM.add(llvm::createDPCPPKernelWGLoopCreatorLegacyPass());
@@ -863,7 +861,7 @@ static void populatePassesPostFailCheck(
   }
 
   // After kernels are inlined into their wrappers we can cleanup the bodies
-  PM.add(createCleanupWrappedKernelsPass());
+  PM.add(llvm::createCleanupWrappedKernelLegacyPass());
 
   if (UnrollLoops && OptLevel > 0) {
     // Unroll small loops

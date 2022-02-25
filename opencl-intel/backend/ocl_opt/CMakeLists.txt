@@ -9,7 +9,6 @@ set(OCL_BE_PASSES
     BuiltinLibInfo
     ChannelPipeTransformation
     ChannelsUsageAnalysis
-    CleanupWrappedKernels
     RemoveAtExit
     DebugInfoPass
     DetectRecursion
@@ -37,7 +36,6 @@ set(OCL_BE_PASSES
     OCLAliasAnalysis
     PrintfArgumentsPromotion
     SYCLPipesHack
-    AddNTAttr
     ResolveVariableTIDCall
     UndefExternalFuncs
 )

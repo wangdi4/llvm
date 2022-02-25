@@ -17,7 +17,7 @@
 
 #include "BuiltinLibInfo.h"
 #include "OpenclRuntime.h"
-#include "OclTune.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Instructions.h"
@@ -187,12 +187,12 @@ private:
   ///@brief true iff upper bound was set to be inclusive.
   bool m_rightBoundInc;
 
-  // Statistics:
-  intel::Statistic::ActiveStatsT m_kernelStats;
+  // DPCPPStatistics:
+  DPCPPStatistic::ActiveStatsT m_kernelStats;
   // set to 1 if early exit (or late start) was done for this
   // kernel. This counter is only 0 or 1,
   // even if early-exit was done for several conditions and/or dimensions.
-  Statistic Created_Early_Exit;
+  DPCPPStatistic Created_Early_Exit;
 
   ///@brief Collect kernels MaxD WG loop boundaries must be always created for.
   void collectWIUniqueFuncUsers(llvm::Module &M);

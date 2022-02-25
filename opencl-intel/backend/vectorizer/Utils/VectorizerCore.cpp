@@ -13,10 +13,10 @@
 // License.
 
 #include "VectorizerCore.h"
+#include "ChooseVectorizationDimension.h"
 #include "InstCounter.h"
 #include "VectorizerCommon.h"
-#include "OclTune.h"
-#include "ChooseVectorizationDimension.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -87,18 +87,19 @@ static bool isFunctionVectorizable(Function &F, LoopInfo &LI) {
   if (KMd.MaxGlobalWorkDim.hasValue() && KMd.MaxGlobalWorkDim.get() == 0)
     return false;
 
-  Statistic::ActiveStatsT KernelStats;
+  DPCPPStatistic::ActiveStatsT KernelStats;
 
   for (auto *L: LI) {
     SmallVector<BasicBlock *, 16> ExitingBlocks;
     L->getExitingBlocks(ExitingBlocks);
     if (ExitingBlocks.empty()) {
       LLVM_DEBUG(dbgs() << "Function contains infinite loops, can not vectorize\n");
-      OCLSTAT_DEFINE(CantVectInfLoops,
+      DPCPP_STAT_DEFINE(
+          CantVectInfLoops,
           "Unable to vectorizer because infinite loops are present",
           KernelStats);
       CantVectInfLoops++;
-      intel::Statistic::pushFunctionStats(KernelStats, F, DEBUG_TYPE);
+      DPCPPStatistic::pushFunctionStats(KernelStats, F, DEBUG_TYPE);
 
       return false;
     }
@@ -384,12 +385,14 @@ bool VectorizerCore::runOnFunction(Function &F) {
           (!KernelHasSubgroups)) {
         m_packetWidth = 1;
         m_isFunctionVectorized = false;
-        Statistic::ActiveStatsT kernelStats;
-        OCLSTAT_DEFINE(Vectorized_version_discarded,
+        DPCPPStatistic::ActiveStatsT kernelStats;
+        DPCPP_STAT_DEFINE(
+            Vectorized_version_discarded,
             "Vectorized version was discarded since the scalar version seems to"
-            " be better",kernelStats);
+            " be better",
+            kernelStats);
         Vectorized_version_discarded++;
-        intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
+        DPCPPStatistic::pushFunctionStats(kernelStats, F, DEBUG_TYPE);
       }
       LLVM_DEBUG(dbgs() << "Function: " << F.getName() << "\n");
       LLVM_DEBUG(dbgs() << "Pre count: " << (long long)m_preWeight << "\n");

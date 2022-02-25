@@ -17,9 +17,9 @@
 
 #include "BuiltinLibInfo.h"
 #include "NameMangleAPI.h"
-#include "OclTune.h"
-#include "llvm/Pass.h"
 #include "llvm/IR/InstrTypes.h"
+#include "llvm/Pass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 
 namespace intel {
 
@@ -66,9 +66,9 @@ private:
   // Pointer to runtime service object
   const RuntimeServices * m_rtServices;
 
-  // Statistics:
-  Statistic::ActiveStatsT m_kernelStats;
-  Statistic Additinal_sin_cos_not_replaced;
+  // DPCPPStatistics:
+  DPCPPStatistic::ActiveStatsT m_kernelStats;
+  DPCPPStatistic Additinal_sin_cos_not_replaced;
 };
 }
 #endif

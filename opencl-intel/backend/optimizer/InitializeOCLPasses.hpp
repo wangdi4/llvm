@@ -29,7 +29,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeCLBuiltinLICMPass(Registry);
     intel::initializeCLWGLoopBoundariesPass(Registry);
     intel::initializeCLStreamSamplerPass(Registry);
-    intel::initializeCleanupWrappedKernelsPass(Registry);
     intel::initializeRemoveDuplicationBarrierPass(Registry);
 
     // SGEmulation
@@ -75,7 +74,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeWeightedInstCounterPass(Registry);
     intel::initializeScalarizeFunctionPass(Registry);
     intel::initializeRemoveAtExitPass(Registry);
-    intel::initializeAddNTAttrPass(Registry);
     intel::initializeChooseVectorizationDimensionPass(Registry);
     intel::initializeVectorKernelDiscardPass(Registry);
     intel::initializeReduceCrossBarrierValuesPass(Registry);

@@ -130,6 +130,9 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
       PassManagerBuilder::EP_VectorizerStart,
       [&](const PassManagerBuilder &, legacy::PassManagerBase &MPM) {
         MPM.add(createDPCPPKernelAnalysisLegacyPass());
+        MPM.add(createWGLoopBoundariesLegacyPass());
+        MPM.add(createDeadCodeEliminationPass());
+        MPM.add(createCFGSimplificationPass());
         if (Config->GetTransposeSize() == 1)
           return;
         VectorVariant::ISAClass ISA =
@@ -216,8 +219,10 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
     // AddImplicitArgs pass may create dead implicit arguments.
     MPM.add(createDeadArgEliminationPass());
     MPM.add(createSROAPass());
+    MPM.add(createLoopSimplifyPass());
     MPM.add(createLICMPass());
     MPM.add(createLoopIdiomPass());
+    MPM.add(createLoopDeletionPass());
     MPM.add(createCFGSimplificationPass());
   } else {
     MPM.add(createAlwaysInlinerLegacyPass());

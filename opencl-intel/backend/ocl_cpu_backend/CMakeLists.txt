@@ -60,6 +60,7 @@ if (NOT WIN32)
 endif (NOT WIN32)
 
 use_rtti(FALSE)
+set_opencl_version()
 
 # Create target project
 set (OCL_CPU_BACKEND_INCLUDE_FILES
@@ -109,7 +110,6 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     debuggingservicewrapper.h
     opencl_printf_ext.h
     ocl_mutex.h
-    ${BACKEND_ROOT_DIR}/utils/OclTune.h
     ${OCL_CPU_BACKEND_DIR}/export/plugin_interface.h
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
     ${OCL_SOURCE_DIR}/externals/itt/include/jitprofiling.h
@@ -219,7 +219,6 @@ set( BACKEND_PASSES
     ChannelPipeTransformation
     ChannelsUsageAnalysis
     PipeIOTransformation
-    CleanupWrappedKernels
     RemoveAtExit
     PipeOrdering
     PipeSupport
@@ -247,7 +246,6 @@ set( BACKEND_PASSES
     OCLAliasAnalysis
     PrintfArgumentsPromotion
     SYCLPipesHack
-    AddNTAttr
     ResolveVariableTIDCall
 )
 

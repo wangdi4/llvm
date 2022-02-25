@@ -13,7 +13,6 @@ add_ocl_unittest(
     MetadataAPITestFixture.h
 
   LINK_LIBRARIES
-    metadataapi
     LLVMCore
     LLVMIRReader
     LLVMSupport

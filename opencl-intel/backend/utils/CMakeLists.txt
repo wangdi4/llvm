@@ -1,5 +1,4 @@
 set(TARGET_NAME OclBackendUtils)
-set_opencl_version()
 
 add_subdirectory(LoopUtils)
 add_subdirectory(objdump)
@@ -27,7 +26,6 @@ set (TARGET_INCLUDE_FILES
   RefcountThreadSafe.h
   Atomics.h
   Logger.h
-  OclTune.h
   ${TARGET_EXTRA_INCLUDE_FILES}
 )
 
@@ -39,7 +37,6 @@ set (TARGET_SOURCE_FILES
   TypeConversion.cpp
   VectorizerUtils.cpp
   Atomics.cpp
-  OclTune.cpp
   ${TARGET_EXTRA_SOURCE_FILES}
 )
 
