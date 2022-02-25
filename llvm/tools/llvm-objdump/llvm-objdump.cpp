@@ -2816,16 +2816,9 @@ int main(int argc, char **argv) {
 #if INTEL_CUSTOMIZATION
   if (!ArchiveHeaders && !Disassemble && DwarfDumpType == DIDT_Null &&
       !DynamicRelocations && !FileHeaders && !PrivateHeaders && !RawClangAST &&
-<<<<<<< HEAD
       !Relocations && !SectionHeaders && !TraceBack && !SectionContents &&
       !SymbolTable && !DynamicSymbolTable && !UnwindInfo && !FaultMapSection &&
 #endif // INTEL_CUSTOMIZATION
-      !(MachOOpt &&
-        (Bind || DataInCode || DylibId || DylibsUsed || ExportsTrie ||
-         FirstPrivateHeader || FunctionStarts || IndirectSymbols || InfoPlist ||
-         LazyBind || LinkOptHints || ObjcMetaData || Rebase || Rpaths ||
-         UniversalHeaders || WeakBind || !FilterSections.empty()))) {
-=======
       !Relocations && !SectionHeaders && !SectionContents && !SymbolTable &&
       !DynamicSymbolTable && !UnwindInfo && !FaultMapSection &&
       !(MachOOpt && (Bind || DataInCode || DyldInfo || DylibId || DylibsUsed ||
@@ -2833,7 +2826,6 @@ int main(int argc, char **argv) {
                      IndirectSymbols || InfoPlist || LazyBind || LinkOptHints ||
                      ObjcMetaData || Rebase || Rpaths || UniversalHeaders ||
                      WeakBind || !FilterSections.empty()))) {
->>>>>>> 621e2de138f70e175512c18d9f358666de93e838
     T->printHelp(ToolName);
     return 2;
   }
