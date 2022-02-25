@@ -4820,21 +4820,33 @@ static void forceGroupSizes(
 }
 #endif // INTEL_INTERNAL_BUILD
 
-static int32_t runTargetTeamRegionSub(
-    int64_t DeviceIds, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
+static int32_t runTargetTeamRegion(
+    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
     int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc,
     void *AsyncEvent) {
+  assert(TgtEntryPtr && "Invalid kernel");
+  assert((NumTeams >= 0 && ThreadLimit >= 0) && "Invalid kernel work size");
+  DP("Executing a kernel " DPxMOD "...\n", DPxPTR(TgtEntryPtr));
 
-  // NOTE: We expect one sub device now (user data partitioning)
+  int32_t RootId = DeviceId;
+  int32_t SubId = DeviceId;
+  auto SubDeviceCode = DeviceInfo->getSubDeviceCode();
 
-  uint32_t SubLevel = SUBDEVICE_GET_LEVEL(DeviceIds);
-  uint32_t SubStart = SUBDEVICE_GET_START(DeviceIds);
-  uint32_t RootId = SUBDEVICE_GET_ROOT(DeviceIds);
+  if (SubDeviceCode < 0 && isValidSubDevice(SubDeviceCode)) {
+    uint32_t SubLevel = SUBDEVICE_GET_LEVEL(SubDeviceCode);
+    uint32_t SubStart = SUBDEVICE_GET_START(SubDeviceCode);
+    RootId = SUBDEVICE_GET_ROOT(SubDeviceCode);
+    SubId = DeviceInfo->SubDeviceIds[RootId][SubLevel][SubStart];
+  }
 
-  auto SubId = DeviceInfo->SubDeviceIds[RootId][SubLevel][SubStart];
   auto *SubIdStr = DeviceInfo->DeviceIdStr[SubId].c_str();
-  auto Kernel = *(ze_kernel_handle_t *)TgtEntryPtr;
+  bool OnRoot = (RootId == SubId);
 
+  ze_kernel_handle_t Kernel = *((ze_kernel_handle_t *)TgtEntryPtr);
+  if (!Kernel) {
+    REPORT("Failed to invoke deleted kernel.\n");
+    return OFFLOAD_FAIL;
+  }
   ScopedTimerTy KernelTimer(SubId, "Kernel ",
                             DeviceInfo->KernelProperties[RootId][Kernel].Name);
 
@@ -4860,14 +4872,25 @@ static int32_t runTargetTeamRegionSub(
   DP("Group counts = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
      GroupCounts.groupCountX, GroupCounts.groupCountY, GroupCounts.groupCountZ);
 
-  CALL_ZE_RET_FAIL(zeKernelSetGroupSize, Kernel, GroupSizes[0], GroupSizes[1],
-                   GroupSizes[2]);
+  if (OMPT_ENABLED) {
+    // Push current work size
+    size_t FinalNumTeams = GroupCounts.groupCountX * GroupCounts.groupCountY *
+        GroupCounts.groupCountZ;
+    size_t FinalThreadLimit = GroupSizes[0] * GroupSizes[1] * GroupSizes[2];
+    OmptGlobal->getTrace().pushWorkSize(FinalNumTeams, FinalThreadLimit);
+  }
 
   auto CmdList = DeviceInfo->getCmdList(SubId);
-  auto CmdQueue = DeviceInfo->getCmdQueue(SubId);
+  ze_command_queue_handle_t CmdQueue = nullptr;
+  if (DeviceInfo->Option.Flags.UseMultipleComputeQueues && OnRoot)
+    CmdQueue = DeviceInfo->getCCSCmdQueue(RootId);
+  else
+    CmdQueue = DeviceInfo->getCmdQueue(SubId);
 
+  // Protect from kernel preparation to submission as kernels are shared.
   std::unique_lock<std::mutex> KernelLock(DeviceInfo->KernelMutexes[RootId]);
 
+  // Set arguments
   auto *KernelInfo = DeviceInfo->getKernelInfo(RootId, Kernel);
   for (int32_t I = 0; I < NumArgs; I++) {
     if (KernelInfo && KernelInfo->isArgLiteral(I)) {
@@ -4876,6 +4899,8 @@ static int32_t runTargetTeamRegionSub(
       DP("Kernel ByVal argument %" PRId32
          " was set successfully for device %s.\n", I, SubIdStr);
     } else if (TgtOffsets[I] == (std::numeric_limits<ptrdiff_t>::max)()) {
+      // Offset equal to MAX(ptrdiff_t) means that the argument
+      // must be passed as literal, and the offset should be ignored.
       intptr_t Arg = reinterpret_cast<intptr_t>(TgtArgs[I]);
       CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, Kernel, I, sizeof(Arg), &Arg);
       DP("Kernel Scalar argument %" PRId32 " (value: " DPxMOD
@@ -4896,187 +4921,68 @@ static int32_t runTargetTeamRegionSub(
   CALL_ZE_RET_FAIL(zeKernelSetIndirectAccess, Kernel, Flags);
   DP("Setting indirect access flags " DPxMOD "\n", DPxPTR(Flags));
 
-  ze_event_handle_t Event = nullptr;
-  if (DeviceInfo->Option.Flags.EnableProfile)
-    Event = DeviceInfo->ProfileEvents.getEvent();
-
-  CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, CmdList, Kernel,
-                   &GroupCounts, Event, 0, nullptr);
-  KernelLock.unlock();
-
-  CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
-
-  LEVEL0_KERNEL_BEGIN(RootId);
-
-  CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists,
-                       DeviceInfo->Mutexes[SubId], CmdQueue, 1, &CmdList,
-                       nullptr);
-  DP("Submitted kernel " DPxMOD " to subdevice %s\n", DPxPTR(Kernel), SubIdStr);
-  CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
-  CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
-  KernelTimer.updateDeviceTime(Event);
-
-  LEVEL0_KERNEL_END(RootId);
-
-  DP("Executed kernel entry " DPxMOD " on subdevices\n", DPxPTR(TgtEntryPtr));
-
-  return OFFLOAD_SUCCESS;
-}
-
-static int32_t runTargetTeamRegion(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
-    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc,
-    void *AsyncEvent) {
-  assert(TgtEntryPtr && "Invalid kernel");
-  assert((NumTeams >= 0 && ThreadLimit >= 0) && "Invalid kernel work size");
-  DP("Executing a kernel " DPxMOD "...\n", DPxPTR(TgtEntryPtr));
-
-  auto SubDeviceCode = DeviceInfo->getSubDeviceCode();
-  if (SubDeviceCode < 0 && isValidSubDevice(SubDeviceCode))
-    return runTargetTeamRegionSub(SubDeviceCode, TgtEntryPtr, TgtArgs,
-                                  TgtOffsets, NumArgs, NumTeams, ThreadLimit,
-                                  LoopDesc, AsyncEvent);
-
-  ze_kernel_handle_t kernel = *((ze_kernel_handle_t *)TgtEntryPtr);
-  if (!kernel) {
-    REPORT("Failed to invoke deleted kernel.\n");
-    return OFFLOAD_FAIL;
-  }
-  ScopedTimerTy tmKernel(DeviceId, "Kernel ",
-                         DeviceInfo->KernelProperties[DeviceId][kernel].Name);
-
-  // Decide group sizes and counts
-  uint32_t groupSizes[3];
-  ze_group_count_t groupCounts;
-  if (LoopDesc) {
-    auto Rc = decideLoopKernelGroupArguments(DeviceId, (uint32_t)ThreadLimit,
-        (TgtNDRangeDescTy *)LoopDesc, kernel, groupSizes, groupCounts);
-    if (Rc != OFFLOAD_SUCCESS)
-      return OFFLOAD_FAIL;
-  } else {
-    decideKernelGroupArguments(DeviceId, (uint32_t )NumTeams,
-        (uint32_t)ThreadLimit, kernel, groupSizes, groupCounts);
-  }
-
-#if INTEL_INTERNAL_BUILD
-  forceGroupSizes(groupSizes, groupCounts);
-#endif // INTEL_INTERNAL_BUILD
-
-  DP("Group sizes = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
-     groupSizes[0], groupSizes[1], groupSizes[2]);
-  DP("Group counts = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
-     groupCounts.groupCountX, groupCounts.groupCountY, groupCounts.groupCountZ);
-
-  if (OMPT_ENABLED) {
-    // Push current work size
-    size_t finalNumTeams = groupCounts.groupCountX * groupCounts.groupCountY *
-        groupCounts.groupCountZ;
-    size_t finalThreadLimit = groupSizes[0] * groupSizes[1] * groupSizes[2];
-    OmptGlobal->getTrace().pushWorkSize(finalNumTeams, finalThreadLimit);
-  }
-
-  auto cmdList = DeviceInfo->getCmdList(DeviceId);
-  ze_command_queue_handle_t cmdQueue = nullptr;
-  if (DeviceInfo->Option.Flags.UseMultipleComputeQueues)
-    cmdQueue = DeviceInfo->getCCSCmdQueue(DeviceId);
-  else
-    cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
-
-  // Protect from kernel preparation to submission as kernels are shared.
-  std::unique_lock<std::mutex> kernelLock(DeviceInfo->KernelMutexes[DeviceId]);
-
-  // Set arguments
-  auto *KernelInfo = DeviceInfo->getKernelInfo(DeviceId, kernel);
-  for (int32_t i = 0; i < NumArgs; i++) {
-    ptrdiff_t offset = TgtOffsets[i];
-    if (KernelInfo && KernelInfo->isArgLiteral(i)) {
-      uint32_t Size = KernelInfo->getArgSize(i);
-      CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, kernel, i, Size, TgtArgs[i]);
-
-      DP("Kernel ByVal argument %" PRId32 " was set successfully.\n", i);
-    } else if (offset == (std::numeric_limits<ptrdiff_t>::max)()) {
-      // Offset equal to MAX(ptrdiff_t) means that the argument
-      // must be passed as literal, and the offset should be ignored.
-      intptr_t arg = reinterpret_cast<intptr_t>(TgtArgs[i]);
-      CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, kernel, i, sizeof(arg), &arg);
-      DP("Kernel Scalar argument %" PRId32 " (value: " DPxMOD
-         ") was set successfully.\n", i, DPxPTR(arg));
-    } else {
-      void *arg = (void *)((intptr_t)TgtArgs[i] + offset);
-      CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, kernel, i, sizeof(arg),
-                       arg == nullptr ? nullptr : &arg);
-      DP("Kernel Pointer argument %" PRId32 " (value: " DPxMOD
-         ") was set successfully.\n", i, DPxPTR(arg));
-    }
-  }
-
-  auto flags = DeviceInfo->getKernelIndirectAccessFlags(kernel, DeviceId);
-  // Kernel dynamic memory is also indirect access
-  if (DeviceInfo->Option.KernelDynamicMemorySize > 0)
-    flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
-  CALL_ZE_RET_FAIL(zeKernelSetIndirectAccess, kernel, flags);
-  DP("Setting indirect access flags " DPxMOD "\n", DPxPTR(flags));
-
-  CALL_ZE_RET_FAIL(zeKernelSetGroupSize, kernel, groupSizes[0], groupSizes[1],
-                   groupSizes[2]);
+  CALL_ZE_RET_FAIL(zeKernelSetGroupSize, Kernel, GroupSizes[0], GroupSizes[1],
+                   GroupSizes[2]);
 
   if (DeviceInfo->Option.CommandBatchLevel > 0) {
     auto &Batch = getTLS()->getCommandBatch();
-    if (Batch.isActive() && DeviceInfo->isDiscreteDevice(DeviceId))
-      return Batch.enqueueLaunchKernel(DeviceId, kernel, &groupCounts,
-                                       kernelLock);
+    if (Batch.isActive() && DeviceInfo->isDiscreteDevice(RootId))
+      return Batch.enqueueLaunchKernel(SubId, Kernel, &GroupCounts, KernelLock);
   }
 
   if (AsyncEvent) {
-    auto context = DeviceInfo->Context;
-    cmdList = createCmdList(context, DeviceInfo->Devices[DeviceId],
+    // TODO: deprecate this since we are not going to use this code
+    CmdList = createCmdList(DeviceInfo->Context, DeviceInfo->Devices[DeviceId],
                             DeviceInfo->CmdQueueGroupOrdinals[DeviceId],
                             DeviceInfo->DeviceIdStr[DeviceId]);
-    if (!cmdList) {
+    if (!CmdList) {
       DP("Error: Asynchronous execution failed -- invalid command list\n");
       return OFFLOAD_FAIL;
     }
-    CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, cmdList, kernel,
-                     &groupCounts, nullptr, 0, nullptr);
-    kernelLock.unlock();
-    auto fence = createFence(cmdQueue);
-    if (!fence) {
+    CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, CmdList, Kernel,
+                     &GroupCounts, nullptr, 0, nullptr);
+    KernelLock.unlock();
+    auto Fence = createFence(CmdQueue);
+    if (!Fence) {
       DP("Error: Asynchronous execution failed -- invalid fence\n");
       return OFFLOAD_FAIL;
     }
-    if (beginAsyncCommand(cmdList, cmdQueue,
-        static_cast<AsyncEventTy *>(AsyncEvent), fence) == OFFLOAD_FAIL)
+    if (beginAsyncCommand(CmdList, CmdQueue,
+        static_cast<AsyncEventTy *>(AsyncEvent), Fence) == OFFLOAD_FAIL)
       return OFFLOAD_FAIL;
     DP("Asynchronous execution started for kernel " DPxMOD "\n",
        DPxPTR(TgtEntryPtr));
-  } else if (DeviceInfo->BatchCmdQueues[DeviceId].MaxCommands > 0) {
-    auto &BatchQueue = DeviceInfo->BatchCmdQueues[DeviceId];
+  } else if (DeviceInfo->BatchCmdQueues[RootId].MaxCommands > 0 && OnRoot) {
+    // Enable only for OpenMP device ID
+    auto &BatchQueue = DeviceInfo->BatchCmdQueues[RootId];
     CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, BatchQueue.CmdList,
-                     kernel, &groupCounts, nullptr, 0, nullptr);
-    kernelLock.unlock();
+                     Kernel, &GroupCounts, nullptr, 0, nullptr);
+    KernelLock.unlock();
     DP("Appended kernel " DPxMOD " to command list " DPxMOD "\n",
-       DPxPTR(kernel), DPxPTR(BatchQueue.CmdList));
-    BatchQueue.run(DeviceInfo->Mutexes[DeviceId]);
+       DPxPTR(Kernel), DPxPTR(BatchQueue.CmdList));
+    BatchQueue.run(DeviceInfo->Mutexes[RootId]);
   } else {
-    ze_event_handle_t event = nullptr;
+    ze_event_handle_t Event = nullptr;
     if (DeviceInfo->Option.Flags.EnableProfile)
-      event = DeviceInfo->ProfileEvents.getEvent();
-    CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, cmdList, kernel,
-                     &groupCounts, event, 0, nullptr);
-    kernelLock.unlock();
-    CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
-    LEVEL0_KERNEL_BEGIN(DeviceId);
+      Event = DeviceInfo->ProfileEvents.getEvent();
+    CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, CmdList, Kernel,
+                     &GroupCounts, Event, 0, nullptr);
+    KernelLock.unlock();
+    CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
+    LEVEL0_KERNEL_BEGIN(RootId);
     CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists,
-                         DeviceInfo->Mutexes[DeviceId], cmdQueue, 1,
-                         &cmdList, nullptr);
-    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
-    tmKernel.updateDeviceTime(event);
-    // Make sure the command list is ready to accept next command
-    CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
-    LEVEL0_KERNEL_END(DeviceId);
+                         DeviceInfo->Mutexes[SubId], CmdQueue, 1, &CmdList,
+                         nullptr);
+    DP("Submitted kernel " DPxMOD " to device %s\n", DPxPTR(Kernel), SubIdStr);
+    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+    CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
+    KernelTimer.updateDeviceTime(Event);
+    LEVEL0_KERNEL_END(RootId);
   }
 
-  DP("Executed a kernel " DPxMOD "\n", DPxPTR(TgtEntryPtr));
+  DP("Executed kernel entry " DPxMOD " on device %s\n", DPxPTR(TgtEntryPtr),
+     SubIdStr);
+
   return OFFLOAD_SUCCESS;
 }
 
