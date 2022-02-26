@@ -189,7 +189,7 @@ public:
 
 private:
   static std::unique_ptr<CanonExpr>
-  findIVSolution(Type *IVType, const RegDDRef *LHSDDref, PredicateTy Pred,
+  findIVSolution(const HLLoop *Loop, const RegDDRef *LHSDDref, PredicateTy Pred,
                  const RegDDRef *RHSDDRef, unsigned Level,
                  bool &ShouldInvertCondition);
 
@@ -471,19 +471,79 @@ static bool hasIVAndConstOnly(const CanonExpr *CE, unsigned Level) {
   return (Coeff == 1 || Coeff == -1) && (Index == InvalidBlobIndex);
 }
 
-static bool mayIVOverflowCE(const CanonExpr *CE, Type *IVType) {
-  unsigned Width = IVType->getPrimitiveSizeInBits();
+static bool mayIVOverflowCE(const CanonExpr *CE, const HLLoop *Loop) {
 
-  if (CE->getSrcType()->getPrimitiveSizeInBits() < Width ||
-      CE->getDestType()->getPrimitiveSizeInBits() < Width) {
+  unsigned Width = Loop->getIVType()->getPrimitiveSizeInBits();
+
+  if (CE->getSrcType()->getPrimitiveSizeInBits() >= Width &&
+      CE->getDestType()->getPrimitiveSizeInBits() >= Width)
+    return false;
+
+  if (!CE->isTrunc())
     return true;
+
+  uint64_t LegalMaxTC = Loop->getLegalMaxTripCount();
+  if (!LegalMaxTC)
+    return true;
+
+  // Only takes care of wrap-around logic in the context of
+  // signedness. Notice that EQ/NEQ will introduce sext and smin/max
+  // through opt var predicate.
+  //   + DO i32 i1 = 0, sext.i16.i32(%n) + -1, 1 <LEGAL_MAX_TC = 32767>
+  //   |   if (i1 == %d)
+  //   |   <RVAL-REG> LINEAR trunc.i32.i16(i1) {sb:2}
+  //   |   <RVAL-REG> LINEAR i16 %d {sb:7}
+  //   |   {
+  //   |      (%p)[i1] = i1;
+  //   |
+  //   |   }
+  //   |   else
+  //   |   {
+  //   |      (%q)[i1] = i1;
+  //   |   }
+  //   + END LOOP
+  //
+  // Will be transformed into
+  //
+  //  + DO i32 i1 = 0, smin(sext.i16.i32((-1 + %d)), (-1 + sext.i16.i32(%n))), 1
+  //  | (%q)[i1] = i1;
+  //  + END LOOP
+  //
+  //  if (smax(0, sext.i16.i32(%d)) < smin(sext.i16.i32(%d), (-1 +
+  //  sext.i16.i32(%n))) + 1)
+  //  {
+  //   (%p)[smax(0, sext.i16.i32(%d))] = smax(0, sext.i16.i32(%d));
+  //  }
+  //
+  //  + DO i32 i1 = 0, sext.i16.i32(%n) + -1 * smax(0, sext.i16.i32((1 + %d))) +
+  //  -1, 1 | (%q)[i1 + smax(0, sext.i16.i32((1 + %d)))] = i1 + smax(0,
+  //  sext.i16.i32((1 + %d)));
+  //  + END LOOP
+  //
+  // Notice with sext, having bit 1, at msb of the 16-bit (leftmost of the
+  // 16-bit) can lead
+  // to an incorrect transformation. E.g. %d = 0xFFFE, the condition in middle
+  // if-stmt is not met. smax(0, sext.i16.i32(0xfffe)) = 0,
+  // smin(sext.i16.i32(0xfffe), (-1 + sext.i16.i32(%n)) + 1) = 0xfffe = -2
+  // However, in the original loop before transformation the condition (i1  ==
+  // %d) could have been met (e.g. i1 = 0xfffe and LEGAL_MAX_TC were 2^16 - 1).
+  // To be safe, LEGAL_MAX_TC should fit in 2^15 - 1, not 2^16 - 1.
+  // Cannot use mayWraparound util, which uses getMaxValue in trunc.
+  // Canbe extended to use getMaxValue when contexts are zeroext, umin/max.
+
+  APInt MaxTypeVal =
+      APInt::getSignedMaxValue(CE->getDestType()->getScalarSizeInBits());
+
+  if (MaxTypeVal.getZExtValue() >= LegalMaxTC) {
+    LLVM_DEBUG(dbgs() << "Using LEGAL_MAX_TC\n");
+    return false;
   }
 
-  return false;
+  return true;
 }
 
 std::unique_ptr<CanonExpr> HIROptVarPredicate::findIVSolution(
-    Type *IVType, const RegDDRef *LHSDDref, PredicateTy Pred,
+    const HLLoop *Loop, const RegDDRef *LHSDDref, PredicateTy Pred,
     const RegDDRef *RHSDDRef, unsigned Level, bool &ShouldInvertCondition) {
 
   assert(LHSDDref->isTerminalRef() && RHSDDRef->isTerminalRef() &&
@@ -500,9 +560,7 @@ std::unique_ptr<CanonExpr> HIROptVarPredicate::findIVSolution(
   }
 
   if (CmpInst::isUnsigned(Pred) ||
-      !SkipIVOverflowCheck && mayIVOverflowCE(LHS, IVType)) {
-    // When CE is LINEAR trunc.i64.i32(i2)$13 = void
-    // Will NOT pass mayIVOverflowCE
+      !SkipIVOverflowCheck && mayIVOverflowCE(LHS, Loop)) {
     return nullptr;
   }
 
@@ -1014,6 +1072,10 @@ void HIROptVarPredicate::splitLoop(
 
 bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
                                      SmallVectorImpl<HLLoop *> *OutLoops) {
+  LLVM_DEBUG(
+      dbgs() << "Function "
+             << Loop->getHLNodeUtils().getHIRFramework().getFunction().getName()
+             << ": \n");
   LLVM_DEBUG(dbgs() << "Processing loop <" << Loop->getNumber() << ">\n");
 
   if (!Loop->isDo()) {
@@ -1116,8 +1178,8 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
     // Normalize IV limitation to the form: i < SplitPoint, predicate could be:
     // <, ==, !=
     bool ShouldInvertCondition = false;
-    std::unique_ptr<CanonExpr> SplitPoint(findIVSolution(
-        Loop->getIVType(), LHS, Pred, RHS, Level, ShouldInvertCondition));
+    std::unique_ptr<CanonExpr> SplitPoint(
+        findIVSolution(Loop, LHS, Pred, RHS, Level, ShouldInvertCondition));
 
     // Can not handle this candidate
     if (!SplitPoint) {

@@ -2107,7 +2107,7 @@ bool VPOParoptTransform::paroptTransforms() {
           if (isAtomicFreeReductionGlobalEnabled())
             Changed |= addFastGlobalRedBufMap(W);
           Changed |= canonicalizeGlobalVariableReferences(W);
-          if (isTargetSPIRV() && !WRegionUtils::hasParentTarget(W))
+          if (isTargetSPIRV() && !WRegionUtils::hasLexicalParentTarget(W))
             Changed |= callBeginEndSpmdTargetAtRegionBoundary(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {

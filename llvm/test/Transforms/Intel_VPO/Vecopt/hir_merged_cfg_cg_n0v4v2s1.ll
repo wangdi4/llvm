@@ -75,7 +75,7 @@
 ; CHECK-NEXT:           %red.init.insert32 = insertelement %red.init31,  %phi.temp7,  0;
 ; CHECK-NEXT:           %phi.temp33 = %red.init.insert32;
 
-; CHECK:                + DO i1 = %phi.temp9, %vec.tc30 + -1, 2   <DO_LOOP> <novectorize>
+; CHECK:                + DO i1 = %phi.temp9, %vec.tc30 + -1, 2   <DO_LOOP> <nounroll> <novectorize>
 ; CHECK-NEXT:           |   %.vec35 = (<2 x i32>*)(%A)[i1];
 ; CHECK-NEXT:           |   %.vec36 = %.vec35  +  %phi.temp33;
 ; CHECK-NEXT:           |   %phi.temp33 = %.vec36;
