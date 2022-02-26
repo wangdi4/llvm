@@ -1,3 +1,4 @@
+; INTEL_CUSTOMIZATION
 ; REQUIRES: asserts
 ; RUN: opt -vpo-wrncollection -analyze -debug -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='function(print<vpo-wrncollection>)' -debug -S < %s 2>&1 | FileCheck %s
@@ -94,3 +95,4 @@ attributes #1 = { nounwind }
 
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{!"clang version 9.0.0"}
+; end INTEL_CUSTOMIZATION
