@@ -1186,6 +1186,13 @@ bool VPOParoptModuleTransform::cloneDeclareTargetFunctions(
     // need to delete those branches before removing any directives.
     Changed |= DummyBranchDeleter(F);
     VPOUtils::stripDirectives(*F, { DIR_OMP_TARGET, DIR_OMP_END_TARGET });
+    // We should also delete any __kmpc_[begin/end]_spmd_[target/parallel] calls
+    // in the function. These calls are used to simulate omp_get_num_threads
+    // support in target regions for spir64 targets. We are deleting the target
+    // directives here, and we also currently ignore parallel constructs in
+    // declare-target functions during codegen, so we need to get rid of their
+    // corresponding spmd calls as well.
+    VPOParoptUtils::deleteKmpcBeginEndSpmdCalls(F);
     Changed = true;
   }
 

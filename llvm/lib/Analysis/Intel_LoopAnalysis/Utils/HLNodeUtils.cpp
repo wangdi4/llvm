@@ -3844,9 +3844,10 @@ bool HLNodeUtils::mayWraparound(const CanonExpr *CE, unsigned Level,
 
     unsigned DstTySize =
         CE->getDestType()->getScalarType()->getScalarSizeInBits();
-    APInt MaxTypeVal = ParentLp->hasSignedIV()
-                           ? APInt::getSignedMaxValue(DstTySize)
-                           : APInt::getMaxValue(DstTySize);
+
+    // CE is already trunc, hasSignedIV() is applicable only to
+    // IV type, likely to be source type of the trunc.
+    APInt MaxTypeVal = APInt::getMaxValue(DstTySize);
 
     return (MaxTypeVal.getZExtValue() < LegalMaxTC);
   }

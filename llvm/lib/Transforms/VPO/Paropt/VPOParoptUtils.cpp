@@ -4917,6 +4917,51 @@ VPOParoptUtils::genKmpcBeginEndSpmdTargetCalls(Module *M) {
   return {BeginCall, EndCall};
 }
 
+bool VPOParoptUtils::deleteCallsInFunctionTo(Function *F,
+                                             StringRef CalledFnName) {
+  auto *CalledFn = F->getParent()->getFunction(CalledFnName);
+  if (!CalledFn) // CalledFn not present in module.
+    return false;
+
+  SmallVector<Value *, 8> CallsToDelete;
+
+  llvm::copy_if(CalledFn->users(), std::back_inserter(CallsToDelete),
+                [&F, &CalledFn](User *U) {
+                  auto *Call = dyn_cast<CallBase>(U);
+                  return Call && Call->getCalledOperand() == CalledFn &&
+                         Call->getFunction() == F;
+                });
+
+  if (CallsToDelete.empty())
+    return false;
+
+  for (auto *Call : CallsToDelete) {
+    assert(Call->hasNUses(0) && "Cannot delete call with uses.");
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Deleting call '" << *Call
+                      << "' from function '";
+               F->printAsOperand(dbgs(), false); dbgs() << "'.\n");
+    cast<Instruction>(Call)->eraseFromParent();
+  }
+
+  return true;
+}
+
+bool VPOParoptUtils::deleteKmpcBeginEndSpmdCalls(Function *F) {
+  if (!VPOAnalysisUtils::isTargetSPIRV(F->getParent()))
+    return false;
+
+  bool Changed =
+      VPOParoptUtils::deleteCallsInFunctionTo(F, "__kmpc_begin_spmd_target");
+  Changed |=
+      VPOParoptUtils::deleteCallsInFunctionTo(F, "__kmpc_end_spmd_target");
+  Changed |=
+      VPOParoptUtils::deleteCallsInFunctionTo(F, "__kmpc_begin_spmd_parallel");
+  Changed |=
+      VPOParoptUtils::deleteCallsInFunctionTo(F, "__kmpc_end_spmd_parallel");
+
+  return Changed;
+}
+
 // Emit Constructor Call and insert it via created IRBuilder
 void VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
                                         IRBuilder<> &Builder) {

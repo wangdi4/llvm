@@ -924,7 +924,7 @@ public:
                                           CallInst *Call2,
                                           bool InsideRegion = false);
 
-  /// \name Utilities to emit __kmpc_[begin/end]_spmd_[target/parallel] calls.
+  /// \name Utilities related to __kmpc_[begin/end]_spmd_[target/parallel] calls.
   /// @{
   /// Generates an spmd codegen specific call to the function \p FnName.
   static CallInst *genKmpcSpmdCallImpl(Module *M, StringRef FnName);
@@ -938,6 +938,15 @@ public:
   /// `__kmpc_end_spmd_target`.
   static std::pair<CallInst *, CallInst *>
   genKmpcBeginEndSpmdTargetCalls(Module *M);
+
+  /// Delete any calls to \p CalledFnName in the function \p F, if present.
+  /// \returns \b true if any such deletion happens, \b false otherwise.
+  /// Asserts if a call to \p CalledFnName in \p F has any uses.
+  static bool deleteCallsInFunctionTo(Function *F, StringRef CalledFnName);
+
+  /// Delete any calls to `__kmpc_begin/end_spmd_target/parallel` in \p F.
+  /// \returns \b true if any such deletion happens, \b false otherwise.
+  static bool deleteKmpcBeginEndSpmdCalls(Function *F);
   /// @}
 
   /// \name Utilities to emit calls to ctor, dtor, cctor, and copyassign.
