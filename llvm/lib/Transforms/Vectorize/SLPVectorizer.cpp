@@ -5144,21 +5144,12 @@ int BoUpSLP::getMNScore() const {
        ++OpI) {
     bool AreConsecutive = true;
     for (unsigned Lane = 1; Lane != CurrentMultiNode->getNumLanes(); ++Lane) {
-<<<<<<< HEAD
-      const OperandData *OperandL = CurrentMultiNode->getOperand(Lane - 1, OpI);
-      const OperandData *OperandR = CurrentMultiNode->getOperand(Lane, OpI);
-      if (OperandL->getValue() == OperandR->getValue() ||
-          VLOperands::getShallowScore(
-              OperandL->getValue(), OperandR->getValue(), *DL, *SE,
-              CurrentMultiNode->getNumLanes(), None) == VLOperands::ScoreFail) {
-=======
       const LeafData *OperandL = CurrentMultiNode->getOperand(Lane - 1, OpI);
       const LeafData *OperandR = CurrentMultiNode->getOperand(Lane, OpI);
       if (OperandL->getLeaf() == OperandR->getLeaf() ||
-          VLOperands::getShallowScore(
-              OperandL->getLeaf(), OperandR->getLeaf(), *DL, *SE,
-              CurrentMultiNode->getNumLanes()) == VLOperands::ScoreFail) {
->>>>>>> b2b191651f1e16af56b7796e5de632eb2e10b073
+          VLOperands::getShallowScore(OperandL->getLeaf(), OperandR->getLeaf(),
+                                      *DL, *SE, CurrentMultiNode->getNumLanes(),
+                                      None) == VLOperands::ScoreFail) {
         AreConsecutive = false;
         break;
       }
