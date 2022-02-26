@@ -1277,6 +1277,17 @@ template <class ELFT> void ObjFile<ELFT>::postParse() {
     if (!cast<Defined>(sym).section && !sections[secIdx] &&
         cast<Defined>(sym).value == eSym.st_value)
       continue;
+
+#if INTEL_CUSTOMIZATION
+    // If one of the symbols contains a ".gnu.linkonce" section then skip it.
+    // The symbol resolution phase should be able to make the decision.
+    StringRef name(stringTable.data() + eSym.st_name);
+    InputFile *symFile = sym.file;
+    if (symFile->getGNULinkOnceSectionForSymbol(sym.getName()) ||
+        this->getGNULinkOnceSectionForSymbol(name))
+      continue;
+#endif // INTEL_CUSTOMIZATION
+
     reportDuplicate(sym, this, sections[secIdx], eSym.st_value);
   }
 }
