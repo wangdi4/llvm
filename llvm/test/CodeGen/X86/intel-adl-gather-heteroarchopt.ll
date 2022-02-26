@@ -5,28 +5,14 @@
 ; Function Attrs: nofree norecurse nosync nounwind readonly uwtable
 define dso_local double @foo(double* noalias nocapture readonly %dst, double* noalias nocapture readonly %luval, i32** nocapture readonly %rowstart, i32* nocapture readnone %first_after_diagonal, i32 %N) local_unnamed_addr #0 {
 ; X64-LABEL: foo:
-<<<<<<< HEAD
 ; X64:       # %bb.0: # %entry.new
 ; X64-NEXT:    subq $40, %rsp
 ; X64-NEXT:    .cfi_def_cfa_offset 48
-=======
-; X64:       # %bb.0: # %entry
-; X64-NEXT:    pushq %rbx
-; X64-NEXT:    .cfi_def_cfa_offset 16
-; X64-NEXT:    subq $48, %rsp
-; X64-NEXT:    .cfi_def_cfa_offset 64
-; X64-NEXT:    .cfi_offset %rbx, -16
-; X64-NEXT:    testl %r8d, %r8d
-; X64-NEXT:    jle .LBB0_1
-; X64-NEXT:  # %bb.2: # %for.body.preheader
-; X64-NEXT:    movl %r8d, %r9d
->>>>>>> 968f5daa887d94b3092af624db5080fbd721ba0f
 ; X64-NEXT:    rdpid %rax
 ; X64-NEXT:    movzbl %al, %eax
 ; X64-NEXT:    movq __cpu_core_type@GOTPCREL(%rip), %rcx
 ; X64-NEXT:    movb (%rcx,%rax), %al
 ; X64-NEXT:    testb %al, %al
-<<<<<<< HEAD
 ; X64-NEXT:    je .LBB0_9
 ; X64-NEXT:  # %bb.1:
 ; X64-NEXT:    cmpb $64, %al
@@ -36,10 +22,6 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:    jle .LBB0_8
 ; X64-NEXT:  # %bb.3: # %for.body.preheader
 ; X64-NEXT:    movl %r8d, %r9d
-=======
-; X64-NEXT:    je .LBB0_11
-; X64-NEXT:  .LBB0_3:
->>>>>>> 968f5daa887d94b3092af624db5080fbd721ba0f
 ; X64-NEXT:    decq %r9
 ; X64-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
 ; X64-NEXT:    xorl %r10d, %r10d
@@ -100,7 +82,6 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:    cmpq %r9, %r10
 ; X64-NEXT:    leaq 1(%r10), %r10
 ; X64-NEXT:    jne .LBB0_4
-<<<<<<< HEAD
 ; X64-NEXT:  # %bb.7: # %for.cond.cleanup
 ; X64-NEXT:    addq $40, %rsp
 ; X64-NEXT:    .cfi_def_cfa_offset 8
@@ -131,20 +112,6 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:  .LBB0_12: # %loop.39.clone
 ; X64-NEXT:    # =>This Loop Header: Depth=1
 ; X64-NEXT:    # Child Loop BB0_13 Depth 2
-=======
-; X64-NEXT:  .LBB0_10: # %for.cond.cleanup
-; X64-NEXT:    addq $48, %rsp
-; X64-NEXT:    .cfi_def_cfa_offset 16
-; X64-NEXT:    popq %rbx
-; X64-NEXT:    .cfi_def_cfa_offset 8
-; X64-NEXT:    vzeroupper
-; X64-NEXT:    retq
-; X64-NEXT:    .p2align 4, 0x90
-; X64-NEXT:  .LBB0_7: # %loop.39.clone
-; X64-NEXT:    # =>This Loop Header: Depth=1
-; X64-NEXT:    # Child Loop BB0_8 Depth 2
-; X64-NEXT:    .cfi_def_cfa_offset 64
->>>>>>> 968f5daa887d94b3092af624db5080fbd721ba0f
 ; X64-NEXT:    movl %r10d, %eax
 ; X64-NEXT:    notl %eax
 ; X64-NEXT:    addl %r8d, %eax
@@ -155,13 +122,8 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:    vxorpd %xmm3, %xmm3, %xmm3
 ; X64-NEXT:    vxorpd %xmm4, %xmm4, %xmm4
 ; X64-NEXT:    .p2align 4, 0x90
-<<<<<<< HEAD
 ; X64-NEXT:  .LBB0_13: # %loop.48.clone
 ; X64-NEXT:    # Parent Loop BB0_12 Depth=1
-=======
-; X64-NEXT:  .LBB0_8: # %loop.48.clone
-; X64-NEXT:    # Parent Loop BB0_7 Depth=1
->>>>>>> 968f5daa887d94b3092af624db5080fbd721ba0f
 ; X64-NEXT:    # => This Inner Loop Header: Depth=2
 ; X64-NEXT:    movl 8(%r11,%rcx,4), %eax
 ; X64-NEXT:    vmovsd {{.*#+}} xmm5 = mem[0],zero
@@ -206,15 +168,9 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:    addq $16, %rcx
 ; X64-NEXT:    leal -16(%rcx), %eax
 ; X64-NEXT:    cmpl $4080, %eax # imm = 0xFF0
-<<<<<<< HEAD
 ; X64-NEXT:    jb .LBB0_13
 ; X64-NEXT:  # %bb.14: # %afterloop.48.clone
 ; X64-NEXT:    # in Loop: Header=BB0_12 Depth=1
-=======
-; X64-NEXT:    jb .LBB0_8
-; X64-NEXT:  # %bb.9: # %afterloop.48.clone
-; X64-NEXT:    # in Loop: Header=BB0_7 Depth=1
->>>>>>> 968f5daa887d94b3092af624db5080fbd721ba0f
 ; X64-NEXT:    vaddpd %ymm3, %ymm9, %ymm1
 ; X64-NEXT:    vaddpd %ymm4, %ymm2, %ymm2
 ; X64-NEXT:    vaddpd %ymm2, %ymm1, %ymm1
@@ -226,7 +182,6 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:    addq $32768, %rsi # imm = 0x8000
 ; X64-NEXT:    cmpq %r9, %r10
 ; X64-NEXT:    leaq 1(%r10), %r10
-<<<<<<< HEAD
 ; X64-NEXT:    jne .LBB0_12
 ; X64-NEXT:  # %bb.15: # %for.cond.cleanup.clone
 ; X64-NEXT:    addq $40, %rsp
@@ -237,15 +192,6 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:    .cfi_def_cfa_offset 48
 ; X64-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; X64-NEXT:    addq $40, %rsp
-=======
-; X64-NEXT:    jne .LBB0_7
-; X64-NEXT:    jmp .LBB0_10
-; X64-NEXT:  .LBB0_1: # %entry
-; X64-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; X64-NEXT:    addq $48, %rsp
-; X64-NEXT:    .cfi_def_cfa_offset 16
-; X64-NEXT:    popq %rbx
->>>>>>> 968f5daa887d94b3092af624db5080fbd721ba0f
 ; X64-NEXT:    .cfi_def_cfa_offset 8
 ; X64-NEXT:    retq
 ; X64-NEXT:  .LBB0_11:
