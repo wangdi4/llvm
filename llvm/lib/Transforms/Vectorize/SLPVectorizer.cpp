@@ -2083,7 +2083,7 @@ public:
 private:
 #if INTEL_CUSTOMIZATION
   /// A leaf operand of the Multi-Node. These operands get reordered.
-  class OperandData {
+  class LeafData {
     /// The leaf operand value.
     Value *Leaf = nullptr;
     /// We may have a Leaf being used by multiple instructions. Keep track of
@@ -2096,25 +2096,25 @@ private:
     bool Used = false;
     /// The lane of this operand.
     int Lane = -1;
-    /// The opcode that 'FrontierI' will get after codegen.
-    unsigned EffectiveFrontierOpcode = 0;
+    /// If true the frontier will get an inverse opcode after codegen.
+    bool InvertFrontierOpcode = false;
     /// 'FrontierI' before any reordering. Used for undoing reordering.
     Instruction *OriginalFrontierI = nullptr;
     /// 'OperandV' before any reordering. Used for undoing reordering.
     Value *OriginalOperandV = nullptr;
 
   public:
-    OperandData(Value *OperandV, Instruction *FrontierI, int OperandNum,
-                int Lane)
-        : Leaf(OperandV), FrontierI(FrontierI), OperandNum(OperandNum),
-          Used(false), Lane(Lane),
-          EffectiveFrontierOpcode(FrontierI->getOpcode()) {}
-    Value *getValue() const { return Leaf; }
-    void setValue(Value *NewOperandV) { Leaf = NewOperandV; }
+    LeafData(Value *Op, Instruction *Frontier, int OpNum, int Lane)
+        : Leaf(Op), FrontierI(Frontier), OperandNum(OpNum), Lane(Lane) {}
+    Value *getLeaf() const { return Leaf; }
+    void swapLeafWith(LeafData *Op) {
+      Value *Other = Op->Leaf;
+      Op->Leaf = Leaf;
+      Leaf = Other;
+    }
     int getOperandNum() const { return OperandNum; }
     bool isUsed() const { return Used; }
     void setUsed() { Used = true; }
-    void resetUsed() { Used = false; }
     int getLane() const { return Lane; }
     Instruction *getFrontier() const { return FrontierI; }
     void setFrontier(Instruction *NewFrontierI) {
@@ -2122,11 +2122,17 @@ private:
       FrontierI = NewFrontierI;
     }
     unsigned getEffectiveFrontierOpcode() const {
-      return EffectiveFrontierOpcode;
+      return InvertFrontierOpcode
+                 ? MultiNode::getInverseOpcode(FrontierI->getOpcode())
+                       .getValue()
+                 : FrontierI->getOpcode();
     }
-    void setEffectiveFrontierOpcode(unsigned Opc) {
-      EffectiveFrontierOpcode = Opc;
+    void invertFrontierOpcode() {
+      InvertFrontierOpcode = !InvertFrontierOpcode;
     }
+    /// \returns true if the opcode of the frontier should be updated.
+    bool getInvertFrontierOpcode() const { return InvertFrontierOpcode; }
+
     /// Stores FrontierI into OriginalFrontierI. This helps undoing reordering.
     void saveOriginalFrontier() {
       assert(!OriginalFrontierI && "Already saved?");
@@ -2148,30 +2154,16 @@ private:
     /// \returns the 'OriginalOperandV', saved by 'saveOriginalOperand()'.
     Value *getOriginalOperand() const { return OriginalOperandV; }
 
-    bool operator==(OperandData &Operand2) const {
-      bool LookSame = (Leaf == Operand2.getValue() &&
-                       FrontierI == Operand2.getFrontier() &&
-                       OperandNum == Operand2.getOperandNum());
-#ifndef NDEBUG
-      if (LookSame) {
-        assert(Used == Operand2.isUsed() && Lane == Operand2.getLane() &&
-               "These should also match!");
-      }
-#endif
+    bool operator==(const LeafData &Other) const {
+      bool LookSame =
+          (Leaf == Other.getLeaf() && FrontierI == Other.getFrontier() &&
+           OperandNum == Other.getOperandNum());
+      assert(!LookSame || (Used == Other.isUsed() && Lane == Other.getLane()) &&
+                              "These should also match!");
       return LookSame;
     }
-    bool operator!=(OperandData &Operand2) const {
-      return !(*this == Operand2);
-    }
-    /// Checks if the OperandData structure is consistent with the underlying
-    /// IR.
-    bool isConsistent() const {
-      return (FrontierI->getOperand(OperandNum) == Leaf);
-    }
-    /// \returns true if the opcode of the frontier should be updated.
-    bool shouldUpdateFrontierOpcode() const {
-      return getFrontier()->getOpcode() != getEffectiveFrontierOpcode();
-    }
+    bool operator!=(const LeafData &Other) const { return !(*this == Other); }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     /// Debug print.
     void dump(void) const;
@@ -2179,8 +2171,6 @@ private:
     void dumpDot(raw_ostream &OS = dbgs(), int OpI = 0) const;
 #endif
   };
-
-  using OpVec = SmallVector<OperandData *, 4>;
 
   /// By design the Multi-Node is a group of Add/Sub instructions that we
   /// should be able to perform operand reordering across it without too many
@@ -2209,14 +2199,14 @@ private:
   class MultiNode {
     /// The operands (leaves) of the Multi-Node for all lanes.
     /// We are not simply using the Value for a leaf. Instead we are using the
-    /// OperandData structure because it not only contains the Value, but it
-    /// also points to its user (called FrontierI), and it also holds the
-    /// operand number (N if Value is the Nth operand of FrontierI).
-    SmallVector<SmallVector<OperandData, 8>, 8> Leaves;
+    /// LeafData structure because it not only contains the Value, but it
+    /// also points to its user (referred as frontier instruction), and it also
+    /// holds the operand number (i.e. the Nth operand of the frontier).
+    SmallVector<SmallVector<LeafData, 8>, 8> Leaves;
 
     /// Save the instruction position to undo the scheduling that happens before
     /// the Multi-Node reordering.
-    SmallVector<std::pair<Instruction *, Instruction *>, 16>
+    SmallVector<std::pair<Instruction * /*I*/, Instruction * /*NextI*/>, 16>
         InstrPositionBeforeScheduling;
 
     /// The indices of the TreeEntries that make up a Multi-Node.
@@ -2226,7 +2216,7 @@ private:
     /// allow any changes in the vector length within the Multi-Node.
     /// NOTE: We cannot safely deduce this from Leaves, because Leaves contains
     ///       leaves, not trunks. By the time we reach the leaves it is too late.
-    size_t NumLanes = 0;
+    unsigned NumLanes = 0;
 
     // MultiNode is essentially implementing look-ahead build of the SLP tree
     // that we use for two purposes:
@@ -2245,24 +2235,41 @@ private:
     bool DisableReorder = false;
 
   public:
-    size_t getNumLanes() const { return NumLanes; }
+    /// \Returns the inverse opcode of \p Opc.
+    static Optional<unsigned> getInverseOpcode(unsigned Opc) {
+      switch (Opc) {
+      case Instruction::Add:
+        return Instruction::Sub;
+      case Instruction::Sub:
+        return Instruction::Add;
+      default:
+        return None;
+      }
+    }
+    static bool hasCompatibleOpcodes(ArrayRef<Value *> VL) {
+      return all_of(VL, [](Value *V) -> bool {
+        auto *I = dyn_cast<Instruction>(V);
+        return I && getInverseOpcode(I->getOpcode()).hasValue();
+      });
+    }
+
+    unsigned getNumLanes() const { return NumLanes; }
     int getNumOperands() const {
       assert(!Leaves.empty());
       return Leaves[0].size();
     }
     bool empty() const { return Leaves.empty(); }
-    void setNumLanes(size_t Lanes) {
+    void setNumLanes(unsigned Lanes) {
       NumLanes = Lanes;
       Leaves.resize(Lanes);
     }
-    const OperandData *getOperand(int Lane, int OpI) const {
+    const LeafData *getOperand(int Lane, int OpI) const {
       return &Leaves[Lane][OpI];
     }
-    // Similar to Instructions, the Multi-Node has operands and we can index
-    // them using the 'Lane' number and 'OpI' operand index.
-    OperandData *getOperand(int Lane, int OpI) { return &Leaves[Lane][OpI]; }
-    void set(int Lane, int OpI, OperandData &Op) { Leaves[Lane][OpI] = Op; }
-    void append(int Lane, OperandData Op) { Leaves[Lane].push_back(Op); }
+    /// Similar to Instructions, the Multi-Node has operands and we can index
+    /// them using the 'Lane' number and 'OpI' operand index.
+    LeafData *getOperand(int Lane, int OpI) { return &Leaves[Lane][OpI]; }
+    void append(int Lane, LeafData &&Op) { Leaves[Lane].push_back(Op); }
     void clear() { Leaves.clear(); }
 
     void disableReorder() { DisableReorder = true; }
@@ -2270,30 +2277,20 @@ private:
 
     // Undo the code motion that moves all frontier nodes towards the root.
     void undoMultiNodeScheduling();
-    // Save the instruction position before the scheduling code motion.
-    // This is used by undoMultiNodeScheduling().
+    /// Save the instruction position before the scheduling code motion.
+    /// This is used by undoMultiNodeScheduling().
     void saveBeforeSchedInstrPosition(Instruction *I, Instruction *NextI) {
       InstrPositionBeforeScheduling.emplace_back(I, NextI);
     }
-    // Save the original operands for all entries in the Multi-Node.
-    // This is for undoing the changes upon failure.
-    void saveOrigOpsAndFrontiers(void) {
-      for (int OpI = 0, E = getNumOperands(); OpI != E; ++OpI)
-        for (int Lane = 0, Lanes = getNumLanes(); Lane != Lanes; ++Lane) {
-          OperandData *Op = getOperand(Lane, OpI);
-          Op->saveOriginalOperand();
-          Op->saveOriginalFrontier();
-        }
-    }
-    // Returns the OperandData node that shares a frontier with Op. This should
-    // be a top of the Multi-Node. Linear to the number of operands.
-    // Returns null if no sibling found.
-    OperandData *getSiblingOp(OperandData *Op) {
-      OperandData *SiblingOp = nullptr;
+    /// Returns the LeafData node that shares a frontier with \p Op. This should
+    /// be a top of the Multi-Node. Linear to the number of operands.
+    /// Returns null if no sibling found.
+    LeafData *findSibling(LeafData *Op) {
+      LeafData *SiblingOp = nullptr;
       int Lane = Op->getLane();
       Instruction *FrontierI = Op->getFrontier();
       for (int OpI = 0, E = getNumOperands(); OpI != E; ++OpI) {
-        OperandData *TryOp = getOperand(Lane, OpI);
+        LeafData *TryOp = getOperand(Lane, OpI);
         if (TryOp == Op)
           continue;
         if (TryOp->getFrontier() == FrontierI) {
@@ -2887,8 +2884,8 @@ private:
 
     for (unsigned Lane = 0; Lane != VL.size(); ++Lane)
       CurrentMultiNode->append(
-          Lane, OperandData(VL[Lane], cast<Instruction>(UserTE->Scalars[Lane]),
-                            UserTreeIdx.OpDirection[Lane], Lane));
+          Lane, LeafData(VL[Lane], cast<Instruction>(UserTE->Scalars[Lane]),
+                         UserTreeIdx.OpDirection[Lane], Lane));
     AllMultiNodeLeaves.insert(VL.begin(), VL.end());
     return true;
   }
@@ -3623,6 +3620,8 @@ private:
   };
 #if INTEL_CUSTOMIZATION
 private:
+  using OpVec = SmallVector<LeafData *, 4>;
+
   BoUpSLP::BlockScheduling *getBSForValue(Value *VL);
 
   /// Remove all entries in VectorizableTree after CurrIdx.
@@ -3659,35 +3658,34 @@ private:
   /// \returns the cost-model score of the subtrees rooted at v1 and v2.
   int getScoreAtLevel(Value *v1, Value *v2, int Level, int MaxLevel);
 
-  /// \returns the path sign of \p TrunkV at \p Lane.
-  bool isNegativePathSignForTrunk(Value *TrunkV, int Lane);
+  /// \returns the path sign of the frontier of \p Leaf.
+  bool isNegativePathSignForFrontier(LeafData *Leaf);
 
-  /// \returns the path sign of the frontier of \p LeafOD.
-  bool isNegativePathSignForFrontier(OperandData *LeafOD);
-
-  /// \returns the path sign of \p LeafOD.
-  bool isNegativePathSignForLeaf(OperandData *LeafOD);
+  /// \returns the path sign of \p Leaf.
+  bool isNegativePathSignForLeaf(LeafData *Leaf);
 
   /// Given the two operand data of the same Multi-Node \p Op1 and \p Op2
   /// check whether it is legal to swap operands (aka Multi-Node leaves)
   /// between their frontier instructions (aka Multi-Node trunk instructions).
-  bool isLegalToMoveLeaf(OperandData *Op1, OperandData *Op2);
+  bool isLegalToMoveLeaf(LeafData *Op1, LeafData *Op2);
 
   /// \returns a high score if \p LHS and \p RHS are consecutive instructions
   /// and good for vectorization.
   int getLookAheadScore(Value *LHS, Value *RHS);
 
   /// \returns the best matching operands into \p BestoOps.
-  int getBestOperand(OpVec &BestOps, OperandData *LHSOp, int RHSLane, int OpI,
+  int getBestOperand(OpVec &BestOps, LeafData *LHSOp, int RHSLane, int OpI,
                      const OpVec &BestOperandsSoFar, VecMode Mode);
 
-  /// Replace Op's frontier with opcode with the 'effective' one.
-  void replaceFrontierOpcodeWithEffective(OperandData *Op);
-
   /// Update the frontier of \p Op with a new one that has the updated opcode.
-  Instruction *updateFrontierOpcode(OperandData *Op);
+  /// Return true if the frontier instruction has been replaced.
+  bool updateFrontierOpcode(LeafData *Op);
 
-  /// Reorder the instruction operands.
+  /// Update the IR instructions:
+  /// replace and/or reorder operands as per CurrentMultiNode state.
+  /// The original values saved in CurrentMultiNode to be used when/if undo the
+  /// reordering later.
+  /// Updates \p Bundle if needed.
   void applyReorderedOperands(ScheduleData *Bundle);
 
   /// GroupState refers to the state of the search while trying to build the
@@ -3721,19 +3719,19 @@ private:
     GroupState State = UNINIT;
     OpVec OperandsVec;
   public:
-    OpGroup() {}
+    OpGroup() = default;
     int size() const { return OperandsVec.size(); }
     bool empty() const { return OperandsVec.empty(); }
-    OperandData *operator[](int Idx) const {
+    LeafData *operator[](int Idx) const {
       assert(Idx < (int)OperandsVec.size() && "Out of range");
       return OperandsVec[Idx];
     }
-    OperandData *front() const {
+    LeafData *front() const {
       assert(!OperandsVec.empty() && "Broken constructor");
       return OperandsVec.front();
     }
-    OperandData *back() const { return OperandsVec.back(); }
-    void append(OperandData *OD) { OperandsVec.push_back(OD); }
+    LeafData *back() const { return OperandsVec.back(); }
+    void append(LeafData *Op) { OperandsVec.push_back(Op); }
     void setScore(int S) { Score = S; }
     int getScore() const { return Score; }
     void setMode(VecMode M) { Mode = M; }
@@ -3747,7 +3745,9 @@ private:
       State = UNINIT;
       OperandsVec.clear();
     }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     void dump() const;
+#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   };
 
   /// Build the maximum group in \p CurrGroup for \p OpI .
@@ -3949,8 +3949,8 @@ void BoUpSLP::undoMultiNodeReordering() {
     int OpIMax = MNode.getNumOperands();
     for (int OpI = 0; OpI != OpIMax; ++OpI) {
       for (unsigned Lane = 0; Lane != NumLanes; ++Lane) {
-        OperandData *Op = MNode.getOperand(Lane, OpI);
-        OperandData *SiblingOp = MNode.getSiblingOp(Op);
+        LeafData *Op = MNode.getOperand(Lane, OpI);
+        LeafData *SiblingOp = MNode.findSibling(Op);
         Instruction *FrontierI = Op->getFrontier();
         // 1. If we have updated the instruction, restore the original one.
         Instruction *OrigFrontierI = Op->getOriginalFrontier();
@@ -4845,26 +4845,19 @@ int BoUpSLP::getScoreAtLevel(Value *V1, Value *V2, int Level, int MaxLevel) {
   return ShallowScoreAtThisLevel;
 }
 
-/// \returns the path sign of the trunk node \p TrunkV at \p Lane..
-bool BoUpSLP::isNegativePathSignForTrunk(Value *TrunkV, int Lane) {
-  TreeEntry *TE = getTreeEntry(TrunkV);
-  assert(TE && "TrunkV not found in VTree");
+bool BoUpSLP::isNegativePathSignForFrontier(LeafData *Leaf) {
+  TreeEntry *TE = getTreeEntry(Leaf->getFrontier());
+  assert(TE && "Trunk not found in VTree");
+  int Lane = Leaf->getLane();
   assert(Lane < (int)TE->IsNegativePathSign.size() &&
          "PathSigns not populated?");
   return TE->IsNegativePathSign[Lane];
 }
 
-/// \returns the path sign of the trunk node \p TrunkOD.
-bool BoUpSLP::isNegativePathSignForFrontier(OperandData *TrunkOD) {
-  return isNegativePathSignForTrunk(TrunkOD->getFrontier(), TrunkOD->getLane());
-}
-
-/// \returns the path sign of the leaf node \p LeafOD.
-bool BoUpSLP::isNegativePathSignForLeaf(OperandData *LeafOD) {
-  bool TrunkSign = isNegativePathSignForFrontier(LeafOD);
-  bool IsSubRHS =
-      (int)(LeafOD->getEffectiveFrontierOpcode() == Instruction::Sub &&
-            LeafOD->getOperandNum() == 1);
+bool BoUpSLP::isNegativePathSignForLeaf(LeafData *Leaf) {
+  bool TrunkSign = isNegativePathSignForFrontier(Leaf);
+  bool IsSubRHS = Leaf->getEffectiveFrontierOpcode() == Instruction::Sub &&
+                  Leaf->getOperandNum() == 1;
   return TrunkSign != IsSubRHS;
 }
 
@@ -4887,14 +4880,14 @@ bool BoUpSLP::isNegativePathSignForLeaf(OperandData *LeafOD) {
 // operand edges feeding into subtracts.
 // In the simplest case, when we have commutative operations of the same
 // type within the Multi-Node, it is always legal to move.
-bool BoUpSLP::isLegalToMoveLeaf(OperandData *Op1, OperandData *Op2) {
+bool BoUpSLP::isLegalToMoveLeaf(LeafData *Op1, LeafData *Op2) {
   if (Op1 == Op2) // Not a swap
     return true;
   if (isNegativePathSignForLeaf(Op1) != isNegativePathSignForLeaf(Op2))
     return false;
 
-  auto *Leaf1 = dyn_cast<Instruction>(Op1->getValue());
-  auto *Leaf2 = dyn_cast<Instruction>(Op2->getValue());
+  auto *Leaf1 = dyn_cast<Instruction>(Op1->getLeaf());
+  auto *Leaf2 = dyn_cast<Instruction>(Op2->getLeaf());
 
   if ((Leaf1 && !DT->dominates(Leaf1, Op2->getFrontier())) ||
       (Leaf2 && !DT->dominates(Leaf2, Op1->getFrontier())))
@@ -4916,28 +4909,27 @@ int BoUpSLP::getLookAheadScore(Value *LHS, Value *RHS) {
 /// then we should be looking for a constant for the RHS too ans the mode is set
 /// to VM_CONSTANT. Similarly, Loads and Splats, and other we need separate
 /// modes.
-int BoUpSLP::getBestOperand(OpVec &BestOps, OperandData *LHSOp, int RHSLane,
+int BoUpSLP::getBestOperand(OpVec &BestOps, LeafData *LHSOp, int RHSLane,
                             int OpI, const OpVec &BestOperandsSoFar,
                             VecMode Mode) {
-  OperandData *OrigRHSOperand = CurrentMultiNode->getOperand(RHSLane, OpI);
-  Value *LHS = LHSOp->getValue();
+  LeafData *OrigRHSOperand = CurrentMultiNode->getOperand(RHSLane, OpI);
+  Value *LHS = LHSOp->getLeaf();
   Instruction *LHSFrontierI = LHSOp->getFrontier();
 
   // The return values of our search: the best operand and whether we should
   // move its frontier.
-  OperandData *BestRHSOperand = nullptr;
-  // OperandData *BestFrontierOperandToSwapWith = nullptr;
+  LeafData *BestRHSOperand = nullptr;
   int BestScore = -1;
 
   // Go through all operands of the MultiNode looking for the best match.
   for (int OpIdx = 0, E = CurrentMultiNode->getNumOperands(); OpIdx != E;
        ++OpIdx) {
-    OperandData *RHSOperand = CurrentMultiNode->getOperand(RHSLane, OpIdx);
+    LeafData *RHSOperand = CurrentMultiNode->getOperand(RHSLane, OpIdx);
     // Skip if we have already used this for this Lane.
     if (RHSOperand->isUsed())
       continue;
     // The candidate for this operand data.
-    Value *RHS = RHSOperand->getValue();
+    Value *RHS = RHSOperand->getLeaf();
 
     int Score;
     switch (Mode) {
@@ -4946,8 +4938,8 @@ int BoUpSLP::getBestOperand(OpVec &BestOps, OperandData *LHSOp, int RHSLane,
     case VM_OPCODE:
       Score = getLookAheadScore(LHS, RHS);
       // Make sure we are not using the same value.
-      for (OperandData *OD : BestOperandsSoFar) {
-        if (OD->getValue() == RHS) {
+      for (LeafData *OD : BestOperandsSoFar) {
+        if (OD->getLeaf() == RHS) {
           Score = 0;
           break;
         }
@@ -4963,7 +4955,7 @@ int BoUpSLP::getBestOperand(OpVec &BestOps, OperandData *LHSOp, int RHSLane,
       llvm_unreachable("Bad Mode");
     }
 
-    OperandData *FrontierOperandToSwapWith = nullptr;
+    LeafData *FrontierOperandToSwapWith = nullptr;
 
     if (RHSOperand != OrigRHSOperand &&
         !isLegalToMoveLeaf(RHSOperand, OrigRHSOperand)) {
@@ -4987,8 +4979,8 @@ int BoUpSLP::getBestOperand(OpVec &BestOps, OperandData *LHSOp, int RHSLane,
     }
 
     // If the users' opcodes don't match, then we need to adjust the cost
-    // to reflect the fact that we will need a blend and a new instruction
-    // as generated by padding (PSLP).
+    // to reflect the fact that we will need a blend generated when
+    // vectorizing alternate opcodes.
     Instruction *RHSNewFrontierI =
         (FrontierOperandToSwapWith) ? FrontierOperandToSwapWith->getFrontier()
                                     : OrigRHSOperand->getFrontier();
@@ -5013,109 +5005,95 @@ int BoUpSLP::getBestOperand(OpVec &BestOps, OperandData *LHSOp, int RHSLane,
   return BestScore;
 }
 
-// Replaces old frontier opcode with "effective" one for 'Op'. The "effective"
-// opcode is the opcode that the 'Frontier' node will get after we perform the
-// actual movement of the opcodes. So if we are swapping a '-' with a '+', their
-// "effective" opcodes will be swapped during the reordering. At this point we
-// are in codegen. Instead of moving instructions around, we are removing the
-// old ones and replacing them with the ones with the updated opcode (that is
-// the "effective opcode").
-void BoUpSLP::replaceFrontierOpcodeWithEffective(OperandData *Op) {
-  assert(Op->shouldUpdateFrontierOpcode());
-  // Skip if we have already replaced the frontier instruction.
-  // This can happen when there is a sibling operand.
-  if (Op->getOriginalFrontier())
-    return;
+bool BoUpSLP::updateFrontierOpcode(LeafData *Op) {
 
-  auto OpcodeBefore =
-      static_cast<Instruction::BinaryOps>(Op->getFrontier()->getOpcode());
-  auto OpcodeAfter =
-      static_cast<Instruction::BinaryOps>(Op->getEffectiveFrontierOpcode());
-  assert(OpcodeAfter != OpcodeBefore && "Why are we swapping then?");
-  (void) OpcodeBefore;
+  auto &&ReplaceFrontierForOp = [this](LeafData *Op) {
+    // Do actual update of the original frontier with the new one having
+    // "effective" opcode. The "effective" opcode is one the Frontier gets after
+    // Multi-Node operands reordered to maintain the original math semantics.
+    // Instead of moving instructions around, the original instruction is being
+    // removed and replaced with new one.
 
-  // At the top of the Mult-Node there may be two OperandData nodes sharing a
-  // single frontier. We need to update the Sibling's frontier too!
-  OperandData *SiblingOp = CurrentMultiNode->getSiblingOp(Op);
-  // Save original frontiers
-  if (SiblingOp)
-    SiblingOp->saveOriginalFrontier();
-  Op->saveOriginalFrontier();
+    // At the top of the Mult-Node there may be two leaf nodes
+    // sharing the same frontier so we need to update data for both siblings.
+    LeafData *SiblingOp = CurrentMultiNode->findSibling(Op);
+    // Save original frontiers
+    if (SiblingOp)
+      SiblingOp->saveOriginalFrontier();
+    Op->saveOriginalFrontier();
 
-  // Create the replacement frontier instructions, using the opposite opcodes.
-  // Also make sure that the operands are swapped as required.
-  Instruction *OldFrontier = Op->getFrontier();
-  Instruction *NewFrontier = BinaryOperator::Create(
-      OpcodeAfter, OldFrontier->getOperand(0), OldFrontier->getOperand(1),
-      OldFrontier->getName(), OldFrontier);
-  NewFrontier->copyIRFlags(OldFrontier);
-  OldFrontier->replaceAllUsesWith(NewFrontier);
-  OldFrontier->removeFromParent();
-  OldFrontier->dropAllReferences();
+    // Create the replacement frontier instruction, using the new opcode.
+    Instruction *OrigI = Op->getFrontier();
+    auto NewOpc =
+        static_cast<Instruction::BinaryOps>(Op->getEffectiveFrontierOpcode());
+    Instruction *NewI =
+        BinaryOperator::Create(NewOpc, OrigI->getOperand(0),
+                               OrigI->getOperand(1), OrigI->getName(), OrigI);
+    NewI->copyIRFlags(OrigI);
+    OrigI->replaceAllUsesWith(NewI);
+    OrigI->removeFromParent();
+    OrigI->dropAllReferences();
 
-  // Update Sibling's frontier.
-  if (SiblingOp)
-    SiblingOp->setFrontier(NewFrontier);
-  // Update Op's frontier.
-  Op->setFrontier(NewFrontier);
-}
+    // Update Sibling's frontier.
+    if (SiblingOp)
+      SiblingOp->setFrontier(NewI);
+    // Update Op's frontier.
+    Op->setFrontier(NewI);
+  };
 
-// Update the frontier instruction with a new one with the updated opcode.
-Instruction *BoUpSLP::updateFrontierOpcode(OperandData *Op) {
-  Instruction *OldFrontierI = Op->getFrontier();
+  // Only replace frontier instruction if we need it and have not done that
+  // already (can happen when replaced frontier for sibling earlier).
+  if (!Op->getInvertFrontierOpcode() || Op->getOriginalFrontier())
+    return false;
 
-  // Create an new instruction with the effective opcode and update 'Op'.
-  replaceFrontierOpcodeWithEffective(Op);
-  Instruction *NewFrontierI = Op->getFrontier();
+  ReplaceFrontierForOp(Op);
+
   if (MultiNodeVerifierChecks)
     assert(!verifyFunction(*F, &dbgs()));
 
   // Bookkeeping!
   // Update data structures to reflect the instruction changes.
+  Instruction *OrigFrontier = Op->getOriginalFrontier();
+  Instruction *NewFrontier = Op->getFrontier();
 
   // 1. VectorizableTree: Update the TreeEntry.Scalars[]
   for (int TEIdx : CurrentMultiNode->getTrunks()) {
     TreeEntry &TE = *VectorizableTree[TEIdx].get();
     for (int Lane = 0, Lanes = TE.Scalars.size(); Lane != Lanes; ++Lane) {
       Value *V = TE.Scalars[Lane];
-      if (V == OldFrontierI)
-        TE.Scalars[Lane] = NewFrontierI;
+      if (V == OrigFrontier)
+        TE.Scalars[Lane] = NewFrontier;
     }
   }
 
   // 2. ScalarToTreeEntry
-  assert(ScalarToTreeEntry.count(OldFrontierI) && "Hmm frontier not in VTree?");
-  TreeEntry *TE = ScalarToTreeEntry[OldFrontierI];
-  ScalarToTreeEntry.erase(OldFrontierI);
-  ScalarToTreeEntry[NewFrontierI] = TE;
-  return NewFrontierI;
+  assert(ScalarToTreeEntry.count(OrigFrontier) && "Hmm frontier not in VTree?");
+  TreeEntry *TE = ScalarToTreeEntry[OrigFrontier];
+  ScalarToTreeEntry.erase(OrigFrontier);
+  ScalarToTreeEntry[NewFrontier] = TE;
+
+  return true;
 }
 
-/// Update the IR instructions to reflect the state in \p CurrentMultiNode.
-/// Updates \p Bundle if needed.
 void BoUpSLP::applyReorderedOperands(ScheduleData *Bundle) {
   DenseMap<Value *, Value *> RemapMap;
   assert(!CurrentMultiNode->empty() && "Broken CurrentMultiNode.");
   unsigned NumLanes = CurrentMultiNode->getNumLanes();
   for (int OpI = 0, E = CurrentMultiNode->getNumOperands(); OpI != E; ++OpI) {
     for (unsigned Lane = 0; Lane != NumLanes; ++Lane) {
-      OperandData *Op = CurrentMultiNode->getOperand(Lane, OpI);
+      LeafData *Op = CurrentMultiNode->getOperand(Lane, OpI);
       // 1. Check if we first need to update the opcode.
-      if (Op->shouldUpdateFrontierOpcode()) {
-        Instruction *OldFrontierI = Op->getFrontier();
-        Instruction *NewFrontierI = updateFrontierOpcode(Op);
-        RemapMap[OldFrontierI] = NewFrontierI;
-      }
+      if (updateFrontierOpcode(Op))
+        RemapMap[Op->getOriginalFrontier()] = Op->getFrontier();
 
       // 2. Update the operands if needed.
       Instruction *FrontierI = Op->getFrontier();
       int OpNum = Op->getOperandNum();
-      if (FrontierI->getOperand(OpNum) != Op->getValue()) {
+      if (FrontierI->getOperand(OpNum) != Op->getLeaf()) {
         // Save it for undo.
         Op->saveOriginalOperand();
         // Update the operand to reflect the current state.
-        FrontierI->setOperand(OpNum, Op->getValue());
-        // RemapMap[Op->getValue()] = Op->getOriginalOperand();
+        FrontierI->setOperand(OpNum, Op->getLeaf());
       }
       if (MultiNodeVerifierChecks)
         assert(!verifyFunction(*F, &dbgs()));
@@ -5140,8 +5118,8 @@ void BoUpSLP::buildMaxGroup(OpGroup &Group, unsigned OpI,
        RHSLane != Lanes; ++RHSLane) {
     // Get 1) the best candidate for 'RHSLane' that matches best agaisnt LHSOp,
     //     2) whether we should swap frontiers with the CurrRHSOperand.
-    OperandData *BestRHSOperand = nullptr;
-    OperandData *LHSOp = Group.back();
+    LeafData *BestRHSOperand = nullptr;
+    LeafData *LHSOp = Group.back();
     OpVec BestOps;
     // We are looking for a node of a specific type according to the operand
     // history in VMode.
@@ -5166,7 +5144,7 @@ void BoUpSLP::buildMaxGroup(OpGroup &Group, unsigned OpI,
     }
 
     // If the first two Lanes are a splat, change the mode
-    if (RHSLane == 1 && BestRHSOperand->getValue() == Group.back()->getValue())
+    if (RHSLane == 1 && BestRHSOperand->getLeaf() == Group.back()->getLeaf())
       Group.setMode(VM_SPLAT);
 
     assert(BestRHSOperand && "Why nullptr?");
@@ -5185,12 +5163,21 @@ int BoUpSLP::getMNScore() const {
        ++OpI) {
     bool AreConsecutive = true;
     for (unsigned Lane = 1; Lane != CurrentMultiNode->getNumLanes(); ++Lane) {
+<<<<<<< HEAD
       const OperandData *OperandL = CurrentMultiNode->getOperand(Lane - 1, OpI);
       const OperandData *OperandR = CurrentMultiNode->getOperand(Lane, OpI);
       if (OperandL->getValue() == OperandR->getValue() ||
           VLOperands::getShallowScore(
               OperandL->getValue(), OperandR->getValue(), *DL, *SE,
               CurrentMultiNode->getNumLanes(), None) == VLOperands::ScoreFail) {
+=======
+      const LeafData *OperandL = CurrentMultiNode->getOperand(Lane - 1, OpI);
+      const LeafData *OperandR = CurrentMultiNode->getOperand(Lane, OpI);
+      if (OperandL->getLeaf() == OperandR->getLeaf() ||
+          VLOperands::getShallowScore(
+              OperandL->getLeaf(), OperandR->getLeaf(), *DL, *SE,
+              CurrentMultiNode->getNumLanes()) == VLOperands::ScoreFail) {
+>>>>>>> b2b191651f1e16af56b7796e5de632eb2e10b073
         AreConsecutive = false;
         break;
       }
@@ -5223,10 +5210,10 @@ BoUpSLP::GroupState BoUpSLP::getBestGroupForOpI(int OpI,
   // We are trying all nodes with maximum scores as seeds of groups.
   OpVec FirstOperandCandidates;
   // For the first lane we need to try all operand nodes.
-  OperandData *CurrLHSOperand = CurrentMultiNode->getOperand(0, OpI);
+  LeafData *CurrLHSOperand = CurrentMultiNode->getOperand(0, OpI);
   for (int OpIdx = 0, E = CurrentMultiNode->getNumOperands(); OpIdx != E;
        ++OpIdx) {
-    OperandData *LHSOperand = CurrentMultiNode->getOperand(0, OpIdx);
+    LeafData *LHSOperand = CurrentMultiNode->getOperand(0, OpIdx);
     if (!LHSOperand->isUsed() &&
         isLegalToMoveLeaf(LHSOperand, CurrLHSOperand)) {
       FirstOperandCandidates.push_back(LHSOperand);
@@ -5241,13 +5228,13 @@ BoUpSLP::GroupState BoUpSLP::getBestGroupForOpI(int OpI,
     OpGroup LocalBestGroup;
     // Try all the first operand candidates for the group.
     assert(!FirstOperandCandidates.empty() && "Need first operand");
-    for (OperandData *FirstOperand : FirstOperandCandidates) {
+    for (LeafData *FirstOperand : FirstOperandCandidates) {
       OpVec FirstOperandsForNextGroup;
       // Build the maximum group starting from 'FirstOperand'.
       OpGroup TryGroup = GlobalBestGroup;
       TryGroup.append(FirstOperand);
       if (TryGroup.size() == 1)
-        TryGroup.setMode(getValueVecMode(FirstOperand->getValue()));
+        TryGroup.setMode(getValueVecMode(FirstOperand->getLeaf()));
       buildMaxGroup(TryGroup, OpI, FirstOperandsForNextGroup);
 
       auto getNormalizedScore = [](const OpGroup &G) {
@@ -5366,8 +5353,8 @@ bool BoUpSLP::findMultiNodeOrder() {
     return false;
 
   auto CmpDistFromRoot = [this](int Idx1, int Idx2) -> bool {
-    OperandData *Op1 = CurrentMultiNode->getOperand(0, Idx1);
-    OperandData *Op2 = CurrentMultiNode->getOperand(0, Idx2);
+    LeafData *Op1 = CurrentMultiNode->getOperand(0, Idx1);
+    LeafData *Op2 = CurrentMultiNode->getOperand(0, Idx2);
     TreeEntry *TE1 = getTreeEntry(Op1->getFrontier());
     TreeEntry *TE2 = getTreeEntry(Op2->getFrontier());
     assert(TE1 && TE2 && "Broken Op1, Op2 ?");
@@ -5385,11 +5372,6 @@ bool BoUpSLP::findMultiNodeOrder() {
     return getDistanceFromRoot(TE1) < getDistanceFromRoot(TE2);
   };
 
-  // // Save the original values and frontiers for undo.
-  // // NOTE: This is disabled because we are saving the operands on the fly
-  // //       within applyReorderedOperands().
-  // CurrentMultiNode->saveOrigOpsAndFrontiers();
-
   // The assumption is that the Multi-Node has been canonicalized, therefore
   // the closer we are to the root (the lower the OpI), the more important
   // it is to find the best match.
@@ -5399,7 +5381,7 @@ bool BoUpSLP::findMultiNodeOrder() {
   //   \ /             |/
   //    -  C    to:    + B
   //    | /            |/
-  //    +              + C
+  //    +              - C
   //                   |/
   //                   +
 
@@ -5418,9 +5400,9 @@ bool BoUpSLP::findMultiNodeOrder() {
   for (int OpI : VisitingOrder) {
     // Find the best operands for the whole 'OpI'.
     OpGroup BestGroup;
-    auto State = getBestGroupForOpI(OpI, BestGroup);
+    GroupState State = getBestGroupForOpI(OpI, BestGroup);
     switch (State) {
-    case SUCCESS: {
+    case SUCCESS:
       LLVM_DEBUG(dbgs() << "SLP: MultiNode: Group SUCCESS at OpI:" << OpI
                         << "\n");
       // Since we found a "best" group, update the CurrentMultiNode to reflect
@@ -5428,24 +5410,19 @@ bool BoUpSLP::findMultiNodeOrder() {
       // Swapping the opcodes. iii. Marking operands as 'used'. NOTE: We are
       // *not* generating code at this point.
       for (int Lane = 0, Lanes = BestGroup.size(); Lane != Lanes; ++Lane) {
-        OperandData *BestOp = BestGroup[Lane];
-        OperandData *OrigOp = CurrentMultiNode->getOperand(Lane, OpI);
+        LeafData *BestOp = BestGroup[Lane];
+        LeafData *OrigOp = CurrentMultiNode->getOperand(Lane, OpI);
         // i. Swap the leaf values.
-        if (BestOp->getValue() != OrigOp->getValue()) {
-          // Update the Operand data structures (the IR gets modified later).
-          Value *BestValue = BestOp->getValue();
-          Value *OrigValue = OrigOp->getValue();
-          OrigOp->setValue(BestValue);
-          BestOp->setValue(OrigValue);
-        }
-        // ii. Swap the opcode.
-        if (isNegativePathSignForLeaf(OrigOp) !=
-            isNegativePathSignForLeaf(BestOp)) {
-          unsigned OrigOpcode = OrigOp->getEffectiveFrontierOpcode();
-          unsigned BestOpcode = BestOp->getEffectiveFrontierOpcode();
-          // WARNING: These should be cleaned up if the the group fails.
-          OrigOp->setEffectiveFrontierOpcode(BestOpcode);
-          BestOp->setEffectiveFrontierOpcode(OrigOpcode);
+        // Here only update the data structures (the IR gets modified later).
+        if (BestOp->getLeaf() != OrigOp->getLeaf()) {
+          BestOp->swapLeafWith(OrigOp);
+
+          // ii. Swap the opcode.
+          if (isNegativePathSignForLeaf(OrigOp) !=
+              isNegativePathSignForLeaf(BestOp)) {
+            OrigOp->invertFrontierOpcode();
+            BestOp->invertFrontierOpcode();
+          }
         }
         /// iii. Mark as 'used'.
         OrigOp->setUsed();
@@ -5453,19 +5430,16 @@ bool BoUpSLP::findMultiNodeOrder() {
       // If we are steering the SLP path, steer it towards the group with the
       // best score. This must be done before the MN reordering, as this will
       // mess up some of BestGroup's data.
-      if (EnablePathSteering)
-        if (BestGroup.getScore() > SteerTowards.Score)
-          SteerTowards.set(
-              OpI, CurrentMultiNode->getOperand(0, OpI)->getOperandNum(),
-              BestGroup.getScore());
+      if (EnablePathSteering && BestGroup.getScore() > SteerTowards.Score)
+        SteerTowards.set(OpI,
+                         CurrentMultiNode->getOperand(0, OpI)->getOperandNum(),
+                         BestGroup.getScore());
 
       break;
-    }
-    case FAILED: {
+    case FAILED:
       LLVM_DEBUG(dbgs() << "SLP: MultiNode: Group FAILED at OpI:" << OpI
                         << "\n");
       break;
-    }
     default:
       llvm_unreachable("Bad State");
     }
@@ -5932,11 +5906,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
   BlockScheduling &BS = *BSRef.get();
 
 #if INTEL_CUSTOMIZATION
-  bool MultiNodeCompatibleInstructions = llvm::all_of(VL, [](Value *V) {
-    auto *I = dyn_cast<Instruction>(V);
-    return I && (I->getOpcode() == Instruction::Add ||
-                 I->getOpcode() == Instruction::Sub);
-  });
+  bool MultiNodeCompatibleInstructions = MultiNode::hasCompatibleOpcodes(VL);
 
   // If we deal with insert/extract instructions, they all must have constant
   // indices, otherwise we should gather them, not try to vectorize.
@@ -10760,7 +10730,7 @@ LLVM_DUMP_METHOD void BoUpSLP::MultiNode::dump() const {
   for (int OpI = 0, OpI_e = Leaves[0].size(); OpI != OpI_e; ++OpI) {
     dbgs() << "OpI: " << OpI << ".\n";
     for (int Lane = 0, Lanes = Leaves.size(); Lane != Lanes; ++Lane) {
-      const OperandData *Op = &Leaves[Lane][OpI];
+      const LeafData *Op = &Leaves[Lane][OpI];
       Op->dump();
     }
     dbgs() << "\n";
@@ -10859,7 +10829,7 @@ LLVM_DUMP_METHOD void BoUpSLP::MultiNode::dumpDot() const {
     SmallPtrSet<const Instruction *, 8> Frontiers;
     SmallPtrSet<const Instruction *, 8> ExtraTrunksToPrint;
     for (int OpI = 0, OpI_e = getNumOperands(); OpI != OpI_e; ++OpI) {
-      const OperandData *Op = getOperand(Lane, OpI);
+      const LeafData *Op = getOperand(Lane, OpI);
       auto *Frontier = Op->getFrontier();
       Frontiers.insert(Frontier);
     }
@@ -10888,9 +10858,9 @@ LLVM_DUMP_METHOD void BoUpSLP::MultiNode::dumpDot() const {
     DenseMap<const Instruction *, std::pair<const Value *, const Value *>>
         DrawnOps;
     for (int OpI = 0, OpI_e = getNumOperands(); OpI != OpI_e; ++OpI) {
-      const OperandData *Op = getOperand(Lane, OpI);
+      const LeafData *Op = getOperand(Lane, OpI);
       auto *Frontier = Op->getFrontier();
-      auto *V = Op->getValue();
+      Value *V = Op->getLeaf();
       CreateNode(Frontier);
       CreateNode(V);
       PrintLeafEdge(V, Frontier, Op->getOperandNum());
@@ -10924,19 +10894,17 @@ LLVM_DUMP_METHOD void BoUpSLP::MultiNode::dumpDot() const {
   OS << "}\n";
 }
 
-LLVM_DUMP_METHOD void BoUpSLP::OperandData::dump(void) const {
+LLVM_DUMP_METHOD void BoUpSLP::LeafData::dump(void) const {
   std::string Indent = "    ";
   dbgs() << Indent << ((Used) ? "*USED*  " : "") << *Leaf << " " << Leaf
          << "\n";
   dbgs() << Indent << "FrontierI: " << *FrontierI << " " << FrontierI << "\n";
   dbgs() << Indent << "OperandNum: " << OperandNum;
   dbgs() << Indent << "Lane: " << Lane;
-  dbgs() << Indent
-         << "Opcode: " << Instruction::getOpcodeName(EffectiveFrontierOpcode)
-         << " ";
-  dbgs() << Indent
-         << "shouldUpdateFrontierOpcode(): " << shouldUpdateFrontierOpcode()
-         << "\n";
+  dbgs() << Indent << "Effective opcode: "
+         << Instruction::getOpcodeName(getEffectiveFrontierOpcode()) << " ";
+  dbgs() << Indent << "Inversed opcode: "
+         << (getInvertFrontierOpcode() ? "true" : "false") << "\n";
 
   dbgs() << Indent << "OriginalFrontier: ";
   if (OriginalFrontierI)
@@ -10954,7 +10922,8 @@ LLVM_DUMP_METHOD void BoUpSLP::OperandData::dump(void) const {
   dbgs() << "\n";
 }
 
-LLVM_DUMP_METHOD void BoUpSLP::OperandData::dumpDot(raw_ostream &OS, int OpI) const {
+LLVM_DUMP_METHOD void BoUpSLP::LeafData::dumpDot(raw_ostream &OS,
+                                                 int OpI) const {
   auto getOpcodeSign = [](unsigned Opcode) {
     switch (Opcode) {
     case Instruction::Add:
@@ -10969,8 +10938,8 @@ LLVM_DUMP_METHOD void BoUpSLP::OperandData::dumpDot(raw_ostream &OS, int OpI) co
 
   // "L0.0x12345678"[label="%Chain.123"];
   OS << "\""
-     << "L" << getLane() << "." << getValue() << "\"[label=\"";
-  getValue()->printAsOperand(OS);
+     << "L" << getLane() << "." << getLeaf() << "\"[label=\"";
+  getLeaf()->printAsOperand(OS);
   OS << " OpI:" << OpI << "\"];\n";
 
   // "L0.0x12345679"[label="%Bridge.123"];
@@ -11033,9 +11002,9 @@ LLVM_DUMP_METHOD void BoUpSLP::OpGroup::dump() const {
 
   int Cnt = 0;
   const char *Ind = "  ";
-  for (OperandData *OD : OperandsVec) {
+  for (LeafData *LD : OperandsVec) {
     dbgs() << Ind << Cnt++ << ".\n";
-    OD->dump();
+    LD->dump();
   }
   dbgs() << Ind << "StartLane: " << 0 << "\n";
   dbgs() << Ind << "EndLane: " << size() - 1 << "\n";
