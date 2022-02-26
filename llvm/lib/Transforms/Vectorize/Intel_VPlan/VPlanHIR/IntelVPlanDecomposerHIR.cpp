@@ -2271,7 +2271,7 @@ VPDecomposerHIR::VPBlobDecompVisitor::visitUMinExpr(const SCEVUMinExpr *Expr) {
 VPValue *
 VPDecomposerHIR::VPBlobDecompVisitor::visitSequentialUMinExpr(
     const SCEVSequentialUMinExpr *Expr) {
-  llvm_unreachable("SCEVSequentialUMinExpr not implemented");
+  return decomposeNAryOp(Expr, VPInstruction::UMinSeq);
 }
 
 VPValue *

@@ -569,6 +569,10 @@ public:
     FMax,
     SMin,
     UMin,
+    UMinSeq, // Sequentional UMin that differs from vanilla UMin in semantics
+             // vs poison value:
+             //   UMin(0, poison) = poison
+             //   UMinSeq(0, poison) = 0
     FMin,
     InductionInit,
     InductionInitStep,

@@ -314,6 +314,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "smin";
   case VPInstruction::UMin:
     return "umin";
+  case VPInstruction::UMinSeq:
+    return "umin-seq";
   case VPInstruction::FMax:
     return "fmax";
   case VPInstruction::FMin:
