@@ -2188,7 +2188,13 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
 
   // Populates the VFABI attribute with the scalar-to-vector mappings
   // from the TargetLibraryInfo.
-  OptimizePM.addPass(InjectTLIMappings());
+#if INTEL_CUSTOMIZATION
+  // Call InjectTLIMappings only when the community vectorizer is run.
+  // Running this can add symbols to @llvm.compile.used, which will inhibit
+  // whole program detection in the link step of a -flto compilation.
+  if (!PrepareForLTO || !isLoopOptEnabled(Level))
+    OptimizePM.addPass(InjectTLIMappings());
+#endif // INTEL_CUSTOMIZATION
 
   addVectorPasses(Level, OptimizePM, /* IsFullLTO */ false);
 
