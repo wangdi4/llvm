@@ -2221,6 +2221,7 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   for (auto &C : VectorizerStartEPCallbacks)
     C(OptimizePM, Level);
 
+<<<<<<< HEAD
   if (!SYCLOptimizationMode) {
     LoopPassManager LPM;
     // First rotate loops that may have been un-rotated by prior passes.
@@ -2251,6 +2252,41 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
 
     addVectorPasses(Level, OptimizePM, /* IsFullLTO */ false);
   }
+=======
+  LoopPassManager LPM;
+  // First rotate loops that may have been un-rotated by prior passes.
+  // Disable header duplication at -Oz.
+  LPM.addPass(LoopRotatePass(Level != OptimizationLevel::Oz, LTOPreLink));
+  // Some loops may have become dead by now. Try to delete them.
+  // FIXME: see discussion in https://reviews.llvm.org/D112851,
+  //        this may need to be revisited once we run GVN before loop deletion
+  //        in the simplification pipeline.
+  LPM.addPass(LoopDeletionPass());
+  OptimizePM.addPass(createFunctionToLoopPassAdaptor(
+      std::move(LPM), /*UseMemorySSA=*/false, /*UseBlockFrequencyInfo=*/false));
+#if INTEL_CUSTOMIZATION
+  if (!PrepareForLTO)
+    addLoopOptAndAssociatedVPOPasses(MPM, OptimizePM, Level, false);
+#endif // INTEL_CUSTOMIZATION
+
+  // Distribute loops to allow partial vectorization.  I.e. isolate dependences
+  // into separate loop that would otherwise inhibit vectorization.  This is
+  // currently only performed for loops marked with the metadata
+  // llvm.loop.distribute=true or when -enable-loop-distribute is specified.
+  OptimizePM.addPass(LoopDistributePass());
+
+  // Populates the VFABI attribute with the scalar-to-vector mappings
+  // from the TargetLibraryInfo.
+#if INTEL_CUSTOMIZATION
+  // Call InjectTLIMappings only when the community vectorizer is run.
+  // Running this can add symbols to @llvm.compile.used, which will inhibit
+  // whole program detection in the link step of a -flto compilation.
+  if (!PrepareForLTO || !isLoopOptEnabled(Level))
+    OptimizePM.addPass(InjectTLIMappings());
+#endif // INTEL_CUSTOMIZATION
+
+  addVectorPasses(Level, OptimizePM, /* IsFullLTO */ false);
+>>>>>>> 029309f03285d83f62df67b54f1ec7e34811f2d6
 
   // LoopSink pass sinks instructions hoisted by LICM, which serves as a
   // canonicalization pass that enables other optimizations. As a result,
