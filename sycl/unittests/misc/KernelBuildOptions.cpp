@@ -243,7 +243,11 @@ TEST(KernelBuildOptions, KernelBundleBasic) {
   sycl::kernel_bundle KernelBundle =
       sycl::get_kernel_bundle<sycl::bundle_state::input>(Ctx, {Dev});
   auto ExecBundle = sycl::build(KernelBundle);
+<<<<<<< HEAD
   EXPECT_EQ(BuildOpts, "-compile-img -vc-codegen -disable-finalizer-msg");
+=======
+  EXPECT_EQ(BuildOpts, "-compile-img -vc-codegen -link-img");
+>>>>>>> 1c93bfee8479a09bec65352bafdb221ef973945e
 
   auto ObjBundle = sycl::compile(KernelBundle, KernelBundle.get_devices());
   // TODO: uncomment when image options are passed to BE
