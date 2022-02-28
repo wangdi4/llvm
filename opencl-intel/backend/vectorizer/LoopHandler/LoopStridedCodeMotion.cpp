@@ -31,7 +31,7 @@ char LoopStridedCodeMotion::ID = 0;
 OCL_INITIALIZE_PASS_BEGIN(LoopStridedCodeMotion, DEBUG_TYPE,
                           "move strided values out of loops", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-OCL_INITIALIZE_PASS_DEPENDENCY(LoopWIAnalysis)
+OCL_INITIALIZE_PASS_DEPENDENCY(LoopWIAnalysisLegacy)
 OCL_INITIALIZE_PASS_END(LoopStridedCodeMotion, DEBUG_TYPE,
                         "move strided values out of loops", false, false)
 
@@ -52,7 +52,7 @@ bool LoopStridedCodeMotion::runOnLoop(Loop *L, LPPassManager & /*LPM*/) {
 
 
   m_DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  m_WIAnalysis = &getAnalysis<LoopWIAnalysis>();
+  m_LoopWIInfo = &getAnalysis<LoopWIAnalysisLegacy>().getResult();
   m_curLoop = L;
   m_header = m_curLoop->getHeader();
   m_preHeader = m_curLoop->getLoopPreheader();
@@ -88,7 +88,7 @@ bool LoopStridedCodeMotion::runOnLoop(Loop *L, LPPassManager & /*LPM*/) {
 
   // clear WI Analysis data since they are not in the loop anymore.
   for (Value *V : m_instToMoveSet)
-    m_WIAnalysis->clearValDep(V);
+    m_LoopWIInfo->clearValDep(V);
 
   // changed if any instruction was moved.
 
@@ -135,12 +135,12 @@ void LoopStridedCodeMotion::ScanLoop(DomTreeNode *N) {
 
 bool LoopStridedCodeMotion::canHoistInstruction(Instruction *I) {
   // Can move strided values or their intermediates.
-  if (!m_WIAnalysis->isStrided(I) && !m_WIAnalysis->isStridedIntermediate(I)){
+  if (!m_LoopWIInfo->isStrided(I) && !m_LoopWIInfo->isStridedIntermediate(I)){
     return false;
   }
   // Currently support move strided scalars only if their stride is constant.
   // Strided vector stride can be computed by substracting vector elements.
-  if (!I->getType()->isVectorTy() && !m_WIAnalysis->getConstStride(I)) {
+  if (!I->getType()->isVectorTy() && !m_LoopWIInfo->getConstStride(I)) {
     return false;
   }
 
@@ -245,13 +245,13 @@ void LoopStridedCodeMotion::createPhiIncrementors(Instruction *I) {
   }
 
   // Update the analysis about the new phi node val.
-  m_WIAnalysis->setValStrided(PN, dyn_cast<Constant>(stride));
+  m_LoopWIInfo->setValStrided(PN, dyn_cast<Constant>(stride));
 }
 
 Value *LoopStridedCodeMotion::getStrideForInst(Instruction *I) {
-  Constant *constStride = m_WIAnalysis->getConstStride(I);
+  Constant *constStride = m_LoopWIInfo->getConstStride(I);
   if (constStride) return constStride;
-  assert(m_WIAnalysis->isStrided(I) &&
+  assert(m_LoopWIInfo->isStrided(I) &&
          "strided intermediate must have constant stride");
 
   // Non constant strides must be vectors.
@@ -294,9 +294,9 @@ Value *LoopStridedCodeMotion::getStrideForInstFMul(Instruction *I,
       break;
     Value *Op0 = I->getOperand(0);
     Value *Op1 = I->getOperand(1);
-    if (m_WIAnalysis->isUniform(Op0))
+    if (m_LoopWIInfo->isUniform(Op0))
       I = dyn_cast<Instruction>(Op1);
-    else if (m_WIAnalysis->isUniform(Op1))
+    else if (m_LoopWIInfo->isUniform(Op1))
       I = dyn_cast<Instruction>(Op0);
     else
       break;
@@ -305,13 +305,13 @@ Value *LoopStridedCodeMotion::getStrideForInstFMul(Instruction *I,
   if (!I || I->getOpcode() != Instruction::FMul)
     return nullptr;
 
-  assert(m_WIAnalysis->isStrided(I) && "FMul should be strided");
+  assert(m_LoopWIInfo->isStrided(I) && "FMul should be strided");
 
   // FMul is strided. Obtain its strided operand's stride, multiply with its
   // uniform operand, and then multiply with vector length.
   Value *Op0 = I->getOperand(0);
   Value *Op1 = I->getOperand(1);
-  bool IsOp0Uniform = m_WIAnalysis->isUniform(Op0);
+  bool IsOp0Uniform = m_LoopWIInfo->isUniform(Op0);
   Value *OpUniform = IsOp0Uniform ? Op0 : Op1;
   Value *OpStrided = IsOp0Uniform ? Op1 : Op0;
 
@@ -401,7 +401,7 @@ void LoopStridedCodeMotion::screenNonProfitableValues() {
     // Can not have strided intermediate as pivot strided value.
     // Empirically, creating phi nodes for scalar values is non profitable.
     bool isScalar = !I->getType()->isVectorTy();
-    if (!isProfitable || m_WIAnalysis->isStridedIntermediate(I) || isScalar) {
+    if (!isProfitable || m_LoopWIInfo->isStridedIntermediate(I) || isScalar) {
       m_instToMoveSet.erase(I);
       //errs() << "will not move - not profitable: " << *I << "\n";
     }

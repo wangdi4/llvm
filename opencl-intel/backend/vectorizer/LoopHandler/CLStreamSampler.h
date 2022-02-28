@@ -27,8 +27,7 @@
 
 #include "BuiltinLibInfo.h"
 #include "OpenclRuntime.h"
-#include "LoopWIAnalysis.h"
-
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LoopWIAnalysis.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/Instructions.h"
@@ -56,7 +55,7 @@ public:
   /// @brief LLVM interface.
   /// @param AU - usage of analysis.
   virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<LoopWIAnalysis>();
+    AU.addRequired<LoopWIAnalysisLegacy>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<BuiltinLibInfo>();
     AU.setPreservesCFG();
@@ -106,7 +105,7 @@ private:
   DominatorTree *m_DT;
 
   /// @brief Loop work item analysis.
-  LoopWIAnalysis *m_WIAnalysis;
+  LoopWIInfo *m_LoopWIInfo;
 
   /// @brief exit block of the loop.
   BasicBlock *m_exit;

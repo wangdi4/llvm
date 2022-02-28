@@ -15,7 +15,7 @@
 #ifndef __LOOP_STRIDED_CODE_MOTION_H_
 #define __LOOP_STRIDED_CODE_MOTION_H_
 
-#include "LoopWIAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LoopWIAnalysis.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/IR/Instructions.h"
 
@@ -43,9 +43,9 @@ public:
   /// @param AU - usage of analysis.
   virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<LoopWIAnalysis>();
+    AU.addRequired<LoopWIAnalysisLegacy>();
     AU.setPreservesCFG();
-    AU.addPreserved<LoopWIAnalysis>();
+    AU.addPreserved<LoopWIAnalysisLegacy>();
   };
 
 private:
@@ -81,7 +81,7 @@ private:
   Constant *m_one;
 
   /// @brief Loop work item analysis.
-  LoopWIAnalysis *m_WIAnalysis;
+  LoopWIInfo *m_LoopWIInfo;
 
   /// @brief contains the strided instruction to be moved according to
   ///        dominance order.
