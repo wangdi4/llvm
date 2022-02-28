@@ -3245,6 +3245,7 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
 
           // For SYCL, convert C-type sources to C++-type sources.
           if (IsSYCL) {
+            types::ID OldTy = Ty;
             switch (Ty) {
             case types::TY_C:
               Ty = types::TY_CXX;
@@ -3260,6 +3261,10 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
               break;
             default:
               break;
+            }
+            if (OldTy != Ty) {
+              Diag(clang::diag::warn_drv_fsycl_with_c_type)
+                  << getTypeName(OldTy) << getTypeName(Ty);
             }
           }
 
