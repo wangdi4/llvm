@@ -74,7 +74,7 @@ static cl::opt<bool> DisableCodeGen(
         "Disable VPO codegen, when true, the pass stops at VPlan creation"));
 
 static cl::opt<bool> EnableOuterLoopHIR(
-    "enable-vplan-outer-loop-hir", cl::init(false), cl::Hidden,
+    "enable-vplan-outer-loop-hir", cl::init(true), cl::Hidden,
     cl::desc("Enable vectorization of outer loops in VPlan HIR path"));
 
 // TODO: Unify with LoopVectorize's vplan-build-stress-test?

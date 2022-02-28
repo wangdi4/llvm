@@ -226,6 +226,7 @@ define void @test_nonvls_mem(i64* %ptr, i64 *%ptr2) #1 {
 ; HIR-NEXT:        |   %.vec9 = undef;
 ; HIR-NEXT:        |   %.vec5 = undef;
 ; HIR-NEXT:        |   %.vec = i1 + <i64 0, i64 1, i64 2, i64 3>  *  i1 + <i64 0, i64 1, i64 2, i64 3>;
+; HIR-NEXT:        |   %.scal = i1  *  i1;
 ; HIR-NEXT:        |   %.vec2 = (<4 x i64>*)(%ptr)[i1];
 ; HIR-NEXT:        |   (<4 x i64>*)(%ptr)[i1] = 42;
 ; HIR-NEXT:        |   %.vec3 = (<4 x i64>*)(%ptr2)[%.vec];
