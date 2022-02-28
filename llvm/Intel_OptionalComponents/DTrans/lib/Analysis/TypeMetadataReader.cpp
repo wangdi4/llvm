@@ -32,6 +32,10 @@ static llvm::cl::opt<bool> EnableStrictCheck(
 namespace llvm {
 namespace dtransOP {
 
+bool TypeMetadataReader::hasDTransTypesMetadata(Module &M) {
+  return getDTransTypesMetadata(M) != nullptr;
+}
+
 NamedMDNode *TypeMetadataReader::getDTransTypesMetadata(Module &M) {
   NamedMDNode *DTMDTypes = M.getNamedMetadata(MDStructTypesTag);
   return DTMDTypes;
