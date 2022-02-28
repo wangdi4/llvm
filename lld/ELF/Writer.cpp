@@ -171,12 +171,14 @@ static Defined *addOptionalRegular(StringRef name, SectionBase *sec,
 
   s->resolve(Defined{nullptr, StringRef(), STB_GLOBAL, stOther, STT_NOTYPE, val,
                      /*size=*/0, sec}, name);                          // INTEL
+  s->isUsedInRegularObj = true;
   return cast<Defined>(s);
 }
 
 static Defined *addAbsolute(StringRef name) {
   Symbol *sym = symtab->addSymbol(Defined{nullptr, name, STB_GLOBAL, STV_HIDDEN,
                                           STT_NOTYPE, 0, 0, nullptr});
+  sym->isUsedInRegularObj = true;
   return cast<Defined>(sym);
 }
 
@@ -1831,9 +1833,8 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
   // Even the author of gold doesn't remember why gold behaves that way.
   // https://sourceware.org/ml/binutils/2002-03/msg00360.html
   if (mainPart->dynamic->parent)
-    symtab->addSymbol(
-        Defined{/*file=*/nullptr, "_DYNAMIC", STB_WEAK, STV_HIDDEN, STT_NOTYPE,
-                /*value=*/0, /*size=*/0, mainPart->dynamic.get()});
+    symtab->addSymbol(Defined{/*file=*/nullptr, "_DYNAMIC", STB_WEAK, STV_HIDDEN, STT_NOTYPE,
+        /*value=*/0, /*size=*/0, mainPart->dynamic.get()})->isUsedInRegularObj = true;
 
   // Define __rel[a]_iplt_{start,end} symbols if needed.
   addRelIpltSymbols();
