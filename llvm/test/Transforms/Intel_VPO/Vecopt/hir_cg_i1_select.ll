@@ -5,21 +5,20 @@
 
 
 define void @foo(i1 %cond, i1 %a, i64 *%p) {
-; CHECK:       Function: foo
+; CHECK-LABEL:  Function: foo
 ; CHECK-EMPTY:
-; CHECK-NEXT:       BEGIN REGION { modified }
-; CHECK-NEXT:             + DO i1 = 0, 41, 2   <DO_LOOP> <simd-vectorized> <novectorize>
-; CHECK-NEXT:             |   [[DOTVEC0:%.*]] = (<2 x i64>*)([[P0:%.*]])[i1]
-; CHECK-NEXT:             |   [[DOTVEC20:%.*]] = [[DOTVEC0]] == 42
-; CHECK-NEXT:             |   [[DOTVEC30:%.*]] = [[DOTVEC0]] == 47
-; CHECK-NEXT:             |   [[DOTVEC40:%.*]] = ([[COND0:%.*]] != 0) ? [[DOTVEC20]] : [[DOTVEC30]]
-; CHECK-NEXT:             |   [[DOTVEC50:%.*]] = ([[DOTVEC0]] == 42) ? [[DOTVEC20]] : [[COND0]]
-; CHECK-NEXT:             |   [[DOTVEC60:%.*]] = [[DOTVEC40]]  ^  [[DOTVEC50]]
-; CHECK-NEXT:             |   [[LAST:%.*]] = extractelement [[DOTVEC60]],  1;
-; CHECK-NEXT:             |   ([[P0]])[0] = [[LAST]]
-; CHECK-NEXT:             + END LOOP
-; CHECK:                  ret
-; CHECK-NEXT:       END REGION
+; CHECK-NEXT:  BEGIN REGION { modified }
+; CHECK-NEXT:        + DO i1 = 0, 41, 2   <DO_LOOP> <simd-vectorized> <novectorize>
+; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<2 x i64>*)([[P0:%.*]])[i1]
+; CHECK-NEXT:        |   [[DOTVEC20:%.*]] = [[DOTVEC0]] == 42
+; CHECK-NEXT:        |   [[DOTVEC30:%.*]] = [[DOTVEC0]] == 47
+; CHECK-NEXT:        |   [[DOTVEC40:%.*]] = ([[COND0:%.*]] != 0) ? [[DOTVEC20]] : [[DOTVEC30]]
+; CHECK-NEXT:        |   [[DOTVEC50:%.*]] = ([[DOTVEC0]] == 42) ? [[DOTVEC20]] : [[COND0]]
+; CHECK-NEXT:        |   [[EXTRACT_1_0:%.*]] = extractelement [[DOTVEC40]] + [[DOTVEC50]],  1
+; CHECK-NEXT:        |   ([[P0]])[0] = [[EXTRACT_1_0]]
+; CHECK-NEXT:        + END LOOP
+; CHECK:             ret
+; CHECK-NEXT:  END REGION
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
