@@ -32,6 +32,7 @@
 
 ; CHECK:          DPCPPKernelAnalysisLegacy
 ; CHECK:          WGLoopBoundariesLegacy
+; CHECK:          Replace known math operations with optimized library functions
 ; CHECK:          VFAnalysisLegacy
 ; CHECK:          SetVectorizationFactorLegacy
 ; CHECK:          VectorVariantLoweringLegacy
