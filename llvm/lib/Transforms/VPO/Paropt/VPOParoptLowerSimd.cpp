@@ -653,13 +653,13 @@ static Instruction *formDoubleVector(Value *InputVector,
                                      Instruction *InsertBefore,
                                      Value *PredV = nullptr,
                                      Value *OldVal = nullptr) {
-  auto VTy = InputVector->getType();
-  assert(VTy->isVectorTy());
+  auto *VTy = dyn_cast<FixedVectorType>(InputVector->getType());
+  assert(VTy);
   // if Pred-value is not null then old-value cannot be null
   assert(!PredV || OldVal);
-  auto VL = cast<VectorType>(VTy)->getNumElements();
+  unsigned VL = VTy->getNumElements();
   assert(VL == 16 || VL == 32);
-  auto EltTy = cast<VectorType>(VTy)->getElementType();
+  Type *EltTy = VTy->getElementType();
   assert(!EltTy->isPointerTy());
   auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
   auto Width = VL / 2;
@@ -689,11 +689,11 @@ static Instruction *formDoubleVector(Value *InputVector,
 // change vector from lhlhlhlhlhlhlhlh to llllllllhhhhhhhh
 static Instruction *disbandDoubleVector(Value *InputVector,
                                         Instruction *InsertBefore) {
-  auto VTy = InputVector->getType();
-  assert(VTy->isVectorTy());
-  auto VL = cast<VectorType>(VTy)->getNumElements();
+  auto *VTy = dyn_cast<FixedVectorType>(InputVector->getType());
+  assert(VTy);
+  unsigned VL = VTy->getNumElements();
   assert(VL == 16 || VL == 32);
-  auto EltTy = cast<VectorType>(VTy)->getElementType();
+  Type *EltTy = VTy->getElementType();
   assert(!EltTy->isPointerTy());
   auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
   auto Width = VL / 2;
@@ -721,7 +721,7 @@ static Value *translateSLMLoad(LoadInst *LoadOp) {
   LLVMContext &CTX = LoadOp->getContext();
   IRBuilder<> Builder(LoadOp);
   auto PtrV = LoadOp->getPointerOperand();
-  auto DTy = LoadOp->getType();
+  Type *DTy = LoadOp->getType();
   if (!DTy->isSingleValueType()) {
     Twine Msg("unable to lower LoadInst with non-single-value type");
     llvm::report_fatal_error(Msg, false /*no crash diag*/);
@@ -733,8 +733,8 @@ static Value *translateSLMLoad(LoadInst *LoadOp) {
   auto BTI = ConstantInt::get(CIntTy, SLM_BTI);
   auto DL = LoadOp->getModule()->getDataLayout();
   if (DTy->isVectorTy()) {
-    auto VL = cast<VectorType>(DTy)->getNumElements();
-    auto EltTy = cast<VectorType>(DTy)->getElementType();
+    unsigned VL = cast<FixedVectorType>(DTy)->getNumElements();
+    Type *EltTy = cast<FixedVectorType>(DTy)->getElementType();
     auto EltBytes = getElementSizeInBytes(EltTy, DL);
     // create constant for offset
     auto VOffset = getConstVector(CIntTy, VL, EltBytes);
@@ -928,8 +928,8 @@ static Value *translateSLMStore(StoreInst *StoreOp) {
   auto BTI = ConstantInt::get(CIntTy, SLM_BTI);
   auto DL = StoreOp->getModule()->getDataLayout();
   if (DTy->isVectorTy()) {
-    auto VL = cast<VectorType>(DTy)->getNumElements();
-    auto EltTy = cast<VectorType>(DTy)->getElementType();
+    unsigned VL = cast<FixedVectorType>(DTy)->getNumElements();
+    Type *EltTy = cast<FixedVectorType>(DTy)->getElementType();
     auto EltBytes = getElementSizeInBytes(EltTy, DL);
     auto VOffset = getConstVector(CIntTy, VL, EltBytes);
     // create constant for predicate
@@ -1163,13 +1163,13 @@ static Value *translateLLVMInst(Instruction *Inst) {
                                  CallOp->getArgOperand(3), CallOp->getName());
         return RepI;
       } else if (AS == SYCL_SLM_AS) {
-        auto DTy = CallOp->getType();
+        auto *DTy = cast<FixedVectorType>(CallOp->getType());
         auto SLMOffset = getSLMOffset(PtrV, CallOp);
         assert(SLMOffset);
         auto CIntTy = Type::getInt32Ty(CTX);
         auto BTI = ConstantInt::get(CIntTy, SLM_BTI);
-        auto VL = cast<VectorType>(DTy)->getNumElements();
-        auto EltTy = cast<VectorType>(DTy)->getElementType();
+        unsigned VL = DTy->getNumElements();
+        Type *EltTy = DTy->getElementType();
         auto PredV = CallOp->getArgOperand(2);
         auto EltBytes = getElementSizeInBytes(EltTy, DL);
         // create constant for offset
@@ -1270,13 +1270,13 @@ static Value *translateLLVMInst(Instruction *Inst) {
             CallOp);
         return RepI;
       } else if (AS == SYCL_SLM_AS) {
-        auto DTy = DTV->getType();
+        auto *DTy = cast<FixedVectorType>(DTV->getType());
         auto SLMOffset = getSLMOffset(PtrV, CallOp);
         assert(SLMOffset);
         auto CIntTy = Type::getInt32Ty(CTX);
         auto BTI = ConstantInt::get(CIntTy, SLM_BTI);
-        auto VL = cast<VectorType>(DTy)->getNumElements();
-        auto EltTy = cast<VectorType>(DTy)->getElementType();
+        unsigned VL = DTy->getNumElements();
+        Type* EltTy = DTy->getElementType();
         auto EltBytes = getElementSizeInBytes(EltTy, DL);
         auto PredV = CallOp->getArgOperand(3);
         auto VOffset = getConstVector(CIntTy, VL, EltBytes);
@@ -1343,8 +1343,8 @@ static Value *translateLLVMInst(Instruction *Inst) {
       assert(AS != SYCL_SLM_AS && "yet to support masked SLM gather");
       if (AS != SYCL_GLOBAL_AS)
         return CallOp;
-      auto EltTy = cast<VectorType>(DTy)->getElementType();
-      auto NumElts = cast<VectorType>(DTy)->getNumElements();
+      auto EltTy = cast<FixedVectorType>(DTy)->getElementType();
+      auto NumElts = cast<FixedVectorType>(DTy)->getNumElements();
       auto EltBytes = getElementSizeInBytes(EltTy, DL);
       int EltsPerLane = 1;
       // for short or byte type, load-data is 4 bytes per lane
@@ -1403,8 +1403,8 @@ static Value *translateLLVMInst(Instruction *Inst) {
       assert(AS != SYCL_SLM_AS && "yet to support masked SLM scatter");
       if (AS != SYCL_GLOBAL_AS)
         return CallOp;
-      auto EltTy = cast<VectorType>(DTy)->getElementType();
-      auto NumElts = cast<VectorType>(DTy)->getNumElements();
+      auto EltTy = cast<FixedVectorType>(DTy)->getElementType();
+      auto NumElts = cast<FixedVectorType>(DTy)->getNumElements();
       auto EltBytes = getElementSizeInBytes(EltTy, DL);
       int EltsPerLane = 1;
       // for short or byte type, store-data is 4 bytes per lane

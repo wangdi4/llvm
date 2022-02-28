@@ -418,13 +418,13 @@ static Value *joinVectorsWithMask(ArrayRef<Value *> VectorsToJoin,
                                   IRBuilder<> &Builder, const Twine &Name) {
   Value *Result = joinVectors(VectorsToJoin, Builder, Name);
   if (SourceValue && Mask) {
-    assert(cast<VectorType>(SourceValue->getType())->getNumElements() ==
-               cast<VectorType>(Result->getType())->getNumElements() &&
-           cast<VectorType>(Mask->getType())->getNumElements() ==
-               cast<VectorType>(Result->getType())->getNumElements() &&
+    assert(cast<FixedVectorType>(SourceValue->getType())->getNumElements() ==
+               cast<FixedVectorType>(Result->getType())->getNumElements() &&
+           cast<FixedVectorType>(Mask->getType())->getNumElements() ==
+               cast<FixedVectorType>(Result->getType())->getNumElements() &&
            "Inconsistent vector length");
-    assert(cast<VectorType>(SourceValue->getType())->getElementType() ==
-               cast<VectorType>(Result->getType())->getElementType() &&
+    assert(cast<FixedVectorType>(SourceValue->getType())->getElementType() ==
+               cast<FixedVectorType>(Result->getType())->getElementType() &&
            "Vector element type mismatch");
     Result = Builder.CreateSelect(Mask, Result, SourceValue, "select.merge");
   }
@@ -518,22 +518,24 @@ bool MapIntrinToImlImpl::isLessThanFullVector(Type *ValType, Type *LegalType) {
     StructType *ValStructType = cast<StructType>(ValType);
     StructType *LegalStructType = cast<StructType>(LegalType);
 
-    assert(std::all_of(ValStructType->element_begin(),
-                       ValStructType->element_end(),
-                       [ValStructType](Type *ElementTy) {
-                         return ElementTy->isVectorTy() &&
-                                cast<VectorType>(ElementTy)->getNumElements() ==
-                                    cast<VectorType>(
-                                        ValStructType->getStructElementType(0))
-                                        ->getNumElements();
-                       }) &&
+    assert(std::all_of(
+               ValStructType->element_begin(), ValStructType->element_end(),
+               [ValStructType](Type *ElementTy) {
+                 auto *ElementVecTy = dyn_cast<FixedVectorType>(ElementTy);
+                 return ElementVecTy &&
+                        ElementVecTy->getNumElements() ==
+                            cast<FixedVectorType>(
+                                ValStructType->getStructElementType(0))
+                                ->getNumElements();
+               }) &&
            "Expect all struct fields to be vectors of the same length");
     assert(std::all_of(
                LegalStructType->element_begin(), LegalStructType->element_end(),
                [LegalStructType](Type *ElementTy) {
-                 return ElementTy->isVectorTy() &&
-                        cast<VectorType>(ElementTy)->getNumElements() ==
-                            cast<VectorType>(
+                 auto *ElementVecTy = dyn_cast<FixedVectorType>(ElementTy);
+                 return ElementVecTy &&
+                        ElementVecTy->getNumElements() ==
+                            cast<FixedVectorType>(
                                 LegalStructType->getStructElementType(0))
                                 ->getNumElements();
                }) &&
@@ -583,11 +585,12 @@ void MapIntrinToImlImpl::generateNewArgsFromPartialVectors(
       NewArgs.push_back(NewArg);
     } else if (isa<UndefValue>(Args[I])) {
       NewArgs.push_back(UndefValue::get(LegalArgType));
-    } else if (ArgType->isVectorTy()) {
-      unsigned NumElems = cast<VectorType>(ArgType)->getNumElements();
-      unsigned LegalNumElems = cast<VectorType>(LegalArgType)->getNumElements();
+    } else if (auto *VecTy = dyn_cast<FixedVectorType>(ArgType)) {
+      unsigned NumElems = VecTy->getNumElements();
+      unsigned LegalNumElems =
+          cast<FixedVectorType>(LegalArgType)->getNumElements();
       NewArg = replicateVector(NewArg, LegalNumElems / NumElems, Builder,
-                                 "shuffle.dup");
+                               "shuffle.dup");
       NewArgs.push_back(NewArg);
     } else {
       llvm_unreachable("Invalid argument of SVML function call");
@@ -763,7 +766,7 @@ std::string MapIntrinToImlImpl::getSVMLFunctionProperties(
     ScalarFuncName = ScalarFuncName.rtrim("_mask");
   }
 
-  unsigned ReturnVL = VecCallType->getNumElements();
+  unsigned ReturnVL = cast<FixedVectorType>(VecCallType)->getNumElements();
   std::string ReturnVLStr = toString(APInt(32, ReturnVL), 10, false);
   LogicalVL = ReturnVL;
   StringRef LogicalVLStr = ReturnVLStr;
@@ -836,7 +839,7 @@ bool MapIntrinToImlImpl::replaceVectorIDivAndRemWithSVMLCall(
     // to SVML call
     if (Opcode == Instruction::UDiv || Opcode == Instruction::SDiv ||
         Opcode == Instruction::URem || Opcode == Instruction::SRem) {
-      VectorType *VecTy = dyn_cast<VectorType>(I.getType());
+      auto *VecTy = dyn_cast<FixedVectorType>(I.getType());
       unsigned ScalarBitWidth = I.getType()->getScalarSizeInBits();
       if (!(VecTy && (ScalarBitWidth == 8 || ScalarBitWidth == 16 ||
                       ScalarBitWidth == 32 || ScalarBitWidth == 64)))
@@ -1094,7 +1097,8 @@ bool MapIntrinToImlImpl::runImpl() {
     // get the correct pointer bit size.
     unsigned ScalarBitWidth = DL.getTypeSizeInBits(ElemType);
     unsigned ComponentBitWidth =
-        (VecCallType->getNumElements() / LogicalVL) * ScalarBitWidth;
+        (cast<FixedVectorType>(VecCallType)->getNumElements() / LogicalVL) *
+        ScalarBitWidth;
 
     // Get the number of library calls that will be required, indicated by
     // NumRet. NumRet is determined by getting the vector type info from the

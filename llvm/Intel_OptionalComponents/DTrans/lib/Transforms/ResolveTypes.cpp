@@ -1941,14 +1941,14 @@ ResolveTypesImpl::CompareResult ResolveTypesImpl::compareTypeMembers(
           ElemATy = cast<ArrayType>(ElemATy)->getElementType();
           ElemBTy = cast<ArrayType>(ElemBTy)->getElementType();
         } else {
-          if (cast<VectorType>(ElemATy)->getNumElements() !=
-              cast<VectorType>(ElemBTy)->getNumElements()) {
+          if (cast<FixedVectorType>(ElemATy)->getNumElements() !=
+              cast<FixedVectorType>(ElemBTy)->getNumElements()) {
             DEBUG_WITH_TYPE(DTRT_VERBOSE,
                             dbgs() << "Element count mismatch @ " << i << "\n");
             return CompareResult::Distinct;
           }
-          ElemATy = cast<VectorType>(ElemATy)->getElementType();
-          ElemBTy = cast<VectorType>(ElemBTy)->getElementType();
+          ElemATy = cast<FixedVectorType>(ElemATy)->getElementType();
+          ElemBTy = cast<FixedVectorType>(ElemBTy)->getElementType();
         }
         ComparingPointerElements = false;
       }

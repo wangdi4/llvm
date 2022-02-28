@@ -14,6 +14,7 @@
 
 ; CHECK:  %{{.*}} = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), "QUAL.EXT.DO.CONCURRENT"() ]
 ; CHECK: BEGIN GENERICLOOP ID=1 {
+; CHECK:   EXT_DO_CONCURRENT
 
 source_filename = "test.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

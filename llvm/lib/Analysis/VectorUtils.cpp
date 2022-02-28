@@ -1058,7 +1058,7 @@ Value *llvm::joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilderBase &Builder
   while (VL >= 2) {
     for (unsigned i = 0, j = 0; i < VL; i += 2, ++j) {
       unsigned NumElts =
-          cast<VectorType>(VParts[i]->getType())->getNumElements();
+          cast<FixedVectorType>(VParts[i]->getType())->getNumElements();
       SmallVector<int, 8> ShuffleMask(NumElts * 2);
       for (unsigned MaskInd = 0; MaskInd < NumElts * 2; ++MaskInd)
         ShuffleMask[MaskInd] = MaskInd;
@@ -1074,8 +1074,7 @@ Value *llvm::joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilderBase &Builder
 Value *llvm::extendVector(Value *OrigVal, unsigned TargetLength,
                           IRBuilderBase &Builder, const Twine &Name) {
   Type *OrigTy = OrigVal->getType();
-  assert(isa<VectorType>(OrigTy) && "OriginalVal should be of a vector type");
-  unsigned VectorElts = cast<VectorType>(OrigTy)->getNumElements();
+  unsigned VectorElts = cast<FixedVectorType>(OrigTy)->getNumElements();
   assert(TargetLength >= VectorElts &&
          "TargetLength should be greater than or equal to VectorElts");
   if (VectorElts == TargetLength)
@@ -1091,7 +1090,7 @@ Value *llvm::replicateVectorElts(Value *OrigVal, unsigned OriginalVL,
   if (OriginalVL == 1)
     return OrigVal;
   auto ShuffleMask = createReplicatedMask(
-      OriginalVL, cast<VectorType>(OrigVal->getType())->getNumElements());
+      OriginalVL, cast<FixedVectorType>(OrigVal->getType())->getNumElements());
   return Builder.CreateShuffleVector(OrigVal,
                                      UndefValue::get(OrigVal->getType()),
                                      ShuffleMask, Name + OrigVal->getName());
@@ -1101,7 +1100,8 @@ Value *llvm::replicateVector(Value *OrigVal, unsigned OriginalVL,
                              IRBuilderBase &Builder, const Twine &Name) {
   if (OriginalVL == 1)
     return OrigVal;
-  unsigned NumElts = cast<VectorType>(OrigVal->getType())->getNumElements();
+  unsigned NumElts =
+      cast<FixedVectorType>(OrigVal->getType())->getNumElements();
   SmallVector<int, 8> ShuffleMask;
   for (unsigned j = 0; j < OriginalVL; j++)
     for (unsigned i = 0; i < NumElts; ++i)
@@ -1144,9 +1144,7 @@ Value *llvm::generateExtractSubVector(Value *V, unsigned Part,
     return V;
   }
 
-  assert(isa<VectorType>(V->getType()) &&
-         "Cannot generate shuffles for non-vector values.");
-  unsigned VecLen = cast<VectorType>(V->getType())->getNumElements();
+  unsigned VecLen = cast<FixedVectorType>(V->getType())->getNumElements();
   assert(VecLen % NumParts == 0 &&
          "Vector cannot be divided into unequal parts for extraction");
   assert(Part < NumParts && "Invalid subpart to be extracted from vector.");

@@ -572,7 +572,7 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     Type *VecOpTy = getWidenedType(OpTy, VF);
     Type *CmpTy = Type::getInt1Ty(*(Plan->getLLVMContext()));
     Type *VecCmpTy =
-        getWidenedType(CmpTy, cast<VectorType>(VecOpTy)->getNumElements());
+        getWidenedType(CmpTy, cast<FixedVectorType>(VecOpTy)->getNumElements());
 
     VPInstructionCost CmpCost = TTI.getCmpSelInstrCost(
       Instruction::ICmp, VecOpTy, nullptr /* CondTy */,
