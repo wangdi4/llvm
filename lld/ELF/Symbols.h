@@ -235,13 +235,9 @@ private:
   void resolveLazy(const LazyObject &other);
   void resolveShared(const SharedSymbol &other);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   int compare(const Symbol *other, StringRef otherName) const;
 #endif // INTEL_CUSTOMIZATION
-=======
-  bool compare(const Defined &other) const;
->>>>>>> 6d94340809dfe968b1e3e78e605730f4e2253cc3
 
   inline size_t getSymbolSize() const;
 
