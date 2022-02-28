@@ -2391,6 +2391,10 @@ bool WRegionNode::canHaveDoConcurrent() const {
   case WRNTarget:
   case WRNTeams:
   case WRNGenericLoop:
+  case WRNDistributeParLoop:
+  case WRNParallelLoop:
+  case WRNWksLoop:
+  case WRNVecLoop:
     return true;
   }
 
