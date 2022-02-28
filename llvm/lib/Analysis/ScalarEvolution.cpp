@@ -260,6 +260,11 @@ static cl::opt<unsigned> MaxPhiSCCAnalysisSize(
              "Phi strongly connected components"),
     cl::init(8));
 
+static cl::opt<bool>
+    EnableFiniteLoopControl("scalar-evolution-finite-loop", cl::Hidden,
+                            cl::desc("Handle <= and >= in finite loops"),
+                            cl::init(true));
+
 //===----------------------------------------------------------------------===//
 //                           SCEV class definitions
 //===----------------------------------------------------------------------===//
@@ -9745,8 +9750,14 @@ ScalarEvolution::computeExitLimitFromICmp(const Loop *L,
   bool ControllingFiniteLoop =
       ControlsExit && loopHasNoAbnormalExits(L) && loopIsFiniteByAssumption(L);
   // Simplify the operands before analyzing them.
+<<<<<<< HEAD
   (void)SimplifyICmpOperands(Pred, LHS, RHS, ExitCond, /*Depth=*/0, // INTEL
                              ControllingFiniteLoop);
+=======
+  (void)SimplifyICmpOperands(Pred, LHS, RHS, /*Depth=*/0,
+                             (EnableFiniteLoopControl ? ControllingFiniteLoop
+                                                     : false));
+>>>>>>> 7e3606f43c63f9622f176a786424c3c92c15f5c0
 
   // If we have a comparison of a chrec against a constant, try to use value
   // ranges to answer this query.
