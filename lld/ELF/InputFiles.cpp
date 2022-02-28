@@ -1157,6 +1157,7 @@ void ObjFile<ELFT>::initializeSymbols(const object::ELFFile<ELFT> &obj) {
     else
       new (symbols[i]) Defined(this, name, STB_LOCAL, eSym.st_other, type,
                                eSym.st_value, eSym.st_size, sec);
+    symbols[i]->isUsedInRegularObj = true;
   }
 
   // Some entries have been filled by LazyObjFile.
@@ -1194,6 +1195,7 @@ void ObjFile<ELFT>::initializeSymbols(const object::ELFFile<ELFT> &obj) {
     uint64_t size = eSym.st_size;
 
     Symbol *sym = symbols[i];
+    sym->isUsedInRegularObj = true;
     if (LLVM_UNLIKELY(eSym.st_shndx == SHN_COMMON)) {
       if (value == 0 || value >= UINT32_MAX)
         fatal(toString(this) + ": common symbol '" + sym->getName() +
@@ -1217,13 +1219,18 @@ void ObjFile<ELFT>::initializeSymbols(const object::ELFFile<ELFT> &obj) {
       // extract. We should demote the lazy symbol to an Undefined so that any
       // relocations outside of the group to it will trigger a discarded section
       // error.
-      if (sym->symbolKind == Symbol::LazyObjectKind && !sym->file->lazy) {
+      if (sym->symbolKind == Symbol::LazyObjectKind && !sym->file->lazy)
         sym->replace(und);
+<<<<<<< HEAD
         // Prevent LTO from internalizing the symbol in case there is a
         // reference to this symbol from this file.
         sym->isUsedInRegularObj = true;
       } else
         sym->resolve(und, sym->getName());                             // INTEL
+=======
+      else
+        sym->resolve(und);
+>>>>>>> 8ca46bba23552e04a704daaac87212b554ed7c93
       continue;
     }
 
@@ -1249,7 +1256,12 @@ void ObjFile<ELFT>::initializeSymbols(const object::ELFFile<ELFT> &obj) {
     const Elf_Sym &eSym = eSyms[i];
     Symbol *sym = symbols[i];
     sym->resolve(Undefined{this, StringRef(), eSym.getBinding(), eSym.st_other,
+<<<<<<< HEAD
                            eSym.getType()}, sym->getName());           // INTEL
+=======
+                           eSym.getType()});
+    sym->isUsedInRegularObj = true;
+>>>>>>> 8ca46bba23552e04a704daaac87212b554ed7c93
     sym->referenced = true;
   }
 }
