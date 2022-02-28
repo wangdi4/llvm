@@ -33,7 +33,11 @@
 #include "llvm/ADT/Triple.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
+<<<<<<< HEAD
 #include "llvm/DebugInfo/Intel_TraceBack/TraceContext.h" // INTEL
+=======
+#include "llvm/DebugInfo/Symbolize/SymbolizableModule.h"
+>>>>>>> db29f4374daba375fbc6534988782f5f7ce0ddbc
 #include "llvm/DebugInfo/Symbolize/Symbolize.h"
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/MC/MCAsmInfo.h"
