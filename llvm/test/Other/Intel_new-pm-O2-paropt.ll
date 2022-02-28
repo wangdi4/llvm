@@ -134,6 +134,7 @@
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-NEXT: Running analysis: AAManager on foo
 ;CHECK-NEXT: Running analysis: BasicAA on foo
+;CHECK-NEXT: Running pass: VPOCFGSimplifyPass on foo
 ;CHECK-NEXT: Running pass: AlwaysInlinerPass on [module] ;INTEL
 ;CHECK-NEXT: Running pass: GlobalDCEPass on [module]     ;INTEL
 ;CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{llvm::FunctionAnalysisManager|llvm::AnalysisManager<llvm::Function>}}, llvm::Module> on {{.*}}
