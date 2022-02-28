@@ -23,6 +23,7 @@
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/VPO/VPOPasses.h"
+#include "llvm/Transforms/Vectorize.h"
 
 using namespace llvm;
 
@@ -135,6 +136,11 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
         MPM.add(createCFGSimplificationPass());
         if (Config->GetTransposeSize() == 1)
           return;
+
+        // Replace 'div' and 'rem' instructions with calls to optimized library
+        // functions
+        MPM.add(createMathLibraryFunctionsReplacementPass());
+
         VectorVariant::ISAClass ISA =
             Intel::VectorizerCommon::getCPUIdISA(Config->GetCpuId());
         // Analyze and set VF for kernels.
