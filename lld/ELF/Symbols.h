@@ -36,6 +36,7 @@ class InputSectionBase;
 class SharedSymbol;
 class Symbol;
 class Undefined;
+class LazyObject;
 class InputFile;
 
 // Some index properties of a symbol are stored separately in this auxiliary
@@ -229,6 +230,9 @@ private:
   void resolveDefined(const Defined &other, StringRef otherName);
 #endif // INTEL_CUSTOMIZATION
   template <class LazyT> void resolveLazy(const LazyT &other);
+  void resolveCommon(const CommonSymbol &other);
+  void resolveDefined(const Defined &other);
+  void resolveLazy(const LazyObject &other);
   void resolveShared(const SharedSymbol &other);
 
 #if INTEL_CUSTOMIZATION
