@@ -491,7 +491,7 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {25515, "LOOP WAS PREFETCHED"},
     {25516, ", LINES = "},
     {25517, "LOOP WAS VECTORIZED"},
-    {25518, "PEELED LOOP FOR VECTORIZATION"},
+    {25518, "Peeled loop for vectorization"},
     {25519, "Remainder loop for vectorization"},
     {25520, "SIMD LOOP"},
     {25521, "SIMD ENABLED VECTOR FUNCTION"},
