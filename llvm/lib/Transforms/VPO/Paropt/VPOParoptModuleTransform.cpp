@@ -346,7 +346,7 @@ void VPOParoptModuleTransform::replaceSincosWithOCLBuiltin(Function *F,
   FunctionCallee FnC = M.getOrInsertFunction(NewName, FnTy);
 
   OCLSincosDecl = cast<Function>(FnC.getCallee());
-  OCLSincosDecl->copyAttributesFrom(SincosDecl);
+  OCLSincosDecl->setDSOLocal(true);
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ":\nOld sincos decl: " << *SincosDecl
                     << "\nOCL sincos decl: " << *OCLSincosDecl << "\n");
