@@ -1397,7 +1397,7 @@ def SYCLRequiresDecomposition : InheritableAttr {
 def SYCLIntelKernelArgsRestrict : InheritableAttr {
   let Spellings = [CXX11<"intel", "kernel_args_restrict">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
-  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost];
   let Documentation = [SYCLIntelKernelArgsRestrictDocs];
   let SimpleHandler = 1;
   let SupportsNonconformingLambdaSyntax = 1;
@@ -1407,7 +1407,7 @@ def SYCLIntelNumSimdWorkItems : InheritableAttr {
   let Spellings = [GNU<"num_simd_work_items">, //INTEL
                    CXX11<"intel","num_simd_work_items">];
   let Args = [ExprArgument<"Value">];
-  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL]; //INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL]; //INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelNumSimdWorkItemsAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
@@ -1417,7 +1417,7 @@ def SYCLIntelUseStallEnableClusters : InheritableAttr {
   let Spellings = [CXX11<"intel","use_stall_enable_clusters">, //INTEL
                    Clang<"stall_enable">, //INTEL
                    Clang<"use_stall_enable_clusters">]; //INTEL
-  let LangOpts = [SYCLIsHost, SYCLIsDevice, HLS, OpenCL]; //INTEL
+  let LangOpts = [SilentlyIgnoreSYCLIsHost, SYCLIsDevice, HLS, OpenCL]; //INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelUseStallEnableClustersAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
@@ -1427,7 +1427,7 @@ def SYCLIntelSchedulerTargetFmaxMhz : InheritableAttr {
   let Spellings = [GNU<"scheduler_target_fmax_mhz">, //INTEL
                    CXX11<"intel","scheduler_target_fmax_mhz">];
   let Args = [ExprArgument<"Value">];
-  let LangOpts = [SYCLIsDevice, SYCLIsHost, HLS, OpenCL]; //INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelSchedulerTargetFmaxMhzAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
@@ -1439,7 +1439,7 @@ def SYCLIntelMaxWorkGroupSize : InheritableAttr {
   let Args = [ExprArgument<"XDim">,
               ExprArgument<"YDim">,
               ExprArgument<"ZDim">];
-  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL]; //INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL]; //INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let AdditionalMembers = [{
     Optional<llvm::APSInt> getXDimVal() const {
@@ -1466,7 +1466,7 @@ def SYCLIntelMaxGlobalWorkDim : InheritableAttr {
   let Spellings = [GNU<"max_global_work_dim">, //INTEL
                    CXX11<"intel","max_global_work_dim">];
   let Args = [ExprArgument<"Value">];
-  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL]; //INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL]; //INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelMaxGlobalWorkDimAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
@@ -2370,7 +2370,7 @@ def IntelFPGABankBits : Attr {
   let Args = [VariadicExprArgument<"Args">];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticAgentMemVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS]; // INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [IntelFPGABankBitsDocs];
 }
 def : MutualExclusions<[IntelFPGARegister, IntelFPGABankBits]>;
