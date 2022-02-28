@@ -335,6 +335,13 @@ public:
     ExtendTo64
   };
 
+  enum class GPUDefaultStreamKind {
+    /// Legacy default stream
+    Legacy,
+    /// Per-thread default stream
+    PerThread,
+  };
+
 public:
   /// The used language standard.
   LangStandard::Kind LangStd;
@@ -456,6 +463,9 @@ public:
   /// that the case of multiple-offload can have each device compilation share a
   /// name.
   std::string SYCLUniquePrefix;
+
+  /// The default stream kind used for HIP kernel launching.
+  GPUDefaultStreamKind GPUDefaultStream;
 
   LangOptions();
 

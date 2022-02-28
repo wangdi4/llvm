@@ -272,6 +272,7 @@
 // CHECK-HIP-NEG-NOT: #define __CUDA_ARCH__
 // CHECK-HIP-NEG-NOT: #define __HIP_DEVICE_COMPILE__ 1
 // CHECK-HIP-NEG-NOT: #define __CLANG_RDC__ 1
+// CHECK-HIP-NEG-NOT: #define HIP_API_PER_THREAD_DEFAULT_STREAM
 
 // RUN: %clang_cc1 %s -E -dM -o - -x hip -triple amdgcn-amd-amdhsa \
 // RUN:   -fcuda-is-device \
@@ -290,6 +291,7 @@
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-HIP-DEV-NEG
 // CHECK-HIP-DEV-NEG-NOT: #define __CUDA_ARCH__
 // CHECK-HIP-DEV-NEG-NOT: #define __CLANG_RDC__ 1
+// CHECK-HIP-DEV-NEG-NOT: #define HIP_API_PER_THREAD_DEFAULT_STREAM
 
 // RUN: %clang_cc1 %s -E -dM -o - -x cuda -triple x86_64-unknown-linux-gnu \
 // RUN:   -fgpu-rdc | FileCheck %s --check-prefix=CHECK-RDC
@@ -330,3 +332,11 @@
 
 // CHECK-RANGE: #define __SYCL_DISABLE_PARALLEL_FOR_RANGE_ROUNDING__ 1
 // CHECK-NO-RANGE-NOT: #define __SYCL_DISABLE_PARALLEL_FOR_RANGE_ROUNDING__ 1
+
+// RUN: %clang_cc1 %s -E -dM -o - -x hip -triple x86_64-unknown-linux-gnu \
+// RUN:   -fgpu-default-stream=per-thread \
+// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-PTH
+// RUN: %clang_cc1 %s -E -dM -o - -x hip -triple amdgcn-amd-amdhsa \
+// RUN:   -fcuda-is-device -fgpu-default-stream=per-thread \
+// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-PTH
+// CHECK-PTH: #define HIP_API_PER_THREAD_DEFAULT_STREAM 1
