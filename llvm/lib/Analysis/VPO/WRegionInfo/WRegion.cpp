@@ -229,6 +229,10 @@ void WRNParallelLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   vpo::printExtraForParallel(this, OS, Depth, Verbosity);
   vpo::printExtraForOmpLoop(this, OS, Depth, Verbosity);
   vpo::printExtraForCancellationPoints(this, OS, Depth, Verbosity);
+#if INTEL_CUSTOMIZATION
+  unsigned Indent = 2 * Depth;
+  vpo::printBool("EXT_DO_CONCURRENT", getIsDoConcurrent(), OS, Indent, Verbosity);
+#endif // INTEL_CUSTOMIZATION
 }
 
 //
@@ -305,6 +309,9 @@ void WRNTeamsNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   vpo::printVal("NUM_TEAMS", getNumTeams(), OS, Indent, Verbosity);
   vpo::printStr("DEFAULT", WRNDefaultName[getDefault()], OS, Indent,
                 Verbosity);
+#if INTEL_CUSTOMIZATION
+  vpo::printBool("EXT_DO_CONCURRENT", getIsDoConcurrent(), OS, Indent, Verbosity);
+#endif // INTEL_CUSTOMIZATION
 }
 
 //
@@ -336,6 +343,10 @@ void WRNDistributeParLoopNode::printExtra(formatted_raw_ostream &OS,
   // Similar to WRNParallelLoopNode::printExtra
   vpo::printExtraForParallel(this, OS, Depth, Verbosity);
   vpo::printExtraForOmpLoop(this, OS, Depth, Verbosity);
+#if INTEL_CUSTOMIZATION
+  unsigned Indent = 2 * Depth;
+  vpo::printBool("EXT_DO_CONCURRENT", getIsDoConcurrent(), OS, Indent, Verbosity);
+#endif // INTEL_CUSTOMIZATION
 }
 
 //
@@ -358,6 +369,10 @@ WRNTargetNode::WRNTargetNode(BasicBlock *BB)
 void WRNTargetNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                unsigned Verbosity) const {
   vpo::printExtraForTarget(this, OS, Depth, Verbosity);
+#if INTEL_CUSTOMIZATION
+  unsigned Indent = 2 * Depth;
+  vpo::printBool("EXT_DO_CONCURRENT", getIsDoConcurrent(), OS, Indent, Verbosity);
+#endif // INTEL_CUSTOMIZATION
 }
 
 //
@@ -673,6 +688,9 @@ void WRNVecLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   vpo::printVal("IF", getIf(), OS, Indent, Verbosity);
   vpo::printStr("ORDER", WRNLoopOrderName[getLoopOrder()], OS, Indent,
                 Verbosity);
+#if INTEL_CUSTOMIZATION
+  vpo::printBool("EXT_DO_CONCURRENT", getIsDoConcurrent(), OS, Indent, Verbosity);
+#endif // INTEL_CUSTOMIZATION
 }
 
 //
@@ -696,6 +714,10 @@ void WRNWksLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                 unsigned Verbosity) const {
   vpo::printExtraForOmpLoop(this, OS, Depth, Verbosity);
   vpo::printExtraForCancellationPoints(this, OS, Depth, Verbosity);
+#if INTEL_CUSTOMIZATION
+  unsigned Indent = 2 * Depth;
+  vpo::printBool("EXT_DO_CONCURRENT", getIsDoConcurrent(), OS, Indent, Verbosity);
+#endif // INTEL_CUSTOMIZATION
 }
 
 //
@@ -1096,6 +1118,9 @@ void WRNGenericLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   vpo::printStr("LOOPORDER", WRNLoopOrderName[getLoopOrder()], OS, Indent,
                 Verbosity);
   vpo::printInt("COLLAPSE", getCollapse(), OS, Indent, Verbosity);
+#if INTEL_CUSTOMIZATION
+  vpo::printBool("EXT_DO_CONCURRENT", getIsDoConcurrent(), OS, Indent, Verbosity);
+#endif // INTEL_CUSTOMIZATION
 }
 
 //
