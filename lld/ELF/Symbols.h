@@ -13,6 +13,7 @@
 #ifndef LLD_ELF_SYMBOLS_H
 #define LLD_ELF_SYMBOLS_H
 
+#include "Config.h"
 #include "InputFiles.h"
 #include "lld/Common/LLVM.h"
 #include "lld/Common/Memory.h"
@@ -21,6 +22,9 @@
 #include <tuple>
 
 namespace lld {
+namespace elf {
+class Symbol;
+}
 // Returns a string representation for a symbol for diagnostics.
 std::string toString(const elf::Symbol &);
 
@@ -29,9 +33,11 @@ class CommonSymbol;
 class Defined;
 class OutputSection;
 class SectionBase;
+class InputSectionBase;
 class SharedSymbol;
 class Symbol;
 class Undefined;
+class InputFile;
 
 // Some index properties of a symbol are stored separately in this auxiliary
 // struct to decrease sizeof(SymbolUnion) in the majority of cases.
@@ -529,21 +535,6 @@ size_t Symbol::getSymbolSize() const {
 // it over to "this". This function is called as a result of name
 // resolution, e.g. to replace an undefind symbol with a defined symbol.
 void Symbol::replace(const Symbol &other) {
-  using llvm::ELF::STT_TLS;
-
-  // st_value of STT_TLS represents the assigned offset, not the actual address
-  // which is used by STT_FUNC and STT_OBJECT. STT_TLS symbols can only be
-  // referenced by special TLS relocations. It is usually an error if a STT_TLS
-  // symbol is replaced by a non-STT_TLS symbol, vice versa. There are two
-  // exceptions: (a) a STT_NOTYPE lazy/undefined symbol can be replaced by a
-  // STT_TLS symbol, (b) a STT_TLS undefined symbol can be replaced by a
-  // STT_NOTYPE lazy symbol.
-  if (symbolKind != PlaceholderKind && !other.isLazy() &&
-      (type == STT_TLS) != (other.type == STT_TLS) &&
-      type != llvm::ELF::STT_NOTYPE)
-    error("TLS attribute mismatch: " + toString(*this) + "\n>>> defined in " +
-          toString(other.file) + "\n>>> defined in " + toString(file));
-
   Symbol old = *this;
   memcpy(this, &other, other.getSymbolSize());
 
