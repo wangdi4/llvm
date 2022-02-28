@@ -1352,7 +1352,8 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
     OrigLoop->markDoNotVectorize();
 
   // Disable further vectorization/unroll attempts on main loop for search loop
-  // case explicitly until VPlan representation is made explicit.
+  // case explicitly until VPlan representation is made explicit. TODO: Remove
+  // this once search loop representation is made explicit.
   if (isSearchLoop()) {
     MainLoop->markDoNotVectorize();
     if (!MainLoop->isConstTripLoop())
@@ -3163,8 +3164,7 @@ RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
 
       auto *CE = CanonExprUtilities.createCanonExpr(VPValTy);
       CE->addIV(IVLevel, loopopt::InvalidBlobIndex, 1);
-      ScalarRef = DDRefUtilities.createScalarRegDDRef(
-          DDRefUtilities.getNewSymbase(), CE);
+      ScalarRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, CE);
     }
 
     return ScalarRef;
@@ -4353,7 +4353,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
          "Unxpected instruction for scalar constructs");
 
   HLInst *NewInst = nullptr;
-  const Twine InstName = ".vec";
+  const Twine InstName = Widen ? ".vec" : ".scal";
 
   if (auto *VPPhi = dyn_cast<VPPHINode>(VPInst)) {
     widenPhiImpl(VPPhi, Mask);
@@ -4907,15 +4907,11 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       return;
     }
 
-    // Do not create an explicit scalar instruction.
-    if (!Widen)
-      return;
-
     bool HasNUW = false, HasNSW = false;
     getOverflowFlags(VPInst, HasNUW, HasNSW);
 
     NewInst = HLNodeUtilities.createOverflowingBinOp(
-        VPInst->getOpcode(), RefOp0, RefOp1, HasNUW, HasNSW, ".vec");
+        VPInst->getOpcode(), RefOp0, RefOp1, HasNUW, HasNSW, InstName);
     break;
   }
 
@@ -4951,7 +4947,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     }
 
     NewInst = HLNodeUtilities.createPossiblyExactBinOp(
-        VPInst->getOpcode(), RefOp0, RefOp1, VPInst->isExact(), ".vec",
+        VPInst->getOpcode(), RefOp0, RefOp1, VPInst->isExact(), InstName,
         nullptr);
     break;
   }
@@ -4994,14 +4990,11 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       }
     }
 
-    if (!Widen)
-      return;
-
     bool HasNUW = false, HasNSW = false;
     getOverflowFlags(VPInst, HasNUW, HasNSW);
 
     NewInst = HLNodeUtilities.createOverflowingBinOp(
-        VPInst->getOpcode(), RefOp0, RefOp1, HasNUW, HasNSW, ".vec");
+        VPInst->getOpcode(), RefOp0, RefOp1, HasNUW, HasNSW, InstName);
     break;
   }
 
@@ -5537,7 +5530,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
   addInst(NewInst, Mask);
   if (NewInst->hasLval())
-    addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());
+    addVPValueRefToMaps(VPInst, NewInst->getLvalDDRef(), Widen, ScalarLaneID);
 }
 
 void VPOCodeGenHIR::makeConsistentAndAddToMap(
