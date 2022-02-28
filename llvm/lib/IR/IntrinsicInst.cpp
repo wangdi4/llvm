@@ -345,18 +345,20 @@ unsigned SubscriptInst::getResultVectorNumElements(ArrayRef<Value *> Args) {
   for (auto &Arg : Args) {
     Type *ArgTy = Arg->getType();
     VectorNumElem = std::max(
-        VectorNumElem,
-        ArgTy->isVectorTy() ? cast<VectorType>(ArgTy)->getNumElements() : 0);
+        VectorNumElem, ArgTy->isVectorTy()
+                           ? cast<FixedVectorType>(ArgTy)->getNumElements()
+                           : 0);
   }
   return VectorNumElem;
 }
 
-unsigned SubscriptInst::getResultVectorNumElements(ArrayRef<Type*> ArgTys) {
+unsigned SubscriptInst::getResultVectorNumElements(ArrayRef<Type *> ArgTys) {
   unsigned VectorNumElem = 0;
   for (auto &ArgTy : ArgTys)
     VectorNumElem = std::max(
-        VectorNumElem,
-        ArgTy->isVectorTy() ? cast<VectorType>(ArgTy)->getNumElements() : 0);
+        VectorNumElem, ArgTy->isVectorTy()
+                           ? cast<FixedVectorType>(ArgTy)->getNumElements()
+                           : 0);
   return VectorNumElem;
 }
 #endif // INTEL_CUSTOMIZATION

@@ -1213,7 +1213,7 @@ Instruction *InstCombinerImpl::visitLShr(BinaryOperator &I) {
           APInt Bits = APInt::getLowBitsSet(TypeBits, TypeBits - Op1Val);
           Constant *Mask = ConstantInt::get(I.getContext(), Bits);
 
-          if (VectorType *VT = dyn_cast<VectorType>(X->getType()))
+          if (auto *VT = dyn_cast<FixedVectorType>(X->getType()))
             Mask = ConstantVector::getSplat(
                 ElementCount::getFixed(VT->getNumElements()), Mask);
           return BinaryOperator::CreateAnd(X, Mask);
@@ -1237,7 +1237,7 @@ Instruction *InstCombinerImpl::visitLShr(BinaryOperator &I) {
           APInt Bits = APInt::getLowBitsSet(TypeBits, TypeBits - Op1Val);
           Constant *Mask = ConstantInt::get(I.getContext(), Bits);
 
-          if (VectorType *VT = dyn_cast<VectorType>(X->getType()))
+          if (auto *VT = dyn_cast<FixedVectorType>(X->getType()))
             Mask = ConstantVector::getSplat(
                 ElementCount::getFixed(VT->getNumElements()), Mask);
           return BinaryOperator::CreateAnd(X, Mask);

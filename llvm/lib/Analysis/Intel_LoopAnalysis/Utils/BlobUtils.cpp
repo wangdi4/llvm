@@ -279,7 +279,7 @@ BlobTy BlobUtils::createReplicatedConstantBlob(Constant *Const,
   assert(ConstTy->isVectorTy() &&
          "Scalar constant bcast-ing is not supported yet.");
 
-  unsigned NumElts = cast<VectorType>(ConstTy)->getNumElements();
+  unsigned NumElts = cast<FixedVectorType>(ConstTy)->getNumElements();
   SmallVector<int, 8> ShuffleMask;
   for (unsigned J = 0; J < ReplicationFactor; ++J)
     for (unsigned I = 0; I < NumElts; ++I)

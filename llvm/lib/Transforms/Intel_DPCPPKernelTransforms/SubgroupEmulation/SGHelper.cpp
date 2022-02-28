@@ -317,7 +317,7 @@ Type *SGHelper::getPromotedIntVecType(Type *IntVecType) {
 
 Type *SGHelper::getVectorType(Type *T, unsigned Size) {
   Type *WidenType = nullptr;
-  if (auto *VecType = dyn_cast<VectorType>(T)) {
+  if (auto *VecType = dyn_cast<FixedVectorType>(T)) {
     WidenType = FixedVectorType::get(VecType->getScalarType(),
                                      Size * VecType->getNumElements());
   } else {

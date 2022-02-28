@@ -559,9 +559,9 @@ bool AndersensAAResult::isSimilarType(Type *FPType, Type *TargetType,
   }
 
   // Array and vector types are Sequential types
-  if (isa<VectorType>(FPType) || isa<ArrayType>(FPType)) {
+  if (isa<FixedVectorType, ArrayType>(FPType)) {
     // The target is also sequential type
-    if (isa<VectorType>(TargetType) || isa<ArrayType>(TargetType)) {
+    if (isa<FixedVectorType, ArrayType>(TargetType)) {
       // If the function pointer is array type, then the target must
       // be array type. Also, if the function pointer is vector type
       // then the target must be vector type.
@@ -570,10 +570,10 @@ bool AndersensAAResult::isSimilarType(Type *FPType, Type *TargetType,
         return false;
 
       // Handle the bit width from the vector type
-      if (VectorType *FPVector = dyn_cast<VectorType>(FPType)) {
+      if (auto *FPVector = dyn_cast<FixedVectorType>(FPType)) {
         // We can use cast because we proved that the function pointer
         // and the target are vector types
-        VectorType *TargetVector = cast<VectorType>(TargetType);
+        auto *TargetVector = cast<FixedVectorType>(TargetType);
         if (FPVector->getPrimitiveSizeInBits() !=
             TargetVector->getPrimitiveSizeInBits())
           return false;

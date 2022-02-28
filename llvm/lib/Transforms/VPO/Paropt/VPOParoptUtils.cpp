@@ -5608,9 +5608,10 @@ Constant *VPOParoptUtils::getMinMaxIntVal(Type *Ty, bool IsUnsigned,
                                APInt::getSignedMinValue(BitWidth);
 
   ConstantInt *MinMaxVal = ConstantInt::get(Ty->getContext(), MinMaxAPInt);
-  if (VectorType *VTy = dyn_cast<VectorType>(Ty))
-    return ConstantVector::getSplat(ElementCount::getFixed(VTy->getNumElements()),
-                                    MinMaxVal);
+  if (Ty->isVectorTy())
+    return ConstantVector::getSplat(
+        ElementCount::getFixed(cast<FixedVectorType>(Ty)->getNumElements()),
+        MinMaxVal);
   return MinMaxVal;
 }
 

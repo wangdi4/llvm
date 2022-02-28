@@ -807,7 +807,7 @@ llvm::MDNode *DTransInfoGenerator::CreateVectorTypeMD(QualType ClangType,
                                                       llvm::Type *LLVMType) {
   // Metadata format is: !{!"V", i32 <numElem>, !MDNode }
   assert(LLVMType->isVectorTy() && "Not a vector type?");
-  llvm::VectorType *VT = cast<llvm::VectorType>(LLVMType);
+  auto *VT = cast<llvm::FixedVectorType>(LLVMType);
 
   llvm::SmallVector<llvm::Metadata *> VecMD;
   VecMD.push_back(llvm::MDString::get(Ctx, "V"));
