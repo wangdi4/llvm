@@ -62,7 +62,6 @@ set(TARGET_INCLUDE_FILES
   LoopHandler/CLStreamSampler.h
   LoopHandler/CLWGLoopBoundaries.h
   LoopHandler/LoopStridedCodeMotion.h
-  LoopHandler/LoopWIAnalysis.h
   OCLBranchProbability/OCLBranchProbability.h
   OCLVecClone/OCLVecClone.h
   Packetizer/Packetizer.h
@@ -93,7 +92,6 @@ set(TARGET_SOURCE_FILES
   LoopHandler/CLStreamSampler.cpp
   LoopHandler/CLWGLoopBoundaries.cpp
   LoopHandler/LoopStridedCodeMotion.cpp
-  LoopHandler/LoopWIAnalysis.cpp
   OCLBranchProbability/OCLBranchProbability.cpp
   OCLVecClone/OCLVecClone.cpp
   Packetizer/Packetizer.cpp
