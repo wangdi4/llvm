@@ -170,12 +170,8 @@ static Defined *addOptionalRegular(StringRef name, SectionBase *sec,
     return nullptr;
 
   s->resolve(Defined{nullptr, StringRef(), STB_GLOBAL, stOther, STT_NOTYPE, val,
-<<<<<<< HEAD
                      /*size=*/0, sec}, name);                          // INTEL
-=======
-                     /*size=*/0, sec});
   s->isUsedInRegularObj = true;
->>>>>>> 8ca46bba23552e04a704daaac87212b554ed7c93
   return cast<Defined>(s);
 }
 

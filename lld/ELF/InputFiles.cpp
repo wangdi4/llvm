@@ -1221,16 +1221,8 @@ void ObjFile<ELFT>::initializeSymbols(const object::ELFFile<ELFT> &obj) {
       // error.
       if (sym->symbolKind == Symbol::LazyObjectKind && !sym->file->lazy)
         sym->replace(und);
-<<<<<<< HEAD
-        // Prevent LTO from internalizing the symbol in case there is a
-        // reference to this symbol from this file.
-        sym->isUsedInRegularObj = true;
-      } else
-        sym->resolve(und, sym->getName());                             // INTEL
-=======
       else
-        sym->resolve(und);
->>>>>>> 8ca46bba23552e04a704daaac87212b554ed7c93
+        sym->resolve(und, sym->getName());                             // INTEL
       continue;
     }
 
@@ -1256,12 +1248,8 @@ void ObjFile<ELFT>::initializeSymbols(const object::ELFFile<ELFT> &obj) {
     const Elf_Sym &eSym = eSyms[i];
     Symbol *sym = symbols[i];
     sym->resolve(Undefined{this, StringRef(), eSym.getBinding(), eSym.st_other,
-<<<<<<< HEAD
                            eSym.getType()}, sym->getName());           // INTEL
-=======
-                           eSym.getType()});
     sym->isUsedInRegularObj = true;
->>>>>>> 8ca46bba23552e04a704daaac87212b554ed7c93
     sym->referenced = true;
   }
 }
