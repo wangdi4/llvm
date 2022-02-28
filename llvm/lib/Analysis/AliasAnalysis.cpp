@@ -777,7 +777,8 @@ ModRefInfo AAResults::getModRefInfoForMaskedScatter(const IntrinsicInst *MS,
   Value *DataToWrite = MS->getArgOperand(0);
 
   // BasePtr may be vector or scalar. DataToWrite is always a vector.
-  unsigned NumElts = cast<VectorType>(DataToWrite->getType())->getNumElements();
+  auto *VecTy = cast<VectorType>(DataToWrite->getType());
+  unsigned NumElts = VecTy->getElementCount().getKnownMinValue();
   // A vector of MemoryLocation saving memory locations for all elements
   // of PtrVec.
   SmallVector<MemoryLocation, 4> PtrVecMemLocs(NumElts, MemoryLocation());

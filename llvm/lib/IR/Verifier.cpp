@@ -3784,21 +3784,22 @@ void Verifier::visitSubscriptInst(SubscriptInst &I) {
 
   unsigned Width = 0;
   if (IsVector) {
-    Width = PtrTy->isVectorTy() ? cast<VectorType>(PtrTy)->getNumElements() : 0;
+    Width = PtrTy->isVectorTy() ? cast<FixedVectorType>(PtrTy)->getNumElements()
+                                : 0;
 
     for (Value *Arg : IntArgs) {
       Type *ArgTy = Arg->getType();
       if (!ArgTy->isVectorTy())
         continue;
 
-      unsigned ArgWidth = cast<VectorType>(ArgTy)->getNumElements();
+      unsigned ArgWidth = cast<FixedVectorType>(ArgTy)->getNumElements();
       Assert(Width == 0 || ArgWidth == Width,
              "Invalid llvm.intel.subscript lower/stride/index vector width",
              &I);
       Width = std::max(Width, ArgWidth);
     }
   }
-  Assert(IsVector ? cast<VectorType>(ResTy)->getNumElements() == Width
+  Assert(IsVector ? cast<FixedVectorType>(ResTy)->getNumElements() == Width
                   : !ResTy->isVectorTy(),
          "Inconsistent vector width in llvm.intel.subscript", &I);
 

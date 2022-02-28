@@ -188,7 +188,8 @@ static Constant *createSequentialMask(unsigned Start, unsigned NumInts,
 }
 
 HLInst *VPOCodeGenHIR::createReverseVector(RegDDRef *ValRef) {
-  unsigned NumElems = cast<VectorType>(ValRef->getDestType())->getNumElements();
+  unsigned NumElems =
+      cast<FixedVectorType>(ValRef->getDestType())->getNumElements();
   SmallVector<Constant *, 4> ShuffleMask;
   for (unsigned I = 0; I < NumElems; I++) {
     Constant *Mask =
@@ -2057,8 +2058,8 @@ void VPOCodeGenHIR::propagateDebugLocation(const VPInstruction *VPInst) {
 
 RegDDRef *VPOCodeGenHIR::concatenateTwoVectors(RegDDRef *V1, RegDDRef *V2,
                                                RegDDRef *Mask) {
-  VectorType *VecTy1 = dyn_cast<VectorType>(V1->getDestType());
-  VectorType *VecTy2 = dyn_cast<VectorType>(V2->getDestType());
+  auto *VecTy1 = dyn_cast<FixedVectorType>(V1->getDestType());
+  auto *VecTy2 = dyn_cast<FixedVectorType>(V2->getDestType());
   assert(VecTy1 && VecTy2 &&
          VecTy1->getScalarType() == VecTy2->getScalarType() &&
          "Expect two vectors with the same element type");
@@ -2133,8 +2134,7 @@ HLInst *VPOCodeGenHIR::createShuffleWithUndef(RegDDRef *Input,
 
 HLInst *VPOCodeGenHIR::extendVector(RegDDRef *Input, unsigned TargetLength) {
   Type *OrigTy = Input->getDestType();
-  assert(isa<VectorType>(OrigTy) && "Input should be of a vector type.");
-  unsigned OrigNumElts = cast<VectorType>(OrigTy)->getNumElements();
+  unsigned OrigNumElts = cast<FixedVectorType>(OrigTy)->getNumElements();
   assert(TargetLength > OrigNumElts &&
          "TargetLength should be greater than OrigNumElts.");
 
@@ -2153,7 +2153,7 @@ HLInst *VPOCodeGenHIR::replicateVector(RegDDRef *Input,
                                        unsigned ReplicationFactor,
                                        unsigned ReplNestingLvl) {
   assert(ReplicationFactor > 1 && "Unexpected replication factor.");
-  auto *OrigTy = cast<VectorType>(Input->getDestType());
+  auto *OrigTy = cast<FixedVectorType>(Input->getDestType());
   unsigned OrigNumElts = OrigTy->getNumElements();
 
   SmallVector<Constant *, 8> ShuffleMask;
@@ -2179,7 +2179,7 @@ HLInst *VPOCodeGenHIR::replicateVector(RegDDRef *Input,
 HLInst *VPOCodeGenHIR::replicateVectorElts(RegDDRef *Input,
                                            unsigned ReplicationFactor) {
   assert(ReplicationFactor > 1 && "Unexpected replication factor.");
-  auto *OrigTy = cast<VectorType>(Input->getDestType());
+  auto *OrigTy = cast<FixedVectorType>(Input->getDestType());
   unsigned OrigNumElts = OrigTy->getNumElements();
 
   SmallVector<Constant *, 8> ShuffleMask;
@@ -3251,7 +3251,7 @@ VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr,
   RegDDRef *WidePtr = widenRef(VPPtr, getVF());
 
   auto *PtrType = cast<PointerType>(VPPtr->getType());
-  auto *VecType = dyn_cast<VectorType>(ScalarAccessType);
+  auto *VecType = dyn_cast<FixedVectorType>(ScalarAccessType);
   // No replication is needed for non-vector types.
   if (!VecType)
     return WidePtr;
@@ -3424,7 +3424,7 @@ HLInst *VPOCodeGenHIR::createSelectHelper(const CmpInst::Predicate &CmpPred,
   if (!PredOp1) {
     assert(CmpPred == CmpInst::ICMP_EQ &&
            "Expected ICMP_EQ for compare predicate");
-    auto *Op0VecTy = cast<VectorType>(PredOp0->getDestType());
+    auto *Op0VecTy = cast<FixedVectorType>(PredOp0->getDestType());
     Constant *OneVal = Constant::getAllOnesValue(Op0VecTy->getScalarType());
 
     // Broadcast OneVal to a vector with same number of elements as in PredOp0
@@ -3467,7 +3467,7 @@ void VPOCodeGenHIR::widenBlendImpl(const VPBlendInst *Blend, RegDDRef *Mask) {
     assert(BlockPred && "block-predicate should not be null for select");
     RegDDRef *Cond = widenRef(BlockPred, getVF());
 
-    auto *VecTy = dyn_cast<VectorType>(Blend->getType());
+    auto *VecTy = dyn_cast<FixedVectorType>(Blend->getType());
     unsigned ReplicateFactor = VecTy ? VecTy->getNumElements() : 0;
     HLInst *BlendInst = createSelectHelper(CmpInst::ICMP_EQ /* CmpPred */, Cond,
                                            nullptr /* Pred1 */, IncomingVecVal,
@@ -3559,7 +3559,7 @@ RegDDRef *VPOCodeGenHIR::getOrCreateScalarRef(const VPValue *VPVal,
   // Decide the extraction scheme based on type of VPValue - we need to extract
   // subvector for re-vectorized incoming VectorType, while we do a simple
   // extractelement for scalar type.
-  if (auto *VPValVecTy = dyn_cast<VectorType>(VPVal->getType())) {
+  if (auto *VPValVecTy = dyn_cast<FixedVectorType>(VPVal->getType())) {
     // Here we assume that the widened vector we are extracting subvector from
     // is in AOS layout. Consider the below example -
     // VPVal              -  <v1, v2>
@@ -4192,7 +4192,7 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
   // vector elements if non-null.
   if (Mask) {
     auto *ValueTy = VPLoadStore->getValueType();
-    if (auto *ValueVecTy = dyn_cast<VectorType>(ValueTy)) {
+    if (auto *ValueVecTy = dyn_cast<FixedVectorType>(ValueTy)) {
       HLInst *ReplMaskInst =
           replicateVectorElts(Mask, ValueVecTy->getNumElements());
       addInstUnmasked(ReplMaskInst);
@@ -4307,8 +4307,9 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
 
 RegDDRef *VPOCodeGenHIR::getVLSLoadStoreMask(VectorType *WideValueType,
                                              int GroupSize) {
+  unsigned NumElements = cast<FixedVectorType>(WideValueType)->getNumElements();
   if (!CurMaskValue) {
-    if (VF * GroupSize == WideValueType->getNumElements())
+    if (VF * GroupSize == NumElements)
       // No mask needed.
       return nullptr;
 
@@ -4318,7 +4319,7 @@ RegDDRef *VPOCodeGenHIR::getVLSLoadStoreMask(VectorType *WideValueType,
     unsigned Idx;
     for (Idx = 0; Idx < VF*GroupSize; ++Idx)
       Mask.push_back(True);
-    for (unsigned End = WideValueType->getNumElements(); Idx < End; ++Idx)
+    for (; Idx < NumElements; ++Idx)
       Mask.push_back(False);
 
     return DDRefUtilities.createConstDDRef(ConstantVector::get(Mask));
@@ -4330,8 +4331,7 @@ RegDDRef *VPOCodeGenHIR::getVLSLoadStoreMask(VectorType *WideValueType,
     for (int Elt = 0; Elt < GroupSize; ++Elt)
       ShuffleMask.push_back(ConstantInt::get(Int32Ty, Lane));
 
-  for (unsigned Idx = VF * GroupSize; Idx < WideValueType->getNumElements();
-       ++Idx)
+  for (unsigned Idx = VF * GroupSize; Idx < NumElements; ++Idx)
     ShuffleMask.push_back(ConstantInt::get(Int32Ty, VF));
 
   auto *ShuffleMaskRef =
@@ -4425,9 +4425,9 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     auto *Op1 = widenRef(VPInst->getOperand(0), VF);
     auto *Mask = cast<VPConstant>(VPInst->getOperand(2))->getConstant();
 
-    unsigned OrigSrcVL =
-        cast<VectorType>(VPInst->getOperand(0)->getType())->getNumElements();
-    int OrigDstVL = cast<VectorType>(VPInst->getType())->getNumElements();
+    unsigned OrigSrcVL = cast<FixedVectorType>(VPInst->getOperand(0)->getType())
+                             ->getNumElements();
+    int OrigDstVL = cast<FixedVectorType>(VPInst->getType())->getNumElements();
 
     SmallVector<Constant *, 16> MaskIndices;
     for (unsigned LogicalLane = 0; LogicalLane < VF; ++LogicalLane) {
@@ -4529,7 +4529,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     RegDDRef *ValueToInsert = widenRef(Insert->getOperand(1), VF);
 
     auto NumEltsPerValue = Insert->getNumGroupEltsPerValue();
-    auto *GroupType = cast<VectorType>(Insert->getOperand(0)->getType());
+    auto *GroupType = cast<FixedVectorType>(Insert->getOperand(0)->getType());
     Type *GroupEltType = GroupType->getElementType();
     auto NumEltsInGroup = GroupType->getNumElements();
 
@@ -5086,7 +5086,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
     // Replicate Pred0/Pred1 if the mask is Scalar and instruction type is
     // vector
-    auto *VecTy = dyn_cast<VectorType>(VPInst->getType());
+    auto *VecTy = dyn_cast<FixedVectorType>(VPInst->getType());
     unsigned ReplicateFactor =
         VecTy && !VPInst->getOperand(0)->getType()->isVectorTy()
             ? VecTy->getNumElements()
@@ -5346,7 +5346,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // elements.
     SmallVector<Constant *, 8> ShufMask;
     unsigned OrigNumElts =
-        cast<VectorType>(VPInst->getOperand(0)->getType())->getNumElements();
+        cast<FixedVectorType>(VPInst->getOperand(0)->getType())
+            ->getNumElements();
     unsigned WideNumElts = getVF() * OrigNumElts;
 
     for (unsigned Idx = IndexVal; Idx < WideNumElts; Idx += OrigNumElts)
@@ -5372,7 +5373,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     unsigned IndexVal =
         cast<VPConstantInt>(VPIndexVal)->getValue().getLimitedValue();
     unsigned OrigNumElts =
-        cast<VectorType>(VPInst->getOperand(0)->getType())->getNumElements();
+        cast<FixedVectorType>(VPInst->getOperand(0)->getType())
+            ->getNumElements();
     unsigned WideNumElts = getVF() * OrigNumElts;
 
     // Widening of insertelements is handled based on 2 cases -
@@ -5909,7 +5911,7 @@ void VPOCodeGenHIR::serializeInstruction(const VPInstruction *VPInst,
       assert(SerialTemp && "Non-null serial temp expected when serialized "
                            "instruction produces l-val");
       HLInst *InsertInst = nullptr;
-      if (auto *VecTy = dyn_cast<VectorType>(ScalarRef->getDestType())) {
+      if (auto *VecTy = dyn_cast<FixedVectorType>(ScalarRef->getDestType())) {
         unsigned OrigNumElts = VecTy->getNumElements();
         InsertInst = HLNodeUtilities.createVectorInsert(
             SerialTemp->clone(), ScalarRef->clone(), Lane * OrigNumElts,

@@ -4378,14 +4378,15 @@ X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
 #if INTEL_CUSTOMIZATION
   // If it is llvm.experimental.vector.reduce.or/and.vNi1, it can be replaced to
   // integer bitcast+cmp.
-  if (getTLI()->getTargetMachine().Options.IntelAdvancedOptim &&
-      ValTy->getElementType() == Type::getInt1Ty(ValTy->getContext()) &&
-      ValTy->getNumElements() > 1 &&
-      ((ST->is64Bit() && ValTy->getNumElements() <= 64) ||
-       ValTy->getNumElements() <= 32) &&
-      (Opcode == Instruction::And || Opcode == Instruction::Or)) {
-    return 2;
-  }
+  if (auto *VecTy = dyn_cast<FixedVectorType>(ValTy))
+    if (getTLI()->getTargetMachine().Options.IntelAdvancedOptim &&
+        VecTy->getElementType() == Type::getInt1Ty(ValTy->getContext()) &&
+        VecTy->getNumElements() > 1 &&
+        ((ST->is64Bit() && VecTy->getNumElements() <= 64) ||
+         VecTy->getNumElements() <= 32) &&
+        (Opcode == Instruction::And || Opcode == Instruction::Or)) {
+      return 2;
+    }
 #endif // INTEL_CUSTOMIZATION
 
   if (TTI::requiresOrderedReduction(FMF))
@@ -5203,7 +5204,7 @@ InstructionCost X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy,
 InstructionCost X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy,
                                             unsigned IndexSize, Align Alignment,
                                             unsigned AddressSpace) {
-  unsigned VF = cast<VectorType>(SrcVTy)->getNumElements();
+  unsigned VF = cast<FixedVectorType>(SrcVTy)->getNumElements();
   auto *IndexVTy = FixedVectorType::get(
       IntegerType::get(SrcVTy->getContext(), IndexSize), VF);
   std::pair<InstructionCost, MVT> IdxsLT =
@@ -5651,11 +5652,11 @@ bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
     return false;
   unsigned lastOpNo = CI->arg_size() - 1;
   Value *lastOp = CI->getArgOperand(lastOpNo);
-  VectorType *lastOpType = dyn_cast<VectorType>(lastOp->getType());
+  auto *lastOpType = dyn_cast<FixedVectorType>(lastOp->getType());
   if (!lastOpType || lastOpType->getScalarSizeInBits() != 1)
     return false;
-  VectorType *firstOpType =
-    dyn_cast<VectorType>(CI->getArgOperand(0)->getType());
+  auto *firstOpType =
+      dyn_cast<FixedVectorType>(CI->getArgOperand(0)->getType());
   assert(firstOpType && "Unexpected type for SVML argument");
   if (!firstOpType->getElementCount().isScalable() &&
       firstOpType->getPrimitiveSizeInBits().getFixedSize() == 512)

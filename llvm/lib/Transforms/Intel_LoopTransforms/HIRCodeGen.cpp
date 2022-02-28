@@ -607,8 +607,8 @@ Value *CGVisitor::castToDestType(CanonExpr *CE, Value *Val) {
   // If the cast value is a scalar type and dest type is a vector, we need
   // to do a broadcast.
   if (DestTy->isVectorTy() && !Val->getType()->isVectorTy()) {
-    Val = Builder.CreateVectorSplat(cast<VectorType>(DestTy)->getNumElements(),
-                                    Val);
+    Val = Builder.CreateVectorSplat(
+        cast<FixedVectorType>(DestTy)->getNumElements(), Val);
   }
 
   return Val;
@@ -716,7 +716,7 @@ Value *CGVisitor::visitCanonExpr(CanonExpr *CE) {
 
     auto NullVal = ConstantPointerNull::get(PtrType);
     return Builder.CreateVectorSplat(
-        cast<VectorType>(SrcType)->getNumElements(), NullVal);
+        cast<FixedVectorType>(SrcType)->getNumElements(), NullVal);
   }
 
   BlobSum = sumBlobs(CE);
@@ -730,11 +730,11 @@ Value *CGVisitor::visitCanonExpr(CanonExpr *CE) {
         (IVSum && IVSum->getType()->isVectorTy())) {
       if (BlobSum && !(BlobSum->getType()->isVectorTy())) {
         BlobSum = Builder.CreateVectorSplat(
-            cast<VectorType>(SrcType)->getNumElements(), BlobSum);
+            cast<FixedVectorType>(SrcType)->getNumElements(), BlobSum);
       }
       if (IVSum && !(IVSum->getType()->isVectorTy())) {
         IVSum = Builder.CreateVectorSplat(
-            cast<VectorType>(SrcType)->getNumElements(), IVSum);
+            cast<FixedVectorType>(SrcType)->getNumElements(), IVSum);
       }
     } else {
       // Both BlobSum/IVSum are scalar, for C0/Denom use Scalar type.
@@ -892,7 +892,7 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
   // such cases. To workaround, the base pointer value needs to be broadcast.
   // If Ref's dest type is a vector, we need to do a broadcast.
   if (!BaseV->getType()->isVectorTy() && HasVectorIndices) {
-    auto VL = cast<VectorType>(Ref->getDestType())->getNumElements();
+    auto VL = cast<FixedVectorType>(Ref->getDestType())->getNumElements();
     BaseV = Builder.CreateVectorSplat(VL, BaseV);
   }
 
@@ -993,7 +993,7 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
         GEPVal->getType()->getScalarType()->getPointerAddressSpace());
 
     if (GEPVal->getType()->getScalarType() != DestScPtrTy) {
-      auto VL = cast<VectorType>(DestElTy)->getNumElements();
+      auto VL = cast<FixedVectorType>(DestElTy)->getNumElements();
 
       // We have a vector of pointers of BaseSrcType. We need to convert it to
       // vector of pointers of DestScType.
@@ -1872,7 +1872,7 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
     if (Ref->isRval() && DestTy->isVectorTy() &&
         !(OpVal->getType()->isVectorTy())) {
       OpVal = Builder.CreateVectorSplat(
-          cast<VectorType>(DestTy)->getNumElements(), OpVal);
+          cast<FixedVectorType>(DestTy)->getNumElements(), OpVal);
     }
 
     Ops.push_back(OpVal);
@@ -2065,11 +2065,11 @@ Value *CGVisitor::sumBlobs(CanonExpr *CE) {
     if (CEDestTy->isVectorTy()) {
       if (Res->getType()->isVectorTy() && !CurRes->getType()->isVectorTy()) {
         CurRes = Builder.CreateVectorSplat(
-            cast<VectorType>(CEDestTy)->getNumElements(), CurRes);
+            cast<FixedVectorType>(CEDestTy)->getNumElements(), CurRes);
       } else if (CurRes->getType()->isVectorTy() &&
                  !Res->getType()->isVectorTy()) {
         Res = Builder.CreateVectorSplat(
-            cast<VectorType>(CEDestTy)->getNumElements(), Res);
+            cast<FixedVectorType>(CEDestTy)->getNumElements(), Res);
       }
     }
 
@@ -2114,10 +2114,10 @@ Value *CGVisitor::sumIV(CanonExpr *CE) {
                "Unexpected scalar CE type for a vector type IV pair");
         if (!ResIsVec)
           Res = Builder.CreateVectorSplat(
-              cast<VectorType>(CETy)->getNumElements(), Res);
+              cast<FixedVectorType>(CETy)->getNumElements(), Res);
         if (!TempResIsVec)
           TempRes = Builder.CreateVectorSplat(
-              cast<VectorType>(CETy)->getNumElements(), TempRes);
+              cast<FixedVectorType>(CETy)->getNumElements(), TempRes);
       }
       Res = Builder.CreateAdd(Res, TempRes);
     }
@@ -2153,8 +2153,8 @@ Value *CGVisitor::IVPairCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt,
     // If the coefficient is a vector, broadcast IV.
     if (CoefTy->isVectorTy()) {
       assert(!IV->getType()->isVectorTy() && "Non-scalar IV");
-      IV = Builder.CreateVectorSplat(cast<VectorType>(CoefTy)->getNumElements(),
-                                     IV);
+      IV = Builder.CreateVectorSplat(
+          cast<FixedVectorType>(CoefTy)->getNumElements(), IV);
     }
     return Builder.CreateMul(CoefV, IV);
   } else {
