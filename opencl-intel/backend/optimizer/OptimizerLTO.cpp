@@ -36,6 +36,7 @@
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
+#include "llvm/Transforms/Vectorize/IntelMFReplacement.h"
 
 using namespace llvm;
 
@@ -133,6 +134,9 @@ void OptimizerLTO::registerVectorizerStartCallback(PassBuilder &PB) {
   PB.registerVectorizerStartEPCallback(
       [](FunctionPassManager &FPM, OptimizationLevel Level) {
         FPM.addPass(UnifyFunctionExitNodesPass());
+        // Replace 'div' and 'rem' instructions with calls to optimized library
+        // functions
+        FPM.addPass(MathLibraryFunctionsReplacementPass());
       });
 }
 
