@@ -233,12 +233,16 @@ void TempInfo::substituteInUseRef() {
     RegDDRef *LvalRef = nullptr;
     unsigned Index = getBlobIndex();
 
-    // Skip the substitution if the rval def inst's next node is an inst and
-    // rval def inst uses its next node's lval blob index. We check the next
-    // node because visitor could miss checking the next node due to reordering.
+    // Skip the substitution if the def inst's next node prevents substitution.
+    // We check the next node because visitor could miss checking the next node
+    // if it changed due to reordering.
     HLInst *NextInstAfterDef = dyn_cast<HLInst>(DefInst->getNextNode());
 
-    if (NextInstAfterDef) {
+    if (NextInstAfterDef && (NextInstAfterDef != UseInst)) {
+      if (NextInstAfterDef->getLLVMInstruction()->mayWriteToMemory()) {
+        return;
+      }
+
       unsigned NextInstLvalBlobIndex = NextInstAfterDef->getLvalBlobIndex();
 
       if (DefInst->usesTempBlob(NextInstLvalBlobIndex)) {
