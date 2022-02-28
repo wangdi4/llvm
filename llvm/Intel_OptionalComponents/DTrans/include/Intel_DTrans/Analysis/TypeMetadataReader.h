@@ -61,7 +61,11 @@ class TypeMetadataReader {
   friend class TypeMetadataTester;
 
 public:
-  // Get the NameMDNode for the module that contains the list of metadata nodes
+  // Return 'true' if there is a NamedMDNode that contains the list of metadata
+  // nodes used to describe all the structure types.
+  static bool hasDTransTypesMetadata(Module &M);
+
+  // Get the NamedMDNode for the module that contains the list of metadata nodes
   // used to describe all the structure types.
   static NamedMDNode* getDTransTypesMetadata(Module &M);
 
