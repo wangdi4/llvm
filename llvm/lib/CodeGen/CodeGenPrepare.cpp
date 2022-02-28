@@ -569,19 +569,15 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
   if (!DisableBranchOpts)
     EverMadeChange |= splitBranchCondition(F, ModifiedDT);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Split some critical edges where one of the sources is an indirect branch
   // or switch, to help generate sane code for PHIs involving such edges.
-  EverMadeChange |= SplitIndirectBrCriticalEdges(F, BPI.get(), BFI.get(),
-      EnableSwitchCriticalEdgeSplit, DontSplitColdCriticalEdge);
-#endif // INTEL_CUSTOMIZATION
-=======
-  // Split some critical edges where one of the sources is an indirect branch,
-  // to help generate sane code for PHIs involving such edges.
   EverMadeChange |=
-      SplitIndirectBrCriticalEdges(F, /*IgnoreBlocksWithoutPHI=*/true);
->>>>>>> 6a383369f9b800eac5de2456e49fa70577be8e33
+      SplitIndirectBrCriticalEdges(F, /*IgnoreBlocksWithoutPHI=*/true,
+                                   BPI.get(), BFI.get(),
+                                   EnableSwitchCriticalEdgeSplit,
+                                   DontSplitColdCriticalEdge);
+#endif // INTEL_CUSTOMIZATION
 
   bool MadeChange = true;
   while (MadeChange) {
