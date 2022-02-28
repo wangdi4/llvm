@@ -225,17 +225,14 @@ public:
 
 private:
   void resolveUndefined(const Undefined &other);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   void resolveCommon(const CommonSymbol &other, StringRef otherName);
   void resolveDefined(const Defined &other, StringRef otherName);
 #endif // INTEL_CUSTOMIZATION
   template <class LazyT> void resolveLazy(const LazyT &other);
-=======
   void resolveCommon(const CommonSymbol &other);
   void resolveDefined(const Defined &other);
   void resolveLazy(const LazyObject &other);
->>>>>>> 4129890dd88b45280a1219adcaf0e6522a088563
   void resolveShared(const SharedSymbol &other);
 
 #if INTEL_CUSTOMIZATION
