@@ -2388,10 +2388,6 @@ private:
                                              SmallVectorImpl<Value *> &Right,
                                              const DataLayout &DL,
                                              ScalarEvolution &SE,
-#if INTEL_CUSTOMIZATION
-                                             SmallVectorImpl<int> &OpDirLeft,
-                                             SmallVectorImpl<int> &OpDirRight,
-#endif // INTEL_CUSTOMIZATION
                                              const BoUpSLP &R);
   struct TreeEntry {
     using VecTreeTy = SmallVector<std::unique_ptr<TreeEntry>, 8>;
@@ -5297,6 +5293,10 @@ void BoUpSLP::reorderMultiNodeOperands(SmallVectorImpl<Value *> &VL,
     assert(!verifyFunction(*F, &dbgs()));
 }
 
+static void populateReorderingData(ArrayRef<Value *> VL, ArrayRef<Value *> Left,
+                                   SmallVectorImpl<int> &OpDirLeft,
+                                   SmallVectorImpl<int> &OpDirRight);
+
 // Return true if we have finished building the Multi-Node, false otherwise.
 void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
                                      Optional<ScheduleData *> Bundle,
@@ -5326,17 +5326,16 @@ void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
   // Reorder operands (if possible) based on the default shallow reordering that
   // only checks the immediate predecessors.
 
-  // Keeps order for left and right operands.
-  SmallVector<int, 4> OpDirs[2];
-  // Keeps values for left and right operands.
-  ValueList Operands[2];
-  reorderInputsAccordingToOpcode(VL, Operands[0],
-                                 Operands[1], *DL, *SE, OpDirs[0], OpDirs[1],
-                                 *this);
+  SmallVector<int, 4> OpDirLeft, OpDirRight;
+  ValueList Left, Right;
+
+  reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, *this);
+  populateReorderingData(VL, Left, OpDirLeft, OpDirRight);
+
   // We need to set the operands of the TE, otherwise the scheduler fails to
   // schedule VL.
-  NewTE->setOperand(0, Operands[0]);
-  NewTE->setOperand(1, Operands[1]);
+  NewTE->setOperand(0, Left);
+  NewTE->setOperand(1, Right);
 
   // TODO: This is a workaround. Currently we don't add a MultiNode leaf
   // if its values are already in trunk. The problem is that if the
@@ -5345,11 +5344,11 @@ void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
   // Disabling the 'alreadyInTrunk()' condition should fix this but I am not
   // sure it is safe to remove it.
   if (BuildTreeOrderReverse) {
-    buildTree_rec(Operands[1], NextDepth, {NewTE, 1, OpDirs[1]});
-    buildTree_rec(Operands[0], NextDepth, {NewTE, 0, OpDirs[0]});
+    buildTree_rec(Right, NextDepth, {NewTE, 1, OpDirRight});
+    buildTree_rec(Left, NextDepth, {NewTE, 0, OpDirLeft});
   } else {
-    buildTree_rec(Operands[0], NextDepth, {NewTE, 0, OpDirs[0]});
-    buildTree_rec(Operands[1], NextDepth, {NewTE, 1, OpDirs[1]});
+    buildTree_rec(Left, NextDepth, {NewTE, 0, OpDirLeft});
+    buildTree_rec(Right, NextDepth, {NewTE, 1, OpDirRight});
   }
 }
 #endif // INTEL_CUSTOMIZATION
@@ -6213,18 +6212,14 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
                                    ReuseShuffleIndicies);
       LLVM_DEBUG(dbgs() << "SLP: added a vector of compares.\n");
 
-#if INTEL_CUSTOMIZATION
-      SmallVector<int, 4> OpDirLeft, OpDirRight;
-#endif // INTEL_CUSTOMIZATION
+      SmallVector<int, 4> OpDirLeft, OpDirRight; // INTEL
       ValueList Left, Right;
       if (cast<CmpInst>(VL0)->isCommutative()) {
         // Commutative predicate - collect + sort operands of the instructions
         // so that each side is more likely to have the same opcode.
         assert(P0 == SwapP0 && "Commutative Predicate mismatch");
-#if INTEL_CUSTOMIZATION
-        reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, OpDirLeft,
-                                       OpDirRight, *this);
-#endif // INTEL_CUSTOMIZATION
+        reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, *this);
+        populateReorderingData(VL, Left, OpDirLeft, OpDirRight); // INTEL
       } else {
         // Collect operands - commute if it uses the swapped predicate.
         for (Value *V : VL) {
@@ -6282,12 +6277,13 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       // have the same opcode.
       if (isa<BinaryOperator>(VL0) && VL0->isCommutative()) {
         ValueList Left, Right;
-#if INTEL_CUSTOMIZATION
-        SmallVector<int, 4> OpDirLeft, OpDirRight;
-        reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, OpDirLeft,
-                                       OpDirRight, *this);
+        reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, *this);
         TE->setOperand(0, Left);
         TE->setOperand(1, Right);
+
+#if INTEL_CUSTOMIZATION
+        SmallVector<int, 4> OpDirLeft, OpDirRight;
+        populateReorderingData(VL, Left, OpDirLeft, OpDirRight);
         // Path steering.
         if (visitRightOperandFirst(VL[0])) {
           buildTree_rec(TE->getOperand(1), Depth + 1, {TE, 1, OpDirRight});
@@ -6579,14 +6575,14 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       LLVM_DEBUG(dbgs() << "SLP: added a ShuffleVector op.\n");
 
       // Reorder operands if reordering would enable vectorization.
-#if INTEL_CUSTOMIZATION
       if (isa<BinaryOperator>(VL0)) {
-        SmallVector<int, 4> OpDirLeft, OpDirRight;
         ValueList Left, Right;
-        reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, OpDirLeft,
-                                       OpDirRight, *this);
+        reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, *this);
         TE->setOperand(0, Left);
         TE->setOperand(1, Right);
+#if INTEL_CUSTOMIZATION
+        SmallVector<int, 4> OpDirLeft, OpDirRight;
+        populateReorderingData(VL, Left, OpDirLeft, OpDirRight);
         if (visitRightOperandFirst(VL[0])) {
           buildTree_rec(TE->getOperand(1), Depth + 1, {TE, 1, OpDirRight});
           buildTree_rec(TE->getOperand(0), Depth + 1, {TE, 0, OpDirLeft});
@@ -8298,35 +8294,43 @@ InstructionCost BoUpSLP::getGatherCost(ArrayRef<Value *> VL) const {
 }
 
 #if INTEL_CUSTOMIZATION
-// Perform operand reordering on the instructions in VL and return the reordered
-// operands in Left and Right.
-void BoUpSLP::reorderInputsAccordingToOpcode(
-    ArrayRef<Value *> VL, SmallVectorImpl<Value *> &Left,
-    SmallVectorImpl<Value *> &Right, const DataLayout &DL,
-    ScalarEvolution &SE, SmallVectorImpl<int> &OpDirLeft,
-    SmallVectorImpl<int> &OpDirRight, const BoUpSLP &R) {
-  if (VL.empty())
-    return;
-
-  for (size_t i = 0; i < VL.size(); ++i) {
+/// Populate operand prdering after reorderInputsAccordingToOpcode is called.
+/// VL is orginal vector of scalars being vectorized and \p Left represents
+/// a new left operands after reoredering is done.
+static void populateReorderingData(
+    ArrayRef<Value *> VL,
+    ArrayRef<Value *> Left,
+    SmallVectorImpl<int> &OpDirLeft,
+    SmallVectorImpl<int> &OpDirRight) {
+  for (int I = 0, E = VL.size(); I < E; ++I) {
+    Value *OrigLeft = cast<Instruction>(VL[I])->getOperand(0);
+    if (OrigLeft != Left[I]) {
+      OpDirLeft.push_back(1);
+      OpDirRight.push_back(0);
+      continue;
+    }
     OpDirLeft.push_back(0);
     OpDirRight.push_back(1);
   }
+}
+#endif // INTEL_CUSTOMIZATION
 
+// Perform operand reordering on the instructions in VL and return the reordered
+// operands in Left and Right.
+void BoUpSLP::reorderInputsAccordingToOpcode(ArrayRef<Value *> VL,
+                                             SmallVectorImpl<Value *> &Left,
+                                             SmallVectorImpl<Value *> &Right,
+                                             const DataLayout &DL,
+                                             ScalarEvolution &SE,
+                                             const BoUpSLP &R) {
+  if (VL.empty())
+    return;
   VLOperands Ops(VL, DL, SE, R);
-  SmallVector<Value *, 4> OrigLeft;
-  OrigLeft = Ops.getVL(0);
   // Reorder the operands in place.
   Ops.reorder();
   Left = Ops.getVL(0);
   Right = Ops.getVL(1);
-
-  for (size_t i = 0; i < VL.size(); ++i) {
-    if (OrigLeft[i] != Left[i])
-      std::swap(OpDirLeft[i], OpDirRight[i]);
-  }
 }
-#endif // INTEL_CUSTOMIZATION
 
 void BoUpSLP::setInsertPointAfterBundle(const TreeEntry *E) {
   // Get the basic block this bundle is in. All instructions in the bundle
