@@ -6582,7 +6582,6 @@ tryImplicitlyCaptureThisIfImplicitMemberFunctionAccessWithDependentArgs(
   }
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // IntrinsicPromotion implementation.
 static void PromoteIntelIntrins(Sema &S, ExprResult Call) {
@@ -6704,7 +6703,7 @@ static void PromoteIntelIntrins(Sema &S, ExprResult Call) {
   return;
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 // Once a call is fully resolved, warn for unqualified calls to specific
 // C++ standard functions, like move and forward.
 static void DiagnosedUnqualifiedCallsToStdFunctions(Sema &S, CallExpr *Call) {
@@ -6736,7 +6735,6 @@ static void DiagnosedUnqualifiedCallsToStdFunctions(Sema &S, CallExpr *Call) {
       << D->getQualifiedNameAsString()
       << FixItHint::CreateInsertion(DRE->getLocation(), "std::");
 }
->>>>>>> 70b1f6de539867353940d3dcb8b25786d5082d63
 
 ExprResult Sema::ActOnCallExpr(Scope *Scope, Expr *Fn, SourceLocation LParenLoc,
                                MultiExprArg ArgExprs, SourceLocation RParenLoc,
