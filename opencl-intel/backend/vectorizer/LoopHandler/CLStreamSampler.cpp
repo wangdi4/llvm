@@ -35,7 +35,7 @@ namespace intel {
 char intel::CLStreamSampler::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(CLStreamSampler, "cl-stream-sampler", "replace read,write image built-ins in loops with stream samplers if possible", false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(LoopWIAnalysis)
+OCL_INITIALIZE_PASS_DEPENDENCY(LoopWIAnalysisLegacy)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(CLStreamSampler, "cl-stream-sampler", "replace read,write image built-ins in loops with stream samplers if possible", false, false)
@@ -60,7 +60,7 @@ bool CLStreamSampler::runOnLoop(Loop *L, LPPassManager & /*LPM*/) {
   m_M = m_header->getParent()->getParent();
   m_DL = &m_M->getDataLayout();
   m_DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  m_WIAnalysis = &getAnalysis<LoopWIAnalysis>();
+  m_LoopWIInfo = &getAnalysis<LoopWIAnalysisLegacy>().getResult();
   m_preHeader = m_curLoop->getLoopPreheader();
   m_latch = m_curLoop->getLoopLatch();
   assert(m_latch && m_preHeader && "should have latch and pre header");
@@ -193,7 +193,7 @@ bool CLStreamSampler::isHeaderPhiStrided(Value *v ) {
   PHINode *phi = dyn_cast<PHINode>(v);
   if (!phi || //coordinate is not a phi
       phi->getParent() != m_header || // not phi in the loop header
-      !m_WIAnalysis->isStrided(phi)) { // not strided
+      !m_LoopWIInfo->isStrided(phi)) { // not strided
     return false;
   }
   return true;
@@ -236,11 +236,11 @@ void CLStreamSampler::CollectReadImgAttributes(CallInst *readImgCall) {
     Value *root = VectorizerUtils::RootInputArgument(arg, coordTy, attrs.m_call);
     if (!root) return;
 
-    if (m_WIAnalysis->isUniform(root)) {
+    if (m_LoopWIInfo->isUniform(root)) {
       // Note that isUniform is stronger than isLoopInvariant, since
       // it demands that all vector entries are the same.
       attrs.m_firstCoords.push_back(root);
-    } else if (m_WIAnalysis->isStrided(root)) {
+    } else if (m_LoopWIInfo->isStrided(root)) {
       assert(isa<Instruction>(root) && "strided should be instrution");
       Value *initialVal = obtainInitialStridedVal(cast<Instruction>(root));
       assert(initialVal && "could not get inital strided value");
@@ -305,7 +305,7 @@ std::pair<Value *, Value *>
 CLStreamSampler::createStartStride(Value *coord, Instruction *loc) {
   Value *coord0 = ExtractElementInst::Create(coord, m_zero, "coord.0", loc);
   Value *stride = Constant::getNullValue(coord0->getType());
-  if (!m_WIAnalysis->isUniform(coord)) {
+  if (!m_LoopWIInfo->isUniform(coord)) {
     Value *coord1 = ExtractElementInst::Create(coord, m_one, "coord.1", loc);
     assert(coord0->getType()->isFPOrFPVectorTy() && coord1->getType()==coord0->getType() &&
         "expected floating point coordinates" );
@@ -501,9 +501,9 @@ void CLStreamSampler::CollectWriteImgAttributes(CallInst *writeImgCall) {
 
   // Obtain x coord.
   Value *xCoord = writeImgCall->getArgOperand(1);
-  if (!m_WIAnalysis->isStrided(xCoord)) return;
+  if (!m_LoopWIInfo->isStrided(xCoord)) return;
   assert(xCoord->getType()->isIntegerTy() && "x coord is integer");
-  Constant *stride = m_WIAnalysis->getConstStride(xCoord);
+  Constant *stride = m_LoopWIInfo->getConstStride(xCoord);
   if (!stride) return;
   ConstantInt *strideConst = dyn_cast<ConstantInt>(stride);
   if (strideConst->getZExtValue() != attrs.m_width) return;
@@ -693,7 +693,7 @@ Value *CLStreamSampler::calcFirstIterValIfPossible(Instruction *I) {
 
 Value *CLStreamSampler::obtainInitialStridedVal(Instruction *I) {
   SmallVector<Instruction *, 8> InstToReplicate;
-  assert(m_WIAnalysis->isStrided(I) && "expected strided input");
+  assert(m_LoopWIInfo->isStrided(I) && "expected strided input");
   SmallVector<Value *, 8> workList;
   std::set<Value *> visited;
   workList.push_back(I);
