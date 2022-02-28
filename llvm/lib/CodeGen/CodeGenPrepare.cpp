@@ -572,8 +572,11 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
 #if INTEL_CUSTOMIZATION
   // Split some critical edges where one of the sources is an indirect branch
   // or switch, to help generate sane code for PHIs involving such edges.
-  EverMadeChange |= SplitIndirectBrCriticalEdges(F, BPI.get(), BFI.get(),
-      EnableSwitchCriticalEdgeSplit, DontSplitColdCriticalEdge);
+  EverMadeChange |=
+      SplitIndirectBrCriticalEdges(F, /*IgnoreBlocksWithoutPHI=*/true,
+                                   BPI.get(), BFI.get(),
+                                   EnableSwitchCriticalEdgeSplit,
+                                   DontSplitColdCriticalEdge);
 #endif // INTEL_CUSTOMIZATION
 
   bool MadeChange = true;

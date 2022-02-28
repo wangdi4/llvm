@@ -329,21 +329,16 @@ llvm::SplitKnownCriticalEdge(Instruction *TI, unsigned SuccNum,
 // If ConsiderSwitch flag is enabled, in case of absence of indirectbr
 // predecessor consider an unique switch predecessor as a candidate.
 static BasicBlock *
-findIBRPredecessor(BasicBlock *BB,
-                   SmallVectorImpl<BasicBlock *> &OtherPreds,
+findIBRPredecessor(BasicBlock *BB, SmallVectorImpl<BasicBlock *> &OtherPreds,
                    bool ConsiderSwitch) {
 #endif // INTEL_CUSTOMIZATION
-  // If the block doesn't have any PHIs, we don't care about it, since there's
-  // no point in splitting it.
-  PHINode *PN = dyn_cast<PHINode>(BB->begin());
-  if (!PN)
-    return nullptr;
-
-  // Collect and classify all the unique predecessors. // INTEL
+  // Verify we have exactly one IBR predecessor.
+  // Conservatively bail out if one of the other predecessors is not a "regular"
+  // terminator (that is, not a switch or a br).
   BasicBlock *IBB = nullptr;
+  // Collect and classify all the unique predecessors. // INTEL
   SmallSetVector<BasicBlock *, 4> UniqueSwitchPreds; // INTEL
-  for (unsigned Pred = 0, E = PN->getNumIncomingValues(); Pred != E; ++Pred) {
-    BasicBlock *PredBB = PN->getIncomingBlock(Pred);
+  for (BasicBlock *PredBB : predecessors(BB)) {
     Instruction *PredTerm = PredBB->getTerminator();
     switch (PredTerm->getOpcode()) {
 #if INTEL_CUSTOMIZATION
@@ -385,6 +380,7 @@ findIBRPredecessor(BasicBlock *BB,
 }
 
 bool llvm::SplitIndirectBrCriticalEdges(Function &F,
+                                        bool IgnoreBlocksWithoutPHI,
                                         BranchProbabilityInfo *BPI,
                                         BlockFrequencyInfo *BFI,  // INTEL
                                         bool ConsiderSwitch,      // INTEL
@@ -412,6 +408,8 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
   bool Changed = false;
   while (!Targets.empty()) {                     // INTEL
     BasicBlock *Target = Targets.pop_back_val(); // INTEL
+    if (IgnoreBlocksWithoutPHI && Target->phis().empty())
+      continue;
     SmallVector<BasicBlock *, 16> OtherPreds;
     BasicBlock *IBRPred = findIBRPredecessor(Target, OtherPreds, // INTEL
                                              ConsiderSwitch);    // INTEL
