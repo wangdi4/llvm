@@ -1,3 +1,4 @@
+# INTEL_CUSTOMIZATION
 #
 # INTEL CONFIDENTIAL
 #
@@ -13,6 +14,7 @@
 # or implied warranties, other than those that are expressly stated in the
 # License.
 #
+# end INTEL_CUSTOMIZATION
 include(GNUInstallDirs)
 
 macro(add_xpti_lib target_name)
