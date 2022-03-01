@@ -113,7 +113,7 @@ public:
 
   bool collectMemoryReductions(HLLoop *Lp);
 
-  bool validateReductionTemp(DDGraph DDG);
+  bool validateReductionTemp(DDGraph DDG, const HLLoop *Lp);
   bool validateMemoryReductions(const HLLoop *Lp);
 
   void sinkInvariantReductions(HLLoop *Lp);
@@ -250,7 +250,18 @@ bool HIRMemoryReductionSinking::collectMemoryReductions(HLLoop *Lp) {
     if (LoadRef->isStructurallyInvariantAtLevel(Level)) {
       InvariantMemoryReductions.emplace_back(Opcode, FMF, LoadRef,
                                              StoreInst->getLvalDDRef());
-    } else {
+    } else if (!Lp->isLiveOut(HInst->getLvalDDRef()->getSymbase())) {
+      // MemoryReductions tracks the non-invariant reductions that could
+      // alias to other invariant reductions, which we are trying to sink.
+      // Example:
+      // %0 = (@A)[0][i1];  <-- Memory Reduction candidate
+      // (@A)[0][i1] = %0 + 2;
+      // %1 = (@A)[0][5];   <-- InvariantMemoryReduction candidate
+      // (@A)[0][5] = %1 + 3;
+
+      // We only save memory reduction if the Lval Temp is not liveout.
+      // Sinking an aliasing invariant memory reduction does not preserve
+      // liveout for this reduction. Later validation checks will bailout.
       MemoryReductions.emplace_back(Opcode, FMF, LoadRef,
                                     StoreInst->getLvalDDRef());
     }
@@ -259,12 +270,18 @@ bool HIRMemoryReductionSinking::collectMemoryReductions(HLLoop *Lp) {
   return !InvariantMemoryReductions.empty();
 }
 
-bool HIRMemoryReductionSinking::validateReductionTemp(DDGraph DDG) {
+bool HIRMemoryReductionSinking::validateReductionTemp(DDGraph DDG,
+                                                      const HLLoop *Lp) {
   // Checks whether the lval temp of the reduction is used elsewhere in the
   // loop. If so, invalidates the reduction.
 
   auto ReductionTempEscapes = [&](MemoryReductionInfo &RednInfo) {
     auto *LvalTempRef = RednInfo.LoadRef->getHLDDNode()->getLvalDDRef();
+    // TODO: handle liveout temps depending on reduction pattern.
+    if (Lp->isLiveOut(LvalTempRef->getSymbase())) {
+      return true;
+    }
+
     auto *UseNode = RednInfo.StoreRef->getHLDDNode();
 
     bool Escapes = false;
@@ -322,7 +339,7 @@ bool HIRMemoryReductionSinking::validateMemoryReductions(const HLLoop *Lp) {
   LLVM_DEBUG(dbgs() << "[MRS] Loop DDG:\n");
   LLVM_DEBUG(DDG.dump());
 
-  if (!validateReductionTemp(DDG)) {
+  if (!validateReductionTemp(DDG, Lp)) {
     return false;
   }
 

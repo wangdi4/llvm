@@ -276,6 +276,7 @@ static const DenseMap<unsigned, opt_report_proto::BinOptReport::Property>
         {25438,
          opt_report_proto::BinOptReport::C_LOOP_UNROLL_WITHOUT_REMAINDER},
         {25540, opt_report_proto::BinOptReport::C_LOOP_UNROLL_AND_JAM},
+        {25491, opt_report_proto::BinOptReport::C_LOOP_REMAINDER},
 };
 #endif // INTEL_ENABLE_PROTO_BIN_OPTRPT
 
@@ -322,8 +323,8 @@ std::string generateProtobufBinOptReport(OptRptAnchorMapTy &OptRptAnchorMap,
 
     // Set anchoring info for the loop that this optreport corresponds to.
     LOR->set_anchor_id(AnchorID.str());
-    // Translate diagnostic remarks to properties.
-    for (const OptRemark Remark : OR.remarks()) {
+
+    auto ProcessRemark = [&LOR, &EmittedRemarkIDs](const OptRemark Remark) {
       // TODO: Promote interface to LoopOptRemark::getRemarkID.
       unsigned RemarkID =
           mdconst::extract<ConstantInt>(Remark.getOperand(0))->getZExtValue();
@@ -332,7 +333,7 @@ std::string generateProtobufBinOptReport(OptRptAnchorMapTy &OptRptAnchorMap,
       // opt-report.
       auto DiagPropMapIt = DiagPropertyMap.find(RemarkID);
       if (DiagPropMapIt == DiagPropertyMap.end())
-        continue;
+        return;
 
       opt_report_proto::BinOptReport::Property PropID = (*DiagPropMapIt).second;
       opt_report_proto::BinOptReport::Remark *BinRemark = LOR->add_remarks();
@@ -359,7 +360,14 @@ std::string generateProtobufBinOptReport(OptRptAnchorMapTy &OptRptAnchorMap,
           IntArg->set_value(ArgInt);
         }
       }
-    }
+    };
+
+    // Translate origin remarks to properties.
+    for (const OptRemark Remark : OR.origin())
+      ProcessRemark(Remark);
+    // Translate diagnostic remarks to properties.
+    for (const OptRemark Remark : OR.remarks())
+      ProcessRemark(Remark);
   }
 
   // Populate Property->RemarkMsg map.

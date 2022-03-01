@@ -140,6 +140,7 @@
 ;CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*Loop.*}}, llvm::Function> on foo
 ;CHECK-NEXT: Running pass: AlwaysInlinerPass on [module]
 ;CHECK-NEXT: Running pass: VPODirectiveCleanupPass on foo
+;CHECK-NEXT: Running pass: VPOCFGSimplifyPass on foo
 ;CHECK-NEXT: Running pass: AlwaysInlinerPass on [module]
 
 ; The IR below was taken from new-pm-O0-defaults.ll

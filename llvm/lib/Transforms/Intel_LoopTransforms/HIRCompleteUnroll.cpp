@@ -3135,6 +3135,12 @@ void HIRCompleteUnroll::doUnroll(HLLoop *Loop) {
 
   Loop->getParentRegion()->setGenCode();
 
+  // We may have to update number of exits of parent loops after unrolling inner
+  // multi-exit loop. Store the pointer to outermost loop before loop gets
+  // unrolled in transformLoop() below.
+  auto *OutermostParentLoop =
+      Loop->isMultiExit() ? Loop->getOutermostParentLoop() : nullptr;
+
   SmallVector<int64_t, MaxLoopNestLevel> IVValues;
   CanonExprUpdater CEUpdater(Loop->getNestingLevel(), IVValues,
                              Loop->hasCompleteUnrollEnablingPragma());
@@ -3142,6 +3148,10 @@ void HIRCompleteUnroll::doUnroll(HLLoop *Loop) {
   transformLoop(Loop, CEUpdater, true);
 
   assert(IVValues.empty() && "IV values were not cleaned up!");
+
+  if (OutermostParentLoop) {
+    HLNodeUtils::updateNumLoopExits(OutermostParentLoop);
+  }
 }
 
 // Transform (Complete Unroll) each loop inside the CandidateLoops vector

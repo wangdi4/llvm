@@ -335,7 +335,7 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopUnroller.cpp @ivankelarev @skozhukh
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopUnroller.h @ivankelarev @skozhukh
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanMaskedModeLoop.cpp @skozhukh @sguggill
-/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanMaskedModeLoop.h  @skozhukh @suggill
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanMaskedModeLoop.h  @skozhukh @sguggill
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanOptrpt.h @karthik-senthil @ivankelarev
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanOptrpt.inc @karthik-senthil @ivankelarev
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanPragmaOmpOrderedSimdExtract.cpp @skozhukh @mamasten
@@ -681,7 +681,7 @@ xptifw/ @intel-restricted/llvm-reviewers-runtime
 /llvm/test/Transforms/Intel_TbaaMDPropagation/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/Intel_TransformSinAndCosCalls/ @nawalcopty @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/JumpThreading/ @jcranmer-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
-/llvm/test/Transforms/LICM/ @jcranmer-intel @zsrkmyn @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/LICM/ @jcranmer-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/LoopDeletion/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/LoopIdiom/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/LoopInterchange/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
@@ -689,7 +689,7 @@ xptifw/ @intel-restricted/llvm-reviewers-runtime
 /llvm/test/Transforms/LoopReroll/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/LoopRotate/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/LoopSimplify/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
-/llvm/test/Transforms/LoopStrengthReduce/ @zsrkmyn @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/LoopStrengthReduce/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/LoopUnroll/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/LoopUnswitch/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/LoopVersioning/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer

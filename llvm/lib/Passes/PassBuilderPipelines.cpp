@@ -1802,16 +1802,14 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
           FPM.addPass(createFunctionToLoopPassAdaptor(LoopSimplifyCFGPass()));
         addVPlanVectorizer(MPM, FPM, Level);
       }
-
-      if (!FPM.isEmpty())
-        MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
     }
 
-    MPM.addPass(createModuleToFunctionPassAdaptor(VPODirectiveCleanupPass()));
+    FPM.addPass(VPODirectiveCleanupPass());
   }
 #endif // INTEL_CUSTOMIZATION
   // Clean-up empty blocks after OpenMP directives handling.
   FPM.addPass(VPOCFGSimplifyPass());
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
 #if INTEL_CUSTOMIZATION
   // Paropt transformation pass may produce new AlwaysInline functions.
   // Force inlining for them, if paropt pass runs after the normal inliner.
