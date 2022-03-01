@@ -1913,17 +1913,9 @@ Value *SCEVExpander::expandCodeForImpl(const SCEV *SH, Type *Ty, bool Root) {
 
 #if INTEL_CUSTOMIZATION
 /// See if nsw/nuw flags can be preserved in I, in the context where value I
-/// will replace S. Notice that I is Value*, and Offset
-/// is the offset from SE's ValueOffsetMap. I.e. S -> {I, Offset}
-static bool canPreservePoisonFlags(const SCEV *S, const ConstantInt* Offset,
-                                   const Instruction *I) {
+/// will replace S. Notice that I is Value*.
+static bool canPreservePoisonFlags(const SCEV *S, const Instruction *I) {
   // We narrow down only to "add" operations with two operands.
-
-  // Offset shouldn't exist because we are looking for match of operands
-  // of SCEV and I.
-  if (Offset)
-    return false;
-
   auto *AS = dyn_cast<SCEVAddExpr>(S);
   if (!AS || !isa<OverflowingBinaryOperator>(I) ||
       I->getOpcode() != Instruction::Add)
@@ -2073,10 +2065,10 @@ Value *SCEVExpander::expand(const SCEV *S) {
     // have poison-generating flags,
     // flags are not dropped when possible.
     if (auto *I = dyn_cast<Instruction>(V))
+      if (I->hasPoisonGeneratingFlags() && !programUndefinedIfPoison(I) &&
+          !canPreservePoisonFlags(S, I))
+          I->dropPoisonGeneratingFlags();
 #endif // INTEL_CUSTOMIZATION
-
-      if (I->hasPoisonGeneratingFlags() && !programUndefinedIfPoison(I))
-        I->dropPoisonGeneratingFlags();
   }
   // Remember the expanded value for this SCEV at this location.
   //
