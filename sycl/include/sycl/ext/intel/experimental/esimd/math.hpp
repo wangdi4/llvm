@@ -2775,8 +2775,10 @@ srnd(simd<SrcType, N> src0, simd<SrcType, N> src1) {
   }
 }
 
-/* end INTEL_CUSTOMIZATION */
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+
+/// @} sycl_esimd_math
 
 // dpas helpers
 namespace detail {
@@ -2825,8 +2827,8 @@ get_ops_per_channel(argument_type src1_precision,
   } else if ((src1_precision == argument_type::BF8) &&
              (src2_precision == argument_type::BF8)) {
     return dpas_ops_per_channel::OP4;
-/* end INTEL_CUSTOMIZATION */
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
   } else if ((src1_precision == argument_type::TF32) &&
              (src2_precision == argument_type::TF32)) {
     return dpas_ops_per_channel::OP1;
@@ -2836,8 +2838,12 @@ get_ops_per_channel(argument_type src1_precision,
 
 constexpr unsigned get_precision_bits(argument_type src_precision) {
   if ((src_precision == argument_type::U8) ||
-      (src_precision == argument_type::S8) ||
-      (src_precision == argument_type::BF8)) {
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+      (src_precision == argument_type::BF8) ||
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+      (src_precision == argument_type::S8)) {
     return 8;
   } else if ((src_precision == argument_type::U4) ||
              (src_precision == argument_type::S4)) {
@@ -2856,24 +2862,28 @@ constexpr unsigned get_precision_bits(argument_type src_precision) {
 
 } // namespace detail
 
-/// \defgroup sycl_esimd_systolic_array_api Systolic Array APIs
+/// @defgroup sycl_esimd_systolic_array_api Systolic Array APIs.
 /// APIs below are used to implement dot product accumulate systolic functions
-/// \ingroup sycl_esimd
+/// @ingroup sycl_esimd
+
+/// @addtogroup sycl_esimd_systolic_array_api
 /// @{
 /// DPAS
-/// \param src0 is the source operand that represents accumulator for the dpas
+/// @param src0 is the source operand that represents accumulator for the dpas
 /// function
-/// \param src1 is the first source perand with data precision type specified
+/// @param src1 is the first source perand with data precision type specified
 /// by src1_precision.
-/// \param src2 is the second source operand with data precision type specified
+/// @param src2 is the second source operand with data precision type specified
 /// by src2_precision.
-/// \param flag is the saturation flag, which has default value of GENX_NOSAT.
-/// \return the vector value of DPAS computation result.
+/// @param sat enables/disables the saturation (off by default). Possible
+/// values: saturation_on/saturation_off.
+/// @return the vector value of DPAS computation result.
 template <argument_type src1_precision, argument_type src2_precision,
           typename T, int systolic_depth, int repeat_count, typename T0,
-          typename T1, typename T2, int N, int N1, int N2>
+          typename T1, typename T2, int N, int N1, int N2,
+          typename Sat = saturation_off_tag>
 __ESIMD_API simd<T, N> dpas(simd<T0, N> src0, simd<T1, N1> src1,
-                            simd<T2, N2> src2, int flag = GENX_NOSAT) {
+                            simd<T2, N2> src2, Sat sat = {}) {
   // types: dst, src0, src1, src2
   // ud, d | ud, d | ub, b | ub, b
   // ud, d | ud, d | u4, s4, u2, s2 | ub, b
@@ -2882,15 +2892,14 @@ __ESIMD_API simd<T, N> dpas(simd<T0, N> src0, simd<T1, N1> src1,
   constexpr bool check_integer =
       detail::is_one_of_v<T, unsigned int, int> &&
       detail::is_one_of_v<T0, unsigned int, int> &&
-      detail::is_one_of_enum_v<argument_type, src1_precision,
-                               argument_type::S8, argument_type::U8,
-                               argument_type::U4, argument_type::S4,
-                               argument_type::U2,
+      detail::is_one_of_enum_v<argument_type, src1_precision, argument_type::S8,
+                               argument_type::U8, argument_type::U4,
+                               argument_type::S4, argument_type::U2,
                                argument_type::S2> &&
-      detail::is_one_of_enum_v<argument_type, src2_precision,
-                               argument_type::S8, argument_type::U8,
-                               argument_type::U4, argument_type::S4,
-                               argument_type::U2, argument_type::S2>;
+      detail::is_one_of_enum_v<argument_type, src2_precision, argument_type::S8,
+                               argument_type::U8, argument_type::U4,
+                               argument_type::S4, argument_type::U2,
+                               argument_type::S2>;
   // f, bf | f, bf | bf | bf
   constexpr bool check_bf16 =
       detail::is_one_of_v<T, float, short> &&
@@ -2908,11 +2917,15 @@ __ESIMD_API simd<T, N> dpas(simd<T0, N> src0, simd<T1, N1> src1,
       detail::is_one_of_enum_v<argument_type, src2_precision,
                                argument_type::FP16>;
 
+#if defined(ESIMD_XE_HPC) || \
+/* INTEL_CUSTOMIZATION */ \
+/* INTEL_FEATURE_ESIMD_EMBARGO */ \
+    defined(ESIMD_XE2_HPC) || \
+/* end INTEL_FEATURE_ESIMD_EMBARGO */ \
+/* end INTEL_CUSTOMIZATION */ \
+    defined(ESIMD_XE_HPG)
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
-// PVC-EMBARGO-SECTION: ESIMD_GEN12_7, ESIMD_GEN12_9
-#if defined(ESIMD_GEN12_7) || defined(ESIMD_GEN12_9)
-  // NOTE: this part is related valid for PVC, care should be taken during OS
   // f, hf, bf | f, hf, bf | bf8 | bf8
   constexpr bool check_bf8 =
       detail::is_one_of_v<T, float, half, short> &&
@@ -2921,6 +2934,8 @@ __ESIMD_API simd<T, N> dpas(simd<T0, N> src0, simd<T1, N1> src1,
                                argument_type::BF8> &&
       detail::is_one_of_enum_v<argument_type, src2_precision,
                                argument_type::BF8>;
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
   // f | f | tf32 | tf32
   constexpr bool check_tf32 =
       detail::is_one_of_v<T, float> && detail::is_one_of_v<T0, float> &&
@@ -2928,13 +2943,23 @@ __ESIMD_API simd<T, N> dpas(simd<T0, N> src0, simd<T1, N1> src1,
                                argument_type::TF32> &&
       detail::is_one_of_enum_v<argument_type, src2_precision,
                                argument_type::TF32>;
-#endif // defined(ESIMD_GEN12_7) || defined(ESIMD_GEN12_9)
+#endif // defined(ESIMD_XE_HPC) || defined(ESIMD_XE_HPG)
 
-// PVC-EMBARGO-SECTION: ESIMD_GEN12_7, ESIMD_GEN12_9
-#if defined(ESIMD_GEN12_7) || defined(ESIMD_GEN12_9)
-  // NOTE: this part is related valid for PVC, care should be taken during OS
+#if defined(ESIMD_XE_HPC) || \
+/* INTEL_CUSTOMIZATION */ \
+/* INTEL_FEATURE_ESIMD_EMBARGO */ \
+    defined(ESIMD_XE2_HPC) || \
+/* end INTEL_FEATURE_ESIMD_EMBARGO */ \
+/* end INTEL_CUSTOMIZATION */ \
+    defined(ESIMD_XE_HPG)
   constexpr bool check_passed =
-      (check_integer || check_hf || check_bf16 || check_bf8 || check_tf32);
+      (check_integer || check_hf || check_bf16 ||
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+	   check_bf8 ||
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+	   check_tf32);
   static_assert(check_passed,
                 "unsupported dpas type! The supported types are:\n"
                 "    dst    |    src0    |      src1      |      src2      \n"
@@ -2942,10 +2967,13 @@ __ESIMD_API simd<T, N> dpas(simd<T0, N> src0, simd<T1, N1> src1,
                 "   ud, d   |   ud, d    | u4, s4, u2, s2 | u4, s4, u2, s2 \n"
                 "   f, bf   |    f, bf   |       bf       |       bf       \n"
                 "   f, hf   |    f, hf   |       hf       |       hf       \n"
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
                 " f, hf, bf | f, hf, bf  |       bf8      |       bf8      \n"
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
                 "    f      |     f      |      tf32      |      tf32      \n");
-#else  // else defined(ESIMD_GEN12_7) || defined(ESIMD_GEN12_9)
-  // ATS-EMBARGO-SECTION (TGL):
+#else  // else defined(ESIMD_XE_HPC) || defined(ESIMD_XE_HPG)
   constexpr bool check_passed = (check_integer || check_hf || check_bf16);
   static_assert(check_passed,
                 "unsupported dpas type! The supported types are:\n"
@@ -2954,20 +2982,22 @@ __ESIMD_API simd<T, N> dpas(simd<T0, N> src0, simd<T1, N1> src1,
                 "   ud, d   |   ud, d    | u4, s4, u2, s2 | u4, s4, u2, s2 \n"
                 "   f, bf   |    f, bf   |       bf       |       bf       \n"
                 "   f, hf   |    f, hf   |       hf       |       hf       \n");
-#endif // end else defined(ESIMD_GEN12_7) || defined(ESIMD_GEN12_9)
+#endif // end else defined(ESIMD_XE_HPC) || defined(ESIMD_XE_HPG)
 
   static_assert(detail::is_dword_type<T1>::value, "Src1 must be DWORD type");
   static_assert(detail::is_dword_type<T2>::value, "Src2 must be DWORD type");
 
-  // PVC-EMBARGO-SECTION: ESIMD_GEN12_7, ESIMD_GEN12_9
-#if defined(ESIMD_GEN12_7) || defined(ESIMD_GEN12_9)
+#if defined(ESIMD_XE_HPC) || \
+/* INTEL_CUSTOMIZATION */ \
+/* INTEL_FEATURE_ESIMD_EMBARGO */ \
+    defined(ESIMD_XE2_HPC) || \
+/* end INTEL_FEATURE_ESIMD_EMBARGO */ \
+/* end INTEL_CUSTOMIZATION */ \
+    defined(ESIMD_XE_HPG)
   static_assert((N == 16 * repeat_count), "Execution size on PVC must be 16");
 #else
-  // ATS-EMBARGO-SECTION (TGL):
   static_assert((N == 8 * repeat_count), "Execution size must be 8");
 #endif
-/* end INTEL_CUSTOMIZATION */
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
 
   static_assert((systolic_depth == 8) || (systolic_depth == 4),
                 "systolic_depth must be 8 or 4");
@@ -2998,13 +3028,10 @@ __ESIMD_API simd<T, N> dpas(simd<T0, N> src0, simd<T1, N1> src1,
 #if defined(__SYCL_DEVICE_ONLY__)
   constexpr int dst_signed = std::is_signed<T>::value;
   constexpr int src0_signed = std::is_signed<T0>::value;
-  simd<T, N> result =
-      __esimd_dpas<T, T0, T1, T2, N, N1, N2>(src0.data(), src1.data(), src2.data(),
-                                             (int)src1_precision + 1,
-                                             (int)src2_precision + 1,
-                                             systolic_depth,
-                                             repeat_count,
-                                             dst_signed, src0_signed);
+  simd<T, N> result = __esimd_dpas<T, T0, T1, T2, N, N1, N2>(
+      src0.data(), src1.data(), src2.data(), (int)src1_precision + 1,
+      (int)src2_precision + 1, systolic_depth, repeat_count, dst_signed,
+      src0_signed);
 
 #else
   simd<T, N> result =
@@ -3013,45 +3040,44 @@ __ESIMD_API simd<T, N> dpas(simd<T0, N> src0, simd<T1, N1> src1,
                                              src2.data());
 #endif // __SYCL_DEVICE_ONLY__
 
-  if (flag != GENX_SAT)
+  if constexpr (std::is_same_v<Sat, saturation_off_tag>)
     return result;
-
-  return saturate<T>(result);
+  else
+    return esimd::saturate<T>(result);
 }
 
-/// APIs below are used to implement dot product accumulate systolic functions
-/// \ingroup sycl_esimd
-/// @{
 /// DPAS
-/// \param src0 is the source operand that represents accumulator for the dpas
+/// @param src0 is the source operand that represents accumulator for the dpas
 /// function, which must have the same type as return value
-/// \param src1 is the first source perand with data precision type specified
+/// @param src1 is the first source perand with data precision type specified
 /// by src1_precision.
-/// \param src2 is the second source operand with data precision type specified
+/// @param src2 is the second source operand with data precision type specified
 /// by src2_precision.
-/// \param flag is the saturation flag, which has default value of GENX_NOSAT.
-/// \return the vector value of DPAS computation result.
+/// @param sat enables/disables the saturation (off by default). Possible
+/// values: saturation_on/saturation_off.
+/// @return the vector value of DPAS computation result.
 template <argument_type src1_precision, argument_type src2_precision,
           int systolic_depth, int repeat_count, typename T, typename T1,
-          typename T2, int N, int N1, int N2>
+          typename T2, int N, int N1, int N2, typename Sat = saturation_off_tag>
 __ESIMD_API simd<T, N> dpas(simd<T, N> src0, simd<T1, N1> src1,
-                            simd<T2, N2> src2, int flag = GENX_NOSAT) {
+                            simd<T2, N2> src2, Sat sat = {}) {
   return dpas<src1_precision, src2_precision, T, systolic_depth, repeat_count>(
-      src0, src1, src2, flag);
+      src0, src1, src2, sat);
 }
 
 /// DPAS
-/// \param src1 is the first source perand with data precision type specified
+/// @param src1 is the first source perand with data precision type specified
 /// by src1_precision.
-/// \param src2 is the second source operand with data precision type specified
+/// @param src2 is the second source operand with data precision type specified
 /// by src2_precision.
-/// \param flag is the saturation flag, which has default value of GENX_NOSAT.
-/// \return the vector value of DPAS computation result.
+/// @param sat enables/disables the saturation (off by default). Possible
+/// values: saturation_on/saturation_off.
+/// @return the vector value of DPAS computation result.
 template <argument_type src1_precision, argument_type src2_precision,
           int systolic_depth, int repeat_count, typename T, typename T1,
-          typename T2, int N, int N1, int N2>
+          typename T2, int N, int N1, int N2, typename Sat = saturation_off_tag>
 __ESIMD_API simd<T, N> dpas(simd<T1, N1> src1, simd<T2, N2> src2,
-                            int flag = GENX_NOSAT) {
+                            Sat sat = {}) {
 
   static_assert(detail::is_fp_or_dword_type<T>::value,
                 "Dst must be FP or DWORD type");
@@ -3101,30 +3127,30 @@ __ESIMD_API simd<T, N> dpas(simd<T1, N1> src1, simd<T2, N2> src2,
                                                         src2.data());
 #endif // __SYCL_DEVICE_ONLY__
 
-  if (flag != GENX_SAT)
+  if constexpr (std::is_same_v<Sat, saturation_off_tag>)
     return result;
-
-  return saturate<T>(result);
+  else
+    return esimd::saturate<T>(result);
 }
 
 /// DPASW
-/// \param src0 is the source operand that represents accumulator for the dpas
+/// @param src0 is the source operand that represents accumulator for the dpas
 /// function, which must have the same type as return value.
-/// \param src1 is the first source perand with data precision type specified
+/// @param src1 is the first source perand with data precision type specified
 /// by src1_precision.
-/// \param src2 is the second source operand with data precision type specified
+/// @param src2 is the second source operand with data precision type specified
 /// by src2_precision.
-/// \param flag is the saturation flag, which has default value of GENX_NOSAT.
-/// \return the vector value of DPAS computation result.
+/// @param sat enables/disables the saturation (off by default). Possible
+/// values: saturation_on/saturation_off.
+/// @return the vector value of DPAS computation result.
 template <argument_type src1_precision, argument_type src2_precision,
           int systolic_depth, int repeat_count, typename T, typename T1,
-          typename T2, int N, int N1, int N2>
+          typename T2, int N, int N1, int N2, typename Sat = saturation_off_tag>
 __ESIMD_API simd<T, N> dpasw(simd<T, N> src0, simd<T1, N1> src1,
-                             simd<T2, N2> src2, int flag = GENX_NOSAT) {
+                             simd<T2, N2> src2, Sat sat = {}) {
   constexpr bool is_4xhf =
       (detail::is_type<T, cl::sycl::detail::half_impl::StorageT>()) &&
-      src1_precision == src2_precision &&
-      src1_precision == argument_type::FP16;
+      src1_precision == src2_precision && src1_precision == argument_type::FP16;
 
   constexpr bool is_4xbf = detail::is_word_type<T>::value &&
                            src1_precision == src2_precision &&
@@ -3180,28 +3206,28 @@ __ESIMD_API simd<T, N> dpasw(simd<T, N> src0, simd<T1, N1> src1,
           src0.data(), src1.data(), src2.data());
 #endif // __SYCL_DEVICE_ONLY__
 
-  if (flag != GENX_SAT)
+  if constexpr (std::is_same_v<Sat, saturation_off_tag>)
     return result;
-
-  return saturate<T>(result);
+  else
+    return esimd::saturate<T>(result);
 }
 
 /// DPASW2
-/// \param src1 is the first source perand with data precision type specified
+/// @param src1 is the first source perand with data precision type specified
 /// by src1_precision.
-/// \param src2 is the second source operand with data precision type specified
+/// @param src2 is the second source operand with data precision type specified
 /// by src2_precision.
-/// \param flag is the saturation flag, which has default value of GENX_NOSAT.
-/// \return the vector value of DPAS computation result.
+/// @param sat enables/disables the saturation (off by default). Possible
+/// values: saturation_on/saturation_off.
+/// @return the vector value of DPAS computation result.
 template <argument_type src1_precision, argument_type src2_precision,
           int systolic_depth, int repeat_count, typename T, typename T1,
-          typename T2, int N, int N1, int N2>
+          typename T2, int N, int N1, int N2, typename Sat = saturation_off_tag>
 __ESIMD_API simd<T, N> dpasw2(simd<T1, N1> src1, simd<T2, N2> src2,
-                              int flag = GENX_NOSAT) {
+                              Sat sat = {}) {
   constexpr bool is_4xhf =
-      (is_type<T, cl::sycl::detail::half_impl::StorageT>()) &&
-      src1_precision == src2_precision &&
-      src1_precision == argument_type::FP16;
+      (detail::is_type<T, cl::sycl::detail::half_impl::StorageT>()) &&
+      src1_precision == src2_precision && src1_precision == argument_type::FP16;
 
   constexpr bool is_4xbf = detail::is_word_type<T>::value &&
                            src1_precision == src2_precision &&
@@ -3257,14 +3283,12 @@ __ESIMD_API simd<T, N> dpasw2(simd<T1, N1> src1, simd<T2, N2> src2,
                                                          src2.data());
 #endif // __SYCL_DEVICE_ONLY__
 
-  if (flag != GENX_SAT)
+  if constexpr (std::is_same_v<Sat, saturation_off_tag>)
     return result;
-
-  return saturate<T>(result);
+  else
+    return esimd::saturate<T>(result);
 }
-/// @}
-
-/// @} sycl_esimd_math
+/// @} sycl_esimd_systolic_array_api
 
 } // namespace esimd
 } // namespace experimental

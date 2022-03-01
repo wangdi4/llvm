@@ -110,29 +110,6 @@ static inline constexpr saturation_off_tag saturation_off{};
 /// Type tag object representing "saturation on" behavior.
 static inline constexpr saturation_on_tag saturation_on{};
 
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-
-// TODO FIXME Remove after embargo API open-source {
-
-// Defines a deprecated enum value. Use of this value will cause a deprecation
-// message printed out by the compiler.
-#define __ESIMD_DEPR_ENUM_V(old, new, t)                                       \
-  old __ESIMD_DEPRECATED(new) = static_cast<t>(new)
-
-/// Gen hardware supports applying saturation to results of some operation.
-/// This enum allows to control this behavior.
-enum class saturation : uint8_t { off, on };
-
-enum {
-  __ESIMD_DEPR_ENUM_V(GENX_NOSAT, saturation::off, uint8_t),
-  __ESIMD_DEPR_ENUM_V(GENX_SAT, saturation::on, uint8_t)
-};
-// }
-
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
-
 enum class argument_type {
   U1 = 0,   // unsigned 1 bit
   S1 = 1,   // signed 1 bit
@@ -144,7 +121,11 @@ enum class argument_type {
   S8 = 7,   // signed 8 bits
   BF16 = 8, // bfloat 16
   FP16 = 9, // half float
-  BF8 = 10, // bfloat 8 // INTEL_FEATURE_ESIMD_EMBARGO
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+  BF8 = 10, // bfloat 8
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
   TF32 = 11 // tensorfloat 32
 };
 

@@ -286,9 +286,6 @@ SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<T, N> __esimd_dpas(
     __SEIEED::vector_type_t<T2, N2> src2, int src1_precision,
     int src2_precision, int depth, int repeat, int sign_res, int sign_acc);
 
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-
 template <typename T, typename T1, typename T2, int N, int N1, int N2>
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<T, N>
 __esimd_dpas2(__SEIEED::vector_type_t<T1, N1> src1,
@@ -304,6 +301,9 @@ template <typename T, typename T1, typename T2, int N, int N1, int N2>
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<T, N>
 __esimd_dpasw2(__SEIEED::vector_type_t<T1, N1> src1,
                __SEIEED::vector_type_t<T2, N2> src2, int dpas_info);
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
 
 template <int N>
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<__SEIEE::bfloat16, N>
@@ -1318,9 +1318,13 @@ __esimd_dpas_inner(const __SEIEED::vector_type_t<RT, SZ> *src0,
                              ? 1
                              : 0;
 
-// INTEL
-#if defined(ESIMD_XE_HPC) || defined(ESIMD_XE_HPG) || defined(ESIMD_GEN12_7)
-// INTEL
+#if defined(ESIMD_XE_HPC) || \
+/* INTEL_CUSTOMIZATION */ \
+/* INTEL_FEATURE_ESIMD_EMBARGO */ \
+    defined(ESIMD_XE2_HPC) || \
+/* end INTEL_FEATURE_ESIMD_EMBARGO */ \
+/* end INTEL_CUSTOMIZATION */ \
+    defined(ESIMD_XE_HPG)
   constexpr bool isPvc = true;
   constexpr size_t SIMDSize = 16;
 #else

@@ -503,11 +503,15 @@ public:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ESIMD_EMBARGO
         {"wait", {"dummy.mov", {a(0)}}},
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
         {"dpas",
          {"dpas2", {a(0), a(1), a(2), a(3), a(4), a(5), a(6), a(7), a(8)}}},
         {"dpas2", {"dpas.nosrc0", {a(0), a(1), a(2)}}},
         {"dpasw", {"dpasw", {a(0), a(1), a(2), a(3)}}},
         {"dpasw2", {"dpasw.nosrc0", {a(0), a(1), a(2)}}},
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
         {"bf_cvt", { "bf.cvt", { a(0) }}},
         {"tf32_cvt", { "tf32.cvt", { a(0) }}},
         {"qf_cvt", { "qf.cvt", { a(0) }}},
