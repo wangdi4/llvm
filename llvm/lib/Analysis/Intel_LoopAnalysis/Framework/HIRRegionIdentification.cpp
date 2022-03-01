@@ -773,10 +773,45 @@ void HIRRegionIdentification::CostModelAnalyzer::printStats() const {
 }
 #endif
 
+static MDString *getStringMetadata(MDNode *Node) {
+  assert(Node->getNumOperands() > 0 &&
+         "metadata should have at least one operand!");
+
+  return dyn_cast<MDString>(Node->getOperand(0));
+}
+
+static bool isIVDepMetadata(MDNode *Node) {
+  MDString *Str = getStringMetadata(Node);
+  return Str && Str->getString().startswith("llvm.loop.vectorize.ivdep");
+}
+
+static bool isIVDepLoop(const Loop &Lp) {
+  MDNode *LoopID = Lp.getLoopID();
+
+  if (!LoopID) {
+    return false;
+  }
+
+  unsigned Ops = LoopID->getNumOperands();
+
+  for (unsigned I = 0; I < Ops; ++I) {
+    MDNode *OpNode = dyn_cast<MDNode>(LoopID->getOperand(I));
+    if (OpNode == LoopID) {
+      continue;
+    }
+
+    if (isIVDepMetadata(OpNode)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 void HIRRegionIdentification::CostModelAnalyzer::analyze() {
 
-  // SIMD loops should not be throttled.
-  if (isLoopWithDirective(Lp)) {
+  // SIMD/IVDep loops should not be throttled.
+  if (isLoopWithDirective(Lp) || isIVDepLoop(Lp)) {
     IsProfitable = true;
     return;
   }
@@ -1331,13 +1366,6 @@ bool HIRRegionIdentification::shouldThrottleLoop(
   LLVM_DEBUG(CMA.printStats());
 
   return !CMA.isProfitable();
-}
-
-static MDString *getStringMetadata(MDNode *Node) {
-  assert(Node->getNumOperands() > 0 &&
-         "metadata should have at least one operand!");
-
-  return dyn_cast<MDString>(Node->getOperand(0));
 }
 
 static bool isUnrollMetadata(MDNode *Node) {
