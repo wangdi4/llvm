@@ -145,9 +145,10 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
 ; This test checks that we correctly identify SOA-unsafe variables on account of
 ; unsafe load/store instructions (loaded type size != alloca element size).
 define void @test_unsafe_addrspacecast() {
-;CHECK: SOA profitability
-;CHECK-NEXT: SOAUnsafe = arr_e.priv
-;CHECK-NEXT: SOASafe = arr_ne.priv
+; CHECK:        SOA profitability
+; CHECK-NEXT:  SOASafe = arr_ne.priv
+; CHECK-NEXT:  SOAUnsafe = arr_e.priv
+;
   %arr_e.priv = alloca [1024 x i32], align 4
   %arr_ne.priv = alloca [1024 x i32], align 4
   br label %simd.begin.region

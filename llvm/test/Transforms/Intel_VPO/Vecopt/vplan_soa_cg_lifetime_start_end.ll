@@ -9,8 +9,8 @@ define void @test_lifetime_start_end() {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ARR_PRIV8:%.*]] = alloca [1024 x i8], align 4
 ; CHECK-NEXT:    [[ARR_PRIV32:%.*]] = alloca [1024 x i32], align 4
-; CHECK-NEXT:    [[ARR_PRIV8_SOA_VEC:%.*]] = alloca [1024 x <2 x i8>], align 2
 ; CHECK-NEXT:    [[ARR_PRIV32_SOA_VEC:%.*]] = alloca [1024 x <2 x i32>], align 8
+; CHECK-NEXT:    [[ARR_PRIV8_SOA_VEC:%.*]] = alloca [1024 x <2 x i8>], align 2
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION:%.*]]
 ; CHECK:       simd.begin.region:
 ; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER:%.*]]
@@ -25,17 +25,17 @@ define void @test_lifetime_start_end() {
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast [1024 x <2 x i32>]* [[ARR_PRIV32_SOA_VEC]] to <2 x i8>*
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP4:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP3:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i8>, <2 x i8>* [[SOA_SCALAR_GEP]], align 4
 ; CHECK-NEXT:    store <2 x i8> <i8 30, i8 30>, <2 x i8>* [[SOA_SCALAR_GEP]], align 1
 ; CHECK-NEXT:    [[SOA_SCALAR_GEP3:%.*]] = getelementptr inbounds [1024 x <2 x i32>], [1024 x <2 x i32>]* [[ARR_PRIV32_SOA_VEC]], i64 0, i64 0
 ; CHECK-NEXT:    [[WIDE_LOAD4:%.*]] = load <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP3]], align 4
 ; CHECK-NEXT:    store <2 x i32> <i32 30, i32 30>, <2 x i32>* [[SOA_SCALAR_GEP3]], align 4
-; CHECK-NEXT:    [[TMP3]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP7:%.*]] = icmp ult i64 [[TMP4]], 1024
-; CHECK-NEXT:    br i1 [[TMP7]], label [[VECTOR_BODY]], label [[VPLANNEDBB5:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
+; CHECK-NEXT:    [[TMP1]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI]], 2
+; CHECK-NEXT:    [[TMP3:%.*]] = icmp ult i64 [[TMP2]], 1024
+; CHECK-NEXT:    br i1 [[TMP3]], label [[VECTOR_BODY]], label [[VPLANNEDBB5:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
 ;
 entry:
   %arr.priv8 = alloca [1024 x i8], align 4
@@ -94,8 +94,8 @@ define void @test_lifetime_start_end_with_phi_inputs() {
 ; CHECK-NEXT:    [[SOA_SCALAR_GEP:%.*]] = getelementptr inbounds [1024 x <2 x i32>], [1024 x <2 x i32>]* [[ARR_PRIV32_SOA_VEC]], i64 0, i64 0
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP15:%.*]], [[VPLANNEDBB14:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP14:%.*]], [[VPLANNEDBB14]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP13:%.*]], [[VPLANNEDBB14:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP12:%.*]], [[VPLANNEDBB14]] ]
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP]], align 4
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp eq <2 x i64> [[VEC_PHI]], <i64 42, i64 42>
 ; CHECK-NEXT:    br label [[ALL_ZERO_BYPASS_BEGIN42:%.*]]
@@ -116,10 +116,10 @@ define void @test_lifetime_start_end_with_phi_inputs() {
 ; CHECK:       VPlannedBB13:
 ; CHECK-NEXT:    br label [[VPLANNEDBB14]]
 ; CHECK:       VPlannedBB14:
-; CHECK-NEXT:    [[TMP14]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP15]] = add nuw nsw i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP16:%.*]] = icmp ult i64 [[TMP15]], 1024
-; CHECK-NEXT:    br i1 [[TMP16]], label [[VECTOR_BODY]], label [[VPLANNEDBB15:%.*]], !llvm.loop [[LOOP2:![0-9]+]]
+; CHECK-NEXT:    [[TMP12]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP13]] = add nuw nsw i64 [[UNI_PHI]], 2
+; CHECK-NEXT:    [[TMP14:%.*]] = icmp ult i64 [[TMP13]], 1024
+; CHECK-NEXT:    br i1 [[TMP14]], label [[VECTOR_BODY]], label [[VPLANNEDBB15:%.*]], !llvm.loop [[LOOP2:![0-9]+]]
 ;
 entry:
   %arr.priv32 = alloca [1024 x i32], align 4
