@@ -722,6 +722,7 @@ void initializeDPCPPKernelPostVecPass(PassRegistry&);
 void initializeDPCPPKernelVecCloneLegacyPass(PassRegistry &);
 void initializeDPCPPKernelWGLoopCreatorLegacyPass(PassRegistry &);
 void initializeDPCPPPreprocessSPIRVFriendlyIRLegacyPass(PassRegistry &);
+void initializeDeduceMaxWGDimLegacyPass(PassRegistry &);
 void initializeDuplicateCalledKernelsLegacyPass(PassRegistry &);
 void initializeGroupBuiltinLegacyPass(PassRegistry &);
 void initializeHandleVPlanMaskLegacyPass(PassRegistry &);

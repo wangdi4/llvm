@@ -83,6 +83,7 @@ MODULE_PASS("vplan-pragma-omp-ordered-simd-extract", VPlanPragmaOmpOrderedSimdEx
 MODULE_PASS("dpcpp-kernel-add-function-attrs", AddFunctionAttrsPass())
 MODULE_PASS("dpcpp-kernel-builtin-import", BuiltinImportPass())
 MODULE_PASS("dpcpp-kernel-coerce-win64-types", CoerceWin64TypesPass())
+MODULE_PASS("dpcpp-kernel-deduce-max-dim", DeduceMaxWGDimPass())
 MODULE_PASS("dpcpp-kernel-equalizer", DPCPPEqualizerPass())
 MODULE_PASS("dpcpp-kernel-analysis", DPCPPKernelAnalysisPass())
 MODULE_PASS("dpcpp-kernel-wgloop-creator", DPCPPKernelWGLoopCreatorPass())

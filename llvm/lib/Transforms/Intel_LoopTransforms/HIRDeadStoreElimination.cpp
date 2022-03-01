@@ -229,6 +229,61 @@ FunctionPass *llvm::createHIRDeadStoreEliminationPass() {
   return new HIRDeadStoreEliminationLegacyPass();
 }
 
+// Calculate the lexical range for intervening store in case of different
+// parent loops.
+// Ex:
+//
+// DO i1
+//   DO i2          >>>>>> Range starts here
+//     ...
+//     DO i3
+//       DO i4
+//         A[i4] = ...      StoreRef
+//       ENDDO i4
+//     ENDDO i3
+//   ENDDO i2
+//
+//   DO i2
+//     DO i3
+//       DO i4
+//         A[i4] = ...      PostDomStoreRef
+//         ... = A[i4 + 1]  LoadRef
+//       ENDDO i4
+//     ENDDO i3
+//   ENDDO i2        <<<<<< Range ends here
+//
+// ENDDO i1
+void calculateLexicalRange(unsigned &MinTopSortNumber,
+                           unsigned &MaxTopSortNumber, const HLLoop *StoreLoop,
+                           const HLLoop *PostDomStoreLoop) {
+  // By default the outermost parent of the Store and PostDomStore loopnests is
+  // a region. If so take the outermost loop of each loopnest.
+  unsigned Level = 1;
+
+  // Otherwise calculate lowest common ancestor loop of the parent loops of
+  // StoreRef and PostDomStoreRef (i1 loop).
+  const HLLoop *LCALoop =
+      HLNodeUtils::getLowestCommonAncestorLoop(StoreLoop, PostDomStoreLoop);
+  if (LCALoop)
+    Level = LCALoop->getNestingLevel() + 1;
+
+  // Calculate StoreRef parent loop ancestor (i2 loop) if any.
+  if (StoreLoop) {
+    auto *OutermostStoreParent = StoreLoop->getParentLoopAtLevel(Level);
+    if (OutermostStoreParent)
+      MinTopSortNumber = OutermostStoreParent->getTopSortNum();
+  }
+
+  // Calculate PostDomStoreRef parent loop ancestor (second i2 loop) if any.
+  if (PostDomStoreLoop) {
+    auto *OutermostPostDomStoreParent =
+        PostDomStoreLoop->getParentLoopAtLevel(Level);
+    if (OutermostPostDomStoreParent)
+      MaxTopSortNumber =
+          OutermostPostDomStoreParent->getLastChild()->getMaxTopSortNum();
+  }
+}
+
 // Returns true if there is an intervening load between \p StoreRef and \p
 // PostDomStoreRef which aliases with \p StoreRef. For example-
 //
@@ -244,16 +299,25 @@ foundInterveningLoad(HIRDDAnalysis &HDDA, const RegDDRef *StoreRef,
   assert((PostDomStoreRef->getDestTypeSizeInBytes() >=
           StoreRef->getDestTypeSizeInBytes()) &&
          "Post-dominating ref's size cannot be smaller than the other ref!");
-
+  const HLDDNode *StoreNode = StoreRef->getHLDDNode();
+  const HLDDNode *PostDomStoreNode = PostDomStoreRef->getHLDDNode();
   unsigned StoreSymbase = StoreRef->getSymbase();
-  unsigned MinTopSortNum = StoreRef->getHLDDNode()->getTopSortNum();
-  unsigned MaxTopSortNum = PostDomStoreRef->getHLDDNode()->getTopSortNum();
+  unsigned MinTopSortNum = StoreNode->getTopSortNum();
+  unsigned MaxTopSortNum = PostDomStoreNode->getTopSortNum();
   unsigned MaxSubstitutibleLoadTopSortNum =
       !SubstitutibleLoads.empty()
           ? SubstitutibleLoads[0]->getHLDDNode()->getTopSortNum()
           : 0;
-  bool InDifferentLoops = StoreRef->getHLDDNode()->getParentLoop() !=
-                          PostDomStoreRef->getHLDDNode()->getParentLoop();
+
+  const HLLoop *StoreLoop = StoreNode->getLexicalParentLoop();
+  const HLLoop *PostDomStoreLoop = PostDomStoreNode->getLexicalParentLoop();
+  bool InDifferentLoops = (StoreLoop != PostDomStoreLoop);
+
+  // If StoreRef and PostDomStoreRef are in the different loops, we need to
+  // calculate wider lexical range where the load could be intervening.
+  if (InDifferentLoops)
+    calculateLexicalRange(MinTopSortNum, MaxTopSortNum, StoreLoop,
+                          PostDomStoreLoop);
 
   for (auto &LoadRefGroup : EqualityGroups) {
 
@@ -271,31 +335,19 @@ foundInterveningLoad(HIRDDAnalysis &HDDA, const RegDDRef *StoreRef,
 
       unsigned LoadTopSortNum = LoadRef->getHLDDNode()->getTopSortNum();
 
+      if (LoadTopSortNum <= MinTopSortNum) {
+        break;
+      }
+
       // We can ignore refs which are lexically after PostDomStoreRef.
       if (LoadTopSortNum > MaxTopSortNum) {
         continue;
       }
 
-      // DSE can happen when two store refs are in different parent loops,
-      // but intervening loads can occur before the first StoreRef like so:
-      // DO LOOP1
-      //   Load A[]
-      //   Store1 A[]
-      // END DO1
-      // DO LOOP2
-      //   Store2 A[]
-      // END DO2
-      // The basic analysis in this function only checks memory aliasing in a
-      // single loop iteration, so we give up if the load occurs anywhere inside
-      // the Loop of the first StoreRef. More expensive checks would require DD
-      // Analysis to prove that the Load does not alias with the stores.
-      if (LoadTopSortNum <= MinTopSortNum) {
-        if (InDifferentLoops &&
-            LoadTopSortNum >
-                StoreRef->getHLDDNode()->getParentLoop()->getTopSortNum()) {
-          return true;
-        }
-        break;
+      // In case of different parent loops, we consider any load which fails
+      // into calculated lexical range as intervening.
+      if (InDifferentLoops) {
+        return true;
       }
 
       int64_t Distance;

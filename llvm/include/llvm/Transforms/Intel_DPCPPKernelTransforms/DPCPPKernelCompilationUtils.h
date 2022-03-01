@@ -217,8 +217,14 @@ StringRef nameGetBaseGID();
 /// Return true if string is "get_special_buffer."
 bool isGetSpecialBuffer(StringRef S);
 
+/// Return true if string is "__opencl_printf".
+bool isOpenCLPrintf(StringRef S);
+
 /// Return true if string is printf.
 bool isPrintf(StringRef S);
+
+/// Return "__opencl_printf.".
+StringRef nameOpenCLPrintf();
 
 /// Return pipe kind from builtin name.
 PipeKind getPipeKind(StringRef Name);
