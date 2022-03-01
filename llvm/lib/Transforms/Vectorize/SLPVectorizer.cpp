@@ -1078,6 +1078,8 @@ public:
     /// TODO: This is now used for the multi-node only. Should go away when
     /// multi-node support is introduced in the community.
     SmallVector<int, 4> OpDirection;
+    /// The APOs across each lane.
+    SmallVector<bool> APOs;
 #endif // INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) //INTEL
     friend inline raw_ostream &operator<<(raw_ostream &OS,
@@ -1088,7 +1090,12 @@ public:
     /// Debug print.
     void dump(raw_ostream &OS) const {
       OS << "{User:" << (UserTE ? std::to_string(UserTE->Idx) : "null")
-         << " EdgeIdx:" << EdgeIdx << "}";
+#if INTEL_CUSTOMIZATION
+         << " EdgeIdx:" << EdgeIdx << " APOs:";
+      for (bool APO : APOs)
+        OS << APO << ",";
+      OS << "}";
+#endif // INTEL_CUSTOMIZATION
     }
     LLVM_DUMP_METHOD void dump() const { dump(dbgs()); }
 #endif
@@ -1767,6 +1774,16 @@ public:
       appendOperandsOfVL(RootVL);
     }
 
+#if INTEL_CUSTOMIZATION
+    /// \Returns the APOs across all lanes for \p OpIdx.
+    void getAPOVec(SmallVectorImpl<bool> &APOVec, unsigned OpIdx) const {
+      unsigned NumLanes = getNumLanes();
+      APOVec.resize(NumLanes);
+      for (unsigned Lane = 0; Lane != NumLanes; ++Lane)
+        APOVec[Lane] = getData(OpIdx, Lane).APO;
+    }
+#endif // INTEL_CUSTOMIZATION
+
     /// \Returns a value vector with the operands across all lanes for the
     /// opearnd at \p OpIdx.
     ValueList getVL(unsigned OpIdx) const {
@@ -1977,6 +1994,8 @@ private:
     Instruction *FrontierI = nullptr;
     /// OperandV is FrontierI's OperandNum'th operand.
     int OperandNum = -1;
+    /// APO of the Leaf (see VLOperands::OperandData for the description).
+    bool APO = false;
     /// Set to true if this OperandData is used (visited) by the algorithm and
     /// should not be used again.
     bool Used = false;
@@ -1990,15 +2009,20 @@ private:
     Value *OriginalOperandV = nullptr;
 
   public:
-    LeafData(Value *Op, Instruction *Frontier, int OpNum, int Lane)
-        : Leaf(Op), FrontierI(Frontier), OperandNum(OpNum), Lane(Lane) {}
+    LeafData() = default;
+    LeafData(Value *Op, Instruction *Frontier, int OpNum, int Lane, bool APO)
+        : Leaf(Op), FrontierI(Frontier), OperandNum(OpNum), APO(APO),
+          Lane(Lane) {}
     Value *getLeaf() const { return Leaf; }
     void swapLeafWith(LeafData *Op) {
       Value *Other = Op->Leaf;
       Op->Leaf = Leaf;
       Leaf = Other;
+      // Swap APOs too as a property of the Leaf.
+      std::swap(APO, Op->APO);
     }
     int getOperandNum() const { return OperandNum; }
+    bool getAPO() const { return APO; }
     bool isUsed() const { return Used; }
     void setUsed() { Used = true; }
     int getLane() const { return Lane; }
@@ -2083,13 +2107,6 @@ private:
   ///   +--------------+----------+
   ///
   class MultiNode {
-    /// The operands (leaves) of the Multi-Node for all lanes.
-    /// We are not simply using the Value for a leaf. Instead we are using the
-    /// LeafData structure because it not only contains the Value, but it
-    /// also points to its user (referred as frontier instruction), and it also
-    /// holds the operand number (i.e. the Nth operand of the frontier).
-    SmallVector<SmallVector<LeafData, 8>, 8> Leaves;
-
     /// Save the instruction position to undo the scheduling that happens before
     /// the Multi-Node reordering.
     SmallVector<std::pair<Instruction * /*I*/, Instruction * /*NextI*/>, 16>
@@ -2120,6 +2137,23 @@ private:
     // steering.
     bool DisableReorder = false;
 
+    /// The operands (leaves) of the Multi-Node for all lanes.
+    /// We are not simply using the Value for a leaf. Instead we are using the
+    /// LeafData structure because it not only contains the Value, but it
+    /// also points to its user (referred as frontier instruction), and it also
+    /// holds the operand number (i.e. the Nth operand of the frontier).
+    SmallVector<SmallVector<LeafData, 8>, 8> Leaves;
+
+    /// \returns the operand data at \p OpIdx and \p Lane.
+    LeafData &getData(unsigned OpIdx, unsigned Lane) {
+      return Leaves[OpIdx][Lane];
+    }
+
+    /// \returns the operand data at \p OpIdx and \p Lane. Const version.
+    const LeafData &getData(unsigned OpIdx, unsigned Lane) const {
+      return Leaves[OpIdx][Lane];
+    }
+
   public:
     /// \Returns the inverse opcode of \p Opc.
     static Optional<unsigned> getInverseOpcode(unsigned Opc) {
@@ -2142,20 +2176,34 @@ private:
     unsigned getNumLanes() const { return NumLanes; }
     int getNumOperands() const {
       assert(!Leaves.empty());
-      return Leaves[0].size();
+      return Leaves.size();
     }
     bool empty() const { return Leaves.empty(); }
     void setNumLanes(unsigned Lanes) {
       NumLanes = Lanes;
-      Leaves.resize(Lanes);
     }
+
     const LeafData *getOperand(int Lane, int OpI) const {
-      return &Leaves[Lane][OpI];
+      return &getData(OpI, Lane);
     }
     /// Similar to Instructions, the Multi-Node has operands and we can index
     /// them using the 'Lane' number and 'OpI' operand index.
-    LeafData *getOperand(int Lane, int OpI) { return &Leaves[Lane][OpI]; }
-    void append(int Lane, LeafData &&Op) { Leaves[Lane].push_back(Op); }
+    LeafData *getOperand(int Lane, int OpI) { return &getData(OpI, Lane); }
+
+    void appendOperand(ArrayRef<Value *> OpVL, const EdgeInfo &EI) {
+      unsigned NumLanes = OpVL.size();
+      assert((Leaves.empty() || NumLanes == getNumLanes()) &&
+             "Must keep same num of lanes");
+      unsigned OpIdx = Leaves.size();
+      Leaves.resize(OpIdx + 1);
+      Leaves[OpIdx].resize(NumLanes);
+
+      for (unsigned Lane = 0; Lane != NumLanes; ++Lane)
+        Leaves[OpIdx][Lane] = {OpVL[Lane],
+                               cast<Instruction>(EI.UserTE->Scalars[Lane]),
+                               EI.OpDirection[Lane], (int)Lane, EI.APOs[Lane]};
+    }
+
     void clear() { Leaves.clear(); }
 
     void disableReorder() { DisableReorder = true; }
@@ -2753,25 +2801,18 @@ private:
 #if INTEL_CUSTOMIZATION
   // Add VL as a leaf node of the Multi-Node currently under construction.
   // When it is not legal to do return false.
-  bool addMultiNodeLeafIfLegal(ArrayRef<Value *> VL, const EdgeInfo &UserTreeIdx) {
-    TreeEntry *UserTE = UserTreeIdx.UserTE;
-
+  bool addMultiNodeLeafIfLegal(ArrayRef<Value *> VL, const EdgeInfo &EI) {
     // Vector length has to be consistent along MultiNode
     if (VL.size() != CurrentMultiNode->getNumLanes() ||
         // The Leaves should not match any of the Trunk nodes.
         alreadyInTrunk(VL) ||
         // No frontier can be a MultiNode leaf at the same time
-        llvm::any_of(UserTE->Scalars, [this](Value *V) -> bool {
+        llvm::any_of(EI.UserTE->Scalars, [this](Value *V) -> bool {
           return AllMultiNodeLeaves.count(V);
         }))
       return false;
 
-    assert(!CurrentMultiNode->empty() && "finalization already run?");
-
-    for (unsigned Lane = 0; Lane != VL.size(); ++Lane)
-      CurrentMultiNode->append(
-          Lane, LeafData(VL[Lane], cast<Instruction>(UserTE->Scalars[Lane]),
-                         UserTreeIdx.OpDirection[Lane], Lane));
+    CurrentMultiNode->appendOperand(VL, EI);
     AllMultiNodeLeaves.insert(VL.begin(), VL.end());
     return true;
   }
@@ -3484,9 +3525,6 @@ private:
 
   /// \returns the path sign of the frontier of \p Leaf.
   bool isNegativePathSignForFrontier(LeafData *Leaf);
-
-  /// \returns the path sign of \p Leaf.
-  bool isNegativePathSignForLeaf(LeafData *Leaf);
 
   /// Given the two operand data of the same Multi-Node \p Op1 and \p Op2
   /// check whether it is legal to swap operands (aka Multi-Node leaves)
@@ -4673,12 +4711,6 @@ bool BoUpSLP::isNegativePathSignForFrontier(LeafData *Leaf) {
   return TE->IsNegativePathSign[Lane];
 }
 
-bool BoUpSLP::isNegativePathSignForLeaf(LeafData *Leaf) {
-  bool TrunkSign = isNegativePathSignForFrontier(Leaf);
-  bool IsSubRHS = Leaf->getEffectiveFrontierOpcode() == Instruction::Sub &&
-                  Leaf->getOperandNum() == 1;
-  return TrunkSign != IsSubRHS;
-}
 
 // Check if we can swap two leaf operands between their frontiers.
 //  Multi-Node: +------+
@@ -4702,7 +4734,7 @@ bool BoUpSLP::isNegativePathSignForLeaf(LeafData *Leaf) {
 bool BoUpSLP::isLegalToMoveLeaf(LeafData *Op1, LeafData *Op2) {
   if (Op1 == Op2) // Not a swap
     return true;
-  if (isNegativePathSignForLeaf(Op1) != isNegativePathSignForLeaf(Op2))
+  if (Op1->getAPO() != Op2->getAPO())
     return false;
 
   auto *Leaf1 = dyn_cast<Instruction>(Op1->getLeaf());
@@ -4782,8 +4814,7 @@ int BoUpSLP::getBestOperand(OpVec &BestOps, LeafData *LHSOp, int RHSLane,
       // move it along with its frontier instruction.
       if (EnableSwapFrontiers &&
           // First check that signs mismatch was the reason of bail out.
-          isNegativePathSignForLeaf(RHSOperand) !=
-              isNegativePathSignForLeaf(OrigRHSOperand) &&
+          RHSOperand->getAPO() != OrigRHSOperand->getAPO() &&
           // This is allowed only if the frontiers are different.
           RHSOperand->getFrontier() != OrigRHSOperand->getFrontier() &&
           // Operand 0 is tricky.
@@ -5225,11 +5256,10 @@ bool BoUpSLP::findMultiNodeOrder() {
         // i. Swap the leaf values.
         // Here only update the data structures (the IR gets modified later).
         if (BestOp->getLeaf() != OrigOp->getLeaf()) {
+          bool InvertOpcodes = OrigOp->getAPO() != BestOp->getAPO();
           BestOp->swapLeafWith(OrigOp);
-
           // ii. Swap the opcode.
-          if (isNegativePathSignForLeaf(OrigOp) !=
-              isNegativePathSignForLeaf(BestOp)) {
+          if (InvertOpcodes) {
             OrigOp->invertFrontierOpcode();
             BestOp->invertFrontierOpcode();
           }
@@ -5312,7 +5342,6 @@ void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
   // Initialize current Multi-Node if this is the root.
   if (CurrentMultiNode->numOfTrunks() == 1)
     CurrentMultiNode->setNumLanes(NumLanes);
-  assert(!CurrentMultiNode->empty() && "Not resized ?");
 
   // If this VL looks OK for the Multi-Node, proceed with adding a new entry.
   auto *NewTE = newTreeEntry(VL, Bundle, S, UserTreeIdx, ReuseShuffleIndices);
@@ -5326,16 +5355,17 @@ void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
   // Reorder operands (if possible) based on the default shallow reordering that
   // only checks the immediate predecessors.
 
-  SmallVector<int, 4> OpDirLeft, OpDirRight;
-  ValueList Left, Right;
-
-  reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, *this);
-  populateReorderingData(VL, Left, OpDirLeft, OpDirRight);
-
+  VLOperands Ops(VL, *DL, *SE, *this);
+  Ops.reorder();
+  // FIXME: legacy code assumes # operands == 2
   // We need to set the operands of the TE, otherwise the scheduler fails to
   // schedule VL.
-  NewTE->setOperand(0, Left);
-  NewTE->setOperand(1, Right);
+  for (unsigned OpIdx = 0; OpIdx != 2; ++OpIdx) {
+    const ValueList &OpVL = Ops.getVL(OpIdx);
+    NewTE->setOperand(OpIdx, OpVL);
+  }
+  SmallVector<int> OpDir[2];
+  populateReorderingData(VL, Ops.getVL(0), OpDir[0], OpDir[1]);
 
   // TODO: This is a workaround. Currently we don't add a MultiNode leaf
   // if its values are already in trunk. The problem is that if the
@@ -5343,12 +5373,27 @@ void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
   // one, then the good leaf is not visited at all.
   // Disabling the 'alreadyInTrunk()' condition should fix this but I am not
   // sure it is safe to remove it.
-  if (BuildTreeOrderReverse) {
-    buildTree_rec(Right, NextDepth, {NewTE, 1, OpDirRight});
-    buildTree_rec(Left, NextDepth, {NewTE, 0, OpDirLeft});
-  } else {
-    buildTree_rec(Left, NextDepth, {NewTE, 0, OpDirLeft});
-    buildTree_rec(Right, NextDepth, {NewTE, 1, OpDirRight});
+  SmallVector<unsigned> VisitingOrder(2);
+  if (BuildTreeOrderReverse)
+    std::iota(VisitingOrder.rbegin(), VisitingOrder.rend(), 0);
+  else
+    std::iota(VisitingOrder.begin(), VisitingOrder.end(), 0);
+
+  for (unsigned OpIdx : VisitingOrder) {
+    struct EdgeInfo EI(NewTE, OpIdx, OpDir[OpIdx]);
+    Ops.getAPOVec(EI.APOs, OpIdx);
+
+    if (CurrentMultiNode->getRoot() != LastTEIdx) {
+      unsigned NumLanes = VL.size();
+      assert(UserTreeIdx.APOs.size() == NumLanes && "APOs out of sync");
+
+      // Compute APOs for given path
+      for (unsigned Lane = 0; Lane != NumLanes; ++Lane)
+        if (UserTreeIdx.APOs[Lane])
+            EI.APOs[Lane] ^= true;
+    }
+    const ValueList &OpVL = Ops.getVL(OpIdx);
+    buildTree_rec(OpVL, NextDepth, EI);
   }
 }
 #endif // INTEL_CUSTOMIZATION
@@ -10450,12 +10495,10 @@ LLVM_DUMP_METHOD void BoUpSLP::MultiNode::dump() const {
     dbgs() << "Empty\n";
     return;
   }
-  for (int OpI = 0, OpI_e = Leaves[0].size(); OpI != OpI_e; ++OpI) {
+  for (int OpI = 0, OpI_e = getNumOperands(); OpI != OpI_e; ++OpI) {
     dbgs() << "OpI: " << OpI << ".\n";
-    for (int Lane = 0, Lanes = Leaves.size(); Lane != Lanes; ++Lane) {
-      const LeafData *Op = &Leaves[Lane][OpI];
-      Op->dump();
-    }
+    for (int Lane = 0, Lanes = getNumLanes(); Lane != Lanes; ++Lane)
+      getData(OpI, Lane).dump();
     dbgs() << "\n";
   }
 }
