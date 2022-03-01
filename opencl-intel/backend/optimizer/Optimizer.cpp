@@ -844,7 +844,6 @@ static void populatePassesPostFailCheck(
   if ( OptLevel > 0 ) {
     // These passes come after PrepareKernelArgsLegacyPass to eliminate the
     // redundancy reducced by it
-    PM.add(llvm::createFunctionInliningPass());    // Inline
     PM.add(llvm::createDeadCodeEliminationPass()); // Delete dead instructions
     PM.add(llvm::createCFGSimplificationPass());   // Simplify CFG
     PM.add(llvm::createInstructionCombiningPass()); // Instruction combining
