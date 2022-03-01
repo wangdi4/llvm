@@ -4,16 +4,16 @@
 #import <filenotdfound.dll> implementation_only
 
 //RUN: not %clang_cc1 -fintel-compatibility -fms-compatibility \
-//RUN:  -header-base-path "d:\\foo\\bar\\" \
-//RUN:  -internal-isystem "d:\\foo\\bar\\something/include" \
+//RUN:  -header-base-path "d:\\foo1foo2foo3foo4\\bar1bar2bar3bar4\\" \
+//RUN:  -internal-isystem "d:\\foo1foo2foo3foo4\\bar1bar2bar3bar4\\something/include" \
 //RUN:  -internal-isystem "d:/ok/keepit" -Ikeepme \
-//RUN:  -internal-isystem "d:/foo/bar/another/include" \
-//RUN:  -I"d:/foo/bar/yetanother/include" \
+//RUN:  -internal-isystem "d:/foo1foo2foo3foo4/bar1bar2bar3bar4/another/include" \
+//RUN:  -I"d:/foo1foo2foo3foo4/bar1bar2bar3bar4/yetanother/include" \
 //RUN:  -show-import-processing %s > %t-base.txt 2>&1
 //RUN: FileCheck --check-prefix BASE --input-file=%t-base.txt %s
 
 //BASE: warning: argument file generated: {{.*}}filenotdfound{{.*}}arg
-//BASE-NOT: {{foo|bar}}
+//BASE-NOT: {{foo1foo2foo3foo4|bar1bar2bar3bar4}}
 
 //RUN: not %clang_cc1 -fintel-compatibility -fms-compatibility \
 //RUN:  -internal-isystem "d:\\foo\\bar\\something/include" \

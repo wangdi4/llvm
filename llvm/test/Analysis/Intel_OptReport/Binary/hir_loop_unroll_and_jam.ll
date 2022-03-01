@@ -21,7 +21,8 @@
 ; CHECK-LABEL:    --- Start Protobuf Binary OptReport Printer ---
 ; CHECK-NEXT:     Version: 1.5
 ; CHECK-NEXT:     Property Message Map:
-; CHECK-NEXT:       C_LOOP_UNROLL_AND_JAM --> Loop unrolled and jammed by %d
+; CHECK-DAG:        C_LOOP_UNROLL_AND_JAM --> Loop unrolled and jammed by %d
+; CHECK-DAG:        C_LOOP_REMAINDER --> Remainder loop
 ; CHECK-NEXT:     Number of reports: 3
 
 ; CHECK-DAG:      === Loop Begin ===
@@ -37,7 +38,8 @@
 
 ; CHECK-DAG:      === Loop Begin ===
 ; CHECK-DAG:      Anchor ID: 486251fe7d339baf8de26afca68b1e6f
-; CHECK-DAG:      Number of remarks: 0
+; CHECK-DAG:      Number of remarks: 1
+; CHECK-DAG:        Property: C_LOOP_REMAINDER, Remark ID: 25491, Remark Args:
 ; CHECK-DAG:      ==== Loop End ====
 ; CHECK:          --- End Protobuf Binary OptReport Printer ---
 
