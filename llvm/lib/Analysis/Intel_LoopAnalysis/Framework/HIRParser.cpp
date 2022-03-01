@@ -958,13 +958,8 @@ HIRParser::BlobProcessor::searchSCEVValues(const SCEV *SC) const {
 
   // Look for an instruction in the set which dominates current instruction as
   // it should appear lexically before the current instruction.
-  for (auto &ValOffsetPair : (*ValSet)) {
-
-    if (ValOffsetPair.second) {
-      continue;
-    }
-
-    auto Inst = dyn_cast<Instruction>(ValOffsetPair.first);
+  for (auto Val : (*ValSet)) {
+    auto Inst = dyn_cast<Instruction>(Val);
 
     if (!Inst) {
       continue;
