@@ -193,7 +193,8 @@ Function *ResolveWICallPass::runOnFunction(Function *F) {
     case ICT_PRINTF:
       if (!ExtExecDecls.count(ICT_PRINTF))
         addExternFunctionDeclaration(
-            CalledFuncType, getOrCreatePrintfFuncType(), "__opencl_printf");
+            CalledFuncType, getOrCreatePrintfFuncType(),
+            DPCPPKernelCompilationUtils::nameOpenCLPrintf());
       NewRes = updatePrintf(Builder, CI);
       assert(NewRes && "Expected updatePrintf to succeed");
       break;
@@ -530,7 +531,7 @@ Value *ResolveWICallPass::updatePrintf(IRBuilder<> &Builder, CallInst *CI) {
   }
 
   // Finally create the call to __opencl_printf.
-  Function *F = M->getFunction("__opencl_printf");
+  Function *F = M->getFunction(DPCPPKernelCompilationUtils::nameOpenCLPrintf());
   assert(F && "Expect builtin printf to be declared before use");
 
   SmallVector<Value *, 4> Params;

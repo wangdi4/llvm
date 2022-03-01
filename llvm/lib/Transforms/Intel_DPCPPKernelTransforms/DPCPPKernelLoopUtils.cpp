@@ -17,6 +17,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/RuntimeService.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
@@ -172,6 +173,16 @@ LoopRegion createLoop(BasicBlock *Head, BasicBlock *Latch, Value *Begin,
   return LoopRegion(PreHead, Exit);
 }
 
+void fillAtomicBuiltinUsers(Module &M, RuntimeService *RTService,
+                            FuncSet &UserFuncs) {
+  FuncSet AtomicFuncs;
+  for (Function &F : M)
+    if (F.isDeclaration() && RTService->isAtomicBuiltin(F.getName()))
+      AtomicFuncs.insert(&F);
+
+  fillFuncUsersSet(AtomicFuncs, UserFuncs);
+}
+
 void fillFuncUsersSet(const FuncSet &Roots, FuncSet &UserFuncs) {
   FuncSet NewUsers1, NewUsers2;
   FuncSet *NewUsersPtr = &NewUsers1;
@@ -233,6 +244,34 @@ void fillInstructionUsers(Function *F,
       WorkList.append(User->user_begin(), User->user_end());
     }
   }
+}
+
+void fillInternalFuncUsers(Module &M, FuncSet &UserFuncs) {
+  FuncSet InternalFuncs;
+  for (Function &F : M)
+    if (!F.isDeclaration())
+      InternalFuncs.insert(&F);
+
+  fillFuncUsersSet(InternalFuncs, UserFuncs);
+}
+
+void fillPrintfs(Module &M, FuncSet &UserFuncs) {
+  FuncSet PrintfFuncs;
+  for (Function &F : M) {
+    StringRef FName = F.getName();
+    if (F.isDeclaration() && (isPrintf(FName) || isOpenCLPrintf(FName)))
+      PrintfFuncs.insert(&F);
+  }
+  fillFuncUsersSet(PrintfFuncs, UserFuncs);
+}
+
+void fillWorkItemPipeBuiltinUsers(Module &M, FuncSet &UserFuncs) {
+  FuncSet PipeFuncs;
+  for (Function &F : M)
+    if (F.isDeclaration() && isWorkItemPipeBuiltin(F.getName()))
+      PipeFuncs.insert(&F);
+
+  fillFuncUsersSet(PipeFuncs, UserFuncs);
 }
 
 Value *generateRemainderMask(unsigned VF, Value *LoopLen, IRBuilder<> &Builder,

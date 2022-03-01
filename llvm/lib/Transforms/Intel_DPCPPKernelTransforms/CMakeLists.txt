@@ -19,6 +19,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DPCPPKernelWGLoopCreator.cpp
   DPCPPKernelAnalysis.cpp
   DPCPPPreprocessSPIRVFriendlyIR.cpp
+  DeduceMaxWGDim.cpp
   HandleVPlanMask.cpp
   ImplicitArgsAnalysis.cpp
   InternalizeNonKernelFunc.cpp
