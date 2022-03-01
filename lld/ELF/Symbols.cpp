@@ -593,8 +593,7 @@ static int compareGNULinkOnce(const Symbol *oldSym, const Symbol *newSym,
 }
 #endif // INTEL_CUSTOMIZATION
 
-// Compare two symbols. Return 1 if the new symbol should win, -1 if
-// the new symbol should lose, or 0 if there is a conflict.
+// Compare two symbols. Return true if the new symbol should win.
 #if INTEL_CUSTOMIZATION
 // We include the real name of the other symbol since there is a chance that
 // the symbol was created without a name.
