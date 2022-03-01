@@ -60,7 +60,6 @@ if (NOT WIN32)
 endif (NOT WIN32)
 
 use_rtti(FALSE)
-set_opencl_version()
 
 # Create target project
 set (OCL_CPU_BACKEND_INCLUDE_FILES
