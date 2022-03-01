@@ -171,11 +171,14 @@ define i8 @neg_mask1_lshr_extrause_mask(i8 %a0) {
 ; Extra Use - shift
 define <2 x i32> @neg_mask1_lshr_extrause_lshr(<2 x i32> %a0) {
 ; CHECK-LABEL: @neg_mask1_lshr_extrause_lshr(
+; INTEL_CUSTOMIZATION
+; optimized by and/sub -> ashr code in InstCombineNegator.cpp
 ; CHECK-NEXT:    [[SHIFT:%.*]] = lshr <2 x i32> [[A0:%.*]], <i32 3, i32 3>
-; CHECK-NEXT:    [[MASK:%.*]] = and <2 x i32> [[SHIFT]], <i32 1, i32 1>
-; CHECK-NEXT:    [[NEG:%.*]] = sub nsw <2 x i32> zeroinitializer, [[MASK]]
+; CHECK-NEXT:    [[TMP1:%.*]] = shl <2 x i32> [[A0]], <i32 28, i32 28>
+; CHECK-NEXT:    [[TMP2:%.*]] = ashr <2 x i32> [[TMP1]], <i32 31, i32 31>
 ; CHECK-NEXT:    call void @usev2i32(<2 x i32> [[SHIFT]])
-; CHECK-NEXT:    ret <2 x i32> [[NEG]]
+; CHECK-NEXT:    ret <2 x i32> [[TMP2]]
+; end INTEL_CUSTOMIZATION
 ;
   %shift = lshr <2 x i32> %a0, <i32 3, i32 3>
   %mask = and <2 x i32> %shift, <i32 1, i32 1>

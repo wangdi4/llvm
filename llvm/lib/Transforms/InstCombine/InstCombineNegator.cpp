@@ -260,6 +260,19 @@ LLVM_NODISCARD Value *Negator::visitImpl(Value *V, unsigned Depth) {
       R = Builder.CreateAShr(R, BWMinusOne);
       return Builder.CreateTruncOrBitCast(R, I->getType());
     }
+#if INTEL_CUSTOMIZATION
+    // -((X >> C) & 1) -> (X << (BitWidth - C - 1)) >>s (BitWidth - 1)
+    const APInt *ShInt, *Mask;
+    if (match(I->getOperand(0), m_LShr(m_Value(X), m_APInt(ShInt))) &&
+        match(I->getOperand(1), m_APInt(Mask)) &&
+        Mask->isOneValue() && ShInt->ult(BitWidth)) {
+      Value *Shl = Builder.CreateShl(X,
+                                     ConstantInt::get(I->getType(),
+                                                      BitWidth - *ShInt - 1));
+      return Builder.CreateAShr(Shl, ConstantInt::get(I->getType(),
+                                                      BitWidth - 1));
+    }
+#endif // INTEL_CUSTOMIZATION
     break;
   }
   case Instruction::SDiv:

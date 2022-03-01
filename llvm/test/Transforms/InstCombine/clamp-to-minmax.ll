@@ -572,11 +572,9 @@ define i32 @mixed_clamp_to_i32_2(float %x) {
 ; http://rise4fun.com/Alive/Puh
 define zeroext i8 @saturation_downconvert(i32 %x) {
 ; CHECK-LABEL: @saturation_downconvert(
-; CHECK-NEXT:    [[TMP1:%.*]] = icmp sgt i32 [[X:%.*]], 0
-; CHECK-NEXT:    [[TMP2:%.*]] = select i1 [[TMP1]], i32 [[X]], i32 0
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp slt i32 [[TMP2]], 255
-; CHECK-NEXT:    [[TMP4:%.*]] = select i1 [[TMP3]], i32 [[TMP2]], i32 255
-; CHECK-NEXT:    [[CONV:%.*]] = trunc i32 [[TMP4]] to i8
+; CHECK-NEXT:    [[TMP1:%.*]] = call i32 @llvm.smax.i32(i32 [[X:%.*]], i32 0)
+; CHECK-NEXT:    [[TMP2:%.*]] = call i32 @llvm.umin.i32(i32 [[TMP1]], i32 255)
+; CHECK-NEXT:    [[CONV:%.*]] = trunc i32 [[TMP2]] to i8
 ; CHECK-NEXT:    ret i8 [[CONV]]
 ;
   %tobool = icmp ugt i32 %x, 255
