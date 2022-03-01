@@ -212,16 +212,9 @@ define void @_Z2x6v() local_unnamed_addr {
 ; CHECK-NEXT:    testq %r11, %r11
 ; CHECK-NEXT:    jne .LBB1_11
 ; CHECK-NEXT:    jmp .LBB1_13
-<<<<<<< HEAD
-; CHECK-NEXT:  .LBB1_8: # %vector.body.preheader ;INTEL
-; CHECK-NEXT:    # in Loop: Header=BB1_2 Depth=1 ;INTEL
-; CHECK-NEXT:    xorl %r11d, %r11d
-; CHECK-NEXT:    testq %r10, %r10
-=======
 ; CHECK-NEXT:  .LBB1_8: # in Loop: Header=BB1_2 Depth=1
 ; CHECK-NEXT:    xorl %r10d, %r10d
 ; CHECK-NEXT:    testq %r11, %r11
->>>>>>> d9715a726674046b177221873d63578dce383feb
 ; CHECK-NEXT:    je .LBB1_13
 ; CHECK-NEXT:  .LBB1_11: # %vector.body.preheader.new
 ; CHECK-NEXT:    # in Loop: Header=BB1_2 Depth=1

@@ -1911,7 +1911,6 @@ Value *SCEVExpander::expandCodeForImpl(const SCEV *SH, Type *Ty, bool Root) {
   return V;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// See if nsw/nuw flags can be preserved in I, in the context where value I
 /// will replace S. Notice that I is Value*, and Offset
@@ -1959,13 +1958,8 @@ static bool canPreservePoisonFlags(const SCEV *S, const ConstantInt* Offset,
 }
 #endif // INTEL_CUSTOMIZATION
 
-ScalarEvolution::ValueOffsetPair
-SCEVExpander::FindValueInExprValueMap(const SCEV *S,
-                                      const Instruction *InsertPt) {
-=======
 Value *SCEVExpander::FindValueInExprValueMap(const SCEV *S,
                                              const Instruction *InsertPt) {
->>>>>>> d9715a726674046b177221873d63578dce383feb
   auto *Set = SE.getSCEVValues(S);
   // If the expansion is not in CanonicalMode, and the SCEV contains any
   // sub scAddRecExpr type SCEV, it is required to expand the SCEV literally.
@@ -2079,30 +2073,10 @@ Value *SCEVExpander::expand(const SCEV *S) {
     // have poison-generating flags,
     // flags are not dropped when possible.
     if (auto *I = dyn_cast<Instruction>(V))
-<<<<<<< HEAD
-      if (I->hasPoisonGeneratingFlags() && !programUndefinedIfPoison(I) &&
-          !canPreservePoisonFlags(S, VO.second, I))
-          I->dropPoisonGeneratingFlags();
 #endif // INTEL_CUSTOMIZATION
 
-    if (VO.second) {
-      if (PointerType *Vty = dyn_cast<PointerType>(V->getType())) {
-        int64_t Offset = VO.second->getSExtValue();
-        ConstantInt *Idx =
-          ConstantInt::getSigned(VO.second->getType(), -Offset);
-        unsigned AS = Vty->getAddressSpace();
-        V = Builder.CreateBitCast(V, Type::getInt8PtrTy(SE.getContext(), AS));
-        V = Builder.CreateGEP(Type::getInt8Ty(SE.getContext()), V, Idx,
-                              "uglygep");
-        V = Builder.CreateBitCast(V, Vty);
-      } else {
-        V = Builder.CreateSub(V, VO.second);
-      }
-    }
-=======
       if (I->hasPoisonGeneratingFlags() && !programUndefinedIfPoison(I))
         I->dropPoisonGeneratingFlags();
->>>>>>> d9715a726674046b177221873d63578dce383feb
   }
   // Remember the expanded value for this SCEV at this location.
   //
