@@ -431,6 +431,7 @@ namespace {
       (void)llvm::createDPCPPKernelWGLoopCreatorLegacyPass();
       (void)llvm::createDPCPPKernelAnalysisLegacyPass();
       (void)llvm::createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
+      (void)llvm::createDeduceMaxWGDimLegacyPass();
       (void)llvm::createDuplicateCalledKernelsLegacyPass();
       (void)llvm::createPhiCanonicalizationLegacyPass();
       (void)llvm::createRedundantPhiNodeLegacyPass();

@@ -23,6 +23,8 @@ using namespace DPCPPKernelCompilationUtils;
 
 namespace llvm {
 
+class RuntimeService;
+
 /// Struct that represent loop Region in the CFG.
 struct LoopRegion {
   BasicBlock *PreHeader; // Pre header block of the loop.
@@ -91,6 +93,10 @@ Type *getIndTy(Module *M);
 /// F - kernel to collect information for.
 void collectTIDCallInst(StringRef TIDName, InstVecVec &TidCalls, Function *F);
 
+/// Fill atomic builtin user functions.
+void fillAtomicBuiltinUsers(Module &M, RuntimeService *RTService,
+                            FuncSet &UserFunc);
+
 /// Fills the users function through call instructions of roots
 ///       (also indirect users) into userFuncs.
 /// Roots - function to obtain their user functions.
@@ -112,6 +118,15 @@ void fillDirectUsers(const FuncSet *Funcs, FuncSet *UserFuncs,
 /// UserInsts vector to fill.
 void fillInstructionUsers(Function *F,
                           SmallVectorImpl<Instruction *> &UserInsts);
+
+/// Fill internal user functions.
+void fillInternalFuncUsers(Module &M, FuncSet &UserFuncs);
+
+/// Fill printf or opencl_printf user functions.
+void fillPrintfs(Module &M, FuncSet &UserFuncs);
+
+/// Fill work-item pipe builtin user functions.
+void fillWorkItemPipeBuiltinUsers(Module &M, FuncSet &UserFuncs);
 
 /// Generate the mask argument for masked vectorized kernel.
 /// \param VF the vectorization factor.

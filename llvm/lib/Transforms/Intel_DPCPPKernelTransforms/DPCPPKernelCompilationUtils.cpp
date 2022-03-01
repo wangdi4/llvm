@@ -136,6 +136,7 @@ const StringRef NAME_SUB_GROUP_SCAN_INCLUSIVE_MAX =
 const StringRef NAME_GET_BASE_GID = "get_base_global_id.";
 const StringRef NAME_GET_SPECIAL_BUFFER = "get_special_buffer.";
 const StringRef NAME_PRINTF = "printf";
+const StringRef NAME_PRINTF_OPENCL = "__opencl_printf";
 
 /// Matrix slicing support.
 const StringRef NAME_GET_SUB_GROUP_SLICE_LENGTH = "get_sub_group_slice_length.";
@@ -305,7 +306,11 @@ bool isGetSpecialBuffer(StringRef S) { return S == NAME_GET_SPECIAL_BUFFER; }
 
 bool isPrefetch(StringRef S) { return isMangleOf(S, NAME_PREFETCH); }
 
+bool isOpenCLPrintf(StringRef S) { return S == NAME_PRINTF_OPENCL; }
+
 bool isPrintf(StringRef S) { return S == NAME_PRINTF; }
+
+StringRef nameOpenCLPrintf() { return NAME_PRINTF_OPENCL; }
 
 // Work-Group builtins
 bool isWorkGroupAll(StringRef S) { return isMangleOf(S, NAME_WORK_GROUP_ALL); }
