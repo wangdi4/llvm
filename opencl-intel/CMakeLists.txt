@@ -311,6 +311,9 @@ install_to(${OCL_BINARY_DIR}/revision.txt DESTINATION ./  COMPONENT ocl-version)
 #copy the version file to install folder
 install_to(${OCL_BINARY_DIR}/version.txt DESTINATION ./  COMPONENT ocl-version)
 
+# Define OpenCL libraries version
+set_opencl_version()
+
 if (WIN32 AND ((${CMAKE_CFG_INTDIR} STREQUAL $(OutDir)) OR (${CMAKE_CFG_INTDIR} STREQUAL $(Configuration))))
     set( INSTALL_SUBDIR ${CMAKE_CFG_INTDIR} )
 else ()

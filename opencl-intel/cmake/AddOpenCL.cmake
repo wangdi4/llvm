@@ -18,58 +18,57 @@ endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 # Define output install path for the emulator if needed
 set(OUTPUT_EMU_SUFF "emu")
 add_definitions( -DOUTPUT_EMU_SUFF="_${OUTPUT_EMU_SUFF}" )
+
 # This macro sets OpenCL libraries version as 'x.y', where 'x' is a major
 # version of LLVM and 'y' is an internally agreed digit.
 macro(set_opencl_version)
-    if( NOT DEFINED VERSIONSTRING )
-        if (NOT OPENCL_INTREE_BUILD)
-          if( NOT DEFINED LLVM_PATH_FE )
-            message( FATAL_ERROR "LLVM_PATH_FE is not specified." )
-          endif()
+  if (NOT OPENCL_INTREE_BUILD)
+    if(NOT DEFINED LLVM_PATH_FE)
+      message( FATAL_ERROR "LLVM_PATH_FE is not specified." )
+    endif()
+    set(LLVM_PATH ${LLVM_PATH_FE})
+    find_package(LLVM REQUIRED)
+  endif()
 
-          set(LLVM_PATH ${LLVM_PATH_FE})
-          find_package(LLVM REQUIRED)
-        endif()
-        math(EXPR LLVM_RELEASE_VER "${LLVM_VERSION_MAJOR} - 1")
-        set(VERSIONSTRING "${PRODUCTVER_MAJOR}.${LLVM_RELEASE_VER}.${PRODUCTVER_MINOR}")
-        # Get branch info
-        if ( ("${OCL_RELEASE_BRANCH}" STREQUAL "xmain-rel") OR
-             ("${OCL_RELEASE_BRANCH}" STREQUAL "") )
-            set(WSPROJECT "")
-        elseif ( "${OCL_RELEASE_BRANCH}" STREQUAL "xmain" )
-            set(WSPROJECT ".prerelease")
-        else ()
-            set(WSPROJECT ".${OCL_RELEASE_BRANCH}")
-        endif()
-        # Get dd_hhmmss info of changeset.
-        string(LENGTH "${OCL_REVISION}" CHANGESET_LEN)
-        # yyyymmdd or #yyyymmdd_hhmmss pattern
-        if ("${OCL_REVISION}" MATCHES "^[0-9]+(_[0-9]+)?")
-            # Exclude the "yyyymm" value from the changeset info.
-            math(EXPR LENTH_LEFT "${CHANGESET_LEN} - 6")
-            string(SUBSTRING "${OCL_REVISION}" 6 ${LENTH_LEFT} WSDATE)
-        else ("${OCL_REVISION}" MATCHES "^[0-9]+(_[0-9]+)?")
-            set(WSDATE "${OCL_REVISION}")
-        endif()
-        if ( "${WSDATE}" STREQUAL "" )
-            set(VERSION_EXT ${WSPROJECT})
-        else ()
-            set(VERSION_EXT ".${WSDATE}${WSPROJECT}")
-        endif()
+  math(EXPR LLVM_RELEASE_VER "${LLVM_VERSION_MAJOR} - 1")
+  set(VERSIONSTRING "${PRODUCTVER_MAJOR}.${LLVM_RELEASE_VER}.${PRODUCTVER_MINOR}")
+  # Get branch info
+  if (("${OCL_RELEASE_BRANCH}" STREQUAL "xmain-rel") OR
+      ("${OCL_RELEASE_BRANCH}" STREQUAL ""))
+    set(WSPROJECT "")
+  elseif ("${OCL_RELEASE_BRANCH}" STREQUAL "xmain")
+   set(WSPROJECT ".prerelease")
+  else ()
+   set(WSPROJECT ".${OCL_RELEASE_BRANCH}")
+  endif()
+  # Get dd_hhmmss info of changeset.
+  string(LENGTH "${OCL_REVISION}" CHANGESET_LEN)
+  # yyyymmdd or #yyyymmdd_hhmmss pattern
+  if ("${OCL_REVISION}" MATCHES "^[0-9]+(_[0-9]+)?")
+      # Exclude the "yyyymm" value from the changeset info.
+      math(EXPR LENTH_LEFT "${CHANGESET_LEN} - 6")
+      string(SUBSTRING "${OCL_REVISION}" 6 ${LENTH_LEFT} WSDATE)
+  else ("${OCL_REVISION}" MATCHES "^[0-9]+(_[0-9]+)?")
+    set(WSDATE "${OCL_REVISION}")
+  endif()
+  if ("${WSDATE}" STREQUAL "")
+    set(VERSION_EXT ${WSPROJECT})
+  else ()
+    set(VERSION_EXT ".${WSDATE}${WSPROJECT}")
+  endif()
 
-        add_definitions(-DVERSIONSTRING="${VERSIONSTRING}")
-        add_definitions(-DVERSIONSTRING_WITH_EXT="${VERSIONSTRING}${VERSION_EXT}")
-        file(WRITE ${OCL_BINARY_DIR}/driverversion.h.txt
-        "#ifndef VERSIONSTRING\n
-             #define VERSIONSTRING \"${VERSIONSTRING}\"\n
-         #endif\n
-         #ifndef VERSIONSTRING_WITH_EXT\n
-             #define VERSIONSTRING_WITH_EXT \"${VERSIONSTRING}${VERSION_EXT}\"\n
-         #endif\n")
-        execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                        ${OCL_BINARY_DIR}/driverversion.h.txt
-                        ${OCL_BINARY_DIR}/driverversion.h)
-    endif( NOT DEFINED VERSIONSTRING )
+  add_definitions(-DVERSIONSTRING="${VERSIONSTRING}")
+  add_definitions(-DVERSIONSTRING_WITH_EXT="${VERSIONSTRING}${VERSION_EXT}")
+  file(WRITE ${OCL_BINARY_DIR}/driverversion.h.txt
+       "#ifndef VERSIONSTRING\n
+          #define VERSIONSTRING \"${VERSIONSTRING}\"\n
+        #endif\n
+        #ifndef VERSIONSTRING_WITH_EXT\n
+          #define VERSIONSTRING_WITH_EXT \"${VERSIONSTRING}${VERSION_EXT}\"\n
+        #endif\n")
+  execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                  ${OCL_BINARY_DIR}/driverversion.h.txt
+                  ${OCL_BINARY_DIR}/driverversion.h)
 endmacro(set_opencl_version)
 
 # Define output dirs
@@ -130,9 +129,6 @@ function(add_opencl_library name)
             LIBRARY_OUTPUT_DIRECTORY_RELEASE ${OCL_OUTPUT_LIBRARY_DIR}
             ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${OCL_OUTPUT_LIBRARY_DIR})
     else (WIN32)
-        # Define OpenCL libraries version
-        set_opencl_version()
-
         set_target_properties(${name} PROPERTIES
             RUNTIME_OUTPUT_DIRECTORY ${OCL_OUTPUT_LIBRARY_DIR}
             LIBRARY_OUTPUT_DIRECTORY ${OCL_OUTPUT_LIBRARY_DIR}
