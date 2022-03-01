@@ -23,6 +23,7 @@
 ; CHECK-NEXT:     LinearIdResolverLegacy
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
+; CHECK:          Infer address spaces
 ; CHECK:          DPCPPKernelAnalysisLegacy
 ; CHECK:          WGLoopBoundariesLegacy
 
