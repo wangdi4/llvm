@@ -47,6 +47,7 @@
 #include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/InstIterator.h" // INTEL
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
@@ -7646,3 +7647,22 @@ Optional<int64_t> llvm::isPointerOffset(const Value *Ptr1, const Value *Ptr2,
     return None;
   return *Offset2 - *Offset1;
 }
+
+#if INTEL_CUSTOMIZATION
+PreservedAnalyses
+llvm::NumSignBitsPrinterPass::run(Function &F, FunctionAnalysisManager &) {
+  OS << "Printing NumSignBits for function ";
+  F.printAsOperand(OS);
+  OS << "\n";
+  for (auto &Inst : instructions(F)) {
+    auto *Ty = Inst.getType();
+    if (!Ty->isIntOrIntVectorTy() && !Ty->isPtrOrPtrVectorTy())
+      continue;
+    unsigned NumSignBits =
+        ComputeNumSignBits(&Inst, F.getParent()->getDataLayout());
+    Inst.print(OS);
+    OS << ": " << NumSignBits << "\n";
+  }
+  return PreservedAnalyses::all();
+}
+#endif // INTEL_CUSTOMIZATION
