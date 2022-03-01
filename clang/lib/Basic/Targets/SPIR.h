@@ -167,18 +167,12 @@ public:
     // SYCL and HIP/CUDA.
     setAddressSpaceMap(
         /*DefaultIsGeneric=*/Opts.SYCLIsDevice ||
-<<<<<<< HEAD
 #if INTEL_COLLAB
         Opts.OpenMPLateOutline ||
 #endif // INTEL_COLLAB
-        // The address mapping from HIP language for device code is only defined
-        // for SPIR-V.
-        (getTriple().isSPIRV() && Opts.HIP && Opts.CUDAIsDevice));
-=======
         // The address mapping from HIP/CUDA language for device code is only
         // defined for SPIR-V.
         (getTriple().isSPIRV() && Opts.CUDAIsDevice));
->>>>>>> c2f501f39589a59db9cebc839d0a63dcdc3c5c81
   }
 
   void setSupportedOpenCLOpts() override {
