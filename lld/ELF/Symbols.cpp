@@ -531,6 +531,7 @@ void Symbol::resolveUndefined(const Undefined &other) {
   }
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // This is a helper function for Symbol::compare. It checks if the input
 // symbols are associated with a "gnu.linkonce.". Return:
@@ -612,6 +613,17 @@ int Symbol::compare(const Symbol *other, StringRef otherName) const {
   if (cmpGNU != 0)
     return cmpGNU;
 #endif // INTEL_CUSTOMIZATION
+=======
+// Compare two symbols. Return true if the new symbol should win.
+bool Symbol::compare(const Defined &other) const {
+  if (LLVM_UNLIKELY(isCommon())) {
+    if (config->warnCommon)
+      warn("common " + getName() + " is overridden");
+    return !other.isWeak();
+  }
+  if (!isDefined())
+    return true;
+>>>>>>> 19e37a7415b335563df852430d70be3a22eb47f0
 
   // .symver foo,foo@@VER unfortunately creates two defined symbols: foo and
   // foo@@VER. In GNU ld, if foo and foo@@VER are in the same file, foo is
