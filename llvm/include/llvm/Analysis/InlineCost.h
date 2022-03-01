@@ -203,6 +203,7 @@ typedef enum {
    NinlrUnsplitCoroutineCall,
    NinlrByvalArgsWithoutAllocaAS,
    NinlrMultiversionedCallsite,
+   NinlrDelayInlineDecisionLTO,   // Delay inlining during LTO
    NinlrLast // Just a marker placed after the last non-inlining reason
 } InlineReason;
 

@@ -1,30 +1,34 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; XFAIL: *
-; CMPLRLLVM-35169: Test marked as XFAIL due to adding instruction simplify and
-; CFG simplify before devirtualization in LTO (CMPLRLLVM-34961).
 ; Inline report
-; RUN: opt -passes='lto-pre-link<O2>' -inline-report=0xe807 -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-PRE %s
-; RUN: opt -passes='lto<O2>' -inline-report=0xe807 -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-POST %s
+; RUN: opt -passes='lto-pre-link<O2>' -inline-report=0xe807 -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-CL-PRE %s
+; RUN: opt -passes='lto<O2>' -inline-report=0xe807 -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-CL-POST %s
 ; Inline report via metadata
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='lto-pre-link<O2>' -inline-report=0xe886 -dtrans-inline-heuristics -pre-lto-inline-cost -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD,CHECK-MD-PRE
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='lto<O2>' -inline-report=0xe886 -dtrans-inline-heuristics -pre-lto-inline-cost -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD,CHECK-MD-POST
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='lto-pre-link<O2>' -inline-report=0xe886 -dtrans-inline-heuristics -pre-lto-inline-cost -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD-PRE
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='lto<O2>' -inline-report=0xe886 -dtrans-inline-heuristics -pre-lto-inline-cost -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD-POST
 
-; This test checks that in the new pass manager the function
-; _ZN12cMessageHeap7shiftupEi is not inlined in the compile step of an LTO
-; compilation but is inlined in the link step, because the inlining decision
-; is delayed from the compile step to the link step.
+; This test case checks that the function _ZN12cMessageHeap7shiftupEi was
+; selected for delay inlining by the inliner in the new pass manager.
+; It will verify that the message was printed correctly in the pre-lto
+; phase ("Inline decision is delayed until link time") and post-lto
+; phase ("Inline decision is delayed").
 
 ; CHECK-CL-PRE: call void @_ZN12cMessageHeap7shiftupEi
-; CHECK-CL-POST-NOT: call void @_ZN12cMessageHeap7shiftupEi
-; CHECK-MD: COMPILE FUNC: _ZN12cMessageHeap11removeFirstEv
-; CHECK-MD-PRE: _ZN12cMessageHeap7shiftupEi{{.*}}Inline decision is delayed until link time
-; CHECK-MD-POST: _ZN12cMessageHeap7shiftupEi{{.*}}Inlining is profitable
-; CHECK-CL: COMPILE FUNC: _ZN12cMessageHeap11removeFirstEv
+; CHECK-CL-PRE: COMPILE FUNC: _ZN12cMessageHeap11removeFirstEv
 ; CHECK-CL-PRE: _ZN12cMessageHeap7shiftupEi{{.*}}Inline decision is delayed until link time
-; CHECK-CL-POST: _ZN12cMessageHeap7shiftupEi{{.*}}Inlining is profitable
+
+; CHECK-CL-POST: call void @_ZN12cMessageHeap7shiftupEi
+; CHECK-CL-POST: COMPILE FUNC: _ZN12cMessageHeap11removeFirstEv
+; CHECK-CL-POST: _ZN12cMessageHeap7shiftupEi{{.*}}Inline decision is delayed
+
+
+; CHECK-MD-PRE: COMPILE FUNC: _ZN12cMessageHeap11removeFirstEv
+; CHECK-MD-PRE: _ZN12cMessageHeap7shiftupEi{{.*}}Inline decision is delayed until link time
 ; CHECK-MD-PRE: call void @_ZN12cMessageHeap7shiftupEi
-; CHECK-MD-POST-NOT: call void @_ZN12cMessageHeap7shiftupEi
+
+; CHECK-MD-POST: COMPILE FUNC: _ZN12cMessageHeap11removeFirstEv
+; CHECK-MD-POST: _ZN12cMessageHeap7shiftupEi{{.*}}Inline decision is delayed
+; CHECK-MD-POST: call void @_ZN12cMessageHeap7shiftupEi
 
 %class.cNamedObject = type <{ %class.cObject, i8*, i16, i16, [4 x i8] }>
 %class.cMessageHeap = type { %class.cOwnedObject.base, %class.cMessage**, i32, i32, i64 }

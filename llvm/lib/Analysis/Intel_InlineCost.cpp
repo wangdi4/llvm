@@ -2020,10 +2020,17 @@ extern Optional<InlineResult> intelWorthNotInlining(
         .setIntelInlReason(NinlrSwitchComputations);
   if (preferNotToInlineForRecProgressionClone(Callee))
     return InlineResult::failure("recursive").setIntelInlReason(NinlrRecursive);
+
   if (preferToDelayInlineDecision(CandidateCall.getCaller(), PrepareForLTO,
-                                  QueuedCallers))
-    return InlineResult::failure("not profitable")
-        .setIntelInlReason(NinlrDelayInlineDecision);
+                                  QueuedCallers)) {
+    if (PrepareForLTO)
+      return InlineResult::failure("not profitable")
+          .setIntelInlReason(NinlrDelayInlineDecision);
+    else
+      return InlineResult::failure("not profitable")
+          .setIntelInlReason(NinlrDelayInlineDecisionLTO);
+  }
+
   if (preferToDelayInlineForCopyArrElems(CandidateCall, PrepareForLTO, *ILIC))
     return InlineResult::failure("not profitable")
         .setIntelInlReason(NinlrDelayInlineDecision);
