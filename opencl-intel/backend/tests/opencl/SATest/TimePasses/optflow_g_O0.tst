@@ -3,4 +3,4 @@
 ; CHECK-NOT: Intel OpenCL Vectorizer
 ; CHECK-NOT: Dead Code Elimination
 ; CHECK-NOT: Simplify the CFG
-; CHECK-NOT: CLWGLoopBoundaries
+; CHECK-NOT: WGLoopBoundariesLegacy
