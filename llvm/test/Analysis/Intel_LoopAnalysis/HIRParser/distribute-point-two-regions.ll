@@ -58,7 +58,7 @@ for.body16:                                       ; preds = %for.body16.preheade
   %inc19 = fadd float %5, 1.000000e+00
   store float %inc19, float* %arrayidx18, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond = icmp eq i64 %indvars.iv.next, 100
+  %exitcond = icmp eq i64 %indvars.iv.next, 50
   br i1 %exitcond, label %for.cond.cleanup15, label %for.body16
 }
 
