@@ -77,7 +77,7 @@ static cl::list<std::string> DisableRegionsFuncList(
     cl::CommaSeparated, cl::Hidden);
 
 static cl::opt<bool> DisableFusionRegions(
-    "disable-hir-create-fusion-regions", cl::init(true), cl::Hidden,
+    "disable-hir-create-fusion-regions", cl::init(false), cl::Hidden,
     cl::desc("Disable HIR to create regions for multiple loops"
              "suitable for loop fusion"));
 
@@ -374,6 +374,19 @@ void HIRRegionIdentification::computeLoopSpansForFusion(
       }
 
       if (Lp1TC->getType() != Lp2TC->getType()) {
+        break;
+      }
+
+      // TODO: large regions with small TC loops cause performance drops.
+      const auto *Lp1ConstTC = dyn_cast<SCEVConstant>(Lp1TC);
+      if (Lp1ConstTC &&
+          Lp1ConstTC->getAPInt().abs().ult(FusedRegionTCThreshold)) {
+        break;
+      }
+
+      const auto *Lp2ConstTC = dyn_cast<SCEVConstant>(Lp2TC);
+      if (Lp2ConstTC &&
+          Lp2ConstTC->getAPInt().abs().ult(FusedRegionTCThreshold)) {
         break;
       }
 
