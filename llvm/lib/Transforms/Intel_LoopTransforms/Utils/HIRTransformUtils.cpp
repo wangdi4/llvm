@@ -551,8 +551,13 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
       // Initiate bail-out for prod build
       return nullptr;
     }
-    if (PeelLoop)
+    if (PeelLoop) {
       *PeelLoop = PeelLp;
+      assert((OptTy == OptimizationType::Vectorizer) &&
+             "OptimizationType should be Vectorizer");
+      // Remark: Peeled loop for vectorization
+      ORBuilder(*PeelLp).addOrigin(25518u);
+    }
 
     // After peeling a new ZTT was created for the main loop, extract it and add
     // outside the loop.

@@ -37,7 +37,7 @@
 ; SCEN3-LABEL: Global optimization report for : test_store
 ; SCEN3-EMPTY:
 ; SCEN3-NEXT: LOOP BEGIN
-; SCEN3-NEXT: <PEELED LOOP FOR VECTORIZATION>
+; SCEN3-NEXT: <Peeled loop for vectorization>
 ; SCEN3-NEXT: LOOP END
 ; SCEN3-EMPTY:
 ; SCEN3-NEXT: LOOP BEGIN
@@ -59,7 +59,7 @@
 ; SCEN4-LABEL: Global optimization report for : test_store
 ; SCEN4-EMPTY:
 ; SCEN4-NEXT: LOOP BEGIN
-; SCEN4-NEXT: <PEELED LOOP FOR VECTORIZATION>
+; SCEN4-NEXT: <Peeled loop for vectorization>
 ; SCEN4-NEXT:     remark #15437: peel loop was vectorized
 ; SCEN4-NEXT:     remark #15305: vectorization support: vector length 4
 ; SCEN4-NEXT: LOOP END
