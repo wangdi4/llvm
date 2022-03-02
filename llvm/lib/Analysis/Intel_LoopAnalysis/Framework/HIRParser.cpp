@@ -950,7 +950,7 @@ const Instruction *
 HIRParser::BlobProcessor::searchSCEVValues(const SCEV *SC) const {
   auto ValSet = HIRP->ScopedSE.getSCEVValues(SC);
 
-  if (!ValSet) {
+  if (ValSet.empty()) {
     return nullptr;
   }
 
@@ -958,7 +958,7 @@ HIRParser::BlobProcessor::searchSCEVValues(const SCEV *SC) const {
 
   // Look for an instruction in the set which dominates current instruction as
   // it should appear lexically before the current instruction.
-  for (auto Val : (*ValSet)) {
+  for (auto Val : ValSet) {
     auto Inst = dyn_cast<Instruction>(Val);
 
     if (!Inst) {
