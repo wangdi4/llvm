@@ -46,7 +46,6 @@ private:
   std::unique_ptr<BitcodeCompiler> lto;
 
   std::vector<InputFile *> files;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Pass to g++ the input vector of GNU LTO files in order to do LTO and
   // build a temporary object. Then collect the ELF object generated and
@@ -56,9 +55,7 @@ private:
       doGnuLTOLinking(llvm::SmallVectorImpl<InputFile *> &gnuLTOFiles,
                       bool isLazyFile);
 #endif // INTEL_CUSTOMIZATION
-=======
   SmallVector<std::pair<StringRef, unsigned>, 0> archiveFiles;
->>>>>>> 7fd3849b3565a1e22719338c6cebea9bcb023fca
 
 public:
   // A tuple of (reference, extractedFile, sym). Used by --why-extract=.
