@@ -43,7 +43,7 @@
 declare dso_local i32 @for_set_reentrancy(i32*) local_unnamed_addr
 
 ; Function Attrs: nofree nounwind
-define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }* noalias %0, { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* noalias %1) {
+define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }* noalias %0, { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* noalias %1) #0 {
   %3 = alloca %uplevel_type, align 8
   %4 = getelementptr inbounds %uplevel_type, %uplevel_type* %3, i64 0, i32 0
   store { i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }* %0, { i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }** %4, align 8
@@ -103,7 +103,7 @@ define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [1 x { i64, i
 }
 
 ; Function Attrs: nofree nounwind
-define internal void @new_solver_IP_specific_(%uplevel_type* nest noalias nocapture readonly %0) {
+define internal void @new_solver_IP_specific_(%uplevel_type* nest noalias nocapture readonly %0) #0 {
   %2 = getelementptr inbounds %uplevel_type, %uplevel_type* %0, i64 0, i32 0
   %3 = load { i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }*, { i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }** %2, align 8
 ; NOTE: %3 is the dope vector for uplevel #0
@@ -198,7 +198,7 @@ declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8, i64, i32, i64*, i
 ; Function Attrs: nounwind readnone speculatable
 declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #1
 
-define dso_local void @MAIN__() {
+define dso_local void @MAIN__() #0 {
   %1 = alloca { i32 }, align 8
   %2 = alloca [4 x i8], align 1
   %3 = alloca { i32 }, align 8
@@ -276,5 +276,5 @@ define dso_local void @MAIN__() {
   ret void
 }
 
-
+attributes #0 = {"intel-lang"="fortran"}
 
