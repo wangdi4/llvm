@@ -1,13 +1,11 @@
 set(TARGET_NAME KernelInfo)
 
 set(TARGET_INCLUDE_FILES
-    DeduceMaxWGDim.h
     KernelInfoPass.h
     KernelSubGroupInfoPass.h
 )
 
 set(TARGET_SOURCE_FILES
-    DeduceMaxWGDim.cpp
     KernelInfoPass.cpp
     KernelSubGroupInfoPass.cpp
 )

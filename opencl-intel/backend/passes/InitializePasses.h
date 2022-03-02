@@ -67,7 +67,6 @@ void initializeResolveSubGroupWICallPass(llvm::PassRegistry&);
 void initializeDetectRecursionPass(llvm::PassRegistry&);
 void initializeDebugInfoPassPass(llvm::PassRegistry&);
 void initializeSmartGVNPass(llvm::PassRegistry&);
-void initializeDeduceMaxWGDimPass(llvm::PassRegistry&);
 void initializeOCLAliasAnalysisPass(llvm::PassRegistry&);
 void initializePrintfArgumentsPromotionPass(llvm::PassRegistry&);
 void initializeChannelPipeTransformationPass(llvm::PassRegistry&);
