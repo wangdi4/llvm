@@ -360,7 +360,7 @@ bool X86TargetMachine::isNoopAddrSpaceCast(unsigned SrcAS,
 //===----------------------------------------------------------------------===//
 
 TargetTransformInfo
-X86TargetMachine::getTargetTransformInfo(const Function &F) {
+X86TargetMachine::getTargetTransformInfo(const Function &F) const {
   return TargetTransformInfo(X86TTIImpl(this, F));
 }
 
