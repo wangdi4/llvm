@@ -1,6 +1,4 @@
-<<<<<<< HEAD
 include(GNUInstallDirs)
-=======
 # INTEL_CUSTOMIZATION
 #
 # INTEL CONFIDENTIAL
@@ -18,7 +16,6 @@ include(GNUInstallDirs)
 # License.
 #
 # end INTEL_CUSTOMIZATION
->>>>>>> 7d04c46cdd7ebdda266579885a79a7d51d61b37a
 include(LLVMDistributionSupport)
 
 function(clang_tablegen)
