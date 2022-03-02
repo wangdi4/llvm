@@ -15,13 +15,9 @@
 ;CHECK:      Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ;CHECK-NEXT: Running analysis: LoopAnalysis on foo
-;CHECK-NEXT: Invalidating analysis: DominatorTreeAnalysis on foo
-;CHECK-NEXT: Invalidating analysis: LoopAnalysis on foo
 ;CHECK-NEXT: Running pass: VPOParoptLoopCollapsePass on foo
 ;CHECK-NEXT: Running analysis: WRegionInfoAnalysis on foo
 ;CHECK-NEXT: Running analysis: WRegionCollectionAnalysis on foo
-;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
-;CHECK-NEXT: Running analysis: LoopAnalysis on foo
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-DAG:  Running analysis: TargetLibraryAnalysis on foo
 ;CHECK-DAG:  Running analysis: AssumptionAnalysis on foo
@@ -35,22 +31,8 @@
 ;CHECK-NEXT: Running analysis: StdContainerAA on foo
 ;CHECK-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis on foo
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
-;CHECK-NEXT: Invalidating analysis: DominatorTreeAnalysis on foo
-;CHECK-NEXT: Invalidating analysis: LoopAnalysis on foo
-;CHECK-NEXT: Invalidating analysis: ScalarEvolutionAnalysis on foo
-;CHECK-NEXT: Invalidating analysis: BasicAA on foo
-;CHECK-NEXT: Invalidating analysis: AAManager on foo
-;CHECK-NEXT: Invalidating analysis: WRegionCollectionAnalysis on foo
-;CHECK-NEXT: Invalidating analysis: WRegionInfoAnalysis on foo
 ;CHECK-NEXT: Running pass: LoopSimplifyPass on foo
-;CHECK-NEXT: Running analysis: LoopAnalysis on foo
-;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ;CHECK-NEXT: Running pass: VPOParoptPreparePass on foo
-;CHECK-NEXT: Running analysis: WRegionInfoAnalysis on foo
-;CHECK-NEXT: Running analysis: WRegionCollectionAnalysis on foo
-;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
-;CHECK-NEXT: Running analysis: AAManager on foo
-;CHECK-NEXT: Running analysis: BasicAA on foo
 ;CHECK-NEXT: Running analysis: OptReportOptionsAnalysis on foo ;INTEL
 ;            Running pass: LowerExpectIntrinsicPass on foo
 ;            Running pass: SimplifyCFGPass on foo
@@ -100,14 +82,10 @@
 ;CHECK-NEXT: Running pass: VPORestoreOperandsPass on foo
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running analysis: LoopAnalysis on foo
-;CHECK-NEXT: Invalidating analysis: DominatorTreeAnalysis on foo
-;CHECK-NEXT: Invalidating analysis: LoopAnalysis on foo
 ; INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running pass: VPOParoptSharedPrivatizationPass on foo
 ;CHECK-NEXT: Running analysis: WRegionInfoAnalysis on foo
 ;CHECK-NEXT: Running analysis: WRegionCollectionAnalysis on foo
-;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
-;CHECK-NEXT: Running analysis: LoopAnalysis on foo
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-NEXT: Running analysis: AAManager on foo
 ;CHECK-NEXT: Running analysis: BasicAA on foo
@@ -153,14 +131,16 @@
 ;            Running pass: InlinerPass on (foo)
 ;            Running analysis: OptimizationRemarkEmitterAnalysis on foo ;INTEL
 ;            Running pass: InlinerPass on (foo)
+;            Running pass: ArgumentPromotionPass on (foo)
+;            Running analysis: TargetIRAnalysis on foo
+;            Running pass: SROAPass on foo
+;            Running analysis: DominatorTreeAnalysis on foo
+;            Running analysis: AssumptionAnalysis on foo
 ;            Running pass: PostOrderFunctionAttrsPass on (foo)
 ;            Running analysis: AAManager on foo
 ;            Running analysis: BasicAA on foo
 ;            Running analysis: XmainOptLevelAnalysis on foo ;INTEL
 ;            Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, llvm::Function> on foo
-;            Running analysis: AssumptionAnalysis on foo
-;            Running analysis: TargetIRAnalysis on foo
-;            Running analysis: DominatorTreeAnalysis on foo
 ;            Running analysis: ScopedNoAliasAA on foo
 ;            Running analysis: TypeBasedAA on foo
 ;            Running analysis: StdContainerAA on foo
@@ -168,7 +148,7 @@
 ;            Running pass: TbaaMDPropagationPass on foo
 ;            Running pass: RequireAnalysisPass<llvm::OptReportOptionsAnalysis, llvm::Function> on foo
 ;            Running analysis: OptReportOptionsAnalysis on foo ;INTEL
-;            Running pass: SROA on foo
+;            Running pass: SROAPass on foo
 ;            Running pass: EarlyCSEPass on foo
 ;            Running analysis: MemorySSAAnalysis on foo
 ;            Running pass: SpeculativeExecutionPass on foo
@@ -204,9 +184,9 @@
 ;            Running pass: LoopDeletionPass on Loop at depth 1 containing: %loop<header><latch><exiting>
 ;            Running pass: LoopFullUnrollPass on Loop at depth 1 containing: %loop<header><latch><exiting>
 ;            Running analysis: OuterAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Loop, llvm::LoopStandardAnalysisResults &> on Loop at depth 1 containing: %loop<header><latch><exiting> ;INTEL
-;            Running pass: SROA on foo
+;            Running pass: SROAPass on foo
 ;            Running pass: MergedLoadStoreMotionPass on foo
-;            Running pass: GVN on foo
+;            Running pass: GVNPass on foo
 ;            Running analysis: MemoryDependenceAnalysis on foo
 ;            Running analysis: PhiValuesAnalysis on foo
 ;            Running pass: SCCPPass on foo
@@ -240,9 +220,14 @@
 ;            Invalidating analysis: DemandedBitsAnalysis on foo
 ;            Running pass: CoroSplitPass on (foo)
 ;            Invalidating analysis: InlineAdvisorAnalysis on [module]
+;            Running pass: IPSCCPPass on [module]
+;            Running analysis: DominatorTreeAnalysis on foo
 ;            Running pass: GlobalOptPass on [module]
 ;            Running analysis: TargetLibraryAnalysis on bar ;INTEL
 ;            Running pass: GlobalDCEPass on [module]
+;            Running pass: StdContainerOptPass on foo ;INTEL
+;            Running analysis: AAManager on foo
+;            Running analysis: BasicAA on foo
 ;            Running pass: CleanupFakeLoadsPass on foo ;INTEL
 ;            Running pass: EliminateAvailableExternallyPass on [module]
 ;            Running pass: ReversePostOrderFunctionAttrsPass on [module]
@@ -251,29 +236,22 @@
 ;            Running analysis: AndersensAA on [module] ;INTEL
 ;            Running pass: RequireAnalysisPass<llvm::GlobalsAA, llvm::Module> on [module]
 ;            Running pass: Float2IntPass on foo
-;            Running analysis: DominatorTreeAnalysis on foo
 ;            Running pass: LowerConstantIntrinsicsPass on foo
 ;            Running pass: LoopSimplifyPass on foo
 ;            Running analysis: LoopAnalysis on foo
 ;            Running pass: LCSSAPass on foo
-;            Running analysis: AAManager on foo
-;            Running analysis: BasicAA on foo
 ;            Running analysis: ScalarEvolutionAnalysis on foo
 ;            Running analysis: InnerAnalysisManagerProxy<llvm::LoopAnalysisManager, llvm::Function> on foo
 ;            Running pass: LoopRotatePass on Loop at depth 1 containing: %loop<header><latch><exiting>
 ;            Running pass: LoopDeletionPass on Loop at depth 1 containing: %loop<header><latch><exiting>
 ;            Running pass: LoopDistributePass on foo
 ;            Running pass: InjectTLIMappings on foo
-;            Running pass: LoopVectorizePass on foo
-;            Running analysis: BlockFrequencyAnalysis on foo
-;            Running analysis: BranchProbabilityAnalysis on foo
-;            Running analysis: PostDominatorTreeAnalysis on foo
-;            Running analysis: DemandedBitsAnalysis on foo
 ;            Running pass: LoopLoadEliminationPass on foo
 ;            Running analysis: LoopAccessAnalysis on Loop at depth 1 containing: %loop<header><latch><exiting>
 ;            Running pass: InstCombinePass on foo
 ;            Running pass: SimplifyCFGPass on foo
 ;            Running pass: SLPVectorizerPass on foo
+;            Running analysis: DemandedBitsAnalysis on foo
 ;            Running pass: VectorCombinePass on foo
 ;            Running pass: EarlyCSEPass on foo ;INTEL
 ;            Running pass: InstCombinePass on foo
@@ -287,6 +265,9 @@
 ;            Running pass: LICMPass on Loop at depth 1 containing: %loop<header><latch><exiting>
 ;            Running pass: AlignmentFromAssumptionsPass on foo
 ;            Running pass: LoopSinkPass on foo
+;            Running analysis: BlockFrequencyAnalysis on foo
+;            Running analysis: BranchProbabilityAnalysis on foo
+;            Running analysis: PostDominatorTreeAnalysis on foo
 ;            Running pass: InstSimplifyPass on foo
 ;            Running pass: DivRemPairsPass on foo
 ;            Running pass: SimplifyCFGPass on foo

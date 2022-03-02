@@ -88,7 +88,9 @@ public:
   /// DominatorTreeWrapperPass and LoopInfoWrapperPass to be executed prior
   /// to it, when calling CFGRestructuring, we need to update DominatorTree
   /// and LoopInfo whenever a basic block splitting happens.
-  static void CFGRestructuring(Function &F, DominatorTree *DT = nullptr,
+  ///
+  /// \returns \b true if any change is made, \b false otherwise.
+  static bool CFGRestructuring(Function &F, DominatorTree *DT = nullptr,
                                LoopInfo *LI = nullptr);
 
   // Restore the clause operands by undoing the renaming done in the prepare

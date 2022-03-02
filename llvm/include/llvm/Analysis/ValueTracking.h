@@ -22,6 +22,7 @@
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/IR/PassManager.h" // INTEL
 #include <cassert>
 #include <cstdint>
 
@@ -909,6 +910,18 @@ constexpr unsigned MaxAnalysisRecursionDepth = 6;
   /// this case offset would be -8.
   Optional<int64_t> isPointerOffset(const Value *Ptr1, const Value *Ptr2,
                                     const DataLayout &DL);
+#if INTEL_CUSTOMIZATION
+  /// Printer pass for the ComputeNumSignBits ValueTracking utility.
+  class NumSignBitsPrinterPass : public PassInfoMixin<NumSignBitsPrinterPass> {
+    raw_ostream &OS;
+
+  public:
+    explicit NumSignBitsPrinterPass(raw_ostream &OS) : OS(OS) {}
+
+    PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  };
+#endif // INTEL_CUSTOMIZATION
+
 } // end namespace llvm
 
 #endif // LLVM_ANALYSIS_VALUETRACKING_H

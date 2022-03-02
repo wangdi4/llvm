@@ -259,6 +259,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Call has byval argument without alloca address space"},
     // NinlrMultiversionedCallsite
     {InlPrtSimple, "Multiversioned callsite"},
+    // NinlrDelayInlineDecisionLTO
+    {InlPrtSimple, "Inline decision is delayed"},
     // NinlrLast
     {InlPrtNone, nullptr}};
 

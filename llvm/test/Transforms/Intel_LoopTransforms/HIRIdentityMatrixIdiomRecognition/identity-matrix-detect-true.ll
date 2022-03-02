@@ -24,16 +24,16 @@
 ;      C(i,i) = 1.0
 ;    enddo
 
-; CHECK: Found Diag Inst in OuterLp: <16>         (@A)[0][i1][i1] = 1.000000e+00;
-; CHECK: Found Zero Instruction: <7>          (@A)[0][i1][i2] = 0.000000e+00;
-; CHECK: Found Ident Matrix, DiagInst: <16>         (@A)[0][i1][i1] = 1.000000e+00;
+; CHECK: Found Diag Inst in OuterLp: <{{[0-9]+}}>         (@A)[0][i1][i1] = 1.000000e+00;
+; CHECK: Found Zero Instruction: <{{[0-9]+}}>          (@A)[0][i1][i2] = 0.000000e+00;
+; CHECK: Found Ident Matrix, DiagInst: <{{[0-9]+}}>         (@A)[0][i1][i1] = 1.000000e+00;
 
-; CHECK: Found Diag Inst in OuterLp: <44>         (@C)[0][i1][i1] = 1.000000e+00;
-; CHECK: Found Diag Inst in OuterLp: <42>         (@B)[0][i1][i1] = 1.000000e+00;
-; CHECK: Found Zero Instruction: <33>         (@C)[0][i1][i2] = 0.000000e+00;
-; CHECK: Found Zero Instruction: <31>         (@B)[0][i1][i2] = 0.000000e+00;
-; CHECK: Found Ident Matrix, DiagInst: <44>         (@C)[0][i1][i1] = 1.000000e+00;
-; CHECK: Found Ident Matrix, DiagInst: <42>         (@B)[0][i1][i1] = 1.000000e+00;
+; CHECK: Found Diag Inst in OuterLp: <{{[0-9]+}}>         (@C)[0][i1][i1] = 1.000000e+00;
+; CHECK: Found Diag Inst in OuterLp: <{{[0-9]+}}>         (@B)[0][i1][i1] = 1.000000e+00;
+; CHECK: Found Zero Instruction: <{{[0-9]+}}>         (@C)[0][i1][i2] = 0.000000e+00;
+; CHECK: Found Zero Instruction: <{{[0-9]+}}>         (@B)[0][i1][i2] = 0.000000e+00;
+; CHECK: Found Ident Matrix, DiagInst: <{{[0-9]+}}>         (@C)[0][i1][i1] = 1.000000e+00;
+; CHECK: Found Ident Matrix, DiagInst: <{{[0-9]+}}>         (@B)[0][i1][i1] = 1.000000e+00;
 
 ;Module Before HIR
 ; ModuleID = 'true.f90'

@@ -1,3 +1,4 @@
+# INTEL_CUSTOMIZATION
 #
 # INTEL CONFIDENTIAL
 #
@@ -13,6 +14,7 @@
 # or implied warranties, other than those that are expressly stated in the
 # License.
 #
+# end INTEL_CUSTOMIZATION
 # INTEL_CUSTOMIZATION
 set(INTEL_SOURCE_FILES_TO_BUILD)
 intel_add_file(INTEL_SOURCE_FILES_TO_BUILD

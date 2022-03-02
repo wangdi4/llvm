@@ -1,3 +1,5 @@
+//===- DebugInfoMetadata.cpp - Implement debug info metadata --------------===//
+// INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
 //
@@ -13,7 +15,7 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 //
-//===- DebugInfoMetadata.cpp - Implement debug info metadata --------------===//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
