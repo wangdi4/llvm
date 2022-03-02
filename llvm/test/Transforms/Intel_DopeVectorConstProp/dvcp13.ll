@@ -120,7 +120,7 @@ define dso_local void @MAIN__() #0 {
   ret void
 }
 
-define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* noalias nocapture readonly %0, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* noalias nocapture readonly %1) #2 {
+define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* noalias nocapture readonly %0, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* noalias nocapture readonly %1) #0 {
   %3 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %1, i64 0, i32 0
 ; NOTE: %4, %5, and %7 are direct accessses through the dimension base of the dope vector
   %4 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %1, i64 0, i32 6, i64 0, i32 0
@@ -258,3 +258,4 @@ define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [2 x { i64, i
   ret void
 }
 
+attributes #0 = {"intel-lang"="fortran"}

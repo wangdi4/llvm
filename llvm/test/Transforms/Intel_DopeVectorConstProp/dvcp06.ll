@@ -29,7 +29,7 @@ declare i8* @llvm.stacksave()
 
 declare void @llvm.stackrestore(i8*)
 
-define dso_local void @MAIN__() {
+define dso_local void @MAIN__() #0 {
   %1 = alloca { i64, i8* }, align 8
   %2 = alloca [4 x i8], align 1
   %3 = alloca { i64, i8* }, align 8
@@ -149,7 +149,7 @@ define dso_local void @MAIN__() {
 }
 
 
-define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* noalias nocapture readonly %0, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* noalias nocapture readonly %1) {
+define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* noalias nocapture readonly %0, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* noalias nocapture readonly %1) #0 {
   %3 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %1, i64 0, i32 0
 ; NOTE: Load the dope vector dimension base for arg #1 into %4
   %4 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %1, i64 0, i32 6, i64 0
@@ -296,3 +296,5 @@ define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [2 x { i64, i
 86:                                               ; preds = %83
   ret void
 }
+
+attributes #0 = {"intel-lang"="fortran"}
