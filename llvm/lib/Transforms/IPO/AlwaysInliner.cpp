@@ -1,6 +1,4 @@
-<<<<<<< HEAD
 //===- AlwaysInliner.cpp - Code to inline always_inline functions ----------===//
-=======
 // INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
@@ -19,7 +17,6 @@
 //
 // end INTEL_CUSTOMIZATION
 //===- InlineAlways.cpp - Code to inline always_inline functions ----------===//
->>>>>>> 414f738d118f7b2c57ed41202e0ff28ae865ce25
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
