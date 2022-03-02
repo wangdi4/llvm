@@ -4275,19 +4275,35 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
   CGF.EmitMultiVersionResolver(ResolverFunc, Options,
                                /*IsCpuDispatch*/ true);
 
+<<<<<<< HEAD
   if (getTarget().supportsIFunc() &&
       !getCodeGenOpts().DisableCpuDispatchIFuncs) {
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (getTarget().supportsIFunc()) {
+    llvm::GlobalValue::LinkageTypes Linkage = getMultiversionLinkage(*this, GD);
+    auto *IFunc = cast<llvm::GlobalValue>(
+        GetOrCreateMultiVersionResolver(GD, DeclTy, FD));
+
+    // Fix up function declarations that were created for cpu_specific before
+    // cpu_dispatch was known
+    if (!dyn_cast<llvm::GlobalIFunc>(IFunc)) {
+      assert(cast<llvm::Function>(IFunc)->isDeclaration());
+      auto *GI = llvm::GlobalIFunc::create(DeclTy, 0, Linkage, "", ResolverFunc,
+                                           &getModule());
+      GI->takeName(IFunc);
+      IFunc->replaceAllUsesWith(GI);
+      IFunc->eraseFromParent();
+      IFunc = GI;
+    }
+
+>>>>>>> f3480390be614604907be447afa3f5ab10b97d04
     std::string AliasName = getMangledNameImpl(
         *this, GD, FD, /*OmitMultiVersionMangling=*/true);
     llvm::Constant *AliasFunc = GetGlobalValue(AliasName);
     if (!AliasFunc) {
-      auto *IFunc = cast<llvm::GlobalIFunc>(GetOrCreateLLVMFunction(
-          AliasName, DeclTy, GD, /*ForVTable=*/false, /*DontDefer=*/true,
-          /*IsThunk=*/false, llvm::AttributeList(), NotForDefinition));
-      auto *GA = llvm::GlobalAlias::create(DeclTy, 0,
-                                           getMultiversionLinkage(*this, GD),
-                                           AliasName, IFunc, &getModule());
+      auto *GA = llvm::GlobalAlias::create(DeclTy, 0, Linkage, AliasName, IFunc,
+                                           &getModule());
       SetCommonAttributes(GD, GA);
     }
   }
@@ -4339,11 +4355,17 @@ llvm::Constant *CodeGenModule::GetOrCreateMultiVersionResolver(
     }
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (getTarget().supportsIFunc() &&
       !(getCodeGenOpts().DisableCpuDispatchIFuncs &&
         (FD->isCPUDispatchMultiVersion() || FD->isCPUSpecificMultiVersion()))) {
 #endif // INTEL_CUSTOMIZATION
+=======
+  // For cpu_specific, don't create an ifunc yet because we don't know if the
+  // cpu_dispatch will be emitted in this translation unit.
+  if (getTarget().supportsIFunc() && !FD->isCPUSpecificMultiVersion()) {
+>>>>>>> f3480390be614604907be447afa3f5ab10b97d04
     llvm::Type *ResolverType = llvm::FunctionType::get(
         llvm::PointerType::get(
             DeclTy, getContext().getTargetAddressSpace(FD->getType())),
