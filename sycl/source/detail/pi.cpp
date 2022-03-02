@@ -453,7 +453,6 @@ static void initializePlugins(std::vector<plugin> &Plugins) {
                 << PluginNames[I].first << std::endl;
   }
 
-#if INTEL_CUSTOMIZATION
 #ifdef XPTI_ENABLE_INSTRUMENTATION
   GlobalHandler::instance().getXPTIRegistry().initializeFrameworkOnce();
 
@@ -505,7 +504,6 @@ static void initializePlugins(std::vector<plugin> &Plugins) {
                                   xpti::trace_algorithm_event, xpti_at::active,
                                   &PiArgInstanceNo);
 #endif
-#endif // INTEL_CUSTOMIZATION
 }
 
 // Get the plugin serving given backend.
