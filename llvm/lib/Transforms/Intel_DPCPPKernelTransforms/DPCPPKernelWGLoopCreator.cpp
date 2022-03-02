@@ -219,12 +219,10 @@ void DPCPPKernelWGLoopCreatorPass::processFunction(Function *F,
   initializeImplicitGID(Func);
 
   // Create loops.
-  LoopRegion WGLoopRegion =
-      MaskedF ? createVectorAndMaskedRemainderLoops()
-      : (VectorF && NumDim)
-          ? createVectorAndRemainderLoops()
-          : addWGLoops(RemainderEntry, false, RemainderRet, GidCalls, LidCalls,
-                       InitGIDs, LoopSizes);
+  LoopRegion WGLoopRegion = MaskedF ? createVectorAndMaskedRemainderLoops()
+                            : (VectorF && NumDim)
+                                ? createVectorAndRemainderLoops()
+                                : createScalarLoop();
   assert(WGLoopRegion.PreHeader && WGLoopRegion.Exit &&
          "Workgroup loop entry or exit not initialized");
 
@@ -317,6 +315,20 @@ void DPCPPKernelWGLoopCreatorPass::initializeImplicitGID(Function *F) {
   }
 }
 
+// Create the following scalar loop:
+//
+// scalar_preheader:
+//   scalar loops
+// return
+//
+LoopRegion DPCPPKernelWGLoopCreatorPass::createScalarLoop() {
+  LLVM_DEBUG(dbgs() << "\tCreate scalar loops\n");
+  if (VectorF)
+    VectorF->eraseFromParent();
+  return addWGLoops(RemainderEntry, false, RemainderRet, GidCalls, LidCalls,
+                    InitGIDs, LoopSizes);
+}
+
 // if the vector kernel exists then we create the following code:
 //
 // max_vector =
@@ -326,6 +338,7 @@ void DPCPPKernelWGLoopCreatorPass::initializeImplicitGID(Function *F) {
 //   scalar loops
 // return
 LoopRegion DPCPPKernelWGLoopCreatorPass::createVectorAndRemainderLoops() {
+  LLVM_DEBUG(dbgs() << "\tCreate vector and scalar remainder loops\n");
   // Collect get_*_id and return instructions in the vector kernel.
   VectorRet = getFunctionData(VectorF, GidCallsVec, LidCallsVec);
 
@@ -380,6 +393,7 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createVectorAndRemainderLoops() {
 }
 
 LoopRegion DPCPPKernelWGLoopCreatorPass::createVectorAndMaskedRemainderLoops() {
+  LLVM_DEBUG(dbgs() << "\tCreate vector and masked remainder loops\n");
   // Do not create scalar remainder for subgroup kernels as the semantics does
   // not allow execution of workitems in a serial manner.
   // Intentionally forget about scalar kernel. Let DCE delete it.
@@ -479,6 +493,8 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createVectorAndMaskedRemainderLoops() {
 // ret
 LoopRegion DPCPPKernelWGLoopCreatorPass::createPeelAndVectorAndRemainderLoops(
     LoopBoundaries &Dim0Boundaries) {
+  LLVM_DEBUG(
+      dbgs() << "\tCreate peel, vector and scalar/masked remainder loops\n");
   bool IsMasked = MaskedF != nullptr;
   Function *Func = IsMasked ? MaskedF : F;
 

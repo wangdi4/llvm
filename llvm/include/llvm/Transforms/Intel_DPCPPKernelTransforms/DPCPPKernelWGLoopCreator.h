@@ -192,6 +192,9 @@ private:
                           BasicBlock *Head, BasicBlock *PreHead,
                           BasicBlock *Latch);
 
+  /// Create a WG loop over scalar kernel.
+  LoopRegion createScalarLoop();
+
   /// Create WG loops over vector kernel and remainder loop over scalar kernel.
   /// Returns a struct with entry and exit block of the WG loop region.
   LoopRegion createVectorAndRemainderLoops();
