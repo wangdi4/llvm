@@ -101,6 +101,13 @@ protected:
   const intel::OptimizerConfig *Config;
   StringRef CPUPrefix;
   std::vector<std::string> m_undefinedExternalFunctions;
+
+  /// True if OpenCL version is greater or equal to 2.0.
+  bool m_IsOcl20;
+
+  /// True if source is spirv.
+  bool m_IsSPIRV;
+
   // Indicates whether the module comes from SYCL.
   // The only noticeable difference between SYCL flow and OpenCL flow is the
   // spirv.Source metadata: in SYCL the value for spirv.Source is OpenCL C++

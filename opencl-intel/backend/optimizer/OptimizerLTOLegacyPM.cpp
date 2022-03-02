@@ -32,7 +32,7 @@ namespace OpenCL {
 namespace DeviceBackend {
 
 OptimizerLTOLegacyPM::OptimizerLTOLegacyPM(
-    Module *M, llvm::SmallVector<llvm::Module *, 2> &RtlModuleList,
+    Module *M, SmallVector<Module *, 2> &RtlModuleList,
     const intel::OptimizerConfig *Config)
     : Optimizer(M, RtlModuleList, Config), FPM(M) {
   CreatePasses();
@@ -103,13 +103,15 @@ void OptimizerLTOLegacyPM::CreatePasses() {
 void OptimizerLTOLegacyPM::registerPipelineStartCallback(
     PassManagerBuilder &PMBuilder) {
   FPM.add(createUnifyFunctionExitNodesPass());
-  FPM.add(createInferAddressSpacesPass());
+  if (PMBuilder.OptLevel > 0 && (m_IsOcl20 || m_IsSPIRV))
+    FPM.add(createInferAddressSpacesPass(
+        DPCPPKernelCompilationUtils::ADDRESS_SPACE_GENERIC));
 
   auto EP = (PMBuilder.OptLevel == 0)
                 ? PassManagerBuilder::EP_EnabledOnOptLevel0
                 : PassManagerBuilder::EP_ModuleOptimizerEarly;
   PMBuilder.addExtension(
-      EP, [&](const PassManagerBuilder &PMB, legacy::PassManagerBase &MPM) {
+      EP, [this](const PassManagerBuilder &PMB, legacy::PassManagerBase &MPM) {
         MPM.add(createParseAnnotateAttributesPass());
         MPM.add(createBuiltinLibInfoAnalysisLegacyPass(m_RtlModules));
         MPM.add(createDPCPPEqualizerLegacyPass());
@@ -129,7 +131,22 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
     PassManagerBuilder &PMBuilder) {
   PMBuilder.addExtension(
       PassManagerBuilder::EP_VectorizerStart,
-      [&](const PassManagerBuilder &, legacy::PassManagerBase &MPM) {
+      [this](const PassManagerBuilder &, legacy::PassManagerBase &MPM) {
+        if (m_IsOcl20 || m_IsSPIRV) {
+          // Repeat resolution of generic address space pointers after LLVM
+          // IR was optimized.
+          MPM.add(createInferAddressSpacesPass(
+              DPCPPKernelCompilationUtils::ADDRESS_SPACE_GENERIC));
+          // Cleanup after InferAddressSpaces pPass.
+          MPM.add(createCFGSimplificationPass());
+          MPM.add(createSROAPass());
+          MPM.add(createEarlyCSEPass());
+          MPM.add(createPromoteMemoryToRegisterPass());
+          MPM.add(createInstructionCombiningPass());
+          // No need to run function inlining pass here, because if there are
+          // still non-inlined functions, then we don't have to inline new ones.
+        }
+
         MPM.add(createDPCPPKernelAnalysisLegacyPass());
         MPM.add(createWGLoopBoundariesLegacyPass());
         MPM.add(createDeadCodeEliminationPass());
@@ -263,8 +280,7 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
   }
 }
 
-void OptimizerLTOLegacyPM::registerLastPasses(
-    llvm::PassManagerBuilder &PMBuilder) {
+void OptimizerLTOLegacyPM::registerLastPasses(PassManagerBuilder &PMBuilder) {
   if (PMBuilder.OptLevel == 0) {
     // In O0 pipeline, there is no EP_OptimizerLast extension point, so we add
     // passes to the end of pipeline.
@@ -275,7 +291,7 @@ void OptimizerLTOLegacyPM::registerLastPasses(
   MPM.add(createCleanupWrappedKernelLegacyPass());
 }
 
-void OptimizerLTOLegacyPM::Optimize(llvm::raw_ostream &LogStream) {
+void OptimizerLTOLegacyPM::Optimize(raw_ostream &LogStream) {
   MaterializerMPM.run(*m_M);
 
   FPM.doInitialization();

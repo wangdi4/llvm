@@ -432,7 +432,7 @@ static void populatePassesPostFailCheck(
     const intel::OptimizerConfig *pConfig,
     std::vector<std::string> &UndefinedExternals, bool isOcl20,
     bool isFpgaEmulator, bool isEyeQEmulator, bool UnrollLoops, bool UseVplan,
-    bool IsSYCL, bool IsOMP, DebuggingServiceType debugType) {
+    bool IsSPIRV, bool IsSYCL, bool IsOMP, DebuggingServiceType debugType) {
   bool isProfiling = pConfig->GetProfilingFlag();
   bool HasGatherScatter = pConfig->GetCpuId()->HasGatherScatter();
   // Tune the maximum size of the basic block for memory dependency analysis
@@ -882,12 +882,6 @@ OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
   if (pConfig->GetDisableOpt())
     OptLevel = 0;
 
-  // Detect OCL2.0 compilation mode
-  const bool isOcl20 = (CompilationUtils::fetchCLVersionFromMetadata(
-                            *pModule) >= OclVersion::CL_VER_2_0);
-
-  const bool isSPIRV = CompilationUtils::generatedFromSPIRV(*pModule);
-
   bool UnrollLoops = true;
 
   // Initialize TTI
@@ -918,16 +912,17 @@ OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
   materializerPM();
 
   // Add passes which will run unconditionally
-  populatePassesPreFailCheck(m_PM, pModule, OptLevel, pConfig, isOcl20,
-                             m_IsFpgaEmulator, UnrollLoops, isSPIRV,
+  populatePassesPreFailCheck(m_PM, pModule, OptLevel, pConfig, m_IsOcl20,
+                             m_IsFpgaEmulator, UnrollLoops, m_IsSPIRV,
                              EnableVPlan);
 
   // Add passes which will be run only if hasFunctionPtrCalls() and
   // hasRecursion() will return false
   populatePassesPostFailCheck(m_PM, pModule, m_RtlModules, OptLevel, pConfig,
-                              m_undefinedExternalFunctions, isOcl20,
+                              m_undefinedExternalFunctions, m_IsOcl20,
                               m_IsFpgaEmulator, m_IsEyeQEmulator, UnrollLoops,
-                              EnableVPlan, m_IsSYCL, m_IsOMP, m_debugType);
+                              EnableVPlan, m_IsSPIRV, m_IsSYCL, m_IsOMP,
+                              m_debugType);
 }
 
 /// Customized diagnostic handler to be registered to LLVMContext before running
@@ -985,10 +980,13 @@ Optimizer::Optimizer(llvm::Module *M,
                      llvm::SmallVector<llvm::Module *, 2> &RtlModules,
                      const intel::OptimizerConfig *Config)
     : m_M(M), m_RtlModules(RtlModules), Config(Config),
+      m_IsSPIRV(CompilationUtils::generatedFromSPIRV(*M)),
       m_IsSYCL(DPCPPKernelCompilationUtils::isGeneratedFromOCLCPP(*M)),
       m_IsOMP(DPCPPKernelCompilationUtils::isGeneratedFromOMP(*M)) {
   assert(Config && Config->GetCpuId() && "Invalid OptimizerConfig");
   CPUPrefix = Config->GetCpuId()->GetCPUPrefix();
+  m_IsOcl20 = CompilationUtils::fetchCLVersionFromMetadata(*M) >=
+              OclVersion::CL_VER_2_0;
   m_debugType = getDebuggingServiceType(Config->GetDebugInfoFlag(), M,
                                         Config->GetUseNativeDebuggerFlag());
 }

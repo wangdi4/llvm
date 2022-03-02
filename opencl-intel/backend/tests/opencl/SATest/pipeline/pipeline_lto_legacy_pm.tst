@@ -30,6 +30,7 @@
 ; CHECK:              Loop Pass Manager
 ; CHECK:                Unroll loops
 
+; CHECK:          Infer address spaces
 ; CHECK:          DPCPPKernelAnalysisLegacy
 ; CHECK:          WGLoopBoundariesLegacy
 ; CHECK:          Replace known math operations with optimized library functions
