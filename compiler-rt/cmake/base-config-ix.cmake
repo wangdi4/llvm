@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 # The CompilerRT build system requires CMake version 2.8.8 or higher in order
 # to use its support for building convenience "libraries" as a collection of
 # .o files. This is particularly useful in producing larger, more complex
