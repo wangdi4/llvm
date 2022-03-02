@@ -17,6 +17,8 @@
 
 namespace lld {
 namespace elf {
+class InputFile;
+class Symbol;
 
 extern std::unique_ptr<class LinkerDriver> driver;
 
@@ -31,6 +33,8 @@ private:
   void inferMachineType();
   void link(llvm::opt::InputArgList &args);
   template <class ELFT> void compileBitcodeFiles(bool skipLinkedOutput);
+  void writeArchiveStats() const;
+  void writeWhyExtract() const;
 
   // True if we are in --whole-archive and --no-whole-archive.
   bool inWholeArchive = false;
@@ -42,6 +46,7 @@ private:
   std::unique_ptr<BitcodeCompiler> lto;
 
   std::vector<InputFile *> files;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Pass to g++ the input vector of GNU LTO files in order to do LTO and
   // build a temporary object. Then collect the ELF object generated and
@@ -51,9 +56,14 @@ private:
       doGnuLTOLinking(llvm::SmallVectorImpl<InputFile *> &gnuLTOFiles,
                       bool isLazyFile);
 #endif // INTEL_CUSTOMIZATION
+=======
+  SmallVector<std::pair<StringRef, unsigned>, 0> archiveFiles;
+>>>>>>> 7fd3849b3565a1e22719338c6cebea9bcb023fca
 
 public:
-  SmallVector<std::pair<StringRef, unsigned>, 0> archiveFiles;
+  // A tuple of (reference, extractedFile, sym). Used by --why-extract=.
+  SmallVector<std::tuple<std::string, const InputFile *, const Symbol &>, 0>
+      whyExtract;
 };
 
 // Parses command line options.
