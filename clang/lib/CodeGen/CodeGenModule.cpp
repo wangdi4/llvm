@@ -4275,12 +4275,9 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
   CGF.EmitMultiVersionResolver(ResolverFunc, Options,
                                /*IsCpuDispatch*/ true);
 
-<<<<<<< HEAD
   if (getTarget().supportsIFunc() &&
       !getCodeGenOpts().DisableCpuDispatchIFuncs) {
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (getTarget().supportsIFunc()) {
     llvm::GlobalValue::LinkageTypes Linkage = getMultiversionLinkage(*this, GD);
     auto *IFunc = cast<llvm::GlobalValue>(
         GetOrCreateMultiVersionResolver(GD, DeclTy, FD));
@@ -4297,7 +4294,6 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
       IFunc = GI;
     }
 
->>>>>>> f3480390be614604907be447afa3f5ab10b97d04
     std::string AliasName = getMangledNameImpl(
         *this, GD, FD, /*OmitMultiVersionMangling=*/true);
     llvm::Constant *AliasFunc = GetGlobalValue(AliasName);
@@ -4355,17 +4351,13 @@ llvm::Constant *CodeGenModule::GetOrCreateMultiVersionResolver(
     }
   }
 
-<<<<<<< HEAD
+  // For cpu_specific, don't create an ifunc yet because we don't know if the
+  // cpu_dispatch will be emitted in this translation unit.
 #if INTEL_CUSTOMIZATION
   if (getTarget().supportsIFunc() &&
       !(getCodeGenOpts().DisableCpuDispatchIFuncs &&
         (FD->isCPUDispatchMultiVersion() || FD->isCPUSpecificMultiVersion()))) {
 #endif // INTEL_CUSTOMIZATION
-=======
-  // For cpu_specific, don't create an ifunc yet because we don't know if the
-  // cpu_dispatch will be emitted in this translation unit.
-  if (getTarget().supportsIFunc() && !FD->isCPUSpecificMultiVersion()) {
->>>>>>> f3480390be614604907be447afa3f5ab10b97d04
     llvm::Type *ResolverType = llvm::FunctionType::get(
         llvm::PointerType::get(
             DeclTy, getContext().getTargetAddressSpace(FD->getType())),
