@@ -343,11 +343,14 @@ private:
   void AddPragmaCommentLib(StringRef Lib);
 
 #if INTEL_FEATURE_SW_DTRANS
+  using DTransCollection =
+      llvm::MapVector<const RecordDecl *,
+                      llvm::SmallVector<llvm::StructType *, 2>>;
+
   /// List of types used in the application, used later to generate DTrans
   /// metadata. Some RecordDecl's can be emitted as a base class, so they can
   /// have 2 representations, so we store/generate both.
-  llvm::MapVector<const RecordDecl *, llvm::SmallVector<llvm::StructType *, 2>>
-      DTransTypes;
+  DTransCollection DTransTypes;
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB

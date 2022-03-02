@@ -415,6 +415,10 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 /llvm/lib/Analysis/Intel_OptReport/OptReportSupport.cpp @andykaylor @karthik-senthil
 /llvm/test/Analysis/Intel_OptReport/Binary @andykaylor @karthik-senthil
 
+# Code owners for register allocation report
+/llvm/lib/CodeGen/Intel_RAReportEmitter.cpp @LuoYuanke @phoebewang @williamweixiao @dwoodwor-intel
+/llvm/test/Analysis/Intel_OptReport/RegisterAllocation @LuoYuanke @phoebewang @williamweixiao @dwoodwor-intel
+
 # JIRA: CMPLRLIBS->LLVM Offload RT
 /openmp/libomptarget/ @intel-restricted/cmplrlibs-llvm-offload-rt
 

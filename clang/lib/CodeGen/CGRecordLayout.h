@@ -243,6 +243,24 @@ public:
     return UnionDecl;
   }
 
+  bool IsFieldNumBase(unsigned Idx) const {
+    auto Result = llvm::find_if(
+        NonVirtualBases,
+        [Idx](const std::pair<const CXXRecordDecl *, unsigned> &Entry) {
+          return Entry.second == Idx;
+        });
+    if (Result != NonVirtualBases.end())
+      return true;
+    Result = llvm::find_if(
+        CompleteObjectVirtualBases,
+        [Idx](const std::pair<const CXXRecordDecl *, unsigned> &Entry) {
+          return Entry.second == Idx;
+        });
+    if (Result != CompleteObjectVirtualBases.end())
+      return true;
+    return false;
+  }
+
   // Searches the various collections to find the field type for the LLVM
   // struct field.
   QualType getTypeOfLLVMFieldNum(unsigned I) const {

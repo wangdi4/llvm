@@ -1225,7 +1225,10 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
     // Process OpenMP directives at -O1 and above.
     AddPreCGSCCModulePasses(PMIWP);
     MPM->addPass(std::move(PMIWP));
-    addVPOPasses(*MPM, Level, /*RunVec=*/false, /*Simplify=*/true);
+    FunctionPassManager FPM;
+    addVPOPasses(*MPM, FPM, Level, /*RunVec=*/false, /*Simplify=*/true);
+    if (!FPM.isEmpty())
+      MPM->addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
   }
 #endif // INTEL_COLLAB
 
@@ -1392,9 +1395,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
     // CallSiteSplitting and InstCombine are run after the pre-inliner Paropt
     // in the legacy pass manager. For now we can stick to the same with NPM as
     // well, even though that would break the FPM pipeline here.
-    MPM.addPass(createModuleToFunctionPassAdaptor(std::move(EarlyFPM)));
-    addVPOPasses(MPM, Level, /*RunVec=*/false);
-    EarlyFPM = FunctionPassManager();
+    addVPOPasses(MPM, EarlyFPM, Level, /*RunVec=*/false);
   }
 #endif // INTEL_COLLAB
   if (Level == OptimizationLevel::O3)
@@ -1720,13 +1721,13 @@ void PassBuilder::addVPOPreparePasses(FunctionPassManager &FPM) {
   FPM.addPass(VPOParoptPreparePass(Mode));
 }
 
-void PassBuilder::addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
-                               bool RunVec, bool Simplify) {
+void PassBuilder::addVPOPasses(ModulePassManager &MPM, FunctionPassManager &FPM,
+                               OptimizationLevel Level, bool RunVec,
+                               bool Simplify) {
   if (!RunVPOParopt)
     return;
 
   unsigned OptLevel = Level.getSpeedupLevel();
-  FunctionPassManager FPM;
 
   if (Simplify) {
     // Optimize unnesessary alloca, loads and stores to simplify IR.
@@ -1809,7 +1810,6 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
 #endif // INTEL_CUSTOMIZATION
   // Clean-up empty blocks after OpenMP directives handling.
   FPM.addPass(VPOCFGSimplifyPass());
-  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
 #if INTEL_CUSTOMIZATION
   // Paropt transformation pass may produce new AlwaysInline functions.
   // Force inlining for them, if paropt pass runs after the normal inliner.
@@ -1824,6 +1824,7 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
     // we will have to resolve that issue with coroutines.
     // TODO: This may be redundant since Inliner is also run after Paropt
     // in the new PM. Remove it in the future if it's not needed.
+    MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
     MPM.addPass(AlwaysInlinerPass(
         /*InsertLifetimeIntrinsics=*/false));
     // Run GlobalDCE to delete dead functions.
@@ -1855,34 +1856,28 @@ void PassBuilder::addVPlanVectorizer(ModulePassManager &MPM,
   // Before proceeding, consume the existing FPM pipeline before resetting
   // the pass manager, since next pass is a module pass.
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
-  // TODO: Check whether this re-creation is needed, or it's ok to
-  // reuse a consumed FPM - we need that in the caller.
-  FPM = FunctionPassManager();
 
   // FIXME: We should try to avoid breaking the FPM pipeline by making
   // VPlanPragmaOmpOrderedSimdExtractPass a Function pass.
   MPM.addPass(VPlanPragmaOmpOrderedSimdExtractPass());
 
-  // Create a new function pass pipeline for the next few passes.
-  FunctionPassManager FPM1;
-
   // Code extractor might add new instructions in the entry block. If the entry
   // block has a directive, than we have to split the entry block. VPlan assumes
   // that the directives are in single-entry single-exit basic blocks.
-  FPM1.addPass(VPOCFGRestructuringPass());
+  FPM.addPass(VPOCFGRestructuringPass());
 
   // Create OCL sincos from sin/cos and sincos
   if (OptLevel > 0)
-    FPM1.addPass(MathLibraryFunctionsReplacementPass(false /*isOCL*/));
+    FPM.addPass(MathLibraryFunctionsReplacementPass(false /*isOCL*/));
 
-  FPM1.addPass(vpo::VPlanDriverPass());
+  FPM.addPass(vpo::VPlanDriverPass());
 
   // Split/translate scalar OCL and vector sincos
   if (OptLevel > 0)
-    FPM1.addPass(MathLibraryFunctionsReplacementPass(false /*isOCL*/));
+    FPM.addPass(MathLibraryFunctionsReplacementPass(false /*isOCL*/));
 
   // Consume the function pass manager FPM1 before adding Module passes.
-  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM1)));
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
 
   // The region that is outlined by #pragma omp simd ordered was extracted by
   // VPlanPragmaOmpOrderedSimdExtarct pass. Now, we need to run the inliner in
@@ -1892,7 +1887,7 @@ void PassBuilder::addVPlanVectorizer(ModulePassManager &MPM,
 
   // Clean up any SIMD directives left behind by VPlan vectorizer
   if (OptLevel > 0)
-    MPM.addPass(createModuleToFunctionPassAdaptor(VPODirectiveCleanupPass()));
+    FPM.addPass(VPODirectiveCleanupPass());
 }
 
 void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
@@ -1918,8 +1913,6 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
     // We need to 'flush' current function pipeline to MPM to get latest module dump with the printer.
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
     MPM.addPass(PrintModulePass(dbgs(), ";Module Before HIR"));
-    // Reinitialize FPM for safety.
-    FPM = FunctionPassManager();
   }
 #endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   //
@@ -3120,7 +3113,10 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
       MPM.addPass(VecClonePass());
 #endif // INTEL_CUSTOMIZATION
     // Add VPO transform and vec passes.
-    addVPOPasses(MPM, Level, /*RunVec=*/true);
+    FunctionPassManager FPM;
+    addVPOPasses(MPM, FPM, Level, /*RunVec=*/true);
+    if (!FPM.isEmpty())
+      MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
   }
 
 #endif // INTEL_COLLAB
