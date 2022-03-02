@@ -53,7 +53,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeDetectRecursionPass(Registry);
     intel::initializeDebugInfoPassPass(Registry);
     intel::initializeSmartGVNPass(Registry);
-    intel::initializeDeduceMaxWGDimPass(Registry);
     intel::initializeSinCosFoldPass(Registry);
     intel::initializeOCLAliasAnalysisPass(Registry);
     intel::initializePrintfArgumentsPromotionPass(Registry);

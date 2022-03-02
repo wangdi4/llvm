@@ -133,7 +133,6 @@ llvm::ModulePass *createUndifinedExternalFunctionsPass(
 llvm::ModulePass *createKernelInfoWrapperPass();
 llvm::ModulePass *createKernelSubGroupInfoPass();
 llvm::ModulePass *createPatchCallbackArgsPass(bool useTLSGlobals);
-llvm::ModulePass *createDeduceMaxWGDimPass();
 
 llvm::ModulePass *createRemovePrefetchPass();
 llvm::ModulePass *createPrintIRPass(int option, int optionLocation,
@@ -527,7 +526,7 @@ static void populatePassesPostFailCheck(
   if (OptLevel > 0) {
     PM.add(llvm::createCFGSimplificationPass());
     PM.add(llvm::createDPCPPKernelAnalysisLegacyPass());
-    PM.add(createDeduceMaxWGDimPass());
+    PM.add(llvm::createDeduceMaxWGDimLegacyPass());
     PM.add(llvm::createWGLoopBoundariesLegacyPass());
     PM.add(llvm::createDeadCodeEliminationPass());
     PM.add(llvm::createCFGSimplificationPass());
