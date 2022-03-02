@@ -216,3 +216,23 @@ bool RuntimeService::needsVPlanStyleMask(StringRef FuncName) const {
          FuncName.contains("intel_sub_group_block_read") ||
          FuncName.contains("intel_sub_group_block_write");
 }
+
+bool RuntimeService::isSafeToSpeculativeExecute(StringRef FuncName) {
+  // Work item builtins are not in runtime module so check them first.
+  if (isWorkItemBuiltin(FuncName))
+    return true;
+
+  // Can not say anything on non-builtin function.
+  Function *F = findFunctionInBuiltinModules(FuncName);
+  if (!F)
+    return false;
+
+  // Special case built-ins that access memory but can be speculatively
+  // executed.
+  if (isImageDescBuiltin(FuncName))
+    return true;
+
+  // All built-ins that does not access memory and does not throw
+  // can be speculatively executed.
+  return F->doesNotAccessMemory() && F->doesNotThrow();
+}
