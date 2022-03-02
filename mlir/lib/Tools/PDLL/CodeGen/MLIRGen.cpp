@@ -310,9 +310,9 @@ Value CodeGen::genNonInitializerVar(const ast::VariableDecl *varDecl,
       Value typeValue =
           TypeSwitch<const ast::Node *, Value>(constraint.constraint)
               .Case<ast::AttrConstraintDecl, ast::ValueConstraintDecl,
-                    ast::ValueRangeConstraintDecl>([&](auto *cst) -> Value {
+                    ast::ValueRangeConstraintDecl>([&, this](auto *cst) -> Value {
                 if (auto *typeConstraintExpr = cst->getTypeExpr())
-                  return genSingleExpr(typeConstraintExpr);
+                  return this->genSingleExpr(typeConstraintExpr);
                 return Value();
               })
               .Default(Value());
