@@ -1641,9 +1641,6 @@ Instruction *InstCombinerImpl::foldSelectInstWithICmp(SelectInst &SI,
   if (Instruction *NewSel = foldSelectValueEquivalence(SI, *ICI))
     return NewSel;
 
-  if (Instruction *NewSel = canonicalizeMinMaxWithConstant(SI, *ICI, *this))
-    return NewSel;
-
 #if INTEL_CUSTOMIZATION
   // if canonicalization is not possible then try to transform to min/max
   if (Value *NewSel = transformToMinMax(SI.getTrueValue(), SI.getFalseValue(), ICI, Builder)) {
