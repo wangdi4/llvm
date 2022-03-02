@@ -395,8 +395,14 @@ public:
 
 #if INTEL_COLLAB
   void addVPOPreparePasses(FunctionPassManager &FPM);
-  void addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
-                    bool RunVec, bool Simplify = false);
+  /// Adds VPO function/module passes to \p FPM and \p MPM.
+  /// \p FPM is flushed into \p MPM before adding any Module passes.
+  /// May add Function passes to \p FPM after its last flush into \p MPM. So,
+  /// callers are responsible for flushing the FPM back into MPM after this
+  /// function returns.
+  void addVPOPasses(ModulePassManager &MPM, FunctionPassManager &FPM,
+                    OptimizationLevel Level, bool RunVec,
+                    bool Simplify = false);
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   void addVPlanVectorizer(ModulePassManager &MPM, FunctionPassManager &FPM,
