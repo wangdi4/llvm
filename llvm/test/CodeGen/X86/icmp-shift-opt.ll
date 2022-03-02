@@ -26,21 +26,11 @@ define i128 @opt_setcc_lt_power_of_2(i128 %a) nounwind {
 ; X86-NEXT:    adcl $0, %esi
 ; X86-NEXT:    adcl $0, %edx
 ; X86-NEXT:    adcl $0, %ecx
-<<<<<<< HEAD
-; X86-NEXT:    movl %edx, %ebx
-; X86-NEXT:    shldl $4, %esi, %ebx
-; X86-NEXT:    movl %ecx, %ebp
-; X86-NEXT:    shrl $28, %ebp
-; X86-NEXT:    orl %ebx, %ebp
-; X86-NEXT:    movl %ecx, %ebx
-; X86-NEXT:    shldl $4, %edx, %ebx
-=======
 ; X86-NEXT:    movl %ecx, %ebx
 ; X86-NEXT:    shldl $4, %edx, %ebx
 ; X86-NEXT:    movl %esi, %ebp
 ; X86-NEXT:    orl %ecx, %ebp
 ; X86-NEXT:    shrdl $28, %edx, %ebp
->>>>>>> acb96ffd149db447b78d3ab33fbc9f93ce781c46
 ; X86-NEXT:    orl %ebx, %ebp
 ; X86-NEXT:    jne .LBB0_1
 ; X86-NEXT:  # %bb.2: # %exit
