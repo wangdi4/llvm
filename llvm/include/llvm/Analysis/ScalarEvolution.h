@@ -1358,7 +1358,7 @@ protected: // INTEL
 
 public: // INTEL
   /// Return the Value set from which the SCEV expr is generated.
-  ValueSetVector *getSCEVValues(const SCEV *S);
+  ArrayRef<Value *> getSCEVValues(const SCEV *S);
 
   /// External interface for checkValidity. Returns false iff the SCEV has
   /// been deleted: there are SCEVUnknowns in the ops, and the value is null.
