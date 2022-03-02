@@ -2380,12 +2380,11 @@ static Constant *ConstantFoldScalarCall1(StringRef Name,
   return nullptr;
 }
 
-static Constant *evaluateCompare(const ConstrainedFPIntrinsic *Call) {
+static Constant *evaluateCompare(const APFloat &Op1, const APFloat &Op2,
+                                 const ConstrainedFPIntrinsic *Call) {
   APFloat::opStatus St = APFloat::opOK;
   auto *FCmp = cast<ConstrainedFPCmpIntrinsic>(Call);
   FCmpInst::Predicate Cond = FCmp->getPredicate();
-  const APFloat &Op1 = cast<ConstantFP>(FCmp->getOperand(0))->getValueAPF();
-  const APFloat &Op2 = cast<ConstantFP>(FCmp->getOperand(1))->getValueAPF();
   if (FCmp->isSignaling()) {
     if (Op1.isNaN() || Op2.isNaN())
       St = APFloat::opInvalidOp;
@@ -2395,7 +2394,7 @@ static Constant *evaluateCompare(const ConstrainedFPIntrinsic *Call) {
   }
   bool Result = FCmpInst::compare(Op1, Op2, Cond);
   if (mayFoldConstrained(const_cast<ConstrainedFPCmpIntrinsic *>(FCmp), St))
-    return ConstantInt::get(Call->getType(), Result);
+    return ConstantInt::get(Call->getType()->getScalarType(), Result);
   return nullptr;
 }
 
@@ -2458,7 +2457,7 @@ static Constant *ConstantFoldScalarCall2(StringRef Name,
           break;
         case Intrinsic::experimental_constrained_fcmp:
         case Intrinsic::experimental_constrained_fcmps:
-          return evaluateCompare(ConstrIntr);
+          return evaluateCompare(Op1V, Op2V, ConstrIntr);
         }
         if (mayFoldConstrained(const_cast<ConstrainedFPIntrinsic *>(ConstrIntr),
                                St))
