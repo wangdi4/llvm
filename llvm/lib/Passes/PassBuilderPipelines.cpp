@@ -2668,15 +2668,11 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(InferFunctionAttrsPass());
 
   if (Level.getSpeedupLevel() > 1) {
-<<<<<<< HEAD
-    FunctionPassManager EarlyFPM;
-    EarlyFPM.addPass(CallSiteSplittingPass());
 #if INTEL_CUSTOMIZATION
     // Collect the information from the loops and insert the attributes
+    FunctionPassManager EarlyFPM;
     EarlyFPM.addPass(IntelLoopAttrsPass(DTransEnabled));
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 18da6810347aa57f7d50562e4e131004344b9d28
     MPM.addPass(createModuleToFunctionPassAdaptor(
         CallSiteSplittingPass(), PTO.EagerlyInvalidateAnalyses));
 
