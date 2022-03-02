@@ -112,7 +112,6 @@ llvm::Pass *createImplicitGIDPass(bool HandleBarrier);
 
 llvm::ModulePass *createInfiniteLoopCreatorPass();
 llvm::ModulePass *createAutorunReplicatorPass();
-llvm::ModulePass *createCLWGLoopBoundariesPass();
 llvm::Pass *createCLBuiltinLICMPass();
 llvm::Pass *createLoopStridedCodeMotionPass();
 llvm::Pass *createCLStreamSamplerPass();
@@ -529,7 +528,7 @@ static void populatePassesPostFailCheck(
     PM.add(llvm::createCFGSimplificationPass());
     PM.add(llvm::createDPCPPKernelAnalysisLegacyPass());
     PM.add(createDeduceMaxWGDimPass());
-    PM.add(createCLWGLoopBoundariesPass());
+    PM.add(llvm::createWGLoopBoundariesLegacyPass());
     PM.add(llvm::createDeadCodeEliminationPass());
     PM.add(llvm::createCFGSimplificationPass());
   }

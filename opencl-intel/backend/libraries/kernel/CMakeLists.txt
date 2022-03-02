@@ -18,7 +18,7 @@ function(create_ocl_kernel_target CLANG_FLAGS INPUT_CL TMP_DIR OUTPUT_DIR OUTPUT
     COMMAND ${CLANG} ${CLANG_FLAGS} ${INPUT_CL}
             -o ${TMP_DIR}/${OUTPUT_BC_FILE}
     COMMAND ${OPT} ${TMP_DIR}/${OUTPUT_BC_FILE} -verify -dpcpp-kernel-equalizer
-            -dpcpp-kernel-analysis -cl-loop-bound -deduce-max-dim
+            -dpcpp-kernel-analysis -dpcpp-kernel-wg-loop-bound -deduce-max-dim
             -dpcpp-kernel-wgloop-creator
             -loop-idiom -loop-deletion -dpcpp-kernel-add-implicit-args
             -dpcpp-kernel-resolve-wi-call -dpcpp-kernel-prepare-args -inline
