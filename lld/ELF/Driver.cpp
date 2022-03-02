@@ -105,7 +105,6 @@ bool elf::link(ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
     objectFiles.clear();
     sharedFiles.clear();
     gnuLTOFiles.clear();  // INTEL
-    backwardReferences.clear();
     symAux.clear();
 
     tar = nullptr;
@@ -2069,6 +2068,25 @@ void LinkerDriver::writeWhyExtract() const {
   for (auto &entry : whyExtract) {
     os << std::get<0>(entry) << '\t' << toString(std::get<1>(entry)) << '\t'
        << toString(std::get<2>(entry)) << '\n';
+  }
+}
+
+void LinkerDriver::reportBackrefs() const {
+  for (auto &ref : backwardReferences) {
+    const Symbol &sym = *ref.first;
+    std::string to = toString(ref.second.second);
+    // Some libraries have known problems and can cause noise. Filter them out
+    // with --warn-backrefs-exclude=. The value may look like (for --start-lib)
+    // *.o or (archive member) *.a(*.o).
+    bool exclude = false;
+    for (const llvm::GlobPattern &pat : config->warnBackrefsExclude)
+      if (pat.match(to)) {
+        exclude = true;
+        break;
+      }
+    if (!exclude)
+      warn("backward reference detected: " + sym.getName() + " in " +
+           toString(ref.second.first) + " refers to " + to);
   }
 }
 
