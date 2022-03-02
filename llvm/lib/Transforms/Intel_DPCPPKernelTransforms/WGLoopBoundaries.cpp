@@ -110,6 +110,8 @@ private:
   FuncSet WIUniqueFuncUsers;
   /// True iff upper bound was set to be inclusive.
   bool RightBoundInc;
+  /// True if the pattern is (a - id) < b.
+  bool ReverseLowerUpperBound = false;
 
   /// Statistics
   DPCPPStatistic::ActiveStatsT KernelStats;
@@ -1070,6 +1072,9 @@ bool WGLoopBoundariesImpl::traceBackBound(Value *V1, Value *V2,
                                   : TidInst->getOperand(0);
       Value *LeftBound = IsFirstOperandUniform ? TidInst->getOperand(0)
                                                : TidInst->getOperand(1);
+      // If the pattern is (a - id) < b, we need to reverse lower/upper
+      // bound.
+      ReverseLowerUpperBound = IsFirstOperandUniform;
       assert(Bound[0]->getType() == LeftBound->getType() && "Types must match");
 
       if (IsCmpSigned && !doesLeftBoundFit(ComparisonTy, LeftBound))
@@ -1298,7 +1303,8 @@ bool WGLoopBoundariesImpl::obtainBoundaryEE(ICmpInst *Cmp, Value **Bound,
   //   br %cond label %BB1, label %BB2
   // If BB2 is return, uni is an upper bound and exclusive.
   // If BB1 is return, uni is an lower bound and inclusive
-  bool IsUpper = IsPredLower ^ (TIDInd == 1) ^ EETrueSide;
+  bool IsUpper =
+      IsPredLower ^ (TIDInd == 1) ^ ReverseLowerUpperBound ^ EETrueSide;
   // Not handling inverse bound of a form [a,b] as it might result in two
   // intervals.
   if (!IsUpper && !IsSigned && Bound[1])

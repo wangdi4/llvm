@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/InitializePasses.h"
@@ -140,7 +141,7 @@ bool RAReportEmitter::runOnMachineFunction(MachineFunction &MFunc) {
   MF = &MFunc;
   Loops = &getAnalysis<MachineLoopInfo>();
   DomTree = &getAnalysis<MachineDominatorTree>();
-  raw_ostream &OS = dbgs();
+  raw_ostream &OS = OptReportOptions::getOutputStream();
   OS << "Register allocation report for: " << MF->getName() << "\n";
   OS << "FUNCTION BEGIN\n";
   SpillNode SN = AnalyzeLoopSpillRecursive(nullptr, 0);

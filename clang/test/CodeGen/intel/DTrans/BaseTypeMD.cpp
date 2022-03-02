@@ -20,7 +20,7 @@ class n {
 class q : n {
 } r;
 
-// CHECK: !intel.dtrans.types = !{![[Q:[0-9]+]], ![[NBASE:[0-9]+]], ![[L:[0-9]+]]}
+// CHECK: !intel.dtrans.types = !{![[Q:[0-9]+]], ![[NBASE:[0-9]+]], ![[L:[0-9]+]], ![[N:[0-9]+]]}
 
 // ![[Q]] = !{!"S", %class.q zeroinitializer, i32 2, ![[NBASE_REF:[0-9]+]], ![[CHAR_ARRAY:[0-9]+]]}
 // ![[NBASE_REF]] = !{%class.n.base zeroinitializer, i32 0}
@@ -31,3 +31,4 @@ class q : n {
 // ![[INT]] = !{i32 0, i32 0}
 // ![[L]] = !{!"S", %struct.l zeroinitializer, i32 1, ![[INT_PTR:[0-9]+]]}
 // ![[INT_PTR]] = !{i32 0, i32 1}
+// ![[N]] = !{"S", %class._ZTS1n.n zeroinitializer, i32 3, ![[L_PTR]], ![[INT]], ![[CHAR_ARRAY]]}

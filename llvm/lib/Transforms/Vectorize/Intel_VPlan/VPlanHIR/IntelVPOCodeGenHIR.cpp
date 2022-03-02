@@ -4696,9 +4696,21 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   }
 
   case VPInstruction::VectorTripCountCalculation: {
-    // TODO: Revisit for constant TC.
     auto *VPVectorTC = cast<VPVectorTripCountCalculation>(VPInst);
-    RegDDRef *OrigTC = getUniformScalarRef(VPVectorTC->getOperand(0));
+    VPValue *VPOrigTC = VPVectorTC->getOperand(0);
+
+    if (auto *ConstIntTC = dyn_cast<VPConstantInt>(VPOrigTC)) {
+      auto VFUF = getVF() * getUF();
+      auto TGU = ConstIntTC->getValue().getZExtValue() / VFUF;
+      auto ConstVecTC = TGU * VFUF;
+      RegDDRef *ConstVecTCRef =
+          DDRefUtilities.createConstDDRef(VPVectorTC->getType(), ConstVecTC);
+      addVPValueScalRefMapping(VPVectorTC, ConstVecTCRef, 0);
+      return;
+    }
+
+    // For non-constant TC.
+    RegDDRef *OrigTC = getUniformScalarRef(VPOrigTC);
     RegDDRef *UBRef = OrigTC->clone();
 
     // For given original loop TC say %N, we emit following sequence of
@@ -5995,14 +6007,17 @@ void VPOCodeGenHIR::setBoundsForVectorLoop(VPLoop *VPLp) {
   assert(UBRef && "Non-null ref expected to compute TC.");
   UBRef = UBRef->clone();
 
-  // Add blobs and adjust def@level since UB is defined outside the loop.
   auto *UBCanonExpr = UBRef->getSingleCanonExpr();
   unsigned LoopLevel = VecLoop->getNestingLevel();
-  UBRef->addBlobDDRef(UBCanonExpr->getSingleBlobIndex(), LoopLevel - 1);
-  UBCanonExpr->setDefinedAtLevel(LoopLevel - 1);
+  // Add blobs and adjust def@level for non-constant UB since it is defined
+  // outside the loop.
+  if (!UBCanonExpr->isIntConstant()) {
+    UBRef->addBlobDDRef(UBCanonExpr->getSingleBlobIndex(), LoopLevel - 1);
+    UBCanonExpr->setDefinedAtLevel(LoopLevel - 1);
+    UBRef->setSymbase(GenericRvalSymbase);
+  }
   // Subtract 1
   UBCanonExpr->addConstant(-1, true);
-  UBRef->setSymbase(GenericRvalSymbase);
   VecLoop->setUpperDDRef(UBRef);
 
   // Set LB of loop if available. We adjust def@level since LB is defined
