@@ -284,19 +284,6 @@ int main(int argc, char *argv[]) {
   std::string type{lowerString(argv[1])};
   std::string backend{lowerString(argv[2])};
 
-#if INTEL_CUSTOMIZATION
-  // TODO: rewrite this utility in SYCL so all SYCL PI plugins are queried.
-  // TODO: Remove PI_OTHER, if it does not may to Level0.
-  // TODO: Use a Level_zero low level API.
-  if (backend == "pi_level_zero" || backend == "pi_other") {
-    if (type == "gpu") {
-      std::cout << "1:level zero GPU assumed under SYCL_BE=PI_LEVEL_ZERO"
-                << std::endl;
-      return EXIT_SUCCESS;
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
-
   cl_device_type deviceType = CL_DEVICE_TYPE_DEFAULT;
   if (type == "cpu") {
     deviceType = CL_DEVICE_TYPE_CPU;
