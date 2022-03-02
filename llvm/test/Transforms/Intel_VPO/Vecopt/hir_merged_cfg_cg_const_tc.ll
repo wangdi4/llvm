@@ -15,41 +15,35 @@
 
 ; CHECK-LABEL: Function: foo
 ; CHECK:          BEGIN REGION { modified }
-; CHECK-NEXT:           %tgu = 101  /u  4;
-; CHECK-NEXT:           %vec.tc = %tgu  *  4;
-; CHECK-NEXT:           %.vec = 0 == %vec.tc;
+; CHECK-NEXT:           %.vec = 0 == 100;
 ; CHECK-NEXT:           %phi.temp = 0;
 ; CHECK-NEXT:           %unifcond = extractelement %.vec,  0;
 ; CHECK-NEXT:           if (%unifcond == 1)
 ; CHECK-NEXT:           {
-; CHECK-NEXT:              goto merge.blk10.28;
+; CHECK-NEXT:              goto merge.blk10.26;
 ; CHECK-NEXT:           }
-; FIXME: This makes the TC of main loop non-constant prohibiting further
-; transforms like vector loop unrolling. Inline these computations instead.
-; CHECK-NEXT:           %tgu2 = 101  /u  4;
-; CHECK-NEXT:           %vec.tc3 = %tgu2  *  4;
 
-; CHECK:                + DO i1 = 0, %vec.tc3 + -1, 4   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
+; CHECK:                + DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK-NEXT:           |   (<4 x i64>*)(%A)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:           + END LOOP
 
-; CHECK:                %.vec4 = 101 == %vec.tc3;
-; CHECK-NEXT:           %phi.temp = %vec.tc3;
-; CHECK-NEXT:           %phi.temp6 = %vec.tc3;
-; CHECK-NEXT:           %unifcond8 = extractelement %.vec4,  0;
-; CHECK-NEXT:           if (%unifcond8 == 1)
+; CHECK:                %.vec2 = 101 == 100;
+; CHECK-NEXT:           %phi.temp = 100;
+; CHECK-NEXT:           %phi.temp4 = 100;
+; CHECK-NEXT:           %unifcond6 = extractelement %.vec2,  0;
+; CHECK-NEXT:           if (%unifcond6 == 1)
 ; CHECK-NEXT:           {
-; CHECK-NEXT:              goto final.merge.48;
+; CHECK-NEXT:              goto final.merge.44;
 ; CHECK-NEXT:           }
-; CHECK-NEXT:           merge.blk10.28:
+; CHECK-NEXT:           merge.blk10.26:
 ; CHECK-NEXT:           %lb.tmp = %phi.temp;
 
 ; CHECK:                + DO i1 = %lb.tmp, 100, 1   <DO_LOOP> <vectorize>
 ; CHECK-NEXT:           |   (%A)[i1] = i1;
 ; CHECK-NEXT:           + END LOOP
 
-; CHECK:                %phi.temp6 = 100;
-; CHECK-NEXT:           final.merge.48:
+; CHECK:                %phi.temp4 = 100;
+; CHECK-NEXT:           final.merge.44:
 ; CHECK-NEXT:     END REGION
 
 
