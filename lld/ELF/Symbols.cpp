@@ -574,6 +574,7 @@ static int compareGNULinkOnce(const Symbol *oldSym, const Symbol *newSym,
 #endif // INTEL_CUSTOMIZATION
 
 // Compare two symbols. Return true if the new symbol should win.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // We include the real name of the other symbol since there is a chance that
 // the symbol was created without a name.
@@ -591,6 +592,16 @@ int Symbol::compare(const Symbol *other, StringRef otherName) const {
   if (cmpGNU != 0)
     return cmpGNU;
 #endif // INTEL_CUSTOMIZATION
+=======
+bool Symbol::shouldReplace(const Defined &other) const {
+  if (LLVM_UNLIKELY(isCommon())) {
+    if (config->warnCommon)
+      warn("common " + getName() + " is overridden");
+    return !other.isWeak();
+  }
+  if (!isDefined())
+    return true;
+>>>>>>> b07ef4d566c702ff5d71a8e6b1274a7b3c47eb4c
 
   // .symver foo,foo@@VER unfortunately creates two defined symbols: foo and
   // foo@@VER. In GNU ld, if foo and foo@@VER are in the same file, foo is
@@ -681,6 +692,7 @@ void Symbol::resolveCommon(const CommonSymbol &other, StringRef otherName) {
   }
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // We include the real name of the other symbol since there is a chance that
 // the symbol was created without a name.
@@ -688,6 +700,10 @@ void Symbol::resolveDefined(const Defined &other, StringRef otherName) {
   int cmp = compare(&other, otherName);
 #endif // INTEL_CUSTOMIZATION
   if (cmp > 0)
+=======
+void Symbol::resolveDefined(const Defined &other) {
+  if (shouldReplace(other))
+>>>>>>> b07ef4d566c702ff5d71a8e6b1274a7b3c47eb4c
     replace(other);
 }
 
