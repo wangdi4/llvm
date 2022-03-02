@@ -104,11 +104,7 @@ bool elf::link(ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
     lazyBitcodeFiles.clear();
     objectFiles.clear();
     sharedFiles.clear();
-<<<<<<< HEAD
     gnuLTOFiles.clear();  // INTEL
-    backwardReferences.clear();
-=======
->>>>>>> d14d8664e3e44a0b87b39c3eeace3d82fabbbd27
     symAux.clear();
 
     tar = nullptr;
