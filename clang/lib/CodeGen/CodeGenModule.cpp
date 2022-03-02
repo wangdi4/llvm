@@ -4354,7 +4354,7 @@ llvm::Constant *CodeGenModule::GetOrCreateMultiVersionResolver(
   // For cpu_specific, don't create an ifunc yet because we don't know if the
   // cpu_dispatch will be emitted in this translation unit.
 #if INTEL_CUSTOMIZATION
-  if (getTarget().supportsIFunc() &&
+  if (getTarget().supportsIFunc() && !FD->isCPUSpecificMultiVersion() &&
       !(getCodeGenOpts().DisableCpuDispatchIFuncs &&
         (FD->isCPUDispatchMultiVersion() || FD->isCPUSpecificMultiVersion()))) {
 #endif // INTEL_CUSTOMIZATION
