@@ -38,6 +38,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DataPerValuePass.cpp
   BarrierPass.cpp
   BarrierInFunctionPass.cpp
+  ReduceCrossBarrierValues.cpp
   ResolveMatrixFill.cpp
   ResolveMatrixWISlice.cpp
   ResolveSubGroupWICall.cpp
