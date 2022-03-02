@@ -2098,7 +2098,6 @@ public:
   ~BoUpSLP();
 
 private:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// A leaf operand of the Multi-Node. These operands get reordered.
   class LeafData {
@@ -2485,7 +2484,6 @@ private:
     return It != PreferredOperandMap.end() && It->second == 1;
   }
 #endif // INTEL_CUSTOMIZATION
-=======
   /// Check if the operands on the edges \p Edges of the \p UserTE allows
   /// reordering (i.e. the operands can be reordered because they have only one
   /// user and reordarable).
@@ -2520,7 +2518,6 @@ private:
     return const_cast<BoUpSLP *>(this)->getVectorizedOperand(
         const_cast<TreeEntry *>(UserTE), OpIdx);
   }
->>>>>>> e4b9640867150723b33f81c6479682fc955b55aa
 
   /// Checks if all users of \p I are the part of the vectorization tree.
   bool areAllUsersVectorized(Instruction *I,
