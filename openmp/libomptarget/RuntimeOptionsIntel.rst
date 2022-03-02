@@ -424,6 +424,16 @@ device supports.
 
 **Default**: Disabled
 
+``LIBOMPTARGET_LEVEL_ZERO_USE_IMMEDIATE_COMMAND_LIST=<Bool>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Bool> := 1 | T | t | 0 | F | f
+
+Enables/disables using immediate command list for kernel submission.
+
+**Default**: Disabled
+
 Plugin OpenCL
 -------------
 
