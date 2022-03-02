@@ -1112,7 +1112,6 @@ static bool adjustMinMax(SelectInst &Sel, ICmpInst &Cmp) {
   return true;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static Value *transformToMinMax(Value *TrueVal, Value *FalseVal, ICmpInst *Cmp,
                                 InstCombiner::BuilderTy &Builder) {
@@ -1221,8 +1220,6 @@ static Instruction *canonicalizeMinMaxWithConstant(SelectInst &Sel,
   return &Sel;
 }
 
-=======
->>>>>>> e1608a9df8d6725091d21cf9072b868522b4288f
 static Instruction *canonicalizeSPF(SelectInst &Sel, ICmpInst &Cmp,
                                     InstCombinerImpl &IC) {
   Value *LHS, *RHS;
@@ -1644,10 +1641,6 @@ Instruction *InstCombinerImpl::foldSelectInstWithICmp(SelectInst &SI,
   if (Instruction *NewSel = foldSelectValueEquivalence(SI, *ICI))
     return NewSel;
 
-<<<<<<< HEAD
-  if (Instruction *NewSel = canonicalizeMinMaxWithConstant(SI, *ICI, *this))
-    return NewSel;
-
 #if INTEL_CUSTOMIZATION
   // if canonicalization is not possible then try to transform to min/max
   if (Value *NewSel = transformToMinMax(SI.getTrueValue(), SI.getFalseValue(), ICI, Builder)) {
@@ -1655,8 +1648,6 @@ Instruction *InstCombinerImpl::foldSelectInstWithICmp(SelectInst &SI,
   }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> e1608a9df8d6725091d21cf9072b868522b4288f
   if (Instruction *NewSPF = canonicalizeSPF(SI, *ICI, *this))
     return NewSPF;
 
