@@ -153,6 +153,21 @@ TRACE_FN_DEF(zeCommandListCreate)(
   return rc;
 }
 
+TRACE_FN_DEF(zeCommandListCreateImmediate)(
+    ze_context_handle_t hContext,
+    ze_device_handle_t hDevice,
+    const ze_command_queue_desc_t *altdesc,
+    ze_command_list_handle_t *phCommandList) {
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hContext);
+  TRACE_FN_ARG_PTR(hDevice);
+  TRACE_FN_ARG_PTR(altdesc);
+  TRACE_FN_ARG_PTR(phCommandList);
+  TRACE_FN_ARG_END();
+  return zeCommandListCreateImmediate(hContext, hDevice, altdesc,
+                                      phCommandList);
+}
+
 TRACE_FN_DEF(zeCommandListDestroy)(
     ze_command_list_handle_t hCommandList) {
   auto rc = zeCommandListDestroy(hCommandList);
