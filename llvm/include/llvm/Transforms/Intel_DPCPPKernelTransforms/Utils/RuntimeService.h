@@ -76,6 +76,11 @@ public:
   /// \param FuncName Function name to check.
   bool needsVPlanStyleMask(StringRef FuncName) const;
 
+  /// Return true if func_name is safe to speculative execute, and hence
+  ///        can be hoisted even if it is under control flow.
+  /// \param FuncName Function name to check.
+  bool isSafeToSpeculativeExecute(StringRef FuncName);
+
 private:
   SmallVector<Module *, 2> BuiltinModules;
 };
