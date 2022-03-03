@@ -351,7 +351,8 @@ bool HIRVectorizationLegality::isMinMaxIdiomTemp(const DDRef *Ref,
     if ((IdiomDescr.second == HIRVectorIdioms::IdiomId::MinOrMax ||
          IdiomDescr.second == HIRVectorIdioms::IdiomId::MMFirstLastIdx ||
          IdiomDescr.second == HIRVectorIdioms::IdiomId::MMFirstLastVal) &&
-        DDRefUtils::areEqual(IdiomDescr.first->getLvalDDRef(), Ref))
+        DDRefUtils::areEqual(
+            static_cast<const HLInst *>(IdiomDescr.first)->getLvalDDRef(), Ref))
       return true;
 
   return false;
