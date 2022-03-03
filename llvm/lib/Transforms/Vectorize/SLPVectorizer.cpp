@@ -3262,6 +3262,9 @@ private:
                  "only bundle is marked scheduled");
         }
       }
+
+      assert(Inst->getParent() == FirstInBundle->Inst->getParent() &&
+             "all bundle members must be in same basic block");
     }
 
     /// Returns true if the dependency information has been calculated.
