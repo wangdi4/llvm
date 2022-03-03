@@ -62,6 +62,7 @@ let TargetPrefix = "x86" in {
               Intrinsic<[llvm_i32_ty], [], []>;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Read CPUID.
 let TargetPrefix = "x86" in {
@@ -82,6 +83,18 @@ let TargetPrefix = "x86" in {
 }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+// Lock bit test.
+let TargetPrefix = "x86" in {
+  def int_x86_atomic_bts : Intrinsic<[llvm_anyint_ty], [llvm_ptr_ty, llvm_i8_ty],
+                                     [ImmArg<ArgIndex<1>>]>;
+  def int_x86_atomic_btc : Intrinsic<[llvm_anyint_ty], [llvm_ptr_ty, llvm_i8_ty],
+                                     [ImmArg<ArgIndex<1>>]>;
+  def int_x86_atomic_btr : Intrinsic<[llvm_anyint_ty], [llvm_ptr_ty, llvm_i8_ty],
+                                     [ImmArg<ArgIndex<1>>]>;
+}
+
+>>>>>>> e03d216c28dfbda52afe7e1f6606cc5dafb3235e
 //===----------------------------------------------------------------------===//
 // CET SS
 let TargetPrefix = "x86" in {
