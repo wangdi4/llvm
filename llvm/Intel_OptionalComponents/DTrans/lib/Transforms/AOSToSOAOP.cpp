@@ -3520,9 +3520,16 @@ bool AOSToSOAOPPass::checkAllocationUsers(Instruction *AllocCall,
 
     case Instruction::GetElementPtr:
       // For the opaque pointer version, the allocated pointer can be
-      // directly used as a pointer to a structure in the GetElementPtr
-      // instructions.
-      if (cast<GetElementPtrInst>(I)->getNumIndices() != 2) {
+      // directly used as a pointer to a structure with GetElementPtr
+      // instructions. The transformation needs to be supported for 1 and 2
+      // index versions that are indexing using a structure type (we know the
+      // structure type is correct because the safety checks have all passed).
+      // However, a usage in a byte-flattened GEP form is currently not
+      // supported because it would require additional logic for the
+      // convertByteGEP routine to handle the instruction after the
+      // convertAllocCall routine has processed it.
+      if (cast<GetElementPtrInst>(I)->getNumIndices() > 2 ||
+          !cast<GetElementPtrInst>(I)->getSourceElementType()->isStructTy()) {
         *Unsupported = I;
         return false;
       }
