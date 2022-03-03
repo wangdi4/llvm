@@ -513,18 +513,19 @@ bb4:
   ASSERT_EQ(2u, SplitBB->getTerminator()->getNumSuccessors());
   EXPECT_EQ(BranchProbability(1, 2), BPI.getEdgeProbability(SplitBB, 0u));
   EXPECT_EQ(BranchProbability(1, 2), BPI.getEdgeProbability(SplitBB, 1u));
-
+#if INTEL_CUSTOMIZATION
   // Should split, resulting in:
-  //   bb0 -> bb2.clone; bb2 -> split1; bb2.clone -> split,
+  //   bb0 -> .split1 | .split; bb2 -> .split
+  // .split1 should be the same successor block that block BB1 had.
   BasicBlock *BB0 = getBasicBlockByName(*F, "bb0");
   ASSERT_EQ(2u, BB0->getTerminator()->getNumSuccessors());
-  BasicBlock *BB2Clone = BB0->getTerminator()->getSuccessor(1);
+  BasicBlock *Succ0BB = BB0->getTerminator()->getSuccessor(0);
+  BasicBlock *Succ1BB = BB0->getTerminator()->getSuccessor(1);
+  EXPECT_EQ(Succ0BB, SplitBB);
   BasicBlock *BB2 = getBasicBlockByName(*F, "bb2");
-  EXPECT_NE(BB2Clone, BB2);
   ASSERT_EQ(1u, BB2->getTerminator()->getNumSuccessors());
-  ASSERT_EQ(1u, BB2Clone->getTerminator()->getNumSuccessors());
-  EXPECT_EQ(BB2->getTerminator()->getSuccessor(0),
-            BB2Clone->getTerminator()->getSuccessor(0));
+  EXPECT_EQ(BB2->getTerminator()->getSuccessor(0), Succ1BB);
+#endif // INTEL_CUSTOMIZATION
 }
 
 TEST(BasicBlockUtils, SetEdgeProbability) {
