@@ -777,6 +777,10 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
+unsigned VPInstruction::getNumSuccessors() const {
+  return cast<VPBranchInst>(this)->getNumSuccessors();
+}
+
 #if INTEL_CUSTOMIZATION
 VPlanVector::VPlanVector(VPlanKind K, VPExternalValues &E,
                          VPUnlinkedInstructions &UVPI)
