@@ -19,9 +19,12 @@
 #include "llvm/Analysis/CaptureTracking.h" // INTEL
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
+<<<<<<< HEAD
 #include "llvm/Support/CommandLine.h" // INTEL
 #include <algorithm>
 #include <cstdint>
+=======
+>>>>>>> d5171d19c0be0d6804b74eeda7f8b4da43a43fa0
 #include <memory>
 #include <utility>
 

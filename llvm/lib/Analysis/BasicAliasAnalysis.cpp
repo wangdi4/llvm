@@ -21,8 +21,12 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CFG.h"
+<<<<<<< HEAD
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
+=======
+#include "llvm/Analysis/CaptureTracking.h"
+>>>>>>> d5171d19c0be0d6804b74eeda7f8b4da43a43fa0
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/PhiValues.h"
@@ -45,7 +49,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Metadata.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/User.h"
