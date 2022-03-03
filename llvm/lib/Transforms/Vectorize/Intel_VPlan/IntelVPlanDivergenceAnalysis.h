@@ -17,7 +17,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_DIVERGENCE_ANALYSIS_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_DIVERGENCE_ANALYSIS_H
 
-#include "IntelVPlanSyncDependenceAnalysis.h"
+#include "llvm/Analysis/SyncDependenceAnalysis.h"
 #include "IntelVPlanVectorShape.h"
 #include "llvm/ADT/DenseSet.h"
 #include <queue>
@@ -346,11 +346,6 @@ private:
   /// CondBit of \p CondBlock.
   void propagateBranchDivergence(const VPBasicBlock *CondBlock); // INTEL
 
-  /// Propagate divergent caused by a divergent loop exit.
-  ///
-  /// \param ExitingLoop is a divergent loop.
-  void propagateLoopDivergence(const VPLoop &ExitingLoop);
-
   /// Return the type size in bytes.
   unsigned getTypeSizeInBytes(Type *Ty) const;
 
@@ -460,7 +455,7 @@ private:
   DenseSet<const VPLoop *> DivergentLoops;
 
   // The SDA links divergent branches to divergent control-flow joins.
-  std::unique_ptr<SyncDependenceAnalysis> SDA;
+  std::unique_ptr<SyncDependenceAnalysisImpl<VPBasicBlock>> SDA;
 
   // Use simplified code path for LCSSA form.
   bool IsLCSSAForm = false;
