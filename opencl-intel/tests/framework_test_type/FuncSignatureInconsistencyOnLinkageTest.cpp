@@ -8,8 +8,10 @@
 
 extern cl_device_type gDeviceType;
 
-static void tryToBuildProgram(const char *ClSrc1, const char *ClSrc2,
-                              std::string &LinkLogStr) {
+static void
+tryToBuildProgram(const char *ClSrc1, const char *ClSrc2,
+                  std::string &LinkLogStr,
+                  cl_int ExpectedLinkReturnCode = CL_LINK_PROGRAM_FAILURE) {
   LinkLogStr.clear();
 
   cl_int iRet = CL_SUCCESS;
@@ -62,8 +64,8 @@ static void tryToBuildProgram(const char *ClSrc1, const char *ClSrc2,
 
   cl_program ClProgLinked =
       clLinkProgram(context, 1, &device, "", 2, ToLink, NULL, NULL, &iRet);
-  ASSERT_EQ(CL_LINK_PROGRAM_FAILURE, iRet)
-      << " clLinkProgram unexpectedly passed.";
+  ASSERT_EQ(ExpectedLinkReturnCode, iRet)
+      << " clLinkProgram unexpected return code.";
 
   // Check that CL_PROGRAM_BUILD_LOG query returns linkage error message
   size_t LinkLogSize = 0;
@@ -162,4 +164,46 @@ void clFuncWrongNumParamsOnLinkageTest() {
   ASSERT_TRUE(std::string::npos != LinkLogStr.find(
       "testLibFunc [wrong number of arguments to function call, expected 1, have 2]"))
       << "Expected link error description not found";
+}
+
+void clFuncIdenticalLayoutStructOnLinkageTest() {
+  const char *ClSrc1 = R"(
+typedef struct A StructA;
+typedef struct B {
+  int x;
+  int y;
+} StructB;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+  int libfuncA(StructA *);
+  int libfuncB(StructB *);
+#ifdef __cplusplus
+}
+#endif
+
+__kernel void test(__global int *x, __global StructA *y, __global StructB *z) {
+  *x = libfuncA(y);
+  *x = libfuncB(z);
+}
+    )";
+
+  const char *ClSrc2 = R"(
+typedef struct A {
+  int x;
+  int y;
+} StructA;
+
+int libfuncA(StructA *V) { return V->x; }
+int libfuncB(StructA *V) { return V->y; }
+    )";
+
+  printf("---------------------------------------\n");
+  printf("clFuncIdenticalLayoutStructOnLinkageTest\n");
+  printf("---------------------------------------\n");
+
+  std::string LinkLogStr;
+  tryToBuildProgram(ClSrc1, ClSrc2, LinkLogStr,
+                    /*ExpectedLinkReturnCode*/ CL_SUCCESS);
 }

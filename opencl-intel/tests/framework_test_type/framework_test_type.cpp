@@ -637,6 +637,10 @@ TEST(FrameworkTestType, Test_clFuncWrongNumParamsOnLinkageTest)
     clFuncWrongNumParamsOnLinkageTest();
 }
 
+TEST(FrameworkTestType, Test_clFuncIdenticalLayoutStructOnLinkageTest) {
+  clFuncIdenticalLayoutStructOnLinkageTest();
+}
+
 TEST(FrameworkTestType, Test_globalVariableQueryTest)
 {
     globalVariableSizeQueryTest();
