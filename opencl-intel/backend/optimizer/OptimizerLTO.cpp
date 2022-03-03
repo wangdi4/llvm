@@ -29,6 +29,7 @@
 #include "llvm/Transforms/Scalar/DCE.h"
 #include "llvm/Transforms/Scalar/DeadStoreElimination.h"
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
+#include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/LICM.h"
 #include "llvm/Transforms/Scalar/LoopDeletion.h"
 #include "llvm/Transforms/Scalar/LoopIdiomRecognize.h"
@@ -104,6 +105,8 @@ void OptimizerLTO::Optimize(llvm::raw_ostream &LogStream) {
     MPM = PB.buildO0DefaultPipeline(OptimizationLevel::O0);
   else
     MPM = PB.buildPerModuleDefaultPipeline(OptimizationLevel::O3);
+
+  registerLastPasses(MPM);
 
   MPM.run(*m_M, MAM);
 }
@@ -205,9 +208,14 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       FPM.addPass(DCEPass());
       FPM.addPass(DSEPass());
       FPM.addPass(EarlyCSEPass());
+      FPM.addPass(GVNPass());
       MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
     }
   });
+}
+
+void OptimizerLTO::registerLastPasses(ModulePassManager &MPM) {
+  MPM.addPass(CleanupWrappedKernelPass());
 }
 
 } // namespace DeviceBackend

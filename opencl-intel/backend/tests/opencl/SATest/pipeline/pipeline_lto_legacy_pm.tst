@@ -32,6 +32,7 @@
 
 ; CHECK:          Infer address spaces
 ; CHECK:          DPCPPKernelAnalysisLegacy
+; CHECK:          DeduceMaxWGDimLegacy
 ; CHECK:          WGLoopBoundariesLegacy
 ; CHECK:          Replace known math operations with optimized library functions
 ; CHECK:          VFAnalysisLegacy
@@ -81,4 +82,10 @@
 ; CHECK:          Delete dead loops
 ; CHECK:          Simplify the CFG
 ; CHECK:          PrepareKernelArgsLegacy
+; CHECK:          Simplify the CFG
+; CHECK:          Combine redundant instructions
+; CHECK:          Dead Code Elimination
+; CHECK:          Dead Store Elimination
+; CHECK:          Early CSE
+; CHECK:          Global Value Numbering
 ; CHECK:          CleanupWrappedKernelLegacy

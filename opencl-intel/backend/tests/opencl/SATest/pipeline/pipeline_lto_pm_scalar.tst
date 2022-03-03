@@ -55,3 +55,10 @@
 ; CHECK:      Running pass: LoopIdiomRecognizePass
 ; CHECK:      Running pass: LoopDeletionPass
 ; CHECK:      Running pass: PrepareKernelArgsPass
+; CHECK:      Running pass: SimplifyCFGPass
+; CHECK:      Running pass: InstCombinePass
+; CHECK:      Running pass: DCEPass
+; CHECK:      Running pass: DSEPass
+; CHECK:      Running pass: EarlyCSEPass
+; CHECK:      Running pass: GVNPass
+; CHECK:      Running pass: CleanupWrappedKernelPass

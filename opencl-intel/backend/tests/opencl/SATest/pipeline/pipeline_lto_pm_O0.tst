@@ -50,3 +50,4 @@
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
 ; CHECK:      Running pass: AlwaysInlinerPass
 ; CHECK-NEXT: Running pass: PrepareKernelArgsPass
+; CHECK:      Running pass: CleanupWrappedKernelPass

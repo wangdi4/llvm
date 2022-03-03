@@ -25,6 +25,7 @@
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
 ; CHECK:          Infer address spaces
 ; CHECK:          DPCPPKernelAnalysisLegacy
+; CHECK:          DeduceMaxWGDimLegacy
 ; CHECK:          WGLoopBoundariesLegacy
 
 ; CHECK:          Call Graph SCC Pass Manager
@@ -74,4 +75,10 @@
 ; CHECK:          Delete dead loops
 ; CHECK:          Simplify the CFG
 ; CHECK:          PrepareKernelArgsLegacy
+; CHECK:          Simplify the CFG
+; CHECK:          Combine redundant instructions
+; CHECK:          Dead Code Elimination
+; CHECK:          Dead Store Elimination
+; CHECK:          Early CSE
+; CHECK:          Global Value Numbering
 ; CHECK:          CleanupWrappedKernelLegacy
