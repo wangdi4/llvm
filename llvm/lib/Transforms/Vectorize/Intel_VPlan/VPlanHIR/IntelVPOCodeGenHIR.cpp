@@ -2210,9 +2210,8 @@ RegDDRef *VPOCodeGenHIR::extractSubVector(RegDDRef *Input, unsigned Part,
     return Input;
   }
 
-  assert(isa<VectorType>(Input->getDestType()) &&
-         "Cannot generate shuffles for non-vector values.");
-  unsigned VecLen = cast<VectorType>(Input->getDestType())->getNumElements();
+  unsigned VecLen =
+      cast<FixedVectorType>(Input->getDestType())->getNumElements();
   assert(VecLen % NumParts == 0 &&
          "Vector cannot be divided into unequal parts for extraction.");
   assert(Part < NumParts && "Invalid subpart to be extracted from vector.");

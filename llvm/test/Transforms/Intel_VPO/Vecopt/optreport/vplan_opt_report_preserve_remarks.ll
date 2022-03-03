@@ -18,7 +18,7 @@
 ; CHECK-LABEL:  Global optimization report for : _Z3fooPiii
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  LOOP BEGIN at test.cpp (2, 1)
-; CHECK-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; CHECK-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; CHECK-NEXT:      remark #15305: vectorization support: vector length 2
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      LOOP BEGIN at test.cpp (4, 5)
