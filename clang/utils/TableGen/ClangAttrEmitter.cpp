@@ -4737,15 +4737,23 @@ void EmitClangIntelCustDocs(RecordKeeper &Records, raw_ostream &OS) {
 
   std::vector<Record *> Docs =
       Records.getAllDerivedDefinitions("Documentation");
-  std::map<const Record *, std::vector<const Record *>> SplitDocs;
+  struct DocRecord {
+    const Record *Category;
+    std::vector<const Record *> Records;
+  };
+  // Use a string key to ensure output is alphabetical by category name.
+  std::map<StringRef, DocRecord> SplitDocs;
   for (const auto *D : Docs) {
     const Record &Doc = *D;
     const Record *Category = Doc.getValueAsDef("Category");
-    SplitDocs[Category].push_back(D);
+    StringRef Key = Category->getValueAsString("Name");
+    if (!SplitDocs.count(Key))
+      SplitDocs[Key].Category = Category;
+    SplitDocs[Key].Records.push_back(D);
   }
   for (const auto &I : SplitDocs) {
-    WriteCategoryHeader(I.first, OS);
-    for (const auto *Doc : I.second) {
+    WriteCategoryHeader(I.second.Category, OS);
+    for (const auto *Doc : I.second.Records) {
       StringRef Name = Doc->getName();
       if (Name.size() <= 4 || Name.substr(Name.size() - 4, 4) != "Docs")
         PrintFatalError(Doc->getLoc(), "Name must be <TagName>Docs");
