@@ -21,11 +21,8 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Intrinsics.h"
-<<<<<<< HEAD
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PassManager.h" // INTEL
-=======
->>>>>>> d5171d19c0be0d6804b74eeda7f8b4da43a43fa0
 #include <cassert>
 #include <cstdint>
 
