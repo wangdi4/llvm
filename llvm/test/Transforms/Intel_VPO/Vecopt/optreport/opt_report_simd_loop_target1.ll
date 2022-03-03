@@ -11,7 +11,7 @@ define void @test_serialized(i32* nocapture %arr) local_unnamed_addr {
 ; AVX512-EMPTY:
 ; AVX512-NEXT:  LOOP BEGIN
 ; AVX512-NEXT:      remark #15569: Compiler has chosen to target XMM/YMM vector. Try using -mprefer-vector-width=512 to override.
-; AVX512-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; AVX512-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; AVX512:       LOOP END
 
 entry:

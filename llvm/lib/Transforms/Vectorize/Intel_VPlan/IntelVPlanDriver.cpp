@@ -948,8 +948,12 @@ void VPlanDriverImpl::addOptReportRemarks(WRNVecLoopNode *WRLp,
                           OptReportVerbosity::High, 15569);
   // The new vectorized loop is stored in MainLoop
   Loop *MainLoop = VCodeGen->getMainLoop();
-  // Adds remark LOOP WAS VECTORIZED
-  VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15300);
+  if (WRLp && WRLp->isOmpSIMDLoop())
+    // Adds remark SIMD LOOP WAS VECTORIZED
+    VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15301);
+  else
+    // Adds remark LOOP WAS VECTORIZED
+    VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15300);
   // Add remark about VF
   VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15305,
                         Twine(VCodeGen->getVF()).str());
@@ -988,8 +992,14 @@ void VPlanDriverImpl::addOptReportRemarksForMainPlan(
         .addRemark(OptReportVerbosity::High, 15569u);
   }
 
-  // Adds remark LOOP WAS VECTORIZED
-  ORBuilder(*MainVPLoop, *VPLpInfo).addRemark(OptReportVerbosity::Low, 15300u);
+  if (WRLp && WRLp->isOmpSIMDLoop())
+    // Adds remark SIMD LOOP WAS VECTORIZED
+    ORBuilder(*MainVPLoop, *VPLpInfo)
+        .addRemark(OptReportVerbosity::Low, 15301u);
+  else
+    // Adds remark LOOP WAS VECTORIZED
+    ORBuilder(*MainVPLoop, *VPLpInfo)
+        .addRemark(OptReportVerbosity::Low, 15300u);
   // Add remark about VF
   ORBuilder(*MainVPLoop, *VPLpInfo)
       .addRemark(OptReportVerbosity::Low, 15305u,

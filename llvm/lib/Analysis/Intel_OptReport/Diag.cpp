@@ -25,7 +25,7 @@ using namespace llvm;
 /// messages need to stay within 8-bit offset from 15300.
 const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {15300, "LOOP WAS VECTORIZED"},
-    {15301, "%s WAS VECTORIZED"},
+    {15301, "SIMD LOOP WAS VECTORIZED"},
     {15302, "routine skipped: vectorization disabled due to -mno-sse, "
             "-mno-sse2, -mia32, and/or -no-vec flag"},
     {15303,

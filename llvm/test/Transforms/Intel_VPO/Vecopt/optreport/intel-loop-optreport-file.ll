@@ -20,7 +20,7 @@ define void @test_nonvls_mem(i64* %ptr, i64 *%ptr2) #0 {
 ; LLVM-LABEL:  Global optimization report for : test_nonvls_mem
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
-; LLVM-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; LLVM-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; LLVM-NEXT:      remark #15305: vectorization support: vector length 4
 ; LLVM:           remark #15447: --- begin vector loop memory reference summary ---
 ; LLVM-NEXT:      remark #15450: unmasked unaligned unit stride loads: 1
