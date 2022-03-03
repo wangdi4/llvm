@@ -28222,7 +28222,6 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget &Subtarget,
       return DAG.getNode(ISD::MERGE_VALUES, dl, Op->getVTList(), SetCC,
                          Operation.getValue(1));
     }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_RAO_FP
     case Intrinsic::x86_mask_vaaddpd128:
@@ -28454,7 +28453,6 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget &Subtarget,
     }
 #endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 #endif // INTEL_CUSTOMIZATION
-=======
     case Intrinsic::x86_atomic_bts:
     case Intrinsic::x86_atomic_btc:
     case Intrinsic::x86_atomic_btr: {
@@ -28479,7 +28477,6 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget &Subtarget,
                           DAG.getShiftAmountConstant(Imm, VT, DL));
       return DAG.getNode(ISD::MERGE_VALUES, DL, Op->getVTList(), Res, Chain);
     }
->>>>>>> e03d216c28dfbda52afe7e1f6606cc5dafb3235e
     }
     return SDValue();
   }
