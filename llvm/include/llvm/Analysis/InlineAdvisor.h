@@ -28,11 +28,9 @@
 
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/LazyCallGraph.h"
-#include "llvm/Analysis/Utils/ImportedFunctionsInliningStatistics.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/PassManager.h"
 #include <memory>
-#include <unordered_set>
 
 namespace llvm {
 class BasicBlock;
@@ -41,6 +39,8 @@ class Function;
 class InlineReport;        // INTEL
 class InlineReportBuilder; // INTEL
 class Module;
+class OptimizationRemark;
+class ImportedFunctionsInliningStatistics;
 class OptimizationRemarkEmitter;
 struct ReplayInlinerSettings;
 
