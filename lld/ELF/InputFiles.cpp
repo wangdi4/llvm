@@ -66,6 +66,7 @@ SmallVector<BitcodeFile *, 0> elf::lazyBitcodeFiles;
 SmallVector<ELFFileBase *, 0> elf::objectFiles;
 SmallVector<SharedFile *, 0> elf::sharedFiles;
 SmallVector<InputFile *, 0> elf::gnuLTOFiles; // INTEL
+SmallVector<InputFile *, 0> elf::lazyGNULTOFiles; // INTEL
 
 std::unique_ptr<TarWriter> elf::tar;
 
@@ -223,14 +224,6 @@ template <class ELFT> static void doParseFile(InputFile *file) {
   // Regular object file
   objectFiles.push_back(cast<ELFFileBase>(file));
   cast<ObjFile<ELFT>>(file)->parse();
-#if INTEL_CUSTOMIZATION
-  // If the input file is a GNU LTO file then add it
-  // into the GNULTOFiles vector.
-  if (file->isGNULTOFile) {
-    objectFiles.pop_back();
-    gnuLTOFiles.push_back(file);
-  }
-#endif // INTEL_CUSTOMIZATION
 }
 
 // Add symbols in File to the symbol table.

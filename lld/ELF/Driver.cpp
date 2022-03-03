@@ -122,6 +122,7 @@ bool elf::link(ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
     objectFiles.clear();
     sharedFiles.clear();
     gnuLTOFiles.clear();  // INTEL
+    lazyGNULTOFiles.clear();  // INTEL
     symAux.clear();
 
     tar = nullptr;
@@ -246,8 +247,8 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
     // it is the same concept: traverse through the members and add the objects
     // as lazy files. Community code can't handle nested archives because they
     // expect that the archives were made with llvm-ar and not ar.
-    auto ParseNestedArchive = [this, path, mbref](MemoryBufferRef currArchive,
-        llvm::SmallVectorImpl<InputFile *> &localGNULTOFiles) -> bool {
+    auto ParseNestedArchive =
+        [this, path, mbref](MemoryBufferRef currArchive) -> bool {
 
       // The buffers mbref and currArchive must be archives
       if (identify_magic(mbref.getBuffer()) != file_magic::archive ||
@@ -286,7 +287,7 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
             magic == file_magic::elf_relocatable) {
           auto *lazyFile = createLazyFile(p.first, path, p.second);
           if (lazyFile->isGNULTOFile)
-            localGNULTOFiles.push_back(lazyFile);
+            lazyGNULTOFiles.push_back(lazyFile);
           else
             files.push_back(lazyFile);
         } else {
@@ -308,10 +309,6 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
 
     auto members = getArchiveMembers(mbref);
     archiveFiles.emplace_back(path, members.size());
-
-#if INTEL_CUSTOMIZATION
-    SmallVector<InputFile *, 0> localGNULTOFiles;
-#endif // INTEL_CUSTOMIZATION
 
     // Handle archives and --start-lib/--end-lib using the same code path. This
     // scans all the ELF relocatable object files and bitcode files in the
@@ -337,13 +334,13 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
         // files.push_back(createLazyFile(p.first, path, p.second));
         auto *lazyFile = createLazyFile(p.first, path, p.second);
         if (lazyFile->isGNULTOFile)
-          localGNULTOFiles.push_back(lazyFile);
+          lazyGNULTOFiles.push_back(lazyFile);
         else
           files.push_back(lazyFile);
       }
       // There is a chance that we could have nested archives. In this case
       // we need to parse them.
-      else if (ParseNestedArchive(p.first, localGNULTOFiles)) {
+      else if (ParseNestedArchive(p.first)) {
         continue;
       } else {
         warn(path + ": archive member '" + p.first.getBufferIdentifier() +
@@ -351,13 +348,6 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
       }
 #endif // INTEL_CUSTOMIZATION
     }
-
-#if INTEL_CUSTOMIZATION
-    // If there are GNU LTO files in the archive we need to do a partial
-    // linking in order to preserve the order of the lazy symbols.
-    if (!localGNULTOFiles.empty())
-      invokeELFT(doGnuLTOLinking, localGNULTOFiles, /* isLazyFile */ true);
-#endif // INTEL_CUSTOMIZATION
 
     InputFile::isInGroup = saved;
     if (!saved)
@@ -380,10 +370,30 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
     return;
   case file_magic::bitcode:
   case file_magic::elf_relocatable:
-    if (inLib)
-      files.push_back(createLazyFile(mbref, "", 0));
-    else
-      files.push_back(createObjectFile(mbref));
+#if INTEL_CUSTOMIZATION
+    // The following line is community code. It was commented out and
+    // replaced with the code below since we need to catch when an
+    // object has GNU LTO information.
+    // if (inLib)
+    //   files.push_back(createLazyFile(mbref, "", 0));
+    // else
+    //   files.push_back(createObjectFile(mbref));
+
+    if (inLib) {
+      auto *lazyFile = createLazyFile(mbref, "", 0);
+      if (lazyFile->isGNULTOFile)
+        lazyGNULTOFiles.push_back(lazyFile);
+      else
+        files.push_back(lazyFile);
+    }
+    else {
+      auto *objFile = createObjectFile(mbref);
+      if (objFile->isGNULTOFile)
+        gnuLTOFiles.push_back(objFile);
+      else
+        files.push_back(objFile);
+    }
+#endif // INTEL_CUSTOMIZATION
     break;
   default:
     error(path + ": unknown file type");
@@ -1687,6 +1697,17 @@ void LinkerDriver::createFiles(opt::InputArgList &args) {
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // Process the GNU LTO files
+  if (!gnuLTOFiles.empty())
+    invokeELFT(doGnuLTOLinking, gnuLTOFiles, /* isLazyFile */ false);
+
+  // If there are GNU LTO files in archives then we need to do a partial
+  // linking in order to preserve the the lazy symbols.
+  if (!lazyGNULTOFiles.empty())
+    invokeELFT(doGnuLTOLinking, lazyGNULTOFiles, /* isLazyFile */ true);
+#endif // INTEL_CUSTOMIZATION
+
   if (files.empty() && !hasInput && errorCount() == 0)
     error("no input files");
 }
@@ -1826,13 +1847,14 @@ void LinkerDriver::doGnuLTOLinking(
   StringRef exec = saver().save(*exeOrErr);
 
   // Build the command g++ -fuse-ld=bfd -r GNU-LTO-FILES -nostdlib
-  //                    -nostartfiles -o /tmp/gnulto.o
+  //                    -nostartfiles -fPIC -o /tmp/gnulto.o
   std::string gnuFlags = "-fuse-ld=bfd -r ";
 
   gnuFlags += gnuLTOFilesCmd;
 
   gnuFlags += "-nostdlib ";
   gnuFlags += "-nostartfiles ";
+  gnuFlags += "-fPIC ";
   gnuFlags += "-o ";
 
   // Create an unique temporary file to write the output
@@ -1873,15 +1895,13 @@ void LinkerDriver::doGnuLTOLinking(
   if (mbref.getBufferSize() == 0)
     fatal("Output from GNU LTO created incorrectly: " + gNUOutputObj.str());
 
-  // Create the object related to InputFile
-  InputFile *gnuLTOFile = make<ObjFile<ELFT>>(mbref, gNUOutputObj.str());
-  files.push_back(gnuLTOFile);
-
+  // If the GNU LTO objects are in an archive (lazyGNULTOFiles), then we need
+  // to add the new ELF object as a lazy object. Else, just add it as a regular
+  // object file.
   if (isLazyFile)
-    gnuLTOFile->lazy = true;
+    files.push_back(createLazyFile(mbref, "", 0));
   else
-    // Update the symbol table.
-    parseFile(gnuLTOFile);
+    files.push_back(createObjectFile(mbref));
 
   // Remove temporary files
   for (auto tempFile : tempsVector) {
@@ -2198,29 +2218,6 @@ static void replaceCommonSymbols() {
     }
   }
 }
-
-#if INTEL_CUSTOMIZATION
-// This is the same function as replaceCommonSymbols but it checks the common
-// symbols that could be added by the GNU LTO files. These files contain at
-// least one common symbol (__gnu_lto_slim).
-static void replaceGNUCommonSymbols() {
-  llvm::TimeTraceScope timeScope("Replace GNU LTO common symbols");
-  for (auto *file : gnuLTOFiles) {
-    for (Symbol *sym : file->getSymbols()) {
-      auto *s = dyn_cast<CommonSymbol>(sym);
-      if (!s)
-        continue;
-
-      auto *bss = make<BssSection>("COMMON", s->size, s->alignment);
-      bss->file = s->file;
-      bss->markDead();
-      inputSections.push_back(bss);
-      s->replace(Defined{s->file, s->getName(), s->binding, s->stOther, s->type,
-                         /*value=*/0, s->size, bss});
-    }
-  }
-}
-#endif // INTEL_CUSTOMIZATION
 
 // If all references to a DSO happen to be weak, the DSO is not added to
 // DT_NEEDED. If that happens, replace ShardSymbol with Undefined to avoid
@@ -2717,12 +2714,6 @@ void LinkerDriver::link(opt::InputArgList &args) {
     }
   }
 
-#if INTEL_CUSTOMIZATION
-  // Process the GNU LTO files
-  if (!gnuLTOFiles.empty())
-    invokeELFT(doGnuLTOLinking, gnuLTOFiles, /* isLazyFile */ false);
-#endif // INTEL_CUSTOMIZATION
-
   // Now that we have every file, we can decide if we will need a
   // dynamic symbol table.
   // We need one if we were asked to export dynamic symbols or if we are
@@ -2868,7 +2859,6 @@ void LinkerDriver::link(opt::InputArgList &args) {
 
   // Replace common symbols with regular symbols.
   replaceCommonSymbols();
-  replaceGNUCommonSymbols();   // INTEL
 
   {
     llvm::TimeTraceScope timeScope("Aggregate sections");

@@ -413,6 +413,7 @@ extern SmallVector<BitcodeFile *, 0> lazyBitcodeFiles;
 extern SmallVector<ELFFileBase *, 0> objectFiles;
 extern SmallVector<SharedFile *, 0> sharedFiles;
 extern SmallVector<InputFile *, 0> gnuLTOFiles;  // INTEL
+extern SmallVector<InputFile *, 0> lazyGNULTOFiles;  // INTEL
 
 } // namespace elf
 } // namespace lld
