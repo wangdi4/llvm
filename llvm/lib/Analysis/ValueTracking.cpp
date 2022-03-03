@@ -3364,6 +3364,19 @@ static unsigned ComputeNumSignBitsImpl(const Value *V,
       // important case for targets like X86.
       break;
 
+#if INTEL_CUSTOMIZATION
+    case Instruction::InsertElement: {
+      if (DemandedElts != 1)
+        break;
+      auto *Idx = dyn_cast<ConstantInt>(U->getOperand(2));
+      if (!Idx)
+        break;
+      if (Idx->isNullValue())
+        return ComputeNumSignBits(U->getOperand(1), Depth + 1, Q);
+      break;
+    }
+#endif // INTEL_CUSTOMIZATION
+
     case Instruction::ExtractElement:
       // Look through extract element. At the moment we keep this simple and
       // skip tracking the specific element. But at least we might find
