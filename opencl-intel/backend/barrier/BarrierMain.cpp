@@ -22,16 +22,11 @@ using namespace llvm;
 
 extern bool EnableSubGroupEmulation;
 
-static cl::opt<bool> EnableReducingCrossBarrierValues(
-    "enable-reducing-cross-barrier-values",
-    cl::init(true), cl::Hidden);
-
 extern "C" {
   void *createRemoveDuplicationBarrierPass(bool IsNativeDebug);
 
   Pass *createImplicitGIDPass(bool HandleBarrier);
   void *createReplaceScalarWithMaskPass();
-  FunctionPass *createReduceCrossBarrierValuesPass();
 
   // subgroup emulation passes
   Pass *createSGBarrierPropagatePass();
@@ -103,8 +98,8 @@ void addBarrierMainPasses(llvm::legacy::PassManagerBase &PM,
 
     PM.add(createSplitBBonBarrierLegacyPass());
 
-    if (OptLevel > 0 && EnableReducingCrossBarrierValues) {
-      PM.add(createReduceCrossBarrierValuesPass());
+    if (OptLevel > 0) {
+      PM.add(createReduceCrossBarrierValuesLegacyPass());
 #ifdef _DEBUG
       PM.add(createVerifierPass());
 #endif

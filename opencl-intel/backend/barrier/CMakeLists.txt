@@ -19,7 +19,6 @@ include_directories(
 set(TARGET_SOURCE_FILES
   BarrierMain.cpp
   ImplicitGIDPass.cpp
-  ReduceCrossBarrierValues.cpp
   RemoveDuplicationBarrierPass.cpp
   ReplaceScalarWithMaskPass.cpp
 )
