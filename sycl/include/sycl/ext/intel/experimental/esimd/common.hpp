@@ -223,25 +223,36 @@ enum class atomic_op : uint8_t {
   /// Compare and exchange (floating point).
   /// <code>if (*addr == src0) *addr = src1;</code>
   fcmpwr = 0x12,
+<<<<<<< HEAD
   /* INTEL_CUSTOMIZATION */
   /* INTEL_FEATURE_ESIMD_EMBARGO */
+=======
+>>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
   fadd = 0x13,
   fsub = 0x14,
   load = 0x15,
   store = 0x16,
+<<<<<<< HEAD
   /* end INTEL_FEATURE_ESIMD_EMBARGO */
   /* end INTEL_CUSTOMIZATION */
+=======
+>>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
   /// Decrement: <code>*addr = *addr - 1</code>. The only operation which
   /// returns new value of the destination rather than old.
   predec = 0xff,
 };
 
+<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
 // DO NOT MODIFY THE FOLLOWING ENCODING
 /// The scope that lsc_fence operation should apply to
 /// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
+=======
+/// The scope that lsc_fence operation should apply to
+/// Supported platforms: DG2, PVC
+>>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 enum class lsc_scope : uint8_t {
   group = 0,  /// flush out to the threadgroup's scope
   local = 1,  /// flush out to the local scope
@@ -252,14 +263,20 @@ enum class lsc_scope : uint8_t {
   sysacq = 6, /// the entire system memory space with system-acquire semantics
 };
 
+<<<<<<< HEAD
 // DO NOT MODIFY THE FOLLOWING ENCODING
 /// The lsc_fence operation to apply to caches
 /// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
+=======
+/// The lsc_fence operation to apply to caches
+/// Supported platforms: DG2, PVC
+>>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 enum class lsc_fence_op : uint8_t {
   none = 0,       /// no operation
   evict = 1,      /// dirty lines evicted and invalidated from L1
   invalidate = 2, /// invalidate all clean lines
   discard = 3,    /// direct and clean lines are discarded w/o eviction
+<<<<<<< HEAD
   clean = 4,      /// dirty lines are written to memory, but retained in cache in clean state
   flushl3 = 5,    /// flush only L3
 };
@@ -276,12 +293,30 @@ enum class lsc_sfid : uint8_t {
 
 // Data size or format to read or store
 // DO NOT MODIFY THE FOLLOWING ENCODING
+=======
+  clean = 4,      /// dirty lines are written to memory, but retained in cache
+                  /// in clean state
+  flushl3 = 5,    /// flush only L3
+};
+
+/// The specific LSC shared function to fence with lsc_fence
+/// Supported platforms: DG2, PVC
+enum class lsc_memory_kind : uint8_t {
+  untyped_global = 0,         /// untyped global memory
+  untyped_global_low_pri = 1, /// low-priority untyped global memory
+  typed_global = 2,           /// typed global memory
+  shared_local = 3,           /// shared local memory
+};
+
+/// Data size or format to read or store
+>>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 enum class lsc_data_size : uint8_t {
   default_size = 0,
   u8 = 1,
   u16 = 2,
   u32 = 3,
   u64 = 4,
+<<<<<<< HEAD
   u8u32 = 5,   // load 8b, zero extend to 32b; store the opposite
   u16u32 = 6,  // load 16b, zero extend to 32b; store the opposite
   u16u32h = 7, // load 16b into high 16 of each 32b; store the high 16
@@ -290,6 +325,15 @@ enum class lsc_data_size : uint8_t {
 namespace detail {
 // LSC atomic operations op codes
 // DO NOT MODIFY THE FOLLOWING ENCODING
+=======
+  u8u32 = 5,   /// load 8b, zero extend to 32b; store the opposite
+  u16u32 = 6,  /// load 16b, zero extend to 32b; store the opposite
+  u16u32h = 7, /// load 16b into high 16 of each 32b; store the high 16
+};
+
+namespace detail {
+/// LSC atomic operations op codes
+>>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 enum class lsc_atomic_op : uint8_t {
   iinc = 0x08,    // atomic integer increment
   idec = 0x09,    // atomic integer decrement
@@ -312,7 +356,10 @@ enum class lsc_atomic_op : uint8_t {
   bit_xor = 0x1a, // logical (bitwise) XOR
 };
 
+<<<<<<< HEAD
 // DO NOT MODIFY THE FOLLOWING ENCODING
+=======
+>>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 enum class lsc_vector_size : uint8_t {
   n1 = 1,
   n2 = 2,
@@ -324,7 +371,10 @@ enum class lsc_vector_size : uint8_t {
   n64 = 8,
 };
 
+<<<<<<< HEAD
 // DO NOT MODIFY THE FOLLOWING ENCODING
+=======
+>>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 enum class lsc_data_order : uint8_t {
   nontranspose = 1,
   transpose = 2,
@@ -365,9 +415,13 @@ template <atomic_op Op> constexpr void check_lsc_atomic_op() {
 }
 
 /// Check the legality of lsc xatomic call in terms of size and type.
+<<<<<<< HEAD
 /// \ingroup sycl_esimd
 template <atomic_op Op, unsigned NumSrc>
 constexpr void check_lsc_atomic() {
+=======
+template <atomic_op Op, unsigned NumSrc> constexpr void check_lsc_atomic() {
+>>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
   check_lsc_atomic_op<Op>();
   if constexpr (Op == atomic_op::inc || Op == atomic_op::dec ||
                 Op == atomic_op::load) {
@@ -498,6 +552,7 @@ constexpr lsc_data_size finalize_data_size() {
     return DS;
 }
 
+<<<<<<< HEAD
 } // namespace detail
 
 // TODO FIXME Remove after embargo API open-source
@@ -515,6 +570,109 @@ enum class CacheHint : uint8_t {
 
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
+=======
+constexpr lsc_data_size expand_data_size(lsc_data_size DS) {
+  if (DS == lsc_data_size::u8)
+    return lsc_data_size::u8u32;
+  if (DS == lsc_data_size::u16)
+    return lsc_data_size::u16u32;
+  return DS;
+}
+
+template <typename T> struct lsc_expand_type {
+  using type = typename std::conditional<sizeof(T) < 4, uint32_t, T>::type;
+};
+
+template <typename T> struct lsc_bitcast_type {
+private:
+  using _type1 = typename std::conditional<sizeof(T) == 2, uint16_t, T>::type;
+  using _type2 = typename std::conditional<sizeof(T) == 1, uint8_t, T>::type;
+
+public:
+  using type =
+      typename std::conditional<sizeof(_type2) == 1, _type2, _type1>::type;
+};
+
+} // namespace detail
+
+/// L1 or L3 cache hint kinds.
+enum class cache_hint : uint8_t {
+  none = 0,
+  uncached = 1,
+  cached = 2,
+  write_back = 3,
+  write_through = 4,
+  streaming = 5,
+  read_invalidate = 6
+};
+
+namespace detail {
+
+template <cache_hint Hint> class cache_hint_wrap {
+  template <cache_hint...> class is_one_of_t;
+  template <cache_hint Last>
+  struct is_one_of_t<Last>
+      : std::conditional<Last == Hint, std::true_type, std::false_type>::type {
+  };
+  template <cache_hint Head, cache_hint... Tail>
+  struct is_one_of_t<Head, Tail...>
+      : std::conditional<Head == Hint, std::true_type,
+                         is_one_of_t<Tail...>>::type {};
+
+public:
+  constexpr operator cache_hint() const { return Hint; }
+  template <cache_hint... Hints> constexpr bool is_one_of() const {
+    return is_one_of_t<Hints...>::value;
+  }
+};
+
+constexpr bool are_both(cache_hint First, cache_hint Second, cache_hint Val) {
+  return First == Val && Second == Val;
+}
+
+enum class lsc_action { prefetch, load, store, atomic };
+
+template <lsc_action Action, cache_hint L1, cache_hint L3>
+constexpr void check_lsc_cache_hint() {
+  constexpr auto L1H = cache_hint_wrap<L1>{};
+  constexpr auto L3H = cache_hint_wrap<L3>{};
+  if constexpr (Action == lsc_action::prefetch) {
+    static_assert(
+        L1H.template is_one_of<cache_hint::cached, cache_hint::uncached,
+                               cache_hint::streaming>() &&
+            L3H.template is_one_of<cache_hint::cached,
+                                   cache_hint::uncached>() &&
+            !are_both(L1H, L3H, cache_hint::uncached),
+        "unsupported cache hint");
+  } else if constexpr (Action == lsc_action::load) {
+    static_assert(
+        are_both(L1H, L3H, cache_hint::none) ||
+            (L1H.template is_one_of<cache_hint::uncached, cache_hint::cached,
+                                    cache_hint::streaming>() &&
+             L3H.template is_one_of<cache_hint::uncached,
+                                    cache_hint::cached>()) ||
+            (L1H == cache_hint::read_invalidate && L3H == cache_hint::cached),
+        "unsupported cache hint");
+  } else if constexpr (Action == lsc_action::store) {
+    static_assert(are_both(L1H, L3H, cache_hint::none) ||
+                      are_both(L1H, L3H, cache_hint::write_back) ||
+                      (L1H.template is_one_of<cache_hint::uncached,
+                                              cache_hint::write_through,
+                                              cache_hint::streaming>() &&
+                       L3H.template is_one_of<cache_hint::uncached,
+                                              cache_hint::write_back>()),
+                  "unsupported cache hint");
+  } else if constexpr (Action == lsc_action::atomic) {
+    static_assert(are_both(L1H, L3H, cache_hint::none) ||
+                      (L1H == cache_hint::uncached &&
+                       L3H.template is_one_of<cache_hint::uncached,
+                                              cache_hint::write_back>()),
+                  "unsupported cache hint");
+  }
+}
+
+} // namespace detail
+>>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 
 /// Represents a split barrier action.
 enum class split_barrier_action : uint8_t {
