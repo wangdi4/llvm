@@ -14,12 +14,15 @@
 #include "LLVMSPIRVLib.h"
 #include "VecConfig.h"
 #include "VectorizerCommon.h"
-
+#ifndef NDEBUG
+#include "llvm/IR/Verifier.h"
+#endif // #ifndef NDEBUG
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/VPO/VPOPasses.h"
@@ -89,6 +92,9 @@ void OptimizerLTOLegacyPM::CreatePasses() {
   MaterializerMPM.add(createSPIRVLowerConstExprLegacy());
   MaterializerMPM.add(createSPIRVToOCL20Legacy());
   MaterializerMPM.add(createNameAnonGlobalPass());
+#ifndef NDEBUG
+  MaterializerMPM.add(llvm::createVerifierPass());
+#endif // #ifndef NDEBUG
 
   registerPipelineStartCallback(PMBuilder);
   registerVectorizerStartCallback(PMBuilder);
@@ -148,6 +154,7 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
         }
 
         MPM.add(createDPCPPKernelAnalysisLegacyPass());
+        MPM.add(createDeduceMaxWGDimLegacyPass());
         MPM.add(createWGLoopBoundariesLegacyPass());
         MPM.add(createDeadCodeEliminationPass());
         MPM.add(createCFGSimplificationPass());
@@ -277,6 +284,7 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
     MPM.add(createDeadCodeEliminationPass());
     MPM.add(createDeadStoreEliminationPass());
     MPM.add(createEarlyCSEPass());
+    MPM.add(createGVNPass());
   }
 }
 

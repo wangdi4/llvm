@@ -6,10 +6,20 @@
 ; CHECK:      Running pass: DPCPPPreprocessSPIRVFriendlyIRPass
 ; CHECK-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
+
+#ifndef NDEBUG
+; CHECK-NEXT: Running pass: VerifierPass
+; CHECK-NEXT: Running analysis: VerifierAnalysis
+#endif // #ifndef NDEBUG
+
 ; CHECK-NEXT: Running pass: DPCPPEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
 ; CHECK:      Running pass: DuplicateCalledKernels
 ; CHECK-NEXT: Running pass: InternalizeNonKernelFuncPass
+#ifndef NDEBUG
+; CHECK-NEXT: Invalidating analysis: VerifierAnalysis
+#endif // #ifndef NDEBUG
+
 ; CHECK-NEXT: Running pass: AddFunctionAttrsPass
 ; CHECK-NEXT: Running pass: LinearIdResolverPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
@@ -55,3 +65,10 @@
 ; CHECK:      Running pass: LoopIdiomRecognizePass
 ; CHECK:      Running pass: LoopDeletionPass
 ; CHECK:      Running pass: PrepareKernelArgsPass
+; CHECK:      Running pass: SimplifyCFGPass
+; CHECK:      Running pass: InstCombinePass
+; CHECK:      Running pass: DCEPass
+; CHECK:      Running pass: DSEPass
+; CHECK:      Running pass: EarlyCSEPass
+; CHECK:      Running pass: GVNPass
+; CHECK:      Running pass: CleanupWrappedKernelPass

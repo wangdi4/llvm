@@ -7,6 +7,10 @@
 ; CHECK-NEXT:     Regularize LLVM for SPIR-V
 ; CHECK-NEXT:     Translate SPIR-V builtins to OCL 2.0 builtins
 ; CHECK-NEXT:     Name Anon Globals
+#ifndef NDEBUG
+; CHECK:        FunctionPass Manager
+; CHECK-NEXT:     Module Verifier
+#endif // #ifndef NDEBUG
 
 ; CHECK:        FunctionPass Manager
 ; CHECK-NEXT:     Unify function exit nodes
@@ -25,6 +29,7 @@
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
 ; CHECK:          Infer address spaces
 ; CHECK:          DPCPPKernelAnalysisLegacy
+; CHECK:          DeduceMaxWGDimLegacy
 ; CHECK:          WGLoopBoundariesLegacy
 
 ; CHECK:          Call Graph SCC Pass Manager
@@ -74,4 +79,10 @@
 ; CHECK:          Delete dead loops
 ; CHECK:          Simplify the CFG
 ; CHECK:          PrepareKernelArgsLegacy
+; CHECK:          Simplify the CFG
+; CHECK:          Combine redundant instructions
+; CHECK:          Dead Code Elimination
+; CHECK:          Dead Store Elimination
+; CHECK:          Early CSE
+; CHECK:          Global Value Numbering
 ; CHECK:          CleanupWrappedKernelLegacy
