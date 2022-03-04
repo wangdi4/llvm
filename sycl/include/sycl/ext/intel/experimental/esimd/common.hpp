@@ -223,36 +223,27 @@ enum class atomic_op : uint8_t {
   /// Compare and exchange (floating point).
   /// <code>if (*addr == src0) *addr = src1;</code>
   fcmpwr = 0x12,
-<<<<<<< HEAD
   /* INTEL_CUSTOMIZATION */
   /* INTEL_FEATURE_ESIMD_EMBARGO */
-=======
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
   fadd = 0x13,
   fsub = 0x14,
   load = 0x15,
   store = 0x16,
-<<<<<<< HEAD
   /* end INTEL_FEATURE_ESIMD_EMBARGO */
   /* end INTEL_CUSTOMIZATION */
-=======
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
   /// Decrement: <code>*addr = *addr - 1</code>. The only operation which
   /// returns new value of the destination rather than old.
   predec = 0xff,
 };
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
 // DO NOT MODIFY THE FOLLOWING ENCODING
 /// The scope that lsc_fence operation should apply to
 /// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// The scope that lsc_fence operation should apply to
 /// Supported platforms: DG2, PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 enum class lsc_scope : uint8_t {
   group = 0,  /// flush out to the threadgroup's scope
   local = 1,  /// flush out to the local scope
@@ -263,37 +254,16 @@ enum class lsc_scope : uint8_t {
   sysacq = 6, /// the entire system memory space with system-acquire semantics
 };
 
-<<<<<<< HEAD
 // DO NOT MODIFY THE FOLLOWING ENCODING
 /// The lsc_fence operation to apply to caches
 /// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// The lsc_fence operation to apply to caches
 /// Supported platforms: DG2, PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 enum class lsc_fence_op : uint8_t {
   none = 0,       /// no operation
   evict = 1,      /// dirty lines evicted and invalidated from L1
   invalidate = 2, /// invalidate all clean lines
   discard = 3,    /// direct and clean lines are discarded w/o eviction
-<<<<<<< HEAD
-  clean = 4,      /// dirty lines are written to memory, but retained in cache in clean state
-  flushl3 = 5,    /// flush only L3
-};
-
-// DO NOT MODIFY THE FOLLOWING ENCODING
-/// The specific LSC shared function to fence with lsc_fence
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-enum class lsc_sfid : uint8_t {
-  ugm = 0,  /// unified global memory
-  ugml = 1, /// low-bandwith untyped global memory
-  tgm = 2,  /// typed global memory
-  slm = 3,  /// shared local memory
-};
-
-// Data size or format to read or store
-// DO NOT MODIFY THE FOLLOWING ENCODING
-=======
   clean = 4,      /// dirty lines are written to memory, but retained in cache
                   /// in clean state
   flushl3 = 5,    /// flush only L3
@@ -309,23 +279,12 @@ enum class lsc_memory_kind : uint8_t {
 };
 
 /// Data size or format to read or store
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 enum class lsc_data_size : uint8_t {
   default_size = 0,
   u8 = 1,
   u16 = 2,
   u32 = 3,
   u64 = 4,
-<<<<<<< HEAD
-  u8u32 = 5,   // load 8b, zero extend to 32b; store the opposite
-  u16u32 = 6,  // load 16b, zero extend to 32b; store the opposite
-  u16u32h = 7, // load 16b into high 16 of each 32b; store the high 16
-};
-
-namespace detail {
-// LSC atomic operations op codes
-// DO NOT MODIFY THE FOLLOWING ENCODING
-=======
   u8u32 = 5,   /// load 8b, zero extend to 32b; store the opposite
   u16u32 = 6,  /// load 16b, zero extend to 32b; store the opposite
   u16u32h = 7, /// load 16b into high 16 of each 32b; store the high 16
@@ -333,7 +292,6 @@ namespace detail {
 
 namespace detail {
 /// LSC atomic operations op codes
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 enum class lsc_atomic_op : uint8_t {
   iinc = 0x08,    // atomic integer increment
   idec = 0x09,    // atomic integer decrement
@@ -356,10 +314,7 @@ enum class lsc_atomic_op : uint8_t {
   bit_xor = 0x1a, // logical (bitwise) XOR
 };
 
-<<<<<<< HEAD
 // DO NOT MODIFY THE FOLLOWING ENCODING
-=======
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 enum class lsc_vector_size : uint8_t {
   n1 = 1,
   n2 = 2,
@@ -371,10 +326,7 @@ enum class lsc_vector_size : uint8_t {
   n64 = 8,
 };
 
-<<<<<<< HEAD
 // DO NOT MODIFY THE FOLLOWING ENCODING
-=======
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 enum class lsc_data_order : uint8_t {
   nontranspose = 1,
   transpose = 2,
@@ -415,13 +367,7 @@ template <atomic_op Op> constexpr void check_lsc_atomic_op() {
 }
 
 /// Check the legality of lsc xatomic call in terms of size and type.
-<<<<<<< HEAD
-/// \ingroup sycl_esimd
-template <atomic_op Op, unsigned NumSrc>
-constexpr void check_lsc_atomic() {
-=======
 template <atomic_op Op, unsigned NumSrc> constexpr void check_lsc_atomic() {
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
   check_lsc_atomic_op<Op>();
   if constexpr (Op == atomic_op::inc || Op == atomic_op::dec ||
                 Op == atomic_op::load) {
@@ -552,25 +498,8 @@ constexpr lsc_data_size finalize_data_size() {
     return DS;
 }
 
-<<<<<<< HEAD
-} // namespace detail
-
-// TODO FIXME Remove after embargo API open-source
-// TODO Cache hints APIs are being reworked.
-// L1 or L3 cache hint kinds.
-enum class CacheHint : uint8_t {
-  None = 0,
-  Uncached = 1,
-  Cached = 2,
-  WriteBack = 3,
-  WriteThrough = 4,
-  Streaming = 5,
-  ReadInvalidate = 6
-};
-
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
-=======
 constexpr lsc_data_size expand_data_size(lsc_data_size DS) {
   if (DS == lsc_data_size::u8)
     return lsc_data_size::u8u32;
@@ -672,7 +601,6 @@ constexpr void check_lsc_cache_hint() {
 }
 
 } // namespace detail
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 
 /// Represents a split barrier action.
 enum class split_barrier_action : uint8_t {

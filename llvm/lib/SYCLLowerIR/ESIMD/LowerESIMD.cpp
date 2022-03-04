@@ -85,11 +85,6 @@ ModulePass *llvm::createSYCLLowerESIMDPass() {
 }
 
 namespace {
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
-=======
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 enum class lsc_subopcode : uint8_t {
   load = 0x00,
   load_strided = 0x01,
@@ -126,12 +121,7 @@ enum class lsc_subopcode : uint8_t {
   read_state_info = 0x1e,
   fence = 0x1f,
 };
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 // The regexp for ESIMD intrinsics:
 // /^_Z(\d+)__esimd_\w+/
 static constexpr char ESIMD_INTRIN_PREF0[] = "_Z";
@@ -279,14 +269,6 @@ private:
   static constexpr ESIMDIntrinDesc::ArgRule c8(int16_t N) {
     return ESIMDIntrinDesc::ArgRule{ESIMDIntrinDesc::CONST_INT8, {{N, {}}}};
   }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
-  static constexpr ESIMDIntrinDesc::ArgRule c8(lsc_subopcode OpCode) {
-    return c8(static_cast<uint8_t>(OpCode));
-  }
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
-
   static constexpr ESIMDIntrinDesc::ArgRule c8(lsc_subopcode OpCode) {
     return c8(static_cast<uint8_t>(OpCode));
   }
@@ -531,11 +513,8 @@ public:
         {"nbarrier", {"nbarrier", {a(0), a(1), a(2)}}},
         {"raw_send_nbarrier_signal",
          {"raw.send.noresult", {a(0), ai1(4), a(1), a(2), a(3)}}},
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ESIMD_EMBARGO
-=======
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
         {"lsc_load_slm",
          {"lsc.load.slm",
           {ai1(0), c8(lsc_subopcode::load), t8(1), t8(2), t16(3), t32(4), t8(5),
@@ -558,30 +537,6 @@ public:
            t8(6), t8(7), c8(0), a(1), c32(0)}}},
         {"lsc_store_slm",
          {"lsc.store.slm",
-<<<<<<< HEAD
-          {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4), t8(5),
-           t8(6), t8(7), c8(0), a(1), a(2), c32(0)}}},
-        {"lsc_store_bti",
-         {"lsc.store.bti",
-          {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4), t8(5),
-           t8(6), t8(7), c8(0), a(1), a(2), aSI(3)}}},
-        {"lsc_store_stateless",
-         {"lsc.store.stateless",
-          {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4), t8(5),
-           t8(6), t8(7), c8(0), a(1), a(2), c32(0)}}},
-        {"lsc_load2d_stateless",
-         {"lsc.load2d.stateless",
-          {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8), a(1),
-           a(2), a(3), a(4), a(5), a(6)}}},
-        {"lsc_prefetch2d_stateless",
-         {"lsc.prefetch2d.stateless",
-          {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8), a(1),
-           a(2), a(3), a(4), a(5), a(6)}}},
-        {"lsc_store2d_stateless",
-         {"lsc.store2d.stateless",
-          {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8), a(1),
-           a(2), a(3), a(4), a(5), a(6), a(7)}}},
-=======
           {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4),
            t8(5), t8(6), t8(7), c8(0), a(1), a(2), c32(0)}}},
         {"lsc_store_bti",
@@ -604,7 +559,6 @@ public:
          {"lsc.store2d.stateless",
           {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8),
            a(1), a(2), a(3), a(4), a(5), a(6), a(7)}}},
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
         {"lsc_xatomic_slm_0",
          {"lsc.xatomic.slm",
           {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
@@ -642,11 +596,8 @@ public:
           {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
            c8(0), a(1), a(2), a(3), c32(0), u(-1)}}},
         {"lsc_fence", {"lsc.fence", {ai1(0), t8(0), t8(1), t8(2)}}},
-<<<<<<< HEAD
 #endif // INTEL_FEATURE_ESIMD_EMBARGO
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
         {"sat", {"sat", {a(0)}}},
         {"fptoui_sat", {"fptoui.sat", {a(0)}}},
         {"fptosi_sat", {"fptosi.sat", {a(0)}}},
@@ -916,22 +867,16 @@ static std::string getESIMDIntrinSuffix(id::FunctionEncoding *FE,
     case 0x12:
       Suff = ".fcmpwr";
       break;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ESIMD_EMBARGO
-=======
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
     case 0x13:
       Suff = ".fadd";
       break;
     case 0x14:
       Suff = ".fsub";
       break;
-<<<<<<< HEAD
 #endif // INTEL_FEATURE_ESIMD_EMBARGO
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
     case 0xff:
       Suff = ".predec";
       break;

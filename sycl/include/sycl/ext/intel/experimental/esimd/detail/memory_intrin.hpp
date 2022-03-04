@@ -1339,19 +1339,14 @@ __ESIMD_INTRIN void __esimd_raw_send_nbarrier_signal(
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
 // Wait for val to be ready
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void __esimd_wait(uint16_t val);
 
-/// \brief SLM gather.
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// SLM gather.
 /// Supported platforms: DG2, PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 ///
 /// Collects elements located at slm and returns them
 /// as a single \ref simd object.
@@ -1368,18 +1363,6 @@ SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void __esimd_wait(uint16_t val);
 /// @param pred is predicates.
 /// @param offsets is the zero-based offsets for SLM buffer in bytes.
 /// @return is a vector of type T and size N * to_int<VS>()
-<<<<<<< HEAD
-template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
-          uint16_t AddressScale, int ImmOffset, __SEIEE::lsc_data_size DS,
-          __SEIEED::lsc_vector_size VS, __SEIEED::lsc_data_order _Transposed,
-          int N>
-SYCL_EXTERNAL
-    SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
-    __esimd_lsc_load_slm(__SEIEED::simd_mask_storage_t<N> pred,
-                         __SEIEED::vector_type_t<uint32_t, N> offsets)
-#ifdef __SYCL_DEVICE_ONLY__
-        ;
-=======
 template <typename Ty, __SEIEE::cache_hint L1H, __SEIEE::cache_hint L3H,
           uint16_t AddressScale, int ImmOffset, __SEIEE::lsc_data_size DS,
           __SEIEED::lsc_vector_size VS, __SEIEED::lsc_data_order _Transposed,
@@ -1389,7 +1372,6 @@ __esimd_lsc_load_slm(__SEIEED::simd_mask_storage_t<N> pred,
                      __SEIEED::vector_type_t<uint32_t, N> offsets)
 #ifdef __SYCL_DEVICE_ONLY__
     ;
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 #else  // __SYCL_DEVICE_ONLY__
 {
   throw cl::sycl::feature_not_supported();
@@ -1397,13 +1379,8 @@ __esimd_lsc_load_slm(__SEIEED::simd_mask_storage_t<N> pred,
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-/// \brief surface-based gather.
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// Surface-based gather.
 /// Supported platforms: DG2, PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 ///
 /// Collects elements located at surface and returns them
 /// as a single \ref simd object.
@@ -1422,19 +1399,6 @@ __esimd_lsc_load_slm(__SEIEED::simd_mask_storage_t<N> pred,
 /// @param offsets is the zero-based offsets in bytes.
 /// @param surf_ind is the surface index.
 /// @return is a vector of type T and N * to_int<VS>()
-<<<<<<< HEAD
-template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
-          uint16_t AddressScale, int ImmOffset, __SEIEE::lsc_data_size DS,
-          __SEIEED::lsc_vector_size VS, __SEIEED::lsc_data_order _Transposed,
-          int N, typename SurfIndAliasTy>
-SYCL_EXTERNAL
-    SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
-    __esimd_lsc_load_bti(__SEIEED::simd_mask_storage_t<N> pred,
-                         __SEIEED::vector_type_t<uint32_t, N> offsets,
-                         SurfIndAliasTy surf_ind)
-#ifdef __SYCL_DEVICE_ONLY__
-        ;
-=======
 template <typename Ty, __SEIEE::cache_hint L1H, __SEIEE::cache_hint L3H,
           uint16_t AddressScale, int ImmOffset, __SEIEE::lsc_data_size DS,
           __SEIEED::lsc_vector_size VS, __SEIEED::lsc_data_order _Transposed,
@@ -1445,7 +1409,6 @@ __esimd_lsc_load_bti(__SEIEED::simd_mask_storage_t<N> pred,
                      SurfIndAliasTy surf_ind)
 #ifdef __SYCL_DEVICE_ONLY__
     ;
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 #else  // __SYCL_DEVICE_ONLY__
 {
   throw cl::sycl::feature_not_supported();
@@ -1453,13 +1416,8 @@ __esimd_lsc_load_bti(__SEIEED::simd_mask_storage_t<N> pred,
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-/// \brief Flat-address gather.
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// USM pointer gather.
 /// Supported platforms: DG2, PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 ///
 /// Collects elements located at specified address and returns them
 /// as a single \ref simd object.
@@ -1476,18 +1434,6 @@ __esimd_lsc_load_bti(__SEIEED::simd_mask_storage_t<N> pred,
 /// @param pred is predicates.
 /// @param addrs is the load addresses.
 /// @return is a vector of type T and N * to_int<VS>()
-<<<<<<< HEAD
-template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
-          uint16_t AddressScale, int ImmOffset, __SEIEE::lsc_data_size DS,
-          __SEIEED::lsc_vector_size VS, __SEIEED::lsc_data_order _Transposed,
-          int N>
-SYCL_EXTERNAL
-    SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
-    __esimd_lsc_load_stateless(__SEIEED::simd_mask_storage_t<N> pred,
-                               __SEIEED::vector_type_t<uintptr_t, N> addrs)
-#ifdef __SYCL_DEVICE_ONLY__
-        ;
-=======
 template <typename Ty, __SEIEE::cache_hint L1H, __SEIEE::cache_hint L3H,
           uint16_t AddressScale, int ImmOffset, __SEIEE::lsc_data_size DS,
           __SEIEED::lsc_vector_size VS, __SEIEED::lsc_data_order _Transposed,
@@ -1497,7 +1443,6 @@ __esimd_lsc_load_stateless(__SEIEED::simd_mask_storage_t<N> pred,
                            __SEIEED::vector_type_t<uintptr_t, N> addrs)
 #ifdef __SYCL_DEVICE_ONLY__
     ;
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 #else  // __SYCL_DEVICE_ONLY__
 {
   throw cl::sycl::feature_not_supported();
@@ -1505,13 +1450,8 @@ __esimd_lsc_load_stateless(__SEIEED::simd_mask_storage_t<N> pred,
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-/// \brief surface-based prefetch gather.
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// Surface-based prefetch gather.
 /// Supported platforms: DG2, PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 ///
 /// Prefetches elements located at surface.
 ///
@@ -1528,19 +1468,11 @@ __esimd_lsc_load_stateless(__SEIEED::simd_mask_storage_t<N> pred,
 /// @param pred is predicates.
 /// @param offsets is the zero-based offsets in bytes.
 /// @param surf_ind is the surface index.
-<<<<<<< HEAD
-template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
-          uint16_t AddressScale, int ImmOffset, __SEIEE::lsc_data_size DS,
-          __SEIEED::lsc_vector_size VS, __SEIEED::lsc_data_order _Transposed,
-          int N, typename SurfIndAliasTy>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void
-=======
 template <typename Ty, __SEIEE::cache_hint L1H, __SEIEE::cache_hint L3H,
           uint16_t AddressScale, int ImmOffset, __SEIEE::lsc_data_size DS,
           __SEIEED::lsc_vector_size VS, __SEIEED::lsc_data_order _Transposed,
           int N, typename SurfIndAliasTy>
 __ESIMD_INTRIN void
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 __esimd_lsc_prefetch_bti(__SEIEED::simd_mask_storage_t<N> pred,
                          __SEIEED::vector_type_t<uint32_t, N> offsets,
                          SurfIndAliasTy surf_ind)
@@ -1552,13 +1484,8 @@ __esimd_lsc_prefetch_bti(__SEIEED::simd_mask_storage_t<N> pred,
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-/// \brief Flat-address prefetch gather.
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// USM pointer prefetch gather.
 /// Supported platforms: DG2, PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 ///
 /// Prefetches elements located at specified address.
 ///
@@ -1573,19 +1500,11 @@ __esimd_lsc_prefetch_bti(__SEIEED::simd_mask_storage_t<N> pred,
 /// @tparam N is the number of channels (platform dependent).
 /// @param pred is predicates.
 /// @param addrs is the prefetch addresses.
-<<<<<<< HEAD
-template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
-          uint16_t AddressScale, int ImmOffset, __SEIEE::lsc_data_size DS,
-          __SEIEED::lsc_vector_size VS, __SEIEED::lsc_data_order _Transposed,
-          int N>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void
-=======
 template <typename Ty, __SEIEE::cache_hint L1H, __SEIEE::cache_hint L3H,
           uint16_t AddressScale, int ImmOffset, __SEIEE::lsc_data_size DS,
           __SEIEED::lsc_vector_size VS, __SEIEED::lsc_data_order _Transposed,
           int N>
 __ESIMD_INTRIN void
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 __esimd_lsc_prefetch_stateless(__SEIEED::simd_mask_storage_t<N> pred,
                                __SEIEED::vector_type_t<uintptr_t, N> addrs)
 #ifdef __SYCL_DEVICE_ONLY__
@@ -1596,13 +1515,8 @@ __esimd_lsc_prefetch_stateless(__SEIEED::simd_mask_storage_t<N> pred,
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-/// \brief SLM scatter.
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// SLM scatter.
 /// Supported platforms: DG2, PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 ///
 /// Scatters elements located to slm.
 ///
@@ -1618,19 +1532,11 @@ __esimd_lsc_prefetch_stateless(__SEIEED::simd_mask_storage_t<N> pred,
 /// @param pred is predicates.
 /// @param offsets is the zero-based offsets for SLM buffer in bytes.
 /// @param vals is values to store.
-<<<<<<< HEAD
-template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
-          uint16_t AddressScale, int ImmOffset, __SEIEE::lsc_data_size DS,
-          __SEIEED::lsc_vector_size VS, __SEIEED::lsc_data_order _Transposed,
-          int N>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void __esimd_lsc_store_slm(
-=======
 template <typename Ty, __SEIEE::cache_hint L1H, __SEIEE::cache_hint L3H,
           uint16_t AddressScale, int ImmOffset, __SEIEE::lsc_data_size DS,
           __SEIEED::lsc_vector_size VS, __SEIEED::lsc_data_order _Transposed,
           int N>
 __ESIMD_INTRIN void __esimd_lsc_store_slm(
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
     __SEIEED::simd_mask_storage_t<N> pred,
     __SEIEED::vector_type_t<uint32_t, N> offsets,
     __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> vals)
@@ -1642,13 +1548,8 @@ __ESIMD_INTRIN void __esimd_lsc_store_slm(
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-/// \brief surface-based scatter.
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// Surface-based scatter.
 /// Supported platforms: DG2, PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 ///
 /// Scatters elements to surface.
 ///
@@ -1666,19 +1567,11 @@ __ESIMD_INTRIN void __esimd_lsc_store_slm(
 /// @param offsets is the zero-based offsets in bytes.
 /// @param vals is values to store.
 /// @param surf_ind is the surface index.
-<<<<<<< HEAD
-template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
-          uint16_t AddressScale, int ImmOffset, __SEIEE::lsc_data_size DS,
-          __SEIEED::lsc_vector_size VS, __SEIEED::lsc_data_order _Transposed,
-          int N, typename SurfIndAliasTy>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void __esimd_lsc_store_bti(
-=======
 template <typename Ty, __SEIEE::cache_hint L1H, __SEIEE::cache_hint L3H,
           uint16_t AddressScale, int ImmOffset, __SEIEE::lsc_data_size DS,
           __SEIEED::lsc_vector_size VS, __SEIEED::lsc_data_order _Transposed,
           int N, typename SurfIndAliasTy>
 __ESIMD_INTRIN void __esimd_lsc_store_bti(
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
     __SEIEED::simd_mask_storage_t<N> pred,
     __SEIEED::vector_type_t<uint32_t, N> offsets,
     __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> vals,
@@ -1691,13 +1584,8 @@ __ESIMD_INTRIN void __esimd_lsc_store_bti(
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-/// \brief Flat-address scatter.
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// USM pointer scatter.
 /// Supported platforms: DG2, PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 ///
 /// Scatters elements to specific address.
 ///
@@ -1713,19 +1601,11 @@ __ESIMD_INTRIN void __esimd_lsc_store_bti(
 /// @param pred is predicates.
 /// @param addrs is the prefetch addresses.
 /// @param vals is values to store.
-<<<<<<< HEAD
-template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
-          uint16_t AddressScale, int ImmOffset, __SEIEE::lsc_data_size DS,
-          __SEIEED::lsc_vector_size VS, __SEIEED::lsc_data_order _Transposed,
-          int N>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void __esimd_lsc_store_stateless(
-=======
 template <typename Ty, __SEIEE::cache_hint L1H, __SEIEE::cache_hint L3H,
           uint16_t AddressScale, int ImmOffset, __SEIEE::lsc_data_size DS,
           __SEIEED::lsc_vector_size VS, __SEIEED::lsc_data_order _Transposed,
           int N>
 __ESIMD_INTRIN void __esimd_lsc_store_stateless(
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
     __SEIEED::simd_mask_storage_t<N> pred,
     __SEIEED::vector_type_t<uintptr_t, N> addrs,
     __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> vals)
@@ -1737,13 +1617,8 @@ __ESIMD_INTRIN void __esimd_lsc_store_stateless(
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-/// \brief 2D flat-address block load.
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// 2D USM pointer block load.
 /// Supported platforms: PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 ///
 /// Collects elements located at specified address and returns them
 /// as a single \ref simd object.
@@ -1772,19 +1647,11 @@ __ESIMD_INTRIN void __esimd_lsc_store_stateless(
 ///  otherwise,
 ///  N = roundUpNextMultiple(BlockHeight, 4 / sizeof(T)) *
 ///   getNextPowerOf2(BlockWidth) * NBlocks
-<<<<<<< HEAD
-template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
-          __SEIEE::lsc_data_size DS, __SEIEED::lsc_data_order _Transposed,
-          uint8_t NBlocks, int BlockWidth, int BlockHeight, bool Transformed,
-          int N>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N>
-=======
 template <typename Ty, __SEIEE::cache_hint L1H, __SEIEE::cache_hint L3H,
           __SEIEE::lsc_data_size DS, __SEIEED::lsc_data_order _Transposed,
           uint8_t NBlocks, int BlockWidth, int BlockHeight, bool Transformed,
           int N>
 __ESIMD_INTRIN __SEIEED::vector_type_t<Ty, N>
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 __esimd_lsc_load2d_stateless(__SEIEED::simd_mask_storage_t<N> Pred,
                              uintptr_t Ptr, int SurfaceWidth, int SurfaceHeight,
                              int SurfacePitch, int X, int Y)
@@ -1797,13 +1664,8 @@ __esimd_lsc_load2d_stateless(__SEIEED::simd_mask_storage_t<N> Pred,
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-/// \brief 2D flat-address block prefetch.
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// 2D USM pointer block prefetch.
 /// Supported platforms: PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 ///
 /// Prefetches elements located at specified address.
 ///
@@ -1826,19 +1688,11 @@ __esimd_lsc_load2d_stateless(__SEIEED::simd_mask_storage_t<N> Pred,
 /// number of elements.
 /// @param Y is zero based Y-coordinate of the left upper rectangle corner in
 /// rows.
-<<<<<<< HEAD
-template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
-          __SEIEE::lsc_data_size DS, __SEIEED::lsc_data_order _Transposed,
-          uint8_t NBlocks, int BlockWidth, int BlockHeight, bool Transformed,
-          int N>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void __esimd_lsc_prefetch2d_stateless(
-=======
 template <typename Ty, __SEIEE::cache_hint L1H, __SEIEE::cache_hint L3H,
           __SEIEE::lsc_data_size DS, __SEIEED::lsc_data_order _Transposed,
           uint8_t NBlocks, int BlockWidth, int BlockHeight, bool Transformed,
           int N>
 __ESIMD_INTRIN void __esimd_lsc_prefetch2d_stateless(
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
     __SEIEED::simd_mask_storage_t<N> Pred, uintptr_t Ptr, int SurfaceWidth,
     int SurfaceHeight, int SurfacePitch, int X, int Y)
 #ifdef __SYCL_DEVICE_ONLY__
@@ -1849,13 +1703,8 @@ __ESIMD_INTRIN void __esimd_lsc_prefetch2d_stateless(
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-/// \brief 2D flat-address block store.
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// 2D USM pointer block store.
 /// Supported platforms: PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 ///
 /// Stores elements at specified address.
 ///
@@ -1883,19 +1732,11 @@ __ESIMD_INTRIN void __esimd_lsc_prefetch2d_stateless(
 ///  otherwise,
 ///  N = roundUpNextMultiple(BlockHeight, 4 / sizeof(T)) *
 ///   getNextPowerOf2(BlockWidth) * NBlocks
-<<<<<<< HEAD
-template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
-          __SEIEE::lsc_data_size DS, __SEIEED::lsc_data_order _Transposed,
-          uint8_t NBlocks, int BlockWidth, int BlockHeight, bool Transformed,
-          int N>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void
-=======
 template <typename Ty, __SEIEE::cache_hint L1H, __SEIEE::cache_hint L3H,
           __SEIEE::lsc_data_size DS, __SEIEED::lsc_data_order _Transposed,
           uint8_t NBlocks, int BlockWidth, int BlockHeight, bool Transformed,
           int N>
 __ESIMD_INTRIN void
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 __esimd_lsc_store2d_stateless(__SEIEED::simd_mask_storage_t<N> Pred,
                               uintptr_t Ptr, int SurfaceWidth,
                               int SurfaceHeight, int SurfacePitch, int X, int Y,
@@ -1908,13 +1749,8 @@ __esimd_lsc_store2d_stateless(__SEIEED::simd_mask_storage_t<N> Pred,
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-/// \brief SLM atomic.
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// SLM atomic.
 /// Supported platforms: DG2, PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 ///
 /// @tparam Ty is element type.
 /// @tparam Op is operation type.
@@ -1928,18 +1764,6 @@ __esimd_lsc_store2d_stateless(__SEIEED::simd_mask_storage_t<N> Pred,
 /// @tparam N is the number of channels (platform dependent).
 /// @param pred is predicates.
 /// @param offsets is the zero-based offsets.
-<<<<<<< HEAD
-template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::CacheHint L1H,
-          __SEIEE::CacheHint L3H, uint16_t AddressScale, int ImmOffset,
-          __SEIEE::lsc_data_size DS, __SEIEED::lsc_vector_size VS,
-          __SEIEED::lsc_data_order _Transposed, int N>
-SYCL_EXTERNAL
-    SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
-    __esimd_lsc_xatomic_slm_0(__SEIEED::simd_mask_storage_t<N> pred,
-                              __SEIEED::vector_type_t<uint32_t, N> offsets)
-#ifdef __SYCL_DEVICE_ONLY__
-        ;
-=======
 template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::cache_hint L1H,
           __SEIEE::cache_hint L3H, uint16_t AddressScale, int ImmOffset,
           __SEIEE::lsc_data_size DS, __SEIEED::lsc_vector_size VS,
@@ -1949,7 +1773,6 @@ __esimd_lsc_xatomic_slm_0(__SEIEED::simd_mask_storage_t<N> pred,
                           __SEIEED::vector_type_t<uint32_t, N> offsets)
 #ifdef __SYCL_DEVICE_ONLY__
     ;
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 #else  // __SYCL_DEVICE_ONLY__
 {
   throw cl::sycl::feature_not_supported();
@@ -1957,13 +1780,8 @@ __esimd_lsc_xatomic_slm_0(__SEIEED::simd_mask_storage_t<N> pred,
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-/// \brief SLM atomic.
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// SLM atomic.
 /// Supported platforms: DG2, PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 ///
 /// @tparam Ty is element type.
 /// @tparam Op is operation type.
@@ -1978,20 +1796,6 @@ __esimd_lsc_xatomic_slm_0(__SEIEED::simd_mask_storage_t<N> pred,
 /// @param pred is predicates.
 /// @param offsets is the zero-based offsets.
 /// @param src0 is the first atomic operand.
-<<<<<<< HEAD
-template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::CacheHint L1H,
-          __SEIEE::CacheHint L3H, uint16_t AddressScale, int ImmOffset,
-          __SEIEE::lsc_data_size DS, __SEIEED::lsc_vector_size VS,
-          __SEIEED::lsc_data_order _Transposed, int N>
-SYCL_EXTERNAL
-    SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
-    __esimd_lsc_xatomic_slm_1(
-        __SEIEED::simd_mask_storage_t<N> pred,
-        __SEIEED::vector_type_t<uint32_t, N> offsets,
-        __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src0)
-#ifdef __SYCL_DEVICE_ONLY__
-        ;
-=======
 template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::cache_hint L1H,
           __SEIEE::cache_hint L3H, uint16_t AddressScale, int ImmOffset,
           __SEIEE::lsc_data_size DS, __SEIEED::lsc_vector_size VS,
@@ -2003,7 +1807,6 @@ __esimd_lsc_xatomic_slm_1(
     __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src0)
 #ifdef __SYCL_DEVICE_ONLY__
     ;
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 #else  // __SYCL_DEVICE_ONLY__
 {
   throw cl::sycl::feature_not_supported();
@@ -2011,13 +1814,8 @@ __esimd_lsc_xatomic_slm_1(
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-/// \brief SLM atomic.
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// SLM atomic.
 /// Supported platforms: DG2, PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 ///
 /// @tparam Ty is element type.
 /// @tparam Op is operation type.
@@ -2033,21 +1831,6 @@ __esimd_lsc_xatomic_slm_1(
 /// @param offsets is the zero-based offsets.
 /// @param src0 is the first atomic operand.
 /// @param src1 is the second atomic operand.
-<<<<<<< HEAD
-template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::CacheHint L1H,
-          __SEIEE::CacheHint L3H, uint16_t AddressScale, int ImmOffset,
-          __SEIEE::lsc_data_size DS, __SEIEED::lsc_vector_size VS,
-          __SEIEED::lsc_data_order _Transposed, int N>
-SYCL_EXTERNAL
-    SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
-    __esimd_lsc_xatomic_slm_2(
-        __SEIEED::simd_mask_storage_t<N> pred,
-        __SEIEED::vector_type_t<uint32_t, N> offsets,
-        __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src0,
-        __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src1)
-#ifdef __SYCL_DEVICE_ONLY__
-        ;
-=======
 template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::cache_hint L1H,
           __SEIEE::cache_hint L3H, uint16_t AddressScale, int ImmOffset,
           __SEIEE::lsc_data_size DS, __SEIEED::lsc_vector_size VS,
@@ -2060,7 +1843,6 @@ __esimd_lsc_xatomic_slm_2(
     __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src1)
 #ifdef __SYCL_DEVICE_ONLY__
     ;
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 #else  // __SYCL_DEVICE_ONLY__
 {
   throw cl::sycl::feature_not_supported();
@@ -2068,13 +1850,8 @@ __esimd_lsc_xatomic_slm_2(
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-/// \brief Accessor-based atomic.
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// Accessor-based atomic.
 /// Supported platforms: DG2, PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 ///
 /// @tparam Ty is element type.
 /// @tparam Op is operation type.
@@ -2090,19 +1867,6 @@ __esimd_lsc_xatomic_slm_2(
 /// @param pred is predicates.
 /// @param offsets is the zero-based offsets.
 /// @param surf_ind is the surface index.
-<<<<<<< HEAD
-template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::CacheHint L1H,
-          __SEIEE::CacheHint L3H, uint16_t AddressScale, int ImmOffset,
-          __SEIEE::lsc_data_size DS, __SEIEED::lsc_vector_size VS,
-          __SEIEED::lsc_data_order _Transposed, int N, typename SurfIndAliasTy>
-SYCL_EXTERNAL
-    SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
-    __esimd_lsc_xatomic_bti_0(__SEIEED::simd_mask_storage_t<N> pred,
-                              __SEIEED::vector_type_t<uint32_t, N> offsets,
-                              SurfIndAliasTy surf_ind)
-#ifdef __SYCL_DEVICE_ONLY__
-        ;
-=======
 template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::cache_hint L1H,
           __SEIEE::cache_hint L3H, uint16_t AddressScale, int ImmOffset,
           __SEIEE::lsc_data_size DS, __SEIEED::lsc_vector_size VS,
@@ -2113,7 +1877,6 @@ __esimd_lsc_xatomic_bti_0(__SEIEED::simd_mask_storage_t<N> pred,
                           SurfIndAliasTy surf_ind)
 #ifdef __SYCL_DEVICE_ONLY__
     ;
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 #else  // __SYCL_DEVICE_ONLY__
 {
   throw cl::sycl::feature_not_supported();
@@ -2121,13 +1884,8 @@ __esimd_lsc_xatomic_bti_0(__SEIEED::simd_mask_storage_t<N> pred,
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-/// \brief Accessor-based atomic.
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// Accessor-based atomic.
 /// Supported platforms: DG2, PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 ///
 /// @tparam Ty is element type.
 /// @tparam Op is operation type.
@@ -2144,21 +1902,6 @@ __esimd_lsc_xatomic_bti_0(__SEIEED::simd_mask_storage_t<N> pred,
 /// @param offsets is the zero-based offsets.
 /// @param src0 is the first atomic operand.
 /// @param surf_ind is the surface index.
-<<<<<<< HEAD
-template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::CacheHint L1H,
-          __SEIEE::CacheHint L3H, uint16_t AddressScale, int ImmOffset,
-          __SEIEE::lsc_data_size DS, __SEIEED::lsc_vector_size VS,
-          __SEIEED::lsc_data_order _Transposed, int N, typename SurfIndAliasTy>
-SYCL_EXTERNAL
-    SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
-    __esimd_lsc_xatomic_bti_1(
-        __SEIEED::simd_mask_storage_t<N> pred,
-        __SEIEED::vector_type_t<uint32_t, N> offsets,
-        __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src0,
-        SurfIndAliasTy surf_ind)
-#ifdef __SYCL_DEVICE_ONLY__
-        ;
-=======
 template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::cache_hint L1H,
           __SEIEE::cache_hint L3H, uint16_t AddressScale, int ImmOffset,
           __SEIEE::lsc_data_size DS, __SEIEED::lsc_vector_size VS,
@@ -2171,7 +1914,6 @@ __esimd_lsc_xatomic_bti_1(
     SurfIndAliasTy surf_ind)
 #ifdef __SYCL_DEVICE_ONLY__
     ;
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 #else  // __SYCL_DEVICE_ONLY__
 {
   throw cl::sycl::feature_not_supported();
@@ -2179,13 +1921,8 @@ __esimd_lsc_xatomic_bti_1(
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-/// \brief Accessor-based atomic.
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// Accessor-based atomic.
 /// Supported platforms: DG2, PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 ///
 /// @tparam Ty is element type.
 /// @tparam Op is operation type.
@@ -2203,22 +1940,6 @@ __esimd_lsc_xatomic_bti_1(
 /// @param src0 is the first atomic operand.
 /// @param src1 is the second atomic operand.
 /// @param surf_ind is the surface index.
-<<<<<<< HEAD
-template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::CacheHint L1H,
-          __SEIEE::CacheHint L3H, uint16_t AddressScale, int ImmOffset,
-          __SEIEE::lsc_data_size DS, __SEIEED::lsc_vector_size VS,
-          __SEIEED::lsc_data_order _Transposed, int N, typename SurfIndAliasTy>
-SYCL_EXTERNAL
-    SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
-    __esimd_lsc_xatomic_bti_2(
-        __SEIEED::simd_mask_storage_t<N> pred,
-        __SEIEED::vector_type_t<uint32_t, N> offsets,
-        __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src0,
-        __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src1,
-        SurfIndAliasTy surf_ind)
-#ifdef __SYCL_DEVICE_ONLY__
-        ;
-=======
 template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::cache_hint L1H,
           __SEIEE::cache_hint L3H, uint16_t AddressScale, int ImmOffset,
           __SEIEE::lsc_data_size DS, __SEIEED::lsc_vector_size VS,
@@ -2232,7 +1953,6 @@ __esimd_lsc_xatomic_bti_2(
     SurfIndAliasTy surf_ind)
 #ifdef __SYCL_DEVICE_ONLY__
     ;
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 #else  // __SYCL_DEVICE_ONLY__
 {
   throw cl::sycl::feature_not_supported();
@@ -2240,13 +1960,8 @@ __esimd_lsc_xatomic_bti_2(
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-/// \brief flat-address atomic.
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// USM pointer atomic.
 /// Supported platforms: DG2, PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 ///
 /// @tparam Ty is element type.
 /// @tparam Op is operation type.
@@ -2260,18 +1975,6 @@ __esimd_lsc_xatomic_bti_2(
 /// @tparam N is the number of channels (platform dependent).
 /// @param pred is predicates.
 /// @param addrs is the prefetch addresses.
-<<<<<<< HEAD
-template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::CacheHint L1H,
-          __SEIEE::CacheHint L3H, uint16_t AddressScale, int ImmOffset,
-          __SEIEE::lsc_data_size DS, __SEIEED::lsc_vector_size VS,
-          __SEIEED::lsc_data_order _Transposed, int N>
-SYCL_EXTERNAL
-    SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
-    __esimd_lsc_xatomic_stateless_0(__SEIEED::simd_mask_storage_t<N> pred,
-                                    __SEIEED::vector_type_t<uintptr_t, N> addrs)
-#ifdef __SYCL_DEVICE_ONLY__
-        ;
-=======
 template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::cache_hint L1H,
           __SEIEE::cache_hint L3H, uint16_t AddressScale, int ImmOffset,
           __SEIEE::lsc_data_size DS, __SEIEED::lsc_vector_size VS,
@@ -2281,7 +1984,6 @@ __esimd_lsc_xatomic_stateless_0(__SEIEED::simd_mask_storage_t<N> pred,
                                 __SEIEED::vector_type_t<uintptr_t, N> addrs)
 #ifdef __SYCL_DEVICE_ONLY__
     ;
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 #else  // __SYCL_DEVICE_ONLY__
 {
   throw cl::sycl::feature_not_supported();
@@ -2289,13 +1991,8 @@ __esimd_lsc_xatomic_stateless_0(__SEIEED::simd_mask_storage_t<N> pred,
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-/// \brief flat-address atomic.
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// USM pointer atomic.
 /// Supported platforms: DG2, PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 ///
 /// @tparam Ty is element type.
 /// @tparam Op is operation type.
@@ -2310,20 +2007,6 @@ __esimd_lsc_xatomic_stateless_0(__SEIEED::simd_mask_storage_t<N> pred,
 /// @param pred is predicates.
 /// @param addrs is the prefetch addresses.
 /// @param src0 is the first atomic operand.
-<<<<<<< HEAD
-template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::CacheHint L1H,
-          __SEIEE::CacheHint L3H, uint16_t AddressScale, int ImmOffset,
-          __SEIEE::lsc_data_size DS, __SEIEED::lsc_vector_size VS,
-          __SEIEED::lsc_data_order _Transposed, int N>
-SYCL_EXTERNAL
-    SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
-    __esimd_lsc_xatomic_stateless_1(
-        __SEIEED::simd_mask_storage_t<N> pred,
-        __SEIEED::vector_type_t<uintptr_t, N> addrs,
-        __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src0)
-#ifdef __SYCL_DEVICE_ONLY__
-        ;
-=======
 template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::cache_hint L1H,
           __SEIEE::cache_hint L3H, uint16_t AddressScale, int ImmOffset,
           __SEIEE::lsc_data_size DS, __SEIEED::lsc_vector_size VS,
@@ -2335,7 +2018,6 @@ __esimd_lsc_xatomic_stateless_1(
     __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src0)
 #ifdef __SYCL_DEVICE_ONLY__
     ;
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 #else  // __SYCL_DEVICE_ONLY__
 {
   throw cl::sycl::feature_not_supported();
@@ -2343,13 +2025,8 @@ __esimd_lsc_xatomic_stateless_1(
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-/// \brief flat-address atomic.
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
 /// USM pointer atomic.
 /// Supported platforms: DG2, PVC
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 ///
 /// @tparam Ty is element type.
 /// @tparam Op is operation type.
@@ -2365,21 +2042,6 @@ __esimd_lsc_xatomic_stateless_1(
 /// @param addrs is the prefetch addresses.
 /// @param src0 is the first atomic operand.
 /// @param src1 is the second atomic operand.
-<<<<<<< HEAD
-template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::CacheHint L1H,
-          __SEIEE::CacheHint L3H, uint16_t AddressScale, int ImmOffset,
-          __SEIEE::lsc_data_size DS, __SEIEED::lsc_vector_size VS,
-          __SEIEED::lsc_data_order _Transposed, int N>
-SYCL_EXTERNAL
-    SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
-    __esimd_lsc_xatomic_stateless_2(
-        __SEIEED::simd_mask_storage_t<N> pred,
-        __SEIEED::vector_type_t<uintptr_t, N> addrs,
-        __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src0,
-        __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src1)
-#ifdef __SYCL_DEVICE_ONLY__
-        ;
-=======
 template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::cache_hint L1H,
           __SEIEE::cache_hint L3H, uint16_t AddressScale, int ImmOffset,
           __SEIEE::lsc_data_size DS, __SEIEED::lsc_vector_size VS,
@@ -2392,7 +2054,6 @@ __esimd_lsc_xatomic_stateless_2(
     __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src1)
 #ifdef __SYCL_DEVICE_ONLY__
     ;
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 #else  // __SYCL_DEVICE_ONLY__
 {
   throw cl::sycl::feature_not_supported();
@@ -2400,31 +2061,17 @@ __esimd_lsc_xatomic_stateless_2(
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-/// \brief lsc memory fence.
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-///
-/// @tparam Sfid is the Sfid shaded function.
-=======
 /// Memory fence.
 /// Supported platforms: DG2, PVC
 ///
 /// @tparam Kind is the Sfid shaded function.
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 /// @tparam FenceOp is the fence operation.
 /// @tparam Scope is the operation scope.
 /// @tparam N is the number of channels (platform dependent).
 /// @param pred is predicates.
-<<<<<<< HEAD
-template <__SEIEE::lsc_sfid Sfid, __SEIEE::lsc_fence_op FenceOp,
-          __SEIEE::lsc_scope Scope, int N>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void
-__esimd_lsc_fence(__SEIEED::simd_mask_storage_t<N> pred)
-=======
 template <__SEIEE::lsc_memory_kind Kind, __SEIEE::lsc_fence_op FenceOp,
           __SEIEE::lsc_scope Scope, int N>
 __ESIMD_INTRIN void __esimd_lsc_fence(__SEIEED::simd_mask_storage_t<N> pred)
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 #ifdef __SYCL_DEVICE_ONLY__
     ;
 #else  // __SYCL_DEVICE_ONLY__
@@ -2433,17 +2080,8 @@ __ESIMD_INTRIN void __esimd_lsc_fence(__SEIEED::simd_mask_storage_t<N> pred)
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-#ifndef __SYCL_DEVICE_ONLY__
-
-// Wait for val to be ready
-inline void __esimd_wait(uint16_t val) {}
-
-#endif // __SYCL_DEVICE_ONLY__
 
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
-=======
->>>>>>> 4bd50e7d7bfdefb1e9165b54cb40dfd481b12e93
 /// @endcond ESIMD_DETAIL
