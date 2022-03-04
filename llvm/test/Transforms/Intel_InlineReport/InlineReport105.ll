@@ -11,6 +11,10 @@
 ; have an inlinehint. @mytriplecallee should not be inlined because it is
 ; a triple, rather than double, callsite.
 
+; FIXME: Corresponding change is currently disabled on Windows as it leads
+;        to unexpected fails across testbase. See CMPLRLLVM-35571
+; XFAIL: windows-msvc
+
 ; CHECK-MD: DEAD STATIC FUNC: mydoublecallee0
 ; CHECK-MD: COMPILE FUNC: mytriplecallee
 ; CHECK-MD: COMPILE FUNC: mydoublecallee1
