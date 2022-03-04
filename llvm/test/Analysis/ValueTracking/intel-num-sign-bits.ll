@@ -42,7 +42,7 @@ entry:
 header:
   %iv = phi i64 [0, %entry], [%iv.next, %header]
   %vec.iv = phi <2 x i64> [<i64 0, i64 1>, %entry], [%vec.iv.next, %header]
-; CHECK:  %vec.iv = phi <2 x i64> [ <i64 0, i64 1>, %entry ], [ %vec.iv.next, %header ]: 1
+; CHECK:  %vec.iv = phi <2 x i64> [ <i64 0, i64 1>, %entry ], [ %vec.iv.next, %header ]: 58
   %vec.iv.next = add <2 x i64> %vec.iv, <i64 2, i64 2>
   %iv.next = add i64 %iv, 2
   %exitcond = icmp eq i64 %iv.next, 16
