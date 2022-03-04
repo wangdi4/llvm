@@ -284,13 +284,9 @@ SyncDependenceAnalysisImpl<BasicBlock>::SyncDependenceAnalysisImpl(
                     [&](const BasicBlock &BB) { LoopPO.appendBlock(BB); });
 }
 
-<<<<<<< HEAD
-SyncDependenceAnalysis::~SyncDependenceAnalysis() = default;
-=======
 template <class BasicBlock>
 SyncDependenceAnalysisImpl<BasicBlock>::~SyncDependenceAnalysisImpl() {}
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 3b910ad65e1c2507118fe1005e69663431eb9916
 
 // divergence propagator for reducible CFGs
 template <class BasicBlockTy> // INTEL
