@@ -17,6 +17,10 @@
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#ifndef NDEBUG
+#include "llvm/IR/Verifier.h"
+#endif // #ifndef NDEBUG
+
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/StandardInstrumentations.h"
 #include "llvm/Target/TargetMachine.h"
@@ -119,6 +123,11 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
         // but the class definition is not exposed in SPIRV header file yet.
         MPM.addPass(SPIRVToOCL20Pass());
         MPM.addPass(NameAnonGlobalPass());
+
+#ifndef NDEBUG
+        MPM.addPass(VerifierPass());
+#endif // #ifndef NDEBUG
+
         MPM.addPass(DPCPPEqualizerPass());
         Triple TargetTriple(m_M->getTargetTriple());
         if (TargetTriple.isArch64Bit() && TargetTriple.isOSWindows())

@@ -9,6 +9,11 @@
 ; CHECK-NEXT:     Translate SPIR-V builtins to OCL 2.0 builtins
 ; CHECK-NEXT:     Name Anon Globals
 
+#ifndef NDEBUG
+; CHECK:        FunctionPass Manager
+; CHECK-NEXT:     Module Verifier
+#endif // #ifndef NDEBUG
+
 ; CHECK:        FunctionPass Manager
 ; CHECK-NEXT:     Unify function exit nodes
 ; CHECK-NEXT:     Infer address spaces
