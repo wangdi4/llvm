@@ -80,6 +80,12 @@ struct MatcherTraitsDeducer<
   using ConstantExpr = typename MatcherTraits::ConstantExpr;                   \
   using ConstantInt = typename MatcherTraits::ConstantInt;                     \
   using Operator = typename MatcherTraits::Operator;                           \
-  using CallInst = typename MatcherTraits::CallInst
+  using CallInst = typename MatcherTraits::CallInst;                           \
+  using BasicBlock = typename MatcherTraits::BasicBlock;                       \
+  using DominatorTree = typename MatcherTraits::DominatorTree;                 \
+  using PostDominatorTree = typename MatcherTraits::PostDominatorTree;         \
+  using LoopInfo = typename MatcherTraits::LoopInfo;                           \
+  using Loop = typename MatcherTraits::Loop;                                   \
+  using Function = typename MatcherTraits::Function
 } // namespace llvm
 #endif // LLVM_IR_INTEL_VPLAN_TEMPLATE_H

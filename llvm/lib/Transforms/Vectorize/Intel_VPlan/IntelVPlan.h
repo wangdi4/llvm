@@ -886,6 +886,8 @@ public:
 
   HIRSpecifics HIR() { return HIRSpecifics(*this); }
   const HIRSpecifics HIR() const { return HIRSpecifics(*this); }
+
+  unsigned getNumSuccessors() const;
 };
 
 /// Instruction to set vector factor and unroll factor explicitly.
@@ -1125,6 +1127,12 @@ protected:
   // estimates.
   MDNode *LoopID = nullptr;
 };
+
+inline auto successors(const VPBasicBlock *BB) {
+  return map_range(
+      BB->getTerminator()->successors(),
+      [](const VPValue *SuccBB) { return cast<VPBasicBlock>(SuccBB); });
+}
 
 /// Concrete class for blending instruction. Was previously represented as
 /// VPPHINode with Blend = true.
