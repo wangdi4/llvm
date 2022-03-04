@@ -1127,6 +1127,8 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
   // correspond to the main vector loop. For legacy CFG continue to use
   // HIRTransformUtils to emit implicit peel, vector and remainder loops.
   if (isMergedCFG()) {
+    // Extract preheader and postexit to preserve it in generated vector HIR.
+    OrigLoop->extractZttPreheaderAndPostexit();
     MainLoop = OrigLoop->cloneEmpty();
   } else {
     MainLoop = HIRTransformUtils::setupPeelMainAndRemainderLoops(
