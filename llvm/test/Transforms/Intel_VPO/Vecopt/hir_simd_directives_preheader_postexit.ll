@@ -30,17 +30,21 @@
 ; and vectorized by VPlan.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s  2>&1 | FileCheck %s
+; Check stability of test for merged CFG-based CG.
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -print-after=hir-vplan-vec -disable-output < %s  2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
+; Check stability of test for merged CFG-based CG.
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-enable-new-cfg-merge-hir -disable-output < %s 2>&1 | FileCheck %s
 
 
 ; CHECK:              %red.init = 0.000000e+00;
-; CHECK:              %phi.temp = %red.init;
-; CHECK:              + DO i2 = 0, 32 * %tgu + -1, 32   <DO_LOOP>  <MAX_TC_EST = 67108863>   <LEGAL_MAX_TC = 67108863> <simd-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:         |   %.vec = (<32 x float>*)(%A)[i2];
-; CHECK-NEXT:         |   %.vec3 = (<32 x float>*)(%B)[i2];
-; CHECK-NEXT:         |   [[MUL:%.*]] = %.vec  *  %.vec3;
-; CHECK-NEXT:         |   [[RED_ADD:%.*]] = %phi.temp  +  [[MUL]];
-; CHECK-NEXT:         |   %phi.temp = [[RED_ADD]];
+; CHECK:              [[RED_TEMP:%.*]] = %red.init;
+; CHECK:              + DO i2 = 0, [[UB:.*]], 32   <DO_LOOP>  <MAX_TC_EST = {{67108863|2147483647}}>   <LEGAL_MAX_TC = {{67108863|2147483647}}> <simd-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:         |   [[A_LD:%.*]] = (<32 x float>*)(%A)[i2];
+; CHECK-NEXT:         |   [[B_LD:%.*]] = (<32 x float>*)(%B)[i2];
+; CHECK-NEXT:         |   [[MUL:%.*]] = [[A_LD]]  *  [[B_LD]];
+; CHECK-NEXT:         |   [[RED_ADD:%.*]] = [[RED_TEMP]]  +  [[MUL]];
+; CHECK-NEXT:         |   [[RED_TEMP]] = [[RED_ADD]];
 ; CHECK-NEXT:         + END LOOP
 ; CHECK:              %1 = @llvm.vector.reduce.fadd.v32f32(%1,  [[RED_ADD]]);
 

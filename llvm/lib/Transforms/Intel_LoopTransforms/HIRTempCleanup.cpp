@@ -95,7 +95,13 @@ private:
   // once we determine that the rval has not been redefined in the inner loop.
   SmallVector<RegDDRef *, 8> InnerLoopUses;
 
-  // Indicates whether this temp can be legally substituted.
+  // Indicates whether this temp can be legally substituted. Temps are usually
+  // first made non-substitutable and then marked invalid. This allows for more
+  // substitution as uses of temp before it was marked non-substitutble can
+  // still be processed. For example a single use load temp whose use was
+  // discovered before it was marked non-substitutable can still be eliminated.
+  // TODO: Add a better decription of substitutable/valid for both load and
+  // liveout copy temps.
   bool IsSubstitutable;
 
   // Indicates discarded temps. This is so that we don't have to erase them from
@@ -127,6 +133,19 @@ public:
 
   bool isValid() const { return IsValid; }
   void markInvalid() { IsValid = false; }
+
+  void markNonSubstitutableOrInvalid(HLInst *InvalidatingInst) {
+    assert(isLoad() && "Attempt to access use ref for copy temp!");
+
+    if (UseRef && (UseRef->getHLDDNode()->getTopSortNum() >
+                   InvalidatingInst->getTopSortNum())) {
+      // Use of load temp was in a liveout copy temp's RvalDefInst and was
+      // reordered so the old use is no longer valid.
+      markInvalid();
+    } else {
+      markNonSubstitutable();
+    }
+  }
 
   RegDDRef *getUseRef() const {
     assert(isLoad() && "Attempt to access use ref for copy temp!");
@@ -235,14 +254,24 @@ void TempInfo::substituteInUseRef() {
 
     // Skip the substitution if the def inst's next node prevents substitution.
     // We check the next node because visitor could miss checking the next node
-    // if it changed due to reordering.
+    // if it changed due to reordering. This is the case where this load temp
+    // was a UseInst of a liveout copy temp and RvalDefInst of the liveout copy
+    // temp was moved after the load.
+    //
+    // For example, in the case below t2 load temp is substitutable before
+    // reordering but not afterwards-
+    //
+    // t1.out = t1
+    // t1 = t1 + 1
+    // t2 = A[t1.out]
+    // t3 = t2
+    //
+    // t2 = A[t1]
+    // t1 = t1 + 1
+    // t3 = t2
     HLInst *NextInstAfterDef = dyn_cast<HLInst>(DefInst->getNextNode());
 
     if (NextInstAfterDef && (NextInstAfterDef != UseInst)) {
-      if (NextInstAfterDef->getLLVMInstruction()->mayWriteToMemory()) {
-        return;
-      }
-
       unsigned NextInstLvalBlobIndex = NextInstAfterDef->getLvalBlobIndex();
 
       if (DefInst->usesTempBlob(NextInstLvalBlobIndex)) {
@@ -743,7 +772,7 @@ void TempSubstituter::updateTempCandidates(HLInst *HInst) {
     }
 
     if (InvalidateLoads && Temp.isLoad()) {
-      Temp.markNonSubstitutable();
+      Temp.markNonSubstitutableOrInvalid(HInst);
       continue;
     }
 
@@ -751,7 +780,7 @@ void TempSubstituter::updateTempCandidates(HLInst *HInst) {
         Temp.getRvalDDRef()->usesTempBlob(LvalBlobIndex)) {
 
       if (Temp.isLoad()) {
-        Temp.markNonSubstitutable();
+        Temp.markNonSubstitutableOrInvalid(HInst);
 
         // This call gives us the chance to substitute by reordering
         // instructions.

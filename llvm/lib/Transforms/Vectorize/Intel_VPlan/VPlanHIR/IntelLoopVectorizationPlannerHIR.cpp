@@ -119,9 +119,10 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlannerHIR::buildInitialVPlan(
   // loops such as avoiding predicate calculations.
   auto *VPLI = Plan->getVPLoopInfo();
   assert(VPLI->size() == 1 && "Expected 1 loop");
-  bool SearchLoop = (*VPLI->begin())->getUniqueExitBlock() == nullptr;
+  if ((*VPLI->begin())->getUniqueExitBlock() == nullptr)
+    setIsSearchLoop();
 
-  if (ForceLinearizationHIR || SearchLoop)
+  if (ForceLinearizationHIR || isSearchLoop())
     Plan->markFullLinearizationForced();
   Plan->disableActiveLaneInstructions();
 
@@ -264,7 +265,7 @@ bool LoopVectorizationPlannerHIR::unroll(VPlanVector &Plan) {
 
 void LoopVectorizationPlannerHIR::emitPeelRemainderVPLoops(unsigned VF,
                                                            unsigned UF) {
-  if (!EnableNewCFGMerge || !EnableNewCFGMergeHIR)
+  if (isSearchLoop() || !EnableNewCFGMerge || !EnableNewCFGMergeHIR)
     return;
   assert(getBestVF() > 1 && "Unexpected VF");
   VPlanVector *Plan = getBestVPlan();
@@ -278,6 +279,11 @@ void LoopVectorizationPlannerHIR::emitPeelRemainderVPLoops(unsigned VF,
 
 void LoopVectorizationPlannerHIR::createMergerVPlans(
     VPAnalysesFactoryBase &VPAF) {
+  // Search loop representation is not yet explicit and search loop idiom
+  // recognition is picky. Avoid emitting merged CFG for search loops.
+  if (isSearchLoop())
+    return;
+
   assert(MergerVPlans.empty() && "Non-empty list of VPlans");
   if (EnableNewCFGMerge && EnableNewCFGMergeHIR) {
     assert(getBestVF() > 1 && "Unexpected VF");

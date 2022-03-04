@@ -705,6 +705,9 @@ private:
   // Set of scalar HLLoops generated for outgoing HIR.
   SmallPtrSet<HLLoop *, 2> OutgoingScalarHLLoops;
 
+  // Utility to check if current target loop being vectorized has merged CFG.
+  bool isMergedCFG();
+
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setPeelLoop(HLLoop *L) { PeelLoop = L; }
   void setMainLoop(HLLoop *L) { MainLoop = L; }
