@@ -1110,7 +1110,23 @@ static bool possibleUpcasting(Type *SrcTy, Type *DestTy) {
     assert(InTy && "Trying to collect type data from a nullptr");
     Type *CurrType = InTy;
     // NOTE: This won't work with opaque pointers type. We may need to return
-    // to this once we fix the issue with opaque pointers in DTrans.
+    // to this once we fix the issue with opaque pointers in DTrans. There is
+    // a chance that we may just remove this function. In the case of opaque
+    // pointers we will have the following:
+    //
+    //   %struct.Test = { ptr }
+    //
+    //   %tmp0 = getelementptr inbounds %struct.Test, ptr %0, i64 0, i32 0
+    //   %tmp1 = load ptr, ptr %0, align 8
+    //   %tmp2 = load ptr, ptr %tmp0, align 8
+    //
+    // Since there are no types then inst-combine will generate the following:
+    //
+    //   %struct.Test = { ptr }
+    //
+    //   %tmp1 = load ptr, ptr %0, align 8
+    //
+    // It just removes the redundant load.
     if (CurrType->isPointerTy())
       CurrType = CurrType->getPointerElementType();
     return dyn_cast<StructType>(CurrType);
@@ -1185,6 +1201,27 @@ static bool possibleUpcasting(Type *SrcTy, Type *DestTy) {
   };
 
   if (!SrcTy || !DestTy || SrcTy == DestTy)
+    return false;
+
+  // If the source or destination type is an opaque pointer and we reached this
+  // point then it means that a memory address is loaded as a different type,
+  // and inst-combine is trying to simplify it. For example:
+  //
+  //   %struct.Test = { ptr }
+  //
+  //   %tmp0 = getelementptr inbounds %struct.Test, ptr %0, i64 0, i32 0
+  //   %tmp1 = load ptr, ptr %0, align 8
+  //   %tmp2 = load i64, ptr %tmp0, align 8
+  //
+  // In the example above, %tmp1 is loading the 0 element of %struct.test and
+  // %tmp2 is loading the same address as an i64. The instruction %tmp2 will
+  // be simplified as
+  //
+  //   %tmp2.cast = ptrtoint ptr %tmp1 to i64
+  //
+  // In this case we just return false. This function is only used when typed
+  // pointers are supported where we can collect the upcasting of a structure.
+  if (SrcTy->isOpaquePointerTy() || DestTy->isOpaquePointerTy())
     return false;
 
   // Source and destination must be structures
