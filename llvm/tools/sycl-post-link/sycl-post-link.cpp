@@ -289,11 +289,6 @@ bool hasIndirectFunctionCalls(const Module &M) {
         if (!CI->getCalledFunction())
           return true;
     }
-
-    // Function pointer is used somewhere. Follow the same rule as above.
-    for (const auto *U : F.users())
-      if (!isa<CallInst>(U))
-        return true;
   }
 
   return false;
