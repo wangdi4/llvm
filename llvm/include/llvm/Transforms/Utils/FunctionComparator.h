@@ -33,7 +33,6 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/IR/Attributes.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/ValueMap.h"
@@ -45,6 +44,7 @@
 namespace llvm {
 
 class APFloat;
+class AttributeList;
 class APInt;
 class BasicBlock;
 class Constant;

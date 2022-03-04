@@ -15,15 +15,19 @@
 #include "llvm/Transforms/Utils/SCCPSolver.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+<<<<<<< HEAD
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/IR/AbstractCallSite.h" // INTEL
 #include "llvm/Pass.h"
+=======
+#include "llvm/Analysis/ValueLattice.h"
+#include "llvm/IR/InstVisitor.h"
+>>>>>>> 8703e1e0b8c1dcf9d1799f596f1e1e9eeb4c4497
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include <cassert>
 #include <utility>
 #include <vector>
