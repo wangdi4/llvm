@@ -26,6 +26,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   LocalBufferAnalysis.cpp
   LocalBuffers.cpp
   LinearIdResolver.cpp
+  LoopStridedCodeMotion.cpp
   LoopWIAnalysis.cpp
   DuplicateCalledKernelsPass.cpp
   PhiCanonicalization.cpp
