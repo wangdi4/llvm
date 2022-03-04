@@ -1909,31 +1909,35 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
       FPM.addPass(HIRArrayTransposePass());
     }
 
-    if (RunLoopOpts == LoopOptMode::Full) {
-      if (Level.getSizeLevel() == 0) {
-        // if (RunVPOOpt)
-        // FPM.add(createHIRParDirInsertPass());
-        FPM.addPass(HIRConditionalTempSinkingPass());
-        FPM.addPass(HIROptPredicatePass(Level.getSpeedupLevel() == 3, true));
+    if (Level.getSizeLevel() == 0) {
+      // if (RunVPOOpt)
+      // FPM.add(createHIRParDirInsertPass());
+      FPM.addPass(HIRConditionalTempSinkingPass());
+      FPM.addPass(HIROptPredicatePass(Level.getSpeedupLevel() == 3, true));
 
+      if (RunLoopOpts == LoopOptMode::Full) {
         if (Level.getSpeedupLevel() > 2) {
           FPM.addPass(HIRLMMPass(true));
           FPM.addPass(HIRStoreResultIntoTempArrayPass());
         }
-
         FPM.addPass(HIRAosToSoaPass());
-        FPM.addPass(HIRRuntimeDDPass());
-        FPM.addPass(HIRMVForConstUBPass());
+      } // END LoopOptMode::Full
 
-        if (Level.getSpeedupLevel() > 2 && IsLTO) {
-          FPM.addPass(HIRRowWiseMVPass());
-          FPM.addPass(HIRSumWindowReusePass());
-        }
+      FPM.addPass(HIRRuntimeDDPass());
+      FPM.addPass(HIRMVForConstUBPass());
+
+      if (RunLoopOpts == LoopOptMode::Full && Level.getSpeedupLevel() > 2 &&
+          IsLTO) {
+        FPM.addPass(HIRRowWiseMVPass());
+        FPM.addPass(HIRSumWindowReusePass());
       }
+    }
 
-      FPM.addPass(HIRSinkingForPerfectLoopnestPass());
-      FPM.addPass(HIRNonZeroSinkingForPerfectLoopnestPass());
-      FPM.addPass(HIRPragmaLoopBlockingPass());
+    FPM.addPass(HIRSinkingForPerfectLoopnestPass());
+    FPM.addPass(HIRNonZeroSinkingForPerfectLoopnestPass());
+    FPM.addPass(HIRPragmaLoopBlockingPass());
+
+    if (RunLoopOpts == LoopOptMode::Full) {
       FPM.addPass(HIRLoopDistributionForLoopNestPass());
 
 #if INTEL_FEATURE_SW_ADVANCED
@@ -1942,8 +1946,11 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
             ThroughputModeOpt != ThroughputMode::SingleJob));
 #endif // INTEL_FEATURE_SW_ADVANCED
       FPM.addPass(HIRLoopInterchangePass());
-      FPM.addPass(HIRGenerateMKLCallPass());
+    } // END LoopOptMode::Full
 
+    FPM.addPass(HIRGenerateMKLCallPass());
+
+    if (RunLoopOpts == LoopOptMode::Full) {
 #if INTEL_FEATURE_SW_ADVANCED
       if (Level.getSpeedupLevel() > 2 && IsLTO)
         FPM.addPass(HIRInterLoopBlockingPass());
@@ -1951,55 +1958,52 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
 
       FPM.addPass(
           HIRLoopBlockingPass(ThroughputModeOpt != ThroughputMode::SingleJob));
-      FPM.addPass(HIRUndoSinkingForPerfectLoopnestPass());
-      FPM.addPass(HIRDeadStoreEliminationPass());
-      FPM.addPass(HIRLoopReversalPass());
-      FPM.addPass(HIRIdentityMatrixIdiomRecognitionPass());
-
     } // END LoopOptMode::Full
+
+    FPM.addPass(HIRUndoSinkingForPerfectLoopnestPass());
+    FPM.addPass(HIRDeadStoreEliminationPass());
+    FPM.addPass(HIRLoopReversalPass());
+    FPM.addPass(HIRIdentityMatrixIdiomRecognitionPass());
 
     if (Level.getSizeLevel() == 0)
       FPM.addPass(HIRPreVecCompleteUnrollPass(Level.getSpeedupLevel(),
                                               !PTO.LoopUnrolling));
 
-    if (RunLoopOpts == LoopOptMode::Full) {
-      if (ThroughputModeOpt != ThroughputMode::SingleJob)
-        FPM.addPass(HIRConditionalLoadStoreMotionPass());
+    if (ThroughputModeOpt != ThroughputMode::SingleJob)
+      FPM.addPass(HIRConditionalLoadStoreMotionPass());
 
-      if (Level.getSizeLevel() == 0)
-        FPM.addPass(HIRMemoryReductionSinkingPass());
+    if (Level.getSizeLevel() == 0)
+      FPM.addPass(HIRMemoryReductionSinkingPass());
 
-      FPM.addPass(HIRLMMPass());
-      FPM.addPass(HIRDeadStoreEliminationPass());
-    }
+    FPM.addPass(HIRLMMPass());
+    FPM.addPass(HIRDeadStoreEliminationPass());
 
     FPM.addPass(HIRLastValueComputationPass());
 
-    if (RunLoopOpts == LoopOptMode::Full) {
-      FPM.addPass(HIRLoopRerollPass());
+    FPM.addPass(HIRLoopRerollPass());
 
-      if (Level.getSizeLevel() == 0)
-        FPM.addPass(HIRLoopDistributionForMemRecPass());
+    if (RunLoopOpts == LoopOptMode::Full && Level.getSizeLevel() == 0)
+      FPM.addPass(HIRLoopDistributionForMemRecPass());
 
-      FPM.addPass(HIRLoopRematerializePass());
-      FPM.addPass(HIRMultiExitLoopRerollPass());
-      FPM.addPass(HIRLoopCollapsePass());
-      FPM.addPass(HIRIdiomRecognitionPass());
-      FPM.addPass(HIRLoopFusionPass());
-    }
+    FPM.addPass(HIRLoopRematerializePass());
+    FPM.addPass(HIRMultiExitLoopRerollPass());
+    FPM.addPass(HIRLoopCollapsePass());
+    FPM.addPass(HIRIdiomRecognitionPass());
+    FPM.addPass(HIRLoopFusionPass());
 
     if (Level.getSizeLevel() == 0) {
       if (RunLoopOpts == LoopOptMode::Full) {
         FPM.addPass(HIRUnrollAndJamPass(!PTO.LoopUnrolling));
         FPM.addPass(HIRMVForVariableStridePass());
-        FPM.addPass(HIROptVarPredicatePass());
-        FPM.addPass(HIROptPredicatePass(Level.getSpeedupLevel() == 3, false));
       }
+
+      FPM.addPass(HIROptVarPredicatePass());
+      FPM.addPass(HIROptPredicatePass(Level.getSpeedupLevel() == 3, false));
       // if (RunVPOOpt) {
       FPM.addPass(HIRVecDirInsertPass(Level.getSpeedupLevel() == 3));
       // if (EnableVPlanDriverHIR) {
-      FPM.addPass(vpo::VPlanDriverHIRPass(
-        RunLoopOpts == LoopOptMode::LightWeight));
+      FPM.addPass(
+          vpo::VPlanDriverHIRPass(RunLoopOpts == LoopOptMode::LightWeight));
       // } END EnableVPlanDriverHIR
       // } END RunVPOOpt
       FPM.addPass(HIRPostVecCompleteUnrollPass(Level.getSpeedupLevel(),
@@ -2007,8 +2011,9 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
       FPM.addPass(HIRGeneralUnrollPass(!PTO.LoopUnrolling));
     }
 
+    FPM.addPass(HIRScalarReplArrayPass());
+
     if (RunLoopOpts == LoopOptMode::Full) {
-      FPM.addPass(HIRScalarReplArrayPass());
       if (Level.getSpeedupLevel() > 2) {
         if (ThroughputModeOpt != ThroughputMode::SingleJob)
           FPM.addPass(HIRNontemporalMarkingPass());
