@@ -22,6 +22,9 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 
 namespace llvm {
+
+using namespace DPCPPKernelCompilationUtils;
+
 namespace DPCPPKernelLoopUtils {
 
 Function *getWIFunc(Module *M, StringRef FuncName, Type *RetTy) {

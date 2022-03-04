@@ -18,6 +18,8 @@
 
 namespace llvm {
 
+using namespace DPCPPKernelCompilationUtils;
+
 namespace {
 
 class ConversionVisitor : public reflection::TypeVisitor {
