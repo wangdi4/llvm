@@ -174,6 +174,7 @@ bool TbbSetMaxThreads(int NumThreads);
 bool cl_CheckBuildNumber();
 void clFuncIncompatParamASOnLinkageTest();
 void clFuncWrongNumParamsOnLinkageTest();
+void clFuncIdenticalLayoutStructOnLinkageTest();
 #if (!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)) && !defined(_WIN32)
 void cl_DumpIRBeforeAndAfterPasses();
 #endif

@@ -139,6 +139,59 @@ void addAttrForNoneOCLDPCPPCode(llvm::Module* M) {
   }
 }
 
+static bool isSameType(llvm::Type *A, llvm::Type *B, std::string &Message) {
+  if (A == B)
+    return true;
+  // If both types are struct, we need to check if their layouts are identical.
+  // ATM, llvm linker may not merge identical-layout structs, for example:
+  //
+  // clang-format off
+  // Module A:
+  // %struct.SomeType = { i64, i64 }
+  // %struct.OtherType = { i64, i64 }
+  // declare void @foo(%struct.SomeType *)
+  // define void @bar() {
+  //   call void @foo(%struct.SomeType *%x)
+  // }
+  //
+  // Module B:
+  // %struct.OtherType = { i64, i64 } ; This is not merged to A::%struct.SomeType,
+  //                                  ; instead it's merged to A::%struct.OtherType.
+  // define void @foo(%struct.OtherType *%x) {
+  //   ...
+  // }
+  //
+  // Linked module:
+  // %struct.SomeType = { i64, i64 }
+  // %struct.OtherType = { i64, i64 }
+  // define void @foo(%struct.OtherType *%x) {
+  //   ...
+  // }
+  // define void @bar() {
+  //   call void bitcast (void (%struct.OtherType *)* @foo to void (%struct.SomeType *)*)(%struct.SomeType *%x)
+  // }
+  // clang-format on
+  //
+  // Therefore we end up with a function ptr bitcast here, but it doesn't imply
+  // a semantical signature mismatch.
+  auto *StructTyA = llvm::dyn_cast<llvm::StructType>(A);
+  auto *StructTyB = llvm::dyn_cast<llvm::StructType>(B);
+  if (StructTyA && StructTyB && StructTyA->isLayoutIdentical(StructTyB))
+    return true;
+  auto *PtrTyA = llvm::dyn_cast<llvm::PointerType>(A);
+  auto *PtrTyB = llvm::dyn_cast<llvm::PointerType>(B);
+  if (PtrTyA && PtrTyB &&
+      isSameType(PtrTyA->getElementType(), PtrTyB->getElementType(), Message)) {
+    if (PtrTyA->getAddressSpace() != PtrTyB->getAddressSpace()) {
+      Message = "incompatible address space";
+      return false;
+    }
+    return true;
+  }
+  Message = "incompatible type";
+  return false;
+}
+
 static bool checkFuncCallArgs(const llvm::FunctionType *FuncTy,
                               llvm::ArrayRef<llvm::Value*> CIArgs,
                               std::string &BadSigDesc)
@@ -152,20 +205,12 @@ static bool checkFuncCallArgs(const llvm::FunctionType *FuncTy,
     return false;
   }
 
-  for (size_t i = 0; i < FuncTy->getNumParams(); ++i) {
-    const llvm::Type *FPTy = FuncTy->getParamType(i);
-    const llvm::Type *CIArgTy = CIArgs[i]->getType();
-    if (FPTy != CIArgTy) {
-      const auto *FPPTy = llvm::dyn_cast<llvm::PointerType>(FPTy);
-      const auto *CIArgPTy = llvm::dyn_cast<llvm::PointerType>(CIArgTy);
-      if (FPPTy && CIArgPTy &&
-          FPPTy->getElementType() == CIArgPTy->getElementType()) {
-        BadSigDesc = "passing parameter " + std::to_string(i+1) +
-            " with incompatible address space";
-      } else {
-        BadSigDesc = "passing parameter " + std::to_string(i+1) +
-            " with incompatible type";
-      }
+  std::string TypeMismatchMsg;
+  for (size_t I = 0; I < FuncTy->getNumParams(); ++I) {
+    if (!isSameType(FuncTy->getParamType(I), CIArgs[I]->getType(),
+                    TypeMismatchMsg)) {
+      BadSigDesc = "passing parameter " + std::to_string(I + 1) + " with " +
+                   TypeMismatchMsg;
       return false;
     }
   }
