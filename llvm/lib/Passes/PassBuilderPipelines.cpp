@@ -2065,7 +2065,45 @@ void PassBuilder::addLoopOptAndAssociatedVPOPasses(ModulePassManager &MPM,
                                                    FunctionPassManager &FPM,
                                                    OptimizationLevel Level,
                                                    bool IsLTO) {
+  // TODO:
+  // if (DisableIntelProprietaryOpts)
+  // clean up the directive using createVPODirectiveCleanupPass()),
+  // similar to old PM.
+
+  if (RunVPOOpt && RunVecClone) {
+    if (!FPM.isEmpty())
+      MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+    MPM.addPass(VecClonePass());
+    // VecClonePass can generate redundant geps/loads for vector parameters when
+    // accessing elem[i] within the inserted simd loop. This makes DD testing
+    // harder, so run CSE here to do some clean-up before HIR construction.
+    FPM.addPass(EarlyCSEPass());
+  }
+
+  if (RunVPOOpt && EnableVPlanDriver && RunPreLoopOptVPOPasses) {
+    // Run LLVM-IR VPlan vectorizer before loopopt to vectorize all explicit
+    // SIMD loops
+    addVPlanVectorizer(MPM, FPM, Level);
+  }
+
   addLoopOptPasses(MPM, FPM, Level, IsLTO);
+
+  if (RunVPOOpt && EnableVPlanDriver && RunPostLoopOptVPOPasses) {
+    if (Level.getSpeedupLevel() > 0)
+      FPM.addPass(LoopSimplifyPass());
+    // Run LLVM-IR VPlan vectorizer after loopopt to vectorize all loops not
+    // vectorized after createVPlanDriverHIRPass
+    addVPlanVectorizer(MPM, FPM, Level);
+  }
+
+  // Process directives inserted by LoopOpt Autopar.
+  // Call with RunVec==true (2nd argument) to cleanup any vec directives
+  // that loopopt and vectorizer might have missed.
+  if (RunVPOOpt)
+    addVPOPasses(MPM, FPM, Level, /*RunVec=*/true, /*Simplify=*/true);
+
+  if (IntelOptReportEmitter == OptReportOptions::IR)
+    FPM.addPass(OptReportEmitterPass());
 }
 
 #endif // INTEL_CUSTOMIZATION

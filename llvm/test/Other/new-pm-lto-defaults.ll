@@ -215,17 +215,78 @@
 ; CHECK-O23SZ-NEXT: Running pass: IndVarSimplifyPass on Loop
 ; CHECK-O23SZ-NEXT: Running pass: LoopDeletionPass on Loop
 ; CHECK-O23SZ-NEXT: Running pass: LoopFullUnrollPass on Loop
-; CHECK-O23SZ-NEXT: Running analysis:  OuterAnalysisManagerProxy{{.*}}on Loop at depth 1 containing: %loop<header><latch><exiting> ;INTEL
+
+; INTEL_CUSTOMIZATION
+; CHECK-O23SZ-NEXT: Running analysis:  OuterAnalysisManagerProxy{{.*}}on Loop at depth 1 containing: %loop<header><latch><exiting>
+; CHECK-O23SZ-NEXT:Running pass: VecClonePass
+; CHECK-O23SZ-NEXT:Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-O23SZ-NEXT:Invalidating analysis: LazyCallGraphAnalysis
+; CHECK-O23SZ-NEXT:Invalidating analysis: InnerAnalysisManagerProxy<llvm::CGSCCAnalysisManager, llvm::Module>
+; CHECK-O23SZ-NEXT:Invalidating analysis: CallGraphAnalysis
+; CHECK-O23SZ-NEXT:Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-O23SZ-NEXT:Running pass: EarlyCSEPass
+; CHECK-O23SZ-NEXT:Running analysis: TargetLibraryAnalysis
+; CHECK-O23SZ-NEXT:Running analysis: TargetIRAnalysis
+; CHECK-O23SZ-NEXT:Running analysis: DominatorTreeAnalysis
+; CHECK-O23SZ-NEXT:Running analysis: AssumptionAnalysis
+; CHECK-O23SZ-NEXT:Running pass: LoopSimplifyPass
+; CHECK-O23SZ-NEXT:Running analysis: LoopAnalysis
+; CHECK-O23SZ-NEXT:Running pass: LowerSwitchPass
+; CHECK-O23SZ-NEXT:Running analysis: LazyValueAnalysis
+; CHECK-O23SZ-NEXT:Running pass: LCSSAPass
+; CHECK-O23SZ-NEXT:Running pass: VPOCFGRestructuringPass
+; CHECK-O23SZ-NEXT:Running pass: VPlanPragmaOmpOrderedSimdExtractPass
+; CHECK-O23SZ-NEXT:Running analysis: WRegionInfoAnalysis
+; CHECK-O23SZ-NEXT:Running analysis: WRegionCollectionAnalysis
+; CHECK-O23SZ-NEXT:Running analysis: ScalarEvolutionAnalysis
+; CHECK-O23SZ-NEXT:Running analysis: AAManager
+; CHECK-O23SZ-NEXT:Running analysis: BasicAA
+; CHECK-O23SZ-NEXT:Running analysis: XmainOptLevelAnalysis
+; CHECK-O23SZ-NEXT:Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, llvm::Function>
+; CHECK-O23SZ-NEXT:Running analysis: ScopedNoAliasAA
+; CHECK-O23SZ-NEXT:Running analysis: TypeBasedAA
+; CHECK-O23SZ-NEXT:Running analysis: StdContainerAA
+; CHECK-O23SZ-NEXT:Running analysis: OptimizationRemarkEmitterAnalysis
+; CHECK-O23SZ-NEXT:Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-O23SZ-NEXT:Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-O23SZ-NEXT:Running pass: VPOCFGRestructuringPass
+; CHECK-O23SZ-NEXT:Running analysis: DominatorTreeAnalysis
+; CHECK-O23SZ-NEXT:Running analysis: LoopAnalysis
+; CHECK-O23SZ-NEXT:Running pass: MathLibraryFunctionsReplacementPass
+; CHECK-O23SZ-NEXT:Running pass: vpo::VPlanDriverPass
+; CHECK-O23SZ-NEXT:Running analysis: ScalarEvolutionAnalysis
+; CHECK-O23SZ-DAG: Running analysis: TargetLibraryAnalysis
+; CHECK-O23SZ-DAG: Running analysis: AssumptionAnalysis
+; CHECK-O23SZ-DAG: Running analysis: TargetIRAnalysis
+; CHECK-O23SZ:     Running analysis: AAManager
+; CHECK-O23SZ-NEXT:Running analysis: BasicAA
+; CHECK-O23SZ-NEXT:Running analysis: XmainOptLevelAnalysis
+; CHECK-O23SZ-NEXT:Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, llvm::Function>
+; CHECK-O23SZ-NEXT:Running analysis: ScopedNoAliasAA
+; CHECK-O23SZ-NEXT:Running analysis: TypeBasedAA
+; CHECK-O23SZ-NEXT:Running analysis: StdContainerAA
+; CHECK-O23SZ-NEXT:Running analysis: DemandedBitsAnalysis
+; CHECK-O23SZ-NEXT:Running analysis: OptimizationRemarkEmitterAnalysis
+; CHECK-O23SZ-NEXT:Running analysis: OptReportOptionsAnalysis
+; CHECK-O23SZ-NEXT:Running analysis: WRegionInfoAnalysis
+; CHECK-O23SZ-NEXT:Running analysis: WRegionCollectionAnalysis
+; CHECK-O23SZ-NEXT:Running analysis: BlockFrequencyAnalysis
+; CHECK-O23SZ-NEXT:Running analysis: BranchProbabilityAnalysis
+; CHECK-O23SZ-NEXT:Running analysis: PostDominatorTreeAnalysis
+; CHECK-O23SZ-NEXT:Running analysis: InnerAnalysisManagerProxy<llvm::LoopAnalysisManager, llvm::Function>
+; CHECK-O23SZ-NEXT:Running pass: MathLibraryFunctionsReplacementPass
+; CHECK-O23SZ-NEXT:Running pass: AlwaysInlinerPass
+; CHECK-O23SZ-NEXT:Running pass: VPODirectiveCleanupPass
+; END INTEL_CUSTOMIZATION
+
 ; CHECK-O23SZ-NEXT: Running pass: LoopDistributePass on foo
 ; CHECK-O23SZ-NEXT: Running pass: LoopUnrollPass on foo
-; CHECK-O23SZ-NEXT: OptReportOptionsAnalysis on foo ;INTEL
 ; CHECK-O23SZ-NEXT: WarnMissedTransformationsPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: InstCombinePass on foo
 ; CHECK-O23SZ-NEXT: Running pass: SimplifyCFGPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: SCCPPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: InstCombinePass on foo
 ; CHECK-O23SZ-NEXT: Running pass: BDCEPass on foo
-; CHECK-O23SZ-NEXT: Running analysis: DemandedBitsAnalysis on foo ;INTEL
 ; CHECK-O2-NEXT: Running pass: SLPVectorizerPass on foo
 ; CHECK-O3-NEXT: Running pass: SLPVectorizerPass on foo
 ; CHECK-OS-NEXT: Running pass: SLPVectorizerPass on foo
@@ -234,6 +295,7 @@
 ; CHECK-O23SZ-NEXT: Running pass: InstCombinePass on foo
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: JumpThreadingPass on foo
+; CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-O-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-O23SZ-NEXT: Running pass: SimplifyCFGPass
