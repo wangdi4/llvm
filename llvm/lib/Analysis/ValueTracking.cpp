@@ -125,14 +125,17 @@ struct Query {
   /// If true, it is safe to use metadata during simplification.
   InstrInfoQuery IIQ;
   ScalarEvolution *SE; // INTEL
+  LoopInfo *LI;        // INTEL
 
 #if INTEL_CUSTOMIZATION
-  // INTEL: Add ScalarEvolution optional parameter.
+  // INTEL: Add ScalarEvolution/LoopInfo optional parameters.
   Query(const DataLayout &DL, AssumptionCache *AC, const Instruction *CxtI,
         const DominatorTree *DT, bool UseInstrInfo,
-        OptimizationRemarkEmitter *ORE = nullptr, ScalarEvolution *SE = nullptr)
+        OptimizationRemarkEmitter *ORE = nullptr, ScalarEvolution *SE = nullptr,
+        LoopInfo *LI = nullptr)
       : DL(DL), AC(AC), CxtI(CxtI), DT(DT), ORE(ORE), IIQ(UseInstrInfo),
-        SE(SE) {
+        SE(SE), LI(LI) {
+    assert((!SE && !LI || SE && LI) && "SE/LI are expected to come in pair.");
   }
 #endif // INTEL_CUSTOMIZATION
 };
@@ -411,15 +414,15 @@ static unsigned ComputeNumSignBits(const Value *V, unsigned Depth,
 }
 
 #if INTEL_CUSTOMIZATION
-// INTEL: Add optional ScalarEvolution parameter.
+// INTEL: Add optional ScalarEvolution/LoopInfo parameters.
 unsigned llvm::ComputeNumSignBits(const Value *V, const DataLayout &DL,
                                   unsigned Depth, AssumptionCache *AC,
                                   const Instruction *CxtI,
                                   const DominatorTree *DT, bool UseInstrInfo,
-                                  ScalarEvolution *SE) {
+                                  ScalarEvolution *SE, LoopInfo *LI) {
   return ::ComputeNumSignBits(
       V, Depth,
-      Query(DL, AC, safeCxtI(V, CxtI), DT, UseInstrInfo, nullptr, SE));
+      Query(DL, AC, safeCxtI(V, CxtI), DT, UseInstrInfo, nullptr, SE, LI));
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -3358,14 +3361,34 @@ static unsigned ComputeNumSignBitsImpl(const Value *V,
       // Unreachable blocks may have zero-operand PHI nodes.
       if (NumIncomingValues == 0) break;
 #if INTEL_CUSTOMIZATION
-      if (Q.SE && Q.SE->isSCEVable(PN->getType())) {
-        BinaryOperator *BO = nullptr;
-        Value *Start = nullptr, *Step = nullptr;
-        if (matchSimpleRecurrence(PN, BO, Start, Step)) {
+      BinaryOperator *BO = nullptr;
+      Value *Start = nullptr, *Step = nullptr;
+      if (Q.SE && matchSimpleRecurrence(PN, BO, Start, Step)) {
+        if (Q.SE->isSCEVable(PN->getType())) {
           const SCEV *S = Q.SE->getSCEV(const_cast<PHINode *>(PN));
           APInt Min = Q.SE->getSignedRangeMin(S);
           APInt Max = Q.SE->getSignedRangeMax(S);
           return std::min(Min.getNumSignBits(), Max.getNumSignBits());
+        } else if (BO->getOpcode() == Instruction::Add &&
+                   PN->getType()->isIntOrIntVectorTy()) {
+          unsigned StartSignBits = ComputeNumSignBits(Start, Depth + 1, Q);
+          unsigned StepSignBits = ComputeNumSignBits(Step, Depth + 1, Q);
+          Loop *L = Q.LI->getLoopFor(PN->getParent());
+          assert(L && "Simple recurrence without a loop?");
+          // First estimate NumSignBits(Step * TC) where it's known that TC > 0.
+          // TC's upper bound is one follwed by NumActiveBits(TC) zeroes (e.g,
+          // for TC == 3 (b011) upper bound is 0b0100). Multiplication by that
+          // number consumes exactly NumActiveBits of sign bits if the result
+          // doesn't overflow. If it overflowes, conservatively assume we only
+          // have 1 sign bit in the accumulated step.
+          const SCEV *BTC = Q.SE->getBackedgeTakenCount(L);
+          unsigned TCActiveBits = Q.SE->getUnsignedRange(BTC).getActiveBits();
+          unsigned AccumulatedStepSignBits =
+              TCActiveBits < StepSignBits ? StepSignBits - TCActiveBits : 1;
+
+          // Now estimate Start+AccumulatedStep.
+          unsigned MinSignBits = std::min(StartSignBits, AccumulatedStepSignBits);
+          return MinSignBits == 1 ? 1 : MinSignBits - 1;
         }
       }
 #endif // INTEL_CUSTOMIZATION
@@ -7689,6 +7712,7 @@ Optional<int64_t> llvm::isPointerOffset(const Value *Ptr1, const Value *Ptr2,
 PreservedAnalyses
 llvm::NumSignBitsPrinterPass::run(Function &F, FunctionAnalysisManager &AM) {
   ScalarEvolution &SE = AM.getResult<ScalarEvolutionAnalysis>(F);
+  LoopInfo &LI = AM.getResult<LoopAnalysis>(F);
   OS << "Printing NumSignBits for function ";
   F.printAsOperand(OS);
   OS << "\n";
@@ -7696,9 +7720,10 @@ llvm::NumSignBitsPrinterPass::run(Function &F, FunctionAnalysisManager &AM) {
     auto *Ty = Inst.getType();
     if (!Ty->isIntOrIntVectorTy() && !Ty->isPtrOrPtrVectorTy())
       continue;
-    unsigned NumSignBits = ComputeNumSignBits(
-        &Inst, F.getParent()->getDataLayout(), 0 /* Depth */, nullptr /* AC */,
-        nullptr /* CxtI */, nullptr /* DT */, true /* UseInstrInfo */, &SE);
+    unsigned NumSignBits =
+        ComputeNumSignBits(&Inst, F.getParent()->getDataLayout(), 0 /* Depth */,
+                           nullptr /* AC */, nullptr /* CxtI */,
+                           nullptr /* DT */, true /* UseInstrInfo */, &SE, &LI);
     Inst.print(OS);
     OS << ": " << NumSignBits << "\n";
   }
