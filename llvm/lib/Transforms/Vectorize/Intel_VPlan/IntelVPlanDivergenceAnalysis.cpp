@@ -44,7 +44,6 @@
 #include "IntelVPlan.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanLoopInfo.h"
-#include "IntelVPlanSyncDependenceAnalysis.h"
 #include "IntelVPlanUtils.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -512,63 +511,24 @@ bool VPlanDivergenceAnalysis::propagateJoinDivergence(
 void VPlanDivergenceAnalysis::propagateBranchDivergence(
     const VPBasicBlock *CondBlock) {
   LLVM_DEBUG(dbgs() << "propBranchDiv " << CondBlock->getName() << "\n");
+  auto CtrlDivDesc = SDA->getJoinBlocks(*CondBlock->getTerminator());
   const auto *BranchLoop = VPLI->getLoopFor(CondBlock);
 
-  // whether there is a divergent loop exit from @BranchLoop (if any)
-  bool IsBranchLoopDivergent = false;
-
-  // @BranchLoop is a divergent loop due to the divergent branch created by
-  // @Cond.
-  for (const auto *JoinBlock : SDA->joinBlocks(*CondBlock)) {
-    if (propagateJoinDivergence(*JoinBlock, BranchLoop)) {
-      addDivergentLoopExit(*JoinBlock);
-      IsBranchLoopDivergent |= true;
-    }
-
-    if (IsBranchLoopDivergent) {
-      if (!addDivergentLoops(*BranchLoop))
-        return;
-      propagateLoopDivergence(*BranchLoop);
-    }
+  for (auto *JoinBlock : CtrlDivDesc.JoinDivBlocks) {
+    if (!addJoinDivergentBlock(*JoinBlock))
+      continue;
+    pushPHINodes(*JoinBlock, false);
   }
-}
-
-void VPlanDivergenceAnalysis::propagateLoopDivergence(
-    const VPLoop &ExitingLoop) {
-  // VPlan VPLoop inherits from LoopBase, which does not have a getName method.
-  // We can easily implement one to match community version.
-  LLVM_DEBUG(dbgs() << "propLoopDiv " << ExitingLoop << "\n");
-
-  // don't propagate beyond region
-  if (!inRegion(*ExitingLoop.getHeader()))
-    return;
-
-  const auto *BranchLoop = ExitingLoop.getParentLoop();
-
-  // Uses of loop-carried values could occur anywhere
-  // within the dominance region of the definition. All loop-carried
-  // definitions are dominated by the loop header (reducible control).
-  // Thus all users have to be in the dominance region of the loop header,
-  // except PHI nodes that can also live at the fringes of the dom region
-  // (incoming defining value).
-  if (!IsLCSSAForm)
-    taintLoopLiveOuts(*ExitingLoop.getHeader());
-
-  // whether there is a divergent loop exit from @BranchLoop (if any)
-  bool IsBranchLoopDivergent = false;
-
-  // iterate over all blocks reachable by disjoint paths from exits of
-  // @ExitingLoop also iterates over loop exits (of @BranchLoop) that in turn
-  // become divergent.
-  for (const auto *JoinBlock : SDA->joinBlocks(ExitingLoop))
-    IsBranchLoopDivergent |= propagateJoinDivergence(*JoinBlock, BranchLoop);
-
-  // @BranchLoop is divergent due to divergent loop exit in @ExitingLoop
-  if (IsBranchLoopDivergent) {
-    assert(BranchLoop && "parent loop not found for loop with divergent exit");
-    if (!DivergentLoops.insert(BranchLoop).second)
-      return;
-    propagateLoopDivergence(*BranchLoop);
+  for (auto *JoinBlock : CtrlDivDesc.LoopDivBlocks) {
+    if (!addJoinDivergentBlock(*JoinBlock))
+      continue;
+    pushPHINodes(*JoinBlock, false);
+    addDivergentLoopExit(*JoinBlock);
+    DivergentLoops.insert(BranchLoop);
+    if (!addDivergentLoops(*BranchLoop))
+      continue;
+    if (!IsLCSSAForm)
+      taintLoopLiveOuts(*BranchLoop->getHeader());
   }
 }
 
@@ -1669,9 +1629,8 @@ void VPlanDivergenceAnalysis::compute(VPlanVector *P, VPLoop *CandidateLoop,
   DT = &VPDomTree;
   PDT = &VPPostDomTree;
   IsLCSSAForm = IsLCSSA;
-  SDA = std::make_unique<SyncDependenceAnalysis>(
-      CandidateLoop ? CandidateLoop->getHeader() : &P->getEntryBlock(),
-      VPDomTree, VPPostDomTree, *VPLInfo);
+  SDA = std::make_unique<llvm::SyncDependenceAnalysisImpl<VPBasicBlock>>(
+      *DT, *PDT, *VPLI);
   // Push everything to the worklist.
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(&Plan->getEntryBlock());
   for (auto *BB : RPOT)

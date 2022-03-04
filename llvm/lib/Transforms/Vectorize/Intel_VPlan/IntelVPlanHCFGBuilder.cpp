@@ -24,7 +24,6 @@
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanLoopInfo.h"
-#include "IntelVPlanSyncDependenceAnalysis.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVerifier.h"
 #include "llvm/Analysis/LoopIterator.h"
