@@ -1141,3 +1141,13 @@ void HIRVectorIdiomAnalysis::gatherIdioms(const TargetTransformInfo *TTI,
 extern void llvm::loopopt::deleteHIRVectorIdioms(HIRVectorIdioms *p) {
   delete p;
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void HIRVecIdiom::dump() const {
+  if (is<HI>())
+    get<HI>()->dump();
+  else
+    get<DD>()->dump();
+}
+#endif
+

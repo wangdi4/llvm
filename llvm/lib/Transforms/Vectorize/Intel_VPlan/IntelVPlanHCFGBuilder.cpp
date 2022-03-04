@@ -297,13 +297,13 @@ public:
   void operator()(ReductionDescr &Descriptor,
                   const InMemoryReductionList::value_type &CurValue) {
     Descriptor.clear();
-    auto *RednStore = cast<VPLoadStoreInst>(
+    auto *RednUpdate = cast<VPInstruction>(
         Builder.getOrCreateVPOperand(CurValue.second.second));
     assertIsSingleElementAlloca(CurValue.first);
     VPValue *OrigAlloca = Builder.getOrCreateVPOperand(CurValue.first);
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(OrigAlloca);
-    Descriptor.addUpdateVPInst(RednStore);
+    Descriptor.addUpdateVPInst(RednUpdate);
     Descriptor.setExit(nullptr);
     Descriptor.setKind(CurValue.second.first);
     // According to discussion with paropt team, we can have either alloca

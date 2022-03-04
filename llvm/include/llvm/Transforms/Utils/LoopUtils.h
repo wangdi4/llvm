@@ -435,6 +435,15 @@ bool cannotBeMinInLoop(const SCEV *S, const Loop *L, ScalarEvolution &SE,
 /// Returns true if loop \p L preheader or any of its predecessors has an
 /// OpenMP SIMD directive.
 bool isOmpSIMDLoop(Loop *L);
+
+// Unswitching can interfere with LoopOpt's ability to recognize ztt and
+// form perfect loopnests.
+// This function is used to bailout from LLVM's loop unswitching pass and let
+// LoopOpt perform unswitching if certain criteria are satisfied. It checks if
+// unswitching \p Inst in \p Lp interferes with LoopOpt.
+bool unswitchingMayAffectPerfectLoopnest(LoopInfo &LI, const Loop &Lp,
+                                         const Instruction *Inst,
+                                         TargetLibraryInfo &TLI);
 #endif // INTEL_CUSTOMIZATION
 
 enum ReplaceExitVal { NeverRepl, OnlyCheapRepl, NoHardUse, AlwaysRepl };

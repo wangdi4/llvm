@@ -32,6 +32,7 @@
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
+#include "llvm/Analysis/ScalarEvolution.h" // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
@@ -123,11 +124,17 @@ struct Query {
 
   /// If true, it is safe to use metadata during simplification.
   InstrInfoQuery IIQ;
+  ScalarEvolution *SE; // INTEL
 
+#if INTEL_CUSTOMIZATION
+  // INTEL: Add ScalarEvolution optional parameter.
   Query(const DataLayout &DL, AssumptionCache *AC, const Instruction *CxtI,
         const DominatorTree *DT, bool UseInstrInfo,
-        OptimizationRemarkEmitter *ORE = nullptr)
-      : DL(DL), AC(AC), CxtI(CxtI), DT(DT), ORE(ORE), IIQ(UseInstrInfo) {}
+        OptimizationRemarkEmitter *ORE = nullptr, ScalarEvolution *SE = nullptr)
+      : DL(DL), AC(AC), CxtI(CxtI), DT(DT), ORE(ORE), IIQ(UseInstrInfo),
+        SE(SE) {
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // end anonymous namespace
@@ -403,13 +410,18 @@ static unsigned ComputeNumSignBits(const Value *V, unsigned Depth,
   return ComputeNumSignBits(V, DemandedElts, Depth, Q);
 }
 
+#if INTEL_CUSTOMIZATION
+// INTEL: Add optional ScalarEvolution parameter.
 unsigned llvm::ComputeNumSignBits(const Value *V, const DataLayout &DL,
                                   unsigned Depth, AssumptionCache *AC,
                                   const Instruction *CxtI,
-                                  const DominatorTree *DT, bool UseInstrInfo) {
+                                  const DominatorTree *DT, bool UseInstrInfo,
+                                  ScalarEvolution *SE) {
   return ::ComputeNumSignBits(
-      V, Depth, Query(DL, AC, safeCxtI(V, CxtI), DT, UseInstrInfo));
+      V, Depth,
+      Query(DL, AC, safeCxtI(V, CxtI), DT, UseInstrInfo, nullptr, SE));
 }
+#endif // INTEL_CUSTOMIZATION
 
 unsigned llvm::ComputeMaxSignificantBits(const Value *V, const DataLayout &DL,
                                          unsigned Depth, AssumptionCache *AC,
@@ -3345,6 +3357,18 @@ static unsigned ComputeNumSignBitsImpl(const Value *V,
       if (NumIncomingValues > 4) break;
       // Unreachable blocks may have zero-operand PHI nodes.
       if (NumIncomingValues == 0) break;
+#if INTEL_CUSTOMIZATION
+      if (Q.SE && Q.SE->isSCEVable(PN->getType())) {
+        BinaryOperator *BO = nullptr;
+        Value *Start = nullptr, *Step = nullptr;
+        if (matchSimpleRecurrence(PN, BO, Start, Step)) {
+          const SCEV *S = Q.SE->getSCEV(const_cast<PHINode *>(PN));
+          APInt Min = Q.SE->getSignedRangeMin(S);
+          APInt Max = Q.SE->getSignedRangeMax(S);
+          return std::min(Min.getNumSignBits(), Max.getNumSignBits());
+        }
+      }
+#endif // INTEL_CUSTOMIZATION
 
       // Take the minimum of all incoming values.  This can't infinitely loop
       // because of our depth threshold.
@@ -7663,7 +7687,8 @@ Optional<int64_t> llvm::isPointerOffset(const Value *Ptr1, const Value *Ptr2,
 
 #if INTEL_CUSTOMIZATION
 PreservedAnalyses
-llvm::NumSignBitsPrinterPass::run(Function &F, FunctionAnalysisManager &) {
+llvm::NumSignBitsPrinterPass::run(Function &F, FunctionAnalysisManager &AM) {
+  ScalarEvolution &SE = AM.getResult<ScalarEvolutionAnalysis>(F);
   OS << "Printing NumSignBits for function ";
   F.printAsOperand(OS);
   OS << "\n";
@@ -7671,8 +7696,9 @@ llvm::NumSignBitsPrinterPass::run(Function &F, FunctionAnalysisManager &) {
     auto *Ty = Inst.getType();
     if (!Ty->isIntOrIntVectorTy() && !Ty->isPtrOrPtrVectorTy())
       continue;
-    unsigned NumSignBits =
-        ComputeNumSignBits(&Inst, F.getParent()->getDataLayout());
+    unsigned NumSignBits = ComputeNumSignBits(
+        &Inst, F.getParent()->getDataLayout(), 0 /* Depth */, nullptr /* AC */,
+        nullptr /* CxtI */, nullptr /* DT */, true /* UseInstrInfo */, &SE);
     Inst.print(OS);
     OS << ": " << NumSignBits << "\n";
   }

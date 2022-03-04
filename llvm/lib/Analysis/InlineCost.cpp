@@ -2125,7 +2125,17 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
       // behavior to prevent inlining of hot callsites during ThinLTO
       // compile phase.
       Threshold = HotCallSiteThreshold.getValue();
-    } else if (isColdCallSite(Call, CallerBFI)) {
+#if INTEL_CUSTOMIZATION
+    } else if (isColdCallSite(Call, CallerBFI)
+#if INTEL_FEATURE_SW_ADVANCED
+        // CMPLRLLVM-35609: Ignore cold static profiles for
+        // "intel-mempool-destructor" Functions as inlining them can simplify
+        // code through indirect call specialization, etc.
+        && !(Callee.hasFnAttribute("intel-mempool-destructor") &&
+        Params.PrepareForLTO.getValueOr(false))
+#endif // INTEL_FEATURE_SW_ADVANCED
+        ) {
+#endif // INTEL_CUSTOMIZATION
       LLVM_DEBUG(dbgs() << "Cold callsite.\n");
       // Do not apply bonuses for a cold callsite including the
       // LastCallToStatic bonus. While this bonus might result in code size
