@@ -85,8 +85,6 @@ ModulePass *llvm::createSYCLLowerESIMDPass() {
 }
 
 namespace {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
 enum class lsc_subopcode : uint8_t {
   load = 0x00,
   load_strided = 0x01,
@@ -123,8 +121,6 @@ enum class lsc_subopcode : uint8_t {
   read_state_info = 0x1e,
   fence = 0x1f,
 };
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
 
 // The regexp for ESIMD intrinsics:
 // /^_Z(\d+)__esimd_\w+/
@@ -273,13 +269,9 @@ private:
   static constexpr ESIMDIntrinDesc::ArgRule c8(int16_t N) {
     return ESIMDIntrinDesc::ArgRule{ESIMDIntrinDesc::CONST_INT8, {{N, {}}}};
   }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
   static constexpr ESIMDIntrinDesc::ArgRule c8(lsc_subopcode OpCode) {
     return c8(static_cast<uint8_t>(OpCode));
   }
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
 
   static constexpr ESIMDIntrinDesc::ArgRule c16(int16_t N) {
     return ESIMDIntrinDesc::ArgRule{ESIMDIntrinDesc::CONST_INT16, {{N, {}}}};
@@ -545,28 +537,28 @@ public:
            t8(6), t8(7), c8(0), a(1), c32(0)}}},
         {"lsc_store_slm",
          {"lsc.store.slm",
-          {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4), t8(5),
-           t8(6), t8(7), c8(0), a(1), a(2), c32(0)}}},
+          {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4),
+           t8(5), t8(6), t8(7), c8(0), a(1), a(2), c32(0)}}},
         {"lsc_store_bti",
          {"lsc.store.bti",
-          {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4), t8(5),
-           t8(6), t8(7), c8(0), a(1), a(2), aSI(3)}}},
+          {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4),
+           t8(5), t8(6), t8(7), c8(0), a(1), a(2), aSI(3)}}},
         {"lsc_store_stateless",
          {"lsc.store.stateless",
-          {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4), t8(5),
-           t8(6), t8(7), c8(0), a(1), a(2), c32(0)}}},
+          {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4),
+           t8(5), t8(6), t8(7), c8(0), a(1), a(2), c32(0)}}},
         {"lsc_load2d_stateless",
          {"lsc.load2d.stateless",
-          {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8), a(1),
-           a(2), a(3), a(4), a(5), a(6)}}},
+          {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8),
+           a(1), a(2), a(3), a(4), a(5), a(6)}}},
         {"lsc_prefetch2d_stateless",
          {"lsc.prefetch2d.stateless",
-          {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8), a(1),
-           a(2), a(3), a(4), a(5), a(6)}}},
+          {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8),
+           a(1), a(2), a(3), a(4), a(5), a(6)}}},
         {"lsc_store2d_stateless",
          {"lsc.store2d.stateless",
-          {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8), a(1),
-           a(2), a(3), a(4), a(5), a(6), a(7)}}},
+          {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8),
+           a(1), a(2), a(3), a(4), a(5), a(6), a(7)}}},
         {"lsc_xatomic_slm_0",
          {"lsc.xatomic.slm",
           {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
