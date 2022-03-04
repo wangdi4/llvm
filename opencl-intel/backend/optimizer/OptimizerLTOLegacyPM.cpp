@@ -14,7 +14,9 @@
 #include "LLVMSPIRVLib.h"
 #include "VecConfig.h"
 #include "VectorizerCommon.h"
-
+#ifndef NDEBUG
+#include "llvm/IR/Verifier.h"
+#endif // #ifndef NDEBUG
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
@@ -90,6 +92,9 @@ void OptimizerLTOLegacyPM::CreatePasses() {
   MaterializerMPM.add(createSPIRVLowerConstExprLegacy());
   MaterializerMPM.add(createSPIRVToOCL20Legacy());
   MaterializerMPM.add(createNameAnonGlobalPass());
+#ifndef NDEBUG
+  MaterializerMPM.add(llvm::createVerifierPass());
+#endif // #ifndef NDEBUG
 
   registerPipelineStartCallback(PMBuilder);
   registerVectorizerStartCallback(PMBuilder);
