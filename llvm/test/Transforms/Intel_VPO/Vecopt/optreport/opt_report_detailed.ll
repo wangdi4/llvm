@@ -15,7 +15,7 @@ define void @test_serialized(i32* nocapture %arr) local_unnamed_addr {
 ; LLVM-LABEL:  Global optimization report for : test_serialized
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
-; LLVM-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; LLVM-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; LLVM-NEXT:      remark #15305: vectorization support: vector length 4
 ; LLVM-NEXT:      remark #15475: --- begin vector loop cost summary ---
 ; LLVM-NEXT:      remark #15482: vectorized math library calls: 0
@@ -46,7 +46,7 @@ define void @test_serialized(i32* nocapture %arr) local_unnamed_addr {
 ; HIR-LABEL: Report from: HIR Loop optimizations framework for : test_serialized
 ; HIR-EMPTY:
 ; HIR-NEXT:  LOOP BEGIN
-; HIR-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; HIR-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; HIR-NEXT:      remark #15305: vectorization support: vector length 4
 ; HIR-NEXT:      remark #15475: --- begin vector loop cost summary ---
 ; HIR-NEXT:      remark #15482: vectorized math library calls: 0
@@ -80,7 +80,7 @@ define void @test_vector_variant(i32* nocapture %arr) local_unnamed_addr {
 ; LLVM-LABEL:  Global optimization report for : test_vector_variant
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
-; LLVM-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; LLVM-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; LLVM-NEXT:      remark #15305: vectorization support: vector length 4
 ; LLVM-NEXT:      remark #15475: --- begin vector loop cost summary ---
 ; LLVM-NEXT:      remark #15482: vectorized math library calls: 0
@@ -109,7 +109,7 @@ define void @test_vector_variant(i32* nocapture %arr) local_unnamed_addr {
 ; HIR-LABEL: Report from: HIR Loop optimizations framework for : test_vector_variant
 ; HIR-EMPTY:
 ; HIR-NEXT:  LOOP BEGIN
-; HIR-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; HIR-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; HIR-NEXT:      remark #15305: vectorization support: vector length 4
 ; HIR-NEXT:      remark #15475: --- begin vector loop cost summary ---
 ; HIR-NEXT:      remark #15482: vectorized math library calls: 0
@@ -142,7 +142,7 @@ define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
 ; LLVM-LABEL:  Global optimization report for : test_sqrt
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
-; LLVM-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; LLVM-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; LLVM-NEXT:      remark #15305: vectorization support: vector length 4
 ; LLVM-NEXT:      remark #15475: --- begin vector loop cost summary ---
 ; LLVM-NEXT:      remark #15482: vectorized math library calls: 3
@@ -167,7 +167,7 @@ define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
 ; HIR-LABEL: Report from: HIR Loop optimizations framework for : test_sqrt
 ; HIR-EMPTY:
 ; HIR-NEXT:  LOOP BEGIN
-; HIR-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; HIR-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; HIR-NEXT:      remark #15305: vectorization support: vector length 4
 ; HIR-NEXT:      remark #15475: --- begin vector loop cost summary ---
 ; HIR-NEXT:      remark #15482: vectorized math library calls: 3
@@ -202,7 +202,7 @@ define void @test_nonvls_mem(i64* %ptr, i64 *%ptr2) #1 {
 ; LLVM-LABEL:  Global optimization report for : test_nonvls_mem
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
-; LLVM-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; LLVM-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; LLVM-NEXT:      remark #15305: vectorization support: vector length 4
 ; LLVM:           remark #15447: --- begin vector loop memory reference summary ---
 ; LLVM-NEXT:      remark #15450: unmasked unaligned unit stride loads: 1
@@ -247,7 +247,7 @@ define void @test_nonvls_mem(i64* %ptr, i64 *%ptr2) #1 {
 ; HIR-LABEL: Report from: HIR Loop optimizations framework for : test_nonvls_mem
 ; HIR-EMPTY:
 ; HIR-NEXT:  LOOP BEGIN
-; HIR-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; HIR-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; HIR-NEXT:      remark #15305: vectorization support: vector length 4
 ; HIR:           remark #15447: --- begin vector loop memory reference summary ---
 ; HIR-NEXT:      remark #15450: unmasked unaligned unit stride loads: 1
@@ -306,7 +306,7 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; LLVM-LABEL:  Global optimization report for : test_vls_mem
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
-; LLVM-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; LLVM-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; LLVM-NEXT:      remark #15305: vectorization support: vector length 4
 ; LLVM:           remark #15447: --- begin vector loop memory reference summary ---
 ; LLVM-NEXT:      remark #15450: unmasked unaligned unit stride loads: 0
@@ -363,7 +363,7 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; HIR-LABEL: Report from: HIR Loop optimizations framework for : test_vls_mem
 ; HIR-EMPTY:
 ; HIR-NEXT:  LOOP BEGIN
-; HIR-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; HIR-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; HIR-NEXT:      remark #15305: vectorization support: vector length 4
 ; HIR:           remark #15447: --- begin vector loop memory reference summary ---
 ; HIR-NEXT:      remark #15450: unmasked unaligned unit stride loads: 0

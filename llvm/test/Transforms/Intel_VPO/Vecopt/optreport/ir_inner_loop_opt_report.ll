@@ -4,7 +4,7 @@
 ; RUN: opt -vplan-vec -vplan-force-vf=2 -intel-loop-optreport=high -intel-ir-optreport-emitter < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace
 
 ; CHECK:      LOOP BEGIN
-; CHECK-NEXT:     remark #15300: LOOP WAS VECTORIZED
+; CHECK-NEXT:     remark #15301: SIMD LOOP WAS VECTORIZED
 ; CHECK-NEXT:     remark #15305: vectorization support: vector length 2
 ; CHECK-NEXT:     remark #15475: --- begin vector loop cost summary ---
 ; CHECK-NEXT:     remark #15482: vectorized math library calls: 0

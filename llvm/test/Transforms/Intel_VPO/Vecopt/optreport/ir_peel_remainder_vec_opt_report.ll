@@ -5,7 +5,7 @@
 ; SCEN1-LABEL: Global optimization report for : test_store
 ; SCEN1-EMPTY:
 ; SCEN1-NEXT: LOOP BEGIN
-; SCEN1-NEXT:     remark #15300: LOOP WAS VECTORIZED
+; SCEN1-NEXT:     remark #15301: SIMD LOOP WAS VECTORIZED
 ; SCEN1-NEXT:     remark #15305: vectorization support: vector length 4
 ; SCEN1-NEXT: LOOP END
 ; SCEN1-EMPTY:
@@ -23,7 +23,7 @@
 ; SCEN2-LABEL: Global optimization report for : test_store
 ; SCEN2-EMPTY:
 ; SCEN2-NEXT: LOOP BEGIN
-; SCEN2-NEXT:     remark #15300: LOOP WAS VECTORIZED
+; SCEN2-NEXT:     remark #15301: SIMD LOOP WAS VECTORIZED
 ; SCEN2-NEXT:     remark #15305: vectorization support: vector length 4
 ; SCEN2-NEXT: LOOP END
 ; SCEN2-EMPTY:
@@ -41,7 +41,7 @@
 ; SCEN3-NEXT: LOOP END
 ; SCEN3-EMPTY:
 ; SCEN3-NEXT: LOOP BEGIN
-; SCEN3-NEXT:     remark #15300: LOOP WAS VECTORIZED
+; SCEN3-NEXT:     remark #15301: SIMD LOOP WAS VECTORIZED
 ; SCEN3-NEXT:     remark #15305: vectorization support: vector length 4
 ; SCEN3-NEXT: LOOP END
 ; SCEN3-EMPTY:
@@ -69,7 +69,7 @@
 ; SCEN4-NEXT: LOOP END
 ; SCEN4-EMPTY:
 ; SCEN4-NEXT: LOOP BEGIN
-; SCEN4-NEXT:     remark #15300: LOOP WAS VECTORIZED
+; SCEN4-NEXT:     remark #15301: SIMD LOOP WAS VECTORIZED
 ; SCEN4-NEXT:     remark #15305: vectorization support: vector length 4
 ; SCEN4-NEXT: LOOP END
 ; SCEN4-EMPTY:
