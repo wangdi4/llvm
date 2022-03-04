@@ -404,7 +404,7 @@ void Symbol::resolve(const Symbol &other, StringRef otherName) {
     resolveUndefined(cast<Undefined>(other));
     break;
   case Symbol::CommonKind:
-    resolveCommon(cast<CommonSymbol>(other), otherName);             // INTEL
+    resolveCommon(cast<CommonSymbol>(other));
     break;
   case Symbol::DefinedKind:
     resolveDefined(cast<Defined>(other), otherName);                 // INTEL
@@ -594,33 +594,45 @@ static int compareGNULinkOnce(const Symbol *oldSym, const Symbol *newSym,
 #if INTEL_CUSTOMIZATION
 // We include the real name of the other symbol since there is a chance that
 // the symbol was created without a name.
-int Symbol::compare(const Symbol *other, StringRef otherName) const {
+bool Symbol::compare(const Defined &other, StringRef otherName) const {
 #endif // INTEL_CUSTOMIZATION
-  assert(other->isDefined() || other->isCommon());
+  if (LLVM_UNLIKELY(isCommon())) {
+    if (config->warnCommon)
+      warn("common " + getName() + " is overridden");
+    return !other.isWeak();
+  }
 
-  if (!isDefined() && !isCommon())
-    return 1;
+  if (!isDefined())
+    return true;
 
 #if INTEL_CUSTOMIZATION
   // Check if the current symbol (*this) and the input symbol (other)
   // are associated with a "gnu.linkonce.t" section
-  int cmpGNU = compareGNULinkOnce(this, other, otherName);
-  if (cmpGNU != 0)
-    return cmpGNU;
+  int cmpGNU = compareGNULinkOnce(this, &other, otherName);
+  if (cmpGNU != 0) {
+    // Use the new symbol
+    if (cmpGNU == 1)
+      return true;
+    // Use the old symbol
+    else if (cmpGNU == -1)
+      return false;
+    else
+      llvm_unreachable("incorrect result from GNU linkonce section");
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // .symver foo,foo@@VER unfortunately creates two defined symbols: foo and
   // foo@@VER. In GNU ld, if foo and foo@@VER are in the same file, foo is
   // ignored. In our implementation, when this is foo, this->getName() may still
   // contain @@, return true in this case as well.
-  if (LLVM_UNLIKELY(file == other->file)) {
-    if (other->getName().contains("@@"))
+  if (LLVM_UNLIKELY(file == other.file)) {
+    if (other.getName().contains("@@"))
       return true;
     if (getName().contains("@@"))
       return false;
   }
 
-  return isWeak() && !other->isWeak();
+  return isWeak() && !other.isWeak();
 }
 
 void elf::reportDuplicate(const Symbol &sym, InputFile *newFile,
@@ -658,20 +670,18 @@ void elf::reportDuplicate(const Symbol &sym, InputFile *newFile,
 }
 
 void Symbol::checkDuplicate(const Defined &other) const {
-  if (compare(&other, StringRef()) == 0)
+  if (isDefined() && !isWeak() && !other.isWeak())
     reportDuplicate(*this, other.file,
                     dyn_cast_or_null<InputSectionBase>(other.section),
                     other.value);
 }
 
-#if INTEL_CUSTOMIZATION
-// We include the real name of the other symbol since there is a chance that
-// the symbol was created without a name.
-void Symbol::resolveCommon(const CommonSymbol &other, StringRef otherName) {
-  int cmp = compare(&other, otherName);
-#endif // INTEL_CUSTOMIZATION
-  if (cmp < 0)
+void Symbol::resolveCommon(const CommonSymbol &other) {
+  if (isDefined() && !isWeak()) {
+    if (config->warnCommon)
+      warn("common " + getName() + " is overridden");
     return;
+  }
 
   if (CommonSymbol *oldSym = dyn_cast<CommonSymbol>(this)) {
     if (config->warnCommon)
@@ -702,9 +712,8 @@ void Symbol::resolveCommon(const CommonSymbol &other, StringRef otherName) {
 // We include the real name of the other symbol since there is a chance that
 // the symbol was created without a name.
 void Symbol::resolveDefined(const Defined &other, StringRef otherName) {
-  int cmp = compare(&other, otherName);
+  if(compare(other, otherName))
 #endif // INTEL_CUSTOMIZATION
-  if (cmp > 0)
     replace(other);
 }
 

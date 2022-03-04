@@ -1,6 +1,5 @@
 // INTEL_CUSTOMIZATION
-// UNSUPPORTED: *
-// This test case is marked as unsupported since we fixed the issue with
+// This test case will check for NOT since we fixed the issue with
 // gnu.linkonce section. The test case was built based on a hack made by
 // the community (https://reviews.llvm.org/D28430 and
 // https://reviews.llvm.org/D47748). They discard any section with the names
@@ -18,8 +17,10 @@
 // REQUIRES: x86
 // RUN: llvm-mc -filetype=obj -triple=x86_64-pc-linux %s -o %t.o
 // RUN: llvm-mc -filetype=obj -triple=x86_64-pc-linux %p/Inputs/comdat.s -o %t2.o
-// RUN: ld.lld -shared %t.o %t2.o -o %t
-// RUN: ld.lld -shared %t2.o %t.o -o %t
+// INTEL_CUSTOMIZATION
+// RUN: not ld.lld -shared %t.o %t2.o -o %t
+// RUN: not ld.lld -shared %t2.o %t.o -o %t
+// END INTEL_CUSTOMIZATION
 
 .section .gnu.linkonce.t.__x86.get_pc_thunk.bx
 .globl abc

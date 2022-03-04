@@ -225,18 +225,15 @@ public:
 
 private:
   void resolveUndefined(const Undefined &other);
+  void resolveCommon(const CommonSymbol &other);
 #if INTEL_CUSTOMIZATION
-  void resolveCommon(const CommonSymbol &other, StringRef otherName);
   void resolveDefined(const Defined &other, StringRef otherName);
 #endif // INTEL_CUSTOMIZATION
-  template <class LazyT> void resolveLazy(const LazyT &other);
-  void resolveCommon(const CommonSymbol &other);
-  void resolveDefined(const Defined &other);
   void resolveLazy(const LazyObject &other);
   void resolveShared(const SharedSymbol &other);
 
 #if INTEL_CUSTOMIZATION
-  int compare(const Symbol *other, StringRef otherName) const;
+  bool compare(const Defined &other, StringRef otherName) const;
 #endif // INTEL_CUSTOMIZATION
 
   inline size_t getSymbolSize() const;
