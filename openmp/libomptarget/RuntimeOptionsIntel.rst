@@ -287,10 +287,14 @@ Controls how subdevices are exposed to users.
 devices, and ``subdevice`` clause is ignored.
 
 ``SUBSUBDEVICE/subsubdevice``: Only 2nd-level subdevices are reported as OpenMP
-devices, and ``subdevice`` clause is ignored.
+devices, and ``subdevice`` clause is ignored. On Intel GPU using Level Zero
+backend, limiting the ``subsubdevice`` to a single compute slice within a tile
+also requires setting additional GPU compute runtime environment variable
+``CFESingleSliceDispatchCCSMode=1``.
 
 ``ALL/all``: All top-level devices and their subdevices are reported as OpenMP
-devices, and ``subdevice`` clause is ignored.
+devices, and ``subdevice`` clause is ignored. This is not supported on Intel GPU
+and is being deprecated.
 
 **Default**: Equivalent to ``<DeviceKind>=device``
 

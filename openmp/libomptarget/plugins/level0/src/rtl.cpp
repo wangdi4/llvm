@@ -1466,8 +1466,7 @@ typedef std::vector<std::vector<int32_t>> SubDeviceIdsTy;
 enum DeviceMode {
   DEVICE_MODE_TOP = 0,  // Use only top-level devices with subdevice clause
   DEVICE_MODE_SUB,      // Use only tiles
-  DEVICE_MODE_SUBSUB,   // Use only c-slices
-  DEVICE_MODE_ALL       // Use all
+  DEVICE_MODE_SUBSUB    // Use only c-slices
 };
 
 /// Specialization constants used for a module compilation.
@@ -1784,9 +1783,6 @@ struct RTLOptionTy {
       } else if (Value == "SUBSUBDEVICE" || Value == "subsubdevice") {
         DP("Device mode is %s -- using 2nd-level sub-devices\n", Value.c_str());
         DeviceMode = DEVICE_MODE_SUBSUB;
-      } else if (Value == "ALL" || Value == "all") {
-        DP("Device mode is %s -- using all sub-devices\n", Value.c_str());
-        DeviceMode = DEVICE_MODE_ALL;
       } else {
         DP("Unknown device mode %s\n", Value.c_str());
       }
@@ -3748,7 +3744,7 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
     for (uint32_t i = 0; i < numDevices; i++) {
       auto device = devices[i];
 
-      if (deviceMode == DEVICE_MODE_TOP || deviceMode == DEVICE_MODE_ALL) {
+      if (deviceMode == DEVICE_MODE_TOP) {
         auto Rc = appendDeviceProperties(device, std::to_string(i));
         if (Rc != OFFLOAD_SUCCESS)
           return 0;
