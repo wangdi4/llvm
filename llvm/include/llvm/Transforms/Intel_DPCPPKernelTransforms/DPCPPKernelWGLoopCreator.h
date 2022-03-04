@@ -35,6 +35,10 @@ public:
   }
 
 private:
+  using InstVec = DPCPPKernelCompilationUtils::InstVec;
+  using InstVecVec = DPCPPKernelCompilationUtils::InstVecVec;
+  using ValueVec = DPCPPKernelCompilationUtils::ValueVec;
+
   /// Struct that contains dimesion 0 loop attributes.
   struct LoopBoundaries {
     Value *PeelLoopSize;   // num peel loop iterations.

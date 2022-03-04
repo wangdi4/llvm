@@ -447,6 +447,7 @@ namespace {
       (void)llvm::createInternalizeNonKernelFuncLegacyPass();
       (void)llvm::createLocalBufferAnalysisLegacyPass();
       (void)llvm::createLocalBuffersLegacyPass(false);
+      (void)llvm::createLoopStridedCodeMotionLegacyPass();
       (void)llvm::createLoopWIAnalysisLegacyPass();
       (void)llvm::createAddFastMathLegacyPass();
       (void)llvm::createAddImplicitArgsLegacyPass();

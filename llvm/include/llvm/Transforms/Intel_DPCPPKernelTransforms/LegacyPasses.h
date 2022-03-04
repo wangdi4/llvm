@@ -63,6 +63,7 @@ ModulePass *createInternalizeNonKernelFuncLegacyPass();
 ModulePass *createLinearIdResolverPass();
 ModulePass *createLocalBufferAnalysisLegacyPass();
 ModulePass *createLocalBuffersLegacyPass(bool UseTLSGlobals);
+LoopPass *createLoopStridedCodeMotionLegacyPass();
 LoopPass *createLoopWIAnalysisLegacyPass();
 FunctionPass *createAddNTAttrLegacyPass();
 ModulePass *createAddImplicitArgsLegacyPass();

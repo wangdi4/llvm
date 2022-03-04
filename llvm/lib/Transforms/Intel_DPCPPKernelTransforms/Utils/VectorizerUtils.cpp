@@ -18,6 +18,8 @@
 
 namespace llvm {
 
+using namespace DPCPPKernelCompilationUtils;
+
 namespace {
 
 class ConversionVisitor : public reflection::TypeVisitor {
@@ -437,6 +439,27 @@ FuncSet CanVectorize::getNonInlineUnsupportedFunctions(Module &M) {
   return UnsupportedFuncs;
 }
 
+Instruction *createBroadcast(Value *V, unsigned VectorWidth,
+                             Instruction *InsertBefore) {
+  Constant *Zero = ConstantInt::get(Type::getInt32Ty(V->getContext()), 0);
+  Constant *ZeroVector =
+      ConstantVector::getSplat(ElementCount::getFixed(VectorWidth), Zero);
+  auto *UndefVec =
+      UndefValue::get(FixedVectorType::get(V->getType(), VectorWidth));
+  auto *IEI =
+      InsertElementInst::Create(UndefVec, V, Zero, "insert", InsertBefore);
+  auto *Shuffle =
+      new ShuffleVectorInst(IEI, UndefVec, ZeroVector, "vector", InsertBefore);
+
+  if (Instruction *I = dyn_cast<Instruction>(V)) {
+    const auto &Loc = I->getDebugLoc();
+    IEI->setDebugLoc(Loc);
+    Shuffle->setDebugLoc(Loc);
+  }
+
+  return Shuffle;
+}
+
 Instruction *extendValToType(Value *Orig, Type *TargetType,
                              Instruction *InsertPoint) {
   assert(Orig->getType()->getPrimitiveSizeInBits() <=
@@ -713,12 +736,11 @@ Value *rootReturnValue(Value *RetVal, Type *RootType, CallInst *CI) {
   // the new conversion from the CALL value will be the only user of the CALL.
   Instruction *DummyInstruction = nullptr;
   if (RetvalUsers.count(CI)) {
-    Type *ptrType = PointerType::get(CI->getType(), 0);
-    Constant *subExpr = ConstantExpr::getIntToPtr(
-        ConstantInt::get(Type::getInt32Ty(Ctx), APInt(32, 0xdeadbeef)),
-        ptrType);
+    Type *PtrTy = PointerType::get(CI->getType(), 0);
+    Constant *SubExpr = ConstantExpr::getIntToPtr(
+        ConstantInt::get(Type::getInt32Ty(Ctx), APInt(32, 0xdeadbeef)), PtrTy);
     DummyInstruction =
-        new LoadInst(CI->getType(), subExpr, "", /*volatile*/ false, Align());
+        new LoadInst(CI->getType(), SubExpr, "", /*volatile*/ false, Align());
     DummyInstruction->insertAfter(CI);
     CI->replaceAllUsesWith(DummyInstruction);
     RetvalUsers.erase(CI);
