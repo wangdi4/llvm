@@ -44,6 +44,7 @@ class OptimizationRemarkEmitter;
 class StringRef;
 class TargetLibraryInfo;
 class Value;
+class ScalarEvolution; // INTEL
 
 constexpr unsigned MaxAnalysisRecursionDepth = 6;
 
@@ -226,7 +227,8 @@ constexpr unsigned MaxAnalysisRecursionDepth = 6;
                               unsigned Depth = 0, AssumptionCache *AC = nullptr,
                               const Instruction *CxtI = nullptr,
                               const DominatorTree *DT = nullptr,
-                              bool UseInstrInfo = true);
+                              bool UseInstrInfo = true,       // INTEL
+                              ScalarEvolution *SE = nullptr); // INTEL
 
   /// Get the upper bound on bit size for this Value \p Op as a signed integer.
   /// i.e.  x == sext(trunc(x to MaxSignificantBits) to bitwidth(x)).

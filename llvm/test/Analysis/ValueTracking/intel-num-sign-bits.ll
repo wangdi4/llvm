@@ -9,7 +9,7 @@ entry:
 
 header:
   %iv = phi i64 [0, %entry], [%iv.next, %header]
-; CHECK: %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]: 1
+; CHECK: %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]: 60
   %iv.next = add i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 16
   br i1 %exitcond, label %exit, label %header
