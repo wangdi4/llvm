@@ -57,11 +57,8 @@
 
 #include "llvm/Transforms/Scalar/CallSiteSplitting.h"
 #include "llvm/ADT/Statistic.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_WP.h"         // INTEL
-=======
 #include "llvm/Analysis/DomTreeUpdater.h"
->>>>>>> 8703e1e0b8c1dcf9d1799f596f1e1e9eeb4c4497
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/IntrinsicInst.h"

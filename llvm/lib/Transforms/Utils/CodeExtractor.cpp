@@ -77,13 +77,9 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-<<<<<<< HEAD
-#include "llvm/Transforms/Utils/Local.h"
 #if INTEL_COLLAB
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #endif // INTEL_COLLAB
-=======
->>>>>>> 8703e1e0b8c1dcf9d1799f596f1e1e9eeb4c4497
 #include <cassert>
 #include <cstdint>
 #include <iterator>

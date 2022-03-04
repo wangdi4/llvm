@@ -30,11 +30,8 @@
 #include "llvm/Transforms/Utils/BuildLibCalls.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/Statistic.h"
-<<<<<<< HEAD
 #include "llvm/ADT/Triple.h" // INTEL
-=======
 #include "llvm/Analysis/MemoryBuiltins.h"
->>>>>>> 8703e1e0b8c1dcf9d1799f596f1e1e9eeb4c4497
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"

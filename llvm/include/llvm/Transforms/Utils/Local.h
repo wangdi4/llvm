@@ -16,17 +16,8 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/IR/Dominators.h"
-<<<<<<< HEAD
-#include "llvm/IR/Operator.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/User.h"
-#include "llvm/IR/Value.h"
-#include "llvm/IR/ValueHandle.h"
-#include "llvm/Support/Casting.h"
 #include "llvm/Transforms/IPO/Intel_InlineReport.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h"     // INTEL
-=======
->>>>>>> 8703e1e0b8c1dcf9d1799f596f1e1e9eeb4c4497
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Utils/SimplifyCFGOptions.h"
 #include <cstdint>

@@ -73,6 +73,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/ADT/Triple.h"
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 #include "llvm/IR/IntrinsicsCSA.h"
