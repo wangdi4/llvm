@@ -69,7 +69,6 @@
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Verifier.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/BlockFrequency.h"
 #include "llvm/Support/BranchProbability.h"
 #include "llvm/Support/Casting.h"
@@ -78,7 +77,6 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/Local.h"
 #if INTEL_COLLAB
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #endif // INTEL_COLLAB
@@ -86,7 +84,6 @@
 #include <cstdint>
 #include <iterator>
 #include <map>
-#include <set>
 #include <utility>
 #include <vector>
 

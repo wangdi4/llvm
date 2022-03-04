@@ -17,7 +17,6 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include <limits>
 #if INTEL_COLLAB
 #include "llvm/IR/DebugLoc.h"
@@ -29,6 +28,7 @@
 
 namespace llvm {
 
+template <typename PtrType> class SmallPtrSetImpl;
 class AllocaInst;
 class BasicBlock;
 class BlockFrequency;
