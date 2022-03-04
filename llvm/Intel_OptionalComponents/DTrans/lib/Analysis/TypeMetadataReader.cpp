@@ -20,6 +20,8 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Instructions.h"
 
 #define DEBUG_TYPE "dtrans-typemetadatareader"
 

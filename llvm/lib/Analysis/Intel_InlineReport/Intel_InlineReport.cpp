@@ -19,6 +19,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
+#include "llvm/IR/InstIterator.h"
 
 using namespace llvm;
 using namespace InlineReportTypes;

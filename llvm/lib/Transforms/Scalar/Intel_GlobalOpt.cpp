@@ -33,6 +33,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
+#include "llvm/Analysis/ScalarEvolution.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "nonltoglobalopt"

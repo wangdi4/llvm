@@ -28,6 +28,7 @@
 
 namespace llvm {
 
+class Operator;
 class AddOperator;
 class AllocaInst;
 class APInt;
