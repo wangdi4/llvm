@@ -44,6 +44,9 @@ private:
 
   HIRVectorizationLegality *HIRLegality;
 
+  /// True when target loop being vectorized is a search loop.
+  bool IsSearchLoop = false;
+
   std::shared_ptr<VPlanVector>
   buildInitialVPlan(VPExternalValues &Ext, VPUnlinkedInstructions &UVPI,
                     std::string VPlanName,
@@ -52,6 +55,10 @@ private:
   /// Replace original upper bound of the loop with
   /// VPVectorTripCountCalculation.
   void emitVecSpecifics(VPlanVector *Plan) override;
+
+  /// Getters and setters for IsSearchLoop.
+  bool isSearchLoop() const { return IsSearchLoop; }
+  void setIsSearchLoop() { IsSearchLoop = true; }
 
 protected:
   /// Check whether everything in the loop body is supported at the moment.

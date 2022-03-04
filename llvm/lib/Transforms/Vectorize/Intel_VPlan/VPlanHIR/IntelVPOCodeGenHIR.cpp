@@ -126,8 +126,11 @@ static cl::opt<bool> PrintHIRAfterVPlan(
 namespace llvm {
 
 // Helper method to check if we are dealing with merged CFG in CG. This is
-// decided based on status of compiler options that control CFGMerger.
-static bool isMergedCFG() { return EnableNewCFGMerge && EnableNewCFGMergeHIR; }
+// decided based on status of compiler options that control CFGMerger (with
+// exception of search loops).
+bool VPOCodeGenHIR::isMergedCFG() {
+  return !isSearchLoop() && EnableNewCFGMerge && EnableNewCFGMergeHIR;
+}
 
 // Helper method to determine if instruction should be scalarized. This is
 // currently done only for uniform instructions outside vector loops. TODO: This
