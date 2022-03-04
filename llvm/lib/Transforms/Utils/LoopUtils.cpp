@@ -1250,6 +1250,171 @@ bool llvm::isOmpSIMDLoop(Loop *L) {
 
   return false;
 }
+
+static bool isLoopHandledByLoopOpt(const Loop *Lp, LoopInfo &LI,
+                                   TargetLibraryInfo &TLI, bool RelaxChecks) {
+
+  // Perfect loopnest is only meaningful for single exit loops.
+  if (!Lp->getExitingBlock())
+    return false;
+
+  // LoopOpt only handles loops with single latch ending in a
+  // conditional branch.
+  auto *Latch = Lp->getLoopLatch();
+  if (!Latch)
+    return false;
+
+  auto *LatchBr = dyn_cast<BranchInst>(Latch->getTerminator());
+  if (!LatchBr)
+    return false;
+
+  bool IsOuterLoop = !Lp->isInnermost();
+
+  // Outer loop may not be rotated yet so this cannot be checked.
+  if (!IsOuterLoop) {
+    if (!LatchBr->isConditional())
+      return false;
+
+    auto *CmpInst = dyn_cast<ICmpInst>(LatchBr->getCondition());
+
+    if (!CmpInst)
+      return false;
+  }
+
+  unsigned NumBlocks = 0;
+
+  for (auto I = Lp->block_begin(), BE = Lp->block_end(); I != BE; ++I) {
+    auto *BB = *I;
+
+    if (IsOuterLoop && LI.getLoopFor(BB) != Lp)
+      continue;
+
+    ++NumBlocks;
+
+    // Give up on loops with volatile/atomic accesses or inline asm as LoopOpt
+    // does not handle them.
+    //
+    // Give up if loop has a user call. LoopOpt is not likely to optimize loops
+    // with user calls, especially when it comes to textbook optimizations which
+    // require perfect loopnest. Also, in LTO mode inlining of these calls may
+    // result in LoopOpt skipping this loop.
+    for (auto Inst = BB->begin(), E = BB->end(); Inst != E; ++Inst) {
+
+      if (Inst->isAtomic())
+        return false;
+
+      if (auto *Load = dyn_cast<LoadInst>(&*Inst))
+        if (Load->isVolatile())
+          return false;
+
+      if (auto *Store = dyn_cast<StoreInst>(&*Inst))
+        if (Store->isVolatile())
+          return false;
+
+      auto *CInst = dyn_cast<CallInst>(&*Inst);
+
+      if (!CInst)
+        continue;
+
+      if (isa<IntrinsicInst>(CInst))
+        continue;
+
+      if (CInst->isInlineAsm())
+        return false;
+
+      auto *Func = CInst->getCalledFunction();
+
+      // Indirect call
+      if (!Func)
+        return false;
+
+      // Allow library and vectorizable calls.
+      LibFunc LF;
+      if (RelaxChecks || (TLI.getLibFunc(Func->getName(), LF) && TLI.has(LF)) ||
+          TLI.isFunctionVectorizable(Func->getName()))
+        continue;
+
+      return false;
+    }
+  }
+
+  // We are unlikely to perform loop transformations if loop has too many
+  // branches. The number of blocks is used as a simplistic heuristic for number
+  // of branches allowed.
+  if (NumBlocks > (RelaxChecks ? 20u : 5u))
+    return false;
+
+  return true;
+}
+
+bool llvm::unswitchingMayAffectPerfectLoopnest(LoopInfo &LI, const Loop &Lp,
+                                               const Instruction *Inst,
+                                               TargetLibraryInfo &TLI) {
+  // Only branches are currently unswitched by loopopt.
+  if (!Inst || !isa<BranchInst>(Inst))
+    return false;
+
+  auto *BB = Inst->getParent();
+  auto *Func = BB->getParent();
+  if (!Func->isPreLoopOpt())
+    return false;
+
+  // This flag is used as a heuristic to predict whether the functon may be
+  // inlined. There are a couple of problems with accurate prediction- 1)
+  // Unswitching happens very early before inlining in the pass pipeline. 2)
+  // There are some conditions which are handled by this pass but not the
+  // LoopOpt predicate opt pass. For example- CMPLRLLVM-23157.
+  //
+  // The heuristics reflect the fact that we are trying to suppress this
+  // particularly for fortran benchmarks which have loopnest heavy code.
+  bool MayBeInlined = Func->hasExternalLinkage() && Func->isFortran();
+
+  // Let unswitching happen for outermost loops.
+  if (!MayBeInlined && !Lp.getParentLoop())
+    return false;
+
+  // We need to get the innermost loop for the block as the same bblock
+  // may be traversed for outer loops as well.
+  const Loop *CondLp = Lp.isInnermost() ? &Lp : LI.getLoopFor(BB);
+
+  // Check if this loopnest looks like a perfect loopnest.
+
+  if (!CondLp->isInnermost()) {
+    // Check whether the condition being hoisted looks like inner loop's ztt.
+    auto &SubLoops = CondLp->getSubLoops();
+
+    if (SubLoops.size() != 1) {
+      return false;
+    }
+
+    auto *SubLoop = SubLoops[0];
+    auto *SubLoopPreheader = SubLoop->getLoopPreheader();
+    auto *BrInst = cast<BranchInst>(Inst);
+
+    // Check that we are are jumping to inner loop's preheader using the
+    // condition.
+    if (BrInst->getSuccessor(0) != SubLoopPreheader &&
+        BrInst->getSuccessor(1) != SubLoopPreheader)
+      return false;
+
+    if (!isLoopHandledByLoopOpt(SubLoop, LI, TLI, MayBeInlined))
+      return false;
+  }
+
+  auto *ParentLp = CondLp->getParentLoop();
+
+  if (!MayBeInlined && !ParentLp)
+    return false;
+
+  if (!isLoopHandledByLoopOpt(CondLp, LI, TLI, MayBeInlined))
+    return false;
+
+  if (ParentLp && !isLoopHandledByLoopOpt(ParentLp, LI, TLI, MayBeInlined))
+    return false;
+
+  return true;
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 // Collect information about PHI nodes which can be transformed in

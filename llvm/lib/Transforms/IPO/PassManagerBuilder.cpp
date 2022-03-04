@@ -2387,7 +2387,7 @@ void PassManagerBuilder::addLoopOptCleanupPasses(
 
 void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
                                           bool IsLTO) const {
-  INTEL_LIMIT_BEGIN(limitLoopOptOnly, PM) // INTEL
+  INTEL_LIMIT_BEGIN(limitLoopOptOnly, PM)
   // Run additional cleanup passes that help to cleanup the code.
   if (IsLTO) {
     limitFullLoopOptOnly(PM).add(createCFGSimplificationPass());
@@ -2438,7 +2438,6 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
       PM.add(createHIRArrayTransposePass());
     }
 
-    INTEL_LIMIT_BEGIN(limitFullLoopOptOnly, PM) // INTEL
     // TODO: refine cost model for individual transformations for code size.
     if (SizeLevel == 0) {
       // If VPO is disabled, we don't have to insert ParVec directives.
@@ -2447,22 +2446,31 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
 
       PM.add(createHIRConditionalTempSinkingPass());
       PM.add(createHIROptPredicatePass(OptLevel == 3, true));
+
+      INTEL_LIMIT_BEGIN(limitFullLoopOptOnly, PM)
       if (OptLevel > 2) {
         PM.add(createHIRLMMPass(true));
         PM.add(createHIRStoreResultIntoTempArrayPass());
       }
       PM.add(createHIRAosToSoaPass());
+      INTEL_LIMIT_END // limitFullLoopOptOnly
+
       PM.add(createHIRRuntimeDDPass());
       PM.add(createHIRMVForConstUBPass());
+
+      INTEL_LIMIT_BEGIN(limitFullLoopOptOnly, PM)
       if (OptLevel > 2 && IsLTO) {
         PM.add(createHIRRowWiseMVPass());
         PM.add(createHIRSumWindowReusePass());
       }
+      INTEL_LIMIT_END // limitFullLoopOptOnly
     }
 
     PM.add(createHIRSinkingForPerfectLoopnestPass());
     PM.add(createHIRNonZeroSinkingForPerfectLoopnestPass());
     PM.add(createHIRPragmaLoopBlockingPass());
+
+    INTEL_LIMIT_BEGIN(limitFullLoopOptOnly, PM)
     PM.add(createHIRLoopDistributionForLoopNestPass());
 
 #if INTEL_FEATURE_SW_ADVANCED
@@ -2471,8 +2479,11 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
              ThroughputModeOpt != ThroughputMode::SingleJob));
 #endif // INTEL_FEATURE_SW_ADVANCED
     PM.add(createHIRLoopInterchangePass());
+    INTEL_LIMIT_END // limitFullLoopOptOnly
+
     PM.add(createHIRGenerateMKLCallPass());
 
+    INTEL_LIMIT_BEGIN(limitFullLoopOptOnly, PM)
 #if INTEL_FEATURE_SW_ADVANCED
     if (OptLevel > 2 && IsLTO)
       PM.add(createHIRInterLoopBlockingPass());
@@ -2480,17 +2491,17 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
 
     PM.add(createHIRLoopBlockingPass(ThroughputModeOpt !=
                                      ThroughputMode::SingleJob));
+    INTEL_LIMIT_END // limitFullLoopOptOnly
+
     PM.add(createHIRUndoSinkingForPerfectLoopnestPass());
     PM.add(createHIRDeadStoreEliminationPass());
     PM.add(createHIRLoopReversalPass());
     PM.add(createHIRIdentityMatrixIdiomRecognitionPass());
-    INTEL_LIMIT_END // INTEL
 
     if (SizeLevel == 0) {
       PM.add(createHIRPreVecCompleteUnrollPass(OptLevel, DisableUnrollLoops));
     }
 
-    INTEL_LIMIT_BEGIN(limitFullLoopOptOnly, PM) // INTEL
     if (ThroughputModeOpt != ThroughputMode::SingleJob)
       PM.add(createHIRConditionalLoadStoreMotionPass());
 
@@ -2498,15 +2509,11 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
       PM.add(createHIRMemoryReductionSinkingPass());
     PM.add(createHIRLMMPass());
     PM.add(createHIRDeadStoreEliminationPass());
-    INTEL_LIMIT_END // INTEL
-
     PM.add(createHIRLastValueComputationPass());
-
-    INTEL_LIMIT_BEGIN(limitFullLoopOptOnly, PM) // INTEL
     PM.add(createHIRLoopRerollPass());
 
     if (SizeLevel == 0) {
-      PM.add(createHIRLoopDistributionForMemRecPass());
+      limitFullLoopOptOnly(PM).add(createHIRLoopDistributionForMemRecPass());
     }
 
     PM.add(createHIRLoopRematerializePass());
@@ -2514,15 +2521,16 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
     PM.add(createHIRLoopCollapsePass());
     PM.add(createHIRIdiomRecognitionPass());
     PM.add(createHIRLoopFusionPass());
-    INTEL_LIMIT_END // INTEL
 
     if (SizeLevel == 0) {
-      INTEL_LIMIT_BEGIN(limitFullLoopOptOnly, PM) // INTEL
+
+      INTEL_LIMIT_BEGIN(limitFullLoopOptOnly, PM)
       PM.add(createHIRUnrollAndJamPass(DisableUnrollLoops));
       PM.add(createHIRMVForVariableStridePass());
+      INTEL_LIMIT_END // limitFullLoopOptOnly
+
       PM.add(createHIROptVarPredicatePass());
       PM.add(createHIROptPredicatePass(OptLevel == 3, false));
-      INTEL_LIMIT_END // INTEL
       if (RunVPOOpt) {
         PM.add(createHIRVecDirInsertPass(OptLevel == 3));
         if (EnableVPlanDriverHIR) {
@@ -2537,15 +2545,16 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
       PM.add(createHIRGeneralUnrollPass(DisableUnrollLoops));
     }
 
-    INTEL_LIMIT_BEGIN(limitFullLoopOptOnly, PM) // INTEL
     PM.add(createHIRScalarReplArrayPass());
+
+    INTEL_LIMIT_BEGIN(limitFullLoopOptOnly, PM)
     if (OptLevel > 2) {
       if (ThroughputModeOpt != ThroughputMode::SingleJob)
         PM.add(createHIRNontemporalMarkingPass());
 
       PM.add(createHIRPrefetchingPass());
     }
-    INTEL_LIMIT_END // INTEL
+    INTEL_LIMIT_END // limitFullLoopOptOnly
   }
 
   if (IntelOptReportEmitter == OptReportOptions::HIR)
@@ -2559,7 +2568,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
     PM.add(createAlwaysInlinerLegacyPass());
     PM.add(createBarrierNoopPass());
   }
-  INTEL_LIMIT_END // INTEL
+  INTEL_LIMIT_END // limitLoopOptOnly
 }
 
 void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(

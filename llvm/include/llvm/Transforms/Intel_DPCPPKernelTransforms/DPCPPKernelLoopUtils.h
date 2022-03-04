@@ -18,9 +18,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
-using namespace llvm;
-using namespace DPCPPKernelCompilationUtils;
-
 namespace llvm {
 
 class RuntimeService;
@@ -91,17 +88,20 @@ Type *getIndTy(Module *M);
 /// TIDName - name of the tid generator get_global_id\ get_local_id.
 /// TidCalls - array of get_***_id call to fill.
 /// F - kernel to collect information for.
-void collectTIDCallInst(StringRef TIDName, InstVecVec &TidCalls, Function *F);
+void collectTIDCallInst(StringRef TIDName,
+                        DPCPPKernelCompilationUtils::InstVecVec &TidCalls,
+                        Function *F);
 
 /// Fill atomic builtin user functions.
 void fillAtomicBuiltinUsers(Module &M, RuntimeService *RTService,
-                            FuncSet &UserFunc);
+                            DPCPPKernelCompilationUtils::FuncSet &UserFunc);
 
 /// Fills the users function through call instructions of roots
 ///       (also indirect users) into userFuncs.
 /// Roots - function to obtain their user functions.
 /// UserFuncs - set to fill with users of roots
-void fillFuncUsersSet(const FuncSet &Roots, FuncSet &UserFuncs);
+void fillFuncUsersSet(const DPCPPKernelCompilationUtils::FuncSet &Roots,
+                      DPCPPKernelCompilationUtils::FuncSet &UserFuncs);
 
 /// Fills direct user functions through instructions of functions in
 ///       funcs set into userFuncs. If a function is introduced into
@@ -109,8 +109,9 @@ void fillFuncUsersSet(const FuncSet &Roots, FuncSet &UserFuncs);
 /// Funcs - function to obtain direct users.
 /// UserFuncs - set of users functions to fills.
 /// NewUsers - set of newly found users.
-void fillDirectUsers(const FuncSet *Funcs, FuncSet *UserFuncs,
-                     FuncSet *NewUsers);
+void fillDirectUsers(const DPCPPKernelCompilationUtils::FuncSet *Funcs,
+                     DPCPPKernelCompilationUtils::FuncSet *UserFuncs,
+                     DPCPPKernelCompilationUtils::FuncSet *NewUsers);
 
 /// Fill the user instructions (including users via other values)
 ///        of the input Function into the input vector.
@@ -120,13 +121,15 @@ void fillInstructionUsers(Function *F,
                           SmallVectorImpl<Instruction *> &UserInsts);
 
 /// Fill internal user functions.
-void fillInternalFuncUsers(Module &M, FuncSet &UserFuncs);
+void fillInternalFuncUsers(Module &M,
+                           DPCPPKernelCompilationUtils::FuncSet &UserFuncs);
 
 /// Fill printf or opencl_printf user functions.
-void fillPrintfs(Module &M, FuncSet &UserFuncs);
+void fillPrintfs(Module &M, DPCPPKernelCompilationUtils::FuncSet &UserFuncs);
 
 /// Fill work-item pipe builtin user functions.
-void fillWorkItemPipeBuiltinUsers(Module &M, FuncSet &UserFuncs);
+void fillWorkItemPipeBuiltinUsers(
+    Module &M, DPCPPKernelCompilationUtils::FuncSet &UserFuncs);
 
 /// Generate the mask argument for masked vectorized kernel.
 /// \param VF the vectorization factor.

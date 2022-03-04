@@ -139,7 +139,7 @@ private:
 };
 } // namespace
 
-template <> struct GraphTraits<Use *> {
+template <> struct llvm::GraphTraits<Use *> {
   using NodeRef = Use *;
   using ChildIteratorType = OpUseIterator;
 

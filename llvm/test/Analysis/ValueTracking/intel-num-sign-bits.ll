@@ -9,7 +9,7 @@ entry:
 
 header:
   %iv = phi i64 [0, %entry], [%iv.next, %header]
-; CHECK: %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]: 1
+; CHECK: %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]: 60
   %iv.next = add i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 16
   br i1 %exitcond, label %exit, label %header
@@ -75,6 +75,6 @@ define void @bcast(i16 %x) {
   %ext = sext i16 %x to i64
   %insert = insertelement <2 x i64> undef, i64 %ext, i64 0
   %bcast = shufflevector <2 x i64> %insert, <2 x i64> undef, <2 x i32><i32 0, i32 0>
-; CHECK:   %bcast = shufflevector <2 x i64> %insert, <2 x i64> undef, <2 x i32> zeroinitializer: 1
+; CHECK:   %bcast = shufflevector <2 x i64> %insert, <2 x i64> undef, <2 x i32> zeroinitializer: 49
   ret void
 }

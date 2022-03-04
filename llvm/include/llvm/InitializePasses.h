@@ -733,6 +733,7 @@ void initializeKernelBarrierLegacyPass(PassRegistry &);
 void initializeLinearIdResolverLegacyPass(PassRegistry &);
 void initializeLocalBufferAnalysisLegacyPass(PassRegistry &);
 void initializeLocalBuffersLegacyPass(PassRegistry &);
+void initializeLoopStridedCodeMotionLegacyPass(PassRegistry &);
 void initializeLoopWIAnalysisLegacyPass(PassRegistry &);
 void initializePhiCanonicalizationLegacyPass(PassRegistry &);
 void initializePrepareKernelArgsLegacyPass(PassRegistry &);

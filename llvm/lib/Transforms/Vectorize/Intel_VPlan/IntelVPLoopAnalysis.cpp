@@ -2036,6 +2036,19 @@ bool ReductionDescr::replaceOrigWithAlias() {
   return true; // Successful analysis
 }
 
+static const VPValue * getPtrThroughCast(const VPValue* Op) {
+  // Look at the pointers only.
+  assert(Op->getType()->isPointerTy() && "expected pointer");
+  while (isa<VPInstruction>(Op)) {
+    auto Inst = cast<VPInstruction>(Op);
+    if (Inst->getOpcode() != Instruction::BitCast &&
+        Inst->getOpcode() != Instruction::AddrSpaceCast)
+      break;
+    Op = Inst->getOperand(0);
+  }
+  return Op;
+}
+
 VPInstruction *ReductionDescr::getLoopExitVPInstr(const VPLoop *Loop) {
   LLVM_DEBUG(dbgs() << "ReductionDescr: Start: "; Start->dump();
              dbgs() << "\n");
@@ -2047,9 +2060,27 @@ VPInstruction *ReductionDescr::getLoopExitVPInstr(const VPLoop *Loop) {
   VPInstruction *LoopExitVPI = nullptr;
 
   if (UpdateVPInsts.size() == 1) {
-    if (UpdateVPInsts[0]->getOpcode() == Instruction::Store)
+    switch (UpdateVPInsts[0]->getOpcode()) {
+    case Instruction::Store:
       // In-memory reduction, no more analysis needed
       return nullptr;
+    case Instruction::Call: {
+      // Ensure that the call uses memory and is not an assignment.
+      auto CI = cast<VPCallInstruction>(UpdateVPInsts[0]);
+      if ((!CI->getCalledFunction() ||
+           !CI->getCalledFunction()->isIntrinsic()) &&
+          llvm::find_if(CI->arg_operands(), [this](const VPValue *Op) {
+            return Op == AllocaInst || (Op->getType()->isPointerTy() &&
+                                        getPtrThroughCast(Op) == AllocaInst);
+          }) != CI->arg_operands().end()) {
+        // In-memory reduction, no more analysis needed
+        return nullptr;
+      }
+      break;
+    }
+    default:
+      break;
+    }
     LoopExitVPI = UpdateVPInsts[0];
   }
 

@@ -248,6 +248,71 @@
 ; CHECK-O-NEXT: Running pass: LCSSAPass
 ; CHECK-O-NEXT: Running pass: LoopRotatePass
 ; CHECK-O-NEXT: Running pass: LoopDeletionPass
+
+; INTEL_CUSTOMIZATION
+; CHECK-DEFAULT-NEXT:  Running pass: VecClonePass
+; CHECK-DEFAULT-NEXT:  Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-DEFAULT-NEXT:  Invalidating analysis: CallGraphAnalysis
+; CHECK-DEFAULT-NEXT:  Invalidating analysis: LazyCallGraphAnalysis
+; CHECK-DEFAULT-NEXT:  Invalidating analysis: InnerAnalysisManagerProxy<llvm::CGSCCAnalysisManager, llvm::Module>
+; CHECK-DEFAULT-NEXT:  Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-DEFAULT-NEXT:  Running analysis: PreservedCFGCheckerAnalysis
+; CHECK-DEFAULT-NEXT:  Running pass: EarlyCSEPass
+; CHECK-DEFAULT-NEXT:  Running analysis: TargetLibraryAnalysis
+; CHECK-DEFAULT-NEXT:  Running analysis: TargetIRAnalysis
+; CHECK-DEFAULT-NEXT:  Running analysis: DominatorTreeAnalysis
+; CHECK-DEFAULT-NEXT:  Running analysis: AssumptionAnalysis
+; CHECK-DEFAULT-NEXT:  Running pass: LoopSimplifyPass
+; CHECK-DEFAULT-NEXT:  Running analysis: LoopAnalysis
+; CHECK-DEFAULT-NEXT:  Running pass: LowerSwitchPass
+; CHECK-DEFAULT-NEXT:  Running analysis: LazyValueAnalysis
+; CHECK-DEFAULT-NEXT:  Running pass: LCSSAPass
+; CHECK-DEFAULT-NEXT:  Running pass: VPOCFGRestructuringPass
+; CHECK-DEFAULT-NEXT:  Running pass: VPlanPragmaOmpOrderedSimdExtractPass
+; CHECK-DEFAULT-NEXT:  Running analysis: WRegionInfoAnalysis
+; CHECK-DEFAULT-NEXT:  Running analysis: WRegionCollectionAnalysis
+; CHECK-DEFAULT-NEXT:  Running analysis: ScalarEvolutionAnalysis
+; CHECK-DEFAULT-NEXT:  Running analysis: AAManager
+; CHECK-DEFAULT-NEXT:  Running analysis: BasicAA
+; CHECK-DEFAULT-NEXT:  Running analysis: XmainOptLevelAnalysis
+; CHECK-DEFAULT-NEXT:  Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, llvm::Function>
+; CHECK-DEFAULT-NEXT:  Running analysis: ScopedNoAliasAA
+; CHECK-DEFAULT-NEXT:  Running analysis: TypeBasedAA
+; CHECK-DEFAULT-NEXT:  Running analysis: StdContainerAA
+; CHECK-DEFAULT-NEXT:  Running analysis: OptimizationRemarkEmitterAnalysis
+; CHECK-DEFAULT-NEXT:  Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-DEFAULT-NEXT:  Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-DEFAULT-NEXT:  Running analysis: PreservedCFGCheckerAnalysis
+; CHECK-DEFAULT-NEXT:  Running pass: VPOCFGRestructuringPass
+; CHECK-DEFAULT-NEXT:  Running analysis: DominatorTreeAnalysis
+; CHECK-DEFAULT-NEXT:  Running analysis: LoopAnalysis
+; CHECK-DEFAULT-NEXT:  Running pass: MathLibraryFunctionsReplacementPass
+; CHECK-DEFAULT-NEXT:  Running pass: vpo::VPlanDriverPass
+; CHECK-DEFAULT-NEXT:  Running analysis: ScalarEvolutionAnalysis
+; CHECK-DEFAULT-DAG:   Running analysis: TargetLibraryAnalysis
+; CHECK-DEFAULT-DAG:   Running analysis: AssumptionAnalysis
+; CHECK-DEFAULT-DAG:   Running analysis: TargetIRAnalysis
+; CHECK-DEFAULT:       Running analysis: AAManager
+; CHECK-DEFAULT-NEXT:  Running analysis: BasicAA
+; CHECK-DEFAULT-NEXT:  Running analysis: XmainOptLevelAnalysis
+; CHECK-DEFAULT-NEXT:  Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, llvm::Function>
+; CHECK-DEFAULT-NEXT:  Running analysis: ScopedNoAliasAA
+; CHECK-DEFAULT-NEXT:  Running analysis: TypeBasedAA
+; CHECK-DEFAULT-NEXT:  Running analysis: StdContainerAA
+; CHECK-DEFAULT-NEXT:  Running analysis: DemandedBitsAnalysis
+; CHECK-DEFAULT-NEXT:  Running analysis: OptimizationRemarkEmitterAnalysis
+; CHECK-DEFAULT-NEXT:  Running analysis: OptReportOptionsAnalysis
+; CHECK-DEFAULT-NEXT:  Running analysis: WRegionInfoAnalysis
+; CHECK-DEFAULT-NEXT:  Running analysis: WRegionCollectionAnalysis
+; CHECK-DEFAULT-NEXT:  Running analysis: BlockFrequencyAnalysis
+; CHECK-DEFAULT-NEXT:  Running analysis: BranchProbabilityAnalysis
+; CHECK-DEFAULT-NEXT:  Running analysis: PostDominatorTreeAnalysis
+; CHECK-DEFAULT-NEXT:  Running analysis: InnerAnalysisManagerProxy<llvm::LoopAnalysisManager, llvm::Function>
+; CHECK-DEFAULT-NEXT:  Running pass: MathLibraryFunctionsReplacementPass
+; CHECK-DEFAULT-NEXT:  Running pass: AlwaysInlinerPass
+; CHECK-DEFAULT-NEXT:  Running pass: VPODirectiveCleanupPass
+; END INTEL_CUSTOMIZATION
+
 ; CHECK-O-NEXT: Running pass: LoopDistributePass
 ; CHECK-O-NEXT: Running pass: InjectTLIMappings
 ; INTEL_CUSTOMIZATION
@@ -269,11 +334,12 @@
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}OptimizationRemarkEmitterAnalysis
 ; CHECK-O-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-O-NEXT: Running pass: LCSSAPass
+; CHECK-DEFAULT-NEXT: Running analysis: MemorySSAAnalysis on foo ;INTEL
 ; CHECK-O-NEXT: Running pass: LICMPass
 ; CHECK-O-NEXT: Running pass: AlignmentFromAssumptionsPass
 ; CHECK-O-NEXT: Running pass: LoopSinkPass
-; CHECK-O-NEXT: Running analysis: BlockFrequencyAnalysis ;INTEL
-; CHECK-O-NEXT: Running analysis: BranchProbabilityAnalysis ;INTEL
+; CHECK-LTO-NEXT: Running analysis: BlockFrequencyAnalysis ;INTEL
+; CHECK-LTO-NEXT: Running analysis: BranchProbabilityAnalysis ;INTEL
 ; CHECK-O-NEXT: Running pass: InstSimplifyPass
 ; CHECK-O-NEXT: Running pass: DivRemPairsPass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
