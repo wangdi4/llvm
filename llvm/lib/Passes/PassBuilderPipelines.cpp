@@ -2706,12 +2706,13 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   if (Level.getSpeedupLevel() > 1) {
 #if INTEL_CUSTOMIZATION
-    // Collect the information from the loops and insert the attributes
     FunctionPassManager EarlyFPM;
+    EarlyFPM.addPass(CallSiteSplittingPass());
+    // Collect the information from the loops and insert the attributes
     EarlyFPM.addPass(IntelLoopAttrsPass(DTransEnabled));
-#endif // INTEL_CUSTOMIZATION
     MPM.addPass(createModuleToFunctionPassAdaptor(
-        CallSiteSplittingPass(), PTO.EagerlyInvalidateAnalyses));
+            std::move(EarlyFPM), PTO.EagerlyInvalidateAnalyses));
+#endif // INTEL_CUSTOMIZATION
 
     // Indirect call promotion. This should promote all the targets that are
     // left by the earlier promotion pass that promotes intra-module targets.
