@@ -1168,9 +1168,19 @@ public:
       }
     } else if (PtrDomTy && !isPtrToPtr(PtrDomTy)) {
       // Treat this as an element zero access if the pointer operand alias info
-      // is not for a pointer-to-pointer access.
-      if (auto *StructTy =
-              dyn_cast<DTransStructType>(PtrDomTy->getPointerElementType())) {
+      // is not for a pointer-to-pointer access. If the pointer type is an
+      // array, then a check needs to be done to see whether it is an array of
+      // structures.
+      DTransType *ElemTy = PtrDomTy->getPointerElementType();
+      if (auto *ArrayTy = dyn_cast<DTransArrayType>(ElemTy)) {
+        DTransType *BaseTy = ElemTy;
+        while (isa<DTransArrayType>(BaseTy))
+          BaseTy = BaseTy->getArrayElementType();
+        if (isa<DTransStructType>(BaseTy))
+          ElemTy = BaseTy;
+      }
+
+      if (auto *StructTy = dyn_cast<DTransStructType>(ElemTy)) {
         dtrans::TypeInfo *TI = DTInfo.getTypeInfo(StructTy);
         assert(TI && "visitModule() should create all TypeInfo objects");
         dtrans::StructInfo *SI = cast<dtrans::StructInfo>(TI);
@@ -1417,9 +1427,17 @@ public:
     // Treat this as a safe store. If the pointer operand alias info is not for
     // a pointer-to-pointer access, then treat it as an element-zero access and
     // update the FieldInfo for the element.
-    if (PtrDomTy && !isPtrToPtr(PtrDomTy))
-      if (auto *StructTy =
-              dyn_cast<DTransStructType>(PtrDomTy->getPointerElementType())) {
+    if (PtrDomTy && !isPtrToPtr(PtrDomTy)) {
+      DTransType *ElemTy = PtrDomTy->getPointerElementType();
+      if (auto *ArrayTy = dyn_cast<DTransArrayType>(ElemTy)) {
+        DTransType *BaseTy = ElemTy;
+        while (isa<DTransArrayType>(BaseTy))
+          BaseTy = BaseTy->getArrayElementType();
+        if (isa<DTransStructType>(BaseTy))
+          ElemTy = BaseTy;
+      }
+
+      if (auto *StructTy = dyn_cast<DTransStructType>(ElemTy)) {
         dtrans::TypeInfo *TI = DTInfo.getTypeInfo(StructTy);
         assert(TI && "visitModule() should create all TypeInfo objects");
         dtrans::StructInfo *SI = cast<dtrans::StructInfo>(TI);
@@ -1454,6 +1472,7 @@ public:
           }
         }
       }
+    }
   }
 
   // The element access analysis for load and store instructions are nearly
@@ -1680,7 +1699,20 @@ public:
           updateFieldFrequency(FI, I);
         }
       }
-      if (auto *StTy = dyn_cast<DTransStructType>(ParentTy)) {
+
+      // When the element pointee is an array, identify the type in the array in
+      // order to check whether the load/store is directly accessing element
+      // zero of a structure type stored in the array.
+      bool ForElementZeroAccess = false;
+      DTransType *BaseTy = ParentTy;
+      if (isa<DTransArrayType>(BaseTy)) {
+        ElementNum = 0;
+        ForElementZeroAccess = true;
+        while (isa<DTransArrayType>(BaseTy))
+            BaseTy = BaseTy->getArrayElementType();
+      }
+
+      if (auto *StTy = dyn_cast<DTransStructType>(BaseTy)) {
         dtrans::TypeInfo *ParentInfo = DTInfo.getTypeInfo(StTy);
         assert(ParentInfo &&
                "visitModule() should create all TypeInfo objects");
@@ -1691,12 +1723,10 @@ public:
         // accessed..
         if (IsLoad)
           collectReadInfo(*cast<LoadInst>(&I), ParentStInfo, ElementNum,
-                          IsWholeStructure,
-                          /*ForElementZeroAccess=*/false);
+                          IsWholeStructure, ForElementZeroAccess);
         else
           collectWriteInfo(*cast<StoreInst>(&I), ParentStInfo, ElementNum,
-                           ValOp, IsWholeStructure,
-                           /*ForElementZeroAccess=*/false);
+                           ValOp, IsWholeStructure, ForElementZeroAccess);
       }
 
       // Check if the types for the value loaded or value operand of the store
@@ -2032,9 +2062,24 @@ public:
                                   "Incompatible type for field load/store", &I);
     }
 
-    auto *TI = DTInfo.getTypeInfo(ParentTy);
-    assert(TI && "visitModule() should create all TypeInfo objects");
-    if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+    // If the mismatched element access was caused by an access to an array,
+    // then if the array is composed of structures, the element zero of the
+    // structure needs to be marked as mismatched because the address of the
+    // array element is the same as the address of the structure element.
+    if (auto *ParentArTy = dyn_cast<DTransArrayType>(ParentTy)) {
+      DTransType *BaseTy = ParentArTy;
+      while (isa<DTransArrayType>(BaseTy))
+        BaseTy = BaseTy->getArrayElementType();
+      if (isa<DTransStructType>(BaseTy)) {
+        ParentTy = BaseTy;
+        ElementNum = 0;
+      }
+    }
+
+    if (auto *ParentStTy = dyn_cast<DTransStructType>(ParentTy)) {
+      auto *TI = DTInfo.getTypeInfo(ParentTy);
+      assert(TI && "visitModule() should create all TypeInfo objects");
+      auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI);
       TypeSize FieldSize = DL.getTypeSizeInBits(
           ParentStInfo->getField(ElementNum).getLLVMType());
       if (getLangRuleOutOfBoundsOK() || AccessSize > FieldSize) {
