@@ -143,9 +143,8 @@ function (gtest_remove_dylib_from_link_interface target)
   endif()
 endfunction()
 
-<<<<<<< HEAD
-gtest_remove_dylib_from_link_interface(gtest)
-gtest_remove_dylib_from_link_interface(gtest_main)
+gtest_remove_dylib_from_link_interface(llvm_gtest)
+gtest_remove_dylib_from_link_interface(llvm_gtest_main)
 # INTEL_CUSTOMIZATION
 if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
   gtest_remove_dylib_from_link_interface(gtest_stdcpp)
@@ -157,8 +156,3 @@ if (WIN32)
   gtest_remove_dylib_from_link_interface(gtest_main_dyn)
 endif()
 # end INTEL_CUSTOMIZATION
-
-=======
-gtest_remove_dylib_from_link_interface(llvm_gtest)
-gtest_remove_dylib_from_link_interface(llvm_gtest_main)
->>>>>>> 9f37775472b45986b0ecce5243bd6ce119e5bd69
