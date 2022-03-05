@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar/InstSimplifyPass.h"
-#include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
@@ -15,15 +14,16 @@
 #include "llvm/Analysis/Intel_WP.h"         // INTEL
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+<<<<<<< HEAD
 #include "llvm/Analysis/TargetTransformInfo.h" // INTEL
 #include "llvm/IR/DataLayout.h"
+=======
+>>>>>>> 59630917d6cc7c4a273f617f92bf6190ee2992e1
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/Type.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Scalar.h"
-#include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/Local.h"
 
 using namespace llvm;

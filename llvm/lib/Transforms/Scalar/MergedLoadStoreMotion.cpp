@@ -76,15 +76,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar/MergedLoadStoreMotion.h"
-#include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+<<<<<<< HEAD
 #include "llvm/Analysis/Intel_Andersens.h"        // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/ValueTracking.h"
+=======
+>>>>>>> 59630917d6cc7c4a273f617f92bf6190ee2992e1
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Metadata.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"

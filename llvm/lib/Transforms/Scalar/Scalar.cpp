@@ -16,17 +16,18 @@
 #include "llvm-c/Initialization.h"
 #include "llvm-c/Transforms/Scalar.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
+<<<<<<< HEAD
 #include "llvm/Analysis/Intel_StdContainerAA.h"  // INTEL
 #include "llvm/Analysis/Passes.h"
+=======
+>>>>>>> 59630917d6cc7c4a273f617f92bf6190ee2992e1
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/Scalarizer.h"
-#include "llvm/Transforms/Scalar/SimpleLoopUnswitch.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
