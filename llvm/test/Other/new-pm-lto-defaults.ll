@@ -188,7 +188,6 @@
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: IntelIPODeadArgEliminationPass on [module]
 ; END INTEL_CUSTOMIZATION
-; CHECK-O23SZ-NEXT: Running pass: OpenMPOptCGSCCPass on (foo)
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass on foo
 ; INTEL_CUSTOMIZATION
 ; LoopAnalysis will earlier with the IntelLoopAttrsPass
@@ -278,6 +277,11 @@
 ; CHECK-O23SZ-NEXT:Running analysis: InnerAnalysisManagerProxy<llvm::LoopAnalysisManager, llvm::Function>
 ; CHECK-O23SZ-NEXT:Running pass: MathLibraryFunctionsReplacementPass
 ; CHECK-O23SZ-NEXT:Running pass: AlwaysInlinerPass
+; CHECK-O23SZ-NEXT:Running analysis: InnerAnalysisManagerProxy<{{.*}}Module
+; CHECK-O23SZ-NEXT:Running analysis: LazyCallGraphAnalysis
+; CHECK-O23SZ-NEXT:Running analysis: FunctionAnalysisManagerCGSCCProxy
+; CHECK-O23SZ-NEXT:Running analysis: OuterAnalysisManagerProxy<{{.*}}LazyCallGraph{{.*}}>
+; CHECK-O23SZ-NEXT:Running pass: OpenMPOptCGSCCPass
 ; CHECK-O23SZ-NEXT:Running pass: VPODirectiveCleanupPass
 ; END INTEL_CUSTOMIZATION
 
