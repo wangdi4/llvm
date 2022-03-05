@@ -74,7 +74,7 @@ if (WIN32)
   target_link_libraries(LLVMTestingSupport_dyn PRIVATE gtest_dyn)
 endif()
 # end INTEL_CUSTOMIZATION
-target_link_libraries(LLVMTestingSupport PRIVATE llvm_gtest)
+target_link_libraries(LLVMTestingSupport PRIVATE gtest)
 
 # This is to avoid the error in gtest-death-test-internal.h
 # (150,16): error: 'Create' overrides a member function but
