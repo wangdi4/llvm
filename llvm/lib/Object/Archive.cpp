@@ -256,7 +256,6 @@ Expected<StringRef> ArchiveMemberHeader::getName(uint64_t Size) const {
       return Name;
     if (Name.size() == 2 && Name[1] == '/') // String table.
       return Name;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // The offset of archives inside thin archives made with GNU are presented
     // as /XX:YY. The XX is the offset of the file name in the string table.
@@ -284,12 +283,10 @@ Expected<StringRef> ArchiveMemberHeader::getName(uint64_t Size) const {
         Name = NewName;
     }
 #endif // INTEL_CUSTOMIZATION
-=======
     // System libraries from the Windows SDK for Windows 11 contain this symbol.
     // It looks like a CFG guard: we just skip it for now.
     if (Name.equals("/<XFGHASHMAP>/"))
       return Name;
->>>>>>> 2397f67166156b73749e11ef1947fa34d5dbd4f7
     // It's a long name.
     // Get the string table offset.
     std::size_t StringOffset;
