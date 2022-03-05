@@ -961,6 +961,7 @@ void TargetPassConfig::addIRPasses() {
   // Allow disabling it for testing purposes.
   if (!DisableExpandReductions)
     addPass(createExpandReductionsPass());
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
   // If the target doesn't support complex intrinsics, or if they need to be
@@ -969,6 +970,8 @@ void TargetPassConfig::addIRPasses() {
 #endif // INTEL_CUSTOMIZATION
   if (getOptLevel() != CodeGenOpt::None)
     addPass(createTLSVariableHoistPass());
+=======
+>>>>>>> b363a78a2e5470bdabd84e1911dd0c6f587f9e67
 }
 
 /// Turn exception handling constructs into something the code generators can
