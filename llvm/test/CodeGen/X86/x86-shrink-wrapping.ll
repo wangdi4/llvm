@@ -1397,12 +1397,6 @@ define i32 @irreducibleCFG() #4 {
 ; ENABLE-NEXT:    xorl %ebx, %ebx
 ; ENABLE-NEXT:    xorl %eax, %eax
 ; ENABLE-NEXT:    callq _something
-<<<<<<< HEAD
-; ENABLE-NEXT:    jmp LBB16_5
-; ENABLE-NEXT:  LBB16_3: ## %split ;INTEL
-; ENABLE-NEXT:    xorl %ebx, %ebx
-=======
->>>>>>> 6fde0439512580df793f3f48f95757b47de40d2b
 ; ENABLE-NEXT:    .p2align 4, 0x90
 ; ENABLE-NEXT:  LBB16_4: ## %for.inc
 ; ENABLE-NEXT:    ## =>This Inner Loop Header: Depth=1
@@ -1444,12 +1438,6 @@ define i32 @irreducibleCFG() #4 {
 ; DISABLE-NEXT:    xorl %ebx, %ebx
 ; DISABLE-NEXT:    xorl %eax, %eax
 ; DISABLE-NEXT:    callq _something
-<<<<<<< HEAD
-; DISABLE-NEXT:    jmp LBB16_5
-; DISABLE-NEXT:  LBB16_3: ## %split ;INTEL
-; DISABLE-NEXT:    xorl %ebx, %ebx
-=======
->>>>>>> 6fde0439512580df793f3f48f95757b47de40d2b
 ; DISABLE-NEXT:    .p2align 4, 0x90
 ; DISABLE-NEXT:  LBB16_4: ## %for.inc
 ; DISABLE-NEXT:    ## =>This Inner Loop Header: Depth=1
