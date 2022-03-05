@@ -176,11 +176,17 @@ class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
           if (EmittedAsPrivate.insert(OrigVD->getCanonicalDecl()).second) {
             (void)PreCondVars.setVarAddr(
                 CGF, OrigVD,
-                Address::deprecated(
-                    llvm::UndefValue::get(
-                        CGF.ConvertTypeForMem(CGF.getContext().getPointerType(
-                            OrigVD->getType().getNonReferenceType()))),
-                    CGF.getContext().getDeclAlign(OrigVD)));
+#if INTEL_CUSTOMIZATION
+                // Temporary fix for opaque pointer problem.
+                // Pulldown coordinator: Please replace with community code
+                // unless it contains Address::deprecated.
+                Address(llvm::UndefValue::get(CGF.ConvertTypeForMem(
+                            CGF.getContext().getPointerType(
+                                OrigVD->getType().getNonReferenceType()))),
+                        CGF.ConvertTypeForMem(
+                            OrigVD->getType().getNonReferenceType()),
+#endif // INTEL_CUSTOMIZATION
+                        CGF.getContext().getDeclAlign(OrigVD)));
           }
         }
       }
