@@ -8484,7 +8484,6 @@ public:
           CharUnits TypeSize = CGF.getContext().getTypeSizeInChars(
               I->getAssociatedExpression()->getType());
           Address HB = CGF.Builder.CreateConstGEP(
-<<<<<<< HEAD
               CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(LowestElem,
 #if INTEL_COLLAB
                   CGF.CGM.getLangOpts().OpenMPLateOutline
@@ -8494,11 +8493,7 @@ public:
                                                    ->getPointerAddressSpace())
                       :
 #endif  // INTEL_COLLAB
-                                                              CGF.VoidPtrTy),
-=======
-              CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
-                  LowestElem, CGF.VoidPtrTy, CGF.Int8Ty),
->>>>>>> d112cc27569b8329b4c9090265b809d459a4a5a8
+                        CGF.VoidPtrTy, CGF.Int8Ty),
               TypeSize.getQuantity() - 1);
           PartialStruct.HighestElem = {
               std::numeric_limits<decltype(
