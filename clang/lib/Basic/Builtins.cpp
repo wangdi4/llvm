@@ -21,10 +21,6 @@ static const Builtin::Info BuiltinInfo[] = {
   { "not a builtin function", nullptr, nullptr, nullptr, ALL_LANGUAGES,nullptr},
 #define BUILTIN(ID, TYPE, ATTRS)                                               \
   { #ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr },
-#if INTEL_CUSTOMIZATION
-#define OPENCLBUILTIN(ID, TYPE, ATTRS, LANGS, FEATURE)                         \
-  {#ID, TYPE, ATTRS, nullptr, LANGS, FEATURE},
-#endif // INTEL_CUSTOMIZATION
 #define LANGBUILTIN(ID, TYPE, ATTRS, LANGS)                                    \
   { #ID, TYPE, ATTRS, nullptr, LANGS, nullptr },
 #define LIBBUILTIN(ID, TYPE, ATTRS, HEADER, LANGS)                             \
@@ -93,16 +89,22 @@ bool Builtin::Context::builtinIsSupported(const Builtin::Info &BuiltinInfo,
   bool MSModeUnsupported =
       !LangOpts.MicrosoftExt && (BuiltinInfo.Langs & MS_LANG);
   bool ObjCUnsupported = !LangOpts.ObjC && BuiltinInfo.Langs == OBJC_LANG;
-  bool OclC1Unsupported = (LangOpts.OpenCLVersion / 100) != 1 &&
-                          (BuiltinInfo.Langs & ALL_OCLC_LANGUAGES ) ==  OCLC1X_LANG;
+  bool OclCUnsupported =
+      !LangOpts.OpenCL && (BuiltinInfo.Langs & ALL_OCL_LANGUAGES);
+  bool OclGASUnsupported =
+      !LangOpts.OpenCLGenericAddressSpace && (BuiltinInfo.Langs & OCL_GAS);
 #if INTEL_CUSTOMIZATION
-  bool OclC2PUnsupported =
-      (BuiltinInfo.Langs & ALL_OCLC_LANGUAGES) == OCLC2P_LANG &&
-      ((LangOpts.getOpenCLCompatibleVersion() < 200) ||
-       !OclBuiltinIsSupported(BuiltinInfo, LangOpts));
+  // Register target-specific pipe builtins
+  bool OclPipeUnsupported =
+      (!LangOpts.OpenCLPipes && (BuiltinInfo.Langs & OCL_PIPE)) ||
+      ((LangOpts.OpenCLVersion / 100) != 1 &&
+       (BuiltinInfo.Langs & ALL_OCL_PIPE) == INTEL_FPGA_PIPE1X);
 #endif // INTEL_CUSTOMIZATION
-  bool OclCUnsupported = !LangOpts.OpenCL &&
-                         (BuiltinInfo.Langs & ALL_OCLC_LANGUAGES);
+  // Device side enqueue is not supported until OpenCL 2.0. In 2.0 and higher
+  // support is indicated with language option for blocks.
+  bool OclDSEUnsupported =
+      (LangOpts.getOpenCLCompatibleVersion() < 200 || !LangOpts.Blocks) &&
+      (BuiltinInfo.Langs & OCL_DSE);
   bool OpenMPUnsupported = !LangOpts.OpenMP && BuiltinInfo.Langs == OMP_LANG;
   bool CUDAUnsupported = !LangOpts.CUDA && BuiltinInfo.Langs == CUDA_LANG;
   bool CPlusPlusUnsupported =
@@ -111,10 +113,10 @@ bool Builtin::Context::builtinIsSupported(const Builtin::Info &BuiltinInfo,
   // First parameter should be exactly the return statement from community.
   return CheckIntelBuiltinSupported(
         (!BuiltinsUnsupported && !CorBuiltinsUnsupported &&
-         !MathBuiltinsUnsupported && !OclCUnsupported && !OclC1Unsupported &&
-         !OclC2PUnsupported && !OpenMPUnsupported && !GnuModeUnsupported &&
-         !MSModeUnsupported && !ObjCUnsupported && !CPlusPlusUnsupported &&
-         !CUDAUnsupported), BuiltinInfo, LangOpts);
+         !MathBuiltinsUnsupported && !OclCUnsupported && !OclGASUnsupported &&
+         !OclPipeUnsupported && !OclDSEUnsupported && !OpenMPUnsupported &&
+         !GnuModeUnsupported && !MSModeUnsupported && !ObjCUnsupported &&
+         !CPlusPlusUnsupported && !CUDAUnsupported), BuiltinInfo, LangOpts);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -222,25 +224,3 @@ bool Builtin::Context::canBeRedeclared(unsigned ID) const {
          (!hasReferenceArgsOrResult(ID) &&
           !hasCustomTypechecking(ID));
 }
-
-#if INTEL_CUSTOMIZATION
-bool Builtin::Context::OclBuiltinIsSupported(
-    const Builtin::Info &BuiltinInfo, const LangOptions &LangOpts) const {
-  if (!requiresFeatures(BuiltinInfo))
-    return true;
-
-  return llvm::StringSwitch<bool>(BuiltinInfo.Features)
-      // Blocks requires support for OpenCL C 2.0, or OpenCL C 3.0 or newer and
-      // the __opencl_c_device_enqueue feature.
-      .Case("__opencl_c_device_enqueue", LangOpts.Blocks)
-      .Case("__opencl_c_generic_address_space",
-            LangOpts.OpenCLGenericAddressSpace)
-      .Case("__opencl_c_pipes", LangOpts.OpenCLPipes)
-      .Default(false);
-}
-
-bool Builtin::Context::requiresFeatures(
-    const Builtin::Info &BuiltinInfo) const {
-  return BuiltinInfo.Features && llvm::StringRef(BuiltinInfo.Features) != "";
-}
-#endif // INTEL_CUSTOMIZATION

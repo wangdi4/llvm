@@ -28,25 +28,26 @@ class IdentifierTable;
 class LangOptions;
 
 enum LanguageID {
-  GNU_LANG = 0x1,     // builtin requires GNU mode.
-  C_LANG = 0x2,       // builtin for c only.
-  CXX_LANG = 0x4,     // builtin for cplusplus only.
-  OBJC_LANG = 0x8,    // builtin for objective-c and objective-c++
-  MS_LANG = 0x10,     // builtin requires MS mode.
+  GNU_LANG = 0x1,            // builtin requires GNU mode.
+  C_LANG = 0x2,              // builtin for c only.
+  CXX_LANG = 0x4,            // builtin for cplusplus only.
+  OBJC_LANG = 0x8,           // builtin for objective-c and objective-c++
+  MS_LANG = 0x10,            // builtin requires MS mode.
+  OMP_LANG = 0x20,           // builtin requires OpenMP.
+  CUDA_LANG = 0x40,          // builtin requires CUDA.
+  COR_LANG = 0x80,           // builtin requires use of 'fcoroutine-ts' option.
+  OCL_GAS = 0x100,           // builtin requires OpenCL generic address space.
+  OCL_PIPE = 0x200,          // builtin requires OpenCL pipe.
+  OCL_DSE = 0x400,           // builtin requires OpenCL device side enqueue.
+  ALL_OCL_LANGUAGES = 0x800, // builtin for OCL languages.
 #if INTEL_CUSTOMIZATION
-  OCLC2P_LANG = 0x20, // builtin for OpenCL C 2.0 and later versions.
+  ICC_LANG = 0x1000,             // INTEL: builtin requires ICC mode.
+  INTEL_FPGA_PIPE1X = 0x2000,    // INTEL: pipe builtin for OpenCL C 1.x only.
+  ALL_OCL_PIPE = INTEL_FPGA_PIPE1X | OCL_PIPE,
 #endif // INTEL_CUSTOMIZATION
-  OCLC1X_LANG = 0x40, // builtin for OpenCL C 1.x only.
-  OMP_LANG = 0x80,    // builtin requires OpenMP.
-  CUDA_LANG = 0x100,  // builtin requires CUDA.
-  COR_LANG = 0x200,   // builtin requires use of 'fcoroutine-ts' option.
-  ICC_LANG = 0x400,   // INTEL: builtin requires ICC mode.
   ALL_LANGUAGES = C_LANG | CXX_LANG | OBJC_LANG, // builtin for all languages.
   ALL_GNU_LANGUAGES = ALL_LANGUAGES | GNU_LANG,  // builtin requires GNU mode.
-  ALL_MS_LANGUAGES = ALL_LANGUAGES | MS_LANG,    // builtin requires MS mode.
-#if INTEL_CUSTOMIZATION
-  ALL_OCLC_LANGUAGES = OCLC1X_LANG | OCLC2P_LANG // builtin for OCLC languages.
-#endif // INTEL_CUSTOMIZATION
+  ALL_MS_LANGUAGES = ALL_LANGUAGES | MS_LANG     // builtin requires MS mode.
 };
 
 namespace Builtin {
@@ -244,17 +245,6 @@ private:
   /// Is this builtin supported according to the given language options?
   bool builtinIsSupported(const Builtin::Info &BuiltinInfo,
                           const LangOptions &LangOpts);
-
-#if INTEL_CUSTOMIZATION
-  bool OclBuiltinIsSupported(const Builtin::Info &BuiltinInfo,
-                             const LangOptions &LangOpts) const;
-
-  bool requiresFeatures(const Builtin::Info &BuiltinInfo) const;
-
-  bool requiresFeatures(unsigned ID) const {
-    return requiresFeatures(getRecord(ID));
-  }
-#endif // INTEL_CUSTOMIZATION
 
   /// Helper function for isPrintfLike and isScanfLike.
   bool isLike(unsigned ID, unsigned &FormatIdx, bool &HasVAListArg,
