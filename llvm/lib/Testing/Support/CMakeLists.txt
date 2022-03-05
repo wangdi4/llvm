@@ -29,6 +29,7 @@ add_llvm_library(LLVMTestingSupport
   Support
   )
 
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
   add_llvm_library(LLVMTestingSupport_stdcpp
@@ -75,6 +76,9 @@ if (WIN32)
 endif()
 # end INTEL_CUSTOMIZATION
 target_link_libraries(LLVMTestingSupport PRIVATE llvm_gtest)
+=======
+target_link_libraries(LLVMTestingSupport PRIVATE gtest)
+>>>>>>> 7cdda6b8ce49ae3c90c068cff4dc355bba5d77f2
 
 # This is to avoid the error in gtest-death-test-internal.h
 # (150,16): error: 'Create' overrides a member function but
