@@ -7705,11 +7705,6 @@ void CodeGenModule::EmitOMPThreadPrivateDecl(const OMPThreadPrivateDecl *D) {
         VD->getAnyInitializer() &&
         !VD->getAnyInitializer()->isConstantInitializer(getContext(),
                                                         /*ForRef=*/false);
-<<<<<<< HEAD
-
-    Address Addr = Address::deprecated(GetAddrOfGlobalVar(VD),
-                                       getContext().getDeclAlign(VD));
-=======
 #if INTEL_CUSTOMIZATION
     // Temporary fix for opaque pointer problem.
     // Pulldown coordinator: Please replace with community code unless it
@@ -7718,7 +7713,6 @@ void CodeGenModule::EmitOMPThreadPrivateDecl(const OMPThreadPrivateDecl *D) {
                            getTypes().ConvertTypeForMem(VD->getType()),
                            getContext().getDeclAlign(VD));
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 2a8113794d2aafc346a5ed2e521648129005bbf1
     if (auto InitFunction = getOpenMPRuntime().emitThreadPrivateVarDefinition(
             VD, Addr, RefExpr->getBeginLoc(), PerformInit))
       CXXGlobalInits.push_back(InitFunction);
