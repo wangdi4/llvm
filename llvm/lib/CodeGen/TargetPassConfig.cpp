@@ -967,6 +967,8 @@ void TargetPassConfig::addIRPasses() {
   // expanded into more complex calls, generate the expansion to complex calls.
   addPass(createExpandComplexPass());
 #endif // INTEL_CUSTOMIZATION
+  if (getOptLevel() != CodeGenOpt::None)
+    addPass(createTLSVariableHoistPass());
 }
 
 /// Turn exception handling constructs into something the code generators can
