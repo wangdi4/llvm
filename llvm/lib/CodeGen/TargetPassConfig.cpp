@@ -962,11 +962,16 @@ void TargetPassConfig::addIRPasses() {
   if (!DisableExpandReductions)
     addPass(createExpandReductionsPass());
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // If the target doesn't support complex intrinsics, or if they need to be
   // expanded into more complex calls, generate the expansion to complex calls.
   addPass(createExpandComplexPass());
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (getOptLevel() != CodeGenOpt::None)
+    addPass(createTLSVariableHoistPass());
+>>>>>>> 7dd25e6ade6296449b76b5f842dfec5034447af7
 }
 
 /// Turn exception handling constructs into something the code generators can
