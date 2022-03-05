@@ -1748,7 +1748,8 @@ static llvm::Value *castValueToType(CodeGenFunction &CGF, llvm::Value *Val,
                                      CastTy->hasSignedIntegerRepresentation());
   Address CastItem = CGF.CreateMemTemp(CastTy);
   Address ValCastItem = CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
-      CastItem, Val->getType()->getPointerTo(CastItem.getAddressSpace()));
+      CastItem, Val->getType()->getPointerTo(CastItem.getAddressSpace()),
+      Val->getType());
   CGF.EmitStoreOfScalar(Val, ValCastItem, /*Volatile=*/false, ValTy,
                         LValueBaseInfo(AlignmentSource::Type),
                         TBAAAccessInfo());
@@ -1811,7 +1812,7 @@ static void shuffleAndStore(CodeGenFunction &CGF, Address SrcAddr,
   Address ElemPtr = DestAddr;
   Address Ptr = SrcAddr;
   Address PtrEnd = Bld.CreatePointerBitCastOrAddrSpaceCast(
-      Bld.CreateConstGEP(SrcAddr, 1), CGF.VoidPtrTy);
+      Bld.CreateConstGEP(SrcAddr, 1), CGF.VoidPtrTy, CGF.Int8Ty);
   for (int IntSize = 8; IntSize >= 1; IntSize /= 2) {
     if (Size < CharUnits::fromQuantity(IntSize))
       continue;
@@ -1819,9 +1820,10 @@ static void shuffleAndStore(CodeGenFunction &CGF, Address SrcAddr,
         CGF.getContext().toBits(CharUnits::fromQuantity(IntSize)),
         /*Signed=*/1);
     llvm::Type *IntTy = CGF.ConvertTypeForMem(IntType);
-    Ptr = Bld.CreatePointerBitCastOrAddrSpaceCast(Ptr, IntTy->getPointerTo());
-    ElemPtr =
-        Bld.CreatePointerBitCastOrAddrSpaceCast(ElemPtr, IntTy->getPointerTo());
+    Ptr = Bld.CreatePointerBitCastOrAddrSpaceCast(Ptr, IntTy->getPointerTo(),
+                                                  IntTy);
+    ElemPtr = Bld.CreatePointerBitCastOrAddrSpaceCast(
+        ElemPtr, IntTy->getPointerTo(), IntTy);
     if (Size.getQuantity() / IntSize > 1) {
       llvm::BasicBlock *PreCondBB = CGF.createBasicBlock(".shuffle.pre_cond");
       llvm::BasicBlock *ThenBB = CGF.createBasicBlock(".shuffle.then");
@@ -3577,7 +3579,7 @@ llvm::Function *CGOpenMPRuntimeGPU::createParallelDataSharingWrapper(
   if (isOpenMPLoopBoundSharingDirective(D.getDirectiveKind())) {
     Address Src = Bld.CreateConstInBoundsGEP(SharedArgListAddress, Idx);
     Address TypedAddress = Bld.CreatePointerBitCastOrAddrSpaceCast(
-        Src, CGF.SizeTy->getPointerTo());
+        Src, CGF.SizeTy->getPointerTo(), CGF.SizeTy);
     llvm::Value *LB = CGF.EmitLoadOfScalar(
         TypedAddress,
         /*Volatile=*/false,
@@ -3587,7 +3589,7 @@ llvm::Function *CGOpenMPRuntimeGPU::createParallelDataSharingWrapper(
     ++Idx;
     Src = Bld.CreateConstInBoundsGEP(SharedArgListAddress, Idx);
     TypedAddress = Bld.CreatePointerBitCastOrAddrSpaceCast(
-        Src, CGF.SizeTy->getPointerTo());
+        Src, CGF.SizeTy->getPointerTo(), CGF.SizeTy);
     llvm::Value *UB = CGF.EmitLoadOfScalar(
         TypedAddress,
         /*Volatile=*/false,
@@ -3602,7 +3604,8 @@ llvm::Function *CGOpenMPRuntimeGPU::createParallelDataSharingWrapper(
       QualType ElemTy = CurField->getType();
       Address Src = Bld.CreateConstInBoundsGEP(SharedArgListAddress, I + Idx);
       Address TypedAddress = Bld.CreatePointerBitCastOrAddrSpaceCast(
-          Src, CGF.ConvertTypeForMem(CGFContext.getPointerType(ElemTy)));
+          Src, CGF.ConvertTypeForMem(CGFContext.getPointerType(ElemTy)),
+          CGF.ConvertTypeForMem(ElemTy));
       llvm::Value *Arg = CGF.EmitLoadOfScalar(TypedAddress,
                                               /*Volatile=*/false,
                                               CGFContext.getPointerType(ElemTy),
