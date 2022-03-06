@@ -1148,12 +1148,12 @@ namespace {
 
     ExprResult TransformLambdaExpr(LambdaExpr *E) {
       LocalInstantiationScope Scope(SemaRef, /*CombineWithOuterScope=*/true);
-      return TreeTransform<TemplateInstantiator>::TransformLambdaExpr(E);
+      return inherited::TransformLambdaExpr(E);
     }
 
     ExprResult TransformRequiresExpr(RequiresExpr *E) {
       LocalInstantiationScope Scope(SemaRef, /*CombineWithOuterScope=*/true);
-      return TreeTransform<TemplateInstantiator>::TransformRequiresExpr(E);
+      return inherited::TransformRequiresExpr(E);
     }
 
     bool TransformRequiresExprRequirements(
@@ -1363,10 +1363,7 @@ TemplateInstantiator::RebuildElaboratedType(SourceLocation KeywordLoc,
     }
   }
 
-  return TreeTransform<TemplateInstantiator>::RebuildElaboratedType(KeywordLoc,
-                                                                    Keyword,
-                                                                  QualifierLoc,
-                                                                    T);
+  return inherited::RebuildElaboratedType(KeywordLoc, Keyword, QualifierLoc, T);
 }
 
 TemplateName TemplateInstantiator::TransformTemplateName(
@@ -1910,7 +1907,7 @@ TemplateInstantiator::TransformDeclRefExpr(DeclRefExpr *E) {
     if (PD->isParameterPack())
       return TransformFunctionParmPackRefExpr(E, PD);
 
-  return TreeTransform<TemplateInstantiator>::TransformDeclRefExpr(E);
+  return inherited::TransformDeclRefExpr(E);
 }
 
 ExprResult TemplateInstantiator::TransformCXXDefaultArgExpr(
@@ -3425,6 +3422,14 @@ Sema::InstantiateClassMembers(SourceLocation PointOfInstantiation,
     if (auto *Function = dyn_cast<FunctionDecl>(D)) {
       if (FunctionDecl *Pattern =
               Function->getInstantiatedFromMemberFunction()) {
+
+        if (Function->getTrailingRequiresClause()) {
+          ConstraintSatisfaction Satisfaction;
+          if (CheckFunctionConstraints(Function, Satisfaction) ||
+              !Satisfaction.IsSatisfied) {
+            continue;
+          }
+        }
 
         if (Function->hasAttr<ExcludeFromExplicitInstantiationAttr>())
           continue;
