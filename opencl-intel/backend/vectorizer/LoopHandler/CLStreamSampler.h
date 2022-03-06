@@ -30,6 +30,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LoopWIAnalysis.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
 
 using namespace llvm;
