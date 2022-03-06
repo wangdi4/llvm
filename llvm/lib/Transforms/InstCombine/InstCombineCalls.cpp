@@ -21,11 +21,7 @@
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
-<<<<<<< HEAD
 #include "llvm/ADT/Triple.h" // INTEL
-#include "llvm/ADT/Twine.h"
-=======
->>>>>>> 59630917d6cc7c4a273f617f92bf6190ee2992e1
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumeBundleQueries.h"
 #include "llvm/Analysis/AssumptionCache.h"

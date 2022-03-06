@@ -14,11 +14,7 @@
 #include "llvm/Analysis/Intel_WP.h"         // INTEL
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/TargetTransformInfo.h" // INTEL
-#include "llvm/IR/DataLayout.h"
-=======
->>>>>>> 59630917d6cc7c4a273f617f92bf6190ee2992e1
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/InitializePasses.h"
