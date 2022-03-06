@@ -49,3 +49,6 @@
 #pragma comment(                                                               \
     linker,                                                                    \
     "/export:?submit_barrier@queue@sycl@cl@@QEAA?AVevent@23@AEBUcode_location@detail@23@@Z=?ext_oneapi_submit_barrier@queue@sycl@cl@@QEAA?AVevent@23@AEBUcode_location@detail@23@@Z")
+#pragma comment(                                                               \
+    linker,                                                                    \
+    "/export:?device_has@queue@sycl@cl@@QEBA_NW4aspect@23@@Z=?device_has@queue@sycl@cl@@AEBA_NW4aspect@23@@Z")
