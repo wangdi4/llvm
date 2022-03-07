@@ -3,8 +3,8 @@
 // to clean up duplicate code.
 
 // REQUIRES: asserts, intel_feature_sw_advanced
-// Multiversioning doesn't turn on for Windows with below options.
-// XFAIL: win32, windows-gnu, windows-msvc
+// Windows LTO requires -fuse-ld=lld and the lld linker to be built.
+// UNSUPPORTED: win32, windows-gnu, windows-msvc
 
 // RUN: %clang -qopt-mem-layout-trans=4 -xCORE-AVX2 -flto -mllvm -debug-pass=Arguments -flegacy-pass-manager %s 2>&1 | FileCheck %s
 

@@ -3549,8 +3549,11 @@ private:
         assert(SD && "primary scheduledata must exist in window");
         assert(isInSchedulingRegion(SD) &&
                "primary schedule data not in window?");
+<<<<<<< HEAD
         assert(isInSchedulingRegion(SD->FirstInBundle) &&
                "entire bundle in window!");
+=======
+>>>>>>> dc8b6af23640a852a49193560a3e2b83d8ea1a94
         (void)SD;
         doForAllOpcodes(I, [](ScheduleData *SD) { SD->verify(); });
       }
@@ -5244,9 +5247,15 @@ int BoUpSLP::getMNScore() const {
       const LeafData *OperandL = CurrentMultiNode->getOperand(Lane - 1, OpI);
       const LeafData *OperandR = CurrentMultiNode->getOperand(Lane, OpI);
       if (OperandL->getLeaf() == OperandR->getLeaf() ||
+<<<<<<< HEAD
           VLOperands::getShallowScore(
               OperandL->getLeaf(), OperandR->getLeaf(), *DL, *SE,
               CurrentMultiNode->getNumLanes(), None) == VLOperands::ScoreFail) {
+=======
+          VLOperands::getShallowScore(OperandL->getLeaf(), OperandR->getLeaf(),
+                                      *DL, *SE, CurrentMultiNode->getNumLanes(),
+                                      None) == VLOperands::ScoreFail) {
+>>>>>>> dc8b6af23640a852a49193560a3e2b83d8ea1a94
         AreConsecutive = false;
         break;
       }

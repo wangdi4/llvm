@@ -107,10 +107,30 @@ struct saturation_off_tag : std::false_type {};
 /// Type tag object representing "saturation off" behavior.
 static inline constexpr saturation_off_tag saturation_off{};
 
+<<<<<<< HEAD
 /// Type tag object representing "saturation on" behavior.
 static inline constexpr saturation_on_tag saturation_on{};
 
 enum class argument_type {
+=======
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+
+// TODO FIXME Remove after embargo API open-source {
+
+// Defines a deprecated enum value. Use of this value will cause a deprecation
+// message printed out by the compiler.
+#define __ESIMD_DEPR_ENUM_V(old, new, t)                                       \
+  old __ESIMD_DEPRECATED(new) = static_cast<t>(new)
+
+enum {
+  __ESIMD_DEPR_ENUM_V(GENX_NOSAT, saturation::off, uint8_t),
+  __ESIMD_DEPR_ENUM_V(GENX_SAT, saturation::on, uint8_t)
+};
+// }
+
+enum class EsimdPrecisionType {
+>>>>>>> dc8b6af23640a852a49193560a3e2b83d8ea1a94
   U1 = 0,   // unsigned 1 bit
   S1 = 1,   // signed 1 bit
   U2 = 2,   // unsigned 2 bits
@@ -498,6 +518,24 @@ constexpr lsc_data_size finalize_data_size() {
     return DS;
 }
 
+<<<<<<< HEAD
+=======
+} // namespace detail
+
+// TODO FIXME Remove after embargo API open-source
+// TODO Cache hints APIs are being reworked.
+// L1 or L3 cache hint kinds.
+enum class CacheHint : uint8_t {
+  None = 0,
+  Uncached = 1,
+  Cached = 2,
+  WriteBack = 3,
+  WriteThrough = 4,
+  Streaming = 5,
+  ReadInvalidate = 6
+};
+
+>>>>>>> dc8b6af23640a852a49193560a3e2b83d8ea1a94
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 constexpr lsc_data_size expand_data_size(lsc_data_size DS) {
@@ -508,6 +546,7 @@ constexpr lsc_data_size expand_data_size(lsc_data_size DS) {
   return DS;
 }
 
+<<<<<<< HEAD
 template <typename T> struct lsc_expand_type {
   using type = typename std::conditional<sizeof(T) < 4, uint32_t, T>::type;
 };
@@ -602,6 +641,8 @@ constexpr void check_lsc_cache_hint() {
 
 } // namespace detail
 
+=======
+>>>>>>> dc8b6af23640a852a49193560a3e2b83d8ea1a94
 /// Represents a split barrier action.
 enum class split_barrier_action : uint8_t {
   wait = 0,   // split barrier wait

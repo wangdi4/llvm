@@ -1496,7 +1496,58 @@ _pi_queue::pi_queue_group_t::getZeQueue(uint32_t *QueueGroupOrdinal) {
   if (ZeResult) {
     die("[L0] getZeQueue: failed to create queue");
   }
+<<<<<<< HEAD
   return ZeQueue;
+=======
+
+  LowerCopyQueueIndex = std::max(0, LowerCopyQueueIndex);
+  UpperCopyQueueIndex = std::min(UpperCopyQueueIndex, n - 1);
+
+  // If there is only one copy queue, it is the main copy queue (if available),
+  // or the first link copy queue in ZeCopyCommandQueues.
+  if (n == 1) {
+    *CopyQueueIndex = 0;
+    if (CopyQueueGroupIndex) {
+      if (Device->hasMainCopyEngine())
+        *CopyQueueGroupIndex = Device->ZeMainCopyQueueGroupIndex;
+      else
+        *CopyQueueGroupIndex = Device->ZeLinkCopyQueueGroupIndex;
+      zePrint("Note: CopyQueueGroupIndex = %d\n", *CopyQueueGroupIndex);
+    }
+    zePrint("Note: CopyQueueIndex = %d\n", *CopyQueueIndex);
+    ze_command_queue_handle_t ZeCopyCommandQueue = nullptr;
+    if (getOrCreateCopyCommandQueue(0, ZeCopyCommandQueue))
+      return nullptr;
+    return ZeCopyCommandQueue;
+  }
+
+  // Round robin logic is used here to access copy command queues.
+  // Initial value of LastUsedCopyCommandQueueIndex is -1.
+  // So, the round robin logic will start its access at 'LowerCopyQueueIndex'
+  // queue.
+  // TODO: In this implementation, all the copy engines (main and link)
+  // have equal priority. It is expected that main copy engine will be
+  // advantageous for H2D and D2H copies, whereas the link copy engines will
+  // be advantageous for D2D. We will perform experiments and then assign
+  // priority to different copy engines for different types of copy operations.
+  if ((LastUsedCopyCommandQueueIndex == -1) ||
+      (LastUsedCopyCommandQueueIndex == UpperCopyQueueIndex))
+    *CopyQueueIndex = LowerCopyQueueIndex;
+  else
+    *CopyQueueIndex = LastUsedCopyCommandQueueIndex + 1;
+  LastUsedCopyCommandQueueIndex = *CopyQueueIndex;
+  if (CopyQueueGroupIndex)
+    // First queue in the vector of copy queues is the main copy queue,
+    // if available. Otherwise it's a link copy queue.
+    *CopyQueueGroupIndex =
+        ((*CopyQueueIndex == 0) && Device->hasMainCopyEngine())
+            ? Device->ZeMainCopyQueueGroupIndex
+            : Device->ZeLinkCopyQueueGroupIndex;
+  ze_command_queue_handle_t ZeCopyCommandQueue = nullptr;
+  if (getOrCreateCopyCommandQueue(*CopyQueueIndex, ZeCopyCommandQueue))
+    return nullptr;
+  return ZeCopyCommandQueue;
+>>>>>>> dc8b6af23640a852a49193560a3e2b83d8ea1a94
 }
 
 pi_result _pi_queue::executeOpenCommandListWithEvent(pi_event Event) {
