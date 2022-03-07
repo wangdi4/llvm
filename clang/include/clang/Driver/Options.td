@@ -2853,6 +2853,10 @@ def fno_openmp_device_lib_EQ : CommaJoined<["-"], "fno-openmp-device-lib=">, Fla
   "are libc, libm-fp32, libm-fp64, all">;
 def fiopenmp_offload : Flag<["-"], "fiopenmp-offload">, Flags<[NoXarchOption]>, Group<f_Group>;
 def fno_iopenmp_offload : Flag<["-"], "fno-iopenmp-offload">, Flags<[NoXarchOption]>, Group<f_Group>;
+def fopenmp_declare_target_scalar_defaultmap_EQ : Joined<["-"], "fopenmp-declare-target-scalar-defaultmap=">,
+  Flags<[NoXarchOption]>, Values<"firstprivate, default">, HelpText<"Assume that a scalar "
+  "declare target variable with implicit data-mapping referenced in a 'target' construct has the "
+  "same value in the host and device environment">;
 def fopenmp_target_simdlen_EQ : Joined<["-"], "fopenmp-target-simdlen=">,
   Flags<[HelpHidden, NoArgumentUnused]>, Group<f_Group>; // Undocumented as we gather
                                                          // more feedback
@@ -7804,6 +7808,15 @@ def _SLASH_Qiopenmp : CLFlag<"Qiopenmp">, Alias<fiopenmp>;
 def _SLASH_Qopenmp_simd : CLFlag<"Qopenmp-simd">, Alias<fiopenmp_simd>,
   HelpText<"Emit OpenMP code only for SIMD-based constructs.">;
 def _SLASH_Qopenmp_simd_ : CLFlag<"Qopenmp-simd-">, Alias<fno_iopenmp_simd>;
+def _SLASH_Qopenmp_declare_target_scalar_defaultmap_EQ :
+  CLJoined<"Qopenmp-declare-target-scalar-defaultmap=">,
+  Values<"firstprivate, default">, Alias<fopenmp_declare_target_scalar_defaultmap_EQ>;
+def _SLASH_Qopenmp_declare_target_scalar_defaultmap_COL :
+  CLJoined<"Qopenmp-declare-target-scalar-defaultmap:">,
+  Values<"firstprivate, default">, Alias<fopenmp_declare_target_scalar_defaultmap_EQ>,
+  HelpText<"Assume that a scalar declare target variable with implicit "
+  "data-mapping referenced in a 'target' construct has the same value "
+  "in the host and device environment">;
 def _SLASH_Qopenmp_target_simdlen_EQ : CLJoined<"Qopenmp-target-simdlen=">,
   Alias<fopenmp_target_simdlen_EQ>;
 def _SLASH_Qopenmp_target_simdlen_COL : CLJoined<"Qopenmp-target-simdlen:">,
