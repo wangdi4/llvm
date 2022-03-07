@@ -470,6 +470,8 @@ HLInst *HLNodeUtils::createCastHLInst(Type *DestTy, unsigned Opcode,
     return createTrunc(DestTy, Op, Name, LvalRef);
   case Instruction::BitCast:
     return createBitCast(DestTy, Op, Name, LvalRef);
+  case Instruction::AddrSpaceCast:
+    return createAddrSpaceCast(DestTy, Op, Name, LvalRef);
   case Instruction::PtrToInt:
     return createPtrToInt(DestTy, Op, Name, LvalRef);
   case Instruction::IntToPtr:

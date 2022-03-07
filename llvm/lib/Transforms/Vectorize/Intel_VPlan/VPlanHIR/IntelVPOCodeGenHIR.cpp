@@ -5171,6 +5171,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     break;
   }
 
+  case Instruction::AddrSpaceCast:
   case Instruction::FPToUI:
   case Instruction::FPToSI:
   case Instruction::FPExt:
