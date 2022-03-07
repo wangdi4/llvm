@@ -674,7 +674,7 @@ public:
     return get(PT->PointeeTy, AddressSpace);
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 #else // INTEL_CUSTOMIZATION
   [[deprecated("Pointer element types are deprecated. You can *temporarily* "
                "use Type::getPointerElementType() instead")]]

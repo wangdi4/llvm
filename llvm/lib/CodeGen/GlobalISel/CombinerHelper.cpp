@@ -4714,8 +4714,9 @@ bool CombinerHelper::matchMulOBy2(MachineInstr &MI, BuildFnTy &MatchInfo) {
 
 bool CombinerHelper::matchMulOBy0(MachineInstr &MI, BuildFnTy &MatchInfo) {
   // (G_*MULO x, 0) -> 0 + no carry out
-  assert(MI.getOpcode() == TargetOpcode::G_UMULO ||
-         MI.getOpcode() == TargetOpcode::G_SMULO);
+  unsigned Opc = MI.getOpcode();
+  (void)Opc;
+  assert(Opc == TargetOpcode::G_UMULO || Opc == TargetOpcode::G_SMULO);
   if (!mi_match(MI.getOperand(3).getReg(), MRI, m_SpecificICstOrSplat(0)))
     return false;
   Register Dst = MI.getOperand(0).getReg();
@@ -4732,8 +4733,9 @@ bool CombinerHelper::matchMulOBy0(MachineInstr &MI, BuildFnTy &MatchInfo) {
 
 bool CombinerHelper::matchAddOBy0(MachineInstr &MI, BuildFnTy &MatchInfo) {
   // (G_*ADDO x, 0) -> x + no carry out
-  assert(MI.getOpcode() == TargetOpcode::G_UADDO ||
-         MI.getOpcode() == TargetOpcode::G_SADDO);
+  unsigned Opc = MI.getOpcode();
+  (void)Opc;
+  assert(Opc == TargetOpcode::G_UADDO || Opc == TargetOpcode::G_SADDO);
   if (!mi_match(MI.getOperand(3).getReg(), MRI, m_SpecificICstOrSplat(0)))
     return false;
   Register Carry = MI.getOperand(1).getReg();

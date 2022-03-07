@@ -1301,12 +1301,104 @@ constexpr int get_lsc_block_2d_data_size() {
   return Width * Height * NBlocks;
 }
 
-// Format u8u32 and u16u32 back to u8 and u16.
-template <typename T, typename T1, int N>
-ESIMD_INLINE simd<T, N> lsc_format_ret(simd<T1, N> Vals) {
-  auto Formatted = Vals.template bit_cast_view<T>();
-  constexpr int Stride = Formatted.length / N;
-  return Formatted.template select<N, Stride>(0);
+/// @defgroup sycl_esimd_2d_stateless 2D stateless functions
+/// \ingroup sycl_esimd
+/// @{
+/// 2D stateless block load.
+/// \param T is the element data type
+/// \param N is the data size
+/// \param Width is the block width in number of elements
+/// \param Height is the block height
+/// \param NBlks is the number of blocks
+/// \param Transposed is Transposed or not
+/// \param Transformed apply VNNI transform or not
+/// \param L1H is L1 cache hint
+/// \param L3H is L3 chache hint
+/// \param Ptr is surface base address
+/// \param SurfaceWidth is the surface width minus 1 in bytes
+/// \param SurfaceHeight is the surface height minus 1 in rows
+/// \param SurfacePitch is the surface pitch minus 1 in bytes
+/// \param X is zero based X-coordinate of the left upper rectangle corner in
+/// number of elements.
+/// \param Y is zero based Y-coordinate of the left upper rectangle corner in
+/// rows.
+/// \return is a vector of type T and size N, where N is
+///  getNextPowerOf2(Height) * Width * NBlocks, if transposed
+///  getNextPowerOf2(Width) * Height * NBlocks, otherwise
+///
+template <typename T, int Width, int Height = 1, int NBlks = 1,
+          bool Transposed = false, bool Transformed = false,
+          CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
+          int N = get_block_2d_data_size<NBlks, Height, Width, Transposed>()>
+ESIMD_INLINE SYCL_ESIMD_FUNCTION simd<T, N>
+load_2d_stateless(const T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
+                  unsigned SurfacePitch, int X, int Y) {
+  simd<T, N> oldDst;
+  simd<unsigned int, 16> payload(0);
+  payload.template bit_cast_view<uint64_t>().template select<1, 1>(0) = (uint64_t)Ptr;
+  payload.template select<1, 1>(2) = SurfaceWidth;
+  payload.template select<1, 1>(3) = SurfaceHeight;
+  payload.template select<1, 1>(4) = SurfacePitch;
+  payload.template select<1, 1>(5) = X;
+  payload.template select<1, 1>(6) = Y;
+  payload.template bit_cast_view<uchar>().template select<1, 1>(28) = Width - 1;
+  payload.template bit_cast_view<uchar>().template select<1, 1>(29) = Height - 1;
+  uint exDesc = 0x0;
+  uint desc = 0x28A0403;
+  constexpr uchar execSize = 0x0;
+  constexpr uchar sfid = 0xF;
+  constexpr uchar numSrc0 = 0x1;
+  constexpr uchar numSrc1 = 0x0;
+  constexpr uchar numDst = (N * sizeof(T)) / 64;
+  return raw_send_load(oldDst, payload, exDesc, desc, execSize, sfid, numSrc0,
+                       numDst);
+}
+
+/// 2D stateless block store.
+/// \param T is the element data type
+/// \param N is the data size
+/// \param Width is the block width in number of elements
+/// \param Height is the block height
+/// \param NBlks is the number of blocks
+/// \param Transposed is Transposed or not
+/// \param Transformed apply VNNI transform or not
+/// \param L1H is L1 cache hint
+/// \param L3H is L3 chache hint
+/// \param Ptr is the surface base address
+/// \param SurfaceWidth is the surface width minus 1 in bytes
+/// \param SurfaceHeight is the surface height minus 1 in rows
+/// \param SurfacePitch is the surface pitch minus 1 in bytes
+/// \param X is zero based X-coordinate of the left upper rectangle corner in
+/// number of elements.
+/// \param Y is zero based Y-coordinate of the left upper rectangle corner in
+/// rows.
+/// \param Data is the data to be stored.
+///
+template <typename T, int Width, int Height = 1,
+          CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
+          int N = get_block_2d_data_size</*NBlks*/ 1, Height, Width,
+                                         /*Transposed*/ false>()>
+ESIMD_INLINE SYCL_ESIMD_FUNCTION void
+store_2d_stateless(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
+                   unsigned SurfacePitch, int X, int Y, simd<T, N> Data) {
+  simd<unsigned int, 16> payload = 0;
+  payload.template bit_cast_view<uint64_t>().template select<1, 1>(0) = (uint64_t)Ptr;
+  payload.template select<1, 1>(2) = SurfaceWidth;
+  payload.template select<1, 1>(3) = SurfaceHeight;
+  payload.template select<1, 1>(4) = SurfacePitch;
+  payload.template select<1, 1>(5) = X;
+  payload.template select<1, 1>(6) = Y;
+  payload.template bit_cast_view<uchar>().template select<1, 1>(28) = Width - 1;
+  payload.template bit_cast_view<uchar>().template select<1, 1>(29) = Height - 1;
+  uint exDesc = 0x0;
+  uint desc = 0x2040407;
+  constexpr uchar execSize = 0x0;
+  constexpr uchar sfid = 0xF;
+  constexpr uchar numSrc0 = 0x1;
+  constexpr uchar numSrc1 = (N * sizeof(T)) / 64;
+  constexpr uchar numDst = 0x0;
+  raw_sends_store(payload, Data, exDesc, desc, execSize, sfid, numSrc0,
+                  numSrc1);
 }
 } // namespace detail
 
