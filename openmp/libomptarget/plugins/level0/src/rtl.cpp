@@ -4257,7 +4257,7 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
 
   if (DeviceInfo->Option.CommandBatchLevel > 0) {
     auto &Batch = getTLS()->getCommandBatch();
-    if (Batch.isActive() && DeviceInfo->isDiscreteDevice(DeviceId))
+    if (Batch.isActive())
       return Batch.enqueueMemCopyTo(DeviceId, TgtPtr, HstPtr, Size);
   }
 
@@ -4340,7 +4340,7 @@ static int32_t retrieveData(
 
   if (DeviceInfo->Option.CommandBatchLevel > 0) {
     auto &Batch = getTLS()->getCommandBatch();
-    if (Batch.isActive() && DeviceInfo->isDiscreteDevice(DeviceId))
+    if (Batch.isActive())
       return Batch.enqueueMemCopyFrom(DeviceId, HstPtr, TgtPtr, Size);
   }
 
@@ -4986,7 +4986,7 @@ static int32_t runTargetTeamRegion(
 
   if (DeviceInfo->Option.CommandBatchLevel > 0) {
     auto &Batch = getTLS()->getCommandBatch();
-    if (Batch.isActive() && DeviceInfo->isDiscreteDevice(RootId))
+    if (Batch.isActive())
       return Batch.enqueueLaunchKernel(SubId, Kernel, &GroupCounts, KernelLock);
   }
 
@@ -5497,10 +5497,8 @@ EXTERN int32_t __tgt_rtl_command_batch_begin(
     int32_t DeviceId, int32_t BatchLevel) {
   // Do not try command batching in these cases
   // -- Integrated devices
-  // -- Kernel batching on subdevices
   // -- Allowed batch level is lower than BatchLevel
   if (!DeviceInfo->isDiscreteDevice(DeviceId) ||
-      (BatchLevel > 1 && DeviceInfo->getSubDeviceCode() != 0) ||
       DeviceInfo->Option.CommandBatchLevel < BatchLevel)
     return OFFLOAD_SUCCESS;
 
@@ -5513,10 +5511,8 @@ EXTERN int32_t __tgt_rtl_command_batch_end(
     int32_t DeviceId, int32_t BatchLevel) {
   // Do not try command batching in these cases
   // -- Integrated devices
-  // -- Kernel batching on subdevices
   // -- Allowed batch level is lower than BatchLevel
   if (!DeviceInfo->isDiscreteDevice(DeviceId) ||
-      (BatchLevel > 1 && DeviceInfo->getSubDeviceCode() != 0) ||
       DeviceInfo->Option.CommandBatchLevel < BatchLevel)
     return OFFLOAD_SUCCESS;
 
