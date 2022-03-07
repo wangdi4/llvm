@@ -14,6 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/StringMap.h"
 #include "llvm/Analysis/Intel_OptReport/OptReport.h"
 #include <string>
 

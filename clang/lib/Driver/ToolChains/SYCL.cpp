@@ -264,7 +264,11 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
     if (LinkSYCLDeviceLibs)
       Opts.push_back("-only-needed");
     for (const auto &II : InputFiles) {
-      if (II.getType() == types::TY_Tempfilelist) {
+#if INTEL_CUSTOMIZATION
+      if (isOMPDeviceLib(II)) {
+        OMPObjs.push_back(II.getFilename());
+      } else if (II.getType() == types::TY_Tempfilelist) {
+#endif // INTEL_CUSTOMIZATION
         // Pass the unbundled list with '@' to be processed.
         std::string FileName(II.getFilename());
         Libs.push_back(C.getArgs().MakeArgString("@" + FileName));

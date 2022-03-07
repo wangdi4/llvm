@@ -1693,9 +1693,6 @@ def warn_weak_vtable : Warning<
   "%0 has no out-of-line virtual method definitions; its vtable will be "
   "emitted in every translation unit">,
   InGroup<DiagGroup<"weak-vtables">>, DefaultIgnore;
-def warn_weak_template_vtable : Warning<
-  "this warning is no longer in use and will be removed in the next release">,
-  InGroup<DiagGroup<"weak-template-vtables">>, DefaultIgnore;
 
 def ext_using_undefined_std : ExtWarn<
   "using directive refers to implicitly-defined namespace 'std'">;
@@ -7911,6 +7908,11 @@ def err_expected_class_or_namespace : Error<"%0 is not a class"
   "%select{ or namespace|, namespace, or enumeration}1">;
 def err_invalid_declarator_scope : Error<"cannot define or redeclare %0 here "
   "because namespace %1 does not enclose namespace %2">;
+def err_export_non_namespace_scope_name : Error<
+  "cannot export %0 as it is not at namespace scope">;
+def err_redeclaration_non_exported : Error <
+  "cannot export redeclaration %0 here since the previous declaration is not "
+  "exported">;
 def err_invalid_declarator_global_scope : Error<
   "definition or redeclaration of %0 cannot name the global scope">;
 def err_invalid_declarator_in_function : Error<
@@ -9477,6 +9479,9 @@ def warn_printf_ObjCflags_without_ObjCConversion: Warning<
 def warn_printf_invalid_objc_flag: Warning<
     "'%0' is not a valid object format flag">,
     InGroup<Format>;
+def warn_printf_narg_not_supported : Warning<
+    "'%%n' specifier not supported on this platform">,
+    InGroup<Format>;
 def warn_scanf_scanlist_incomplete : Warning<
   "no closing ']' for '%%[' in scanf format string">,
   InGroup<Format>;
@@ -9656,7 +9661,8 @@ def err_generic_sel_multi_match : Error<
 
 // Blocks
 def err_blocks_disable : Error<"blocks support disabled - compile with -fblocks"
-  " or %select{pick a deployment target that supports them|for OpenCL 2.0}0">;
+  " or %select{pick a deployment target that supports them|for OpenCL C 2.0"
+  " or OpenCL C 3.0 with __opencl_c_device_enqueue feature}0">;
 def err_block_returning_array_function : Error<
   "block cannot return %select{array|function}0 type %1">;
 
@@ -10843,6 +10849,8 @@ def err_omp_directive_before_requires : Error <
   "'%0' region encountered before requires directive with '%1' clause">;
 def note_omp_requires_encountered_directive : Note <
   "'%0' previously encountered here">;
+def err_omp_device_ancestor_without_requires_reverse_offload : Error <
+  "Device clause with ancestor device-modifier used without specifying 'requires reverse_offload'">;
 def err_omp_invalid_scope : Error <
   "'#pragma omp %0' directive must appear only in file scope">;
 def note_omp_invalid_length_on_this_ptr_mapping : Note <
@@ -11612,6 +11620,9 @@ def warn_sycl_kernel_num_of_function_params : Warning<
 def warn_sycl_kernel_return_type : Warning<
   "function template with 'sycl_kernel' attribute must have a 'void' return type">,
   InGroup<IgnoredAttributes>;
+def err_sycl_special_type_num_init_method : Error<
+  "types with 'sycl_special_class' attribute must have one and only one '__init' "
+  "method defined">;
 
 // if INTEL_CUSTOMIZATION
 def warn_sycl_unmasked_num_of_function_params : Warning<
@@ -11793,7 +11804,7 @@ def warn_tcb_enforcement_violation : Warning<
 
 // RISC-V builtin required extension warning
 def err_riscv_builtin_requires_extension : Error<
-  "builtin requires '%0' extension support to be enabled">;
+  "builtin requires at least one of the following extensions support to be enabled : %0">;
 def err_riscv_builtin_invalid_lmul : Error<
   "LMUL argument must be in the range [0,3] or [5,7]">;
 } // end of sema component.

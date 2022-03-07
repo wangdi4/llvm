@@ -1916,7 +1916,7 @@ MachineVerifier::visitMachineOperand(const MachineOperand *MO, unsigned MONum) {
     const Register Reg = MO->getReg();
     if (!Reg)
       return;
-    if (MRI->tracksLiveness() && !MI->isDebugValue())
+    if (MRI->tracksLiveness() && !MI->isDebugInstr())
       checkLiveness(MO, MONum);
 
     // Verify the consistency of tied operands.

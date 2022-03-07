@@ -149,9 +149,9 @@ int main() {
 //HOST: !5 = !{i32 1, !"_ZTV1D", i32 0, i32 6, { [5 x i8*], [5 x i8*] }* @_ZTV1D}
 //HOST: !6 = !{i32 1, !"_ZTV7Derived", i32 0, i32 5, { [3 x i8*] }* @_ZTV7Derived}
 
-//TARG: @_ZTV4Base = linkonce_odr hidden target_declare unnamed_addr addrspace(1) constant
-//TARG: @_ZTV7Derived = linkonce_odr hidden target_declare unnamed_addr addrspace(1) constant
-//TARG: define hidden{{.*}}main
+//TARG: @_ZTV4Base = linkonce_odr target_declare unnamed_addr addrspace(1) constant
+//TARG: @_ZTV7Derived = linkonce_odr target_declare unnamed_addr addrspace(1) constant
+//TARG: define {{.*}}main
 //TARG: [[X:%X]] = alloca %class.Base
 //TARG: [[dobj:%dobj]] = alloca %class.Derived
 //TARG: [[d:%d]] = alloca %struct.D

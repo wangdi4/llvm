@@ -26,7 +26,9 @@ set(files
   __algorithm/generate.h
   __algorithm/generate_n.h
   __algorithm/half_positive.h
+  __algorithm/in_in_out_result.h
   __algorithm/in_in_result.h
+  __algorithm/in_out_out_result.h
   __algorithm/in_out_result.h
   __algorithm/includes.h
   __algorithm/inplace_merge.h
@@ -113,8 +115,11 @@ set(files
   __chrono/system_clock.h
   __chrono/time_point.h
   __compare/common_comparison_category.h
+  __compare/compare_partial_order_fallback.h
+  __compare/compare_strong_order_fallback.h
   __compare/compare_three_way.h
   __compare/compare_three_way_result.h
+  __compare/compare_weak_order_fallback.h
   __compare/is_eq.h
   __compare/ordering.h
   __compare/partial_order.h
@@ -178,11 +183,12 @@ set(files
   __format/formatter.h
   __format/formatter_bool.h
   __format/formatter_char.h
+  __format/formatter_floating_point.h
   __format/formatter_integer.h
   __format/formatter_integral.h
+  __format/formatter_pointer.h
   __format/formatter_string.h
   __format/parser_std_format_spec.h
-  __function_like.h
   __functional/binary_function.h
   __functional/binary_negate.h
   __functional/bind.h

@@ -1161,12 +1161,14 @@ public:
   /// Simplify LHS and RHS in a comparison with predicate Pred. Return true
   /// iff any changes were made. If the operands are provably equal or
   /// unequal, LHS and RHS are set to the same value and Pred is set to either
-  /// ICMP_EQ or ICMP_NE.
+  /// ICMP_EQ or ICMP_NE. ControllingFiniteLoop is set if this comparison
+  /// controls the exit of a loop known to have a finite number of iterations.
   bool SimplifyICmpOperands(ICmpInst::Predicate &Pred, const SCEV *&LHS,
 #if INTEL_CUSTOMIZATION
                             const SCEV *&RHS,
                             const ICmpInst *PredContext = nullptr,
-                            unsigned Depth = 0);
+                            unsigned Depth = 0,
+                            bool ControllingFiniteLoop = false);
 #endif // INTEL_CUSTOMIZATION
 
   /// Return the "disposition" of the given SCEV with respect to the given
@@ -1996,6 +1998,15 @@ protected: // INTEL
                          const SCEV *LHS, const SCEV *RHS,
                          const SCEV *FoundLHS, const SCEV *FoundRHS,
                          unsigned Depth);
+
+  /// Test whether the condition described by Pred, LHS, and RHS is true
+  /// whenever the condition described by Pred, FoundLHS, and FoundRHS is
+  /// true.
+  ///
+  /// This routine tries to reason about shifts.
+  bool isImpliedCondOperandsViaShift(ICmpInst::Predicate Pred, const SCEV *LHS,
+                                     const SCEV *RHS, const SCEV *FoundLHS,
+                                     const SCEV *FoundRHS);
 
   /// If we know that the specified Phi is in the header of its containing
   /// loop, we know the loop executes a constant number of times, and the PHI

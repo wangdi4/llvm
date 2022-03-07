@@ -7,6 +7,7 @@ float acos(float val) {
 }
 
 // CHECK: declare dso_local noundef float @"?__spirv_ocl_acos@@YAMM@Z"(float noundef)
+
 double acos(double val) {
   // CHECK: @"?acos@@YANN@Z"
   // CHECK: call noundef double @"?__spirv_ocl_acos@@YANN@Z"

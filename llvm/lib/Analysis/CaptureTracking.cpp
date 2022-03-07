@@ -85,7 +85,7 @@ namespace {
     explicit SimpleCaptureTracker(bool ReturnCaptures,
                                   bool IgnoreFlag // INTEL
                                   )
-        : ReturnCaptures(ReturnCaptures), Captured(false),
+        : ReturnCaptures(ReturnCaptures),
           IgnoreNoAliasArgStCaptured(IgnoreFlag // INTEL
                                      ) {}
 
@@ -112,7 +112,7 @@ namespace {
 
     bool ReturnCaptures;
 
-    bool Captured;
+    bool Captured = false;
     bool IgnoreNoAliasArgStCaptured; // INTEL
   };
 
@@ -125,7 +125,7 @@ namespace {
     CapturesBefore(bool ReturnCaptures, const Instruction *I,
                    const DominatorTree *DT, bool IncludeI, const LoopInfo *LI)
         : BeforeHere(I), DT(DT), ReturnCaptures(ReturnCaptures),
-          IncludeI(IncludeI), Captured(false), LI(LI) {}
+          IncludeI(IncludeI), LI(LI) {}
 
     void tooManyUses() override { Captured = true; }
 
@@ -163,7 +163,7 @@ namespace {
     bool ReturnCaptures;
     bool IncludeI;
 
-    bool Captured;
+    bool Captured = false;
 
     const LoopInfo *LI;
   };
@@ -179,7 +179,7 @@ namespace {
   struct EarliestCaptures : public CaptureTracker {
 
     EarliestCaptures(bool ReturnCaptures, Function &F, const DominatorTree &DT)
-        : DT(DT), ReturnCaptures(ReturnCaptures), Captured(false), F(F) {}
+        : DT(DT), ReturnCaptures(ReturnCaptures), F(F) {}
 
     void tooManyUses() override {
       Captured = true;
@@ -223,7 +223,7 @@ namespace {
 
     bool ReturnCaptures;
 
-    bool Captured;
+    bool Captured = false;
 
     Function &F;
   };

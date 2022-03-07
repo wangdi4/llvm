@@ -12,14 +12,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/GPU/MemoryPromotion.h"
+#include "mlir/Dialect/Affine/LoopUtils.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/GPU/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/LoopUtils.h"
 
 using namespace mlir;
 using namespace mlir::gpu;
@@ -150,8 +149,7 @@ void mlir::promoteToWorkgroupMemory(GPUFuncOp op, unsigned arg) {
   int workgroupMemoryAddressSpace = gpu::GPUDialect::getWorkgroupAddressSpace();
   auto bufferType = MemRefType::get(type.getShape(), type.getElementType(), {},
                                     workgroupMemoryAddressSpace);
-
-  Value attribution = op.addWorkgroupAttribution(bufferType);
+  Value attribution = op.addWorkgroupAttribution(bufferType, value.getLoc());
 
   // Replace the uses first since only the original uses are currently present.
   // Then insert the copies.

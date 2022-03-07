@@ -128,6 +128,6 @@ bool llvm::debuginfoShouldUseDebugInstrRef(const Triple &T) {
       ValueTrackingVariableLocations != cl::boolOrDefault::BOU_FALSE)
     return true;
 
-  // Otherwise: enable if explicitly requestedo n command line.
+  // Enable if explicitly requested on command line.
   return ValueTrackingVariableLocations == cl::boolOrDefault::BOU_TRUE;
 }

@@ -1466,10 +1466,12 @@ public:
 
   /// Flags describing the kind of vector reduction.
   struct ReductionFlags {
-    ReductionFlags() : IsMaxOp(false), IsSigned(false), NoNaN(false) {}
-    bool IsMaxOp;  ///< If the op a min/max kind, true if it's a max operation.
-    bool IsSigned; ///< Whether the operation is a signed int reduction.
-    bool NoNaN;    ///< If op is an fp min/max, whether NaNs may be present.
+    ReductionFlags() = default;
+    bool IsMaxOp =
+        false; ///< If the op a min/max kind, true if it's a max operation.
+    bool IsSigned = false; ///< Whether the operation is a signed int reduction.
+    bool NoNaN =
+        false; ///< If op is an fp min/max, whether NaNs may be present.
   };
 
   /// \returns True if the target prefers reductions in loop.
@@ -1936,7 +1938,7 @@ class TargetTransformInfo::Model final : public TargetTransformInfo::Concept {
 
 public:
   Model(T Impl) : Impl(std::move(Impl)) {}
-  ~Model() override {}
+  ~Model() override = default;
 
   const DataLayout &getDataLayout() const override {
     return Impl.getDataLayout();

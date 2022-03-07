@@ -77,14 +77,14 @@ int main() {
 // CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds [[CLASS_ANON]], %class.anon* [[L]], i32 0, i32 1
 // CHECK-NEXT:    [[TMP3:%.*]] = load i32, i32* [[B_ADDR]], align 4
 // CHECK-NEXT:    store i32 [[TMP3]], i32* [[TMP2]], align 4
-// CHECK-NEXT:    call void @_ZZ13lambda_maskediiENKUlvE_clEv(%class.anon* noundef [[L]])
+// CHECK-NEXT:    call void @_ZZ13lambda_maskediiENKUlvE_clEv(%class.anon* noundef {{.*}} [[L]])
 // CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds [[CLASS_ANON_0]], %class.anon.0* [[L1]], i32 0, i32 0
 // CHECK-NEXT:    [[TMP5:%.*]] = load i32, i32* [[A_ADDR]], align 4
 // CHECK-NEXT:    store i32 [[TMP5]], i32* [[TMP4]], align 4
 // CHECK-NEXT:    [[TMP6:%.*]] = getelementptr inbounds [[CLASS_ANON_0]], %class.anon.0* [[L1]], i32 0, i32 1
 // CHECK-NEXT:    [[TMP7:%.*]] = load i32, i32* [[B_ADDR]], align 4
 // CHECK-NEXT:    store i32 [[TMP7]], i32* [[TMP6]], align 4
-// CHECK-NEXT:    call void @_ZZ13lambda_maskediiENKUlvE0_clEv(%class.anon.0* noundef [[L1]])
+// CHECK-NEXT:    call void @_ZZ13lambda_maskediiENKUlvE0_clEv(%class.anon.0* noundef {{.*}} [[L1]])
 // CHECK-NEXT:    store i32 1, i32* [[Y]], align 4
 // CHECK-NEXT:    [[TMP8:%.*]] = getelementptr inbounds [[CLASS_ANON_1]], %class.anon.1* [[L2]], i32 0, i32 0
 // CHECK-NEXT:    [[TMP9:%.*]] = load i32, i32* [[A_ADDR]], align 4
@@ -93,7 +93,7 @@ int main() {
 // CHECK-NEXT:    [[TMP11:%.*]] = load i32, i32* [[B_ADDR]], align 4
 // CHECK-NEXT:    store i32 [[TMP11]], i32* [[TMP10]], align 4
 // CHECK-NEXT:    [[TMP12:%.*]] = load i32, i32* [[Y]], align 4
-// CHECK-NEXT:    call void @_ZZ13lambda_maskediiENKUliE_clEi(%class.anon.1* noundef [[L2]], i32 noundef [[TMP12]])
+// CHECK-NEXT:    call void @_ZZ13lambda_maskediiENKUliE_clEi(%class.anon.1* noundef nonnull align 4 dereferenceable(8) [[L2]], i32 noundef [[TMP12]])
 // CHECK-NEXT:    ret void
 //
 void lambda_masked(int a, int b) {

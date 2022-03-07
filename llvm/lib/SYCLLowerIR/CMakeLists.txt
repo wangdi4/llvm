@@ -30,7 +30,11 @@ endif()
 if (NOT TARGET LLVMGenXIntrinsics)
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
     set(LLVMGenXIntrinsics_GIT_REPO https://github.com/intel/vc-intrinsics.git)
-    set(LLVMGenXIntrinsics_GIT_TAG dpcpp_staging)
+    # commit a9bb6d8040c43404c5fbe3694e59c503d179d19a
+    # Author: Nikita Rudenko <nikita.rudenko@intel.com>
+    # Date:   Tue Feb 1 14:57:43 2022 +0000
+    #  Fix attributes are not forwarded for call inst with SEV
+    set(LLVMGenXIntrinsics_GIT_TAG a9bb6d8040c43404c5fbe3694e59c503d179d19a)
 
     if (INTEL_CUSTOMIZATION)
       # for xmain builds the LLVMGenXIntrinsics_GIT_REPO is constructed from
@@ -41,11 +45,11 @@ if (NOT TARGET LLVMGenXIntrinsics)
       # default repo path for public xmain builds, not using ICS
       set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel-innersource)
       set(LLVMGenXIntrinsics_GIT_REPO_NAME applications.compilers.source.vc-intrinsics.git)
-      # commit a7a3efa116ae165132508f3f9a975fccb196fede
-      # Author: Anatoly Parshintsev <anatoly.parshintsev@intel.com>
-      # Date:   Wed Jan 26 15:11:43 2022 +0000
-      # Fix potential null pointer dereference
-      set(LLVMGenXIntrinsics_GIT_TAG a7a3efa116ae165132508f3f9a975fccb196fede)
+      # commit a3ca3a364a92ed966a337d9154f9f2d02b0efc5a
+      # Author: Nikita Rudenko <nikita.rudenko@intel.com>
+      # Date: Thu Feb 3 14:10:33 2022 +0000
+      # Set some tests to XFAIL on latest LLVM 15
+      set(LLVMGenXIntrinsics_GIT_TAG a3ca3a364a92ed966a337d9154f9f2d02b0efc5a)
 
       # Determine if the build is embargo and provide specific settings.
       set(IS_INTERNAL_ESIMD_BUILD FALSE)
@@ -55,11 +59,11 @@ if (NOT TARGET LLVMGenXIntrinsics)
       if (IS_INTERNAL_ESIMD_BUILD)
         # override git repo name and tag for the internal ESIMD EMBARGO build
         set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
-        # commit ff01922c50630c6fc935fea601e18791fce0d3eb
-        # Author: Parshintsev Anatoly <anatoly.parshintsev@intel.com>
-        # Date:   Tue Feb 1 13:52:23 2022 +0300
-        # Fix issue detected by static analysis tools (#177)
-        set(LLVMGenXIntrinsics_GIT_TAG ff01922c50630c6fc935fea601e18791fce0d3eb)
+        # commit 86c90afd3c5e56bf24d1a368bbb2bbf1714de9e8
+        # Author: Nikita Rudenko <nikita.rudenko@intel.com>
+        # Date:   Wed Feb 2 20:47:10 2022 +0300
+        # Put DEBUG_TYPE macro after includes
+        set(LLVMGenXIntrinsics_GIT_TAG 86c90afd3c5e56bf24d1a368bbb2bbf1714de9e8)
 
         add_compile_definitions(__INTEL_EMBARGO__)
         # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is

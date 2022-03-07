@@ -1123,7 +1123,7 @@ bool DevirtModule::runForTesting(
     if (StringRef(ClWriteSummary).endswith(".bc")) {
       raw_fd_ostream OS(ClWriteSummary, EC, sys::fs::OF_None);
       ExitOnErr(errorCodeToError(EC));
-      WriteIndexToFile(*Summary, OS);
+      writeIndexToFile(*Summary, OS);
     } else {
       raw_fd_ostream OS(ClWriteSummary, EC, sys::fs::OF_TextWithCRLF);
       ExitOnErr(errorCodeToError(EC));
@@ -1177,7 +1177,7 @@ bool DevirtModule::runForTesting(
     if (StringRef(ClWriteSummary).endswith(".bc")) {
       raw_fd_ostream OS(ClWriteSummary, EC, sys::fs::OF_None);
       ExitOnErr(errorCodeToError(EC));
-      WriteIndexToFile(*Summary, OS);
+      writeIndexToFile(*Summary, OS);
     } else {
       raw_fd_ostream OS(ClWriteSummary, EC, sys::fs::OF_TextWithCRLF);
       ExitOnErr(errorCodeToError(EC));

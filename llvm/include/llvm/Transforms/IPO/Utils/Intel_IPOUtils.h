@@ -16,6 +16,7 @@
 #ifndef LLVM_TRANSFORMS_IPO_INTEL_UTIILTY_H
 #define LLVM_TRANSFORMS_IPO_INTEL_UTIILTY_H
 
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/Debug.h"

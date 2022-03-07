@@ -169,7 +169,7 @@ Address CodeGenFunction::CreateMemTemp(QualType Ty, CharUnits Align,
 
     Result = Address(
         Builder.CreateBitCast(Result.getPointer(), VectorTy->getPointerTo()),
-        Result.getAlignment());
+        VectorTy, Result.getAlignment());
   }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS

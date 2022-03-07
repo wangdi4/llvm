@@ -39,6 +39,7 @@
 #include "llvm/ADT/SmallSet.h"                // INTEL
 #include <cassert>
 #include <climits>
+#include <map>                                // INTEL
 
 namespace llvm {
 class BlockFrequencyInfo;

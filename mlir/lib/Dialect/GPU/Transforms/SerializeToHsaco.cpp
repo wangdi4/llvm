@@ -40,6 +40,7 @@
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileUtilities.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetSelect.h"
@@ -357,7 +358,7 @@ SerializeToHsacoPass::assembleIsa(const std::string &isa) {
 
   llvm::SourceMgr srcMgr;
   srcMgr.AddNewSourceBuffer(llvm::MemoryBuffer::getMemBuffer(isa),
-                            llvm::SMLoc());
+                            SMLoc());
 
   const llvm::MCTargetOptions mcOptions;
   std::unique_ptr<llvm::MCRegisterInfo> mri(
@@ -439,7 +440,8 @@ SerializeToHsacoPass::createHsaco(const SmallVectorImpl<char> &isaBinary) {
     // Invoke lld. Expect a true return value from lld.
     if (!lld::elf::link({"ld.lld", "-shared", tempIsaBinaryFilename.c_str(),
                          "-o", tempHsacoFilename.c_str()},
-                        /*canEarlyExit=*/false, llvm::outs(), llvm::errs())) {
+                        llvm::outs(), llvm::errs(), /*exitEarly=*/true,
+                        /*disableOutput=*/false)) {
       emitError(loc, "lld invocation error");
       return {};
     }
@@ -479,6 +481,17 @@ void mlir::registerGpuSerializeToHsacoPass() {
                                                       "", 2);
       });
 }
+
+/// Create an instance of the GPU kernel function to HSAco binary serialization
+/// pass.
+std::unique_ptr<Pass> mlir::createGpuSerializeToHsacoPass(StringRef triple,
+                                                          StringRef arch,
+                                                          StringRef features,
+                                                          int optLevel) {
+  return std::make_unique<SerializeToHsacoPass>(triple, arch, features,
+                                                optLevel);
+}
+
 #else  // MLIR_GPU_TO_HSACO_PASS_ENABLE
 void mlir::registerGpuSerializeToHsacoPass() {}
 #endif // MLIR_GPU_TO_HSACO_PASS_ENABLE

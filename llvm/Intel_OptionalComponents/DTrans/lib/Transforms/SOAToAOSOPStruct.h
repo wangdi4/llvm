@@ -298,7 +298,7 @@ public:
   static bool isThisArgIsDead(const DTransSafetyInfo &DTInfo,
                               const TargetLibraryInfo &TLI,
                               const CallBase *Call) {
-    auto *F = Call->getCalledFunction();
+    auto *F = dtrans::getCalledFunction(*Call);
 
     // Simple wrappers only.
     if (!F || !F->hasOneUse())
@@ -380,7 +380,7 @@ public:
       for (auto &U : User->uses())
         if (const auto *Call = dyn_cast<CallBase>(U.getUser())) {
           // Direct call.
-          if (auto *F = Call->getCalledFunction())
+          if (auto *F = dtrans::getCalledFunction(*Call))
             if (getOPStructTypeOfMethod(F, &DTInfo) == ArrType) {
               if (SingleMethod)
                 return std::make_pair(FreeUseSeen, nullptr);
@@ -487,7 +487,7 @@ private:
         if (isCastUse(U)) {
           continue;
         } else if (const CallBase *Call = dyn_cast<CallBase>(U.getUser())) {
-          if (auto *F = Call->getCalledFunction()) {
+          if (auto *F = dtrans::getCalledFunction(*Call)) {
             // CFG restriction, use can be only for 'this' argument.
             //
             // Safety check of CFG based on the 'this' argument.
@@ -569,7 +569,7 @@ private:
           continue;
         } else if (const CallBase *Call = dyn_cast<CallBase>(U.getUser())) {
           // Use of stored value in ctor is checked in CallSiteComparator.
-          if (auto *F = Call->getCalledFunction())
+          if (auto *F = dtrans::getCalledFunction(*Call))
             if (ArrType == getOPStructTypeOfMethod(F, &DTInfo)) {
               // Store should be associated with single method, i.e. with ctor.
               // Called value is checked in CallSiteComparator.
@@ -2138,7 +2138,7 @@ public:
             DTInfo, TLI, SI->getValueOperand(), getArrayType(I));
         if (!MethodCall)
           return false;
-        auto *FCalled = MethodCall->getCalledFunction();
+        auto *FCalled = dtrans::getCalledFunction(*MethodCall);
         // Not ctor call, hence cannot merge.
         if (std::find_if(CSInfo.Ctors.begin(), CSInfo.Ctors.end(),
                          [FCalled](const Function *FCtor) -> bool {
@@ -2159,7 +2159,7 @@ public:
         if (IsUsed.first) {
           assert(IsUsed.second && "StructureMethodAnalysis was not run");
           const CallBase *Call = IsUsed.second;
-          auto FCalled = Call->getCalledFunction();
+          auto FCalled = dtrans::getCalledFunction(*Call);
           if (std::find_if(CSInfo.Dtors.begin(), CSInfo.Dtors.end(),
                            [FCalled](const Function *FDtor) -> bool {
                              return FCalled == FDtor;
@@ -2174,7 +2174,7 @@ public:
           return false;
         MI = MS;
       } else if (const CallBase *Call = dyn_cast<CallBase>(I)) {
-        auto *FCalled = Call->getCalledFunction();
+        auto *FCalled = dtrans::getCalledFunction(*Call);
         if (!FCalled)
           return false;
         auto *StrType = getOPStructTypeOfMethod(FCalled, &DTInfo);
@@ -2312,7 +2312,7 @@ public:
         continue;
       if (auto *Call = dyn_cast<CallBase>(NewI)) {
         const auto *OldCall = dyn_cast<CallBase>(I);
-        auto *FCalled = OldCall->getCalledFunction();
+        auto *FCalled = dtrans::getCalledFunction(*OldCall);
         assert(FCalled && "Expected direct call");
         // 'this' argument has the same type as pointer to arrays in S.StrType.
         bool ToRemove = getOPStructTypeOfMethod(FCalled, &DTInfo) !=
@@ -2329,11 +2329,14 @@ public:
           OldAppends.push_back(cast<CallInst>(I));
         else if (ToRemove)
           if (std::find(CSInfo.Ctors.begin(), CSInfo.Ctors.end(),
-                        OldCall->getCalledFunction()) != CSInfo.Ctors.end() ||
+                        dtrans::getCalledFunction(*OldCall)) !=
+                  CSInfo.Ctors.end() ||
               std::find(CSInfo.CCtors.begin(), CSInfo.CCtors.end(),
-                        OldCall->getCalledFunction()) != CSInfo.CCtors.end() ||
+                        dtrans::getCalledFunction(*OldCall)) !=
+                  CSInfo.CCtors.end() ||
               std::find(CSInfo.Dtors.begin(), CSInfo.Dtors.end(),
-                        OldCall->getCalledFunction()) != CSInfo.Dtors.end())
+                        dtrans::getCalledFunction(*OldCall)) !=
+                  CSInfo.Dtors.end())
             removeCtorDtor(Call);
       }
     }
@@ -2419,8 +2422,8 @@ private:
       // When routine is not cloned, original "Append" call is replaced
       // by new "Append" function. ReverseVMap is used to get original
       // "Append" function.
-      auto *Func = IsCloned ? CI->getCalledFunction()
-                            : ReverseVMap[CI->getCalledFunction()];
+      auto *Func = IsCloned ? dtrans::getCalledFunction(*CI)
+                            : ReverseVMap[dtrans::getCalledFunction(*CI)];
       auto *ArrayTy = getOPStructTypeOfMethod(Func, &DTInfo);
 
       auto It = std::find(Arrays.begin(), Arrays.end(), ArrayTy);
@@ -2428,9 +2431,9 @@ private:
       SortedAppends[It - Arrays.begin()] = CI;
     }
 
-    auto *FCalled = IsCloned
-                        ? SortedAppends[0]->getCalledFunction()
-                        : ReverseVMap[SortedAppends[0]->getCalledFunction()];
+    auto *FCalled =
+        IsCloned ? dtrans::getCalledFunction(*SortedAppends[0])
+                 : ReverseVMap[dtrans::getCalledFunction(*SortedAppends[0])];
     assert(FCalled && "Expected direct call");
     auto *OldFunctionTy = dyn_cast_or_null<DTransFunctionType>(
         DTInfo.getTypeMetadataReader().getDTransTypeFromMD(FCalled));
@@ -2468,7 +2471,7 @@ private:
     IRBuilder<> Builder(Context);
     // Insert at the end of BasicBlock.
     Builder.SetInsertPoint(NewAppend->getParent()->getTerminator());
-    auto *NewF = NewAppend->getCalledFunction();
+    auto *NewF = dtrans::getCalledFunction(*NewAppend);
     assert(NewF && "Expected direct call");
     Builder.CreateCall(NewF->getFunctionType(), NewF, NewArgs);
 

@@ -535,7 +535,7 @@ public:
     DebugLoc End;
 
   public:
-    LocRange() {}
+    LocRange() = default;
     LocRange(DebugLoc Start) : Start(Start), End(Start) {}
     LocRange(DebugLoc Start, DebugLoc End)
         : Start(std::move(Start)), End(std::move(End)) {}
@@ -908,7 +908,7 @@ template <class BlockT, class LoopT> class LoopInfoBase {
   LoopInfoBase(const LoopInfoBase &) = delete;
 
 public:
-  LoopInfoBase() {}
+  LoopInfoBase() = default;
   ~LoopInfoBase() { releaseMemory(); }
 
   LoopInfoBase(LoopInfoBase &&Arg)
@@ -1105,7 +1105,7 @@ class LoopInfo : public LoopInfoBase<BasicBlock, Loop> {
   LoopInfo(const LoopInfo &) = delete;
 
 public:
-  LoopInfo() {}
+  LoopInfo() = default;
   explicit LoopInfo(const DominatorTreeBase<BasicBlock, false> &DomTree);
 
   LoopInfo(LoopInfo &&Arg) : BaseT(std::move(static_cast<BaseT &>(Arg))) {}
@@ -1348,6 +1348,10 @@ bool hasMustProgress(const Loop *L);
 /// Return true if this loop can be assumed to make progress.  (i.e. can't
 /// be infinite without side effects without also being undefined)
 bool isMustProgress(const Loop *L);
+
+/// Return true if this loop can be assumed to run for a finite number of
+/// iterations.
+bool isFinite(const Loop *L);
 
 /// Return whether an MDNode might represent an access group.
 ///

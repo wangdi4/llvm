@@ -15,6 +15,7 @@
 #include "llvm/Config/llvm-config.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/ConvertUTF.h"
+#include "llvm/Support/Duration.h"
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
@@ -2324,7 +2325,9 @@ TEST_F(FileSystemTest, widenPath) {
   for (size_t i = 0; i < NumChars; ++i)
     Input += Pi;
   // Check that UTF-8 length already exceeds MAX_PATH.
-  EXPECT_TRUE(Input.size() > MAX_PATH);
+#if INTEL_CUSTOMIZATION
+  EXPECT_GT(Input.size(), (size_t)MAX_PATH);
+#endif // INTEL_CUSTOMIZATION
   SmallVector<wchar_t, MAX_PATH + 16> Result;
   ASSERT_NO_ERROR(windows::widenPath(Input, Result));
   // Result should not start with the long path prefix.

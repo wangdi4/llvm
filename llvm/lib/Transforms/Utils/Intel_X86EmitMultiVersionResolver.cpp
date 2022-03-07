@@ -13,6 +13,7 @@
 
 #include "llvm/Transforms/Utils/Intel_X86EmitMultiVersionResolver.h" // INTEL
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Type.h"

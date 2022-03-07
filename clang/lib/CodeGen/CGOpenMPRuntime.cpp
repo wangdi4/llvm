@@ -843,12 +843,11 @@ void ReductionCodeGen::emitAggregateType(CodeGenFunction &CGF, unsigned N) {
   }
   llvm::Value *Size;
   llvm::Value *SizeInChars;
-  auto *ElemType =
-      cast<llvm::PointerType>(OrigAddresses[N].first.getPointer(CGF)->getType())
-          ->getElementType();
+  auto *ElemType = OrigAddresses[N].first.getAddress(CGF).getElementType();
   auto *ElemSizeOf = llvm::ConstantExpr::getSizeOf(ElemType);
   if (AsArraySection) {
-    Size = CGF.Builder.CreatePtrDiff(OrigAddresses[N].second.getPointer(CGF),
+    Size = CGF.Builder.CreatePtrDiff(ElemType,
+                                     OrigAddresses[N].second.getPointer(CGF),
                                      OrigAddresses[N].first.getPointer(CGF));
     Size = CGF.Builder.CreateNUWAdd(
         Size, llvm::ConstantInt::get(Size->getType(), /*V=*/1));
@@ -1014,7 +1013,8 @@ Address ReductionCodeGen::adjustPrivateAddress(CodeGenFunction &CGF, unsigned N,
                     OriginalBaseLValue);
     Address SharedAddr = SharedAddresses[N].first.getAddress(CGF);
     llvm::Value *Adjustment = CGF.Builder.CreatePtrDiff(
-        BaseLValue.getPointer(CGF), SharedAddr.getPointer());
+        SharedAddr.getElementType(), BaseLValue.getPointer(CGF),
+        SharedAddr.getPointer());
     llvm::Value *PrivatePointer =
         CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
             PrivateAddr.getPointer(), SharedAddr.getType());
@@ -8499,7 +8499,7 @@ public:
                           .getAddress(CGF);
                 }
                 Size = CGF.Builder.CreatePtrDiff(
-                    CGF.EmitCastToVoidPtr(ComponentLB.getPointer()),
+                    CGF.Int8Ty, CGF.EmitCastToVoidPtr(ComponentLB.getPointer()),
                     CGF.EmitCastToVoidPtr(LB.getPointer()));
                 break;
               }
@@ -8520,7 +8520,7 @@ public:
           CombinedInfo.BasePointers.push_back(BP.getPointer());
           CombinedInfo.Pointers.push_back(LB.getPointer());
           Size = CGF.Builder.CreatePtrDiff(
-              CGF.Builder.CreateConstGEP(HB, 1).getPointer(),
+              CGF.Int8Ty, CGF.Builder.CreateConstGEP(HB, 1).getPointer(),
               CGF.EmitCastToVoidPtr(LB.getPointer()));
           CombinedInfo.Sizes.push_back(
               CGF.Builder.CreateIntCast(Size, CGF.Int64Ty, /*isSigned=*/true));
@@ -9414,7 +9414,7 @@ public:
         CGF.Builder.CreateConstGEP1_32(HBAddr.getElementType(), HB, /*Idx0=*/1);
     llvm::Value *CLAddr = CGF.Builder.CreatePointerCast(LB, CGF.VoidPtrTy);
     llvm::Value *CHAddr = CGF.Builder.CreatePointerCast(HAddr, CGF.VoidPtrTy);
-    llvm::Value *Diff = CGF.Builder.CreatePtrDiff(CHAddr, CLAddr);
+    llvm::Value *Diff = CGF.Builder.CreatePtrDiff(CGF.Int8Ty, CHAddr, CLAddr);
     llvm::Value *Size = CGF.Builder.CreateIntCast(Diff, CGF.Int64Ty,
                                                   /*isSigned=*/false);
     CombinedInfo.Sizes.push_back(Size);
@@ -10856,8 +10856,7 @@ void CGOpenMPRuntime::emitUDMapperArrayInitOrDel(
   llvm::Value *Cond;
   if (IsInit) {
     // base != begin?
-    llvm::Value *BaseIsBegin = MapperCGF.Builder.CreateIsNotNull(
-        MapperCGF.Builder.CreatePtrDiff(Base, Begin));
+    llvm::Value *BaseIsBegin = MapperCGF.Builder.CreateICmpNE(Base, Begin);
 #if INTEL_COLLAB
     // Late outlining: opencl plugin needs the base and begin pointers even
     // for single-element array section maps with non-zero offset, like:

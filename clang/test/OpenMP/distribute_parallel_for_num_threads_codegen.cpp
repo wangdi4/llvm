@@ -108,8 +108,8 @@ int main() {
 // CHECK1-NEXT:    [[DOTOFFLOAD_MAPPERS:%.*]] = alloca [1 x i8*], align 8
 // CHECK1-NEXT:    [[_TMP1:%.*]] = alloca i32, align 4
 // CHECK1-NEXT:    store i32 0, i32* [[RETVAL]], align 4
-// CHECK1-NEXT:    call void @_ZN1SC1El(%struct.S* noundef [[S]], i64 noundef 0)
-// CHECK1-NEXT:    [[CALL:%.*]] = invoke noundef signext i8 @_ZN1ScvcEv(%struct.S* noundef [[S]])
+// CHECK1-NEXT:    call void @_ZN1SC1El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]], i64 noundef 0)
+// CHECK1-NEXT:    [[CALL:%.*]] = invoke noundef signext i8 @_ZN1ScvcEv(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]])
 // CHECK1-NEXT:    to label [[INVOKE_CONT:%.*]] unwind label [[LPAD:%.*]]
 // CHECK1:       invoke.cont:
 // CHECK1-NEXT:    store i8 [[CALL]], i8* [[A]], align 1
@@ -127,7 +127,7 @@ int main() {
 // CHECK1-NEXT:    store i8* [[TMP3]], i8** [[EXN_SLOT]], align 8
 // CHECK1-NEXT:    [[TMP4:%.*]] = extractvalue { i8*, i32 } [[TMP2]], 1
 // CHECK1-NEXT:    store i32 [[TMP4]], i32* [[EHSELECTOR_SLOT]], align 4
-// CHECK1-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[S]]) #[[ATTR6]]
+// CHECK1-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]]) #[[ATTR6]]
 // CHECK1-NEXT:    br label [[EH_RESUME:%.*]]
 // CHECK1:       omp_offload.cont:
 // CHECK1-NEXT:    [[TMP5:%.*]] = load i8, i8* [[A]], align 1
@@ -163,7 +163,7 @@ int main() {
 // CHECK1:       invoke.cont7:
 // CHECK1-NEXT:    [[ADD9:%.*]] = add nsw i32 [[ADD]], [[CALL8]]
 // CHECK1-NEXT:    store i32 [[ADD9]], i32* [[RETVAL]], align 4
-// CHECK1-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[S]]) #[[ATTR6]]
+// CHECK1-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]]) #[[ATTR6]]
 // CHECK1-NEXT:    [[TMP17:%.*]] = load i32, i32* [[RETVAL]], align 4
 // CHECK1-NEXT:    ret i32 [[TMP17]]
 // CHECK1:       eh.resume:
@@ -175,7 +175,7 @@ int main() {
 //
 //
 // CHECK1-LABEL: define {{[^@]+}}@_ZN1SC1El
-// CHECK1-SAME: (%struct.S* noundef [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR1:[0-9]+]] comdat align 2 {
+// CHECK1-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR1:[0-9]+]] comdat align 2 {
 // CHECK1-NEXT:  entry:
 // CHECK1-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK1-NEXT:    [[A_ADDR:%.*]] = alloca i64, align 8
@@ -183,12 +183,12 @@ int main() {
 // CHECK1-NEXT:    store i64 [[A]], i64* [[A_ADDR]], align 8
 // CHECK1-NEXT:    [[THIS1:%.*]] = load %struct.S*, %struct.S** [[THIS_ADDR]], align 8
 // CHECK1-NEXT:    [[TMP0:%.*]] = load i64, i64* [[A_ADDR]], align 8
-// CHECK1-NEXT:    call void @_ZN1SC2El(%struct.S* noundef [[THIS1]], i64 noundef [[TMP0]])
+// CHECK1-NEXT:    call void @_ZN1SC2El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS1]], i64 noundef [[TMP0]])
 // CHECK1-NEXT:    ret void
 //
 //
 // CHECK1-LABEL: define {{[^@]+}}@_ZN1ScvcEv
-// CHECK1-SAME: (%struct.S* noundef [[THIS:%.*]]) #[[ATTR2:[0-9]+]] comdat align 2 {
+// CHECK1-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) #[[ATTR2:[0-9]+]] comdat align 2 {
 // CHECK1-NEXT:  entry:
 // CHECK1-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK1-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
@@ -558,17 +558,17 @@ int main() {
 //
 //
 // CHECK1-LABEL: define {{[^@]+}}@_ZN1SD1Ev
-// CHECK1-SAME: (%struct.S* noundef [[THIS:%.*]]) unnamed_addr #[[ATTR8:[0-9]+]] comdat align 2 {
+// CHECK1-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) unnamed_addr #[[ATTR8:[0-9]+]] comdat align 2 {
 // CHECK1-NEXT:  entry:
 // CHECK1-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK1-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
 // CHECK1-NEXT:    [[THIS1:%.*]] = load %struct.S*, %struct.S** [[THIS_ADDR]], align 8
-// CHECK1-NEXT:    call void @_ZN1SD2Ev(%struct.S* noundef [[THIS1]]) #[[ATTR6]]
+// CHECK1-NEXT:    call void @_ZN1SD2Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS1]]) #[[ATTR6]]
 // CHECK1-NEXT:    ret void
 //
 //
 // CHECK1-LABEL: define {{[^@]+}}@_ZN1SC2El
-// CHECK1-SAME: (%struct.S* noundef [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
+// CHECK1-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
 // CHECK1-NEXT:  entry:
 // CHECK1-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK1-NEXT:    [[A_ADDR:%.*]] = alloca i64, align 8
@@ -582,7 +582,7 @@ int main() {
 //
 //
 // CHECK1-LABEL: define {{[^@]+}}@_ZN1SD2Ev
-// CHECK1-SAME: (%struct.S* noundef [[THIS:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
+// CHECK1-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
 // CHECK1-NEXT:  entry:
 // CHECK1-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK1-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
@@ -1051,8 +1051,6 @@ int main() {
 // CHECK1-NEXT:    [[DOTOMP_IS_LAST:%.*]] = alloca i32, align 4
 // CHECK1-NEXT:    [[I:%.*]] = alloca i32, align 4
 // CHECK1-NEXT:    [[REF_TMP:%.*]] = alloca [[STRUCT_S:%.*]], align 8
-// CHECK1-NEXT:    [[EXN_SLOT:%.*]] = alloca i8*, align 8
-// CHECK1-NEXT:    [[EHSELECTOR_SLOT:%.*]] = alloca i32, align 4
 // CHECK1-NEXT:    store i32* [[DOTGLOBAL_TID_]], i32** [[DOTGLOBAL_TID__ADDR]], align 8
 // CHECK1-NEXT:    store i32* [[DOTBOUND_TID_]], i32** [[DOTBOUND_TID__ADDR]], align 8
 // CHECK1-NEXT:    store i32 0, i32* [[DOTOMP_COMB_LB]], align 4
@@ -1082,15 +1080,15 @@ int main() {
 // CHECK1-NEXT:    [[CMP1:%.*]] = icmp sle i32 [[TMP5]], [[TMP6]]
 // CHECK1-NEXT:    br i1 [[CMP1]], label [[OMP_INNER_FOR_BODY:%.*]], label [[OMP_INNER_FOR_END:%.*]]
 // CHECK1:       omp.inner.for.body:
-// CHECK1-NEXT:    invoke void @_ZN1SC1El(%struct.S* noundef [[REF_TMP]], i64 noundef 23)
+// CHECK1-NEXT:    invoke void @_ZN1SC1El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]], i64 noundef 23)
 // CHECK1-NEXT:    to label [[INVOKE_CONT:%.*]] unwind label [[TERMINATE_LPAD:%.*]]
 // CHECK1:       invoke.cont:
-// CHECK1-NEXT:    [[CALL:%.*]] = invoke noundef signext i8 @_ZN1ScvcEv(%struct.S* noundef [[REF_TMP]])
-// CHECK1-NEXT:    to label [[INVOKE_CONT2:%.*]] unwind label [[LPAD:%.*]]
+// CHECK1-NEXT:    [[CALL:%.*]] = invoke noundef signext i8 @_ZN1ScvcEv(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]])
+// CHECK1-NEXT:    to label [[INVOKE_CONT2:%.*]] unwind label [[TERMINATE_LPAD]]
 // CHECK1:       invoke.cont2:
 // CHECK1-NEXT:    [[TMP7:%.*]] = sext i8 [[CALL]] to i32
 // CHECK1-NEXT:    call void @__kmpc_push_num_threads(%struct.ident_t* @[[GLOB3]], i32 [[TMP1]], i32 [[TMP7]])
-// CHECK1-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[REF_TMP]]) #[[ATTR6]]
+// CHECK1-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]]) #[[ATTR6]]
 // CHECK1-NEXT:    [[TMP8:%.*]] = load i32, i32* [[DOTOMP_COMB_LB]], align 4
 // CHECK1-NEXT:    [[TMP9:%.*]] = zext i32 [[TMP8]] to i64
 // CHECK1-NEXT:    [[TMP10:%.*]] = load i32, i32* [[DOTOMP_COMB_UB]], align 4
@@ -1103,29 +1101,16 @@ int main() {
 // CHECK1-NEXT:    [[ADD:%.*]] = add nsw i32 [[TMP12]], [[TMP13]]
 // CHECK1-NEXT:    store i32 [[ADD]], i32* [[DOTOMP_IV]], align 4
 // CHECK1-NEXT:    br label [[OMP_INNER_FOR_COND]]
-// CHECK1:       lpad:
-// CHECK1-NEXT:    [[TMP14:%.*]] = landingpad { i8*, i32 }
-// CHECK1-NEXT:    catch i8* null
-// CHECK1-NEXT:    [[TMP15:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 0
-// CHECK1-NEXT:    store i8* [[TMP15]], i8** [[EXN_SLOT]], align 8
-// CHECK1-NEXT:    [[TMP16:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 1
-// CHECK1-NEXT:    store i32 [[TMP16]], i32* [[EHSELECTOR_SLOT]], align 4
-// CHECK1-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[REF_TMP]]) #[[ATTR6]]
-// CHECK1-NEXT:    br label [[TERMINATE_HANDLER:%.*]]
 // CHECK1:       omp.inner.for.end:
 // CHECK1-NEXT:    br label [[OMP_LOOP_EXIT:%.*]]
 // CHECK1:       omp.loop.exit:
 // CHECK1-NEXT:    call void @__kmpc_for_static_fini(%struct.ident_t* @[[GLOB1]], i32 [[TMP1]])
 // CHECK1-NEXT:    ret void
 // CHECK1:       terminate.lpad:
-// CHECK1-NEXT:    [[TMP17:%.*]] = landingpad { i8*, i32 }
+// CHECK1-NEXT:    [[TMP14:%.*]] = landingpad { i8*, i32 }
 // CHECK1-NEXT:    catch i8* null
-// CHECK1-NEXT:    [[TMP18:%.*]] = extractvalue { i8*, i32 } [[TMP17]], 0
-// CHECK1-NEXT:    call void @__clang_call_terminate(i8* [[TMP18]]) #[[ATTR10]]
-// CHECK1-NEXT:    unreachable
-// CHECK1:       terminate.handler:
-// CHECK1-NEXT:    [[EXN:%.*]] = load i8*, i8** [[EXN_SLOT]], align 8
-// CHECK1-NEXT:    call void @__clang_call_terminate(i8* [[EXN]]) #[[ATTR10]]
+// CHECK1-NEXT:    [[TMP15:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 0
+// CHECK1-NEXT:    call void @__clang_call_terminate(i8* [[TMP15]]) #[[ATTR10]]
 // CHECK1-NEXT:    unreachable
 //
 //
@@ -1230,8 +1215,8 @@ int main() {
 // CHECK2-NEXT:    [[DOTOFFLOAD_MAPPERS:%.*]] = alloca [1 x i8*], align 8
 // CHECK2-NEXT:    [[_TMP1:%.*]] = alloca i32, align 4
 // CHECK2-NEXT:    store i32 0, i32* [[RETVAL]], align 4
-// CHECK2-NEXT:    call void @_ZN1SC1El(%struct.S* noundef [[S]], i64 noundef 0)
-// CHECK2-NEXT:    [[CALL:%.*]] = invoke noundef signext i8 @_ZN1ScvcEv(%struct.S* noundef [[S]])
+// CHECK2-NEXT:    call void @_ZN1SC1El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]], i64 noundef 0)
+// CHECK2-NEXT:    [[CALL:%.*]] = invoke noundef signext i8 @_ZN1ScvcEv(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]])
 // CHECK2-NEXT:    to label [[INVOKE_CONT:%.*]] unwind label [[LPAD:%.*]]
 // CHECK2:       invoke.cont:
 // CHECK2-NEXT:    store i8 [[CALL]], i8* [[A]], align 1
@@ -1249,7 +1234,7 @@ int main() {
 // CHECK2-NEXT:    store i8* [[TMP3]], i8** [[EXN_SLOT]], align 8
 // CHECK2-NEXT:    [[TMP4:%.*]] = extractvalue { i8*, i32 } [[TMP2]], 1
 // CHECK2-NEXT:    store i32 [[TMP4]], i32* [[EHSELECTOR_SLOT]], align 4
-// CHECK2-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[S]]) #[[ATTR6]]
+// CHECK2-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]]) #[[ATTR6]]
 // CHECK2-NEXT:    br label [[EH_RESUME:%.*]]
 // CHECK2:       omp_offload.cont:
 // CHECK2-NEXT:    [[TMP5:%.*]] = load i8, i8* [[A]], align 1
@@ -1285,7 +1270,7 @@ int main() {
 // CHECK2:       invoke.cont7:
 // CHECK2-NEXT:    [[ADD9:%.*]] = add nsw i32 [[ADD]], [[CALL8]]
 // CHECK2-NEXT:    store i32 [[ADD9]], i32* [[RETVAL]], align 4
-// CHECK2-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[S]]) #[[ATTR6]]
+// CHECK2-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]]) #[[ATTR6]]
 // CHECK2-NEXT:    [[TMP17:%.*]] = load i32, i32* [[RETVAL]], align 4
 // CHECK2-NEXT:    ret i32 [[TMP17]]
 // CHECK2:       eh.resume:
@@ -1297,7 +1282,7 @@ int main() {
 //
 //
 // CHECK2-LABEL: define {{[^@]+}}@_ZN1SC1El
-// CHECK2-SAME: (%struct.S* noundef [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR1:[0-9]+]] comdat align 2 {
+// CHECK2-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR1:[0-9]+]] comdat align 2 {
 // CHECK2-NEXT:  entry:
 // CHECK2-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK2-NEXT:    [[A_ADDR:%.*]] = alloca i64, align 8
@@ -1305,12 +1290,12 @@ int main() {
 // CHECK2-NEXT:    store i64 [[A]], i64* [[A_ADDR]], align 8
 // CHECK2-NEXT:    [[THIS1:%.*]] = load %struct.S*, %struct.S** [[THIS_ADDR]], align 8
 // CHECK2-NEXT:    [[TMP0:%.*]] = load i64, i64* [[A_ADDR]], align 8
-// CHECK2-NEXT:    call void @_ZN1SC2El(%struct.S* noundef [[THIS1]], i64 noundef [[TMP0]])
+// CHECK2-NEXT:    call void @_ZN1SC2El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS1]], i64 noundef [[TMP0]])
 // CHECK2-NEXT:    ret void
 //
 //
 // CHECK2-LABEL: define {{[^@]+}}@_ZN1ScvcEv
-// CHECK2-SAME: (%struct.S* noundef [[THIS:%.*]]) #[[ATTR2:[0-9]+]] comdat align 2 {
+// CHECK2-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) #[[ATTR2:[0-9]+]] comdat align 2 {
 // CHECK2-NEXT:  entry:
 // CHECK2-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK2-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
@@ -1680,17 +1665,17 @@ int main() {
 //
 //
 // CHECK2-LABEL: define {{[^@]+}}@_ZN1SD1Ev
-// CHECK2-SAME: (%struct.S* noundef [[THIS:%.*]]) unnamed_addr #[[ATTR8:[0-9]+]] comdat align 2 {
+// CHECK2-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) unnamed_addr #[[ATTR8:[0-9]+]] comdat align 2 {
 // CHECK2-NEXT:  entry:
 // CHECK2-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK2-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
 // CHECK2-NEXT:    [[THIS1:%.*]] = load %struct.S*, %struct.S** [[THIS_ADDR]], align 8
-// CHECK2-NEXT:    call void @_ZN1SD2Ev(%struct.S* noundef [[THIS1]]) #[[ATTR6]]
+// CHECK2-NEXT:    call void @_ZN1SD2Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS1]]) #[[ATTR6]]
 // CHECK2-NEXT:    ret void
 //
 //
 // CHECK2-LABEL: define {{[^@]+}}@_ZN1SC2El
-// CHECK2-SAME: (%struct.S* noundef [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
+// CHECK2-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
 // CHECK2-NEXT:  entry:
 // CHECK2-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK2-NEXT:    [[A_ADDR:%.*]] = alloca i64, align 8
@@ -1704,7 +1689,7 @@ int main() {
 //
 //
 // CHECK2-LABEL: define {{[^@]+}}@_ZN1SD2Ev
-// CHECK2-SAME: (%struct.S* noundef [[THIS:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
+// CHECK2-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
 // CHECK2-NEXT:  entry:
 // CHECK2-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK2-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
@@ -2173,8 +2158,6 @@ int main() {
 // CHECK2-NEXT:    [[DOTOMP_IS_LAST:%.*]] = alloca i32, align 4
 // CHECK2-NEXT:    [[I:%.*]] = alloca i32, align 4
 // CHECK2-NEXT:    [[REF_TMP:%.*]] = alloca [[STRUCT_S:%.*]], align 8
-// CHECK2-NEXT:    [[EXN_SLOT:%.*]] = alloca i8*, align 8
-// CHECK2-NEXT:    [[EHSELECTOR_SLOT:%.*]] = alloca i32, align 4
 // CHECK2-NEXT:    store i32* [[DOTGLOBAL_TID_]], i32** [[DOTGLOBAL_TID__ADDR]], align 8
 // CHECK2-NEXT:    store i32* [[DOTBOUND_TID_]], i32** [[DOTBOUND_TID__ADDR]], align 8
 // CHECK2-NEXT:    store i32 0, i32* [[DOTOMP_COMB_LB]], align 4
@@ -2204,15 +2187,15 @@ int main() {
 // CHECK2-NEXT:    [[CMP1:%.*]] = icmp sle i32 [[TMP5]], [[TMP6]]
 // CHECK2-NEXT:    br i1 [[CMP1]], label [[OMP_INNER_FOR_BODY:%.*]], label [[OMP_INNER_FOR_END:%.*]]
 // CHECK2:       omp.inner.for.body:
-// CHECK2-NEXT:    invoke void @_ZN1SC1El(%struct.S* noundef [[REF_TMP]], i64 noundef 23)
+// CHECK2-NEXT:    invoke void @_ZN1SC1El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]], i64 noundef 23)
 // CHECK2-NEXT:    to label [[INVOKE_CONT:%.*]] unwind label [[TERMINATE_LPAD:%.*]]
 // CHECK2:       invoke.cont:
-// CHECK2-NEXT:    [[CALL:%.*]] = invoke noundef signext i8 @_ZN1ScvcEv(%struct.S* noundef [[REF_TMP]])
-// CHECK2-NEXT:    to label [[INVOKE_CONT2:%.*]] unwind label [[LPAD:%.*]]
+// CHECK2-NEXT:    [[CALL:%.*]] = invoke noundef signext i8 @_ZN1ScvcEv(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]])
+// CHECK2-NEXT:    to label [[INVOKE_CONT2:%.*]] unwind label [[TERMINATE_LPAD]]
 // CHECK2:       invoke.cont2:
 // CHECK2-NEXT:    [[TMP7:%.*]] = sext i8 [[CALL]] to i32
 // CHECK2-NEXT:    call void @__kmpc_push_num_threads(%struct.ident_t* @[[GLOB3]], i32 [[TMP1]], i32 [[TMP7]])
-// CHECK2-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[REF_TMP]]) #[[ATTR6]]
+// CHECK2-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]]) #[[ATTR6]]
 // CHECK2-NEXT:    [[TMP8:%.*]] = load i32, i32* [[DOTOMP_COMB_LB]], align 4
 // CHECK2-NEXT:    [[TMP9:%.*]] = zext i32 [[TMP8]] to i64
 // CHECK2-NEXT:    [[TMP10:%.*]] = load i32, i32* [[DOTOMP_COMB_UB]], align 4
@@ -2225,29 +2208,16 @@ int main() {
 // CHECK2-NEXT:    [[ADD:%.*]] = add nsw i32 [[TMP12]], [[TMP13]]
 // CHECK2-NEXT:    store i32 [[ADD]], i32* [[DOTOMP_IV]], align 4
 // CHECK2-NEXT:    br label [[OMP_INNER_FOR_COND]]
-// CHECK2:       lpad:
-// CHECK2-NEXT:    [[TMP14:%.*]] = landingpad { i8*, i32 }
-// CHECK2-NEXT:    catch i8* null
-// CHECK2-NEXT:    [[TMP15:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 0
-// CHECK2-NEXT:    store i8* [[TMP15]], i8** [[EXN_SLOT]], align 8
-// CHECK2-NEXT:    [[TMP16:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 1
-// CHECK2-NEXT:    store i32 [[TMP16]], i32* [[EHSELECTOR_SLOT]], align 4
-// CHECK2-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[REF_TMP]]) #[[ATTR6]]
-// CHECK2-NEXT:    br label [[TERMINATE_HANDLER:%.*]]
 // CHECK2:       omp.inner.for.end:
 // CHECK2-NEXT:    br label [[OMP_LOOP_EXIT:%.*]]
 // CHECK2:       omp.loop.exit:
 // CHECK2-NEXT:    call void @__kmpc_for_static_fini(%struct.ident_t* @[[GLOB1]], i32 [[TMP1]])
 // CHECK2-NEXT:    ret void
 // CHECK2:       terminate.lpad:
-// CHECK2-NEXT:    [[TMP17:%.*]] = landingpad { i8*, i32 }
+// CHECK2-NEXT:    [[TMP14:%.*]] = landingpad { i8*, i32 }
 // CHECK2-NEXT:    catch i8* null
-// CHECK2-NEXT:    [[TMP18:%.*]] = extractvalue { i8*, i32 } [[TMP17]], 0
-// CHECK2-NEXT:    call void @__clang_call_terminate(i8* [[TMP18]]) #[[ATTR10]]
-// CHECK2-NEXT:    unreachable
-// CHECK2:       terminate.handler:
-// CHECK2-NEXT:    [[EXN:%.*]] = load i8*, i8** [[EXN_SLOT]], align 8
-// CHECK2-NEXT:    call void @__clang_call_terminate(i8* [[EXN]]) #[[ATTR10]]
+// CHECK2-NEXT:    [[TMP15:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 0
+// CHECK2-NEXT:    call void @__clang_call_terminate(i8* [[TMP15]]) #[[ATTR10]]
 // CHECK2-NEXT:    unreachable
 //
 //
@@ -2352,8 +2322,8 @@ int main() {
 // CHECK5-NEXT:    [[DOTOFFLOAD_MAPPERS:%.*]] = alloca [1 x i8*], align 8
 // CHECK5-NEXT:    [[_TMP1:%.*]] = alloca i32, align 4
 // CHECK5-NEXT:    store i32 0, i32* [[RETVAL]], align 4
-// CHECK5-NEXT:    call void @_ZN1SC1El(%struct.S* noundef [[S]], i64 noundef 0)
-// CHECK5-NEXT:    [[CALL:%.*]] = invoke noundef signext i8 @_ZN1ScvcEv(%struct.S* noundef [[S]])
+// CHECK5-NEXT:    call void @_ZN1SC1El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]], i64 noundef 0)
+// CHECK5-NEXT:    [[CALL:%.*]] = invoke noundef signext i8 @_ZN1ScvcEv(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]])
 // CHECK5-NEXT:    to label [[INVOKE_CONT:%.*]] unwind label [[LPAD:%.*]]
 // CHECK5:       invoke.cont:
 // CHECK5-NEXT:    store i8 [[CALL]], i8* [[A]], align 1
@@ -2371,7 +2341,7 @@ int main() {
 // CHECK5-NEXT:    store i8* [[TMP3]], i8** [[EXN_SLOT]], align 8
 // CHECK5-NEXT:    [[TMP4:%.*]] = extractvalue { i8*, i32 } [[TMP2]], 1
 // CHECK5-NEXT:    store i32 [[TMP4]], i32* [[EHSELECTOR_SLOT]], align 4
-// CHECK5-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[S]]) #[[ATTR6]]
+// CHECK5-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]]) #[[ATTR6]]
 // CHECK5-NEXT:    br label [[EH_RESUME:%.*]]
 // CHECK5:       omp_offload.cont:
 // CHECK5-NEXT:    [[TMP5:%.*]] = load i8, i8* [[A]], align 1
@@ -2407,7 +2377,7 @@ int main() {
 // CHECK5:       invoke.cont7:
 // CHECK5-NEXT:    [[ADD9:%.*]] = add nsw i32 [[ADD]], [[CALL8]]
 // CHECK5-NEXT:    store i32 [[ADD9]], i32* [[RETVAL]], align 4
-// CHECK5-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[S]]) #[[ATTR6]]
+// CHECK5-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]]) #[[ATTR6]]
 // CHECK5-NEXT:    [[TMP17:%.*]] = load i32, i32* [[RETVAL]], align 4
 // CHECK5-NEXT:    ret i32 [[TMP17]]
 // CHECK5:       eh.resume:
@@ -2419,7 +2389,7 @@ int main() {
 //
 //
 // CHECK5-LABEL: define {{[^@]+}}@_ZN1SC1El
-// CHECK5-SAME: (%struct.S* noundef [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR1:[0-9]+]] comdat align 2 {
+// CHECK5-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR1:[0-9]+]] comdat align 2 {
 // CHECK5-NEXT:  entry:
 // CHECK5-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK5-NEXT:    [[A_ADDR:%.*]] = alloca i64, align 8
@@ -2427,12 +2397,12 @@ int main() {
 // CHECK5-NEXT:    store i64 [[A]], i64* [[A_ADDR]], align 8
 // CHECK5-NEXT:    [[THIS1:%.*]] = load %struct.S*, %struct.S** [[THIS_ADDR]], align 8
 // CHECK5-NEXT:    [[TMP0:%.*]] = load i64, i64* [[A_ADDR]], align 8
-// CHECK5-NEXT:    call void @_ZN1SC2El(%struct.S* noundef [[THIS1]], i64 noundef [[TMP0]])
+// CHECK5-NEXT:    call void @_ZN1SC2El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS1]], i64 noundef [[TMP0]])
 // CHECK5-NEXT:    ret void
 //
 //
 // CHECK5-LABEL: define {{[^@]+}}@_ZN1ScvcEv
-// CHECK5-SAME: (%struct.S* noundef [[THIS:%.*]]) #[[ATTR2:[0-9]+]] comdat align 2 {
+// CHECK5-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) #[[ATTR2:[0-9]+]] comdat align 2 {
 // CHECK5-NEXT:  entry:
 // CHECK5-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK5-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
@@ -2802,17 +2772,17 @@ int main() {
 //
 //
 // CHECK5-LABEL: define {{[^@]+}}@_ZN1SD1Ev
-// CHECK5-SAME: (%struct.S* noundef [[THIS:%.*]]) unnamed_addr #[[ATTR8:[0-9]+]] comdat align 2 {
+// CHECK5-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) unnamed_addr #[[ATTR8:[0-9]+]] comdat align 2 {
 // CHECK5-NEXT:  entry:
 // CHECK5-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK5-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
 // CHECK5-NEXT:    [[THIS1:%.*]] = load %struct.S*, %struct.S** [[THIS_ADDR]], align 8
-// CHECK5-NEXT:    call void @_ZN1SD2Ev(%struct.S* noundef [[THIS1]]) #[[ATTR6]]
+// CHECK5-NEXT:    call void @_ZN1SD2Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS1]]) #[[ATTR6]]
 // CHECK5-NEXT:    ret void
 //
 //
 // CHECK5-LABEL: define {{[^@]+}}@_ZN1SC2El
-// CHECK5-SAME: (%struct.S* noundef [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
+// CHECK5-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
 // CHECK5-NEXT:  entry:
 // CHECK5-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK5-NEXT:    [[A_ADDR:%.*]] = alloca i64, align 8
@@ -3286,8 +3256,6 @@ int main() {
 // CHECK5-NEXT:    [[DOTOMP_IS_LAST:%.*]] = alloca i32, align 4
 // CHECK5-NEXT:    [[I:%.*]] = alloca i32, align 4
 // CHECK5-NEXT:    [[REF_TMP:%.*]] = alloca [[STRUCT_S:%.*]], align 8
-// CHECK5-NEXT:    [[EXN_SLOT:%.*]] = alloca i8*, align 8
-// CHECK5-NEXT:    [[EHSELECTOR_SLOT:%.*]] = alloca i32, align 4
 // CHECK5-NEXT:    store i32* [[DOTGLOBAL_TID_]], i32** [[DOTGLOBAL_TID__ADDR]], align 8
 // CHECK5-NEXT:    store i32* [[DOTBOUND_TID_]], i32** [[DOTBOUND_TID__ADDR]], align 8
 // CHECK5-NEXT:    store i32 0, i32* [[DOTOMP_COMB_LB]], align 4
@@ -3317,15 +3285,15 @@ int main() {
 // CHECK5-NEXT:    [[CMP1:%.*]] = icmp sle i32 [[TMP5]], [[TMP6]]
 // CHECK5-NEXT:    br i1 [[CMP1]], label [[OMP_INNER_FOR_BODY:%.*]], label [[OMP_INNER_FOR_END:%.*]]
 // CHECK5:       omp.inner.for.body:
-// CHECK5-NEXT:    invoke void @_ZN1SC1El(%struct.S* noundef [[REF_TMP]], i64 noundef 23)
+// CHECK5-NEXT:    invoke void @_ZN1SC1El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]], i64 noundef 23)
 // CHECK5-NEXT:    to label [[INVOKE_CONT:%.*]] unwind label [[TERMINATE_LPAD:%.*]]
 // CHECK5:       invoke.cont:
-// CHECK5-NEXT:    [[CALL:%.*]] = invoke noundef signext i8 @_ZN1ScvcEv(%struct.S* noundef [[REF_TMP]])
-// CHECK5-NEXT:    to label [[INVOKE_CONT2:%.*]] unwind label [[LPAD:%.*]]
+// CHECK5-NEXT:    [[CALL:%.*]] = invoke noundef signext i8 @_ZN1ScvcEv(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]])
+// CHECK5-NEXT:    to label [[INVOKE_CONT2:%.*]] unwind label [[TERMINATE_LPAD]]
 // CHECK5:       invoke.cont2:
 // CHECK5-NEXT:    [[TMP7:%.*]] = sext i8 [[CALL]] to i32
 // CHECK5-NEXT:    call void @__kmpc_push_num_threads(%struct.ident_t* @[[GLOB3]], i32 [[TMP1]], i32 [[TMP7]])
-// CHECK5-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[REF_TMP]]) #[[ATTR6]]
+// CHECK5-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]]) #[[ATTR6]]
 // CHECK5-NEXT:    [[TMP8:%.*]] = load i32, i32* [[DOTOMP_COMB_LB]], align 4
 // CHECK5-NEXT:    [[TMP9:%.*]] = zext i32 [[TMP8]] to i64
 // CHECK5-NEXT:    [[TMP10:%.*]] = load i32, i32* [[DOTOMP_COMB_UB]], align 4
@@ -3338,29 +3306,16 @@ int main() {
 // CHECK5-NEXT:    [[ADD:%.*]] = add nsw i32 [[TMP12]], [[TMP13]]
 // CHECK5-NEXT:    store i32 [[ADD]], i32* [[DOTOMP_IV]], align 4
 // CHECK5-NEXT:    br label [[OMP_INNER_FOR_COND]]
-// CHECK5:       lpad:
-// CHECK5-NEXT:    [[TMP14:%.*]] = landingpad { i8*, i32 }
-// CHECK5-NEXT:    catch i8* null
-// CHECK5-NEXT:    [[TMP15:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 0
-// CHECK5-NEXT:    store i8* [[TMP15]], i8** [[EXN_SLOT]], align 8
-// CHECK5-NEXT:    [[TMP16:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 1
-// CHECK5-NEXT:    store i32 [[TMP16]], i32* [[EHSELECTOR_SLOT]], align 4
-// CHECK5-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[REF_TMP]]) #[[ATTR6]]
-// CHECK5-NEXT:    br label [[TERMINATE_HANDLER:%.*]]
 // CHECK5:       omp.inner.for.end:
 // CHECK5-NEXT:    br label [[OMP_LOOP_EXIT:%.*]]
 // CHECK5:       omp.loop.exit:
 // CHECK5-NEXT:    call void @__kmpc_for_static_fini(%struct.ident_t* @[[GLOB1]], i32 [[TMP1]])
 // CHECK5-NEXT:    ret void
 // CHECK5:       terminate.lpad:
-// CHECK5-NEXT:    [[TMP17:%.*]] = landingpad { i8*, i32 }
+// CHECK5-NEXT:    [[TMP14:%.*]] = landingpad { i8*, i32 }
 // CHECK5-NEXT:    catch i8* null
-// CHECK5-NEXT:    [[TMP18:%.*]] = extractvalue { i8*, i32 } [[TMP17]], 0
-// CHECK5-NEXT:    call void @__clang_call_terminate(i8* [[TMP18]]) #[[ATTR10]]
-// CHECK5-NEXT:    unreachable
-// CHECK5:       terminate.handler:
-// CHECK5-NEXT:    [[EXN:%.*]] = load i8*, i8** [[EXN_SLOT]], align 8
-// CHECK5-NEXT:    call void @__clang_call_terminate(i8* [[EXN]]) #[[ATTR10]]
+// CHECK5-NEXT:    [[TMP15:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 0
+// CHECK5-NEXT:    call void @__clang_call_terminate(i8* [[TMP15]]) #[[ATTR10]]
 // CHECK5-NEXT:    unreachable
 //
 //
@@ -3444,7 +3399,7 @@ int main() {
 //
 //
 // CHECK5-LABEL: define {{[^@]+}}@_ZN1SD2Ev
-// CHECK5-SAME: (%struct.S* noundef [[THIS:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
+// CHECK5-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
 // CHECK5-NEXT:  entry:
 // CHECK5-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK5-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
@@ -3474,8 +3429,8 @@ int main() {
 // CHECK6-NEXT:    [[DOTOFFLOAD_MAPPERS:%.*]] = alloca [1 x i8*], align 8
 // CHECK6-NEXT:    [[_TMP1:%.*]] = alloca i32, align 4
 // CHECK6-NEXT:    store i32 0, i32* [[RETVAL]], align 4
-// CHECK6-NEXT:    call void @_ZN1SC1El(%struct.S* noundef [[S]], i64 noundef 0)
-// CHECK6-NEXT:    [[CALL:%.*]] = invoke noundef signext i8 @_ZN1ScvcEv(%struct.S* noundef [[S]])
+// CHECK6-NEXT:    call void @_ZN1SC1El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]], i64 noundef 0)
+// CHECK6-NEXT:    [[CALL:%.*]] = invoke noundef signext i8 @_ZN1ScvcEv(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]])
 // CHECK6-NEXT:    to label [[INVOKE_CONT:%.*]] unwind label [[LPAD:%.*]]
 // CHECK6:       invoke.cont:
 // CHECK6-NEXT:    store i8 [[CALL]], i8* [[A]], align 1
@@ -3493,7 +3448,7 @@ int main() {
 // CHECK6-NEXT:    store i8* [[TMP3]], i8** [[EXN_SLOT]], align 8
 // CHECK6-NEXT:    [[TMP4:%.*]] = extractvalue { i8*, i32 } [[TMP2]], 1
 // CHECK6-NEXT:    store i32 [[TMP4]], i32* [[EHSELECTOR_SLOT]], align 4
-// CHECK6-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[S]]) #[[ATTR6]]
+// CHECK6-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]]) #[[ATTR6]]
 // CHECK6-NEXT:    br label [[EH_RESUME:%.*]]
 // CHECK6:       omp_offload.cont:
 // CHECK6-NEXT:    [[TMP5:%.*]] = load i8, i8* [[A]], align 1
@@ -3529,7 +3484,7 @@ int main() {
 // CHECK6:       invoke.cont7:
 // CHECK6-NEXT:    [[ADD9:%.*]] = add nsw i32 [[ADD]], [[CALL8]]
 // CHECK6-NEXT:    store i32 [[ADD9]], i32* [[RETVAL]], align 4
-// CHECK6-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[S]]) #[[ATTR6]]
+// CHECK6-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]]) #[[ATTR6]]
 // CHECK6-NEXT:    [[TMP17:%.*]] = load i32, i32* [[RETVAL]], align 4
 // CHECK6-NEXT:    ret i32 [[TMP17]]
 // CHECK6:       eh.resume:
@@ -3541,7 +3496,7 @@ int main() {
 //
 //
 // CHECK6-LABEL: define {{[^@]+}}@_ZN1SC1El
-// CHECK6-SAME: (%struct.S* noundef [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR1:[0-9]+]] comdat align 2 {
+// CHECK6-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR1:[0-9]+]] comdat align 2 {
 // CHECK6-NEXT:  entry:
 // CHECK6-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK6-NEXT:    [[A_ADDR:%.*]] = alloca i64, align 8
@@ -3549,12 +3504,12 @@ int main() {
 // CHECK6-NEXT:    store i64 [[A]], i64* [[A_ADDR]], align 8
 // CHECK6-NEXT:    [[THIS1:%.*]] = load %struct.S*, %struct.S** [[THIS_ADDR]], align 8
 // CHECK6-NEXT:    [[TMP0:%.*]] = load i64, i64* [[A_ADDR]], align 8
-// CHECK6-NEXT:    call void @_ZN1SC2El(%struct.S* noundef [[THIS1]], i64 noundef [[TMP0]])
+// CHECK6-NEXT:    call void @_ZN1SC2El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS1]], i64 noundef [[TMP0]])
 // CHECK6-NEXT:    ret void
 //
 //
 // CHECK6-LABEL: define {{[^@]+}}@_ZN1ScvcEv
-// CHECK6-SAME: (%struct.S* noundef [[THIS:%.*]]) #[[ATTR2:[0-9]+]] comdat align 2 {
+// CHECK6-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) #[[ATTR2:[0-9]+]] comdat align 2 {
 // CHECK6-NEXT:  entry:
 // CHECK6-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK6-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
@@ -3924,17 +3879,17 @@ int main() {
 //
 //
 // CHECK6-LABEL: define {{[^@]+}}@_ZN1SD1Ev
-// CHECK6-SAME: (%struct.S* noundef [[THIS:%.*]]) unnamed_addr #[[ATTR8:[0-9]+]] comdat align 2 {
+// CHECK6-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) unnamed_addr #[[ATTR8:[0-9]+]] comdat align 2 {
 // CHECK6-NEXT:  entry:
 // CHECK6-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK6-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
 // CHECK6-NEXT:    [[THIS1:%.*]] = load %struct.S*, %struct.S** [[THIS_ADDR]], align 8
-// CHECK6-NEXT:    call void @_ZN1SD2Ev(%struct.S* noundef [[THIS1]]) #[[ATTR6]]
+// CHECK6-NEXT:    call void @_ZN1SD2Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS1]]) #[[ATTR6]]
 // CHECK6-NEXT:    ret void
 //
 //
 // CHECK6-LABEL: define {{[^@]+}}@_ZN1SC2El
-// CHECK6-SAME: (%struct.S* noundef [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
+// CHECK6-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
 // CHECK6-NEXT:  entry:
 // CHECK6-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK6-NEXT:    [[A_ADDR:%.*]] = alloca i64, align 8
@@ -4408,8 +4363,6 @@ int main() {
 // CHECK6-NEXT:    [[DOTOMP_IS_LAST:%.*]] = alloca i32, align 4
 // CHECK6-NEXT:    [[I:%.*]] = alloca i32, align 4
 // CHECK6-NEXT:    [[REF_TMP:%.*]] = alloca [[STRUCT_S:%.*]], align 8
-// CHECK6-NEXT:    [[EXN_SLOT:%.*]] = alloca i8*, align 8
-// CHECK6-NEXT:    [[EHSELECTOR_SLOT:%.*]] = alloca i32, align 4
 // CHECK6-NEXT:    store i32* [[DOTGLOBAL_TID_]], i32** [[DOTGLOBAL_TID__ADDR]], align 8
 // CHECK6-NEXT:    store i32* [[DOTBOUND_TID_]], i32** [[DOTBOUND_TID__ADDR]], align 8
 // CHECK6-NEXT:    store i32 0, i32* [[DOTOMP_COMB_LB]], align 4
@@ -4439,15 +4392,15 @@ int main() {
 // CHECK6-NEXT:    [[CMP1:%.*]] = icmp sle i32 [[TMP5]], [[TMP6]]
 // CHECK6-NEXT:    br i1 [[CMP1]], label [[OMP_INNER_FOR_BODY:%.*]], label [[OMP_INNER_FOR_END:%.*]]
 // CHECK6:       omp.inner.for.body:
-// CHECK6-NEXT:    invoke void @_ZN1SC1El(%struct.S* noundef [[REF_TMP]], i64 noundef 23)
+// CHECK6-NEXT:    invoke void @_ZN1SC1El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]], i64 noundef 23)
 // CHECK6-NEXT:    to label [[INVOKE_CONT:%.*]] unwind label [[TERMINATE_LPAD:%.*]]
 // CHECK6:       invoke.cont:
-// CHECK6-NEXT:    [[CALL:%.*]] = invoke noundef signext i8 @_ZN1ScvcEv(%struct.S* noundef [[REF_TMP]])
-// CHECK6-NEXT:    to label [[INVOKE_CONT2:%.*]] unwind label [[LPAD:%.*]]
+// CHECK6-NEXT:    [[CALL:%.*]] = invoke noundef signext i8 @_ZN1ScvcEv(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]])
+// CHECK6-NEXT:    to label [[INVOKE_CONT2:%.*]] unwind label [[TERMINATE_LPAD]]
 // CHECK6:       invoke.cont2:
 // CHECK6-NEXT:    [[TMP7:%.*]] = sext i8 [[CALL]] to i32
 // CHECK6-NEXT:    call void @__kmpc_push_num_threads(%struct.ident_t* @[[GLOB3]], i32 [[TMP1]], i32 [[TMP7]])
-// CHECK6-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[REF_TMP]]) #[[ATTR6]]
+// CHECK6-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]]) #[[ATTR6]]
 // CHECK6-NEXT:    [[TMP8:%.*]] = load i32, i32* [[DOTOMP_COMB_LB]], align 4
 // CHECK6-NEXT:    [[TMP9:%.*]] = zext i32 [[TMP8]] to i64
 // CHECK6-NEXT:    [[TMP10:%.*]] = load i32, i32* [[DOTOMP_COMB_UB]], align 4
@@ -4460,29 +4413,16 @@ int main() {
 // CHECK6-NEXT:    [[ADD:%.*]] = add nsw i32 [[TMP12]], [[TMP13]]
 // CHECK6-NEXT:    store i32 [[ADD]], i32* [[DOTOMP_IV]], align 4
 // CHECK6-NEXT:    br label [[OMP_INNER_FOR_COND]]
-// CHECK6:       lpad:
-// CHECK6-NEXT:    [[TMP14:%.*]] = landingpad { i8*, i32 }
-// CHECK6-NEXT:    catch i8* null
-// CHECK6-NEXT:    [[TMP15:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 0
-// CHECK6-NEXT:    store i8* [[TMP15]], i8** [[EXN_SLOT]], align 8
-// CHECK6-NEXT:    [[TMP16:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 1
-// CHECK6-NEXT:    store i32 [[TMP16]], i32* [[EHSELECTOR_SLOT]], align 4
-// CHECK6-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[REF_TMP]]) #[[ATTR6]]
-// CHECK6-NEXT:    br label [[TERMINATE_HANDLER:%.*]]
 // CHECK6:       omp.inner.for.end:
 // CHECK6-NEXT:    br label [[OMP_LOOP_EXIT:%.*]]
 // CHECK6:       omp.loop.exit:
 // CHECK6-NEXT:    call void @__kmpc_for_static_fini(%struct.ident_t* @[[GLOB1]], i32 [[TMP1]])
 // CHECK6-NEXT:    ret void
 // CHECK6:       terminate.lpad:
-// CHECK6-NEXT:    [[TMP17:%.*]] = landingpad { i8*, i32 }
+// CHECK6-NEXT:    [[TMP14:%.*]] = landingpad { i8*, i32 }
 // CHECK6-NEXT:    catch i8* null
-// CHECK6-NEXT:    [[TMP18:%.*]] = extractvalue { i8*, i32 } [[TMP17]], 0
-// CHECK6-NEXT:    call void @__clang_call_terminate(i8* [[TMP18]]) #[[ATTR10]]
-// CHECK6-NEXT:    unreachable
-// CHECK6:       terminate.handler:
-// CHECK6-NEXT:    [[EXN:%.*]] = load i8*, i8** [[EXN_SLOT]], align 8
-// CHECK6-NEXT:    call void @__clang_call_terminate(i8* [[EXN]]) #[[ATTR10]]
+// CHECK6-NEXT:    [[TMP15:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 0
+// CHECK6-NEXT:    call void @__clang_call_terminate(i8* [[TMP15]]) #[[ATTR10]]
 // CHECK6-NEXT:    unreachable
 //
 //
@@ -4566,7 +4506,7 @@ int main() {
 //
 //
 // CHECK6-LABEL: define {{[^@]+}}@_ZN1SD2Ev
-// CHECK6-SAME: (%struct.S* noundef [[THIS:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
+// CHECK6-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
 // CHECK6-NEXT:  entry:
 // CHECK6-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK6-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
@@ -4596,8 +4536,8 @@ int main() {
 // CHECK9-NEXT:    [[DOTOFFLOAD_MAPPERS:%.*]] = alloca [1 x i8*], align 8
 // CHECK9-NEXT:    [[_TMP1:%.*]] = alloca i32, align 4
 // CHECK9-NEXT:    store i32 0, i32* [[RETVAL]], align 4
-// CHECK9-NEXT:    call void @_ZN1SC1El(%struct.S* noundef [[S]], i64 noundef 0)
-// CHECK9-NEXT:    [[CALL:%.*]] = invoke noundef i8 @_ZN1ScvcEv(%struct.S* noundef [[S]])
+// CHECK9-NEXT:    call void @_ZN1SC1El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]], i64 noundef 0)
+// CHECK9-NEXT:    [[CALL:%.*]] = invoke noundef i8 @_ZN1ScvcEv(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]])
 // CHECK9-NEXT:    to label [[INVOKE_CONT:%.*]] unwind label [[LPAD:%.*]]
 // CHECK9:       invoke.cont:
 // CHECK9-NEXT:    store i8 [[CALL]], i8* [[A]], align 1
@@ -4615,7 +4555,7 @@ int main() {
 // CHECK9-NEXT:    store i8* [[TMP3]], i8** [[EXN_SLOT]], align 8
 // CHECK9-NEXT:    [[TMP4:%.*]] = extractvalue { i8*, i32 } [[TMP2]], 1
 // CHECK9-NEXT:    store i32 [[TMP4]], i32* [[EHSELECTOR_SLOT]], align 4
-// CHECK9-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[S]]) #[[ATTR6]]
+// CHECK9-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]]) #[[ATTR6]]
 // CHECK9-NEXT:    br label [[EH_RESUME:%.*]]
 // CHECK9:       omp_offload.cont:
 // CHECK9-NEXT:    [[TMP5:%.*]] = load i8, i8* [[A]], align 1
@@ -4651,7 +4591,7 @@ int main() {
 // CHECK9:       invoke.cont7:
 // CHECK9-NEXT:    [[ADD9:%.*]] = add nsw i32 [[ADD]], [[CALL8]]
 // CHECK9-NEXT:    store i32 [[ADD9]], i32* [[RETVAL]], align 4
-// CHECK9-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[S]]) #[[ATTR6]]
+// CHECK9-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]]) #[[ATTR6]]
 // CHECK9-NEXT:    [[TMP17:%.*]] = load i32, i32* [[RETVAL]], align 4
 // CHECK9-NEXT:    ret i32 [[TMP17]]
 // CHECK9:       eh.resume:
@@ -4663,7 +4603,7 @@ int main() {
 //
 //
 // CHECK9-LABEL: define {{[^@]+}}@_ZN1SC1El
-// CHECK9-SAME: (%struct.S* noundef [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR1:[0-9]+]] comdat align 2 {
+// CHECK9-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR1:[0-9]+]] comdat align 2 {
 // CHECK9-NEXT:  entry:
 // CHECK9-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK9-NEXT:    [[A_ADDR:%.*]] = alloca i64, align 8
@@ -4671,12 +4611,12 @@ int main() {
 // CHECK9-NEXT:    store i64 [[A]], i64* [[A_ADDR]], align 8
 // CHECK9-NEXT:    [[THIS1:%.*]] = load %struct.S*, %struct.S** [[THIS_ADDR]], align 8
 // CHECK9-NEXT:    [[TMP0:%.*]] = load i64, i64* [[A_ADDR]], align 8
-// CHECK9-NEXT:    call void @_ZN1SC2El(%struct.S* noundef [[THIS1]], i64 noundef [[TMP0]])
+// CHECK9-NEXT:    call void @_ZN1SC2El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS1]], i64 noundef [[TMP0]])
 // CHECK9-NEXT:    ret void
 //
 //
 // CHECK9-LABEL: define {{[^@]+}}@_ZN1ScvcEv
-// CHECK9-SAME: (%struct.S* noundef [[THIS:%.*]]) #[[ATTR2:[0-9]+]] comdat align 2 {
+// CHECK9-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) #[[ATTR2:[0-9]+]] comdat align 2 {
 // CHECK9-NEXT:  entry:
 // CHECK9-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK9-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
@@ -5046,17 +4986,17 @@ int main() {
 //
 //
 // CHECK9-LABEL: define {{[^@]+}}@_ZN1SD1Ev
-// CHECK9-SAME: (%struct.S* noundef [[THIS:%.*]]) unnamed_addr #[[ATTR8:[0-9]+]] comdat align 2 {
+// CHECK9-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) unnamed_addr #[[ATTR8:[0-9]+]] comdat align 2 {
 // CHECK9-NEXT:  entry:
 // CHECK9-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK9-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
 // CHECK9-NEXT:    [[THIS1:%.*]] = load %struct.S*, %struct.S** [[THIS_ADDR]], align 8
-// CHECK9-NEXT:    call void @_ZN1SD2Ev(%struct.S* noundef [[THIS1]]) #[[ATTR6]]
+// CHECK9-NEXT:    call void @_ZN1SD2Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS1]]) #[[ATTR6]]
 // CHECK9-NEXT:    ret void
 //
 //
 // CHECK9-LABEL: define {{[^@]+}}@_ZN1SC2El
-// CHECK9-SAME: (%struct.S* noundef [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
+// CHECK9-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
 // CHECK9-NEXT:  entry:
 // CHECK9-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK9-NEXT:    [[A_ADDR:%.*]] = alloca i64, align 8
@@ -5070,7 +5010,7 @@ int main() {
 //
 //
 // CHECK9-LABEL: define {{[^@]+}}@_ZN1SD2Ev
-// CHECK9-SAME: (%struct.S* noundef [[THIS:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
+// CHECK9-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
 // CHECK9-NEXT:  entry:
 // CHECK9-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK9-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
@@ -5539,8 +5479,6 @@ int main() {
 // CHECK9-NEXT:    [[DOTOMP_IS_LAST:%.*]] = alloca i32, align 4
 // CHECK9-NEXT:    [[I:%.*]] = alloca i32, align 4
 // CHECK9-NEXT:    [[REF_TMP:%.*]] = alloca [[STRUCT_S:%.*]], align 8
-// CHECK9-NEXT:    [[EXN_SLOT:%.*]] = alloca i8*, align 8
-// CHECK9-NEXT:    [[EHSELECTOR_SLOT:%.*]] = alloca i32, align 4
 // CHECK9-NEXT:    store i32* [[DOTGLOBAL_TID_]], i32** [[DOTGLOBAL_TID__ADDR]], align 8
 // CHECK9-NEXT:    store i32* [[DOTBOUND_TID_]], i32** [[DOTBOUND_TID__ADDR]], align 8
 // CHECK9-NEXT:    store i32 0, i32* [[DOTOMP_COMB_LB]], align 4
@@ -5570,15 +5508,15 @@ int main() {
 // CHECK9-NEXT:    [[CMP1:%.*]] = icmp sle i32 [[TMP5]], [[TMP6]]
 // CHECK9-NEXT:    br i1 [[CMP1]], label [[OMP_INNER_FOR_BODY:%.*]], label [[OMP_INNER_FOR_END:%.*]]
 // CHECK9:       omp.inner.for.body:
-// CHECK9-NEXT:    invoke void @_ZN1SC1El(%struct.S* noundef [[REF_TMP]], i64 noundef 23)
+// CHECK9-NEXT:    invoke void @_ZN1SC1El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]], i64 noundef 23)
 // CHECK9-NEXT:    to label [[INVOKE_CONT:%.*]] unwind label [[TERMINATE_LPAD:%.*]]
 // CHECK9:       invoke.cont:
-// CHECK9-NEXT:    [[CALL:%.*]] = invoke noundef i8 @_ZN1ScvcEv(%struct.S* noundef [[REF_TMP]])
-// CHECK9-NEXT:    to label [[INVOKE_CONT2:%.*]] unwind label [[LPAD:%.*]]
+// CHECK9-NEXT:    [[CALL:%.*]] = invoke noundef i8 @_ZN1ScvcEv(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]])
+// CHECK9-NEXT:    to label [[INVOKE_CONT2:%.*]] unwind label [[TERMINATE_LPAD]]
 // CHECK9:       invoke.cont2:
 // CHECK9-NEXT:    [[TMP7:%.*]] = sext i8 [[CALL]] to i32
 // CHECK9-NEXT:    call void @__kmpc_push_num_threads(%struct.ident_t* @[[GLOB3]], i32 [[TMP1]], i32 [[TMP7]])
-// CHECK9-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[REF_TMP]]) #[[ATTR6]]
+// CHECK9-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]]) #[[ATTR6]]
 // CHECK9-NEXT:    [[TMP8:%.*]] = load i32, i32* [[DOTOMP_COMB_LB]], align 4
 // CHECK9-NEXT:    [[TMP9:%.*]] = zext i32 [[TMP8]] to i64
 // CHECK9-NEXT:    [[TMP10:%.*]] = load i32, i32* [[DOTOMP_COMB_UB]], align 4
@@ -5591,29 +5529,16 @@ int main() {
 // CHECK9-NEXT:    [[ADD:%.*]] = add nsw i32 [[TMP12]], [[TMP13]]
 // CHECK9-NEXT:    store i32 [[ADD]], i32* [[DOTOMP_IV]], align 4
 // CHECK9-NEXT:    br label [[OMP_INNER_FOR_COND]]
-// CHECK9:       lpad:
-// CHECK9-NEXT:    [[TMP14:%.*]] = landingpad { i8*, i32 }
-// CHECK9-NEXT:    catch i8* null
-// CHECK9-NEXT:    [[TMP15:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 0
-// CHECK9-NEXT:    store i8* [[TMP15]], i8** [[EXN_SLOT]], align 8
-// CHECK9-NEXT:    [[TMP16:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 1
-// CHECK9-NEXT:    store i32 [[TMP16]], i32* [[EHSELECTOR_SLOT]], align 4
-// CHECK9-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[REF_TMP]]) #[[ATTR6]]
-// CHECK9-NEXT:    br label [[TERMINATE_HANDLER:%.*]]
 // CHECK9:       omp.inner.for.end:
 // CHECK9-NEXT:    br label [[OMP_LOOP_EXIT:%.*]]
 // CHECK9:       omp.loop.exit:
 // CHECK9-NEXT:    call void @__kmpc_for_static_fini(%struct.ident_t* @[[GLOB1]], i32 [[TMP1]])
 // CHECK9-NEXT:    ret void
 // CHECK9:       terminate.lpad:
-// CHECK9-NEXT:    [[TMP17:%.*]] = landingpad { i8*, i32 }
+// CHECK9-NEXT:    [[TMP14:%.*]] = landingpad { i8*, i32 }
 // CHECK9-NEXT:    catch i8* null
-// CHECK9-NEXT:    [[TMP18:%.*]] = extractvalue { i8*, i32 } [[TMP17]], 0
-// CHECK9-NEXT:    call void @__clang_call_terminate(i8* [[TMP18]]) #[[ATTR10]]
-// CHECK9-NEXT:    unreachable
-// CHECK9:       terminate.handler:
-// CHECK9-NEXT:    [[EXN:%.*]] = load i8*, i8** [[EXN_SLOT]], align 8
-// CHECK9-NEXT:    call void @__clang_call_terminate(i8* [[EXN]]) #[[ATTR10]]
+// CHECK9-NEXT:    [[TMP15:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 0
+// CHECK9-NEXT:    call void @__clang_call_terminate(i8* [[TMP15]]) #[[ATTR10]]
 // CHECK9-NEXT:    unreachable
 //
 //
@@ -5718,8 +5643,8 @@ int main() {
 // CHECK10-NEXT:    [[DOTOFFLOAD_MAPPERS:%.*]] = alloca [1 x i8*], align 8
 // CHECK10-NEXT:    [[_TMP1:%.*]] = alloca i32, align 4
 // CHECK10-NEXT:    store i32 0, i32* [[RETVAL]], align 4
-// CHECK10-NEXT:    call void @_ZN1SC1El(%struct.S* noundef [[S]], i64 noundef 0)
-// CHECK10-NEXT:    [[CALL:%.*]] = invoke noundef i8 @_ZN1ScvcEv(%struct.S* noundef [[S]])
+// CHECK10-NEXT:    call void @_ZN1SC1El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]], i64 noundef 0)
+// CHECK10-NEXT:    [[CALL:%.*]] = invoke noundef i8 @_ZN1ScvcEv(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]])
 // CHECK10-NEXT:    to label [[INVOKE_CONT:%.*]] unwind label [[LPAD:%.*]]
 // CHECK10:       invoke.cont:
 // CHECK10-NEXT:    store i8 [[CALL]], i8* [[A]], align 1
@@ -5737,7 +5662,7 @@ int main() {
 // CHECK10-NEXT:    store i8* [[TMP3]], i8** [[EXN_SLOT]], align 8
 // CHECK10-NEXT:    [[TMP4:%.*]] = extractvalue { i8*, i32 } [[TMP2]], 1
 // CHECK10-NEXT:    store i32 [[TMP4]], i32* [[EHSELECTOR_SLOT]], align 4
-// CHECK10-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[S]]) #[[ATTR6]]
+// CHECK10-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]]) #[[ATTR6]]
 // CHECK10-NEXT:    br label [[EH_RESUME:%.*]]
 // CHECK10:       omp_offload.cont:
 // CHECK10-NEXT:    [[TMP5:%.*]] = load i8, i8* [[A]], align 1
@@ -5773,7 +5698,7 @@ int main() {
 // CHECK10:       invoke.cont7:
 // CHECK10-NEXT:    [[ADD9:%.*]] = add nsw i32 [[ADD]], [[CALL8]]
 // CHECK10-NEXT:    store i32 [[ADD9]], i32* [[RETVAL]], align 4
-// CHECK10-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[S]]) #[[ATTR6]]
+// CHECK10-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]]) #[[ATTR6]]
 // CHECK10-NEXT:    [[TMP17:%.*]] = load i32, i32* [[RETVAL]], align 4
 // CHECK10-NEXT:    ret i32 [[TMP17]]
 // CHECK10:       eh.resume:
@@ -5785,7 +5710,7 @@ int main() {
 //
 //
 // CHECK10-LABEL: define {{[^@]+}}@_ZN1SC1El
-// CHECK10-SAME: (%struct.S* noundef [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR1:[0-9]+]] comdat align 2 {
+// CHECK10-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR1:[0-9]+]] comdat align 2 {
 // CHECK10-NEXT:  entry:
 // CHECK10-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK10-NEXT:    [[A_ADDR:%.*]] = alloca i64, align 8
@@ -5793,12 +5718,12 @@ int main() {
 // CHECK10-NEXT:    store i64 [[A]], i64* [[A_ADDR]], align 8
 // CHECK10-NEXT:    [[THIS1:%.*]] = load %struct.S*, %struct.S** [[THIS_ADDR]], align 8
 // CHECK10-NEXT:    [[TMP0:%.*]] = load i64, i64* [[A_ADDR]], align 8
-// CHECK10-NEXT:    call void @_ZN1SC2El(%struct.S* noundef [[THIS1]], i64 noundef [[TMP0]])
+// CHECK10-NEXT:    call void @_ZN1SC2El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS1]], i64 noundef [[TMP0]])
 // CHECK10-NEXT:    ret void
 //
 //
 // CHECK10-LABEL: define {{[^@]+}}@_ZN1ScvcEv
-// CHECK10-SAME: (%struct.S* noundef [[THIS:%.*]]) #[[ATTR2:[0-9]+]] comdat align 2 {
+// CHECK10-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) #[[ATTR2:[0-9]+]] comdat align 2 {
 // CHECK10-NEXT:  entry:
 // CHECK10-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK10-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
@@ -6168,17 +6093,17 @@ int main() {
 //
 //
 // CHECK10-LABEL: define {{[^@]+}}@_ZN1SD1Ev
-// CHECK10-SAME: (%struct.S* noundef [[THIS:%.*]]) unnamed_addr #[[ATTR8:[0-9]+]] comdat align 2 {
+// CHECK10-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) unnamed_addr #[[ATTR8:[0-9]+]] comdat align 2 {
 // CHECK10-NEXT:  entry:
 // CHECK10-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK10-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
 // CHECK10-NEXT:    [[THIS1:%.*]] = load %struct.S*, %struct.S** [[THIS_ADDR]], align 8
-// CHECK10-NEXT:    call void @_ZN1SD2Ev(%struct.S* noundef [[THIS1]]) #[[ATTR6]]
+// CHECK10-NEXT:    call void @_ZN1SD2Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS1]]) #[[ATTR6]]
 // CHECK10-NEXT:    ret void
 //
 //
 // CHECK10-LABEL: define {{[^@]+}}@_ZN1SC2El
-// CHECK10-SAME: (%struct.S* noundef [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
+// CHECK10-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
 // CHECK10-NEXT:  entry:
 // CHECK10-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK10-NEXT:    [[A_ADDR:%.*]] = alloca i64, align 8
@@ -6192,7 +6117,7 @@ int main() {
 //
 //
 // CHECK10-LABEL: define {{[^@]+}}@_ZN1SD2Ev
-// CHECK10-SAME: (%struct.S* noundef [[THIS:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
+// CHECK10-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
 // CHECK10-NEXT:  entry:
 // CHECK10-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK10-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
@@ -6661,8 +6586,6 @@ int main() {
 // CHECK10-NEXT:    [[DOTOMP_IS_LAST:%.*]] = alloca i32, align 4
 // CHECK10-NEXT:    [[I:%.*]] = alloca i32, align 4
 // CHECK10-NEXT:    [[REF_TMP:%.*]] = alloca [[STRUCT_S:%.*]], align 8
-// CHECK10-NEXT:    [[EXN_SLOT:%.*]] = alloca i8*, align 8
-// CHECK10-NEXT:    [[EHSELECTOR_SLOT:%.*]] = alloca i32, align 4
 // CHECK10-NEXT:    store i32* [[DOTGLOBAL_TID_]], i32** [[DOTGLOBAL_TID__ADDR]], align 8
 // CHECK10-NEXT:    store i32* [[DOTBOUND_TID_]], i32** [[DOTBOUND_TID__ADDR]], align 8
 // CHECK10-NEXT:    store i32 0, i32* [[DOTOMP_COMB_LB]], align 4
@@ -6692,15 +6615,15 @@ int main() {
 // CHECK10-NEXT:    [[CMP1:%.*]] = icmp sle i32 [[TMP5]], [[TMP6]]
 // CHECK10-NEXT:    br i1 [[CMP1]], label [[OMP_INNER_FOR_BODY:%.*]], label [[OMP_INNER_FOR_END:%.*]]
 // CHECK10:       omp.inner.for.body:
-// CHECK10-NEXT:    invoke void @_ZN1SC1El(%struct.S* noundef [[REF_TMP]], i64 noundef 23)
+// CHECK10-NEXT:    invoke void @_ZN1SC1El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]], i64 noundef 23)
 // CHECK10-NEXT:    to label [[INVOKE_CONT:%.*]] unwind label [[TERMINATE_LPAD:%.*]]
 // CHECK10:       invoke.cont:
-// CHECK10-NEXT:    [[CALL:%.*]] = invoke noundef i8 @_ZN1ScvcEv(%struct.S* noundef [[REF_TMP]])
-// CHECK10-NEXT:    to label [[INVOKE_CONT2:%.*]] unwind label [[LPAD:%.*]]
+// CHECK10-NEXT:    [[CALL:%.*]] = invoke noundef i8 @_ZN1ScvcEv(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]])
+// CHECK10-NEXT:    to label [[INVOKE_CONT2:%.*]] unwind label [[TERMINATE_LPAD]]
 // CHECK10:       invoke.cont2:
 // CHECK10-NEXT:    [[TMP7:%.*]] = sext i8 [[CALL]] to i32
 // CHECK10-NEXT:    call void @__kmpc_push_num_threads(%struct.ident_t* @[[GLOB3]], i32 [[TMP1]], i32 [[TMP7]])
-// CHECK10-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[REF_TMP]]) #[[ATTR6]]
+// CHECK10-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]]) #[[ATTR6]]
 // CHECK10-NEXT:    [[TMP8:%.*]] = load i32, i32* [[DOTOMP_COMB_LB]], align 4
 // CHECK10-NEXT:    [[TMP9:%.*]] = zext i32 [[TMP8]] to i64
 // CHECK10-NEXT:    [[TMP10:%.*]] = load i32, i32* [[DOTOMP_COMB_UB]], align 4
@@ -6713,29 +6636,16 @@ int main() {
 // CHECK10-NEXT:    [[ADD:%.*]] = add nsw i32 [[TMP12]], [[TMP13]]
 // CHECK10-NEXT:    store i32 [[ADD]], i32* [[DOTOMP_IV]], align 4
 // CHECK10-NEXT:    br label [[OMP_INNER_FOR_COND]]
-// CHECK10:       lpad:
-// CHECK10-NEXT:    [[TMP14:%.*]] = landingpad { i8*, i32 }
-// CHECK10-NEXT:    catch i8* null
-// CHECK10-NEXT:    [[TMP15:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 0
-// CHECK10-NEXT:    store i8* [[TMP15]], i8** [[EXN_SLOT]], align 8
-// CHECK10-NEXT:    [[TMP16:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 1
-// CHECK10-NEXT:    store i32 [[TMP16]], i32* [[EHSELECTOR_SLOT]], align 4
-// CHECK10-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[REF_TMP]]) #[[ATTR6]]
-// CHECK10-NEXT:    br label [[TERMINATE_HANDLER:%.*]]
 // CHECK10:       omp.inner.for.end:
 // CHECK10-NEXT:    br label [[OMP_LOOP_EXIT:%.*]]
 // CHECK10:       omp.loop.exit:
 // CHECK10-NEXT:    call void @__kmpc_for_static_fini(%struct.ident_t* @[[GLOB1]], i32 [[TMP1]])
 // CHECK10-NEXT:    ret void
 // CHECK10:       terminate.lpad:
-// CHECK10-NEXT:    [[TMP17:%.*]] = landingpad { i8*, i32 }
+// CHECK10-NEXT:    [[TMP14:%.*]] = landingpad { i8*, i32 }
 // CHECK10-NEXT:    catch i8* null
-// CHECK10-NEXT:    [[TMP18:%.*]] = extractvalue { i8*, i32 } [[TMP17]], 0
-// CHECK10-NEXT:    call void @__clang_call_terminate(i8* [[TMP18]]) #[[ATTR10]]
-// CHECK10-NEXT:    unreachable
-// CHECK10:       terminate.handler:
-// CHECK10-NEXT:    [[EXN:%.*]] = load i8*, i8** [[EXN_SLOT]], align 8
-// CHECK10-NEXT:    call void @__clang_call_terminate(i8* [[EXN]]) #[[ATTR10]]
+// CHECK10-NEXT:    [[TMP15:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 0
+// CHECK10-NEXT:    call void @__clang_call_terminate(i8* [[TMP15]]) #[[ATTR10]]
 // CHECK10-NEXT:    unreachable
 //
 //
@@ -6840,8 +6750,8 @@ int main() {
 // CHECK13-NEXT:    [[DOTOFFLOAD_MAPPERS:%.*]] = alloca [1 x i8*], align 8
 // CHECK13-NEXT:    [[_TMP1:%.*]] = alloca i32, align 4
 // CHECK13-NEXT:    store i32 0, i32* [[RETVAL]], align 4
-// CHECK13-NEXT:    call void @_ZN1SC1El(%struct.S* noundef [[S]], i64 noundef 0)
-// CHECK13-NEXT:    [[CALL:%.*]] = invoke noundef i8 @_ZN1ScvcEv(%struct.S* noundef [[S]])
+// CHECK13-NEXT:    call void @_ZN1SC1El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]], i64 noundef 0)
+// CHECK13-NEXT:    [[CALL:%.*]] = invoke noundef i8 @_ZN1ScvcEv(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]])
 // CHECK13-NEXT:    to label [[INVOKE_CONT:%.*]] unwind label [[LPAD:%.*]]
 // CHECK13:       invoke.cont:
 // CHECK13-NEXT:    store i8 [[CALL]], i8* [[A]], align 1
@@ -6859,7 +6769,7 @@ int main() {
 // CHECK13-NEXT:    store i8* [[TMP3]], i8** [[EXN_SLOT]], align 8
 // CHECK13-NEXT:    [[TMP4:%.*]] = extractvalue { i8*, i32 } [[TMP2]], 1
 // CHECK13-NEXT:    store i32 [[TMP4]], i32* [[EHSELECTOR_SLOT]], align 4
-// CHECK13-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[S]]) #[[ATTR6]]
+// CHECK13-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]]) #[[ATTR6]]
 // CHECK13-NEXT:    br label [[EH_RESUME:%.*]]
 // CHECK13:       omp_offload.cont:
 // CHECK13-NEXT:    [[TMP5:%.*]] = load i8, i8* [[A]], align 1
@@ -6895,7 +6805,7 @@ int main() {
 // CHECK13:       invoke.cont7:
 // CHECK13-NEXT:    [[ADD9:%.*]] = add nsw i32 [[ADD]], [[CALL8]]
 // CHECK13-NEXT:    store i32 [[ADD9]], i32* [[RETVAL]], align 4
-// CHECK13-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[S]]) #[[ATTR6]]
+// CHECK13-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]]) #[[ATTR6]]
 // CHECK13-NEXT:    [[TMP17:%.*]] = load i32, i32* [[RETVAL]], align 4
 // CHECK13-NEXT:    ret i32 [[TMP17]]
 // CHECK13:       eh.resume:
@@ -6907,7 +6817,7 @@ int main() {
 //
 //
 // CHECK13-LABEL: define {{[^@]+}}@_ZN1SC1El
-// CHECK13-SAME: (%struct.S* noundef [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR1:[0-9]+]] comdat align 2 {
+// CHECK13-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR1:[0-9]+]] comdat align 2 {
 // CHECK13-NEXT:  entry:
 // CHECK13-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK13-NEXT:    [[A_ADDR:%.*]] = alloca i64, align 8
@@ -6915,12 +6825,12 @@ int main() {
 // CHECK13-NEXT:    store i64 [[A]], i64* [[A_ADDR]], align 8
 // CHECK13-NEXT:    [[THIS1:%.*]] = load %struct.S*, %struct.S** [[THIS_ADDR]], align 8
 // CHECK13-NEXT:    [[TMP0:%.*]] = load i64, i64* [[A_ADDR]], align 8
-// CHECK13-NEXT:    call void @_ZN1SC2El(%struct.S* noundef [[THIS1]], i64 noundef [[TMP0]])
+// CHECK13-NEXT:    call void @_ZN1SC2El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS1]], i64 noundef [[TMP0]])
 // CHECK13-NEXT:    ret void
 //
 //
 // CHECK13-LABEL: define {{[^@]+}}@_ZN1ScvcEv
-// CHECK13-SAME: (%struct.S* noundef [[THIS:%.*]]) #[[ATTR2:[0-9]+]] comdat align 2 {
+// CHECK13-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) #[[ATTR2:[0-9]+]] comdat align 2 {
 // CHECK13-NEXT:  entry:
 // CHECK13-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK13-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
@@ -7290,17 +7200,17 @@ int main() {
 //
 //
 // CHECK13-LABEL: define {{[^@]+}}@_ZN1SD1Ev
-// CHECK13-SAME: (%struct.S* noundef [[THIS:%.*]]) unnamed_addr #[[ATTR8:[0-9]+]] comdat align 2 {
+// CHECK13-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) unnamed_addr #[[ATTR8:[0-9]+]] comdat align 2 {
 // CHECK13-NEXT:  entry:
 // CHECK13-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK13-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
 // CHECK13-NEXT:    [[THIS1:%.*]] = load %struct.S*, %struct.S** [[THIS_ADDR]], align 8
-// CHECK13-NEXT:    call void @_ZN1SD2Ev(%struct.S* noundef [[THIS1]]) #[[ATTR6]]
+// CHECK13-NEXT:    call void @_ZN1SD2Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS1]]) #[[ATTR6]]
 // CHECK13-NEXT:    ret void
 //
 //
 // CHECK13-LABEL: define {{[^@]+}}@_ZN1SC2El
-// CHECK13-SAME: (%struct.S* noundef [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
+// CHECK13-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
 // CHECK13-NEXT:  entry:
 // CHECK13-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK13-NEXT:    [[A_ADDR:%.*]] = alloca i64, align 8
@@ -7774,8 +7684,6 @@ int main() {
 // CHECK13-NEXT:    [[DOTOMP_IS_LAST:%.*]] = alloca i32, align 4
 // CHECK13-NEXT:    [[I:%.*]] = alloca i32, align 4
 // CHECK13-NEXT:    [[REF_TMP:%.*]] = alloca [[STRUCT_S:%.*]], align 8
-// CHECK13-NEXT:    [[EXN_SLOT:%.*]] = alloca i8*, align 8
-// CHECK13-NEXT:    [[EHSELECTOR_SLOT:%.*]] = alloca i32, align 4
 // CHECK13-NEXT:    store i32* [[DOTGLOBAL_TID_]], i32** [[DOTGLOBAL_TID__ADDR]], align 8
 // CHECK13-NEXT:    store i32* [[DOTBOUND_TID_]], i32** [[DOTBOUND_TID__ADDR]], align 8
 // CHECK13-NEXT:    store i32 0, i32* [[DOTOMP_COMB_LB]], align 4
@@ -7805,15 +7713,15 @@ int main() {
 // CHECK13-NEXT:    [[CMP1:%.*]] = icmp sle i32 [[TMP5]], [[TMP6]]
 // CHECK13-NEXT:    br i1 [[CMP1]], label [[OMP_INNER_FOR_BODY:%.*]], label [[OMP_INNER_FOR_END:%.*]]
 // CHECK13:       omp.inner.for.body:
-// CHECK13-NEXT:    invoke void @_ZN1SC1El(%struct.S* noundef [[REF_TMP]], i64 noundef 23)
+// CHECK13-NEXT:    invoke void @_ZN1SC1El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]], i64 noundef 23)
 // CHECK13-NEXT:    to label [[INVOKE_CONT:%.*]] unwind label [[TERMINATE_LPAD:%.*]]
 // CHECK13:       invoke.cont:
-// CHECK13-NEXT:    [[CALL:%.*]] = invoke noundef i8 @_ZN1ScvcEv(%struct.S* noundef [[REF_TMP]])
-// CHECK13-NEXT:    to label [[INVOKE_CONT2:%.*]] unwind label [[LPAD:%.*]]
+// CHECK13-NEXT:    [[CALL:%.*]] = invoke noundef i8 @_ZN1ScvcEv(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]])
+// CHECK13-NEXT:    to label [[INVOKE_CONT2:%.*]] unwind label [[TERMINATE_LPAD]]
 // CHECK13:       invoke.cont2:
 // CHECK13-NEXT:    [[TMP7:%.*]] = sext i8 [[CALL]] to i32
 // CHECK13-NEXT:    call void @__kmpc_push_num_threads(%struct.ident_t* @[[GLOB3]], i32 [[TMP1]], i32 [[TMP7]])
-// CHECK13-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[REF_TMP]]) #[[ATTR6]]
+// CHECK13-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]]) #[[ATTR6]]
 // CHECK13-NEXT:    [[TMP8:%.*]] = load i32, i32* [[DOTOMP_COMB_LB]], align 4
 // CHECK13-NEXT:    [[TMP9:%.*]] = zext i32 [[TMP8]] to i64
 // CHECK13-NEXT:    [[TMP10:%.*]] = load i32, i32* [[DOTOMP_COMB_UB]], align 4
@@ -7826,29 +7734,16 @@ int main() {
 // CHECK13-NEXT:    [[ADD:%.*]] = add nsw i32 [[TMP12]], [[TMP13]]
 // CHECK13-NEXT:    store i32 [[ADD]], i32* [[DOTOMP_IV]], align 4
 // CHECK13-NEXT:    br label [[OMP_INNER_FOR_COND]]
-// CHECK13:       lpad:
-// CHECK13-NEXT:    [[TMP14:%.*]] = landingpad { i8*, i32 }
-// CHECK13-NEXT:    catch i8* null
-// CHECK13-NEXT:    [[TMP15:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 0
-// CHECK13-NEXT:    store i8* [[TMP15]], i8** [[EXN_SLOT]], align 8
-// CHECK13-NEXT:    [[TMP16:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 1
-// CHECK13-NEXT:    store i32 [[TMP16]], i32* [[EHSELECTOR_SLOT]], align 4
-// CHECK13-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[REF_TMP]]) #[[ATTR6]]
-// CHECK13-NEXT:    br label [[TERMINATE_HANDLER:%.*]]
 // CHECK13:       omp.inner.for.end:
 // CHECK13-NEXT:    br label [[OMP_LOOP_EXIT:%.*]]
 // CHECK13:       omp.loop.exit:
 // CHECK13-NEXT:    call void @__kmpc_for_static_fini(%struct.ident_t* @[[GLOB1]], i32 [[TMP1]])
 // CHECK13-NEXT:    ret void
 // CHECK13:       terminate.lpad:
-// CHECK13-NEXT:    [[TMP17:%.*]] = landingpad { i8*, i32 }
+// CHECK13-NEXT:    [[TMP14:%.*]] = landingpad { i8*, i32 }
 // CHECK13-NEXT:    catch i8* null
-// CHECK13-NEXT:    [[TMP18:%.*]] = extractvalue { i8*, i32 } [[TMP17]], 0
-// CHECK13-NEXT:    call void @__clang_call_terminate(i8* [[TMP18]]) #[[ATTR10]]
-// CHECK13-NEXT:    unreachable
-// CHECK13:       terminate.handler:
-// CHECK13-NEXT:    [[EXN:%.*]] = load i8*, i8** [[EXN_SLOT]], align 8
-// CHECK13-NEXT:    call void @__clang_call_terminate(i8* [[EXN]]) #[[ATTR10]]
+// CHECK13-NEXT:    [[TMP15:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 0
+// CHECK13-NEXT:    call void @__clang_call_terminate(i8* [[TMP15]]) #[[ATTR10]]
 // CHECK13-NEXT:    unreachable
 //
 //
@@ -7932,7 +7827,7 @@ int main() {
 //
 //
 // CHECK13-LABEL: define {{[^@]+}}@_ZN1SD2Ev
-// CHECK13-SAME: (%struct.S* noundef [[THIS:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
+// CHECK13-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
 // CHECK13-NEXT:  entry:
 // CHECK13-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK13-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
@@ -7962,8 +7857,8 @@ int main() {
 // CHECK14-NEXT:    [[DOTOFFLOAD_MAPPERS:%.*]] = alloca [1 x i8*], align 8
 // CHECK14-NEXT:    [[_TMP1:%.*]] = alloca i32, align 4
 // CHECK14-NEXT:    store i32 0, i32* [[RETVAL]], align 4
-// CHECK14-NEXT:    call void @_ZN1SC1El(%struct.S* noundef [[S]], i64 noundef 0)
-// CHECK14-NEXT:    [[CALL:%.*]] = invoke noundef i8 @_ZN1ScvcEv(%struct.S* noundef [[S]])
+// CHECK14-NEXT:    call void @_ZN1SC1El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]], i64 noundef 0)
+// CHECK14-NEXT:    [[CALL:%.*]] = invoke noundef i8 @_ZN1ScvcEv(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]])
 // CHECK14-NEXT:    to label [[INVOKE_CONT:%.*]] unwind label [[LPAD:%.*]]
 // CHECK14:       invoke.cont:
 // CHECK14-NEXT:    store i8 [[CALL]], i8* [[A]], align 1
@@ -7981,7 +7876,7 @@ int main() {
 // CHECK14-NEXT:    store i8* [[TMP3]], i8** [[EXN_SLOT]], align 8
 // CHECK14-NEXT:    [[TMP4:%.*]] = extractvalue { i8*, i32 } [[TMP2]], 1
 // CHECK14-NEXT:    store i32 [[TMP4]], i32* [[EHSELECTOR_SLOT]], align 4
-// CHECK14-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[S]]) #[[ATTR6]]
+// CHECK14-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]]) #[[ATTR6]]
 // CHECK14-NEXT:    br label [[EH_RESUME:%.*]]
 // CHECK14:       omp_offload.cont:
 // CHECK14-NEXT:    [[TMP5:%.*]] = load i8, i8* [[A]], align 1
@@ -8017,7 +7912,7 @@ int main() {
 // CHECK14:       invoke.cont7:
 // CHECK14-NEXT:    [[ADD9:%.*]] = add nsw i32 [[ADD]], [[CALL8]]
 // CHECK14-NEXT:    store i32 [[ADD9]], i32* [[RETVAL]], align 4
-// CHECK14-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[S]]) #[[ATTR6]]
+// CHECK14-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[S]]) #[[ATTR6]]
 // CHECK14-NEXT:    [[TMP17:%.*]] = load i32, i32* [[RETVAL]], align 4
 // CHECK14-NEXT:    ret i32 [[TMP17]]
 // CHECK14:       eh.resume:
@@ -8029,7 +7924,7 @@ int main() {
 //
 //
 // CHECK14-LABEL: define {{[^@]+}}@_ZN1SC1El
-// CHECK14-SAME: (%struct.S* noundef [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR1:[0-9]+]] comdat align 2 {
+// CHECK14-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR1:[0-9]+]] comdat align 2 {
 // CHECK14-NEXT:  entry:
 // CHECK14-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK14-NEXT:    [[A_ADDR:%.*]] = alloca i64, align 8
@@ -8037,12 +7932,12 @@ int main() {
 // CHECK14-NEXT:    store i64 [[A]], i64* [[A_ADDR]], align 8
 // CHECK14-NEXT:    [[THIS1:%.*]] = load %struct.S*, %struct.S** [[THIS_ADDR]], align 8
 // CHECK14-NEXT:    [[TMP0:%.*]] = load i64, i64* [[A_ADDR]], align 8
-// CHECK14-NEXT:    call void @_ZN1SC2El(%struct.S* noundef [[THIS1]], i64 noundef [[TMP0]])
+// CHECK14-NEXT:    call void @_ZN1SC2El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS1]], i64 noundef [[TMP0]])
 // CHECK14-NEXT:    ret void
 //
 //
 // CHECK14-LABEL: define {{[^@]+}}@_ZN1ScvcEv
-// CHECK14-SAME: (%struct.S* noundef [[THIS:%.*]]) #[[ATTR2:[0-9]+]] comdat align 2 {
+// CHECK14-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) #[[ATTR2:[0-9]+]] comdat align 2 {
 // CHECK14-NEXT:  entry:
 // CHECK14-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK14-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
@@ -8412,17 +8307,17 @@ int main() {
 //
 //
 // CHECK14-LABEL: define {{[^@]+}}@_ZN1SD1Ev
-// CHECK14-SAME: (%struct.S* noundef [[THIS:%.*]]) unnamed_addr #[[ATTR8:[0-9]+]] comdat align 2 {
+// CHECK14-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) unnamed_addr #[[ATTR8:[0-9]+]] comdat align 2 {
 // CHECK14-NEXT:  entry:
 // CHECK14-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK14-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8
 // CHECK14-NEXT:    [[THIS1:%.*]] = load %struct.S*, %struct.S** [[THIS_ADDR]], align 8
-// CHECK14-NEXT:    call void @_ZN1SD2Ev(%struct.S* noundef [[THIS1]]) #[[ATTR6]]
+// CHECK14-NEXT:    call void @_ZN1SD2Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS1]]) #[[ATTR6]]
 // CHECK14-NEXT:    ret void
 //
 //
 // CHECK14-LABEL: define {{[^@]+}}@_ZN1SC2El
-// CHECK14-SAME: (%struct.S* noundef [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
+// CHECK14-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]], i64 noundef [[A:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
 // CHECK14-NEXT:  entry:
 // CHECK14-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK14-NEXT:    [[A_ADDR:%.*]] = alloca i64, align 8
@@ -8896,8 +8791,6 @@ int main() {
 // CHECK14-NEXT:    [[DOTOMP_IS_LAST:%.*]] = alloca i32, align 4
 // CHECK14-NEXT:    [[I:%.*]] = alloca i32, align 4
 // CHECK14-NEXT:    [[REF_TMP:%.*]] = alloca [[STRUCT_S:%.*]], align 8
-// CHECK14-NEXT:    [[EXN_SLOT:%.*]] = alloca i8*, align 8
-// CHECK14-NEXT:    [[EHSELECTOR_SLOT:%.*]] = alloca i32, align 4
 // CHECK14-NEXT:    store i32* [[DOTGLOBAL_TID_]], i32** [[DOTGLOBAL_TID__ADDR]], align 8
 // CHECK14-NEXT:    store i32* [[DOTBOUND_TID_]], i32** [[DOTBOUND_TID__ADDR]], align 8
 // CHECK14-NEXT:    store i32 0, i32* [[DOTOMP_COMB_LB]], align 4
@@ -8927,15 +8820,15 @@ int main() {
 // CHECK14-NEXT:    [[CMP1:%.*]] = icmp sle i32 [[TMP5]], [[TMP6]]
 // CHECK14-NEXT:    br i1 [[CMP1]], label [[OMP_INNER_FOR_BODY:%.*]], label [[OMP_INNER_FOR_END:%.*]]
 // CHECK14:       omp.inner.for.body:
-// CHECK14-NEXT:    invoke void @_ZN1SC1El(%struct.S* noundef [[REF_TMP]], i64 noundef 23)
+// CHECK14-NEXT:    invoke void @_ZN1SC1El(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]], i64 noundef 23)
 // CHECK14-NEXT:    to label [[INVOKE_CONT:%.*]] unwind label [[TERMINATE_LPAD:%.*]]
 // CHECK14:       invoke.cont:
-// CHECK14-NEXT:    [[CALL:%.*]] = invoke noundef i8 @_ZN1ScvcEv(%struct.S* noundef [[REF_TMP]])
-// CHECK14-NEXT:    to label [[INVOKE_CONT2:%.*]] unwind label [[LPAD:%.*]]
+// CHECK14-NEXT:    [[CALL:%.*]] = invoke noundef i8 @_ZN1ScvcEv(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]])
+// CHECK14-NEXT:    to label [[INVOKE_CONT2:%.*]] unwind label [[TERMINATE_LPAD]]
 // CHECK14:       invoke.cont2:
 // CHECK14-NEXT:    [[TMP7:%.*]] = sext i8 [[CALL]] to i32
 // CHECK14-NEXT:    call void @__kmpc_push_num_threads(%struct.ident_t* @[[GLOB3]], i32 [[TMP1]], i32 [[TMP7]])
-// CHECK14-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[REF_TMP]]) #[[ATTR6]]
+// CHECK14-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef nonnull align 8 dereferenceable(24) [[REF_TMP]]) #[[ATTR6]]
 // CHECK14-NEXT:    [[TMP8:%.*]] = load i32, i32* [[DOTOMP_COMB_LB]], align 4
 // CHECK14-NEXT:    [[TMP9:%.*]] = zext i32 [[TMP8]] to i64
 // CHECK14-NEXT:    [[TMP10:%.*]] = load i32, i32* [[DOTOMP_COMB_UB]], align 4
@@ -8948,29 +8841,16 @@ int main() {
 // CHECK14-NEXT:    [[ADD:%.*]] = add nsw i32 [[TMP12]], [[TMP13]]
 // CHECK14-NEXT:    store i32 [[ADD]], i32* [[DOTOMP_IV]], align 4
 // CHECK14-NEXT:    br label [[OMP_INNER_FOR_COND]]
-// CHECK14:       lpad:
-// CHECK14-NEXT:    [[TMP14:%.*]] = landingpad { i8*, i32 }
-// CHECK14-NEXT:    catch i8* null
-// CHECK14-NEXT:    [[TMP15:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 0
-// CHECK14-NEXT:    store i8* [[TMP15]], i8** [[EXN_SLOT]], align 8
-// CHECK14-NEXT:    [[TMP16:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 1
-// CHECK14-NEXT:    store i32 [[TMP16]], i32* [[EHSELECTOR_SLOT]], align 4
-// CHECK14-NEXT:    call void @_ZN1SD1Ev(%struct.S* noundef [[REF_TMP]]) #[[ATTR6]]
-// CHECK14-NEXT:    br label [[TERMINATE_HANDLER:%.*]]
 // CHECK14:       omp.inner.for.end:
 // CHECK14-NEXT:    br label [[OMP_LOOP_EXIT:%.*]]
 // CHECK14:       omp.loop.exit:
 // CHECK14-NEXT:    call void @__kmpc_for_static_fini(%struct.ident_t* @[[GLOB1]], i32 [[TMP1]])
 // CHECK14-NEXT:    ret void
 // CHECK14:       terminate.lpad:
-// CHECK14-NEXT:    [[TMP17:%.*]] = landingpad { i8*, i32 }
+// CHECK14-NEXT:    [[TMP14:%.*]] = landingpad { i8*, i32 }
 // CHECK14-NEXT:    catch i8* null
-// CHECK14-NEXT:    [[TMP18:%.*]] = extractvalue { i8*, i32 } [[TMP17]], 0
-// CHECK14-NEXT:    call void @__clang_call_terminate(i8* [[TMP18]]) #[[ATTR10]]
-// CHECK14-NEXT:    unreachable
-// CHECK14:       terminate.handler:
-// CHECK14-NEXT:    [[EXN:%.*]] = load i8*, i8** [[EXN_SLOT]], align 8
-// CHECK14-NEXT:    call void @__clang_call_terminate(i8* [[EXN]]) #[[ATTR10]]
+// CHECK14-NEXT:    [[TMP15:%.*]] = extractvalue { i8*, i32 } [[TMP14]], 0
+// CHECK14-NEXT:    call void @__clang_call_terminate(i8* [[TMP15]]) #[[ATTR10]]
 // CHECK14-NEXT:    unreachable
 //
 //
@@ -9054,7 +8934,7 @@ int main() {
 //
 //
 // CHECK14-LABEL: define {{[^@]+}}@_ZN1SD2Ev
-// CHECK14-SAME: (%struct.S* noundef [[THIS:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
+// CHECK14-SAME: (%struct.S* noundef nonnull align 8 dereferenceable(24) [[THIS:%.*]]) unnamed_addr #[[ATTR8]] comdat align 2 {
 // CHECK14-NEXT:  entry:
 // CHECK14-NEXT:    [[THIS_ADDR:%.*]] = alloca %struct.S*, align 8
 // CHECK14-NEXT:    store %struct.S* [[THIS]], %struct.S** [[THIS_ADDR]], align 8

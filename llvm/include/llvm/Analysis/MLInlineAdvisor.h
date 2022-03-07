@@ -15,6 +15,7 @@
 #include "llvm/IR/PassManager.h"
 
 #include <deque>
+#include <map>
 #include <memory>
 
 namespace llvm {
@@ -40,10 +41,16 @@ public:
   const MLModelRunner &getModelRunner() const { return *ModelRunner.get(); }
 
 protected:
-  std::unique_ptr<InlineAdvice> getAdviceImpl(CallBase &CB) override;
+#if INTEL_CUSTOMIZATION
+  std::unique_ptr<InlineAdvice>
+  getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,
+            WholeProgramInfo *WPI = nullptr,
+            InlineCost **IC = nullptr) override;
 
-  std::unique_ptr<InlineAdvice> getMandatoryAdvice(CallBase &CB,
-                                                   bool Advice) override;
+  std::unique_ptr<InlineAdvice>
+  getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
+                     WholeProgramInfo *WPI, InlineCost **IC, bool Advice) override;
+#endif // INTEL_CUSTOMIZATION
 
   virtual std::unique_ptr<MLInlineAdvice> getMandatoryAdviceImpl(CallBase &CB);
 
@@ -83,9 +90,9 @@ private:
 /// overrides the "successful inlining" extension points.
 class MLInlineAdvice : public InlineAdvice {
 public:
-  MLInlineAdvice(MLInlineAdvisor *Advisor, CallBase &CB,
+  MLInlineAdvice(MLInlineAdvisor *Advisor, CallBase &CB, InlineCost IC, // INTEL
                  OptimizationRemarkEmitter &ORE, bool Recommendation)
-      : InlineAdvice(Advisor, CB, ORE, Recommendation),
+      : InlineAdvice(Advisor, CB, IC, ORE, Recommendation), // INTEL
         CallerIRSize(Advisor->isForcedToStop() ? 0
                                                : Advisor->getIRSize(*Caller)),
         CalleeIRSize(Advisor->isForcedToStop() ? 0

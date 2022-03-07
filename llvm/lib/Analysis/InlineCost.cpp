@@ -449,10 +449,10 @@ protected:
   /// Model the elimination of repeated loads that is expected to happen
   /// whenever we simplify away the stores that would otherwise cause them to be
   /// loads.
-  bool EnableLoadElimination;
+  bool EnableLoadElimination = true;
 
   /// Whether we allow inlining for recursive call.
-  bool AllowRecursiveCall;
+  bool AllowRecursiveCall = false;
 
   SmallPtrSet<Value *, 16> LoadAddrSet;
 
@@ -552,8 +552,7 @@ public:
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
 #if INTEL_CUSTOMIZATION
-        CandidateCall(Call), EnableLoadElimination(true), AllowRecursiveCall(false),
-        SingleBB(true)
+        CandidateCall(Call), SingleBB(true)
 #if INTEL_FEATURE_SW_ADVANCED
         , FoundForgivable(false)
 #endif // INTEL_FEATURE_SW_ADVANCED
@@ -2065,6 +2064,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
   };
 
 #if INTEL_CUSTOMIZATION
+#ifndef _WIN32
   auto IsDoubleCallSite = [](Function &F) -> bool {
     unsigned Count = 0;
     for (User *U : F.users()) {
@@ -2076,6 +2076,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
     }
     return Count == 2;
   };
+#endif
 #endif // INTEL_CUSTOMIZATION
 
   // Use the OptMinSizeThreshold or OptSizeThreshold knob if they are available
@@ -2101,8 +2102,10 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
 #endif // INTEL_CUSTOMIZATION
       Threshold = MaxIfValid(Threshold, Params.HintThreshold);
 #if INTEL_CUSTOMIZATION
+#ifndef _WIN32
       if (Callee.hasLinkOnceODRLinkage() && IsDoubleCallSite(Callee))
         Threshold = MaxIfValid(Threshold, Params.DoubleCallSiteHintThreshold);
+#endif
     }
 #endif // INTEL_CUSTOMIZATION
 

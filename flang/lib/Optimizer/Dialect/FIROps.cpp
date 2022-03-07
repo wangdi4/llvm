@@ -497,6 +497,24 @@ static mlir::LogicalResult verify(fir::ArrayFetchOp op) {
 }
 
 //===----------------------------------------------------------------------===//
+// ArrayAccessOp
+//===----------------------------------------------------------------------===//
+
+static mlir::LogicalResult verify(fir::ArrayAccessOp op) {
+  auto arrTy = op.sequence().getType().cast<fir::SequenceType>();
+  std::size_t indSize = op.indices().size();
+  if (indSize < arrTy.getDimension())
+    return op.emitOpError("number of indices != dimension of array");
+  if (indSize == arrTy.getDimension() &&
+      op.element().getType() != fir::ReferenceType::get(arrTy.getEleTy()))
+    return op.emitOpError("return type does not match array");
+  mlir::Type ty = validArraySubobject(op);
+  if (!ty || fir::ReferenceType::get(ty) != op.getType())
+    return op.emitOpError("return type and/or indices do not type check");
+  return mlir::success();
+}
+
+//===----------------------------------------------------------------------===//
 // ArrayUpdateOp
 //===----------------------------------------------------------------------===//
 
@@ -784,8 +802,8 @@ static mlir::LogicalResult verify(fir::ConstcOp &op) {
 // ConvertOp
 //===----------------------------------------------------------------------===//
 
-void fir::ConvertOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
+void fir::ConvertOp::getCanonicalizationPatterns(RewritePatternSet &results,
+                                                 MLIRContext *context) {
   results.insert<ConvertConvertOptPattern, RedundantConvertOptPattern,
                  CombineConvertOptPattern, ForwardConstantConvertPattern>(
       context);
@@ -1508,7 +1526,7 @@ struct UndoComplexPattern : public mlir::RewritePattern {
 };
 
 void fir::InsertValueOp::getCanonicalizationPatterns(
-    mlir::OwningRewritePatternList &results, mlir::MLIRContext *context) {
+    mlir::RewritePatternSet &results, mlir::MLIRContext *context) {
   results.insert<UndoComplexPattern<mlir::arith::AddFOp, fir::AddcOp>,
                  UndoComplexPattern<mlir::arith::SubFOp, fir::SubcOp>>(context);
 }
@@ -1534,9 +1552,11 @@ void fir::IterWhileOp::build(mlir::OpBuilder &builder,
     result.addTypes(v.getType());
   mlir::Region *bodyRegion = result.addRegion();
   bodyRegion->push_back(new Block{});
-  bodyRegion->front().addArgument(builder.getIndexType());
-  bodyRegion->front().addArgument(iterate.getType());
-  bodyRegion->front().addArguments(iterArgs.getTypes());
+  bodyRegion->front().addArgument(builder.getIndexType(), result.location);
+  bodyRegion->front().addArgument(iterate.getType(), result.location);
+  bodyRegion->front().addArguments(
+      iterArgs.getTypes(),
+      SmallVector<Location>(iterArgs.size(), result.location));
   result.addAttributes(attributes);
 }
 
@@ -1854,8 +1874,10 @@ void fir::DoLoopOp::build(mlir::OpBuilder &builder,
   bodyRegion->push_back(new Block{});
   if (iterArgs.empty() && !finalCountValue)
     DoLoopOp::ensureTerminator(*bodyRegion, builder, result.location);
-  bodyRegion->front().addArgument(builder.getIndexType());
-  bodyRegion->front().addArguments(iterArgs.getTypes());
+  bodyRegion->front().addArgument(builder.getIndexType(), result.location);
+  bodyRegion->front().addArguments(
+      iterArgs.getTypes(),
+      SmallVector<Location>(iterArgs.size(), result.location));
   if (unordered)
     result.addAttribute(unorderedAttrName(result.name), builder.getUnitAttr());
   result.addAttributes(attributes);

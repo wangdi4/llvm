@@ -55,6 +55,7 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/ThreadPool.h"
+#include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/IPO.h"
@@ -161,7 +162,7 @@ Error Config::addSaveTemps(std::string OutputFileName,
         // directly and exit.
         if (EC)
           reportOpenError(Path, EC.message());
-        WriteIndexToFile(Index, OS);
+        writeIndexToFile(Index, OS);
 
         Path = OutputFileName + "index.dot";
         raw_fd_ostream OSDot(Path, EC, sys::fs::OpenFlags::OF_None);
@@ -392,7 +393,7 @@ bool lto::opt(const Config &Conf, TargetMachine *TM, unsigned Task, Module &Mod,
       LLVM_DEBUG(
           dbgs() << "Post-(Thin)LTO merge bitcode embedding was requested, but "
                     "command line arguments are not available");
-    llvm::EmbedBitcodeInModule(Mod, llvm::MemoryBufferRef(),
+    llvm::embedBitcodeInModule(Mod, llvm::MemoryBufferRef(),
                                /*EmbedBitcode*/ true, /*EmbedCmdline*/ true,
                                /*Cmdline*/ CmdArgs);
   }
@@ -415,7 +416,7 @@ static void codegen(const Config &Conf, TargetMachine *TM,
 
 #if !INTEL_PRODUCT_RELEASE
   if (::EmbedBitcode == LTOBitcodeEmbedding::EmbedOptimized) // INTEL
-    llvm::EmbedBitcodeInModule(Mod, llvm::MemoryBufferRef(),
+    llvm::embedBitcodeInModule(Mod, llvm::MemoryBufferRef(),
                                /*EmbedBitcode*/ true,
                                /*EmbedCmdline*/ false,
                                /*CmdArgs*/ std::vector<uint8_t>());

@@ -95,8 +95,8 @@ define void @test5_type_test_assume(i1 %cond, i8* %ptr, [3 x i8*]* %vtable) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = xor i1 [[COND:%.*]], true
 ; CHECK-NEXT:    call void @llvm.assume(i1 [[TMP0]])
-; CHECK-NEXT:    [[VTABLE:%.*]] = bitcast [3 x i8*]* %vtable to i8*
-; CHECK-NEXT:    [[P:%.*]] = call i1 @llvm.type.test(i8* [[VTABLE]], metadata !"foo")
+; CHECK-NEXT:    [[VTABLEI8:%.*]] = bitcast [3 x i8*]* [[VTABLE:%.*]] to i8*
+; CHECK-NEXT:    [[P:%.*]] = call i1 @llvm.type.test(i8* [[VTABLEI8]], metadata !"foo")
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[P]])
 ; CHECK-NEXT:    store i8 2, i8* [[PTR:%.*]], align 8
 ; CHECK-NEXT:    ret void

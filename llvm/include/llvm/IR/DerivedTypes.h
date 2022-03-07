@@ -24,6 +24,10 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/TypeSize.h"
+#ifdef INTEL_CUSTOMIZATION
+// Required for VectorType::getNumElements()
+#include "llvm/Support/WithColor.h"
+#endif
 #include <cassert>
 #include <cstdint>
 
@@ -667,9 +671,14 @@ public:
                                              unsigned AddressSpace) {
     if (PT->isOpaque())
       return get(PT->getContext(), AddressSpace);
-    return get(PT->getElementType(), AddressSpace);
+    return get(PT->PointeeTy, AddressSpace);
   }
 
+#if INTEL_CUSTOMIZATION
+#else // INTEL_CUSTOMIZATION
+  [[deprecated("Pointer element types are deprecated. You can *temporarily* "
+               "use Type::getPointerElementType() instead")]]
+#endif // INTEL_CUSTOMIZATION
   Type *getElementType() const {
     assert(!isOpaque() && "Attempting to get element type of opaque pointer");
     return PointeeTy;

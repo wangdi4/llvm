@@ -1290,7 +1290,7 @@ static LoopUnrollResult tryToUnrollLoop(
                                  PP.PeelCount);
 #endif  // INTEL_CUSTOMIZATION
 
-    if (peelLoop(L, PP.PeelCount, LI, &SE, &DT, &AC, PreserveLCSSA)) {
+    if (peelLoop(L, PP.PeelCount, LI, &SE, DT, &AC, PreserveLCSSA)) {
       simplifyLoopAfterUnroll(L, true, LI, &SE, &DT, &AC, &TTI);
       // If the loop was peeled, we already "used up" the profile information
       // we had, so we don't want to unroll or peel again.

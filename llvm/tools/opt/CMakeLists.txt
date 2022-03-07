@@ -24,6 +24,7 @@ set(LLVM_LINK_COMPONENTS
   Analysis
   AsmParser
   BitWriter
+  CFGuard
   CodeGen
   Core
   Coroutines

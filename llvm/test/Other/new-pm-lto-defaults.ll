@@ -37,6 +37,7 @@
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Function
 ; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
 ; end INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running pass: OpenMPOptPass
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
 ; INTEL_CUSTOMIZATION
 ; CHECK-O: Running pass: ForceFunctionAttrsPass
@@ -276,6 +277,11 @@
 ; CHECK-O23SZ-NEXT:Running analysis: InnerAnalysisManagerProxy<llvm::LoopAnalysisManager, llvm::Function>
 ; CHECK-O23SZ-NEXT:Running pass: MathLibraryFunctionsReplacementPass
 ; CHECK-O23SZ-NEXT:Running pass: AlwaysInlinerPass
+; CHECK-O23SZ-NEXT:Running analysis: InnerAnalysisManagerProxy<{{.*}}Module
+; CHECK-O23SZ-NEXT:Running analysis: LazyCallGraphAnalysis
+; CHECK-O23SZ-NEXT:Running analysis: FunctionAnalysisManagerCGSCCProxy
+; CHECK-O23SZ-NEXT:Running analysis: OuterAnalysisManagerProxy<{{.*}}LazyCallGraph{{.*}}>
+; CHECK-O23SZ-NEXT:Running pass: OpenMPOptCGSCCPass
 ; CHECK-O23SZ-NEXT:Running pass: VPODirectiveCleanupPass
 ; END INTEL_CUSTOMIZATION
 

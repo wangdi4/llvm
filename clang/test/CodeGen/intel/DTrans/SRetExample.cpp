@@ -35,25 +35,25 @@ int test() {
 }
 
 // Data constructor:
-// CHECK: define linkonce_odr void @_ZN4DataC1Ev(%class._ZTS4Data.Data* noundef "intel_dtrans_func_index"="1" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[DATA_CTOR_FUNC_MD:[0-9]+]]
+// CHECK: define linkonce_odr void @_ZN4DataC1Ev(%class._ZTS4Data.Data* {{[^,]*}}"intel_dtrans_func_index"="1" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[DATA_CTOR_FUNC_MD:[0-9]+]]
 //
 // Data::offset:
-// CHECK: define linkonce_odr void @_ZNK4Data6offsetEi(%class._ZTS6Vector.Vector* noalias sret(%class._ZTS6Vector.Vector) align 8 "intel_dtrans_func_index"="1" %{{.+}}, %class._ZTS4Data.Data* noundef "intel_dtrans_func_index"="2" %{{.+}}, i32 noundef %{{.+}}) {{.*}}!intel.dtrans.func.type ![[OFFSET_FUNC_MD:[0-9]+]]
+// CHECK: define linkonce_odr void @_ZNK4Data6offsetEi(%class._ZTS6Vector.Vector* noalias sret(%class._ZTS6Vector.Vector) align 8 "intel_dtrans_func_index"="1" %{{.+}}, %class._ZTS4Data.Data* {{[^,]*}}"intel_dtrans_func_index"="2" %{{.+}}, i32 noundef %{{.+}}) {{.*}}!intel.dtrans.func.type ![[OFFSET_FUNC_MD:[0-9]+]]
 //
 // Data constructor 2:
-// CHECK: define linkonce_odr void @_ZN4DataC2Ev(%class._ZTS4Data.Data* noundef "intel_dtrans_func_index"="1" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[DATA_CTOR2_FUNC_MD:[0-9]+]]
+// CHECK: define linkonce_odr void @_ZN4DataC2Ev(%class._ZTS4Data.Data* {{[^,]*}}"intel_dtrans_func_index"="1" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[DATA_CTOR2_FUNC_MD:[0-9]+]]
 //
 // Vector constructors 1 and 2:
-// CHECK: define linkonce_odr void @_ZN6VectorC1Ev(%class._ZTS6Vector.Vector* noundef "intel_dtrans_func_index"="1" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_CTOR_FUNC_MD:[0-9]+]]
-// CHECK: define linkonce_odr void @_ZN6VectorC2Ev(%class._ZTS6Vector.Vector* noundef "intel_dtrans_func_index"="1" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_CTOR2_FUNC_MD:[0-9]+]]
+// CHECK: define linkonce_odr void @_ZN6VectorC1Ev(%class._ZTS6Vector.Vector* {{[^,]*}}"intel_dtrans_func_index"="1" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_CTOR_FUNC_MD:[0-9]+]]
+// CHECK: define linkonce_odr void @_ZN6VectorC2Ev(%class._ZTS6Vector.Vector* {{[^,]*}}"intel_dtrans_func_index"="1" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_CTOR2_FUNC_MD:[0-9]+]]
 //
 // Vector operator+, operator*:
 // CHECK: define linkonce_odr void @_ZplRK6VectorS1_(%class._ZTS6Vector.Vector* noalias sret(%class._ZTS6Vector.Vector) align 8 "intel_dtrans_func_index"="1" %{{.+}}, %class._ZTS6Vector.Vector* noundef nonnull align 8 dereferenceable(24) "intel_dtrans_func_index"="2" %{{.+}}, %class._ZTS6Vector.Vector* noundef nonnull align 8 dereferenceable(24) "intel_dtrans_func_index"="3" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_PLUS_FUNC_MD:[0-9]+]]
 // CHECK: define linkonce_odr void @_ZmlRKdRK6Vector(%class._ZTS6Vector.Vector* noalias sret(%class._ZTS6Vector.Vector) align 8 "intel_dtrans_func_index"="1" %{{.+}}, double* noundef nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="2" %{{.+}}, %class._ZTS6Vector.Vector* noundef nonnull align 8 dereferenceable(24) "intel_dtrans_func_index"="3" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_MUL_FUNC_MD:[0-9]+]]
 
 // Vector constructor (3 doubles) 1 and 2:
-// CHECK: define linkonce_odr void @_ZN6VectorC1Eddd(%class._ZTS6Vector.Vector* noundef "intel_dtrans_func_index"="1" %{{.+}}, double noundef %{{.+}}, double noundef %{{.+}}, double noundef %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_DDD_CTOR_FUNC_MD:[0-9]+]]
-// CHECK: define linkonce_odr void @_ZN6VectorC2Eddd(%class._ZTS6Vector.Vector* noundef "intel_dtrans_func_index"="1" %{{.+}}, double noundef %{{.+}}, double noundef %{{.+}}, double noundef %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_DDD_CTOR2_FUNC_MD:[0-9]+]]
+// CHECK: define linkonce_odr void @_ZN6VectorC1Eddd(%class._ZTS6Vector.Vector* {{[^,]*}}"intel_dtrans_func_index"="1" %{{.+}}, double noundef %{{.+}}, double noundef %{{.+}}, double noundef %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_DDD_CTOR_FUNC_MD:[0-9]+]]
+// CHECK: define linkonce_odr void @_ZN6VectorC2Eddd(%class._ZTS6Vector.Vector* {{[^,]*}}"intel_dtrans_func_index"="1" %{{.+}}, double noundef %{{.+}}, double noundef %{{.+}}, double noundef %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_DDD_CTOR2_FUNC_MD:[0-9]+]]
 // CHECK: !intel.dtrans.types = !{![[DATA:[0-9]+]], ![[VECTOR:[0-9]+]]}
 
 // CHECK: ![[DATA]] = !{!"S", %class._ZTS4Data.Data zeroinitializer, i32 3, ![[VECTOR_NP:[0-9]+]], ![[VECTOR_NP]], ![[VECTOR_NP]]}

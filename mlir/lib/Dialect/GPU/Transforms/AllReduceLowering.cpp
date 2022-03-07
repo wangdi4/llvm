@@ -157,11 +157,12 @@ private:
 
   /// Adds type to funcOp's workgroup attributions.
   Value createWorkgroupBuffer() {
+    // TODO: Pick a proper location for the attribution.
     int workgroupMemoryAddressSpace =
         gpu::GPUDialect::getWorkgroupAddressSpace();
     auto bufferType = MemRefType::get({kSubgroupSize}, valueType, AffineMap{},
                                       workgroupMemoryAddressSpace);
-    return funcOp.addWorkgroupAttribution(bufferType);
+    return funcOp.addWorkgroupAttribution(bufferType, rewriter.getUnknownLoc());
   }
 
   /// Returns an accumulator factory using either the op attribute or the body
@@ -207,7 +208,7 @@ private:
 
       // Return accumulator result.
       rewriter.setInsertionPointToStart(split);
-      return split->addArgument(lhs.getType());
+      return split->addArgument(lhs.getType(), lhs.getLoc());
     });
   }
 
@@ -240,6 +241,7 @@ private:
                  : getCmpFactory<arith::CmpIOp, arith::CmpIPredicate,
                                  arith::CmpIPredicate::ult>();
     }
+    llvm_unreachable("unknown GPU AllReduceOperation");
   }
 
   /// Returns an accumulator factory that creates an op of type T.
@@ -256,7 +258,7 @@ private:
   AccumulatorFactory getCmpFactory() const {
     return [&](Value lhs, Value rhs) {
       Value cmp = rewriter.create<T>(loc, predicate, lhs, rhs);
-      return rewriter.create<SelectOp>(loc, cmp, lhs, rhs);
+      return rewriter.create<arith::SelectOp>(loc, cmp, lhs, rhs);
     };
   }
 
@@ -298,7 +300,7 @@ private:
     assert(thenOperands.size() == elseOperands.size());
     rewriter.setInsertionPointToStart(continueBlock);
     for (auto operand : thenOperands)
-      continueBlock->addArgument(operand.getType());
+      continueBlock->addArgument(operand.getType(), operand.getLoc());
   }
 
   /// Shortcut for createIf with empty else block and no block operands.

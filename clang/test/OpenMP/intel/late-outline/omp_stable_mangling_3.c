@@ -15,7 +15,7 @@ void foo() {
 }
 #pragma omp end declare target
 
-// CHECK: define hidden void [[BAR:@bar]]
+// CHECK: define dso_local void [[BAR:@bar]]
 void bar() {
 // CHECK: [[REGION0:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 [[ENTRYIDX:[0-9]+]])
 // CHECK: call void @foo()

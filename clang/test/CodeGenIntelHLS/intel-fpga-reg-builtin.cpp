@@ -103,7 +103,7 @@ void foo() {
 
   struct stnonpod s1(123);
   struct stnonpod s2 = __builtin_fpga_reg(s1);
-// CHECK: call void @_ZN8stnonpodC1Ei(%struct.stnonpod* noundef %s1, i32 noundef 123)
+// CHECK: call void @_ZN8stnonpodC1Ei(%struct.stnonpod* {{[^,]*}}%s1, i32 {{[^,]*}}123)
 // CHECK: %[[S1BC1:[0-9]+]] = bitcast %struct.stnonpod* %agg-temp5 to i8*
 // CHECK: %[[S1BC2:[0-9]+]] = bitcast %struct.stnonpod* %s1 to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[S1BC1]], i8* align 4 %[[S1BC2]], i64 4, i1 false)
@@ -111,7 +111,7 @@ void foo() {
 
   cl c1(123);
   cl c2 = __builtin_fpga_reg(c1);
-// CHECK: call void @_ZN2clC1Ei(%class.cl* noundef %c1, i32 noundef 123)
+// CHECK: call void @_ZN2clC1Ei(%class.cl* {{[^,]*}}%c1, i32 {{[^,]*}}123)
 // CHECK: %[[C1BC1:[0-9]+]] = bitcast %class.cl* %agg-temp6 to i8*
 // CHECK: %[[C1BC2:[0-9]+]] = bitcast %class.cl* %c1 to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[C1BC1]], i8* align 4 %[[C1BC2]], i64 4, i1 false)

@@ -51,8 +51,6 @@ void test_loops(float *x)
   #pragma omp parallel for
   for (int i = 0; i < 10; ++i)
     try { bar(x); } catch(...) {}
-  //OPT: [[TLP]]:
-  //OPT: br label %[[TH1:terminate.handler.*]]
 
   //BOTH: call token{{.*}}DIR.OMP.PARALLEL.LOOP
   //BOTH: invoke void{{.*}}goo
@@ -61,18 +59,11 @@ void test_loops(float *x)
   for (int i = 0; i < 10; ++i)
     try { goo(x); } catch(...) {}
 
-  //OPT: [[TH1]]:
-  //OPT: call void @__clang_call_terminate
+  //BOTH: [[TLP]]:
+  //BOTH: call void @__clang_call_terminate
+  //BOTH: [[TLP20]]:
+  //BOTH: call void @__clang_call_terminate
 
-  //NOOPT: [[TLP]]:
-  //NOOPT: call void @__clang_call_terminate
-  //NOOPT: [[TLP20]]:
-  //NOOPT: call void @__clang_call_terminate
-
-  //OPT: [[TLP20]]:
-  //OPT: br label %[[TH2:terminate.handler.*]]
-  //OPT: [[TH2]]:
-  //OPT: call void @__clang_call_terminate
 }
 
 

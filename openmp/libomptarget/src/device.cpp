@@ -25,6 +25,33 @@
 #include <cstdio>
 #include <string>
 
+int HostDataToTargetTy::addEventIfNecessary(
+    DeviceTy &Device, AsyncInfoTy &AsyncInfo) const {
+  // First, check if the user disabled atomic map transfer/malloc/dealloc.
+  if (!PM->UseEventsForAtomicTransfers)
+    return OFFLOAD_SUCCESS;
+
+  void *Event = getEvent();
+  bool NeedNewEvent = Event == nullptr;
+  if (NeedNewEvent && Device.createEvent(&Event) != OFFLOAD_SUCCESS) {
+    REPORT("Failed to create event\n");
+    return OFFLOAD_FAIL;
+  }
+
+  // We cannot assume the event should not be nullptr because we don't
+  // know if the target support event. But if a target doesn't,
+  // recordEvent should always return success.
+  if (Device.recordEvent(Event, AsyncInfo) != OFFLOAD_SUCCESS) {
+    REPORT("Failed to set dependence on event " DPxMOD "\n", DPxPTR(Event));
+    return OFFLOAD_FAIL;
+  }
+
+  if (NeedNewEvent)
+    setEvent(Event);
+
+  return OFFLOAD_SUCCESS;
+}
+
 DeviceTy::DeviceTy(RTLInfoTy *RTL)
     : DeviceID(-1), RTL(RTL), RTLDeviceID(-1), IsInit(false), InitFlag(),
       HasPendingGlobals(false), HostDataToTargetMap(), PendingCtorsDtors(),
@@ -116,13 +143,7 @@ int DeviceTy::disassociatePtr(void *HstPtrBegin) {
   return OFFLOAD_FAIL;
 }
 
-#if INTEL_COLLAB
-LookupResult DeviceTy::lookupMapping(void *HstPtrBase, void *HstPtrBegin,
-                                     int64_t Size) {
-  uintptr_t hb = (uintptr_t)HstPtrBase;
-#else // INTEL_COLLAB
 LookupResult DeviceTy::lookupMapping(void *HstPtrBegin, int64_t Size) {
-#endif // INTEL_COLLAB
   uintptr_t hp = (uintptr_t)HstPtrBegin;
   LookupResult lr;
 
@@ -142,32 +163,10 @@ LookupResult DeviceTy::lookupMapping(void *HstPtrBegin, int64_t Size) {
                            (hp + Size) <= HT.HstPtrEnd;
     // Does it extend beyond the mapped region?
     lr.Flags.ExtendsAfter = hp < HT.HstPtrEnd && (hp + Size) > HT.HstPtrEnd;
-#if INTEL_COLLAB
-    // Did we just find the base?
-    // There is a special case where we map a struct via a double pointer, e.g.
-    // typedef struct {...} S;
-    // S s;
-    // S *sp = &s;
-    // S **spp = &sp;
-    // #pragma omp target map (to: spp[0][0]) {...}
-    // In that case, the record for pointer sp will share the same base as the
-    // record for struct s, but we shouldn't report that we only found the base,
-    // i.e. we must let libomptarget create a new record in HostDataToTargetMap
-    // for the struct s itself which will have the same base as the record for
-    // pointer sp. This scenario can only happen in the left bin.
-    if (!lr.Flags.IsContained && !lr.Flags.ExtendsAfter &&
-        hb == HT.HstPtrBase && HT.HstPtrEnd - HT.HstPtrBegin != sizeof(void *))
-      lr.Flags.OnlyBaseFound = true;
-#endif // INTEL_COLLAB
   }
 
   // check the right bin
-#if INTEL_COLLAB
-  if (!(lr.Flags.IsContained || lr.Flags.ExtendsAfter ||
-        lr.Flags.OnlyBaseFound) &&
-#else // INTEL_COLLAB
   if (!(lr.Flags.IsContained || lr.Flags.ExtendsAfter) &&
-#endif // INTEL_COLLAB
       upper != HostDataToTargetMap.end()) {
     lr.Entry = upper;
     auto &HT = *lr.Entry;
@@ -176,12 +175,6 @@ LookupResult DeviceTy::lookupMapping(void *HstPtrBegin, int64_t Size) {
         hp < HT.HstPtrBegin && (hp + Size) > HT.HstPtrBegin;
     // Does it extend beyond the mapped region?
     lr.Flags.ExtendsAfter = hp < HT.HstPtrEnd && (hp + Size) > HT.HstPtrEnd;
-#if INTEL_COLLAB
-    // Did we just find the base?
-    if (!lr.Flags.ExtendsBefore && !lr.Flags.ExtendsAfter &&
-        hb == HT.HstPtrBase)
-      lr.Flags.OnlyBaseFound = true;
-#endif // INTEL_COLLAB
   }
 
   if (lr.Flags.ExtendsBefore) {
@@ -209,11 +202,7 @@ DeviceTy::getTargetPointer(void *HstPtrBegin, void *HstPtrBase, int64_t Size,
 
   DataMapMtx.lock();
 
-#if INTEL_COLLAB
-  LookupResult LR = lookupMapping(HstPtrBase, HstPtrBegin, Size);
-#else // INTEL_COLLAB
   LookupResult LR = lookupMapping(HstPtrBegin, Size);
-#endif // INTEL_COLLAB
   auto Entry = LR.Entry;
 
   // Check if the pointer is contained.
@@ -221,12 +210,7 @@ DeviceTy::getTargetPointer(void *HstPtrBegin, void *HstPtrBase, int64_t Size,
   // lead to the IsContained flag to be true - then we must ensure that the
   // device address is returned even under unified memory conditions.
   if (LR.Flags.IsContained ||
-#if INTEL_COLLAB
-      ((LR.Flags.ExtendsBefore || LR.Flags.ExtendsAfter) && IsImplicit) ||
-      (LR.Flags.OnlyBaseFound && !Size)) {
-#else // INTEL_COLLAB
       ((LR.Flags.ExtendsBefore || LR.Flags.ExtendsAfter) && IsImplicit)) {
-#endif // INTEL_COLLAB
     auto &HT = *LR.Entry;
     const char *RefCountAction;
     assert(HT.getTotalRefCount() > 0 && "expected existing RefCount > 0");
@@ -241,17 +225,7 @@ DeviceTy::getTargetPointer(void *HstPtrBegin, void *HstPtrBase, int64_t Size,
     }
     const char *DynRefCountAction = HasHoldModifier ? "" : RefCountAction;
     const char *HoldRefCountAction = HasHoldModifier ? RefCountAction : "";
-#if INTEL_COLLAB
-    uintptr_t Ptr = 0;
-    if (LR.Flags.OnlyBaseFound)
-      // Return the implied device base
-      Ptr = HT.TgtPtrBegin - (HT.HstPtrBegin - HT.HstPtrBase);
-    else
-      // Return the device address corresponding to HstPtrBegin
-      Ptr = HT.TgtPtrBegin + ((uintptr_t)HstPtrBegin - HT.HstPtrBegin);
-#else // INTEL_COLLAB
     uintptr_t Ptr = HT.TgtPtrBegin + ((uintptr_t)HstPtrBegin - HT.HstPtrBegin);
-#endif // INTEL_COLLAB
     INFO(OMP_INFOTYPE_MAPPING_EXISTS, DeviceID,
          "Mapping exists%s with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD
          ", Size=%" PRId64 ", DynRefCount=%s%s, HoldRefCount=%s%s, Name=%s\n",
@@ -273,18 +247,6 @@ DeviceTy::getTargetPointer(void *HstPtrBegin, void *HstPtrBase, int64_t Size,
               "exist for host address " DPxMOD " (%" PRId64 " bytes)",
               DPxPTR(HstPtrBegin), Size);
 #if INTEL_COLLAB
-#if 0
-  // TODO: This check does not allow disjoint mapping done by multiple host
-  // threads which we allow currently. Unclear if this should be stricly
-  // disallowed even by different threads.
-  } else if (LR.Flags.OnlyBaseFound && Size) {
-    // If we only found the base address but a size has been provided, it
-    // means that the user tried to map another distinct chunk of an already
-    // partially-mapped object, which is illegal.
-    MESSAGE("Found record of existing mapping with the requested base address "
-            DPxMOD " but disjoint mapped data, mapping of two distinct chunks "
-            "of the same object is not allowed.", DPxPTR(HstPtrBase));
-#endif
   } else if (((PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
                !managed_memory_supported()) ||
               is_device_accessible_ptr(HstPtrBegin)) &&
@@ -374,7 +336,7 @@ DeviceTy::getTargetPointer(void *HstPtrBegin, void *HstPtrBase, int64_t Size,
   if (TargetPointer && !IsHostPtr && HasFlagTo && (IsNew || HasFlagAlways)) {
     // Lock the entry before releasing the mapping table lock such that another
     // thread that could issue data movement will get the right result.
-    Entry->lock();
+    HostDataToTargetTy::LockGuard LG(*Entry);
     // Release the mapping table lock right after the entry is locked.
     DataMapMtx.unlock();
 
@@ -383,38 +345,16 @@ DeviceTy::getTargetPointer(void *HstPtrBegin, void *HstPtrBase, int64_t Size,
 
     int Ret = submitData(TargetPointer, HstPtrBegin, Size, AsyncInfo);
     if (Ret != OFFLOAD_SUCCESS) {
-      Entry->unlock();
       REPORT("Copying data to device failed.\n");
       // We will also return nullptr if the data movement fails because that
       // pointer points to a corrupted memory region so it doesn't make any
       // sense to continue to use it.
       TargetPointer = nullptr;
-    }
-
-    void *Event = Entry->getEvent();
-    bool NeedNewEvent = Event == nullptr;
-    if (NeedNewEvent && createEvent(&Event) != OFFLOAD_SUCCESS) {
-      Entry->unlock();
-      REPORT("Failed to create event\n");
+    } else if (Entry->addEventIfNecessary(*this, AsyncInfo) !=
+        OFFLOAD_SUCCESS)
       return {{false /* IsNewEntry */, false /* IsHostPointer */},
               {} /* MapTableEntry */,
               nullptr /* TargetPointer */};
-    }
-    // We cannot assume the event should not be nullptr because we don't
-    // know if the target support event. But if a target doesn't,
-    // recordEvent should always return success.
-    Ret = recordEvent(Event, AsyncInfo);
-    if (Ret != OFFLOAD_SUCCESS) {
-      Entry->unlock();
-      REPORT("Failed to set dependence on event " DPxMOD "\n", DPxPTR(Event));
-      return {{false /* IsNewEntry */, false /* IsHostPointer */},
-              {} /* MapTableEntry */,
-              nullptr /* TargetPointer */};
-    }
-    if (NeedNewEvent)
-      Entry->setEvent(Event);
-    // We're done with the entry. Release the entry.
-    Entry->unlock();
   } else {
     // Release the mapping table lock directly.
     DataMapMtx.unlock();
@@ -423,11 +363,10 @@ DeviceTy::getTargetPointer(void *HstPtrBegin, void *HstPtrBase, int64_t Size,
     // Note: Entry might be nullptr because of zero length array section.
     if (Entry != HostDataToTargetListTy::iterator() && !IsHostPtr &&
         !HasPresentModifier) {
-      Entry->lock();
+      HostDataToTargetTy::LockGuard LG(*Entry);
       void *Event = Entry->getEvent();
       if (Event) {
         int Ret = waitEvent(Event, AsyncInfo);
-        Entry->unlock();
         if (Ret != OFFLOAD_SUCCESS) {
           // If it fails to wait for the event, we need to return nullptr in
           // case of any data race.
@@ -436,8 +375,6 @@ DeviceTy::getTargetPointer(void *HstPtrBegin, void *HstPtrBase, int64_t Size,
                   {} /* MapTableEntry */,
                   nullptr /* TargetPointer */};
         }
-      } else {
-        Entry->unlock();
       }
     }
   }
@@ -448,32 +385,19 @@ DeviceTy::getTargetPointer(void *HstPtrBegin, void *HstPtrBase, int64_t Size,
 // Used by targetDataBegin, targetDataEnd, targetDataUpdate and target.
 // Return the target pointer begin (where the data will be moved).
 // Decrement the reference counter if called from targetDataEnd.
-#if INTEL_COLLAB
-void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, void *HstPtrBase,
-                               int64_t Size, bool &IsLast,
-#else // INTEL_COLLAB
-void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
-#endif // INTEL_COLLAB
-                               bool UpdateRefCount, bool UseHoldRefCount,
-                               bool &IsHostPtr, bool MustContain,
-                               bool ForceDelete) {
-  void *rc = NULL;
+TargetPointerResultTy
+DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
+                         bool UpdateRefCount, bool UseHoldRefCount,
+                         bool &IsHostPtr, bool MustContain, bool ForceDelete) {
+  void *TargetPointer = NULL;
+  bool IsNew = false;
   IsHostPtr = false;
   IsLast = false;
   DataMapMtx.lock();
-#if INTEL_COLLAB
-  LookupResult lr = lookupMapping(HstPtrBase, HstPtrBegin, Size);
-#else // INTEL_COLLAB
   LookupResult lr = lookupMapping(HstPtrBegin, Size);
-#endif // INTEL_COLLAB
 
   if (lr.Flags.IsContained ||
-#if INTEL_COLLAB
-      (!MustContain && (lr.Flags.ExtendsBefore || lr.Flags.ExtendsAfter)) ||
-      lr.Flags.OnlyBaseFound) {
-#else // INTEL_COLLAB
       (!MustContain && (lr.Flags.ExtendsBefore || lr.Flags.ExtendsAfter))) {
-#endif // INTEL_COLLAB
     auto &HT = *lr.Entry;
     // We do not zero the total reference count here.  deallocTgtPtr does that
     // atomically with removing the mapping.  Otherwise, before this thread
@@ -502,23 +426,13 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
     }
     const char *DynRefCountAction = UseHoldRefCount ? "" : RefCountAction;
     const char *HoldRefCountAction = UseHoldRefCount ? RefCountAction : "";
-#if INTEL_COLLAB
-    uintptr_t tp = 0;
-    if (lr.Flags.OnlyBaseFound)
-      // Return the implied device base
-      tp = HT.TgtPtrBegin - (HT.HstPtrBegin - HT.HstPtrBase);
-    else
-      // Return the device address corresponding to HstPtrBegin
-      tp = HT.TgtPtrBegin + ((uintptr_t)HstPtrBegin - HT.HstPtrBegin);
-#else // INTEL_COLLAB
     uintptr_t tp = HT.TgtPtrBegin + ((uintptr_t)HstPtrBegin - HT.HstPtrBegin);
-#endif // INTEL_COLLAB
     INFO(OMP_INFOTYPE_MAPPING_EXISTS, DeviceID,
          "Mapping exists with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", "
          "Size=%" PRId64 ", DynRefCount=%s%s, HoldRefCount=%s%s\n",
          DPxPTR(HstPtrBegin), DPxPTR(tp), Size, HT.dynRefCountToStr().c_str(),
          DynRefCountAction, HT.holdRefCountToStr().c_str(), HoldRefCountAction);
-    rc = (void *)tp;
+    TargetPointer = (void *)tp;
 #if INTEL_COLLAB
   } else if ((PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
                   !managed_memory_supported()) ||
@@ -535,23 +449,19 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
 #if INTEL_COLLAB
     if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
 #endif // INTEL_COLLAB
-       IsHostPtr = true;
-    rc = HstPtrBegin;
+    IsHostPtr = true;
+    TargetPointer = HstPtrBegin;
   }
 
   DataMapMtx.unlock();
-  return rc;
+  return {{IsNew, IsHostPtr}, lr.Entry, TargetPointer};
 }
 
 // Return the target pointer begin (where the data will be moved).
 // Lock-free version called when loading global symbols from the fat binary.
 void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size) {
   uintptr_t hp = (uintptr_t)HstPtrBegin;
-#if INTEL_COLLAB
-  LookupResult lr = lookupMapping(nullptr, HstPtrBegin, Size);
-#else // INTEL_COLLAB
   LookupResult lr = lookupMapping(HstPtrBegin, Size);
-#endif // INTEL_COLLAB
   if (lr.Flags.IsContained || lr.Flags.ExtendsBefore || lr.Flags.ExtendsAfter) {
     auto &HT = *lr.Entry;
     uintptr_t tp = HT.TgtPtrBegin + (hp - HT.HstPtrBegin);
@@ -566,11 +476,7 @@ int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size,
   // Check if the pointer is contained in any sub-nodes.
   int Ret = OFFLOAD_SUCCESS;
   DataMapMtx.lock();
-#if INTEL_COLLAB
-  LookupResult lr = lookupMapping(nullptr, HstPtrBegin, Size);
-#else // INTEL_COLLAB
   LookupResult lr = lookupMapping(HstPtrBegin, Size);
-#endif // INTEL_COLLAB
   if (lr.Flags.IsContained || lr.Flags.ExtendsBefore || lr.Flags.ExtendsAfter) {
     auto &HT = *lr.Entry;
     if (HT.decRefCount(HasHoldModifier) == 0) {
@@ -676,11 +582,7 @@ int32_t DeviceTy::deleteData(void *TgtPtrBegin) {
 int32_t DeviceTy::submitData(void *TgtPtrBegin, void *HstPtrBegin, int64_t Size,
                              AsyncInfoTy &AsyncInfo) {
   if (getInfoLevel() & OMP_INFOTYPE_DATA_TRANSFER) {
-#if INTEL_COLLAB
-    LookupResult LR = lookupMapping(nullptr, HstPtrBegin, Size);
-#else // INTEL_COLLAB
     LookupResult LR = lookupMapping(HstPtrBegin, Size);
-#endif // INTEL_COLLAB
     auto *HT = &*LR.Entry;
 
     INFO(OMP_INFOTYPE_DATA_TRANSFER, DeviceID,
@@ -715,11 +617,7 @@ int32_t DeviceTy::submitData(void *TgtPtrBegin, void *HstPtrBegin, int64_t Size,
 int32_t DeviceTy::retrieveData(void *HstPtrBegin, void *TgtPtrBegin,
                                int64_t Size, AsyncInfoTy &AsyncInfo) {
   if (getInfoLevel() & OMP_INFOTYPE_DATA_TRANSFER) {
-#if INTEL_COLLAB
-    LookupResult LR = lookupMapping(nullptr, HstPtrBegin, Size);
-#else // INTEL_COLLAB
     LookupResult LR = lookupMapping(HstPtrBegin, Size);
-#endif // INTEL_COLLAB
     auto *HT = &*LR.Entry;
     INFO(OMP_INFOTYPE_DATA_TRANSFER, DeviceID,
          "Copying data from device to host, TgtPtr=" DPxMOD ", HstPtr=" DPxMOD

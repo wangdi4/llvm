@@ -90,6 +90,7 @@
 #include "llvm/Transforms/Utils/CanonicalizeAliases.h"
 #include "llvm/Transforms/Utils/Debugify.h"
 #include "llvm/Transforms/Utils/EntryExitInstrumenter.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include <memory>
@@ -655,6 +656,7 @@ static bool initTargetOptions(DiagnosticsEngine &Diags,
   Options.MCOptions.CommandLineArgs = CodeGenOpts.CommandLineArgs;
   Options.DebugStrictDwarf = CodeGenOpts.DebugStrictDwarf;
   Options.ObjectFilenameForDebug = CodeGenOpts.ObjectFilenameForDebug;
+  Options.Hotpatch = CodeGenOpts.HotPatch;
 
   return true;
 }
@@ -1409,6 +1411,12 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
     // configure the pipeline.
     OptimizationLevel Level = mapToLevel(CodeGenOpts);
 
+    if (LangOpts.SYCLIsDevice)
+      PB.registerPipelineStartEPCallback(
+          [](ModulePassManager &MPM, OptimizationLevel Level) {
+            MPM.addPass(ESIMDVerifierPass());
+          });
+
     bool IsThinLTO = CodeGenOpts.PrepareForThinLTO;
     bool IsLTO = CodeGenOpts.PrepareForLTO;
 
@@ -1572,8 +1580,11 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
   }
 
   // Now that we have all of the passes ready, run them.
-  PrettyStackTraceString CrashInfo("Optimizer");
-  MPM.run(*TheModule, MAM);
+  {
+    PrettyStackTraceString CrashInfo("Optimizer");
+    llvm::TimeTraceScope TimeScope("Optimizer");
+    MPM.run(*TheModule, MAM);
+  }
 }
 
 void EmitAssemblyHelper::RunCodegenPipeline(
@@ -1605,8 +1616,11 @@ void EmitAssemblyHelper::RunCodegenPipeline(
     return;
   }
 
-  PrettyStackTraceString CrashInfo("Code generation");
-  CodeGenPasses.run(*TheModule);
+  {
+    PrettyStackTraceString CrashInfo("Code generation");
+    llvm::TimeTraceScope TimeScope("CodeGenPasses");
+    CodeGenPasses.run(*TheModule);
+  }
 }
 
 /// A clean version of `EmitAssembly` that uses the new pass manager.
@@ -1838,9 +1852,37 @@ void clang::EmbedBitcode(llvm::Module *M, const CodeGenOptions &CGOpts,
                          llvm::MemoryBufferRef Buf) {
   if (CGOpts.getEmbedBitcode() == CodeGenOptions::Embed_Off)
     return;
-  llvm::EmbedBitcodeInModule(
+  llvm::embedBitcodeInModule(
       *M, Buf, CGOpts.getEmbedBitcode() != CodeGenOptions::Embed_Marker,
       CGOpts.getEmbedBitcode() != CodeGenOptions::Embed_Bitcode,
       CGOpts.CmdArgs);
 }
 #endif // !INTEL_PRODUCT_RELEASE
+
+void clang::EmbedObject(llvm::Module *M, const CodeGenOptions &CGOpts,
+                        DiagnosticsEngine &Diags) {
+  if (CGOpts.OffloadObjects.empty())
+    return;
+
+  for (StringRef OffloadObject : CGOpts.OffloadObjects) {
+    if (OffloadObject.count(',') != 1) {
+      Diags.Report(Diags.getCustomDiagID(
+          DiagnosticsEngine::Error, "Invalid string pair for embedding '%0'"))
+          << OffloadObject;
+      return;
+    }
+    auto FilenameAndSection = OffloadObject.split(',');
+    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> ObjectOrErr =
+        llvm::MemoryBuffer::getFileOrSTDIN(std::get<0>(FilenameAndSection));
+    if (std::error_code EC = ObjectOrErr.getError()) {
+      auto DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                                          "could not open '%0' for embedding");
+      Diags.Report(DiagID) << std::get<0>(FilenameAndSection);
+      return;
+    }
+
+    SmallString<128> SectionName(
+        {".llvm.offloading.", std::get<1>(FilenameAndSection)});
+    llvm::embedBufferInModule(*M, **ObjectOrErr, SectionName);
+  }
+}

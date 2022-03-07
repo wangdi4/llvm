@@ -11,6 +11,8 @@
 
 #pragma once
 
+/// @cond ESIMD_DETAIL
+
 #include <CL/sycl/builtins.hpp>
 #include <sycl/ext/intel/experimental/esimd/common.hpp>
 #include <sycl/ext/intel/experimental/esimd/detail/elem_type_traits.hpp>
@@ -1568,3 +1570,5 @@ __esimd_qf_cvt(__SEIEED::vector_type_t<SrcType, N> src) {
 #endif // #ifdef __SYCL_DEVICE_ONLY__
 
 #undef __ESIMD_raw_vec_t
+
+/// @endcond ESIMD_DETAIL

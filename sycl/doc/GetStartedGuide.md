@@ -705,7 +705,7 @@ SYCL_BE=PI_CUDA ./simple-sycl-app-cuda.exe
 
 **NOTE**: DPC++/SYCL developers can specify SYCL device for execution using
 device selectors (e.g. `cl::sycl::cpu_selector`, `cl::sycl::gpu_selector`,
-[Intel FPGA selector(s)](extensions/IntelFPGA/FPGASelector.md)) as
+[Intel FPGA selector(s)](extensions/supported/SYCL_EXT_INTEL_FPGA_DEVICE_SELECTOR.md)) as
 explained in following section [Code the program for a specific
 GPU](#code-the-program-for-a-specific-gpu).
 
@@ -818,7 +818,7 @@ which contains all the symbols required.
   project and may cause compilation issues on some platforms
 * `sycl::sqrt` is not correctly rounded by default as the SYCL specification
   allows lower precision, when porting from CUDA it may be helpful to use
-  `-Xclang -fcuda-prec-sqrt` to use the correctly rounded square root, this is
+  `-fsycl-fp32-prec-sqrt` to use the correctly rounded square root, this is
   significantly slower but matches the default precision used by `nvcc`, and
   this `clang++` flag is equivalent to the `nvcc` `-prec-sqrt` flag, except that
   it defaults to `false`.

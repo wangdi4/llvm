@@ -13,12 +13,10 @@
 #include "llvm/IR/DIBuilder.h"
 #include "LLVMContextImpl.h"
 #include "llvm/ADT/Optional.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -1011,6 +1009,24 @@ static Value *getDbgIntrinsicValueImpl(LLVMContext &VMContext, Value *V) {
 static Function *getDeclareIntrin(Module &M) {
   return Intrinsic::getDeclaration(&M, UseDbgAddr ? Intrinsic::dbg_addr
                                                   : Intrinsic::dbg_declare);
+}
+
+Instruction *DIBuilder::insertDbgValueIntrinsic(
+    llvm::Value *Val, DILocalVariable *VarInfo, DIExpression *Expr,
+    const DILocation *DL, BasicBlock *InsertBB, Instruction *InsertBefore) {
+  if (!ValueFn)
+    ValueFn = Intrinsic::getDeclaration(&M, Intrinsic::dbg_value);
+  return insertDbgIntrinsic(ValueFn, Val, VarInfo, Expr, DL, InsertBB,
+                            InsertBefore);
+}
+
+Instruction *DIBuilder::insertDbgAddrIntrinsic(
+    llvm::Value *Val, DILocalVariable *VarInfo, DIExpression *Expr,
+    const DILocation *DL, BasicBlock *InsertBB, Instruction *InsertBefore) {
+  if (!AddrFn)
+    AddrFn = Intrinsic::getDeclaration(&M, Intrinsic::dbg_addr);
+  return insertDbgIntrinsic(AddrFn, Val, VarInfo, Expr, DL, InsertBB,
+                            InsertBefore);
 }
 
 Instruction *DIBuilder::insertDeclare(Value *Storage, DILocalVariable *VarInfo,
