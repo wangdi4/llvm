@@ -2851,6 +2851,9 @@ static void closeRTL() {
       CALL_ZE_EXIT_FAIL(zeMemFree, DeviceInfo->Context, mem);
     }
 
+    if (DeviceInfo->Option.Flags.UseImmCmdList)
+      CALL_ZE_RET_VOID(zeCommandListDestroy, DeviceInfo->ImmCmdLists[i]);
+
     DeviceInfo->Programs[i].clear();
 
     DeviceInfo->Mutexes[i].unlock();
@@ -2881,11 +2884,8 @@ static void closeRTL() {
   if (DeviceInfo->Option.Flags.EnableProfile)
     DeviceInfo->ProfileEvents.deinit();
 
-  if (DeviceInfo->Option.Flags.UseImmCmdList) {
+  if (DeviceInfo->Option.Flags.UseImmCmdList)
     DeviceInfo->ImmEventPool.deinit();
-    for (auto I = 0; I < DeviceInfo->NumDevices; I++)
-      CALL_ZE_RET_VOID(zeCommandListDestroy, DeviceInfo->ImmCmdLists[I]);
-  }
 
   if (DeviceInfo->Context)
     CALL_ZE_EXIT_FAIL(zeContextDestroy, DeviceInfo->Context);
