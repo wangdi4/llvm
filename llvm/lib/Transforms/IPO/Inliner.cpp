@@ -110,6 +110,15 @@ STATISTIC(NumMergedAllocas, "Number of allocas merged together");
 static cl::opt<bool>
     DisableInlinedAllocaMerging("disable-inlined-alloca-merging",
                                 cl::init(false), cl::Hidden);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+/// Merging of allocas during inlining in the new pass manager.  This is off
+/// by default in the community, but may be useful in specialized cases.
+static cl::opt<bool>
+    InlinedAllocaMergingNPM("inlined-alloca-merging-npm",
+                            cl::init(false), cl::Hidden);
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
 
 /// A flag for test, so we can print the content of the advisor when running it
 /// as part of the default (e.g. -O3) pipeline.
@@ -117,6 +126,11 @@ static cl::opt<bool> KeepAdvisorForPrinting("keep-inline-advisor-for-printing",
                                             cl::init(false), cl::Hidden);
 
 extern cl::opt<InlinerFunctionImportStatsOpts> InlinerFunctionImportStats;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+extern cl::opt<bool> DTransInlineHeuristics;
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 LegacyInlinerBase::LegacyInlinerBase(char &ID)
@@ -885,13 +899,10 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   const auto &MAMProxy =
       AM.getResult<ModuleAnalysisManagerCGSCCProxy>(InitialC, CG);
   bool Changed = false;
-  InliningLoopInfoCache* ILIC = new InliningLoopInfoCache(); // INTEL
 
   assert(InitialC.size() > 0 && "Cannot handle an empty SCC!");
   Module &M = *InitialC.begin()->getFunction().getParent();
   ProfileSummaryInfo *PSI = MAMProxy.getCachedResult<ProfileSummaryAnalysis>(M);
-  WholeProgramInfo *WPI                                         // INTEL
-      = MAMProxy.getCachedResult<WholeProgramAnalysis>(M);      // INTEL
 
   FunctionAnalysisManager &FAM =
       AM.getResult<FunctionAnalysisManagerCGSCCProxy>(InitialC, CG)
@@ -903,6 +914,12 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   auto AdvisorOnExit = make_scope_exit([&] { Advisor.onPassExit(&InitialC); });
 
 #if INTEL_CUSTOMIZATION
+  InliningLoopInfoCache* ILIC = new InliningLoopInfoCache();
+  WholeProgramInfo *WPI
+      = MAMProxy.getCachedResult<WholeProgramAnalysis>(M);
+#if INTEL_FEATURE_SW_ADVANCED
+  bool InlinedAllocaMerging = DTransInlineHeuristics || InlinedAllocaMergingNPM;
+#endif // INTEL_FEATURE_SW_ADVANCED
   Report->beginSCC(InitialC, this);
   MDReport->beginSCC(InitialC);
 #endif // INTEL_CUSTOMIZATION
@@ -1006,6 +1023,11 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   // Track potentially dead non-local functions with comdats to see if they can
   // be deleted as a batch after inlining.
   SmallVector<Function *, 4> DeadFunctionsInComdats;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+  InlinedArrayAllocasTy InlinedArrayAllocas;
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
 
   // Loop forward over all of the calls.
   while (!Calls->empty()) {
@@ -1019,7 +1041,6 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       Calls->pop();
       continue;
     }
-
     LLVM_DEBUG(dbgs() << "Inlining calls in: " << F.getName() << "\n"
                       << "    Function size: " << F.getInstructionCount()
                       << "\n");
@@ -1081,7 +1102,6 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         llvm::setMDReasonNotInlined(CB, *IC);  // INTEL
         continue;
       }
-
 #if INTEL_CUSTOMIZATION
       Report->beginUpdate(CB);
       MDReport->beginUpdate(CB);
@@ -1119,6 +1139,13 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         continue;
       }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+      if (InlinedAllocaMerging)
+        mergeInlinedArrayAllocas(&Caller, IFI, InlinedArrayAllocas,
+                                 InlineHistoryID);
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
       DidInline = true;
       ++NumInlined; // INTEL (extra incrememt)
 #if INTEL_CUSTOMIZATION
