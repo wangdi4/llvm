@@ -1301,14 +1301,6 @@ constexpr int get_lsc_block_2d_data_size() {
   return Width * Height * NBlocks;
 }
 
-<<<<<<< HEAD
-// Format u8u32 and u16u32 back to u8 and u16.
-template <typename T, typename T1, int N>
-ESIMD_INLINE simd<T, N> lsc_format_ret(simd<T1, N> Vals) {
-  auto Formatted = Vals.template bit_cast_view<T>();
-  constexpr int Stride = Formatted.length / N;
-  return Formatted.template select<N, Stride>(0);
-=======
 /// @defgroup sycl_esimd_2d_stateless 2D stateless functions
 /// \ingroup sycl_esimd
 /// @{
@@ -1407,7 +1399,6 @@ store_2d_stateless(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
   constexpr uchar numDst = 0x0;
   raw_sends_store(payload, Data, exDesc, desc, execSize, sfid, numSrc0,
                   numSrc1);
->>>>>>> dc8b6af23640a852a49193560a3e2b83d8ea1a94
 }
 } // namespace detail
 

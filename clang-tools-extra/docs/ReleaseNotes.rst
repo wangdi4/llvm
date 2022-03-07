@@ -99,12 +99,8 @@ Improvements to clang-tidy
 New checks
 ^^^^^^^^^^
 
-<<<<<<< HEAD
-- New :doc:`bugprone-shared-ptr-array-mismatch <clang-tidy/checks/bugprone-shared-ptr-array-mismatch>` check.
-=======
 - New :doc:`bugprone-stringview-nullptr
   <clang-tidy/checks/bugprone-stringview-nullptr>` check.
->>>>>>> dc8b6af23640a852a49193560a3e2b83d8ea1a94
 
   Finds initializations of C++ shared pointers to non-array type that are initialized with an array.
 
