@@ -12,7 +12,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#define DEBUG_TYPE "Specializer"
 #include "Specializer.h"
 #include "Predicator.h"
 #include "Linearizer.h"
@@ -30,6 +29,9 @@
 #include "llvm/IR/IntrinsicInst.h"
 
 #include <stack>
+
+#define DEBUG_TYPE "Specializer"
+
     static cl::opt<unsigned>
         SpecializeThreshold("specialize-threshold", cl::init(15), cl::Hidden,
                             cl::desc("The cut-off point for specialization of "
