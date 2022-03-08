@@ -276,6 +276,9 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
     case DIR_OMP_TILE:
       W = new WRNTileNode(EntryBB, LI);
       break;
+    case DIR_OMP_SCAN:
+      W = new WRNScanNode(EntryBB);
+      break;
   }
   if (W) {
     W->setLevel(NestingLevel);
@@ -1181,4 +1184,74 @@ bool WRegionUtils::isDistributeParLoopNode(const WRegionNode *W) {
   return isa<WRNDistributeParLoopNode>(W) &&
          !W->getTreatDistributeParLoopAsDistribute();
 }
+
+template <typename ItemTy>
+Item *WRegionUtils::getClauseItemForInscanIdx(const Clause<ItemTy> &C,
+                                              uint64_t Idx) {
+  auto FoundIter = llvm::find_if(
+      C.items(), [Idx](ItemTy *I) { return I->getInscanIdx() == Idx; });
+  if (FoundIter == C.end())
+    return nullptr;
+
+  return *FoundIter;
+}
+
+Item *WRegionUtils::getClauseItemForInscanIdx(const WRegionNode *W,
+                                              uint64_t Idx) {
+  if (W->canHaveReductionInscan())
+    if (auto *FoundItem = getClauseItemForInscanIdx(W->getRed(), Idx))
+      return FoundItem;
+
+  if (W->canHaveInclusive())
+    if (auto *FoundItem = getClauseItemForInscanIdx(W->getInclusive(), Idx))
+      return FoundItem;
+
+  if (W->canHaveExclusive())
+    if (auto *FoundItem = getClauseItemForInscanIdx(W->getExclusive(), Idx))
+      return FoundItem;
+
+  return nullptr;
+}
+
+InclusiveExclusiveItemBase *
+WRegionUtils::getInclusiveExclusiveItemForReductionItem(
+    const WRegionNode *W, const ReductionItem *I) {
+
+  if (!I->getIsInscan())
+    return nullptr;
+
+  auto ScanNodeIt = llvm::find_if(
+      W->getChildren(), [](WRegionNode *Cur) { return isa<WRNScanNode>(Cur); });
+
+  assert(ScanNodeIt != W->getChildren().end() &&
+         "No scan directive in a region with a reduction(inscan) item.");
+
+  Item *Res =
+      WRegionUtils::getClauseItemForInscanIdx(*ScanNodeIt, I->getInscanIdx());
+  assert(Res && "Reduction(inscan) operand has no matching clause on a child "
+                "Scan directive.");
+
+  assert((isa<InclusiveItem>(Res) || isa<ExclusiveItem>(Res)) &&
+         "Reduction(inscan) item matches an unexpected clause on the child "
+         "Scan directive.");
+
+  InclusiveExclusiveItemBase *IEItem = dyn_cast<InclusiveItem>(Res);
+  return (IEItem ? IEItem : cast<ExclusiveItem>(Res));
+}
+
+ReductionItem *WRegionUtils::getReductionItemForInclusiveExclusiveItem(
+    const WRNScanNode *W, const InclusiveExclusiveItemBase *I) {
+
+  auto *Parent = W->getParent();
+  assert(Parent->canHaveReductionInscan() &&
+         "scan directive should be perfectly nested in a region that supports "
+         "reduction(inscan).");
+
+  Item *Res =
+      WRegionUtils::getClauseItemForInscanIdx(Parent, I->getInscanIdx());
+  assert(Res && "inclusive/exclusive operand has no matching clause on the "
+                "parent construct.");
+  return cast<ReductionItem>(Res);
+}
+
 #endif // INTEL_COLLAB

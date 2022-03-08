@@ -415,6 +415,29 @@ public:
   /// its TreatDistributeParLoopAsDistribute flag set to false; \b false
   /// otherwise.
   static bool isDistributeParLoopNode(const WRegionNode *W);
+
+  /// {@ Utilities for scan inclusive/exclusive + reduction(inscan).
+
+  /// Find and return the clause item in \p C that matches the Inscan index \p
+  /// Idx. Returns null if no such item is found.
+  template <typename ItemTy>
+  static Item *getClauseItemForInscanIdx(const Clause<ItemTy> &C, uint64_t Idx);
+
+  /// Find and return the clause item in \p W that matches the Inscan index \p
+  /// Idx. Returns null if no such item is found.
+  static Item *getClauseItemForInscanIdx(const WRegionNode *W, uint64_t Idx);
+
+  /// For a reduction(inscan) item \p I on \p W, returns the corresponding
+  /// inclusive/exclusive item from the inner scan directive.
+  static InclusiveExclusiveItemBase *
+  getInclusiveExclusiveItemForReductionItem(const WRegionNode *W,
+                                            const ReductionItem *I);
+
+  /// For an inclusive/exclusive item \p I on \p W, returns the corresponding
+  /// reduction(inscan) item from the outer loop/simd directive.
+  static ReductionItem *getReductionItemForInclusiveExclusiveItem(
+      const WRNScanNode *W, const InclusiveExclusiveItemBase *I);
+  /// @}
 };
 
 } // End VPO Namespace

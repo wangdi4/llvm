@@ -60,6 +60,7 @@
 ///   WRNInteropNode          | #pragma omp interop
 ///   WRNScopeNode            | #pragma omp scope
 ///   WRNTileNode             | #pragma omp tile
+///   WRNScanNode             | #pragma omp scan
 ///
 /// One exception is WRNTaskloopNode, which is derived from WRNTasknode.
 //===----------------------------------------------------------------------===//
@@ -433,8 +434,6 @@ public:
   const SmallVectorImpl<Instruction *> &getCancellationPoints() const override {
     return CancellationPoints;
   }
-
-
   void addCancellationPoint(Instruction *I) override { CancellationPoints.push_back(I); }
   const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const override {
     return CancellationPointAllocas;
@@ -1828,6 +1827,29 @@ public:
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNTile;
+  }
+};
+
+/// WRN for
+/// \code
+///   #pragma omp scan
+/// \endcode
+class WRNScanNode : public WRegionNode {
+private:
+  InclusiveClause Incl;
+  ExclusiveClause Excl;
+
+public:
+  WRNScanNode(BasicBlock *BB);
+  DEFINE_GETTER(InclusiveClause,    getInclusive,   Incl)
+  DEFINE_GETTER(ExclusiveClause,    getExclusive,   Excl)
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                  unsigned Verbosity = 1) const override;
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNScan;
   }
 };
 

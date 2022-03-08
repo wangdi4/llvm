@@ -70,7 +70,9 @@ DenseMap<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNTaskwait, "taskwait"},
     {WRegionNode::WRNTaskyield, "taskyield"},
     {WRegionNode::WRNScope, "scope"},
-    {WRegionNode::WRNTile, "tile"}};
+    {WRegionNode::WRNTile, "tile"},
+    {WRegionNode::WRNScan, "scan"},
+};
 
 // constructor for LLVM IR representation
 WRegionNode::WRegionNode(unsigned SCID, BasicBlock *BB)
@@ -496,6 +498,12 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
 
   if (canHaveUniform())
     PrintedSomething |= getUniform().print(OS, Depth, Verbosity);
+
+  if (canHaveInclusive())
+    PrintedSomething |= getInclusive().print(OS, Depth, Verbosity);
+
+  if (canHaveExclusive())
+    PrintedSomething |= getExclusive().print(OS, Depth, Verbosity);
 
   if (canHaveMap())
     PrintedSomething |= getMap().print(OS, Depth, Verbosity);
@@ -1366,15 +1374,33 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
            ReductionKind == ReductionItem::WRNReductionMult)) &&
          "The COMPLEX modifier is for ADD/SUB/MUL reduction only");
 
-  if (ClauseInfo.getIsTask()) {
+  auto emitError = [&](const Twine &Msg) {
     Instruction *EntryDir = getEntryDirective();
     Function *F = EntryDir->getFunction();
     F->getContext().diagnose(
-        DiagnosticInfoUnsupported(*F,
-                                  "task reduction-modifier on a reduction "
-                                  "clause is currently not supported",
-                                  EntryDir->getDebugLoc()));
+        DiagnosticInfoUnsupported(*F, Msg, EntryDir->getDebugLoc()));
+  };
+
+  if (ClauseInfo.getIsTask()) {
+    emitError("task reduction-modifier on a reduction clause is currently not "
+              "supported");
     return;
+  }
+
+  uint64_t InscanIdx = 0;
+  if (ClauseInfo.getIsInscan()) {
+    if (!canHaveReductionInscan())
+      emitError("reduction(inscan) is not supported on the " + getName() +
+                " construct.");
+
+    // The last opnd of an inscan reduction item should be an integer index.
+    Value *InscanIdxV = Args[NumArgs - 1];
+
+    assert(isa<ConstantInt>(InscanIdxV) && "Inscan idx is not a constant int.");
+    InscanIdx = cast<ConstantInt>(InscanIdxV)->getZExtValue();
+    assert(InscanIdx > 0 && "Inscan idx should be >= 1.");
+
+    NumArgs -= 1;
   }
 
   bool IsTyped = ClauseInfo.getIsTyped();
@@ -1392,6 +1418,10 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
     RI->setIsComplex(IsComplex);
     RI->setIsInReduction(IsInReduction);
     RI->setIsByRef(ClauseInfo.getIsByRef());
+    if (InscanIdx) {
+      RI->setIsInscan(true);
+      RI->setInscanIdx(InscanIdx);
+    }
     // TODO: This code will be added once we start supporting task
     // reduction-modifier on a Reduction clause
     //   if (IsTask)
@@ -1456,6 +1486,26 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       }
       C.add(V);
       ReductionItem *RI = C.back();
+
+      if (InscanIdx) {
+        RI->setIsInscan(true);
+        RI->setInscanIdx(InscanIdx);
+
+        // Make sure we don't get multiple operands in a single QUAL if InScan
+        // modifier is present. TODO: Expand this restriction to apply in
+        // general.
+        unsigned ExpectedNumArgs =
+            1 + // Orig
+            (IsTyped ? 2 : 0) +
+            (ReductionKind == ReductionItem::WRNReductionUdr ? 4 : 0);
+        // The Inscan idx was already removed from the list. The remaining
+        // bundle opnds should all correspond to a single reduction item.
+        assert(NumArgs == ExpectedNumArgs &&
+               "Unexpected number of arguments for reduction clause with "
+               "inscan.");
+        (void)ExpectedNumArgs;
+      }
+
       RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
       RI->setIsUnsigned(IsUnsigned);
       RI->setIsComplex(IsComplex);
@@ -1495,6 +1545,31 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       }
     }
   }
+}
+
+template <typename ClauseItemTy>
+void WRegionNode::extractInclusiveExclusiveOpndList(
+    const Use *Args, unsigned NumArgs, const ClauseSpecifier &ClauseInfo,
+    Clause<ClauseItemTy> &C) {
+  assert((ClauseInfo.getId() == QUAL_OMP_INCLUSIVE ||
+          ClauseInfo.getId() == QUAL_OMP_EXCLUSIVE) &&
+         "Unexpected clause.");
+  assert(!ClauseInfo.getIsTyped() &&
+         "Typed clauses are not supported for Inclusive/Exclusive clauses.");
+  assert(NumArgs == 2 && "Inclusive/Exclusive quals should only have two "
+                         "operands: var and inscan_idx");
+
+  C.add(Args[0]);
+
+  uint64_t InscanIdx = 0;
+  Value *InscanIdxV = Args[1];
+
+  assert(isa<ConstantInt>(InscanIdxV) && "Inscan idx is not a constant int.");
+  InscanIdx = cast<ConstantInt>(InscanIdxV)->getZExtValue();
+  assert(InscanIdx > 0 && "Inscan idx should be >= 1.");
+
+  auto *CI = C.back();
+  CI->setInscanIdx(InscanIdx);
 }
 
 //
@@ -1702,6 +1777,16 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   }
   case QUAL_OMP_UNIFORM: {
     extractQualOpndList<UniformClause>(Args, NumArgs, ClauseInfo, getUniform());
+    break;
+  }
+  case QUAL_OMP_INCLUSIVE: {
+    extractInclusiveExclusiveOpndList<InclusiveItem>(Args, NumArgs, ClauseInfo,
+                                                     getInclusive());
+    break;
+  }
+  case QUAL_OMP_EXCLUSIVE: {
+    extractInclusiveExclusiveOpndList<ExclusiveItem>(Args, NumArgs, ClauseInfo,
+                                                     getExclusive());
     break;
   }
   case QUAL_OMP_LINEAR: {
@@ -2200,6 +2285,20 @@ bool WRegionNode::canHaveReduction() const {
   return false;
 }
 
+bool WRegionNode::canHaveReductionInscan() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+#if 0 // TODO: Enable when Scan on worksharing loop is supported.
+  case WRNParallelLoop:
+  case WRNWksLoop:
+#endif
+  case WRNVecLoop:
+  case WRNGenericLoop:
+    return true;
+  }
+  return false;
+}
+
 bool WRegionNode::canHaveNowait() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
@@ -2472,6 +2571,24 @@ bool WRegionNode::canHaveLivein() const {
   case WRNVecLoop:
   case WRNWksLoop:
   case WRNTile:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveInclusive() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNScan:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveExclusive() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNScan:
     return true;
   }
   return false;

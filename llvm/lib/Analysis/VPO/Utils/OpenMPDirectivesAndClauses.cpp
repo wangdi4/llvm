@@ -49,7 +49,7 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
       IsScheduleSimd(false), IsMapAggrHead(false), IsMapAggr(false),
       IsMapChainLink(false), IsIV(false), IsInitTarget(false),
       IsInitTargetSync(false), IsInitPrefer(false), IsTask(false),
-      IsTyped(false) {
+      IsInscan(false), IsTyped(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
   // Split Name into the BaseName and Modifier substrings
@@ -169,6 +169,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
           setIsComplex();
         else if (ModSubString[i] == "TASK")        // for reduction clause
           setIsTask();
+        else if (ModSubString[i] == "INSCAN")      // for reduction clause
+          setIsInscan();
         else if (ModSubString[i] == "CONDITIONAL") // for lastprivate clause
           setIsConditional();
         else if (ModSubString[i] == "AGGRHEAD")    // map chain head
@@ -381,6 +383,7 @@ bool VPOAnalysisUtils::isEndDirective(int DirID) {
   case DIR_OMP_END_GENERICLOOP:
   case DIR_OMP_END_SCOPE:
   case DIR_OMP_END_TILE:
+  case DIR_OMP_END_SCAN:
 #if INTEL_CUSTOMIZATION
   case DIR_VPO_END_AUTO_VEC:
   case DIR_PRAGMA_END_IVDEP:
@@ -466,6 +469,7 @@ bool VPOAnalysisUtils::isStandAloneBeginDirective(int DirID) {
   case DIR_OMP_THREADPRIVATE:
   case DIR_OMP_INTEROP:
   case DIR_OMP_PREFETCH:
+  case DIR_OMP_SCAN:
     return true;
   }
   return false;
@@ -499,6 +503,7 @@ bool VPOAnalysisUtils::isStandAloneEndDirective(int DirID) {
   case DIR_OMP_END_CANCELLATION_POINT:
   case DIR_OMP_END_INTEROP:
   case DIR_OMP_END_PREFETCH:
+  case DIR_OMP_END_SCAN:
     return true;
   }
   return false;
@@ -634,6 +639,8 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
       return DIR_OMP_END_INTEROP;
   case DIR_OMP_PREFETCH:
       return DIR_OMP_END_PREFETCH;
+  case DIR_OMP_SCAN:
+      return DIR_OMP_END_SCAN;
   }
   return -1;
 }

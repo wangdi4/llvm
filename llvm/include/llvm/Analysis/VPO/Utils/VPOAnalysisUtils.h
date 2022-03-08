@@ -148,6 +148,12 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      Modifier = "TASK"
 ///      Id = QUAL_OMP_REDUCTION_ADD
 ///
+/// * INSCAN modifier on REDUCTION clause. Example:
+///      FullName = "QUAL.OMP.REDUCTION.ADD:INSCAN"
+///      BaseName = "QUAL.OMP.REDUCTION.ADD"
+///      Modifier = "INSCAN"
+///      Id = QUAL_OMP_REDUCTION_ADD
+///
 /// Id is the enum corresponding to BaseName.
 class ClauseSpecifier {
 private:
@@ -201,6 +207,7 @@ private:
 
   // Modifier for reduction clause
   bool IsTask:1;
+  bool IsInscan:1;
 
   bool IsTyped : 1; // needed in case of data type transfer
 
@@ -226,6 +233,7 @@ public:
   void setIsInitTargetSync()       { IsInitTargetSync = true; }
   void setIsInitPrefer()           { IsInitPrefer = true; }
   void setIsTask()                 { IsTask = true; }
+  void setIsInscan()               { IsInscan = true; }
   void setIsScheduleMonotonic()    { IsScheduleMonotonic = true; }
   void setIsScheduleNonmonotonic() { IsScheduleNonmonotonic = true; }
   void setIsScheduleSimd()         { IsScheduleSimd = true; }
@@ -257,6 +265,7 @@ public:
   bool getIsInitTargetSync() const { return IsInitTargetSync; }
   bool getIsInitPrefer() const { return IsInitPrefer; }
   bool getIsTask() const { return IsTask; }
+  bool getIsInscan() const { return IsInscan; }
   bool getIsScheduleMonotonic() const { return IsScheduleMonotonic; }
   bool getIsScheduleNonmonotonic() const { return IsScheduleNonmonotonic; }
   bool getIsScheduleSimd() const { return IsScheduleSimd; }

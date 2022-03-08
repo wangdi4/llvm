@@ -691,6 +691,25 @@ void WRNVecLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
 #if INTEL_CUSTOMIZATION
   vpo::printBool("EXT_DO_CONCURRENT", getIsDoConcurrent(), OS, Indent, Verbosity);
 #endif // INTEL_CUSTOMIZATION
+
+  if (getRed().empty() ||
+      llvm::none_of(getRed().items(),
+                    [](ReductionItem *RI) { return RI->getIsInscan(); }))
+    return;
+
+  OS.indent(Indent) << "REDUCTION-INSCAN maps: ";
+
+  for (auto *RI : getRed().items()) {
+    if (!RI->getIsInscan())
+      continue;
+
+    auto *ScanI =
+        WRegionUtils::getInclusiveExclusiveItemForReductionItem(this, RI);
+    OS << "(" << RI->getInscanIdx() << ": "
+       << (isa<InclusiveItem>(ScanI) ? "INCLUSIVE" : "EXCLUSIVE") << ") ";
+  }
+
+  OS << "\n";
 }
 
 //
@@ -1026,6 +1045,38 @@ WRNTileNode::WRNTileNode(BasicBlock *BB, LoopInfo *Li)
   setIsOmpLoopTransform();
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNTileNode<" << getNumber() << ">\n");
+}
+
+//
+// Methods for WRNScanNode
+//
+
+// constructor
+WRNScanNode::WRNScanNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNScan, BB) {
+  LLVM_DEBUG(dbgs() << "\nCreated WRNScanNode<" << getNumber() << ">\n");
+}
+
+// printer
+void WRNScanNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                             unsigned Verbosity) const {
+  unsigned Indent = 2 * Depth;
+  auto printReductionTypeForIdx = [&](InclusiveExclusiveItemBase *IEI) {
+    uint64_t Idx = IEI->getInscanIdx();
+    auto *RI =
+        WRegionUtils::getReductionItemForInclusiveExclusiveItem(this, IEI);
+    OS << "(" << Idx << ": " + RI->getOpName() << ") ";
+  };
+
+  if (getInclusive().empty() && getExclusive().empty())
+    return;
+
+  OS.indent(Indent) << "INSCAN-REDUCTION maps: ";
+  for (auto *InI : getInclusive().items())
+    printReductionTypeForIdx(InI);
+  for (auto *ExI : getExclusive().items())
+    printReductionTypeForIdx(ExI);
+  OS << "\n";
 }
 
 //
