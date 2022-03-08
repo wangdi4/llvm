@@ -75,6 +75,7 @@ class X86TTIImpl : public BasicTTIImplBase<X86TTIImpl> {
       X86::TuningRANGEFalseDeps,
       X86::TuningGETMANTFalseDeps,
       X86::TuningMULLQFalseDeps,
+      X86::TuningMRN,
 #endif // INTEL_CUSTOMIZATION
       X86::TuningPadShortFunctions,
       X86::TuningPOPCNTFalseDeps,

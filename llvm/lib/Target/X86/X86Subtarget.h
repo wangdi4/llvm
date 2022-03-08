@@ -375,6 +375,9 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   bool HasFP16 = false;
 
 #if INTEL_CUSTOMIZATION
+  /// True if target has memroy renaming feature.
+  bool HasMRN = false;
+
   /// True if cmul instructions have a false dependency
   /// on the destination register.
   bool HasCMULFalseDeps = false;
@@ -1051,6 +1054,7 @@ public:
   // In SKL, DSB window size is 64B. It is implemented as 2 DSBs of 32B each
   // (even and odd) that run in parallel every lookup
   unsigned getDSBWindowSize() const override { return 32; }
+  bool hasMRN() const { return HasMRN; }
 #endif // INTEL_CUSTOMIZATION
   bool hasINVPCID() const { return HasINVPCID; }
   bool hasENQCMD() const { return HasENQCMD; }
