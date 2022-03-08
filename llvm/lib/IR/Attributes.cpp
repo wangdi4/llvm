@@ -1784,7 +1784,8 @@ AttributeMask AttributeFuncs::typeIncompatible(Type *Ty) {
 #endif // INTEL_CUSTOMIZATION
     // Attribute that only apply to integers.
     Incompatible.addAttribute(Attribute::SExt)
-      .addAttribute(Attribute::ZExt);
+        .addAttribute(Attribute::ZExt)
+        .addAttribute(Attribute::AllocAlign);
 
 #if INTEL_CUSTOMIZATION
   // We want to be able to apply the same pointer attributes for vectors of
