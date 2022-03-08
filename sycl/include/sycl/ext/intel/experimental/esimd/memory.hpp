@@ -1301,6 +1301,18 @@ constexpr int get_lsc_block_2d_data_size() {
   return Width * Height * NBlocks;
 }
 
+// Format u8u32 and u16u32 back to u8 and u16.
+template <typename T, typename T1, int N>
+ESIMD_INLINE simd<T, N> lsc_format_ret(simd<T1, N> Vals) {
+  auto Formatted = Vals.template bit_cast_view<T>();
+  constexpr int Stride = Formatted.length / N;
+  return Formatted.template select<N, Stride>(0);
+}
+} // namespace detail
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+
 /// @defgroup sycl_esimd_2d_stateless 2D stateless functions
 /// \ingroup sycl_esimd
 /// @{
@@ -1400,7 +1412,9 @@ store_2d_stateless(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
   raw_sends_store(payload, Data, exDesc, desc, execSize, sfid, numSrc0,
                   numSrc1);
 }
-} // namespace detail
+
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
 
 /// SLM gather.
 /// Supported platforms: DG2, PVC

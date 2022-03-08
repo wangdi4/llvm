@@ -6,11 +6,8 @@
 define dso_local double @foo(double* noalias nocapture readonly %dst, double* noalias nocapture readonly %luval, i32** nocapture readonly %rowstart, i32* nocapture readnone %first_after_diagonal, i32 %N) local_unnamed_addr #0 {
 ; X64-LABEL: foo:
 ; X64:       # %bb.0: # %entry
-; X64-NEXT:    pushq %rbx
-; X64-NEXT:    .cfi_def_cfa_offset 16
-; X64-NEXT:    subq $48, %rsp
-; X64-NEXT:    .cfi_def_cfa_offset 64
-; X64-NEXT:    .cfi_offset %rbx, -16
+; X64-NEXT:    subq $40, %rsp
+; X64-NEXT:    .cfi_def_cfa_offset 48
 ; X64-NEXT:    testl %r8d, %r8d
 ; X64-NEXT:    jle .LBB0_1
 ; X64-NEXT:  # %bb.2: # %for.body.preheader
@@ -82,18 +79,11 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:    cmpq %r9, %r10
 ; X64-NEXT:    leaq 1(%r10), %r10
 ; X64-NEXT:    jne .LBB0_4
-; X64-NEXT:  .LBB0_10: # %for.cond.cleanup
-; X64-NEXT:    addq $48, %rsp
-; X64-NEXT:    .cfi_def_cfa_offset 16
-; X64-NEXT:    popq %rbx
-; X64-NEXT:    .cfi_def_cfa_offset 8
-; X64-NEXT:    vzeroupper
-; X64-NEXT:    retq
+; X64-NEXT:    jmp .LBB0_10
 ; X64-NEXT:    .p2align 4, 0x90
 ; X64-NEXT:  .LBB0_7: # %loop.39.clone
 ; X64-NEXT:    # =>This Loop Header: Depth=1
 ; X64-NEXT:    # Child Loop BB0_8 Depth 2
-; X64-NEXT:    .cfi_def_cfa_offset 64
 ; X64-NEXT:    movl %r10d, %eax
 ; X64-NEXT:    notl %eax
 ; X64-NEXT:    addl %r8d, %eax
@@ -169,12 +159,15 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:    cmpq %r9, %r10
 ; X64-NEXT:    leaq 1(%r10), %r10
 ; X64-NEXT:    jne .LBB0_7
-; X64-NEXT:    jmp .LBB0_10
+; X64-NEXT:  .LBB0_10: # %for.cond.cleanup
+; X64-NEXT:    addq $40, %rsp
+; X64-NEXT:    .cfi_def_cfa_offset 8
+; X64-NEXT:    vzeroupper
+; X64-NEXT:    retq
 ; X64-NEXT:  .LBB0_1: # %entry
+; X64-NEXT:    .cfi_def_cfa_offset 48
 ; X64-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; X64-NEXT:    addq $48, %rsp
-; X64-NEXT:    .cfi_def_cfa_offset 16
-; X64-NEXT:    popq %rbx
+; X64-NEXT:    addq $40, %rsp
 ; X64-NEXT:    .cfi_def_cfa_offset 8
 ; X64-NEXT:    retq
 ; X64-NEXT:  .LBB0_11:

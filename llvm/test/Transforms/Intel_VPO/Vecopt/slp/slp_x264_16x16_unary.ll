@@ -111,10 +111,6 @@ define dso_local i32 @x264_pixel_satd_16x16(i8* nocapture readonly %pix1, i32 %i
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP22:%.*]] = sub <8 x i32> [[TMP21]], [[TMP18]]
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP23:%.*]] = sub <8 x i32> [[TMP22]], [[TMP20]]
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP24:%.*]] = add <8 x i32> [[TMP23]], [[TMP16]]
-; 8WIDE_PATH_STEERING-NEXT:    [[ARRAYIDX1131:%.*]] = getelementptr inbounds [16 x [8 x i32]], [16 x [8 x i32]]* [[ALLOCA]], i64 0, i64 [[I1_I64_0]], i64 4
-; 8WIDE_PATH_STEERING-NEXT:    [[ARRAYIDX1133:%.*]] = getelementptr inbounds [16 x [8 x i32]], [16 x [8 x i32]]* [[ALLOCA]], i64 0, i64 [[I1_I64_0]], i64 6
-; 8WIDE_PATH_STEERING-NEXT:    [[ARRAYIDX1151:%.*]] = getelementptr inbounds [16 x [8 x i32]], [16 x [8 x i32]]* [[ALLOCA]], i64 0, i64 [[I1_I64_0]], i64 5
-; 8WIDE_PATH_STEERING-NEXT:    [[ARRAYIDX1169:%.*]] = getelementptr inbounds [16 x [8 x i32]], [16 x [8 x i32]]* [[ALLOCA]], i64 0, i64 [[I1_I64_0]], i64 7
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP25:%.*]] = extractelement <8 x i32> [[TMP24]], i32 1
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP26:%.*]] = insertelement <8 x i32> poison, i32 [[TMP25]], i32 0
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP27:%.*]] = extractelement <8 x i32> [[TMP24]], i32 0
