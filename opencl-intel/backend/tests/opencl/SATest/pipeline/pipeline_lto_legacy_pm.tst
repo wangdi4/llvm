@@ -68,6 +68,11 @@
 ; CHECK-NEXT:     Intel Kernel DataPerBarrier Analysis
 ; CHECK-NEXT:     Intel Kernel WIRelatedValue Analysis
 ; CHECK-NEXT:     Intel Kernel DataPerValue Analysis
+; CHECK-NEXT:     ReduceCrossBarrierValuesLegacy
+; CHECK-NEXT:       FunctionPass Manager
+; CHECK-NEXT:         Dominator Tree Construction
+; CHECK-NEXT:         Dominance Frontier Construction
+; CHECK-NEXT:     Intel Kernel DataPerValue Analysis
 ; CHECK-NEXT:     Intel Kernel Barrier
 ; CHECK:          ImplicitArgsAnalysisLegacy
 ; CHECK:          LocalBufferAnalysisLegacy

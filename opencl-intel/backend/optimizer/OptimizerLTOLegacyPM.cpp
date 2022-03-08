@@ -233,6 +233,8 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
   MPM.add(createResolveSubGroupWICallLegacyPass(m_RtlModules,
                                                 /*ResolveSGBarrier*/ true));
   MPM.add(createSplitBBonBarrierLegacyPass());
+  if (OptLevel > 0)
+    MPM.add(createReduceCrossBarrierValuesLegacyPass());
   MPM.add(createKernelBarrierLegacyPass(m_debugType == intel::Native,
                                         /*UseTLSGlobals*/ false));
   // Barrier passes end.

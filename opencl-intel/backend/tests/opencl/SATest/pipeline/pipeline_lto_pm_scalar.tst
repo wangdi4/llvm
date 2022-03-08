@@ -41,10 +41,14 @@
 ; CHECK-NEXT: Running pass: Intel Kernel BarrierInFunction
 ; CHECK:      Running pass: ResolveSubGroupWICallPass
 ; CHECK:      Running pass: Intel Kernel SplitBBonBarrier
-; CHECK-NEXT: Running pass: Intel Kernel Barrier
-; CHECK-NEXT: Running analysis: Intel Kernel DataPerBarrier Analysis
+; CHECK-NEXT: Running pass: ReduceCrossBarrierValues
 ; CHECK-NEXT: Running analysis: Intel Kernel DataPerValue Analysis
-; CHECK-NEXT: Running analysis: Intel Kernel WIRelatedValue Analysis
+; CHECK-NEXT: Running analysis: Intel Kernel DataPerBarrier Analysis
+; CHECK-NEXT: Running analysis: Intel Kernel WIRelatedValue
+; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-NEXT: Running analysis: DominanceFrontierAnalysis
+; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
+; CHECK-NEXT: Running pass: Intel Kernel Barrier
 
 ; CHECK:      Running pass: AddImplicitArgsPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis

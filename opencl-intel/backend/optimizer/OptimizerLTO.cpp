@@ -177,6 +177,8 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     MPM.addPass(
         ResolveSubGroupWICallPass(m_RtlModules, /*ResolveSGBarrier*/ true));
     MPM.addPass(SplitBBonBarrier());
+    if (Level != OptimizationLevel::O0)
+      MPM.addPass(ReduceCrossBarrierValuesPass());
     MPM.addPass(
         KernelBarrier(m_debugType == intel::Native, /*UseTLSGlobals*/ false));
     // Barrier passes end.
