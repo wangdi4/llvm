@@ -5223,8 +5223,8 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
   if (IsTargetSPIRV && AI->isArrayAllocation()) {
     LLVM_DEBUG(dbgs() <<
                "Requested privatization alloca with non-constant size:\n" <<
-               "\tElementType:\n" << *AI->getAllocatedType() << "\n" <<
-               "\tSize:\n" << *AI->getArraySize() << "\n");
+               "\tElementType: " << *AI->getAllocatedType() << "\n" <<
+               "\tSize: " << *AI->getArraySize() << "\n");
 #if INTEL_CUSTOMIZATION
 #if 0
     // FIXME: either re-enable this or come up with a solution.
@@ -6595,7 +6595,8 @@ VPOParoptUtils::getItemInfo(const Item *I) {
     return false;
   };
 
-  auto getItemInfoIfTyped = [I, &ElementType, &NumElements]() -> bool {
+  auto getItemInfoIfTyped = [I, &ElementType, &NumElements,
+                             &AddrSpace]() -> bool {
     if (!I->getIsTyped())
       return false;
     ElementType = I->getOrigItemElementTypeFromIR();
@@ -6603,6 +6604,8 @@ VPOParoptUtils::getItemInfo(const Item *I) {
     if (auto *ConstNumElements = dyn_cast<ConstantInt>(NumElements))
       if (ConstNumElements->isOneValue())
         NumElements = nullptr;
+    // The final addresspace is inherited from the clause's item.
+    AddrSpace = cast<PointerType>(I->getOrig()->getType())->getAddressSpace();
     return true;
   };
 
@@ -6630,7 +6633,8 @@ VPOParoptUtils::getItemInfo(const Item *I) {
              ElementType->print(dbgs()); if (NumElements) {
                dbgs() << ", NumElements: ";
                NumElements->printAsOperand(dbgs());
-             } dbgs() << "\n");
+             } dbgs() << ", AddrSpace: " << AddrSpace;
+             dbgs() << "\n");
   return std::make_tuple(ElementType, NumElements, AddrSpace);
 }
 
