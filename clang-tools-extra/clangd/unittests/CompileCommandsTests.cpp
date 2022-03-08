@@ -274,6 +274,11 @@ TEST(ArgStripperTest, ArgStyles) {
             "clang -cc1 foo.cc");
   EXPECT_EQ(strip("-plugin-arg-", "clang -cc1 -plugin-arg- Y foo.cc"),
             "clang -cc1 foo.cc");
+  // INTEL_CUSTOMIZATION
+  // SeparateOrNone
+  EXPECT_EQ(strip("-debug", "clang -debug full foo.cc"), "clang foo.cc");
+  EXPECT_EQ(strip("-debug", "clang -debugfull foo.cc"), "clang -debugfull foo.cc");
+  // end INTEL_CUSTOMIZATION
 }
 
 TEST(ArgStripperTest, EndOfList) {
