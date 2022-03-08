@@ -6074,7 +6074,7 @@ const SCEV *ScalarEvolution::createAddRecFromPHI(PHINode *PN) {
         auto *AddRec = getAddRecExpr(Start, Stride, L, Flags);
 
         forgetMemoizedResults(SymbolicName);
-        ValueExprMap[SCEVCallbackVH(PN, this)] = AddRec;
+        insertValueToMap(PN, AddRec);
 
         return AddRec;
       }
