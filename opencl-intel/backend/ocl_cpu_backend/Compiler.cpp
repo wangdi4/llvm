@@ -363,8 +363,7 @@ Compiler::~Compiler()
 }
 
 void Compiler::materializeSpirTriple(llvm::Module *M) {
-  assert((llvm::StringRef(M->getTargetTriple())).startswith("spir")
-    && "Triple is not spir!");
+  assert(Triple(M->getTargetTriple()).isSPIR() && "Triple is not spir!");
 
   llvm::StringRef Triple =
 #if defined(_M_X64)
