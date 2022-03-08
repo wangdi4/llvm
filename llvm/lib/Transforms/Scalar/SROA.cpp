@@ -316,14 +316,9 @@ private:
 
   friend class AllocaSlices::SliceBuilder;
 
-<<<<<<< HEAD
-  void formBackingAlloca(AllocaInst *AI, bool &Changed);
 
 #if defined(INTEL_CUSTOMIZATION) || \
     !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-=======
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
->>>>>>> e47257e251e986da7d87eae0801cc041815d6e1c
   /// Handle to alloca instruction to simplify method interfaces.
   /// We also need it for handling private allocas used inside SIMD regions.
   AllocaInst &AI;
