@@ -47,7 +47,7 @@ if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
     STDLIB
     stdc++
   )
-  target_link_libraries(LLVMTestingSupport_stdcpp PRIVATE gtest_stdcpp)
+  target_link_libraries(LLVMTestingSupport_stdcpp PRIVATE llvm_gtest_stdcpp)
 endif()
 if (WIN32)
   if (${CMAKE_BUILD_TYPE} MATCHES Debug)
@@ -71,10 +71,10 @@ if (WIN32)
     STDLIB
     ${_STL_LIB}
   )
-  target_link_libraries(LLVMTestingSupport_dyn PRIVATE gtest_dyn)
+  target_link_libraries(LLVMTestingSupport_dyn PRIVATE llvm_gtest_dyn)
 endif()
 # end INTEL_CUSTOMIZATION
-target_link_libraries(LLVMTestingSupport PRIVATE gtest)
+target_link_libraries(LLVMTestingSupport PRIVATE llvm_gtest)
 
 # This is to avoid the error in gtest-death-test-internal.h
 # (150,16): error: 'Create' overrides a member function but
