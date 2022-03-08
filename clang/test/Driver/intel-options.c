@@ -896,3 +896,9 @@
 // NO-FDENORMAL-FP-MATH-NOT: "-fdenormal-fp-math=preserve-sign,preserve-sign"
 // FFP-EXCEPTION-BEHAVIOR-STRICT: "-ffp-exception-behavior=strict"
 // ARCH-CONSISTENCY-TRUE: "-mGLOB_imf_attr=arch-consistency:true"
+
+// -fopenmp-declare-target-scalar-defaultmap 
+// RUN: %clang -### -fopenmp-declare-target-scalar-defaultmap=firstprivate %s 2>&1 | FileCheck -check-prefix CHECK-OPENMP-DECLARE-TARGET-SCALAR-DEFAULTMAP %s
+// RUN: %clang_cl -### /Qopenmp-declare-target-scalar-defaultmap=firstprivate  %s 2>&1 | FileCheck -check-prefix CHECK-OPENMP-DECLARE-TARGET-SCALAR-DEFAULTMAP %s
+// RUN: %clang_cl -### /Qopenmp-declare-target-scalar-defaultmap:firstprivate  %s 2>&1 | FileCheck -check-prefix CHECK-OPENMP-DECLARE-TARGET-SCALAR-DEFAULTMAP %s
+// CHECK-OPENMP-DECLARE-TARGET-SCALAR-DEFAULTMAP: "-fopenmp-declare-target-scalar-defaultmap-firstprivate"

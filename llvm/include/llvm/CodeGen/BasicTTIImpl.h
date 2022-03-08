@@ -332,12 +332,6 @@ public:
     return TargetTransformInfoImplBase::isNumRegsMajorCostOfLSR();
   }
 
-#if INTEL_CUSTOMIZATION
-  bool isLSRCostExceedTTIRegNum(TTI::LSRCost &Cost) {
-    return TargetTransformInfoImplBase::isLSRCostExceedTTIRegNum(Cost);
-  }
-#endif // INTEL_CUSTOMIZATION
-
   bool isProfitableLSRChainElement(Instruction *I) {
     return TargetTransformInfoImplBase::isProfitableLSRChainElement(I);
   }

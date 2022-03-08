@@ -1,4 +1,21 @@
 //===- LoopStrengthReduce.cpp - Strength Reduce IVs in Loops --------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -1126,10 +1143,6 @@ public:
 
   void print(raw_ostream &OS) const;
   void dump() const;
-
-#if INTEL_CUSTOMIZATION
-  TargetTransformInfo::LSRCost& getLSRCost() { return C; }
-#endif // INTEL_CUSTOMIZATION
 
 private:
   void RateRegister(const Formula &F, const SCEV *Reg,
@@ -5171,14 +5184,6 @@ void LSRInstance::SolveRecurse(SmallVectorImpl<const Formula *> &Solution,
 
         SolutionCost = NewCost;
         Solution = Workspace;
-#if INTEL_CUSTOMIZATION
-        if (TTI.isLSRCostExceedTTIRegNum(SolutionCost.getLSRCost())) {
-          LLVM_DEBUG(dbgs() << "LSR: Solution's LSR cost is exceeding Target "
-                              "supports, abandoned the solution.\n");
-          SolutionCost.Lose();
-          Solution.clear();
-        }
-#endif // INTEL_CUSTOMIZATION
       }
       Workspace.pop_back();
     }

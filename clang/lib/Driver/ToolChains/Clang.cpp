@@ -7034,6 +7034,16 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (Args.hasFlag(options::OPT__SLASH_Qvla_, options::OPT__SLASH_Qvla, false))
     CmdArgs.push_back("-Werror=vla");
+  if (Arg *A = Args.getLastArg(
+          options::OPT_fopenmp_declare_target_scalar_defaultmap_EQ)) {
+    StringRef Value = A->getValue();
+    if (Value == "firstprivate")
+      CmdArgs.push_back(
+          "-fopenmp-declare-target-scalar-defaultmap-firstprivate");
+    else if (Value != "default")
+      D.Diag(diag::err_drv_unsupported_option_argument)
+          << A->getOption().getName() << Value;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // Pass -fmessage-length=.

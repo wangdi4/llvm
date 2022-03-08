@@ -3281,7 +3281,18 @@ void AndersensAAResult::RewriteConstraints() {
 /// return the original node.
 unsigned AndersensAAResult::FindEquivalentNode(unsigned NodeIndex,
                                        unsigned NodeLabel) {
-  if (!GraphNodes[NodeIndex].AddressTaken) {
+  // CMPLRLLVM-35401: Indirect calls are not modeled during constraints
+  // collection but modeled during solving constraints so that possible
+  // targets for indirect calls may be available for better modelling
+  // during solving. So, constraints don’t represent points-to relations
+  // for indirect calls. A separate node list is maintained
+  // (PossibleSourceOfPointsToInfo) to handle constraints that are related
+  // to indirect calls. This list is used by both HVN and HU algorithms
+  // that optimize constraints to treat nodes of indirect calls as unknown
+  // variables. HVN runs first and then HU. HVN shouldn't remove
+  // constraints that are related to indirect calls by collapsing with other
+  // nodes. Otherwise, HU will miss indirect call node info.
+  if (!GraphNodes[NodeIndex].AddressTaken && GraphNodes[NodeIndex].Direct) {
     if (PEClass2Node[NodeLabel] != -1) {
       // We found an existing node with the same pointer label, so unify them.
       // We specifically request that Union-By-Rank not be used so that

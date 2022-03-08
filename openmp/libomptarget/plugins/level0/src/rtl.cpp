@@ -2851,6 +2851,9 @@ static void closeRTL() {
       CALL_ZE_EXIT_FAIL(zeMemFree, DeviceInfo->Context, mem);
     }
 
+    if (DeviceInfo->Option.Flags.UseImmCmdList)
+      CALL_ZE_RET_VOID(zeCommandListDestroy, DeviceInfo->ImmCmdLists[i]);
+
     DeviceInfo->Programs[i].clear();
 
     DeviceInfo->Mutexes[i].unlock();
@@ -2881,11 +2884,8 @@ static void closeRTL() {
   if (DeviceInfo->Option.Flags.EnableProfile)
     DeviceInfo->ProfileEvents.deinit();
 
-  if (DeviceInfo->Option.Flags.UseImmCmdList) {
+  if (DeviceInfo->Option.Flags.UseImmCmdList)
     DeviceInfo->ImmEventPool.deinit();
-    for (auto I = 0; I < DeviceInfo->NumDevices; I++)
-      CALL_ZE_RET_VOID(zeCommandListDestroy, DeviceInfo->ImmCmdLists[I]);
-  }
 
   if (DeviceInfo->Context)
     CALL_ZE_EXIT_FAIL(zeContextDestroy, DeviceInfo->Context);
@@ -4257,7 +4257,7 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
 
   if (DeviceInfo->Option.CommandBatchLevel > 0) {
     auto &Batch = getTLS()->getCommandBatch();
-    if (Batch.isActive() && DeviceInfo->isDiscreteDevice(DeviceId))
+    if (Batch.isActive())
       return Batch.enqueueMemCopyTo(DeviceId, TgtPtr, HstPtr, Size);
   }
 
@@ -4340,7 +4340,7 @@ static int32_t retrieveData(
 
   if (DeviceInfo->Option.CommandBatchLevel > 0) {
     auto &Batch = getTLS()->getCommandBatch();
-    if (Batch.isActive() && DeviceInfo->isDiscreteDevice(DeviceId))
+    if (Batch.isActive())
       return Batch.enqueueMemCopyFrom(DeviceId, HstPtr, TgtPtr, Size);
   }
 
@@ -4986,7 +4986,7 @@ static int32_t runTargetTeamRegion(
 
   if (DeviceInfo->Option.CommandBatchLevel > 0) {
     auto &Batch = getTLS()->getCommandBatch();
-    if (Batch.isActive() && DeviceInfo->isDiscreteDevice(RootId))
+    if (Batch.isActive())
       return Batch.enqueueLaunchKernel(SubId, Kernel, &GroupCounts, KernelLock);
   }
 
@@ -5497,10 +5497,8 @@ EXTERN int32_t __tgt_rtl_command_batch_begin(
     int32_t DeviceId, int32_t BatchLevel) {
   // Do not try command batching in these cases
   // -- Integrated devices
-  // -- Kernel batching on subdevices
   // -- Allowed batch level is lower than BatchLevel
   if (!DeviceInfo->isDiscreteDevice(DeviceId) ||
-      (BatchLevel > 1 && DeviceInfo->getSubDeviceCode() != 0) ||
       DeviceInfo->Option.CommandBatchLevel < BatchLevel)
     return OFFLOAD_SUCCESS;
 
@@ -5513,10 +5511,8 @@ EXTERN int32_t __tgt_rtl_command_batch_end(
     int32_t DeviceId, int32_t BatchLevel) {
   // Do not try command batching in these cases
   // -- Integrated devices
-  // -- Kernel batching on subdevices
   // -- Allowed batch level is lower than BatchLevel
   if (!DeviceInfo->isDiscreteDevice(DeviceId) ||
-      (BatchLevel > 1 && DeviceInfo->getSubDeviceCode() != 0) ||
       DeviceInfo->Option.CommandBatchLevel < BatchLevel)
     return OFFLOAD_SUCCESS;
 
