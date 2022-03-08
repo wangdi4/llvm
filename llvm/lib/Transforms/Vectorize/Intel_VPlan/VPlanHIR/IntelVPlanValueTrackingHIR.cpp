@@ -67,7 +67,7 @@ KnownBits VPlanValueTrackingHIR::getKnownBitsImpl(VPlanAddRecHIR *AddRec) {
   // defined inside the region.
   if (any_of(make_range(Base->blob_begin(), Base->blob_end()),
              [Region, &BU](const auto &Blob) {
-               return !HLNodeUtils::isRegionLiveIn(Region, BU, Blob.Index);
+               return !HLNodeUtils::isRegionInvariant(Region, BU, Blob.Index);
              }))
     return KnownBits{BitWidth};
 

@@ -3316,47 +3316,52 @@ HLNodeUtils::VALType HLNodeUtils::getMinMaxBlobValue(unsigned BlobIdx,
   return (BoundCoeff > 0) ? VALType::IsMin : VALType::IsMax;
 }
 
-class LiveInBlobChecker {
+class InvariantBlobChecker {
 private:
   HLRegion *Reg;
   BlobUtils &BU;
-  bool IsLiveIn;
+  bool IsInvariant;
 
 public:
-  LiveInBlobChecker(HLRegion *Reg, BlobUtils &BU)
-      : Reg(Reg), BU(BU), IsLiveIn(true) {}
+  InvariantBlobChecker(HLRegion *Reg, BlobUtils &BU)
+      : Reg(Reg), BU(BU), IsInvariant(true) {}
 
   bool follow(const SCEV *SC) {
     if (BU.isTempBlob(SC)) {
       unsigned Symbase = BU.findTempBlobSymbase(SC);
 
-      if (!Reg->isLiveIn(Symbase)) {
-        IsLiveIn = false;
+      if (!Reg->isInvariant(Symbase)) {
+        IsInvariant = false;
       }
 
-      return false;
-
-    } else if (BlobUtils::isConstantVectorBlob(SC) ||
-               BlobUtils::isConstantFPBlob(SC)) {
-      // Constants are not considered livein.
-      IsLiveIn = false;
       return false;
     }
 
     return !isDone();
   }
 
-  bool isDone() const { return !IsLiveIn; }
-  bool isLiveInBlob() const { return IsLiveIn; }
+  bool isDone() const { return !IsInvariant; }
+  bool isInvariantBlob() const { return IsInvariant; }
 };
 
-bool HLNodeUtils::isRegionLiveIn(HLRegion *Reg, BlobUtils &BU,
-                                 unsigned BlobIdx) {
-  LiveInBlobChecker LBC(Reg, BU);
-  SCEVTraversal<LiveInBlobChecker> Checker(LBC);
-  Checker.visitAll(BU.getBlob(BlobIdx));
+bool HLNodeUtils::isRegionInvariant(HLRegion *Reg, BlobUtils &BU,
+                                    unsigned BlobIdx) {
 
-  return LBC.isLiveInBlob();
+  auto *Blob = BU.getBlob(BlobIdx);
+
+  // Ignore vector/fp constant blobs. Even though they are invariant, the
+  // callers can't do anything with them.
+  // TODO: This is a hack. We should bailout in the caller instead.
+  if (BlobUtils::isConstantVectorBlob(Blob) ||
+      BlobUtils::isConstantFPBlob(Blob)) {
+    return false;
+  }
+
+  InvariantBlobChecker LBC(Reg, BU);
+  SCEVTraversal<InvariantBlobChecker> Checker(LBC);
+  Checker.visitAll(Blob);
+
+  return LBC.isInvariantBlob();
 }
 
 bool HLNodeUtils::getMinBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
@@ -3369,7 +3374,7 @@ bool HLNodeUtils::getMinBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
 
   auto &BU = ParentNode->getBlobUtils();
 
-  if (isRegionLiveIn(ParentNode->getParentRegion(), BU, BlobIdx)) {
+  if (isRegionInvariant(ParentNode->getParentRegion(), BU, BlobIdx)) {
     return BU.getMinBlobValue(BlobIdx, Val);
   }
 
@@ -3390,7 +3395,7 @@ bool HLNodeUtils::getMaxBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
   }
 
   auto &BU = ParentNode->getBlobUtils();
-  if (isRegionLiveIn(ParentNode->getParentRegion(), BU, BlobIdx) &&
+  if (isRegionInvariant(ParentNode->getParentRegion(), BU, BlobIdx) &&
       BU.getMaxBlobValue(BlobIdx, Val)) {
     return true;
   }

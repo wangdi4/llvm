@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLRegion.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 
 #include "llvm/Support/ErrorHandling.h"
@@ -131,4 +132,25 @@ bool HLRegion::exitsFunction() const {
 
   auto *Inst = HInst->getLLVMInstruction();
   return (isa<ReturnInst>(Inst) || isa<UnreachableInst>(Inst));
+}
+
+bool HLRegion::isInvariant(unsigned Symbase) const {
+  auto &BU = getBlobUtils();
+  unsigned Index = BU.findTempBlobIndex(Symbase);
+
+  if (Index == InvalidBlobIndex) {
+    return false;
+  }
+
+  // For an invariant (pure livein) value, underlying LLVM value of symbase
+  // matches the livein value. For example, a trip count temp like %n. For a
+  // livein value which is redefined the values don't match. For example,
+  // consider this loop header phi-
+  //
+  // for.loop:
+  //   %x.phi = i32 [ %pre, 0 ], [ %latch, %x.inc ]
+  //
+  // For this case the underlying value of symbase is %x.phi but the livein
+  // value is 0.
+  return IRReg.isLiveInValue(Symbase, BU.getTempBlobValue(Index));
 }

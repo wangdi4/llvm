@@ -169,6 +169,14 @@ public:
 
   bool hasLiveOuts() const { return !LiveOutMap.empty(); }
 
+  /// Returns true if the \p Symbase is livein and its stored value matches \p
+  /// Val.
+  bool isLiveInValue(unsigned Symbase, Value *Val) const {
+    auto It = LiveInMap.find(Symbase);
+
+    return (It != LiveInMap.end() && It->second == Val);
+  }
+
   const_bb_iterator bb_begin() const { return BBlocks.begin(); }
   const_bb_iterator bb_end() const { return BBlocks.end(); }
 
