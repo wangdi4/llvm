@@ -85,9 +85,10 @@
 ; CHECK:          Simplify the CFG
 ; CHECK:          PrepareKernelArgsLegacy
 ; CHECK:          Simplify the CFG
+; CHECK:          SROA
 ; CHECK:          Combine redundant instructions
-; CHECK:          Dead Code Elimination
-; CHECK:          Dead Store Elimination
-; CHECK:          Early CSE
 ; CHECK:          Global Value Numbering
+; CHECK:          Dead Store Elimination
+; CHECK:          Aggressive Dead Code Elimination
+; CHECK:          Early CSE
 ; CHECK:          CleanupWrappedKernelLegacy

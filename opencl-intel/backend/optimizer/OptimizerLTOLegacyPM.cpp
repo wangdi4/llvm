@@ -282,11 +282,13 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
     // These passes come after PrepareKernelArgsLegacyPass to eliminate the
     // redundancy produced by it.
     MPM.add(createCFGSimplificationPass());
+    MPM.add(createSROAPass());
     MPM.add(createInstructionCombiningPass());
-    MPM.add(createDeadCodeEliminationPass());
-    MPM.add(createDeadStoreEliminationPass());
-    MPM.add(createEarlyCSEPass());
     MPM.add(createGVNPass());
+    MPM.add(createDeadStoreEliminationPass());
+    MPM.add(createAggressiveDCEPass());
+    MPM.add(createEarlyCSEPass());
+    MPM.add(createInstructionCombiningPass());
   }
 }
 
