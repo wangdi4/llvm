@@ -15,9 +15,6 @@
 #include <CL/sycl/detail/generic_type_traits.hpp>
 #include <CL/sycl/detail/helpers.hpp>
 #include <CL/sycl/detail/spirv.hpp>
-/* INTEL_CUSTOMIZATION */
-#include <CL/sycl/detail/host_device_intel/backend.hpp>
-/* end INTEL_CUSTOMIZATION */
 #include <CL/sycl/device_event.hpp>
 #include <CL/sycl/h_item.hpp>
 #include <CL/sycl/id.hpp>
@@ -199,14 +196,8 @@ public:
 #else
     id<Dimensions> GroupStartID = index * localRange;
 
-/* INTEL_CUSTOMIZATION */
-#if !DPCPP_HOST_DEVICE_SERIAL
-    detail::ParallelForWorkItem(localRange, [&](const id<Dimensions> &LocalID) {
-#else
-/* end INTEL_CUSTOMIZATION */
     detail::NDLoop<dimensions>::iterate(
         localRange, [&](const id<Dimensions> &LocalID) {
-#endif // INTEL
           item<Dimensions, false> GlobalItem =
               detail::Builder::createItem<Dimensions, false>(
                   globalRange, GroupStartID + LocalID);
@@ -258,14 +249,8 @@ public:
 #else
     id<Dimensions> GroupStartID = index * localRange;
 
-/* INTEL_CUSTOMIZATION */
-#if !DPCPP_HOST_DEVICE_SERIAL
-    detail::ParallelForWorkItem(localRange, [&](const id<Dimensions> &LocalID) {
-#else
-/* end INTEL_CUSTOMIZATION */
     detail::NDLoop<Dimensions>::iterate(
         localRange, [&](const id<Dimensions> &LocalID) {
-#endif // INTEL
           item<Dimensions, false> GlobalItem =
               detail::Builder::createItem<Dimensions, false>(
                   globalRange, GroupStartID + LocalID);
