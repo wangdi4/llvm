@@ -3169,8 +3169,7 @@ static uint64_t computeThreadsNeeded(
       return (std::numeric_limits<uint64_t>::max)();
   }
   for (int i = 1; i < 3; ++i) {
-    if ((std::numeric_limits<uint64_t>::max)() / groupCount[0] <
-	groupCount[i])
+    if ((std::numeric_limits<uint64_t>::max)() / groupCount[0] < groupCount[i])
       return (std::numeric_limits<uint64_t>::max)();
     groupCount[0] *= groupCount[i];
   }
@@ -3323,35 +3322,35 @@ static void decideLoopKernelGroupArguments(
         // the kernel - this may allow more parallelism due to
         // the stalls being distributed across multiple HW threads rather
         // than across SIMD lanes within one HW thread.
-	assert(groupSizes[1] == 1 && groupSizes[2] == 1 &&
-	       "Unexpected group sizes for dimensions 1 or/and 2.");
-	uint32_t simdWidth = KernelProperty.SIMDWidth;
-	auto &deviceProperties = DeviceInfo->DeviceProperties[DeviceId];
-	uint32_t numEUsPerSubslice = deviceProperties.NumEUsPerSubslice;
-	uint32_t numSubslices = deviceProperties.NumSlices *
-	    deviceProperties.NumSubslicesPerSlice;
-	uint32_t numThreadsPerEU = deviceProperties.NumThreadsPerEU;
-	uint64_t totalThreads = uint64_t(numThreadsPerEU) * numEUsPerSubslice *
-	    numSubslices;
-        totalThreads *= DeviceInfo->Option.ThinThreadsThreshold;
+        assert(groupSizes[1] == 1 && groupSizes[2] == 1 &&
+               "Unexpected group sizes for dimensions 1 or/and 2.");
+        uint32_t simdWidth = KernelProperty.SIMDWidth;
+        auto &deviceProperties = DeviceInfo->DeviceProperties[DeviceId];
+        uint32_t numEUsPerSubslice = deviceProperties.NumEUsPerSubslice;
+        uint32_t numSubslices = deviceProperties.NumSlices *
+            deviceProperties.NumSubslicesPerSlice;
+        uint32_t numThreadsPerEU = deviceProperties.NumThreadsPerEU;
+        uint64_t totalThreads = uint64_t(numThreadsPerEU) * numEUsPerSubslice *
+            numSubslices;
+              totalThreads *= DeviceInfo->Option.ThinThreadsThreshold;
 
-	uint64_t groupSizePrev = groupSizes[0];
-	uint64_t threadsNeeded =
-	    computeThreadsNeeded(tripCounts, groupSizes, simdWidth);
-	while (threadsNeeded < totalThreads) {
-	  groupSizePrev = groupSizes[0];
+        uint64_t groupSizePrev = groupSizes[0];
+        uint64_t threadsNeeded =
+            computeThreadsNeeded(tripCounts, groupSizes, simdWidth);
+        while (threadsNeeded < totalThreads) {
+          groupSizePrev = groupSizes[0];
           // Try to half the local work size (if possible) and see
           // how many HW threads the kernel will require with this
           // new local work size.
           // In most implementations the initial groupSizes[0]
           // will be a power-of-two.
-	  if (groupSizes[0] <= 1)
-	    break;
-	  groupSizes[0] >>= 1;
-	  threadsNeeded =
-	      computeThreadsNeeded(tripCounts, groupSizes, simdWidth);
-	}
-	groupSizes[0] = groupSizePrev;
+          if (groupSizes[0] <= 1)
+            break;
+          groupSizes[0] >>= 1;
+          threadsNeeded =
+              computeThreadsNeeded(tripCounts, groupSizes, simdWidth);
+        }
+        groupSizes[0] = groupSizePrev;
       }
     }
   }
@@ -4720,6 +4719,11 @@ int32_t OpenCLProgramTy::buildKernels() {
                      CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE, sizeof(size_t),
                      &KernelProperty.SIMDWidth, sizeof(size_t),
                      &KernelProperty.SIMDWidth, nullptr);
+    if (KernelProperty.SIMDWidth == 0) {
+      // clGetKernelSubGroupInfo is not supported on Windows with CPU device, so
+      // assign default value to avoid any issues when using this variable.
+      KernelProperty.SIMDWidth = KernelProperty.Width / 2;
+    }
     assert(KernelProperty.SIMDWidth <= KernelProperty.Width &&
            "Invalid preferred group size multiple.");
     CALL_CL_RET_FAIL(clGetKernelWorkGroupInfo, Kernel, Device,
