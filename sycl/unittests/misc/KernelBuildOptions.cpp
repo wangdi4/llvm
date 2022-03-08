@@ -247,19 +247,10 @@ TEST(KernelBuildOptions, KernelBundleBasic) {
             "-compile-img -vc-codegen -disable-finalizer-msg -link-img");
 
   auto ObjBundle = sycl::compile(KernelBundle, KernelBundle.get_devices());
-<<<<<<< HEAD
-  // TODO: uncomment when image options are passed to BE
-  // EXPECT_EQ(BuildOpts, "-compile-img -vc-codegen -disable-finalizer-msg");
-
-  auto LinkBundle = sycl::link(ObjBundle, ObjBundle.get_devices());
-  // TODO: uncomment when image options are passed to BE
-  // EXPECT_EQ(BuildOpts, "-link-img -vc-codegen -disable-finalizer-msg");
-=======
   EXPECT_EQ(BuildOpts, "-compile-img -vc-codegen -disable-finalizer-msg");
 
   auto LinkBundle = sycl::link(ObjBundle, ObjBundle.get_devices());
   EXPECT_EQ(BuildOpts, "-link-img");
->>>>>>> 413e1368a41f1bc174db36874945d8f7fe4b22ad
 }
 
 TEST(KernelBuildOptions, Program) {
