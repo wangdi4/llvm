@@ -158,8 +158,6 @@ STATISTIC(NumTripCountsNotComputed,
           "Number of loops without predictable loop counts");
 STATISTIC(NumBruteForceTripCountsComputed,
           "Number of loops with trip counts computed by force");
-STATISTIC(NumFoundPhiSCCs,
-          "Number of found Phi-composed strongly connected components");
 
 static cl::opt<unsigned>
 MaxBruteForceIterations("scalar-evolution-max-iterations", cl::ReallyHidden,
@@ -7105,6 +7103,7 @@ ScalarEvolution::getRangeRef(const SCEV *S,
           RangeType);
 
     // A range of Phi is a subset of union of all ranges of its input.
+<<<<<<< HEAD
     if (const PHINode *Phi = dyn_cast<PHINode>(U->getValue())){
 #if INTEL_CUSTOMIZATION
       // Recursion check before we call getSCEV recursively on each Op.
@@ -7148,94 +7147,31 @@ bool ScalarEvolution::collectSCC(const PHINode *Phi,
             return Bail();
           if (Reachable.insert(PhiOp).second)
             Worklist.push_back(PhiOp);
+=======
+    if (const PHINode *Phi = dyn_cast<PHINode>(U->getValue())) {
+      // Make sure that we do not run over cycled Phis.
+      if (PendingPhiRanges.insert(Phi).second) {
+        ConstantRange RangeFromOps(BitWidth, /*isFullSet=*/false);
+        for (auto &Op : Phi->operands()) {
+          auto OpRange = getRangeRef(getSCEV(Op), SignHint);
+          RangeFromOps = RangeFromOps.unionWith(OpRange);
+          // No point to continue if we already have a full set.
+          if (RangeFromOps.isFullSet())
+            break;
+>>>>>>> f909aed671fee194297ba9190f0e4baa4b10d0c2
         }
+        ConservativeResult =
+            ConservativeResult.intersectWith(RangeFromOps, RangeType);
+        bool Erased = PendingPhiRanges.erase(Phi);
+        assert(Erased && "Failed to erase Phi properly?");
+        (void) Erased;
       }
     }
-  }
-  {
-    // Out of reachable nodes, find those from which Phi is also reachable. This
-    // defines a SCC.
-    SmallVector<const PHINode *, 4> Worklist;
-    SmallPtrSet<const PHINode *, 4> SCCSet;
-    SCCSet.insert(Phi);
-    SCC.push_back(Phi);
-    Worklist.push_back(Phi);
-    while (!Worklist.empty()) {
-      auto *Curr = Worklist.pop_back_val();
-      for (auto *User : Curr->users())
-        if (auto *PN = dyn_cast<PHINode>(User))
-          if (Reachable.count(PN) && SCCSet.insert(PN).second) {
-            Worklist.push_back(PN);
-            SCC.push_back(PN);
-          }
-    }
-  }
-  return true;
-}
 
-void
-ScalarEvolution::sharpenPhiSCCRange(const PHINode *Phi,
-                                    ConstantRange &ConservativeResult,
-                                    ScalarEvolution::RangeSignHint SignHint) {
-  // Collect strongly connected component (further on - SCC ) composed of Phis.
-  // Analyze all values that are incoming to this SCC (we call them roots).
-  // All SCC elements have range that is not wider than union of ranges of
-  // roots.
-  SmallVector<const PHINode *, 8> SCC;
-  if (collectSCC(Phi, SCC))
-    ++NumFoundPhiSCCs;
-
-  // Collect roots: inputs of SCC nodes that come from outside of SCC.
-  SmallPtrSet<Value *, 4> Roots;
-  const SmallPtrSet<const PHINode *, 8> SCCSet(SCC.begin(), SCC.end());
-  for (auto *PN : SCC)
-    for (auto &Op : PN->operands()) {
-      auto *PhiInput = dyn_cast<PHINode>(Op);
-      if (!PhiInput || !SCCSet.count(PhiInput))
-        Roots.insert(Op);
-    }
-
-  // Mark SCC elements as pending to avoid infinite recursion if there is a
-  // cyclic dependency through some instruction that is not a PHI.
-  for (auto *PN : SCC) {
-    bool Inserted = PendingPhiRanges.insert(PN).second;
-    assert(Inserted && "PHI is already pending?");
-    (void)Inserted;
+    return setRange(U, SignHint, std::move(ConservativeResult));
   }
 
-  auto BitWidth = ConservativeResult.getBitWidth();
-  ConstantRange RangeFromRoots(BitWidth, /*isFullSet=*/false);
-  for (auto *Root : Roots) {
-    auto OpRange = getRangeRef(getSCEV(Root), SignHint);
-    RangeFromRoots = RangeFromRoots.unionWith(OpRange);
-    // No point to continue if we already have a full set.
-    if (RangeFromRoots.isFullSet())
-      break;
-  }
-  ConstantRange::PreferredRangeType RangeType =
-      SignHint == ScalarEvolution::HINT_RANGE_UNSIGNED ? ConstantRange::Unsigned
-                                                       : ConstantRange::Signed;
-  ConservativeResult =
-      ConservativeResult.intersectWith(RangeFromRoots, RangeType);
-
-  DenseMap<const SCEV *, ConstantRange> &Cache =
-      SignHint == ScalarEvolution::HINT_RANGE_UNSIGNED ? UnsignedRanges
-                                                       : SignedRanges;
-  // Entire SCC has the same range.
-  for (auto *PN : SCC) {
-    bool Erased = PendingPhiRanges.erase(PN);
-    assert(Erased && "Failed to erase Phi properly?");
-    (void)Erased;
-    auto *PNSCEV = getSCEV(const_cast<PHINode *>(PN));
-    auto I = Cache.find(PNSCEV);
-    if (I == Cache.end())
-      setRange(PNSCEV, SignHint, ConservativeResult);
-    else {
-      auto SharpenedRange =
-          I->second.intersectWith(ConservativeResult, RangeType);
-      setRange(PNSCEV, SignHint, SharpenedRange);
-    }
-  }
+  return setRange(S, SignHint, std::move(ConservativeResult));
 }
 
 #if INTEL_CUSTOMIZATION // HIR parsing
