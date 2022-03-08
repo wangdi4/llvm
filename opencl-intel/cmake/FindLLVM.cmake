@@ -58,7 +58,7 @@ else(BUILD_LLVM_FROM_SOURCE )
 
   #remove predefined unnecessary components
   list(REMOVE_ITEM LLVM_MODULE_LIBS
-    gtest gtest_main
+    llvm_gtest llvm_gtest_main
     profile_rt-static
     profile_rt-shared
     LTO
