@@ -4,7 +4,9 @@
 ; RUN: llvm-nm %libdir/clbltfnh8.rtl --defined-only --no-demangle | FileCheck %s
 
 ; TOTAL-FUNC-COUNT-12388: ---------------- T
+; TOTAL-FUNC-NOT: ---------------- T
 ; TOTAL-GLOB-COUNT-157:   ---------------- D
+; TOTAL-GLOB-NOT: ---------------- D
 
 ; CHECK: FF
 ; CHECK-NEXT: FFFMask8
