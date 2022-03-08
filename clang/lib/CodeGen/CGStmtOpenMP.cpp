@@ -1246,6 +1246,10 @@ void CodeGenFunction::EmitOMPReductionClauseInit(
     CodeGenFunction::OMPPrivateScope &PrivateScope, bool ForInscan) {
   if (!HaveInsertPoint())
     return;
+#if INTEL_COLLAB
+  if (getLangOpts().OpenMPLateOutline)
+    return;
+#endif // INTEL_COLLAB
   SmallVector<const Expr *, 4> Shareds;
   SmallVector<const Expr *, 4> Privates;
   SmallVector<const Expr *, 4> ReductionOps;

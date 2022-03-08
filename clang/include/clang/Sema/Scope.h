@@ -140,6 +140,11 @@ public:
     /// parsed. If such a scope is a ContinueScope, it's invalid to jump to the
     /// continue block from here.
     ConditionVarScope = 0x2000000,
+#if INTEL_COLLAB
+    /// This is the scope of OpenMP simd directive.
+    /// This flag is propagated to children scopes.
+    OpenMPSimdOnlyDirectiveScope = 0x4000000,
+#endif  // INTEL_COLLAB
   };
 
 private:
@@ -461,6 +466,14 @@ public:
   bool isOpenMPSimdDirectiveScope() const {
     return getFlags() & Scope::OpenMPSimdDirectiveScope;
   }
+
+#if INTEL_COLLAB
+  /// Determine whether this scope is (or is nested into) some OpenMP
+  /// loop simd directive scope (for example, 'omp simd').
+  bool isOpenMPSimdOnlyDirectiveScope() const {
+    return getFlags() & Scope::OpenMPSimdOnlyDirectiveScope;
+  }
+#endif // INTEL_COLLAB
 
   /// Determine whether this scope is a loop having OpenMP loop
   /// directive attached.

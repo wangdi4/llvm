@@ -502,6 +502,7 @@ public:
   void emitOMPInteropDirective();
   void emitOMPPrefetchDirective();
   void emitOMPScopeDirective();
+  void emitOMPScanDirective();
   void emitVLAExpressions() {
     if (needsVLAExprEmission())
       CGF.VLASizeMapHandler->EmitVLASizeExpressions();
