@@ -130,14 +130,12 @@ public:
 
   void mangleLambdaSig(const CXXRecordDecl *Lambda, raw_ostream &) override;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
   void mangleLambdaName(const RecordDecl *RD, raw_ostream &Out) override;
 #endif // INTEL_CUSTOMIZATION
-=======
+  
   void mangleModuleInitializer(const Module *Module, raw_ostream &) override;
->>>>>>> 21e16ab6b8ddaccb70d2344bb35419e214a32ec9
 
   bool getNextDiscriminator(const NamedDecl *ND, unsigned &disc) {
     // Lambda closure types are already numbered.
