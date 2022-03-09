@@ -1813,8 +1813,9 @@ llvm::Function *CodeGenFunction::generateBuiltinOSLogHelperFunction(
   auto AL = ApplyDebugLocation::CreateArtificial(*this);
 
   CharUnits Offset;
-  Address BufAddr = Address::deprecated(
-      Builder.CreateLoad(GetAddrOfLocalVar(Args[0]), "buf"), BufferAlignment);
+  Address BufAddr =
+      Address(Builder.CreateLoad(GetAddrOfLocalVar(Args[0]), "buf"), Int8Ty,
+              BufferAlignment);
   Builder.CreateStore(Builder.getInt8(Layout.getSummaryByte()),
                       Builder.CreateConstByteGEP(BufAddr, Offset++, "summary"));
   Builder.CreateStore(Builder.getInt8(Layout.getNumArgsByte()),
@@ -2499,7 +2500,8 @@ static llvm::Value *dumpRecord(CodeGenFunction &CGF, QualType RType,
                              ? Types[Context.VoidPtrTy]
                              : Types[CanonicalType];
 
-    Address FieldAddress = Address::deprecated(FieldPtr, Align);
+    Address FieldAddress =
+        Address(FieldPtr, CGF.ConvertTypeForMem(FD->getType()), Align);
     FieldPtr = CGF.Builder.CreateLoad(FieldAddress);
 
     // FIXME Need to handle bitfield here
@@ -11048,7 +11050,7 @@ Value *CodeGenFunction::EmitAArch64BuiltinExpr(unsigned BuiltinID,
         llvm::Value *ValOffsetPtr =
             Builder.CreateGEP(Int64Ty, ValPtr, Builder.getInt32(i));
         Address Addr =
-            Address::deprecated(ValOffsetPtr, CharUnits::fromQuantity(8));
+            Address(ValOffsetPtr, Int64Ty, CharUnits::fromQuantity(8));
         ToRet = Builder.CreateStore(Builder.CreateExtractValue(Val, i), Addr);
       }
       return ToRet;
@@ -11061,7 +11063,7 @@ Value *CodeGenFunction::EmitAArch64BuiltinExpr(unsigned BuiltinID,
         llvm::Value *ValOffsetPtr =
             Builder.CreateGEP(Int64Ty, ValPtr, Builder.getInt32(i));
         Address Addr =
-            Address::deprecated(ValOffsetPtr, CharUnits::fromQuantity(8));
+            Address(ValOffsetPtr, Int64Ty, CharUnits::fromQuantity(8));
         Args.push_back(Builder.CreateLoad(Addr));
       }
 
