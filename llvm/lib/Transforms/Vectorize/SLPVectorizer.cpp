@@ -2577,6 +2577,11 @@ private:
   /// Vectorize a single entry in the tree, starting in \p VL.
   Value *vectorizeTree(ArrayRef<Value *> VL);
 
+  /// Create a new vector from a list of scalar values.  Produces a sequence
+  /// which exploits values reused across lanes, and arranges the inserts
+  /// for ease of later optimization.
+  Value *createBuildVector(ArrayRef<Value *> VL);
+
   /// \returns the scalarization cost for this type. Scalarization in this
   /// context means the creation of vectors from a group of scalars. If \p
   /// NeedToShuffle is true, need to add a cost of reshuffling some of the
@@ -8795,7 +8800,7 @@ public:
 } // namespace
 
 Value *BoUpSLP::vectorizeTree(ArrayRef<Value *> VL) {
-  unsigned VF = VL.size();
+  const unsigned VF = VL.size();
   InstructionsState S = getSameOpcode(VL);
   if (S.getOpcode()) {
     if (TreeEntry *E = getTreeEntry(S.OpValue))
@@ -8851,7 +8856,13 @@ Value *BoUpSLP::vectorizeTree(ArrayRef<Value *> VL) {
       }
   }
 
-  // Check that every instruction appears once in this bundle.
+  // Can't vectorize this, so simply build a new vector with each lane
+  // corresponding to the requested value.
+  return createBuildVector(VL);
+}
+Value *BoUpSLP::createBuildVector(ArrayRef<Value *> VL) {
+  unsigned VF = VL.size();
+  // Exploit possible reuse of values across lanes.
   SmallVector<int> ReuseShuffleIndicies;
   SmallVector<Value *> UniqueValues;
   if (VL.size() > 2) {
@@ -10146,7 +10157,7 @@ bool BoUpSLP::BlockScheduling::extendSchedulingRegion(Value *V,
   assert(!isa<PHINode>(I) && !isVectorLikeInstWithConstOps(I) &&
          "phi nodes/insertelements/extractelements/extractvalues don't need to "
          "be scheduled");
-  auto &&CheckSheduleForI = [this, &S](Instruction *I) -> bool {
+  auto &&CheckScheduleForI = [this, &S](Instruction *I) -> bool {
     ScheduleData *ISD = getScheduleData(I);
     if (!ISD)
       return false;
@@ -10158,7 +10169,7 @@ bool BoUpSLP::BlockScheduling::extendSchedulingRegion(Value *V,
     ExtraScheduleDataMap[I][S.OpValue] = SD;
     return true;
   };
-  if (CheckSheduleForI(I))
+  if (CheckScheduleForI(I))
     return true;
   if (!ScheduleStart) {
     // It's the first instruction in the new region.
@@ -10166,7 +10177,7 @@ bool BoUpSLP::BlockScheduling::extendSchedulingRegion(Value *V,
     ScheduleStart = I;
     ScheduleEnd = I->getNextNode();
     if (isOneOf(S, I) != I)
-      CheckSheduleForI(I);
+      CheckScheduleForI(I);
     assert(ScheduleEnd && "tried to vectorize a terminator?");
     LLVM_DEBUG(dbgs() << "SLP:  initialize schedule region to " << *I << "\n");
     return true;
@@ -10194,7 +10205,7 @@ bool BoUpSLP::BlockScheduling::extendSchedulingRegion(Value *V,
     initScheduleData(I, ScheduleStart, nullptr, FirstLoadStoreInRegion);
     ScheduleStart = I;
     if (isOneOf(S, I) != I)
-      CheckSheduleForI(I);
+      CheckScheduleForI(I);
     LLVM_DEBUG(dbgs() << "SLP:  extend schedule region start to " << *I
                       << "\n");
     return true;
@@ -10208,7 +10219,7 @@ bool BoUpSLP::BlockScheduling::extendSchedulingRegion(Value *V,
                    nullptr);
   ScheduleEnd = I->getNextNode();
   if (isOneOf(S, I) != I)
-    CheckSheduleForI(I);
+    CheckScheduleForI(I);
   assert(ScheduleEnd && "tried to vectorize a terminator?");
   LLVM_DEBUG(dbgs() << "SLP:  extend schedule region end to " << *I << "\n");
   return true;
