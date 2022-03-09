@@ -361,6 +361,8 @@ unsigned int Intel::OpenCL::Utils::GetNumberOfCpuSockets()
                 if (numCpuSockets < physicalID)
                     numCpuSockets = physicalID;
             }
+            if (line != nullptr)
+              free(line);
             fclose(fp);
         }
         else
@@ -400,6 +402,8 @@ bool Intel::OpenCL::Utils::IsHyperThreadingEnabled()
                 if (0 == cpuCores && strncmp(line, s1, strlen(s1)) == 0)
                     sscanf(p + 1, "%u\n", &cpuCores);
             }
+            if (line != nullptr)
+              free(line);
             fclose(fp);
             if (0 != siblings && 0 != cpuCores)
                 hyperThreadingEnabled = (siblings == (2 * cpuCores)) ? 1 : 0;
