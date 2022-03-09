@@ -1554,18 +1554,18 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
   return DeviceRTL.initDevice(device_id);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif // INTEL_COLLAB
-=======
 int32_t __tgt_rtl_deinit_device(int32_t device_id) {
   assert(DeviceRTL.isValidDeviceId(device_id) && "device_id is invalid");
 
   return DeviceRTL.deinitDevice(device_id);
 }
 
->>>>>>> 10aa83ff74b48d441aa2141047cf8674e069d4f6
+#if INTEL_COLLAB
+EXTERN
+#endif // INTEL_COLLAB
 __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
                                           __tgt_device_image *image) {
   assert(DeviceRTL.isValidDeviceId(device_id) && "device_id is invalid");
