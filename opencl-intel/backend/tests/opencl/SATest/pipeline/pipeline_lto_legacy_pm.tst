@@ -68,6 +68,11 @@
 ; CHECK-NEXT:     Intel Kernel DataPerBarrier Analysis
 ; CHECK-NEXT:     Intel Kernel WIRelatedValue Analysis
 ; CHECK-NEXT:     Intel Kernel DataPerValue Analysis
+; CHECK-NEXT:     ReduceCrossBarrierValuesLegacy
+; CHECK-NEXT:       FunctionPass Manager
+; CHECK-NEXT:         Dominator Tree Construction
+; CHECK-NEXT:         Dominance Frontier Construction
+; CHECK-NEXT:     Intel Kernel DataPerValue Analysis
 ; CHECK-NEXT:     Intel Kernel Barrier
 ; CHECK:          ImplicitArgsAnalysisLegacy
 ; CHECK:          LocalBufferAnalysisLegacy
@@ -88,9 +93,10 @@
 ; CHECK:          Simplify the CFG
 ; CHECK:          PrepareKernelArgsLegacy
 ; CHECK:          Simplify the CFG
+; CHECK:          SROA
 ; CHECK:          Combine redundant instructions
-; CHECK:          Dead Code Elimination
-; CHECK:          Dead Store Elimination
-; CHECK:          Early CSE
 ; CHECK:          Global Value Numbering
+; CHECK:          Dead Store Elimination
+; CHECK:          Aggressive Dead Code Elimination
+; CHECK:          Early CSE
 ; CHECK:          CleanupWrappedKernelLegacy

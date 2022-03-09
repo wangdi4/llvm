@@ -30,7 +30,7 @@
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
-#include "llvm/Transforms/Scalar/DCE.h"
+#include "llvm/Transforms/Scalar/ADCE.h"
 #include "llvm/Transforms/Scalar/DeadStoreElimination.h"
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
 #include "llvm/Transforms/Scalar/GVN.h"
@@ -177,6 +177,8 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     MPM.addPass(
         ResolveSubGroupWICallPass(m_RtlModules, /*ResolveSGBarrier*/ true));
     MPM.addPass(SplitBBonBarrier());
+    if (Level != OptimizationLevel::O0)
+      MPM.addPass(ReduceCrossBarrierValuesPass());
     MPM.addPass(
         KernelBarrier(m_debugType == intel::Native, /*UseTLSGlobals*/ false));
     // Barrier passes end.
@@ -213,11 +215,13 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       // redundancy produced by it.
       FunctionPassManager FPM;
       FPM.addPass(SimplifyCFGPass());
+      FPM.addPass(SROAPass());
       FPM.addPass(InstCombinePass());
-      FPM.addPass(DCEPass());
-      FPM.addPass(DSEPass());
-      FPM.addPass(EarlyCSEPass());
       FPM.addPass(GVNPass());
+      FPM.addPass(DSEPass());
+      FPM.addPass(ADCEPass());
+      FPM.addPass(EarlyCSEPass());
+      FPM.addPass(InstCombinePass());
       MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
     }
   });
