@@ -3,7 +3,7 @@
 ; RUN: llvm-nm %libdir/clbltfnx0.rtl --defined-only --no-demangle | FileCheck %s -check-prefix=TOTAL-GLOB
 ; RUN: llvm-nm %libdir/clbltfnx0.rtl --defined-only --no-demangle | FileCheck %s
 
-; TOTAL-FUNC-COUNT-12454: -------- T
+; TOTAL-FUNC-COUNT-12416: -------- T
 ; TOTAL-FUNC-NOT: -------- T
 ; TOTAL-GLOB-COUNT-157:   -------- D
 ; TOTAL-GLOB-NOT: -------- D
@@ -11054,44 +11054,6 @@
 ; CHECK-NEXT: _Z6remquoffPU3AS3i
 ; CHECK-NEXT: _Z6remquoffPU3AS4i
 ; CHECK-NEXT: _Z6remquoffPi
-; CHECK-NEXT: _Z6selectDv16_cS_Dv16_h
-; CHECK-NEXT: _Z6selectDv16_cS_S_
-; CHECK-NEXT: _Z6selectDv16_fS_Dv16_i
-; CHECK-NEXT: _Z6selectDv16_fS_Dv16_j
-; CHECK-NEXT: _Z6selectDv16_hS_Dv16_c
-; CHECK-NEXT: _Z6selectDv16_hS_S_
-; CHECK-NEXT: _Z6selectDv16_iS_Dv16_j
-; CHECK-NEXT: _Z6selectDv16_iS_S_
-; CHECK-NEXT: _Z6selectDv16_jS_Dv16_i
-; CHECK-NEXT: _Z6selectDv16_jS_S_
-; CHECK-NEXT: _Z6selectDv2_dS_Dv2_l
-; CHECK-NEXT: _Z6selectDv2_dS_Dv2_m
-; CHECK-NEXT: _Z6selectDv3_dS_Dv3_l
-; CHECK-NEXT: _Z6selectDv3_dS_Dv3_m
-; CHECK-NEXT: _Z6selectDv3_lS_Dv3_m
-; CHECK-NEXT: _Z6selectDv3_lS_S_
-; CHECK-NEXT: _Z6selectDv3_mS_Dv3_l
-; CHECK-NEXT: _Z6selectDv3_mS_S_
-; CHECK-NEXT: _Z6selectDv4_dS_Dv4_l
-; CHECK-NEXT: _Z6selectDv4_dS_Dv4_m
-; CHECK-NEXT: _Z6selectDv4_fS_Dv4_i
-; CHECK-NEXT: _Z6selectDv4_fS_Dv4_j
-; CHECK-NEXT: _Z6selectDv4_lS_Dv4_m
-; CHECK-NEXT: _Z6selectDv4_lS_S_
-; CHECK-NEXT: _Z6selectDv4_mS_Dv4_l
-; CHECK-NEXT: _Z6selectDv4_mS_S_
-; CHECK-NEXT: _Z6selectDv8_dS_Dv8_l
-; CHECK-NEXT: _Z6selectDv8_dS_Dv8_m
-; CHECK-NEXT: _Z6selectDv8_fS_Dv8_i
-; CHECK-NEXT: _Z6selectDv8_fS_Dv8_j
-; CHECK-NEXT: _Z6selectDv8_iS_Dv8_j
-; CHECK-NEXT: _Z6selectDv8_iS_S_
-; CHECK-NEXT: _Z6selectDv8_jS_Dv8_i
-; CHECK-NEXT: _Z6selectDv8_jS_S_
-; CHECK-NEXT: _Z6selectDv8_lS_Dv8_m
-; CHECK-NEXT: _Z6selectDv8_lS_S_
-; CHECK-NEXT: _Z6selectDv8_mS_Dv8_l
-; CHECK-NEXT: _Z6selectDv8_mS_S_
 ; CHECK-NEXT: _Z6sin_rmDv16_f
 ; CHECK-NEXT: _Z6sincosDv16_dPS_
 ; CHECK-NEXT: _Z6sincosDv16_dPU3AS1S_

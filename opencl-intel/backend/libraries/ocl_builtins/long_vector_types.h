@@ -1,3 +1,5 @@
+#pragma OPENCL EXTENSION cl_khr_fp16: enable
+
 typedef long long32 __attribute__((ext_vector_type(32)));
 typedef long long64 __attribute__((ext_vector_type(64)));
 typedef long long128 __attribute__((ext_vector_type(128)));
@@ -11,6 +13,13 @@ typedef ulong ulong128 __attribute__((ext_vector_type(128)));
 typedef ulong ulong256 __attribute__((ext_vector_type(256)));
 typedef ulong ulong512 __attribute__((ext_vector_type(512)));
 typedef ulong ulong1024 __attribute__((ext_vector_type(1024)));
+
+typedef half half32 __attribute__((ext_vector_type(32)));
+typedef half half64 __attribute__((ext_vector_type(64)));
+typedef half half128 __attribute__((ext_vector_type(128)));
+typedef half half256 __attribute__((ext_vector_type(256)));
+typedef half half512 __attribute__((ext_vector_type(512)));
+typedef half half1024 __attribute__((ext_vector_type(1024)));
 
 typedef float float32 __attribute__((ext_vector_type(32)));
 typedef float float64 __attribute__((ext_vector_type(64)));

@@ -296,6 +296,7 @@ def ocl_types : TypeNameList<[
   v32u64.TypeName, v64u64.TypeName, v128u64.TypeName, v256u64.TypeName, v512u64.TypeName, v1024u64.TypeName,
   v32i32.TypeName, v64i32.TypeName, v128i32.TypeName, v256i32.TypeName, v512i32.TypeName, v1024i32.TypeName,
   v32u32.TypeName, v64u32.TypeName, v128u32.TypeName, v256u32.TypeName, v512u32.TypeName, v1024u32.TypeName,
+  v32f16.TypeName, v64f16.TypeName, v128f16.TypeName, v256f16.TypeName, v512f16.TypeName, v1024f16.TypeName,
   v32f32.TypeName, v64f32.TypeName, v128f32.TypeName, v256f32.TypeName, v512f32.TypeName, v1024f32.TypeName,
   v32f64.TypeName, v64f64.TypeName, v128f64.TypeName, v256f64.TypeName, v512f64.TypeName, v1024f64.TypeName,
   v32i16.TypeName, v64i16.TypeName, v128i16.TypeName, v256i16.TypeName, v512i16.TypeName, v1024i16.TypeName,
@@ -1011,6 +1012,19 @@ class VFType<list<OclType> types, string suffix> {
   list<OclType> Tout = !foreach(ty, Tys, !cast<OclType>(VectorVTypeSuffixString<ty.BaseCTypeName, !mul(ty.VecLength, vf)>.Value));
 }
 
+// e.g.
+// ExpandTypeByVF<v16i32, [2,4,8]>.Tout == [v2i32, v4i32, v8i32]
+class ExpandTypeByVF<OclType type, list<int> vfs> {
+  list<OclType> Tout = !foreach(vf, vfs,
+                                !cast<OclType>(!subst("v" # type.VecLength, "v" # vf, !cast<string>(type))));
+}
+
+// e.g.
+// ExpandTypesByVFAndFlatten<[v1i8, v1i16], [2,3,4]>.Tout == [v2i8, v3i8, v4i8, v2i16, v3i16, v4i16]
+class ExpandTypesByVFAndFlatten<list<OclType> types, list<int> vfs> {
+  list<list<OclType>> _expanded = !foreach(type, types, ExpandTypeByVF<type, vfs>.Tout);
+  list<OclType> Tout = !foldl([]<OclType>, _expanded, acc, inner_list, acc # inner_list);
+}
 
 // OclBuiltinAttr
 class OclBuiltinAttr<string attr> {
