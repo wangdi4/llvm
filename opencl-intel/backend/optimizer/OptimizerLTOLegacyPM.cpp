@@ -217,27 +217,7 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
   // Resolve __intel_indirect_call for scalar kernels.
   MPM.add(createIndirectCallLoweringLegacyPass());
 
-  // Barrier passes begin.
-  if (OptLevel > 0) {
-    // TODO: insert ReplaceScalarWithMask pass here
-    // Resolve subgreoup call introduced by ReplaceScalarWithMask pass.
-    MPM.add(createResolveSubGroupWICallLegacyPass(m_RtlModules,
-                                                  /*ResolveSGBarrier*/ false));
-  }
-  MPM.add(createPhiCanonicalizationLegacyPass());
-  MPM.add(createRedundantPhiNodeLegacyPass());
-  MPM.add(createGroupBuiltinLegacyPass());
-  MPM.add(createBarrierInFunctionLegacyPass());
-
-  // Resolve subgroup barriers after subgroup emulation passes
-  MPM.add(createResolveSubGroupWICallLegacyPass(m_RtlModules,
-                                                /*ResolveSGBarrier*/ true));
-  MPM.add(createSplitBBonBarrierLegacyPass());
-  if (OptLevel > 0)
-    MPM.add(createReduceCrossBarrierValuesLegacyPass());
-  MPM.add(createKernelBarrierLegacyPass(m_debugType == intel::Native,
-                                        /*UseTLSGlobals*/ false));
-  // Barrier passes end.
+  addBarrierPasses(OptLevel, MPM);
 
   MPM.add(createAddImplicitArgsLegacyPass());
   MPM.add(createResolveWICallLegacyPass(false, false));
@@ -290,6 +270,28 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
     MPM.add(createEarlyCSEPass());
     MPM.add(createInstructionCombiningPass());
   }
+}
+
+void OptimizerLTOLegacyPM::addBarrierPasses(unsigned OptLevel, legacy::PassManagerBase &MPM) {
+  if (OptLevel > 0) {
+    // TODO: insert ReplaceScalarWithMask pass here
+    // Resolve subgreoup call introduced by ReplaceScalarWithMask pass.
+    MPM.add(createResolveSubGroupWICallLegacyPass(m_RtlModules,
+                                                  /*ResolveSGBarrier*/ false));
+  }
+  MPM.add(createPhiCanonicalizationLegacyPass());
+  MPM.add(createRedundantPhiNodeLegacyPass());
+  MPM.add(createGroupBuiltinLegacyPass());
+  MPM.add(createBarrierInFunctionLegacyPass());
+
+  // Resolve subgroup barriers after subgroup emulation passes
+  MPM.add(createResolveSubGroupWICallLegacyPass(m_RtlModules,
+                                                /*ResolveSGBarrier*/ true));
+  MPM.add(createSplitBBonBarrierLegacyPass());
+  if (OptLevel > 0)
+    MPM.add(createReduceCrossBarrierValuesLegacyPass());
+  MPM.add(createKernelBarrierLegacyPass(m_debugType == intel::Native,
+                                        /*UseTLSGlobals*/ false));
 }
 
 void OptimizerLTOLegacyPM::registerLastPasses(PassManagerBuilder &PMBuilder) {

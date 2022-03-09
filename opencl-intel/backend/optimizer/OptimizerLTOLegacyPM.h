@@ -53,6 +53,9 @@ private:
   /// Method shared by registerOptimizerLastCallback and registerLastPasses.
   void addLastPassesImpl(unsigned OptLevel, llvm::legacy::PassManagerBase &MPM);
 
+  /// Add barrier related passes to pass manager.
+  void addBarrierPasses(unsigned OptLevel, legacy::PassManagerBase &MPM);
+
   std::unique_ptr<llvm::TargetLibraryInfoImpl> TLII;
 
   //  CodeGenOptions m_CodeGenOpts;
