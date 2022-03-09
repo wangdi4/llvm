@@ -18,8 +18,8 @@ namespace clang {
 
 namespace CodeGen {
 
-  void addSPIRMetadata(llvm::Module &M, int OCLVersion,
-                       std::string SPIROptions);
+void addSPIRMetadata(llvm::Module &M, int OCLVersion,
+                     const std::string &SPIROptions);
 
 } // end namespace CodeGen
 } // end namespace clang
