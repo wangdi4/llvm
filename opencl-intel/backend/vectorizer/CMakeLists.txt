@@ -60,7 +60,6 @@ set(TARGET_INCLUDE_FILES
   IRPrinter/IRPrinter.h
   LoopHandler/CLBuiltinLICM.h
   LoopHandler/CLStreamSampler.h
-  LoopHandler/LoopStridedCodeMotion.h
   OCLBranchProbability/OCLBranchProbability.h
   OCLVecClone/OCLVecClone.h
   Packetizer/Packetizer.h
@@ -89,7 +88,6 @@ set(TARGET_SOURCE_FILES
   IRPrinter/IRPrinter.cpp
   LoopHandler/CLBuiltinLICM.cpp
   LoopHandler/CLStreamSampler.cpp
-  LoopHandler/LoopStridedCodeMotion.cpp
   OCLBranchProbability/OCLBranchProbability.cpp
   OCLVecClone/OCLVecClone.cpp
   Packetizer/Packetizer.cpp

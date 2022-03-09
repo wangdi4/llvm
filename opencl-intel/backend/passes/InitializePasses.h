@@ -55,7 +55,6 @@ void initializeExternalizeGlobalVariablesPass(llvm::PassRegistry &);
 void initializeInternalizeGlobalVariablesPass(llvm::PassRegistry&);
 void initializeOclFunctionAttrsPass(llvm::PassRegistry&);
 void initializeBuiltinLibInfoPass(llvm::PassRegistry&);
-void initializeLoopStridedCodeMotionPass(llvm::PassRegistry&);
 void initializeRelaxedPassPass(llvm::PassRegistry&);
 void initializePrefetchPass(llvm::PassRegistry&);
 void initializePostDominanceFrontierPass(llvm::PassRegistry&);
