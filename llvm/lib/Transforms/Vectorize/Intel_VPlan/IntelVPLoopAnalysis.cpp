@@ -434,6 +434,7 @@ VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
   case RecurKind::Mul:
   case RecurKind::And:
   case RecurKind::FMul:
+  case RecurKind::FMulAdd:
   case RecurKind::FAdd: {
     Constant *C = VPReduction::getConstRecurrenceIdentity(Red->getRecurrenceKind(),
                                                      Red->getRecurrenceType(),
@@ -449,7 +450,7 @@ VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
   case RecurKind::SelectICmp:
   case RecurKind::SelectFCmp:
     return Red->getRecurrenceStartValue();
-  default:
+  case RecurKind::None:
     llvm_unreachable("Unknown recurrence kind");
   }
 }
