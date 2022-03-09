@@ -81,6 +81,9 @@ const unsigned BasicBlockSuccRatio = 210; // INTEL
 /// Do not inline dynamic allocas that have been constant propagated to be
 /// static allocas above this amount in bytes.
 const uint64_t MaxSimplifiedDynamicAllocaToInline = 65536;
+
+const char FunctionInlineCostMultiplierAttributeName[] =
+    "function-inline-cost-multiplier";
 } // namespace InlineConstants
 
 // The cost-benefit pair computed by cost-benefit analysis.
@@ -499,6 +502,8 @@ struct InlineParams {
   /// Indicate whether we allow inlining for recursive call.
   Optional<bool> AllowRecursiveCall = false;
 };
+
+Optional<int> getStringFnAttrAsInt(CallBase &CB, StringRef AttrKind);
 
 /// Generate the parameters to tune the inline cost analysis based only on the
 /// commandline options.
