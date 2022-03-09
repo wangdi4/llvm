@@ -1,3 +1,18 @@
+// INTEL_CUSTOMIZATION
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //==-------------- group.hpp --- SYCL work group ---------------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -15,9 +30,6 @@
 #include <CL/sycl/detail/generic_type_traits.hpp>
 #include <CL/sycl/detail/helpers.hpp>
 #include <CL/sycl/detail/spirv.hpp>
-/* INTEL_CUSTOMIZATION */
-#include <CL/sycl/detail/host_device_intel/backend.hpp>
-/* end INTEL_CUSTOMIZATION */
 #include <CL/sycl/device_event.hpp>
 #include <CL/sycl/h_item.hpp>
 #include <CL/sycl/id.hpp>
@@ -199,14 +211,8 @@ public:
 #else
     id<Dimensions> GroupStartID = index * localRange;
 
-/* INTEL_CUSTOMIZATION */
-#if !DPCPP_HOST_DEVICE_SERIAL
-    detail::ParallelForWorkItem(localRange, [&](const id<Dimensions> &LocalID) {
-#else
-/* end INTEL_CUSTOMIZATION */
     detail::NDLoop<dimensions>::iterate(
         localRange, [&](const id<Dimensions> &LocalID) {
-#endif // INTEL
           item<Dimensions, false> GlobalItem =
               detail::Builder::createItem<Dimensions, false>(
                   globalRange, GroupStartID + LocalID);
@@ -258,14 +264,8 @@ public:
 #else
     id<Dimensions> GroupStartID = index * localRange;
 
-/* INTEL_CUSTOMIZATION */
-#if !DPCPP_HOST_DEVICE_SERIAL
-    detail::ParallelForWorkItem(localRange, [&](const id<Dimensions> &LocalID) {
-#else
-/* end INTEL_CUSTOMIZATION */
     detail::NDLoop<Dimensions>::iterate(
         localRange, [&](const id<Dimensions> &LocalID) {
-#endif // INTEL
           item<Dimensions, false> GlobalItem =
               detail::Builder::createItem<Dimensions, false>(
                   globalRange, GroupStartID + LocalID);

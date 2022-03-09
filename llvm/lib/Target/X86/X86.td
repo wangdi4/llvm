@@ -943,6 +943,8 @@ def TuningGETMANTFalseDeps : SubtargetFeature<"false-deps-getmant",
 def TuningMULLQFalseDeps : SubtargetFeature<"false-deps-mullq",
                                "HasMULLQFalseDeps", "true",
                                "MULLQ has a false dependency on dest register">;
+def TuningMRN : SubtargetFeature<"mrn", "HasMRN", "true",
+                               "Target has memory renaming feature">;
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // X86 CPU Families
@@ -1308,7 +1310,8 @@ def ProcessorFeatures {
                                                 TuningRANGEFalseDeps,
                                                 TuningGETMANTFalseDeps,
                                                 TuningMULLQFalseDeps,
-                                                Tuning4KDSB];
+                                                Tuning4KDSB,
+                                                TuningMRN];
   list<SubtargetFeature> SPRTuning = !listconcat(ICXTuning, SPRAdditionalTuning);
 #endif // INTEL_CUSTOMIZATION
   list<SubtargetFeature> SPRFeatures =
@@ -1418,7 +1421,8 @@ def ProcessorFeatures {
                                                   FeatureWAITPKG];
 #if INTEL_CUSTOMIZATION
   list<SubtargetFeature> ADLAdditionalTuning = [Tuning4KDSB,
-                                                TuningPERMFalseDeps];
+                                                TuningPERMFalseDeps,
+                                                TuningMRN];
   list<SubtargetFeature> ADLTuning = !listconcat(TGLTuning, ADLAdditionalTuning);
 #endif // INTEL_CUSTOMIZATION
   list<SubtargetFeature> ADLFeatures =

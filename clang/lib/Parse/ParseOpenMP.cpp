@@ -2635,7 +2635,12 @@ bool Parser::isIgnoredOpenMPDirective() {
       (InTBBSubset && getLangOpts().OpenMPTBBDisabled)) {
     DisallowedDirective = true;
   }
+#if INTEL_COLLAB
+  if (getLangOpts().OpenMPLateOutline && DKind == OMPD_scan &&
+      !getCurScope()->isOpenMPSimdOnlyDirectiveScope()) {
+#else  // INTEL_COLLAB
   if (getLangOpts().OpenMPLateOutline && DKind == OMPD_scan) {
+#endif  // INTEL_COLLAB
     Diag(Tok, diag::warn_pragma_omp_unimplemented)
         << getOpenMPDirectiveName(DKind);
     Skipped = true;
@@ -3094,6 +3099,10 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
       ScopeFlags |= Scope::OpenMPLoopDirectiveScope;
     if (isOpenMPSimdDirective(DKind))
       ScopeFlags |= Scope::OpenMPSimdDirectiveScope;
+#if INTEL_COLLAB
+    if (DKind == OMPD_simd)
+      ScopeFlags |= Scope::OpenMPSimdOnlyDirectiveScope;
+#endif  // INTEL_COLLAB
     ParseScope OMPDirectiveScope(this, ScopeFlags);
     Actions.StartOpenMPDSABlock(DKind, DirName, Actions.getCurScope(), Loc);
 
@@ -4572,6 +4581,7 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
     }
 #if INTEL_COLLAB
     if (getLangOpts().OpenMPLateOutline &&
+        DKind != OMPD_simd &&
         Data.ExtraModifier == OMPC_REDUCTION_inscan) {
       Diag(Tok, diag::warn_pragma_unsupported_modifier) <<
           getOpenMPSimpleClauseTypeName(Kind, OMPC_REDUCTION_inscan);

@@ -4146,6 +4146,9 @@ private:
   void EmitSections(const OMPExecutableDirective &S);
 
 #if INTEL_COLLAB
+  /// InscanVars - This keeps track of variables which specified in
+  /// inscan clause and used when process in/exclusive clause.
+  llvm::DenseMap<const VarDecl *, unsigned> InscanVars;
   /// MapTemps - This keeps track of variables with pointer type which
   /// is privatized.
   llvm::DenseMap<const VarDecl *, bool> MapTemps;
@@ -4170,6 +4173,14 @@ public:
     return MapTemps.find(VD) != MapTemps.end();
   }
   void clearMappedTemps() { MapTemps.clear(); }
+  unsigned getInscanVarIndex(const VarDecl *VD) {
+    return InscanVars[VD];
+  }
+  void addInscanVar(const VarDecl *VD) {
+    if (InscanVars.find(VD) == InscanVars.end())
+      InscanVars[VD] = InscanVars.size() + 1;
+  }
+  void clearInscanVars() { InscanVars.clear(); }
   static bool requiresImplicitTask(const OMPExecutableDirective &S);
   static bool requiresImplicitTaskgroup(const OMPExecutableDirective &S,
                                         bool TopLevel = false);

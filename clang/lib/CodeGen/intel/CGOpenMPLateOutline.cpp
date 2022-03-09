@@ -1385,6 +1385,11 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
       for (auto *FV : {Cons, Des, CombinerFn, Init})
         addArg(FV);
     }
+    if (const auto *C = dyn_cast<OMPReductionClause>(Cl))
+      if (C->getModifier() == OMPC_REDUCTION_inscan) {
+        CGF.addInscanVar(VD);
+        addArg(llvm::ConstantInt::get(CGF.SizeTy, CGF.getInscanVarIndex(VD)));
+      }
     ++I;
     ++IPriv;
     ++ILHS;
@@ -2443,6 +2448,36 @@ void OpenMPLateOutliner::emitOMPDataClause(const OMPDataClause *C) {
   }
 }
 
+void OpenMPLateOutliner::emitOMPInclusiveClause(const OMPInclusiveClause *Cl) {
+  for (auto *E : Cl->varlists()) {
+    const VarDecl *VD = getExplicitVarDecl(E);
+    assert(VD && "expected VarDecl in inclusive clause");
+    addExplicit(VD, OMPC_inclusive);
+    ClauseEmissionHelper CEH(*this, OMPC_inclusive, "QUAL.OMP.INCLUSIVE");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+    if (UseTypedClauses)
+      CSB.setTyped();
+    addArg(CSB.getString());
+    addTypedArg(getExplicitDeclRefOrNull(E));
+    addArg(llvm::ConstantInt::get(CGF.SizeTy, CGF.getInscanVarIndex(VD)));
+  }
+}
+
+void OpenMPLateOutliner::emitOMPExclusiveClause(const OMPExclusiveClause *Cl) {
+  for (auto *E : Cl->varlists()) {
+    const VarDecl *VD = getExplicitVarDecl(E);
+    assert(VD && "expected VarDecl in exclusive clause");
+    addExplicit(VD, OMPC_exclusive);
+    ClauseEmissionHelper CEH(*this, OMPC_exclusive, "QUAL.OMP.EXCLUSIVE");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+    if (UseTypedClauses)
+      CSB.setTyped();
+    addArg(CSB.getString());
+    addTypedArg(getExplicitDeclRefOrNull(E));
+    addArg(llvm::ConstantInt::get(CGF.SizeTy, CGF.getInscanVarIndex(VD)));
+  }
+}
+
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}
 void OpenMPLateOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
 void OpenMPLateOutliner::emitOMPFromClause(const OMPFromClause *) {assert(false);}
@@ -2469,8 +2504,6 @@ void OpenMPLateOutliner::emitOMPReleaseClause(const OMPReleaseClause *) {}
 void OpenMPLateOutliner::emitOMPRelaxedClause(const OMPRelaxedClause *) {}
 void OpenMPLateOutliner::emitOMPDepobjClause(const OMPDepobjClause *) {}
 void OpenMPLateOutliner::emitOMPDetachClause(const OMPDetachClause *) {}
-void OpenMPLateOutliner::emitOMPInclusiveClause(const OMPInclusiveClause *) {}
-void OpenMPLateOutliner::emitOMPExclusiveClause(const OMPExclusiveClause *) {}
 void OpenMPLateOutliner::emitOMPUsesAllocatorsClause(
     const OMPUsesAllocatorsClause *) {}
 void OpenMPLateOutliner::emitOMPAffinityClause(const OMPAffinityClause *) {}
@@ -2570,6 +2603,7 @@ void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
     break;
   case OMPD_barrier:
   case OMPD_taskwait:
+  case OMPD_scan:
     if (IsBegin)
       CGF.Builder.CreateFence(llvm::AtomicOrdering::AcquireRelease);
     break;
@@ -2772,6 +2806,12 @@ OpenMPLateOutliner::~OpenMPLateOutliner() {
   addRefsToOuter();
   if (CurrentDirectiveKind == OMPD_target)
     CGF.clearMappedTemps();
+  if (CurrentDirectiveKind == OMPD_simd)
+    for (const auto *C : Directive.getClausesOfKind<OMPReductionClause>())
+      if (C->getModifier() == OMPC_REDUCTION_inscan) {
+        CGF.clearInscanVars();
+        break;
+      }
 }
 
 void OpenMPLateOutliner::emitOMPParallelDirective() {
@@ -2869,6 +2909,10 @@ void OpenMPLateOutliner::emitOMPCriticalDirective(const StringRef Name) {
 void OpenMPLateOutliner::emitOMPOrderedDirective() {
   startDirectiveIntrinsicSet("DIR.OMP.ORDERED", "DIR.OMP.END.ORDERED",
                              OMPD_ordered);
+}
+void OpenMPLateOutliner::emitOMPScanDirective() {
+  startDirectiveIntrinsicSet("DIR.OMP.SCAN", "DIR.OMP.END.SCAN",
+                             OMPD_scan);
 }
 void OpenMPLateOutliner::emitOMPTargetDirective(int OffloadEntryIndex) {
   startDirectiveIntrinsicSet("DIR.OMP.TARGET", "DIR.OMP.END.TARGET",
@@ -3570,6 +3614,9 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_ordered:
     Outliner.emitOMPOrderedDirective();
     break;
+  case OMPD_scan:
+    Outliner.emitOMPScanDirective();
+    break;
   case OMPD_target: {
 #if INTEL_CUSTOMIZATION
     CGM.setHasTargetCode();
@@ -3703,7 +3750,6 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   // These directives are not yet implemented.
   case OMPD_requires:
   case OMPD_depobj:
-  case OMPD_scan:
   case OMPD_tile:
   case OMPD_unroll:
     break;

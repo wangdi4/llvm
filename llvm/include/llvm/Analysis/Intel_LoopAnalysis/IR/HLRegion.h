@@ -32,7 +32,7 @@ class DbgInfoIntrinsic;
 
 namespace loopopt {
 
-/// \brief Top level node in High level IR
+/// Top level node in High level IR
 ///
 /// A High level region is a section of CFG which can be analyzed and
 /// transformed independently of other sections of CFG. It typically consists
@@ -65,7 +65,7 @@ protected:
   friend class HIRParser;
   friend class HIRLoopFormation;
 
-  /// \brief Clone Implementation
+  /// Clone Implementation
   /// Do not support Region cloning.
   HLRegion *cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
                       HLNodeMapper *NodeMapper) const override;
@@ -99,35 +99,35 @@ public:
   /// Prints footer for the region.
   void printFooter(formatted_raw_ostream &OS, unsigned Depth) const;
 
-  /// \brief Prints HLRegion.
+  /// Prints HLRegion.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
                      bool Detailed = false) const override;
-  /// \brief Prints HLRegion along with the contained IRRegion.
+  /// Prints HLRegion along with the contained IRRegion.
   void print(formatted_raw_ostream &OS, unsigned Depth, bool PrintIRRegion,
              bool Detailed) const;
 
-  /// \brief Returns the entry(first) bblock of this region.
+  /// Returns the entry(first) bblock of this region.
   BasicBlock *getEntryBBlock() const { return IRReg.getEntryBBlock(); }
-  /// \brief Returns the exit(last) bblock of this region.
+  /// Returns the exit(last) bblock of this region.
   BasicBlock *getExitBBlock() const { return IRReg.getExitBBlock(); }
 
-  /// \brief Returns the predecessor bblock of this region.
+  /// Returns the predecessor bblock of this region.
   BasicBlock *getPredBBlock() const { return IRReg.getPredBBlock(); }
-  /// \brief Returns the successor bblock of this region.
+  /// Returns the successor bblock of this region.
   BasicBlock *getSuccBBlock() const { return IRReg.getSuccBBlock(); }
 
-  /// \brief Returns true if this region contains BB.
+  /// Returns true if this region contains BB.
   bool containsBBlock(const BasicBlock *BB) const {
     return IRReg.containsBBlock(BB);
   }
 
-  /// \brief Adds a live-in temp (represented using Symbase) with initial value
+  /// Adds a live-in temp (represented using Symbase) with initial value
   /// InitVal to the region.
   void addLiveInTemp(unsigned Symbase, const Value *InitVal) {
     IRReg.addLiveInTemp(Symbase, InitVal);
   }
 
-  /// \brief Adds a live-out temp (represented using Symbase) to the region.
+  /// Adds a live-out temp (represented using Symbase) to the region.
   void addLiveOutTemp(unsigned Symbase, const Instruction *Temp) {
     IRReg.addLiveOutTemp(Symbase, Temp);
   }
@@ -142,13 +142,23 @@ public:
     IRReg.replaceLiveOutTemp(OldSymbase, NewSymbase);
   }
 
-  /// \brief Returns true if this symbase is live in to this region.
+  /// Returns true if this symbase is live in to this region.
+  /// There are two kinds of liveins-
+  /// 1) 'Pure' liveins - these are invariant in the region.
+  /// 2) Liveins which get updated inside the region. Outermost loop's header
+  /// phis of a regular region fall into this category. They have an initial
+  /// value coming into the region but get updated in each iteration of the
+  /// loop.
   bool isLiveIn(unsigned Symbase) const { return IRReg.isLiveIn(Symbase); }
 
-  /// \brief Returns true if this symbase is live out of this region.
+  /// Returns true if this symbase is live out of this region.
   bool isLiveOut(unsigned Symbase) const { return IRReg.isLiveOut(Symbase); }
 
   bool hasLiveOuts() const { return IRReg.hasLiveOuts(); }
+
+  /// Returns true if this symbase is a 'pure' livein (no definition inside the
+  /// region).
+  bool isInvariant(unsigned Symbase) const;
 
   /// BBlock iterator methods
   const_bb_iterator bb_begin() const { return IRReg.bb_begin(); }
@@ -167,7 +177,7 @@ public:
     return IRReg.getLiveOutSymbase(Temp);
   }
 
-  /// \brief Returns true if we need to generate code for this region.
+  /// Returns true if we need to generate code for this region.
   bool shouldGenCode() const { return GenCode; }
   void setGenCode(bool GC = true) { GenCode = GC; }
 
@@ -194,23 +204,23 @@ public:
 
   /// Children acess methods
 
-  /// \brief Returns the first child if it exists, otherwise returns null.
+  /// Returns the first child if it exists, otherwise returns null.
   HLNode *getFirstChild();
   const HLNode *getFirstChild() const {
     return const_cast<HLRegion *>(this)->getFirstChild();
   }
-  /// \brief Returns the last child if it exists, otherwise returns null.
+  /// Returns the last child if it exists, otherwise returns null.
   HLNode *getLastChild();
   const HLNode *getLastChild() const {
     return const_cast<HLRegion *>(this)->getLastChild();
   }
 
-  /// \brief Returns the number of children.
+  /// Returns the number of children.
   unsigned getNumChildren() const { return Children.size(); }
-  /// \brief Returns true if it has children.
+  /// Returns true if it has children.
   bool hasChildren() const { return !Children.empty(); }
 
-  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
     return Node->getHLNodeClassID() == HLNode::HLRegionVal;
   }
@@ -219,7 +229,7 @@ public:
   /// This is LLVM Unreachable code.
   HLRegion *clone(HLNodeMapper *NodeMapper = nullptr) const override;
 
-  /// \brief Verifies HLRegion integrity.
+  /// Verifies HLRegion integrity.
   virtual void verify() const override;
 
   /// Returns true if the last child of the region is a return instruction.

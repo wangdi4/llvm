@@ -1,3 +1,18 @@
+// INTEL_CUSTOMIZATION
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //==--------- nd_item.hpp --- SYCL iteration nd_item -----------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -12,9 +27,6 @@
 #include <CL/sycl/access/access.hpp>
 #include <CL/sycl/detail/defines.hpp>
 #include <CL/sycl/detail/helpers.hpp>
-/* INTEL_CUSTOMIZATION */
-#include <CL/sycl/detail/host_device_intel/backend.hpp>
-/* end INTEL_CUSTOMIZATION */
 #include <CL/sycl/group.hpp>
 #include <CL/sycl/id.hpp>
 #include <CL/sycl/item.hpp>
@@ -114,21 +126,9 @@ public:
 
   void barrier(access::fence_space accessSpace =
                    access::fence_space::global_and_local) const {
-#ifdef __SYCL_DEVICE_ONLY__
     uint32_t flags = detail::getSPIRVMemorySemanticsMask(accessSpace);
     __spirv_ControlBarrier(__spv::Scope::Workgroup, __spv::Scope::Workgroup,
                            flags);
-#else
-/* INTEL_CUSTOMIZATION */
-#if !DPCPP_HOST_DEVICE_SERIAL
-    cl::sycl::detail::NDRangeBarrier(accessSpace);
-#else
-    (void)accessSpace;
-/* end INTEL_CUSTOMIZATION */
-    std::cerr << "Barrier is not supported on host device.\n";
-    abort();
-#endif // INTEL
-#endif // __SYCL_DEVICE_ONLY__
   }
 
   /// Executes a work-group mem-fence with memory ordering on the local address

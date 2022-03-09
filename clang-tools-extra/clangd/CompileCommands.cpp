@@ -379,6 +379,10 @@ std::pair<unsigned, unsigned> getArgCount(const llvm::opt::Option &Opt) {
     return {Rest, 0};
   case Option::RemainingArgsJoinedClass:
     return {Rest, Rest};
+#if INTEL_CUSTOMIZATION
+  case Option::SeparateOrNoneClass:
+    return {2, 0};
+#endif // INTEL_CUSTOMIZATION
   }
   llvm_unreachable("Unhandled option kind");
 }

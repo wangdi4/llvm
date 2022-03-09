@@ -22,6 +22,7 @@
 #include "../IntelVPlanEntityDescr.h"
 #include "../IntelVPlanHCFGBuilder.h"
 #include "IntelVPlanVerifierHIR.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRVecIdioms.h"
 
 using namespace llvm::loopopt;
 
@@ -33,10 +34,6 @@ class DDGraph;
 class HLLoop;
 class HIRSafeReductionAnalysis;
 class HLInst;
-template <class T> class VectorIdioms;
-struct HIRVecIdiom;
-using HIRVectorIdioms = VectorIdioms<HIRVecIdiom>;
-extern void deleteHIRVectorIdioms(HIRVectorIdioms *);
 class HIRDDAnalysis;
 class RegDDRef;
 class DDRef;

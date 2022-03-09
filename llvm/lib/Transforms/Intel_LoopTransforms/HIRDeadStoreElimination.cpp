@@ -684,7 +684,10 @@ static bool isRefInvalidatedBeforeNode(const RegDDRef *Ref,
 
   unsigned Symbase = Ref->getSymbase();
 
-  if (Symbase == ConstantSymbase) {
+  bool IsRegionInvariant = ((Symbase == ConstantSymbase) ||
+                            EndNode->getParentRegion()->isInvariant(Symbase));
+
+  if (IsRegionInvariant) {
     return false;
   }
 
