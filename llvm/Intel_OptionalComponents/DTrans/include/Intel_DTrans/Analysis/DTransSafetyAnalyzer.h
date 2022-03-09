@@ -349,6 +349,23 @@ private:
   DTransType *getFieldTy(StructType *STy, unsigned Idx);
 
   DTransType *getFieldPETy(StructType *STy, unsigned Idx);
+
+  // Map the types with ABI padding to the base types
+  void buildRelatedTypesMap(DTransTypeManager &TM);
+
+  // Given a DTransType, find the related DTransType from the input
+  // DTransTypeManager.
+  DTransType* collectRelatedDTransType(DTransType *InTy, DTransTypeManager &TM);
+
+  // Return true if the input type Type1 is the same as Type2 except for
+  // the last element (or vice versa). This last element is used by the ABI.
+  bool isPaddedDTransStruct(DTransType *Type1, DTransType *Type2);
+
+  // Finalize the analysis for the base-padded structures and set the proper
+  // safety information.
+  void postProcessRelatedTypesAnalysis();
+
+  DenseMap<DTransType *, DTransType *> RelatedTypesMap;
 };
 
 class DTransSafetyAnalyzer : public AnalysisInfoMixin<DTransSafetyAnalyzer> {

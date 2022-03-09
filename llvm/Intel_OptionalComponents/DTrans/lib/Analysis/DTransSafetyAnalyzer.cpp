@@ -52,6 +52,14 @@ static cl::opt<bool> DTransUseBlockFreq(
     cl::desc("Use BlockFrequencyInfo counters instead of static instruction "
              "counts for field frequency info"));
 
+// Enable merging padded structures with base structures even if the
+// safety checks didn't pass. This option is for testing purposes and
+// must remain turned off.
+static cl::opt<bool> DTransTestPaddedStructs(
+    "dtrans-test-padded-structs-analyzer", cl::init(false), cl::ReallyHidden,
+    cl::desc("Force merging padded structures with base structures even if "
+             "the safety checks didn't pass"));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Comma separated list of function names that the verbose debug output should
@@ -3401,7 +3409,7 @@ public:
         auto &Aliases =
             ParamInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
         for (auto *AliasTy : Aliases) {
-          if (DTInfo.getDTransUseCRuleCompat() && !HasICMatch && 
+          if (DTInfo.getDTransUseCRuleCompat() && !HasICMatch &&
               !mayHaveDistinctCompatibleCType(AliasTy))
             continue;
           setBaseTypeInfoSafetyData(AliasTy, dtrans::AddressTaken,
@@ -5473,6 +5481,119 @@ bool DTransSafetyInfo::requiresBadCastValidation(
   return !Func.empty();
 }
 
+// Go through the multiple StructInfos and check if there is a safety
+// violation that makes the padded field dirty. Also, this is the moment
+// where we are going to set which structures are base and padded structures.
+void DTransSafetyInfo::postProcessRelatedTypesAnalysis() {
+
+  // Return true if the input StructInfo has a padded field and
+  // we found any safety violation for that field.
+  auto HasInvalidPaddedField = [](dtrans::StructInfo *StrInfo) {
+    if (!StrInfo)
+      return true;
+    if (!StrInfo->hasPaddedField())
+      return false;
+
+    size_t NumFields = StrInfo->getNumFields();
+    auto &PaddedField = StrInfo->getField(NumFields - 1);
+    if (!PaddedField.isPaddedField())
+      return false;
+
+    // These are the conditions we use to invalidate the padded field.
+    // Perhaps some of them could be relaxed like address taken and
+    // complex use.
+    if (PaddedField.isRead() || PaddedField.isWritten() ||
+        PaddedField.hasComplexUse() || PaddedField.isAddressTaken() ||
+        !PaddedField.isNoValue() || !PaddedField.isTopAllocFunction())
+      return true;
+
+    return false;
+  };
+
+  // Return true if the input structures are padded and base structures.
+  auto ArePaddedAndBaseStructures = [](dtrans::StructInfo *PaddedStruct,
+      dtrans::StructInfo *BaseStruct) -> bool  {
+    assert((PaddedStruct->getRelatedType() == BaseStruct &&
+            BaseStruct->getRelatedType() == PaddedStruct) &&
+            "Incorrect related types set");
+
+    unsigned NumFieldsPadded = PaddedStruct->getNumFields();
+    unsigned NumFieldsBase = BaseStruct->getNumFields();
+    if (NumFieldsPadded - NumFieldsBase != 1)
+      return false;
+
+    // We know that there will be at least one field in the padded
+    // structures
+    auto &LastFieldPadded = PaddedStruct->getField(NumFieldsPadded - 1);
+    if (!LastFieldPadded.isPaddedField())
+      return false;
+
+    // If the base structure is not empty then the last field shouldn't
+    // be marked for ABI padding
+    if (NumFieldsBase > 0) {
+      auto &LastFieldBase = BaseStruct->getField(NumFieldsBase - 1);
+      if (LastFieldBase.isPaddedField())
+        return false;
+    }
+
+    return true;
+  };
+
+  // NOTE: A dirty padded field means that we don't have enough information
+  // to make sure if the field is not being modified.
+  for (auto *TI : type_info_entries()) {
+    if (auto *STInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+
+      dtrans::StructInfo *RelatedTypeInfo = STInfo->getRelatedType();
+      if (!RelatedTypeInfo)
+        continue;
+
+      const dtrans::SafetyData ABIPaddingSet =
+          dtrans::StructCouldHaveABIPadding |
+          dtrans::StructCouldBeBaseABIPadding;
+
+      // Skip those the structures that were analyzed already
+      if (STInfo->testSafetyData(ABIPaddingSet))
+        continue;
+
+      // Identify the base and padded structures
+      dtrans::StructInfo *BaseStruct = nullptr;
+      dtrans::StructInfo *PaddedStruct = nullptr;
+
+      if (ArePaddedAndBaseStructures(STInfo, RelatedTypeInfo)) {
+        PaddedStruct = STInfo;
+        BaseStruct = RelatedTypeInfo;
+      } else if (ArePaddedAndBaseStructures(RelatedTypeInfo, STInfo)) {
+        PaddedStruct = RelatedTypeInfo;
+        BaseStruct = STInfo;
+      } else {
+        llvm_unreachable("Incorrect base and padded structures set");
+      }
+
+      // Check if the padded field has any safety violation that
+      // could break the relationship.
+      bool BadSafetyData = HasInvalidPaddedField(PaddedStruct);
+
+      if (BadSafetyData) {
+        size_t NumFields = PaddedStruct->getNumFields();
+        auto &Field = PaddedStruct->getField(NumFields - 1);
+        Field.invalidatePaddedField();
+      }
+
+      // DTransTestPaddedStructs is used for testing purposes.
+      if (!BadSafetyData || DTransTestPaddedStructs) {
+        PaddedStruct->setSafetyData(dtrans::StructCouldHaveABIPadding);
+        BaseStruct->setSafetyData(dtrans::StructCouldBeBaseABIPadding);
+      } else {
+        // If the safety data fails then break the relationship between
+        // padded and base.
+        PaddedStruct->unsetRelatedType();
+        BaseStruct->unsetRelatedType();
+      }
+    }
+  }
+}
+
 void DTransSafetyInfo::analyzeModule(
     Module &M, GetTLIFnType GetTLI, WholeProgramInfo &WPInfo,
     DTransImmutableInfo *DTImmutInfo,
@@ -5509,6 +5630,7 @@ void DTransSafetyInfo::analyzeModule(
     return;
   }
 
+  buildRelatedTypesMap(*TM);
   DTransSafetyLogger Log;
   DTransBadCastingAnalyzerOP DTBCA(Ctx, *this, *PtrAnalyzer, *TM, GetTLI, M);
   DTransSafetyInstVisitor Visitor(Ctx, DL, GetTLI, GetBFI, *this, *PtrAnalyzer,
@@ -5518,6 +5640,7 @@ void DTransSafetyInfo::analyzeModule(
   Visitor.visit(M);
   DTBCA.analyzeAfterVisit();
   DTBCA.getConditionalFunctions(FunctionsRequireBadCastValidation);
+  postProcessRelatedTypesAnalysis();
   PostProcessFieldValueInfo();
   DTransSafetyAnalysisRan = true;
 
@@ -5653,6 +5776,183 @@ void DTransSafetyInfo::checkLanguages(Module &M) {
     }
 }
 
+
+// Given a DTransType, find the related type from the input DTransTypeManager.
+// For example, assume that InTy is a base type:
+//
+// %class.A.base = type <{ %"class.boost::array", [2 x i8],
+//                         %"class.std::vector", i32 }>
+//
+// This function will find the padded form from the input module:
+//
+// %class.A = type <{ %"class.boost::array", [2 x i8],
+//                         %"class.std::vector", i32, [4 x i8] }>
+//
+// It also works the other way around, given a padded structure InTy it will
+// find the base form.
+//
+// NOTE: This is the same function as dtrans::collectRelatedType, but it uses
+// DTransType instead of llvm::Type.
+DTransType* DTransSafetyInfo::collectRelatedDTransType(DTransType *InTy,
+                                                       DTransTypeManager &TM) {
+
+  DTransStructType *CurrStruct = dyn_cast<DTransStructType>(InTy);
+  if (!CurrStruct)
+    return nullptr;
+
+  if (CurrStruct->isLiteralStruct())
+    return nullptr;
+
+  StringRef StructName = CurrStruct->getName();
+  std::string StrRelatedName;
+
+  // Generate the type's name that we need to find in the module.
+  if (StructName.endswith(".base")) {
+    // Input type is a base type (%class.A.base), generate the
+    // padded type name (%class.A)
+    StrRelatedName = StructName.drop_back(5).str();
+  } else {
+    // Input type is a padded type (%class.A), generate the base
+    // type name (%class.A.base)
+    StrRelatedName = StructName.str() + ".base";
+  }
+
+  // FIXME: There could be cases, where the base name doesn't match.
+  // For example:
+  //
+  //   %class.A = type opaque
+  //   %class.A.1 = type <{ ptr, i32, i8, [3 x i8] }>
+  //   %class.A.base = type <{ ptr, float, i8 }>
+  //   %class.A.base.2 = type <{ ptr, i32, i8 }>
+  //
+  // This issue happens when templates are involved in the source code.
+  DTransStructType* RelatedType = TM.getStructType(StrRelatedName);
+  if (!RelatedType)
+    return nullptr;
+
+  if (!isPaddedDTransStruct(InTy, RelatedType))
+    return nullptr;
+
+  return RelatedType;
+}
+
+// Return true if the input DTransType Type1 is the same as DTransType Type2
+// except for the last element (or vice versa). For example, consider that
+// there is a class A which will be a base class for other derived classes and
+// there is an instantiation of A. Then we will see something like the
+// following in the IR:
+//
+// %class.A.base = type <{ %"class.boost::array", [2 x i8],
+//                         %"class.std::vector", i32 }>
+// %class.A = type <{ %"class.boost::array", [2 x i8],
+//                         %"class.std::vector", i32, [4 x i8] }>
+//
+// The structure type %class.A.base is the same as %class.A, except for the last
+// entry of structure %class.A. This entry at the end ([4 x i8]) is used for
+// the application binary interface (ABI).
+bool DTransSafetyInfo::isPaddedDTransStruct(DTransType *Type1,
+                                            DTransType *Type2) {
+  if (!Type1 || !Type2)
+    return false;
+
+  if (!Type1->isStructTy() || !Type2->isStructTy())
+    return false;
+
+  unsigned Type1Size = Type1->getNumContainedElements();
+  unsigned Type2Size = Type2->getNumContainedElements();
+  unsigned PaddedSize = 0;
+  unsigned BaseSize = 0;
+
+  if (Type1Size == 0 || Type2Size == 0)
+    return false;
+
+  DTransStructType *BaseStruct = nullptr;
+  DTransStructType *PaddedStruct = nullptr;
+
+  // Find the possible base and the padded types
+  if (Type1Size - Type2Size == 1) {
+    PaddedStruct = cast<DTransStructType>(Type1);
+    PaddedSize = Type1Size;
+
+    BaseStruct = cast<DTransStructType>(Type2);
+    BaseSize = Type2Size;
+  } else if (Type2Size - Type1Size == 1) {
+    BaseStruct = cast<DTransStructType>(Type1);
+    BaseSize = Type1Size;
+
+    PaddedStruct = cast<DTransStructType>(Type2);
+    PaddedSize = Type1Size;
+  } else {
+    return false;
+  }
+
+  if (PaddedStruct->isLiteralStruct() || BaseStruct->isLiteralStruct())
+    return false;
+
+  DTransArrayType *PaddedEntry =
+      dyn_cast<DTransArrayType>(PaddedStruct->getFieldType(PaddedSize - 1));
+
+  // Check if the current structure is a candidate for padded structure
+  if (!PaddedEntry)
+    return false;
+
+  auto* PaddedEntryLLVMType =
+      cast<llvm::ArrayType>(PaddedEntry->getLLVMType());
+  if (!PaddedEntryLLVMType->getElementType()->isIntegerTy(8))
+    return false;
+
+  StringRef PaddedName = PaddedStruct->getName();
+  StringRef BaseName = BaseStruct->getName();
+
+  if (!BaseName.endswith(".base"))
+    return false;
+
+  // FIXME: There could be cases where the base name doesn't match.
+  // For example:
+  //
+  //   %class.A = type opaque
+  //   %class.A.1 = type <{ ptr, i32, i8, [3 x i8] }>
+  //   %class.A.base = type <{ ptr, float, i8 }>
+  //   %class.A.base.2 = type <{ ptr, i32, i8 }>
+  //
+  // This issue happens when templates are involved in the source code.
+  if (BaseName.compare(PaddedName.str() + ".base") != 0)
+    return false;
+
+  // All the elements must match except the last one;
+
+  for (unsigned Element = 0; Element < BaseSize; Element++) {
+    auto *PaddedStructField = PaddedStruct->getFieldType(Element);
+    auto *BaseStructField = BaseStruct->getFieldType(Element);
+    if (!PaddedStructField->compare(*BaseStructField))
+      return false;
+  }
+
+  return true;
+}
+
+// Build the related types map. This map will store the relationship between
+// a padded structure and a base structure.
+void DTransSafetyInfo::buildRelatedTypesMap(DTransTypeManager &TM) {
+
+  for (auto* DTy : TM.dtrans_types()) {
+
+    if (RelatedTypesMap.count(DTy) > 0)
+      continue;
+
+    llvm::Type *Ty = DTy->getLLVMType();
+    if (!isa<llvm::StructType>(Ty))
+      continue;
+
+    auto *DTRelatedTy = collectRelatedDTransType(DTy, TM);
+    if (!DTRelatedTy)
+      continue;
+
+    RelatedTypesMap[DTRelatedTy] = DTy;
+    RelatedTypesMap[DTy] = DTRelatedTy;
+  }
+}
+
 dtrans::TypeInfo *DTransSafetyInfo::getOrCreateTypeInfo(DTransType *Ty) {
   // If we already have this type in our map, just return it.
   dtrans::TypeInfo *TI = getTypeInfo(Ty);
@@ -5694,6 +5994,30 @@ dtrans::TypeInfo *DTransSafetyInfo::getOrCreateTypeInfo(DTransType *Ty) {
   }
 
   TypeInfoMap[Ty] = DTransTI;
+  auto RelatedTypeIT = RelatedTypesMap.find(Ty);
+
+  // Set the related type
+  if (RelatedTypeIT != RelatedTypesMap.end()) {
+    DTransType* RelatedType = RelatedTypesMap[Ty];
+    dtrans::StructInfo *RelatedStructInfo =
+        dyn_cast_or_null<dtrans::StructInfo>(getTypeInfo(RelatedType));
+    if (!RelatedStructInfo)
+      RelatedStructInfo = cast<dtrans::StructInfo>(
+        getOrCreateTypeInfo(RelatedType));
+
+    assert(RelatedStructInfo &&
+           "Missing struct info when setting related type");
+
+    dtrans::StructInfo *CurrStructInfo =  cast<dtrans::StructInfo>(DTransTI);
+    CurrStructInfo->setRelatedType(RelatedStructInfo);
+
+    // If Ty is the padded type, then set the last field as
+    // padded field.
+    int64_t CurrNumFields = CurrStructInfo->getNumFields();
+    int64_t RelatedNumFields = RelatedStructInfo->getNumFields();
+    if ((CurrNumFields - RelatedNumFields) == 1)
+      CurrStructInfo->getField(CurrNumFields - 1).setPaddedField();
+  }
   return DTransTI;
 }
 
@@ -5751,14 +6075,14 @@ DTransType *DTransSafetyInfo::getFieldPETy(StructType *STy, unsigned Idx) {
 bool DTransSafetyInfo::isFunctionPtr(StructType *STy, unsigned Idx) {
   DTransType *DTFPETy = getFieldPETy(STy, Idx);
   return DTFPETy && DTFPETy->isFunctionTy();
-} 
+}
 
 StructType *DTransSafetyInfo::getPtrToStructElementType(Value *V) {
   DTransStructType *DTSTy = getPtrToStructTy(V);
   if (!DTSTy)
     return nullptr;
   return dyn_cast_or_null<StructType>(DTSTy->getLLVMType());
-} 
+}
 
 bool DTransSafetyInfo::isPtrToStructWithI8StarFieldAt(Value *V,
                                                       unsigned StructIndex) {
@@ -5785,7 +6109,7 @@ bool DTransSafetyInfo::isPtrToIntOrFloat(Value *V) {
 bool DTransSafetyInfo::hasPtrToIntOrFloatReturnType(Function *F) {
   DTransType *FnTy = MDReader->getDTransTypeFromMD(F);
   if (!FnTy)
-    return false;   
+    return false;
   DTransType *DTy = cast<DTransFunctionType>(FnTy)->getReturnType();
   if (!DTy || !DTy->isPointerTy())
     return false;
@@ -6061,10 +6385,16 @@ void DTransSafetyInfo::PostProcessFieldValueInfo() {
     // - The field is address taken, and the value of LangRuleOutOfBoundsOK
     //   indicates the address could be used to access other field members.
     // - The type is an aggregate type. We keep values for individual fields,
-    //   but not for an array or structure element as a whole.
+    //   but not for an array or structure element as a whole, with the
+    //   exception of fields that are used for padding.
     bool FSV_Unsafe = testSafetyData(TI, dtrans::DT_FieldSingleValue);
     bool FSAF_Unsafe = testSafetyData(TI, dtrans::DT_FieldSingleAllocFunction);
     for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I) {
+
+      // If we proved that the field is a clean padded field
+      if (StInfo->getField(I).isCleanPaddedField())
+        continue;
+
       bool AddressTaken = StInfo->getField(I).isAddressTaken();
       bool Aggregate = StInfo->getField(I).getLLVMType()->isAggregateType();
       if (FSV_Unsafe || (!UsingOutOfBoundsOK && AddressTaken) || Aggregate)
