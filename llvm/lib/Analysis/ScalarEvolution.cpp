@@ -7103,52 +7103,13 @@ ScalarEvolution::getRangeRef(const SCEV *S,
           RangeType);
 
     // A range of Phi is a subset of union of all ranges of its input.
-<<<<<<< HEAD
-    if (const PHINode *Phi = dyn_cast<PHINode>(U->getValue())){
+    if (const PHINode *Phi = dyn_cast<PHINode>(U->getValue())) {
 #if INTEL_CUSTOMIZATION
       // Recursion check before we call getSCEV recursively on each Op.
       // A chain of phi and arithmetic will cause N^2 recursion.
       if (PendingPhiRanges.size() > MaxSCEVCompareDepth)
         return setRange(U, SignHint, std::move(ConservativeResult));
 #endif // INTEL_CUSTOMIZATION
-
-      if (!PendingPhiRanges.count(Phi))
-        sharpenPhiSCCRange(Phi, ConservativeResult, SignHint);
-    }
-    return setRange(U, SignHint, std::move(ConservativeResult));
-  }
-
-  return setRange(S, SignHint, std::move(ConservativeResult));
-}
-
-bool ScalarEvolution::collectSCC(const PHINode *Phi,
-                                 SmallVectorImpl<const PHINode *> &SCC) const {
-  assert(SCC.empty() && "Precondition: SCC should be empty.");
-  auto Bail = [&]() {
-    SCC.clear();
-    SCC.push_back(Phi);
-    return false;
-  };
-  SmallPtrSet<const PHINode *, 4> Reachable;
-  {
-    // First, find all PHI nodes that are reachable from Phi.
-    SmallVector<const PHINode *, 4> Worklist;
-    Reachable.insert(Phi);
-    Worklist.push_back(Phi);
-    while (!Worklist.empty()) {
-      if (Reachable.size() > MaxPhiSCCAnalysisSize)
-        // Too many nodes to process. Assume that SCC is composed of Phi alone.
-        return Bail();
-      auto *Curr = Worklist.pop_back_val();
-      for (auto &Op : Curr->operands()) {
-        if (auto *PhiOp = dyn_cast<PHINode>(&*Op)) {
-          if (PendingPhiRanges.count(PhiOp))
-            // Do not want to deal with this situation, so conservatively bail.
-            return Bail();
-          if (Reachable.insert(PhiOp).second)
-            Worklist.push_back(PhiOp);
-=======
-    if (const PHINode *Phi = dyn_cast<PHINode>(U->getValue())) {
       // Make sure that we do not run over cycled Phis.
       if (PendingPhiRanges.insert(Phi).second) {
         ConstantRange RangeFromOps(BitWidth, /*isFullSet=*/false);
@@ -7158,7 +7119,6 @@ bool ScalarEvolution::collectSCC(const PHINode *Phi,
           // No point to continue if we already have a full set.
           if (RangeFromOps.isFullSet())
             break;
->>>>>>> f909aed671fee194297ba9190f0e4baa4b10d0c2
         }
         ConservativeResult =
             ConservativeResult.intersectWith(RangeFromOps, RangeType);
