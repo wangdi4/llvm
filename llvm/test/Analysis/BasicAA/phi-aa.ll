@@ -1,4 +1,3 @@
-; RUN: opt < %s -phi-values -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes='require<phi-values>,aa-eval' -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; INTEL
 ; RUN: opt -convert-to-subscript -S < %s | opt -phi-values -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s

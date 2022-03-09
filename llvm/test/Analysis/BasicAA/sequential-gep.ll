@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ; RUN: opt < %s -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; INTEL
 ; RUN: opt < %s -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck --check-prefix=CHECK-GEP %s
@@ -7,6 +8,12 @@
 ; aliasSameBasePointerGEPs
 ; CHECK-GEP: Function: t1
 ; CHECK-GEP: NoAlias: i32* %gep1, i32* %gep2
+=======
+; RUN: opt < %s -aa-pipeline=basic-aa -passes=aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+
+; CHECK: Function: t1
+; CHECK: NoAlias: i32* %gep1, i32* %gep2
+>>>>>>> b81d5baa0fb06b17e646e703c9771478ca190249
 define void @t1([8 x i32]* %p, i32 %addend, i32* %q) {
   %knownnonzero = load i32, i32* %q, !range !0
   %add = add nsw nuw i32 %addend, %knownnonzero
