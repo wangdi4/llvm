@@ -40,7 +40,6 @@ if (LLVM_LINK_LLVM_DYLIB)
   set(LINK_LLVM_LIBS LLVM)
 endif()
 target_link_libraries(elf_common INTERFACE ${LINK_LLVM_LIBS})
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
   # Statically link C run-time library on Windows.
   # Otherwise, we cannot use LLVMObject and LLVMSupport.
@@ -49,9 +48,6 @@ target_link_libraries(elf_common INTERFACE ${LINK_LLVM_LIBS})
   # in two flavors).
   set_msvc_crt_flags(elf_common)
 # end INTEL_CUSTOMIZATION
-include_directories(${LIBOMPTARGET_LLVM_INCLUDE_DIRS})
-=======
->>>>>>> 7f7c2c34b6b349e2183fb87cd1a608576e8f8e8a
 add_dependencies(elf_common ${LINK_LLVM_LIBS})
 
 # The code uses Debug.h, which requires threads support.
