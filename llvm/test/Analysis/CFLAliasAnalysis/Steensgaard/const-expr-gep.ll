@@ -2,13 +2,9 @@
 ; resolvable by cfl-steens-aa, but require analysis of getelementptr constant exprs.
 ; Derived from BasicAA/2003-12-11-ConstExprGEP.ll
 
-<<<<<<< HEAD
-; RUN: opt < %s -disable-basic-aa -cfl-steens-aa -aa-eval -print-may-aliases -disable-output 2>&1 | FileCheck %s
 ; INTEL
 ; RUN: opt < %s -convert-to-subscript -S | opt -disable-basic-aa -cfl-steens-aa -aa-eval -print-may-aliases -disable-output 2>&1 | FileCheck %s
-=======
 ; RUN: opt < %s -aa-pipeline=cfl-steens-aa -passes=aa-eval -print-may-aliases -disable-output 2>&1 | FileCheck %s
->>>>>>> b81d5baa0fb06b17e646e703c9771478ca190249
 
 %T = type { i32, [10 x i8] }
 

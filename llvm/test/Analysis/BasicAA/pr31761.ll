@@ -1,10 +1,6 @@
-<<<<<<< HEAD
-; RUN: opt < %s -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; INTEL
 ; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
-=======
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes=aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
->>>>>>> b81d5baa0fb06b17e646e703c9771478ca190249
 
 
 target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
