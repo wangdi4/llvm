@@ -312,27 +312,21 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
                              bool AggregateArgs, BlockFrequencyInfo *BFI,
                              BranchProbabilityInfo *BPI, AssumptionCache *AC,
                              bool AllowVarArgs, bool AllowAlloca,
-<<<<<<< HEAD
 #if INTEL_COLLAB
-                             std::string Suffix,
+                             BasicBlock *AllocationBlock, std::string Suffix,
                              bool AllowEHTypeID, bool AllowUnreachableBlocks,
                              const OrderedArgs *TgtClauseArgs)
 #else // INTEL_COLLAB
-                             std::string Suffix)
+                             BasicBlock *AllocationBlock, std::string Suffix)
 #endif // INTEL_COLLAB
     : DT(DT), AggregateArgs(AggregateArgs || AggregateArgsOpt), BFI(BFI),
-      BPI(BPI), AC(AC), AllowVarArgs(AllowVarArgs),
+      BPI(BPI), AC(AC), AllocationBlock(AllocationBlock),
+      AllowVarArgs(AllowVarArgs),
 #if INTEL_COLLAB
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca,
                                      AllowEHTypeID, AllowUnreachableBlocks)),
       TgtClauseArgs(TgtClauseArgs), DeclLoc(),
 #else // INTEL_COLLAB
-=======
-                             BasicBlock *AllocationBlock, std::string Suffix)
-    : DT(DT), AggregateArgs(AggregateArgs || AggregateArgsOpt), BFI(BFI),
-      BPI(BPI), AC(AC), AllocationBlock(AllocationBlock),
-      AllowVarArgs(AllowVarArgs),
->>>>>>> 87ec6f41bba6d72a3408e71cf19ae56feff523bc
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca)),
 #endif // INTEL_COLLAB
       Suffix(Suffix) {}

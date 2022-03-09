@@ -147,7 +147,9 @@ public:
     /// code is extracted, including vastart. If AllowAlloca is true, then
     /// extraction of blocks containing alloca instructions would be possible,
     /// however code extractor won't validate whether extraction is legal.
-<<<<<<< HEAD
+    /// Any new allocations will be placed in the AllocationBlock, unless
+    /// it is null, in which case it will be placed in the entry block of
+    /// the function from which the code is being extracted.
 #if INTEL_COLLAB
     /// If AllowEHTypeID is true, the safety check for the llvm.eh.typeid.for
     /// intrinsic will be skipped. Exceptions thrown out of the region may
@@ -158,25 +160,15 @@ public:
     CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT = nullptr,
                   bool AggregateArgs = false, BlockFrequencyInfo *BFI = nullptr,
                   BranchProbabilityInfo *BPI = nullptr,
-                  AssumptionCache *AC = nullptr,
-                  bool AllowVarArgs = false, bool AllowAlloca = false,
+                  AssumptionCache *AC = nullptr, bool AllowVarArgs = false,
+                  bool AllowAlloca = false,
+                  BasicBlock *AllocationBlock = nullptr,
 #if INTEL_COLLAB
                   std::string Suffix = "",
                   bool AllowEHTypeID = false,
                   bool AllowUnreachableBlocks = false,
                   const OrderedArgs *TgtClauseArgs = nullptr);
 #else // INTEL_COLLAB
-=======
-    /// Any new allocations will be placed in the AllocationBlock, unless
-    /// it is null, in which case it will be placed in the entry block of
-    /// the function from which the code is being extracted.
-    CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT = nullptr,
-                  bool AggregateArgs = false, BlockFrequencyInfo *BFI = nullptr,
-                  BranchProbabilityInfo *BPI = nullptr,
-                  AssumptionCache *AC = nullptr, bool AllowVarArgs = false,
-                  bool AllowAlloca = false,
-                  BasicBlock *AllocationBlock = nullptr,
->>>>>>> 87ec6f41bba6d72a3408e71cf19ae56feff523bc
                   std::string Suffix = "");
 #endif // INTEL_COLLAB
 
