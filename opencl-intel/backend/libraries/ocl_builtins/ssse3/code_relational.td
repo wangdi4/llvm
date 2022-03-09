@@ -74,50 +74,6 @@ code v3_double_2arg = [{
     return ret.s012;
   }];
 
-code select_double3 = [{
-    double4 res;
-    res = $Func($Arg0VarName.s0122, $Arg1VarName.s0122, $Arg2VarName.s0122);
-    return res.s012;
-  }];
-
-code select_vector_v2_64 = [{ 
-    $Arg0igentype zero = ($Arg0igentype)0;
-    $Arg0igentype mask = (zero > as_$Arg0igentype($Arg2VarName));
-    mask = as_$Arg0igentype(_mm_shuffle_epi32(__builtin_astype(mask,__m128i), 0xF5));
-    $Arg0igentype res = (mask & as_$Arg0igentype($Arg1VarName));
-    return as_$ReturnType (((~mask) & as_$Arg0igentype($Arg0VarName))| res);
-  }];
-
-code select_vector_v16_8 = [{ 
-    $Arg0igentype zero = ($Arg0igentype)0;
-    $Arg0igentype mask = (zero > as_$Arg0igentype($Arg2VarName));
-    $Arg0igentype res = (mask & as_$Arg0igentype($Arg1VarName));
-    return as_$ReturnType((~mask & as_$Arg0igentype($Arg0VarName)) | res);
-  }];
-
-code select_vector_v4f32 = [{ 
-    $Arg0igentype mask = ($Arg0igentype)0;
-    mask = (mask > as_$Arg0igentype($Arg2VarName));
-    $Arg1VarName = as_$Arg1Type(as_$Arg0igentype($Arg1VarName) & mask);
-    mask = (~mask & as_$Arg0igentype($Arg0VarName));
-    return as_$ReturnType(mask | as_$Arg0igentype($Arg1VarName));
-  }];
-
-code select_vector_v2f64 = [{ 
-    $Arg0igentype mask = ($Arg0igentype)0;
-    mask = (mask > as_$Arg0igentype($Arg2VarName));
-    float4 fMask = as_float4(mask);
-    fMask = _mm_movehdup_ps(fMask);
-    $Arg0Type dMask = as_$Arg0Type(fMask);
-    $Arg1VarName = as_$Arg0Type(as_$Arg0igentype(dMask) & as_$Arg0igentype($Arg1VarName));
-    $Arg0VarName = as_$Arg0Type(~as_$Arg0igentype(dMask) & as_$Arg0igentype($Arg0VarName));
-    return as_$ReturnType(as_$Arg0igentype($Arg0VarName) | as_$Arg0igentype($Arg1VarName));
-  }];
-
-code select_scalar = [{ 
-    return $Arg2VarName ? $Arg1VarName : $Arg0VarName;
-  }];
-
 code any_all_scalar8 = [{ 
     return as_$ReturnType(($Arg0VarName & 0x80) != 0);
   }];

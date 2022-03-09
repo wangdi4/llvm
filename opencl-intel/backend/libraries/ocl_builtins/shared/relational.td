@@ -39,15 +39,6 @@ OclBuiltinImpl bitselect_promote     =  OclBuiltinImpl  <bitselect,  [v2f32, v3f
                                                                       v3i16, v3u16, v4i16, v4u16, v8i8, v8u8],                           0, Promote3>;
 OclBuiltinImpl bitselect_expand      =  OclBuiltinImpl  <bitselect,  [v16f64, v16i64, v16u64],                             0, Expand3>;
 
-OclBuiltinImpl iselect_promote       =  OclBuiltinImpl  <iselect,  [v2f32, v3f32, v2i32, v2u32, v3i32, v3u32, v2i8,
-                                                                    v2u8, v3i8, v3u8, v4i8, v4u8, v2i16, v2u16,
-                                                                    v3i16, v3u16, v4i16, v4u16, v8i8, v8u8],               0, Promote3>;
-OclBuiltinImpl iselect_expand        =  OclBuiltinImpl  <iselect,  [v16f64, v16u16, v16i16, v16i64, v16u64],               0, Expand3>;
-OclBuiltinImpl uselect_promote       =  OclBuiltinImpl  <uselect,  [v2f32, v3f32, v2i32, v2u32, v3i32, v3u32, v2i8,
-                                                                    v2u8, v3i8, v3u8, v4i8, v4u8, v2i16, v2u16,
-                                                                    v3i16, v3u16, v4i16, v4u16, v8i8, v8u8],               0, Promote3>;
-OclBuiltinImpl uselect_expand        =  OclBuiltinImpl  <uselect,  [v16f64, v16u16, v16i16, v16i64, v16u64],               0, Expand3>;
-
 OclBuiltinImpl islessgreater1        =   OclBuiltinImpl  <islessgreater,  [v1f32, v1f64,  v2f64, v4f32], 0, [{
     return (($Arg0VarName < $Arg1VarName) | ($Arg0VarName > $Arg1VarName)) ;
   }]>;
@@ -209,9 +200,26 @@ OclBuiltinImpl bitselect__scalar = OclBuiltinImpl<bitselect, [v1i8, v1i16, v1i32
     return ($Arg0VarName & ~$Arg2VarName) | ($Arg1VarName & $Arg2VarName);
   }]>;
 
-OclBuiltinImpl iselect_scalar = OclBuiltinImpl<iselect, [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64], 0, select_scalar>;
+// Scalar select()
+defvar select_scalar_types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f16, v1f32, v1f64];
+defvar select_scalar_code = [{
+  return $Arg2VarName ? $Arg1VarName : $Arg0VarName;
+}];
+OclBuiltinImpl iselect_scalar = OclBuiltinImpl<iselect, select_scalar_types, 0, select_scalar_code>;
+OclBuiltinImpl uselect_scalar = OclBuiltinImpl<uselect, select_scalar_types, 0, select_scalar_code>;
 
-OclBuiltinImpl uselect_scalar = OclBuiltinImpl<uselect, [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64], 0, select_scalar>;
+// Vector select()
+defvar select_vector_types = ExpandTypesByVFAndFlatten<select_scalar_types, [2, 3, 4, 8, 16, 32, 64]>.Tout;
+defvar select_vector_code = [{
+  $Arg0igentype mask = 0;
+  // Compare signed $Arg2VarName with 0.
+  mask = (mask > __builtin_astype($Arg2VarName, $Arg0igentype));
+  $Arg0igentype masked_a = ~mask & __builtin_astype($Arg0VarName, $Arg0igentype);
+  $Arg1igentype masked_b = mask & __builtin_astype($Arg1VarName, $Arg1igentype);
+  return __builtin_astype(masked_a | masked_b, $ReturnType);
+}];
+OclBuiltinImpl iselect_vector = OclBuiltinImpl<iselect, select_vector_types, 0, select_vector_code>;
+OclBuiltinImpl uselect_vector = OclBuiltinImpl<uselect, select_vector_types, 0, select_vector_code>;
 
 //======v4f32 and v2f64 implementation===============================
 
@@ -331,11 +339,6 @@ OclBuiltinImpl bitselect_v8i16 = OclBuiltinImpl<bitselect, [v8i16, v8u16, v16i8,
     return as_$ReturnType($Arg0VarName |  $Arg1VarName);
   }]>;
 
-
-OclBuiltinImpl iselect_v8 = OclBuiltinImpl<iselect, [v8i16, v8u16, v4i32, v4u32], 0, select_vector_v16_8>;
-
-OclBuiltinImpl uselect_v8 = OclBuiltinImpl<uselect, [v8i16, v8u16, v4i32, v4u32], 0, select_vector_v16_8>;
-
 //======v4i32 and v2i64 implementation===============================
 
 OclBuiltinImpl any_v4i32 = OclBuiltinImpl<any, [v4i32], 0, [{
@@ -370,7 +373,3 @@ OclBuiltinImpl bitselect_v2i64 = OclBuiltinImpl<bitselect, [v2i64], 0, [{
 OclBuiltinImpl bitselect_v2u64 = OclBuiltinImpl<bitselect, [v2u64], 0, [{
     return as_$ReturnType(bitselect(as_uint4($Arg0VarName), as_uint4($Arg1VarName), as_uint4($Arg2VarName)));
   }]>;
-
-OclBuiltinImpl iselect_v2 = OclBuiltinImpl<iselect, [v2i64, v2u64], 0, select_vector_v2_64>;
-
-OclBuiltinImpl uselect_v2 = OclBuiltinImpl<uselect, [v2i64, v2u64], 0, select_vector_v2_64>;
