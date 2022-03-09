@@ -49,6 +49,8 @@
 
 using namespace llvm;
 
+#define DEBUG_TYPE "ocl-tblgen-builtin-emitter"
+
 static cl::opt<bool>
 GenOCLBuiltinPrototype("gen-ocl-proto", cl::Hidden,
                        cl::desc("Generate OCL builtin prototype."), cl::init(false));
@@ -1192,38 +1194,55 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
       RecordResolver Resolver(*const_cast<Record*>(Rec));
       RecordRecTy* OBI = RecordRecTy::get(R.getClass("OclBuiltinImpl"));
 
-      auto CollectImpls = [this](RecordRecTy *OBI, const Record *Rec,
-                                 RecordResolver &Resolver) {
+      auto InsertImplToMap = [this](const Init *Def, const char *Loc,
+                                    RecordResolver &Resolver) {
+        if (auto *VDInit = dyn_cast<VarDefInit>(Def)) {
+          Def = VDInit->resolveReferences(Resolver);
+          assert(isa<DefInit>(Def) && "Failed to resolve some references");
+        }
+
+        const Record *DefRec = cast<DefInit>(Def)->getDef();
+        const OclBuiltin *Proto = getOclBuiltin(
+            std::string(DefRec->getValueAsDef("Builtin")->getName()));
+
+        auto II = m_ImplMap.find(Proto);
+        if (m_ImplMap.end() == II) {
+          OclBuiltinImpl *OI = new OclBuiltinImpl(*this, DefRec);
+          assert(Proto == OI->getOclBuiltin() &&
+                 "OclBuiltinImpl prototype mismatches.");
+          II = m_ImplMap.insert({OI->getOclBuiltin(), OI}).first;
+        }
+        II->second->appendImpl(DefRec, Loc);
+      };
+
+      auto CollectImpls = [InsertImplToMap](RecordRecTy *OBI, const Record *Rec,
+                                            RecordResolver &Resolver) {
         const std::vector<RecordVal> &Values = Rec->getValues();
         for (const auto &RV : Values) {
           const char *Loc = RV.getLoc().getPointer();
           Init *Def = RV.getValue();
 
           // UnsetInit could be converted to any type, skip it first.
-          if (dyn_cast<UnsetInit>(Def))
+          if (isa<UnsetInit>(Def))
             continue;
+
+          // Process list of OclBuiltinImpl.
+          if (auto *ListDef = dyn_cast<ListInit>(Def)) {
+            if (ListDef->getElementType() == OBI) {
+              LLVM_DEBUG(dbgs().indent(2) << "List of OclBuiltinImpl:\n");
+              for (auto *D : *ListDef) {
+                LLVM_DEBUG(dbgs().indent(4) << *D << '\n');
+                InsertImplToMap(D, Loc, Resolver);
+              }
+            }
+            continue;
+          }
 
           // Not convertible, skip it as well.
           if (!Def->convertInitializerTo(OBI))
             continue;
 
-          if (auto *VDInit = dyn_cast<VarDefInit>(Def)) {
-            Def = VDInit->resolveReferences(Resolver);
-            assert(isa<DefInit>(Def) && "Failed to resolve some references");
-          }
-
-          const Record *DefRec = cast<DefInit>(Def)->getDef();
-          const OclBuiltin *proto = getOclBuiltin(
-              std::string(DefRec->getValueAsDef("Builtin")->getName()));
-
-          auto II = m_ImplMap.find(proto);
-          if (m_ImplMap.end() == II) {
-            OclBuiltinImpl *OI = new OclBuiltinImpl(*this, DefRec);
-            assert(proto == OI->getOclBuiltin() &&
-                   "OclBuiltinImpl prototype mismatches.");
-            II = m_ImplMap.insert({OI->getOclBuiltin(), OI}).first;
-          }
-          II->second->appendImpl(DefRec, Loc);
+          InsertImplToMap(Def, Loc, Resolver);
         }
       };
       CollectImpls(OBI, Rec, Resolver);

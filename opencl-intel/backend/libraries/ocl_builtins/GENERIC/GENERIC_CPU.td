@@ -17,4 +17,6 @@ include "GENERIC/helper_function.td"
 class Generic : TargetImpl {
 include "GENERIC/GENERIC_common.td"
 include "GENERIC/math_cpu.td"
+
+list<OclBuiltinImpl> Impls = [];
 }
