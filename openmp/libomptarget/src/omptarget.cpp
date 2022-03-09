@@ -141,43 +141,6 @@ static int InitLibrary(DeviceTy &Device) {
         break;
       }
 
-<<<<<<< HEAD
-    // process global data that needs to be mapped.
-    Device.DataMapMtx.lock();
-    __tgt_target_table *HostTable = &TransTable->HostTable;
-    for (__tgt_offload_entry *CurrDeviceEntry = TargetTable->EntriesBegin,
-                             *CurrHostEntry = HostTable->EntriesBegin,
-                             *EntryDeviceEnd = TargetTable->EntriesEnd;
-         CurrDeviceEntry != EntryDeviceEnd;
-         CurrDeviceEntry++, CurrHostEntry++) {
-#if INTEL_COLLAB
-      if (CurrDeviceEntry->size != 0 ||
-          (CurrDeviceEntry->flags & OMP_DECLARE_TARGET_FPTR)) {
-#else // INTEL_COLLAB
-      if (CurrDeviceEntry->size != 0) {
-#endif // INTEL_COLLAB
-        // has data.
-        assert(CurrDeviceEntry->size == CurrHostEntry->size &&
-               "data size mismatch");
-
-        // Fortran may use multiple weak declarations for the same symbol,
-        // therefore we must allow for multiple weak symbols to be loaded from
-        // the fat binary. Treat these mappings as any other "regular" mapping.
-        // Add entry to map.
-        if (Device.getTgtPtrBegin(CurrHostEntry->addr, CurrHostEntry->size))
-          continue;
-        DP("Add mapping from host " DPxMOD " to device " DPxMOD " with size %zu"
-           "\n",
-           DPxPTR(CurrHostEntry->addr), DPxPTR(CurrDeviceEntry->addr),
-           CurrDeviceEntry->size);
-        Device.HostDataToTargetMap.emplace(
-            (uintptr_t)CurrHostEntry->addr /*HstPtrBase*/,
-            (uintptr_t)CurrHostEntry->addr /*HstPtrBegin*/,
-            (uintptr_t)CurrHostEntry->addr + CurrHostEntry->size /*HstPtrEnd*/,
-            (uintptr_t)CurrDeviceEntry->addr /*TgtPtrBegin*/,
-            false /*UseHoldRefCount*/, nullptr /*Name*/,
-            true /*IsRefCountINF*/);
-=======
       // process global data that needs to be mapped.
       std::lock_guard<decltype(Device.DataMapMtx)> LG(Device.DataMapMtx);
 
@@ -187,7 +150,12 @@ static int InitLibrary(DeviceTy &Device) {
                                *EntryDeviceEnd = TargetTable->EntriesEnd;
            CurrDeviceEntry != EntryDeviceEnd;
            CurrDeviceEntry++, CurrHostEntry++) {
+#if INTEL_COLLAB
+        if (CurrDeviceEntry->size != 0 ||
+            (CurrDeviceEntry->flags & OMP_DECLARE_TARGET_FPTR)) {
+#else // INTEL_COLLAB
         if (CurrDeviceEntry->size != 0) {
+#endif // INTEL_COLLAB
           // has data.
           assert(CurrDeviceEntry->size == CurrHostEntry->size &&
                  "data size mismatch");
@@ -212,28 +180,23 @@ static int InitLibrary(DeviceTy &Device) {
               false /*UseHoldRefCount*/, nullptr /*Name*/,
               true /*IsRefCountINF*/);
         }
->>>>>>> 307bbd3c82643139c8407a20b07b06f892764c4c
+#if INTEL_COLLAB
+        if (CurrDeviceEntry->flags & OMP_DECLARE_TARGET_FPTR) {
+          if (CurrDeviceEntry->size != 0) {
+            REPORT("Function pointer " DPxMOD " with non-zero size %zu.\n",
+                   DPxPTR(CurrHostEntry->addr), CurrDeviceEntry->size);
+            rc = OFFLOAD_FAIL;
+            break;
+          }
+          ++FnPtrsCount;
+        }
+#endif // INTEL_COLLAB
       }
 #if INTEL_COLLAB
-      if (CurrDeviceEntry->flags & OMP_DECLARE_TARGET_FPTR) {
-        if (CurrDeviceEntry->size != 0) {
-          REPORT("Function pointer " DPxMOD " with non-zero size %zu.\n",
-                 DPxPTR(CurrHostEntry->addr), CurrDeviceEntry->size);
-          rc = OFFLOAD_FAIL;
-          break;
-        }
-        ++FnPtrsCount;
-      }
+      if (rc != OFFLOAD_SUCCESS)
+        break;
 #endif // INTEL_COLLAB
     }
-<<<<<<< HEAD
-    Device.DataMapMtx.unlock();
-#if INTEL_COLLAB
-    if (rc != OFFLOAD_SUCCESS)
-       break;
-#endif // INTEL_COLLAB
-=======
->>>>>>> 307bbd3c82643139c8407a20b07b06f892764c4c
   }
 
   if (rc != OFFLOAD_SUCCESS) {
