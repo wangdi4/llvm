@@ -1213,3 +1213,14 @@ class TargetImpl {
   // $ExpandHiArg9Type
   //
 }
+
+// Helper func to get a linear strided list of ints.
+// e.g.
+// Range<0, 4>.Tout == [0, 1, 2, 3]
+// Range<1, 4, 2>.Tout == [1, 3]
+class Range<int start, int end, int step = 1> {
+  list<int> _zeros = !listsplat(0, !sub(end, start));
+  list<int> _indices = !foldl([]<int>, _zeros, acc, z, acc # [!add(step, !sub(!size(acc), 1))]);
+  list<int> _range = !foreach(x, _indices, !add(x, start));
+  list<int> Tout = !filter(x, _range, !lt(x, end));
+}
