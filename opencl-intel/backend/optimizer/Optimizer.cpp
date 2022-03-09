@@ -26,6 +26,7 @@
 #include "cl_cpu_detect.h"
 
 #include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -113,7 +114,6 @@ llvm::Pass *createImplicitGIDPass(bool HandleBarrier);
 llvm::ModulePass *createInfiniteLoopCreatorPass();
 llvm::ModulePass *createAutorunReplicatorPass();
 llvm::Pass *createCLBuiltinLICMPass();
-llvm::Pass *createLoopStridedCodeMotionPass();
 llvm::Pass *createCLStreamSamplerPass();
 llvm::Pass *createPreventDivisionCrashesPass();
 llvm::Pass *createOptimizeIDivPass();
@@ -730,7 +730,7 @@ static void populatePassesPostFailCheck(
     PM.add(createLoopSimplifyPass());
     PM.add(createCLBuiltinLICMPass());
     PM.add(llvm::createLICMPass());
-    PM.add(createLoopStridedCodeMotionPass());
+    PM.add(llvm::createLoopStridedCodeMotionLegacyPass());
     PM.add(createCLStreamSamplerPass());
   }
 
