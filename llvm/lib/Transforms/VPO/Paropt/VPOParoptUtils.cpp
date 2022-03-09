@@ -1,4 +1,19 @@
 #if INTEL_COLLAB
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //==-- VPOParoptUtils.cpp - Utilities for VPO Paropt Transforms -*- C++ -*--==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -5223,8 +5238,8 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
   if (IsTargetSPIRV && AI->isArrayAllocation()) {
     LLVM_DEBUG(dbgs() <<
                "Requested privatization alloca with non-constant size:\n" <<
-               "\tElementType:\n" << *AI->getAllocatedType() << "\n" <<
-               "\tSize:\n" << *AI->getArraySize() << "\n");
+               "\tElementType: " << *AI->getAllocatedType() << "\n" <<
+               "\tSize: " << *AI->getArraySize() << "\n");
 #if INTEL_CUSTOMIZATION
 #if 0
     // FIXME: either re-enable this or come up with a solution.
@@ -6595,7 +6610,8 @@ VPOParoptUtils::getItemInfo(const Item *I) {
     return false;
   };
 
-  auto getItemInfoIfTyped = [I, &ElementType, &NumElements]() -> bool {
+  auto getItemInfoIfTyped = [I, &ElementType, &NumElements,
+                             &AddrSpace]() -> bool {
     if (!I->getIsTyped())
       return false;
     ElementType = I->getOrigItemElementTypeFromIR();
@@ -6603,6 +6619,8 @@ VPOParoptUtils::getItemInfo(const Item *I) {
     if (auto *ConstNumElements = dyn_cast<ConstantInt>(NumElements))
       if (ConstNumElements->isOneValue())
         NumElements = nullptr;
+    // The final addresspace is inherited from the clause's item.
+    AddrSpace = cast<PointerType>(I->getOrig()->getType())->getAddressSpace();
     return true;
   };
 
@@ -6630,7 +6648,8 @@ VPOParoptUtils::getItemInfo(const Item *I) {
              ElementType->print(dbgs()); if (NumElements) {
                dbgs() << ", NumElements: ";
                NumElements->printAsOperand(dbgs());
-             } dbgs() << "\n");
+             } dbgs() << ", AddrSpace: " << AddrSpace;
+             dbgs() << "\n");
   return std::make_tuple(ElementType, NumElements, AddrSpace);
 }
 

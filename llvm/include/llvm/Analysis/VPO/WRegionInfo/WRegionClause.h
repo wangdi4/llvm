@@ -1,4 +1,19 @@
 #if INTEL_COLLAB // -*- C++ -*-
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===----------------- WRegionClause.h - Clauses ----------------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -82,6 +97,10 @@ extern DenseMap<int, StringRef> WRNLoopOrderName;
 //   LinearItem:       derived class for an item in the LINEAR       clause
 //   UniformItem:      derived class for an item in the UNIFORM      clause
 //   MapItem:          derived class for an item in the MAP          clause
+//   IsDevicePtrItem:  derived class for an item in the IS_DEVICE_PTR  clause
+//   UseDevicePtrItem: derived class for an item in the USE_DEVICE_PTR clause
+//   InclusiveItem:    derived class for an item in the INCLUSIVE    clause
+//   ExclusiveItem:    derived class for an item in the EXCLUSIVE    clause
 //
 
 
@@ -107,7 +126,9 @@ class Item
       IK_Uniform,
       IK_Map,
       IK_IsDevicePtr,
-      IK_UseDevicePtr
+      IK_UseDevicePtr,
+      IK_Inclusive,
+      IK_Exclusive,
     };
 
   private :
@@ -764,6 +785,10 @@ public:
     bool  IsInReduction; // is from an IN_REDUCTION clause (task/taskloop)
     bool  IsTask;        // is for a REDUCTION clause with a task modifier
 
+    bool IsInscan;      // is for a REDUCTION clause with a task modifier
+    uint64_t InscanIdx; // index to lookup the items's inclusive/exclusive
+                        // clause in the associated scan directive.
+
     // TODO: Combiner and Initializer are Function*'s from UDR.
     //       We should change Value* to Function* below.
     RDECL Combiner;
@@ -783,9 +808,9 @@ public:
   public:
     ReductionItem(VAR Orig, WRNReductionKind Op = WRNReductionError)
         : Item(Orig, IK_Reduction), Ty(Op), IsUnsigned(false), IsComplex(false),
-          IsInReduction(false), IsTask(false), Combiner(nullptr),
-          Initializer(nullptr), Constructor(nullptr), Destructor(nullptr),
-          InAllocate(nullptr) {}
+          IsInReduction(false), IsTask(false), IsInscan(false), InscanIdx(0),
+          Combiner(nullptr), Initializer(nullptr), Constructor(nullptr),
+          Destructor(nullptr), InAllocate(nullptr) {}
     static WRNReductionKind getKindFromClauseId(int Id) {
       switch(Id) {
         case QUAL_OMP_REDUCTION_ADD:
@@ -878,6 +903,8 @@ public:
     void setIsComplex(bool B)         { IsComplex = B;       }
     void setIsInReduction(bool B)     { IsInReduction = B;   }
     void setIsTask(bool B)            { IsTask = B;          }
+    void setIsInscan(bool B)          { IsInscan = B;        }
+    void setInscanIdx(uint64_t I)     { InscanIdx = I;       }
     void setCombiner(RDECL Comb)      { Combiner = Comb;     }
     void setInitializer(RDECL Init)   { Initializer = Init;  }
     void setConstructor(RDECL Ctor)   { Constructor = Ctor;  }
@@ -891,6 +918,8 @@ public:
     bool getIsComplex()        const { return IsComplex;     }
     bool getIsInReduction()    const { return IsInReduction; }
     bool getIsTask()           const { return IsTask;        }
+    bool getIsInscan()         const { return IsInscan;      }
+    uint64_t getInscanIdx()    const { return InscanIdx;     }
     RDECL getCombiner()        const { return Combiner;      }
     RDECL getInitializer()     const { return Initializer;   }
     RDECL getConstructor()     const { return Constructor;   }
@@ -920,6 +949,8 @@ public:
       OS << "(" << getOpName() << ": ";
       printOrig(OS, PrintType);
       printIfTyped(OS, PrintType);
+      if (getIsInscan())
+        OS << " INSCAN<" << InscanIdx << ">";
       if (getIsArraySection()) {
         OS << " ";
         ArrSecInfo.print(OS, PrintType);
@@ -1331,6 +1362,40 @@ public:
   MapItem *getInMap() const { return InMap; }
   bool getIsUseDeviceAddr() const { return IsUseDeviceAddr; }
   static bool classof(const Item *I) { return I->getKind() == IK_UseDevicePtr; }
+};
+
+// Parent class for inclusive/exclusive clause items
+class InclusiveExclusiveItemBase : public Item {
+  uint64_t InscanIdx = 0;
+
+public:
+  InclusiveExclusiveItemBase(VAR Orig, ItemKind IK) : Item(Orig, IK) {}
+  void setInscanIdx(uint64_t Idx) { InscanIdx = Idx; }
+  uint64_t getInscanIdx() const { return InscanIdx; }
+  void print(formatted_raw_ostream &OS, bool PrintType = true) const override {
+    OS << "(";
+    printOrig(OS, PrintType);
+    printIfTyped(OS, PrintType);
+    OS << " INSCAN<" << getInscanIdx() << ">) ";
+  }
+};
+
+//
+//   InclusiveItem: OMP INCLUSIVE clause item
+//
+class InclusiveItem : public InclusiveExclusiveItemBase {
+public:
+  InclusiveItem(VAR Orig) : InclusiveExclusiveItemBase(Orig, IK_Inclusive) {}
+  static bool classof(const Item *I) { return I->getKind() == IK_Inclusive; }
+};
+
+//
+//   ExclusiveItem: OMP EXCLUSIVE clause item
+//
+class ExclusiveItem : public InclusiveExclusiveItemBase {
+public:
+  ExclusiveItem(VAR Orig) : InclusiveExclusiveItemBase(Orig, IK_Exclusive) {}
+  static bool classof(const Item *I) { return I->getKind() == IK_Exclusive; }
 };
 
 //
@@ -1927,6 +1992,8 @@ typedef Clause<UniformItem>       UniformClause;
 typedef Clause<MapItem>           MapClause;
 typedef Clause<IsDevicePtrItem>   IsDevicePtrClause;
 typedef Clause<UseDevicePtrItem>  UseDevicePtrClause;
+typedef Clause<InclusiveItem>     InclusiveClause;
+typedef Clause<ExclusiveItem>     ExclusiveClause;
 typedef Clause<SubdeviceItem>     SubdeviceClause;
 typedef Clause<InteropItem>       InteropActionClause;
 typedef Clause<DependItem>        DependClause;
@@ -1952,6 +2019,8 @@ typedef std::vector<UniformItem>::iterator       UniformIter;
 typedef std::vector<MapItem>::iterator           MapIter;
 typedef std::vector<IsDevicePtrItem>::iterator   IsDevicePtrIter;
 typedef std::vector<UseDevicePtrItem>::iterator  UseDevicePtrIter;
+typedef std::vector<InclusiveItem>::iterator     InclusiveIter;
+typedef std::vector<ExclusiveItem>::iterator     ExclusiveIter;
 typedef std::vector<SubdeviceItem>::iterator     SubdeviceIter;
 typedef std::vector<InteropItem>::iterator       InteropIter;
 typedef std::vector<DependItem>::iterator        DependIter;

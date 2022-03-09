@@ -1,4 +1,19 @@
 #if INTEL_COLLAB // -*- C++ -*-
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===---------- WRegionNode.h - WRegion Graph Node --------------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -263,10 +278,13 @@ public:
   bool canHaveLastprivate() const;
   bool canHaveInReduction() const;
   bool canHaveReduction() const;
+  bool canHaveReductionInscan() const;
   bool canHaveCopyin() const;
   bool canHaveCopyprivate() const;
   bool canHaveLinear() const;
   bool canHaveUniform() const;
+  bool canHaveInclusive() const;
+  bool canHaveExclusive() const;
   bool canHaveMap() const;
   bool canHaveIsDevicePtr() const;
   bool canHaveUseDevicePtr() const;
@@ -379,6 +397,8 @@ public:
   virtual SharedClause &getShared()          {WRNERROR(QUAL_OMP_SHARED);      }
   virtual SizesClause &getSizes()            {WRNERROR(QUAL_OMP_SIZES);       }
   virtual UniformClause &getUniform()        {WRNERROR(QUAL_OMP_UNIFORM);     }
+  virtual InclusiveClause &getInclusive()    {WRNERROR(QUAL_OMP_INCLUSIVE);   }
+  virtual ExclusiveClause &getExclusive()    {WRNERROR(QUAL_OMP_EXCLUSIVE);   }
   virtual UseDevicePtrClause &getUseDevicePtr()
                                            {WRNERROR(QUAL_OMP_USE_DEVICE_PTR);}
   virtual SubdeviceClause &getSubdevice()       {WRNERROR(QUAL_OMP_SUBDEVICE);}
@@ -437,6 +457,10 @@ public:
                                            {WRNERROR(QUAL_OMP_SIZES);       }
   virtual const UniformClause &getUniform() const
                                            {WRNERROR(QUAL_OMP_UNIFORM);     }
+  virtual const InclusiveClause &getInclusive() const
+                                           {WRNERROR(QUAL_OMP_INCLUSIVE);   }
+  virtual const ExclusiveClause &getExclusive() const
+                                           {WRNERROR(QUAL_OMP_EXCLUSIVE);   }
   virtual const UseDevicePtrClause &getUseDevicePtr() const
                                          {WRNERROR(QUAL_OMP_USE_DEVICE_PTR);}
   virtual const SubdeviceClause &getSubdevice() const
@@ -749,6 +773,7 @@ public:
 
   /// Returns the Children container (by ref)
   WRContainerImpl &getChildren() { return Children ; }
+  const WRContainerImpl &getChildren() const { return Children; }
 
   /// Returns the first child if it exists, otherwise returns null.
   WRegionNode *getFirstChild();
@@ -933,7 +958,8 @@ public:
     WRNTaskwait,
     WRNTaskyield,
     WRNInterop,
-    WRNScope
+    WRNScope,
+    WRNScan,
   };
 
   /// WRN primary attributes
@@ -1005,14 +1031,16 @@ private:
                                     LinearClause &C);
 
   /// Extract operands from a reduction clause
-#if INTEL_CUSTOMIZATION
-         void extractReductionOpndList(const Use *Args, unsigned NumArgs,
-#else
-  static void extractReductionOpndList(const Use *Args, unsigned NumArgs,
-#endif // INTEL_CUSTOMIZATION
-                                       const ClauseSpecifier &ClauseInfo,
-                                       ReductionClause &C, int ReductionKind,
-                                       bool IsInreduction);
+  void extractReductionOpndList(const Use *Args, unsigned NumArgs,
+                                const ClauseSpecifier &ClauseInfo,
+                                ReductionClause &C, int ReductionKind,
+                                bool IsInreduction);
+
+  /// Extract operands from an inclusive/exclusive clause.
+  template <typename ClauseItemTy>
+  void extractInclusiveExclusiveOpndList(const Use *Args, unsigned NumArgs,
+                                         const ClauseSpecifier &ClauseInfo,
+                                         Clause<ClauseItemTy> &C);
 
   /// Extract operands from a schedule clause
   static void extractScheduleOpndList(ScheduleClause &Sched, const Use *Args,

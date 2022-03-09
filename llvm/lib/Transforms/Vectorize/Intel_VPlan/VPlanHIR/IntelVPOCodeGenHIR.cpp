@@ -6090,8 +6090,9 @@ void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
     if (isMergedCFG() || CurVPLoop->getLoopDepth() > 1)
       HLNodeUtilities.insertAfter(InsertPoint, CurHLLoop);
     HLNodeUtilities.insertAsFirstChild(CurHLLoop, Label);
-    // Setup lower/upper bound and stride for vectorized loop.
-    if (isMergedCFG())
+    // Setup lower/upper bound and stride for vectorized loop i.e. outer most
+    // loops.
+    if (isMergedCFG() && CurVPLoop->getLoopDepth() == 1)
       setBoundsForVectorLoop(CurVPLoop);
   } else if (LoopExitBlocks.count(VPBB)) {
     auto *CurVPLoop =

@@ -5651,49 +5651,55 @@ bool RTLDeviceInfoTy::isExtensionSupported(const char *ExtName) {
 
 void RTLDeviceInfoTy::beginKernelBatch(int32_t DeviceId, uint32_t MaxKernels) {
   auto &Batch = BatchCmdQueues[DeviceId];
-  if (Batch.CmdList != nullptr)
-    return;
+  Batch.MaxCommands = MaxKernels;
 
   // Requires initialization
-  Batch.MaxCommands = MaxKernels;
   if (Option.Flags.UseImmCmdList) {
     Batch.UseImmCmdList = true;
-    ze_command_queue_desc_t QueueDesc = {
-      ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, nullptr,
-      CmdQueueGroupOrdinals[DeviceId], 0, 0, ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
-      ZE_COMMAND_QUEUE_PRIORITY_NORMAL,
-    };
-    CALL_ZE_RET_VOID(zeCommandListCreateImmediate, Context, Devices[DeviceId],
-                     &QueueDesc, &Batch.CmdList);
+    if (Batch.CmdList == nullptr) {
+      ze_command_queue_desc_t QueueDesc = {
+        ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, nullptr,
+        CmdQueueGroupOrdinals[DeviceId], 0, 0,
+        ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS, ZE_COMMAND_QUEUE_PRIORITY_NORMAL,
+      };
+      CALL_ZE_RET_VOID(zeCommandListCreateImmediate, Context, Devices[DeviceId],
+                       &QueueDesc, &Batch.CmdList);
+    }
     if (MaxKernels > Batch.Events.size()) {
       // Event pool needs to be initialized or resized.
       if (Batch.EventPool != nullptr) {
         for (auto E : Batch.Events)
           CALL_ZE_RET_VOID(zeEventDestroy, E);
         CALL_ZE_RET_VOID(zeEventPoolDestroy, Batch.EventPool);
+        Batch.Events.clear();
+        Batch.EventPool = nullptr;
       }
-      ze_event_pool_desc_t PoolDesc = {
-        ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr,
-        ZE_EVENT_POOL_FLAG_HOST_VISIBLE, MaxKernels,
-      };
-      CALL_ZE_RET_VOID(zeEventPoolCreate, Context, &PoolDesc, 0, nullptr,
-                       &Batch.EventPool);
-      ze_event_desc_t EventDesc = {
-        ZE_STRUCTURE_TYPE_EVENT_DESC, nullptr, 0, 0, 0
-      };
-      for (auto I = 0; I < MaxKernels; I++) {
-        EventDesc.index = I;
-        ze_event_handle_t Event;
-        CALL_ZE_RET_VOID(zeEventCreate, Batch.EventPool, &EventDesc, &Event);
-        Batch.Events.push_back(Event);
+      if (Batch.EventPool == nullptr) {
+        ze_event_pool_desc_t PoolDesc = {
+          ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr,
+          ZE_EVENT_POOL_FLAG_HOST_VISIBLE, MaxKernels,
+        };
+        CALL_ZE_RET_VOID(zeEventPoolCreate, Context, &PoolDesc, 0, nullptr,
+                         &Batch.EventPool);
+        ze_event_desc_t EventDesc = {
+          ZE_STRUCTURE_TYPE_EVENT_DESC, nullptr, 0, 0, 0
+        };
+        for (auto I = 0; I < MaxKernels; I++) {
+          EventDesc.index = I;
+          ze_event_handle_t Event;
+          CALL_ZE_RET_VOID(zeEventCreate, Batch.EventPool, &EventDesc, &Event);
+          Batch.Events.push_back(Event);
+        }
       }
     }
   } else {
     Batch.UseImmCmdList = false;
-    Batch.CmdList = createCmdList(Context, Devices[DeviceId],
-                                  CmdQueueGroupOrdinals[DeviceId],
-                                  DeviceIdStr[DeviceId]);
-    Batch.CmdQueue = createCommandQueue(DeviceId);
+    if (Batch.CmdList == nullptr) {
+      Batch.CmdList = createCmdList(Context, Devices[DeviceId],
+                                    CmdQueueGroupOrdinals[DeviceId],
+                                    DeviceIdStr[DeviceId]);
+      Batch.CmdQueue = createCommandQueue(DeviceId);
+    }
   }
 }
 

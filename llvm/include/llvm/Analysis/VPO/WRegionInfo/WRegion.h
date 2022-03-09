@@ -1,4 +1,19 @@
 #if INTEL_COLLAB // -*- C++ -*-
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===------------------ WRegion.h - WRegion node ----------------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -60,6 +75,7 @@
 ///   WRNInteropNode          | #pragma omp interop
 ///   WRNScopeNode            | #pragma omp scope
 ///   WRNTileNode             | #pragma omp tile
+///   WRNScanNode             | #pragma omp scan
 ///
 /// One exception is WRNTaskloopNode, which is derived from WRNTasknode.
 //===----------------------------------------------------------------------===//
@@ -433,8 +449,6 @@ public:
   const SmallVectorImpl<Instruction *> &getCancellationPoints() const override {
     return CancellationPoints;
   }
-
-
   void addCancellationPoint(Instruction *I) override { CancellationPoints.push_back(I); }
   const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const override {
     return CancellationPointAllocas;
@@ -1828,6 +1842,29 @@ public:
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNTile;
+  }
+};
+
+/// WRN for
+/// \code
+///   #pragma omp scan
+/// \endcode
+class WRNScanNode : public WRegionNode {
+private:
+  InclusiveClause Incl;
+  ExclusiveClause Excl;
+
+public:
+  WRNScanNode(BasicBlock *BB);
+  DEFINE_GETTER(InclusiveClause,    getInclusive,   Incl)
+  DEFINE_GETTER(ExclusiveClause,    getExclusive,   Excl)
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                  unsigned Verbosity = 1) const override;
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNScan;
   }
 };
 

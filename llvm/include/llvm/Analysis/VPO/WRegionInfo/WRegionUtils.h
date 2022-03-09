@@ -1,4 +1,19 @@
 #if INTEL_COLLAB // -*- C++ -*-
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===--- WRegionUtils.h - Utilities for WRegionNode class -----*- C++ -*---===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -415,6 +430,29 @@ public:
   /// its TreatDistributeParLoopAsDistribute flag set to false; \b false
   /// otherwise.
   static bool isDistributeParLoopNode(const WRegionNode *W);
+
+  /// {@ Utilities for scan inclusive/exclusive + reduction(inscan).
+
+  /// Find and return the clause item in \p C that matches the Inscan index \p
+  /// Idx. Returns null if no such item is found.
+  template <typename ItemTy>
+  static Item *getClauseItemForInscanIdx(const Clause<ItemTy> &C, uint64_t Idx);
+
+  /// Find and return the clause item in \p W that matches the Inscan index \p
+  /// Idx. Returns null if no such item is found.
+  static Item *getClauseItemForInscanIdx(const WRegionNode *W, uint64_t Idx);
+
+  /// For a reduction(inscan) item \p I on \p W, returns the corresponding
+  /// inclusive/exclusive item from the inner scan directive.
+  static InclusiveExclusiveItemBase *
+  getInclusiveExclusiveItemForReductionItem(const WRegionNode *W,
+                                            const ReductionItem *I);
+
+  /// For an inclusive/exclusive item \p I on \p W, returns the corresponding
+  /// reduction(inscan) item from the outer loop/simd directive.
+  static ReductionItem *getReductionItemForInclusiveExclusiveItem(
+      const WRNScanNode *W, const InclusiveExclusiveItemBase *I);
+  /// @}
 };
 
 } // End VPO Namespace

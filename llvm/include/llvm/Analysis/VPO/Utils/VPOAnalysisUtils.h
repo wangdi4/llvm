@@ -1,4 +1,19 @@
 #if INTEL_COLLAB // -*- C++ -*-
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===-- VPOAnalysisUtils.h - Class definitions for VPO utilites -*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -148,6 +163,12 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      Modifier = "TASK"
 ///      Id = QUAL_OMP_REDUCTION_ADD
 ///
+/// * INSCAN modifier on REDUCTION clause. Example:
+///      FullName = "QUAL.OMP.REDUCTION.ADD:INSCAN"
+///      BaseName = "QUAL.OMP.REDUCTION.ADD"
+///      Modifier = "INSCAN"
+///      Id = QUAL_OMP_REDUCTION_ADD
+///
 /// Id is the enum corresponding to BaseName.
 class ClauseSpecifier {
 private:
@@ -201,6 +222,7 @@ private:
 
   // Modifier for reduction clause
   bool IsTask:1;
+  bool IsInscan:1;
 
   bool IsTyped : 1; // needed in case of data type transfer
 
@@ -226,6 +248,7 @@ public:
   void setIsInitTargetSync()       { IsInitTargetSync = true; }
   void setIsInitPrefer()           { IsInitPrefer = true; }
   void setIsTask()                 { IsTask = true; }
+  void setIsInscan()               { IsInscan = true; }
   void setIsScheduleMonotonic()    { IsScheduleMonotonic = true; }
   void setIsScheduleNonmonotonic() { IsScheduleNonmonotonic = true; }
   void setIsScheduleSimd()         { IsScheduleSimd = true; }
@@ -257,6 +280,7 @@ public:
   bool getIsInitTargetSync() const { return IsInitTargetSync; }
   bool getIsInitPrefer() const { return IsInitPrefer; }
   bool getIsTask() const { return IsTask; }
+  bool getIsInscan() const { return IsInscan; }
   bool getIsScheduleMonotonic() const { return IsScheduleMonotonic; }
   bool getIsScheduleNonmonotonic() const { return IsScheduleNonmonotonic; }
   bool getIsScheduleSimd() const { return IsScheduleSimd; }

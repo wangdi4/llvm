@@ -1,4 +1,19 @@
 #if INTEL_COLLAB
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //==- OpenMPDirectivesAndClauses.cpp - Utils for OpenMP directives/clauses -==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -49,7 +64,7 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
       IsScheduleSimd(false), IsMapAggrHead(false), IsMapAggr(false),
       IsMapChainLink(false), IsIV(false), IsInitTarget(false),
       IsInitTargetSync(false), IsInitPrefer(false), IsTask(false),
-      IsTyped(false) {
+      IsInscan(false), IsTyped(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
   // Split Name into the BaseName and Modifier substrings
@@ -169,6 +184,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
           setIsComplex();
         else if (ModSubString[i] == "TASK")        // for reduction clause
           setIsTask();
+        else if (ModSubString[i] == "INSCAN")      // for reduction clause
+          setIsInscan();
         else if (ModSubString[i] == "CONDITIONAL") // for lastprivate clause
           setIsConditional();
         else if (ModSubString[i] == "AGGRHEAD")    // map chain head
@@ -381,6 +398,7 @@ bool VPOAnalysisUtils::isEndDirective(int DirID) {
   case DIR_OMP_END_GENERICLOOP:
   case DIR_OMP_END_SCOPE:
   case DIR_OMP_END_TILE:
+  case DIR_OMP_END_SCAN:
 #if INTEL_CUSTOMIZATION
   case DIR_VPO_END_AUTO_VEC:
   case DIR_PRAGMA_END_IVDEP:
@@ -466,6 +484,7 @@ bool VPOAnalysisUtils::isStandAloneBeginDirective(int DirID) {
   case DIR_OMP_THREADPRIVATE:
   case DIR_OMP_INTEROP:
   case DIR_OMP_PREFETCH:
+  case DIR_OMP_SCAN:
     return true;
   }
   return false;
@@ -499,6 +518,7 @@ bool VPOAnalysisUtils::isStandAloneEndDirective(int DirID) {
   case DIR_OMP_END_CANCELLATION_POINT:
   case DIR_OMP_END_INTEROP:
   case DIR_OMP_END_PREFETCH:
+  case DIR_OMP_END_SCAN:
     return true;
   }
   return false;
@@ -634,6 +654,8 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
       return DIR_OMP_END_INTEROP;
   case DIR_OMP_PREFETCH:
       return DIR_OMP_END_PREFETCH;
+  case DIR_OMP_SCAN:
+      return DIR_OMP_END_SCAN;
   }
   return -1;
 }
