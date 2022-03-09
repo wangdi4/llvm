@@ -312,6 +312,7 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
                              bool AggregateArgs, BlockFrequencyInfo *BFI,
                              BranchProbabilityInfo *BPI, AssumptionCache *AC,
                              bool AllowVarArgs, bool AllowAlloca,
+<<<<<<< HEAD
 #if INTEL_COLLAB
                              std::string Suffix,
                              bool AllowEHTypeID, bool AllowUnreachableBlocks,
@@ -326,6 +327,12 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
                                      AllowEHTypeID, AllowUnreachableBlocks)),
       TgtClauseArgs(TgtClauseArgs), DeclLoc(),
 #else // INTEL_COLLAB
+=======
+                             BasicBlock *AllocationBlock, std::string Suffix)
+    : DT(DT), AggregateArgs(AggregateArgs || AggregateArgsOpt), BFI(BFI),
+      BPI(BPI), AC(AC), AllocationBlock(AllocationBlock),
+      AllowVarArgs(AllowVarArgs),
+>>>>>>> 87ec6f41bba6d72a3408e71cf19ae56feff523bc
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca)),
 #endif // INTEL_COLLAB
       Suffix(Suffix) {}
@@ -335,7 +342,7 @@ CodeExtractor::CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs,
                              BranchProbabilityInfo *BPI, AssumptionCache *AC,
                              std::string Suffix)
     : DT(&DT), AggregateArgs(AggregateArgs || AggregateArgsOpt), BFI(BFI),
-      BPI(BPI), AC(AC), AllowVarArgs(false),
+      BPI(BPI), AC(AC), AllocationBlock(nullptr), AllowVarArgs(false),
       Blocks(buildExtractionBlockSet(L.getBlocks(), &DT,
                                      /* AllowVarArgs */ false,
 #if INTEL_COLLAB
@@ -1633,9 +1640,10 @@ CallInst *CodeExtractor::emitCallAndSwitchStatement(Function *newFunction,
 
     // Allocate a struct at the beginning of this function
     StructArgTy = StructType::get(newFunction->getContext(), ArgTypes);
-    Struct = new AllocaInst(StructArgTy, DL.getAllocaAddrSpace(), nullptr,
-                            "structArg",
-                            &codeReplacer->getParent()->front().front());
+    Struct = new AllocaInst(
+        StructArgTy, DL.getAllocaAddrSpace(), nullptr, "structArg",
+        AllocationBlock ? &*AllocationBlock->getFirstInsertionPt()
+                        : &codeReplacer->getParent()->front().front());
     params.push_back(Struct);
 
     // Store aggregated inputs in the struct.
