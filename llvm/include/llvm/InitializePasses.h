@@ -774,6 +774,7 @@ void initializeNontemporalStoreWrapperPassPass(PassRegistry&);
 #endif // INTEL_FEATURE_SW_ADVANCED
 void initializeVPOParoptSharedPrivatizationPass(PassRegistry&);
 void initializeVPOParoptTargetInlinePass(PassRegistry&);
+void initializeVPOParoptApplyConfigPass(PassRegistry&);
 // Transform sin and cos to sinpi, cospi, or sincospi pass
 void initializeTransformSinAndCosCallsLegacyPassPass(PassRegistry&);
 // Add attributes to loops

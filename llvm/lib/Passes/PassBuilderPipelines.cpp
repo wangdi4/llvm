@@ -295,6 +295,7 @@
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptOptimizeDataSharing.h"
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptSharedPrivatization.h"
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptTargetInline.h"
+#include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptApplyConfig.h"
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 // VPO
@@ -1379,6 +1380,10 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // Do basic inference of function attributes from known properties of system
   // libraries and other oracles.
   MPM.addPass(InferFunctionAttrsPass());
+#if INTEL_CUSTOMIZATION
+  if (RunVPOOpt && RunVPOParopt)
+    MPM.addPass(RequireAnalysisPass<VPOParoptConfigAnalysis, Module>());
+#endif // INTEL_CUSTOMIZATION
 
   // Create an early function pass manager to cleanup the output of the
   // frontend.
@@ -1735,6 +1740,13 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
 
 void PassBuilder::addVPOPreparePasses(FunctionPassManager &FPM) {
   FPM.addPass(VPOCFGRestructuringPass());
+#if INTEL_CUSTOMIZATION
+  // VPOParoptConfig must be applied before any pass that
+  // may change its behavior based on the clauses added
+  // from the config (e.g. loop collapsing may behave differently
+  // due to NUM_TEAMS clause).
+  FPM.addPass(VPOParoptApplyConfigPass());
+#endif // INTEL_CUSTOMIZATION
   FPM.addPass(VPOParoptLoopCollapsePass());
   // TODO: maybe we have to make sure loop collapsing preserves
   //       the restructured CFG.
@@ -3162,6 +3174,7 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
     // Paropt passes and BasicAA (one of Paropt's dependencies), use
     // XmainOptLevelPass.
     MPM.addPass(XmainOptLevelAnalysisInit(Level.getSpeedupLevel()));
+    MPM.addPass(RequireAnalysisPass<VPOParoptConfigAnalysis, Module>());
 #endif // INTEL_CUSTOMIZATION
     FunctionPassManager FPM;
     addVPOPreparePasses(FPM);

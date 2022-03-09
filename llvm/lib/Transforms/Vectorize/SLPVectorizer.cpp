@@ -2283,6 +2283,8 @@ private:
     }
 
   public:
+    MultiNode() = default;
+
     /// \Returns the inverse opcode of \p Opc.
     static Optional<unsigned> getInverseOpcode(unsigned Opc) {
       switch (Opc) {
@@ -3723,8 +3725,8 @@ private:
   /// Builds the TreeEntries for a Multi-Node.
   void buildTreeMultiNode_rec(const InstructionsState &S,
                               Optional<ScheduleData *> Bundle,
-                              SmallVectorImpl<Value *> &VL, int NextDepth,
-                              EdgeInfo UserTreeIdx,
+                              ArrayRef<Value *> VL, int NextDepth,
+                              const EdgeInfo &UserTreeIdx,
                               ArrayRef<int> ReuseShuffleIndices);
 
   /// \returns true if any value is already a part of the tree.
@@ -4056,12 +4058,14 @@ void BoUpSLP::undoMultiNodeReordering() {
     // 2. Restore the instruction position before scheduling.
     MNode.undoMultiNodeScheduling();
   }
+  CurrentMultiNode = nullptr;
   MultiNodes.clear();
 }
 
 void BoUpSLP::cleanupMultiNodeReordering() {
   if (!EnableMultiNodeSLP)
     return;
+  CurrentMultiNode = nullptr;
   MultiNodes.clear();
 }
 #endif // INTEL_CUSTOMIZATION
@@ -5576,8 +5580,8 @@ void BoUpSLP::reorderMultiNodeOperands(SmallVectorImpl<Value *> &VL,
 // Return true if we have finished building the Multi-Node, false otherwise.
 void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
                                      Optional<ScheduleData *> Bundle,
-                                     SmallVectorImpl<Value *> &VL,
-                                     int NextDepth, EdgeInfo UserTreeIdx,
+                                     ArrayRef<Value *> VL,
+                                     int NextDepth, const EdgeInfo &UserTreeIdx,
                                      ArrayRef<int> ReuseShuffleIndices) {
   unsigned NumLanes = VL.size();
 
@@ -5796,12 +5800,11 @@ static LoadsState canVectorizeLoads(
 
 #if INTEL_CUSTOMIZATION
 void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
-                            const EdgeInfo &UserTreeIdxC) {
+                            const EdgeInfo &UserTreeIdx) {
   // Since we are updating VL, we need a non-readonly VL, so create a copy.
   // TODO: Any better way of doing this?
   SmallVector<Value *> VL(
       iterator_range<ArrayRef<Value *>::iterator>(VL_.begin(), VL_.end()));
-  EdgeInfo UserTreeIdx = UserTreeIdxC;
 #endif // INTEL_CUSTOMIZATION
   assert((allConstant(VL) || allSameType(VL)) && "Invalid types!");
 
@@ -6178,11 +6181,13 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       // continue in buildTree_rec() as usual.
 
       // If no Multi-Node was created, de-allocate the space.
-      if (CurrentMultiNode->empty())
+      if (CurrentMultiNode->empty()) {
         MultiNodes.resize(MultiNodes.size() - 1);
-
-      // Cleanup
-      CurrentMultiNode->clearTrunks();
+        CurrentMultiNode = nullptr;
+      } else {
+        // Cleanup
+        CurrentMultiNode->clearTrunks();
+      }
     }
   }
   assert(!BuildingMultiNode && "This should be unreachable.");
@@ -8967,14 +8972,13 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
     ScalarTy = IE->getOperand(1)->getType();
   auto *VecTy = FixedVectorType::get(ScalarTy, E->Scalars.size());
 #if INTEL_CUSTOMIZATION
-  auto HasOp = [VL0](const MultiNode &MN) {
+  bool IsPartOfMultiNode = any_of(MultiNodes, [VL0](const MultiNode &MN) {
     for (size_t Lane = 0, NumLanes = MN.getNumLanes(); Lane < NumLanes; ++Lane)
       for (int OpIdx = 0, NumOps = MN.getNumOperands(); OpIdx < NumOps; ++OpIdx)
         if (MN.getOperand(Lane, OpIdx)->getFrontier() == VL0)
           return true;
     return false;
-  };
-  bool IsPartOfMultiNode = any_of(MultiNodes, HasOp);
+  });
   // MultiNode reordering made reassociations that might have introduced
   // wraparounds that weren't originally present. Also, only Add/Sub on
   // integers could be part of the MultiNode so it's safe to not

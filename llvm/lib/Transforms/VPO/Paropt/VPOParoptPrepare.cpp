@@ -59,6 +59,7 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Analysis/VPO/Intel_VPOParoptConfig.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -85,6 +86,7 @@ INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 #if INTEL_CUSTOMIZATION
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
+INITIALIZE_PASS_DEPENDENCY(VPOParoptConfigWrapper)
 #endif // INTEL_CUSTOMIZATION
 INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
 INITIALIZE_PASS_END(VPOParoptPrepare, "vpo-paropt-prepare",
@@ -115,6 +117,7 @@ void VPOParoptPrepare::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<WRegionInfoWrapperPass>();
 #if INTEL_CUSTOMIZATION
   AU.addRequired<OptReportOptionsPass>();
+  AU.addRequired<VPOParoptConfigWrapper>();
 #endif // INTEL_CUSTOMIZATION
   AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
 }
@@ -141,6 +144,8 @@ bool VPOParoptPrepare::runOnFunction(Function &F) {
 
 #if INTEL_CUSTOMIZATION
   ORVerbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
+  auto &ParoptConfig = getAnalysis<VPOParoptConfigWrapper>().getResult();
+  WI.setVPOParoptConfig(&ParoptConfig);
 #endif // INTEL_CUSTOMIZATION
   auto &ORE = getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
 
@@ -237,6 +242,10 @@ PreservedAnalyses VPOParoptPreparePass::run(Function &F,
 
 #if INTEL_CUSTOMIZATION
   ORVerbosity = AM.getResult<OptReportOptionsAnalysis>(F).getVerbosity();
+  auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
+  auto *ParoptConfig =
+      MAMProxy.getCachedResult<VPOParoptConfigAnalysis>(*F.getParent());
+  WI.setVPOParoptConfig(ParoptConfig);
 #endif // INTEL_CUSTOMIZATION
   auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
 

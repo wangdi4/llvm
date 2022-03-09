@@ -7,6 +7,7 @@
 ;CHECK:      Assumption Cache Tracker
 ;CHECK-NEXT: Target Library Information
 ;CHECK-NEXT: Profile summary info
+;CHECK-NEXT: VPO paropt config pass
 ;CHECK-NEXT: Optimization report options pass        ;INTEL
 ;            Type-Based Alias Analysis
 ;            Scoped NoAlias Alias Analysis
@@ -17,6 +18,17 @@
 ;CHECK:    Dominator Tree Construction
 ;CHECK-NEXT:     Natural Loop Information
 ;CHECK-NEXT:     VPO CFGRestructuring
+;CHECK-NEXT:     Scalar Evolution Analysis
+;CHECK-NEXT:     Basic Alias Analysis (stateless AA impl)
+;CHECK-NEXT:     Function Alias Analysis Results
+;CHECK-NEXT:     VPO Work-Region Collection
+;CHECK-NEXT:     Lazy Branch Probability Analysis
+;CHECK-NEXT:     Lazy Block Frequency Analysis
+;CHECK-NEXT:     Optimization Remark Emitter
+;CHECK-NEXT:     VPO Work-Region Information
+;CHECK-NEXT:     VPO Paropt Apply Config
+;CHECK-NEXT:     Dominator Tree Construction
+;CHECK-NEXT:     Natural Loop Information
 ;CHECK-NEXT:     Scalar Evolution Analysis
 ;CHECK-NEXT:     Basic Alias Analysis (stateless AA impl)
 ;CHECK-NEXT:     Function Alias Analysis Results

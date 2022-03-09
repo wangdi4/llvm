@@ -675,6 +675,13 @@ void PassManagerBuilder::populateFunctionPassManager(
 #if INTEL_COLLAB
   if (RunVPOOpt && RunVPOParopt) {
     FPM.add(createVPOCFGRestructuringPass());
+#if INTEL_CUSTOMIZATION
+    // VPOParoptConfig must be applied before any pass that
+    // may change its behavior based on the clauses added
+    // from the config (e.g. loop collapsing may behave differently
+    // due to NUM_TEAMS clause).
+    FPM.add(createVPOParoptApplyConfigPass());
+#endif // INTEL_CUSTOMIZATION
     FPM.add(createVPOParoptLoopCollapsePass());
     // TODO: maybe we have to make sure loop collapsing preserves
     //       the restructured CFG.

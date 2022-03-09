@@ -2298,19 +2298,6 @@ CallInst *VPOParoptTransform::genTargetInitCode(
     auto *IT = W->wrn_child_begin();
     if (IT != W->wrn_child_end() && isa<WRNTeamsNode>(*IT)) {
       WRNTeamsNode *TW = cast<WRNTeamsNode>(*IT);
-#if INTEL_CUSTOMIZATION
-      // RegionId is a GlobalVariable for the region ID.
-      // Its name is based on the name of the target outlined function.
-      // Use its name to look for the ThreadLimit override in VPOParoptConfig.
-      // To be on the safe side, make sure that RegionId is actually
-      // a GlobalVariable.
-      if (WI && isa<GlobalVariable>(RegionId))
-        if (const VPOParoptConfig *VPC = WI->getVPOParoptConfig()) {
-          uint64_t KernelThreadLimit =
-              VPC->getKernelThreadLimit(RegionId->getName());
-          TW->setConfiguredThreadLimit(KernelThreadLimit);
-        }
-#endif // INTEL_CUSTOMIZATION
       TgtCall = VPOParoptUtils::genTgtTargetTeams(
           TW, RegionId, Info.NumberOfPtrs, Info.ResBaseDataPtrs,
           Info.ResDataPtrs, Info.ResDataSizes, Info.ResDataMapTypes,

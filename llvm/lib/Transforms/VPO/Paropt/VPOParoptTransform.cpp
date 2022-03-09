@@ -1547,6 +1547,8 @@ bool VPOParoptTransform::genLaunderIntrinIfPrivatizedInAncestor(
 //
 bool VPOParoptTransform::paroptTransforms() {
   LLVMContext &C = F->getContext();
+  Module *M = F->getParent();
+  assert(M && "Function has no parent module.");
   bool RoutineChanged = false;
 
 #if INTEL_CUSTOMIZATION
@@ -1571,8 +1573,6 @@ bool VPOParoptTransform::paroptTransforms() {
     if (isTargetSPIRV())
       return false;
 
-    Module *M = F->getParent();
-    assert(M && "Function has no parent module.");
     Triple TT(M->getTargetTriple());
 
     // kmpc_begin/end calls are only needed for Windows according to the
@@ -1705,6 +1705,7 @@ bool VPOParoptTransform::paroptTransforms() {
   };
 
   SmallPtrSet<WRegionNode *, 4> RegionsNeedingDummyBranchInsertion;
+
   //
   // Walk through W-Region list, the outlining / lowering is performed from
   // inner to outer
@@ -10364,13 +10365,6 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     NumTeamsTy = W->getNumTeamsType();
     assert((!VPOParoptUtils::useSPMDMode(W) || !NumTeams) &&
            "SPMD mode cannot be used with num_teams.");
-#if INTEL_CUSTOMIZATION
-    // TODO: we may use VPOParoptConfig here by matching
-    //       the name of the teams outlined function.
-    //       There is no current request for configuring
-    //       thread_limit() via VPOParoptConfig for the host
-    //       parallelization.
-#endif // INTEL_CUSTOMIZATION
     NumThreads = W->getThreadLimit();
     NumThreadsTy = W->getThreadLimitType();
   } else {

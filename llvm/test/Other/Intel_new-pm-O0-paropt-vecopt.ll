@@ -5,11 +5,13 @@
 
 ;CHECK:      Running pass: XmainOptLevelAnalysisInit on [module]
 ;CHECK-NEXT: Running analysis: XmainOptLevelAnalysis on [module]
+;CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::VPOParoptConfigAnalysis, llvm::Module> on [module]
+;CHECK-NEXT: Running analysis: VPOParoptConfigAnalysis on [module]
 ;CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}> on [module]
 ;CHECK:      Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ;CHECK-NEXT: Running analysis: LoopAnalysis on foo
-;CHECK-NEXT: Running pass: VPOParoptLoopCollapsePass on foo
+;CHECK-NEXT: Running pass: VPOParoptApplyConfigPass on foo
 ;CHECK-NEXT: Running analysis: WRegionInfoAnalysis on foo
 ;CHECK-NEXT: Running analysis: WRegionCollectionAnalysis on foo
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
@@ -24,6 +26,13 @@
 ;CHECK-NEXT: Running analysis: TypeBasedAA on foo
 ;CHECK-NEXT: Running analysis: StdContainerAA on foo
 ;CHECK-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis on foo
+;CHECK-NEXT: Invalidating analysis: ScalarEvolutionAnalysis on foo
+;CHECK-NEXT: Invalidating analysis: WRegionCollectionAnalysis on foo
+;CHECK-NEXT: Invalidating analysis: WRegionInfoAnalysis on foo
+;CHECK-NEXT: Running pass: VPOParoptLoopCollapsePass on foo
+;CHECK-NEXT: Running analysis: WRegionInfoAnalysis on foo
+;CHECK-NEXT: Running analysis: WRegionCollectionAnalysis on foo
+;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running pass: LoopSimplifyPass on foo
 ;CHECK-NEXT: Running pass: VPOParoptPreparePass on foo
@@ -64,7 +73,6 @@
 ;CHECK-NEXT: Running analysis: LoopAnalysis on foo
 ;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ;CHECK-NEXT: Running pass: VPOParoptPass on [module]
-;CHECK-NEXT: Running analysis: VPOParoptConfigAnalysis on [module]
 ;CHECK-NEXT: Running analysis: OptReportOptionsAnalysis on [module]
 ;CHECK-NEXT: Running analysis: WRegionInfoAnalysis on foo
 ;CHECK-NEXT: Running analysis: WRegionCollectionAnalysis on foo

@@ -40,6 +40,7 @@ FunctionPass *createVPODirectiveCleanupPass();
 FunctionPass *createVPOParoptOptimizeDataSharingPass();
 FunctionPass *createVPOParoptSharedPrivatizationPass(unsigned Mode = 0u);
 ModulePass   *createVPOParoptTargetInlinePass();
+FunctionPass *createVPOParoptApplyConfigPass();
 #endif // INTEL_CUSTOMIZATION
 
 FunctionPass *createVPOCFGRestructuringPass();

@@ -508,6 +508,7 @@ namespace {
       (void) llvm::createVPOParoptOptimizeDataSharingPass();
       (void) llvm::createVPOParoptSharedPrivatizationPass();
       (void) llvm::createVPOParoptTargetInlinePass();
+      (void) llvm::createVPOParoptApplyConfigPass();
       (void) llvm::createIntelVTableFixupPass();
       (void) llvm::createAutoCPUCloneLegacyPass();
   #endif // INTEL_CUSTOMIZATION
