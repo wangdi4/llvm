@@ -206,6 +206,119 @@ namespace intrinsics {
 
 } // end namespace intrinsics
 
+/// Base class for offload entries. It is not supposed to be instantiated.
+class OffloadEntry {
+public:
+  enum EntryKind : unsigned {
+    RegionKind       = 0,
+    VarKind          = 1u,
+    IndirectFuncKind = 2u
+  };
+
+protected:
+  explicit OffloadEntry(EntryKind Kind, StringRef Name, uint32_t Flags)
+      : Kind(Kind), Name(Name), Flags(Flags) {}
+
+public:
+  virtual ~OffloadEntry() = default;
+
+  EntryKind getKind() const { return Kind; }
+
+  StringRef getName() const { return Name; }
+
+  Constant *getAddress() const { return Addr; }
+
+  void setAddress(Constant *NewAddr) {
+    assert(!Addr && "Address has been set before!");
+    Addr = NewAddr;
+  }
+
+  uint32_t getFlags() const { return Flags; }
+  void setFlags(uint32_t NewFlags) { Flags = NewFlags; }
+
+  virtual size_t getSize() const = 0;
+
+private:
+  EntryKind Kind;
+  SmallString<64u> Name;
+  Constant* Addr = nullptr;
+  uint32_t Flags = 0;
+};
+
+/// Target region entry.
+class RegionEntry final : public OffloadEntry {
+public:
+  enum : uint32_t {
+    Region = 0x00,
+    Ctor   = 0x02,
+    Dtor   = 0x04
+  };
+
+public:
+  RegionEntry(StringRef Name, uint32_t Flags)
+      : OffloadEntry(RegionKind, Name, Flags) {}
+
+  RegionEntry(GlobalValue *GV, uint32_t Flags)
+      : OffloadEntry(RegionKind, GV->getName(), Flags) {
+    setAddress(GV);
+  }
+
+  size_t getSize() const override { return 0; }
+
+  static bool classof(const OffloadEntry *E) {
+    return E->getKind() == RegionKind;
+  }
+};
+
+/// Global variable entry.
+class VarEntry final : public OffloadEntry {
+public:
+  enum : uint32_t {
+    DeclareTargetTo = 0x00,
+    DeclareTargetLink = 0x01
+  };
+
+public:
+  explicit VarEntry(GlobalVariable *Var, StringRef Name, uint32_t Flags)
+      : OffloadEntry(VarKind, Name, Flags) {
+    setAddress(Var);
+  }
+
+  size_t getSize() const override {
+    const auto *Var = cast<GlobalVariable>(getAddress());
+    auto *VarType = Var->getValueType();
+    // Global variables have pointer type always.
+    // For the purpose of the size calculation, we have to
+    // get the pointee's type.
+    return Var->getParent()->getDataLayout().getTypeAllocSize(VarType);
+  }
+
+  bool isDeclaration() const {
+    const auto *Var = cast<GlobalVariable>(getAddress());
+    return Var->isDeclaration();
+  }
+
+  static bool classof(const OffloadEntry *E) {
+    return E->getKind() == VarKind;
+  }
+};
+
+/// Global indirect function entry.
+class IndirectFunctionEntry final : public OffloadEntry {
+public:
+  enum : uint32_t {
+    DeclareTargetFptr = 0x08
+  };
+  IndirectFunctionEntry(Function *Func, StringRef Name)
+      : OffloadEntry(IndirectFuncKind, Name, DeclareTargetFptr) {
+    setAddress(Func);
+  }
+  size_t getSize() const override { return 0; }
+  static bool classof(const OffloadEntry *E) {
+    return E->getKind() == IndirectFuncKind;
+  }
+};
+
 /// This class contains a set of utility functions used by VPO Paropt
 /// Transformation passes.
 class VPOParoptUtils {
@@ -2217,6 +2330,22 @@ public:
   /// It is vpo::ADDRESS_SPACE_GENERIC for SPIR-V targets, 0 - otherwise.
   /// \p M is used to identify the current target.
   static unsigned getDefaultAS(const Module *M);
+
+  /// Load offload metadata from the module and create offload entries that
+  /// need to be emitted after lowering all target constructs.
+  /// The entries are returned in the result vector.
+  static SmallVector<OffloadEntry *, 8> loadOffloadMetadata(const Module &M);
+
+  /// Erase "omp_offload.info" metadata from the module \p M.
+  static bool eraseOffloadMetadata(Module &M);
+
+  /// Given \p W pointing to an instance of WRNTargetNode and \p OffloadEntries
+  /// array of offload entries read by VPOParoptUtils::loadOffloadMetadata()
+  /// the function returns OffloadEntry data structure corresponding
+  /// to the given target region.
+  static OffloadEntry *getTargetRegionOffloadEntry(
+      const WRegionNode *W,
+      const SmallVectorImpl<OffloadEntry *> &OffloadEntries);
 
   /// Check if reduction item \p RedI is supported by atomic-free reduction.
   /// It is necessary to correctly match global buffers created at prepare

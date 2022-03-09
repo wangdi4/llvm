@@ -10,12 +10,13 @@
 ;            Running pass: InlineReportSetupPass on [module]     ;INTEL
 ;            Running pass: InferFunctionAttrsPass on [module]
 ;            Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module> on [module]
-;            Running analysis: TargetLibraryAnalysis on bar
+;CHECK:      Running pass: RequireAnalysisPass<llvm::VPOParoptConfigAnalysis, llvm::Module> on [module] ;INTEL
+;CHECK-NEXT: Running analysis: VPOParoptConfigAnalysis on [module]                                      ;INTEL
 ;            Running pass: LowerSubscriptIntrinsicPass on foo ;INTEL
 ;CHECK:      Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ;CHECK-NEXT: Running analysis: LoopAnalysis on foo
-;CHECK-NEXT: Running pass: VPOParoptLoopCollapsePass on foo
+;CHECK-NEXT: Running pass: VPOParoptApplyConfigPass on foo
 ;CHECK-NEXT: Running analysis: WRegionInfoAnalysis on foo
 ;CHECK-NEXT: Running analysis: WRegionCollectionAnalysis on foo
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
@@ -30,6 +31,13 @@
 ;CHECK-NEXT: Running analysis: TypeBasedAA on foo
 ;CHECK-NEXT: Running analysis: StdContainerAA on foo
 ;CHECK-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis on foo
+;CHECK-NEXT: Invalidating analysis: ScalarEvolutionAnalysis on foo
+;CHECK-NEXT: Invalidating analysis: WRegionCollectionAnalysis on foo
+;CHECK-NEXT: Invalidating analysis: WRegionInfoAnalysis on foo
+;CHECK-NEXT: Running pass: VPOParoptLoopCollapsePass on foo
+;CHECK-NEXT: Running analysis: WRegionInfoAnalysis on foo
+;CHECK-NEXT: Running analysis: WRegionCollectionAnalysis on foo
+;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running pass: LoopSimplifyPass on foo
 ;CHECK-NEXT: Running pass: VPOParoptPreparePass on foo
@@ -105,7 +113,6 @@
 ;CHECK-NEXT: Invalidating analysis: LazyCallGraphAnalysis on {{.*}}
 ;CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{llvm::CGSCCAnalysisManager|llvm::AnalysisManager<llvm::LazyCallGraph::SCC, llvm::LazyCallGraph&>}}, llvm::Module> on {{.*}}
 ;CHECK-NEXT: Running pass: VPOParoptPass on [module]
-;CHECK-NEXT: Running analysis: VPOParoptConfigAnalysis on [module]
 ;CHECK-NEXT: Running analysis: OptReportOptionsAnalysis on [module]
 ;CHECK-NEXT: Running analysis: WRegionInfoAnalysis on foo
 ;CHECK-NEXT: Running analysis: WRegionCollectionAnalysis on foo

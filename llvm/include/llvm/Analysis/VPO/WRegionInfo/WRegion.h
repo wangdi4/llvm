@@ -626,10 +626,8 @@ private:
   EXPR NumTeams;
   Type *NumTeamsTy = nullptr;
   WRNDefaultKind Default;
-
 #if INTEL_CUSTOMIZATION
   bool IsDoConcurrent; // Used for Fortran Do Concurrent
-  uint64_t ConfiguredThreadLimit = 0;
 #endif // INTEL_CUSTOMIZATION
 
 public:
@@ -657,15 +655,8 @@ public:
   EXPR getNumTeams() const override  { return NumTeams; }
   Type *getNumTeamsType() const override { return NumTeamsTy; }
   WRNDefaultKind getDefault() const override { return Default; }
-
 #if INTEL_CUSTOMIZATION
   bool getIsDoConcurrent() const override { return IsDoConcurrent; }
-  void setConfiguredThreadLimit(uint64_t TL) override {
-    ConfiguredThreadLimit = TL;
-  }
-  uint64_t getConfiguredThreadLimit() const override {
-    return ConfiguredThreadLimit;
-  }
 #endif // INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS,

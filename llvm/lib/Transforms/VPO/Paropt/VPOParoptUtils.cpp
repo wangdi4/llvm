@@ -980,11 +980,6 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode *W,
         ThreadLimit = getOrLoadClauseArgValueWithSext(ThreadLimitPtr,
                                                       ThreadLimitTy,
                                                       Int32Ty, Builder);
-#if INTEL_CUSTOMIZATION
-      uint64_t KernelThreadLimit = W->getConfiguredThreadLimit();
-      if (KernelThreadLimit > 0)
-        ThreadLimit = Builder.getInt32(KernelThreadLimit);
-#endif // INTEL_CUSTOMIZATION
     }
   } else {
     // HostAddr==null means FnName is not __tgt_target or __tgt_target_teams
@@ -6657,6 +6652,132 @@ VPOParoptUtils::getItemInfo(const Item *I) {
 // It is vpo::ADDRESS_SPACE_GENERIC for SPIR-V targets, 0 - otherwise.
 unsigned VPOParoptUtils::getDefaultAS(const Module *M) {
   return VPOAnalysisUtils::isTargetSPIRV(M) ? vpo::ADDRESS_SPACE_GENERIC : 0;
+}
+
+// Return an array of offload entries read from "omp_offloading.info" metadata.
+SmallVector<OffloadEntry *, 8> VPOParoptUtils::loadOffloadMetadata(
+    const Module &M) {
+  SmallVector<OffloadEntry *, 8> OffloadEntries;
+  auto *MD = M.getNamedMetadata("omp_offload.info");
+  if (!MD)
+    return OffloadEntries;
+
+  // Helper for adding offload entries - resizes entries containter as needed.
+  auto && addEntry = [&](OffloadEntry *E, size_t Idx) {
+    auto NewSize = Idx + 1u;
+    if (OffloadEntries.size() < NewSize)
+      OffloadEntries.resize(NewSize);
+    assert(!OffloadEntries[Idx] && "more than one entry with the same index");
+    OffloadEntries[Idx] = E;
+  };
+
+  // Populate offload entries using information from the offload metadata.
+  for (auto *Node : MD->operands()) {
+    auto && getMDInt = [Node](unsigned I) {
+      auto *V = cast<ConstantAsMetadata>(Node->getOperand(I));
+      return cast<ConstantInt>(V->getValue())->getZExtValue();
+    };
+
+    auto && getMDString = [Node](unsigned I) {
+      auto *V = cast<MDString>(Node->getOperand(I));
+      return V->getString();
+    };
+
+    auto && getMDVar = [Node](unsigned I) -> GlobalVariable * {
+      if (I >= Node->getNumOperands())
+        return nullptr;
+      auto *V = cast<ConstantAsMetadata>(Node->getOperand(I));
+      return cast<GlobalVariable>(V->getValue());
+    };
+
+    auto && getMDFunc = [Node](unsigned I) -> Function * {
+      if (I >= Node->getNumOperands())
+        return nullptr;
+      auto *V = cast<ConstantAsMetadata>(Node->getOperand(I));
+      return cast<Function>(V->getValue());
+    };
+
+    switch (getMDInt(0)) {
+      case OffloadEntry::EntryKind::RegionKind: {
+        auto Device = getMDInt(1u);
+        auto File = getMDInt(2u);
+        auto Parent = getMDString(3u);
+        auto Line = getMDInt(4u);
+        auto Idx = getMDInt(5u);
+        auto Flags = getMDInt(6u);
+
+        switch (Flags) {
+          case RegionEntry::Region: {
+            // Compose name.
+            SmallString<64u> Name;
+            llvm::raw_svector_ostream(Name) << "__omp_offloading"
+              << llvm::format("_%x", Device) << llvm::format("_%x_", File)
+              << Parent << "_l" << Line;
+            addEntry(new RegionEntry(Name, Flags), Idx);
+            break;
+          }
+          case RegionEntry::Ctor:
+          case RegionEntry::Dtor: {
+            auto *GV = M.getNamedValue(Parent);
+            assert(GV && "no value for ctor/dtor offload entry");
+            addEntry(new RegionEntry(GV, Flags), Idx);
+            break;
+          }
+          default:
+            llvm_unreachable("unexpected entry kind");
+        }
+        break;
+      }
+      case OffloadEntry::EntryKind::VarKind: {
+        auto Name = getMDString(1u);
+        auto Flags = getMDInt(2u);
+        auto Idx = getMDInt(3u);
+        auto *Var = getMDVar(4u);
+
+        assert(Var && "no global variable with given name");
+        assert(Var->isTargetDeclare() && "must be a target declare variable");
+        addEntry(new VarEntry(Var, Name, Flags), Idx);
+        break;
+      }
+      case OffloadEntry::EntryKind::IndirectFuncKind: {
+        auto Name = getMDString(1u);
+        auto Idx = getMDInt(2u);
+        auto *Func = getMDFunc(3u);
+        assert(Func && "missing function in IndirectFuncKind metadata.");
+        assert(!Func->isDeclaration() && "must be a function definition.");
+        assert(Func->getAttributes().hasFnAttr("openmp-target-declare") &&
+               "must be a target declare function.");
+        addEntry(new IndirectFunctionEntry(Func, Name), Idx);
+        break;
+      }
+      default:
+        llvm_unreachable("unexpected metadata!");
+    }
+  }
+
+  return OffloadEntries;
+}
+
+// Erase "omp_offload.info" metadate from the module.
+bool VPOParoptUtils::eraseOffloadMetadata(Module &M) {
+  auto *MD = M.getNamedMetadata("omp_offload.info");
+  if (!MD)
+    return false;
+
+  MD->eraseFromParent();
+  return true;
+}
+
+// Return offload entry corresponding to the given target region.
+OffloadEntry *VPOParoptUtils::getTargetRegionOffloadEntry(
+    const WRegionNode *W,
+    const SmallVectorImpl<OffloadEntry *> &OffloadEntries) {
+  assert(isa<WRNTargetNode>(W) && "expected target region.");
+  int Idx = W->getOffloadEntryIdx();
+  assert(Idx >= 0 && "target region with no entry index");
+  auto *Entry = OffloadEntries[Idx];
+  assert(Entry && "entry index with no entry");
+  return Entry;
 }
 
 bool VPOParoptUtils::supportsAtomicFreeReduction(const ReductionItem *RedI) {

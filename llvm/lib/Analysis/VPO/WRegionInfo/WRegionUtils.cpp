@@ -417,17 +417,27 @@ bool WRegionUtils::supportsRegDDRefs(int ClauseID) {
 // New OpenMP directives under development can be added to this routine
 // to make the WRN graph builder skip them instead of asserting.
 bool WRegionUtils::skipDirFromWrnConstruction(int DirID) {
-#if INTEL_CUSTOMIZATION
   switch (DirID) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+#else // INTEL_FEATURE_CSA
+  case DIR_OMP_SECTION:
+  case DIR_OMP_END_SECTION:
+#endif // INTEL_FEATURE_CSA
+#else // INTEL_CUSTOMIZATION
+  case DIR_OMP_SECTION:
+  case DIR_OMP_END_SECTION:
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case DIR_PRAGMA_IVDEP:
   case DIR_PRAGMA_END_IVDEP:
   case DIR_PRAGMA_BLOCK_LOOP:
   case DIR_PRAGMA_END_BLOCK_LOOP:
   case DIR_PRAGMA_DISTRIBUTE_POINT:
   case DIR_PRAGMA_END_DISTRIBUTE_POINT:
+#endif // INTEL_CUSTOMIZATION
     return true;
   }
-#endif // INTEL_CUSTOMIZATION
   // Example:
   // if (DirID == A_NEW_DIRECTIVE_UNDER_DEVELOPMENT)
   //   // remove from this routine when directive is fully implemented
