@@ -4,6 +4,7 @@
 define <16 x i1> @v16i16(i16 %a) {
 ; CHECK-LABEL: v16i16:
 ; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpw $1, %di
 ; CHECK-NEXT:    sbbl %eax, %eax
 ; CHECK-NEXT:    kmovd %eax, %k0
@@ -78,6 +79,7 @@ entry:
 define <32 x i1> @v32i16(i16 %a) {
 ; CHECK-LABEL: v32i16:
 ; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpw $1, %di
 ; CHECK-NEXT:    sbbl %eax, %eax
 ; CHECK-NEXT:    kmovd %eax, %k0
@@ -149,6 +151,7 @@ entry:
 define <64 x i1> @v64i16(i16 %a) {
 ; CHECK-LABEL: v64i16:
 ; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpw $1, %di
 ; CHECK-NEXT:    sbbq %rax, %rax
 ; CHECK-NEXT:    kmovq %rax, %k0
@@ -164,6 +167,7 @@ entry:
 define <64 x i1> @v64i16_and(i16 %a) {
 ; CHECK-LABEL: v64i16_and:
 ; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpw $1, %di
 ; CHECK-NEXT:    sbbq %rax, %rax
 ; CHECK-NEXT:    kmovq %rax, %k0
@@ -186,6 +190,7 @@ define <64 x i1> @v64i16_bcst(i16 %a, <64 x i16>* %m) {
 ; CHECK-NEXT:    vpbroadcastw %edi, %zmm0
 ; CHECK-NEXT:    vmovdqa64 %zmm0, 64(%rsi)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, (%rsi)
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpw $1, %di
 ; CHECK-NEXT:    sbbq %rax, %rax
 ; CHECK-NEXT:    kmovq %rax, %k0
@@ -207,6 +212,7 @@ define <64 x i1> @v64i16_and_bcst(i16 %a, <64 x i16>* %m) {
 ; CHECK-NEXT:    vpbroadcastw %edi, %zmm0
 ; CHECK-NEXT:    vmovdqa64 %zmm0, 64(%rsi)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, (%rsi)
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpw $1, %di
 ; CHECK-NEXT:    sbbq %rax, %rax
 ; CHECK-NEXT:    kmovq %rax, %k0
@@ -229,6 +235,7 @@ entry:
 define <4 x i1> @v4i32(i32 %a) {
 ; CHECK-LABEL: v4i32:
 ; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpl $1, %edi
 ; CHECK-NEXT:    sbbl %eax, %eax
 ; CHECK-NEXT:    kmovd %eax, %k0
@@ -300,6 +307,7 @@ entry:
 define <8 x i1> @v8i32(i32 %a) {
 ; CHECK-LABEL: v8i32:
 ; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpl $1, %edi
 ; CHECK-NEXT:    sbbl %eax, %eax
 ; CHECK-NEXT:    kmovd %eax, %k0
@@ -374,6 +382,7 @@ entry:
 define <16 x i1> @v16i32(i32 %a) {
 ; CHECK-LABEL: v16i32:
 ; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpl $1, %edi
 ; CHECK-NEXT:    sbbl %eax, %eax
 ; CHECK-NEXT:    kmovd %eax, %k0
@@ -448,6 +457,7 @@ entry:
 define <32 x i1> @v32i32(i32 %a) {
 ; CHECK-LABEL: v32i32:
 ; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpl $1, %edi
 ; CHECK-NEXT:    sbbl %eax, %eax
 ; CHECK-NEXT:    kmovd %eax, %k0
@@ -463,6 +473,7 @@ entry:
 define <32 x i1> @v32i32_and(i32 %a) {
 ; CHECK-LABEL: v32i32_and:
 ; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpl $1, %edi
 ; CHECK-NEXT:    sbbl %eax, %eax
 ; CHECK-NEXT:    kmovd %eax, %k0
@@ -482,6 +493,7 @@ define <32 x i1> @v32i32_bcst(i32 %a, <32 x i32>* %m) {
 ; CHECK-NEXT:    vpbroadcastd %edi, %zmm0
 ; CHECK-NEXT:    vmovdqa64 %zmm0, 64(%rsi)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, (%rsi)
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpl $1, %edi
 ; CHECK-NEXT:    sbbl %eax, %eax
 ; CHECK-NEXT:    kmovd %eax, %k0
@@ -503,6 +515,7 @@ define <32 x i1> @v32i32_and_bcst(i32 %a, <32 x i32>* %m) {
 ; CHECK-NEXT:    vpbroadcastd %edi, %zmm0
 ; CHECK-NEXT:    vmovdqa64 %zmm0, 64(%rsi)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, (%rsi)
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpl $1, %edi
 ; CHECK-NEXT:    sbbl %eax, %eax
 ; CHECK-NEXT:    kmovd %eax, %k0
@@ -525,6 +538,7 @@ entry:
 define <64 x i1> @v64i32(i32 %a) {
 ; CHECK-LABEL: v64i32:
 ; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpl $1, %edi
 ; CHECK-NEXT:    sbbq %rax, %rax
 ; CHECK-NEXT:    kmovq %rax, %k0
@@ -540,6 +554,7 @@ entry:
 define <64 x i1> @v64i32_and(i32 %a) {
 ; CHECK-LABEL: v64i32_and:
 ; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpl $1, %edi
 ; CHECK-NEXT:    sbbq %rax, %rax
 ; CHECK-NEXT:    kmovq %rax, %k0
@@ -564,6 +579,7 @@ define <64 x i1> @v64i32_bcst(i32 %a, <64 x i32>* %m) {
 ; CHECK-NEXT:    vmovdqa64 %zmm0, 128(%rsi)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, 64(%rsi)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, (%rsi)
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpl $1, %edi
 ; CHECK-NEXT:    sbbq %rax, %rax
 ; CHECK-NEXT:    kmovq %rax, %k0
@@ -587,6 +603,7 @@ define <64 x i1> @v64i32_and_bcst(i32 %a, <64 x i32>* %m) {
 ; CHECK-NEXT:    vmovdqa64 %zmm0, 128(%rsi)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, 64(%rsi)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, (%rsi)
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpl $1, %edi
 ; CHECK-NEXT:    sbbq %rax, %rax
 ; CHECK-NEXT:    kmovq %rax, %k0
@@ -609,6 +626,7 @@ entry:
 define <2 x i1> @v2i64(i64 %a) {
 ; CHECK-LABEL: v2i64:
 ; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpq $1, %rdi
 ; CHECK-NEXT:    sbbl %eax, %eax
 ; CHECK-NEXT:    kmovd %eax, %k0
@@ -680,6 +698,7 @@ entry:
 define <4 x i1> @v4i64(i64 %a) {
 ; CHECK-LABEL: v4i64:
 ; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpq $1, %rdi
 ; CHECK-NEXT:    sbbl %eax, %eax
 ; CHECK-NEXT:    kmovd %eax, %k0
@@ -754,6 +773,7 @@ entry:
 define <8 x i1> @v8i64(i64 %a) {
 ; CHECK-LABEL: v8i64:
 ; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpq $1, %rdi
 ; CHECK-NEXT:    sbbl %eax, %eax
 ; CHECK-NEXT:    kmovd %eax, %k0
@@ -828,6 +848,7 @@ entry:
 define <16 x i1> @v16i64(i64 %a) {
 ; CHECK-LABEL: v16i64:
 ; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpq $1, %rdi
 ; CHECK-NEXT:    sbbl %eax, %eax
 ; CHECK-NEXT:    kmovd %eax, %k0
@@ -843,6 +864,7 @@ entry:
 define <16 x i1> @v16i64_and(i64 %a) {
 ; CHECK-LABEL: v16i64_and:
 ; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpq $1, %rdi
 ; CHECK-NEXT:    sbbl %eax, %eax
 ; CHECK-NEXT:    kmovd %eax, %k0
@@ -865,6 +887,7 @@ define <16 x i1> @v16i64_bcst(i64 %a, <16 x i64>* %m) {
 ; CHECK-NEXT:    vpbroadcastq %rdi, %zmm0
 ; CHECK-NEXT:    vmovdqa64 %zmm0, 64(%rsi)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, (%rsi)
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpq $1, %rdi
 ; CHECK-NEXT:    sbbl %eax, %eax
 ; CHECK-NEXT:    kmovd %eax, %k0
@@ -887,6 +910,7 @@ define <16 x i1> @v16i64_and_bcst(i64 %a, <16 x i64>* %m) {
 ; CHECK-NEXT:    vpbroadcastq %rdi, %zmm0
 ; CHECK-NEXT:    vmovdqa64 %zmm0, 64(%rsi)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, (%rsi)
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpq $1, %rdi
 ; CHECK-NEXT:    sbbl %eax, %eax
 ; CHECK-NEXT:    kmovd %eax, %k0
