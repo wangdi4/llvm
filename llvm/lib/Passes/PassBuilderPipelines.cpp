@@ -2659,6 +2659,12 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(GlobalDCEPass());
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+  // IPO-based prefetch
+  if (EnableIPOPrefetch)
+    MPM.addPass(IntelIPOPrefetchPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
+
 #if INTEL_FEATURE_SW_DTRANS
   if (EnableWPA)
     MPM.addPass(IntelFoldWPIntrinsicPass());
@@ -2870,12 +2876,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(GlobalOptPass());
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_ADVANCED
-  // IPO-based prefetch
-  if (EnableIPOPrefetch)
-    MPM.addPass(IntelIPOPrefetchPass());
-#endif // INTEL_FEATURE_SW_ADVANCED
-
   if (RunLTOPartialInlining)
     MPM.addPass(PartialInlinerPass(true /*RunLTOPartialInline*/,
                                    false /*EnableSpecialCases*/));
