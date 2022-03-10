@@ -62,13 +62,7 @@ constexpr bool ConfigFromCompileDefEnabled = true;
 #endif // DISABLE_CONFIG_FROM_COMPILE_TIME
 
 constexpr int MAX_CONFIG_NAME = 256;
-<<<<<<< HEAD
-#ifdef INTEL_CUSTOMIZATION
 constexpr int MAX_CONFIG_VALUE = 1024;
-#endif // INTEL_CUSTOMIZATION
-=======
-constexpr int MAX_CONFIG_VALUE = 1024;
->>>>>>> ec65fe9954547a098e9663f87106b002f0d22a36
 
 // Enum of config IDs for accessing other arrays
 enum ConfigID {
