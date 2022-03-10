@@ -154,11 +154,17 @@ void f4(void) {
   // finally.call-exit:  Predecessors are the @try and @catch fallthroughs
   // as well as the no-match case in the catch mechanism.  The i1 is whether
   // to rethrow and should be true only in the last case.
-  // CHECK:      phi i8*
-  // CHECK-NEXT: phi i1
-  // CHECK-NEXT: call void @objc_exception_try_exit([[EXNDATA_T]]* nonnull [[EXNDATA]])
+  // INTEL_CUSTOMIZATION
+  // llorg has some useless phis here that feed the branch below
+  // CHECK-DISABLED:      phi i8*
+  // CHECK-DISABLED-NEXT: phi i1
+  // CHECK: call void @objc_exception_try_exit([[EXNDATA_T]]* nonnull [[EXNDATA]])
+  // end INTEL_CUSTOMIZATION
   // CHECK-NEXT: call void @f4_help(i32 noundef 2)
-  // CHECK-NEXT: br i1
+  // INTEL_CUSTOMIZATION
+  // llorg has this as a conditional branch, can be made unconditional
+  // CHECK-NEXT: br
+  // end INTEL_CUSTOMIZATION
   //   -> ret, rethrow
 
   // ret:
