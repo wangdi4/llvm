@@ -3069,11 +3069,24 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
   assert(ExitBB);
 
   ExitBB->setName("atomic.free.red.local.update.update.exit");
-  auto *LocalSize = VPOParoptUtils::genOCLGenericCall(
-      "_Z14get_local_sizej", SizeTy, Builder.getInt32(0),
-      (IsArraySection ? EntryBB : UpdateBB)->getFirstNonPHI());
-  auto *LocalId = VPOParoptUtils::genOCLGenericCall(
-      "_Z12get_local_idj", SizeTy, Builder.getInt32(0), LocalSize);
+
+  CallInst *LocalSize;
+  CallInst *LocalId;
+
+  if (EmitSPIRVBuiltins) {
+    SmallVector<Value *, 1> Arg;
+    LocalSize = VPOParoptUtils::genOCLGenericCall(
+        "_Z22__spirv_WorkgroupSize_xv", SizeTy, Arg,
+        (IsArraySection ? EntryBB : UpdateBB)->getFirstNonPHI());
+    LocalId = VPOParoptUtils::genSPIRVLocalIdCall(0, LocalSize);
+  } else {
+    LocalSize = VPOParoptUtils::genOCLGenericCall(
+        "_Z14get_local_sizej", SizeTy, Builder.getInt32(0),
+        (IsArraySection ? EntryBB : UpdateBB)->getFirstNonPHI());
+    LocalId = VPOParoptUtils::genOCLGenericCall(
+        "_Z12get_local_idj", SizeTy, Builder.getInt32(0), LocalSize);
+  }
+
   auto *HeaderBB =
       SplitBlock((IsArraySection ? EntryBB : UpdateBB),
                  LocalSize->getNextNode(), DT, LI, nullptr, "", true);
@@ -3389,9 +3402,16 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
 
     Builder.SetInsertPoint(StartPoint);
 
-    Value *NumGroups0 = VPOParoptUtils::genOCLGenericCall(
+    Value *NumGroups0;
+    if (VPOParoptUtils::enableDeviceSimdCodeGen()) {
+      SmallVector<Value *, 1> Arg;
+      NumGroups0 = VPOParoptUtils::genOCLGenericCall(
+        "_Z29__spirv_NumWorkgroups_xv", GeneralUtils::getSizeTTy(F), Arg, CntrToCheck);
+    } else {
+      NumGroups0 = VPOParoptUtils::genOCLGenericCall(
         "_Z14get_num_groupsj", GeneralUtils::getSizeTTy(F), Builder.getInt32(0),
         CntrToCheck);
+    }
     auto *NumGroupsCall = cast<Instruction>(Builder.CreateTrunc(NumGroups0, Builder.getInt32Ty()));
 
     // TODO: unify this with the same code in VPOParoptTarget.cpp
@@ -4112,7 +4132,10 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
     }
     // (1) Filling the local array with private values
     if (BufPtr && !IsInit) {
-      IdVal = VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
+      if (EmitSPIRVBuiltins)
+        IdVal = VPOParoptUtils::genSPIRVLocalIdCall(0, InsertPt);
+      else
+        IdVal = VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
                                                 GeneralUtils::getSizeTTy(F),
                                                 Builder.getInt32(0), InsertPt);
       auto *NumElementsCast =
@@ -5623,9 +5646,19 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
             W->getIsTeams() && AtomicFreeRedGlobalBufs.count(RedI)) {
           IRBuilder<> Builder(InsertPt);
           auto *GlobalBuf = AtomicFreeRedGlobalBufs.lookup(RedI);
-          Value *GroupId0 = VPOParoptUtils::genOCLGenericCall(
-              "_Z12get_group_idj", GeneralUtils::getSizeTTy(F),
-              Builder.getInt32(0), InsertPt);
+
+          Value *GroupId0;
+          if (EmitSPIRVBuiltins) {
+            SmallVector<Value *, 1> Arg;
+            GroupId0 = VPOParoptUtils::genOCLGenericCall(
+                "_Z21__spirv_WorkgroupId_xv", GeneralUtils::getSizeTTy(F),
+                Arg, InsertPt);
+	  } else {
+            GroupId0 = VPOParoptUtils::genOCLGenericCall(
+                "_Z12get_group_idj", GeneralUtils::getSizeTTy(F),
+                Builder.getInt32(0), InsertPt);
+	  }
+
           Type *ElemTy = nullptr;
           Value *NumElements = nullptr;
           std::tie(ElemTy, NumElements, std::ignore) =

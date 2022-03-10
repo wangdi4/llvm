@@ -60,6 +60,7 @@ bool VectorizationDimensionAnalysisLegacy::runOnModule(Module &M) {
   auto *RTService = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
                         .getResult()
                         .getRuntimeService();
+  assert(RTService != nullptr && "Invalid runtime service!");
   auto Kernels = DPCPPKernelMetadataAPI::KernelList(M).getList();
   for (Function *F : Kernels) {
     if (F->hasOptNone())
@@ -84,6 +85,8 @@ AnalysisKey VectorizationDimensionAnalysis::Key;
 VectorizationDimensionAnalysis::Result
 VectorizationDimensionAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
   auto *RTService = AM.getResult<BuiltinLibInfoAnalysis>(M).getRuntimeService();
+  assert(RTService != nullptr && "Invalid runtime service!");
+
   auto Kernels = DPCPPKernelMetadataAPI::KernelList(M).getList();
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   Result VDInfos;

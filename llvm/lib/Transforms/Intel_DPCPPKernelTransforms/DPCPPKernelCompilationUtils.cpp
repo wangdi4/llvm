@@ -10,6 +10,7 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/ADT/DepthFirstIterator.h"
+#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
@@ -2209,6 +2210,97 @@ CallInst *createSubGroupInsertRowSliceToMatrixCall(Value *RowSliceId,
                                 KernelAttribute::OCLVecUniformReturn);
   return generateCall(IP->getModule(), FnName, ReturnMatrixType, {RowSliceId},
                       Builder, Name, AL);
+}
+
+// Utility function for calculating private/local memory size with post order
+// traversal.
+void calculateMemorySizeWithPostOrderTraversal(
+    CallGraph &CG, DenseMap<Function *, size_t> &FnDirectSize,
+    DenseMap<Function *, size_t> &FnSize) {
+  // The recursive function or function that calls no other functions will be
+  // visited firstly and its private/local memory size will be calculated. And
+  // then private/local memory size for its callers will be calculated.
+  //
+  // The steps for calculating private/local memory size:
+  //   1. Visit F function in post order traversal of call graph.
+  //     1.1. Visit CalledFunc functions called by F (in call graph node of F)
+  //          and get maximum memory size for the CalledFunc functions.
+  //       1.1.1. Get the cached memory size for CalledFunc, if it's calculated.
+  //              Otherwise:
+  //         1.2.1. Calculate its memory size for CalledFunc.
+  //         1.2.2. If CalledFunc is recursive function, multiply its memory
+  //                size by (MAX_RECURSION_DEPTH - 1).
+  //       1.1.2. Compare the memory size for called functions and save maximum
+  //              memory size.
+  //     1.2. Add the maximum memory size for called functions to memory size
+  //          for F function.
+  //
+  // Post order traversal examples with recursion function
+  //   Example 1: test -> foo -> foo
+  //   Steps
+  //     1. Visit foo function
+  //       1.1. Visit called functions: foo
+  //         1.1.1. Calculate memory size for foo function and multiply it by
+  //                (MAX_RECURSION_DEPTH - 1).
+  //       1.2. Add it to memory size for foo function
+  //     2. Visit test function
+  //       2.1. Visit called functions: foo
+  //         2.1.1. Get cached memory size for foo function
+  //       2.2. Add it to memory size for test function
+  //   Example 2: test -> foo -> bar -> foo -> bar
+  //   Steps
+  //     1. Visit bar function
+  //       1.1. Visit called functions: foo
+  //         1.1.1. Calculate memory size for foo function and multiply
+  //                it by (MAX_RECURSION_DEPTH - 1).
+  //       1.2. Add memory size for foo function to memory size for bar function
+  //     2. Visit foo function
+  //       2.1. Visit called functions: bar
+  //         2.1.1. Multiply direct size by (MAX_RECURSION_DEPTH - 1) and add it
+  //                to memory size for bar function
+  //         2.1.2. Get cached memory size for bar function
+  //       2.2. Add memory size for bar function to memory size for foo function
+  //     3. Visit test function
+  //       3.1. Visit called functions: foo
+  //         3.1.1. Get cached memory size for foo function
+  //       3.2. Add memory size for foo function to memory size for test
+  //            function
+  DenseSet<Function *> VisitedSet;
+  for (auto I = po_begin(&CG), E = po_end(&CG); I != E; I++) {
+    Function *F = I->getFunction();
+    if (!F || F->isDeclaration())
+      continue;
+    size_t MaxSize = 0;
+    const CallGraphNode *CGNode = CG[F];
+    for (auto &CI : *CGNode) {
+      Function *CalledFunc = CI.second->getFunction();
+      if (!CalledFunc || CalledFunc->isDeclaration())
+        continue;
+
+      auto CalledFMD = DPCPPKernelMetadataAPI::FunctionMetadataAPI(CalledFunc);
+      bool IsRecursive =
+          CalledFMD.RecursiveCall.hasValue() && CalledFMD.RecursiveCall.get();
+      if (!FnSize.count(CalledFunc)) {
+        assert(FnDirectSize.count(CalledFunc) && "No direct size calculated!");
+        FnSize[CalledFunc] = FnDirectSize[CalledFunc];
+        if (IsRecursive)
+          FnSize[CalledFunc] *= (MAX_RECURSION_DEPTH - 1);
+        VisitedSet.insert(CalledFunc);
+      } else {
+        if (!VisitedSet.count(CalledFunc)) {
+          // Multiply direct size by (MAX_RECURSION_DEPTH - 1) and add it to
+          // memory size for indirect recursion (foo -> bar -> foo -> bar)
+          if (IsRecursive)
+            FnSize[CalledFunc] +=
+                FnDirectSize[CalledFunc] * (MAX_RECURSION_DEPTH - 1);
+          VisitedSet.insert(CalledFunc);
+        }
+      }
+      MaxSize = std::max(MaxSize, FnSize[CalledFunc]);
+    }
+
+    FnSize[F] = MaxSize + FnDirectSize[F];
+  }
 }
 
 } // end namespace DPCPPKernelCompilationUtils

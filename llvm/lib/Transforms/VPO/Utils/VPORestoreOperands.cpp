@@ -54,7 +54,8 @@ bool VPOUtils::isPointerCastOrZeroOffsetGEP(Value *V) {
 /// pass. It looks at all OpenMP directive intrinsics for
 /// `QUAL.OMP.OPERAND.ADDR(opnd, addr)` pairs, and:
 /// * Replaces uses of the load (can be zero or one) from `addr` with `opnd`.
-/// * Deletes any load/store/bitcasts/zero-offset GEPs on `addr`.
+/// * Deletes any load/store/bitcasts/zero-offset GEPs/lifetime intrinsics on
+/// `addr`.
 /// * Deletes all `QUAL.OMP.OPERAND.ADDR` bundles from the intrinsics.
 ///
 /// Some possible IR examples for before/after this function is
@@ -201,6 +202,59 @@ bool VPOUtils::isPointerCastOrZeroOffsetGEP(Value *V) {
 ///
 /// \endcode
 ///
+/// (G)
+///
+/// \code
+///            Before                   |            After
+///          ---------------------------+---------------------------
+///   %y.addr = alloca i32*             |
+///                                     |
+///   %y.addr.cast = bitcast %y.addr    |
+///                          to i8*     |
+///   @llvm.lifetime.start(%y.addr.cast)|
+///                                     |
+///   store i32* %y, i32** %y.addr      |
+///   %1 = begin_region[... %y...       |   %1 = begin_region[... %y...]
+///                     "OPND.ADDR"     |
+///                     (i32* %y,       |
+///                     (i32** %y.addr)]|
+///   %y1 = load i32*, i32** %y.addr    |
+///                                     |
+///   ...                               |   ...
+///   <%y1 used inside the region>      |   <%y used inside the region>
+///                                     |
+///   end_region(%1)                    |   end_region(%1)
+///                                     |
+///   %y.addr.cast  = bitcast %y.addr   |
+///                           to i8*    |
+///   @llvm.lifetime.end(%y.addr.cast1) |
+/// \endcode
+///
+/// (H)
+///
+/// \code
+///            Before                   |            After
+///          ---------------------------+---------------------------
+///   %y.addr = alloca ptr              |
+///                                     |
+///   @llvm.lifetime.start(%y.addr)     |
+///                                     |
+///   store ptr %y, ptr %y.addr         |
+///   %1 = begin_region[... %y...       |   %1 = begin_region[... %y...]
+///                     "OPND.ADDR"     |
+///                     (ptr %y,        |
+///                     (ptr %y.addr)]  |
+///   %y1 = load ptr, ptr %y.addr       |
+///                                     |
+///   ...                               |   ...
+///   <%y1 used inside the region>      |   <%y used inside the region>
+///                                     |
+///   end_region(%1)                    |   end_region(%1)
+///                                     |
+///   @llvm.lifetime.end(%y.addr)       |
+/// \endcode
+///
+///
 /// TODO: OPAQUEPOINTER: After the type information is removed with opaque
 /// pointers, bitcast instructions will be removed. It will make the possible
 /// input IRs simpler. The code below needs to be revised appropriately.
@@ -211,6 +265,8 @@ bool VPOUtils::isPointerCastOrZeroOffsetGEP(Value *V) {
 // D: rename_and_restore_int_addrcast.ll,rename_and_restore_struct_castinside.ll
 // E: rename_and_restore_struct_castsame.ll
 // F: rename_and_restore_struct_castboth.ll
+// G: restore_remove_lifetime_of_addr.ll
+// H: restore_remove_lifetime_of_addr_opqptr.ll
 bool VPOUtils::restoreOperands(Function &F) {
   LLVM_DEBUG(dbgs() << "VPO Restore Operands \n");
 
@@ -249,6 +305,18 @@ bool VPOUtils::restoreOperands(Function &F) {
         Instruction *VAddrLoadCast = nullptr;
         SmallVector<Instruction *, 4> VAddrUsersInLifetimeMarkers;
 
+        auto collectLifetimeMarkerUsers = [&](User *U) -> bool {
+          if (auto *II = dyn_cast<IntrinsicInst>(U)) {
+            assert((II->getIntrinsicID() == Intrinsic::lifetime_start ||
+                    II->getIntrinsicID() == Intrinsic::lifetime_end) &&
+                   "Unexpected intrinsic using the ADDR operand (or a cast on "
+                   "it) of 'QUAL.OMP.OPERAND.ADDR'.");
+            VAddrUsersInLifetimeMarkers.push_back(II);
+            return true;
+          }
+          return false;
+        };
+
         for (User *U : VAddr->users()) {
           if (U == CI)
             continue;
@@ -262,6 +330,11 @@ bool VPOUtils::restoreOperands(Function &F) {
             assert(SI->getPointerOperand() == VAddr &&
                    "QUAL.OMP.OPERAND.ADDR addr operand is stored somewhere.");
             VAddrStore = SI; // A, B, D: store %y, %y.addr
+            continue;
+          }
+
+          if (VAddr->getType()->isOpaquePointerTy() &&
+              collectLifetimeMarkerUsers(U)) {
             continue;
           }
 
@@ -283,15 +356,7 @@ bool VPOUtils::restoreOperands(Function &F) {
                      "QUAL.OMP.OPERAND.ADDR addr operand is stored somewhere.");
               VAddrStoreCast = CastI;     // C, E, F: %y.addr.cast
               VAddrStore = CastUserStore; // C, E, F: store %y, %y.addr.cast
-            } else if (auto *IntrinsicUser =
-                           dyn_cast<IntrinsicInst>(CastUser)) {
-              Intrinsic::ID ID = IntrinsicUser->getIntrinsicID();
-              assert((ID == Intrinsic::lifetime_start ||
-                      ID == Intrinsic::lifetime_end) &&
-                     "Unexpected intrinsic using a cast on ADDR operand of "
-                     "'QUAL.OMP.OPERAND.ADDR'.");
-              (void)ID;
-              VAddrUsersInLifetimeMarkers.push_back(IntrinsicUser);
+            } else if (collectLifetimeMarkerUsers(CastUser)) {
               CastIsUsedInLifetimeMarkers = true;
             } else
               llvm_unreachable("Unexpected use of a cast on ADDR operand of "
@@ -361,6 +426,9 @@ bool VPOUtils::restoreOperands(Function &F) {
 ///   ENTRY_BB:                         |   ENTRY_BB:
 ///                                     |
 ///   %t = alloca i1                    |
+///   %t.cast = cast %t to i8*          |
+///   lifetime.begin(%t.cast)           |
+///                                     |
 ///   %1 = begin_region[...             |   %1 = begin_region[...]
 ///                     "JUMP.IF"       |
 ///                     (i1* %t)]       |
@@ -374,6 +442,10 @@ bool VPOUtils::restoreOperands(Function &F) {
 ///                                     |
 ///   END:                              |   END:
 ///   end_region(%1)                    |   end_region(%1)
+///                                     |
+///   %t.cast1 = cast %t to i8*         |
+///   lifetime.begin(%t.cast1)          |
+///                                     |
 /// \endcode
 ///
 /// Note: The function assumes that the conditional branch to the
@@ -424,6 +496,17 @@ bool VPOUtils::removeBranchesFromBeginToEndDirective(
         // instructions used for lifetime begin/end markers, that the inliner
         // may have inserted. We collect users that need to be deleted here.
         SmallVector<Instruction *, 4> VAddrUsersToDelete;
+        auto collectLifetimeMarkerUsers = [&](User *U) -> bool {
+          if (auto *II = dyn_cast<IntrinsicInst>(U)) {
+            assert((II->getIntrinsicID() == Intrinsic::lifetime_start ||
+                    II->getIntrinsicID() == Intrinsic::lifetime_end) &&
+                   "Unexpected intrinsic using the QUAL.OMP.JUMP.TO.END.IF "
+                   "operand (or a cast on it).");
+            VAddrUsersToDelete.push_back(II);
+            return true;
+          }
+          return false;
+        };
         bool DeleteVAddr = true;
 
         for (User *U : VAddr->users()) {
@@ -449,13 +532,14 @@ bool VPOUtils::removeBranchesFromBeginToEndDirective(
               VLoad = LI;
               VAddrUsersToDelete.push_back(VLoad);
             }
+          } else if (VAddr->getType()->isOpaquePointerTy() &&
+                     collectLifetimeMarkerUsers(U)) {
+            continue;
           } else if (auto *CastI = dyn_cast<CastInst>(U)) {
             for (User *CastUser : CastI->users()) {
-              assert(isa<IntrinsicInst>(CastUser) &&
-                     (cast<IntrinsicInst>(CastUser)->getIntrinsicID() ==
-                          Intrinsic::lifetime_start ||
-                      cast<IntrinsicInst>(CastUser)->getIntrinsicID() ==
-                          Intrinsic::lifetime_end) &&
+              if (collectLifetimeMarkerUsers(CastUser))
+                continue;
+              assert(false &&
                      "Unexpected cast on 'QUAL.OMP.JUMP.TO.END.IF' operand.");
               VAddrUsersToDelete.push_back(cast<Instruction>(CastUser));
             }

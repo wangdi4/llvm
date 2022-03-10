@@ -61,23 +61,20 @@ private:
   /// \param M the module which need to go over its local values.
   void updateDirectLocals(Module &M);
 
-  /// Goes over all local values used by the function and calculate the total
-  /// size needed to store all of them and add to that the max size of local
-  /// buffer needed by all called functions.
-  /// \param F the function which need to go over its local values.
-  /// \param maxDepth the maximum depth of recursive functions.
-  /// \returns The total size of local buffer needed by given function.
-  size_t calculateLocalsSize(Function *F, unsigned maxDepth);
+  /// calculate direct local sizes used by functions in the module.
+  void calculateDirectLocalsSize();
+
+  /// Iterate all functions in module by postorder traversal, and for each
+  /// function, add direct local sizes with the max size of local buffer needed
+  /// by all of callees.
+  void calculateLocalsSize(CallGraph *CG);
 
   /// A mapping between function pointer and the local buffer size that the
   /// function uses.
-  typedef std::map<const llvm::Function *, size_t> TLocalSizeMap;
+  typedef DenseMap<Function *, size_t> TLocalSizeMap;
 
   /// The llvm module this pass needs to update.
   Module *M;
-
-  /// Callgraph of current module.
-  CallGraph *CG;
 
   /// Map between function and the local values it uses directly.
   TUsedLocalsMap LocalUsageMap;
