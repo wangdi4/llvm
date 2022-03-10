@@ -770,6 +770,7 @@ __spirv_ocl_printf(const __attribute__((opencl_constant)) char *Format, ...);
 extern SYCL_EXTERNAL int __spirv_ocl_printf(const char *Format, ...);
 #endif
 
+<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 template <typename dataT, typename ReturnT, typename... ArgsT>
 extern SYCL_EXTERNAL size_t
@@ -787,6 +788,45 @@ template <typename dataT>
 extern SYCL_EXTERNAL void
 __spirv_TaskSequenceReleaseINTEL(dataT *Data) noexcept;
 /* end INTEL_CUSTOMIZATION */
+=======
+// Native builtin extension
+
+extern SYCL_EXTERNAL float __clc_native_tanh(float);
+extern SYCL_EXTERNAL __ocl_vec_t<float, 2>
+    __clc_native_tanh(__ocl_vec_t<float, 2>);
+extern SYCL_EXTERNAL __ocl_vec_t<float, 3>
+    __clc_native_tanh(__ocl_vec_t<float, 3>);
+extern SYCL_EXTERNAL __ocl_vec_t<float, 4>
+    __clc_native_tanh(__ocl_vec_t<float, 4>);
+extern SYCL_EXTERNAL __ocl_vec_t<float, 8>
+    __clc_native_tanh(__ocl_vec_t<float, 8>);
+extern SYCL_EXTERNAL __ocl_vec_t<float, 16>
+    __clc_native_tanh(__ocl_vec_t<float, 16>);
+
+extern SYCL_EXTERNAL _Float16 __clc_native_tanh(_Float16);
+extern SYCL_EXTERNAL __ocl_vec_t<_Float16, 2>
+    __clc_native_tanh(__ocl_vec_t<_Float16, 2>);
+extern SYCL_EXTERNAL __ocl_vec_t<_Float16, 3>
+    __clc_native_tanh(__ocl_vec_t<_Float16, 3>);
+extern SYCL_EXTERNAL __ocl_vec_t<_Float16, 4>
+    __clc_native_tanh(__ocl_vec_t<_Float16, 4>);
+extern SYCL_EXTERNAL __ocl_vec_t<_Float16, 8>
+    __clc_native_tanh(__ocl_vec_t<_Float16, 8>);
+extern SYCL_EXTERNAL __ocl_vec_t<_Float16, 16>
+    __clc_native_tanh(__ocl_vec_t<_Float16, 16>);
+
+extern SYCL_EXTERNAL _Float16 __clc_native_exp2(_Float16);
+extern SYCL_EXTERNAL __ocl_vec_t<_Float16, 2>
+    __clc_native_exp2(__ocl_vec_t<_Float16, 2>);
+extern SYCL_EXTERNAL __ocl_vec_t<_Float16, 3>
+    __clc_native_exp2(__ocl_vec_t<_Float16, 3>);
+extern SYCL_EXTERNAL __ocl_vec_t<_Float16, 4>
+    __clc_native_exp2(__ocl_vec_t<_Float16, 4>);
+extern SYCL_EXTERNAL __ocl_vec_t<_Float16, 8>
+    __clc_native_exp2(__ocl_vec_t<_Float16, 8>);
+extern SYCL_EXTERNAL __ocl_vec_t<_Float16, 16>
+    __clc_native_exp2(__ocl_vec_t<_Float16, 16>);
+>>>>>>> 250c498318af76ace9533cb669abfd79aaa0eeb3
 
 #else // if !__SYCL_DEVICE_ONLY__
 
