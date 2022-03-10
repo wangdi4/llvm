@@ -2940,7 +2940,7 @@ static bool isAllocSiteRemovable(Instruction *AI,
 #if INTEL_CUSTOMIZATION
   // 35044: If the alloc has a definition in the current compilation unit,
   // it's not a library function and may have user defined side effects.
-  if (auto *CI = dyn_cast<CallInst>(AI)) {
+  if (auto *CI = dyn_cast<CallBase>(AI)) {
     auto *F = CI->getCalledFunction();
     if (F && !F->isDeclaration())
       return false;

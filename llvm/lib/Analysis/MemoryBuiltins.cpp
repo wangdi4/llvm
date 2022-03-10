@@ -73,10 +73,6 @@ enum AllocType : uint8_t {
   CallocLike         = 1<<3, // allocates + bzero
   ReallocLike        = 1<<4, // reallocates
   StrDupLike         = 1<<5,
-#if INTEL_CUSTOMIZATION
-  FreeLike = 1 << 6,   // free
-  DeleteLike = 1 << 7, // delete
-#endif //INTEL_CUSTOMIZATION
   MallocOrOpNewLike  = MallocLike | OpNewLike,
   MallocOrCallocLike = MallocLike | OpNewLike | CallocLike | AlignedAllocLike,
   AllocLike          = MallocOrCallocLike | StrDupLike,
@@ -171,9 +167,6 @@ static const std::pair<LibFunc, AllocFnsTy> AllocationFnData[] = {
     {LibFunc_strdup,                            {StrDupLike,       1, -1, -1, -1, MallocFamily::Malloc}},
     {LibFunc_strndup,                           {StrDupLike,       2,  1, -1, -1, MallocFamily::Malloc}},
     {LibFunc___kmpc_alloc_shared,               {MallocLike,       1,  0, -1, -1, MallocFamily::KmpcAllocShared}},
-#if INTEL_CUSTOMIZATION
-    {LibFunc_free,                              {FreeLike,         1,  0, -1, -1, MallocFamily::Malloc}}, // free(i8*)
-#endif //INTEL_CUSTOMIZATION
     // TODO: Handle "int posix_memalign(void **, size_t, size_t)"
 };
 // clang-format on
@@ -393,16 +386,33 @@ bool llvm::isNewLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
   return getAllocationDataForFunction(F, OpNewLike, TLI).hasValue();
 }
 
-/// Tests if a function is a call or invoke to a library function that
-/// frees memory (e.g., free).
+/// Tests if a function is a call or invoke to free() (specifically).
+/// TODO: this matches current xmain behavior, but we could call
+/// isLibFreeFunction to match all free-like functions instead.
 bool llvm::isFreeFn(const Function *F, const TargetLibraryInfo *TLI) {
-  return getAllocationDataForFunction(F, FreeLike, TLI).hasValue();
+  LibFunc TLIFn;
+  if (!TLI || !TLI->getLibFunc(*F, TLIFn) || !TLI->has(TLIFn))
+    return false;
+  if (TLIFn != LibFunc_free)
+    return false;
+  // TLI does a very loose typecheck, make a stricter one here.
+  FunctionType *FTy = F->getFunctionType();
+  if (!FTy->getReturnType()->isVoidTy())
+    return false;
+  if (FTy->getNumParams() != 1)
+    return false;
+  if (FTy->getParamType(0) != Type::getInt8PtrTy(F->getContext()))
+    return false;
+  return true;
 }
 
-/// Tests if a function is a call or invoke to a library function that
-/// frees memory (e.g., delete).
+/// Tests if a function is a call or invoke to a function in the
+/// delete() family.
 bool llvm::isDeleteFn(const Function *F, const TargetLibraryInfo *TLI) {
-  return getAllocationDataForFunction(F, DeleteLike, TLI).hasValue();
+  LibFunc TLIFn;
+  if (!TLI || !TLI->getLibFunc(*F, TLIFn) || !TLI->has(TLIFn))
+    return false;
+  return isLibDeleteFunction(F, TLIFn);
 }
 
 #endif // INTEL_CUSTOMIZATION
@@ -554,32 +564,6 @@ Constant *llvm::getInitialValueOfAllocation(const CallBase *Alloc,
   return nullptr;
 }
 
-#if INTEL_CUSTOMIZATION
-/// isLibFreeFunction - Returns true if the function is a builtin free()
-bool llvm::isLibFreeFunction(const Function *F, const LibFunc TLIFn) {
-  if (isLibDeleteFunction(F, TLIFn))
-    return true;
-
-  unsigned ExpectedNumParams;
-  if (TLIFn == LibFunc_free)
-    ExpectedNumParams = 1;
-  else
-    return false;
-
-  // Check free prototype.
-  // FIXME: workaround for PR5130, this will be obsolete when a nobuiltin
-  // attribute will exist.
-  FunctionType *FTy = F->getFunctionType();
-  if (!FTy->getReturnType()->isVoidTy())
-    return false;
-  if (FTy->getNumParams() != ExpectedNumParams)
-    return false;
-  if (FTy->getParamType(0) != Type::getInt8PtrTy(F->getContext()))
-    return false;
-
-  return true;
-}
-
 struct FreeFnsTy {
   unsigned NumParams;
   // Name of default allocator function to group malloc/free calls by family
@@ -588,9 +572,7 @@ struct FreeFnsTy {
 
 // clang-format off
 static const std::pair<LibFunc, FreeFnsTy> FreeFnData[] = {
-#if !INTEL_CUSTOMIZATION
     {LibFunc_free,                               {1, MallocFamily::Malloc}},
-#endif
     {LibFunc_ZdlPv,                              {1, MallocFamily::CPPNew}},             // operator delete(void*)
     {LibFunc_ZdaPv,                              {1, MallocFamily::CPPNewArray}},        // operator delete[](void*)
     {LibFunc_msvc_delete_ptr32,                  {1, MallocFamily::MSVCNew}},            // operator delete(void*)
@@ -623,8 +605,13 @@ static const std::pair<LibFunc, FreeFnsTy> FreeFnData[] = {
 };
 // clang-format on
 
+// INTEL_CUSTOMIZATION
+// This looks up TLIFn in the table above, but does not do any
+// additional parameter type checking.
+// end INTEL_CUSTOMIZATION
 Optional<FreeFnsTy> getFreeFunctionDataForFunction(const Function *Callee,
                                                    const LibFunc TLIFn) {
+  (void)Callee; // INTEL
   const auto *Iter =
       find_if(FreeFnData, [TLIFn](const std::pair<LibFunc, FreeFnsTy> &P) {
         return P.first == TLIFn;
@@ -652,15 +639,26 @@ Optional<StringRef> llvm::getAllocationFamily(const Value *I,
   return None;
 }
 
-/// isLibDeleteFunction - Returns true if the function is a builtin delete()
-bool llvm::isLibDeleteFunction(const Function *F, const LibFunc TLIFn) {
+/// isLibFreeFunction - Returns true if the function is a builtin free()
+/// INTEL_CUSTOMIZATION
+/// Requires the Function object and its TLI lookup object.
+/// This returns true on all free-like functions in FreeFnData
+/// such as delete, etc. with the correct number of parms and at least one
+/// i8* parameter.
+/// end INTEL_CUSTOMIZATION
+bool llvm::isLibFreeFunction(const Function *F, const LibFunc TLIFn) {
   Optional<FreeFnsTy> FnData = getFreeFunctionDataForFunction(F, TLIFn);
+
   if (!FnData.hasValue())
     return false;
 
   // Check free prototype.
   // FIXME: workaround for PR5130, this will be obsolete when a nobuiltin
   // attribute will exist.
+  // INTEL_CUSTOMIZATION
+  // This code is needed because the TLI matching has a very loose
+  // parameter type check.
+  // end INTEL_CUSTOMIZATION
   FunctionType *FTy = F->getFunctionType();
   if (!FTy->getReturnType()->isVoidTy())
     return false;
@@ -672,12 +670,51 @@ bool llvm::isLibDeleteFunction(const Function *F, const LibFunc TLIFn) {
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+/// isLibDeleteFunction - Returns true if the function is a builtin delete().
+bool llvm::isLibDeleteFunction(const Function *F, const LibFunc TLIFn) {
+  // First check that the TLI matches and is in the delete "family".
+  Optional<FreeFnsTy> FnData = getFreeFunctionDataForFunction(F, TLIFn);
+
+  if (!FnData.hasValue())
+    return false;
+
+  auto isDeleteFamily = [&]() {
+    switch (FnData->Family) {
+    case MallocFamily::CPPNew:
+    case MallocFamily::CPPNewAligned:
+    case MallocFamily::CPPNewArray:
+    case MallocFamily::CPPNewArrayAligned:
+    case MallocFamily::MSVCNew:
+    case MallocFamily::MSVCArrayNew:
+      return true;
+    default:
+      return false;
+    }
+  };
+  if (!isDeleteFamily())
+    return false;
+
+  // Check the prototype.
+  FunctionType *FTy = F->getFunctionType();
+  if (!FTy->getReturnType()->isVoidTy())
+    return false;
+  if (FTy->getNumParams() != FnData->NumParams)
+    return false;
+  if (FTy->getParamType(0) != Type::getInt8PtrTy(F->getContext()))
+    return false;
+
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// isFreeCall - Returns non-null if the value is a call to the builtin free()
+/// INTEL: Also returns true for any free-like function.
 const CallInst *llvm::isFreeCall(const Value *I, const TargetLibraryInfo *TLI,
-                                 bool CheckNoBuiltin) {
+                                 bool CheckNoBuiltin) { // INTEL
   bool IsNoBuiltinCall;
   const Function *Callee = getCalledFunction(I, IsNoBuiltinCall);
-  if (Callee == nullptr || (CheckNoBuiltin && IsNoBuiltinCall))
+  if (Callee == nullptr || (CheckNoBuiltin && IsNoBuiltinCall)) // INTEL
     return nullptr;
 
   LibFunc TLIFn;
@@ -687,7 +724,9 @@ const CallInst *llvm::isFreeCall(const Value *I, const TargetLibraryInfo *TLI,
   return isLibFreeFunction(Callee, TLIFn) ? dyn_cast<CallInst>(I) : nullptr;
 }
 
-/// isDeleteCall - Returns non-null if the value is a call to the builtin delete()
+#if INTEL_CUSTOMIZATION
+/// isDeleteCall - Returns non-null if the value is a call to the builtin
+/// delete(). Must be in the delete "family".
 const CallInst *llvm::isDeleteCall(const Value *I, const TargetLibraryInfo *TLI,
                                    bool CheckNoBuiltin) {
   bool IsNoBuiltinCall;
