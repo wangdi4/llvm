@@ -48,11 +48,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
-<<<<<<< HEAD
-#include "llvm/Target/TargetMachine.h" // INTEL
-=======
 #include "llvm/CodeGen/StackMaps.h"
->>>>>>> a278250b0f85949d4f98e641786e5eb2b540c6b0
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
