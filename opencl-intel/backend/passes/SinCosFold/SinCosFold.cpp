@@ -64,6 +64,7 @@ namespace intel {
     }
 
     Value * val = iData->sinInst->getArgOperand(0);
+    assert(val != nullptr && "First argument operand is null!");
     Instruction* pEntryPoint = &*(iData->cosInst)->getParent()->getParent()->getEntryBlock().begin();
     AllocaInst * cos = new AllocaInst(val->getType(), 0, "cosPtr",pEntryPoint);
     cos->setDebugLoc(iData->cosInst->getDebugLoc());

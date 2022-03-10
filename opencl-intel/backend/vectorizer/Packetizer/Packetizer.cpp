@@ -1062,8 +1062,8 @@ void PacketizeFunction::packetizeInstruction(CmpInst *CI)
 {
   V_PRINT(packetizer, "\t\tCompare Instruction\n");
   V_ASSERT(CI && "instruction type dynamic cast failed");
-  Type * origInstType = CI->getOperand(0)->getType();
   V_ASSERT(2 == CI->getNumOperands() && "unexpected number of operands!");
+  Type *origInstType = CI->getOperand(0)->getType();
 
   // If instruction's return type is not primitive - cannot packetize
   if (!origInstType->isIntegerTy() && !origInstType->isFloatingPointTy()) {
