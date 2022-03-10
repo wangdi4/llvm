@@ -320,6 +320,21 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
     s_globalStateInitialized = true;
 }
 
+static void applyBuildProgramLLVMOptions(PassManagerType PMType) {
+  if (PMType != PM_LTO_LEGACY && PMType != PM_LTO_NEW)
+    return;
+
+  SmallVector<const char *, 4> Args;
+  Args.push_back("Compiler");
+
+  /// Disable unrolling with runtime trip count. It is harmful for
+  /// sycl_benchmarks/dnnbench-pooling.
+  Args.push_back("-unroll-runtime=false");
+
+  Args.push_back(nullptr);
+  cl::ParseCommandLineOptions(Args.size() - 1, Args.data());
+}
+
 /*
  * This is a static method which must be called from the
  * single threaded environment after all instanced of the
@@ -497,6 +512,8 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
     if (m_passManagerType == PM_NONE &&
         TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64)
       m_passManagerType = PM_LTO_LEGACY;
+
+    applyBuildProgramLLVMOptions(m_passManagerType);
 
     materializeSpirTriple(pModule);
 

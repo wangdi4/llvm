@@ -37,6 +37,7 @@
 #include "llvm/Transforms/Scalar/LICM.h"
 #include "llvm/Transforms/Scalar/LoopDeletion.h"
 #include "llvm/Transforms/Scalar/LoopIdiomRecognize.h"
+#include "llvm/Transforms/Scalar/LoopUnrollPass.h"
 #include "llvm/Transforms/Scalar/SROA.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
@@ -160,6 +161,16 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     if (Level != OptimizationLevel::O0 && Config->GetStreamingAlways())
       MPM.addPass(createModuleToFunctionPassAdaptor(AddNTAttrPass()));
     MPM.addPass(DPCPPKernelWGLoopCreatorPass());
+
+    // Can't run loop unroll between WGLoopCreator and LoopIdiom for scalar
+    // workload, which would can from LoopIdiom.
+    if (Level != OptimizationLevel::O0 && Config->GetTransposeSize() != 1) {
+      LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
+      UnrollOpts.setPartial(false);
+      UnrollOpts.setRuntime(true);
+      MPM.addPass(
+          createModuleToFunctionPassAdaptor(LoopUnrollPass(UnrollOpts)));
+    }
 
     addBarrierPasses(MPM, Level);
 
