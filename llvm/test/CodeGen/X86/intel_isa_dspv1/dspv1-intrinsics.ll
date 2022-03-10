@@ -21,3 +21,147 @@ define <8 x i16> @test_int_x86_dvpcr2bfrsw(<8 x i16> %A, <8 x i16> %B, <8 x i16>
   ret <8 x i16> %ret
 }
 declare <8 x i16> @llvm.x86.dvpcr2bfrsw(<8 x i16> %A, <8 x i16> %B, <8 x i16> %C, i32 %D)
+
+define <8 x i16> @test_int_x86_dvpcaddrotsraw(<8 x i16> %A, <8 x i16> %B) nounwind {
+; CHECK-LABEL: test_int_x86_dvpcaddrotsraw:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    dvpcaddrotsraw $127, %xmm1, %xmm0, %xmm0 # encoding: [0xc4,0xe3,0x7a,0xa3,0xc1,0x7f]
+; CHECK-NEXT:    retl # encoding: [0xc3]
+  %ret = call <8 x i16> @llvm.x86.dvpcaddrotsraw(<8 x i16> %A, <8 x i16> %B, i32 127)
+  ret <8 x i16> %ret
+}
+declare <8 x i16> @llvm.x86.dvpcaddrotsraw(<8 x i16> %A, <8 x i16> %B, i32 %C)
+
+define <8 x i16> @test_int_x86_dvpmuluwr(<8 x i16> %A, <8 x i16> %B) nounwind {
+; CHECK-LABEL: test_int_x86_dvpmuluwr:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    dvpmuluwr %xmm1, %xmm0, %xmm0 # encoding: [0xc4,0xe8,0xf8,0xc8,0xc1]
+; CHECK-NEXT:    retl # encoding: [0xc3]
+  %ret = call <8 x i16> @llvm.x86.dvpmuluwr(<8 x i16> %A, <8 x i16> %B)
+  ret <8 x i16> %ret
+}
+declare <8 x i16> @llvm.x86.dvpmuluwr(<8 x i16> %A, <8 x i16> %B)
+
+define <8 x i16> @test_int_x86_dvpmulwr(<8 x i16> %A, <8 x i16> %B) nounwind {
+; CHECK-LABEL: test_int_x86_dvpmulwr:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    dvpmulwr %xmm1, %xmm0, %xmm0 # encoding: [0xc4,0xe8,0xf9,0xc8,0xc1]
+; CHECK-NEXT:    retl # encoding: [0xc3]
+  %ret = call <8 x i16> @llvm.x86.dvpmulwr(<8 x i16> %A, <8 x i16> %B)
+  ret <8 x i16> %ret
+}
+declare <8 x i16> @llvm.x86.dvpmulwr(<8 x i16> %A, <8 x i16> %B)
+
+define <8 x i16> @test_int_x86_dvpmulws(<8 x i16> %A, <8 x i16> %B) nounwind {
+; CHECK-LABEL: test_int_x86_dvpmulws:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    dvpmulws %xmm1, %xmm0, %xmm0 # encoding: [0xc4,0xe8,0xf8,0xcd,0xc1]
+; CHECK-NEXT:    retl # encoding: [0xc3]
+  %ret = call <8 x i16> @llvm.x86.dvpmulws(<8 x i16> %A, <8 x i16> %B)
+  ret <8 x i16> %ret
+}
+declare <8 x i16> @llvm.x86.dvpmulws(<8 x i16> %A, <8 x i16> %B)
+
+define <8 x i16> @test_int_x86_dvpmulwfrs(<8 x i16> %A, <8 x i16> %B) nounwind {
+; CHECK-LABEL: test_int_x86_dvpmulwfrs:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    dvpmulwfrs %xmm1, %xmm0, %xmm0 # encoding: [0xc4,0xe8,0xfb,0xc9,0xc1]
+; CHECK-NEXT:    retl # encoding: [0xc3]
+  %ret = call <8 x i16> @llvm.x86.dvpmulwfrs(<8 x i16> %A, <8 x i16> %B)
+  ret <8 x i16> %ret
+}
+declare <8 x i16> @llvm.x86.dvpmulwfrs(<8 x i16> %A, <8 x i16> %B)
+
+define <4 x i32> @test_int_x86_dvpdpint4uud(<4 x i32> %A, <16 x i8> %B, <16 x i8> %C) nounwind {
+; CHECK-LABEL: test_int_x86_dvpdpint4uud:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    dvpdpint4uud %xmm2, %xmm1, %xmm0 # encoding: [0xc4,0xe8,0x70,0xc3,0xc2]
+; CHECK-NEXT:    retl # encoding: [0xc3]
+  %ret = call <4 x i32> @llvm.x86.dvpdpint4uud(<4 x i32> %A, <16 x i8> %B, <16 x i8> %C)
+  ret <4 x i32> %ret
+}
+declare <4 x i32> @llvm.x86.dvpdpint4uud(<4 x i32> %A, <16 x i8> %B, <16 x i8> %C)
+
+define <4 x i32> @test_int_x86_dvpdpint4ssd(<4 x i32> %A, <16 x i8> %B, <16 x i8> %C) nounwind {
+; CHECK-LABEL: test_int_x86_dvpdpint4ssd:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    dvpdpint4ssd %xmm2, %xmm1, %xmm0 # encoding: [0xc4,0xe8,0x73,0xc3,0xc2]
+; CHECK-NEXT:    retl # encoding: [0xc3]
+  %ret = call <4 x i32> @llvm.x86.dvpdpint4ssd(<4 x i32> %A, <16 x i8> %B, <16 x i8> %C)
+  ret <4 x i32> %ret
+}
+declare <4 x i32> @llvm.x86.dvpdpint4ssd(<4 x i32> %A, <16 x i8> %B, <16 x i8> %C)
+
+define <4 x i32> @test_int_x86_dvpdpint4usd(<4 x i32> %A, <16 x i8> %B, <16 x i8> %C) nounwind {
+; CHECK-LABEL: test_int_x86_dvpdpint4usd:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    dvpdpint4usd %xmm2, %xmm1, %xmm0 # encoding: [0xc4,0xe8,0x71,0xc3,0xc2]
+; CHECK-NEXT:    retl # encoding: [0xc3]
+  %ret = call <4 x i32> @llvm.x86.dvpdpint4usd(<4 x i32> %A, <16 x i8> %B, <16 x i8> %C)
+  ret <4 x i32> %ret
+}
+declare <4 x i32> @llvm.x86.dvpdpint4usd(<4 x i32> %A, <16 x i8> %B, <16 x i8> %C)
+
+define <4 x i32> @test_int_x86_dvpdpint4sud(<4 x i32> %A, <16 x i8> %B, <16 x i8> %C) nounwind {
+; CHECK-LABEL: test_int_x86_dvpdpint4sud:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    dvpdpint4sud %xmm2, %xmm1, %xmm0 # encoding: [0xc4,0xe8,0x72,0xc3,0xc2]
+; CHECK-NEXT:    retl # encoding: [0xc3]
+  %ret = call <4 x i32> @llvm.x86.dvpdpint4sud(<4 x i32> %A, <16 x i8> %B, <16 x i8> %C)
+  ret <4 x i32> %ret
+}
+declare <4 x i32> @llvm.x86.dvpdpint4sud(<4 x i32> %A, <16 x i8> %B, <16 x i8> %C)
+
+define <4 x i32> @test_int_x86_dvpcaddrotsrad(<4 x i32> %A, <4 x i32> %B) nounwind {
+; CHECK-LABEL: test_int_x86_dvpcaddrotsrad:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    dvpcaddrotsrad $127, %xmm1, %xmm0, %xmm0 # encoding: [0xc4,0xe3,0x79,0xa3,0xc1,0x7f]
+; CHECK-NEXT:    retl # encoding: [0xc3]
+  %ret = call <4 x i32> @llvm.x86.dvpcaddrotsrad(<4 x i32> %A, <4 x i32> %B, i32 127)
+  ret <4 x i32> %ret
+}
+declare <4 x i32> @llvm.x86.dvpcaddrotsrad(<4 x i32> %A, <4 x i32> %B, i32 %C)
+
+define <4 x i32> @test_int_x86_dvpunpckdq(<4 x i32> %A, <4 x i32> %B) nounwind {
+; CHECK-LABEL: test_int_x86_dvpunpckdq:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    dvpunpckdq $127, %xmm1, %xmm0, %xmm0 # encoding: [0xc4,0xe3,0x7a,0xa7,0xc1,0x7f]
+; CHECK-NEXT:    retl # encoding: [0xc3]
+  %ret = call <4 x i32> @llvm.x86.dvpunpckdq(<4 x i32> %A, <4 x i32> %B, i32 127)
+  ret <4 x i32> %ret
+}
+declare <4 x i32> @llvm.x86.dvpunpckdq(<4 x i32> %A, <4 x i32> %B, i32 %C)
+
+define <16 x i8> @test_int_x86_dvpmasklddqu(<16 x i8> %A, i8* %B) nounwind {
+; CHECK-LABEL: test_int_x86_dvpmasklddqu:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movl {{[0-9]+}}(%esp), %eax # encoding: [0x8b,0x44,0x24,0x04]
+; CHECK-NEXT:    dvpmasklddqu (%eax), %xmm0, %xmm0 # encoding: [0xc4,0xe8,0x7a,0xbc,0x00]
+; CHECK-NEXT:    retl # encoding: [0xc3]
+  %ret = call <16 x i8> @llvm.x86.dvpmasklddqu(<16 x i8> %A, i8* %B)
+  ret <16 x i8> %ret
+}
+declare <16 x i8> @llvm.x86.dvpmasklddqu(<16 x i8> %A, i8* %B)
+
+define void @test_int_x86_dvpmaskstdqu(i8* %A, <16 x i8> %B, <16 x i8> %C) nounwind {
+; CHECK-LABEL: test_int_x86_dvpmaskstdqu:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movl {{[0-9]+}}(%esp), %eax # encoding: [0x8b,0x44,0x24,0x04]
+; CHECK-NEXT:    dvpmaskstdqu %xmm1, %xmm0, (%eax) # encoding: [0xc4,0xe8,0x7a,0xbe,0x08]
+; CHECK-NEXT:    retl # encoding: [0xc3]
+  call void @llvm.x86.dvpmaskstdqu(i8* %A, <16 x i8> %B, <16 x i8> %C)
+  ret  void
+}
+declare void @llvm.x86.dvpmaskstdqu(i8* %A, <16 x i8> %B, <16 x i8> %C)
+
+define void @test_mm_dsp_ptestmxcsrflgs() nounwind {
+; CHECK-LABEL: test_mm_dsp_ptestmxcsrflgs:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    #APP
+; CHECK-NEXT:    dvptestmxcsrflgs # encoding: [0xc5,0xf9,0x77]
+; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    retl # encoding: [0xc3]
+  call void asm sideeffect "dvptestmxcsrflgs", "~{memory},~{dirflag},~{fpsr},~{flags}"()
+  ret void
+}
+
