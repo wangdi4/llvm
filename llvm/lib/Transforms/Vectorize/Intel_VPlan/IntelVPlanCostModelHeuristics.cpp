@@ -315,20 +315,10 @@ VPInstructionCost HeuristicSpillFill::operator()(
            (!VectorRegsPressure && !NeedsScalInst);
   };
   auto PHIs = (cast<VPBasicBlock>(OuterMostVPLoop->getHeader()))->getVPPhis();
+  int NumberPHIs = llvm::count_if(PHIs, [&](auto& PHI) {
+    return !SkipInst(&PHI);});
   int FreeVecHWRegsNum = CM->TTI.getNumberOfRegisters(
-      CM->TTI.getRegisterClassForType(VectorRegsPressure));
-
-  for (auto &Phi : PHIs) {
-    if (SkipInst(&Phi))
-      continue;
-
-    Type *Ty = Phi.getType();
-    if (VectorType::isValidElementType(Ty->getScalarType()))
-      FreeVecHWRegsNum -= CM->TTI.getNumberOfParts(getWidenedType(Ty, VF));
-    else
-      // The type will be serialized. Model as VF registers.
-      FreeVecHWRegsNum -= VF;
-  }
+    CM->TTI.getRegisterClassForType(VectorRegsPressure)) - NumberPHIs;
 
   for (const VPInstruction &VPInst : reverse(*VPBlock)) {
     if (SkipInst(&VPInst))
