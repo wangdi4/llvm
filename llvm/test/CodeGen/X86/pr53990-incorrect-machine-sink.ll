@@ -9,19 +9,35 @@ define void @test(i1 %c, i64* %p, i64* noalias %p2) nounwind {
 ; CHECK-NEXT:    pushq %rbp
 ; CHECK-NEXT:    pushq %r14
 ; CHECK-NEXT:    pushq %rbx
-; CHECK-NEXT:    movq %rdx, %rbx
-; CHECK-NEXT:    movl %edi, %r14d
-; CHECK-NEXT:    movq (%rsi), %rbp
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    movq %rdx, %r14
+; CHECK-NEXT:    movl %edi, %ebp
+; CHECK-NEXT:    movq (%rsi), %rbx
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    jmpq *.LJTI0_0(,%rax,8)
-; CHECK-NEXT:  .LBB0_1: # %split.3
-; CHECK-NEXT:    testb $1, %r14b
-; CHECK-NEXT:    je .LBB0_3
-; CHECK-NEXT:  # %bb.2: # %clobber
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    .p2align 4, 0x90
+; CHECK-NEXT:  .LBB0_1: # %split.1
+; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    jmpq *.LJTI0_0(,%rax,8)
+; CHECK-NEXT:  .LBB0_2: # %split.3
+; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    testb $1, %bpl
+; CHECK-NEXT:    je .LBB0_4
+; CHECK-NEXT:  # %bb.3: # %clobber
+; CHECK-NEXT:    # in Loop: Header=BB0_2 Depth=1
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    callq clobber@PLT
-; CHECK-NEXT:  .LBB0_3: # %sink
-; CHECK-NEXT:    movq %rbp, (%rbx)
-; CHECK-NEXT:  .LBB0_4: # %latch
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:  .LBB0_4: # %sink
+; CHECK-NEXT:    # in Loop: Header=BB0_2 Depth=1
+; CHECK-NEXT:    movq %rbx, (%r14)
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    jmpq *.LJTI0_0(,%rax,8)
+; CHECK-NEXT:  .LBB0_5: # %latch
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    jmpq *.LJTI0_0(,%rax,8)
