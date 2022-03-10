@@ -214,6 +214,12 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
   if (OptLevel > 0 && Config->GetStreamingAlways())
     MPM.add(createAddNTAttrLegacyPass());
   MPM.add(createDPCPPKernelWGLoopCreatorLegacyPass());
+
+  // Can't run loop unroll between WGLoopCreator and LoopIdiom for scalar
+  // workload, which can benefit from LoopIdiom.
+  if (OptLevel > 0 && Config->GetTransposeSize() != 1)
+    MPM.add(createLoopUnrollPass(OptLevel, false, false, 24, 0, 0, 1));
+
   // Resolve __intel_indirect_call for scalar kernels.
   MPM.add(createIndirectCallLoweringLegacyPass());
 
