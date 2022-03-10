@@ -33,12 +33,6 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
-#include "llvm/GenXIntrinsics/GenXMetadata.h"
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
-
 #include <cctype>
 #include <cstring>
 #include <unordered_map>
