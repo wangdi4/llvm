@@ -3990,7 +3990,7 @@ void Sema::AddAllowCpuFeaturesAttr(Decl *D, const AttributeCommonInfo &CI,
     const auto *P2CE = cast<ConstantExpr>(P2);
 
     if (!Context.isValidCpuFeaturesBitmask(
-            0, P2CE->getResultAsAPSInt().getZExtValue())) {
+            1, P2CE->getResultAsAPSInt().getZExtValue())) {
       Diag(P2->getExprLoc(), diag::err_allow_cpu_feature_invalid_bitmask);
       return;
     }

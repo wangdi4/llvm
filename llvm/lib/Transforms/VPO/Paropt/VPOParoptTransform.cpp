@@ -7195,7 +7195,10 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
     bool ForTask = W->getIsTask();
 
     for (FirstprivateItem *FprivI : FprivClause.items()) {
-      if (FprivI->getInMap()) {
+      // Skip explicit firstprivate codegen for some cases in offload
+      // compilation (but not in host compilation, because we need it for the
+      // fallback code to work correctly).
+      if (hasOffloadCompilation() && FprivI->getInMap()) {
         // In some cases, clang may put a variable both into map and
         // firstprivate clauses. Usually, in such cases, we do not need to
         // generate any for firstprivate clause, as all the data movement
