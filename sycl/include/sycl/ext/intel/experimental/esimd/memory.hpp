@@ -261,6 +261,15 @@ __ESIMD_API void nbarrier_signal(uint8_t barrier_id,
 
 /// @} sycl_esimd_memory_nbarrier
 
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+
+// Wait for source val to be ready
+__ESIMD_API void wait(uint16_t val) { __esimd_wait(val); }
+
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+/* INTEL_CUSTOMIZATION */
+
 /// @defgroup sycl_esimd_memory_lsc LSC memory access APIs.
 /// @ingroup sycl_esimd_memory
 
@@ -268,7 +277,19 @@ __ESIMD_API void nbarrier_signal(uint8_t barrier_id,
 /// @{
 
 namespace detail {
+
 // Compute the data size for 2d block load or store.
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+template <int NBlocks, int Height, int Width, bool Transposed>
+constexpr int get_block_2d_data_size() {
+  if (Transposed)
+    return detail::getNextPowerOf2<Height>() * Width * NBlocks;
+  return detail::getNextPowerOf2<Width>() * Height * NBlocks;
+}
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+
 template <typename T, int NBlocks, int Height, int Width, bool Transposed,
           bool Transformed>
 constexpr int get_lsc_block_2d_data_size() {
@@ -292,7 +313,9 @@ lsc_format_ret(__ESIMD_NS::simd<T1, N> Vals) {
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
 /// @defgroup sycl_esimd_2d_stateless 2D stateless functions
-/// \ingroup sycl_esimd
+/// @ingroup sycl_esimd
+
+/// @addtogroup sycl_esimd_2d_stateless
 /// @{
 /// 2D stateless block load.
 /// \param T is the element data type
@@ -318,21 +341,23 @@ lsc_format_ret(__ESIMD_NS::simd<T1, N> Vals) {
 ///
 template <typename T, int Width, int Height = 1, int NBlks = 1,
           bool Transposed = false, bool Transformed = false,
-          CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
+          cache_hint L1H = cache_hint::none, cache_hint L3H = cache_hint::none,
           int N = get_block_2d_data_size<NBlks, Height, Width, Transposed>()>
 ESIMD_INLINE SYCL_ESIMD_FUNCTION simd<T, N>
 load_2d_stateless(const T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
                   unsigned SurfacePitch, int X, int Y) {
   simd<T, N> oldDst;
   simd<unsigned int, 16> payload(0);
-  payload.template bit_cast_view<uint64_t>().template select<1, 1>(0) = (uint64_t)Ptr;
+  payload.template bit_cast_view<uint64_t>().template select<1, 1>(0) =
+      (uint64_t)Ptr;
   payload.template select<1, 1>(2) = SurfaceWidth;
   payload.template select<1, 1>(3) = SurfaceHeight;
   payload.template select<1, 1>(4) = SurfacePitch;
   payload.template select<1, 1>(5) = X;
   payload.template select<1, 1>(6) = Y;
   payload.template bit_cast_view<uchar>().template select<1, 1>(28) = Width - 1;
-  payload.template bit_cast_view<uchar>().template select<1, 1>(29) = Height - 1;
+  payload.template bit_cast_view<uchar>().template select<1, 1>(29) =
+      Height - 1;
   uint exDesc = 0x0;
   uint desc = 0x28A0403;
   constexpr uchar execSize = 0x0;
@@ -365,21 +390,23 @@ load_2d_stateless(const T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
 /// \param Data is the data to be stored.
 ///
 template <typename T, int Width, int Height = 1,
-          CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
+          cache_hint L1H = cache_hint::none, cache_hint L3H = cache_hint::none,
           int N = get_block_2d_data_size</*NBlks*/ 1, Height, Width,
                                          /*Transposed*/ false>()>
 ESIMD_INLINE SYCL_ESIMD_FUNCTION void
 store_2d_stateless(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
                    unsigned SurfacePitch, int X, int Y, simd<T, N> Data) {
   simd<unsigned int, 16> payload = 0;
-  payload.template bit_cast_view<uint64_t>().template select<1, 1>(0) = (uint64_t)Ptr;
+  payload.template bit_cast_view<uint64_t>().template select<1, 1>(0) =
+      (uint64_t)Ptr;
   payload.template select<1, 1>(2) = SurfaceWidth;
   payload.template select<1, 1>(3) = SurfaceHeight;
   payload.template select<1, 1>(4) = SurfacePitch;
   payload.template select<1, 1>(5) = X;
   payload.template select<1, 1>(6) = Y;
   payload.template bit_cast_view<uchar>().template select<1, 1>(28) = Width - 1;
-  payload.template bit_cast_view<uchar>().template select<1, 1>(29) = Height - 1;
+  payload.template bit_cast_view<uchar>().template select<1, 1>(29) =
+      Height - 1;
   uint exDesc = 0x0;
   uint desc = 0x2040407;
   constexpr uchar execSize = 0x0;
@@ -390,6 +417,8 @@ store_2d_stateless(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
   raw_sends_store(payload, Data, exDesc, desc, execSize, sfid, numSrc0,
                   numSrc1);
 }
+
+/// @} sycl_esimd_2d_stateless
 
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */

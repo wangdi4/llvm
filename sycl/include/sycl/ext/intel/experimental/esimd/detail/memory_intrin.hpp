@@ -267,6 +267,9 @@ __ESIMD_INTRIN void __esimd_raw_send_nbarrier_signal(
 // Wait for val to be ready
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void __esimd_wait(uint16_t val);
 
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+
 /// SLM gather.
 /// Supported platforms: DG2, PVC
 ///
@@ -1013,9 +1016,5 @@ __ESIMD_INTRIN void __esimd_lsc_fence(__ESIMD_DNS::simd_mask_storage_t<N> pred)
   throw cl::sycl::feature_not_supported();
 }
 #endif // __SYCL_DEVICE_ONLY__
-
-
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
 
 /// @endcond ESIMD_DETAIL

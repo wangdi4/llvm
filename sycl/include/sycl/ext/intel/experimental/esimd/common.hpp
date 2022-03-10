@@ -76,9 +76,6 @@ enum class argument_type {
 };
 
 
-// DO NOT MODIFY THE FOLLOWING ENCODING
-/// The scope that lsc_fence operation should apply to
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
 /// The scope that lsc_fence operation should apply to
 /// Supported platforms: DG2, PVC
 enum class lsc_scope : uint8_t {
@@ -91,9 +88,6 @@ enum class lsc_scope : uint8_t {
   sysacq = 6, /// the entire system memory space with system-acquire semantics
 };
 
-// DO NOT MODIFY THE FOLLOWING ENCODING
-/// The lsc_fence operation to apply to caches
-/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
 /// The lsc_fence operation to apply to caches
 /// Supported platforms: DG2, PVC
 enum class lsc_fence_op : uint8_t {
@@ -127,25 +121,6 @@ enum class lsc_data_size : uint8_t {
   u16u32h = 7, /// load 16b into high 16 of each 32b; store the high 16
 };
 
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-
-// TODO FIXME Remove after embargo API open-source
-// // TODO Cache hints APIs are being reworked.
-// // L1 or L3 cache hint kinds.
-enum class CacheHint : uint8_t {
-  None = 0,
-  Uncached = 1,
-  Cached = 2,
-  WriteBack = 3,
-  WriteThrough = 4,
-  Streaming = 5,
-  ReadInvalidate = 6
-};
-
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
-
 namespace detail {
 /// LSC atomic operations op codes
 enum class lsc_atomic_op : uint8_t {
@@ -170,7 +145,6 @@ enum class lsc_atomic_op : uint8_t {
   bit_xor = 0x1a, // logical (bitwise) XOR
 };
 
-// DO NOT MODIFY THE FOLLOWING ENCODING
 enum class lsc_vector_size : uint8_t {
   n1 = 1,
   n2 = 2,
@@ -182,7 +156,6 @@ enum class lsc_vector_size : uint8_t {
   n64 = 8,
 };
 
-// DO NOT MODIFY THE FOLLOWING ENCODING
 enum class lsc_data_order : uint8_t {
   nontranspose = 1,
   transpose = 2,
