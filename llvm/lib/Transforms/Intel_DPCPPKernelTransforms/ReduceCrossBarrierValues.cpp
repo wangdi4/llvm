@@ -219,6 +219,7 @@ private:
 
     for (auto &BB : *F) {
       auto *HeaderNode = DT->getNode(&BB);
+      assert(HeaderNode != nullptr && "Invalid header node!");
       BasicBlock *Header = HeaderNode->getBlock();
       while (!Headers.contains(Header)) {
         HeaderNode = HeaderNode->getIDom();

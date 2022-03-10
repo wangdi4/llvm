@@ -245,8 +245,13 @@ bool ResolveSubGroupWICallPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
 
     Value *ArgVF = nullptr;
     if (Kernels.count(Caller)) {
+      assert(KernelToVecInfoMap.count(Caller) != 0 &&
+             "No map for the kernel to vectorizer information!");
       ArgVF = KernelToVecInfoMap[Caller].first;
     } else if (EarlyExitFuncToKernelMap.count(Caller)) {
+      assert(KernelToVecInfoMap.count(EarlyExitFuncToKernelMap[Caller]) != 0 &&
+             "No map for the kernel to vectorizer information!");
+
       ArgVF = KernelToVecInfoMap[EarlyExitFuncToKernelMap[Caller]].first;
     } else {
       ArgVF = &*(Caller->arg_end() - 1);
