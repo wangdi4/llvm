@@ -20,25 +20,17 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-// Utility functions used for implementing Explicit SIMD APIs.
+// Utility functions used for implementing experimental Explicit SIMD APIs.
 //===----------------------------------------------------------------------===//
 
 #pragma once
 
 /// @cond ESIMD_DETAIL
 
-#include <CL/sycl/detail/type_traits.hpp>
-#include <sycl/ext/intel/experimental/esimd/detail/types.hpp>
-
-#include <type_traits>
-
-#ifdef __SYCL_DEVICE_ONLY__
-#define __ESIMD_INTRIN SYCL_EXTERNAL SYCL_ESIMD_FUNCTION
-#else
-#define __ESIMD_INTRIN inline
-#endif // __SYCL_DEVICE_ONLY__
+#include <sycl/ext/intel/esimd/detail/util.hpp>
 
 __SYCL_INLINE_NAMESPACE(cl) {
+<<<<<<< HEAD
 namespace sycl {
 namespace ext {
 namespace intel {
@@ -106,12 +98,16 @@ static ESIMD_INLINE constexpr bool isPowerOf2(unsigned int n,
                                               unsigned int limit) {
   return (n & (n - 1)) == 0 && n <= limit;
 }
+=======
+namespace __ESIMD_EDNS {
+>>>>>>> c557d7884625226508591abb062cde4edfff8e24
 
 template <unsigned int N, unsigned int M>
 constexpr unsigned int roundUpNextMultiple() {
   return ((N + M - 1) / M) * M;
 }
 
+<<<<<<< HEAD
 /// type traits
 template <typename T> struct is_esimd_vector : public std::false_type {};
 
@@ -157,6 +153,8 @@ template <typename T, int N> struct is_hf_type<simd<T, N>> {
   static const bool value = is_hf_type<T>::value;
 };
 
+=======
+>>>>>>> c557d7884625226508591abb062cde4edfff8e24
 /// Compile-time checks if first template parameter is equal for any other
 template <typename...> struct is_one_of {
   static constexpr bool value = false;
@@ -187,6 +185,7 @@ struct is_one_of_enum<enumClass, Checked, First, Else...> {
 template <typename enumClass, enumClass... T>
 inline constexpr bool is_one_of_enum_v = is_one_of_enum<enumClass, T...>::value;
 
+<<<<<<< HEAD
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
@@ -246,6 +245,9 @@ public:
 } // namespace intel
 } // namespace ext
 } // namespace sycl
+=======
+} // namespace __ESIMD_EDNS
+>>>>>>> c557d7884625226508591abb062cde4edfff8e24
 } // __SYCL_INLINE_NAMESPACE(cl)
 
 /// @endcond ESIMD_DETAIL
