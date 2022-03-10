@@ -285,6 +285,12 @@ private:
                              BasicBlockToInstructionMapVectorTy &BBUsers);
 
 private:
+  void calculateDirectPrivateSize(
+      Module &M, FuncSet &FnsWithSync,
+      DenseMap<Function *, size_t> &DirectPrivateSizeMap);
+  void calculatePrivateSize(Module &M, FuncSet &FnsWithSync,
+                            DenseMap<Function *, size_t> &PrivateSizeMap);
+
   static const unsigned MaxNumDims = 3;
 
   const DataLayout *DL;

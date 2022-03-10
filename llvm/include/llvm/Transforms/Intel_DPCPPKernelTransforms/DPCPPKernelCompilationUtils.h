@@ -647,6 +647,10 @@ CallInst *createSubGroupInsertRowSliceToMatrixCall(Value *RowSliceId,
                                                    Instruction *IP,
                                                    const Twine &Name = "");
 
+void calculateMemorySizeWithPostOrderTraversal(
+    CallGraph &CG, DenseMap<Function *, size_t> &FnDirectSize,
+    DenseMap<Function *, size_t> &FnSize);
+
 } // namespace DPCPPKernelCompilationUtils
 } // namespace llvm
 
