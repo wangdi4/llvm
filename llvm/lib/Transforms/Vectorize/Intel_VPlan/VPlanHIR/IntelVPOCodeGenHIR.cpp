@@ -5986,21 +5986,14 @@ void VPOCodeGenHIR::setBoundsForVectorLoop(VPLoop *VPLp) {
   // Upper bound for the vectorized HLLoop is obtained from the vector-tc
   // VPInstruction that is generated for every vectorized VPLoop in its
   // corresponding preheader block. Lower bound is obtained from the
-  // induction-init instruction in preheader. These 2 instructions are obtained
-  // by following the def-use chain starting from the loop latch's CondBit.
+  // induction-init instruction in preheader.
   VPValue *VectorTC;
-  VPCmpInst *LatchCond;
-  std::tie(VectorTC, LatchCond) = VPLp->getLoopUpperBound();
-
+  std::tie(VectorTC, std::ignore) = VPLp->getLoopUpperBound();
   assert(VectorTC && isa<VPVectorTripCountCalculation>(VectorTC) &&
          "Vector TC computation not found vector loop.");
 
-  unsigned AddOpIdx = LatchCond->getOperand(0) == VectorTC ? 1 : 0;
-  VPInstruction *IVAdd = cast<VPInstruction>(LatchCond->getOperand(AddOpIdx));
-  unsigned PhiOpIdx = isa<VPInductionInitStep>(IVAdd->getOperand(0)) ? 1 : 0;
-  VPPHINode *IVPhi = cast<VPPHINode>(IVAdd->getOperand(PhiOpIdx));
-  assert(IVPhi->getParent() == VPLp->getHeader() &&
-         "Header PHI expected to be used in IVAdd.");
+  assert(VPLoopIVPhiMap.count(VPLp) && "IV Phi not found for vectorized loop.");
+  auto *IVPhi = VPLoopIVPhiMap[VPLp];
   auto IVInitIt = llvm::find_if(
       IVPhi->operands(), [](VPValue *Op) { return isa<VPInductionInit>(Op); });
 
