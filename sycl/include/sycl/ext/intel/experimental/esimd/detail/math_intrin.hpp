@@ -159,10 +159,6 @@ __esimd_dpasw(__ESIMD_DNS::vector_type_t<T, N> src0,
               __ESIMD_DNS::vector_type_t<T2, N2> src2, int dpas_info);
 
 template <typename T, typename T1, typename T2, int N, int N1, int N2>
-<<<<<<< HEAD
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<T, N>
-__esimd_dpasw2(__SEIEED::vector_type_t<T1, N1> src1,
-               __SEIEED::vector_type_t<T2, N2> src2, int dpas_info);
 
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
@@ -199,104 +195,9 @@ __esimd_srnd(__SEIEED::vector_type_t<SrcType, N> src1,
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
-#ifdef __SYCL_DEVICE_ONLY__
-
-// lane-id for reusing scalar math functions.
-// Depending upon the SIMT mode(8/16/32), the return value is
-// in the range of 0-7, 0-15, or 0-31.
-__ESIMD_INTRIN int __esimd_lane_id();
-
-// Wrapper for designating a scalar region of code that will be
-// vectorized by the backend compiler.
-#define __ESIMD_SIMT_BEGIN(N, lane)                                            \
-  [&]() SYCL_ESIMD_FUNCTION ESIMD_NOINLINE                                     \
-      [[intel::sycl_esimd_vectorize(N)]] {                                     \
-    int lane = __esimd_lane_id();
-#define __ESIMD_SIMT_END                                                       \
-  }                                                                            \
-  ();
-
-#define ESIMD_MATH_INTRINSIC_IMPL(type, func)                                  \
-  template <int SZ>                                                            \
-  __ESIMD_INTRIN __ESIMD_raw_vec_t(type, SZ)                                   \
-      ocl_##func(__ESIMD_raw_vec_t(type, SZ) src0) {                           \
-    __ESIMD_raw_vec_t(type, SZ) retv;                                          \
-    __ESIMD_SIMT_BEGIN(SZ, lane)                                               \
-    retv[lane] = sycl::func(src0[lane]);                                       \
-    __ESIMD_SIMT_END                                                           \
-    return retv;                                                               \
-  }
-
-__SYCL_INLINE_NAMESPACE(cl) {
-namespace sycl {
-namespace ext {
-namespace intel {
-namespace experimental {
-namespace esimd {
-namespace detail {
-// TODO support half vectors in std sycl math functions.
-ESIMD_MATH_INTRINSIC_IMPL(float, sin)
-ESIMD_MATH_INTRINSIC_IMPL(float, cos)
-ESIMD_MATH_INTRINSIC_IMPL(float, exp)
-ESIMD_MATH_INTRINSIC_IMPL(float, log)
-} // namespace detail
-} // namespace esimd
-} // namespace experimental
-} // namespace intel
-} // namespace ext
-} // namespace sycl
-} // __SYCL_INLINE_NAMESPACE(cl)
-
-#undef __ESIMD_SIMT_BEGIN
-#undef __ESIMD_SIMT_END
-#undef ESIMD_MATH_INTRINSIC_IMPL
-
-#else // __SYCL_DEVICE_ONLY__
-
-// Typical implementation of a generic intrinsic supporting non-standard
-// types (half, bfloat*,...) should be like this:
-// - user type information is encoded in template parameters, but function
-//   parameters and return type are raw types
-// - before use, parameters are converted to EnclosingCppT
-// - return value is calculated using the converted parameters,
-//   but before return it is converted back to the user type and is bitcast
-//   (that's what .data() basically does) to the raw type
-//
-// template <class T, int SZ>
-// __ESIMD_INTRIN __ESIMD_raw_vec_t(T, SZ) __esimd_intrin(
-//   __ESIMD_raw_vec_t(T, SZ) raw_src0, __ESIMD_raw_vec_t(T, SZ) raw_src1) {
-//
-//   simd<T, SZ> ret;
-//   simd<T, SZ> src0{raw_src0};
-//   simd<T, SZ> src1{raw_src1};
-//   ret = function_of(src0, src1);
-//   return ret.data();
-//
-// TODO Not following this approach in some of the intrinsics, and performing
-// calculations on the raw type will lead to runtime compuation error. A guard
-//   if (__SEIEED::is_wrapper_elem_type_v<T>) __ESIMD_UNSUPPORTED_ON_HOST;
-// is temporarily used for now, until wrapper types are supported by these
-// intrinsics.
-
-template <typename T>
-inline T extract(const uint32_t &width, const uint32_t &offset, uint32_t src,
-                 const uint32_t &sign_extend) {
-  uint32_t mask = ((1 << width) - 1) << offset;
-  T ret = (src & mask) >> offset;
-  if (sign_extend) {
-    if ((src >> (offset + width - 1)) & 0x1) {
-      uint32_t sign_extend = ((1 << (32 - width)) - 1) << width;
-      ret = ret | sign_extend;
-    }
-  }
-
-  return ret;
-}
-=======
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<T, N>
 __esimd_dpasw2(__ESIMD_DNS::vector_type_t<T1, N1> src1,
                __ESIMD_DNS::vector_type_t<T2, N2> src2, int dpas_info);
->>>>>>> c557d7884625226508591abb062cde4edfff8e24
 
 #ifndef __SYCL_DEVICE_ONLY__
 

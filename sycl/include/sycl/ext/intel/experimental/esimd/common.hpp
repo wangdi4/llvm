@@ -41,7 +41,6 @@ namespace __ESIMD_ENS {
 /// @addtogroup sycl_esimd_core
 /// @{
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 #ifdef __SYCL_DEVICE_ONLY__
@@ -57,25 +56,6 @@ using bfloat16 = uint16_t;
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
-using uchar = unsigned char;
-using ushort = unsigned short;
-using uint = unsigned int;
-
-/// Gen hardware supports applying saturation to results of certain operations.
-/// This type tag represents "saturation on" behavior.
-struct saturation_on_tag : std::true_type {};
-
-/// This type tag represents "saturation off" behavior.
-struct saturation_off_tag : std::false_type {};
-
-/// Type tag object representing "saturation off" behavior.
-static inline constexpr saturation_off_tag saturation_off{};
-
-/// Type tag object representing "saturation on" behavior.
-static inline constexpr saturation_on_tag saturation_on{};
-
-=======
->>>>>>> c557d7884625226508591abb062cde4edfff8e24
 enum class argument_type {
   U1 = 0,   // unsigned 1 bit
   S1 = 1,   // signed 1 bit
@@ -95,115 +75,10 @@ enum class argument_type {
   TF32 = 11 // tensorfloat 32
 };
 
-<<<<<<< HEAD
-/// Represents a pixel's channel.
-enum class rgba_channel : uint8_t { R, G, B, A };
-
-/// Surface index type. Surface is an internal representation of a memory block
-/// addressable by GPU in "stateful" memory model, and each surface is
-/// identified by its "binding table index" - surface index.
-using SurfaceIndex = unsigned int;
-
-namespace detail {
-template <rgba_channel Ch>
-static inline constexpr uint8_t ch = 1 << static_cast<int>(Ch);
-static inline constexpr uint8_t chR = ch<rgba_channel::R>;
-static inline constexpr uint8_t chG = ch<rgba_channel::G>;
-static inline constexpr uint8_t chB = ch<rgba_channel::B>;
-static inline constexpr uint8_t chA = ch<rgba_channel::A>;
-
-// Shared Local Memory Binding Table Index (aka surface index).
-static inline constexpr SurfaceIndex SLM_BTI = 254;
-static inline constexpr SurfaceIndex INVALID_BTI =
-    static_cast<SurfaceIndex>(-1);
-} // namespace detail
-
-/// Represents a pixel's channel mask - all possible combinations of enabled
-/// channels.
-enum class rgba_channel_mask : uint8_t {
-  R = detail::chR,
-  G = detail::chG,
-  GR = detail::chG | detail::chR,
-  B = detail::chB,
-  BR = detail::chB | detail::chR,
-  BG = detail::chB | detail::chG,
-  BGR = detail::chB | detail::chG | detail::chR,
-  A = detail::chA,
-  AR = detail::chA | detail::chR,
-  AG = detail::chA | detail::chG,
-  AGR = detail::chA | detail::chG | detail::chR,
-  AB = detail::chA | detail::chB,
-  ABR = detail::chA | detail::chB | detail::chR,
-  ABG = detail::chA | detail::chB | detail::chG,
-  ABGR = detail::chA | detail::chB | detail::chG | detail::chR,
-};
-
-constexpr int is_channel_enabled(rgba_channel_mask M, rgba_channel Ch) {
-  int Pos = static_cast<int>(Ch);
-  return (static_cast<int>(M) & (1 << Pos)) >> Pos;
-}
-
-constexpr int get_num_channels_enabled(rgba_channel_mask M) {
-  return is_channel_enabled(M, rgba_channel::R) +
-         is_channel_enabled(M, rgba_channel::G) +
-         is_channel_enabled(M, rgba_channel::B) +
-         is_channel_enabled(M, rgba_channel::A);
-}
-
-/// Represents an atomic operation. Operations always return the old value(s) of
-/// the target memory location(s) as it was before the operation was applied.
-/// Each operation is annotated with a pseudocode illustrating its semantics,
-/// \c addr is a memory address (one of the many, as the atomic operation is
-/// vector) the operation is applied at, \c src0 is its first argumnet,
-/// \c src1 - second.
-enum class atomic_op : uint8_t {
-  /// Addition: <code>*addr = *addr + src0</code>.
-  add = 0x0,
-  /// Subtraction: <code>*addr = *addr - src0</code>.
-  sub = 0x1,
-  /// Increment: <code>*addr = *addr + 1</code>.
-  inc = 0x2,
-  /// Decrement: <code>*addr = *addr - 1</code>.
-  dec = 0x3,
-  /// Minimum: <code>*addr = min(*addr, src0)</code>.
-  min = 0x4,
-  /// Maximum: <code>*addr = max(*addr, src0)</code>.
-  max = 0x5,
-  /// Exchange. <code>*addr == src0;</code>
-  xchg = 0x6,
-  /// Compare and exchange. <code>if (*addr == src0) *sddr = src1;</code>
-  cmpxchg = 0x7,
-  /// Bit \c and: <code>*addr = *addr & src0</code>.
-  bit_and = 0x8,
-  /// Bit \c or: <code>*addr = *addr | src0</code>.
-  bit_or = 0x9,
-  /// Bit \c xor: <code>*addr = *addr | src0</code>.
-  bit_xor = 0xa,
-  /// Minimum (signed integer): <code>*addr = min(*addr, src0)</code>.
-  minsint = 0xb,
-  /// Maximum (signed integer): <code>*addr = max(*addr, src0)</code>.
-  maxsint = 0xc,
-  /// Minimum (floating point): <code>*addr = min(*addr, src0)</code>.
-  fmax = 0x10,
-  /// Maximum (floating point): <code>*addr = max(*addr, src0)</code>.
-  fmin = 0x11,
-  /// Compare and exchange (floating point).
-  /// <code>if (*addr == src0) *addr = src1;</code>
-  fcmpwr = 0x12,
-  fadd = 0x13,
-  fsub = 0x14,
-  load = 0x15,
-  store = 0x16,
-  /// Decrement: <code>*addr = *addr - 1</code>. The only operation which
-  /// returns new value of the destination rather than old.
-  predec = 0xff,
-};
 
 // DO NOT MODIFY THE FOLLOWING ENCODING
 /// The scope that lsc_fence operation should apply to
 /// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
-=======
->>>>>>> c557d7884625226508591abb062cde4edfff8e24
 /// The scope that lsc_fence operation should apply to
 /// Supported platforms: DG2, PVC
 enum class lsc_scope : uint8_t {

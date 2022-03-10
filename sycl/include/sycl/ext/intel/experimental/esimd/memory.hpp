@@ -29,17 +29,11 @@
 #include <sycl/ext/intel/experimental/esimd/common.hpp>
 #include <sycl/ext/intel/experimental/esimd/detail/memory_intrin.hpp>
 #include <sycl/ext/intel/experimental/esimd/detail/util.hpp>
-<<<<<<< HEAD
-#include <sycl/ext/intel/experimental/esimd/simd.hpp>
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 #include <sycl/ext/intel/experimental/esimd/simd_view.hpp>
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
-
-#include <cstdint>
-=======
->>>>>>> c557d7884625226508591abb062cde4edfff8e24
 
 __SYCL_INLINE_NAMESPACE(cl) {
 namespace __ESIMD_ENS {
