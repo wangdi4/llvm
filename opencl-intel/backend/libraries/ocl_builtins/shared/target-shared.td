@@ -2,6 +2,7 @@ include "GENERIC/opencl-builtin.td"
 include "GENERIC/opencl-v1.2.td"
 include "GENERIC/opencl-v2.0.td"
 include "GENERIC/ll_intrinsics.td"
+include "GENERIC/sycl-spirv.td"
 include "shared/opencl-pipes.td"
 
 class Generic : TargetImpl {
@@ -19,6 +20,10 @@ include "GENERIC/common_shared.td"
 include "GENERIC/geometric.td"
 include "GENERIC/relational_shared.td"
 }
+
+defset list<OclBuiltinImpl> shared_impls = {
+include "shared/spirv_impl.td"
+} // defset shared_impls
 
 class Shared : Generic {
 let NativeTypes = [v16i8, v16u8, v8i16, v8u16, v4i32, v4u32, v2i64, v2u64, v4f32, v2f64];
@@ -40,6 +45,8 @@ include "shared/common.td"
 include "shared/geometric.td"
 include "shared/relational.td"
 include "shared/pipes.td"
+
+let Impls = shared_impls;
 }
 
 def target : Shared {
