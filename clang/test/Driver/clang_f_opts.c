@@ -613,5 +613,7 @@
 // RUN: %clang -### -S -fjmc -g -fno-jmc -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix=CHECK_NOJMC %s
 // CHECK_JMC_WARN: -fjmc requires debug info. Use -g or debug options that enable debugger's stepping function; option ignored
 // CHECK_JMC_WARN_NOT_ELF: -fjmc works only for ELF; option ignored
-// CHECK_NOJMC-NOT: -fjmc
+// INTEL_CUSTOMIZATION
+// CHECK_NOJMC-NOT: "-fjmc"
+// end INTEL_CUSTOMIZATION
 // CHECK_JMC: -fjmc
