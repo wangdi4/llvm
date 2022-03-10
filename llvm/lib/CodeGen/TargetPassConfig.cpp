@@ -52,6 +52,7 @@
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h" //INTEL
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
+#include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include <cassert>
 #include <string>
 

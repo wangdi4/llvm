@@ -33,21 +33,26 @@
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/SlotIndexes.h"
-#include "llvm/CodeGen/StackMaps.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/CodeGen/VirtRegMap.h"
 #include "llvm/Config/llvm-config.h"
+#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Statepoint.h"
 #include "llvm/MC/LaneBitmask.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/BlockFrequency.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+<<<<<<< HEAD
 #include "llvm/Target/TargetMachine.h" // INTEL
+=======
+#include "llvm/CodeGen/StackMaps.h"
+>>>>>>> a278250b0f85949d4f98e641786e5eb2b540c6b0
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
