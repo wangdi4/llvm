@@ -71,6 +71,7 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/Timer.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h" // INTEL
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
