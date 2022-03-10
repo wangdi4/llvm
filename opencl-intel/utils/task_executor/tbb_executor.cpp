@@ -582,11 +582,11 @@ bool TBBTaskExecutor::IsMaster() const
 
 unsigned int TBBTaskExecutor::GetPosition( unsigned int level ) const
 {
-    if (level > TE_MAX_LEVELS_COUNT)
-    {
-        assert( false && "Cannot return thread position for the level more then supported" );
-        return TE_UNKNOWN;
-    }
+  if (level >= TE_MAX_LEVELS_COUNT) {
+    assert(false &&
+           "Cannot return thread position for the level more then supported");
+    return TE_UNKNOWN;
+  }
 
     TBB_PerActiveThreadData* tls = m_threadManager.GetCurrentThreadDescriptor();
 

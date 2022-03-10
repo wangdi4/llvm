@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -140,6 +140,8 @@ OclType::getCType(const OclBuiltin* OB, bool NoAS) const
 std::string
 OclType::getNativeCType(const OclBuiltin* OB) const
 {
+  assert(m_DB.getOclType(m_DB.getNextNativeType(m_Name)) != nullptr &&
+         "Invalid type found!");
   return m_DB.getOclType(m_DB.getNextNativeType(m_Name))->getCType(OB);
 }
 
@@ -322,8 +324,8 @@ OclGenType::OclGenType(const OclBuiltinDB& DB, const Record* R)
   for (ListInit::const_iterator I = Tin->begin(),
                                 O = Tout->begin(),
                                 E = Tin->end(); I != E; ++I, ++O) {
-    const std::string& istr = std::string(dyn_cast<StringInit>(*I)->getValue());
-    const std::string& ostr = std::string(dyn_cast<StringInit>(*O)->getValue());
+    const std::string &istr = std::string(cast<StringInit>(*I)->getValue());
+    const std::string &ostr = std::string(cast<StringInit>(*O)->getValue());
     m_GenMap.insert(std::pair<std::string, std::string>(istr, ostr));
   }
 }
@@ -479,6 +481,7 @@ OclBuiltin::getReturnSym(const std::string& Generator, const std::string& TyName
   assert(m_Outputs.size() == 1 && "Unsupported OclBuiltin with more than 1 outputs.");
 
   const OclType* g = m_DB.getOclType(Generator);
+  assert(g != nullptr && "Invalid type found!");
   const std::string& GT = m_Outputs[0].first->getGenType(TyName);
   return g->getGenType(GT);
 }
@@ -489,6 +492,7 @@ OclBuiltin::getArgumentSym(unsigned i, const std::string& Generator, const std::
   assert(i < m_Inputs.size() && "Argument index is out of bound.");
 
   const OclType* g = m_DB.getOclType(Generator);
+  assert(g != nullptr && "Invalid type found!");
   const std::string& GT =  m_Inputs[i].first->getGenType(TyName);
   return g->getGenType(GT);
 }
@@ -565,6 +569,7 @@ OclBuiltin::getReturnVectorLength(const std::string& TyName)const{
   assert(m_Outputs.size() == 1 && "Unsupported OclBuiltin with more than 1 outputs.");
   const std::string& GT = m_Outputs[0].first->getGenType(TyName);
   const OclType* T = m_DB.getOclType(GT);
+  assert(T && "Invalid type found.");
   return std::atoi(T->getCVecLength().c_str());
 }
 
@@ -638,6 +643,8 @@ OclBuiltin::getArgumentCGenType(unsigned i, const std::string& Generator, const 
   assert(i < m_Inputs.size() && "Argument index is out of bound.");
 
   const OclType* g = m_DB.getOclType(Generator);
+  assert(g && "invalid type found.");
+
   const std::string& GT = m_Inputs[i].first->getGenType(TyName);
   const std::string& GT2 = g->getGenType(GT);
   const OclType* T = m_DB.getOclType(GT2);
@@ -650,6 +657,8 @@ std::string
 OclBuiltin::getReturnCGenType(const std::string& Generator, const std::string& TyName) const
 {
   const OclType* g = m_DB.getOclType(Generator);
+  assert(g && "invalid type found.");
+
   const std::string& GT = m_Outputs[0].first->getGenType(TyName);
   const std::string& GT2 = g->getGenType(GT);
   const OclType* T = m_DB.getOclType(GT2);
@@ -1045,10 +1054,10 @@ void OclBuiltinImpl::appendImpl(const Record *R, const char *Loc) {
         if (Pair) {
           assert(Pair->size() == 2 &&
                  "Custom macro supports only pairs of strings");
-          std::string const& Key =
-            std::string(dyn_cast<StringInit>(Pair->getElement(0))->getValue());
-          std::string const& Replacement =
-            std::string(dyn_cast<StringInit>(Pair->getElement(1))->getValue());
+          std::string const &Key =
+              std::string(cast<StringInit>(Pair->getElement(0))->getValue());
+          std::string const &Replacement =
+              std::string(cast<StringInit>(Pair->getElement(1))->getValue());
           impl->m_customMacro[Key] = Replacement;
         } else {
           GENOCL_WARNING("'" << R->getName() << "' specifes invalid custom macro.\n");
@@ -1461,13 +1470,21 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
         } else if ("$ExpandHiPatternPtr" == pat) {
           val = OT->getExpandHiCPatternPtr();
         } else if ("$ExpandLoReturnType" == pat) {
-            val = getOclType(getExpandLoType(OT->getName()))->getCType(OB);
+          const OclType *T = getOclType(getExpandLoType(OT->getName()));
+          assert(T && "Invalid type found!");
+          val = T->getCType(OB);
         } else if ("$ExpandHiReturnType" == pat) {
-            val = getOclType(getExpandHiType(OT->getName()))->getCType(OB);
+          const OclType *T = getOclType(getExpandHiType(OT->getName()));
+          assert(T && "Invalid type found!");
+          val = T->getCType(OB);
         } else if ("$ExpandLoSuffix" == pat) {
-            val = getOclType(getExpandLoType(OT->getName()))->getSuffix();
+          const OclType *T = getOclType(getExpandLoType(OT->getName()));
+          assert(T && "Invalid type found!");
+          val = T->getSuffix();
         } else if ("$ExpandHiSuffix" == pat) {
-            val = getOclType(getExpandHiType(OT->getName()))->getSuffix();
+          const OclType *T = getOclType(getExpandHiType(OT->getName()));
+          assert(T && "Invalid type found!");
+          val = T->getSuffix();
         } else if ("$MaskCastTy" == pat) {
             val = OT->getMaskCastTy();
         } else {
@@ -1510,6 +1527,7 @@ OclBuiltinDB::getNextNativeType(const std::string& in) const
   // simple and elegant way to put them in *.td files.
 
   const OclType* OT = getOclType(in);
+  assert(OT && "Invalid type found!");
   if (OT->isNative())
     return in;
 
@@ -1531,11 +1549,15 @@ std::string
 OclBuiltinDB::getVecType(const std::string& in, int len) const
 {
   const OclType* OT = getOclType(in);
+  assert(OT && "Invalid type found!");
+
   if (OT->getVecLength() == len)
     return in;
 
   for (std::map<std::string, OclType*>::const_iterator I = m_TypeMap.begin(), E = m_TypeMap.end(); I != E; ++I) {
     const OclType* T = I->second;
+    assert(T && "Invalid type found!");
+
     if (!T->isPointer() && T->getVecLength() == len && T->getBaseCType() == OT->getBaseCType())
       return T->getName();
   }
@@ -1547,6 +1569,7 @@ std::string
 OclBuiltinDB::getExpandLoType(const std::string& in) const
 {
   const OclType* OT = getOclType(in);
+  assert(OT && "Invalid type found!");
 
   int len = OT->getVecLength();
   switch (len) {
@@ -1560,6 +1583,8 @@ OclBuiltinDB::getExpandLoType(const std::string& in) const
 
   for (std::map<std::string, OclType*>::const_iterator I = m_TypeMap.begin(), E = m_TypeMap.end(); I != E; ++I) {
     const OclType* T = I->second;
+    assert(T && "Invalid type found!");
+
     if (T->getVecLength() == len && T->getBaseCType() == OT->getBaseCType() &&
         T->isPointer() == OT->isPointer())
       return T->getName();
@@ -1572,6 +1597,7 @@ std::string
 OclBuiltinDB::getExpandHiType(const std::string& in) const
 {
   const OclType* OT = getOclType(in);
+  assert(OT && "Invalid type found!");
 
   int len = OT->getVecLength();
   switch (len) {
@@ -1585,6 +1611,8 @@ OclBuiltinDB::getExpandHiType(const std::string& in) const
 
   for (std::map<std::string, OclType*>::const_iterator I = m_TypeMap.begin(), E = m_TypeMap.end(); I != E; ++I) {
     const OclType* T = I->second;
+    assert(T && "Invalid type found!");
+
     if (T->getVecLength() == len && T->getBaseCType() == OT->getBaseCType() &&
         T->isPointer() == OT->isPointer())
         return T->getName();
@@ -1599,7 +1627,7 @@ OclBuiltinDB::getOclType(const std::string& name) const
   if (m_TypeMap.find(name) != m_TypeMap.end())
     return m_TypeMap.find(name)->second;
   report_fatal_error(Twine("GenType " + name + " is not defined"));
-  return 0;
+  return nullptr;
 }
 
 const OclBuiltin*

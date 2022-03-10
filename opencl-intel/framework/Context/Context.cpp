@@ -236,9 +236,9 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
         for(cl_uint ui=0; ui<(idx-1); ++ui)
         {
             m_mapDevices.RemoveObject(ppDevices[ui]->GetHandle());
-            if (m_ppAllDevices[ui]->IsRootLevelDevice())
-            {
-                m_ppAllDevices[ui]->GetRootDevice()->CloseDeviceInstance();
+            if (m_ppAllDevices[ui].GetPtr() != nullptr &&
+                m_ppAllDevices[ui]->IsRootLevelDevice()) {
+              m_ppAllDevices[ui]->GetRootDevice()->CloseDeviceInstance();
             }
         }
         *pclErr = ret;

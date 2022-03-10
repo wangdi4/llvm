@@ -286,6 +286,7 @@ static void clonePipeFunctions(CallGraph &CG, const PipesCallToArgNos &PCA) {
       continue;
     CallInst *CI = CallArgNos.first;
     Function *CF = CI->getCalledFunction();
+    assert(CF && "Indirect function call");
     StringRef CFName = CF->getName();
     static const std::string Prefix = "__io_pipe_";
     std::string ArgNoPipeIdStr;
