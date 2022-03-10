@@ -1038,7 +1038,7 @@ def INLINE : OclBuiltinAttr<"__attribute__((always_inline))">;
 def INTERNAL_INLINE : OclBuiltinAttr<"inline __attribute__((always_inline))">;
 
 // OclBuiltin
-class OclBuiltin<string name, dag outs, dag ins, list<OclType> types, list<OclBuiltinAttr> attrs, bit exclude, bit prefix> {
+class OclBuiltin<string name, dag outs, dag ins, list<OclType> types, list<OclBuiltinAttr> attrs = [], bit exclude = true, bit prefix = false> {
   string Name = name;
   dag Outs = outs;
   dag Ins = ins;
@@ -1052,6 +1052,11 @@ class OclBuiltin<string name, dag outs, dag ins, list<OclType> types, list<OclBu
   bit NeedForwardDecl = 0; // Non OCL builtin function need forwarding declaration.
   bit Exclude = exclude; // OCL builtin function that could be excluded from the build.
   bit Prefix = prefix; // OCL builtin function that could add prefix to its name.
+}
+
+// A handy wrapper (macro) that takes care of "__spirv_" prefix and "INTEL" suffix.
+multiclass SPIRVBuiltin<string name, dag outs, dag ins, list<OclType> types, bit intel_specific = false> {
+  def NAME # "": OclBuiltin<"__spirv_" # name # !if(intel_specific, "INTEL", ""), outs, ins, types>;
 }
 
 // Helper to add exception type list
@@ -1154,6 +1159,35 @@ class VectInfo<list<OclType> tys, OclBuiltin v1, OclBuiltin v4, OclBuiltin v8, O
 // TargetImpl
 class TargetImpl {
   string Target = "";
+
+  // The previous way of adding new implementations directly as one-by-one class fields, is deprecated.
+  // Deprecated usage example:
+  //   If we want to add a series of new implementations for builtin "foo", we specify class fields one-by-one:
+  //     OclBuiltinImpl foo_impl1 = OclBuiltinImpl<foo, ...>;
+  //     OclBuiltinImpl foo_impl2 = OclBuiltinImpl<foo, ...>;
+  //     ...
+  //     OclBuiltinImpl foo_implN = OclBuiltinImpl<foo, ...>;
+  //
+  // Now the suggested way of adding new impls is to collect new impls into a global list first,
+  // and then insert it to `Impls` field.
+  // Suggested usage example:
+  //   If we want to add two new implementations for builtin "foo", we collect them into a global list first:
+  //     // Outside the `TargetImpl` class:
+  //     defset foo_impls = {
+  //       let Property = WHATEVER in
+  //       foreach params = [...] in {
+  //         def foo_impl_ # params : OclBuiltinImpl<foo, params>;
+  //       }
+  //     }
+  //   Then specify the list as the `TargetImpl` field:
+  //     // Inside the `TargetImpl` class, update to `Impls` field:
+  //     let Impls = foo_impls;
+  //     // Or, if we have multiple lists of impls, `!listconcat` can be used:
+  //     let Impls = !listconcat(foo_impls, bar_impls, baz_impls, ...);
+  //
+  // OclTableGen will collect both plain `OclBuiltinImpl` fields as well as `list<OclBuiltinImpl>` fields,
+  // but the latter one is preferred, for the sake of reducing duplicate code amount and maintenance effort.
+  list<OclBuiltinImpl> Impls = [];
 
   list<OclType> NativeTypes = [];
   // Rewrite patterns

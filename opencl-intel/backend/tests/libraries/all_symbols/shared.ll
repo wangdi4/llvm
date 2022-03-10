@@ -1,7 +1,7 @@
 ; RUN: llvm-nm %libdir/../clbltfnshared.rtl --defined-only --no-demangle | FileCheck %s -check-prefix=TOTAL
 ; RUN: llvm-nm %libdir/../clbltfnshared.rtl --defined-only --no-demangle | FileCheck %s
 
-; TOTAL-COUNT-12724: -------- T
+; TOTAL-COUNT-12742: -------- T
 ; TOTAL-NOT: -------- T
 
 ; CHECK: _Z10half_exp10Dv16_fS_
@@ -8099,6 +8099,24 @@
 ; CHECK-NEXT: _Z24convert_ushort16_sat_rtzDv16_m
 ; CHECK-NEXT: _Z24convert_ushort16_sat_rtzDv16_s
 ; CHECK-NEXT: _Z24convert_ushort16_sat_rtzDv16_t
+; CHECK-NEXT: _Z27__spirv_ConvertBF16ToFINTELDv16_s
+; CHECK-NEXT: _Z27__spirv_ConvertBF16ToFINTELDv16_t
+; CHECK-NEXT: _Z27__spirv_ConvertBF16ToFINTELDv2_s
+; CHECK-NEXT: _Z27__spirv_ConvertBF16ToFINTELDv2_t
+; CHECK-NEXT: _Z27__spirv_ConvertBF16ToFINTELDv3_s
+; CHECK-NEXT: _Z27__spirv_ConvertBF16ToFINTELDv3_t
+; CHECK-NEXT: _Z27__spirv_ConvertBF16ToFINTELDv4_s
+; CHECK-NEXT: _Z27__spirv_ConvertBF16ToFINTELDv4_t
+; CHECK-NEXT: _Z27__spirv_ConvertBF16ToFINTELDv8_s
+; CHECK-NEXT: _Z27__spirv_ConvertBF16ToFINTELDv8_t
+; CHECK-NEXT: _Z27__spirv_ConvertBF16ToFINTELs
+; CHECK-NEXT: _Z27__spirv_ConvertBF16ToFINTELt
+; CHECK-NEXT: _Z27__spirv_ConvertFToBF16INTELDv16_f
+; CHECK-NEXT: _Z27__spirv_ConvertFToBF16INTELDv2_f
+; CHECK-NEXT: _Z27__spirv_ConvertFToBF16INTELDv3_f
+; CHECK-NEXT: _Z27__spirv_ConvertFToBF16INTELDv4_f
+; CHECK-NEXT: _Z27__spirv_ConvertFToBF16INTELDv8_f
+; CHECK-NEXT: _Z27__spirv_ConvertFToBF16INTELf
 ; CHECK-NEXT: _Z29intel_sub_group_block_read1_4Dv4_14ocl_image2d_roDv8_iDv4_j
 ; CHECK-NEXT: _Z29intel_sub_group_block_read1_4Dv4_14ocl_image2d_rwDv8_iDv4_j
 ; CHECK-NEXT: _Z29intel_sub_group_block_read1_4Dv4_PU3AS1KjDv4_j

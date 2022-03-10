@@ -13,10 +13,9 @@ include "GENERIC/opencl-v2.0WG.td"
 include "GENERIC/sub_group_builtin.td"
 include "GENERIC/ll_intrinsics.td"
 include "GENERIC/helper_function.td"
+include "GENERIC/sycl-spirv.td"
 
 class Generic : TargetImpl {
 include "GENERIC/GENERIC_common.td"
 include "GENERIC/math_cpu.td"
-
-list<OclBuiltinImpl> Impls = [];
 }

@@ -278,7 +278,9 @@ function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR INPUT_DIR IFN OFN)
         DEPENDS ${OCL_TBLGEN} ${depend_tds}
         COMMENT "Generating ${OFN}"
         )
-    set_source_files_properties(${OUTPUT_DIR}/${OFN} PROPERTIES GENERATED 1)
+    # Make sure ${OUTPUT_DIR}/${OFN} is re-generated when dependent td files
+    # are modified.
+    add_custom_target(tblgenoclblt_dummy_${OFN} ALL DEPENDS ${depend_tds})
     set(${OUTPUT_VAR} ${OUTPUT_DIR}/${OFN} PARENT_SCOPE)
 endfunction(tblgenoclblt)
 
