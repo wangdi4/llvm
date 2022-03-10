@@ -711,8 +711,6 @@ static void moveFunctionData(Function &Old, Function &New,
     DebugInsts.clear();
 #endif // INTEL_CUSTOMIZATION
   }
-
-  assert(NewEnds.size() > 0 && "No return instruction for new function?");
 }
 
 /// Find the the constants that will need to be lifted into arguments
