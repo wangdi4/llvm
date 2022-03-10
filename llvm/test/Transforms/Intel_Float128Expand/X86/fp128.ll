@@ -415,6 +415,21 @@ define i32 @test_fptosi_i32(fp128 %x) {
   ret i32 %a
 }
 
+define i32 @test_fptosi_i32_const() {
+; CHECK-LABEL: @test_fptosi_i32_const(
+; CHECK-NEXT:    [[TMP1:%.*]] = alloca fp128, align 16
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast fp128* [[TMP1]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP2]])
+; CHECK-NEXT:    store fp128 0xL00000000000000003FFEE66666000000, fp128* [[TMP1]], align 16
+; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @__qtoi(fp128* [[TMP1]], i32 0)
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast fp128* [[TMP1]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP4]])
+; CHECK-NEXT:    ret i32 [[TMP3]]
+;
+  %a = fptosi fp128 0xL00000000000000003FFEE66666000000 to i32
+  ret i32 %a
+}
+
 define i64 @test_fptosi_i64(fp128 %x) {
 ; CHECK-LABEL: @test_fptosi_i64(
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca fp128, align 16

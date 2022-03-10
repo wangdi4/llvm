@@ -114,9 +114,12 @@ typedef struct kmp_depend_info {
 // FIXME: we should actually include omp.h instead of declaring
 //        omp_get_default_device() ourselves.
 int __cdecl omp_get_default_device(void);
-int32_t __cdecl __kmpc_omp_taskwait(void *loc_ref, int32_t gtid);
 int32_t __cdecl __kmpc_global_thread_num(void *);
 int __cdecl __kmpc_get_target_offload(void);
+void __cdecl __kmpc_omp_wait_deps(ident_t *loc_ref, kmp_int32 gtid,
+                                  kmp_int32 ndeps, kmp_depend_info_t *dep_list,
+                                  kmp_int32 ndeps_noalias,
+                                  kmp_depend_info_t *noalias_dep_list);
 void __cdecl __kmpc_proxy_task_completed_ooo(void *);
 #else
 // We do not have to make these weak just to be able
@@ -124,9 +127,12 @@ void __cdecl __kmpc_proxy_task_completed_ooo(void *);
 // To make this work without weak, we have to make sure -Wl,-z,defs
 // is not passed to the linker, so just keep it as-is.
 int omp_get_default_device(void) __attribute__((weak));
-int32_t __kmpc_omp_taskwait(void *loc_ref, int32_t gtid) __attribute__((weak));
 int32_t __kmpc_global_thread_num(void *) __attribute__((weak));
 int __kmpc_get_target_offload(void) __attribute__((weak));
+void __kmpc_omp_wait_deps(ident_t *loc_ref, kmp_int32 gtid, kmp_int32 ndeps,
+                          kmp_depend_info_t *dep_list, kmp_int32 ndeps_noalias,
+                          kmp_depend_info_t *noalias_dep_list)
+    __attribute__((weak));
 void __kmpc_proxy_task_completed_ooo(void *);
 void kmp_set_defaults(const char *);
 #endif
@@ -134,11 +140,11 @@ void kmp_set_defaults(const char *);
 int omp_get_default_device(void) __attribute__((weak));
 int32_t __kmpc_global_thread_num(void *) __attribute__((weak));
 int __kmpc_get_target_offload(void) __attribute__((weak));
-#endif // INTEL_COLLAB
 void __kmpc_omp_wait_deps(ident_t *loc_ref, kmp_int32 gtid, kmp_int32 ndeps,
                           kmp_depend_info_t *dep_list, kmp_int32 ndeps_noalias,
                           kmp_depend_info_t *noalias_dep_list)
     __attribute__((weak));
+#endif // INTEL_COLLAB
 #ifdef __cplusplus
 }
 #endif

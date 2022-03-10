@@ -460,157 +460,6 @@ static Arg *MakeInputArg(DerivedArgList &Args, const OptTable &Opts,
 }
 
 #if INTEL_CUSTOMIZATION
-// Add any of the device libraries that are used for offload.  This includes
-// math and system device libraries.
-void Driver::addIntelOMPDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
-                                const OptTable &Opts,
-                                DerivedArgList &Args) const {
-  // For 'pure' sycl program, need to use '-f[no-]sycl-device-lib' to link
-  // sycl device libraries with device code. In '-fsycl -fiopenmp' mode,
-  // '-f[no-]sycl-device-lib' and '-[no-]device-math-lib' can be used together.
-  if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false) &&
-      !Args.hasArg(options::OPT_fiopenmp)) {
-    Arg *DeviceMathLibArg = Args.getLastArg(options::OPT_device_math_lib_EQ,
-                                            options::OPT_no_device_math_lib_EQ);
-    if (DeviceMathLibArg) {
-      Diag(clang::diag::warn_drv_unused_argument)
-          << DeviceMathLibArg->getSpelling();
-      return;
-    }
-  }
-  // Let the user know to use -fopenmp-device-lib instead
-  if (Arg *OldOpt = Args.getLastArg(options::OPT_device_math_lib_EQ,
-                                    options::OPT_no_device_math_lib_EQ))
-    Diag(clang::diag::warn_drv_deprecated_arg)
-        << OldOpt->getAsString(Args) << "-f[no-]openmp-device-lib";
-
-  // Add the math device libs if requested by the user or enabled by default.
-  // This needs to be done on the linking phase.
-  Arg *FinalPhaseArg;
-  phases::ID FinalPhase = getFinalPhase(Args, &FinalPhaseArg);
-
-  if (FinalPhase < phases::Link)
-    return;
-
-  enum {
-    LinkFP32 = 0x1,
-    LinkFP64 = 0x2,
-    LinkLibc = 0x4,
-    // There is no option to override RTL linking.
-    // It must be linked always.
-    LinkRtl = 0x8,
-    // ITT libraries must be linked always, unless
-    // it is AOT compilation. Since the ITT libraries do not have
-    // AOT images in the bundle, we can just unbundle/link them always.
-    // Moreover, we just have to unbundle them, if both non-AOT
-    // and AOT compilations are requested in one clang invocation.
-    LinkITT = 0x10,
-  };
-  auto UpdateFlag =
-      [](unsigned Flag, StringRef Val, bool Reset, bool OldOpt=false) {
-        unsigned Bit = 0;
-        if (OldOpt) {
-          if (Val == "fp32")
-            Bit = LinkFP32;
-          else if (Val == "fp64")
-            Bit = LinkFP64;
-        } else {
-          if (Val == "libm-fp32")
-            Bit = LinkFP32;
-          else if (Val == "libm-fp64")
-            Bit = LinkFP64;
-          else if (Val == "libc")
-            Bit = LinkLibc;
-          else if (Val == "all")
-            Bit = LinkFP32 | LinkFP64 | LinkLibc;
-        }
-
-        if (Reset)
-          return (Flag & ~Bit);
-        else
-          return (Flag | Bit);
-      };
-
-  // FIXME - There is a bit of common code in this function that can be
-  // cleaned up.
-  // -fopenmp-device-lib=all is the default
-  unsigned LinkForOMP = LinkFP32 | LinkFP64 | LinkLibc | LinkRtl | LinkITT;
-
-  // TODO - Clean out -device-math-lib usage when it is removed.  For now
-  // it is deprecated.  Also, we do nothing special for when both options
-  // (-fopenmp-device-lib and -device-math-lib) are passed on the command
-  // line together.
-  for (Arg *A : Args.filtered(options::OPT_device_math_lib_EQ,
-                              options::OPT_no_device_math_lib_EQ)) {
-    bool Reset = A->getOption().matches(options::OPT_no_device_math_lib_EQ);
-    for (StringRef Val : A->getValues()) {
-      LinkForOMP = UpdateFlag(LinkForOMP, Val, Reset, true);
-    }
-    A->claim();
-  }
-
-  for (Arg *A : Args.filtered(options::OPT_fopenmp_device_lib_EQ,
-                              options::OPT_fno_openmp_device_lib_EQ)) {
-    bool Reset = A->getOption().matches(options::OPT_fno_openmp_device_lib_EQ);
-    for (StringRef Val : A->getValues())
-      LinkForOMP = UpdateFlag(LinkForOMP, Val, Reset);
-    A->claim();
-  }
-
-  if (LinkForOMP == 0)
-    return;
-
-  bool IsMSVC = TC.getTriple().isWindowsMSVCEnvironment();
-  StringRef LibCName = IsMSVC ? "libomp-msvc" : "libomp-glibc";
-  SmallVector<std::pair<const StringRef, unsigned>, 8> omp_device_libs = {
-    // WARNING: the order will matter here, when we add -only-needed
-    //          for llvm-link linking these libraries.
-    { "libomp-spirvdevicertl", LinkRtl },
-    { LibCName, LinkLibc },
-    { "libomp-complex", LinkFP32 },
-    { "libomp-complex-fp64", LinkFP64 },
-    { "libomp-cmath", LinkFP32 },
-    { "libomp-cmath-fp64", LinkFP64 },
-    // Link the fallback implementations as well, since
-    // SPIR-V modules linking is not supported yet.
-    { "libomp-fallback-cassert", LinkLibc },
-    { "libomp-fallback-cstring", LinkLibc },
-    { "libomp-fallback-complex", LinkFP32 },
-    { "libomp-fallback-complex-fp64", LinkFP64 },
-    { "libomp-fallback-cmath", LinkFP32 },
-    { "libomp-fallback-cmath-fp64", LinkFP64 },
-    // ITT libraries must be last in the unbundling/linking order,
-    // since the other libraries may call ITT APIs.
-    { "libomp-itt-user-wrappers", LinkITT },
-    { "libomp-itt-compiler-wrappers", LinkITT },
-    // The above ITT libraries are calling ITT stubs,
-    // so the stubs must be linked after them.
-    { "libomp-itt-stubs", LinkITT } };
-
-  // Go through the lib vectors and add them accordingly.
-  auto addInput = [&](const char * LibName) {
-    Arg *InputArg = MakeInputArg(Args, Opts, LibName);
-    Inputs.push_back(std::make_pair(types::TY_Object, InputArg));
-  };
-  bool addOmpLibs = false;
-  if (Arg *A = Args.getLastArg(options::OPT_fopenmp_targets_EQ)) {
-    for (StringRef Val : A->getValues())
-      if (Val.startswith("spir64"))
-        addOmpLibs = true;
-  }
-  StringRef OMPLibLoc(Args.MakeArgString(TC.getDriver().Dir + "/../lib"));
-  StringRef Ext(IsMSVC ? ".obj" : ".o");
-  if (addOmpLibs) {
-    for (const std::pair<const StringRef, unsigned> &Lib : omp_device_libs) {
-      SmallString<128> LibName(OMPLibLoc);
-      llvm::sys::path::append(LibName, Lib.first);
-      llvm::sys::path::replace_extension(LibName, Ext);
-      if ((Lib.second & LinkForOMP) == Lib.second)
-        addInput(Args.MakeArgString(LibName));
-    }
-  }
-}
-
 // Add any Intel specific options to the command line which are implied or
 // are the default.
 void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
@@ -3404,7 +3253,6 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
           << A->getAsString(Args) << A->getValue();
     }
   }
-  addIntelOMPDeviceLibs(TC, Inputs, Opts, Args); // INTEL
   if (CCCIsCPP() && Inputs.empty()) {
     // If called as standalone preprocessor, stdin is processed
     // if no other input is present.
@@ -4689,6 +4537,161 @@ class OffloadingActionBuilder final {
       OpenMPDeviceActions.clear();
     }
 
+#if INTEL_CUSTOMIZATION
+    // Add any of the device libraries that are used for offload. This includes
+    // math and system device libraries.
+    void addIntelOMPDeviceLibs(const ToolChain *TC,
+                               ActionList &DeviceLinkObjects) {
+      // For 'pure' sycl program, need to use '-f[no-]sycl-device-lib' to link
+      // sycl device libraries with device code. In '-fsycl -fiopenmp' mode,
+      // '-f[no-]sycl-device-lib' and '-[no-]device-math-lib' can be used
+      // together.
+      if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false) &&
+          !Args.hasArg(options::OPT_fiopenmp)) {
+        Arg *DeviceMathLibArg = Args.getLastArg(options::OPT_device_math_lib_EQ,
+            options::OPT_no_device_math_lib_EQ);
+        if (DeviceMathLibArg) {
+          C.getDriver().Diag(clang::diag::warn_drv_unused_argument)
+              << DeviceMathLibArg->getSpelling();
+          return;
+        }
+      }
+      // Let the user know to use -fopenmp-device-lib instead
+      if (Arg *OldOpt = Args.getLastArg(options::OPT_device_math_lib_EQ,
+                                        options::OPT_no_device_math_lib_EQ))
+        C.getDriver().Diag(clang::diag::warn_drv_deprecated_arg)
+            << OldOpt->getAsString(Args) << "-f[no-]openmp-device-lib";
+
+      // Add the math device libs if requested by the user or enabled by
+      // default.
+      enum {
+        LinkFP32 = 0x1,
+        LinkFP64 = 0x2,
+        LinkLibc = 0x4,
+        // There is no option to override RTL linking.
+        // It must be linked always.
+        LinkRtl = 0x8,
+        // ITT libraries must be linked always, unless
+        // it is AOT compilation. Since the ITT libraries do not have
+        // AOT images in the bundle, we can just unbundle/link them always.
+        // Moreover, we just have to unbundle them, if both non-AOT
+        // and AOT compilations are requested in one clang invocation.
+        LinkITT = 0x10,
+      };
+      auto UpdateFlag =
+          [](unsigned Flag, StringRef Val, bool Reset, bool OldOpt=false) {
+            unsigned Bit = 0;
+            if (OldOpt) {
+              if (Val == "fp32")
+                Bit = LinkFP32;
+              else if (Val == "fp64")
+                Bit = LinkFP64;
+            } else {
+              if (Val == "libm-fp32")
+                Bit = LinkFP32;
+              else if (Val == "libm-fp64")
+                Bit = LinkFP64;
+              else if (Val == "libc")
+                Bit = LinkLibc;
+              else if (Val == "all")
+                Bit = LinkFP32 | LinkFP64 | LinkLibc;
+            }
+
+            if (Reset)
+              return (Flag & ~Bit);
+            else
+              return (Flag | Bit);
+          };
+
+      // FIXME - There is a bit of common code in this function that can be
+      // cleaned up.
+      // -fopenmp-device-lib=all is the default
+      unsigned LinkForOMP = LinkFP32 | LinkFP64 | LinkLibc | LinkRtl | LinkITT;
+
+      // TODO - Clean out -device-math-lib usage when it is removed.  For now
+      // it is deprecated.  Also, we do nothing special for when both options
+      // (-fopenmp-device-lib and -device-math-lib) are passed on the command
+      // line together.
+      for (Arg *A : Args.filtered(options::OPT_device_math_lib_EQ,
+                                  options::OPT_no_device_math_lib_EQ)) {
+        bool Reset = A->getOption().matches(options::OPT_no_device_math_lib_EQ);
+        for (StringRef Val : A->getValues()) {
+          LinkForOMP = UpdateFlag(LinkForOMP, Val, Reset, true);
+        }
+        A->claim();
+      }
+
+      for (Arg *A : Args.filtered(options::OPT_fopenmp_device_lib_EQ,
+                                  options::OPT_fno_openmp_device_lib_EQ)) {
+        bool Reset =
+            A->getOption().matches(options::OPT_fno_openmp_device_lib_EQ);
+        for (StringRef Val : A->getValues())
+          LinkForOMP = UpdateFlag(LinkForOMP, Val, Reset);
+        A->claim();
+      }
+
+      if (LinkForOMP == 0)
+        return;
+
+      bool IsMSVC =
+          C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment();
+      StringRef LibCName = IsMSVC ? "libomp-msvc" : "libomp-glibc";
+      SmallVector<std::pair<const StringRef, unsigned>, 8> omp_device_libs = {
+        // WARNING: the order will matter here, when we add -only-needed
+        //          for llvm-link linking these libraries.
+        { "libomp-spirvdevicertl", LinkRtl },
+        { LibCName, LinkLibc },
+        { "libomp-complex", LinkFP32 },
+        { "libomp-complex-fp64", LinkFP64 },
+        { "libomp-cmath", LinkFP32 },
+        { "libomp-cmath-fp64", LinkFP64 },
+        // Link the fallback implementations as well, since
+        // SPIR-V modules linking is not supported yet.
+        { "libomp-fallback-cassert", LinkLibc },
+        { "libomp-fallback-cstring", LinkLibc },
+        { "libomp-fallback-complex", LinkFP32 },
+        { "libomp-fallback-complex-fp64", LinkFP64 },
+        { "libomp-fallback-cmath", LinkFP32 },
+        { "libomp-fallback-cmath-fp64", LinkFP64 },
+        // ITT libraries must be last in the unbundling/linking order,
+        // since the other libraries may call ITT APIs.
+        { "libomp-itt-user-wrappers", LinkITT },
+        { "libomp-itt-compiler-wrappers", LinkITT },
+        // The above ITT libraries are calling ITT stubs,
+        // so the stubs must be linked after them.
+        { "libomp-itt-stubs", LinkITT } };
+
+      // Go through the lib vectors and add them accordingly.
+      auto addInput = [&](StringRef LibName) {
+        Arg *InputArg = MakeInputArg(Args, C.getDriver().getOpts(),
+                                     Args.MakeArgString(LibName));
+        auto *DeviceLibsInputAction =
+            C.MakeAction<InputAction>(*InputArg, types::TY_Object);
+        auto *DeviceLibsUnbundleAction =
+            C.MakeAction<OffloadUnbundlingJobAction>(
+                DeviceLibsInputAction);
+        addDeviceDepences(DeviceLibsUnbundleAction);
+        DeviceLinkObjects.push_back(DeviceLibsUnbundleAction);
+      };
+      bool addOmpLibs = false;
+      if (Arg *A = Args.getLastArg(options::OPT_fopenmp_targets_EQ)) {
+        for (StringRef Val : A->getValues())
+          if (Val.startswith("spir64"))
+            addOmpLibs = true;
+      }
+      if (addOmpLibs) {
+        for (const std::pair<const StringRef, unsigned> &Lib
+                 : omp_device_libs) {
+          SmallString<128> LibName(TC->getDriver().Dir);
+          llvm::sys::path::append(LibName, "..", "lib", Lib.first);
+          llvm::sys::path::replace_extension(LibName, IsMSVC ? ".obj" : ".o");
+          if ((Lib.second & LinkForOMP) == Lib.second)
+            addInput(Args.MakeArgString(LibName));
+        }
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
+
     void appendLinkDeviceActions(ActionList &AL) override {
       assert(ToolChains.size() == DeviceLinkerInputs.size() &&
              "Toolchains and linker inputs sizes do not match.");
@@ -4698,6 +4701,7 @@ class OffloadingActionBuilder final {
       for (auto &LI : DeviceLinkerInputs) {
 #ifdef INTEL_CUSTOMIZATION
         OffloadAction::DeviceDependences DeviceLinkDeps;
+        addIntelOMPDeviceLibs(*TC, LI);
         auto *DeviceLinkAction =
             C.MakeAction<LinkJobAction>(LI, types::TY_LLVM_BC);
         llvm::Triple TT = (*TC)->getTriple();

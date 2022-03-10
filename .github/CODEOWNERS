@@ -412,16 +412,6 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 /llvm/test/Transforms/Intel_VPO/Paropt @intel-restricted/cmplrllvm-llvm-paropt
 /llvm/test/Analysis/Intel_VPOAnalysis/WRegionInfo @intel-restricted/cmplrllvm-llvm-paropt
 
-# Code owners for binary opt-report
-/llvm/include/llvm/Analysis/Intel_OptReport/OptReportSupport.h @andykaylor @karthik-senthil
-/llvm/include/llvm/Analysis/Intel_OptReport/opt_report_proto.proto @andykaylor @karthik-senthil
-/llvm/lib/Analysis/Intel_OptReport/OptReportSupport.cpp @andykaylor @karthik-senthil
-/llvm/test/Analysis/Intel_OptReport/Binary @andykaylor @karthik-senthil
-
-# Code owners for register allocation report
-/llvm/lib/CodeGen/Intel_RAReportEmitter.cpp @LuoYuanke @phoebewang @williamweixiao @dwoodwor-intel
-/llvm/test/Analysis/Intel_OptReport/RegisterAllocation @LuoYuanke @phoebewang @williamweixiao @dwoodwor-intel
-
 # JIRA: CMPLRLIBS->LLVM Offload RT
 /openmp/libomptarget/ @intel-restricted/cmplrlibs-llvm-offload-rt
 
@@ -649,6 +639,27 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 /llvm/lib/Analysis/BasicAliasAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/InstructionPrecedenceTracking.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/ConstraintSystem.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+
+# Code owners for optimization reports
+/llvm/docs/Intel/OptReport.rst @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/include/llvm/Analysis/Intel_OptReport/ @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/include/llvm/Transforms/Intel_LoopTransforms/HIROptReportEmitterPass.h @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/include/llvm/Transforms/Scalar/Intel_OptReportEmitter.h @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/lib/Analysis/Intel_OptReport/ @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/lib/CodeGen/Intel_MachineOptReportEmitter.cpp @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/lib/Transforms/Intel_LoopTransforms/HIROptReportEmitter.cpp @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/lib/Transforms/Scalar/Intel_OptReportEmitter.cpp @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/test/Analysis/Intel_OptReport/ @karthik-senthil @pankaj-chawla @dwoodwor-intel
+
+# Code owners for binary opt-report
+/llvm/include/llvm/Analysis/Intel_OptReport/OptReportSupport.h @andykaylor @karthik-senthil
+/llvm/include/llvm/Analysis/Intel_OptReport/opt_report_proto.proto @andykaylor @karthik-senthil
+/llvm/lib/Analysis/Intel_OptReport/OptReportSupport.cpp @andykaylor @karthik-senthil
+/llvm/test/Analysis/Intel_OptReport/Binary @andykaylor @karthik-senthil
+
+# Code owners for register allocation report
+/llvm/lib/CodeGen/Intel_RAReportEmitter.cpp @LuoYuanke @phoebewang @williamweixiao @dwoodwor-intel
+/llvm/test/Analysis/Intel_OptReport/RegisterAllocation @LuoYuanke @phoebewang @williamweixiao @dwoodwor-intel
 
 # JIRA: CMPLRLLVM->Cmake
 **/CMakeLists.txt* @intel-restricted/cmplrllvm-cmake

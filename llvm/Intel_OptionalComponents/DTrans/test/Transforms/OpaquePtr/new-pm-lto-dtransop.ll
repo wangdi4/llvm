@@ -28,6 +28,7 @@
 ; CHECK-NEXT: Running analysis: TargetIRAnalysis on main
 ; CHECK-NEXT: Running pass: OpenMPOptPass
 ; CHECK-NEXT: Running pass: GlobalDCEPass
+; CHECK-NEXT: Running pass: IntelIPOPrefetchPass
 ; CHECK-NEXT: Running pass: IntelFoldWPIntrinsicPass
 ; CHECK: Running pass: ForceFunctionAttrsPass
 ; CHECK-NEXT: Running pass: InferFunctionAttrsPass
