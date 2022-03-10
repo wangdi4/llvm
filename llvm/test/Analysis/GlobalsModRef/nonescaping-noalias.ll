@@ -1,10 +1,6 @@
-<<<<<<< HEAD
-; RUN: opt < %s -globals-aa -gvn -S | FileCheck %s
 ; INTEL
 ; RUN: opt < %s -convert-to-subscript -globals-aa -gvn -S | FileCheck %s
-=======
 ; RUN: opt < %s -aa-pipeline=basic-aa,globals-aa -passes='require<globals-aa>,gvn' -S | FileCheck %s
->>>>>>> 16823adf2a0960d426cd551cdd87e4b8f166efd1
 ;
 ; This tests the safe no-alias conclusions of GMR -- when there is
 ; a non-escaping global as one indentified underlying object and some pointer
