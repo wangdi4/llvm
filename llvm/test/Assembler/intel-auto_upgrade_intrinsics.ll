@@ -1,6 +1,5 @@
 ; INTEL_FEATURE_ISA_PREFETCHI
-; UNSUPPORTED: intel_feature_isa_prefetchi
-; end INTEL_FEATURE_ISA_PREFETCHI
+; REQUIRES: intel_feature_isa_prefetchi
 ; Test to make sure intrinsics are automatically upgraded.
 ; RUN: llvm-as < %s | llvm-dis | FileCheck %s
 ; RUN: verify-uselistorder %s
@@ -192,24 +191,24 @@ define void @tests.lifetime.start.end.unnamed() {
 declare void @llvm.prefetch(i8*, i32, i32, i32)
 define void @test.prefetch(i8* %ptr) {
 ; CHECK-LABEL: @test.prefetch(
-; CHECK: @llvm.prefetch.p0i8(i8* %ptr, i32 0, i32 3, i32 2)
-  call void @llvm.prefetch(i8* %ptr, i32 0, i32 3, i32 2)
+; CHECK: @llvm.prefetch.p0i8(i8* %ptr, i32 0, i32 3, i32 1)
+  call void @llvm.prefetch(i8* %ptr, i32 0, i32 3, i32 1)
   ret void
 }
 
 declare void @llvm.prefetch.p0i8(i8*, i32, i32, i32)
 define void @test.prefetch.2(i8* %ptr) {
 ; CHECK-LABEL: @test.prefetch.2(
-; CHECK: @llvm.prefetch.p0i8(i8* %ptr, i32 0, i32 3, i32 2)
-  call void @llvm.prefetch(i8* %ptr, i32 0, i32 3, i32 2)
+; CHECK: @llvm.prefetch.p0i8(i8* %ptr, i32 0, i32 3, i32 1)
+  call void @llvm.prefetch(i8* %ptr, i32 0, i32 3, i32 1)
   ret void
 }
 
 declare void @llvm.prefetch.unnamed(%0**, i32, i32, i32)
 define void @test.prefetch.unnamed(%0** %ptr) {
 ; CHECK-LABEL: @test.prefetch.unnamed(
-; CHECK: @llvm.prefetch.p0p0s_s.0(%0** %ptr, i32 0, i32 3, i32 2)
-  call void @llvm.prefetch.unnamed(%0** %ptr, i32 0, i32 3, i32 2)
+; CHECK: @llvm.prefetch.p0p0s_s.0(%0** %ptr, i32 0, i32 3, i32 1)
+  call void @llvm.prefetch.unnamed(%0** %ptr, i32 0, i32 3, i32 1)
   ret void
 }
 
@@ -222,3 +221,4 @@ define void @test.prefetch.unnamed(%0** %ptr) {
 ; CHECK: declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture)
 ; CHECK: declare void @llvm.lifetime.start.p0p0s_s.0(i64 immarg, %0** nocapture)
 ; CHECK: declare void @llvm.lifetime.end.p0p0s_s.0(i64 immarg, %0** nocapture)
+; end INTEL_FEATURE_ISA_PREFETCHI

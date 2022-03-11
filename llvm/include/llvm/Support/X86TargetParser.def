@@ -389,6 +389,9 @@ X86_FEATURE       (CMPCCXADD, "cmpccxadd")
 #if INTEL_FEATURE_ISA_PREFETCHST2
 X86_FEATURE       (PREFETCHST2,     "prefetchst2")
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
+#if INTEL_FEATURE_ISA_PREFETCHI
+X86_FEATURE       (PREFETCHI,       "prefetchi")
+#endif // INTEL_FEATURE_ISA_PREFETCHI
 #endif // INTEL_CUSTOMIZATION
 X86_FEATURE       (AVXVNNI,         "avxvnni")
 // These features aren't really CPU features, but the frontend can set them.

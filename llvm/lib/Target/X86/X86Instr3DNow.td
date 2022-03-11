@@ -93,7 +93,7 @@ let SchedRW = [WriteLoad] in {
 let Predicates = [Has3DNow, NoSSEPrefetch] in
 def PREFETCH : I3DNow<0x0D, MRM0m, (outs), (ins i8mem:$addr),
                       "prefetch\t$addr",
-                      [(prefetch addr:$addr, imm, imm, (i32 1))]>, TB;
+                      [(prefetch addr:$addr, imm, imm, (i32 imm))]>, TB; // INTEL
 
 def PREFETCHW : I<0x0D, MRM1m, (outs), (ins i8mem:$addr), "prefetchw\t$addr",
                   [(prefetch addr:$addr, (i32 1), (i32 PrefetchWLevel), (i32 1))]>,

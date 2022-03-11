@@ -812,6 +812,9 @@ static constexpr FeatureBitset ImpliedFeaturesCMPCCXADD = FeatureAVX2;
 #if INTEL_FEATURE_ISA_PREFETCHST2
 static constexpr FeatureBitset ImpliedFeaturesPREFETCHST2 = {};
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
+#if INTEL_FEATURE_ISA_PREFETCHI
+static constexpr FeatureBitset ImpliedFeaturesPREFETCHI = {};
+#endif // INTEL_FEATURE_ISA_PREFETCHI
 #endif // INTEL_CUSTOMIZATION
 static constexpr FeatureBitset ImpliedFeaturesAVX512FP16 =
     FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL;

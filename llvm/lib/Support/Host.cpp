@@ -1659,6 +1659,9 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   Features["avx512bf16"] = HasLeaf7Subleaf1 && ((EAX >> 5) & 1) && HasAVX512Save;
   Features["hreset"]     = HasLeaf7Subleaf1 && ((EAX >> 22) & 1);
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_PREFETCHI
+// TODO: CPUID bit is TBD.
+#endif // INTEL_FEATURE_ISA_PREFETCHI
 #if INTEL_FEATURE_ISA_PREFETCHST2
 // TODO: CPUID bit is TBD.
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
