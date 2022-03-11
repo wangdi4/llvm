@@ -1460,12 +1460,17 @@ static bool hasAnyImfFnAttr(const CallBase *Call) {
 bool llvm::canConstantFoldCallTo(const CallBase *Call, const Function *F) {
   if (Call->isNoBuiltin())
     return false;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // FIXME: Check to see if the called function is an imf candidate.
   // Don't constant fold calls that have imf attributes.
   if (hasAnyImfFnAttr(Call))
     return false;
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (Call->getFunctionType() != F->getFunctionType())
+    return false;
+>>>>>>> 806450805d3c2ca9948d37fcd5b5e334cfd74e5a
   switch (F->getIntrinsicID()) {
   // Operations that do not operate floating-point numbers and do not depend on
   // FP environment can be folded even in strictfp functions.
