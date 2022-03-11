@@ -267,8 +267,8 @@ __ESIMD_API void nbarrier_signal(uint8_t barrier_id,
 // Wait for source val to be ready
 __ESIMD_API void wait(uint16_t val) { __esimd_wait(val); }
 
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-/* INTEL_CUSTOMIZATION */
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
 
 /// @defgroup sycl_esimd_memory_lsc LSC memory access APIs.
 /// @ingroup sycl_esimd_memory
