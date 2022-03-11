@@ -3918,6 +3918,10 @@ X86
 .. option:: -mpopcnt, -mno-popcnt
 
 .. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_PREFETCHI
+.. option:: -mprefetchi, -mno-prefetchi
+.. end INTEL_FEATURE_ISA_PREFETCHI
+
 .. INTEL_FEATURE_ISA_PREFETCHST2
 .. option:: -mprefetchst2, -mno-prefetchst2
 .. end INTEL_FEATURE_ISA_PREFETCHST2

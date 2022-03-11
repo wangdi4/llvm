@@ -1,3 +1,6 @@
+// INTEL_FEATURE_ISA_PREFETCHI
+// UNSUPPORTED: intel_feature_isa_prefetchi
+// end INTEL_FEATURE_ISA_PREFETCHI
 // INTEL_FEATURE_ISA_PREFETCHST2
 // REQUIRES: intel_feature_isa_prefetchst2
 // RUN: %clang_cc1 -fsyntax-only -verify %s

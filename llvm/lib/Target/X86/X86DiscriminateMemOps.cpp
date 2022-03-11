@@ -73,6 +73,9 @@ public:
 bool IsPrefetchOpcode(unsigned Opcode) {
   return Opcode == X86::PREFETCHNTA || Opcode == X86::PREFETCHT0 ||
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_PREFETCHI
+         Opcode == X86::PREFETCHIT0 || Opcode == X86::PREFETCHIT1 ||
+#endif // INTEL_FEATURE_ISA_PREFETCHI
 #if INTEL_FEATURE_ISA_PREFETCHST2
          Opcode == X86::PREFETCHST2 ||
 #endif // INTEL_FEATURE_ISA_PREFETCHST2

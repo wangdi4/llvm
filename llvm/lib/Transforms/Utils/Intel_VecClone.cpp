@@ -253,12 +253,11 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
     Clone->removeFnAttrs(AttributeFuncs::typeIncompatible(ArgType));
   }
 
-  ArgIt = F.arg_begin();
-  ArgEnd = F.arg_end();
   Function::arg_iterator NewArgIt = Clone->arg_begin();
-  for (; ArgIt != ArgEnd; ++ArgIt, ++NewArgIt) {
-    NewArgIt->setName(ArgIt->getName());
-    VMap[&*ArgIt] = &*NewArgIt;
+  for (Argument &Arg : F.args()) {
+    NewArgIt->setName(Arg.getName());
+    VMap[&Arg] = &*NewArgIt;
+    ++NewArgIt;
   }
 
   if (V.isMasked()) {

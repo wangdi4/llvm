@@ -1310,6 +1310,10 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
           ${LLVM_INTELFEATURE_PREFIX}_ISA_PREFETCHST2)
 # end INTEL_FEATURE_ISA_PREFETCHST2
+# INTEL_FEATURE_ISA_PREFETCHI
+      list(APPEND features_enabled_by_default
+          ${LLVM_INTELFEATURE_PREFIX}_ISA_PREFETCHI)
+# end INTEL_FEATURE_ISA_PREFETCHI
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"

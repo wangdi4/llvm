@@ -1,3 +1,6 @@
+; INTEL_FEATURE_ISA_PREFETCHI
+; UNSUPPORTED: intel_feature_isa_prefetchi
+; end INTEL_FEATURE_ISA_PREFETCHI
 ; Test to make sure intrinsics are automatically upgraded.
 ; RUN: llvm-as < %s | llvm-dis | FileCheck %s
 ; RUN: verify-uselistorder %s

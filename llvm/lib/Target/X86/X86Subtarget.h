@@ -221,6 +221,13 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   /// Processor has ptwrite instruction.
   bool HasPTWRITE = false;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_PREFETCHI
+  /// Processor has Prefetch instruction with T0 or Ti Hint instructions
+  bool HasPREFETCHI = false;
+#endif // INTEL_FEATURE_ISA_PREFETCHI
+#endif // INTEL_CUSTOMIZATION
+
   /// Processor has Prefetch with intent to Write instruction
   bool HasPREFETCHWT1 = false;
 
@@ -951,6 +958,11 @@ public:
   bool hasRTM() const { return HasRTM; }
   bool hasADX() const { return HasADX; }
   bool hasSHA() const { return HasSHA; }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_PREFETCHI
+  bool hasPREFETCHI() const { return HasPREFETCHI; }
+#endif // INTEL_FEATURE_ISA_PREFETCHI
+#endif // INTEL_CUSTOMIZATION
   bool hasPRFCHW() const { return HasPRFCHW; }
   bool hasPREFETCHWT1() const { return HasPREFETCHWT1; }
 #if INTEL_CUSTOMIZATION

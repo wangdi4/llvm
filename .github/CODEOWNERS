@@ -303,6 +303,7 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 /llvm/lib/Transforms/Intel_VPO/Vecopt/VPODirectiveCleanup.cpp @sguggill @skozhukh
 /llvm/lib/Transforms/Vectorize/ @sguggill @skozhukh
 /llvm/test/Transforms/Intel_VPO/Vecopt/ @sguggill @skozhukh
+/llvm/test/Transforms/Intel_VPO/Vecopt/optreport/ @karthik-senthil @speryt
 /llvm/test/Transforms/LoopVectorize/ @sguggill @skozhukh
 /llvm/unittests/Analysis/Intel_VectorVariantTest.cpp @sguggill @skozhukh
 /llvm/unittests/Transforms/Vectorize/ @sguggill @skozhukh

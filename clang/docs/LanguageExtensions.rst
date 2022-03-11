@@ -2674,7 +2674,8 @@ data into the cache before it gets used.
 
 .. code-block:: c++
 
-    void __builtin_prefetch(const void *addr, int rw=0, int locality=3)
+.. INTEL_CUSTOMIZATION
+    void __builtin_prefetch(const void *addr, int rws=0, int locality=3, int type=0)
 
 **Example of use**:
 
@@ -2684,15 +2685,17 @@ data into the cache before it gets used.
 
 **Description**:
 
-The ``__builtin_prefetch(addr, rw, locality)`` builtin is expected to be used to
-avoid cache misses when the developper has a good understanding of which data
-are going to be used next. ``addr`` is the address that needs to be brought into
-the cache. ``rw`` indicates the expected access mode: ``0`` for *read* and ``1``
-for *write*. In case of *read write* access, ``1`` is to be used. ``locality``
+The ``__builtin_prefetch(addr, rws, locality, type)`` builtin is expected to be
+used to avoid cache misses when the developper has a good understanding of which
+data are going to be used next. ``addr`` is the address that needs to be brought
+into the cache. ``rws`` indicates the expected access mode: ``0`` for *read*,
+``1`` for *write* and ``2`` for *share* between *read* and *write*. ``locality``
 indicates the expected persistance of data in cache, from ``0`` which means that
 data can be discarded from cache after its next use to ``3`` which means that
 data is going to be reused a lot once in cache. ``1`` and ``2`` provide
-intermediate behavior between these two extremes.
+intermediate behavior between these two extremes. ``type`` indicates the cache
+type data will be performed on: ``0`` for *instruction* and ``1`` for *data*.
+.. END INTEL_CUSTOMIZATION
 
 Query for this feature with ``__has_builtin(__builtin_prefetch)``.
 
