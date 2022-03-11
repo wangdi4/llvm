@@ -4577,15 +4577,11 @@ static Value *SimplifyGEPInst(Type *SrcTy, Value *Ptr,
 
   // For opaque pointers an all-zero GEP is a no-op. For typed pointers,
   // it may be equivalent to a bitcast.
-<<<<<<< HEAD
-  if (Ptr->getType()->isOpaquePointerTy() &&
+  if (Ptr->getType()->getScalarType()->isOpaquePointerTy() &&
+      Ptr->getType() == GEPTy &&
 #if INTEL_CUSTOMIZATION
       GEPTy->isVectorTy() == Ptr->getType()->isVectorTy() &&
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (Ptr->getType()->getScalarType()->isOpaquePointerTy() &&
-      Ptr->getType() == GEPTy &&
->>>>>>> 02c21060029cff4fdfd9eab3011a1fec6de2f9a0
       all_of(Indices, [](const auto *V) { return match(V, m_Zero()); }))
     return Ptr;
 
