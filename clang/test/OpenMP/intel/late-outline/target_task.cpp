@@ -1,6 +1,11 @@
 // INTEL_COLLAB
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
-// RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+// RUN:  -triple x86_64-unknown-linux-gnu %s \
+// RUN:  | FileCheck --check-prefixes CHECK,CHECK-OLD %s
+
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN:  -fopenmp-new-depend-ir -triple x86_64-unknown-linux-gnu %s \
+// RUN:  | FileCheck --check-prefixes CHECK,CHECK-NEW %s
 
 void foo1() {
   double w = 1.0;
@@ -9,12 +14,15 @@ void foo1() {
   // CHECK: [[W:%.+]] = alloca double,
   // CHECK: [[X:%.+]] = alloca i64,
   // CHECK: [[Y:%.+]] = alloca i16,
+  // CHECK-NEW: [[DARR:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], [1 x %struct.kmp_depend_info]* %.dep.arr.addr, i64 0, i64 0
+  // CHECK-NEW: [[KDI:%.*]] = bitcast %struct.kmp_depend_info* [[DARR]] to i8*
   // CHECK: DIR.OMP.TASK
   // CHECK-SAME: "QUAL.OMP.IF"(i32 0)
   // CHECK-SAME: "QUAL.OMP.TARGET.TASK"
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(double* [[W]])
   // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i64* [[X]])
-  // CHECK-SAME: "QUAL.OMP.DEPEND.OUT"(i16* [[Y]])
+  // CHECK-OLD-SAME: "QUAL.OMP.DEPEND.OUT"(i16* [[Y]])
+  // CHECK-NEW-SAME: "QUAL.OMP.DEPARRAY"(i32 1, i8* [[KDI]])
   // CHECK: DIR.OMP.TARGET
   // CHECK-SAME: "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0)
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(double* [[W]])
@@ -34,9 +42,12 @@ void foo2() {
   // CHECK: [[YP:%.+]] = alloca i32*,
   // CHECK: [[SZ:%.+]] = alloca i32,
   // CHECK: [[YPMAP:%.+]] = alloca i32*, align 8
+  // CHECK-NEW: [[DARR:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], [1 x %struct.kmp_depend_info]* %.dep.arr.addr, i64 0, i64 0
+  // CHECK-NEW: [[KDI:%.*]] = bitcast %struct.kmp_depend_info* [[DARR]] to i8*
   // CHECK: DIR.OMP.TASK
   // CHECK-SAME: "QUAL.OMP.TARGET.TASK"
-  // CHECK-SAME: "QUAL.OMP.DEPEND.OUT"(i32* [[Y]])
+  // CHECK-OLD-SAME: "QUAL.OMP.DEPEND.OUT"(i32* [[Y]])
+  // CHECK-NEW-SAME: "QUAL.OMP.DEPARRAY"(i32 1, i8* [[KDI]])
   // CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE"(i32** [[YP]])
   // CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE"(i32* [[Y]])
   // CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE"(i32* [[SZ]])
@@ -48,7 +59,7 @@ void foo2() {
   // CHECK: DIR.OMP.TARGET
   // CHECK-SAME: "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1)
   // CHECK-SAME: "QUAL.OMP.NOWAIT"
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[L1]], i32* [[AI]], i64 %10, i64 35
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[L1]], i32* [[AI]], i64 %{{.*}}, i64 35
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32** [[YPMAP]])
   // CHECK: store i32* [[L1]], i32** [[YPMAP]], align 8
   // CHECK: DIR.OMP.END.TARGET

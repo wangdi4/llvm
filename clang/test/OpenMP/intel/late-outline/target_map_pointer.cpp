@@ -1,6 +1,10 @@
 // INTEL_COLLAB
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN:  -triple x86_64-unknown-linux-gnu -fopenmp-new-depend-ir %s \
+// RUN:  | FileCheck %s
 //
 class A
 {
@@ -130,15 +134,14 @@ void foo_four()
     b->a = 10;
 }
 
-// CHECK-LABEL: foo_five
 void foo_five(int &y)
 {
   int *yp = &y;
   volatile int size = 1;
-// CHECK: [[Y_ADDR:%y.addr]] = alloca i32*,
-// CHECK-NEXT: [[YP_ADDR:%yp]] = alloca i32*, align 8
-// CHECK-NEXT: [[SI:%size]] = alloca i32, align 4
-// CHECK-NEXT: [[Y_MAP:%y.map.ptr.tmp]] = alloca i32*, align 8
+// CHECK-DAG: [[Y_ADDR:%y.addr]] = alloca i32*,
+// CHECK-DAG: [[YP_ADDR:%yp]] = alloca i32*, align 8
+// CHECK-DAG: [[SI:%size]] = alloca i32, align 4
+// CHECK-DAG: [[Y_MAP:%y.map.ptr.tmp]] = alloca i32*, align 8
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TASK
 // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32** [[Y_MAP]])
 // CHECK: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET

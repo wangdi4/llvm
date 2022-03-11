@@ -2,6 +2,10 @@
 // RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
+// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
+// RUN:  -fopenmp-new-depend-ir -triple x86_64-unknown-linux-gnu %s \
+// RUN:  | FileCheck %s
+
 // Checking on "regular" loops
 //
 int first1() noexcept;

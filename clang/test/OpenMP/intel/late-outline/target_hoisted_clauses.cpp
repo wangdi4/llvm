@@ -1,6 +1,11 @@
 // INTEL_COLLAB
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
-// RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+// RUN:  -triple x86_64-unknown-linux-gnu %s | \
+// RUN:  FileCheck --check-prefixes CHECK,CHECK-OLD %s
+
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN:  -triple x86_64-unknown-linux-gnu %s -fopenmp-new-depend-ir | \
+// RUN:  FileCheck --check-prefixes CHECK,CHECK-NEW %s
 
 //CHECK-LABEL: foo_target_teams
 void foo_target_teams(long long int n)
@@ -167,10 +172,13 @@ void barfoo()
   //CHECK: [[LB:%.omp.lb]] = alloca i32,
   //CHECK: [[UB:%.omp.ub]] = alloca i32,
   //CHECK: [[I:%i]] = alloca i32,
+  //CHECK-NEW: [[DARR:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], [1 x %struct.kmp_depend_info]* %.dep.arr.addr, i64 0, i64 0
+  //CHECK-NEW: [[KDI:%.*]] = bitcast %struct.kmp_depend_info* [[DARR]] to i8*
   //CHECK: "DIR.OMP.TASK"()
   //CHECK-SAME: "QUAL.OMP.IF"
   //CHECK-SAME: "QUAL.OMP.TARGET.TASK"()
-  //CHECK-SAME: "QUAL.OMP.DEPEND.IN"(i32* [[LO]])
+  //CHECK-OLD-SAME: "QUAL.OMP.DEPEND.IN"(i32* [[LO]])
+  //CHECK-NEW-SAME: "QUAL.OMP.DEPARRAY"(i32 1, i8* [[KDI]])
   //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[CAP1]])
   //CHECK: "DIR.OMP.TARGET"()
   //CHECK-SAME: "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 12)
