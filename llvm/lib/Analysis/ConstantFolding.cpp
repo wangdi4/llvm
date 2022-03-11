@@ -1466,6 +1466,8 @@ bool llvm::canConstantFoldCallTo(const CallBase *Call, const Function *F) {
   if (hasAnyImfFnAttr(Call))
     return false;
 #endif // INTEL_CUSTOMIZATION
+  if (Call->getFunctionType() != F->getFunctionType())
+    return false;
   switch (F->getIntrinsicID()) {
   // Operations that do not operate floating-point numbers and do not depend on
   // FP environment can be folded even in strictfp functions.
