@@ -76,6 +76,11 @@ static cl::opt<unsigned>
 MaxConst("scalarize-masked-mem-intrin-max-const", cl::Hidden, cl::init(1),
   cl::desc("Maximum constant count in GEP's elements when it can do "
     "tryScalarizeGEP. (default = 1)"));
+
+static cl::opt<unsigned>
+MaxScalar("scalarize-masked-mem-intrin-max-scalar", cl::Hidden, cl::init(10),
+  cl::desc("Maximum scalar count in GEP's elements when it can do "
+    "tryScalarizeGEP. (default = 10)"));
 #endif // INTEL_CUSTOMIZATION
 
 namespace {
@@ -572,8 +577,9 @@ static Constant *legalConst(Constant *C, unsigned &ConstCount) {
 // Return true iff all the leaf variables are splat vectors
 // and only constants are real vectors.
 static bool isSplatAndConst(Value *V, unsigned Depth, unsigned &LoadCount,
-                            unsigned &ConstCount) {
-  if (Depth > MaxDepth || LoadCount > MaxLoads || ConstCount > MaxConst)
+                            unsigned &ConstCount, unsigned &ScalarCount) {
+  if (Depth > MaxDepth || LoadCount > MaxLoads || ConstCount > MaxConst ||
+      ScalarCount > MaxScalar)
     return false;
 
   if (auto Bin = dyn_cast<BinaryOperator>(V)) {
@@ -591,28 +597,38 @@ static bool isSplatAndConst(Value *V, unsigned Depth, unsigned &LoadCount,
     }
 
     if (getSplatValue(LHS)) {
+      ScalarCount++;
       if (auto *C = dyn_cast<Constant>(RHS))
         return legalConst(C, ConstCount);
-      return isSplatAndConst(RHS, Depth + 1, LoadCount, ConstCount);
+      return isSplatAndConst(RHS, Depth + 1, LoadCount, ConstCount,
+                             ScalarCount);
     }
     if (auto *C = dyn_cast<Constant>(LHS)) {
       if (!legalConst(C, ConstCount))
         return false;
-      if (getSplatValue(RHS))
+      if (getSplatValue(RHS)) {
+        ScalarCount++;
         return true;
-      return isSplatAndConst(RHS, Depth + 1, LoadCount, ConstCount);
+      }
+      return isSplatAndConst(RHS, Depth + 1, LoadCount, ConstCount,
+                            ScalarCount);
     }
     if (getSplatValue(RHS)) {
+      ScalarCount++;
       if (auto *C = dyn_cast<Constant>(LHS))
         return legalConst(C, ConstCount);
-      return isSplatAndConst(LHS, Depth + 1, LoadCount, ConstCount);
+      return isSplatAndConst(LHS, Depth + 1, LoadCount, ConstCount,
+                             ScalarCount);
     }
     if (auto *C = dyn_cast<Constant>(RHS)) {
       if (!legalConst(C, ConstCount))
         return false;
-      if (getSplatValue(LHS))
+      if (getSplatValue(LHS)) {
+        ScalarCount++;
         return true;
-      return isSplatAndConst(LHS, Depth + 1, LoadCount, ConstCount);
+      }
+      return isSplatAndConst(LHS, Depth + 1, LoadCount, ConstCount,
+                             ScalarCount);
     }
   } else if (isa<LoadInst>(V)) {
     ++LoadCount;
@@ -620,7 +636,7 @@ static bool isSplatAndConst(Value *V, unsigned Depth, unsigned &LoadCount,
       return true;
   } else if (auto ZExt = dyn_cast<ZExtInst>(V))
     return isSplatAndConst(ZExt->getOperand(0), Depth + 1, LoadCount,
-                           ConstCount);
+                           ConstCount, ScalarCount);
 
   return false;
 }
@@ -674,17 +690,26 @@ static Value *createSplatAndConstExpr(Value *V, unsigned Element,
 // the scalars into vector registers, doing the address arithmetic there, and
 // then extracting the address for each element.
 static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
-                              IRBuilder<> &Builder, const TargetTransformInfo &TTI) {
+                              IRBuilder<> &Builder, unsigned &LoadCount,
+                              unsigned &ConstCount, unsigned &ScalarCount,
+                              const TargetTransformInfo &TTI) {
   Value *Base = GEP->getPointerOperand();
   Type *BasePtrTy = GEP->getSourceElementType();
-  unsigned LoadCount = 0;
-  unsigned ConstCount = 0;
 
   // Base should be a scalar, or a splatted scalar.
   if (Base->getType()->isVectorTy()) {
-    Base = getSplatValue(Base);
-    if (!Base)
-      return nullptr;
+    Value *Splat = getSplatValue(Base);
+    if (Splat) {
+      Base = Splat;
+    } else {
+      auto NGEP = dyn_cast<GetElementPtrInst>(Base);
+      if (!NGEP)
+        return nullptr;
+      Base = tryScalarizeGEP(NGEP, Element, Builder, LoadCount,
+                             ConstCount, ScalarCount, TTI);
+      if (!Base)
+        return nullptr;
+    }
   }
 
   // Found a scalar to use for base. Now try to find scalars for the indices.
@@ -715,7 +740,7 @@ static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
         continue;
       } else if (TTI.isAdvancedOptEnabled(
               TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42) &&
-              isSplatAndConst(GEPIdx, 1, LoadCount, ConstCount)) {
+              isSplatAndConst(GEPIdx, 1, LoadCount, ConstCount, ScalarCount)) {
         Indices.push_back(nullptr);
         continue;
       }
@@ -739,8 +764,12 @@ static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
 static Value *getScalarAddress(Value *Ptrs, unsigned Element,
                                IRBuilder<> &Builder,
                                const TargetTransformInfo &TTI) {
+  unsigned LoadCount = 0;
+  unsigned ConstCount = 0;
+  unsigned ScalarCount = 0;
   if (auto *GEP = dyn_cast<GetElementPtrInst>(Ptrs))
-    if (Value *V = tryScalarizeGEP(GEP, Element, Builder, TTI))
+    if (Value *V = tryScalarizeGEP(GEP, Element, Builder, LoadCount,
+                                   ConstCount, ScalarCount, TTI))
       return V;
 
   return Builder.CreateExtractElement(Ptrs, Element, "Ptr" + Twine(Element));
