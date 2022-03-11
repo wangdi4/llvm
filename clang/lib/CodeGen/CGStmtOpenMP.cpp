@@ -8208,6 +8208,8 @@ void CodeGenFunction::EmitSimpleOMPExecutableDirective(
 #if INTEL_CUSTOMIZATION
 bool CodeGenFunction::useFrontEndOutlining(const Stmt *S) {
   switch (S->getStmtClass()) {
+  case Stmt::OMPDepobjDirectiveClass:
+    return CGM.getLangOpts().OpenMPNewDependIR;
   case Stmt::OMPTileDirectiveClass:
   case Stmt::OMPUnrollDirectiveClass:
     return true;

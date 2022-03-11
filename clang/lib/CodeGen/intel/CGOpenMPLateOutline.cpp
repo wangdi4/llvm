@@ -1705,8 +1705,11 @@ void OpenMPLateOutliner::emitOMPUntiedClause(const OMPUntiedClause *) {
 }
 
 void OpenMPLateOutliner::emitOMPDependClause(const OMPDependClause *Cl) {
+  // This function is needed until old IR for depend clause is no longer
+  // necessary and flag has been removed.
+  if (CGF.getLangOpts().OpenMPNewDependIR)
+    return;
   auto DepKind = Cl->getDependencyKind();
-
   if (DepKind == OMPC_DEPEND_source || DepKind == OMPC_DEPEND_sink) {
     ClauseEmissionHelper CEH(*this, OMPC_depend);
     if (DepKind == OMPC_DEPEND_source)
@@ -2191,6 +2194,42 @@ void OpenMPLateOutliner::emitRemark(std::string Str) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+void OpenMPLateOutliner::emitOMPAllDependClauses() {
+  if (!CGF.getLangOpts().OpenMPNewDependIR ||
+      !Directive.hasClausesOfKind<OMPDependClause>())
+    return;
+
+  OMPTaskDataTy Data;
+  for (const auto *C : Directive.getClausesOfKind<OMPDependClause>()) {
+    auto DepKind = C->getDependencyKind();
+    if (DepKind == OMPC_DEPEND_source || DepKind == OMPC_DEPEND_sink) {
+      ClauseEmissionHelper CEH(*this, OMPC_depend);
+      if (DepKind == OMPC_DEPEND_source)
+        addArg("QUAL.OMP.DEPEND.SOURCE");
+      else 
+        addArg("QUAL.OMP.DEPEND.SINK");
+      for (unsigned I = 0, E = C->getNumLoops(); I < E; ++I)
+        addArg(CGF.EmitScalarExpr(C->getLoopData(I)));
+      continue; 
+    }
+    OMPTaskDataTy::DependData &DD =
+        Data.Dependences.emplace_back(DepKind, C->getModifier());
+    DD.DepExprs.append(C->varlist_begin(), C->varlist_end());
+  }
+  if (Data.Dependences.size() == 0)
+    return;
+
+  Address DependenciesArray = Address::invalid();
+  llvm::Value *NumOfElements;
+  std::tie(NumOfElements, DependenciesArray) =
+      CGF.CGM.getOpenMPRuntime().emitDependClause(CGF, Data.Dependences,
+                                                  Directive.getBeginLoc());
+  ClauseEmissionHelper CEH(*this, OMPC_unknown);
+  addArg("QUAL.OMP.DEPARRAY");
+  addArg(NumOfElements);
+  addArg(DependenciesArray.getPointer());
+}
+
 void OpenMPLateOutliner::emitOMPAllMapClauses() {
   for (const auto *C : Directive.getClausesOfKind<OMPMapClause>()) {
     for (const auto *E : C->varlists()) {
@@ -2502,7 +2541,9 @@ void OpenMPLateOutliner::emitOMPAcqRelClause(const OMPAcqRelClause *) {}
 void OpenMPLateOutliner::emitOMPAcquireClause(const OMPAcquireClause *) {}
 void OpenMPLateOutliner::emitOMPReleaseClause(const OMPReleaseClause *) {}
 void OpenMPLateOutliner::emitOMPRelaxedClause(const OMPRelaxedClause *) {}
-void OpenMPLateOutliner::emitOMPDepobjClause(const OMPDepobjClause *) {}
+void OpenMPLateOutliner::emitOMPDepobjClause(const OMPDepobjClause *) {
+  assert(false);
+}
 void OpenMPLateOutliner::emitOMPDetachClause(const OMPDetachClause *) {}
 void OpenMPLateOutliner::emitOMPUsesAllocatorsClause(
     const OMPUsesAllocatorsClause *) {}
@@ -3130,6 +3171,8 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
 #include "llvm/Frontend/OpenMP/OMP.inc"
     }
   }
+  if (!shouldSkipExplicitClause(OMPC_depend))
+    emitOMPAllDependClauses();
   if (!shouldSkipExplicitClause(OMPC_map) ||
       !shouldSkipExplicitClause(OMPC_from) ||
       !shouldSkipExplicitClause(OMPC_to))

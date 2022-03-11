@@ -282,6 +282,7 @@ class OpenMPLateOutliner {
                          const SmallVector<OpenMPMapModifierKind, 1> Modifiers,
                          const VarDecl *MapVar);
   void emitOMPAllMapClauses();
+  void emitOMPAllDependClauses();
   void emitOMPMapClause(const OMPMapClause *C);
   void emitOMPScheduleClause(const OMPScheduleClause *C);
   void emitOMPFirstprivateClause(const OMPFirstprivateClause *Cl);

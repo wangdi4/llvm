@@ -273,6 +273,8 @@ LANGOPT(IntelPragmaPrefetch, 1, 1,
     "Enable Intel compatible #pragma prefetch")
 LANGOPT(OpenMPTargetMalloc, 1, 0,
     "Enable dynamic memory allocation in parallel regions")
+LANGOPT(OpenMPNewDependIR, 1, 0,
+    "Enable generation of new IR for OpenMP depend clause")
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 LANGOPT(OpenMPLateOutlineTarget, 1, 1, "Outline OpenMP target construct in the back end")
