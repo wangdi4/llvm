@@ -86,6 +86,12 @@ static cl::opt<unsigned> LoopMaterializationBBSize(
     cl::desc("Threshold for number of instructions allowed in the basic block "
              "which may be a loop materialization candidate"));
 
+static cl::opt<unsigned> LexicalInsertionFuncSizeThreshold(
+    "hir-region-lexical-insertion-func-size-threshold", cl::init(10000),
+    cl::Hidden,
+    cl::desc("Threshold for number of basic blocks allowed in the function "
+             "when we try lexical insertion of materialized regions"));
+
 static cl::opt<unsigned> HugeLoopSize("hir-huge-loop-size", cl::init(42),
                                       cl::Hidden,
                                       cl::desc("Threshold for huge loop size"));
@@ -2249,6 +2255,8 @@ HIRRegionIdentification::getLexicalInsertionPos(const BasicBlock *BB) {
 void HIRRegionIdentification::formRegionsForLoopMaterialization(
     Function &Func) {
 
+  unsigned FunctionSize = Func.size();
+
   for (auto &BB : Func) {
     if (AllLoopBasedRegionsBBlocks.count(&BB)) {
       continue;
@@ -2275,7 +2283,11 @@ void HIRRegionIdentification::formRegionsForLoopMaterialization(
       return;
     }
 
-    auto InsertPos = getLexicalInsertionPos(&BB);
+    // Lexical insertion check is compile time intensive so we only do it for
+    // 'small' functions.
+    auto InsertPos = (FunctionSize > LexicalInsertionFuncSizeThreshold)
+                         ? IRRegions.end()
+                         : getLexicalInsertionPos(&BB);
 
     IRRegion::RegionBBlocksTy BBs, NonLoopBBs;
     BBs.push_back(&BB);
