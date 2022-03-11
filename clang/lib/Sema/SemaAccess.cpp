@@ -1903,6 +1903,7 @@ void Sema::CheckLookupAccess(const LookupResult &R) {
       AccessTarget Entity(Context, AccessedEntity::Member,
                           R.getNamingClass(), I.getPair(),
                           R.getBaseObjectType());
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       // Fix for CQ368409: Different behavior on accessing static private class
       // members. Fix for CQ375047: allow access to private members if they are
@@ -1920,6 +1921,15 @@ void Sema::CheckLookupAccess(const LookupResult &R) {
       else
 #endif // INTEL_CUSTOMIZATION
       Entity.setDiag(diag::err_access);
+=======
+      // This is to avoid leaking implementation details of lambda object.
+      // We do not want to generate 'private member access' diagnostic for
+      // lambda object.
+      if ((R.getNamingClass())->isLambda())
+        Diag(R.getNameLoc(), diag::err_lambda_member_access);
+      else
+        Entity.setDiag(diag::err_access);
+>>>>>>> af29982e808857ab40f8a8e023983ee4ae4ad877
       CheckAccess(*this, R.getNameLoc(), Entity);
     }
   }
