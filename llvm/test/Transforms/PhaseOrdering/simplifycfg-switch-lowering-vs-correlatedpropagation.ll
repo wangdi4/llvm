@@ -68,9 +68,15 @@ bb5:
 define i64 @test3(i64 %x) {
 ; CHECK-LABEL: @test3(
 ; CHECK-NEXT:  entry:
+; INTEL_CUSTOMIZATION
+; Our SimplifyCFG has speculation severely restricted because of vectorization
+; concerns.
 ; CHECK-NEXT:    [[COND:%.*]] = icmp eq i64 [[X:%.*]], 1
-; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[COND]], i64 10, i64 0
-; CHECK-NEXT:    ret i64 [[SPEC_SELECT]]
+; CHECK-NEXT:    [[TMP0:%.*]] = icmp eq i64 [[X]], 100
+; CHECK-NEXT:    [[TMP1:%.*]] = select i1 [[TMP0]], i64 200, i64 10
+; CHECK-NEXT:    [[TMP2:%.*]] = select i1 [[COND]], i64 [[TMP1]], i64 0
+; CHECK-NEXT:    ret i64 [[TMP2]]
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   switch i64 %x, label %bb1 [
@@ -91,9 +97,15 @@ bb5:
 define i64 @test_fail1(i64 %x) {
 ; CHECK-LABEL: @test_fail1(
 ; CHECK-NEXT:  entry:
+; INTEL_CUSTOMIZATION
+; Our SimplifyCFG has speculation severely restricted because of vectorization
+; concerns.
 ; CHECK-NEXT:    [[SWITCH:%.*]] = icmp eq i64 [[X:%.*]], 0
-; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[SWITCH]], i64 0, i64 10
-; CHECK-NEXT:    ret i64 [[SPEC_SELECT]]
+; CHECK-NEXT:    [[TMP0:%.*]] = icmp eq i64 [[X]], 100
+; CHECK-NEXT:    [[TMP1:%.*]] = select i1 [[TMP0]], i64 200, i64 10
+; CHECK-NEXT:    [[TMP2:%.*]] = select i1 [[SWITCH]], i64 0, i64 [[TMP1]]
+; CHECK-NEXT:    ret i64 [[TMP2]]
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   switch i64 %x, label %bb3 [
