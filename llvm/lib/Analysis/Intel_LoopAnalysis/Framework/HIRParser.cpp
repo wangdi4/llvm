@@ -4078,11 +4078,9 @@ static void setSelfRefElementTypeAndStride(RegDDRef *Ref, Type *ElementTy) {
 
   Ref->setBasePtrElementType(ElementTy);
 
-  // We cannot set stride for opaque structures.
-  if (auto *StructTy = dyn_cast<StructType>(ElementTy)) {
-    if (StructTy->isOpaque()) {
-      return;
-    }
+  // We cannot set stride for non-sized types.
+  if (!ElementTy->isSized()) {
+    return;
   }
 
   // Update the stride using element type info.
