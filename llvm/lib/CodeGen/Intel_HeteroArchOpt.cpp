@@ -283,20 +283,22 @@ bool HeteroArchOpt::cloneLoop(Loop *L, ValueToValueMapTy &VMap) {
   L->getUniqueExitBlocks(ExitBlocks);
   for (BasicBlock *ExitBB : ExitBlocks) {
     for (PHINode &ExitPHI : ExitBB->phis()) {
-      SmallVector<std::pair<Value *, BasicBlock *>, 4> InsideDefs;
-      for (unsigned I = 0, E = ExitPHI.getNumIncomingValues(); I != E; I++) {
-        Value *IValue = ExitPHI.getIncomingValue(I);
-        BasicBlock *IBB = ExitPHI.getIncomingBlock(I);
-        // In loop simplify form, all exit blocks are dominated by header.
-        // Therefore IBB must be inside the original loop. LCSSA gurantee IValue
-        // can't come from another clone loop. This implies if IValue is in
-        // VMap, this IValue must be def inside this loop or constant or global
-        // variable.
-        if (VMap.count(IValue))
-          InsideDefs.push_back(std::make_pair(IValue, IBB));
+      SmallVector<std::pair<Value *, BasicBlock *>, 4> Incomings;
+      for (unsigned I = 0, E = ExitPHI.getNumIncomingValues(); I != E; I++)
+        Incomings.push_back(std::make_pair(ExitPHI.getIncomingValue(I),
+                                           ExitPHI.getIncomingBlock(I)));
+
+      // In loop simplify form, all exit blocks are dominated by header.
+      // Therefore incoming basicblock(IBB) must be inside the original loop.
+      // LCSSA gurantee incoming value(IValue) can't come from another clone
+      // loop. This implies if IValue is in VMap, this IValue must be def inside
+      // this loop. Otherwise it must be def outside any clone loop.
+      for (auto &VB : Incomings) {
+        Value *IValue = VB.first, *IBB = VB.second;
+        Value *CloneIValue =
+            VMap.count(IValue) ? cast<Value>(VMap[IValue]) : IValue;
+        ExitPHI.addIncoming(CloneIValue, cast<BasicBlock>(VMap[IBB]));
       }
-      for (auto &VB : InsideDefs)
-        ExitPHI.addIncoming(VMap[VB.first], cast<BasicBlock>(VMap[VB.second]));
     }
   }
   return true;
