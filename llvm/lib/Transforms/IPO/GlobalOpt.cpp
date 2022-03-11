@@ -2780,6 +2780,7 @@ static bool optimizeEmptyGlobalAtexitDtors(
     GlobalVariable *GV = M.getGlobalVariable("llvm.global_ctors");
     // Basic checks to make sure we have valid ctor functions.
     if (!GV || !GV->hasUniqueInitializer() ||
+        isa<UndefValue>(GV->getInitializer()) ||
         isa<ConstantAggregateZero>(GV->getInitializer()))
       return false;
     ConstantArray *CA = cast<ConstantArray>(GV->getInitializer());
