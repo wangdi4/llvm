@@ -2517,21 +2517,15 @@ public:
       assert(Sub.getOpcode() == Instruction::Sub &&
              "AnalyzeSubtraction() called with unexpected opcode");
 
-      Value *LHS = Sub.getOperand(0);
-      Value *RHS = Sub.getOperand(1);
-      ValueTypeInfo *LHSInfo = PTA.getValueTypeInfo(LHS);
-      ValueTypeInfo *RHSInfo = PTA.getValueTypeInfo(RHS);
+      ValueTypeInfo *LHSInfo = PTA.getValueTypeInfo(&Sub, 0);
+      ValueTypeInfo *RHSInfo = PTA.getValueTypeInfo(&Sub, 1);
       // The PointerTypeAnalyzer may create a ValueTypeInfo for scalar types
       // that never get used, so we need to check if they exist and are
       // non-empty to determine whether the instruction needs to be analyzed.
       if ((!LHSInfo || LHSInfo->empty()) && (!RHSInfo || RHSInfo->empty()))
         return;
 
-      if (!LHSInfo || !RHSInfo) {
-        if (LHSInfo)
-          setAllAliasedAndPointeeTypeSafetyData(
-              LHSInfo, dtrans::BadPtrManipulation,
-              "Subtraction between pointer and non-pointer", &Sub);
+      if (!LHSInfo) {
         if (RHSInfo)
           setAllAliasedAndPointeeTypeSafetyData(
               RHSInfo, dtrans::BadPtrManipulation,
@@ -2539,6 +2533,38 @@ public:
         return;
       }
 
+      if (!RHSInfo && isa<ConstantInt>(Sub.getOperand(1)) && Sub.hasOneUse()) {
+        // Check if the RHSInfo can be found as part of a subtraction chain to
+        // support some simple cases where reassociation was done on the
+        // subtract chain when a constant integer is involved. For example:
+        //   %tmp = sub i64 %t1, 8
+        //   %offset = sub i64 %tmp, %t2
+        //
+        // TODO: This could be extended to also support:
+        //   %tmp = sub i64 %t2, 8
+        //   %offset = sub i64 %t1, %tmp
+        //
+        // Note: This should only be allowed for ptr-to-ptr types because the
+        // transformations do not support modifying a constant operand that is
+        // part of the subtraction chain. Those cases will be marked as
+        // "Bad pointer manipulation" because the subtract does not feed a
+        // divide operation.
+        DTransType *DomTy = PTA.getDominantAggregateUsageType(*LHSInfo);
+        if (DomTy && isPtrToPtr(DomTy))
+          if (auto *U = dyn_cast<BinaryOperator>(*Sub.user_begin()))
+            if (U->getOpcode() == Instruction::Sub && U->getOperand(0) == &Sub)
+              RHSInfo = PTA.getValueTypeInfo(U, 1);
+      }
+
+      if (!RHSInfo) {
+        if (LHSInfo)
+          setAllAliasedAndPointeeTypeSafetyData(
+              LHSInfo, dtrans::BadPtrManipulation,
+              "Subtraction between pointer and non-pointer", &Sub);
+        return;
+      }
+
+      // We now have LHSInfo and RHSInfo. Check for safety flags to be set.
       if (LHSInfo->pointsToSomeElement() || RHSInfo->pointsToSomeElement()) {
         setAllElementPointeeSafetyData(
             LHSInfo, dtrans::BadPtrManipulation,
