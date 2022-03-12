@@ -1041,6 +1041,12 @@ public:
   }
 
   void visitAllocaInst(AllocaInst &I) { analyzeValue(&I); }
+  void visitBinaryOperator(BinaryOperator &I) {
+    // To support safety analysis on pointer arithmetic, subtract instruction
+    // need to be analyzed to see if they carry pointer information.
+    if (I.getOpcode() == Instruction::Sub)
+      analyzeValue(&I);
+  }
   void visitBitCastInst(BitCastInst &I) { analyzeValue(&I); }
   void visitCallBase(CallBase &I) { analyzeValue(&I); }
   void visitExtractValueInst(ExtractValueInst &I) { analyzeValue(&I); }
@@ -1372,6 +1378,9 @@ private:
       break;
     case Instruction::Select:
       analyzeSelectInst(cast<SelectInst>(I), Info);
+      break;
+    case Instruction::Sub:
+      analyzeSubInst(cast<BinaryOperator>(I), Info);
       break;
       // TODO: Add other instructions analysis calls.
     }
@@ -1868,6 +1877,7 @@ private:
       switch (I->getOpcode()) {
       default:
         break;
+
       case Instruction::BitCast:
         if (AddDependency(I->getOperand(0), DependentVals))
           populateDependencyStack(I->getOperand(0), DependentVals);
@@ -1924,8 +1934,13 @@ private:
           populateDependencyStack(FV, DependentVals);
         break;
       }
-        // TODO: Add other instructions types the need to be analyzed to switch
-        // table.
+
+      case Instruction::Sub:
+        if (AddDependency(I->getOperand(0), DependentVals))
+          populateDependencyStack(I->getOperand(0), DependentVals);
+        if (AddDependency(I->getOperand(1), DependentVals))
+          populateDependencyStack(I->getOperand(1), DependentVals);
+        break;
       }
     }
   }
@@ -3325,6 +3340,25 @@ private:
       if (!SrcInfo->isCompletelyAnalyzed())
         ResultInfo->setPartiallyAnalyzed();
     }
+  }
+
+  // An instruction that is effectively computing "Pointer - Constant", should
+  // propagate the information about the source pointer to "ResultInfo".
+  // All other cases, including "Constant - Pointer" do not result in the
+  // "ResultInfo" being tracked as a pointer type.
+  void analyzeSubInst(BinaryOperator *BinOp, ValueTypeInfo *ResultInfo) {
+    assert(BinOp->getOpcode() == Instruction::Sub &&
+           "Expected Sub instruction");
+    if (!isa<ConstantInt>(BinOp->getOperand(1)))
+      return;
+
+    ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(BinOp->getOperand(0));
+    propagate(SrcInfo, ResultInfo, true, true, DerefType::DT_SameType);
+    if (SrcInfo->getUnhandled() || SrcInfo->getDependsOnUnhandled())
+      ResultInfo->setDependsOnUnhandled();
+
+    if (!SrcInfo->isCompletelyAnalyzed())
+      ResultInfo->setPartiallyAnalyzed();
   }
 
   // Perform pointer type analysis for constant operator expressions
