@@ -193,7 +193,7 @@ template <size_t Requested, size_t Required> constexpr void verboseAssert() {
 
 #define DLWRAP_INTERNAL_IMPL(SYMBOL, ARITY)                                    \
   DLWRAP_COMMON(SYMBOL, ARITY)                                                 \
-  static DLWRAP_INSTANTIATE(SYMBOL, dlwrap_##SYMBOL, ARITY)
+  static DLWRAP_INSTANTIATE(dlwrap_##SYMBOL, SYMBOL, ARITY)
 #else // INTEL_CUSTOMIZATION
 #define DLWRAP_IMPL(SYMBOL, ARITY)                                             \
   DLWRAP_COMMON(SYMBOL, ARITY);                                                \
@@ -201,12 +201,8 @@ template <size_t Requested, size_t Required> constexpr void verboseAssert() {
 
 #define DLWRAP_INTERNAL_IMPL(SYMBOL, ARITY)                                    \
   DLWRAP_COMMON(SYMBOL, ARITY);                                                \
-<<<<<<< HEAD
-  static DLWRAP_INSTANTIATE(SYMBOL, dlwrap_##SYMBOL, ARITY)
-#endif // INTEL_CUSTOMIZATION
-=======
   static DLWRAP_INSTANTIATE(dlwrap_##SYMBOL, SYMBOL, ARITY)
->>>>>>> 75779435f3fc6f7d492a3da067804610fab37017
+#endif // INTEL_CUSTOMIZATION
 
 #define DLWRAP_INSTANTIATE_0(SYM_DEF, SYM_USE, T)                              \
   T::ReturnType SYM_DEF() { return dlwrap::SYM_USE##_Trait::get()(); }
