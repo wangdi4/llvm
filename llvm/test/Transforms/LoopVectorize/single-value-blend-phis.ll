@@ -194,7 +194,7 @@ define void @multiple_incoming_phi_with_blend_mask(i64 %a, i16* noalias %dst) {
 ; CHECK-NEXT:    [[BROADCAST_SPLAT4:%.*]] = shufflevector <2 x i16> [[BROADCAST_SPLATINSERT3]], <2 x i16> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp ugt <2 x i64> [[VEC_IND]], [[BROADCAST_SPLAT]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = xor <2 x i1> [[TMP6]], <i1 true, i1 true>
-; CHECK-NEXT:    [[PREDPHI:%.*]] = select <2 x i1> [[TMP6]], <2 x i16> [[BROADCAST_SPLAT4]], <2 x i16> [[BROADCAST_SPLAT2]]
+; CHECK-NEXT:    [[PREDPHI:%.*]] = select <2 x i1> [[TMP6]], <2 x i16> [[BROADCAST_SPLAT2]], <2 x i16> [[BROADCAST_SPLAT4]]
 ; CHECK-NEXT:    [[TMP8:%.*]] = extractelement <2 x i16> [[PREDPHI]], i32 0
 ; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr inbounds [32 x i16], [32 x i16]* @src, i16 0, i16 [[TMP8]]
 ; CHECK-NEXT:    [[TMP10:%.*]] = getelementptr inbounds i16, i16* [[TMP9]], i32 0
