@@ -299,6 +299,7 @@ getCompilerBuildLog(const CLProgramUPtr &ProgramUPtr, cl_device_id Device) {
 #if INTEL_CUSTOMIZATION
 class HelpPrinter {
 public:
+  explicit HelpPrinter() = default;
   explicit HelpPrinter(StringMap<cl::Option *> OptMap_)
       : OptMap(std::move(OptMap_)) {}
 
