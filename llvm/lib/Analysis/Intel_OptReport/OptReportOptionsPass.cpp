@@ -67,7 +67,8 @@ static cl::opt<OptReportOptions::OptReportEmitterKind, true> OptReportEmitter(
 /// Internal option for setting opt-report output file.
 static cl::opt<std::string> OptReportFile(
     "intel-loop-optreport-file",
-    cl::desc("What file to write opt-report output to. Special values include "
+    cl::desc("What file to write opt-report, inlining report, and register "
+             "allocation report output to. Special values include "
              "'stdout' which writes opt-report to stdout and 'stderr' which "
              "writes to stderr. Default is 'stderr'."),
     cl::init("stderr"));
