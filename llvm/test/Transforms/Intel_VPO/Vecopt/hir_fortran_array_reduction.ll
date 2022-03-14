@@ -27,6 +27,10 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s
 
+; Check stability for merged CFG-based CG.
+; FIXME : Enable HIR verifier after fixing liveness bug related to new external uses. Consequently drop all HIR-DETAILS checks as well.
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir -hir-verify=false -hir-details -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR-DETAILS
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -vplan-enable-new-cfg-merge-hir -hir-verify=false -hir-details -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR-DETAILS
 
 ; Check that loop was vectorized.
 ; CHECK:      + DO i2 = 0, 2 * %tgu + -1, 2 <DO_LOOP> <MAX_TC_EST = 1073741824>   <LEGAL_MAX_TC = 1073741824> <auto-vectorized> <nounroll> <novectorize>
@@ -34,6 +38,64 @@
 ; CHECK:      |   %.vec2 = %phi.temp  +  %.vec;
 ; CHECK:      |   %phi.temp  =  %.vec2;
 ; CHECK:      + END LOOP
+
+; HIR-DETAILS:     BEGIN REGION { modified }
+; HIR-DETAILS:           + DO i64 i1 = 0, zext.i32.i64((1 + %"interp_$M_fetch")) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483648>  <LEGAL_MAX_TC = 2147483648>
+; HIR-DETAILS:           |   if (%"interp_$N_fetch4" >= 0)
+; HIR-DETAILS:           |   {
+; HIR-DETAILS:           |      %red.phi = 0.000000e+00;
+; HIR-DETAILS:           |      %tgu = zext.i32.i64((1 + %"interp_$N_fetch4"))  /u  2;
+; HIR-DETAILS:           |      %vec.tc = %tgu  *  2;
+; HIR-DETAILS:           |      %.vec = 0 == %vec.tc;
+; HIR-DETAILS:           |      %phi.temp = 0;
+; HIR-DETAILS:           |      %phi.temp2 = %red.phi;
+; HIR-DETAILS:           |      %unifcond = extractelement %.vec,  0;
+; HIR-DETAILS:           |      if (%unifcond == 1)
+; HIR-DETAILS:           |      {
+; HIR-DETAILS:           |         goto merge.blk10.42;
+; HIR-DETAILS:           |      }
+; HIR-DETAILS:           |      %tgu4 = zext.i32.i64((1 + %"interp_$N_fetch4"))  /u  2;
+; HIR-DETAILS:           |      %vec.tc5 = %tgu4  *  2;
+; HIR-DETAILS:           |      %red.init = 0.000000e+00;
+; HIR-DETAILS:           |      %phi.temp6 = %red.init;
+; HIR-DETAILS:           |      
+; HIR-DETAILS:           |      + DO i64 i2 = 0, %vec.tc5 + -1, 2   <DO_LOOP>  <MAX_TC_EST = 2147483648>  <LEGAL_MAX_TC = 2147483648> <auto-vectorized> <nounroll> <novectorize>
+; HIR-DETAILS:           |      |   %.vec8 = (<2 x double>*)(%"interp_$ARR")[i2 + <i64 0, i64 1>][i1];
+; HIR-DETAILS:           |      |   %.vec9 = %phi.temp6  +  %.vec8;
+; HIR-DETAILS:           |      |   %phi.temp6 = %.vec9;
+; HIR-DETAILS:           |      + END LOOP
+; HIR-DETAILS:           |      
+; HIR-DETAILS:           |      %red.phi = @llvm.vector.reduce.fadd.v2f64(%red.phi,  %.vec9);
+; HIR-DETAILS:           |      %.vec11 = zext.i32.i64((1 + %"interp_$N_fetch4")) == %vec.tc5;
+; HIR-DETAILS:           |      %phi.temp = %vec.tc5;
+; HIR-DETAILS:           |      %phi.temp2 = %red.phi;
+; HIR-DETAILS:           |      %phi.temp14 = %vec.tc5;
+; HIR-DETAILS:           |      %phi.temp16 = %red.phi;
+; HIR-DETAILS:           |      %unifcond18 = extractelement %.vec11,  0;
+; HIR-DETAILS:           |      if (%unifcond18 == 1)
+; HIR-DETAILS:           |      {
+; HIR-DETAILS:           |         goto final.merge.69;
+; HIR-DETAILS:           |      }
+; HIR-DETAILS:           |      merge.blk10.42:
+; HIR-DETAILS:           |      %lb.tmp = %phi.temp;
+; HIR-DETAILS:           |      %red.phi = %phi.temp2;
+; HIR-DETAILS:           |      
+; HIR-DETAILS:           |      + LiveIn symbases: 3, 5, 6, 10, 18
+; FIXME : Symbase 3 (corresponding to %red.phi) should be live-out of this scalar remainder loop.
+; HIR-DETAILS:           |      + LiveOut symbases: 
+; HIR-DETAILS:           |      + DO i64 i2 = %lb.tmp, zext.i32.i64((1 + %"interp_$N_fetch4")) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483648>  <LEGAL_MAX_TC = 2147483648>
+; HIR-DETAILS:           |      |   %2 = (%"interp_$ARR")[i2][i1];
+; HIR-DETAILS:           |      |   %red.phi = %red.phi  +  %2;
+; HIR-DETAILS:           |      |   <LVAL-REG> NON-LINEAR double %red.phi {sb:3}
+; HIR-DETAILS:           |      + END LOOP
+; HIR-DETAILS:           |      
+; HIR-DETAILS:           |      %phi.temp14 = zext.i32.i64((1 + %"interp_$N_fetch4")) + -1;
+; HIR-DETAILS:           |      %phi.temp16 = %red.phi;
+; HIR-DETAILS:           |      <RVAL-REG> NON-LINEAR double %red.phi {sb:3}
+; HIR-DETAILS:           |      final.merge.69:
+; HIR-DETAILS:           |   }
+; HIR-DETAILS:           + END LOOP
+; HIR-DETAILS:     END REGION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
