@@ -51,15 +51,11 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 #include "llvm/IR/IntrinsicsCSA.h"
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-#include "llvm/IR/LLVMContext.h"
-=======
->>>>>>> ed98c1b37661b0795a5e34517941485f0f0688d1
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CodeGen.h"

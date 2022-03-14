@@ -36,13 +36,7 @@
 #include "llvm/Analysis/IndirectCallVisitor.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
-<<<<<<< HEAD
-#include "llvm/IR/Attributes.h"
-#include "llvm/IR/BasicBlock.h"
 #include "llvm/Analysis/Intel_WP.h"   // INTEL
-#include "llvm/IR/DerivedTypes.h"
-=======
->>>>>>> ed98c1b37661b0795a5e34517941485f0f0688d1
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
