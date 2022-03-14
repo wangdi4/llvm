@@ -108,7 +108,7 @@ int main() {
 // CHECK-SAME: %"struct.cl::sycl::range"* noundef byval{{.*}}align 4 [[ACC_RANGE1:%[a-zA-Z0-9_]+1]],
 // CHECK-SAME: %"struct.cl::sycl::range"* noundef byval{{.*}}align 4 [[MEM_RANGE1:%[a-zA-Z0-9_]+2]],
 // CHECK-SAME: %"struct.cl::sycl::id"* noundef byval{{.*}}align 4 [[OFFSET1:%[a-zA-Z0-9_]+3]]
-// CHECK-SAME: !kernel_arg_runtime_aligned !14
+// CHECK-SAME: !kernel_arg_runtime_aligned ![[#RTALIGNED2:]]
 
 // Check kernel_B parameters
 // CHECK: define {{.*}}spir_kernel void @{{.*}}kernel_B
@@ -130,7 +130,7 @@ int main() {
 // CHECK-SAME: %"struct.cl::sycl::range.5"* noundef byval{{.*}}align 4 [[ACC_RANGE1:%[a-zA-Z0-9_]+1]],
 // CHECK-SAME: %"struct.cl::sycl::range.5"* noundef byval{{.*}}align 4 [[MEM_RANGE1:%[a-zA-Z0-9_]+2]],
 // CHECK-SAME: %"struct.cl::sycl::id.6"* noundef byval{{.*}}align 4 [[OFFSET1:%[a-zA-Z0-9_]+3]]
-// CHECK-SAME: !kernel_arg_runtime_aligned ![[#RTALIGNED2:]]
+// CHECK-SAME: !kernel_arg_runtime_aligned ![[#RTALIGNED2]]
 
 // Check kernel_acc_raw_ptr parameters
 // CHECK: define {{.*}}spir_kernel void @{{.*}}kernel_acc_raw_ptr
@@ -148,12 +148,6 @@ int main() {
 // Check kernel-arg-runtime-aligned metadata.
 // The value of any metadata element is 1 for any kernel arguments
 // that corresponds to the base pointer of an accessor and 0 otherwise.
-<<<<<<< HEAD
-// CHECK: !6 = !{i1 true, i1 false, i1 false, i1 false, i1 true, i1 false, i1 false, i1 false}
-// CHECK: !15 = !{i1 true, i1 false, i1 false, i1 false}
-// CHECK: !26 = !{i1 true, i1 false, i1 false, i1 false, i1 false}
-=======
 // CHECK: ![[#RTALIGNED1]] = !{i1 true, i1 false, i1 false, i1 false, i1 true, i1 false, i1 false, i1 false}
 // CHECK: ![[#RTALIGNED2]] = !{i1 true, i1 false, i1 false, i1 false}
 // CHECK: ![[#RTALIGNED3]] = !{i1 true, i1 false, i1 false, i1 false, i1 false}
->>>>>>> 661b2c988f3aed4134b505b108322638ba4782e9
