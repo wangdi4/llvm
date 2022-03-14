@@ -33,6 +33,7 @@ if(INTEL_COLLAB)
 endif()
 
 function(tablegen project ofn)
+  cmake_parse_arguments(ARG "" "" "DEPENDS;EXTRA_INCLUDES" ${ARGN})
   # Validate calling context.
   if(NOT ${project}_TABLEGEN_EXE)
     message(FATAL_ERROR "${project}_TABLEGEN_EXE not set")
@@ -125,13 +126,16 @@ function(tablegen project ofn)
   # ("${${project}_TABLEGEN_TARGET}" STREQUAL "${${project}_TABLEGEN_EXE}")
   # but lets us having smaller and cleaner code here.
   get_directory_property(tblgen_includes INCLUDE_DIRECTORIES)
+  list(APPEND tblgen_includes ${ARG_EXTRA_INCLUDES})
+  # Filter out empty items before prepending each entry with -I
+  list(REMOVE_ITEM tblgen_includes "")
   list(TRANSFORM tblgen_includes PREPEND -I)
 
   set(tablegen_exe ${${project}_TABLEGEN_EXE})
   set(tablegen_depends ${${project}_TABLEGEN_TARGET} ${tablegen_exe})
 
   add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${ofn}
-    COMMAND ${tablegen_exe} ${ARGN} -I ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${tablegen_exe} ${ARG_UNPARSED_ARGUMENTS} -I ${CMAKE_CURRENT_SOURCE_DIR}
     ${tblgen_includes}
     ${LLVM_TABLEGEN_FLAGS}
     ${LLVM_TARGET_DEFINITIONS_ABSOLUTE}
@@ -140,7 +144,7 @@ function(tablegen project ofn)
     # The file in LLVM_TARGET_DEFINITIONS may be not in the current
     # directory and local_tds may not contain it, so we must
     # explicitly list it here:
-    DEPENDS ${tablegen_depends}
+    DEPENDS ${ARG_DEPENDS} ${tablegen_depends}
       ${local_tds} ${global_tds}
       ${intel_tds} # INTEL_CUSTOMIZATION
     ${LLVM_TARGET_DEFINITIONS_ABSOLUTE}
