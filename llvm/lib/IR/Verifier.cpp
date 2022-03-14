@@ -107,6 +107,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicsAArch64.h"
 #include "llvm/IR/IntrinsicsWebAssembly.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
@@ -5702,13 +5703,16 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
     break;
   }
   case Intrinsic::preserve_array_access_index:
-  case Intrinsic::preserve_struct_access_index: {
+  case Intrinsic::preserve_struct_access_index:
+  case Intrinsic::aarch64_ldaxr:
+  case Intrinsic::aarch64_ldxr: {
     Type *ElemTy = Call.getParamElementType(0);
     Assert(ElemTy,
            "Intrinsic requires elementtype attribute on first argument.",
            &Call);
     break;
   }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case Intrinsic::intel_complex_fdiv:
   case Intrinsic::intel_complex_fmul: {
@@ -5722,6 +5726,16 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
     break;
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  case Intrinsic::aarch64_stlxr:
+  case Intrinsic::aarch64_stxr: {
+    Type *ElemTy = Call.getAttributes().getParamElementType(1);
+    Assert(ElemTy,
+           "Intrinsic requires elementtype attribute on second argument.",
+           &Call);
+    break;
+  }
+>>>>>>> 250620f76e070cbbd4e8511f751f577b6e1633ac
   };
 }
 
