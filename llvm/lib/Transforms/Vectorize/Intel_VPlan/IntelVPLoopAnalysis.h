@@ -49,6 +49,7 @@ class VPBasicBlock;
 class VPBuilder;
 class VPAllocatePrivate;
 class VPReductionFinal;
+class VPLoadStoreInst;
 class VPDominatorTree;
 
 /// Base class for loop entities
@@ -665,15 +666,14 @@ public:
     return false;
   }
 
-  /// Same as hasInMemoryEntity but restrict to reductions/inductions.
-  bool hasInMemoryReductionInduction() const {
+  /// Same as hasInMemoryEntity but restrict to inductions.
+  bool hasInMemoryInduction() const {
     for (auto &It : MemoryDescriptors) {
       auto *VPEntity = It.first;
       auto *MemoryDescr = It.second.get();
-      bool IsRedInd = isa<VPReduction>(VPEntity) || isa<VPInduction>(VPEntity);
-      // Return true if we have a reduction/induction with a memory descriptor
+      // Return true if we have a induction with a memory descriptor
       // that cannot be registerized.
-      if (IsRedInd && !MemoryDescr->canRegisterize())
+      if (isa<VPInduction>(VPEntity) && !MemoryDescr->canRegisterize())
         return true;
     }
 
@@ -779,6 +779,11 @@ private:
       Descr->addLinkedVPValue(Val);
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  // Copy HIR operand from \p AI to \p V, if it exists.
+  static void updateHIROperand(VPValue *AI, VPLoadStoreInst *V);
+#endif //INTEL_CUSTOMIZATION
 
   // Create private memory allocator for VPLoopEntity if the corresponding
   // memory descriptor exists.

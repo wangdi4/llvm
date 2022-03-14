@@ -2,9 +2,77 @@
 ; Test to verify VPlan's functionality and generated vector code for in-memory
 ; binop reduction.
 
-; RUN: opt -vplan-vec -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-framework -hir-vplan-vec -vplan-print-after-vpentity-instrs -print-after=hir-vplan-vec -vplan-force-vf=2 -disable-output %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -disable-output %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -enable-new-pm=0 -vplan-vec -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=vplan-vec -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -S < %s 2>&1 | FileCheck %s
+
 
 define i32 @foo(float* nocapture readonly %A, i64 %N, i32 %init) {
+; HIR-LABEL:  VPlan after insertion of VPEntities instructions:
+; HIR-NEXT:  VPlan IR for: foo:HIR.#{{[0-9]+}}
+; HIR-NEXT:  External Defs Start:
+; HIR-DAG:     [[VP0:%.*]] = {%sum}
+; HIR-DAG:     [[VP1:%.*]] = {%N + -1}
+; HIR-DAG:     [[VP2:%.*]] = {%A}
+; HIR-NEXT:  External Defs End:
+; HIR-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; HIR-NEXT:     br [[BB1:BB[0-9]+]]
+; HIR:         [[BB1]]: # preds: [[BB0]]
+; HIR-NEXT:     i32* [[VP_SUM:%.*]] = allocate-priv i32*, OrigAlign = 4
+; HIR-NEXT:     i64 [[VP3:%.*]] = add i64 [[VP1]] i64 1
+; HIR-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[SUM0:%.*]]
+; HIR-NEXT:     i32 [[VP_SUMRED_INIT:%.*]] = reduction-init i32 0 i32 [[VP_LOAD]]
+; HIR-NEXT:     store i32 [[VP_SUMRED_INIT]] i32* [[VP_SUM]]
+; HIR-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; HIR-NEXT:     i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; HIR-NEXT:     br [[BB2:BB[0-9]+]]
+; HIR:         [[BB2]]: # preds: [[BB1]], [[BB2]]
+; HIR-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB2]] ]
+; HIR-NEXT:     float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds float* [[A0:%.*]] i64 [[VP4]]
+; HIR-NEXT:     float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT]]
+; HIR-NEXT:     float* [[VP6:%.*]] = bitcast i32* [[VP_SUM]]
+; HIR-NEXT:     float [[VP_LOAD_2:%.*]] = load float* [[VP6]]
+; HIR-NEXT:     float [[VP7:%.*]] = fadd float [[VP_LOAD_1]] float [[VP_LOAD_2]]
+; HIR-NEXT:     float* [[VP8:%.*]] = bitcast i32* [[VP_SUM]]
+; HIR-NEXT:     store float [[VP7]] float* [[VP8]]
+; HIR-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 [[VP__IND_INIT_STEP]]
+; HIR-NEXT:     i1 [[VP9:%.*]] = icmp slt i64 [[VP5]] i64 [[VP3]]
+; HIR-NEXT:     br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
+; HIR:         [[BB3]]: # preds: [[BB2]]
+; HIR-NEXT:     i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUM]]
+; HIR-NEXT:     i32 [[VP_SUMRED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP_LOAD_3]]
+; HIR-NEXT:     store i32 [[VP_SUMRED_FINAL]] i32* [[SUM0]]
+; HIR-NEXT:     i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; HIR-NEXT:     br [[BB4:BB[0-9]+]]
+; === Generated HIR code
+; HIR:       BEGIN REGION { modified }
+; HIR-NEXT:        [[TGU0:%.*]] = ([[N0:%.*]])/u2
+; HIR-NEXT:        if (0 <u 2 * [[TGU0]])
+; HIR-NEXT:        {
+; HIR-NEXT:           [[PRIV_MEM_BC0:%.*]] = &((i32*)([[PRIV_MEM0:%.*]])[0])
+; HIR-NEXT:           [[DOTUNIFLOAD0:%.*]] = ([[SUM0]])[0]
+; HIR-NEXT:           [[RED_INIT0:%.*]] = 0
+; HIR-NEXT:           [[RED_INIT_INSERT0:%.*]] = insertelement [[RED_INIT0]],  [[DOTUNIFLOAD0]],  0
+; HIR-NEXT:           (<2 x i32>*)([[PRIV_MEM0]])[0] = [[RED_INIT_INSERT0]]
+; HIR:                + DO i1 = 0, 2 * [[TGU0]] + -1, 2   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
+; HIR-NEXT:           |   [[DOTVEC0:%.*]] = (<2 x float>*)([[A0]])[i1]
+; HIR-NEXT:           |   [[DOTVEC30:%.*]] = (<2 x float>*)([[PRIV_MEM0]])[0]
+; HIR-NEXT:           |   [[DOTVEC40:%.*]] = [[DOTVEC0]]  +  [[DOTVEC30]]
+; HIR-NEXT:           |   (<2 x float>*)([[PRIV_MEM0]])[0] = [[DOTVEC40]]
+; HIR-NEXT:           + END LOOP
+; HIR:                [[DOTVEC50:%.*]] = (<2 x i32>*)([[PRIV_MEM0]])[0]
+; HIR-NEXT:           [[VEC_REDUCE0:%.*]] = @llvm.vector.reduce.add.v2i32([[DOTVEC50]])
+; HIR-NEXT:           ([[SUM0]])[0] = [[VEC_REDUCE0]]
+; HIR-NEXT:        }
+; HIR:             + DO i1 = 2 * [[TGU0]], [[N0]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <nounroll> <novectorize> <max_trip_count = 1>
+; HIR-NEXT:        |   [[A_I0:%.*]] = ([[A0]])[i1]
+; HIR-NEXT:        |   [[SUM_LD0:%.*]] = (float*)([[SUM0]])[0]
+; HIR-NEXT:        |   [[ADD0:%.*]] = [[A_I0]]  +  [[SUM_LD0]]
+; HIR-NEXT:        |   (float*)([[SUM0]])[0] = [[ADD0]]
+; HIR-NEXT:        + END LOOP
+; HIR-NEXT:  END REGION
+;
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  VPlan IR for: foo:for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -43,15 +111,7 @@ define i32 @foo(float* nocapture readonly %A, i64 %N, i32 %init) {
 
 ; Checks for generated vector code
 ; CHECK-LABEL: define i32 @foo
-; CHECK:       VPlannedBB:
-; CHECK-NEXT:    [[TMP0:%.*]] = and i64 [[N0]], 4294967294
-; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i64 0, [[TMP0]]
-; CHECK-NEXT:    br i1 [[TMP1]], label [[MERGE_BLK0:%.*]], label [[VPLANNEDBB10:%.*]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB1:
-; CHECK-NEXT:    br label [[VPLANNEDBB20:%.*]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB2:
+; CHECK:       VPlannedBB2:
 ; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* [[SUM0]], align 1
 ; CHECK-NEXT:    [[TMP3:%.*]] = load i32, i32* [[SUM0]], align 1
 ; CHECK-NEXT:    [[RED_INIT_INSERT0:%.*]] = insertelement <2 x i32> zeroinitializer, i32 [[TMP2]], i32 0
@@ -60,7 +120,7 @@ define i32 @foo(float* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP11:%.*]], [[VECTOR_BODY0]] ], [ 0, [[VPLANNEDBB20]] ]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP11:%.*]], [[VECTOR_BODY0]] ], [ 0, [[VPLANNEDBB20:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP10:%.*]], [[VECTOR_BODY0]] ], [ <i64 0, i64 1>, [[VPLANNEDBB20]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds float, float* [[A0]], i64 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast float* [[SCALAR_GEP0]] to <2 x float>*
