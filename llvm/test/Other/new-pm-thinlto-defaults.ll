@@ -206,13 +206,9 @@
 ; CHECK-POSTLINK-O-NEXT: Running pass: CleanupFakeLoadsPass{{.*}} ;INTEL
 ; CHECK-POSTLINK-O-NEXT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: ReversePostOrderFunctionAttrsPass
-<<<<<<< HEAD
 ; CHECK-POSTLINK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA ;INTEL
 ; CHECK-POSTLINK-O-NEXT: Running analysis: AndersensAA ;INTEL
-; CHECK-POSTLINK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}GlobalsAA
-=======
 ; CHECK-POSTLINK-O-NEXT: Running pass: RecomputeGlobalsAAPass
->>>>>>> 4fc7c55ffff1bb2b23fc022331b82b086d4b03b4
 ; CHECK-POSTLINK-O-NEXT: Running pass: Float2IntPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LowerConstantIntrinsicsPass
 ; CHECK-EXT: Running pass: {{.*}}::Bye

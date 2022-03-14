@@ -2242,7 +2242,6 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
                         PGOOpt->ProfileRemappingFile);
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (EnableAndersen) {
     // Andersen's IP alias analysis
@@ -2250,10 +2249,7 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   }
 
 #endif // INTEL_CUSTOMIZATION
-  // Re-require GloblasAA here prior to function passes. This is particularly
-=======
   // Re-compute GlobalsAA here prior to function passes. This is particularly
->>>>>>> 4fc7c55ffff1bb2b23fc022331b82b086d4b03b4
   // useful as the above will have inlined, DCE'ed, and function-attr
   // propagated everything. We should at this point have a reasonably minimal
   // and richly annotated call graph. By computing aliasing and mod/ref
