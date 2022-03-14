@@ -23,6 +23,8 @@ using namespace llvm;
 using namespace DPCPPKernelMetadataAPI;
 using namespace DPCPPKernelCompilationUtils;
 
+extern bool DPCPPEnableSubGroupEmulation;
+
 namespace {
 /// Legacy SGLoopConstruct pass.
 class SGLoopConstructLegacy : public ModulePass {
@@ -77,6 +79,9 @@ PreservedAnalyses SGLoopConstructPass::run(Module &M,
 }
 
 bool SGLoopConstructPass::runImpl(Module &M, const SGSizeInfo *SSI) {
+  if (!DPCPPEnableSubGroupEmulation)
+    return false;
+
   Helper.initialize(M);
   FunctionsNeedEmulation = Helper.getAllFunctionsNeedEmulation();
   if (FunctionsNeedEmulation.empty())

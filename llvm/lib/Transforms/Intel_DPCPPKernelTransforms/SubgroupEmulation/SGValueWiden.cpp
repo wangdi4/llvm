@@ -24,9 +24,14 @@ using namespace llvm;
 using namespace DPCPPKernelCompilationUtils;
 using namespace DPCPPKernelLoopUtils;
 
+extern bool DPCPPEnableSubGroupEmulation;
+
 #define DEBUG_TYPE "dpcpp-kernel-sg-emu-value-widen"
 
 bool SGValueWidenPass::runImpl(Module &M, const SGSizeInfo *SSI) {
+  if (!DPCPPEnableSubGroupEmulation)
+    return false;
+
   Helper.initialize(M);
   FunctionsToBeWidened = Helper.getAllFunctionsNeedEmulation();
 
