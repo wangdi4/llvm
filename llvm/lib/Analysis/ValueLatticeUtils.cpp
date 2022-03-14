@@ -37,30 +37,8 @@ using namespace llvm;
 #if INTEL_CUSTOMIZATION
 bool llvm::canTrackArgumentsInterprocedurally(Function *F,
                                               bool AllowCallbacks) {
-  if (!F->hasLocalLinkage())
-    return false;
-
-  // Check if function has any uses other than block addresses, direct calls or
-  // callback calls (if allowed). If there are such uses function is considered
-  // address-taken and therefore it cannot be used for interprocedural argument
-  // tracking.
-  for (const Use &U : F->uses()) {
-    const User *FU = U.getUser();
-    if (isa<BlockAddress>(FU))
-      continue;
-
-    auto *Call = dyn_cast<CallBase>(FU);
-    if (Call && Call->isCallee(&U))
-      continue;
-
-    if (!AllowCallbacks)
-      return false;
-
-    AbstractCallSite ACS(&U);
-    if (!ACS || !ACS.isCallbackCall() || !ACS.isCallee(&U))
-      return false;
-  }
-  return true;
+  return F->hasLocalLinkage() &&
+         !F->hasAddressTaken(nullptr, /*IgnoreCallbackUses=*/AllowCallbacks);
 #endif // INTEL_CUSTOMIZATION
 }
 
