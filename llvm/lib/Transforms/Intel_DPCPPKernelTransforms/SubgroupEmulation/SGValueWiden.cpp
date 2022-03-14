@@ -783,7 +783,6 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<SGSizeAnalysisLegacy>();
-    AU.addPreserved<SGSizeAnalysisLegacy>();
   }
 
 private:

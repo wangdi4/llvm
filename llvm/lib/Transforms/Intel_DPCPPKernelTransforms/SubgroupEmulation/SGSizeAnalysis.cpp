@@ -72,7 +72,8 @@ void SGSizeInfo::analyzeModule(Module &M) {
         It = It.skipChildren();
         continue;
       }
-      LLVM_DEBUG(dbgs() << F->getName() << " Emu Size: " << EmuSize << "\n");
+      LLVM_DEBUG(dbgs() << F->getName() << " (" << F
+                        << ") Emu Size: " << EmuSize << "\n");
       FuncToEmuSizes[F].insert(EmuSize);
       It++;
     }

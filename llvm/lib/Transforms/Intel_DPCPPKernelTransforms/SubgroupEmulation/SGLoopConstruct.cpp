@@ -106,7 +106,7 @@ void SGLoopConstructPass::collectSyncInsts() {
     // targets for sub-group barrier.
     unsigned UniqueID = 0;
     LLVM_DEBUG(dbgs() << "Collecting sync insts for function: " << F->getName()
-                      << "\n");
+                      << " (" << F << ")\n");
     assert(SizeInfo->hasEmuSize(F) && "Function doesn't have emulation size");
 
     InstSet Barriers = Helper.getBarriersForFunction(F);
