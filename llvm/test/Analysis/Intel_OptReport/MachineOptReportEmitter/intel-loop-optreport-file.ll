@@ -1,4 +1,4 @@
-; Check that MIROptReportEmitter output is emitted to the proper output
+; Check that MachineOptReportEmitter output is emitted to the proper output
 ; stream/file when the -intel-loop-optreport-file option is used.
 
 ; RUN: llc < %s -O3 -intel-loop-optreport=high -intel-loop-optreport-emitter=mir -intel-loop-optreport-file=stdout | FileCheck %s
