@@ -18,9 +18,14 @@
 using namespace llvm;
 using namespace DPCPPKernelCompilationUtils;
 
+extern bool DPCPPEnableSubGroupEmulation;
+
 #define DEBUG_TYPE "dpcpp-kernel-sg-emu-barrier-propagate"
 
 bool SGBarrierPropagatePass::runImpl(Module &M, const SGSizeInfo *SSI) {
+  if (!DPCPPEnableSubGroupEmulation)
+    return false;
+
   Helper.initialize(M);
 
   FuncVec WorkList;

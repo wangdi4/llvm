@@ -27,6 +27,8 @@
 using namespace llvm;
 using namespace DPCPPKernelMetadataAPI;
 
+extern bool DPCPPEnableSubGroupEmulation;
+
 // Static container storing all the vector info entries.
 // Each entry would be a tuple of three strings:
 // 1. scalar variant name
@@ -93,6 +95,9 @@ PreservedAnalyses SGBuiltinPass::run(Module &M, ModuleAnalysisManager &AM) {
 }
 
 bool SGBuiltinPass::runImpl(Module &M, const SGSizeInfo *SSI) {
+  if (!DPCPPEnableSubGroupEmulation)
+    return false;
+
   // Load all vector info into ExtendedVectInfo, at most once.
   static llvm::once_flag InitializeVectInfoFlag;
   llvm::call_once(InitializeVectInfoFlag, [&]() {
