@@ -4767,6 +4767,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     auto *VPPeelLp = cast<VPScalarPeelHIR>(VPInst);
     HLLoop *ScalarPeel = VPPeelLp->getLoop()->clone();
     OutgoingScalarHLLoops.insert(ScalarPeel);
+    OutgoingScalarHLLoopsMap[VPPeelLp] = ScalarPeel;
 
     // Emit scalar peel loop at current insertion point and initialize UB temp.
     // We also set scalar loop's upper bound captured in corresponding
@@ -4812,6 +4813,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     auto *VPRemLp = cast<VPScalarRemainderHIR>(VPInst);
     HLLoop *ScalarRem = VPRemLp->getLoop()->clone();
     OutgoingScalarHLLoops.insert(ScalarRem);
+    OutgoingScalarHLLoopsMap[VPRemLp] = ScalarRem;
 
     // Emit scalar remainder loop at current insertion point and initialize
     // required live-in temps before the loop. We also set scalar loop's lower
@@ -4856,16 +4858,12 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   }
 
   case VPInstruction::PeelOrigLiveOutHIR: {
-    auto *LiveOut = cast<VPPeelOrigLiveOutHIR>(VPInst);
-    auto *LiveOutRef = cast<RegDDRef>(LiveOut->getLiveOutVal());
-    addVPValueScalRefMapping(LiveOut, const_cast<RegDDRef *>(LiveOutRef), 0);
+    handleScalarLoopOrigLiveOut<VPPeelOrigLiveOutHIR>(VPInst);
     return;
   }
 
   case VPInstruction::RemOrigLiveOutHIR: {
-    auto *LiveOut = cast<VPRemainderOrigLiveOutHIR>(VPInst);
-    auto *LiveOutRef = cast<RegDDRef>(LiveOut->getLiveOutVal());
-    addVPValueScalRefMapping(LiveOut, const_cast<RegDDRef *>(LiveOutRef), 0);
+    handleScalarLoopOrigLiveOut<VPRemainderOrigLiveOutHIR>(VPInst);
     return;
   }
   }
