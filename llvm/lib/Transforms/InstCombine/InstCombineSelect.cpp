@@ -2804,7 +2804,6 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
     // Folding select to and/or i1 isn't poison safe in general. impliesPoison
     // checks whether folding it does not convert a well-defined value into
     // poison.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // Change: A = select B, true, C --> A = or B, C
     // Change: A = select B, C, false --> A = and B, C
@@ -2885,7 +2884,7 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
         return match(TrueVal, m_One())
                    ? BinaryOperator::CreateOr(CondVal, MaskedOp)
                    : BinaryOperator::CreateAnd(CondVal, MaskedOp);
-=======
+    }
     if (match(TrueVal, m_One())) {
       if (impliesPoison(FalseVal, CondVal)) {
         // Change: A = select B, true, C --> A = or B, C
@@ -2909,7 +2908,6 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
           if (Value *V = foldLogicOfFCmps(LHS, RHS, /*IsAnd*/ true,
                                           /*IsSelectLogical*/ true))
             return replaceInstUsesWith(SI, V);
->>>>>>> ce78e68261ff44861cd69d7f37b181fd5c774d3c
     }
 #endif // INTEL_CUSTOMIZATION
 
