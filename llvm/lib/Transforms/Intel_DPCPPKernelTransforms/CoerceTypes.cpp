@@ -181,7 +181,7 @@ bool CoerceTypesPass::runOnFunction(Function *F) {
             if (CI->paramHasAttr(I, Attribute::ByVal)) {
               Value *ArgI = CI->getArgOperand(I);
               auto *PT = cast<PointerType>(ArgI->getType());
-              Type *ElementTy = PT->getElementType();
+              Type *ElementTy = CI->getParamByValType(I);
               // In case that FE doesn't pass the size information.
               unsigned Alignment = ValueMap[I].first;
               uint64_t MemSize = ValueMap[I].second;

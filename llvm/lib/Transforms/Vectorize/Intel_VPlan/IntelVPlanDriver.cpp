@@ -1517,6 +1517,9 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   unsigned UF = LVP.getLoopUnrollFactor();
 
+  // Tracker to collect info about loops emitted by CFGMerger.
+  MergedCFGInfo MCFGI;
+
   // Start preparations to generate auxiliary loops.
   if (VF > 1) {
     LVP.createMergerVPlans(VPAF);
@@ -1524,6 +1527,13 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     // Run some VPlan-to-VPlan transforms for each new auxiliary loop created by
     // CFGMerger.
     for (const CfgMergerPlanDescr &PlanDescr : LVP.mergerVPlans()) {
+      // Update tracker based on loop type.
+      if (PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTPeel)
+        MCFGI.setPeelLoopEmitted(true);
+      else if (PlanDescr.getLoopType() ==
+               CfgMergerPlanDescr::LoopType::LTRemainder)
+        MCFGI.setRemainderLoopEmitted(true);
+
       VPlan *Plan = PlanDescr.getVPlan();
 
       if (isa<VPlanVector>(Plan)) {
@@ -1548,7 +1558,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
         VPlanIdioms::isSearchLoop(Plan, true, PeelArrayRef);
     VPOCodeGenHIR VCodeGen(TLI, TTI, SafeRedAnalysis, &VLSA, Plan, Fn, Lp,
                            ORBuilder, &HIRVecLegal, SearchLoopOpcode,
-                           PeelArrayRef, isOmpSIMDLoop);
+                           PeelArrayRef, isOmpSIMDLoop, MCFGI);
     bool LoopIsHandled =
         (VF != 1 && VCodeGen.loopIsHandled(Lp, VF) && LVP.canLowerVPlan(*Plan));
 

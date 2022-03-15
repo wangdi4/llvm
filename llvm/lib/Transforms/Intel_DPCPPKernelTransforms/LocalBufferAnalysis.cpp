@@ -91,8 +91,7 @@ void LocalBufferInfo::calculateDirectLocalsSize() {
              "locals container contains something other than GlobalValue!");
 
       // Calculate required buffer size.
-      size_t ArraySize =
-          DL.getTypeAllocSize(LocalGV->getType()->getElementType());
+      size_t ArraySize = DL.getTypeAllocSize(LocalGV->getValueType());
       assert(0 != ArraySize && "local buffer size is zero!");
 
       // Advance total implicit size.

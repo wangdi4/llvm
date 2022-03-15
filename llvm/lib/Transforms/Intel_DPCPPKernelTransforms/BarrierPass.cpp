@@ -997,7 +997,7 @@ void KernelBarrier::createBarrierKeyValues(Function *Func,
   if (!UseTLSGlobals) {
     // get_local_id()
     KeyValues->LocalIdValues =
-        new AllocaInst(LocalIdAllocTy->getElementType(), AllocaAddrSpace,
+        new AllocaInst(LocalIdArrayTy, AllocaAddrSpace,
                        "pLocalIds", InsertBefore);
   }
 

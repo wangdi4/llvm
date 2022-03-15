@@ -264,7 +264,7 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
                                : LBInfo->getDirectLocals(Callee);
     for (auto *Local : CalleeLocalSet) {
       GlobalVariable *GV = cast<GlobalVariable>(Local);
-      size_t LocalSize = DL.getTypeAllocSize(GV->getType()->getElementType());
+      size_t LocalSize = DL.getTypeAllocSize(GV->getValueType());
       assert(0 != LocalSize && "zero array size!");
       // Get the position of Local in NewLocalMem.
       ConstantInt *LocalIndex = ConstantInt::get(
@@ -365,8 +365,7 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
       // function was changed (implicit args were added) - to avoid changing
       // types let's just cast new function type into the old one before
       // storing.
-      auto *OldAllocaTy = cast<PointerType>(SI->getPointerOperand()->getType());
-      Type *OldFPtrTy = OldAllocaTy->getElementType();
+      Type *OldFPtrTy = SI->getValueOperand()->getType();
 
       auto *Cast = CastInst::CreatePointerCast(NewF, OldFPtrTy, "", SI);
       auto *NewSI = new StoreInst(Cast, SI->getPointerOperand(), SI);
