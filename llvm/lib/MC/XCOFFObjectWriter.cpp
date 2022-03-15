@@ -652,15 +652,11 @@ void XCOFFObjectWriter::writeSymbolName(const StringRef &SymbolName) {
     W.write<int32_t>(0);
     W.write<uint32_t>(Strings.getOffset(SymbolName));
   } else {
-<<<<<<< HEAD
-    char Name[XCOFF::NameSize+1];
 #if INTEL_CUSTOMIZATION
     assert(strlen(SymbolName.data()) <= XCOFF::NameSize &&
        "Symbol's name is not larger than XCOFF::NameSize");
 #endif // INTEL_CUSTOMIZATION
-=======
     char Name[XCOFF::NameSize + 1];
->>>>>>> 6143ec2961d14c0b913d7687a0db209a9b26e39c
     std::strncpy(Name, SymbolName.data(), XCOFF::NameSize);
     ArrayRef<char> NameRef(Name, XCOFF::NameSize);
     W.write(NameRef);
