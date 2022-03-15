@@ -319,7 +319,7 @@ void LocalBuffersPass::parseLocalBuffers(Function *F, Value *LocalMem) {
 
     // Calculate required buffer size
     llvm::DataLayout DL(M);
-    size_t ArraySize = DL.getTypeAllocSize(GV->getType()->getElementType());
+    size_t ArraySize = DL.getTypeAllocSize(GV->getValueType());
     assert(0 != ArraySize && "zero array size!");
     // Now retrieve to the offset of the local buffer
     Type *Ty = LocalMem->getType()->getScalarType()->getPointerElementType();

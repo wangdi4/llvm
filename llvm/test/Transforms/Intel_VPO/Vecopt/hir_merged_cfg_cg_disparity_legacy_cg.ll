@@ -35,10 +35,12 @@
 ; MERGED-CFG-CG-NEXT:             {
 ; MERGED-CFG-CG-NEXT:                goto merge.blk10.26;
 ; MERGED-CFG-CG-NEXT:             }
-; FIXME: Point of disparity between legacy CG and merged CFG-based CG.
-; MERGED-CFG-CG-NEXT:             (<4 x i64>*)(%A)[0] = <i64 0, i64 1, i64 2, i64 3>;
-; MERGED-CFG-CG-NEXT:             (<4 x i64>*)(%A)[4] = <i64 0, i64 1, i64 2, i64 3> + 4;
-; MERGED-CFG-CG-NEXT:             %.vec2 = 10 == 8;
+
+; MERGED-CFG-CG:                  + DO i1 = 0, 7, 4   <DO_LOOP> <simd-vectorized> <novectorize>
+; MERGED-CFG-CG-NEXT:             |   (<4 x i64>*)(%A)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
+; MERGED-CFG-CG-NEXT:             + END LOOP
+
+; MERGED-CFG-CG:                  %.vec2 = 10 == 8;
 ; MERGED-CFG-CG-NEXT:             %phi.temp = 8;
 ; MERGED-CFG-CG-NEXT:             %phi.temp4 = 8;
 ; MERGED-CFG-CG-NEXT:             %unifcond6 = extractelement %.vec2,  0;
