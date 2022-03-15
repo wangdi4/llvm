@@ -130,7 +130,7 @@ namespace llvm {
   enum class UseCaptureKind {
     NO_CAPTURE,
     MAY_CAPTURE,
-    PASSTHROUGH,
+    USER_MAY_CAPTURE, // INTEL_COLLAB
   };
 
   /// Determine what kind of capture behaviour \p U may exhibit.

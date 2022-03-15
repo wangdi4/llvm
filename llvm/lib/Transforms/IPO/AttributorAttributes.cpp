@@ -5064,7 +5064,7 @@ ChangeStatus AANoCaptureImpl::updateImpl(Attributor &A) {
       return true;
     case UseCaptureKind::MAY_CAPTURE:
       return checkUse(A, T, U, Follow);
-    case UseCaptureKind::PASSTHROUGH:
+    case UseCaptureKind::USER_MAY_CAPTURE: // INTEL_COLLAB
       Follow = true;
       return true;
     }

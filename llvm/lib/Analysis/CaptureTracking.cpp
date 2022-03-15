@@ -348,11 +348,11 @@ UseCaptureKind llvm::DetermineUseCaptureKind(
     // getUnderlyingObject in ValueTracking or DecomposeGEPExpression
     // in BasicAA also need to know about this property.
     if (isIntrinsicReturningPointerAliasingArgumentWithoutCapturing(Call, true))
-      return UseCaptureKind::PASSTHROUGH;
+      return UseCaptureKind::USER_MAY_CAPTURE; // INTEL_COLLAB
 
 #if INTEL_CUSTOMIZATION
     if (isa<AddressInst>(I)) {
-      return UseCaptureKind::PASSTHROUGH;
+      return UseCaptureKind::USER_MAY_CAPTURE;
     }
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
@@ -428,7 +428,7 @@ UseCaptureKind llvm::DetermineUseCaptureKind(
   case Instruction::Select:
   case Instruction::AddrSpaceCast:
     // The original value is not captured via this if the new value isn't.
-    return UseCaptureKind::PASSTHROUGH;
+    return UseCaptureKind::USER_MAY_CAPTURE; // INTEL_COLLAB
   case Instruction::ICmp: {
     unsigned Idx = U.getOperandNo();
     unsigned OtherIdx = 1 - Idx;
@@ -512,7 +512,7 @@ void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker,
       if (Tracker->captured(U))
         return;
       continue;
-    case UseCaptureKind::PASSTHROUGH:
+    case UseCaptureKind::USER_MAY_CAPTURE: // INTEL_COLLAB
       if (!AddUses(U->getUser()))
         return;
       continue;
