@@ -5712,7 +5712,6 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
            &Call);
     break;
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case Intrinsic::intel_complex_fdiv:
   case Intrinsic::intel_complex_fmul: {
@@ -5726,7 +5725,6 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
     break;
   }
 #endif // INTEL_CUSTOMIZATION
-=======
   case Intrinsic::aarch64_stlxr:
   case Intrinsic::aarch64_stxr: {
     Type *ElemTy = Call.getAttributes().getParamElementType(1);
@@ -5735,7 +5733,6 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
            &Call);
     break;
   }
->>>>>>> 250620f76e070cbbd4e8511f751f577b6e1633ac
   };
 }
 
