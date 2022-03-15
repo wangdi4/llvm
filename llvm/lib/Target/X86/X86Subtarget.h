@@ -1488,6 +1488,7 @@ public:
   AntiDepBreakMode getAntiDepBreakMode() const override {
     return TargetSubtargetInfo::ANTIDEP_CRITICAL;
   }
+<<<<<<< HEAD
 
   bool enableAdvancedRASplitCost() const override { return false; }
 #if INTEL_CUSTOMIZATION
@@ -1500,6 +1501,8 @@ public:
                            MachineBasicBlock::iterator B,
                            MachineBasicBlock::iterator E) const override;
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 294eca35a00f89dff474044ebd478a7f83ccc310
 };
 
 } // end namespace llvm
