@@ -5727,7 +5727,7 @@ void RTLDeviceInfoTy::initImmCmdList(int32_t DeviceId) {
     for (auto SubId : SubLevel) {
       QueueDesc.ordinal = CmdQueueGroupOrdinals[SubId];
       QueueDesc.index = CmdQueueIndices[SubId];
-      CALL_ZE_RET_VOID(zeCommandListCreateImmediate, Context, Devices[DeviceId],
+      CALL_ZE_RET_VOID(zeCommandListCreateImmediate, Context, Devices[SubId],
                        &QueueDesc, &CmdList);
       ImmCmdLists[SubId] = CmdList;
     }
