@@ -269,18 +269,16 @@ function( install_svml ARCH )
 
 endfunction( install_svml )
 
+file(GLOB_RECURSE TD_SOURCES "${CL_BUILTIN_SOURCE_DIR}/*.td")
+
 function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR INPUT_DIR IFN OFN)
-    file(GLOB_RECURSE depend_tds "${CL_BUILTIN_SOURCE_DIR}/*.td")
     add_custom_command(
         OUTPUT ${OUTPUT_DIR}/${OFN}
         #COMMAND ${OCL-TBLGEN} ${ARGN} -gen-ocl-Exclude=true -gen-ocl-Prefix="__cl_" -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_DIR}/${IFN}
         COMMAND ${OCL_TBLGEN} ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_DIR}/${IFN}
-        DEPENDS ${OCL_TBLGEN} ${depend_tds}
+        DEPENDS ${OCL_TBLGEN} ${TD_SOURCES}
         COMMENT "Generating ${OFN}"
         )
-    # Make sure ${OUTPUT_DIR}/${OFN} is re-generated when dependent td files
-    # are modified.
-    add_custom_target(tblgenoclblt_dummy_${OFN} ALL DEPENDS ${depend_tds})
     set(${OUTPUT_VAR} ${OUTPUT_DIR}/${OFN} PARENT_SCOPE)
 endfunction(tblgenoclblt)
 
@@ -364,7 +362,7 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
 
   # top-level target for OCL target
   add_custom_target (${TARGET_NAME} ALL
-    DEPENDS ${TARGET_DEPENDENCIES} ${OCL_20_SOURCE_FILES}
+    DEPENDS ${TARGET_DEPENDENCIES} ${OCL_20_SOURCE_FILES} ${TD_SOURCES}
     COMMENT "Target ${TARGET_NAME} build completed"
     VERBATIM
     SOURCES ${OCL_20_SOURCE_FILES} ${OCL_IMAGE_CALLBACK_SOURCE_FILE} ${HEADER_FILES}
