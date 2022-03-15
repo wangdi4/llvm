@@ -475,5 +475,3 @@ add_custom_target(deploy-sycl-toolchain
 
 # SYCL Runtime documentation
 add_subdirectory(doc)
-
-add_subdirectory(examples)
