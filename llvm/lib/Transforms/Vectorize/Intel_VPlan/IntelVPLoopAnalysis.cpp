@@ -654,20 +654,24 @@ static void relinkLiveOuts(VPValue *From, VPValue *To, const VPLoop &Loop) {
       User->replaceUsesOfWith(From, To);
 }
 
+#if INTEL_CUSTOMIZATION
+void VPLoopEntityList::updateHIROperand(VPValue *AI, VPLoadStoreInst *V) {
+  if (auto *ExtDef = dyn_cast<VPExternalDef>(AI)) {
+    if (ExtDef->getOperandHIR()) {
+      unsigned ExtDefSym =
+          cast<VPBlob>(ExtDef->getOperandHIR())->getBlob()->getSymbase();
+      V->HIR().setSymbase(ExtDefSym);
+    }
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 void VPLoopEntityList::processFinalValue(VPLoopEntity &E, VPValue *AI,
                                          VPBuilder &Builder, VPValue &Final,
                                          Type *Ty, VPValue *Exit) {
   if (AI) {
     VPLoadStoreInst *V = Builder.createStore(&Final, AI);
-#if INTEL_CUSTOMIZATION
-    if (auto *ExtDef = dyn_cast<VPExternalDef>(AI)) {
-      if (ExtDef->getOperandHIR()) {
-        unsigned ExtDefSym =
-            cast<VPBlob>(ExtDef->getOperandHIR())->getBlob()->getSymbase();
-        V->HIR().setSymbase(ExtDefSym);
-      }
-    }
-#endif // INTEL_CUSTOMIZATION
+    updateHIROperand(AI, V); // INTEL
     linkValue(&E, V);
   }
   if (Exit && !E.getIsMemOnly())
@@ -693,10 +697,12 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   VPValue *Identity = getReductionIdentity(Reduction);
   Type *Ty = Reduction->getRecurrenceType();
   VPValue *PrivateMem = createPrivateMemory(*Reduction, Builder, AI, Preheader);
-  if (Reduction->getIsMemOnly() && !isa<VPConstant>(Identity))
+  if (Reduction->getIsMemOnly() && !isa<VPConstant>(Identity)) {
     // min/max in-memory reductions. Need to generate a load.
-    Identity = Builder.createLoad(Ty, AI);
-
+    VPLoadStoreInst *V = Builder.createLoad(Ty, AI);
+    updateHIROperand(AI, V); // INTEL
+    Identity = V;
+  }
   // We can initialize reduction either with broadcasted identity only or
   // inserting additionally the initial value into 0th element. In the
   // second case we don't need an additional instruction when reducing.
@@ -721,7 +727,9 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
       StartValue->getType() != Ty) { // Ty is recurrence type
     assert(isa<PointerType>(StartValue->getType()) &&
            "Expected pointer type here.");
-    StartValue = Builder.createLoad(Ty, StartValue);
+    VPLoadStoreInst *V = Builder.createLoad(Ty, StartValue);
+    updateHIROperand(StartValue, V); // INTEL
+    StartValue = V;
   }
 
   VPInstruction *Init =

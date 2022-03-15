@@ -1788,8 +1788,9 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
             // Replicate invariant vector blob VF times.
             HLInst *ReplBlobInst =
                 replicateVector(WideRef, VF, NestingLevel - 1);
-            // Insert the replicating instruction into preheader of vector loop.
-            HLNodeUtils::insertBefore(MainLoop, ReplBlobInst);
+            // Insert the replicating instruction into vector loop at current
+            // insertion point.
+            addInstUnmasked(ReplBlobInst);
             auto NewRef = ReplBlobInst->getLvalDDRef();
 
             AuxRefs.push_back(NewRef);
@@ -3214,7 +3215,10 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
   assert(WideRef && "Expected non-null widened ref");
   LLVM_DEBUG(WideRef->dump(true));
   LLVM_DEBUG(errs() << "\n");
-  addVPValueWideRefMapping(VPVal, WideRef);
+  // Vector type VPExternalDef are explicitly replicated and inlined at use
+  // points. Don't cache the wideref in maps.
+  if (!isa<VPExternalDef>(VPVal) || !VPVal->getType()->isVectorTy())
+    addVPValueWideRefMapping(VPVal, WideRef);
 
   // Keep the VPValue for dropping when we switch VF. TODO: Move it to
   // addVPValueWideRefMapping instead?

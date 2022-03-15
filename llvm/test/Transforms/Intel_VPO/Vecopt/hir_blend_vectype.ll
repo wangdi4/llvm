@@ -95,7 +95,6 @@ define dso_local void @foo(i64* noalias nocapture readonly %larr1, i64* noalias 
 ; CHECK-EMPTY:
 ; CHECK:       Function: foo
 ; CHECK:         BEGIN REGION { modified }
-; CHECK-NEXT:         %.replicated = shufflevector %l2n,  undef,  <i32 0, i32 1, i32 0, i32 1, i32 0, i32 1, i32 0, i32 1>;
 ; CHECK:              + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:         |   %.vec5 = undef;
 ; CHECK-NEXT:         |   %.vec3 = undef;
@@ -109,6 +108,7 @@ define dso_local void @foo(i64* noalias nocapture readonly %larr1, i64* noalias 
 ; CHECK-NEXT:         |   %.copy7 = %.vec5;
 ; CHECK-NEXT:         |   %.replicated.elts8 = shufflevector %.vec,  undef,  <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>;
 ; CHECK-NEXT:         |   %select = (%.replicated.elts8 == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? %.copy7 : %.copy;
+; CHECK-NEXT:         |   %.replicated = shufflevector %l2n,  undef,  <i32 0, i32 1, i32 0, i32 1, i32 0, i32 1, i32 0, i32 1>;
 ; CHECK-NEXT:         |   (<8 x i64>*)(%larr3)[2 * i1] = %select + %.replicated;
 ; CHECK-NEXT:         + END LOOP
 ; CHECK-NEXT:    END REGION
