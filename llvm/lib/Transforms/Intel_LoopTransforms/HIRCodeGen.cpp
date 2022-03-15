@@ -923,7 +923,8 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
 
       GEPVal =
           EmitSubsValue(&Builder, DL, DimElementTy, GEPVal, BasePtrElementTy,
-                        LowerVal, IndexVal, StrideVal, Ref->isInBounds(), true);
+                        LowerVal, IndexVal, StrideVal, Ref->isInBounds(),
+                        Ref->isStrideExactMultiple(DimNum));
 
       // Emit gep for dimension struct access.
       auto Offsets = Ref->getTrailingStructOffsets(DimNum);
