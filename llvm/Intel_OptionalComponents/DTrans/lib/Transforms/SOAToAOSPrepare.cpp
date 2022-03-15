@@ -213,9 +213,9 @@
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
-#include "Intel_DTrans/Transforms/SOAToAOSExternal.h"
 
 #include "SOAToAOSClassInfo.h"
+#include "SOAToAOSInternal.h"
 
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/IRBuilder.h"

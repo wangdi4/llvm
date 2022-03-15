@@ -197,6 +197,10 @@ MODULE_PASS("dtrans-codealign", dtrans::CodeAlignPass())         // INTEL
 MODULE_PASS("dtrans-transpose", dtrans::TransposePass())         // INTEL
 MODULE_PASS("dtrans-commutecond", dtrans::CommuteCondPass())     // INTEL
 MODULE_PASS("dtrans-commutecondop", dtransOP::CommuteCondOPPass()) // INTEL
+MODULE_PASS("dtrans-force-inline",           // INTEL
+            dtrans::DTransForceInlinePass()) // INTEL
+MODULE_PASS("dtrans-force-inline-op",            // INTEL
+            dtransOP::DTransForceInlineOPPass()) // INTEL
 #if !INTEL_PRODUCT_RELEASE
 MODULE_PASS("dtransop-optbasetest", dtransOP::DTransOPOptBaseTestPass()) // INTEL
 MODULE_PASS("dtrans-optbasetest", dtrans::OptBaseTestPass()) // INTEL

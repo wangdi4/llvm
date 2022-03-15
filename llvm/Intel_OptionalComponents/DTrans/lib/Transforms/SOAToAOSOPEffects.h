@@ -24,7 +24,6 @@
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
-#include "Intel_DTrans/Transforms/SOAToAOSOPExternal.h"
 
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SCCIterator.h"
@@ -37,6 +36,8 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+
+#include "SOAToAOSOPInternal.h"
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #include "llvm/IR/AssemblyAnnotationWriter.h"

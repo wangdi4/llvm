@@ -1373,8 +1373,6 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   if (Phase == ThinOrFullLTOPhase::ThinLTOPreLink && PGOOpt &&
       PGOOpt->Action == PGOOptions::SampleUse)
     IP.HotCallSiteThreshold = 0;
-  InlinerPass InlPass;
-  MPM.addPass(InlineReportSetupPass(InlPass.getMDReport()));
 #endif // INTEL_CUSTOMIZATION
 
   // During the ThinLTO backend phase we perform early indirect call promotion
@@ -1400,6 +1398,21 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 #if INTEL_CUSTOMIZATION
   if (RunVPOOpt && RunVPOParopt)
     MPM.addPass(RequireAnalysisPass<VPOParoptConfigAnalysis, Module>());
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+  // Parse -[no]inline-list option and set corresponding attributes.
+  InlinerPass InlPass;
+  MPM.addPass(InlineReportSetupPass(InlPass.getMDReport()));
+  MPM.addPass(InlineListsPass());
+  if (RunVPOParopt && EnableVPOParoptTargetInline)
+    MPM.addPass(VPOParoptTargetInlinePass());
+#if INTEL_FEATURE_SW_DTRANS
+  if (PrepareForLTO && DTransEnabled) {
+    MPM.addPass(dtrans::DTransForceInlinePass());
+    MPM.addPass(dtransOP::DTransForceInlineOPPass());
+  }
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   // Create an early function pass manager to cleanup the output of the
@@ -1549,13 +1562,6 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // Synthesize function entry counts for non-PGO compilation.
   if (EnableSyntheticCounts && !PGOOpt)
     MPM.addPass(SyntheticCountsPropagation());
-
-#if INTEL_CUSTOMIZATION
-  // Parse -[no]inline-list option and set corresponding attributes.
-  MPM.addPass(InlineListsPass());
-  if (RunVPOParopt && EnableVPOParoptTargetInline)
-    MPM.addPass(VPOParoptTargetInlinePass());
-#endif // INTEL_CUSTOMIZATION
 
   if (EnableModuleInliner)
     MPM.addPass(buildModuleInlinerPipeline(Level, Phase));

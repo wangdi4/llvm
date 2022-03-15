@@ -22,11 +22,11 @@
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
-#include "Intel_DTrans/Transforms/SOAToAOSOPExternal.h"
 
 #include "SOAToAOSOPArrays.h"
 #include "SOAToAOSOPClassInfo.h"
 #include "SOAToAOSOPEffects.h"
+#include "SOAToAOSOPInternal.h"
 #include "SOAToAOSOPStruct.h"
 
 #include "llvm/Analysis/Intel_WP.h"
@@ -856,7 +856,7 @@ bool SOAToAOSOPTransformImpl::prepareTypes(Module &M) {
 
     std::unique_ptr<CandidateInfo> Info(new CandidateInfo());
 
-    if (!Info->populateLayoutInformation(StInfo->getDTransType(), DTInfo)) {
+    if (!Info->populateLayoutInformation(StInfo->getDTransType())) {
       LLVM_DEBUG({
         dbgs() << "  ; Rejecting ";
         TI->getLLVMType()->print(dbgs(), true, true);
@@ -864,9 +864,9 @@ bool SOAToAOSOPTransformImpl::prepareTypes(Module &M) {
       });
       continue;
     }
-
-    if (!Info->populateCFGInformation(M, DTInfo, DTransSOAToAOSOPSizeHeuristic,
-                                      true)) {
+    TypeMetadataReader &MDReader = DTInfo->getTypeMetadataReader();
+    if (!Info->populateCFGInformation(M, MDReader,
+                                      DTransSOAToAOSOPSizeHeuristic, true)) {
       LLVM_DEBUG({
         dbgs() << "  ; Rejecting ";
         TI->getLLVMType()->print(dbgs(), true, true);

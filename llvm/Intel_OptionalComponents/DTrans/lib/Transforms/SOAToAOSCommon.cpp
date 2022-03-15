@@ -16,10 +16,10 @@
 #include "llvm/Support/Compiler.h"
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-#include "Intel_DTrans/Transforms/SOAToAOSExternal.h"
 
 #include "SOAToAOSCommon.h"
 #include "SOAToAOSEffects.h"
+#include "SOAToAOSInternal.h"
 
 #include "llvm/Support/Error.h"
 

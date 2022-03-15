@@ -1,12 +1,10 @@
-; INTEL_FEATURE_SW_ADVANCED
-; REQUIRES: intel_feature_sw_advanced
 ; This test verifies that calls in member functions of XStringCachedAllocator
 ; are not inlined and other calls in member functions of ReusableArenaAllocator
 ; are inlined.
 
-; RUN: opt < %s -S -inline -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck %s
+; RUN: opt < %s -S -dtrans-force-inline -inline -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck %s
 
-; RUN: opt < %s -S -passes='cgscc(inline)' -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes='module(dtrans-force-inline),cgscc(inline)' -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -734,5 +732,3 @@ entry:
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn writeonly
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
-
-; end INTEL_FEATURE_SW_ADVANCED
