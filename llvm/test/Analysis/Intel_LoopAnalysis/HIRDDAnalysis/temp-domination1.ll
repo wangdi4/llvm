@@ -22,7 +22,7 @@
 
 ; CHECK-DAG: %Accumulator.0.lcssa --> %Accumulator.0.lcssa OUTPUT (=) (0)
 ; CHECK-DAG: %Accumulator.0.lcssa --> %Accumulator.0.lcssa FLOW (=) (0)
-; CHECK-DAG: %Accumulator.0.lcssa --> %Accumulator.0.lcssa FLOW (*) (?)
+; CHECK-DAG: %Accumulator.0.lcssa --> %Accumulator.0.lcssa FLOW (=) (0)
 
 
 define void @fxpAutoCorrelation(i16* %InputData, i16* %AutoCorrData, i16 %DataSize, i16 %NumberOfLags, i16 %Scale) {
