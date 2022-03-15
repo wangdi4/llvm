@@ -145,7 +145,7 @@ void TrieNode::writeTo(uint8_t *buf) const {
   }
 }
 
-TrieNode::~TrieNode() {
+TrieBuilder::~TrieBuilder() {
   for (TrieNode *node : nodes)
     delete node;
 }

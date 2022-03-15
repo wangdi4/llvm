@@ -76,6 +76,7 @@ add_llvm_component_library(LLVMTransformUtils
   LoopUnrollRuntime.cpp
   LoopUtils.cpp
   LoopVersioning.cpp
+  LowerGlobalDtors.cpp
   LowerInvoke.cpp
   LowerMemIntrinsics.cpp
   LowerSwitch.cpp
