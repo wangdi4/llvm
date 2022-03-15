@@ -1152,6 +1152,32 @@ static Attr *handleNoInlineAttr(Sema &S, Stmt *St, const ParsedAttr &A,
   return ::new (S.Context) NoInlineAttr(S.Context, A);
 }
 
+static Attr *handleAlwaysInlineAttr(Sema &S, Stmt *St, const ParsedAttr &A,
+                                    SourceRange Range) {
+  AlwaysInlineAttr AIA(S.Context, A);
+  if (!AIA.isClangAlwaysInline()) {
+    S.Diag(St->getBeginLoc(), diag::warn_function_attribute_ignored_in_stmt)
+        << "[[clang::always_inline]]";
+    return nullptr;
+  }
+
+  CallExprFinder CEF(S, St);
+  if (!CEF.foundCallExpr()) {
+    S.Diag(St->getBeginLoc(), diag::warn_attribute_ignored_no_calls_in_stmt)
+        << A;
+    return nullptr;
+  }
+
+  for (const auto *CallExpr : CEF.getCallExprs()) {
+    const Decl *Decl = CallExpr->getCalleeDecl();
+    if (Decl->hasAttr<NoInlineAttr>() || Decl->hasAttr<FlattenAttr>())
+      S.Diag(St->getBeginLoc(), diag::warn_function_stmt_attribute_precedence)
+          << A << (Decl->hasAttr<NoInlineAttr>() ? 2 : 1);
+  }
+
+  return ::new (S.Context) AlwaysInlineAttr(S.Context, A);
+}
+
 static Attr *handleMustTailAttr(Sema &S, Stmt *St, const ParsedAttr &A,
                                 SourceRange Range) {
   // Validation is in Sema::ActOnAttributedStmt().
@@ -1705,6 +1731,8 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
   case ParsedAttr::AT_IntelPrefetch:
     return handleIntelPrefetchAttr(S, St, A, AL, Range);
 #endif // INTEL_CUSTOMIZATION
+  case ParsedAttr::AT_AlwaysInline:
+    return handleAlwaysInlineAttr(S, St, A, Range);
   case ParsedAttr::AT_FallThrough:
     return handleFallThroughAttr(S, St, A, Range);
   case ParsedAttr::AT_LoopHint:
