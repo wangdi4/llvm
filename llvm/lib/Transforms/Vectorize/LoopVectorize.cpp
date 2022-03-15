@@ -592,7 +592,7 @@ protected:
   /// Set up the values of the IVs correctly when exiting the vector loop.
   void fixupIVUsers(PHINode *OrigPhi, const InductionDescriptor &II,
                     Value *CountRoundDown, Value *EndValue,
-                    BasicBlock *MiddleBlock);
+                    BasicBlock *MiddleBlock, BasicBlock *VectorHeader);
 
   /// Introduce a conditional branch (on true, condition to be set later) at the
   /// end of the header=latch connecting it to itself (across the backedge) and
@@ -759,9 +759,6 @@ protected:
   /// The unique ExitBlock of the scalar loop if one exists.  Note that
   /// there can be multiple exiting edges reaching this block.
   BasicBlock *LoopExitBlock;
-
-  /// The vector loop body.
-  BasicBlock *LoopVectorBody;
 
   /// The scalar loop body.
   BasicBlock *LoopScalarBody;
@@ -3157,7 +3154,7 @@ Loop *InnerLoopVectorizer::createVectorLoopSkeleton(StringRef Prefix) {
   // We intentionally don't let SplitBlock to update LoopInfo since
   // LoopVectorBody should belong to another loop than LoopVectorPreHeader.
   // LoopVectorBody is explicitly added to the correct place few lines later.
-  LoopVectorBody =
+  BasicBlock *LoopVectorBody =
       SplitBlock(LoopVectorPreHeader, LoopVectorPreHeader->getTerminator(), DT,
                  nullptr, nullptr, Twine(Prefix) + "vector.body");
 
@@ -3386,7 +3383,8 @@ InnerLoopVectorizer::createVectorizedLoopSkeleton() {
 void InnerLoopVectorizer::fixupIVUsers(PHINode *OrigPhi,
                                        const InductionDescriptor &II,
                                        Value *CountRoundDown, Value *EndValue,
-                                       BasicBlock *MiddleBlock) {
+                                       BasicBlock *MiddleBlock,
+                                       BasicBlock *VectorHeader) {
   // There are two kinds of external IV usages - those that use the value
   // computed in the last iteration (the PHI) and those that use the penultimate
   // value (the value that feeds into the phi from the loop latch).
@@ -3431,7 +3429,7 @@ void InnerLoopVectorizer::fixupIVUsers(PHINode *OrigPhi,
       CMO->setName("cast.cmo");
 
       Value *Step = CreateStepValue(II.getStep(), *PSE.getSE(),
-                                    LoopVectorBody->getTerminator());
+                                    VectorHeader->getTerminator());
       Value *Escape =
           emitTransformedIndex(B, CMO, II.getStartValue(), Step, II);
       Escape->setName("ind.escape");
@@ -3763,15 +3761,16 @@ void InnerLoopVectorizer::fixVectorizedLoop(VPTransformState &State) {
   // Forget the original basic block.
   PSE.getSE()->forgetLoop(OrigLoop);
 
+  Loop *VectorLoop = LI->getLoopFor(State.CFG.PrevBB);
   // If we inserted an edge from the middle block to the unique exit block,
   // update uses outside the loop (phis) to account for the newly inserted
   // edge.
   if (!Cost->requiresScalarEpilogue(VF)) {
     // Fix-up external users of the induction variables.
     for (auto &Entry : Legal->getInductionVars())
-      fixupIVUsers(Entry.first, Entry.second,
-                   getOrCreateVectorTripCount(LI->getLoopFor(LoopVectorBody)),
-                   IVEndValues[Entry.first], LoopMiddleBlock);
+      fixupIVUsers(
+          Entry.first, Entry.second, getOrCreateVectorTripCount(VectorLoop),
+          IVEndValues[Entry.first], LoopMiddleBlock, VectorLoop->getHeader());
 
     fixLCSSAPHIs(State);
   }
@@ -3780,7 +3779,7 @@ void InnerLoopVectorizer::fixVectorizedLoop(VPTransformState &State) {
     sinkScalarOperands(&*PI);
 
   // Remove redundant induction instructions.
-  cse(LoopVectorBody);
+  cse(VectorLoop->getHeader());
 
   // Set/update profile weights for the vector and remainder loops as original
   // loop iterations are now distributed among them. Note that original loop
@@ -3795,9 +3794,9 @@ void InnerLoopVectorizer::fixVectorizedLoop(VPTransformState &State) {
   // For scalable vectorization we can't know at compile time how many iterations
   // of the loop are handled in one vector iteration, so instead assume a pessimistic
   // vscale of '1'.
-  setProfileInfoAfterUnrolling(
-      LI->getLoopFor(LoopScalarBody), LI->getLoopFor(LoopVectorBody),
-      LI->getLoopFor(LoopScalarBody), VF.getKnownMinValue() * UF);
+  setProfileInfoAfterUnrolling(LI->getLoopFor(LoopScalarBody), VectorLoop,
+                               LI->getLoopFor(LoopScalarBody),
+                               VF.getKnownMinValue() * UF);
 }
 
 void InnerLoopVectorizer::fixCrossIterationPHIs(VPTransformState &State) {
@@ -3956,6 +3955,8 @@ void InnerLoopVectorizer::fixReduction(VPReductionPHIRecipe *PhiR,
   setDebugLocFromInst(LoopExitInst);
 
   Type *PhiTy = OrigPhi->getType();
+  BasicBlock *VectorLoopLatch =
+      LI->getLoopFor(State.CFG.PrevBB)->getLoopLatch();
   // If tail is folded by masking, the vector value to leave the loop should be
   // a Select choosing between the vectorized LoopExitInst and vectorized Phi,
   // instead of the former. For an inloop reduction the reduction will already
@@ -3985,8 +3986,7 @@ void InnerLoopVectorizer::fixReduction(VPReductionPHIRecipe *PhiR,
               TargetTransformInfo::ReductionFlags())) {
         auto *VecRdxPhi =
             cast<PHINode>(State.get(PhiR, Part));
-        VecRdxPhi->setIncomingValueForBlock(
-            LI->getLoopFor(LoopVectorBody)->getLoopLatch(), Sel);
+        VecRdxPhi->setIncomingValueForBlock(VectorLoopLatch, Sel);
       }
     }
   }
@@ -3997,8 +3997,7 @@ void InnerLoopVectorizer::fixReduction(VPReductionPHIRecipe *PhiR,
   if (VF.isVector() && PhiTy != RdxDesc.getRecurrenceType()) {
     assert(!PhiR->isInLoop() && "Unexpected truncated inloop reduction!");
     Type *RdxVecTy = VectorType::get(RdxDesc.getRecurrenceType(), VF);
-    Builder.SetInsertPoint(
-        LI->getLoopFor(LoopVectorBody)->getLoopLatch()->getTerminator());
+    Builder.SetInsertPoint(VectorLoopLatch->getTerminator());
     VectorParts RdxParts(UF);
     for (unsigned Part = 0; Part < UF; ++Part) {
       RdxParts[Part] = State.get(LoopExitInstDef, Part);
@@ -4359,7 +4358,7 @@ void InnerLoopVectorizer::widenPHIInstruction(Instruction *PN,
     NewPointerPhi->addIncoming(ScalarStartValue, LoopVectorPreHeader);
 
     // A pointer induction, performed by using a gep
-    BasicBlock *LoopLatch = LI->getLoopFor(LoopVectorBody)->getLoopLatch();
+    BasicBlock *LoopLatch = LI->getLoopFor(State.CFG.PrevBB)->getLoopLatch();
     Instruction *InductionLoc = LoopLatch->getTerminator();
     const SCEV *ScalarStep = II.getStep();
     SCEVExpander Exp(*PSE.getSE(), DL, "induction");
