@@ -1049,33 +1049,7 @@ void VPOCodeGenHIR::setupHLLoop(const VPLoop *VPLp) {
   VPLoopHLLoopMap[VPLp] = HLoop;
 }
 
-bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
-  assert(VF > 1);
-  setVF(VF);
-  assert(UF > 0);
-  setUF(UF);
-  assert(RednHoistLp &&
-         "Decision about reduction hoist loop should be available here.");
-
-  LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: VPlan handled loop, VF = " << VF << " "
-                    << Fn.getName() << "\n");
-  LLVM_DEBUG(dbgs() << "Handled loop before vec codegen: \n");
-  LLVM_DEBUG(OrigLoop->dump(1));
-
-  LoopsVectorized++;
-  SRA->computeSafeReductionChains(OrigLoop);
-
-  const SafeRedInfoList &SRCL = SRA->getSafeRedInfoList(OrigLoop);
-  for (auto &SafeRedInfo : SRCL) {
-    for (auto &Inst : SafeRedInfo.Chain) {
-      // Make sure all reduction instructions are part of the OrigLoop that
-      // was queried for safe reductions.
-      assert(OrigLoop == Inst->getParentLoop() &&
-             "Reduction inst should be in OrigLoop");
-      (void)Inst;
-    }
-  }
-
+void VPOCodeGenHIR::setupLoopsForLegacyCG(unsigned VF, unsigned UF) {
   // Setup peel, main and remainder loops
   // TODO: Peeling decisions should be properly made in VPlan's cost model and
   // not during code generation. The following logic is a temporary workaround
@@ -1126,26 +1100,12 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
                 false /*OrigLoop will also executed peeled its.*/);
   }
 
-  HLLoop *MainLoop = nullptr;
-  // For merged CFG just create an empty clone of original scalar loop to
-  // correspond to the main vector loop. For legacy CFG continue to use
-  // HIRTransformUtils to emit implicit peel, vector and remainder loops.
-  if (isMergedCFG()) {
-    // Extract preheader and postexit to preserve it in generated vector HIR.
-    OrigLoop->extractZttPreheaderAndPostexit();
-    MainLoop = OrigLoop->cloneEmpty();
-  } else {
-    MainLoop = HIRTransformUtils::setupPeelMainAndRemainderLoops(
-        OrigLoop, VF * UF, NeedRemainderLoop, ORBuilder,
-        OptimizationType::Vectorizer, &PeelLoop, SearchLoopPeelArrayRef,
-        &RTChecks);
-  }
-
-  if (!MainLoop) {
-    assert(false && "Main loop could not be setup.");
-    // Bailout for prod builds
-    return false;
-  }
+  // For legacy CFG continue to use HIRTransformUtils to emit implicit peel,
+  // vector and remainder loops.
+  HLLoop *MainLoop = HIRTransformUtils::setupPeelMainAndRemainderLoops(
+      OrigLoop, VF * UF, NeedRemainderLoop, ORBuilder,
+      OptimizationType::Vectorizer, &PeelLoop, SearchLoopPeelArrayRef,
+      &RTChecks);
 
   if (PeelLoop) {
     setNeedPeelLoop(NeedPeelLoop);
@@ -1156,6 +1116,61 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
         setTripCount(TripCount - 1);
       // TODO : What about generic peel loop?
     }
+  }
+
+  setNeedRemainderLoop(NeedRemainderLoop);
+  setMainLoop(MainLoop);
+}
+
+void VPOCodeGenHIR::setupLoopsForMergedCFG() {
+  // TODO: Port some functionalities like max TC estimation, profiling data from
+  // HIRTransformUtils::setupPeelMainAndRemainderLoops. For merged CFG just
+  // create an empty clone of original scalar loop to correspond to the main
+  // vector loop. We also extract preheader and postexit to preserve it in
+  // generated vector HIR.
+  OrigLoop->extractZttPreheaderAndPostexit();
+  HLLoop *MainLoop = OrigLoop->cloneEmpty();
+  setNeedPeelLoop(CFGInfo.isPeelLoopEmitted());
+  setNeedRemainderLoop(CFGInfo.isRemainderLoopEmitted());
+  setMainLoop(MainLoop);
+}
+
+bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
+  assert(VF > 1);
+  setVF(VF);
+  assert(UF > 0);
+  setUF(UF);
+  assert(RednHoistLp &&
+         "Decision about reduction hoist loop should be available here.");
+
+  LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: VPlan handled loop, VF = " << VF << " "
+                    << Fn.getName() << "\n");
+  LLVM_DEBUG(dbgs() << "Handled loop before vec codegen: \n");
+  LLVM_DEBUG(OrigLoop->dump(1));
+
+  LoopsVectorized++;
+  SRA->computeSafeReductionChains(OrigLoop);
+
+  const SafeRedInfoList &SRCL = SRA->getSafeRedInfoList(OrigLoop);
+  for (auto &SafeRedInfo : SRCL) {
+    for (auto &Inst : SafeRedInfo.Chain) {
+      // Make sure all reduction instructions are part of the OrigLoop that
+      // was queried for safe reductions.
+      assert(OrigLoop == Inst->getParentLoop() &&
+             "Reduction inst should be in OrigLoop");
+      (void)Inst;
+    }
+  }
+
+  if (isMergedCFG())
+    setupLoopsForMergedCFG();
+  else
+    setupLoopsForLegacyCG(VF, UF);
+
+  if (!MainLoop) {
+    assert(false && "Main loop could not be setup.");
+    // Bailout for prod builds
+    return false;
   }
 
   // Collect vploop preheader/header/exit blocks.
@@ -1189,8 +1204,6 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
     HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(RednHoistLp);
 
   MainLoop->extractZtt();
-  setNeedRemainderLoop(NeedRemainderLoop);
-  setMainLoop(MainLoop);
   addInsertRegion(MainLoop);
 
   return true;
@@ -1198,6 +1211,11 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPOCodeGenHIR::dumpFinalHIR() {
+  if (isMergedCFG()) {
+    MainLoop->getParent()->dump();
+    return;
+  }
+
   if (NeedPeelLoop)
     PeelLoop->dump();
   MainLoop->getParent()->dump();
@@ -1370,8 +1388,14 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
   // If a remainder loop is not needed get rid of the OrigLoop at this point.
   // Replace calls in remainderloop for FP consistency
   if (NeedRemainderLoop) {
-    HIRLoopVisitor LV(OrigLoop, this);
-    LV.replaceCalls();
+    // Remainder loop is represented explicitly in merged CFG and we don't need
+    // to repurpose OrigLoop as remainder.
+    if (isMergedCFG())
+      HLNodeUtils::remove(OrigLoop);
+    else {
+      HIRLoopVisitor LV(OrigLoop, this);
+      LV.replaceCalls();
+    }
   } else {
     // NeedRemainderLoop is false so trip count % VF == 0. Also check to see
     // that the trip count is small and the loop body is small. If so, do
@@ -6071,9 +6095,6 @@ void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
     if (isMergedCFG()) {
       // We are encountering the first VPBB in merged CFG, insert its label
       // before the original scalar loop.
-      // TODO: This is a good spot to remove OrigLoop from its parent. Remainder
-      // loop is represented explicitly in CFG and we don't need to repurpose
-      // OrigLoop as remainder.
       HLNodeUtilities.insertBefore(OrigLoop, Label);
     } else {
       HLNodeUtilities.insertBefore(MainLoop, Label);
