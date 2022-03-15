@@ -24,12 +24,12 @@
 
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Transforms/SOAToAOSOP.h"
-#include "Intel_DTrans/Transforms/SOAToAOSOPExternal.h"
 
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include "SOAToAOSOPEffects.h"
+#include "SOAToAOSOPInternal.h"
 
 namespace llvm {
 namespace dtransOP {

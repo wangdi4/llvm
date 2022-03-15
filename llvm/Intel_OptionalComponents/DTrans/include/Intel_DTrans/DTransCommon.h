@@ -68,6 +68,8 @@ void initializeDTransCommuteCondWrapperPass(PassRegistry&);
 void initializeDTransCommuteCondOPWrapperPass(PassRegistry&);
 void initializeRemoveAllDTransTypeMetadataWrapperPass(PassRegistry &);
 void initializeRemoveDeadDTransTypeMetadataWrapperPass(PassRegistry &);
+void initializeDTransForceInlineWrapperPass(PassRegistry &);
+void initializeDTransForceInlineOPWrapperPass(PassRegistry &);
 
 #if !INTEL_PRODUCT_RELEASE
 void initializeDTransOPOptBaseTestWrapperPass(PassRegistry&);

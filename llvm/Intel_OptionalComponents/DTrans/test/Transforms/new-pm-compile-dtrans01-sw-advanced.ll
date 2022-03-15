@@ -1,6 +1,4 @@
-; INTEL_FEATURE_SW_ADVANCED
-; REQUIRES: intel_feature_sw_advanced,asserts
-;
+; REQUIRES: asserts
 ; Test passes run under -enable-dtrans in the compile step in the new pass manager
 ;
 ; RUN: opt -disable-output -disable-verify -enable-npm-dtrans \
@@ -55,4 +53,3 @@ define i32 @main() {
 }
 
 attributes #0 = { noinline uwtable }
-; end INTEL_FEATURE_SW_ADVANCED
