@@ -1,4 +1,3 @@
-; INTEL_FEATURE_SW_ADVANCED
 ; Test DTrans integration in the new pass manager.
 ;
 ; Ideally, we'd like to have this test integrated with the main test for the
@@ -127,4 +126,3 @@ define i32 @main(i32 %n) {
 }
 
 attributes #0 = { noinline uwtable }
-; end INTEL_FEATURE_SW_ADVANCED

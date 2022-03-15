@@ -1,6 +1,6 @@
 //===-------------- MemManageTrans.cpp - DTransMemManageTransPass ---------===//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -5036,7 +5036,7 @@ bool MemManageTransImpl::recognizeCommitAllocation(Function *F) {
 
 // Returns true if "F" is recognized as "Destructor".
 //
-// Ex:
+// Pattern 1:
 // Entry:
 //   invoke reset();
 //   to label %NormalDest  unwind label %UnwindDest
@@ -5044,6 +5044,21 @@ bool MemManageTransImpl::recognizeCommitAllocation(Function *F) {
 //   ListDtor();
 // UnwindDest:
 //   ListDtor();
+//
+//   or
+//
+// Pattern 2:
+// Entry:
+//   invoke reset();
+//   to label %NormalDest  unwind label %UnwindDest
+// NormalDest:
+//   ListDtor();
+// UnwindDest:
+//   %i107 = landingpad { i8*, i32 }
+//   catch i8* null
+//   %i108 = extractvalue { i8*, i32 } %i107, 0
+//   tail call void @__clang_call_terminate(i8* %i108)
+//   unreachable
 //
 bool MemManageTransImpl::recognizeDestructor(Function *F) {
   DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANS, {
@@ -5058,7 +5073,8 @@ bool MemManageTransImpl::recognizeDestructor(Function *F) {
     return false;
   if (!identifyListDtor(NDestBB, ThisObj, /* IsEHCode */ false))
     return false;
-  if (!identifyListDtor(UnDestBB, ThisObj, /* IsEHCode */ true))
+  if (!isUnreachableOK(UnDestBB) &&
+      !identifyListDtor(UnDestBB, ThisObj, /* IsEHCode */ true))
     return false;
 
   if (!verifyAllInstsProcessed(F))

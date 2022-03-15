@@ -1364,6 +1364,21 @@ void PassManagerBuilder::populateModulePassManager(
   // Infer attributes about declarations if possible.
   MPM.add(createInferFunctionAttrsLegacyPass());
 
+#if INTEL_CUSTOMIZATION
+  if (Inliner) {
+    MPM.add(createInlineReportSetupPass(getMDInlineReport()));
+    MPM.add(createInlineListsPass()); // -[no]inline-list parsing
+    if (RunVPOParopt && EnableVPOParoptTargetInline)
+      MPM.add(createVPOParoptTargetInlinePass());
+#if INTEL_FEATURE_SW_DTRANS
+    if (PrepareForLTO && DTransEnabled) {
+      MPM.add(createDTransForceInlineWrapperPass());
+      MPM.add(createDTransForceInlineOPWrapperPass());
+    }
+#endif  // INTEL_FEATURE_SW_DTRANS
+  }
+#endif  // INTEL_CUSTOMIZATION
+
   // Infer attributes on declarations, call sites, arguments, etc.
   if (AttributorRun & AttributorRunOption::MODULE)
     MPM.add(createAttributorLegacyPass());
@@ -1378,6 +1393,7 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createFunctionSpecializationPass());
 
   MPM.add(createIPSCCPPass());          // IP SCCP
+
   MPM.add(createCalledValuePropagationPass());
 
   MPM.add(createGlobalOptimizerPass()); // Optimize out global vars
@@ -1420,15 +1436,6 @@ void PassManagerBuilder::populateModulePassManager(
   // analysis infrastructure this "works" in that the analysis stays alive
   // for the entire SCC pass run below.
   MPM.add(createGlobalsAAWrapperPass());
-
-#if INTEL_CUSTOMIZATION
-  if (Inliner) {
-    MPM.add(createInlineReportSetupPass(getMDInlineReport()));
-    MPM.add(createInlineListsPass()); // -[no]inline-list parsing
-    if (RunVPOParopt && EnableVPOParoptTargetInline)
-      MPM.add(createVPOParoptTargetInlinePass());
-  }
-#endif  // INTEL_CUSTOMIZATION
 
   // Start of CallGraph SCC passes.
   MPM.add(createPruneEHPass()); // Remove dead EH info

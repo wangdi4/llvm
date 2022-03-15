@@ -577,6 +577,14 @@ bool HIRRegionIdentification::isSupported(Type *Ty, bool IsGEPRelated,
     return false;
   }
 
+  if (Ty->isX86_AMXTy()) {
+    // It is not valid to create a pointer of this type which is required for us
+    // to generate code as HIRCodeGen generates an alloca for every temp. As
+    // such CG fails for this type so we need to disallow it.
+    printOptReportRemark(Lp, "x86_amx type is not supported.");
+    return false;
+  }
+
   auto IntType = dyn_cast<IntegerType>(Ty);
   // Integer type greater than 64 bits not supported. This is mainly to throttle
   // 128 bit integers.

@@ -1,10 +1,7 @@
-; INTEL_FEATURE_SW_ADVANCED
-; REQUIRES: intel_feature_sw_advanced
-
-; RUN: opt < %s -S -passes='lto-pre-link<O3>' -inline-report=0xe807 -dtrans-inline-heuristics -inline-for-xmain 2>&1 | FileCheck --check-prefixes=CHECK-SUPP,CHECK-SUPP-CL %s
-; RUN: opt < %s -S -passes='lto<O3>' -inline-report=0xe807 -dtrans-inline-heuristics -inline-for-xmain 2>&1 | FileCheck --check-prefixes=CHECK-NINL,CHECK-NINL-CL %s
-; RUN: opt < %s -S -passes='lto-pre-link<O3>' -inline-report=0xe886 -dtrans-inline-heuristics -inline-for-xmain 2>&1 | FileCheck --check-prefixes=CHECK-SUPP,CHECK-SUPP-MD %s
-; RUN: opt < %s -S -passes='lto<O3>' -inline-report=0xe886 -dtrans-inline-heuristics -inline-for-xmain 2>&1 | FileCheck --check-prefixes=CHECK-NINL,CHECK-NINL-MD %s
+; RUN: opt < %s -S -passes='lto-pre-link<O3>' -enable-npm-dtrans -inline-report=0xe807 -dtrans-inline-heuristics -inline-for-xmain 2>&1 | FileCheck --check-prefixes=CHECK-SUPP,CHECK-SUPP-CL %s
+; RUN: opt < %s -S -passes='lto<O3>' -enable-npm-dtrans -inline-report=0xe807 -dtrans-inline-heuristics -inline-for-xmain 2>&1 | FileCheck --check-prefixes=CHECK-NINL,CHECK-NINL-CL %s
+; RUN: opt < %s -S -passes='lto-pre-link<O3>' -enable-npm-dtrans -inline-report=0xe886 -dtrans-inline-heuristics -inline-for-xmain 2>&1 | FileCheck --check-prefixes=CHECK-SUPP,CHECK-SUPP-MD %s
+; RUN: opt < %s -S -passes='lto<O3>' -enable-npm-dtrans -inline-report=0xe886 -dtrans-inline-heuristics -inline-for-xmain 2>&1 | FileCheck --check-prefixes=CHECK-NINL,CHECK-NINL-MD %s
 
 ; This test checks that the inlining of the key five functions listed in the
 ; CHECK lines is suppressed during the compile step, but not suppressed during
@@ -221,4 +218,3 @@ entry:
   store i32 0, i32* %size, align 8
   ret void
 }
-; end INTEL_FEATURE_SW_ADVANCED

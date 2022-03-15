@@ -96,7 +96,6 @@ define dso_local void @foo(i64* noalias nocapture readonly %larr1, i64* noalias 
 ; CHECK:       Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    BEGIN REGION { modified }
-; CHECK-NEXT:         %.replicated = shufflevector %l2n,  undef,  <i32 0, i32 1, i32 0, i32 1, i32 0, i32 1, i32 0, i32 1>;
 ; CHECK:              + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:         |   %.vec = %n0 < %n1;
 ; CHECK-NEXT:         |   %unifcond = extractelement %.vec,  0;
@@ -112,6 +111,7 @@ define dso_local void @foo(i64* noalias nocapture readonly %larr1, i64* noalias 
 ; CHECK-NEXT:         |      %.copy = %.vec2;
 ; CHECK-NEXT:         |      %phi.temp = %.copy;
 ; CHECK-NEXT:         |   }
+; CHECK-NEXT:         |   %.replicated = shufflevector %l2n,  undef,  <i32 0, i32 1, i32 0, i32 1, i32 0, i32 1, i32 0, i32 1>;
 ; CHECK-NEXT:         |   (<8 x i64>*)(%larr3)[2 * i1] = %phi.temp + %.replicated;
 ; CHECK-NEXT:         + END LOOP
 ; CHECK-NEXT:    END REGION

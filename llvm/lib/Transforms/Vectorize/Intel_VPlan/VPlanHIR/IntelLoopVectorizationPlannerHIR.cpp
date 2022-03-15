@@ -163,6 +163,14 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
         if (!CalledF)
           continue;
 
+        auto *UnderlyingCall = VPCall->getUnderlyingCallInst();
+        if (UnderlyingCall &&
+            vpo::VPOAnalysisUtils::isBeginDirective(UnderlyingCall)) {
+          LLVM_DEBUG(dbgs() << "LVP: unsupported nested begin directive. "
+                            << *UnderlyingCall << "\n");
+          return false;
+        }
+
         LibFunc CallF;
         if (TLI->getLibFunc(*CalledF, CallF) &&
             (CallF == LibFunc_sincos || CallF == LibFunc_sincosf)) {
@@ -191,7 +199,7 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
   // operations during initialization and finalization. Walking the VPlan
   // instructions will not work as this check is done before we insert entity
   // related instructions.
-  if (LE->hasInMemoryReductionInduction())
+  if (LE->hasInMemoryInduction())
     return false;
 
   // Check whether all reductions are supported

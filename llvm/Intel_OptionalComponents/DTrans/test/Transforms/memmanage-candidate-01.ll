@@ -4,8 +4,8 @@
 ; candidate for MemManageTrans.
 
 
-; RUN: opt < %s -disable-output  -inline -pre-lto-inline-cost -debug-only=dtrans-memmanageinfo 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -passes='cgscc(inline)' -pre-lto-inline-cost -debug-only=dtrans-memmanageinfo 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -dtrans-force-inline -pre-lto-inline-cost -debug-only=dtrans-memmanageinfo 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -passes='module(dtrans-force-inline)' -pre-lto-inline-cost -debug-only=dtrans-memmanageinfo 2>&1 | FileCheck %s
 
 
 ; CHECK: MemManageTrans considering candidate: %XStringCachedAllocator
