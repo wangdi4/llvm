@@ -724,7 +724,9 @@ private:
   SmallPtrSet<const VPBasicBlock *, 2> LoopHeaderBlocks;
   SmallPtrSet<const VPBasicBlock *, 2> LoopExitBlocks;
   SmallDenseMap<const VPLoop *, HLLoop *> VPLoopHLLoopMap;
+  // TODO: Remove the set when legacy CG is retired.
   // Set of scalar HLLoops generated for outgoing HIR.
+  SmallDenseMap<const VPInstruction *, HLLoop *> OutgoingScalarHLLoopsMap;
   SmallPtrSet<HLLoop *, 2> OutgoingScalarHLLoops;
 
   // Utility to check if current target loop being vectorized has merged CFG.
@@ -1014,6 +1016,21 @@ private:
   // Helper method to set lower, upper bound and stride for vectorized HLLoops.
   // The corresponding VPLoop is provided as input.
   void setBoundsForVectorLoop(VPLoop *VPLp);
+
+  // Helper method to handle lowering of instructions that represent original
+  // liveout values from outgoing scalar HLLoops in merged CFG.
+  template <class OrigLiveOutTy>
+  void handleScalarLoopOrigLiveOut(const VPInstruction *VPInst) {
+    auto *LiveOut = cast<OrigLiveOutTy>(VPInst);
+    auto *LiveOutRef = cast<RegDDRef>(LiveOut->getLiveOutVal());
+    auto ScalarLpIt = OutgoingScalarHLLoopsMap.find(
+        cast<VPInstruction>(LiveOut->getOperand(0)));
+    assert(ScalarLpIt != OutgoingScalarHLLoopsMap.end() &&
+           "Outgoing scalar loop not found.");
+    HLLoop *ScalarLp = ScalarLpIt->second;
+    ScalarLp->addLiveOutTemp(LiveOutRef->getSymbase());
+    addVPValueScalRefMapping(LiveOut, const_cast<RegDDRef *>(LiveOutRef), 0);
+  }
 
   RegDDRef *getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize);
 
