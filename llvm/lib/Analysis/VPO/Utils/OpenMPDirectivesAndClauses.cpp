@@ -205,10 +205,10 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
   }
 }
 
-StringRef VPOAnalysisUtils::getDirectiveString(Instruction *I){
+StringRef VPOAnalysisUtils::getDirectiveString(const Instruction *I) {
   StringRef DirString;  // ctor initializes its data to nullptr
   if (I) {
-    IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
+    const IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
     if (Call) {
       DirString = VPOAnalysisUtils::getRegionDirectiveString(I);
     }
@@ -278,7 +278,7 @@ int VPOAnalysisUtils::getDirectiveID(StringRef DirFullName) {
   return -1;
 }
 
-int VPOAnalysisUtils::getDirectiveID(Instruction *I) {
+int VPOAnalysisUtils::getDirectiveID(const Instruction *I) {
   StringRef DirString = VPOAnalysisUtils::getDirectiveString(I);
   return VPOAnalysisUtils::getDirectiveID(DirString);
 }
@@ -334,7 +334,7 @@ bool VPOAnalysisUtils::isBeginDirective(StringRef DirString) {
   return VPOAnalysisUtils::isBeginDirective(DirID);
 }
 
-bool VPOAnalysisUtils::isBeginDirective(Instruction *I) {
+bool VPOAnalysisUtils::isBeginDirective(const Instruction *I) {
   int DirID = VPOAnalysisUtils::getDirectiveID(I);
   return VPOAnalysisUtils::isBeginDirective(DirID);
 }

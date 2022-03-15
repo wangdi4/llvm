@@ -336,7 +336,7 @@ public:
 
     /// If the instruction is a directive, return the directive name.
     /// Otherwise, return an empty StringRef.
-    static StringRef getDirectiveString(Instruction *I);
+    static StringRef getDirectiveString(const Instruction *I);
 
     /// Returns the string corresponding to a directive.
     static StringRef getDirectiveString(int Id);
@@ -369,7 +369,7 @@ public:
     /// Returns the ID (enum) corresponding to a directive,
     /// or -1 if \p DirFullName does not correspond to a directive name.
     static int getDirectiveID(StringRef DirFullName);
-    static int getDirectiveID(Instruction *I);
+    static int getDirectiveID(const Instruction *I);
 
     /// Returns the ID (enum) corresponding to a clause,
     /// or -1 if \p ClauseFullName does not correspond to a clause name.
@@ -381,7 +381,7 @@ public:
     /// DIR_OMP_PARALLEL and DIR_OMP_SIMD.
     static bool isBeginDirective(int DirID);
     static bool isBeginDirective(StringRef DirString);
-    static bool isBeginDirective(Instruction *I);
+    static bool isBeginDirective(const Instruction *I);
     static bool isBeginDirective(BasicBlock *BB);
 
     /// Return true for a directive that begins a loop region, such as
