@@ -214,10 +214,10 @@
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
-#include "Intel_DTrans/Transforms/SOAToAOSOPExternal.h"
 
 #include "SOAToAOSOPClassInfo.h"
 #include "SOAToAOSOPCommon.h"
+#include "SOAToAOSOPInternal.h"
 
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/IRBuilder.h"
@@ -2637,7 +2637,7 @@ bool SOAToAOSPrepareImpl::gatherCandidateInfo() {
     if (!StInfo || cast<StructType>(StInfo->getLLVMType())->isLiteral())
       continue;
 
-    if (!Info.populateLayoutInformation(StInfo->getDTransType(), &DTInfo))
+    if (!Info.populateLayoutInformation(StInfo->getDTransType()))
       continue;
     if (DTInfo.testSafetyData(TI, dtrans::DT_SOAToAOS))
       continue;
@@ -2651,7 +2651,8 @@ bool SOAToAOSPrepareImpl::gatherCandidateInfo() {
     }
     if (!FieldSafetyCheck)
       continue;
-    if (!Info.populateCFGInformation(M, &DTInfo, true, true))
+    TypeMetadataReader &MDReader = DTInfo.getTypeMetadataReader();
+    if (!Info.populateCFGInformation(M, MDReader, true, true))
       continue;
     if (Info.getNumPotentialArrays() != MaxNumPotentialArrs)
       continue;

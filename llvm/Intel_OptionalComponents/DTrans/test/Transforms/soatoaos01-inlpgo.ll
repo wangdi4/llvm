@@ -1,6 +1,4 @@
-; INTEL_FEATURE_SW_ADVANCED
-; REQUIRES: intel_feature_sw_advanced, asserts
-
+; REQUIRES: asserts
 ; This test is to verify that when the pre-PGO inlining pass is run for a
 ; DTrans LTO compilation, the DTrans SOA-to-AOS heuristics are used during
 ; that inlining pass.
@@ -13,15 +11,15 @@
 ; now produce only a single inlining report per compilation.
 
 ; RUN: llvm-profdata merge %S/Inputs/soatoaos01-inlpgo.proftext -o %t.profdata
-; RUN: opt -enable-new-pm=0 -disable-output -O2 -prepare-for-lto -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -debug-only=inline -inline-report=0xe807 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost %s 2>&1 | FileCheck --check-prefix=CHECK-DTRANS %s
+; RUN: opt -enable-new-pm=0 -enable-dtrans -disable-output -O2 -prepare-for-lto -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -debug-only=inline -inline-report=0xe807 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost %s 2>&1 | FileCheck --check-prefix=CHECK-DTRANS %s
 
 
 ; Test without the LTO configuration
 ; RUN: opt -enable-new-pm=0 -disable-output -O2 -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -debug-only=inline -inline-report=0xe807 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost %s  2>&1 | FileCheck --check-prefix=CHECK-INL %s
 
 ; New pass manager
-; RUN: opt -disable-output -passes="lto-pre-link<O2>" -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -debug-only=inline -inline-report=0xe807 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost %s 2>&1 | FileCheck --check-prefix=CHECK-DTRANS %s
-; RUN: opt -disable-output -passes="lto-pre-link<O2>" -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -debug-only=inline -inline-report=0xe807 -inline-for-xmain -pre-lto-inline-cost %s  2>&1 | FileCheck --check-prefix=CHECK-INL %s
+; RUN: opt -disable-output -passes="lto-pre-link<O2>" -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -debug-only=inline -inline-report=0xe807 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost -enable-npm-dtrans %s 2>&1 | FileCheck --check-prefix=CHECK-DTRANS %s
+; RUN: opt -disable-output -passes="lto-pre-link<O2>" -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -debug-only=inline -inline-report=0xe807 -inline-for-xmain -pre-lto-inline-cost -enable-npm-dtrans %s  2>&1 | FileCheck --check-prefix=CHECK-INL %s
 
 
 ; The rest of this test is taken from the test soatoaos01-inl.ll, which tests
@@ -29,8 +27,8 @@
 
 ; CHECK-DTRANS: NOT Inlining (cost=never): {{.*}} @_ZN3ArrIPiEC2EiP3Mem
 ; CHECK-DTRANS: NOT Inlining (cost=never): {{.*}} @_ZN3ArrIPvEC2EiP3Mem
-; CHECK-DTRANS: NOT Inlining (cost=never): {{.*}} @_ZN3ArrIPiE3setEiS0_
 ; CHECK-DTRANS: NOT Inlining (cost=never): {{.*}} @_ZN3ArrIPvE3getEi
+; CHECK-DTRANS: NOT Inlining (cost=never): {{.*}} @_ZN3ArrIPiE3setEiS0_
 ; CHECK-DTRANS: NOT Inlining (cost=never): {{.*}} @_ZN1FC2Ev
 
 ; CHECK-INL: INLINE{{.*}}_ZN3ArrIPiEC2EiP3Mem
@@ -263,4 +261,3 @@ entry:
   store i32 0, i32* %size, align 8
   ret void
 }
-; end INTEL_FEATURE_SW_ADVANCED

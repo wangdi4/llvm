@@ -23,6 +23,8 @@ add_llvm_component_library(LLVMIntel_DTransOpt
   ResolveTypes.cpp
   EliminateROFieldAccess.cpp
   DynClone.cpp
+  DTransForceInline.cpp
+  DTransForceInlineOP.cpp
   DTransOPOptBase.cpp
   DTransOPOptBaseTest.cpp
   DTransOptBase.cpp
@@ -39,11 +41,13 @@ add_llvm_component_library(LLVMIntel_DTransOpt
   SOAToAOSClassInfo.cpp
   SOAToAOSCommon.cpp
   SOAToAOSEffects.cpp
+  SOAToAOSInternal.cpp
   SOAToAOSOP.cpp
   SOAToAOSOPArrays.cpp
   SOAToAOSOPClassInfo.cpp
   SOAToAOSOPCommon.cpp
   SOAToAOSOPEffects.cpp
+  SOAToAOSOPInternal.cpp
   SOAToAOSOPStruct.cpp
   SOAToAOSPrepare.cpp
   SOAToAOSOPPrepare.cpp

@@ -1129,10 +1129,6 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
-    // We would wrap the following call inside INTEL FEATURE SW DTRANS, but the
-    // current FIF tool does not permit nesting of that within INTEL FEATURE SW
-    // ADVANCED.
-    collectDTransFuncs(*F.getParent(), Params);
     if (auto IR = intelWorthNotInlining(CandidateCall, Params, TLI, CalleeTTI,
         PSI, ILIC, &QueuedCallers, NoReasonVector))
       return IR.getValue();
@@ -3450,7 +3446,7 @@ InlineResult llvm::isInlineViable(Function &F) {
 
 InlineParams llvm::getInlineParams(int Threshold) {
   InlineParams Params;
-  Params.PrepareForLTO = EnablePreLTOInlineCost;     // INTEL
+  Params.PrepareForLTO = EnablePreLTOInlineCost; // INTEL
 
   // This field is the threshold to use for a callee by default. This is
   // derived from one or more of:
@@ -3557,7 +3553,7 @@ InlineParams llvm::getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
     InlParams = getInlineParams();
   else
     InlParams = getInlineParams(OptLevel, SizeOptLevel);
-  InlParams.PrepareForLTO = PrepareForLTO;
+  InlParams.PrepareForLTO = PrepareForLTO || EnablePreLTOInlineCost;
   InlParams.LinkForLTO = LinkForLTO;
   //
   // Note that the InlineOptLevel is not being set to the OptLevel in all

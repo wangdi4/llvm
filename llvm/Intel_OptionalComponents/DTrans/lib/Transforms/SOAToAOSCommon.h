@@ -24,11 +24,11 @@
 
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Transforms/SOAToAOS.h"
-#include "Intel_DTrans/Transforms/SOAToAOSExternal.h"
 
 #include "llvm/IR/InstIterator.h"
 
 #include "SOAToAOSEffects.h"
+#include "SOAToAOSInternal.h"
 
 namespace llvm {
 namespace dtrans {

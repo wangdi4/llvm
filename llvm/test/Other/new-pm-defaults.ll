@@ -91,10 +91,11 @@
 ; CHECK-O-NEXT: Running pass: Annotation2Metadata
 ; CHECK-O-NEXT: Running pass: ForceFunctionAttrsPass
 ; CHECK-EP-PIPELINE-START-NEXT: Running pass: NoOpModulePass
-; CHECK-O-NEXT: Running pass: InlineReportSetupPass ;INTEL
 ; CHECK-O-NEXT: Running pass: InferFunctionAttrsPass
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
+; CHECK-O-NEXT: Running pass: InlineReportSetupPass ;INTEL
+; CHECK-O-NEXT: Running pass: InlineListsPass ;INTEL
 ; CHECK-O-NEXT: Running analysis: PreservedCFGCheckerAnalysis on foo
 ; CHECK-O-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
 ; CHECK-O-NEXT: Running pass: LowerExpectIntrinsicPass
@@ -127,7 +128,6 @@
 ; COM: CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy ;INTEL
 ; CHECK-EP-PEEPHOLE-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
-; CHECK-O-NEXT: Running pass: InlineListsPass ;INTEL
 ; CHECK-O-NEXT: Running pass: ModuleInlinerWrapperPass
 ; CHECK-O-NEXT: Running analysis: InlineAdvisorAnalysis
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}GlobalsAA

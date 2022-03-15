@@ -234,6 +234,8 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransCommuteCondOPWrapperPass(PR);
   initializeRemoveAllDTransTypeMetadataWrapperPass(PR);
   initializeRemoveDeadDTransTypeMetadataWrapperPass(PR);
+  initializeDTransForceInlineWrapperPass(PR);
+  initializeDTransForceInlineOPWrapperPass(PR);
 
 #if !INTEL_PRODUCT_RELEASE
   initializeDTransOPOptBaseTestWrapperPass(PR);
