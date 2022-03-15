@@ -7710,7 +7710,11 @@ attribute associated with it (the attribute applies to the declaration, not the
 statement in that case). So this use case will not work:
 
 .. code-block:: c
-  [[clang::always_inline]] int i = bar();
+
+  int example(void) {
+    [[clang::always_inline]] int i = bar();
+    return i;
+  }
 
 This attribute does not guarantee that inline substitution actually occurs.
 
