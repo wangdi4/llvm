@@ -2003,7 +2003,7 @@ class IRLinker {
   std::unique_ptr<Module> SrcM;
 
   /// See IRMover::move().
-  std::function<void(GlobalValue &, IRMover::ValueAdder)> AddLazyFor;
+  IRMover::LazyCallback AddLazyFor;
 
   TypeMapTy TypeMap;
   GlobalValueMaterializer GValMaterializer;
@@ -2193,8 +2193,7 @@ public:
   IRLinker(Module &DstM, MDMapT &SharedMDs,
            IRMover::IdentifiedStructTypeSet &Set, std::unique_ptr<Module> SrcM,
            ArrayRef<GlobalValue *> ValuesToLink,
-           std::function<void(GlobalValue &, IRMover::ValueAdder)> AddLazyFor,
-           bool IsPerformingImport)
+           IRMover::LazyCallback AddLazyFor, bool IsPerformingImport)
       : DstM(DstM), SrcM(std::move(SrcM)), AddLazyFor(std::move(AddLazyFor)),
         TypeMap(Set), GValMaterializer(*this), LValMaterializer(*this),
         SharedMDs(SharedMDs), IsPerformingImport(IsPerformingImport),
@@ -3230,10 +3229,11 @@ bool IRLinker::shouldLink(GlobalValue *DGV, GlobalValue &SGV) {
   // Callback to the client to give a chance to lazily add the Global to the
   // list of value to link.
   bool LazilyAdded = false;
-  AddLazyFor(SGV, [this, &LazilyAdded](GlobalValue &GV) {
-    maybeAdd(&GV);
-    LazilyAdded = true;
-  });
+  if (AddLazyFor)
+    AddLazyFor(SGV, [this, &LazilyAdded](GlobalValue &GV) {
+      maybeAdd(&GV);
+      LazilyAdded = true;
+    });
   return LazilyAdded;
 }
 
@@ -4006,6 +4006,7 @@ IRMover::IRMover(Module &M) : Composite(M) {
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif //INTEL_CUSTOMIZATION
 
+<<<<<<< HEAD
 Error IRMover::move(
     std::unique_ptr<Module> Src, ArrayRef<GlobalValue *> ValuesToLink,
     std::function<void(GlobalValue &, ValueAdder Add)> AddLazyFor,
@@ -4016,6 +4017,11 @@ Error IRMover::move(
                        std::move(Src), ValuesToLink, std::move(AddLazyFor),
                        IsPerformingImport, &TM);
 #else // INTEL_FEATURE_SW_DTRANS
+=======
+Error IRMover::move(std::unique_ptr<Module> Src,
+                    ArrayRef<GlobalValue *> ValuesToLink,
+                    LazyCallback AddLazyFor, bool IsPerformingImport) {
+>>>>>>> 236695e70c41e3d649b2b8a4a72f58e4218f0aa9
   IRLinker TheIRLinker(Composite, SharedMDs, IdentifiedStructTypes,
                        std::move(Src), ValuesToLink, std::move(AddLazyFor),
                        IsPerformingImport);

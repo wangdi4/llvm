@@ -33,7 +33,11 @@
 #endif //INTEL_CUSTOMIZATION
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseSet.h"
+<<<<<<< HEAD
 #include "llvm/ADT/StringRef.h" // INTEL
+=======
+#include "llvm/ADT/FunctionExtras.h"
+>>>>>>> 236695e70c41e3d649b2b8a4a72f58e4218f0aa9
 #include <functional>
 
 namespace llvm {
@@ -87,6 +91,8 @@ public:
   IRMover(Module &M);
 
   typedef std::function<void(GlobalValue &)> ValueAdder;
+  using LazyCallback =
+      llvm::unique_function<void(GlobalValue &GV, ValueAdder Add)>;
 
   /// Move in the provide values in \p ValuesToLink from \p Src.
   ///
@@ -95,11 +101,11 @@ public:
   ///   not present in ValuesToLink. The GlobalValue and a ValueAdder callback
   ///   are passed as an argument, and the callback is expected to be called
   ///   if the GlobalValue needs to be added to the \p ValuesToLink and linked.
+  ///   Pass nullptr if there's no work to be done in such cases.
   /// - \p IsPerformingImport is true when this IR link is to perform ThinLTO
   ///   function importing from Src.
   Error move(std::unique_ptr<Module> Src, ArrayRef<GlobalValue *> ValuesToLink,
-             std::function<void(GlobalValue &GV, ValueAdder Add)> AddLazyFor,
-             bool IsPerformingImport);
+             LazyCallback AddLazyFor, bool IsPerformingImport);
   Module &getModule() { return Composite; }
 
 private:
