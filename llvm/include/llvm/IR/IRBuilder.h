@@ -875,11 +875,6 @@ public:
                              const Twine &Name = "");
 
 #if INTEL_CUSTOMIZATION
-  /// \brief Create a call to the llvm.intel.std.container.ptr intrinic
-  /// to guide the generation of alias metadata. If the argument ITER
-  /// is true, it refers to the llvm.intel.std.container.ptr.iter intrinsic.
-  Instruction *CreateStdContainerCall(Value *Ptr, bool ITER);
-
   /// \brief Create a call to the llvm.intel.fakeload intrinsic
   /// to hold the tbaa informaiton for the return pointers.
   Instruction *CreateFakeLoad(Value *Ptr, MDNode *TbaaTag);
