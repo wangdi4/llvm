@@ -329,7 +329,8 @@ void splitAndWriteThinLTOBitcode(
             return;
         }
         if (!F->isDeclaration() &&
-            computeFunctionBodyMemoryAccess(*F, AARGetter(*F)) == MAK_ReadNone)
+            computeFunctionBodyMemoryAccess(*F, AARGetter(*F)) ==
+                FMRB_DoesNotAccessMemory)
           EligibleVirtualFns.insert(F);
       });
     }
