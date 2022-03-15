@@ -33,11 +33,8 @@
 #endif //INTEL_CUSTOMIZATION
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseSet.h"
-<<<<<<< HEAD
-#include "llvm/ADT/StringRef.h" // INTEL
-=======
 #include "llvm/ADT/FunctionExtras.h"
->>>>>>> 236695e70c41e3d649b2b8a4a72f58e4218f0aa9
+#include "llvm/ADT/StringRef.h" // INTEL
 #include <functional>
 
 namespace llvm {

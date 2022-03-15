@@ -2174,8 +2174,8 @@ public:
   IRLinker(Module &DstM, MDMapT &SharedMDs,
            IRMover::IdentifiedStructTypeSet &Set, std::unique_ptr<Module> SrcM,
            ArrayRef<GlobalValue *> ValuesToLink,
-           std::function<void(GlobalValue &, IRMover::ValueAdder)> AddLazyFor,
-           bool IsPerformingImport, DTransTypeManager *DstTM)
+           IRMover::LazyCallback AddLazyFor, bool IsPerformingImport,
+           DTransTypeManager *DstTM)
       : DstM(DstM), SrcM(std::move(SrcM)), AddLazyFor(std::move(AddLazyFor)),
         TypeMap(Set, DstTM), GValMaterializer(*this), LValMaterializer(*this),
         SharedMDs(SharedMDs), DstTM(DstTM), IsPerformingImport(IsPerformingImport),
@@ -4006,22 +4006,15 @@ IRMover::IRMover(Module &M) : Composite(M) {
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif //INTEL_CUSTOMIZATION
 
-<<<<<<< HEAD
-Error IRMover::move(
-    std::unique_ptr<Module> Src, ArrayRef<GlobalValue *> ValuesToLink,
-    std::function<void(GlobalValue &, ValueAdder Add)> AddLazyFor,
-    bool IsPerformingImport) {
+Error IRMover::move(std::unique_ptr<Module> Src,
+                    ArrayRef<GlobalValue *> ValuesToLink,
+                    LazyCallback AddLazyFor, bool IsPerformingImport) {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   IRLinker TheIRLinker(Composite, SharedMDs, IdentifiedStructTypes,
                        std::move(Src), ValuesToLink, std::move(AddLazyFor),
                        IsPerformingImport, &TM);
 #else // INTEL_FEATURE_SW_DTRANS
-=======
-Error IRMover::move(std::unique_ptr<Module> Src,
-                    ArrayRef<GlobalValue *> ValuesToLink,
-                    LazyCallback AddLazyFor, bool IsPerformingImport) {
->>>>>>> 236695e70c41e3d649b2b8a4a72f58e4218f0aa9
   IRLinker TheIRLinker(Composite, SharedMDs, IdentifiedStructTypes,
                        std::move(Src), ValuesToLink, std::move(AddLazyFor),
                        IsPerformingImport);
