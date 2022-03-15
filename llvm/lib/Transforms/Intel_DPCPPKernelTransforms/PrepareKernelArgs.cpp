@@ -226,8 +226,8 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       size_t A = TypeAlignment::getAlignment(KArg);
       MaybeAlign MA = A > 0
                           ? MaybeAlign(A)
-                          : DL.getABITypeAlign(DestTy->getPointerElementType());
-      LoadInst *LI = Builder.CreateAlignedLoad(DestTy->getPointerElementType(),
+                          : DL.getABITypeAlign(CallIt->getType());
+      LoadInst *LI = Builder.CreateAlignedLoad(CallIt->getType(),
                                                PointerCast, MA, false);
       Arg = LI;
     }

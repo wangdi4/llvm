@@ -1253,7 +1253,7 @@ CallInst *addMoreArgsToIndirectCall(CallInst *OldC, ArrayRef<Value *> NewArgs) {
   Args.append(NewArgs.begin(), NewArgs.end());
 
   auto *FPtrType = cast<PointerType>(OldC->getCalledOperand()->getType());
-  auto *FType = cast<FunctionType>(FPtrType->getElementType());
+  auto *FType = OldC->getFunctionType();
   SmallVector<Type *, 16> ArgTys;
   for (const auto &V : Args)
     ArgTys.push_back(V->getType());
