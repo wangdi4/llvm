@@ -1174,39 +1174,11 @@ void ObjFile<ELFT>::initializeSymbols(const object::ELFFile<ELFT> &obj) {
       continue;
     }
 
-<<<<<<< HEAD
-    // If a defined symbol is in a discarded section, handle it as if it
-    // were an undefined symbol. Such symbol doesn't comply with the
-    // standard, but in practice, a .eh_frame often directly refer
-    // COMDAT member sections, and if a comdat group is discarded, some
-    // defined symbol in a .eh_frame becomes dangling symbols.
-    if (sec == &InputSection::discarded) {
-      Undefined und{this, StringRef(), binding, stOther, type, secIdx};
-      // !LazyObjFile::lazy indicates that the file containing this object has
-      // not finished processing, i.e. this symbol is a result of a lazy symbol
-      // extract. We should demote the lazy symbol to an Undefined so that any
-      // relocations outside of the group to it will trigger a discarded section
-      // error.
-      if (sym->symbolKind == Symbol::LazyObjectKind && !sym->file->lazy)
-        sym->replace(und);
-      else
-        sym->resolve(und, sym->getName());                             // INTEL
-      continue;
-    }
-
-    // Handle global defined symbols.
-    if (binding == STB_GLOBAL || binding == STB_WEAK ||
-        binding == STB_GNU_UNIQUE) {
-      sym->resolve(
-          Defined{this, StringRef(), binding, stOther, type, value,    // INTEL
-                  size, sec}, sym->getName());                         // INTEL
-=======
     // Handle global defined symbols. Defined::section will be set in postParse.
     if (binding == STB_GLOBAL || binding == STB_WEAK ||
         binding == STB_GNU_UNIQUE) {
       sym->resolve(Defined{this, StringRef(), binding, stOther, type, value,
                            size, nullptr});
->>>>>>> c30e6447c0225f675773d07f2b6d4e3c2b962155
       continue;
     }
 
@@ -1320,7 +1292,6 @@ template <class ELFT> void ObjFile<ELFT>::postParse() {
 
     if (eSym.getBinding() == STB_WEAK)
       continue;
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
     // If one of the symbols contains a ".gnu.linkonce" section then skip it.
@@ -1331,12 +1302,8 @@ template <class ELFT> void ObjFile<ELFT>::postParse() {
         this->getGNULinkOnceSectionForSymbol(name))
       continue;
 #endif // INTEL_CUSTOMIZATION
-
-    reportDuplicate(sym, this, sections[secIdx], eSym.st_value);
-=======
     std::lock_guard<std::mutex> lock(mu);
     ctx->duplicates.push_back({&sym, this, sec, eSym.st_value});
->>>>>>> c30e6447c0225f675773d07f2b6d4e3c2b962155
   }
 }
 
