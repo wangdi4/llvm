@@ -1300,7 +1300,6 @@ template <class ELFT> void ObjFile<ELFT>::postParse() {
     if (!cast<Defined>(sym).section && !sections[secIdx] &&
         cast<Defined>(sym).value == eSym.st_value)
       continue;
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
     // If one of the symbols contains a ".gnu.linkonce" section then skip it.
@@ -1311,11 +1310,7 @@ template <class ELFT> void ObjFile<ELFT>::postParse() {
         this->getGNULinkOnceSectionForSymbol(name))
       continue;
 #endif // INTEL_CUSTOMIZATION
-    std::lock_guard<std::mutex> lock(mu);
-    ctx->duplicates.push_back({&sym, this, sec, eSym.st_value});
-=======
     reportDuplicate(sym, this, sections[secIdx], eSym.st_value);
->>>>>>> 9b61fff0eb9332553ecdbe00e01e3d08ad392768
   }
 }
 
