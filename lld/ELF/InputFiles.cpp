@@ -1075,6 +1075,7 @@ InputSectionBase *ObjFile<ELFT>::createInputSection(uint32_t idx,
       return &InputSection::discarded;
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // NOTE: The following hack from the community is disabled inside the Intel
   // customization. LLD should be able to handle the link once sections now.
@@ -1114,6 +1115,8 @@ InputSectionBase *ObjFile<ELFT>::createInputSection(uint32_t idx,
   }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 7c7702b318503e27ebc3c795a827aa85135cc130
   // The linker merges EH (exception handling) frames and creates a
   // .eh_frame_hdr section for runtime. So we handle them with a special
   // class. For relocatable outputs, they are just passed through.
@@ -1129,7 +1132,6 @@ InputSectionBase *ObjFile<ELFT>::createInputSection(uint32_t idx,
 // its corresponding ELF symbol table.
 template <class ELFT>
 void ObjFile<ELFT>::initializeSymbols(const object::ELFFile<ELFT> &obj) {
-  ArrayRef<InputSectionBase *> sections(this->sections);
   SymbolTable &symtab = *elf::symtab;
 
   ArrayRef<Elf_Sym> eSyms = this->getELFSyms<ELFT>();
@@ -1157,13 +1159,6 @@ void ObjFile<ELFT>::initializeSymbols(const object::ELFFile<ELFT> &obj) {
       continue;
     }
 
-    if (LLVM_UNLIKELY(secIdx == SHN_XINDEX))
-      secIdx = check(getExtendedSymbolTableIndex<ELFT>(eSym, i, shndxTable));
-    else if (secIdx >= SHN_LORESERVE)
-      secIdx = 0;
-    if (LLVM_UNLIKELY(secIdx >= sections.size()))
-      fatal(toString(this) + ": invalid section index: " + Twine(secIdx));
-    InputSectionBase *sec = sections[secIdx];
     uint8_t stOther = eSym.st_other;
     uint8_t type = eSym.getType();
     uint64_t value = eSym.st_value;
@@ -1182,30 +1177,11 @@ void ObjFile<ELFT>::initializeSymbols(const object::ELFFile<ELFT> &obj) {
       continue;
     }
 
-    // If a defined symbol is in a discarded section, handle it as if it
-    // were an undefined symbol. Such symbol doesn't comply with the
-    // standard, but in practice, a .eh_frame often directly refer
-    // COMDAT member sections, and if a comdat group is discarded, some
-    // defined symbol in a .eh_frame becomes dangling symbols.
-    if (sec == &InputSection::discarded) {
-      Undefined und{this, StringRef(), binding, stOther, type, secIdx};
-      // !LazyObjFile::lazy indicates that the file containing this object has
-      // not finished processing, i.e. this symbol is a result of a lazy symbol
-      // extract. We should demote the lazy symbol to an Undefined so that any
-      // relocations outside of the group to it will trigger a discarded section
-      // error.
-      if (sym->symbolKind == Symbol::LazyObjectKind && !sym->file->lazy)
-        sym->replace(und);
-      else
-        sym->resolve(und);
-      continue;
-    }
-
-    // Handle global defined symbols.
+    // Handle global defined symbols. Defined::section will be set in postParse.
     if (binding == STB_GLOBAL || binding == STB_WEAK ||
         binding == STB_GNU_UNIQUE) {
-      sym->resolve(
-          Defined{this, StringRef(), binding, stOther, type, value, size, sec});
+      sym->resolve(Defined{this, StringRef(), binding, stOther, type, value,
+                           size, nullptr});
       continue;
     }
 
@@ -1270,10 +1246,12 @@ template <class ELFT> void ObjFile<ELFT>::initializeLocalSymbols() {
 // Called after all ObjFile::parse is called for all ObjFiles. This checks
 // duplicate symbols and may do symbol property merge in the future.
 template <class ELFT> void ObjFile<ELFT>::postParse() {
+  static std::mutex mu;
   ArrayRef<Elf_Sym> eSyms = this->getELFSyms<ELFT>();
   for (size_t i = firstGlobal, end = eSyms.size(); i != end; ++i) {
     const Elf_Sym &eSym = eSyms[i];
-    const Symbol &sym = *symbols[i];
+    Symbol &sym = *symbols[i];
+    uint32_t secIdx = eSym.st_shndx;
 
     // st_value of STT_TLS represents the assigned offset, not the actual
     // address which is used by STT_FUNC and STT_OBJECT. STT_TLS symbols can
@@ -1284,22 +1262,40 @@ template <class ELFT> void ObjFile<ELFT>::postParse() {
       errorOrWarn("TLS attribute mismatch: " + toString(sym) + "\n>>> in " +
                   toString(sym.file) + "\n>>> in " + toString(this));
 
-    // !sym.file allows a symbol assignment redefines a symbol without an error.
-    if (sym.file == this || !sym.file || !sym.isDefined() ||
-        eSym.st_shndx == SHN_UNDEF || eSym.st_shndx == SHN_COMMON ||
-        eSym.getBinding() == STB_WEAK)
+    // Handle non-COMMON defined symbol below. !sym.file allows a symbol
+    // assignment to redefine a symbol without an error.
+    if (!sym.file || !sym.isDefined() || secIdx == SHN_UNDEF ||
+        secIdx == SHN_COMMON)
       continue;
-    uint32_t secIdx = eSym.st_shndx;
+
     if (LLVM_UNLIKELY(secIdx == SHN_XINDEX))
-      secIdx = cantFail(getExtendedSymbolTableIndex<ELFT>(eSym, i, shndxTable));
+      secIdx = check(getExtendedSymbolTableIndex<ELFT>(eSym, i, shndxTable));
     else if (secIdx >= SHN_LORESERVE)
       secIdx = 0;
-    if (sections[secIdx] == &InputSection::discarded)
+    if (LLVM_UNLIKELY(secIdx >= sections.size()))
+      fatal(toString(this) + ": invalid section index: " + Twine(secIdx));
+    InputSectionBase *sec = sections[secIdx];
+    if (sec == &InputSection::discarded) {
+      if (sym.traced) {
+        printTraceSymbol(Undefined{this, sym.getName(), sym.binding,
+                                   sym.stOther, sym.type, secIdx},
+                         sym.getName());
+      }
+      if (sym.file == this) {
+        std::lock_guard<std::mutex> lock(mu);
+        ctx->nonPrevailingSyms.emplace_back(&sym, secIdx);
+      }
       continue;
-    // Allow absolute symbols with the same value for GNU ld compatibility.
-    if (!cast<Defined>(sym).section && !sections[secIdx] &&
-        cast<Defined>(sym).value == eSym.st_value)
+    }
+
+    if (sym.file == this) {
+      cast<Defined>(sym).section = sec;
       continue;
+    }
+
+    if (eSym.getBinding() == STB_WEAK)
+      continue;
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
     // If one of the symbols contains a ".gnu.linkonce" section then skip it.
@@ -1311,6 +1307,10 @@ template <class ELFT> void ObjFile<ELFT>::postParse() {
       continue;
 #endif // INTEL_CUSTOMIZATION
     reportDuplicate(sym, this, sections[secIdx], eSym.st_value);
+=======
+    std::lock_guard<std::mutex> lock(mu);
+    ctx->duplicates.push_back({&sym, this, sec, eSym.st_value});
+>>>>>>> 7c7702b318503e27ebc3c795a827aa85135cc130
   }
 }
 
