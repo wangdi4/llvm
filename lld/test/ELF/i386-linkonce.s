@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // Now this test case should not produce a reference to a discardable section
 // since we have fixed the ".gnu.linkonce." issue.
@@ -18,13 +17,11 @@
 // RUN: ld.lld %t.o %t2.a -o /dev/null 2>&1 | FileCheck --allow-empty %s
 // CHECK-NOT: error: relocation refers to a symbol in a discarded section: __i686.get_pc_thunk.bx
 // END INTEL_CUSTOMIZATION
-=======
 # REQUIRES: x86
 # RUN: rm -rf %t && split-file %s %t
 # RUN: llvm-mc -filetype=obj -triple=i386 %t/a.s -o %t/a.o
 # RUN: llvm-mc -filetype=obj -triple=i386 %t/crti.s -o %t/crti.o
 # RUN: llvm-mc -filetype=obj -triple=i386 %t/elf-init.s -o %t/elf-init.o
->>>>>>> 48a02152ab32220895d617cc78ad9e8d8423a272
 
 ## crti.o in i386 glibc<2.32 has .gnu.linkonce.t.__x86.get_pc_thunk.bx that is
 ## not fully supported. Test that we don't report
