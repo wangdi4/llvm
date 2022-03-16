@@ -24,29 +24,28 @@ class RuntimeService;
 
 /// Struct that represent loop Region in the CFG.
 struct LoopRegion {
-  BasicBlock *PreHeader; // Pre header block of the loop.
-  BasicBlock *Exit;      // Exit block of the loop.
-
-  /// C'tor.
-  LoopRegion(BasicBlock *PreHeader, BasicBlock *Exit)
-      : PreHeader(PreHeader), Exit(Exit) {}
-
-  LoopRegion() : PreHeader(nullptr), Exit(nullptr) {}
+  BasicBlock *PreHeader = nullptr; // Pre header block of the loop.
+  BasicBlock *Exit = nullptr;      // Exit block of the loop.
 };
 
 namespace DPCPPKernelLoopUtils {
 
 /// Creates loop with loopSize iterations arround the CFG region that
 ///       begins in head and finishes in latch.
-/// Head - The head of the created loop.
-/// Latch - The latch block of the created loop.
-/// Begin - Lower loop bound.
-/// Increment - Loop increment (1 or PacketSize).
-/// End - Upper loop bound.
-/// Returns struct with pre header and exit block fot the created loop.
-LoopRegion createLoop(BasicBlock *Head, BasicBlock *Latch, Value *Begin,
-                      Value *Increment, Value *End, std::string &Name,
-                      LLVMContext &C);
+/// \param Head The head of the created loop.
+/// \param Latch The latch block of the created loop.
+/// \param Begin Lower loop bound.
+/// \param Increment Loop increment (1 or VF).
+/// \param End Upper loop bound.
+/// \param Pred Predicate for latch compare instruction.
+/// \param DimPrefix Dimension prefix string.
+/// \param C LLVM context.
+/// \return a pair of LoopRegion and IV.
+std::pair<LoopRegion, PHINode *> createLoop(BasicBlock *Head, BasicBlock *Latch,
+                                            Value *Begin, Value *Increment,
+                                            Value *End, CmpInst::Predicate Pred,
+                                            std::string &DimPrefix,
+                                            LLVMContext &C);
 
 /// Create WI func (get_local_size, get_global_id etc) general
 ///       util as they all have the same signature.

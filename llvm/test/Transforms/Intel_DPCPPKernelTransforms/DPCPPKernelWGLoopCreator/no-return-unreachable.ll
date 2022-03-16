@@ -37,6 +37,5 @@ attributes #0 = { nofree norecurse noreturn nosync nounwind readnone "vector-var
 !5 = !{i32 0}
 !6 = !{i32 16}
 
-; DEBUGIFY-NOT: WARNING:
-; DEBUGIFY-COUNT-43: WARNING: Instruction with empty DebugLoc in function test
+; DEBUGIFY-COUNT-46: WARNING: Instruction with empty DebugLoc in function test
 ; DEBUGIFY-NOT: WARNING:

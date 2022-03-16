@@ -26,6 +26,7 @@ entry:
 ; CHECK-LABEL: WGLoopsEntry:
 ; CHECK-NEXT: %init.gid.dim0 = extractvalue [7 x i64] %early_exit_call, 1
 ; CHECK-NEXT: %loop.size.dim0 = extractvalue [7 x i64] %early_exit_call, 2
+; CHECK-NEXT: %max.gid.dim0 = add i64 %init.gid.dim0, %loop.size.dim0
 ; CHECK-NEXT: [[LSize0:%[0-9]+]] = tail call i64 @_Z14get_local_sizej(i32 0) #2
 ; CHECK-NEXT: [[GroupID0:%[0-9]+]] = tail call i64 @_Z12get_group_idj(i32 0) #2
 ; CHECK-NEXT: [[MUL0:%[0-9]+]] = mul i64 [[LSize0]], [[GroupID0]]
@@ -38,10 +39,10 @@ entry:
 ; CHECK-NEXT: %peel.ptr2int.and.req.align = and i64 %peel.ptr2int, 3
 ; CHECK-NEXT: %peel.ptr2int.req.aligned = icmp eq i64 %peel.ptr2int.and.req.align, 0
 ; CHECK-NEXT: %peel.size = select i1 %peel.ptr2int.req.aligned, i64 %peel.count.dynamic, i64 0
+; CHECK-NEXT: %max.peel.gid = add i64 %peel.size, %init.gid.dim0
 ; CHECK-NEXT: %vector.scalar.size = sub i64 %loop.size.dim0, %peel.size
 ; CHECK-NEXT: %vector.size = ashr i64 %vector.scalar.size, 4
 ; CHECK-NEXT: %num.vector.wi = shl i64 %vector.size, 4
-; CHECK-NEXT: %max.peel.gid = add i64 %peel.size, %init.gid.dim0
 ; CHECK-NEXT: %max.vector.gid = add i64 %num.vector.wi, %max.peel.gid
 ; CHECK-NEXT: %scalar.size = sub i64 %vector.scalar.size, %num.vector.wi
 ; CHECK-NEXT: %base.gid.dim0 = call i64 @get_base_global_id.(i32 0)
@@ -60,9 +61,9 @@ entry:
 
 ; CHECK-LABEL: remainder_pre_entry:
 ; CHECK-NEXT: %is.peel.loop = phi i1 [ false, %remainder_if ], [ true, %peel_pre_head ]
-; CHECK-NEXT: %scalar.init.gid = phi i64 [ %max.vector.gid, %remainder_if ], [ %init.gid.dim0, %peel_pre_head ]
-; CHECK-NEXT: %scalar.loop.size = phi i64 [ %scalar.size, %remainder_if ], [ %peel.size, %peel_pre_head ]
-; CHECK-NEXT: %dim_0_sub_lid = sub nuw nsw i64 %scalar.init.gid, %base.gid.dim0
+; CHECK-NEXT: %peel.remainder.init.gid = phi i64 [ %init.gid.dim0, %peel_pre_head ], [ %max.vector.gid, %remainder_if ]
+; CHECK-NEXT: %peel.remainder.max.gid = phi i64 [ %max.peel.gid, %peel_pre_head ], [ %max.gid.dim0, %remainder_if ]
+; CHECK-NEXT: %dim_0_sub_lid = sub nuw nsw i64 %peel.remainder.init.gid, %base.gid.dim0
 ; CHECK-NEXT: br label %dim_0_pre_head
 
 ; CHECK-LABEL: dim_0_pre_head:
@@ -147,7 +148,6 @@ attributes #2 = { convergent nounwind readnone }
 !17 = !{i32 11}
 !18 = !{i32 64}
 
-; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-44: WARNING: Instruction with empty DebugLoc in function test
+; DEBUGIFY-COUNT-45: WARNING: Instruction with empty DebugLoc in function test
 ; DEBUGIFY: WARNING: Missing line 35
 ; DEBUGIFY-NOT: WARNING

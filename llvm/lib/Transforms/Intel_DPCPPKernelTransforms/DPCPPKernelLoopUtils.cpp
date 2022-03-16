@@ -136,9 +136,11 @@ void collectTIDCallInst(StringRef TIDName, InstVecVec &TidCalls, Function *F) {
 // exit:
 //
 //  all get_local_id \ get_global_id are replaced with indVar
-LoopRegion createLoop(BasicBlock *Head, BasicBlock *Latch, Value *Begin,
-                      Value *Increment, Value *End, std::string &Name,
-                      LLVMContext &C) {
+std::pair<LoopRegion, PHINode *> createLoop(BasicBlock *Head, BasicBlock *Latch,
+                                            Value *Begin, Value *Increment,
+                                            Value *End, CmpInst::Predicate Pred,
+                                            std::string &DimPrefix,
+                                            LLVMContext &C) {
   Type *IndTy = Begin->getType();
   assert(IndTy == Increment->getType() &&
          "Increment type does not correspond to Lower bound!");
@@ -148,32 +150,32 @@ LoopRegion createLoop(BasicBlock *Head, BasicBlock *Latch, Value *Begin,
          "Head and Latch belong to different Parents!");
   // Creating Blocks to wrap the code as described above.
   Function *F = Head->getParent();
-  BasicBlock *PreHead = BasicBlock::Create(C, Name + "pre_head", F, Head);
-  BasicBlock *Exit = BasicBlock::Create(C, Name + "exit", F);
+  BasicBlock *PreHead = BasicBlock::Create(C, DimPrefix + "pre_head", F, Head);
+  BasicBlock *Exit = BasicBlock::Create(C, DimPrefix + "exit", F);
   Exit->moveAfter(Latch);
   BranchInst::Create(Head, PreHead);
 
   // Insert induction variable phi in the head entry.
   PHINode *IndVar =
       Head->empty()
-          ? PHINode::Create(IndTy, 2, Name + "ind_var", Head)
-          : PHINode::Create(IndTy, 2, Name + "ind_var", &*Head->begin());
+          ? PHINode::Create(IndTy, 2, DimPrefix + "ind_var", Head)
+          : PHINode::Create(IndTy, 2, DimPrefix + "ind_var", &*Head->begin());
 
   // Increment induction variable.
   BinaryOperator *IncIndVar = BinaryOperator::Create(
-      Instruction::Add, IndVar, Increment, Name + "inc_ind_var", Latch);
+      Instruction::Add, IndVar, Increment, DimPrefix + "inc_ind_var", Latch);
   IncIndVar->setHasNoSignedWrap();
   IncIndVar->setHasNoUnsignedWrap();
 
   // Create compare and conditionally branch out from latch.
-  Instruction *Compare = new ICmpInst(*Latch, CmpInst::ICMP_EQ, IncIndVar, End,
-                                      Name + "cmp.to.max");
+  Instruction *Compare =
+      new ICmpInst(*Latch, Pred, IncIndVar, End, DimPrefix + "cmp.to.max");
   BranchInst::Create(Exit, Head, Compare, Latch);
 
   // Upadte induction variable phi with the incoming values.
   IndVar->addIncoming(Begin, PreHead);
   IndVar->addIncoming(IncIndVar, Latch);
-  return LoopRegion(PreHead, Exit);
+  return {LoopRegion{PreHead, Exit}, IndVar};
 }
 
 void fillAtomicBuiltinUsers(Module &M, RuntimeService *RTService,
