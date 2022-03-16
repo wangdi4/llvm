@@ -83,13 +83,8 @@ endif()
 # end INTEL_CUSTOMIZATION
 
 target_link_libraries(XPTIFWUnitTests PRIVATE
-<<<<<<< HEAD
-  # gtest INTEL_CUSTOMIZATION
-  # gtest_main INTEL_CUSTOMIZATION
-=======
-  llvm_gtest
-  llvm_gtest_main
->>>>>>> 16e1920d6cb7793c5d19ac3361677031fbafad08
+  # llvm_gtest INTEL_CUSTOMIZATION
+  # llvm_gtest_main INTEL_CUSTOMIZATION
   xptifw
   ${SUPPORT_LIB}
 )
