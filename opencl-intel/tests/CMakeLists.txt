@@ -48,14 +48,14 @@ macro(compile_bitcode SOURCE OUTPUT)
   endif()
   add_custom_command(OUTPUT ${OUTPUT}
     COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}
-    -I${CCLANG_USER_INCLUDE_DIRS} -emit-llvm-bc ${SPIR_OPTIONS}
+    -I${CLANG_OPENCL_HEADERS_DIR} -emit-llvm-bc ${SPIR_OPTIONS}
     -disable-llvm-passes -disable-intel-proprietary-opts
     -include opencl-c.h ${ARG_EXTRA_CLANG_FLAGS}
     -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT}
     MAIN_DEPENDENCY
       ${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}
     DEPENDS
-      ${CCLANG_USER_INCLUDE_DIRS}/opencl-c.h
+      ${CLANG_OPENCL_HEADERS_DIR}/opencl-c.h
       ${CLANG}
     COMMENT "Generate LLVM bitcode file ${OUTPUT}"
     VERBATIM)

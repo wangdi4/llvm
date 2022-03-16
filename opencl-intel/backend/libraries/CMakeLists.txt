@@ -137,7 +137,7 @@ endif()
 set(CLANG_CL_COMMON_FLAGS
   -cc1 -triple ${DEVICE_TRIPLE} -emit-llvm-bc -fwrapv -O3
   -disable-intel-proprietary-opts
-  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CCLANG_USER_INCLUDE_DIRS}
+  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CLANG_OPENCL_HEADERS_DIR}
   ${CLANG_LLVM_INCLUDE_DIRS} -include opencl-c.h
   -cl-std=CL2.0 -D __OPENCL_C_VERSION__=200 -ffake-address-space-map
 )

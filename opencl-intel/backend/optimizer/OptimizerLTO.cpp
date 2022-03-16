@@ -20,7 +20,6 @@
 #ifndef NDEBUG
 #include "llvm/IR/Verifier.h"
 #endif // #ifndef NDEBUG
-
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/StandardInstrumentations.h"
 #include "llvm/Target/TargetMachine.h"
@@ -43,6 +42,8 @@
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize/IntelMFReplacement.h"
+
+#include "SPIRVLowerConstExpr.h"
 
 using namespace llvm;
 
@@ -120,8 +121,7 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
   PB.registerPipelineStartEPCallback(
       [&](ModulePassManager &MPM, OptimizationLevel Level) {
         MPM.addPass(DPCPPPreprocessSPIRVFriendlyIRPass());
-        // TODO: SPIRVLowerConstExprPass() is required before SPIRVToOCL20Pass,
-        // but the class definition is not exposed in SPIRV header file yet.
+        MPM.addPass(SPIRVLowerConstExprPass());
         MPM.addPass(SPIRVToOCL20Pass());
         MPM.addPass(NameAnonGlobalPass());
 
