@@ -146,6 +146,12 @@ public:
   const_ddref_iterator op_ddref_end() const {
     return const_cast<HLDDNode *>(this)->op_ddref_end();
   }
+  iterator_range<ddref_iterator> op_ddrefs() {
+    return make_range(op_ddref_begin(), op_ddref_end());
+  }
+  iterator_range<const_ddref_iterator> op_ddrefs() const {
+    return make_range(op_ddref_begin(), op_ddref_end());
+  }
 
   reverse_ddref_iterator op_ddref_rbegin() {
     return ddref_rend() - getNumOperands();

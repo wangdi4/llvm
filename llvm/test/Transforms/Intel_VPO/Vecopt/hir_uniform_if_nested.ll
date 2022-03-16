@@ -22,30 +22,24 @@
 ;      }
 ;    END LOOP
 ;
-; CHECK:        DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:      %.vec = %n1 != 0;
-; CHECK-NEXT:      %unifcond = extractelement %.vec,  0;
-; CHECK-NEXT:      if (%unifcond == 1)
-; CHECK-NEXT:      {
-; CHECK-NEXT:         (<4 x i64>*)(%lp1)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
-; CHECK-NEXT:         %.vec1 = %n2 == 0;
-; CHECK-NEXT:         %unifcond2 = extractelement %.vec1,  0;
-; CHECK-NEXT:         if (%unifcond2 == 1)
-; CHECK-NEXT:         {
-; CHECK-NEXT:            (<4 x i64>*)(%lp4)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
-; CHECK-NEXT:         }
-; CHECK-NEXT:         else
-; CHECK-NEXT:         {
-; CHECK-NEXT:            (<4 x i64>*)(%lp2)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
-; CHECK-NEXT:            %.vec3 = %n3 != 0;
-; CHECK-NEXT:            %unifcond4 = extractelement %.vec3,  0;
-; CHECK-NEXT:            if (%unifcond4 == 1)
-; CHECK-NEXT:            {
-; CHECK-NEXT:               (<4 x i64>*)(%lp3)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
-; CHECK-NEXT:            }
-; CHECK-NEXT:         }
-; CHECK-NEXT:      }
-; CHECK-NEXT:    END LOOP
+; CHECK:      + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-NEXT: |   if (%n1 != 0)
+; CHECK-NEXT: |   {
+; CHECK-NEXT: |      (<4 x i64>*)(%lp1)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
+; CHECK-NEXT: |      if (%n2 == 0)
+; CHECK-NEXT: |      {
+; CHECK-NEXT: |         (<4 x i64>*)(%lp4)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
+; CHECK-NEXT: |      }
+; CHECK-NEXT: |      else
+; CHECK-NEXT: |      {
+; CHECK-NEXT: |         (<4 x i64>*)(%lp2)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
+; CHECK-NEXT: |         if (%n3 != 0)
+; CHECK-NEXT: |         {
+; CHECK-NEXT: |            (<4 x i64>*)(%lp3)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
+; CHECK-NEXT: |         }
+; CHECK-NEXT: |      }
+; CHECK-NEXT: |   }
+; CHECK-NEXT: + END LOOP
 ;
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -2138,22 +2138,21 @@ define void @test_total_cost_branch_probabilities(i1 %cond) local_unnamed_addr #
 ; VPLAN-HIR-CM-VF4-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i1 [[VP2:%.*]] = icmp ne i1 [[VP3:%.*]] i1 false
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br i1 [[VP2]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br i1 [[VP2:%.*]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  [[BB2]]: base cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1.09375 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i32 [[VP4:%.*]] = hir-copy i32 [[VP_LOAD]] , OriginPhiId: -1
+; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i32 [[VP3:%.*]] = hir-copy i32 [[VP_LOAD]] , OriginPhiId: -1
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br [[BB3]]
 ; VPLAN-HIR-CM-VF4-NEXT:  [[BB4]]: base cost: 1.09375
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i32 [[VP5:%.*]] = phi  [ i32 [[VP4]], [[BB4]] ],  [ i32 [[VP6:%.*]], [[BB5]] ]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i32 [[VP4:%.*]] = phi  [ i32 [[VP3]], [[BB4]] ],  [ i32 [[VP5:%.*]], [[BB5]] ]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.3 i64 0 i64 [[VP0]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 1.1875 for store i32 [[VP5]] i32* [[VP_SUBSCRIPT_1]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1.1875 for store i32 [[VP4]] i32* [[VP_SUBSCRIPT_1]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for i1 [[VP7:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br i1 [[VP7]], [[BB2]], [[BB6:BB[0-9]+]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for i1 [[VP6:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br i1 [[VP6]], [[BB2]], [[BB6:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  [[BB3]]: base cost: 6.1875
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB6]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
@@ -2165,7 +2164,7 @@ define void @test_total_cost_branch_probabilities(i1 %cond) local_unnamed_addr #
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB5]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.2 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1.09375 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i32 [[VP6]] = hir-copy i32 [[VP_LOAD_1]] , OriginPhiId: -1
+; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i32 [[VP5]] = hir-copy i32 [[VP_LOAD_1]] , OriginPhiId: -1
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br [[BB3]]
 ; VPLAN-HIR-CM-VF4-NEXT:  [[BB5]]: base cost: 1.09375
 ; VPLAN-HIR-CM-VF4-NEXT:  Base Cost: 8.375
@@ -2179,22 +2178,21 @@ define void @test_total_cost_branch_probabilities(i1 %cond) local_unnamed_addr #
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i1 [[VP2:%.*]] = icmp ne i1 [[VP3:%.*]] i1 false
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP2]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP2:%.*]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB2]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i32 [[VP4:%.*]] = hir-copy i32 [[VP_LOAD]] , OriginPhiId: -1
+; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i32 [[VP3:%.*]] = hir-copy i32 [[VP_LOAD]] , OriginPhiId: -1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB3]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB4]]: base cost: 1
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i32 [[VP5:%.*]] = phi  [ i32 [[VP4]], [[BB4]] ],  [ i32 [[VP6:%.*]], [[BB5]] ]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i32 [[VP4:%.*]] = phi  [ i32 [[VP3]], [[BB4]] ],  [ i32 [[VP5:%.*]], [[BB5]] ]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.3 i64 0 i64 [[VP0]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for store i32 [[VP5]] i32* [[VP_SUBSCRIPT_1]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for store i32 [[VP4]] i32* [[VP_SUBSCRIPT_1]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 1
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for i1 [[VP7:%.*]] = icmp slt i64 [[VP1]] i64 1024
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP7]], [[BB2]], [[BB6:BB[0-9]+]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for i1 [[VP6:%.*]] = icmp slt i64 [[VP1]] i64 1024
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP6]], [[BB2]], [[BB6:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB3]]: base cost: 3
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB6]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB7:BB[0-9]+]]
@@ -2205,7 +2203,7 @@ define void @test_total_cost_branch_probabilities(i1 %cond) local_unnamed_addr #
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB5]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.2 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i32 [[VP6]] = hir-copy i32 [[VP_LOAD_1]] , OriginPhiId: -1
+; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i32 [[VP5]] = hir-copy i32 [[VP_LOAD_1]] , OriginPhiId: -1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB3]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB5]]: base cost: 1
 ; VPLAN-HIR-CM-VF1-NEXT:  Base Cost: 5

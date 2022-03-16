@@ -608,6 +608,11 @@ private:
     setName(getOperandHIR()->getName());
   }
 
+  VPExternalDef(const loopopt::HLIf *If)
+      : VPValue(VPValue::VPExternalDefSC,
+                Type::getInt1Ty(If->getHLNodeUtils().getContext())),
+        HIROperand(new VPIfCond(If)) {}
+
   // DESIGN PRINCIPLE: Access to the underlying IR must be strictly limited to
   // the front-end and back-end of VPlan so that the middle-end is as
   // independent as possible of the underlying IR. We grant access to the

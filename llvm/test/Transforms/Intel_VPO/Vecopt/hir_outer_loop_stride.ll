@@ -3,9 +3,8 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec" -disable-output -print-after=hir-vplan-vec -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
 
 ; Check stability for merged CFG-based CG.
-; FIXME : Enable HIR verifier after fixing liveness bug related to dropped external values. Consequently drop all HIR-DETAILS checks as well.
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -print-after=hir-vplan-vec  -vplan-force-vf=4 -vplan-enable-new-cfg-merge-hir -hir-verify=false -hir-details < %s 2>&1 | FileCheck %s -check-prefix=HIR-DETAILS
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec" -disable-output -print-after=hir-vplan-vec -vplan-force-vf=4 -vplan-enable-new-cfg-merge-hir -hir-verify=false -hir-details < %s 2>&1 | FileCheck %s -check-prefix=HIR-DETAILS
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -print-after=hir-vplan-vec  -vplan-force-vf=4 -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec" -disable-output -print-after=hir-vplan-vec -vplan-force-vf=4 -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
 ;
 ; LIT test to demonstrate issue with stride information being calculated
 ; incorrectly when using underlying HIR. Incoming HIR is shown below.
@@ -49,40 +48,6 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; CHECK-NEXT:                     + END LOOP
 ; CHECK:                          ret
 ; CHECK-NEXT:               END REGION
-
-; HIR-DETAILS:              BEGIN REGION { modified }
-; HIR-DETAILS:                    + LiveIn symbases: 8
-; HIR-DETAILS:                    + LiveOut symbases:
-; HIR-DETAILS:                    + DO i64 i1 = 0, 127, 4   <DO_LOOP> <simd-vectorized> <novectorize>
-; HIR-DETAILS-NEXT:               |   %phi.temp = 0;
-; HIR-DETAILS-NEXT:               |   <LVAL-REG> NON-LINEAR <4 x i64> %phi.temp {sb:14}
-; HIR-DETAILS-NEXT:               |
-; HIR-DETAILS-NEXT:               |
-; FIXME : Symbase 8 (corresponding to @arr) should be live-in to this inner loop.
-; HIR-DETAILS:                    |   + LiveIn symbases: 14
-; HIR-DETAILS:                    |   + LiveOut symbases:
-; HIR-DETAILS:                    |   + DO i64 i2 = 0, 127, 1   <DO_LOOP> <novectorize>
-; HIR-DETAILS-NEXT:               |   |   (<4 x i64>*)(@arr)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][i2] = i1 + i2 + <i64 0, i64 1, i64 2, i64 3>;
-; HIR-DETAILS-NEXT:               |   |   <LVAL-REG> {al:8}(<4 x i64>*)(LINEAR [128 x [128 x i64]]* @arr)[<4 x i64> 0][LINEAR <4 x i64> i1 + <i64 0, i64 1, i64 2, i64 3>][LINEAR <4 x i64> i2] inbounds  {sb:13}
-; HIR-DETAILS-NEXT:               |   |      <BLOB> LINEAR [128 x [128 x i64]]* @arr {sb:8}
-; HIR-DETAILS-NEXT:               |   |   <RVAL-REG> LINEAR <4 x i64> i1 + i2 + <i64 0, i64 1, i64 2, i64 3> {sb:2}
-; HIR-DETAILS-NEXT:               |   |
-; HIR-DETAILS-NEXT:               |   |   %.vec = i2 + 1 < 128;
-; HIR-DETAILS-NEXT:               |   |   <LVAL-REG> NON-LINEAR <4 x i1> %.vec {sb:16}
-; HIR-DETAILS-NEXT:               |   |   <RVAL-REG> LINEAR <4 x i64> i2 + 1 {sb:2}
-; HIR-DETAILS-NEXT:               |   |
-; HIR-DETAILS-NEXT:               |   |   %phi.temp = i2 + 1;
-; HIR-DETAILS-NEXT:               |   |   <LVAL-REG> NON-LINEAR <4 x i64> %phi.temp {sb:14}
-; HIR-DETAILS-NEXT:               |   |   <RVAL-REG> LINEAR <4 x i64> i2 + 1 {sb:2}
-; HIR-DETAILS-NEXT:               |   |
-; HIR-DETAILS-NEXT:               |   + END LOOP
-; HIR-DETAILS-NEXT:               + END LOOP
-
-; HIR-DETAILS:                    %phi.temp4 = 128;
-; HIR-DETAILS-NEXT:               <LVAL-REG> NON-LINEAR i64 %phi.temp4 {sb:17}
-
-; HIR-DETAILS:                    ret ;
-; HIR-DETAILS-NEXT:         END REGION
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
