@@ -19,11 +19,11 @@ include "llvm/Target/Target.td"
 // X86 Subtarget state
 //
 
-def Mode64Bit : SubtargetFeature<"64bit-mode", "In64BitMode", "true",
+def Mode64Bit : SubtargetFeature<"64bit-mode", "Is64Bit", "true",
                                   "64-bit mode (x86_64)">;
-def Mode32Bit : SubtargetFeature<"32bit-mode", "In32BitMode", "true",
+def Mode32Bit : SubtargetFeature<"32bit-mode", "Is32Bit", "true",
                                   "32-bit mode (80386)">;
-def Mode16Bit : SubtargetFeature<"16bit-mode", "In16BitMode", "true",
+def Mode16Bit : SubtargetFeature<"16bit-mode", "Is16Bit", "true",
                                   "16-bit mode (i8086)">;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XUCC
@@ -125,7 +125,7 @@ def FeatureFMA     : SubtargetFeature<"fma", "HasFMA", "true",
 def FeatureF16C    : SubtargetFeature<"f16c", "HasF16C", "true",
                        "Support 16-bit floating point conversion instructions",
                        [FeatureAVX]>;
-def FeatureAVX512   : SubtargetFeature<"avx512f", "X86SSELevel", "AVX512F",
+def FeatureAVX512   : SubtargetFeature<"avx512f", "X86SSELevel", "AVX512",
                                       "Enable AVX-512 instructions",
                                       [FeatureAVX2, FeatureFMA, FeatureF16C]>;
 def FeatureERI      : SubtargetFeature<"avx512er", "HasERI", "true",
@@ -739,11 +739,11 @@ def TuningSlowPMADDWD : SubtargetFeature<"slow-pmaddwd", "IsPMADDWDSlow",
 
 // FIXME: This should not apply to CPUs that do not have SSE.
 def TuningSlowUAMem16 : SubtargetFeature<"slow-unaligned-mem-16",
-                                "IsUAMem16Slow", "true",
+                                "IsUnalignedMem16Slow", "true",
                                 "Slow unaligned 16-byte memory access">;
 
 def TuningSlowUAMem32 : SubtargetFeature<"slow-unaligned-mem-32",
-                                "IsUAMem32Slow", "true",
+                                "IsUnalignedMem32Slow", "true",
                                 "Slow unaligned 32-byte memory access">;
 
 def TuningLEAForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",
@@ -768,7 +768,7 @@ def TuningSlowTwoMemOps : SubtargetFeature<"slow-two-mem-ops",
                                      "SlowTwoMemOps", "true",
                                      "Two memory operand instructions are slow">;
 
-def TuningLEAUsesAG : SubtargetFeature<"lea-uses-ag", "LEAUsesAG", "true",
+def TuningLEAUsesAG : SubtargetFeature<"lea-uses-ag", "LeaUsesAG", "true",
                                    "LEA instruction needs inputs at AG stage">;
 
 def TuningSlowLEA : SubtargetFeature<"slow-lea", "SlowLEA", "true",
@@ -963,7 +963,7 @@ def TuningMRN : SubtargetFeature<"mrn", "HasMRN", "true",
 //===----------------------------------------------------------------------===//
 
 // Bonnell
-def ProcIntelAtom : SubtargetFeature<"", "X86ProcFamily", "IntelAtom", "">;
+def ProcIntelAtom : SubtargetFeature<"", "IsAtom", "true", "Is Intel Atom processor">;
 
 //===----------------------------------------------------------------------===//
 // Register File Description
