@@ -46,13 +46,6 @@ private:
     Value *ScalarLoopSize; // num scalar loop iterations.
     Value *MaxPeel;        // max peeling global id.
     Value *MaxVector;      // max vector global id.
-
-    /// C'tor.
-    LoopBoundaries(Value *PeelLoopSize, Value *VectorLoopSize,
-                   Value *ScalarLoopSize, Value *MaxPeel, Value *MaxVector)
-        : PeelLoopSize(PeelLoopSize), VectorLoopSize(VectorLoopSize),
-          ScalarLoopSize(ScalarLoopSize), MaxPeel(MaxPeel),
-          MaxVector(MaxVector) {}
   };
 
   /// LLVM context of the current module.
@@ -101,6 +94,9 @@ private:
 
   /// global_id lower bounds per dimension.
   ValueVec InitGIDs;
+
+  /// global_id upper bounds per dimension.
+  ValueVec MaxGIDs;
 
   /// base_global_id per dimension.
   ValueVec BaseGIDs;
@@ -179,11 +175,11 @@ private:
   /// GIDs - array with get_global_id calls.
   /// LIDs - array with get_local_id calls.
   /// InitGIDs - initial global id per dimension.
-  /// LoopSizes - number of loop iteration per dimension.
+  /// MaxGIDs - max (or upper bound) global id per dimension.
   /// Returns struct with preheader and exit block of the outmost loop.
   LoopRegion addWGLoops(BasicBlock *KernelEntry, bool IsVector, ReturnInst *Ret,
                         InstVecVec &GIDs, InstVecVec &LIDs, ValueVec &InitGIDs,
-                        ValueVec &LoopSizes);
+                        ValueVec &MaxGIDs);
 
   /// Replace the get***tid calls with incremented phi in loop head.
   /// TIDs - array of get***id to replace.
@@ -196,8 +192,9 @@ private:
                           BasicBlock *Head, BasicBlock *PreHead,
                           BasicBlock *Latch);
 
-  /// Create a WG loop over scalar kernel.
-  LoopRegion createScalarLoop();
+  /// Create WG loops over scalar kernel.
+  /// Returns a struct with entry and exit block of the WG loop region.
+  LoopRegion createScalarLoops();
 
   /// Create WG loops over vector kernel and remainder loop over scalar kernel.
   /// Returns a struct with entry and exit block of the WG loop region.

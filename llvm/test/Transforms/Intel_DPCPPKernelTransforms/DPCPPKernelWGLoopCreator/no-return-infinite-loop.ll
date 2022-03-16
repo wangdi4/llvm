@@ -30,6 +30,5 @@ attributes #0 = { convergent norecurse nounwind }
 !4 = !{!"llvm.loop.mustprogress"}
 !5 = !{!"llvm.loop.unroll.disable"}
 
-; DEBUGIFY-NOT: WARNING:
-; DEBUGIFY-COUNT-21: WARNING: Instruction with empty DebugLoc in function test
+; DEBUGIFY-COUNT-24: WARNING: Instruction with empty DebugLoc in function test
 ; DEBUGIFY-NOT: WARNING:
