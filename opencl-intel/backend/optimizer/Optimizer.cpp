@@ -721,7 +721,8 @@ static void populatePassesPostFailCheck(
   PM.add(llvm::createRemoveRegionDirectivesLegacyPass());
 
   PM.add(createUnifyFunctionExitNodesPass());
-  addBarrierMainPasses(PM, pRtlModuleList, OptLevel, debugType, UseTLSGlobals);
+  addBarrierMainPasses(PM, pRtlModuleList, OptLevel, debugType, UseTLSGlobals,
+                       Optimizer::getVectInfos());
 
   // After adding loops run loop optimizations.
   if (OptLevel > 0) {

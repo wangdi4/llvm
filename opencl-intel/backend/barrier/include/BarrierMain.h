@@ -17,6 +17,7 @@
 
 #include "debuggingservicetype.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
 namespace intel {
 
@@ -24,7 +25,8 @@ void addBarrierMainPasses(llvm::legacy::PassManagerBase &PM,
                           llvm::SmallVector<llvm::Module *, 2> &RtlModuleList,
                           unsigned OptLevel,
                           intel::DebuggingServiceType DebugType,
-                          bool UseTLSGlobals);
+                          bool UseTLSGlobals,
+                          llvm::ArrayRef<llvm::VectItem> VectInfos);
 
 } // namespace intel
 

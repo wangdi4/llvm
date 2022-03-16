@@ -17,11 +17,11 @@
 #include "InitializePasses.h"
 #include "LoopUtils/LoopUtils.h"
 #include "OCLPassSupport.h"
-#include "SGHelper.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGHelper.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace DPCPPKernelMetadataAPI;
