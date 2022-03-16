@@ -4,6 +4,7 @@
 ;   check CoerceWin64Types pass when SATest is enabled on Windows.
 
 ; CHECK:      Running pass: DPCPPPreprocessSPIRVFriendlyIRPass
+; CHECK-NEXT: Running pass: SPIRV::SPIRVLowerConstExprPass
 ; CHECK-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
 
