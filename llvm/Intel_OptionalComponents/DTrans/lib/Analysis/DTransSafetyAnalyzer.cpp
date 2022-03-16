@@ -27,6 +27,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
@@ -40,6 +41,9 @@
 // Print messages regarding the collection of values stored to fields of
 // structures.
 #define SAFETY_VALUES "dtrans-safetyanalyzer-values"
+
+// Debug type for verbose call graph computations.
+#define DTRANS_CG "dtrans-cg"
 
 using namespace llvm;
 using namespace dtransOP;
@@ -80,9 +84,7 @@ static bool isPtrToPtr(const DTransType *Ty) {
   return Ty->isPointerTy() && Ty->getPointerElementType()->isPointerTy();
 }
 
-static bool isCompilerConstantData(Value *V) {
-  return isa<ConstantData>(V);
-}
+static bool isCompilerConstantData(Value *V) { return isa<ConstantData>(V); }
 
 // Helper to print a Value object (and optionally the name of the function it
 // belongs to, if there is one). If the Value represents a GlobalValue, such as
@@ -263,7 +265,7 @@ public:
     // otherwise we would need to walk all the IR now looking for indirect
     // function calls to create types for all the type aliases that may be
     // passed.
-    for (auto* DPTy : TM.dtrans_types())
+    for (auto *DPTy : TM.dtrans_types())
       (void)DTInfo.getOrCreateTypeInfo(DPTy);
 
     // Analyze definitions of the StructInfo types collected.
@@ -277,6 +279,50 @@ public:
       for (auto *U : GV.users())
         if (auto *CE = dyn_cast<ConstantExpr>(U))
           analyzeConstantExpr(CE);
+    }
+  }
+
+  // Identify the call graph information that collects the outermost type that a
+  // method operates upon.
+  void collectCallGraphInfo(Module &M) {
+    for (auto &F : M) {
+      for (auto It = inst_begin(&F), E = inst_end(&F); It != E; ++It) {
+        Instruction &I = *It;
+        ValueTypeInfo *Info = PTA.getValueTypeInfo(&I);
+        if (Info && !Info->empty()) {
+          // Unhandled is ignored for CallGraph for now.
+          auto &Pointees = Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
+          for (auto *AliasTy : Pointees) {
+            if (!isTypeOfInterest(AliasTy))
+              continue;
+            DEBUG_WITH_TYPE(
+                DTRANS_CG,
+                dbgs() << "dtrans-cg: CGraph update for Instruction -- \n"
+                       << "  " << I << "\n");
+            setBaseTypeCallGraph(AliasTy, &F);
+          }
+        }
+
+        for (Value *Arg : I.operands()) {
+          if (!isa<Constant>(Arg) && !isa<Argument>(Arg))
+            continue;
+          ValueTypeInfo *Info = PTA.getValueTypeInfo(Arg);
+          if (Info && !Info->empty()) {
+            // Unhandled is ignored for CallGraph for now.
+            auto &Pointees =
+                Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
+            for (auto *AliasTy : Pointees) {
+              if (!isTypeOfInterest(AliasTy))
+                continue;
+              DEBUG_WITH_TYPE(
+                  DTRANS_CG,
+                  dbgs() << "dtrans-cg: CGraph update for Operand  -- \n"
+                         << "  " << *Arg << "\n");
+              setBaseTypeCallGraph(AliasTy, &F);
+            }
+          }
+        }
+      }
     }
   }
 
@@ -1477,8 +1523,7 @@ public:
 
   // The element access analysis for load and store instructions are nearly
   // identical, so we use this helper function to perform the task for both.
-  void analyzeElementLoadOrStore(Instruction &I,
-                                 ValueTypeInfo &PtrInfo,
+  void analyzeElementLoadOrStore(Instruction &I, ValueTypeInfo &PtrInfo,
                                  ValueTypeInfo *ValInfo) {
 
     // This lambda is used to identify whether a pointer value being stored into
@@ -1709,7 +1754,7 @@ public:
         ElementNum = 0;
         ForElementZeroAccess = true;
         while (isa<DTransArrayType>(BaseTy))
-            BaseTy = BaseTy->getArrayElementType();
+          BaseTy = BaseTy->getArrayElementType();
       }
 
       if (auto *StTy = dyn_cast<DTransStructType>(BaseTy)) {
@@ -1807,11 +1852,10 @@ public:
       // the necessary structures marked.
       bool IsAllocStore = DTBCA.isAllocStore(&I);
       if (BadCasting) {
-        const llvm::dtrans::SafetyData SD = IsAllocStore ?
-            dtrans::BadCastingPending : dtrans::BadCasting;
+        const llvm::dtrans::SafetyData SD =
+            IsAllocStore ? dtrans::BadCastingPending : dtrans::BadCasting;
         setBaseTypeInfoSafetyData(
-            ParentTy, SD,
-            "Incompatible pointer type for field load/store", &I);
+            ParentTy, SD, "Incompatible pointer type for field load/store", &I);
         if (ValInfo)
           for (auto *ValAliasTy :
                ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
@@ -1833,8 +1877,9 @@ public:
           if (IndexedType->isPointerTy() &&
               IndexedType->getPointerElementType()->isAggregateType())
             PtrToAggregateFound = true;
-          const llvm::dtrans::SafetyData SD = IsAllocStore ?
-              dtrans::UnsafePointerStorePending : dtrans::UnsafePointerStore;
+          const llvm::dtrans::SafetyData SD =
+              IsAllocStore ? dtrans::UnsafePointerStorePending
+                           : dtrans::UnsafePointerStore;
           if (ValInfo) {
             auto &AliasSet =
                 ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
@@ -1844,8 +1889,8 @@ public:
                 if (IsAllocStore)
                   DTBCA.setSawUnsafePointerStore(&I);
                 setBaseTypeInfoSafetyData(
-                    ValAliasTy, SD,
-                    "Incompatible type for field load/store", &I);
+                    ValAliasTy, SD, "Incompatible type for field load/store",
+                    &I);
               }
             }
           }
@@ -1853,9 +1898,8 @@ public:
           if (PtrToAggregateFound) {
             if (IsAllocStore)
               DTBCA.setSawUnsafePointerStore(&I);
-            setBaseTypeInfoSafetyData(IndexedType, SD,
-                                      "Incompatible type for field load/store",
-                                      &I);
+            setBaseTypeInfoSafetyData(
+                IndexedType, SD, "Incompatible type for field load/store", &I);
           }
         }
 
@@ -2038,12 +2082,11 @@ public:
   void setFieldMismatchedElementAccess(DTransType *ParentTy,
                                        TypeSize AccessSize,
                                        DTransType *AccessTy,
-                                       unsigned int ElementNum,
-                                       Instruction &I,
+                                       unsigned int ElementNum, Instruction &I,
                                        bool IsPending) {
-    const llvm::dtrans::SafetyData SD = IsPending ?
-        dtrans::MismatchedElementAccessPending :
-        dtrans::MismatchedElementAccess;
+    const llvm::dtrans::SafetyData SD =
+        IsPending ? dtrans::MismatchedElementAccessPending
+                  : dtrans::MismatchedElementAccess;
     if (getLangRuleOutOfBoundsOK()) {
       // Assuming out of bound access, set safety issue for the entire
       // ParentTy.
@@ -2054,9 +2097,8 @@ public:
       // field type, rather than to all fields reachable from the structure
       // because out of bounds accesses are known to not occur based on the
       // LangRuleOutOfBoundsOK definition.
-      setOnlyBaseTypeInfoSafetyData(ParentTy, SD,
-                                    "Incompatible type for field load/store",
-                                    &I);
+      setOnlyBaseTypeInfoSafetyData(
+          ParentTy, SD, "Incompatible type for field load/store", &I);
       if (AccessTy)
         setBaseTypeInfoSafetyData(AccessTy, SD,
                                   "Incompatible type for field load/store", &I);
@@ -2166,8 +2208,7 @@ public:
       auto &ElementOfTypes = PointeePair.second.getElementOf();
       if ((PointeePair.second.isField() &&
            PointeePair.second.getElementNum() == 0) ||
-          (!getLangRuleOutOfBoundsOK() &&
-           PointeePair.second.isUnknownOffset()))
+          (!getLangRuleOutOfBoundsOK() && PointeePair.second.isUnknownOffset()))
         for (auto &ElementOfPair : ElementOfTypes) {
           dtrans::TypeInfo *ElementOfTI =
               DTInfo.getTypeInfo(ElementOfPair.first);
@@ -2184,9 +2225,8 @@ public:
     }
   }
 
-  void collectReadInfo(LoadInst &I, dtrans::StructInfo *StInfo,
-                       size_t FieldNum, bool IsWholeStructure,
-                       bool ForElementZeroAccess) {
+  void collectReadInfo(LoadInst &I, dtrans::StructInfo *StInfo, size_t FieldNum,
+                       bool IsWholeStructure, bool ForElementZeroAccess) {
     if (!IsWholeStructure) {
       // When a whole structure is not being read, the read may be using a
       // pointer to a structure to access the element at index 0 of a contained
@@ -2202,7 +2242,7 @@ public:
       analyzeIndirectArrays(&FI, &I);
       DTBCA.analyzeLoad(FI, I);
       updateFieldFrequency(FI, I);
-      DTInfo.addLoadMapping(&I, { ReadStInfo->getLLVMType(), ReadFieldNum });
+      DTInfo.addLoadMapping(&I, {ReadStInfo->getLLVMType(), ReadFieldNum});
       if (Descended || ForElementZeroAccess)
         FI.setNonGEPAccess();
       if (!dtrans::isLoadedValueUnused(&I,
@@ -2235,7 +2275,7 @@ public:
                             Value *WriteVal) {
       FI.setWritten(I);
       updateFieldFrequency(FI, I);
-      DTInfo.addStoreMapping(&I, { StInfo.getLLVMType(), FieldNum });
+      DTInfo.addStoreMapping(&I, {StInfo.getLLVMType(), FieldNum});
 
       // For simple cases where the stored value is the result of select
       // instruction that always produces a constant result, save both
@@ -2260,7 +2300,8 @@ public:
     // Set FI to bottom alloc function if 'FI' is being assigned a constant
     // value other than nullptr.
     auto CheckWriteValue = [](Constant *ConstVal, dtrans::FieldInfo &FI,
-                              size_t FieldNum, dtrans::StructInfo *ParentStInfo) {
+                              size_t FieldNum,
+                              dtrans::StructInfo *ParentStInfo) {
       if (!isa<ConstantPointerNull>(ConstVal))
         ParentStInfo->updateSingleAllocFuncToBottom(FieldNum);
     };
@@ -2911,9 +2952,8 @@ public:
       auto *AT2 = cast<DTransArrayType>(T2);
       if (AT1->getNumElements() != AT2->getNumElements())
         return false;
-      return typesMayBeCRuleCompatibleX(AT1->getElementType(),
-                                        AT2->getElementType(),
-                                        Tstack, IgnorePointees);
+      return typesMayBeCRuleCompatibleX(
+          AT1->getElementType(), AT2->getElementType(), Tstack, IgnorePointees);
     }
 
     // Two struct Types are compatible if they have the same number of
@@ -3223,8 +3263,7 @@ public:
             } else {
               setAllAliasedTypeSafetyData(
                   ParamInfo, dtrans::UnhandledUse,
-                  "Value passed to unanalyzable broker function",
-                  &Call);
+                  "Value passed to unanalyzable broker function", &Call);
             }
           }
         }
@@ -4614,19 +4653,19 @@ public:
                                           "Integer type cast to pointer", &I);
   }
 
-  void visitLandingPad(LandingPadInst& I) {
+  void visitLandingPad(LandingPadInst &I) {
     // This instruction results in a type containing a pointer, but there are no
     // safety flags affected.
     return;
   }
 
-  void visitExtractValueInst(ExtractValueInst& I) {
-    // This instruction may result in a type containing a pointer, but there are no
-    // safety flags affected.
+  void visitExtractValueInst(ExtractValueInst &I) {
+    // This instruction may result in a type containing a pointer, but there are
+    // no safety flags affected.
     return;
   }
 
-  void visitResume(ResumeInst& I) {
+  void visitResume(ResumeInst &I) {
     // This instruction has an operand containing a pointer type, but there are
     // no safety flags affected.
     return;
@@ -5571,6 +5610,134 @@ private:
     return ExternalAddressTakenFunctions.count(F);
   }
 
+  // SubGraph: A struct type is considered as enclosing type of another
+  // struct if all references of another structure are only reachable
+  // from member functions of the enclosing type. 'SubGraph' is used
+  // to represent enclosing type for struct in StructInfo.
+  //
+  // Lattice of properties of SubGraph:
+  //  {bottom = <nullptr, false>, <Type*, false>, top = <nullptr, true>}
+  // This function performs 'join' operation of the lattice.
+  // “Bottom” refers to unanalyzed case (initial value) and “top” refers
+  // to worst case (no enclosing type).
+  //
+  // updateSubGraphNode is called when any reference to "ThisTy"
+  // DTransStructType is noticed in "F".
+  //
+  void updateSubGraphNode(Function *F, DTransStructType *ThisTy) {
+    auto *TI = cast<dtrans::StructInfo>(DTInfo.getTypeInfo(ThisTy));
+    auto &CG = TI->getCallSubGraph();
+
+    // If we could not approximate CallGraph by methods of some class,
+    // no need to analyze further.
+    if (CG.isTop())
+      return;
+
+    // If reference to ThisTy is encountered in global scope or
+    // inside function, which does not look like class method,
+    // then mark CallGraph approximation as 'top' or 'failed' approximation.
+    if (!F || F->arg_size() < 1) {
+      TI->setCallGraphTop();
+      return;
+    }
+    DTransFunctionType *DFnTy = dyn_cast_or_null<DTransFunctionType>(
+        DTInfo.getTypeMetadataReader().getDTransTypeFromMD(F));
+    if (!DFnTy) {
+      TI->setCallGraphTop();
+      return;
+    }
+    // Candidate for 'this' pointer;
+    DTransType *Ty = DFnTy->getArgType(0);
+    if (!isa<DTransPointerType>(Ty)) {
+      TI->setCallGraphTop();
+      return;
+    }
+    auto *StTy = dyn_cast<DTransStructType>(Ty->getPointerElementType());
+    if (!StTy) {
+      TI->setCallGraphTop();
+      return;
+    }
+
+    // Ty >= ThisTy
+    //
+    // Check if ThisTy is reachable from Ty by recursion to
+    // structure's elements and following pointers.
+    std::function<bool(DTransType *, DTransStructType *, int)> findSubType =
+        [&findSubType](DTransType *Ty, DTransStructType *ThisTy,
+                       int Depth) -> bool {
+      Depth--;
+      if (Depth <= 0)
+        return false;
+      if (auto *STy = dyn_cast<DTransStructType>(Ty)) {
+        if (STy == ThisTy)
+          return true;
+        for (unsigned I = 0, E = STy->getNumFields(); I != E; ++I)
+          if (findSubType(STy->getFieldType(I), ThisTy, Depth))
+            return true;
+        return false;
+      } else if (auto *ATy = dyn_cast<DTransArrayType>(Ty)) {
+        if (findSubType(ATy->getArrayElementType(), ThisTy, Depth))
+          return true;
+        return false;
+      } else if (auto *PTy = dyn_cast<DTransPointerType>(Ty)) {
+        if (findSubType(PTy->getPointerElementType(), ThisTy, Depth))
+          return true;
+        return false;
+      }
+      return false;
+    };
+
+    // !(StTy >= ThisTy)
+    // If ThisTy is not reachable from 'this' argument,
+    // then mark as 'top'
+    if (!findSubType(StTy, ThisTy, 5)) {
+      TI->setCallGraphTop();
+      return;
+    }
+
+    // Compute `join`.
+    // If cannot find least common approximation to old and new approximation,
+    // then mark as 'top'.
+    if (CG.isBottom()) {
+      TI->setCallGraphEnclosingType(cast<StructType>(StTy->getLLVMType()));
+    } else if (findSubType(StTy,
+                           TM.getStructType(CG.getEnclosingType()->getName()),
+                           5)) {
+      TI->setCallGraphEnclosingType(cast<StructType>(StTy->getLLVMType()));
+    } else if (!findSubType(TM.getStructType(CG.getEnclosingType()->getName()),
+                            StTy, 5)) {
+      TI->setCallGraphTop();
+      return;
+    }
+  }
+
+  void setBaseTypeCallGraph(DTransType *Ty, Function *F) {
+    // Strip only outermost Pointer type constructors to account
+    // for load/stores/calls, etc. instructions.
+    DTransType *BaseTy = Ty;
+    while (BaseTy->isPointerTy())
+      BaseTy = BaseTy->getPointerElementType();
+
+    // This lambda encapsulates the logic for propagating CallGraph info
+    // to structure fields and array elements to account for implicit types
+    // in GEP. Pointer types should be handled indirectly through
+    // load/stores/calls, etc.
+    std::function<void(DTransType *)> Propagate =
+        [this, F, &Propagate](DTransType *Ty) -> void {
+      if (!isTypeOfInterest(Ty))
+        return;
+      if (auto *STy = dyn_cast<DTransStructType>(Ty)) {
+        updateSubGraphNode(F, STy);
+        unsigned NumFields = STy->getNumFields();
+        for (unsigned Idx = 0; Idx < NumFields; ++Idx)
+          Propagate(STy->getFieldType(Idx));
+      } else if (auto *ATy = dyn_cast<DTransArrayType>(Ty))
+        Propagate(ATy->getArrayElementType());
+    };
+
+    Propagate(BaseTy);
+  }
+
 private:
   // private data members
   const DataLayout &DL;
@@ -5587,7 +5754,7 @@ private:
   BlockFrequencyInfo *BFI;
 
   // Set of external functions that are address taken.
-  DenseSet<Function*> ExternalAddressTakenFunctions;
+  DenseSet<Function *> ExternalAddressTakenFunctions;
 
   // Indicates whether the ExternalAddressTakenFunctions has been computed yet.
   bool ExternalAddressTakenFunctionsComputed = false;
@@ -5641,7 +5808,7 @@ DTransSafetyInfo &DTransSafetyInfo::operator=(DTransSafetyInfo &&Other) {
   StoreInfoMap.insert(Other.StoreInfoMap.begin(), Other.StoreInfoMap.end());
   Other.StoreInfoMap.clear();
   MultiElemLoadStoreInfo.insert(Other.MultiElemLoadStoreInfo.begin(),
-    Other.MultiElemLoadStoreInfo.end());
+                                Other.MultiElemLoadStoreInfo.end());
   FunctionsRequireBadCastValidation.insert(
       Other.FunctionsRequireBadCastValidation.begin(),
       Other.FunctionsRequireBadCastValidation.end());
@@ -5653,9 +5820,9 @@ DTransSafetyInfo &DTransSafetyInfo::operator=(DTransSafetyInfo &&Other) {
   return *this;
 }
 
-bool DTransSafetyInfo::requiresBadCastValidation(
-    SetVector<Function *> &Func, unsigned &ArgumentIndex,
-    unsigned &StructIndex) const {
+bool DTransSafetyInfo::requiresBadCastValidation(SetVector<Function *> &Func,
+                                                 unsigned &ArgumentIndex,
+                                                 unsigned &StructIndex) const {
   Func.clear();
   Func.insert(FunctionsRequireBadCastValidation.begin(),
               FunctionsRequireBadCastValidation.end());
@@ -5710,6 +5877,7 @@ void DTransSafetyInfo::analyzeModule(
   checkLanguages(M);
   DTBCA.analyzeBeforeVisit();
   Visitor.visit(M);
+  Visitor.collectCallGraphInfo(M);
   DTBCA.analyzeAfterVisit();
   DTBCA.getConditionalFunctions(FunctionsRequireBadCastValidation);
   RelatedTypesUtils->postProcessRelatedTypesAnalysis(*this);
@@ -5942,15 +6110,13 @@ DTransStructType *DTransSafetyInfo::getPtrToStructTy(Value *V) {
   if (!Info)
     return nullptr;
   PtrTypeAnalyzer &PTA = getPtrTypeAnalyzer();
-  DTransType* DTransTy = PTA.getDominantAggregateUsageType(*Info);
+  DTransType *DTransTy = PTA.getDominantAggregateUsageType(*Info);
   if (!DTransTy || !DTransTy->isPointerTy())
     return nullptr;
   return dyn_cast<DTransStructType>(DTransTy->getPointerElementType());
 }
 
-bool DTransSafetyInfo::isPtrToStruct(Value *V) {
-  return getPtrToStructTy(V);
-}
+bool DTransSafetyInfo::isPtrToStruct(Value *V) { return getPtrToStructTy(V); }
 
 DTransType *DTransSafetyInfo::getFieldTy(StructType *STy, unsigned Idx) {
   if (Idx >= STy->getNumElements())
@@ -6169,7 +6335,8 @@ DTransSafetyInfo::getStructField(GEPOperator *GEP) {
     if (!StructTy)
       return std::make_pair(nullptr, 0);
 
-    return std::make_pair(cast<llvm::StructType>(StructTy->getLLVMType()), StructField.second);
+    return std::make_pair(cast<llvm::StructType>(StructTy->getLLVMType()),
+                          StructField.second);
   }
 
   auto StructTy = dyn_cast<StructType>(GEP->getSourceElementType());
