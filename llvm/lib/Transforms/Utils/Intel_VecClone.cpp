@@ -650,23 +650,38 @@ Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Argument *Arg,
   // Insert the stride related instructions before the user.
   IRBuilder<> Builder(ArgUser);
 
-  if (Arg->getType()->isPointerTy()) {
+  if (auto *ArgTy = dyn_cast<PointerType>(Arg->getType())) {
+    // For pointer types the stride is specified in bytes!
+    if (!ArgTy->isOpaque()) {
+      // Try to make compute nicely looking without byte arithmetic. Purely for
+      // aesthetic purposes.
+      const DataLayout &DL = Clone->getParent()->getDataLayout();
+      unsigned PointeeEltSize = DL.getTypeAllocSize(ArgTy->getElementType());
+      assert(Stride % PointeeEltSize == 0 &&
+             "Stride is expected to be a multiple of element size!");
+      Stride /= PointeeEltSize;
+      auto *Mul = Builder.CreateMul(ConstantInt::get(Phi->getType(), Stride),
+                                    Phi, "stride.mul");
+
+      // Linear updates to pointer arguments involves an address calculation,
+      // so use gep. To properly update linear pointers we only need to
+      // multiply the loop index and stride since gep is indexed starting at 0
+      // from the base address passed to the vector function.
+
+      // Mul is always generated as i32 since it is calculated using the i32
+      // loop phi that is inserted by this pass. No cast on Mul is necessary
+      // because gep can use a base address of one type with an index of
+      // another type.
+      Value *LinearArgGep = Builder.CreateGEP(ArgTy->getElementType(), Arg, Mul,
+                                              Arg->getName() + ".gep");
+
+      return LinearArgGep;
+    }
     auto *Mul = Builder.CreateMul(ConstantInt::get(Phi->getType(), Stride), Phi,
                                   "stride.mul");
-
-    // Linear updates to pointer arguments involves an address calculation, so
-    // use gep. To properly update linear pointers we only need to multiply the
-    // loop index and stride since gep is indexed starting at 0 from the base
-    // address passed to the vector function.
-    auto *ArgPtrType = cast<PointerType>(Arg->getType());
-
-    // Mul is always generated as i32 since it is calculated using the i32 loop
-    // phi that is inserted by this pass. No cast on Mul is necessary because
-    // gep can use a base address of one type with an index of another type.
-    Value *LinearArgGep = Builder.CreateGEP(ArgPtrType->getElementType(),
-                                            Arg, Mul, Arg->getName() + ".gep");
-
-    return LinearArgGep;
+    auto *Gep = Builder.CreateGEP(Builder.getInt8Ty(), Arg, Mul,
+                                  Arg->getName() + ".gep");
+    return Gep;
   }
 
   Value *PhiCast = Phi;
@@ -857,9 +872,20 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
       emitLoadStoreForParameter(cast<AllocaInst>(Memory), &Arg, LoopPreHeader);
     }
 
-    if (ParmKind.isLinear())
+    if (ParmKind.isLinear()) {
+      unsigned Stride = ParmKind.getStride();
+      if (auto *PtrTy = dyn_cast<PointerType>(Arg.getType()))
+        if (!PtrTy->isOpaque()) {
+          const DataLayout &DL = Clone->getParent()->getDataLayout();
+          unsigned PointeeEltSize =
+              DL.getTypeAllocSize(PtrTy->getElementType());
+          assert(Stride % PointeeEltSize == 0 &&
+                 "Stride is expected to be a multiple of element size!");
+          Stride /= PointeeEltSize;
+        }
       AddTypedClause(QUAL_OMP_LINEAR, Memory, ValueType,
-                     Builder.getInt32(ParmKind.getStride()));
+                     Builder.getInt32(Stride));
+    }
 
     if (ParmKind.isUniform())
       AddTypedClause(QUAL_OMP_UNIFORM, Memory, ValueType);
