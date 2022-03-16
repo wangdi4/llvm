@@ -3120,7 +3120,7 @@ _mm256_mask_max_epu32(__m256i __W, __mmask8 __M, __m256i __A, __m256i __B) {
 
 static __inline__ __m128i __DEFAULT_FN_ATTRS128
 _mm_max_epu64 (__m128i __A, __m128i __B) {
-  return (__m128i)__builtin_elementwise_max((__v2di)__A, (__v2di)__B);
+  return (__m128i)__builtin_elementwise_max((__v2du)__A, (__v2du)__B);
 }
 
 static __inline__ __m128i __DEFAULT_FN_ATTRS128
@@ -3139,7 +3139,7 @@ _mm_mask_max_epu64 (__m128i __W, __mmask8 __M, __m128i __A, __m128i __B) {
 
 static __inline__ __m256i __DEFAULT_FN_ATTRS256
 _mm256_max_epu64 (__m256i __A, __m256i __B) {
-  return (__m256i)__builtin_elementwise_max((__v4di)__A, (__v4di)__B);
+  return (__m256i)__builtin_elementwise_max((__v4du)__A, (__v4du)__B);
 }
 
 static __inline__ __m256i __DEFAULT_FN_ATTRS256
@@ -3252,7 +3252,7 @@ _mm256_mask_min_epu32(__m256i __W, __mmask8 __M, __m256i __A, __m256i __B) {
 
 static __inline__ __m128i __DEFAULT_FN_ATTRS128
 _mm_min_epu64 (__m128i __A, __m128i __B) {
-  return (__m128i)__builtin_elementwise_min((__v2di)__A, (__v2di)__B);
+  return (__m128i)__builtin_elementwise_min((__v2du)__A, (__v2du)__B);
 }
 
 static __inline__ __m128i __DEFAULT_FN_ATTRS128
