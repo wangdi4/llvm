@@ -75,6 +75,7 @@
 #include <cassert>
 #include <cstdint>
 #include <utility>
+#include "llvm/Target/TargetMachine.h" // INTEL
 
 using namespace llvm;
 
