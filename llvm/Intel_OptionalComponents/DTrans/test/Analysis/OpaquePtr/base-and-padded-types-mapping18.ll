@@ -1,23 +1,35 @@
 ; REQUIRES: asserts
 
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -disable-output 2>&1 | FileCheck %s
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -debug-only=dtrans-safetyanalyzer-verbose -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -debug-only=dtrans-safetyanalyzer-verbose -disable-output 2>&1 | FileCheck %s
 
-; This test case checks that the base-padded relationship between
-; %struct.test.a.base and %struct.test.a is set even if the pointer
-; %bptr is allocated as %struct.test.b and we are loading data from
-; %struct.test.array.
+; This test verifies that %struct.test.a and %struct.test.a.base are NOT mapped
+; together since there is a write for the field that is reserved for padding.
+; Also, the safety data should show that the types were set as BadCasting (NOT
+; BadCastingForRelatedTypes) since the relationship between %struct.test.a
+; and %struct.test.a.base is not set.
+
+; CHECK: dtrans-safety: Bad casting (related types conditional) -- Formal paremeter is a related type of the actual parameter, or vice-versa
+; CHECK:   [test]   %1 = call i32 @foo(ptr %bptr)
+; CHECK:   Arg#0:   %bptr = alloca %struct.test.b, align 8
+
 
 ; CHECK-LABEL: LLVMType: %struct.test.a = type { %struct.test.array, i32, [4 x i8] }
-; CHECK: Related base structure: struct.test.a.base
+; CHECK-NOT: Related base structure: struct.test.a.base
 ; CHECK: 2)Field LLVM Type: [4 x i8]
-; CHECK: Field info: PaddedField
-; CHECK: Top Alloc Function
-; CHECK: Safety data: {{.*}}Structure may have ABI padding{{.*}}
+; CHECK-NOT: Field info: PaddedField
+; CHECK: Bottom Alloc Function
+; CHECK: Safety data: Bad casting | Contains nested structure{{ *$}}
 
 ; CHECK-LABEL: LLVMType: %struct.test.a.base = type { %struct.test.array, i32 }
-; CHECK: Related padded structure: struct.test.a
-; CHECK: Safety data: {{.*}}Structure could be base for ABI padding{{.*}}
+; CHECK-NOT: Related padded structure: struct.test.a
+; CHECK: Safety data: Bad casting | Nested structure | Contains nested structure | Local instance{{ *$}}
+
+; CHECK-LABEL: LLVMType: %struct.test.array = type { [4 x i32] }
+; CHECK: Safety data: Bad casting | Nested structure | Local instance{{ *$}}
+
+; CHECK-LABEL: LLVMType: %struct.test.b = type { %struct.test.a.base, [4 x i8] }
+; CHECK: Safety data: Bad casting | Contains nested structure | Local instance{{ *$}}
 
 ; ModuleID = 'simple2.cpp'
 source_filename = "simple2.cpp"
@@ -29,19 +41,18 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test.a = type { %struct.test.array, i32, [4 x i8] }
 %struct.test.a.base = type { %struct.test.array, i32 }
 
-define "intel_dtrans_func_index"="1" i32 @foo(ptr "intel_dtrans_func_index"="2" %ptr) local_unnamed_addr #0 !intel.dtrans.func.type !18 {
-  %agep = getelementptr %struct.test.a, ptr %ptr, i64 0, i32 0
-  %boostgep = getelementptr %"struct.test.array", ptr %agep, i64 0, i32 0
-  %arrgep = getelementptr [4 x i32], ptr %boostgep, i64 0, i32 0
-  %ret = load i32, i32* %arrgep
+define void @foo(ptr "intel_dtrans_func_index"="1" %ptr) local_unnamed_addr #0 !intel.dtrans.func.type !11 {
+  %tmp1 = getelementptr inbounds %struct.test.a, ptr %ptr, i64 0, i32 2
+  %tmp2 = getelementptr inbounds [4 x i8], ptr %tmp1, i64 0, i32 0
+  store i32 2, i32* %tmp2
 
-  ret i32 %ret
+  ret void
 }
 
-define i32 @test() {
+define void @test() {
   %bptr = alloca %struct.test.b
-  %ret = call i32 @foo(ptr %bptr)
-  ret i32 %ret
+  call i32 @foo(ptr %bptr)
+  ret void
 }
 
 attributes #0 = { mustprogress nounwind uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
@@ -68,4 +79,3 @@ attributes #0 = { mustprogress nounwind uwtable "approx-func-fp-math"="true" "de
 !15 = !{%struct.test.array zeroinitializer, i32 0}
 !16 = !{!"S", %struct.test.array zeroinitializer, i32 1, !17}
 !17 = !{!"A", i32 4, !6}
-!18 = distinct !{!6, !12}

@@ -6,18 +6,21 @@
 ; This test case checks that the base-padded relationship between
 ; %struct.test.a.base and %struct.test.a is set even if the pointer
 ; %bptr is allocated as %struct.test.b and we are loading data from
-; %struct.test.array.
+; %struct.test.array. The input type for function @foo is
+; *%struct.test.b, therefore it should NOT set the safety bit for
+; BadCasting.
 
 ; CHECK-LABEL: LLVMType: %struct.test.a = type { %struct.test.array, i32, [4 x i8] }
 ; CHECK: Related base structure: struct.test.a.base
 ; CHECK: 2)Field LLVM Type: [4 x i8]
 ; CHECK: Field info: PaddedField
 ; CHECK: Top Alloc Function
-; CHECK: Safety data: {{.*}}Structure may have ABI padding{{.*}}
+; CHECK: Safety data: Ambiguous GEP | Contains nested structure | Structure may have ABI padding{{ *$}}
 
 ; CHECK-LABEL: LLVMType: %struct.test.a.base = type { %struct.test.array, i32 }
 ; CHECK: Related padded structure: struct.test.a
-; CHECK: Safety data: {{.*}}Structure could be base for ABI padding{{.*}}
+; CHECK: Safety data: Ambiguous GEP | Nested structure | Contains nested structure | Local instance | Structure could be base for ABI padding{{ *$}}
+
 
 ; ModuleID = 'simple2.cpp'
 source_filename = "simple2.cpp"
@@ -68,4 +71,5 @@ attributes #0 = { mustprogress nounwind uwtable "approx-func-fp-math"="true" "de
 !15 = !{%struct.test.array zeroinitializer, i32 0}
 !16 = !{!"S", %struct.test.array zeroinitializer, i32 1, !17}
 !17 = !{!"A", i32 4, !6}
-!18 = distinct !{!6, !12}
+!18 = distinct !{!6, !19}
+!19 = !{%struct.test.b zeroinitializer, i32 1}

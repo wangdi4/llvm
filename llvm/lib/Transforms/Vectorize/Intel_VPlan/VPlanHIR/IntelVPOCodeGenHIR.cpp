@@ -4791,6 +4791,14 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     HLInst *UBInitInst =
         HLNodeUtilities.createCopyInst(InitValue, "temp.init", UBTemp->clone());
     addInstUnmasked(UBInitInst);
+
+    // Upper bound of HLLoop is inclusive - subtract 1 to account for the same.
+    HLInst *AddInst = HLNodeUtilities.createSub(
+        UBTemp, DDRefUtilities.createConstDDRef(UBTemp->getDestType(), 1),
+        "peel.ub");
+    addInstUnmasked(AddInst);
+    UBTemp = AddInst->getLvalDDRef()->clone();
+
     // Initialized UB temp will be live-in to scalar loop.
     ScalarPeel->addLiveInTemp(UBTemp);
 

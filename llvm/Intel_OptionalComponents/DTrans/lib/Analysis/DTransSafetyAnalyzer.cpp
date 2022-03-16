@@ -15,12 +15,12 @@
 #include "Intel_DTrans/Analysis/DTransBadCastingAnalyzerOP.h"
 #include "Intel_DTrans/Analysis/DTransDebug.h"
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransRelatedTypesUtils.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/DTransCommon.h"
-
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/Intel_LangRules.h"
 #include "llvm/Analysis/Intel_WP.h"
@@ -51,14 +51,6 @@ static cl::opt<bool> DTransUseBlockFreq(
     "dtrans-use-block-freq", cl::init(false), cl::ReallyHidden,
     cl::desc("Use BlockFrequencyInfo counters instead of static instruction "
              "counts for field frequency info"));
-
-// Enable merging padded structures with base structures even if the
-// safety checks didn't pass. This option is for testing purposes and
-// must remain turned off.
-static cl::opt<bool> DTransTestPaddedStructs(
-    "dtrans-test-padded-structs-analyzer", cl::init(false), cl::ReallyHidden,
-    cl::desc("Force merging padded structures with base structures even if "
-             "the safety checks didn't pass"));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
@@ -3404,6 +3396,19 @@ public:
         if (DomTy)
           continue;
 
+        // If the pointer was declared as a base type, but an actual parameter
+        // used it as a padded type, then we are going to set
+        // BadCastingForRelatedTypesConditional. The related types post processing
+        // function will make the final decision if it is going to be declared as
+        // BadCasting or BadCastingForRelatedTypes.
+        if (isLegalRelatedTypeUse(*ParamInfo)) {
+          setAllAliasedTypeSafetyData(ParamInfo,
+              dtrans::BadCastingForRelatedTypesConditional,
+              "Formal paremeter is a related type of the actual parameter, "
+              "or vice-versa", &Call, DumpCallback);
+          continue;
+        }
+
         setAllAliasedTypeSafetyData(ParamInfo, dtrans::BadCasting,
                                     "Incorrect type passed to local function",
                                     &Call, DumpCallback);
@@ -4744,6 +4749,128 @@ private:
     return false;
   }
 
+  // Return true if all the alias pointers use (VAT_Use) in the input
+  // ValueTypeInfo have related types and the related type is legal to use with
+  // the alias pointer declaration (VAT_Decl). For example, assume that we have
+  // the following structure:
+  //
+  //   %struct.test.a = type {i32, [4 x i8]}
+  //   %struct.test.a.base = type {i32}
+  //   %struct.test.b = type {%struct.test.a.base, [4 x i8]}
+  //
+  // Also assume that the ValueTypeInfo is set as follows:
+  //
+  //  LocalPointerInfo: CompletelyAnalyzed
+  //  Declared Types:
+  //    Aliased types:
+  //      %struct.test.b*
+  //    No element pointees.
+  //  Usage Types:
+  //    Aliased types:
+  //      %struct.test.a*
+  //      %struct.test.b*
+  //    No element pointees.
+  //
+  // This function will return true because %struct.test.a.base is a related
+  // type of %struct.test.a, and is the 0 element of %struct.test.b.
+  bool isLegalRelatedTypeUse(ValueTypeInfo &Info) const {
+    // ValueTypeInfo must be completely analyzed
+    //
+    // NOTE: conservative check, perhaps could be relaxed
+    if (!Info.isCompletelyAnalyzed())
+      return false;
+
+    // There should be only one declaration
+    DTransType *DeclType = nullptr;
+    for (auto *CurrTy : Info.getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl)) {
+      if (!DeclType)
+        DeclType = CurrTy;
+      else
+        return false;
+    }
+
+    // NOTE: For now we are going to check if VAT_Decl and VAT_Use are pointers
+    // to structures. We can expand this in the future to check if VAT_Decl is
+    // pointer then VAT_Use should be a pointer, else if VAT_Decl is a
+    // structure then VAT_Use is a structure.
+    if (!DeclType || !isa<DTransPointerType>(DeclType))
+      return false;
+
+    // All alias use must have a related type, or should be the same as
+    // as declaration type
+    //
+    // NOTE: This is conservative, perhaps we may be able to relax this check
+    // in the future.
+    SmallDenseMap<DTransType *, bool, 2> RelatedTypesFromUsedAliases;
+    for (auto *AliasTy : Info.getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+      if (AliasTy == DeclType)
+        continue;
+
+      // Check if aliased used is not a pointer to a structure.
+      DTransType* AliasedStruct = nullptr;
+      if (auto *PtrTy = dyn_cast<DTransPointerType>(AliasTy))
+        AliasedStruct = PtrTy->getPointerElementType();
+      else
+        return false;
+
+      if (!AliasedStruct || !isa<DTransStructType>(AliasedStruct))
+        return false;
+
+      if (AliasedStruct == DeclType)
+        continue;
+
+      auto *TyInfo = DTInfo.getTypeInfo(AliasedStruct);
+      auto *StInfo = dyn_cast_or_null<dtrans::StructInfo>(TyInfo);
+      if (!StInfo)
+        return false;
+
+      // There must be a related type
+      auto *RelatedTypeInfo = StInfo->getRelatedType();
+      if (!RelatedTypeInfo)
+        return false;
+
+      DTransType *RelatedType = RelatedTypeInfo->getDTransType();
+      assert(RelatedType &&
+             "Related type info set but the DTrans type is not set");
+
+      RelatedTypesFromUsedAliases.insert({RelatedType, false});
+    }
+
+    if (RelatedTypesFromUsedAliases.empty())
+      return false;
+
+    // Traversing through the zero element of the decl type should reach all
+    // the related types
+    SetVector<DTransStructType *> VisitedTypes;
+
+    // NOTE: We already prove that DeclType is a pointer type.
+    DTransType *CurrDeclType = DeclType->getPointerElementType();
+
+    while (CurrDeclType) {
+      auto *StructTy = dyn_cast<DTransStructType>(CurrDeclType);
+      if (!StructTy)
+        break;
+
+      if (!VisitedTypes.insert(StructTy))
+        break;
+
+      if (RelatedTypesFromUsedAliases.count(StructTy) > 0)
+        RelatedTypesFromUsedAliases[StructTy] = true;
+
+      if (StructTy->getNumFields() == 0)
+        break;
+
+      CurrDeclType = StructTy->getFieldType(0);
+    }
+
+    // All related types where collected correctly
+    for (auto Pair : RelatedTypesFromUsedAliases)
+      if (!Pair.second)
+        return false;
+
+    return true;
+  }
+
   // Check whether any of the aliases that were collected for the declaration of
   // 'V' are incompatible when used as pointers to an object of type
   // 'ExpectedTy'. This is used when a object has a dominant aggregate type, but
@@ -4833,6 +4960,7 @@ private:
     case dtrans::AmbiguousPointerTarget:
     case dtrans::BadCasting:
     case dtrans::BadCastingPending:
+    case dtrans::BadCastingForRelatedTypesConditional:
     case dtrans::BadMemFuncManipulation:
     case dtrans::SystemObject:
     case dtrans::UnsafePtrMerge:
@@ -4921,6 +5049,7 @@ private:
     case dtrans::BadCasting:
     case dtrans::BadCastingConditional:
     case dtrans::BadCastingPending:
+    case dtrans::BadCastingForRelatedTypesConditional:
     case dtrans::BadMemFuncManipulation:
     case dtrans::BadMemFuncSize:
     case dtrans::BadPtrManipulation:
@@ -4960,6 +5089,20 @@ private:
     }
 
     llvm_unreachable("Fully covered switch isn't fully covered?");
+  }
+
+
+  // Return true if the input SafetyData needs to be applied to the related
+  // type, else return false.
+  bool isRelatedTypeSafetyCondition(dtrans::SafetyData Data) {
+    // NOTE: Cases will be expanded as we update the analysis for related types
+    switch (Data) {
+    case dtrans::BadCastingForRelatedTypesConditional:
+      return true;
+    default:
+      break;
+    }
+    return false;
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -5156,6 +5299,20 @@ private:
     TI->setSafetyData(Data);
     Log.log(TriggerValue,
             SafetyInfoLog(BaseTy, Data, ForCascade, ForPtrCarried));
+
+    // Check and set the input safety condition for the related type if needed
+    if (isRelatedTypeSafetyCondition(Data)) {
+      dtrans::StructInfo *RelatedTypeInfo = nullptr;
+      auto *StInfo = dyn_cast_or_null<dtrans::StructInfo>(TI);
+      if (StInfo)
+        RelatedTypeInfo = StInfo->getRelatedType();
+      if (RelatedTypeInfo && !RelatedTypeInfo->testSafetyData(Data)) {
+        DTransType *RelatedTy = RelatedTypeInfo->getDTransType();
+        setBaseTypeInfoSafetyDataImpl(RelatedTy, Data, DoCascade, DoPtrCarried,
+                                      TriggerValue, ForCascade, ForPtrCarried);
+      }
+    }
+
     if (!DoCascade)
       return;
 
@@ -5450,7 +5607,8 @@ DTransSafetyInfo::DTransSafetyInfo(DTransSafetyInfo &&Other)
       TypeInfoMap(std::move(Other.TypeInfoMap)), CIM(std::move(Other.CIM)),
       MaxTotalFrequency(Other.MaxTotalFrequency),
       UnhandledPtrType(Other.UnhandledPtrType),
-      DTransSafetyAnalysisRan(Other.DTransSafetyAnalysisRan) {
+      DTransSafetyAnalysisRan(Other.DTransSafetyAnalysisRan),
+      RelatedTypesUtils(std::move(Other.RelatedTypesUtils)) {
   PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
   Other.PtrSubInfoMap.clear();
   LoadInfoMap.insert(Other.LoadInfoMap.begin(), Other.LoadInfoMap.end());
@@ -5474,6 +5632,7 @@ DTransSafetyInfo &DTransSafetyInfo::operator=(DTransSafetyInfo &&Other) {
   MDReader = std::move(Other.MDReader);
   PtrAnalyzer = std::move(Other.PtrAnalyzer);
   TypeInfoMap = std::move(Other.TypeInfoMap);
+  RelatedTypesUtils = std::move(Other.RelatedTypesUtils);
   CIM = std::move(Other.CIM);
   PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
   Other.PtrSubInfoMap.clear();
@@ -5505,119 +5664,6 @@ bool DTransSafetyInfo::requiresBadCastValidation(
   StructIndex = DTransBadCastingAnalyzerOP::CandidateVoidField;
 
   return !Func.empty();
-}
-
-// Go through the multiple StructInfos and check if there is a safety
-// violation that makes the padded field dirty. Also, this is the moment
-// where we are going to set which structures are base and padded structures.
-void DTransSafetyInfo::postProcessRelatedTypesAnalysis() {
-
-  // Return true if the input StructInfo has a padded field and
-  // we found any safety violation for that field.
-  auto HasInvalidPaddedField = [](dtrans::StructInfo *StrInfo) {
-    if (!StrInfo)
-      return true;
-    if (!StrInfo->hasPaddedField())
-      return false;
-
-    size_t NumFields = StrInfo->getNumFields();
-    auto &PaddedField = StrInfo->getField(NumFields - 1);
-    if (!PaddedField.isPaddedField())
-      return false;
-
-    // These are the conditions we use to invalidate the padded field.
-    // Perhaps some of them could be relaxed like address taken and
-    // complex use.
-    if (PaddedField.isRead() || PaddedField.isWritten() ||
-        PaddedField.hasComplexUse() || PaddedField.isAddressTaken() ||
-        !PaddedField.isNoValue() || !PaddedField.isTopAllocFunction())
-      return true;
-
-    return false;
-  };
-
-  // Return true if the input structures are padded and base structures.
-  auto ArePaddedAndBaseStructures = [](dtrans::StructInfo *PaddedStruct,
-      dtrans::StructInfo *BaseStruct) -> bool  {
-    assert((PaddedStruct->getRelatedType() == BaseStruct &&
-            BaseStruct->getRelatedType() == PaddedStruct) &&
-            "Incorrect related types set");
-
-    unsigned NumFieldsPadded = PaddedStruct->getNumFields();
-    unsigned NumFieldsBase = BaseStruct->getNumFields();
-    if (NumFieldsPadded - NumFieldsBase != 1)
-      return false;
-
-    // We know that there will be at least one field in the padded
-    // structures
-    auto &LastFieldPadded = PaddedStruct->getField(NumFieldsPadded - 1);
-    if (!LastFieldPadded.isPaddedField())
-      return false;
-
-    // If the base structure is not empty then the last field shouldn't
-    // be marked for ABI padding
-    if (NumFieldsBase > 0) {
-      auto &LastFieldBase = BaseStruct->getField(NumFieldsBase - 1);
-      if (LastFieldBase.isPaddedField())
-        return false;
-    }
-
-    return true;
-  };
-
-  // NOTE: A dirty padded field means that we don't have enough information
-  // to make sure if the field is not being modified.
-  for (auto *TI : type_info_entries()) {
-    if (auto *STInfo = dyn_cast<dtrans::StructInfo>(TI)) {
-
-      dtrans::StructInfo *RelatedTypeInfo = STInfo->getRelatedType();
-      if (!RelatedTypeInfo)
-        continue;
-
-      const dtrans::SafetyData ABIPaddingSet =
-          dtrans::StructCouldHaveABIPadding |
-          dtrans::StructCouldBeBaseABIPadding;
-
-      // Skip those the structures that were analyzed already
-      if (STInfo->testSafetyData(ABIPaddingSet))
-        continue;
-
-      // Identify the base and padded structures
-      dtrans::StructInfo *BaseStruct = nullptr;
-      dtrans::StructInfo *PaddedStruct = nullptr;
-
-      if (ArePaddedAndBaseStructures(STInfo, RelatedTypeInfo)) {
-        PaddedStruct = STInfo;
-        BaseStruct = RelatedTypeInfo;
-      } else if (ArePaddedAndBaseStructures(RelatedTypeInfo, STInfo)) {
-        PaddedStruct = RelatedTypeInfo;
-        BaseStruct = STInfo;
-      } else {
-        llvm_unreachable("Incorrect base and padded structures set");
-      }
-
-      // Check if the padded field has any safety violation that
-      // could break the relationship.
-      bool BadSafetyData = HasInvalidPaddedField(PaddedStruct);
-
-      if (BadSafetyData) {
-        size_t NumFields = PaddedStruct->getNumFields();
-        auto &Field = PaddedStruct->getField(NumFields - 1);
-        Field.invalidatePaddedField();
-      }
-
-      // DTransTestPaddedStructs is used for testing purposes.
-      if (!BadSafetyData || DTransTestPaddedStructs) {
-        PaddedStruct->setSafetyData(dtrans::StructCouldHaveABIPadding);
-        BaseStruct->setSafetyData(dtrans::StructCouldBeBaseABIPadding);
-      } else {
-        // If the safety data fails then break the relationship between
-        // padded and base.
-        PaddedStruct->unsetRelatedType();
-        BaseStruct->unsetRelatedType();
-      }
-    }
-  }
 }
 
 void DTransSafetyInfo::analyzeModule(
@@ -5656,7 +5702,7 @@ void DTransSafetyInfo::analyzeModule(
     return;
   }
 
-  buildRelatedTypesMap(*TM);
+  RelatedTypesUtils = std::make_unique<DTransRelatedTypesUtils>(*TM);
   DTransSafetyLogger Log;
   DTransBadCastingAnalyzerOP DTBCA(Ctx, *this, *PtrAnalyzer, *TM, GetTLI, M);
   DTransSafetyInstVisitor Visitor(Ctx, DL, GetTLI, GetBFI, *this, *PtrAnalyzer,
@@ -5666,7 +5712,7 @@ void DTransSafetyInfo::analyzeModule(
   Visitor.visit(M);
   DTBCA.analyzeAfterVisit();
   DTBCA.getConditionalFunctions(FunctionsRequireBadCastValidation);
-  postProcessRelatedTypesAnalysis();
+  RelatedTypesUtils->postProcessRelatedTypesAnalysis(*this);
   PostProcessFieldValueInfo();
   DTransSafetyAnalysisRan = true;
 
@@ -5755,6 +5801,7 @@ void DTransSafetyInfo::reset() {
   TM.reset();
   MDReader.reset();
   PtrAnalyzer.reset();
+  RelatedTypesUtils.reset();
   CIM.reset();
   UnhandledPtrType = false;
   DTransSafetyAnalysisRan = false;
@@ -5802,183 +5849,6 @@ void DTransSafetyInfo::checkLanguages(Module &M) {
     }
 }
 
-
-// Given a DTransType, find the related type from the input DTransTypeManager.
-// For example, assume that InTy is a base type:
-//
-// %class.A.base = type <{ %"class.boost::array", [2 x i8],
-//                         %"class.std::vector", i32 }>
-//
-// This function will find the padded form from the input module:
-//
-// %class.A = type <{ %"class.boost::array", [2 x i8],
-//                         %"class.std::vector", i32, [4 x i8] }>
-//
-// It also works the other way around, given a padded structure InTy it will
-// find the base form.
-//
-// NOTE: This is the same function as dtrans::collectRelatedType, but it uses
-// DTransType instead of llvm::Type.
-DTransType* DTransSafetyInfo::collectRelatedDTransType(DTransType *InTy,
-                                                       DTransTypeManager &TM) {
-
-  DTransStructType *CurrStruct = dyn_cast<DTransStructType>(InTy);
-  if (!CurrStruct)
-    return nullptr;
-
-  if (CurrStruct->isLiteralStruct())
-    return nullptr;
-
-  StringRef StructName = CurrStruct->getName();
-  std::string StrRelatedName;
-
-  // Generate the type's name that we need to find in the module.
-  if (StructName.endswith(".base")) {
-    // Input type is a base type (%class.A.base), generate the
-    // padded type name (%class.A)
-    StrRelatedName = StructName.drop_back(5).str();
-  } else {
-    // Input type is a padded type (%class.A), generate the base
-    // type name (%class.A.base)
-    StrRelatedName = StructName.str() + ".base";
-  }
-
-  // FIXME: There could be cases, where the base name doesn't match.
-  // For example:
-  //
-  //   %class.A = type opaque
-  //   %class.A.1 = type <{ ptr, i32, i8, [3 x i8] }>
-  //   %class.A.base = type <{ ptr, float, i8 }>
-  //   %class.A.base.2 = type <{ ptr, i32, i8 }>
-  //
-  // This issue happens when templates are involved in the source code.
-  DTransStructType* RelatedType = TM.getStructType(StrRelatedName);
-  if (!RelatedType)
-    return nullptr;
-
-  if (!isPaddedDTransStruct(InTy, RelatedType))
-    return nullptr;
-
-  return RelatedType;
-}
-
-// Return true if the input DTransType Type1 is the same as DTransType Type2
-// except for the last element (or vice versa). For example, consider that
-// there is a class A which will be a base class for other derived classes and
-// there is an instantiation of A. Then we will see something like the
-// following in the IR:
-//
-// %class.A.base = type <{ %"class.boost::array", [2 x i8],
-//                         %"class.std::vector", i32 }>
-// %class.A = type <{ %"class.boost::array", [2 x i8],
-//                         %"class.std::vector", i32, [4 x i8] }>
-//
-// The structure type %class.A.base is the same as %class.A, except for the last
-// entry of structure %class.A. This entry at the end ([4 x i8]) is used for
-// the application binary interface (ABI).
-bool DTransSafetyInfo::isPaddedDTransStruct(DTransType *Type1,
-                                            DTransType *Type2) {
-  if (!Type1 || !Type2)
-    return false;
-
-  if (!Type1->isStructTy() || !Type2->isStructTy())
-    return false;
-
-  unsigned Type1Size = Type1->getNumContainedElements();
-  unsigned Type2Size = Type2->getNumContainedElements();
-  unsigned PaddedSize = 0;
-  unsigned BaseSize = 0;
-
-  if (Type1Size == 0 || Type2Size == 0)
-    return false;
-
-  DTransStructType *BaseStruct = nullptr;
-  DTransStructType *PaddedStruct = nullptr;
-
-  // Find the possible base and the padded types
-  if (Type1Size - Type2Size == 1) {
-    PaddedStruct = cast<DTransStructType>(Type1);
-    PaddedSize = Type1Size;
-
-    BaseStruct = cast<DTransStructType>(Type2);
-    BaseSize = Type2Size;
-  } else if (Type2Size - Type1Size == 1) {
-    BaseStruct = cast<DTransStructType>(Type1);
-    BaseSize = Type1Size;
-
-    PaddedStruct = cast<DTransStructType>(Type2);
-    PaddedSize = Type1Size;
-  } else {
-    return false;
-  }
-
-  if (PaddedStruct->isLiteralStruct() || BaseStruct->isLiteralStruct())
-    return false;
-
-  DTransArrayType *PaddedEntry =
-      dyn_cast<DTransArrayType>(PaddedStruct->getFieldType(PaddedSize - 1));
-
-  // Check if the current structure is a candidate for padded structure
-  if (!PaddedEntry)
-    return false;
-
-  auto* PaddedEntryLLVMType =
-      cast<llvm::ArrayType>(PaddedEntry->getLLVMType());
-  if (!PaddedEntryLLVMType->getElementType()->isIntegerTy(8))
-    return false;
-
-  StringRef PaddedName = PaddedStruct->getName();
-  StringRef BaseName = BaseStruct->getName();
-
-  if (!BaseName.endswith(".base"))
-    return false;
-
-  // FIXME: There could be cases where the base name doesn't match.
-  // For example:
-  //
-  //   %class.A = type opaque
-  //   %class.A.1 = type <{ ptr, i32, i8, [3 x i8] }>
-  //   %class.A.base = type <{ ptr, float, i8 }>
-  //   %class.A.base.2 = type <{ ptr, i32, i8 }>
-  //
-  // This issue happens when templates are involved in the source code.
-  if (BaseName.compare(PaddedName.str() + ".base") != 0)
-    return false;
-
-  // All the elements must match except the last one;
-
-  for (unsigned Element = 0; Element < BaseSize; Element++) {
-    auto *PaddedStructField = PaddedStruct->getFieldType(Element);
-    auto *BaseStructField = BaseStruct->getFieldType(Element);
-    if (!PaddedStructField->compare(*BaseStructField))
-      return false;
-  }
-
-  return true;
-}
-
-// Build the related types map. This map will store the relationship between
-// a padded structure and a base structure.
-void DTransSafetyInfo::buildRelatedTypesMap(DTransTypeManager &TM) {
-
-  for (auto* DTy : TM.dtrans_types()) {
-
-    if (RelatedTypesMap.count(DTy) > 0)
-      continue;
-
-    llvm::Type *Ty = DTy->getLLVMType();
-    if (!isa<llvm::StructType>(Ty))
-      continue;
-
-    auto *DTRelatedTy = collectRelatedDTransType(DTy, TM);
-    if (!DTRelatedTy)
-      continue;
-
-    RelatedTypesMap[DTRelatedTy] = DTy;
-    RelatedTypesMap[DTy] = DTRelatedTy;
-  }
-}
-
 dtrans::TypeInfo *DTransSafetyInfo::getOrCreateTypeInfo(DTransType *Ty) {
   // If we already have this type in our map, just return it.
   dtrans::TypeInfo *TI = getTypeInfo(Ty);
@@ -6020,11 +5890,10 @@ dtrans::TypeInfo *DTransSafetyInfo::getOrCreateTypeInfo(DTransType *Ty) {
   }
 
   TypeInfoMap[Ty] = DTransTI;
-  auto RelatedTypeIT = RelatedTypesMap.find(Ty);
+  DTransType* RelatedType = RelatedTypesUtils->getRelatedTypeFor(Ty);
 
   // Set the related type
-  if (RelatedTypeIT != RelatedTypesMap.end()) {
-    DTransType* RelatedType = RelatedTypesMap[Ty];
+  if (RelatedType) {
     dtrans::StructInfo *RelatedStructInfo =
         dyn_cast_or_null<dtrans::StructInfo>(getTypeInfo(RelatedType));
     if (!RelatedStructInfo)

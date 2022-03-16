@@ -531,6 +531,8 @@ const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
     return "Structure may have ABI padding";
   if (SafetyInfo & dtrans::StructCouldBeBaseABIPadding)
     return "Structure could be base for ABI padding";
+  if (SafetyInfo & dtrans::BadCastingForRelatedTypesConditional)
+    return "Bad casting (related types conditional)";
   if (SafetyInfo & dtrans::UnhandledUse)
     return "Unhandled use";
 
@@ -569,7 +571,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::MemFuncNestedStructsPartialWrite | dtrans::ComplexAllocSize |
       dtrans::FieldAddressTakenCall | dtrans::FieldAddressTakenReturn |
       dtrans::StructCouldHaveABIPadding |
-      dtrans:: StructCouldBeBaseABIPadding | dtrans::UnhandledUse;
+      dtrans:: StructCouldBeBaseABIPadding |
+      dtrans::BadCastingForRelatedTypesConditional | dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
   static_assert(
@@ -600,7 +603,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::MemFuncNestedStructsPartialWrite ^ dtrans::ComplexAllocSize ^
            dtrans::FieldAddressTakenCall ^ dtrans::FieldAddressTakenReturn ^
            dtrans::StructCouldHaveABIPadding ^
-           dtrans:: StructCouldBeBaseABIPadding ^ dtrans::UnhandledUse),
+           dtrans:: StructCouldBeBaseABIPadding ^
+           dtrans::BadCastingForRelatedTypesConditional ^ dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
 
   // Go through the issues in the order of LSB to MSB, and print the names of
