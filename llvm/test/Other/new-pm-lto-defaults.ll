@@ -220,11 +220,11 @@
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running analysis:  OuterAnalysisManagerProxy{{.*}}on Loop at depth 1 containing: %loop<header><latch><exiting>
 ; CHECK-O23SZ-NEXT:Running pass: VecClonePass
-; CHECK-O23SZ-NEXT:Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-O23SZ-NEXT:Invalidating analysis: InnerAnalysisManagerProxy
 ; CHECK-O23SZ-NEXT:Invalidating analysis: LazyCallGraphAnalysis
-; CHECK-O23SZ-NEXT:Invalidating analysis: InnerAnalysisManagerProxy<llvm::CGSCCAnalysisManager, llvm::Module>
+; CHECK-O23SZ-NEXT:Invalidating analysis: InnerAnalysisManagerProxy
 ; CHECK-O23SZ-NEXT:Invalidating analysis: CallGraphAnalysis
-; CHECK-O23SZ-NEXT:Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-O23SZ-NEXT:Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O23SZ-NEXT:Running pass: EarlyCSEPass
 ; CHECK-O23SZ-NEXT:Running analysis: TargetLibraryAnalysis
 ; CHECK-O23SZ-NEXT:Running analysis: TargetIRAnalysis
@@ -243,13 +243,13 @@
 ; CHECK-O23SZ-NEXT:Running analysis: AAManager
 ; CHECK-O23SZ-NEXT:Running analysis: BasicAA
 ; CHECK-O23SZ-NEXT:Running analysis: XmainOptLevelAnalysis
-; CHECK-O23SZ-NEXT:Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, llvm::Function>
+; CHECK-O23SZ-NEXT:Running analysis: OuterAnalysisManagerProxy
 ; CHECK-O23SZ-NEXT:Running analysis: ScopedNoAliasAA
 ; CHECK-O23SZ-NEXT:Running analysis: TypeBasedAA
 ; CHECK-O23SZ-NEXT:Running analysis: StdContainerAA
 ; CHECK-O23SZ-NEXT:Running analysis: OptimizationRemarkEmitterAnalysis
-; CHECK-O23SZ-NEXT:Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
-; CHECK-O23SZ-NEXT:Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-O23SZ-NEXT:Invalidating analysis: InnerAnalysisManagerProxy
+; CHECK-O23SZ-NEXT:Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O23SZ-NEXT:Running pass: VPOCFGRestructuringPass
 ; CHECK-O23SZ-NEXT:Running analysis: DominatorTreeAnalysis
 ; CHECK-O23SZ-NEXT:Running analysis: LoopAnalysis
@@ -262,7 +262,7 @@
 ; CHECK-O23SZ:     Running analysis: AAManager
 ; CHECK-O23SZ-NEXT:Running analysis: BasicAA
 ; CHECK-O23SZ-NEXT:Running analysis: XmainOptLevelAnalysis
-; CHECK-O23SZ-NEXT:Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, llvm::Function>
+; CHECK-O23SZ-NEXT:Running analysis: OuterAnalysisManagerProxy
 ; CHECK-O23SZ-NEXT:Running analysis: ScopedNoAliasAA
 ; CHECK-O23SZ-NEXT:Running analysis: TypeBasedAA
 ; CHECK-O23SZ-NEXT:Running analysis: StdContainerAA
@@ -274,7 +274,7 @@
 ; CHECK-O23SZ-NEXT:Running analysis: BlockFrequencyAnalysis
 ; CHECK-O23SZ-NEXT:Running analysis: BranchProbabilityAnalysis
 ; CHECK-O23SZ-NEXT:Running analysis: PostDominatorTreeAnalysis
-; CHECK-O23SZ-NEXT:Running analysis: InnerAnalysisManagerProxy<llvm::LoopAnalysisManager, llvm::Function>
+; CHECK-O23SZ-NEXT:Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O23SZ-NEXT:Running pass: MathLibraryFunctionsReplacementPass
 ; CHECK-O23SZ-NEXT:Running pass: AlwaysInlinerPass
 ; CHECK-O23SZ-NEXT:Running analysis: InnerAnalysisManagerProxy<{{.*}}Module
