@@ -212,7 +212,6 @@ endif( WIN32 )
 
 set( BACKEND_PASSES
     LLVMBarrier
-    SGEmulation
     LLVMVectorizer
     AutorunReplicator
     ChannelPipeTransformation
