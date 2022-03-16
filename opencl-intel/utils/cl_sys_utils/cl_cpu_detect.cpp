@@ -95,6 +95,10 @@ CPUDetect::isTransposeSizeSupported(ETransposeSize transposeSize) const {
 
   case TRANSPOSE_SIZE_16:
     return HasGatherScatter() ? SUPPORTED : UNSUPPORTED;
+
+  case TRANSPOSE_SIZE_32:
+  case TRANSPOSE_SIZE_64:
+    return HasAVX512Core() ? SUPPORTED : UNSUPPORTED;
   }
 }
 

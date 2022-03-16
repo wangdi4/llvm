@@ -88,7 +88,9 @@ TransposeSize("tsize",
          clEnumValN(TRANSPOSE_SIZE_1,    "1",    "Scalar"),
          clEnumValN(TRANSPOSE_SIZE_4,    "4",    "Vector4"),
          clEnumValN(TRANSPOSE_SIZE_8,    "8",    "Vector8"),
-         clEnumValN(TRANSPOSE_SIZE_16,   "16",   "Vector16")),
+         clEnumValN(TRANSPOSE_SIZE_16,   "16",   "Vector16"),
+         clEnumValN(TRANSPOSE_SIZE_32,   "32",   "Vector32"),
+         clEnumValN(TRANSPOSE_SIZE_64,   "64",   "Vector64")),
          llvm::cl::init(TRANSPOSE_SIZE_NOT_SET)
          );
 
