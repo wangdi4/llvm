@@ -40,7 +40,9 @@ struct DeviceAuto
     DeviceAuto( TaskExecutorTester& taskExecutorTester ) : is_root(true)
     {
         ITaskExecutor* taskExecutor = taskExecutorTester.GetTaskExecutor();
-        deviceHandle = taskExecutor->CreateRootDevice(RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, 0),NULL, &taskExecutorTester);
+        deviceHandle = taskExecutor->CreateRootDevice(
+            RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, 1),
+            NULL, &taskExecutorTester);
     };
 
     // sub device constructor
