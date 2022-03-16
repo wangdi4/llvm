@@ -970,13 +970,9 @@ public:
   // in whose methods there was reference to this structure.
   // Lattice: {bottom = <nullptr, false>, <Type*, false>, top = <nullptr, true>}
   // Type should be some struct from which given type is reachable.
-  // insertFunction is a 'join' operation of this lattice.
+  // GlobalVariable (Instance): Treat conservatively by marking it as 'top'.
   class CallSubGraph {
     PointerIntPair<StructType *, 1, bool> State;
-    void setTop() {
-      State.setPointer(nullptr);
-      State.setInt(true);
-    }
   public:
     // State is zero-initialized to 'bottom'.
     CallSubGraph() = default;
@@ -986,19 +982,27 @@ public:
     bool isTop() const {
       return State.getInt();
     }
+    void setTop() {
+      State.setPointer(nullptr);
+      State.setInt(true);
+    }
     StructType *getEnclosingType() const {
       assert(!isBottom() && !isTop() && "Invalid access to CallSubGraph");
       return State.getPointer();
     }
-    // If occurrence is not inside specific Function,
-    // then mark it as 'top'.
-    // It is a case of GlobalVariable.
-    void insertFunction(Function *F, StructType *ThisTy);
+    void setEnclosingType(StructType *STy) {
+      return State.setPointer(STy);
+    }
   };
 
-  void insertCallGraphNode(Function *F) {
-    SubGraph.insertFunction(F, cast<StructType>(getLLVMType()));
+  void setCallGraphEnclosingType(StructType *STy) {
+    SubGraph.setEnclosingType(STy);
   }
+
+  void setCallGraphTop() {
+    SubGraph.setTop();
+  }
+
   const CallSubGraph &getCallSubGraph() const { return SubGraph; }
 
   // Return the related type stored in the StructInfo

@@ -92,11 +92,23 @@ private:
   public:
     // Computes dependencies using DepMap.
     bool populateSideEffects(SOAToAOSOPTransformImpl &Impl, Module &M);
+
     // Checks that all field arrays' methods are called from structure's
     // methods; Necessary check for legality analysis.
-
     bool checkCFG(DTransSafetyInfo &DTInfo) const {
       // TODO: Add more code here to check CallGraph
+      for (auto *Fld : fields()) {
+        auto *FI = cast_or_null<dtrans::StructInfo>(DTInfo.getTypeInfo(Fld));
+
+        if (!FI)
+          return FALSE("array type has no DTrans info.");
+
+        // May restrict analysis to DStruct's methods.
+        auto &CG = FI->getCallSubGraph();
+        if (CG.isTop() || CG.isBottom() ||
+            CG.getEnclosingType() != DStruct->getLLVMType())
+          return FALSE("array type has unsupported CFG.");
+      }
       return true;
     }
 
@@ -104,7 +116,8 @@ private:
     // expected pattern.
     bool checkClassInfoAnalysis(SOAToAOSOPTransformImpl &Impl, Module &M) {
 
-      std::unique_ptr<SOACandidateInfo> CandD(new SOACandidateInfo(Impl.DTInfo->getTypeMetadataReader()));
+      std::unique_ptr<SOACandidateInfo> CandD(
+          new SOACandidateInfo(Impl.DTInfo->getTypeMetadataReader()));
       if (!CandD->isCandidateType(DStruct) || !CandD->collectMemberFunctions(M))
         return false;
 
@@ -122,7 +135,8 @@ private:
     }
 
     // Compare functions F1 and F2 using class analysis info.
-    bool classInfoAnalysisCompare(Function *F1, Function *F2, SOAToAOSOPTransformImpl &Impl) {
+    bool classInfoAnalysisCompare(Function *F1, Function *F2,
+                                  SOAToAOSOPTransformImpl &Impl) {
 
       auto GetClassInfo = [this](Function *F) -> ClassInfo * {
         for (auto *CInfo : ArraysClassInfo)
@@ -134,9 +148,9 @@ private:
       // Returns true if 2nd argument of given AppendElem function
       // F is address of element variant.
       auto IsAddressOfElemVariantAppendElem = [&](ClassInfo *CInfo,
-                                                 Function *F) {
+                                                  Function *F) {
         auto *DTFuncTy = dyn_cast_or_null<DTransFunctionType>(
-          Impl.DTInfo->getTypeMetadataReader().getDTransTypeFromMD(F));
+            Impl.DTInfo->getTypeMetadataReader().getDTransTypeFromMD(F));
         assert(DTFuncTy && "Must have type if function is being transformed");
 
         if (CInfo->isElemDataAddrType(DTFuncTy->getArgType(1)))
@@ -385,9 +399,9 @@ private:
               ArrType, &Impl.TypeRemapper, AppendMethodElemParamOffset, MD, TM);
         }
         createAndMapNewAppendFunc(
-            const_cast<llvm::Function *>(Method), M, NewDTFunctionTy,
-            Impl.VMap, Impl.OrigFuncToCloneFuncMap,
-            Impl.CloneFuncToOrigFuncMap, AppendsFuncToDTransTyMap);
+            const_cast<llvm::Function *>(Method), M, NewDTFunctionTy, Impl.VMap,
+            Impl.OrigFuncToCloneFuncMap, Impl.CloneFuncToOrigFuncMap,
+            AppendsFuncToDTransTyMap);
       }
     }
 
@@ -524,7 +538,8 @@ private:
           IsCloned ? Impl.OrigFuncToCloneFuncMap[&OrigFunc] : &OrigFunc;
       auto *AppendFuncDTy = AppendsFuncToDTransTyMap[NewFunc];
       if (AppendFuncDTy)
-        DTransTypeMetadataBuilder::setDTransFuncMetadata(NewFunc, AppendFuncDTy);
+        DTransTypeMetadataBuilder::setDTransFuncMetadata(NewFunc,
+                                                         AppendFuncDTy);
     }
 
     void postprocessFunction(SOAToAOSOPTransformImpl &Impl, Function &OrigFunc,

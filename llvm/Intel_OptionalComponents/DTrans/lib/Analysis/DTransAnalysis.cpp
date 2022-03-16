@@ -8643,6 +8643,103 @@ private:
                               /*IsPointerCarried=*/true);
   }
 
+  // SubGraph: A struct type is considered as enclosing type of another
+  // struct if all references of another structure are only reachable
+  // from member functions of the enclosing type. 'SubGraph' is used
+  // to represent enclosing type for struct in StructInfo.
+  //
+  // Lattice of properties of SubGraph:
+  //  {bottom = <nullptr, false>, <Type*, false>, top = <nullptr, true>}
+  // This function performs 'join' operation of the lattice.
+  // “Bottom” refers to unanalyzed case (initial value) and “top” refers
+  // to worst case (no enclosing type).
+  //
+  // updateSubGraphNode is called when any reference to "ThisTy" struct is
+  // noticed in "F".
+  //
+  void updateSubGraphNode(Function *F, StructType *ThisTy) {
+    auto *TI = cast<dtrans::StructInfo>(DTInfo.getTypeInfo(ThisTy));
+    auto &CG = TI->getCallSubGraph();
+
+    // If we could not approximate CallGraph by methods of some class,
+    // no need to analyze further.
+    if (CG.isTop())
+      return;
+
+    // If reference to ThisTy is encountered in global scope or
+    // inside function, which does not look like class method,
+    // then mark CallGraph approximation as 'top' or 'failed' approximation.
+    if (!F || F->arg_size() < 1) {
+      TI->setCallGraphTop();
+      return;
+    }
+    // Candidate for 'this' pointer;
+    auto *Ty = F->arg_begin()->getType();
+    if (!isa<PointerType>(Ty)) {
+      TI->setCallGraphTop();
+      return;
+    }
+    auto *StTy = dyn_cast<StructType>(Ty->getPointerElementType());
+    if (!StTy) {
+      TI->setCallGraphTop();
+      return;
+    }
+
+    // Ty >= ThisTy
+    //
+    // Check if ThisTy is reachable from Ty by recursion to
+    // structure's elements and following pointers.
+    std::function<bool(Type *, StructType *, int)> findSubType =
+        [&findSubType](Type *Ty, StructType *ThisTy, int Depth) -> bool {
+      Depth--;
+      if (Depth <= 0)
+        return false;
+      switch (Ty->getTypeID()) {
+      default:
+        return false;
+      case Type::StructTyID: {
+        auto *STy = cast<StructType>(Ty);
+        if (STy == ThisTy)
+          return true;
+        for (auto *FTy : STy->elements())
+          if (findSubType(FTy, ThisTy, Depth))
+            return true;
+        return false;
+      }
+      case Type::ArrayTyID:
+        if (findSubType(Ty->getArrayElementType(), ThisTy, Depth))
+          return true;
+        return false;
+      case Type::PointerTyID:
+        if (findSubType(Ty->getPointerElementType(), ThisTy, Depth))
+          return true;
+        return false;
+      }
+      llvm_unreachable("Non-exhaustive switch statement");
+    };
+
+    // !(StTy >= ThisTy)
+    // If ThisTy is not reachable from 'this' argument,
+    // then mark as 'top'
+    if (!findSubType(StTy, ThisTy, 5)) {
+      TI->setCallGraphTop();
+      return;
+    }
+
+    // Compute `join`.
+    // If cannot find least common approximation to old and new approximation,
+    // then mark as 'top'.
+    if (CG.isBottom()) {
+      TI->setCallGraphEnclosingType(StTy);
+    } else if (findSubType(StTy, CG.getEnclosingType(), 5)) {
+      TI->setCallGraphEnclosingType(StTy);
+    } else if (!findSubType(CG.getEnclosingType(), StTy, 5)) {
+      TI->setCallGraphTop();
+      return;
+    }
+    // else do nothing
+  }
+
   // This is a helper function that retrieves the aggregate type through
   // zero or more layers of indirection and sets the specified safety data
   // for that type.
@@ -8732,12 +8829,11 @@ private:
     // load/stores/calls, etc.
     auto &DT = DTInfo;
     std::function<void(llvm::Type *)> Propagate =
-        [&DT, F, &Propagate](llvm::Type *Ty) -> void {
+        [this, &DT, F, &Propagate](llvm::Type *Ty) -> void {
       if (!DT.isTypeOfInterest(Ty))
         return;
       if (auto *STy = dyn_cast<StructType>(Ty)) {
-        cast<dtrans::StructInfo>(DT.getOrCreateTypeInfo(STy))
-            ->insertCallGraphNode(F);
+        updateSubGraphNode(F, STy);
         for (auto FTy : STy->elements())
           Propagate(FTy);
       } else if (auto *ATy = dyn_cast<ArrayType>(Ty))

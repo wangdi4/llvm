@@ -1,16 +1,16 @@
 ; REQUIRES: asserts
-; RUN: opt -S < %s -whole-program-assume -dtransanalysis -disable-output -dtrans-print-types 2>&1 | FileCheck %s
-; RUN: opt -S < %s -whole-program-assume -passes='require<dtransanalysis>' -disable-output -dtrans-print-types 2>&1 | FileCheck %s
+; RUN: opt -S < %s -whole-program-assume -dtrans-safetyanalyzer -disable-output -dtrans-print-types 2>&1 | FileCheck %s
+; RUN: opt -S < %s -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -disable-output -dtrans-print-types 2>&1 | FileCheck %s
 
 ; See explanation in C code.
 
 ; CHECK-LABEL: LLVMType: %struct.inner1 = type { i32 }
 ; CHECK: Call graph: top
-; CHECK: Safety data:{{.*}}
+; CHECK: Safety data:{{.*}} Local pointer {{.*}}
 ;
 ; CHECK-LABEL: LLVMType: %struct.inner2 = type { i32 }
 ; CHECK: Call graph: enclosing type: struct.outer
-; CHECK: Safety data:{{.*}}
+; CHECK: Safety data:{{.*}} Local pointer {{.*}}
 ;
 ; CHECK-LABEL: LLVMType: %struct.outer = type { %struct.inner1*, %struct.inner2* }
 ; CHECK: Call graph: top
@@ -72,10 +72,10 @@ $_ZN6inner13getEv = comdat any
 $_ZN6inner23getEv = comdat any
 
 ; Function Attrs: noinline nounwind optnone uwtable
-define dso_local i32 @_Z9get_outeriP6inner1(i32 %a, %struct.inner1* %i) #0 {
+define dso_local i32 @_Z9get_outeriP6inner1(i32 %a, %struct.inner1* "intel_dtrans_func_index"="1" %i) #0 !intel.dtrans.func.type !10 {
 entry:
   %a.addr = alloca i32, align 4
-  %i.addr = alloca %struct.inner1*, align 8
+  %i.addr = alloca %struct.inner1*, align 8, !intel_dtrans_type !6
   store i32 %a, i32* %a.addr, align 4
   store %struct.inner1* %i, %struct.inner1** %i.addr, align 8
   %0 = load %struct.inner1*, %struct.inner1** %i.addr, align 8
@@ -88,7 +88,7 @@ entry:
 define dso_local i32 @main() #1 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
 entry:
   %retval = alloca i32, align 4
-  %o = alloca %struct.outer*, align 8
+  %o = alloca %struct.outer*, align 8, !intel_dtrans_type !11
   %exn.slot = alloca i8*
   %ehselector.slot = alloca i32
   %i = alloca i32, align 4
@@ -134,12 +134,12 @@ eh.resume:                                        ; preds = %lpad
   resume { i8*, i32 } %lpad.val2
 }
 
-declare noalias i8* @_Znwm(i64) #2
+declare noalias "intel_dtrans_func_index"="1" i8* @_Znwm(i64) #2
 
-define void @_ZN5outerC2Ev(%struct.outer* %this) unnamed_addr #3 comdat align 2 {
+define void @_ZN5outerC2Ev(%struct.outer* "intel_dtrans_func_index"="1" %this) unnamed_addr #3 comdat align 2 !intel.dtrans.func.type !14 {
 entry:
-  %this.addr = alloca %struct.outer*, align 8
-  store %struct.outer* %this, %struct.outer** %this.addr, align 8
+  %this.addr = alloca %struct.outer*, align 8, !intel_dtrans_type !11
+  store %struct.outer* %this, %struct.outer** %this.addr, align 8, !intel_dtrans_type !11
   %this1 = load %struct.outer*, %struct.outer** %this.addr, align 8
   %call = call i8* @_Znwm(i64 4) #5
   %0 = bitcast i8* %call to %struct.inner1*
@@ -162,11 +162,11 @@ entry:
 
 declare i32 @__gxx_personality_v0(...)
 
-declare void @_ZdlPv(i8*) #4
+declare !intel.dtrans.func.type !15 void @_ZdlPv(i8* "intel_dtrans_func_index"="1") #4
 
-define i32 @_ZN5outer3fooEv(%struct.outer* %this) #3 comdat align 2 {
+define i32 @_ZN5outer3fooEv(%struct.outer* "intel_dtrans_func_index"="1" %this) #3 comdat align 2 !intel.dtrans.func.type !16 {
 entry:
-  %this.addr = alloca %struct.outer*, align 8
+  %this.addr = alloca %struct.outer*, align 8, !intel_dtrans_type !11
   store %struct.outer* %this, %struct.outer** %this.addr, align 8
   %this1 = load %struct.outer*, %struct.outer** %this.addr, align 8
   %i1 = getelementptr inbounds %struct.outer, %struct.outer* %this1, i32 0, i32 0
@@ -188,9 +188,9 @@ entry:
   ret i32 %add7
 }
 
-define i32 @_ZN6inner13getEv(%struct.inner1* %this) #0 comdat align 2 {
+define i32 @_ZN6inner13getEv(%struct.inner1* "intel_dtrans_func_index"="1" %this) #0 comdat align 2 !intel.dtrans.func.type !17  {
 entry:
-  %this.addr = alloca %struct.inner1*, align 8
+  %this.addr = alloca %struct.inner1*, align 8, !intel_dtrans_type !6
   store %struct.inner1* %this, %struct.inner1** %this.addr, align 8
   %this1 = load %struct.inner1*, %struct.inner1** %this.addr, align 8
   %i = getelementptr inbounds %struct.inner1, %struct.inner1* %this1, i32 0, i32 0
@@ -198,9 +198,9 @@ entry:
   ret i32 %0
 }
 
-define i32 @_ZN6inner23getEv(%struct.inner2* %this) #0 comdat align 2 {
+define i32 @_ZN6inner23getEv(%struct.inner2* "intel_dtrans_func_index"="1" %this) #0 comdat align 2 !intel.dtrans.func.type !18 {
 entry:
-  %this.addr = alloca %struct.inner2*, align 8
+  %this.addr = alloca %struct.inner2*, align 8, !intel_dtrans_type !7
   store %struct.inner2* %this, %struct.inner2** %this.addr, align 8
   %this1 = load %struct.inner2*, %struct.inner2** %this.addr, align 8
   %i = getelementptr inbounds %struct.inner2, %struct.inner2* %this1, i32 0, i32 0
@@ -214,3 +214,25 @@ attributes #3 = { noinline uwtable }
 attributes #4 = { nobuiltin nounwind }
 attributes #5 = { builtin }
 attributes #6 = { builtin nounwind }
+
+!intel.dtrans.types = !{!3, !5, !8}
+
+!0 = !{i32 1, !"wchar_size", i32 4}
+!1 = !{i32 7, !"uwtable", i32 1}
+!2 = !{i32 7, !"frame-pointer", i32 2}
+!3 = !{!"S", %struct.inner1 zeroinitializer, i32 1, !4}
+!4 = !{i32 0, i32 0}
+!5 = !{!"S", %struct.outer zeroinitializer, i32 2, !6, !7}
+!6 = !{%struct.inner1 zeroinitializer, i32 1}
+!7 = !{%struct.inner2 zeroinitializer, i32 1}
+!8 = !{!"S", %struct.inner2 zeroinitializer, i32 1, !4}
+!9 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2022.1.0 (2022.x.0.YYYYMMDD)"}
+!10 = distinct !{!6}
+!11 = !{%struct.outer zeroinitializer, i32 1}
+!12 = distinct !{!13}
+!13 = !{i8 0, i32 1}
+!14 = distinct !{!11}
+!15 = distinct !{!13}
+!16 = distinct !{!11}
+!17 = distinct !{!6}
+!18 = distinct !{!7}
