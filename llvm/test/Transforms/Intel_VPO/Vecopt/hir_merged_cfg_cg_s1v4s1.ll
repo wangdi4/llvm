@@ -31,8 +31,9 @@
 ; CHECK-NEXT:              goto merge.blk12.31;
 ; CHECK-NEXT:           }
 ; CHECK-NEXT:           %ub.tmp = 1;
+; CHECK-NEXT:           %peel.ub = %ub.tmp  -  1;
 
-; CHECK:                + DO i1 = 0, %ub.tmp, 1   <DO_LOOP> <vectorize>
+; CHECK:                + DO i1 = 0, %peel.ub, 1   <DO_LOOP> <vectorize>
 ; CHECK-NEXT:           |   %A.i = (%A)[i1];
 ; CHECK-NEXT:           |   %sum.07 = %A.i  +  %sum.07;
 ; CHECK-NEXT:           + END LOOP
@@ -68,7 +69,7 @@
 ; CHECK-NEXT:           %unifcond24 = extractelement %.vec17,  0;
 ; CHECK-NEXT:           if (%unifcond24 == 1)
 ; CHECK-NEXT:           {
-; CHECK-NEXT:              goto final.merge.79;
+; CHECK-NEXT:              goto final.merge.80;
 ; CHECK-NEXT:           }
 ; CHECK-NEXT:           merge.blk12.31:
 ; CHECK-NEXT:           %lb.tmp = %phi.temp2;
@@ -81,7 +82,7 @@
 
 ; CHECK:                %phi.temp20 = %sum.07;
 ; CHECK-NEXT:           %phi.temp22 = %N + -1;
-; CHECK-NEXT:           final.merge.79:
+; CHECK-NEXT:           final.merge.80:
 ; CHECK-NEXT:     END REGION
 
 
