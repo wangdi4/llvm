@@ -24,7 +24,7 @@ list<OclType> ShuffleExpandTypes = [v2f32, v4f32, v8f32, v16f32,
                                     v2i16, v4i16, v8i16, v16i16,
                                     v2i32, v4i32, v8i32, v16i32,
                                     v2i64, v4i64, v8i64, v16i64];
-code ShuffleExpandToUnsignedInteger = [{
+defvar ShuffleExpandToUnsignedInteger = [{
     return as_$ReturnType( shuffle(as_$Arg0ugentype($Arg0VarName), $Arg1VarName) );
   }];
 // shuffle expand:
@@ -45,7 +45,7 @@ OclBuiltinImpl shuffle_16_expandTypes = OclBuiltinImpl<shuffle_16, ShuffleExpand
  *     input and length that is the same as the shuffle mask.    *
 \*****************************************************************/
 // expand the shuffle2() to 2 calls of shuffle() for all types
-code ExpandShuffle2toShuffle = [{
+defvar ExpandShuffle2toShuffle = [{
     $Arg2VarName = $Arg2VarName & ($Arg2Type)($VecLength * 2 - 1);
     $ReturnType temp1 = shuffle($Arg0VarName, $Arg2VarName);
     $ReturnType temp2 = shuffle($Arg1VarName, $Arg2VarName);

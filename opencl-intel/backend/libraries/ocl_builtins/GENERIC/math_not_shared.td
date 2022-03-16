@@ -187,7 +187,7 @@ OclBuiltinImpl tan_svml_rm_not_shared = OclBuiltinImpl<tan_rm, [v16f32], 0, [{
   }]>;
 
 // sincos_rm
-code sincos_svml_rm = [{
+defvar sincos_svml_rm = [{
     return __ocl_svml_$Target_sincos$SVMLSuffix_rm($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
   }];
 OclBuiltinImpl sincos_pas_svml_rm_not_shared = OclBuiltinImpl<sincos_pas_rm, [v16f32], 0, sincos_svml_rm>;
@@ -215,12 +215,12 @@ OclBuiltinImpl intel_vector_movemask_impl = OclBuiltinImpl<intel_movemask, [v2i8
 
 
 // fract svml
-code fract_svml = [{
+defvar fract_svml = [{
     return __ocl_svml_$Target_fract$SVMLSuffix($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
   }];
 
 // fract float vector
-code fract_impl_f32 = [{
+defvar fract_impl_f32 = [{
     const $Arg0Type fractLimit = $ReturnBaseType_const_fractLimit;
     $ReturnType $ReturnVarName;
     // check NaN or Inf
@@ -270,7 +270,7 @@ OclBuiltinImpl fract_gen_f32 = OclBuiltinImpl<fract_gen, [v2f32, v3f32, v4f32, v
 OclBuiltinImpl fract_gen_f64 = OclBuiltinImpl<fract_gen, [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, fract_svml>;
 
 // frexp
-code frexp_svml = [{
+defvar frexp_svml = [{
     return __ocl_svml_$Target_frexp$SVMLSuffix($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
   }];
 OclBuiltinImpl frexp_pas_svml = OclBuiltinImpl<frexp_pas, frexp_pas.Types, 0, frexp_svml>;
@@ -323,7 +323,7 @@ OclBuiltinImpl lgamma_svml_not_shared = OclBuiltinImpl<lgamma, math_not_shared_t
     return __ocl_svml_$Target_lgamma$SVMLSuffix($Arg0VarName);
   }]>;
 // lgamma_r
-code lgamma_r_svml = [{
+defvar lgamma_r_svml = [{
     return __ocl_svml_$Target_lgammar$SVMLSuffix($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
   }];
 OclBuiltinImpl lgamma_r_pas_svml = OclBuiltinImpl<lgamma_r_pas, lgamma_r_pas.Types, 0, lgamma_r_svml>;
@@ -367,7 +367,7 @@ OclBuiltinImpl rootn_svml_not_shared = OclBuiltinImpl<rootn, math_not_shared_typ
   }]>;
 
 // modf
-code modf_svml = [{
+defvar modf_svml = [{
     return __ocl_svml_$Target_modf$SVMLSuffix($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
   }];
 OclBuiltinImpl modf_pas_svml = OclBuiltinImpl<modf_pas, modf_pas.Types, 0, modf_svml>;
@@ -376,7 +376,7 @@ OclBuiltinImpl modf_gas_svml = OclBuiltinImpl<modf_gas, modf_gas.Types, 0, modf_
 OclBuiltinImpl modf_gen_svml = OclBuiltinImpl<modf_gen, modf_gen.Types, 0, modf_svml>;
 
 // remquo
-code remquo_svml = [{
+defvar remquo_svml = [{
     return __ocl_svml_$Target_remquo$SVMLSuffix($Arg0VarName, $Arg1VarName, ($Arg2NoASType)$Arg2VarName);
   }];
 OclBuiltinImpl remquo_pas_svml = OclBuiltinImpl<remquo_pas, remquo_pas.Types, 0, remquo_svml>;
@@ -409,7 +409,7 @@ OclBuiltinImpl sin_svml_not_shared = OclBuiltinImpl<sin, math_not_shared_types, 
   }]>;
 
 // sincos
-code sincos_svml = [{
+defvar sincos_svml = [{
     return __ocl_svml_$Target_sincos$SVMLSuffix($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
   }];
 OclBuiltinImpl sincos_pas_svml = OclBuiltinImpl<sincos_pas, sincos_pas.Types, 0, sincos_svml>;
@@ -549,7 +549,7 @@ OclBuiltinImpl native_sqrt_svml_not_shared = OclBuiltinImpl<native_sqrt, [v8f32,
 
 // native_fract
 // built in beyond OpenCL1.2 spec
-code native_fract_impl = [{
+defvar native_fract_impl = [{
     *$Arg1VarName = floor($Arg0VarName);
     $Arg0Type m_sub = $Arg0VarName - *$Arg1VarName;
     return min(m_sub, ($Arg0Type) $ReturnBaseType_const_fractLimit);
@@ -562,7 +562,7 @@ OclBuiltinImpl native_fract_gen_f32 = OclBuiltinImpl<native_fract_gen, native_fr
 
 
 // native_sincos
-code native_sincos_svml = [{
+defvar native_sincos_svml = [{
     return __ocl_svml_$Target_sincos$SVMLSuffix_native($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
   }];
 OclBuiltinImpl native_sincos_pas_svml = OclBuiltinImpl<native_sincos_pas, native_sincos_pas.Types, 0, native_sincos_svml>;
@@ -573,7 +573,7 @@ OclBuiltinImpl native_sincos_gen_svml = OclBuiltinImpl<native_sincos_gen, native
 
 
 // This built-in is the one which the Packetizer replaces with the above
-code native_sincos_ret2ptr = [{
+defvar native_sincos_ret2ptr = [{
     $Arg0Type res = native_sincos($Arg0VarName, $Arg2VarName);
     *$Arg1VarName = res;
   }];
@@ -581,28 +581,28 @@ OclBuiltinImpl native_sincos_ret2ptr_pas = OclBuiltinImpl<native_sincos_pas2, [v
 
 
 // This built-in is the one which the Packetizer replaces with the above
-code sincos_ret2ptr = [{
+defvar sincos_ret2ptr = [{
     $Arg0Type res = sincos($Arg0VarName, $Arg2VarName);
     *$Arg1VarName = res;
   }];
 OclBuiltinImpl sincos_ret2ptr_pas = OclBuiltinImpl<sincos_pas2, [v4f32, v8f32, v16f32, v4f64, v8f64, v16f64], 0, sincos_ret2ptr>;
 
 // This built-in is the one which the Packetizer replaces with the above
-code modf_ret2ptr = [{
+defvar modf_ret2ptr = [{
     $Arg0Type res = modf($Arg0VarName, $Arg2VarName);
     *$Arg1VarName = res;
   }];
 OclBuiltinImpl modf_ret2ptr_pas = OclBuiltinImpl<modf_pas2, [v4f32, v8f32, v16f32, v4f64, v8f64, v16f64], 0, modf_ret2ptr>;
 
 // This built-in is the one which the Packetizer replaces with the above
-code native_fract_ret2ptr = [{
+defvar native_fract_ret2ptr = [{
     $Arg0Type res = native_fract($Arg0VarName, $Arg2VarName);
     *$Arg1VarName = res;
   }];
 OclBuiltinImpl native_fract_ret2ptr_pas = OclBuiltinImpl<native_fract_pas2, [v4f32, v8f32, v16f32, v4f64, v8f64, v16f64], 0, native_fract_ret2ptr>;
 
 // This built-in is the one which the Packetizer replaces with the above
-code fract_ret2ptr = [{
+defvar fract_ret2ptr = [{
     $Arg0Type res = fract($Arg0VarName, $Arg2VarName);
     *$Arg1VarName = res;
   }];

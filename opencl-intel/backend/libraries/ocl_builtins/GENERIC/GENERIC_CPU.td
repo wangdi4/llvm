@@ -14,6 +14,7 @@ include "GENERIC/sub_group_builtin.td"
 include "GENERIC/ll_intrinsics.td"
 include "GENERIC/helper_function.td"
 include "GENERIC/sycl-spirv.td"
+include "GENERIC/code_helpers.td"
 
 class Generic : TargetImpl {
 include "GENERIC/GENERIC_common.td"
