@@ -1,23 +1,35 @@
 ; REQUIRES: asserts
 
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -disable-output 2>&1 | FileCheck %s
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -disable-output -debug-only=dtrans-safetyanalyzer-verbose 2>&1 | FileCheck %s
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output -debug-only=dtrans-safetyanalyzer-verbose 2>&1 | FileCheck %s
 
 ; This test case checks that the base-padded relationship between
 ; %struct.test.a.base and %struct.test.a is set even if the pointer
 ; %bptr is allocated as %struct.test.b and we are loading data from
-; %struct.test.array.
+; %struct.test.array. The input type for function @foo is
+; *%struct.test.a, therefore the safety analyzer should set
+; BadCastingForRelatedTypes.
+
+; CHECK: dtrans-safety: Bad casting (related types conditional) -- Formal paremeter is a related type of the actual parameter, or vice-versa
+; CHECK:  [test]   %ret = call i32 @foo(ptr %bptr)
+; CHECK:  Arg#0:   %bptr = alloca %struct.test.b, align 8
 
 ; CHECK-LABEL: LLVMType: %struct.test.a = type { %struct.test.array, i32, [4 x i8] }
 ; CHECK: Related base structure: struct.test.a.base
 ; CHECK: 2)Field LLVM Type: [4 x i8]
 ; CHECK: Field info: PaddedField
 ; CHECK: Top Alloc Function
-; CHECK: Safety data: {{.*}}Structure may have ABI padding{{.*}}
+; CHECK: Safety data: {{.*}}Bad casting (related types) | Structure may have ABI padding{{.*}}
 
 ; CHECK-LABEL: LLVMType: %struct.test.a.base = type { %struct.test.array, i32 }
 ; CHECK: Related padded structure: struct.test.a
-; CHECK: Safety data: {{.*}}Structure could be base for ABI padding{{.*}}
+; CHECK: Safety data: {{.*}}Bad casting (related types) | Structure could be base for ABI padding{{.*}}
+
+; CHECK-LABEL: LLVMType: %struct.test.array = type { [4 x i32] }
+; CHECK: Safety data: {{.*}}Bad casting (related types){{.*}}
+
+; CHECK-LABEL: LLVMType: %struct.test.b = type { %struct.test.a.base, [4 x i8] }
+; CHECK: Safety data: {{.*}}Bad casting (related types){{.*}}
 
 ; ModuleID = 'simple2.cpp'
 source_filename = "simple2.cpp"

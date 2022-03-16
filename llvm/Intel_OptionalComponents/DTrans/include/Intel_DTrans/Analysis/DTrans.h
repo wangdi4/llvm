@@ -613,6 +613,14 @@ const SafetyData StructCouldHaveABIPadding = 0x0000'2000'0000'0000;
 /// structure.
 const SafetyData StructCouldBeBaseABIPadding = 0x0000'4000'0000'0000;
 
+/// This safety data is set when a possible bad casting can happen to
+/// structures involving ABI padding. The function for post processing these
+/// structures will decide if the safety bit will be lowered into
+/// BadCastingForRelatedTypes (ABI padding relationship was set) or BadCasting
+/// (ABI padding relationship wasn't set). For an example of ABI padding, see
+/// StructCouldBeBaseABIPadding above.
+const SafetyData BadCastingForRelatedTypesConditional = 0x0000'8000'0000'0000;
+
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
 /// or unsafe, but we will conservatively assume it is unsafe.

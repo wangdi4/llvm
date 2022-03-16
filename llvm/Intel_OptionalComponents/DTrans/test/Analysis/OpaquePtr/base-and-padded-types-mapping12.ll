@@ -10,9 +10,6 @@
 ; the base-padded types are collected correctly even if the
 ; parent structure (%struct.test.b) use the type as ptr.
 
-; TODO: The safety information will show that there is a bad casting
-; for %struct.test.a, %struct.test.a.base and %struct.test.b. This
-; needs to be fixed.
 
 ; CHECK-LABEL: LLVMType: %struct.test.a = type { %struct.test.array, i32, [4 x i8] }
 ; CHECK: Related base structure: struct.test.a.base
