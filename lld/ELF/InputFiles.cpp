@@ -1075,7 +1075,6 @@ InputSectionBase *ObjFile<ELFT>::createInputSection(uint32_t idx,
       return &InputSection::discarded;
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // NOTE: The following hack from the community is disabled inside the Intel
   // customization. LLD should be able to handle the link once sections now.
@@ -1115,8 +1114,6 @@ InputSectionBase *ObjFile<ELFT>::createInputSection(uint32_t idx,
   }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 7c7702b318503e27ebc3c795a827aa85135cc130
   // The linker merges EH (exception handling) frames and creates a
   // .eh_frame_hdr section for runtime. So we handle them with a special
   // class. For relocatable outputs, they are just passed through.
@@ -1295,7 +1292,6 @@ template <class ELFT> void ObjFile<ELFT>::postParse() {
 
     if (eSym.getBinding() == STB_WEAK)
       continue;
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
     // If one of the symbols contains a ".gnu.linkonce" section then skip it.
@@ -1306,11 +1302,8 @@ template <class ELFT> void ObjFile<ELFT>::postParse() {
         this->getGNULinkOnceSectionForSymbol(name))
       continue;
 #endif // INTEL_CUSTOMIZATION
-    reportDuplicate(sym, this, sections[secIdx], eSym.st_value);
-=======
     std::lock_guard<std::mutex> lock(mu);
     ctx->duplicates.push_back({&sym, this, sec, eSym.st_value});
->>>>>>> 7c7702b318503e27ebc3c795a827aa85135cc130
   }
 }
 
