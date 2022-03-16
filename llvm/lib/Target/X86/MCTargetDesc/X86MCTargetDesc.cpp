@@ -44,7 +44,16 @@ using namespace llvm;
 
 std::string X86_MC::ParseX86Triple(const Triple &TT) {
   std::string FS;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  if (TT.isArchXuCC())
+    // xucc-mode is enabled as default in xucc mode.
+    FS = "+64bit-mode,-32bit-mode,-16bit-mode,+xucc-mode";
+  else if (TT.isArch64Bit())
+#else // INTEL_FEATURE_XUCC
   if (TT.isArch64Bit())
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   // SSE2 should default to enabled in 64-bit mode, but can be turned off
   // explicitly.
     FS = "+64bit-mode,-32bit-mode,-16bit-mode,+sse2";
@@ -328,7 +337,14 @@ static MCRegisterInfo *createX86MCRegisterInfo(const Triple &TT) {
 static MCAsmInfo *createX86MCAsmInfo(const MCRegisterInfo &MRI,
                                      const Triple &TheTriple,
                                      const MCTargetOptions &Options) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  bool is64Bit = (TheTriple.getArch() == Triple::x86_64 ||
+                  TheTriple.getArch() == Triple::x86_64_xucc);
+#else // INTEL_FEATURE_XUCC
   bool is64Bit = TheTriple.getArch() == Triple::x86_64;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 
   MCAsmInfo *MAI;
   if (TheTriple.isOSBinFormatMachO()) {
@@ -603,7 +619,14 @@ static MCInstrAnalysis *createX86MCInstrAnalysis(const MCInstrInfo *Info) {
 
 // Force static initialization.
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86TargetMC() {
-  for (Target *T : {&getTheX86_32Target(), &getTheX86_64Target()}) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  for (Target *T : {&getTheX86_32Target(), &getTheX86_64Target(),
+                    &getTheX86_XuCCTarget()}) {
+#else // INTEL_FEATURE_XUCC
+for (Target *T : {&getTheX86_32Target(), &getTheX86_64Target()}) {
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
     // Register the MC asm info.
     RegisterMCAsmInfoFn X(*T, createX86MCAsmInfo);
 
@@ -644,6 +667,12 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86TargetMC() {
                                        createX86_32AsmBackend);
   TargetRegistry::RegisterMCAsmBackend(getTheX86_64Target(),
                                        createX86_64AsmBackend);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  TargetRegistry::RegisterMCAsmBackend(getTheX86_XuCCTarget(),
+                                       createX86_XuCCAsmBackend);
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 }
 
 MCRegister llvm::getX86SubSuperRegisterOrZero(MCRegister Reg, unsigned Size,

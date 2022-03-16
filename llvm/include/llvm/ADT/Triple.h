@@ -104,6 +104,11 @@ public:
     x86,            // X86: i[3-9]86
     x86_64,         // X86-64: amd64, x86_64
     xcore,          // XCore: xcore
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+    x86_64_xucc,    // XUCC: x86_64_xucc
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
     nvptx,          // NVPTX: 32-bit
     nvptx64,        // NVPTX: 64-bit
     le32,           // le32: generic little-endian 32-bit CPU (PNaCl)
@@ -442,6 +447,13 @@ public:
   ///
   /// Note that this tests for 16-bit pointer width, and nothing else.
   bool isArch16Bit() const;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  /// Test whether the architecture is xucc
+  bool isArchXuCC() const;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 
   /// Helper function for doing comparisons against version numbers included in
   /// the target triple.

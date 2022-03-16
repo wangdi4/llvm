@@ -82,6 +82,14 @@ MCAsmBackend *createX86_64AsmBackend(const Target &T,
                                      const MCRegisterInfo &MRI,
                                      const MCTargetOptions &Options);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+MCAsmBackend *createX86_XuCCAsmBackend(const Target &T,
+                                       const MCSubtargetInfo &STI,
+                                       const MCRegisterInfo &MRI,
+                                       const MCTargetOptions &Options);
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 
 /// Implements X86-only directives for assembly emission.
 MCTargetStreamer *createX86AsmTargetStreamer(MCStreamer &S,

@@ -157,6 +157,13 @@ namespace X86Local {
   enum {
     AdSize16 = 1, AdSize32 = 2, AdSize64 = 3
   };
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  enum {
+    XuCCPD = 1, XuCCXS = 2, XuCCXD = 3
+  };
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 }
 
 namespace X86Disassembler {
@@ -188,6 +195,12 @@ private:
   uint8_t OpSize;
   /// The AdSize field from the record
   uint8_t AdSize;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  /// The XuCCOpPrefix field from the record
+  uint8_t XuCCOpPrefix;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   /// The hasREX_WPrefix field from the record
   bool HasREX_WPrefix;
   /// The hasVEX_4V field from the record
@@ -220,6 +233,12 @@ private:
   bool Is64Bit;
   // Whether the instruction has the predicate "In32BitMode"
   bool Is32Bit;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  /// Whether the instruction has the predicate "InXuCCMode"
+  bool IsXuCCMode;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 
   /// The instruction name as listed in the tables
   std::string Name;

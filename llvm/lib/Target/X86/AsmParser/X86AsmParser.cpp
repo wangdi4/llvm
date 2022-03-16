@@ -5170,6 +5170,11 @@ bool X86AsmParser::parseDirectiveSEHPushFrame(SMLoc Loc) {
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86AsmParser() {
   RegisterMCAsmParser<X86AsmParser> X(getTheX86_32Target());
   RegisterMCAsmParser<X86AsmParser> Y(getTheX86_64Target());
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  RegisterMCAsmParser<X86AsmParser> Z(getTheX86_XuCCTarget());
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 }
 
 #define GET_REGISTER_MATCHER

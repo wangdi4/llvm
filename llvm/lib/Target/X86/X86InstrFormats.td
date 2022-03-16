@@ -163,7 +163,17 @@ def PS     : Prefix<4>; // Similar to NoPrfx, but disassembler uses this to know
                         // decode to this instruction. e.g. ANDSS/ANDSD don't
                         // exist, but the 0xf2/0xf3 encoding shouldn't
                         // disable to ANDPS.
-
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+class XuCCPrefix<bits<2> val> {
+  bits<2> Value = val;
+}
+def NoXuCCPrfx : XuCCPrefix<0>;   // No prefix
+def XuCCPD     : XuCCPrefix<1>;   // 66
+def XuCCXS     : XuCCPrefix<2>;   // F3
+def XuCCXD     : XuCCPrefix<3>;   // F2
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 // Class specifying the opcode map.
 class Map<bits<4> val> {
@@ -277,6 +287,13 @@ class EVEX_V256 { bit hasEVEX_L2 = 0; bit hasVEX_L = 1; }
 class EVEX_V128 { bit hasEVEX_L2 = 0; bit hasVEX_L = 0; }
 class NOTRACK { bit hasNoTrackPrefix = 1; }
 class SIMD_EXC { list<Register> Uses = [MXCSR]; bit mayRaiseFPException = 1; }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+class XuCCPD  { XuCCPrefix XuCCOpPrefix = XuCCPD; }   // 66
+class XuCCXS  { XuCCPrefix XuCCOpPrefix = XuCCXS; }   // F3
+class XuCCXD  { XuCCPrefix XuCCOpPrefix = XuCCXD; }   // F2
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 
 // Specify AVX512 8-bit compressed displacement encoding based on the vector
 // element size in bits (8, 16, 32, 64) and the CDisp8 form.
@@ -401,6 +418,12 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   bit notEVEX2VEXConvertible = 0; // Prevent EVEX->VEX conversion.
   bit ExplicitVEXPrefix = 0; // Force the instruction to use VEX encoding.
   bit EmitVEXOrEVEXPrefix = 0; // Force the instruction to emit prefix. // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  XuCCPrefix XuCCOpPrefix = NoXuCCPrfx; // Which XuCC prefix byte does this inst have?
+  bits<2> XuCCOpPrefixBits = XuCCOpPrefix.Value;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   // Force to check predicate before compress EVEX to VEX encoding.
   bit checkVEXPredicate = 0;
   // TSFlags layout should be kept in sync with X86BaseInfo.h.
@@ -434,6 +457,9 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   // Force the instruction to use VEX encoding.
   let TSFlags{55}    = ExplicitVEXPrefix;
   let TSFlags{56}    = EmitVEXOrEVEXPrefix;
+#if INTEL_FEATURE_XUCC
+  let TSFlags{58-57} = XuCCOpPrefixBits;
+#endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
 }
 
