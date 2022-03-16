@@ -796,7 +796,7 @@ _mm512_mask_max_epi16 (__m512i __W, __mmask32 __M, __m512i __A,
 static __inline__ __m512i __DEFAULT_FN_ATTRS512
 _mm512_max_epu8 (__m512i __A, __m512i __B)
 {
-  return (__m512i)__builtin_elementwise_max((__v64qi)__A, (__v64qi)__B);
+  return (__m512i)__builtin_elementwise_max((__v64qu)__A, (__v64qu)__B);
 }
 
 static __inline__ __m512i __DEFAULT_FN_ATTRS512
@@ -818,7 +818,7 @@ _mm512_mask_max_epu8 (__m512i __W, __mmask64 __M, __m512i __A, __m512i __B)
 static __inline__ __m512i __DEFAULT_FN_ATTRS512
 _mm512_max_epu16 (__m512i __A, __m512i __B)
 {
-  return (__m512i)__builtin_elementwise_max((__v32hi)__A, (__v32hi)__B);
+  return (__m512i)__builtin_elementwise_max((__v32hu)__A, (__v32hu)__B);
 }
 
 static __inline__ __m512i __DEFAULT_FN_ATTRS512
@@ -884,7 +884,7 @@ _mm512_mask_min_epi16 (__m512i __W, __mmask32 __M, __m512i __A, __m512i __B)
 static __inline__ __m512i __DEFAULT_FN_ATTRS512
 _mm512_min_epu8 (__m512i __A, __m512i __B)
 {
-  return (__m512i)__builtin_elementwise_min((__v64qi)__A, (__v64qi)__B);
+  return (__m512i)__builtin_elementwise_min((__v64qu)__A, (__v64qu)__B);
 }
 
 static __inline__ __m512i __DEFAULT_FN_ATTRS512
@@ -906,7 +906,7 @@ _mm512_mask_min_epu8 (__m512i __W, __mmask64 __M, __m512i __A, __m512i __B)
 static __inline__ __m512i __DEFAULT_FN_ATTRS512
 _mm512_min_epu16 (__m512i __A, __m512i __B)
 {
-  return (__m512i)__builtin_elementwise_min((__v32hi)__A, (__v32hi)__B);
+  return (__m512i)__builtin_elementwise_min((__v32hu)__A, (__v32hu)__B);
 }
 
 static __inline__ __m512i __DEFAULT_FN_ATTRS512

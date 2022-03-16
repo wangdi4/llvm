@@ -31,13 +31,13 @@ extern cl_device_type gDeviceType;
 class USMTest : public ::testing::Test {
 protected:
   virtual void SetUp() override {
-    cl_int err = clGetPlatformIDs(1, &m_platform, NULL);
+    cl_int err = clGetPlatformIDs(1, &m_platform, nullptr);
     ASSERT_OCL_SUCCESS(err, "clGetPlatformIDs");
 
-    err = clGetDeviceIDs(m_platform, gDeviceType, 1, &m_device, NULL);
+    err = clGetDeviceIDs(m_platform, gDeviceType, 1, &m_device, nullptr);
     ASSERT_OCL_SUCCESS(err, "clGetDeviceIDs");
 
-    m_context = clCreateContext(NULL, 1, &m_device, NULL, NULL, &err);
+    m_context = clCreateContext(nullptr, 1, &m_device, nullptr, nullptr, &err);
     ASSERT_OCL_SUCCESS(err, "clCreateContext");
 
     cl_command_queue_properties properties[] = {CL_QUEUE_PROPERTIES,
@@ -48,7 +48,16 @@ protected:
   }
 
   virtual void TearDown() override {
-    cl_int err = clReleaseCommandQueue(m_queue);
+    cl_int err;
+    if (m_kernel) {
+      err = clReleaseKernel(m_kernel);
+      EXPECT_OCL_SUCCESS(err, "clReleaseKernel");
+    }
+    if (m_program) {
+      err = clReleaseProgram(m_program);
+      EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
+    }
+    err = clReleaseCommandQueue(m_queue);
     EXPECT_OCL_SUCCESS(err, "clReleaseCommandQueue");
     err = clReleaseContext(m_context);
     EXPECT_OCL_SUCCESS(err, "clReleaseContext");
@@ -59,14 +68,16 @@ protected:
   cl_device_id m_device;
   cl_context m_context;
   cl_command_queue m_queue;
+  cl_program m_program = nullptr;
+  cl_kernel m_kernel = nullptr;
 };
 
 static void BuildProgram(cl_context context, cl_device_id device,
                          const char *source[], int count, cl_program &program) {
   cl_int err;
-  program = clCreateProgramWithSource(context, count, source, NULL, &err);
+  program = clCreateProgramWithSource(context, count, source, nullptr, &err);
   ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
-  err = clBuildProgram(program, 1, &device, "", NULL, NULL);
+  err = clBuildProgram(program, 1, &device, "-cl-std=CL2.0", nullptr, nullptr);
   ASSERT_OCL_SUCCESS(err, "clBuildProgram");
 }
 
@@ -136,7 +147,7 @@ TEST_F(USMTest, checkCapacities) {
     cl_int err = clGetDeviceInfo(
         m_device, param_name,
         sizeof(cl_device_unified_shared_memory_capabilities_intel), &caps,
-        NULL);
+        nullptr);
     ASSERT_OCL_SUCCESS(err, "clGetDeviceInfo");
     ASSERT_EQ(caps, caps_expected);
   }
@@ -166,13 +177,13 @@ TEST_F(USMTest, memAlloc) {
     ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
 
     void *buf2 = clSharedMemAllocINTEL(m_context, m_device, properties, size,
-                                       alignment, NULL);
+                                       alignment, nullptr);
     ASSERT_TRUE(nullptr != buf2);
     err = clMemFreeINTEL(m_context, buf2);
     ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
 
     void *buf3 = clSharedMemAllocINTEL(m_context, nullptr, properties, size,
-                                       alignment, NULL);
+                                       alignment, nullptr);
     ASSERT_TRUE(nullptr != buf3);
     err = clMemFreeINTEL(m_context, buf3);
     ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
@@ -208,110 +219,113 @@ TEST_F(USMTest, memAlloc) {
   ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
 }
 
-TEST_F(USMTest, memBlockingFree) {
-  cl_int err;
-  // Allocate USM buffers.
-  size_t num = 64;
-  size_t size = num * sizeof(int);
-  cl_uint alignment = 0;
-
-  cl_int *bufferA = (cl_int *)clSharedMemAllocINTEL(m_context, m_device, NULL,
-                                                   size, alignment, &err);
-  ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
-
-  cl_int *bufferB = (cl_int *)clSharedMemAllocINTEL(m_context, m_device, NULL,
-                                                   size, alignment, &err);
-  ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
-
-  cl_int expectedValue = 0;
-  for (size_t i = 0; i < num; i++) {
-    bufferA[i] = i;
-    bufferB[i] = i;
-    expectedValue += i;
-  }
-
-  cl_int result = -1;
-
-  // Build program and kernel.
-  const char *source = R"(
+static const char *getBlockingFreeTestKernel() {
+  return R"(
       __kernel void blocking_test(__global int *buf,
-                                   volatile __global int *result) {
-        size_t tid = get_global_id(0);
-        while (*result == -1)
-          ;
-        atomic_add(result, buf[tid]);
+                                  volatile __global int *result) {
+        atomic_add(result, buf[get_global_id(0)]);
       }
   )";
-  cl_program program;
-  cl_kernel kernel;
+}
 
+/// Test clMemBlockingFreeINTEL when enqueue failed.
+TEST_F(USMTest, memBlockingFreeAfterEnqueueFail) {
+  // Build program and kernel.
+  const char *source = getBlockingFreeTestKernel();
   ASSERT_NO_FATAL_FAILURE(
-      BuildProgram(m_context, m_device, &source, 1, program));
-
-  kernel = clCreateKernel(program, "blocking_test", &err);
+      BuildProgram(m_context, m_device, &source, 1, m_program));
+  cl_int err;
+  m_kernel = clCreateKernel(m_program, "blocking_test", &err);
   ASSERT_OCL_SUCCESS(err, "clCreateKernel blocking_test");
 
-  err = clSetKernelArgMemPointerINTEL(kernel, 0, bufferA);
-  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
-  err = clSetKernelArgMemPointerINTEL(kernel, 1, &result);
-  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
-
-  /// Test clMemBlockingFreeINTEL when enqueue failed.
-  err = clEnqueueNDRangeKernel(m_queue, kernel, 0, NULL, NULL, NULL, 0, NULL,
-                               NULL);
-  ASSERT_OCL_EQ(CL_INVALID_WORK_DIMENSION, err, "clEnqueueNDRangeKernel");
-
-  err = clMemBlockingFreeINTEL(m_context, bufferA);
-  EXPECT_OCL_SUCCESS(err, "clMemBlockingFreeINTEL");
-
-  /// Test clMemBlockingFreeINTEL when enqueue succeed.
-  err = clSetKernelArgMemPointerINTEL(kernel, 0, bufferB);
-  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
-  err = clSetKernelArgMemPointerINTEL(kernel, 1, &result);
-  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
-
-  size_t gdim = num;
-  size_t ldim = 8;
-  err = clEnqueueNDRangeKernel(m_queue, kernel, 1, NULL, &gdim, &ldim, 0, NULL,
-                               NULL);
-  ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
-
-  // This thread is to unblock kernel execution.
-  // Just for testing purpose, detaching and sleeping for 2 seconds to make
-  // clMemBlockingFreeINTEL invoked before kernel completes.
-  auto waitAndNotifyKernel = [&]() {
-    std::this_thread::sleep_for(std::chrono::seconds(2));
-    result = 0; // Notify kernel to break the infinite loop.
-  };
-  std::thread(waitAndNotifyKernel).detach();
-
-  // Test clMemBlockingFreeINTEL when USM buffer passed as argument of kernel.
-  err = clMemBlockingFreeINTEL(m_context, bufferB);
-  EXPECT_OCL_SUCCESS(err, "clMemBlockingFreeINTEL");
-
-  // Assert 'result' equal to 'expectedValue' if kernel did complete before
-  // buffer is freed.
-  EXPECT_EQ(expectedValue, result);
-
-  err = clReleaseKernel(kernel);
-  EXPECT_OCL_SUCCESS(err, "clReleaseKernel");
-
-
-  //=== Test clMemBlockingFreeINTEL with event released in advance ===
-  cl_int *bufferC = (cl_int *)clSharedMemAllocINTEL(m_context, m_device, NULL,
-                                                    size, alignment, &err);
+  cl_int *buffer =
+      (cl_int *)clSharedMemAllocINTEL(m_context, m_device, nullptr,
+                                      /*size*/ 1024, /*alignment*/ 0, &err);
   ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
 
-  kernel = clCreateKernel(program, "blocking_test", &err);
+  err = clSetKernelArgMemPointerINTEL(m_kernel, 0, buffer);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+  cl_int result;
+  err = clSetKernelArgMemPointerINTEL(m_kernel, 1, &result);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+
+  err = clEnqueueNDRangeKernel(m_queue, m_kernel, 0, nullptr, nullptr, nullptr,
+                               0, nullptr, nullptr);
+  ASSERT_OCL_EQ(CL_INVALID_WORK_DIMENSION, err, "clEnqueueNDRangeKernel");
+
+  err = clMemBlockingFreeINTEL(m_context, buffer);
+  EXPECT_OCL_SUCCESS(err, "clMemBlockingFreeINTEL");
+}
+
+TEST_F(USMTest, memBlockingFree) {
+  // Build program and kernel.
+  const char *source = getBlockingFreeTestKernel();
+  ASSERT_NO_FATAL_FAILURE(
+      BuildProgram(m_context, m_device, &source, 1, m_program));
+  cl_int err;
+  m_kernel = clCreateKernel(m_program, "blocking_test", &err);
   ASSERT_OCL_SUCCESS(err, "clCreateKernel blocking_test");
 
-  err = clSetKernelArgMemPointerINTEL(kernel, 0, bufferC);
-  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
-  err = clSetKernelArgMemPointerINTEL(kernel, 1, &result);
-  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+  // Allocate USM buffers.
+  // Workload should be large enough so that kernel is not finished when
+  // clMemBlockingFreeINTEL is called.
+  size_t num = 16384;
+  size_t size = num * sizeof(int);
+  cl_int *buffer = (cl_int *)clSharedMemAllocINTEL(m_context, m_device, nullptr,
+                                                   size, /*alignment*/ 0, &err);
+  ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
 
+  std::fill(buffer, buffer + num, 1);
+  cl_int result = 0;
+
+  /// Test clMemBlockingFreeINTEL when enqueue succeed.
+  err = clSetKernelArgMemPointerINTEL(m_kernel, 0, buffer);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+  err = clSetKernelArgMemPointerINTEL(m_kernel, 1, &result);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+  size_t gdim = num;
+  size_t ldim = 64;
+  err = clEnqueueNDRangeKernel(m_queue, m_kernel, 1, nullptr, &gdim, &ldim, 0,
+                               nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
+
+  // Test clMemBlockingFreeINTEL when USM buffer passed as argument of kernel.
+  err = clMemBlockingFreeINTEL(m_context, buffer);
+  EXPECT_OCL_SUCCESS(err, "clMemBlockingFreeINTEL");
+
+  // Assert result is correct if kernel did complete before buffer is freed.
+  EXPECT_EQ(num, result);
+}
+
+/// Test clMemBlockingFreeINTEL with event released in advance.
+TEST_F(USMTest, memBlockingFreeAfterReleaseEvent) {
+  // Build program and kernel.
+  const char *source = getBlockingFreeTestKernel();
+  ASSERT_NO_FATAL_FAILURE(
+      BuildProgram(m_context, m_device, &source, 1, m_program));
+  cl_int err;
+  m_kernel = clCreateKernel(m_program, "blocking_test", &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateKernel blocking_test");
+
+  // Workload should be large enough so that kernel is not finished when
+  // clMemBlockingFreeINTEL is called.
+  size_t num = 16384;
+  size_t size = num * sizeof(int);
+  cl_int *buffer = (cl_int *)clSharedMemAllocINTEL(m_context, m_device, nullptr,
+                                                   size, /*alignment*/ 0, &err);
+  ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
+
+  std::fill(buffer, buffer + num, 1);
+  cl_int result = 0;
+
+  err = clSetKernelArgMemPointerINTEL(m_kernel, 0, buffer);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+  err = clSetKernelArgMemPointerINTEL(m_kernel, 1, &result);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+  size_t gdim = num;
+  size_t ldim = 64;
   cl_event event;
-  err = clEnqueueNDRangeKernel(m_queue, kernel, 1, nullptr, &gdim, &ldim, 0,
+  err = clEnqueueNDRangeKernel(m_queue, m_kernel, 1, nullptr, &gdim, &ldim, 0,
                                nullptr, &event);
   ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
 
@@ -319,17 +333,10 @@ TEST_F(USMTest, memBlockingFree) {
   err = clReleaseEvent(event);
   EXPECT_OCL_SUCCESS(err, "clReleaseEvent");
 
-  // Notify kernel to break the infinite loop.
-  std::thread(waitAndNotifyKernel).detach();
-
-  err = clMemBlockingFreeINTEL(m_context, bufferC);
+  err = clMemBlockingFreeINTEL(m_context, buffer);
   EXPECT_OCL_SUCCESS(err, "clMemBlockingFreeINTEL");
 
-  err = clReleaseKernel(kernel);
-  EXPECT_OCL_SUCCESS(err, "clReleaseKernel");
-
-  err = clReleaseProgram(program);
-  EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
+  EXPECT_EQ(num, result);
 }
 
 TEST_F(USMTest, getMemAllocInfo) {
@@ -346,25 +353,25 @@ TEST_F(USMTest, getMemAllocInfo) {
   char *ptr = buffer + (size / 2);
   void *basePtr;
   err = clGetMemAllocInfoINTEL(m_context, ptr, CL_MEM_ALLOC_BASE_PTR_INTEL,
-                               sizeof(basePtr), &basePtr, NULL);
+                               sizeof(basePtr), &basePtr, nullptr);
   ASSERT_OCL_SUCCESS(err, "clGetMemAllocInfoINTEL");
   ASSERT_EQ(buffer, basePtr);
 
   size_t bufferSize;
   err = clGetMemAllocInfoINTEL(m_context, ptr, CL_MEM_ALLOC_SIZE_INTEL,
-                               sizeof(bufferSize), &bufferSize, NULL);
+                               sizeof(bufferSize), &bufferSize, nullptr);
   ASSERT_OCL_SUCCESS(err, "clGetMemAllocInfoINTEL");
   ASSERT_EQ(size, bufferSize);
 
   cl_device_id device;
   err = clGetMemAllocInfoINTEL(m_context, ptr, CL_MEM_ALLOC_DEVICE_INTEL,
-                               sizeof(device), &device, NULL);
+                               sizeof(device), &device, nullptr);
   ASSERT_OCL_SUCCESS(err, "clGetMemAllocInfoINTEL");
   ASSERT_EQ(m_device, device);
 
   cl_mem_alloc_flags_intel flags;
   err = clGetMemAllocInfoINTEL(m_context, ptr, CL_MEM_ALLOC_FLAGS_INTEL,
-                               sizeof(flags), &flags, NULL);
+                               sizeof(flags), &flags, nullptr);
   ASSERT_OCL_SUCCESS(err, "clGetMemAllocInfoINTEL");
   ASSERT_EQ(CL_MEM_ALLOC_WRITE_COMBINED_INTEL, flags);
 
@@ -378,15 +385,17 @@ TEST_F(USMTest, enqueueMemset) {
   size_t num = 1024;
   size_t size = num * sizeof(char);
   cl_uint alignment = 0;
-  char *buffer = (char *)clSharedMemAllocINTEL(m_context, m_device, NULL, size,
-                                               alignment, &err);
+  char *buffer = (char *)clSharedMemAllocINTEL(m_context, m_device, nullptr,
+                                               size, alignment, &err);
   ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
 
   cl_int value1 = 1;
-  err = clEnqueueMemsetINTEL(m_queue, buffer, value1, size, 0, NULL, NULL);
+  err =
+      clEnqueueMemsetINTEL(m_queue, buffer, value1, size, 0, nullptr, nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemsetINTEL");
   cl_int value2 = 2;
-  err = clEnqueueMemsetINTEL(m_queue, buffer, value2, size / 2, 0, NULL, NULL);
+  err = clEnqueueMemsetINTEL(m_queue, buffer, value2, size / 2, 0, nullptr,
+                             nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemsetINTEL");
 
   err = clFinish(m_queue);
@@ -406,7 +415,7 @@ TEST_F(USMTest, enqueueMemset) {
 
   // Memset host ptr.
   char *data = new char[size];
-  err = clEnqueueMemsetINTEL(m_queue, data, value1, size, 0, NULL, NULL);
+  err = clEnqueueMemsetINTEL(m_queue, data, value1, size, 0, nullptr, nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemsetINTEL");
 
   err = clFinish(m_queue);
@@ -432,15 +441,15 @@ TEST_F(USMTest, enqueueMemFill) {
   size_t size1 = pattern1_size * 256;
   size_t size2 = pattern2_size * 256;
   size_t size = size1 + size2;
-  char *buffer =
-      (char *)clSharedMemAllocINTEL(m_context, m_device, NULL, size, 0, &err);
+  char *buffer = (char *)clSharedMemAllocINTEL(m_context, m_device, nullptr,
+                                               size, 0, &err);
   ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
 
   err = clEnqueueMemFillINTEL(m_queue, buffer, pattern1, pattern1_size, size1,
-                              0, NULL, NULL);
+                              0, nullptr, nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemFillINTEL");
   err = clEnqueueMemFillINTEL(m_queue, buffer + size1, pattern2, pattern2_size,
-                              size2, 0, NULL, NULL);
+                              size2, 0, nullptr, nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemFillINTEL");
 
   err = clFinish(m_queue);
@@ -462,7 +471,7 @@ TEST_F(USMTest, enqueueMemFill) {
   char *data = new char[size1];
   cl_event event;
   err = clEnqueueMemFillINTEL(m_queue, data, pattern1, pattern1_size, size1, 0,
-                              NULL, &event);
+                              nullptr, &event);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemFillINTEL");
   err = clFinish(m_queue);
   ASSERT_OCL_SUCCESS(err, "clFinish");
@@ -494,7 +503,7 @@ TEST_F(USMTest, enqueueMemcpy) {
   size_t num = 1024;
   size_t size = num * sizeof(int);
   cl_uint alignment = sizeof(cl_long);
-  cl_mem_properties_intel *properties = NULL;
+  cl_mem_properties_intel *properties = nullptr;
   int *buffer =
       (int *)clHostMemAllocINTEL(m_context, properties, size, alignment, &err);
   ASSERT_OCL_SUCCESS(err, "clHostMemAllocINTEL");
@@ -511,13 +520,13 @@ TEST_F(USMTest, enqueueMemcpy) {
     buffer[i] = i;
 
   // Copy from host USM to device USM.
-  err = clEnqueueMemcpyINTEL(m_queue, CL_TRUE, buffer2, buffer, size, 0, NULL,
-                             NULL);
+  err = clEnqueueMemcpyINTEL(m_queue, CL_TRUE, buffer2, buffer, size, 0,
+                             nullptr, nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemcpyINTEL");
 
   // Copy from device USM to shared USM.
-  err = clEnqueueMemcpyINTEL(m_queue, CL_TRUE, buffer3, buffer2, size, 0, NULL,
-                             NULL);
+  err = clEnqueueMemcpyINTEL(m_queue, CL_TRUE, buffer3, buffer2, size, 0,
+                             nullptr, nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemcpyINTEL");
 
   for (size_t i = 0; i < num; i++)
@@ -526,7 +535,7 @@ TEST_F(USMTest, enqueueMemcpy) {
   // Copy from device USM to arbitrary host memory.
   int *bufferHost = new int[num];
   err = clEnqueueMemcpyINTEL(m_queue, CL_TRUE, bufferHost, buffer2, size, 0,
-                             NULL, NULL);
+                             nullptr, nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemcpyINTEL");
 
   for (size_t i = 0; i < num; i++) {
@@ -538,7 +547,7 @@ TEST_F(USMTest, enqueueMemcpy) {
   int *bufferHost2 = new int[num];
   cl_event event;
   err = clEnqueueMemcpyINTEL(m_queue, CL_TRUE, bufferHost2, bufferHost, size, 0,
-                             NULL, &event);
+                             nullptr, &event);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemcpyINTEL");
 
   for (size_t i = 0; i < num; i++)
@@ -557,7 +566,7 @@ TEST_F(USMTest, enqueueMemcpy) {
   // Test overlap.
   size_t offset = size / 4;
   err = clEnqueueMemcpyINTEL(m_queue, CL_TRUE, (char *)buffer + offset, buffer,
-                             size / 2, 0, NULL, NULL);
+                             size / 2, 0, nullptr, nullptr);
   EXPECT_OCL_EQ(CL_MEM_COPY_OVERLAP, err, "clEnqueueMemcpyINTEL");
 
   delete[] bufferHost;
@@ -575,35 +584,37 @@ TEST_F(USMTest, enqueueMigrateMem) {
   // Allocate USM buffers.
   size_t size = 1024;
   cl_uint alignment = 0;
-  char *buffer = (char *)clSharedMemAllocINTEL(m_context, NULL, NULL, size,
-                                               alignment, &err);
+  char *buffer = (char *)clSharedMemAllocINTEL(m_context, nullptr, nullptr,
+                                               size, alignment, &err);
   ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
 
   cl_unified_shared_memory_type_intel memType;
   err = clGetMemAllocInfoINTEL(m_context, buffer, CL_MEM_ALLOC_TYPE_INTEL,
-                               sizeof(memType), &memType, NULL);
+                               sizeof(memType), &memType, nullptr);
   ASSERT_OCL_SUCCESS(err, "clGetMemAllocInfoINTEL");
   ASSERT_EQ(CL_MEM_TYPE_SHARED_INTEL, memType);
 
   cl_mem_migration_flags flags = 0;
-  err = clEnqueueMigrateMemINTEL(m_queue, buffer, size, flags, 0, NULL, NULL);
+  err = clEnqueueMigrateMemINTEL(m_queue, buffer, size, flags, 0, nullptr,
+                                 nullptr);
   ASSERT_EQ(CL_INVALID_VALUE, err) << "clEnqueueMigrateMemINTEL failed";
 
   flags = CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED;
-  err = clEnqueueMigrateMemINTEL(m_queue, buffer, size, flags, 0, NULL, NULL);
+  err = clEnqueueMigrateMemINTEL(m_queue, buffer, size, flags, 0, nullptr,
+                                 nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMigrateMemINTEL");
 
   err = clFinish(m_queue);
   ASSERT_OCL_SUCCESS(err, "clFinish");
 
   err = clGetMemAllocInfoINTEL(m_context, buffer, CL_MEM_ALLOC_TYPE_INTEL,
-                               sizeof(memType), &memType, NULL);
+                               sizeof(memType), &memType, nullptr);
   ASSERT_OCL_SUCCESS(err, "clGetMemAllocInfoINTEL");
   ASSERT_EQ(CL_MEM_TYPE_DEVICE_INTEL, memType);
 
   cl_device_id device;
   err = clGetMemAllocInfoINTEL(m_context, buffer, CL_MEM_ALLOC_DEVICE_INTEL,
-                               sizeof(device), &device, NULL);
+                               sizeof(device), &device, nullptr);
   ASSERT_OCL_SUCCESS(err, "clGetMemAllocInfoINTEL");
   ASSERT_EQ(m_device, device);
 
@@ -616,12 +627,13 @@ TEST_F(USMTest, enqueueAdviseMem) {
   // Allocate USM buffers.
   size_t size = 1024;
   cl_uint alignment = 0;
-  char *buffer = (char *)clSharedMemAllocINTEL(m_context, m_device, NULL, size,
-                                               alignment, &err);
+  char *buffer = (char *)clSharedMemAllocINTEL(m_context, m_device, nullptr,
+                                               size, alignment, &err);
   ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
 
   cl_mem_advice_intel advice = 0;
-  err = clEnqueueMemAdviseINTEL(m_queue, buffer, size, advice, 0, NULL, NULL);
+  err = clEnqueueMemAdviseINTEL(m_queue, buffer, size, advice, 0, nullptr,
+                                nullptr);
   ASSERT_EQ(CL_INVALID_VALUE, err) << "clEnqueueMemAdviseINTEL failed";
 
   err = clFinish(m_queue);
@@ -637,12 +649,12 @@ static void testSetKernelArgMemPointer(cl_context context, cl_device_id device,
   cl_int err;
   // Allocate USM buffers.
   cl_uint alignment = 0;
-  int *buffer = (int *)clSharedMemAllocINTEL(context, device, NULL, sizeof(int),
-                                             alignment, &err);
+  int *buffer = (int *)clSharedMemAllocINTEL(context, device, nullptr,
+                                             sizeof(int), alignment, &err);
   ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
 
-  int *result = (int *)clSharedMemAllocINTEL(context, device, NULL, sizeof(int),
-                                             alignment, &err);
+  int *result = (int *)clSharedMemAllocINTEL(context, device, nullptr,
+                                             sizeof(int), alignment, &err);
   ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
 
   int value = 16;
@@ -667,8 +679,8 @@ static void testSetKernelArgMemPointer(cl_context context, cl_device_id device,
   size_t gdim = 1;
   size_t ldim = 1;
   cl_event e;
-  err =
-      clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &gdim, &ldim, 0, NULL, &e);
+  err = clEnqueueNDRangeKernel(queue, kernel, 1, nullptr, &gdim, &ldim, 0,
+                               nullptr, &e);
   ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
   err = clWaitForEvents(1, &e);
   ASSERT_OCL_SUCCESS(err, "clWaitForEvents");
@@ -681,8 +693,8 @@ static void testSetKernelArgMemPointer(cl_context context, cl_device_id device,
   // by the first enqueue
   err = clSetKernelArgMemPointerINTEL(kernel, 3, nullptr);
   ASSERT_OCL_SUCCESS(err, "clSetKernelArg");
-  err =
-      clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &gdim, &ldim, 0, NULL, &e);
+  err = clEnqueueNDRangeKernel(queue, kernel, 1, nullptr, &gdim, &ldim, 0,
+                               nullptr, &e);
   ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
   err = clWaitForEvents(1, &e);
   ASSERT_OCL_SUCCESS(err, "clWaitForEvents");
@@ -704,13 +716,10 @@ TEST_F(USMTest, setKernelArgMemPointer) {
                           "  __global void *foo) {\n"
                           "  *result = (int)(data[get_global_id(0)] == *val);\n"
                           "}\n"};
-  cl_program program;
   ASSERT_NO_FATAL_FAILURE(
-      BuildProgram(m_context, m_device, source, 1, program));
+      BuildProgram(m_context, m_device, source, 1, m_program));
   ASSERT_NO_FATAL_FAILURE(
-      testSetKernelArgMemPointer(m_context, m_device, m_queue, program));
-  cl_int err = clReleaseProgram(program);
-  EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
+      testSetKernelArgMemPointer(m_context, m_device, m_queue, m_program));
 }
 
 TEST_F(USMTest, setKernelArgMemPointerMultiThreads) {
@@ -720,9 +729,8 @@ TEST_F(USMTest, setKernelArgMemPointerMultiThreads) {
                           "  __global void *foo) {\n"
                           "  *result = (int)(data[get_global_id(0)] == *val);\n"
                           "}\n"};
-  cl_program program;
   ASSERT_NO_FATAL_FAILURE(
-      BuildProgram(m_context, m_device, source, 1, program));
+      BuildProgram(m_context, m_device, source, 1, m_program));
 
   // Create out-of-order queue for this sub-test since it is probably not
   // thread-safe to enqueue concurrently into an in-order command queue.
@@ -738,12 +746,10 @@ TEST_F(USMTest, setKernelArgMemPointerMultiThreads) {
                     [&](tbb::blocked_range<int>(range)) {
                       for (int i = range.begin(); i < range.end(); ++i) {
                         ASSERT_NO_FATAL_FAILURE(testSetKernelArgMemPointer(
-                            m_context, m_device, queue, program));
+                            m_context, m_device, queue, m_program));
                       }
                     });
 
-  err = clReleaseProgram(program);
-  EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
   err = clReleaseCommandQueue(queue);
   EXPECT_OCL_SUCCESS(err, "clReleaseCommandQueue");
 }
@@ -751,14 +757,15 @@ TEST_F(USMTest, setKernelArgMemPointerMultiThreads) {
 TEST_F(USMTest, setKernelExecInfo) {
   cl_int err;
   // Allocate USM buffers.
-  size_t num = 1024;
+  // Use large workload to test clMemBlockingFreeINTEL as well.
+  size_t num = 16384;
   size_t size = num * sizeof(int);
   cl_uint alignment = 0;
   cl_int *bufA =
-      (cl_int *)clHostMemAllocINTEL(m_context, NULL, size, alignment, &err);
+      (cl_int *)clHostMemAllocINTEL(m_context, nullptr, size, alignment, &err);
   ASSERT_OCL_SUCCESS(err, "clHostMemAllocINTEL");
 
-  cl_int *bufB = (cl_int *)clSharedMemAllocINTEL(m_context, m_device, NULL,
+  cl_int *bufB = (cl_int *)clSharedMemAllocINTEL(m_context, m_device, nullptr,
                                                  size, alignment, &err);
   ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
 
@@ -770,7 +777,7 @@ TEST_F(USMTest, setKernelExecInfo) {
     cl_int *b;
     cl_int *c;
   };
-  Foo *foo = (Foo *)clSharedMemAllocINTEL(m_context, m_device, NULL,
+  Foo *foo = (Foo *)clSharedMemAllocINTEL(m_context, m_device, nullptr,
                                           sizeof(Foo), alignment, &err);
   ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
 
@@ -782,7 +789,7 @@ TEST_F(USMTest, setKernelExecInfo) {
   foo->a = bufA;
   foo->b = bufB;
   foo->c = bufC;
-  cl_int result = -1;
+  cl_int result = 0;
 
   // Build program and kernel.
   const char *source[] = {
@@ -791,71 +798,60 @@ TEST_F(USMTest, setKernelExecInfo) {
       "  int *b;\n"
       "  int *c;\n"
       "} Foo;\n"
-      "__kernel void test(const __global Foo *foo,\n"
-      "                   volatile __global int *result) {\n"
+      "kernel void test(const global Foo *foo, global int *result) {\n"
       "  size_t tid = get_global_id(0);\n"
-      "  while (*result == -1); // block the kernel\n"
       "  if (foo->a[tid] == foo->b[tid] && foo->a[tid] == foo->c[tid])\n"
       "    atomic_inc(result);\n"
       "}\n"};
-  cl_program program;
   ASSERT_NO_FATAL_FAILURE(
-      BuildProgram(m_context, m_device, source, 1, program));
-  cl_kernel kernel = clCreateKernel(program, "test", &err);
+      BuildProgram(m_context, m_device, source, 1, m_program));
+  m_kernel = clCreateKernel(m_program, "test", &err);
   ASSERT_OCL_SUCCESS(err, "clCreateKernel test");
 
-  err = clSetKernelArgMemPointerINTEL(kernel, 0, foo);
+  err = clSetKernelArgMemPointerINTEL(m_kernel, 0, foo);
   ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
-  err = clSetKernelArgMemPointerINTEL(kernel, 1, &result);
+  err = clSetKernelArgMemPointerINTEL(m_kernel, 1, &result);
   ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
 
   // At this point, clEnqueueNDRangeKernel should fail as well. However, we
   // don't know if the kernel accesses indirect pointers.
 
-  err = clSetKernelExecInfo(kernel, CL_KERNEL_EXEC_INFO_USM_PTRS_INTEL,
+  err = clSetKernelExecInfo(m_kernel, CL_KERNEL_EXEC_INFO_USM_PTRS_INTEL,
                             sizeof(Foo), foo);
   ASSERT_OCL_SUCCESS(err, "clSetKernelExecInfo");
 
   // clEnqueueNDRangeKernel should fail because access to bufA requires
   // CL_KERNEL_EXEC_INFO_INDIRECT_HOST_ACCESS_INTEL being set.
   size_t gdim = num;
-  size_t ldim = 16;
-  err = clEnqueueNDRangeKernel(m_queue, kernel, 1, NULL, &gdim, &ldim, 0, NULL,
-                               NULL);
+  size_t ldim = 64;
+  err = clEnqueueNDRangeKernel(m_queue, m_kernel, 1, nullptr, &gdim, &ldim, 0,
+                               nullptr, nullptr);
   ASSERT_OCL_EQ(CL_INVALID_OPERATION, err, "clEnqueueNDRangeKernel");
 
   // bufA is host USM.
   cl_bool useIndirectHost = CL_TRUE;
-  err = clSetKernelExecInfo(kernel,
+  err = clSetKernelExecInfo(m_kernel,
                             CL_KERNEL_EXEC_INFO_INDIRECT_HOST_ACCESS_INTEL,
                             sizeof(useIndirectHost), &useIndirectHost);
   ASSERT_OCL_SUCCESS(err, "clSetKernelExecInfo");
 
   // clEnqueueNDRangeKernel should fail because access to bufB/bufC requires
   // CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL being true.
-  err = clEnqueueNDRangeKernel(m_queue, kernel, 1, NULL, &gdim, &ldim, 0, NULL,
-                               NULL);
+  err = clEnqueueNDRangeKernel(m_queue, m_kernel, 1, nullptr, &gdim, &ldim, 0,
+                               nullptr, nullptr);
   ASSERT_OCL_EQ(CL_INVALID_OPERATION, err, "clEnqueueNDRangeKernel");
 
   // bufB and bufC is shared USM.
   cl_bool useIndirectShared = CL_TRUE;
-  err = clSetKernelExecInfo(kernel,
+  err = clSetKernelExecInfo(m_kernel,
                             CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL,
                             sizeof(useIndirectShared), &useIndirectShared);
   ASSERT_OCL_SUCCESS(err, "clSetKernelExecInfo");
 
   // clEnqueueNDRangeKernel should succeed.
-  err = clEnqueueNDRangeKernel(m_queue, kernel, 1, NULL, &gdim, &ldim, 0, NULL,
-                               NULL);
+  err = clEnqueueNDRangeKernel(m_queue, m_kernel, 1, nullptr, &gdim, &ldim, 0,
+                               nullptr, nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
-
-  // This thread is to unblock kernel execution.
-  // Just for testing purpose, detaching and sleeping for 2 seconds to make
-  // clMemBlockingFreeINTEL invoked before kernel completes.
-  std::thread([&]() {
-    std::this_thread::sleep_for(std::chrono::seconds(2));
-    result = 0; // Notify kernel to break the infinite loop.
-  }).detach();
 
   // Test clMemBlockingFreeINTEL when kernel indirectly accesses USM buffers.
   err = clMemBlockingFreeINTEL(m_context, bufA);
@@ -868,23 +864,19 @@ TEST_F(USMTest, setKernelExecInfo) {
 
   // Test CL_FALSE for CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL.
   useIndirectShared = CL_FALSE;
-  err = clSetKernelExecInfo(kernel,
+  err = clSetKernelExecInfo(m_kernel,
                             CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL,
                             sizeof(useIndirectShared), &useIndirectShared);
   ASSERT_OCL_SUCCESS(err, "clSetKernelExecInfo");
 
   // clEnqueueNDRangeKernel should fail because access to bufB/bufC requires
   // CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL being true.
-  err = clEnqueueNDRangeKernel(m_queue, kernel, 1, NULL, &gdim, &ldim, 0, NULL,
-                               NULL);
+  err = clEnqueueNDRangeKernel(m_queue, m_kernel, 1, nullptr, &gdim, &ldim, 0,
+                               nullptr, nullptr);
   ASSERT_OCL_EQ(CL_INVALID_OPERATION, err, "clEnqueueNDRangeKernel");
 
   // Shared system allocations can't be released by blocking USM free.
   delete[] bufC;
   err = clMemFreeINTEL(m_context, foo);
   EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
-  err = clReleaseKernel(kernel);
-  EXPECT_OCL_SUCCESS(err, "clReleaseKernel");
-  err = clReleaseProgram(program);
-  EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
 }

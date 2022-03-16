@@ -23,7 +23,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 #ifdef _DEBUG
 /* These are defined as pointers, since in Linux the order of unloading shared libraries in the exit flow is undefined and objects in data segment might be destroyed before they are used
    in a shared library that has not yet been unloaded. */
-OclMutex* allocatedObjectsMapMutex;
+std::mutex* allocatedObjectsMapMutex;
 map<string, AllocatedObjectsMap >* allocatedObjectsMap;
 #endif
 
@@ -32,7 +32,7 @@ void InitSharedPtrs()
 #ifdef _DEBUG
     if (nullptr == allocatedObjectsMapMutex)
     {
-        allocatedObjectsMapMutex = new OclMutex(DEFAULT_SPIN_COUNT, SUPPORT_RECURSIVE_LOCK);
+        allocatedObjectsMapMutex = new std::mutex();
     }
     if (nullptr == allocatedObjectsMap)
     {
@@ -112,7 +112,7 @@ void DumpSharedPts(const char* map_title, bool if_non_empty)
     
     if ((nullptr != allocatedObjectsMapMutex) && (nullptr != allocatedObjectsMap))
     {
-        allocatedObjectsMapMutex->Lock();
+        std::lock_guard<std::mutex> guard(*allocatedObjectsMapMutex);
 
         if (!if_non_empty)
         {
@@ -120,11 +120,9 @@ void DumpSharedPts(const char* map_title, bool if_non_empty)
             DumpSharedPtsHeader( map_title );
         }
 
-        map<string, AllocatedObjectsMap >::iterator name_it     = allocatedObjectsMap->begin();
-        map<string, AllocatedObjectsMap >::iterator name_it_end = allocatedObjectsMap->end();
-
-        for (; name_it != name_it_end; ++name_it)
-        {
+        for (auto name_it = allocatedObjectsMap->begin(),
+                  name_it_end = allocatedObjectsMap->end();
+             name_it != name_it_end; ++name_it) {
             AllocatedObjectsMap& internal_map = name_it->second;
             if (internal_map.size() > 0)
             {
@@ -134,11 +132,8 @@ void DumpSharedPts(const char* map_title, bool if_non_empty)
                     DumpSharedPtsHeader( map_title );                                        
                 }
                 printf("\n%s:\n", name_it->first.c_str());
-                AllocatedObjectsMapIterator it      = internal_map.begin();
-                AllocatedObjectsMapIterator it_end  = internal_map.end();
-
-                for (; it != it_end; ++it)
-                {
+                for (auto it = internal_map.begin(), e = internal_map.end();
+                     it != e; ++it) {
                     printf("\t%p  %ld\n", it->first, it->second);
                 }
                 
@@ -150,8 +145,6 @@ void DumpSharedPts(const char* map_title, bool if_non_empty)
         {
             DumpSharedPtsFooter( map_title );
         }
-
-        allocatedObjectsMapMutex->Unlock();
     }
 }
 
