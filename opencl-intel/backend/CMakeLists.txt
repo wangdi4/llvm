@@ -6,6 +6,9 @@ if (NOT OPENCL_INTREE_BUILD)
 
   set(LLVM_PATH ${LLVM_PATH_BE})
   find_package(LLVM REQUIRED)
+  set(CLANG_BIN_PATH "${LLVM_BINARY_DIR}/clang")
+else()
+  set(CLANG_BIN_PATH "${LLVM_BINARY_DIR}/bin/clang")
 endif()
 
 set( INTEL_COLLAB ON )
