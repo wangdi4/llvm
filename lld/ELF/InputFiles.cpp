@@ -1083,17 +1083,6 @@ InputSectionBase *ObjFile<ELFT>::createInputSection(uint32_t idx,
   // NOTE: The following hack from the community is disabled inside the Intel
   // customization. LLD should be able to handle the link once sections now.
 
-  // BEGIN COMMUNITY HACK
-  // The linkonce feature is a sort of proto-comdat. Some glibc i386 object
-  // files contain definitions of symbol "__x86.get_pc_thunk.bx" in linkonce
-  // sections. Drop those sections to avoid duplicate symbol errors.
-  // FIXME: This is glibc PR20543, we should remove this hack once that has been
-  // fixed for a while.
-  // if (name == ".gnu.linkonce.t.__x86.get_pc_thunk.bx" ||
-  //    name == ".gnu.linkonce.t.__i686.get_pc_thunk.bx")
-  //  return &InputSection::discarded;
-  // END COMMUNITY HACK
-
   // If the section starts with ".gnu.linkonce.", then treat it as another
   // form of comdat. These sections are used to mark that one resolution
   // will be used for a symbol in the object. For example, the section name
