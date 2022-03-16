@@ -3140,6 +3140,7 @@ class DimInfo {
   Type *Ty = nullptr;
   Type *ElemTy = nullptr;
   Value *Stride = nullptr;
+  bool IsExactMultiple = true;
 
   SmallVector<Value *, 4> Indices;
   SmallVector<Value *, 4> IndicesLB;
@@ -3155,6 +3156,9 @@ public:
 
   Value *getStride() const { return Stride; }
   void setStride(Value *Stride) { this->Stride = Stride; }
+
+  bool isStrideExactMultiple() const { return IsExactMultiple; }
+  void setStrideIsExactMultiple(bool Flag) { IsExactMultiple = Flag; }
 
   // Adds an \p Idx to the dimension. Later these indices will be merged into a
   // single CanonExpr.
@@ -3425,6 +3429,7 @@ std::list<ArrayInfo> HIRParser::GEPChain::parseGEPOp(const SubscriptInst *Sub) {
   Dim.setElementType(Sub->getElementType());
   Dim.setStride(Sub->getStride());
   Dim.addIndex(Sub->getIndex(), Sub->getLowerBound());
+  Dim.setStrideIsExactMultiple(Sub->isExact());
 
   return {Arr};
 }
@@ -3749,6 +3754,9 @@ bool HIRParser::GEPChain::extend(const HIRParser &Parser,
       CurDim.setType(NextDim.getType());
       CurDim.setElementType(NextDim.getElementType());
       CurDim.setStride(NextDim.getStride());
+      // Reset exact flag if either of two dims are not exact.
+      CurDim.setStrideIsExactMultiple(CurDim.isStrideExactMultiple() &&
+                                      NextDim.isStrideExactMultiple());
 
       for (auto Idx : zip(NextDim.indices(), NextDim.indicesLB())) {
         CurDim.addIndex(std::get<0>(Idx), std::get<1>(Idx));
@@ -3862,7 +3870,8 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
       }
 
       Ref->addDimensionHighest(IndexCE, StructOffsets, LowerCE, StrideCE,
-                               Dim.getType(), Dim.getElementType());
+                               Dim.getType(), Dim.getElementType(),
+                               Dim.isStrideExactMultiple());
     }
   }
 

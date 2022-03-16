@@ -76,7 +76,8 @@ RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
       IsCollapsed(Info.IsCollapsed), Alignment(Info.Alignment),
       CanUsePointeeSize(Info.CanUsePointeeSize),
       DimensionOffsets(Info.DimensionOffsets), DimTypes(Info.DimTypes),
-      DimElementTypes(Info.DimElementTypes), MDNodes(Info.MDNodes),
+      DimElementTypes(Info.DimElementTypes),
+      StrideIsExactMultiple(Info.StrideIsExactMultiple), MDNodes(Info.MDNodes),
       GepDbgLoc(Info.GepDbgLoc), MemDbgLoc(Info.MemDbgLoc),
       DummyGepLoc(nullptr) {
 
@@ -1823,6 +1824,9 @@ void RegDDRef::verify() const {
            "Mismatch between base ptr element type and dimension element type "
            "of the highest dimension!");
 
+    assert((GepInfo->StrideIsExactMultiple.size() == getNumDimensions()) &&
+           "Inconsistent GEPInfo!");
+
   } else if (isLval()) {
     assert(getSymbase() > GenericRvalSymbase &&
            "Invalid symbase for lval terminal ref!");
@@ -1876,7 +1880,8 @@ void std::default_delete<RegDDRef>::operator()(RegDDRef *Ref) const {
 void RegDDRef::addDimensionHighest(CanonExpr *IndexCE,
                                    ArrayRef<unsigned> TrailingOffsets,
                                    CanonExpr *LowerBoundCE, CanonExpr *StrideCE,
-                                   Type *DimTy, Type *DimElemTy) {
+                                   Type *DimTy, Type *DimElemTy,
+                                   bool IsExactMultiple) {
   // addDimension() assumes that the ref IS or WILL become a GEP reference.
   createGEP();
 
@@ -1900,12 +1905,14 @@ void RegDDRef::addDimensionHighest(CanonExpr *IndexCE,
 
   GepInfo->DimTypes.push_back(DimTy);
   GepInfo->DimElementTypes.push_back(DimElemTy);
+  GepInfo->StrideIsExactMultiple.push_back(IsExactMultiple);
 }
 
 void RegDDRef::addDimension(CanonExpr *IndexCE,
                             ArrayRef<unsigned> TrailingOffsets,
                             CanonExpr *LowerBoundCE, CanonExpr *StrideCE,
-                            Type *DimTy, Type *DimElemTy) {
+                            Type *DimTy, Type *DimElemTy,
+                            bool IsExactMultiple) {
   assert(IndexCE && "IndexCE is null!");
   Type *ScalarIndexCETy = IndexCE->getDestType()->getScalarType();
 
@@ -1961,6 +1968,8 @@ void RegDDRef::addDimension(CanonExpr *IndexCE,
   // Add Dimension type
   GepInfo->DimTypes.insert(GepInfo->DimTypes.begin(), DimTy);
   GepInfo->DimElementTypes.insert(GepInfo->DimElementTypes.begin(), DimElemTy);
+  GepInfo->StrideIsExactMultiple.insert(GepInfo->StrideIsExactMultiple.begin(),
+                                        IsExactMultiple);
 }
 
 void RegDDRef::removeDimension(unsigned DimensionIndex) {
@@ -1982,6 +1991,8 @@ void RegDDRef::removeDimension(unsigned DimensionIndex) {
     GepInfo->DimTypes.erase(GepInfo->DimTypes.begin() + ToRemoveDim);
     GepInfo->DimElementTypes.erase(GepInfo->DimElementTypes.begin() +
                                    ToRemoveDim);
+    GepInfo->StrideIsExactMultiple.erase(
+        GepInfo->StrideIsExactMultiple.begin() + ToRemoveDim);
 
     if (GepInfo->DimensionOffsets.size() > DimensionIndex) {
       GepInfo->DimensionOffsets.erase(GepInfo->DimensionOffsets.begin() +
