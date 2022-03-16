@@ -196,10 +196,7 @@ set_property(GLOBAL PROPERTY C_STANDARD 99)
 
 set(COMMON_CLANG common_clang${BUILD_PLATFORM})
 if (OPENCL_INTREE_BUILD)
-  get_target_property(CCLANG_USER_INCLUDE_DIRS cl_headers BINARY_DIR)
-  if (NOT CCLANG_USER_INCLUDE_DIRS)
-    message(FATAL_ERROR "Cannot find BINARY_DIR for cl_headers library.")
-  endif()
+  set(CLANG_OPENCL_HEADERS_DIR ${LLVM_EXTERNAL_CLANG_SOURCE_DIR}/lib/Headers)
 
   get_target_property(COMMON_CLANG_H_LOC ${COMMON_CLANG} SOURCE_DIR)
   if ((NOT COMMON_CLANG_H_LOC) OR

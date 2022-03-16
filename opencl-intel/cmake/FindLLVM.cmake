@@ -50,7 +50,7 @@ else(BUILD_LLVM_FROM_SOURCE )
   set(LLVM_INCLUDE_DIRS ${LLVM_PATH}/include
                         ${LLVM_PATH}/include/Intel_OptionalComponents)
   set(CCLANG_DEV_INCLUDE_DIRS ${LLVM_PATH}/include/cclang)
-  set(CCLANG_USER_INCLUDE_DIRS ${LLVM_PATH}/include/cclang)
+  set(CLANG_OPENCL_HEADERS_DIR ${LLVM_PATH}/include/cclang)
   #LLVM_BINARY_DIR is set only if AddLLVM.cmake is used.
   set(LLVM_BINARY_DIR ${LLVM_INSTALL_PREFIX}/bin)
 
