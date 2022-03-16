@@ -3188,6 +3188,24 @@ RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
       ScalarRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, CE);
       SmallVector<const RegDDRef *, 1> AuxRefs = {DDR};
       ScalarRef->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
+    } else if (const auto *If = dyn_cast<VPIfCond>(HIROperand)) {
+      HLInst *Res = nullptr;
+      const HLIf *HIf = If->getIf();
+      for (auto PredIt = HIf->pred_begin(), End = HIf->pred_end();
+           PredIt != End; ++PredIt) {
+        auto *Cmp = HLNodeUtilities.createCmp(
+            *PredIt, HIf->getLHSPredicateOperandDDRef(PredIt)->clone(),
+            HIf->getRHSPredicateOperandDDRef(PredIt)->clone());
+        addInstUnmasked(Cmp);
+        if (Res) {
+          Res = HLNodeUtilities.createAnd(Res->getLvalDDRef()->clone(),
+                                          Cmp->getLvalDDRef()->clone());
+          addInstUnmasked(Res);
+        } else {
+          Res = Cmp;
+        }
+        ScalarRef = Res->getLvalDDRef()->clone();
+      }
     } else {
       const auto *IV = cast<VPIndVar>(HIROperand);
       auto IVLevel = IV->getIVLevel();
@@ -3200,9 +3218,13 @@ RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
     return ScalarRef;
   };
 
-  if (auto *VPExtDef = dyn_cast<VPExternalDef>(VPVal)) {
+  if (auto *ExtDef = dyn_cast<VPExternalDef>(VPVal)) {
     ScalarRef =
-        GetScalarRefForExternal(VPExtDef->getOperandHIR(), VPExtDef->getType());
+        GetScalarRefForExternal(ExtDef->getOperandHIR(), ExtDef->getType());
+    // HACK: Don't add to the mapping as emitting this at the insertion point
+    // might not be dominating all the uses.
+    if (isa<VPIfCond>(ExtDef->getOperandHIR()))
+      return ScalarRef->clone();
   } else if (auto *VPExtUse = dyn_cast<VPExternalUse>(VPVal)) {
     ScalarRef =
         GetScalarRefForExternal(VPExtUse->getOperandHIR(), VPExtUse->getType());
@@ -6282,15 +6304,23 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
       }
 
       const VPValue *CondBit = SourceBB->getCondBit();
-      auto *CondRef = getWideRefForVPVal(CondBit);
-      assert(CondRef && "Missind widened DDRef!");
-      HLInst *Extract = HLNodeUtilities.createExtractElementInst(
-          CondRef->clone(), (unsigned)0, "unifcond");
-      addInst(Extract, nullptr /* Mask */);
-      CondRef = Extract->getLvalDDRef()->clone();
-      HLIf *If = HLNodeUtilities.createHLIf(
-          Pred, CondRef,
-          DDRefUtilities.createConstDDRef(CondRef->getDestType(), 1));
+      HLIf *If = nullptr;
+      if (auto *Ext = dyn_cast<VPExternalDef>(CondBit)) {
+        auto *ScalarIf = cast<VPIfCond>(Ext->getOperandHIR())->getIf();
+        If = ScalarIf->cloneEmpty();
+        for (RegDDRef *Ref : If->op_ddrefs())
+          MainLoop->addLiveInTemp(Ref);
+      } else {
+        auto *CondRef = getWideRefForVPVal(CondBit);
+        assert(CondRef && "Missind widened DDRef!");
+        HLInst *Extract = HLNodeUtilities.createExtractElementInst(
+            CondRef->clone(), (unsigned)0, "unifcond");
+        addInst(Extract, nullptr /* Mask */);
+        CondRef = Extract->getLvalDDRef()->clone();
+        If = HLNodeUtilities.createHLIf(
+            Pred, CondRef,
+            DDRefUtilities.createConstDDRef(CondRef->getDestType(), 1));
+      }
       addInst(If, nullptr /* Mask */);
 
       HLGoto *ThenGoto = createGotoAndSetTargetLabel(Succ1);

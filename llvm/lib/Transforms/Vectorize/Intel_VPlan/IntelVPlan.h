@@ -4366,6 +4366,10 @@ public:
     return Externals.getVPExternalDefForIV(IVLevel, BaseTy);
   }
 
+  VPExternalDef *getVPExternalDefForIfCond(const loopopt::HLIf *If) {
+    return Externals.getVPExternalDefForIfCond(If);
+  }
+
   /// Create a new VPMetadataAsValue for \p MDAsValue if it doesn't exist or
   /// retrieve the existing one.
   VPMetadataAsValue *getVPMetadataAsValue(MetadataAsValue *MDAsValue) {

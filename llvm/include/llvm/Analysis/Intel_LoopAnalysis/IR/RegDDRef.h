@@ -815,6 +815,12 @@ public:
   const_canon_iterator canon_begin() const { return CanonExprs.begin(); }
   canon_iterator canon_end() { return CanonExprs.end(); }
   const_canon_iterator canon_end() const { return CanonExprs.end(); }
+  iterator_range<canon_iterator> canons() {
+    return make_range(canon_begin(), canon_end());
+  }
+  iterator_range<const_canon_iterator> canons() const {
+    return make_range(canon_begin(), canon_end());
+  }
 
   reverse_canon_iterator canon_rbegin() { return CanonExprs.rbegin(); }
   const_reverse_canon_iterator canon_rbegin() const {

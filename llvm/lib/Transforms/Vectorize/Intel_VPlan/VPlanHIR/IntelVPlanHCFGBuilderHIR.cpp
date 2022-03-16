@@ -653,11 +653,33 @@ void PlainCFGBuilderHIR::visit(HLIf *HIf) {
   updateActiveVPBB(HIf);
   VPBasicBlock *ConditionVPBB = ActiveVPBB;
 
-  // Create (single, not decomposed) VPInstruction for HLIf's predicate and set
-  // it as condition bit of the active VPBasicBlock.
-  // TODO: Remove "not decomposed" when decomposing HLIfs.
-  VPInstruction *CondBit =
-      Decomposer.createVPInstructionsForNode(HIf, ActiveVPBB);
+  unsigned VecLoopLevel = TheLoop->getNestingLevel();
+  bool IsInvariantCondition =
+      all_of(HIf->op_ddrefs(), [VecLoopLevel](const RegDDRef *Ref) {
+        // Not invariant.
+        if (!Ref->isStructurallyInvariantAtLevel(VecLoopLevel))
+          return false;
+
+        // Not hoistable.
+        if (Ref->isMemRef())
+          return false;
+
+        for (const CanonExpr *CE : Ref->canons()) {
+          for (auto BlobIt : CE->blobs()) {
+            const BlobTy Blob = CE->getBlobUtils().getBlob(BlobIt.Index);
+            // Not hoistable either.
+            if (BlobUtils::mayContainUDivByZero(Blob))
+              return false;
+          }
+        }
+
+        return true;
+      });
+  VPValue *CondBit;
+  if (IsInvariantCondition)
+    CondBit = Plan->getVPExternalDefForIfCond(HIf);
+  else
+    CondBit = Decomposer.createVPInstructionsForNode(HIf, ActiveVPBB);
   CondBits[ConditionVPBB] = CondBit;
 
   // - Then branch -
