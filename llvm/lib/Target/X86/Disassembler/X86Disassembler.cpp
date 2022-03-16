@@ -186,6 +186,25 @@ static InstrUID decode(OpcodeType type, InstructionContext insnContext,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+// Check the escape byte and return opcode by 'byte'.
+// We always assume the instruction we want to check is:
+// 66/F2/F3 0F (OpCode) or 0F (OpCode).
+static bool getByte(struct InternalInstruction *insn, uint8_t &byte,
+                    uint64_t offset) {
+  uint64_t pos = insn->readerCursor + offset - insn->startLocation;
+  if (pos >= insn->bytes.size() || pos < 1)
+    return true;
+  if (insn->bytes[pos - 1] != 0xf)
+    return true;
+  byte = insn->bytes[pos];
+  return false;
+}
+
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
+
 static bool peek(struct InternalInstruction *insn, uint8_t &byte) {
   uint64_t offset = insn->readerCursor - insn->startLocation;
   if (offset >= insn->bytes.size())
@@ -276,6 +295,24 @@ static int readPrefixes(struct InternalInstruction *insn) {
       uint8_t nextByte;
       if (peek(insn, nextByte))
         break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+      // In XuCC mode, "F2 66" and "F3 66" are two special prefixes.
+      // We need to check the opcode here since the 0x66 can be operand-size
+      // prefix, e.g:
+      // The decoding of '0xf3,0x66,0x0f,0xbd,0xd8' is 'lzcntw  %ax, %bx'.
+      if (nextByte == 0x66 && insn->isXuCCMode) {
+        uint8_t insnOpcode;
+        if (!getByte(insn, insnOpcode, 2) && insnOpcode == 0xb5) {
+          insn->xuccExtensionPrefix[0] = byte;
+          consume(insn, insn->xuccExtensionPrefix[1]);
+          insn->xuccExtensionType =
+              (byte == 0xf2) ? XuCC_PREFIX_F2 : XuCC_PREFIX_F3;
+          break;
+        }
+      }
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
       // TODO:
       //  1. There could be several 0x66
       //  2. if (nextByte == 0x66) and nextNextByte != 0x0f then
@@ -311,6 +348,39 @@ static int readPrefixes(struct InternalInstruction *insn) {
       insn->hasOpSize = true;
       if (peek(insn, nextByte))
         break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+      // In XuCC mode, "66 F2" and "66 F3" can be a pure prefixes.
+      // For now, only gtranslaterd_tioprm, gtranslatewr_tioprm and spbusmsg use
+      // these as pure prefix. We need check the opcode here too since in some
+      // cases 0x66 is the operand-size prefix, e.g: gmovlin (%rbx), %ax. Its
+      // encoding is '0x66,0xf3,0x0f,0x02,0x03'.
+      if (insn->isXuCCMode) {
+        uint8_t insnOpcode;
+        if ((nextByte == 0xf2 || nextByte == 0xf3) &&
+            !getByte(insn, insnOpcode, 2) &&
+            (insnOpcode == 0x00 || insnOpcode == 0x03)) {
+          insn->xuccExtensionPrefix[0] = byte;
+          consume(insn, insn->xuccExtensionPrefix[1]);
+          insn->xuccExtensionType = XuCC_PREFIX_66;
+          // "66“ is no longer Operand-size prefix.
+          insn->hasOpSize = false;
+          break;
+        } else if (!getByte(insn, insnOpcode, 1) && insnOpcode == 0x03) {
+          // The encoding of asidswitch_tlbflush is '66 0F 03', which is
+          // conflict with lslw instructions. In XuCC code, it will always be
+          // decoded to asidswitch_tlbflush instruction.
+          // Besides, the encoding of cmodemov is '0F 03', since its operand
+          // can never be 16-bits, it doesn't conflict with asidswitch_tlbflush.
+          insn->xuccExtensionPrefix[0] = byte;
+          insn->xuccExtensionType = XuCC_PREFIX_66;
+          // "66“ is no longer Operand-size prefix.
+          insn->hasOpSize = false;
+          break;
+        }
+      }
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
       // 0x66 can't overwrite existing mandatory prefix and should be ignored
       if (!insn->mandatoryPrefix && (nextByte == 0x0f || isREX(insn, nextByte)))
         insn->mandatoryPrefix = byte;
@@ -325,6 +395,14 @@ static int readPrefixes(struct InternalInstruction *insn) {
     }
 
     if (isPrefix)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+      if (insn->xuccExtensionType) {
+        LLVM_DEBUG(dbgs() << format("Found XuCC prefix 0x%hhx\n", byte)
+                          << format("Found prefix 0x%hhx", nextByte));
+      } else
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
       LLVM_DEBUG(dbgs() << format("Found prefix 0x%hhx", byte));
   }
 
@@ -1217,6 +1295,28 @@ static int getInstructionID(struct InternalInstruction *insn,
     } else {
       return -1;
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  } else if (insn->xuccExtensionType != XuCC_PREFIX_NONE) {
+    // Currently there are only four combinations of prefixes:
+    // '66 F3', '66 F2', 'F2 66' and 'F3 66'.
+    if (insn->xuccExtensionType == XuCC_PREFIX_66) {
+      attrMask |= ATTR_XUCCPD;
+      if (insn->xuccExtensionPrefix[1] == 0xf3)
+        attrMask |= ATTR_XS;
+      else if (insn->xuccExtensionPrefix[1] == 0xf2)
+        attrMask |= ATTR_XD;
+    } else if (insn->xuccExtensionType == XuCC_PREFIX_F2) {
+      assert(insn->xuccExtensionPrefix[1] == 0x66 && "Unexpected XuCC prefix");
+      attrMask |= ATTR_XUCCXD;
+    } else if (insn->xuccExtensionType == XuCC_PREFIX_F3) {
+      assert(insn->xuccExtensionPrefix[1] == 0x66 && "Unexpected XuCC prefix");
+      attrMask |= ATTR_XUCCXS;
+    } else {
+      llvm_unreachable("Unexpected XuCC prefix");
+    }
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   } else if (!insn->mandatoryPrefix) {
     // If we don't have mandatory prefix we should use legacy prefixes here
     if (insn->hasOpSize && (insn->mode != MODE_16BIT))
@@ -1759,6 +1859,11 @@ public:
 
 private:
   DisassemblerMode              fMode;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  bool  isXuCCMode;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // namespace
@@ -1769,6 +1874,11 @@ X86GenericDisassembler::X86GenericDisassembler(
                                          std::unique_ptr<const MCInstrInfo> MII)
   : MCDisassembler(STI, Ctx), MII(std::move(MII)) {
   const FeatureBitset &FB = STI.getFeatureBits();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  isXuCCMode = FB[X86::ModeXuCC];
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   if (FB[X86::Mode16Bit]) {
     fMode = MODE_16BIT;
     return;
@@ -1794,6 +1904,11 @@ MCDisassembler::DecodeStatus X86GenericDisassembler::getInstruction(
   Insn.startLocation = Address;
   Insn.readerCursor = Address;
   Insn.mode = fMode;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  Insn.isXuCCMode = isXuCCMode;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 
   if (Bytes.empty() || readPrefixes(&Insn) || readOpcode(&Insn) ||
       getInstructionID(&Insn, MII.get()) || Insn.instructionID == 0 ||
@@ -2440,4 +2555,10 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Disassembler() {
                                          createX86Disassembler);
   TargetRegistry::RegisterMCDisassembler(getTheX86_64Target(),
                                          createX86Disassembler);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  TargetRegistry::RegisterMCDisassembler(getTheX86_XuCCTarget(),
+                                         createX86Disassembler);
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 }

@@ -1028,6 +1028,15 @@ namespace X86II {
     // Force output with prefix
     EmitVEXOrEVEXPrefixShift = ExplicitVEXShift + 1,
     EmitVEXOrEVEXPrefix = 1ULL << EmitVEXOrEVEXPrefixShift,
+#if INTEL_FEATURE_XUCC
+    // XuCCPrefix - These prefix bytes are used for some XuCC instructions.
+    // Their encoding is actually the same as OpPrefix.
+    XuCCPrefixShift = EmitVEXOrEVEXPrefixShift + 1,
+    XuCCOpPrefixMask = 3ULL << XuCCPrefixShift,
+    XuCCPD = 1ULL << XuCCPrefixShift,  // 66
+    XuCCXS = 2ULL << XuCCPrefixShift,  // F3
+    XuCCXD = 3ULL << XuCCPrefixShift,  // F2
+#endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
   };
 
