@@ -1303,6 +1303,15 @@ void VPOCodeGenHIR::setupLiveInLiveOut() {
       addLiveInLiveOut(Def, User, DefRef);
   }
 
+  // For each external value in VPValsToFlushForVF map, get the users and add
+  // the livein information.
+  for (auto &ValRef : VPValsToFlushForVF) {
+    auto *Def = ValRef.first;
+    auto *DefRef = ValRef.second;
+    for (auto *User : Def->users())
+      addLiveInLiveOut(Def, User, DefRef);
+  }
+
   // For each definition in VPValScalRef map, get the users and add the
   // livein/liveout information
   for (auto &ValRef : VPValScalRefMap) {
@@ -3269,7 +3278,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
   // Keep the VPValue for dropping when we switch VF. TODO: Move it to
   // addVPValueWideRefMapping instead?
   if (!isa<VPInstruction>(VPVal))
-    VPValsToFlushForVF.insert(VPVal);
+    VPValsToFlushForVF[VPVal] = WideRef;
 
   // Clients can potentially modify the returned value. Return the cloned value.
   return WideRef->clone();
