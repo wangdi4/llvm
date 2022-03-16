@@ -2528,6 +2528,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
     PM.add(createHIRLoopCollapsePass());
     PM.add(createHIRIdiomRecognitionPass());
     PM.add(createHIRLoopFusionPass());
+    PM.add(createHIRIfReversalPass());
     INTEL_LIMIT_END // INTEL
 
     if (SizeLevel == 0) {

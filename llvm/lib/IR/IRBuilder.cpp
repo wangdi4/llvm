@@ -531,39 +531,13 @@ IRBuilderBase::CreateAssumption(Value *Cond,
 #if INTEL_CUSTOMIZATION
 // Intrinsic generated for the return pointers
 Instruction *IRBuilderBase::CreateFakeLoad(Value *Ptr, MDNode *TbaaTag) {
-  Value *CPtr = Ptr;
-
-  Type *Ty = CPtr->getType();
-
-  // CQ415654.
-  // We may encounter multi level pointer and the PointerElelmentType
-  // is Literal struct type.
-  //
-  while (PointerType *PtrTy = dyn_cast<PointerType>(Ty->getPointerElementType())) {
-    Ty = PtrTy;
-  }
-
-  if (StructType *STyp =
-          dyn_cast<StructType>(Ty->getPointerElementType())) {
-    if (STyp->isLiteral())
-      CPtr = getCastedInt8PtrValue(CPtr);
-  }
-
-  Type *Types[] = {CPtr->getType()};
-  Value *Ops[] = {CPtr, MetadataAsValue::get(Context, TbaaTag)};
+  Type *Types[] = {Ptr->getType()};
+  Value *Ops[] = {Ptr, MetadataAsValue::get(Context, TbaaTag)};
   Module *M = BB->getParent()->getParent();
   Function *FnFakeLoad =
       Intrinsic::getDeclaration(M, Intrinsic::intel_fakeload, Types);
   Instruction *Ret = createCallHelper(FnFakeLoad, Ops, this);
   cast<CallInst>(Ret)->setDoesNotThrow();
-
-  if (Ret->getType() != Ptr->getType()) {
-    BitCastInst *BCI = new BitCastInst(Ret, Ptr->getType(), "");
-    BB->getInstList().insert(InsertPt, BCI);
-    SetInstDebugLocation(BCI);
-    Ret = BCI;
-  }
-
   return Ret;
 }
 

@@ -313,6 +313,10 @@ public:
   void setUnswitchDisabled(bool Disabled = true) {
     UnswitchDisabled = Disabled;
   }
+
+  /// Inverts the predicate and swaps the then-path with else-path,
+  /// changing lexical order, but preserving logic.
+  void invertPredAndReverse();
 };
 
 } // End namespace loopopt
