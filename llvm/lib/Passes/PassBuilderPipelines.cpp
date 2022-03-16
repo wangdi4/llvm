@@ -253,6 +253,7 @@
 
 // Transformation passes
 #include "llvm/Transforms/Intel_LoopTransforms/HIRAosToSoaPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRArrayScalarizationTestLauncherPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRArrayTransposePass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRConditionalLoadStoreMotion.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRConditionalTempSinkingPass.h"
@@ -260,7 +261,9 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRGeneralUnrollPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRGenerateMKLCallPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixIdiomRecognitionPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixSubstitution.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdiomRecognitionPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRIfReversalPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLMMPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLastValueComputationPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopBlockingPass.h"
@@ -277,6 +280,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMVForVariableStridePass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMemoryReductionSinkingPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMultiExitLoopRerollPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRNonZeroSinkingForPerfectLoopnest.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRNontemporalMarking.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptPredicatePass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptVarPredicatePass.h"
@@ -290,16 +294,12 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRRuntimeDDPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRScalarReplArrayPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSinkingForPerfectLoopnestPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRStoreResultIntoTempArray.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSumWindowReuse.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTempCleanupPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRUndoSinkingForPerfectLoopnestPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJamPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRVecDirInsertPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRRowWiseMVPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRStoreResultIntoTempArray.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRNonZeroSinkingForPerfectLoopnest.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixSubstitution.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRArrayScalarizationTestLauncherPass.h"
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/Intel_LoopTransforms/HIRCrossLoopArrayContraction.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRInterLoopBlockingPass.h"
@@ -2053,6 +2053,7 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
       FPM.addPass(HIRLoopCollapsePass());
       FPM.addPass(HIRIdiomRecognitionPass());
       FPM.addPass(HIRLoopFusionPass());
+      FPM.addPass(HIRIfReversalPass());
     }
 
     if (Level.getSizeLevel() == 0) {
