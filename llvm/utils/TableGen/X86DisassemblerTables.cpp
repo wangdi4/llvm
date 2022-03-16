@@ -40,7 +40,13 @@ static inline const char* stringForContext(InstructionContext insnContext) {
 #define ENUM_ENTRY_K_B(n, r, d) ENUM_ENTRY(n, r, d) ENUM_ENTRY(n##_K_B, r, d)\
         ENUM_ENTRY(n##_KZ, r, d) ENUM_ENTRY(n##_K, r, d) ENUM_ENTRY(n##_B, r, d)\
         ENUM_ENTRY(n##_KZ_B, r, d)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  INSTRUCTION_XUCC_CONTEXTS
+#else // INTEL_FEATURE_XUCC
   INSTRUCTION_CONTEXTS
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 #undef ENUM_ENTRY
 #undef ENUM_ENTRY_K_B
   }
@@ -564,6 +570,16 @@ static inline bool inheritsFrom(InstructionContext child,
   case IC_EVEX_L2_W_XD_KZ_B:
   case IC_EVEX_L2_W_OPSIZE_KZ_B:
     return false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  case IC_XUCCPD:
+  case IC_XUCCPD_XS:
+  case IC_XUCCPD_XD:
+  case IC_XUCCXS_PD:
+  case IC_XUCCXD_PD:
+    return false;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   default:
     errs() << "Unknown instruction class: " <<
       stringForContext((InstructionContext)parent) << "\n";
@@ -588,7 +604,13 @@ static inline bool outranks(InstructionContext upper,
   ENUM_ENTRY(n##_K_B, r, d) ENUM_ENTRY(n##_KZ_B, r, d) \
   ENUM_ENTRY(n##_KZ, r, d) ENUM_ENTRY(n##_K, r, d) ENUM_ENTRY(n##_B, r, d)
   static int ranks[IC_max] = {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+    INSTRUCTION_XUCC_CONTEXTS
+#else // INTEL_FEATURE_XUCC
     INSTRUCTION_CONTEXTS
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   };
 #undef ENUM_ENTRY
 #undef ENUM_ENTRY_K_B
@@ -925,6 +947,23 @@ void DisassemblerTables::emitContextTable(raw_ostream &o, unsigned &i) const {
         if (index & ATTR_EVEXB)
           o << "_B";
       }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+    } else if ((index & ATTR_XUCCPD) || (index & ATTR_XUCCXD) ||
+               (index & ATTR_XUCCXS)) {
+      if (index & ATTR_XUCCPD) {
+        o << "IC_XUCCPD";
+        if (index & ATTR_XS)
+          o << "_XS";
+        else if (index & ATTR_XD)
+          o << "_XD";
+      } else if (index & ATTR_XUCCXD) {
+        o << "IC_XUCCXD_PD";
+      } else if (index & ATTR_XUCCXS) {
+        o << "IC_XUCCXS_PD";
+      }
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
     } else if ((index & ATTR_64BIT) && (index & ATTR_REXW) && (index & ATTR_XS))
       o << "IC_64BIT_REXW_XS";
     else if ((index & ATTR_64BIT) && (index & ATTR_REXW) && (index & ATTR_XD))

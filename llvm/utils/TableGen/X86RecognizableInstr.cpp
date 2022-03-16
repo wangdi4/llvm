@@ -80,6 +80,11 @@ RecognizableInstr::RecognizableInstr(DisassemblerTables &tables,
   Opcode   = byteFromRec(Rec, "Opcode");
   Form     = byteFromRec(Rec, "FormBits");
   Encoding = byteFromRec(Rec, "OpEncBits");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  XuCCOpPrefix = byteFromRec(Rec, "XuCCOpPrefixBits");
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 
   OpSize             = byteFromRec(Rec, "OpSizeBits");
   AdSize             = byteFromRec(Rec, "AdSizeBits");
@@ -108,6 +113,11 @@ RecognizableInstr::RecognizableInstr(DisassemblerTables &tables,
   // Check for 64-bit inst which does not require REX
   Is32Bit = false;
   Is64Bit = false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  IsXuCCMode = false;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   // FIXME: Is there some better way to check for In64BitMode?
   std::vector<Record*> Predicates = Rec->getValueAsListOfDefs("Predicates");
   for (unsigned i = 0, e = Predicates.size(); i != e; ++i) {
@@ -120,6 +130,15 @@ RecognizableInstr::RecognizableInstr(DisassemblerTables &tables,
       Is64Bit = true;
       break;
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+    if (Predicates[i]->getName().contains("InXuCCMode")) {
+      IsXuCCMode = true;
+      Is64Bit = true;
+      break;
+    }
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   }
 
   if (Form == X86Local::Pseudo || (IsCodeGenOnly && !ForceDisassemble)) {
@@ -292,6 +311,28 @@ InstructionContext RecognizableInstr::insnContext() const {
       errs() << "Instruction does not use a prefix: " << Name << "\n";
       llvm_unreachable("Invalid prefix");
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  } else if (IsXuCCMode && XuCCOpPrefix) {
+    if (XuCCOpPrefix == X86Local::XuCCPD) {
+      if (OpPrefix == X86Local::XS)
+        insnContext = IC_XUCCPD_XS;
+      else if (OpPrefix == X86Local::XD)
+        insnContext = IC_XUCCPD_XD;
+      else
+        insnContext = IC_XUCCPD;
+    } else if (XuCCOpPrefix == X86Local::XuCCXS) {
+      assert(OpPrefix == X86Local::PD && "Invalid prefix");
+      insnContext = IC_XUCCXS_PD;
+    } else if (XuCCOpPrefix == X86Local::XuCCXD) {
+      assert(OpPrefix == X86Local::PD && "Invalid prefix");
+      insnContext = IC_XUCCXD_PD;
+    } else {
+      errs() << "Instruction does not use a prefix: " << Name << "\n";
+      llvm_unreachable("Invalid prefix");
+    }
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   } else if (Is64Bit || HasREX_WPrefix || AdSize == X86Local::AdSize64) {
     if (HasREX_WPrefix && (OpSize == X86Local::OpSize16 || OpPrefix == X86Local::PD))
       insnContext = IC_64BIT_REXW_OPSIZE;

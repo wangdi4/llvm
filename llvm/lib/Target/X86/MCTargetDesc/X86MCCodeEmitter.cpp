@@ -1433,6 +1433,23 @@ bool X86MCCodeEmitter::emitOpcodePrefix(int MemOperand, const MCInst &MI,
   if (TSFlags & X86II::NOTRACK || MI.getFlags() & X86::IP_HAS_NOTRACK)
     emitByte(0x3E, OS);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  // Emit the XuCC opcode prefix.
+  switch (TSFlags & X86II::XuCCOpPrefixMask) {
+  case X86II::XuCCPD: // 66
+    emitByte(0x66, OS);
+    break;
+  case X86II::XuCCXS: // F3
+    emitByte(0xF3, OS);
+    break;
+  case X86II::XuCCXD: // F2
+    emitByte(0xF2, OS);
+    break;
+  }
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
+
   switch (TSFlags & X86II::OpPrefixMask) {
   case X86II::PD: // 66
     emitByte(0x66, OS);

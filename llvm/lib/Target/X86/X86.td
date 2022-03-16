@@ -25,6 +25,12 @@ def Mode32Bit : SubtargetFeature<"32bit-mode", "In32BitMode", "true",
                                   "32-bit mode (80386)">;
 def Mode16Bit : SubtargetFeature<"16bit-mode", "In16BitMode", "true",
                                   "16-bit mode (i8086)">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+def ModeXuCC : SubtargetFeature<"xucc-mode", "InXuCCMode", "true",
+                                "xucc mode (x86_64_xucc)">;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // X86 Subtarget ISA features

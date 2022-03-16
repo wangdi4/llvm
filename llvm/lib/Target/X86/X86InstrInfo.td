@@ -1269,6 +1269,14 @@ def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<(all_of (not Mode64Bit)), "Not 64-bit mode">;
 def In64BitMode  : Predicate<"Subtarget->is64Bit()">,
                              AssemblerPredicate<(all_of Mode64Bit), "64-bit mode">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+def NotXuCCMode : Predicate<"!Subtarget->isXuCC()">,
+                             AssemblerPredicate<(all_of (not ModeXuCC)), "Not XuCC mode">;
+def InXuCCMode  : Predicate<"Subtarget->isXuCC()">,
+                             AssemblerPredicate<(all_of ModeXuCC), "XuCC mode">;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 def IsLP64  : Predicate<"Subtarget->isTarget64BitLP64()">;
 def NotLP64 : Predicate<"!Subtarget->isTarget64BitLP64()">;
 def In16BitMode  : Predicate<"Subtarget->is16Bit()">,
@@ -3481,6 +3489,9 @@ include "Intel_X86InstrMOVGET.td"
 #if INTEL_FEATURE_ISA_RAO_INT
 include "Intel_X86InstrRAOINT.td"
 #endif // INTEL_FEATURE_ISA_RAO_INT
+#if INTEL_FEATURE_XUCC
+include "Intel_X86XuCC.td"
+#endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
 
 // System instructions.
