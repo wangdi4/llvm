@@ -19,13 +19,13 @@
 
 #include <cassert>
 #include <map>
+#include <mutex>
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
 #ifdef _DEBUG
-extern OclMutex* allocatedObjectsMapMutex;
+extern std::mutex* allocatedObjectsMapMutex;
 typedef std::map<const void*, long>                 AllocatedObjectsMap;
-typedef std::map<const void*, long>::iterator       AllocatedObjectsMapIterator;
 extern std::map<std::string, AllocatedObjectsMap >* allocatedObjectsMap;
 #endif
 
@@ -42,7 +42,7 @@ void SharedPtrBase<T>::IncRefCnt()
     void*       p    = (void*)(this->m_ptr->GetThis());
     if (lRefCnt >= 0 && nullptr != allocatedObjectsMapMutex && nullptr != allocatedObjectsMap && name != "")   // otherwise the object isn't reference counted
     {
-        allocatedObjectsMapMutex->Lock();
+        std::lock_guard<std::mutex> guard(*allocatedObjectsMapMutex);
         if (1 == lRefCnt)
         {
             (*allocatedObjectsMap)[name][p] = 1;
@@ -51,7 +51,6 @@ void SharedPtrBase<T>::IncRefCnt()
         {   
             ++((*allocatedObjectsMap)[name][p]);
         }
-        allocatedObjectsMapMutex->Unlock();        
     }
 #endif
 }
@@ -72,13 +71,11 @@ void SharedPtrBase<T>::DecRefCntInt(T* ptr)
 #ifdef _DEBUG
         if (!bIsAllocationDbNull)
         {
-            allocatedObjectsMapMutex->Lock();
+            std::lock_guard<std::mutex> guard(*allocatedObjectsMapMutex);
 
             AllocatedObjectsMap& internal_map = (*allocatedObjectsMap)[name];
-            AllocatedObjectsMapIterator it = internal_map.find(p);
-            AllocatedObjectsMapIterator it_end = internal_map.end();
-
-            if (it_end != it)
+            auto it = internal_map.find(p);
+            if (it != internal_map.end())
             {
                 --(it->second);
                 if (0 == it->second)
@@ -86,8 +83,6 @@ void SharedPtrBase<T>::DecRefCntInt(T* ptr)
                     internal_map.erase( it );
                 }
             }
-            
-            allocatedObjectsMapMutex->Unlock();
         }
 #endif
         if (0 == lNewVal)
