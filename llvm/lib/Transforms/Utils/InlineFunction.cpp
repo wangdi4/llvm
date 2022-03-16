@@ -1016,8 +1016,9 @@ AddPtrNoAliasLoads(CallBase &CB, const Argument &Arg,
       PtrNoAliasLoads.push_back(Load);
       continue;
     }
-
-    if (isa<GEPOrSubsOperator>(User)) {
+    // CMPLRLLVM-35874: Note that a BitCastOperator is the same as a GEP
+    // when it comes to transmitting a pointer address.
+    if (isa<GEPOrSubsOperator>(User) || isa<BitCastOperator>(User)) {
       Worklist.append(User->user_begin(), User->user_end());
     }
   }
