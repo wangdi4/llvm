@@ -1976,6 +1976,16 @@ if (INTEL_CUSTOMIZATION)
         )
     endif()
 
+    set(INTEL_LIBDEV_DEPLOY_COMPONENTS_LIST
+      # Libdev components
+      libdev-libirc libdev-frtl libdev-libbfp754 libdev-libifport
+      libdev-libistrconv libdev-svml
+    )
+
+    list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
+      ${INTEL_LIBDEV_DEPLOY_COMPONENTS_LIST}
+    )
+
     set(INTEL_OPENCL_DEPLOY_COMPONENTS_LIST
       # OpenCL components
       ocl-common_clang ocl-common_clang_emu ocl-builtins ocl-builtins-shared
