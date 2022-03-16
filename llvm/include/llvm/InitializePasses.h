@@ -682,6 +682,7 @@ void initializeHIRSumWindowReuseLegacyPassPass(PassRegistry &);
 void initializeHIRNonZeroSinkingForPerfectLoopnestLegacyPassPass(PassRegistry&);
 void initializeHIRIdentityMatrixSubstitutionLegacyPassPass(PassRegistry&);
 void initializeHIRArrayScalarizationTestLauncherLegacyPassPass(PassRegistry &);
+void initializeHIRIfReversalLegacyPassPass(PassRegistry &);
 #if INTEL_FEATURE_SW_ADVANCED
 void initializeHIRInterLoopBlockingLegacyPassPass(PassRegistry &);
 void initializeHIRCrossLoopArrayContractionLegacyPassPass(PassRegistry&);

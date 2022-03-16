@@ -422,3 +422,17 @@ bool HLIf::isUnknownLoopBottomTest() const {
   auto ParentLoop = dyn_cast_or_null<HLLoop>(getParent());
   return (ParentLoop && (ParentLoop->getBottomTest() == this));
 }
+
+void HLIf::invertPredAndReverse() {
+  assert(getNumPredicates() == 1 && "Can only handle single pred!");
+
+  auto Pred = pred_begin();
+  invertPredicate(Pred);
+
+  // Placeholders for the swap
+  auto ElseBegin = else_begin();
+  auto ElseEnd = else_end();
+
+  HLNodeUtils::moveAsFirstElseChildren(this, then_begin(), then_end());
+  HLNodeUtils::moveAsFirstThenChildren(this, ElseBegin, ElseEnd);
+}
