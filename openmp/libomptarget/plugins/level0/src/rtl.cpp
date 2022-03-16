@@ -396,7 +396,7 @@ struct KernelBatchTy {
   ze_command_list_handle_t CmdList = nullptr;
   ze_command_queue_handle_t CmdQueue = nullptr;
   ze_event_pool_handle_t EventPool = nullptr;
-  std::vector<ze_event_handle_t> Events;
+  ze_event_handle_t Event = nullptr;
   bool UseImmCmdList = false;
 
   ~KernelBatchTy() {
@@ -405,8 +405,7 @@ struct KernelBatchTy {
     if (CmdQueue)
       CALL_ZE_RET_VOID(zeCommandQueueDestroy, CmdQueue);
     if (EventPool) {
-      for (auto &E : Events)
-        CALL_ZE_RET_VOID(zeEventDestroy, E);
+      CALL_ZE_RET_VOID(zeEventDestroy, Event);
       CALL_ZE_RET_VOID(zeEventPoolDestroy, EventPool);
     }
   }
@@ -414,10 +413,14 @@ struct KernelBatchTy {
   int32_t enqueueKernel(const ze_kernel_handle_t Kernel,
                         const ze_group_count_t &GroupCounts) {
     // Already locked
-    ze_event_handle_t Event = UseImmCmdList ? Events[NumCommands] : nullptr;
     CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, CmdList, Kernel,
-                     &GroupCounts, Event, 0, nullptr);
+                     &GroupCounts, nullptr, 0, nullptr);
     NumCommands++;
+
+    if (UseImmCmdList && NumCommands >= MaxCommands) {
+      CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, CmdList, Event, 0, nullptr);
+    }
+
     return OFFLOAD_SUCCESS;
   }
 
@@ -425,10 +428,9 @@ struct KernelBatchTy {
     std::lock_guard<std::mutex> Lock(DeviceMtx);
     if (NumCommands >= MaxCommands) {
       if (UseImmCmdList) {
-        for (auto I = 0; I < MaxCommands; I++) {
-          CALL_ZE_RET_FAIL(zeEventHostSynchronize, Events[I], UINT64_MAX);
-          CALL_ZE_RET_FAIL(zeEventHostReset, Events[I]);
-        }
+        // Use barrier + event
+        CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
+        CALL_ZE_RET_FAIL(zeEventHostReset, Event);
       } else {
         CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
         CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1,
@@ -2105,7 +2107,7 @@ struct RTLOptionTy {
     if ((Env =
         readEnvVar("LIBOMPTARGET_LEVEL_ZERO_USE_IMMEDIATE_COMMAND_LIST"))) {
       int32_t Value = parseBool(Env);
-      if (Value == 0 || Value == 1)
+      if (Value >= 0 && Value <= 1)
         Flags.UseImmCmdList = Value;
     }
   }
@@ -2332,8 +2334,10 @@ public:
 
   RTLDeviceInfoTy() = default;
 
+  /// Start a user-guided kernel-batching region
   void beginKernelBatch(int32_t DeviceId, uint32_t MaxKernels);
 
+  /// End a user-guided kernel-batching region
   void endKernelBatch(int32_t DeviceId);
 
   ze_command_list_handle_t getCmdList(int32_t DeviceId) {
@@ -5652,54 +5656,38 @@ bool RTLDeviceInfoTy::isExtensionSupported(const char *ExtName) {
 void RTLDeviceInfoTy::beginKernelBatch(int32_t DeviceId, uint32_t MaxKernels) {
   auto &Batch = BatchCmdQueues[DeviceId];
   Batch.MaxCommands = MaxKernels;
+  Batch.UseImmCmdList = Option.Flags.UseImmCmdList;
+  if (Batch.CmdList != nullptr)
+    return;
 
   // Requires initialization
-  if (Option.Flags.UseImmCmdList) {
-    Batch.UseImmCmdList = true;
-    if (Batch.CmdList == nullptr) {
-      ze_command_queue_desc_t QueueDesc = {
-        ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, nullptr,
-        CmdQueueGroupOrdinals[DeviceId], 0, 0,
-        ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS, ZE_COMMAND_QUEUE_PRIORITY_NORMAL,
-      };
-      CALL_ZE_RET_VOID(zeCommandListCreateImmediate, Context, Devices[DeviceId],
-                       &QueueDesc, &Batch.CmdList);
-    }
-    if (MaxKernels > Batch.Events.size()) {
-      // Event pool needs to be initialized or resized.
-      if (Batch.EventPool != nullptr) {
-        for (auto E : Batch.Events)
-          CALL_ZE_RET_VOID(zeEventDestroy, E);
-        CALL_ZE_RET_VOID(zeEventPoolDestroy, Batch.EventPool);
-        Batch.Events.clear();
-        Batch.EventPool = nullptr;
-      }
-      if (Batch.EventPool == nullptr) {
-        ze_event_pool_desc_t PoolDesc = {
-          ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr,
-          ZE_EVENT_POOL_FLAG_HOST_VISIBLE, MaxKernels,
-        };
-        CALL_ZE_RET_VOID(zeEventPoolCreate, Context, &PoolDesc, 0, nullptr,
-                         &Batch.EventPool);
-        ze_event_desc_t EventDesc = {
-          ZE_STRUCTURE_TYPE_EVENT_DESC, nullptr, 0, 0, 0
-        };
-        for (auto I = 0; I < MaxKernels; I++) {
-          EventDesc.index = I;
-          ze_event_handle_t Event;
-          CALL_ZE_RET_VOID(zeEventCreate, Batch.EventPool, &EventDesc, &Event);
-          Batch.Events.push_back(Event);
-        }
-      }
-    }
+  if (Batch.UseImmCmdList) {
+    ze_command_queue_desc_t QueueDesc = {
+      ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, nullptr,
+      CmdQueueGroupOrdinals[DeviceId], 0, 0,
+      ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS, ZE_COMMAND_QUEUE_PRIORITY_NORMAL,
+    };
+    CALL_ZE_RET_VOID(zeCommandListCreateImmediate, Context, Devices[DeviceId],
+                     &QueueDesc, &Batch.CmdList);
+
+    // Event pool with a single event needs to be initialized
+    ze_event_pool_desc_t PoolDesc = {
+      ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr,
+      ZE_EVENT_POOL_FLAG_HOST_VISIBLE, 1,
+    };
+    ze_event_desc_t EventDesc = {
+      ZE_STRUCTURE_TYPE_EVENT_DESC, nullptr, 0, 0, 0
+    };
+    CALL_ZE_RET_VOID(zeEventPoolCreate, Context, &PoolDesc, 0, nullptr,
+                     &Batch.EventPool);
+    CALL_ZE_RET_VOID(zeEventCreate, Batch.EventPool, &EventDesc, &Batch.Event);
+    DP("Initialized kernel batching with IMM.\n");
   } else {
-    Batch.UseImmCmdList = false;
-    if (Batch.CmdList == nullptr) {
-      Batch.CmdList = createCmdList(Context, Devices[DeviceId],
-                                    CmdQueueGroupOrdinals[DeviceId],
-                                    DeviceIdStr[DeviceId]);
-      Batch.CmdQueue = createCommandQueue(DeviceId);
-    }
+    Batch.CmdList = createCmdList(Context, Devices[DeviceId],
+                                  CmdQueueGroupOrdinals[DeviceId],
+                                  DeviceIdStr[DeviceId]);
+    Batch.CmdQueue = createCommandQueue(DeviceId);
+    DP("Initialized kernel batching.\n");
   }
 }
 
