@@ -8,10 +8,6 @@
 ; %bptr is allocated as %struct.test.b and we are storing information
 ; into %struct.test.array.
 
-; TODO: The safety information will show that there is a bad casting
-; for %struct.test.a, %struct.test.a.base and %struct.test.b. This
-; needs to be fixed.
-
 ; CHECK-LABEL: LLVMType: %struct.test.a = type { %struct.test.array, i32, [4 x i8] }
 ; CHECK: Related base structure: struct.test.a.base
 ; CHECK: 2)Field LLVM Type: [4 x i8]

@@ -8,22 +8,20 @@
 ; %bptr is allocated as %struct.test.b and we are loading data from
 ; %struct.test.array. The goal of this test case is to secure that
 ; the base-padded types are collected correctly when both structures
-; have ptr fields.
-
-; TODO: The safety information will show that there is a bad casting
-; for %struct.test.a, %struct.test.a.base and %struct.test.b. This
-; needs to be fixed.
+; have ptr fields. Also, this test checks that the types were set as
+; bad casting since %struct.test.b is not a parent structure of
+; %struct.test.a.base.
 
 ; CHECK-LABEL: LLVMType: %struct.test.a = type { ptr, i32, [4 x i8] }
 ; CHECK: Related base structure: struct.test.a.base
 ; CHECK: 2)Field LLVM Type: [4 x i8]
 ; CHECK: Field info: PaddedField
 ; CHECK: Top Alloc Function
-; CHECK: Safety data: {{.*}}Structure may have ABI padding{{.*}}
+; CHECK: Safety data: {{.*}}Bad casting | Structure may have ABI padding{{.*}}
 
 ; CHECK-LABEL: LLVMType: %struct.test.a.base = type { ptr, i32 }
 ; CHECK: Related padded structure: struct.test.a
-; CHECK: Safety data: {{.*}}Structure could be base for ABI padding{{.*}}
+; CHECK: Safety data: {{.*}}Bad casting | Structure could be base for ABI padding{{.*}}
 
 ; ModuleID = 'simple2.cpp'
 source_filename = "simple2.cpp"
