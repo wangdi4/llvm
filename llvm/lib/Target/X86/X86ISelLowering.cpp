@@ -519,25 +519,24 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setOperationAction(ISD::SRL_PARTS, VT, Custom);
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_PREFETCHST2
-  if (Subtarget.hasSSEPrefetch() || Subtarget.has3DNow() ||
+  if (Subtarget.hasSSEPrefetch() || Subtarget.hasThreeDNow() ||
       Subtarget.hasPREFETCHST2())
 #else // INTEL_FEATURE_ISA_PREFETCHST2
-  if (Subtarget.hasSSEPrefetch() || Subtarget.has3DNow())
+  if (Subtarget.hasSSEPrefetch() || Subtarget.hasThreeDNow())
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
 #endif // INTEL_CUSTOMIZATION
     setOperationAction(ISD::PREFETCH      , MVT::Other, Legal);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_PREFETCHI
-  if (Subtarget.hasPREFETCHI())
-=======
+  if (Subtarget.hasPREFETCHI() || Subtarget.hasSSEPrefetch()
+      || Subtarget.hasThreeDNow())
+#else // INTEL_FEATURE_ISA_PREFETCHI
   if (Subtarget.hasSSEPrefetch() || Subtarget.hasThreeDNow())
->>>>>>> 052d37dc7cedac9b12f0ee84191070c244e4a19f
-    setOperationAction(ISD::PREFETCH      , MVT::Other, Legal);
 #endif // INTEL_FEATURE_ISA_PREFETCHI
 #endif // INTEL_CUSTOMIZATION
+    setOperationAction(ISD::PREFETCH      , MVT::Other, Legal);
 
   setOperationAction(ISD::ATOMIC_FENCE  , MVT::Other, Custom);
 
