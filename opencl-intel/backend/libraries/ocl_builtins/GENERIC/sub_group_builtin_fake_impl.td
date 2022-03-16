@@ -36,7 +36,7 @@ list<OclType> sub_group_types_block_read_write_scalar = [v1u32];
 list<OclType> sub_group_types_block_read_write_scalar_us = [v1u64, v1u32, v1u16, v1u8];
 
 
-code DummyReturn =
+defvar DummyReturn =
   [{
     return $Arg0VarName;
   }];
@@ -156,28 +156,28 @@ OclBuiltinImpl sub_group_shuffle_xor_avx512_scalar_type_fake = OclBuiltinImpl<su
 /// Block read
 ///
 
-code BlockRead =
+defvar BlockRead =
   [{
     return *$Arg0VarName;
   }];
 
-code BlockWrite =
+defvar BlockWrite =
   [{
     *$Arg0VarName = $Arg1VarName;
   }];
 
-code BlockWriteS0 =
+defvar BlockWriteS0 =
   [{
     *$Arg0VarName = $Arg1VarName.s0;
   }];
 
-code BlockReadImg =
+defvar BlockReadImg =
   [{
     $ReturnType* p = ($ReturnType*)extract_pixel_in_byte($Arg0VarName, $Arg1VarName);
     return *p;
   }];
 
-code BlockWriteImg =
+defvar BlockWriteImg =
   [{
     $Arg2Type* p = ($Arg2Type*)extract_pixel_in_byte($Arg0VarName, $Arg1VarName);
     *p = $Arg2VarName;

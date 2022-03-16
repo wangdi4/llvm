@@ -58,7 +58,7 @@ list<OclType> all_types = [
 ];
 
 // gentype = f(gentype, mask)
-code masked_impl_code_G_G_M = [{
+defvar masked_impl_code_G_G_M = [{
     $Arg0VecType m$Arg0VarName = bitselect(($Arg0VecType)($DEF0), $Arg0VarName, $Arg1VarName);
     return $Func(m$Arg0VarName);
   }];
@@ -163,7 +163,7 @@ OclBuiltinImpl native_tanh_mask_svml = OclBuiltinImpl<native_tanh_mask, math_all
 OclBuiltinImpl native_tanpi_mask_svml = OclBuiltinImpl<native_tanpi_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
 
 // gentype = f(gentype, gentype, mask)
-code masked_impl_code_G_G2_M = [{
+defvar masked_impl_code_G_G2_M = [{
     $Arg0VecType m$Arg0VarName = bitselect(($Arg0VecType)($DEF0), $Arg0VarName, $Arg2VarName);
     $Arg1VecType m$Arg1VarName = bitselect(($Arg1VecType)($DEF1), $Arg1VarName, $Arg2VarName);
     return $Func(m$Arg0VarName, m$Arg1VarName);
@@ -212,7 +212,7 @@ OclBuiltinImpl native_hypot_mask_svml = OclBuiltinImpl<native_hypot_mask, math_a
 OclBuiltinImpl native_pow_mask_svml = OclBuiltinImpl<native_pow_mask, math_all_types, 0, masked_impl_code_G_G2_M, [["$DEF0", "5"], ["$DEF1", "5"]]>;
 
 // gentype = f(gentype, gentype, gentype, mask)
-code masked_impl_code_G_G3_M = [{
+defvar masked_impl_code_G_G3_M = [{
     $Arg0VecType m$Arg0VarName = bitselect(($Arg0VecType)($DEF0), $Arg0VarName, $Arg3VarName);
     $Arg1VecType m$Arg1VarName = bitselect(($Arg1VecType)($DEF1), $Arg1VarName, $Arg3VarName);
     $Arg2VecType m$Arg2VarName = bitselect(($Arg2VecType)($DEF2), $Arg2VarName, $Arg3VarName);
@@ -231,7 +231,7 @@ OclBuiltinImpl fma_mask_svml = OclBuiltinImpl<fma_mask, math_all_types, 0, maske
 OclBuiltinImpl mad_mask_svml = OclBuiltinImpl<mad_mask, math_all_types, 0, masked_impl_code_G_G3_M, [["$DEF0", "0"], ["$DEF1", "0"], ["$DEF2", "0"]]>;
 
 // gentype = f(gentype, gentype, any*, mask)
-code masked_impl_code_G_G_P_M = [{
+defvar masked_impl_code_G_G_P_M = [{
     $Arg0VecType m$Arg0VarName = bitselect(($Arg0VecType)($DEF0), $Arg0VarName, $Arg2VarName);
     return $Func(m$Arg0VarName, $Arg1VarName);
   }];
@@ -274,7 +274,7 @@ OclBuiltinImpl native_sincos_gas_mask_svml = OclBuiltinImpl<native_sincos_gas_ma
 OclBuiltinImpl native_sincos_gen_mask_svml = OclBuiltinImpl<native_sincos_gen_mask, math_all_types, 0, masked_impl_code_G_G_P_M, [["$DEF0", "0"]]>;
 
 // void = f(gentype, any*, any*, mask)
-code masked_impl_code_V_G_P_P_M = [{
+defvar masked_impl_code_V_G_P_P_M = [{
     $Arg0VecType m$Arg0VarName = bitselect(($Arg0VecType)($DEF0), $Arg0VarName, $Arg3VarName);
     return $Func(m$Arg0VarName, $Arg1VarName, $Arg2VarName);
   }];
@@ -294,7 +294,7 @@ OclBuiltinImpl native_fract_pas2_mask_svml = OclBuiltinImpl<native_fract_pas2_ma
 OclBuiltinImpl native_sincos_pas2_mask_svml = OclBuiltinImpl<native_sincos_pas2_mask, math_all_types, 0, masked_impl_code_V_G_P_P_M, [["$DEF0", "0"]]>;
 
 // gentype = f(gentype, gentype, any*, mask)
-code masked_impl_code_G_G2_P_M = [{
+defvar masked_impl_code_G_G2_P_M = [{
     $Arg0VecType m$Arg0VarName = bitselect(($Arg0VecType)($DEF0), $Arg0VarName, $Arg3VarName);
     $Arg1VecType m$Arg1VarName = bitselect(($Arg1VecType)($DEF1), $Arg1VarName, $Arg3VarName);
     return $Func(m$Arg0VarName, m$Arg1VarName, $Arg2VarName);
@@ -313,7 +313,7 @@ OclBuiltinImpl remquo_gas_mask_svml = OclBuiltinImpl<remquo_gas_mask, math_all_t
 OclBuiltinImpl remquo_gen_mask_svml = OclBuiltinImpl<remquo_gen_mask, math_all_types, 0, masked_impl_code_G_G2_P_M, [["$DEF0", "0"], ["$DEF1", "42"]]>;
 
 // i32gentype = f(gentypef, i32mask)
-code masked_impl_code_I32_FG_M = [{
+defvar masked_impl_code_I32_FG_M = [{
     $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, $Arg1VarName);
     return $Func(m$Arg0VarName);
   }];
@@ -330,7 +330,7 @@ OclBuiltinImpl ilogb_mask_svml_float = OclBuiltinImpl<ilogb_mask, math_float_typ
 OclBuiltinImpl native_ilogb_mask_svml_float = OclBuiltinImpl<native_ilogb_mask, math_float_types, 0, masked_impl_code_I32_FG_M, [["$DEF0", "1"]]>;
 
 // i32gentype = f(gentyped, i32mask)
-code masked_impl_code_I32_DG_M = [{
+defvar masked_impl_code_I32_DG_M = [{
     $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, convert_long$VecLength($Arg1VarName));
     return $Func(m$Arg0VarName);
   }];
@@ -347,7 +347,7 @@ OclBuiltinImpl ilogb_mask_svml_double = OclBuiltinImpl<ilogb_mask, math_double_t
 OclBuiltinImpl native_ilogb_mask_svml_double = OclBuiltinImpl<native_ilogb_mask, math_double_types, 0, masked_impl_code_I32_DG_M, [["$DEF0", "1"]]>;
 
 // gentypef = f(gentypef, i32gentype, mask)
-code masked_impl_code_FG_FG_I32_M = [{
+defvar masked_impl_code_FG_FG_I32_M = [{
     $Arg0VecType m$Arg0VarName = bitselect(($Arg0VecType)($DEF0), $Arg0VarName, $Arg2VarName);
     $Arg1VecType m$Arg1VarName = select(($Arg1VecType)($DEF1), $Arg1VarName, as_int$VecLength($Arg2VarName));
     return $Func(m$Arg0VarName, m$Arg1VarName);
@@ -369,7 +369,7 @@ OclBuiltinImpl native_pown_mask_svml_float = OclBuiltinImpl<native_pown_mask, ma
 OclBuiltinImpl native_rootn_mask_svml_float = OclBuiltinImpl<native_rootn_mask, math_float_types, 0, masked_impl_code_FG_FG_I32_M, [["$DEF0", "1"], ["$DEF1", "1"]]>;
 
 // gentyped = f(gentyped, i32gentype, mask)
-code masked_impl_code_DG_DG_I32_M = [{
+defvar masked_impl_code_DG_DG_I32_M = [{
     $Arg0VecType m$Arg0VarName = bitselect(($Arg0VecType)($DEF0), $Arg0VarName, $Arg2VarName);
     $Arg1VecType m$Arg1VarName = select(($Arg1VecType)($DEF1), $Arg1VarName, convert_int$VecLength(as_long$VecLength($Arg2VarName)));
     return $Func(m$Arg0VarName, m$Arg1VarName);
@@ -391,7 +391,7 @@ OclBuiltinImpl native_pown_mask_svml_double = OclBuiltinImpl<native_pown_mask, m
 OclBuiltinImpl native_rootn_mask_svml_double = OclBuiltinImpl<native_rootn_mask, math_double_types, 0, masked_impl_code_DG_DG_I32_M, [["$DEF0", "1"], ["$DEF1", "1"]]>;
 
 // gentypef = f(ugentype, mask)
-code masked_impl_code_FG_UG_M = [{
+defvar masked_impl_code_FG_UG_M = [{
     $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, as_int$VecLength($Arg1VarName));
     return $Func(m$Arg0VarName);
   }];
@@ -405,7 +405,7 @@ code masked_impl_code_FG_UG_M = [{
 OclBuiltinImpl nan_mask_svml_float = OclBuiltinImpl<nan_mask, math_float_types, 0, masked_impl_code_FG_UG_M, [["$DEF0", "0"]]>;
 
 // gentyped = f(ugentype, mask)
-code masked_impl_code_DG_UG_M = [{
+defvar masked_impl_code_DG_UG_M = [{
     $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, as_long$VecLength($Arg1VarName));
     return $Func(m$Arg0VarName);
   }];
@@ -420,7 +420,7 @@ OclBuiltinImpl nan_mask_svml_double = OclBuiltinImpl<nan_mask, math_double_types
 
 // Integer builtins
 // ugentype = f(gentype, mask)
-code masked_impl_code_UG_G_M = [{
+defvar masked_impl_code_UG_G_M = [{
     $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, $Arg1VarName);
     return $Func(m$Arg0VarName);
   }];
@@ -434,7 +434,7 @@ code masked_impl_code_UG_G_M = [{
 OclBuiltinImpl abs_mask_svml = OclBuiltinImpl<abs_mask, all_int_types, 0, masked_impl_code_UG_G_M, [["$DEF0", "0"]]>;
 
 // ugentype = f(gentype, gentype, mask)
-code masked_impl_code_UG_G2_M = [{
+defvar masked_impl_code_UG_G2_M = [{
     $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, $Arg2VarName);
     $Arg1VecType m$Arg1VarName = select(($Arg1VecType)($DEF0), $Arg1VarName, $Arg2VarName);
     return $Func(m$Arg0VarName, m$Arg1VarName);
@@ -490,12 +490,12 @@ OclBuiltinImpl smoothstep_mask_svml = OclBuiltinImpl<smoothstep_mask, math_all_t
 OclBuiltinImpl sign_mask_svml = OclBuiltinImpl<sign_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
 
 // Relational builtins
-code masked_impl_code_RF2I_G_M = [{
+defvar masked_impl_code_RF2I_G_M = [{
     $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, $Arg1VarName);
     return $Func(m$Arg0VarName);
   }];
 
-code masked_impl_code_RF2I_G2_M = [{
+defvar masked_impl_code_RF2I_G2_M = [{
     $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, $Arg2VarName);
     $Arg1VecType m$Arg1VarName = select(($Arg1VecType)($DEF1), $Arg1VarName, $Arg2VarName);
     return $Func(m$Arg0VarName, m$Arg1VarName);

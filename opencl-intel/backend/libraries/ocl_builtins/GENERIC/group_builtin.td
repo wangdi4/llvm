@@ -26,21 +26,21 @@
 wait_group_events:                                               *
 *   void wait_group_events (int num_events,  event_t *event_list)*
 \*****************************************************************/
-code AsyncWorkGroupCopyCode_l2g = [{
+defvar AsyncWorkGroupCopyCode_l2g = [{
     __builtin_memcpy((__private char*)(char*)$Arg0VarName, (const __private char*)(const char*)$Arg1VarName, $Arg2VarName*sizeof(*$Arg0VarName));
     return $Arg3VarName;
   }];
-code AsyncWorkGroupCopyCode_g2l = [{
+defvar AsyncWorkGroupCopyCode_g2l = [{
     __builtin_memcpy((__private char*)(char*)$Arg0VarName, (const __private char*)(const char*)$Arg1VarName, $Arg2VarName*sizeof(*$Arg0VarName));
     return $Arg3VarName;
   }];
-code AsyncWorkGroupStridedCopyCode_l2g = [{
+defvar AsyncWorkGroupStridedCopyCode_l2g = [{
     for(size_t i=0, j=0; i<$Arg2VarName; i++, j+=$Arg3VarName) {
       $Arg0VarName[j] = $Arg1VarName[i];
     }
     return $Arg4VarName;
   }];
-code AsyncWorkGroupStridedCopyCode_g2l = [{
+defvar AsyncWorkGroupStridedCopyCode_g2l = [{
     for(size_t i=0, j=0; i<$Arg2VarName; i++, j+=$Arg3VarName) {
       $Arg0VarName[i] = $Arg1VarName[j];
     }
@@ -252,13 +252,13 @@ OclBuiltinImpl work_group_any_helper_util_int = OclBuiltinImpl<work_group_any_he
 // 1. Uniform result
 //-----------------------------------------------
 
-code work_group_inclusive_function_op_vector = [{
+defvar work_group_inclusive_function_op_vector = [{
     $Arg0Type acc = $FUNC($Arg0VarName, *$Arg1VarName);
     *$Arg1VarName = acc;
     return acc;
   }];
 
-code work_group_inclusive_function_op_vector32 = [{
+defvar work_group_inclusive_function_op_vector32 = [{
     $Arg0Type acc;
     acc.lo = $FUNC($Arg0VarName.lo, (*$Arg1VarName).lo);
     acc.hi = $FUNC($Arg0VarName.hi, (*$Arg1VarName).hi);
@@ -266,7 +266,7 @@ code work_group_inclusive_function_op_vector32 = [{
     return acc;
   }];
 
-code work_group_inclusive_function_op_vector64 = [{
+defvar work_group_inclusive_function_op_vector64 = [{
     $Arg0Type acc;
     acc.lo.lo = $FUNC($Arg0VarName.lo.lo, (*$Arg1VarName).lo.lo);
     acc.lo.hi = $FUNC($Arg0VarName.lo.hi, (*$Arg1VarName).lo.hi);
@@ -277,13 +277,13 @@ code work_group_inclusive_function_op_vector64 = [{
   }];
 
 
-code work_group_inclusive_function_op_scalar = [{
+defvar work_group_inclusive_function_op_scalar = [{
     $Arg0Type acc = $FUNC($Arg0VarName, *$Arg1VarName);
     *$Arg1VarName = acc;
     return acc;
   }];
 
-code work_group_inclusive_function_op_mask = [{
+defvar work_group_inclusive_function_op_mask = [{
     $MaskCastTy$VecLength arg0 = *($MaskCastTy$VecLength *)&($Arg0VarName);
     $MaskCastTy$VecLength arg1 = __builtin_convertvector(*(int$VecLength *)&($Arg1VarName), $MaskCastTy$VecLength);
     arg0 &= arg1;
@@ -295,7 +295,7 @@ code work_group_inclusive_function_op_mask = [{
     return acc;
   }];
 
-code work_group_inclusive_function_op_mask32 = [{
+defvar work_group_inclusive_function_op_mask32 = [{
     $MaskCastTy$VecLength arg0 = *($MaskCastTy$VecLength *)&($Arg0VarName);
     $MaskCastTy$VecLength arg1 = __builtin_convertvector(*(int$VecLength *)&($Arg1VarName), $MaskCastTy$VecLength);
     arg0 &= arg1;
@@ -309,7 +309,7 @@ code work_group_inclusive_function_op_mask32 = [{
     return acc;
   }];
 
-code work_group_inclusive_function_op_mask64 = [{
+defvar work_group_inclusive_function_op_mask64 = [{
     $MaskCastTy$VecLength arg0 = *($MaskCastTy$VecLength *)&($Arg0VarName);
     $MaskCastTy$VecLength arg1 = __builtin_convertvector(*(int$VecLength *)&($Arg1VarName), $MaskCastTy$VecLength);
     arg0 &= arg1;
@@ -530,7 +530,7 @@ OclBuiltinImpl work_group_broadcast_mask_helper_64 = OclBuiltinImpl<work_group_b
 // 2. Non-uniform result
 //-----------------------------------------------
 
-code work_group_scan_exclusive_function_op_vector4 = [{
+defvar work_group_scan_exclusive_function_op_vector4 = [{
     $Arg0VecType ret;
     $Arg0VecType acc = *$Arg1VarName;
     ret.s0 = acc.s3;
@@ -542,7 +542,7 @@ code work_group_scan_exclusive_function_op_vector4 = [{
     return ret;
   }];
 
-code work_group_scan_exclusive_function_op_vector8 = [{
+defvar work_group_scan_exclusive_function_op_vector8 = [{
     $Arg0VecType ret;
     $Arg0VecType acc = *$Arg1VarName;
     ret.s0 = acc.s7;
@@ -558,7 +558,7 @@ code work_group_scan_exclusive_function_op_vector8 = [{
     return ret;
   }];
 
-code work_group_scan_exclusive_function_op_vector16 = [{
+defvar work_group_scan_exclusive_function_op_vector16 = [{
     $Arg0VecType ret;
     $Arg0VecType acc = *$Arg1VarName;
     ret.s0 = acc.sF;
@@ -582,7 +582,7 @@ code work_group_scan_exclusive_function_op_vector16 = [{
     return ret;
   }];
 
-code work_group_scan_exclusive_function_op_vector32 = [{
+defvar work_group_scan_exclusive_function_op_vector32 = [{
     $Arg0VecType ret;
     $Arg0VecType acc = *$Arg1VarName;
     ret.lo.s0 = acc.hi.sF;
@@ -624,7 +624,7 @@ code work_group_scan_exclusive_function_op_vector32 = [{
     return ret;
   }];
 
-code work_group_scan_exclusive_function_op_vector64 = [{
+defvar work_group_scan_exclusive_function_op_vector64 = [{
     $Arg0VecType ret;
     $Arg0VecType acc = *$Arg1VarName;
     ret.lo.lo.s0 = acc.hi.hi.sF;
@@ -700,7 +700,7 @@ code work_group_scan_exclusive_function_op_vector64 = [{
     return ret;
   }];
 
-code work_group_scan_inclusive_function_op_vector4 = [{
+defvar work_group_scan_inclusive_function_op_vector4 = [{
     $Arg0VecType ret;
     $Arg0VecType acc = *$Arg1VarName;
     ret.s0 = $FUNC($Arg0VarName.s0, acc.s3);
@@ -711,7 +711,7 @@ code work_group_scan_inclusive_function_op_vector4 = [{
     return ret;
   }];
 
-code work_group_scan_inclusive_function_op_vector8 = [{
+defvar work_group_scan_inclusive_function_op_vector8 = [{
     $Arg0VecType ret;
     $Arg0VecType acc = *$Arg1VarName;
     ret.s0 = $FUNC($Arg0VarName.s0, acc.s7);
@@ -726,7 +726,7 @@ code work_group_scan_inclusive_function_op_vector8 = [{
     return ret;
   }];
 
-code work_group_scan_inclusive_function_op_vector16 = [{
+defvar work_group_scan_inclusive_function_op_vector16 = [{
     $Arg0VecType ret;
     $Arg0VecType acc = *$Arg1VarName;
     ret.s0 = $FUNC($Arg0VarName.s0, acc.sF);
@@ -749,7 +749,7 @@ code work_group_scan_inclusive_function_op_vector16 = [{
     return ret;
   }];
 
-code work_group_scan_inclusive_function_op_vector32 = [{
+defvar work_group_scan_inclusive_function_op_vector32 = [{
     $Arg0VecType ret;
     $Arg0VecType acc = *$Arg1VarName;
     ret.lo.s0 = $FUNC($Arg0VarName.lo.s0, acc.hi.sF);
@@ -790,7 +790,7 @@ code work_group_scan_inclusive_function_op_vector32 = [{
     return ret;
   }];
 
-code work_group_scan_inclusive_function_op_vector64 = [{
+defvar work_group_scan_inclusive_function_op_vector64 = [{
     $Arg0VecType ret;
     $Arg0VecType acc = *$Arg1VarName;
     ret.lo.lo.s0 = $FUNC($Arg0VarName.lo.lo.s0, acc.hi.hi.sF);
@@ -866,7 +866,7 @@ code work_group_scan_inclusive_function_op_vector64 = [{
   }];
 
 
-code work_group_scan_exclusive_function_op_mask4 = [{
+defvar work_group_scan_exclusive_function_op_mask4 = [{
 
     $MaskCastTy#4 arg0 = as_$MaskCastTy#4($Arg0VarName);
     $MaskCastTy#4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), $MaskCastTy#4);
@@ -886,7 +886,7 @@ code work_group_scan_exclusive_function_op_mask4 = [{
     return ret;
   }];
 
-code work_group_scan_exclusive_function_op_mask8 = [{
+defvar work_group_scan_exclusive_function_op_mask8 = [{
     $MaskCastTy#8 arg0 = as_$MaskCastTy#8($Arg0VarName);
     $MaskCastTy#8 arg1 = __builtin_convertvector(as_int8($Arg1VarName), $MaskCastTy#8);
     arg0 &= arg1;
@@ -908,7 +908,7 @@ code work_group_scan_exclusive_function_op_mask8 = [{
     return ret;
   }];
 
-code work_group_scan_exclusive_function_op_mask16 = [{
+defvar work_group_scan_exclusive_function_op_mask16 = [{
     $MaskCastTy#16 arg0 = as_$MaskCastTy#16($Arg0VarName);
     $MaskCastTy#16 arg1 = __builtin_convertvector(as_int16($Arg1VarName), $MaskCastTy#16);
     arg0 &= arg1;
@@ -938,7 +938,7 @@ code work_group_scan_exclusive_function_op_mask16 = [{
     return ret;
   }];
 
-code work_group_scan_exclusive_function_op_mask32 = [{
+defvar work_group_scan_exclusive_function_op_mask32 = [{
     $MaskCastTy#32 arg0 = *($MaskCastTy#32 *)&($Arg0VarName);
     $MaskCastTy#32 arg1 = __builtin_convertvector(*(int32 *)&($Arg1VarName), $MaskCastTy#32);
     arg0 &= arg1;
@@ -986,7 +986,7 @@ code work_group_scan_exclusive_function_op_mask32 = [{
     return ret;
   }];
 
-code work_group_scan_exclusive_function_op_mask64 = [{
+defvar work_group_scan_exclusive_function_op_mask64 = [{
     $MaskCastTy#64 arg0 = *($MaskCastTy#64 *)&($Arg0VarName);
     $MaskCastTy#64 arg1 = __builtin_convertvector(*(int64 *)&($Arg1VarName), $MaskCastTy#64);
     arg0 &= arg1;
@@ -1068,7 +1068,7 @@ code work_group_scan_exclusive_function_op_mask64 = [{
     return ret;
   }];
 
-code work_group_scan_inclusive_function_op_mask4 = [{
+defvar work_group_scan_inclusive_function_op_mask4 = [{
     $MaskCastTy#4 arg0 = as_$MaskCastTy#4($Arg0VarName);
     $MaskCastTy#4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), $MaskCastTy#4);
     arg0 &= arg1;
@@ -1085,7 +1085,7 @@ code work_group_scan_inclusive_function_op_mask4 = [{
     return ret;
   }];
 
-code work_group_scan_inclusive_function_op_mask8 = [{
+defvar work_group_scan_inclusive_function_op_mask8 = [{
     $MaskCastTy#8 arg0 = as_$MaskCastTy#8($Arg0VarName);
     $MaskCastTy#8 arg1 = __builtin_convertvector(as_int8($Arg1VarName), $MaskCastTy#8);
     arg0 &= arg1;
@@ -1106,7 +1106,7 @@ code work_group_scan_inclusive_function_op_mask8 = [{
     return ret;
   }];
 
-code work_group_scan_inclusive_function_op_mask16 = [{
+defvar work_group_scan_inclusive_function_op_mask16 = [{
     $MaskCastTy#16 arg0 = as_$MaskCastTy#16($Arg0VarName);
     $MaskCastTy#16 arg1 = __builtin_convertvector(as_int16($Arg1VarName), $MaskCastTy#16);
     arg0 &= arg1;
@@ -1135,7 +1135,7 @@ code work_group_scan_inclusive_function_op_mask16 = [{
     return ret;
   }];
 
-code work_group_scan_inclusive_function_op_mask32 = [{
+defvar work_group_scan_inclusive_function_op_mask32 = [{
     $MaskCastTy#32 arg0 = *($MaskCastTy#32 *)&($Arg0VarName);
     $MaskCastTy#32 arg1 = __builtin_convertvector(*(int32 *)&($Arg1VarName), $MaskCastTy#32);
     arg0 &= arg1;
@@ -1182,7 +1182,7 @@ code work_group_scan_inclusive_function_op_mask32 = [{
     return ret;
   }];
 
-code work_group_scan_inclusive_function_op_mask64 = [{
+defvar work_group_scan_inclusive_function_op_mask64 = [{
     $MaskCastTy#64 arg0 = *($MaskCastTy#64 *)&($Arg0VarName);
     $MaskCastTy#64 arg1 = __builtin_convertvector(*(int64 *)&($Arg1VarName), $MaskCastTy#64);
     arg0 &= arg1;
@@ -1620,7 +1620,7 @@ OclBuiltinImpl work_group_scan_inclusive_max_mask_helper_float64 =
 
 
 // Scalar versions of Scan_add/min/max functions
-code work_group_scan_exclusive_function_op_scalar = [{
+defvar work_group_scan_exclusive_function_op_scalar = [{
     $Arg0Type acc = *$Arg1VarName;
     *$Arg1VarName = $FUNC($Arg0VarName, *$Arg1VarName);
     return acc;
@@ -1652,7 +1652,7 @@ OclBuiltinImpl work_group_scan_inclusive_max_scalar_helper_float =
 // 3. Finalization of uniform result
 //-----------------------------------------------
 
-code work_group_finalize_function_op4 = [{
+defvar work_group_finalize_function_op4 = [{
     $Arg0VecType ret;
     ret.s0 = $Arg0VarName.s0;
     ret.s0 = $FUNC($Arg0VarName.s1, ret.s0);
@@ -1661,7 +1661,7 @@ code work_group_finalize_function_op4 = [{
     return ($Arg0VecType)(ret.s0);
   }];
 
-code work_group_finalize_function_op8 = [{
+defvar work_group_finalize_function_op8 = [{
     $Arg0VecType ret;
     ret.s0 = $Arg0VarName.s0;
     ret.s0 = $FUNC($Arg0VarName.s1, ret.s0);
@@ -1674,7 +1674,7 @@ code work_group_finalize_function_op8 = [{
     return ($Arg0VecType)(ret.s0);
   }];
 
-code work_group_finalize_function_op16 = [{
+defvar work_group_finalize_function_op16 = [{
     $Arg0VecType ret;
     ret.s0 = $Arg0VarName.s0;
     ret.s0 = $FUNC($Arg0VarName.s1,  ret.s0);
@@ -1695,7 +1695,7 @@ code work_group_finalize_function_op16 = [{
     return ($Arg0VecType)(ret.s0);
   }];
 
-code work_group_finalize_function_op32 = [{
+defvar work_group_finalize_function_op32 = [{
     $Arg0VecType ret;
     $Arg0BaseType#16 hi = $Arg0VarName.hi;
     $Arg0BaseType#16 lo = $Arg0VarName.lo;
@@ -1737,7 +1737,7 @@ code work_group_finalize_function_op32 = [{
     return ($Arg0VecType)(ret.s0);
   }];
 
-code work_group_finalize_function_op64 = [{
+defvar work_group_finalize_function_op64 = [{
     $Arg0VecType ret;
     $Arg0BaseType#16 hihi = $Arg0VarName.hi.hi;
     $Arg0BaseType#16 hilo = $Arg0VarName.hi.lo;
