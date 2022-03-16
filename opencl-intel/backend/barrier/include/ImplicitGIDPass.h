@@ -10,9 +10,9 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "SGHelper.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerBarrierPass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGHelper.h"
 
 #include <llvm/Pass.h>
 #include <llvm/IR/Module.h>

@@ -5,6 +5,7 @@
 #include <string>
 
 #include "FrameworkTest.h"
+#include "cl_cpu_detect.h"
 #include "cl_device_api.h"
 #include "cl_env.h"
 #include "cl_types.h"
@@ -13,6 +14,8 @@
 //#define DEBUGGING_DEATH_TEST
 
 #define CL_CONFIG_CPU_VECTORIZER_MODE "CL_CONFIG_CPU_VECTORIZER_MODE"
+
+using namespace Intel::OpenCL;
 
 extern cl_device_type gDeviceType;
 
@@ -202,14 +205,23 @@ static bool vectorizerModeTest(std::string const& mode)
     return deathTestSuccess();
 }
 
-void vectorizerModeDeathTest( const char* mode )
-{
+static void vectorizerModeDeathTest(const char *mode) {
 #ifdef DEBUGGING_DEATH_TEST
     EXPECT_TRUE( vectorizerModeTest( mode ) );
 #else
     ::testing::FLAGS_gtest_death_test_style = "threadsafe";
     EXPECT_EXIT( { vectorizerModeTest( mode ); exit(1); }, ::testing::ExitedWithCode(0), "" );
 #endif
+}
+
+static void checkAndTestVectorizerMode(DeviceBackend::ETransposeSize TSize) {
+  const auto *CpuId = Utils::CPUDetect::GetInstance();
+  std::string TSizeStr = std::to_string(TSize);
+  if (CpuId->isTransposeSizeSupported(TSize) == Utils::SUPPORTED)
+    ASSERT_NO_FATAL_FAILURE(vectorizerModeDeathTest(TSizeStr.c_str()));
+  else
+    printf("Skip test since TRANSPOSE_SIZE_%s is not supported on %s\n",
+           TSizeStr.c_str(), CpuId->GetCPUName(CpuId->GetCPU()));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////
@@ -240,7 +252,19 @@ TEST(FrameworkTestTypeDeathTest, Test_VectorizerMode_4)
 
 TEST(FrameworkTestTypeDeathTest, Test_VectorizerMode_8)
 {
-    vectorizerModeDeathTest( "8" );
+  checkAndTestVectorizerMode(DeviceBackend::TRANSPOSE_SIZE_8);
+}
+
+TEST(FrameworkTestTypeDeathTest, Test_VectorizerMode_16) {
+  checkAndTestVectorizerMode(DeviceBackend::TRANSPOSE_SIZE_16);
+}
+
+TEST(FrameworkTestTypeDeathTest, Test_VectorizerMode_32) {
+  checkAndTestVectorizerMode(DeviceBackend::TRANSPOSE_SIZE_32);
+}
+
+TEST(FrameworkTestTypeDeathTest, Test_VectorizerMode_64) {
+  checkAndTestVectorizerMode(DeviceBackend::TRANSPOSE_SIZE_64);
 }
 
 // TODO: add negative tests

@@ -18,7 +18,6 @@ set(OCL_BE_PASSES
     InternalizeGlobalVariables
     KernelInfo
     LLVMBarrier
-    SGEmulation
     LLVMVectorizer
     SubGroupAdaptation
     OclFunctionAttrs

@@ -30,13 +30,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeCLStreamSamplerPass(Registry);
     intel::initializeRemoveDuplicationBarrierPass(Registry);
 
-    // SGEmulation
-    intel::initializeSGBuiltinPass(Registry);
-    intel::initializeSGBarrierPropagatePass(Registry);
-    intel::initializeSGBarrierSimplifyPass(Registry);
-    intel::initializeSGValueWidenPass(Registry);
-    intel::initializeSGLoopConstructPass(Registry);
-
     intel::initializeResolveVariableTIDCallPass(Registry);
     intel::initializeReplaceScalarWithMaskPass(Registry);
     intel::initializePreventDivCrashesPass(Registry);

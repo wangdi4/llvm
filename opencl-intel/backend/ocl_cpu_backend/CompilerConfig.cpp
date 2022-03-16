@@ -158,10 +158,8 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
     bool EnableSubgroupEmulation =
       pBackendOptions->GetBooleanValue(
         (int)CL_DEV_BACKEND_OPTION_SUBGROUP_EMULATION, true);
-    if (!EnableSubgroupEmulation) {
-        m_LLVMOptions += " -enable-subgroup-emulation=false";
-        m_LLVMOptions += " -dpcpp-enable-subgroup-emulation=false";
-    }
+    if (!EnableSubgroupEmulation)
+      m_LLVMOptions += " -dpcpp-enable-subgroup-emulation=false";
 }
 
 void CompilerConfig::LoadDefaults()
