@@ -251,11 +251,11 @@
 
 ; INTEL_CUSTOMIZATION
 ; CHECK-DEFAULT-NEXT:  Running pass: VecClonePass
-; CHECK-DEFAULT-NEXT:  Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-DEFAULT-NEXT:  Invalidating analysis: InnerAnalysisManagerProxy
 ; CHECK-DEFAULT-NEXT:  Invalidating analysis: CallGraphAnalysis
 ; CHECK-DEFAULT-NEXT:  Invalidating analysis: LazyCallGraphAnalysis
-; CHECK-DEFAULT-NEXT:  Invalidating analysis: InnerAnalysisManagerProxy<llvm::CGSCCAnalysisManager, llvm::Module>
-; CHECK-DEFAULT-NEXT:  Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-DEFAULT-NEXT:  Invalidating analysis: InnerAnalysisManagerProxy
+; CHECK-DEFAULT-NEXT:  Running analysis: InnerAnalysisManagerProxy
 ; CHECK-DEFAULT-NEXT:  Running analysis: PreservedCFGCheckerAnalysis
 ; CHECK-DEFAULT-NEXT:  Running pass: EarlyCSEPass
 ; CHECK-DEFAULT-NEXT:  Running analysis: TargetLibraryAnalysis
@@ -275,13 +275,13 @@
 ; CHECK-DEFAULT-NEXT:  Running analysis: AAManager
 ; CHECK-DEFAULT-NEXT:  Running analysis: BasicAA
 ; CHECK-DEFAULT-NEXT:  Running analysis: XmainOptLevelAnalysis
-; CHECK-DEFAULT-NEXT:  Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, llvm::Function>
+; CHECK-DEFAULT-NEXT:  Running analysis: OuterAnalysisManagerProxy
 ; CHECK-DEFAULT-NEXT:  Running analysis: ScopedNoAliasAA
 ; CHECK-DEFAULT-NEXT:  Running analysis: TypeBasedAA
 ; CHECK-DEFAULT-NEXT:  Running analysis: StdContainerAA
 ; CHECK-DEFAULT-NEXT:  Running analysis: OptimizationRemarkEmitterAnalysis
-; CHECK-DEFAULT-NEXT:  Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
-; CHECK-DEFAULT-NEXT:  Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-DEFAULT-NEXT:  Invalidating analysis: InnerAnalysisManagerProxy
+; CHECK-DEFAULT-NEXT:  Running analysis: InnerAnalysisManagerProxy
 ; CHECK-DEFAULT-NEXT:  Running analysis: PreservedCFGCheckerAnalysis
 ; CHECK-DEFAULT-NEXT:  Running pass: VPOCFGRestructuringPass
 ; CHECK-DEFAULT-NEXT:  Running analysis: DominatorTreeAnalysis
@@ -295,7 +295,7 @@
 ; CHECK-DEFAULT:       Running analysis: AAManager
 ; CHECK-DEFAULT-NEXT:  Running analysis: BasicAA
 ; CHECK-DEFAULT-NEXT:  Running analysis: XmainOptLevelAnalysis
-; CHECK-DEFAULT-NEXT:  Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, llvm::Function>
+; CHECK-DEFAULT-NEXT:  Running analysis: OuterAnalysisManagerProxy
 ; CHECK-DEFAULT-NEXT:  Running analysis: ScopedNoAliasAA
 ; CHECK-DEFAULT-NEXT:  Running analysis: TypeBasedAA
 ; CHECK-DEFAULT-NEXT:  Running analysis: StdContainerAA
@@ -307,7 +307,7 @@
 ; CHECK-DEFAULT-NEXT:  Running analysis: BlockFrequencyAnalysis
 ; CHECK-DEFAULT-NEXT:  Running analysis: BranchProbabilityAnalysis
 ; CHECK-DEFAULT-NEXT:  Running analysis: PostDominatorTreeAnalysis
-; CHECK-DEFAULT-NEXT:  Running analysis: InnerAnalysisManagerProxy<llvm::LoopAnalysisManager, llvm::Function>
+; CHECK-DEFAULT-NEXT:  Running analysis: InnerAnalysisManagerProxy
 ; CHECK-DEFAULT-NEXT:  Running pass: MathLibraryFunctionsReplacementPass
 ; CHECK-DEFAULT-NEXT:  Running pass: AlwaysInlinerPass
 ; CHECK-DEFAULT-NEXT:  Running pass: VPODirectiveCleanupPass

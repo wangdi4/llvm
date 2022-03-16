@@ -219,11 +219,11 @@
 
 ; INTEL_CUSTOMIZATION
 ; CHECK-POSTLINK-O-NEXT: Running pass: VecClonePass
-; CHECK-POSTLINK-O-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-POSTLINK-O-NEXT: Invalidating analysis: InnerAnalysisManagerProxy
 ; CHECK-POSTLINK-O-NEXT: Invalidating analysis: CallGraphAnalysis
 ; CHECK-POSTLINK-O-NEXT: Invalidating analysis: LazyCallGraphAnalysis
-; CHECK-POSTLINK-O-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::CGSCCAnalysisManager, llvm::Module>
-; CHECK-POSTLINK-O-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-POSTLINK-O-NEXT: Invalidating analysis: InnerAnalysisManagerProxy
+; CHECK-POSTLINK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-POSTLINK-O-NEXT: Running pass: EarlyCSEPass
 ; CHECK-POSTLINK-O-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: TargetIRAnalysis
@@ -242,13 +242,13 @@
 ; CHECK-POSTLINK-O-NEXT: Running analysis: AAManager
 ; CHECK-POSTLINK-O-NEXT: Running analysis: BasicAA
 ; CHECK-POSTLINK-O-NEXT: Running analysis: XmainOptLevelAnalysis
-; CHECK-POSTLINK-O-NEXT: Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, llvm::Function>
+; CHECK-POSTLINK-O-NEXT: Running analysis: OuterAnalysisManagerProxy
 ; CHECK-POSTLINK-O-NEXT: Running analysis: ScopedNoAliasAA
 ; CHECK-POSTLINK-O-NEXT: Running analysis: TypeBasedAA
 ; CHECK-POSTLINK-O-NEXT: Running analysis: StdContainerAA
 ; CHECK-POSTLINK-O-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
-; CHECK-POSTLINK-O-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
-; CHECK-POSTLINK-O-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-POSTLINK-O-NEXT: Invalidating analysis: InnerAnalysisManagerProxy
+; CHECK-POSTLINK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-POSTLINK-O-NEXT: Running pass: VPOCFGRestructuringPass
 ; CHECK-POSTLINK-O-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: LoopAnalysis
@@ -261,7 +261,7 @@
 ; CHECK-POSTLINK-O:      Running analysis: AAManager
 ; CHECK-POSTLINK-O-NEXT: Running analysis: BasicAA
 ; CHECK-POSTLINK-O-NEXT: Running analysis: XmainOptLevelAnalysis
-; CHECK-POSTLINK-O-NEXT: Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, llvm::Function>
+; CHECK-POSTLINK-O-NEXT: Running analysis: OuterAnalysisManagerProxy
 ; CHECK-POSTLINK-O-NEXT: Running analysis: ScopedNoAliasAA
 ; CHECK-POSTLINK-O-NEXT: Running analysis: TypeBasedAA
 ; CHECK-POSTLINK-O-NEXT: Running analysis: StdContainerAA
@@ -273,7 +273,7 @@
 ; CHECK-POSTLINK-O-NEXT: Running analysis: BlockFrequencyAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: BranchProbabilityAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: PostDominatorTreeAnalysis
-; CHECK-POSTLINK-O-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::LoopAnalysisManager, llvm::Function>
+; CHECK-POSTLINK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-POSTLINK-O-NEXT: Running pass: MathLibraryFunctionsReplacementPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: AlwaysInlinerPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: VPODirectiveCleanupPass
