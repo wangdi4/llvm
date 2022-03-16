@@ -1,30 +1,30 @@
 //
 //Scalar relational
 //
-code v1_relational = [{
+defvar v1_relational = [{
     $ReturnType ret = $RemovePrefixFunc($Arg0VarName, $Arg1VarName);
     return ret * ($ReturnType)-1;
   }];
 
-code v_relational_d = [{
+defvar v_relational_d = [{
     $ReturnType ret = downConvert($RemovePrefixFunc($Arg0VarName, $Arg1VarName));
     return ret & ($ReturnType)1;
   }];
 
-code v_relational_f = [{
+defvar v_relational_f = [{
     $ReturnType ret = $RemovePrefixFunc($Arg0VarName, $Arg1VarName);
     return ret & ($ReturnType)1;
   }];
 
-code downCvt4 = [{
+defvar downCvt4 = [{
     return convert_int4($Arg0VarName);
   }];
 
-code downCvt8 = [{
+defvar downCvt8 = [{
     return convert_int8($Arg0VarName);
   }];
 
-code downCvt16 = [{
+defvar downCvt16 = [{
     return convert_int16($Arg0VarName);
   }];
 //

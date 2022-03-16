@@ -1227,6 +1227,7 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
       auto CollectImpls = [InsertImplToMap](RecordRecTy *OBI, const Record *Rec,
                                             RecordResolver &Resolver) {
         const std::vector<RecordVal> &Values = Rec->getValues();
+        LLVM_DEBUG(dbgs() << "Number of class fields: " << Values.size() << '\n');
         for (const auto &RV : Values) {
           const char *Loc = RV.getLoc().getPointer();
           Init *Def = RV.getValue();

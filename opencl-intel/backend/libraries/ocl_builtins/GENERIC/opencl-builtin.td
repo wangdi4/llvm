@@ -1160,6 +1160,9 @@ class VectInfo<list<OclType> tys, OclBuiltin v1, OclBuiltin v4, OclBuiltin v8, O
 class TargetImpl {
   string Target = "";
 
+  code Prolog = [{}];
+  code Epilog = [{}];
+
   // The previous way of adding new implementations directly as one-by-one class fields, is deprecated.
   // Deprecated usage example:
   //   If we want to add a series of new implementations for builtin "foo", we specify class fields one-by-one:

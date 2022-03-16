@@ -20,33 +20,33 @@
 // convert_shared and convert_not_shared MUST not overlap. i.e. contain 
 // the same functions
 
-code NoCvt = [{
+defvar NoCvt = [{
     return $Arg0VarName;
 }];
 
-code BitCast = [{
+defvar BitCast = [{
     return as_$ReturnType($Arg0VarName);
   }];
 
-code BitSExt = [{
+defvar BitSExt = [{
     return as_$ReturnType(__ocl_sext_$Arg0Symigentype_$ReturnSymigentype(as_$Arg0igentype($Arg0VarName)));
   }];
 
-code BitZExt = [{
+defvar BitZExt = [{
     return as_$ReturnType(__ocl_zext_$Arg0Symigentype_$ReturnSymigentype(as_$Arg0igentype($Arg0VarName)));
   }];
 
-code BitTrunc = [{
+defvar BitTrunc = [{
     return as_$ReturnType(__ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(as_$Arg0igentype($Arg0VarName)));
   }];
 
-code PromoteI32 = [{
+defvar PromoteI32 = [{
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               convert_$Arg0i32gentype$Round($Arg0VarName)));
   }];
   
-code PromoteU32 = [{
+defvar PromoteU32 = [{
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
@@ -55,11 +55,11 @@ code PromoteU32 = [{
 
 // TODO replace PromoteF16F32 and PromoteF16F64 with SVML functions when SVML
 // has fp16 support.
-code PromoteF16F32 = [{
+defvar PromoteF16F32 = [{
     return convert_$ReturnType$Round(__ocl_fpext_$Arg0Symgentype_$Arg0Symf32gentype($Arg0VarName));
   }];
 
-code PromoteF16F64 = [{
+defvar PromoteF16F64 = [{
     return convert_$ReturnType$Round(__ocl_fpext_$Arg0Symgentype_$Arg0Symf64gentype($Arg0VarName));
   }];
 
@@ -499,14 +499,14 @@ list<OclType> iu_types = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
                           v1i64, v2i64, v3i64, v4i64, v8i64, v16i64,
                           v1u64, v2u64, v3u64, v4u64, v8u64, v16u64];
 
-code TruncF16 = [{
+defvar TruncF16 = [{
   return __ocl_fptrunc_$Arg0Symgentype_$ReturnSymgentype($Arg0VarName);
 }];
 
 // TODO honor rounding mode for converting to fp16.
 // Replace CvtF32TruncF16Single and CvtF32TruncF16 with SVML functions when SVML
 // has fp16 support.
-code CvtF32TruncF16 = [{
+defvar CvtF32TruncF16 = [{
   return __ocl_fptrunc_$Arg0Symf32gentype_$ReturnSymgentype(convert_$Arg0f32gentype($Arg0VarName));
 }];
 
@@ -987,11 +987,11 @@ OclBuiltinImpl rtn_cvt_f64_u64 = OclBuiltinImpl<convert_f64_rtn,
 // int2int conversion with rounding make no sense but we add here for completeness.
 //
 
-code _int2int_rounding = [{
+defvar _int2int_rounding = [{
     return convert_$ReturnType($Arg0VarName);
   }];
 
-code _int2int_rounding_sat = [{
+defvar _int2int_rounding_sat = [{
     return convert_$ReturnType_sat($Arg0VarName);
   }];
 
@@ -1066,23 +1066,23 @@ OclBuiltinImpl impl_convert_u64_sat_rtn = OclBuiltinImpl<_convert_u64_sat_rtn, _
 // fp2 conversion with rounding make no sense but we add here for completeness.
 //
 
-code _2fp_sat = [{
+defvar _2fp_sat = [{
     return convert_$ReturnType($Arg0VarName);
   }];
 
-code _2fp_sat_rte = [{
+defvar _2fp_sat_rte = [{
     return convert_$ReturnType_rte($Arg0VarName);
   }];
 
-code _2fp_sat_rtz = [{
+defvar _2fp_sat_rtz = [{
     return convert_$ReturnType_rtz($Arg0VarName);
   }];
 
-code _2fp_sat_rtp = [{
+defvar _2fp_sat_rtp = [{
     return convert_$ReturnType_rtp($Arg0VarName);
   }];
 
-code _2fp_sat_rtn = [{
+defvar _2fp_sat_rtn = [{
     return convert_$ReturnType_rtn($Arg0VarName);
   }];
 

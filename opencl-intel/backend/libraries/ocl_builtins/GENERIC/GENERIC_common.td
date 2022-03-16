@@ -3,10 +3,6 @@
 // Purporse of the file GENERIC_common.td is to share code between CPU and MIC
 // during CPU built ins transition to tblgen
 
-  include "GENERIC/code_expand_promote_common.td"
-  include "GENERIC/code_conversion_sat_common.td"
-  include "GENERIC/code_integer_common.td"
-
   // clamp_s. for float and double
   // NOTE: integer and common BIs has clamp, min, max BIs.
   OclBuiltinImpl clamp_s_generic = OclBuiltinImpl<clamp_s, clamp_s.Types, 0, [{
