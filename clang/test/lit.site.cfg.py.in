@@ -38,7 +38,6 @@ config.has_plugins = @CLANG_PLUGIN_SUPPORT@
 config.clang_vendor_uti = "@CLANG_VENDOR_UTI@"
 config.llvm_external_lit = path(r"@LLVM_EXTERNAL_LIT@")
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 config.intel_llvm_has_libompdevice = @INTEL_LLVM_HAS_LIBOMPDEVICE@
 # INTEL_FEATURE_SW_DTRANS
@@ -46,20 +45,6 @@ config.include_intel_extra_opts = @INTEL_DTRANS_EXTRA_OPTS@
 # end INTEL_FEATURE_SW_DTRANS
 # end INTEL_CUSTOMIZATION
 
-# Support substitution of the tools and libs dirs with user parameters. This is
-# used when we can't determine the tool dir at configuration time.
-try:
-    config.clang_tools_dir = config.clang_tools_dir % lit_config.params
-    config.llvm_tools_dir = config.llvm_tools_dir % lit_config.params
-    config.llvm_shlib_dir = config.llvm_shlib_dir % lit_config.params
-    config.llvm_libs_dir = config.llvm_libs_dir % lit_config.params
-except KeyError:
-    e = sys.exc_info()[1]
-    key, = e.args
-    lit_config.fatal("unable to find %r parameter, use '--param=%s=VALUE'" % (key,key))
-
-=======
->>>>>>> 75acad41bcd6cbe688e0609cbd7649ea8a533195
 import lit.llvm
 lit.llvm.initialize(lit_config, config)
 
