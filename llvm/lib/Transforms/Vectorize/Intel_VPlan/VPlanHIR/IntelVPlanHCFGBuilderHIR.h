@@ -266,10 +266,8 @@ private:
   PrivatesNonPODListTy PrivatesNonPODList;
   LinearListTy LinearList;
   ReductionListTy ReductionList;
-  struct HIRVectorIdiomDeleter {
-    void operator()(HIRVectorIdioms *p) { deleteHIRVectorIdioms(p); }
-  };
-  using IdiomListTy = std::unique_ptr<HIRVectorIdioms, HIRVectorIdiomDeleter>;
+
+  using IdiomListTy = std::unique_ptr<HIRVectorIdioms>;
   // List of idioms recognized for each corresponding HLLoop.
   // NOTE: Map is made mutable since the const getter method repopulates the
   // list of idioms on the fly if no entry is found for a given loop. Check

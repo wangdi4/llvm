@@ -30,7 +30,7 @@ class DDRef;
 // a IdiomId from a predefined list. Each idiom can have a list of linked
 // idioms. For printing purposes, the IdiomId-s are split into master idioms,
 // standalone idioms, and others.
-template <typename IdiomSubject> class VectorIdioms {
+template <typename IdiomSubject, typename IdiomTraits> class VectorIdioms {
 public:
   enum IdiomId {
     NoIdiom = 0,
@@ -43,6 +43,35 @@ public:
     // to be present and uses its last value for final calculation.
     MMFirstLastVal,
     VConflictLikeStore,
+    // Compress/expand IdiomIds
+    // E.g. in the following loop
+    // double *A,*B,*D,*E; int *C;
+    // for (int i=0; i<size; ++i)
+    //   if (C[i] != 0) {
+    //     B[j] = A[i];
+    //     j++; // 1st increment
+    //     E[i] = D[j];
+    //     j++; // 2nd increment
+    //   }
+    //
+    // The statement commented as "1st increment" is marked as CEIndexIncFirst.
+    // The statement commented as "2nd increment" is marked as CEIndexIncNext.
+    // I.e. the first found index increment is CEIndexIncFirst all other
+    // increments are CEIndexIncNext.
+    // The statement with the store to B[j] is marked as CEStore.
+    // The load from D[j] is marked as CELoad.
+    // The 'j' in D[j] and in B[j] are marked as CELdStIndex.
+    //
+    // Main entry for idiom, first encountered index increment (HLInst)
+    CEIndexIncFirst,
+    // Additional index increments, are linked to the main entry (HLInst)
+    CEIndexIncNext,
+    // Compress store, linked to the main entry (HLInst)
+    CEStore,
+    // Expand load, linked to the main entry (DDRef)
+    CELoad,
+    // Index in the store/load, linked to a store or to a load (DDRef)
+    CELdStIndex,
   };
 
 private:
@@ -65,8 +94,11 @@ public:
     iterator Iter = IdiomData.find(ISubj);
     if (Iter != IdiomData.end())
       assert(Iter->second == Id && "Conflicting idiom");
-    else
+    else {
+      assert(IdiomTraits::isValidIdForIdiom(ISubj, Id) &&
+             "invalid idiom markup");
       IdiomData[ISubj] = Id;
+    }
   }
 
   /// Return IdiomId if \p ISubj is registered as idiom or NoIdiom if
@@ -78,17 +110,15 @@ public:
 
   /// Add \p Linked as an idiom marked with \p Id, and link it to \p Master.
   void addLinked(IdiomSubject Master, IdiomSubject Linked, IdiomId Id) {
-    assert(isIdiom(Master) != NoIdiom && "Expected master idiom registered");
     addIdiom(Linked, Id);
-    IdiomLinks[Master].insert(Linked);
+    insertLinked(Master, Linked, Id);
   }
 
   /// Link already inserted idioms.
   void linkIdiom(IdiomSubject Master, IdiomSubject Linked, IdiomId Id) {
-    assert(isIdiom(Master) != NoIdiom && "Expected master idiom registered");
     assert((Id != NoIdiom && isIdiom(Linked) == Id) &&
            "Expected linked idiom registered");
-    IdiomLinks[Master].insert(Linked);
+    insertLinked(Master, Linked, Id);
   }
 
   const_iterator begin() const { return IdiomData.begin(); }
@@ -104,7 +134,9 @@ public:
   static bool isStandaloneIdiom(IdiomId Id) { return false; }
 
   /// Predicate whether \p Id marks idioms that require the linked ones.
-  static bool isMasterIdiom(IdiomId Id) { return Id == MinOrMax; }
+  static bool isMasterIdiom(IdiomId Id) {
+    return Id == MinOrMax || Id == VConflictLikeStore || Id == CEIndexIncFirst;
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const {
@@ -114,23 +146,55 @@ public:
       OS << "  No idioms detected.\n";
       return;
     }
+    SmallSet<IdiomSubject, 4> Printed;
+    std::function<void(raw_ostream &, IdiomSubject, int Indent)>
+        DumpLinkedIdioms = [this, &Printed,
+                            &DumpLinkedIdioms](raw_ostream &OS,
+                                              IdiomSubject Idiom, int Indent) {
+          if (const LinkedIdiomListTy *LinkedList = getLinkedIdioms(Idiom)) {
+            std::string StrIndent = std::string(2 * Indent, ' ');
+            for (auto Linked : *LinkedList) {
+              auto IdiomCode = isIdiom(Linked);
+              OS << StrIndent << getIdiomName(IdiomCode) << ": ";
+              Linked->dump();
+              if (Printed.insert(Linked).second)
+                DumpLinkedIdioms(OS, Linked, Indent + 1);
+            }
+          }
+        };
     for (auto &Idiom : IdiomData)
       if (isMasterIdiom(Idiom.second) || isStandaloneIdiom(Idiom.second)) {
+        if (!Printed.insert(Idiom.first).second)
+          continue;
         OS << getIdiomName(Idiom.second) << ": ";
         Idiom.first->dump();
-        if (const LinkedIdiomListTy *LinkedList = getLinkedIdioms(Idiom.first))
-          for (auto Linked : *LinkedList) {
-            auto IdiomCode = isIdiom(Linked);
-            OS << "  " << getIdiomName(IdiomCode) << ": ";
-            Linked->dump();
-          }
+        DumpLinkedIdioms(OS, Idiom.first, 0);
       }
   }
 
   static const char *getIdiomName(IdiomId Id) {
-    static const char *Names[] = {"NoIdiom", "MinOrMax", "MMFirstLastIdx",
-                                  "MMFirstLastVal", "VConflictLikeStore"};
-    return Names[Id];
+    switch (Id) {
+    case NoIdiom:
+      return "NoIdiom";
+    case MinOrMax:
+      return "MinOrMax";
+    case MMFirstLastIdx:
+      return "MMFirstLastIdx";
+    case MMFirstLastVal:
+      return "MMFirstLastVal";
+    case VConflictLikeStore:
+      return "VConflictLikeStore";
+    case CEIndexIncFirst:
+      return "CEIndexIncFirst";
+    case CEIndexIncNext:
+      return "CEIndexIncNext";
+    case CEStore:
+      return "CEStore";
+    case CELoad:
+      return "CELoad";
+    case CELdStIndex:
+      return "CELdStIndex";
+    };
   }
 #endif
 
@@ -152,6 +216,29 @@ public:
   }
 
 private:
+  void insertLinked(IdiomSubject Master, IdiomSubject Linked, IdiomId Id) {
+    assert(isValidLink(isIdiom(Master), Id) && "Invalid idiom linking");
+    IdiomLinks[Master].insert(Linked);
+  }
+
+  // Return true if idiom with \p Id can be linked to idiom with \p MainId.
+  static bool isValidLink(IdiomId MainId, IdiomId Id) {
+    switch (MainId) {
+    case MinOrMax:
+      return Id == MMFirstLastIdx || Id == MMFirstLastVal;
+    case VConflictLikeStore:
+      return false;
+    case CEIndexIncFirst:
+      return Id == CEIndexIncNext || Id == CEStore || Id == CELoad;
+    case CEStore:
+    case CELoad:
+      return Id == CELdStIndex;
+    case NoIdiom:
+    default:
+      return false;
+    }
+  }
+
   IdiomListTy IdiomData;
   IdiomLinksTy IdiomLinks;
 };
@@ -159,29 +246,45 @@ private:
 // HIR vector idiom can represent either HLInst or DDRef.
 struct HIRVecIdiom : public PointerUnion<const HLInst *, const DDRef *> {
   using Base = PointerUnion<const HLInst *, const DDRef *>;
-  using HI = const HLInst *;
-  using DD = const DDRef *;
-
   const HIRVecIdiom *operator->() const { return this; }
   HIRVecIdiom(const HLInst *H) { Base::operator=(H); }
   HIRVecIdiom(const DDRef *D) { Base::operator=(D); }
   HIRVecIdiom(const Base &U) : Base(U) {}
 
-  operator const HLInst *() const { return get<HI>(); }
-  operator const DDRef *() const { return get<DD>(); }
+  operator const HLInst *() const { return get<const HLInst *>(); }
+  operator const DDRef *() const { return get<const DDRef *>(); }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
 #endif
 };
 
-using HIRVectorIdioms = VectorIdioms<HIRVecIdiom>;
+class HIRVectorIdiomTraits {
+  using Base = VectorIdioms<HIRVecIdiom, HIRVectorIdiomTraits>;
 
-// Deleter, to use with std::unique_ptr<HIRVectorIdioms> when this header is
-// not included and HIRVectorIdioms is forward declared as incomplete.
-// This declaration is unnecessary here, keeping just to able to copy it in the
-// needed place.
-extern void deleteHIRVectorIdioms(HIRVectorIdioms *);
+public:
+  // Some of idioms can be HLInst and some of them can be DDRef. Return true if
+  // \p Id can be assigned to the \p Idiom, depending on \p Idiom's class.
+  static bool isValidIdForIdiom(HIRVecIdiom Idiom, Base::IdiomId Id) {
+    switch (Id) {
+    case Base::NoIdiom:
+      return false;
+    case Base::MinOrMax:
+    case Base::MMFirstLastIdx:
+    case Base::MMFirstLastVal:
+    case Base::VConflictLikeStore:
+    case Base::CEIndexIncFirst:
+    case Base::CEIndexIncNext:
+    case Base::CEStore:
+      return Idiom.is<const HLInst *>();
+    case Base::CELoad:
+    case Base::CELdStIndex:
+      return Idiom.is<const DDRef *>();
+    }
+  }
+};
+
+using HIRVectorIdioms = VectorIdioms<HIRVecIdiom, HIRVectorIdiomTraits>;
 
 } // namespace loopopt
 
