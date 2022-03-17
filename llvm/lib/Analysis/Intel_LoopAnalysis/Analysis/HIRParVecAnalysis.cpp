@@ -1138,16 +1138,12 @@ void HIRVectorIdiomAnalysis::gatherIdioms(const TargetTransformInfo *TTI,
     LLVM_DEBUG(dbgs() << "Any idiom recognition is disabled\n");
 }
 
-extern void llvm::loopopt::deleteHIRVectorIdioms(HIRVectorIdioms *p) {
-  delete p;
-}
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void HIRVecIdiom::dump() const {
-  if (is<HI>())
-    get<HI>()->dump();
+  if (is<const HLInst*>())
+    get<const HLInst*>()->dump();
   else
-    get<DD>()->dump();
+    get<const DDRef*>()->dump();
 }
 #endif
 
