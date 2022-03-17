@@ -122,16 +122,11 @@ define void @test_in_array([1 x %struct]* %st, i64 %i, i64 %j, i64 %k, i64 %i1, 
 ; CHECK-DAG: MayAlias: i32* %x, i80* %y_10
 
 ; CHECK-DAG: MayAlias: [1 x [1 x [1 x %struct]]]* %st, i64* %y_8
-<<<<<<< HEAD
-; CHECK-DAG: MayAlias: i32* %z, i64* %y_8
+; CHECK-DAG: MayAlias: i64* %y_8, i32* %z
 ; INTEL
 ; CHECK-GEP-DAG: NoAlias: i32* %x, i64* %y_8
 ; INTEL
-; CHECK-SUBS-DAG: NoAlias: i32* %x, i64* %y_8
-=======
-; CHECK-DAG: MayAlias: i64* %y_8, i32* %z
 ; CHECK-DAG: NoAlias: i32* %x, i64* %y_8
->>>>>>> 57d57b1afd87d714d622b4287f891d17a474ecb6
 
 ; CHECK-DAG: MustAlias: i32* %y, %struct* %y_12
 ; CHECK-DAG: MustAlias: i32* %y, i64* %y_8

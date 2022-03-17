@@ -249,17 +249,13 @@ exit:
 
 ; CHECK-LABEL: Function: nested_loop
 ; CHECK: NoAlias:  i8* %a, i8* %p.base
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; Compile time speed fixes for 25048/24303 treat loop GEPs more conservatively
 ; in some cases, but avoids a cache flush which improves compile time greatly
 ; for deep nested cases.
 ; CHECK: {{May|No}}Alias:{{.*}}i8* %a, i8* %p.outer
 ; end INTEL_CUSTOMIZATION
-; CHECK: NoAlias:  i8* %a, i8* %p.outer.next
-=======
 ; CHECK: NoAlias:  i8* %a, i8* %p.outer
->>>>>>> 57d57b1afd87d714d622b4287f891d17a474ecb6
 ; NO-PHI-VALUES: MayAlias: i8* %a, i8* %p.inner
 ; PHI-VALUES: NoAlias: i8* %a, i8* %p.inner
 ; CHECK: NoAlias:  i8* %a, i8* %p.inner.next

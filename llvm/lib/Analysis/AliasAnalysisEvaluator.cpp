@@ -56,20 +56,15 @@ static cl::opt<bool> PrintMustModRef("print-mustmodref", cl::ReallyHidden);
 
 static cl::opt<bool> EvalAAMD("evaluate-aa-metadata", cl::ReallyHidden);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool> EvalLoopCarriedAlias("evaluate-loopcarried-alias",
                                           cl::ReallyHidden);
 #endif // INTEL_CUSTOMIZATION
 
-static void PrintResults(AliasResult AR, bool P, const Value *V1,
-                         const Value *V2, const Module *M) {
-=======
 static void PrintResults(AliasResult AR, bool P,
                          std::pair<const Value *, Type *> Loc1,
                          std::pair<const Value *, Type *> Loc2,
                          const Module *M) {
->>>>>>> 57d57b1afd87d714d622b4287f891d17a474ecb6
   if (PrintAll || P) {
     Type *Ty1 = Loc1.second, *Ty2 = Loc2.second;
     unsigned AS1 = Loc1.first->getType()->getPointerAddressSpace();
@@ -147,7 +142,6 @@ void AAEvaluator::runInternal(Function &F, AAResults &AA) {
   SetVector<Value *> Loads;
   SetVector<Value *> Stores;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Use EvalLoopCarriedAlias to route to either alias or loopCarriedAlias.
   auto AAQueryWrapper = [=, &AA](auto... args) {
@@ -158,12 +152,6 @@ void AAEvaluator::runInternal(Function &F, AAResults &AA) {
   };
 #endif // INTEL_CUSTOMIZATION
 
-  for (auto &I : F.args())
-    if (I.getType()->isPointerTy())    // Add all pointer arguments.
-      Pointers.insert(&I);
-
-=======
->>>>>>> 57d57b1afd87d714d622b4287f891d17a474ecb6
   for (Instruction &Inst : instructions(F)) {
     if (auto *LI = dyn_cast<LoadInst>(&Inst)) {
       Pointers.insert({LI->getPointerOperand(), LI->getType()});
@@ -182,29 +170,16 @@ void AAEvaluator::runInternal(Function &F, AAResults &AA) {
            << " pointers, " << Calls.size() << " call sites\n";
 
   // iterate over the worklist, and run the full (n^2)/2 disambiguations
-<<<<<<< HEAD
-  for (SetVector<Value *>::iterator I1 = Pointers.begin(), E = Pointers.end();
-       I1 != E; ++I1) {
-    auto I1Size = LocationSize::afterPointer();
-    Type *I1ElTy = (*I1)->getType()->getPointerElementType();
-    if (I1ElTy->isSized())
-      I1Size = LocationSize::precise(DL.getTypeStoreSize(I1ElTy));
-
-    for (SetVector<Value *>::iterator I2 = Pointers.begin(); I2 != I1; ++I2) {
-      auto I2Size = LocationSize::afterPointer();
-      Type *I2ElTy = (*I2)->getType()->getPointerElementType();
-      if (I2ElTy->isSized())
-        I2Size = LocationSize::precise(DL.getTypeStoreSize(I2ElTy));
-
-      AliasResult AR = AAQueryWrapper(*I1, I1Size, *I2, I2Size); // INTEL
-=======
   for (auto I1 = Pointers.begin(), E = Pointers.end(); I1 != E; ++I1) {
     LocationSize Size1 = LocationSize::precise(DL.getTypeStoreSize(I1->second));
     for (auto I2 = Pointers.begin(); I2 != I1; ++I2) {
       LocationSize Size2 =
           LocationSize::precise(DL.getTypeStoreSize(I2->second));
+#ifdef INTEL_CUSTOMIZATION
+      AliasResult AR = AAQueryWrapper(I1->first, Size1, I2->first, Size2);
+#else
       AliasResult AR = AA.alias(I1->first, Size1, I2->first, Size2);
->>>>>>> 57d57b1afd87d714d622b4287f891d17a474ecb6
+#endif // INTEL_CUSTOMIZATION
       switch (AR) {
       case AliasResult::NoAlias:
         PrintResults(AR, PrintNoAlias, *I1, *I2, F.getParent());
