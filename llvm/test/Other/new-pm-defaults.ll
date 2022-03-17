@@ -354,13 +354,8 @@
 ; CHECK-O-NEXT: Running pass: ConstantMergePass
 ; CHECK-DEFAULT-NEXT: Running pass: RelLookupTableConverterPass
 ; CHECK-LTO-NOT: Running pass: RelLookupTableConverterPass
-<<<<<<< HEAD
-; CHECK-DEFAULT-NEXT: Running analysis: TargetIRAnalysis
-; CHECK-LTO-NOT: Running analysis: TargetIRAnalysis
 ; CHECK-LTO-NEXT: Running pass: IntelMathLibrariesDeclarationPass ;INTEL
 ; CHECK-O-NEXT: Running pass: InlineReportEmitterPass ;INTEL
-=======
->>>>>>> 07d5339819e2bb963a680887ff8ca350f170f3bc
 ; CHECK-O-NEXT: Running pass: AnnotationRemarksPass on foo
 ; CHECK-LTO-NEXT: Running pass: CanonicalizeAliasesPass
 ; CHECK-LTO-NEXT: Running pass: NameAnonGlobalPass
