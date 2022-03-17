@@ -13,6 +13,8 @@ declare void @a_readonly_func(i8*) #1
 declare void @a_writeonly_func(i8*) #2
 
 define void @test2(i8* %P, i8* %Q) #3 {
+  load i8, i8* %P
+  load i8, i8* %Q
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
   ret void
@@ -29,6 +31,8 @@ define void @test2(i8* %P, i8* %Q) #3 {
 }
 
 define void @test2_atomic(i8* %P, i8* %Q) #3 {
+  load i8, i8* %P
+  load i8, i8* %Q
   tail call void @llvm.memcpy.element.unordered.atomic.p0i8.p0i8.i64(i8* align 1 %P, i8* align 1 %Q, i64 12, i32 1)
   tail call void @llvm.memcpy.element.unordered.atomic.p0i8.p0i8.i64(i8* align 1 %P, i8* align 1 %Q, i64 12, i32 1)
   ret void
@@ -45,6 +49,8 @@ define void @test2_atomic(i8* %P, i8* %Q) #3 {
 }
 
 define void @test2a(i8* noalias %P, i8* noalias %Q) #3 {
+  load i8, i8* %P
+  load i8, i8* %Q
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
   ret void
@@ -61,8 +67,11 @@ define void @test2a(i8* noalias %P, i8* noalias %Q) #3 {
 }
 
 define void @test2b(i8* noalias %P, i8* noalias %Q) #3 {
+  load i8, i8* %P
+  load i8, i8* %Q
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
   %R = getelementptr i8, i8* %P, i64 12
+  load i8, i8* %R
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %R, i8* %Q, i64 12, i1 false)
   ret void
 
@@ -82,8 +91,11 @@ define void @test2b(i8* noalias %P, i8* noalias %Q) #3 {
 }
 
 define void @test2c(i8* noalias %P, i8* noalias %Q) #3 {
+  load i8, i8* %P
+  load i8, i8* %Q
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
   %R = getelementptr i8, i8* %P, i64 11
+  load i8, i8* %R
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %R, i8* %Q, i64 12, i1 false)
   ret void
 
@@ -103,8 +115,11 @@ define void @test2c(i8* noalias %P, i8* noalias %Q) #3 {
 }
 
 define void @test2d(i8* noalias %P, i8* noalias %Q) #3 {
+  load i8, i8* %P
+  load i8, i8* %Q
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
   %R = getelementptr i8, i8* %P, i64 -12
+  load i8, i8* %R
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %R, i8* %Q, i64 12, i1 false)
   ret void
 
@@ -124,8 +139,11 @@ define void @test2d(i8* noalias %P, i8* noalias %Q) #3 {
 }
 
 define void @test2e(i8* noalias %P, i8* noalias %Q) #3 {
+  load i8, i8* %P
+  load i8, i8* %Q
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
   %R = getelementptr i8, i8* %P, i64 -11
+  load i8, i8* %R
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %R, i8* %Q, i64 12, i1 false)
   ret void
 
@@ -145,6 +163,8 @@ define void @test2e(i8* noalias %P, i8* noalias %Q) #3 {
 }
 
 define void @test3(i8* %P, i8* %Q) #3 {
+  load i8, i8* %P
+  load i8, i8* %Q
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 8, i1 false)
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
   ret void
@@ -161,6 +181,8 @@ define void @test3(i8* %P, i8* %Q) #3 {
 }
 
 define void @test3a(i8* noalias %P, i8* noalias %Q) #3 {
+  load i8, i8* %P
+  load i8, i8* %Q
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 8, i1 false)
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
   ret void
@@ -177,6 +199,8 @@ define void @test3a(i8* noalias %P, i8* noalias %Q) #3 {
 }
 
 define void @test4(i8* %P, i8* noalias %Q) #3 {
+  load i8, i8* %P
+  load i8, i8* %Q
   tail call void @llvm.memset.p0i8.i64(i8* %P, i8 42, i64 8, i1 false)
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
   ret void
@@ -193,6 +217,9 @@ define void @test4(i8* %P, i8* noalias %Q) #3 {
 }
 
 define void @test5(i8* %P, i8* %Q, i8* %R) #3 {
+  load i8, i8* %P
+  load i8, i8* %Q
+  load i8, i8* %R
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %R, i64 12, i1 false)
   ret void
@@ -213,6 +240,9 @@ define void @test5(i8* %P, i8* %Q, i8* %R) #3 {
 }
 
 define void @test5a(i8* noalias %P, i8* noalias %Q, i8* noalias %R) nounwind ssp {
+  load i8, i8* %P
+  load i8, i8* %Q
+  load i8, i8* %R
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %R, i64 12, i1 false)
   ret void
@@ -233,6 +263,7 @@ define void @test5a(i8* noalias %P, i8* noalias %Q, i8* noalias %R) nounwind ssp
 }
 
 define void @test6(i8* %P) #3 {
+  load i8, i8* %P
   call void @llvm.memset.p0i8.i64(i8* align 8 %P, i8 -51, i64 32, i1 false)
   call void @a_readonly_func(i8* %P)
   ret void
@@ -246,6 +277,7 @@ define void @test6(i8* %P) #3 {
 }
 
 define void @test7(i8* %P) #3 {
+  load i8, i8* %P
   call void @a_writeonly_func(i8* %P)
   call void @a_readonly_func(i8* %P)
   ret void
@@ -265,6 +297,8 @@ declare void @an_argmemonly_func(i8*) #0
 define void @test8(i8* %p) {
 entry:
   %q = getelementptr i8, i8* %p, i64 16
+  load i8, i8* %p
+  load i8, i8* %q
   call void @a_readonly_func(i8* %p)
   call void @an_inaccessiblememonly_func()
   call void @a_writeonly_func(i8* %q)
@@ -305,6 +339,8 @@ entry:
 declare void @another_argmemonly_func(i8*, i8*) #0
 define void @test8a(i8* noalias %p, i8* noalias %q) {
 entry:
+  load i8, i8* %p
+  load i8, i8* %q
   call void @another_argmemonly_func(i8* %p, i8* %q)
   ret void
 
@@ -314,6 +350,8 @@ entry:
 }
 define void @test8b(i8* %p, i8* %q) {
 entry:
+  load i8, i8* %p
+  load i8, i8* %q
   call void @another_argmemonly_func(i8* %p, i8* %q)
   ret void
 
@@ -328,6 +366,8 @@ define void @test9(i8* %p) {
 ; CHECK-LABEL: Function: test9
 entry:
   %q = getelementptr i8, i8* %p, i64 16
+  load i8, i8* %p
+  load i8, i8* %q
   call void @a_readonly_func(i8* %p) [ "unknown"() ]
   call void @an_inaccessiblememonly_func() [ "unknown"() ]
   call void @an_inaccessibleorargmemonly_func(i8* %q) [ "unknown"() ]
@@ -361,6 +401,8 @@ define void @test10(i8* %p) {
 ; CHECK-LABEL: Function: test10
 entry:
   %q = getelementptr i8, i8* %p, i64 16
+  load i8, i8* %p
+  load i8, i8* %q
   call void @a_readonly_func(i8* %p) #6 [ "unknown"() ]
   call void @an_inaccessiblememonly_func() #7 [ "unknown"() ]
   call void @an_inaccessibleorargmemonly_func(i8* %q) #8 [ "unknown"() ]
