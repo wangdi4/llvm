@@ -272,6 +272,20 @@ namespace OCLBuiltins {
     template<> llvm::GenericValue initWithZero<float>();
     template<> llvm::GenericValue initWithZero<double>();
 
+    template<typename T> llvm::GenericValue initWithInteger(int i){
+        llvm::report_fatal_error("initWithInteger: unsupported data type.");
+    }
+    template<> llvm::GenericValue initWithInteger<int8_t>(int i);
+    template<> llvm::GenericValue initWithInteger<int16_t>(int i);
+    template<> llvm::GenericValue initWithInteger<int32_t>(int i);
+    template<> llvm::GenericValue initWithInteger<int64_t>(int i);
+    template<> llvm::GenericValue initWithInteger<uint8_t>(int i);
+    template<> llvm::GenericValue initWithInteger<uint16_t>(int i);
+    template<> llvm::GenericValue initWithInteger<uint32_t>(int i);
+    template<> llvm::GenericValue initWithInteger<uint64_t>(int i);
+    template<> llvm::GenericValue initWithInteger<float>(int i);
+    template<> llvm::GenericValue initWithInteger<double>(int i);
+
     template<typename T>
     class superT;
 

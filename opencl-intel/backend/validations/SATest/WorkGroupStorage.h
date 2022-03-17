@@ -54,10 +54,10 @@ public:
     }
 
     ///Get reference to accumulative value. Needed to collect data
-    ///for work-group built-ins. specific function for work_group_prefixsum builtins
+    ///for work-group built-ins. specific function for work_group_scan builtin
     ///@return reference to llvm::GenericValue
-    virtual llvm::GenericValue& GetValueForPrefixSumBuiltin(){
-        return m_PrefixSumValue;
+    virtual llvm::GenericValue& GetValueForScanBuiltin(){
+        return m_ScanValue;
     }
 
     ///Report that someone is referencing to instance of class
@@ -86,7 +86,7 @@ private:
         m_Predicate=init;
         m_BroadcastedValue=init;
         m_ReduceValue=init;
-        m_PrefixSumValue=init;
+        m_ScanValue=init;
     }
 
     ///accumulative variable stored within work group
@@ -99,8 +99,8 @@ private:
     ///used by reduce work group built-in
     llvm::GenericValue m_ReduceValue;
     ///accumulative variable stored within work group
-    ///used by prefixsum work group built-ins
-    llvm::GenericValue m_PrefixSumValue;
+    ///used by scan work group built-ins
+    llvm::GenericValue m_ScanValue;
     ///reference counter
     ///how many work-items is executing work-group builtin in the same time
     int32_t m_RefCounter;

@@ -296,6 +296,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isWorkGroupReduceAdd(const std::string&);
     static bool isWorkGroupScanExclusiveAdd(const std::string&);
     static bool isWorkGroupScanInclusiveAdd(const std::string&);
+    static bool isWorkGroupReduceMul(const std::string&);
+    static bool isWorkGroupScanExclusiveMul(const std::string&);
+    static bool isWorkGroupScanInclusiveMul(const std::string&);
     static bool isWorkGroupReduceMin(const std::string&);
     static bool isWorkGroupScanExclusiveMin(const std::string&);
     static bool isWorkGroupScanInclusiveMin(const std::string&);
@@ -421,6 +424,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string NAME_WORK_GROUP_REDUCE_MAX;
     static const std::string NAME_WORK_GROUP_SCAN_EXCLUSIVE_MAX;
     static const std::string NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX;
+    static const std::string NAME_WORK_GROUP_REDUCE_MUL;
+    static const std::string NAME_WORK_GROUP_SCAN_EXCLUSIVE_MUL;
+    static const std::string NAME_WORK_GROUP_SCAN_INCLUSIVE_MUL;
     static const std::string NAME_FINALIZE_WG_FUNCTION_PREFIX;
 
     //sub-group functions

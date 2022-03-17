@@ -30,12 +30,15 @@ let NeedForwardDecl = 1 in {
     def work_group_reduce_add         : OclBuiltin<"work_group_reduce_add",    (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
     def work_group_reduce_min         : OclBuiltin<"work_group_reduce_min",    (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
     def work_group_reduce_max         : OclBuiltin<"work_group_reduce_max",    (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
+    def work_group_reduce_mul         : OclBuiltin<"work_group_reduce_mul",    (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
     def work_group_scan_exclusive_add : OclBuiltin<"work_group_scan_exclusive_add", (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
     def work_group_scan_exclusive_min : OclBuiltin<"work_group_scan_exclusive_min", (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
     def work_group_scan_exclusive_max : OclBuiltin<"work_group_scan_exclusive_max", (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
+    def work_group_scan_exclusive_mul : OclBuiltin<"work_group_scan_exclusive_mul", (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
     def work_group_scan_inclusive_add : OclBuiltin<"work_group_scan_inclusive_add", (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
     def work_group_scan_inclusive_min : OclBuiltin<"work_group_scan_inclusive_min", (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
     def work_group_scan_inclusive_max : OclBuiltin<"work_group_scan_inclusive_max", (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
+    def work_group_scan_inclusive_mul : OclBuiltin<"work_group_scan_inclusive_mul", (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
   }
 
   let Types = [ v4i8, v8i8, v16i8, v32i8, v64i8,
@@ -55,12 +58,15 @@ let NeedForwardDecl = 1 in {
     def work_group_reduce_add_mask         : OclBuiltin<"work_group_reduce_add",    (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
     def work_group_reduce_min_mask         : OclBuiltin<"work_group_reduce_min",    (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
     def work_group_reduce_max_mask         : OclBuiltin<"work_group_reduce_max",    (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
+    def work_group_reduce_mul_mask         : OclBuiltin<"work_group_reduce_mul",    (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
     def work_group_scan_exclusive_add_mask : OclBuiltin<"work_group_scan_exclusive_add", (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
     def work_group_scan_exclusive_min_mask : OclBuiltin<"work_group_scan_exclusive_min", (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
     def work_group_scan_exclusive_max_mask : OclBuiltin<"work_group_scan_exclusive_max", (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
+    def work_group_scan_exclusive_mul_mask : OclBuiltin<"work_group_scan_exclusive_mul", (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
     def work_group_scan_inclusive_add_mask : OclBuiltin<"work_group_scan_inclusive_add", (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
     def work_group_scan_inclusive_min_mask : OclBuiltin<"work_group_scan_inclusive_min", (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
     def work_group_scan_inclusive_max_mask : OclBuiltin<"work_group_scan_inclusive_max", (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
+    def work_group_scan_inclusive_mul_mask : OclBuiltin<"work_group_scan_inclusive_mul", (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
   }
 }
 
@@ -79,7 +85,7 @@ let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64]
   def work_group_broadcast2d_mask_vect_info : VectInfo<[], work_group_broadcast2d, work_group_broadcast2d_mask, work_group_broadcast2d_mask, work_group_broadcast2d_mask, work_group_broadcast2d_mask, work_group_broadcast2d_mask>;
   def work_group_broadcast3d_mask_vect_info : VectInfo<[], work_group_broadcast3d, work_group_broadcast3d_mask, work_group_broadcast3d_mask, work_group_broadcast3d_mask, work_group_broadcast3d_mask, work_group_broadcast3d_mask>;
   foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
-    foreach op = ["add", "min", "max"] in {
+    foreach op = ["add", "min", "max", "mul"] in {
      def work_group_#func#_#op#_vect_info : VectInfo<[], !cast<OclBuiltin>("work_group_"#func#_#op), !cast<OclBuiltin>("work_group_"#func#_#op), !cast<OclBuiltin>("work_group_"#func#_#op), !cast<OclBuiltin>("work_group_"#func#_#op), !cast<OclBuiltin>("work_group_"#func#_#op), !cast<OclBuiltin>("work_group_"#func#_#op)>;
      def work_group_#func#_#op#_mask_vect_info : VectInfo<[], !cast<OclBuiltin>("work_group_"#func#_#op), !cast<OclBuiltin>("work_group_"#func#_#op#"_mask"), !cast<OclBuiltin>("work_group_"#func#_#op#"_mask"), !cast<OclBuiltin>("work_group_"#func#_#op#"_mask"), !cast<OclBuiltin>("work_group_"#func#_#op#"_mask"), !cast<OclBuiltin>("work_group_"#func#_#op#"_mask")>;
     }
@@ -104,9 +110,11 @@ foreach func_name = [ "work_group_all", "work_group_any" ] in {
     0,1>;          //not scalarizable, packetizable
 }
 foreach func_name = [ "work_group_broadcast1d", "work_group_broadcast2d", "work_group_broadcast3d",
-                      "work_group_reduce_add", "work_group_reduce_min", "work_group_reduce_max",
+                      "work_group_reduce_add", "work_group_reduce_min", "work_group_reduce_max", "work_group_reduce_mul",
                       "work_group_scan_exclusive_add", "work_group_scan_exclusive_min", "work_group_scan_exclusive_max",
-                      "work_group_scan_inclusive_add", "work_group_scan_inclusive_min", "work_group_scan_inclusive_max"] in {
+                      "work_group_scan_exclusive_mul",
+                      "work_group_scan_inclusive_add", "work_group_scan_inclusive_min", "work_group_scan_inclusive_max",
+                      "work_group_scan_inclusive_mul",] in {
   foreach base_type = [ "i32", "u32", "i64", "u64", "f32", "f64" ] in {
     def func_name#_#base_type#_cell1  : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v1"#base_type)>;
     def func_name#_#base_type#_cell4  : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v4"#base_type)>;
@@ -147,6 +155,7 @@ let NeedForwardDecl = 1 in { /* work around the missing prototype in opencl.h */
                 v1f64, v4f64, v8f64, v16f64, v32f64, v64f64],
       Attrs = [OVERLOADABLE] in {
     def work_group_add_helper_util  : OclBuiltin<"work_group_add_util",  (outs gentype:$ret), (ins gentype:$src, gentype:$accum), [], [], 1, 0>;
+    def work_group_mul_helper_util  : OclBuiltin<"work_group_mul_util",  (outs gentype:$ret), (ins gentype:$src, gentype:$accum), [], [], 1, 0>;
   }
   let Types = [ v1i32, v4i32, v8i32, v16i32, v32i32, v64i32 ],
       Attrs = [OVERLOADABLE] in {
@@ -154,6 +163,7 @@ let NeedForwardDecl = 1 in { /* work around the missing prototype in opencl.h */
     def work_group_any_helper_util  : OclBuiltin<"work_group_any_util",  (outs gentype:$ret), (ins gentype:$src, gentype:$accum), [], [], 1, 0>;
   }
 }
+
 
 let Types = [ v1i32, v4i32, v8i32, v16i32, v32i32, v64i32 ],
     Attrs = [OVERLOADABLE] in {
@@ -196,7 +206,7 @@ let Types = [ v1i8, v4i8, v8i8, v16i8, v32i8, v64i8,
 }
 
 foreach function_logic = ["reduce", "scan_exclusive", "scan_inclusive"] in {
-  foreach function_op = ["add", "min", "max"] in {
+  foreach function_op = ["add", "min", "max", "mul"] in {
     let Types = [ v1i32, v4i32, v8i32, v16i32, v32i32, v64i32,
                   v1u32, v4u32, v8u32, v16u32, v32u32, v64u32,
                   v1i64, v4i64, v8i64, v16i64, v32i64, v64i64,
@@ -211,7 +221,7 @@ foreach function_logic = ["reduce", "scan_exclusive", "scan_inclusive"] in {
 }
 
 foreach function_logic = ["reduce", "scan_exclusive", "scan_inclusive"] in {
-  foreach function_op = ["add", "min", "max"] in {
+  foreach function_op = ["add", "min", "max", "mul"] in {
     let Types = [ v1i32, v4i32, v8i32, v16i32, v32i32, v64i32,
                   v1u32, v4u32, v8u32, v16u32, v32u32, v64u32,
                   v1i64, v4i64, v8i64, v16i64, v32i64, v64i64,
@@ -249,7 +259,9 @@ let Types = [ v4i32, v8i32, v16i32, v32i32, v64i32,
   def work_group_reduce_add_finalize_helper : OclBuiltin<"__finalize_work_group_reduce_add", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
   def work_group_reduce_min_finalize_helper : OclBuiltin<"__finalize_work_group_reduce_min", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
   def work_group_reduce_max_finalize_helper : OclBuiltin<"__finalize_work_group_reduce_max", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
+  def work_group_reduce_mul_finalize_helper : OclBuiltin<"__finalize_work_group_reduce_mul", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
   def work_group_reduce_add_finalize_helper_mask : OclBuiltin<"__finalize_work_group_reduce_add", (outs gentype:$ret), (ins gentype:$accum, u32gentype:$dummy_mask), [], [], 1, 0>;
   def work_group_reduce_min_finalize_helper_mask : OclBuiltin<"__finalize_work_group_reduce_min", (outs gentype:$ret), (ins gentype:$accum, u32gentype:$dummy_mask), [], [], 1, 0>;
   def work_group_reduce_max_finalize_helper_mask : OclBuiltin<"__finalize_work_group_reduce_max", (outs gentype:$ret), (ins gentype:$accum, u32gentype:$dummy_mask), [], [], 1, 0>;
+  def work_group_reduce_mul_finalize_helper_mask : OclBuiltin<"__finalize_work_group_reduce_mul", (outs gentype:$ret), (ins gentype:$accum, u32gentype:$dummy_mask), [], [], 1, 0>;
 }
