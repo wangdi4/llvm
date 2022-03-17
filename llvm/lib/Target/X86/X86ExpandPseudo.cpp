@@ -671,7 +671,7 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
 #endif // INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
   {
     for (int i = 2; i > 0; --i)
-      MI.RemoveOperand(i);
+      MI.removeOperand(i);
     unsigned Opc;
     switch (Opcode) {
 #if INTEL_FEATURE_ISA_AMX_LNC
