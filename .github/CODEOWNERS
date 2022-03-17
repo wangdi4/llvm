@@ -657,6 +657,8 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 /llvm/include/llvm/Analysis/Intel_OptReport/opt_report_proto.proto @andykaylor @karthik-senthil
 /llvm/lib/Analysis/Intel_OptReport/OptReportSupport.cpp @andykaylor @karthik-senthil
 /llvm/test/Analysis/Intel_OptReport/Binary @andykaylor @karthik-senthil
+/llvm/test/tools/intel-bin-opt-report @andykaylor @karthik-senthil
+/llvm/tools/intel-bin-opt-report @andykaylor @karthik-senthil
 
 # Code owners for register allocation report
 /llvm/lib/CodeGen/Intel_RAReportEmitter.cpp @LuoYuanke @phoebewang @williamweixiao @dwoodwor-intel
