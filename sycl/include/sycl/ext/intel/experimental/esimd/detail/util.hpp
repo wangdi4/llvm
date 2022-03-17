@@ -30,14 +30,6 @@
 #include <sycl/ext/intel/esimd/detail/util.hpp>
 
 __SYCL_INLINE_NAMESPACE(cl) {
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-constexpr unsigned int roundUpNextMultiple(unsigned int N, unsigned int M) {
-  return ((N + M - 1) / M) * M;
-}
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
-
 namespace __ESIMD_EDNS {
 
 template <unsigned int N, unsigned int M>
@@ -51,15 +43,16 @@ constexpr unsigned int roundUpNextMultiple() {
 template <typename T>
 struct is_hf_type
     : std::integral_constant<
-          bool,
-          std::is_same<detail::half,
-                       typename sycl::detail::remove_const_t<T>>::value> {};
+          bool, std::is_same<__ESIMD_DNS::half,
+                             typename sycl::detail::remove_const_t<T>>::value> {
+};
 
-template <typename T, int N> struct is_hf_type<raw_vector_type<T, N>> {
+template <typename T, int N>
+struct is_hf_type<__ESIMD_DNS::raw_vector_type<T, N>> {
   static const bool value = is_hf_type<T>::value;
 };
 
-template <typename T, int N> struct is_hf_type<simd<T, N>> {
+template <typename T, int N> struct is_hf_type<__ESIMD_NS::simd<T, N>> {
   static const bool value = is_hf_type<T>::value;
 };
 

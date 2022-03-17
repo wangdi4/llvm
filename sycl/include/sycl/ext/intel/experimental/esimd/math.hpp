@@ -1665,7 +1665,8 @@ __ESIMD_NS::simd<T, N> dp4(__ESIMD_NS::simd<T, N> v1,
 /// \param src0 vector of float32 values.
 /// \return vector of converted bf16 values.
 template <int N>
-__ESIMD_API simd<bfloat16, N> convert_to_bf16(simd<float, N> src0) {
+__ESIMD_API __ESIMD_NS::simd<bfloat16, N>
+convert_to_bf16(__ESIMD_NS::simd<float, N> src0) {
   return __esimd_bf_cvt<N>(src0.data());
 }
 
@@ -1674,8 +1675,8 @@ __ESIMD_API simd<bfloat16, N> convert_to_bf16(simd<float, N> src0) {
 /// \param src0 scalar float32 value.
 /// \return converted scalar bf16 value.
 __ESIMD_API bfloat16 convert_to_bf16(float src0) {
-  simd<float, 1> src_0 = src0;
-  simd<bfloat16, 1> Result = convert_to_bf16<1>(src_0);
+  __ESIMD_NS::simd<float, 1> src_0 = src0;
+  __ESIMD_NS::simd<bfloat16, 1> Result = convert_to_bf16<1>(src_0);
   return Result[0];
 }
 
@@ -1685,7 +1686,8 @@ __ESIMD_API bfloat16 convert_to_bf16(float src0) {
 /// \param src0 vector of bf16 values.
 /// \return vector of converted float32 values.
 template <int N>
-__ESIMD_API simd<float, N> convert_from_bf16(simd<bfloat16, N> src0) {
+__ESIMD_API __ESIMD_NS::simd<float, N>
+convert_from_bf16(__ESIMD_NS::simd<bfloat16, N> src0) {
   return __esimd_bf_cvt<N>(src0.data());
 }
 
@@ -1694,8 +1696,8 @@ __ESIMD_API simd<float, N> convert_from_bf16(simd<bfloat16, N> src0) {
 /// \param src0 scalar bf16 value.
 /// \return converted scalar float32 value.
 __ESIMD_API float convert_from_bf16(bfloat16 src0) {
-  simd<bfloat16, 1> src_0 = src0;
-  simd<float, 1> Result = convert_from_bf16<1>(src_0);
+  __ESIMD_NS::simd<bfloat16, 1> src_0 = src0;
+  __ESIMD_NS::simd<float, 1> Result = convert_from_bf16<1>(src_0);
   return Result[0];
 }
 
@@ -1705,8 +1707,9 @@ __ESIMD_API float convert_from_bf16(bfloat16 src0) {
 /// \param src0 fp32 operand that requires convertion to "tf32"
 /// \return the vector of integers that contains the result of conversion
 template <typename SrcType, int N>
-__ESIMD_API simd<uint32_t, N> convert_to_tf32(simd<SrcType, N> src0) {
-  static_assert(detail::is_fp_type<SrcType>::value,
+__ESIMD_API __ESIMD_NS::simd<uint32_t, N>
+convert_to_tf32(__ESIMD_NS::simd<SrcType, N> src0) {
+  static_assert(__ESIMD_DNS::is_fp_type<SrcType>::value,
                 "only fp32(float)->tf32 conversions are supported");
   return __esimd_tf32_cvt<N>(src0.data());
 }
@@ -1717,8 +1720,9 @@ __ESIMD_API simd<uint32_t, N> convert_to_tf32(simd<SrcType, N> src0) {
 /// \param src0 "tf32" operand that requires convertion to fp32
 /// \return the vector of fp32 that contains the result of conversion
 template <typename DstType, int N>
-simd<DstType, N> convert_from_tf32(simd<uint32_t, N> src0) {
-  static_assert(detail::is_fp_type<DstType>::value,
+__ESIMD_NS::simd<DstType, N>
+convert_from_tf32(__ESIMD_NS::simd<uint32_t, N> src0) {
+  static_assert(__ESIMD_DNS::is_fp_type<DstType>::value,
                 "only tf32->fp32(float) conversions are supported");
   // convertion from tf32 to fp32 is just a bitcast
   return src0.template bit_cast_view<float>();
@@ -1730,8 +1734,9 @@ simd<DstType, N> convert_from_tf32(simd<uint32_t, N> src0) {
 /// \param src0 fp32 operand that requires convertion to "bf8"
 /// \return the vector of integers that contains the result of conversion
 template <typename SrcType, int N>
-__ESIMD_API simd<uint8_t, N> convert_to_bf8(simd<SrcType, N> src0) {
-  static_assert(detail::is_fp_type<SrcType>::value,
+__ESIMD_API __ESIMD_NS::simd<uint8_t, N>
+convert_to_bf8(__ESIMD_NS::simd<SrcType, N> src0) {
+  static_assert(__ESIMD_DNS::is_fp_type<SrcType>::value,
                 "only fp32(float)->bf8 conversions are supported");
   return __esimd_qf_cvt<N, uint8_t, SrcType>(src0.data());
 }
@@ -1742,8 +1747,9 @@ __ESIMD_API simd<uint8_t, N> convert_to_bf8(simd<SrcType, N> src0) {
 /// \param src0 bf8 operand that requires convertion to fp32
 /// \return the vector of fp32 value that contains the result of conversion
 template <typename DstType, int N>
-__ESIMD_API simd<DstType, N> convert_from_bf8(simd<uint8_t, N> src0) {
-  static_assert(detail::is_fp_type<DstType>::value,
+__ESIMD_API __ESIMD_NS::simd<DstType, N>
+convert_from_bf8(__ESIMD_NS::simd<uint8_t, N> src0) {
+  static_assert(__ESIMD_DNS::is_fp_type<DstType>::value,
                 "only bf8->fp32(float) conversions are supported");
   using SrcType = typename decltype(src0)::element_type;
   return __esimd_qf_cvt<N, DstType, SrcType>(src0.data());
@@ -1770,14 +1776,16 @@ template <> struct SrndPrecisionTypeStorage<argument_type::FP16> {
 /// \param src1 random number used for rounding
 /// \return the converted value
 template <argument_type DstPrecision, int N, typename SrcType>
-__ESIMD_API simd<typename SrndPrecisionTypeStorage<DstPrecision>::StorageT, N>
-srnd(simd<SrcType, N> src0, simd<SrcType, N> src1) {
+__ESIMD_API
+    __ESIMD_NS::simd<typename SrndPrecisionTypeStorage<DstPrecision>::StorageT,
+                     N>
+    srnd(__ESIMD_NS::simd<SrcType, N> src0, __ESIMD_NS::simd<SrcType, N> src1) {
 
   using DstStorageT = typename SrndPrecisionTypeStorage<DstPrecision>::StorageT;
   constexpr bool is_bf8_fp32 = (DstPrecision == argument_type::BF8) &&
-                               detail::is_fp_type<SrcType>::value;
+                               __ESIMD_DNS::is_fp_type<SrcType>::value;
   constexpr bool is_hf16_fp32 = (DstPrecision == argument_type::FP16) &&
-                                detail::is_fp_type<SrcType>::value;
+                                __ESIMD_DNS::is_fp_type<SrcType>::value;
   constexpr bool is_bf8_hf16 = (DstPrecision == argument_type::BF8) &&
                                detail::is_hf_type<SrcType>::value;
 
@@ -1787,8 +1795,8 @@ srnd(simd<SrcType, N> src0, simd<SrcType, N> src1) {
   if constexpr (is_bf8_fp32) {
     using half_t = cl::sycl::detail::half_impl::StorageT;
     // emulated sequence, uses convertion of fp32->hf
-    simd<half_t, N> src0_hf = src0;
-    simd<half_t, N> src1_hf = src1;
+    __ESIMD_NS::simd<half_t, N> src0_hf = src0;
+    __ESIMD_NS::simd<half_t, N> src1_hf = src1;
     return __esimd_srnd<N, DstStorageT, half_t>(src0_hf.data(), src1_hf.data());
   } else {
     return __esimd_srnd<N, DstStorageT, SrcType>(src0.data(), src1.data());
