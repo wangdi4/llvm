@@ -521,8 +521,11 @@ declare float @fmodf(float, float)
 
 define i32 @const_fold_call_with_func_type_mismatch() {
 ; CHECK-LABEL: @const_fold_call_with_func_type_mismatch(
-; CHECK-NEXT:    [[V:%.*]] = call float @fmodf(float 0x40091EB860000000, float 2.000000e+00)
-; CHECK-NEXT:    ret i32 1066527622
+; INTEL_CUSTOMIZATION
+; xmain recognizes fmodf as no-side-effects, can be removed if dead.
+; CHECK-DISABLED:    [[V:%.*]] = call float @fmodf(float 0x40091EB860000000, float 2.000000e+00)
+; CHECK:    ret i32 1066527622
+; end INTEL_CUSTOMIZATION
 ;
   %v = call i32 @fmodf(float 0x40091EB860000000, float 2.000000e+00)
   ret i32 %v
