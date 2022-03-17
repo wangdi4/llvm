@@ -61,13 +61,13 @@ private:
   void finalizeBaseAndPaddedStructures(DTransSafetyInfo &DTInfo);
 
   // Go through each structure and make a decision if the safety data
-  // that is conditional should be set for related types or not
-  void lowerConditionalSafetyData(DTransSafetyInfo &DTInfo);
+  // for related types needs to be reverted
+  void revertSafetyData(DTransSafetyInfo &DTInfo);
 
-  // Convert the conditional safety data into the related types version
+  // Convert the safety data from related types to original version
   void convertSafetyData(DTransSafetyInfo &DTInfo, DTransType *DTTy,
                          SetVector<DTransType *> &VisitedTypes,
-                         bool ForRelatedTypes);
+                         dtrans::SafetyData DataToRevert);
 };
 
 } // end namespace dtransOP

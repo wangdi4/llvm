@@ -83,8 +83,8 @@ void DTransRelatedTypesUtils::postProcessRelatedTypesAnalysis(
   // First check if the related types can be set or split
   finalizeBaseAndPaddedStructures(DTInfo);
 
-  // Convert any conditional safety violation
-  lowerConditionalSafetyData(DTInfo);
+  // Revert any safety violation
+  revertSafetyData(DTInfo);
 }
 
 // Go through all the StructInfos and check if there is a safety violation that
@@ -103,45 +103,36 @@ void DTransRelatedTypesUtils::finalizeBaseAndPaddedStructures(
     auto &PaddedField = StrInfo->getField(NumFields - 1);
     if (!PaddedField.isPaddedField())
       return false;
+
+
+    if (StrInfo->testSafetyData(dtrans::BadMemFuncManipulation))
+      return true;
+
+    // If the field is written or not top alloc function, then check if the
+    // information was set due to BadMemFuncManipulationForRelatedTypes.
+    //
+    // NOTE: If the actual field reserved for padding is written, then there
+    // is a chance that it is marked as Written. On the other hand, this field
+    // is an array, which means that there might be a pointer for this field.
+    // Most likely the field may be marked address taken or has complex use.
+    if (PaddedField.isWritten() || !PaddedField.isTopAllocFunction()) {
+      if (!StrInfo->testSafetyData(
+          dtrans::BadMemFuncManipulationForRelatedTypes))
+        return true;
+    }
+
     // These are the conditions we use to invalidate the padded field.
     // Perhaps some of them could be relaxed like address taken and
     // complex use.
-    if (PaddedField.isRead() || PaddedField.isWritten() ||
-        PaddedField.hasComplexUse() || PaddedField.isAddressTaken() ||
-        !PaddedField.isNoValue() || !PaddedField.isTopAllocFunction())
+    if (PaddedField.isRead() || PaddedField.hasComplexUse() ||
+        PaddedField.isAddressTaken())
       return true;
 
     return false;
   };
 
-  // Return true if the input structures are padded and base structures.
-  auto ArePaddedAndBaseStructures = [](dtrans::StructInfo *PaddedStruct,
-      dtrans::StructInfo *BaseStruct) -> bool  {
-    assert((PaddedStruct->getRelatedType() == BaseStruct &&
-            BaseStruct->getRelatedType() == PaddedStruct) &&
-            "Incorrect related types set");
-
-    unsigned NumFieldsPadded = PaddedStruct->getNumFields();
-    unsigned NumFieldsBase = BaseStruct->getNumFields();
-    if (NumFieldsPadded - NumFieldsBase != 1)
-      return false;
-    // We know that there will be at least one field in the padded
-    // structures
-    auto &LastFieldPadded = PaddedStruct->getField(NumFieldsPadded - 1);
-    if (!LastFieldPadded.isPaddedField())
-      return false;
-    // If the base structure is not empty then the last field shouldn't
-    // be marked for ABI padding
-    if (NumFieldsBase > 0) {
-      auto &LastFieldBase = BaseStruct->getField(NumFieldsBase - 1);
-      if (LastFieldBase.isPaddedField())
-        return false;
-    }
-    return true;
-  };
-
   // Convert the input safety data FromSD to ToSD
-  auto LowerSafetyConditionalToOriginal =
+  auto ConvertSafetyData =
       [](dtrans::StructInfo *StructTI, dtrans::SafetyData FromSD,
          dtrans::SafetyData ToSD) -> void {
 
@@ -150,6 +141,18 @@ void DTransRelatedTypesUtils::finalizeBaseAndPaddedStructures(
 
     StructTI->resetSafetyData(FromSD);
     StructTI->setSafetyData(ToSD);
+  };
+
+  // List of safety violations that needs to be reverted.
+  //
+  // NOTE: Would be best to put this information in a helper class. That way
+  // we only need to update that helper class only.
+  auto RevertSafetyDataToOriginal =
+      [&ConvertSafetyData](dtrans::StructInfo *StructTI) {
+    ConvertSafetyData(StructTI, dtrans::BadCastingForRelatedTypes,
+                      dtrans::BadCasting);
+    ConvertSafetyData(StructTI, dtrans::BadMemFuncManipulationForRelatedTypes,
+                      dtrans::BadMemFuncManipulation);
   };
 
   const dtrans::SafetyData ABIPaddingSet =
@@ -169,10 +172,12 @@ void DTransRelatedTypesUtils::finalizeBaseAndPaddedStructures(
       // Identify the base and padded structures
       dtrans::StructInfo *BaseStruct = nullptr;
       dtrans::StructInfo *PaddedStruct = nullptr;
-      if (ArePaddedAndBaseStructures(STInfo, RelatedTypeInfo)) {
+      if (STInfo->isABIPaddingPaddedStructure() &&
+          RelatedTypeInfo->isABIPaddingBaseStructure()) {
         PaddedStruct = STInfo;
         BaseStruct = RelatedTypeInfo;
-      } else if (ArePaddedAndBaseStructures(RelatedTypeInfo, STInfo)) {
+      } else if (STInfo->isABIPaddingBaseStructure() &&
+          RelatedTypeInfo->isABIPaddingPaddedStructure()) {
         PaddedStruct = RelatedTypeInfo;
         BaseStruct = STInfo;
       } else {
@@ -187,13 +192,14 @@ void DTransRelatedTypesUtils::finalizeBaseAndPaddedStructures(
         //
         // NOTE: This is conservative, perhaps we may need to relax it in the
         // future.
-        bool PaddedStructConditional = PaddedStruct->testSafetyData(
-            dtrans::BadCastingForRelatedTypesConditional);
+        dtrans::SafetyData RelatedConditions =
+            dtrans::BadCastingForRelatedTypes |
+            dtrans::BadMemFuncManipulationForRelatedTypes;
 
-        bool BaseStructConditional = BaseStruct->testSafetyData(
-            dtrans::BadCastingForRelatedTypesConditional);
+        bool PaddedData = PaddedStruct->testSafetyData(RelatedConditions);
+        bool BaseData = BaseStruct->testSafetyData(RelatedConditions);
 
-        BadSafetyData = PaddedStructConditional != BaseStructConditional;
+        BadSafetyData = PaddedData != BaseData;
       }
 
       if (BadSafetyData) {
@@ -211,15 +217,8 @@ void DTransRelatedTypesUtils::finalizeBaseAndPaddedStructures(
         PaddedStruct->unsetRelatedType();
         BaseStruct->unsetRelatedType();
 
-        // Any conditional will be automatically lowered here for the current
-        // structures
-        LowerSafetyConditionalToOriginal(PaddedStruct,
-            dtrans::BadCastingForRelatedTypesConditional,
-            dtrans::BadCasting);
-
-        LowerSafetyConditionalToOriginal(BaseStruct,
-            dtrans::BadCastingForRelatedTypesConditional,
-            dtrans::BadCasting);
+        RevertSafetyDataToOriginal(PaddedStruct);
+        RevertSafetyDataToOriginal(BaseStruct);
       }
     }
   }
@@ -233,49 +232,42 @@ void DTransRelatedTypesUtils::finalizeBaseAndPaddedStructures(
 //   %struct.test.a.base = type {i32}
 //   %struct.test.b = type {%struct.test.a.base, [4 x i8]}
 //
-// And assume that all three structures are set as
-// "BadCastingForRelatedTypesConditional". This process identifies that
-// %struct.test.a and %struct.test.a.base are set as padded and base structures
-// respectively, therefore it will replace the safety bit with
-// BadCastingForRelatedTypes.
-void DTransRelatedTypesUtils::lowerConditionalSafetyData(
+// And assume that %struct.test.a and %struct.test.a.base are set as
+// "BadCasting" because the post processing process found that they aren't
+// related types. Also asume that %struct.test.b was set as
+// "BadCastingForRelatedTypes". This function will traverse through the
+// zero field of %struct.test.b, identify that "BadCasting" was set in
+// %struct.test.a.base, and will update "BadCastingForRelatedTypes"
+// to "BadCasting".
+void DTransRelatedTypesUtils::revertSafetyData(
     DTransSafetyInfo &DTInfo) {
 
-  const dtrans::SafetyData ABIPaddingSet =
-      dtrans::StructCouldHaveABIPadding |
-      dtrans::StructCouldBeBaseABIPadding;
-
   // List will be expanded as we add more conditions
-  const dtrans::SafetyData ConditionalSafety =
-      dtrans::BadCastingForRelatedTypesConditional;
+  dtrans::SafetyData AllRelatedTypesSafety =
+      dtrans::BadCastingForRelatedTypes |
+      dtrans::BadMemFuncManipulationForRelatedTypes;
 
-  SetVector<dtrans::StructInfo *> LateDecisionStructs;
-
-  // First identify those structures that have the conditional set
-  // but the zero element access reaches a base-padded structure.
-  // In this case we are going to lower the safety bit as the
-  // related type version.
   for (auto *TI : DTInfo.type_info_entries()) {
+    dtrans::SafetyData DataToRevert = dtrans::NoIssues;
     if (auto *STInfo = dyn_cast<dtrans::StructInfo>(TI)) {
-      if (!STInfo->testSafetyData(ConditionalSafety))
+      if (!STInfo->testSafetyData(AllRelatedTypesSafety))
         continue;
 
-      bool BadStruct = true;
       auto *DTStruct = cast<DTransStructType>(STInfo->getDTransType());
       // Traverse through the zero field and check if it leads to a
-      // base padded structure.
+      // safety bit of interest.
       auto *CurrStruct = DTStruct;
       SetVector<DTransType *> VisitedTypes;
       while (CurrStruct) {
         if (CurrStruct->getNumFields() == 0) {
-          BadStruct = true;
+          DataToRevert = AllRelatedTypesSafety;
           break;
         }
 
         // Recursive structures aren't allowed at the moment. This
         // is conservative.
         if (!VisitedTypes.insert(cast<DTransType>(CurrStruct))) {
-          BadStruct = true;
+          DataToRevert = AllRelatedTypesSafety;
           break;
         }
 
@@ -283,15 +275,18 @@ void DTransRelatedTypesUtils::lowerConditionalSafetyData(
 
         // If there is a BadCasting in the chain then there is no
         // point to use BadCastingForRelatedTypes
-        if (CurrStructInfo->testSafetyData(dtrans::BadCasting)) {
-          BadStruct = true;
-          break;
-        }
+        if (CurrStructInfo->testSafetyData(dtrans::BadCasting))
+          DataToRevert |= dtrans::BadCastingForRelatedTypes;
 
-        // We can't stop here because there could be something in the chain
-        // that breaks the relationship later
-        if (CurrStructInfo->testSafetyData(ABIPaddingSet))
-          BadStruct = false;
+        // If there is a BadMemFuncManipulation in the chain then there is no
+        // point to use BadMemFuncManipulationForRelatedTypes
+        if (CurrStructInfo->testSafetyData(dtrans::BadMemFuncManipulation))
+          DataToRevert |= dtrans::BadMemFuncManipulationForRelatedTypes;
+
+        // If we need to convert all the safety violations then there is
+        // nothing else to look for
+        if (DataToRevert == AllRelatedTypesSafety)
+          break;
 
         // NOTE: We currently support nested structures, perhaps in the future
         // we may want to extend the analysis when the field if a pointer to
@@ -303,96 +298,46 @@ void DTransRelatedTypesUtils::lowerConditionalSafetyData(
           CurrStruct = nullptr;
       }
 
-      // We couldn't find any base-padded structure by traversing the zero
-      // element, or we found some safety violation in the chain. Store the
-      // current structure and the late check will make the final decision.
-      if (BadStruct) {
-        LateDecisionStructs.insert(STInfo);
-        continue;
+      if (DataToRevert != dtrans::NoIssues) {
+        VisitedTypes.clear();
+        convertSafetyData(DTInfo, DTStruct, VisitedTypes, DataToRevert);
       }
-
-      VisitedTypes.clear();
-      convertSafetyData(DTInfo, DTStruct, VisitedTypes,
-                        true /* ForRelatedTypes */);
     }
   }
-
-  // Any structure that contains a conditional safety bit at this point
-  // means that the structure or the parent structure didn't fit the conditions
-  // to set for related types. Set the safety bit as the original form
-  // (e.g. BadCastingForRelatedTypesConditional -> BadCasting).
-  for (auto *STInfo : LateDecisionStructs) {
-    // NOTE: This list will be updated as we progress in the analysis for
-    // related types
-    if (!STInfo->testSafetyData(dtrans::BadCastingForRelatedTypesConditional))
-      continue;
-
-    auto *DTStruct = STInfo->getDTransType();
-
-    // We need to cascade the condition due to structures hierarchy. For
-    // example, assume the following structure hierarchy:
-    //
-    //   %struct.test.a = type {i32, [4 x i8]}
-    //   %struct.test.a.base = type {i32}
-    //
-    //   %struct.test.b = type {%struct.test.a.base, [4 x i8]}
-    //   %struct.test.b.base = type {%struct.test.a.base}
-    //
-    //   %struct.test.c = type {%struct.test.b.base, [4 x i8]}
-    //
-    // Assume that %struct.test.a and %struct.test.a.base are set as related
-    // types, but %struct.test.b and %struct.test.b.base weren't. In this case
-    // we need to propagate BadCasting all the way from %struct.test.c to
-    // %struct.test.a.base, as well into the related types.
-    SetVector<DTransType *> VisitedTypes;
-    convertSafetyData(DTInfo, DTStruct, VisitedTypes,
-                      false /* ForRelatedTypes */);
-  }
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  // There shouldn't be any conditional safety violation
-  for (auto *TI : DTInfo.type_info_entries())
-    assert(!TI->testSafetyData(ConditionalSafety) &&
-           "Related types conditional safety bit not lowered properly");
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
 }
 
 // Find the DTrans TypeInfo for the input DTransType and replace the
-// conditional safety violations with the related types version. In other
-// words, this is the place where BadCastingForRelatedTypesConditional is
-// converted into BadCastingForRelatedTypes. If ForRelatedTypes is true,
-// then the safety violation will be lowered for the case of related types,
-// else, it will be lowered to the regular case.
+// safety violations for related type into the original type if the bit
+// is enabled in DataToRevert. In other words, this is the place where
+// BadCastingForRelatedTypes is converted into BadCasting if something
+// went wrong.
 void DTransRelatedTypesUtils::convertSafetyData(DTransSafetyInfo &DTInfo,
-    DTransType *DTTy,  SetVector<DTransType *> &VisitedTypes,
-    bool ForRelatedTypes) {
+    DTransType *DTTy, SetVector<DTransType *> &VisitedTypes,
+    dtrans::SafetyData DataToRevert) {
 
-  // Convert the SafetyData FromSD to:
-  //
-  //   * ToRelatedTypeSD if ForRelatedTypes is true
-  //   * ToOriginalSD if ForRelatedTypes is false
-  auto LowerSafetyConditional =
-      [ForRelatedTypes](dtrans::TypeInfo *TI, dtrans::SafetyData FromSD,
-                        dtrans::SafetyData ToRelatedTypeSD,
-                        dtrans::SafetyData ToOriginalSD) -> void {
+  // Convert the SafetyData FromSD to ToSD if FromSD is set in TI and
+  // is in DataToRevert
+  auto ReplaceSafetyData =
+      [DataToRevert](dtrans::TypeInfo *TI, dtrans::SafetyData FromSD,
+                     dtrans::SafetyData ToSD) -> void {
 
-    if (TI->testSafetyData(FromSD)) {
-      // If the safety bit FromSD is set, convert it into ToRelatedTypeSD or
-      // ToOriginalSD
+    if (FromSD & DataToRevert) {
+      if (!TI->testSafetyData(FromSD))
+        return;
+
       TI->resetSafetyData(FromSD);
-      if (ForRelatedTypes)
-        TI->setSafetyData(ToRelatedTypeSD);
-      else
-        TI->setSafetyData(ToOriginalSD);
-    } else if (!ForRelatedTypes && TI->testSafetyData(ToRelatedTypeSD)) {
-      // If the safety bit FromSD is not set, but we are passing through a type
-      // that we set as ToRelatedTypeSD and ForRelatedTypes is false, then it
-      // means that there is an parent structure that failed the check. Convert
-      // ToRelatedTypeSD into ToOriginalSD.
-      TI->resetSafetyData(ToRelatedTypeSD);
-      TI->setSafetyData(ToOriginalSD);
+      TI->setSafetyData(ToSD);
     }
+  };
+
+  // Handle all the safety bits for related types that we want to reset.
+  // List can be expanded as we update the related types analysis
+  auto ListOfSafetyDataFunc =
+    [&ReplaceSafetyData](dtrans::TypeInfo *TI) -> void {
+    ReplaceSafetyData(TI, dtrans::BadCastingForRelatedTypes,
+                      dtrans::BadCasting);
+    ReplaceSafetyData(TI, dtrans::BadMemFuncManipulationForRelatedTypes,
+                      dtrans::BadMemFuncManipulation);
   };
 
   DTransType *CurrTy = DTTy;
@@ -411,20 +356,14 @@ void DTransRelatedTypesUtils::convertSafetyData(DTransSafetyInfo &DTInfo,
 
   dtrans::TypeInfo *TI = DTInfo.getTypeInfo(CurrTy);
 
-  // Check which bits need to be updated. List can be expanded as we update
-  // the related types analysis
-  LowerSafetyConditional(TI, dtrans::BadCastingForRelatedTypesConditional,
-                         dtrans::BadCastingForRelatedTypes,
-                         dtrans::BadCasting);
+  // Check which bits need to be updated.
+  ListOfSafetyDataFunc(TI);
 
   // If the current TypeInfo is a structure and it has a related type then
   // we need to update it.
   if (auto *StructTI = dyn_cast<dtrans::StructInfo>(TI)) {
     if (auto *RelatedTI = StructTI->getRelatedType())
-      LowerSafetyConditional(RelatedTI,
-                             dtrans::BadCastingForRelatedTypesConditional,
-                             dtrans::BadCastingForRelatedTypes,
-                             dtrans::BadCasting);
+      ListOfSafetyDataFunc(RelatedTI);
   }
 
   // Cascade the conversion
@@ -434,11 +373,11 @@ void DTransRelatedTypesUtils::convertSafetyData(DTransSafetyInfo &DTInfo,
       if (!FieldTy)
         continue;
 
-      convertSafetyData(DTInfo, FieldTy, VisitedTypes, ForRelatedTypes);
+      convertSafetyData(DTInfo, FieldTy, VisitedTypes, DataToRevert);
     }
   } else if (auto *ArrTy = dyn_cast<DTransArrayType>(CurrTy)) {
     DTransType *ElemType = ArrTy->getArrayElementType();
-    convertSafetyData(DTInfo, ElemType, VisitedTypes, ForRelatedTypes);
+    convertSafetyData(DTInfo, ElemType, VisitedTypes, DataToRevert);
   }
 }
 

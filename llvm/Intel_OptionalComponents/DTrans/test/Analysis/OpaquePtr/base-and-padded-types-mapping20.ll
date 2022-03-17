@@ -6,12 +6,12 @@
 ; This test case checks that the base-padded relationship between
 ; %struct.test.a.base and %struct.test.a is set, but the relationship between
 ; %struct.test.b.base and %struct.test.b isn't set because there is an access
-; to the padded field. Also, the safety bit BadCastingForRelatedTypesConditional
+; to the padded field. Also, the safety bit BadCastingForRelatedTypes
 ; should be lowered as BadCasting. The goal of this test case is to check that
-; BadCastingForRelatedTypesConditional was lowered as BadCasting when the
+; BadCastingForRelatedTypes was lowered as BadCasting when the
 ; a structure in the nested chains failed the analysis for base-padded structures.
 
-; CHECK: dtrans-safety: Bad casting (related types conditional) -- Formal paremeter is a related type of the actual parameter, or vice-versa
+; CHECK: dtrans-safety: Bad casting (related types) -- Formal paremeter is a related type of the actual parameter, or vice-versa
 ; CHECK:  [test]   %ret = call i32 @foo(ptr %bptr)
 ; CHECK:  Arg#0:   %bptr = alloca %struct.test.c, align 8
 

@@ -512,14 +512,12 @@ For example:
 The structure %struct.test.a.base is set as StructCouldBeBaseABIPadding since
 it is the base structure of %struct.test.a, which is the padded structure.
 
-BadCastingForRelatedTypesConditional
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+BadMemFuncManipulationForRelatedTypes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This safety data is set when a possible bad casting can happen to structures
-involving ABI padding. The function for post processing these structures will
-decide if the safety bit will be lowered into BadCastingForRelatedTypes
-(ABI padding relationship was set) or BadCasting (ABI padding relationship
-wasn't set). See `StructCouldBeBaseABIPadding`_ for an example of ABI padding.
+This safety data is set when a possible BadMemFuncManipulation can happen
+between types that have ABI padding, but it won't affect the padded field.
+See `StructCouldBeBaseABIPadding`_ for an example of ABI padding.
 
 UnhandledUse
 ~~~~~~~~~~~~
