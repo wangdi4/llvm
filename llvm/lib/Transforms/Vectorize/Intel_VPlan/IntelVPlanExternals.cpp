@@ -68,7 +68,8 @@ void VPExternalValues::verifyVPExternalDefsHIR() const {
     const VPOperandHIR *HIROperand = ExtDef.getOperandHIR();
 
     // Deeper verification depending on the kind of the underlying HIR operand.
-    if (isa<VPBlob>(HIROperand) || isa<VPCanonExpr>(HIROperand)) {
+    if (isa<VPBlob>(HIROperand) || isa<VPCanonExpr>(HIROperand) ||
+        isa<VPIfCond>(HIROperand)) {
       // For blobs and CEs check that they are structurally unique.
       assert(
           llvm::count_if(VPExternalDefsHIR,

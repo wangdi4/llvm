@@ -348,7 +348,8 @@ public:
   }
 
   void dropExternalValsFromMaps() {
-    for (auto V : VPValsToFlushForVF) {
+    for (auto It : VPValsToFlushForVF) {
+      const VPValue *V = It.first;
       assert((isa<VPExternalDef>(V) || isa<VPConstant>(V)) &&
              "Unknown external VPValue.");
 
@@ -636,13 +637,14 @@ private:
   // Stack of pair <vector factor, unroll vactor>
   SmallVector<std::pair<unsigned, unsigned>, 2> VFStack;
 
-  // Set of VPValues which we should erase from the maps of already generated
-  // values when we encounter VPPushVF/VPPopVF instructions. The same
-  // VPConstants and VPExternalDefs can be used in different VPlans. But when
-  // generating code for a VPlan we can't use the values generated in another
-  // VPlan, due to VFs mismatch and/or domination reasons. The VPPushVF/VPPopVF
-  // define the bounds between VPlans so we use them to drop those maps
-  SmallSet<const VPValue *, 16> VPValsToFlushForVF;
+  // Set of VPValues (and corresponding wide DDRefs) which we should erase from
+  // the maps of already generated values when we encounter VPPushVF/VPPopVF
+  // instructions. The same VPConstants and VPExternalDefs can be used in
+  // different VPlans. But when generating code for a VPlan we can't use the
+  // values generated in another VPlan, due to VFs mismatch and/or domination
+  // reasons. The VPPushVF/VPPopVF define the bounds between VPlans so we use
+  // them to drop those maps
+  DenseMap<const VPValue *, RegDDRef *> VPValsToFlushForVF;
 
   OptReportBuilder &ORBuilder;
   OptReportStatsTracker OptRptStats;

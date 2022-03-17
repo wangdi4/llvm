@@ -48,8 +48,7 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Div] float [[VP1:%.*]] = phi  [ float [[VP0]], [[BB1]] ],  [ float [[VP2:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP3:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP5:%.*]] = icmp eq i32 [[N10:%.*]] i32 0
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP5]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP5:%.*]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB2]]
 ; CHECK-NEXT:       [DA: Div] float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds float* [[ARR20:%.*]] i64 [[VP3]]
@@ -88,35 +87,28 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP__IND_FINAL]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 1   float [[VP_RED_FINAL]] -> [[VP16:%.*]] = {%red.phi}
-;
-; CHECK:       Function: foo
-; CHECK-EMPTY:
-; CHECK-NEXT:  BEGIN REGION { modified }
+; CHECK:       BEGIN REGION { modified }
 ; CHECK-NEXT:        [[RED_INIT0:%.*]] = 0.000000e+00
 ; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = [[RED_INIT0]]
-;
 ; CHECK:             + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = [[N10]] == 0
-; CHECK-NEXT:        |   [[UNIFCOND0:%.*]] = extractelement [[DOTVEC0]],  0
-; CHECK-NEXT:        |   if ([[UNIFCOND0]] == 1)
+; CHECK-NEXT:        |   if ([[N10:%.*]] == 0)
 ; CHECK-NEXT:        |   {
-; CHECK-NEXT:        |      [[DOTVEC80:%.*]] = (<4 x float>*)([[ARR10]])[i1]
-; CHECK-NEXT:        |      [[DOTCOPY90:%.*]] = [[DOTVEC80]]
-; CHECK-NEXT:        |      [[PHI_TEMP40:%.*]] = [[PHI_TEMP0]]
-; CHECK-NEXT:        |      [[PHI_TEMP60:%.*]] = [[DOTCOPY90]]
+; CHECK-NEXT:        |      [[DOTVEC70:%.*]] = (<4 x float>*)([[ARR10]])[i1]
+; CHECK-NEXT:        |      [[DOTCOPY80:%.*]] = [[DOTVEC70]]
+; CHECK-NEXT:        |      [[PHI_TEMP30:%.*]] = [[PHI_TEMP0]]
+; CHECK-NEXT:        |      [[PHI_TEMP50:%.*]] = [[DOTCOPY80]]
 ; CHECK-NEXT:        |   }
 ; CHECK-NEXT:        |   else
 ; CHECK-NEXT:        |   {
-; CHECK-NEXT:        |      [[DOTVEC20:%.*]] = (<4 x float>*)([[ARR20]])[i1]
-; CHECK-NEXT:        |      [[DOTCOPY30:%.*]] = [[DOTVEC20]]
-; CHECK-NEXT:        |      [[PHI_TEMP40]] = [[PHI_TEMP0]]
-; CHECK-NEXT:        |      [[PHI_TEMP60]] = [[DOTCOPY30]]
+; CHECK-NEXT:        |      [[DOTVEC0:%.*]] = (<4 x float>*)([[ARR20]])[i1]
+; CHECK-NEXT:        |      [[DOTCOPY20:%.*]] = [[DOTVEC0]]
+; CHECK-NEXT:        |      [[PHI_TEMP30]] = [[PHI_TEMP0]]
+; CHECK-NEXT:        |      [[PHI_TEMP50]] = [[DOTCOPY20]]
 ; CHECK-NEXT:        |   }
-; CHECK-NEXT:        |   [[DOTVEC120:%.*]] = [[PHI_TEMP60]]  +  [[PHI_TEMP40]]
-; CHECK-NEXT:        |   [[PHI_TEMP0]] = [[DOTVEC120]]
+; CHECK-NEXT:        |   [[DOTVEC110:%.*]] = [[PHI_TEMP50]]  +  [[PHI_TEMP30]]
+; CHECK-NEXT:        |   [[PHI_TEMP0]] = [[DOTVEC110]]
 ; CHECK-NEXT:        + END LOOP
-;
-; CHECK:             [[RED_PHI0:%.*]] = @llvm.vector.reduce.fadd.v4f32([[RED_PHI0]],  [[DOTVEC120]])
+; CHECK:             [[RED_PHI0:%.*]] = @llvm.vector.reduce.fadd.v4f32([[RED_PHI0]],  [[DOTVEC110]])
 ; CHECK-NEXT:  END REGION
 ;
 

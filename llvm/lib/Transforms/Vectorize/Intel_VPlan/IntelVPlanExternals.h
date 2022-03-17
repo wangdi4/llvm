@@ -400,6 +400,25 @@ public:
     return ExtDef;
   }
 
+  VPExternalDef *getVPExternalDefForIfCond(const loopopt::HLIf *If) {
+    // Note: it doesn't make much sense to uniqify those in current setup as
+    // we're expected to have a single attempt at creation of such a
+    // VPExternalDef.
+    // TODO: Change the current code to be able to handle rhs of HLInst
+    // and condition of HLIf in a generic way, avoiding duplication of
+    // VPExternalDefs.
+    FoldingSetNodeID ID;
+    ID.AddPointer(If);
+    ID.AddInteger(0 /*Symbase*/);
+    ID.AddInteger(0 /*IVLevel*/);
+    void *IP = nullptr;
+    if (VPExternalDef *ExtDef = VPExternalDefsHIR.FindNodeOrInsertPos(ID, IP))
+      return ExtDef;
+    auto *ExtDef = new VPExternalDef(If);
+    VPExternalDefsHIR.InsertNode(ExtDef, IP);
+    return ExtDef;
+  }
+
   /// Return VPExternalUse by its MergeId.
   VPExternalUse *getVPExternalUse(unsigned MergeId) const {
     return VPExternalUses[MergeId].get();

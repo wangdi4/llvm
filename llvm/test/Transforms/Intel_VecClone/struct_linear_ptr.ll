@@ -3,7 +3,7 @@
 ; RUN: opt -vec-clone -S < %s | FileCheck %s
 ; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
-; CHECK-LABEL: @_ZGVbN4l_foo
+; CHECK-LABEL: @_ZGVbN4l32_foo
 ; CHECK: simd.begin.region:
 ; CHECK-NEXT: %entry.region = call token @llvm.directive.region.entry()
 ; CHECK-SAME: DIR.OMP.SIMD
@@ -44,4 +44,4 @@ entry:
   ret float %add
 }
 
-attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbN4l_" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float "="false" }
+attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbN4l32_" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float "="false" }

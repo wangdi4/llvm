@@ -360,6 +360,12 @@ public:
   const_blob_iterator blob_begin() const { return BlobCoeffs.begin(); }
   blob_iterator blob_end() { return BlobCoeffs.end(); }
   const_blob_iterator blob_end() const { return BlobCoeffs.end(); }
+  iterator_range<blob_iterator> blobs() {
+    return make_range(blob_begin(), blob_end());
+  }
+  iterator_range<const_blob_iterator> blobs() const {
+    return make_range(blob_begin(), blob_end());
+  }
   reverse_blob_iterator blob_rbegin() { return BlobCoeffs.rbegin(); }
   const_reverse_blob_iterator blob_rbegin() const {
     return BlobCoeffs.rbegin();
