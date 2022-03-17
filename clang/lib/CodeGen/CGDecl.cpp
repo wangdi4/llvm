@@ -2642,6 +2642,7 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, ParamValue Arg,
                             *this, V, SrcLangAS, DestLangAS, T, true),
                         DeclPtr.getElementType(),
                         DeclPtr.getAlignment());
+      AllocaPtr = DeclPtr;
 #endif // INTEL_CUSTOMIZATION
     }
 
