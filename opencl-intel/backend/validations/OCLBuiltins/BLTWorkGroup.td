@@ -15,22 +15,28 @@ def work_group_broadcast_3d_pre_exec   : REF_OclBuiltin<"work_group_broadcast_3D
 def work_group_reduce_min           : REF_OclBuiltin<"work_group_reduce_min",           (outs gentype:$ret), (ins gentype:$x), [], [], TypeTemplate>;
 def work_group_reduce_max           : REF_OclBuiltin<"work_group_reduce_max",           (outs gentype:$ret), (ins gentype:$x), [], [], TypeTemplate>;
 def work_group_reduce_add        : REF_OclBuiltin<"work_group_reduce_add",        (outs gentype:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+def work_group_reduce_mul        : REF_OclBuiltin<"work_group_reduce_mul",        (outs gentype:$ret), (ins gentype:$x), [], [], TypeTemplate>;
 def work_group_reduce_min_pre_exec           : REF_OclBuiltin<"work_group_reduce_min_pre_exec",           (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
 def work_group_reduce_max_pre_exec           : REF_OclBuiltin<"work_group_reduce_max_pre_exec",           (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
 def work_group_reduce_add_pre_exec        : REF_OclBuiltin<"work_group_reduce_add_pre_exec",        (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+def work_group_reduce_mul_pre_exec        : REF_OclBuiltin<"work_group_reduce_mul_pre_exec",        (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
 
-def work_group_prefixsum_exclusive_min       : REF_OclBuiltin<"work_group_prefixsum_exclusive_min",       (outs gentype:$ret), (ins gentype:$x), [], [], TemplateAttr< [type0, arg_true] > >;
-def work_group_prefixsum_exclusive_max     : REF_OclBuiltin<"work_group_prefixsum_exclusive_max",     (outs gentype:$ret), (ins gentype:$x), [], [], TemplateAttr< [type0, arg_true] > >;
-def work_group_prefixsum_exclusive_add         : REF_OclBuiltin<"work_group_prefixsum_exclusive_add",         (outs gentype:$ret), (ins gentype:$x), [], [], TemplateAttr< [type0, arg_true] > >;
-def work_group_prefixsum_inclusive_min       : REF_OclBuiltin<"work_group_prefixsum_inclusive_min",       (outs gentype:$ret), (ins gentype:$x), [], [], TemplateAttr< [type0, arg_false] > >;
-def work_group_prefixsum_inclusive_max     : REF_OclBuiltin<"work_group_prefixsum_inclusive_max",     (outs gentype:$ret), (ins gentype:$x), [], [], TemplateAttr< [type0, arg_false] > >;
-def work_group_prefixsum_inclusive_add         : REF_OclBuiltin<"work_group_prefixsum_inclusive_add",         (outs gentype:$ret), (ins gentype:$x), [], [], TemplateAttr< [type0, arg_false] > >;
-def work_group_prefixsum_exclusive_min_pre_exec       : REF_OclBuiltin<"work_group_prefixsum_exclusive_min_pre_exec",       (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
-def work_group_prefixsum_exclusive_max_pre_exec     : REF_OclBuiltin<"work_group_prefixsum_exclusive_max_pre_exec",     (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
-def work_group_prefixsum_exclusive_add_pre_exec         : REF_OclBuiltin<"work_group_prefixsum_exclusive_add_pre_exec",         (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
-def work_group_prefixsum_inclusive_min_pre_exec       : REF_OclBuiltin<"work_group_prefixsum_inclusive_min_pre_exec",       (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
-def work_group_prefixsum_inclusive_max_pre_exec     : REF_OclBuiltin<"work_group_prefixsum_inclusive_max_pre_exec",     (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
-def work_group_prefixsum_inclusive_add_pre_exec         : REF_OclBuiltin<"work_group_prefixsum_inclusive_add_pre_exec",         (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+def work_group_scan_exclusive_min       : REF_OclBuiltin<"work_group_scan_exclusive_min",       (outs gentype:$ret), (ins gentype:$x), [], [], TemplateAttr< [type0, arg_true] > >;
+def work_group_scan_exclusive_max     : REF_OclBuiltin<"work_group_scan_exclusive_max",     (outs gentype:$ret), (ins gentype:$x), [], [], TemplateAttr< [type0, arg_true] > >;
+def work_group_scan_exclusive_add         : REF_OclBuiltin<"work_group_scan_exclusive_add",         (outs gentype:$ret), (ins gentype:$x), [], [], TemplateAttr< [type0, arg_true] > >;
+def work_group_scan_exclusive_mul         : REF_OclBuiltin<"work_group_scan_exclusive_mul",         (outs gentype:$ret), (ins gentype:$x), [], [], TemplateAttr< [type0, arg_true] > >;
+def work_group_scan_inclusive_min       : REF_OclBuiltin<"work_group_scan_inclusive_min",       (outs gentype:$ret), (ins gentype:$x), [], [], TemplateAttr< [type0, arg_false] > >;
+def work_group_scan_inclusive_max     : REF_OclBuiltin<"work_group_scan_inclusive_max",     (outs gentype:$ret), (ins gentype:$x), [], [], TemplateAttr< [type0, arg_false] > >;
+def work_group_scan_inclusive_add         : REF_OclBuiltin<"work_group_scan_inclusive_add",         (outs gentype:$ret), (ins gentype:$x), [], [], TemplateAttr< [type0, arg_false] > >;
+def work_group_scan_inclusive_mul         : REF_OclBuiltin<"work_group_scan_inclusive_mul",         (outs gentype:$ret), (ins gentype:$x), [], [], TemplateAttr< [type0, arg_false] > >;
+def work_group_scan_exclusive_min_pre_exec       : REF_OclBuiltin<"work_group_scan_exclusive_min_pre_exec",       (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+def work_group_scan_exclusive_max_pre_exec     : REF_OclBuiltin<"work_group_scan_exclusive_max_pre_exec",     (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+def work_group_scan_exclusive_add_pre_exec         : REF_OclBuiltin<"work_group_scan_exclusive_add_pre_exec",         (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+def work_group_scan_exclusive_mul_pre_exec         : REF_OclBuiltin<"work_group_scan_exclusive_mul_pre_exec",         (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+def work_group_scan_inclusive_min_pre_exec       : REF_OclBuiltin<"work_group_scan_inclusive_min_pre_exec",       (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+def work_group_scan_inclusive_max_pre_exec     : REF_OclBuiltin<"work_group_scan_inclusive_max_pre_exec",     (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+def work_group_scan_inclusive_add_pre_exec         : REF_OclBuiltin<"work_group_scan_inclusive_add_pre_exec",         (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+def work_group_scan_inclusive_mul_pre_exec         : REF_OclBuiltin<"work_group_scan_inclusive_mul_pre_exec",         (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
 }
 
 let Types = [v1i32],
@@ -233,6 +239,30 @@ GenericValue lle_X_work_group_reduce_add(FunctionType *FT,
 }
 
 template<typename T>
+GenericValue lle_X_work_group_reduce_mul_pre_exec(FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
+  llvm::GenericValue initializer;
+  initializer = initWithInteger<T>(1);
+  IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
+  GenericValue Value = Args[0];
+  pG->AddRef("lle_X_work_group_reduce_mul_pre_exec_impl", initializer);
+
+  getRef<T>(pG->GetValueForReduceBuiltin())=getRef<T>(pG->GetValueForReduceBuiltin())*getVal<T>(Value);
+
+  return GenericValue();
+}
+
+template<typename T>
+GenericValue lle_X_work_group_reduce_mul(FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
+  IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
+  GenericValue gv = pG->GetValueForReduceBuiltin();
+
+  pG->DecRef();
+  return gv;
+}
+
+template<typename T>
 GenericValue lle_X_work_group_reduce_min_pre_exec(FunctionType *FT,
                          llvm::ArrayRef<llvm::GenericValue> Args) {
   llvm::GenericValue initializer;
@@ -284,9 +314,9 @@ GenericValue lle_X_work_group_reduce_max(FunctionType *FT,
   return gv;
 }
 
-//common function for all prefixsum built-ins
+//common function for all scan built-ins
 template<typename T>
-GenericValue lle_X_work_group_prefixsum_pre_exec_impl(FunctionType *FT,
+GenericValue lle_X_work_group_scan_pre_exec_impl(FunctionType *FT,
                          llvm::ArrayRef<llvm::GenericValue> Args) {
   //collect data in a special way
   //execute operation in post method
@@ -295,7 +325,7 @@ GenericValue lle_X_work_group_prefixsum_pre_exec_impl(FunctionType *FT,
 
   IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
-  pG->AddRef("lle_X_work_group_prefixsum_inclusive_pre_exec_impl", llvm::GenericValue());
+  pG->AddRef("lle_X_work_group_scan_inclusive_pre_exec_impl", llvm::GenericValue());
   llvm::GenericValue arg0 = Args[0];
   typename retType<T>::type Value = getRef<T>(arg0);
 
@@ -315,14 +345,14 @@ GenericValue lle_X_work_group_prefixsum_pre_exec_impl(FunctionType *FT,
   uint64_t idx = idx2*size1*size0 + idx1*size0 + idx0;
 
   //store in 1D array
-  pG->GetValueForPrefixSumBuiltin().AggregateVal.resize(size0*size1*size2);
-  getRef<T, NULL>(pG->GetValueForPrefixSumBuiltin(), idx) = Value;
+  pG->GetValueForScanBuiltin().AggregateVal.resize(size0*size1*size2);
+  getRef<T, NULL>(pG->GetValueForScanBuiltin(), idx) = Value;
 
   return GenericValue();
 }
 
 template<typename T, bool isExlusive>
-GenericValue lle_X_work_group_prefixsum_max_impl(FunctionType *FT,
+GenericValue lle_X_work_group_scan_max_impl(FunctionType *FT,
                          llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
@@ -349,7 +379,7 @@ GenericValue lle_X_work_group_prefixsum_max_impl(FunctionType *FT,
 
   for(uint32_t i = 0; (isExlusive?i<idx:i<=idx); ++i)
   {
-      Value = getRef<T, NULL>(pG->GetValueForPrefixSumBuiltin(), i);
+      Value = getRef<T, NULL>(pG->GetValueForScanBuiltin(), i);
       Max = getRef<T>(gv);
       getRef<T>(gv) =  predLess<T>(Value, Max)?Max:Value;
   }
@@ -359,7 +389,7 @@ GenericValue lle_X_work_group_prefixsum_max_impl(FunctionType *FT,
 }
 
 template<typename T, bool isExclusive>
-GenericValue lle_X_work_group_prefixsum_add_impl(FunctionType *FT,
+GenericValue lle_X_work_group_scan_add_impl(FunctionType *FT,
                          llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
@@ -386,7 +416,7 @@ GenericValue lle_X_work_group_prefixsum_add_impl(FunctionType *FT,
 
   for(uint32_t i = 0; (isExclusive?i<idx:i<=idx); ++i)
   {
-      Value = getRef<T, NULL>(pG->GetValueForPrefixSumBuiltin(), i);
+      Value = getRef<T, NULL>(pG->GetValueForScanBuiltin(), i);
       Add = getRef<T>(gv);
       getRef<T>(gv) =  Add+Value;
   }
@@ -396,7 +426,44 @@ GenericValue lle_X_work_group_prefixsum_add_impl(FunctionType *FT,
 }
 
 template<typename T, bool isExclusive>
-GenericValue lle_X_work_group_prefixsum_min_impl(FunctionType *FT,
+GenericValue lle_X_work_group_scan_mul_impl(FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
+  IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
+  IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
+  GenericValue gv = initWithInteger<T>(1);
+
+  uint64_t idx0, idx1, idx2;//indexes if current WI
+  uint64_t size0, size1;//global work sizes
+
+  //NOTE: Take local sizes instead of global
+  //it's because in our model globalid = tid_x + lid_x
+  //tid_x - start of wg
+  //lid_x - local id
+  idx0 = pI->GetLocalId(0);
+  idx1 = pI->GetLocalId(1);
+  idx2 = pI->GetLocalId(2);
+
+  size0 = pI->GetLocalSize(0);
+  size1 = pI->GetLocalSize(1);
+
+  //create linear order
+  uint64_t idx = idx2*size1*size0 + idx1*size0 + idx0;
+  typename retType<T>::type Value;
+  typename retType<T>::type Mul;
+
+  for(uint32_t i = 0; (isExclusive?i<idx:i<=idx); ++i)
+  {
+      Value = getRef<T, NULL>(pG->GetValueForScanBuiltin(), i);
+      Mul = getRef<T>(gv);
+      getRef<T>(gv) =  Mul*Value;
+  }
+
+  pG->DecRef();
+  return gv;
+}
+
+template<typename T, bool isExclusive>
+GenericValue lle_X_work_group_scan_min_impl(FunctionType *FT,
                          llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
@@ -423,7 +490,7 @@ GenericValue lle_X_work_group_prefixsum_min_impl(FunctionType *FT,
 
   for(uint32_t i = 0; (isExclusive?i<idx:i<=idx); ++i)
   {
-      Value = getRef<T, NULL>(pG->GetValueForPrefixSumBuiltin(), i);
+      Value = getRef<T, NULL>(pG->GetValueForScanBuiltin(), i);
       Min = getRef<T>(gv);
       getRef<T>(gv) =  predLess<T>(Value, Min)?Value:Min;
   }
@@ -433,65 +500,85 @@ GenericValue lle_X_work_group_prefixsum_min_impl(FunctionType *FT,
 }
 
 template<typename T, bool isExclusive>
-GenericValue lle_X_work_group_prefixsum_inclusive_min(FunctionType *FT,
+GenericValue lle_X_work_group_scan_inclusive_min(FunctionType *FT,
                          llvm::ArrayRef<llvm::GenericValue> Args) {
-  return lle_X_work_group_prefixsum_min_impl<T, isExclusive>(FT, Args);
+  return lle_X_work_group_scan_min_impl<T, isExclusive>(FT, Args);
 }
 template<typename T, bool isExclusive>
-GenericValue lle_X_work_group_prefixsum_inclusive_max(FunctionType *FT,
+GenericValue lle_X_work_group_scan_inclusive_max(FunctionType *FT,
                          llvm::ArrayRef<llvm::GenericValue> Args) {
-  return lle_X_work_group_prefixsum_max_impl<T, isExclusive>(FT, Args);
+  return lle_X_work_group_scan_max_impl<T, isExclusive>(FT, Args);
 }
 template<typename T, bool isExclusive>
-GenericValue lle_X_work_group_prefixsum_inclusive_add(FunctionType *FT,
+GenericValue lle_X_work_group_scan_inclusive_add(FunctionType *FT,
                          llvm::ArrayRef<llvm::GenericValue> Args) {
-  return lle_X_work_group_prefixsum_add_impl<T, isExclusive>(FT, Args);
+  return lle_X_work_group_scan_add_impl<T, isExclusive>(FT, Args);
 }
 template<typename T, bool isExclusive>
-GenericValue lle_X_work_group_prefixsum_exclusive_min(FunctionType *FT,
+GenericValue lle_X_work_group_scan_inclusive_mul(FunctionType *FT,
                          llvm::ArrayRef<llvm::GenericValue> Args) {
-  return lle_X_work_group_prefixsum_min_impl<T, isExclusive>(FT, Args);
+  return lle_X_work_group_scan_mul_impl<T, isExclusive>(FT, Args);
 }
 template<typename T, bool isExclusive>
-GenericValue lle_X_work_group_prefixsum_exclusive_max(FunctionType *FT,
+GenericValue lle_X_work_group_scan_exclusive_min(FunctionType *FT,
                          llvm::ArrayRef<llvm::GenericValue> Args) {
-  return lle_X_work_group_prefixsum_max_impl<T, isExclusive>(FT, Args);
+  return lle_X_work_group_scan_min_impl<T, isExclusive>(FT, Args);
 }
 template<typename T, bool isExclusive>
-GenericValue lle_X_work_group_prefixsum_exclusive_add(FunctionType *FT,
+GenericValue lle_X_work_group_scan_exclusive_max(FunctionType *FT,
                          llvm::ArrayRef<llvm::GenericValue> Args) {
-  return lle_X_work_group_prefixsum_add_impl<T, isExclusive>(FT, Args);
+  return lle_X_work_group_scan_max_impl<T, isExclusive>(FT, Args);
+}
+template<typename T, bool isExclusive>
+GenericValue lle_X_work_group_scan_exclusive_add(FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
+  return lle_X_work_group_scan_add_impl<T, isExclusive>(FT, Args);
+}
+template<typename T, bool isExclusive>
+GenericValue lle_X_work_group_scan_exclusive_mul(FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
+  return lle_X_work_group_scan_mul_impl<T, isExclusive>(FT, Args);
 }
 
 template<typename T>
-GenericValue lle_X_work_group_prefixsum_inclusive_min_pre_exec(FunctionType *FT,
+GenericValue lle_X_work_group_scan_inclusive_min_pre_exec(FunctionType *FT,
                          llvm::ArrayRef<llvm::GenericValue> Args) {
-  return lle_X_work_group_prefixsum_pre_exec_impl<T>(FT, Args);
+  return lle_X_work_group_scan_pre_exec_impl<T>(FT, Args);
 }
 template<typename T>
-GenericValue lle_X_work_group_prefixsum_inclusive_max_pre_exec(FunctionType *FT,
+GenericValue lle_X_work_group_scan_inclusive_max_pre_exec(FunctionType *FT,
                          llvm::ArrayRef<llvm::GenericValue> Args) {
-  return lle_X_work_group_prefixsum_pre_exec_impl<T>(FT, Args);
+  return lle_X_work_group_scan_pre_exec_impl<T>(FT, Args);
 }
 template<typename T>
-GenericValue lle_X_work_group_prefixsum_inclusive_add_pre_exec(FunctionType *FT,
+GenericValue lle_X_work_group_scan_inclusive_add_pre_exec(FunctionType *FT,
                          llvm::ArrayRef<llvm::GenericValue> Args) {
-  return lle_X_work_group_prefixsum_pre_exec_impl<T>(FT, Args);
+  return lle_X_work_group_scan_pre_exec_impl<T>(FT, Args);
 }
 template<typename T>
-GenericValue lle_X_work_group_prefixsum_exclusive_min_pre_exec(FunctionType *FT,
+GenericValue lle_X_work_group_scan_inclusive_mul_pre_exec(FunctionType *FT,
                          llvm::ArrayRef<llvm::GenericValue> Args) {
-  return lle_X_work_group_prefixsum_pre_exec_impl<T>(FT, Args);
+  return lle_X_work_group_scan_pre_exec_impl<T>(FT, Args);
 }
 template<typename T>
-GenericValue lle_X_work_group_prefixsum_exclusive_max_pre_exec(FunctionType *FT,
+GenericValue lle_X_work_group_scan_exclusive_min_pre_exec(FunctionType *FT,
                          llvm::ArrayRef<llvm::GenericValue> Args) {
-  return lle_X_work_group_prefixsum_pre_exec_impl<T>(FT, Args);
+  return lle_X_work_group_scan_pre_exec_impl<T>(FT, Args);
 }
 template<typename T>
-GenericValue lle_X_work_group_prefixsum_exclusive_add_pre_exec(FunctionType *FT,
+GenericValue lle_X_work_group_scan_exclusive_max_pre_exec(FunctionType *FT,
                          llvm::ArrayRef<llvm::GenericValue> Args) {
-  return lle_X_work_group_prefixsum_pre_exec_impl<T>(FT, Args);
+  return lle_X_work_group_scan_pre_exec_impl<T>(FT, Args);
+}
+template<typename T>
+GenericValue lle_X_work_group_scan_exclusive_add_pre_exec(FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
+  return lle_X_work_group_scan_pre_exec_impl<T>(FT, Args);
+}
+template<typename T>
+GenericValue lle_X_work_group_scan_exclusive_mul_pre_exec(FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
+  return lle_X_work_group_scan_pre_exec_impl<T>(FT, Args);
 }
 
 GenericValue lle_X_work_group_broadcast_1D(FunctionType *FT,

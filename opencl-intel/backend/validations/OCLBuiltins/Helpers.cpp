@@ -116,6 +116,27 @@ namespace OCLBuiltins {
     template<> llvm::GenericValue initWithZero<double>(){
         llvm::GenericValue gv; gv.DoubleVal=0.0f; return gv;}
 
+    template<> llvm::GenericValue initWithInteger<int8_t>(int i){
+        llvm::GenericValue gv; gv.IntVal=APInt(8, i, true); return gv;}
+    template<> llvm::GenericValue initWithInteger<int16_t>(int i){
+        llvm::GenericValue gv; gv.IntVal=APInt(16, i, true); return gv;}
+    template<> llvm::GenericValue initWithInteger<int32_t>(int i){
+        llvm::GenericValue gv; gv.IntVal=APInt(32, i, true); return gv;}
+    template<> llvm::GenericValue initWithInteger<int64_t>(int i){
+        llvm::GenericValue gv; gv.IntVal=APInt(64, i, true); return gv;}
+    template<> llvm::GenericValue initWithInteger<uint8_t>(int i){
+        llvm::GenericValue gv; gv.IntVal=APInt(8, i, true); return gv;}
+    template<> llvm::GenericValue initWithInteger<uint16_t>(int i){
+        llvm::GenericValue gv; gv.IntVal=APInt(16, i, true); return gv;}
+    template<> llvm::GenericValue initWithInteger<uint32_t>(int i){
+        llvm::GenericValue gv; gv.IntVal=APInt(32, i, true); return gv;}
+    template<> llvm::GenericValue initWithInteger<uint64_t>(int i){
+        llvm::GenericValue gv; gv.IntVal=APInt(64, i, true); return gv;}
+    template<> llvm::GenericValue initWithInteger<float>(int i){
+        llvm::GenericValue gv; gv.FloatVal=(float)i; return gv;}
+    template<> llvm::GenericValue initWithInteger<double>(int i){
+        llvm::GenericValue gv; gv.DoubleVal=(float)i; return gv;}
+
     template<> float getOneMinus1ULP<float>() {
         ::Validation::Utils::FloatParts<float> one(1.f);
         one.AddUlps(-1);

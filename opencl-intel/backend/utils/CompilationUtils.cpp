@@ -129,6 +129,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_WORK_GROUP_REDUCE_MAX = "work_group_reduce_max";
   const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_EXCLUSIVE_MAX = "work_group_scan_exclusive_max";
   const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX = "work_group_scan_inclusive_max";
+  const std::string CompilationUtils::NAME_WORK_GROUP_REDUCE_MUL = "work_group_reduce_mul";
+  const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_EXCLUSIVE_MUL = "work_group_scan_exclusive_mul";
+  const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_INCLUSIVE_MUL = "work_group_scan_inclusive_mul";
   const std::string CompilationUtils::NAME_FINALIZE_WG_FUNCTION_PREFIX = "__finalize_";
 
   //sub-group functions
@@ -1154,6 +1157,18 @@ bool CompilationUtils::isWorkGroupScanInclusiveAdd(const std::string& S) {
   return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_ADD);
 }
 
+bool CompilationUtils::isWorkGroupReduceMul(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_MUL);
+}
+
+bool CompilationUtils::isWorkGroupScanExclusiveMul(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_EXCLUSIVE_MUL);
+}
+
+bool CompilationUtils::isWorkGroupScanInclusiveMul(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_MUL);
+}
+
 bool CompilationUtils::isWorkGroupReduceMin(const std::string& S) {
   return isMangleOf(S, NAME_WORK_GROUP_REDUCE_MIN);
 }
@@ -1257,7 +1272,9 @@ bool CompilationUtils::isWorkGroupScan(const std::string& S) {
          isWorkGroupScanExclusiveMin(S) ||
          isWorkGroupScanInclusiveMin(S) ||
          isWorkGroupScanExclusiveMax(S) ||
-         isWorkGroupScanInclusiveMax(S);
+         isWorkGroupScanInclusiveMax(S) ||
+         isWorkGroupScanExclusiveMul(S) ||
+         isWorkGroupScanInclusiveMul(S);
 }
 
 bool CompilationUtils::isWorkGroupMin(const std::string& S) {
@@ -1312,7 +1329,8 @@ bool CompilationUtils::isWorkGroupUniform(const std::string& S) {
          isWorkGroupBroadCast(S) ||
          isWorkGroupReduceAdd(S) ||
          isWorkGroupReduceMin(S) ||
-         isWorkGroupReduceMax(S);
+         isWorkGroupReduceMax(S) ||
+         isWorkGroupReduceMul(S);
 }
 
 bool CompilationUtils::isWorkGroupDivergent(const std::string &S) {

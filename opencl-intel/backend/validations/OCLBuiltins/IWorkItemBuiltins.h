@@ -54,10 +54,10 @@ public:
     virtual llvm::GenericValue& GetValueForReduceBuiltin()=0;
 
     ///Get reference to accumulative value. Needed to collect data
-    ///for work-group built-ins work_group_prefixsum_<inclusive/exclusive>_<op>
+    ///for work-group built-ins work_group_scan_<inclusive/exclusive>_<op>
     ///@return reference to llvm::GenericValue accumulative value for
-    ///work_group_prefixsum built-ins
-    virtual llvm::GenericValue& GetValueForPrefixSumBuiltin()=0;
+    ///work_group_scan built-ins
+    virtual llvm::GenericValue& GetValueForScanBuiltin()=0;
 };
 
 /// Interface for setting/getting work-item built-in variables
