@@ -613,13 +613,10 @@ const SafetyData StructCouldHaveABIPadding = 0x0000'2000'0000'0000;
 /// structure.
 const SafetyData StructCouldBeBaseABIPadding = 0x0000'4000'0000'0000;
 
-/// This safety data is set when a possible bad casting can happen to
-/// structures involving ABI padding. The function for post processing these
-/// structures will decide if the safety bit will be lowered into
-/// BadCastingForRelatedTypes (ABI padding relationship was set) or BadCasting
-/// (ABI padding relationship wasn't set). For an example of ABI padding, see
-/// StructCouldBeBaseABIPadding above.
-const SafetyData BadCastingForRelatedTypesConditional = 0x0000'8000'0000'0000;
+/// This safety data is set when a possible BadMemFuncManipulation can happen
+/// between types that have ABI padding, but it won't affect the padded field.
+/// For an example of ABI padding, see StructCouldBeBaseABIPadding above.
+const SafetyData BadMemFuncManipulationForRelatedTypes = 0x0000'8000'0000'0000;
 
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
@@ -651,7 +648,8 @@ const SafetyData SDDeleteField =
     BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
     MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
     MemFuncNestedStructsPartialWrite | ComplexAllocSize |
-    StructCouldHaveABIPadding | StructCouldBeBaseABIPadding;
+    StructCouldHaveABIPadding | StructCouldBeBaseABIPadding |
+    BadMemFuncManipulationForRelatedTypes;
 
 const SafetyData SDReorderFields =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -665,7 +663,8 @@ const SafetyData SDReorderFields =
     UnhandledUse | DopeVector | BadCastingForRelatedTypes |
     BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
     UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
-    ComplexAllocSize | StructCouldHaveABIPadding | StructCouldBeBaseABIPadding;
+    ComplexAllocSize | StructCouldHaveABIPadding |
+    StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes;
 
 const SafetyData SDReorderFieldsDependent =
     BadPtrManipulation | GlobalInstance | HasInitializerList |
@@ -674,7 +673,8 @@ const SafetyData SDReorderFieldsDependent =
     UnhandledUse | WholeStructureReference | VolatileData | BadMemFuncSize |
     BadMemFuncManipulation | AmbiguousPointerTarget | DopeVector |
     BadPtrManipulationForRelatedTypes | MemFuncNestedStructsPartialWrite |
-    ComplexAllocSize | StructCouldHaveABIPadding | StructCouldBeBaseABIPadding;
+    ComplexAllocSize | StructCouldHaveABIPadding |
+    StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes;
 
 //
 // Safety conditions for field single value analysis
@@ -697,7 +697,7 @@ const SafetyData SDSingleAllocFunctionNoFieldAddressTaken =
     AddressTaken | MismatchedArgUse | BadCastingForRelatedTypes |
     BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
     UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
-    UnhandledUse;
+    BadMemFuncManipulationForRelatedTypes | UnhandledUse;
 
 const SafetyData SDSingleAllocFunction =
     SDSingleAllocFunctionNoFieldAddressTaken | AnyFieldAddressTaken;
@@ -711,7 +711,7 @@ const SafetyData SDElimROFieldAccess =
     MismatchedElementAccessConditional | UnhandledUse |
     DopeVector | BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
     MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
-    MemFuncNestedStructsPartialWrite;
+    MemFuncNestedStructsPartialWrite | BadMemFuncManipulationForRelatedTypes;
 
 //
 // Safety conditions for a structure to be considered for the AOS-to-SOA
@@ -729,7 +729,8 @@ const SafetyData SDAOSToSOA =
     DopeVector | BadCastingForRelatedTypes |
     BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
     UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
-    ComplexAllocSize | StructCouldHaveABIPadding | StructCouldBeBaseABIPadding;
+    ComplexAllocSize | StructCouldHaveABIPadding |
+    StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes;
 
 //
 // Safety conditions for a structure type that contains a pointer to a
@@ -765,7 +766,8 @@ const SafetyData SDAOSToSOADependentIndex32 =
     BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
     MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
     MemFuncNestedStructsPartialWrite | ComplexAllocSize |
-    StructCouldHaveABIPadding | StructCouldBeBaseABIPadding;
+    StructCouldHaveABIPadding | StructCouldBeBaseABIPadding |
+    BadMemFuncManipulationForRelatedTypes;
 
 const SafetyData SDDynClone =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -779,7 +781,8 @@ const SafetyData SDDynClone =
     MismatchedElementAccessConditional | UnhandledUse | DopeVector |
     BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
     MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
-    MemFuncNestedStructsPartialWrite | ComplexAllocSize;
+    MemFuncNestedStructsPartialWrite | ComplexAllocSize |
+    BadMemFuncManipulationForRelatedTypes;
 
 const SafetyData SDSOAToAOS =
     BadCasting | BadPtrManipulation | VolatileData | MismatchedElementAccess |
@@ -792,7 +795,8 @@ const SafetyData SDSOAToAOS =
     UnhandledUse | DopeVector | BadCastingForRelatedTypes |
     BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
     UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
-    ComplexAllocSize | StructCouldHaveABIPadding | StructCouldBeBaseABIPadding;
+    ComplexAllocSize | StructCouldHaveABIPadding |
+    StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes;
 
 const SafetyData SDMemInitTrimDown =
     BadCasting | BadPtrManipulation | VolatileData | MismatchedElementAccess |
@@ -805,7 +809,8 @@ const SafetyData SDMemInitTrimDown =
     UnhandledUse | DopeVector | BadCastingForRelatedTypes |
     BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
     UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
-    ComplexAllocSize | StructCouldHaveABIPadding | StructCouldBeBaseABIPadding;
+    ComplexAllocSize | StructCouldHaveABIPadding |
+    StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes;
 
 // Safety conditions for arrays with constant entries
 // NOTE: FieldAddressTakenReturn is conservative. We can extend the analysis
@@ -819,7 +824,8 @@ const SafetyData SDArraysWithConstantEntries =
     AddressTaken | NoFieldsInStruct | SystemObject | MismatchedArgUse |
     BadCastingPending | BadCastingConditional | UnsafePointerStorePending |
     UnsafePointerStoreConditional | MismatchedElementAccessConditional |
-    FieldAddressTakenReturn | UnhandledUse;
+    FieldAddressTakenReturn | BadMemFuncManipulationForRelatedTypes |
+    UnhandledUse;
 
 //
 // TODO: Update the list each time we add a new safety conditions check for a
@@ -1026,6 +1032,25 @@ public:
   // Indicate 'FieldNum' is BottomAllocFunc
   void updateSingleAllocFuncToBottom(unsigned FieldNum);
 
+  // Return true if the current structure is a base structure for ABI padding
+  bool isABIPaddingBaseStructure() { return RTForm == RT_BASE; }
+
+  // Return true if the current structure is a padded structure for ABI padding
+  bool isABIPaddingPaddedStructure() { return RTForm == RT_PADDED; }
+
+  // Return true if the current structure is base or padded structure for
+  // ABI padding
+  bool isUsedForABIPadding() {
+    return RelatedType &&
+           (isABIPaddingBaseStructure() || isABIPaddingPaddedStructure());
+  }
+
+  // Set the current structure as base structure for ABI padding
+  void setAsABIPaddingBaseStructure();
+
+  // Set the current structure as padded structure for ABI padding
+  void setAsABIPaddingPaddedStructure();
+
 private:
   SmallVector<FieldInfo, 16> Fields;
   // Total Frequency of all fields in struct.
@@ -1063,6 +1088,19 @@ private:
   //   RelatedType for %class.A = %class.A.base
   //   RelatedType for %class.A.base = %class.A
   dtrans::StructInfo *RelatedType = nullptr;
+
+  // Enum for handling which related type form is the current class. This
+  // is used to identify if the current structure is base or padded structure
+  // when handling ABI padding.
+  enum RelatedTypeForm {
+    RT_TOP,                 // Structure is not set for ABI padding
+    RT_BASE,                // Base structure
+    RT_PADDED,              // Padded structure
+    RT_BOTTOM               // Can't be padded or base structure
+  };
+
+  // Used for tracking which type of ABI padding is the current structure.
+  RelatedTypeForm RTForm = RT_TOP;
 };
 
 class ArrayInfo : public TypeInfo {

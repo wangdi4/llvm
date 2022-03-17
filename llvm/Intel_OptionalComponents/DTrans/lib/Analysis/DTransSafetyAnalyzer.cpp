@@ -3437,12 +3437,10 @@ public:
 
         // If the pointer was declared as a base type, but an actual parameter
         // used it as a padded type, then we are going to set
-        // BadCastingForRelatedTypesConditional. The related types post processing
-        // function will make the final decision if it is going to be declared as
-        // BadCasting or BadCastingForRelatedTypes.
+        // BadCastingForRelatedTypes.
         if (isLegalRelatedTypeUse(*ParamInfo)) {
           setAllAliasedTypeSafetyData(ParamInfo,
-              dtrans::BadCastingForRelatedTypesConditional,
+              dtrans::BadCastingForRelatedTypes,
               "Formal paremeter is a related type of the actual parameter, "
               "or vice-versa", &Call, DumpCallback);
           continue;
@@ -4242,8 +4240,16 @@ public:
     }
 
     if (DestParentTy != SrcParentTy) {
-      dtrans::SafetyData Data = dtrans::BadMemFuncManipulation;
-      StringRef Reason = "memcpy/memmove - different types for src and dest";
+      dtrans::SafetyData Data;
+      StringRef Reason;
+      if (memFuncIsHandlingRelatedTypes(DestParentTy, SrcParentTy, SetSize)) {
+        Data = dtrans::BadMemFuncManipulationForRelatedTypes;
+        Reason = "memcpy/memmove (related types) - copying data from base to "
+                 "padded structure (or vice-versa)";
+      } else {
+        Data = dtrans::BadMemFuncManipulation;
+        Reason = "memcpy/memmove - different types for src and dest";
+      }
       setAllAliasedTypeSafetyData(DstInfo, Data, Reason, &I);
       setAllAliasedTypeSafetyData(SrcInfo, Data, Reason, &I);
       processBadMemFuncManipulation(I, DstInfo);
@@ -4488,6 +4494,109 @@ public:
   // conservative and set them all to 'incomplete'.
   void processBadMemFuncManipulation(Instruction &I, ValueTypeInfo *Info) {
     markAllFieldsWritten(I, Info);
+  }
+
+  // Return true if SrcTy and DestTy are related types, and SetSize is the
+  // same size as the base structure.
+  bool memFuncIsHandlingRelatedTypes(DTransType *DestTy, DTransType *SrcTy,
+                                     Value *SetSize) {
+
+    // Return true if traversing the zero element of ParentStruct we reach
+    // the related type of StructWithRelatedType. Else return false.
+    auto RelatedTypeInZeroElement =
+      [](dtrans::StructInfo *ParentStruct,
+         dtrans::StructInfo *StructWithRelatedType) -> bool {
+
+      DTransStructType *RelatedTy = dyn_cast_or_null<DTransStructType>(
+          StructWithRelatedType->getRelatedType()->getDTransType());
+      if (!RelatedTy)
+        return false;
+
+      DTransStructType *CurrTy =
+          dyn_cast<DTransStructType>(ParentStruct->getDTransType());
+      if (!CurrTy)
+        return false;
+
+      SetVector<DTransStructType *> VisitedTypes;
+      while (CurrTy) {
+        if (!VisitedTypes.insert(CurrTy))
+          return false;
+
+        if (RelatedTy == CurrTy)
+          return true;
+
+        if (CurrTy->getNumFields() == 0)
+          return false;
+
+        if (auto *FieldZero =
+            dyn_cast<DTransStructType>(CurrTy->getFieldType(0)))
+          CurrTy = FieldZero;
+        else
+          CurrTy = nullptr;
+      }
+
+      return false;
+    };
+
+    if (!DestTy || !DestTy->isPointerTy() || !SrcTy || !SrcTy->isPointerTy())
+      return false;
+
+    DTransStructType *DestStruct =
+        dyn_cast<DTransStructType>(DestTy->getPointerElementType());
+    DTransStructType *SrcStruct =
+        dyn_cast<DTransStructType>(SrcTy->getPointerElementType());
+
+    if (!DestStruct || !SrcStruct)
+      return false;
+
+    dtrans::StructInfo *DSTStructInfo =
+        dyn_cast_or_null<dtrans::StructInfo>(DTInfo.getTypeInfo(DestStruct));
+    dtrans::StructInfo *SRCStructInfo =
+        dyn_cast_or_null<dtrans::StructInfo>(DTInfo.getTypeInfo(SrcStruct));
+
+    if (!DSTStructInfo || !SRCStructInfo)
+      return false;
+
+    // Check if traversing the zero element we can reach the related type
+    if (!DSTStructInfo->isUsedForABIPadding() &&
+        SRCStructInfo->isUsedForABIPadding()) {
+      if (RelatedTypeInZeroElement(DSTStructInfo, SRCStructInfo))
+        DSTStructInfo = SRCStructInfo->getRelatedType();
+      else
+        return false;
+    } else if (DSTStructInfo->isUsedForABIPadding() &&
+        !SRCStructInfo->isUsedForABIPadding()) {
+      if (RelatedTypeInZeroElement(SRCStructInfo, DSTStructInfo))
+        SRCStructInfo = DSTStructInfo->getRelatedType();
+      else
+        return false;
+    }
+
+    // If neither of the structures are set for ABI padding then return
+    if (!DSTStructInfo->isUsedForABIPadding() ||
+        !SRCStructInfo->isUsedForABIPadding())
+      return false;
+
+    llvm::Type *BaseStructPtr = nullptr;
+    if (DSTStructInfo->isABIPaddingBaseStructure()) {
+      DTransType *DestPointeeTy = DSTStructInfo->getDTransType();
+      BaseStructPtr = DestPointeeTy->getLLVMType();
+    } else if (SRCStructInfo->isABIPaddingBaseStructure()) {
+      DTransType *SrcPointeeTy = SRCStructInfo->getDTransType();
+      BaseStructPtr = SrcPointeeTy->getLLVMType();
+    }
+
+    if (!BaseStructPtr || !BaseStructPtr->isSized())
+      return false;
+
+    uint64_t ElementSize = DL.getTypeAllocSize(BaseStructPtr);
+
+    // NOTE: This is conservative, it checks if the amount of data that is
+    // being copied is the same size as the base structure. This condition is
+    // not necessary in order to be legal memcpy. Assume that we are copying
+    // just a field from a base structure to a padded structure. If the copy
+    // is within the bounds then it should be OK.
+    return dtrans::isValueEqualToSize(SetSize, ElementSize);
   }
 
   // For ReturnInst, we need to perform the following checks:
@@ -4999,7 +5108,7 @@ private:
     case dtrans::AmbiguousPointerTarget:
     case dtrans::BadCasting:
     case dtrans::BadCastingPending:
-    case dtrans::BadCastingForRelatedTypesConditional:
+    case dtrans::BadCastingForRelatedTypes:
     case dtrans::BadMemFuncManipulation:
     case dtrans::SystemObject:
     case dtrans::UnsafePtrMerge:
@@ -5031,6 +5140,7 @@ private:
     case dtrans::BadCastingConditional:
     case dtrans::BadMemFuncSize:
     case dtrans::BadPtrManipulation:
+    case dtrans::BadMemFuncManipulationForRelatedTypes:
     case dtrans::ComplexAllocSize:
     case dtrans::ContainsNestedStruct:
     case dtrans::DopeVector:
@@ -5088,8 +5198,9 @@ private:
     case dtrans::BadCasting:
     case dtrans::BadCastingConditional:
     case dtrans::BadCastingPending:
-    case dtrans::BadCastingForRelatedTypesConditional:
+    case dtrans::BadCastingForRelatedTypes:
     case dtrans::BadMemFuncManipulation:
+    case dtrans::BadMemFuncManipulationForRelatedTypes:
     case dtrans::BadMemFuncSize:
     case dtrans::BadPtrManipulation:
     case dtrans::ComplexAllocSize:
@@ -5136,7 +5247,8 @@ private:
   bool isRelatedTypeSafetyCondition(dtrans::SafetyData Data) {
     // NOTE: Cases will be expanded as we update the analysis for related types
     switch (Data) {
-    case dtrans::BadCastingForRelatedTypesConditional:
+    case dtrans::BadCastingForRelatedTypes:
+    case dtrans::BadMemFuncManipulationForRelatedTypes:
       return true;
     default:
       break;
@@ -6076,10 +6188,18 @@ dtrans::TypeInfo *DTransSafetyInfo::getOrCreateTypeInfo(DTransType *Ty) {
 
     // If Ty is the padded type, then set the last field as
     // padded field.
+    //
+    // NOTE: We don't set anything for the related type because the recursion
+    // will take care of it.
     int64_t CurrNumFields = CurrStructInfo->getNumFields();
     int64_t RelatedNumFields = RelatedStructInfo->getNumFields();
-    if ((CurrNumFields - RelatedNumFields) == 1)
+    if ((CurrNumFields - RelatedNumFields) == 1) {
       CurrStructInfo->getField(CurrNumFields - 1).setPaddedField();
+      CurrStructInfo->setAsABIPaddingPaddedStructure();
+    } else {
+      CurrStructInfo->setAsABIPaddingBaseStructure();
+    }
+
   }
   return DTransTI;
 }

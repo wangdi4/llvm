@@ -531,8 +531,8 @@ const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
     return "Structure may have ABI padding";
   if (SafetyInfo & dtrans::StructCouldBeBaseABIPadding)
     return "Structure could be base for ABI padding";
-  if (SafetyInfo & dtrans::BadCastingForRelatedTypesConditional)
-    return "Bad casting (related types conditional)";
+  if (SafetyInfo & dtrans::BadMemFuncManipulationForRelatedTypes)
+    return "Bad memfunc manipulation (related types)";
   if (SafetyInfo & dtrans::UnhandledUse)
     return "Unhandled use";
 
@@ -571,8 +571,9 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::MemFuncNestedStructsPartialWrite | dtrans::ComplexAllocSize |
       dtrans::FieldAddressTakenCall | dtrans::FieldAddressTakenReturn |
       dtrans::StructCouldHaveABIPadding |
-      dtrans:: StructCouldBeBaseABIPadding |
-      dtrans::BadCastingForRelatedTypesConditional | dtrans::UnhandledUse;
+      dtrans::StructCouldBeBaseABIPadding |
+      dtrans::BadMemFuncManipulationForRelatedTypes |
+      dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
   static_assert(
@@ -603,8 +604,9 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::MemFuncNestedStructsPartialWrite ^ dtrans::ComplexAllocSize ^
            dtrans::FieldAddressTakenCall ^ dtrans::FieldAddressTakenReturn ^
            dtrans::StructCouldHaveABIPadding ^
-           dtrans:: StructCouldBeBaseABIPadding ^
-           dtrans::BadCastingForRelatedTypesConditional ^ dtrans::UnhandledUse),
+           dtrans::StructCouldBeBaseABIPadding ^
+           dtrans::BadMemFuncManipulationForRelatedTypes ^
+           dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
 
   // Go through the issues in the order of LSB to MSB, and print the names of
@@ -896,6 +898,8 @@ void StructInfo::unsetRelatedType() {
   if (LastField.isPaddedField())
     LastField.clearPaddedField();
 
+  RTForm = RT_BOTTOM;
+
   CurrRelated->unsetRelatedType();
 }
 
@@ -908,6 +912,62 @@ bool StructInfo::hasPaddedField() {
   dtrans::FieldInfo &Field = getField(LastField);
 
   return Field.isPaddedField();
+}
+
+// Set current structure as a base structure for ABI padding (RT_BASE) if it
+// isn't set (RT_TOP). If it is set and is not RT_BASE, it will set the
+// structure as RT_BOTTOM.
+void StructInfo::setAsABIPaddingBaseStructure() {
+  if (RTForm == RT_BASE)
+    return;
+
+  // If not top then something happened that broke the relationship
+  if (RTForm != RT_TOP) {
+    RTForm = RT_BOTTOM;
+    return;
+  }
+
+  if (!RelatedType)
+    return;
+
+  // Related type is already set, make sure that the current one is the base
+  // by checking the field size
+  size_t NumFields = getNumFields();
+  size_t RelatedNumFields = RelatedType->getNumFields();
+  if (RelatedNumFields - NumFields != 1) {
+    RTForm = RT_BOTTOM;
+    return;
+  }
+
+  RTForm = RT_BASE;
+}
+
+// Set current structure as a padded structure for ABI padding (RT_PADDED) if
+// it isn't set (RT_TOP). If it is set and is not RT_PADDED, it will set the
+// structure as RT_BOTTOM.
+void StructInfo::setAsABIPaddingPaddedStructure() {
+  if (RTForm == RT_PADDED)
+    return;
+
+  // If not top then something happened that broke the relationship
+  if (RTForm != RT_TOP) {
+    RTForm = RT_BOTTOM;
+    return;
+  }
+
+  if (!RelatedType)
+    return;
+
+  // Related type is already set, make sure that the current one is the padded
+  // by checking the field size
+  size_t NumFields = getNumFields();
+  size_t RelatedNumFields = RelatedType->getNumFields();
+  if (NumFields - RelatedNumFields != 1) {
+    RTForm = RT_BOTTOM;
+    return;
+  }
+
+  RTForm = RT_PADDED;
 }
 
 void StructInfo::updateNewSingleAllocFunc(unsigned FieldNum,

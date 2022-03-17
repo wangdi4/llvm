@@ -6,21 +6,16 @@
 ; This test verifies that %struct.test.a and %struct.test.a.base are
 ; mapped together since there is a memcpy that won't write into the
 ; field that is reserved for padding. This test checks when the memcpy
-; is applied from base type (%struct.test.a.base) to padded type
-; (%struct.test.a).
+; is applied from padded type (%struct.test.a) to base type
+; (%struct.test.a.base).
 
 ; CHECK: dtrans-safety: Bad memfunc manipulation (related types) -- memcpy/memmove (related types) - copying data from base to padded structure (or vice-versa)
-
-; NOTE: The padded field says written because the bad memfunc manipulation identifies
-; that all fields are written. Bad memfunc manipulation (related types) means that
-; the memcopy/memmove won't affect related types, but anything else should treat it
-; as Bad memfunc manipulation.
 
 ; CHECK-LABEL: LLVMType: %struct.test.a = type { i32, i32, [4 x i8] }
 ; CHECK: Related base structure: struct.test.a.base
 ; CHECK: 2)Field LLVM Type: [4 x i8]
-; CHECK: Field info: Written PaddedField
-; CHECK: Bottom Alloc Function
+; CHECK: Field info: PaddedField
+; CHECK: Top Alloc Function
 ; CHECK: Safety data: Structure may have ABI padding | Bad memfunc manipulation (related types){{ *$}}
 
 ; CHECK-LABEL: LLVMType: %struct.test.a.base = type { i32, i32 }
@@ -59,7 +54,7 @@ declare !intel.dtrans.func.type !12 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_d
 !10 = !{!"S", %struct.test.a.base zeroinitializer, i32 2, !6, !6}
 !11 = !{i8 0, i32 1}  ; i8*
 !12 = distinct !{!11, !11}
-!13 = distinct !{!14, !15}
+!13 = distinct !{!15, !14}
 !14 = !{%struct.test.a zeroinitializer, i32 1}
 !15 = !{%struct.test.a.base zeroinitializer, i32 1}
 
