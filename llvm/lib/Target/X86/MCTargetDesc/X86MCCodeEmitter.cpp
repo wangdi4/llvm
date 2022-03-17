@@ -619,17 +619,6 @@ bool X86MCCodeEmitter::emitPrefixImpl(unsigned &CurOp, const MCInst &MI,
       Flags & X86::IP_HAS_AD_SIZE)
     emitByte(0x67, OS);
 
-<<<<<<< HEAD
-  // Encoding type for this instruction.
-  uint64_t Encoding = TSFlags & X86II::EncodingMask;
-  bool HasREX = false;
-  if (Encoding)
-    emitVEXOpcodePrefix(MemoryOperand, MI, STI, OS); // INTEL
-  else
-    HasREX = emitOpcodePrefix(MemoryOperand, MI, STI, OS);
-
-=======
->>>>>>> 2c4e38fa6f33d371f9169715f97046343095bba0
   uint64_t Form = TSFlags & X86II::FormMask;
   switch (Form) {
   default:
@@ -664,7 +653,7 @@ bool X86MCCodeEmitter::emitPrefixImpl(unsigned &CurOp, const MCInst &MI,
   uint64_t Encoding = TSFlags & X86II::EncodingMask;
   bool HasREX = false;
   if (Encoding)
-    emitVEXOpcodePrefix(MemoryOperand, MI, OS);
+    emitVEXOpcodePrefix(MemoryOperand, MI, STI, OS); // INTEL
   else
     HasREX = emitOpcodePrefix(MemoryOperand, MI, STI, OS);
 
