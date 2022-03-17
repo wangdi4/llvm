@@ -143,6 +143,10 @@ OclBuiltinImpl work_group_reduce_add_fake = OclBuiltinImpl<work_group_reduce_add
   [{
     return $Arg0VarName;
   }]>;
+OclBuiltinImpl work_group_reduce_mul_fake = OclBuiltinImpl<work_group_reduce_mul, work_group_types_all, 0,
+  [{
+    return $Arg0VarName;
+  }]>;
 OclBuiltinImpl work_group_reduce_min_fake = OclBuiltinImpl<work_group_reduce_min, work_group_types_all, 0,
   [{
     return $Arg0VarName;
@@ -163,6 +167,10 @@ OclBuiltinImpl work_group_scan_exclusive_max_fake = OclBuiltinImpl<work_group_sc
   [{
     return $Arg0VarName;
   }]>;
+OclBuiltinImpl work_group_scan_exclusive_mul_fake = OclBuiltinImpl<work_group_scan_exclusive_mul, work_group_types_all, 0,
+  [{
+    return $Arg0VarName;
+  }]>;
 OclBuiltinImpl work_group_scan_inclusive_add_fake = OclBuiltinImpl<work_group_scan_inclusive_add, work_group_types_all, 0,
   [{
     return $Arg0VarName;
@@ -172,6 +180,10 @@ OclBuiltinImpl work_group_scan_inclusive_min_fake = OclBuiltinImpl<work_group_sc
     return $Arg0VarName;
   }]>;
 OclBuiltinImpl work_group_scan_inclusive_max_fake = OclBuiltinImpl<work_group_scan_inclusive_max, work_group_types_all, 0,
+  [{
+    return $Arg0VarName;
+  }]>;
+OclBuiltinImpl work_group_scan_inclusive_mul_fake = OclBuiltinImpl<work_group_scan_inclusive_mul, work_group_types_all, 0,
   [{
     return $Arg0VarName;
   }]>;
@@ -208,6 +220,10 @@ OclBuiltinImpl work_group_reduce_max_mask_fake = OclBuiltinImpl<work_group_reduc
   [{
     return $Arg0VarName;
   }]>;
+OclBuiltinImpl work_group_reduce_mul_mask_fake = OclBuiltinImpl<work_group_reduce_mul_mask, work_group_types_all, 0,
+  [{
+    return $Arg0VarName;
+  }]>;
 OclBuiltinImpl work_group_scan_exclusive_add_mask_fake = OclBuiltinImpl<work_group_scan_exclusive_add_mask, work_group_types_all, 0,
   [{
     return $Arg0VarName;
@@ -217,6 +233,10 @@ OclBuiltinImpl work_group_scan_exclusive_min_mask_fake = OclBuiltinImpl<work_gro
     return $Arg0VarName;
   }]>;
 OclBuiltinImpl work_group_scan_exclusive_max_mask_fake = OclBuiltinImpl<work_group_scan_exclusive_max_mask, work_group_types_all, 0,
+  [{
+    return $Arg0VarName;
+  }]>;
+OclBuiltinImpl work_group_scan_exclusive_mul_mask_fake = OclBuiltinImpl<work_group_scan_exclusive_mul_mask, work_group_types_all, 0,
   [{
     return $Arg0VarName;
   }]>;
@@ -232,11 +252,19 @@ OclBuiltinImpl work_group_scan_inclusive_max_mask_fake = OclBuiltinImpl<work_gro
   [{
     return $Arg0VarName;
   }]>;
+OclBuiltinImpl work_group_scan_inclusive_mul_mask_fake = OclBuiltinImpl<work_group_scan_inclusive_mul_mask, work_group_types_all, 0,
+  [{
+    return $Arg0VarName;
+  }]>;
 
 // Functions for addition/and/or operations (in order to have all per-WI helper functions uniformal)
 OclBuiltinImpl work_group_add_helper_util__generic = OclBuiltinImpl<work_group_add_helper_util, work_group_types_all, 0,
   [{
     return $Arg0VarName + $Arg1VarName;
+  }]>;
+OclBuiltinImpl work_group_mul_helper_util__generic = OclBuiltinImpl<work_group_mul_helper_util, work_group_types_all, 0,
+  [{
+    return $Arg0VarName * $Arg1VarName;
   }]>;
 OclBuiltinImpl work_group_all_helper_util_int = OclBuiltinImpl<work_group_all_helper_util, [v1i32, v4i32, v8i32, v16i32, v32i32, v64i32], 0,
   [{
@@ -340,6 +368,10 @@ OclBuiltinImpl work_group_any_mask_helper_int = OclBuiltinImpl<work_group_any_he
 OclBuiltinImpl work_group_reduce_add_vector_helper_generic = OclBuiltinImpl<work_group_reduce_add_helper, work_group_vector_types_all, 0, work_group_inclusive_function_op_vector, [["$FUNC", "work_group_add_util"]]>;
 OclBuiltinImpl work_group_reduce_add_scalar_helper_generic = OclBuiltinImpl<work_group_reduce_add_helper, work_group_scalar_types_all, 0, work_group_inclusive_function_op_scalar, [["$FUNC", "work_group_add_util"]]>;
 
+// work_group_reduce_mul
+OclBuiltinImpl work_group_reduce_mul_vector_helper_generic = OclBuiltinImpl<work_group_reduce_mul_helper, work_group_vector_types_all, 0, work_group_inclusive_function_op_vector, [["$FUNC", "work_group_mul_util"]]>;
+OclBuiltinImpl work_group_reduce_mul_scalar_helper_generic = OclBuiltinImpl<work_group_reduce_mul_helper, work_group_scalar_types_all, 0, work_group_inclusive_function_op_scalar, [["$FUNC", "work_group_mul_util"]]>;
+
 // work_group_reduce_max/min
 OclBuiltinImpl work_group_reduce_min_vector_helper_int4 = OclBuiltinImpl<work_group_reduce_min_helper, work_group_vector_types_int4, 0, work_group_inclusive_function_op_vector, [["$FUNC", "min"]]>;
 OclBuiltinImpl work_group_reduce_min_vector_helper_int8 = OclBuiltinImpl<work_group_reduce_min_helper, work_group_vector_types_int8, 0, work_group_inclusive_function_op_vector, [["$FUNC", "min"]]>;
@@ -377,6 +409,12 @@ OclBuiltinImpl work_group_reduce_add_mask_helper_gen8 = OclBuiltinImpl<work_grou
 OclBuiltinImpl work_group_reduce_add_mask_helper_gen16 = OclBuiltinImpl<work_group_reduce_add_helper_mask, work_group_vector_types_all16, 0, work_group_inclusive_function_op_mask, [["$FUNC", "work_group_add_util"], ["$VAL", "0"]]>;
 OclBuiltinImpl work_group_reduce_add_mask_helper_gen32 = OclBuiltinImpl<work_group_reduce_add_helper_mask, work_group_vector_types_all32, 0, work_group_inclusive_function_op_mask, [["$FUNC", "work_group_add_util"], ["$VAL", "0"]]>;
 OclBuiltinImpl work_group_reduce_add_mask_helper_gen64 = OclBuiltinImpl<work_group_reduce_add_helper_mask, work_group_vector_types_all64, 0, work_group_inclusive_function_op_mask, [["$FUNC", "work_group_add_util"], ["$VAL", "0"]]>;
+
+OclBuiltinImpl work_group_reduce_mul_mask_helper_gen4 = OclBuiltinImpl<work_group_reduce_mul_helper_mask, work_group_vector_types_all4, 0, work_group_inclusive_function_op_mask, [["$FUNC", "work_group_mul_util"], ["$VAL", "1"]]>;
+OclBuiltinImpl work_group_reduce_mul_mask_helper_gen8 = OclBuiltinImpl<work_group_reduce_mul_helper_mask, work_group_vector_types_all8, 0, work_group_inclusive_function_op_mask, [["$FUNC", "work_group_mul_util"], ["$VAL", "1"]]>;
+OclBuiltinImpl work_group_reduce_mul_mask_helper_gen16 = OclBuiltinImpl<work_group_reduce_mul_helper_mask, work_group_vector_types_all16, 0, work_group_inclusive_function_op_mask, [["$FUNC", "work_group_mul_util"], ["$VAL", "1"]]>;
+OclBuiltinImpl work_group_reduce_mul_mask_helper_gen32 = OclBuiltinImpl<work_group_reduce_mul_helper_mask, work_group_vector_types_all32, 0, work_group_inclusive_function_op_mask, [["$FUNC", "work_group_mul_util"], ["$VAL", "1"]]>;
+OclBuiltinImpl work_group_reduce_mul_mask_helper_gen64 = OclBuiltinImpl<work_group_reduce_mul_helper_mask, work_group_vector_types_all64, 0, work_group_inclusive_function_op_mask, [["$FUNC", "work_group_mul_util"], ["$VAL", "1"]]>;
 
 // Masked work group reduce max/min
 OclBuiltinImpl work_group_reduce_min_mask_helper_i32 = OclBuiltinImpl<work_group_reduce_min_helper_mask, [v4i32, v8i32, v16i32], 0, work_group_inclusive_function_op_mask, [["$FUNC", "min"],["$VAL", "INT_MAX"]]>;
@@ -1264,7 +1302,7 @@ defvar work_group_scan_inclusive_function_op_mask64 = [{
   }];
 
 
-// Vector versions of Scan_add/min/max functions
+// Vector versions of Scan_add/min/max/mul functions
 OclBuiltinImpl work_group_scan_exclusive_add_vector_helper_gen4 =
       OclBuiltinImpl<work_group_scan_exclusive_add_helper, work_group_vector_types_all4,    0, work_group_scan_exclusive_function_op_vector4, [["$FUNC","work_group_add_util"]]>;
 OclBuiltinImpl work_group_scan_exclusive_add_vector_helper_gen8 =
@@ -1275,6 +1313,17 @@ OclBuiltinImpl work_group_scan_exclusive_add_vector_helper_gen32 =
       OclBuiltinImpl<work_group_scan_exclusive_add_helper, work_group_vector_types_all32,   0, work_group_scan_exclusive_function_op_vector32, [["$FUNC","work_group_add_util"]]>;
 OclBuiltinImpl work_group_scan_exclusive_add_vector_helper_gen64 =
       OclBuiltinImpl<work_group_scan_exclusive_add_helper, work_group_vector_types_all64,   0, work_group_scan_exclusive_function_op_vector64, [["$FUNC","work_group_add_util"]]>;
+
+OclBuiltinImpl work_group_scan_exclusive_mul_vector_helper_gen4 =
+      OclBuiltinImpl<work_group_scan_exclusive_mul_helper, work_group_vector_types_all4,    0, work_group_scan_exclusive_function_op_vector4, [["$FUNC","work_group_mul_util"]]>;
+OclBuiltinImpl work_group_scan_exclusive_mul_vector_helper_gen8 =
+      OclBuiltinImpl<work_group_scan_exclusive_mul_helper, work_group_vector_types_all8,    0, work_group_scan_exclusive_function_op_vector8, [["$FUNC","work_group_mul_util"]]>;
+OclBuiltinImpl work_group_scan_exclusive_mul_vector_helper_gen16 =
+      OclBuiltinImpl<work_group_scan_exclusive_mul_helper, work_group_vector_types_all16,   0, work_group_scan_exclusive_function_op_vector16, [["$FUNC","work_group_mul_util"]]>;
+OclBuiltinImpl work_group_scan_exclusive_mul_vector_helper_gen32 =
+      OclBuiltinImpl<work_group_scan_exclusive_mul_helper, work_group_vector_types_all32,   0, work_group_scan_exclusive_function_op_vector32, [["$FUNC","work_group_mul_util"]]>;
+OclBuiltinImpl work_group_scan_exclusive_mul_vector_helper_gen64 =
+      OclBuiltinImpl<work_group_scan_exclusive_mul_helper, work_group_vector_types_all64,   0, work_group_scan_exclusive_function_op_vector64, [["$FUNC","work_group_mul_util"]]>;
 
 OclBuiltinImpl work_group_scan_exclusive_min_vector_helper_int4 =
       OclBuiltinImpl<work_group_scan_exclusive_min_helper, work_group_vector_types_int4,    0, work_group_scan_exclusive_function_op_vector4, [["$FUNC","min"]]>;
@@ -1331,6 +1380,17 @@ OclBuiltinImpl work_group_scan_inclusive_add_vector_helper_gen32 =
 OclBuiltinImpl work_group_scan_inclusive_add_vector_helper_gen64 =
       OclBuiltinImpl<work_group_scan_inclusive_add_helper, work_group_vector_types_all64,   0, work_group_scan_inclusive_function_op_vector64, [["$FUNC","work_group_add_util"]]>;
 
+OclBuiltinImpl work_group_scan_inclusive_mul_vector_helper_gen4 =
+      OclBuiltinImpl<work_group_scan_inclusive_mul_helper, work_group_vector_types_all4,    0, work_group_scan_inclusive_function_op_vector4, [["$FUNC","work_group_mul_util"]]>;
+OclBuiltinImpl work_group_scan_inclusive_mul_vector_helper_gen8 =
+      OclBuiltinImpl<work_group_scan_inclusive_mul_helper, work_group_vector_types_all8,    0, work_group_scan_inclusive_function_op_vector8, [["$FUNC","work_group_mul_util"]]>;
+OclBuiltinImpl work_group_scan_inclusive_mul_vector_helper_gen16 =
+      OclBuiltinImpl<work_group_scan_inclusive_mul_helper, work_group_vector_types_all16,   0, work_group_scan_inclusive_function_op_vector16, [["$FUNC","work_group_mul_util"]]>;
+OclBuiltinImpl work_group_scan_inclusive_mul_vector_helper_gen32 =
+      OclBuiltinImpl<work_group_scan_inclusive_mul_helper, work_group_vector_types_all32,   0, work_group_scan_inclusive_function_op_vector32, [["$FUNC","work_group_mul_util"]]>;
+OclBuiltinImpl work_group_scan_inclusive_mul_vector_helper_gen64 =
+      OclBuiltinImpl<work_group_scan_inclusive_mul_helper, work_group_vector_types_all64,   0, work_group_scan_inclusive_function_op_vector64, [["$FUNC","work_group_mul_util"]]>;
+
 OclBuiltinImpl work_group_scan_inclusive_min_vector_helper_int4 =
       OclBuiltinImpl<work_group_scan_inclusive_min_helper, work_group_vector_types_int4,    0, work_group_scan_inclusive_function_op_vector4, [["$FUNC","min"]]>;
 OclBuiltinImpl work_group_scan_inclusive_min_vector_helper_int8 =
@@ -1386,6 +1446,17 @@ OclBuiltinImpl work_group_scan_exclusive_add_mask_helper_gen32 =
       OclBuiltinImpl<work_group_scan_exclusive_add_helper_mask, work_group_vector_types_all32,   0, work_group_scan_exclusive_function_op_mask32, [["$FUNC","work_group_add_util"], ["$VAL", "0"]]>;
 OclBuiltinImpl work_group_scan_exclusive_add_mask_helper_gen64 =
       OclBuiltinImpl<work_group_scan_exclusive_add_helper_mask, work_group_vector_types_all64,   0, work_group_scan_exclusive_function_op_mask64, [["$FUNC","work_group_add_util"], ["$VAL", "0"]]>;
+
+OclBuiltinImpl work_group_scan_exclusive_mul_mask_helper_gen4 =
+      OclBuiltinImpl<work_group_scan_exclusive_mul_helper_mask, work_group_vector_types_all4,    0, work_group_scan_exclusive_function_op_mask4, [["$FUNC","work_group_mul_util"], ["$VAL", "1"]]>;
+OclBuiltinImpl work_group_scan_exclusive_mul_mask_helper_gen8 =
+      OclBuiltinImpl<work_group_scan_exclusive_mul_helper_mask, work_group_vector_types_all8,    0, work_group_scan_exclusive_function_op_mask8, [["$FUNC","work_group_mul_util"], ["$VAL", "1"]]>;
+OclBuiltinImpl work_group_scan_exclusive_mul_mask_helper_gen16 =
+      OclBuiltinImpl<work_group_scan_exclusive_mul_helper_mask, work_group_vector_types_all16,   0, work_group_scan_exclusive_function_op_mask16, [["$FUNC","work_group_mul_util"], ["$VAL", "1"]]>;
+OclBuiltinImpl work_group_scan_exclusive_mul_mask_helper_gen32 =
+      OclBuiltinImpl<work_group_scan_exclusive_mul_helper_mask, work_group_vector_types_all32,   0, work_group_scan_exclusive_function_op_mask32, [["$FUNC","work_group_mul_util"], ["$VAL", "1"]]>;
+OclBuiltinImpl work_group_scan_exclusive_mul_mask_helper_gen64 =
+      OclBuiltinImpl<work_group_scan_exclusive_mul_helper_mask, work_group_vector_types_all64,   0, work_group_scan_exclusive_function_op_mask64, [["$FUNC","work_group_mul_util"], ["$VAL", "1"]]>;
 
 OclBuiltinImpl work_group_scan_exclusive_min_mask_helper_int4 =
       OclBuiltinImpl<work_group_scan_exclusive_min_helper_mask, [v4i32], 0, work_group_scan_exclusive_function_op_mask4, [["$FUNC","min"], ["$VAL", "INT_MAX"]]>;
@@ -1508,6 +1579,17 @@ OclBuiltinImpl work_group_scan_inclusive_add_mask_helper_gen32 =
 OclBuiltinImpl work_group_scan_inclusive_add_mask_helper_gen64 =
       OclBuiltinImpl<work_group_scan_inclusive_add_helper_mask, work_group_vector_types_all64,   0, work_group_scan_inclusive_function_op_mask64, [["$FUNC","work_group_add_util"], ["$VAL", "0"]]>;
 
+OclBuiltinImpl work_group_scan_inclusive_mul_mask_helper_gen4 =
+      OclBuiltinImpl<work_group_scan_inclusive_mul_helper_mask, work_group_vector_types_all4,    0, work_group_scan_inclusive_function_op_mask4, [["$FUNC","work_group_mul_util"], ["$VAL", "1"]]>;
+OclBuiltinImpl work_group_scan_inclusive_mul_mask_helper_gen8 =
+      OclBuiltinImpl<work_group_scan_inclusive_mul_helper_mask, work_group_vector_types_all8,    0, work_group_scan_inclusive_function_op_mask8, [["$FUNC","work_group_mul_util"], ["$VAL", "1"]]>;
+OclBuiltinImpl work_group_scan_inclusive_mul_mask_helper_gen16 =
+      OclBuiltinImpl<work_group_scan_inclusive_mul_helper_mask, work_group_vector_types_all16,   0, work_group_scan_inclusive_function_op_mask16, [["$FUNC","work_group_mul_util"], ["$VAL", "1"]]>;
+OclBuiltinImpl work_group_scan_inclusive_mul_mask_helper_gen32 =
+      OclBuiltinImpl<work_group_scan_inclusive_mul_helper_mask, work_group_vector_types_all32,   0, work_group_scan_inclusive_function_op_mask32, [["$FUNC","work_group_mul_util"], ["$VAL", "1"]]>;
+OclBuiltinImpl work_group_scan_inclusive_mul_mask_helper_gen64 =
+      OclBuiltinImpl<work_group_scan_inclusive_mul_helper_mask, work_group_vector_types_all64,   0, work_group_scan_inclusive_function_op_mask64, [["$FUNC","work_group_mul_util"], ["$VAL", "1"]]>;
+
 OclBuiltinImpl work_group_scan_inclusive_min_mask_helper_int4 =
       OclBuiltinImpl<work_group_scan_inclusive_min_helper_mask, [v4i32], 0, work_group_scan_inclusive_function_op_mask4, [["$FUNC","min"], ["$VAL", "INT_MAX"]]>;
 OclBuiltinImpl work_group_scan_inclusive_min_mask_helper_int8 =
@@ -1619,7 +1701,7 @@ OclBuiltinImpl work_group_scan_inclusive_max_mask_helper_float64 =
       OclBuiltinImpl<work_group_scan_inclusive_max_helper, work_group_vector_types_float64, 0, work_group_scan_inclusive_function_op_mask64, [["$FUNC","fmax"], ["$VAL", "-INFINITY"]]>;
 
 
-// Scalar versions of Scan_add/min/max functions
+// Scalar versions of Scan_add/min/max/mul functions
 defvar work_group_scan_exclusive_function_op_scalar = [{
     $Arg0Type acc = *$Arg1VarName;
     *$Arg1VarName = $FUNC($Arg0VarName, *$Arg1VarName);
@@ -1628,6 +1710,8 @@ defvar work_group_scan_exclusive_function_op_scalar = [{
 
 OclBuiltinImpl work_group_scan_exclusive_add_scalar_helper_gen =
       OclBuiltinImpl<work_group_scan_exclusive_add_helper, work_group_scalar_types_all,     0, work_group_scan_exclusive_function_op_scalar, [["$FUNC","work_group_add_util"]]>;
+OclBuiltinImpl work_group_scan_exclusive_mul_scalar_helper_gen =
+      OclBuiltinImpl<work_group_scan_exclusive_mul_helper, work_group_scalar_types_all,     0, work_group_scan_exclusive_function_op_scalar, [["$FUNC","work_group_mul_util"]]>;
 OclBuiltinImpl work_group_scan_exclusive_min_scalar_helper_int =
       OclBuiltinImpl<work_group_scan_exclusive_min_helper, work_group_scalar_types_int,     0, work_group_scan_exclusive_function_op_scalar, [["$FUNC","min"]]>;
 OclBuiltinImpl work_group_scan_exclusive_min_scalar_helper_float =
@@ -1638,6 +1722,8 @@ OclBuiltinImpl work_group_scan_exclusive_max_scalar_helper_float =
       OclBuiltinImpl<work_group_scan_exclusive_max_helper, work_group_scalar_types_float,   0, work_group_scan_exclusive_function_op_scalar, [["$FUNC","fmax"]]>;
 OclBuiltinImpl work_group_scan_inclusive_add_scalar_helper_gen =
       OclBuiltinImpl<work_group_scan_inclusive_add_helper, work_group_scalar_types_all,     0, work_group_inclusive_function_op_scalar, [["$FUNC","work_group_add_util"]]>;
+OclBuiltinImpl work_group_scan_inclusive_mul_scalar_helper_gen =
+      OclBuiltinImpl<work_group_scan_inclusive_mul_helper, work_group_scalar_types_all,     0, work_group_inclusive_function_op_scalar, [["$FUNC","work_group_mul_util"]]>;
 OclBuiltinImpl work_group_scan_inclusive_min_scalar_helper_int =
       OclBuiltinImpl<work_group_scan_inclusive_min_helper, work_group_scalar_types_int,     0, work_group_inclusive_function_op_scalar, [["$FUNC","min"]]>;
 OclBuiltinImpl work_group_scan_inclusive_min_scalar_helper_float =
@@ -1838,6 +1924,17 @@ OclBuiltinImpl work_group_reduce_add_finalize_helper_gen32 =
 OclBuiltinImpl work_group_reduce_add_finalize_helper_gen64 =
       OclBuiltinImpl<work_group_reduce_add_finalize_helper, work_group_vector_types_all64,   0, work_group_finalize_function_op64, [["$FUNC","work_group_add_util"]]>;
 
+OclBuiltinImpl work_group_reduce_mul_finalize_helper_gen4 =
+      OclBuiltinImpl<work_group_reduce_mul_finalize_helper, work_group_vector_types_all4,    0, work_group_finalize_function_op4, [["$FUNC","work_group_mul_util"]]>;
+OclBuiltinImpl work_group_reduce_mul_finalize_helper_gen8 =
+      OclBuiltinImpl<work_group_reduce_mul_finalize_helper, work_group_vector_types_all8,    0, work_group_finalize_function_op8, [["$FUNC","work_group_mul_util"]]>;
+OclBuiltinImpl work_group_reduce_mul_finalize_helper_gen16 =
+      OclBuiltinImpl<work_group_reduce_mul_finalize_helper, work_group_vector_types_all16,   0, work_group_finalize_function_op16, [["$FUNC","work_group_mul_util"]]>;
+OclBuiltinImpl work_group_reduce_mul_finalize_helper_gen32 =
+      OclBuiltinImpl<work_group_reduce_mul_finalize_helper, work_group_vector_types_all32,   0, work_group_finalize_function_op32, [["$FUNC","work_group_mul_util"]]>;
+OclBuiltinImpl work_group_reduce_mul_finalize_helper_gen64 =
+      OclBuiltinImpl<work_group_reduce_mul_finalize_helper, work_group_vector_types_all64,   0, work_group_finalize_function_op64, [["$FUNC","work_group_mul_util"]]>;
+
 OclBuiltinImpl work_group_reduce_min_finalize_helper_int4 =
       OclBuiltinImpl<work_group_reduce_min_finalize_helper, work_group_vector_types_int4,    0, work_group_finalize_function_op4, [["$FUNC","min"]]>;
 OclBuiltinImpl work_group_reduce_min_finalize_helper_int8 =
@@ -1905,6 +2002,17 @@ OclBuiltinImpl work_group_reduce_add_finalize_helper_mask_gen32 =
       OclBuiltinImpl<work_group_reduce_add_finalize_helper_mask, work_group_vector_types_all32,   0, work_group_finalize_function_op32, [["$FUNC","work_group_add_util"]]>;
 OclBuiltinImpl work_group_reduce_add_finalize_helper_mask_gen64 =
       OclBuiltinImpl<work_group_reduce_add_finalize_helper_mask, work_group_vector_types_all64,   0, work_group_finalize_function_op64, [["$FUNC","work_group_add_util"]]>;
+
+OclBuiltinImpl work_group_reduce_mul_finalize_helper_mask_gen4 =
+      OclBuiltinImpl<work_group_reduce_mul_finalize_helper_mask, work_group_vector_types_all4,    0, work_group_finalize_function_op4, [["$FUNC","work_group_mul_util"]]>;
+OclBuiltinImpl work_group_reduce_mul_finalize_helper_mask_gen8 =
+      OclBuiltinImpl<work_group_reduce_mul_finalize_helper_mask, work_group_vector_types_all8,    0, work_group_finalize_function_op8, [["$FUNC","work_group_mul_util"]]>;
+OclBuiltinImpl work_group_reduce_mul_finalize_helper_mask_gen16 =
+      OclBuiltinImpl<work_group_reduce_mul_finalize_helper_mask, work_group_vector_types_all16,   0, work_group_finalize_function_op16, [["$FUNC","work_group_mul_util"]]>;
+OclBuiltinImpl work_group_reduce_mul_finalize_helper_mask_gen32 =
+      OclBuiltinImpl<work_group_reduce_mul_finalize_helper_mask, work_group_vector_types_all32,   0, work_group_finalize_function_op32, [["$FUNC","work_group_mul_util"]]>;
+OclBuiltinImpl work_group_reduce_mul_finalize_helper_mask_gen64 =
+      OclBuiltinImpl<work_group_reduce_mul_finalize_helper_mask, work_group_vector_types_all64,   0, work_group_finalize_function_op64, [["$FUNC","work_group_mul_util"]]>;
 
 OclBuiltinImpl work_group_reduce_min_finalize_helper_mask_int4 =
       OclBuiltinImpl<work_group_reduce_min_finalize_helper_mask, work_group_vector_types_int4,    0, work_group_finalize_function_op4, [["$FUNC","min"]]>;
