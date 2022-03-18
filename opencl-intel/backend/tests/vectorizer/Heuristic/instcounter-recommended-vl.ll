@@ -144,16 +144,16 @@ declare <16 x i32> @llvm.masked.load.v16i32.p0v16i32(<16 x i32>*, i32 immarg, <1
 ; Function Attrs: nofree nosync nounwind willreturn writeonly
 declare void @llvm.masked.scatter.v16i32.v16p1i32(<16 x i32>, <16 x i32 addrspace(1)*>, i32 immarg, <16 x i1>) #7
 
-attributes #0 = { convergent noinline norecurse nounwind "frame-pointer"="none" "min-legal-vector-width"="0" "no-trapping-math"="true" "prefer-vector-width"="512" "stack-protector-buffer-size"="8" "stackrealign" "vector-variants"="_ZGVeM16vvv_foo,_ZGVeN16vvv_foo" }
-attributes #1 = { convergent norecurse nounwind "frame-pointer"="none" "min-legal-vector-width"="0" "no-trapping-math"="true" "prefer-vector-width"="512" "stack-protector-buffer-size"="8" "stackrealign" "uniform-work-group-size"="false" "vector-variants"="_ZGVeN16uu_test" }
+attributes #0 = { convergent noinline norecurse nounwind "frame-pointer"="none" "min-legal-vector-width"="0" "no-trapping-math"="true" "prefer-vector-width"="512" "stack-protector-buffer-size"="8" "stackrealign" }
+attributes #1 = { convergent norecurse nounwind "frame-pointer"="none" "min-legal-vector-width"="0" "no-trapping-math"="true" "prefer-vector-width"="512" "stack-protector-buffer-size"="8" "stackrealign" "uniform-work-group-size"="false" }
 attributes #2 = { convergent mustprogress nofree nounwind readnone willreturn "frame-pointer"="none" "no-trapping-math"="true" "prefer-vector-width"="512" "stack-protector-buffer-size"="8" "stackrealign" }
-attributes #3 = { convergent noinline norecurse nounwind "frame-pointer"="none" "may-have-openmp-directive"="false" "min-legal-vector-width"="0" "no-trapping-math"="true" "prefer-vector-width"="512" "stack-protector-buffer-size"="8" "stackrealign" "vector-variants"="_ZGVeM16vvv_foo,_ZGVeN16vvv_foo" "widened-size"="16" }
+attributes #3 = { convergent noinline norecurse nounwind "frame-pointer"="none" "may-have-openmp-directive"="false" "min-legal-vector-width"="0" "no-trapping-math"="true" "prefer-vector-width"="512" "stack-protector-buffer-size"="8" "stackrealign" "widened-size"="16" }
 attributes #4 = { nounwind }
-attributes #5 = { convergent norecurse nounwind "frame-pointer"="none" "may-have-openmp-directive"="false" "min-legal-vector-width"="0" "no-trapping-math"="true" "prefer-vector-width"="512" "stack-protector-buffer-size"="8" "stackrealign" "uniform-work-group-size"="false" "vector-variants"="_ZGVeN16uu_test" }
+attributes #5 = { convergent norecurse nounwind "frame-pointer"="none" "may-have-openmp-directive"="false" "min-legal-vector-width"="0" "no-trapping-math"="true" "prefer-vector-width"="512" "stack-protector-buffer-size"="8" "stackrealign" "uniform-work-group-size"="false" }
 attributes #6 = { argmemonly nofree nosync nounwind readonly willreturn }
 attributes #7 = { nofree nosync nounwind willreturn writeonly }
 attributes #8 = { convergent nounwind readnone willreturn }
-attributes #9 = { convergent "vector-variants"="_ZGVeM16vvv_foo,_ZGVeN16vvv_foo" }
+attributes #9 = { convergent }
 attributes #10 = { convergent }
 
 !opencl.ocl.version = !{!0}
