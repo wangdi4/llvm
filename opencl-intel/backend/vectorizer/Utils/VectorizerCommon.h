@@ -12,8 +12,8 @@
 // this file should NOT include any environment specific data
 
 #include "cl_cpu_detect.h"
-#include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Intel_VectorVariant.h"
 
 // Maximum width (in elements) supported as input
 // An AMX tile has a maximum size of 16 rows x 64 bytes. It could be flatten to

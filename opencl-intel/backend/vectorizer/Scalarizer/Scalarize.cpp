@@ -22,9 +22,9 @@
 #include "FunctionDescriptor.h"
 #include "NameMangleAPI.h"
 
-#include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 
