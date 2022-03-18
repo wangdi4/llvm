@@ -10,7 +10,7 @@
 ;  return;
 ;}
 
-; RUN: opt -hir-ssa-deconstruction -hir-loop-interchange -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -hir-loop-interchange -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT-NEXT:     remark #25444: Loopnest Interchanged: ( 1 2 ) --> ( 2 1 ){{[[:space:]]}}
@@ -21,7 +21,7 @@
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 
-; RUN: opt -hir-ssa-deconstruction -hir-loop-interchange -hir-cg -intel-loop-optreport=low -simplifycfg < %s -S | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-loop-interchange -hir-cg -intel-opt-report=low -simplifycfg < %s -S | FileCheck %s
 
 ; CHECK: [[M1:!.*]] = distinct !{[[M1]], [[M2:!.*]]}
 ; CHECK: [[M2]] = distinct !{!"intel.optreport.rootnode", [[M3:!.*]]}

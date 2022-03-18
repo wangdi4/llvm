@@ -11,7 +11,7 @@
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_LEGACY_PASSES_H
 
 #include "llvm/ADT/StringSet.h"
-#include "llvm/Analysis/Intel_VectorVariant.h" // for VectorVariant::ISAClass
+#include "llvm/IR/Intel_VectorVariant.h" // for VectorVariant::ISAClass
 
 namespace llvm {
 

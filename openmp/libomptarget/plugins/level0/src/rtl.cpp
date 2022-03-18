@@ -697,7 +697,7 @@ class MemoryPoolTy {
   size_t AllocUnit = 1 << 16; // 64KB
 
   /// Minimum supported memory allocation size from pool
-  size_t AllocMin = 1 << 5; // 32B
+  size_t AllocMin = 1 << 6; // 64B (cache line size by default)
 
   /// Maximum supported memory allocation size from pool
   size_t AllocMax = 0;
@@ -3187,16 +3187,10 @@ void MemoryPoolTy::init(int32_t allocKind, RTLDeviceInfoTy *RTL) {
     return;
   }
 
-  // Use fixed parameters for shared memory pool on discrete device.
   ze_device_properties_t properties = DevicePropertiesInit;
-  bool fixedParams = false;
-  if (allocKind == TARGET_ALLOC_SHARED) {
-    CALL_ZE_EXIT_FAIL(zeDeviceGetProperties, Device, &properties);
-    fixedParams = isDiscrete(properties.deviceId);
-  }
 
   size_t userAllocMax = RTL->Option.MemPoolInfo[allocKind][0];
-  size_t userCapacity = fixedParams ? 1 : RTL->Option.MemPoolInfo[allocKind][1];
+  size_t userCapacity = RTL->Option.MemPoolInfo[allocKind][1];
   size_t userPoolSize = RTL->Option.MemPoolInfo[allocKind][2];
 
   Context = RTL->Context;
@@ -3214,9 +3208,17 @@ void MemoryPoolTy::init(int32_t allocKind, RTLDeviceInfoTy *RTL) {
   AllocUnit = (std::max)(AP.pageSize, AllocUnit);
   CALL_ZE_EXIT_FAIL(zeMemFree, Context, mem);
 
+  if (allocKind == TARGET_ALLOC_SHARED) {
+    CALL_ZE_EXIT_FAIL(zeDeviceGetProperties, Device, &properties);
+    if (isDiscrete(properties.deviceId)) {
+      // Use page size as minimum chunk size for USM shared on discrete device.
+      AllocMin = AP.pageSize;
+      AllocUnit = AllocMin * BlockCapacity;
+    }
+  }
+
   // Convert MB to B and round up to power of 2
-  AllocMax = fixedParams ? AllocUnit / BlockCapacity
-                         : AllocMin << getBucketId(userAllocMax * (1 << 20));
+  AllocMax = AllocMin << getBucketId(userAllocMax * (1 << 20));
   auto minSize = getBucketId(AllocMin);
   auto maxSize = getBucketId(AllocMax);
   Buckets.resize(maxSize - minSize + 1);

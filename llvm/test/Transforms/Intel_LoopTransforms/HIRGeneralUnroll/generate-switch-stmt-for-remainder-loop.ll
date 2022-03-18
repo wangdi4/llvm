@@ -93,8 +93,8 @@
 ; CHECK:     END REGION
 ;
 ; Opt report:
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-general-unroll -hir-optreport-emitter -intel-loop-optreport=low -disable-output < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
-; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-general-unroll,hir-optreport-emitter" -intel-loop-optreport=low -disable-output < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-general-unroll -hir-optreport-emitter -intel-opt-report=low -disable-output < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-general-unroll,hir-optreport-emitter" -intel-opt-report=low -disable-output < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
 ;
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT:     remark #25439: Loop unrolled with remainder by 8

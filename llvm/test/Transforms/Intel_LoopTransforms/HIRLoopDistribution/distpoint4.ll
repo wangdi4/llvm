@@ -1,7 +1,7 @@
 ;  Test case  for Opt Report for distribute point pragma
 ;
-;RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-distribute-memrec  -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
-;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-distribute-memrec,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
+;RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-distribute-memrec  -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
+;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-distribute-memrec,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-opt-report=low 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
 ;
 ;  for (i =0 ; i<n ; i++) {
 ;    a1[i] += b2  - 11.0;

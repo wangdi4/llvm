@@ -39,12 +39,12 @@ For enabling optimization reports:
 
 .. code-block:: console
 
-   $ icx -mllvm -intel-loop-optreport=[none, low, medium, high]
+   $ icx -mllvm -intel-opt-report=[none, low, medium, high]
 
 * This will enable generation of optimization reports in the compiler. The
   value provided to the option is the verbosity of the opt reports.
 
-  + **none**   -  Loop optimization reports are disabled.
+  + **none**   -  Optimization reports are disabled.
 
   + **low**    -  Only emit positive remarks. In other words
     report only transformations that actually happened.
@@ -62,7 +62,7 @@ opt reports:
 
 .. code-block:: console
 
-   $ icx <...> -mllvm -intel-loop-optreport-emitter=[none, ir, hir, mir]
+   $ icx <...> -mllvm -intel-opt-report-emitter=[none, ir, hir, mir]
 
 * **none** is useful when e.g. we would like to just have opt reports
   into LLVM IR text form after "-emit-llvm -S" and we don't want to
@@ -111,7 +111,7 @@ Let's take a look at the example of Opt Report.
 
 .. code-block:: console
 
-   icx ~/foo.c -mllvm -intel-loop-optreport=low -mllvm -intel-loop-optreport-emitter=ir -std=c99 -emit-llvm -S -g -O3
+   icx ~/foo.c -mllvm -intel-opt-report=low -mllvm -intel-opt-report-emitter=ir -std=c99 -emit-llvm -S -g -O3
 
 ::
 

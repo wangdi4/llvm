@@ -9,7 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_VectorVariant.h"
+#include "llvm/IR/Intel_VectorVariant.h"
 
 #include "gtest/gtest.h"
 

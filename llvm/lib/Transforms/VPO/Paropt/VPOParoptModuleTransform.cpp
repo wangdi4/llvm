@@ -800,8 +800,20 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
     if (!IsBETargetDeclare) {
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Remove " << F.getName() << "\n");
       DeadFunctions.push_back(&F);
-      if (!F.isDeclaration())
+      if (!F.isDeclaration()) {
         F.deleteBody();
+        // 1. If F is virtual or overrides a virtual function in a base class
+        //    then the vtable has a reference to F (so F.getNumUses() > 0).
+        //    This ref causes F.deleteBody() to leave behind a declaration of F.
+        // 2. If F is a template function then it will have a comdat of "any".
+        // 3. If F is both #1 && #2 then the declaration left behind will
+        //    have a comdat, and the verifier will assert with the messsage
+        //    "Declaration may not be in a Comdat!".
+        //    Solution is to remove the comdat from the declaration.
+        if (F.isDeclaration() && F.getNumUses() && F.hasComdat() &&
+            F.getComdat()->getSelectionKind() == Comdat::Any)
+          F.setComdat(nullptr);
+      }
     } else {
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Emit " << F.getName()
                         << ": IsBETargetDeclare == true\n");

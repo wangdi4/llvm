@@ -1,5 +1,5 @@
-; RUN: llc < %s -O3 -intel-loop-optreport=high -intel-loop-optreport-emitter=mir -opt-report-embed -enable-protobuf-opt-report=false -debug-only=opt-report-support-utils 2>&1 | FileCheck %s --check-prefixes=LEGACY,CHECK
-; RUN: llc < %s -O3 -intel-loop-optreport=high -intel-loop-optreport-emitter=mir -opt-report-embed -enable-protobuf-opt-report=true -debug-only=opt-report-support-utils 2>&1 | FileCheck %s --check-prefixes=PROTO-BOR,CHECK
+; RUN: llc < %s -O3 -intel-opt-report=high -intel-opt-report-emitter=mir -opt-report-embed -enable-protobuf-opt-report=false -debug-only=opt-report-support-utils 2>&1 | FileCheck %s --check-prefixes=LEGACY,CHECK
+; RUN: llc < %s -O3 -intel-opt-report=high -intel-opt-report-emitter=mir -opt-report-embed -enable-protobuf-opt-report=true -debug-only=opt-report-support-utils 2>&1 | FileCheck %s --check-prefixes=PROTO-BOR,CHECK
 ; REQUIRES: asserts, proto_bor
 
 ; Check for 7 loop with opt-reports.

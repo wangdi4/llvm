@@ -1,4 +1,4 @@
-; RUN: opt < %s -S -O2 -intel-loop-optreport=high | FileCheck %s
+; RUN: opt < %s -S -O2 -intel-opt-report=high | FileCheck %s
 
 ; Verify that Loop OptReport was attached from loop(s) to the function.
 ; CHECK: define {{.*}} @doit() {{.*}} !intel.optreport.rootnode !{{[0-9]+}}

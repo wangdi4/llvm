@@ -1,9 +1,9 @@
 ; Check that MachineOptReportEmitter output is emitted to the proper output
-; stream/file when the -intel-loop-optreport-file option is used.
+; stream/file when the -intel-opt-report-file option is used.
 
-; RUN: llc < %s -O3 -intel-loop-optreport=high -intel-loop-optreport-emitter=mir -intel-loop-optreport-file=stdout | FileCheck %s
-; RUN: llc < %s -O3 -intel-loop-optreport=high -intel-loop-optreport-emitter=mir -intel-loop-optreport-file=stderr 2>&1 >%tout | FileCheck %s
-; RUN: llc < %s -O3 -intel-loop-optreport=high -intel-loop-optreport-emitter=mir -intel-loop-optreport-file=%t
+; RUN: llc < %s -O3 -intel-opt-report=high -intel-opt-report-emitter=mir -intel-opt-report-file=stdout | FileCheck %s
+; RUN: llc < %s -O3 -intel-opt-report=high -intel-opt-report-emitter=mir -intel-opt-report-file=stderr 2>&1 >%tout | FileCheck %s
+; RUN: llc < %s -O3 -intel-opt-report=high -intel-opt-report-emitter=mir -intel-opt-report-file=%t
 ; RUN: FileCheck %s < %t
 
 ; Check for 7 loop with opt-reports.

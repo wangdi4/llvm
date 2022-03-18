@@ -27,13 +27,13 @@ using namespace llvm;
 AnalysisKey OptReportOptionsAnalysis::Key;
 
 static cl::opt<OptReportVerbosity::Level> OptReportVerbosityOption(
-    "intel-loop-optreport",
-    cl::desc("Option for enabling the formation of loop optimization reports "
+    "intel-opt-report",
+    cl::desc("Option for enabling the formation of optimization reports "
              "and controling its verbosity"),
     cl::init(OptReportVerbosity::None),
     cl::values(
         clEnumValN(OptReportVerbosity::None, "none",
-                   "Loop optimization reports are disabled"),
+                   "Optimization reports are disabled"),
         clEnumValN(OptReportVerbosity::Low, "low",
                    "Only generate positive remarks, e.g. when "
                    "transformation is triggered"),
@@ -42,13 +42,16 @@ static cl::opt<OptReportVerbosity::Level> OptReportVerbosityOption(
                    "reason why transformation did't happen"),
         clEnumValN(OptReportVerbosity::High, "high",
                    "Medium + all extra details about the transformations")));
+static cl::alias OptReportVerbosityDeprecated (
+  "intel-loop-optreport", cl::aliasopt(OptReportVerbosityOption),
+  cl::desc("Deprecated alias for --intel-opt-report"));
 
 // External storage for opt-report emitter control.
 OptReportOptions::OptReportEmitterKind llvm::IntelOptReportEmitter;
 
 // Option for controlling 'backend' for the optimization reports.
 static cl::opt<OptReportOptions::OptReportEmitterKind, true> OptReportEmitter(
-    "intel-loop-optreport-emitter",
+    "intel-opt-report-emitter",
     cl::desc("Option for choosing the way compiler outputs the "
              "optimization reports"),
     cl::location(IntelOptReportEmitter), cl::init(OptReportOptions::None),
@@ -63,15 +66,21 @@ static cl::opt<OptReportOptions::OptReportEmitterKind, true> OptReportEmitter(
         clEnumValN(OptReportOptions::MIR, "mir",
                    "Optimization reports are emitted at the end of "
                    "MIR processing")));
+static cl::alias OptReportEmitterDeprecated(
+  "intel-loop-optreport-emitter", cl::aliasopt(OptReportEmitter),
+  cl::desc("Deprecated alias for --intel-opt-report-emitter"));
 
 /// Internal option for setting opt-report output file.
 static cl::opt<std::string> OptReportFile(
-    "intel-loop-optreport-file",
+    "intel-opt-report-file",
     cl::desc("What file to write opt-report, inlining report, and register "
              "allocation report output to. Special values include "
              "'stdout' which writes opt-report to stdout and 'stderr' which "
              "writes to stderr. Default is 'stderr'."),
     cl::init("stderr"));
+static cl::alias OptReportFileDeprecated(
+  "intel-loop-optreport-file", cl::aliasopt(OptReportFile),
+  cl::desc("Deprecated alias for --intel-opt-report-file"));
 
 formatted_raw_ostream &OptReportOptions::getOutputStream() {
 

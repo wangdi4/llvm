@@ -43,8 +43,8 @@
 ; CHECK:                ret undef;
 ; CHECK:          END REGION
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-prefetching -print-after=hir-prefetching -hir-cg -force-hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-loop-optreport=low -force-hir-cg 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-prefetching -print-after=hir-prefetching -hir-cg -force-hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-opt-report=low -force-hir-cg 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
 ;
 ; OPTREPORT:  LOOP BEGIN
 ; OPTREPORT:     remark #25018: Total number of lines prefetched=4

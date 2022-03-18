@@ -1,5 +1,5 @@
 ; REQUIRES: proto_bor
-; RUN: llc < %s -O3 -intel-loop-optreport=high -opt-report-embed -enable-protobuf-opt-report --filetype=obj -o %t.o
+; RUN: llc < %s -O3 -intel-opt-report=high -opt-report-embed -enable-protobuf-opt-report --filetype=obj -o %t.o
 ; RUN: intel-bin-opt-report %t.o | FileCheck %s
 
 ; Check reader tool's correctness for simple loop that is vectorized.
