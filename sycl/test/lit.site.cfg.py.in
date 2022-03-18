@@ -9,9 +9,13 @@ config.sycl_include = lit_config.params.get('SYCL_INCLUDE', "@SYCL_INCLUDE@")
 config.sycl_obj_root = "@SYCL_BINARY_DIR@"
 config.sycl_source_dir = "@SYCL_SOURCE_DIR@/source"
 config.sycl_libs_dir = lit_config.params.get('SYCL_LIBS_DIR', "@LLVM_LIBS_DIR@")
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 config.target_triple = "@LLVM_TARGET_TRIPLE@"
 # end INTEL_CUSTOMIZATION
+=======
+config.target_triple = "@LLVM_TARGET_TRIPLE@"
+>>>>>>> 86a0b39aa572184873c83ec1ef314bb3709154b1
 config.host_triple = "@LLVM_HOST_TRIPLE@"
 config.opencl_libs_dir = os.path.dirname("@OpenCL_LIBRARIES@")
 config.opencl_include_dir = "@OpenCL_INCLUDE_DIR@"
