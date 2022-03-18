@@ -4701,7 +4701,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       auto LvalSymbase = NewInst->getLvalDDRef()->getSymbase();
       assert(LValTmp && LValTmp->getSymbase() == LvalSymbase &&
              "Inconsistent lval/symbase used for copies.");
-      HLLoop *ThisLoop = MainLoop->getParentLoop();
+      HLLoop *ThisLoop = OrigLoop->getParentLoop();
       while (ThisLoop != RednHoistLp->getParentLoop()) {
         ThisLoop->addLiveInTemp(LvalSymbase);
         ThisLoop = ThisLoop->getParentLoop();
