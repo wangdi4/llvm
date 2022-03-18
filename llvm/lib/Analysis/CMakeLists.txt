@@ -158,7 +158,6 @@ add_llvm_component_library(LLVMAnalysis
   Intel_StdContainerAA.cpp
   Intel_OptVLS.cpp
   Intel_OptVLSClientUtils.cpp
-  Intel_VectorVariant.cpp
   Intel_WP.cpp
   Intel_XmainOptLevelPass.cpp
   Intel_MemRefAnalysis.cpp

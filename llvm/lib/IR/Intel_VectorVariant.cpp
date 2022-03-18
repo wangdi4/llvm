@@ -19,7 +19,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_VectorVariant.h"
+#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/IR/Type.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"

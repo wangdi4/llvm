@@ -11,7 +11,7 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_VECTORVARIANT_VECTORVARIANTLOWERING_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_VECTORVARIANT_VECTORVARIANTLOWERING_H
 
-#include "llvm/Analysis/Intel_VectorVariant.h"
+#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {

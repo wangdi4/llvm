@@ -39,7 +39,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "X86TargetTransformInfo.h"
-#include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/CodeGen/BasicTTIImpl.h"
 #include "llvm/CodeGen/CostTable.h"
@@ -48,6 +47,7 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/IR/IRBuilder.h" // INTEL
+#include "llvm/IR/Intel_VectorVariant.h" // INTEL
 #include "llvm/IR/Module.h" // INTEL
 
 using namespace llvm;

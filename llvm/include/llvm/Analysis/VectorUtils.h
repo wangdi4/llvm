@@ -33,8 +33,8 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
-#include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
-#include "llvm/IR/IRBuilder.h" // INTEL
+#include "llvm/IR/IRBuilder.h"           // INTEL
+#include "llvm/IR/Intel_VectorVariant.h" // INTEL
 #include "llvm/Support/CheckedArithmetic.h"
 
 namespace llvm {
