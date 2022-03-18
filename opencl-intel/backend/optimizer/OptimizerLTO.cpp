@@ -195,11 +195,13 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       LoopPassManager LPM;
       LPM.addPass(LoopIdiomRecognizePass());
       LPM.addPass(LoopDeletionPass());
+      LPM.addPass(LoopStridedCodeMotionPass());
       FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM)));
       FPM.addPass(SimplifyCFGPass());
       MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
-    } else
+    } else {
       MPM.addPass(AlwaysInlinerPass());
+    }
     MPM.addPass(PrepareKernelArgsPass());
 
     if (Level != OptimizationLevel::O0) {
