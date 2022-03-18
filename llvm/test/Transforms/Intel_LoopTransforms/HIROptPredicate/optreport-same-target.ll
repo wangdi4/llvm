@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-opt-predicate,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-loop-optreport=low -disable-output 2>&1 | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-opt-predicate,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-opt-report=low -disable-output 2>&1 | FileCheck %s -check-prefix=OPTREPORT
 
 
 ; Source code:

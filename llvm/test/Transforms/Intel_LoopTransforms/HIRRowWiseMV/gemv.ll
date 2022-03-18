@@ -87,7 +87,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: END REGION
 
 ; Opt report:
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-rowwise-mv -hir-cg -simplifycfg -intel-ir-optreport-emitter -hir-rowwise-mv-skip-dtrans -force-hir-cg -intel-loop-optreport=low -disable-output 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-rowwise-mv -hir-cg -simplifycfg -intel-ir-optreport-emitter -hir-rowwise-mv-skip-dtrans -force-hir-cg -intel-opt-report=low -disable-output 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
 
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT: <Probe loop for row-wise multiversioning>

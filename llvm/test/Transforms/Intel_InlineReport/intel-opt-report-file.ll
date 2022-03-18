@@ -1,23 +1,23 @@
-; RUN: opt -inline -inline-report=0xf859 -intel-loop-optreport-file=stdout < %s -disable-output | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
-; RUN: opt -inline -inline-report=0xf859 -intel-loop-optreport-file=stderr < %s -disable-output 2>&1 >%tout | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
-; RUN: opt -inline -inline-report=0xf859 -intel-loop-optreport-file=%t < %s -disable-output
+; RUN: opt -inline -inline-report=0xf859 -intel-opt-report-file=stdout < %s -disable-output | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
+; RUN: opt -inline -inline-report=0xf859 -intel-opt-report-file=stderr < %s -disable-output 2>&1 >%tout | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
+; RUN: opt -inline -inline-report=0xf859 -intel-opt-report-file=%t < %s -disable-output
 ; RUN: FileCheck %s --check-prefixes=CHECK,CHECK-INLREP < %t
-; RUN: opt -passes='cgscc(inline)' -inline-report=0xf859 -intel-loop-optreport-file=stdout < %s -disable-output | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
-; RUN: opt -passes='cgscc(inline)' -inline-report=0xf859 -intel-loop-optreport-file=stderr < %s -disable-output 2>&1 >%tout | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
-; RUN: opt -passes='cgscc(inline)' -inline-report=0xf859 -intel-loop-optreport-file=%t < %s -disable-output
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xf859 -intel-opt-report-file=stdout < %s -disable-output | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xf859 -intel-opt-report-file=stderr < %s -disable-output 2>&1 >%tout | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xf859 -intel-opt-report-file=%t < %s -disable-output
 ; RUN: FileCheck %s --check-prefixes=CHECK,CHECK-INLREP < %t
 ; Inline report via metadata
-; RUN: opt -inlinereportsetup -inline-report=0xf8d8 < %s -S | opt -inline -inline-report=0xf8d8 -S | opt -inlinereportemitter -inline-report=0xf8d8 -intel-loop-optreport-file=stdout -disable-output | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
-; RUN: opt -inlinereportsetup -inline-report=0xf8d8 < %s -S | opt -inline -inline-report=0xf8d8 -S | opt -inlinereportemitter -inline-report=0xf8d8 -intel-loop-optreport-file=stderr -disable-output 2>&1 >%tout | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
-; RUN: opt -inlinereportsetup -inline-report=0xf8d8 < %s -S | opt -inline -inline-report=0xf8d8 -S | opt -inlinereportemitter -inline-report=0xf8d8 -intel-loop-optreport-file=%t -disable-output
+; RUN: opt -inlinereportsetup -inline-report=0xf8d8 < %s -S | opt -inline -inline-report=0xf8d8 -S | opt -inlinereportemitter -inline-report=0xf8d8 -intel-opt-report-file=stdout -disable-output | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
+; RUN: opt -inlinereportsetup -inline-report=0xf8d8 < %s -S | opt -inline -inline-report=0xf8d8 -S | opt -inlinereportemitter -inline-report=0xf8d8 -intel-opt-report-file=stderr -disable-output 2>&1 >%tout | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
+; RUN: opt -inlinereportsetup -inline-report=0xf8d8 < %s -S | opt -inline -inline-report=0xf8d8 -S | opt -inlinereportemitter -inline-report=0xf8d8 -intel-opt-report-file=%t -disable-output
 ; RUN: FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP < %t
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xf8d8 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xf8d8 -S | opt -passes='inlinereportemitter' -inline-report=0xf8d8 -intel-loop-optreport-file=stdout -disable-output | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xf8d8 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xf8d8 -S | opt -passes='inlinereportemitter' -inline-report=0xf8d8 -intel-loop-optreport-file=stderr -disable-output 2>&1 >%tout | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xf8d8 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xf8d8 -S | opt -passes='inlinereportemitter' -inline-report=0xf8d8 -intel-loop-optreport-file=%t -disable-output
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xf8d8 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xf8d8 -S | opt -passes='inlinereportemitter' -inline-report=0xf8d8 -intel-opt-report-file=stdout -disable-output | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xf8d8 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xf8d8 -S | opt -passes='inlinereportemitter' -inline-report=0xf8d8 -intel-opt-report-file=stderr -disable-output 2>&1 >%tout | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xf8d8 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xf8d8 -S | opt -passes='inlinereportemitter' -inline-report=0xf8d8 -intel-opt-report-file=%t -disable-output
 ; RUN: FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP < %t
 
 ; This tests the setting for the inline report with -qopt-report=3, with an
-; output file set via -intel-loop-optreport-file (the internal option for
+; output file set via -intel-opt-report-file (the internal option for
 ; -qopt-report-file). This test is based on InlineReport100.ll.
 
 ; CHECK-INLREP: Begin Inlining Report

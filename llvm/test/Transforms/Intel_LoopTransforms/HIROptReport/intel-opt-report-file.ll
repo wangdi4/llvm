@@ -1,5 +1,5 @@
 ; Check that HIROptReportEmitter output is emitted to the proper output
-; stream/file when the -intel-loop-optreport-file option is used.
+; stream/file when the -intel-opt-report-file option is used.
 
 ;void foo(int *restrict A, int* G, int N) {
 ;
@@ -11,9 +11,9 @@
 ;  return;
 ;}
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-optreport-emitter -intel-loop-optreport=low -intel-loop-optreport-file=stdout < %s -disable-output | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-optreport-emitter -intel-loop-optreport=low -intel-loop-optreport-file=stderr 2>&1 >%tout < %s -disable-output | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-optreport-emitter -intel-loop-optreport=low -intel-loop-optreport-file=%t < %s -disable-output
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-optreport-emitter -intel-opt-report=low -intel-opt-report-file=stdout < %s -disable-output | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-optreport-emitter -intel-opt-report=low -intel-opt-report-file=stderr 2>&1 >%tout < %s -disable-output | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-optreport-emitter -intel-opt-report=low -intel-opt-report-file=%t < %s -disable-output
 ; RUN: FileCheck %s -check-prefix=OPTREPORT --strict-whitespace < %t
 
 ; OPTREPORT: LOOP BEGIN{{[[:space:]]}}

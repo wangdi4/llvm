@@ -1,6 +1,6 @@
 ; Test for indirect call serialization.
 ; RUN: opt -vplan-enable-soa=false %s -vplan-vec -vplan-force-vf=2 -S | FileCheck %s 
-; RUN: opt -vplan-enable-soa=false %s -vplan-vec -vplan-force-vf=2 -intel-ir-optreport-emitter -intel-loop-optreport=high -disable-output 2>&1 | FileCheck %s -check-prefixes=OPTREPORT
+; RUN: opt -vplan-enable-soa=false %s -vplan-vec -vplan-force-vf=2 -intel-ir-optreport-emitter -intel-opt-report=high -disable-output 2>&1 | FileCheck %s -check-prefixes=OPTREPORT
 
 ; OPTREPORT:      remark #15485: serialized function calls: 1
 ; OPTREPORT-NEXT: remark #15560: Indirect call cannot be vectorized.

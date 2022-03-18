@@ -1,7 +1,7 @@
 ; Test to check validity of opt-report emitted for vectorization scenarios where
 ; different types of peel and remainder loops are utilized by VPlan.
 
-; RUN: opt -vplan-vec-scenario="n0;v4;v2s1" -disable-output -vplan-vec -vplan-enable-peeling -intel-ir-optreport-emitter -intel-loop-optreport=low %s 2>&1 | FileCheck %s --check-prefix=SCEN1
+; RUN: opt -vplan-vec-scenario="n0;v4;v2s1" -disable-output -vplan-vec -vplan-enable-peeling -intel-ir-optreport-emitter -intel-opt-report=low %s 2>&1 | FileCheck %s --check-prefix=SCEN1
 ; SCEN1-LABEL: Global optimization report for : test_store
 ; SCEN1-EMPTY:
 ; SCEN1-NEXT: LOOP BEGIN
@@ -19,7 +19,7 @@
 ; SCEN1-NEXT: <Remainder loop for vectorization>
 ; SCEN1-NEXT: LOOP END
 
-; RUN: opt -vplan-vec-scenario="n0;v4;m2" -disable-output -vplan-vec -vplan-enable-peeling -intel-ir-optreport-emitter -intel-loop-optreport=low %s 2>&1 | FileCheck %s --check-prefix=SCEN2
+; RUN: opt -vplan-vec-scenario="n0;v4;m2" -disable-output -vplan-vec -vplan-enable-peeling -intel-ir-optreport-emitter -intel-opt-report=low %s 2>&1 | FileCheck %s --check-prefix=SCEN2
 ; SCEN2-LABEL: Global optimization report for : test_store
 ; SCEN2-EMPTY:
 ; SCEN2-NEXT: LOOP BEGIN
@@ -33,7 +33,7 @@
 ; SCEN2-NEXT:     remark #15305: vectorization support: vector length 2
 ; SCEN2-NEXT: LOOP END
 
-; RUN: opt -vplan-vec-scenario="s1;v4;v2s1" -disable-output -vplan-vec -vplan-enable-peeling -intel-ir-optreport-emitter -intel-loop-optreport=low %s 2>&1 | FileCheck %s --check-prefix=SCEN3
+; RUN: opt -vplan-vec-scenario="s1;v4;v2s1" -disable-output -vplan-vec -vplan-enable-peeling -intel-ir-optreport-emitter -intel-opt-report=low %s 2>&1 | FileCheck %s --check-prefix=SCEN3
 ; SCEN3-LABEL: Global optimization report for : test_store
 ; SCEN3-EMPTY:
 ; SCEN3-NEXT: LOOP BEGIN
@@ -55,7 +55,7 @@
 ; SCEN3-NEXT: <Remainder loop for vectorization>
 ; SCEN3-NEXT: LOOP END
 
-; RUN: opt -vplan-vec-scenario="m4;v4;m4s1" -disable-output -vplan-vec -vplan-enable-peeling -intel-ir-optreport-emitter -intel-loop-optreport=low %s 2>&1 | FileCheck %s --check-prefix=SCEN4
+; RUN: opt -vplan-vec-scenario="m4;v4;m4s1" -disable-output -vplan-vec -vplan-enable-peeling -intel-ir-optreport-emitter -intel-opt-report=low %s 2>&1 | FileCheck %s --check-prefix=SCEN4
 ; SCEN4-LABEL: Global optimization report for : test_store
 ; SCEN4-EMPTY:
 ; SCEN4-NEXT: LOOP BEGIN

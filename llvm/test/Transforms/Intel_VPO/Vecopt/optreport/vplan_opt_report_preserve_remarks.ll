@@ -13,7 +13,7 @@
 ;     LOOP END
 ; LOOP END
 
-; RUN: opt -vplan-vec -vplan-force-vf=2 -intel-loop-optreport=low -intel-ir-optreport-emitter < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace
+; RUN: opt -vplan-vec -vplan-force-vf=2 -intel-opt-report=low -intel-ir-optreport-emitter < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace
 
 ; CHECK-LABEL:  Global optimization report for : _Z3fooPiii
 ; CHECK-EMPTY:

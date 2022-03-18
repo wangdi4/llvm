@@ -1,6 +1,6 @@
 ; Check that proper optreport format are emitted for blocked loop.
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-blocking -hir-cg -intel-loop-optreport=low -intel-ir-optreport-emitter -simplifycfg 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-blocking -hir-cg -intel-opt-report=low -intel-ir-optreport-emitter -simplifycfg 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 
 ; OPTREPORT:      LOOP BEGIN at m.c (8, 3)
 
@@ -24,7 +24,7 @@
 ; OPTREPORT:    LOOP END
 ; OPTREPORT: LOOP END
 
-; RUN : opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-blocking -hir-cg -intel-loop-optreport=low -simplifycfg < %s -S | FileCheck %s
+; RUN : opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-blocking -hir-cg -intel-opt-report=low -simplifycfg < %s -S | FileCheck %s
 
 ;CHECK:  {{![0-9]+}} = distinct !{!"intel.optreport.rootnode", [[M3:!.*]]}
 ;CHECK:  [[M3]] = distinct !{!"intel.optreport", [[M4:!.*]]

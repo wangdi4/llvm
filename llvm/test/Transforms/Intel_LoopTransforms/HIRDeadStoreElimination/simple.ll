@@ -54,8 +54,8 @@
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-dead-store-elimination -hir-cg -force-hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
-; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-dead-store-elimination,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-loop-optreport=low -force-hir-cg 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -hir-ssa-deconstruction -hir-dead-store-elimination -hir-cg -force-hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-dead-store-elimination,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-opt-report=low -force-hir-cg 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
 ;
 ; OPTREPORT:  LOOP BEGIN
 ; OPTREPORT:    remark #25529: Dead stores eliminated in loop

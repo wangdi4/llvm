@@ -1,7 +1,7 @@
 ; Test to check the functionality of vectorization opt-report for
 ; outer loopnest with nested inner loop.
 
-; RUN: opt -vplan-vec -vplan-force-vf=2 -intel-loop-optreport=high -intel-ir-optreport-emitter < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace
+; RUN: opt -vplan-vec -vplan-force-vf=2 -intel-opt-report=high -intel-ir-optreport-emitter < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace
 
 ; CHECK:      LOOP BEGIN
 ; CHECK-NEXT:     remark #15301: SIMD LOOP WAS VECTORIZED

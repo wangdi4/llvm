@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -hir-vec-dir-insert -hir-vplan-vec -hir-cg -intel-ir-optreport-emitter -intel-loop-optreport=high 2>&1 -disable-output -vplan-force-vf=4 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -hir-vec-dir-insert -hir-vplan-vec -hir-cg -intel-ir-optreport-emitter -intel-opt-report=high 2>&1 -disable-output -vplan-force-vf=4 < %s | FileCheck %s
 ;
 ; Check that optreport functions properly when a remark is added to a loop after
 ; removing sibling optreport from it. Before the fix, removeOptReportField

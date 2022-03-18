@@ -766,10 +766,10 @@ static void RenderOptReportOptions(const ToolChain &TC, bool IsLink,
   }
   if (ReportLevel == "disable")
     return;
-  addllvmOption("-intel-loop-optreport-emitter=ir");
+  addllvmOption("-intel-opt-report-emitter=ir");
   addllvmOption("-enable-ra-report");
   addllvmOption(
-      Args.MakeArgString(Twine("-intel-loop-optreport=") + ReportLevel));
+      Args.MakeArgString(Twine("-intel-opt-report=") + ReportLevel));
   addllvmOption(
       Args.MakeArgString(Twine("-intel-ra-spillreport=") + ReportLevel));
 
