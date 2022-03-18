@@ -2433,15 +2433,22 @@ private:
         assert(Idx < (int)OperandsVec.size() && "Out of range");
         return OperandsVec[Idx];
       }
-      LeafData *front() const {
-        assert(!OperandsVec.empty() && "Broken constructor");
-        return OperandsVec.front();
-      }
       LeafData *back() const { return OperandsVec.back(); }
       void append(LeafData *Op) { OperandsVec.push_back(Op); }
       void setScore(int S) { Score = S; }
       int getScore() const { return Score; }
       void setMode(VecMode M) { Mode = M; }
+      void setMode(Value *V) {
+        if (isa<Constant>(V) || isa<Argument>(V))
+          Mode = VecMode::Constant;
+        else if (isa<LoadInst>(V))
+          Mode = VecMode::Load;
+        else if (isa<Instruction>(V))
+          Mode = VecMode::Opcode;
+        else
+          llvm_unreachable("unhandled value");
+      }
+
       VecMode getMode() const { return Mode; }
       void setState(GroupState S) { State = S; }
       GroupState getState() const { return State; }
@@ -2451,6 +2458,22 @@ private:
         Mode = VecMode::Uninit;
         State = UNINIT;
         OperandsVec.clear();
+      }
+      bool isBetterThan(const OpGroup &Other) const {
+        assert(!(empty() || Other.empty()) &&
+               "cannot compare with an empty group");
+
+        auto &&NormalizedScore = [](const OpGroup &G) {
+          // In order to find the best maximum group its score is divided
+          // by the group size (the number of nodes in a group).
+          // Multiplier is used in order to avoid floats still providing
+          // decent differentiation between groups. This way long bad
+          // groups are avoided.
+          return G.getScore() * 10 / G.size();
+        };
+
+        return size() >= Other.size() &&
+               NormalizedScore(*this) > NormalizedScore(Other);
       }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       void dump() const;
@@ -2718,21 +2741,10 @@ private:
       Group.setState(SUCCESS);
     }
 
-    /// Fill in \p GlobalBestGroup with the best operands for \p OpI operand
-    /// index of the 'CurrentMultiNode'. Returns state of the formed
-    /// 'GlobalBestGroup'. See description of 'GroupState' for more details.
-    GroupState getBestGroupForOpI(int OpI, OpGroup &GlobalBestGroup) {
-      auto GetValueVecMode = [](Value *V) {
-        if (isa<Constant>(V) || isa<Argument>(V))
-          return VecMode::Constant;
-        else if (isa<LoadInst>(V))
-          return VecMode::Load;
-        else if (isa<Instruction>(V))
-          return VecMode::Opcode;
-
-        llvm_unreachable("unhandled value");
-      };
-
+    /// Try to fill in \p GlobalBestGroup with the best operands for
+    /// \p OpI operand index of the MultiNode.
+    /// Return true if succeeded.
+    bool getBestGroupForOpI(int OpI, OpGroup &GlobalBestGroup) {
       GlobalBestGroup.clear();
       // We are trying all nodes with maximum scores as seeds of groups.
       OpVec FirstOperandCandidates;
@@ -2755,42 +2767,29 @@ private:
         // Try all the first operand candidates for the group.
         assert(!FirstOperandCandidates.empty() && "Need first operand");
         for (LeafData *FirstOperand : FirstOperandCandidates) {
-          OpVec FirstOperandsForNextGroup;
           // Build the maximum group starting from 'FirstOperand'.
           OpGroup TryGroup = GlobalBestGroup;
           TryGroup.append(FirstOperand);
           if (TryGroup.size() == 1)
-            TryGroup.setMode(GetValueVecMode(FirstOperand->getLeaf()));
+            TryGroup.setMode(FirstOperand->getLeaf());
+
+          OpVec FirstOperandsForNextGroup;
           buildMaxGroup(TryGroup, OpI, FirstOperandsForNextGroup);
 
-          auto GetNormalizedScore = [](const OpGroup &G) {
-            // In order to find the best maximum group its score is divided
-            // by the group size (the number of nodes in a group).
-            // Multiplier is used in order to avoid floats still providing
-            // decent differentiation between groups. This way long bad
-            // groups are avoided.
-            return G.getScore() * 10 / G.size();
-          };
-          if (LocalBestGroup.empty() ||
-              // We need to make the groups as long as possible.
-              (TryGroup.size() >= LocalBestGroup.size() &&
-               // We should maximize the score per lane.
-               GetNormalizedScore(TryGroup) >
-                   GetNormalizedScore(LocalBestGroup))) {
+          // We need to make the groups as long as possible and with
+          // maximum the score per lane.
+          if (LocalBestGroup.empty() || TryGroup.isBetterThan(LocalBestGroup)) {
             LocalBestGroup = TryGroup;
 
             // Check our complexity budget. We have this many spawns left.
-            int IdealSpawns = FirstOperandsForNextGroup.size();
-            int CappedSpawns = std::min(IdealSpawns, MaxGroupSpawns.getValue());
+            int CappedSpawns = std::min((int)FirstOperandsForNextGroup.size(),
+                                        MaxGroupSpawns.getValue());
             SpawnsBudget -= CappedSpawns;
             // The budget is not super accurate, but it should be good enough.
             if (SpawnsBudget < 0)
               CappedSpawns = 1;
-            // Get the slice FirstOperandsForNextGroup[0:MaxGroupSpawns].
-            auto BeginIt = FirstOperandsForNextGroup.begin();
-            auto EndIt = BeginIt;
-            std::advance(EndIt, CappedSpawns);
-            BestNextFirstOperands = OpVec(BeginIt, EndIt);
+            FirstOperandsForNextGroup.truncate(CappedSpawns);
+            BestNextFirstOperands = FirstOperandsForNextGroup;
           }
         }
         assert(!LocalBestGroup.empty() &&
@@ -2799,15 +2798,16 @@ private:
         if (LocalBestGroup.getState() == FAILED) {
           // TODO: Let it get cleaned up by the parent function.
           GlobalBestGroup = LocalBestGroup;
-          return FAILED;
-        } else if (LocalBestGroup.getState() == NO_SINGLE_BEST)
+          return false;
+        } else if (LocalBestGroup.getState() == NO_SINGLE_BEST) {
           // We cannot find a single best, so we have to start with a new group.
           FirstOperandCandidates = BestNextFirstOperands;
+        }
         // Since LocalBestGroup did not fail, keep it a best.
         GlobalBestGroup = LocalBestGroup;
       }
       assert(GlobalBestGroup.getState() == SUCCESS);
-      return SUCCESS;
+      return true;
     }
 
   public:
@@ -2945,48 +2945,41 @@ private:
       for (int OpI : VisitingOrder) {
         // Find the best operands for the whole 'OpI'.
         OpGroup BestGroup;
-        GroupState State = getBestGroupForOpI(OpI, BestGroup);
-        switch (State) {
-        case SUCCESS:
-          LLVM_DEBUG(dbgs()
-                     << "SLP: MultiNode: Group SUCCESS at OpI:" << OpI << "\n");
-          // Since we found a "best" group, update the CurrentMultiNode to
-          // reflect the code changes. This includes: i.   Swapping the leaf
-          // values, and ii. Swapping the opcodes. iii. Marking operands as
-          // 'used'.
-          // NOTE: We are *not* generating code at this point yet.
-          for (int Lane = 0, Lanes = BestGroup.size(); Lane != Lanes; ++Lane) {
-            LeafData *BestOp = BestGroup[Lane];
-            LeafData *OrigOp = getOperand(Lane, OpI);
-            // i. Swap the leaf values.
-            // Here only update the data structures
-            if (BestOp->getLeaf() != OrigOp->getLeaf()) {
-              bool InvertOpcodes = OrigOp->getAPO() != BestOp->getAPO();
-              BestOp->swapLeafWith(OrigOp);
-              // ii. Swap the opcode.
-              if (InvertOpcodes) {
-                OrigOp->invertFrontierOpcode();
-                BestOp->invertFrontierOpcode();
-              }
-            }
-            /// iii. Mark as 'used'.
-            OrigOp->setUsed();
-          }
-          // If we are steering the SLP path, steer it towards the group with
-          // the best score. This must be done before the MN reordering, as this
-          // will mess up some of BestGroup's data.
-          if (EnablePathSteering && BestGroup.getScore() > SteerTowards.Score)
-            SteerTowards.set(OpI, getOperand(0, OpI)->getOperandNum(),
-                             BestGroup.getScore());
-
-          break;
-        case FAILED:
+        if (!getBestGroupForOpI(OpI, BestGroup)) {
           LLVM_DEBUG(dbgs()
                      << "SLP: MultiNode: Group FAILED at OpI:" << OpI << "\n");
-          break;
-        default:
-          llvm_unreachable("Bad State");
+          continue;
         }
+        LLVM_DEBUG(dbgs() << "SLP: MultiNode: Group SUCCESS at OpI:" << OpI
+                          << "\n");
+        // Since we found a "best" group, update the MultiNode to
+        // reflect the code changes. This includes:
+        // i.   Swapping the leaf values, and ii. Swapping the opcodes.
+        // iii. Marking operands as 'used'.
+        // NOTE: We are *not* generating code at this point yet.
+        for (int Lane = 0, Lanes = BestGroup.size(); Lane != Lanes; ++Lane) {
+          LeafData *BestOp = BestGroup[Lane];
+          LeafData *OrigOp = getOperand(Lane, OpI);
+          // i. Swap the leaf values.
+          // Here only update the data structures
+          if (BestOp->getLeaf() != OrigOp->getLeaf()) {
+            bool InvertOpcodes = OrigOp->getAPO() != BestOp->getAPO();
+            BestOp->swapLeafWith(OrigOp);
+            // ii. Swap the opcode.
+            if (InvertOpcodes) {
+              OrigOp->invertFrontierOpcode();
+              BestOp->invertFrontierOpcode();
+            }
+          }
+          /// iii. Mark as 'used'.
+          OrigOp->setUsed();
+        }
+        // If we are steering the SLP path, steer it towards the group with
+        // the best score. This must be done before the MN reordering, as this
+        // will mess up some of BestGroup's data.
+        if (EnablePathSteering && BestGroup.getScore() > SteerTowards.Score)
+          SteerTowards.set(OpI, getOperand(0, OpI)->getOperandNum(),
+                           BestGroup.getScore());
       }
 
       // Perform the code transformation only if it leads to a better score.
@@ -10804,28 +10797,19 @@ LLVM_DUMP_METHOD void BoUpSLP::MultiNode::dumpDot() const {
 LLVM_DUMP_METHOD void BoUpSLP::LeafData::dump(void) const {
   std::string Indent = "    ";
   dbgs() << Indent << ((Used) ? "*USED*  " : "") << *Leaf << " " << Leaf
-         << "\n";
-  dbgs() << Indent << "FrontierI: " << *FrontierI << " " << FrontierI << "\n";
+         << " APO:" << APO << "\n";
   dbgs() << Indent << "OperandNum: " << OperandNum;
   dbgs() << Indent << "Lane: " << Lane;
   dbgs() << Indent << "Effective opcode: "
-         << Instruction::getOpcodeName(getEffectiveFrontierOpcode()) << " ";
-  dbgs() << Indent << "Inversed opcode: "
-         << (getInvertFrontierOpcode() ? "true" : "false") << "\n";
+         << Instruction::getOpcodeName(getEffectiveFrontierOpcode());
+  dbgs() << Indent << (getInvertFrontierOpcode() ? "(inversed)" : "(original)")
+         << "\n";
+  dbgs() << Indent << "FrontierI: " << *FrontierI << " " << FrontierI << "\n";
 
-  dbgs() << Indent << "OriginalFrontier: ";
   if (OriginalFrontierI)
-    dbgs() << *OriginalFrontierI;
-  else
-    dbgs() << "-";
-  dbgs() << " ";
-
-  dbgs() << "OriginalOperand: ";
+    dbgs() << Indent << "OriginalFrontier: " << *OriginalFrontierI << "\n";
   if (OriginalOperandV)
-    dbgs() << *OriginalOperandV;
-  else
-    dbgs() << "-";
-  dbgs() << "\n";
+    dbgs() << Indent << "OriginalOperand: " << *OriginalOperandV << "\n";
   dbgs() << "\n";
 }
 
