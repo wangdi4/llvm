@@ -1,10 +1,10 @@
-; RUN: llc -consider-local-interval-cost -mtriple=x86_64 -mattr=fma -enable-ra-report -intel-ra-spillreport=high -intel-loop-optreport-file=stdout < %s | FileCheck %s
-; RUN: llc -consider-local-interval-cost -mtriple=x86_64 -mattr=fma -enable-ra-report -intel-ra-spillreport=high -intel-loop-optreport-file=stderr < %s 2>&1 >%tout | FileCheck %s
-; RUN: llc -consider-local-interval-cost -mtriple=x86_64 -mattr=fma -enable-ra-report -intel-ra-spillreport=high -intel-loop-optreport-file=%t < %s
+; RUN: llc -consider-local-interval-cost -mtriple=x86_64 -mattr=fma -enable-ra-report -intel-ra-spillreport=high -intel-opt-report-file=stdout < %s | FileCheck %s
+; RUN: llc -consider-local-interval-cost -mtriple=x86_64 -mattr=fma -enable-ra-report -intel-ra-spillreport=high -intel-opt-report-file=stderr < %s 2>&1 >%tout | FileCheck %s
+; RUN: llc -consider-local-interval-cost -mtriple=x86_64 -mattr=fma -enable-ra-report -intel-ra-spillreport=high -intel-opt-report-file=%t < %s
 ; RUN: FileCheck %s < %t
 
 ; This test checks that the output location used by the register allocation
-; report emitter is controlled by the -intel-loop-optreport-file option. It is
+; report emitter is controlled by the -intel-opt-report-file option. It is
 ; based on llvm/test/CodeGen/X86/intel-ra-26052.ll.
 
 ; ModuleID = '1.ll'

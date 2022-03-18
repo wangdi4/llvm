@@ -15,8 +15,8 @@
 
 ; Check the proper otpreport is emittted for Idiom Recognition (memcpy transformation).
 ; TODO: Remove "TODO"-OPTREPORT after preserveLostOptReport is used in HIRIdiomRecognition.cpp.
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-idiom -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-idiom,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-idiom -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-idiom,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-opt-report=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 
 ;OPTREPORT: Global optimization report for : foo
 ;

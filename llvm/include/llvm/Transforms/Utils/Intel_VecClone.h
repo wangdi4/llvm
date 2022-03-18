@@ -15,10 +15,10 @@
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"

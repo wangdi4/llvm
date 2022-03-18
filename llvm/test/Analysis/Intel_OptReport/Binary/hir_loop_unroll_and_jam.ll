@@ -1,4 +1,4 @@
-; RUN: llc < %s -O3 -intel-loop-optreport=high -intel-loop-optreport-emitter=mir -opt-report-embed -enable-protobuf-opt-report=true -debug-only=opt-report-support-utils 2>&1 | FileCheck %s
+; RUN: llc < %s -O3 -intel-opt-report=high -intel-opt-report-emitter=mir -opt-report-embed -enable-protobuf-opt-report=true -debug-only=opt-report-support-utils 2>&1 | FileCheck %s
 ; REQUIRES: asserts, proto_bor
 
 ; CHECK:      Global Mloop optimization report for : foo

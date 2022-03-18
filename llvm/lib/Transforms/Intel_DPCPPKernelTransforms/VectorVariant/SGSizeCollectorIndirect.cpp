@@ -10,9 +10,9 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorVariant/SGSizeCollectorIndirect.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"

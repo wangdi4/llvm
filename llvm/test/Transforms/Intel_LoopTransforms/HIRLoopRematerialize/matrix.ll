@@ -54,8 +54,8 @@
 
 ; Check the opt report remarks of loop rematerialization.
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-rematerialize -hir-cg -intel-loop-optreport=low -intel-ir-optreport-emitter -simplifycfg -force-hir-cg 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-rematerialize,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low -force-hir-cg  < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-rematerialize -hir-cg -intel-opt-report=low -intel-ir-optreport-emitter -simplifycfg -force-hir-cg 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-rematerialize,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-opt-report=low -force-hir-cg  < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
 
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT:    remark #25397: Materialized a loop with a trip count of 3

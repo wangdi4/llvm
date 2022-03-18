@@ -46,7 +46,7 @@
 ; Also check the opt report functionality, which is only enabled for internal
 ; builds:
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sum-window-reuse -hir-cg -simplifycfg -intel-ir-optreport-emitter -intel-loop-optreport=low -disable-output 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sum-window-reuse -hir-cg -simplifycfg -intel-ir-optreport-emitter -intel-opt-report=low -disable-output 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
 
 ; REQUIRES: intel_internal_build
 

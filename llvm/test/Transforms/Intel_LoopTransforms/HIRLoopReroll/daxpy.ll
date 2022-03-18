@@ -47,8 +47,8 @@
 
 ; Check the opt report remarks of loop reroll.
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-reroll -hir-cg -intel-loop-optreport=low -intel-ir-optreport-emitter -simplifycfg -force-hir-cg 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-reroll,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low -force-hir-cg 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-reroll -hir-cg -intel-opt-report=low -intel-ir-optreport-emitter -simplifycfg -force-hir-cg 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-reroll,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-opt-report=low -force-hir-cg 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
 
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT:    remark #25264: Loop rerolled by 4
