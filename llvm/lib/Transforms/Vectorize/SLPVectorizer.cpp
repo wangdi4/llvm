@@ -2132,12 +2132,10 @@ private:
         : Leaf(Op), FrontierI(Frontier), OperandNum(OpNum), APO(APO),
           Lane(Lane) {}
     Value *getLeaf() const { return Leaf; }
-    void swapLeafWith(LeafData *Op) {
-      Value *Other = Op->Leaf;
-      Op->Leaf = Leaf;
-      Leaf = Other;
+    void swapLeafWith(LeafData &Op) {
+      std::swap(Leaf, Op.Leaf);
       // Swap APOs too as a property of the Leaf.
-      std::swap(APO, Op->APO);
+      std::swap(APO, Op.APO);
     }
     int getOperandNum() const { return OperandNum; }
     bool getAPO() const { return APO; }
@@ -2329,6 +2327,26 @@ private:
     const LeafData &getData(unsigned OpIdx, unsigned Lane) const {
       return Leaves[OpIdx][Lane];
     }
+    /// Swap the operand at \p OpIdx1 with that one at \p OpIdx2.
+    void swap(unsigned OpIdx1, unsigned OpIdx2, unsigned Lane) {
+      if (OpIdx1 == OpIdx2)
+        return;
+
+      LeafData &Op1 = getData(OpIdx1, Lane);
+      LeafData &Op2 = getData(OpIdx2, Lane);
+      if (Op1.getLeaf() == Op2.getLeaf())
+        return;
+
+      bool InvertOpcodes = Op1.getAPO() != Op2.getAPO();
+      // i. Swap the leaf values.
+      Op1.swapLeafWith(Op2);
+      // ii. Swap the opcode.
+      if (InvertOpcodes) {
+        Op1.invertFrontierOpcode();
+        Op2.invertFrontierOpcode();
+      }
+    }
+
     // We go through the operands of V1 and V2 until LEVEL
     // and we count the number of matches.
     int getScoreAtLevel(Value *V1, Value *V2, int Level, int MaxLevel) {
@@ -2416,18 +2434,14 @@ private:
       int Score = -1;
       VecMode Mode = VecMode::Uninit;
       GroupState State = UNINIT;
-      OpVec OperandsVec;
+      // Store the best operand index for each lane.
+      SmallVector<int> OperandsVec;
 
     public:
       OpGroup() = default;
       int size() const { return OperandsVec.size(); }
       bool empty() const { return OperandsVec.empty(); }
-      LeafData *operator[](int Idx) const {
-        assert(Idx < (int)OperandsVec.size() && "Out of range");
-        return OperandsVec[Idx];
-      }
-      LeafData *back() const { return OperandsVec.back(); }
-      void append(LeafData *Op) { OperandsVec.push_back(Op); }
+      void append(int OpIdx) { OperandsVec.push_back(OpIdx); }
       void setScore(int S) { Score = S; }
       int getScore() const { return Score; }
       void setMode(VecMode M) { Mode = M; }
@@ -2445,7 +2459,7 @@ private:
       VecMode getMode() const { return Mode; }
       void setState(GroupState S) { State = S; }
       GroupState getState() const { return State; }
-      const OpVec &getOpVec() const { return OperandsVec; }
+      ArrayRef<int> getOpVec() const { return makeArrayRef(OperandsVec); }
       void clear() {
         Score = -1;
         Mode = VecMode::Uninit;
@@ -2482,7 +2496,7 @@ private:
       };
       Value *Root0 = R.VectorizableTree[getRoot()]->Scalars[0];
 
-      Instruction *Runner = getOperand(0, SteerTowards.OpI)->getFrontier();
+      Instruction *Runner = getData(SteerTowards.OpI, 0).getFrontier();
       Value *Operand = Runner->getOperand(SteerTowards.OperandNum);
       assert(Operand != Runner && "Self referencing instruction?");
       // Follow the path to the root node of the MultiNode, tagging each
@@ -2510,7 +2524,7 @@ private:
     /// Given the two operand data of the Multi-Node \p Op1 and \p Op2
     /// check whether it is legal to swap operands (aka Multi-Node leaves)
     /// between their frontier instructions (aka Multi-Node trunk instructions).
-    bool isLegalToMoveLeaf(LeafData *Op1, LeafData *Op2) const {
+    bool isLegalToMoveLeaf(const LeafData &Op1, const LeafData &Op2) const {
       // Check if we can swap two leaf operands between their frontiers.
       //  Multi-Node: +------+
       //              | ...  |
@@ -2532,14 +2546,14 @@ private:
       // type within the Multi-Node, it is always legal to move.
       if (Op1 == Op2) // Not a swap
         return true;
-      if (Op1->getAPO() != Op2->getAPO())
+      if (Op1.getAPO() != Op2.getAPO())
         return false;
 
-      auto *Leaf1 = dyn_cast<Instruction>(Op1->getLeaf());
-      auto *Leaf2 = dyn_cast<Instruction>(Op2->getLeaf());
+      auto *Leaf1 = dyn_cast<Instruction>(Op1.getLeaf());
+      auto *Leaf2 = dyn_cast<Instruction>(Op2.getLeaf());
 
-      if ((Leaf1 && !DT.dominates(Leaf1, Op2->getFrontier())) ||
-          (Leaf2 && !DT.dominates(Leaf2, Op1->getFrontier())))
+      if ((Leaf1 && !DT.dominates(Leaf1, Op2.getFrontier())) ||
+          (Leaf2 && !DT.dominates(Leaf2, Op1.getFrontier())))
         return false;
       return true;
     }
@@ -2558,12 +2572,11 @@ private:
       for (int OpI = 0, OpIMax = getNumOperands(); OpI != OpIMax; ++OpI) {
         bool AreConsecutive = true;
         for (unsigned Lane = 1; Lane != getNumLanes(); ++Lane) {
-          const LeafData *OperandL = getOperand(Lane - 1, OpI);
-          const LeafData *OperandR = getOperand(Lane, OpI);
-          if (OperandL->getLeaf() == OperandR->getLeaf() ||
-              VLOperands::getShallowScore(
-                  OperandL->getLeaf(), OperandR->getLeaf(), DL, SE,
-                  getNumLanes(), None) == VLOperands::ScoreFail) {
+          Value *Left = getData(OpI, Lane - 1).getLeaf();
+          Value *Right = getData(OpI, Lane).getLeaf();
+          if (Left == Right ||
+              VLOperands::getShallowScore(Left, Right, DL, SE, getNumLanes(),
+                                          None) == VLOperands::ScoreFail) {
             AreConsecutive = false;
             break;
           }
@@ -2589,25 +2602,20 @@ private:
     /// then we should be looking for a constant for the RHS too ans the mode is
     /// set to VM_CONSTANT. Similarly, Loads and Splats, and other we need
     /// separate modes.
-    int getBestOperand(OpVec &BestOps, LeafData *LHSOp, int RHSLane, int OpI,
-                       const OpVec &BestOperandsSoFar, VecMode Mode) {
-      LeafData *OrigRHSOperand = getOperand(RHSLane, OpI);
-      Value *LHS = LHSOp->getLeaf();
-      Instruction *LHSFrontierI = LHSOp->getFrontier();
-
-      // The return values of our search: the best operand and whether we should
-      // move its frontier.
-      LeafData *BestRHSOperand = nullptr;
+    int getBestOperand(SmallVectorImpl<int> &BestOps, int LHSOp, int RHSLane,
+                       int OpI, ArrayRef<int> BestOperandsSoFar, VecMode Mode) {
+      const LeafData &LHSOperand = getData(LHSOp, RHSLane - 1);
+      Value *LHS = LHSOperand.getLeaf();
       int BestScore = -1;
 
       // Go through all operands of the MultiNode looking for the best match.
       for (int OpIdx = 0, E = getNumOperands(); OpIdx != E; ++OpIdx) {
-        LeafData *RHSOperand = getOperand(RHSLane, OpIdx);
+        const LeafData &RHSOperand = getData(OpIdx, RHSLane);
         // Skip if we have already used this for this Lane.
-        if (RHSOperand->isUsed())
+        if (RHSOperand.isUsed())
           continue;
         // The candidate for this operand data.
-        Value *RHS = RHSOperand->getLeaf();
+        Value *RHS = RHSOperand.getLeaf();
 
         int Score;
         switch (Mode) {
@@ -2616,12 +2624,12 @@ private:
         case VecMode::Opcode:
           Score = getLookAheadScore(LHS, RHS);
           // Make sure we are not using the same value.
-          for (LeafData *OD : BestOperandsSoFar) {
-            if (OD->getLeaf() == RHS) {
+          for (int Lane = 0, NumLanes = BestOperandsSoFar.size();
+               Lane != NumLanes; ++Lane)
+            if (getData(BestOperandsSoFar[Lane], Lane).getLeaf() == RHS) {
               Score = 0;
               break;
             }
-          }
           break;
         case VecMode::Splat:
           Score = RHS == LHS ? 1 : 0;
@@ -2633,24 +2641,25 @@ private:
           llvm_unreachable("Bad Mode");
         }
 
-        LeafData *FrontierOperandToSwapWith = nullptr;
+        Instruction *FrontierToSwapWith = nullptr;
 
+        LeafData &OrigRHSOperand = getData(OpI, RHSLane);
         if (RHSOperand != OrigRHSOperand &&
             !isLegalToMoveLeaf(RHSOperand, OrigRHSOperand)) {
           // If we can't move the sub-tree to Index, then try to see if we can
           // move it along with its frontier instruction.
           if (EnableSwapFrontiers &&
               // First check that signs mismatch was the reason of bail out.
-              RHSOperand->getAPO() != OrigRHSOperand->getAPO() &&
+              RHSOperand.getAPO() != OrigRHSOperand.getAPO() &&
               // This is allowed only if the frontiers are different.
-              RHSOperand->getFrontier() != OrigRHSOperand->getFrontier() &&
+              RHSOperand.getFrontier() != OrigRHSOperand.getFrontier() &&
               // Operand 0 is tricky.
-              RHSOperand->getOperandNum() == 1 &&
-              OrigRHSOperand->getOperandNum() == 1 &&
+              RHSOperand.getOperandNum() == 1 &&
+              OrigRHSOperand.getOperandNum() == 1 &&
               // Check signs.
-              RHSOperand->computeFrontierAPO() ==
-                  OrigRHSOperand->computeFrontierAPO())
-            FrontierOperandToSwapWith = OrigRHSOperand;
+              RHSOperand.computeFrontierAPO() ==
+                  OrigRHSOperand.computeFrontierAPO())
+            FrontierToSwapWith = OrigRHSOperand.getFrontier();
           else // If not, then skip this candidate and look for another.
             continue;
         }
@@ -2658,11 +2667,10 @@ private:
         // If the users' opcodes don't match, then we need to adjust the cost
         // to reflect the fact that we will need a blend generated when
         // vectorizing alternate opcodes.
-        Instruction *RHSNewFrontierI =
-            (FrontierOperandToSwapWith)
-                ? FrontierOperandToSwapWith->getFrontier()
-                : OrigRHSOperand->getFrontier();
-        auto S = getSameOpcode({LHSFrontierI, RHSNewFrontierI});
+        Instruction *RHSNewFrontierI = FrontierToSwapWith
+                                           ? FrontierToSwapWith
+                                           : OrigRHSOperand.getFrontier();
+        auto S = getSameOpcode({LHSOperand.getFrontier(), RHSNewFrontierI});
         if (S.isAltShuffle())
           Score += BLEND_COST;
 
@@ -2673,9 +2681,7 @@ private:
             BestOps.clear();
 
           BestScore = Score;
-          BestRHSOperand = RHSOperand;
-
-          BestOps.push_back(BestRHSOperand);
+          BestOps.push_back(OpIdx);
         }
       }
 
@@ -2685,7 +2691,8 @@ private:
     /// For each lane, find the best value for the OpI operand of the Multi-Node
     /// and put it in to the 'Group'. The 'Group' is a sequence of leaves, one
     /// for each lane, that will be the 'OpI'th operand of the Multi-Node.
-    void buildMaxGroup(OpGroup &Group, unsigned OpI, OpVec &NextGroupLHSOps) {
+    void buildMaxGroup(OpGroup &Group, unsigned OpI,
+                       SmallVectorImpl<int> &NextGroupLHSOps) {
       assert(!Group.empty() &&
              "Expected at least one instruction in the group");
       int TotalScore = 0;
@@ -2695,9 +2702,8 @@ private:
         // Get:
         // 1) the best candidate for 'RHSLane' that matches best agaisnt LHSOp,
         // 2) whether we should swap frontiers with the CurrRHSOperand.
-        LeafData *BestRHSOperand = nullptr;
-        LeafData *LHSOp = Group.back();
-        OpVec BestOps;
+        int LHSOp = Group.getOpVec().back();
+        SmallVector<int> BestOps;
         // We are looking for a node of a specific type according to the operand
         // history in VMode.
         int LaneScore = getBestOperand(BestOps, LHSOp, RHSLane, OpI,
@@ -2708,10 +2714,7 @@ private:
           Group.setMode(VecMode::Failed);
           Group.setState(FAILED);
           return;
-        } else if (BestOps.size() == 1) {
-          // A single best solution.
-          BestRHSOperand = BestOps.front();
-        } else {
+        } else if (BestOps.size() > 1) {
           // We have many nodes with max score.
           // This signifies the end of the current group.
           NextGroupLHSOps = BestOps;
@@ -2719,13 +2722,14 @@ private:
           Group.setScore(TotalScore);
           return;
         }
+        // A single best solution.
+        int BestRHSOperand = BestOps.front();
 
         // If the first two Lanes are a splat, change the mode
         if (RHSLane == 1 &&
-            BestRHSOperand->getLeaf() == Group.back()->getLeaf())
+            getData(BestRHSOperand, 1).getLeaf() == getData(LHSOp, 0).getLeaf())
           Group.setMode(VecMode::Splat);
 
-        assert(BestRHSOperand && "Why nullptr?");
         Group.append(BestRHSOperand);
       }
       // If we have reached this point, we have filled in the whole
@@ -2740,14 +2744,14 @@ private:
     bool getBestGroupForOpI(int OpI, OpGroup &GlobalBestGroup) {
       GlobalBestGroup.clear();
       // We are trying all nodes with maximum scores as seeds of groups.
-      OpVec FirstOperandCandidates;
+      SmallVector<int> FirstOperandCandidates;
       // For the first lane we need to try all operand nodes.
-      LeafData *CurrLHSOperand = getOperand(0, OpI);
+      LeafData &CurrLHSOperand = getData(OpI, 0);
       for (int OpIdx = 0, E = getNumOperands(); OpIdx != E; ++OpIdx) {
-        LeafData *LHSOperand = getOperand(0, OpIdx);
-        if (!LHSOperand->isUsed() &&
+        LeafData &LHSOperand = getData(OpIdx, 0);
+        if (!LHSOperand.isUsed() &&
             isLegalToMoveLeaf(LHSOperand, CurrLHSOperand)) {
-          FirstOperandCandidates.push_back(LHSOperand);
+          FirstOperandCandidates.push_back(OpIdx);
         }
       }
 
@@ -2755,18 +2759,18 @@ private:
       int NumLanes = getNumLanes();
       int SpawnsBudget = MaxTotalGroupSpawns;
       while (GlobalBestGroup.size() < NumLanes) {
-        OpVec BestNextFirstOperands;
+        SmallVector<int> BestNextFirstOperands;
         OpGroup LocalBestGroup;
         // Try all the first operand candidates for the group.
         assert(!FirstOperandCandidates.empty() && "Need first operand");
-        for (LeafData *FirstOperand : FirstOperandCandidates) {
+        for (int FirstOperand : FirstOperandCandidates) {
           // Build the maximum group starting from 'FirstOperand'.
           OpGroup TryGroup = GlobalBestGroup;
           TryGroup.append(FirstOperand);
           if (TryGroup.size() == 1)
-            TryGroup.setMode(FirstOperand->getLeaf());
+            TryGroup.setMode(getData(FirstOperand, 0).getLeaf());
 
-          OpVec FirstOperandsForNextGroup;
+          SmallVector<int> FirstOperandsForNextGroup;
           buildMaxGroup(TryGroup, OpI, FirstOperandsForNextGroup);
 
           // We need to make the groups as long as possible and with
@@ -2835,14 +2839,12 @@ private:
     void setNumLanes(unsigned Lanes) {
       NumLanes = Lanes;
     }
-
     const LeafData *getOperand(int Lane, int OpI) const {
       return &getData(OpI, Lane);
     }
     /// Similar to Instructions, the Multi-Node has operands and we can index
     /// them using the 'Lane' number and 'OpI' operand index.
     LeafData *getOperand(int Lane, int OpI) { return &getData(OpI, Lane); }
-
     void appendOperand(ArrayRef<Value *> OpVL, const EdgeInfo &EI) {
       unsigned NumLanes = OpVL.size();
       assert((Leaves.empty() || NumLanes == getNumLanes()) &&
@@ -2892,10 +2894,10 @@ private:
         return false;
 
       auto CmpDistFromRoot = [this](int Idx1, int Idx2) -> bool {
-        LeafData *Op1 = getOperand(0, Idx1);
-        LeafData *Op2 = getOperand(0, Idx2);
-        const TreeEntry *TE1 = R.getTreeEntry(Op1->getFrontier());
-        const TreeEntry *TE2 = R.getTreeEntry(Op2->getFrontier());
+        const LeafData &Op1 = getData(Idx1, 0);
+        const LeafData &Op2 = getData(Idx2, 0);
+        const TreeEntry *TE1 = R.getTreeEntry(Op1.getFrontier());
+        const TreeEntry *TE2 = R.getTreeEntry(Op2.getFrontier());
         assert(TE1 && TE2 && "Broken Op1, Op2 ?");
         // If TE the TE is the root of the MultiNode, return -1 as the user.
         auto GetDistanceFromRoot = [this](const TreeEntry *TE) {
@@ -2949,29 +2951,21 @@ private:
         // reflect the code changes. This includes:
         // i.   Swapping the leaf values, and ii. Swapping the opcodes.
         // iii. Marking operands as 'used'.
-        // NOTE: We are *not* generating code at this point yet.
+        // NOTE: We are *not* generating code at this point yet,
+        // only update the data structures
         for (int Lane = 0, Lanes = BestGroup.size(); Lane != Lanes; ++Lane) {
-          LeafData *BestOp = BestGroup[Lane];
-          LeafData *OrigOp = getOperand(Lane, OpI);
-          // i. Swap the leaf values.
-          // Here only update the data structures
-          if (BestOp->getLeaf() != OrigOp->getLeaf()) {
-            bool InvertOpcodes = OrigOp->getAPO() != BestOp->getAPO();
-            BestOp->swapLeafWith(OrigOp);
-            // ii. Swap the opcode.
-            if (InvertOpcodes) {
-              OrigOp->invertFrontierOpcode();
-              BestOp->invertFrontierOpcode();
-            }
-          }
-          /// iii. Mark as 'used'.
-          OrigOp->setUsed();
+          int BestOp = BestGroup.getOpVec()[Lane];
+          // i. Swap the leaf values. If APOs differ this will invert opcodes for
+          // both frontiers.
+          swap(OpI, BestOp, Lane);
+          // iii. Mark as 'used'.
+          getData(OpI, Lane).setUsed();
         }
         // If we are steering the SLP path, steer it towards the group with
         // the best score. This must be done before the MN reordering, as this
         // will mess up some of BestGroup's data.
         if (EnablePathSteering && BestGroup.getScore() > SteerTowards.Score)
-          SteerTowards.set(OpI, getOperand(0, OpI)->getOperandNum(),
+          SteerTowards.set(OpI, getData(OpI, 0).getOperandNum(),
                            BestGroup.getScore());
       }
 
@@ -10829,8 +10823,8 @@ LLVM_DUMP_METHOD void BoUpSLP::MultiNode::dumpDot() const {
     SmallPtrSet<const Instruction *, 8> Frontiers;
     SmallPtrSet<const Instruction *, 8> ExtraTrunksToPrint;
     for (int OpI = 0, OpI_e = getNumOperands(); OpI != OpI_e; ++OpI) {
-      const LeafData *Op = getOperand(Lane, OpI);
-      auto *Frontier = Op->getFrontier();
+      const LeafData &Op = getData(OpI, Lane);
+      auto *Frontier = Op.getFrontier();
       Frontiers.insert(Frontier);
     }
     for (const Instruction *Frontier : Frontiers) {
@@ -10858,13 +10852,13 @@ LLVM_DUMP_METHOD void BoUpSLP::MultiNode::dumpDot() const {
     DenseMap<const Instruction *, std::pair<const Value *, const Value *>>
         DrawnOps;
     for (int OpI = 0, OpI_e = getNumOperands(); OpI != OpI_e; ++OpI) {
-      const LeafData *Op = getOperand(Lane, OpI);
-      auto *Frontier = Op->getFrontier();
-      Value *V = Op->getLeaf();
+      const LeafData &Op = getData(OpI, Lane);
+      auto *Frontier = Op.getFrontier();
+      Value *V = Op.getLeaf();
       CreateNode(Frontier);
       CreateNode(V);
-      PrintLeafEdge(V, Frontier, Op->getOperandNum());
-      if (Op->getOperandNum() == 0)
+      PrintLeafEdge(V, Frontier, Op.getOperandNum());
+      if (Op.getOperandNum() == 0)
         DrawnOps[Frontier].first = V;
       else
         DrawnOps[Frontier].second = V;
@@ -10983,14 +10977,9 @@ LLVM_DUMP_METHOD void BoUpSLP::MultiNode::OpGroup::dump() const {
     }
   };
 
-  int Cnt = 0;
   const char *Ind = "  ";
-  for (LeafData *LD : OperandsVec) {
-    dbgs() << Ind << Cnt++ << ".\n";
-    LD->dump();
-  }
-  dbgs() << Ind << "StartLane: " << 0 << "\n";
-  dbgs() << Ind << "EndLane: " << size() - 1 << "\n";
+  for (int Lane = 0, NumLanes = size(); Lane != NumLanes; ++Lane)
+    dbgs() << Ind << "Lane: " << Lane << ", Idx: " << OperandsVec[Lane] << "\n";
   dbgs() << Ind << "Score: " << Score << "\n";
   dbgs() << Ind << "Mode: " << VecModeStr(Mode) << "\n";
   dbgs() << Ind << "State: " << GroupStateStr(State) << "\n";
