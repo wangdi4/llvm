@@ -363,19 +363,6 @@ MemoryManager::allocateBufferObject(ContextImplPtr TargetContext, void *UserPtr,
   RT::PiMem NewMem = nullptr;
   const detail::plugin &Plugin = TargetContext->getPlugin();
 
-<<<<<<< HEAD
-  if (PropsList.has_property<sycl::property::buffer::mem_channel>()) {
-    auto Prop = PropsList.get_property<sycl::property::buffer::mem_channel>();
-    cl_mem_properties_intel properties[] = {CL_MEM_CHANNEL_INTEL,
-                                            Prop.get_channel(), 0};
-
-    memBufferCreateHelper(Plugin, TargetContext->getHandleRef(), CreationFlags,
-                          Size, UserPtr, &NewMem, properties);
-  } else {
-    memBufferCreateHelper(Plugin, TargetContext->getHandleRef(), CreationFlags,
-                          Size, UserPtr, &NewMem, nullptr);
-  }
-=======
   if (PropsList.has_property<property::buffer::detail::buffer_location>())
     if (TargetContext->isBufferLocationSupported()) {
       auto location =
@@ -389,7 +376,6 @@ MemoryManager::allocateBufferObject(ContextImplPtr TargetContext, void *UserPtr,
     }
   memBufferCreateHelper(Plugin, TargetContext->getHandleRef(), CreationFlags,
                         Size, UserPtr, &NewMem, nullptr);
->>>>>>> 9808525f00559ff559af8f80b87ad5b85b503e8a
   return NewMem;
 }
 

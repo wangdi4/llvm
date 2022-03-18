@@ -160,10 +160,6 @@ public:
 
   KernelProgramCache &getKernelProgramCache() const;
 
-  Locked<RT::PiKernel> getNonCachedKernelLock(RT::PiKernel &K) const {
-    return MNonCachedKernelLock.lockKernel(K);
-  }
-
   /// Returns true if and only if context contains the given device.
   bool hasDevice(std::shared_ptr<detail::device_impl> Device) const;
 
@@ -187,11 +183,7 @@ private:
   std::map<std::pair<DeviceLibExt, RT::PiDevice>, RT::PiProgram>
       MCachedLibPrograms;
   mutable KernelProgramCache MKernelProgramCache;
-<<<<<<< HEAD
-  mutable NonCachedKernelLock MNonCachedKernelLock;
-=======
   mutable PropertySupport MSupportBufferLocationByDevices;
->>>>>>> 9808525f00559ff559af8f80b87ad5b85b503e8a
 };
 
 } // namespace detail
