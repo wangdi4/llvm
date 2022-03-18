@@ -3874,8 +3874,6 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       RegDDRef *Acc = nullptr;
 
       if (StartVPVal) {
-        assert(isa<VPExternalDef>(StartVPVal) &&
-               "Unsupported reduction start value.");
         Acc = getUniformScalarRef(StartVPVal);
       }
 

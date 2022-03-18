@@ -782,7 +782,9 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
       if (FinalStartValue->getType() != Ty) { // Ty is recurrence type
         assert(isa<PointerType>(FinalStartValue->getType()) &&
                "Expected pointer type here.");
-        FinalStartValue = Builder.createLoad(Ty, FinalStartValue);
+        VPLoadStoreInst *V  = Builder.createLoad(Ty, FinalStartValue);
+        updateHIROperand(AI, V); // INTEL
+        FinalStartValue = V;
       }
       Final = Builder.create<VPReductionFinal>(
           FinName, Reduction->getReductionOpcode(), Exit, FinalStartValue,
