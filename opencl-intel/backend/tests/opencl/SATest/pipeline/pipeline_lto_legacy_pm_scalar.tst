@@ -82,6 +82,7 @@
 ; CHECK:          Loop Invariant Code Motion
 ; CHECK:          Recognize loop idioms
 ; CHECK:          Delete dead loops
+; CHECK:          Hoist strided values out of loops
 ; CHECK:          Simplify the CFG
 ; CHECK:          PrepareKernelArgsLegacy
 ; CHECK:          Simplify the CFG

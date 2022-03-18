@@ -199,6 +199,10 @@ OpenCLProgramConfiguration::OpenCLProgramConfiguration(const string& configFile,
     m_baseDirectory = baseDir.empty() ? llvm::sys::path::parent_path(llvm::StringRef(configPath)).str()
                                       : baseDir;
 
+    if (!llvm::sys::fs::is_regular_file(m_configFile))
+      throw Exception::IOError("Configuration file " + m_configFile +
+                               " doesn't exist");
+
     TiXmlDocument config(m_configFile);
     if (config.LoadFile())
     {

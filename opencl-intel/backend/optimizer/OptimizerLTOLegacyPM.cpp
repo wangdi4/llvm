@@ -14,6 +14,7 @@
 #include "LLVMSPIRVLib.h"
 #include "VecConfig.h"
 #include "VectorizerCommon.h"
+#include "llvm/Analysis/LoopPass.h"
 #ifndef NDEBUG
 #include "llvm/IR/Verifier.h"
 #endif // #ifndef NDEBUG
@@ -241,6 +242,7 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
     MPM.add(createLICMPass());
     MPM.add(createLoopIdiomPass());
     MPM.add(createLoopDeletionPass());
+    MPM.add(createLoopStridedCodeMotionLegacyPass());
     MPM.add(createCFGSimplificationPass());
   } else {
     MPM.add(createAlwaysInlinerLegacyPass());

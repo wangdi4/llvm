@@ -310,6 +310,9 @@ int main(int argc, char *argv[])
 
     try
     {
+        if (argc == 1)
+          throw Exception::GeneralException("no input files");
+
         // Run test
         IRunConfiguration* runConfig = RunnerFactory::GetInstance().CreateRunConfiguration();
         runConfig->InitFromCommandLine();
