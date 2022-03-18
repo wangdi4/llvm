@@ -5152,21 +5152,13 @@ pi_result piEventGetInfo(pi_event Event, pi_event_info ParamName,
         Result = CL_COMPLETE;
       }
     }
-<<<<<<< HEAD
 
-    // TODO: We don't know if the status is queued, submitted or running.
-    //       For now return "running", as others are unlikely to be of
-    //       interest.
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SHARED_SW_ADVANCED
     //       https://gitlab.devtools.intel.com/one-api/level_zero/issues/243
 #endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
-    return getInfo(ParamValueSize, ParamValue, ParamValueSizeRet,
-                   pi_int32{CL_RUNNING});
-=======
     return ReturnValue(pi_cast<pi_int32>(Result));
->>>>>>> 5cb6f4dcf6d432f59e437c9ff5fd5b2cd85522c3
   }
   case PI_EVENT_INFO_REFERENCE_COUNT:
     return ReturnValue(pi_uint32{Event->RefCount});
