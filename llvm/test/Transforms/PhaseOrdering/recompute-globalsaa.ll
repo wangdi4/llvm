@@ -9,15 +9,12 @@
 define i32 @main() {
 ; CHECK-LABEL: @main(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    store i1 true, i1* @a, align 4
+; INTEL_CUSTOMIZATION
+; globalopt removes this store, @a is not loaded anywhere
+; CHECK-NOT:     store i1 true, i1* @a, align 4
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[TMP0:%.*]] = load i32*, i32** @e, align 8
 ; CHECK-NEXT:    store i32 0, i32* [[TMP0]], align 4
-; CHECK-NEXT:    [[DOTB:%.*]] = load i1, i1* @a, align 4
-; CHECK-NEXT:    br i1 [[DOTB]], label [[BAR_EXIT:%.*]], label [[IF_THEN_I:%.*]]
-; CHECK:       if.then.i:
-; CHECK-NEXT:    tail call void @foo()
-; CHECK-NEXT:    br label [[BAR_EXIT]]
-; CHECK:       bar.exit:
 ; CHECK-NEXT:    store i32* null, i32** @e, align 8
 ; CHECK-NEXT:    ret i32 0
 ;
