@@ -2023,17 +2023,13 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
                             FunctionArgList(), Loc, Loc);
       auto AL = ApplyDebugLocation::CreateArtificial(CtorCGF);
       CtorCGF.EmitAnyExprToMem(
-<<<<<<< HEAD
-          Init,
 #if INTEL_COLLAB
-          Address(AddrInAS0, CtorCGF.ConvertTypeForMem(VD->getType()),
-                  CGM.getContext().getDeclAlign(VD)),
+          Init, Address(CGM.GetAddrOfGlobalVar(VD),
+                        CtorCGF.ConvertTypeForMem(VD->getType()),
+                        CGM.getContext().getDeclAlign(VD)),
 #else // INTEL_COLLAB
-          Address::deprecated(AddrInAS0, CGM.getContext().getDeclAlign(VD)),
-#endif // INTEL_COLLAB
-=======
           Init, Address::deprecated(Addr, CGM.getContext().getDeclAlign(VD)),
->>>>>>> a597d6a780b184539f504392168b004bf392a135
+#endif // INTEL_COLLAB
           Init->getType().getQualifiers(),
           /*IsInitializer=*/true);
       CtorCGF.FinishFunction();
@@ -2085,18 +2081,14 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       // function.
       auto AL = ApplyDebugLocation::CreateArtificial(DtorCGF);
       DtorCGF.emitDestroy(
-<<<<<<< HEAD
 #if INTEL_COLLAB
-          Address(AddrInAS0, DtorCGF.ConvertTypeForMem(VD->getType()),
-                  CGM.getContext().getDeclAlign(VD)),
+         Address(CGM.GetAddrOfGlobalVar(VD),
+                 DtorCGF.ConvertTypeForMem(VD->getType()),
+                 CGM.getContext().getDeclAlign(VD)), ASTTy,
 #else // INTEL_COLLAB
-          Address::deprecated(AddrInAS0, CGM.getContext().getDeclAlign(VD)),
-#endif // INTEL_COLLAB
-          ASTTy, DtorCGF.getDestroyer(ASTTy.isDestructedType()),
-=======
           Address::deprecated(Addr, CGM.getContext().getDeclAlign(VD)), ASTTy,
+#endif // INTEL_COLLAB
           DtorCGF.getDestroyer(ASTTy.isDestructedType()),
->>>>>>> a597d6a780b184539f504392168b004bf392a135
           DtorCGF.needsEHCleanup(ASTTy.isDestructedType()));
       DtorCGF.FinishFunction();
       Dtor = Fn;
