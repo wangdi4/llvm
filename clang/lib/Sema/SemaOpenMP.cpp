@@ -4443,11 +4443,6 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
     break;
   }
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-  case OMPD_teams_loop:
-#endif // INTEL_COLLAB
-=======
   case OMPD_teams_loop: {
     QualType KmpInt32Ty = Context.getIntTypeForBitwidth(32, 1).withConst();
     QualType KmpInt32PtrTy =
@@ -4464,7 +4459,6 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
     break;
   }
 
->>>>>>> 79f661edc13d389437b83d42f0af04b0615b920e
   case OMPD_teams_distribute_parallel_for:
   case OMPD_teams_distribute_parallel_for_simd: {
     QualType KmpInt32Ty = Context.getIntTypeForBitwidth(32, 1).withConst();
@@ -6301,10 +6295,6 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       AllowedNameModifiers.push_back(OMPD_simd);
     break;
 #if INTEL_COLLAB
-  case OMPD_teams_loop:
-    Res = ActOnOpenMPTeamsGenericLoopDirective(
-        ClausesWithImplicit, AStmt, StartLoc, EndLoc, VarsWithInheritedDSA);
-    break;
   case OMPD_target_teams_loop:
     Res = ActOnOpenMPTargetTeamsGenericLoopDirective(
         ClausesWithImplicit, AStmt, StartLoc, EndLoc, VarsWithInheritedDSA);
@@ -10678,69 +10668,6 @@ StmtResult Sema::ActOnOpenMPSectionDirective(Stmt *AStmt,
 }
 
 #if INTEL_COLLAB
-StmtResult Sema::ActOnOpenMPTeamsGenericLoopDirective(
-    ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
-    SourceLocation EndLoc, VarsWithInheritedDSAType &VarsWithImplicitDSA) {
-  if (!AStmt)
-    return StmtError();
-
-  // OpenMP 5.0 [2.9.5, loop construct]
-  // A list item may not appear in a lastprivate clause unless it is the
-  // loop iteration variable of a loop that is associated with the construct.
-  for (OMPClause *C : Clauses) {
-    if (auto *LPC = dyn_cast<OMPLastprivateClause>(C)) {
-      for (Expr *RefExpr : LPC->varlists()) {
-        SourceLocation ELoc;
-        SourceRange ERange;
-        Expr *SimpleRefExpr = RefExpr;
-        auto Res = getPrivateItem(*this, SimpleRefExpr, ELoc, ERange);
-        ValueDecl *D = Res.first;
-        auto &&Info = DSAStack->isLoopControlVariable(D);
-        if (!Info.first) {
-          Diag(ELoc, diag::err_omp_lastprivate_loop_var_non_loop_iteration);
-          return StmtError();
-        }
-      }
-    }
-  }
-
-  auto *CS = cast<CapturedStmt>(AStmt);
-  // 1.2.2 OpenMP Language Terminology
-  // Structured block - An executable statement with a single entry at the
-  // top and a single exit at the bottom.
-  // The point of exit cannot be a branch out of the structured block.
-  // longjmp() and throw() must not violate the entry/exit criteria.
-  CS->getCapturedDecl()->setNothrow();
-  for (int ThisCaptureLevel = getOpenMPCaptureLevels(OMPD_teams_loop);
-       ThisCaptureLevel > 1; --ThisCaptureLevel) {
-    CS = cast<CapturedStmt>(CS->getCapturedStmt());
-    // 1.2.2 OpenMP Language Terminology
-    // Structured block - An executable statement with a single entry at the
-    // top and a single exit at the bottom.
-    // The point of exit cannot be a branch out of the structured block.
-    // longjmp() and throw() must not violate the entry/exit criteria.
-    CS->getCapturedDecl()->setNothrow();
-  }
-
-  OMPLoopDirective::HelperExprs B;
-  // In presence of clause 'collapse', it will define the nested loops number.
-  unsigned NestedLoopCount =
-      checkOpenMPLoop(OMPD_teams_loop, getCollapseNumberExpr(Clauses),
-                      /*OrderedLoopCountExpr=*/nullptr, CS, *this, *DSAStack,
-                      VarsWithImplicitDSA, B);
-  if (NestedLoopCount == 0)
-    return StmtError();
-
-  assert((CurContext->isDependentContext() || B.builtAll()) &&
-         "omp loop exprs were not built");
-
-  setFunctionHasBranchProtectedScope();
-  DSAStack->setParentTeamsRegionLoc(StartLoc);
-
-  return OMPTeamsGenericLoopDirective::Create(
-      Context, StartLoc, EndLoc, NestedLoopCount, Clauses, AStmt, B);
-}
-
 StmtResult Sema::ActOnOpenMPTargetTeamsGenericLoopDirective(
     ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
     SourceLocation EndLoc, VarsWithInheritedDSAType &VarsWithImplicitDSA) {
@@ -10760,7 +10687,8 @@ StmtResult Sema::ActOnOpenMPTargetTeamsGenericLoopDirective(
         ValueDecl *D = Res.first;
         auto &&Info = DSAStack->isLoopControlVariable(D);
         if (!Info.first) {
-          Diag(ELoc, diag::err_omp_lastprivate_loop_var_non_loop_iteration);
+          Diag(ELoc, diag::err_omp_lastprivate_loop_var_non_loop_iteration)
+              << getOpenMPDirectiveName(OMPD_target_teams_loop);
           return StmtError();
         }
       }
@@ -10822,7 +10750,8 @@ StmtResult Sema::ActOnOpenMPParallelGenericLoopDirective(
         ValueDecl *D = Res.first;
         auto &&Info = DSAStack->isLoopControlVariable(D);
         if (!Info.first) {
-          Diag(ELoc, diag::err_omp_lastprivate_loop_var_non_loop_iteration);
+          Diag(ELoc, diag::err_omp_lastprivate_loop_var_non_loop_iteration)
+              << getOpenMPDirectiveName(OMPD_parallel_loop);
           return StmtError();
         }
       }
@@ -10884,7 +10813,8 @@ StmtResult Sema::ActOnOpenMPTargetParallelGenericLoopDirective(
         ValueDecl *D = Res.first;
         auto &&Info = DSAStack->isLoopControlVariable(D);
         if (!Info.first) {
-          Diag(ELoc, diag::err_omp_lastprivate_loop_var_non_loop_iteration);
+          Diag(ELoc, diag::err_omp_lastprivate_loop_var_non_loop_iteration)
+              << getOpenMPDirectiveName(OMPD_target_parallel_loop);
           return StmtError();
         }
       }
@@ -16360,14 +16290,10 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_target:
     case OMPD_end_declare_target:
     case OMPD_loop:
-<<<<<<< HEAD
-#if INTEL_COLLAB
     case OMPD_teams_loop:
+#if INTEL_COLLAB
     case OMPD_target_variant_dispatch:
 #endif // INTEL_COLLAB
-=======
-    case OMPD_teams_loop:
->>>>>>> 79f661edc13d389437b83d42f0af04b0615b920e
     case OMPD_teams:
     case OMPD_tile:
     case OMPD_unroll:
@@ -16454,15 +16380,11 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_target:
     case OMPD_end_declare_target:
     case OMPD_loop:
-<<<<<<< HEAD
-#if INTEL_COLLAB
     case OMPD_teams_loop:
+#if INTEL_COLLAB
     case OMPD_target_teams_loop:
     case OMPD_target_variant_dispatch:
 #endif // INTEL_COLLAB
-=======
-    case OMPD_teams_loop:
->>>>>>> 79f661edc13d389437b83d42f0af04b0615b920e
     case OMPD_teams:
     case OMPD_simd:
     case OMPD_tile:
@@ -16507,13 +16429,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_teams:
     case OMPD_teams_distribute:
     case OMPD_teams_distribute_simd:
-<<<<<<< HEAD
-#if INTEL_COLLAB
     case OMPD_teams_loop:
-#endif // INTEL_COLLAB
-=======
-    case OMPD_teams_loop:
->>>>>>> 79f661edc13d389437b83d42f0af04b0615b920e
       // Do not capture num_teams-clause expressions.
       break;
     case OMPD_distribute_parallel_for:
@@ -16604,13 +16520,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_teams:
     case OMPD_teams_distribute:
     case OMPD_teams_distribute_simd:
-<<<<<<< HEAD
-#if INTEL_COLLAB
     case OMPD_teams_loop:
-#endif // INTEL_COLLAB
-=======
-    case OMPD_teams_loop:
->>>>>>> 79f661edc13d389437b83d42f0af04b0615b920e
       // Do not capture thread_limit-clause expressions.
       break;
     case OMPD_distribute_parallel_for:
@@ -16743,17 +16653,13 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_target:
     case OMPD_end_declare_target:
     case OMPD_loop:
-<<<<<<< HEAD
-#if INTEL_COLLAB
     case OMPD_teams_loop:
+#if INTEL_COLLAB
     case OMPD_target_teams_loop:
     case OMPD_parallel_loop:
     case OMPD_target_parallel_loop:
     case OMPD_target_variant_dispatch:
 #endif // INTEL_COLLAB
-=======
-    case OMPD_teams_loop:
->>>>>>> 79f661edc13d389437b83d42f0af04b0615b920e
     case OMPD_simd:
     case OMPD_tile:
     case OMPD_unroll:
@@ -16835,9 +16741,8 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_target:
     case OMPD_end_declare_target:
     case OMPD_loop:
-<<<<<<< HEAD
-#if INTEL_COLLAB
     case OMPD_teams_loop:
+#if INTEL_COLLAB
     case OMPD_target_teams_loop:
     case OMPD_parallel_loop:
     case OMPD_target_parallel_loop:
@@ -16915,7 +16820,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_parallel_for:
     case OMPD_parallel_for_simd:
 #if INTEL_COLLAB
-    case OMPD_teams_loop:
     case OMPD_parallel_loop:
 #endif // INTEL_COLLAB
     case OMPD_threadprivate:
@@ -16936,6 +16840,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_target:
     case OMPD_end_declare_target:
     case OMPD_loop:
+    case OMPD_teams_loop:
     case OMPD_simd:
     case OMPD_tile:
     case OMPD_unroll:
@@ -17025,9 +16930,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-=======
-    case OMPD_teams_loop:
->>>>>>> 79f661edc13d389437b83d42f0af04b0615b920e
     case OMPD_simd:
     case OMPD_unroll:
     case OMPD_for:
@@ -17094,7 +16996,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_parallel_sections:
     case OMPD_parallel_for:
     case OMPD_parallel_for_simd:
-    case OMPD_teams_loop:
     case OMPD_parallel_loop:
     case OMPD_threadprivate:
     case OMPD_allocate:
@@ -17280,17 +17181,13 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_target:
     case OMPD_end_declare_target:
     case OMPD_loop:
-<<<<<<< HEAD
-#if INTEL_COLLAB
     case OMPD_teams_loop:
+#if INTEL_COLLAB
     case OMPD_target_teams_loop:
     case OMPD_parallel_loop:
     case OMPD_target_parallel_loop:
     case OMPD_target_variant_dispatch:
 #endif // INTEL_COLLAB
-=======
-    case OMPD_teams_loop:
->>>>>>> 79f661edc13d389437b83d42f0af04b0615b920e
     case OMPD_simd:
     case OMPD_tile:
     case OMPD_unroll:

@@ -2539,7 +2539,6 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_target_parallel_for_simd:
   case OMPD_target_simd:
 #if INTEL_COLLAB
-  case OMPD_teams_loop:
   case OMPD_target_teams_loop:
   case OMPD_parallel_loop:
   case OMPD_target_parallel_loop:
@@ -3029,9 +3028,8 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
   case OMPD_target_parallel:
   case OMPD_target_parallel_for:
   case OMPD_loop:
-<<<<<<< HEAD
-#if INTEL_COLLAB
   case OMPD_teams_loop:
+#if INTEL_COLLAB
   case OMPD_target_teams_loop:
   case OMPD_parallel_loop:
   case OMPD_target_parallel_loop:
@@ -3047,9 +3045,6 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
     // Fall through for further analysis.
     LLVM_FALLTHROUGH;
 #endif // INTEL_COLLAB
-=======
-  case OMPD_teams_loop:
->>>>>>> 79f661edc13d389437b83d42f0af04b0615b920e
   case OMPD_taskloop:
   case OMPD_taskloop_simd:
   case OMPD_master_taskloop:

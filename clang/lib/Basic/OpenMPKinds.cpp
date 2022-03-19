@@ -670,15 +670,8 @@ bool clang::isOpenMPNestingTeamsDirective(OpenMPDirectiveKind DKind) {
   return DKind == OMPD_teams || DKind == OMPD_teams_distribute ||
          DKind == OMPD_teams_distribute_simd ||
          DKind == OMPD_teams_distribute_parallel_for_simd ||
-<<<<<<< HEAD
-#if INTEL_COLLAB
-         DKind == OMPD_teams_loop ||
-#endif // INTEL_COLLAB
-         DKind == OMPD_teams_distribute_parallel_for;
-=======
          DKind == OMPD_teams_distribute_parallel_for ||
          DKind == OMPD_teams_loop;
->>>>>>> 79f661edc13d389437b83d42f0af04b0615b920e
 }
 
 bool clang::isOpenMPTeamsDirective(OpenMPDirectiveKind DKind) {
@@ -834,15 +827,7 @@ void clang::getOpenMPCaptureRegions(
     CaptureRegions.push_back(OMPD_teams);
     CaptureRegions.push_back(OMPD_parallel);
     break;
-<<<<<<< HEAD
 #if INTEL_COLLAB
-  case OMPD_loop:
-    CaptureRegions.push_back(OMPD_loop);
-    break;
-  case OMPD_teams_loop:
-    CaptureRegions.push_back(OMPD_teams);
-    CaptureRegions.push_back(OMPD_loop);
-    break;
   case OMPD_target_teams_loop:
     CaptureRegions.push_back(OMPD_task);
     CaptureRegions.push_back(OMPD_target);
@@ -859,17 +844,14 @@ void clang::getOpenMPCaptureRegions(
     CaptureRegions.push_back(OMPD_parallel);
     CaptureRegions.push_back(OMPD_loop);
     break;
-#else // INTEL_COLLAB
-=======
+#endif // INTEL_COLLAB
   case OMPD_teams_loop:
     CaptureRegions.push_back(OMPD_teams);
     break;
->>>>>>> 79f661edc13d389437b83d42f0af04b0615b920e
   case OMPD_loop:
     // TODO: 'loop' may require different capture regions depending on the bind
     // clause or the parent directive when there is no bind clause. Use
     // OMPD_unknown for now.
-#endif // INTEL_COLLAB
   case OMPD_simd:
   case OMPD_for:
   case OMPD_for_simd:
