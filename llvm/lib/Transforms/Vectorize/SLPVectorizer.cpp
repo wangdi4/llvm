@@ -5767,28 +5767,8 @@ static LoadsState canVectorizeLoads(
   return LoadsState::Gather;
 }
 
-<<<<<<< HEAD
-/// \return true if the specified list of values has only one instruction that
-/// requires scheduling, false otherwise.
-static bool needToScheduleSingleInstruction(ArrayRef<Value *> VL) {
-  Value *NeedsScheduling = nullptr;
-  for (Value *V : VL) {
-    if (doesNotNeedToBeScheduled(V))
-      continue;
-    if (!NeedsScheduling) {
-      NeedsScheduling = V;
-      continue;
-    }
-    return false;
-  }
-  return NeedsScheduling;
-}
-
 #if INTEL_CUSTOMIZATION
 void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
-=======
-void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
->>>>>>> 150ea765431280b931e0673448863ec98f1d0ac3
                             const EdgeInfo &UserTreeIdx) {
   // Since we are updating VL, we need a non-readonly VL, so create a copy.
   // TODO: Any better way of doing this?
