@@ -40,7 +40,6 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/GlobalValue.h"
-#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Support/AtomicOrdering.h"
 #include "llvm/Support/Format.h"
@@ -2023,10 +2022,8 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       CtorCGF.StartFunction(GlobalDecl(), CGM.getContext().VoidTy, Fn, FI,
                             FunctionArgList(), Loc, Loc);
       auto AL = ApplyDebugLocation::CreateArtificial(CtorCGF);
-      auto *AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
-          Addr, llvm::PointerType::getWithSamePointeeType(
-                    cast<llvm::PointerType>(Addr->getType()), 0));
       CtorCGF.EmitAnyExprToMem(
+<<<<<<< HEAD
           Init,
 #if INTEL_COLLAB
           Address(AddrInAS0, CtorCGF.ConvertTypeForMem(VD->getType()),
@@ -2034,6 +2031,9 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
 #else // INTEL_COLLAB
           Address::deprecated(AddrInAS0, CGM.getContext().getDeclAlign(VD)),
 #endif // INTEL_COLLAB
+=======
+          Init, Address::deprecated(Addr, CGM.getContext().getDeclAlign(VD)),
+>>>>>>> a597d6a780b184539f504392168b004bf392a135
           Init->getType().getQualifiers(),
           /*IsInitializer=*/true);
       CtorCGF.FinishFunction();
@@ -2084,10 +2084,8 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       // Create a scope with an artificial location for the body of this
       // function.
       auto AL = ApplyDebugLocation::CreateArtificial(DtorCGF);
-      auto *AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
-          Addr, llvm::PointerType::getWithSamePointeeType(
-                    cast<llvm::PointerType>(Addr->getType()), 0));
       DtorCGF.emitDestroy(
+<<<<<<< HEAD
 #if INTEL_COLLAB
           Address(AddrInAS0, DtorCGF.ConvertTypeForMem(VD->getType()),
                   CGM.getContext().getDeclAlign(VD)),
@@ -2095,6 +2093,10 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
           Address::deprecated(AddrInAS0, CGM.getContext().getDeclAlign(VD)),
 #endif // INTEL_COLLAB
           ASTTy, DtorCGF.getDestroyer(ASTTy.isDestructedType()),
+=======
+          Address::deprecated(Addr, CGM.getContext().getDeclAlign(VD)), ASTTy,
+          DtorCGF.getDestroyer(ASTTy.isDestructedType()),
+>>>>>>> a597d6a780b184539f504392168b004bf392a135
           DtorCGF.needsEHCleanup(ASTTy.isDestructedType()));
       DtorCGF.FinishFunction();
       Dtor = Fn;
