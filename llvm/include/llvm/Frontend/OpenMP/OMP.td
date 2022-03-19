@@ -1840,22 +1840,6 @@ def OMP_target_variant_dispatch : Directive<"target variant dispatch"> {
     VersionedClause<OMPC_NoWait>
   ];
 }
-def OMP_teams_loop : Directive<"teams loop"> {
-  let allowedClauses = [
-    VersionedClause<OMPC_Bind>,
-    VersionedClause<OMPC_Collapse>,
-    VersionedClause<OMPC_Order>,
-    VersionedClause<OMPC_Private>,
-    VersionedClause<OMPC_LastPrivate>,
-    VersionedClause<OMPC_Reduction>,
-    VersionedClause<OMPC_Default>,
-    VersionedClause<OMPC_FirstPrivate>,
-    VersionedClause<OMPC_Shared>,
-    VersionedClause<OMPC_NumTeams>,
-    VersionedClause<OMPC_ThreadLimit>,
-    VersionedClause<OMPC_Allocate>
-  ];
-}
 def OMP_target_teams_loop : Directive<"target teams loop"> {
   let allowedClauses = [
     VersionedClause<OMPC_Bind>,
@@ -2030,6 +2014,24 @@ def OMP_loop : Directive<"loop"> {
     VersionedClause<OMPC_Bind, 50>,
     VersionedClause<OMPC_Collapse>,
     VersionedClause<OMPC_Order>,
+  ];
+}
+def OMP_teams_loop : Directive<"teams loop"> {
+  let allowedClauses = [
+    VersionedClause<OMPC_Allocate>,
+    VersionedClause<OMPC_FirstPrivate>,
+    VersionedClause<OMPC_LastPrivate>,
+    VersionedClause<OMPC_Private>,
+    VersionedClause<OMPC_Reduction>,
+    VersionedClause<OMPC_Shared>,
+  ];
+  let allowedOnceClauses = [
+    VersionedClause<OMPC_Bind, 50>,
+    VersionedClause<OMPC_Collapse>,
+    VersionedClause<OMPC_Default>,
+    VersionedClause<OMPC_NumTeams>,
+    VersionedClause<OMPC_Order>,
+    VersionedClause<OMPC_ThreadLimit>,
   ];
 }
 def OMP_Metadirective : Directive<"metadirective"> {

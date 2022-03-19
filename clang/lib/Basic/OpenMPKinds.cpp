@@ -603,7 +603,7 @@ bool clang::isOpenMPLoopDirective(OpenMPDirectiveKind DKind) {
          DKind == OMPD_target_teams_distribute_parallel_for ||
          DKind == OMPD_target_teams_distribute_parallel_for_simd ||
          DKind == OMPD_target_teams_distribute_simd || DKind == OMPD_tile ||
-         DKind == OMPD_unroll || DKind == OMPD_loop;
+         DKind == OMPD_unroll || DKind == OMPD_loop || DKind == OMPD_teams_loop;
 }
 
 bool clang::isOpenMPWorksharingDirective(OpenMPDirectiveKind DKind) {
@@ -670,10 +670,8 @@ bool clang::isOpenMPNestingTeamsDirective(OpenMPDirectiveKind DKind) {
   return DKind == OMPD_teams || DKind == OMPD_teams_distribute ||
          DKind == OMPD_teams_distribute_simd ||
          DKind == OMPD_teams_distribute_parallel_for_simd ||
-#if INTEL_COLLAB
-         DKind == OMPD_teams_loop ||
-#endif // INTEL_COLLAB
-         DKind == OMPD_teams_distribute_parallel_for;
+         DKind == OMPD_teams_distribute_parallel_for ||
+         DKind == OMPD_teams_loop;
 }
 
 bool clang::isOpenMPTeamsDirective(OpenMPDirectiveKind DKind) {
@@ -727,7 +725,7 @@ bool clang::isOpenMPGenericLoopDirective(OpenMPDirectiveKind Kind) {
 }
 #else // INTEL_COLLAB
 bool clang::isOpenMPGenericLoopDirective(OpenMPDirectiveKind Kind) {
-  return Kind == OMPD_loop;
+  return Kind == OMPD_loop || Kind == OMPD_teams_loop;
 }
 #endif  // INTEL_COLLAB
 
@@ -830,13 +828,6 @@ void clang::getOpenMPCaptureRegions(
     CaptureRegions.push_back(OMPD_parallel);
     break;
 #if INTEL_COLLAB
-  case OMPD_loop:
-    CaptureRegions.push_back(OMPD_loop);
-    break;
-  case OMPD_teams_loop:
-    CaptureRegions.push_back(OMPD_teams);
-    CaptureRegions.push_back(OMPD_loop);
-    break;
   case OMPD_target_teams_loop:
     CaptureRegions.push_back(OMPD_task);
     CaptureRegions.push_back(OMPD_target);
@@ -853,12 +844,14 @@ void clang::getOpenMPCaptureRegions(
     CaptureRegions.push_back(OMPD_parallel);
     CaptureRegions.push_back(OMPD_loop);
     break;
-#else // INTEL_COLLAB
+#endif // INTEL_COLLAB
+  case OMPD_teams_loop:
+    CaptureRegions.push_back(OMPD_teams);
+    break;
   case OMPD_loop:
     // TODO: 'loop' may require different capture regions depending on the bind
     // clause or the parent directive when there is no bind clause. Use
     // OMPD_unknown for now.
-#endif // INTEL_COLLAB
   case OMPD_simd:
   case OMPD_for:
   case OMPD_for_simd:
