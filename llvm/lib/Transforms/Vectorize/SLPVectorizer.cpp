@@ -6173,10 +6173,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
       // Check for terminator values (e.g. invoke).
       for (Value *V : VL)
-        for (unsigned I = 0, E = PH->getNumIncomingValues(); I < E; ++I) {
-          Instruction *Term = dyn_cast<Instruction>(
-              cast<PHINode>(V)->getIncomingValueForBlock(
-                  PH->getIncomingBlock(I)));
+        for (Value *Incoming : cast<PHINode>(V)->incoming_values()) {
+          Instruction *Term = dyn_cast<Instruction>(Incoming);
           if (Term && Term->isTerminator()) {
             LLVM_DEBUG(dbgs()
                        << "SLP: Need to swizzle PHINodes (terminator use).\n");
