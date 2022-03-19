@@ -1293,6 +1293,11 @@ void StmtProfiler::VisitOMPGenericLoopDirective(
   VisitOMPLoopDirective(S);
 }
 
+void StmtProfiler::VisitOMPTeamsGenericLoopDirective(
+    const OMPTeamsGenericLoopDirective *S) {
+  VisitOMPLoopDirective(S);
+}
+
 void StmtProfiler::VisitExpr(const Expr *S) {
   VisitStmt(S);
 }

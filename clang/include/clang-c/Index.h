@@ -2599,6 +2599,7 @@ enum CXCursorKind {
   /** OpenMP loop directive.
    */
   CXCursor_OMPGenericLoopDirective = 295,
+<<<<<<< HEAD
 #if INTEL_COLLAB
   CXCursor_OMPTargetVariantDispatchDirective = 296,
   CXCursor_OMPTeamsGenericLoopDirective = 297,
@@ -2611,6 +2612,14 @@ enum CXCursorKind {
 #else /* INTEL_COLLAB */
   CXCursor_LastStmt = CXCursor_OMPGenericLoopDirective,
 #endif /* INTEL_COLLAB */
+=======
+
+  /** OpenMP teams loop directive.
+   */
+  CXCursor_OMPTeamsGenericLoopDirective = 296,
+
+  CXCursor_LastStmt = CXCursor_OMPTeamsGenericLoopDirective,
+>>>>>>> 79f661edc13d389437b83d42f0af04b0615b920e
 
 /**
  * Cursor that represents the translation unit itself.

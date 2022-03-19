@@ -1047,6 +1047,12 @@ void StmtPrinter::VisitOMPGenericLoopDirective(OMPGenericLoopDirective *Node) {
   PrintOMPExecutableDirective(Node);
 }
 
+void StmtPrinter::VisitOMPTeamsGenericLoopDirective(
+    OMPTeamsGenericLoopDirective *Node) {
+  Indent() << "#pragma omp teams loop";
+  PrintOMPExecutableDirective(Node);
+}
+
 //===----------------------------------------------------------------------===//
 //  Expr printing methods.
 //===----------------------------------------------------------------------===//

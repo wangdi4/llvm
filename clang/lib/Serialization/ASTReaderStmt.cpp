@@ -2715,6 +2715,11 @@ void ASTStmtReader::VisitOMPGenericLoopDirective(OMPGenericLoopDirective *D) {
   VisitOMPLoopDirective(D);
 }
 
+void ASTStmtReader::VisitOMPTeamsGenericLoopDirective(
+    OMPTeamsGenericLoopDirective *D) {
+  VisitOMPLoopDirective(D);
+}
+
 //===----------------------------------------------------------------------===//
 // ASTReader Implementation
 //===----------------------------------------------------------------------===//
@@ -3719,6 +3724,14 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       unsigned NumClauses = Record[ASTStmtReader::NumStmtFields + 1];
       S = OMPGenericLoopDirective::CreateEmpty(Context, NumClauses,
                                                CollapsedNum, Empty);
+      break;
+    }
+
+    case STMT_OMP_TEAMS_GENERIC_LOOP_DIRECTIVE: {
+      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields];
+      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields + 1];
+      S = OMPTeamsGenericLoopDirective::CreateEmpty(Context, NumClauses,
+                                                    CollapsedNum, Empty);
       break;
     }
 
