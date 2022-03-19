@@ -1958,7 +1958,7 @@ if (INTEL_CUSTOMIZATION)
         # XDEV components
         xdev-icpx
         # CXX components
-        cxx cxxabi cxx-headers
+        cxx cxxabi cxx-headers cxxabi-headers
         )
 
       # CMPLRLLVM-20054: icx-lto is a release name for LLVMgold plugin.
