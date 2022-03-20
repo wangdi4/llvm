@@ -5639,6 +5639,10 @@ bool X86TTIImpl::isLibIRCAllowed() const {
   return TM.Options.IntelLibIRCAllowed;
 }
 
+unsigned X86TTIImpl::getMaxScale() const {
+  return 8;
+}
+
 bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
   if (CI->getCallingConv() != CallingConv::Intel_OCL_BI)
     return false;

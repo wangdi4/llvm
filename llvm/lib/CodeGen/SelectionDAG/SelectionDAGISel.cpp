@@ -22,6 +22,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/AssumptionCache.h" // INTEL
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/EHPersonalities.h"
@@ -30,6 +31,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
+#include "llvm/Analysis/ScalarEvolution.h" // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/CodeGen/CodeGenCommonISel.h"
@@ -332,6 +334,8 @@ SelectionDAGISel::~SelectionDAGISel() {
 void SelectionDAGISel::getAnalysisUsage(AnalysisUsage &AU) const {
   if (OptLevel != CodeGenOpt::None)
     AU.addRequired<AAResultsWrapperPass>();
+  AU.addRequired<ScalarEvolutionWrapperPass>(); // INTEL
+  AU.addRequired<AssumptionCacheTracker>(); // INTEL
   AU.addRequired<GCModuleInfo>();
   AU.addRequired<StackProtector>();
   AU.addPreserved<GCModuleInfo>();
@@ -419,7 +423,7 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
   assert((!EnableFastISelAbort || TM.Options.EnableFastISel) &&
          "-fast-isel-abort > 0 requires -fast-isel");
 
-  const Function &Fn = mf.getFunction();
+  Function &Fn = mf.getFunction(); // INTEL
   MF = &mf;
 
   // Reset the target options before resetting the optimization
@@ -436,6 +440,10 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
 
   TII = MF->getSubtarget().getInstrInfo();
   TLI = MF->getSubtarget().getTargetLowering();
+  auto *TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn); // INTEL
+  auto *SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE(); // INTEL
+  auto *AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(Fn); // INTEL
+
   RegInfo = &MF->getRegInfo();
   LibInfo = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(Fn);
   GFI = Fn.hasGC() ? &getAnalysis<GCModuleInfo>().getFunctionInfo(Fn) : nullptr;
@@ -473,7 +481,7 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
   else
     AA = nullptr;
 
-  SDB->init(GFI, AA, LibInfo);
+  SDB->init(GFI, AA, LibInfo, TTI, AC, DT, SE); // INTEL
 
   MF->setHasInlineAsm(false);
 

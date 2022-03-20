@@ -31,7 +31,6 @@ define internal void @test01helper(ptr "intel_dtrans_func_index"="1" %arg0, ptr 
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i32*{{ *$}}
-; CHECK-NEXT:   i8*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 0
 
@@ -39,7 +38,6 @@ define internal void @test01helper(ptr "intel_dtrans_func_index"="1" %arg0, ptr 
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i64**{{ *$}}
-; CHECK-NEXT:   i8*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 1
 
@@ -47,7 +45,6 @@ define internal void @test01helper(ptr "intel_dtrans_func_index"="1" %arg0, ptr 
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i32*{{ *$}}
-; CHECK-NEXT:   i8*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 2
 
@@ -55,7 +52,6 @@ define internal void @test01helper(ptr "intel_dtrans_func_index"="1" %arg0, ptr 
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i16*{{ *$}}
-; CHECK-NEXT:   i8*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 3
 
@@ -63,7 +59,6 @@ define internal void @test01helper(ptr "intel_dtrans_func_index"="1" %arg0, ptr 
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i16*{{ *$}}
-; CHECK-NEXT:   i8*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 4
 
@@ -83,7 +78,6 @@ define internal void @test02() {
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i32*{{ *$}}
-; CHECK-NEXT:   i8*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test02 @ 0
 ; CHECK-NEXT:   %struct.test02 @ 2
@@ -111,6 +105,7 @@ define internal void @test03(i32 %x, i32 %y) {
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-SAME: UNKNOWN BYTE FLATTENED GEP
 ; CHECK-NEXT:  Aliased types:
+; CHECK-NEXT:    i32*{{ *$}}
 ; CHECK-NEXT:    i8*{{ *$}}
 ; CHECK-NEXT:  No element pointees.
 
@@ -129,6 +124,7 @@ define internal void @test04() {
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-SAME: UNKNOWN BYTE FLATTENED GEP
 ; CHECK-NEXT:  Aliased types:
+; CHECK-NEXT:    i32*{{ *$}}
 ; CHECK-NEXT:    i8*{{ *$}}
 ; CHECK-NEXT:  No element pointees.
 
@@ -147,7 +143,6 @@ define internal void @test05() {
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT:  Aliased types:
 ; CHECK-NEXT:    i32*{{ *$}}
-; CHECK-NEXT:    i8*{{ *$}}
 ; CHECK-NEXT:  Element pointees:
 ; CHECK-NEXT:    %struct.test05a @ 1
 
@@ -202,7 +197,6 @@ define internal void @test08() {
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i64*{{ *$}}
-; CHECK-NEXT:   i8*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   [3 x i64] @ 2
 
@@ -222,7 +216,6 @@ define internal void @test09() {
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i64*{{ *$}}
-; CHECK-NEXT:   i8*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test09 @ 1
 
@@ -242,6 +235,7 @@ define internal void @test10(i64 %idx) {
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-SAME: UNKNOWN BYTE FLATTENED GEP
 ; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:    i32*{{ *$}}
 ; CHECK-NEXT:   i8*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
