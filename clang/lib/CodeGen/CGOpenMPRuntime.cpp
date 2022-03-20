@@ -40,6 +40,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Support/AtomicOrdering.h"
 #include "llvm/Support/Format.h"
@@ -2022,7 +2023,13 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       CtorCGF.StartFunction(GlobalDecl(), CGM.getContext().VoidTy, Fn, FI,
                             FunctionArgList(), Loc, Loc);
       auto AL = ApplyDebugLocation::CreateArtificial(CtorCGF);
+      llvm::Constant *AddrInAS0 = Addr;
+      if (Addr->getAddressSpace() != 0)
+        AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
+            Addr, llvm::PointerType::getWithSamePointeeType(
+                      cast<llvm::PointerType>(Addr->getType()), 0));
       CtorCGF.EmitAnyExprToMem(
+<<<<<<< HEAD
 #if INTEL_COLLAB
           Init, Address(CGM.GetAddrOfGlobalVar(VD),
                         CtorCGF.ConvertTypeForMem(VD->getType()),
@@ -2030,6 +2037,10 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
 #else // INTEL_COLLAB
           Init, Address::deprecated(Addr, CGM.getContext().getDeclAlign(VD)),
 #endif // INTEL_COLLAB
+=======
+          Init,
+          Address::deprecated(AddrInAS0, CGM.getContext().getDeclAlign(VD)),
+>>>>>>> f02550bdd9b7e4b442009edc02f9e3f78400ae30
           Init->getType().getQualifiers(),
           /*IsInitializer=*/true);
       CtorCGF.FinishFunction();
@@ -2080,7 +2091,13 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       // Create a scope with an artificial location for the body of this
       // function.
       auto AL = ApplyDebugLocation::CreateArtificial(DtorCGF);
+      llvm::Constant *AddrInAS0 = Addr;
+      if (Addr->getAddressSpace() != 0)
+        AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
+            Addr, llvm::PointerType::getWithSamePointeeType(
+                      cast<llvm::PointerType>(Addr->getType()), 0));
       DtorCGF.emitDestroy(
+<<<<<<< HEAD
 #if INTEL_COLLAB
          Address(CGM.GetAddrOfGlobalVar(VD),
                  DtorCGF.ConvertTypeForMem(VD->getType()),
@@ -2089,6 +2106,10 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
           Address::deprecated(Addr, CGM.getContext().getDeclAlign(VD)), ASTTy,
 #endif // INTEL_COLLAB
           DtorCGF.getDestroyer(ASTTy.isDestructedType()),
+=======
+          Address::deprecated(AddrInAS0, CGM.getContext().getDeclAlign(VD)),
+          ASTTy, DtorCGF.getDestroyer(ASTTy.isDestructedType()),
+>>>>>>> f02550bdd9b7e4b442009edc02f9e3f78400ae30
           DtorCGF.needsEHCleanup(ASTTy.isDestructedType()));
       DtorCGF.FinishFunction();
       Dtor = Fn;
