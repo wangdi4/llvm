@@ -110,14 +110,22 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
 
         InlineFunctionInfo IFI(
             /*cg=*/nullptr, GetAssumptionCache, &PSI,
-            &FAM.getResult<BlockFrequencyAnalysis>(*(CB->getCaller())),
+            &FAM.getResult<BlockFrequencyAnalysis>(*Caller),
             &FAM.getResult<BlockFrequencyAnalysis>(F));
 
         InlineResult Res = InlineFunction(
             *CB, IFI, getReport(), getMDReport(),          // INTEL
             &FAM.getResult<AAManager>(F), InsertLifetime); // INTEL
-        assert(Res.isSuccess() && "unexpected failure to inline");
-        (void)Res;
+        if (!Res.isSuccess()) {
+          ORE.emit([&]() {
+            return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", // INTEL
+                                            CB->getDebugLoc(), CB->getParent()) // INTEL
+                   << "'" << ore::NV("Callee", &F) << "' is not inlined into '"
+                   << ore::NV("Caller", Caller)
+                   << "': " << ore::NV("Reason", Res.getFailureReason());
+          });
+          continue;
+        }
 
         // Merge the attributes based on the inlining.
         AttributeFuncs::mergeAttributesForInlining(*Caller, F);
