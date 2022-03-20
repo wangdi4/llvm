@@ -2029,18 +2029,13 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
             Addr, llvm::PointerType::getWithSamePointeeType(
                       cast<llvm::PointerType>(Addr->getType()), 0));
       CtorCGF.EmitAnyExprToMem(
-<<<<<<< HEAD
-#if INTEL_COLLAB
-          Init, Address(CGM.GetAddrOfGlobalVar(VD),
-                        CtorCGF.ConvertTypeForMem(VD->getType()),
-                        CGM.getContext().getDeclAlign(VD)),
-#else // INTEL_COLLAB
-          Init, Address::deprecated(Addr, CGM.getContext().getDeclAlign(VD)),
-#endif // INTEL_COLLAB
-=======
           Init,
+#if INTEL_COLLAB
+          Address(AddrInAS0, CtorCGF.ConvertTypeForMem(VD->getType()),
+                  CGM.getContext().getDeclAlign(VD)),
+#else // INTEL_COLLAB
           Address::deprecated(AddrInAS0, CGM.getContext().getDeclAlign(VD)),
->>>>>>> f02550bdd9b7e4b442009edc02f9e3f78400ae30
+#endif // INTEL_COLLAB
           Init->getType().getQualifiers(),
           /*IsInitializer=*/true);
       CtorCGF.FinishFunction();
@@ -2097,19 +2092,13 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
             Addr, llvm::PointerType::getWithSamePointeeType(
                       cast<llvm::PointerType>(Addr->getType()), 0));
       DtorCGF.emitDestroy(
-<<<<<<< HEAD
 #if INTEL_COLLAB
-         Address(CGM.GetAddrOfGlobalVar(VD),
-                 DtorCGF.ConvertTypeForMem(VD->getType()),
-                 CGM.getContext().getDeclAlign(VD)), ASTTy,
+          Address(AddrInAS0, DtorCGF.ConvertTypeForMem(VD->getType()),
+                  CGM.getContext().getDeclAlign(VD)),
 #else // INTEL_COLLAB
-          Address::deprecated(Addr, CGM.getContext().getDeclAlign(VD)), ASTTy,
-#endif // INTEL_COLLAB
-          DtorCGF.getDestroyer(ASTTy.isDestructedType()),
-=======
           Address::deprecated(AddrInAS0, CGM.getContext().getDeclAlign(VD)),
+#endif // INTEL_COLLAB
           ASTTy, DtorCGF.getDestroyer(ASTTy.isDestructedType()),
->>>>>>> f02550bdd9b7e4b442009edc02f9e3f78400ae30
           DtorCGF.needsEHCleanup(ASTTy.isDestructedType()));
       DtorCGF.FinishFunction();
       Dtor = Fn;
