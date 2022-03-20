@@ -2433,6 +2433,8 @@ static void emitPartialArrayDestroy(CodeGenFunction &CGF,
                                     llvm::Value *begin, llvm::Value *end,
                                     QualType type, CharUnits elementAlign,
                                     CodeGenFunction::Destroyer *destroyer) {
+  llvm::Type *elemTy = CGF.ConvertTypeForMem(type);
+
   // If the element type is itself an array, drill down.
   unsigned arrayDepth = 0;
   while (const ArrayType *arrayType = CGF.getContext().getAsArrayType(type)) {
@@ -2446,7 +2448,6 @@ static void emitPartialArrayDestroy(CodeGenFunction &CGF,
     llvm::Value *zero = llvm::ConstantInt::get(CGF.SizeTy, 0);
 
     SmallVector<llvm::Value*,4> gepIndices(arrayDepth+1, zero);
-    llvm::Type *elemTy = begin->getType()->getPointerElementType();
     begin = CGF.Builder.CreateInBoundsGEP(
         elemTy, begin, gepIndices, "pad.arraybegin");
     end = CGF.Builder.CreateInBoundsGEP(
@@ -2630,11 +2631,22 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, ParamValue Arg,
              CGM.getDataLayout().getAllocaAddrSpace());
       auto DestAS = getContext().getTargetAddressSpace(DestLangAS);
 #if INTEL_CUSTOMIZATION
-      auto *T = llvm::PointerType::getWithSamePointeeType(cast<llvm::PointerType>(V->getType()), DestAS);
+      auto *T =
+                llvm::PointerType::getWithSamePointeeType(
+                      cast<llvm::PointerType>(V->getType()), DestAS);
+#else // INTEL_CUSTOMIZATION
+                DeclPtr.getElementType()->getPointerTo(DestAS);
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       DeclPtr = Address(getTargetHooks().performAddrSpaceCast(
                             *this, V, SrcLangAS, DestLangAS, T, true),
                         DeclPtr.getElementType(),
                         DeclPtr.getAlignment());
+#else // INTEL_CUSTOMIZATION
+                DeclPtr.withPointer(getTargetHooks().performAddrSpaceCast(
+          *this, V, SrcLangAS, DestLangAS, T, true));
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       AllocaPtr = DeclPtr;
 #endif // INTEL_CUSTOMIZATION
     }
