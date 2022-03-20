@@ -10,13 +10,10 @@
 define <8 x i32> @test1(%struct.ST* %base, <8 x i64> %i1) {
 ; CHECK-LABEL: test1:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vpsllq $3, %zmm0, %zmm0
-; CHECK-NEXT:    vpbroadcastq %rdi, %zmm1
-; CHECK-NEXT:    vpaddq %zmm1, %zmm0, %zmm0
-; CHECK-NEXT:    vpaddq {{.*}}(%rip), %zmm0, %zmm1
+; CHECK-NEXT:    vpaddq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm1
 ; CHECK-NEXT:    kxnorw %k0, %k0, %k1
 ; CHECK-NEXT:    vpxor %xmm0, %xmm0, %xmm0
-; CHECK-NEXT:    vpgatherqd (,%zmm1), %ymm0 {%k1}
+; CHECK-NEXT:    vpgatherqd 4(%rdi,%zmm1,8), %ymm0 {%k1}
 ; CHECK-NEXT:    retq
 entry:
   %add = add <8 x i64> %i1, <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>

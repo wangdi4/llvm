@@ -29,6 +29,7 @@
 #include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h" // INTEL
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/FunctionLoweringInfo.h"
@@ -1024,10 +1025,18 @@ RegsForValue::getRegsAndSizes() const {
 }
 
 void SelectionDAGBuilder::init(GCFunctionInfo *gfi, AliasAnalysis *aa,
-                               const TargetLibraryInfo *li) {
+                               const TargetLibraryInfo *li, // INTEL
+                               const TargetTransformInfo *tti, // INTEL
+                               AssumptionCache *ac, // INTEL
+                               const DominatorTree *dt, // INTEL
+                               const ScalarEvolution *scev) { // INTEL
   AA = aa;
   GFI = gfi;
   LibInfo = li;
+  TTI = tti;    // INTEL
+  SCEV = scev;  // INTEL
+  AC = ac;      // INTEL
+  DT = dt;      // INTEL
   Context = DAG.getContext();
   LPadToCallSiteMap.clear();
   SL->init(DAG.getTargetLoweringInfo(), TM, DAG.getDataLayout());
@@ -4436,6 +4445,191 @@ static bool getUniformBase(const Value *Ptr, SDValue &Base, SDValue &Index,
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+// Get a uniform base for the Gather/Scatter intrinsic.
+// The first argument of the Gather/Scatter intrinsic is a vector of pointers.
+// We try to represent it as a base pointer + vector of indices.
+// Usually, the vector of pointers comes from a 'getelementptr' instruction.
+// The first operand of the GEP may be a single pointer or a vector of pointers
+// Example:
+//   %gep.ptr = getelementptr i32, <8 x i32*> %vptr, <8 x i32> %ind
+//  or
+//   %gep.ptr = getelementptr i32, i32* %ptr,        <8 x i32> %ind
+// %res = call <8 x i32> @llvm.masked.gather.v8i32(<8 x i32*> %gep.ptr, ..
+//
+// When the first GEP operand is a single pointer - it is the uniform base we
+// are looking for. If first operand of the GEP is a splat vector - we
+// extract the splat value and use it as a uniform base.
+// In all other cases the function returns 'false'.
+// The extention function mainly includes:
+// 1. More GEP operands support.
+// 2. Addtional constant displacement support.
+// 3. Non-power of 2 and bigger than max hardware scale support.
+// 4. Index truncate support.
+static bool getUniformBaseExt(const Value *Ptr, SDValue &Base, SDValue &Index,
+                              ISD::MemIndexType &IndexType, SDValue &Scale,
+                              SelectionDAGBuilder *SDB,
+                              const BasicBlock *CurBB,
+                              const Value *Src0,
+                              const TargetTransformInfo *TTI,
+                              AssumptionCache *AC,
+                              const DominatorTree *DT,
+                              const ScalarEvolution *SCEV) {
+  SelectionDAG& DAG = SDB->DAG;
+  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
+  const DataLayout &DL = DAG.getDataLayout();
+
+  assert(Ptr->getType()->isVectorTy() && "Unexpected pointer type");
+
+  const GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Ptr);
+  if (!GEP || GEP->getParent() != CurBB)
+    return false;
+  if (GEP->getNumOperands() < 2)
+    return false;
+
+  // Scale must be power of 2.
+  if (!isPowerOf2_64(TTI->getMaxScale()))
+    return false;
+
+  const Value *BasePtr = GEP->getPointerOperand();
+  const Value *IndexVal = GEP->getOperand(1);
+  int64_t Disp = 0;
+  SmallVector<Value *, 4> Ops;
+
+  Ops.push_back(ConstantInt::get(Type::getInt32Ty(GEP->getContext()), 0));
+  // Make sure the suffixes are scalar/splat contants.
+  for (int I = 2, E = GEP->getNumOperands(); I < E; ++I) {
+    auto *C = dyn_cast<Constant>(GEP->getOperand(I));
+    if (!C)
+      return false;
+    if (isa<VectorType>(C->getType()))
+      C = C->getSplatValue();
+    auto *CI = dyn_cast_or_null<ConstantInt>(C);
+    if (!CI)
+      return false;
+    Ops.push_back(CI);
+  }
+
+  SmallVector<Value *, 4> ResIdx(GEP->idx_begin(), GEP->idx_begin() + 1);
+  // Get the type for stride.
+  Type *ResTy = GetElementPtrInst::getIndexedType(GEP->getSourceElementType(),
+    makeArrayRef(ResIdx));
+
+  // Get the alloc stride size of ResTy.
+  TypeSize PotentialScale = DL.getTypeAllocSize(ResTy);
+  if (PotentialScale.isScalable())
+    return false;
+
+  // Calculate the displacement by index
+  Disp = DL.getIndexedOffsetInType(GEP->getSourceElementType(), Ops);
+
+  // Make sure the base is scalar and the index is a vector.
+  if (BasePtr->getType()->isVectorTy() || !IndexVal->getType()->isVectorTy())
+    return false;
+
+  Type *IndexTy = cast<VectorType>(IndexVal->getType())->getElementType();
+  Type *DataTy = cast<VectorType>(Src0->getType())->getElementType();
+
+  unsigned NumSignBits = ComputeNumSignBits(IndexVal, DL, 0, AC, nullptr, DT);
+  unsigned NumBitWidth = IndexTy->getScalarSizeInBits();
+  unsigned NumValueBits = NumBitWidth - NumSignBits;
+
+  if (NumValueBits > 63)
+    return false;
+
+  bool NonPowerOf2 = !isPowerOf2_64(PotentialScale);
+  uint64_t MinScale = PotentialScale;
+  // If the PotentialScale is bigger than target's max scale (8 on x86)
+  // or is a non-power of 2 number, try to find a minimal legal scale number
+  // which makes (IndexVal * (PotentialScale / MinScale)) not overflow.
+  if (PotentialScale > TTI->getMaxScale() || NonPowerOf2) {
+    int64_t TriedMinScale = TTI->getMaxScale() * 2;
+    int64_t LastLegalScale = -1;
+
+    unsigned CheckOverFlow =
+      DataTy->getScalarSizeInBits() < DL.getPointerSizeInBits()
+      ? DataTy->getScalarSizeInBits()
+      : 0;
+
+    assert(DL.getPointerSizeInBits() <= 64 && "Unsupported Pointer Size.");
+
+    while (TriedMinScale > 1) {
+      TriedMinScale >>= 1;
+      if (PotentialScale % TriedMinScale == 0) {
+        if (CheckOverFlow) {
+          bool Overflow = false;
+          int64_t MulScale = PotentialScale / TriedMinScale;
+          APInt MaxValue =
+              APInt(CheckOverFlow, (1ull << NumValueBits) - 1, true);
+          APInt MinValue = APInt(CheckOverFlow, -(1ull << NumValueBits), true);
+
+          // Check if MaxValue/MinValue is overflow.
+          if (CheckOverFlow < NumValueBits)
+            return false;
+
+          // Check if MulScale is overflow.
+          if (MulScale != (MulScale & ((1ll << CheckOverFlow) - 1)))
+            continue;
+
+          // Check if (MaxValue*MulScale) is overflow.
+          (void)MaxValue.smul_ov(APInt(CheckOverFlow, MulScale), Overflow);
+          if (Overflow)
+            continue;
+
+          // Check if (MinValue*MulScale) is overflow.
+          (void)MinValue.smul_ov(APInt(CheckOverFlow, MulScale), Overflow);
+          if (Overflow)
+            continue;
+        }
+        LastLegalScale = TriedMinScale;
+      }
+    }
+    // Doesn't find a legal scale number, bail out.
+    if (LastLegalScale == -1)
+      return false;
+
+    MinScale = LastLegalScale;
+  }
+
+  Base = SDB->getValue(BasePtr);
+  Index = SDB->getValue(IndexVal);
+  IndexType = ISD::SIGNED_SCALED;
+  Scale = DAG.getTargetConstant(
+    MinScale,
+    SDB->getCurSDLoc(), TLI.getPointerTy(DL));
+
+  // Set the index as (IndexVal * (PotentialScale / MinScale))
+  if (PotentialScale > TTI->getMaxScale() || NonPowerOf2) {
+    Index = DAG.getNode(
+      NonPowerOf2 ? ISD::MUL : ISD::SHL, SDB->getCurSDLoc(),
+      Index.getValueType(), Index,
+      DAG.getConstant(NonPowerOf2 ? PotentialScale / MinScale
+        : Log2_64(PotentialScale / MinScale),
+        SDB->getCurSDLoc(), Index.getValueType()));
+  }
+
+  // Try to truncate Index's type to Data's type when it is profitable.
+  if (DataTy->getScalarSizeInBits() < NumBitWidth &&
+    DataTy->getScalarSizeInBits() > NumValueBits) {
+    EVT ResultVT = TLI.getValueType(
+      DL, Type::getIntNTy(*DAG.getContext(), DataTy->getScalarSizeInBits()));
+    ElementCount NumElts = cast<VectorType>(Ptr->getType())->getElementCount();
+    EVT VT = EVT::getVectorVT(*DAG.getContext(), ResultVT, NumElts);
+    Index = DAG.getNode(ISD::TRUNCATE, SDB->getCurSDLoc(), VT, Index);
+  }
+
+  // Add the addtional displacement to Base.
+  if (Disp) {
+    Base = DAG.getNode(
+      ISD::ADD, SDB->getCurSDLoc(), Base.getValueType(), Base,
+      DAG.getConstant(Disp, SDB->getCurSDLoc(),
+        Base.getValueType()));
+  }
+
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 void SelectionDAGBuilder::visitMaskedScatter(const CallInst &I) {
   SDLoc sdl = getCurSDLoc();
 
@@ -4453,9 +4647,14 @@ void SelectionDAGBuilder::visitMaskedScatter(const CallInst &I) {
   SDValue Index;
   ISD::MemIndexType IndexType;
   SDValue Scale;
-  bool UniformBase = getUniformBase(Ptr, Base, Index, IndexType, Scale, this,
-                                    I.getParent());
-
+#if INTEL_CUSTOMIZATION
+  bool UniformBase =
+      getUniformBaseExt(Ptr, Base, Index, IndexType, Scale, this, I.getParent(),
+                        I.getArgOperand(0), TTI, AC, DT, SCEV);
+  if (!UniformBase)
+    UniformBase =
+        getUniformBase(Ptr, Base, Index, IndexType, Scale, this, I.getParent());
+#endif // INTEL_CUSTOMIZATION
   unsigned AS = Ptr->getType()->getScalarType()->getPointerAddressSpace();
   MachineMemOperand *MMO = DAG.getMachineFunction().getMachineMemOperand(
       MachinePointerInfo(AS), MachineMemOperand::MOStore,
@@ -4561,8 +4760,14 @@ void SelectionDAGBuilder::visitMaskedGather(const CallInst &I) {
   SDValue Index;
   ISD::MemIndexType IndexType;
   SDValue Scale;
-  bool UniformBase = getUniformBase(Ptr, Base, Index, IndexType, Scale, this,
-                                    I.getParent());
+#if INTEL_CUSTOMIZATION
+  bool UniformBase =
+      getUniformBaseExt(Ptr, Base, Index, IndexType, Scale, this, I.getParent(),
+                        I.getArgOperand(3), TTI, AC, DT, SCEV);
+  if (!UniformBase)
+    UniformBase =
+        getUniformBase(Ptr, Base, Index, IndexType, Scale, this, I.getParent());
+#endif // INTEL_CUSTOMIZATION
   unsigned AS = Ptr->getType()->getScalarType()->getPointerAddressSpace();
   MachineMemOperand *MMO = DAG.getMachineFunction().getMachineMemOperand(
       MachinePointerInfo(AS), MachineMemOperand::MOLoad,

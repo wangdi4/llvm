@@ -1366,6 +1366,8 @@ public:
 
   bool adjustCallArgs(CallInst *) const;
 
+  unsigned getMaxScale() const;
+
   /// \return true if 'Mask' requires a target-specific shuffle
   /// instruction, return false otherwise.
   bool isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const;
@@ -1877,7 +1879,7 @@ public:
   virtual bool isAdvancedOptEnabled(AdvancedOptLevel AO) const = 0;
   virtual bool isLibIRCAllowed() const = 0;
   virtual bool adjustCallArgs(CallInst *) = 0;
-
+  virtual unsigned getMaxScale() const = 0;
   virtual bool
   isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const = 0;
   virtual bool isVPlanVLSProfitable() const = 0;
@@ -2507,6 +2509,10 @@ public:
 
   bool adjustCallArgs(CallInst *CI) override {
     return Impl.adjustCallArgs(CI);
+  }
+
+  unsigned getMaxScale() const override {
+    return Impl.getMaxScale();
   }
 
   bool
