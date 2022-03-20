@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Copyright (C) 2021 Intel Corporation
+// Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1548,6 +1548,10 @@ void AndersensAAResult::IdentifyObjects(Module &M) {
     ValueNodes[&(*I)] = NumObjects++;
   }
 
+  // Add all the GlobalIFunc.
+  for (GlobalIFunc &GIF : M.ifuncs())
+    ValueNodes[&GIF] = NumObjects++;
+
   // Add nodes for all of the functions and the instructions inside of them.
   for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
     // The function itself is a memory object.
@@ -2017,6 +2021,17 @@ void AndersensAAResult::CollectConstraints(Module &M) {
     if (checkConstraintsSizeLimitExceeded(false /* AfterOpt */))
       return;
   }
+
+  // Model ifuncs here:
+  //   ifunc = ReturnNode_of_Resolver
+  for (GlobalIFunc &GIF : M.ifuncs()) {
+    Function *RF = GIF.getResolverFunction();
+    if (!RF || RF->isDeclaration())
+      CreateConstraint(Constraint::Copy, getNode(&GIF), UniversalSet);
+    else
+      CreateConstraint(Constraint::Copy, getNode(&GIF), getReturnNode(RF));
+  }
+
   // Treat Indirect calls conservatively if number of indirect calls exceeds
   // AndersIndirectCallsLimit
   bool DoIndirectCallProcess = ((AndersIndirectCallsLimit == -1) || 
