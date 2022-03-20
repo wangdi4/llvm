@@ -19243,40 +19243,42 @@ Value *
 CodeGenFunction::EmitNVPTXBuiltinExpr(unsigned BuiltinID, const CallExpr *E) {
   auto MakeLdg = [&](unsigned IntrinsicID) {
     Value *Ptr = EmitScalarExpr(E->getArg(0));
-    clang::CharUnits Align =
-        CGM.getNaturalPointeeTypeAlignment(E->getArg(0)->getType());
+    QualType ArgType = E->getArg(0)->getType();
+    clang::CharUnits Align = CGM.getNaturalPointeeTypeAlignment(ArgType);
+    llvm::Type *ElemTy = ConvertTypeForMem(ArgType->getPointeeType());
     return Builder.CreateCall(
-        CGM.getIntrinsic(IntrinsicID, {Ptr->getType()->getPointerElementType(),
-                                       Ptr->getType()}),
+        CGM.getIntrinsic(IntrinsicID, {ElemTy, Ptr->getType()}),
         {Ptr, ConstantInt::get(Builder.getInt32Ty(), Align.getQuantity())});
   };
   auto MakeScopedLd = [&](unsigned IntrinsicID) {
     Value *Ptr = EmitScalarExpr(E->getArg(0));
+    llvm::Type *ElemTy =
+        ConvertTypeForMem(E->getArg(0)->getType()->getPointeeType());
     return Builder.CreateCall(
-        CGM.getIntrinsic(IntrinsicID, {Ptr->getType()->getPointerElementType(),
-                                       Ptr->getType()}),
-        {Ptr});
+        CGM.getIntrinsic(IntrinsicID, {ElemTy, Ptr->getType()}), {Ptr});
   };
   auto MakeScopedSt = [&](unsigned IntrinsicID) {
     Value *Ptr = EmitScalarExpr(E->getArg(0));
+    llvm::Type *ElemTy =
+        ConvertTypeForMem(E->getArg(0)->getType()->getPointeeType());
     return Builder.CreateCall(
-        CGM.getIntrinsic(
-            IntrinsicID,
-            {Ptr->getType(), Ptr->getType()->getPointerElementType()}),
+        CGM.getIntrinsic(IntrinsicID, {Ptr->getType(), ElemTy}),
         {Ptr, EmitScalarExpr(E->getArg(1))});
   };
   auto MakeScopedAtomic = [&](unsigned IntrinsicID) {
     Value *Ptr = EmitScalarExpr(E->getArg(0));
+    llvm::Type *ElemTy =
+        ConvertTypeForMem(E->getArg(0)->getType()->getPointeeType());
     return Builder.CreateCall(
-        CGM.getIntrinsic(IntrinsicID, {Ptr->getType()->getPointerElementType(),
-                                       Ptr->getType()}),
+        CGM.getIntrinsic(IntrinsicID, {ElemTy, Ptr->getType()}),
         {Ptr, EmitScalarExpr(E->getArg(1))});
   };
   auto MakeScopedCasAtomic = [&](unsigned IntrinsicID) {
     Value *Ptr = EmitScalarExpr(E->getArg(0));
+    llvm::Type *ElemTy =
+        ConvertTypeForMem(E->getArg(0)->getType()->getPointeeType());
     return Builder.CreateCall(
-        CGM.getIntrinsic(IntrinsicID, {Ptr->getType()->getPointerElementType(),
-                                       Ptr->getType()}),
+        CGM.getIntrinsic(IntrinsicID, {ElemTy, Ptr->getType()}),
         {Ptr, EmitScalarExpr(E->getArg(1)), EmitScalarExpr(E->getArg(2))});
   };
   switch (BuiltinID) {
@@ -21260,7 +21262,6 @@ CodeGenFunction::EmitNVPTXBuiltinExpr(unsigned BuiltinID, const CallExpr *E) {
   case NVPTX::BI__nvvm_atom_acq_rel_sys_cas_shared_l:
   case NVPTX::BI__nvvm_atom_acq_rel_sys_cas_shared_ll:
     return MakeScopedCasAtomic(Intrinsic::nvvm_atomic_cas_shared_i_acq_rel_sys);
-
   case NVPTX::BI__nvvm_match_all_sync_i32p:
   case NVPTX::BI__nvvm_match_all_sync_i64p: {
     Value *Mask = EmitScalarExpr(E->getArg(0));
