@@ -495,6 +495,15 @@ class PtrTypeAnalyzerInstVisitor
                         by 1 level) */
   };
 
+  // Enum to describe result of byte-flattened GEP analysis.
+  enum BFG_Kind {
+    BFG_None,    // Not recognized as a byte flattened GEP to an aggregate type.
+    BFG_Unknown, // Could be a byte flattened GEP, but index not matched a known
+                 // element.
+    BFG_Identified // Identified as a byte flattened GEP to member of an
+                   // aggregate type.
+  };
+
 public:
   PtrTypeAnalyzerInstVisitor(
       PtrTypeAnalyzerImpl &PTA, DTransTypeManager &TM,
@@ -1066,6 +1075,17 @@ public:
     // example:
     //   store i32 0, ptrtoint (i64 256 to i32*)
     ValueTypeInfo *PtrInfo = analyzeValue(I.getPointerOperand());
+
+    // If the pointer operand is used to store a scalar type, note the type
+    // in the usage types for the pointer. TODO: May need to do something
+    // for storing pointer type as well.
+    if (!PtrInfo->getIsPartialPointerUse()) {
+      llvm::Type *ValTy = I.getValueOperand()->getType();
+      if (!dtrans::hasPointerType(ValTy))
+        PtrInfo->addTypeAlias(
+            ValueTypeInfo::VAT_Use,
+            TM.getOrCreatePointerType(TM.getOrCreateSimpleType(ValTy)));
+    }
 
     // Storing a 'null' constant is a special case, because a Value of
     // 'ptr null' may be used to represent any pointer type. For a store of a
@@ -2533,6 +2553,19 @@ private:
       ResultInfo->setDependsOnUnhandled();
 
     llvm::Type *SrcTy = GEP.getSourceElementType();
+    // If the GEP is of the form:
+    //   %y = getelementptr i8, p0 %x, i64 <n>
+    // Check if the GEP should be processed as either a byte-flattened GEP or an
+    // array of 'i8' elements.
+    BFG_Kind ProcessedAsByteFlattenedGEP = BFG_None;
+    if (GEP.getNumIndices() == 1 && SrcTy == PTA.getLLVMI8Type()) {
+      ProcessedAsByteFlattenedGEP =
+          analyzePotentialByteFlattenedGEPAccess(GEP, ResultInfo);
+      if (ProcessedAsByteFlattenedGEP != BFG_Identified)
+        ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl,
+                                 PTA.getDTransI8PtrType());
+    }
+
 
     // When opaque pointers are used, the known type of pointer may not
     // match the indexed type, so add that type as one of the 'usage' types
@@ -2544,10 +2577,14 @@ private:
     // manner for something like:
     //   %NextHalf1 = getelementptr i32, i32* %HalfPtr1, i64 1
     //
+    // This is also not done for byte-flattened GEPs because the pointer is just
+    // using the i8 for computing the field address, not as a value type.
+    //
     // TODO: For non-simple source element types, we may need more metadata to
     // indicate the type that is being indexed to detect when the type is
     // different than expected.
-    if (!PointerInfo->getIsPartialPointerUse() &&
+    if (ProcessedAsByteFlattenedGEP == BFG_None &&
+        !PointerInfo->getIsPartialPointerUse() &&
         !GEP.getPointerOperandType()->isVectorTy() && TM.isSimpleType(SrcTy)) {
       DTransType *DTransSrcTy = TM.getOrCreateSimpleType(SrcTy);
       assert(DTransSrcTy && "Expected simple type");
@@ -2611,18 +2648,6 @@ private:
       return;
     }
 
-    // If the GEP is of the form:
-    //   %y = getelementptr i8, p0 %x, i64 <n>
-    // Check if the GEP should be processed as either a byte-flattened GEP or an
-    // array of 'i8' elements.
-    bool ProcessedAsByteFlattenedGEP = false;
-    if (SrcTy == PTA.getLLVMI8Type()) {
-      ProcessedAsByteFlattenedGEP =
-          analyzePotentialByteFlattenedGEPAccess(GEP, ResultInfo);
-      ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl,
-                               PTA.getDTransI8PtrType());
-    }
-
     // Zero or Single index operand GEPs of the form, result in the same
     // type as the base pointer.
     // For example, these cases result in the same type identified for %x:
@@ -2633,7 +2658,7 @@ private:
     // generating the same type as the pointer operand. However, there is a
     // special case when indexed type is an i8, since it may be a
     // byte-flattened GEP that needs to be analyzed.
-    if (!ProcessedAsByteFlattenedGEP)
+    if (ProcessedAsByteFlattenedGEP == BFG_None)
       propagate(PointerInfo, ResultInfo, /*Decl=*/true, /*Use=*/true,
                 DerefType::DT_SameType);
   }
@@ -2647,31 +2672,48 @@ private:
   // since the result should be an element within %pStruct, not a pointer to
   // %pStruct itself.
   //
-  bool analyzePotentialByteFlattenedGEPAccess(GEPOperator &GEP,
-                                              ValueTypeInfo *ResultInfo) {
+  BFG_Kind analyzePotentialByteFlattenedGEPAccess(GEPOperator &GEP,
+                                                  ValueTypeInfo *ResultInfo) {
 
     assert(GEP.getNumIndices() == 1 && "Only expecting single index value GEP");
 
     // The following conditions exclude it from being either a byte-flattened
     // GEP or an 'i8' array:
-    // - The type alias list saw the type as a pointer-to-pointer.
+    // - The type alias list saw the type as a pointer-to-pointer, which is not
+    //   for an element zero access.
     // - The type alias list does not contain any aggregate types
     ValueTypeInfo *BasePtrInfo = PTA.getOrCreateValueTypeInfo(&GEP, 0);
     bool HasStructType = false;
     bool HasArrayType = false;
+    DTransType *IndexedType = nullptr;
+    DTransType *CheckAsElemZeroType = nullptr;
     for (auto *AliasTy :
          BasePtrInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
       if (!AliasTy->isPointerTy())
         continue;
 
+      // If there is a pointer-to-pointer alias, it could be an alias of the
+      // element zero type. Save this to check later once we have a potential
+      // type being used for the byte-flattened GEP.
       DTransType *ElemType = AliasTy->getPointerElementType();
-      if (ElemType->isPointerTy())
-        return false;
+      if (ElemType->isPointerTy()) {
+        if (CheckAsElemZeroType)
+          return BFG_None;
+
+        CheckAsElemZeroType = AliasTy;
+        continue;
+      }
 
       if (ElemType->isStructTy()) {
         HasStructType = true;
+        if (IndexedType)
+          return BFG_None;
+        IndexedType = AliasTy;
       } else if (ElemType->isArrayTy()) {
         HasArrayType = true;
+        if (IndexedType)
+          return BFG_None;
+        IndexedType = AliasTy;
 
         // Also, check for array of structures.
         DTransType *BaseType =
@@ -2682,7 +2724,11 @@ private:
     }
 
     if (!HasStructType && !HasArrayType)
-      return false;
+      return BFG_None;
+
+    if (CheckAsElemZeroType)
+      if (!PTA.isElementZeroAccess(IndexedType, CheckAsElemZeroType))
+        return BFG_None;
 
     // We need to figure out which element of the aggregate is being accessed.
     //
@@ -2724,10 +2770,10 @@ private:
                               << "Byte-flattened indices were not recoverable: "
                               << GEP << "\n");
         ResultInfo->setUnknownByteFlattenedGEP();
-        return true;
+        return BFG_Unknown;
       }
 
-      return false;
+      return BFG_None;
     }
 
     // If it's just a char array being accessed, then add the element based on
@@ -2738,7 +2784,7 @@ private:
         ResultInfo->addElementPointee(ValueTypeInfo::VAT_Use, AggArType,
                                       APOffsetVal.getLimitedValue());
 
-      return true;
+      return BFG_Identified;
     }
 
     // If any of the offsets are negative, and it did not match the above check
@@ -2759,10 +2805,10 @@ private:
             dbgs() << "Byte-flattened indices contained negative index: " << GEP
                    << "\n");
         ResultInfo->setUnknownByteFlattenedGEP();
-        return true;
+        return BFG_Unknown;
       }
 
-      return false;
+      return BFG_None;
     }
 
     // Try all possible offsets to process the address as a byte-flattened GEP.
@@ -2800,7 +2846,7 @@ private:
           dbgs() << "Byte-flattened indices did not match aliased structure: "
                  << GEP << "\n");
       ResultInfo->setUnknownByteFlattenedGEP();
-      return true;
+      return BFG_Unknown;
     }
 
     // All offsets were valid, merge the element pointees collected into
@@ -2811,7 +2857,7 @@ private:
     for (auto &TyIdxPair : PendingByteGEPs)
       PTA.addByteFlattenedGEPMapping(&GEP, TyIdxPair.first, TyIdxPair.second);
 
-    return true;
+    return BFG_Identified;
   }
 
   // Return 'true' if 'Offset' is the address of an element of 'AggregateTy'.
