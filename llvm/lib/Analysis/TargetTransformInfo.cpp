@@ -1054,6 +1054,10 @@ bool TargetTransformInfo::isLibIRCAllowed() const {
   return TTIImpl->isLibIRCAllowed();
 }
 
+unsigned TargetTransformInfo::getMaxScale() const {
+  return TTIImpl->getMaxScale();
+}
+
 bool TargetTransformInfo::adjustCallArgs(CallInst *CI) const {
   return TTIImpl->adjustCallArgs(CI);
 }

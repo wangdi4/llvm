@@ -766,6 +766,8 @@ public:
 
   bool isLibIRCAllowed() const { return false; }
 
+  unsigned getMaxScale() const { return 1; }
+
   bool adjustCallArgs(CallInst *CI) { return false; }
 
   bool isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const {

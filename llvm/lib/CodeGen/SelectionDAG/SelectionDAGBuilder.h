@@ -40,6 +40,7 @@ namespace llvm {
 
 class AAResults;
 class AllocaInst;
+class AssumptionCache; // INTEL
 class AtomicCmpXchgInst;
 class AtomicRMWInst;
 class BasicBlock;
@@ -58,6 +59,7 @@ class DataLayout;
 class DIExpression;
 class DILocalVariable;
 class DILocation;
+class DominatorTree; // INTEL
 class FenceInst;
 class FunctionLoweringInfo;
 class GCFunctionInfo;
@@ -73,6 +75,7 @@ class MachineBasicBlock;
 class PHINode;
 class ResumeInst;
 class ReturnInst;
+class ScalarEvolution; // INTEL
 class SDDbgValue;
 class SelectionDAG;
 class StoreInst;
@@ -80,6 +83,7 @@ class SwiftErrorValueTracking;
 class SwitchInst;
 class TargetLibraryInfo;
 class TargetMachine;
+class TargetTransformInfo; // INTEL
 class Type;
 class VAArgInst;
 class UnreachableInst;
@@ -183,7 +187,10 @@ private:
 
 private:
   const TargetMachine &TM;
-
+  const ScalarEvolution *SCEV;    // INTEL
+  const TargetTransformInfo *TTI; // INTEL
+  AssumptionCache *AC;            // INTEL
+  const DominatorTree *DT;        // INTEL
 public:
   /// Lowest valid SDNodeOrder. The special case 0 is reserved for scheduling
   /// nodes without a corresponding SDNode.
@@ -245,7 +252,11 @@ public:
         SwiftError(swifterror) {}
 
   void init(GCFunctionInfo *gfi, AAResults *AA,
-            const TargetLibraryInfo *li);
+            const TargetLibraryInfo *li,                            // INTEL
+            const TargetTransformInfo *tti,                         // INTEL
+            AssumptionCache *ac,                                    // INTEL
+            const DominatorTree *dt,                                // INTEL
+            const ScalarEvolution *scev);                           // INTEL
 
   /// Clear out the current SelectionDAG and the associated state and prepare
   /// this SelectionDAGBuilder object to be used for a new block. This doesn't

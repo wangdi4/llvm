@@ -402,6 +402,7 @@ class TypePromotionTransaction;
     bool optimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
                             Type *AccessTy, unsigned AddrSpace);
     bool optimizeGatherScatterInst(Instruction *MemoryInst, Value *Ptr);
+    bool optimizeGatherScatterInstExt(Instruction *MemoryInst, Value *Ptr); // INTEL
     bool optimizeInlineAsmInst(CallInst *CS);
     bool optimizeCallInst(CallInst *CI, bool &ModifiedDT);
     bool optimizeExt(Instruction *&I);
@@ -2297,10 +2298,20 @@ bool CodeGenPrepare::optimizeCallInst(CallInst *CI, bool &ModifiedDT) {
       }
       break;
     }
-    case Intrinsic::masked_gather:
-      return optimizeGatherScatterInst(II, II->getArgOperand(0));
-    case Intrinsic::masked_scatter:
-      return optimizeGatherScatterInst(II, II->getArgOperand(1));
+#if INTEL_CUSTOMIZATION
+    case Intrinsic::masked_gather: {
+      bool Changed = false;
+      Changed |= optimizeGatherScatterInst(II, II->getArgOperand(0));
+      Changed |= optimizeGatherScatterInstExt(II, II->getArgOperand(0));
+      return Changed;
+    }
+    case Intrinsic::masked_scatter: {
+      bool Changed = false;
+      Changed |= optimizeGatherScatterInst(II, II->getArgOperand(1));
+      Changed |= optimizeGatherScatterInstExt(II, II->getArgOperand(1));
+      return Changed;
+    }
+#endif // INTEL_CUSTOMIZATION
     }
 
     SmallVector<Value *, 2> PtrOps;
@@ -5507,6 +5518,60 @@ bool CodeGenPrepare::optimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
   ++NumMemoryInsts;
   return true;
 }
+
+#if INTEL_CUSTOMIZATION
+/// Rewrite GEP input to gather/scatter to enable SelectionDAGBuilder to find
+/// a uniform base to use for ISD::MGATHER/MSCATTER.
+///
+/// If GEP has splat value and non-splat value, try to scalarize splat value.
+///
+bool CodeGenPrepare::optimizeGatherScatterInstExt(Instruction *MemoryInst,
+  Value *Ptr) {
+
+  auto* GEP = dyn_cast<GetElementPtrInst>(Ptr);
+  if (!GEP)
+    return false;
+
+  // Don't optimize GEPs that don't have indices.
+  if (!GEP->hasIndices())
+    return false;
+
+  // If the GEP and the gather/scatter aren't in the same BB, don't optimize.
+  // FIXME: We should support this by sinking the GEP.
+  if (MemoryInst->getParent() != GEP->getParent())
+    return false;
+
+  unsigned E = GEP->getNumOperands();
+
+  bool ExistNonSplatVector = false;
+  bool HasSplatVector = false;
+
+  for (unsigned I = 0; I != E; ++I) {
+    Value *Op = GEP->getOperand(I);
+    if (!getSplatValue(Op)) {
+      if (GEP->getOperand(I)->getType()->isVectorTy())
+        ExistNonSplatVector = true;
+      continue;
+    }
+    HasSplatVector = true;
+  }
+
+  if (!(HasSplatVector && ExistNonSplatVector))
+    return false;
+
+  for (unsigned I = 0; I != E; ++I) {
+    Value *Op = GEP->getOperand(I);
+    Value *SplatValue = getSplatValue(Op);
+    if (!SplatValue)
+      continue;
+
+    // Simplify the operand.
+    GEP->setOperand(I, SplatValue);
+  }
+
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Rewrite GEP input to gather/scatter to enable SelectionDAGBuilder to find
 /// a uniform base to use for ISD::MGATHER/MSCATTER. SelectionDAGBuilder can
