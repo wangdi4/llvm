@@ -13192,24 +13192,16 @@ void Sema::CheckFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS,
     }
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-/// Check for comparisons of floating point operands
-/// Issue a warning (unless they are equality self-comparisons)
-/// since they are not likely to do what the programmer intended.
-void Sema::CheckFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS,
-                                bool IsEqualityOp) {
-#endif
-=======
   // Match a more general floating-point equality comparison (-Wfloat-equal).
->>>>>>> ab982eace6e4951a2986567d29f4d6be002c1ba7
   Expr* LeftExprSansParen = LHS->IgnoreParenImpCasts();
   Expr* RightExprSansParen = RHS->IgnoreParenImpCasts();
 
   // Special case: check for x == x (which is OK).
   // Do not emit warnings for such cases.
 #if INTEL_CUSTOMIZATION
-  if (IsEqualityOp)
+  // Issue a warning (unless they are equality self-comparisons)
+  // since they are not likely to do what the programmer intended.
+  if (BinaryOperator::isEqualityOp(Opcode))
     if (DeclRefExpr* DRL = dyn_cast<DeclRefExpr>(LeftExprSansParen))
       if (DeclRefExpr* DRR = dyn_cast<DeclRefExpr>(RightExprSansParen))
         if (DRL->getDecl() == DRR->getDecl())
@@ -13239,7 +13231,7 @@ void Sema::CheckFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS,
     Diag(Loc, diag::warn_fast_floating_point_eq)
         << (Value.isNaN() ? "NaN" : "infinity") << LHS->getSourceRange()
         << RHS->getSourceRange();
-  if (!IsEqualityOp)
+  if (!BinaryOperator::isEqualityOp(Opcode))
     return;
 #endif // INTEL_CUSTOMIZATION
 

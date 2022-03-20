@@ -13612,15 +13612,8 @@ private:
                           const FunctionDecl *FD = nullptr);
 
 public:
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  void CheckFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS,
-                            bool IsEqualityOp);
-#endif // INTEL_CUSTOMIZATION
-=======
   void CheckFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS,
                             BinaryOperatorKind Opcode);
->>>>>>> ab982eace6e4951a2986567d29f4d6be002c1ba7
 
 private:
   void CheckImplicitConversions(Expr *E, SourceLocation CC = SourceLocation());
