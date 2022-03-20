@@ -104,17 +104,9 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
               return InlineCost::getAlways("always inline attribute");
             },
             ORE);
-<<<<<<< HEAD
         assert(IC.getIsRecommended()); // INTEL
         emitInlinedIntoBasedOnCost(ORE, CB->getDebugLoc(), CB->getParent(), F,
                         *Caller, IC, false, DEBUG_TYPE); // INTEL
-=======
-        assert(OIC);
-        DebugLoc DLoc = CB->getDebugLoc();
-        BasicBlock *Block = CB->getParent();
-        emitInlinedIntoBasedOnCost(ORE, DLoc, Block, F, *Caller, *OIC, false,
-                                   DEBUG_TYPE);
->>>>>>> 84c6689b1511cc7bcad8f9f166bdc9808b8cdac8
 
         InlineFunctionInfo IFI(
             /*cg=*/nullptr, GetAssumptionCache, &PSI,
@@ -122,24 +114,18 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
             &FAM.getResult<BlockFrequencyAnalysis>(F));
 
         InlineResult Res = InlineFunction(
-<<<<<<< HEAD
             *CB, IFI, getReport(), getMDReport(),          // INTEL
             &FAM.getResult<AAManager>(F), InsertLifetime); // INTEL
-        assert(Res.isSuccess() && "unexpected failure to inline");
-        (void)Res;
-=======
-            *CB, IFI, &FAM.getResult<AAManager>(F), InsertLifetime);
         if (!Res.isSuccess()) {
           ORE.emit([&]() {
-            return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc,
-                                            Block)
+            return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", // INTEL
+                                            CB->getDebugLoc(), CB->getParent()) // INTEL
                    << "'" << ore::NV("Callee", &F) << "' is not inlined into '"
                    << ore::NV("Caller", Caller)
                    << "': " << ore::NV("Reason", Res.getFailureReason());
           });
           continue;
         }
->>>>>>> 84c6689b1511cc7bcad8f9f166bdc9808b8cdac8
 
         // Merge the attributes based on the inlining.
         AttributeFuncs::mergeAttributesForInlining(*Caller, F);
