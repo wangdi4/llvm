@@ -2630,20 +2630,25 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, ParamValue Arg,
       assert(getContext().getTargetAddressSpace(SrcLangAS) ==
              CGM.getDataLayout().getAllocaAddrSpace());
       auto DestAS = getContext().getTargetAddressSpace(DestLangAS);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-      auto *T = llvm::PointerType::getWithSamePointeeType(cast<llvm::PointerType>(V->getType()), DestAS);
+      auto *T =
+                llvm::PointerType::getWithSamePointeeType(
+                      cast<llvm::PointerType>(V->getType()), DestAS);
+#else // INTEL_CUSTOMIZATION
+                DeclPtr.getElementType()->getPointerTo(DestAS);
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       DeclPtr = Address(getTargetHooks().performAddrSpaceCast(
                             *this, V, SrcLangAS, DestLangAS, T, true),
                         DeclPtr.getElementType(),
                         DeclPtr.getAlignment());
+#else // INTEL_CUSTOMIZATION
+                DeclPtr.withPointer(getTargetHooks().performAddrSpaceCast(
+          *this, V, SrcLangAS, DestLangAS, T, true));
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       AllocaPtr = DeclPtr;
 #endif // INTEL_CUSTOMIZATION
-=======
-      auto *T = DeclPtr.getElementType()->getPointerTo(DestAS);
-      DeclPtr = DeclPtr.withPointer(getTargetHooks().performAddrSpaceCast(
-          *this, V, SrcLangAS, DestLangAS, T, true));
->>>>>>> bf1a99861c2e98cfd85792fdefe2ef9c7ec11f52
     }
 
     // Push a destructor cleanup for this parameter if the ABI requires it.
