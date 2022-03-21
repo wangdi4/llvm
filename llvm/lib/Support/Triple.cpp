@@ -1704,15 +1704,12 @@ Triple Triple::getBigEndianArchVariant() const {
   case Triple::amdil64:
   case Triple::amdil:
   case Triple::avr:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case Triple::csa:
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-=======
   case Triple::dxil:
->>>>>>> 95871187bfbc809a15a9ac914bd6ef320c891592
   case Triple::hexagon:
   case Triple::hsail64:
   case Triple::hsail:
