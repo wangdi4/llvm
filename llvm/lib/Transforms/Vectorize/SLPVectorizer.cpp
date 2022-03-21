@@ -936,6 +936,57 @@ static void reorderScalars(SmallVectorImpl<Value *> &Scalars,
       Scalars[Mask[I]] = Prev[I];
 }
 
+/// Checks if the provided value does not require scheduling. It does not
+/// require scheduling if this is not an instruction or it is an instruction
+/// that does not read/write memory and all operands are either not instructions
+/// or phi nodes or instructions from different blocks.
+static bool areAllOperandsNonInsts(Value *V) {
+  auto *I = dyn_cast<Instruction>(V);
+  if (!I)
+    return true;
+  return !I->mayReadOrWriteMemory() && all_of(I->operands(), [I](Value *V) {
+    auto *IO = dyn_cast<Instruction>(V);
+    if (!IO)
+      return true;
+    return isa<PHINode>(IO) || IO->getParent() != I->getParent();
+  });
+}
+
+/// Checks if the provided value does not require scheduling. It does not
+/// require scheduling if this is not an instruction or it is an instruction
+/// that does not read/write memory and all users are phi nodes or instructions
+/// from the different blocks.
+static bool isUsedOutsideBlock(Value *V) {
+  auto *I = dyn_cast<Instruction>(V);
+  if (!I)
+    return true;
+  // Limits the number of uses to save compile time.
+  constexpr int UsesLimit = 8;
+  return !I->mayReadOrWriteMemory() && !I->hasNUsesOrMore(UsesLimit) &&
+         all_of(I->users(), [I](User *U) {
+           auto *IU = dyn_cast<Instruction>(U);
+           if (!IU)
+             return true;
+           return IU->getParent() != I->getParent() || isa<PHINode>(IU);
+         });
+}
+
+/// Checks if the specified value does not require scheduling. It does not
+/// require scheduling if all operands and all users do not need to be scheduled
+/// in the current basic block.
+static bool doesNotNeedToBeScheduled(Value *V) {
+  return areAllOperandsNonInsts(V) && isUsedOutsideBlock(V);
+}
+
+/// Checks if the specified array of instructions does not require scheduling.
+/// It is so if all either instructions have operands that do not require
+/// scheduling or their users do not require scheduling since they are phis or
+/// in other basic blocks.
+static bool doesNotNeedToSchedule(ArrayRef<Value *> VL) {
+  return !VL.empty() &&
+         (all_of(VL, isUsedOutsideBlock) || all_of(VL, areAllOperandsNonInsts));
+}
+
 namespace slpvectorizer {
 
 /// Bottom Up SLP Vectorizer.
@@ -3655,15 +3706,21 @@ private:
         ScalarToTreeEntry[V] = Last;
       }
       // Update the scheduler bundle to point to this TreeEntry.
-      unsigned Lane = 0;
-      for (ScheduleData *BundleMember = Bundle.getValue(); BundleMember;
-           BundleMember = BundleMember->NextInBundle) {
-        BundleMember->TE = Last;
-        BundleMember->Lane = Lane;
-        ++Lane;
-      }
-      assert((!Bundle.getValue() || Lane == VL.size()) &&
+      ScheduleData *BundleMember = Bundle.getValue();
+      assert((BundleMember || isa<PHINode>(S.MainOp) ||
+              isVectorLikeInstWithConstOps(S.MainOp) ||
+              doesNotNeedToSchedule(VL)) &&
              "Bundle and VL out of sync");
+      if (BundleMember) {
+        for (Value *V : VL) {
+          if (doesNotNeedToBeScheduled(V))
+            continue;
+          assert(BundleMember && "Unexpected end of bundle.");
+          BundleMember->TE = Last;
+          BundleMember = BundleMember->NextInBundle;
+        }
+      }
+      assert(!BundleMember && "Bundle and VL out of sync");
     } else {
       MustGather.insert(VL.begin(), VL.end());
     }
@@ -3804,7 +3861,6 @@ private:
       clearDependencies();
       OpValue = OpVal;
       TE = nullptr;
-      Lane = -1;
     }
 
     /// Verify basic self consistency properties
@@ -3844,7 +3900,7 @@ private:
     /// Returns true if it represents an instruction bundle and not only a
     /// single instruction.
     bool isPartOfBundle() const {
-      return NextInBundle != nullptr || FirstInBundle != this;
+      return NextInBundle != nullptr || FirstInBundle != this || TE;
     }
 
     /// Returns true if it is ready for scheduling, i.e. it has no more
@@ -3961,9 +4017,6 @@ private:
     /// Note that this is negative as long as Dependencies is not calculated.
     int UnscheduledDeps = InvalidDeps;
 
-    /// The lane of this node in the TreeEntry.
-    int Lane = -1;
-
     /// True if this instruction is scheduled (or considered as scheduled in the
     /// dry-run).
     bool IsScheduled = false;
@@ -3981,6 +4034,21 @@ private:
   friend struct DOTGraphTraits<BoUpSLP *>;
 
   /// Contains all scheduling data for a basic block.
+  /// It does not schedules instructions, which are not memory read/write
+  /// instructions and their operands are either constants, or arguments, or
+  /// phis, or instructions from others blocks, or their users are phis or from
+  /// the other blocks. The resulting vector instructions can be placed at the
+  /// beginning of the basic block without scheduling (if operands does not need
+  /// to be scheduled) or at the end of the block (if users are outside of the
+  /// block). It allows to save some compile time and memory used by the
+  /// compiler.
+  /// ScheduleData is assigned for each instruction in between the boundaries of
+  /// the tree entry, even for those, which are not part of the graph. It is
+  /// required to correctly follow the dependencies between the instructions and
+  /// their correct scheduling. The ScheduleData is not allocated for the
+  /// instructions, which do not require scheduling, like phis, nodes with
+  /// extractelements/insertelements only or nodes with instructions, with
+  /// uses/operands outside of the block.
   struct BlockScheduling {
     BlockScheduling(BasicBlock *BB)
         : BB(BB), ChunkSize(BB->size()), ChunkPos(ChunkSize) {}
@@ -4026,7 +4094,7 @@ private:
       if (BB != I->getParent())
         // Avoid lookup if can't possibly be in map.
         return nullptr;
-      ScheduleData *SD = ScheduleDataMap[I];
+      ScheduleData *SD = ScheduleDataMap.lookup(I);
       if (SD && isInSchedulingRegion(SD))
         return SD;
       return nullptr;
@@ -4043,7 +4111,7 @@ private:
         return getScheduleData(V);
       auto I = ExtraScheduleDataMap.find(V);
       if (I != ExtraScheduleDataMap.end()) {
-        ScheduleData *SD = I->second[Key];
+        ScheduleData *SD = I->second.lookup(Key);
         if (SD && isInSchedulingRegion(SD))
           return SD;
       }
@@ -4065,7 +4133,7 @@ private:
            BundleMember = BundleMember->NextInBundle) {
         if (BundleMember->Inst != BundleMember->OpValue)
           continue;
-        
+
         // Handle the def-use chain dependencies.
 
         // Decrement the unscheduled counter and insert to ready list if ready.
@@ -4090,7 +4158,9 @@ private:
         // reordered during buildTree(). We therefore need to get its operands
         // through the TreeEntry.
         if (TreeEntry *TE = BundleMember->TE) {
-          int Lane = BundleMember->Lane;
+          // Need to search for the lane since the tree entry can be reordered.
+          int Lane = std::distance(TE->Scalars.begin(),
+                                   find(TE->Scalars, BundleMember->Inst));
           assert(Lane >= 0 && "Lane not set");
 
           // Since vectorization tree is being built recursively this assertion
@@ -4099,7 +4169,7 @@ private:
           // where their second (immediate) operand is not added. Since
           // immediates do not affect scheduler behavior this is considered
           // okay.
-          auto *In = TE->getMainOp();
+          auto *In = BundleMember->Inst;
           assert(In &&
                  (isa<ExtractValueInst>(In) || isa<ExtractElementInst>(In) ||
                   In->getNumOperands() == TE->getNumOperands()) &&
@@ -4144,7 +4214,8 @@ private:
 
       for (auto *I = ScheduleStart; I != ScheduleEnd; I = I->getNextNode()) {
         auto *SD = getScheduleData(I);
-        assert(SD && "primary scheduledata must exist in window");
+        if (!SD)
+          continue;
         assert(isInSchedulingRegion(SD) &&
                "primary schedule data not in window?");
         assert(isInSchedulingRegion(SD->FirstInBundle) &&
@@ -5765,6 +5836,22 @@ static LoadsState canVectorizeLoads(
   }
 
   return LoadsState::Gather;
+}
+
+/// \return true if the specified list of values has only one instruction that
+/// requires scheduling, false otherwise.
+static bool needToScheduleSingleInstruction(ArrayRef<Value *> VL) {
+  Value *NeedsScheduling = nullptr;
+  for (Value *V : VL) {
+    if (doesNotNeedToBeScheduled(V))
+      continue;
+    if (!NeedsScheduling) {
+      NeedsScheduling = V;
+      continue;
+    }
+    return false;
+  }
+  return NeedsScheduling;
 }
 
 #if INTEL_CUSTOMIZATION
@@ -8592,6 +8679,44 @@ void BoUpSLP::setInsertPointAfterBundle(const TreeEntry *E) {
     return !E->isOpcodeOrAlt(I) || I->getParent() == BB;
   }));
 
+  auto &&FindLastInst = [E, Front]() {
+    Instruction *LastInst = Front;
+    for (Value *V : E->Scalars) {
+      auto *I = dyn_cast<Instruction>(V);
+      if (!I)
+        continue;
+      if (LastInst->comesBefore(I))
+        LastInst = I;
+    }
+    return LastInst;
+  };
+
+  auto &&FindFirstInst = [E, Front]() {
+    Instruction *FirstInst = Front;
+    for (Value *V : E->Scalars) {
+      auto *I = dyn_cast<Instruction>(V);
+      if (!I)
+        continue;
+      if (I->comesBefore(FirstInst))
+        FirstInst = I;
+    }
+    return FirstInst;
+  };
+
+  // Set the insert point to the beginning of the basic block if the entry
+  // should not be scheduled.
+  if (E->State != TreeEntry::NeedToGather &&
+      doesNotNeedToSchedule(E->Scalars)) {
+    BasicBlock::iterator InsertPt;
+    if (all_of(E->Scalars, isUsedOutsideBlock))
+      InsertPt = FindLastInst()->getIterator();
+    else
+      InsertPt = FindFirstInst()->getIterator();
+    Builder.SetInsertPoint(BB, InsertPt);
+    Builder.SetCurrentDebugLocation(Front->getDebugLoc());
+    return;
+  }
+
   // The last instruction in the bundle in program order.
   Instruction *LastInst = nullptr;
 
@@ -8600,8 +8725,10 @@ void BoUpSLP::setInsertPointAfterBundle(const TreeEntry *E) {
   // VL.back() and iterate over schedule data until we reach the end of the
   // bundle. The end of the bundle is marked by null ScheduleData.
   if (BlocksSchedules.count(BB)) {
-    auto *Bundle =
-        BlocksSchedules[BB]->getScheduleData(E->isOneOf(E->Scalars.back()));
+    Value *V = E->isOneOf(E->Scalars.back());
+    if (doesNotNeedToBeScheduled(V))
+      V = *find_if_not(E->Scalars, doesNotNeedToBeScheduled);
+    auto *Bundle = BlocksSchedules[BB]->getScheduleData(V);
     if (Bundle && Bundle->isPartOfBundle())
       for (; Bundle; Bundle = Bundle->NextInBundle)
         if (Bundle->OpValue == Bundle->Inst)
@@ -8626,15 +8753,8 @@ void BoUpSLP::setInsertPointAfterBundle(const TreeEntry *E) {
   // not ideal. However, this should be exceedingly rare since it requires that
   // we both exit early from buildTree_rec and that the bundle be out-of-order
   // (causing us to iterate all the way to the end of the block).
-  if (!LastInst) {
-    SmallPtrSet<Value *, 16> Bundle(E->Scalars.begin(), E->Scalars.end());
-    for (auto &I : make_range(BasicBlock::iterator(Front), BB->end())) {
-      if (Bundle.erase(&I) && E->isOpcodeOrAlt(&I))
-        LastInst = &I;
-      if (Bundle.empty())
-        break;
-    }
-  }
+  if (!LastInst)
+    LastInst = FindLastInst();
   assert(LastInst && "Failed to find last instruction in bundle");
 
   // Set the insertion point after the last instruction in the bundle. Set the
@@ -9990,9 +10110,11 @@ void BoUpSLP::optimizeGatherSequence() {
 
 BoUpSLP::ScheduleData *
 BoUpSLP::BlockScheduling::buildBundle(ArrayRef<Value *> VL) {
-  ScheduleData *Bundle = nullptr;  
+  ScheduleData *Bundle = nullptr;
   ScheduleData *PrevInBundle = nullptr;
   for (Value *V : VL) {
+    if (doesNotNeedToBeScheduled(V))
+      continue;
     ScheduleData *BundleMember = getScheduleData(V);
     assert(BundleMember &&
            "no ScheduleData for bundle member "
@@ -10020,7 +10142,8 @@ BoUpSLP::BlockScheduling::tryScheduleBundle(ArrayRef<Value *> VL, BoUpSLP *SLP,
                                             const InstructionsState &S) {
   // No need to schedule PHIs, insertelement, extractelement and extractvalue
   // instructions.
-  if (isa<PHINode>(S.OpValue) || isVectorLikeInstWithConstOps(S.OpValue))
+  if (isa<PHINode>(S.OpValue) || isVectorLikeInstWithConstOps(S.OpValue) ||
+      doesNotNeedToSchedule(VL))
     return nullptr;
 
   // Initialize the instruction bundle.
@@ -10066,6 +10189,8 @@ BoUpSLP::BlockScheduling::tryScheduleBundle(ArrayRef<Value *> VL, BoUpSLP *SLP,
   // Make sure that the scheduling region contains all
   // instructions of the bundle.
   for (Value *V : VL) {
+    if (doesNotNeedToBeScheduled(V))
+      continue;
     if (!extendSchedulingRegion(V, S)) {
       // If the scheduling region got new instructions at the lower end (or it
       // is a new region for the first bundle). This makes it necessary to
@@ -10080,6 +10205,8 @@ BoUpSLP::BlockScheduling::tryScheduleBundle(ArrayRef<Value *> VL, BoUpSLP *SLP,
 
   bool ReSchedule = false;
   for (Value *V : VL) {
+    if (doesNotNeedToBeScheduled(V))
+      continue;
     ScheduleData *BundleMember = getScheduleData(V);
     assert(BundleMember &&
            "no ScheduleData for bundle member (maybe not in same basic block)");
@@ -10109,14 +10236,18 @@ BoUpSLP::BlockScheduling::tryScheduleBundle(ArrayRef<Value *> VL, BoUpSLP *SLP,
 
 void BoUpSLP::BlockScheduling::cancelScheduling(ArrayRef<Value *> VL,
                                                 Value *OpValue) {
-  if (isa<PHINode>(OpValue) || isVectorLikeInstWithConstOps(OpValue))
+  if (isa<PHINode>(OpValue) || isVectorLikeInstWithConstOps(OpValue) ||
+      doesNotNeedToSchedule(VL))
     return;
 
+  if (doesNotNeedToBeScheduled(OpValue))
+    OpValue = *find_if_not(VL, doesNotNeedToBeScheduled);
   ScheduleData *Bundle = getScheduleData(OpValue);
   LLVM_DEBUG(dbgs() << "SLP:  cancel scheduling of " << *Bundle << "\n");
   assert(!Bundle->IsScheduled &&
          "Can't cancel bundle which is already scheduled");
-  assert(Bundle->isSchedulingEntity() && Bundle->isPartOfBundle() &&
+  assert(Bundle->isSchedulingEntity() &&
+         (Bundle->isPartOfBundle() || needToScheduleSingleInstruction(VL)) &&
          "tried to unbundle something which is not a bundle");
 
   // Remove the bundle from the ready list.
@@ -10130,6 +10261,7 @@ void BoUpSLP::BlockScheduling::cancelScheduling(ArrayRef<Value *> VL,
     BundleMember->FirstInBundle = BundleMember;
     ScheduleData *Next = BundleMember->NextInBundle;
     BundleMember->NextInBundle = nullptr;
+    BundleMember->TE = nullptr;
     if (BundleMember->unscheduledDepsInBundle() == 0) {
       ReadyInsts.insert(BundleMember);
     }
@@ -10153,6 +10285,7 @@ bool BoUpSLP::BlockScheduling::extendSchedulingRegion(Value *V,
   Instruction *I = dyn_cast<Instruction>(V);
   assert(I && "bundle member must be an instruction");
   assert(!isa<PHINode>(I) && !isVectorLikeInstWithConstOps(I) &&
+         !doesNotNeedToBeScheduled(I) &&
          "phi nodes/insertelements/extractelements/extractvalues don't need to "
          "be scheduled");
   auto &&CheckScheduleForI = [this, &S](Instruction *I) -> bool {
@@ -10229,7 +10362,10 @@ void BoUpSLP::BlockScheduling::initScheduleData(Instruction *FromI,
                                                 ScheduleData *NextLoadStore) {
   ScheduleData *CurrentLoadStore = PrevLoadStore;
   for (Instruction *I = FromI; I != ToI; I = I->getNextNode()) {
-    ScheduleData *SD = ScheduleDataMap[I];
+    // No need to allocate data for non-schedulable instructions.
+    if (doesNotNeedToBeScheduled(I))
+      continue;
+    ScheduleData *SD = ScheduleDataMap.lookup(I);
     if (!SD) {
       SD = allocateScheduleDataChunks();
       ScheduleDataMap[I] = SD;
@@ -10413,8 +10549,10 @@ void BoUpSLP::scheduleBlock(BlockScheduling *BS) {
   for (auto *I = BS->ScheduleStart; I != BS->ScheduleEnd;
        I = I->getNextNode()) {
     BS->doForAllOpcodes(I, [this, &Idx, &NumToSchedule, BS](ScheduleData *SD) {
+      TreeEntry *SDTE = getTreeEntry(SD->Inst);
       assert((isVectorLikeInstWithConstOps(SD->Inst) ||
-              SD->isPartOfBundle() == (getTreeEntry(SD->Inst) != nullptr)) &&
+              SD->isPartOfBundle() ==
+                  (SDTE && !doesNotNeedToSchedule(SDTE->Scalars))) &&
              "scheduler and vectorizer bundle mismatch");
       SD->FirstInBundle->SchedulingPriority = Idx++;
       if (SD->isSchedulingEntity()) {
