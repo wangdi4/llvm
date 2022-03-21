@@ -312,24 +312,24 @@ defvar work_group_inclusive_function_op_scalar = [{
   }];
 
 defvar work_group_inclusive_function_op_mask = [{
-    $MaskCastTy$VecLength arg0 = *($MaskCastTy$VecLength *)&($Arg0VarName);
-    $MaskCastTy$VecLength arg1 = __builtin_convertvector(*(int$VecLength *)&($Arg1VarName), $MaskCastTy$VecLength);
+    $MaskCastTy$VecLength arg0 = __builtin_astype($Arg0VarName, $MaskCastTy$VecLength);
+    $MaskCastTy$VecLength arg1 = __builtin_convertvector(__builtin_astype($Arg1VarName, int$VecLength), $MaskCastTy$VecLength);
     arg0 &= arg1;
-    arg1 = ~arg1 & ($MaskCastTy)$VAL;
+    arg1 = ~arg1 & __builtin_astype(($Arg0BaseType)($VAL), $MaskCastTy);
     arg0 |= arg1;
-    $Arg0VarName = *($Arg0Type*)&(arg0);
+    $Arg0VarName = __builtin_astype(arg0, $Arg0Type);
     $Arg0Type acc = $FUNC($Arg0VarName, *$Arg2VarName);
     *$Arg2VarName = acc;
     return acc;
   }];
 
 defvar work_group_inclusive_function_op_mask32 = [{
-    $MaskCastTy$VecLength arg0 = *($MaskCastTy$VecLength *)&($Arg0VarName);
-    $MaskCastTy$VecLength arg1 = __builtin_convertvector(*(int$VecLength *)&($Arg1VarName), $MaskCastTy$VecLength);
+    $MaskCastTy$VecLength arg0 = __builtin_astype($Arg0VarName, $MaskCastTy$VecLength);
+    $MaskCastTy$VecLength arg1 = __builtin_convertvector(__builtin_astype($Arg1VarName, int$VecLength), $MaskCastTy$VecLength);
     arg0 &= arg1;
-    arg1 = ~arg1 & ($MaskCastTy)$VAL;
+    arg1 = ~arg1 & __builtin_astype(($Arg0BaseType)($VAL), $MaskCastTy);
     arg0 |= arg1;
-    $Arg0VarName = *($Arg0Type*)&(arg0);
+    $Arg0VarName = __builtin_astype(arg0, $Arg0Type);
     $Arg0Type acc;
     acc.lo = $FUNC($Arg0VarName.lo, (*$Arg2VarName).lo);
     acc.hi = $FUNC($Arg0VarName.hi, (*$Arg2VarName).hi);
@@ -338,12 +338,13 @@ defvar work_group_inclusive_function_op_mask32 = [{
   }];
 
 defvar work_group_inclusive_function_op_mask64 = [{
-    $MaskCastTy$VecLength arg0 = *($MaskCastTy$VecLength *)&($Arg0VarName);
-    $MaskCastTy$VecLength arg1 = __builtin_convertvector(*(int$VecLength *)&($Arg1VarName), $MaskCastTy$VecLength);
+    $MaskCastTy$VecLength arg0 = __builtin_astype($Arg0VarName, $MaskCastTy$VecLength);
+    $MaskCastTy$VecLength arg1 = __builtin_convertvector(__builtin_astype($Arg1VarName, int$VecLength), $MaskCastTy$VecLength);
     arg0 &= arg1;
-    arg1 = ~arg1 & ($MaskCastTy)$VAL;
+    $Arg0BaseType val = $VAL;
+    arg1 = ~arg1 & __builtin_astype(($Arg0BaseType)($VAL), $MaskCastTy);
     arg0 |= arg1;
-    $Arg0VarName = *($Arg0Type*)&(arg0);
+    $Arg0VarName = __builtin_astype(arg0, $Arg0Type);
     $Arg0Type acc;
     acc.lo.lo = $FUNC($Arg0VarName.lo.lo, (*$Arg2VarName).lo.lo);
     acc.lo.hi = $FUNC($Arg0VarName.lo.hi, (*$Arg2VarName).lo.hi);
@@ -906,12 +907,12 @@ defvar work_group_scan_inclusive_function_op_vector64 = [{
 
 defvar work_group_scan_exclusive_function_op_mask4 = [{
 
-    $MaskCastTy#4 arg0 = as_$MaskCastTy#4($Arg0VarName);
-    $MaskCastTy#4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), $MaskCastTy#4);
+    $MaskCastTy#4 arg0 = __builtin_astype($Arg0VarName, $MaskCastTy#4);
+    $MaskCastTy#4 arg1 = __builtin_convertvector(__builtin_astype($Arg1VarName, int4), $MaskCastTy#4);
     arg0 &= arg1;
-    arg1 = ~arg1 & ($MaskCastTy)$VAL;
+    arg1 = ~arg1 & __builtin_astype(($Arg0BaseType)($VAL), $MaskCastTy);
     arg0 |= arg1;
-    $Arg0VarName = as_$Arg0Type(arg0);
+    $Arg0VarName = __builtin_astype(arg0, $Arg0Type);
 
     $Arg0VecType ret;
     $Arg0VecType acc = *$Arg2VarName;
@@ -925,12 +926,12 @@ defvar work_group_scan_exclusive_function_op_mask4 = [{
   }];
 
 defvar work_group_scan_exclusive_function_op_mask8 = [{
-    $MaskCastTy#8 arg0 = as_$MaskCastTy#8($Arg0VarName);
-    $MaskCastTy#8 arg1 = __builtin_convertvector(as_int8($Arg1VarName), $MaskCastTy#8);
+    $MaskCastTy#8 arg0 = __builtin_astype($Arg0VarName, $MaskCastTy#8);
+    $MaskCastTy#8 arg1 = __builtin_convertvector(__builtin_astype($Arg1VarName, int8), $MaskCastTy#8);
     arg0 &= arg1;
-    arg1 = ~arg1 & ($MaskCastTy)$VAL;
+    arg1 = ~arg1 & __builtin_astype(($Arg0BaseType)($VAL), $MaskCastTy);
     arg0 |= arg1;
-    $Arg0VarName = as_$Arg0Type(arg0);
+    $Arg0VarName = __builtin_astype(arg0, $Arg0Type);
     $Arg0VecType ret;
     $Arg0VecType acc = *$Arg2VarName;
     ret.s0 = acc.s7;
@@ -947,12 +948,12 @@ defvar work_group_scan_exclusive_function_op_mask8 = [{
   }];
 
 defvar work_group_scan_exclusive_function_op_mask16 = [{
-    $MaskCastTy#16 arg0 = as_$MaskCastTy#16($Arg0VarName);
-    $MaskCastTy#16 arg1 = __builtin_convertvector(as_int16($Arg1VarName), $MaskCastTy#16);
+    $MaskCastTy#16 arg0 = __builtin_astype($Arg0VarName, $MaskCastTy#16);
+    $MaskCastTy#16 arg1 = __builtin_convertvector(__builtin_astype($Arg1VarName, int16), $MaskCastTy#16);
     arg0 &= arg1;
-    arg1 = ~arg1 & ($MaskCastTy)$VAL;
+    arg1 = ~arg1 & __builtin_astype(($Arg0BaseType)($VAL), $MaskCastTy);
     arg0 |= arg1;
-    $Arg0VarName = as_$Arg0Type(arg0);
+    $Arg0VarName = __builtin_astype(arg0, $Arg0Type);
     $Arg0VecType ret;
     $Arg0VecType acc = *$Arg2VarName;
     ret.s0 = acc.sF;
@@ -977,12 +978,12 @@ defvar work_group_scan_exclusive_function_op_mask16 = [{
   }];
 
 defvar work_group_scan_exclusive_function_op_mask32 = [{
-    $MaskCastTy#32 arg0 = *($MaskCastTy#32 *)&($Arg0VarName);
-    $MaskCastTy#32 arg1 = __builtin_convertvector(*(int32 *)&($Arg1VarName), $MaskCastTy#32);
+    $MaskCastTy#32 arg0 = __builtin_astype($Arg0VarName, $MaskCastTy#32);
+    $MaskCastTy#32 arg1 = __builtin_convertvector(__builtin_astype($Arg1VarName, int32), $MaskCastTy#32);
     arg0 &= arg1;
-    arg1 = ~arg1 & ($MaskCastTy)$VAL;
+    arg1 = ~arg1 & __builtin_astype(($Arg0BaseType)($VAL), $MaskCastTy);
     arg0 |= arg1;
-    $Arg0VarName = *($Arg0Type *)&(arg0);
+    $Arg0VarName = __builtin_astype(arg0, $Arg0Type);
     $Arg0VecType ret;
     $Arg0VecType acc = *$Arg2VarName;
     ret.lo.s0 = acc.hi.sF;
@@ -1025,12 +1026,12 @@ defvar work_group_scan_exclusive_function_op_mask32 = [{
   }];
 
 defvar work_group_scan_exclusive_function_op_mask64 = [{
-    $MaskCastTy#64 arg0 = *($MaskCastTy#64 *)&($Arg0VarName);
-    $MaskCastTy#64 arg1 = __builtin_convertvector(*(int64 *)&($Arg1VarName), $MaskCastTy#64);
+    $MaskCastTy#64 arg0 = __builtin_astype($Arg0VarName, $MaskCastTy#64);
+    $MaskCastTy#64 arg1 = __builtin_convertvector(__builtin_astype($Arg1VarName, int64), $MaskCastTy#64);
     arg0 &= arg1;
-    arg1 = ~arg1 & ($MaskCastTy)$VAL;
+    arg1 = ~arg1 & __builtin_astype(($Arg0BaseType)($VAL), $MaskCastTy);
     arg0 |= arg1;
-    $Arg0VarName = *($Arg0Type *)&(arg0);
+    $Arg0VarName = __builtin_astype(arg0, $Arg0Type);
     $Arg0VecType ret;
     $Arg0VecType acc = *$Arg2VarName;
     ret.lo.lo.s0 = acc.hi.hi.sF;
@@ -1107,12 +1108,12 @@ defvar work_group_scan_exclusive_function_op_mask64 = [{
   }];
 
 defvar work_group_scan_inclusive_function_op_mask4 = [{
-    $MaskCastTy#4 arg0 = as_$MaskCastTy#4($Arg0VarName);
-    $MaskCastTy#4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), $MaskCastTy#4);
+    $MaskCastTy#4 arg0 = __builtin_astype($Arg0VarName, $MaskCastTy#4);
+    $MaskCastTy#4 arg1 = __builtin_convertvector(__builtin_astype($Arg1VarName, int4), $MaskCastTy#4);
     arg0 &= arg1;
-    arg1 = ~arg1 & ($MaskCastTy)$VAL;
+    arg1 = ~arg1 & __builtin_astype(($Arg0BaseType)($VAL), $MaskCastTy);
     arg0 |= arg1;
-    $Arg0VarName = as_$Arg0Type(arg0);
+    $Arg0VarName = __builtin_astype(arg0, $Arg0Type);
     $Arg0VecType ret;
     $Arg0VecType acc = *$Arg2VarName;
     ret.s0 = $FUNC($Arg0VarName.s0, acc.s3);
@@ -1124,12 +1125,12 @@ defvar work_group_scan_inclusive_function_op_mask4 = [{
   }];
 
 defvar work_group_scan_inclusive_function_op_mask8 = [{
-    $MaskCastTy#8 arg0 = as_$MaskCastTy#8($Arg0VarName);
-    $MaskCastTy#8 arg1 = __builtin_convertvector(as_int8($Arg1VarName), $MaskCastTy#8);
+    $MaskCastTy#8 arg0 = __builtin_astype($Arg0VarName, $MaskCastTy#8);
+    $MaskCastTy#8 arg1 = __builtin_convertvector(__builtin_astype($Arg1VarName, int8), $MaskCastTy#8);
     arg0 &= arg1;
-    arg1 = ~arg1 & ($MaskCastTy)$VAL;
+    arg1 = ~arg1 & __builtin_astype(($Arg0BaseType)($VAL), $MaskCastTy);
     arg0 |= arg1;
-    $Arg0VarName = as_$Arg0Type(arg0);
+    $Arg0VarName = __builtin_astype(arg0, $Arg0Type);
     $Arg0VecType ret;
     $Arg0VecType acc = *$Arg2VarName;
     ret.s0 = $FUNC($Arg0VarName.s0, acc.s7);
@@ -1145,12 +1146,12 @@ defvar work_group_scan_inclusive_function_op_mask8 = [{
   }];
 
 defvar work_group_scan_inclusive_function_op_mask16 = [{
-    $MaskCastTy#16 arg0 = as_$MaskCastTy#16($Arg0VarName);
-    $MaskCastTy#16 arg1 = __builtin_convertvector(as_int16($Arg1VarName), $MaskCastTy#16);
+    $MaskCastTy#16 arg0 = __builtin_astype($Arg0VarName, $MaskCastTy#16);
+    $MaskCastTy#16 arg1 = __builtin_convertvector(__builtin_astype($Arg1VarName, int16), $MaskCastTy#16);
     arg0 &= arg1;
-    arg1 = ~arg1 & ($MaskCastTy)$VAL;
+    arg1 = ~arg1 & __builtin_astype(($Arg0BaseType)($VAL), $MaskCastTy);
     arg0 |= arg1;
-    $Arg0VarName = as_$Arg0Type(arg0);
+    $Arg0VarName = __builtin_astype(arg0, $Arg0Type);
     $Arg0VecType ret;
     $Arg0VecType acc = *$Arg2VarName;
     ret.s0 = $FUNC($Arg0VarName.s0, acc.sF);
@@ -1174,12 +1175,12 @@ defvar work_group_scan_inclusive_function_op_mask16 = [{
   }];
 
 defvar work_group_scan_inclusive_function_op_mask32 = [{
-    $MaskCastTy#32 arg0 = *($MaskCastTy#32 *)&($Arg0VarName);
-    $MaskCastTy#32 arg1 = __builtin_convertvector(*(int32 *)&($Arg1VarName), $MaskCastTy#32);
+    $MaskCastTy#32 arg0 = __builtin_astype($Arg0VarName, $MaskCastTy#32);
+    $MaskCastTy#32 arg1 = __builtin_convertvector(__builtin_astype($Arg1VarName, int32), $MaskCastTy#32);
     arg0 &= arg1;
-    arg1 = ~arg1 & ($MaskCastTy)$VAL;
+    arg1 = ~arg1 & __builtin_astype(($Arg0BaseType)($VAL), $MaskCastTy);
     arg0 |= arg1;
-    $Arg0VarName = *($Arg0Type *)&(arg0);
+    $Arg0VarName = __builtin_astype(arg0, $Arg0Type);
     $Arg0VecType ret;
     $Arg0VecType acc = *$Arg2VarName;
     ret.lo.s0 = $FUNC($Arg0VarName.lo.s0, acc.hi.sF);
@@ -1221,12 +1222,12 @@ defvar work_group_scan_inclusive_function_op_mask32 = [{
   }];
 
 defvar work_group_scan_inclusive_function_op_mask64 = [{
-    $MaskCastTy#64 arg0 = *($MaskCastTy#64 *)&($Arg0VarName);
-    $MaskCastTy#64 arg1 = __builtin_convertvector(*(int64 *)&($Arg1VarName), $MaskCastTy#64);
+    $MaskCastTy#64 arg0 = __builtin_astype($Arg0VarName, $MaskCastTy#64);
+    $MaskCastTy#64 arg1 = __builtin_convertvector(__builtin_astype($Arg1VarName, int64), $MaskCastTy#64);
     arg0 &= arg1;
-    arg1 = ~arg1 & ($MaskCastTy)$VAL;
+    arg1 = ~arg1 & __builtin_astype(($Arg0BaseType)($VAL), $MaskCastTy);
     arg0 |= arg1;
-    $Arg0VarName = *($Arg0Type *)&(arg0);
+    $Arg0VarName = __builtin_astype(arg0, $Arg0Type);
     $Arg0VecType ret;
     $Arg0VecType acc = *$Arg2VarName;
     ret.lo.lo.s0 = $FUNC($Arg0VarName.lo.lo.s0, acc.hi.hi.sF);
