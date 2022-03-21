@@ -2630,22 +2630,9 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, ParamValue Arg,
       assert(getContext().getTargetAddressSpace(SrcLangAS) ==
              CGM.getDataLayout().getAllocaAddrSpace());
       auto DestAS = getContext().getTargetAddressSpace(DestLangAS);
-#if INTEL_CUSTOMIZATION
-      auto *T =
-                llvm::PointerType::getWithSamePointeeType(
-                      cast<llvm::PointerType>(V->getType()), DestAS);
-#else // INTEL_CUSTOMIZATION
-                DeclPtr.getElementType()->getPointerTo(DestAS);
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
-      DeclPtr = Address(getTargetHooks().performAddrSpaceCast(
-                            *this, V, SrcLangAS, DestLangAS, T, true),
-                        DeclPtr.getElementType(),
-                        DeclPtr.getAlignment());
-#else // INTEL_CUSTOMIZATION
-                DeclPtr.withPointer(getTargetHooks().performAddrSpaceCast(
+      auto *T = DeclPtr.getElementType()->getPointerTo(DestAS);
+      DeclPtr = DeclPtr.withPointer(getTargetHooks().performAddrSpaceCast(
           *this, V, SrcLangAS, DestLangAS, T, true));
-#endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
       AllocaPtr = DeclPtr;
 #endif // INTEL_CUSTOMIZATION
