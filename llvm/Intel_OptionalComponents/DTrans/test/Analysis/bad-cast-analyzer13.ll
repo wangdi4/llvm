@@ -25,12 +25,12 @@ define void @test01(%struct.test01a* %p) {
 }
 
 define i32 @main(i32 %argc, i8** %argv) {
-  %buf = call i8* @malloc(i32 16)
+  %buf = call i8* @malloc(i64 16)
   %p = bitcast i8* %buf to %struct.test01a*
   call void @test01(%struct.test01a* %p)
   call void @free(i8* %buf)
   ret i32 0
 }
 
-declare i8* @malloc(i32)
+declare i8* @malloc(i64)
 declare void @free(i8*)
