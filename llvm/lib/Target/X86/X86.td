@@ -925,6 +925,7 @@ def TuningUseGLMDivSqrtCosts
     : SubtargetFeature<"use-glm-div-sqrt-costs", "UseGLMDivSqrtCosts", "true",
         "Use Goldmont specific floating point div/sqrt costs">;
 
+<<<<<<< HEAD
 // Enable use of alias analysis during code generation.
 def FeatureUseAA : SubtargetFeature<"use-aa", "UseAA", "true",
                                     "Use alias analysis during codegen">;
@@ -957,6 +958,8 @@ def TuningMULLQFalseDeps : SubtargetFeature<"false-deps-mullq",
 def TuningMRN : SubtargetFeature<"mrn", "HasMRN", "true",
                                "Target has memory renaming feature">;
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> c266776429edaa4c1a58b065952b84c58f574005
 //===----------------------------------------------------------------------===//
 // X86 CPU Families
 // TODO: Remove these - use general tuning features to determine codegen.
