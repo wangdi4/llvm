@@ -35,6 +35,7 @@
 ; CHECK:              Loop Pass Manager
 ; CHECK:                Unroll loops
 
+; CHECK:          Reassociate expressions
 ; CHECK:          Infer address spaces
 ; CHECK:          DPCPPKernelAnalysisLegacy
 ; CHECK:          WGLoopBoundariesLegacy
