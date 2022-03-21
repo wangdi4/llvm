@@ -133,13 +133,11 @@ OpenMPIRBuilder::getOrCreateRuntimeFunction(Module &M, RuntimeFunction FnID) {
     if (unsigned PointerAS = getPointerAddressSpace(M)) {                      \
       if (auto *PT = dyn_cast<PointerType>(ReturnType))                        \
         if (PT != IdentPtr)                                                    \
-          ReturnType =                                                         \
-              llvm::PointerType::get(PT->getPointerElementType(), PointerAS);  \
+          ReturnType = PointerType::getWithSamePointeeType(PT, PointerAS);     \
       for (unsigned I = 0, E = ArgTys.size(); I < E; ++I)                      \
         if (auto *PT = dyn_cast<PointerType>(ArgTys[I]))                       \
           if (PT != IdentPtr)                                                  \
-            ArgTys[I] = llvm::PointerType::get(PT->getPointerElementType(),    \
-                                               PointerAS);                     \
+            ArgTys[I] = PointerType::getWithSamePointeeType(PT, PointerAS);    \
     }                                                                          \
     FnTy = FunctionType::get(ReturnType, ArgTys, IsVarArg);                    \
     Fn = M.getFunction(Str);                                                   \
