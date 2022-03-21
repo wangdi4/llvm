@@ -139,6 +139,8 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
   PMBuilder.addExtension(
       PassManagerBuilder::EP_VectorizerStart,
       [this](const PassManagerBuilder &, legacy::PassManagerBase &MPM) {
+        MPM.add(createReassociatePass());
+
         if (m_IsOcl20 || m_IsSPIRV) {
           // Repeat resolution of generic address space pointers after LLVM
           // IR was optimized.

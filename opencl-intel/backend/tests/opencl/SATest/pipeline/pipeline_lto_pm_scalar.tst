@@ -28,7 +28,10 @@
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
 ; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
 
+; CHECK:      Running pass: ReassociatePass
+; CHECK:      Running pass: MathLibraryFunctionsReplacementPass
 ; CHECK:      Running pass: LoopUnrollPass
+; CHECK-NOT:  Running pass: VecClonePass
 
 ; CHECK:      Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: DPCPPKernelWGLoopCreatorPass
