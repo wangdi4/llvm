@@ -155,10 +155,10 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
         }
 
         MPM.add(createDPCPPKernelAnalysisLegacyPass());
-        MPM.add(createDeduceMaxWGDimLegacyPass());
         MPM.add(createWGLoopBoundariesLegacyPass());
         MPM.add(createDeadCodeEliminationPass());
         MPM.add(createCFGSimplificationPass());
+        MPM.add(createDeduceMaxWGDimLegacyPass());
         if (Config->GetTransposeSize() == 1)
           return;
 
