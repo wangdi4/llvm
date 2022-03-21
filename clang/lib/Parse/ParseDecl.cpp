@@ -707,6 +707,8 @@ unsigned Parser::ParseClangAttributeArgs(
 bool Parser::ParseMicrosoftDeclSpecArgs(IdentifierInfo *AttrName,
                                         SourceLocation AttrNameLoc,
                                         ParsedAttributes &Attrs) {
+  unsigned ExistingAttrs = Attrs.size();
+
   // If the attribute isn't known, we will not attempt to parse any
   // arguments.
   if (!hasAttribute(AttrSyntax::Declspec, nullptr, AttrName,
@@ -839,7 +841,7 @@ bool Parser::ParseMicrosoftDeclSpecArgs(IdentifierInfo *AttrName,
 
   // If this attribute's args were parsed, and it was expected to have
   // arguments but none were provided, emit a diagnostic.
-  if (!Attrs.empty() && Attrs.begin()->getMaxArgs() && !NumArgs) {
+  if (ExistingAttrs < Attrs.size() && Attrs.back().getMaxArgs() && !NumArgs) {
     Diag(OpenParenLoc, diag::err_attribute_requires_arguments) << AttrName;
     return false;
   }
