@@ -1024,8 +1024,8 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
     }
     if (AddLoopOpt) {
       // Add loopopt default values.  Full loopopt is enabled when -x is
-      // provided otherwise, we enable lightweight loopopt dependent on various
-      // options.  Only add if -loopopt wasn't added via other means.
+      // provided otherwise we enable lightweight loopopt.
+      // Only add if -loopopt wasn't added via other means.
       bool FullLoopOpt = false;
       if (const Arg *A = clang::driver::getLastArchArg(Args, false))
         if (A->getOption().matches(options::OPT_x) &&
@@ -1044,20 +1044,8 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
         addllvmOption("-loopopt");
         AddLoopOptPipeline("-floopopt-pipeline=full");
       } else {
-        int MLTInt = 0;
-        MLTVal.getAsInteger(0, MLTInt);
-        bool OfastSet = false;
-        if (const Arg *A = Args.getLastArg(options::OPT_O_Group))
-          OfastSet = A->getOption().matches(options::OPT_Ofast);
-        if (MLTInt >= 4 && TC.getDriver().isUsingLTO() && OfastSet) {
-          addllvmOption("-loopopt=1");
-          AddLoopOptPipeline("-floopopt-pipeline=light");
-        } else {
-          addllvmOption("-loopopt=0");
-          AddLoopOptPipeline("-floopopt-pipeline=none");
-          if (!TC.getTriple().isSPIR())
-            addllvmOption("-enable-lv");
-        }
+        addllvmOption("-loopopt=1");
+        AddLoopOptPipeline("-floopopt-pipeline=light");
       }
     }
   }
