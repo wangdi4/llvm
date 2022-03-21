@@ -1874,18 +1874,22 @@ X86GenericDisassembler::X86GenericDisassembler(
                                          std::unique_ptr<const MCInstrInfo> MII)
   : MCDisassembler(STI, Ctx), MII(std::move(MII)) {
   const FeatureBitset &FB = STI.getFeatureBits();
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XUCC
   isXuCCMode = FB[X86::ModeXuCC];
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
   if (FB[X86::Mode16Bit]) {
+=======
+  if (FB[X86::Is16Bit]) {
+>>>>>>> 6cfe41dcc885f7e1f641153c63e1b2bc9441abb7
     fMode = MODE_16BIT;
     return;
-  } else if (FB[X86::Mode32Bit]) {
+  } else if (FB[X86::Is32Bit]) {
     fMode = MODE_32BIT;
     return;
-  } else if (FB[X86::Mode64Bit]) {
+  } else if (FB[X86::Is64Bit]) {
     fMode = MODE_64BIT;
     return;
   }
