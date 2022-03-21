@@ -12,6 +12,7 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/FileSystem.h"
 #include "OpenCLProgramConfiguration.h"
@@ -29,6 +30,8 @@
 #include <stdlib.h>
 
 using namespace std;
+
+extern llvm::cl::opt<bool> FlagForceRunReference;
 
 namespace Validation{
 
@@ -125,7 +128,9 @@ bool OpenCLKernelConfiguration::VisitEnter( const TiXmlElement& element, const T
 
     if( element.ValueStr() == "ReferenceDataFile" )
     {
-        m_referenceFilePath = Utils::GetDataFilePath(element.GetText(), m_tempDirectory);
+        m_referenceFilePath = Utils::GetDataFilePath(element.GetText(), m_baseDirectory);
+        if (FlagForceRunReference || !llvm::sys::fs::exists(m_referenceFilePath))
+            m_referenceFilePath = Utils::GetDataFilePath(element.GetText(), m_tempDirectory);
     }
 
     if( element.ValueStr() == "NeatDataFileType" )
