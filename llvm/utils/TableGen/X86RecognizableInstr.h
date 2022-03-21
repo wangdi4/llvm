@@ -175,7 +175,7 @@ class DisassemblerTables;
 ///   to interpret the information available in the LLVM tables, and to emit the
 ///   instruction into DisassemblerTables.
 class RecognizableInstr {
-private:
+public:
   /// The opcode of the instruction, as used in an MCInst
   InstrUID UID;
   /// The record from the .td files corresponding to this instruction
@@ -256,6 +256,7 @@ private:
   /// info table
   InstructionSpecifier* Spec;
 
+private:
   /// insnContext - Returns the primary context in which the instruction is
   ///   valid.
   ///
@@ -363,6 +364,7 @@ private:
   ///               decode information for the current instruction.
   void emitDecodePath(DisassemblerTables &tables) const;
 
+public:
   /// Constructor - Initializes a RecognizableInstr with the appropriate fields
   ///   from a CodeGenInstruction.
   ///
@@ -372,7 +374,6 @@ private:
   RecognizableInstr(DisassemblerTables &tables,
                     const CodeGenInstruction &insn,
                     InstrUID uid);
-public:
   /// processInstr - Accepts a CodeGenInstruction and loads decode information
   ///   for it into a DisassemblerTables if appropriate.
   ///

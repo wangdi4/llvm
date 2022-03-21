@@ -3558,7 +3558,7 @@ bool X86InstrInfo::canInsertSelect(const MachineBasicBlock &MBB,
                                    Register FalseReg, int &CondCycles,
                                    int &TrueCycles, int &FalseCycles) const {
   // Not all subtargets have cmov instructions.
-  if (!Subtarget.hasCMov())
+  if (!Subtarget.hasCMOV())
     return false;
   if (Cond.size() != 1)
     return false;
