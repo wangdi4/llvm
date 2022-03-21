@@ -79,9 +79,6 @@ std::string CPUId::str() const {
 TransposeSizeSupport
 CPUDetect::isTransposeSizeSupported(ETransposeSize transposeSize) const {
   switch (transposeSize) {
-  default:
-    return INVALID;
-
   case TRANSPOSE_SIZE_NOT_SET:
   case TRANSPOSE_SIZE_AUTO:
   case TRANSPOSE_SIZE_1:
@@ -100,6 +97,7 @@ CPUDetect::isTransposeSizeSupported(ETransposeSize transposeSize) const {
   case TRANSPOSE_SIZE_64:
     return HasAVX512Core() ? SUPPORTED : UNSUPPORTED;
   }
+  llvm_unreachable("Invalid transpose size!");
 }
 
 static bool featureQueryHelper(const llvm::StringMap<bool> &CPUFeatures,
