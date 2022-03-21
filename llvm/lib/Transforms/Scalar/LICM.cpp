@@ -289,8 +289,8 @@ PreservedAnalyses LICMPass::run(Loop &L, LoopAnalysisManager &AM,
   // but ORE cannot be preserved (see comment before the pass definition).
   OptimizationRemarkEmitter ORE(L.getHeader()->getParent());
 
-  LoopInvariantCodeMotion LICM(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
-                               LicmAllowSpeculation);
+  LoopInvariantCodeMotion LICM(Opts.MssaOptCap, Opts.MssaNoAccForPromotionCap,
+                               Opts.AllowSpeculation);
   if (!LICM.runOnLoop(&L, &AR.AA, &AR.LI, &AR.DT, AR.BFI, &AR.TLI, &AR.TTI,
                       &AR.SE, AR.MSSA, &ORE))
     return PreservedAnalyses::all();
@@ -305,6 +305,16 @@ PreservedAnalyses LICMPass::run(Loop &L, LoopAnalysisManager &AM,
   return PA;
 }
 
+void LICMPass::printPipeline(
+    raw_ostream &OS, function_ref<StringRef(StringRef)> MapClassName2PassName) {
+  static_cast<PassInfoMixin<LICMPass> *>(this)->printPipeline(
+      OS, MapClassName2PassName);
+
+  OS << "<";
+  OS << (Opts.AllowSpeculation ? "" : "no-") << "allowspeculation";
+  OS << ">";
+}
+
 PreservedAnalyses LNICMPass::run(LoopNest &LN, LoopAnalysisManager &AM,
                                  LoopStandardAnalysisResults &AR,
                                  LPMUpdater &) {
@@ -316,8 +326,8 @@ PreservedAnalyses LNICMPass::run(LoopNest &LN, LoopAnalysisManager &AM,
   // but ORE cannot be preserved (see comment before the pass definition).
   OptimizationRemarkEmitter ORE(LN.getParent());
 
-  LoopInvariantCodeMotion LICM(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
-                               LicmAllowSpeculation);
+  LoopInvariantCodeMotion LICM(Opts.MssaOptCap, Opts.MssaNoAccForPromotionCap,
+                               Opts.AllowSpeculation);
 
   Loop &OutermostLoop = LN.getOutermostLoop();
   bool Changed = LICM.runOnLoop(&OutermostLoop, &AR.AA, &AR.LI, &AR.DT, AR.BFI,
@@ -333,6 +343,16 @@ PreservedAnalyses LNICMPass::run(LoopNest &LN, LoopAnalysisManager &AM,
   PA.preserve<MemorySSAAnalysis>();
 
   return PA;
+}
+
+void LNICMPass::printPipeline(
+    raw_ostream &OS, function_ref<StringRef(StringRef)> MapClassName2PassName) {
+  static_cast<PassInfoMixin<LNICMPass> *>(this)->printPipeline(
+      OS, MapClassName2PassName);
+
+  OS << "<";
+  OS << (Opts.AllowSpeculation ? "" : "no-") << "allowspeculation";
+  OS << ">";
 }
 
 char LegacyLICMPass::ID = 0;
