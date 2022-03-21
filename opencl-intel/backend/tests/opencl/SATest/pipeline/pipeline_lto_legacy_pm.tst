@@ -37,8 +37,8 @@
 
 ; CHECK:          Infer address spaces
 ; CHECK:          DPCPPKernelAnalysisLegacy
-; CHECK:          DeduceMaxWGDimLegacy
 ; CHECK:          WGLoopBoundariesLegacy
+; CHECK:          DeduceMaxWGDimLegacy
 ; CHECK:          Replace known math operations with optimized library functions
 ; CHECK:          VFAnalysisLegacy
 ; CHECK:          SetVectorizationFactorLegacy

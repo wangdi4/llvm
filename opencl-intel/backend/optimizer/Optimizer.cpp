@@ -526,10 +526,10 @@ static void populatePassesPostFailCheck(
   if (OptLevel > 0) {
     PM.add(llvm::createCFGSimplificationPass());
     PM.add(llvm::createDPCPPKernelAnalysisLegacyPass());
-    PM.add(llvm::createDeduceMaxWGDimLegacyPass());
     PM.add(llvm::createWGLoopBoundariesLegacyPass());
     PM.add(llvm::createDeadCodeEliminationPass());
     PM.add(llvm::createCFGSimplificationPass());
+    PM.add(llvm::createDeduceMaxWGDimLegacyPass());
   }
 
   // Mark the kernels using subgroups

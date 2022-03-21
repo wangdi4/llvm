@@ -29,8 +29,8 @@
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
 ; CHECK:          Infer address spaces
 ; CHECK:          DPCPPKernelAnalysisLegacy
-; CHECK:          DeduceMaxWGDimLegacy
 ; CHECK:          WGLoopBoundariesLegacy
+; CHECK:          DeduceMaxWGDimLegacy
 
 ; CHECK:          Call Graph SCC Pass Manager
 ; CHECK:            FunctionPass Manager
