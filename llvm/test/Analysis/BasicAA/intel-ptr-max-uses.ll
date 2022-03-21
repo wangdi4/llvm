@@ -1,32 +1,32 @@
 ; RUN: opt -basic-aa -xmain-opt-level=3 -aa-eval -print-all-alias-modref-info -disable-output %s 2>&1 | FileCheck %s
 
-; CHECK-DAG: NoAlias:      double* %ptr, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr0, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr1, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr2, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr3, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr4, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr5, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr6, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr7, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr8, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr9, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr10, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr11, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr12, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr13, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr14, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr15, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr16, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr17, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr18, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr19, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr20, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr21, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr22, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr23, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr24, double** %ptr.addr
-; CHECK-DAG: NoAlias:      double* %ptr25, double** %ptr.addr
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr12
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr11
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr13
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr16
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr7
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr24
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr2
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr10
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr6
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr15
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr14
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr5
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr21
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr8
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr17
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr1
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr23
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr0
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr20
+; CHECK-DAG:   NoAlias:	double* %ptr, double** %ptr.addr
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr18
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr3
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr4
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr9
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr25
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr22
+; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr19
 
 define void @foo(double* %ptr) {
   %ptr.addr = alloca double*, align 8
@@ -58,6 +58,35 @@ define void @foo(double* %ptr) {
   %ptr23 = load double*, double** %ptr.addr, align 8
   %ptr24 = load double*, double** %ptr.addr, align 8
   %ptr25 = load double*, double** %ptr.addr, align 8
+
+; dead loads, needed to get aa-eval to trigger
+  %ld.ptr12 = load double, double* %ptr12, align 8
+  %ld.ptr11 = load double, double* %ptr11, align 8
+  %ld.ptr13 = load double, double* %ptr13, align 8
+  %ld.ptr16 = load double, double* %ptr16, align 8
+  %ld.ptr7 = load double, double* %ptr7, align 8
+  %ld.ptr24 = load double, double* %ptr24, align 8
+  %ld.ptr2 = load double, double* %ptr2, align 8
+  %ld.ptr10 = load double, double* %ptr10, align 8
+  %ld.ptr6 = load double, double* %ptr6, align 8
+  %ld.ptr15 = load double, double* %ptr15, align 8
+  %ld.ptr14 = load double, double* %ptr14, align 8
+  %ld.ptr5 = load double, double* %ptr5, align 8
+  %ld.ptr21 = load double, double* %ptr21, align 8
+  %ld.ptr8 = load double, double* %ptr8, align 8
+  %ld.ptr17 = load double, double* %ptr17, align 8
+  %ld.ptr1 = load double, double* %ptr1, align 8
+  %ld.ptr23 = load double, double* %ptr23, align 8
+  %ld.ptr0 = load double, double* %ptr0, align 8
+  %ld.ptr20 = load double, double* %ptr20, align 8
+  %ld.ptr = load double, double* %ptr, align 8
+  %ld.ptr18 = load double, double* %ptr18, align 8
+  %ld.ptr3 = load double, double* %ptr3, align 8
+  %ld.ptr4 = load double, double* %ptr4, align 8
+  %ld.ptr9 = load double, double* %ptr9, align 8
+  %ld.ptr25 = load double, double* %ptr25, align 8
+  %ld.ptr22 = load double, double* %ptr22, align 8
+  %ld.ptr19 = load double, double* %ptr19, align 8
 
   ret void
 }

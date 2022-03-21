@@ -255,7 +255,6 @@ exit:
 ; for deep nested cases.
 ; CHECK: {{May|No}}Alias:{{.*}}i8* %a, i8* %p.outer
 ; end INTEL_CUSTOMIZATION
-; CHECK: NoAlias:  i8* %a, i8* %p.outer
 ; NO-PHI-VALUES: MayAlias: i8* %a, i8* %p.inner
 ; PHI-VALUES: NoAlias: i8* %a, i8* %p.inner
 ; CHECK: NoAlias:  i8* %a, i8* %p.inner.next

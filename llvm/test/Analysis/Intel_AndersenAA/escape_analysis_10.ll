@@ -26,6 +26,11 @@ L1:
 L2:
   %4 = phi double* [ %2, %L0 ], [ %3, %L1 ]
   %5 = bitcast double* %4 to i8*
+
+  ; dead loads, needed to get aa-eval to trigger
+  %ld.0 = load double, double* %0, align 8
+  %ld.Ptr = load double, double* %Ptr, align 8
+
   call void @llvm.memset.p0i8.i64(i8* %5, i8 1, i64 1024, i1 false)
   ret i32 0
 }

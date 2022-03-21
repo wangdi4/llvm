@@ -16,7 +16,9 @@
 define internal void @test01() {
 entry:
   %call1 = tail call noalias i8* @malloc(i64 1024)
+  %ld.call1 = load i8, i8* %call1
   %ar1 = bitcast i8* %call1 to i32*
+  %ld.ar1 = load i32, i32* %ar1
 
   %fp = load %struct._IO_FILE*, %struct._IO_FILE** @nabout
   %tmp = call i32 (%struct._IO_FILE*, i8*, ...) @fprintf(%struct._IO_FILE* %fp,
@@ -34,7 +36,9 @@ entry:
 define internal void @test02() {
 entry:
   %call1 = tail call noalias i8* @malloc(i64 1024)
+  %ld.call1 = load i8, i8* %call1
   %ar1 = bitcast i8* %call1 to i32*
+  %ld.ar1 = load i32, i32* %ar1
 
   %fp = load %struct._IO_FILE*, %struct._IO_FILE** @nabout
   %tmp = call i32 (%struct._IO_FILE*, i8*, ...) @fprintf(%struct._IO_FILE* %fp,
@@ -52,8 +56,11 @@ entry:
 define internal void @test03() {
 entry:
   %call1 = tail call noalias i8* @malloc(i64 1024)
+  %ld.call1 = load i8, i8* %call1
   %ar1 = bitcast i8* %call1 to i32*
+  %ld.ar1 = load i32, i32* %ar1
   %str = call i8* @gets(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str3, i64 0, i64 0))
+  %ld.str = load i8, i8* %str
 
   %fp = load %struct._IO_FILE*, %struct._IO_FILE** @nabout
   %tmp = call i32 (%struct._IO_FILE*, i8*, ...) @fprintf(%struct._IO_FILE* %fp,
@@ -70,8 +77,11 @@ entry:
 define internal void @test04() {
 entry:
   %call1 = tail call noalias i8* @malloc(i64 1024)
+  %ld.call1 = load i8, i8* %call1
   %ar1 = bitcast i8* %call1 to i32*
+  %ld.ar1 = load i32, i32* %ar1
   %arindex5 = getelementptr i32, i32* %ar1, i64 4
+  %ld.arindex5 = load i32, i32* %arindex5
 
   %fp = load %struct._IO_FILE*, %struct._IO_FILE** @nabout
   %tmp = call i32 (%struct._IO_FILE*, i8*, ...) @fprintf(%struct._IO_FILE* %fp,
@@ -91,8 +101,11 @@ entry:
 define internal void @test05() {
 entry:
   %call1 = tail call noalias i8* @malloc(i64 512)
+  %ld.call1 = load i8, i8* %call1
   %ar1 = bitcast i8* %call1 to i16*
+  %ld.ar1 = load i16, i16* %ar1
   %arindex5 = getelementptr i16, i16* %ar1, i64 4
+  %ld.arindex5 = load i16, i16* %arindex5
 
   %fp = load %struct._IO_FILE*, %struct._IO_FILE** @nabout
   %tmp = call i32 (%struct._IO_FILE*, i8*, ...) @fprintf(%struct._IO_FILE* %fp,
@@ -113,7 +126,9 @@ entry:
 define internal void @test06() {
 entry:
   %call1 = tail call noalias i8* @malloc(i64 1024)
+  %ld.call1 = load i8, i8* %call1
   %ar1 = bitcast i8* %call1 to i32*
+  %ld.ar1 = load i32, i32* %ar1
 
   %tmp = call i32 (i8*, ...) @printf(
     i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str6, i64 0, i64 0),
@@ -131,8 +146,11 @@ entry:
 define internal void @test07() {
 entry:
   %call1 = tail call noalias i8* @malloc(i64 1024)
+  %ld.call1 = load i8, i8* %call1
   %ar1 = bitcast i8* %call1 to i32*
+  %ld.ar1 = load i32, i32* %ar1
   %arindex5 = getelementptr i32, i32* %ar1, i64 4
+  %ld.arindex5 = load i32, i32* %arindex5
 
   %fp = load %struct._IO_FILE*, %struct._IO_FILE** @nabout
   %tmp = call i32 (i8*, ...) @printf(
@@ -153,8 +171,11 @@ entry:
 define internal void @test08() {
 entry:
   %buffer = tail call noalias i8* @malloc(i64 100)
+  %ld.buffer = load i8, i8* %buffer
   %call1 = tail call noalias i8* @malloc(i64 1024)
+  %ld.call1 = load i8, i8* %call1
   %ar1 = bitcast i8* %call1 to i32*
+  %ld.ar1 = load i32, i32* %ar1
 
   %tmp = call i32 (i8*, i64, i8*, ...) @snprintf(i8* %buffer, i64 100,
     i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str8, i64 0, i64 0),
@@ -172,8 +193,11 @@ entry:
 define internal void @test09() {
 entry:
   %buffer = tail call noalias i8* @malloc(i64 100)
+  %ld.buffer = load i8, i8* %buffer
   %call1 = tail call noalias i8* @malloc(i64 256)
+  %ld.call1 = load i8, i8* %call1
   %arindex = getelementptr i8, i8* %call1, i64 4
+  %ld.arindex = load i8, i8* %arindex
 
   %tmp = call i32 (i8*, i64, i8*, ...) @snprintf(i8* %buffer, i64 100,
     i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str9, i64 0, i64 0),
@@ -193,7 +217,9 @@ entry:
 define internal void @test10() {
 entry:
   %call1 = tail call noalias i8* @malloc(i64 1024)
+  %ld.call1 = load i8, i8* %call1
   %ar1 = bitcast i8* %call1 to i32*
+  %ld.ar1 = load i32, i32* %ar1
 
   %fp = load %struct._IO_FILE*, %struct._IO_FILE** @nabout10
   %fp.1 = getelementptr %struct._IO_FILE, %struct._IO_FILE* %fp, i64 0, i32 1

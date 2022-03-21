@@ -19,10 +19,16 @@
 ; not report the calls as modifying the array memory.
 define internal i32 @test1() {
 entry:
+  %str1.ptr = getelementptr inbounds [13 x i8], [13 x i8]* @.str, i64 0, i64 0
+  %ld.str1 = load i8, i8* %str1.ptr
   %call1 = tail call noalias i8* @malloc(i64 1024)
+  %ld.call1 = load i8, i8* %call1
   %call2 = tail call noalias i8* @malloc(i64 1024)
+  %ld.call2 = load i8, i8* %call2
   %ar1 = bitcast i8* %call1 to i32*
+  %ld.ar1 = load i32, i32* %ar1
   %ar2 = bitcast i8* %call2 to i32*
+  %ld.ar2 = load i32, i32* %ar2
   br label %for.init.body
 
 for.init.body:
@@ -31,7 +37,9 @@ for.init.body:
   %v = trunc i64 %indvars.iv to i32
   %v2 = mul nsw i32 %v, %v
   %arrayidx.init1 = getelementptr inbounds i32, i32* %ar1, i64 %indvars.iv
+  %ld.arrayidx.init1 = load i32, i32* %arrayidx.init1
   %arrayidx.init2 = getelementptr inbounds i32, i32* %ar2, i64 %indvars.iv
+  %ld.arrayidx.init2 = load i32, i32* %arrayidx.init2
   store i32 %v, i32* %arrayidx.init1
   store i32 %v2, i32* %arrayidx.init2
 
@@ -45,7 +53,9 @@ for.test.body:
   %res = phi i32 [0, %for.init.end ], [%sum, %for.test.body ]
 
   %arrayidx.test1 = getelementptr inbounds i32, i32* %ar1, i64 %indvars.iv2
+  %ld.arrayidx.test1 = load i32, i32* %arrayidx.test1
   %arrayidx.test2 = getelementptr inbounds i32, i32* %ar2, i64 %indvars.iv2
+  %ld.arrayidx.test2 = load i32, i32* %arrayidx.test2
   %elem1 = load i32, i32* %arrayidx.test1
   %elem2 = load i32, i32* %arrayidx.test2
   %sum = add nsw i32 %elem1, %elem2
@@ -84,9 +94,7 @@ declare dso_local i32 @fflush(%struct._IO_FILE* nocapture)
 ; CHECK-DAG: NoModRef:  Ptr: i32* %arrayidx.init2	<->  %tmp = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i64 0, i64 0), i32 %sum)
 ; CHECK-DAG: NoModRef:  Ptr: i32* %arrayidx.test1	<->  %tmp = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i64 0, i64 0), i32 %sum)
 ; CHECK-DAG: NoModRef:  Ptr: i32* %arrayidx.test2	<->  %tmp = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i64 0, i64 0), i32 %sum)
-; CHECK-DAG: Just Ref:  Ptr: i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i64 0, i64 0)	<->  %tmp = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i64 0, i64 0), i32 %sum)
-; CHECK-DAG: NoModRef:  Ptr: %struct._IO_FILE* %fp	<->  %tmp = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i64 0, i64 0), i32 %sum)
-; CHECK-DAG: NoModRef:  Ptr: %struct._IO_FILE** @stdout	<->  %tmp = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i64 0, i64 0), i32 %sum)
+; CHECK-DAG: Just Ref:  Ptr: i8* %str1.ptr <->  %tmp = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i64 0, i64 0), i32 %sum)
 ; CHECK-DAG: NoModRef:  Ptr: i8* %call1	<->  %tmp1 = call i32 @fflush(%struct._IO_FILE* %fp)
 ; CHECK-DAG: NoModRef:  Ptr: i8* %call2	<->  %tmp1 = call i32 @fflush(%struct._IO_FILE* %fp)
 ; CHECK-DAG: NoModRef:  Ptr: i32* %ar1	<->  %tmp1 = call i32 @fflush(%struct._IO_FILE* %fp)
@@ -95,6 +103,5 @@ declare dso_local i32 @fflush(%struct._IO_FILE* nocapture)
 ; CHECK-DAG: NoModRef:  Ptr: i32* %arrayidx.init2	<->  %tmp1 = call i32 @fflush(%struct._IO_FILE* %fp)
 ; CHECK-DAG: NoModRef:  Ptr: i32* %arrayidx.test1	<->  %tmp1 = call i32 @fflush(%struct._IO_FILE* %fp)
 ; CHECK-DAG: NoModRef:  Ptr: i32* %arrayidx.test2	<->  %tmp1 = call i32 @fflush(%struct._IO_FILE* %fp)
-; CHECK-DAG: NoModRef:  Ptr: i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i64 0, i64 0)	<->  %tmp1 = call i32 @fflush(%struct._IO_FILE* %fp)
-; CHECK-DAG: Both ModRef:  Ptr: %struct._IO_FILE* %fp      <->  %tmp1 = call i32 @fflush(%struct._IO_FILE* %fp)
+; CHECK-DAG: NoModRef:  Ptr: i8* %str1.ptr	<->  %tmp1 = call i32 @fflush(%struct._IO_FILE* %fp)
 ; CHECK-DAG: Both ModRef:  Ptr: %struct._IO_FILE** @stdout <->  %tmp1 = call i32 @fflush(%struct._IO_FILE* %fp)
