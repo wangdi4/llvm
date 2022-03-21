@@ -3113,8 +3113,12 @@ raw_ostream &llvm::operator<<(raw_ostream &OS,
   OS << " [" << Acc.getKind() << "] " << *Acc.getRemoteInst();
   if (Acc.getLocalInst() != Acc.getRemoteInst())
     OS << " via " << *Acc.getLocalInst();
-  if (Acc.getContent().hasValue())
-    OS << " [" << *Acc.getContent() << "]";
+  if (Acc.getContent().hasValue()) {
+    if (*Acc.getContent())
+      OS << " [" << **Acc.getContent() << "]";
+    else
+      OS << " [ <unknown> ]";
+  }
   return OS;
 }
 ///}
