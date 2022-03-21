@@ -3115,6 +3115,9 @@ DEF_TRAVERSE_STMT(OMPGenericLoopDirective,
 DEF_TRAVERSE_STMT(OMPTeamsGenericLoopDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
+DEF_TRAVERSE_STMT(OMPTargetTeamsGenericLoopDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
 // OpenMP clauses.
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::TraverseOMPClause(OMPClause *C) {

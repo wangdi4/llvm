@@ -173,6 +173,7 @@ static OpenMPDirectiveKindExWrapper parseOpenMPDirectiveKind(Parser &P) {
       {OMPD_teams, OMPD_loop, OMPD_teams_loop},
       {OMPD_target, OMPD_teams, OMPD_target_teams},
       {OMPD_target_teams, OMPD_distribute, OMPD_target_teams_distribute},
+<<<<<<< HEAD
 #if INTEL_COLLAB
       {OMPD_target, OMPD_variant, OMPD_target_variant},
       {OMPD_target_variant, OMPD_dispatch, OMPD_target_variant_dispatch},
@@ -182,6 +183,9 @@ static OpenMPDirectiveKindExWrapper parseOpenMPDirectiveKind(Parser &P) {
       {OMPD_parallel, OMPD_loop, OMPD_parallel_loop},
       {OMPD_declare_target, OMPD_function, OMPD_declare_target_function},
 #endif // INTEL_COLLAB
+=======
+      {OMPD_target_teams, OMPD_loop, OMPD_target_teams_loop},
+>>>>>>> 6bd8dc91b89d0b130d8c03174b7b3b0d1cf3b331
       {OMPD_target_teams_distribute, OMPD_parallel,
        OMPD_target_teams_distribute_parallel},
       {OMPD_target_teams_distribute, OMPD_simd,
@@ -2559,6 +2563,7 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_metadirective:
   case OMPD_loop:
   case OMPD_teams_loop:
+  case OMPD_target_teams_loop:
     Diag(Tok, diag::err_omp_unexpected_directive)
         << 1 << getOpenMPDirectiveName(DKind);
     break;
@@ -3029,6 +3034,7 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
   case OMPD_target_parallel_for:
   case OMPD_loop:
   case OMPD_teams_loop:
+<<<<<<< HEAD
 #if INTEL_COLLAB
   case OMPD_target_teams_loop:
   case OMPD_parallel_loop:
@@ -3045,6 +3051,9 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
     // Fall through for further analysis.
     LLVM_FALLTHROUGH;
 #endif // INTEL_COLLAB
+=======
+  case OMPD_target_teams_loop:
+>>>>>>> 6bd8dc91b89d0b130d8c03174b7b3b0d1cf3b331
   case OMPD_taskloop:
   case OMPD_taskloop_simd:
   case OMPD_master_taskloop:
