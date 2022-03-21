@@ -28,6 +28,48 @@ class DTransSafetyInfo;
 class DTransType;
 class DTransTypeManager;
 
+// Helper class for handling the related types' safety data and converting
+// them into the original type.
+class RelatedTypesSDHandler {
+public:
+
+  // Build the maps for handling the safety data for related types
+  RelatedTypesSDHandler();
+
+  // Return a safety data that represents all the safety violations for
+  // related types
+  dtrans::SafetyData getAllSafetyDataForRelatedTypes() {
+    return AllRelatedTypesSafety;
+  }
+
+  // Given a StructInfo, compute all the safety violations available for
+  // related types
+  dtrans::SafetyData computeRelatedTypesSafetyData(dtrans::TypeInfo *TI);
+
+  // Convert all the safety violations for related types available in the input
+  // StructInfo into the original form
+  void revertAllSafetyDataToOriginal(dtrans::TypeInfo *TI);
+
+  // Helper function for reverting the safety violations in DataToRevert
+  void convertSafetyData(DTransSafetyInfo &DTInfo, DTransType *DTTy,
+                         dtrans::SafetyData DataToRevert);
+
+private:
+  DenseMap<dtrans::SafetyData, dtrans::SafetyData> RelatedSDToOriginalSDMap;
+  dtrans::SafetyData AllRelatedTypesSafety = dtrans::NoIssues;
+
+  // Convert the safety data from related types to original version and
+  // cascade the safety data to the nested types.
+  void convertSafetyDataCascade(DTransSafetyInfo &DTInfo, DTransType *DTTy,
+                                SetVector<DTransType *> &VisitedTypes,
+                                dtrans::SafetyData DataToRevert);
+
+  // Convert all the safety violations for related types to the original form
+  // in the input StructInfo if the safety data is available in SDToConvert
+  void revertSafetyDataToOriginal(dtrans::TypeInfo *TI,
+                                  dtrans::SafetyData SDToConvert);
+};
+
 // Helper class to handle all the analysis for Related types
 class DTransRelatedTypesUtils {
 public:
@@ -64,10 +106,12 @@ private:
   // for related types needs to be reverted
   void revertSafetyData(DTransSafetyInfo &DTInfo);
 
-  // Convert the safety data from related types to original version
-  void convertSafetyData(DTransSafetyInfo &DTInfo, DTransType *DTTy,
-                         SetVector<DTransType *> &VisitedTypes,
-                         dtrans::SafetyData DataToRevert);
+  // Return true if the input StructInfo has a padded field and
+  // we found any safety violation for that field.
+  bool HasInvalidPaddedField(dtrans::StructInfo *StrInfo);
+
+  // Handle the safety violations for related types.
+  RelatedTypesSDHandler RTHandler;
 };
 
 } // end namespace dtransOP
