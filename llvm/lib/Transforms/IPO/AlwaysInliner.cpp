@@ -98,20 +98,8 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
       for (CallBase *CB : Calls) {
         Function *Caller = CB->getCaller();
         OptimizationRemarkEmitter ORE(Caller);
-<<<<<<< HEAD
-        InlineCost IC = shouldInline( //INTEL
-            *CB,
-            [&](CallBase &CB) {
-              return InlineCost::getAlways("always inline attribute");
-            },
-            ORE);
-        assert(IC.getIsRecommended()); // INTEL
-        emitInlinedIntoBasedOnCost(ORE, CB->getDebugLoc(), CB->getParent(), F,
-                        *Caller, IC, false, DEBUG_TYPE); // INTEL
-=======
         DebugLoc DLoc = CB->getDebugLoc();
         BasicBlock *Block = CB->getParent();
->>>>>>> f6b5142ac2e4c49b9eff4c22d699f464a6812feb
 
         InlineFunctionInfo IFI(
             /*cg=*/nullptr, GetAssumptionCache, &PSI,
