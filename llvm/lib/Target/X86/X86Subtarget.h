@@ -75,6 +75,7 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   /// MMX, 3DNow, 3DNow Athlon, or none supported.
   X863DNowEnum X863DNowLevel = NoThreeDNow;
 
+<<<<<<< HEAD
   /// Is this a Intel Atom processor?
   bool IsAtom = false;
 
@@ -730,6 +731,11 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   /// Use software floating point for code generation.
   bool UseSoftFloat = false;
 
+=======
+#define GET_SUBTARGETINFO_MACRO(ATTRIBUTE, DEFAULT, GETTER)                    \
+  bool ATTRIBUTE = DEFAULT;
+#include "X86GenSubtargetInfo.inc"
+>>>>>>> e58dadf3e2c160d0c405aafd807d8305c5a92c4a
   /// The minimum alignment known to hold of the stack frame on
   /// entry to the function and which must be maintained by every function.
   Align stackAlignment = Align(4);
@@ -741,6 +747,7 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   // FIXME: this is a known good value for Yonah. How about others?
   unsigned MaxInlineSizeThreshold = 128;
 
+<<<<<<< HEAD
   /// Indicates target prefers 128 bit instructions.
   bool Prefer128Bit = false;
 
@@ -761,6 +768,8 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   /// Use Goldmont specific floating point div/sqrt costs.
   bool UseGLMDivSqrtCosts = false;
 
+=======
+>>>>>>> e58dadf3e2c160d0c405aafd807d8305c5a92c4a
   /// What processor and OS we're targeting.
   Triple TargetTriple;
 
@@ -770,7 +779,6 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   std::unique_ptr<RegisterBankInfo> RegBankInfo;
   std::unique_ptr<InstructionSelector> InstSelector;
 
-private:
   /// Override the stack alignment.
   MaybeAlign StackAlignOverride;
 
@@ -784,6 +792,7 @@ private:
   /// Required vector width from function attribute.
   unsigned RequiredVectorWidth;
 
+<<<<<<< HEAD
   /// True if compiling for 64-bit, false for 16-bit or 32-bit.
   bool Is64Bit = false;
 
@@ -804,6 +813,8 @@ private:
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> e58dadf3e2c160d0c405aafd807d8305c5a92c4a
   X86SelectionDAGInfo TSInfo;
   // Ordering here is important. X86InstrInfo initializes X86RegisterInfo which
   // X86TargetLowering needs.
@@ -869,18 +880,10 @@ private:
   void initSubtargetFeatures(StringRef CPU, StringRef TuneCPU, StringRef FS);
 
 public:
-  /// Is this x86_64? (disregarding specific ABI / programming model)
-  bool is64Bit() const {
-    return Is64Bit;
-  }
 
-  bool is32Bit() const {
-    return Is32Bit;
-  }
-
-  bool is16Bit() const {
-    return Is16Bit;
-  }
+#define GET_SUBTARGETINFO_MACRO(ATTRIBUTE, DEFAULT, GETTER)                    \
+  bool GETTER() const { return ATTRIBUTE; }
+#include "X86GenSubtargetInfo.inc"
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XUCC
@@ -903,16 +906,11 @@ public:
   PICStyles::Style getPICStyle() const { return PICStyle; }
   void setPICStyle(PICStyles::Style Style)  { PICStyle = Style; }
 
-  bool hasX87() const { return HasX87; }
-  bool hasCX8() const { return HasCX8; }
-  bool hasCX16() const { return HasCX16; }
   bool canUseCMPXCHG8B() const { return hasCX8(); }
   bool canUseCMPXCHG16B() const {
     // CX16 is just the CPUID bit, instruction requires 64-bit mode too.
     return hasCX16() && is64Bit();
   }
-  bool hasNOPL() const { return HasNOPL; }
-  bool hasCMOV() const { return HasCMOV; }
   // SSE codegen depends on cmovs, and all SSE1+ processors support them.
   // All 64-bit processors support cmov.
   bool canUseCMOV() const { return hasCMOV() || hasSSE1() || is64Bit(); }
@@ -926,26 +924,11 @@ public:
   bool hasAVX2() const { return X86SSELevel >= AVX2; }
   bool hasAVX512() const { return X86SSELevel >= AVX512; }
   bool hasInt256() const { return hasAVX2(); }
-  bool hasSSE4A() const { return HasSSE4A; }
   bool hasMMX() const { return X863DNowLevel >= MMX; }
   bool hasThreeDNow() const { return X863DNowLevel >= ThreeDNow; }
   bool hasThreeDNowA() const { return X863DNowLevel >= ThreeDNowA; }
-  bool hasPOPCNT() const { return HasPOPCNT; }
-  bool hasAES() const { return HasAES; }
-  bool hasVAES() const { return HasVAES; }
-  bool hasFXSR() const { return HasFXSR; }
-  bool hasXSAVE() const { return HasXSAVE; }
-  bool hasXSAVEOPT() const { return HasXSAVEOPT; }
-  bool hasXSAVEC() const { return HasXSAVEC; }
-  bool hasXSAVES() const { return HasXSAVES; }
-  bool hasPCLMUL() const { return HasPCLMUL; }
-  bool hasVPCLMULQDQ() const { return HasVPCLMULQDQ; }
-  bool hasGFNI() const { return HasGFNI; }
-  // Prefer FMA4 to FMA - its better for commutation/memory folding and
-  // has equal or better performance on all supported targets.
-  bool hasFMA() const { return HasFMA; }
-  bool hasFMA4() const { return HasFMA4; }
   bool hasAnyFMA() const { return hasFMA() || hasFMA4(); }
+<<<<<<< HEAD
   bool hasXOP() const { return HasXOP; }
   bool hasTBM() const { return HasTBM; }
   bool hasLWP() const { return HasLWP; }
@@ -979,6 +962,8 @@ public:
   bool hasPREFETCHST2() const { return HasPREFETCHST2; }
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> e58dadf3e2c160d0c405aafd807d8305c5a92c4a
   bool hasPrefetchW() const {
     // The PREFETCHW instruction was added with 3DNow but later CPUs gave it
     // its own CPUID bit as part of deprecating 3DNow. Intel eventually added
@@ -992,6 +977,7 @@ public:
     // 3dnow.
     return hasSSE1() || (hasPRFCHW() && !hasThreeDNow()) || hasPREFETCHWT1();
   }
+<<<<<<< HEAD
   bool hasRDSEED() const { return HasRDSEED; }
   bool hasLAHFSAHF() const { return HasLAHFSAHF64; }
   bool canUseLAHFSAHF() const { return hasLAHFSAHF() || !is64Bit(); }
@@ -1279,6 +1265,9 @@ public:
   bool hasAMXINT8() const { return HasAMXINT8; }
   bool useRetpolineExternalThunk() const { return UseRetpolineExternalThunk; }
 
+=======
+  bool canUseLAHFSAHF() const { return hasLAHFSAHF64() || !is64Bit(); }
+>>>>>>> e58dadf3e2c160d0c405aafd807d8305c5a92c4a
   // These are generic getters that OR together all of the thunk types
   // supported by the subtarget. Therefore useIndirectThunk*() will return true
   // if any respective thunk feature is enabled.
@@ -1287,16 +1276,6 @@ public:
   }
   bool useIndirectThunkBranches() const {
     return useRetpolineIndirectBranches() || useLVIControlFlowIntegrity();
-  }
-
-  bool preferMaskRegisters() const { return PreferMaskRegisters; }
-  bool useSLMArithCosts() const { return UseSLMArithCosts; }
-  bool useGLMDivSqrtCosts() const { return UseGLMDivSqrtCosts; }
-  bool useLVIControlFlowIntegrity() const { return UseLVIControlFlowIntegrity; }
-  bool allowTaggedGlobals() const { return AllowTaggedGlobals; }
-  bool useLVILoadHardening() const { return UseLVILoadHardening; }
-  bool useSpeculativeExecutionSideEffectSuppression() const {
-    return UseSpeculativeExecutionSideEffectSuppression;
   }
 
   unsigned getPreferVectorWidth() const { return PreferVectorWidth; }
@@ -1336,10 +1315,6 @@ public:
   }
 
   bool isXRaySupported() const override { return is64Bit(); }
-
-  /// TODO: to be removed later and replaced with suitable properties
-  bool isAtom() const { return IsAtom; }
-  bool useSoftFloat() const { return UseSoftFloat; }
 
   /// Use mfence if we have SSE2 or we're on x86-64 (even if we asked for
   /// no-sse2). There isn't any reason to disable it if the target processor
