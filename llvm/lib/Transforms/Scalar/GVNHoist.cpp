@@ -283,9 +283,15 @@ public:
 #if INTEL_CUSTOMIZATION
            MemoryDependenceResults *MD, MemorySSA *MSSA, bool HoistingGeps)
       : DT(DT), PDT(PDT), AA(AA), MD(MD), MSSA(MSSA),
+<<<<<<< HEAD
         MSSAUpdater(std::make_unique<MemorySSAUpdater>(MSSA)),
         HoistingGeps(HoistingGeps) {}
 #endif // INTEL_CUSTOMIZATION
+=======
+        MSSAUpdater(std::make_unique<MemorySSAUpdater>(MSSA)) {
+    MSSA->ensureOptimizedUses();
+  }
+>>>>>>> f96428e16de2181b414e39234b4d366c83cc52a8
 
   bool run(Function &F);
 
