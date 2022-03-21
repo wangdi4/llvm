@@ -376,8 +376,12 @@ VPlanIdioms::isPtrEqSearchLoop(const VPBasicBlock *Block,
     }
   }
 
+  if (!ListItemRef) {
+    LLVM_DEBUG(
+        dbgs() << "        List item for search loop idiom not found.\n");
+    return VPlanIdioms::Unsafe;
+  }
   // All checks passed, idiom is recognized.
-  assert(ListItemRef && "List item for search loop idiom not found.\n");
   PeelArrayRef = const_cast<RegDDRef *>(ListItemRef);
   return VPlanIdioms::SearchLoopPtrEq;
 }
