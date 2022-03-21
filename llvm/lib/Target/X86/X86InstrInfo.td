@@ -1268,8 +1268,7 @@ def HasCRC32     : Predicate<"Subtarget->hasCRC32()">;
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<(all_of (not Is64Bit)), "Not 64-bit mode">;
 def In64BitMode  : Predicate<"Subtarget->is64Bit()">,
-<<<<<<< HEAD
-                             AssemblerPredicate<(all_of Mode64Bit), "64-bit mode">;
+                             AssemblerPredicate<(all_of Is64Bit), "64-bit mode">;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XUCC
 def NotXuCCMode : Predicate<"!Subtarget->isXuCC()">,
@@ -1278,9 +1277,6 @@ def InXuCCMode  : Predicate<"Subtarget->isXuCC()">,
                              AssemblerPredicate<(all_of ModeXuCC), "XuCC mode">;
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
-=======
-                             AssemblerPredicate<(all_of Is64Bit), "64-bit mode">;
->>>>>>> 6cfe41dcc885f7e1f641153c63e1b2bc9441abb7
 def IsLP64  : Predicate<"Subtarget->isTarget64BitLP64()">;
 def NotLP64 : Predicate<"!Subtarget->isTarget64BitLP64()">;
 def In16BitMode  : Predicate<"Subtarget->is16Bit()">,

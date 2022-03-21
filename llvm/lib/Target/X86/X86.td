@@ -19,27 +19,18 @@ include "llvm/Target/Target.td"
 // X86 Subtarget state
 //
 
-<<<<<<< HEAD
-def Mode64Bit : SubtargetFeature<"64bit-mode", "Is64Bit", "true",
-                                  "64-bit mode (x86_64)">;
-def Mode32Bit : SubtargetFeature<"32bit-mode", "Is32Bit", "true",
-                                  "32-bit mode (80386)">;
-def Mode16Bit : SubtargetFeature<"16bit-mode", "Is16Bit", "true",
-                                  "16-bit mode (i8086)">;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_XUCC
-def ModeXuCC : SubtargetFeature<"xucc-mode", "InXuCCMode", "true",
-                                "xucc mode (x86_64_xucc)">;
-#endif // INTEL_FEATURE_XUCC
-#endif // INTEL_CUSTOMIZATION
-=======
 def Is64Bit : SubtargetFeature<"64bit-mode", "Is64Bit", "true",
                                "64-bit mode (x86_64)">;
 def Is32Bit : SubtargetFeature<"32bit-mode", "Is32Bit", "true",
                                "32-bit mode (80386)">;
 def Is16Bit : SubtargetFeature<"16bit-mode", "Is16Bit", "true",
                                "16-bit mode (i8086)">;
->>>>>>> 6cfe41dcc885f7e1f641153c63e1b2bc9441abb7
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+def ModeXuCC : SubtargetFeature<"xucc-mode", "InXuCCMode", "true",
+                                "xucc mode (x86_64_xucc)">;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // X86 Subtarget ISA features
