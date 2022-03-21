@@ -719,12 +719,6 @@ void StmtPrinter::VisitOMPTargetVariantDispatchDirective(
   PrintOMPExecutableDirective(Node);
 }
 
-void StmtPrinter::VisitOMPTargetTeamsGenericLoopDirective(
-    OMPTargetTeamsGenericLoopDirective *Node) {
-  Indent() << "#pragma omp target teams loop";
-  PrintOMPExecutableDirective(Node);
-}
-
 void StmtPrinter::VisitOMPParallelGenericLoopDirective(
     OMPParallelGenericLoopDirective *Node) {
   Indent() << "#pragma omp parallel loop";
@@ -1044,6 +1038,12 @@ void StmtPrinter::VisitOMPGenericLoopDirective(OMPGenericLoopDirective *Node) {
 void StmtPrinter::VisitOMPTeamsGenericLoopDirective(
     OMPTeamsGenericLoopDirective *Node) {
   Indent() << "#pragma omp teams loop";
+  PrintOMPExecutableDirective(Node);
+}
+
+void StmtPrinter::VisitOMPTargetTeamsGenericLoopDirective(
+    OMPTargetTeamsGenericLoopDirective *Node) {
+  Indent() << "#pragma omp target teams loop";
   PrintOMPExecutableDirective(Node);
 }
 

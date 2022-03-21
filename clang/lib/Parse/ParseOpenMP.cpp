@@ -173,11 +173,10 @@ static OpenMPDirectiveKindExWrapper parseOpenMPDirectiveKind(Parser &P) {
       {OMPD_teams, OMPD_loop, OMPD_teams_loop},
       {OMPD_target, OMPD_teams, OMPD_target_teams},
       {OMPD_target_teams, OMPD_distribute, OMPD_target_teams_distribute},
+      {OMPD_target_teams, OMPD_loop, OMPD_target_teams_loop},
 #if INTEL_COLLAB
       {OMPD_target, OMPD_variant, OMPD_target_variant},
       {OMPD_target_variant, OMPD_dispatch, OMPD_target_variant_dispatch},
-      {OMPD_teams, OMPD_loop, OMPD_teams_loop},
-      {OMPD_target_teams, OMPD_loop, OMPD_target_teams_loop},
       {OMPD_target_parallel, OMPD_loop, OMPD_target_parallel_loop},
       {OMPD_parallel, OMPD_loop, OMPD_parallel_loop},
       {OMPD_declare_target, OMPD_function, OMPD_declare_target_function},
@@ -2539,7 +2538,6 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_target_parallel_for_simd:
   case OMPD_target_simd:
 #if INTEL_COLLAB
-  case OMPD_target_teams_loop:
   case OMPD_parallel_loop:
   case OMPD_target_parallel_loop:
   case OMPD_target_variant_dispatch:
@@ -2559,6 +2557,7 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_metadirective:
   case OMPD_loop:
   case OMPD_teams_loop:
+  case OMPD_target_teams_loop:
     Diag(Tok, diag::err_omp_unexpected_directive)
         << 1 << getOpenMPDirectiveName(DKind);
     break;
@@ -3029,8 +3028,8 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
   case OMPD_target_parallel_for:
   case OMPD_loop:
   case OMPD_teams_loop:
-#if INTEL_COLLAB
   case OMPD_target_teams_loop:
+#if INTEL_COLLAB
   case OMPD_parallel_loop:
   case OMPD_target_parallel_loop:
   case OMPD_target_variant_dispatch:
