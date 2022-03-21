@@ -207,7 +207,7 @@ static bool LLVM_ATTRIBUTE_UNUSED combineSinCos(CallInst *Call,
     SinVal->setFast(true);
 
   // Load the cosine result from the alloca temporary.
-  auto *CosVal = B.CreateAlignedLoad(CosTmp->getType()->getPointerElementType(),
+  auto *CosVal = B.CreateAlignedLoad(AngleType,
                                      CosTmp, DL.getStackAlignment(), "cos.val");
   LLVM_DEBUG(dbgs() << __FUNCTION__ << "Generated sincos\n"
                     << SinVal << "\n"
