@@ -630,10 +630,10 @@ protected:
   void truncateToMinimalBitwidths(VPTransformState &State);
 
   /// Returns (and creates if needed) the original loop trip count.
-  Value *getOrCreateTripCount(Loop *NewLoop);
+  Value *getOrCreateTripCount(BasicBlock *InsertBlock);
 
   /// Returns (and creates if needed) the trip count of the widened loop.
-  Value *getOrCreateVectorTripCount(Loop *NewLoop);
+  Value *getOrCreateVectorTripCount(BasicBlock *InsertBlock);
 
   /// Returns a bitcasted value to the requested vector type.
   /// Also handles bitcasts of vector<float> <-> vector<pointer> types.
@@ -642,7 +642,7 @@ protected:
 
   /// Emit a bypass check to see if the vector trip count is zero, including if
   /// it overflows.
-  void emitMinimumIterationCountCheck(Loop *L, BasicBlock *Bypass);
+  void emitMinimumIterationCountCheck(BasicBlock *Bypass);
 
   /// Emit a bypass check to see if all of the SCEV assumptions we've
   /// had to make are correct. Returns the block containing the checks or
@@ -919,7 +919,7 @@ protected:
   /// Emits an iteration count bypass check once for the main loop (when \p
   /// ForEpilogue is false) and once for the epilogue loop (when \p
   /// ForEpilogue is true).
-  BasicBlock *emitMinimumIterationCountCheck(Loop *L, BasicBlock *Bypass,
+  BasicBlock *emitMinimumIterationCountCheck(BasicBlock *Bypass,
                                              bool ForEpilogue);
   void printDebugTracesAtStart() override;
   void printDebugTracesAtEnd() override;
@@ -2877,12 +2877,12 @@ void InnerLoopVectorizer::createHeaderBranch(Loop *L) {
   Header->getTerminator()->eraseFromParent();
 }
 
-Value *InnerLoopVectorizer::getOrCreateTripCount(Loop *L) {
+Value *InnerLoopVectorizer::getOrCreateTripCount(BasicBlock *InsertBlock) {
   if (TripCount)
     return TripCount;
 
-  assert(L && "Create Trip Count for null loop.");
-  IRBuilder<> Builder(L->getLoopPreheader()->getTerminator());
+  assert(InsertBlock);
+  IRBuilder<> Builder(InsertBlock->getTerminator());
   // Find the loop boundaries.
   ScalarEvolution *SE = PSE.getSE();
   const SCEV *BackedgeTakenCount = PSE.getBackedgeTakenCount();
@@ -2906,7 +2906,7 @@ Value *InnerLoopVectorizer::getOrCreateTripCount(Loop *L) {
   const SCEV *ExitCount = SE->getAddExpr(
       BackedgeTakenCount, SE->getOne(BackedgeTakenCount->getType()));
 
-  const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
+  const DataLayout &DL = InsertBlock->getModule()->getDataLayout();
 
   // Expand the trip count and place the new instructions in the preheader.
   // Notice that the pre-header does not change, only the loop body.
@@ -2914,22 +2914,23 @@ Value *InnerLoopVectorizer::getOrCreateTripCount(Loop *L) {
 
   // Count holds the overall loop count (N).
   TripCount = Exp.expandCodeFor(ExitCount, ExitCount->getType(),
-                                L->getLoopPreheader()->getTerminator());
+                                InsertBlock->getTerminator());
 
   if (TripCount->getType()->isPointerTy())
     TripCount =
         CastInst::CreatePointerCast(TripCount, IdxTy, "exitcount.ptrcnt.to.int",
-                                    L->getLoopPreheader()->getTerminator());
+                                    InsertBlock->getTerminator());
 
   return TripCount;
 }
 
-Value *InnerLoopVectorizer::getOrCreateVectorTripCount(Loop *L) {
+Value *
+InnerLoopVectorizer::getOrCreateVectorTripCount(BasicBlock *InsertBlock) {
   if (VectorTripCount)
     return VectorTripCount;
 
-  Value *TC = getOrCreateTripCount(L);
-  IRBuilder<> Builder(L->getLoopPreheader()->getTerminator());
+  Value *TC = getOrCreateTripCount(InsertBlock);
+  IRBuilder<> Builder(InsertBlock->getTerminator());
 
   Type *Ty = TC->getType();
   // This is where we can make the step a runtime constant.
@@ -3003,9 +3004,8 @@ Value *InnerLoopVectorizer::createBitOrPointerCast(Value *V, VectorType *DstVTy,
   return Builder.CreateBitOrPointerCast(CastVal, DstFVTy);
 }
 
-void InnerLoopVectorizer::emitMinimumIterationCountCheck(Loop *L,
-                                                         BasicBlock *Bypass) {
-  Value *Count = getOrCreateTripCount(L);
+void InnerLoopVectorizer::emitMinimumIterationCountCheck(BasicBlock *Bypass) {
+  Value *Count = getOrCreateTripCount(LoopVectorPreHeader);
   // Reuse existing vector loop preheader for TC checks.
   // Note that new preheader block is generated for vector loop.
   BasicBlock *const TCCheckBlock = LoopVectorPreHeader;
@@ -3186,7 +3186,7 @@ void InnerLoopVectorizer::createInductionResumeValues(
           (!AdditionalBypass.first && !AdditionalBypass.second)) &&
          "Inconsistent information about additional bypass.");
 
-  Value *VectorTripCount = getOrCreateVectorTripCount(L);
+  Value *VectorTripCount = getOrCreateVectorTripCount(L->getLoopPreheader());
   assert(VectorTripCount && L && "Expected valid arguments");
   // We are going to resume the execution of the scalar loop.
   // Go over all of the induction variables that we found and fix the
@@ -3264,8 +3264,8 @@ BasicBlock *InnerLoopVectorizer::completeLoopSkeleton(Loop *L,
   assert(L && "Expected valid loop.");
 
   // The trip counts should be cached by now.
-  Value *Count = getOrCreateTripCount(L);
-  Value *VectorTripCount = getOrCreateVectorTripCount(L);
+  Value *Count = getOrCreateTripCount(L->getLoopPreheader());
+  Value *VectorTripCount = getOrCreateVectorTripCount(L->getLoopPreheader());
 
   auto *ScalarLatchTerm = OrigLoop->getLoopLatch()->getTerminator();
 
@@ -3346,7 +3346,7 @@ InnerLoopVectorizer::createVectorizedLoopSkeleton() {
   // simply happens to be prone to hitting this in practice.  In theory, we
   // can hit the same issue for any SCEV, or ValueTracking query done during
   // mutation.  See PR49900.
-  getOrCreateTripCount(OrigLoop);
+  getOrCreateTripCount(OrigLoop->getLoopPreheader());
 
   // Create an empty vector loop, and prepare basic blocks for the runtime
   // checks.
@@ -3357,7 +3357,7 @@ InnerLoopVectorizer::createVectorizedLoopSkeleton() {
   // backedge-taken count is uint##_max: adding one to it will overflow leading
   // to an incorrect trip count of zero. In this (rare) case we will also jump
   // to the scalar loop.
-  emitMinimumIterationCountCheck(Lp, LoopScalarPreHeader);
+  emitMinimumIterationCountCheck(LoopScalarPreHeader);
 
   // Generate the code to check any assumptions that we've made for SCEV
   // expressions.
@@ -3768,9 +3768,10 @@ void InnerLoopVectorizer::fixVectorizedLoop(VPTransformState &State) {
   if (!Cost->requiresScalarEpilogue(VF)) {
     // Fix-up external users of the induction variables.
     for (auto &Entry : Legal->getInductionVars())
-      fixupIVUsers(
-          Entry.first, Entry.second, getOrCreateVectorTripCount(VectorLoop),
-          IVEndValues[Entry.first], LoopMiddleBlock, VectorLoop->getHeader());
+      fixupIVUsers(Entry.first, Entry.second,
+                   getOrCreateVectorTripCount(VectorLoop->getLoopPreheader()),
+                   IVEndValues[Entry.first], LoopMiddleBlock,
+                   VectorLoop->getHeader());
 
     fixLCSSAPHIs(State);
   }
@@ -7955,7 +7956,7 @@ EpilogueVectorizerMainLoop::createEpilogueVectorizedLoopSkeleton() {
   // Generate the code to check the minimum iteration count of the vector
   // epilogue (see below).
   EPI.EpilogueIterationCountCheck =
-      emitMinimumIterationCountCheck(Lp, LoopScalarPreHeader, true);
+      emitMinimumIterationCountCheck(LoopScalarPreHeader, true);
   EPI.EpilogueIterationCountCheck->setName("iter.check");
 
   // Generate the code to check any assumptions that we've made for SCEV
@@ -7974,10 +7975,10 @@ EpilogueVectorizerMainLoop::createEpilogueVectorizedLoopSkeleton() {
   // trip count. Note: the branch will get updated later on when we vectorize
   // the epilogue.
   EPI.MainLoopIterationCountCheck =
-      emitMinimumIterationCountCheck(Lp, LoopScalarPreHeader, false);
+      emitMinimumIterationCountCheck(LoopScalarPreHeader, false);
 
   // Generate the induction variable.
-  Value *CountRoundDown = getOrCreateVectorTripCount(Lp);
+  Value *CountRoundDown = getOrCreateVectorTripCount(LoopVectorPreHeader);
   EPI.VectorTripCount = CountRoundDown;
   createHeaderBranch(Lp);
 
@@ -8006,13 +8007,13 @@ void EpilogueVectorizerMainLoop::printDebugTracesAtEnd() {
   });
 }
 
-BasicBlock *EpilogueVectorizerMainLoop::emitMinimumIterationCountCheck(
-    Loop *L, BasicBlock *Bypass, bool ForEpilogue) {
-  assert(L && "Expected valid Loop.");
+BasicBlock *
+EpilogueVectorizerMainLoop::emitMinimumIterationCountCheck(BasicBlock *Bypass,
+                                                           bool ForEpilogue) {
   assert(Bypass && "Expected valid bypass basic block.");
   ElementCount VFactor = ForEpilogue ? EPI.EpilogueVF : VF;
   unsigned UFactor = ForEpilogue ? EPI.EpilogueUF : UF;
-  Value *Count = getOrCreateTripCount(L);
+  Value *Count = getOrCreateTripCount(LoopVectorPreHeader);
   // Reuse existing vector loop preheader for TC checks.
   // Note that new preheader block is generated for vector loop.
   BasicBlock *const TCCheckBlock = LoopVectorPreHeader;
