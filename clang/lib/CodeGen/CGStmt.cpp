@@ -460,8 +460,6 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
 #if INTEL_COLLAB
   case Stmt::OMPTargetVariantDispatchDirectiveClass:
     llvm_unreachable("target variant dispatch not supported with FE outlining");
-  case Stmt::OMPTargetTeamsGenericLoopDirectiveClass:
-    llvm_unreachable("target teams loop not supported with FE outlining");
   case Stmt::OMPParallelGenericLoopDirectiveClass:
     llvm_unreachable("parallel loop not supported with FE outlining");
   case Stmt::OMPTargetParallelGenericLoopDirectiveClass:

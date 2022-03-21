@@ -1013,11 +1013,6 @@ void StmtProfiler::VisitOMPTargetVariantDispatchDirective(
   VisitOMPExecutableDirective(S);
 }
 
-void StmtProfiler::VisitOMPTargetTeamsGenericLoopDirective(
-    const OMPTargetTeamsGenericLoopDirective *S) {
-  VisitOMPLoopDirective(S);
-}
-
 void StmtProfiler::VisitOMPParallelGenericLoopDirective(
     const OMPParallelGenericLoopDirective *S) {
   VisitOMPLoopDirective(S);

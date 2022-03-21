@@ -676,9 +676,6 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
     K = CXCursor_OMPSectionDirective;
     break;
 #if INTEL_COLLAB
-  case Stmt::OMPTargetTeamsGenericLoopDirectiveClass:
-    K = CXCursor_OMPTargetTeamsGenericLoopDirective;
-    break;
   case Stmt::OMPParallelGenericLoopDirectiveClass:
     K = CXCursor_OMPParallelGenericLoopDirective;
     break;

@@ -2302,12 +2302,6 @@ void ASTStmtWriter::VisitOMPSectionDirective(OMPSectionDirective *D) {
 }
 
 #if INTEL_COLLAB
-void ASTStmtWriter::VisitOMPTargetTeamsGenericLoopDirective(
-    OMPTargetTeamsGenericLoopDirective *D) {
-  VisitOMPLoopDirective(D);
-  Code = serialization::STMT_OMP_TARGET_TEAMS_GENERIC_LOOP_DIRECTIVE;
-}
-
 void ASTStmtWriter::VisitOMPParallelGenericLoopDirective(
     OMPParallelGenericLoopDirective *D) {
   VisitOMPLoopDirective(D);
