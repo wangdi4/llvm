@@ -730,9 +730,6 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   /// Use software floating point for code generation.
   bool UseSoftFloat = false;
 
-  /// Use alias analysis during code generation.
-  bool UseAA = false;
-
   /// The minimum alignment known to hold of the stack frame on
   /// entry to the function and which must be maintained by every function.
   Align stackAlignment = Align(4);
@@ -1343,7 +1340,6 @@ public:
   /// TODO: to be removed later and replaced with suitable properties
   bool isAtom() const { return IsAtom; }
   bool useSoftFloat() const { return UseSoftFloat; }
-  bool useAA() const override { return UseAA; }
 
   /// Use mfence if we have SSE2 or we're on x86-64 (even if we asked for
   /// no-sse2). There isn't any reason to disable it if the target processor
