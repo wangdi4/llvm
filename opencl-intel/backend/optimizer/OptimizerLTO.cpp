@@ -37,6 +37,7 @@
 #include "llvm/Transforms/Scalar/LoopDeletion.h"
 #include "llvm/Transforms/Scalar/LoopIdiomRecognize.h"
 #include "llvm/Transforms/Scalar/LoopUnrollPass.h"
+#include "llvm/Transforms/Scalar/Reassociate.h"
 #include "llvm/Transforms/Scalar/SROA.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
@@ -147,9 +148,12 @@ void OptimizerLTO::registerVectorizerStartCallback(PassBuilder &PB) {
   PB.registerVectorizerStartEPCallback(
       [](FunctionPassManager &FPM, OptimizationLevel Level) {
         FPM.addPass(UnifyFunctionExitNodesPass());
-        // Replace 'div' and 'rem' instructions with calls to optimized library
-        // functions
-        FPM.addPass(MathLibraryFunctionsReplacementPass());
+        if (Level != OptimizationLevel::O0) {
+          FPM.addPass(ReassociatePass());
+          // Replace 'div' and 'rem' instructions with calls to optimized
+          // library functions
+          FPM.addPass(MathLibraryFunctionsReplacementPass());
+        }
       });
 }
 
