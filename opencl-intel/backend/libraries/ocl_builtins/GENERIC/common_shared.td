@@ -2,10 +2,7 @@
 
 // clamp on floating
 OclBuiltinImpl clamp_fgeneric = OclBuiltinImpl<clamp,
-  [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
-   v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
-    return fmax(fmin($Arg0VarName, $Arg2VarName), $Arg1VarName);
-  }]>;
+  ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16]>.Tout, 0, clamp_f_code>;
 
 // degrees
 OclBuiltinImpl degrees_f32_generic = OclBuiltinImpl<degrees,
@@ -19,20 +16,11 @@ OclBuiltinImpl degrees_f64_generic = OclBuiltinImpl<degrees,
 
 // max
 OclBuiltinImpl max_fgeneric = OclBuiltinImpl<max,
-  [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
-   v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
-     // !!! order of arguments in comparison is important. DO NOT CHANGE
-     // Reason is how NaN is treated. "y < x ? y : x" sequence generates max_ps x86 intrinsics
-     // max_ps treats NaN differently in case NaN is in 1st argument or in 2nd argument
-    return ($Arg1VarName < $Arg0VarName) ? $Arg0VarName : $Arg1VarName;
-  }]>;
+  ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16]>.Tout, 0, max_f_code>;
 
 // min
 OclBuiltinImpl min_fgeneric = OclBuiltinImpl<min,
-  [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
-   v1f64, v2f64, v3f64, v4f64,v8f64, v16f64], 0, [{
-    return ($Arg0VarName < $Arg1VarName) ? $Arg0VarName : $Arg1VarName;
-  }]>;
+  ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16]>.Tout, 0, min_f_code>;
 
 // mix
 OclBuiltinImpl mix_generic = OclBuiltinImpl<mix, 

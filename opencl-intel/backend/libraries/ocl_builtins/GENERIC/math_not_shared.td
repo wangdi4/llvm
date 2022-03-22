@@ -18,6 +18,7 @@
 // the same functions
 
 list<OclType> math_not_shared_types = [v16f32, v8f64];
+list<OclType> math_not_shared_types_v1_to_v16 = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16]>.Tout;
 
 // acos
 OclBuiltinImpl acos_svml_not_shared = OclBuiltinImpl<acos,  math_not_shared_types, 0, [{
@@ -78,7 +79,7 @@ OclBuiltinImpl cbrt_svml_not_shared = OclBuiltinImpl<cbrt, math_not_shared_types
   }]>;
 // ceil
 // ceil not used in shared lib at all
-OclBuiltinImpl ceil_svml = OclBuiltinImpl<ceil, ceil.Types, 0, [{
+OclBuiltinImpl ceil_svml = OclBuiltinImpl<ceil, math_not_shared_types_v1_to_v16, 0, [{
     return __ocl_svml_$Target_ceil$SVMLSuffix($Arg0VarName);
   }]>;
 // cos
@@ -130,7 +131,7 @@ OclBuiltinImpl floor_svml_not_shared = OclBuiltinImpl<floor, [v4f32, v8f32, v2f6
   }]>;
 
 // fma
-OclBuiltinImpl fma_svml_not_shared = OclBuiltinImpl<fma, fma.Types, 0, [{
+OclBuiltinImpl fma_svml_not_shared = OclBuiltinImpl<fma, math_not_shared_types_v1_to_v16, 0, [{
     return __ocl_svml_$Target_fma$SVMLSuffix($Arg0VarName, $Arg1VarName, $Arg2VarName);
   }]>;
 // fmod
@@ -270,13 +271,10 @@ OclBuiltinImpl fract_gen_f32 = OclBuiltinImpl<fract_gen, [v2f32, v3f32, v4f32, v
 OclBuiltinImpl fract_gen_f64 = OclBuiltinImpl<fract_gen, [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, fract_svml>;
 
 // frexp
-defvar frexp_svml = [{
-    return __ocl_svml_$Target_frexp$SVMLSuffix($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
-  }];
-OclBuiltinImpl frexp_pas_svml = OclBuiltinImpl<frexp_pas, frexp_pas.Types, 0, frexp_svml>;
-OclBuiltinImpl frexp_las_svml = OclBuiltinImpl<frexp_las, frexp_las.Types, 0, frexp_svml>;
-OclBuiltinImpl frexp_gas_svml = OclBuiltinImpl<frexp_gas, frexp_gas.Types, 0, frexp_svml>;
-OclBuiltinImpl frexp_gen_svml = OclBuiltinImpl<frexp_gen, frexp_gen.Types, 0, frexp_svml>;
+OclBuiltinImpl frexp_pas_svml = OclBuiltinImpl<frexp_pas, math_not_shared_types_v1_to_v16, 0, frexp_svml>;
+OclBuiltinImpl frexp_las_svml = OclBuiltinImpl<frexp_las, math_not_shared_types_v1_to_v16, 0, frexp_svml>;
+OclBuiltinImpl frexp_gas_svml = OclBuiltinImpl<frexp_gas, math_not_shared_types_v1_to_v16, 0, frexp_svml>;
+OclBuiltinImpl frexp_gen_svml = OclBuiltinImpl<frexp_gen, math_not_shared_types_v1_to_v16, 0, frexp_svml>;
 
 
 // ilogb float. call float2 version
@@ -323,13 +321,10 @@ OclBuiltinImpl lgamma_svml_not_shared = OclBuiltinImpl<lgamma, math_not_shared_t
     return __ocl_svml_$Target_lgamma$SVMLSuffix($Arg0VarName);
   }]>;
 // lgamma_r
-defvar lgamma_r_svml = [{
-    return __ocl_svml_$Target_lgammar$SVMLSuffix($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
-  }];
-OclBuiltinImpl lgamma_r_pas_svml = OclBuiltinImpl<lgamma_r_pas, lgamma_r_pas.Types, 0, lgamma_r_svml>;
-OclBuiltinImpl lgamma_r_las_svml = OclBuiltinImpl<lgamma_r_las, lgamma_r_las.Types, 0, lgamma_r_svml>;
-OclBuiltinImpl lgamma_r_gas_svml = OclBuiltinImpl<lgamma_r_gas, lgamma_r_gas.Types, 0, lgamma_r_svml>;
-OclBuiltinImpl lgamma_r_gen_svml = OclBuiltinImpl<lgamma_r_gen, lgamma_r_gen.Types, 0, lgamma_r_svml>;
+OclBuiltinImpl lgamma_r_pas_svml = OclBuiltinImpl<lgamma_r_pas, math_not_shared_types_v1_to_v16, 0, lgamma_r_svml>;
+OclBuiltinImpl lgamma_r_las_svml = OclBuiltinImpl<lgamma_r_las, math_not_shared_types_v1_to_v16, 0, lgamma_r_svml>;
+OclBuiltinImpl lgamma_r_gas_svml = OclBuiltinImpl<lgamma_r_gas, math_not_shared_types_v1_to_v16, 0, lgamma_r_svml>;
+OclBuiltinImpl lgamma_r_gen_svml = OclBuiltinImpl<lgamma_r_gen, math_not_shared_types_v1_to_v16, 0, lgamma_r_svml>;
 
 // log
 OclBuiltinImpl log_svml_not_shared = OclBuiltinImpl<log, math_not_shared_types, 0, [{
@@ -367,22 +362,16 @@ OclBuiltinImpl rootn_svml_not_shared = OclBuiltinImpl<rootn, math_not_shared_typ
   }]>;
 
 // modf
-defvar modf_svml = [{
-    return __ocl_svml_$Target_modf$SVMLSuffix($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
-  }];
-OclBuiltinImpl modf_pas_svml = OclBuiltinImpl<modf_pas, modf_pas.Types, 0, modf_svml>;
-OclBuiltinImpl modf_las_svml = OclBuiltinImpl<modf_las, modf_las.Types, 0, modf_svml>;
-OclBuiltinImpl modf_gas_svml = OclBuiltinImpl<modf_gas, modf_gas.Types, 0, modf_svml>;
-OclBuiltinImpl modf_gen_svml = OclBuiltinImpl<modf_gen, modf_gen.Types, 0, modf_svml>;
+OclBuiltinImpl modf_pas_svml = OclBuiltinImpl<modf_pas, math_not_shared_types_v1_to_v16, 0, modf_svml>;
+OclBuiltinImpl modf_las_svml = OclBuiltinImpl<modf_las, math_not_shared_types_v1_to_v16, 0, modf_svml>;
+OclBuiltinImpl modf_gas_svml = OclBuiltinImpl<modf_gas, math_not_shared_types_v1_to_v16, 0, modf_svml>;
+OclBuiltinImpl modf_gen_svml = OclBuiltinImpl<modf_gen, math_not_shared_types_v1_to_v16, 0, modf_svml>;
 
 // remquo
-defvar remquo_svml = [{
-    return __ocl_svml_$Target_remquo$SVMLSuffix($Arg0VarName, $Arg1VarName, ($Arg2NoASType)$Arg2VarName);
-  }];
-OclBuiltinImpl remquo_pas_svml = OclBuiltinImpl<remquo_pas, remquo_pas.Types, 0, remquo_svml>;
-OclBuiltinImpl remquo_las_svml = OclBuiltinImpl<remquo_las, remquo_las.Types, 0, remquo_svml>;
-OclBuiltinImpl remquo_gas_svml = OclBuiltinImpl<remquo_gas, remquo_gas.Types, 0, remquo_svml>;
-OclBuiltinImpl remquo_gen_svml = OclBuiltinImpl<remquo_gen, remquo_gen.Types, 0, remquo_svml>;
+OclBuiltinImpl remquo_pas_svml = OclBuiltinImpl<remquo_pas, math_not_shared_types_v1_to_v16, 0, remquo_svml>;
+OclBuiltinImpl remquo_las_svml = OclBuiltinImpl<remquo_las, math_not_shared_types_v1_to_v16, 0, remquo_svml>;
+OclBuiltinImpl remquo_gas_svml = OclBuiltinImpl<remquo_gas, math_not_shared_types_v1_to_v16, 0, remquo_svml>;
+OclBuiltinImpl remquo_gen_svml = OclBuiltinImpl<remquo_gen, math_not_shared_types_v1_to_v16, 0, remquo_svml>;
 
 // rint
 OclBuiltinImpl rint_svml = OclBuiltinImpl<rint, [v4f32, v8f32, v2f64, v4f64], 0, [{
@@ -409,13 +398,10 @@ OclBuiltinImpl sin_svml_not_shared = OclBuiltinImpl<sin, math_not_shared_types, 
   }]>;
 
 // sincos
-defvar sincos_svml = [{
-    return __ocl_svml_$Target_sincos$SVMLSuffix($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
-  }];
-OclBuiltinImpl sincos_pas_svml = OclBuiltinImpl<sincos_pas, sincos_pas.Types, 0, sincos_svml>;
-OclBuiltinImpl sincos_las_svml = OclBuiltinImpl<sincos_las, sincos_las.Types, 0, sincos_svml>;
-OclBuiltinImpl sincos_gas_svml = OclBuiltinImpl<sincos_gas, sincos_gas.Types, 0, sincos_svml>;
-OclBuiltinImpl sincos_gen_svml = OclBuiltinImpl<sincos_gen, sincos_gen.Types, 0, sincos_svml>;
+OclBuiltinImpl sincos_pas_svml = OclBuiltinImpl<sincos_pas, math_not_shared_types_v1_to_v16, 0, sincos_svml>;
+OclBuiltinImpl sincos_las_svml = OclBuiltinImpl<sincos_las, math_not_shared_types_v1_to_v16, 0, sincos_svml>;
+OclBuiltinImpl sincos_gas_svml = OclBuiltinImpl<sincos_gas, math_not_shared_types_v1_to_v16, 0, sincos_svml>;
+OclBuiltinImpl sincos_gen_svml = OclBuiltinImpl<sincos_gen, math_not_shared_types_v1_to_v16, 0, sincos_svml>;
 
 // sinh
 OclBuiltinImpl sinh_svml_not_shared = OclBuiltinImpl<sinh, math_not_shared_types, 0, [{
@@ -581,17 +567,9 @@ OclBuiltinImpl native_sincos_ret2ptr_pas = OclBuiltinImpl<native_sincos_pas2, [v
 
 
 // This built-in is the one which the Packetizer replaces with the above
-defvar sincos_ret2ptr = [{
-    $Arg0Type res = sincos($Arg0VarName, $Arg2VarName);
-    *$Arg1VarName = res;
-  }];
 OclBuiltinImpl sincos_ret2ptr_pas = OclBuiltinImpl<sincos_pas2, [v4f32, v8f32, v16f32, v4f64, v8f64, v16f64], 0, sincos_ret2ptr>;
 
 // This built-in is the one which the Packetizer replaces with the above
-defvar modf_ret2ptr = [{
-    $Arg0Type res = modf($Arg0VarName, $Arg2VarName);
-    *$Arg1VarName = res;
-  }];
 OclBuiltinImpl modf_ret2ptr_pas = OclBuiltinImpl<modf_pas2, [v4f32, v8f32, v16f32, v4f64, v8f64, v16f64], 0, modf_ret2ptr>;
 
 // This built-in is the one which the Packetizer replaces with the above

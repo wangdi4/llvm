@@ -87,11 +87,11 @@ OclBuiltinImpl cbrt_svml = OclBuiltinImpl<cbrt, math_shared_types, 0, [{
 // copysign
 OclBuiltinImpl copysign_impl = OclBuiltinImpl<copysign, copysign.Types, 0, [{
     $Arg0Type $ReturnVarName;
-    $Arg0igentype ux = as_$Arg0igentype($Arg0VarName);
-    $Arg0igentype uy = as_$Arg1igentype($Arg1VarName);
+    $Arg0igentype ux = __builtin_astype(($Arg0VarName), $Arg0igentype);
+    $Arg0igentype uy = __builtin_astype(($Arg1VarName), $Arg1igentype);
     ux &= $ReturnBaseType_const_signMask;
     ux |= uy & ~$ReturnBaseType_const_signMask;
-    return as_$Arg0Type(ux);
+    return __builtin_astype((ux), $Arg0Type);
   }]>;
 
 // cos
@@ -141,7 +141,7 @@ OclBuiltinImpl expm1_svml = OclBuiltinImpl<expm1, math_shared_types, 0, [{
 
 // fabs
 OclBuiltinImpl fabs_impl = OclBuiltinImpl<fabs, fabs.Types, 0, [{
-    return as_$Arg0Type(as_$Arg0igentype($Arg0VarName) & $ReturnBaseType_const_signMask);
+    return __builtin_astype((__builtin_astype(($Arg0VarName), $Arg0igentype) & $ReturnBaseType_const_signMask), $Arg0Type);
   }]>;
 
 // OpenCL 2.0 -cl-fast-relaxed-math functions
@@ -214,15 +214,15 @@ OclBuiltinImpl divide_svml_rm = OclBuiltinImpl<divide_rm, math_shared_f32_types,
 OclBuiltinImpl fdim_impl_v1f32_promote = OclBuiltinImpl<fdim, [v1f32, v1f64], 0, Promote2>;
 
 // fdim vector
-OclBuiltinImpl fdim_impl_vec = OclBuiltinImpl<fdim, [v2f32, v3f32, v4f32, v8f32, v16f32,
-                          v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
-    const $ReturnType NaNasFP = as_$ReturnBaseType($ReturnBaseType_const_nanStorage);
-    const $ReturnType Zero = 0;
-    $Arg0Type xMinusY = $Arg0VarName - $Arg1VarName;
-    $Arg0igentype XorYNaN = isnan($Arg0VarName) | isnan($Arg1VarName);
-    $Arg0Type tmp = select(xMinusY, Zero, as_$Arg0igentype(xMinusY));
-    return select(tmp, NaNasFP, XorYNaN);
-  }]>;
+code fdim_impl_vec_code = [{
+  const $ReturnType NaNasFP = as_$ReturnBaseType($ReturnBaseType_const_nanStorage);
+  const $ReturnType Zero = 0;
+  $Arg0Type xMinusY = $Arg0VarName - $Arg1VarName;
+  $Arg0igentype XorYNaN = isnan($Arg0VarName) | isnan($Arg1VarName);
+  $Arg0Type tmp = select(xMinusY, Zero, as_$Arg0igentype(xMinusY));
+  return select(tmp, NaNasFP, XorYNaN);
+}];
+OclBuiltinImpl fdim_impl_vec = OclBuiltinImpl<fdim, ExpandTypesByVFAndFlatten<[v1f32, v1f64], [2, 3, 4, 8, 16]>.Tout, 0, fdim_impl_vec_code>;
 
 // floor
 OclBuiltinImpl floor_svml = OclBuiltinImpl<floor, [v1f32, v2f32, v3f32, v1f64, v3f64], 0, [{
@@ -408,7 +408,7 @@ OclBuiltinImpl minmag_impl = OclBuiltinImpl<minmag, minmag.Types, 0, [{
 
 // nan
 OclBuiltinImpl nan_impl = OclBuiltinImpl<nan, nan.Types, 0, [{
-    return as_$ReturnType($Arg0VarName | $ReturnBaseType_const_nanStorage);
+    return __builtin_astype(($Arg0VarName | $ReturnBaseType_const_nanStorage), $ReturnType);
   }]>;
 
 // nextafter
