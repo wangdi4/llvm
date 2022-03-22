@@ -26,5 +26,5 @@ define internal void @test02() {
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test02
-; CHECK: Safety data: Bad casting | Unsafe pointer store | Local instance{{ *}}
+; CHECK: Safety data: Bad casting | Unsafe pointer store | Address taken | Local instance{{ *}}
 ; CHECK: End LLVMType: %struct.test02

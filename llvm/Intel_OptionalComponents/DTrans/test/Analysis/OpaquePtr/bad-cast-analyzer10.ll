@@ -10,7 +10,7 @@
 ; CHECK: LLVMType: %struct._ZTS11mynextcoder.mynextcoder
 ; CHECK: Safety data: Bad casting | Mismatched element access | Global instance | Has function ptr{{ *$}}
 ; CHECK: LLVMType: %struct._ZTS8mycoder1.mycoder1
-; CHECK: Safety data: Bad casting | Unsafe pointer store{{ *$}}
+; CHECK: Safety data: Bad casting | Unsafe pointer store | Address taken{{ *$}}
 ; CHECK: LLVMType: %struct._ZTS8mycoder2.mycoder2
 ; CHECK: Safety data:  Bad casting | Unsafe pointer store{{ *$}}
 

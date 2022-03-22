@@ -8649,9 +8649,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     if (Args.hasArg(options::OPT_regcall))
       CmdArgs.push_back("-fdefault-calling-conv=regcall");
 
-  // Disable extensions for SYCL device compilation since some of them cause
-  // problems for SPIRV translator.
-  if (D.IsIntelMode() && !IsSYCLOffloadDevice)
+  if (D.IsIntelMode())
     CmdArgs.push_back("-fintel-compatibility");
 
   if (Args.hasFlag(options::OPT_intel_mintrinsic_promote,
