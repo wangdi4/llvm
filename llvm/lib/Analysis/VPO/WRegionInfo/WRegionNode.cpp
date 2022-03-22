@@ -535,8 +535,10 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveUseDevicePtr())
     PrintedSomething |= getUseDevicePtr().print(OS, Depth, Verbosity);
 
-  if (canHaveDepend())
+  if (canHaveDepend()) {
     PrintedSomething |= getDepend().print(OS, Depth, Verbosity);
+    PrintedSomething |= vpo::printDepArray(this, OS, Depth, Verbosity);
+  }
 
   if (canHaveDepSrcSink())
     PrintedSomething |= getDepSink().print(OS, Depth, Verbosity);
@@ -1721,6 +1723,11 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     extractDependOpndList(Args, NumArgs, ClauseInfo, getDepend(), IsIn);
     break;
   }
+  case QUAL_OMP_DEPARRAY:
+    assert(NumArgs == 2 && "Expected 2 operands in DEPARRAY qual");
+    setDepArrayNumDeps(Args[0]);
+    setDepArray(Args[1]);
+    break;
   case QUAL_OMP_ORDERED: {
     assert(isa<ConstantInt>(Args[0]) &&
            "Non-constant Value of N for ordered(N).");
@@ -2668,6 +2675,32 @@ void WRegionNode::errorClause(int ClauseID) const {
 }
 
 // Printing routines to help dump WRN content
+
+// Prints DEPARRAY( i32 Num , i8* Array )
+bool vpo::printDepArray(WRegionNode const *W, formatted_raw_ostream &OS,
+                        int Depth, unsigned Verbosity) {
+  assert((W->getDepArrayNumDeps() && W->getDepArray() ||
+          !W->getDepArrayNumDeps() && !W->getDepArray()) &&
+         "Corrupt DEPARRAY IR: args must be both null or both non-null");
+
+  unsigned Indent = 2 * Depth;
+
+  if (W->getDepArrayNumDeps()) {
+    OS.indent(Indent) << "DEPARRAY( ";
+    W->getDepArrayNumDeps()->printAsOperand(OS);
+    OS << " , ";
+    W->getDepArray()->printAsOperand(OS);
+    OS << " )\n";
+    return true;
+  }
+
+  if (Verbosity >= 1) {
+    OS.indent(Indent) << "DEPARRAY: UNSPECIFIED\n";
+    return true;
+  }
+
+  return false;
+}
 
 // Auxiliary function to print a BB in a WRN dump
 // If BB is null:
