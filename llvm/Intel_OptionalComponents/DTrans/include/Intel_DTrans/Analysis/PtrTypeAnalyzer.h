@@ -1,6 +1,6 @@
 //===------------------------PtrTypeAnalyzer.h----------------------------===//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -274,6 +274,15 @@ public:
   // aggregate type at some level of indirection.
   bool canAliasToAggregatePointer(ValueAnalysisType Kind = VAT_Use) const {
     return AggregatePointerAliasCount[Kind] != 0;
+  }
+
+  // Return 'true' if the specified type 'Ty' is in the alias set specified by
+  // 'Kind'.
+  bool canPointTo(DTransType* Ty, ValueAnalysisType Kind = VAT_Use) const {
+    for (auto *AliasTy : PointerTypeAliases[Kind])
+      if (AliasTy == Ty)
+        return true;
+    return false;
   }
 
   // Indicates there is more than one aggregate type in the alias set, specified
