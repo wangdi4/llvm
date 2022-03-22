@@ -195,7 +195,10 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       FPM.addPass(SROAPass());
       FPM.addPass(LoopSimplifyPass());
       FPM.addPass(createFunctionToLoopPassAdaptor(
-          LICMPass(), /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/true));
+          LICMPass(SetLicmMssaOptCap,
+                   SetLicmMssaNoAccForPromotionCap,
+                   /*AllowSpeculation*/ true),
+          /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/true));
       LoopPassManager LPM;
       LPM.addPass(LoopIdiomRecognizePass());
       LPM.addPass(LoopDeletionPass());
