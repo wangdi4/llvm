@@ -42,7 +42,13 @@ class TypeFinder {
 public:
   TypeFinder() = default;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  void run(const Module &M, bool onlyNamed, bool IncludeFuncMD = false);
+#else // INTEL_FEATURE_SW_DTRANS
   void run(const Module &M, bool onlyNamed);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   void clear();
 
   using iterator = std::vector<StructType*>::iterator;
