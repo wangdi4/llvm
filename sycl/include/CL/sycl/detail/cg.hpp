@@ -263,6 +263,7 @@ public:
   std::string MKernelName;
   detail::OSModuleHandle MOSModuleHandle;
   std::vector<std::shared_ptr<detail::stream_impl>> MStreams;
+  std::vector<std::shared_ptr<const void>> MAuxiliaryResources;
 
   CGExecKernel(NDRDescT NDRDesc, std::unique_ptr<HostKernelBase> HKernel,
                std::shared_ptr<detail::kernel_impl> SyclKernel,
@@ -274,6 +275,7 @@ public:
                std::vector<ArgDesc> Args, std::string KernelName,
                detail::OSModuleHandle OSModuleHandle,
                std::vector<std::shared_ptr<detail::stream_impl>> Streams,
+               std::vector<std::shared_ptr<const void>> AuxiliaryResources,
                CGTYPE Type, detail::code_location loc = {})
       : CG(Type, std::move(ArgsStorage), std::move(AccStorage),
            std::move(SharedPtrStorage), std::move(Requirements),
@@ -281,7 +283,8 @@ public:
         MNDRDesc(std::move(NDRDesc)), MHostKernel(std::move(HKernel)),
         MSyclKernel(std::move(SyclKernel)), MArgs(std::move(Args)),
         MKernelName(std::move(KernelName)), MOSModuleHandle(OSModuleHandle),
-        MStreams(std::move(Streams)) {
+        MStreams(std::move(Streams)),
+        MAuxiliaryResources(std::move(AuxiliaryResources)) {
     assert((getType() == RunOnHostIntel || getType() == Kernel) &&
            "Wrong type of exec kernel CG.");
   }
@@ -290,6 +293,10 @@ public:
   std::string getKernelName() const { return MKernelName; }
   std::vector<std::shared_ptr<detail::stream_impl>> getStreams() const {
     return MStreams;
+  }
+
+  std::vector<std::shared_ptr<const void>> getAuxiliaryResources() const {
+    return MAuxiliaryResources;
   }
 
   std::shared_ptr<detail::kernel_bundle_impl> getKernelBundle() {
@@ -306,6 +313,9 @@ public:
 
   void clearStreams() { MStreams.clear(); }
   bool hasStreams() { return !MStreams.empty(); }
+
+  void clearAuxiliaryResources() { MAuxiliaryResources.clear(); }
+  bool hasAuxiliaryResources() { return !MAuxiliaryResources.empty(); }
 };
 
 /// "Copy memory" command group class.
