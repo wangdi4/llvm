@@ -48,7 +48,13 @@
 
 using namespace llvm;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+void TypeFinder::run(const Module &M, bool onlyNamed, bool IncludeFuncMD) {
+#else // INTEL_FEATURE_SW_DTRANS
 void TypeFinder::run(const Module &M, bool onlyNamed) {
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   OnlyNamed = onlyNamed;
 
   // Get types from global variables.
@@ -74,6 +80,16 @@ void TypeFinder::run(const Module &M, bool onlyNamed) {
   for (const Function &FI : M) {
     incorporateType(FI.getFunctionType());
     incorporateAttributes(FI.getAttributes());
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    if (IncludeFuncMD) {
+      FI.getAllMetadata(MDForInst);
+      for (const auto &MD : MDForInst)
+        incorporateMDNode(MD.second);
+      MDForInst.clear();
+    }
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
     for (const Use &U : FI.operands())
       incorporateValue(U.get());
