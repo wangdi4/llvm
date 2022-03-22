@@ -1,7 +1,7 @@
 ; RUN: llvm-nm %libdir/../clbltfnshared.rtl --defined-only --no-demangle | FileCheck %s -check-prefix=TOTAL
 ; RUN: llvm-nm %libdir/../clbltfnshared.rtl --defined-only --no-demangle | FileCheck %s
 
-; TOTAL-COUNT-12742: -------- T
+; TOTAL-COUNT-12794: -------- T
 ; TOTAL-NOT: -------- T
 
 ; CHECK: _Z10half_exp10Dv16_fS_
@@ -230,6 +230,8 @@
 ; CHECK-NEXT: _Z11fmax_commonDv2_dS_S_
 ; CHECK-NEXT: _Z11fmax_commonDv2_fS_
 ; CHECK-NEXT: _Z11fmax_commonDv2_fS_S_
+; CHECK-NEXT: _Z11fmax_commonDv32_dS_
+; CHECK-NEXT: _Z11fmax_commonDv32_fS_
 ; CHECK-NEXT: _Z11fmax_commonDv3_dS_
 ; CHECK-NEXT: _Z11fmax_commonDv3_dS_S_
 ; CHECK-NEXT: _Z11fmax_commonDv3_fS_
@@ -238,6 +240,8 @@
 ; CHECK-NEXT: _Z11fmax_commonDv4_dS_S_
 ; CHECK-NEXT: _Z11fmax_commonDv4_fS_
 ; CHECK-NEXT: _Z11fmax_commonDv4_fS_S_
+; CHECK-NEXT: _Z11fmax_commonDv64_dS_
+; CHECK-NEXT: _Z11fmax_commonDv64_fS_
 ; CHECK-NEXT: _Z11fmax_commonDv8_dS_
 ; CHECK-NEXT: _Z11fmax_commonDv8_dS_S_
 ; CHECK-NEXT: _Z11fmax_commonDv8_fS_
@@ -252,6 +256,8 @@
 ; CHECK-NEXT: _Z11fmin_commonDv2_dS_S_
 ; CHECK-NEXT: _Z11fmin_commonDv2_fS_
 ; CHECK-NEXT: _Z11fmin_commonDv2_fS_S_
+; CHECK-NEXT: _Z11fmin_commonDv32_dS_
+; CHECK-NEXT: _Z11fmin_commonDv32_fS_
 ; CHECK-NEXT: _Z11fmin_commonDv3_dS_
 ; CHECK-NEXT: _Z11fmin_commonDv3_dS_S_
 ; CHECK-NEXT: _Z11fmin_commonDv3_fS_
@@ -260,6 +266,8 @@
 ; CHECK-NEXT: _Z11fmin_commonDv4_dS_S_
 ; CHECK-NEXT: _Z11fmin_commonDv4_fS_
 ; CHECK-NEXT: _Z11fmin_commonDv4_fS_S_
+; CHECK-NEXT: _Z11fmin_commonDv64_dS_
+; CHECK-NEXT: _Z11fmin_commonDv64_fS_
 ; CHECK-NEXT: _Z11fmin_commonDv8_dS_
 ; CHECK-NEXT: _Z11fmin_commonDv8_dS_S_
 ; CHECK-NEXT: _Z11fmin_commonDv8_fS_
@@ -9117,6 +9125,8 @@
 ; CHECK-NEXT: _Z3madDv2_dS_S_S_
 ; CHECK-NEXT: _Z3madDv2_fS_S_
 ; CHECK-NEXT: _Z3madDv2_fS_S_S_
+; CHECK-NEXT: _Z3madDv32_dS_S_
+; CHECK-NEXT: _Z3madDv32_fS_S_
 ; CHECK-NEXT: _Z3madDv3_dS_S_
 ; CHECK-NEXT: _Z3madDv3_dS_S_S_
 ; CHECK-NEXT: _Z3madDv3_fS_S_
@@ -9125,6 +9135,8 @@
 ; CHECK-NEXT: _Z3madDv4_dS_S_S_
 ; CHECK-NEXT: _Z3madDv4_fS_S_
 ; CHECK-NEXT: _Z3madDv4_fS_S_S_
+; CHECK-NEXT: _Z3madDv64_dS_S_
+; CHECK-NEXT: _Z3madDv64_fS_S_
 ; CHECK-NEXT: _Z3madDv8_dS_S_
 ; CHECK-NEXT: _Z3madDv8_dS_S_S_
 ; CHECK-NEXT: _Z3madDv8_fS_S_
@@ -9352,6 +9364,8 @@
 ; CHECK-NEXT: _Z3nanDv2_jDv2_f
 ; CHECK-NEXT: _Z3nanDv2_m
 ; CHECK-NEXT: _Z3nanDv2_mDv2_d
+; CHECK-NEXT: _Z3nanDv32_j
+; CHECK-NEXT: _Z3nanDv32_m
 ; CHECK-NEXT: _Z3nanDv3_j
 ; CHECK-NEXT: _Z3nanDv3_jDv3_f
 ; CHECK-NEXT: _Z3nanDv3_m
@@ -9360,6 +9374,8 @@
 ; CHECK-NEXT: _Z3nanDv4_jDv4_f
 ; CHECK-NEXT: _Z3nanDv4_m
 ; CHECK-NEXT: _Z3nanDv4_mDv4_d
+; CHECK-NEXT: _Z3nanDv64_j
+; CHECK-NEXT: _Z3nanDv64_m
 ; CHECK-NEXT: _Z3nanDv8_j
 ; CHECK-NEXT: _Z3nanDv8_jDv8_f
 ; CHECK-NEXT: _Z3nanDv8_m
@@ -9584,6 +9600,8 @@
 ; CHECK-NEXT: _Z4fabsDv2_dS_
 ; CHECK-NEXT: _Z4fabsDv2_f
 ; CHECK-NEXT: _Z4fabsDv2_fS_
+; CHECK-NEXT: _Z4fabsDv32_d
+; CHECK-NEXT: _Z4fabsDv32_f
 ; CHECK-NEXT: _Z4fabsDv3_d
 ; CHECK-NEXT: _Z4fabsDv3_dS_
 ; CHECK-NEXT: _Z4fabsDv3_f
@@ -9592,6 +9610,8 @@
 ; CHECK-NEXT: _Z4fabsDv4_dS_
 ; CHECK-NEXT: _Z4fabsDv4_f
 ; CHECK-NEXT: _Z4fabsDv4_fS_
+; CHECK-NEXT: _Z4fabsDv64_d
+; CHECK-NEXT: _Z4fabsDv64_f
 ; CHECK-NEXT: _Z4fabsDv8_d
 ; CHECK-NEXT: _Z4fabsDv8_dS_
 ; CHECK-NEXT: _Z4fabsDv8_f
@@ -9632,6 +9652,10 @@
 ; CHECK-NEXT: _Z4fmaxDv2_fS_
 ; CHECK-NEXT: _Z4fmaxDv2_fS_S_
 ; CHECK-NEXT: _Z4fmaxDv2_ff
+; CHECK-NEXT: _Z4fmaxDv32_dS_
+; CHECK-NEXT: _Z4fmaxDv32_dd
+; CHECK-NEXT: _Z4fmaxDv32_fS_
+; CHECK-NEXT: _Z4fmaxDv32_ff
 ; CHECK-NEXT: _Z4fmaxDv3_dS_
 ; CHECK-NEXT: _Z4fmaxDv3_dS_S_
 ; CHECK-NEXT: _Z4fmaxDv3_dd
@@ -9644,6 +9668,10 @@
 ; CHECK-NEXT: _Z4fmaxDv4_fS_
 ; CHECK-NEXT: _Z4fmaxDv4_fS_S_
 ; CHECK-NEXT: _Z4fmaxDv4_ff
+; CHECK-NEXT: _Z4fmaxDv64_dS_
+; CHECK-NEXT: _Z4fmaxDv64_dd
+; CHECK-NEXT: _Z4fmaxDv64_fS_
+; CHECK-NEXT: _Z4fmaxDv64_ff
 ; CHECK-NEXT: _Z4fmaxDv8_dS_
 ; CHECK-NEXT: _Z4fmaxDv8_dS_S_
 ; CHECK-NEXT: _Z4fmaxDv8_dd
@@ -9664,6 +9692,10 @@
 ; CHECK-NEXT: _Z4fminDv2_fS_
 ; CHECK-NEXT: _Z4fminDv2_fS_S_
 ; CHECK-NEXT: _Z4fminDv2_ff
+; CHECK-NEXT: _Z4fminDv32_dS_
+; CHECK-NEXT: _Z4fminDv32_dd
+; CHECK-NEXT: _Z4fminDv32_fS_
+; CHECK-NEXT: _Z4fminDv32_ff
 ; CHECK-NEXT: _Z4fminDv3_dS_
 ; CHECK-NEXT: _Z4fminDv3_dS_S_
 ; CHECK-NEXT: _Z4fminDv3_dd
@@ -9676,6 +9708,10 @@
 ; CHECK-NEXT: _Z4fminDv4_fS_
 ; CHECK-NEXT: _Z4fminDv4_fS_S_
 ; CHECK-NEXT: _Z4fminDv4_ff
+; CHECK-NEXT: _Z4fminDv64_dS_
+; CHECK-NEXT: _Z4fminDv64_dd
+; CHECK-NEXT: _Z4fminDv64_fS_
+; CHECK-NEXT: _Z4fminDv64_ff
 ; CHECK-NEXT: _Z4fminDv8_dS_
 ; CHECK-NEXT: _Z4fminDv8_dS_S_
 ; CHECK-NEXT: _Z4fminDv8_dd
@@ -10456,6 +10492,8 @@
 ; CHECK-NEXT: _Z5ldexpDv2_fDv2_i
 ; CHECK-NEXT: _Z5ldexpDv2_fDv2_iS_
 ; CHECK-NEXT: _Z5ldexpDv2_fi
+; CHECK-NEXT: _Z5ldexpDv32_di
+; CHECK-NEXT: _Z5ldexpDv32_fi
 ; CHECK-NEXT: _Z5ldexpDv3_dDv3_i
 ; CHECK-NEXT: _Z5ldexpDv3_dDv3_iS_
 ; CHECK-NEXT: _Z5ldexpDv3_di
@@ -10468,6 +10506,8 @@
 ; CHECK-NEXT: _Z5ldexpDv4_fDv4_i
 ; CHECK-NEXT: _Z5ldexpDv4_fDv4_iS_
 ; CHECK-NEXT: _Z5ldexpDv4_fi
+; CHECK-NEXT: _Z5ldexpDv64_di
+; CHECK-NEXT: _Z5ldexpDv64_fi
 ; CHECK-NEXT: _Z5ldexpDv8_dDv8_iS_
 ; CHECK-NEXT: _Z5ldexpDv8_di
 ; CHECK-NEXT: _Z5ldexpDv8_fDv8_i
@@ -10934,6 +10974,8 @@
 ; CHECK-NEXT: _Z6maxmagDv2_dS_S_
 ; CHECK-NEXT: _Z6maxmagDv2_fS_
 ; CHECK-NEXT: _Z6maxmagDv2_fS_S_
+; CHECK-NEXT: _Z6maxmagDv32_dS_
+; CHECK-NEXT: _Z6maxmagDv32_fS_
 ; CHECK-NEXT: _Z6maxmagDv3_dS_
 ; CHECK-NEXT: _Z6maxmagDv3_dS_S_
 ; CHECK-NEXT: _Z6maxmagDv3_fS_
@@ -10942,6 +10984,8 @@
 ; CHECK-NEXT: _Z6maxmagDv4_dS_S_
 ; CHECK-NEXT: _Z6maxmagDv4_fS_
 ; CHECK-NEXT: _Z6maxmagDv4_fS_S_
+; CHECK-NEXT: _Z6maxmagDv64_dS_
+; CHECK-NEXT: _Z6maxmagDv64_fS_
 ; CHECK-NEXT: _Z6maxmagDv8_dS_
 ; CHECK-NEXT: _Z6maxmagDv8_dS_S_
 ; CHECK-NEXT: _Z6maxmagDv8_fS_
@@ -10956,6 +11000,8 @@
 ; CHECK-NEXT: _Z6minmagDv2_dS_S_
 ; CHECK-NEXT: _Z6minmagDv2_fS_
 ; CHECK-NEXT: _Z6minmagDv2_fS_S_
+; CHECK-NEXT: _Z6minmagDv32_dS_
+; CHECK-NEXT: _Z6minmagDv32_fS_
 ; CHECK-NEXT: _Z6minmagDv3_dS_
 ; CHECK-NEXT: _Z6minmagDv3_dS_S_
 ; CHECK-NEXT: _Z6minmagDv3_fS_
@@ -10964,6 +11010,8 @@
 ; CHECK-NEXT: _Z6minmagDv4_dS_S_
 ; CHECK-NEXT: _Z6minmagDv4_fS_
 ; CHECK-NEXT: _Z6minmagDv4_fS_S_
+; CHECK-NEXT: _Z6minmagDv64_dS_
+; CHECK-NEXT: _Z6minmagDv64_fS_
 ; CHECK-NEXT: _Z6minmagDv8_dS_
 ; CHECK-NEXT: _Z6minmagDv8_dS_S_
 ; CHECK-NEXT: _Z6minmagDv8_fS_
@@ -11853,6 +11901,8 @@
 ; CHECK-NEXT: _Z8copysignDv2_dS_S_
 ; CHECK-NEXT: _Z8copysignDv2_fS_
 ; CHECK-NEXT: _Z8copysignDv2_fS_S_
+; CHECK-NEXT: _Z8copysignDv32_dS_
+; CHECK-NEXT: _Z8copysignDv32_fS_
 ; CHECK-NEXT: _Z8copysignDv3_dS_
 ; CHECK-NEXT: _Z8copysignDv3_dS_S_
 ; CHECK-NEXT: _Z8copysignDv3_fS_
@@ -11861,6 +11911,8 @@
 ; CHECK-NEXT: _Z8copysignDv4_dS_S_
 ; CHECK-NEXT: _Z8copysignDv4_fS_
 ; CHECK-NEXT: _Z8copysignDv4_fS_S_
+; CHECK-NEXT: _Z8copysignDv64_dS_
+; CHECK-NEXT: _Z8copysignDv64_fS_
 ; CHECK-NEXT: _Z8copysignDv8_dS_
 ; CHECK-NEXT: _Z8copysignDv8_dS_S_
 ; CHECK-NEXT: _Z8copysignDv8_fS_

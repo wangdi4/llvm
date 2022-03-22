@@ -84,6 +84,18 @@
     return $ReturnVarName;
   }];
 
+  // expand fract_ret2ptr, modf_ret2ptr, sincos_ret2ptr
+  defvar Expand_2Ptr_NoRet = [{
+    $ExpandArg0Type expand_$Arg1VarName;
+    $ExpandArg0Type expand_$Arg2VarName;
+    $ExpandLoFunc($Arg0VarName$ExpandLoPattern, &expand_$Arg1VarName, &expand_$Arg2VarName);
+    $Arg1VarName$ExpandLoPatternPtr = expand_$Arg1VarName;
+    $Arg2VarName$ExpandLoPatternPtr = expand_$Arg2VarName;
+    $ExpandHiFunc($Arg0VarName$ExpandHiPattern, &expand_$Arg1VarName, &expand_$Arg2VarName);
+    $Arg1VarName$ExpandHiPatternPtr = expand_$Arg1VarName;
+    $Arg2VarName$ExpandHiPatternPtr = expand_$Arg2VarName;
+  }];
+
   // Expand frexp
   defvar Expand_frexp_lgamma = [{
     $ReturnType $ReturnVarName;

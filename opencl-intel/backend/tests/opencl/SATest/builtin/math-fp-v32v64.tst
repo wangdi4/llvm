@@ -1,0 +1,49 @@
+; Check that v32 and v64(expand from v32) builtins are used.
+
+; RUN: SATest -BUILD --config=%s.cfg -tsize=32 -cpuarch="skx" --dump-llvm-file - | FileCheck %s
+; RUN: SATest -BUILD --config=%s.cfg -tsize=64 -cpuarch="skx" --dump-llvm-file - | FileCheck %s
+
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_acosf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_acoshf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_acospif32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_asinf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_asinhf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_asinpif32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_atanf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_atan2f32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_atanhf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_atanpif32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_atan2pif32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_cbrtf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_coshf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_cospif32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_erfcf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_erff32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_expf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_exp2f32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_exp10f32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_expm1f32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_fmodf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_hypotf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_ldexpf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_lgammaf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_logf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_log2f32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_log10f32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_log1pf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_logbf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_nextafterf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_powf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_pownf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_powrf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_remainderf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_rootnf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_roundf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_rsqrtf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_sinhf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_sinpif32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_tanf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_tanhf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_tanpif32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_tgammaf32(<32 x float>
+; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_truncf32(<32 x float>
