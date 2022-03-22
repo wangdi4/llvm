@@ -687,6 +687,7 @@ bool VPOAnalysisUtils::isDependClause(int ClauseID) {
     case QUAL_OMP_DEPEND_IN:
     case QUAL_OMP_DEPEND_INOUT:
     case QUAL_OMP_DEPEND_OUT:
+    case QUAL_OMP_DEPARRAY:
     return true;
   }
   return false;

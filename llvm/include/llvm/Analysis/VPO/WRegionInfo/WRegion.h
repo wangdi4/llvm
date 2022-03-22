@@ -781,7 +781,9 @@ private:
   FirstprivateClause Fpriv;
   MapClause Map;
   AllocateClause Alloc;
-  DependClause Depend;
+  DependClause Depend;            // from "QUAL.OMP.DEPEND"
+  EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
+  EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
   IsDevicePtrClause IsDevicePtr;
   EXPR IfExpr;
   EXPR Device;
@@ -805,6 +807,8 @@ public:
   WRNTargetNode(BasicBlock *BB);
 
 protected:
+  void setDepArray(EXPR E) override { DepArray = E; }
+  void setDepArrayNumDeps(EXPR E) override { DepArrayNumDeps = E; }
   void setIf(EXPR E) override { IfExpr = E; }
   void setDevice(EXPR E) override { Device = E; }
   void setNowait(bool Flag) override { Nowait = Flag; }
@@ -843,6 +847,8 @@ protected:
   // setter is public instead of protected
   void setParLoopNdInfoAlloca(AllocaInst *AI) override { ParLoopNdInfoAlloca = AI; }
   AllocaInst *getParLoopNdInfoAlloca() const override { return ParLoopNdInfoAlloca; }
+  EXPR getDepArray() const override { return DepArray; }
+  EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
   EXPR getIf() const override { return IfExpr; }
   EXPR getDevice() const override { return Device; }
   bool getNowait() const override { return Nowait; }
@@ -951,7 +957,9 @@ public:
 class WRNTargetEnterDataNode : public WRegionNode {
 private:
   MapClause Map;
-  DependClause Depend;
+  DependClause Depend;            // from "QUAL.OMP.DEPEND"
+  EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
+  EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
   EXPR IfExpr;
   EXPR Device;
   SubdeviceClause Subdevice;
@@ -961,6 +969,8 @@ public:
   WRNTargetEnterDataNode(BasicBlock *BB);
 
 protected:
+  void setDepArray(EXPR E) override { DepArray = E; }
+  void setDepArrayNumDeps(EXPR E) override { DepArrayNumDeps = E; }
   void setIf(EXPR E) override { IfExpr = E; }
   void setDevice(EXPR E) override { Device = E; }
   void setNowait(bool Flag) override { Nowait = Flag; }
@@ -970,6 +980,8 @@ public:
   DEFINE_GETTER(DependClause,       getDepend,       Depend)
   DEFINE_GETTER(SubdeviceClause,    getSubdevice,   Subdevice)
 
+  EXPR getDepArray() const override { return DepArray; }
+  EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
   EXPR getIf() const override { return IfExpr; }
   EXPR getDevice() const override { return Device; }
   bool getNowait() const override { return Nowait; }
@@ -990,7 +1002,9 @@ public:
 class WRNTargetExitDataNode : public WRegionNode {
 private:
   MapClause Map;
-  DependClause Depend;
+  DependClause Depend;            // from "QUAL.OMP.DEPEND"
+  EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
+  EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
   EXPR IfExpr;
   EXPR Device;
   SubdeviceClause Subdevice;
@@ -1000,6 +1014,8 @@ public:
   WRNTargetExitDataNode(BasicBlock *BB);
 
 protected:
+  void setDepArray(EXPR E) override { DepArray = E; }
+  void setDepArrayNumDeps(EXPR E) override { DepArrayNumDeps = E; }
   void setIf(EXPR E) override { IfExpr = E; }
   void setDevice(EXPR E) override { Device = E; }
   void setNowait(bool Flag) override { Nowait = Flag; }
@@ -1009,6 +1025,8 @@ public:
   DEFINE_GETTER(DependClause,       getDepend,       Depend)
   DEFINE_GETTER(SubdeviceClause,    getSubdevice,   Subdevice)
 
+  EXPR getDepArray() const override { return DepArray; }
+  EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
   EXPR getIf() const override { return IfExpr; }
   EXPR getDevice() const override { return Device; }
   bool getNowait() const override { return Nowait; }
@@ -1029,7 +1047,9 @@ public:
 class WRNTargetUpdateNode : public WRegionNode {
 private:
   MapClause Map;        // used for the to/from clauses
-  DependClause Depend;
+  DependClause Depend;            // from "QUAL.OMP.DEPEND"
+  EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
+  EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
   EXPR IfExpr;
   EXPR Device;
   SubdeviceClause Subdevice;
@@ -1039,6 +1059,8 @@ public:
   WRNTargetUpdateNode(BasicBlock *BB);
 
 protected:
+  void setDepArray(EXPR E) override { DepArray = E; }
+  void setDepArrayNumDeps(EXPR E) override { DepArrayNumDeps = E; }
   void setIf(EXPR E) override { IfExpr = E; }
   void setDevice(EXPR E) override { Device = E; }
   void setNowait(bool Flag) override { Nowait = Flag; }
@@ -1048,6 +1070,8 @@ public:
   DEFINE_GETTER(DependClause,       getDepend,       Depend)
   DEFINE_GETTER(SubdeviceClause,    getSubdevice,   Subdevice)
 
+  EXPR getDepArray() const override { return DepArray; }
+  EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
   EXPR getIf() const override { return IfExpr; }
   EXPR getDevice() const override { return Device; }
   bool getNowait() const override { return Nowait; }
@@ -1152,7 +1176,9 @@ public:
 class WRNInteropNode : public WRegionNode {
 private:
   EXPR Device;
-  DependClause Depend;
+  DependClause Depend;            // from "QUAL.OMP.DEPEND"
+  EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
+  EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
   InteropActionClause InteropAction;
   bool Nowait;
 
@@ -1161,6 +1187,8 @@ public:
 
 protected:
   void setDevice(EXPR E) override { Device = E; }
+  void setDepArray(EXPR E) override { DepArray = E; }
+  void setDepArrayNumDeps(EXPR E) override { DepArrayNumDeps = E; }
   void setNowait(bool Flag) override { Nowait = Flag; }
 
 public:
@@ -1168,6 +1196,8 @@ public:
   DEFINE_GETTER(InteropActionClause, getInteropAction, InteropAction)
 
   EXPR getDevice() const override { return Device; }
+  EXPR getDepArray() const override { return DepArray; }
+  EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
   bool getNowait() const override { return Nowait; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
@@ -1206,7 +1236,9 @@ private:
   FirstprivateClause Fpriv;
   ReductionClause InReduction;
   AllocateClause Alloc;
-  DependClause Depend;
+  DependClause Depend;            // from "QUAL.OMP.DEPEND"
+  EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
+  EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
   EXPR Final;
   EXPR IfExpr;
   EXPR Priority;
@@ -1224,6 +1256,8 @@ public:
   WRNTaskNode(BasicBlock *BB);
 
 protected:
+  void setDepArray(EXPR E) override { DepArray = E; }
+  void setDepArrayNumDeps(EXPR E) override { DepArrayNumDeps = E; }
   void setFinal(EXPR E) override { Final = E; }
   void setIf(EXPR E) override { IfExpr = E; }
   void setPriority(EXPR E) override { Priority = E; }
@@ -1242,6 +1276,8 @@ public:
   DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
   DEFINE_GETTER(DependClause,       getDepend,   Depend)
 
+  EXPR getDepArray() const override { return DepArray; }
+  EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
   EXPR getFinal() const override { return Final; }
   EXPR getIf() const override { return IfExpr; }
   EXPR getPriority() const override { return Priority; }
@@ -1296,6 +1332,8 @@ private:
   //   FirstprivateClause Fpriv;
   //   AllocateClause Alloc;
   //   DependClause Depend;
+  //   EXPR DepArray;
+  //   EXPR DepArrayNumDeps;
   //   EXPR Final;
   //   EXPR IfExpr;
   //   EXPR Priority;
@@ -1315,6 +1353,8 @@ protected:
   void setNogroup(bool B) override { Nogroup = B; }
 
   // Defined in parent class WRNTaskNode
+  //   void setDepArray(EXPR E) override { DepArray = E; }
+  //   void setDepArrayNumDeps(EXPR E) override { DepArrayNumDeps = E; }
   //   void setFinal(EXPR E) { Final = E; }
   //   void setif(expr e) { ifexpr = e; }
   //   void setPriority(EXPR E) { Priority = E; }
@@ -1340,6 +1380,8 @@ public:
   //   DEFINE_GETTER(FirstprivateClause, getFpriv,    Fpriv)
   //   DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
   //   DEFINE_GETTER(DependClause,       getDepend,   Depend)
+  //   EXPR getDepArray() const override { return DepArray; }
+  //   EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
   //   EXPR getFinal() const { return Final; }
   //   EXPR getIf() const { return IfExpr; }
   //   EXPR getPriority() const { return Priority; }
@@ -2092,15 +2134,24 @@ public:
 class WRNTaskwaitNode : public WRegionNode {
 
 private:
-  DependClause Depend;
+  DependClause Depend;            // from "QUAL.OMP.DEPEND"
+  EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
+  EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
+
+protected:
+  void setDepArray(EXPR E) override { DepArray = E; }
+  void setDepArrayNumDeps(EXPR E) override { DepArrayNumDeps = E; }
 
 public:
   WRNTaskwaitNode(BasicBlock *BB);
+  DEFINE_GETTER(DependClause, getDepend, Depend)
+  EXPR getDepArray() const override { return DepArray; }
+  EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
+
 /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNTaskwait;
   }
-  DEFINE_GETTER(DependClause, getDepend, Depend)
 };
 
 /// WRN for
@@ -2211,11 +2262,6 @@ extern void printExtraForOmpLoop(WRegionNode const *W,
 extern void printExtraForTarget(WRegionNode const *W,
                                 formatted_raw_ostream &OS, int Depth,
                                 unsigned Verbosity=1);
-
-/// \brief Print the fields of the Interop clause
-extern void printExtraForInterop(WRegionNode const* W,
-                          formatted_raw_ostream& OS, int Depth,
-                           unsigned Verbosity = 1);
 
 /// \brief Print the fields common to WRNs for which getIsTask()==true.
 /// Possible constructs are: WRNTask, WRNTaskloop
