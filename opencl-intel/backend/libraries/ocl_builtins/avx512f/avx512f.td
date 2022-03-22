@@ -2,6 +2,9 @@
 
 include "avx2/AVX2.td"
 
+defset list<OclBuiltinImpl> avx512f_impls = {
+  include "avx512f/math_impl.td"
+}
 
 class AVX512F : AVX2 {
   include "avx512f/math.td"
@@ -12,5 +15,7 @@ class AVX512F : AVX2 {
   include "avx512f/relational.td"
   include "avx512f/masked_load_store.td"
   include "avx512f/transpose.td"
+
+  let Impls = avx512f_impls;
 }
 

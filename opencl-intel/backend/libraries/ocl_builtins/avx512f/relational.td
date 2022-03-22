@@ -83,3 +83,6 @@ OclBuiltinImpl bitselect_v8i64 = OclBuiltinImpl<bitselect, [v8i64, v8u64], 0, [{
   }]>;
 */
 
+// v32v64
+list<OclType> math_v32v64_expand = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [32, 64]>.Tout;
+OclBuiltinImpl isnan_expand_v32v64 = OclBuiltinImpl<isnan, math_v32v64_expand, 0, Expand1>;

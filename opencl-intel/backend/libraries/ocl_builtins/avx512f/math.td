@@ -59,7 +59,7 @@ OclBuiltinImpl fma_v8f64_impl = OclBuiltinImpl<fma, [v8f64], 0, [{
 
 // SVML calls
 
-list<OclType> math_FP512_types = [v8f64, v16f32];
+list<OclType> math_FP512_types = [v8f64, v16f32, v32f32];
 
 // acos
 OclBuiltinImpl acos_svml = OclBuiltinImpl<acos, math_FP512_types, 0, [{
@@ -171,14 +171,20 @@ OclBuiltinImpl fmod_svml = OclBuiltinImpl<fmod, math_FP512_types, 0, [{
     return __ocl_svml_$Target_fmod$SVMLSuffix($Arg0VarName, $Arg1VarName);
   }]>;
 
+// frexp
+OclBuiltinImpl frexp_pas_svml = OclBuiltinImpl<frexp_pas, math_FP512_types, 0, frexp_svml>;
+OclBuiltinImpl frexp_las_svml = OclBuiltinImpl<frexp_las, math_FP512_types, 0, frexp_svml>;
+OclBuiltinImpl frexp_gas_svml = OclBuiltinImpl<frexp_gas, math_FP512_types, 0, frexp_svml>;
+OclBuiltinImpl frexp_gen_svml = OclBuiltinImpl<frexp_gen, math_FP512_types, 0, frexp_svml>;
+
 // hypot
 // NOTE: there is fast inlined implementation of hypot using newton-raphson and quick native_rsqrt function
 OclBuiltinImpl hypot_svml = OclBuiltinImpl<hypot, math_FP512_types, 0, [{
     return __ocl_svml_$Target_hypot$SVMLSuffix($Arg0VarName, $Arg1VarName);
   }]>;
 
-// ilogb double
-OclBuiltinImpl ilogb_svml_f64 = OclBuiltinImpl<ilogb, [v8f64],  0, [{
+// ilogb
+OclBuiltinImpl ilogb_svml_f64 = OclBuiltinImpl<ilogb, [v8f64, v32f32],  0, [{
     return __ocl_svml_$Target_ilogb$SVMLSuffix($Arg0VarName);
   }]>;
 
@@ -191,6 +197,12 @@ OclBuiltinImpl ldexp_svml = OclBuiltinImpl<ldexp, math_FP512_types, 0, [{
 OclBuiltinImpl lgamma_svml = OclBuiltinImpl<lgamma, math_FP512_types, 0, [{
     return __ocl_svml_$Target_lgamma$SVMLSuffix($Arg0VarName);
   }]>;
+
+// lgamma_r
+OclBuiltinImpl lgamma_r_pas_svml = OclBuiltinImpl<lgamma_r_pas, math_FP512_types, 0, lgamma_r_svml>;
+OclBuiltinImpl lgamma_r_las_svml = OclBuiltinImpl<lgamma_r_las, math_FP512_types, 0, lgamma_r_svml>;
+OclBuiltinImpl lgamma_r_gas_svml = OclBuiltinImpl<lgamma_r_gas, math_FP512_types, 0, lgamma_r_svml>;
+OclBuiltinImpl lgamma_r_gen_svml = OclBuiltinImpl<lgamma_r_gen, math_FP512_types, 0, lgamma_r_svml>;
 
 // log
 OclBuiltinImpl log_svml = OclBuiltinImpl<log, math_FP512_types, 0, [{
@@ -216,6 +228,13 @@ OclBuiltinImpl log1p_svml = OclBuiltinImpl<log1p, math_FP512_types, 0, [{
 OclBuiltinImpl logb_svml = OclBuiltinImpl<logb, math_FP512_types, 0, [{
     return __ocl_svml_$Target_logb$SVMLSuffix($Arg0VarName);
   }]>;
+
+// modf
+OclBuiltinImpl modf_pas_svml = OclBuiltinImpl<modf_pas, math_FP512_types, 0, modf_svml>;
+OclBuiltinImpl modf_las_svml = OclBuiltinImpl<modf_las, math_FP512_types, 0, modf_svml>;
+OclBuiltinImpl modf_gas_svml = OclBuiltinImpl<modf_gas, math_FP512_types, 0, modf_svml>;
+OclBuiltinImpl modf_gen_svml = OclBuiltinImpl<modf_gen, math_FP512_types, 0, modf_svml>;
+OclBuiltinImpl modf_ret2ptr_pas = OclBuiltinImpl<modf_pas2, math_FP512_types, 0, modf_ret2ptr>;
 
 // nextafter
 OclBuiltinImpl nextafter_svml = OclBuiltinImpl<nextafter, math_FP512_types, 0, [{
@@ -244,9 +263,6 @@ OclBuiltinImpl remainder_svml = OclBuiltinImpl<remainder, math_FP512_types, 0, [
   }]>;
 
 // remquo
-code remquo_svml = [{
-    return __ocl_svml_$Target_remquo$SVMLSuffix($Arg0VarName, $Arg1VarName, ($Arg2NoASType)$Arg2VarName);
-  }];
 OclBuiltinImpl remquo_pas_svml = OclBuiltinImpl<remquo_pas, math_FP512_types, 0, remquo_svml>;
 OclBuiltinImpl remquo_las_svml = OclBuiltinImpl<remquo_las, math_FP512_types, 0, remquo_svml>;
 OclBuiltinImpl remquo_gas_svml = OclBuiltinImpl<remquo_gas, math_FP512_types, 0, remquo_svml>;
@@ -275,6 +291,13 @@ OclBuiltinImpl rsqrt_svml = OclBuiltinImpl<rsqrt, math_FP512_types, 0, [{
 OclBuiltinImpl sin_svml = OclBuiltinImpl<sin, math_FP512_types, 0, [{
     return __ocl_svml_$Target_sin$SVMLSuffix($Arg0VarName);
   }]>;
+
+// sincos
+OclBuiltinImpl sincos_pas_svml = OclBuiltinImpl<sincos_pas, math_FP512_types, 0, sincos_svml>;
+OclBuiltinImpl sincos_las_svml = OclBuiltinImpl<sincos_las, math_FP512_types, 0, sincos_svml>;
+OclBuiltinImpl sincos_gas_svml = OclBuiltinImpl<sincos_gas, math_FP512_types, 0, sincos_svml>;
+OclBuiltinImpl sincos_gen_svml = OclBuiltinImpl<sincos_gen, math_FP512_types, 0, sincos_svml>;
+OclBuiltinImpl sincos_ret2ptr_pas = OclBuiltinImpl<sincos_pas2, math_FP512_types, 0, sincos_ret2ptr>;
 
 // sinh
 OclBuiltinImpl sinh_svml = OclBuiltinImpl<sinh, math_FP512_types, 0, [{

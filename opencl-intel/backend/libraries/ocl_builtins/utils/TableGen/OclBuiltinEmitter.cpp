@@ -1486,8 +1486,13 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
           const OclType *T = getOclType(getExpandHiType(OT->getName()));
           assert(T && "Invalid type found!");
           val = T->getSuffix();
+        } else if ("$ExpandArg" == pat.substr(0, 10) && pat.size() == 15 &&
+                   "Type" == pat.substr(11)) {
+          const OclType *T = getOclType(getExpandLoType(OT->getName()));
+          assert(T && "Invalid type found!");
+          val = T->getCType(OB);
         } else if ("$MaskCastTy" == pat) {
-            val = OT->getMaskCastTy();
+          val = OT->getMaskCastTy();
         } else {
           GENOCL_WARNING("Invalid rewrite pattern: '" << pat << "'\n");
         }
