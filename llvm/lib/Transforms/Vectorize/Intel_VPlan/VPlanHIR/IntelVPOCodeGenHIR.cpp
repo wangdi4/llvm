@@ -119,9 +119,11 @@ static cl::opt<bool> VPlanAssumeMaskedFabsProfitable(
              "profitability."));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-static cl::opt<bool> PrintHIRAfterVPlan(
-    "print-hir-after-vplan", cl::init(false),
-    cl::desc("Print vectorized HIR after VPlanDriverHIR, on per-HLLoop basis"));
+static cl::opt<int> PrintHIRAfterVPlan(
+    "print-hir-after-vplan", cl::init(0),
+    cl::desc("Print vectorized HIR after VPlanDriverHIR, on per-HLLoop basis. "
+             "The value of the switch: 0 - do not print, 1 means print w/o "
+             "details, >1 causes printing HIR with details."));
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 namespace llvm {
@@ -1211,16 +1213,17 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPOCodeGenHIR::dumpFinalHIR() {
+  bool Detailed = PrintHIRAfterVPlan > 1;
   if (isMergedCFG()) {
-    MainLoop->getParent()->dump();
+    MainLoop->getParent()->dump(Detailed);
     return;
   }
 
   if (NeedPeelLoop)
-    PeelLoop->dump();
-  MainLoop->getParent()->dump();
+    PeelLoop->dump(Detailed);
+  MainLoop->getParent()->dump(Detailed);
   if (NeedRemainderLoop)
-    OrigLoop->dump();
+    OrigLoop->dump(Detailed);
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
