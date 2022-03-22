@@ -67,11 +67,8 @@
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-<<<<<<< HEAD
 #include "llvm/IR/AbstractCallSite.h" // INTEL
-=======
 #include "llvm/Analysis/ValueTracking.h"
->>>>>>> f1985a3f855d3676c5aad0e5c258d2ea38598f44
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"

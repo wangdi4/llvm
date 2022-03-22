@@ -32,12 +32,8 @@
 #define LLVM_TRANSFORMS_IPO_ALWAYSINLINER_H
 
 #include "llvm/IR/PassManager.h"
-<<<<<<< HEAD
 #include "llvm/Transforms/IPO/Intel_InlineReport.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h" // INTEL
-#include "llvm/Pass.h"
-=======
->>>>>>> f1985a3f855d3676c5aad0e5c258d2ea38598f44
 
 namespace llvm {
 

@@ -38,11 +38,7 @@
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/IR/Module.h"
 #include "llvm/InitializePasses.h"
-<<<<<<< HEAD
 #include "llvm/Support/CommandLine.h" // INTEL
-#include "llvm/Transforms/IPO.h"
-=======
->>>>>>> f1985a3f855d3676c5aad0e5c258d2ea38598f44
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"

@@ -42,11 +42,7 @@
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/MustExecute.h"
-<<<<<<< HEAD
-#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Analysis/Intel_WP.h"            // INTEL
-=======
->>>>>>> f1985a3f855d3676c5aad0e5c258d2ea38598f44
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
