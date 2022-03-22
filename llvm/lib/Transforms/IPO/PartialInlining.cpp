@@ -877,7 +877,7 @@ BranchProbability PartialInlinerImpl::getOutliningCallBBRelativeFreq(
   auto OutlineRegionRelFreq = BranchProbability::getBranchProbability(
       OutliningCallFreq.getFrequency(), EntryFreq.getFrequency());
 
-  if (hasProfileData(*Cloner.OrigFunc, *Cloner.ClonedOI.get()))
+  if (hasProfileData(*Cloner.OrigFunc, *Cloner.ClonedOI))
     return OutlineRegionRelFreq;
 
 #if INTEL_CUSTOMIZATION

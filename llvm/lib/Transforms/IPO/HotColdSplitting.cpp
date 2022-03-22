@@ -747,7 +747,7 @@ bool HotColdSplittingLegacyPass::runOnModule(Module &M) {
   std::function<OptimizationRemarkEmitter &(Function &)> GetORE =
       [&ORE](Function &F) -> OptimizationRemarkEmitter & {
     ORE.reset(new OptimizationRemarkEmitter(&F));
-    return *ORE.get();
+    return *ORE;
   };
   auto LookupAC = [this](Function &F) -> AssumptionCache * {
     if (auto *ACT = getAnalysisIfAvailable<AssumptionCacheTracker>())
@@ -779,7 +779,7 @@ HotColdSplittingPass::run(Module &M, ModuleAnalysisManager &AM) {
   std::function<OptimizationRemarkEmitter &(Function &)> GetORE =
       [&ORE](Function &F) -> OptimizationRemarkEmitter & {
     ORE.reset(new OptimizationRemarkEmitter(&F));
-    return *ORE.get();
+    return *ORE;
   };
 
   ProfileSummaryInfo *PSI = &AM.getResult<ProfileSummaryAnalysis>(M);

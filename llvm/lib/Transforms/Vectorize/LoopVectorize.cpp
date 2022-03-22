@@ -652,7 +652,7 @@ protected:
   /// Emit bypass checks to check any memory assumptions we may have made.
   /// Returns the block containing the checks or nullptr if no checks have been
   /// added.
-  BasicBlock *emitMemRuntimeChecks(Loop *L, BasicBlock *Bypass);
+  BasicBlock *emitMemRuntimeChecks(BasicBlock *Bypass);
 
   /// Emit basic blocks (prefixed with \p Prefix) for the iteration check,
   /// vector loop preheader, middle block and scalar preheader. Also
@@ -671,9 +671,8 @@ protected:
 
   /// Complete the loop skeleton by adding debug MDs, creating appropriate
   /// conditional branches in the middle block, preparing the builder and
-  /// running the verifier. Take in the vector loop \p L as argument, and return
-  /// the preheader of the completed vector loop.
-  BasicBlock *completeLoopSkeleton(Loop *L, MDNode *OrigLoopID);
+  /// running the verifier. Return the preheader of the completed vector loop.
+  BasicBlock *completeLoopSkeleton(MDNode *OrigLoopID);
 
   /// Add additional metadata to \p To that was not present on \p Orig.
   ///
@@ -2134,7 +2133,7 @@ public:
   /// Adds the generated MemCheckBlock before \p LoopVectorPreHeader and adjusts
   /// the branches to branch to the vector preheader or \p Bypass, depending on
   /// the generated condition.
-  BasicBlock *emitMemRuntimeChecks(Loop *L, BasicBlock *Bypass,
+  BasicBlock *emitMemRuntimeChecks(BasicBlock *Bypass,
                                    BasicBlock *LoopVectorPreHeader) {
     // Check if we generated code that checks in runtime if arrays overlap.
     if (!MemRuntimeCheckCond)
@@ -3076,14 +3075,13 @@ BasicBlock *InnerLoopVectorizer::emitSCEVChecks(BasicBlock *Bypass) {
   return SCEVCheckBlock;
 }
 
-BasicBlock *InnerLoopVectorizer::emitMemRuntimeChecks(Loop *L,
-                                                      BasicBlock *Bypass) {
+BasicBlock *InnerLoopVectorizer::emitMemRuntimeChecks(BasicBlock *Bypass) {
   // VPlan-native path does not do any analysis for runtime checks currently.
   if (EnableVPlanNativePath)
     return nullptr;
 
   BasicBlock *const MemCheckBlock =
-      RTChecks.emitMemRuntimeChecks(L, Bypass, LoopVectorPreHeader);
+      RTChecks.emitMemRuntimeChecks(Bypass, LoopVectorPreHeader);
 
   // Check if we generated code that checks in runtime if arrays overlap. We put
   // the checks into a separate block to make the more common case of few
@@ -3097,7 +3095,8 @@ BasicBlock *InnerLoopVectorizer::emitMemRuntimeChecks(Loop *L,
            "to vectorize.");
     ORE->emit([&]() {
       return OptimizationRemarkAnalysis(DEBUG_TYPE, "VectorizationCodeSize",
-                                        L->getStartLoc(), L->getHeader())
+                                        OrigLoop->getStartLoc(),
+                                        OrigLoop->getHeader())
              << "Code-size may be reduced by not forcing "
                 "vectorization, or by source-code modifications "
                 "eliminating the need for runtime checks "
@@ -3259,13 +3258,10 @@ void InnerLoopVectorizer::createInductionResumeValues(
   }
 }
 
-BasicBlock *InnerLoopVectorizer::completeLoopSkeleton(Loop *L,
-                                                      MDNode *OrigLoopID) {
-  assert(L && "Expected valid loop.");
-
+BasicBlock *InnerLoopVectorizer::completeLoopSkeleton(MDNode *OrigLoopID) {
   // The trip counts should be cached by now.
-  Value *Count = getOrCreateTripCount(L->getLoopPreheader());
-  Value *VectorTripCount = getOrCreateVectorTripCount(L->getLoopPreheader());
+  Value *Count = getOrCreateTripCount(LoopVectorPreHeader);
+  Value *VectorTripCount = getOrCreateVectorTripCount(LoopVectorPreHeader);
 
   auto *ScalarLatchTerm = OrigLoop->getLoopLatch()->getTerminator();
 
@@ -3289,10 +3285,6 @@ BasicBlock *InnerLoopVectorizer::completeLoopSkeleton(Loop *L,
     CmpN->setDebugLoc(ScalarLatchTerm->getDebugLoc());
     cast<BranchInst>(LoopMiddleBlock->getTerminator())->setCondition(CmpN);
   }
-
-  // Get ready to start creating new instructions into the vectorized body.
-  assert(LoopVectorPreHeader == L->getLoopPreheader() &&
-         "Inconsistent vector loop preheader");
 
 #ifdef EXPENSIVE_CHECKS
   assert(DT->verify(DominatorTree::VerificationLevel::Fast));
@@ -3366,14 +3358,14 @@ InnerLoopVectorizer::createVectorizedLoopSkeleton() {
   // Generate the code that checks in runtime if arrays overlap. We put the
   // checks into a separate block to make the more common case of few elements
   // faster.
-  emitMemRuntimeChecks(Lp, LoopScalarPreHeader);
+  emitMemRuntimeChecks(LoopScalarPreHeader);
 
   createHeaderBranch(Lp);
 
   // Emit phis for the new starting index of the scalar loop.
   createInductionResumeValues(Lp);
 
-  return {completeLoopSkeleton(Lp, OrigLoopID), nullptr};
+  return {completeLoopSkeleton(OrigLoopID), nullptr};
 }
 
 // Fix up external users of the induction variable. At this point, we are
@@ -7966,7 +7958,7 @@ EpilogueVectorizerMainLoop::createEpilogueVectorizedLoopSkeleton() {
   // Generate the code that checks at runtime if arrays overlap. We put the
   // checks into a separate block to make the more common case of few elements
   // faster.
-  EPI.MemSafetyCheck = emitMemRuntimeChecks(Lp, LoopScalarPreHeader);
+  EPI.MemSafetyCheck = emitMemRuntimeChecks(LoopScalarPreHeader);
 
   // Generate the iteration count check for the main loop, *after* the check
   // for the epilogue loop, so that the path-length is shorter for the case
@@ -7987,7 +7979,7 @@ EpilogueVectorizerMainLoop::createEpilogueVectorizedLoopSkeleton() {
   // because the vplan in the second pass still contains the inductions from the
   // original loop.
 
-  return {completeLoopSkeleton(Lp, OrigLoopID), nullptr};
+  return {completeLoopSkeleton(OrigLoopID), nullptr};
 }
 
 void EpilogueVectorizerMainLoop::printDebugTracesAtStart() {
@@ -8166,7 +8158,7 @@ EpilogueVectorizerEpilogueLoop::createEpilogueVectorizedLoopSkeleton() {
   createInductionResumeValues(Lp, {VecEpilogueIterationCountCheck,
                                    EPI.VectorTripCount} /* AdditionalBypass */);
 
-  return {completeLoopSkeleton(Lp, OrigLoopID), EPResumeVal};
+  return {completeLoopSkeleton(OrigLoopID), EPResumeVal};
 }
 
 BasicBlock *
@@ -8942,7 +8934,7 @@ VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
     RecipeBuilder.recordRecipeOf(Phi);
     for (auto &R : ReductionOperations) {
       RecipeBuilder.recordRecipeOf(R);
-      // For min/max reducitons, where we have a pair of icmp/select, we also
+      // For min/max reductions, where we have a pair of icmp/select, we also
       // need to record the ICmp recipe, so it can be removed later.
       assert(!RecurrenceDescriptor::isSelectCmpRecurrenceKind(Kind) &&
              "Only min/max recurrences allowed for inloop reductions");
