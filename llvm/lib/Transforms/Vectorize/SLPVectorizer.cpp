@@ -4198,25 +4198,12 @@ private:
 #if INTEL_CUSTOMIZATION
 private:
 
-  BoUpSLP::BlockScheduling *getBSForValue(Value *VL);
+  /// Remove all entries in VectorizableTree after the Multi-Node.
+  void clearVTreeAfterMultiNode(const MultiNode *MN);
 
-  /// Remove all entries in VectorizableTree after CurrIdx.
-  void removeFromVTreeAfter(int currIdx);
-
-  /// Clear the state of the scheduler.
-  void clearSchedulerState();
-
-  /// \returns a vector of values represented by \p Bundle.
-  SmallVector<Value *, 8> getBundleVL(const Optional<ScheduleData *> &Bundle);
-
-  /// Replay the schedule of the whole VectorizableTree.
-  void replaySchedulerStateUpTo(int UntilIdx,
-                                Optional<ScheduleData *> &OldBundle,
-                                const SmallVectorImpl<Value *> &OldBundleVL);
-
-  /// Replay the build state until currIdx.
-  void rebuildBSStateUntil(int currIdx,
-                           Optional<ScheduleData *> &BundleToUpdate);
+  /// Replay scheduler state up to the MultiNode root VTree entry.
+  /// Return scheduler bundle for the entry.
+  Optional<ScheduleData *> rebuildBSStateUntilMultiNode(const MultiNode *MN);
 
   /// Builds the TreeEntries for a Multi-Node.
   void buildTreeMultiNode_rec(const InstructionsState &S,
@@ -5111,95 +5098,60 @@ void BoUpSLP::MultiNode::undoMultiNodeScheduling() {
   for (const auto &Pair : reverse(InstrPositionBeforeScheduling)) {
     Instruction *I = Pair.first;
     Instruction *NextI = Pair.second;
-    assert(I && NextI && I->getParent() && NextI->getParent() &&
-      "Illegal instruction state. Unlinked from  BasicBlock?");
+    assert(I && NextI && I->getParent() &&
+           I->getParent() == NextI->getParent() &&
+           "Illegal instruction state. Unlinked from  BasicBlock?");
     I->moveBefore(NextI);
   }
 }
 
-// Each BB has its own BS. Return the correct BS for VL.
-BoUpSLP::BlockScheduling *BoUpSLP::getBSForValue(Value *V) {
-  assert(isa<Instruction>(V) && "Expected instruction.");
-  BasicBlock *BB = cast<Instruction>(V)->getParent();
-  BlockScheduling *BS = BlocksSchedules[BB].get();
-  return BS;
-}
-
-// Remove all entries from VectorizableTree[] from 'FromIdx' onwards.
-void BoUpSLP::removeFromVTreeAfter(int FromIdx) {
-  assert(FromIdx >= 0);
-  // 1. Clear entries from ScalarToTreeEntry[]
-  for (int i = FromIdx, e = VectorizableTree.size(); i != e; ++i) {
-    const TreeEntry &TE = *VectorizableTree[i].get();
-    for (Value *V : TE.Scalars) {
-      if (TE.State == TreeEntry::NeedToGather) {
+void BoUpSLP::clearVTreeAfterMultiNode(const MultiNode *MN) {
+  // Remove all entries from VectorizableTree[] from MultiNode root onwards.
+  int TreeSize = VectorizableTree.size();
+  // 1. Clear entries from ScalarToTreeEntry/MustGather
+  for (const TreeEntry *TE :
+       map_range(seq(MN->getRoot(), TreeSize),
+                 [this](int I) { return VectorizableTree[I].get(); })) {
+    if (TE->State == TreeEntry::NeedToGather)
+      for (Value *V : TE->Scalars)
         MustGather.erase(V);
-      } else {
+    else
+      for (Value *V : TE->Scalars)
         ScalarToTreeEntry.erase(V);
-      }
-    }
   }
   // 2. Remove entries from VectorizableTree[]
-  while (VectorizableTree.size() > (unsigned)FromIdx)
-    VectorizableTree.pop_back();
+  VectorizableTree.pop_back_n(TreeSize - MN->getRoot());
 }
 
-// NOTE: This requires that all instructions be in the BBs (i.e. not
-// removedFromParent()). This is a requirement from getBSForValue().
-void BoUpSLP::clearSchedulerState() {
+Optional<BoUpSLP::ScheduleData *>
+BoUpSLP::rebuildBSStateUntilMultiNode(const MultiNode *MN) {
+  auto &&GetBS = [this](Instruction *I) {
+    BasicBlock *BB = I->getParent();
+    assert(BB && "detouched instruction");
+    BlockScheduling *BS = BlocksSchedules[BB].get();
+    return BS;
+  };
+
+  // 0. Clear all BS
   for (auto &Pair : BlocksSchedules)
     Pair.second->deepClear();
-}
 
-// NOTE: This is a member function of BoUpSLP because ScheduleData is private.
-SmallVector<Value *, 8>
-BoUpSLP::getBundleVL(const Optional<BoUpSLP::ScheduleData *> &Bundle) {
-  ValueList VL;
-  if (Bundle)
-    for (ScheduleData *BundleMember = Bundle.getValue(); BundleMember;
-         BundleMember = BundleMember->NextInBundle)
-      VL.push_back(BundleMember->Inst);
-  return VL;
-}
+  // 1.  Replay the state of the Block Scheduler from VTree[0] until
+  // VTree[UntilIdx-1].
+  Optional<ScheduleData *> Bundle = {None};
 
-// Replay the state of the Block Scheduler from VTree[0]
-// until Vtree[UntilIdx-1].
-void BoUpSLP::replaySchedulerStateUpTo(
-    int UntilIdx, Optional<ScheduleData *> &OldBundle,
-    const SmallVectorImpl<Value *> &OldBundleVL) {
-  for (int i = 0; i < UntilIdx; ++i) {
-    TreeEntry &TE = *VectorizableTree[i].get();
-    if (TE.State == TreeEntry::NeedToGather)
+  for (const TreeEntry *TE :
+       map_range(seq_inclusive(0, MN->getRoot()),
+                 [this](int I) { return VectorizableTree[I].get(); })) {
+    if (TE->State == TreeEntry::NeedToGather)
       continue;
-    assert(isa<Instruction>(TE.Scalars[0]) && "Instruction expected.");
-    Instruction *VL0 = cast<Instruction>(TE.Scalars[0]);
-    BlockScheduling *BS = getBSForValue(VL0);
-    InstructionsState S = getSameOpcode(TE.Scalars);
-    Optional<ScheduleData *> NewBundle = BS->tryScheduleBundle(TE.Scalars, this, S);
-    // If Bundle is identical to 'BundleVL', then we found the bundle matching
-    // 'OldBundle', so update it.
-    if (NewBundle) {
-      SmallVector<Value *, 8> NewBundleVL = getBundleVL(NewBundle);
-      if (NewBundleVL == OldBundleVL)
-        OldBundle = NewBundle;
-    }
-
-    auto Success = (bool)NewBundle;
-    assert(Success && "TE not checked for scheduling in buildTree_rec() ?");
-    (void)Success;
+    auto *VL0 = cast<Instruction>(TE->Scalars[0]);
+    InstructionsState S = getSameOpcode(TE->Scalars);
+    Bundle = GetBS(VL0)->tryScheduleBundle(TE->Scalars, this, S);
+    assert(Bundle.hasValue() &&
+           "TE not checked for scheduling in buildTree_rec()?");
   }
-}
-
-// Replay the state of the Block Scheduler from VTree[0]
-// until Vtree[UntilIdx-1]. NOTE: UntilIdx is *not* included
-void BoUpSLP::rebuildBSStateUntil(int UntilIdx,
-                                  Optional<ScheduleData *> &BundleToUpdate) {
-  // Get the values in Bundle before they get cleared.
-  ValueList BundleToUpdateVL = getBundleVL(BundleToUpdate);
-  // 0. Clear all BS
-  clearSchedulerState();
-  // 1. Replay until UntilIdx
-  replaySchedulerStateUpTo(UntilIdx, BundleToUpdate, BundleToUpdateVL);
+  return Bundle;
 }
 
 /// We move all Multi-Node trunk (frontier) instructions to the root, so that
@@ -5224,18 +5176,15 @@ void BoUpSLP::rebuildBSStateUntil(int UntilIdx,
 void BoUpSLP::scheduleMultiNodeInstrs() {
   if (CurrentMultiNode->numOfTrunks() <= 1)
     return;
-  TreeEntry *RootTE = VectorizableTree[CurrentMultiNode->getRoot()].get();
+  const TreeEntry *RootTE = VectorizableTree[CurrentMultiNode->getRoot()].get();
   int Lanes = RootTE->Scalars.size();
 
   // The 'Destination' holds the destination position where the scheduled
   // instruction should be moved to. We need one destination per lane, which is
   // why we are using a vector.
   SmallVector<Instruction *, 4> Destination(Lanes);
-  for (int L = 0; L != Lanes; ++L) {
-      auto *I = dyn_cast<Instruction>(RootTE->Scalars[L]);
-      assert(I && "Instrs expected in CurrentMultiNode");
-      Destination[L] = I;
-  }
+  for (int L = 0; L != Lanes; ++L)
+    Destination[L] = cast<Instruction>(RootTE->Scalars[L]);
 
   std::list<TreeEntry *> TEWorklist;
   ArrayRef<int> Trunks = CurrentMultiNode->getTrunks();
@@ -5993,12 +5942,29 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       if (CurrentMultiNode->numOfTrunks() > 1)
         reorderMultiNodeOperands(VL, Bundle.getValue());
 
+#ifndef NDEBUG
+      auto &&GetBundleVL = [](const Optional<BoUpSLP::ScheduleData *> &Bundle) {
+        ValueList VL;
+        if (Bundle)
+          for (ScheduleData *Member = Bundle.getValue(); Member;
+               Member = Member->NextInBundle)
+            VL.push_back(Member->Inst);
+        return VL;
+      };
+      ValueList BeforeUpdateVL = GetBundleVL(Bundle);
+#endif
       // Roll-back the scheduler and VectorizableTree to the state before the
       // Multi-Node formation. buildTree_rec() will continue with the root VL.
-      rebuildBSStateUntil(CurrentMultiNode->getRoot() + 1, Bundle);
-      removeFromVTreeAfter(CurrentMultiNode->getRoot());
+      Bundle = rebuildBSStateUntilMultiNode(CurrentMultiNode);
 
-      // Udate 'S'
+#ifndef NDEBUG
+      ValueList AfterUpdateVL = GetBundleVL(Bundle);
+      assert(AfterUpdateVL == BeforeUpdateVL &&
+             "Scheduled scalars do not match");
+#endif
+      clearVTreeAfterMultiNode(CurrentMultiNode);
+
+      // Update 'S'
       VL0 = cast<Instruction>(VL[0]);
       S = getSameOpcode(VL);
 
