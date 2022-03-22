@@ -114,6 +114,8 @@ std::unordered_map<std::string, std::string> llvm::vpo::OCLBuiltin = {
     {"llvm.exp.f32",          "_Z15__spirv_ocl_expf"},
     {"_ZSt3expf",             "_Z15__spirv_ocl_expf"},
 
+    {"exp10f",                "_Z17__spirv_ocl_exp10f"},
+
     {"llvm.exp2.f32",         "_Z16__spirv_ocl_exp2f"},
     {"_ZSt4exp2f",            "_Z16__spirv_ocl_exp2f"},
 
@@ -228,6 +230,7 @@ std::unordered_map<std::string, std::string> llvm::vpo::OCLBuiltin = {
 
 //  Exponential functions
     {"llvm.exp.f64",          "_Z15__spirv_ocl_expd"},
+    {"exp10",                 "_Z17__spirv_ocl_exp10d"},
     {"llvm.exp2.f64",         "_Z16__spirv_ocl_exp2d"},
     {"llvm.log.f64",          "_Z15__spirv_ocl_logd"},
     {"llvm.log2.f64",         "_Z16__spirv_ocl_log2d"},
