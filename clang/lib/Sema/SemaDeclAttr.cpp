@@ -3278,7 +3278,6 @@ static void handleWeakImportAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   D->addAttr(::new (S.Context) WeakImportAttr(S.Context, AL));
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static bool checkValidSYCLSpelling(Sema &S, const ParsedAttr &A) {
   if ((A.getSyntax() == AttributeCommonInfo::AS_GNU &&
@@ -3370,10 +3369,10 @@ static void handleAutorunAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
 
   if (auto *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
     long long int N = 1ll << 32ll;
-    ASTContext &Ctx = S.getASTContext();
-    Optional<llvm::APSInt> XDimVal = A->getXDimVal(Ctx);
-    Optional<llvm::APSInt> YDimVal = A->getYDimVal(Ctx);
-    Optional<llvm::APSInt> ZDimVal = A->getZDimVal(Ctx);
+
+    Optional<llvm::APSInt> XDimVal = A->getXDimVal();
+    Optional<llvm::APSInt> YDimVal = A->getYDimVal();
+    Optional<llvm::APSInt> ZDimVal = A->getZDimVal();
 
     if (N % XDimVal->getZExtValue() != 0 ||
         N % YDimVal->getZExtValue() != 0 ||
@@ -4065,131 +4064,6 @@ static bool checkWorkGroupSizeValues(Sema &S, Decl *D, const ParsedAttr &AL) {
   return Result;
 }
 
-// Handles reqd_work_group_size.
-template <typename WorkGroupAttr>
-static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
-  if (D->isInvalidDecl())
-    return;
-
-  S.CheckDeprecatedSYCLAttributeSpelling(AL);
-  // __attribute__((reqd_work_group_size)) and [[cl::reqd_work_group_size]]
-  // all require exactly three arguments.
-  if ((AL.getKind() == ParsedAttr::AT_ReqdWorkGroupSize &&
-       AL.getAttributeSpellingListIndex() ==
-           ReqdWorkGroupSizeAttr::CXX11_cl_reqd_work_group_size) ||
-      AL.getSyntax() == ParsedAttr::AS_GNU) {
-    if (!AL.checkExactlyNumArgs(S, 3))
-      return;
-  }
-
-  Expr *XDimExpr = AL.getArgAsExpr(0);
-
-  // If no attribute argument is specified, set the second and third argument
-  // to the default value 1, but only if the sycl::reqd_work_group_size
-  // spelling was used.
-  auto SetDefaultValue = [](Sema &S, const ParsedAttr &AL) {
-    assert(AL.getKind() == ParsedAttr::AT_ReqdWorkGroupSize && AL.hasScope() &&
-           AL.getScopeName()->isStr("sycl"));
-    return IntegerLiteral::Create(S.Context, llvm::APInt(32, 1),
-                                  S.Context.IntTy, AL.getLoc());
-  };
-
-  Expr *YDimExpr =
-      AL.isArgExpr(1) ? AL.getArgAsExpr(1) : SetDefaultValue(S, AL);
-
-  Expr *ZDimExpr =
-      AL.isArgExpr(2) ? AL.getArgAsExpr(2) : SetDefaultValue(S, AL);
-
-  ASTContext &Ctx = S.getASTContext();
-  if (!XDimExpr->isValueDependent() && !YDimExpr->isValueDependent() &&
-      !ZDimExpr->isValueDependent()) {
-    llvm::APSInt XDimVal, YDimVal, ZDimVal;
-    ExprResult XDim = S.VerifyIntegerConstantExpression(XDimExpr, &XDimVal);
-    ExprResult YDim = S.VerifyIntegerConstantExpression(YDimExpr, &YDimVal);
-    ExprResult ZDim = S.VerifyIntegerConstantExpression(ZDimExpr, &ZDimVal);
-
-    if (XDim.isInvalid())
-      return;
-    XDimExpr = XDim.get();
-
-    if (YDim.isInvalid())
-      return;
-    YDimExpr = YDim.get();
-
-    if (ZDim.isInvalid())
-      return;
-    ZDimExpr = ZDim.get();
-
-    // If the num_simd_work_items attribute is specified on a declaration it
-    // must evenly divide the index that increments fastest in the
-    // reqd_work_group_size attribute. In OpenCL, the first argument increments
-    // the fastest, and in SYCL, the last argument increments the fastest.
-    if (const auto *A = D->getAttr<SYCLIntelNumSimdWorkItemsAttr>()) {
-      int64_t NumSimdWorkItems =
-          A->getValue()->getIntegerConstantExpr(Ctx)->getSExtValue();
-
-      unsigned WorkGroupSize = S.getLangOpts().OpenCL ? XDimVal.getZExtValue()
-                                                      : ZDimVal.getZExtValue();
-
-      if (WorkGroupSize % NumSimdWorkItems != 0) {
-        S.Diag(A->getLocation(), diag::err_sycl_num_kernel_wrong_reqd_wg_size)
-            << A << AL;
-        S.Diag(AL.getLoc(), diag::note_conflicting_attribute);
-        return;
-      }
-    }
-
-    // If the declaration has a ReqdWorkGroupSizeAttr,
-    // check to see if they hold equal values
-    // (1, 1, 1) in case the value of SYCLIntelMaxGlobalWorkDimAttr
-    // equals to 0.
-    if (const auto *DeclAttr = D->getAttr<SYCLIntelMaxGlobalWorkDimAttr>()) {
-      if (const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue())) {
-        // If the value is dependent, we can not test anything.
-        if (!DeclExpr)
-          return;
-
-        // Test the attribute value.
-        if (DeclExpr->getResultAsAPSInt() == 0 &&
-            (XDimVal.getZExtValue() != 1 || YDimVal.getZExtValue() != 1 ||
-             ZDimVal.getZExtValue() != 1)) {
-          S.Diag(AL.getLoc(), diag::err_sycl_x_y_z_arguments_must_be_one)
-              << AL << DeclAttr;
-          return;
-        }
-      }
-    }
-
-#if INTEL_CUSTOMIZATION
-    if (D->hasAttr<AutorunAttr>()) {
-      long long int N = 1ll << 32ll;
-      if ((N % XDimVal.getZExtValue()) != 0 ||
-          (N % YDimVal.getZExtValue()) != 0 ||
-          (N % ZDimVal.getZExtValue()) != 0) {
-        S.Diag(AL.getLoc(), diag::err_opencl_autorun_kernel_wrong_reqd_wg_size);
-        return;
-      }
-    }
-#endif // INTEL_CUSTOMIZATION
-
-    if (const auto *ExistingAttr = D->getAttr<WorkGroupAttr>()) {
-      // Compare attribute arguments value and warn for a mismatch.
-      if (ExistingAttr->getXDimVal(Ctx) != XDimVal ||
-          ExistingAttr->getYDimVal(Ctx) != YDimVal ||
-          ExistingAttr->getZDimVal(Ctx) != ZDimVal) {
-        S.Diag(AL.getLoc(), diag::warn_duplicate_attribute) << AL;
-        S.Diag(ExistingAttr->getLocation(), diag::note_conflicting_attribute);
-      }
-    }
-    if (!checkWorkGroupSizeValues(S, D, AL))
-      return;
-  }
-
-  S.addIntelTripleArgAttr<WorkGroupAttr>(D, AL, XDimExpr, YDimExpr, ZDimExpr);
-}
-
-=======
->>>>>>> 1b9e51b3f4335ab7bca3dfb727d5cf016c4ae7b2
 // Returns a DupArgResult value; Same means the args have the same value,
 // Different means the args do not have the same value, and Unknown means that
 // the args cannot (yet) be compared.
