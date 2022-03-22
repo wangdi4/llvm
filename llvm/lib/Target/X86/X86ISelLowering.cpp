@@ -19366,6 +19366,7 @@ static SDValue lower1BitShuffle(const SDLoc &DL, ArrayRef<int> Mask,
     Offset += NumElts; // Increment for next iteration.
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // lower the following DAGs:
   //   t12: v8i1 = vector_shuffle<0,0,1,1,2,2,3,3> t6, undef:v8i1
@@ -19385,6 +19386,20 @@ static SDValue lower1BitShuffle(const SDLoc &DL, ArrayRef<int> Mask,
     }
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  // If we're broadcasting a SETCC result, try to broadcast the ops instead.
+  // TODO: What other unary shuffles would benefit from this?
+  if (isBroadcastShuffleMask(Mask) && V1.getOpcode() == ISD::SETCC &&
+      V1->hasOneUse()) {
+    SDValue Op0 = V1.getOperand(0);
+    SDValue Op1 = V1.getOperand(1);
+    ISD::CondCode CC = cast<CondCodeSDNode>(V1.getOperand(2))->get();
+    EVT OpVT = Op0.getValueType();
+    return DAG.getSetCC(
+        DL, VT, DAG.getVectorShuffle(OpVT, DL, Op0, DAG.getUNDEF(OpVT), Mask),
+        DAG.getVectorShuffle(OpVT, DL, Op1, DAG.getUNDEF(OpVT), Mask), CC);
+  }
+>>>>>>> 5fd945166862377be390948c9ab7dab2f47df217
 
   MVT ExtVT;
   switch (VT.SimpleTy) {
