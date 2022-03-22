@@ -405,9 +405,11 @@ WRNInteropNode::WRNInteropNode(BasicBlock* BB)
 }
 
 // printer
-void WRNInteropNode::printExtra(formatted_raw_ostream& OS, unsigned Depth,
-    unsigned Verbosity) const {
-    vpo::printExtraForInterop(this, OS, Depth, Verbosity);
+void WRNInteropNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                unsigned Verbosity) const {
+  unsigned Indent = 2 * Depth;
+  vpo::printVal("DEVICE", getDevice(), OS, Indent, Verbosity);
+  vpo::printBool("NOWAIT", getNowait(), OS, Indent, Verbosity);
 }
 
 //
@@ -1246,15 +1248,6 @@ void vpo::printExtraForOmpLoop(WRegionNode const *W, formatted_raw_ostream &OS,
   // WRNs with getIsPar()==true don't have the Nowait clause
   if (!(W->getIsPar()))
     vpo::printBool("NOWAIT", W->getNowait(), OS, Indent, Verbosity);
-}
-
-void vpo::printExtraForInterop(WRegionNode const* W, formatted_raw_ostream& OS,
-    int Depth, unsigned Verbosity) {
-  assert(W->getIsInterop() &&
-         "printExtraInterop is for WRNs with getIsInterop()==true");
-  unsigned Indent = 2 * Depth;
-  vpo::printVal("DEVICE", W->getDevice(), OS, Indent, Verbosity);
-  vpo::printBool("NOWAIT", W->getNowait(), OS, Indent, Verbosity);
 }
 
 // Print the fields common to WRNs for which getIsTarget()==true.

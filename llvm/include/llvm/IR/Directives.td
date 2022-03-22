@@ -315,6 +315,7 @@ def "QUAL.OMP.DEPEND.OUT" : Clause;
 def "QUAL.OMP.DEPEND.INOUT" : Clause;
 def "QUAL.OMP.DEPEND.SOURCE" : Clause;
 def "QUAL.OMP.DEPEND.SINK" : Clause;
+def "QUAL.OMP.DEPARRAY" : Clause;
 def "QUAL.OMP.ORDERED.THREADS" : Clause;
 def "QUAL.OMP.ORDERED.SIMD" : Clause;
 def "QUAL.OMP.CANCEL.PARALLEL" : Clause;

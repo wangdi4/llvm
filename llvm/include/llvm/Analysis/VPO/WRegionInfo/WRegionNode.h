@@ -488,6 +488,10 @@ public:
                                                 {WRNERROR("DEFAULTMAP");      }
   virtual WRNDefaultmapBehavior getDefaultmap(WRNDefaultmapCategory C) const
                                                 {WRNERROR("DEFAULTMAP");      }
+  virtual void setDepArray(EXPR E)              {WRNERROR(QUAL_OMP_DEPARRAY); }
+  virtual EXPR getDepArray()              const {WRNERROR(QUAL_OMP_DEPARRAY); }
+  virtual void setDepArrayNumDeps(EXPR E)       {WRNERROR(QUAL_OMP_DEPARRAY); }
+  virtual EXPR getDepArrayNumDeps()       const {WRNERROR(QUAL_OMP_DEPARRAY); }
   virtual void setDevice(EXPR E)                {WRNERROR(QUAL_OMP_DEVICE);   }
   virtual EXPR getDevice()                const {WRNERROR(QUAL_OMP_DEVICE);   }
   virtual void setFilter(EXPR E)                {WRNERROR(QUAL_OMP_FILTER);   }
@@ -1049,6 +1053,11 @@ private:
 }; // class WRegionNode
 
 // Printing routines to help dump WRN content
+
+/// Print the DEPARRAY(N, Array) qual
+/// Returns true iff something was printed
+extern bool printDepArray(WRegionNode const *W, formatted_raw_ostream &OS,
+                          int Depth, unsigned Verbosity = 1);
 
 /// Auxiliary function to print a BB in a WRN dump.
 ///
