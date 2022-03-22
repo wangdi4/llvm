@@ -1,6 +1,6 @@
-; RUN: llc -consider-local-interval-cost -mtriple=x86_64 -mattr=fma -enable-ra-report -intel-ra-spillreport=high -intel-opt-report-file=stdout < %s | FileCheck %s
-; RUN: llc -consider-local-interval-cost -mtriple=x86_64 -mattr=fma -enable-ra-report -intel-ra-spillreport=high -intel-opt-report-file=stderr < %s 2>&1 >%tout | FileCheck %s
-; RUN: llc -consider-local-interval-cost -mtriple=x86_64 -mattr=fma -enable-ra-report -intel-ra-spillreport=high -intel-opt-report-file=%t < %s
+; RUN: llc -mtriple=x86_64 -mattr=fma -enable-ra-report -intel-ra-spillreport=high -intel-opt-report-file=stdout < %s | FileCheck %s
+; RUN: llc -mtriple=x86_64 -mattr=fma -enable-ra-report -intel-ra-spillreport=high -intel-opt-report-file=stderr < %s 2>&1 >%tout | FileCheck %s
+; RUN: llc -mtriple=x86_64 -mattr=fma -enable-ra-report -intel-ra-spillreport=high -intel-opt-report-file=%t < %s
 ; RUN: FileCheck %s < %t
 
 ; This test checks that the output location used by the register allocation
