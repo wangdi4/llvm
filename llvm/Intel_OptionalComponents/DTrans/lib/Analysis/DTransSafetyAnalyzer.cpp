@@ -1291,6 +1291,13 @@ public:
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     };
 
+    if (ValInfo && ValInfo->canAliasToAggregatePointer() &&
+        PtrInfo->canPointTo(getDTransPtrSizedIntPtrType()) &&
+        !PtrInfo->canAliasToAggregatePointer())
+      setAllAliasedTypeSafetyData(ValInfo, dtrans::AddressTaken,
+                                  "Pointer-to-type stored as pointer-sized int",
+                                  &I);
+
     // Check that the address of a structure field is not being stored to
     // memory. This is done up front, so that we can return as soon as
     // analyzing any element pointees of the pointer operand.
@@ -1960,10 +1967,22 @@ public:
     if (ExpectedType == UsageType)
       return true;
 
+    if (ExpectedType == getDTransPtrSizedIntType() && UsageType->isPointerTy())
+      return true;
+
     if (ExpectedType->isPointerTy() &&
         (UsageType == getDTransI8PtrType() ||
          UsageType == getDTransPtrSizedIntType()))
       return true;
+
+    // Consider a pointer to a type and a pointer to an array of the type as
+    // compatible. Note: Nested arrays are not treated as compatible types to a
+    // pointer for consistency with the legacy DTrans analysis.
+    if (ExpectedType->isPointerTy() && UsageType->isPointerTy())
+      if (UsageType->getPointerElementType()->isArrayTy() &&
+          ExpectedType->getPointerElementType() ==
+              UsageType->getPointerElementType()->getArrayElementType())
+        return true;
 
     // Allow an access to the element zero type, such as:
     //   %struct.A = type { %struct.B }
