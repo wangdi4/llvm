@@ -1,4 +1,4 @@
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-apply-config -simplifycfg -vpo-paropt-config=%S/Inputs/Intel_paropt_apply_config.yaml -S | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-apply-config -simplifycfg -vpo-paropt-config=%S/Inputs/Intel_paropt_apply_config.yaml -S | FileCheck %s
 ; RUN: opt < %s -passes='require<vpo-paropt-config-analysis>,function(vpo-cfg-restructuring,vpo-paropt-apply-config,simplifycfg)' -vpo-paropt-config=%S/Inputs/Intel_paropt_apply_config.yaml -S | FileCheck %s
 
 ; Original code:
