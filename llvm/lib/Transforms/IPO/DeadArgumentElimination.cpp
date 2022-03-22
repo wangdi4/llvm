@@ -46,7 +46,6 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
@@ -69,7 +68,6 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #include <cassert>
-#include <cstdint>
 #include <utility>
 #include <vector>
 

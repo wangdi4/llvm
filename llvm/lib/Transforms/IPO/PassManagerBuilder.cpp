@@ -32,7 +32,6 @@
 #include "llvm-c/Transforms/PassManagerBuilder.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/CFLAndersAliasAnalysis.h"
 #include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
@@ -48,11 +47,9 @@
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/PrintPasses.h" // INTEL
 #include "llvm/IR/Verifier.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Target/CGPassBuilderOption.h"
@@ -66,15 +63,11 @@
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
-#include "llvm/Transforms/Scalar/InstSimplifyPass.h"
 #include "llvm/Transforms/Scalar/LICM.h"
 #include "llvm/Transforms/Scalar/LoopUnrollPass.h"
-#include "llvm/Transforms/Scalar/SCCP.h"
 #include "llvm/Transforms/Scalar/SimpleLoopUnswitch.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Vectorize.h"
-#include "llvm/Transforms/Vectorize/LoopVectorize.h"
-#include "llvm/Transforms/Vectorize/SLPVectorizer.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
@@ -109,8 +102,6 @@
 #include "llvm/Transforms/VPO/VPOPasses.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
 #endif // INTEL_COLLAB
-
-#include "llvm/Transforms/Vectorize/VectorCombine.h"
 
 using namespace llvm;
 

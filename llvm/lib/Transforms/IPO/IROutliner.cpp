@@ -43,7 +43,6 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/IPO.h"
-#include <map>
 #include <set>
 #include <vector>
 

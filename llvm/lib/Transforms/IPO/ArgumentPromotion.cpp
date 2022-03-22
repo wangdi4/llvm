@@ -65,10 +65,10 @@
 #include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/MemoryLocation.h"
-#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/AbstractCallSite.h" // INTEL
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
@@ -93,7 +93,6 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/Intel_InlineReport.h"      // INTEL
@@ -101,10 +100,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
-#include <functional>
-#include <iterator>
-#include <map>
-#include <set>
 #include <utility>
 #include <vector>
 
