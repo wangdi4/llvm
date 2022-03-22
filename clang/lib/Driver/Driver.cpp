@@ -3428,6 +3428,14 @@ getLinkerArgs(Compilation &C, DerivedArgList &Args, bool IncludeObj = false) {
     if (A->getOption().getKind() == Option::InputClass) {
       if (addLibArg(FileName))
         continue;
+#if INTEL_CUSTOMIZATION
+      for (auto LPath : LibPaths) {
+        SmallString<128> FullLib(LPath);
+        llvm::sys::path::append(FullLib, FileName);
+        if (addLibArg(FullLib))
+          continue;
+      }
+#endif // INTEL_CUSTOMIZATION
     }
     // Evaluate any libraries passed along after /link. These are typically
     // ignored by the driver and sent directly to the linker. When performing
@@ -3553,26 +3561,6 @@ static bool HasIntelSYCLPerflib(Compilation &C, const DerivedArgList &Args) {
                (Args.hasArg(options::OPT_static) || IsMSVC)) ||
          Args.hasArg(options::OPT_qdaal_EQ));
 }
-
-const char *resolveLib(const StringRef &LibName, DerivedArgList &Args,
-                       Compilation &C) {
-  bool isMSVC = C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment();
-  StringRef RetLib(LibName);
-  const char *envVar(isMSVC ? "LIB" : "LIBRARY_PATH");
-  // TODO - We may want to leverage this for Linux library searches.  This
-  // is currently only used for Windows.
-  if (llvm::Optional<std::string> LibDir = llvm::sys::Process::GetEnv(envVar)) {
-    SmallVector<StringRef, 8> Dirs;
-    StringRef(*LibDir).split(Dirs, llvm::sys::EnvPathSeparator, -1, false);
-    for (StringRef Dir : Dirs) {
-      SmallString<128> FullName(Dir);
-      llvm::sys::path::append(FullName, LibName);
-      if (llvm::sys::fs::exists(FullName))
-        return Args.MakeArgString(FullName.c_str());
-    }
-  }
-  return Args.MakeArgString(RetLib);
-}
 #endif // INTEL_CUSTOMIZATION
 
 // Goes through all of the arguments, including inputs expected for the
@@ -3626,17 +3614,13 @@ bool Driver::checkForOffloadStaticLib(Compilation &C,
   if (Args.hasArg(options::OPT_offload_lib_Group))
     return true;
   SmallVector<const char *, 16> OffloadLibArgs(getLinkerArgs(C, Args));
-#if INTEL_CUSTOMIZATION
-  for (StringRef tOLArg : OffloadLibArgs) {
-    StringRef OLArg(resolveLib(tOLArg, Args, C));
-#endif // INTEL_CUSTOMIZATION
+  for (StringRef OLArg : OffloadLibArgs)
     if (isStaticArchiveFile(OLArg) && hasOffloadSections(C, OLArg, Args)) {
       // FPGA binaries with AOCX or AOCR sections are not considered fat
       // static archives.
       return !(hasFPGABinary(C, OLArg.str(), types::TY_FPGA_AOCR) ||
                hasFPGABinary(C, OLArg.str(), types::TY_FPGA_AOCX));
     }
-  } // INTEL
   return false;
 }
 
@@ -4528,7 +4512,8 @@ class OffloadingActionBuilder final {
             return ABRT_Inactive;
 #if INTEL_CUSTOMIZATION
           // Windows archives are handled differently
-          if (isStaticArchiveFile(IA->getInputArg().getAsString(Args)) &&
+          StringRef Ext(llvm::sys::path::extension(FileName).drop_front());
+          if ((isStaticArchiveFile(FileName) || Ext == "lib") &&
               IA->getType() == types::TY_Object)
             return ABRT_Inactive;
 #endif // INTEL_CUSTOMIZATION
@@ -6411,12 +6396,7 @@ public:
       addDeviceDependencesToHostAction(Current, InputArg, phases::Link,
                                        PL.back(), PL);
     };
-#if INTEL_CUSTOMIZATION
-    for (StringRef tLA : LinkArgs) {
-      // Augment the current argument to add additional directory information
-      // in case the location of the lib is not in CWD.
-      StringRef LA(resolveLib(tLA, Args, C));
-#endif // INTEL_CUSTOMIZATION
+    for (StringRef LA : LinkArgs) {
       // At this point, we will process the archives for FPGA AOCO and
       // individual archive unbundling for Windows.
       if (!isStaticArchiveFile(LA))
