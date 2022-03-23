@@ -1,5 +1,5 @@
-; RUN: opt -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s
+; RUN: opt -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 ;
 ; Test src:
 ;

@@ -1,7 +1,5 @@
-; RUN: opt < %s -S -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt 2>&1 \
-; RUN:   | FileCheck %s
-; RUN: opt < %s -S -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload 2>&1 \
-; RUN:   | FileCheck %s
+; RUN: opt -S -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt %s 2>&1 | FileCheck %s
+; RUN: opt -S -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload %s 2>&1 | FileCheck %s
 
 ; When a region is code extracted, make sure the existing debug information is
 ; updated accordingly. Specifically:

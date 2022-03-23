@@ -1,4 +1,4 @@
-; RUN: opt -O3 -paropt=31 -S < %s | FileCheck %s
+; RUN: opt -O3 -paropt=31 -S %s | FileCheck %s
 ;
 ; This test checks that presense of fence intructions inside the parallel region
 ; does not prevent privatization of a shared item that is not modified inside

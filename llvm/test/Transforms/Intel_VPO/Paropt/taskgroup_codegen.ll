@@ -1,5 +1,5 @@
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; This file tests the implementation to support OMP taskgroup construct.
 ; void foo() {}

@@ -1,5 +1,5 @@
-; RUN: opt < %s -vpo-paropt  -S | FileCheck %s
-; RUN: opt -passes="vpo-paropt" -S <%s | FileCheck %s
+; RUN: opt -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes="vpo-paropt" -S %s | FileCheck %s
 
 ; This test checks if the dispatch header takes care of loop carried dependence of temporaries.
 ; The temporary here is a PHi with constant value input from Loop Header and Loop Latch.

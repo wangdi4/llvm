@@ -1,6 +1,6 @@
-; RUN: opt <%s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -pass-remarks-output=%t -S
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -pass-remarks-output=%t -S %s
 ; RUN: FileCheck --input-file %t %s
-; RUN: opt <%s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -pass-remarks-output=%t -S
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -pass-remarks-output=%t -S %s
 ; RUN: FileCheck --input-file %t %s
 
 ; Test to chack that opt-report messages are printed for VPO OpenMP.

@@ -1,7 +1,7 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s -check-prefix=PREPR
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'  -S | FileCheck %s -check-prefix=PREPR
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -early-cse -vpo-restore-operands -S < %s | FileCheck %s -check-prefix=RESTR
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,early-cse,vpo-restore-operands)'  -S | FileCheck %s -check-prefix=RESTR
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s -check-prefix=PREPR
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s -check-prefix=PREPR
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -early-cse -vpo-restore-operands -S %s | FileCheck %s -check-prefix=RESTR
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,early-cse,vpo-restore-operands)' -S %s | FileCheck %s -check-prefix=RESTR
 ;
 ; Check that prepare pass generates a load-of-store for arrS.
 ; And vpo-paropt-restore undoes it.

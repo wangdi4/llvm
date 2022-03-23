@@ -11,7 +11,7 @@
 
 
 
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
 
 
 ; CHECK: %arr.priv = alloca [1000 x i32]

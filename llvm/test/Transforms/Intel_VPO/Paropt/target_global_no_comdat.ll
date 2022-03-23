@@ -1,5 +1,5 @@
-; RUN: opt -switch-to-offload -vpo-paropt -S < %s | FileCheck %s
-; RUN: opt -passes='vpo-paropt' -switch-to-offload -S < %s  | FileCheck %s
+; RUN: opt -switch-to-offload -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 
 ; Test src:
 ;

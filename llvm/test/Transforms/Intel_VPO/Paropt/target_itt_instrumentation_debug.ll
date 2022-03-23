@@ -1,4 +1,4 @@
-; RUN: opt < %s -SPIRITTAnnotations -S | FileCheck %s
+; RUN: opt -SPIRITTAnnotations -S %s | FileCheck %s
 
 ; Original code:
 ; __global int *res;

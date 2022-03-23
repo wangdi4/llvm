@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -switch-to-offload -vpo-paropt-opt-scalar-fp=false -S | FileCheck %s
+; RUN: opt -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -switch-to-offload -vpo-paropt-opt-scalar-fp=false -S %s | FileCheck %s
 
 ; -- vecadd.cpp ---------------------------------------------------------------
 ; #include <stdio.h>

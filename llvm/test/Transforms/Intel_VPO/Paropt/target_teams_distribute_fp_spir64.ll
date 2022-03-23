@@ -1,8 +1,8 @@
-; RUN: opt -vpo-paropt-target-make-distribute-fp-wilocal=true -vpo-paropt-handle-firstprivate-on-teams=false -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s --check-prefix=PRIVATE
-; RUN: opt -vpo-paropt-target-make-distribute-fp-wilocal=true -vpo-paropt-handle-firstprivate-on-teams=false -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S < %s | FileCheck %s --check-prefix=PRIVATE
+; RUN: opt -vpo-paropt-target-make-distribute-fp-wilocal=true -vpo-paropt-handle-firstprivate-on-teams=false -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=PRIVATE
+; RUN: opt -vpo-paropt-target-make-distribute-fp-wilocal=true -vpo-paropt-handle-firstprivate-on-teams=false -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=PRIVATE
 
-; RUN: opt -vpo-paropt-target-make-distribute-fp-wilocal=false -vpo-paropt-handle-firstprivate-on-teams=false -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s --check-prefix=LOCAL
-; RUN: opt -vpo-paropt-target-make-distribute-fp-wilocal=false -vpo-paropt-handle-firstprivate-on-teams=false -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S < %s | FileCheck %s --check-prefix=LOCAL
+; RUN: opt -vpo-paropt-target-make-distribute-fp-wilocal=false -vpo-paropt-handle-firstprivate-on-teams=false -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=LOCAL
+; RUN: opt -vpo-paropt-target-make-distribute-fp-wilocal=false -vpo-paropt-handle-firstprivate-on-teams=false -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=LOCAL
 
 ; Test src:
 

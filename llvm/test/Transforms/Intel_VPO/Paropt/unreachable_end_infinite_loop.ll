@@ -1,11 +1,11 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s -check-prefix=PREPR
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'  -S | FileCheck %s -check-prefix=PREPR
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s -check-prefix=PREPR
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s -check-prefix=PREPR
 
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg -S < %s | FileCheck %s -check-prefix=SIMPL
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,simplifycfg,loop-simplify)'  -S | FileCheck %s -check-prefix=SIMPL
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg -S %s | FileCheck %s -check-prefix=SIMPL
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,simplifycfg,loop-simplify)' -S %s | FileCheck %s -check-prefix=SIMPL
 
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s -check-prefix=TFORM
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,simplifycfg,loop-simplify,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s -check-prefix=TFORM
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s -check-prefix=TFORM
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,simplifycfg,loop-simplify,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s -check-prefix=TFORM
 
 ; Test src:
 ;
