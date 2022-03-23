@@ -3,7 +3,7 @@
 ; its own version of "f". The internal variable should be destructed at the
 ; end of the task, after any copy-out to the external scope.
 
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
 ; CHECK: define{{.*}}TASKLOOP
 ; CHECK-NOT: define
 ; CHECK: call{{.*}}def_constr

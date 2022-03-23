@@ -1,4 +1,4 @@
-; RUN: opt < %s -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S 2>&1 | FileCheck %s
+; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s 2>&1 | FileCheck %s
 
 ; Original code:
 ; int main() {

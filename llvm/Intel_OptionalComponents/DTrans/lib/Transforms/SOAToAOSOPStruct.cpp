@@ -35,11 +35,6 @@ namespace soatoaosOP {
 static cl::list<std::string>
     DTransSOAToAOSOPArrays("dtrans-soatoaosop-array-type", cl::ReallyHidden);
 
-// Routines that are ignored for transformation.
-static cl::list<std::string>
-    DTransSOAToAOSOPIgnoreFuncs("dtrans-soatoaosop-ignore-funcs",
-                                cl::ReallyHidden);
-
 // Methods of arrays, which are append-like.
 static cl::list<std::string>
     DTransSOAToAOSOPAppends("dtrans-soatoaosop-array-append", cl::ReallyHidden);
@@ -59,14 +54,6 @@ static cl::list<std::string>
 static cl::list<std::string>
     DTransSOAToAOSOPComparison("dtrans-soatoaosop-method-call-site-comparison",
                                cl::ReallyHidden);
-
-// Returns true if F is in list of ignored functions for SOAToAOSOP.
-static bool isFunctionIgnoredForSOAToAOSOP(Function &F) {
-  for (auto &FName : DTransSOAToAOSOPIgnoreFuncs)
-    if (FName == F.getName())
-      return true;
-  return false;
-}
 
 static std::pair<SmallVector<DTransStructType *, 3>, SmallVector<unsigned, 3>>
 getArrayTypesForSOAToAOSOPStructMethodsCheckDebug(Function &F,

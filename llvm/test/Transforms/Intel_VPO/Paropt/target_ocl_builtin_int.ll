@@ -1,5 +1,5 @@
-; RUN: opt < %s -vpo-paropt -switch-to-offload -S | FileCheck %s
-; RUN: opt < %s -passes='vpo-paropt' -switch-to-offload  -S | FileCheck %s
+; RUN: opt -vpo-paropt -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -passes='vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 
 ; Check that integer math functions "abs" and "labs" are being replaced with
 ; OpenCL mangled versions "_Z3absi" and "_Z3absl", respectively.

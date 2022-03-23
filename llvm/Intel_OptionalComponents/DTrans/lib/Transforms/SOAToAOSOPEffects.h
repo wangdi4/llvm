@@ -51,6 +51,11 @@ namespace llvm {
 namespace dtransOP {
 namespace soatoaosOP {
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+extern cl::list<std::string> DTransSOAToAOSOPIgnoreFuncs;
+bool isFunctionIgnoredForSOAToAOSOP(Function &F);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 // Checking if iterator is dereferenceable.
 template <typename WrappedIteratorTy, typename PredicateTy>
 class filter_iterator_with_check
@@ -1114,8 +1119,8 @@ inline bool isSafeBitCast(const DataLayout &DL, const Value *V,
         return false;
     }
   }
-   if (ElemSize == -1ULL)
-     return false;
+  if (ElemSize == -1ULL)
+    return false;
 
   // Value is dereferenced.
   for (auto &U : BC->uses()) {

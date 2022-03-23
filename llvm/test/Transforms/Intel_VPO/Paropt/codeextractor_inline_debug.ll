@@ -1,5 +1,5 @@
-; RUN: opt  -vpo-paropt -S < %s | FileCheck %s
-; RUN: opt < %s -passes='vpo-paropt' -S | FileCheck %s
+; RUN: opt -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='vpo-paropt' -S %s | FileCheck %s
 ;
 ; Verify the code extractor does not duplicate the debug compilation unit or
 ; subprogram of an inlined function when extracting a parallel region.

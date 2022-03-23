@@ -1,5 +1,5 @@
-; RUN: opt < %s -vpo-paropt-tpv -S | FileCheck %s
-; RUN: opt < %s -passes=vpo-paropt-tpv -S | FileCheck %s
+; RUN: opt -vpo-paropt-tpv -S %s | FileCheck %s
+; RUN: opt -passes=vpo-paropt-tpv -S %s | FileCheck %s
 ;
 ; It is to test whether a composite instruction such as %9 = load i32,
 ; i32* bitcast (float* getelementptr inbounds (%class.t_class,

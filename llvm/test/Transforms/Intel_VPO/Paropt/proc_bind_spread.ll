@@ -1,5 +1,5 @@
-; RUN: opt -vpo-paropt-prepare -S < %s
-; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S
+; RUN: opt -vpo-paropt-prepare -S %s
+; RUN: opt -passes='function(vpo-paropt-prepare)' -S %s
 ; Verify that the OpenMP PROC_BIND clause does not cause a compfail
 
 ; C source

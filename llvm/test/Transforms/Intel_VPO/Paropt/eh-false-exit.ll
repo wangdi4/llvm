@@ -1,4 +1,4 @@
-; RUN: opt < %s -S -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' | FileCheck %s
+; RUN: opt -S -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' %s | FileCheck %s
 ; CHECK: define{{.*}}split
 ; CHECK: lpad{{.*}}loopexit:
 ; CHECK-NEXT: unreachable

@@ -1,6 +1,6 @@
-; RUN: opt  -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
 
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'  -S | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
 
 ; GPU-offload test for Master. The test is created by compiling
 ; the C test below with:  icx -O0 -fiopenmp -fopenmp-targets=spir64 

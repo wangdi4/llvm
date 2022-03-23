@@ -322,8 +322,9 @@ void DTransRelatedTypesUtils::finalizeBaseAndPaddedStructures(
         PaddedStruct->setSafetyData(dtrans::StructCouldHaveABIPadding);
         BaseStruct->setSafetyData(dtrans::StructCouldBeBaseABIPadding);
 
-        // TODO: The analysis if the base and padded structures have fields
-        // with constant entries will be added here.
+        // Now merge or disable any information for arrays with constant
+        // entries.
+        analyzeFieldsWithArrayConstantEntries(BaseStruct, PaddedStruct);
       } else {
         // If the safety data fails then break the relationship between
         // padded and base.
@@ -333,8 +334,12 @@ void DTransRelatedTypesUtils::finalizeBaseAndPaddedStructures(
         RTHandler.revertAllSafetyDataToOriginal(PaddedStruct);
         RTHandler.revertAllSafetyDataToOriginal(BaseStruct);
 
-        // TODO: If something goes wrong then we need to disable the data for
-        // the fields that are arrays with constant entries.
+        // We need to disable any data for arrays with constant entries in the
+        // base and padded structures. The reason is because both structures
+        // may be related to each other but we missed something during the
+        // analysis process.
+        disableArraysWithConstantEntriesData(PaddedStruct);
+        disableArraysWithConstantEntriesData(BaseStruct);
       }
     }
   }
@@ -408,6 +413,81 @@ void DTransRelatedTypesUtils::revertSafetyData(
       if (DataToRevert != dtrans::NoIssues)
         RTHandler.convertSafetyData(DTInfo, DTStruct, DataToRevert);
     }
+  }
+}
+
+// Go through the fields in the base and padded structs, and check if the data
+// for arrays with constant entries matches. This process assumes that the
+// post processing for arrays with constant entries has already run. Also, it
+// assumes that we have already proven that the input StructInfos are base and
+// padded structures.
+void DTransRelatedTypesUtils::analyzeFieldsWithArrayConstantEntries(
+    dtrans::StructInfo *BaseStruct, dtrans::StructInfo *PaddedStruct) {
+
+  // Update the map that handles the array with constant entries in ToFI
+  // with the data in FromFI.
+  auto MergeArrayWithConstData = [](dtrans::FieldInfo &FromFI,
+                                    dtrans::FieldInfo &ToFI) {
+
+    auto FromFieldMap = FromFI.getArrayConstantEntries();
+    if (FromFieldMap.empty())
+      return;
+
+    for (auto Pair : FromFieldMap) {
+      Constant *Index = Pair.first;
+      Constant *Value = Pair.second;
+
+      ToFI.addNewArrayConstantEntry(Index, Value);
+    }
+  };
+
+  if (!BaseStruct || !PaddedStruct)
+    return;
+
+  assert((BaseStruct->getRelatedType() == PaddedStruct &&
+         PaddedStruct->getRelatedType() == BaseStruct) &&
+         "Trying to analyze the arrays with constant entries for "
+         "non-related types");
+
+  // We already know that both structures will contain the same fields, except
+  // the padded structure which contains one extra field for padding.
+  for (unsigned I = 0, E = BaseStruct->getNumFields(); I < E; I++) {
+    auto &FIBase = BaseStruct->getField(I);
+    auto &FIPadded = PaddedStruct->getField(I);
+
+    bool canUpdateBaseField = FIBase.canUpdateArrayWithConstantEntries();
+    bool canUpdatePaddedField = FIPadded.canUpdateArrayWithConstantEntries();
+
+    if (!canUpdateBaseField && !canUpdatePaddedField) {
+      // If updating array with constant entries is not allowed in both cases
+      // then continue the loop
+      continue;
+    } else if (canUpdateBaseField != canUpdatePaddedField) {
+      // If updating the information mismatches then we disable both
+      FIBase.disableArraysWithConstantEntries();
+      FIPadded.disableArraysWithConstantEntries();
+      continue;
+    }
+
+    // Now merge the data
+    MergeArrayWithConstData(FIBase, FIPadded);
+    MergeArrayWithConstData(FIPadded, FIBase);
+  }
+}
+
+// Traverse through all the fields in the input STInfo and disable any data
+// for arrays with constant entries, if it is available
+void DTransRelatedTypesUtils::disableArraysWithConstantEntriesData(
+    dtrans::StructInfo *STInfo) {
+
+  if (!STInfo)
+    return;
+
+  for (unsigned I = 0, E = STInfo->getNumFields(); I < E; I++) {
+    auto &FI = STInfo->getField(I);
+
+    if (FI.isFieldAnArrayWithConstEntries())
+      FI.disableArraysWithConstantEntries();
   }
 }
 

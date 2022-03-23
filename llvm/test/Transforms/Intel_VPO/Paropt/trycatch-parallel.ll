@@ -2,7 +2,7 @@
 ; try/catch inside parallel region.
 ; The Code Extractor must tolerate the typeid call and complete the outline.
 
-; RUN: opt < %s -vpo-paropt -S | FileCheck %s
+; RUN: opt -vpo-paropt -S %s | FileCheck %s
 ; CHECK: define{{.*}}main.DIR.OMP.PARALLEL
 ; CHECK: invoke void @_Z3foov
 ; CHECK: llvm.eh.typeid.for

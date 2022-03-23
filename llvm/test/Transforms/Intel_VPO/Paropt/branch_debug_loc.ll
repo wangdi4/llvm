@@ -1,5 +1,5 @@
-; RUN: opt -vpo-cfg-restructuring -S < %s 2>&1  | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring)' -S < %s 2>&1  | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring)' -S %s 2>&1 | FileCheck %s
 ;
 ; Test src:
 ; void foo() {

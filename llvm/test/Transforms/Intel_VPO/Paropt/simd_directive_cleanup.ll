@@ -16,10 +16,10 @@
 ;     return arr[0];
 ; }
 
-; RUN: opt -O0 -paropt=0x7 -S < %s | FileCheck %s
-; RUN: opt -O1 -paropt=0x7 -S < %s | FileCheck %s
-; RUN: opt -O2 -paropt=0x7 -S < %s | FileCheck %s
-; RUN: opt -O3 -paropt=0x7 -S < %s | FileCheck %s
+; RUN: opt -O0 -paropt=0x7 -S %s | FileCheck %s
+; RUN: opt -O1 -paropt=0x7 -S %s | FileCheck %s
+; RUN: opt -O2 -paropt=0x7 -S %s | FileCheck %s
+; RUN: opt -O3 -paropt=0x7 -S %s | FileCheck %s
 
 ; CHECK-NOT: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"()
 ; CHECK-NOT: call void @llvm.directive.region.exit(token {{.*}}) [ "DIR.OMP.END.SIMD"() ]

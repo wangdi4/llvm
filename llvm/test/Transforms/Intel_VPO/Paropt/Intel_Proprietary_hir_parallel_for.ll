@@ -1,5 +1,5 @@
-; RUN: opt < %s -hir-ssa-deconstruction  -hir-vec-dir-insert -hir-vplan-vec -S | FileCheck %s
-; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -S | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -S %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -S %s | FileCheck %s
 
 ; WARNING!!!
 ; WARNING!!!      ** CONTAINS INTEL IP **

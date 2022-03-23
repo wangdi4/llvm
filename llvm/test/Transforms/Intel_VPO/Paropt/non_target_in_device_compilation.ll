@@ -1,5 +1,5 @@
-; RUN: opt < %s -vpo-cfg-restructuring  -vpo-paropt -switch-to-offload -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -S | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 
 ; For device compilation, the compiler ignores non-TARGET OMP constructs that
 ; are not enclosed in TARGET regions and not in declare target functions.
