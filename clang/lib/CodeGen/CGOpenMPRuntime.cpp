@@ -1746,8 +1746,6 @@ Address CGOpenMPRuntime::getAddrOfDeclareTargetVar(const VarDecl *VD) {
     QualType PtrTy = CGM.getContext().getPointerType(VD->getType());
     llvm::Type *LlvmPtrTy = CGM.getTypes().ConvertTypeForMem(PtrTy);
     if (!Ptr) {
-<<<<<<< HEAD
-      QualType PtrTy = CGM.getContext().getPointerType(VD->getType());
 #if INTEL_COLLAB
       assert(VD->hasLinkage() || VD->isStaticDataMember());
       unsigned AS = CGM.getContext().getTargetAddressSpace(
@@ -1755,12 +1753,8 @@ Address CGOpenMPRuntime::getAddrOfDeclareTargetVar(const VarDecl *VD) {
       Ptr = getOrCreateInternalVariable(CGM.getTypes().ConvertTypeForMem(PtrTy),
                                         PtrName, AS);
 #else // INTEL_COLLAB
-      Ptr = getOrCreateInternalVariable(CGM.getTypes().ConvertTypeForMem(PtrTy),
-                                        PtrName);
-#endif  // INTEL_COLLAB
-=======
       Ptr = getOrCreateInternalVariable(LlvmPtrTy, PtrName);
->>>>>>> 4f5640cad3e0cdff9ab8d6b63c9abd760c32832b
+#endif  // INTEL_COLLAB
 
       auto *GV = cast<llvm::GlobalVariable>(Ptr);
       GV->setLinkage(llvm::GlobalValue::WeakAnyLinkage);
@@ -2024,24 +2018,11 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
             Addr, llvm::PointerType::getWithSamePointeeType(
                       cast<llvm::PointerType>(Addr->getType()), 0));
-<<<<<<< HEAD
-      CtorCGF.EmitAnyExprToMem(
-          Init,
-#if INTEL_COLLAB
-          Address(AddrInAS0, CtorCGF.ConvertTypeForMem(VD->getType()),
-                  CGM.getContext().getDeclAlign(VD)),
-#else // INTEL_COLLAB
-          Address::deprecated(AddrInAS0, CGM.getContext().getDeclAlign(VD)),
-#endif // INTEL_COLLAB
-          Init->getType().getQualifiers(),
-          /*IsInitializer=*/true);
-=======
       CtorCGF.EmitAnyExprToMem(Init,
                                Address(AddrInAS0, Addr->getValueType(),
                                        CGM.getContext().getDeclAlign(VD)),
                                Init->getType().getQualifiers(),
                                /*IsInitializer=*/true);
->>>>>>> 4f5640cad3e0cdff9ab8d6b63c9abd760c32832b
       CtorCGF.FinishFunction();
       Ctor = Fn;
       ID = llvm::ConstantExpr::getBitCast(Fn, CGM.Int8PtrTy);
@@ -2095,22 +2076,10 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
             Addr, llvm::PointerType::getWithSamePointeeType(
                       cast<llvm::PointerType>(Addr->getType()), 0));
-<<<<<<< HEAD
-      DtorCGF.emitDestroy(
-#if INTEL_COLLAB
-          Address(AddrInAS0, DtorCGF.ConvertTypeForMem(VD->getType()),
-                  CGM.getContext().getDeclAlign(VD)),
-#else // INTEL_COLLAB
-          Address::deprecated(AddrInAS0, CGM.getContext().getDeclAlign(VD)),
-#endif // INTEL_COLLAB
-          ASTTy, DtorCGF.getDestroyer(ASTTy.isDestructedType()),
-          DtorCGF.needsEHCleanup(ASTTy.isDestructedType()));
-=======
       DtorCGF.emitDestroy(Address(AddrInAS0, Addr->getValueType(),
                                   CGM.getContext().getDeclAlign(VD)),
                           ASTTy, DtorCGF.getDestroyer(ASTTy.isDestructedType()),
                           DtorCGF.needsEHCleanup(ASTTy.isDestructedType()));
->>>>>>> 4f5640cad3e0cdff9ab8d6b63c9abd760c32832b
       DtorCGF.FinishFunction();
       Dtor = Fn;
       ID = llvm::ConstantExpr::getBitCast(Fn, CGM.Int8PtrTy);
