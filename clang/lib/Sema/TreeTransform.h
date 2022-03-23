@@ -8817,18 +8817,6 @@ TreeTransform<Derived>::TransformOMPSectionDirective(OMPSectionDirective *D) {
 #if INTEL_COLLAB
 template <typename Derived>
 StmtResult
-TreeTransform<Derived>::TransformOMPParallelGenericLoopDirective(
-    OMPParallelGenericLoopDirective *D) {
-  DeclarationNameInfo DirName;
-  getDerived().getSema().StartOpenMPDSABlock(
-      OMPD_parallel_loop, DirName, nullptr, D->getBeginLoc());
-  StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
-  getDerived().getSema().EndOpenMPDSABlock(Res.get());
-  return Res;
-}
-
-template <typename Derived>
-StmtResult
 TreeTransform<Derived>::TransformOMPTargetParallelGenericLoopDirective(
     OMPTargetParallelGenericLoopDirective *D) {
   DeclarationNameInfo DirName;
@@ -9468,6 +9456,17 @@ StmtResult TreeTransform<Derived>::TransformOMPTargetTeamsGenericLoopDirective(
     OMPTargetTeamsGenericLoopDirective *D) {
   DeclarationNameInfo DirName;
   getDerived().getSema().StartOpenMPDSABlock(OMPD_target_teams_loop, DirName,
+                                             nullptr, D->getBeginLoc());
+  StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
+  getDerived().getSema().EndOpenMPDSABlock(Res.get());
+  return Res;
+}
+
+template <typename Derived>
+StmtResult TreeTransform<Derived>::TransformOMPParallelGenericLoopDirective(
+    OMPParallelGenericLoopDirective *D) {
+  DeclarationNameInfo DirName;
+  getDerived().getSema().StartOpenMPDSABlock(OMPD_parallel_loop, DirName,
                                              nullptr, D->getBeginLoc());
   StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
   getDerived().getSema().EndOpenMPDSABlock(Res.get());

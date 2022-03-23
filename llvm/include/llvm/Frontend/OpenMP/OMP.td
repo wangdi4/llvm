@@ -1840,27 +1840,6 @@ def OMP_target_variant_dispatch : Directive<"target variant dispatch"> {
     VersionedClause<OMPC_NoWait>
   ];
 }
-def OMP_parallel_loop : Directive<"parallel loop"> {
-  let allowedClauses = [
-    VersionedClause<OMPC_If>,
-    VersionedClause<OMPC_NumThreads>,
-    VersionedClause<OMPC_Default>,
-    VersionedClause<OMPC_ProcBind>,
-    VersionedClause<OMPC_Bind>,
-    VersionedClause<OMPC_Collapse>,
-    VersionedClause<OMPC_Order>,
-    VersionedClause<OMPC_Private>,
-    VersionedClause<OMPC_LastPrivate>,
-    VersionedClause<OMPC_Reduction>,
-#if INTEL_COLLAB
-    VersionedClause<OMPC_InReduction, 50>,
-#endif // INTEL_COLLAB
-    VersionedClause<OMPC_FirstPrivate>,
-    VersionedClause<OMPC_Shared>,
-    VersionedClause<OMPC_Copyin>,
-    VersionedClause<OMPC_Allocate>
-  ];
-}
 def OMP_target_parallel_loop : Directive<"target parallel loop"> {
   let allowedClauses = [
     VersionedClause<OMPC_If>,
@@ -2034,6 +2013,29 @@ def OMP_target_teams_loop : Directive<"target teams loop"> {
     VersionedClause<OMPC_NumTeams>,
     VersionedClause<OMPC_Order>,
     VersionedClause<OMPC_ThreadLimit>,
+  ];
+}
+def OMP_parallel_loop : Directive<"parallel loop"> {
+  let allowedClauses = [
+    VersionedClause<OMPC_Allocate>,
+    VersionedClause<OMPC_Copyin>,
+    VersionedClause<OMPC_FirstPrivate>,
+#if INTEL_COLLAB
+    VersionedClause<OMPC_InReduction, 50>,
+#endif // INTEL_COLLAB
+    VersionedClause<OMPC_LastPrivate>,
+    VersionedClause<OMPC_Private>,
+    VersionedClause<OMPC_Reduction>,
+    VersionedClause<OMPC_Shared>,
+  ];
+  let allowedOnceClauses = [
+    VersionedClause<OMPC_Bind, 50>,
+    VersionedClause<OMPC_Collapse>,
+    VersionedClause<OMPC_Default>,
+    VersionedClause<OMPC_If>,
+    VersionedClause<OMPC_NumThreads>,
+    VersionedClause<OMPC_Order>,
+    VersionedClause<OMPC_ProcBind>,
   ];
 }
 def OMP_Metadirective : Directive<"metadirective"> {

@@ -4028,11 +4028,9 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
   case OMPD_parallel:
   case OMPD_parallel_for:
   case OMPD_parallel_for_simd:
-#if INTEL_COLLAB
-  case OMPD_loop:
-#endif // INTEL_COLLAB
   case OMPD_parallel_sections:
   case OMPD_parallel_master:
+  case OMPD_parallel_loop:
   case OMPD_teams:
   case OMPD_teams_distribute:
   case OMPD_teams_distribute_simd: {
@@ -4139,11 +4137,9 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
   case OMPD_tile:
   case OMPD_unroll:
     break;
-#if !INTEL_COLLAB
   case OMPD_loop:
     // TODO: 'loop' may require additional parameters depending on the binding.
     // Treat similar to OMPD_simd/OMPD_for for now.
-#endif // !INTEL_COLLAB
   case OMPD_simd:
   case OMPD_for:
   case OMPD_for_simd:
@@ -4355,31 +4351,6 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
     // Start a captured region for 'loop' with no implicit parameters.
     ActOnCapturedRegionStart(DSAStack->getConstructLoc(), CurScope, CR_OpenMP,
                              ParamsLoop, /*OpenMPCaptureLevel=*/3);
-    break;
-  }
-  case OMPD_parallel_loop: {
-    QualType KmpInt32Ty = Context.getIntTypeForBitwidth(32, 1).withConst();
-    QualType KmpInt32PtrTy =
-        Context.getPointerType(KmpInt32Ty).withConst().withRestrict();
-
-    Sema::CapturedParamNameType ParamsParallel[] = {
-        std::make_pair(".global_tid.", KmpInt32PtrTy),
-        std::make_pair(".bound_tid.", KmpInt32PtrTy),
-        std::make_pair(".previous.lb.", Context.getSizeType().withConst()),
-        std::make_pair(".previous.ub.", Context.getSizeType().withConst()),
-        std::make_pair(StringRef(), QualType()) // __context with shared vars
-    };
-    // Start a captured region for 'parallel'.
-    ActOnCapturedRegionStart(DSAStack->getConstructLoc(), CurScope, CR_OpenMP,
-                             ParamsParallel, /*OpenMPCaptureLevel=*/0);
-
-    Sema::CapturedParamNameType ParamsLoop[] = {
-        std::make_pair(StringRef(), QualType()) // __context with shared vars
-    };
-
-    // Start a captured region for 'loop' with no implicit parameters.
-    ActOnCapturedRegionStart(DSAStack->getConstructLoc(), CurScope, CR_OpenMP,
-                             ParamsLoop, /*OpenMPCaptureLevel=*/1);
     break;
   }
 #endif // INTEL_COLLAB
@@ -6294,10 +6265,6 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       AllowedNameModifiers.push_back(OMPD_simd);
     break;
 #if INTEL_COLLAB
-  case OMPD_parallel_loop:
-    Res = ActOnOpenMPParallelGenericLoopDirective(
-        ClausesWithImplicit, AStmt, StartLoc, EndLoc, VarsWithInheritedDSA);
-    break;
   case OMPD_target_parallel_loop:
     Res = ActOnOpenMPTargetParallelGenericLoopDirective(
         ClausesWithImplicit, AStmt, StartLoc, EndLoc, VarsWithInheritedDSA);
@@ -6581,6 +6548,10 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     break;
   case OMPD_target_teams_loop:
     Res = ActOnOpenMPTargetTeamsGenericLoopDirective(
+        ClausesWithImplicit, AStmt, StartLoc, EndLoc, VarsWithInheritedDSA);
+    break;
+  case OMPD_parallel_loop:
+    Res = ActOnOpenMPParallelGenericLoopDirective(
         ClausesWithImplicit, AStmt, StartLoc, EndLoc, VarsWithInheritedDSA);
     break;
   case OMPD_declare_target:
@@ -10667,69 +10638,6 @@ StmtResult Sema::ActOnOpenMPSectionDirective(Stmt *AStmt,
 }
 
 #if INTEL_COLLAB
-StmtResult Sema::ActOnOpenMPParallelGenericLoopDirective(
-    ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
-    SourceLocation EndLoc, VarsWithInheritedDSAType &VarsWithImplicitDSA) {
-  if (!AStmt)
-    return StmtError();
-
-  // OpenMP 5.0 [2.9.5, loop construct]
-  // A list item may not appear in a lastprivate clause unless it is the
-  // loop iteration variable of a loop that is associated with the construct.
-  for (OMPClause *C : Clauses) {
-    if (auto *LPC = dyn_cast<OMPLastprivateClause>(C)) {
-      for (Expr *RefExpr : LPC->varlists()) {
-        SourceLocation ELoc;
-        SourceRange ERange;
-        Expr *SimpleRefExpr = RefExpr;
-        auto Res = getPrivateItem(*this, SimpleRefExpr, ELoc, ERange);
-        ValueDecl *D = Res.first;
-        auto &&Info = DSAStack->isLoopControlVariable(D);
-        if (!Info.first) {
-          Diag(ELoc, diag::err_omp_lastprivate_loop_var_non_loop_iteration)
-              << getOpenMPDirectiveName(OMPD_parallel_loop);
-          return StmtError();
-        }
-      }
-    }
-  }
-
-  auto *CS = cast<CapturedStmt>(AStmt);
-  // 1.2.2 OpenMP Language Terminology
-  // Structured block - An executable statement with a single entry at the
-  // top and a single exit at the bottom.
-  // The point of exit cannot be a branch out of the structured block.
-  // longjmp() and throw() must not violate the entry/exit criteria.
-  CS->getCapturedDecl()->setNothrow();
-  for (int ThisCaptureLevel = getOpenMPCaptureLevels(OMPD_parallel_loop);
-       ThisCaptureLevel > 1; --ThisCaptureLevel) {
-    CS = cast<CapturedStmt>(CS->getCapturedStmt());
-    // 1.2.2 OpenMP Language Terminology
-    // Structured block - An executable statement with a single entry at the
-    // top and a single exit at the bottom.
-    // The point of exit cannot be a branch out of the structured block.
-    // longjmp() and throw() must not violate the entry/exit criteria.
-    CS->getCapturedDecl()->setNothrow();
-  }
-
-  OMPLoopDirective::HelperExprs B;
-  // In presence of clause 'collapse', it will define the nested loops number.
-  unsigned NestedLoopCount =
-      checkOpenMPLoop(OMPD_parallel_loop, getCollapseNumberExpr(Clauses),
-                      /*OrderedLoopCountExpr=*/nullptr, CS, *this, *DSAStack,
-                      VarsWithImplicitDSA, B);
-  if (NestedLoopCount == 0)
-    return StmtError();
-
-  assert((CurContext->isDependentContext() || B.builtAll()) &&
-         "omp loop exprs were not built");
-
-  setFunctionHasBranchProtectedScope();
-
-  return OMPParallelGenericLoopDirective::Create(
-      Context, StartLoc, EndLoc, NestedLoopCount, Clauses, AStmt, B);
-}
-
 StmtResult Sema::ActOnOpenMPTargetParallelGenericLoopDirective(
     ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
     SourceLocation EndLoc, VarsWithInheritedDSAType &VarsWithImplicitDSA) {
@@ -11027,6 +10935,54 @@ StmtResult Sema::ActOnOpenMPTargetTeamsGenericLoopDirective(
   setFunctionHasBranchProtectedScope();
 
   return OMPTargetTeamsGenericLoopDirective::Create(
+      Context, StartLoc, EndLoc, NestedLoopCount, Clauses, AStmt, B);
+}
+
+StmtResult Sema::ActOnOpenMPParallelGenericLoopDirective(
+    ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
+    SourceLocation EndLoc, VarsWithInheritedDSAType &VarsWithImplicitDSA) {
+  if (!AStmt)
+    return StmtError();
+
+  // OpenMP 5.1 [2.11.7, loop construct, Restrictions]
+  // A list item may not appear in a lastprivate clause unless it is the
+  // loop iteration variable of a loop that is associated with the construct.
+  if (checkGenericLoopLastprivate(*this, Clauses, OMPD_parallel_loop, DSAStack))
+    return StmtError();
+
+  auto *CS = cast<CapturedStmt>(AStmt);
+  // 1.2.2 OpenMP Language Terminology
+  // Structured block - An executable statement with a single entry at the
+  // top and a single exit at the bottom.
+  // The point of exit cannot be a branch out of the structured block.
+  // longjmp() and throw() must not violate the entry/exit criteria.
+  CS->getCapturedDecl()->setNothrow();
+  for (int ThisCaptureLevel = getOpenMPCaptureLevels(OMPD_parallel_loop);
+       ThisCaptureLevel > 1; --ThisCaptureLevel) {
+    CS = cast<CapturedStmt>(CS->getCapturedStmt());
+    // 1.2.2 OpenMP Language Terminology
+    // Structured block - An executable statement with a single entry at the
+    // top and a single exit at the bottom.
+    // The point of exit cannot be a branch out of the structured block.
+    // longjmp() and throw() must not violate the entry/exit criteria.
+    CS->getCapturedDecl()->setNothrow();
+  }
+
+  OMPLoopDirective::HelperExprs B;
+  // In presence of clause 'collapse', it will define the nested loops number.
+  unsigned NestedLoopCount =
+      checkOpenMPLoop(OMPD_parallel_loop, getCollapseNumberExpr(Clauses),
+                      /*OrderedLoopCountExpr=*/nullptr, CS, *this, *DSAStack,
+                      VarsWithImplicitDSA, B);
+  if (NestedLoopCount == 0)
+    return StmtError();
+
+  assert((CurContext->isDependentContext() || B.builtAll()) &&
+         "omp loop exprs were not built");
+
+  setFunctionHasBranchProtectedScope();
+
+  return OMPParallelGenericLoopDirective::Create(
       Context, StartLoc, EndLoc, NestedLoopCount, Clauses, AStmt, B);
 }
 
@@ -16239,12 +16195,12 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_parallel_master:
     case OMPD_parallel_sections:
     case OMPD_parallel_for:
+    case OMPD_parallel_loop:
     case OMPD_target:
     case OMPD_target_teams:
     case OMPD_target_teams_distribute:
     case OMPD_target_teams_loop:
 #if INTEL_COLLAB
-    case OMPD_parallel_loop:
     case OMPD_prefetch:
 #endif // INTEL_COLLAB
     case OMPD_distribute_parallel_for:
@@ -16323,9 +16279,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_parallel_sections:
     case OMPD_parallel_for:
     case OMPD_parallel_for_simd:
-#if INTEL_COLLAB
     case OMPD_parallel_loop:
-#endif // INTEL_COLLAB
     case OMPD_distribute_parallel_for:
     case OMPD_distribute_parallel_for_simd:
     case OMPD_parallel_master_taskloop:
@@ -16434,6 +16388,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_parallel_sections:
     case OMPD_parallel_for:
     case OMPD_parallel_for_simd:
+    case OMPD_parallel_loop:
     case OMPD_target:
     case OMPD_target_simd:
     case OMPD_target_parallel:
@@ -16458,7 +16413,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_target:
     case OMPD_loop:
 #if INTEL_COLLAB
-    case OMPD_parallel_loop:
     case OMPD_target_parallel_loop:
     case OMPD_target_variant_dispatch:
 #endif // INTEL_COLLAB
@@ -16523,6 +16477,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_parallel_sections:
     case OMPD_parallel_for:
     case OMPD_parallel_for_simd:
+    case OMPD_parallel_loop:
     case OMPD_target:
     case OMPD_target_simd:
     case OMPD_target_parallel:
@@ -16547,7 +16502,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_target:
     case OMPD_loop:
 #if INTEL_COLLAB
-    case OMPD_parallel_loop:
     case OMPD_target_parallel_loop:
     case OMPD_target_variant_dispatch:
 #endif // INTEL_COLLAB
@@ -16636,8 +16590,8 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_loop:
     case OMPD_teams_loop:
     case OMPD_target_teams_loop:
-#if INTEL_COLLAB
     case OMPD_parallel_loop:
+#if INTEL_COLLAB
     case OMPD_target_parallel_loop:
     case OMPD_target_variant_dispatch:
 #endif // INTEL_COLLAB
@@ -16724,8 +16678,8 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_loop:
     case OMPD_teams_loop:
     case OMPD_target_teams_loop:
-#if INTEL_COLLAB
     case OMPD_parallel_loop:
+#if INTEL_COLLAB
     case OMPD_target_parallel_loop:
     case OMPD_target_variant_dispatch:
 #endif // INTEL_COLLAB
@@ -16977,7 +16931,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_parallel_sections:
     case OMPD_parallel_for:
     case OMPD_parallel_for_simd:
-    case OMPD_parallel_loop:
     case OMPD_threadprivate:
     case OMPD_allocate:
     case OMPD_taskyield:
@@ -16997,6 +16950,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_target:
     case OMPD_loop:
     case OMPD_teams_loop:
+    case OMPD_parallel_loop:
     case OMPD_simd:
     case OMPD_unroll:
     case OMPD_for:
@@ -17164,8 +17118,8 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_loop:
     case OMPD_teams_loop:
     case OMPD_target_teams_loop:
-#if INTEL_COLLAB
     case OMPD_parallel_loop:
+#if INTEL_COLLAB
     case OMPD_target_parallel_loop:
     case OMPD_target_variant_dispatch:
 #endif // INTEL_COLLAB
