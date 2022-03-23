@@ -158,7 +158,9 @@ public:
   static char ID;
 
   HandleVPlanMaskLegacy(const StringSet<> *VPlanMaskedFuncs = nullptr)
-      : ModulePass(ID), VPlanMaskedFuncs(VPlanMaskedFuncs) {}
+      : ModulePass(ID), VPlanMaskedFuncs(VPlanMaskedFuncs) {
+    initializeHandleVPlanMaskLegacyPass(*PassRegistry::getPassRegistry());
+  }
 
   bool runOnModule(Module &M) override {
     return HandleVPlanMask(VPlanMaskedFuncs).runImpl(M);
