@@ -727,5 +727,9 @@ xptifw/ @intel-restricted/llvm-reviewers-runtime
 /llvm/test/Transforms/SimplifyCFG/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Verifier/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 
+# Nontemporal store conversion pass
+/llvm/lib/Transforms/Scalar/Intel_NontemporalStore.cpp @jcranmer-intel @tcreech-intel @dwoodwor-intel
+/llvm/test/Transforms/Intel_NontemporalStore/ @jcranmer-intel @tcreech-intel @dwoodwor-intel
+
 # JIRA: CMPLRLLVM->DPC++ Tools
 sycl-post-link/ @AlexeySachkov @mlychkov
