@@ -1020,14 +1020,21 @@ private:
   template <class OrigLiveOutTy>
   void handleScalarLoopOrigLiveOut(const VPInstruction *VPInst) {
     auto *LiveOut = cast<OrigLiveOutTy>(VPInst);
-    auto *LiveOutRef = cast<RegDDRef>(LiveOut->getLiveOutVal());
+    auto *LiveOutRef = const_cast<RegDDRef *>(
+        cast<RegDDRef>(LiveOut->getLiveOutVal())->clone());
     auto ScalarLpIt = OutgoingScalarHLLoopsMap.find(
         cast<VPInstruction>(LiveOut->getOperand(0)));
     assert(ScalarLpIt != OutgoingScalarHLLoopsMap.end() &&
            "Outgoing scalar loop not found.");
     HLLoop *ScalarLp = ScalarLpIt->second;
-    ScalarLp->addLiveOutTemp(LiveOutRef->getSymbase());
-    addVPValueScalRefMapping(LiveOut, const_cast<RegDDRef *>(LiveOutRef), 0);
+
+    // If liveout value is a temp, then make it self-blob to prevent incorrect
+    // r-val substitution. We also mark it as liveout from scalar loop.
+    if (LiveOutRef->getSymbase() > GenericRvalSymbase) {
+      LiveOutRef->makeSelfBlob(true /*AssumeLvalIfDetached*/);
+      ScalarLp->addLiveOutTemp(LiveOutRef->getSymbase());
+    }
+    addVPValueScalRefMapping(LiveOut, LiveOutRef, 0);
   }
 
   RegDDRef *getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize);
