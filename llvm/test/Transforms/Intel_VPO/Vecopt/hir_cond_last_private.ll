@@ -35,10 +35,9 @@ define void @foo(i8* %a) {
 ; CHECK-NEXT:        [[TMP1:%.*]] = bitcast.<2 x i1>.i2([[DOTVEC80]])
 ; CHECK-NEXT:        [[CMP90:%.*]] = [[TMP1]] == 0
 ; CHECK-NEXT:        [[ALL_ZERO_CHECK0:%.*]] = [[CMP90]]
-; CHECK-NEXT:        [[UNIFCOND0:%.*]] = extractelement [[ALL_ZERO_CHECK0]],  0
-; CHECK-NEXT:        if ([[UNIFCOND0]] == 1)
+; CHECK-NEXT:        if ([[CMP90]] == 1)
 ; CHECK-NEXT:        {
-; CHECK-NEXT:           goto [[BB0:BB[0-9]+]].54
+; CHECK-NEXT:           goto [[BB0:BB[0-9]+]].53
 ; CHECK-NEXT:        }
 ; CHECK-NEXT:        [[PRIV_IDX_MAX0:%.*]] = @llvm.vector.reduce.smax.v2i32([[DOTVEC70]])
 ; CHECK-NEXT:        [[PRIV_IDX_CMP0:%.*]] = [[DOTVEC70]] == [[PRIV_IDX_MAX0]]
@@ -46,7 +45,7 @@ define void @foo(i8* %a) {
 ; CHECK-NEXT:        [[BSF0:%.*]] = @llvm.cttz.i2([[BSFINTMASK0]],  1)
 ; CHECK-NEXT:        [[PRIV_EXTRACT0:%.*]] = extractelement [[DOTVEC60]],  [[BSF0]]
 ; CHECK-NEXT:        ([[RET_LPRIV0:%.*]])[0] = [[PRIV_EXTRACT0]]
-; CHECK-NEXT:        [[BB0]].54:
+; CHECK-NEXT:        [[BB0]].53:
 ; CHECK-NEXT:        ret
 ; CHECK-NEXT:  END REGION
 ;

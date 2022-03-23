@@ -97,10 +97,9 @@ define dso_local i32 @main(i32 %add) {
 ; CHECK-NEXT:          %cmp = %0 == 0;
 ; CHECK-NEXT:          %all.zero.check = %cmp;
 ; CHECK-NEXT:          %phi.temp9 = %1;
-; CHECK-NEXT:          %unifcond = extractelement %all.zero.check,  0;
-; CHECK-NEXT:          if (%unifcond == 1)
+; CHECK-NEXT:          if (%cmp == 1)
 ; CHECK-NEXT:          {
-; CHECK-NEXT:             goto BB9.50;
+; CHECK-NEXT:             goto BB9.49;
 ; CHECK-NEXT:          }
 ; CHECK-NEXT:          %priv.idx.max = @llvm.vector.reduce.smax.v4i64(%select);
 ; CHECK-NEXT:          %priv.idx.cmp = %select == %priv.idx.max;
@@ -108,7 +107,7 @@ define dso_local i32 @main(i32 %add) {
 ; CHECK-NEXT:          %bsf = @llvm.cttz.i4(%bsfintmask,  1);
 ; CHECK-NEXT:          %1 = extractelement %select5,  %bsf;
 ; CHECK-NEXT:          %phi.temp9 = %1;
-; CHECK-NEXT:          BB9.50:
+; CHECK-NEXT:          BB9.49:
 
 ; CHECK:               + DO i1 = 68, 68, 1   <DO_LOOP> <novectorize>
 ; CHECK-NEXT:          |   if ((@q)[0][i1 + 1] == 0)
