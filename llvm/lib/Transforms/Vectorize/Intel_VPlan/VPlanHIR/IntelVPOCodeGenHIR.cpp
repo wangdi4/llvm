@@ -56,11 +56,6 @@ using namespace llvm::vpo;
 STATISTIC(LoopsVectorized, "Number of HIR loops vectorized");
 
 static cl::opt<bool>
-    EnableNaiveIfElseGeneration("enable-naive-if-else-generation",
-                                cl::init(false), cl::Hidden,
-                                cl::desc("Enable naive if/else generation"));
-
-static cl::opt<bool>
     DisableStressTest("disable-vplan-stress-test", cl::init(false), cl::Hidden,
                       cl::desc("Disable VPO Vectorizer Stress Testing"));
 
@@ -6161,80 +6156,10 @@ void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
   InsertPoint = Label;
 }
 
-void VPOCodeGenHIR::emitBlockTerminatorNaive(const VPBasicBlock *SourceBB) {
-  // Get or create the label corresponding to Block start and create a HLGoto
-  // with target set to this label. Return the created HLGoto after adding it
-  // to the needed vector.
-  auto createGotoAndSetTargetLabel = [this](const VPBasicBlock *Block) {
-    HLLabel *Label = getOrCreateBlockLabel(Block);
-    HLGoto *Goto = HLNodeUtilities.createHLGoto(Label);
-    GotosVector.push_back(Goto);
-    return Goto;
-  };
-
-  // The loop backedge/exit is implicit in DO loops. Do not emit
-  // gotos in the vector DO-loops latch block. TODO - look into why we need
-  // to suppress goto in PreHeader.
-  auto *VLoop = Plan->getVPLoopInfo()->getLoopFor(SourceBB);
-  bool IsDoLoopLatch = VLoop != nullptr && VLoop->isLoopLatch(SourceBB) &&
-                       VPLoopHLLoopMap[VLoop]->isDo();
-  if (SourceBB->getNumSuccessors() && !IsDoLoopLatch &&
-      !LoopPreheaderBlocks.count(SourceBB)) {
-    const VPBasicBlock *Succ1 = SourceBB->getSuccessor(0);
-
-    // If the block has two successors, we emit the following sequence
-    // of code for 'SourceBB: (condbit: C1) Successors: Succ1, Succ2'.
-    //
-    //    Cond = extractelement C1_VEC, 0
-    //    if (Cond == 1)
-    //       goto Succ1_Label
-    //    else
-    //       goto Succ2_Label
-    // If the block has a single succesor, we emit the following for
-    // 'SourceBB: Successors: Succ1'.
-    //
-    //     goto Succ1_Label.
-    // The gotos are created with appropriate target label.
-    if (SourceBB->getNumSuccessors() == 2) {
-      const VPBasicBlock *Succ2 = SourceBB->getSuccessor(1);
-      const VPValue *CondBit = SourceBB->getCondBit();
-      auto *CondRef = getWideRefForVPVal(CondBit);
-      assert(CondRef && "Missind widened DDRef!");
-      HLInst *Extract = HLNodeUtilities.createExtractElementInst(
-          CondRef->clone(), (unsigned)0, "unifcond");
-      addInst(Extract, nullptr /* Mask */);
-      CondRef = Extract->getLvalDDRef()->clone();
-      HLIf *If = HLNodeUtilities.createHLIf(
-          PredicateTy::ICMP_EQ, CondRef,
-          DDRefUtilities.createConstDDRef(CondRef->getDestType(), 1));
-      addInst(If, nullptr /* Mask */);
-
-      HLGoto *ThenGoto = createGotoAndSetTargetLabel(Succ1);
-      HLNodeUtils::insertAsFirstThenChild(If, ThenGoto);
-
-      HLGoto *ElseGoto = createGotoAndSetTargetLabel(Succ2);
-      HLNodeUtils::insertAsFirstElseChild(If, ElseGoto);
-      LLVM_DEBUG(dbgs() << "Uniform IF seen\n");
-    } else {
-      HLGoto *Goto = createGotoAndSetTargetLabel(Succ1);
-      addInst(Goto, nullptr /* Mask */);
-    }
-  }
-}
-
 void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
   // TODO - search loop representation is currently not explicit.
   if (isSearchLoop())
     return;
-
-  // Use naive if/else generation when the corresponding flag is true. This is
-  // needed when CFG merger is enabled as we need further improvements in how we
-  // pull in code into the then and else parts in the presence of
-  // unstructured control flow.
-  if (EnableNaiveIfElseGeneration || isMergedCFG()) {
-    emitBlockTerminatorNaive(SourceBB);
-    return;
-  }
 
   // Get or create the label corresponding to Block start and create a HLGoto
   // with target set to this label. Return the created HLGoto after adding it
@@ -6268,7 +6193,41 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
     // block's successor node(s).
     if (SourceBB->getNumSuccessors() == 2) {
       const VPBasicBlock *Succ2 = SourceBB->getSuccessor(1);
+      const VPValue *CondBit = SourceBB->getCondBit();
+      HLIf *If = nullptr;
 
+      // HIR does not allow gotos between then and else children of an HLIf.
+      // Our merged CFG representation uses such gotos and this causes
+      // issues when we try to place then and else children properly. For
+      // conditional branches outside outermost VPLoop, we resort to generating
+      // HLIfs in the following way:
+      //    Cond = scalar ref for lane 0
+      //    if (Cond == 1)
+      //       goto Succ1_Label
+      //    else
+      //       goto Succ2_Label
+      //
+      // TODO: We can try restricting this to only HLIfs outside outermost
+      // VPLoop that need this. Also, once we start supporting gotos in incoming
+      // HIR, HLIfs inside VPLoop will have the same issue. We need to mimic HIR
+      // framework to support such cases.
+      if (!Plan->getVPLoopInfo()->getLoopFor(SourceBB)) {
+        auto *CondRef = getOrCreateScalarRef(CondBit, 0 /*ScalarLaneID*/);
+        assert(CondRef && "Null scalar condition ref!");
+        If = HLNodeUtilities.createHLIf(
+            PredicateTy::ICMP_EQ, CondRef,
+            DDRefUtilities.createConstDDRef(CondRef->getDestType(), 1));
+        addInst(If, nullptr /* Mask */);
+
+        HLGoto *ThenGoto = createGotoAndSetTargetLabel(Succ1);
+        HLNodeUtils::insertAsFirstThenChild(If, ThenGoto);
+
+        HLGoto *ElseGoto = createGotoAndSetTargetLabel(Succ2);
+        HLNodeUtils::insertAsFirstElseChild(If, ElseGoto);
+        return;
+      }
+
+      //
       // Check and set flags to see if then or else successors are fall through.
       //
       // -- neither fall through
@@ -6313,8 +6272,6 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
         Pred = PredicateTy::ICMP_NE;
       }
 
-      const VPValue *CondBit = SourceBB->getCondBit();
-      HLIf *If = nullptr;
       if (auto *Ext = dyn_cast<VPExternalDef>(CondBit)) {
         auto *ScalarIf = cast<VPIfCond>(Ext->getOperandHIR())->getIf();
         If = ScalarIf->cloneEmpty();
