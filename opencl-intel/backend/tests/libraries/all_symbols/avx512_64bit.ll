@@ -1,12 +1,5 @@
 ; REQUIRES: 64bit
-; RUN: llvm-nm %libdir/clbltfnz0.rtl --defined-only --no-demangle | FileCheck %s -check-prefix=TOTAL-FUNC
-; RUN: llvm-nm %libdir/clbltfnz0.rtl --defined-only --no-demangle | FileCheck %s -check-prefix=TOTAL-GLOB
 ; RUN: llvm-nm %libdir/clbltfnz0.rtl --defined-only --no-demangle | FileCheck %s
-
-; TOTAL-FUNC-COUNT-13436: ---------------- T
-; TOTAL-FUNC-NOT: ---------------- T
-; TOTAL-GLOB-COUNT-157:   ---------------- D
-; TOTAL-GLOB-NOT: ---------------- D
 
 ; CHECK: FF
 ; CHECK-NEXT: FFFMask8

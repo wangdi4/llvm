@@ -1,8 +1,4 @@
-; RUN: llvm-nm %libdir/../clbltfnshared.rtl --defined-only --no-demangle | FileCheck %s -check-prefix=TOTAL
 ; RUN: llvm-nm %libdir/../clbltfnshared.rtl --defined-only --no-demangle | FileCheck %s
-
-; TOTAL-COUNT-12794: -------- T
-; TOTAL-NOT: -------- T
 
 ; CHECK: _Z10half_exp10Dv16_fS_
 ; CHECK-NEXT: _Z10half_exp10Dv2_f
