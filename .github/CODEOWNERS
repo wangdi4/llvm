@@ -60,8 +60,8 @@ sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-runtime
 /clang/lib/Headers/ @LuoYuanke @phoebewang @williamweixiao
 /llvm/lib/CodeGen/ @LuoYuanke @phoebewang @williamweixiao
 /llvm/lib/Target/X86/ @LuoYuanke @phoebewang @williamweixiao
-/llvm/lib/MC/ @LuoYuanke @phoebewang @williamweixiao
-/llvm/utils/TableGen/ @LuoYuanke @phoebewang @williamweixiao
+/llvm/lib/MC/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
+/llvm/utils/TableGen/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
 /llvm/include/llvm/CodeGen/ @LuoYuanke @phoebewang @williamweixiao
 /llvm/include/llvm/IR/IntrinsicsX86.td @phoebewang
 /llvm/include/llvm/MC/ @LuoYuanke @phoebewang @williamweixiao
