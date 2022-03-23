@@ -22,6 +22,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportPrintUtils.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
@@ -2359,4 +2360,122 @@ void HLLoop::promoteNestingLevel(unsigned StartLevel) {
 
     Ref->makeConsistent(LVals, StartLevel + 1);
   });
+}
+
+/// Returns true if \p SC has either nsw or nuw flag.
+static bool isNoWrapIV(const SCEV *SC, const Loop *Lp) {
+  auto *AddRec = dyn_cast<SCEVAddRecExpr>(SC);
+
+  if (!AddRec || !AddRec->isAffine() || (AddRec->getLoop() != Lp)) {
+    return false;
+  }
+
+  return (AddRec->hasNoSignedWrap() || AddRec->hasNoUnsignedWrap());
+}
+
+/// Returns true if the IV of \p Lp has either nsw or nuw flag.
+static bool hasNoWrapIV(const Loop *Lp, ScalarEvolution &SE) {
+
+  auto *ExitingBB = Lp->getExitingBlock();
+
+  if (!ExitingBB) {
+    return false;
+  }
+
+  auto *BrInst = dyn_cast<BranchInst>(ExitingBB->getTerminator());
+
+  if (!BrInst || !BrInst->isConditional()) {
+    return false;
+  }
+
+  auto *Cmp = dyn_cast<ICmpInst>(BrInst->getCondition());
+
+  if (!Cmp) {
+    return false;
+  }
+
+  auto *SC0 = SE.getSCEV(Cmp->getOperand(0));
+  auto *SC1 = SE.getSCEV(Cmp->getOperand(1));
+
+  return (isNoWrapIV(SC0, Lp) || isNoWrapIV(SC1, Lp));
+}
+
+/// Returns true if \p Lp has ZTT in LLVM IR.
+static bool hasIRZtt(const Loop *Lp, DominatorTree &DT, ScalarEvolution &SE) {
+
+  // Go through dominating blocks of loop with single predecessors to look for
+  // ZTT so we know which path (true/false) the loop is in.
+  for (auto *DomNode = DT.getNode(Lp->getLoopPreheader()); DomNode != nullptr;
+       DomNode = DomNode->getIDom()) {
+    auto *BB = DomNode->getBlock();
+    auto *DomBB = BB->getSinglePredecessor();
+
+    if (!DomBB) {
+      continue;
+    }
+
+    auto *BrInst = dyn_cast<BranchInst>(DomBB->getTerminator());
+
+    if (!BrInst || !BrInst->isConditional()) {
+      continue;
+    }
+
+    bool IsFalseBranch = (BrInst->getSuccessor(0) != BB);
+
+    if (SE.isLoopZtt(Lp, BrInst, IsFalseBranch)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool HLLoop::canTripCountEqualIVTypeRangeSize() const {
+  assert(!isUnknown() && "Countable loop expected!");
+
+  // Trip count is known to be less than type range in the following cases-
+  // Ztt disallows this case.
+  if (hasSignedIV() || isConstTripLoop() || hasZtt()) {
+    return false;
+  }
+
+  bool IsDoLoop = isDo();
+  // If LegalMaxTripCount <= UMAX(IVType), then we know the trip count cannot be
+  // equal to type range. Cannot use legal max trip count for multi-exit loops
+  // as it may have been refined by ScalarEvolution using early-exits or using
+  // nowrap based semantics which may not apply if the loop exits using the
+  // early-exit.
+  if (IsDoLoop) {
+    uint64_t LegalMaxTC = getLegalMaxTripCount();
+    if (LegalMaxTC != 0) {
+      APInt MaxTypeVal = APInt::getMaxValue(IVType->getScalarSizeInBits());
+
+      if (LegalMaxTC <= MaxTypeVal.getZExtValue()) {
+        return false;
+      }
+    }
+  }
+
+  auto *Lp = getLLVMLoop();
+
+  if (!Lp) {
+    return true;
+  }
+
+  auto &HIRF = getHLNodeUtils().getHIRFramework();
+  auto &SE = HIRF.getScopedSE().getOrigSE();
+
+  if (IsDoLoop) {
+    // If single exit loops have nowrap IV, then the trip count cannot be
+    // equal to type range as it requires wrapping IV.
+    // TODO: ScalarEvolution should refine MaxBackedgeTakenCount using nowrap
+    // logic which will then be set in LegalMaxTripCount field of HLLoop.
+    if (hasNoWrapIV(Lp, SE)) {
+      return false;
+    }
+  }
+
+  // Ztt may not be part of the region (especially for multi-exit loops) or may
+  // have been extracted by a transformation. This check helps catch more cases.
+  return !hasIRZtt(Lp, HIRF.getDomTree(), SE);
 }
