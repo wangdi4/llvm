@@ -18,6 +18,7 @@
 
 #include "SOAToAOSOPEffects.h"
 
+#include "Intel_DTrans/Analysis/DTransAllocCollector.h"
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/Transforms/SOAToAOSOP.h"
 
@@ -32,6 +33,22 @@
 namespace llvm {
 namespace dtransOP {
 namespace soatoaosOP {
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// Routines that are ignored for transformation.
+cl::list<std::string>
+    DTransSOAToAOSOPIgnoreFuncs("dtrans-soatoaosop-ignore-funcs",
+                                cl::ReallyHidden);
+
+// Returns true if F is in list of ignored functions for SOAToAOSOP.
+bool isFunctionIgnoredForSOAToAOSOP(Function &F) {
+  for (auto &FName : DTransSOAToAOSOPIgnoreFuncs)
+    if (FName == F.getName())
+      return true;
+  return false;
+}
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 cl::opt<bool>
     DTransSOAToAOSOPComputeAllDep("enable-dtrans-soatoaosop-alldeps",
                                   cl::init(false), cl::Hidden,
@@ -306,10 +323,16 @@ const Dep *DepCompute::computeInstDep(const Instruction *I) const {
       }
     }
 
-    // TODO: Add more code here to check for Dummy alloc / free calls by
-    // calling isDummyFuncWithThisAndIntArgs and isDummyFuncWithThisAndPtrArgs.
-    bool isDummyFuncWithInt = false;
-    bool isDummyFuncWithPtr = false;
+    bool isDummyFuncWithInt =
+        DTransAllocCollector::isDummyFuncWithThisAndIntArgs(
+            Call, TLI, DTInfo.getTypeMetadataReader());
+    bool isDummyFuncWithPtr =
+        DTransAllocCollector::isDummyFuncWithThisAndInt8PtrArgs(
+            Call, TLI, DTInfo.getTypeMetadataReader());
+    if (isDummyFuncWithInt)
+      collectSpecialAllocArgs(dtrans::AK_UserMallocThis, Call, Args, TLI);
+    else if (isDummyFuncWithPtr)
+      collectSpecialFreeArgs(dtrans::FK_UserFreeThis, Call, Args, TLI);
 
     Dep::Container Special;
     Dep::Container Remaining;
@@ -578,6 +601,8 @@ SOAToAOSOPApproximationDebug::run(Module &M, ModuleAnalysisManager &MAM) {
 
   for (auto &F : M) {
     if (F.isDeclaration())
+      continue;
+    if (isFunctionIgnoredForSOAToAOSOP(F))
       continue;
 
     DTransStructType *ClassType = getOPStructTypeOfMethod(&F, DTInfo);

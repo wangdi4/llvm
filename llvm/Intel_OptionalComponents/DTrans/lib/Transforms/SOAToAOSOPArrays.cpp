@@ -99,6 +99,8 @@ SOAToAOSOPArrayMethodsCheckDebug::run(Module &M, ModuleAnalysisManager &MAM) {
   for (auto &F : M) {
     if (F.isDeclaration())
       continue;
+    if (isFunctionIgnoredForSOAToAOSOP(F))
+      continue;
 
     ArraySummaryForIdiom S =
         getParametersForSOAToAOSArrayMethodsCheckDebug(F, DTInfo);
@@ -217,6 +219,9 @@ public:
   }
 
   void postprocessFunction(Function &OrigFunc, bool isCloned) override {
+    if (isFunctionIgnoredForSOAToAOSOP(OrigFunc))
+      return;
+
     ValueToValueMapTy NewVMap;
 
     // For typed pointers, all member functions will be cloned by
@@ -325,14 +330,17 @@ SOAToAOSArrayMethodsTransformDebug::run(Module &M, ModuleAnalysisManager &AM) {
 
   // It should be lit-test with single defined function at this point.
   Function *MethodToTest = nullptr;
-  for (auto &F : M)
+  for (auto &F : M) {
+    if (isFunctionIgnoredForSOAToAOSOP(F))
+      continue;
+
     if (!F.isDeclaration()) {
       if (MethodToTest)
         report_fatal_error("Single function definition per compilation unit is "
                            "allowed in SOAToAOSArrayMethodsTransformDebug.");
       MethodToTest = &F;
     }
-
+  }
 
   if (!MethodToTest)
     report_fatal_error(

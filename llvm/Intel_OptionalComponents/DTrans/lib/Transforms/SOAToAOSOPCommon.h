@@ -22,6 +22,7 @@
 #error SOAToAOSOPCommon.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
+#include "Intel_DTrans/Analysis/DTransAllocCollector.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Transforms/SOAToAOSOP.h"
 
@@ -356,6 +357,9 @@ inline bool isSafeCallForAppend(Function *F, DTransSafetyInfo *DTInfo,
     auto *CB = dyn_cast_or_null<CallBase>(I);
     if (!CB)
       return false;
+    if (DTransAllocCollector::isDummyFuncWithThisAndIntArgs(
+            CB, TLI, DTInfo->getTypeMetadataReader()))
+      return true;
     auto *CallInfo = DTInfo->getCallInfo(CB);
     if (CallInfo && CallInfo->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc)
       return true;
