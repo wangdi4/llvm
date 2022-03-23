@@ -546,10 +546,6 @@ public:
   // so that the gotos are fixed up at the end of vector code generation.
   void emitBlockTerminator(const VPBasicBlock *SourceBB);
 
-  // Naive version of emitBlockTerminator which does not attempt to pull
-  // in code into then and else parts of an if.
-  void emitBlockTerminatorNaive(const VPBasicBlock *SourceBB);
-
   // Return the Lval temp that was generated to represent the deconstructed PHI
   // identified by its PhiId, if found in PhiIdLValTempsMap. Return null
   // otherwise.

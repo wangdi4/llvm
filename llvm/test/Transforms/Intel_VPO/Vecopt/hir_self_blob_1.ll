@@ -17,8 +17,8 @@
 ; HIR-DETAILS:          |   %.vec = 0 == %vec.tc;
 ; HIR-DETAILS:          |   %phi.temp = undef;
 ; HIR-DETAILS:          |   %phi.temp2 = 0;
-; HIR-DETAILS:          |   %unifcond = extractelement %.vec,  0;
-; HIR-DETAILS:          |   if (%unifcond == 1)
+; HIR-DETAILS:          |   %extract.0. = extractelement %.vec,  0;
+; HIR-DETAILS:          |   if (%extract.0. == 1)
 ; HIR-DETAILS:          |   {
 ; HIR-DETAILS:          |      goto merge.blk10.39;
 ; HIR-DETAILS:          |   }
@@ -37,8 +37,8 @@
 ; HIR-DETAILS:          |   %phi.temp2 = %vec.tc5;
 ; HIR-DETAILS:          |   %phi.temp10 = %add;
 ; HIR-DETAILS:          |   %phi.temp12 = %vec.tc5;
-; HIR-DETAILS:          |   %unifcond14 = extractelement %.vec7,  0;
-; HIR-DETAILS:          |   if (%unifcond14 == 1)
+; HIR-DETAILS:          |   %extract.0.14 = extractelement %.vec7,  0;
+; HIR-DETAILS:          |   if (%extract.0.14 == 1)
 ; HIR-DETAILS:          |   {
 ; HIR-DETAILS:          |      goto final.merge.64;
 ; HIR-DETAILS:          |   }
