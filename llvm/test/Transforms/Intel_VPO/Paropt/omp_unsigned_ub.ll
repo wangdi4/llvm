@@ -1,5 +1,5 @@
-; RUN: opt -vpo-paropt -S < %s
-; RUN: opt -passes='vpo-paropt' -S < %s
+; RUN: opt -vpo-paropt -S 
+; RUN: opt -passes='vpo-paropt' -S 
 
 ; Clang-emitted IR for a loop with unsigned UB changed after the
 ; pulldown of 20190213 (ae03dc76).

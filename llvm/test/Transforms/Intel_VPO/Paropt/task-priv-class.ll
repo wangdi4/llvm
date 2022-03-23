@@ -1,7 +1,7 @@
 ; Checks that objects in the private clauses of tasks and taskloops,
 ; have their constructors and destructors called.
 
-; RUN: opt < %s -vpo-paropt  -S | FileCheck %s
+; RUN: opt -vpo-paropt -S %s | FileCheck %s
 ; CHECK: define{{.*}}DIR.OMP.TASK.
 ; CHECK: call{{.*}}def_con{{.*}}class.c
 ; CHECK: OMP.END.TASK.

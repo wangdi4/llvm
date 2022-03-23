@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -debug -S < %s 2>&1  | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -debug -S < %s 2>&1  | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -debug -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -debug -S %s 2>&1 | FileCheck %s
 ;
 ; Test src:
 ; void foo(int* p)

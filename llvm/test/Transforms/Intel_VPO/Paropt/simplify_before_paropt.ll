@@ -1,5 +1,5 @@
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Verify that Paropt can remove the unreachable BB "lpad2", so that
 ; outlining for the parallel region occurres. If "lpad2" is not removed,

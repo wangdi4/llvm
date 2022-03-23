@@ -1,8 +1,8 @@
-; RUN: opt -vpo-paropt-handle-firstprivate-on-teams=false -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s --check-prefix=IGNOREFP
-; RUN: opt -vpo-paropt-handle-firstprivate-on-teams=false -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S < %s | FileCheck %s --check-prefix=IGNOREFP
+; RUN: opt -vpo-paropt-handle-firstprivate-on-teams=false -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=IGNOREFP
+; RUN: opt -vpo-paropt-handle-firstprivate-on-teams=false -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=IGNOREFP
 
-; RUN: opt -vpo-paropt-handle-firstprivate-on-teams=true -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s --check-prefix=HANDLEFP
-; RUN: opt -vpo-paropt-handle-firstprivate-on-teams=true -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S < %s | FileCheck %s --check-prefix=HANDLEFP
+; RUN: opt -vpo-paropt-handle-firstprivate-on-teams=true -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=HANDLEFP
+; RUN: opt -vpo-paropt-handle-firstprivate-on-teams=true -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=HANDLEFP
 
 ; Test src:
 

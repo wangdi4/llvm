@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S -debug-only=vpo-paropt-target -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S -debug-only=vpo-paropt-target -disable-output 2>&1 | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S -debug-only=vpo-paropt-target -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S -debug-only=vpo-paropt-target -disable-output %s 2>&1 | FileCheck %s
 ;
 ; Test src:
 

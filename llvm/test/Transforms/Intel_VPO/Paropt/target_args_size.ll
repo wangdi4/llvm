@@ -1,5 +1,5 @@
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt  -S
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring),vpo-paropt'  -S
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt -S
+; RUN: opt -passes='function(vpo-cfg-restructuring),vpo-paropt' -S
 
 ; The test checks that there is no compfail:
 ; clang: llvm/include/llvm/Support/Casting.h:255: typename llvm::cast_retty<X, Y*>::ret_type llvm::cast(Y*) [with X = llvm::Function; Y = llvm::Constant; typename llvm::cast_retty<X, Y*>::ret_type = llvm::Function*]: Assertion `isa<X>(Val) && "cast<Ty>() argument of incompatible type!"' failed.

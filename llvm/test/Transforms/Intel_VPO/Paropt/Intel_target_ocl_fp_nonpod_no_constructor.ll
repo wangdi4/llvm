@@ -1,5 +1,5 @@
-; RUN: opt < %s -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -S | FileCheck %s
+; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -S %s | FileCheck %s
 ;
 ; Original code:
 ;

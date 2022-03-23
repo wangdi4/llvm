@@ -1,5 +1,5 @@
-; RUN: opt -switch-to-offload -vpo-paropt -S < %s | FileCheck %s
-; RUN: opt -passes='vpo-paropt' -switch-to-offload -S < %s  | FileCheck %s
+; RUN: opt -switch-to-offload -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 ;
 ; This test checks that paropt target filtering retains functions and variables
 ; from the "llvm.used" and "llvm.compiler.used" lists in addition to the objects

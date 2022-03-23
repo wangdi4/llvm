@@ -1,5 +1,5 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -verify -S < %s | FileCheck --check-prefix=CHECK %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,verify' -S < %s  | FileCheck --check-prefix=CHECK %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -verify -S %s | FileCheck --check-prefix=CHECK %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,verify' -S %s | FileCheck --check-prefix=CHECK %s
 
 ; Original code:
 ;void foo(int n) {

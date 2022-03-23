@@ -1,5 +1,5 @@
-; RUN: opt < %s -vpo-paropt -S  -pass-remarks-missed=openmp 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='vpo-paropt' -S -pass-remarks-missed=openmp 2>&1 | FileCheck %s
+; RUN: opt -vpo-paropt -S -pass-remarks-missed=openmp %s 2>&1 | FileCheck %s
+; RUN: opt -passes='vpo-paropt' -S -pass-remarks-missed=openmp %s 2>&1 | FileCheck %s
 
 ; Check that we can outline the first parallel region with unreachable exit,
 ; and subsequent unreachable regions are ignored.
