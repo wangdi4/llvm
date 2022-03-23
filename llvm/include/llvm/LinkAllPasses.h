@@ -464,6 +464,7 @@ namespace {
       (void)llvm::createKernelBarrierLegacyPass(false, false);
       (void)llvm::createBarrierInFunctionLegacyPass();
       (void)llvm::createImplicitArgsAnalysisLegacyPass();
+      (void)llvm::createInstToFuncCallLegacyPass();
       (void)llvm::createInternalizeNonKernelFuncLegacyPass();
       (void)llvm::createLocalBufferAnalysisLegacyPass();
       (void)llvm::createLocalBuffersLegacyPass(false);
