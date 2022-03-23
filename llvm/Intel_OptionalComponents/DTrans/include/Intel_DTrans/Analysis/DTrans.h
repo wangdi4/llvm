@@ -122,7 +122,15 @@ public:
         ComplexUse(false), AddressTaken(false), MismatchedElementAccess(false),
         NonGEPAccess(false), SVKind(SVK_Complete), SVIAKind(SVK_Incomplete),
         SAFKind(SAFK_Top), SingleAllocFunction(nullptr), RWState(RWK_Top),
-        Frequency(0) {}
+        Frequency(0) {
+
+    // If the current field is an array of integers then we can collect
+    // constant entries for it.
+    if (auto *ArrTy = dyn_cast<llvm::ArrayType>(Ty.getLLVMType()))
+      canAddConstantEntriesForArray = ArrTy->getElementType()->isIntegerTy();
+    else
+      canAddConstantEntriesForArray = false;
+  }
 
   // Disallow copy
   FieldInfo(const FieldInfo&) = delete;
@@ -308,6 +316,40 @@ public:
   // is an array with constant entries.
   void addConstantEntryIntoTheArray(Constant *Index, Constant* ConstVal);
 
+  // Insert a new entry in ArrayWithConstEntriesMap.
+  //
+  // NOTE: This function replaces addConstantEntryIntoTheArray in the opaque
+  // pointers case. The function addConstantEntryIntoTheArray will be removed
+  // once we fully move from typed pointers to opaque pointers.
+  void addNewArrayConstantEntry(Constant *Index, Constant* ConstVal);
+
+  // Return the information if the current field is an array with
+  // constant entries
+  //
+  // NOTE: This is used for the opaque pointers case. The function
+  // getArrayWithConstantEntries will be removed once we move from typed
+  // pointers to opaque pointers.
+  const DenseMap<Constant*, Constant*>
+      &getArrayConstantEntries() const { return ArrayWithConstEntriesMap; }
+
+  // Return true if the current field is an array with constant entries
+  //
+  // NOTE: This function will replace isArrayWithConstantEntries in the
+  // opaque pointers case. The function isArrayWithConstantEntries will
+  // be removed once we fully move from typed pointers to opaque pointers.
+  bool isFieldAnArrayWithConstEntries();
+
+  // Disable all the data related to arrays with constant entries.
+  void disableArraysWithConstantEntries() {
+    canAddConstantEntriesForArray = false;
+    ArrayWithConstEntriesMap.clear();
+  }
+
+  // Return true if the entries of ArrayWithConstEntriesMap can be updated.
+  // Else return false.
+  bool canUpdateArrayWithConstantEntries() {
+    return canAddConstantEntriesForArray;
+  }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const { print(dbgs()); }
 
@@ -386,6 +428,20 @@ private:
   // entry in the pair is the index in the array, the second entry is
   // the constant value.
   SetVector< std::pair<Constant*, Constant*> > ArrayConstEntries;
+
+  // DenseMap that stores the index and the value that are constant if
+  // the current field is an array with constant entries. The first
+  // entry into the pair is the index in the array, the second entry is
+  // the constant value.
+  //
+  // NOTE: This will replace the set ArrayConstEntries when we fully move
+  // to opaque pointers and the typed pointers code is removed.
+  DenseMap<Constant*, Constant*> ArrayWithConstEntriesMap;
+
+  // True if it is enabled to insert new entries into ArrayWithConstEntriesMap,
+  // else false. Also, false means that the current field may be an array but
+  // the entries aren't constant, or the actual field is not even an array.
+  bool canAddConstantEntriesForArray;
 };
 
 /// DTrans optimization safety conditions for a structure type.

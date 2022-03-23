@@ -282,6 +282,7 @@ public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAnalyzedTypes();
   void printCallInfo();
+  void printArraysWithConstantEntriesInformation();
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
@@ -354,6 +355,9 @@ private:
   // Helper utility to handle the related types (types with ABI padding and
   // base).
   std::unique_ptr<DTransRelatedTypesUtils> RelatedTypesUtils;
+
+  // Finalize the analysis for the fields that are arrays with constant entries
+  void postProcessArraysWithConstantEntries();
 };
 
 class DTransSafetyAnalyzer : public AnalysisInfoMixin<DTransSafetyAnalyzer> {
