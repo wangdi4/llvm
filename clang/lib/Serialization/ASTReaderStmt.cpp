@@ -2392,11 +2392,6 @@ void ASTStmtReader::VisitOMPSectionDirective(OMPSectionDirective *D) {
 }
 
 #if INTEL_COLLAB
-void ASTStmtReader::VisitOMPParallelGenericLoopDirective(
-    OMPParallelGenericLoopDirective *D) {
-  VisitOMPLoopDirective(D);
-}
-
 void ASTStmtReader::VisitOMPTargetParallelGenericLoopDirective(
     OMPTargetParallelGenericLoopDirective *D) {
   VisitOMPLoopDirective(D);
@@ -3347,14 +3342,6 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       break;
 
 #if INTEL_COLLAB
-    case STMT_OMP_PARALLEL_GENERIC_LOOP_DIRECTIVE: {
-      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields];
-      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields + 1];
-      S = OMPParallelGenericLoopDirective::CreateEmpty(Context, NumClauses,
-                                                       CollapsedNum, Empty);
-      break;
-    }
-
     case STMT_OMP_TARGET_PARALLEL_GENERIC_LOOP_DIRECTIVE: {
       unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields];
       unsigned NumClauses = Record[ASTStmtReader::NumStmtFields + 1];

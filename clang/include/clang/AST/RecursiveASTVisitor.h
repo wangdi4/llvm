@@ -2942,8 +2942,6 @@ DEF_TRAVERSE_STMT(OMPSectionDirective,
 #if INTEL_COLLAB
 DEF_TRAVERSE_STMT(OMPTargetVariantDispatchDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
-DEF_TRAVERSE_STMT(OMPParallelGenericLoopDirective,
-                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
 DEF_TRAVERSE_STMT(OMPTargetParallelGenericLoopDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 DEF_TRAVERSE_STMT(OMPPrefetchDirective,

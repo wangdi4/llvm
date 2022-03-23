@@ -833,10 +833,6 @@ void clang::getOpenMPCaptureRegions(
     CaptureRegions.push_back(OMPD_parallel);
     break;
 #if INTEL_COLLAB
-  case OMPD_parallel_loop:
-    CaptureRegions.push_back(OMPD_parallel);
-    CaptureRegions.push_back(OMPD_loop);
-    break;
   case OMPD_target_parallel_loop:
     CaptureRegions.push_back(OMPD_task);
     CaptureRegions.push_back(OMPD_target);
