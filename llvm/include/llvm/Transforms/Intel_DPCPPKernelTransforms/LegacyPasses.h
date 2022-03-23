@@ -59,6 +59,8 @@ ModulePass *createKernelBarrierLegacyPass(bool isNativeDebug,
 ModulePass *createBarrierInFunctionLegacyPass();
 ModulePass *createImplicitArgsAnalysisLegacyPass();
 ModulePass *createIndirectCallLoweringLegacyPass();
+ModulePass *createInstToFuncCallLegacyPass(
+    VectorVariant::ISAClass ISA = VectorVariant::XMM);
 ModulePass *createInternalizeNonKernelFuncLegacyPass();
 ModulePass *createLinearIdResolverPass();
 ModulePass *createLocalBufferAnalysisLegacyPass();

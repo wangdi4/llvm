@@ -745,6 +745,7 @@ void initializeGroupBuiltinLegacyPass(PassRegistry &);
 void initializeHandleVPlanMaskLegacyPass(PassRegistry &);
 void initializeImplicitArgsAnalysisLegacyPass(PassRegistry &);
 void initializeIndirectCallLoweringLegacyPass(PassRegistry &);
+void initializeInstToFuncCallLegacyPass(PassRegistry &);
 void initializeInternalizeNonKernelFuncLegacyPass(PassRegistry &);
 void initializeKernelBarrierLegacyPass(PassRegistry &);
 void initializeLinearIdResolverLegacyPass(PassRegistry &);
