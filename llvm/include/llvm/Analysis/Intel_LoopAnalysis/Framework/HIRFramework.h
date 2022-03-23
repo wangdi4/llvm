@@ -149,6 +149,8 @@ public:
 
   void verify() const;
 
+  DominatorTree &getDomTree() { return DT; }
+
   ScopedScalarEvolution &getScopedSE() { return RI.getScopedSE(); }
 
   // The biggest symbase seen during compilation of this fuction

@@ -2142,8 +2142,14 @@ CallInst *createGetSubGroupSliceLengthCall(unsigned TotalElementCount,
                                            Instruction *IP, const Twine &Name) {
   IRBuilder<> Builder(IP);
   auto *Arg = Builder.getInt32(TotalElementCount);
+  auto AL =
+      AttributeList()
+          .addFnAttribute(IP->getContext(), Attribute::ReadNone)
+          .addFnAttribute(IP->getContext(), Attribute::NoUnwind)
+          .addFnAttribute(IP->getContext(), Attribute::WillReturn)
+          .addFnAttribute(IP->getContext(), KernelAttribute::ConvergentCall);
   return generateCall(IP->getModule(), NAME_GET_SUB_GROUP_SLICE_LENGTH,
-                      Builder.getInt64Ty(), {Arg}, Builder);
+                      Builder.getInt64Ty(), {Arg}, Builder, Name, AL);
 }
 
 CallInst *createGetSubGroupRowSliceIdCall(Value *Matrix, unsigned R, unsigned C,

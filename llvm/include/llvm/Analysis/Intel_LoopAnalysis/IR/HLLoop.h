@@ -1431,6 +1431,23 @@ public:
 
   /// Clears the prefetching pragma vector
   void clearPrefetchingPragmaInfo() { PrefetchingInfoVec.clear(); }
+
+  /// Some countable loops can be written in a way that their trip count is
+  /// equal to type's range size which is 1 more than unsigned max value. There
+  /// was an assumption in loopopt framework that this does not happen. However,
+  /// HIR CG is able to generate the right code for the loops. Some
+  /// transformations like general unroll and vectorization may require special
+  /// code generation to handle this case.
+  ///
+  /// As an example, following loop has a tip count equal to 2 ^ 32 if n is
+  /// equal to 5-
+  ///
+  /// unsigned i = n;
+  ///
+  /// do {
+  ///   i++;
+  /// } while (i != 5);
+  bool canTripCountEqualIVTypeRangeSize() const;
 };
 
 /// Loop information related to its parallel characteristics, such as
