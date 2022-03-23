@@ -222,6 +222,17 @@ cl_err_code OutOfOrderCommandQueue::AddDependentOnAll(Command* cmd)
     Command* pOldDepOnAll = (Command*)m_depOnAll.exchange(pNewDepOnAll);
     SharedPtr<QueueEvent> pOldDepOnAllEvent = pOldDepOnAll->GetEvent();
     pCommandEvent->AddDependentOn(pOldDepOnAllEvent);
+    // Let new depends-on-all object depends on old ones
+    // Take an example to illustrate the logic, when OutOfOrderCommandQueue is
+    // initialized, m_depOnAll has 1 floating dependence. Then we enqueue a
+    // NDRangeKernelCommand to the out-of-order command queue, at this moment
+    // m_depOnAll will has 2 dependences. After that we submit a barrier command
+    // which depends on all commands previously enqueued in command_queue, after
+    // AddDependentOnAll function is called, m_depOnAll will only have 1 floating
+    // dependence which means that m_depOnAll no longer depends on NDRangeKernelCommand
+    // now, so it is likely that queue and related buffer is released, NDRangeKernelCommand
+    // is still executed.
+    m_depOnAll->GetEvent()->AddDependentOn(pOldDepOnAllEvent);
     pOldDepOnAllEvent->RemoveFloatingDependence();
     return CL_SUCCESS;
 }
