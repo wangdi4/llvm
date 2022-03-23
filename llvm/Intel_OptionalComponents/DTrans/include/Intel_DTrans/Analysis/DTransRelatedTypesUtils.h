@@ -102,6 +102,15 @@ private:
   // ones are used as base.
   void finalizeBaseAndPaddedStructures(DTransSafetyInfo &DTInfo);
 
+  // Go through the fields and check if the data for arrays with constant
+  // entries matches.
+  void analyzeFieldsWithArrayConstantEntries(dtrans::StructInfo *BaseStruct,
+                                             dtrans::StructInfo *PaddedStruct);
+
+  // Disable all the data for arrays with constant entries in the input
+  // StructInfo
+  void disableArraysWithConstantEntriesData(dtrans::StructInfo *STInfo);
+
   // Go through each structure and make a decision if the safety data
   // for related types needs to be reverted
   void revertSafetyData(DTransSafetyInfo &DTInfo);

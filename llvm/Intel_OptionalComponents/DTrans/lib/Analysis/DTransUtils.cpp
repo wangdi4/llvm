@@ -882,6 +882,83 @@ void dtrans::FieldInfo::addConstantEntryIntoTheArray(Constant *Index,
   ArrayConstEntries.insert({Index, ConstVal});
 }
 
+// Insert a new entry in ArrayConstEntries assuming that the current field
+// is an array with constant entries. Index is the entry in the array that
+// is constant and ConstVal is the constant value for that index. If Index
+// is in the map then replace the value with nullptr. Also, nullptr for
+// ConstVal is allowed. It means that there is no constant for the index
+// accessed.
+void dtrans::FieldInfo::addNewArrayConstantEntry(Constant *Index,
+                                                 Constant* ConstVal) {
+  if (!canAddConstantEntriesForArray)
+    return;
+
+  // Index is needed and must be a constant integer
+  if (!Index) {
+    disableArraysWithConstantEntries();
+    return;
+  }
+
+  // If canAddConstantEntriesForArray is true then it means that the current
+  // field is an array of integers
+  llvm::ArrayType *CurrArr = cast<llvm::ArrayType>(getLLVMType());
+  auto *ConstIntIndex = dyn_cast<ConstantInt>(Index);
+  auto *ConstIntVal = dyn_cast_or_null<ConstantInt>(ConstVal);
+  if (!ConstIntIndex) {
+    disableArraysWithConstantEntries();
+    return;
+  }
+
+  // A negative index means an out of bounds access, disable array
+  // with constant
+  if (ConstIntIndex->isNegative()) {
+    disableArraysWithConstantEntries();
+    return;
+  }
+
+  // The index must be within the bounds, else disable the arrays with constant
+  if (ConstIntIndex->getZExtValue() >= CurrArr->getNumElements()) {
+    disableArraysWithConstantEntries();
+    return;
+  }
+
+  // If there is a value then check if the types match
+  if (ConstIntVal) {
+    llvm::Type *ElemType = CurrArr->getElementType();
+    if (ElemType != ConstIntVal->getType()) {
+      disableArraysWithConstantEntries();
+      return;
+    }
+  }
+
+  // If the entry is not in the map then add it. Else, set it to nullptr if
+  // the value is not the same. If ConstVal is nullptr and not in the map,
+  // then it means that we are adding a non-constant integer for the input
+  // index.
+  auto It = ArrayWithConstEntriesMap.find(Index);
+  if (It == ArrayWithConstEntriesMap.end())
+    ArrayWithConstEntriesMap.insert({Index, ConstVal});
+  else if (It->second != ConstVal)
+    It->second = nullptr;
+}
+
+// Return true if the current field is an array with constant entries. Else
+// return false.
+bool dtrans::FieldInfo::isFieldAnArrayWithConstEntries() {
+  if (!canAddConstantEntriesForArray)
+    return false;
+
+  if (ArrayWithConstEntriesMap.empty())
+    return false;
+
+  // If all entries are nullptr then we don't have any information
+  for (auto Pair : ArrayWithConstEntriesMap)
+    if (Pair.second)
+      return true;
+
+  return false;
+}
+
 // This is a helper function used to break the relationship between
 // a base and a padded structure.
 void StructInfo::unsetRelatedType() {

@@ -45,6 +45,10 @@
 // Debug type for verbose call graph computations.
 #define DTRANS_CG "dtrans-cg"
 
+// Print the result for structures with fields that are arrays with constant
+// entries
+#define ARRAYS_WITH_CONST_ENTRIES "dtrans-arrays-with-const-entries"
+
 using namespace llvm;
 using namespace dtransOP;
 
@@ -923,6 +927,22 @@ public:
         }
       }
 
+      // If the GEP is accessing a field in a structure that is an array then
+      // check if we can collect any constant information for it.
+      if (Pointees.size() == 1) {
+        auto It = Pointees.begin();
+        DTransType *ParentTy = It->first;
+        if (ParentTy->isStructTy() && It->second.isField()) {
+          dtrans::StructInfo *StructAccessed =
+              cast<dtrans::StructInfo>(DTInfo.getTypeInfo(ParentTy));
+          uint64_t FieldNumAccessed = It->second.getElementNum();
+
+          if (FieldNumAccessed < StructAccessed->getNumFields())
+            analyzeAndCollectArrayConstantEntries(GEP, StructAccessed,
+                                                  FieldNumAccessed);
+        }
+      }
+
       // A runtime dependent index of an array cannot be guaranteed to be within
       // the bounds. When LangRuleOutOfBoundsOK is not set, we are explicitly
       // asserting that the access cannot go out of bounds.
@@ -939,6 +959,88 @@ public:
                                         "Runtime dependent offset", GEP);
           }
         }
+    }
+  }
+
+  void analyzeAndCollectArrayConstantEntries(GEPOperator *GEP,
+                                             dtrans::StructInfo *STInfo,
+                                             uint64_t FieldNum) {
+    if (!GEP || !STInfo || FieldNum >= STInfo->getNumFields())
+      return;
+
+    // If the language rules for accessing out of bounds is enabled then
+    // we aren't going to collect any information. There is a chance that
+    // the constant data is written by an out of bounds access.
+    if(getLangRuleOutOfBoundsOK())
+      return;
+
+    dtrans::FieldInfo &FI = STInfo->getField(FieldNum);
+    if (!FI.canUpdateArrayWithConstantEntries())
+      return;
+
+    for (auto *U : GEP->users()) {
+      if (!FI.canUpdateArrayWithConstantEntries())
+        return;
+
+      auto *CurrGEP = dyn_cast<GetElementPtrInst>(U);
+      // NOTE: For now the direct user will be a GEP. Once we reach the
+      // actual benchmark we can expand this for other cases.
+      if (!CurrGEP) {
+        FI.disableArraysWithConstantEntries();
+        return;
+      }
+
+      // The user will be a load or a store
+      if (!CurrGEP->hasOneUser()) {
+        FI.disableArraysWithConstantEntries();
+        return;
+      }
+
+      // Collect which entry in the array we are accessing
+      //
+      // NOTE: Perhaps we may need to extend this analysis to check for byte
+      // flattened GEP, GEPs with more that 2 indices and zero element access.
+      if (CurrGEP->getNumIndices() != 2) {
+        FI.disableArraysWithConstantEntries();
+        return;
+      }
+
+      if (auto *ZeroIndex = dyn_cast<ConstantInt>(CurrGEP->getOperand(1))) {
+        if (!ZeroIndex->isZero()) {
+          FI.disableArraysWithConstantEntries();
+          return;
+        }
+      }
+
+      Constant *Index = dyn_cast<Constant>(CurrGEP->getOperand(2));
+      Constant *EntryVal = nullptr;
+
+      if (auto *SI = dyn_cast<StoreInst>(CurrGEP->user_back())) {
+        // All indices must be constant if we are storing
+        if (!CurrGEP->hasAllConstantIndices()) {
+          FI.disableArraysWithConstantEntries();
+          return;
+        }
+        // Collect what is being stored
+        EntryVal = dyn_cast<Constant>(SI->getValueOperand());
+      } else if (isa<LoadInst>(CurrGEP->user_back())) {
+        // Load instructions are safe
+        continue;
+      } else {
+        // Anything else is not allowed at the moment, disable the information
+        //
+        // TODO: We may need to deal with the case when the field is a structure
+        // that encapsulates an array. For example:
+        //
+        //   %struct.Test = type { i32, %boost.array }
+        //   %boost.array = type { [4 x i32] }
+        //
+        // This case is common when dealing with boost libraries.
+        FI.disableArraysWithConstantEntries();
+        return;
+      }
+
+      FI.addNewArrayConstantEntry(Index, EntryVal);
     }
   }
 
@@ -6011,6 +6113,7 @@ void DTransSafetyInfo::analyzeModule(
   Visitor.collectCallGraphInfo(M);
   DTBCA.analyzeAfterVisit();
   DTBCA.getConditionalFunctions(FunctionsRequireBadCastValidation);
+  postProcessArraysWithConstantEntries();
   RelatedTypesUtils->postProcessRelatedTypesAnalysis(*this);
   PostProcessFieldValueInfo();
   DTransSafetyAnalysisRan = true;
@@ -6053,6 +6156,10 @@ void DTransSafetyInfo::analyzeModule(
       }
     }
   }
+
+  DEBUG_WITH_TYPE(ARRAYS_WITH_CONST_ENTRIES, {
+    printArraysWithConstantEntriesInformation();
+  });
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   LLVM_DEBUG({
@@ -6565,6 +6672,123 @@ void DTransSafetyInfo::printCallInfo() {
   }
   dbgs().flush();
 }
+
+// Print the result of the analysis for arrays with constant entries
+void DTransSafetyInfo::printArraysWithConstantEntriesInformation() {
+  dbgs() << "Final result for fields that are arrays with constant "
+            "entries:\n";
+
+  // Structure for handling the function that sorts by structure's name
+  struct SortingStructsFunction
+  {
+    typedef std::pair<llvm::dtrans::StructInfo *,
+                      std::vector<unsigned int>> StructsIterator;
+
+    bool operator()(
+      StructsIterator & Lhs, StructsIterator & Rhs) const {
+      llvm::StructType *StructTyLhs =
+          cast<llvm::StructType>(Lhs.first->getLLVMType());
+      llvm::StructType *StructTyRhs =
+          cast<llvm::StructType>(Rhs.first->getLLVMType());
+
+      // If both structures are literal, then use the printed form of
+      // StructType to do the sorting
+      if (StructTyLhs->isLiteral() && StructTyRhs->isLiteral()) {
+        std::string LhsBuffer;
+        llvm::raw_string_ostream RSOLhs(LhsBuffer);
+        RSOLhs << *StructTyLhs;
+        std::string LHSString = RSOLhs.str();
+
+        std::string RhsBuffer;
+        llvm::raw_string_ostream RSORhs(RhsBuffer);
+        RSORhs << *StructTyRhs;
+        std::string RHSString = RSORhs.str();
+
+        return LHSString < RHSString;
+      }
+
+      // If the structure in the left hand side doesn't have a name
+      // then put it first
+      if (!StructTyLhs->hasName())
+        return true;
+
+      // If the structure in the right hand side doesn't have a name
+      // then put it first
+      if (!StructTyRhs->hasName())
+        return false;
+
+      StringRef StructNameLhs = StructTyLhs->getName();
+      StringRef StructNameRhs = StructTyRhs->getName();
+
+      // Else sort both
+      return StructNameLhs.str() < StructNameRhs.str();
+    }
+  };
+
+  std::vector<std::pair<dtrans::StructInfo *, std::vector<unsigned>>>
+      StructsWithData;
+
+  // First collect all the structures where the data is available
+  for (auto *TI : type_info_entries()) {
+    auto *STInfo = dyn_cast<dtrans::StructInfo>(TI);
+    if (!STInfo)
+      continue;
+
+    std::vector<unsigned> NewVect;
+    for (unsigned I = 0, E = STInfo->getNumFields(); I < E; I++) {
+      auto &FI = STInfo->getField(I);
+      if (!FI.isFieldAnArrayWithConstEntries())
+        continue;
+
+      NewVect.push_back(I);
+    }
+    if (!NewVect.empty())
+      StructsWithData.push_back(std::make_pair(STInfo, NewVect));
+  }
+
+  if (StructsWithData.empty()) {
+    dbgs() << "  No structure found\n";
+    dbgs() << "End of arrays with constant entries analysis\n\n";
+    return;
+  }
+
+  // Sort the structures collected by name
+  std::sort(StructsWithData.begin(), StructsWithData.end(),
+            SortingStructsFunction());
+
+  for (auto Pair : StructsWithData) {
+    auto STInfo = Pair.first;
+    auto FieldsVect = Pair.second;
+
+    llvm::Type *StructTy = STInfo->getLLVMType();
+    dbgs() << "Type: " << *StructTy << "\n";
+
+    for (auto I : FieldsVect) {
+      auto &FI = STInfo->getField(I);
+
+      // We already prove that the field is an array with constant entries
+      // but the data needs to be sorted since it is stored in a map
+      llvm::ArrayType *ArrTy = cast<ArrayType>(FI.getLLVMType());
+      std::vector<Constant *> Entries(ArrTy->getNumElements());
+      for (auto Pair : FI.getArrayConstantEntries()) {
+        auto Index = cast<ConstantInt>(Pair.first);
+        unsigned IndexInt = Index->getZExtValue();
+        Entries[IndexInt] = Pair.second;
+      }
+
+      dbgs() << "  Field number: " << I << "\n";
+      for (unsigned SubI = 0, SubE = Entries.size(); SubI < SubE; SubI++) {
+        if (Entries[SubI])
+          dbgs() << "    Index: " << SubI
+                 << "      Value: " << *Entries[SubI] << "\n";
+      }
+
+    }
+    dbgs() << "\n";
+  }
+
+  dbgs() << "End of arrays with constant entries analysis\n\n";
+}
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Fields of structures that do not meet the necessary safety conditions need to
@@ -6602,6 +6826,39 @@ void DTransSafetyInfo::PostProcessFieldValueInfo() {
         StInfo->getField(I).setIncompleteValueSet();
       if (FSAF_Unsafe || (!UsingOutOfBoundsOK && AddressTaken) || Aggregate)
         StInfo->updateSingleAllocFuncToBottom(I);
+    }
+  }
+}
+
+// Traverse through the structures and check if there is any safety violation
+// that disables the information collected for arrays with constant entries.
+void DTransSafetyInfo::postProcessArraysWithConstantEntries() {
+
+  // If the languague rules are enabled then there is nothing to do
+  if(getLangRuleOutOfBoundsOK())
+    return;
+
+  // Traverse through all structure info
+  for (auto *TI : type_info_entries()) {
+    auto *STInfo = dyn_cast<dtrans::StructInfo>(TI);
+    if (!STInfo)
+      continue;
+
+    // Check if there is any safety that invalidates the structure.
+    bool DisableArraysWithConstEntries =
+        STInfo->testSafetyData(dtrans::SDArraysWithConstantEntries);
+
+    // Traverse through the fields and collect the information
+    for (unsigned I = 0, E = STInfo->getNumFields(); I < E; I++) {
+      auto &FI = STInfo->getField(I);
+      if (!FI.isFieldAnArrayWithConstEntries())
+        continue;
+
+      // NOTE: These are some general conditions to disable the data. We may
+      // need to adjust them once we analyze the actual cases.
+      if (DisableArraysWithConstEntries || FI.isRead() || FI.isWritten() ||
+          FI.isAddressTaken() || FI.hasNonGEPAccess())
+        FI.disableArraysWithConstantEntries();
     }
   }
 }
