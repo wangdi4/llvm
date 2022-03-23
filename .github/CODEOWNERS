@@ -29,6 +29,9 @@
 # clang-tools-extra (includes clang-tidy)
 /clang-tools-extra/ @aaronballman
 
+# DPC++ Tools
+/clang/tools/clang-offload-* @sndmitriev @AlexeySachkov @mlychkov
+
 # CFE/OpenMP
 /llvm/include/llvm/Frontend/OpenMP/ @mikerice1969 @jyu2-git @ddpagan
 /llvm/lib/Frontend/OpenMP/ @mikerice1969 @jyu2-git @ddpagan
@@ -725,4 +728,4 @@ xptifw/ @intel-restricted/llvm-reviewers-runtime
 /llvm/test/Verifier/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 
 # JIRA: CMPLRLLVM->DPC++ Tools
-sycl-post-link/ @AlexeySachkov
+sycl-post-link/ @AlexeySachkov @mlychkov

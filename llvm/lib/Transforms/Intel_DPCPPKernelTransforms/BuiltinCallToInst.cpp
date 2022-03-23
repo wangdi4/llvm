@@ -36,7 +36,9 @@ class BuiltinCallToInstLegacy : public FunctionPass {
 public:
   static char ID;
 
-  BuiltinCallToInstLegacy() : FunctionPass(ID) {}
+  BuiltinCallToInstLegacy() : FunctionPass(ID) {
+    initializeBuiltinCallToInstLegacyPass(*PassRegistry::getPassRegistry());
+  }
 
   llvm::StringRef getPassName() const override {
     return "BuiltinCallToInstLegacy";
