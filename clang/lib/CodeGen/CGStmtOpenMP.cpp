@@ -175,22 +175,9 @@ class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
             QualType OrigVDTy = OrigVD->getType().getNonReferenceType();
             (void)PreCondVars.setVarAddr(
                 CGF, OrigVD,
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-                // Temporary fix for opaque pointer problem.
-                // Pulldown coordinator: Please replace with community code
-                // unless it contains Address::deprecated.
-                Address(llvm::UndefValue::get(CGF.ConvertTypeForMem(
-                            CGF.getContext().getPointerType(
-                                OrigVD->getType().getNonReferenceType()))),
-                        CGF.ConvertTypeForMem(
-                            OrigVD->getType().getNonReferenceType()),
-#endif // INTEL_CUSTOMIZATION
-=======
                 Address(llvm::UndefValue::get(CGF.ConvertTypeForMem(
                             CGF.getContext().getPointerType(OrigVDTy))),
                         CGF.ConvertTypeForMem(OrigVDTy),
->>>>>>> 51ba13b1aea3d6e04310b80b6bcfc641049b9890
                         CGF.getContext().getDeclAlign(OrigVD)));
           }
         }
