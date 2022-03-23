@@ -48,10 +48,14 @@ endif(INTEL_CUSTOMIZATION)
 
 set(LIBOMPTARGET_SRC_FILES ${LIBOMPTARGET_SRC_FILES} PARENT_SCOPE)
 
+<<<<<<< HEAD
 if(INTEL_CUSTOMIZATION)
   # Disable profiling to avoid creation of libomptarget with so version.
   set(OPENMP_ENABLE_LIBOMPTARGET_PROFILING FALSE)
 endif(INTEL_CUSTOMIZATION)
+=======
+include_directories(${LIBOMPTARGET_LLVM_INCLUDE_DIRS})
+>>>>>>> d5345ceeef2e6207262b1bcb252b75c8b391d149
 
 # Build libomptarget library with libdl dependency.
 add_library(omptarget SHARED ${LIBOMPTARGET_SRC_FILES})
