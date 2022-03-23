@@ -436,8 +436,7 @@ bool LoopWIInfo::isBroadcast(ShuffleVectorInst *SVI) {
 
 void LoopWIInfo::updateConstStride(Value *ToUpdate, Value *UpdateBy,
                                    bool Negate) {
-  auto *ToUpdateTy = ToUpdate->getType();
-  if (!ToUpdateTy->isIntOrIntVectorTy())
+  if (!UpdateBy->getType()->isIntOrIntVectorTy())
     return;
 
   auto It = ConstStrides.find(UpdateBy);
@@ -450,6 +449,7 @@ void LoopWIInfo::updateConstStride(Value *ToUpdate, Value *UpdateBy,
   if (Negate)
     Stride = -Stride;
   Constant *NewStrideConst = nullptr;
+  auto *ToUpdateTy = ToUpdate->getType();
   if (ToUpdateTy->isIntOrIntVectorTy())
     NewStrideConst = ConstantInt::get(ToUpdateTy->getScalarType(), Stride);
   else if (ToUpdateTy->isFPOrFPVectorTy())
