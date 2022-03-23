@@ -146,7 +146,6 @@ static Type *getPromotedType(Type *Ty) {
   return Ty;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 //
 // Return 'true' if 'STy' has a non-struct non-single-value type nested
@@ -436,7 +435,7 @@ static bool isScalarTBAANode(const MDNode *MD) {
   return false;
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 /// Recognize a memcpy/memmove from a trivially otherwise unused alloca.
 /// TODO: This should probably be integrated with visitAllocSites, but that
 /// requires a deeper change to allow either unread or unwritten objects.
@@ -449,7 +448,6 @@ static bool hasUndefSource(AnyMemTransferInst *MI) {
   }
   return isa<AllocaInst>(Src) && Src->hasOneUse();
 }
->>>>>>> 7abefc42220b74551b433083ece33be31e48700f
 
 Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
   Align DstAlign = getKnownAlignment(MI->getRawDest(), DL, MI, &AC, &DT);
