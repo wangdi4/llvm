@@ -94,13 +94,10 @@
 ; CHECK-O-NEXT: Running pass: InferFunctionAttrsPass
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
-<<<<<<< HEAD
 ; CHECK-O-NEXT: Running pass: InlineReportSetupPass ;INTEL
 ; CHECK-O-NEXT: Running pass: InlineListsPass ;INTEL
 ; CHECK-O-NEXT: Running analysis: PreservedCFGCheckerAnalysis on foo
 ; CHECK-O-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
-=======
->>>>>>> df1a216a624f3c86246dee8f1aa43f3dd6d65899
 ; CHECK-O-NEXT: Running pass: LowerExpectIntrinsicPass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
