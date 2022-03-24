@@ -1,3 +1,2 @@
-; RUN: SATest -BUILD -dump-IR-before=target_data -dump-IR-dir=%T -config=%s.cfg
-; RUN: FileCheck %s --input-file=%T/dump.target_data_before.ll
+; RUN: SATest -BUILD -llvm-option=-print-before=dpcpp-kernel-equalizer -config=%s.cfg 2>&1 | FileCheck %s
 ; CHECK: define{{.*}}void @checkerboard2D

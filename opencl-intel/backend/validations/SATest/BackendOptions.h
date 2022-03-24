@@ -44,6 +44,7 @@ public:
             RC_BR_PASS_MANAGER_TYPE, PM_NONE);
         m_debugPassManager =
             runConfig.GetValue<std::string>(RC_BR_DEBUG_PASS_MANAGER, "");
+        m_llvmOption = runConfig.GetValue<std::string>(RC_BR_LLVM_OPTION, "");
     }
 
 
@@ -55,6 +56,8 @@ public:
             return m_TimePasses.c_str();
         case CL_DEV_BACKEND_OPTION_DEBUG_PASS_MANAGER:
             return m_debugPassManager.c_str();
+        case CL_DEV_BACKEND_OPTION_LLVM_OPTION:
+            return m_llvmOption.c_str();
         default:
             return defaultValue;
         }
@@ -103,6 +106,7 @@ private:
     VectorizerType m_vectorizerType;
     PassManagerType m_passManagerType;
     std::string m_debugPassManager;
+    std::string m_llvmOption;
     bool        m_nativeSubgroups;
     bool        m_enableSubgroupEmulation;
 };
@@ -123,12 +127,7 @@ public:
         m_cpuFeatures   = runConfig.GetValue<std::string>(RC_BR_CPU_FEATURES, "");
         m_useVTune      = runConfig.GetValue<bool>(RC_BR_USE_VTUNE, false);
 
-        m_DumpIROptionAfter = runConfig.GetValue<const std::vector<IRDumpOptions> * >
-                                (RC_BR_DUMP_IR_AFTER, 0);
-        m_DumpIROptionBefore = runConfig.GetValue<const std::vector<IRDumpOptions> * >
-                                (RC_BR_DUMP_IR_BEFORE, 0);
         m_deviceMode = static_cast<DeviceMode>(runConfig.GetValue<int>(RC_BR_DEVICE_MODE, CPU_DEVICE));
-        m_DumpIRDir = runConfig.GetValue<std::string>(RC_BR_DUMP_IR_DIR, "");
         m_dumpHeuristcIR = runConfig.GetValue<bool>(RC_BR_DUMP_HEURISTIC_IR, false);
         m_vectorizerType = runConfig.GetValue<VectorizerType>(RC_BR_VECTORIZER_TYPE, DEFAULT_VECTORIZER);
         m_nativeSubgroups = runConfig.GetValue<bool>(RC_BR_NATIVE_SUBGROUPS, false);
@@ -189,8 +188,6 @@ public:
             return m_cpu.c_str();
         case CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES:
             return m_cpuFeatures.c_str();
-        case CL_DEV_BACKEND_OPTION_DUMP_IR_DIR:
-            return m_DumpIRDir.c_str();
         case CL_DEV_BACKEND_OPTION_DEBUG_PASS_MANAGER:
             return m_debugPassManager.c_str();
         default:
@@ -206,12 +203,6 @@ public:
         }
         switch(optionId)
         {
-        case OPTION_IR_DUMPTYPE_AFTER :
-            *(static_cast<const std::vector<IRDumpOptions>* * >(Value)) = m_DumpIROptionAfter;
-            return true;
-        case OPTION_IR_DUMPTYPE_BEFORE :
-            *(static_cast<const std::vector<IRDumpOptions>* * >(Value)) = m_DumpIROptionBefore;
-            return true;
         default:
             return false;
         }
@@ -225,9 +216,6 @@ protected:
     DeviceMode     m_deviceMode;
     bool           m_useVTune;
     unsigned       m_expensiveMemOpts;
-    const std::vector<IRDumpOptions>* m_DumpIROptionAfter;
-    const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
-    std::string m_DumpIRDir;
     bool m_dumpHeuristcIR;
     VectorizerType m_vectorizerType;
     PassManagerType m_passManagerType;

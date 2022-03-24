@@ -54,13 +54,11 @@ namespace Validation
         RC_BR_PRINT_BUILD_LOG,
         RC_BR_BUILD_ONLY,
         RC_BR_STOP_BEFORE_JIT,
-        RC_BR_DUMP_IR_AFTER,
-        RC_BR_DUMP_IR_BEFORE,
-        RC_BR_DUMP_IR_DIR,
         RC_BR_DUMP_JIT,
         RC_BR_DUMP_KERNEL_PROPERTY,
         RC_BR_TIME_PASSES,
         RC_BR_DEBUG_PASS_MANAGER,
+        RC_BR_LLVM_OPTION,
         RC_BR_DUMP_HEURISTIC_IR,
         RC_BR_PERF_LOG,
         RC_BR_OBJECT_FILE,
@@ -112,15 +110,13 @@ namespace Validation
         std::string m_optimizedLLVMIRDumpFile;
         std::string m_perfLogFile;
         Intel::OpenCL::DeviceBackend::ETransposeSize m_transposeSize;
-        std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions> m_PrintIRAfter;
-        std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions> m_PrintIRBefore;
-        std::string m_DumpIRDir;
         std::string m_DumpJIT;
-        bool m_dumpKernelProperty;
         std::string m_TimePasses;
         std::string m_DebugPassManager;
         std::string m_InjectedObject;
+        std::string m_LLVMOption;
         bool m_dumpHeuristcIR;
+        bool m_dumpKernelProperty;
         VectorizerType m_vectorizerType;
         bool m_nativeSubgroups;
         bool m_enableSubgroupEmulation;
@@ -138,9 +134,6 @@ namespace Validation
     template<> Intel::OpenCL::DeviceBackend::ETransposeSize
         BERunOptions::GetValue<Intel::OpenCL::DeviceBackend::ETransposeSize>(RunConfigurationOption rc,
         Intel::OpenCL::DeviceBackend::ETransposeSize defaultValue) const;
-    template<> const std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions>*
-        BERunOptions::GetValue<const std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions> * >
-        (RunConfigurationOption rc, const std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions>* defaultValue) const;
     template<> PassManagerType
         BERunOptions::GetValue<PassManagerType>(RunConfigurationOption rc, PassManagerType defaultValue) const;
     template<> void BERunOptions::SetValue<int>(RunConfigurationOption rc, int setValue);

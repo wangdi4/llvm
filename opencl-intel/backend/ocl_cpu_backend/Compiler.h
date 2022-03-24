@@ -242,9 +242,6 @@ protected:
                              m_forcedCpuFeatures;
     ETransposeSize           m_transposeSize;
     int                      m_rtLoopUnrollFactor;
-    std::vector<int>         m_IRDumpAfter;
-    std::vector<int>         m_IRDumpBefore;
-    std::string              m_IRDumpDir;
     std::string              m_builtinInitLog;
     bool                     m_dumpHeuristicIR;
     bool                     m_debug;

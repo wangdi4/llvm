@@ -104,6 +104,11 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
     if (PM_LTO_NEW != passManagerType && !debugPassManager.empty())
       m_LLVMOptions += " -debug-pass=" + debugPassManager;
 
+    std::string LLVMOption = pBackendOptions->GetStringValue(
+        (int)CL_DEV_BACKEND_OPTION_LLVM_OPTION, "");
+    if (!LLVMOption.empty())
+      m_LLVMOptions += " " + LLVMOption;
+
     // C++ pipeline command line options.
     m_LLVMOptions += " -enable-vec-clone=false";
     ETransposeSize TransposeSize =
@@ -172,8 +177,6 @@ void CompilerConfig::LoadDefaults()
     m_useVTune = true;
     m_serializeWorkGroups = false;
     m_loadBuiltins = true;
-    m_DumpIROptionAfter = NULL;
-    m_DumpIROptionBefore = NULL;
     m_dumpHeuristicIR = false;
     m_streamingAlways = false;
     m_expensiveMemOpts = 0;
@@ -237,9 +240,6 @@ void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOpt
         m_serializeWorkGroups);
     m_forcedPrivateMemorySize = pBackendOptions->GetIntValue((int)CL_DEV_BACKEND_OPTION_FORCED_PRIVATE_MEMORY_SIZE, m_forcedPrivateMemorySize);
     m_useAutoMemory = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_USE_AUTO_MEMORY, m_useAutoMemory);
-    pBackendOptions->GetValue((int)OPTION_IR_DUMPTYPE_AFTER, &m_DumpIROptionAfter, 0);
-    pBackendOptions->GetValue((int)OPTION_IR_DUMPTYPE_BEFORE, &m_DumpIROptionBefore, 0);
-    m_dumpIRDir     = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DUMP_IR_DIR, m_dumpIRDir.c_str());
     m_dumpHeuristicIR = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_DUMP_HEURISTIC_IR, m_dumpHeuristicIR);
     m_streamingAlways = pBackendOptions->GetBooleanValue(
         (int)CL_DEV_BACKEND_OPTION_STREAMING_ALWAYS, m_streamingAlways);

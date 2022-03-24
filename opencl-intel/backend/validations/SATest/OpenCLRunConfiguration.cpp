@@ -86,14 +86,7 @@ StopBeforeJIT;
 extern llvm::cl::opt<bool>
 PrintBuildLog;
 
-extern llvm::cl::list<Intel::OpenCL::DeviceBackend::IRDumpOptions>
-PrintIRAfter;
-
-extern llvm::cl::list<Intel::OpenCL::DeviceBackend::IRDumpOptions>
-PrintIRBefore;
-
-extern llvm::cl::opt<std::string>
-DumpIRDir;
+extern llvm::cl::opt<std::string> LLVMOption;
 
 extern llvm::cl::opt<bool>
 DumpHeuristicIR;
@@ -143,12 +136,10 @@ namespace Validation
         m_cpuFeatures(::CPUFeatures),
         m_optimizedLLVMIRDumpFile(::OptimizedLLVMIRDumpFile),
         m_transposeSize(::TransposeSize),
-        m_PrintIRAfter(::PrintIRAfter),
-        m_PrintIRBefore(::PrintIRBefore),
-        m_DumpIRDir(::DumpIRDir),
         m_DumpJIT(::DumpJIT),
         m_TimePasses(::TimePasses),
         m_DebugPassManager(::DebugPassManager),
+        m_LLVMOption(::LLVMOption),
         m_dumpHeuristcIR(::DumpHeuristicIR),
         m_dumpKernelProperty(::DumpKernelProperty),
         m_vectorizerType(::OptVectorizerType),
@@ -250,14 +241,14 @@ namespace Validation
             return m_cpuFeatures;
         case RC_BR_DUMP_OPTIMIZED_LLVM_IR :
             return m_optimizedLLVMIRDumpFile;
-        case RC_BR_DUMP_IR_DIR :
-            return m_DumpIRDir;
         case RC_BR_DUMP_JIT :
             return m_DumpJIT;
         case RC_BR_TIME_PASSES :
             return m_TimePasses;
         case RC_BR_DEBUG_PASS_MANAGER:
             return m_DebugPassManager;
+        case RC_BR_LLVM_OPTION:
+            return m_LLVMOption;
         case RC_BR_PERF_LOG:
             return m_perfLogFile;
         case RC_BR_OBJECT_FILE:
@@ -303,22 +294,6 @@ namespace Validation
     }
 
     template<>
-    const std::vector<IRDumpOptions>* BERunOptions::GetValue<const std::vector<IRDumpOptions> * >
-                    (RunConfigurationOption rc, const std::vector<IRDumpOptions>* defaultValue) const
-    {
-        switch(rc)
-        {
-        case RC_BR_DUMP_IR_AFTER :
-            return &m_PrintIRAfter;
-        case RC_BR_DUMP_IR_BEFORE :
-            return &m_PrintIRBefore;
-        default:
-            return defaultValue;
-        }
-        return defaultValue;
-    }
-
-    template<>
     void BERunOptions::SetValue<int>(RunConfigurationOption rc, int setValue)
     {
         switch(rc)
@@ -355,12 +330,10 @@ namespace Validation
         m_RandomDataGeneratorSeed = ::RandomDGSeed;
         m_optimizedLLVMIRDumpFile = ::OptimizedLLVMIRDumpFile;
         m_perfLogFile = ::PerformanceLog;
-        m_PrintIRAfter = ::PrintIRAfter;
-        m_PrintIRBefore = ::PrintIRBefore;
-        m_DumpIRDir = ::DumpIRDir;
         m_DumpJIT = ::DumpJIT;
         m_TimePasses = ::TimePasses;
         m_DebugPassManager = ::DebugPassManager;
+        m_LLVMOption = ::LLVMOption;
         m_InjectedObject = ::ObjectFile;
         m_dumpHeuristcIR = ::DumpHeuristicIR;
         m_dumpKernelProperty = ::DumpKernelProperty;
