@@ -5530,7 +5530,7 @@ class OffloadingActionBuilder final {
         // AOT compilation.
         if (isSPIR) {
           SYCLDeviceLibLinked = addSYCLDeviceLibs(
-              TC, FullLinkObjects, true,
+              TC, FullLinkObjects, isSpirvAOT,
               C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment());
         }
 #if INTEL_CUSTOMIZATION

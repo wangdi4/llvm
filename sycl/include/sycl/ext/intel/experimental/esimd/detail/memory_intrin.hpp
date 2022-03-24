@@ -84,7 +84,7 @@ __esimd_raw_sends2(uint8_t modifier, uint8_t execSize,
     ;
 #else
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
 }
 #endif // __SYCL_DEVICE_ONLY__
 
@@ -125,7 +125,7 @@ __esimd_raw_send2(uint8_t modifier, uint8_t execSize,
     ;
 #else
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
 }
 #endif // __SYCL_DEVICE_ONLY__
 
@@ -165,7 +165,7 @@ __esimd_raw_sends2_noresult(uint8_t modifier, uint8_t execSize,
     ;
 #else
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
 }
 #endif // __SYCL_DEVICE_ONLY__
 
@@ -199,7 +199,7 @@ __esimd_raw_send2_noresult(uint8_t modifier, uint8_t execSize,
     ;
 #else
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
 }
 #endif // __SYCL_DEVICE_ONLY__
 
@@ -217,7 +217,7 @@ __ESIMD_INTRIN void __esimd_nbarrier(uint8_t mode, uint8_t id,
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
 }
 #endif // __SYCL_DEVICE_ONLY__
 
@@ -230,7 +230,7 @@ __ESIMD_INTRIN void __esimd_nbarrier_init(uint8_t count)
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
 }
 #endif // __SYCL_DEVICE_ONLY__
 
@@ -257,7 +257,7 @@ __ESIMD_INTRIN void __esimd_raw_send_nbarrier_signal(
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
 }
 #endif // __SYCL_DEVICE_ONLY__
 
@@ -299,7 +299,7 @@ __esimd_lsc_load_slm(__ESIMD_DNS::simd_mask_storage_t<N> pred,
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
   return 0;
 }
 #endif // __SYCL_DEVICE_ONLY__
@@ -337,7 +337,7 @@ __esimd_lsc_load_bti(__ESIMD_DNS::simd_mask_storage_t<N> pred,
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
   return 0;
 }
 #endif // __SYCL_DEVICE_ONLY__
@@ -371,7 +371,7 @@ __esimd_lsc_load_stateless(__ESIMD_DNS::simd_mask_storage_t<N> pred,
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
   return 0;
 }
 #endif // __SYCL_DEVICE_ONLY__
@@ -407,7 +407,7 @@ __esimd_lsc_prefetch_bti(__ESIMD_DNS::simd_mask_storage_t<N> pred,
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
 }
 #endif // __SYCL_DEVICE_ONLY__
 
@@ -438,7 +438,7 @@ __esimd_lsc_prefetch_stateless(__ESIMD_DNS::simd_mask_storage_t<N> pred,
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
 }
 #endif // __SYCL_DEVICE_ONLY__
 
@@ -471,7 +471,7 @@ __ESIMD_INTRIN void __esimd_lsc_store_slm(
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
 }
 #endif // __SYCL_DEVICE_ONLY__
 
@@ -508,7 +508,7 @@ __ESIMD_INTRIN void __esimd_lsc_store_bti(
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
 }
 #endif // __SYCL_DEVICE_ONLY__
 
@@ -541,7 +541,7 @@ __ESIMD_INTRIN void __esimd_lsc_store_stateless(
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
 }
 #endif // __SYCL_DEVICE_ONLY__
 
@@ -587,7 +587,7 @@ __esimd_lsc_load2d_stateless(__ESIMD_DNS::simd_mask_storage_t<N> Pred,
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
   return 0;
 }
 #endif // __SYCL_DEVICE_ONLY__
@@ -627,7 +627,7 @@ __ESIMD_INTRIN void __esimd_lsc_prefetch2d_stateless(
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
 }
 #endif // __SYCL_DEVICE_ONLY__
 
@@ -673,7 +673,7 @@ __esimd_lsc_store2d_stateless(__ESIMD_DNS::simd_mask_storage_t<N> Pred,
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
 }
 #endif // __SYCL_DEVICE_ONLY__
 
@@ -704,7 +704,7 @@ __esimd_lsc_xatomic_slm_0(__ESIMD_DNS::simd_mask_storage_t<N> pred,
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
   return 0;
 }
 #endif // __SYCL_DEVICE_ONLY__
@@ -739,7 +739,7 @@ __esimd_lsc_xatomic_slm_1(
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
   return 0;
 }
 #endif // __SYCL_DEVICE_ONLY__
@@ -776,7 +776,7 @@ __esimd_lsc_xatomic_slm_2(
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
   return 0;
 }
 #endif // __SYCL_DEVICE_ONLY__
@@ -811,7 +811,7 @@ __esimd_lsc_xatomic_bti_0(__ESIMD_DNS::simd_mask_storage_t<N> pred,
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
   return 0;
 }
 #endif // __SYCL_DEVICE_ONLY__
@@ -849,7 +849,7 @@ __esimd_lsc_xatomic_bti_1(
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
   return 0;
 }
 #endif // __SYCL_DEVICE_ONLY__
@@ -889,7 +889,7 @@ __esimd_lsc_xatomic_bti_2(
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
   return 0;
 }
 #endif // __SYCL_DEVICE_ONLY__
@@ -921,7 +921,7 @@ __esimd_lsc_xatomic_stateless_0(__ESIMD_DNS::simd_mask_storage_t<N> pred,
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
   return 0;
 }
 #endif // __SYCL_DEVICE_ONLY__
@@ -956,7 +956,7 @@ __esimd_lsc_xatomic_stateless_1(
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
   return 0;
 }
 #endif // __SYCL_DEVICE_ONLY__
@@ -993,7 +993,7 @@ __esimd_lsc_xatomic_stateless_2(
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
   return 0;
 }
 #endif // __SYCL_DEVICE_ONLY__
@@ -1013,7 +1013,7 @@ __ESIMD_INTRIN void __esimd_lsc_fence(__ESIMD_DNS::simd_mask_storage_t<N> pred)
     ;
 #else  // __SYCL_DEVICE_ONLY__
 {
-  throw cl::sycl::feature_not_supported();
+  __ESIMD_UNSUPPORTED_ON_HOST;
 }
 #endif // __SYCL_DEVICE_ONLY__
 
