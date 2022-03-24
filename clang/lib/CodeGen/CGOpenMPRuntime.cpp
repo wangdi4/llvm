@@ -8368,27 +8368,11 @@ public:
         };
         if (OAShE) {
           LowestElem = LB =
-<<<<<<< HEAD
-              Address::deprecated(CGF.EmitScalarExpr(OAShE->getBase()),
-                                  CGF.getContext().getTypeAlignInChars(
-                                      OAShE->getBase()->getType()));
-#if INTEL_COLLAB
-        } else if (CGF.CGM.getLangOpts().OpenMPLateOutline && OASE &&
-                   isa<CXXThisExpr>(OASE->getBase()->IgnoreParenImpCasts())) {
-          QualType PTy = OASE->getBase()->getType();
-          LowestElem = LB =
-              Address(CGF.EmitScalarExpr(OASE->getBase()),
-                      CGF.ConvertTypeForMem(
-                          PTy->getAs<PointerType>()->getPointeeType()),
-                      CGF.getContext().getTypeAlignInChars(PTy));
-#endif  // INTEL_COLLAB
-=======
               Address(CGF.EmitScalarExpr(OAShE->getBase()),
                       CGF.ConvertTypeForMem(
                           OAShE->getBase()->getType()->getPointeeType()),
                       CGF.getContext().getTypeAlignInChars(
                           OAShE->getBase()->getType()));
->>>>>>> 9592e638059584c3e1dead36a6ab5012285980fe
         } else if (IsMemberReference) {
           const auto *ME = cast<MemberExpr>(I->getAssociatedExpression());
           LValue BaseLVal = EmitMemberExprBase(CGF, ME);
@@ -9554,8 +9538,9 @@ public:
     assert(ClassDecl && "not a class decl");
     CodeGenModule::InTargetRegionRAII ITR(CGF.CGM, /*ShouldEnter=*/true);
     for (const CodeGenFunction::VPtr &Vptr : CGF.getVTablePointers(ClassDecl)) {
-      Address This = Address::deprecated(
+      Address This = Address(
           PartialStruct.Base.getPointer(),
+          CGF.ConvertTypeForMem(ClassTy->getPointeeType()),
           CGF.CGM.getContext().getTypeAlignInChars(ClassTy));
       llvm::Value *VPtrValue = CGF.GetVptr(Vptr, This);
       if (!VPtrValue)
