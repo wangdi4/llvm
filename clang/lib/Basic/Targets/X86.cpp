@@ -141,6 +141,14 @@ bool X86TargetInfo::initFeatureMap(
   if (getTriple().getArch() == llvm::Triple::x86_64)
     setFeatureEnabled(Features, "sse2", true);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  // Enable xucc-mode for XuCC target.
+  if (getTriple().getArch() == llvm::Triple::x86_64_xucc)
+    setFeatureEnabled(Features, "xucc-mode", true);
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
+
   using namespace llvm::X86;
 
   SmallVector<StringRef, 16> CPUFeatures;
@@ -681,6 +689,17 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   Builder.defineMacro("__code_model_" + CodeModel + "__");
 
   // Target identification.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  if (getTriple().getArch() == llvm::Triple::x86_64_xucc) {
+    Builder.defineMacro("__amd64__");
+    Builder.defineMacro("__amd64");
+    Builder.defineMacro("__x86_64");
+    Builder.defineMacro("__x86_64__");
+    Builder.defineMacro("__XUCC__");
+  } else
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   if (getTriple().getArch() == llvm::Triple::x86_64) {
     Builder.defineMacro("__amd64__");
     Builder.defineMacro("__amd64");

@@ -148,3 +148,7 @@ storeseg xmmword ptr fs:[rdx]
 # CHECK: storeseg xmmword ptr gs:[rdx]
 # CHECK: encoding: [0x65,0x0f,0xb4,0x02]
 storeseg xmmword ptr gs:[rdx]
+
+# CHECK: int1
+# CHECK: encoding: [0xf1]
+int1
