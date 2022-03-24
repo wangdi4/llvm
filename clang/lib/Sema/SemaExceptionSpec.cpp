@@ -342,8 +342,7 @@ bool Sema::CheckEquivalentExceptionSpec(FunctionDecl *Old, FunctionDecl *New) {
   if (!MissingExceptionSpecification)
     return ReturnValueOnError;
 
-  const FunctionProtoType *NewProto =
-    New->getType()->castAs<FunctionProtoType>();
+  const auto *NewProto = New->getType()->castAs<FunctionProtoType>();
 
   // The new function declaration is only missing an empty exception
   // specification "throw()". If the throw() specification came from a
@@ -372,8 +371,7 @@ bool Sema::CheckEquivalentExceptionSpec(FunctionDecl *Old, FunctionDecl *New) {
     return false;
   }
 
-  const FunctionProtoType *OldProto =
-    Old->getType()->castAs<FunctionProtoType>();
+  const auto *OldProto = Old->getType()->castAs<FunctionProtoType>();
 
   FunctionProtoType::ExceptionSpecInfo ESI = OldProto->getExceptionSpecType();
   if (ESI.Type == EST_Dynamic) {

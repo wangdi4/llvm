@@ -48,7 +48,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetMachine.h" // INTEL
 #include "llvm/CodeGen/StackMaps.h"
 #include <algorithm>
 #include <cassert>
@@ -150,7 +149,7 @@ bool LiveIntervals::runOnMachineFunction(MachineFunction &fn) {
       getRegUnit(i);
   }
   LLVM_DEBUG(dump());
-  return true;
+  return false;
 }
 
 void LiveIntervals::print(raw_ostream &OS, const Module* ) const {

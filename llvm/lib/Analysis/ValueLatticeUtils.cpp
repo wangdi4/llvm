@@ -37,30 +37,8 @@ using namespace llvm;
 #if INTEL_CUSTOMIZATION
 bool llvm::canTrackArgumentsInterprocedurally(Function *F,
                                               bool AllowCallbacks) {
-  if (!F->hasLocalLinkage())
-    return false;
-
-  // Check if function has any uses other than block addresses, direct calls or
-  // callback calls (if allowed). If there are such uses function is considered
-  // address-taken and therefore it cannot be used for interprocedural argument
-  // tracking.
-  for (const Use &U : F->uses()) {
-    const User *FU = U.getUser();
-    if (isa<BlockAddress>(FU))
-      continue;
-
-    auto *Call = dyn_cast<CallBase>(FU);
-    if (Call && Call->isCallee(&U))
-      continue;
-
-    if (!AllowCallbacks)
-      return false;
-
-    AbstractCallSite ACS(&U);
-    if (!ACS || !ACS.isCallbackCall() || !ACS.isCallee(&U))
-      return false;
-  }
-  return true;
+  return F->hasLocalLinkage() &&
+         !F->hasAddressTaken(nullptr, /*IgnoreCallbackUses=*/AllowCallbacks);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -73,12 +51,13 @@ bool llvm::canTrackGlobalVariableInterprocedurally(GlobalVariable *GV) {
       !GV->hasDefinitiveInitializer())
     return false;
   return all_of(GV->users(), [&](User *U) {
-    // Currently all users of a global variable have to be none-volatile loads
-    // or stores and the global cannot be stored itself.
+    // Currently all users of a global variable have to be non-volatile loads
+    // or stores of the global type, and the global cannot be stored itself.
     if (auto *Store = dyn_cast<StoreInst>(U))
-      return Store->getValueOperand() != GV && !Store->isVolatile();
+      return Store->getValueOperand() != GV && !Store->isVolatile() &&
+             Store->getValueOperand()->getType() == GV->getValueType();
     if (auto *Load = dyn_cast<LoadInst>(U))
-      return !Load->isVolatile();
+      return !Load->isVolatile() && Load->getType() == GV->getValueType();
 
     return false;
   });

@@ -745,3 +745,14 @@ let isAllocatable = 0 in
 def TILEQUAD : RegisterClass<"X86", [untyped], 0, (add TQUADS)> {let Size = 32768;}
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 #endif // INTEL_CUSTOMIZATION
+
+//===----------------------------------------------------------------------===//
+// Register categories.
+//
+
+// The TILE and VK*PAIR registers may not be "fixed", but we don't want them
+// anyway.
+def FixedRegisters : RegisterCategory<[DEBUG_REG, CONTROL_REG, CCR, FPCCR,
+                                       DFCCR, TILE, VK1PAIR, VK2PAIR, VK4PAIR,
+                                       VK8PAIR, VK16PAIR]>;
+def GeneralPurposeRegisters : RegisterCategory<[GR64, GR32, GR16, GR8]>;

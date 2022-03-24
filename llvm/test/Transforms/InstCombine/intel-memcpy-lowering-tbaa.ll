@@ -3,24 +3,6 @@
 ; RUN: opt -instcombine %s -opaque-pointers -S | FileCheck %s
 ; RUN: opt -passes=instcombine %s -opaque-pointers -S | FileCheck %s
 
-; CHECK-NOT:    call void @llvm.memcpy.p0i8.p0i8.i64
-; CHECK:  %1 = getelementptr inbounds [[STRUCT:.*]], [[STRUCT_PTR:[a-z.0-9%*]+]] %q, i64 0, i32 0
-; CHECK-NEXT:  %2 = getelementptr inbounds [[STRUCT]], [[STRUCT_PTR]] %p, i64 0, i32 0
-; CHECK-NEXT:  %3 = load i32, {{.*}} %1, align 4, !tbaa !9
-; CHECK-NEXT:  store i32 %3, {{.*}} %2, align 4, !tbaa !9
-; CHECK-NEXT:  %4 = getelementptr inbounds [[STRUCT]], [[STRUCT_PTR]] %q, i64 0, i32 1
-; CHECK-NEXT:  %5 = getelementptr inbounds [[STRUCT]], [[STRUCT_PTR]] %p, i64 0, i32 1
-; CHECK-NEXT:  %6 = load i16, {{.*}} %4, align 2, !tbaa !11
-; CHECK-NEXT:  store i16 %6, {{.*}} %5, align 2, !tbaa !11
-; CHECK-NEXT:  %7 = getelementptr inbounds [[STRUCT]], [[STRUCT_PTR]] %q, i64 0, i32 2
-; CHECK-NEXT:  %8 = getelementptr inbounds [[STRUCT]], [[STRUCT_PTR]] %p, i64 0, i32 2
-; CHECK-NEXT:  %9 = load i8, {{.*}} %7, align 1, !tbaa !13
-; CHECK-NEXT:  store i8 %9, {{.*}} %8, align 1, !tbaa !13
-; CHECK-NEXT:  %10 = getelementptr inbounds [[STRUCT]], [[STRUCT_PTR]] %q, i64 0, i32 3
-; CHECK-NEXT:  %11 = getelementptr inbounds [[STRUCT]], [[STRUCT_PTR]] %p, i64 0, i32 3
-; CHECK-NEXT:  %12 = load i8, {{.*}} %10, align 1, !tbaa !13
-; CHECK-NEXT:  store i8 %12, {{.*}} %11, align 1, !tbaa !13
-
 ; ModuleID = 'test.cpp'
 source_filename = "test.cpp"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -31,6 +13,24 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @_Z3fooP3s64S0_S0_P4data(%struct.s64* %p, %struct.s64* %q, %struct.s64* %r, %struct.data* %d) local_unnamed_addr #0 {
+; CHECK-LABEL: @_Z3fooP3s64S0_S0_P4data(
+; CHECK:       for.body:
+; With -opaque-ptrs we won't have a GEP x,0 here
+; CHECK:         [[TMP3:%.*]] = load i32
+; CHECK-NEXT:    store i32 [[TMP3]]
+; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds [[STRUCT_S64:.*]], {{.*}} [[Q:%.*]], i64 0, i32 1
+; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds [[STRUCT_S64]], {{.*}} [[P:%.*]], i64 0, i32 1
+; CHECK-NEXT:    [[TMP6:%.*]] = load i16, {{.*}} [[TMP4]], align 2, !tbaa [[TBAA11:![0-9]+]]
+; CHECK-NEXT:    store i16 [[TMP6]], {{.*}} [[TMP5]], align 2, !tbaa [[TBAA11]]
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds [[STRUCT_S64]], {{.*}} [[Q]], i64 0, i32 2
+; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr inbounds [[STRUCT_S64]], {{.*}} [[P]], i64 0, i32 2
+; CHECK-NEXT:    [[TMP9:%.*]] = load i8, {{.*}} [[TMP7]], align 1, !tbaa [[TBAA13:![0-9]+]]
+; CHECK-NEXT:    store i8 [[TMP9]], {{.*}} [[TMP8]], align 1, !tbaa [[TBAA13]]
+; CHECK-NEXT:    [[TMP10:%.*]] = getelementptr inbounds [[STRUCT_S64]], {{.*}} [[Q]], i64 0, i32 3
+; CHECK-NEXT:    [[TMP11:%.*]] = getelementptr inbounds [[STRUCT_S64]], {{.*}} [[P]], i64 0, i32 3
+; CHECK-NEXT:    [[TMP12:%.*]] = load i8, {{.*}} [[TMP10]], align 1, !tbaa [[TBAA13]]
+; CHECK-NEXT:    store i8 [[TMP12]], {{.*}} [[TMP11]], align 1, !tbaa [[TBAA13]]
+;
 entry:
   br label %for.cond
 

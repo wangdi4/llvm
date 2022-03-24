@@ -16,13 +16,11 @@
 #ifndef LLVM_ANALYSIS_SYNCDEPENDENCEANALYSIS_H
 #define LLVM_ANALYSIS_SYNCDEPENDENCEANALYSIS_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include <map>
 #include <memory>
 #include <unordered_map>
+#include <vector>
 
 #include "llvm/IR/Intel_VPlanTemplateHelper.h" // INTEL
 
@@ -30,6 +28,8 @@ namespace llvm {
 
 class BasicBlock;
 class DominatorTree;
+class Instruction;
+class LoopInfo;
 class PostDominatorTree;
 
 template <class BasicBlock> // INTEL

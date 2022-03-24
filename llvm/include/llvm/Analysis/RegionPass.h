@@ -32,7 +32,6 @@
 #ifndef LLVM_ANALYSIS_REGIONPASS_H
 #define LLVM_ANALYSIS_REGIONPASS_H
 
-#include "llvm/Analysis/RegionInfo.h"
 #include "llvm/IR/LegacyPassManagers.h"
 #include "llvm/Pass.h"
 #include <deque>
@@ -40,6 +39,8 @@
 namespace llvm {
 class Function;
 class RGPassManager;
+class Region;
+class RegionInfo;
 
 //===----------------------------------------------------------------------===//
 /// A pass that runs on each Region in a function.

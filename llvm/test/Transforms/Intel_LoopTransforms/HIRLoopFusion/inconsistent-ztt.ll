@@ -27,7 +27,7 @@
 ; CHECK: i2
 ; CHECK: i3
 
-; CHECK: Ztt: if (%brmerge2988 == 0)
+; CHECK: Ztt: if (%brmerge == 0)
 ; CHECK: i2
 ; CHECK: i3
 

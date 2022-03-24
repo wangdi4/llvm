@@ -6155,6 +6155,7 @@ Function *VPOParoptUtils::genOutlineFunction(
                    /* AssumptionCache */ AC,
                    /* AllowVarArgs */ false,
                    /* AllowAlloca */ true,
+                   /* AllocationBlock */ nullptr, // INTEL
                    /* Suffix */ Suffix,
                    /* AllowEHTypeID */ true,
                    /* AllowUnreachableBlocks */

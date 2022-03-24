@@ -34,10 +34,8 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/Analysis/InstructionPrecedenceTracking.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/PassManager.h"
@@ -59,6 +57,7 @@ class CallInst;
 class ExtractValueInst;
 class Function;
 class FunctionPass;
+class ImplicitControlFlowTracking;
 class LoadInst;
 class LoopInfo;
 class MemDepResult;

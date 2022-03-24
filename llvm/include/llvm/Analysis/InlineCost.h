@@ -30,18 +30,22 @@
 #ifndef LLVM_ANALYSIS_INLINECOST_H
 #define LLVM_ANALYSIS_INLINECOST_H
 
-#include "llvm/Analysis/AssumptionCache.h"
-#include "llvm/Analysis/CallGraphSCCPass.h"
+#include "llvm/ADT/APInt.h"
+#include "llvm/ADT/Optional.h"
+#include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/Analysis/InlineModelFeatureMaps.h"
 #include "llvm/Analysis/Intel_WP.h"           // INTEL
 #include "llvm/Analysis/LoopInfo.h"           // INTEL
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/ADT/SmallSet.h"                // INTEL
+#include "llvm/IR/PassManager.h"
 #include <cassert>
 #include <climits>
 #include <map>                                // INTEL
 
 namespace llvm {
+class AssumptionCache;
+class OptimizationRemarkEmitter;
 class BlockFrequencyInfo;
 class CallBase;
 class DataLayout;
@@ -77,6 +81,9 @@ const unsigned BasicBlockSuccRatio = 210; // INTEL
 /// Do not inline dynamic allocas that have been constant propagated to be
 /// static allocas above this amount in bytes.
 const uint64_t MaxSimplifiedDynamicAllocaToInline = 65536;
+
+const char FunctionInlineCostMultiplierAttributeName[] =
+    "function-inline-cost-multiplier";
 } // namespace InlineConstants
 
 // The cost-benefit pair computed by cost-benefit analysis.
@@ -495,6 +502,8 @@ struct InlineParams {
   /// Indicate whether we allow inlining for recursive call.
   Optional<bool> AllowRecursiveCall = false;
 };
+
+Optional<int> getStringFnAttrAsInt(CallBase &CB, StringRef AttrKind);
 
 /// Generate the parameters to tune the inline cost analysis based only on the
 /// commandline options.

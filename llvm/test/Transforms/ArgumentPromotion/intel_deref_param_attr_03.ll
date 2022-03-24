@@ -10,8 +10,8 @@
 %struct.ss = type { i64, i32 }
 
 ; CHECK-LABEL: define {{[^@]+}}@f
-; CHECK-SAME: (%struct.ss* dereferenceable_or_null(16) %b, i32* %X, i32 %i)
-define internal void @f(%struct.ss* dereferenceable_or_null(16) %b, i32* %X, i32 %i) {
+; CHECK-SAME: (%struct.ss* align 8 dereferenceable_or_null(16) %b, i32* %X, i32 %i)
+define internal void @f(%struct.ss* align 8 dereferenceable_or_null(16) %b, i32* %X, i32 %i) {
 entry:
   br i1 undef, label %b1, label %b2
 

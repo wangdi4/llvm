@@ -304,6 +304,7 @@ void initializeInterleavedAccessPass(PassRegistry&);
 void initializeInterleavedLoadCombinePass(PassRegistry &);
 void initializeInternalizeLegacyPassPass(PassRegistry&);
 void initializeIntervalPartitionPass(PassRegistry&);
+void initializeJMCInstrumenterPass(PassRegistry&);
 void initializeJumpThreadingPass(PassRegistry&);
 void initializeIVSplitLegacyPassPass(PassRegistry&); // INTEL
 void initializeLCSSAVerificationPassPass(PassRegistry&);
@@ -544,6 +545,7 @@ void initializeTargetLibraryInfoWrapperPassPass(PassRegistry&);
 void initializeTargetPassConfigPass(PassRegistry&);
 void initializeTargetTransformInfoWrapperPassPass(PassRegistry&);
 void initializeThreadSanitizerLegacyPassPass(PassRegistry&);
+void initializeTLSVariableHoistLegacyPassPass(PassRegistry &);
 void initializeTwoAddressInstructionPassPass(PassRegistry&);
 void initializeTypeBasedAAWrapperPassPass(PassRegistry&);
 void initializeTypePromotionPass(PassRegistry&);

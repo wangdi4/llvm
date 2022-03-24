@@ -19,6 +19,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/WithColor.h"
 
 #define ITT_TABLE_VERSION_MAJOR(v)    (((v) >> 8) & 0xff)

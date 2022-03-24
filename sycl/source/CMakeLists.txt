@@ -50,6 +50,18 @@ function(add_sycl_rt_library LIB_NAME)
                 ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
   endif()
 
+  if (SYCL_ENABLE_COVERAGE)
+    target_compile_options(${LIB_OBJ_NAME} PUBLIC
+      -fprofile-instr-generate -fcoverage-mapping
+    )
+    target_compile_options(${LIB_NAME} PUBLIC
+      -fprofile-instr-generate -fcoverage-mapping
+    )
+    target_link_options(${LIB_NAME} PUBLIC
+      -fprofile-instr-generate -fcoverage-mapping
+    )
+  endif()
+
   if (ARG_COMPILE_OPTIONS)
     target_compile_options(${LIB_OBJ_NAME} PRIVATE ${ARG_COMPILE_OPTIONS})
   endif()
@@ -159,6 +171,7 @@ set(SYCL_SOURCES
     "detail/context_impl.cpp"
     "detail/device_binary_image.cpp"
     "detail/device_filter.cpp"
+    "detail/device_global_map.cpp"
     "detail/device_impl.cpp"
     "detail/error_handling/enqueue_kernel.cpp"
     "detail/event_impl.cpp"
@@ -272,13 +285,6 @@ if (NOT MSVC)
   endif()
 endif()
 # end INTEL_CUSTOMIZATION
-
-# Enable new IN_LIST operator.
-cmake_policy(SET CMP0057 NEW)
-
-if (libdevice IN_LIST LLVM_ENABLE_PROJECTS)
-  add_dependencies(sycl libsycldevice)
-endif()
 
 # INTEL_CUSTOMIZATION
 set(SYCL_ARCHIVE_INSTALL_DIR "lib${LLVM_LIBDIR_SUFFIX}")

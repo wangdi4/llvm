@@ -1,3 +1,4 @@
+//===- AlwaysInliner.cpp - Code to inline always_inline functions ----------===//
 // INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
@@ -33,6 +34,7 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InlineCost.h"
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/CallingConv.h"
@@ -89,8 +91,9 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
       for (User *U : F.users())
         if (auto *CB = dyn_cast<CallBase>(U))
           if (CB->getCalledFunction() == &F &&
-              CB->hasFnAttr(Attribute::AlwaysInline))
-            Calls.insert(CB);
+                CB->hasFnAttr(Attribute::AlwaysInline) &&
+                !CB->getAttributes().hasFnAttr(Attribute::NoInline))
+              Calls.insert(CB);
 
       for (CallBase *CB : Calls) {
         Function *Caller = CB->getCaller();
@@ -268,6 +271,9 @@ InlineCost AlwaysInlinerLegacyPass::getInlineCost(CallBase &CB) {
   if (!CB.hasFnAttr(Attribute::AlwaysInline))
     return InlineCost::getNever("no alwaysinline attribute",  // INTEL
                                 NinlrNotAlwaysInline); // INTEL
+
+  if (Callee->hasFnAttribute(Attribute::AlwaysInline) && CB.isNoInline())
+    return InlineCost::getNever("noinline call site attribute");
 
   auto IsViable = isInlineViable(*Callee);
   if (!IsViable.isSuccess())

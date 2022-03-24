@@ -7,9 +7,18 @@
 ; RUN:     -passes='lto<O1>' -S %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O --check-prefix=CHECK-O1
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
+; RUN:     -passes='lto<O1>' -S %s -passes-ep-full-link-time-optimization-early=no-op-module \
+; RUN:     -passes-ep-full-link-time-optimization-last=no-op-module 2>&1 \
+; RUN:     | FileCheck %s --check-prefix=CHECK-O --check-prefix=CHECK-O1 --check-prefix=CHECK-EP
+; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='lto<O2>' -S  %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O --check-prefix=CHECK-O23SZ \
 ; RUN:     --check-prefix=CHECK-O2
+; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
+; RUN:     -passes='lto<O2>' -S %s -passes-ep-full-link-time-optimization-early=no-op-module \
+; RUN:     -passes-ep-full-link-time-optimization-last=no-op-module 2>&1 \
+; RUN:     | FileCheck %s --check-prefix=CHECK-O --check-prefix=CHECK-O23SZ \
+; RUN:     --check-prefix=CHECK-O2 --check-prefix=CHECK-EP
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='lto<O3>' -S  %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O --check-prefix=CHECK-O23SZ \
@@ -27,6 +36,7 @@
 ; RUN:     --check-prefix=CHECK-O3 --check-prefix=CHECK-EP-Peephole
 
 ; CHECK-O: Running pass: Annotation2Metadata
+; CHECK-EP-NEXT: Running pass: NoOpModulePass
 ; CHECK-O-NEXT: Running pass: CrossDSOCFIPass
 ; CHECK-O-NEXT: Running pass: InlineReportSetupPass ;INTEL
 ; CHECK-O-NEXT: Running pass: XmainOptLevelAnalysisInit ;INTEL
@@ -307,6 +317,7 @@
 ; CHECK-O23SZ-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O23SZ-NEXT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-O23SZ-NEXT: Running pass: GlobalDCEPass
+; CHECK-EP-NEXT: Running pass: NoOpModulePass
 ; CHECK-O-NEXT: Running pass: AnnotationRemarksPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: InlineReportEmitterPass ;INTEL
 ; CHECK-O-NEXT: Running pass: PrintModulePass

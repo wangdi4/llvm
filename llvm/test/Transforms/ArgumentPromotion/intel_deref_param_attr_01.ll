@@ -12,7 +12,7 @@
 ; CHECK: %tmp2 = add i64 [[B_0]], 1
 ; CHECK: store i32 0, i32* %X, align 4
 ; CHECK: br label %b2
-define internal void @f(i64* dereferenceable(8) %b, i32* %X, i32 %i) {
+define internal void @f(i64* align 8 dereferenceable(8) %b, i32* %X, i32 %i) {
 entry:
   br i1 undef, label %b1, label %b2
 

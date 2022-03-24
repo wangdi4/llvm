@@ -737,6 +737,7 @@ struct Object {
     llvm_unreachable("the section header table chunk must always be present");
   }
 
+  ELF_ELFOSABI getOSAbi() const;
   unsigned getMachine() const;
 };
 

@@ -208,6 +208,7 @@ enum Kind {
 
   // Attributes:
   kw_attributes,
+  kw_allocalign,
   kw_allocsize,
   kw_alwaysinline,
   kw_argmemonly,
@@ -252,6 +253,7 @@ enum Kind {
   kw_nosync,
   kw_nocf_check,
   kw_nounwind,
+  kw_nosanitize_bounds,
   kw_nosanitize_coverage,
   kw_null_pointer_is_valid,
   kw_optforfuzzing,
@@ -285,6 +287,8 @@ enum Kind {
   kw_immarg,
   kw_byref,
   kw_mustprogress,
+  kw_sync,
+  kw_async,
 
   kw_type,
   kw_opaque,

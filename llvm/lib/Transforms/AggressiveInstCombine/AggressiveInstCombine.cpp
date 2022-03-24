@@ -41,7 +41,6 @@
 #include "llvm/Analysis/Intel_WP.h"            // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -53,6 +52,10 @@
 
 using namespace llvm;
 using namespace PatternMatch;
+
+namespace llvm {
+class DataLayout;
+}
 
 #define DEBUG_TYPE "aggressive-instcombine"
 
@@ -218,14 +221,13 @@ static bool foldGuardedFunnelShift(Instruction &I, const DominatorTree &DT) {
 /// of 'and' ops, then we also need to capture the fact that we saw an
 /// "and X, 1", so that's an extra return value for that case.
 struct MaskOps {
-  Value *Root;
+  Value *Root = nullptr;
   APInt Mask;
   bool MatchAndChain;
-  bool FoundAnd1;
+  bool FoundAnd1 = false;
 
   MaskOps(unsigned BitWidth, bool MatchAnds)
-      : Root(nullptr), Mask(APInt::getZero(BitWidth)), MatchAndChain(MatchAnds),
-        FoundAnd1(false) {}
+      : Mask(APInt::getZero(BitWidth)), MatchAndChain(MatchAnds) {}
 };
 
 /// This is a recursive helper for foldAnyOrAllBitsSet() that walks through a

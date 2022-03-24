@@ -25,6 +25,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(SYCL_ENABLE_WERROR "Treat all warnings as errors in SYCL project" OFF)
 option(SYCL_DISABLE_STL_ASSERTIONS "Disable assertions in STL containers" OFF)
 option(SYCL_ADD_DEV_VERSION_POSTFIX "Adds -V postfix to version string" ON)
+option(SYCL_ENABLE_COVERAGE "Enables code coverage for runtime and unit tests" OFF)
+
+if (NOT SYCL_COVERAGE_PATH)
+  set(SYCL_COVERAGE_PATH "${CMAKE_CURRENT_BINARY_DIR}/profiles")
+endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 include(AddSYCLExecutable)
@@ -81,7 +86,23 @@ if(MSVC)
   include(LLVMCheckLinkerFlag)
   llvm_check_linker_flag(CXX "/DEBUG" LINKER_SUPPORTS_DEBUG)
   if(LINKER_SUPPORTS_DEBUG)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zi")
+    # sccache is not compatible with /Zi flag
+    if (CMAKE_CXX_COMPILER_LAUNCHER STREQUAL "sccache")
+      # CMake may put /Zi by default
+      if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        string(REPLACE "/Zi" "/Z7" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+        string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+      elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+        string(REPLACE "/Zi" "/Z7" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+        string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
+      elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+        string(REPLACE "/Zi" "/Z7" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+        string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
+      endif()
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Z7")
+    else()
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zi")
+    endif()
     add_link_options("/DEBUG")
 
     # Enable unreferenced removal and ICF in Release mode.
@@ -257,6 +278,7 @@ add_custom_target(sycl-compiler
           sycl-post-link
           opencl-aot
 )
+
 add_custom_target( sycl-toolchain
   DEPENDS ${SYCL_RT_LIBS}
           sycl-compiler
@@ -272,6 +294,15 @@ list(FIND LLVM_ENABLE_PROJECTS opencl-aot OPENCL_AOT_FOUND)
 if(NOT OPENCL_AOT_FOUND EQUAL -1)
   add_dependencies(sycl-toolchain opencl-aot)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS opencl-aot)
+endif()
+
+# Enable new IN_LIST operator.
+cmake_policy(SET CMP0057 NEW)
+
+if (libdevice IN_LIST LLVM_ENABLE_PROJECTS)
+  # INTEL_CUSTOMIZATION
+  add_dependencies(sycl libsycldevice)
+  # end INTEL_CUSTOMIZATION
 endif()
 
 if (SYCL_ENABLE_XPTI_TRACING)
@@ -345,6 +376,16 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      # guard below.
 # end INTEL_CUSTOMIZATION
 )
+
+if (TARGET sycl-prof)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-prof)
+endif()
+if (TARGET sycl-sanitize)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-sanitize)
+endif()
+if (TARGET sycl-trace)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-trace)
+endif()
 
 if(OpenCL_INSTALL_KHRONOS_ICD_LOADER AND TARGET OpenCL-ICD)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS OpenCL-ICD)

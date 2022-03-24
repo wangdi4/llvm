@@ -563,6 +563,8 @@ class Attr {
   //   match rules.
   // - It has GNU/CXX11 spelling and doesn't require delayed parsing.
   bit PragmaAttributeSupport;
+  // Set to true if this attribute accepts parameter pack expansion expressions.
+  bit AcceptsExprPack = 0;
   // Lists language options, one of which is required to be true for the
   // attribute to be applicable. If empty, no language options are required.
   list<LangOpt> LangOpts = [];
@@ -814,6 +816,7 @@ def Annotate : InheritableParamAttr {
   }
   }];
   let PragmaAttributeSupport = 1;
+  let AcceptsExprPack = 1;
   let Documentation = [Undocumented];
 }
 
@@ -1264,6 +1267,7 @@ def SYCLDeviceHas : InheritableAttr {
   let Args = [VariadicExprArgument<"Aspects">];
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost];
   let Documentation = [SYCLDeviceHasDocs];
+  let SupportsNonconformingLambdaSyntax = 1;
 }
 
 def SYCLUsesAspects : InheritableAttr {
@@ -1273,6 +1277,15 @@ def SYCLUsesAspects : InheritableAttr {
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost];
   // Only used internally by the SYCL implementation
   let Documentation = [Undocumented];
+}
+
+def SYCLDeviceGlobal : InheritableAttr {
+  let Spellings = [CXX11<"__sycl_detail__", "device_global">];
+  let Subjects = SubjectList<[CXXRecord], ErrorDiag>;
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost];
+  // Only used internally by the SYCL implementation
+  let Documentation = [Undocumented];
+  let SimpleHandler = 1;
 }
 
 // Marks functions which must not be vectorized via horizontal SIMT widening,
@@ -1361,7 +1374,7 @@ def SYCLScope : Attr {
 def SYCLDeviceIndirectlyCallable : InheritableAttr {
   let Spellings = [ CXX11<"intel", "device_indirectly_callable"> ];
   let Subjects = SubjectList<[Function]>;
-  let LangOpts = [SYCLIsDevice];
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost];
   let Documentation = [SYCLDeviceIndirectlyCallableDocs];
 }
 
@@ -1393,7 +1406,7 @@ def SYCLRequiresDecomposition : InheritableAttr {
 def SYCLIntelKernelArgsRestrict : InheritableAttr {
   let Spellings = [CXX11<"intel", "kernel_args_restrict">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
-  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost];
   let Documentation = [SYCLIntelKernelArgsRestrictDocs];
   let SimpleHandler = 1;
   let SupportsNonconformingLambdaSyntax = 1;
@@ -1403,7 +1416,7 @@ def SYCLIntelNumSimdWorkItems : InheritableAttr {
   let Spellings = [GNU<"num_simd_work_items">, //INTEL
                    CXX11<"intel","num_simd_work_items">];
   let Args = [ExprArgument<"Value">];
-  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL]; //INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL]; //INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelNumSimdWorkItemsAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
@@ -1413,7 +1426,7 @@ def SYCLIntelUseStallEnableClusters : InheritableAttr {
   let Spellings = [CXX11<"intel","use_stall_enable_clusters">, //INTEL
                    Clang<"stall_enable">, //INTEL
                    Clang<"use_stall_enable_clusters">]; //INTEL
-  let LangOpts = [SYCLIsHost, SYCLIsDevice, HLS, OpenCL]; //INTEL
+  let LangOpts = [SilentlyIgnoreSYCLIsHost, SYCLIsDevice, HLS, OpenCL]; //INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelUseStallEnableClustersAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
@@ -1423,7 +1436,7 @@ def SYCLIntelSchedulerTargetFmaxMhz : InheritableAttr {
   let Spellings = [GNU<"scheduler_target_fmax_mhz">, //INTEL
                    CXX11<"intel","scheduler_target_fmax_mhz">];
   let Args = [ExprArgument<"Value">];
-  let LangOpts = [SYCLIsDevice, SYCLIsHost, HLS, OpenCL]; //INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelSchedulerTargetFmaxMhzAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
@@ -1435,20 +1448,23 @@ def SYCLIntelMaxWorkGroupSize : InheritableAttr {
   let Args = [ExprArgument<"XDim">,
               ExprArgument<"YDim">,
               ExprArgument<"ZDim">];
-  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL]; //INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL]; //INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let AdditionalMembers = [{
-    ArrayRef<const Expr *> dimensions() const {
-      return {getXDim(), getYDim(), getZDim()};
+    Optional<llvm::APSInt> getXDimVal() const {
+      if (const auto *CE = dyn_cast<ConstantExpr>(getXDim()))
+        return CE->getResultAsAPSInt();
+      return None;
     }
-    Optional<llvm::APSInt> getXDimVal(ASTContext &Ctx) const {
-      return getXDim()->getIntegerConstantExpr(Ctx);
+    Optional<llvm::APSInt> getYDimVal() const {
+      if (const auto *CE = dyn_cast<ConstantExpr>(getYDim()))
+        return CE->getResultAsAPSInt();
+      return None;
     }
-    Optional<llvm::APSInt> getYDimVal(ASTContext &Ctx) const {
-      return getYDim()->getIntegerConstantExpr(Ctx);
-    }
-    Optional<llvm::APSInt> getZDimVal(ASTContext &Ctx) const {
-      return getZDim()->getIntegerConstantExpr(Ctx);
+    Optional<llvm::APSInt> getZDimVal() const {
+      if (const auto *CE = dyn_cast<ConstantExpr>(getZDim()))
+        return CE->getResultAsAPSInt();
+      return None;
     }
   }];
   let Documentation = [SYCLIntelMaxWorkGroupSizeAttrDocs];
@@ -1459,7 +1475,7 @@ def SYCLIntelMaxGlobalWorkDim : InheritableAttr {
   let Spellings = [GNU<"max_global_work_dim">, //INTEL
                    CXX11<"intel","max_global_work_dim">];
   let Args = [ExprArgument<"Value">];
-  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL]; //INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL]; //INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelMaxGlobalWorkDimAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
@@ -1494,10 +1510,10 @@ def C11NoReturn : InheritableAttr {
 }
 
 def CXX11NoReturn : InheritableAttr {
-  let Spellings = [CXX11<"", "noreturn", 200809>];
+  let Spellings = [CXX11<"", "noreturn", 200809>,
+                   C2x<"", "noreturn", 202202>, C2x<"", "_Noreturn", 202202>];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [CXX11NoReturnDocs];
-  let SimpleHandler = 1;
 }
 
 // Similar to CUDA, OpenCL attributes do not receive a [[]] spelling because
@@ -1717,7 +1733,6 @@ def : MutualExclusions<[Likely, Unlikely]>;
 def NoMerge : DeclOrStmtAttr {
   let Spellings = [Clang<"nomerge">];
   let Documentation = [NoMergeDocs];
-  let InheritEvenIfAlreadyPresent = 1;
   let Subjects = SubjectList<[Function, Stmt], ErrorDiag,
                              "functions and statements">;
   let SimpleHandler = 1;
@@ -2127,12 +2142,14 @@ def : MutualExclusions<[SYCLIntelFPGAMaxConcurrency,
 def SYCLIntelFPGALoopCount : StmtAttr {
   let Spellings = [CXX11<"intel", "loop_count_min">,
                    CXX11<"intel", "loop_count_max">,
-                   CXX11<"intel", "loop_count_avg">];
+                   CXX11<"intel", "loop_count_avg">,
+                   CXX11<"intel", "loop_count">];
   let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
                              ErrorDiag, "'for', 'while', and 'do' statements">;
   let Accessors = [Accessor<"isMin", [CXX11<"intel", "loop_count_min">]>,
                    Accessor<"isMax", [CXX11<"intel", "loop_count_max">]>,
-                   Accessor<"isAvg", [CXX11<"intel", "loop_count_avg">]>];
+                   Accessor<"isAvg", [CXX11<"intel", "loop_count_avg">]>,
+                   Accessor<"isCount", [CXX11<"intel", "loop_count">]>];
   let Args = [ExprArgument<"NTripCount">];
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost];
   let IsStmtDependent = 1;
@@ -2362,7 +2379,7 @@ def IntelFPGABankBits : Attr {
   let Args = [VariadicExprArgument<"Args">];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticAgentMemVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS]; // INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [IntelFPGABankBitsDocs];
 }
 def : MutualExclusions<[IntelFPGARegister, IntelFPGABankBits]>;
@@ -2480,10 +2497,14 @@ def Convergent : InheritableAttr {
   let SimpleHandler = 1;
 }
 
-def NoInline : InheritableAttr {
-  let Spellings = [GCC<"noinline">, Declspec<"noinline">];
-  let Subjects = SubjectList<[Function]>;
-  let Documentation = [Undocumented];
+def NoInline : DeclOrStmtAttr {
+  let Spellings = [GCC<"noinline">, CXX11<"clang", "noinline">,
+                   C2x<"clang", "noinline">, Declspec<"noinline">];
+  let Accessors = [Accessor<"isClangNoInline", [CXX11<"clang", "noinline">,
+                                                C2x<"clang", "noinline">]>];
+  let Documentation = [NoInlineDocs];
+  let Subjects = SubjectList<[Function, Stmt], ErrorDiag,
+                             "functions and statements">;
   let SimpleHandler = 1;
 }
 
@@ -3133,9 +3154,12 @@ def WorkGroupSizeHint :  InheritableAttr {
   let Spellings = [GNU<"work_group_size_hint">,
                    CXX11<"sycl", "work_group_size_hint">];
   let Args = [ExprArgument<"XDim">,
-              ExprArgument<"YDim">,
-              ExprArgument<"ZDim">];
+              ExprArgument<"YDim", /*optional*/1>,
+              ExprArgument<"ZDim", /*optional*/1>];
   let Subjects = SubjectList<[Function], ErrorDiag>;
+  // In OpenCL C this attribute takes no default values whereas in SYCL it does. 
+  // To avoid confusing diagnostics, the checks are deferred to "handleWorkGroupSizeHint". 
+  let HasCustomParsing = 1;
   let AdditionalMembers = [{
     Optional<llvm::APSInt> getXDimVal() const {
       if (const auto *CE = dyn_cast<ConstantExpr>(getXDim()))
@@ -3318,6 +3342,19 @@ def VectorCall : DeclOrTypeAttr {
                    Keyword<"_vectorcall">];
 //  let Subjects = [Function, ObjCMethod];
   let Documentation = [VectorCallDocs];
+}
+
+def ZeroCallUsedRegs : InheritableAttr {
+  let Spellings = [GCC<"zero_call_used_regs">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Args = [
+    EnumArgument<"ZeroCallUsedRegs", "ZeroCallUsedRegsKind",
+                 ["skip", "used-gpr-arg", "used-gpr", "used-arg", "used",
+                  "all-gpr-arg", "all-gpr", "all-arg", "all"],
+                 ["Skip", "UsedGPRArg", "UsedGPR", "UsedArg", "Used",
+                  "AllGPRArg", "AllGPR", "AllArg", "All"]>
+  ];
+  let Documentation = [ZeroCallUsedRegsDocs];
 }
 
 def Pascal : DeclOrTypeAttr {

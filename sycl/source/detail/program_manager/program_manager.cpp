@@ -382,26 +382,40 @@ RT::PiProgram ProgramManager::createPIProgram(const RTDeviceBinaryImage &Img,
 
   return Res;
 }
-static void applyOptionsFromImage(std::string &CompileOpts,
-                                  std::string &LinkOpts,
-                                  const RTDeviceBinaryImage &Img) {
+
+static void appendLinkOptionsFromImage(std::string &LinkOpts,
+                                       const RTDeviceBinaryImage &Img) {
+  static const char *LinkOptsEnv = SYCLConfig<SYCL_PROGRAM_LINK_OPTIONS>::get();
+  // Update only if link options are not overwritten by environment variable
+  if (!LinkOptsEnv) {
+    const char *TemporaryStr = Img.getLinkOptions();
+    if (TemporaryStr != nullptr) {
+      if (!LinkOpts.empty())
+        LinkOpts += " ";
+      LinkOpts += std::string(TemporaryStr);
+    }
+  }
+}
+
+static void appendCompileOptionsFromImage(std::string &CompileOpts,
+                                          const RTDeviceBinaryImage &Img) {
   // Build options are overridden if environment variables are present.
   // Environment variables are not changed during program lifecycle so it
   // is reasonable to use static here to read them only once.
   static const char *CompileOptsEnv =
       SYCLConfig<SYCL_PROGRAM_COMPILE_OPTIONS>::get();
-  static const char *LinkOptsEnv = SYCLConfig<SYCL_PROGRAM_LINK_OPTIONS>::get();
+  pi_device_binary_property isEsimdImage = Img.getProperty("isEsimdImage");
   // Update only if compile options are not overwritten by environment
   // variable
   if (!CompileOptsEnv) {
     if (!CompileOpts.empty())
       CompileOpts += " ";
-    CompileOpts += Img.getCompileOptions();
+    const char *TemporaryStr = Img.getCompileOptions();
+    if (TemporaryStr != nullptr)
+      CompileOpts += std::string(TemporaryStr);
   }
-
   // The -vc-codegen option is always preserved for ESIMD kernels, regardless
   // of the contents SYCL_PROGRAM_COMPILE_OPTIONS environment variable.
-  pi_device_binary_property isEsimdImage = Img.getProperty("isEsimdImage");
   if (isEsimdImage && pi::DeviceBinaryProperty(isEsimdImage).asUint32()) {
     if (!CompileOpts.empty())
       CompileOpts += " ";
@@ -411,12 +425,13 @@ static void applyOptionsFromImage(std::string &CompileOpts,
     if (detail::SYCLConfig<detail::SYCL_RT_WARNING_LEVEL>::get() == 0)
       CompileOpts += " -disable-finalizer-msg";
   }
+}
 
-  // Update only if link options are not overwritten by environment variable
-  if (!LinkOptsEnv)
-    if (!LinkOpts.empty())
-      LinkOpts += " ";
-  LinkOpts += Img.getLinkOptions();
+static void applyOptionsFromImage(std::string &CompileOpts,
+                                  std::string &LinkOpts,
+                                  const RTDeviceBinaryImage &Img) {
+  appendCompileOptionsFromImage(CompileOpts, Img);
+  appendLinkOptionsFromImage(LinkOpts, Img);
 }
 
 static void applyOptionsFromEnvironment(std::string &CompileOpts,
@@ -502,10 +517,29 @@ RT::PiProgram ProgramManager::getBuiltPIProgram(
   if (Prg)
     Prg->stableSerializeSpecConstRegistry(SpecConsts);
 
-  auto BuildF = [this, &M, &KSId, &ContextImpl, &DeviceImpl, Prg, &CompileOpts,
+  // Check if we can optimize program builds for sub-devices by using a program
+  // built for the root device
+  DeviceImplPtr RootDevImpl = DeviceImpl;
+  while (!RootDevImpl->isRootDevice()) {
+    auto ParentDev = detail::getSyclObjImpl(
+        RootDevImpl->get_info<info::device::parent_device>());
+    // Sharing is allowed within a single context only
+    if (!ContextImpl->hasDevice(ParentDev))
+      break;
+    RootDevImpl = ParentDev;
+  }
+
+  pi_bool MustBuildOnSubdevice = PI_TRUE;
+  ContextImpl->getPlugin().call<PiApiKind::piDeviceGetInfo>(
+      RootDevImpl->getHandleRef(), PI_DEVICE_INFO_BUILD_ON_SUBDEVICE,
+      sizeof(pi_bool), &MustBuildOnSubdevice, nullptr);
+
+  DeviceImplPtr Dev =
+      (MustBuildOnSubdevice == PI_TRUE) ? DeviceImpl : RootDevImpl;
+  auto BuildF = [this, &M, &KSId, &ContextImpl, &Dev, Prg, &CompileOpts,
                  &LinkOpts, &JITCompilationIsRequired, SpecConsts] {
     auto Context = createSyclObjFromImpl<context>(ContextImpl);
-    auto Device = createSyclObjFromImpl<device>(DeviceImpl);
+    auto Device = createSyclObjFromImpl<device>(Dev);
 
     const RTDeviceBinaryImage &Img =
         getDeviceImage(M, KSId, Context, Device, JITCompilationIsRequired);
@@ -557,7 +591,7 @@ RT::PiProgram ProgramManager::getBuiltPIProgram(
     return BuiltProgram.release();
   };
 
-  const RT::PiDevice PiDevice = DeviceImpl->getHandleRef();
+  const RT::PiDevice PiDevice = Dev->getHandleRef();
 
   auto BuildResult = getOrBuild<PiProgramT, compile_program_error>(
       Cache,
@@ -615,11 +649,9 @@ ProgramManager::getOrCreateKernel(OSModuleHandle M,
   auto BuildF = [&Program, &KernelName, &ContextImpl] {
     PiKernelT *Result = nullptr;
 
-    // TODO need some user-friendly error/exception
-    // instead of currently obscure one
     const detail::plugin &Plugin = ContextImpl->getPlugin();
-    Plugin.call<PiApiKind::piKernelCreate>(Program, KernelName.c_str(),
-                                           &Result);
+    Plugin.call<errc::kernel_not_supported, PiApiKind::piKernelCreate>(
+        Program, KernelName.c_str(), &Result);
 
     // Some PI Plugins (like OpenCL) require this call to enable USM
     // For others, PI will turn this into a NOP.
@@ -1002,9 +1034,12 @@ ProgramManager::ProgramPtr ProgramManager::build(
 
   const detail::plugin &Plugin = Context->getPlugin();
   if (LinkPrograms.empty() && !ForceLink) {
+    const std::string &Options = LinkOptions.empty()
+                                     ? CompileOptions
+                                     : (CompileOptions + " " + LinkOptions);
     RT::PiResult Error = Plugin.call_nocheck<PiApiKind::piProgramBuild>(
-        Program.get(), /*num devices =*/1, &Device, CompileOptions.c_str(),
-        nullptr, nullptr);
+        Program.get(), /*num devices =*/1, &Device, Options.c_str(), nullptr,
+        nullptr);
     if (Error != PI_SUCCESS)
       throw compile_program_error(getProgramBuildLog(Program.get(), Context),
                                   Error);
@@ -1171,6 +1206,32 @@ void ProgramManager::addImages(pi_device_binaries DeviceBinary) {
         for (_pi_offload_entry EntriesIt = EntriesB; EntriesIt != EntriesE;
              ++EntriesIt) {
           KSIdMap.insert(std::make_pair(EntriesIt->name, KSId));
+        }
+      }
+      // ... and initialize associated device_global information
+      {
+        std::lock_guard<std::mutex> DeviceGlobalsGuard(m_DeviceGlobalsMutex);
+
+        auto DeviceGlobals = Img->getDeviceGlobals();
+        for (const pi_device_binary_property &DeviceGlobal : DeviceGlobals) {
+          auto Entry = m_DeviceGlobals.find(DeviceGlobal->Name);
+          assert(Entry != m_DeviceGlobals.end() &&
+                 "Device global has not been registered.");
+
+          pi::ByteArray DeviceGlobalInfo =
+              pi::DeviceBinaryProperty(DeviceGlobal).asByteArray();
+
+          // The supplied device_global info property is expected to contain:
+          // * 8 bytes - Size of the property.
+          // * 4 bytes - Size of the underlying type in the device_global.
+          // * 1 byte  - 0 if device_global has device_image_scope and any value
+          //             otherwise.
+          // Note: Property may be padded.
+          assert(DeviceGlobalInfo.size() >= 13 && "Unexpected property size");
+          const std::uint32_t TypeSize =
+              *reinterpret_cast<const std::uint32_t *>(&DeviceGlobalInfo[8]);
+          const std::uint32_t DeviceImageScopeDecorated = DeviceGlobalInfo[12];
+          Entry->second.initialize(TypeSize, DeviceImageScopeDecorated);
         }
       }
       m_DeviceImages[KSId].reset(new std::vector<RTDeviceBinaryImageUPtr>());
@@ -1422,6 +1483,15 @@ kernel_id ProgramManager::getBuiltInKernelID(const std::string &KernelName) {
   return KernelID->second;
 }
 
+void ProgramManager::addDeviceGlobalEntry(void *DeviceGlobalPtr,
+                                          const char *UniqueId) {
+  std::lock_guard<std::mutex> DeviceGlobalsGuard(m_DeviceGlobalsMutex);
+
+  assert(m_DeviceGlobals.find(UniqueId) == m_DeviceGlobals.end() &&
+         "Device global has already been registered.");
+  m_DeviceGlobals.insert({UniqueId, DeviceGlobalMapEntry(DeviceGlobalPtr)});
+}
+
 std::vector<device_image_plain>
 ProgramManager::getSYCLDeviceImagesWithCompatibleState(
     const context &Ctx, const std::vector<device> &Devs,
@@ -1641,10 +1711,12 @@ ProgramManager::compile(const device_image_plain &DeviceImage,
   // TODO: Set spec constatns here.
 
   // TODO: Handle zero sized Device list.
+  std::string CompileOptions;
+  appendCompileOptionsFromImage(CompileOptions,
+                                *(InputImpl->get_bin_image_ref()));
   RT::PiResult Error = Plugin.call_nocheck<PiApiKind::piProgramCompile>(
       ObjectImpl->get_program_ref(), /*num devices=*/Devs.size(),
-      PIDevices.data(),
-      /*options=*/nullptr,
+      PIDevices.data(), CompileOptions.c_str(),
       /*num_input_headers=*/0, /*input_headers=*/nullptr,
       /*header_include_names=*/nullptr,
       /*pfn_notify=*/nullptr, /*user_data*/ nullptr);
@@ -1673,15 +1745,21 @@ ProgramManager::link(const std::vector<device_image_plain> &DeviceImages,
   for (const device &Dev : Devs)
     PIDevices.push_back(getSyclObjImpl(Dev)->getHandleRef());
 
+  std::string LinkOptionsStr;
+  for (const device_image_plain &DeviceImage : DeviceImages) {
+    const std::shared_ptr<device_image_impl> &InputImpl =
+        getSyclObjImpl(DeviceImage);
+    appendLinkOptionsFromImage(LinkOptionsStr,
+                               *(InputImpl->get_bin_image_ref()));
+  }
   const context &Context = getSyclObjImpl(DeviceImages[0])->get_context();
   const ContextImplPtr ContextImpl = getSyclObjImpl(Context);
-
   const detail::plugin &Plugin = ContextImpl->getPlugin();
 
   RT::PiProgram LinkedProg = nullptr;
   RT::PiResult Error = Plugin.call_nocheck<PiApiKind::piProgramLink>(
       ContextImpl->getHandleRef(), PIDevices.size(), PIDevices.data(),
-      /*options=*/nullptr, PIPrograms.size(), PIPrograms.data(),
+      /*options=*/LinkOptionsStr.c_str(), PIPrograms.size(), PIPrograms.data(),
       /*pfn_notify=*/nullptr,
       /*user_data=*/nullptr, &LinkedProg);
 

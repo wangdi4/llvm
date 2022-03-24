@@ -745,7 +745,9 @@ void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM,
     MPM.add(createFunctionInliningPass(IP));
     MPM.add(createSROAPass());
     MPM.add(createEarlyCSEPass());             // Catch trivial redundancies
-    MPM.add(createCFGSimplificationPass());    // Merge & remove BBs
+    MPM.add(createCFGSimplificationPass(
+        SimplifyCFGOptions().convertSwitchRangeToICmp(
+            true)));                           // Merge & remove BBs
 #if INTEL_CUSTOMIZATION
     // Combine silly seq's
     addInstructionCombiningPass(MPM, !DTransEnabled);
@@ -801,7 +803,8 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
       MPM.add(createGVNHoistPass());
     if (EnableGVNSink) {
       MPM.add(createGVNSinkPass());
-      MPM.add(createCFGSimplificationPass());
+      MPM.add(createCFGSimplificationPass(
+          SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
     }
   }
 
@@ -815,7 +818,9 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     MPM.add(createJumpThreadingPass());         // Thread jumps.
     MPM.add(createCorrelatedValuePropagationPass()); // Propagate conditionals
   }
-  MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
+  MPM.add(
+      createCFGSimplificationPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
+          true))); // Merge & remove BBs
   // Combine silly seq's
   if (OptLevel > 2)
     MPM.add(createAggressiveInstCombinerPass());
@@ -839,7 +844,9 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     MPM.add(createTailCallEliminationPass(SkipRecProgression));
                                               // Eliminate tail calls
 #endif // INTEL_CUSTOMIZATION
-  MPM.add(createCFGSimplificationPass());      // Merge & remove BBs
+  MPM.add(
+      createCFGSimplificationPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
+          true)));                            // Merge & remove BBs
   // FIXME: re-association increases variables liveness and therefore register
   // pressure.
 #if INTEL_COLLAB
@@ -867,18 +874,23 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
       MPM.add(createLoopSimplifyCFGPass());
     }
     // Try to remove as much code from the loop header as possible,
-    // to reduce amount of IR that will have to be duplicated.
+    // to reduce amount of IR that will have to be duplicated. However,
+    // do not perform speculative hoisting the first time as LICM
+    // will destroy metadata that may not need to be destroyed if run
+    // after loop rotation.
     // TODO: Investigate promotion cap for O1.
 #if INTEL_CUSTOMIZATION
     // 27770/28531: This extra pass causes high spill rates in some
     // benchmarks.
     if (!DTransEnabled)
-      MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
+      MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
+                             /*AllowSpeculation=*/false));
 #endif // INTEL_CUSTOMIZATION
     // Rotate Loop - disable header duplication at -Oz
     MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, PrepareForLTO));
     // TODO: Investigate promotion cap for O1.
-    MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
+    MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
+                           /*AllowSpeculation=*/true));
     if (EnableSimpleLoopUnswitch)
       MPM.add(createSimpleLoopUnswitchLegacyPass());
     else
@@ -887,7 +899,8 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     // FIXME: We break the loop pass pipeline here in order to do full
     // simplifycfg. Eventually loop-simplifycfg should be enhanced to replace
     // the need for this.
-    MPM.add(createCFGSimplificationPass());
+    MPM.add(createCFGSimplificationPass(
+        SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
     addInstructionCombiningPass(MPM, !DTransEnabled);  // INTEL
     // We resume loop passes creating a second loop pipeline here.
     if (EnableLoopFlatten) {
@@ -962,7 +975,8 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   // TODO: Investigate if this is too expensive at O1.
   if (OptLevel > 1) {
     MPM.add(createDeadStoreEliminationPass());  // Delete dead stores
-    MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
+    MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
+                           /*AllowSpeculation=*/true));
   }
 
   addExtensionsToPM(EP_ScalarOptimizerLate, MPM);
@@ -1096,9 +1110,11 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
     PM.add(createEarlyCSEPass());
     PM.add(createCorrelatedValuePropagationPass());
     addInstructionCombiningPass(PM, !DTransEnabled); // INTEL
-    PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
+    PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
+                          /*AllowSpeculation=*/true));
     PM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3, DivergentTarget));
-    PM.add(createCFGSimplificationPass());
+    PM.add(createCFGSimplificationPass(
+        SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
     addInstructionCombiningPass(PM, !DTransEnabled); // INTEL
   }
 
@@ -1122,6 +1138,7 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
   // before SLP vectorization.
   PM.add(createCFGSimplificationPass(SimplifyCFGOptions()
                                          .forwardSwitchCondToPhi(true)
+                                         .convertSwitchRangeToICmp(true)
                                          .convertSwitchToLookupTable(true)
                                          .needCanonicalLoops(false)
                                          .hoistCommonInsts(true)
@@ -1206,7 +1223,8 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
       // unrolled loop is a inner loop, then the prologue will be inside the
       // outer loop. LICM pass can help to promote the runtime check out if the
       // checked value is loop invariant.
-      PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
+      PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
+                            /*AllowSpeculation=*/true));
       INTEL_LIMIT_END // INTEL
     }
 
@@ -1391,7 +1409,9 @@ void PassManagerBuilder::populateModulePassManager(
   addExtensionsToPM(EP_Peephole, MPM);
   if (EarlyJumpThreading && !SYCLOptimizationMode)                // INTEL
     MPM.add(createJumpThreadingPass(/*FreezeSelectCond*/ false)); // INTEL
-  MPM.add(createCFGSimplificationPass()); // Clean up after IPCP & DAE
+  MPM.add(
+      createCFGSimplificationPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
+          true))); // Clean up after IPCP & DAE
 
 #if INTEL_CUSTOMIZATION
   // Handle '#pragma vector aligned'.
@@ -1553,7 +1573,8 @@ void PassManagerBuilder::populateModulePassManager(
   // later might get benefit of no-alias assumption in clone loop.
   if (UseLoopVersioningLICM) {
     MPM.add(createLoopVersioningLICMPass());    // Do LoopVersioningLICM
-    MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
+    MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
+                           /*AllowSpeculation=*/true));
   }
 
 #if INTEL_CUSTOMIZATION
@@ -1673,7 +1694,8 @@ void PassManagerBuilder::populateModulePassManager(
 
   // LoopSink (and other loop passes since the last simplifyCFG) might have
   // resulted in single-entry-single-exit or empty blocks. Clean up the CFG.
-  MPM.add(createCFGSimplificationPass());
+  MPM.add(createCFGSimplificationPass(
+      SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
 
   addExtensionsToPM(EP_OptimizerLast, MPM);
 
@@ -2120,7 +2142,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createIntelIPODeadArgEliminationWrapperPass());
 #endif // INTEL_CUSTOMIZATION
 
-  PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
+  PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
+                        /*AllowSpeculation=*/true));
   PM.add(NewGVN ? createNewGVNPass()
                 : createGVNPass(DisableGVNLoadPRE)); // Remove redundancies.
   PM.add(createDopeVectorHoistWrapperPass());  // INTEL

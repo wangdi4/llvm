@@ -1073,7 +1073,7 @@ static bool canLoopBeRelaxed(HLLoop *Loop, const HLLoop *&InnermostLoop) {
 
     const RegDDRef *Lval = HInst->getLvalDDRef();
 
-    if (!Lval->isTerminalRef()) {
+    if (!Lval || !Lval->isTerminalRef()) {
       return false;
     }
   }

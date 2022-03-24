@@ -33,6 +33,7 @@
 #ifndef LLVM_ADT_FOLDINGSET_H
 #define LLVM_ADT_FOLDINGSET_H
 
+#include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/iterator.h"
 #include "llvm/Support/Allocator.h"
@@ -310,7 +311,9 @@ public:
 
   /// ComputeHash - Compute a strong hash value for this FoldingSetNodeIDRef,
   /// used to lookup the node in the FoldingSetBase.
-  unsigned ComputeHash() const;
+  unsigned ComputeHash() const {
+    return static_cast<unsigned>(hash_combine_range(Data, Data + Size));
+  }
 
   bool operator==(FoldingSetNodeIDRef) const;
 
@@ -380,7 +383,9 @@ public:
 
   /// ComputeHash - Compute a strong hash value for this FoldingSetNodeID, used
   /// to lookup the node in the FoldingSetBase.
-  unsigned ComputeHash() const;
+  unsigned ComputeHash() const {
+    return FoldingSetNodeIDRef(Bits.data(), Bits.size()).ComputeHash();
+  }
 
   /// operator== - Used to compare two nodes to each other.
   bool operator==(const FoldingSetNodeID &RHS) const;

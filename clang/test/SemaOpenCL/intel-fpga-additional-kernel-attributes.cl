@@ -21,12 +21,12 @@ __attribute__((reqd_work_group_size(16,16,16))) //expected-error{{all 'reqd_work
 __kernel void kernel_2b() {
 }
 
-__attribute__((reqd_work_group_size(64,64,64)))
+__attribute__((reqd_work_group_size(64,64,64))) //expected-note{{conflicting attribute is here}}
 __attribute__((max_work_group_size(16,16,16))) //expected-error{{'max_work_group_size' attribute conflicts with 'reqd_work_group_size' attribute}}
 __kernel void kernel_3a() {
 }
 
-__attribute__((max_work_group_size(16,16,16)))
+__attribute__((max_work_group_size(16,16,16)))  //expected-note{{conflicting attribute is here}}
 __attribute__((reqd_work_group_size(64,64,64))) //expected-error{{'reqd_work_group_size' attribute conflicts with 'max_work_group_size' attribute}}
 __kernel void kernel_3b() {
 }
@@ -182,7 +182,7 @@ __attribute__((scheduler_target_fmax_mhz(0)))
 __kernel void kernel_7e() {
 }
 
-__attribute__((max_work_group_size(1, -1, 1))) // expected-warning{{implicit conversion changes signedness: 'int' to 'unsigned long long'}}
+__attribute__((max_work_group_size(1, -1, 1))) // expected-error{{'max_work_group_size' attribute requires a positive integral compile time constant expression}}
 __kernel void kernel_8a() {
 }
 
@@ -244,11 +244,11 @@ __attribute__((max_work_group_size(5.f, 5, 5))) //expected-error{{integer consta
 __kernel void kernel_8m() {
 }
 
-__attribute__((max_work_group_size(-5, 5, 5))) //expected-warning{{implicit conversion changes signedness: 'int' to 'unsigned long long'}}
+__attribute__((max_work_group_size(-5, 5, 5))) //expected-error{{'max_work_group_size' attribute requires a positive integral compile time constant expression}}
 __kernel void kernel_8n() {
 }
 
-__attribute__((max_work_group_size(0, 64, 64))) //expected-error{{'max_work_group_size' attribute must be greater than 0}}
+__attribute__((max_work_group_size(0, 64, 64))) //expected-error{{'max_work_group_size' attribute requires a positive integral compile time constant expression}}
 __kernel void kernel_8o() {
 }
 

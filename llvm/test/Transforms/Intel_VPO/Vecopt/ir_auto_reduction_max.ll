@@ -14,18 +14,17 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @foo(i32* nocapture readonly %A, i32 %N) {
 ; CHECK-LABEL: @foo(
-; CHECK:       [[TMP0:%.*]] = load i32, i32* [[A:%.*]], align 4
+; CHECK:         [[TMP0:%.*]] = load i32, i32* %A, align 4
 ; CHECK:       VPlannedBB2:
-; CHECK:         [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[TMP0]], i64 0
-; CHECK:         [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT0]], <4 x i32> poison, <4 x i32> zeroinitializer
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[TMP0]], i64 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT0]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK:       vector.body:
-; CHECK:         [[VEC_PHI50:%.*]] = phi <4 x i32> [ [[BROADCAST_SPLAT0]], [[VPLANNEDBB20:%.*]] ], [ [[TMP7:%.*]], [[VECTOR_BODY0:%.*]] ]
-; CHECK:         [[TMP6:%.*]] = icmp sgt <4 x i32> [[WIDE_LOAD0:%.*]], [[VEC_PHI50]]
-; CHECK:         [[TMP7]] = select <4 x i1> [[TMP6]], <4 x i32> [[WIDE_LOAD0]], <4 x i32> [[VEC_PHI50]]
+; CHECK:         [[VEC_PHI50:%.*]] = phi <4 x i32> [ [[BROADCAST_SPLAT0]], %VPlannedBB2 ], [ [[TMP6:%.*]], %vector.body ]
+; CHECK:         [[TMP6]] = call <4 x i32> @llvm.smax.v4i32(<4 x i32> [[WIDE_LOAD0:%.*]], <4 x i32> [[VEC_PHI50]])
 ; CHECK:       VPlannedBB6:
-; CHECK-NEXT:    [[TMP10:%.*]] = call i32 @llvm.vector.reduce.smax.v4i32(<4 x i32> [[TMP7]])
+; CHECK-NEXT:    [[TMP9:%.*]] = call i32 @llvm.vector.reduce.smax.v4i32(<4 x i32> [[TMP6]])
 ; CHECK:       final.merge:
-; CHECK:         [[UNI_PHI120:%.*]] = phi i32 [ [[DOTMAX_00:%.*]], [[VPLANNEDBB110:%.*]] ], [ [[TMP10]], [[VPLANNEDBB80:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI120:%.*]] = phi i32 [ [[TMP13:%.*]], [[VPLANNEDBB110:%.*]] ], [ [[TMP9]], {{.*}} ]
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

@@ -23,6 +23,7 @@
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/Demangle/ItaniumDemangle.h"
 #include "llvm/GenXIntrinsics/GenXIntrinsics.h"
+#include "llvm/GenXIntrinsics/GenXMetadata.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
@@ -31,12 +32,6 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
-#include "llvm/GenXIntrinsics/GenXMetadata.h"
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
 
 #include <cctype>
 #include <cstring>
@@ -84,8 +79,6 @@ ModulePass *llvm::createSYCLLowerESIMDPass() {
 }
 
 namespace {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
 enum class lsc_subopcode : uint8_t {
   load = 0x00,
   load_strided = 0x01,
@@ -122,8 +115,6 @@ enum class lsc_subopcode : uint8_t {
   read_state_info = 0x1e,
   fence = 0x1f,
 };
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
 
 // The regexp for ESIMD intrinsics:
 // /^_Z(\d+)__esimd_\w+/
@@ -272,13 +263,9 @@ private:
   static constexpr ESIMDIntrinDesc::ArgRule c8(int16_t N) {
     return ESIMDIntrinDesc::ArgRule{ESIMDIntrinDesc::CONST_INT8, {{N, {}}}};
   }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
   static constexpr ESIMDIntrinDesc::ArgRule c8(lsc_subopcode OpCode) {
     return c8(static_cast<uint8_t>(OpCode));
   }
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
 
   static constexpr ESIMDIntrinDesc::ArgRule c16(int16_t N) {
     return ESIMDIntrinDesc::ArgRule{ESIMDIntrinDesc::CONST_INT16, {{N, {}}}};
@@ -502,17 +489,24 @@ public:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ESIMD_EMBARGO
         {"wait", {"dummy.mov", {a(0)}}},
-        {"dpas", {"dpas2", {a(0), a(1), a(2),
-                            a(3), a(4), a(5), a(6), a(7), a(8)}}},
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
+        {"dpas",
+         {"dpas2", {a(0), a(1), a(2), a(3), a(4), a(5), a(6), a(7), a(8)}}},
         {"dpas2", {"dpas.nosrc0", {a(0), a(1), a(2)}}},
         {"dpasw", {"dpasw", {a(0), a(1), a(2), a(3)}}},
         {"dpasw2", {"dpasw.nosrc0", {a(0), a(1), a(2)}}},
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
         {"bf_cvt", { "bf.cvt", { a(0) }}},
         {"tf32_cvt", { "tf32.cvt", { a(0) }}},
         {"qf_cvt", { "qf.cvt", { a(0) }}},
         {"srnd", {"srnd", {a(0), a(1)}}},
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
         {"nbarrier", {"nbarrier", {a(0), a(1), a(2)}}},
-        {"raw_send_nbarrier_signal", {"raw.send.noresult", {a(0), ai1(4), a(1), a(2), a(3)}}},
+        {"raw_send_nbarrier_signal",
+         {"raw.send.noresult", {a(0), ai1(4), a(1), a(2), a(3)}}},
         {"lsc_load_slm",
          {"lsc.load.slm",
           {ai1(0), c8(lsc_subopcode::load), t8(1), t8(2), t16(3), t32(4), t8(5),
@@ -535,28 +529,28 @@ public:
            t8(6), t8(7), c8(0), a(1), c32(0)}}},
         {"lsc_store_slm",
          {"lsc.store.slm",
-          {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4), t8(5),
-           t8(6), t8(7), c8(0), a(1), a(2), c32(0)}}},
+          {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4),
+           t8(5), t8(6), t8(7), c8(0), a(1), a(2), c32(0)}}},
         {"lsc_store_bti",
          {"lsc.store.bti",
-          {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4), t8(5),
-           t8(6), t8(7), c8(0), a(1), a(2), aSI(3)}}},
+          {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4),
+           t8(5), t8(6), t8(7), c8(0), a(1), a(2), aSI(3)}}},
         {"lsc_store_stateless",
          {"lsc.store.stateless",
-          {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4), t8(5),
-           t8(6), t8(7), c8(0), a(1), a(2), c32(0)}}},
+          {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4),
+           t8(5), t8(6), t8(7), c8(0), a(1), a(2), c32(0)}}},
         {"lsc_load2d_stateless",
          {"lsc.load2d.stateless",
-          {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8), a(1),
-           a(2), a(3), a(4), a(5), a(6)}}},
+          {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8),
+           a(1), a(2), a(3), a(4), a(5), a(6)}}},
         {"lsc_prefetch2d_stateless",
          {"lsc.prefetch2d.stateless",
-          {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8), a(1),
-           a(2), a(3), a(4), a(5), a(6)}}},
+          {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8),
+           a(1), a(2), a(3), a(4), a(5), a(6)}}},
         {"lsc_store2d_stateless",
          {"lsc.store2d.stateless",
-          {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8), a(1),
-           a(2), a(3), a(4), a(5), a(6), a(7)}}},
+          {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8),
+           a(1), a(2), a(3), a(4), a(5), a(6), a(7)}}},
         {"lsc_xatomic_slm_0",
          {"lsc.xatomic.slm",
           {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
@@ -594,8 +588,6 @@ public:
           {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
            c8(0), a(1), a(2), a(3), c32(0), u(-1)}}},
         {"lsc_fence", {"lsc.fence", {ai1(0), t8(0), t8(1), t8(2)}}},
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
         {"sat", {"sat", {a(0)}}},
         {"fptoui_sat", {"fptoui.sat", {a(0)}}},
         {"fptosi_sat", {"fptosi.sat", {a(0)}}},
@@ -865,16 +857,12 @@ static std::string getESIMDIntrinSuffix(id::FunctionEncoding *FE,
     case 0x12:
       Suff = ".fcmpwr";
       break;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
     case 0x13:
       Suff = ".fadd";
       break;
     case 0x14:
       Suff = ".fsub";
       break;
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
     case 0xff:
       Suff = ".predec";
       break;
@@ -981,20 +969,21 @@ static void translatePackMask(CallInst &CI) {
   Type *TTy = nullptr;
   APInt Val = parseTemplateArg(FE, 0, TTy, Context);
   unsigned N = Val.getZExtValue();
-
+  Value *Result = CI.getArgOperand(0);
+  assert(Result->getType()->isIntOrIntVectorTy());
+  Value *Zero = ConstantInt::get(Result->getType(), 0);
   IRBuilder<> Builder(&CI);
-  llvm::Value *Trunc = Builder.CreateTrunc(
-      CI.getArgOperand(0),
-      llvm::FixedVectorType::get(llvm::Type::getInt1Ty(Context), N));
-  llvm::Type *Ty = llvm::Type::getIntNTy(Context, N);
+  // TODO CM_COMPAT
+  // In CM non LSB bits in mask elements are ignored, so e.g. '2' is treated as
+  // 'false' there. ESIMD adopts C++ semantics, where any non-zero is 'true'.
+  // For CM this ICmpInst should be replaced with truncation to i1.
+  Result = Builder.CreateICmp(ICmpInst::ICMP_NE, Result, Zero);
+  Result = Builder.CreateBitCast(Result, llvm::Type::getIntNTy(Context, N));
 
-  llvm::Value *BitCast = Builder.CreateBitCast(Trunc, Ty);
-  llvm::Value *Result = BitCast;
   if (N != 32) {
-    Result = Builder.CreateCast(llvm::Instruction::ZExt, BitCast,
+    Result = Builder.CreateCast(llvm::Instruction::ZExt, Result,
                                 llvm::Type::getInt32Ty(Context));
   }
-
   Result->setName(CI.getName());
   cast<llvm::Instruction>(Result)->setDebugLoc(CI.getDebugLoc());
   CI.replaceAllUsesWith(Result);
@@ -1045,16 +1034,14 @@ static void translateUnPackMask(CallInst &CI) {
   CI.replaceAllUsesWith(TransCI);
 }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
-
 // This function sets VCNamedBarrierCount attribute to set
 // the number of named barriers required by a kernel
 static void translateNbarrierInit(CallInst &CI) {
-  auto F = CI.getParent()->getParent();
+  auto *F = CI.getFunction();
 
   auto *ArgV = CI.getArgOperand(0);
-  assert(isa<ConstantInt>(ArgV) && "integral constant expected for nbarrier count");
+  assert(isa<ConstantInt>(ArgV) &&
+         "integral constant expected for nbarrier count");
 
   auto NewVal = cast<llvm::ConstantInt>(ArgV)->getZExtValue();
   assert(NewVal != 0 && "zero nbarrier count being requested");
@@ -1074,9 +1061,6 @@ static void translateNbarrierInit(CallInst &CI) {
     llvm_unreachable("esimd_nbarrier_init can only be called by a kernel");
   }
 }
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
-
 
 static bool translateVLoad(CallInst &CI, SmallPtrSet<Type *, 4> &GVTS) {
   if (GVTS.find(CI.getType()) != GVTS.end())
@@ -1599,14 +1583,10 @@ void generateKernelMetadata(Module &M) {
         getMD(llvm::ConstantInt::getNullValue(I32Ty)), // SLM size in bytes
         getMD(llvm::ConstantInt::getNullValue(I32Ty)), // arg offsets
         IOKinds,
-#if INTEL_CUSTOMIZATION
         ArgDescs,
-#if INTEL_FEATURE_ESIMD_EMBARGO
         getMD(llvm::ConstantInt::getNullValue(I32Ty)), // named barrier count
         getMD(llvm::ConstantInt::getNullValue(I32Ty))  // regular barrier count
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
     };
-#endif // INTEL_CUSTOMIZATION
 
     // Add this kernel to the root.
     Kernels->addOperand(MDNode::get(Ctx, MDArgs));
@@ -1629,15 +1609,14 @@ SmallPtrSet<Type *, 4> collectGenXVolatileTypes(Module &M) {
     // TODO FIXME relying on type name in LLVM IR is fragile, needs rework
     if (!GTy || !GTy->getName()
                      .rtrim(".0123456789")
-                     .endswith("sycl::ext::intel::experimental::esimd::simd"))
+                     .endswith("sycl::ext::intel::esimd::simd"))
       continue;
     assert(GTy->getNumContainedTypes() == 1);
     auto VTy = GTy->getContainedType(0);
     if ((GTy = dyn_cast<StructType>(VTy))) {
       assert(GTy->getName()
                  .rtrim(".0123456789")
-                 .endswith("sycl::ext::intel::experimental::esimd::detail::"
-                           "simd_obj_impl"));
+                 .endswith("sycl::ext::intel::esimd::detail::simd_obj_impl"));
       VTy = GTy->getContainedType(0);
     }
     assert(VTy->isVectorTy());
@@ -1721,21 +1700,17 @@ size_t SYCLLowerESIMDPass::runOnFunction(Function &F,
       // process ESIMD builtins that go through special handling instead of
       // the translation procedure
       // TODO FIXME slm_init should be made top-level __esimd_slm_init
-      if (Name.startswith("N2cl4sycl3ext5intel12experimental5esimd8slm_init")) {
+      if (Name.startswith("__esimd_slm_init")) {
         // tag the kernel with meta-data SLMSize, and remove this builtin
         translateSLMInit(*CI);
         ToErase.push_back(CI);
         continue;
       }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
       if (Name.startswith("__esimd_nbarrier_init")) {
         translateNbarrierInit(*CI);
         ToErase.push_back(CI);
         continue;
       }
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
       if (Name.startswith("__esimd_pack_mask")) {
         translatePackMask(*CI);
         ToErase.push_back(CI);

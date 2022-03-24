@@ -79,7 +79,6 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Analysis/ValueTracking.h"
-#include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
@@ -1377,9 +1376,8 @@ class MemmoveVerifier {
 public:
   explicit MemmoveVerifier(const Value &LoadBasePtr, const Value &StoreBasePtr,
                            const DataLayout &DL)
-      : DL(DL), LoadOff(0), StoreOff(0),
-        BP1(llvm::GetPointerBaseWithConstantOffset(
-            LoadBasePtr.stripPointerCasts(), LoadOff, DL)),
+      : DL(DL), BP1(llvm::GetPointerBaseWithConstantOffset(
+                    LoadBasePtr.stripPointerCasts(), LoadOff, DL)),
         BP2(llvm::GetPointerBaseWithConstantOffset(
             StoreBasePtr.stripPointerCasts(), StoreOff, DL)),
         IsSameObject(BP1 == BP2) {}
@@ -1409,8 +1407,8 @@ public:
 
 private:
   const DataLayout &DL;
-  int64_t LoadOff;
-  int64_t StoreOff;
+  int64_t LoadOff = 0;
+  int64_t StoreOff = 0;
   const Value *BP1;
   const Value *BP2;
 

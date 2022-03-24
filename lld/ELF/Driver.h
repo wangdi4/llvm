@@ -27,17 +27,15 @@
 #define LLD_ELF_DRIVER_H
 
 #include "LTO.h"
-#include "SymbolTable.h"
 #include "lld/Common/LLVM.h"
-#include "lld/Common/Reproduce.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/StringSet.h"
 #include "llvm/Option/ArgList.h"
-#include "llvm/Support/raw_ostream.h"
 
 namespace lld {
 namespace elf {
+class InputFile;
+class Symbol;
 
 extern std::unique_ptr<class LinkerDriver> driver;
 
@@ -52,6 +50,9 @@ private:
   void inferMachineType();
   void link(llvm::opt::InputArgList &args);
   template <class ELFT> void compileBitcodeFiles(bool skipLinkedOutput);
+  void writeArchiveStats() const;
+  void writeWhyExtract() const;
+  void reportBackrefs() const;
 
   // True if we are in --whole-archive and --no-whole-archive.
   bool inWholeArchive = false;
@@ -64,12 +65,25 @@ private:
 
   std::vector<InputFile *> files;
 #if INTEL_CUSTOMIZATION
-  // If there is at least one GNU LTO file in the linking command
-  // then pass it to G++ in order to do LTO and build a temporary
-  // object. Then collect the ELF object generated and add it to
-  // the linking process.
-  template <class ELFT> void doGnuLTOLinking();
+  // Pass to g++ the input vector of GNU LTO files in order to do LTO and
+  // build a temporary object. Then collect the ELF object generated and
+  // add it to the linking process either as a regular object file or
+  // lazy object (archive members).
+  template <class ELFT> void
+      doGnuLTOLinking(llvm::SmallVectorImpl<InputFile *> &gnuLTOFiles,
+                      bool isLazyFile);
 #endif // INTEL_CUSTOMIZATION
+  SmallVector<std::pair<StringRef, unsigned>, 0> archiveFiles;
+
+public:
+  // A tuple of (reference, extractedFile, sym). Used by --why-extract=.
+  SmallVector<std::tuple<std::string, const InputFile *, const Symbol &>, 0>
+      whyExtract;
+  // A mapping from a symbol to an InputFile referencing it backward. Used by
+  // --warn-backrefs.
+  llvm::DenseMap<const Symbol *,
+                 std::pair<const InputFile *, const InputFile *>>
+      backwardReferences;
 };
 
 // Parses command line options.

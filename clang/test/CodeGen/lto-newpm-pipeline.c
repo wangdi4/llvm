@@ -85,4 +85,4 @@
 // CHECK-THIN-OPTIMIZED: Running pass: NameAnonGlobalPass
 // CHECK-THIN-OPTIMIZED: Running pass: ThinLTOBitcodeWriterPass
 
-void Foo() {}
+void Foo(void) {}

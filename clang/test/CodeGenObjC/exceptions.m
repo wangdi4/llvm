@@ -4,7 +4,7 @@
 
 // Just check that we don't emit any dead blocks.
 @interface NSArray @end
-void f0() {
+void f0(void) {
   @try {
     @try {
       @throw @"a";
@@ -15,7 +15,7 @@ void f0() {
 }
 
 // CHECK-LABEL: define{{.*}} void @f1()
-void f1() {
+void f1(void) {
   extern void foo(void);
 
   while (1) {
@@ -42,7 +42,7 @@ void f1() {
 // optimization.  rdar://problem/8160285
 
 // CHECK-LABEL: define{{.*}} i32 @f2()
-int f2() {
+int f2(void) {
   extern void foo(void);
 
   // CHECK:        [[X:%.*]] = alloca i32
@@ -80,7 +80,7 @@ int f2() {
 // Test that the cleanup destination is saved when entering a finally
 // block.  rdar://problem/8293901
 // CHECK-LABEL: define{{.*}} void @f3()
-void f3() {
+void f3(void) {
   extern void f3_helper(int, int*);
 
   // CHECK:      [[X:%.*]] = alloca i32
@@ -132,7 +132,7 @@ void f3() {
 }
 
 // rdar://problem/8440970
-void f4() {
+void f4(void) {
   extern void f4_help(int);
 
   // CHECK-LABEL: define{{.*}} void @f4()
@@ -154,11 +154,17 @@ void f4() {
   // finally.call-exit:  Predecessors are the @try and @catch fallthroughs
   // as well as the no-match case in the catch mechanism.  The i1 is whether
   // to rethrow and should be true only in the last case.
-  // CHECK:      phi i8*
-  // CHECK-NEXT: phi i1
-  // CHECK-NEXT: call void @objc_exception_try_exit([[EXNDATA_T]]* nonnull [[EXNDATA]])
+  // INTEL_CUSTOMIZATION
+  // llorg has some useless phis here that feed the branch below
+  // CHECK-DISABLED:      phi i8*
+  // CHECK-DISABLED-NEXT: phi i1
+  // CHECK: call void @objc_exception_try_exit([[EXNDATA_T]]* nonnull [[EXNDATA]])
+  // end INTEL_CUSTOMIZATION
   // CHECK-NEXT: call void @f4_help(i32 noundef 2)
-  // CHECK-NEXT: br i1
+  // INTEL_CUSTOMIZATION
+  // llorg has this as a conditional branch, can be made unconditional
+  // CHECK-NEXT: br
+  // end INTEL_CUSTOMIZATION
   //   -> ret, rethrow
 
   // ret:

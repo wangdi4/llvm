@@ -156,7 +156,8 @@ Pass *createIndVarSimplifyPass();
 //
 Pass *createLICMPass();
 Pass *createLICMPass(unsigned LicmMssaOptCap,
-                     unsigned LicmMssaNoAccForPromotionCap);
+                     unsigned LicmMssaNoAccForPromotionCap,
+                     bool AllowSpeculation);
 
 //===----------------------------------------------------------------------===//
 //
@@ -560,6 +561,12 @@ FunctionPass *createLowerSubscriptIntrinsicLegacyPass();
 // llvm.intel.subscript intrinsics.
 FunctionPass *createConvertGEPToSubscriptIntrinsicLegacyPass();
 #endif // INTEL_CUSTOMIZATION
+
+//===----------------------------------------------------------------------===//
+//
+// TLSVariableHoist - This pass reduce duplicated TLS address call.
+//
+FunctionPass *createTLSVariableHoistPass();
 
 //===----------------------------------------------------------------------===//
 //

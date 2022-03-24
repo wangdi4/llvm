@@ -26,24 +26,20 @@
 #include "LTO.h"
 #include "Config.h"
 #include "InputFiles.h"
-#include "LinkerScript.h"
 #include "SymbolTable.h"
 #include "Symbols.h"
 #include "lld/Common/Args.h"
 #include "lld/Common/ErrorHandler.h"
+#include "lld/Common/Strings.h"
 #include "lld/Common/TargetOptionsCommandFlags.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Support/Intel_WP_utils.h" // INTEL
 #include "llvm/BinaryFormat/ELF.h"
-#include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
-#include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/LTO/Config.h"
 #include "llvm/LTO/LTO.h"
-#include "llvm/Object/SymbolicFile.h"
 #include "llvm/Support/Caching.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Error.h"
@@ -278,9 +274,9 @@ void BitcodeCompiler::add(BitcodeFile &f) {
                             usedStartStop.count(objSym.getSectionName());
     // Identify symbols exported dynamically, and that therefore could be
     // referenced by a shared library not visible to the linker.
-    r.ExportDynamic = sym->computeBinding() != STB_LOCAL &&
-                      (sym->isExportDynamic(sym->kind(), sym->visibility) ||
-                       sym->exportDynamic || sym->inDynamicList);
+    r.ExportDynamic =
+        sym->computeBinding() != STB_LOCAL &&
+        (config->exportDynamic || sym->exportDynamic || sym->inDynamicList);
     const auto *dr = dyn_cast<Defined>(sym);
     r.FinalDefinitionInLinkageUnit =
         (isExec || sym->visibility != STV_DEFAULT) && dr &&
@@ -302,14 +298,13 @@ void BitcodeCompiler::add(BitcodeFile &f) {
         sym->isShared() || sym->isCommon();
 #endif // INTEL_CUSTOMIZATION
     if (r.Prevailing)
-      sym->replace(Undefined{nullptr, sym->getName(), STB_GLOBAL, STV_DEFAULT,
-                             sym->type});
+      sym->replace(
+          Undefined{nullptr, StringRef(), STB_GLOBAL, STV_DEFAULT, sym->type});
 
     // We tell LTO to not apply interprocedural optimization for wrapped
     // (with --wrap) symbols because otherwise LTO would inline them while
     // their values are still not final.
-    r.LinkerRedefined = !sym->canInline;
-
+    r.LinkerRedefined = sym->scriptDefined;
   }
   checkError(ltoObj->add(std::move(f.obj), resols));
 }

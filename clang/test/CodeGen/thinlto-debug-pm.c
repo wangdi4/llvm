@@ -20,5 +20,5 @@
 // END INTEL_CUSTOMIZATION
 // O0-NOT: Running pass: LoopVectorizePass
 
-void foo() {
+void foo(void) {
 }

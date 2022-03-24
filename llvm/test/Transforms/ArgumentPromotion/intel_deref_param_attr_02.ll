@@ -16,7 +16,7 @@
 ; CHECK-NEXT: store i32 %tmp4, i32* %X, align 4
 ; CHECK-NEXT: br label %b2
 
-define internal void @f(%struct.ss* dereferenceable(16) %b, i32* %X, i32 %i) {
+define internal void @f(%struct.ss* align 8 dereferenceable(16) %b, i32* %X, i32 %i) {
 entry:
   br i1 undef, label %b1, label %b2
 

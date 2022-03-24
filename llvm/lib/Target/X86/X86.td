@@ -788,6 +788,10 @@ def TuningLZCNTFalseDeps : SubtargetFeature<"false-deps-lzcnt-tzcnt",
                                      "HasLZCNTFalseDeps", "true",
                                      "LZCNT/TZCNT have a false dependency on dest register">;
 
+def TuningSBBDepBreaking : SubtargetFeature<"sbb-dep-breaking",
+                                     "HasSBBDepBreaking", "true",
+                                     "SBB with same register has no source dependency">;
+
 // On recent X86 (port bound) processors, its preferable to combine to a single shuffle
 // using a variable mask over multiple fixed shuffles.
 def TuningFastVariableCrossLaneShuffle
@@ -1509,6 +1513,7 @@ def ProcessorFeatures {
                                               Feature64Bit];
   list<SubtargetFeature> BarcelonaTuning = [TuningFastScalarShiftMasks,
                                             TuningSlowSHLD,
+                                            TuningSBBDepBreaking,
                                             TuningInsertVZEROUPPER];
 
   // Bobcat
@@ -1530,6 +1535,7 @@ def ProcessorFeatures {
                                          TuningFastScalarShiftMasks,
                                          TuningFastVectorShiftMasks,
                                          TuningSlowSHLD,
+                                         TuningSBBDepBreaking,
                                          TuningInsertVZEROUPPER];
 
   // Jaguar
@@ -1549,6 +1555,7 @@ def ProcessorFeatures {
                                          TuningFastScalarShiftMasks,
                                          TuningFastVectorShiftMasks,
                                          TuningFastMOVBE,
+                                         TuningSBBDepBreaking,
                                          TuningSlowSHLD];
   list<SubtargetFeature> BtVer2Features =
     !listconcat(BtVer1Features, BtVer2AdditionalFeatures);
@@ -1576,6 +1583,7 @@ def ProcessorFeatures {
                                          TuningFast11ByteNOP,
                                          TuningFastScalarShiftMasks,
                                          TuningBranchFusion,
+                                         TuningSBBDepBreaking,
                                          TuningInsertVZEROUPPER];
 
   // PileDriver
@@ -1646,9 +1654,12 @@ def ProcessorFeatures {
                                      TuningFastBEXTR,
                                      TuningFast15ByteNOP,
                                      TuningBranchFusion,
+                                     TuningFastScalarFSQRT,
+                                     TuningFastVectorFSQRT,
                                      TuningFastScalarShiftMasks,
                                      TuningFastMOVBE,
                                      TuningSlowSHLD,
+                                     TuningSBBDepBreaking,
                                      TuningInsertVZEROUPPER];
   list<SubtargetFeature> ZN2AdditionalFeatures = [FeatureCLWB,
                                                   FeatureRDPID,
@@ -1935,7 +1946,7 @@ foreach P = ["k8", "opteron", "athlon64", "athlon-fx"] in {
   def : Proc<P, [FeatureX87, FeatureCMPXCHG8B, FeatureSSE2, Feature3DNowA,
                  FeatureFXSR, FeatureNOPL, Feature64Bit, FeatureCMOV],
                 [TuningFastScalarShiftMasks, TuningSlowSHLD, TuningSlowUAMem16,
-                 TuningInsertVZEROUPPER]>;
+                 TuningSBBDepBreaking, TuningInsertVZEROUPPER]>;
 }
 
 foreach P = ["k8-sse3", "opteron-sse3", "athlon64-sse3"] in {
@@ -1943,7 +1954,7 @@ foreach P = ["k8-sse3", "opteron-sse3", "athlon64-sse3"] in {
                  FeatureFXSR, FeatureNOPL, FeatureCMPXCHG16B, FeatureCMOV,
                  Feature64Bit],
                 [TuningFastScalarShiftMasks, TuningSlowSHLD, TuningSlowUAMem16,
-                 TuningInsertVZEROUPPER]>;
+                 TuningSBBDepBreaking, TuningInsertVZEROUPPER]>;
 }
 
 foreach P = ["amdfam10", "barcelona"] in {

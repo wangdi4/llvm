@@ -328,9 +328,7 @@ private:
 /// used by pass managers.
 class PMDataManager {
 public:
-  explicit PMDataManager() : TPM(nullptr), Depth(0) {
-    initializeAnalysisInfo();
-  }
+  explicit PMDataManager() { initializeAnalysisInfo(); }
 
   virtual ~PMDataManager();
 
@@ -454,7 +452,7 @@ public:
 
 protected:
   // Top level manager.
-  PMTopLevelManager *TPM;
+  PMTopLevelManager *TPM = nullptr;
 
   // Collection of pass that are managed by this manager
   SmallVector<Pass *, 16> PassVector;
@@ -484,7 +482,7 @@ private:
   // this manager.
   SmallVector<Pass *, 16> HigherLevelAnalysis;
 
-  unsigned Depth;
+  unsigned Depth = 0;
 };
 
 //===----------------------------------------------------------------------===//

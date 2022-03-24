@@ -59,7 +59,6 @@
 #include <utility>
 
 #define DEBUG_TYPE "instcombine"
-#include "llvm/Transforms/Utils/InstructionWorklist.h"
 
 using namespace llvm;
 using namespace PatternMatch;

@@ -10,6 +10,7 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorVariant/VectorVariantFillIn.h"
 
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"

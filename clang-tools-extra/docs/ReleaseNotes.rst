@@ -99,51 +99,9 @@ Improvements to clang-tidy
 New checks
 ^^^^^^^^^^
 
-- New :doc:`bugprone-stringview-nullptr
-  <clang-tidy/checks/bugprone-stringview-nullptr>` check.
+- New :doc:`bugprone-shared-ptr-array-mismatch <clang-tidy/checks/bugprone-shared-ptr-array-mismatch>` check.
 
-  Checks for various ways that the ``const CharT*`` constructor of
-  ``std::basic_string_view`` can be passed a null argument.
-
-- New :doc:`abseil-cleanup-ctad
-  <clang-tidy/checks/abseil-cleanup-ctad>` check.
-
-  Suggests switching the initialization pattern of ``absl::Cleanup``
-  instances from the factory function to class template argument
-  deduction (CTAD), in C++17 and higher.
-
-- New :doc:`bugprone-suspicious-memory-comparison
-  <clang-tidy/checks/bugprone-suspicious-memory-comparison>` check.
-
-  Finds potentially incorrect calls to ``memcmp()`` based on properties of the
-  arguments.
-
-- New :doc:`cppcoreguidelines-virtual-class-destructor
-  <clang-tidy/checks/cppcoreguidelines-virtual-class-destructor>` check.
-
-  Finds virtual classes whose destructor is neither public and virtual nor
-  protected and non-virtual.
-
-- New :doc:`misc-misleading-identifier <clang-tidy/checks/misc-misleading-identifier>` check.
-
-  Reports identifier with unicode right-to-left characters.
-
-- New :doc:`readability-container-data-pointer
-  <clang-tidy/checks/readability-container-data-pointer>` check.
-
-  Finds cases where code could use ``data()`` rather than the address of the
-  element at index 0 in a container.
-
-- New :doc:`readability-identifier-length
-  <clang-tidy/checks/readability-identifier-length>` check.
-
-  Reports identifiers whose names are too short. Currently checks local
-  variables and function parameters only.
-
-- New :doc:`misc-misleading-bidirectional <clang-tidy/checks/misc-misleading-bidirectional>` check.
-
-  Inspects string literal and comments for unterminated bidirectional Unicode
-  characters.
+  Finds initializations of C++ shared pointers to non-array type that are initialized with an array.
 
 ..
   INTEL_CUSTOMIZATION
@@ -158,6 +116,13 @@ New check aliases
 
 Changes in existing checks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Fixed a false positive in :doc:`readability-non-const-parameter
+  <clang-tidy/checks/readability-non-const-parameter>` when the parameter is referenced by an lvalue
+
+- Fixed a crash in :doc:`readability-const-return-type
+  <clang-tidy/checks/readability-const-return-type>` when a pure virtual function
+  overrided has a const return type. Removed the fix for a virtual function.
 
 Removed checks
 ^^^^^^^^^^^^^^

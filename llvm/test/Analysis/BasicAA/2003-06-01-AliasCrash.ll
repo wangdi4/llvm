@@ -1,6 +1,6 @@
-; RUN: opt < %s -basic-aa -aa-eval -disable-output 2>/dev/null
 ; INTEL
 ; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -aa-eval -disable-output 2>/dev/null
+; RUN: opt < %s -aa-pipeline=basic-aa -passes=aa-eval -disable-output 2>/dev/null
 
 define i32 @MTConcat([3 x i32]* %a.1) {
 	%tmp.961 = getelementptr [3 x i32], [3 x i32]* %a.1, i64 0, i64 4

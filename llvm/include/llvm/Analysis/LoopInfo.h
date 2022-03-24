@@ -61,7 +61,6 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/CFG.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
@@ -72,9 +71,10 @@
 namespace llvm {
 
 class DominatorTree;
+class InductionDescriptor;
+class Instruction;
 class LoopInfo;
 class Loop;
-class InductionDescriptor;
 class MDNode;
 class MemorySSAUpdater;
 class ScalarEvolution;

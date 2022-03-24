@@ -53,8 +53,6 @@
 #define LLVM_ANALYSIS_INSTRUCTIONSIMPLIFY_H
 
 #include "llvm/Analysis/TargetTransformInfo.h" // INTEL
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Operator.h"
 #include "llvm/IR/PatternMatch.h"
 
 namespace llvm {
@@ -67,6 +65,7 @@ class CallBase;
 class DataLayout;
 class DominatorTree;
 class Function;
+class Instruction;
 struct LoopStandardAnalysisResults;
 class MDNode;
 class OptimizationRemarkEmitter;

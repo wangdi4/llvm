@@ -75,8 +75,7 @@ if.end:                                           ; preds = %entry
   %add3 = add nsw i32 %tmp4, %inc
   %conv = sext i32 %add3 to i64
   %mul = mul i64 %conv, 8
-  %conv4 = trunc i64 %mul to i32
-  %call = call i8* @_ZN10MemManager8allocateEl(%struct.Mem* %tmp3, i32 %conv4)
+  %call = call i8* @_ZN10MemManager8allocateEl(%struct.Mem* %tmp3, i64 %mul)
   %tmp8 = bitcast i8* %call to i32**
   %size5 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 4
   %tmp9 = load i32, i32* %size5, align 8
@@ -159,9 +158,9 @@ return:                                           ; preds = %for.end, %if.then
   ret void
 }
 
-define dso_local noalias nonnull "intel_dtrans_func_index"="1"  i8* @_ZN10MemManager8allocateEl(%struct.Mem* "intel_dtrans_func_index"="2" nocapture readnone %this, i32 %size) align 2 !intel.dtrans.func.type !32 {
+define dso_local noalias nonnull "intel_dtrans_func_index"="1"  i8* @_ZN10MemManager8allocateEl(%struct.Mem* "intel_dtrans_func_index"="2" nocapture readnone %this, i64 %size) align 2 !intel.dtrans.func.type !32 {
 entry:
-  %call = call i8* @malloc(i32 %size)
+  %call = call i8* @malloc(i64 %size)
   ret i8* %call
 }
 
@@ -172,7 +171,7 @@ entry:
 }
 
 declare !intel.dtrans.func.type !34 dso_local void @_ZdlPv(i8* "intel_dtrans_func_index"="1")
-declare !intel.dtrans.func.type !35 "intel_dtrans_func_index"="1" i8* @malloc(i32)
+declare !intel.dtrans.func.type !35 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 
 ; XCHECK: Deps computed: 23, Queries: 55
 

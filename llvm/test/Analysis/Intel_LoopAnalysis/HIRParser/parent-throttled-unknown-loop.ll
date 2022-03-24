@@ -15,8 +15,7 @@
 ; PARSE: |   while.body:
 ; PARSE: |   %cmp = &((%incdec.ptr)[-1 * i1 + -1]) != &((undef)[0]);
 ; PARSE: |   %cmp.i = &((undef)[-1 * i1 + -1]) != &((undef)[0]);
-; PARSE: |   %lnot = %cmp.i  &  %cmp;
-; PARSE: |   if (%lnot != 0)
+; PARSE: |   if (umin(%cmp.i, %cmp) != 0)
 ; PARSE: |   {
 ; PARSE: |      <i1 = i1 + 1>
 ; PARSE: |      goto while.body;

@@ -492,12 +492,14 @@ public:
   SYCLIntegrationFooter(Sema &S) : S(S) {}
   bool emit(StringRef MainSrc);
   void addVarDecl(const VarDecl *VD);
+  bool isDeviceGlobalsEmitted() { return DeviceGlobalsEmitted; }
 
 private:
   bool emit(raw_ostream &O);
   Sema &S;
-  llvm::SmallVector<const VarDecl *> SpecConstants;
+  llvm::SmallVector<const VarDecl *> GlobalVars;
   void emitSpecIDName(raw_ostream &O, const VarDecl *VD);
+  bool DeviceGlobalsEmitted = false;
 };
 
 /// Tracks expected type during expression parsing, for use in code completion.
@@ -1787,19 +1789,16 @@ public:
   /// statements.
   class FPFeaturesStateRAII {
   public:
-    FPFeaturesStateRAII(Sema &S) : S(S), OldFPFeaturesState(S.CurFPFeatures) {
-      OldOverrides = S.FpPragmaStack.CurrentValue;
-    }
-    ~FPFeaturesStateRAII() {
-      S.CurFPFeatures = OldFPFeaturesState;
-      S.FpPragmaStack.CurrentValue = OldOverrides;
-    }
+    FPFeaturesStateRAII(Sema &S);
+    ~FPFeaturesStateRAII();
     FPOptionsOverride getOverrides() { return OldOverrides; }
 
   private:
     Sema& S;
     FPOptions OldFPFeaturesState;
     FPOptionsOverride OldOverrides;
+    LangOptions::FPEvalMethodKind OldEvalMethod;
+    SourceLocation OldFPPragmaLocation;
   };
 
   void addImplicitTypedef(StringRef Name, QualType T);
@@ -2548,11 +2547,17 @@ private:
     SourceLocation BeginLoc;
     clang::Module *Module = nullptr;
     bool ModuleInterface = false;
+    bool IsPartition = false;
     bool ImplicitGlobalModuleFragment = false;
     VisibleModuleSet OuterVisibleModules;
   };
   /// The modules we're currently parsing.
   llvm::SmallVector<ModuleScope, 16> ModuleScopes;
+  /// The global module fragment of the current translation unit.
+  clang::Module *GlobalModuleFragment = nullptr;
+
+  /// The modules we imported directly.
+  llvm::SmallPtrSet<clang::Module *, 8> DirectModuleImports;
 
   /// Namespace definitions that we will export when they finish.
   llvm::SmallPtrSet<const NamespaceDecl*, 8> DeferredExportedNamespaces;
@@ -2579,6 +2584,10 @@ public:
   /// Get the module owning an entity.
   Module *getOwningModule(const Decl *Entity) {
     return Entity->getOwningModule();
+  }
+
+  bool isModuleDirectlyImported(const Module *M) {
+    return DirectModuleImports.contains(M);
   }
 
   /// Make a merged definition of an existing hidden definition \p ND
@@ -3278,15 +3287,30 @@ public:
                               SourceLocation SemiLoc);
 
   enum class ModuleDeclKind {
-    Interface,      ///< 'export module X;'
-    Implementation, ///< 'module X;'
+    Interface,               ///< 'export module X;'
+    Implementation,          ///< 'module X;'
+    PartitionInterface,      ///< 'export module X:Y;'
+    PartitionImplementation, ///< 'module X:Y;'
+  };
+
+  /// An enumeration to represent the transition of states in parsing module
+  /// fragments and imports.  If we are not parsing a C++20 TU, or we find
+  /// an error in state transition, the state is set to NotACXX20Module.
+  enum class ModuleImportState {
+    FirstDecl,       ///< Parsing the first decl in a TU.
+    GlobalFragment,  ///< after 'module;' but before 'module X;'
+    ImportAllowed,   ///< after 'module X;' but before any non-import decl.
+    ImportFinished,  ///< after any non-import decl.
+    PrivateFragment, ///< after 'module :private;'.
+    NotACXX20Module  ///< Not a C++20 TU, or an invalid state was found.
   };
 
   /// The parser has processed a module-declaration that begins the definition
   /// of a module interface or implementation.
   DeclGroupPtrTy ActOnModuleDecl(SourceLocation StartLoc,
                                  SourceLocation ModuleLoc, ModuleDeclKind MDK,
-                                 ModuleIdPath Path, bool IsFirstDecl);
+                                 ModuleIdPath Path, ModuleIdPath Partition,
+                                 ModuleImportState &ImportState);
 
   /// The parser has processed a global-module-fragment declaration that begins
   /// the definition of the global module fragment of the current module unit.
@@ -3306,10 +3330,12 @@ public:
   ///        could be the location of an '@', 'export', or 'import'.
   /// \param ExportLoc The location of the 'export' keyword, if any.
   /// \param ImportLoc The location of the 'import' keyword.
-  /// \param Path The module access path.
+  /// \param Path The module toplevel name as an access path.
+  /// \param IsPartition If the name is for a partition.
   DeclResult ActOnModuleImport(SourceLocation StartLoc,
                                SourceLocation ExportLoc,
-                               SourceLocation ImportLoc, ModuleIdPath Path);
+                               SourceLocation ImportLoc, ModuleIdPath Path,
+                               bool IsPartition = false);
   DeclResult ActOnModuleImport(SourceLocation StartLoc,
                                SourceLocation ExportLoc,
                                SourceLocation ImportLoc, Module *M,
@@ -4284,8 +4310,8 @@ public:
                                                 FunctionDecl *DefaultedFn);
 
   ExprResult CreateOverloadedArraySubscriptExpr(SourceLocation LLoc,
-                                                SourceLocation RLoc,
-                                                Expr *Base,Expr *Idx);
+                                                SourceLocation RLoc, Expr *Base,
+                                                MultiExprArg Args);
 
   ExprResult BuildCallToMemberFunction(Scope *S, Expr *MemExpr,
                                        SourceLocation LParenLoc,
@@ -4747,8 +4773,10 @@ public:
   /// such as checking whether a parameter was properly specified, or the
   /// correct number of arguments were passed, etc. Returns true if the
   /// attribute has been diagnosed.
-  bool checkCommonAttributeFeatures(const Decl *D, const ParsedAttr &A);
-  bool checkCommonAttributeFeatures(const Stmt *S, const ParsedAttr &A);
+  bool checkCommonAttributeFeatures(const Decl *D, const ParsedAttr &A,
+                                    bool SkipArgCountCheck = false);
+  bool checkCommonAttributeFeatures(const Stmt *S, const ParsedAttr &A,
+                                    bool SkipArgCountCheck = false);
 
   /// Determine if type T is a valid subject for a nonnull and similar
   /// attributes. By default, we look through references (the behavior used by
@@ -4761,6 +4789,9 @@ public:
                             const FunctionDecl *FD = nullptr);
   bool CheckAttrTarget(const ParsedAttr &CurrAttr);
   bool CheckAttrNoArgs(const ParsedAttr &CurrAttr);
+  bool checkStringLiteralArgumentAttr(const AttributeCommonInfo &CI,
+                                      const Expr *E, StringRef &Str,
+                                      SourceLocation *ArgLocation = nullptr);
   bool checkStringLiteralArgumentAttr(const ParsedAttr &Attr, unsigned ArgNum,
                                       StringRef &Str,
                                       SourceLocation *ArgLocation = nullptr);
@@ -5785,7 +5816,8 @@ public:
                                  tok::TokenKind Kind, Expr *Input);
 
   ExprResult ActOnArraySubscriptExpr(Scope *S, Expr *Base, SourceLocation LLoc,
-                                     Expr *Idx, SourceLocation RLoc);
+                                     MultiExprArg ArgExprs,
+                                     SourceLocation RLoc);
   ExprResult CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
                                              Expr *Idx, SourceLocation RLoc);
 
@@ -7306,6 +7338,14 @@ private:
   llvm::ContextualFoldingSet<ConstraintSatisfaction, const ASTContext &>
       SatisfactionCache;
 
+  /// Introduce the instantiated function parameters into the local
+  /// instantiation scope, and set the parameter names to those used
+  /// in the template.
+  bool addInstantiatedParametersToScope(
+      FunctionDecl *Function, const FunctionDecl *PatternDecl,
+      LocalInstantiationScope &Scope,
+      const MultiLevelTemplateArgumentList &TemplateArgs);
+
 public:
   const NormalizedConstraint *
   getNormalizedAssociatedConstraints(
@@ -7353,7 +7393,7 @@ public:
   /// \brief Check whether the given non-dependent constraint expression is
   /// satisfied. Returns false and updates Satisfaction with the satisfaction
   /// verdict if successful, emits a diagnostic and returns true if an error
-  /// occured and satisfaction could not be determined.
+  /// occurred and satisfaction could not be determined.
   ///
   /// \returns true if an error occurred, false otherwise.
   bool CheckConstraintSatisfaction(const Expr *ConstraintExpr,
@@ -7362,7 +7402,7 @@ public:
   /// Check whether the given function decl's trailing requires clause is
   /// satisfied, if any. Returns false and updates Satisfaction with the
   /// satisfaction verdict if successful, emits a diagnostic and returns true if
-  /// an error occured and satisfaction could not be determined.
+  /// an error occurred and satisfaction could not be determined.
   ///
   /// \returns true if an error occurred, false otherwise.
   bool CheckFunctionConstraints(const FunctionDecl *FD,
@@ -7833,9 +7873,15 @@ public:
   CheckStructuredBindingMemberAccess(SourceLocation UseLoc,
                                      CXXRecordDecl *DecomposedClass,
                                      DeclAccessPair Field);
+  AccessResult CheckMemberOperatorAccess(SourceLocation Loc, Expr *ObjectExpr,
+                                         const SourceRange &,
+                                         DeclAccessPair FoundDecl);
   AccessResult CheckMemberOperatorAccess(SourceLocation Loc,
                                          Expr *ObjectExpr,
                                          Expr *ArgExpr,
+                                         DeclAccessPair FoundDecl);
+  AccessResult CheckMemberOperatorAccess(SourceLocation Loc, Expr *ObjectExpr,
+                                         ArrayRef<Expr *> ArgExprs,
                                          DeclAccessPair FoundDecl);
   AccessResult CheckAddressOfMemberAccess(Expr *OvlExpr,
                                           DeclAccessPair FoundDecl);
@@ -8302,7 +8348,7 @@ public:
   /// contain the converted forms of the template arguments as written.
   /// Otherwise, \p TemplateArgs will not be modified.
   ///
-  /// \param ConstraintsNotSatisfied If provided, and an error occured, will
+  /// \param ConstraintsNotSatisfied If provided, and an error occurred, will
   /// receive true if the cause for the error is the associated constraints of
   /// the template not being satisfied by the template arguments.
   ///
@@ -9058,7 +9104,7 @@ public:
 
   bool DeduceFunctionTypeFromReturnExpr(FunctionDecl *FD,
                                         SourceLocation ReturnLoc,
-                                        Expr *&RetExpr, AutoType *AT);
+                                        Expr *&RetExpr, const AutoType *AT);
 
   FunctionTemplateDecl *getMoreSpecializedTemplate(
       FunctionTemplateDecl *FT1, FunctionTemplateDecl *FT2, SourceLocation Loc,
@@ -9112,11 +9158,9 @@ public:
   // C++ Template Instantiation
   //
 
-  MultiLevelTemplateArgumentList
-  getTemplateInstantiationArgs(NamedDecl *D,
-                               const TemplateArgumentList *Innermost = nullptr,
-                               bool RelativeToPrimary = false,
-                               const FunctionDecl *Pattern = nullptr);
+  MultiLevelTemplateArgumentList getTemplateInstantiationArgs(
+      const NamedDecl *D, const TemplateArgumentList *Innermost = nullptr,
+      bool RelativeToPrimary = false, const FunctionDecl *Pattern = nullptr);
 
   /// A context in which code is being synthesized (where a source location
   /// alone is not sufficient to identify the context). This covers template
@@ -10518,6 +10562,9 @@ public:
            !CurFPFeatures.getAllowApproxFunc();
   }
 
+  void ActOnPragmaFPEvalMethod(SourceLocation Loc,
+                               LangOptions::FPEvalMethodKind Value);
+
   /// ActOnPragmaFloatControl - Call on well-formed \#pragma float_control
   void ActOnPragmaFloatControl(SourceLocation Loc, PragmaMsStackAction Action,
                                PragmaFloatControlKind Value);
@@ -10729,6 +10776,11 @@ public:
                                                 const SYCLUsesAspectsAttr &A);
   void AddSYCLUsesAspectsAttr(Decl *D, const AttributeCommonInfo &CI,
                               Expr **Exprs, unsigned Size);
+  void AddSYCLIntelMaxWorkGroupSizeAttr(Decl *D, const AttributeCommonInfo &CI,
+                                        Expr *XDim, Expr *YDim, Expr *ZDim);
+  SYCLIntelMaxWorkGroupSizeAttr *
+  MergeSYCLIntelMaxWorkGroupSizeAttr(Decl *D,
+                                     const SYCLIntelMaxWorkGroupSizeAttr &A);
   /// AddAlignedAttr - Adds an aligned attribute to a particular declaration.
   void AddAlignedAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E,
                       bool IsPackExpansion);
@@ -11170,6 +11222,10 @@ public:
   void finalizeOpenMPDelayedAnalysis(const FunctionDecl *Caller,
                                      const FunctionDecl *Callee,
                                      SourceLocation Loc);
+
+  /// Return true if currently in OpenMP task with untied clause context.
+  bool isInOpenMPTaskUntiedContext() const;
+
   /// Return true inside OpenMP declare target region.
   bool isInOpenMPDeclareTargetContext() const {
     return !DeclareTargetNesting.empty();
@@ -12482,6 +12538,10 @@ public:
                                       BinaryOperatorKind Opc);
   QualType CheckVectorLogicalOperands(ExprResult &LHS, ExprResult &RHS,
                                       SourceLocation Loc);
+
+  // type checking for sizeless vector binary operators.
+  QualType CheckSizelessVectorOperands(ExprResult &LHS, ExprResult &RHS,
+                                       SourceLocation Loc);
 
   /// Type checking for matrix binary operators.
   QualType CheckMatrixElementwiseOperands(ExprResult &LHS, ExprResult &RHS,

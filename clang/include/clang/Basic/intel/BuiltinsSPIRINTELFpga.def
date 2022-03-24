@@ -13,8 +13,8 @@
 #endif
 
 BUILTIN(get_compute_id, "zi", "i")
-LANGBUILTIN(read_pipe, "i.", "tn", OCLC1X_LANG)
-LANGBUILTIN(write_pipe, "i.", "tn", OCLC1X_LANG)
+LANGBUILTIN(read_pipe, "i.", "tn", INTEL_FPGA_PIPE1X)
+LANGBUILTIN(write_pipe, "i.", "tn", INTEL_FPGA_PIPE1X)
 
 #undef BUILTIN
 #undef LANGBUILTIN

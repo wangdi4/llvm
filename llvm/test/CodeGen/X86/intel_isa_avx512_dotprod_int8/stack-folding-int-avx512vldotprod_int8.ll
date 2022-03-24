@@ -819,55 +819,15 @@ define <8 x i32> @stack_fold_vpdpbssd256__mask_commuted(<8 x i32>* %a0, <8 x i32
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    vmovaps (%rdi), %ymm2
-; AVXDOTPROD-NEXT:    vmovaps %ymm2, %ymm3
-; AVXDOTPROD-NEXT:    vpdpbssd {{[-0-9]+}}(%r{{[sb]}}p), %ymm0, %ymm3 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $5, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    movl %esi, %ecx
-; AVXDOTPROD-NEXT:    shrb $4, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $6, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $7, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vmovd %eax, %xmm1
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $2, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shrb $3, %sil
-; AVXDOTPROD-NEXT:    movzbl %sil, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
-; AVXDOTPROD-NEXT:    vblendvps %ymm0, %ymm3, %ymm2, %ymm0
+; AVXDOTPROD-NEXT:    vmovaps (%rdi), %ymm1
+; AVXDOTPROD-NEXT:    vmovaps %ymm1, %ymm2
+; AVXDOTPROD-NEXT:    vpdpbssd {{[-0-9]+}}(%r{{[sb]}}p), %ymm0, %ymm2 # 32-byte Folded Reload
+; AVXDOTPROD-NEXT:    vmovd %esi, %xmm0
+; AVXDOTPROD-NEXT:    vpbroadcastb %xmm0, %ymm0
+; AVXDOTPROD-NEXT:    vmovdqa {{.*#+}} ymm3 = [1,2,4,8,16,32,64,128]
+; AVXDOTPROD-NEXT:    vpand %ymm3, %ymm0, %ymm0
+; AVXDOTPROD-NEXT:    vpcmpeqd %ymm3, %ymm0, %ymm0
+; AVXDOTPROD-NEXT:    vblendvps %ymm0, %ymm2, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = load <8 x i32>, <8 x i32>* %a0
@@ -892,58 +852,16 @@ define <8 x i32> @stack_fold_vpdpbssd256_maskz_commuted(<8 x i32> %a0, <8 x i32>
 ; AVXDOTPROD-LABEL: stack_fold_vpdpbssd256_maskz_commuted:
 ; AVXDOTPROD:       # %bb.0:
 ; AVXDOTPROD-NEXT:    vmovups %ymm2, {{[-0-9]+}}(%r{{[sb]}}p) # 32-byte Spill
-; AVXDOTPROD-NEXT:    vmovaps %ymm0, %ymm2
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    vpdpbssd {{[-0-9]+}}(%r{{[sb]}}p), %ymm1, %ymm2 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $5, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    movl %eax, %edx
-; AVXDOTPROD-NEXT:    shrb $4, %dl
-; AVXDOTPROD-NEXT:    movzbl %dl, %edx
-; AVXDOTPROD-NEXT:    andl $1, %edx
-; AVXDOTPROD-NEXT:    negl %edx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $6, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $7, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $3, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm1
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $2, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shrb $3, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
-; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm0, %ymm0
+; AVXDOTPROD-NEXT:    vpdpbssd {{[-0-9]+}}(%r{{[sb]}}p), %ymm1, %ymm0 # 32-byte Folded Reload
+; AVXDOTPROD-NEXT:    vpbroadcastb (%rdi), %ymm1
+; AVXDOTPROD-NEXT:    vmovdqa {{.*#+}} ymm2 = [1,2,4,8,16,32,64,128]
+; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm1, %ymm1
+; AVXDOTPROD-NEXT:    vpcmpeqd %ymm2, %ymm1, %ymm1
+; AVXDOTPROD-NEXT:    vpxor %xmm2, %xmm2, %xmm2
+; AVXDOTPROD-NEXT:    vblendvps %ymm1, %ymm0, %ymm2, %ymm0
 ; AVXDOTPROD-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = call <8 x i32> @llvm.x86.avx2.vpdpbssd.256(<8 x i32> %a0, <8 x i32> %a2, <8 x i32> %a1)
@@ -1002,55 +920,15 @@ define <8 x i32> @stack_fold_vpdpbssds256_mask_commuted(<8 x i32>* %a0, <8 x i32
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    vmovaps (%rdi), %ymm2
-; AVXDOTPROD-NEXT:    vmovaps %ymm2, %ymm3
-; AVXDOTPROD-NEXT:    vpdpbssds {{[-0-9]+}}(%r{{[sb]}}p), %ymm0, %ymm3 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $5, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    movl %esi, %ecx
-; AVXDOTPROD-NEXT:    shrb $4, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $6, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $7, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vmovd %eax, %xmm1
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $2, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shrb $3, %sil
-; AVXDOTPROD-NEXT:    movzbl %sil, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
-; AVXDOTPROD-NEXT:    vblendvps %ymm0, %ymm3, %ymm2, %ymm0
+; AVXDOTPROD-NEXT:    vmovaps (%rdi), %ymm1
+; AVXDOTPROD-NEXT:    vmovaps %ymm1, %ymm2
+; AVXDOTPROD-NEXT:    vpdpbssds {{[-0-9]+}}(%r{{[sb]}}p), %ymm0, %ymm2 # 32-byte Folded Reload
+; AVXDOTPROD-NEXT:    vmovd %esi, %xmm0
+; AVXDOTPROD-NEXT:    vpbroadcastb %xmm0, %ymm0
+; AVXDOTPROD-NEXT:    vmovdqa {{.*#+}} ymm3 = [1,2,4,8,16,32,64,128]
+; AVXDOTPROD-NEXT:    vpand %ymm3, %ymm0, %ymm0
+; AVXDOTPROD-NEXT:    vpcmpeqd %ymm3, %ymm0, %ymm0
+; AVXDOTPROD-NEXT:    vblendvps %ymm0, %ymm2, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = load <8 x i32>, <8 x i32>* %a0
@@ -1075,58 +953,16 @@ define <8 x i32> @stack_fold_vpdpbssds256_maskz_commuted(<8 x i32> %a0, <8 x i32
 ; AVXDOTPROD-LABEL: stack_fold_vpdpbssds256_maskz_commuted:
 ; AVXDOTPROD:       # %bb.0:
 ; AVXDOTPROD-NEXT:    vmovups %ymm2, {{[-0-9]+}}(%r{{[sb]}}p) # 32-byte Spill
-; AVXDOTPROD-NEXT:    vmovaps %ymm0, %ymm2
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    vpdpbssds {{[-0-9]+}}(%r{{[sb]}}p), %ymm1, %ymm2 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $5, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    movl %eax, %edx
-; AVXDOTPROD-NEXT:    shrb $4, %dl
-; AVXDOTPROD-NEXT:    movzbl %dl, %edx
-; AVXDOTPROD-NEXT:    andl $1, %edx
-; AVXDOTPROD-NEXT:    negl %edx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $6, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $7, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $3, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm1
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $2, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shrb $3, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
-; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm0, %ymm0
+; AVXDOTPROD-NEXT:    vpdpbssds {{[-0-9]+}}(%r{{[sb]}}p), %ymm1, %ymm0 # 32-byte Folded Reload
+; AVXDOTPROD-NEXT:    vpbroadcastb (%rdi), %ymm1
+; AVXDOTPROD-NEXT:    vmovdqa {{.*#+}} ymm2 = [1,2,4,8,16,32,64,128]
+; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm1, %ymm1
+; AVXDOTPROD-NEXT:    vpcmpeqd %ymm2, %ymm1, %ymm1
+; AVXDOTPROD-NEXT:    vpxor %xmm2, %xmm2, %xmm2
+; AVXDOTPROD-NEXT:    vblendvps %ymm1, %ymm0, %ymm2, %ymm0
 ; AVXDOTPROD-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = call <8 x i32> @llvm.x86.avx2.vpdpbssds.256(<8 x i32> %a0, <8 x i32> %a2, <8 x i32> %a1)
@@ -1185,55 +1021,15 @@ define <8 x i32> @stack_fold_vpdpbuud256_mask_commuted(<8 x i32>* %a0, <8 x i32>
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    vmovaps (%rdi), %ymm2
-; AVXDOTPROD-NEXT:    vmovaps %ymm2, %ymm3
-; AVXDOTPROD-NEXT:    vpdpbuud {{[-0-9]+}}(%r{{[sb]}}p), %ymm0, %ymm3 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $5, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    movl %esi, %ecx
-; AVXDOTPROD-NEXT:    shrb $4, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $6, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $7, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vmovd %eax, %xmm1
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $2, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shrb $3, %sil
-; AVXDOTPROD-NEXT:    movzbl %sil, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
-; AVXDOTPROD-NEXT:    vblendvps %ymm0, %ymm3, %ymm2, %ymm0
+; AVXDOTPROD-NEXT:    vmovaps (%rdi), %ymm1
+; AVXDOTPROD-NEXT:    vmovaps %ymm1, %ymm2
+; AVXDOTPROD-NEXT:    vpdpbuud {{[-0-9]+}}(%r{{[sb]}}p), %ymm0, %ymm2 # 32-byte Folded Reload
+; AVXDOTPROD-NEXT:    vmovd %esi, %xmm0
+; AVXDOTPROD-NEXT:    vpbroadcastb %xmm0, %ymm0
+; AVXDOTPROD-NEXT:    vmovdqa {{.*#+}} ymm3 = [1,2,4,8,16,32,64,128]
+; AVXDOTPROD-NEXT:    vpand %ymm3, %ymm0, %ymm0
+; AVXDOTPROD-NEXT:    vpcmpeqd %ymm3, %ymm0, %ymm0
+; AVXDOTPROD-NEXT:    vblendvps %ymm0, %ymm2, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = load <8 x i32>, <8 x i32>* %a0
@@ -1258,58 +1054,16 @@ define <8 x i32> @stack_fold_vpdpbuud256_maskz_commuted(<8 x i32> %a0, <8 x i32>
 ; AVXDOTPROD-LABEL: stack_fold_vpdpbuud256_maskz_commuted:
 ; AVXDOTPROD:       # %bb.0:
 ; AVXDOTPROD-NEXT:    vmovups %ymm2, {{[-0-9]+}}(%r{{[sb]}}p) # 32-byte Spill
-; AVXDOTPROD-NEXT:    vmovaps %ymm0, %ymm2
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    vpdpbuud {{[-0-9]+}}(%r{{[sb]}}p), %ymm1, %ymm2 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $5, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    movl %eax, %edx
-; AVXDOTPROD-NEXT:    shrb $4, %dl
-; AVXDOTPROD-NEXT:    movzbl %dl, %edx
-; AVXDOTPROD-NEXT:    andl $1, %edx
-; AVXDOTPROD-NEXT:    negl %edx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $6, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $7, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $3, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm1
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $2, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shrb $3, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
-; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm0, %ymm0
+; AVXDOTPROD-NEXT:    vpdpbuud {{[-0-9]+}}(%r{{[sb]}}p), %ymm1, %ymm0 # 32-byte Folded Reload
+; AVXDOTPROD-NEXT:    vpbroadcastb (%rdi), %ymm1
+; AVXDOTPROD-NEXT:    vmovdqa {{.*#+}} ymm2 = [1,2,4,8,16,32,64,128]
+; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm1, %ymm1
+; AVXDOTPROD-NEXT:    vpcmpeqd %ymm2, %ymm1, %ymm1
+; AVXDOTPROD-NEXT:    vpxor %xmm2, %xmm2, %xmm2
+; AVXDOTPROD-NEXT:    vblendvps %ymm1, %ymm0, %ymm2, %ymm0
 ; AVXDOTPROD-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = call <8 x i32> @llvm.x86.avx2.vpdpbuud.256(<8 x i32> %a0, <8 x i32> %a2, <8 x i32> %a1)
@@ -1368,55 +1122,15 @@ define <8 x i32> @stack_fold_vpdpbuuds256_mask_commuted(<8 x i32>* %a0, <8 x i32
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    vmovaps (%rdi), %ymm2
-; AVXDOTPROD-NEXT:    vmovaps %ymm2, %ymm3
-; AVXDOTPROD-NEXT:    vpdpbuuds {{[-0-9]+}}(%r{{[sb]}}p), %ymm0, %ymm3 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $5, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    movl %esi, %ecx
-; AVXDOTPROD-NEXT:    shrb $4, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $6, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $7, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vmovd %eax, %xmm1
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $2, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shrb $3, %sil
-; AVXDOTPROD-NEXT:    movzbl %sil, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
-; AVXDOTPROD-NEXT:    vblendvps %ymm0, %ymm3, %ymm2, %ymm0
+; AVXDOTPROD-NEXT:    vmovaps (%rdi), %ymm1
+; AVXDOTPROD-NEXT:    vmovaps %ymm1, %ymm2
+; AVXDOTPROD-NEXT:    vpdpbuuds {{[-0-9]+}}(%r{{[sb]}}p), %ymm0, %ymm2 # 32-byte Folded Reload
+; AVXDOTPROD-NEXT:    vmovd %esi, %xmm0
+; AVXDOTPROD-NEXT:    vpbroadcastb %xmm0, %ymm0
+; AVXDOTPROD-NEXT:    vmovdqa {{.*#+}} ymm3 = [1,2,4,8,16,32,64,128]
+; AVXDOTPROD-NEXT:    vpand %ymm3, %ymm0, %ymm0
+; AVXDOTPROD-NEXT:    vpcmpeqd %ymm3, %ymm0, %ymm0
+; AVXDOTPROD-NEXT:    vblendvps %ymm0, %ymm2, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = load <8 x i32>, <8 x i32>* %a0
@@ -1441,58 +1155,16 @@ define <8 x i32> @stack_fold_vpdpbuuds256_maskz_commuted(<8 x i32> %a0, <8 x i32
 ; AVXDOTPROD-LABEL: stack_fold_vpdpbuuds256_maskz_commuted:
 ; AVXDOTPROD:       # %bb.0:
 ; AVXDOTPROD-NEXT:    vmovups %ymm2, {{[-0-9]+}}(%r{{[sb]}}p) # 32-byte Spill
-; AVXDOTPROD-NEXT:    vmovaps %ymm0, %ymm2
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    vpdpbuuds {{[-0-9]+}}(%r{{[sb]}}p), %ymm1, %ymm2 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $5, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    movl %eax, %edx
-; AVXDOTPROD-NEXT:    shrb $4, %dl
-; AVXDOTPROD-NEXT:    movzbl %dl, %edx
-; AVXDOTPROD-NEXT:    andl $1, %edx
-; AVXDOTPROD-NEXT:    negl %edx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $6, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $7, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $3, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm1
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $2, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shrb $3, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
-; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm0, %ymm0
+; AVXDOTPROD-NEXT:    vpdpbuuds {{[-0-9]+}}(%r{{[sb]}}p), %ymm1, %ymm0 # 32-byte Folded Reload
+; AVXDOTPROD-NEXT:    vpbroadcastb (%rdi), %ymm1
+; AVXDOTPROD-NEXT:    vmovdqa {{.*#+}} ymm2 = [1,2,4,8,16,32,64,128]
+; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm1, %ymm1
+; AVXDOTPROD-NEXT:    vpcmpeqd %ymm2, %ymm1, %ymm1
+; AVXDOTPROD-NEXT:    vpxor %xmm2, %xmm2, %xmm2
+; AVXDOTPROD-NEXT:    vblendvps %ymm1, %ymm0, %ymm2, %ymm0
 ; AVXDOTPROD-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = call <8 x i32> @llvm.x86.avx2.vpdpbuuds.256(<8 x i32> %a0, <8 x i32> %a2, <8 x i32> %a1)
@@ -1537,55 +1209,15 @@ define <8 x i32> @stack_fold_vpdpbsud256_mask(<8 x i32>* %a0, <8 x i32> %a1, <8 
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    vmovaps (%rdi), %ymm2
-; AVXDOTPROD-NEXT:    vmovaps %ymm2, %ymm3
-; AVXDOTPROD-NEXT:    vpdpbsud {{[-0-9]+}}(%r{{[sb]}}p), %ymm0, %ymm3 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $5, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    movl %esi, %ecx
-; AVXDOTPROD-NEXT:    shrb $4, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $6, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $7, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vmovd %eax, %xmm1
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $2, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shrb $3, %sil
-; AVXDOTPROD-NEXT:    movzbl %sil, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
-; AVXDOTPROD-NEXT:    vblendvps %ymm0, %ymm3, %ymm2, %ymm0
+; AVXDOTPROD-NEXT:    vmovaps (%rdi), %ymm1
+; AVXDOTPROD-NEXT:    vmovaps %ymm1, %ymm2
+; AVXDOTPROD-NEXT:    vpdpbsud {{[-0-9]+}}(%r{{[sb]}}p), %ymm0, %ymm2 # 32-byte Folded Reload
+; AVXDOTPROD-NEXT:    vmovd %esi, %xmm0
+; AVXDOTPROD-NEXT:    vpbroadcastb %xmm0, %ymm0
+; AVXDOTPROD-NEXT:    vmovdqa {{.*#+}} ymm3 = [1,2,4,8,16,32,64,128]
+; AVXDOTPROD-NEXT:    vpand %ymm3, %ymm0, %ymm0
+; AVXDOTPROD-NEXT:    vpcmpeqd %ymm3, %ymm0, %ymm0
+; AVXDOTPROD-NEXT:    vblendvps %ymm0, %ymm2, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = load <8 x i32>, <8 x i32>* %a0
@@ -1610,58 +1242,16 @@ define <8 x i32> @stack_fold_vpdpbsud256_maskz(<8 x i32> %a0, <8 x i32> %a1, <8 
 ; AVXDOTPROD-LABEL: stack_fold_vpdpbsud256_maskz:
 ; AVXDOTPROD:       # %bb.0:
 ; AVXDOTPROD-NEXT:    vmovups %ymm2, {{[-0-9]+}}(%r{{[sb]}}p) # 32-byte Spill
-; AVXDOTPROD-NEXT:    vmovaps %ymm0, %ymm2
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    vpdpbsud {{[-0-9]+}}(%r{{[sb]}}p), %ymm1, %ymm2 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $5, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    movl %eax, %edx
-; AVXDOTPROD-NEXT:    shrb $4, %dl
-; AVXDOTPROD-NEXT:    movzbl %dl, %edx
-; AVXDOTPROD-NEXT:    andl $1, %edx
-; AVXDOTPROD-NEXT:    negl %edx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $6, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $7, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $3, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm1
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $2, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shrb $3, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
-; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm0, %ymm0
+; AVXDOTPROD-NEXT:    vpdpbsud {{[-0-9]+}}(%r{{[sb]}}p), %ymm1, %ymm0 # 32-byte Folded Reload
+; AVXDOTPROD-NEXT:    vpbroadcastb (%rdi), %ymm1
+; AVXDOTPROD-NEXT:    vmovdqa {{.*#+}} ymm2 = [1,2,4,8,16,32,64,128]
+; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm1, %ymm1
+; AVXDOTPROD-NEXT:    vpcmpeqd %ymm2, %ymm1, %ymm1
+; AVXDOTPROD-NEXT:    vpxor %xmm2, %xmm2, %xmm2
+; AVXDOTPROD-NEXT:    vblendvps %ymm1, %ymm0, %ymm2, %ymm0
 ; AVXDOTPROD-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = call <8 x i32> @llvm.x86.avx2.vpdpbsud.256(<8 x i32> %a0, <8 x i32> %a1, <8 x i32> %a2)
@@ -1706,55 +1296,15 @@ define <8 x i32> @stack_fold_vpdpbsuds256_mask(<8 x i32>* %a0, <8 x i32> %a1, <8
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    vmovaps (%rdi), %ymm2
-; AVXDOTPROD-NEXT:    vmovaps %ymm2, %ymm3
-; AVXDOTPROD-NEXT:    vpdpbsuds {{[-0-9]+}}(%r{{[sb]}}p), %ymm0, %ymm3 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $5, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    movl %esi, %ecx
-; AVXDOTPROD-NEXT:    shrb $4, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $6, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $7, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vmovd %eax, %xmm1
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrb $2, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shrb $3, %sil
-; AVXDOTPROD-NEXT:    movzbl %sil, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
-; AVXDOTPROD-NEXT:    vblendvps %ymm0, %ymm3, %ymm2, %ymm0
+; AVXDOTPROD-NEXT:    vmovaps (%rdi), %ymm1
+; AVXDOTPROD-NEXT:    vmovaps %ymm1, %ymm2
+; AVXDOTPROD-NEXT:    vpdpbsuds {{[-0-9]+}}(%r{{[sb]}}p), %ymm0, %ymm2 # 32-byte Folded Reload
+; AVXDOTPROD-NEXT:    vmovd %esi, %xmm0
+; AVXDOTPROD-NEXT:    vpbroadcastb %xmm0, %ymm0
+; AVXDOTPROD-NEXT:    vmovdqa {{.*#+}} ymm3 = [1,2,4,8,16,32,64,128]
+; AVXDOTPROD-NEXT:    vpand %ymm3, %ymm0, %ymm0
+; AVXDOTPROD-NEXT:    vpcmpeqd %ymm3, %ymm0, %ymm0
+; AVXDOTPROD-NEXT:    vblendvps %ymm0, %ymm2, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = load <8 x i32>, <8 x i32>* %a0
@@ -1779,58 +1329,16 @@ define <8 x i32> @stack_fold_vpdpbsuds256_maskz(<8 x i32> %a0, <8 x i32> %a1, <8
 ; AVXDOTPROD-LABEL: stack_fold_vpdpbsuds256_maskz:
 ; AVXDOTPROD:       # %bb.0:
 ; AVXDOTPROD-NEXT:    vmovups %ymm2, {{[-0-9]+}}(%r{{[sb]}}p) # 32-byte Spill
-; AVXDOTPROD-NEXT:    vmovaps %ymm0, %ymm2
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    vpdpbsuds {{[-0-9]+}}(%r{{[sb]}}p), %ymm1, %ymm2 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $5, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    movl %eax, %edx
-; AVXDOTPROD-NEXT:    shrb $4, %dl
-; AVXDOTPROD-NEXT:    movzbl %dl, %edx
-; AVXDOTPROD-NEXT:    andl $1, %edx
-; AVXDOTPROD-NEXT:    negl %edx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $6, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $7, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $3, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm1
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $2, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %ecx
-; AVXDOTPROD-NEXT:    negl %ecx
-; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shrb $3, %al
-; AVXDOTPROD-NEXT:    movzbl %al, %eax
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    negl %eax
-; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
-; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm0, %ymm0
+; AVXDOTPROD-NEXT:    vpdpbsuds {{[-0-9]+}}(%r{{[sb]}}p), %ymm1, %ymm0 # 32-byte Folded Reload
+; AVXDOTPROD-NEXT:    vpbroadcastb (%rdi), %ymm1
+; AVXDOTPROD-NEXT:    vmovdqa {{.*#+}} ymm2 = [1,2,4,8,16,32,64,128]
+; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm1, %ymm1
+; AVXDOTPROD-NEXT:    vpcmpeqd %ymm2, %ymm1, %ymm1
+; AVXDOTPROD-NEXT:    vpxor %xmm2, %xmm2, %xmm2
+; AVXDOTPROD-NEXT:    vblendvps %ymm1, %ymm0, %ymm2, %ymm0
 ; AVXDOTPROD-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = call <8 x i32> @llvm.x86.avx2.vpdpbsuds.256(<8 x i32> %a0, <8 x i32> %a1, <8 x i32> %a2)

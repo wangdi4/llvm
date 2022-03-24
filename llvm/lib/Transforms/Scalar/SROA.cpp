@@ -77,11 +77,9 @@
 #include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstVisitor.h"
-#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
@@ -98,7 +96,6 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -106,7 +103,6 @@
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"  // INTEL
 #include <algorithm>
 #include <cassert>
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -319,6 +315,7 @@ private:
   class SliceBuilder;
 
   friend class AllocaSlices::SliceBuilder;
+
 
 #if defined(INTEL_CUSTOMIZATION) || \
     !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -2340,10 +2337,7 @@ static Value *extractVector(IRBuilderTy &IRB, Value *V, unsigned BeginIndex,
     return V;
   }
 
-  SmallVector<int, 8> Mask;
-  Mask.reserve(NumElements);
-  for (unsigned i = BeginIndex; i != EndIndex; ++i)
-    Mask.push_back(i);
+  auto Mask = llvm::to_vector<8>(llvm::seq<int>(BeginIndex, EndIndex));
   V = IRB.CreateShuffleVector(V, Mask, Name + ".extract");
   LLVM_DEBUG(dbgs() << "     shuffle: " << *V << "\n");
   return V;

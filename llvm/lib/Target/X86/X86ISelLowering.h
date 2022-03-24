@@ -249,9 +249,6 @@ namespace llvm {
     SCALEFS,
     SCALEFS_RND,
 
-    // Unsigned Integer average.
-    AVG,
-
     /// Integer horizontal add/sub.
     HADD,
     HSUB,
@@ -819,6 +816,9 @@ namespace llvm {
     LOR,
     LXOR,
     LAND,
+    LBTS,
+    LBTC,
+    LBTR,
 
     // Load, scalar_to_vector, and zero extend.
     VZEXT_LOAD,
@@ -1355,6 +1355,9 @@ namespace llvm {
     /// from i32 to i8 but not from i32 to i16.
     bool isNarrowingProfitable(EVT VT1, EVT VT2) const override;
 
+    bool shouldFoldSelectWithIdentityConstant(unsigned BinOpcode,
+                                              EVT VT) const override;
+
     /// Given an intrinsic, checks if on the target the intrinsic will need to map
     /// to a MemIntrinsicNode (touches memory). If this is the case, it returns
     /// true and stores the intrinsic information into the IntrinsicInfo that was
@@ -1723,6 +1726,9 @@ namespace llvm {
     bool shouldExpandAtomicStoreInIR(StoreInst *SI) const override;
     TargetLoweringBase::AtomicExpansionKind
     shouldExpandAtomicRMWInIR(AtomicRMWInst *AI) const override;
+    TargetLoweringBase::AtomicExpansionKind
+    shouldExpandLogicAtomicRMWInIR(AtomicRMWInst *AI) const;
+    void emitBitTestAtomicRMWIntrinsic(AtomicRMWInst *AI) const override;
 
     LoadInst *
     lowerIdempotentRMWIntoFencedLoad(AtomicRMWInst *AI) const override;

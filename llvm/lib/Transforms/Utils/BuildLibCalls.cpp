@@ -31,16 +31,14 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/Triple.h" // INTEL
+#include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
-#include "llvm/Analysis/MemoryBuiltins.h"
 
 using namespace llvm;
 
@@ -273,6 +271,13 @@ static bool setWillReturn(Function &F) {
   return true;
 }
 
+static bool setAlignedAllocParam(Function &F, unsigned ArgNo) {
+  if (F.hasParamAttribute(ArgNo, Attribute::AllocAlign))
+    return false;
+  F.addParamAttr(ArgNo, Attribute::AllocAlign);
+  return true;
+}
+
 bool llvm::inferLibFuncAttributes(Module *M, StringRef Name,
                                   const TargetLibraryInfo &TLI) {
   Function *F = M->getFunction(Name);
@@ -489,6 +494,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setOnlyReadsMemory(F, 0);
     return Changed;
   case LibFunc_aligned_alloc:
+    Changed |= setAlignedAllocParam(F, 0);
+    LLVM_FALLTHROUGH;
   case LibFunc_valloc:
   case LibFunc_malloc:
   case LibFunc_vec_malloc:
@@ -555,6 +562,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setOnlyReadsMemory(F, 1);
     return Changed;
   case LibFunc_memalign:
+    Changed |= setAlignedAllocParam(F, 0);
     Changed |= setOnlyAccessesInaccessibleMemory(F);
     Changed |= setRetNoUndef(F);
     Changed |= setDoesNotThrow(F);

@@ -27,7 +27,6 @@
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCSection.h"
-#include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCSymbol.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/MC/Intel_MCTrace.h"
@@ -39,15 +38,17 @@
 #include "llvm/Support/EndianStream.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/LEB128.h"
-#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <cstdint>
-#include <cstring>
 #include <tuple>
 #include <utility>
 
 using namespace llvm;
+
+namespace llvm {
+class MCSubtargetInfo;
+}
 
 #define DEBUG_TYPE "assembler"
 
@@ -337,7 +338,7 @@ uint64_t MCAssembler::computeFragmentSize(const MCAsmLayout &Layout,
 
     // Insert extra Nops for code alignment if the target define
     // shouldInsertExtraNopBytesForCodeAlign target hook.
-    if (AF.getParent()->UseCodeAlign() && AF.hasEmitNops() &&
+    if (AF.getParent()->useCodeAlign() && AF.hasEmitNops() &&
         getBackend().shouldInsertExtraNopBytesForCodeAlign(AF, Size))
       return Size;
 
@@ -887,7 +888,7 @@ void MCAssembler::layout(MCAsmLayout &Layout) {
         MCAlignFragment &AF = cast<MCAlignFragment>(Frag);
         // Insert fixup type for code alignment if the target define
         // shouldInsertFixupForCodeAlign target hook.
-        if (Sec.UseCodeAlign() && AF.hasEmitNops())
+        if (Sec.useCodeAlign() && AF.hasEmitNops())
           getBackend().shouldInsertFixupForCodeAlign(*this, Layout, AF);
         continue;
       }
