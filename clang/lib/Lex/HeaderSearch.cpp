@@ -987,17 +987,8 @@ Optional<FileEntryRef> HeaderSearch::LookupFile(
   // this is a matching hit.
   if (!SkipCache && CacheLookup.StartIt == NextIt) {
     // Skip querying potentially lots of directories for this lookup.
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  // This is INTEL CUSTOMIZED as a workaround for CMPLRLLVM-36015 while waiting
-  // for community fix at https://github.com/llvm/llvm-project/issues/54426
     if (CacheLookup.HitIt)
       It = CacheLookup.HitIt;
-#endif // INTEL_CUSTOMIZATION
-=======
-    if (CacheLookup.HitIt)
-      It = CacheLookup.HitIt;
->>>>>>> 59dadd178b0b12cb4a975a262ed20e7c3822aedc
     if (CacheLookup.MappedName) {
       Filename = CacheLookup.MappedName;
       if (IsMapped)
