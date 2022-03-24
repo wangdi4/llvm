@@ -4464,10 +4464,10 @@ def o : JoinedOrSeparate<["-"], "o">, Flags<[NoXarchOption, RenderAsInput,
   HelpText<"Write output to <file>">, MetaVarName<"<file>">,
   MarshallingInfoString<FrontendOpts<"OutputFile">>;
 #if INTEL_CUSTOMIZATION
-def pc : Joined<["-"], "pc">, Flags<[NoXarchOption]>;
-def : Joined<["-"], "pc=">, Alias<pc>, HelpText<"Initialize X87 floating "
-  "point precision to single, double or double extendedSet FPU precision. "
-  "Valid values of 32, 64 and 80">;
+def pc : JoinedOrSeparate<["-"], "pc">, Flags<[NoXarchOption]>,
+  Values<"32,64,80">, HelpText<"Initialize X87 floating point precision to "
+  "single, double or double extended. Valid values of 32, 64 and 80">;
+def : Joined<["-"], "pc=">, Alias<pc>;
 def parallel_source_info_EQ : Joined<["-"], "parallel-source-info=">,
   Values<"0,1,2">, Flags<[NoXarchOption]>, HelpText<"Emit source location "
   "information for parallel code generation with OpenMP and "
@@ -7850,9 +7850,9 @@ def : CLFlag<"Qparallel-source-info">, Alias<parallel_source_info_EQ>,
 def : CLFlag<"Qparallel-source-info-">, Alias<parallel_source_info_EQ>,
   AliasArgs<["0"]>, HelpText<"Disable emission of source location information "
   "for parallel code generation.">;
-def _SLASH_Qpc : CLJoined<"Qpc">, Alias<pc>, HelpText<"Initialize X87 "
-  "floating point precision to single, double or double extended.  Valid "
-  "values of 32, 64, and 80.">;
+def _SLASH_Qpc : CLJoinedOrSeparate<"Qpc">, Alias<pc>, Values<"32,64,80">,
+  HelpText<"Initialize X87 floating point precision to single, double or "
+  "double extended. Valid values of 32, 64, and 80.">;
 def _SLASH_Qpc_COL : CLJoined<"Qpc:">, Alias<pc>;
 def _SLASH_Qpc_EQ : CLJoined<"Qpc=">, Alias<pc>;
 def _SLASH_Qoption_COMMA : CLCommaJoined<"Qoption,">, Alias<Qoption_COMMA>,
