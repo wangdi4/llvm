@@ -148,3 +148,7 @@ storeseg %fs:(%rdx)
 // CHECK: storeseg %gs:(%rdx)
 // CHECK: encoding: [0x65,0x0f,0xb4,0x02]
 storeseg %gs:(%rdx)
+
+// CHECK: int1
+// CHECK: encoding: [0xf1]
+int1

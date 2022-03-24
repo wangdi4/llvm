@@ -149,3 +149,7 @@
 # ATT: storeseg %gs:(%rdx)
 # INTEL: storeseg xmmword ptr gs:[rdx]
 0x65,0x0f,0xb4,0x02
+
+# ATT:   int1
+# INTEL: int1
+0xf1

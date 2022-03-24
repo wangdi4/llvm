@@ -93,7 +93,7 @@ public:
 } // namespace
 
 bool HIRNontemporalMarking::run() {
-  if (DisablePass ||
+  if (DisablePass || !TTI.isLibIRCAllowed() ||
       !(TTI.isAdvancedOptEnabled(
             TargetTransformInfo::AO_TargetHasIntelAVX512) ||
         TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasIntelAVX2))) {

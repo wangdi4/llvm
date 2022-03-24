@@ -1,11 +1,13 @@
-; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -S -passes 'unaligned-nontemporal,verify' < %s | FileCheck %s
-; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -S -unaligned-nontemporal -verify < %s | FileCheck %s
-target triple = "i386-unknown-linux-gnu"
-target datalayout = "e-m:e-p:32:32-p270:32:32-p271:32:32-p272:64:64-f64:32:64-f80:32-n8:16:32-S128"
+; RUN: opt -enable-intel-advanced-opts -S -passes 'unaligned-nontemporal,verify' < %s | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts -S -unaligned-nontemporal -verify < %s | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; Check that the transform doesn't apply when -intel-libirc-allowed is not
+; passed.
 
 define void @example(<8 x i64>* %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: @example(
-; CHECK-NOT: @__libirc_nontemporal_store
+; CHECK-NOT: call void @__libirc_nontemporal_store
 entry:
   br label %loop
 

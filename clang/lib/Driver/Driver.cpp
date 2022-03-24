@@ -768,6 +768,14 @@ static llvm::Triple computeTargetTriple(const Driver &D,
                                         StringRef TargetTriple,
                                         const ArgList &Args,
                                         StringRef DarwinArchName = "") {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  // Handle '-mxucc' flag.
+  if (Args.getLastArg(options::OPT_mxucc))
+    return llvm::Triple(llvm::Triple::normalize("x86_64_xucc-unknown-unknown"));
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
+
   // FIXME: Already done in Compilation *Driver::BuildCompilation
   if (const Arg *A = Args.getLastArg(options::OPT_target))
     TargetTriple = A->getValue();

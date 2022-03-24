@@ -11820,6 +11820,11 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
     }
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  case llvm::Triple::x86_64_xucc:
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   case llvm::Triple::x86_64: {
     StringRef ABI = getTarget().getABI();
     X86AVXABILevel AVXLevel =
