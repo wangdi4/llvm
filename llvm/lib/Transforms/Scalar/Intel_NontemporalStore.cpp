@@ -132,9 +132,10 @@ public:
     // The library function we use requires AVX-512 or AVX-2 to work correctly.
     // If we're not optimizing for either, then don't try to use it.
     HasLibFunc =
-        TTI.isAdvancedOptEnabled(
-            TargetTransformInfo::AO_TargetHasIntelAVX512) ||
-        TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasIntelAVX2);
+        TTI.isLibIRCAllowed() &&
+        (TTI.isAdvancedOptEnabled(
+             TargetTransformInfo::AO_TargetHasIntelAVX512) ||
+         TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasIntelAVX2));
 
     // CMPLRLLVM-21684: For some reason, the library function does not work
     // correctly on x86-32. Until this can be understood, disable the library
