@@ -146,45 +146,45 @@ __esimd_dpasw(__ESIMD_DNS::vector_type_t<T, N> src0,
               __ESIMD_DNS::vector_type_t<T2, N2> src2, int dpas_info);
 
 template <typename T, typename T1, typename T2, int N, int N1, int N2>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<T, N>
+__esimd_dpasw2(__ESIMD_DNS::vector_type_t<T1, N1> src1,
+               __ESIMD_DNS::vector_type_t<T2, N2> src2, int dpas_info);
 
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
 template <int N>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<__SEIEE::bfloat16, N>
-__esimd_bf_cvt(__SEIEED::vector_type_t<float, N> src);
+SYCL_EXTERNAL
+    SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<__ESIMD_ENS::bfloat16, N>
+    __esimd_bf_cvt(__ESIMD_DNS::vector_type_t<float, N> src);
 
 template <int N>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<float, N>
-__esimd_bf_cvt(__SEIEED::vector_type_t<__SEIEE::bfloat16, N> src);
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<float, N>
+__esimd_bf_cvt(__ESIMD_DNS::vector_type_t<__ESIMD_ENS::bfloat16, N> src);
 
 template <int N>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<uint32_t, N>
-__esimd_tf32_cvt(__SEIEED::vector_type_t<float, N> src);
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<uint32_t, N>
+__esimd_tf32_cvt(__ESIMD_DNS::vector_type_t<float, N> src);
 
 template <int N, typename DstType, typename SrcType>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<DstType, N>
-__esimd_qf_cvt(__SEIEED::vector_type_t<SrcType, N> src);
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<DstType, N>
+__esimd_qf_cvt(__ESIMD_DNS::vector_type_t<SrcType, N> src);
 
-template<int N, typename DstType, typename SrcType>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<DstType, N>
-__esimd_srnd(__SEIEED::vector_type_t<SrcType, N> src1,
-             __SEIEED::vector_type_t<SrcType, N> src2)
+template <int N, typename DstType, typename SrcType>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<DstType, N>
+__esimd_srnd(__ESIMD_DNS::vector_type_t<SrcType, N> src1,
+             __ESIMD_DNS::vector_type_t<SrcType, N> src2)
 #ifdef __SYCL_DEVICE_ONLY__
     ;
 #else
 {
   throw cl::sycl::feature_not_supported();
-  return __SEIEED::vector_type_t<DstType, N>();
+  return __ESIMD_DNS::vector_type_t<DstType, N>();
 }
 #endif // __SYCL_DEVICE_ONLY__
 
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
-
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<T, N>
-__esimd_dpasw2(__ESIMD_DNS::vector_type_t<T1, N1> src1,
-               __ESIMD_DNS::vector_type_t<T2, N2> src2, int dpas_info);
 
 #ifndef __SYCL_DEVICE_ONLY__
 
@@ -774,31 +774,31 @@ __esimd_dpasw2(__ESIMD_DNS::vector_type_t<T1, N1> src1,
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
 template <int N>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<uint16_t, N>
-__esimd_bf_cvt(__SEIEED::vector_type_t<float, N> src) {
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<uint16_t, N>
+__esimd_bf_cvt(__ESIMD_DNS::vector_type_t<float, N> src) {
   throw cl::sycl::feature_not_supported();
-  return __SEIEED::vector_type_t<uint16_t, N>();
+  return __ESIMD_DNS::vector_type_t<uint16_t, N>();
 }
 
 template <int N>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<float, N>
-__esimd_bf_cvt(__SEIEED::vector_type_t<uint16_t, N> src) {
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<float, N>
+__esimd_bf_cvt(__ESIMD_DNS::vector_type_t<uint16_t, N> src) {
   throw cl::sycl::feature_not_supported();
-  return __SEIEED::vector_type_t<float, N>();
+  return __ESIMD_DNS::vector_type_t<float, N>();
 }
 
 template <int N>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<uint32_t, N>
-__esimd_tf32_cvt(__SEIEED::vector_type_t<float, N> src) {
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<uint32_t, N>
+__esimd_tf32_cvt(__ESIMD_DNS::vector_type_t<float, N> src) {
   throw cl::sycl::feature_not_supported();
-  return __SEIEED::vector_type_t<uint32_t, N>();
+  return __ESIMD_DNS::vector_type_t<uint32_t, N>();
 }
 
 template <int N, typename DstType, typename SrcType>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<DstType, N>
-__esimd_qf_cvt(__SEIEED::vector_type_t<SrcType, N> src) {
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<DstType, N>
+__esimd_qf_cvt(__ESIMD_DNS::vector_type_t<SrcType, N> src) {
   throw cl::sycl::feature_not_supported();
-  return __SEIEED::vector_type_t<DstType, N>();
+  return __ESIMD_DNS::vector_type_t<DstType, N>();
 }
 
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
