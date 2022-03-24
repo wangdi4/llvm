@@ -31,7 +31,7 @@
 #include <sycl/ext/intel/experimental/esimd/detail/util.hpp>
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
-#include <sycl/ext/intel/experimental/esimd/simd_view.hpp>
+#include <sycl/ext/intel/esimd/simd_view.hpp>
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
@@ -277,15 +277,14 @@ __ESIMD_API void wait(uint16_t val) { __esimd_wait(val); }
 /// @{
 
 namespace detail {
-
 // Compute the data size for 2d block load or store.
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 template <int NBlocks, int Height, int Width, bool Transposed>
 constexpr int get_block_2d_data_size() {
   if (Transposed)
-    return detail::getNextPowerOf2<Height>() * Width * NBlocks;
-  return detail::getNextPowerOf2<Width>() * Height * NBlocks;
+    return __ESIMD_DNS::getNextPowerOf2<Height>() * Width * NBlocks;
+  return __ESIMD_DNS::getNextPowerOf2<Width>() * Height * NBlocks;
 }
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
@@ -339,15 +338,16 @@ lsc_format_ret(__ESIMD_NS::simd<T1, N> Vals) {
 ///  getNextPowerOf2(Height) * Width * NBlocks, if transposed
 ///  getNextPowerOf2(Width) * Height * NBlocks, otherwise
 ///
-template <typename T, int Width, int Height = 1, int NBlks = 1,
-          bool Transposed = false, bool Transformed = false,
-          cache_hint L1H = cache_hint::none, cache_hint L3H = cache_hint::none,
-          int N = get_block_2d_data_size<NBlks, Height, Width, Transposed>()>
-ESIMD_INLINE SYCL_ESIMD_FUNCTION simd<T, N>
+template <
+    typename T, int Width, int Height = 1, int NBlks = 1,
+    bool Transposed = false, bool Transformed = false,
+    cache_hint L1H = cache_hint::none, cache_hint L3H = cache_hint::none,
+    int N = detail::get_block_2d_data_size<NBlks, Height, Width, Transposed>()>
+ESIMD_INLINE SYCL_ESIMD_FUNCTION __ESIMD_NS::simd<T, N>
 load_2d_stateless(const T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
                   unsigned SurfacePitch, int X, int Y) {
-  simd<T, N> oldDst;
-  simd<unsigned int, 16> payload(0);
+  __ESIMD_NS::simd<T, N> oldDst;
+  __ESIMD_NS::simd<unsigned int, 16> payload(0);
   payload.template bit_cast_view<uint64_t>().template select<1, 1>(0) =
       (uint64_t)Ptr;
   payload.template select<1, 1>(2) = SurfaceWidth;
@@ -391,12 +391,13 @@ load_2d_stateless(const T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
 ///
 template <typename T, int Width, int Height = 1,
           cache_hint L1H = cache_hint::none, cache_hint L3H = cache_hint::none,
-          int N = get_block_2d_data_size</*NBlks*/ 1, Height, Width,
-                                         /*Transposed*/ false>()>
+          int N = detail::get_block_2d_data_size</*NBlks*/ 1, Height, Width,
+                                                 /*Transposed*/ false>()>
 ESIMD_INLINE SYCL_ESIMD_FUNCTION void
 store_2d_stateless(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
-                   unsigned SurfacePitch, int X, int Y, simd<T, N> Data) {
-  simd<unsigned int, 16> payload = 0;
+                   unsigned SurfacePitch, int X, int Y,
+                   __ESIMD_NS::simd<T, N> Data) {
+  __ESIMD_NS::simd<unsigned int, 16> payload = 0;
   payload.template bit_cast_view<uint64_t>().template select<1, 1>(0) =
       (uint64_t)Ptr;
   payload.template select<1, 1>(2) = SurfaceWidth;
