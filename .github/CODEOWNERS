@@ -81,6 +81,11 @@ sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-runtime
 /llvm/test/Transforms/Intel_IVSplit/ @williamweixiao
 /llvm/test/tools/llvm-mca/X86/ @HaohaiWen
 /llvm/test/tools/llvm-tli-checker/ @yubingex007-a11y
+/llvm/unittests/BinaryFormat/Intel_TraceTest.cpp @KanRobert
+/llvm/unittests/MC/Intel_MCTraceTest.cpp @KanRobert
+/llvm/lib/BinaryFormat/Intel_Trace.cpp @KanRobert
+/llvm/lib/CodeGen/AsmPrinter/Intel_TraceBackDebug.cpp @KanRobert
+/llvm/lib/MC/Intel_MCTrace.cpp @KanRobert
 
 # Pass pipeline creation has multiple stakeholders
 /llvm/lib/Transforms/IPO/PassManagerBuilder.cpp @andykaylor @pankaj-chawla
