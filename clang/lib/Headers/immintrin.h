@@ -1355,6 +1355,8 @@ _sgdt(void *__ptr) {
 #endif /* __has_extension(gnu_asm) */
 
 #if !defined(_MSC_VER) && __has_extension(gnu_asm)
+void __cpuid(int[4], int);
+void __cpuidex(int[4], int, int);
 
 static __inline__ unsigned long long __DEFAULT_FN_ATTRS
 __readmsr(unsigned int __register) {
