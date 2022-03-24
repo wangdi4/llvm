@@ -144,65 +144,33 @@ define float @foo(float **%a, i1 %c, i1 %c2) {
 ; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR float [[PHI_TEMP210]] {sb:45}
 ; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR float [[FLT_LAST0]] {sb:4}
 ; CHECK-NEXT:        |
-<<<<<<< HEAD
-; CHECK-NEXT:        |   [[UNIFCOND0:%.*]] = extractelement [[ALL_ZERO_CHECK0]],  0
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i1 [[UNIFCOND0]] {sb:46}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i1> [[ALL_ZERO_CHECK0]] {sb:44}
-; CHECK-NEXT:        |
-; CHECK-NEXT:        |   if ([[UNIFCOND0]] == 1)
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i1 [[UNIFCOND0]] {sb:46}
-=======
 ; CHECK-NEXT:        |   if ([[CMP0]] == 1)
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i1 [[CMP0]] {sb:42}
->>>>>>> 95da991db110a9344dce61cde1e84ccc7a09f6b7
+; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i1 [[CMP0]] {sb:43}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   {
 ; CHECK-NEXT:        |      goto [[BB0:BB[0-9]+]].73
 ; CHECK-NEXT:        |   }
 ; CHECK-NEXT:        |   [[PRIV_IDX_MAX0:%.*]] = @llvm.vector.reduce.smax.v16i64([[SELECT0]])
-<<<<<<< HEAD
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i64 [[PRIV_IDX_MAX0]] {sb:47}
+; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i64 [[PRIV_IDX_MAX0]] {sb:46}
 ; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i64> [[SELECT0]] {sb:37}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[PRIV_IDX_CMP0:%.*]] = [[SELECT0]] == [[PRIV_IDX_MAX0]]
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR <16 x i1> [[PRIV_IDX_CMP0]] {sb:48}
+; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR <16 x i1> [[PRIV_IDX_CMP0]] {sb:47}
 ; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i64> [[SELECT0]] {sb:37}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i64> [[PRIV_IDX_MAX0]] {sb:47}
+; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i64> [[PRIV_IDX_MAX0]] {sb:46}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[BSFINTMASK0:%.*]] = bitcast.<16 x i1>.i16([[PRIV_IDX_CMP0]])
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i16 [[BSFINTMASK0]] {sb:49}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i1> [[PRIV_IDX_CMP0]] {sb:48}
+; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i16 [[BSFINTMASK0]] {sb:48}
+; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i1> [[PRIV_IDX_CMP0]] {sb:47}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[BSF0:%.*]] = @llvm.cttz.i16([[BSFINTMASK0]],  1)
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i16 [[BSF0]] {sb:50}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i16 [[BSFINTMASK0]] {sb:49}
+; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i16 [[BSF0]] {sb:49}
+; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i16 [[BSFINTMASK0]] {sb:48}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[FLT_LAST0]] = extractelement [[SELECT130]],  [[BSF0]]
 ; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR float [[FLT_LAST0]] {sb:4}
 ; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x float> [[SELECT130]] {sb:38}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i16 [[BSF0]] {sb:50}
-=======
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i64 [[PRIV_IDX_MAX0]] {sb:45}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i64> [[SELECT0]] {sb:36}
-; CHECK-NEXT:        |
-; CHECK-NEXT:        |   [[PRIV_IDX_CMP0:%.*]] = [[SELECT0]] == [[PRIV_IDX_MAX0]]
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR <16 x i1> [[PRIV_IDX_CMP0]] {sb:46}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i64> [[SELECT0]] {sb:36}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i64> [[PRIV_IDX_MAX0]] {sb:45}
-; CHECK-NEXT:        |
-; CHECK-NEXT:        |   [[BSFINTMASK0:%.*]] = bitcast.<16 x i1>.i16([[PRIV_IDX_CMP0]])
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i16 [[BSFINTMASK0]] {sb:47}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i1> [[PRIV_IDX_CMP0]] {sb:46}
-; CHECK-NEXT:        |
-; CHECK-NEXT:        |   [[BSF0:%.*]] = @llvm.cttz.i16([[BSFINTMASK0]],  1)
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i16 [[BSF0]] {sb:48}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i16 [[BSFINTMASK0]] {sb:47}
-; CHECK-NEXT:        |
-; CHECK-NEXT:        |   [[FLT_LAST0]] = extractelement [[SELECT130]],  [[BSF0]]
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR float [[FLT_LAST0]] {sb:4}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x float> [[SELECT130]] {sb:37}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i16 [[BSF0]] {sb:48}
->>>>>>> 95da991db110a9344dce61cde1e84ccc7a09f6b7
+; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i16 [[BSF0]] {sb:49}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[PHI_TEMP210]] = [[FLT_LAST0]]
 ; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR float [[PHI_TEMP210]] {sb:45}
@@ -210,110 +178,55 @@ define float @foo(float **%a, i1 %c, i1 %c2) {
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[BB0]].73:
 ; CHECK-NEXT:        |   [[DOTVEC240:%.*]] = [[SELECT140]] != -1
-<<<<<<< HEAD
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR <16 x i1> [[DOTVEC240]] {sb:51}
+; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR <16 x i1> [[DOTVEC240]] {sb:50}
 ; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i64> [[SELECT140]] {sb:39}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[TMP1:%.*]] = bitcast.<16 x i1>.i16([[DOTVEC240]])
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i16 [[TMP1]] {sb:52}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i1> [[DOTVEC240]] {sb:51}
+; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i16 [[TMP1]] {sb:51}
+; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i1> [[DOTVEC240]] {sb:50}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[CMP250:%.*]] = [[TMP1]] == 0
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i1 [[CMP250]] {sb:53}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i16 [[TMP1]] {sb:52}
+; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i1 [[CMP250]] {sb:52}
+; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i16 [[TMP1]] {sb:51}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[ALL_ZERO_CHECK260:%.*]] = [[CMP250]]
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR <16 x i1> [[ALL_ZERO_CHECK260]] {sb:54}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i1> [[CMP250]] {sb:53}
+; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR <16 x i1> [[ALL_ZERO_CHECK260]] {sb:53}
+; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i1> [[CMP250]] {sb:52}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[PHI_TEMP270:%.*]] = [[I32_LAST0]]
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i32 [[PHI_TEMP270]] {sb:55}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i32 [[I32_LAST0]] {sb:3}
-; CHECK-NEXT:        |
-; CHECK-NEXT:        |   [[UNIFCOND290:%.*]] = extractelement [[ALL_ZERO_CHECK260]],  0
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i1 [[UNIFCOND290]] {sb:56}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i1> [[ALL_ZERO_CHECK260]] {sb:54}
-; CHECK-NEXT:        |
-; CHECK-NEXT:        |   if ([[UNIFCOND290]] == 1)
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i1 [[UNIFCOND290]] {sb:56}
-=======
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR <16 x i1> [[DOTVEC240]] {sb:49}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i64> [[SELECT140]] {sb:38}
-; CHECK-NEXT:        |
-; CHECK-NEXT:        |   [[TMP1:%.*]] = bitcast.<16 x i1>.i16([[DOTVEC240]])
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i16 [[TMP1]] {sb:50}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i1> [[DOTVEC240]] {sb:49}
-; CHECK-NEXT:        |
-; CHECK-NEXT:        |   [[CMP250:%.*]] = [[TMP1]] == 0
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i1 [[CMP250]] {sb:51}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i16 [[TMP1]] {sb:50}
-; CHECK-NEXT:        |
-; CHECK-NEXT:        |   [[ALL_ZERO_CHECK260:%.*]] = [[CMP250]]
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR <16 x i1> [[ALL_ZERO_CHECK260]] {sb:52}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i1> [[CMP250]] {sb:51}
-; CHECK-NEXT:        |
-; CHECK-NEXT:        |   [[PHI_TEMP270:%.*]] = [[I32_LAST0]]
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i32 [[PHI_TEMP270]] {sb:53}
+; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i32 [[PHI_TEMP270]] {sb:54}
 ; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i32 [[I32_LAST0]] {sb:3}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   if ([[CMP250]] == 1)
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i1 [[CMP250]] {sb:51}
->>>>>>> 95da991db110a9344dce61cde1e84ccc7a09f6b7
+; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i1 [[CMP250]] {sb:52}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   {
 ; CHECK-NEXT:        |      goto [[BB1:BB[0-9]+]].90
 ; CHECK-NEXT:        |   }
-<<<<<<< HEAD
-; CHECK-NEXT:        |   [[PRIV_IDX_MAX300:%.*]] = @llvm.vector.reduce.smax.v16i64([[SELECT140]])
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i64 [[PRIV_IDX_MAX300]] {sb:57}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i64> [[SELECT140]] {sb:39}
-; CHECK-NEXT:        |
-; CHECK-NEXT:        |   [[PRIV_IDX_CMP310:%.*]] = [[SELECT140]] == [[PRIV_IDX_MAX300]]
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR <16 x i1> [[PRIV_IDX_CMP310]] {sb:58}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i64> [[SELECT140]] {sb:39}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i64> [[PRIV_IDX_MAX300]] {sb:57}
-; CHECK-NEXT:        |
-; CHECK-NEXT:        |   [[BSFINTMASK320:%.*]] = bitcast.<16 x i1>.i16([[PRIV_IDX_CMP310]])
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i16 [[BSFINTMASK320]] {sb:59}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i1> [[PRIV_IDX_CMP310]] {sb:58}
-; CHECK-NEXT:        |
-; CHECK-NEXT:        |   [[BSF330:%.*]] = @llvm.cttz.i16([[BSFINTMASK320]],  1)
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i16 [[BSF330]] {sb:60}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i16 [[BSFINTMASK320]] {sb:59}
-=======
 ; CHECK-NEXT:        |   [[PRIV_IDX_MAX290:%.*]] = @llvm.vector.reduce.smax.v16i64([[SELECT140]])
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i64 [[PRIV_IDX_MAX290]] {sb:54}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i64> [[SELECT140]] {sb:38}
+; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i64 [[PRIV_IDX_MAX290]] {sb:55}
+; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i64> [[SELECT140]] {sb:39}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[PRIV_IDX_CMP300:%.*]] = [[SELECT140]] == [[PRIV_IDX_MAX290]]
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR <16 x i1> [[PRIV_IDX_CMP300]] {sb:55}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i64> [[SELECT140]] {sb:38}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i64> [[PRIV_IDX_MAX290]] {sb:54}
+; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR <16 x i1> [[PRIV_IDX_CMP300]] {sb:56}
+; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i64> [[SELECT140]] {sb:39}
+; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i64> [[PRIV_IDX_MAX290]] {sb:55}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[BSFINTMASK310:%.*]] = bitcast.<16 x i1>.i16([[PRIV_IDX_CMP300]])
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i16 [[BSFINTMASK310]] {sb:56}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i1> [[PRIV_IDX_CMP300]] {sb:55}
+; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i16 [[BSFINTMASK310]] {sb:57}
+; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i1> [[PRIV_IDX_CMP300]] {sb:56}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[BSF320:%.*]] = @llvm.cttz.i16([[BSFINTMASK310]],  1)
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i16 [[BSF320]] {sb:57}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i16 [[BSFINTMASK310]] {sb:56}
->>>>>>> 95da991db110a9344dce61cde1e84ccc7a09f6b7
+; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i16 [[BSF320]] {sb:58}
+; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i16 [[BSFINTMASK310]] {sb:57}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[I32_LAST0]] = extractelement [[SELECT150]],  [[BSF320]]
 ; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i32 [[I32_LAST0]] {sb:3}
-<<<<<<< HEAD
 ; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i32> [[SELECT150]] {sb:40}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i16 [[BSF330]] {sb:60}
+; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i16 [[BSF320]] {sb:58}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[PHI_TEMP270]] = [[I32_LAST0]]
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i32 [[PHI_TEMP270]] {sb:55}
-=======
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR <16 x i32> [[SELECT150]] {sb:39}
-; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i16 [[BSF320]] {sb:57}
-; CHECK-NEXT:        |
-; CHECK-NEXT:        |   [[PHI_TEMP270]] = [[I32_LAST0]]
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i32 [[PHI_TEMP270]] {sb:53}
->>>>>>> 95da991db110a9344dce61cde1e84ccc7a09f6b7
+; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR i32 [[PHI_TEMP270]] {sb:54}
 ; CHECK-NEXT:        |   <RVAL-REG> NON-LINEAR i32 [[I32_LAST0]] {sb:3}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[BB1]].90:
