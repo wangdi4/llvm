@@ -3711,6 +3711,7 @@ VPOCodeGenHIR::createVectorPrivatePtrs(const VPAllocatePrivate *VPPvt) {
   BlobDDRef *AllocaBlob = PrivateMemBlobRefs[VPPvt].first;
   unsigned AllocaMemRefSym = PrivateMemBlobRefs[VPPvt].second;
   PointerType *PvtTy = cast<PointerType>(VPPvt->getType());
+  Type *AllocatedType = VPPvt->getAllocatedType();
 
   // In order to create a vector of pointers, we generate a scalar base pointer
   // and then use a vector of indices. Pseudo underlying LLVM-IR -
@@ -3725,10 +3726,14 @@ VPOCodeGenHIR::createVectorPrivatePtrs(const VPAllocatePrivate *VPPvt) {
   // BaseRef = &((i32*)(<VF x i32>* %priv.mem)[i32 0])
   // VecPvtPtrs = &((<VF x i32*>)(i32* %priv.mem.bc)[<VFx i32> <0, .., VF-1])
 
-  auto *BaseRef = DDRefUtilities.createSelfAddressOfRef(AllocaBlob->getDestType()->getScalarType()->getPointerElementType(),
-      AllocaBlob->getSelfBlobIndex(), AllocaBlob->getDefinedAtLevel(),
-      AllocaMemRefSym);
-  BaseRef->setBitCastDestVecOrElemType(PvtTy->getPointerElementType());
+  Type *WidenedType =
+      AllocatedType->isAggregateType()
+          ? static_cast<Type *>(ArrayType::get(AllocatedType, getVF()))
+          : getWidenedType(AllocatedType, getVF());
+  auto *BaseRef = DDRefUtilities.createSelfAddressOfRef(
+      WidenedType, AllocaBlob->getSelfBlobIndex(),
+      AllocaBlob->getDefinedAtLevel(), AllocaMemRefSym);
+  BaseRef->setBitCastDestVecOrElemType(AllocatedType);
   // Need to create a copy inst to capture base-address since HIR does not allow
   // GEP Refs to be embedded into each other.
   HLInst *BaseRefCopy = HLNodeUtilities.createCopyInst(BaseRef, "priv.mem.bc");
@@ -3754,8 +3759,8 @@ VPOCodeGenHIR::createVectorPrivatePtrs(const VPAllocatePrivate *VPPvt) {
   // Create address-of ref to compute vector of pointers using base-address and
   // vector indices. The base ptr of this address-of ref will be defined in loop
   // preheader always, hence set defined at level as (LoopLevel - 1).
-  auto *VecPvtPtrs = DDRefUtilities.createAddressOfRef(PvtTy->getElementType(),
-      BaseRefCopy->getLvalDDRef()->getSelfBlobIndex(),
+  auto *VecPvtPtrs = DDRefUtilities.createAddressOfRef(
+      AllocatedType, BaseRefCopy->getLvalDDRef()->getSelfBlobIndex(),
       OrigLoop->getNestingLevel() - 1, AllocaMemRefSym);
   VecPvtPtrs->addDimension(IndexCE);
   VecPvtPtrs->setBitCastDestVecOrElemType(getWidenedType(PvtTy, getVF()));
@@ -3946,7 +3951,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
 
   case VPInstruction::AllocatePrivate: {
     auto *VPAllocaPriv = cast<VPAllocatePrivate>(VPInst);
-    Type *OrigTy = cast<PointerType>(VPInst->getType())->getElementType();
+    Type *OrigTy = VPAllocaPriv->getAllocatedType();
 
     // We need to allocate VF copies of element based on privatized memory type.
     // For simple scalars we use <VF x Ty>, while for aggregate types we use [VF
@@ -3990,11 +3995,10 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // VecPvtPtrs = &((<VF x i32*>)(i32* %priv.mem.bc)[<VFx i32> <0, .., VF-1])
     // ScalPvtPtr = &((i32 *)(<VF x i32>* %priv.mem)[i32 0])
     RegDDRef *VecPvtPtrs = createVectorPrivatePtrs(VPAllocaPriv);
-    RegDDRef *ScalPvtPtr = DDRefUtilities.createSelfAddressOfRef(AllocaBlob->getDestType()->getScalarType()->getPointerElementType(),
-        AllocaBlob->getSelfBlobIndex(), AllocaBlob->getDefinedAtLevel(),
-        AllocaMemRefSym);
-    ScalPvtPtr->setBitCastDestVecOrElemType(
-        VPAllocaPriv->getType()->getPointerElementType());
+    RegDDRef *ScalPvtPtr = DDRefUtilities.createSelfAddressOfRef(
+        VecTyForAlloca, AllocaBlob->getSelfBlobIndex(),
+        AllocaBlob->getDefinedAtLevel(), AllocaMemRefSym);
+    ScalPvtPtr->setBitCastDestVecOrElemType(VPAllocaPriv->getAllocatedType());
 
     LLVM_DEBUG(dbgs() << "Private memory: "; VPInst->dump();
                dbgs() << " got the vector of private pointers: ";
