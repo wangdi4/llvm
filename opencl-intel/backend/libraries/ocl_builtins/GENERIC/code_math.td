@@ -1,9 +1,106 @@
+defvar copysign_code = [{
+    $Arg0Type $ReturnVarName;
+    $Arg0igentype ux = __builtin_astype(($Arg0VarName), $Arg0igentype);
+    $Arg0igentype uy = __builtin_astype(($Arg1VarName), $Arg1igentype);
+    ux &= $ReturnBaseType_const_signMask;
+    ux |= uy & ~$ReturnBaseType_const_signMask;
+    return __builtin_astype((ux), $Arg0Type);
+  }];
+
+defvar fabs_code = [{
+    return __builtin_astype((__builtin_astype(($Arg0VarName), $Arg0igentype) & $ReturnBaseType_const_signMask), $Arg0Type);
+  }];
+
+defvar fdim_code_vec = [{
+    const $ReturnType NaNasFP = __builtin_astype(($ReturnBaseType_const_nanStorage), $ReturnBaseType);
+    const $ReturnType Zero = 0;
+    $Arg0Type xMinusY = $Arg0VarName - $Arg1VarName;
+    $Arg0igentype XorYNaN = isnan($Arg0VarName) | isnan($Arg1VarName);
+    $Arg0Type tmp = select(xMinusY, Zero, __builtin_astype((xMinusY), $Arg0igentype));
+    return select(tmp, NaNasFP, XorYNaN);
+  }];
+
+defvar fmax_code = [{
+    // according to OpenCL 1.2 ch. 6.12.2
+    // fmax(-0., +0.) has to return -0.
+    // WARNING: this implementation is not generic,
+    //          it relies on CPU implementation of max builtin
+    //          where order of arguments matters and must be preserved
+    $Arg0igentype nan = isnan($Arg0VarName);
+    $Arg0Type res = max($Arg1VarName, $Arg0VarName);
+    res = select(res, $Arg1VarName, nan);
+    return res;
+  }];
+
+defvar fmax_common_code = [{
+    return fmax($Arg0VarName, $Arg1VarName);
+  }];
+
+defvar fmax_s_code = [{
+    $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
+    return $Func($Arg0VarName, vec$Arg1VarName);
+  }];
+
+defvar fmin_code = [{
+    // according to OpenCL 1.2 ch. 6.12.2
+    // fmin(+0., -0.) has to return +0.
+    // WARNING: this implementation is not generic,
+    //          it relies on CPU implementation of min builtin
+    //          where order of arguments matters and must be preserved
+    $Arg0igentype nan = isnan($Arg0VarName);
+    $Arg0Type res = min($Arg1VarName, $Arg0VarName);
+    res = select(res, $Arg1VarName, nan);
+    return res;
+  }];
+
+defvar fmin_common_code = [{
+    return fmin($Arg0VarName, $Arg1VarName);
+  }];
+
+defvar fmin_s_code = [{
+    $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
+    return $Func($Arg0VarName, vec$Arg1VarName);
+  }];
+
 defvar frexp_svml = [{
     return __ocl_svml_$Target_frexp$SVMLSuffix($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
   }];
 
+defvar ldexp_s_code = [{
+  $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
+  return $Func($Arg0VarName, vec$Arg1VarName);
+}];
+
 defvar lgamma_r_svml = [{
     return __ocl_svml_$Target_lgammar$SVMLSuffix($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
+  }];
+
+defvar mad_code = [{
+    return ($Arg0VarName*$Arg1VarName+$Arg2VarName);
+  }];
+
+defvar maxmag_code = [{
+    $Arg0Type $ReturnVarName;
+    $Arg0Type xabs = fabs($Arg0VarName);
+    $Arg1Type yabs = fabs($Arg1VarName);
+    $Arg0Type xymax = fmax($Arg0VarName, $Arg1VarName);
+    $Arg0igentype xLTy = xabs < yabs;
+    $Arg0igentype yLTx = yabs < xabs;
+    $ReturnVarName = select(xymax, $Arg1VarName, xLTy);
+    $ReturnVarName = select($ReturnVarName, $Arg0VarName, yLTx);
+    return $ReturnVarName;
+  }];
+
+defvar minmag_code = [{
+    $Arg0Type $ReturnVarName;
+    $Arg0Type xabs = fabs($Arg0VarName);
+    $Arg1Type yabs = fabs($Arg1VarName);
+    $Arg0Type xymin = fmin($Arg0VarName, $Arg1VarName);
+    $Arg0igentype xGTy = xabs > yabs;
+    $Arg0igentype yGTx = yabs > xabs;
+    $ReturnVarName = select(xymin, $Arg1VarName, xGTy);
+    $ReturnVarName = select($ReturnVarName, $Arg0VarName, yGTx);
+    return $ReturnVarName;
   }];
 
 defvar modf_svml = [{
@@ -13,6 +110,10 @@ defvar modf_svml = [{
 defvar modf_ret2ptr = [{
     $Arg0Type res = modf($Arg0VarName, $Arg2VarName);
     *$Arg1VarName = res;
+  }];
+
+defvar nan_code = [{
+    return __builtin_astype(($Arg0VarName | $ReturnBaseType_const_nanStorage), $ReturnType);
   }];
 
 defvar remquo_svml = [{
@@ -27,3 +128,65 @@ defvar sincos_ret2ptr = [{
     $Arg0Type res = sincos($Arg0VarName, $Arg2VarName);
     *$Arg1VarName = res;
   }];
+
+// native
+
+defvar native_fdim_code = [{
+     return select($Arg0VarName-$Arg1VarName, ($Arg0Type) 0.0, __builtin_astype(($Arg0VarName-$Arg1VarName), $Arg0igentype));
+  }];
+
+defvar native_fmax_code = [{
+    return max($Arg0VarName, $Arg1VarName);
+  }];
+
+defvar native_fmax_s_code = [{
+    $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
+    return $Func($Arg0VarName, vec$Arg1VarName);
+  }];
+
+defvar native_fmin_code = [{
+    return min($Arg0VarName, $Arg1VarName);
+  }];
+
+defvar native_fmin_s_code = [{
+    $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
+    return $Func($Arg0VarName, vec$Arg1VarName);
+  }];
+
+defvar native_fmod_code = [{
+    $Arg0Type m_trunc = trunc($Arg0VarName / $Arg1VarName);
+    $Arg0Type m_mul = $Arg1VarName * m_trunc;
+    return $Arg0VarName - m_mul;
+  }];
+
+defvar native_fract_code = [{
+    *$Arg1VarName = floor($Arg0VarName);
+    $Arg0Type m_sub = $Arg0VarName - *$Arg1VarName;
+    return min(m_sub, ($Arg0Type) $ReturnBaseType_const_fractLimit);
+  }];
+
+defvar native_fract_ret2ptr = [{
+    $Arg0Type res = native_fract($Arg0VarName, $Arg2VarName);
+    *$Arg1VarName = res;
+  }];
+
+defvar native_hypot_code = [{
+    return native_sqrt($Arg0VarName*$Arg0VarName + $Arg1VarName*$Arg1VarName);
+  }];
+
+defvar native_ilogb_code = [{
+    $Arg0igentype tmp = __builtin_astype(($Arg0VarName), $Arg0igentype) & $Arg0BaseType_const_expMask;
+    tmp >>= $Arg0BaseType_const_mantissaBits;
+    tmp -= $Arg0BaseType_const_expOffset;
+    return convert_int$Suffix(tmp);
+  }];
+
+defvar native_sincos_svml = [{
+    return __ocl_svml_$Target_sincos$SVMLSuffix_native($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
+  }];
+
+defvar native_sincos_ret2ptr = [{
+    $Arg0Type res = native_sincos($Arg0VarName, $Arg2VarName);
+    *$Arg1VarName = res;
+  }];
+

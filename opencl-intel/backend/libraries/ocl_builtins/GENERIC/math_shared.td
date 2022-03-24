@@ -24,6 +24,8 @@ list<OclType> math_shared_types = [v1f32, v2f32, v3f32, v4f32, v8f32,
 
 list<OclType> math_shared_f32_types = [v1f32, v2f32, v3f32, v4f32, v8f32];
 
+list<OclType> math_shared_types_v1_to_v16 = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16]>.Tout;
+
 // acos
 OclBuiltinImpl acos_svml = OclBuiltinImpl<acos, math_shared_types, 0, [{
     return __ocl_svml_$Target_acos$SVMLSuffix($Arg0VarName);
@@ -85,14 +87,7 @@ OclBuiltinImpl cbrt_svml = OclBuiltinImpl<cbrt, math_shared_types, 0, [{
   }]>;
 
 // copysign
-OclBuiltinImpl copysign_impl = OclBuiltinImpl<copysign, copysign.Types, 0, [{
-    $Arg0Type $ReturnVarName;
-    $Arg0igentype ux = __builtin_astype(($Arg0VarName), $Arg0igentype);
-    $Arg0igentype uy = __builtin_astype(($Arg1VarName), $Arg1igentype);
-    ux &= $ReturnBaseType_const_signMask;
-    ux |= uy & ~$ReturnBaseType_const_signMask;
-    return __builtin_astype((ux), $Arg0Type);
-  }]>;
+OclBuiltinImpl copysign_impl = OclBuiltinImpl<copysign, math_shared_types_v1_to_v16, 0, copysign_code>;
 
 // cos
 OclBuiltinImpl cos_svml = OclBuiltinImpl<cos, math_shared_types, 0, [{
@@ -140,9 +135,7 @@ OclBuiltinImpl expm1_svml = OclBuiltinImpl<expm1, math_shared_types, 0, [{
   }]>;
 
 // fabs
-OclBuiltinImpl fabs_impl = OclBuiltinImpl<fabs, fabs.Types, 0, [{
-    return __builtin_astype((__builtin_astype(($Arg0VarName), $Arg0igentype) & $ReturnBaseType_const_signMask), $Arg0Type);
-  }]>;
+OclBuiltinImpl fabs_impl = OclBuiltinImpl<fabs, math_shared_types_v1_to_v16, 0, fabs_code>;
 
 // OpenCL 2.0 -cl-fast-relaxed-math functions
 // float16 is excluded from shared lib since ssse3 and sse42
@@ -214,15 +207,7 @@ OclBuiltinImpl divide_svml_rm = OclBuiltinImpl<divide_rm, math_shared_f32_types,
 OclBuiltinImpl fdim_impl_v1f32_promote = OclBuiltinImpl<fdim, [v1f32, v1f64], 0, Promote2>;
 
 // fdim vector
-code fdim_impl_vec_code = [{
-  const $ReturnType NaNasFP = as_$ReturnBaseType($ReturnBaseType_const_nanStorage);
-  const $ReturnType Zero = 0;
-  $Arg0Type xMinusY = $Arg0VarName - $Arg1VarName;
-  $Arg0igentype XorYNaN = isnan($Arg0VarName) | isnan($Arg1VarName);
-  $Arg0Type tmp = select(xMinusY, Zero, as_$Arg0igentype(xMinusY));
-  return select(tmp, NaNasFP, XorYNaN);
-}];
-OclBuiltinImpl fdim_impl_vec = OclBuiltinImpl<fdim, ExpandTypesByVFAndFlatten<[v1f32, v1f64], [2, 3, 4, 8, 16]>.Tout, 0, fdim_impl_vec_code>;
+OclBuiltinImpl fdim_impl = OclBuiltinImpl<fdim, ExpandTypesByVFAndFlatten<[v1f32, v1f64], [2, 3, 4, 8, 16]>.Tout, 0, fdim_code_vec>;
 
 // floor
 OclBuiltinImpl floor_svml = OclBuiltinImpl<floor, [v1f32, v2f32, v3f32, v1f64, v3f64], 0, [{
@@ -230,56 +215,25 @@ OclBuiltinImpl floor_svml = OclBuiltinImpl<floor, [v1f32, v2f32, v3f32, v1f64, v
   }]>;
 
 // fmax
-OclBuiltinImpl fmax_impl = OclBuiltinImpl<fmax, fmax.Types, 0, [{
-    // according to OpenCL 1.2 ch. 6.12.2
-    // fmax(-0., +0.) has to return -0.
-    // WARNING: this implementation is not generic,
-    //          it relies on CPU implementation of max builtin
-    //          where order of arguments matters and must be preserved
-    $Arg0igentype nan = isnan($Arg0VarName);
-    $Arg0Type res = max($Arg1VarName, $Arg0VarName);
-    res = select(res, $Arg1VarName, nan);
-    return res;
-  }]>;
+OclBuiltinImpl fmax_impl = OclBuiltinImpl<fmax, math_shared_types_v1_to_v16, 0, fmax_code>;
 
 // fmax_common
-OclBuiltinImpl fmax_common_impl = OclBuiltinImpl<fmax_common, fmax_common.Types, 0, [{
-    return fmax($Arg0VarName, $Arg1VarName);
-  }]>;
+OclBuiltinImpl fmax_common_impl = OclBuiltinImpl<fmax_common, math_shared_types_v1_to_v16, 0, fmax_common_code>;
 
 // The following code implements the builtin variants with scalar parameters.
 // The implementation will prompt these scalar parameters into vector ones
 // and call the corresponding builtins with all vector parameters.
 // fmax_s
-OclBuiltinImpl fmax_s_generic = OclBuiltinImpl<fmax_s, fmax_s.Types, 0, [{
-  $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
-  return $Func($Arg0VarName, vec$Arg1VarName);
-}]>;
+OclBuiltinImpl fmax_s_generic = OclBuiltinImpl<fmax_s, math_shared_types_v1_to_v16, 0, fmax_s_code>;
 
 // fmin implementation
-OclBuiltinImpl fmin_impl = OclBuiltinImpl<fmin, fmin.Types, 0, [{
-    // according to OpenCL 1.2 ch. 6.12.2
-    // fmin(+0., -0.) has to return +0.
-    // WARNING: this implementation is not generic,
-    //          it relies on CPU implementation of min builtin
-    //          where order of arguments matters and must be preserved
-    $Arg0igentype nan = isnan($Arg0VarName);
-    $Arg0Type res = min($Arg1VarName, $Arg0VarName);
-    res = select(res, $Arg1VarName, nan);
-    return res;
-   }]>;
+OclBuiltinImpl fmin_impl = OclBuiltinImpl<fmin, math_shared_types_v1_to_v16, 0, fmin_code>;
 
 // fmin_common
-OclBuiltinImpl fmin_common_impl = OclBuiltinImpl<fmin_common, fmin_common.Types, 0, [{
-    return fmin($Arg0VarName, $Arg1VarName);
-  }]>;
+OclBuiltinImpl fmin_common_impl = OclBuiltinImpl<fmin_common, math_shared_types_v1_to_v16, 0, fmin_common_code>;
 
 // fmin_s
-OclBuiltinImpl fmin_s_generic = OclBuiltinImpl<fmin_s, fmin_s.Types, 0, [{
-  $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
-  return $Func($Arg0VarName, vec$Arg1VarName);
-}]>;
-
+OclBuiltinImpl fmin_s_generic = OclBuiltinImpl<fmin_s, math_shared_types_v1_to_v16, 0, fmin_s_code>;
 
 // fmod
 OclBuiltinImpl fmod_svml = OclBuiltinImpl<fmod, math_shared_types, 0, [{
@@ -338,10 +292,7 @@ OclBuiltinImpl ldexp_svml = OclBuiltinImpl<ldexp, math_shared_types, 0, [{
   }]>;
 
 // ldexp_s
-OclBuiltinImpl ldexp_s_generic = OclBuiltinImpl<ldexp_s, ldexp_s.Types, 0, [{
-  $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
-  return $Func($Arg0VarName, vec$Arg1VarName);
-}]>;
+OclBuiltinImpl ldexp_s_generic = OclBuiltinImpl<ldexp_s, math_shared_types_v1_to_v16, 0, ldexp_s_code>;
 
 // lgamma
 OclBuiltinImpl lgamma_svml = OclBuiltinImpl<lgamma, math_shared_types, 0, [{
@@ -374,42 +325,18 @@ OclBuiltinImpl logb_svml = OclBuiltinImpl<logb, math_shared_types, 0, [{
   }]>;
 
 // mad
-OclBuiltinImpl mad_impl = OclBuiltinImpl<mad, mad.Types, 0, [{
-    return ($Arg0VarName*$Arg1VarName+$Arg2VarName);
-  }]>;
+OclBuiltinImpl mad_impl = OclBuiltinImpl<mad, math_shared_types_v1_to_v16, 0, mad_code>;
 
 // maxmag types is a special case, math_shared_types are not used
 // maxmag
-OclBuiltinImpl maxmag_impl = OclBuiltinImpl<maxmag, maxmag.Types, 0, [{
-    $Arg0Type $ReturnVarName;
-    $Arg0Type xabs = fabs($Arg0VarName);
-    $Arg1Type yabs = fabs($Arg1VarName);
-    $Arg0Type xymax = fmax($Arg0VarName, $Arg1VarName);
-    $Arg0igentype xLTy = xabs < yabs;
-    $Arg0igentype yLTx = yabs < xabs;
-    $ReturnVarName = select(xymax, $Arg1VarName, xLTy);
-    $ReturnVarName = select($ReturnVarName, $Arg0VarName, yLTx);
-    return $ReturnVarName;
-  }]>;
+OclBuiltinImpl maxmag_impl = OclBuiltinImpl<maxmag, math_shared_types_v1_to_v16, 0, maxmag_code>;
 
 // minmag types is a special case, math_shared_types are not used
 // minmag
-OclBuiltinImpl minmag_impl = OclBuiltinImpl<minmag, minmag.Types, 0, [{
-    $Arg0Type $ReturnVarName;
-    $Arg0Type xabs = fabs($Arg0VarName);
-    $Arg1Type yabs = fabs($Arg1VarName);
-    $Arg0Type xymin = fmin($Arg0VarName, $Arg1VarName);
-    $Arg0igentype xGTy = xabs > yabs;
-    $Arg0igentype yGTx = yabs > xabs;
-    $ReturnVarName = select(xymin, $Arg1VarName, xGTy);
-    $ReturnVarName = select($ReturnVarName, $Arg0VarName, yGTx);
-    return $ReturnVarName;
-  }]>;
+OclBuiltinImpl minmag_impl = OclBuiltinImpl<minmag, math_shared_types_v1_to_v16, 0, minmag_code>;
 
 // nan
-OclBuiltinImpl nan_impl = OclBuiltinImpl<nan, nan.Types, 0, [{
-    return __builtin_astype(($Arg0VarName | $ReturnBaseType_const_nanStorage), $ReturnType);
-  }]>;
+OclBuiltinImpl nan_impl = OclBuiltinImpl<nan, math_shared_types_v1_to_v16, 0, nan_code>;
 
 // nextafter
 OclBuiltinImpl nextafter_svml = OclBuiltinImpl<nextafter, math_shared_types, 0, [{
@@ -602,27 +529,17 @@ OclBuiltinImpl native_exp10_svml = OclBuiltinImpl<native_exp10, math_shared_type
 
 // native_fmax implementation
 // beyond OpenCL1.2 spec
-OclBuiltinImpl native_fmax_impl = OclBuiltinImpl<native_fmax, native_fmax.Types, 0, [{
-    return max($Arg0VarName, $Arg1VarName);
-  }]>;
+OclBuiltinImpl native_fmax_impl = OclBuiltinImpl<native_fmax, math_shared_types_v1_to_v16, 0, native_fmax_code>;
 
 // native_fmax_s
-OclBuiltinImpl native_fmax_s_impl = OclBuiltinImpl<native_fmax_s, native_fmax_s.Types, 0, [{
-  $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
-  return $Func($Arg0VarName, vec$Arg1VarName);
-}]>;
+OclBuiltinImpl native_fmax_s_impl = OclBuiltinImpl<native_fmax_s, math_shared_types_v1_to_v16, 0, native_fmax_s_code>;
 
 // native_fmin implementation
 // beyond OpenCL1.2 spec
-OclBuiltinImpl native_fmin_impl = OclBuiltinImpl<native_fmin, native_fmin.Types, 0, [{
-    return min($Arg0VarName, $Arg1VarName);
-  }]>;
+OclBuiltinImpl native_fmin_impl = OclBuiltinImpl<native_fmin, math_shared_types_v1_to_v16, 0, native_fmin_code>;
 
 // native_fmin_s
-OclBuiltinImpl native_fmin_s_impl = OclBuiltinImpl<native_fmin_s, native_fmin_s.Types, 0, [{
-  $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
-  return $Func($Arg0VarName, vec$Arg1VarName);
-}]>;
+OclBuiltinImpl native_fmin_s_impl = OclBuiltinImpl<native_fmin_s, math_shared_types_v1_to_v16, 0, native_fmin_s_code>;
 
 // native_log
 OclBuiltinImpl native_log_svml = OclBuiltinImpl<native_log, math_shared_types, 0, [{
@@ -757,31 +674,18 @@ OclBuiltinImpl native_expm1_svml = OclBuiltinImpl<native_expm1, math_shared_type
 
 // native_fdim
 // built in beyond OpenCL1.2 spec
-OclBuiltinImpl native_fdim_f32_impl = OclBuiltinImpl<native_fdim, native_fdim.Types, 0, [{
-     return select($Arg0VarName-$Arg1VarName, ($Arg0Type) 0.0, as_$Arg0igentype($Arg0VarName-$Arg1VarName));
-  }]>;
+OclBuiltinImpl native_fdim_f32_impl = OclBuiltinImpl<native_fdim, math_shared_types_v1_to_v16, 0, native_fdim_code>;
 
 // native_fmod
 // built in beyond OpenCL1.2 spec
-OclBuiltinImpl native_fmod_f32_impl = OclBuiltinImpl<native_fmod, native_fmod.Types, 0, [{
-    $Arg0Type m_trunc = trunc($Arg0VarName / $Arg1VarName);
-    $Arg0Type m_mul = $Arg1VarName * m_trunc;
-    return $Arg0VarName - m_mul;
-  }]>;
+OclBuiltinImpl native_fmod_f32_impl = OclBuiltinImpl<native_fmod, math_shared_types_v1_to_v16, 0, native_fmod_code>;
 
   // native_hypot
-OclBuiltinImpl native_hypot_impl = OclBuiltinImpl<native_hypot, native_hypot.Types, 0, [{
-    return native_sqrt($Arg0VarName*$Arg0VarName + $Arg1VarName*$Arg1VarName);
-  }]>;
+OclBuiltinImpl native_hypot_impl = OclBuiltinImpl<native_hypot, math_shared_types_v1_to_v16, 0, native_hypot_code>;
 
 // native_ilogb
 // built in beyond OpenCL1.2 spec
-OclBuiltinImpl native_ilogb_f32_impl = OclBuiltinImpl<native_ilogb, native_ilogb.Types, 0, [{
-    $Arg0igentype tmp = as_$Arg0igentype($Arg0VarName) & $Arg0BaseType_const_expMask;
-    tmp >>= $Arg0BaseType_const_mantissaBits;
-    tmp -= $Arg0BaseType_const_expOffset;
-    return convert_int$Suffix(tmp);
-  }]>;
+OclBuiltinImpl native_ilogb_f32_impl = OclBuiltinImpl<native_ilogb, math_shared_types_v1_to_v16, 0, native_ilogb_code>;
 
 // native_log1p
 OclBuiltinImpl native_log1p_svml = OclBuiltinImpl<native_log1p, math_shared_types, 0, [{

@@ -15953,4 +15953,48 @@
   float16 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_tanhf16_native(float16 a);
   float16 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_tanpif16_native(float16 a);
 
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_acosf32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_acoshf32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_acospif32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_asinf32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_asinhf32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_asinpif32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_atan2f32_native(ocl_float32 a, ocl_float32 b);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_atan2pif32_native(ocl_float32 a, ocl_float32 b);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_atanf32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_atanhf32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_atanpif32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_cbrtf32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_cosf32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_coshf32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_cospif32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_divf32_native(ocl_float32 a, ocl_float32 b);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_erfcf32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_erff32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_exp10f32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_exp2f32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_expf32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_expm1f32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_hypotf32_native(ocl_float32 a, ocl_float32 b);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_invf32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_log10f32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_log1pf32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_log2f32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_logf32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_powf32_native(ocl_float32 a, ocl_float32 b);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_pownf32_native(ocl_float32 a, ocl_int32 b);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_powrf32_native(ocl_float32 a, ocl_float32 b);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_rcbrtf32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_rootnf32_native(ocl_float32 a, ocl_int32 b);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_rsqrtf32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_sincosf32_native(ocl_float32 a, ocl_float32 *c);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_sincosregf32_native(ocl_float32 a, ocl_float32 *c);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_sinf32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_sinhf32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_sinpif32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_sqrtf32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_tanf32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_tanhf32_native(ocl_float32 a);
+  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_tanpif32_native(ocl_float32 a);
+
 #undef CONST

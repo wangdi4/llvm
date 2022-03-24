@@ -240,8 +240,7 @@ def half_tan_mask      : OclBuiltin<"half_tan",      (outs gentype:$ret), (ins g
 // native
 // Spec requires Data type to be ONLY float(f32) (not-double)
 // Double support is not in OpenCL 1.2 spec. It is Intel defined extension of spec
-let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
-             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 let NeedForwardDecl = 1 in { /* work around the missing prototype in opencl.h */
 def native_cos    : OclBuiltin<"native_cos",    (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
@@ -479,22 +478,23 @@ let KernelCallOnce = 0 in {
   }
 
   let Types = [v1f32, v1f64] in {
-    foreach bi = ["native_cos", "native_divide", "native_exp", "native_exp2",
-                  "native_exp10", "native_log", "native_log2", "native_log10",
-                  "native_powr", "native_recip", "native_rsqrt", "native_sin",
-                  "native_sqrt", "native_tan", "native_acos", "native_acosh",
-                  "native_acospi", "native_asin", "native_asinh", "native_asinpi",
-                  "native_atan", "native_atan2", "native_atanh", "native_atanpi",
-                  "native_atan2pi", "native_cbrt", "native_cosh", "native_cospi",
-                  "native_erfc", "native_erf", "native_expm1", "native_fdim",
+    foreach bi = ["native_acos", "native_acosh", "native_acospi", "native_asin",
+                  "native_asinh", "native_asinpi", "native_atan", "native_atan2",
+                  "native_atanh", "native_atanpi", "native_atan2pi",
+                  "native_cbrt", "native_cos", "native_cosh", "native_cospi",
+                  "native_divide", "native_erfc", "native_erf", "native_exp",
+                  "native_exp2", "native_exp10", "native_expm1", "native_fdim",
                   "native_fmax", "native_fmin", "native_fmod", "native_fract_pas",
                   "native_fract_las", "native_fract_gas", "native_fract_gen",
-                  "native_fract_pas2", "native_hypot", "native_ilogb", "native_log1p",
-                  "native_logb", "native_pow", "native_pown", "native_rcbrt",
-                  "native_rootn", "native_sincos_pas", "native_sincos_las",
-                  "native_sincos_gas", "native_sincos_gen", "native_sincos_pas2",
-                  "native_sinh", "native_sinpi", "native_tanh", "native_tanpi"] in {
-      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+                  "native_fract_pas2", "native_hypot", "native_ilogb",
+                  "native_log", "native_log2", "native_log10", "native_log1p",
+                  "native_logb", "native_pow", "native_pown", "native_powr",
+                  "native_rcbrt", "native_recip", "native_rootn", "native_rsqrt",
+                  "native_sin", "native_sinh", "native_sinpi",
+                  "native_sincos_pas", "native_sincos_las", "native_sincos_gas",
+                  "native_sincos_gen", "native_sincos_pas2", "native_sqrt",
+                  "native_tan", "native_tanh", "native_tanpi"] in {
+      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
 
       // masked version
       let HandleAlias = 0 in {
@@ -917,18 +917,9 @@ def shuffle2_16 : OclBuiltin<"shuffle2",  (outs gentype16:$ret), (ins gentype:$x
 //
 // destType convert_destType<_sat><_roundingMode>(sourceType)
 //
-let Types = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
-              v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
-             v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
-             v1u16, v2u16, v3u16, v4u16, v8u16, v16u16,
-             v1i32, v2i32, v3i32, v4i32, v8i32, v16i32,
-             v1u32, v2u32, v3u32, v4u32, v8u32, v16u32,
-             v1i64, v2i64, v3i64, v4i64, v8i64, v16i64,
-             v1u64, v2u64, v3u64, v4u64, v8u64, v16u64,
-             v1f16, v2f16, v3f16, v4f16, v8f16, v16f16,
-             v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
-             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
-    Attrs = [CONSTFUNC, OVERLOADABLE] in {
+let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f16, v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
+    Attrs = [CONSTFUNC, OVERLOADABLE],
+    NeedForwardDecl = 1 in {
 // conversion to integer has satured mode.
 def convert_u8          : OclBuiltin<"convert_$ReturnType",         (outs  u8gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def convert_i8          : OclBuiltin<"convert_$ReturnType",         (outs  i8gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
@@ -947,14 +938,7 @@ def convert_i32_sat     : OclBuiltin<"convert_$ReturnType_sat",     (outs i32gen
 def convert_u64_sat     : OclBuiltin<"convert_$ReturnType_sat",     (outs u64gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def convert_i64_sat     : OclBuiltin<"convert_$ReturnType_sat",     (outs i64gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 // conversions from floating to integer also honor rounding mode as well as saturated mode.
-let ExceptionTypes = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
-                       v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
-                      v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
-                      v1u16, v2u16, v3u16, v4u16, v8u16, v16u16,
-                      v1i32, v2i32, v3i32, v4i32, v8i32, v16i32,
-                      v1u32, v2u32, v3u32, v4u32, v8u32, v16u32,
-                      v1i64, v2i64, v3i64, v4i64, v8i64, v16i64,
-                      v1u64, v2u64, v3u64, v4u64, v8u64, v16u64] in {
+let ExceptionTypes = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout in {
 def convert_u8_rte      : OclBuiltin<"convert_$ReturnType_rte",     (outs  u8gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def convert_u8_rtz      : OclBuiltin<"convert_$ReturnType_rtz",     (outs  u8gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def convert_u8_rtp      : OclBuiltin<"convert_$ReturnType_rtp",     (outs  u8gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
@@ -1039,9 +1023,7 @@ def convert_f64_rtn     : OclBuiltin<"convert_$ReturnType_rtn",     (outs f64gen
 // the following conversions make no sense but are added for completeness.
 //
 // conversions from int to integer with rounding mode and/or saturated mode.
-let ExceptionTypes = [v1f16, v2f16, v3f16, v4f16, v8f16, v16f16,
-                      v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
-                      v1f64, v2f64, v3f64, v4f64, v8f64, v16f64] in {
+let ExceptionTypes = ExpandTypesByVFAndFlatten<[v1f16, v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout in {
 def _convert_u8_rte      : OclBuiltin<"convert_$ReturnType_rte",     (outs  u8gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def _convert_u8_rtz      : OclBuiltin<"convert_$ReturnType_rtz",     (outs  u8gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def _convert_u8_rtp      : OclBuiltin<"convert_$ReturnType_rtp",     (outs  u8gentype:$ret), (ins gentype:$x), [], [], 0, 0>;

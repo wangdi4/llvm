@@ -1,6 +1,34 @@
 // vim:ts=2:sw=2:et:
 // NOTE: common code used in in conversion_sat built-ins
 
+defvar _int2int_rounding = [{
+    return convert_$ReturnType($Arg0VarName);
+  }];
+
+defvar _int2int_rounding_sat = [{
+    return convert_$ReturnType_sat($Arg0VarName);
+  }];
+
+defvar _2fp_sat = [{
+    return convert_$ReturnType($Arg0VarName);
+  }];
+
+defvar _2fp_sat_rte = [{
+    return convert_$ReturnType_rte($Arg0VarName);
+  }];
+
+defvar _2fp_sat_rtz = [{
+    return convert_$ReturnType_rtz($Arg0VarName);
+  }];
+
+defvar _2fp_sat_rtp = [{
+    return convert_$ReturnType_rtp($Arg0VarName);
+  }];
+
+defvar _2fp_sat_rtn = [{
+    return convert_$ReturnType_rtn($Arg0VarName);
+  }];
+
 // destType = sourceType
 defvar convertSameType = [{
     return $Arg0VarName;

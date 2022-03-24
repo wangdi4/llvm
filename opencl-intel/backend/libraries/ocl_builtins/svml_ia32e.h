@@ -18487,7 +18487,7 @@ uint2 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_z0_cvtfptou32rtnsa
  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_z0_powrf32_native (ocl_float32 a, ocl_float32 b);
  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_z0_rootnf32_native (ocl_float32 a, ocl_int32 b);
  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_z0_sinf32_native (ocl_float32 a);
- ocl_float32 __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_z0_sincosf32_native (ocl_float32 a, ocl_float32* c);
+ ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_z0_sincosf32_native (ocl_float32 a, ocl_float32* c);
  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_z0_sinhf32_native (ocl_float32 a);
  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_z0_sinpif32_native (ocl_float32 a);
  ocl_float32 CONST __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_z0_sqrtf32_native (ocl_float32 a);

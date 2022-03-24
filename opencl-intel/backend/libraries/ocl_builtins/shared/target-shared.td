@@ -20,6 +20,7 @@ include "GENERIC/relational_shared.td"
 }
 
 defset list<OclBuiltinImpl> shared_impls = {
+include "shared/conversion_impl.td"
 include "shared/spirv_impl.td"
 } // defset shared_impls
 
