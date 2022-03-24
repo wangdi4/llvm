@@ -32,8 +32,6 @@ class OptimizerConfig
 public:
   OptimizerConfig(const Intel::OpenCL::Utils::CPUDetect *cpuId,
                   ETransposeSize tranposeSize,
-                  std::vector<int> dumpIROptionAfter,
-                  std::vector<int> dumpIROptionBefore, std::string dumpIRDir,
                   llvm::TargetMachine *machine, bool debugInfo,
                   bool useNativeDebugger, bool profiling, bool disableOpt,
                   bool relaxedMath, bool uniformWGSize, bool fpgaEmulator,
@@ -41,8 +39,6 @@ public:
                   int rtLoopUnrollFactor, bool streamingAlways,
                   unsigned expensiveMemOpts)
       : m_cpuId(cpuId), m_transposeSize(tranposeSize),
-        m_dumpIROptionsAfter(dumpIROptionAfter),
-        m_dumpIROptionsBefore(dumpIROptionBefore), m_dumpIRDir(dumpIRDir),
         m_targetMachine(machine), m_debugInfo(debugInfo),
         m_useNativeDebugger(useNativeDebugger), m_profiling(profiling),
         m_disableOpt(disableOpt), m_relaxedMath(relaxedMath),
@@ -55,10 +51,6 @@ public:
   const Intel::OpenCL::Utils::CPUDetect *GetCpuId() const { return m_cpuId; }
   ETransposeSize GetTransposeSize() const { return m_transposeSize; }
 
-  const std::vector<int> *GetIRDumpOptionsAfter() const {
-    return &m_dumpIROptionsAfter;
-  }
-    const std::vector<int>* GetIRDumpOptionsBefore() const{ return &m_dumpIROptionsBefore; }
     const std::string& GetDumpIRDir() const{ return m_dumpIRDir; }
     llvm::TargetMachine* GetTargetMachine() const { return m_targetMachine; }
     bool GetDisableOpt()    const { return m_disableOpt; }
@@ -81,7 +73,7 @@ private:
 
   std::vector<int> m_dumpIROptionsAfter;
   std::vector<int> m_dumpIROptionsBefore;
-  const std::string m_dumpIRDir;
+  const std::string m_dumpIRDir = "";
   llvm::TargetMachine *m_targetMachine;
   bool m_debugInfo;
   bool m_useNativeDebugger;

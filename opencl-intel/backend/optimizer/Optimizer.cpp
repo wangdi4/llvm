@@ -310,10 +310,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                                        bool isOcl20, bool isFpgaEmulator,
                                        bool UnrollLoops, bool isSPIRV,
                                        bool UseVplan) {
-  PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
-  PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
-      pConfig->GetIRDumpOptionsBefore());
-
   bool HasGatherScatterPrefetch =
       pConfig->GetCpuId()->HasGatherScatterPrefetch();
 
@@ -365,11 +361,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 
   // Adding module passes.
 
-  if (dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)) {
-    PM.add(createPrintIRPass(DUMP_IR_TARGERT_DATA, OPTION_IR_DUMPTYPE_BEFORE,
-                             pConfig->GetDumpIRDir()));
-  }
-
   // OCL2.0 add Generic Address Resolution
   // LLVM IR converted from any version of SPIRV may have Generic
   // adress space pointers.
@@ -390,10 +381,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
           AAR.addAAResult(OCLAA->getOCLAAResult());
       }));
   }
-  if (dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)) {
-    PM.add(createPrintIRPass(DUMP_IR_TARGERT_DATA, OPTION_IR_DUMPTYPE_AFTER,
-                             pConfig->GetDumpIRDir()));
-  }
+
   std::string Env;
   if (Intel::OpenCL::Utils::getEnvVar(Env, "DISMPF") ||
       DPCPPStatistic::isEnabled())
@@ -437,10 +425,6 @@ static void populatePassesPostFailCheck(
   // Tune the maximum size of the basic block for memory dependency analysis
   // utilized by GVN.
   bool UseTLSGlobals = (debugType == intel::Native) && !isEyeQEmulator;
-
-  PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
-  PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
-      pConfig->GetIRDumpOptionsBefore());
 
   if (pConfig->EnableOCLAA()) {
     PM.add(createOCLAliasAnalysisPass());
@@ -548,10 +532,6 @@ static void populatePassesPostFailCheck(
       PM.add(createProfilingInfoPass());
     }
 
-    if (dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)) {
-      PM.add(createPrintIRPass(DUMP_IR_VECTORIZER, OPTION_IR_DUMPTYPE_BEFORE,
-                               pConfig->GetDumpIRDir()));
-    }
     if (!isEyeQEmulator) {
       PM.add(createSinCosFoldPass());
     }
@@ -644,12 +624,6 @@ static void populatePassesPostFailCheck(
     if (UseVplan)
       PM.add(
           createHandleVPlanMaskLegacyPass(&Optimizer::getVPlanMaskedFuncs()));
-
-    if (dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)) {
-      PM.add(createPrintIRPass(DUMP_IR_VECTORIZER, OPTION_IR_DUMPTYPE_AFTER,
-                               pConfig->GetDumpIRDir()));
-    }
-
   } else {
     // When forced VF equals 1 or in O0 case, check subgroup semantics AND
     // prepare subgroup_emu_size for sub-group emulation.
