@@ -1,3 +1,6 @@
+; Temporarily disable this test
+; UNSUPPORTED: true
+
 ; RUN: %oclopt  -runtimelib %p/../Full/runtime.bc -inline-threshold=4096 -inline -domtree -mem2reg -instcombine -simplifycfg -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -scalarize -verify %s -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 ; ModuleID = '.\cl_files\wlIntelTccAce.cl'

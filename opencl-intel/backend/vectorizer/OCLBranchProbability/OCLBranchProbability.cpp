@@ -17,6 +17,7 @@
 #include "InitializePasses.h"
 
 #include "llvm/InitializePasses.h"
+#include "llvm/IR/Instructions.h"
 
 extern "C" {
   /// @brief Creates new OCLBranchProbability function pass

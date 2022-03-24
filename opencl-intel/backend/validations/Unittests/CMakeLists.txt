@@ -98,7 +98,7 @@ target_link_libraries(${TARGET_NAME}
     REFALU
     PlugInNEAT
     OCLBuiltinsRef
-    gtest
+    llvm_gtest
     ImathLibd
     dynamic_load
     cl_sys_utils

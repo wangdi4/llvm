@@ -137,7 +137,7 @@ int AsmCompiler::compileAsmToObjectFile(std::unique_ptr<MemoryBuffer> BufferPtr,
 
   assert(OS->supportsSeeking());
 
-  MCCodeEmitter *CE = TheTarget->createMCCodeEmitter(*MCII, *MRI, Ctx);
+  MCCodeEmitter *CE = TheTarget->createMCCodeEmitter(*MCII, Ctx);
   MCAsmBackend *MAB = TheTarget->createMCAsmBackend(*STI, *MRI, MCOptions);
   Str.reset(TheTarget->createMCObjectStreamer(
       TheTriple, Ctx, std::unique_ptr<MCAsmBackend>(MAB),

@@ -32,6 +32,7 @@
 
 #include "BuiltinLibInfo.h"
 #include "OpenclRuntime.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Dominators.h"

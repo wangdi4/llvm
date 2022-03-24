@@ -23,9 +23,9 @@ add_opencl_executable(${TARGET_NAME}
 )
 
 if (NOT WIN32)
-  set(LIBRARIES OclBackendUtils gtest pthread)
+  set(LIBRARIES OclBackendUtils llvm_gtest pthread)
 else (NOT WIN32)
-  set(LIBRARIES OclBackendUtils gtest)
+  set(LIBRARIES OclBackendUtils llvm_gtest)
 endif (NOT WIN32)
 
 target_link_libraries(${TARGET_NAME}

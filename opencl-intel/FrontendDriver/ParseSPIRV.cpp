@@ -200,7 +200,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
       // optnone attribute support
     case spv::internal::CapabilityOptNoneINTEL:
       // SPV_INTEL_memory_access_aliasing
-    case spv::internal::CapabilityMemoryAccessAliasingINTEL:
+    case spv::CapabilityMemoryAccessAliasingINTEL:
       // SPV_INTEL_token_type
     case spv::internal::CapabilityTokenTypeINTEL:
     case spv::CapabilityDebugInfoModuleINTEL:

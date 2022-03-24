@@ -109,12 +109,13 @@ void LLDJITBuilder::convertToMSVCModule(llvm::Module *M) {
   M->addModuleFlag(llvm::Module::Warning, "CodeView", 1);
 }
 void LLDJITBuilder::adjustFunctionAttributes(llvm::Module *M) {
+  auto &Ctx = M->getContext();
   for (llvm::Function &F : M->functions()) {
-    F.setAttributes(
-        F.getAttributes()
-            .addFnAttribute(F.getContext(), Attribute::UWTable)
-            .addFnAttribute(F.getContext(), Attribute::OptimizeNone)
-            .addFnAttribute(F.getContext(), Attribute::NoInline));
+    F.setAttributes(F.getAttributes()
+                        .addFnAttribute(Ctx, Attribute::getWithUWTableKind(
+                                                 Ctx, UWTableKind::Default))
+                        .addFnAttribute(Ctx, Attribute::OptimizeNone)
+                        .addFnAttribute(Ctx, Attribute::NoInline));
   }
 }
 
