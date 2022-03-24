@@ -5447,8 +5447,10 @@ void BoUpSLP::scheduleMultiNodeInstrs() {
       }
     }
   }
+#ifdef EXPENSIVE_CHECKS
   if (MultiNodeVerifierChecks)
     assert(!verifyFunction(*F, &dbgs()));
+#endif // EXPENSIVE_CHECKS
 }
 
 bool BoUpSLP::updateFrontierOpcode(LeafData *Op) {
@@ -5494,8 +5496,10 @@ bool BoUpSLP::updateFrontierOpcode(LeafData *Op) {
 
   ReplaceFrontierForOp(Op);
 
+#ifdef EXPENSIVE_CHECKS
   if (MultiNodeVerifierChecks)
     assert(!verifyFunction(*F, &dbgs()));
+#endif // EXPENSIVE_CHECKS
 
   // Bookkeeping!
   // Update data structures to reflect the instruction changes.
@@ -5541,8 +5545,10 @@ void BoUpSLP::applyReorderedOperands(ScheduleData *Bundle) {
         // Update the operand to reflect the current state.
         FrontierI->setOperand(OpNum, Op->getLeaf());
       }
+#ifdef EXPENSIVE_CHECKS
       if (MultiNodeVerifierChecks)
         assert(!verifyFunction(*F, &dbgs()));
+#endif // EXPENSIVE_CHECKS
     }
   }
   // Update the TreeEntries
@@ -5574,21 +5580,27 @@ void BoUpSLP::applyMultiNodeOrder(ScheduleData *Bundle) {
 
 void BoUpSLP::reorderMultiNodeOperands(SmallVectorImpl<Value *> &VL,
                                        ScheduleData *Bundle) {
+#ifdef EXPENSIVE_CHECKS
   if (MultiNodeVerifierChecks)
     assert(!verifyFunction(*F, &dbgs()));
+#endif // EXPENSIVE_CHECKS
 
   // Perform the frontier reordering using the look-ahead heuristic.
   if (CurrentMultiNode->findMultiNodeOrder()) {
     applyMultiNodeOrder(Bundle);
+#ifdef EXPENSIVE_CHECKS
     if (MultiNodeVerifierChecks)
       assert(!verifyFunction(*F, &dbgs()));
+#endif // EXPENSIVE_CHECKS
   }
 
   // Update VL to be the root of the Multi-Node.
   VL = VectorizableTree[CurrentMultiNode->getRoot()]->Scalars;
 
+#ifdef EXPENSIVE_CHECKS
   if (MultiNodeVerifierChecks)
     assert(!verifyFunction(*F, &dbgs()));
+#endif // EXPENSIVE_CHECKS
 }
 
 // Return true if we have finished building the Multi-Node, false otherwise.
