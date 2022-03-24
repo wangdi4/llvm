@@ -103,7 +103,6 @@ Address ABIInfo::EmitMSVAArg(CodeGenFunction &CGF, Address VAListAddr,
   return Address::invalid();
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static ABIArgInfo classifyOpenCL(QualType Ty, ASTContext &Context) {
   if (Ty->isVoidType())
@@ -224,12 +223,10 @@ static ABIArgInfo classifySVMLStructure(const Type *Base, uint64_t NumElts,
   return IsReturn ? ABIArgInfo::getDirect() : ABIArgInfo::getExpand();
 }
 #endif // INTEL_CUSTOMIZATION
-=======
 static llvm::Type *getVAListElementType(CodeGenFunction &CGF) {
   return CGF.ConvertTypeForMem(
       CGF.getContext().getBuiltinVaListType()->getPointeeType());
 }
->>>>>>> 818e72d1b09bc5fc3b7a2c9f90b981a9c0d2a5db
 
 bool ABIInfo::isPromotableIntegerTypeForABI(QualType Ty) const {
   if (Ty->isPromotableIntegerType())
