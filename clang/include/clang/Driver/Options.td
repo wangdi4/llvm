@@ -3722,6 +3722,12 @@ def mbig_endian : Flag<["-"], "mbig-endian">, Flags<[NoXarchOption]>;
 def EB : Flag<["-"], "EB">, Alias<mbig_endian>;
 def m16 : Flag<["-"], "m16">, Group<m_Group>, Flags<[NoXarchOption, CoreOption]>;
 def m32 : Flag<["-"], "m32">, Group<m_Group>, Flags<[NoXarchOption, CoreOption]>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+def mxucc : Flag<["-"], "mxucc">, Group<m_Group>, Flags<[NoXarchOption, CoreOption]>,
+            HelpText<"Enable XuCC mode">;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 def mqdsp6_compat : Flag<["-"], "mqdsp6-compat">, Group<m_Group>, Flags<[NoXarchOption,CC1Option]>,
   HelpText<"Enable hexagon-qdsp6 backward compatibility">,
   MarshallingInfoFlag<LangOpts<"HexagonQdsp6Compat">>;
