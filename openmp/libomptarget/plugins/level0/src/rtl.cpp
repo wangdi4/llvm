@@ -3232,7 +3232,9 @@ void MemoryPoolTy::init(int32_t allocKind, RTLDeviceInfoTy *RTL) {
     CALL_ZE_EXIT_FAIL(zeDeviceGetProperties, Device, &properties);
     if (isDiscrete(properties.deviceId)) {
       // Use page size as minimum chunk size for USM shared on discrete device.
-      AllocMin = AP.pageSize;
+      // FIXME: pageSize is not returned correctly (=0) on some new devices, so
+      //        use fallback value for now.
+      AllocMin = (std::max)(AP.pageSize, AllocUnit);
       AllocUnit = AllocMin * BlockCapacity;
     }
   }
