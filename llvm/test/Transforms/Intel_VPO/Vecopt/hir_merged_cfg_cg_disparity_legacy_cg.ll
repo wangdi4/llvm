@@ -30,8 +30,8 @@
 ; MERGED-CFG-CG:            BEGIN REGION { modified }
 ; MERGED-CFG-CG-NEXT:             %.vec = 0 == 8;
 ; MERGED-CFG-CG-NEXT:             %phi.temp = 0;
-; MERGED-CFG-CG-NEXT:             %unifcond = extractelement %.vec,  0;
-; MERGED-CFG-CG-NEXT:             if (%unifcond == 1)
+; MERGED-CFG-CG-NEXT:             %extract.0. = extractelement %.vec,  0;
+; MERGED-CFG-CG-NEXT:             if (%extract.0. == 1)
 ; MERGED-CFG-CG-NEXT:             {
 ; MERGED-CFG-CG-NEXT:                goto merge.blk10.26;
 ; MERGED-CFG-CG-NEXT:             }
@@ -43,8 +43,8 @@
 ; MERGED-CFG-CG:                  %.vec2 = 10 == 8;
 ; MERGED-CFG-CG-NEXT:             %phi.temp = 8;
 ; MERGED-CFG-CG-NEXT:             %phi.temp4 = 8;
-; MERGED-CFG-CG-NEXT:             %unifcond6 = extractelement %.vec2,  0;
-; MERGED-CFG-CG-NEXT:             if (%unifcond6 == 1)
+; MERGED-CFG-CG-NEXT:             %extract.0.6 = extractelement %.vec2,  0;
+; MERGED-CFG-CG-NEXT:             if (%extract.0.6 == 1)
 ; MERGED-CFG-CG-NEXT:             {
 ; MERGED-CFG-CG-NEXT:                goto final.merge.44;
 ; MERGED-CFG-CG-NEXT:             }

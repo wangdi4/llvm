@@ -28,8 +28,8 @@
 ; CHECK-NEXT:           %.vec = 0 == %vec.tc;
 ; CHECK-NEXT:           %phi.temp = %sum.07;
 ; CHECK-NEXT:           %phi.temp2 = 0;
-; CHECK-NEXT:           %unifcond = extractelement %.vec,  0;
-; CHECK-NEXT:           if (%unifcond == 1)
+; CHECK-NEXT:           %extract.0. = extractelement %.vec,  0;
+; CHECK-NEXT:           if (%extract.0. == 1)
 ; CHECK-NEXT:           {
 ; CHECK-NEXT:              goto merge.blk15.31;
 ; CHECK-NEXT:           }
@@ -38,8 +38,8 @@
 ; CHECK-NEXT:           %.vec6 = 0 == %vec.tc5;
 ; CHECK-NEXT:           %phi.temp7 = %sum.07;
 ; CHECK-NEXT:           %phi.temp9 = 0;
-; CHECK-NEXT:           %unifcond11 = extractelement %.vec6,  0;
-; CHECK-NEXT:           if (%unifcond11 == 1)
+; CHECK-NEXT:           %extract.0.11 = extractelement %.vec6,  0;
+; CHECK-NEXT:           if (%extract.0.11 == 1)
 ; CHECK-NEXT:           {
 ; CHECK-NEXT:              goto merge.blk19.42;
 ; CHECK-NEXT:           }
@@ -63,8 +63,8 @@
 ; CHECK-NEXT:           %phi.temp9 = %vec.tc13;
 ; CHECK-NEXT:           %phi.temp24 = %sum.07;
 ; CHECK-NEXT:           %phi.temp26 = %vec.tc13;
-; CHECK-NEXT:           %unifcond28 = extractelement %.vec21,  0;
-; CHECK-NEXT:           if (%unifcond28 == 1)
+; CHECK-NEXT:           %extract.0.28 = extractelement %.vec21,  0;
+; CHECK-NEXT:           if (%extract.0.28 == 1)
 ; CHECK-NEXT:           {
 ; CHECK-NEXT:              goto merge.blk18.72;
 ; CHECK-NEXT:           }
@@ -92,8 +92,8 @@
 ; CHECK-NEXT:           %phi.temp2 = %phi.temp26;
 ; CHECK-NEXT:           %phi.temp46 = %phi.temp24;
 ; CHECK-NEXT:           %phi.temp48 = %phi.temp26;
-; CHECK-NEXT:           %unifcond50 = extractelement %.vec43,  0;
-; CHECK-NEXT:           if (%unifcond50 == 1)
+; CHECK-NEXT:           %extract.0.50 = extractelement %.vec43,  0;
+; CHECK-NEXT:           if (%extract.0.50 == 1)
 ; CHECK-NEXT:           {
 ; CHECK-NEXT:              goto final.merge.107;
 ; CHECK-NEXT:           }
