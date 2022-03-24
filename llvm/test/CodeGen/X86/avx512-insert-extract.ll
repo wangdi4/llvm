@@ -1642,22 +1642,12 @@ define zeroext i8 @test_extractelement_varible_v32i1(<32 x i8> %a, <32 x i8> %b,
 ;
 ; SKX-LABEL: test_extractelement_varible_v32i1:
 ; SKX:       ## %bb.0:
-; SKX-NEXT:    pushq %rbp
-; SKX-NEXT:    .cfi_def_cfa_offset 16
-; SKX-NEXT:    .cfi_offset %rbp, -16
-; SKX-NEXT:    movq %rsp, %rbp
-; SKX-NEXT:    .cfi_def_cfa_register %rbp
-; SKX-NEXT:    andq $-32, %rsp
-; SKX-NEXT:    subq $64, %rsp
-; SKX-NEXT:    ## kill: def $edi killed $edi def $rdi
 ; SKX-NEXT:    vpcmpnleub %ymm1, %ymm0, %k0
 ; SKX-NEXT:    vpmovm2b %k0, %ymm0
-; SKX-NEXT:    vmovdqa %ymm0, (%rsp)
-; SKX-NEXT:    andl $31, %edi
-; SKX-NEXT:    movzbl (%rsp,%rdi), %eax
-; SKX-NEXT:    andl $1, %eax
-; SKX-NEXT:    movq %rbp, %rsp
-; SKX-NEXT:    popq %rbp
+; SKX-NEXT:    vpmovmskb %ymm0, %ecx ;INTEL
+; SKX-NEXT:    xorl %eax, %eax ;INTEL
+; SKX-NEXT:    btl %edi, %ecx ;INTEL
+; SKX-NEXT:    setb %al ;INTEL
 ; SKX-NEXT:    vzeroupper
 ; SKX-NEXT:    retq
   %t1 = icmp ugt <32 x i8> %a, %b
