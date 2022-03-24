@@ -42,23 +42,12 @@
 ; CHECK-DEFAULT-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-MATRIX: Running pass: LowerMatrixIntrinsicsPass
 ; CHECK-MATRIX-NEXT: Running analysis: TargetIRAnalysis
-<<<<<<< HEAD
 ; CHECK-DEFAULT-NEXT: Running pass: VecClonePass ;INTEL
 ; CHECK-DEFAULT-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*}}> ;INTEL
 ; CHECK-CORO-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*Function.*}}, llvm::Module> ;INTEL
-; CHECK-CORO-NEXT: Running pass: CoroEarlyPass
-; CHECK-CORO-NEXT: Running analysis: InnerAnalysisManagerProxy
-; CHECK-CORO-NEXT: Running analysis: LazyCallGraphAnalysis
-; CHECK-CORO-NEXT: Running analysis: TargetLibraryAnalysis
-; CHECK-CORO-NEXT: Running analysis: FunctionAnalysisManagerCGSCCProxy
-; CHECK-CORO-NEXT: Running analysis: OuterAnalysisManagerProxy
-; CHECK-CORO-NEXT: Running pass: CoroSplitPass
-; CHECK-CORO-NEXT: Running pass: CoroCleanupPass
 ; CHECK-PRE-LINK-NEXT: Running pass: CanonicalizeAliasesPass ;INTEL
-=======
 ; CHECK-CORO-NEXT: Running pass: CoroConditionalWrapper
 ; CHECK-PRE-LINK: Running pass: CanonicalizeAliasesPass
->>>>>>> 9bd66b312c3e0e539ac6c85c1bacd17bdc731614
 ; CHECK-PRE-LINK-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-THINLTO: Running pass: Annotation2MetadataPass
 ; CHECK-THINLTO-NEXT: Running pass: LowerTypeTestsPass

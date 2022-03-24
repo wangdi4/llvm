@@ -43,16 +43,12 @@
 // CHECK-FULL-O0: Running pass: AlwaysInlinerPass
 // CHECK-FULL-O0-NEXT: Running analysis: InnerAnalysisManagerProxy
 // CHECK-FULL-O0-NEXT: Running analysis: ProfileSummaryAnalysis
-<<<<<<< HEAD
 // CHECK-FULL-O0-NEXT: Running pass: VecClonePass ;INTEL
 // CHECK-FULL-O0-NEXT: Invalidating analysis: InnerAnalysisManagerProxy ;INTEL
-// CHECK-FULL-O0: Running pass: CoroSplitPass
-// CHECK-FULL-O0-NEXT: Running pass: CoroCleanupPass
-=======
 // CHECK-FULL-O0-NEXT: Running pass: CoroConditionalWrapper
->>>>>>> 9bd66b312c3e0e539ac6c85c1bacd17bdc731614
 // CHECK-FULL-O0-NEXT: Running pass: CanonicalizeAliasesPass
 // CHECK-FULL-O0-NEXT: Running pass: NameAnonGlobalPass
+// CHECK-FULL-O0-NEXT: InnerAnalysisManagerProxy  ;INTEL
 // CHECK-FULL-O0-NEXT: Running pass: AnnotationRemarksPass
 // CHECK-FULL-O0-NEXT: Running analysis: TargetLibraryAnalysis
 // CHECK-FULL-O0-NEXT: Running pass: VerifierPass
@@ -62,15 +58,12 @@
 // CHECK-THIN-O0: Running pass: AlwaysInlinerPass
 // CHECK-THIN-O0-NEXT: Running analysis: InnerAnalysisManagerProxy
 // CHECK-THIN-O0-NEXT: Running analysis: ProfileSummaryAnalysis
-<<<<<<< HEAD
 // CHECK-THIN-O0-NEXT: Running pass: VecClonePass ;INTEL
 // CHECK-THIN-O0-NEXT: Invalidating analysis: InnerAnalysisManagerProxy ;INTEL
-// CHECK-THIN-O0: Running pass: CoroCleanupPass
-=======
 // CHECK-THIN-O0-NEXT: Running pass: CoroConditionalWrapper
->>>>>>> 9bd66b312c3e0e539ac6c85c1bacd17bdc731614
 // CHECK-THIN-O0-NEXT: Running pass: CanonicalizeAliasesPass
 // CHECK-THIN-O0-NEXT: Running pass: NameAnonGlobalPass
+// CHECK-THIN-O0-NEXT: InnerAnalysisManagerProxy  ;INTEL
 // CHECK-THIN-O0-NEXT: Running pass: AnnotationRemarksPass
 // CHECK-THIN-O0-NEXT: Running analysis: TargetLibraryAnalysis
 // CHECK-THIN-O0-NEXT: Running pass: VerifierPass
