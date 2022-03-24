@@ -1,3 +1,6 @@
+list<OclType> i32_same = ExpandTypesByVFAndFlatten<[v1i32], [32, 64]>.Tout;
+OclBuiltinImpl same_i32_sat = OclBuiltinImpl<convert_i32, i32_same, 0, convertSameType>;
+
 /*****************************************************************\
  * convert_int_rte:                                              *
  *   intn convert_intn_rte (gentypen x)                          *
