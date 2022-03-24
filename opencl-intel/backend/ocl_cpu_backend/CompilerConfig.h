@@ -79,29 +79,6 @@ public:
       return m_forcedPrivateMemorySize;
     }
     bool UseAutoMemory() const override { return m_useAutoMemory; }
-    std::vector<int> GetIRDumpOptionsAfter() const override {
-      if (!m_DumpIROptionAfter) {
-        std::vector<int> tempVecotr;
-        return tempVecotr;
-      }
-      std::vector<int> optionsVector(m_DumpIROptionAfter->begin(),
-                                     m_DumpIROptionAfter->end());
-      // sort the vector for later use (binary_search)
-      std::sort(optionsVector.begin(), optionsVector.end());
-      return optionsVector;
-    }
-    std::vector<int> GetIRDumpOptionsBefore() const override {
-      if (!m_DumpIROptionBefore) {
-        std::vector<int> tempVecotr;
-        return tempVecotr;
-      }
-      std::vector<int> optionsVector(m_DumpIROptionBefore->begin(),
-                                     m_DumpIROptionBefore->end());
-      // sort the vector for later use (binary_search)
-      std::sort(optionsVector.begin(), optionsVector.end());
-      return optionsVector;
-    }
-    std::string GetDumpIRDir() const override { return m_dumpIRDir; }
 
     bool GetDumpHeuristicIRFlag() const override { return m_dumpHeuristicIR; }
 
@@ -128,9 +105,6 @@ protected:
     bool        m_useVTune;
     bool        m_serializeWorkGroups;
     bool        m_loadBuiltins;
-    const std::vector<IRDumpOptions>* m_DumpIROptionAfter;
-    const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
-    std::string m_dumpIRDir;
     bool m_dumpHeuristicIR;
     std::string m_dumpFilenamePrefix;
     int m_forcedPrivateMemorySize;

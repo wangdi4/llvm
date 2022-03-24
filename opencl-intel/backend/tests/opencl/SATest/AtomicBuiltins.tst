@@ -1,6 +1,5 @@
-; RUN: mkdir -p %t.dir
-; RUN: SATest -BUILD --config=%s.cfg -tsize=0 -dump-IR-after=target_data -dump-IR-dir=%t.dir | FileCheck %s -check-prefix=CHECK-LOG
-; RUN: FileCheck %s --input-file=%t.dir/dump.target_data_after.ll
+; RUN: SATest -BUILD --config=%s.cfg -tsize=0 | FileCheck %s -check-prefix=CHECK-LOG
+; RUN: SATest -BUILD --config=%s.cfg -tsize=0 -llvm-option=-print-before=dpcpp-kernel-analysis 2>&1 | FileCheck %s
 
 ; CHECK-LOG: Test program was successfully built.
 

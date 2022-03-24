@@ -75,9 +75,6 @@ public:
     virtual bool UseAutoMemory() const = 0;
     // sets whether we need built-in module to be loaded for current compiler
     virtual bool GetLoadBuiltins() const = 0;
-    virtual std::vector<int> GetIRDumpOptionsAfter() const = 0;
-    virtual std::vector<int> GetIRDumpOptionsBefore() const = 0;
-    virtual std::string GetDumpIRDir() const = 0;
     virtual bool GetDumpHeuristicIRFlag() const = 0;
     virtual const std::string &GetDumpFilenamePrefix() const = 0;
     virtual bool GetStreamingAlways() const = 0;
