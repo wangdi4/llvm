@@ -8380,6 +8380,16 @@ public:
                           OAShE->getBase()->getType()->getPointeeType()),
                       CGF.getContext().getTypeAlignInChars(
                           OAShE->getBase()->getType()));
+#if INTEL_COLLAB
+        } else if (CGF.CGM.getLangOpts().OpenMPLateOutline && OASE &&
+                   isa<CXXThisExpr>(OASE->getBase()->IgnoreParenImpCasts())) {
+          QualType PTy = OASE->getBase()->getType();
+          LowestElem = LB =
+              Address(CGF.EmitScalarExpr(OASE->getBase()),
+                      CGF.ConvertTypeForMem(
+                          PTy->getAs<PointerType>()->getPointeeType()),
+                      CGF.getContext().getTypeAlignInChars(PTy));
+#endif  // INTEL_COLLAB
         } else if (IsMemberReference) {
           const auto *ME = cast<MemberExpr>(I->getAssociatedExpression());
           LValue BaseLVal = EmitMemberExprBase(CGF, ME);
@@ -9547,7 +9557,7 @@ public:
     for (const CodeGenFunction::VPtr &Vptr : CGF.getVTablePointers(ClassDecl)) {
       Address This = Address(
           PartialStruct.Base.getPointer(),
-          CGF.ConvertTypeForMem(ClassTy->getPointeeType()),
+          CGF.ConvertTypeForMem(ClassTy),
           CGF.CGM.getContext().getTypeAlignInChars(ClassTy));
       llvm::Value *VPtrValue = CGF.GetVptr(Vptr, This);
       if (!VPtrValue)

@@ -109,8 +109,8 @@ void foo1() {
 // CHECK-NEXT:    [[CMP:%.*]] = icmp eq i32 [[TMP19]], 0
 // CHECK-NEXT:    br i1 [[CMP]], label [[IF_THEN:%.*]], label [[IF_ELSE:%.*]]
 // CHECK:       if.then:
-// CHECK-NEXT:    [[TMP20:%.*]] = load i8*, i8** [[OBJ1]], align 8
-// CHECK-NEXT:    [[TMP21:%.*]] = bitcast i8* [[TMP20]] to %struct.kmp_depend_info*
+// CHECK-NEXT:    [[TMP20:%.*]] = bitcast i8** [[OBJ1]] to %struct.kmp_depend_info**
+// CHECK-NEXT:    [[TMP21:%.*]] = load %struct.kmp_depend_info*, %struct.kmp_depend_info** [[TMP20]], align 8
 // CHECK-NEXT:    [[TMP22:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP21]], i64 -1
 // CHECK-NEXT:    [[TMP23:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP22]], i32 0, i32 0
 // CHECK-NEXT:    [[TMP24:%.*]] = load i64, i64* [[TMP23]], align 8
@@ -131,8 +131,8 @@ void foo1() {
 // CHECK-NEXT:    call void @__kmpc_free(i32 [[TMP0]], i8* [[TMP30]], i8* null)
 // CHECK-NEXT:    br label [[IF_END:%.*]]
 // CHECK:       if.else:
-// CHECK-NEXT:    [[TMP31:%.*]] = load i8*, i8** [[OBJ2]], align 8
-// CHECK-NEXT:    [[TMP32:%.*]] = bitcast i8* [[TMP31]] to %struct.kmp_depend_info*
+// CHECK-NEXT:    [[TMP31:%.*]] = bitcast i8** [[OBJ2]] to %struct.kmp_depend_info**
+// CHECK-NEXT:    [[TMP32:%.*]] = load %struct.kmp_depend_info*, %struct.kmp_depend_info** [[TMP31]], align 8
 // CHECK-NEXT:    [[TMP33:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP32]], i64 -1
 // CHECK-NEXT:    [[TMP34:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP33]], i32 0, i32 0
 // CHECK-NEXT:    [[TMP35:%.*]] = load i64, i64* [[TMP34]], align 8
@@ -153,8 +153,8 @@ void foo1() {
 // CHECK-NEXT:    call void @__kmpc_free(i32 [[TMP0]], i8* [[TMP41]], i8* null)
 // CHECK-NEXT:    br label [[IF_END]]
 // CHECK:       if.end:
-// CHECK-NEXT:    [[TMP42:%.*]] = load i8*, i8** [[OBJ1]], align 8
-// CHECK-NEXT:    [[TMP43:%.*]] = bitcast i8* [[TMP42]] to %struct.kmp_depend_info*
+// CHECK-NEXT:    [[TMP42:%.*]] = bitcast i8** [[OBJ1]] to %struct.kmp_depend_info**
+// CHECK-NEXT:    [[TMP43:%.*]] = load %struct.kmp_depend_info*, %struct.kmp_depend_info** [[TMP42]], align 8
 // CHECK-NEXT:    [[TMP44:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP43]], i64 -1
 // CHECK-NEXT:    [[TMP45:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP44]], i32 0, i32 0
 // CHECK-NEXT:    [[TMP46:%.*]] = load i64, i64* [[TMP45]], align 8
@@ -203,8 +203,8 @@ void foo1() {
 // CHECK-NEXT:    [[TMP73:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP69]], i32 0, i32 2
 // CHECK-NEXT:    store i8 4, i8* [[TMP73]], align 8
 // CHECK-NEXT:    store i64 4, i64* [[DEP_COUNTER_ADDR]], align 8
-// CHECK-NEXT:    [[TMP74:%.*]] = load i8*, i8** [[OBJ1]], align 8
-// CHECK-NEXT:    [[TMP75:%.*]] = bitcast i8* [[TMP74]] to %struct.kmp_depend_info*
+// CHECK-NEXT:    [[TMP74:%.*]] = bitcast i8** [[OBJ1]] to %struct.kmp_depend_info**
+// CHECK-NEXT:    [[TMP75:%.*]] = load %struct.kmp_depend_info*, %struct.kmp_depend_info** [[TMP74]], align 8
 // CHECK-NEXT:    [[TMP76:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP75]], i64 -1
 // CHECK-NEXT:    [[TMP77:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP76]], i32 0, i32 0
 // CHECK-NEXT:    [[TMP78:%.*]] = load i64, i64* [[TMP77]], align 8
