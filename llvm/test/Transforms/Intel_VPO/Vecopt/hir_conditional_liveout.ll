@@ -128,10 +128,9 @@ define dso_local i32 @main() local_unnamed_addr {
 ; CHECK:              |      %cmp12 = %2 == 0;
 ; CHECK:              |      %all.zero.check = %cmp12;
 ; CHECK:              |      %phi.temp13 = %nz.061;
-; CHECK:              |      %unifcond = extractelement %all.zero.check,  0;
-; CHECK:              |      if (%unifcond == 1)
+; CHECK:              |      if (%cmp12 == 1)
 ; CHECK:              |      {
-; CHECK:              |         goto BB10.74;
+; CHECK:              |         goto BB10.73;
 ; CHECK:              |      }
 ; CHECK:              |      %priv.idx.max = @llvm.vector.reduce.smax.v4i64(%select);
 ; CHECK:              |      %priv.idx.cmp = %select == %priv.idx.max;
@@ -140,7 +139,7 @@ define dso_local i32 @main() local_unnamed_addr {
 ; CHECK:              |      %nz.061 = extractelement %select8,  %bsf;
 ; CHECK:              |      <LVAL-REG> NON-LINEAR i32 %nz.061 {sb:3}
 ; CHECK:              |      %phi.temp13 = %nz.061;
-; CHECK:              |      BB10.74:
+; CHECK:              |      BB10.73:
 ; CHECK:              |   }
 ;
 entry:

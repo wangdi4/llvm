@@ -17,8 +17,8 @@
 ; CHECK:          BEGIN REGION { modified }
 ; CHECK-NEXT:           %.vec = 0 == 100;
 ; CHECK-NEXT:           %phi.temp = 0;
-; CHECK-NEXT:           %unifcond = extractelement %.vec,  0;
-; CHECK-NEXT:           if (%unifcond == 1)
+; CHECK-NEXT:           %extract.0. = extractelement %.vec,  0;
+; CHECK-NEXT:           if (%extract.0. == 1)
 ; CHECK-NEXT:           {
 ; CHECK-NEXT:              goto merge.blk10.26;
 ; CHECK-NEXT:           }
@@ -30,8 +30,8 @@
 ; CHECK:                %.vec2 = 101 == 100;
 ; CHECK-NEXT:           %phi.temp = 100;
 ; CHECK-NEXT:           %phi.temp4 = 100;
-; CHECK-NEXT:           %unifcond6 = extractelement %.vec2,  0;
-; CHECK-NEXT:           if (%unifcond6 == 1)
+; CHECK-NEXT:           %extract.0.6 = extractelement %.vec2,  0;
+; CHECK-NEXT:           if (%extract.0.6 == 1)
 ; CHECK-NEXT:           {
 ; CHECK-NEXT:              goto final.merge.44;
 ; CHECK-NEXT:           }
