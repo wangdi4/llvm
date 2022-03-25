@@ -96,7 +96,6 @@
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-O-NEXT: Running pass: InlineReportSetupPass ;INTEL
 ; CHECK-O-NEXT: Running pass: InlineListsPass ;INTEL
-; CHECK-O-NEXT: Running analysis: PreservedCFGCheckerAnalysis on foo
 ; CHECK-O-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
 ; CHECK-O-NEXT: Running pass: LowerExpectIntrinsicPass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
@@ -256,7 +255,6 @@
 ; CHECK-DEFAULT-NEXT:  Invalidating analysis: LazyCallGraphAnalysis
 ; CHECK-DEFAULT-NEXT:  Invalidating analysis: InnerAnalysisManagerProxy
 ; CHECK-DEFAULT-NEXT:  Running analysis: InnerAnalysisManagerProxy
-; CHECK-DEFAULT-NEXT:  Running analysis: PreservedCFGCheckerAnalysis
 ; CHECK-DEFAULT-NEXT:  Running pass: EarlyCSEPass
 ; CHECK-DEFAULT-NEXT:  Running analysis: TargetLibraryAnalysis
 ; CHECK-DEFAULT-NEXT:  Running analysis: TargetIRAnalysis
@@ -282,7 +280,6 @@
 ; CHECK-DEFAULT-NEXT:  Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-DEFAULT-NEXT:  Invalidating analysis: InnerAnalysisManagerProxy
 ; CHECK-DEFAULT-NEXT:  Running analysis: InnerAnalysisManagerProxy
-; CHECK-DEFAULT-NEXT:  Running analysis: PreservedCFGCheckerAnalysis
 ; CHECK-DEFAULT-NEXT:  Running pass: VPOCFGRestructuringPass
 ; CHECK-DEFAULT-NEXT:  Running analysis: DominatorTreeAnalysis
 ; CHECK-DEFAULT-NEXT:  Running analysis: LoopAnalysis
