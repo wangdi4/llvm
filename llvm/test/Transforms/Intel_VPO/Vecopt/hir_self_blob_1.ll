@@ -3,68 +3,10 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" < %s -S -vplan-force-vf=4 2>&1 | FileCheck %s
 
 ; Check stability of merged CFG-based CG.
-; FIXME : Enable HIR verifier after fixing consistency related bug for liveouts. Consequently drop all HIR-DETAILS checks as well.
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -S -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir -hir-verify=false -hir-details 2>&1 | FileCheck %s --check-prefix=HIR-DETAILS
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" < %s -S -vplan-force-vf=4 -vplan-enable-new-cfg-merge-hir -hir-verify=false -hir-details 2>&1 | FileCheck %s --check-prefix=HIR-DETAILS
+; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -S -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" < %s -S -vplan-force-vf=4 -vplan-enable-new-cfg-merge-hir 2>&1 | FileCheck %s
 
 ; CHECK: DO i2 = 0, {{.*}}, 4
-
-
-; HIR-DETAILS:    BEGIN REGION { modified }
-; HIR-DETAILS:          + DO i64 i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>  <LEGAL_MAX_TC = 2147483647>
-; HIR-DETAILS:          |   %tgu = sext.i32.i64(%n)  /u  4;
-; HIR-DETAILS:          |   %vec.tc = %tgu  *  4;
-; HIR-DETAILS:          |   %.vec = 0 == %vec.tc;
-; HIR-DETAILS:          |   %phi.temp = undef;
-; HIR-DETAILS:          |   %phi.temp2 = 0;
-; HIR-DETAILS:          |   %extract.0. = extractelement %.vec,  0;
-; HIR-DETAILS:          |   if (%extract.0. == 1)
-; HIR-DETAILS:          |   {
-; HIR-DETAILS:          |      goto merge.blk10.39;
-; HIR-DETAILS:          |   }
-; HIR-DETAILS:          |   %tgu4 = sext.i32.i64(%n)  /u  4;
-; HIR-DETAILS:          |   %vec.tc5 = %tgu4  *  4;
-; HIR-DETAILS:          |   
-; HIR-DETAILS:          |   + DO i64 i2 = 0, %vec.tc5 + -1, 4   <DO_LOOP>  <MAX_TC_EST = 1024>  <LEGAL_MAX_TC = 2147483647> <auto-vectorized> <nounroll> <novectorize>
-; HIR-DETAILS:          |   |   %.vec6 = (<4 x i32>*)(@a)[0][i2];
-; HIR-DETAILS:          |   |   %liveoutcopy = %n + %.vec6;
-; HIR-DETAILS:          |   |   (<4 x i32>*)(@b)[0][i2] = %n + %.vec6 + 1;
-; HIR-DETAILS:          |   + END LOOP
-; HIR-DETAILS:          |   
-; FIXME: Def for %add is marked as LINEAR here while in remainder loop it is NON-LINEAR.
-; HIR-DETAILS:          |   %add = extractelement %liveoutcopy,  3;
-; HIR-DETAILS:          |   <LVAL-REG> LINEAR i32 %add {sb:4}
-; HIR-DETAILS:          |   <RVAL-REG> NON-LINEAR <4 x i32> %liveoutcopy {sb:35}
-; HIR-DETAILS:          |   %.vec7 = sext.i32.i64(%n) == %vec.tc5;
-; HIR-DETAILS:          |   %phi.temp = %add;
-; HIR-DETAILS:          |   %phi.temp2 = %vec.tc5;
-; HIR-DETAILS:          |   %phi.temp10 = %add;
-; HIR-DETAILS:          |   %phi.temp12 = %vec.tc5;
-; HIR-DETAILS:          |   %extract.0.14 = extractelement %.vec7,  0;
-; HIR-DETAILS:          |   if (%extract.0.14 == 1)
-; HIR-DETAILS:          |   {
-; HIR-DETAILS:          |      goto final.merge.64;
-; HIR-DETAILS:          |   }
-; HIR-DETAILS:          |   merge.blk10.39:
-; HIR-DETAILS:          |   %lb.tmp = %phi.temp2;
-; HIR-DETAILS:          |   
-; HIR-DETAILS:          |   + DO i64 i2 = %lb.tmp, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>  <LEGAL_MAX_TC = 2147483647>
-; HIR-DETAILS:          |   |   %0 = (@a)[0][i2];
-; HIR-DETAILS:          |   |   %add = %0  +  %n;
-; HIR-DETAILS:          |   |   <LVAL-REG> NON-LINEAR i32 %n + %0 {sb:4}
-; HIR-DETAILS:          |   |      <BLOB> NON-LINEAR i32 %0 {sb:9}
-; HIR-DETAILS:          |   |      <BLOB> LINEAR i32 %n {sb:5}
-; HIR-DETAILS:          |   |   <RVAL-REG> NON-LINEAR i32 %0 {sb:9}
-; HIR-DETAILS:          |   |   <RVAL-REG> LINEAR i32 %n {sb:5}
-; HIR-DETAILS:          |   |   (@b)[0][i2] = %n + %0 + 1;
-; HIR-DETAILS:          |   + END LOOP
-; HIR-DETAILS:          |   
-; HIR-DETAILS:          |   %phi.temp10 = %add;
-; HIR-DETAILS:          |   %phi.temp12 = sext.i32.i64(%n) + -1;
-; HIR-DETAILS:          |   final.merge.64:
-; HIR-DETAILS:          |   (@c)[0][i1] = %add;
-; HIR-DETAILS:          + END LOOP
-; HIR-DETAILS:    END REGION
 
 ; ModuleID = '111.c'
 source_filename = "111.c"
