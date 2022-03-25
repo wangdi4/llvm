@@ -63,14 +63,14 @@ define <2 x i64> @pmullq_broadcast_128(<2 x i64> %a0, i64* %p1) {
 define <2 x i64> @pmullq_maskz_128(<2 x i64> %a0, <2 x i64> %a1, i8* %pmask) {
 ; CHECK-LABEL: pmullq_maskz_128:
 ; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpmullq %xmm1, %xmm0, %xmm2
+; CHECK-NEXT:    vmovdqa %xmm2, {{[-0-9]+}}(%r{{[sb]}}p) # 16-byte Spill
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovb (%rdi), %k1
-; CHECK-NEXT:    vxorps %xmm2, %xmm2, %xmm2
-; CHECK-NEXT:    vpmullq %xmm1, %xmm0, %xmm2 {%k1} {z}
 ; CHECK-NEXT:    vpaddq %xmm1, %xmm0, %xmm0
-; CHECK-NEXT:    vpaddq %xmm0, %xmm2, %xmm0
+; CHECK-NEXT:    vpaddq {{[-0-9]+}}(%r{{[sb]}}p), %xmm0, %xmm0 {%k1} # 16-byte Folded Reload
 ; CHECK-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %mask = load i8, i8* %pmask
@@ -141,14 +141,14 @@ define <4 x i64> @pmullq_broadcast_256(<4 x i64> %a0, i64* %p1) {
 define <4 x i64> @pmullq_maskz_256(<4 x i64> %a0, <4 x i64> %a1, i8* %pmask) {
 ; CHECK-LABEL: pmullq_maskz_256:
 ; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpmullq %ymm1, %ymm0, %ymm2
+; CHECK-NEXT:    vmovdqu %ymm2, {{[-0-9]+}}(%r{{[sb]}}p) # 32-byte Spill
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovb (%rdi), %k1
-; CHECK-NEXT:    vxorps %xmm2, %xmm2, %xmm2
-; CHECK-NEXT:    vpmullq %ymm1, %ymm0, %ymm2 {%k1} {z}
 ; CHECK-NEXT:    vpaddq %ymm1, %ymm0, %ymm0
-; CHECK-NEXT:    vpaddq %ymm0, %ymm2, %ymm0
+; CHECK-NEXT:    vpaddq {{[-0-9]+}}(%r{{[sb]}}p), %ymm0, %ymm0 {%k1} # 32-byte Folded Reload
 ; CHECK-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %mask = load i8, i8* %pmask
@@ -219,14 +219,14 @@ define <8 x i64> @pmullq_broadcast_512(<8 x i64> %a0, i64* %p1) {
 define <8 x i64> @pmullq_maskz_512(<8 x i64> %a0, <8 x i64> %a1, i8* %pmask) {
 ; CHECK-LABEL: pmullq_maskz_512:
 ; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpmullq %zmm1, %zmm0, %zmm2
+; CHECK-NEXT:    vmovdqu64 %zmm2, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovb (%rdi), %k1
-; CHECK-NEXT:    vpxor %xmm2, %xmm2, %xmm2
-; CHECK-NEXT:    vpmullq %zmm1, %zmm0, %zmm2 {%k1} {z}
 ; CHECK-NEXT:    vpaddq %zmm1, %zmm0, %zmm0
-; CHECK-NEXT:    vpaddq %zmm0, %zmm2, %zmm0
+; CHECK-NEXT:    vpaddq {{[-0-9]+}}(%r{{[sb]}}p), %zmm0, %zmm0 {%k1} # 64-byte Folded Reload
 ; CHECK-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %mask = load i8, i8* %pmask
