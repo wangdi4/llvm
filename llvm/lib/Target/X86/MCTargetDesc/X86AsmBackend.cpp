@@ -1371,7 +1371,6 @@ public:
     unsigned InstrOffset = 0;
     unsigned StackAdjust = 0;
     unsigned StackSize = 0;
-    unsigned NumDefCFAOffsets = 0;
     int MinAbsOffset = std::numeric_limits<int>::max();
 
     for (const MCCFIInstruction &Inst : Instrs) {
@@ -1419,7 +1418,6 @@ public:
         //     .cfi_def_cfa_offset 80
         //
         StackSize = Inst.getOffset() / StackDivide;
-        ++NumDefCFAOffsets;
         break;
       }
       case MCCFIInstruction::OpOffset: {
