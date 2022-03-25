@@ -162,6 +162,7 @@ static OpenMPDirectiveKindExWrapper parseOpenMPDirectiveKind(Parser &P) {
       {OMPD_taskloop, OMPD_simd, OMPD_taskloop_simd},
       {OMPD_target, OMPD_parallel, OMPD_target_parallel},
       {OMPD_target, OMPD_simd, OMPD_target_simd},
+      {OMPD_target_parallel, OMPD_loop, OMPD_target_parallel_loop},
       {OMPD_target_parallel, OMPD_for, OMPD_target_parallel_for},
       {OMPD_target_parallel_for, OMPD_simd, OMPD_target_parallel_for_simd},
       {OMPD_teams, OMPD_distribute, OMPD_teams_distribute},
@@ -178,7 +179,6 @@ static OpenMPDirectiveKindExWrapper parseOpenMPDirectiveKind(Parser &P) {
 #if INTEL_COLLAB
       {OMPD_target, OMPD_variant, OMPD_target_variant},
       {OMPD_target_variant, OMPD_dispatch, OMPD_target_variant_dispatch},
-      {OMPD_target_parallel, OMPD_loop, OMPD_target_parallel_loop},
       {OMPD_declare_target, OMPD_function, OMPD_declare_target_function},
 #endif // INTEL_COLLAB
       {OMPD_target_teams_distribute, OMPD_parallel,
@@ -2538,7 +2538,6 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_target_parallel_for_simd:
   case OMPD_target_simd:
 #if INTEL_COLLAB
-  case OMPD_target_parallel_loop:
   case OMPD_target_variant_dispatch:
   case OMPD_scope:
 #endif // INTEL_COLLAB
@@ -2558,6 +2557,7 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_teams_loop:
   case OMPD_target_teams_loop:
   case OMPD_parallel_loop:
+  case OMPD_target_parallel_loop:
     Diag(Tok, diag::err_omp_unexpected_directive)
         << 1 << getOpenMPDirectiveName(DKind);
     break;
@@ -3029,9 +3029,9 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
   case OMPD_loop:
   case OMPD_teams_loop:
   case OMPD_target_teams_loop:
-#if INTEL_COLLAB
   case OMPD_parallel_loop:
   case OMPD_target_parallel_loop:
+#if INTEL_COLLAB
   case OMPD_target_variant_dispatch:
   case OMPD_scope:
     // Not yet implemented with FE outlining. BE outlining only.

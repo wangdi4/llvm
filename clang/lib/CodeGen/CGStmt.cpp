@@ -460,8 +460,6 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
 #if INTEL_COLLAB
   case Stmt::OMPTargetVariantDispatchDirectiveClass:
     llvm_unreachable("target variant dispatch not supported with FE outlining");
-  case Stmt::OMPTargetParallelGenericLoopDirectiveClass:
-    llvm_unreachable("target parallel loop not supported with FE outlining");
   case Stmt::OMPPrefetchDirectiveClass:
     llvm_unreachable("prefetch not supported with FE outlining");
   case Stmt::OMPScopeDirectiveClass:
@@ -481,6 +479,9 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     break;
   case Stmt::OMPParallelGenericLoopDirectiveClass:
     llvm_unreachable("parallel loop directive not supported yet.");
+    break;
+  case Stmt::OMPTargetParallelGenericLoopDirectiveClass:
+    llvm_unreachable("target parallel loop directive not supported yet.");
     break;
   }
 }

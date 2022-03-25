@@ -2611,14 +2611,18 @@ enum CXCursorKind {
   /** OpenMP parallel loop directive.
    */
   CXCursor_OMPParallelGenericLoopDirective = 298,
+
+  /** OpenMP target parallel loop directive.
+   */
+  CXCursor_OMPTargetParallelGenericLoopDirective = 299,
+
 #if INTEL_COLLAB
-  CXCursor_OMPTargetVariantDispatchDirective = 299,
-  CXCursor_OMPTargetParallelGenericLoopDirective = 300,
+  CXCursor_OMPTargetVariantDispatchDirective = 300,
   CXCursor_OMPPrefetchDirective = 301,
   CXCursor_OMPScopeDirective = 302,
   CXCursor_LastStmt = CXCursor_OMPScopeDirective,
 #else /* INTEL_COLLAB */
-  CXCursor_LastStmt = CXCursor_OMPParallelGenericLoopDirective,
+  CXCursor_LastStmt = CXCursor_OMPTargetParallelGenericLoopDirective,
 #endif /* INTEL_COLLAB */
 
 /**

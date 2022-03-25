@@ -676,9 +676,6 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
     K = CXCursor_OMPSectionDirective;
     break;
 #if INTEL_COLLAB
-  case Stmt::OMPTargetParallelGenericLoopDirectiveClass:
-    K = CXCursor_OMPTargetParallelGenericLoopDirective;
-    break;
   case Stmt::OMPTargetVariantDispatchDirectiveClass:
     K = CXCursor_OMPTargetVariantDispatchDirective;
     break;
@@ -853,6 +850,9 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
     break;
   case Stmt::OMPParallelGenericLoopDirectiveClass:
     K = CXCursor_OMPParallelGenericLoopDirective;
+    break;
+  case Stmt::OMPTargetParallelGenericLoopDirectiveClass:
+    K = CXCursor_OMPTargetParallelGenericLoopDirective;
     break;
   case Stmt::BuiltinBitCastExprClass:
     K = CXCursor_BuiltinBitCastExpr;
