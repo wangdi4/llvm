@@ -3204,8 +3204,7 @@ public:
   void ActOnCXXForRangeDecl(Decl *D);
   StmtResult ActOnCXXForRangeIdentifier(Scope *S, SourceLocation IdentLoc,
                                         IdentifierInfo *Ident,
-                                        ParsedAttributes &Attrs,
-                                        SourceLocation AttrEnd);
+                                        ParsedAttributes &Attrs);
   void SetDeclDeleted(Decl *dcl, SourceLocation DelLoc);
   void SetDeclDefaulted(Decl *dcl, SourceLocation DefaultLoc);
   void CheckStaticLocalForDllExport(VarDecl *VD);
@@ -4825,8 +4824,7 @@ public:
 
   /// Process the attributes before creating an attributed statement. Returns
   /// the semantic attributes that have been processed.
-  void ProcessStmtAttributes(Stmt *Stmt,
-                             const ParsedAttributesWithRange &InAttrs,
+  void ProcessStmtAttributes(Stmt *Stmt, const ParsedAttributes &InAttrs,
                              SmallVectorImpl<const Attr *> &OutAttrs);
 
   void WarnConflictingTypedMethods(ObjCMethodDecl *Method,
@@ -5168,7 +5166,7 @@ public:
 
   StmtResult BuildAttributedStmt(SourceLocation AttrsLoc,
                                  ArrayRef<const Attr *> Attrs, Stmt *SubStmt);
-  StmtResult ActOnAttributedStmt(const ParsedAttributesWithRange &AttrList,
+  StmtResult ActOnAttributedStmt(const ParsedAttributes &AttrList,
                                  Stmt *SubStmt);
   bool CheckRebuiltAttributedStmtAttributes(ArrayRef<const Attr *> Attrs);
 
@@ -7764,11 +7762,9 @@ public:
                                        TypeSourceInfo *TInfo,
                                        SourceLocation EllipsisLoc);
 
-  BaseResult ActOnBaseSpecifier(Decl *classdecl,
-                                SourceRange SpecifierRange,
-                                ParsedAttributes &Attrs,
-                                bool Virtual, AccessSpecifier Access,
-                                ParsedType basetype,
+  BaseResult ActOnBaseSpecifier(Decl *classdecl, SourceRange SpecifierRange,
+                                const ParsedAttributesView &Attrs, bool Virtual,
+                                AccessSpecifier Access, ParsedType basetype,
                                 SourceLocation BaseLoc,
                                 SourceLocation EllipsisLoc);
 
