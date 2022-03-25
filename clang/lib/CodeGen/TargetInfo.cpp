@@ -33,13 +33,10 @@
 #include "llvm/IR/IntrinsicsNVPTX.h"
 #include "llvm/IR/IntrinsicsS390.h"
 #include "llvm/IR/Type.h"
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Utils/Intel_IMLUtils.h"
 #endif // INTEL_CUSTOMIZATION
-=======
 #include "llvm/Support/MathExtras.h"
->>>>>>> 51585aa240de6ef07979345de5406483d7393b7b
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm> // std::sort
 
