@@ -1,13 +1,13 @@
 ;RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -analyze -hir-framework -hir-cg -force-hir-cg -print-after=hir-cg -hir-details-dims 2>&1 %s | FileCheck %s
 ;RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-cg" -force-hir-cg -print-after=hir-cg -hir-details-dims 2>&1 %s | FileCheck %s
 
+;RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,print<hir>,hir-cg" -force-hir-cg -print-after=hir-cg -hir-details-dims 2>&1 %s | FileCheck %s --check-prefix=OPAQUE
+
 ; Verify that the framework handles intel.subscript.nonexact() correctly.
 ; The stride 544 of higher dimension is not an exact multiple of the element
 ; size of 64 for %base_type. To correctly generate code for this
 ; dimension CG needs to bitcast base ptr to i8* type to compute offset
 ; in bytes.
-
-; TODO: make the test case work with opaque pointers.
 
 ; CHECK: + DO i1 = 0, 11, 1   <DO_LOOP>
 ; CHECK: |   %cast = sitofp.i32.float(2 * i1 + 2);
@@ -25,6 +25,16 @@
 ; CHECK: [[IV:%.*]] = load i64, i64* %i1.i64, align 4
 ; CHECK:  [[MUL:%.*]] = mul nsw i64 544, [[IV]]
 ; CHECK: = getelementptr inbounds i8, i8* bitcast ([12 x %ext_type]* @D to i8*), i64 [[MUL]]
+
+
+; Verify that we are able to generate code successfully in the absence of
+; bitcasts and that the test passes with opaque pointers.
+
+; OPAQUE: = load i64, ptr %i1
+; OPAQUE: [[IV:%.*]] = load i64, ptr %i1.i64, align 4
+; OPAQUE:  [[MUL:%.*]] = mul nsw i64 544, [[IV]]
+; OPAQUE: [[GEP1:%.*]] = getelementptr inbounds i8, ptr getelementptr inbounds ([12 x %ext_type], ptr @D, i64 0, i64 0, i32 0), i64 [[MUL]]
+; OPAQUE: = getelementptr inbounds %base_type, ptr [[GEP1]]
 
 
 %base_type = type <{ [15 x float], float }>
