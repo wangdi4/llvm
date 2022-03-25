@@ -499,14 +499,14 @@ bool VPlanPredicator::shouldPreserveOutgoingEdges(VPBasicBlock *Block) {
   VPBasicBlock *PostDom = Plan.getPDT()->getNode(Block)->getIDom()->getBlock();
   for (auto It = std::next(df_begin(Block)), End = df_end(Block);
        It != End;) {
+    // No outer edge going into the region.
+    if (!Plan.getDT()->dominates(Block, *It))
+      return false;
+
     if (*It == PostDom) {
       It.skipChildren();
       continue;
     }
-
-    // No outer edge going into the region.
-    if (!Plan.getDT()->dominates(Block, *It))
-      return false;
 
     // No intermix of subregions between each other.
     if (llvm::none_of(Block->getSuccessors(),
