@@ -4025,6 +4025,9 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     RegDDRef *VecRef = widenRef(VPInst->getOperand(0), getVF());
     auto *PrivExtract = HLNodeUtilities.createExtractElementInst(
         VecRef, getVF() - 1, "extracted.priv", OrigPrivDescr);
+    // Make the original private descriptor non-linear since we have a
+    // definition to the temp in loop post-exit.
+    OrigPrivDescr->getSingleCanonExpr()->setNonLinear();
     addInstUnmasked(PrivExtract);
     addVPValueScalRefMapping(VPInst, PrivExtract->getLvalDDRef(), 0 /*Lane*/);
 
