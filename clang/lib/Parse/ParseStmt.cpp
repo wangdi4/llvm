@@ -2394,9 +2394,9 @@ StmtResult Parser::ParseReturnStatement() {
 StmtResult Parser::ParsePragmaIntelFPGALoop(StmtVector &Stmts,
                                             ParsedStmtContext StmtCtx,
                                             SourceLocation *TrailingElseLoc,
-                                            ParsedAttributesWithRange &Attrs) {
+                                            ParsedAttributes &Attrs) {
   // Create temporary attribute list.
-  ParsedAttributesWithRange TempAttrs(AttrFactory);
+  ParsedAttributes TempAttrs(AttrFactory);
 
   SourceLocation StartLoc = Tok.getLocation();
 

@@ -1112,7 +1112,7 @@ StmtResult Parser::HandlePragmaLoopFuse() {
 
   // Create the attributes corresponding to the clauses and the attributed
   // statement itself.
-  ParsedAttributesWithRange Attrs(AttrFactory);
+  ParsedAttributes Attrs(AttrFactory);
   ArgsUnion AttrArgs[] = {IndependentLoc, DepthExpr};
   Attrs.addNew(PragmaNameInfo, FuseScopeStmt->getSourceRange(), nullptr,
                AttrLoc, AttrArgs, 2, ParsedAttr::AS_Pragma);
@@ -4509,7 +4509,7 @@ void PragmaLoopCountHandler::HandlePragma(Preprocessor &PP,
 }
 
 bool Parser::ParseLoopHintValue(LoopHint &Hint, SourceLocation Loc,
-                                ParsedAttributesWithRange &Attrs) {
+                                ParsedAttributes &Attrs) {
   SourceLocation BeginExprLoc = Tok.getLocation();
   ExprResult R = ParseConstantExpression();
   if (R.isInvalid() || Actions.CheckLoopHintExpr(R.get(), BeginExprLoc))
@@ -4526,7 +4526,7 @@ bool Parser::ParseLoopHintValue(LoopHint &Hint, SourceLocation Loc,
 }
 
 bool Parser::ParseLoopHintValueList(LoopHint &Hint,
-                                    ParsedAttributesWithRange &Attrs) {
+                                    ParsedAttributes &Attrs) {
   SourceLocation Loc = Tok.getLocation();
   ConsumeToken();
   if (Tok.is(tok::eod)) {
@@ -4548,7 +4548,7 @@ bool Parser::ParseLoopHintValueList(LoopHint &Hint,
 }
 
 bool Parser::ParseLoopCountClause(LoopHint &Hint,
-                                  ParsedAttributesWithRange &Attrs) {
+                                  ParsedAttributes &Attrs) {
   SourceLocation Loc = Tok.getLocation();
   ConsumeToken();
   if (Tok.is(tok::l_paren) || Tok.is(tok::equal)) {
@@ -4574,7 +4574,7 @@ bool Parser::ParseLoopCountClause(LoopHint &Hint,
 ///     avgmid := avg(x) | avg=x
 ///
 bool Parser::HandlePragmaLoopCount(LoopHint &Hint,
-                                   ParsedAttributesWithRange &Attrs) {
+                                   ParsedAttributes &Attrs) {
   PragmaLoopHintInfo *Info =
       static_cast<PragmaLoopHintInfo *>(Tok.getAnnotationValue());
   IdentifierInfo *PragmaNameInfo = Info->PragmaName.getIdentifierInfo();
@@ -4617,9 +4617,9 @@ bool Parser::HandlePragmaLoopCount(LoopHint &Hint,
 StmtResult Parser::ParsePragmaLoopCount(StmtVector &Stmts,
                                         ParsedStmtContext StmtCtx,
                                         SourceLocation *TrailingElseLoc,
-                                        ParsedAttributesWithRange &Attrs) {
+                                        ParsedAttributes &Attrs) {
   // Create temporary attribute list.
-  ParsedAttributesWithRange TempAttrs(AttrFactory);
+  ParsedAttributes TempAttrs(AttrFactory);
   // Get loop hints and consume annotated token.
   bool HasAttrs = false;
   if (Tok.is(tok::annot_pragma_loop_count)) {

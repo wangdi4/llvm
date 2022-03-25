@@ -632,15 +632,10 @@ void Parser::ParseGNUAttributeArgs(
     ParseTypeTagForDatatypeAttribute(*AttrName, AttrNameLoc, Attrs, EndLoc,
                                      ScopeName, ScopeLoc, Syntax);
     return;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   } else if (attributeIsTypeArgAttr(*AttrName, Syntax, ScopeName)) {
 #endif // INTEL_CUSTOMIZATION
-    ParseAttributeWithTypeArg(*AttrName, AttrNameLoc, Attrs, EndLoc, ScopeName,
-=======
-  } else if (attributeIsTypeArgAttr(*AttrName)) {
     ParseAttributeWithTypeArg(*AttrName, AttrNameLoc, Attrs, ScopeName,
->>>>>>> 711e3a569167ee6f3fbccf983933d92cd03a469b
                               ScopeLoc, Syntax);
     return;
   }

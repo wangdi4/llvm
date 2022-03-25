@@ -1896,11 +1896,11 @@ private:
 
   ExprResult ParseIntelGenericSelectionExpression();
   bool ParseLoopHintValue(LoopHint &Hint, SourceLocation Loc,
-                          ParsedAttributesWithRange &Attrs);
-  bool ParseLoopHintValueList(LoopHint &Hint, ParsedAttributesWithRange &Attrs);
-  bool ParseLoopCountClause(LoopHint &Hint, ParsedAttributesWithRange &Attrs);
+                          ParsedAttributes &Attrs);
+  bool ParseLoopHintValueList(LoopHint &Hint, ParsedAttributes &Attrs);
+  bool ParseLoopCountClause(LoopHint &Hint, ParsedAttributes &Attrs);
   bool HandlePragmaLoopCount(LoopHint &Hint,
-                             ParsedAttributesWithRange &Attrs);
+                             ParsedAttributes &Attrs);
 #endif // INTEL_CUSTOMIZATION
 
   ExprResult ParseObjCBoolLiteral();
@@ -2150,13 +2150,12 @@ private:
   StmtResult ParseMicrosoftAsmStatement(SourceLocation AsmLoc);
   StmtResult ParsePragmaLoopHint(StmtVector &Stmts, ParsedStmtContext StmtCtx,
                                  SourceLocation *TrailingElseLoc,
-<<<<<<< HEAD
-                                 ParsedAttributesWithRange &Attrs);
+                                 ParsedAttributes &Attrs);
 #if INTEL_CUSTOMIZATION
   StmtResult ParsePragmaIntelFPGALoop(StmtVector &Stmts,
                                       ParsedStmtContext StmtCtx,
                                       SourceLocation *TrailingElseLoc,
-                                      ParsedAttributesWithRange &Attrs);
+                                      ParsedAttributes &Attrs);
   // HLS loop pragmas
   std::unique_ptr<PragmaHandler> LoopCoalesceHandler;
   std::unique_ptr<PragmaHandler> IIHandler;
@@ -2184,7 +2183,7 @@ private:
   StmtResult ParsePragmaInline(StmtVector &Stmts,
                                ParsedStmtContext StmtCtx,
                                SourceLocation *TrailingElseLoc,
-                               ParsedAttributesWithRange &Attrs);
+                               ParsedAttributes &Attrs);
   // Pragma distribute_point
   std::unique_ptr<PragmaHandler> DistributePointHandler;
   // Pragma nofusion
@@ -2204,12 +2203,12 @@ private:
   StmtResult ParsePragmaBlockLoop(StmtVector &Stmts,
                                   ParsedStmtContext StmtCtx,
                                   SourceLocation *TrailingElseLoc,
-                                  ParsedAttributesWithRange &Attrs);
+                                  ParsedAttributes &Attrs);
   bool HandlePragmaBlockLoop(ArgsVector *ArgExprs);
   StmtResult ParsePragmaLoopCount(StmtVector &Stmts,
                                   ParsedStmtContext StmtCtx,
                                   SourceLocation *TrailingElseLoc,
-                                  ParsedAttributesWithRange &Attrs);
+                                  ParsedAttributes &Attrs);
   // Pragma prefetch
   std::unique_ptr<PragmaHandler> PrefetchHandler;
   // Pragma noprefetch
@@ -2217,12 +2216,9 @@ private:
   StmtResult ParsePragmaPrefetch(StmtVector &Stmts,
                                  ParsedStmtContext StmtCtx,
                                  SourceLocation *TrailingElseLoc,
-                                 ParsedAttributesWithRange &Attrs);
+                                 ParsedAttributes &Attrs);
   bool HandlePragmaPrefetch(ArgsVector *ArgExprs);
 #endif // INTEL_CUSTOMIZATION
-=======
-                                 ParsedAttributes &Attrs);
->>>>>>> 711e3a569167ee6f3fbccf983933d92cd03a469b
 
   /// Describes the behavior that should be taken for an __if_exists
   /// block.
