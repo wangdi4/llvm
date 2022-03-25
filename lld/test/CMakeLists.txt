@@ -12,11 +12,17 @@ llvm_canonicalize_cmake_booleans(
   LLVM_ENABLE_LIBXML2
   LLD_DEFAULT_LD_LLD_IS_MINGW
   LLVM_HAVE_LIBXAR
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # INTEL_FEATURE_SW_DTRANS
   INTEL_DTRANS_EXTRA_OPTS
 # end INTEL_FEATURE_SW_DTRANS
 # end INTEL_CUSTOMIZATION
+=======
+  LLVM_BUILD_EXAMPLES
+  LLVM_ENABLE_PLUGINS
+  LLVM_BYE_LINK_INTO_TOOLS
+>>>>>>> 0c86198b279a98c8550fde318b59ed3ca0ca5045
   )
 
 configure_lit_site_cfg(
@@ -65,6 +71,11 @@ if (NOT LLD_BUILT_STANDALONE)
     split-file
     yaml2obj
     )
+    if (NOT WIN32 AND LLVM_BUILD_EXAMPLES)
+      list(APPEND LLD_TEST_DEPS
+        Bye
+        )
+    endif()
 endif()
 
 add_lit_testsuite(check-lld "Running lld test suite"
