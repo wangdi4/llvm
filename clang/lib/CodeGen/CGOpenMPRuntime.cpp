@@ -12834,16 +12834,16 @@ void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
                                               llvm::Function *Fn) {
   ASTContext &C = CGM.getContext();
   FD = FD->getMostRecentDecl();
-  // Map params to their positions in function decl.
-  llvm::DenseMap<const Decl *, unsigned> ParamPositions;
-  if (isa<CXXMethodDecl>(FD))
-    ParamPositions.try_emplace(FD, 0);
-  unsigned ParamPos = ParamPositions.size();
-  for (const ParmVarDecl *P : FD->parameters()) {
-    ParamPositions.try_emplace(P->getCanonicalDecl(), ParamPos);
-    ++ParamPos;
-  }
   while (FD) {
+    // Map params to their positions in function decl.
+    llvm::DenseMap<const Decl *, unsigned> ParamPositions;
+    if (isa<CXXMethodDecl>(FD))
+      ParamPositions.try_emplace(FD, 0);
+    unsigned ParamPos = ParamPositions.size();
+    for (const ParmVarDecl *P : FD->parameters()) {
+      ParamPositions.try_emplace(P->getCanonicalDecl(), ParamPos);
+      ++ParamPos;
+    }
     for (const auto *Attr : FD->specific_attrs<OMPDeclareSimdDeclAttr>()) {
       llvm::SmallVector<ParamAttrTy, 8> ParamAttrs(ParamPositions.size());
       // Mark uniform parameters.
@@ -12855,7 +12855,9 @@ void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
         } else {
           const auto *PVD = cast<ParmVarDecl>(cast<DeclRefExpr>(E)->getDecl())
                                 ->getCanonicalDecl();
-          Pos = ParamPositions[PVD];
+          auto It = ParamPositions.find(PVD);
+          assert(It != ParamPositions.end() && "Function parameter not found");
+          Pos = It->second;
         }
         ParamAttrs[Pos].Kind = Uniform;
       }
@@ -12871,7 +12873,9 @@ void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
         } else {
           const auto *PVD = cast<ParmVarDecl>(cast<DeclRefExpr>(E)->getDecl())
                                 ->getCanonicalDecl();
-          Pos = ParamPositions[PVD];
+          auto It = ParamPositions.find(PVD);
+          assert(It != ParamPositions.end() && "Function parameter not found");
+          Pos = It->second;
           ParmTy = PVD->getType();
         }
         ParamAttrs[Pos].Alignment =
@@ -12895,7 +12899,9 @@ void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
         } else {
           const auto *PVD = cast<ParmVarDecl>(cast<DeclRefExpr>(E)->getDecl())
                                 ->getCanonicalDecl();
-          Pos = ParamPositions[PVD];
+          auto It = ParamPositions.find(PVD);
+          assert(It != ParamPositions.end() && "Function parameter not found");
+          Pos = It->second;
           if (auto *P = dyn_cast<PointerType>(PVD->getType()))
             PtrRescalingFactor = CGM.getContext()
                                      .getTypeSizeInChars(P->getPointeeType())
@@ -12913,8 +12919,10 @@ void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
               if (const auto *StridePVD =
                       dyn_cast<ParmVarDecl>(DRE->getDecl())) {
                 ParamAttr.Kind = LinearWithVarStride;
-                ParamAttr.StrideOrArg = llvm::APSInt::getUnsigned(
-                    ParamPositions[StridePVD->getCanonicalDecl()]);
+                auto It = ParamPositions.find(StridePVD->getCanonicalDecl());
+                assert(It != ParamPositions.end() &&
+                       "Function parameter not found");
+                ParamAttr.StrideOrArg = llvm::APSInt::getUnsigned(It->second);
               }
             }
           } else {
