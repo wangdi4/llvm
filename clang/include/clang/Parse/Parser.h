@@ -1580,7 +1580,7 @@ private:
   };
 
   NamedDecl *ParseCXXInlineMethodDef(AccessSpecifier AS,
-                                     ParsedAttributes &AccessAttrs,
+                                     const ParsedAttributesView &AccessAttrs,
                                      ParsingDeclarator &D,
                                      const ParsedTemplateInfo &TemplateInfo,
                                      const VirtSpecifiers &VS,
@@ -1616,15 +1616,15 @@ private:
 
   //===--------------------------------------------------------------------===//
   // C99 6.9: External Definitions.
-  DeclGroupPtrTy ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
+  DeclGroupPtrTy ParseExternalDeclaration(ParsedAttributes &Attrs,
                                           ParsingDeclSpec *DS = nullptr);
   bool isDeclarationAfterDeclarator();
   bool isStartOfFunctionDefinition(const ParsingDeclarator &Declarator);
-  DeclGroupPtrTy ParseDeclarationOrFunctionDefinition(
-                                                  ParsedAttributesWithRange &attrs,
-                                                  ParsingDeclSpec *DS = nullptr,
-                                                  AccessSpecifier AS = AS_none);
-  DeclGroupPtrTy ParseDeclOrFunctionDefInternal(ParsedAttributesWithRange &attrs,
+  DeclGroupPtrTy
+  ParseDeclarationOrFunctionDefinition(ParsedAttributes &Attrs,
+                                       ParsingDeclSpec *DS = nullptr,
+                                       AccessSpecifier AS = AS_none);
+  DeclGroupPtrTy ParseDeclOrFunctionDefInternal(ParsedAttributes &Attrs,
                                                 ParsingDeclSpec &DS,
                                                 AccessSpecifier AS);
 
@@ -1639,7 +1639,7 @@ private:
 
   // Objective-C External Declarations
   void MaybeSkipAttributes(tok::ObjCKeywordKind Kind);
-  DeclGroupPtrTy ParseObjCAtDirectives(ParsedAttributesWithRange &Attrs);
+  DeclGroupPtrTy ParseObjCAtDirectives(ParsedAttributes &Attrs);
   DeclGroupPtrTy ParseObjCAtClassDeclaration(SourceLocation atLoc);
   Decl *ParseObjCAtInterfaceDeclaration(SourceLocation AtLoc,
                                         ParsedAttributes &prefixAttrs);
@@ -1896,11 +1896,11 @@ private:
 
   ExprResult ParseIntelGenericSelectionExpression();
   bool ParseLoopHintValue(LoopHint &Hint, SourceLocation Loc,
-                          ParsedAttributesWithRange &Attrs);
-  bool ParseLoopHintValueList(LoopHint &Hint, ParsedAttributesWithRange &Attrs);
-  bool ParseLoopCountClause(LoopHint &Hint, ParsedAttributesWithRange &Attrs);
+                          ParsedAttributes &Attrs);
+  bool ParseLoopHintValueList(LoopHint &Hint, ParsedAttributes &Attrs);
+  bool ParseLoopCountClause(LoopHint &Hint, ParsedAttributes &Attrs);
   bool HandlePragmaLoopCount(LoopHint &Hint,
-                             ParsedAttributesWithRange &Attrs);
+                             ParsedAttributes &Attrs);
 #endif // INTEL_CUSTOMIZATION
 
   ExprResult ParseObjCBoolLiteral();
@@ -2036,9 +2036,8 @@ private:
                                           bool MissingOK,
                                           ForRangeInfo *FRI = nullptr,
                                           bool EnterForConditionScope = false);
-  DeclGroupPtrTy
-  ParseAliasDeclarationInInitStatement(DeclaratorContext Context,
-                                       ParsedAttributesWithRange &Attrs);
+  DeclGroupPtrTy ParseAliasDeclarationInInitStatement(DeclaratorContext Context,
+                                                      ParsedAttributes &Attrs);
 
   //===--------------------------------------------------------------------===//
   // C++ Coroutines
@@ -2118,12 +2117,10 @@ private:
       StmtVector &Stmts, ParsedStmtContext StmtCtx,
       SourceLocation *TrailingElseLoc = nullptr);
   StmtResult ParseStatementOrDeclarationAfterAttributes(
-                                         StmtVector &Stmts,
-                                         ParsedStmtContext StmtCtx,
-                                         SourceLocation *TrailingElseLoc,
-                                         ParsedAttributesWithRange &Attrs);
+      StmtVector &Stmts, ParsedStmtContext StmtCtx,
+      SourceLocation *TrailingElseLoc, ParsedAttributes &Attrs);
   StmtResult ParseExprStatement(ParsedStmtContext StmtCtx);
-  StmtResult ParseLabeledStatement(ParsedAttributesWithRange &attrs,
+  StmtResult ParseLabeledStatement(ParsedAttributes &Attrs,
                                    ParsedStmtContext StmtCtx);
   StmtResult ParseCaseStatement(ParsedStmtContext StmtCtx,
                                 bool MissingCase = false,
@@ -2151,15 +2148,14 @@ private:
   StmtResult ParseReturnStatement();
   StmtResult ParseAsmStatement(bool &msAsm);
   StmtResult ParseMicrosoftAsmStatement(SourceLocation AsmLoc);
-  StmtResult ParsePragmaLoopHint(StmtVector &Stmts,
-                                 ParsedStmtContext StmtCtx,
+  StmtResult ParsePragmaLoopHint(StmtVector &Stmts, ParsedStmtContext StmtCtx,
                                  SourceLocation *TrailingElseLoc,
-                                 ParsedAttributesWithRange &Attrs);
+                                 ParsedAttributes &Attrs);
 #if INTEL_CUSTOMIZATION
   StmtResult ParsePragmaIntelFPGALoop(StmtVector &Stmts,
                                       ParsedStmtContext StmtCtx,
                                       SourceLocation *TrailingElseLoc,
-                                      ParsedAttributesWithRange &Attrs);
+                                      ParsedAttributes &Attrs);
   // HLS loop pragmas
   std::unique_ptr<PragmaHandler> LoopCoalesceHandler;
   std::unique_ptr<PragmaHandler> IIHandler;
@@ -2187,7 +2183,7 @@ private:
   StmtResult ParsePragmaInline(StmtVector &Stmts,
                                ParsedStmtContext StmtCtx,
                                SourceLocation *TrailingElseLoc,
-                               ParsedAttributesWithRange &Attrs);
+                               ParsedAttributes &Attrs);
   // Pragma distribute_point
   std::unique_ptr<PragmaHandler> DistributePointHandler;
   // Pragma nofusion
@@ -2207,12 +2203,12 @@ private:
   StmtResult ParsePragmaBlockLoop(StmtVector &Stmts,
                                   ParsedStmtContext StmtCtx,
                                   SourceLocation *TrailingElseLoc,
-                                  ParsedAttributesWithRange &Attrs);
+                                  ParsedAttributes &Attrs);
   bool HandlePragmaBlockLoop(ArgsVector *ArgExprs);
   StmtResult ParsePragmaLoopCount(StmtVector &Stmts,
                                   ParsedStmtContext StmtCtx,
                                   SourceLocation *TrailingElseLoc,
-                                  ParsedAttributesWithRange &Attrs);
+                                  ParsedAttributes &Attrs);
   // Pragma prefetch
   std::unique_ptr<PragmaHandler> PrefetchHandler;
   // Pragma noprefetch
@@ -2220,7 +2216,7 @@ private:
   StmtResult ParsePragmaPrefetch(StmtVector &Stmts,
                                  ParsedStmtContext StmtCtx,
                                  SourceLocation *TrailingElseLoc,
-                                 ParsedAttributesWithRange &Attrs);
+                                 ParsedAttributes &Attrs);
   bool HandlePragmaPrefetch(ArgsVector *ArgExprs);
 #endif // INTEL_CUSTOMIZATION
 
@@ -2431,11 +2427,11 @@ private:
 
   DeclGroupPtrTy ParseDeclaration(DeclaratorContext Context,
                                   SourceLocation &DeclEnd,
-                                  ParsedAttributesWithRange &attrs,
+                                  ParsedAttributes &Attrs,
                                   SourceLocation *DeclSpecStart = nullptr);
   DeclGroupPtrTy
   ParseSimpleDeclaration(DeclaratorContext Context, SourceLocation &DeclEnd,
-                         ParsedAttributesWithRange &attrs, bool RequireSemi,
+                         ParsedAttributes &Attrs, bool RequireSemi,
                          ForRangeInit *FRI = nullptr,
                          SourceLocation *DeclSpecStart = nullptr);
   bool MightBeDeclarator(DeclaratorContext Context);
@@ -2461,7 +2457,7 @@ private:
   bool ParseImplicitInt(DeclSpec &DS, CXXScopeSpec *SS,
                         const ParsedTemplateInfo &TemplateInfo,
                         AccessSpecifier AS, DeclSpecContext DSC,
-                        ParsedAttributesWithRange &Attrs);
+                        ParsedAttributes &Attrs);
   DeclSpecContext
   getDeclSpecContextFromDeclaratorContext(DeclaratorContext Context);
   void ParseDeclarationSpecifiers(
@@ -2720,7 +2716,7 @@ private:
   }
 
   bool DiagnoseProhibitedCXX11Attribute();
-  void CheckMisplacedCXX11Attribute(ParsedAttributesWithRange &Attrs,
+  void CheckMisplacedCXX11Attribute(ParsedAttributes &Attrs,
                                     SourceLocation CorrectLocation) {
     if (!standardAttributesAllowed())
       return;
@@ -2729,14 +2725,14 @@ private:
       return;
     DiagnoseMisplacedCXX11Attribute(Attrs, CorrectLocation);
   }
-  void DiagnoseMisplacedCXX11Attribute(ParsedAttributesWithRange &Attrs,
+  void DiagnoseMisplacedCXX11Attribute(ParsedAttributes &Attrs,
                                        SourceLocation CorrectLocation);
 
-  void stripTypeAttributesOffDeclSpec(ParsedAttributesWithRange &Attrs,
-                                      DeclSpec &DS, Sema::TagUseKind TUK);
+  void stripTypeAttributesOffDeclSpec(ParsedAttributes &Attrs, DeclSpec &DS,
+                                      Sema::TagUseKind TUK);
 
   // FixItLoc = possible correct location for the attributes
-  void ProhibitAttributes(ParsedAttributesWithRange &Attrs,
+  void ProhibitAttributes(ParsedAttributes &Attrs,
                           SourceLocation FixItLoc = SourceLocation()) {
     if (Attrs.Range.isInvalid())
       return;
@@ -2744,7 +2740,7 @@ private:
     Attrs.clear();
   }
 
-  void ProhibitAttributes(ParsedAttributesViewWithRange &Attrs,
+  void ProhibitAttributes(ParsedAttributesView &Attrs,
                           SourceLocation FixItLoc = SourceLocation()) {
     if (Attrs.Range.isInvalid())
       return;
@@ -2757,8 +2753,7 @@ private:
   // Forbid C++11 and C2x attributes that appear on certain syntactic locations
   // which standard permits but we don't supported yet, for example, attributes
   // appertain to decl specifiers.
-  void ProhibitCXX11Attributes(ParsedAttributesWithRange &Attrs,
-                               unsigned DiagID,
+  void ProhibitCXX11Attributes(ParsedAttributes &Attrs, unsigned DiagID,
                                bool DiagnoseEmptyAttrs = false);
 
   /// Skip C++11 and C2x attributes and return the end location of the
@@ -2772,7 +2767,7 @@ private:
 
   /// Emit warnings for C++11 and C2x attributes that are in a position that
   /// clang accepts as an extension.
-  void DiagnoseCXX11AttributeExtension(ParsedAttributesWithRange &Attrs);
+  void DiagnoseCXX11AttributeExtension(ParsedAttributes &Attrs);
 
   /// Parses syntax-generic attribute arguments for attributes which are
   /// known to the implementation, and adds them to the given ParsedAttributes
@@ -2804,27 +2799,10 @@ private:
   ///   __attribute__(()) [[]] int i; // Not OK
   ///
   /// Such situations should use the specific attribute parsing functionality.
-  void ParseAttributes(unsigned WhichAttrKinds,
-                       ParsedAttributesWithRange &Attrs,
-                       LateParsedAttrList *LateAttrs = nullptr);
   void ParseAttributes(unsigned WhichAttrKinds, ParsedAttributes &Attrs,
-                       LateParsedAttrList *LateAttrs = nullptr) {
-    ParsedAttributesWithRange AttrsWithRange(AttrFactory);
-    ParseAttributes(WhichAttrKinds, AttrsWithRange, LateAttrs);
-    Attrs.takeAllFrom(AttrsWithRange);
-  }
+                       LateParsedAttrList *LateAttrs = nullptr);
   /// \brief Possibly parse attributes based on what syntaxes are desired,
   /// allowing for the order to vary.
-  bool MaybeParseAttributes(unsigned WhichAttrKinds,
-                            ParsedAttributesWithRange &Attrs,
-                            LateParsedAttrList *LateAttrs = nullptr) {
-    if (Tok.isOneOf(tok::kw___attribute, tok::kw___declspec) ||
-        (standardAttributesAllowed() && isCXX11AttributeSpecifier())) {
-      ParseAttributes(WhichAttrKinds, Attrs, LateAttrs);
-      return true;
-    }
-    return false;
-  }
   bool MaybeParseAttributes(unsigned WhichAttrKinds, ParsedAttributes &Attrs,
                             LateParsedAttrList *LateAttrs = nullptr) {
     if (Tok.isOneOf(tok::kw___attribute, tok::kw___declspec) ||
@@ -2838,51 +2816,22 @@ private:
   void MaybeParseGNUAttributes(Declarator &D,
                                LateParsedAttrList *LateAttrs = nullptr) {
     if (Tok.is(tok::kw___attribute)) {
-      ParsedAttributesWithRange attrs(AttrFactory);
-      ParseGNUAttributes(attrs, LateAttrs, &D);
-      D.takeAttributes(attrs, attrs.Range.getEnd());
+      ParsedAttributes Attrs(AttrFactory);
+      ParseGNUAttributes(Attrs, LateAttrs, &D);
+      D.takeAttributes(Attrs);
     }
   }
 
-  /// Parses GNU-style attributes and returns them without source range
-  /// information.
-  ///
-  /// This API is discouraged. Use the version that takes a
-  /// ParsedAttributesWithRange instead.
   bool MaybeParseGNUAttributes(ParsedAttributes &Attrs,
                                LateParsedAttrList *LateAttrs = nullptr) {
     if (Tok.is(tok::kw___attribute)) {
-      ParsedAttributesWithRange AttrsWithRange(AttrFactory);
-      ParseGNUAttributes(Attrs, LateAttrs);
-      Attrs.takeAllFrom(AttrsWithRange);
-      return true;
-    }
-    return false;
-  }
-
-  bool MaybeParseGNUAttributes(ParsedAttributesWithRange &Attrs,
-                               LateParsedAttrList *LateAttrs = nullptr) {
-    if (Tok.is(tok::kw___attribute)) {
       ParseGNUAttributes(Attrs, LateAttrs);
       return true;
     }
     return false;
   }
 
-  /// Parses GNU-style attributes and returns them without source range
-  /// information.
-  ///
-  /// This API is discouraged. Use the version that takes a
-  /// ParsedAttributesWithRange instead.
   void ParseGNUAttributes(ParsedAttributes &Attrs,
-                          LateParsedAttrList *LateAttrs = nullptr,
-                          Declarator *D = nullptr) {
-    ParsedAttributesWithRange AttrsWithRange(AttrFactory);
-    ParseGNUAttributes(AttrsWithRange, LateAttrs, D);
-    Attrs.takeAllFrom(AttrsWithRange);
-  }
-
-  void ParseGNUAttributes(ParsedAttributesWithRange &Attrs,
                           LateParsedAttrList *LateAttrs = nullptr,
                           Declarator *D = nullptr);
   void ParseGNUAttributeArgs(IdentifierInfo *AttrName,
@@ -2910,25 +2859,17 @@ private:
   }
   void MaybeParseCXX11Attributes(Declarator &D) {
     if (standardAttributesAllowed() && isCXX11AttributeSpecifier()) {
-      ParsedAttributesWithRange attrs(AttrFactory);
-      ParseCXX11Attributes(attrs);
-      D.takeAttributes(attrs, attrs.Range.getEnd());
+      ParsedAttributes Attrs(AttrFactory);
+      ParseCXX11Attributes(Attrs);
+      D.takeAttributes(Attrs);
     }
   }
-  bool MaybeParseCXX11Attributes(ParsedAttributes &attrs) {
-    if (standardAttributesAllowed() && isCXX11AttributeSpecifier()) {
-      ParsedAttributesWithRange attrsWithRange(AttrFactory);
-      ParseCXX11Attributes(attrsWithRange);
-      attrs.takeAllFrom(attrsWithRange);
-      return true;
-    }
-    return false;
-  }
-  bool MaybeParseCXX11Attributes(ParsedAttributesWithRange &attrs,
+
+  bool MaybeParseCXX11Attributes(ParsedAttributes &Attrs,
                                  bool OuterMightBeMessageSend = false) {
     if (standardAttributesAllowed() &&
         isCXX11AttributeSpecifier(false, OuterMightBeMessageSend)) {
-      ParseCXX11Attributes(attrs);
+      ParseCXX11Attributes(Attrs);
       return true;
     }
     return false;
@@ -2949,7 +2890,7 @@ private:
     ParseCXX11AttributeSpecifierInternal(Attrs, OpenMPTokens, EndLoc);
     ReplayOpenMPAttributeTokens(OpenMPTokens);
   }
-  void ParseCXX11Attributes(ParsedAttributesWithRange &attrs);
+  void ParseCXX11Attributes(ParsedAttributes &attrs);
   /// Parses a C++11 (or C2x)-style attribute argument list. Returns true
   /// if this results in adding an attribute to the ParsedAttributes list.
   bool ParseCXX11AttributeArgs(IdentifierInfo *AttrName,
@@ -2966,21 +2907,21 @@ private:
 
   void MaybeParseMicrosoftAttributes(ParsedAttributes &Attrs) {
     if (getLangOpts().MicrosoftExt && Tok.is(tok::l_square)) {
-      ParsedAttributesWithRange AttrsWithRange(AttrFactory);
+      ParsedAttributes AttrsWithRange(AttrFactory);
       ParseMicrosoftAttributes(AttrsWithRange);
       Attrs.takeAllFrom(AttrsWithRange);
     }
   }
   void ParseMicrosoftUuidAttributeArgs(ParsedAttributes &Attrs);
-  void ParseMicrosoftAttributes(ParsedAttributesWithRange &attrs);
-  bool MaybeParseMicrosoftDeclSpecs(ParsedAttributesWithRange &Attrs) {
+  void ParseMicrosoftAttributes(ParsedAttributes &Attrs);
+  bool MaybeParseMicrosoftDeclSpecs(ParsedAttributes &Attrs) {
     if (getLangOpts().DeclSpecKeyword && Tok.is(tok::kw___declspec)) {
       ParseMicrosoftDeclSpecs(Attrs);
       return true;
     }
     return false;
   }
-  void ParseMicrosoftDeclSpecs(ParsedAttributesWithRange &Attrs);
+  void ParseMicrosoftDeclSpecs(ParsedAttributes &Attrs);
   bool ParseMicrosoftDeclSpecArgs(IdentifierInfo *AttrName,
                                   SourceLocation AttrNameLoc,
                                   ParsedAttributes &Attrs);
@@ -3014,8 +2955,8 @@ private:
 
   void ParseObjCBridgeRelatedAttribute(IdentifierInfo &ObjCBridgeRelated,
                                        SourceLocation ObjCBridgeRelatedLoc,
-                                       ParsedAttributes &attrs,
-                                       SourceLocation *endLoc,
+                                       ParsedAttributes &Attrs,
+                                       SourceLocation *EndLoc,
                                        IdentifierInfo *ScopeName,
                                        SourceLocation ScopeLoc,
                                        ParsedAttr::Syntax Syntax);
@@ -3036,11 +2977,12 @@ private:
                                         SourceLocation ScopeLoc,
                                         ParsedAttr::Syntax Syntax);
 
-  void
-  ParseAttributeWithTypeArg(IdentifierInfo &AttrName,
-                            SourceLocation AttrNameLoc, ParsedAttributes &Attrs,
-                            SourceLocation *EndLoc, IdentifierInfo *ScopeName,
-                            SourceLocation ScopeLoc, ParsedAttr::Syntax Syntax);
+  void ParseAttributeWithTypeArg(IdentifierInfo &AttrName,
+                                 SourceLocation AttrNameLoc,
+                                 ParsedAttributes &Attrs,
+                                 IdentifierInfo *ScopeName,
+                                 SourceLocation ScopeLoc,
+                                 ParsedAttr::Syntax Syntax);
 
   void ParseTypeofSpecifier(DeclSpec &DS);
   SourceLocation ParseDecltypeSpecifier(DeclSpec &DS);
@@ -3126,11 +3068,9 @@ private:
   void ParseDirectDeclarator(Declarator &D);
   void ParseDecompositionDeclarator(Declarator &D);
   void ParseParenDeclarator(Declarator &D);
-  void ParseFunctionDeclarator(Declarator &D,
-                               ParsedAttributes &attrs,
+  void ParseFunctionDeclarator(Declarator &D, ParsedAttributes &FirstArgAttrs,
                                BalancedDelimiterTracker &Tracker,
-                               bool IsAmbiguous,
-                               bool RequiresArg = false);
+                               bool IsAmbiguous, bool RequiresArg = false);
   void InitCXXThisScopeForDeclaratorIfRelevant(
       const Declarator &D, const DeclSpec &DS,
       llvm::Optional<Sema::CXXThisScopeRAII> &ThisScope);
@@ -3187,7 +3127,7 @@ private:
   Decl *ParseExportDeclaration();
   DeclGroupPtrTy ParseUsingDirectiveOrDeclaration(
       DeclaratorContext Context, const ParsedTemplateInfo &TemplateInfo,
-      SourceLocation &DeclEnd, ParsedAttributesWithRange &attrs);
+      SourceLocation &DeclEnd, ParsedAttributes &Attrs);
   Decl *ParseUsingDirective(DeclaratorContext Context,
                             SourceLocation UsingLoc,
                             SourceLocation &DeclEnd,
@@ -3211,7 +3151,7 @@ private:
                                        const ParsedTemplateInfo &TemplateInfo,
                                        SourceLocation UsingLoc,
                                        SourceLocation &DeclEnd,
-                                       ParsedAttributesWithRange &Attrs,
+                                       ParsedAttributes &Attrs,
                                        AccessSpecifier AS = AS_none);
   Decl *ParseAliasDeclarationAfterDeclarator(
       const ParsedTemplateInfo &TemplateInfo, SourceLocation UsingLoc,
@@ -3229,16 +3169,14 @@ private:
   void ParseClassSpecifier(tok::TokenKind TagTokKind, SourceLocation TagLoc,
                            DeclSpec &DS, const ParsedTemplateInfo &TemplateInfo,
                            AccessSpecifier AS, bool EnteringContext,
-                           DeclSpecContext DSC,
-                           ParsedAttributesWithRange &Attributes);
+                           DeclSpecContext DSC, ParsedAttributes &Attributes);
   void SkipCXXMemberSpecification(SourceLocation StartLoc,
                                   SourceLocation AttrFixitLoc,
                                   unsigned TagType,
                                   Decl *TagDecl);
   void ParseCXXMemberSpecification(SourceLocation StartLoc,
                                    SourceLocation AttrFixitLoc,
-                                   ParsedAttributesWithRange &Attrs,
-                                   unsigned TagType,
+                                   ParsedAttributes &Attrs, unsigned TagType,
                                    Decl *TagDecl);
   ExprResult ParseCXXMemberInitializer(Decl *D, bool IsFunction,
                                        SourceLocation &EqualLoc);
@@ -3253,9 +3191,10 @@ private:
       AccessSpecifier AS, ParsedAttributes &Attr,
       const ParsedTemplateInfo &TemplateInfo = ParsedTemplateInfo(),
       ParsingDeclRAIIObject *DiagsFromTParams = nullptr);
-  DeclGroupPtrTy ParseCXXClassMemberDeclarationWithPragmas(
-      AccessSpecifier &AS, ParsedAttributesWithRange &AccessAttrs,
-      DeclSpec::TST TagType, Decl *Tag);
+  DeclGroupPtrTy
+  ParseCXXClassMemberDeclarationWithPragmas(AccessSpecifier &AS,
+                                            ParsedAttributes &AccessAttrs,
+                                            DeclSpec::TST TagType, Decl *Tag);
   void ParseConstructorInitializer(Decl *ConstructorDecl);
   MemInitResult ParseMemInitializer(Decl *ConstructorDecl);
   void HandleMemberFunctionDeclDelays(Declarator& DeclaratorInfo,
@@ -3374,8 +3313,8 @@ private:
 
   /// Parses declarative OpenMP directives.
   DeclGroupPtrTy ParseOpenMPDeclarativeDirectiveWithExtDecl(
-      AccessSpecifier &AS, ParsedAttributesWithRange &Attrs,
-      bool Delayed = false, DeclSpec::TST TagType = DeclSpec::TST_unspecified,
+      AccessSpecifier &AS, ParsedAttributes &Attrs, bool Delayed = false,
+      DeclSpec::TST TagType = DeclSpec::TST_unspecified,
       Decl *TagDecl = nullptr);
   /// Parse 'omp declare reduction' construct.
   DeclGroupPtrTy ParseOpenMPDeclareReductionDirective(AccessSpecifier AS);

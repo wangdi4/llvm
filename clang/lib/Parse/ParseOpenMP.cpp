@@ -2130,7 +2130,7 @@ static bool checkOpenMPExtension(Parser &P, OpenMPDirectiveKind DKind,
 ///         annot_pragma_openmp_end
 ///
 Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
-    AccessSpecifier &AS, ParsedAttributesWithRange &Attrs, bool Delayed,
+    AccessSpecifier &AS, ParsedAttributes &Attrs, bool Delayed,
     DeclSpec::TST TagType, Decl *Tag) {
   assert(Tok.isOneOf(tok::annot_pragma_openmp, tok::annot_attr_openmp) &&
          "Not an OpenMP directive!");
