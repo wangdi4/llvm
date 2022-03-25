@@ -936,7 +936,11 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
 
         // Try to merge Struct Offset GEP into previous GEP.
         auto *GepBase = dyn_cast<GetElementPtrInst>(GEPVal);
-        if (GepBase) {
+        // Sometimes EmitSubsValue() generates byte offset by bitcasting base to
+        // i8*. Since bitcasts are no-op with opaque pointers we need to check
+        // for type mismatches explicitly using DimElementTy and GepBase's
+        // result element type.
+        if (GepBase && (GepBase->getResultElementType() == DimElementTy)) {
           // We are recreating a new GEP by merging the offsets with a previous
           // GEP so the element type needs to be updated.
           GEPElemTy = GepBase->getSourceElementType();
