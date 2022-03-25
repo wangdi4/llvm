@@ -118,9 +118,19 @@ if(LLVM_INTEGRATED_CRT_ALLOC)
   endif()
 endif()
 
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 set (SUPPORT_SOURCES
 # end INTEL_CUSTOMIZATION
+=======
+# Sets up the LLVM_BLAKE3_FILES variable with the files to compile.
+add_subdirectory(BLAKE3)
+if (MSVC)
+  enable_language(ASM_MASM)
+endif()
+
+add_llvm_component_library(LLVMSupport
+>>>>>>> 9aa701984d399e752167cd1966708042804b15de
   AArch64TargetParser.cpp
   ABIBreak.cpp
   ARMTargetParser.cpp
@@ -261,6 +271,7 @@ set (SUPPORT_SOURCES
   Z3Solver.cpp
 
   ${ALLOCATOR_FILES}
+  ${LLVM_BLAKE3_FILES}
 
 # System
   Atomic.cpp
