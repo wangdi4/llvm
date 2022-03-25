@@ -11328,11 +11328,6 @@ public:
   StmtResult ActOnOpenMPTargetVariantDispatchDirective(
       ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
       SourceLocation EndLoc);
-  /// Called on well-formed '\#pragma omp target parallel loop' after parsing
-  /// of the associated statement.
-  StmtResult ActOnOpenMPTargetParallelGenericLoopDirective(
-      ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
-      SourceLocation EndLoc, VarsWithInheritedDSAType &VarsWithImplicitDSA);
   /// Called on well-formed '\#pragma omp prefetch'.
   StmtResult ActOnOpenMPPrefetchDirective(
       ArrayRef<OMPClause *> Clauses, SourceLocation StartLoc,

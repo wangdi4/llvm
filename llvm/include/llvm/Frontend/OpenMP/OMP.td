@@ -1840,33 +1840,6 @@ def OMP_target_variant_dispatch : Directive<"target variant dispatch"> {
     VersionedClause<OMPC_NoWait>
   ];
 }
-def OMP_target_parallel_loop : Directive<"target parallel loop"> {
-  let allowedClauses = [
-    VersionedClause<OMPC_If>,
-    VersionedClause<OMPC_NumThreads>,
-    VersionedClause<OMPC_Default>,
-    VersionedClause<OMPC_ProcBind>,
-    VersionedClause<OMPC_Bind>,
-    VersionedClause<OMPC_Collapse>,
-    VersionedClause<OMPC_Order>,
-    VersionedClause<OMPC_Private>,
-    VersionedClause<OMPC_LastPrivate>,
-    VersionedClause<OMPC_Reduction>,
-    VersionedClause<OMPC_FirstPrivate>,
-    VersionedClause<OMPC_Shared>,
-    VersionedClause<OMPC_Copyin>,
-    VersionedClause<OMPC_Allocate>,
-    VersionedClause<OMPC_Device>,
-    VersionedClause<OMPC_Subdevice>,
-    VersionedClause<OMPC_OmpxPlaces>,
-    VersionedClause<OMPC_Map>,
-    VersionedClause<OMPC_NoWait>,
-    VersionedClause<OMPC_Depend>,
-    VersionedClause<OMPC_DefaultMap>,
-    VersionedClause<OMPC_IsDevicePtr>,
-    VersionedClause<OMPC_UsesAllocators, 50>
-  ];
-}
 def OMP_prefetch : Directive<"prefetch"> {
   let allowedClauses = [
     VersionedClause<OMPC_Data>
@@ -2047,6 +2020,10 @@ def OMP_target_parallel_loop : Directive<"target parallel loop"> {
     VersionedClause<OMPC_FirstPrivate>,
     VersionedClause<OMPC_IsDevicePtr>,
     VersionedClause<OMPC_LastPrivate>,
+#if INTEL_COLLAB
+    VersionedClause<OMPC_Subdevice>,
+    VersionedClause<OMPC_OmpxPlaces>,
+#endif // INTEL_COLLAB
     VersionedClause<OMPC_Map>,
     VersionedClause<OMPC_Private>,
     VersionedClause<OMPC_Reduction>,

@@ -267,7 +267,6 @@ def OMPCancellationPointDirective : StmtNode<OMPExecutableDirective>;
 def OMPCancelDirective : StmtNode<OMPExecutableDirective>;
 // INTEL_COLLAB
 def OMPTargetVariantDispatchDirective : StmtNode<OMPExecutableDirective>;
-def OMPTargetParallelGenericLoopDirective : StmtNode<OMPLoopDirective>;
 def OMPPrefetchDirective : StmtNode<OMPExecutableDirective>;
 def OMPScopeDirective : StmtNode<OMPExecutableDirective>;
 //end INTEL_COLLAB
