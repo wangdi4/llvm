@@ -110,9 +110,17 @@ New checks
   Detects confusable unicode identifiers.
 ..
   end INTEL_CUSTOMIZATION
+- New :doc:`modernize-macro-to-enum
+  <clang-tidy/checks/modernize-macro-to-enum>` check.
+
+  Replaces groups of adjacent macros with an unscoped anonymous enum.
 
 New check aliases
 ^^^^^^^^^^^^^^^^^
+
+- New alias :doc:`cppcoreguidelines-macro-to-enum
+  <clang-tidy/checks/cppcoreguidelines-macro-to-enum>` to :doc:`modernize-macro-to-enum
+  <clang-tidy/checks/modernize-macro-to-enum>` was added.
 
 Changes in existing checks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
