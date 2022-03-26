@@ -835,24 +835,12 @@ int main(int argc, char **argv) {
   }
 
   if (UseNPM) {
-<<<<<<< HEAD
-    if (AnalyzeOnly) {
-      errs() << "Cannot specify -analyze under new pass manager, either "
-                "specify '-enable-new-pm=0', or use the corresponding new pass "
-                "manager pass, e.g. '-passes=print<scalar-evolution>'. For a "
-                "full list of passes, see the '--print-passes' flag.\n";
-      return 1;
-    }
-#if !INTEL_PRODUCT_RELEASE
-=======
->>>>>>> df0b893d94e69856754a4247a44fd97d4a69b001
     if (legacy::debugPassSpecified()) {
       errs()
           << "-debug-pass does not work with the new PM, either use "
              "-debug-pass-manager, or use the legacy PM (-enable-new-pm=0)\n";
       return 1;
     }
-#endif // !INTEL_PRODUCT_RELEASE
     if (PassPipeline.getNumOccurrences() > 0 && PassList.size() > 0) {
       errs()
           << "Cannot specify passes via both -foo-pass and --passes=foo-pass\n";
