@@ -78,3 +78,38 @@ define void @bcast(i16 %x) {
 ; CHECK:   %bcast = shufflevector <2 x i64> %insert, <2 x i64> undef, <2 x i32> zeroinitializer: 49
   ret void
 }
+
+declare i1 @cond(i64)
+define void @vector.rec.uncountable() {
+; CHECK-LABEL: @vector.rec.uncountable
+entry:
+  br label %header
+
+header:
+  %iv = phi i64 [0, %entry], [%iv.next, %header]
+  %vec.iv = phi <2 x i64> [<i64 0, i64 1>, %entry], [%vec.iv.next, %header]
+; CHECK:  %vec.iv = phi <2 x i64> [ <i64 0, i64 1>, %entry ], [ %vec.iv.next, %header ]: 1
+  %vec.iv.next = add <2 x i64> %vec.iv, <i64 2, i64 2>
+  %iv.next = add i64 %iv, 2
+  %exitcond = call i1 @cond(i64 %iv)
+  br i1 %exitcond, label %exit, label %header
+
+exit:
+  ret void
+}
+
+define void @scalar.rec.uncountable() {
+; CHECK-LABEL: @scalar.rec.uncountable
+entry:
+  br label %header
+
+header:
+  %iv = phi i64 [0, %entry], [%iv.next, %header]
+; CHECK: %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]: 1
+  %iv.next = add i64 %iv, 1
+  %exitcond = call i1 @cond(i64 %iv)
+  br i1 %exitcond, label %exit, label %header
+
+exit:
+  ret void
+}

@@ -3432,13 +3432,16 @@ static unsigned ComputeNumSignBitsImpl(const Value *V,
           // doesn't overflow. If it overflowes, conservatively assume we only
           // have 1 sign bit in the accumulated step.
           const SCEV *BTC = Q.SE->getBackedgeTakenCount(L);
-          unsigned TCActiveBits = Q.SE->getUnsignedRange(BTC).getActiveBits();
-          unsigned AccumulatedStepSignBits =
-              TCActiveBits < StepSignBits ? StepSignBits - TCActiveBits : 1;
+          if (!isa<SCEVCouldNotCompute>(BTC)) {
+            unsigned TCActiveBits = Q.SE->getUnsignedRange(BTC).getActiveBits();
+            unsigned AccumulatedStepSignBits =
+                TCActiveBits < StepSignBits ? StepSignBits - TCActiveBits : 1;
 
-          // Now estimate Start+AccumulatedStep.
-          unsigned MinSignBits = std::min(StartSignBits, AccumulatedStepSignBits);
-          return MinSignBits == 1 ? 1 : MinSignBits - 1;
+            // Now estimate Start+AccumulatedStep.
+            unsigned MinSignBits =
+                std::min(StartSignBits, AccumulatedStepSignBits);
+            return MinSignBits == 1 ? 1 : MinSignBits - 1;
+          }
         }
       }
 #endif // INTEL_CUSTOMIZATION
