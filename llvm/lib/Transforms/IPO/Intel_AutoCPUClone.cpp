@@ -12,7 +12,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instructions.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/Intel_CPU_utils.h"
 #include "llvm/Support/X86TargetParser.h"
@@ -143,6 +143,15 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &) {
     // TODO: See if we can update such usages manually.
     if (any_of(Fn.users(), [](User *U) { return isa<BlockAddress>(U); }))
       continue;
+
+    // Skip functions that have inline assembly.
+    if (any_of(instructions(Fn),
+               [](Instruction &I) {
+                 auto *CInst = dyn_cast<CallBase>(&I);
+                 return CInst && CInst->isInlineAsm();
+               })) {
+      continue;
+    }
 
     MDNode *AutoCPUDispatchMD = Fn.getMetadata("llvm.auto.cpu.dispatch");
     LLVM_DEBUG(dbgs() << Fn.getName() << ": " << *AutoCPUDispatchMD << "\n");
