@@ -118,14 +118,7 @@ if(LLVM_INTEGRATED_CRT_ALLOC)
   endif()
 endif()
 
-# Sets up the LLVM_BLAKE3_FILES variable with the files to compile.
 add_subdirectory(BLAKE3)
-if (MSVC)
-  enable_language(ASM_MASM)
-endif()
-# FIXME: Figure out what is wrong with the builders when using the assembly files.
-add_definitions(-DBLAKE3_NO_AVX512 -DBLAKE3_NO_AVX2 -DBLAKE3_NO_SSE41 -DBLAKE3_NO_SSE2 -DBLAKE3_USE_NEON=0)
-
 
 # INTEL_CUSTOMIZATION
 set (SUPPORT_SOURCES
@@ -271,7 +264,7 @@ set (SUPPORT_SOURCES
   Z3Solver.cpp
 
   ${ALLOCATOR_FILES}
-  ${LLVM_BLAKE3_FILES}
+  $<TARGET_OBJECTS:LLVMSupportBlake3>
 
 # System
   Atomic.cpp
