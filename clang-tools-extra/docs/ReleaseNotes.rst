@@ -103,7 +103,6 @@ New checks
 
   Finds initializations of C++ shared pointers to non-array type that are initialized with an array.
 
-<<<<<<< HEAD
 ..
   INTEL_CUSTOMIZATION
 - New :doc:`misc-homoglyph <clang-tidy/checks/misc-homoglyph>` check.
@@ -111,12 +110,10 @@ New checks
   Detects confusable unicode identifiers.
 ..
   end INTEL_CUSTOMIZATION
-=======
 - New :doc:`modernize-macro-to-enum
   <clang-tidy/checks/modernize-macro-to-enum>` check.
 
   Replaces groups of adjacent macros with an unscoped anonymous enum.
->>>>>>> 39b80c8380c86539de391600efaa17184b5a52b4
 
 New check aliases
 ^^^^^^^^^^^^^^^^^
