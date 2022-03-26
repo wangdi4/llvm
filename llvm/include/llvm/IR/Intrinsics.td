@@ -137,6 +137,9 @@ class ReadNone<AttrIndex idx> : IntrinsicProperty {
 
 def IntrNoReturn : IntrinsicProperty;
 
+// Applied by default.
+def IntrNoCallback : IntrinsicProperty<1>;
+
 // IntrNoSync - Threads executing the intrinsic will not synchronize using
 // memory or other means. Applied by default.
 def IntrNoSync : IntrinsicProperty<1>;
