@@ -4805,7 +4805,10 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
 
   Instruction *Cond = dyn_cast<Instruction>(BI->getCondition());
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> f6b60b3b79606612e9df6b3ab8d4367ca673fedc
   if (!Cond ||
       (!isa<CmpInst>(Cond) && !isa<BinaryOperator>(Cond) &&
        !isa<SelectInst>(Cond)) ||
