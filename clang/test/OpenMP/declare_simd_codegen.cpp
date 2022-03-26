@@ -141,7 +141,6 @@ double constlinear(const int i) { return 0.0; }
 // CHECK-DAG: declare {{.+}}@_Z5add_2Pf(
 // CHECK-DAG: define {{.+}}@_Z11constlineari(
 
-<<<<<<< HEAD
 // begin INTEL_CUSTOMIZATION
 // Functions marked as simd functions now have attributes in the form
 // of a key/value pair similar to "vector-variants"="_ZGVbM4l8__Z5add_1Pf,
@@ -343,7 +342,7 @@ double constlinear(const int i) { return 0.0; }
 
 // CHECK-NOT: _ZGV{{.+}}__Z1fRA_i
 // end INTEL_CUSTOMIZATION
-=======
+
 // CHECK-DAG: "_ZGVbM4l32__Z5add_1Pf"
 // CHECK-DAG: "_ZGVbN4l32__Z5add_1Pf"
 // CHECK-DAG: "_ZGVcM8l32__Z5add_1Pf"
@@ -555,6 +554,5 @@ double constlinear(const int i) { return 0.0; }
 // CHECK-DAG: "_ZGVeN8l__Z11constlineari"
 
 // CHECK-NOT: "_ZGV{{.+}}__Z1fRA_i
->>>>>>> a6cdac48ffaf1aba9c2055db0ea92f8d25e629d8
 
 #endif
