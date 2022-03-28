@@ -101,6 +101,11 @@ public:
   // analyses after various module->function or cgscc->function adaptors in the
   // default pipelines.
   bool EagerlyInvalidateAnalyses;
+
+#if INTEL_CUSTOMIZATION
+  /// Disable Intel proprietary optimizations.
+  bool DisableIntelProprietaryOpts;
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// This class provides access to building LLVM's passes.
@@ -436,6 +441,8 @@ public:
   void addWholeProgramUtils(WholeProgramUtils WPUtils) {
     this->WPUtils = std::move(WPUtils);
   }
+
+  bool isLoopOptEnabled(OptimizationLevel Level);
 
   void addLoopOptAndAssociatedVPOPasses(ModulePassManager &MPM,
                                         FunctionPassManager &FPM,

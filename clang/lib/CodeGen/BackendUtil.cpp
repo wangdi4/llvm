@@ -1360,6 +1360,9 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
   // Only enable CGProfilePass when using integrated assembler, since
   // non-integrated assemblers don't recognize .cgprofile section.
   PTO.CallGraphProfile = !CodeGenOpts.DisableIntegratedAS;
+#if INTEL_CUSTOMIZATION
+  PTO.DisableIntelProprietaryOpts = CodeGenOpts.DisableIntelProprietaryOpts;
+#endif // INTEL_CUSTOMIZATION
 
   LoopAnalysisManager LAM;
   FunctionAnalysisManager FAM;
@@ -1708,6 +1711,9 @@ static void runThinLTOBackend(
   // Only enable CGProfilePass when using integrated assembler, since
   // non-integrated assemblers don't recognize .cgprofile section.
   Conf.PTO.CallGraphProfile = !CGOpts.DisableIntegratedAS;
+#if INTEL_CUSTOMIZATION
+  Conf.PTO.DisableIntelProprietaryOpts = CGOpts.DisableIntelProprietaryOpts;
+#endif // INTEL_CUSTOMIZATION
 
   // Context sensitive profile.
   if (CGOpts.hasProfileCSIRInstr()) {
