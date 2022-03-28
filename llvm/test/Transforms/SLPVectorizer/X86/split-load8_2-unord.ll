@@ -34,18 +34,6 @@ define dso_local void @_Z4testP1S(%struct.S* %p) local_unnamed_addr {
 ; CHECK-NEXT:    [[ARRAYIDX51:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 0, i64 7
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[ARRAYIDX]] to <8 x i32>*
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <8 x i32>, <8 x i32>* [[TMP0]], align 4
-<<<<<<< HEAD
-; CHECK-NEXT:    [[ARRAYIDX48:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 2, i64 5
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[ARRAYIDX20]] to <4 x i32>*
-; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[ARRAYIDX27]] to <4 x i32>*
-; CHECK-NEXT:    [[TMP5:%.*]] = load <4 x i32>, <4 x i32>* [[TMP4]], align 4
-; CHECK-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP3]], <4 x i32> [[TMP5]], <8 x i32> <i32 7, i32 3, i32 2, i32 0, i32 4, i32 5, i32 6, i32 1>
-; CHECK-NEXT:    [[TMP6:%.*]] = add nsw <8 x i32> [[SPLITLOADSHUFFLE]], [[TMP1]]
-; CHECK-NEXT:    [[ARRAYIDX51:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 0, i64 7
-; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i32* [[ARRAYIDX2]] to <8 x i32>*
-; CHECK-NEXT:    store <8 x i32> [[TMP6]], <8 x i32>* [[TMP7]], align 4
-=======
 ; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <8 x i32*> poison, i32* [[ARRAYIDX1]], i32 0
 ; CHECK-NEXT:    [[TMP3:%.*]] = insertelement <8 x i32*> [[TMP2]], i32* [[ARRAYIDX6]], i32 1
 ; CHECK-NEXT:    [[TMP4:%.*]] = insertelement <8 x i32*> [[TMP3]], i32* [[ARRAYIDX13]], i32 2
@@ -58,7 +46,6 @@ define dso_local void @_Z4testP1S(%struct.S* %p) local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP11:%.*]] = add nsw <8 x i32> [[TMP10]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP12:%.*]] = bitcast i32* [[ARRAYIDX2]] to <8 x i32>*
 ; CHECK-NEXT:    store <8 x i32> [[TMP11]], <8 x i32>* [[TMP12]], align 4
->>>>>>> 48cc9287f55544f336fd4620c19b42b1d5266bfb
 ; CHECK-NEXT:    ret void
 ;
 entry:
@@ -147,27 +134,17 @@ define dso_local void @test_unordered_splits(%struct.S* nocapture %p) local_unna
 ; CHECK-NEXT:    [[ARRAYIDX30:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 0, i64 4
 ; CHECK-NEXT:    [[ARRAYIDX37:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 0, i64 5
 ; CHECK-NEXT:    [[ARRAYIDX44:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 0, i64 6
-<<<<<<< HEAD
-=======
 ; CHECK-NEXT:    [[ARRAYIDX51:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 0, i64 7
->>>>>>> 48cc9287f55544f336fd4620c19b42b1d5266bfb
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[G10]] to <4 x i32>*
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[G20]] to <4 x i32>*
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 4
-<<<<<<< HEAD
-; CHECK-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP1]], <4 x i32> [[TMP3]], <8 x i32> <i32 1, i32 0, i32 2, i32 3, i32 7, i32 5, i32 6, i32 4>
-; CHECK-NEXT:    [[ARRAYIDX51:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 0, i64 7
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[ARRAYIDX2]] to <8 x i32>*
-; CHECK-NEXT:    store <8 x i32> [[SPLITLOADSHUFFLE]], <8 x i32>* [[TMP4]], align 4
-=======
 ; CHECK-NEXT:    [[TMP4:%.*]] = shufflevector <4 x i32> [[TMP1]], <4 x i32> poison, <8 x i32> <i32 1, i32 0, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
 ; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <8 x i32> poison, <8 x i32> [[TMP4]], <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 4, i32 5, i32 6, i32 7>
 ; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <4 x i32> [[TMP3]], <4 x i32> poison, <8 x i32> <i32 3, i32 1, i32 2, i32 0, i32 undef, i32 undef, i32 undef, i32 undef>
 ; CHECK-NEXT:    [[TMP7:%.*]] = shufflevector <8 x i32> [[TMP5]], <8 x i32> [[TMP6]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
 ; CHECK-NEXT:    [[TMP8:%.*]] = bitcast i32* [[ARRAYIDX2]] to <8 x i32>*
 ; CHECK-NEXT:    store <8 x i32> [[TMP7]], <8 x i32>* [[TMP8]], align 4
->>>>>>> 48cc9287f55544f336fd4620c19b42b1d5266bfb
 ; CHECK-NEXT:    ret void
 ;
 entry:
@@ -230,10 +207,7 @@ define dso_local void @test_cost_splits(%struct.S* nocapture %p) local_unnamed_a
 ; CHECK-NEXT:    [[ARRAYIDX30:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 0, i64 4
 ; CHECK-NEXT:    [[ARRAYIDX37:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 0, i64 5
 ; CHECK-NEXT:    [[ARRAYIDX44:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 0, i64 6
-<<<<<<< HEAD
-=======
 ; CHECK-NEXT:    [[ARRAYIDX51:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 0, i64 7
->>>>>>> 48cc9287f55544f336fd4620c19b42b1d5266bfb
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[G10]] to <2 x i32>*
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[G12]] to <2 x i32>*
@@ -242,14 +216,6 @@ define dso_local void @test_cost_splits(%struct.S* nocapture %p) local_unnamed_a
 ; CHECK-NEXT:    [[TMP5:%.*]] = load <2 x i32>, <2 x i32>* [[TMP4]], align 4
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[G22]] to <2 x i32>*
 ; CHECK-NEXT:    [[TMP7:%.*]] = load <2 x i32>, <2 x i32>* [[TMP6]], align 4
-<<<<<<< HEAD
-; CHECK-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <2 x i32> [[TMP1]], <2 x i32> [[TMP3]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK-NEXT:    [[SPLITLOADSHUFFLE1:%.*]] = shufflevector <2 x i32> [[TMP5]], <2 x i32> [[TMP7]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK-NEXT:    [[SPLITLOADSHUFFLE2:%.*]] = shufflevector <4 x i32> [[SPLITLOADSHUFFLE]], <4 x i32> [[SPLITLOADSHUFFLE1]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-; CHECK-NEXT:    [[ARRAYIDX51:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 0, i64 7
-; CHECK-NEXT:    [[TMP8:%.*]] = bitcast i32* [[ARRAYIDX2]] to <8 x i32>*
-; CHECK-NEXT:    store <8 x i32> [[SPLITLOADSHUFFLE2]], <8 x i32>* [[TMP8]], align 4
-=======
 ; CHECK-NEXT:    [[TMP8:%.*]] = shufflevector <2 x i32> [[TMP1]], <2 x i32> poison, <8 x i32> <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
 ; CHECK-NEXT:    [[TMP9:%.*]] = shufflevector <2 x i32> [[TMP3]], <2 x i32> poison, <8 x i32> <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
 ; CHECK-NEXT:    [[TMP10:%.*]] = shufflevector <8 x i32> [[TMP8]], <8 x i32> [[TMP9]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 4, i32 5, i32 6, i32 7>
@@ -259,7 +225,6 @@ define dso_local void @test_cost_splits(%struct.S* nocapture %p) local_unnamed_a
 ; CHECK-NEXT:    [[TMP14:%.*]] = shufflevector <8 x i32> [[TMP12]], <8 x i32> [[TMP13]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 8, i32 9>
 ; CHECK-NEXT:    [[TMP15:%.*]] = bitcast i32* [[ARRAYIDX2]] to <8 x i32>*
 ; CHECK-NEXT:    store <8 x i32> [[TMP14]], <8 x i32>* [[TMP15]], align 4
->>>>>>> 48cc9287f55544f336fd4620c19b42b1d5266bfb
 ; CHECK-NEXT:    ret void
 ;
 entry:

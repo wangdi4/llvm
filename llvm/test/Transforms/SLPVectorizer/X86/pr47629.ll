@@ -422,7 +422,6 @@ define void @gather_load_3(i32* noalias nocapture %0, i32* noalias nocapture rea
 ; AVX512F-NEXT:    ret void
 ;
 ; AVX512VL-LABEL: @gather_load_3(
-<<<<<<< HEAD
 ; AVX512VL-NEXT:    [[TMP3:%.*]] = insertelement <4 x i32*> poison, i32* [[TMP1:%.*]], i64 0
 ; AVX512VL-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32*> [[TMP3]], <4 x i32*> poison, <4 x i32> zeroinitializer
 ; AVX512VL-NEXT:    [[TMP4:%.*]] = getelementptr i32, <4 x i32*> [[SHUFFLE]], <4 x i64> <i64 11, i64 4, i64 15, i64 18>
@@ -440,34 +439,6 @@ define void @gather_load_3(i32* noalias nocapture %0, i32* noalias nocapture rea
 ; AVX512VL-NEXT:    [[TMP16:%.*]] = add <8 x i32> [[TMP15]], <i32 1, i32 2, i32 3, i32 4, i32 1, i32 2, i32 3, i32 4>
 ; AVX512VL-NEXT:    [[TMP17:%.*]] = bitcast i32* [[TMP0:%.*]] to <8 x i32>*
 ; AVX512VL-NEXT:    store <8 x i32> [[TMP16]], <8 x i32>* [[TMP17]], align 4, !tbaa [[TBAA0]]
-=======
-; AVX512VL-NEXT:    [[TMP3:%.*]] = load i32, i32* [[TMP1:%.*]], align 4, !tbaa [[TBAA0]]
-; AVX512VL-NEXT:    [[TMP4:%.*]] = add i32 [[TMP3]], 1
-; AVX512VL-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, i32* [[TMP0:%.*]], i64 1
-; AVX512VL-NEXT:    store i32 [[TMP4]], i32* [[TMP0]], align 4, !tbaa [[TBAA0]]
-; AVX512VL-NEXT:    [[TMP6:%.*]] = insertelement <4 x i32*> poison, i32* [[TMP1]], i64 0
-; AVX512VL-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32*> [[TMP6]], <4 x i32*> poison, <4 x i32> zeroinitializer
-; AVX512VL-NEXT:    [[TMP7:%.*]] = getelementptr i32, <4 x i32*> [[SHUFFLE]], <4 x i64> <i64 11, i64 4, i64 15, i64 18>
-; AVX512VL-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i32, i32* [[TMP0]], i64 5
-; AVX512VL-NEXT:    [[TMP9:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[TMP7]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> undef), !tbaa [[TBAA0]]
-; AVX512VL-NEXT:    [[TMP10:%.*]] = add <4 x i32> [[TMP9]], <i32 2, i32 3, i32 4, i32 1>
-; AVX512VL-NEXT:    [[TMP11:%.*]] = bitcast i32* [[TMP5]] to <4 x i32>*
-; AVX512VL-NEXT:    store <4 x i32> [[TMP10]], <4 x i32>* [[TMP11]], align 4, !tbaa [[TBAA0]]
-; AVX512VL-NEXT:    [[TMP12:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 9
-; AVX512VL-NEXT:    [[TMP13:%.*]] = load i32, i32* [[TMP12]], align 4, !tbaa [[TBAA0]]
-; AVX512VL-NEXT:    [[TMP14:%.*]] = add i32 [[TMP13]], 2
-; AVX512VL-NEXT:    [[TMP15:%.*]] = getelementptr inbounds i32, i32* [[TMP0]], i64 6
-; AVX512VL-NEXT:    store i32 [[TMP14]], i32* [[TMP8]], align 4, !tbaa [[TBAA0]]
-; AVX512VL-NEXT:    [[TMP16:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 6
-; AVX512VL-NEXT:    [[TMP17:%.*]] = load i32, i32* [[TMP16]], align 4, !tbaa [[TBAA0]]
-; AVX512VL-NEXT:    [[TMP18:%.*]] = add i32 [[TMP17]], 3
-; AVX512VL-NEXT:    [[TMP19:%.*]] = getelementptr inbounds i32, i32* [[TMP0]], i64 7
-; AVX512VL-NEXT:    store i32 [[TMP18]], i32* [[TMP15]], align 4, !tbaa [[TBAA0]]
-; AVX512VL-NEXT:    [[TMP20:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 21
-; AVX512VL-NEXT:    [[TMP21:%.*]] = load i32, i32* [[TMP20]], align 4, !tbaa [[TBAA0]]
-; AVX512VL-NEXT:    [[TMP22:%.*]] = add i32 [[TMP21]], 4
-; AVX512VL-NEXT:    store i32 [[TMP22]], i32* [[TMP19]], align 4, !tbaa [[TBAA0]]
->>>>>>> 48cc9287f55544f336fd4620c19b42b1d5266bfb
 ; AVX512VL-NEXT:    ret void
 ;
 ; XMAINSSE-LABEL: @gather_load_3(
@@ -816,7 +787,6 @@ define void @gather_load_4(i32* noalias nocapture %t0, i32* noalias nocapture re
 ; AVX512VL-NEXT:    [[TMP4:%.*]] = shufflevector <2 x i32*> [[TMP3]], <2 x i32*> poison, <2 x i32> zeroinitializer
 ; AVX512VL-NEXT:    [[TMP5:%.*]] = getelementptr i32, <2 x i32*> [[TMP4]], <2 x i64> <i64 9, i64 6>
 ; AVX512VL-NEXT:    [[T30:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 21
-<<<<<<< HEAD
 ; AVX512VL-NEXT:    [[TMP6:%.*]] = insertelement <8 x i32*> poison, i32* [[T1]], i64 0
 ; AVX512VL-NEXT:    [[TMP7:%.*]] = shufflevector <4 x i32*> [[TMP2]], <4 x i32*> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
 ; AVX512VL-NEXT:    [[TMP8:%.*]] = shufflevector <8 x i32*> [[TMP6]], <8 x i32*> [[TMP7]], <8 x i32> <i32 0, i32 8, i32 9, i32 10, i32 11, i32 undef, i32 undef, i32 undef>
@@ -827,24 +797,6 @@ define void @gather_load_4(i32* noalias nocapture %t0, i32* noalias nocapture re
 ; AVX512VL-NEXT:    [[TMP13:%.*]] = add <8 x i32> [[TMP12]], <i32 1, i32 2, i32 3, i32 4, i32 1, i32 2, i32 3, i32 4>
 ; AVX512VL-NEXT:    [[TMP14:%.*]] = bitcast i32* [[T0:%.*]] to <8 x i32>*
 ; AVX512VL-NEXT:    store <8 x i32> [[TMP13]], <8 x i32>* [[TMP14]], align 4, !tbaa [[TBAA0]]
-=======
-; AVX512VL-NEXT:    [[T3:%.*]] = load i32, i32* [[T1]], align 4, !tbaa [[TBAA0]]
-; AVX512VL-NEXT:    [[T23:%.*]] = load i32, i32* [[T22]], align 4, !tbaa [[TBAA0]]
-; AVX512VL-NEXT:    [[T27:%.*]] = load i32, i32* [[T26]], align 4, !tbaa [[TBAA0]]
-; AVX512VL-NEXT:    [[T31:%.*]] = load i32, i32* [[T30]], align 4, !tbaa [[TBAA0]]
-; AVX512VL-NEXT:    [[T4:%.*]] = add i32 [[T3]], 1
-; AVX512VL-NEXT:    [[T24:%.*]] = add i32 [[T23]], 2
-; AVX512VL-NEXT:    [[T28:%.*]] = add i32 [[T27]], 3
-; AVX512VL-NEXT:    [[T32:%.*]] = add i32 [[T31]], 4
-; AVX512VL-NEXT:    store i32 [[T4]], i32* [[T0]], align 4, !tbaa [[TBAA0]]
-; AVX512VL-NEXT:    [[TMP3:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[TMP2]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> undef), !tbaa [[TBAA0]]
-; AVX512VL-NEXT:    [[TMP4:%.*]] = add <4 x i32> [[TMP3]], <i32 2, i32 3, i32 4, i32 1>
-; AVX512VL-NEXT:    [[TMP5:%.*]] = bitcast i32* [[T5]] to <4 x i32>*
-; AVX512VL-NEXT:    store <4 x i32> [[TMP4]], <4 x i32>* [[TMP5]], align 4, !tbaa [[TBAA0]]
-; AVX512VL-NEXT:    store i32 [[T24]], i32* [[T21]], align 4, !tbaa [[TBAA0]]
-; AVX512VL-NEXT:    store i32 [[T28]], i32* [[T25]], align 4, !tbaa [[TBAA0]]
-; AVX512VL-NEXT:    store i32 [[T32]], i32* [[T29]], align 4, !tbaa [[TBAA0]]
->>>>>>> 48cc9287f55544f336fd4620c19b42b1d5266bfb
 ; AVX512VL-NEXT:    ret void
 ;
 ; XMAINSSE-LABEL: @gather_load_4(
