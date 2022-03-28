@@ -40,8 +40,10 @@
 // RUN:   -check-prefix=CHECK-FULL-OPTIMIZED-LV
 // END INTEL_CUSTOMIZATION
 
-// CHECK-FULL-O0: Running pass: AlwaysInlinerPass
-// CHECK-FULL-O0-NEXT: Running analysis: InnerAnalysisManagerProxy
+// CHECK-FULL-O0: Running analysis: InnerAnalysisManagerProxy ;INTEL
+// CHECK-FULL-O0-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
+// CHECK-FULL-O0-NEXT: Running pass: InlineListsPass ;INTEL
+// CHECK-FULL-O0-NEXT: Running pass: AlwaysInlinerPass ;INTEL
 // CHECK-FULL-O0-NEXT: Running analysis: ProfileSummaryAnalysis
 // CHECK-FULL-O0-NEXT: Running pass: VecClonePass ;INTEL
 // CHECK-FULL-O0-NEXT: Invalidating analysis: InnerAnalysisManagerProxy ;INTEL
@@ -55,8 +57,10 @@
 // CHECK-FULL-O0-NEXT: Running analysis: VerifierAnalysis
 // CHECK-FULL-O0-NEXT: Running pass: BitcodeWriterPass
 
-// CHECK-THIN-O0: Running pass: AlwaysInlinerPass
-// CHECK-THIN-O0-NEXT: Running analysis: InnerAnalysisManagerProxy
+// CHECK-THIN-O0: Running analysis: InnerAnalysisManagerProxy ;INTEL
+// CHECK-THIN-O0-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
+// CHECK-THIN-O0-NEXT: Running pass: InlineListsPass ;INTEL
+// CHECK-THIN-O0-NEXT: Running pass: AlwaysInlinerPass ;INTEL
 // CHECK-THIN-O0-NEXT: Running analysis: ProfileSummaryAnalysis
 // CHECK-THIN-O0-NEXT: Running pass: VecClonePass ;INTEL
 // CHECK-THIN-O0-NEXT: Invalidating analysis: InnerAnalysisManagerProxy ;INTEL
