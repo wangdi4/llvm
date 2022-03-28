@@ -156,11 +156,15 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
           // still non-inlined functions, then we don't have to inline new ones.
         }
 
+        VectorVariant::ISAClass ISA =
+            Intel::VectorizerCommon::getCPUIdISA(Config->GetCpuId());
+
         MPM.add(createDPCPPKernelAnalysisLegacyPass());
         MPM.add(createWGLoopBoundariesLegacyPass());
         MPM.add(createDeadCodeEliminationPass());
         MPM.add(createCFGSimplificationPass());
         MPM.add(createDeduceMaxWGDimLegacyPass());
+        MPM.add(createInstToFuncCallLegacyPass(ISA));
         if (Config->GetTransposeSize() == 1)
           return;
 
@@ -168,8 +172,6 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
         // functions
         MPM.add(createMathLibraryFunctionsReplacementPass());
 
-        VectorVariant::ISAClass ISA =
-            Intel::VectorizerCommon::getCPUIdISA(Config->GetCpuId());
         // Analyze and set VF for kernels.
         MPM.add(createSetVectorizationFactorLegacyPass(ISA));
 

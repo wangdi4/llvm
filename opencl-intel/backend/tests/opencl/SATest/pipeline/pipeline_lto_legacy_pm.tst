@@ -40,6 +40,7 @@
 ; CHECK:          DPCPPKernelAnalysisLegacy
 ; CHECK:          WGLoopBoundariesLegacy
 ; CHECK:          DeduceMaxWGDimLegacy
+; CHECK:          InstToFuncCallLegacy
 ; CHECK:          Replace known math operations with optimized library functions
 ; CHECK:          VFAnalysisLegacy
 ; CHECK:          SetVectorizationFactorLegacy

@@ -33,6 +33,7 @@
 ; CHECK:          DPCPPKernelAnalysisLegacy
 ; CHECK:          WGLoopBoundariesLegacy
 ; CHECK:          DeduceMaxWGDimLegacy
+; CHECK:          InstToFuncCallLegacy
 
 ; CHECK:          Call Graph SCC Pass Manager
 ; CHECK:            FunctionPass Manager
