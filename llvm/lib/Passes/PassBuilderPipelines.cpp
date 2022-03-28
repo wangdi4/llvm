@@ -3196,18 +3196,24 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
   for (auto &C : PipelineEarlySimplificationEPCallbacks)
     C(MPM, Level);
 
-#if INTEL_COLLAB
-  if (RunVPOOpt && RunVPOParopt) {
 #if INTEL_CUSTOMIZATION
+  if (RunVPOOpt && RunVPOParopt) {
     // Paropt passes and BasicAA (one of Paropt's dependencies), use
     // XmainOptLevelPass.
     MPM.addPass(XmainOptLevelAnalysisInit(Level.getSpeedupLevel()));
     MPM.addPass(RequireAnalysisPass<VPOParoptConfigAnalysis, Module>());
-#endif // INTEL_CUSTOMIZATION
-    FunctionPassManager FPM;
-    addVPOPreparePasses(FPM);
-    MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
   }
+
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  FunctionPassManager FPM;
+#if INTEL_CUSTOMIZATION
+  FPM.addPass(LowerSubscriptIntrinsicPass());
+#endif // INTEL_CUSTOMIZATION
+  if (RunVPOOpt && RunVPOParopt)
+    addVPOPreparePasses(FPM);
+  if (!FPM.isEmpty())
+    MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
 
 #endif // INTEL_COLLAB
   // Build a minimal pipeline based on the semantics required by LLVM,

@@ -8,6 +8,7 @@
 ;CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::VPOParoptConfigAnalysis, llvm::Module> on [module]
 ;CHECK-NEXT: Running analysis: VPOParoptConfigAnalysis on [module]
 ;CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}> on [module]
+;CHECK-NEXT: Running pass: LowerSubscriptIntrinsicPass on foo
 ;CHECK:      Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ;CHECK-NEXT: Running analysis: LoopAnalysis on foo

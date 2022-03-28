@@ -31,14 +31,16 @@
 
 ; CHECK-DIS: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-DIS-NEXT: Running pass: AddDiscriminatorsPass
+; CHECK-DIS-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
 ; CHECK-DIS-NEXT: Running pass: InlineListsPass ;INTEL
 ; CHECK-DIS-NEXT: Running pass: AlwaysInlinerPass
 ; CHECK-DIS-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-DIS-NEXT: Running pass: VecClonePass ;INTEL
 ; CHECK-DIS-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*}}> ;INTEL
-; CHECK-DEFAULT: Running pass: InlineListsPass ;INTEL
+; CHECK-DEFAULT: Running analysis: InnerAnalysisManagerProxy ;INTEL
+; CHECK-DEFAULT-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
+; CHECK-DEFAULT-NEXT: Running pass: InlineListsPass ;INTEL
 ; CHECK-DEFAULT-NEXT: Running pass: AlwaysInlinerPass ;INTEL
-; CHECK-DEFAULT-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-DEFAULT-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-MATRIX: Running pass: LowerMatrixIntrinsicsPass
 ; CHECK-MATRIX-NEXT: Running analysis: TargetIRAnalysis

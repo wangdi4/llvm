@@ -26,6 +26,7 @@ class LowerSubscriptIntrinsicPass
     : public PassInfoMixin<LowerSubscriptIntrinsicPass> {
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &FM);
+  static bool isRequired() { return true; }
 };
 
 /// Lowers getelementptr to llvm.intel.subscript for testing.
