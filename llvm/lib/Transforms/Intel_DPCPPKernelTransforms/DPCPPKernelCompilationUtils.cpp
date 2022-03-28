@@ -318,6 +318,8 @@ bool isPrintf(StringRef S) { return S == NAME_PRINTF; }
 
 StringRef nameOpenCLPrintf() { return NAME_PRINTF_OPENCL; }
 
+StringRef namePrintf() { return NAME_PRINTF; }
+
 // Work-Group builtins
 bool isWorkGroupAll(StringRef S) { return isMangleOf(S, NAME_WORK_GROUP_ALL); }
 

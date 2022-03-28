@@ -226,6 +226,9 @@ bool isPrintf(StringRef S);
 /// Return "__opencl_printf.".
 StringRef nameOpenCLPrintf();
 
+/// Return "printf".
+StringRef namePrintf();
+
 /// Return pipe kind from builtin name.
 PipeKind getPipeKind(StringRef Name);
 

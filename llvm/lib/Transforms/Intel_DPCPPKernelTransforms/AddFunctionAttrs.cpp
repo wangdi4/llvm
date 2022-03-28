@@ -76,6 +76,24 @@ static bool addAMXMatrixIntrinsicAttributes(Module &M) {
   return Changed;
 }
 
+static bool handlePrintfBuiltinAttributes(Module &M) {
+  Function *F = M.getFunction(namePrintf());
+  if (!F)
+    return false;
+
+  bool Changed = false;
+  for (User *U : F->users()) {
+    auto *CI = dyn_cast<CallInst>(U);
+    if (!CI || CI->arg_size() < 2)
+      continue;
+    // Set NoBuiltin attribute to avoid replacements by 'puts'/'putc'.
+    CI->addFnAttr(Attribute::NoBuiltin);
+    Changed = true;
+  }
+
+  return Changed;
+}
+
 static bool handleSyncBuiltinAttributes(Module &M) {
   // Get all synchronize built-ins declared in module.
   FuncSet SyncBuiltins = getAllSyncBuiltinsDeclsForNoDuplicateRelax(M);
@@ -120,6 +138,8 @@ bool AddFunctionAttrsPass::runImpl(Module &M) {
   // Add "convergent", "kernel-call-once", "kernel-uniform-call" and
   // "opencl-vec-uniform-return" to AMX matrix intrinsics.
   Changed |= addAMXMatrixIntrinsicAttributes(M);
+
+  Changed |= handlePrintfBuiltinAttributes(M);
 
   Changed |= handleSyncBuiltinAttributes(M);
 
