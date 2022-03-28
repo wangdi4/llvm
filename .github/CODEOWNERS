@@ -75,6 +75,7 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov @sndmitrie
 /llvm/lib/Target/X86/ @LuoYuanke @phoebewang @williamweixiao
 /llvm/lib/MC/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
 /llvm/utils/TableGen/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
+/llvm/utils/intel-add-code-markup.sh @KanRobert @phoebewang
 /llvm/include/llvm/CodeGen/ @LuoYuanke @phoebewang @williamweixiao
 /llvm/include/llvm/IR/IntrinsicsX86.td @phoebewang
 /llvm/include/llvm/MC/ @LuoYuanke @phoebewang @williamweixiao
