@@ -977,6 +977,8 @@ void VPlanDriverImpl::addOptReportRemarksForMainPlan(
          "Only main loop plan descriptors expected here.");
   auto *VPLpInfo = cast<VPlanVector>(MainPlanDescr.getVPlan())->getVPLoopInfo();
   auto *MainVPLoop = *VPLpInfo->begin();
+  OptReportStatsTracker &OptRptStats =
+      MainPlanDescr.getVPlan()->getOptRptStatsForLoop(MainVPLoop);
 
   // TODO: This remark should be added by CM, not this late after
   // CFGMerger.
@@ -988,22 +990,18 @@ void VPlanDriverImpl::addOptReportRemarksForMainPlan(
           TTI::AdvancedOptLevel::AO_TargetHasIntelAVX512)) {
     // 15569 remark is "Compiler has chosen to target XMM/YMM vector."
     // "Try using -mprefer-vector-width=512 to override."
-    ORBuilder(*MainVPLoop, *VPLpInfo)
-        .addRemark(OptReportVerbosity::High, 15569u);
+    OptRptStats.GeneralRemarks.emplace_back(15569u, OptReportVerbosity::High);
   }
 
   if (WRLp && WRLp->isOmpSIMDLoop())
     // Adds remark SIMD LOOP WAS VECTORIZED
-    ORBuilder(*MainVPLoop, *VPLpInfo)
-        .addRemark(OptReportVerbosity::Low, 15301u);
+    OptRptStats.GeneralRemarks.emplace_back(15301u, OptReportVerbosity::Low);
   else
     // Adds remark LOOP WAS VECTORIZED
-    ORBuilder(*MainVPLoop, *VPLpInfo)
-        .addRemark(OptReportVerbosity::Low, 15300u);
+    OptRptStats.GeneralRemarks.emplace_back(15300u, OptReportVerbosity::Low);
   // Add remark about VF
-  ORBuilder(*MainVPLoop, *VPLpInfo)
-      .addRemark(OptReportVerbosity::Low, 15305u,
-                 Twine(MainPlanDescr.getVF()).str());
+  OptRptStats.GeneralRemarks.emplace_back(15305u, OptReportVerbosity::Low,
+                                          Twine(MainPlanDescr.getVF()).str());
 }
 
 void VPlanDriverImpl::addOptReportRemarksForVecRemainder(
@@ -1012,20 +1010,21 @@ void VPlanDriverImpl::addOptReportRemarksForVecRemainder(
          "Only remainder loop plan descriptors expected here.");
   auto *VPLI = cast<VPlanVector>(PlanDescr.getVPlan())->getVPLoopInfo();
   auto *OuterLp = *VPLI->begin();
+  OptReportStatsTracker &OptRptStats =
+      PlanDescr.getVPlan()->getOptRptStatsForLoop(OuterLp);
 
-  // remark #25519: REMAINDER LOOP FOR VECTORIZATION.
-  ORBuilder(*OuterLp, *VPLI).addOrigin(25519u);
+  // remark #25519: Reminder loop for vectorization
+  OptRptStats.OriginRemarks.emplace_back(25519u);
   if (PlanDescr.isNonMaskedVecRemainder())
     // remark #15439: remainder loop was vectorized (unmasked)
-    ORBuilder(*OuterLp, *VPLI).addRemark(OptReportVerbosity::Low, 15439u);
+    OptRptStats.GeneralRemarks.emplace_back(15439u, OptReportVerbosity::Low);
   else
     // remark #15440: remainder loop was vectorized (masked)
-    ORBuilder(*OuterLp, *VPLI).addRemark(OptReportVerbosity::Low, 15440u);
+    OptRptStats.GeneralRemarks.emplace_back(15440u, OptReportVerbosity::Low);
 
   // Add remark about VF
-  ORBuilder(*OuterLp, *VPLI)
-      .addRemark(OptReportVerbosity::Low, 15305u,
-                 Twine(PlanDescr.getVF()).str());
+  OptRptStats.GeneralRemarks.emplace_back(15305u, OptReportVerbosity::Low,
+                                          Twine(PlanDescr.getVF()).str());
 }
 
 void VPlanDriverImpl::addOptReportRemarksForVecPeel(
@@ -1034,15 +1033,16 @@ void VPlanDriverImpl::addOptReportRemarksForVecPeel(
          "Only peel loop plan descriptors expected here.");
   auto *VPLI = cast<VPlanVector>(PlanDescr.getVPlan())->getVPLoopInfo();
   auto *OuterLp = *VPLI->begin();
+  OptReportStatsTracker &OptRptStats =
+      PlanDescr.getVPlan()->getOptRptStatsForLoop(OuterLp);
 
-  // remark #25518: PEELED LOOP FOR VECTORIZATION.
-  ORBuilder(*OuterLp, *VPLI).addOrigin(25518u);
+  // remark #25518: Peeled loop for vectorization
+  OptRptStats.OriginRemarks.emplace_back(25518u);
   // remark #15437: peel loop was vectorized
-  ORBuilder(*OuterLp, *VPLI).addRemark(OptReportVerbosity::Low, 15437u);
+  OptRptStats.GeneralRemarks.emplace_back(15437u, OptReportVerbosity::Low);
   // Add remark about VF
-  ORBuilder(*OuterLp, *VPLI)
-      .addRemark(OptReportVerbosity::Low, 15305u,
-                 Twine(PlanDescr.getVF()).str());
+  OptRptStats.GeneralRemarks.emplace_back(15305u, OptReportVerbosity::Low,
+                                          Twine(PlanDescr.getVF()).str());
 }
 
 void VPlanDriverImpl::populateVPlanAnalyses(LoopVectorizationPlanner &LVP,

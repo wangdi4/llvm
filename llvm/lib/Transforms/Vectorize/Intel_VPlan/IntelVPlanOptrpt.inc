@@ -32,6 +32,10 @@
 #define VPLAN_OPTRPT_VEC_HANDLE(VEC)
 #endif
 
+#ifndef VPLAN_OPTRPT_ORIGIN_VEC_HANDLE
+#define VPLAN_OPTRPT_ORIGIN_VEC_HANDLE(VEC)
+#endif
+
 #ifndef VPLAN_OPTRPT_HANDLE_GROUP_END
 #define VPLAN_OPTRPT_HANDLE_GROUP_END(ID)
 #endif
@@ -56,6 +60,14 @@
 #ifndef VPLAN_OPTRPT_HANDLE_MEM_GROUP_END
 #define VPLAN_OPTRPT_HANDLE_MEM_GROUP_END(ID) VPLAN_OPTRPT_HANDLE_GROUP_END(ID)
 #endif
+
+// NOTE: Order of remarks is controlled by the order in which remark vectors and remark
+// groups are added below. New remarks vectors should be added after GeneralRemarks vector.
+
+// Origin remarks
+VPLAN_OPTRPT_ORIGIN_VEC_HANDLE(OriginRemarks)
+// General purpose remarks
+VPLAN_OPTRPT_VEC_HANDLE(GeneralRemarks)
 
 VPLAN_OPTRPT_HANDLE_FUNC_GROUP_BEGIN(15475u)
 // Basically everything vectorizable through TargetLibraryInfo.
@@ -92,6 +104,7 @@ VPLAN_OPTRPT_HANDLE_MEM_GROUP_END(15474u)
 #undef VPLAN_OPTRPT_HANDLE
 #undef VPLAN_OPTRPT_GS
 #undef VPLAN_OPTRPT_VEC_HANDLE
+#undef VPLAN_OPTRPT_ORIGIN_VEC_HANDLE
 #undef VPLAN_OPTRPT_HANDLE_GROUP_END
 #undef VPLAN_OPTRPT_HANDLE_FUNC_GROUP_BEGIN
 #undef VPLAN_OPTRPT_HANDLE_FUNC
