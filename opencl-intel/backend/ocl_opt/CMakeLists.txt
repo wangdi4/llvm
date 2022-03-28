@@ -29,7 +29,6 @@ set(OCL_BE_PASSES
     DetectRecursion
     ExternalizeGlobalVariables
     InfiniteLoopCreator
-    InstToFuncCall
     InternalizeGlobalVariables
     KernelInfo
     LLVMBarrier

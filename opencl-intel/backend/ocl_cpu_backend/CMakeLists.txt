@@ -225,7 +225,6 @@ set( BACKEND_PASSES
     DebugInfoPass
     DetectRecursion
     InfiniteLoopCreator
-    InstToFuncCall
     ExternalizeGlobalVariables
     InternalizeGlobalVariables
     PreventDivCrashes
