@@ -5462,12 +5462,6 @@ void BoUpSLP::applyReorderedOperands(ScheduleData *Bundle) {
         continue;
       Instruction *OrigFrontier = Data->OrigFrontier;
 
-<<<<<<< HEAD
-#ifdef EXPENSIVE_CHECKS
-  if (MultiNodeVerifierChecks)
-    assert(!verifyFunction(*F, &dbgs()));
-#endif // EXPENSIVE_CHECKS
-=======
       LeafData *Op = CurrentMultiNode->getOperand(Lane, OpI);
       // 1. Check if we first need to update the opcode.
       // We replace frontier when its opcode needs to be inversed and if
@@ -5482,7 +5476,6 @@ void BoUpSLP::applyReorderedOperands(ScheduleData *Bundle) {
               CurrentMultiNode->getOperand(Lane, *Data->Sibling);
           SiblingOp->setFrontier(NewFrontier);
         }
->>>>>>> 04191ddcabb96dfe44aa1109f033a19169d4e0e7
 
         // Update VectorizableTree data structures to reflect the instruction
         // changes.
@@ -5514,17 +5507,12 @@ void BoUpSLP::applyReorderedOperands(ScheduleData *Bundle) {
         // Update the operand to reflect the current state.
         FrontierI->setOperand(OpNum, Op->getLeaf());
       }
-<<<<<<< HEAD
-#ifdef EXPENSIVE_CHECKS
-      if (MultiNodeVerifierChecks)
-        assert(!verifyFunction(*F, &dbgs()));
-#endif // EXPENSIVE_CHECKS
-=======
->>>>>>> 04191ddcabb96dfe44aa1109f033a19169d4e0e7
     }
   }
+#ifdef EXPENSIVE_CHECKS  
   if (MultiNodeVerifierChecks)
     assert(!verifyFunction(*F, &dbgs()));
+#endif // EXPENSIVE_CHECKS
 
   // Update the TreeEntries
   for (const auto &TEPtr : VectorizableTree)
