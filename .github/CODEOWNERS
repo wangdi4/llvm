@@ -1,8 +1,10 @@
 # These owners will be the default owners for everything in
 # the repo. Unless a later match takes precedence
-#
+
+# COMPONENT: None
 * @intel-restricted/xmain-gatekeeper
 
+# COMPONENT: Architecture
 # JIRA: N/A
 # Core parts of LLVM owned by the architecture group
 /llvm/lib/BinaryFormat/ @andykaylor
@@ -23,6 +25,7 @@
 /llvm/include/llvm/Option/ @andykaylor
 /llvm/include/llvm/Support/ @andykaylor
 
+# COMPONENT: CFE
 # CFE: Team owns everything in Clang unless otherwise specified.
 /clang/ @ErichKeane @mikerice1969 @aaronballman
 
@@ -37,21 +40,31 @@
 /llvm/lib/Frontend/OpenMP/ @mikerice1969 @jyu2-git @ddpagan
 /clang/**/*OpenMP* @mikerice1969 @jyu2-git @ddpagan
 
+# COMPONENT: Driver
 # JIRA: CMPLRLLVM->LLVM Driver
 /clang/**/Driver @intel-restricted/cmplrllvm-llvm-driver
 /clang/**/driver @intel-restricted/cmplrllvm-llvm-driver
 
+# COMPONENT: DPC++ RT
 # DPC++ runtime library
 sycl/ @intel-restricted/llvm-reviewers-runtime
-
-# ESIMD device library
-sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov @sndmitriev
 
 # Documentation
 sycl/doc/extensions/ @intel-restricted/llvm-reviewers-runtime
 # CUDA plugin
 sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-runtime
 
+# OpenCL deps
+opencl/ @intel-restricted/llvm-reviewers-runtime
+
+# Device library
+libdevice/ @intel-restricted/llvm-reviewers-runtime
+
+# COMPONENT: DPC++ ESIMD
+# ESIMD device library
+sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov @sndmitriev
+
+# COMPONENT: CG
 # JIRA: CMPLRLLVM->LLVM Code Generator
 /clang/include/clang/Basic/BuiltinsX86.def @phoebewang
 /clang/include/clang/Basic/BuiltinsX86_64.def @phoebewang
@@ -87,6 +100,7 @@ sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-runtime
 /llvm/lib/CodeGen/AsmPrinter/Intel_TraceBackDebug.cpp @KanRobert
 /llvm/lib/MC/Intel_MCTrace.cpp @KanRobert
 
+# COMPONENT: Architecture
 # Pass pipeline creation has multiple stakeholders
 /llvm/lib/Transforms/IPO/PassManagerBuilder.cpp @andykaylor @pankaj-chawla
 /llvm/lib/Passes/ @andykaylor @pankaj-chawla
@@ -94,6 +108,7 @@ sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-runtime
 /llvm/test/Transforms/PhaseOrdering/ @andykaylor @pankaj-chawla
 /clang/lib/CodeGen/BackendUtil.cpp @andykaylor @pankaj-chawla @LuoYuanke @phoebewang @williamweixiao
 
+# COMPONENT: DGI
 # JIRA: CMPLRLLVM->LLVM Debug Information
 /llvm/include/llvm/IR/Debug* @bwyma @stevemerr
 /llvm/include/llvm/IR/DIBuilder* @bwyma @stevemerr
@@ -112,6 +127,7 @@ sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-runtime
 /llvm/tools/llvm-pdbutil/ @bwyma @stevemerr
 /llvm/unittests/DebugInfo/ @bwyma @stevemerr
 
+# COMPONENT: IPO/PGO
 # JIRA: CMPLRLLVM->LLVM Interprocedural Optimization
 /llvm/docs/Intel/DTrans/ @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/CallGraph.h @robertcox-github @pvbattin
@@ -253,12 +269,6 @@ sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-runtime
 /llvm/tools/gold/gold-plugin.cpp @robertcox-github @pvbattin
 /llvm/unittests/Analysis/TargetLibraryInfoTest.cpp @robertcox-github @pvbattin
 
-# OpenCL deps
-opencl/ @intel-restricted/llvm-reviewers-runtime
-
-# Device library
-libdevice/ @intel-restricted/llvm-reviewers-runtime
-
 # JIRA: CMPLRLLVM->LLVM Profile Guided Optimization
 /compiler-rt/lib/profile/ @robertcox-github @pvbattin
 /compiler-rt/test/profile/ @robertcox-github @pvbattin
@@ -298,11 +308,13 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 /llvm/tools/llvm-cov/ @robertcox-github @pvbattin
 /llvm/tools/llvm-profdata/ @robertcox-github @pvbattin
 
+# COMPONENT: OpenCL CPU RT
 # JIRA: ???
 /llvm/include/llvm/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
 /llvm/lib/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
 /llvm/test/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
 
+# COMPONENT: Vectorizer
 # JIRA: CMPLRLLVM->LLVM VPO Vectorizer
 /llvm/docs/Intel/VPO/ @sguggill @skozhukh
 /llvm/include/llvm/IR/Intel_VectorVariant.h @mamasten @skozhukh
@@ -395,6 +407,7 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 /llvm/include/llvm/IR/Intel_VPlanTemplateHelper.h @aelovikov-intel @offsake
 /llvm/include/llvm/IR/Intel_VPlanTemplateHelper.inc @aelovikov-intel @offsake
 
+# COMPONENT: LoopOpt
 # JIRA: CMPLRLLVM->LLVM Loop Optimizer
 /llvm/include/llvm/Transforms/Intel_LoopTransforms/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @linayu118211 @fismail2
 /llvm/include/llvm/Analysis/Intel_LoopAnalysis/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @linayu118211 @fismail2
@@ -407,6 +420,7 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 /llvm/test/Transforms/Intel_LoopTransforms/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @linayu118211 @fismail2
 /llvm/test/Analysis/Intel_LoopAnalysis/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @linayu118211 @fismail2
 
+# COMPONENT: PAROPT
 # JIRA: CMPLRLLVM->LLVM PAROPT
 /llvm/include/llvm/Analysis/VPO/ @intel-restricted/cmplrllvm-llvm-paropt
 /llvm/include/llvm/Transforms/VPO/ @intel-restricted/cmplrllvm-llvm-paropt
@@ -424,6 +438,7 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 # JIRA: CMPLRLIBS->LLVM Offload RT
 /openmp/libomptarget/ @intel-restricted/cmplrlibs-llvm-offload-rt
 
+# COMPONENT: ScalarOpt
 # JIRA: CMPLRLLVM->LLVM Scalar Optimizer
 /llvm/lib/IR/ConstantFold.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/AliasAnalysisSummary.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
@@ -649,37 +664,6 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 /llvm/lib/Analysis/InstructionPrecedenceTracking.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/ConstraintSystem.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 
-# Code owners for optimization reports
-/llvm/docs/Intel/OptReport.rst @karthik-senthil @pankaj-chawla @dwoodwor-intel
-/llvm/include/llvm/Analysis/Intel_OptReport/ @karthik-senthil @pankaj-chawla @dwoodwor-intel
-/llvm/include/llvm/Transforms/Intel_LoopTransforms/HIROptReportEmitterPass.h @karthik-senthil @pankaj-chawla @dwoodwor-intel
-/llvm/include/llvm/Transforms/Scalar/Intel_OptReportEmitter.h @karthik-senthil @pankaj-chawla @dwoodwor-intel
-/llvm/lib/Analysis/Intel_OptReport/ @karthik-senthil @pankaj-chawla @dwoodwor-intel
-/llvm/lib/CodeGen/Intel_MachineOptReportEmitter.cpp @karthik-senthil @pankaj-chawla @dwoodwor-intel
-/llvm/lib/Transforms/Intel_LoopTransforms/HIROptReportEmitter.cpp @karthik-senthil @pankaj-chawla @dwoodwor-intel
-/llvm/lib/Transforms/Scalar/Intel_OptReportEmitter.cpp @karthik-senthil @pankaj-chawla @dwoodwor-intel
-/llvm/test/Analysis/Intel_OptReport/ @karthik-senthil @pankaj-chawla @dwoodwor-intel
-
-# Code owners for binary opt-report
-/llvm/include/llvm/Analysis/Intel_OptReport/OptReportSupport.h @andykaylor @karthik-senthil
-/llvm/include/llvm/Analysis/Intel_OptReport/opt_report_proto.proto @andykaylor @karthik-senthil
-/llvm/lib/Analysis/Intel_OptReport/OptReportSupport.cpp @andykaylor @karthik-senthil
-/llvm/test/Analysis/Intel_OptReport/Binary @andykaylor @karthik-senthil
-/llvm/test/tools/intel-bin-opt-report @andykaylor @karthik-senthil
-/llvm/tools/intel-bin-opt-report @andykaylor @karthik-senthil
-
-# Code owners for register allocation report
-/llvm/lib/CodeGen/Intel_RAReportEmitter.cpp @LuoYuanke @phoebewang @williamweixiao @dwoodwor-intel
-/llvm/test/Analysis/Intel_OptReport/RegisterAllocation @LuoYuanke @phoebewang @williamweixiao @dwoodwor-intel
-
-# JIRA: CMPLRLLVM->Cmake
-**/CMakeLists.txt* @intel-restricted/cmplrllvm-cmake
-**/cmake/ @intel-restricted/cmplrllvm-cmake
-
-# XPTI instrumentation utilities
-xpti/ @intel-restricted/llvm-reviewers-runtime
-xptifw/ @intel-restricted/llvm-reviewers-runtime
-
 # Scalar Optimizer Tests
 /llvm/test/Analysis/AliasSet/ @tcreech-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Analysis/BasicAA/ @tcreech-intel @dwoodwor-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
@@ -735,6 +719,38 @@ xptifw/ @intel-restricted/llvm-reviewers-runtime
 # Nontemporal store conversion pass
 /llvm/lib/Transforms/Scalar/Intel_NontemporalStore.cpp @jcranmer-intel @tcreech-intel @dwoodwor-intel
 /llvm/test/Transforms/Intel_NontemporalStore/ @jcranmer-intel @tcreech-intel @dwoodwor-intel
+
+# COMPONENT: Misc
+# Code owners for optimization reports
+/llvm/docs/Intel/OptReport.rst @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/include/llvm/Analysis/Intel_OptReport/ @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/include/llvm/Transforms/Intel_LoopTransforms/HIROptReportEmitterPass.h @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/include/llvm/Transforms/Scalar/Intel_OptReportEmitter.h @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/lib/Analysis/Intel_OptReport/ @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/lib/CodeGen/Intel_MachineOptReportEmitter.cpp @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/lib/Transforms/Intel_LoopTransforms/HIROptReportEmitter.cpp @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/lib/Transforms/Scalar/Intel_OptReportEmitter.cpp @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/test/Analysis/Intel_OptReport/ @karthik-senthil @pankaj-chawla @dwoodwor-intel
+
+# Code owners for binary opt-report
+/llvm/include/llvm/Analysis/Intel_OptReport/OptReportSupport.h @andykaylor @karthik-senthil
+/llvm/include/llvm/Analysis/Intel_OptReport/opt_report_proto.proto @andykaylor @karthik-senthil
+/llvm/lib/Analysis/Intel_OptReport/OptReportSupport.cpp @andykaylor @karthik-senthil
+/llvm/test/Analysis/Intel_OptReport/Binary @andykaylor @karthik-senthil
+/llvm/test/tools/intel-bin-opt-report @andykaylor @karthik-senthil
+/llvm/tools/intel-bin-opt-report @andykaylor @karthik-senthil
+
+# Code owners for register allocation report
+/llvm/lib/CodeGen/Intel_RAReportEmitter.cpp @LuoYuanke @phoebewang @williamweixiao @dwoodwor-intel
+/llvm/test/Analysis/Intel_OptReport/RegisterAllocation @LuoYuanke @phoebewang @williamweixiao @dwoodwor-intel
+
+# JIRA: CMPLRLLVM->Cmake
+**/CMakeLists.txt* @intel-restricted/cmplrllvm-cmake
+**/cmake/ @intel-restricted/cmplrllvm-cmake
+
+# XPTI instrumentation utilities
+xpti/ @intel-restricted/llvm-reviewers-runtime
+xptifw/ @intel-restricted/llvm-reviewers-runtime
 
 # JIRA: CMPLRLLVM->DPC++ Tools
 sycl-post-link/ @AlexeySachkov @mlychkov
