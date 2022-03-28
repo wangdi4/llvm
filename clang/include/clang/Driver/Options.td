@@ -2902,6 +2902,9 @@ def fopenmp_target_simd : Flag<["-"], "fopenmp-target-simd">, Flags<[NoXarchOpti
   MarshallingInfoFlag<LangOpts<"OpenMPTargetSimd">>;
 def fopenmp_target_fast_atomics : Flag<["-"], "fopenmp-target-fast-atomics">,
   Flags<[HelpHidden, NoArgumentUnused]>, Group<f_Group>;
+def fopenmp_target_declare_simd_spir : Flag<["-"], "fopenmp-target-declare-simd-spir">,
+  Flags<[CC1Option, HelpHidden, NoArgumentUnused]>, Group<f_Group>,
+  MarshallingInfoFlag<CodeGenOpts<"OpenMPDeclareSIMDSPIR">>;
 #endif // INTEL_CUSTOMIZATION
 def fopenmp_enable_irbuilder : Flag<["-"], "fopenmp-enable-irbuilder">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, HelpHidden]>,
   HelpText<"Use the experimental OpenMP-IR-Builder codegen path.">;
