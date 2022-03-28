@@ -842,31 +842,6 @@ void *DeviceTy::data_alloc_base(int64_t Size, void *HstPtrBegin,
   return ret;
 }
 
-int32_t DeviceTy::data_submit_nowait(void *TgtPtrBegin, void *HstPtrBegin,
-                                     int64_t Size, void *AsyncData) {
-  OMPT_TRACE(
-      targetDataSubmitBegin(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size));
-  int32_t ret = RTL->data_submit_nowait
-      ? RTL->data_submit_nowait(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size,
-                                AsyncData)
-      : OFFLOAD_FAIL;
-  OMPT_TRACE(targetDataSubmitEnd(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size));
-  return ret;
-}
-
-int32_t DeviceTy::data_retrieve_nowait(void *HstPtrBegin, void *TgtPtrBegin,
-                                       int64_t Size, void *AsyncData) {
-  OMPT_TRACE(
-      targetDataRetrieveBegin(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size));
-  int32_t ret = RTL->data_retrieve_nowait
-      ? RTL->data_retrieve_nowait(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size,
-                                  AsyncData)
-      : OFFLOAD_FAIL;
-  OMPT_TRACE(
-      targetDataRetrieveEnd(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size));
-  return ret;
-}
-
 int32_t DeviceTy::run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
                                      ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                      int32_t NumTeams, int32_t ThreadLimit,
@@ -876,49 +851,6 @@ int32_t DeviceTy::run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
       ? RTL->run_team_nd_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
                                 TgtOffsets, TgtVarsSize, NumTeams, ThreadLimit,
                                 TgtNDLoopDesc)
-      : OFFLOAD_FAIL;
-  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
-  return ret;
-}
-
-int32_t
-DeviceTy::run_team_nd_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
-                                    ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
-                                    int32_t NumTeams, int32_t ThreadLimit,
-                                    void *TgtNDLoopDesc, void *AsyncData) {
-  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
-  int32_t ret = RTL->run_team_nd_region_nowait
-      ? RTL->run_team_nd_region_nowait(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                       TgtOffsets, TgtVarsSize, NumTeams,
-                                       ThreadLimit, TgtNDLoopDesc, AsyncData)
-      : OFFLOAD_FAIL;
-  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
-  return ret;
-}
-
-int32_t DeviceTy::run_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
-                                    ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
-                                    void *AsyncData) {
-  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, 1));
-  int32_t ret = RTL->run_region_nowait
-      ? RTL->run_region_nowait(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
-                               TgtVarsSize, AsyncData)
-      : OFFLOAD_FAIL;
-  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, 1));
-  return ret;
-}
-
-int32_t DeviceTy::run_team_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
-                                         ptrdiff_t *TgtOffsets,
-                                         int32_t TgtVarsSize, int32_t NumTeams,
-                                         int32_t ThreadLimit,
-                                         uint64_t LoopTripCount,
-                                         void *AsyncData) {
-  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
-  int32_t ret = RTL->run_team_region_nowait
-      ? RTL->run_team_region_nowait(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                    TgtOffsets, TgtVarsSize, NumTeams,
-                                    ThreadLimit, LoopTripCount, AsyncData)
       : OFFLOAD_FAIL;
   OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
   return ret;

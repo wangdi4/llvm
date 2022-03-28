@@ -530,24 +530,6 @@ struct ExtensionsTy {
   int32_t getExtensionsInfoForDevice(int32_t DeviceId);
 };
 
-/// Handler and argument for an asynchronous event.
-/// Libomptarget is expected to provide this data.
-struct AsyncEventTy {
-  void (*handler)(void *); // Handler for the event
-  void *arg;               // Argument to the handler
-};
-
-/// Data type used within this plugin for OCL event.
-struct AsyncDataTy {
-  AsyncEventTy *Event; // Data from Libomptarget
-  // Add plugin data below
-  int32_t DeviceId; // OMP device ID
-  cl_mem MemToRelease; // Memory object to be released
-
-  AsyncDataTy(AsyncEventTy *event, int32_t deviceId) : Event(event),
-      DeviceId(deviceId), MemToRelease(nullptr) {}
-};
-
 /// Data transfer method
 enum DataTransferMethodTy {
   DATA_TRANSFER_METHOD_INVALID = -1,   // Invalid
@@ -2406,59 +2388,6 @@ EXTERN __tgt_target_table *__tgt_rtl_load_binary(
   return Table;
 }
 
-void event_callback_completed(cl_event event, cl_int status, void *data) {
-  if (status == CL_SUCCESS) {
-    if (!data) {
-      FATAL_ERROR("Invalid asynchronous offloading event");
-    }
-    AsyncDataTy *async_data = (AsyncDataTy *)data;
-    AsyncEventTy *async_event = async_data->Event;
-    if (!async_event || !async_event->handler || !async_event->arg) {
-      FATAL_ERROR("Invalid asynchronous offloading event");
-    }
-
-    cl_command_type cmd;
-    CALL_CL_EXIT_FAIL(clGetEventInfo, event, CL_EVENT_COMMAND_TYPE, sizeof(cmd),
-                      &cmd, nullptr);
-
-    // Release the temporary cl_mem object used in the data operation.
-    if (async_data->MemToRelease &&
-        (cmd == CL_COMMAND_READ_BUFFER || cmd == CL_COMMAND_WRITE_BUFFER)) {
-      CALL_CL_EXIT_FAIL(clReleaseMemObject, async_data->MemToRelease);
-    }
-
-    if (DeviceInfo->Option.Flags.EnableProfile) {
-      const char *event_name;
-      switch (cmd) {
-      case CL_COMMAND_NDRANGE_KERNEL:
-        event_name = "KernelAsync";
-        break;
-      case CL_COMMAND_SVM_MEMCPY:
-        event_name = "DataAsync";
-        break;
-      case CL_COMMAND_READ_BUFFER:
-        event_name = "DataReadAsync";
-        break;
-      case CL_COMMAND_WRITE_BUFFER:
-        event_name = "DataWriteAsync";
-        break;
-      default:
-        event_name = "OthersAsync";
-      }
-      DeviceInfo->getProfiles(async_data->DeviceId).update(event_name, event);
-    }
-
-    // Libomptarget is responsible for defining the handler and argument.
-    DP("Calling asynchronous offloading event handler " DPxMOD
-       " with argument " DPxMOD "\n", DPxPTR(async_event->handler),
-       DPxPTR(async_event->arg));
-    async_event->handler(async_event->arg);
-    delete async_data;
-  } else {
-    FATAL_ERROR("Failed to complete asynchronous offloading");
-  }
-}
-
 // Notify the kernel about target pointers that are not explicitly
 // passed as arguments, but which are pointing to mapped objects
 // that may potentially be accessed in the kernel code (e.g. PTR_AND_OBJ
@@ -2808,10 +2737,8 @@ EXTERN void *__tgt_rtl_data_aligned_alloc(
   return dataAllocExplicit(DeviceId, Size, AllocKind, Align);
 }
 
-EXTERN
-int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
-                                     void *hst_ptr, int64_t size,
-                                     void *async_event) {
+static int32_t submitData(int32_t device_id, void *tgt_ptr, void *hst_ptr,
+                          int64_t size) {
   if (size == 0)
     // All other plugins seem to be handling 0 size gracefully,
     // so we should do as well.
@@ -2824,25 +2751,15 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
 
   const char *ProfileKey = "DataWrite (Host to Device)";
 
-  AsyncDataTy *async_data = nullptr;
-  if (async_event && ((AsyncEventTy *)async_event)->handler) {
-    async_data = new AsyncDataTy((AsyncEventTy *)async_event, device_id);
-  }
-
   if (DeviceInfo->Option.Flags.UseBuffer) {
     std::unique_lock<std::mutex> lock(DeviceInfo->Mutexes[device_id]);
     if (DeviceInfo->ClMemBuffers[device_id].count(tgt_ptr) > 0) {
       cl_event event;
       CALL_CL_RET_FAIL(clEnqueueWriteBuffer, queue, (cl_mem)tgt_ptr, CL_FALSE,
                        0, size, hst_ptr, 0, nullptr, &event);
-      if (async_data) {
-        CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
-                         &event_callback_completed, async_data);
-      } else {
-        CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
-        if (DeviceInfo->Option.Flags.EnableProfile)
-          DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
-      }
+      CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+      if (DeviceInfo->Option.Flags.EnableProfile)
+        DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
 
       return OFFLOAD_SUCCESS;
     }
@@ -2859,52 +2776,33 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
     cl_event event;
     CALL_CL_EXT_RET_FAIL(device_id, clEnqueueMemcpyINTEL, queue, CL_FALSE,
                          tgt_ptr, hst_ptr, size, 0, nullptr, &event);
-    if (async_data) {
-      CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
-                       &event_callback_completed, async_data);
-    } else {
-      CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
-      if (DeviceInfo->Option.Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
-    }
+    CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+    if (DeviceInfo->Option.Flags.EnableProfile)
+      DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
+
     return OFFLOAD_SUCCESS;
   }
 
   switch (DeviceInfo->Option.DataTransferMethod) {
   case DATA_TRANSFER_METHOD_SVMMAP: {
     cl_event event;
-    if (async_data) {
-      // Use SVMMemcpy for asynchronous transfer
-      CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_FALSE, tgt_ptr, hst_ptr,
-                       size, 0, nullptr, &event);
-      CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
-                       &event_callback_completed, async_data);
-    } else {
-      ProfileIntervalTy SubmitTime(ProfileKey, device_id);
-      SubmitTime.start();
+    ProfileIntervalTy SubmitTime(ProfileKey, device_id);
+    SubmitTime.start();
 
-      CALL_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_WRITE, tgt_ptr,
-                       size, 0, nullptr, nullptr);
-      memcpy(tgt_ptr, hst_ptr, size);
-      CALL_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, &event);
-      CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+    CALL_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_WRITE, tgt_ptr,
+                     size, 0, nullptr, nullptr);
+    memcpy(tgt_ptr, hst_ptr, size);
+    CALL_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, &event);
+    CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
 
-      SubmitTime.stop();
-    }
+    SubmitTime.stop();
   } break;
   case DATA_TRANSFER_METHOD_SVMMEMCPY: {
     cl_event event;
-    if (async_data) {
-      CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_FALSE, tgt_ptr, hst_ptr,
-                       size, 0, nullptr, &event);
-      CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
-                       &event_callback_completed, async_data);
-    } else {
-      CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, tgt_ptr, hst_ptr,
-                       size, 0, nullptr, &event);
-      if (DeviceInfo->Option.Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
-    }
+    CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, tgt_ptr, hst_ptr,
+                     size, 0, nullptr, &event);
+    if (DeviceInfo->Option.Flags.EnableProfile)
+      DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
   } break;
   case DATA_TRANSFER_METHOD_CLMEM:
   default: {
@@ -2918,20 +2816,12 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
          DPxPTR(tgt_ptr));
       return OFFLOAD_FAIL;
     }
-    if (async_data) {
-      async_data->MemToRelease = mem;
-      CALL_CL_RET_FAIL(clEnqueueWriteBuffer, queue, mem, CL_FALSE, 0, size,
-                       hst_ptr, 0, nullptr, &event);
-      CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
-                       &event_callback_completed, async_data);
-    } else {
-      CALL_CL_RET_FAIL(clEnqueueWriteBuffer, queue, mem, CL_FALSE, 0, size,
-                       hst_ptr, 0, nullptr, &event);
-      CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
-      CALL_CL_RET_FAIL(clReleaseMemObject, mem);
-      if (DeviceInfo->Option.Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
-    }
+    CALL_CL_RET_FAIL(clEnqueueWriteBuffer, queue, mem, CL_FALSE, 0, size,
+                     hst_ptr, 0, nullptr, &event);
+    CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+    CALL_CL_RET_FAIL(clReleaseMemObject, mem);
+    if (DeviceInfo->Option.Flags.EnableProfile)
+      DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
   }
   }
   return OFFLOAD_SUCCESS;
@@ -2940,22 +2830,18 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
 EXTERN
 int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
                               int64_t size) {
-  return __tgt_rtl_data_submit_nowait(device_id, tgt_ptr, hst_ptr, size,
-                                      nullptr);
+  return submitData(device_id, tgt_ptr, hst_ptr, size);
 }
 
 EXTERN
 int32_t __tgt_rtl_data_submit_async(int32_t device_id, void *tgt_ptr, void *hst_ptr,
                               int64_t size,
                               __tgt_async_info *AsyncInfoPtr /*not used*/) {
-  return __tgt_rtl_data_submit_nowait(device_id, tgt_ptr, hst_ptr, size,
-                                      nullptr);
+  return submitData(device_id, tgt_ptr, hst_ptr, size);
 }
 
-EXTERN
-int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
-                                       void *tgt_ptr, int64_t size,
-                                       void *async_event) {
+static int32_t retrieveData(int32_t device_id, void *hst_ptr, void *tgt_ptr,
+                            int64_t size) {
   if (size == 0)
     // All other plugins seem to be handling 0 size gracefully,
     // so we should do as well.
@@ -2968,25 +2854,15 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
 
   const char *ProfileKey = "DataRead (Device to Host)";
 
-  AsyncDataTy *async_data = nullptr;
-  if (async_event && ((AsyncEventTy *)async_event)->handler) {
-    async_data = new AsyncDataTy((AsyncEventTy *)async_event, device_id);
-  }
-
   if (DeviceInfo->Option.Flags.UseBuffer) {
     std::unique_lock<std::mutex> lock(DeviceInfo->Mutexes[device_id]);
     if (DeviceInfo->ClMemBuffers[device_id].count(tgt_ptr) > 0) {
       cl_event event;
       CALL_CL_RET_FAIL(clEnqueueReadBuffer, queue, (cl_mem)tgt_ptr, CL_FALSE,
                        0, size, hst_ptr, 0, nullptr, &event);
-      if (async_data) {
-        CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
-                         &event_callback_completed, async_data);
-      } else {
-        CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
-        if (DeviceInfo->Option.Flags.EnableProfile)
-          DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
-      }
+      CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+      if (DeviceInfo->Option.Flags.EnableProfile)
+        DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
 
       return OFFLOAD_SUCCESS;
     }
@@ -3003,52 +2879,33 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
     cl_event event;
     CALL_CL_EXT_RET_FAIL(device_id, clEnqueueMemcpyINTEL, queue, CL_FALSE,
                          hst_ptr, tgt_ptr, size, 0, nullptr, &event);
-    if (async_data) {
-      CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
-                       &event_callback_completed, async_data);
-    } else {
-      CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
-      if (DeviceInfo->Option.Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
-    }
+    CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+    if (DeviceInfo->Option.Flags.EnableProfile)
+      DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
+
     return OFFLOAD_SUCCESS;
   }
 
   switch (DeviceInfo->Option.DataTransferMethod) {
   case DATA_TRANSFER_METHOD_SVMMAP: {
     cl_event event;
-    if (async_data) {
-      // Use SVMMemcpy for asynchronous transfer
-      CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_FALSE, hst_ptr, tgt_ptr,
-                       size, 0, nullptr, &event);
-      CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
-                       &event_callback_completed, async_data);
-    } else {
-      ProfileIntervalTy RetrieveTime(ProfileKey, device_id);
-      RetrieveTime.start();
+    ProfileIntervalTy RetrieveTime(ProfileKey, device_id);
+    RetrieveTime.start();
 
-      CALL_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_READ, tgt_ptr,
-                       size, 0, nullptr, nullptr);
-      memcpy(hst_ptr, tgt_ptr, size);
-      CALL_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, &event);
-      CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+    CALL_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_READ, tgt_ptr,
+                     size, 0, nullptr, nullptr);
+    memcpy(hst_ptr, tgt_ptr, size);
+    CALL_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, &event);
+    CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
 
-      RetrieveTime.stop();
-    }
+    RetrieveTime.stop();
   } break;
   case DATA_TRANSFER_METHOD_SVMMEMCPY: {
     cl_event event;
-    if (async_data) {
-      CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_FALSE, hst_ptr, tgt_ptr,
-                       size, 0, nullptr, &event);
-      CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
-                       &event_callback_completed, async_data);
-    } else {
-      CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, hst_ptr, tgt_ptr,
-                       size, 0, nullptr, &event);
-      if (DeviceInfo->Option.Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
-    }
+    CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, hst_ptr, tgt_ptr,
+                     size, 0, nullptr, &event);
+    if (DeviceInfo->Option.Flags.EnableProfile)
+      DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
   } break;
   case DATA_TRANSFER_METHOD_CLMEM:
   default: {
@@ -3062,20 +2919,12 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
          DPxPTR(tgt_ptr));
       return OFFLOAD_FAIL;
     }
-    if (async_data) {
-      CALL_CL_RET_FAIL(clEnqueueReadBuffer, queue, mem, CL_FALSE, 0, size,
-                       hst_ptr, 0, nullptr, &event);
-      async_data->MemToRelease = mem;
-      CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
-                       &event_callback_completed, async_data);
-    } else {
-      CALL_CL_RET_FAIL(clEnqueueReadBuffer, queue, mem, CL_FALSE, 0, size,
-                       hst_ptr, 0, nullptr, &event);
-      CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
-      CALL_CL_RET_FAIL(clReleaseMemObject, mem);
-      if (DeviceInfo->Option.Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
-    }
+    CALL_CL_RET_FAIL(clEnqueueReadBuffer, queue, mem, CL_FALSE, 0, size,
+                     hst_ptr, 0, nullptr, &event);
+    CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+    CALL_CL_RET_FAIL(clReleaseMemObject, mem);
+    if (DeviceInfo->Option.Flags.EnableProfile)
+      DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
   }
   }
   return OFFLOAD_SUCCESS;
@@ -3084,8 +2933,7 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
 EXTERN
 int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
                                 int64_t size) {
-  return __tgt_rtl_data_retrieve_nowait(device_id, hst_ptr, tgt_ptr, size,
-                                        nullptr);
+  return retrieveData(device_id, hst_ptr, tgt_ptr, size);
 }
 
 EXTERN
@@ -3093,8 +2941,7 @@ int32_t
 __tgt_rtl_data_retrieve_async(int32_t device_id, void *hst_ptr, void *tgt_ptr,
                               int64_t size,
                               __tgt_async_info *AsyncInfoPtr /*not used*/) {
-  return __tgt_rtl_data_retrieve_nowait(device_id, hst_ptr, tgt_ptr, size,
-                                        nullptr);
+  return retrieveData(device_id, hst_ptr, tgt_ptr, size);
 }
 
 EXTERN int32_t __tgt_rtl_is_data_exchangable(int32_t SrcId, int32_t DstId) {
@@ -3593,7 +3440,7 @@ static void decideKernelGroupArguments(
 static inline int32_t runTargetTeamNDRegion(
     int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs,
     ptrdiff_t *TgtOffsets, int32_t NumArgs, int32_t NumTeams,
-    int32_t ThreadLimit, void *LoopDesc, void *AsyncEvent) {
+    int32_t ThreadLimit, void *LoopDesc) {
 
   cl_kernel Kernel = *static_cast<cl_kernel *>(TgtEntryPtr);
   if (!Kernel) {
@@ -3803,36 +3650,23 @@ static inline int32_t runTargetTeamNDRegion(
 
   DP("Started executing kernel.\n");
 
-  if (AsyncEvent) {
-    if (((AsyncEventTy *)AsyncEvent)->handler) {
-      // Add event handler if necessary.
-      CALL_CL_RET_FAIL(clSetEventCallback, Event, CL_COMPLETE,
-          &event_callback_completed,
-          new AsyncDataTy((AsyncEventTy *)AsyncEvent, DeviceId));
-    } else {
-      // Make sure all queued commands finish before the next one starts.
-      CALL_CL_RET_FAIL(clEnqueueBarrierWithWaitList,
-                       DeviceInfo->Queues[DeviceId], 0, nullptr, nullptr);
+  CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
+  OCL_KERNEL_END(DeviceId);
+  if (DeviceInfo->Option.Flags.EnableProfile) {
+    std::vector<char> Buf;
+    size_t BufSize;
+    CALL_CL_RET_FAIL(clGetKernelInfo, Kernel, CL_KERNEL_FUNCTION_NAME, 0,
+                     nullptr, &BufSize);
+    std::string KernelName("Kernel ");
+    if (BufSize > 0) {
+      Buf.resize(BufSize);
+      CALL_CL_RET_FAIL(clGetKernelInfo, Kernel, CL_KERNEL_FUNCTION_NAME,
+                       Buf.size(), Buf.data(), nullptr);
+      KernelName += Buf.data();
     }
-  } else {
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
-    OCL_KERNEL_END(DeviceId);
-    if (DeviceInfo->Option.Flags.EnableProfile) {
-      std::vector<char> Buf;
-      size_t BufSize;
-      CALL_CL_RET_FAIL(clGetKernelInfo, Kernel, CL_KERNEL_FUNCTION_NAME, 0,
-                       nullptr, &BufSize);
-      std::string KernelName("Kernel ");
-      if (BufSize > 0) {
-        Buf.resize(BufSize);
-        CALL_CL_RET_FAIL(clGetKernelInfo, Kernel, CL_KERNEL_FUNCTION_NAME,
-                         Buf.size(), Buf.data(), nullptr);
-        KernelName += Buf.data();
-      }
-      DeviceInfo->getProfiles(DeviceId).update(KernelName.c_str(), Event);
-    }
-    DP("Successfully finished kernel execution.\n");
+    DeviceInfo->getProfiles(DeviceId).update(KernelName.c_str(), Event);
   }
+  DP("Successfully finished kernel execution.\n");
 
   return OFFLOAD_SUCCESS;
 }
@@ -3841,33 +3675,7 @@ EXTERN int32_t __tgt_rtl_run_target_team_nd_region(
     int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
     int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc) {
   return runTargetTeamNDRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
-                               NumArgs, NumTeams, ThreadLimit, LoopDesc,
-                               nullptr);
-}
-
-EXTERN int32_t __tgt_rtl_run_target_team_nd_region_nowait(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
-    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc,
-    void *AsyncEvent) {
-  return runTargetTeamNDRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
-                               NumArgs, NumTeams, ThreadLimit, LoopDesc,
-                               AsyncEvent);
-}
-
-EXTERN int32_t __tgt_rtl_run_target_team_region_nowait(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
-    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit,
-    uint64_t LoopTripCount, void *AsyncEvent) {
-  return runTargetTeamNDRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
-                               NumArgs, NumTeams, ThreadLimit, nullptr,
-                               AsyncEvent);
-}
-
-EXTERN int32_t __tgt_rtl_run_target_region_nowait(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
-    int32_t NumArgs, void *AsyncEvent) {
-  return runTargetTeamNDRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
-                               NumArgs, 1, 0, nullptr, AsyncEvent);
+                               NumArgs, NumTeams, ThreadLimit, LoopDesc);
 }
 
 EXTERN int32_t __tgt_rtl_run_target_team_region(
@@ -3875,8 +3683,7 @@ EXTERN int32_t __tgt_rtl_run_target_team_region(
     int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit,
     uint64_t LoopTripCount /*not used*/) {
   return runTargetTeamNDRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
-                               NumArgs, NumTeams, ThreadLimit, nullptr,
-                               nullptr);
+                               NumArgs, NumTeams, ThreadLimit, nullptr);
 }
 
 EXTERN int32_t __tgt_rtl_run_target_team_region_async(
@@ -3885,8 +3692,7 @@ EXTERN int32_t __tgt_rtl_run_target_team_region_async(
     uint64_t LoopTripCount /*not used*/,
     __tgt_async_info *AsyncInfoPtr /*not used*/) {
   return runTargetTeamNDRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
-                               NumArgs, NumTeams, ThreadLimit, nullptr,
-                               nullptr);
+                               NumArgs, NumTeams, ThreadLimit, nullptr);
 }
 
 EXTERN int32_t __tgt_rtl_run_target_region(

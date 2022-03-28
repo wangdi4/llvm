@@ -1344,18 +1344,6 @@ static ze_context_handle_t createContext(ze_driver_handle_t Driver) {
   return context;
 }
 
-/// Create a fence
-static ze_fence_handle_t createFence(ze_command_queue_handle_t cmdQueue) {
-  ze_fence_desc_t fenceDesc = {
-    ZE_STRUCTURE_TYPE_FENCE_DESC,
-    nullptr, // extension
-    0 // flags
-  };
-  ze_fence_handle_t fence;
-  CALL_ZE_RET(0, zeFenceCreate, cmdQueue, &fenceDesc, &fence);
-  return fence;
-}
-
 /// RTL flags
 struct RTLFlagsTy {
   uint64_t DumpTargetImage : 1;
@@ -2563,12 +2551,6 @@ public:
 
   /// Initialize immediate command lists
   void initImmCmdList(int32_t DeviceId);
-};
-
-/// Libomptarget-defined handler and argument.
-struct AsyncEventTy {
-  void (*Handler)(void *);
-  void *Arg;
 };
 
 /// Loop descriptor
@@ -4225,59 +4207,8 @@ EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(int32_t DeviceId, void *Ptr) {
   return ret;
 }
 
-// Tasks to be done when completing an asynchronous command.
-static void endAsyncCommand(AsyncEventTy *Event,
-                            ze_command_list_handle_t CmdList,
-                            ze_fence_handle_t Fence) {
-  if (!Event || !Event->Handler || !Event->Arg) {
-    FATAL_ERROR("Invalid asynchronous offloading event");
-  }
-
-  DP("Calling asynchronous offloading event handler " DPxMOD " with argument "
-     DPxMOD "\n", DPxPTR(Event->Handler), DPxPTR(Event->Arg));
-
-  Event->Handler(Event->Arg);
-
-  // Clean up internal data
-  CALL_ZE_EXIT_FAIL(zeFenceDestroy, Fence);
-  CALL_ZE_EXIT_FAIL(zeCommandListDestroy, CmdList);
-}
-
-// Template for Asynchronous command execution.
-// We use a dedicated command list and a fence to invoke an asynchronous task.
-// A separate detached thread submits commands to the queue, waits until the
-// attached fence is signaled, and then invokes the clean-up routine.
-// Two threads **cannot** call this function simultaneously.
-static int32_t beginAsyncCommand(ze_command_list_handle_t CmdList,
-                                 ze_command_queue_handle_t CmdQueue,
-                                 AsyncEventTy *Event, ze_fence_handle_t Fence) {
-  if (!Event || !Event->Handler || !Event->Arg) {
-    DP("Error: Failed to start asynchronous command -- invalid argument\n");
-    return OFFLOAD_FAIL;
-  }
-
-  CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
-
-  // Spawn waiting thread
-  std::thread waiter([](AsyncEventTy *event, ze_command_list_handle_t cmdList,
-                        ze_fence_handle_t fence) {
-    // Wait until the fence is signaled.
-    CALL_ZE_EXIT_FAIL(zeFenceHostSynchronize, fence, UINT64_MAX);
-    // Invoke clean-up routine
-    endAsyncCommand(event, cmdList, fence);
-  }, Event, CmdList, Fence);
-
-  waiter.detach();
-
-  // Fence to be signaled on command-list completion.
-  CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
-                   Fence);
-
-  return OFFLOAD_SUCCESS;
-}
-
 static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
-                          int64_t Size, void *AsyncEvent) {
+                          int64_t Size) {
   if (Size == 0)
     return OFFLOAD_SUCCESS;
 
@@ -4294,73 +4225,42 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
-  if (AsyncEvent) {
-    auto context = DeviceInfo->Context;
-    auto cmdList = createCmdList(context, DeviceInfo->Devices[DeviceId],
-                                 DeviceInfo->CmdQueueGroupOrdinals[DeviceId],
-                                 DeviceInfo->DeviceIdStr[DeviceId]);
-    auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
-    if (!cmdList) {
-      DP("Error: Asynchronous data submit failed -- invalid command list\n");
-      return OFFLOAD_FAIL;
-    }
-    auto fence = createFence(cmdQueue);
-    if (!fence) {
-      DP("Error: Asynchronous data submit failed -- invalid fence\n");
-      return OFFLOAD_FAIL;
-    }
-    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, TgtPtr, HstPtr,
-                     Size, nullptr, 0, nullptr);
-    if (beginAsyncCommand(cmdList, cmdQueue,
-        static_cast<AsyncEventTy *>(AsyncEvent), fence) == OFFLOAD_FAIL)
-      return OFFLOAD_FAIL;
-    DP("Asynchronous data submit started -- %" PRId64 " bytes (hst:"
-       DPxMOD ") -> (tgt:" DPxMOD ")\n", Size, DPxPTR(HstPtr), DPxPTR(TgtPtr));
-  } else {
-    auto DiscreteDevice = DeviceInfo->isDiscreteDevice(DeviceId);
-    auto TgtPtrType = DeviceInfo->getMemAllocType(TgtPtr);
-    if (DiscreteDevice || TgtPtrType == ZE_MEMORY_TYPE_DEVICE) {
-      void *SrcPtr = HstPtr;
-      if (DiscreteDevice &&
-          static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize) {
-        SrcPtr = DeviceInfo->getStagingBuffer().get();
-        std::copy_n(
-            static_cast<char *>(HstPtr), Size, static_cast<char *>(SrcPtr));
-      }
-      if (DeviceInfo->enqueueMemCopy(DeviceId, TgtPtr, SrcPtr, Size) !=
-          OFFLOAD_SUCCESS)
-        return OFFLOAD_FAIL;
-    } else {
+  auto DiscreteDevice = DeviceInfo->isDiscreteDevice(DeviceId);
+  auto TgtPtrType = DeviceInfo->getMemAllocType(TgtPtr);
+  if (DiscreteDevice || TgtPtrType == ZE_MEMORY_TYPE_DEVICE) {
+    void *SrcPtr = HstPtr;
+    if (DiscreteDevice &&
+        static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize) {
+      SrcPtr = DeviceInfo->getStagingBuffer().get();
       std::copy_n(
-          static_cast<char *>(HstPtr), Size, static_cast<char *>(TgtPtr));
+          static_cast<char *>(HstPtr), Size, static_cast<char *>(SrcPtr));
     }
-    DP("Copied %" PRId64 " bytes (hst:" DPxMOD ") -> (tgt:" DPxMOD ")\n", Size,
-       DPxPTR(HstPtr), DPxPTR(TgtPtr));
+    if (DeviceInfo->enqueueMemCopy(DeviceId, TgtPtr, SrcPtr, Size) !=
+        OFFLOAD_SUCCESS)
+      return OFFLOAD_FAIL;
+  } else {
+    std::copy_n(
+        static_cast<char *>(HstPtr), Size, static_cast<char *>(TgtPtr));
   }
+  DP("Copied %" PRId64 " bytes (hst:" DPxMOD ") -> (tgt:" DPxMOD ")\n", Size,
+     DPxPTR(HstPtr), DPxPTR(TgtPtr));
 
   return OFFLOAD_SUCCESS;
 }
 
 EXTERN int32_t __tgt_rtl_data_submit(
     int32_t DeviceId, void *TgtPtr, void *HstPtr, int64_t Size) {
-  return submitData(DeviceId, TgtPtr, HstPtr, Size, nullptr);
+  return submitData(DeviceId, TgtPtr, HstPtr, Size);
 }
 
 EXTERN int32_t __tgt_rtl_data_submit_async(
     int32_t DeviceId, void *TgtPtr, void *HstPtr, int64_t Size,
     __tgt_async_info *AsyncInfoPtr /*not used*/) {
-  return submitData(DeviceId, TgtPtr, HstPtr, Size, nullptr);
+  return submitData(DeviceId, TgtPtr, HstPtr, Size);
 }
 
-EXTERN int32_t __tgt_rtl_data_submit_nowait(
-    int32_t DeviceId, void *TgtPtr, void *HstPtr, int64_t Size,
-    void *AsyncEvent) {
-  return submitData(DeviceId, TgtPtr, HstPtr, Size, AsyncEvent);
-}
-
-static int32_t retrieveData(
-    int32_t DeviceId, void *HstPtr, void *TgtPtr, int64_t Size,
-    void *AsyncEvent) {
+static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
+                            int64_t Size) {
   if (Size == 0)
     return OFFLOAD_SUCCESS;
 
@@ -4377,69 +4277,39 @@ static int32_t retrieveData(
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
-  if (AsyncEvent) {
-    auto context = DeviceInfo->Context;
-    auto cmdList = createCmdList(context, DeviceInfo->Devices[DeviceId],
-                                 DeviceInfo->CmdQueueGroupOrdinals[DeviceId],
-                                 DeviceInfo->DeviceIdStr[DeviceId]);
-    auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
-    if (!cmdList) {
-      DP("Error: Asynchronous data retrieve failed -- invalid command list\n");
-      return OFFLOAD_FAIL;
+  auto DiscreteDevice = DeviceInfo->isDiscreteDevice(DeviceId);
+  auto TgtPtrType = DeviceInfo->getMemAllocType(TgtPtr);
+  if (DiscreteDevice || TgtPtrType == ZE_MEMORY_TYPE_DEVICE) {
+    void *DstPtr = HstPtr;
+    if (DiscreteDevice &&
+        static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize) {
+      DstPtr = DeviceInfo->getStagingBuffer().get();
     }
-    auto fence = createFence(cmdQueue);
-    if (!fence) {
-      DP("Error: Asynchronous data retrieve failed -- invalid fence\n");
+    if (OFFLOAD_SUCCESS !=
+        DeviceInfo->enqueueMemCopy(DeviceId, DstPtr, TgtPtr, Size))
       return OFFLOAD_FAIL;
-    }
-    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, HstPtr, TgtPtr,
-                     Size, nullptr, 0, nullptr);
-    if (beginAsyncCommand(cmdList, cmdQueue,
-        static_cast<AsyncEventTy *>(AsyncEvent), fence) == OFFLOAD_FAIL)
-      return OFFLOAD_FAIL;
-    DP("Asynchronous data retrieve started -- %" PRId64 " bytes (tgt:"
-       DPxMOD ") -> (hst:" DPxMOD ")\n", Size, DPxPTR(TgtPtr), DPxPTR(HstPtr));
-  } else {
-    auto DiscreteDevice = DeviceInfo->isDiscreteDevice(DeviceId);
-    auto TgtPtrType = DeviceInfo->getMemAllocType(TgtPtr);
-    if (DiscreteDevice || TgtPtrType == ZE_MEMORY_TYPE_DEVICE) {
-      void *DstPtr = HstPtr;
-      if (DiscreteDevice &&
-          static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize) {
-        DstPtr = DeviceInfo->getStagingBuffer().get();
-      }
-      if (OFFLOAD_SUCCESS !=
-          DeviceInfo->enqueueMemCopy(DeviceId, DstPtr, TgtPtr, Size))
-        return OFFLOAD_FAIL;
-      if (DstPtr != HstPtr)
-        std::copy_n(
-            static_cast<char *>(DstPtr), Size, static_cast<char *>(HstPtr));
-    } else {
+    if (DstPtr != HstPtr)
       std::copy_n(
-          static_cast<char *>(TgtPtr), Size, static_cast<char *>(HstPtr));
-    }
-    DP("Copied %" PRId64 " bytes (tgt:" DPxMOD ") -> (hst:" DPxMOD ")\n", Size,
-       DPxPTR(TgtPtr), DPxPTR(HstPtr));
+          static_cast<char *>(DstPtr), Size, static_cast<char *>(HstPtr));
+  } else {
+    std::copy_n(
+        static_cast<char *>(TgtPtr), Size, static_cast<char *>(HstPtr));
   }
+  DP("Copied %" PRId64 " bytes (tgt:" DPxMOD ") -> (hst:" DPxMOD ")\n", Size,
+     DPxPTR(TgtPtr), DPxPTR(HstPtr));
 
   return OFFLOAD_SUCCESS;
 }
 
 EXTERN int32_t __tgt_rtl_data_retrieve(
     int32_t DeviceId, void *HstPtr, void *TgtPtr, int64_t Size) {
-  return retrieveData(DeviceId, HstPtr, TgtPtr, Size, nullptr);
+  return retrieveData(DeviceId, HstPtr, TgtPtr, Size);
 }
 
 EXTERN int32_t __tgt_rtl_data_retrieve_async(
     int32_t DeviceId, void *HstPtr, void *TgtPtr, int64_t Size,
     __tgt_async_info *AsyncInfoPtr /*not used*/) {
-  return retrieveData(DeviceId, HstPtr, TgtPtr, Size, nullptr);
-}
-
-EXTERN int32_t __tgt_rtl_data_retrieve_nowait(
-    int32_t DeviceId, void *HstPtr, void *TgtPtr, int64_t Size,
-    void *AsyncEvent) {
-  return retrieveData(DeviceId, HstPtr, TgtPtr, Size, AsyncEvent);
+  return retrieveData(DeviceId, HstPtr, TgtPtr, Size);
 }
 
 EXTERN int32_t __tgt_rtl_is_data_exchangable(int32_t SrcId, int32_t DstId) {
@@ -4917,8 +4787,7 @@ static void forceGroupSizes(
 
 static int32_t runTargetTeamRegion(
     int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
-    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc,
-    void *AsyncEvent) {
+    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc) {
   assert(TgtEntryPtr && "Invalid kernel");
   assert((NumTeams >= 0 && ThreadLimit >= 0) && "Invalid kernel work size");
   DP("Executing a kernel " DPxMOD "...\n", DPxPTR(TgtEntryPtr));
@@ -5032,29 +4901,7 @@ static int32_t runTargetTeamRegion(
       CmdQueue = DeviceInfo->getCmdQueue(SubId);
   }
 
-  if (AsyncEvent) {
-    // TODO: deprecate this since we are not going to use this code
-    CmdList = createCmdList(DeviceInfo->Context, DeviceInfo->Devices[DeviceId],
-                            DeviceInfo->CmdQueueGroupOrdinals[DeviceId],
-                            DeviceInfo->DeviceIdStr[DeviceId]);
-    if (!CmdList) {
-      DP("Error: Asynchronous execution failed -- invalid command list\n");
-      return OFFLOAD_FAIL;
-    }
-    CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, CmdList, Kernel,
-                     &GroupCounts, nullptr, 0, nullptr);
-    KernelLock.unlock();
-    auto Fence = createFence(CmdQueue);
-    if (!Fence) {
-      DP("Error: Asynchronous execution failed -- invalid fence\n");
-      return OFFLOAD_FAIL;
-    }
-    if (beginAsyncCommand(CmdList, CmdQueue,
-        static_cast<AsyncEventTy *>(AsyncEvent), Fence) == OFFLOAD_FAIL)
-      return OFFLOAD_FAIL;
-    DP("Asynchronous execution started for kernel " DPxMOD "\n",
-       DPxPTR(TgtEntryPtr));
-  } else if (DeviceInfo->BatchCmdQueues[RootId].MaxCommands > 0 && OnRoot) {
+  if (DeviceInfo->BatchCmdQueues[RootId].MaxCommands > 0 && OnRoot) {
     // Enable only for OpenMP device ID
     auto &BatchQueue = DeviceInfo->BatchCmdQueues[RootId];
     BatchQueue.enqueueKernel(Kernel, GroupCounts);
@@ -5101,16 +4948,7 @@ EXTERN int32_t __tgt_rtl_run_target_team_nd_region(
     int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
     int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc) {
   return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
-                             NumArgs, NumTeams, ThreadLimit, LoopDesc, nullptr);
-}
-
-EXTERN int32_t __tgt_rtl_run_target_team_nd_region_nowait(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
-    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc,
-    void *AsyncEvent) {
-  return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
-                             NumArgs, NumTeams, ThreadLimit, LoopDesc,
-                             AsyncEvent);
+                             NumArgs, NumTeams, ThreadLimit, LoopDesc);
 }
 
 EXTERN int32_t __tgt_rtl_run_target_team_region(
@@ -5118,7 +4956,7 @@ EXTERN int32_t __tgt_rtl_run_target_team_region(
     int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit,
     uint64_t LoopTripCount) {
   return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
-                             NumArgs, NumTeams, ThreadLimit, nullptr, nullptr);
+                             NumArgs, NumTeams, ThreadLimit, nullptr);
 }
 
 EXTERN int32_t __tgt_rtl_run_target_team_region_async(
@@ -5126,37 +4964,21 @@ EXTERN int32_t __tgt_rtl_run_target_team_region_async(
     int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit,
     uint64_t LoopTripCount, __tgt_async_info *AsyncInfoPtr /*not used*/) {
   return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
-                             NumArgs, NumTeams, ThreadLimit, nullptr, nullptr);
-}
-
-EXTERN int32_t __tgt_rtl_run_target_team_region_nowait(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
-    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit,
-    uint64_t LoopTripCount, void *AsyncEvent) {
-  return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
-                             NumArgs, NumTeams, ThreadLimit, nullptr,
-                             AsyncEvent);
+                             NumArgs, NumTeams, ThreadLimit, nullptr);
 }
 
 EXTERN int32_t __tgt_rtl_run_target_region(
     int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
     int32_t NumArgs) {
   return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
-                             NumArgs, 1, 0, nullptr, nullptr);
+                             NumArgs, 1, 0, nullptr);
 }
 
 EXTERN int32_t __tgt_rtl_run_target_region_async(
     int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
     int32_t NumArgs, __tgt_async_info *AsyncInfoPtr /*not used*/) {
   return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
-                             NumArgs, 1, 0, nullptr, nullptr);
-}
-
-EXTERN int32_t __tgt_rtl_run_target_region_nowait(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
-    int32_t NumArgs, void *AsyncEvent) {
-  return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
-                             NumArgs, 1, 0, nullptr, AsyncEvent);
+                             NumArgs, 1, 0, nullptr);
 }
 
 EXTERN void __tgt_rtl_get_offload_queue(int32_t DeviceId, void *Interop,

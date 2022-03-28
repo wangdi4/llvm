@@ -55,24 +55,12 @@ struct RTLInfoTy {
   typedef int64_t(init_requires_ty)(int64_t);
   typedef int32_t(synchronize_ty)(int32_t, __tgt_async_info *);
 #if INTEL_COLLAB
-  typedef int32_t(data_submit_nowait_ty)(int32_t, void *, void *, int64_t,
-                                         void *);
-  typedef int32_t(data_retrieve_nowait_ty)(int32_t, void *, void *, int64_t,
-                                           void *);
   typedef int32_t(manifest_data_for_region_ty)(int32_t, void *,
                                                void **, size_t);
   typedef void *(data_alloc_base_ty)(int32_t, int64_t, void *, void *);
   typedef char *(get_device_name_ty)(int32_t, char *, size_t);
   typedef int32_t(run_team_nd_region_ty)(int32_t, void *, void **, ptrdiff_t *,
                                          int32_t, int32_t, int32_t, void *);
-  typedef int32_t(run_team_nd_region_nowait_ty)(int32_t, void *, void **,
-                                                ptrdiff_t *, int32_t, int32_t,
-                                                int32_t, void *, void *);
-  typedef int32_t(run_region_nowait_ty)(int32_t, void *, void **, ptrdiff_t *,
-                                        int32_t, void *);
-  typedef int32_t(run_team_region_nowait_ty)(int32_t, void *, void **,
-                                             ptrdiff_t *, int32_t, int32_t,
-                                             int32_t, uint64_t, void *);
   typedef void (get_offload_queue_ty)(int32_t, void *, bool);
   typedef void *(get_platform_handle_ty)(int32_t);
   typedef void (set_device_handle_ty)(int32_t, void *);
@@ -164,15 +152,10 @@ struct RTLInfoTy {
   init_requires_ty *init_requires = nullptr;
   synchronize_ty *synchronize = nullptr;
 #if INTEL_COLLAB
-  data_submit_nowait_ty *data_submit_nowait = nullptr;
-  data_retrieve_nowait_ty *data_retrieve_nowait = nullptr;
   manifest_data_for_region_ty *manifest_data_for_region = nullptr;
   data_alloc_base_ty *data_alloc_base = nullptr;
   get_device_name_ty *get_device_name = nullptr;
   run_team_nd_region_ty *run_team_nd_region = nullptr;
-  run_team_nd_region_nowait_ty *run_team_nd_region_nowait = nullptr;
-  run_region_nowait_ty *run_region_nowait = nullptr;
-  run_team_region_nowait_ty *run_team_region_nowait = nullptr;
   get_offload_queue_ty *get_offload_queue = nullptr;
   get_platform_handle_ty *get_platform_handle = nullptr;
   set_device_handle_ty *set_device_handle = nullptr;
