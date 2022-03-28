@@ -187,7 +187,10 @@ static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES[] =
     {
         CL_DEVICE_PARTITION_BY_COUNTS,
         CL_DEVICE_PARTITION_EQUALLY,
-        CL_DEVICE_PARTITION_BY_NAMES_INTEL
+        CL_DEVICE_PARTITION_BY_NAMES_INTEL,
+#ifndef WIN32
+        CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN
+#endif // WIN32
     };
 
 typedef enum
@@ -1976,7 +1979,13 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
                 //if OUT paramVal is NULL it should be ignored
                 if(nullptr != paramVal)
                 {
-                    *((cl_device_affinity_domain*)paramVal) = (cl_device_affinity_domain)0;
+                    *((cl_device_affinity_domain*)paramVal) =
+#ifndef WIN32
+                      (cl_device_affinity_domain)(CL_DEVICE_AFFINITY_DOMAIN_NUMA
+                          | CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE);
+#else
+                      (cl_device_affinity_domain)0;
+#endif // WIN32
                 }
                 return CL_DEV_SUCCESS;
             }
