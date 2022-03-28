@@ -1029,7 +1029,8 @@ void SelectionDAGBuilder::init(GCFunctionInfo *gfi, AliasAnalysis *aa,
                                const TargetTransformInfo *tti, // INTEL
                                AssumptionCache *ac, // INTEL
                                const DominatorTree *dt, // INTEL
-                               const ScalarEvolution *scev) { // INTEL
+                               ScalarEvolution *scev, // INTEL
+                               LoopInfo *lpi) { // INTEL
   AA = aa;
   GFI = gfi;
   LibInfo = li;
@@ -1037,6 +1038,7 @@ void SelectionDAGBuilder::init(GCFunctionInfo *gfi, AliasAnalysis *aa,
   SCEV = scev;  // INTEL
   AC = ac;      // INTEL
   DT = dt;      // INTEL
+  LPI = lpi;    // INTEL
   Context = DAG.getContext();
   LPadToCallSiteMap.clear();
   SL->init(DAG.getTargetLoweringInfo(), TM, DAG.getDataLayout());
@@ -4474,7 +4476,8 @@ static bool getUniformBaseExt(const Value *Ptr, SDValue &Base, SDValue &Index,
                               const TargetTransformInfo *TTI,
                               AssumptionCache *AC,
                               const DominatorTree *DT,
-                              const ScalarEvolution *SCEV) {
+                              ScalarEvolution *SCEV,
+                              LoopInfo *LPI) {
   SelectionDAG& DAG = SDB->DAG;
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
   const DataLayout &DL = DAG.getDataLayout();
@@ -4530,7 +4533,8 @@ static bool getUniformBaseExt(const Value *Ptr, SDValue &Base, SDValue &Index,
   Type *IndexTy = cast<VectorType>(IndexVal->getType())->getElementType();
   Type *DataTy = cast<VectorType>(Src0->getType())->getElementType();
 
-  unsigned NumSignBits = ComputeNumSignBits(IndexVal, DL, 0, AC, nullptr, DT);
+  unsigned NumSignBits =
+      ComputeNumSignBits(IndexVal, DL, 0, AC, nullptr, DT, true, SCEV, LPI);
   unsigned NumBitWidth = IndexTy->getScalarSizeInBits();
   unsigned NumValueBits = NumBitWidth - NumSignBits;
 
@@ -4650,7 +4654,7 @@ void SelectionDAGBuilder::visitMaskedScatter(const CallInst &I) {
 #if INTEL_CUSTOMIZATION
   bool UniformBase =
       getUniformBaseExt(Ptr, Base, Index, IndexType, Scale, this, I.getParent(),
-                        I.getArgOperand(0), TTI, AC, DT, SCEV);
+                        I.getArgOperand(0), TTI, AC, DT, SCEV, LPI);
   if (!UniformBase)
     UniformBase =
         getUniformBase(Ptr, Base, Index, IndexType, Scale, this, I.getParent());
@@ -4763,7 +4767,7 @@ void SelectionDAGBuilder::visitMaskedGather(const CallInst &I) {
 #if INTEL_CUSTOMIZATION
   bool UniformBase =
       getUniformBaseExt(Ptr, Base, Index, IndexType, Scale, this, I.getParent(),
-                        I.getArgOperand(3), TTI, AC, DT, SCEV);
+                        I.getArgOperand(3), TTI, AC, DT, SCEV, LPI);
   if (!UniformBase)
     UniformBase =
         getUniformBase(Ptr, Base, Index, IndexType, Scale, this, I.getParent());
