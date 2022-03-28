@@ -12443,7 +12443,10 @@ static unsigned evaluateCDTSize(const FunctionDecl *FD,
 static void emitX86DeclareSimdFunction(
     const FunctionDecl *FD, llvm::Function *Fn, const llvm::APSInt &VLENVal,
     ArrayRef<ParamAttrTy> ParamAttrs,
-    OMPDeclareSimdDeclAttr::BranchStateTy State) {
+#if INTEL_CUSTOMIZATION
+    OMPDeclareSimdDeclAttr::BranchStateTy State,
+    bool UseSPIRMangling) {
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
   QualType RetTy = FD->getReturnType();
   if (RetTy->isComplexType() || RetTy->isStructureType())
@@ -12453,20 +12456,25 @@ static void emitX86DeclareSimdFunction(
     char ISA;
     unsigned VecRegSize;
   };
-  ISADataTy ISAData[] = {
-      {
-          'b', 128
-      }, // SSE
-      {
-          'c', 256
-      }, // AVX
-      {
-          'd', 256
-      }, // AVX2
-      {
-          'e', 512
-      }, // AVX512
-  };
+
+#if INTEL_CUSTOMIZATION
+  SmallVector<ISADataTy, 4> ISAData;
+  if (UseSPIRMangling) {
+    ISAData.push_back({'x', 8});
+    ISAData.push_back({'x', 16});
+    // TODO: support by SPIR-V
+    // ISAData.push_back({'x', 32});
+  } else {
+    ISAData.push_back({'b', 128}); // SSE
+    ISAData.push_back({'c', 256}); // AVX
+    ISAData.push_back({'d', 256}); // AVX2
+    ISAData.push_back({'e', 512}); // AVX512
+  }
+
+  // TODO: consider removing this eventually
+  if (UseSPIRMangling)
+    State = OMPDeclareSimdDeclAttr::BS_Notinbranch;
+#endif // INTEL_CUSTOMIZATION
   llvm::SmallVector<char, 2> Masked;
   switch (State) {
   case OMPDeclareSimdDeclAttr::BS_Undefined:
@@ -12480,7 +12488,6 @@ static void emitX86DeclareSimdFunction(
     Masked.push_back('M');
     break;
   }
-
 #if INTEL_CUSTOMIZATION
   std::string Buffer;
   if (Fn->hasFnAttribute("vector-variants")) {
@@ -12496,9 +12503,15 @@ static void emitX86DeclareSimdFunction(
 #endif // INTEL_CUSTOMIZATION
       Out << "_ZGV" << Data.ISA << Mask;
       if (!VLENVal) {
-        unsigned NumElts = evaluateCDTSize(FD, ParamAttrs);
-        assert(NumElts && "Non-zero simdlen/cdtsize expected");
-        Out << llvm::APSInt::getUnsigned(Data.VecRegSize / NumElts);
+#if INTEL_CUSTOMIZATION
+        if (UseSPIRMangling) {
+          Out << llvm::APSInt::getUnsigned(Data.VecRegSize);
+        } else {
+          unsigned NumElts = evaluateCDTSize(FD, ParamAttrs);
+          assert(NumElts && "Non-zero simdlen/cdtsize expected");
+          Out << llvm::APSInt::getUnsigned(Data.VecRegSize / NumElts);
+        }
+#endif // INTEL_CUSTOMIZATION
       } else {
         Out << VLENVal;
       }
@@ -12946,7 +12959,10 @@ void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
       OMPDeclareSimdDeclAttr::BranchStateTy State = Attr->getBranchState();
 #if INTEL_CUSTOMIZATION
       if (CGM.getTriple().isX86() || CGM.getTriple().isSPIR()) {
-        emitX86DeclareSimdFunction(FD, Fn, VLENVal, ParamAttrs, State);
+        emitX86DeclareSimdFunction(
+            FD, Fn, VLENVal, ParamAttrs, State,
+            CGM.getTriple().isSPIR() &&
+                CGM.getCodeGenOpts().OpenMPDeclareSIMDSPIR);
 #endif // INTEL_CUSTOMIZATION
       } else if (CGM.getTriple().getArch() == llvm::Triple::aarch64) {
         unsigned VLEN = VLENVal.getExtValue();
