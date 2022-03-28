@@ -167,7 +167,9 @@ double constlinear(const int i) { return 0.0; }
 // CHECK-DAG: _ZGVdN4v__Z5add_1Pf
 // CHECK-DAG: _ZGVeN8v__Z5add_1Pf
 
-<<<<<<< HEAD
+// SPIR-DAG: _ZGVxN8v__Z5add_1Pf
+// SPIR-DAG: _ZGVxN16v__Z5add_1Pf
+
 // CHECK-NOT: _ZGVbN2vv__Z5add_1Pf
 // CHECK-NOT: _ZGVcN4vv__Z5add_1Pf
 // CHECK-NOT: _ZGVdN4vv__Z5add_1Pf
@@ -184,10 +186,6 @@ double constlinear(const int i) { return 0.0; }
 // CHECK-NOT: _ZGVcM8l32v__Z5add_1Pf
 // CHECK-NOT: _ZGVdM8l32v__Z5add_1Pf
 // CHECK-NOT: _ZGVeM16l32v__Z5add_1Pf
-=======
-// SPIR-DAG: _ZGVxN8v__Z5add_1Pf
-// SPIR-DAG: _ZGVxN16v__Z5add_1Pf
->>>>>>> abe021d724e0332d4a59c7c3060403ab111f9de4
 
 // CHECK-DAG: _ZGVbM2va16va16vv__Z1hIiEvPT_S1_S1_S1_
 // CHECK-DAG: _ZGVbN2va16va16vv__Z1hIiEvPT_S1_S1_S1_
