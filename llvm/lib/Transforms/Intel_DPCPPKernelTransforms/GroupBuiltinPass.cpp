@@ -172,6 +172,36 @@ Constant *GroupBuiltinPass::getInitializationValue(Function *Func) {
     default:
       llvm_unreachable("Unsupported WG argument type");
     }
+  } else if(isWorkGroupMul(FuncName)){
+    switch (DataEnum) {
+    case reflection::PRIMITIVE_CHAR:
+    case reflection::PRIMITIVE_UCHAR:
+      InitVal = ConstantInt::get(Int8Type, 1);
+      break;
+    case reflection::PRIMITIVE_SHORT:
+    case reflection::PRIMITIVE_USHORT:
+      InitVal = ConstantInt::get(Int16Type, 1);
+      break;
+    case reflection::PRIMITIVE_INT:
+    case reflection::PRIMITIVE_UINT:
+      InitVal = ConstantInt::get(Int32Type, 1);
+      break;
+    case reflection::PRIMITIVE_LONG:
+    case reflection::PRIMITIVE_ULONG:
+      InitVal = ConstantInt::get(Int64Type, 1);
+      break;
+    case reflection::PRIMITIVE_HALF:
+      InitVal = ConstantFP::get(*Context, APFloat(APFloat::IEEEhalf(), 1));
+      break;
+    case reflection::PRIMITIVE_FLOAT:
+      InitVal = ConstantFP::get(*Context, APFloat(APFloat::IEEEsingle(), 1));
+      break;
+    case reflection::PRIMITIVE_DOUBLE:
+      InitVal = ConstantFP::get(*Context, APFloat(APFloat::IEEEdouble(), 1));
+      break;
+    default:
+      llvm_unreachable("Unsupported WG argument type");
+    }
   } else {
     // Initial value for the rest of WG functions: zero
     switch (DataEnum) {
