@@ -16,6 +16,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: declare spir_func i32 @_Z21work_group_reduce_addi(i32) local_unnamed_addr [[ATTR]]
 ; CHECK: declare spir_func i32 @_Z21work_group_reduce_mini(i32) local_unnamed_addr [[ATTR]]
 ; CHECK: declare spir_func i32 @_Z21work_group_reduce_maxi(i32) local_unnamed_addr [[ATTR]]
+; CHECK: declare spir_func i32 @_Z21work_group_reduce_muli(i32) local_unnamed_addr [[ATTR]]
 ; CHECK: attributes [[ATTR]] = { {{.*}}opencl-vec-uniform-return{{.*}} }
 ; CHECK-NOT: opencl-vec-uniform-return
 
@@ -38,6 +39,7 @@ entry:
   %call6 = tail call spir_func i32 @_Z21work_group_reduce_addi(i32 %0) #4
   %call7 = tail call spir_func i32 @_Z21work_group_reduce_mini(i32 %0) #4
   %call8 = tail call spir_func i32 @_Z21work_group_reduce_maxi(i32 %0) #4
+  %call9 = tail call spir_func i32 @_Z21work_group_reduce_muli(i32 %0) #4
 
   ret void
 }
@@ -57,6 +59,7 @@ declare spir_func i32 @_Z20work_group_broadcastimmm(i32, i64, i64, i64) local_un
 declare spir_func i32 @_Z21work_group_reduce_addi(i32) local_unnamed_addr #1
 declare spir_func i32 @_Z21work_group_reduce_mini(i32) local_unnamed_addr #1
 declare spir_func i32 @_Z21work_group_reduce_maxi(i32) local_unnamed_addr #1
+declare spir_func i32 @_Z21work_group_reduce_muli(i32) local_unnamed_addr #1
 
 ; Function Attrs: convergent nounwind readnone
 declare spir_func i64 @_Z13get_global_idj(i32) local_unnamed_addr #2

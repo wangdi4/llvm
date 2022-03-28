@@ -86,6 +86,11 @@ const StringRef NAME_WORK_GROUP_SCAN_EXCLUSIVE_ADD =
     "work_group_scan_exclusive_add";
 const StringRef NAME_WORK_GROUP_SCAN_INCLUSIVE_ADD =
     "work_group_scan_inclusive_add";
+const StringRef NAME_WORK_GROUP_REDUCE_MUL = "work_group_reduce_mul";
+const StringRef NAME_WORK_GROUP_SCAN_EXCLUSIVE_MUL =
+    "work_group_scan_exclusive_mul";
+const StringRef NAME_WORK_GROUP_SCAN_INCLUSIVE_MUL =
+    "work_group_scan_inclusive_mul";
 const StringRef NAME_WORK_GROUP_REDUCE_MIN = "work_group_reduce_min";
 const StringRef NAME_WORK_GROUP_SCAN_EXCLUSIVE_MIN =
     "work_group_scan_exclusive_min";
@@ -326,6 +331,10 @@ bool isWorkGroupReduceAdd(StringRef S) {
   return isMangleOf(S, NAME_WORK_GROUP_REDUCE_ADD);
 }
 
+bool isWorkGroupReduceMul(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_MUL);
+}
+
 bool isWorkGroupReduceMin(StringRef S) {
   return isMangleOf(S, NAME_WORK_GROUP_REDUCE_MIN);
 }
@@ -340,6 +349,14 @@ bool isWorkGroupScanExclusiveAdd(StringRef S) {
 
 bool isWorkGroupScanInclusiveAdd(StringRef S) {
   return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_ADD);
+}
+
+bool isWorkGroupScanExclusiveMul(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_EXCLUSIVE_MUL);
+}
+
+bool isWorkGroupScanInclusiveMul(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_MUL);
 }
 
 bool isWorkGroupScanExclusiveMin(StringRef S) {
@@ -539,13 +556,14 @@ bool isWorkGroupAsyncOrPipeBuiltin(StringRef S, const Module &M) {
 bool isWorkGroupScan(StringRef S) {
   return isWorkGroupScanExclusiveAdd(S) || isWorkGroupScanInclusiveAdd(S) ||
          isWorkGroupScanExclusiveMin(S) || isWorkGroupScanInclusiveMin(S) ||
-         isWorkGroupScanExclusiveMax(S) || isWorkGroupScanInclusiveMax(S);
+         isWorkGroupScanExclusiveMax(S) || isWorkGroupScanInclusiveMax(S) ||
+         isWorkGroupScanExclusiveMul(S) || isWorkGroupScanInclusiveMul(S);
 }
 
 bool isWorkGroupBuiltinUniform(StringRef S) {
   return isWorkGroupAll(S) || isWorkGroupAny(S) || isWorkGroupBroadCast(S) ||
          isWorkGroupReduceAdd(S) || isWorkGroupReduceMin(S) ||
-         isWorkGroupReduceMax(S);
+         isWorkGroupReduceMax(S) || isWorkGroupReduceMul(S);
 }
 
 bool isWorkGroupMin(StringRef S) {
@@ -556,6 +574,11 @@ bool isWorkGroupMin(StringRef S) {
 bool isWorkGroupMax(StringRef S) {
   return isWorkGroupReduceMax(S) || isWorkGroupScanExclusiveMax(S) ||
          isWorkGroupScanInclusiveMax(S);
+}
+
+bool isWorkGroupMul(StringRef S) {
+  return isWorkGroupReduceMul(S) || isWorkGroupScanExclusiveMul(S) ||
+         isWorkGroupScanInclusiveMul(S);
 }
 
 bool isWorkGroupBuiltinDivergent(StringRef S) { return isWorkGroupScan(S); }

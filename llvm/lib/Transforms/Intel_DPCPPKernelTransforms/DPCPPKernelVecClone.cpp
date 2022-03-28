@@ -734,7 +734,7 @@ static ReturnInfoTy PopulateOCLBuiltinReturnInfo() {
     RetInfo.push_back({std::string("_Z20work_group_broadcast") + Type + "mmm",
                        VectorKind::uniform()});
 
-    for (auto Op : {"add", "min", "max"})
+    for (auto Op : {"add", "min", "max", "mul"})
       RetInfo.push_back({std::string("_Z21work_group_reduce_") + Op + Type,
                          VectorKind::uniform()});
   }
