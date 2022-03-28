@@ -1607,6 +1607,8 @@ def frecord_command_line : Flag<["-"], "frecord-command-line">,
 // if INTEL_CUSTOMIZATION
 def sox : Flag<["-"], "sox">, Group<f_clang_Group>,
   HelpText<"Enable saving of compiler options in the executable">;
+def no_sox : Flag<["-"], "no-sox">, Group<f_clang_Group>,
+  HelpText<"Disable saving of compiler options in the executable">;
 // endif INTEL_CUSTOMIZATION
 def fno_record_command_line : Flag<["-"], "fno-record-command-line">,
   Group<f_clang_Group>;
@@ -8193,6 +8195,8 @@ def : CLCommaJoined<"Qno-intel-lib:">, Alias<no_intel_lib_EQ>,
   HelpText<"Restrict linking of all Intel specific libraries.">;
 def _SLASH_Qsox : CLFlag<"Qsox">, Alias<sox>,
   HelpText<"Enable saving of compiler options in the executable">;
+def _SLASH_Qsox_ : CLFlag<"Qsox-">, Alias<no_sox>,
+  HelpText<"disable saving of compiler options in the executable">;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_showIncludes : CLFlag<"showIncludes">,
   HelpText<"Print info about included files to stderr">;

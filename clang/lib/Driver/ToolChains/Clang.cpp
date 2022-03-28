@@ -8229,7 +8229,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         << Args.getLastArg(options::OPT_frecord_command_line)->getAsString(Args)
         << TripleStr;
 #if INTEL_CUSTOMIZATION
-  auto Sox = Args.hasArg(options::OPT_sox);
+  auto Sox = Args.hasFlag(options::OPT_sox, options::OPT_no_sox, false);
   if (TC.UseDwarfDebugFlags() || GRecordSwitches || FRecordSwitches || Sox) {
 #endif // INTEL_CUSTOMIZATION
     SmallString<256> Flags;
