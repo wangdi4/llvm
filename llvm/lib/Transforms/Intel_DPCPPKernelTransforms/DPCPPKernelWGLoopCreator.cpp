@@ -190,7 +190,7 @@ void DPCPPKernelWGLoopCreatorPass::processFunction(Function *F,
   // If no workgroup loop is created (no calls to get_*_id), avoid inlining the
   // vector function into the scalar one since there is only one workitem to be
   // executed.
-  if (HasSubGroupPath && NumDim && KIMD.VectorizedMaskedKernel.hasValue()) {
+  if (NumDim && KIMD.VectorizedMaskedKernel.hasValue()) {
     MaskedF = KIMD.VectorizedMaskedKernel.get();
     // Set vetorized masked kernel to F. This metadata can be used as an
     // indicator of vectorized masked kernel being used.
