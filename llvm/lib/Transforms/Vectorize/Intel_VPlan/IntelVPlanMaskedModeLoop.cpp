@@ -27,6 +27,10 @@ cl::opt<bool> EnableMaskedVariant("vplan-enable-masked-variant",
                                   cl::init(true), cl::Hidden,
                                   cl::desc("Enable masked variant"));
 
+cl::opt<bool> EnableMaskedVariantHIR(
+    "vplan-enable-masked-variant-hir", cl::init(false), cl::Hidden,
+    cl::desc("Enable masked variant for HIR vectorizer"));
+
 static LoopVPlanDumpControl
     MaskedVariantDumpControl("create-masked-vplan", "emitting masked variant");
 

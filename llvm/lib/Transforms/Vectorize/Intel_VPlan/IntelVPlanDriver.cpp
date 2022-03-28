@@ -411,64 +411,8 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   LVP.buildInitialVPlans();
 #endif // INTEL_CUSTOMIZATION
 
-  if (EnableMaskedVariant) {
-    DenseMap<VPlanVector *, std::shared_ptr<VPlanMasked>> OrigClonedVPlans;
-    for (auto &Pair : LVP.getAllVPlans()) {
-      std::shared_ptr<VPlanVector> Plan = Pair.second.MainPlan;
-      VPLoop *VLoop = Plan->getMainLoop(true);
-      // Masked variant is not generated for loops without normalized induction.
-      if (!VLoop->hasNormalizedInduction()) {
-        LLVM_DEBUG(dbgs() << "skipping masked_mode: non-normalized "
-                          << Plan->getName() << "\n";);
-        continue;
-      }
-      if (Pair.second.MaskedModeLoop)
-        // Already have it.
-        continue;
-
-      auto It = OrigClonedVPlans.find(Plan.get());
-      if (It != OrigClonedVPlans.end()) {
-        // We have already cloned that main loop, add the same clone for
-        // this VF.
-        LVP.appendVPlanPair(
-            Pair.first, LoopVectorizationPlanner::VPlanPair{Plan, It->second});
-        continue;
-      }
-      // Check if we can process VPlan in masked mode. E.g. the code for some
-      // entities processing is not implemented yet.
-      if (!canProcessMaskedVariant(*Plan)) {
-        LLVM_DEBUG(dbgs() << "skipping masked_mode: can't process "
-                          << Plan->getName() << "\n";);
-        continue;
-      }
-
-      // Check whether we have a known TC and it's a power of two and is
-      // less than maximum VF. In such cases the masked mode loop will be
-      // most likely not used. (Peeling will be unprofitable and remainder
-      // can be created unmasked.) This will allow us saving compile time
-      // e.g. during function vectorization.
-      // TODO: implement target check, i.e. whether target has instructions
-      // to implement masked operations. If there are no such insructions we
-      // don't enable masked variants. Though, that probably better to leave
-      // for cost modeling.
-      uint64_t TripCount = VLoop->getTripCountInfo().TripCount;
-      if (!VLoop->getTripCountInfo().IsEstimated) {
-        auto Max = *(std::max_element(LVP.getVectorFactors().begin(),
-                                      LVP.getVectorFactors().end()));
-        if (isPowerOf2_64(TripCount) && TripCount <= Max) {
-          LLVM_DEBUG(dbgs() << "skipping masked_mode: trip count "
-                            << Plan->getName() << "\n";);
-          continue;
-        }
-      }
-
-      MaskedModeLoopCreator MML(cast<VPlanNonMasked>(Plan.get()), VPAF);
-      std::shared_ptr<VPlanMasked> MaskedPlan = MML.createMaskedModeLoop();
-      OrigClonedVPlans[Plan.get()] = MaskedPlan;
-      LVP.appendVPlanPair(
-          Pair.first, LoopVectorizationPlanner::VPlanPair{Plan, MaskedPlan});
-    }
-  }
+  if (EnableMaskedVariant)
+    generateMaskedModeVPlans(&LVP, &VPAF);
 
   // VPlan Predicator
   LVP.predicate();
@@ -1056,6 +1000,66 @@ void VPlanDriverImpl::populateVPlanAnalyses(LoopVectorizationPlanner &LVP,
   }
 }
 
+void VPlanDriverImpl::generateMaskedModeVPlans(LoopVectorizationPlanner *LVP,
+                                               VPAnalysesFactoryBase *VPAF) {
+  DenseMap<VPlanVector *, std::shared_ptr<VPlanMasked>> OrigClonedVPlans;
+  for (auto &Pair : LVP->getAllVPlans()) {
+    std::shared_ptr<VPlanVector> Plan = Pair.second.MainPlan;
+    VPLoop *VLoop = Plan->getMainLoop(true);
+    // Masked variant is not generated for loops without normalized induction.
+    if (!VLoop->hasNormalizedInduction()) {
+      LLVM_DEBUG(dbgs() << "skipping masked_mode: non-normalized "
+                        << Plan->getName() << "\n";);
+      continue;
+    }
+    if (Pair.second.MaskedModeLoop)
+      // Already have it.
+      continue;
+
+    auto It = OrigClonedVPlans.find(Plan.get());
+    if (It != OrigClonedVPlans.end()) {
+      // We have already cloned that main loop, add the same clone for
+      // this VF.
+      LVP->appendVPlanPair(
+          Pair.first, LoopVectorizationPlanner::VPlanPair{Plan, It->second});
+      continue;
+    }
+    // Check if we can process VPlan in masked mode. E.g. the code for some
+    // entities processing is not implemented yet.
+    if (!canProcessMaskedVariant(*Plan)) {
+      LLVM_DEBUG(dbgs() << "skipping masked_mode: can't process "
+                        << Plan->getName() << "\n";);
+      continue;
+    }
+
+    // Check whether we have a known TC and it's a power of two and is
+    // less than maximum VF. In such cases the masked mode loop will be
+    // most likely not used. (Peeling will be unprofitable and remainder
+    // can be created unmasked.) This will allow us saving compile time
+    // e.g. during function vectorization.
+    // TODO: implement target check, i.e. whether target has instructions
+    // to implement masked operations. If there are no such insructions we
+    // don't enable masked variants. Though, that probably better to leave
+    // for cost modeling.
+    uint64_t TripCount = VLoop->getTripCountInfo().TripCount;
+    if (!VLoop->getTripCountInfo().IsEstimated) {
+      auto Max = *(std::max_element(LVP->getVectorFactors().begin(),
+                                    LVP->getVectorFactors().end()));
+      if (isPowerOf2_64(TripCount) && TripCount <= Max) {
+        LLVM_DEBUG(dbgs() << "skipping masked_mode: trip count "
+                          << Plan->getName() << "\n";);
+        continue;
+      }
+    }
+
+    MaskedModeLoopCreator MML(cast<VPlanNonMasked>(Plan.get()), *VPAF);
+    std::shared_ptr<VPlanMasked> MaskedPlan = MML.createMaskedModeLoop();
+    OrigClonedVPlans[Plan.get()] = MaskedPlan;
+    LVP->appendVPlanPair(Pair.first,
+                         LoopVectorizationPlanner::VPlanPair{Plan, MaskedPlan});
+  }
+}
+
 INITIALIZE_PASS_BEGIN(VPlanDriver, "vplan-vec", "VPlan Vectorizer",
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
@@ -1467,6 +1471,9 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   // TODO: Move after predication.
   if (VPlanConstrStressTest)
     return false;
+
+  if (EnableMaskedVariantHIR)
+    generateMaskedModeVPlans(&LVP, &VPAF);
 
   // VPlan Predicator
   LVP.predicate();

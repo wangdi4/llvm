@@ -6051,14 +6051,11 @@ HLLabel *VPOCodeGenHIR::getOrCreateBlockLabel(const VPBasicBlock *VPBB) {
 void VPOCodeGenHIR::setBoundsForVectorLoop(VPLoop *VPLp) {
   HLLoop *VecLoop = VPLoopHLLoopMap[VPLp];
 
-  // Upper bound for the vectorized HLLoop is obtained from the vector-tc
-  // VPInstruction that is generated for every vectorized VPLoop in its
-  // corresponding preheader block. Lower bound is obtained from the
-  // induction-init instruction in preheader.
+  // Upper bound for the vectorized HLLoop is obtained from VPLoop's utility.
+  // Lower bound is obtained from the induction-init instruction in preheader.
   VPValue *VectorTC;
   std::tie(VectorTC, std::ignore) = VPLp->getLoopUpperBound();
-  assert(VectorTC && isa<VPVectorTripCountCalculation>(VectorTC) &&
-         "Vector TC computation not found vector loop.");
+  assert(VectorTC && "Vector TC computation not found vector loop.");
 
   assert(VPLoopIVPhiMap.count(VPLp) && "IV Phi not found for vectorized loop.");
   auto *IVPhi = VPLoopIVPhiMap[VPLp];
@@ -6075,9 +6072,10 @@ void VPOCodeGenHIR::setBoundsForVectorLoop(VPLoop *VPLp) {
 
   auto *UBCanonExpr = UBRef->getSingleCanonExpr();
   unsigned LoopLevel = VecLoop->getNestingLevel();
-  // Add blobs and adjust def@level for non-constant UB since it is defined
-  // outside the loop.
-  if (!UBCanonExpr->isIntConstant()) {
+  // Add blobs and adjust def@level for non-constant temp-based UB since it is
+  // defined outside the loop.
+  if (!UBCanonExpr->isIntConstant() &&
+      UBRef->getSymbase() > GenericRvalSymbase) {
     UBRef->addBlobDDRef(UBCanonExpr->getSingleBlobIndex(), LoopLevel - 1);
     UBCanonExpr->setDefinedAtLevel(LoopLevel - 1);
     UBRef->setSymbase(GenericRvalSymbase);
