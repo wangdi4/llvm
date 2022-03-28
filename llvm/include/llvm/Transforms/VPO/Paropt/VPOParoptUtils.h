@@ -869,6 +869,11 @@ public:
                             LoopInfo *LI, bool IsTargetSPIRV,
                             const StringRef LockNameSuffix);
 
+  /// Emits a call to __kmpc_omp_taskyield(LOC, TID, i32 0)
+  /// The third argument is set to 0 and used for debug tracing.
+  static CallInst *genKmpcTaskyieldCall(WRegionNode *W, StructType *IdentTy,
+                                        Value *TidPtr, Instruction *InsertPt);
+
   /// Generate a call to query if the current thread is masked thread or a
   /// call to end_masked for the team of threads. Emitted call:
   /// \code

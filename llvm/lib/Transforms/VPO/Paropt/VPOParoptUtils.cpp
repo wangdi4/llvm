@@ -3574,6 +3574,24 @@ CallInst *VPOParoptUtils::genKmpcTaskgroupOrEndTaskgroupCall(
   return TaskgroupOrEndCall;
 }
 
+
+// Emits a call to __kmpc_omp_taskyield(LOC, TID, i32 0)
+CallInst *VPOParoptUtils::genKmpcTaskyieldCall(WRegionNode *W,
+                                               StructType *IdentTy,
+                                               Value *TidPtr,
+                                               Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  // Zero is used for debug tracing.
+  Value *Zero = Builder.getInt32(0);
+
+  CallInst *TaskyieldCall =
+      genKmpcCallWithTid(W, IdentTy, TidPtr, InsertPt, "__kmpc_omp_taskyield",
+                         nullptr, {Zero}, /*insert=*/true);
+
+  addFuncletOperandBundle(TaskyieldCall, W->getDT());
+  return TaskyieldCall;
+}
+
 // This function generates a call to query if the current thread is a masked
 // thread. Or, generates a call to end_masked for the team of threads.
 //   %masked = call @__kmpc_masked(%ident_t* %loc, i32 %tid, i32 %filter)

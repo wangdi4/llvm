@@ -1019,8 +1019,7 @@ VPlanDivergenceAnalysis::computeVectorShapeForSOAGepInst(const VPInstruction *I)
     auto *Gep = dyn_cast<VPGEPInstruction>(I);
     Type *PointedToTy =
         Gep ? Gep->getResultElementType()
-            : cast<PointerType>(cast<VPSubscriptInst>(I)->getType())
-                  ->getElementType();
+            : cast<VPSubscriptInst>(I)->getType()->getPointerElementType();
     uint64_t PointedToTySize = getTypeSizeInBytes(PointedToTy);
     // For known strides:
     // 1) Uniform gep on an array-private should result in strided-access with

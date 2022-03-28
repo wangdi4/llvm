@@ -481,7 +481,7 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
   else
     AA = nullptr;
 
-  SDB->init(GFI, AA, LibInfo, TTI, AC, DT, SE); // INTEL
+  SDB->init(GFI, AA, LibInfo, TTI, AC, DT, SE, LI); // INTEL
 
   MF->setHasInlineAsm(false);
 

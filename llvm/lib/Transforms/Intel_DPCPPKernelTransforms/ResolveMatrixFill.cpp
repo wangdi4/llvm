@@ -144,10 +144,6 @@ static std::pair<bool, Value *> resolveMatrixFillCall(CallInst *CI) {
   unsigned Cols = cast<ConstantInt>(CI->getArgOperand(2))->getZExtValue();
   // Extract layout metadata from the fourth arg.
   auto *Layout = cast<MetadataAsValue>(CI->getArgOperand(3));
-  assert(cast<MDString>(Layout->getMetadata())
-             ->getString()
-             .equals("matrix.rowmajor") &&
-         "Only supports row major layout for now");
   // Extract scope metadata from the fifth arg.
   auto *Scope = cast<MetadataAsValue>(CI->getArgOperand(4));
   assert(cast<MDString>(Scope->getMetadata())

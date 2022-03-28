@@ -326,7 +326,7 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     if (isSOAAccess(VPInst, Plan)) {
       auto *DestPtrTy = cast<PointerType>(DestTy);
       if (!DestPtrTy->isOpaque()) {
-        Type *ElemTy = DestPtrTy->getElementType();
+        Type *ElemTy = DestPtrTy->getPointerElementType();
         DestTy = PointerType::get(getSOAType(ElemTy, VF),
                                   DestPtrTy->getAddressSpace());
       }

@@ -1285,6 +1285,9 @@ private:
   /// Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);
 
+  /// Generate code for Taskyield construct.
+  bool genTaskyieldCode(WRegionNode *W);
+
   /// Generate code for masked/end masked construct and update LLVM
   /// control-flow and dominator tree accordingly
   bool genMaskedThreadCode(WRegionNode *W, bool IsTargetSPIRV);

@@ -71,6 +71,7 @@ class InvokeInst;
 class LandingPadInst;
 class LLVMContext;
 class LoadInst;
+class LoopInfo;   // INTEL
 class MachineBasicBlock;
 class PHINode;
 class ResumeInst;
@@ -187,10 +188,11 @@ private:
 
 private:
   const TargetMachine &TM;
-  const ScalarEvolution *SCEV;    // INTEL
+  ScalarEvolution *SCEV;          // INTEL
   const TargetTransformInfo *TTI; // INTEL
   AssumptionCache *AC;            // INTEL
   const DominatorTree *DT;        // INTEL
+  LoopInfo* LPI;                  // INTEL
 public:
   /// Lowest valid SDNodeOrder. The special case 0 is reserved for scheduling
   /// nodes without a corresponding SDNode.
@@ -256,7 +258,8 @@ public:
             const TargetTransformInfo *tti,                         // INTEL
             AssumptionCache *ac,                                    // INTEL
             const DominatorTree *dt,                                // INTEL
-            const ScalarEvolution *scev);                           // INTEL
+            ScalarEvolution *scev,                                  // INTEL
+            LoopInfo *lpi);                                         // INTEL
 
   /// Clear out the current SelectionDAG and the associated state and prepare
   /// this SelectionDAGBuilder object to be used for a new block. This doesn't

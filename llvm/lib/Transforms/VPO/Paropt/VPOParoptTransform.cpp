@@ -2508,6 +2508,13 @@ bool VPOParoptTransform::paroptTransforms() {
           RemoveDirectives = true;
         }
         break;
+      case WRegionNode::WRNTaskyield:
+        if (Mode & ParPrepare) {
+          debugPrintHeader(W, Mode);
+          Changed |= genTaskyieldCode(W);
+          RemoveDirectives = true;
+        }
+        break;
       case WRegionNode::WRNMasked:
       case WRegionNode::WRNMaster:
         if (Mode & ParPrepare) {
@@ -10940,6 +10947,17 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
   VPOUtils::replaceBlockAddresses(Fn, NFn);
 
   return NFn;
+}
+
+
+// Generate code for taskyiekd construct
+bool VPOParoptTransform::genTaskyieldCode(WRegionNode* W) {
+    LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskyieldCode\n");
+    BasicBlock* EntryBB = W->getEntryBBlock();
+    Instruction *InsertPt = EntryBB->getTerminator();
+    VPOParoptUtils::genKmpcTaskyieldCall(W, IdentTy, TidPtrHolder, InsertPt);
+    LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genTaskyieldCode\n");
+    return true; // Changed
 }
 
 // Generate code for masked/end masked construct and update LLVM control-flow

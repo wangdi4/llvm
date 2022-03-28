@@ -1705,8 +1705,8 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
       // FIXME: Don't reference getElementType as it won't exist for opaque
       // pointers. Propagate it through whole VPEntities framework.
       auto *GEP =
-          Builder.createGEP(cast<PointerType>(Phi->getType())->getElementType(),
-                            cast<PointerType>(Phi->getType())->getElementType(),
+          Builder.createGEP(Phi->getType()->getPointerElementType(),
+                            Phi->getType()->getPointerElementType(),
                             Phi, Step, nullptr);
       GEP->setIsInBounds(true); // TODO: Why is that correct?
       return GEP;

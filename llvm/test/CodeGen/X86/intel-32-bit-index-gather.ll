@@ -364,4 +364,128 @@ define <8 x float> @test_f32v8_6(%F0 *%base, <8 x i64> %i, <8 x i1> %mask) {
   ret <8 x float> %res
 }
 
+define <8 x float> @test_f32v8_7([4000 x float] *%base, <8 x float> %init, <8 x i1> %mask) {
+; SKL-LABEL: test_f32v8_7:
+; SKL:       # %bb.0: # %entry
+; SKL-NEXT:    xorl %eax, %eax
+; SKL-NEXT:    vpbroadcastd {{.*#+}} ymm2 = [16000,16000,16000,16000,16000,16000,16000,16000]
+; SKL-NEXT:    vpmovzxwd {{.*#+}} ymm1 = xmm1[0],zero,xmm1[1],zero,xmm1[2],zero,xmm1[3],zero,xmm1[4],zero,xmm1[5],zero,xmm1[6],zero,xmm1[7],zero
+; SKL-NEXT:    vpslld $31, %ymm1, %ymm1
+; SKL-NEXT:    .p2align 4, 0x90
+; SKL-NEXT:  .LBB6_1: # %header
+; SKL-NEXT:    # =>This Inner Loop Header: Depth=1
+; SKL-NEXT:    vmovd %eax, %xmm3
+; SKL-NEXT:    vpbroadcastd %xmm3, %ymm3
+; SKL-NEXT:    vpmulld %ymm2, %ymm3, %ymm3
+; SKL-NEXT:    vmovdqa %ymm1, %ymm4
+; SKL-NEXT:    vxorps %xmm5, %xmm5, %xmm5
+; SKL-NEXT:    vgatherdps %ymm4, 4(%rdi,%ymm3), %ymm5
+; SKL-NEXT:    vaddps %ymm0, %ymm5, %ymm0
+; SKL-NEXT:    incq %rax
+; SKL-NEXT:    cmpq $16, %rax
+; SKL-NEXT:    jne .LBB6_1
+; SKL-NEXT:  # %bb.2: # %exit
+; SKL-NEXT:    retq
+;
+; SKL-32-LABEL: test_f32v8_7:
+; SKL-32:       # %bb.0: # %entry
+; SKL-32-NEXT:    pushl %esi
+; SKL-32-NEXT:    .cfi_def_cfa_offset 8
+; SKL-32-NEXT:    .cfi_offset %esi, -8
+; SKL-32-NEXT:    xorl %eax, %eax
+; SKL-32-NEXT:    movl {{[0-9]+}}(%esp), %ecx
+; SKL-32-NEXT:    vpbroadcastd {{.*#+}} ymm2 = [16000,16000,16000,16000,16000,16000,16000,16000]
+; SKL-32-NEXT:    vpmovzxwd {{.*#+}} ymm1 = xmm1[0],zero,xmm1[1],zero,xmm1[2],zero,xmm1[3],zero,xmm1[4],zero,xmm1[5],zero,xmm1[6],zero,xmm1[7],zero
+; SKL-32-NEXT:    vpslld $31, %ymm1, %ymm1
+; SKL-32-NEXT:    xorl %edx, %edx
+; SKL-32-NEXT:    .p2align 4, 0x90
+; SKL-32-NEXT:  .LBB6_1: # %header
+; SKL-32-NEXT:    # =>This Inner Loop Header: Depth=1
+; SKL-32-NEXT:    vmovd %eax, %xmm3
+; SKL-32-NEXT:    vpbroadcastd %xmm3, %ymm3
+; SKL-32-NEXT:    vpmulld %ymm2, %ymm3, %ymm3
+; SKL-32-NEXT:    vmovdqa %ymm1, %ymm4
+; SKL-32-NEXT:    vxorps %xmm5, %xmm5, %xmm5
+; SKL-32-NEXT:    vgatherdps %ymm4, 4(%ecx,%ymm3), %ymm5
+; SKL-32-NEXT:    vaddps %ymm0, %ymm5, %ymm0
+; SKL-32-NEXT:    addl $1, %eax
+; SKL-32-NEXT:    adcl $0, %edx
+; SKL-32-NEXT:    movl %eax, %esi
+; SKL-32-NEXT:    xorl $16, %esi
+; SKL-32-NEXT:    orl %edx, %esi
+; SKL-32-NEXT:    jne .LBB6_1
+; SKL-32-NEXT:  # %bb.2: # %exit
+; SKL-32-NEXT:    popl %esi
+; SKL-32-NEXT:    .cfi_def_cfa_offset 4
+; SKL-32-NEXT:    retl
+;
+; SKX-LABEL: test_f32v8_7:
+; SKX:       # %bb.0: # %entry
+; SKX-NEXT:    vpsllw $15, %xmm1, %xmm1
+; SKX-NEXT:    vpmovw2m %xmm1, %k1
+; SKX-NEXT:    xorl %eax, %eax
+; SKX-NEXT:    vpbroadcastd {{.*#+}} ymm1 = [16000,16000,16000,16000,16000,16000,16000,16000]
+; SKX-NEXT:    .p2align 4, 0x90
+; SKX-NEXT:  .LBB6_1: # %header
+; SKX-NEXT:    # =>This Inner Loop Header: Depth=1
+; SKX-NEXT:    vpbroadcastd %eax, %ymm2
+; SKX-NEXT:    vpmulld %ymm1, %ymm2, %ymm2
+; SKX-NEXT:    vxorps %xmm3, %xmm3, %xmm3
+; SKX-NEXT:    kmovq %k1, %k2
+; SKX-NEXT:    vgatherdps 4(%rdi,%ymm2), %ymm3 {%k2}
+; SKX-NEXT:    vaddps %ymm0, %ymm3, %ymm0
+; SKX-NEXT:    incq %rax
+; SKX-NEXT:    cmpq $16, %rax
+; SKX-NEXT:    jne .LBB6_1
+; SKX-NEXT:  # %bb.2: # %exit
+; SKX-NEXT:    retq
+;
+; SKX-32-LABEL: test_f32v8_7:
+; SKX-32:       # %bb.0: # %entry
+; SKX-32-NEXT:    pushl %esi
+; SKX-32-NEXT:    .cfi_def_cfa_offset 8
+; SKX-32-NEXT:    .cfi_offset %esi, -8
+; SKX-32-NEXT:    vpsllw $15, %xmm1, %xmm1
+; SKX-32-NEXT:    vpmovw2m %xmm1, %k1
+; SKX-32-NEXT:    xorl %eax, %eax
+; SKX-32-NEXT:    movl {{[0-9]+}}(%esp), %ecx
+; SKX-32-NEXT:    vpbroadcastd {{.*#+}} ymm1 = [16000,16000,16000,16000,16000,16000,16000,16000]
+; SKX-32-NEXT:    xorl %edx, %edx
+; SKX-32-NEXT:    .p2align 4, 0x90
+; SKX-32-NEXT:  .LBB6_1: # %header
+; SKX-32-NEXT:    # =>This Inner Loop Header: Depth=1
+; SKX-32-NEXT:    vpbroadcastd %eax, %ymm2
+; SKX-32-NEXT:    vpmulld %ymm1, %ymm2, %ymm2
+; SKX-32-NEXT:    kmovq %k1, %k2
+; SKX-32-NEXT:    vxorps %xmm3, %xmm3, %xmm3
+; SKX-32-NEXT:    vgatherdps 4(%ecx,%ymm2), %ymm3 {%k2}
+; SKX-32-NEXT:    vaddps %ymm0, %ymm3, %ymm0
+; SKX-32-NEXT:    addl $1, %eax
+; SKX-32-NEXT:    adcl $0, %edx
+; SKX-32-NEXT:    movl %eax, %esi
+; SKX-32-NEXT:    xorl $16, %esi
+; SKX-32-NEXT:    orl %edx, %esi
+; SKX-32-NEXT:    jne .LBB6_1
+; SKX-32-NEXT:  # %bb.2: # %exit
+; SKX-32-NEXT:    popl %esi
+; SKX-32-NEXT:    .cfi_def_cfa_offset 4
+; SKX-32-NEXT:    retl
+entry:
+  br label %header
+
+header:
+  %iv = phi i64 [0, %entry], [%iv.next, %header]
+  %sum.prev = phi <8 x float> [%init, %entry], [%sum, %header]
+  %vec_iv = insertelement <8 x i64> poison, i64 %iv, i64 0
+  %splat_iv = shufflevector <8 x i64> %vec_iv, <8 x i64> poison, <8 x i32> zeroinitializer
+  %gep = getelementptr [4000 x float], [4000 x float] *%base, <8 x i64> %splat_iv, <8 x i32><i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>
+  %gather = call <8 x float> @llvm.masked.gather.v8float(<8 x float*> %gep, i32 0, <8 x i1> %mask, <8 x float> undef)
+  %sum = fadd <8 x float> %gather, %sum.prev
+  %iv.next = add i64 %iv, 1
+  %exitcond = icmp eq i64 %iv.next, 16
+  br i1 %exitcond, label %exit, label %header
+exit:
+  ret <8 x float> %sum
+}
+
 declare <8 x float> @llvm.masked.gather.v8float(<8 x float*> %ptrs, i32 %align, <8 x i1> %masks, <8 x float> %passthru)
