@@ -113,14 +113,6 @@ enum DeviceArch : uint64_t {
 typedef SmallVector<WRegionNode *, 32> WRegionListTy;
 typedef std::unordered_map<const BasicBlock *, WRegionNode *> BBToWRNMapTy;
 
-namespace VPOParoptAtomicFreeReduction {
-constexpr StringRef GlobalBufferAttr = "paropt_red_globalbuf";
-constexpr StringRef TeamsCounterAttr = "paropt_red_teamscounter";
-constexpr StringRef GlobalStoreMD = "paropt_red_globalstore";
-
-enum Kind { Kind_Local = 1, Kind_Global = 2 };
-} // namespace VPOParoptAtomicFreeReduction
-
 class VPOParoptModuleTransform;
 
 /// Provide all functionalities to perform paropt threadization

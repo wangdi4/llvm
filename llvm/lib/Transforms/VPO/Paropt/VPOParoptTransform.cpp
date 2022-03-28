@@ -3019,6 +3019,9 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
                                                          StoreInst *RedStore,
                                                          IRBuilder<> &Builder,
                                                          DominatorTree *DT) {
+  auto *WTarget = cast<WRNTargetNode>(
+        WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget));
+  WTarget->setHasLocalAtomicFreeReduction();
   Value *NumElems = nullptr;
   Type *ElemTy = nullptr;
   std::tie(ElemTy, NumElems, std::ignore) = VPOParoptUtils::getItemInfo(RedI);
@@ -3139,9 +3142,6 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
   Value *IVInit = ConstantInt::getNullValue(SizeTy);
   Value *LocalPtr = nullptr;
   if (GenTreeUpdate) {
-    auto *WTarget = cast<WRNTargetNode>(
-        WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget));
-    assert(WTarget);
     UsedLocalTreeReduction.insert(WTarget);
     auto *PreheaderBB = HeaderBB->getSinglePredecessor();
     assert(PreheaderBB || !IsArraySection);
@@ -3361,6 +3361,9 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
     WRegionNode *W, ReductionItem *RedI, StoreInst *RedStore,
     Value *ReductionValueLoc, Instruction *RedValToLoad, PHINode *RedSumPhi,
     bool UseExistingUpdateLoop, IRBuilder<> &Builder, DominatorTree *DT) {
+  auto *WTarget = cast<WRNTargetNode>(
+        WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget));
+  WTarget->setHasGlobalAtomicFreeReduction();
   auto *UpdateBB = RedStore->getParent();
 
   BasicBlock *HeaderBB = nullptr;
@@ -3407,8 +3410,6 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
 
     auto *StartPoint = IsArraySection ? EntryBB->getFirstNonPHI() : RedValToLoad;
 
-    auto *WTarget = cast<WRNTargetNode>(
-        WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget));
     MapClause &MapC = WTarget->getMap();
     auto TeamsCntrIt = std::find_if(
         MapC.items().begin(), MapC.items().end(),
