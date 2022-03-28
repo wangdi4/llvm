@@ -426,14 +426,11 @@ void HIROptVarPredicate::cloneSIMDDirs(
   HLNode *NextNode = FirstLp->getNextNode();
   if (!isa<HLLoop>(NextNode) && NextNode != LastLp) {
     // If there is a non-loop middle node, clone/insert pre/post loops.
-    dbgs() << "Hit here\n";
     if (HLIf* If = dyn_cast<HLIf>(NextNode)) {
-    dbgs() << "Hit if\n";
       assert(If->getNumElseChildren() == 0);
       cloneDirEntry(If->getFirstThenChild(), DirSIMD, SIC.getRedPreLoopInsts());
       cloneDirExit(If->getLastThenChild(), DirSIMDExit, SIC.getRedPostLoopInsts());
     } else {
-    dbgs() << "Hit non-if\n";
       cloneDirEntry(NextNode, DirSIMD, SIC.getRedPreLoopInsts());
       cloneDirExit(NextNode, DirSIMDExit, SIC.getRedPostLoopInsts());
     }
