@@ -690,6 +690,18 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
     {
         dev_ret = GetDeviceAgent()->clDevPartition(partitionMode, num_entries, GetSubdeviceId(), num_devices, sizes, out_devices);
     }
+    else if (CL_DEV_PARTITION_AFFINITY_NEXT == partitionMode)
+    {
+        const vector<cl_dev_partition_prop> nextPartitionableList = {
+            CL_DEV_PARTITION_AFFINITY_NUMA, CL_DEV_PARTITION_AFFINITY_L4,
+            CL_DEV_PARTITION_AFFINITY_L3, CL_DEV_PARTITION_AFFINITY_L2,
+            CL_DEV_PARTITION_AFFINITY_L2, CL_DEV_PARTITION_AFFINITY_L1};
+        for (auto &nextPartitionMode : nextPartitionableList) {
+            dev_ret = GetDeviceAgent()->clDevPartition(nextPartitionMode,
+                num_entries, GetSubdeviceId(), num_devices, sizes, out_devices);
+            if (CL_SUCCESS == dev_ret) break;
+        }
+    }
     else // no other mode today requires an additional param
     {
         dev_ret = GetDeviceAgent()->clDevPartition(partitionMode, num_entries, GetSubdeviceId(), num_devices, nullptr, out_devices);

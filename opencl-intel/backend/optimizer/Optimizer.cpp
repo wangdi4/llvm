@@ -104,7 +104,6 @@ using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
 extern "C"{
 
-void *createInstToFuncCallPass(const CPUDetect *CpuId);
 FunctionPass *createWeightedInstCounter(bool, const CPUDetect *);
 llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
@@ -425,6 +424,8 @@ static void populatePassesPostFailCheck(
   // Tune the maximum size of the basic block for memory dependency analysis
   // utilized by GVN.
   bool UseTLSGlobals = (debugType == intel::Native) && !isEyeQEmulator;
+  VectorVariant::ISAClass ISA =
+      VectorizerCommon::getCPUIdISA(pConfig->GetCpuId());
 
   if (pConfig->EnableOCLAA()) {
     PM.add(createOCLAliasAnalysisPass());
@@ -472,7 +473,7 @@ static void populatePassesPostFailCheck(
   PM.add(llvm::createBasicAAWrapperPass());
 
   // Should be called before vectorizer!
-  PM.add((llvm::Pass *)createInstToFuncCallPass(pConfig->GetCpuId()));
+  PM.add(llvm::createInstToFuncCallLegacyPass(ISA));
 
   PM.add(createDuplicateCalledKernelsLegacyPass());
 
@@ -519,9 +520,6 @@ static void populatePassesPostFailCheck(
   // Mark the kernels using subgroups
   if (EnableNativeOpenCLSubgroups)
     PM.add(createKernelSubGroupInfoPass());
-
-  VectorVariant::ISAClass ISA =
-      VectorizerCommon::getCPUIdISA(pConfig->GetCpuId());
 
   // In Apple build TRANSPOSE_SIZE_1 is not declared
   if (pConfig->GetTransposeSize() != 1 /*TRANSPOSE_SIZE_1*/
