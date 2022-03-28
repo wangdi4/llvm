@@ -656,7 +656,8 @@ Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Argument *Arg,
       // Try to make compute nicely looking without byte arithmetic. Purely for
       // aesthetic purposes.
       const DataLayout &DL = Clone->getParent()->getDataLayout();
-      unsigned PointeeEltSize = DL.getTypeAllocSize(ArgTy->getElementType());
+      unsigned PointeeEltSize =
+          DL.getTypeAllocSize(ArgTy->getPointerElementType());
       assert(Stride % PointeeEltSize == 0 &&
              "Stride is expected to be a multiple of element size!");
       Stride /= PointeeEltSize;
@@ -672,8 +673,8 @@ Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Argument *Arg,
       // loop phi that is inserted by this pass. No cast on Mul is necessary
       // because gep can use a base address of one type with an index of
       // another type.
-      Value *LinearArgGep = Builder.CreateGEP(ArgTy->getElementType(), Arg, Mul,
-                                              Arg->getName() + ".gep");
+      Value *LinearArgGep = Builder.CreateGEP(
+          ArgTy->getPointerElementType(), Arg, Mul, Arg->getName() + ".gep");
 
       return LinearArgGep;
     }
@@ -878,7 +879,7 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
         if (!PtrTy->isOpaque()) {
           const DataLayout &DL = Clone->getParent()->getDataLayout();
           unsigned PointeeEltSize =
-              DL.getTypeAllocSize(PtrTy->getElementType());
+              DL.getTypeAllocSize(PtrTy->getPointerElementType());
           assert(Stride % PointeeEltSize == 0 &&
                  "Stride is expected to be a multiple of element size!");
           Stride /= PointeeEltSize;
