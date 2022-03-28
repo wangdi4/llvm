@@ -210,18 +210,21 @@ static int InitLibrary(DeviceTy &Device) {
     Device.FnPtrMapMtx.lock();
     Device.FnPtrs.reserve(FnPtrsCount);
 
-    Device.DataMapMtx.lock();
+    DeviceTy::HDTTMapAccessorTy HDTTMap =
+        Device.HostDataToTargetMap.getExclusiveAccessor();
     // Note that the entries in HostDataToTargetMap are sorted by
     // HstPtrBegin, so they will be sorted in FnPtrs as well.
-    for (auto &Entry : Device.HostDataToTargetMap)
-      if (Entry.HstPtrBegin == Entry.HstPtrEnd)
-        Device.FnPtrs.push_back({Entry.HstPtrBegin, Entry.TgtPtrBegin});
+    for (const auto &It : *HDTTMap) {
+      HostDataToTargetTy &HDTT = *It.HDTT;
+      if (HDTT.HstPtrBegin == HDTT.HstPtrEnd)
+        Device.FnPtrs.push_back({HDTT.HstPtrBegin, HDTT.TgtPtrBegin});
+    }
     if (Device.FnPtrs.size() != FnPtrsCount) {
       REPORT("Expected %zu function pointers, found %zu.\n",
              FnPtrsCount, Device.FnPtrs.size());
       rc = OFFLOAD_FAIL;
     }
-    Device.DataMapMtx.unlock();
+    HDTTMap.destroy();
     Device.FnPtrMapMtx.unlock();
 
     if (rc == OFFLOAD_SUCCESS)
@@ -688,21 +691,18 @@ int targetDataBegin(ident_t *loc, DeviceTy &Device, int32_t arg_num,
           REPORT("Copying data to device failed.\n");
           return OFFLOAD_FAIL;
         }
-<<<<<<< HEAD
 #if INTEL_COLLAB
         // Obtain offset from the base address of PointerTgtPtrBegin.
-        Device.DataMapMtx.lock();
-        auto PtrLookup =
-            Device.lookupMapping(Pointer_HstPtrBegin, sizeof(void *));
-        Device.DataMapMtx.unlock();
+	DeviceTy::HDTTMapAccessorTy HDTTMap =
+            Device.HostDataToTargetMap.getExclusiveAccessor();
+	auto PtrLookup =
+	    Device.lookupMapping(HDTTMap, Pointer_HstPtrBegin, sizeof(void *));
+        HDTTMap.destroy();
         size_t PtrOffset = (size_t)((uint64_t)Pointer_HstPtrBegin -
             (uint64_t)PtrLookup.Entry->HstPtrBase);
         Device.notifyIndirectAccess(PointerTgtPtrBegin, PtrOffset);
 #endif // INTEL_COLLAB
-        if (Pointer_TPR.MapTableEntry->addEventIfNecessary(Device, AsyncInfo) !=
-=======
         if (Pointer_TPR.Entry->addEventIfNecessary(Device, AsyncInfo) !=
->>>>>>> 4e34f061d65e7ee45765304088a0a831a203b85b
             OFFLOAD_SUCCESS)
           return OFFLOAD_FAIL;
       } else
@@ -1579,7 +1579,9 @@ static int processDataBefore(ident_t *loc, int64_t DeviceId, void *HostPtr,
     map_var_info_t HstPtrName = (!ArgNames) ? nullptr : ArgNames[I];
     ptrdiff_t TgtBaseOffset;
     bool IsLast, IsHostPtr; // unused.
+#ifndef INTEL_COLLAB
     TargetPointerResultTy TPR;
+#endif // INTEL_COLLAB
     if (ArgTypes[I] & OMP_TGT_MAPTYPE_LITERAL) {
       DP("Forwarding first-private value " DPxMOD " to the target construct\n",
          DPxPTR(HstPtrBase));

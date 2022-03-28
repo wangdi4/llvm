@@ -298,14 +298,19 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
     IsNew = true;
 #if INTEL_COLLAB
     uintptr_t Ptr = (uintptr_t)data_alloc_base(Size, HstPtrBegin, HstPtrBase);
-    Entry = HostDataToTargetMap
-                .emplace((uintptr_t)HstPtrBase, (uintptr_t)HstPtrBegin,
-                         (uintptr_t)HstPtrBegin + Size, Ptr, HasHoldModifier,
-                         HstPtrName)
-                .first;
+#else // INTEL_COLLAB
+    uintptr_t Ptr = (uintptr_t)allocData(Size, HstPtrBegin);
+#endif // INTEL_COLLAB
+    Entry = HDTTMap
+                ->emplace(new HostDataToTargetTy(
+                    (uintptr_t)HstPtrBase, (uintptr_t)HstPtrBegin,
+                    (uintptr_t)HstPtrBegin + Size, Ptr, HasHoldModifier,
+                    HstPtrName))
+                .first->HDTT;
 #if INTEL_CUSTOMIZATION
     XPTIRegistry->traceMemAssociate((uintptr_t)HstPtrBegin, Ptr);
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
     INFO(OMP_INFOTYPE_MAPPING_CHANGED, DeviceID,
          "Creating new map entry with "
          "HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", Size=%" PRId64 ", "
@@ -314,13 +319,6 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
          Entry->dynRefCountToStr().c_str(), Entry->holdRefCountToStr().c_str(),
          (HstPtrName) ? getNameFromMapping(HstPtrName).c_str() : "unknown");
 #else // INTEL_COLLAB
-    uintptr_t Ptr = (uintptr_t)allocData(Size, HstPtrBegin);
-    Entry = HDTTMap
-                ->emplace(new HostDataToTargetTy(
-                    (uintptr_t)HstPtrBase, (uintptr_t)HstPtrBegin,
-                    (uintptr_t)HstPtrBegin + Size, Ptr, HasHoldModifier,
-                    HstPtrName))
-                .first->HDTT;
     INFO(OMP_INFOTYPE_MAPPING_CHANGED, DeviceID,
          "Creating new map entry with "
          "HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", Size=%ld, "
@@ -745,34 +743,30 @@ int32_t DeviceTy::manifest_data_for_region(void *TgtEntryPtr) {
   //   2. Shadow pointers mapped as PTR_AND_OBJ.
   std::vector<void *> ObjectPtrs;
 
-  DataMapMtx.lock();
+  HDTTMapAccessorTy HDTTMap = HostDataToTargetMap.getExclusiveAccessor();
 
-  for (auto &HT : HostDataToTargetMap) {
-#if INTEL_COLLAB
-    if (!HT.isDynRefCountInf() ||
+  for (const auto &It : *HDTTMap) {
+    HostDataToTargetTy &HDTT = *It.HDTT;
+    if (!HDTT.isDynRefCountInf() ||
         // Function pointers has zero size, and we do not have to manifest
         // them, because program code is always resident on the device.
-        HT.HstPtrBegin == HT.HstPtrEnd)
+        HDTT.HstPtrBegin == HDTT.HstPtrEnd)
       continue;
-#else // INTEL_COLLAB
-    if (!HT.isDynRefCountInf())
-      continue;
-#endif // INTEL_COLLAB
 
-    void *TgtPtrBegin = reinterpret_cast<void *>(HT.TgtPtrBegin);
+    void *TgtPtrBegin = reinterpret_cast<void *>(HDTT.TgtPtrBegin);
 
     if (ObjectPtrs.empty())
       DP("Manifesting target pointers for globals:\n");
 
     DP("\tHstPtrBase=" DPxMOD ", HstPtrBegin=" DPxMOD
        ", HstPtrEnd=" DPxMOD ", TgtPtrBegin=" DPxMOD "\n",
-       DPxPTR(HT.HstPtrBase), DPxPTR(HT.HstPtrBegin),
-       DPxPTR(HT.HstPtrEnd), DPxPTR(TgtPtrBegin));
+       DPxPTR(HDTT.HstPtrBase), DPxPTR(HDTT.HstPtrBegin),
+       DPxPTR(HDTT.HstPtrEnd), DPxPTR(TgtPtrBegin));
 
     ObjectPtrs.push_back(TgtPtrBegin);
   }
 
-  DataMapMtx.unlock();
+  HDTTMap.destroy();
 
   ShadowMtx.lock();
   if (!ShadowPtrMap.empty()) {

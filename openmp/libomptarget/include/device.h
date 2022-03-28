@@ -318,8 +318,7 @@ struct DeviceTy {
 
   ShadowPtrListTy ShadowPtrMap;
 
-<<<<<<< HEAD
-  std::mutex DataMapMtx, PendingGlobalsMtx, ShadowMtx;
+  std::mutex PendingGlobalsMtx, ShadowMtx;
 #if INTEL_COLLAB
   std::map<int32_t, UsedPtrsTy> UsedPtrs;
   std::mutex UsedPtrsMtx;
@@ -328,9 +327,6 @@ struct DeviceTy {
   std::mutex FnPtrMapMtx;
   FnPtrsTy FnPtrs;
 #endif // INTEL_COLLAB
-=======
-  std::mutex PendingGlobalsMtx, ShadowMtx;
->>>>>>> 4e34f061d65e7ee45765304088a0a831a203b85b
 
   // NOTE: Once libomp gains full target-task support, this state should be
   // moved into the target task in libomp.
