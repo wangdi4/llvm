@@ -141,8 +141,8 @@ static int InitLibrary(DeviceTy &Device) {
         break;
       }
 
-      // process global data that needs to be mapped.
-      std::lock_guard<decltype(Device.DataMapMtx)> LG(Device.DataMapMtx);
+      DeviceTy::HDTTMapAccessorTy HDTTMap =
+          Device.HostDataToTargetMap.getExclusiveAccessor();
 
       __tgt_target_table *HostTable = &TransTable->HostTable;
       for (__tgt_offload_entry *CurrDeviceEntry = TargetTable->EntriesBegin,
@@ -164,21 +164,23 @@ static int InitLibrary(DeviceTy &Device) {
           // therefore we must allow for multiple weak symbols to be loaded from
           // the fat binary. Treat these mappings as any other "regular"
           // mapping. Add entry to map.
-          if (Device.getTgtPtrBegin(CurrHostEntry->addr, CurrHostEntry->size))
+          if (Device.getTgtPtrBegin(HDTTMap, CurrHostEntry->addr,
+                                    CurrHostEntry->size))
             continue;
+
           DP("Add mapping from host " DPxMOD " to device " DPxMOD
              " with size %zu"
              "\n",
              DPxPTR(CurrHostEntry->addr), DPxPTR(CurrDeviceEntry->addr),
              CurrDeviceEntry->size);
-          Device.HostDataToTargetMap.emplace(
+          HDTTMap->emplace(new HostDataToTargetTy(
               (uintptr_t)CurrHostEntry->addr /*HstPtrBase*/,
               (uintptr_t)CurrHostEntry->addr /*HstPtrBegin*/,
               (uintptr_t)CurrHostEntry->addr +
                   CurrHostEntry->size /*HstPtrEnd*/,
               (uintptr_t)CurrDeviceEntry->addr /*TgtPtrBegin*/,
               false /*UseHoldRefCount*/, nullptr /*Name*/,
-              true /*IsRefCountINF*/);
+              true /*IsRefCountINF*/));
         }
 #if INTEL_COLLAB
         if (CurrDeviceEntry->flags & OMP_DECLARE_TARGET_FPTR) {
@@ -208,18 +210,21 @@ static int InitLibrary(DeviceTy &Device) {
     Device.FnPtrMapMtx.lock();
     Device.FnPtrs.reserve(FnPtrsCount);
 
-    Device.DataMapMtx.lock();
+    DeviceTy::HDTTMapAccessorTy HDTTMap =
+        Device.HostDataToTargetMap.getExclusiveAccessor();
     // Note that the entries in HostDataToTargetMap are sorted by
     // HstPtrBegin, so they will be sorted in FnPtrs as well.
-    for (auto &Entry : Device.HostDataToTargetMap)
-      if (Entry.HstPtrBegin == Entry.HstPtrEnd)
-        Device.FnPtrs.push_back({Entry.HstPtrBegin, Entry.TgtPtrBegin});
+    for (const auto &It : *HDTTMap) {
+      HostDataToTargetTy &HDTT = *It.HDTT;
+      if (HDTT.HstPtrBegin == HDTT.HstPtrEnd)
+        Device.FnPtrs.push_back({HDTT.HstPtrBegin, HDTT.TgtPtrBegin});
+    }
     if (Device.FnPtrs.size() != FnPtrsCount) {
       REPORT("Expected %zu function pointers, found %zu.\n",
              FnPtrsCount, Device.FnPtrs.size());
       rc = OFFLOAD_FAIL;
     }
-    Device.DataMapMtx.unlock();
+    HDTTMap.destroy();
     Device.FnPtrMapMtx.unlock();
 
     if (rc == OFFLOAD_SUCCESS)
@@ -666,13 +671,12 @@ int targetDataBegin(ident_t *loc, DeviceTy &Device, int32_t arg_num,
         // create or update shadow pointers for this entry
         Device.ShadowPtrMap[Pointer_HstPtrBegin] = {
             HstPtrBase, PointerTgtPtrBegin, ExpectedTgtPtrBase};
-        Pointer_TPR.MapTableEntry->setMayContainAttachedPointers();
+        Pointer_TPR.Entry->setMayContainAttachedPointers();
         UpdateDevPtr = true;
       }
 
       if (UpdateDevPtr) {
-        std::lock_guard<decltype(*Pointer_TPR.MapTableEntry)> LG(
-            *Pointer_TPR.MapTableEntry);
+        std::lock_guard<decltype(*Pointer_TPR.Entry)> LG(*Pointer_TPR.Entry);
         Device.ShadowMtx.unlock();
 
         DP("Update pointer (" DPxMOD ") -> [" DPxMOD "]\n",
@@ -689,15 +693,16 @@ int targetDataBegin(ident_t *loc, DeviceTy &Device, int32_t arg_num,
         }
 #if INTEL_COLLAB
         // Obtain offset from the base address of PointerTgtPtrBegin.
-        Device.DataMapMtx.lock();
-        auto PtrLookup =
-            Device.lookupMapping(Pointer_HstPtrBegin, sizeof(void *));
-        Device.DataMapMtx.unlock();
+	DeviceTy::HDTTMapAccessorTy HDTTMap =
+            Device.HostDataToTargetMap.getExclusiveAccessor();
+	auto PtrLookup =
+	    Device.lookupMapping(HDTTMap, Pointer_HstPtrBegin, sizeof(void *));
+        HDTTMap.destroy();
         size_t PtrOffset = (size_t)((uint64_t)Pointer_HstPtrBegin -
             (uint64_t)PtrLookup.Entry->HstPtrBase);
         Device.notifyIndirectAccess(PointerTgtPtrBegin, PtrOffset);
 #endif // INTEL_COLLAB
-        if (Pointer_TPR.MapTableEntry->addEventIfNecessary(Device, AsyncInfo) !=
+        if (Pointer_TPR.Entry->addEventIfNecessary(Device, AsyncInfo) !=
             OFFLOAD_SUCCESS)
           return OFFLOAD_FAIL;
       } else
@@ -744,8 +749,7 @@ static void applyToShadowMapEntries(DeviceTy &Device, CBTy CB, void *Begin,
 
   // If the map entry for the object was never marked as containing attached
   // pointers, no need to do any checking.
-  if (TPR.MapTableEntry == HostDataToTargetListTy::iterator{} ||
-      !TPR.MapTableEntry->getMayContainAttachedPointers())
+  if (!TPR.Entry || !TPR.Entry->getMayContainAttachedPointers())
     return;
 
   uintptr_t LB = (uintptr_t)Begin;
@@ -1575,7 +1579,9 @@ static int processDataBefore(ident_t *loc, int64_t DeviceId, void *HostPtr,
     map_var_info_t HstPtrName = (!ArgNames) ? nullptr : ArgNames[I];
     ptrdiff_t TgtBaseOffset;
     bool IsLast, IsHostPtr; // unused.
+#ifndef INTEL_COLLAB
     TargetPointerResultTy TPR;
+#endif // INTEL_COLLAB
     if (ArgTypes[I] & OMP_TGT_MAPTYPE_LITERAL) {
       DP("Forwarding first-private value " DPxMOD " to the target construct\n",
          DPxPTR(HstPtrBase));
