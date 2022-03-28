@@ -8649,8 +8649,16 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     if (Args.hasArg(options::OPT_regcall))
       CmdArgs.push_back("-fdefault-calling-conv=regcall");
 
-  if (D.IsIntelMode())
+  if (D.IsIntelMode()) {
     CmdArgs.push_back("-fintel-compatibility");
+    if (IsSYCLOffloadDevice) {
+      // Some Intel compatibility features are not yet supported (mostly in
+      // SPIR-V translator or back-ends).
+      // Disable them temporarily.
+      // TODO: enable them, when support is added.
+      CmdArgs.push_back("-fintel-compatibility-disable=FakeLoad");
+    }
+  }
 
   if (Args.hasFlag(options::OPT_intel_mintrinsic_promote,
                    options::OPT_intel_mno_intrinsic_promote, false))
