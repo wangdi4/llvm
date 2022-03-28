@@ -427,25 +427,10 @@ struct DeviceTy {
   int32_t manifest_data_for_region(void *TgtEntryPtr);
   char *get_device_name(char *Buffer, size_t BufferMaxSize);
   void *data_alloc_base(int64_t Size, void *HstPtrBegin, void *HstPtrBase);
-  int32_t data_submit_nowait(void *TgtPtrBegin, void *HstPtrBegin,
-                             int64_t Size, void *AsyncData);
-  int32_t data_retrieve_nowait(void *HstPtrBegin, void *TgtPtrBegin,
-                               int64_t Size, void *AsyncData);
   int32_t run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
                              ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                              int32_t NumTeams, int32_t ThreadLimit,
                              void *TgtNDLoopDesc);
-  int32_t run_team_nd_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
-                                    ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
-                                    int32_t NumTeams, int32_t ThreadLimit,
-                                    void *TgtNDLoopDesc, void *AsyncData);
-  int32_t run_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
-                            ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
-                            void *AsyncData);
-  int32_t run_team_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
-                                 ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
-                                 int32_t NumTeams, int32_t ThreadLimit,
-                                 uint64_t LoopTripCount, void *AsyncData);
   void get_offload_queue(void *Interop, bool CreateNew);
   int32_t release_offload_queue(void *);
   void *get_platform_handle();

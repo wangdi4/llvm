@@ -799,6 +799,7 @@ private:
   uint8_t NDRangeDistributeDim = 0;
   unsigned SPIRVSIMDWidth = 0;
   bool HasTeamsReduction = false;
+  uint8_t HasAtomicFreeReduction = 0;
 #if INTEL_CUSTOMIZATION
   bool IsDoConcurrent;  // Used fro Fortran Do Concurrent
 #endif // INTEL_CUSTOMIZATION
@@ -901,6 +902,22 @@ protected:
 
   bool getHasTeamsReduction() const override {
     return HasTeamsReduction;
+  }
+
+  void setHasLocalAtomicFreeReduction() {
+    HasAtomicFreeReduction |= VPOParoptAtomicFreeReduction::Kind_Local;
+  }
+
+  void setHasGlobalAtomicFreeReduction() {
+    HasAtomicFreeReduction |= VPOParoptAtomicFreeReduction::Kind_Global;
+  }
+
+  bool getHasLocalAtomicFreeReduction() const {
+    return HasAtomicFreeReduction & VPOParoptAtomicFreeReduction::Kind_Local;
+  }
+
+  bool getHasGlobalAtomicFreeReduction() const {
+    return HasAtomicFreeReduction & VPOParoptAtomicFreeReduction::Kind_Global;
   }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,

@@ -776,6 +776,7 @@
 // RUN: %clang -### -sox -c %s 2>&1 | FileCheck -check-prefix=SOX %s
 // RUN: %clang_cl -### /Qsox -c %s 2>&1 | FileCheck -check-prefix=SOX %s
 // RUN: %clang -### -c %s 2>&1 | FileCheck -check-prefix=NOSOX %s
+// RUN: %clang -### -no-sox -c %s 2>&1 | FileCheck -check-prefix=NOSOX %s
 // SOX: -sox=
 // SOX-SAME: -### -sox -c {{.*}}intel-options.c
 // NOSOX-NOT: -sox

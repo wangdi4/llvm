@@ -378,8 +378,6 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(data_alloc_managed);
     SET_OPTIONAL_INTERFACE_FN(data_realloc);
     SET_OPTIONAL_INTERFACE_FN(data_aligned_alloc);
-    SET_OPTIONAL_INTERFACE_FN(data_submit_nowait);
-    SET_OPTIONAL_INTERFACE_FN(data_retrieve_nowait);
     SET_OPTIONAL_INTERFACE_FN(get_offload_queue);
     SET_OPTIONAL_INTERFACE_FN(release_offload_queue);
     SET_OPTIONAL_INTERFACE_FN(get_device_name);
@@ -414,11 +412,6 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(alloc_per_hw_thread_scratch);
     SET_OPTIONAL_INTERFACE_FN(free_per_hw_thread_scratch);
     SET_OPTIONAL_INTERFACE(run_team_nd_region, run_target_team_nd_region);
-    SET_OPTIONAL_INTERFACE(run_region_nowait, run_target_region_nowait);
-    SET_OPTIONAL_INTERFACE(run_team_region_nowait,
-                           run_target_team_region_nowait);
-    SET_OPTIONAL_INTERFACE(run_team_nd_region_nowait,
-                           run_target_team_nd_region_nowait);
     #undef SET_OPTIONAL_INTERFACE
     #undef SET_OPTIONAL_INTERFACE_FN
 

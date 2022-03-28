@@ -587,8 +587,9 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
   }
 
   // Create a bitcast instruction if needed
-  auto BitCastDestElemTy = Ref->getBitCastDestVecOrElemType();
-  if (BitCastDestElemTy) {
+  auto *BitCastDestElemTy = Ref->getBitCastDestVecOrElemType();
+  if (BitCastDestElemTy &&
+      BitCastDestElemTy->getContext().supportsTypedPointers()) {
     LLVM_DEBUG(dbgs() << "VPDecomp: BitCastDestElemTy: ";
                BitCastDestElemTy->dump(); dbgs() << "\n");
     MemOpVPI = Builder.createNaryOp(

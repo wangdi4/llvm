@@ -60,6 +60,14 @@ class LLVMContext;
 
 namespace vpo {
 
+namespace VPOParoptAtomicFreeReduction {
+constexpr StringRef GlobalBufferAttr = "paropt_red_globalbuf";
+constexpr StringRef TeamsCounterAttr = "paropt_red_teamscounter";
+constexpr StringRef GlobalStoreMD = "paropt_red_globalstore";
+
+enum Kind { Kind_Local = 1, Kind_Global = 2 };
+} // namespace VPOParoptAtomicFreeReduction
+
 typedef SmallVector<BasicBlock *, 32> VPOSmallVectorBB;
 typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 

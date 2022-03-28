@@ -402,7 +402,8 @@ Function *VPOParoptTransform::finalizeKernelFunction(
   //   };
   auto GenerateKernelArgInfoVar =
       [this, &WT](const std::vector<KernelArgInfoDesc> &KernelArgInfo,
-         Function *Fn, bool HasTeamsReduction) {
+                  Function *Fn, bool HasTeamsReduction,
+                  bool HasLocalAFReduction, bool HasGlobalAFReduction) {
         auto &C = Fn->getContext();
         size_t ArgsNum = KernelArgInfo.size();
         assert(ArgsNum == Fn->getFunctionType()->params().size() &&
@@ -455,20 +456,15 @@ Function *VPOParoptTransform::finalizeKernelFunction(
         KernelInfoInitBuffer.push_back(
             ConstantInt::get(Type::getInt64Ty(C), Attributes1));
 
-        uint64_t UseGPURedWGLimit =
-            (HasTeamsReduction && AtomicFreeReduction &&
-             (AtomicFreeReductionCtrl &
-              VPOParoptAtomicFreeReduction::Kind_Global))
-                ? AtomicFreeRedGlobalBufSize
-                : 0;
+        uint64_t UseGPURedWGLimit = (HasTeamsReduction && HasGlobalAFReduction)
+                                        ? AtomicFreeRedGlobalBufSize
+                                        : 0;
         KernelInfoInitMemberTypes.push_back(Type::getInt64Ty(C));
         KernelInfoInitBuffer.push_back(
             ConstantInt::get(Type::getInt64Ty(C), UseGPURedWGLimit));
 
         uint64_t UseGPURedWILimit =
-            (AtomicFreeReduction &&
-             (AtomicFreeReductionCtrl &
-              VPOParoptAtomicFreeReduction::Kind_Local) &&
+            (AtomicFreeReduction && HasLocalAFReduction &&
              UsedLocalTreeReduction.count(WT))
                 ? AtomicFreeRedLocalBufSize
                 : 0;
@@ -582,7 +578,9 @@ Function *VPOParoptTransform::finalizeKernelFunction(
     ByValLimit -= std::min(ByValLimit, ArgSize);
   }
 
-  GenerateKernelArgInfoVar(KernelArgInfo, Fn, WT->getHasTeamsReduction());
+  GenerateKernelArgInfoVar(KernelArgInfo, Fn, WT->getHasTeamsReduction(),
+                           WT->getHasLocalAtomicFreeReduction(),
+                           WT->getHasGlobalAtomicFreeReduction());
 
   Type *RetTy = FnTy->getReturnType();
   FunctionType *NFnTy = FunctionType::get(RetTy, ParamsTy, false);
