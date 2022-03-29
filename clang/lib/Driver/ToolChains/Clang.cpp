@@ -5315,6 +5315,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-sycl-std=2020");
     }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (Args.hasArg(options::OPT_fsycl_host_compiler_EQ)) {
       if (Args.hasFlag(options::OPT_fsycl_unnamed_lambda,
@@ -5331,6 +5332,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     else if (!Args.hasFlag(options::OPT_fsycl_unnamed_lambda,
                            options::OPT_fno_sycl_unnamed_lambda))
 #endif // INTEL_CUSTOMIZATION
+=======
+    if (!Args.hasFlag(options::OPT_fsycl_unnamed_lambda,
+                      options::OPT_fno_sycl_unnamed_lambda, true))
+>>>>>>> 5fe1d888d0c97eed7278741939d143a92227bb8a
       CmdArgs.push_back("-fno-sycl-unnamed-lambda");
 
     // Add the Unique ID prefix
