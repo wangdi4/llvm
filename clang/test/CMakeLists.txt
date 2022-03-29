@@ -1,6 +1,7 @@
 # Test runner infrastructure for Clang. This configures the Clang test trees
 # for use by Lit, and delegates to LLVM's lit test handlers.
 
+<<<<<<< HEAD
 if (CMAKE_CFG_INTDIR STREQUAL ".")
   set(LLVM_BUILD_MODE ".")
 else ()
@@ -19,6 +20,8 @@ if (INTEL_CUSTOMIZATION)
   endif()
 endif (INTEL_CUSTOMIZATION)
 
+=======
+>>>>>>> 57ee624d7946b4d42890709287eb71d4eb1fa2fa
 llvm_canonicalize_cmake_booleans(
   CLANG_BUILD_EXAMPLES
   CLANG_DEFAULT_PIE_ON_LINUX
@@ -55,7 +58,7 @@ configure_lit_site_cfg(
   "LLVM_EXTERNAL_LIT"
   "CLANG_BINARY_DIR"
   "CLANG_SOURCE_DIR"
-  "CLANG_TOOLS_DIR"
+  "CURRENT_TOOLS_DIR"
   "CMAKE_LIBRARY_OUTPUT_DIRECTORY"
   )
 
