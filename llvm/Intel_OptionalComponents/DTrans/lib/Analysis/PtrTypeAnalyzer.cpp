@@ -1120,7 +1120,7 @@ public:
 
               if (auto ElemZeroPair = LocalPTA.getElementZeroType(PropAlias)) {
                 PointerInfo->addElementPointee(
-                    Kind, ElemZeroPair.getValue().first, 0);
+                    ValueTypeInfo::VAT_Use, ElemZeroPair.getValue().first, 0);
                 ValueInfo->addTypeAlias(Kind, ElemZeroPair.getValue().second);
 
                 // Need to defer updating the PointerInfo until the loop
@@ -1134,7 +1134,7 @@ public:
             }
 
             for (auto *Ty : PendingTypes)
-              PointerInfo->addTypeAlias(Kind, Ty);
+              PointerInfo->addTypeAlias(ValueTypeInfo::VAT_Use, Ty);
           };
 
       ValueTypeInfo *ValInfo = PTA.getOrCreateValueTypeInfo(&I, 0);
@@ -2687,8 +2687,9 @@ private:
     bool HasArrayType = false;
     DTransType *IndexedType = nullptr;
     DTransType *CheckAsElemZeroType = nullptr;
-    for (auto *AliasTy :
-         BasePtrInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+    auto &AliasSet =
+        BasePtrInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl);
+    for (auto *AliasTy : AliasSet) {
       if (!AliasTy->isPointerTy())
         continue;
 
@@ -3129,9 +3130,16 @@ private:
     //   In this case, the call sets 'LoadingAggregateType' to indicate the
     //   structure should not be traversed as a potential zero-element load.
     //
+    auto &LocalTM = this->TM;
     auto PropagateDereferencedType =
-        [](ValueTypeInfo *PointerInfo, ValueTypeInfo *ResultInfo,
-           ValueTypeInfo::ValueAnalysisType Kind, bool LoadingAggregateType) {
+        [&LocalTM](ValueTypeInfo *PointerInfo, ValueTypeInfo *ResultInfo,
+                   ValueTypeInfo::ValueAnalysisType Kind,
+                   bool LoadingAggregateType) {
+          // This may also identify that it appears that an element-zero
+          // location of an aggregate is being loaded. In this case the
+          // PointerInfo will be updated to reflect that the pointer operand is
+          // being used as an element-pointee.
+          SmallVector<DTransType *, 4> PendingTypes;
           for (auto *Alias : PointerInfo->getPointerTypeAliasSet(Kind)) {
             DTransType *PropAlias = nullptr;
             if (!Alias->isPointerTy())
@@ -3187,14 +3195,19 @@ private:
               }
 
               if (PrevNestedType->isAggregateType())
-                PointerInfo->addElementPointee(Kind, PrevNestedType, 0);
-              if (NestedType)
+                PointerInfo->addElementPointee(ValueTypeInfo::VAT_Use,
+                                               PrevNestedType, 0);
+              if (NestedType) {
                 ResultInfo->addTypeAlias(Kind, NestedType);
-
+                PendingTypes.push_back(LocalTM.getOrCreatePointerType(NestedType));
+              }
             } else {
               ResultInfo->addTypeAlias(Kind, PropAlias);
             }
           }
+
+          for (auto *Ty : PendingTypes)
+            PointerInfo->addTypeAlias(ValueTypeInfo::VAT_Use, Ty);
         };
 
     llvm::Type *ValTy = LI->getType();
