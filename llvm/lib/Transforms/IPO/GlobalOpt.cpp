@@ -249,14 +249,10 @@ CleanupPointerRootUsers(GlobalVariable *GV,
       if (MemSrc && MemSrc->isConstant()) {
         Changed = true;
         MTI->eraseFromParent();
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       // CMPLRLLVM-28168: MemSrc may be nullptr, so check for that
       } else if (Instruction *I = dyn_cast_or_null<Instruction>(MemSrc)) {
 #endif // INTEL_CUSTOMIZATION
-=======
-      } else if (Instruction *I = dyn_cast<Instruction>(MTI->getSource())) {
->>>>>>> db561064f60dff6c65e9b31c709cfbd72dd24b73
         if (I->hasOneUse())
           Dead.push_back(std::make_pair(I, MTI));
       }
