@@ -2707,7 +2707,7 @@ bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
     if (NumElems && !isa<ConstantInt>(NumElems))
       continue;
 
-    uint64_t Size = DL.getPointerSizeInBits() / 8;
+    uint64_t Size = DL.getTypeSizeInBits(BufTy) / 8;
     uint64_t MapType = TGT_MAP_PRIVATE;
     Value *MapTypeVal =
         ConstantInt::get(Type::getInt64Ty(F->getContext()), MapType);
@@ -2755,14 +2755,15 @@ bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
   if (!FoundProperItem)
     return false;
 
-  uint64_t Size = DL.getPointerSizeInBits() / 8;
+  Type *CounterTy = Type::getInt32Ty(F->getContext());
+  uint64_t Size = DL.getTypeSizeInBits(CounterTy) / 8;
   uint64_t MapType = TGT_MAP_PRIVATE | TGT_MAP_TO;
   Value *MapTypeVal =
       ConstantInt::get(Type::getInt64Ty(F->getContext()), MapType);
   Value *MapSize = ConstantInt::get(Type::getInt64Ty(F->getContext()), Size);
 
   auto *GlobalCounter = new GlobalVariable(
-      *(F->getParent()), Type::getInt32Ty(F->getContext()), false,
+      *(F->getParent()), CounterTy, false,
       GlobalValue::LinkageTypes::PrivateLinkage,
       ConstantInt::get(Type::getInt32Ty(F->getContext()), 0), "teams_counter",
       nullptr, GlobalValue::NotThreadLocal, isTargetSPIRV() ? 1 : 0);
