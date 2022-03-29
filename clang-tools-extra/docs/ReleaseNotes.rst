@@ -106,7 +106,6 @@ New checks
 
   Finds initializations of C++ shared pointers to non-array type that are initialized with an array.
 
-<<<<<<< HEAD
 ..
   INTEL_CUSTOMIZATION
 - New :doc:`misc-homoglyph <clang-tidy/checks/misc-homoglyph>` check.
@@ -119,8 +118,6 @@ New checks
 
   Replaces groups of adjacent macros with an unscoped anonymous enum.
 
-=======
->>>>>>> cef52105bd4b639a76de71cc84ed8d56bdaede1d
 New check aliases
 ^^^^^^^^^^^^^^^^^
 
