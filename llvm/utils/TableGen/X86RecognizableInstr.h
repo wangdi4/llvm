@@ -404,6 +404,7 @@ public:
                            InstrUID uid);
 };
 
+std::string getMnemonic(const CodeGenInstruction *I, unsigned Variant);
 } // namespace X86Disassembler
 
 } // namespace llvm
