@@ -94,8 +94,6 @@ static uint8_t byteFromRec(const Record* rec, StringRef name) {
 
 RecognizableInstrBase::RecognizableInstrBase(const CodeGenInstruction &insn) {
   Rec = insn.TheDef;
-  Name = std::string(Rec->getName());
-
   if (!Rec->isSubClassOf("X86Inst")) {
     ShouldBeEmitted = false;
     return;
@@ -127,15 +125,25 @@ RecognizableInstrBase::RecognizableInstrBase(const CodeGenInstruction &insn) {
   ForceDisassemble   = Rec->getValueAsBit("ForceDisassemble");
   CD8_Scale          = byteFromRec(Rec, "CD8_Scale");
 
-  Name = std::string(Rec->getName());
-
-  Operands = &insn.Operands.OperandList;
-
   HasVEX_LPrefix   = Rec->getValueAsBit("hasVEX_L");
 
   EncodeRC = HasEVEX_B &&
              (Form == X86Local::MRMDestReg || Form == X86Local::MRMSrcReg);
 
+  if (Form == X86Local::Pseudo || (IsCodeGenOnly && !ForceDisassemble)) {
+    ShouldBeEmitted = false;
+    return;
+  }
+
+  ShouldBeEmitted = true;
+}
+
+RecognizableInstr::RecognizableInstr(DisassemblerTables &tables,
+                                     const CodeGenInstruction &insn,
+                                     InstrUID uid)
+    : RecognizableInstrBase(insn) {
+  Name = std::string(Rec->getName());
+  Operands = &insn.Operands.OperandList;
   // Check for 64-bit inst which does not require REX
   Is32Bit = false;
   Is64Bit = false;
@@ -145,7 +153,7 @@ RecognizableInstrBase::RecognizableInstrBase(const CodeGenInstruction &insn) {
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
   // FIXME: Is there some better way to check for In64BitMode?
-  std::vector<Record*> Predicates = Rec->getValueAsListOfDefs("Predicates");
+  std::vector<Record *> Predicates = Rec->getValueAsListOfDefs("Predicates");
   for (unsigned i = 0, e = Predicates.size(); i != e; ++i) {
     if (Predicates[i]->getName().contains("Not64Bit") ||
         Predicates[i]->getName().contains("In32Bit")) {
@@ -166,19 +174,6 @@ RecognizableInstrBase::RecognizableInstrBase(const CodeGenInstruction &insn) {
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
   }
-
-  if (Form == X86Local::Pseudo || (IsCodeGenOnly && !ForceDisassemble)) {
-    ShouldBeEmitted = false;
-    return;
-  }
-
-  ShouldBeEmitted = true;
-}
-
-RecognizableInstr::RecognizableInstr(DisassemblerTables &tables,
-                                     const CodeGenInstruction &insn,
-                                     InstrUID uid)
-    : RecognizableInstrBase(insn) {
   UID = uid;
   Spec = &tables.specForUID(UID);
 }
