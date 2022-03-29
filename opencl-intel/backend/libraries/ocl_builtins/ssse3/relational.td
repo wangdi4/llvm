@@ -26,10 +26,7 @@ OclBuiltinImpl signbit_expand         =  OclBuiltinImpl  <signbit,  [v8f32, v4f6
 OclBuiltinImpl any_expand2           =  OclBuiltinImpl  <any,  [v8i32, v4i64],  0, Expand_any>;
 OclBuiltinImpl all_expand2           =  OclBuiltinImpl  <all,  [v8i32, v4i64],  0, Expand_all>;
 
-OclBuiltinImpl bitselect_expand      =  OclBuiltinImpl  <bitselect,  [v8f32, v3f64, v4f64, v8i32, v3i64,
-                                                                      v8u32, v3u64, v16i16, v16u16,
-                                                                      v4u64, v4i64, v8u64, v16u32, v8f64,
-                                                                      v16i32, v8i64, v16f32  ],                          0, Expand3>;
+OclBuiltinImpl bitselect_expand      =  OclBuiltinImpl  <bitselect,  [v3f64, v3i64, v3u64], 0, Expand3>;
 
 OclBuiltinImpl islessgreater_E       =  OclBuiltinImpl  <islessgreater, [v4f64, v8f64, v16f32],     0, Expand2>;
 

@@ -44,12 +44,6 @@ OclBuiltinImpl signbit_v8f64 = OclBuiltinImpl<signbit, [v8f64], 0, [{
     return as_$ReturnType(select($Arg0VarName,  as_$Arg0Type(($Arg0igentype)FF), as_$Arg0igentype($Arg0VarName)));
   }]>;
 
-OclBuiltinImpl bitselect_v16f32 = OclBuiltinImpl<bitselect, [v16f32, v8f64, v16i32, v16u32], 0, [{
-    $Arg0VarName = as_$Arg0Type( ~as_$Arg0igentype($Arg2VarName) & as_$Arg0igentype($Arg0VarName)); //res1 is $Arg0VarName if $Arg2VarName is 0
-    $Arg1VarName = as_$Arg0Type( as_$Arg0igentype($Arg2VarName) & as_$Arg0igentype($Arg1VarName)); //res2 bit is $Arg1VarName if $Arg2VarName is 1
-    return as_$ReturnType(as_$Arg0igentype($Arg0VarName) | as_$Arg0igentype($Arg1VarName));
-  }]>;
-
 /*
 //======v16i32\v16u32 and v8i64\v8u64 implementation===============================
 OclBuiltinImpl any_v16i32 = OclBuiltinImpl<any, [v16i32], 0, [{
@@ -70,16 +64,6 @@ OclBuiltinImpl all_v16i32 = OclBuiltinImpl<all, [v16i32], 0, [{
 OclBuiltinImpl all_v8i64 = OclBuiltinImpl<all, [v8i64], 0, [{
     int mask = _mm256_movemask_ps(__builtin_astype($Arg0VarName,__m256));
     return as_$ReturnType(((mask & 0xAA) == 0xAA));
-  }]>;
-*/
-OclBuiltinImpl bitselect_v16i32 = OclBuiltinImpl<bitselect, [v8i32, v8u32, v16i32, v16u32, v8i64, v8u64], 0, [{
-    $Arg0igentype res1 = (~ as_$Arg0igentype($Arg2VarName) & as_$Arg0igentype($Arg0VarName));
-    $Arg0igentype res2 = ( as_$Arg0igentype($Arg2VarName) & as_$Arg0igentype($Arg1VarName));
-    return as_$ReturnType(res1 | res2);
-  }]>;
-/*
-OclBuiltinImpl bitselect_v8i64 = OclBuiltinImpl<bitselect, [v8i64, v8u64], 0, [{
-    return as_$ReturnType(bitselect(as_int16($Arg0VarName), as_int16($Arg1VarName), as_int16($Arg2VarName)));
   }]>;
 */
 
