@@ -2150,6 +2150,19 @@ public:
         if (!PtrDomTyPtrTy->isAggregateType())
           return false;
 
+        // If the expected type is an aggregate type, then we are looking at an
+        // element pointee that was nested in another aggregate: For example:
+        //   %struct.lzma_coder_s = type { ptr, %struct.lzma_mf_s }
+        //   %struct.lzma_mf_s = type { ptr, i32 }
+        //
+        // %struct.lzma_coder_s@1 will call this routine with 'ExpectedType' set
+        // to %struct.lzma_mf_s because that is the type as index 1. Treat
+        // this as safe because another call will be done when looping over all
+        // the element pointees that will check 'ExpectedType' against the
+        // element zero type within %struct.lzma_mf_s.
+        if (ExpectedType->isAggregateType() && PtrDomTyPtrTy == ExpectedType)
+          return true;
+
         if (!PTA.isPointeeElementZeroAccess(PtrDomTyPtrTy, ExpectedType))
           return false;
 
