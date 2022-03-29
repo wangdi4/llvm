@@ -5431,7 +5431,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       // SPIR-V target requires LLVM BC emission, which cannot
       // be done if any Intel proprietary optimization kicks in,
       // so we have to disable all proprietary optimizations.
-      CmdArgs.push_back("-disable-intel-proprietary-opts");
+      if (!Args.hasArg(options::OPT_fopenmp_target_intel_proprietary_opts))
+        CmdArgs.push_back("-disable-intel-proprietary-opts");
 
       // Add args specific to -fopenmp-target-simd
       if (Args.hasArg(options::OPT_fopenmp_target_simd)) {
