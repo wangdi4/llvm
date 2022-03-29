@@ -45,13 +45,15 @@ __attribute__((reqd_work_group_size(16, 16, 16)))
 __kernel void kernel_4c() {
 }
 
-__attribute__((autorun)) //expected-error{{'autorun' attribute requires 'reqd_work_group_size' or 'max_global_work_dim' attribute to be specified}}
-__attribute__((reqd_work_group_size(10, 10, 10))) //expected-error{{Autorun kernel functions must have work group sizes that are divisors of 2^32}}
+__attribute__((autorun)) //expected-error{{'autorun' attribute requires 'reqd_work_group_size' or 'max_global_work_dim' attribute to be specified}} \
+                         //#autorun1
+__attribute__((reqd_work_group_size(10, 10, 10))) //expected-error{{Autorun kernel functions must have work group sizes that are divisors of 2^32}} \
+                                                  //expected-note@#autorun1 {{conflicting attribute is here}}
 __kernel void kernel_4d() {
 }
 
 __attribute__((reqd_work_group_size(10, 10, 10))) //expected-error{{Autorun kernel functions must have work group sizes that are divisors of 2^32}}
-__attribute__((autorun))
+__attribute__((autorun))                          //expected-note{{conflicting attribute is here}}
 __kernel void kernel_4e() {
 }
 
@@ -74,8 +76,8 @@ __attribute__((stall_free(0))) //expected-error{{'stall_free' attribute takes no
 __kernel void kernel_4i(int a) {
 }
 
-//expected-warning@+2{{implicit conversion changes signedness: 'int' to 'unsigned long long'}}
-//expected-error@+1{{Autorun kernel functions must have work group sizes that are divisors of 2^32}}
+//expected-error@+2{{'reqd_work_group_size' attribute requires a positive integral compile time constant expression}}
+//expected-error@+2{{'autorun' attribute requires 'reqd_work_group_size' or 'max_global_work_dim' attribute to be specified}}
 __attribute__((reqd_work_group_size(-10, 10, 10)))
 __attribute__((autorun))
 __kernel void kernel_4j() {}
@@ -85,13 +87,13 @@ __attribute__((autorun)) //expected-error{{'autorun' attribute requires 'reqd_wo
 __kernel void kernel_4k() {
 }
 
-__attribute__((reqd_work_group_size(0, 32, 32))) //expected-error{{'reqd_work_group_size' attribute must be greater than 0}}
+__attribute__((reqd_work_group_size(0, 32, 32))) //expected-error{{'reqd_work_group_size' attribute requires a positive integral compile time constant expression}}
 __attribute__((autorun)) //expected-error{{'autorun' attribute requires 'reqd_work_group_size' or 'max_global_work_dim' attribute to be specified}}
 __kernel void kernel_4l() {
 }
 
 __attribute__((reqd_work_group_size(6, 6, 6))) //expected-error{{Autorun kernel functions must have work group sizes that are divisors of 2^32}}
-__attribute__((autorun))
+__attribute__((autorun))                       //expected-note{{conflicting attribute is here}}
 __kernel void kernel_4m() {
 }
 
@@ -216,7 +218,7 @@ __kernel void kernel_8g() {
 }
 
 __attribute__((num_simd_work_items(-3))) //expected-error{{'num_simd_work_items' attribute requires a positive integral compile time constant expression}}
-__attribute__((reqd_work_group_size(-5, 5, 5))) //expected-warning{{implicit conversion changes signedness: 'int' to 'unsigned long long'}}
+__attribute__((reqd_work_group_size(-5, 5, 5))) //expected-error{{'reqd_work_group_size' attribute requires a positive integral compile time constant expression}}
 __kernel void kernel_8h() {
 }
 
@@ -225,7 +227,7 @@ __kernel void kernel_8i() {
 }
 
 __attribute__((num_simd_work_items(4)))
-__attribute__((reqd_work_group_size(0, 64, 64))) //expected-error{{'reqd_work_group_size' attribute must be greater than 0}}
+__attribute__((reqd_work_group_size(0, 64, 64))) //expected-error{{'reqd_work_group_size' attribute requires a positive integral compile time constant expression}}
 __kernel void kernel_8j() {
 }
 

@@ -3387,6 +3387,7 @@ static void handleAutorunAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
         N % ZDimVal->getZExtValue() != 0) {
       S.Diag(A->getLocation(),
           diag::err_opencl_autorun_kernel_wrong_reqd_wg_size);
+      S.Diag(Attr.getLoc(), diag::note_conflicting_attribute);
       return;
     }
   }
@@ -4009,69 +4010,6 @@ void Sema::AddAllowCpuFeaturesAttr(Decl *D, const AttributeCommonInfo &CI,
 }
 #endif // INTEL_CUSTOMIZATION
 
-// Checks correctness of mutual usage of different work_group_size attributes:
-// reqd_work_group_size, max_work_group_size and max_global_work_dim.
-// Values of reqd_work_group_size arguments shall be equal or less than values
-// coming from max_work_group_size.
-// In case the value of 'max_global_work_dim' attribute equals to 0 we shall
-// ensure that if max_work_group_size and reqd_work_group_size attributes exist,
-// they hold equal values (1, 1, 1).
-static bool checkWorkGroupSizeValues(Sema &S, Decl *D, const ParsedAttr &AL) {
-  bool Result = true;
-
-  // Returns the unsigned constant integer value represented by
-  // given expression.
-  auto getExprValue = [](const Expr *E, ASTContext &Ctx) {
-    return E->getIntegerConstantExpr(Ctx)->getZExtValue();
-  };
-
-  ASTContext &Ctx = S.getASTContext();
-
-  // The arguments to reqd_work_group_size are ordered based on which index
-  // increments the fastest. In OpenCL, the first argument is the index that
-  // increments the fastest, and in SYCL, the last argument is the index that
-  // increments the fastest.
-  //
-  // [[sycl::reqd_work_group_size]] and [[cl::reqd_work_group_size]] are
-  // available in SYCL modes and follow the SYCL rules.
-  // __attribute__((reqd_work_group_size)) is only available in OpenCL mode
-  // and follows the OpenCL rules.
-  if (const auto *A = D->getAttr<SYCLIntelMaxWorkGroupSizeAttr>()) {
-    bool CheckFirstArgument =
-        S.getLangOpts().OpenCL
-            ? getExprValue(AL.getArgAsExpr(0), Ctx) > *A->getZDimVal()
-            : getExprValue(AL.getArgAsExpr(0), Ctx) > *A->getXDimVal();
-    bool CheckSecondArgument =
-        getExprValue(AL.getArgAsExpr(1), Ctx) > *A->getYDimVal();
-    bool CheckThirdArgument =
-        S.getLangOpts().OpenCL
-            ? getExprValue(AL.getArgAsExpr(2), Ctx) > *A->getXDimVal()
-            : getExprValue(AL.getArgAsExpr(2), Ctx) > *A->getZDimVal();
-
-    if (CheckFirstArgument || CheckSecondArgument || CheckThirdArgument) {
-      S.Diag(AL.getLoc(), diag::err_conflicting_sycl_function_attributes)
-          << AL << A;
-      S.Diag(A->getLocation(), diag::note_conflicting_attribute);
-      Result &= false;
-    }
-  }
-
-  if (const auto *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
-    if (!((getExprValue(AL.getArgAsExpr(0), Ctx) >=
-           getExprValue(A->getXDim(), Ctx)) &&
-          (getExprValue(AL.getArgAsExpr(1), Ctx) >=
-           getExprValue(A->getYDim(), Ctx)) &&
-          (getExprValue(AL.getArgAsExpr(2), Ctx) >=
-           getExprValue(A->getZDim(), Ctx)))) {
-      S.Diag(AL.getLoc(), diag::err_conflicting_sycl_function_attributes)
-          << AL << A;
-      S.Diag(A->getLocation(), diag::note_conflicting_attribute);
-      Result &= false;
-    }
-  }
-  return Result;
-}
-
 // Returns a DupArgResult value; Same means the args have the same value,
 // Different means the args do not have the same value, and Unknown means that
 // the args cannot (yet) be compared.
@@ -4487,6 +4425,29 @@ static bool CheckWorkGroupSize(Sema &S, const Expr *NSWIValue,
   return WorkGroupSize % NSWIValueExpr->getResultAsAPSInt().getZExtValue() != 0;
 }
 
+// If the 'reqd_work_group_size' attribute is specified on a declaration along
+// with 'Autorun' attribute, Autorun kernel functions must have reqd work group
+// sizes that are divisors of 2^32.
+static bool isValidAutorunWorkGroupSize(const Expr *RWGSXDim,
+                                        const Expr *RWGSYDim,
+					const Expr *RWGSZDim) {
+  // If any of the operand is still value dependent, we can't test anything.
+  const auto *RWGSXDimExpr = dyn_cast<ConstantExpr>(RWGSXDim);
+  const auto *RWGSYDimExpr = dyn_cast<ConstantExpr>(RWGSYDim);
+  const auto *RWGSZDimExpr = dyn_cast<ConstantExpr>(RWGSZDim);
+
+  if (!RWGSXDimExpr || !RWGSYDimExpr || !RWGSZDimExpr)
+    return false;
+
+  // Otherwise, check if Autorun kernel functions have reqd work group sizes
+  // that are divisors of 2^32.
+  constexpr long long int N = 1LL << 32LL;
+
+  return N % RWGSXDimExpr->getResultAsAPSInt().getZExtValue() != 0 ||
+	 N % RWGSYDimExpr->getResultAsAPSInt().getZExtValue() != 0 ||
+         N % RWGSZDimExpr->getResultAsAPSInt().getZExtValue() != 0;
+}
+
 void Sema::AddReqdWorkGroupSizeAttr(Decl *D, const AttributeCommonInfo &CI,
                                     Expr *XDim, Expr *YDim, Expr *ZDim) {
   // Returns nullptr if diagnosing, otherwise returns the original expression
@@ -4559,6 +4520,17 @@ void Sema::AddReqdWorkGroupSizeAttr(Decl *D, const AttributeCommonInfo &CI,
     }
   }
 
+  // If the 'reqd_work_group_size' attribute is specified on a declaration
+  // along with 'Autorun' attribute, Autorun kernel functions must have reqd
+  // work group sizes that are divisors of 2^32.
+  if (const auto *DeclAttr = D->getAttr<AutorunAttr>()) {
+    if (isValidAutorunWorkGroupSize(XDim, YDim, ZDim)) {
+      Diag(CI.getLoc(), diag::err_opencl_autorun_kernel_wrong_reqd_wg_size);
+      Diag(DeclAttr->getLoc(), diag::note_conflicting_attribute);
+      return;
+    }
+  }
+
   // If the attribute was already applied with different arguments, then
   // diagnose the second attribute as a duplicate and don't add it.
   if (const auto *Existing = D->getAttr<ReqdWorkGroupSizeAttr>()) {
@@ -4627,6 +4599,17 @@ Sema::MergeReqdWorkGroupSizeAttr(Decl *D, const ReqdWorkGroupSizeAttr &A) {
       Diag(DeclAttr->getLoc(), diag::err_sycl_num_kernel_wrong_reqd_wg_size)
           << DeclAttr << &A;
       Diag(A.getLoc(), diag::note_conflicting_attribute);
+      return nullptr;
+    }
+  }
+
+  // If the 'reqd_work_group_size' attribute is specified on a declaration
+  // along with 'Autorun' attribute, Autorun kernel functions must have reqd
+  // work group sizes that are divisors of 2^32.
+  if (const auto *DeclAttr = D->getAttr<AutorunAttr>()) {
+    if (isValidAutorunWorkGroupSize(A.getXDim(), A.getYDim(), A.getZDim())) {
+      Diag(A.getLoc(), diag::err_opencl_autorun_kernel_wrong_reqd_wg_size);
+      Diag(DeclAttr->getLoc(), diag::note_conflicting_attribute);
       return nullptr;
     }
   }
