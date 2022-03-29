@@ -319,28 +319,48 @@ foundInterveningLoad(HIRDDAnalysis &HDDA, const RegDDRef *StoreRef,
     calculateLexicalRange(MinTopSortNum, MaxTopSortNum, StoreLoop,
                           PostDomStoreLoop);
 
-  for (auto &LoadRefGroup : EqualityGroups) {
+  for (auto &AliasingMemRefGroup : EqualityGroups) {
 
-    if (LoadRefGroup.front()->getSymbase() != StoreSymbase) {
+    if (AliasingMemRefGroup.front()->getSymbase() != StoreSymbase) {
       continue;
     }
 
     // Refs are ordered in reverse lexical order.
-    for (auto *LoadRef : LoadRefGroup) {
+    for (auto *AliasingMemRef : AliasingMemRefGroup) {
 
-      // Don't need to analyze same group as this is done in the caller.
-      if (LoadRef == PostDomStoreRef) {
-        break;
+      if (AliasingMemRef == PostDomStoreRef) {
+        // In case of same parent loop, don't need to analyze same group as this
+        // is done in the caller.
+        if (!InDifferentLoops) {
+          break;
+        } else {
+          continue;
+        }
       }
 
-      unsigned LoadTopSortNum = LoadRef->getHLDDNode()->getTopSortNum();
+      unsigned AliasingMemRefTopSortNum =
+          AliasingMemRef->getHLDDNode()->getTopSortNum();
 
-      if (LoadTopSortNum <= MinTopSortNum) {
+      if (AliasingMemRefTopSortNum <= MinTopSortNum) {
         break;
       }
 
       // We can ignore refs which are lexically after PostDomStoreRef.
-      if (LoadTopSortNum > MaxTopSortNum) {
+      if (AliasingMemRefTopSortNum > MaxTopSortNum) {
+        continue;
+      }
+
+      int64_t Distance;
+
+      bool IsFake = AliasingMemRef->isFake();
+
+      // In the absence of substitutible loads, only intervening loads are a
+      // problem and stores can be ignored. In the presence of substitutible
+      // loads, aliasing stores between StoreRef and loads are also a problem.
+      // Fake stores cannot be ignored as they can be either reads or writes in
+      // the callee.
+      if (!IsFake && AliasingMemRef->isLval() &&
+          (AliasingMemRefTopSortNum >= MaxSubstitutibleLoadTopSortNum)) {
         continue;
       }
 
@@ -350,22 +370,9 @@ foundInterveningLoad(HIRDDAnalysis &HDDA, const RegDDRef *StoreRef,
         return true;
       }
 
-      int64_t Distance;
-
-      bool IsFake = LoadRef->isFake();
-
-      // In the absence of substitutible loads, only intervening loads are a
-      // problem and stores can be ignored. In the presence of substitutible
-      // loads, aliasing stores between StoreRef and loads are also a problem.
-      // Fake stores cannot be ignored as they can be either reads or writes in
-      // the callee.
-      if (!IsFake && LoadRef->isLval() &&
-          (LoadTopSortNum >= MaxSubstitutibleLoadTopSortNum)) {
-        continue;
-      }
-
-      if (!DDRefUtils::getConstByteDistance(StoreRef, LoadRef, &Distance)) {
-        if (!HDDA.doRefsAlias(StoreRef, LoadRef)) {
+      if (!DDRefUtils::getConstByteDistance(StoreRef, AliasingMemRef,
+                                            &Distance)) {
+        if (!HDDA.doRefsAlias(StoreRef, AliasingMemRef)) {
           continue;
         }
         return true;
@@ -381,18 +388,19 @@ foundInterveningLoad(HIRDDAnalysis &HDDA, const RegDDRef *StoreRef,
         //
         // %A is i8* type
         // StoreRef - (i16*)(%A)[0]
-        // LoadRef - (%A)[1]
+        // AliasingMemRef - (%A)[1]
         //
         if ((uint64_t)(-Distance) < StoreRef->getDestTypeSizeInBytes()) {
           return true;
         }
 
-      } else if ((uint64_t)Distance < LoadRef->getDestTypeSizeInBytes()) {
+      } else if ((uint64_t)Distance <
+                 AliasingMemRef->getDestTypeSizeInBytes()) {
         // Handles this case-
         //
         // %A is i8* type
         // StoreRef - (%A)[1]
-        // LoadRef - (i16*)(%A)[0]
+        // AliasingMemRef - (i16*)(%A)[0]
         //
         return true;
       }
@@ -931,9 +939,13 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
           continue;
         }
 
+        const HLLoop *StoreLoop = PrevDDNode->getLexicalParentLoop();
+        const HLLoop *PostDomStoreLoop = PostDomDDNode->getLexicalParentLoop();
+        bool InDifferentLoops = (StoreLoop != PostDomStoreLoop);
+
         // If there is aliasing load between the two stores, give up on current
         // PostDomRef.
-        if (!IsUniqueSymbase &&
+        if ((!IsUniqueSymbase || InDifferentLoops) &&
             foundInterveningLoad(HDDA, PrevRef, PostDomRef, SubstitutibleLoads,
                                  EqualityGroups)) {
           break;
