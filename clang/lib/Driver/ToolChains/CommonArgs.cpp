@@ -1065,7 +1065,7 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   Arg *AO = Args.getLastArg(options::OPT_O_Group);
   if (AO && AO->getOption().matches(options::OPT_O0) &&
       Args.hasFlag(options::OPT_fiopenmp_vec_at_O0,
-                   options::OPT_fno_iopenmp_vec_at_O0) &&
+                   options::OPT_fno_iopenmp_vec_at_O0, true) &&
       (Args.hasFlag(options::OPT_fiopenmp_simd, options::OPT_fno_iopenmp_simd,
                     false) ||
        Args.hasFlag(options::OPT_fiopenmp, options::OPT_fno_iopenmp, false))) {

@@ -5329,7 +5329,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                             D.IsDPCPPMode()))
       CmdArgs.push_back("-fsycl-unnamed-lambda");
     else if (!Args.hasFlag(options::OPT_fsycl_unnamed_lambda,
-                           options::OPT_fno_sycl_unnamed_lambda))
+                           options::OPT_fno_sycl_unnamed_lambda, true))
 #endif // INTEL_CUSTOMIZATION
       CmdArgs.push_back("-fno-sycl-unnamed-lambda");
 
