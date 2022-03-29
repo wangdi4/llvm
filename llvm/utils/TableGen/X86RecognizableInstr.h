@@ -240,11 +240,6 @@ struct RecognizableInstrBase {
   bool ForceDisassemble;
   // The CD8_Scale field from the record
   uint8_t CD8_Scale;
-<<<<<<< HEAD
-  // Whether the instruction has the predicate "In64BitMode"
-  bool Is64Bit;
-  // Whether the instruction has the predicate "In32BitMode"
-  bool Is32Bit;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XUCC
   /// Whether the instruction has the predicate "InXuCCMode"
@@ -252,11 +247,6 @@ struct RecognizableInstrBase {
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
 
-  /// The instruction name as listed in the tables
-  std::string Name;
-
-=======
->>>>>>> 7a94fa58c4fbc495f19e4c812fa85b54e63e6b36
   /// Indicates whether the instruction should be emitted into the decode
   /// tables; regardless, it will be emitted into the instruction info table
   bool ShouldBeEmitted;
