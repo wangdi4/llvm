@@ -240,7 +240,6 @@ struct RecognizableInstrBase {
   bool ForceDisassemble;
   // The CD8_Scale field from the record
   uint8_t CD8_Scale;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XUCC
   /// Whether the instruction has the predicate "InXuCCMode"
@@ -248,12 +247,6 @@ struct RecognizableInstrBase {
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
 
-  /// Indicates whether the instruction should be emitted into the decode
-  /// tables; regardless, it will be emitted into the instruction info table
-  bool ShouldBeEmitted;
-
-=======
->>>>>>> 271e8d2495e2194c25cb786b84ab86d15184aac3
   /// \param insn The CodeGenInstruction to extract information from.
   RecognizableInstrBase(const CodeGenInstruction &insn);
   /// \returns true if this instruction should be emitted
