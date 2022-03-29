@@ -89,6 +89,11 @@
 // RUN:   | FileCheck -check-prefix=CHK-TARGOPTS-NOVEC %s
 // CHK-TARGOPTS-NOVEC-NOT: clang{{.*}} "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu" {{.*}} "-O3" {{.*}} "-vectorize-loops" "-vectorize-slp" {{.*}} "-fopenmp-targets=spir64"
 
+/// -disable-intel-proprietary-opts can be explicitly omitted
+// RUN:   %clang -### --intel -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64="-DFOO" -fopenmp-target-intel-proprietary-opts %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-TARGOPTS-INTELPROP %s
+// CHK-TARGOPTS-INTELPROP-NOT: clang{{.*}} "-triple" "spir64"{{.*}}"-disable-intel-proprietary-opts"
+
 /// ###########################################################################
 
 /// Check separate compilation with offloading - bundling actions
