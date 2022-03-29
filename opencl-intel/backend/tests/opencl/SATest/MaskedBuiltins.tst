@@ -19,21 +19,8 @@
 
 ; This test will check whether the desired default values are fed correctly.
 
-; Explanation for the 'magic' number:
-; (i64)4616414798036126925 -> 0x4010CCCCCCCCCCCD -> (double)4.20000000000000017763568394003
-
-; CHECK:        [[AND1:%.*]] = and <8 x i64> [[CONDITION1:%.*]], <i64 4616414798036126925,
-; CHECK-NEXT:   [[XOR1:%.*]] = xor <8 x i64> [[AND1]], <i64 4616414798036126925,
-
-; CHECK:        [[AND2:%.*]] = and <8 x i64> [[CONDITION1]], [[GATHER1:%.*]]
-; CHECK-NEXT:   [[OR1:%.*]] = or <8 x i64> [[XOR1]], [[AND2]]
-; CHECK-NEXT:   [[ORDOUBLE1:%.*]] = bitcast <8 x i64> [[OR1]] to <8 x double>
-
-; CHECK:        [[AND3:%.*]] = and <8 x i64> [[CONDITION2:%.*]], <i64 4616414798036126925,
-; CHECK-NEXT:   [[XOR2:%.*]] = xor <8 x i64> [[AND3]], <i64 4616414798036126925,
-
-; CHECK:        [[AND4:%.*]] = and <8 x i64> [[CONDITION2]], [[GATHER2:%.*]]
-; CHECK-NEXT:   [[OR2:%.*]] = or <8 x i64> [[XOR2]], [[AND4]]
-; CHECK-NEXT:   [[ORDOUBLE2:%.*]] = bitcast <8 x i64> [[OR2]] to <8 x double>
-; CHECK-NEXT:   call contract intel_ocl_bicc_avx512 <8 x double> @__ocl_svml_z0_acosh8(<8 x double> noundef [[ORDOUBLE1]])
-; CHECK-NEXT:   call contract intel_ocl_bicc_avx512 <8 x double> @__ocl_svml_z0_acosh8(<8 x double> noundef [[ORDOUBLE2]])
+; CHECK:      [[SELECT:%.*]] = select <16 x i1> {{.*}}, <16 x double> {{.*}}, <16 x double> <double 4.200000e+00
+; CHECK-NEXT: [[DOUBLE1:%.*]] = shufflevector <16 x double> [[SELECT]], <16 x double> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT: call contract intel_ocl_bicc_avx512 <8 x double> @__ocl_svml_z0_acosh8(<8 x double> noundef [[DOUBLE1]])
+; CHECK-NEXT: [[DOUBLE2:%.*]] = shufflevector <16 x double> [[SELECT]], <16 x double> poison, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+; CHECK-NEXT: call contract intel_ocl_bicc_avx512 <8 x double> @__ocl_svml_z0_acosh8(<8 x double> noundef [[DOUBLE2]])

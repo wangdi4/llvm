@@ -248,37 +248,7 @@ OclBuiltinImpl hypot_svml = OclBuiltinImpl<hypot, math_shared_types, 0, [{
   }]>;
 
 // ilogb vector float
-OclBuiltinImpl ilogb_impl_f32 = OclBuiltinImpl<ilogb, [v3f32, v4f32, v8f32, v16f32], 0, [{
-    const $Arg0ugentype signMask = $Arg0BaseType_const_signMask;
-    const $Arg0ugentype expMask  = $Arg0BaseType_const_expMask;
-    const $Arg0ugentype StorageI64 = 64;
-    const $Arg0ugentype StorageI127 = $Arg0BaseType_const_expOffset;
-    const $Arg0ugentype p64Storage = 0x5f800000;
-    typedef union{ $Arg0Type f; $Arg0ugentype u; $Arg0igentype i; } f$Suffix_t;
-    f$Suffix_t isDenorm, isZero, isNaNorINF, isNotDenorm;
-    f$Suffix_t xx, res1, res3, factor;
-
-    xx.f = $Arg0VarName;
-    xx.u &= signMask;
-    isZero.i = as_$Arg0igentype(xx.u == 0);
-    res1.u = xx.u & expMask;
-    isNaNorINF.i = as_$Arg0igentype(res1.u == expMask);
-    isDenorm.i = as_$Arg0igentype(res1.u == 0);
-    factor.u = (isDenorm.u & StorageI64) + StorageI127;
-    xx.u &= isDenorm.u;
-    isDenorm.u &= p64Storage;
-    isDenorm.f *= xx.f;
-    isDenorm.u &= expMask;
-    res1.u >>= 23;
-    res3.u = isDenorm.u >> 23;
-    isNotDenorm.i = as_$Arg0igentype(res3.u == 0);
-    res1.u -= factor.u;
-    res3.u -= factor.u;
-    res1.i = select(res3.i, res1.i, isNotDenorm.i);
-    res1.i = select(res1.i, ($Arg0igentype)INT_MAX, isNaNorINF.i);
-    res1.i = select(res1.i, ($Arg0igentype)INT_MIN, isZero.i);
-    return as_$Arg0igentype(res1.u);
-  }]>;
+OclBuiltinImpl ilogb_impl_f32 = OclBuiltinImpl<ilogb, [v3f32, v4f32, v8f32, v16f32], 0, ilogb_code>;
 
 // ilogb double
 OclBuiltinImpl ilogb_svml_f64 = OclBuiltinImpl<ilogb, [v1f64, v2f64, v3f64, v4f64],  0, [{

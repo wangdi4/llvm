@@ -100,7 +100,7 @@ def trunc         : OclBuiltin<"trunc",     (outs gentype:$ret), (ins gentype:$x
 }
 
 // OpenCL 1.2 rev 15, Table 6.8, masked version
-let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [2, 3, 4, 8, 16]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE], NeedForwardDecl = 1 in {
 def acos_mask          : OclBuiltin<"acos",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
 def acosh_mask         : OclBuiltin<"acosh",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
@@ -310,8 +310,7 @@ def native_tanpi         : OclBuiltin<"native_tanpi",     (outs gentype:$ret), (
 // native, masked version
 // Spec requires Data type to be ONLY float(f32) (not-double)
 // Double support is not in OpenCL 1.2 spec. It is Intel defined extension of spec
-let Types = [v2f32, v3f32, v4f32, v8f32, v16f32,
-             v2f64, v3f64, v4f64, v8f64, v16f64],
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 let NeedForwardDecl = 1 in { /* work around the missing prototype in opencl.h */
 def native_cos_mask    : OclBuiltin<"native_cos",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
@@ -459,7 +458,7 @@ let KernelCallOnce = 0 in {
 
       // masked version
       let HandleAlias = 0 in {
-        def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
+        def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
       }
     }
   }
@@ -498,7 +497,7 @@ let KernelCallOnce = 0 in {
 
       // masked version
       let HandleAlias = 0 in {
-        def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
+        def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
       }
     }
   }

@@ -66,6 +66,38 @@ defvar frexp_svml = [{
     return __ocl_svml_$Target_frexp$SVMLSuffix($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
   }];
 
+defvar ilogb_code = [{
+    const $Arg0ugentype signMask = $Arg0BaseType_const_signMask;
+    const $Arg0ugentype expMask  = $Arg0BaseType_const_expMask;
+    const $Arg0ugentype StorageI64 = 64;
+    const $Arg0ugentype StorageI127 = $Arg0BaseType_const_expOffset;
+    const $Arg0ugentype p64Storage = 0x5f800000;
+    typedef union{ $Arg0Type f; $Arg0ugentype u; $Arg0igentype i; } f$Suffix_t;
+    f$Suffix_t isDenorm, isZero, isNaNorINF, isNotDenorm;
+    f$Suffix_t xx, res1, res3, factor;
+
+    xx.f = $Arg0VarName;
+    xx.u &= signMask;
+    isZero.i = __builtin_astype((xx.u == 0), $Arg0igentype);
+    res1.u = xx.u & expMask;
+    isNaNorINF.i = __builtin_astype((res1.u == expMask), $Arg0igentype);
+    isDenorm.i = __builtin_astype((res1.u == 0), $Arg0igentype);
+    factor.u = (isDenorm.u & StorageI64) + StorageI127;
+    xx.u &= isDenorm.u;
+    isDenorm.u &= p64Storage;
+    isDenorm.f *= xx.f;
+    isDenorm.u &= expMask;
+    res1.u >>= 23;
+    res3.u = isDenorm.u >> 23;
+    isNotDenorm.i = __builtin_astype((res3.u == 0), $Arg0igentype);
+    res1.u -= factor.u;
+    res3.u -= factor.u;
+    res1.i = select(res3.i, res1.i, isNotDenorm.i);
+    res1.i = select(res1.i, ($Arg0igentype)INT_MAX, isNaNorINF.i);
+    res1.i = select(res1.i, ($Arg0igentype)INT_MIN, isZero.i);
+    return __builtin_astype((res1.u), $Arg0igentype);
+  }];
+
 defvar ldexp_s_code = [{
   $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
   return $Func($Arg0VarName, vec$Arg1VarName);
@@ -190,3 +222,83 @@ defvar native_sincos_ret2ptr = [{
     *$Arg1VarName = res;
   }];
 
+// masked
+// Please refer to masked_math.td for naming convention.
+
+// gentype = f(gentype, mask)
+defvar masked_impl_code_G_G_M = [{
+    $Arg0VecType m$Arg0VarName = bitselect(($Arg0VecType)($DEF0), $Arg0VarName, $Arg1VarName);
+    return $Func(m$Arg0VarName);
+  }];
+
+// gentype = f(gentype, gentype, mask)
+defvar masked_impl_code_G_G2_M = [{
+    $Arg0VecType m$Arg0VarName = bitselect(($Arg0VecType)($DEF0), $Arg0VarName, $Arg2VarName);
+    $Arg1VecType m$Arg1VarName = bitselect(($Arg1VecType)($DEF1), $Arg1VarName, $Arg2VarName);
+    return $Func(m$Arg0VarName, m$Arg1VarName);
+  }];
+
+// gentype = f(gentype, gentype, gentype, mask)
+defvar masked_impl_code_G_G3_M = [{
+    $Arg0VecType m$Arg0VarName = bitselect(($Arg0VecType)($DEF0), $Arg0VarName, $Arg3VarName);
+    $Arg1VecType m$Arg1VarName = bitselect(($Arg1VecType)($DEF1), $Arg1VarName, $Arg3VarName);
+    $Arg2VecType m$Arg2VarName = bitselect(($Arg2VecType)($DEF2), $Arg2VarName, $Arg3VarName);
+    return $Func(m$Arg0VarName, m$Arg1VarName, m$Arg2VarName);
+  }];
+
+// gentype = f(gentype, gentype, any*, mask)
+defvar masked_impl_code_G_G_P_M = [{
+    $Arg0VecType m$Arg0VarName = bitselect(($Arg0VecType)($DEF0), $Arg0VarName, $Arg2VarName);
+    return $Func(m$Arg0VarName, $Arg1VarName);
+  }];
+
+// void = f(gentype, any*, any*, mask)
+defvar masked_impl_code_V_G_P_P_M = [{
+    $Arg0VecType m$Arg0VarName = bitselect(($Arg0VecType)($DEF0), $Arg0VarName, $Arg3VarName);
+    return $Func(m$Arg0VarName, $Arg1VarName, $Arg2VarName);
+  }];
+
+// gentype = f(gentype, gentype, any*, mask)
+defvar masked_impl_code_G_G2_P_M = [{
+    $Arg0VecType m$Arg0VarName = bitselect(($Arg0VecType)($DEF0), $Arg0VarName, $Arg3VarName);
+    $Arg1VecType m$Arg1VarName = bitselect(($Arg1VecType)($DEF1), $Arg1VarName, $Arg3VarName);
+    return $Func(m$Arg0VarName, m$Arg1VarName, $Arg2VarName);
+  }];
+
+// i32gentype = f(gentypef, i32mask)
+defvar masked_impl_code_I32_FG_M = [{
+    $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, $Arg1VarName);
+    return $Func(m$Arg0VarName);
+  }];
+
+// i32gentype = f(gentyped, i32mask)
+defvar masked_impl_code_I32_DG_M = [{
+    $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, convert_long$VecLength($Arg1VarName));
+    return $Func(m$Arg0VarName);
+  }];
+
+// gentypef = f(gentypef, i32gentype, mask)
+defvar masked_impl_code_FG_FG_I32_M = [{
+    $Arg0VecType m$Arg0VarName = bitselect(($Arg0VecType)($DEF0), $Arg0VarName, $Arg2VarName);
+    $Arg1VecType m$Arg1VarName = select(($Arg1VecType)($DEF1), $Arg1VarName, __builtin_astype(($Arg2VarName), int$VecLength));
+    return $Func(m$Arg0VarName, m$Arg1VarName);
+  }];
+
+// gentyped = f(gentyped, i32gentype, mask)
+defvar masked_impl_code_DG_DG_I32_M = [{
+    $Arg0VecType m$Arg0VarName = bitselect(($Arg0VecType)($DEF0), $Arg0VarName, $Arg2VarName);
+    $Arg1VecType m$Arg1VarName = select(($Arg1VecType)($DEF1), $Arg1VarName, convert_int$VecLength(__builtin_astype(($Arg2VarName), long$VecLength)));
+    return $Func(m$Arg0VarName, m$Arg1VarName);
+  }];
+
+// gentypef = f(ugentype, mask)
+defvar masked_impl_code_FG_UG_M = [{
+    $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, __builtin_astype(($Arg1VarName), int$VecLength));
+    return $Func(m$Arg0VarName);
+  }];
+
+// gentyped = f(ugentype, mask)
+defvar masked_impl_code_DG_UG_M = [{
+    $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, __builtin_astype(($Arg1VarName), long$VecLength));
+    return $Func(m$Arg0VarName);
+  }];

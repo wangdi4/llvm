@@ -4,29 +4,6 @@
 
 defvar v32v64FTypes = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [32, 64]>.Tout;
 
-OclBuiltinImpl fdim_v32v64_impl = OclBuiltinImpl<fdim, v32v64FTypes, 0, fdim_code_vec>;
-
-OclBuiltinImpl fmax_v32v64_impl = OclBuiltinImpl<fmax, v32v64FTypes, 0, fmax_code>;
-
-OclBuiltinImpl fmax_common_v32v64_impl = OclBuiltinImpl<fmax_common, v32v64FTypes, 0, fmax_common_code>;
-
-OclBuiltinImpl fmax_s_v32v64_generic = OclBuiltinImpl<fmax_s, v32v64FTypes, 0, fmax_s_code>;
-
-OclBuiltinImpl fmin_v32v64_impl = OclBuiltinImpl<fmin, v32v64FTypes, 0, fmin_code>;
-
-OclBuiltinImpl fmin_common_v32v64_impl = OclBuiltinImpl<fmin_common, v32v64FTypes, 0, fmin_common_code>;
-
-OclBuiltinImpl fmin_s_v32v64_generic = OclBuiltinImpl<fmin_s, v32v64FTypes, 0, fmin_s_code>;
-
-// sqrt
-OclBuiltinImpl sqrt_v8f64_impl = OclBuiltinImpl<sqrt, [v8f64], 0, [{
-    return _mm512_sqrt_pd($Arg0VarName);
-  }]>;
-
-OclBuiltinImpl sqrt_v16f32_impl = OclBuiltinImpl<sqrt, [v16f32], 0, [{
-    return _mm512_sqrt_ps($Arg0VarName);
-  }]>;
-
 // ceil float16
 OclBuiltinImpl ceil_v16f32_impl = OclBuiltinImpl<ceil, [v16f32], 0, [{
   return _mm512_ceil_ps($Arg0VarName);
@@ -40,6 +17,8 @@ OclBuiltinImpl ceil_v8f64_impl = OclBuiltinImpl<ceil, [v8f64], 0, [{
 OclBuiltinImpl copysign_v32v64_impl = OclBuiltinImpl<copysign, v32v64FTypes, 0, copysign_code>;
 
 OclBuiltinImpl fabs_v32v64_impl = OclBuiltinImpl<fabs, v32v64FTypes, 0, fabs_code>;
+
+OclBuiltinImpl fdim_v32v64_impl = OclBuiltinImpl<fdim, v32v64FTypes, 0, fdim_code_vec>;
 
 // floor float16
 OclBuiltinImpl floor_v16f32_impl = OclBuiltinImpl<floor, [v16f32], 0, [{
@@ -61,6 +40,20 @@ OclBuiltinImpl fma_v8f64_impl = OclBuiltinImpl<fma, [v8f64], 0, [{
     return _mm512_fmadd_pd($Arg0VarName, $Arg1VarName, $Arg2VarName);
   }]>;
 
+OclBuiltinImpl fmax_v32v64_impl = OclBuiltinImpl<fmax, v32v64FTypes, 0, fmax_code>;
+
+OclBuiltinImpl fmax_common_v32v64_impl = OclBuiltinImpl<fmax_common, v32v64FTypes, 0, fmax_common_code>;
+
+OclBuiltinImpl fmax_s_v32v64_generic = OclBuiltinImpl<fmax_s, v32v64FTypes, 0, fmax_s_code>;
+
+OclBuiltinImpl fmin_v32v64_impl = OclBuiltinImpl<fmin, v32v64FTypes, 0, fmin_code>;
+
+OclBuiltinImpl fmin_common_v32v64_impl = OclBuiltinImpl<fmin_common, v32v64FTypes, 0, fmin_common_code>;
+
+OclBuiltinImpl fmin_s_v32v64_generic = OclBuiltinImpl<fmin_s, v32v64FTypes, 0, fmin_s_code>;
+
+OclBuiltinImpl ilogb_f32_v32v64 = OclBuiltinImpl<ilogb, [v32f32, v64f32], 0, ilogb_code>;
+
 OclBuiltinImpl ldexp_s_v32v64_generic = OclBuiltinImpl<ldexp_s, v32v64FTypes, 0, ldexp_s_code>;
 
 OclBuiltinImpl mad_v32v64_impl = OclBuiltinImpl<mad, v32v64FTypes, 0, mad_code>;
@@ -70,6 +63,15 @@ OclBuiltinImpl maxmag_v32v64_impl = OclBuiltinImpl<maxmag, v32v64FTypes, 0, maxm
 OclBuiltinImpl minmag_v32v64_impl = OclBuiltinImpl<minmag, v32v64FTypes, 0, minmag_code>;
 
 OclBuiltinImpl nan_v32v64_impl = OclBuiltinImpl<nan, v32v64FTypes, 0, nan_code>;
+
+// sqrt
+OclBuiltinImpl sqrt_v8f64_impl = OclBuiltinImpl<sqrt, [v8f64], 0, [{
+    return _mm512_sqrt_pd($Arg0VarName);
+  }]>;
+
+OclBuiltinImpl sqrt_v16f32_impl = OclBuiltinImpl<sqrt, [v16f32], 0, [{
+    return _mm512_sqrt_ps($Arg0VarName);
+  }]>;
 
 // SVML calls
 
@@ -181,6 +183,20 @@ OclBuiltinImpl half_tan_svml = OclBuiltinImpl<half_tan, [v16f32], 0, [{
     return __ocl_svml_$Target_tan$SVMLSuffix_half($Arg0VarName);
   }]>;
 
+// masked
+defvar v32v64f32Types = ExpandTypesByVFAndFlatten<[v1f32], [32, 64]>.Tout;
+OclBuiltinImpl ilogb_mask_svml_float = OclBuiltinImpl<ilogb_mask, v32v64f32Types, 0, masked_impl_code_I32_FG_M, [["$DEF0", "1"]]>;
+OclBuiltinImpl ldexp_mask_svml_float = OclBuiltinImpl<ldexp_mask, v32v64f32Types, 0, masked_impl_code_FG_FG_I32_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
+OclBuiltinImpl pown_mask_svml_float = OclBuiltinImpl<pown_mask, v32v64f32Types, 0, masked_impl_code_FG_FG_I32_M, [["$DEF0", "5"], ["$DEF1", "5"]]>;
+OclBuiltinImpl rootn_mask_svml_float = OclBuiltinImpl<rootn_mask, v32v64f32Types, 0, masked_impl_code_FG_FG_I32_M, [["$DEF0", "1"], ["$DEF1", "1"]]>;
+OclBuiltinImpl nan_mask_svml_float = OclBuiltinImpl<nan_mask, v32v64f32Types, 0, masked_impl_code_FG_UG_M, [["$DEF0", "0"]]>;
+defvar v32v64f64Types = ExpandTypesByVFAndFlatten<[v1f64], [32, 64]>.Tout;
+OclBuiltinImpl ilogb_mask_svml_double = OclBuiltinImpl<ilogb_mask, v32v64f64Types, 0, masked_impl_code_I32_DG_M, [["$DEF0", "1"]]>;
+OclBuiltinImpl ldexp_mask_svml_double = OclBuiltinImpl<ldexp_mask, v32v64f64Types, 0, masked_impl_code_DG_DG_I32_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
+OclBuiltinImpl pown_mask_svml_double = OclBuiltinImpl<pown_mask, v32v64f64Types, 0, masked_impl_code_DG_DG_I32_M, [["$DEF0", "5"], ["$DEF1", "5"]]>;
+OclBuiltinImpl rootn_mask_svml_double = OclBuiltinImpl<rootn_mask, v32v64f64Types, 0, masked_impl_code_DG_DG_I32_M, [["$DEF0", "1"], ["$DEF1", "1"]]>;
+OclBuiltinImpl nan_mask_svml_double = OclBuiltinImpl<nan_mask, v32v64f64Types, 0, masked_impl_code_DG_UG_M, [["$DEF0", "0"]]>;
+
 // native
 
 OclBuiltinImpl native_divide_v16f32_impl = OclBuiltinImpl<native_divide, [v16f32], 0, [{
@@ -238,6 +254,15 @@ OclBuiltinImpl native_sincos_las_svml = OclBuiltinImpl<native_sincos_las, v32v64
 OclBuiltinImpl native_sincos_gas_svml = OclBuiltinImpl<native_sincos_gas, v32v64FTypes, 0, native_sincos_svml>;
 OclBuiltinImpl native_sincos_gen_svml = OclBuiltinImpl<native_sincos_gen, v32v64FTypes, 0, native_sincos_svml>;
 OclBuiltinImpl native_sincos_ret2ptr_pas = OclBuiltinImpl<native_sincos_pas2, v32v64FTypes, 0, native_sincos_ret2ptr>;
+
+// native masked
+OclBuiltinImpl native_ilogb_mask_svml_float = OclBuiltinImpl<native_ilogb_mask, v32v64f32Types, 0, masked_impl_code_I32_FG_M, [["$DEF0", "1"]]>;
+OclBuiltinImpl native_pown_mask_svml_float = OclBuiltinImpl<native_pown_mask, v32v64f32Types, 0, masked_impl_code_FG_FG_I32_M, [["$DEF0", "5"], ["$DEF1", "5"]]>;
+OclBuiltinImpl native_rootn_mask_svml_float = OclBuiltinImpl<native_rootn_mask, v32v64f32Types, 0, masked_impl_code_FG_FG_I32_M, [["$DEF0", "1"], ["$DEF1", "1"]]>;
+
+OclBuiltinImpl native_ilogb_mask_svml_double = OclBuiltinImpl<native_ilogb_mask, v32v64f64Types, 0, masked_impl_code_I32_DG_M, [["$DEF0", "1"]]>;
+OclBuiltinImpl native_pown_mask_svml_double = OclBuiltinImpl<native_pown_mask, v32v64f64Types, 0, masked_impl_code_DG_DG_I32_M, [["$DEF0", "5"], ["$DEF1", "5"]]>;
+OclBuiltinImpl native_rootn_mask_svml_double = OclBuiltinImpl<native_rootn_mask, v32v64f64Types, 0, masked_impl_code_DG_DG_I32_M, [["$DEF0", "1"], ["$DEF1", "1"]]>;
 
 // integer
 
