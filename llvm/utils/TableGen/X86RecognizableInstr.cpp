@@ -102,30 +102,12 @@ RecognizableInstrBase::RecognizableInstrBase(const CodeGenInstruction &insn)
   Opcode = byteFromRec(Rec, "Opcode");
   Form = byteFromRec(Rec, "FormBits");
   Encoding = byteFromRec(Rec, "OpEncBits");
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XUCC
   XuCCOpPrefix = byteFromRec(Rec, "XuCCOpPrefixBits");
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
 
-  OpSize             = byteFromRec(Rec, "OpSizeBits");
-  AdSize             = byteFromRec(Rec, "AdSizeBits");
-  HasREX_WPrefix     = Rec->getValueAsBit("hasREX_WPrefix");
-  HasVEX_4V          = Rec->getValueAsBit("hasVEX_4V");
-  HasVEX_W           = Rec->getValueAsBit("HasVEX_W");
-  IgnoresVEX_W       = Rec->getValueAsBit("IgnoresVEX_W");
-  IgnoresVEX_L       = Rec->getValueAsBit("ignoresVEX_L");
-  HasEVEX_L2Prefix   = Rec->getValueAsBit("hasEVEX_L2");
-  HasEVEX_K          = Rec->getValueAsBit("hasEVEX_K");
-  HasEVEX_KZ         = Rec->getValueAsBit("hasEVEX_Z");
-  HasEVEX_B          = Rec->getValueAsBit("hasEVEX_B");
-  IsCodeGenOnly      = Rec->getValueAsBit("isCodeGenOnly");
-  ForceDisassemble   = Rec->getValueAsBit("ForceDisassemble");
-  CD8_Scale          = byteFromRec(Rec, "CD8_Scale");
-
-  HasVEX_LPrefix   = Rec->getValueAsBit("hasVEX_L");
-=======
   OpSize = byteFromRec(Rec, "OpSizeBits");
   AdSize = byteFromRec(Rec, "AdSizeBits");
   HasREX_WPrefix = Rec->getValueAsBit("hasREX_WPrefix");
@@ -141,7 +123,6 @@ RecognizableInstrBase::RecognizableInstrBase(const CodeGenInstruction &insn)
   ForceDisassemble = Rec->getValueAsBit("ForceDisassemble");
   CD8_Scale = byteFromRec(Rec, "CD8_Scale");
   HasVEX_LPrefix = Rec->getValueAsBit("hasVEX_L");
->>>>>>> 5f543cb0efc90efbf3a69dba19f7487657511981
 
   EncodeRC = HasEVEX_B &&
              (Form == X86Local::MRMDestReg || Form == X86Local::MRMSrcReg);
@@ -157,16 +138,11 @@ RecognizableInstr::RecognizableInstr(DisassemblerTables &tables,
       Is64Bit(false), Operands(&insn.Operands.OperandList), UID(uid),
       Spec(&tables.specForUID(uid)) {
   // Check for 64-bit inst which does not require REX
-<<<<<<< HEAD
-  Is32Bit = false;
-  Is64Bit = false;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XUCC
   IsXuCCMode = false;
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 5f543cb0efc90efbf3a69dba19f7487657511981
   // FIXME: Is there some better way to check for In64BitMode?
   std::vector<Record *> Predicates = Rec->getValueAsListOfDefs("Predicates");
   for (unsigned i = 0, e = Predicates.size(); i != e; ++i) {
