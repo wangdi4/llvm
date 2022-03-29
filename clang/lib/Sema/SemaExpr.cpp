@@ -12356,8 +12356,12 @@ static QualType checkArithmeticOrEnumeralCompare(Sema &S, ExprResult &LHS,
     return S.InvalidOperands(Loc, LHS, RHS);
 
   // Check for comparisons of floating point operands using != and ==.
-  if (Type->hasFloatingRepresentation() && BinaryOperator::isEqualityOp(Opc))
+#if INTEL_CUSTOMIZATION
+  // Check for comparisons of floating point operands using all comparison
+  // operators.
+  if (Type->hasFloatingRepresentation())
     S.CheckFloatComparison(Loc, LHS.get(), RHS.get(), Opc);
+#endif // INTEL_CUSTOMIZATION
 
   // The result of comparisons is 'bool' in C++, 'int' in C.
   return S.Context.getLogicalOperationType();

@@ -13164,8 +13164,10 @@ Sema::CheckReturnValExpr(Expr *RetValExp, QualType lhsType,
     CheckPPCMMAType(RetValExp->getType(), ReturnLoc);
 }
 
-/// Check for comparisons of floating-point values using == and !=. Issue a
-/// warning if the comparison is not likely to do what the programmer intended.
+/// Check for comparisons of floating-point values using all comparison
+/// operators. // INTEL
+/// Issue a warning if the comparison is not likely to do what the programmer
+/// intended. // INTEL
 void Sema::CheckFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS,
                                 BinaryOperatorKind Opcode) {
   // Match and capture subexpressions such as "(float) X == 0.1".
