@@ -240,10 +240,6 @@ struct RecognizableInstrBase {
   bool ForceDisassemble;
   // The CD8_Scale field from the record
   uint8_t CD8_Scale;
-  // Whether the instruction has the predicate "In64BitMode"
-  bool Is64Bit;
-  // Whether the instruction has the predicate "In32BitMode"
-  bool Is32Bit;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XUCC
   /// Whether the instruction has the predicate "InXuCCMode"
@@ -251,17 +247,9 @@ struct RecognizableInstrBase {
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
 
-  /// The instruction name as listed in the tables
-  std::string Name;
-
   /// Indicates whether the instruction should be emitted into the decode
   /// tables; regardless, it will be emitted into the instruction info table
   bool ShouldBeEmitted;
-
-  /// The operands of the instruction, as listed in the CodeGenInstruction.
-  /// They are not one-to-one with operands listed in the MCInst; for example,
-  /// memory operands expand to 5 operands in the MCInst
-  const std::vector<CGIOperandList::OperandInfo>* Operands;
 
   /// \param insn The CodeGenInstruction to extract information from.
   RecognizableInstrBase(const CodeGenInstruction &insn);
@@ -272,14 +260,24 @@ struct RecognizableInstrBase {
 ///   to interpret the information available in the LLVM tables, and to emit the
 ///   instruction into DisassemblerTables.
 class RecognizableInstr : public RecognizableInstrBase {
-public:
+private:
+  /// The instruction name as listed in the tables
+  std::string Name;
+  // Whether the instruction has the predicate "In64BitMode"
+  bool Is64Bit;
+  // Whether the instruction has the predicate "In32BitMode"
+  bool Is32Bit;
+  /// The operands of the instruction, as listed in the CodeGenInstruction.
+  /// They are not one-to-one with operands listed in the MCInst; for example,
+  /// memory operands expand to 5 operands in the MCInst
+  const std::vector<CGIOperandList::OperandInfo>* Operands;
+
   /// The opcode of the instruction, as used in an MCInst
   InstrUID UID;
   /// The description of the instruction that is emitted into the instruction
   /// info table
   InstructionSpecifier* Spec;
 
-private:
   /// insnContext - Returns the primary context in which the instruction is
   ///   valid.
   ///
