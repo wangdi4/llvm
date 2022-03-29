@@ -189,8 +189,6 @@ class DisassemblerTables;
 
 /// Extract common fields of a single X86 instruction from a CodeGenInstruction
 struct RecognizableInstrBase {
-  /// The record from the .td files corresponding to this instruction
-  const Record* Rec;
   /// The OpPrefix field from the record
   uint8_t OpPrefix;
   /// The OpMap field from the record
@@ -236,10 +234,13 @@ struct RecognizableInstrBase {
   bool EncodeRC;
   /// The isCodeGenOnly field from the record
   bool IsCodeGenOnly;
+  /// The isAsmParserOnly field from the record
+  bool IsAsmParserOnly;
   /// The ForceDisassemble field from the record
   bool ForceDisassemble;
   // The CD8_Scale field from the record
   uint8_t CD8_Scale;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XUCC
   /// Whether the instruction has the predicate "InXuCCMode"
@@ -251,8 +252,12 @@ struct RecognizableInstrBase {
   /// tables; regardless, it will be emitted into the instruction info table
   bool ShouldBeEmitted;
 
+=======
+>>>>>>> 271e8d2495e2194c25cb786b84ab86d15184aac3
   /// \param insn The CodeGenInstruction to extract information from.
   RecognizableInstrBase(const CodeGenInstruction &insn);
+  /// \returns true if this instruction should be emitted
+  bool shouldBeEmitted() const;
 };
 
 /// RecognizableInstr - Encapsulates all information required to decode a single
@@ -261,6 +266,8 @@ struct RecognizableInstrBase {
 ///   instruction into DisassemblerTables.
 class RecognizableInstr : public RecognizableInstrBase {
 private:
+  /// The record from the .td files corresponding to this instruction
+  const Record* Rec;
   /// The instruction name as listed in the tables
   std::string Name;
   // Whether the instruction has the predicate "In32BitMode"
@@ -359,19 +366,6 @@ private:
                      OperandEncoding (*encodingFromString)
                        (const std::string&,
                         uint8_t OpSize));
-
-  /// shouldBeEmitted - Returns the shouldBeEmitted field.  Although filter()
-  ///   filters out many instructions, at various points in decoding we
-  ///   determine that the instruction should not actually be decodable.  In
-  ///   particular, MMX MOV instructions aren't emitted, but they're only
-  ///   identified during operand parsing.
-  ///
-  /// @return - true if at this point we believe the instruction should be
-  ///   emitted; false if not.  This will return false if filter() returns false
-  ///   once emitInstructionSpecifier() has been called.
-  bool shouldBeEmitted() const {
-    return ShouldBeEmitted;
-  }
 
   /// emitInstructionSpecifier - Loads the instruction specifier for the current
   ///   instruction into a DisassemblerTables.
