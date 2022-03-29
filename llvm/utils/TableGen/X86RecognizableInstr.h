@@ -218,12 +218,12 @@ struct RecognizableInstrBase {
   bool HasVEX_W;
   /// The IgnoresVEX_W field from the record
   bool IgnoresVEX_W;
-  /// Inferred from the operands; indicates whether the L bit in the VEX prefix is set
-  bool HasVEX_LPrefix;
+  /// The hasVEX_L field from the record
+  bool HasVEX_L;
   /// The ignoreVEX_L field from the record
   bool IgnoresVEX_L;
   /// The hasEVEX_L2Prefix field from the record
-  bool HasEVEX_L2Prefix;
+  bool HasEVEX_L2;
   /// The hasEVEX_K field from the record
   bool HasEVEX_K;
   /// The hasEVEX_KZ field from the record
@@ -396,6 +396,11 @@ public:
 };
 
 std::string getMnemonic(const CodeGenInstruction *I, unsigned Variant);
+bool isRegisterOperand(const Record *Rec);
+bool isMemoryOperand(const Record *Rec);
+bool isImmediateOperand(const Record *Rec);
+unsigned getRegOperandSize(const Record *RegRec);
+unsigned getMemOperandSize(const Record *MemRec);
 } // namespace X86Disassembler
 
 } // namespace llvm

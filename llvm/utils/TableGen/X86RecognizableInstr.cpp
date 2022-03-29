@@ -55,6 +55,55 @@ std::string X86Disassembler::getMnemonic(const CodeGenInstruction *I, unsigned V
     return Mnemonic.upper();
 }
 
+bool X86Disassembler::isRegisterOperand(const Record *Rec) {
+  return Rec->isSubClassOf("RegisterClass") ||
+         Rec->isSubClassOf("RegisterOperand");
+}
+
+bool X86Disassembler::isMemoryOperand(const Record *Rec) {
+  return Rec->isSubClassOf("Operand") &&
+         Rec->getValueAsString("OperandType") == "OPERAND_MEMORY";
+}
+
+bool X86Disassembler::isImmediateOperand(const Record *Rec) {
+  return Rec->isSubClassOf("Operand") &&
+         Rec->getValueAsString("OperandType") == "OPERAND_IMMEDIATE";
+}
+
+unsigned X86Disassembler::getRegOperandSize(const Record *RegRec) {
+  if (RegRec->isSubClassOf("RegisterClass"))
+    return RegRec->getValueAsInt("Alignment");
+  if (RegRec->isSubClassOf("RegisterOperand"))
+    return RegRec->getValueAsDef("RegClass")->getValueAsInt("Alignment");
+
+  llvm_unreachable("Register operand's size not known!");
+}
+
+unsigned X86Disassembler::getMemOperandSize(const Record *MemRec) {
+  if (MemRec->isSubClassOf("Operand")) {
+    StringRef Name =
+        MemRec->getValueAsDef("ParserMatchClass")->getValueAsString("Name");
+    if (Name == "Mem8")
+      return 8;
+    if (Name == "Mem16")
+      return 16;
+    if (Name == "Mem32")
+      return 32;
+    if (Name == "Mem64")
+      return 64;
+    if (Name == "Mem80")
+      return 80;
+    if (Name == "Mem128")
+      return 128;
+    if (Name == "Mem256")
+      return 256;
+    if (Name == "Mem512")
+      return 512;
+  }
+
+  llvm_unreachable("Memory operand's size not known!");
+}
+
 /// byteFromBitsInit - Extracts a value at most 8 bits in width from a BitsInit.
 ///   Useful for switch statements and the like.
 ///
@@ -113,7 +162,7 @@ RecognizableInstrBase::RecognizableInstrBase(const CodeGenInstruction &insn) {
   HasVEX_W = Rec->getValueAsBit("HasVEX_W");
   IgnoresVEX_W = Rec->getValueAsBit("IgnoresVEX_W");
   IgnoresVEX_L = Rec->getValueAsBit("ignoresVEX_L");
-  HasEVEX_L2Prefix = Rec->getValueAsBit("hasEVEX_L2");
+  HasEVEX_L2 = Rec->getValueAsBit("hasEVEX_L2");
   HasEVEX_K = Rec->getValueAsBit("hasEVEX_K");
   HasEVEX_KZ = Rec->getValueAsBit("hasEVEX_Z");
   HasEVEX_B = Rec->getValueAsBit("hasEVEX_B");
@@ -121,7 +170,7 @@ RecognizableInstrBase::RecognizableInstrBase(const CodeGenInstruction &insn) {
   IsAsmParserOnly = Rec->getValueAsBit("isAsmParserOnly");
   ForceDisassemble = Rec->getValueAsBit("ForceDisassemble");
   CD8_Scale = byteFromRec(Rec, "CD8_Scale");
-  HasVEX_LPrefix = Rec->getValueAsBit("hasVEX_L");
+  HasVEX_L = Rec->getValueAsBit("hasVEX_L");
 
   EncodeRC = HasEVEX_B &&
              (Form == X86Local::MRMDestReg || Form == X86Local::MRMSrcReg);
@@ -190,12 +239,12 @@ InstructionContext RecognizableInstr::insnContext() const {
   InstructionContext insnContext;
 
   if (Encoding == X86Local::EVEX) {
-    if (HasVEX_LPrefix && HasEVEX_L2Prefix) {
+    if (HasVEX_L && HasEVEX_L2) {
       errs() << "Don't support VEX.L if EVEX_L2 is enabled: " << Name << "\n";
       llvm_unreachable("Don't support VEX.L if EVEX_L2 is enabled");
     }
     // VEX_L & VEX_W
-    if (!EncodeRC && HasVEX_LPrefix && HasVEX_W) {
+    if (!EncodeRC && HasVEX_L && HasVEX_W) {
       if (OpPrefix == X86Local::PD)
         insnContext = EVEX_KB(IC_EVEX_L_W_OPSIZE);
       else if (OpPrefix == X86Local::XS)
@@ -208,7 +257,7 @@ InstructionContext RecognizableInstr::insnContext() const {
         errs() << "Instruction does not use a prefix: " << Name << "\n";
         llvm_unreachable("Invalid prefix");
       }
-    } else if (!EncodeRC && HasVEX_LPrefix) {
+    } else if (!EncodeRC && HasVEX_L) {
       // VEX_L
       if (OpPrefix == X86Local::PD)
         insnContext = EVEX_KB(IC_EVEX_L_OPSIZE);
@@ -222,7 +271,7 @@ InstructionContext RecognizableInstr::insnContext() const {
         errs() << "Instruction does not use a prefix: " << Name << "\n";
         llvm_unreachable("Invalid prefix");
       }
-    } else if (!EncodeRC && HasEVEX_L2Prefix && HasVEX_W) {
+    } else if (!EncodeRC && HasEVEX_L2 && HasVEX_W) {
       // EVEX_L2 & VEX_W
       if (OpPrefix == X86Local::PD)
         insnContext = EVEX_KB(IC_EVEX_L2_W_OPSIZE);
@@ -236,7 +285,7 @@ InstructionContext RecognizableInstr::insnContext() const {
         errs() << "Instruction does not use a prefix: " << Name << "\n";
         llvm_unreachable("Invalid prefix");
       }
-    } else if (!EncodeRC && HasEVEX_L2Prefix) {
+    } else if (!EncodeRC && HasEVEX_L2) {
       // EVEX_L2
       if (OpPrefix == X86Local::PD)
         insnContext = EVEX_KB(IC_EVEX_L2_OPSIZE);
@@ -281,7 +330,7 @@ InstructionContext RecognizableInstr::insnContext() const {
     }
     /// eof EVEX
   } else if (Encoding == X86Local::VEX || Encoding == X86Local::XOP) {
-    if (HasVEX_LPrefix && HasVEX_W) {
+    if (HasVEX_L && HasVEX_W) {
       if (OpPrefix == X86Local::PD)
         insnContext = IC_VEX_L_W_OPSIZE;
       else if (OpPrefix == X86Local::XS)
@@ -294,7 +343,7 @@ InstructionContext RecognizableInstr::insnContext() const {
         errs() << "Instruction does not use a prefix: " << Name << "\n";
         llvm_unreachable("Invalid prefix");
       }
-    } else if (OpPrefix == X86Local::PD && HasVEX_LPrefix)
+    } else if (OpPrefix == X86Local::PD && HasVEX_L)
       insnContext = IC_VEX_L_OPSIZE;
     else if (OpPrefix == X86Local::PD && HasVEX_W)
       insnContext = IC_VEX_W_OPSIZE;
@@ -305,9 +354,9 @@ InstructionContext RecognizableInstr::insnContext() const {
       insnContext = IC_64BIT_VEX_OPSIZE;
     else if (OpPrefix == X86Local::PD)
       insnContext = IC_VEX_OPSIZE;
-    else if (HasVEX_LPrefix && OpPrefix == X86Local::XS)
+    else if (HasVEX_L && OpPrefix == X86Local::XS)
       insnContext = IC_VEX_L_XS;
-    else if (HasVEX_LPrefix && OpPrefix == X86Local::XD)
+    else if (HasVEX_L && OpPrefix == X86Local::XD)
       insnContext = IC_VEX_L_XD;
     else if (HasVEX_W && OpPrefix == X86Local::XS)
       insnContext = IC_VEX_W_XS;
@@ -315,7 +364,7 @@ InstructionContext RecognizableInstr::insnContext() const {
       insnContext = IC_VEX_W_XD;
     else if (HasVEX_W && OpPrefix == X86Local::PS)
       insnContext = IC_VEX_W;
-    else if (HasVEX_LPrefix && OpPrefix == X86Local::PS)
+    else if (HasVEX_L && OpPrefix == X86Local::PS)
       insnContext = IC_VEX_L;
     else if (OpPrefix == X86Local::XD)
       insnContext = IC_VEX_XD;
