@@ -24,22 +24,6 @@ void ConsumeX(X x);
 extern X OuterX;
 
 // CHECK-LABEL: @_Z5test0v(
-<<<<<<< HEAD
-// INTEL_CUSTOMIZATION
-// Jump threading's customized stack is using different label values when it
-// folds these.
-// CHECK-NEXT:  nrvo.skipdtor:
-// end INTEL_CUSTOMIZATION
-// CHECK-NEXT:    call void @_ZN1XC1Ev(%class.X* noundef nonnull align 1 dereferenceable(1) [[AGG_RESULT:%.*]]) #[[ATTR5:[0-9]+]]
-// CHECK-NEXT:    ret void
-//
-// CHECK-EH-LABEL: @_Z5test0v(
-// INTEL_CUSTOMIZATION
-// CHECK-EH-NEXT:  nrvo.skipdtor:
-// end INTEL_CUSTOMIZATION
-// CHECK-EH-NEXT:    call void @_ZN1XC1Ev(%class.X* noundef nonnull align 1 dereferenceable(1) [[AGG_RESULT:%.*]])
-// CHECK-EH-NEXT:    ret void
-=======
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[RESULT_PTR:%.*]] = alloca i8*, align 4
 // CHECK-NEXT:    [[NRVO:%.*]] = alloca i1, align 1
@@ -89,7 +73,6 @@ extern X OuterX;
 // CHECK-EH-11-NEXT:    br label [[NRVO_SKIPDTOR]]
 // CHECK-EH-11:       nrvo.skipdtor:
 // CHECK-EH-11-NEXT:    ret void
->>>>>>> b1cf20bab79fc3c2f42019ff0f81fe2dadf3d238
 //
 X test0() { // http://wg21.link/p2025r2#ex-2
   X x;
@@ -577,15 +560,6 @@ extern "C" void exit(int) throw();
 
 // CHECK-LABEL: @_Z5test4b(
 // CHECK-NEXT:  entry:
-<<<<<<< HEAD
-// CHECK-NEXT:    call void @_ZN1XC1Ev(%class.X* noundef nonnull align 1 dereferenceable(1) [[AGG_RESULT:%.*]]) #[[ATTR5]]
-// CHECK-NEXT:    br i1 [[B:%.*]], label [[RETURN:%.*]], label [[NRVO_UNUSED:%.*]]
-// INTEL_CUSTOMIZATION
-// CHECK:       cleanup.cont:
-// end INTEL_CUSTOMIZATION
-// CHECK-NEXT:    call void @_ZN1XD1Ev(%class.X* noundef nonnull align 1 dereferenceable(1) [[AGG_RESULT]]) #[[ATTR5]]
-// CHECK-NEXT:    call void @exit(i32 noundef 1) #[[ATTR5]]
-=======
 // CHECK-NEXT:    [[RESULT_PTR:%.*]] = alloca i8*, align 4
 // CHECK-NEXT:    [[B_ADDR:%.*]] = alloca i8, align 1
 // CHECK-NEXT:    [[NRVO:%.*]] = alloca i1, align 1
@@ -620,7 +594,6 @@ extern "C" void exit(int) throw();
 // CHECK-NEXT:    ]
 // CHECK:       cleanup.cont:
 // CHECK-NEXT:    call void @exit(i32 noundef 1) #[[ATTR4]]
->>>>>>> b1cf20bab79fc3c2f42019ff0f81fe2dadf3d238
 // CHECK-NEXT:    unreachable
 // CHECK:       return:
 // CHECK-NEXT:    ret void
@@ -629,13 +602,6 @@ extern "C" void exit(int) throw();
 //
 // CHECK-EH-03-LABEL: @_Z5test4b(
 // CHECK-EH-03-NEXT:  entry:
-<<<<<<< HEAD
-// CHECK-EH-03-NEXT:    call void @_ZN1XC1Ev(%class.X* noundef nonnull align 1 dereferenceable(1) [[AGG_RESULT:%.*]])
-// CHECK-EH-03-NEXT:    br i1 [[B:%.*]], label [[RETURN:%.*]], label [[NRVO_UNUSED:%.*]]
-// INTEL_CUSTOMIZATION
-// CHECK-EH-03:       cleanup.cont:
-// end INTEL_CUSTOMIZATION
-=======
 // CHECK-EH-03-NEXT:    [[RESULT_PTR:%.*]] = alloca i8*, align 4
 // CHECK-EH-03-NEXT:    [[B_ADDR:%.*]] = alloca i8, align 1
 // CHECK-EH-03-NEXT:    [[NRVO:%.*]] = alloca i1, align 1
@@ -660,7 +626,6 @@ extern "C" void exit(int) throw();
 // CHECK-EH-03-NEXT:    [[NRVO_VAL:%.*]] = load i1, i1* [[NRVO]], align 1
 // CHECK-EH-03-NEXT:    br i1 [[NRVO_VAL]], label [[NRVO_SKIPDTOR:%.*]], label [[NRVO_UNUSED:%.*]]
 // CHECK-EH-03:       nrvo.unused:
->>>>>>> b1cf20bab79fc3c2f42019ff0f81fe2dadf3d238
 // CHECK-EH-03-NEXT:    call void @_ZN1XD1Ev(%class.X* noundef nonnull align 1 dereferenceable(1) [[AGG_RESULT]])
 // CHECK-EH-03-NEXT:    br label [[NRVO_SKIPDTOR]]
 // CHECK-EH-03:       nrvo.skipdtor:
@@ -679,13 +644,6 @@ extern "C" void exit(int) throw();
 //
 // CHECK-EH-11-LABEL: @_Z5test4b(
 // CHECK-EH-11-NEXT:  entry:
-<<<<<<< HEAD
-// CHECK-EH-11-NEXT:    call void @_ZN1XC1Ev(%class.X* noundef nonnull align 1 dereferenceable(1) [[AGG_RESULT:%.*]])
-// CHECK-EH-11-NEXT:    br i1 [[B:%.*]], label [[RETURN:%.*]], label [[NRVO_UNUSED:%.*]]
-// INTEL_CUSTOMIZATION
-// CHECK-EH-11:       cleanup.cont:
-// end INTEL_CUSTOMIZATION
-=======
 // CHECK-EH-11-NEXT:    [[RESULT_PTR:%.*]] = alloca i8*, align 4
 // CHECK-EH-11-NEXT:    [[B_ADDR:%.*]] = alloca i8, align 1
 // CHECK-EH-11-NEXT:    [[NRVO:%.*]] = alloca i1, align 1
@@ -710,7 +668,6 @@ extern "C" void exit(int) throw();
 // CHECK-EH-11-NEXT:    [[NRVO_VAL:%.*]] = load i1, i1* [[NRVO]], align 1
 // CHECK-EH-11-NEXT:    br i1 [[NRVO_VAL]], label [[NRVO_SKIPDTOR:%.*]], label [[NRVO_UNUSED:%.*]]
 // CHECK-EH-11:       nrvo.unused:
->>>>>>> b1cf20bab79fc3c2f42019ff0f81fe2dadf3d238
 // CHECK-EH-11-NEXT:    call void @_ZN1XD1Ev(%class.X* noundef nonnull align 1 dereferenceable(1) [[AGG_RESULT]]) #[[ATTR7]]
 // CHECK-EH-11-NEXT:    br label [[NRVO_SKIPDTOR]]
 // CHECK-EH-11:       nrvo.skipdtor:
