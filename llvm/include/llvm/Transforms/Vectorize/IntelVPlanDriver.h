@@ -135,6 +135,10 @@ protected:
   void populateVPlanAnalyses(LoopVectorizationPlanner &LVP,
                              VPAnalysesFactoryBase &VPAF);
 
+  // Helper utility to create masked version of VPlans.
+  void generateMaskedModeVPlans(LoopVectorizationPlanner *LVP,
+                                VPAnalysesFactoryBase *VPAF);
+
 protected:
   AssumptionCache *getAC() const { return AC; }
   void setAC(AssumptionCache *NewAC) { AC = NewAC; }

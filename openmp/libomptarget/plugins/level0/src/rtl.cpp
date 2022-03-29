@@ -5797,13 +5797,12 @@ int32_t LevelZeroProgramTy::buildModules(std::string &BuildOptions) {
     uint64_t Format =  (std::numeric_limits<uint64_t>::max)();
     std::string CompileOpts;
     std::string LinkOpts;
-    const uint8_t *Begin;
-    uint64_t Size;
+    // We may have multiple sections created from split-kernel mode
+    std::vector<const uint8_t *> PartBegin;
+    std::vector<uint64_t> PartSize;
 
-    V1ImageInfo(uint64_t Format, std::string CompileOpts,
-                std::string LinkOpts, const uint8_t *Begin, uint64_t Size)
-      : Format(Format), CompileOpts(CompileOpts),
-        LinkOpts(LinkOpts), Begin(Begin), Size(Size) {}
+    V1ImageInfo(uint64_t Format, std::string CompileOpts, std::string LinkOpts)
+      : Format(Format), CompileOpts(CompileOpts), LinkOpts(LinkOpts) {}
   };
 
   std::unordered_map<uint64_t, V1ImageInfo> AuxInfo;
@@ -5857,10 +5856,9 @@ int32_t LevelZeroProgramTy::buildModules(std::string &BuildOptions) {
       AuxInfo.emplace(std::piecewise_construct,
                       std::forward_as_tuple(Idx),
                       std::forward_as_tuple(std::stoull(Parts[1]),
-                                            Parts[2], Parts[3],
+                                            Parts[2], Parts[3]));
                                             // Image pointer and size
                                             // will be initialized later.
-                                            nullptr, 0));
     }
     }
   }
@@ -5874,6 +5872,19 @@ int32_t LevelZeroProgramTy::buildModules(std::string &BuildOptions) {
     if (SectionName.find(Prefix) != 0)
       continue;
     SectionName.erase(0, std::strlen(Prefix));
+
+    // Expected section name in split-kernel mode:
+    // __openmp_offload_spirv_<image_id>_<part_id>
+    auto PartIdLoc = SectionName.find("_");
+    if (PartIdLoc != std::string::npos) {
+      DP("Found a split section in the image\n");
+      // It seems that we do not need part ID as long as they are ordered
+      // in the image and we keep the ordering in the runtime.
+      SectionName.erase(PartIdLoc);
+    } else {
+      DP("Found a single section in the image\n");
+    }
+
     uint64_t Idx = std::stoull(SectionName);
     if (Idx >= ImageCount) {
       DP("Warning: ignoring image section (index %" PRIu64
@@ -5887,8 +5898,8 @@ int32_t LevelZeroProgramTy::buildModules(std::string &BuildOptions) {
       continue;
     }
 
-    AuxInfoIt->second.Begin = (*I).getContents();
-    AuxInfoIt->second.Size = (*I).getSize();
+    AuxInfoIt->second.PartBegin.push_back((*I).getContents());
+    AuxInfoIt->second.PartSize.push_back((*I).getSize());
   }
 
   for (uint64_t Idx = 0; Idx < ImageCount; ++Idx) {
@@ -5899,37 +5910,45 @@ int32_t LevelZeroProgramTy::buildModules(std::string &BuildOptions) {
       continue;
     }
 
-    const unsigned char *ImgBegin =
-        reinterpret_cast<const unsigned char *>(It->second.Begin);
-    size_t ImgSize = It->second.Size;
-    dumpImageToFile(ImgBegin, ImgSize, "OpenMP");
-    int32_t RC = OFFLOAD_FAIL;
-    bool IsBinary = false;
-    std::string Options = BuildOptions;
-    if (DeviceInfo->Option.Flags.UseImageOptions)
-      Options += " " + It->second.CompileOpts + " " + It->second.LinkOpts;
+    auto NumParts = It->second.PartBegin.size();
+    // Split-kernel is not supported in SPIRV format
+    if (NumParts > 1 && It->second.Format != 0) {
+      DP("Warning: split-kernel images are not supported in SPIRV format\n");
+      continue;
+    }
 
-    if (It->second.Format == 0) {
-      // Native format.
-      IsBinary = true;
-      RC = addModule(ImgSize, ImgBegin, Options, ZE_MODULE_FORMAT_NATIVE);
-    } else if (It->second.Format == 1) {
-      // SPIR-V format.
-      RC = addModule(ImgSize, ImgBegin, Options, ZE_MODULE_FORMAT_IL_SPIRV);
-    } else {
+    // Skip unknown image format
+    if (It->second.Format != 0 && It->second.Format != 1) {
       DP("Warning: image %" PRIu64 "is ignored due to unknown format.\n", Idx);
       continue;
     }
 
-    if (RC != OFFLOAD_SUCCESS) {
-      DP("Warning: failed to create program from %s (%" PRIu64 ").\n",
-         IsBinary ? "binary" : "SPIR-V", Idx);
-      continue;
+    bool IsBinary = (It->second.Format == 0);
+    auto ModuleFormat =
+        IsBinary ? ZE_MODULE_FORMAT_NATIVE : ZE_MODULE_FORMAT_IL_SPIRV;
+    std::string Options = BuildOptions;
+    if (DeviceInfo->Option.Flags.UseImageOptions)
+      Options += " " + It->second.CompileOpts + " " + It->second.LinkOpts;
+
+    for (size_t I = 0; I < NumParts; I++) {
+      const unsigned char *ImgBegin =
+          reinterpret_cast<const unsigned char *>(It->second.PartBegin[I]);
+      size_t ImgSize = It->second.PartSize[I];
+      dumpImageToFile(ImgBegin, ImgSize, "OpenMP");
+
+      auto RC = addModule(ImgSize, ImgBegin, Options, ModuleFormat);
+
+      if (RC != OFFLOAD_SUCCESS) {
+        DP("Error: failed to create program from %s " "(%" PRIu64 "-%zu).\n",
+           IsBinary ? "Binary" : "SPIR-V", Idx, I);
+        return OFFLOAD_FAIL;
+      }
     }
 
     DP("Created module from image #%" PRIu64 ".\n", Idx);
     BuildOptions = Options;
-    return RC;
+
+    return OFFLOAD_SUCCESS;
   }
 
   return OFFLOAD_FAIL;

@@ -813,31 +813,36 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
   OpndBundles.emplace_back(
       std::string(IntrinsicUtils::getDirectiveString(DIR_OMP_SIMD)), None);
 
-  auto AddClause = [&OpndBundles](OMP_CLAUSES Clause, auto &&... Ops) {
-    std::vector<Value *> Arr = {{Ops...}};
-    OpndBundles.emplace_back(
-        std::string(IntrinsicUtils::getClauseString(Clause)), std::move(Arr));
+  auto Clause = [](OMP_CLAUSES ClauseId, auto &&... Mods) -> std::string {
+    std::initializer_list<StringRef> Modifiers = {Mods...};
+    std::string Result = IntrinsicUtils::getClauseString(ClauseId).str();
+    if (Modifiers.size() == 0)
+      return Result;
+    raw_string_ostream SS(Result);
+    SS << ":";
+    ListSeparator LS;
+    for (StringRef Mod : Modifiers)
+      SS << LS << Mod;
+    return Result;
   };
 
-  auto AddTypedClause = [&OpndBundles, AddClause](OMP_CLAUSES Clause,
-                                                  Value *Ptr, Type *Ty,
-                                                  auto &&... Ops) {
+  auto AddTypedClause = [&OpndBundles, Clause](OMP_CLAUSES ClauseId, Value *Ptr,
+                                               Type *Ty, auto &&... Ops) {
     if (!EmitTypedOMP) {
-      AddClause(Clause, Ptr, Ops...);
+      OpndBundles.push_back(OperandBundleDef{Clause(ClauseId), {Ptr, Ops...}});
       return;
     }
 
-    std::vector<Value *> Arr = {
+    OpndBundles.push_back(OperandBundleDef{
+        Clause(ClauseId, "TYPED"),
         {Ptr, Constant::getNullValue(Ty),
          ConstantInt::get(Type::getInt32Ty(Ty->getContext()), 1), // #Elts
-         Ops...}};
-    OpndBundles.emplace_back(
-        (IntrinsicUtils::getClauseString(Clause) + Twine(":TYPED")).str(),
-        std::move(Arr));
+         Ops...}});
   };
 
   // Insert vectorlength directive
-  AddClause(QUAL_OMP_SIMDLEN, Builder.getInt32(V.getVlen()));
+  OpndBundles.emplace_back(Clause(QUAL_OMP_SIMDLEN),
+                           Builder.getInt32(V.getVlen()));
 
   // Add directives for linear and vector arguments. Vector arguments can be
   // marked as private.

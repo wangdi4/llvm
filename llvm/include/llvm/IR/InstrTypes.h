@@ -1150,6 +1150,11 @@ public:
       : Tag(std::move(Tag)), Inputs(std::move(Inputs)) {}
   explicit OperandBundleDefT(std::string Tag, ArrayRef<InputTy> Inputs)
       : Tag(std::move(Tag)), Inputs(Inputs) {}
+#if INTEL_CUSTOMIZATION
+  explicit OperandBundleDefT(std::string Tag,
+                             std::initializer_list<InputTy> Inputs)
+      : Tag(std::move(Tag)), Inputs(Inputs) {}
+#endif // INTEL_CUSTOMIZATION
 
   explicit OperandBundleDefT(const OperandBundleUse &OBU) {
     Tag = std::string(OBU.getTagName());

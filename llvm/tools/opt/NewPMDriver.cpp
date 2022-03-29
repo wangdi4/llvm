@@ -137,6 +137,9 @@ static cl::opt<std::string> FullLinkTimeOptimizationLastEPPipeline(
 
 // Individual pipeline tuning options.
 extern cl::opt<bool> DisableLoopUnrolling;
+#if INTEL_CUSTOMIZATION
+extern cl::opt<bool> DisableIntelProprietaryOpts;
+#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 extern cl::opt<PGOKind> PGOKindFlag;
@@ -334,6 +337,9 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
   // to false above so we shouldn't necessarily need to check whether or not the
   // option has been enabled.
   PTO.LoopUnrolling = !DisableLoopUnrolling;
+#if INTEL_CUSTOMIZATION
+  PTO.DisableIntelProprietaryOpts = DisableIntelProprietaryOpts;
+#endif // INTEL_CUSTOMIZATION
   PassBuilder PB(TM, PTO, P, &PIC);
   registerEPCallbacks(PB);
 

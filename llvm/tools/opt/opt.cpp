@@ -185,10 +185,9 @@ static cl::opt<unsigned> CodeGenOptLevel(
 #if INTEL_CUSTOMIZATION
 // This option can be passed directly to clcpcom. It is duplicated here to
 // provide the same functionality through opt.
-static cl::opt<bool>
-DisableIntelProprietaryOpts("disable-intel-proprietary-opts",
-               cl::desc("Disable Intel proprietary optimizations"),
-               cl::init(false));
+cl::opt<bool> DisableIntelProprietaryOpts(
+    "disable-intel-proprietary-opts",
+    cl::desc("Disable Intel proprietary optimizations"), cl::init(false));
 
 // This option can be used to configure the pipeline to run like the
 // PrepareForLTO mode of a -c compilation.

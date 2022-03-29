@@ -83,6 +83,7 @@
 #include <memory>
 
 extern llvm::cl::opt<bool> EnableMaskedVariant;
+extern llvm::cl::opt<bool> EnableMaskedVariantHIR;
 
 namespace llvm {
 namespace vpo {

@@ -468,6 +468,7 @@ PipelineTuningOptions::PipelineTuningOptions() {
   CallGraphProfile = true;
   MergeFunctions = EnableMergeFunctions;
   EagerlyInvalidateAnalyses = EnableEagerlyInvalidateAnalyses;
+  DisableIntelProprietaryOpts = false; // INTEL
 }
 #if INTEL_CUSTOMIZATION
 extern cl::opt<bool> ConvertToSubs;
@@ -764,9 +765,9 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
   return FPM;
 }
 #if INTEL_CUSTOMIZATION
-static bool isLoopOptEnabled(OptimizationLevel Level) {
-  // if (!DisableIntelProprietaryOpts &&
-  if (((RunLoopOpts != LoopOptMode::None) || RunLoopOptFrameworkOnly) &&
+bool PassBuilder::isLoopOptEnabled(OptimizationLevel Level) {
+  if (!PTO.DisableIntelProprietaryOpts &&
+      ((RunLoopOpts != LoopOptMode::None) || RunLoopOptFrameworkOnly) &&
       (Level.getSpeedupLevel() >= 2))
     return true;
 
@@ -2156,10 +2157,16 @@ void PassBuilder::addLoopOptAndAssociatedVPOPasses(ModulePassManager &MPM,
                                                    FunctionPassManager &FPM,
                                                    OptimizationLevel Level,
                                                    bool IsLTO) {
-  // TODO:
-  // if (DisableIntelProprietaryOpts)
-  // clean up the directive using createVPODirectiveCleanupPass()),
-  // similar to old PM.
+  // Do not run loop optimization passes, if proprietary optimizations
+  // are disabled (for instance during spir64 compilation for OpenMP offload).
+  // There are some mandatory clean-up actions that still need/ to be performed.
+  if (PTO.DisableIntelProprietaryOpts) {
+    // CMPLRLLVM-25935: clean-up VPO directives for targets with
+    //                  LLVM IR emission enabled (hence, with proprietary
+    //                  optimizations disabled).
+    FPM.addPass(VPODirectiveCleanupPass());
+    return;
+  }
 
   if (RunVPOOpt && RunVecClone) {
     if (!FPM.isEmpty())
