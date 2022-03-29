@@ -192,10 +192,15 @@ struct DeviceDataTy {
 /// accordingly. The implementation should not raise any exception.
 template <typename T> struct AllocatorTy {
   using ElementTy = T;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Virtual destructor is required to avoid warning when built with icx
   virtual ~AllocatorTy() {}
 #endif // INTEL_CUSTOMIZATION
+=======
+  virtual ~AllocatorTy() {}
+
+>>>>>>> b9fd8f34ae547674ac0b5f5fbc5bb66d2bc0fedb
   /// Create a resource and assign to R.
   virtual int create(T &R) noexcept = 0;
   /// Destroy the resource.
