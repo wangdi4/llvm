@@ -5626,8 +5626,13 @@ void VPOCodeGenHIR::makeConsistentAndAddToMap(
     SmallVectorImpl<const RegDDRef *> &AuxRefs, bool Widen,
     unsigned ScalarLaneID) {
   // Use AuxRefs if it is not empty to make Ref consistent
-  if (!AuxRefs.empty())
-    Ref->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
+  if (!AuxRefs.empty()) {
+    unsigned NestingLevel = OrigLoop->getNestingLevel();
+    // Adjust nesting level if instruction is outside the outermost loop.
+    if (!Plan->getVPLoopInfo()->getLoopFor(VPInst->getParent()))
+      NestingLevel -= 1;
+    Ref->makeConsistent(AuxRefs, NestingLevel);
+  }
   if (Widen) {
     RegDDRef *WideRef = Ref;
 

@@ -106,6 +106,11 @@ MDNode *getGepChainTBAA(const GetElementPtrInst *GEP) {
   return mergeIntelTBAA(getGepChainTBAA(BaseGEP), GepMD);
 }
 
+// TODO: merge with InstCombineCalls, TypeBasedAliasAnalysis....
+static bool isStructPathTBAA(const MDNode *MD) {
+  return isa<MDNode>(MD->getOperand(0)) && MD->getNumOperands() >= 3;
+}
+
 // The tbaa information is retrieved from the fakeload intrinsic
 // and attached to the pointer's dereference sites.
 void TbaaMDPropagationImpl::visitIntrinsicInst(IntrinsicInst &II) {
@@ -129,15 +134,29 @@ void TbaaMDPropagationImpl::visitIntrinsicInst(IntrinsicInst &II) {
     return;
   FakeloadTBAA = dyn_cast<MDNode>(
       cast<MetadataAsValue>(II.getArgOperand(1))->getMetadata());
+  if (FakeloadTBAA && isStructPathTBAA(FakeloadTBAA)) {
+    // Functions that return type pointer-to-struct may have fakeloads that
+    // refer to a struct type as if it were a scalar:
+    // !0 = !{!"struct", !1, i64 0, !2, i64 4}
+    // !x = !{!0, !0, i64 0}
+    // With opaque pointers, the pointer-to-struct may be loaded as an actual
+    // scalar type.
+    // We should avoid propagating the fakeload MD in this case.
+    // In most (if not all) of these cases, the load will have TBAA MD already.
+    MDNode *AccessType = dyn_cast<MDNode>(FakeloadTBAA->getOperand(1));
+    if (!AccessType || AccessType->getNumOperands() > 3 ||
+        isStructPathTBAA(AccessType))
+      FakeloadTBAA = nullptr;
+  }
   bool HasRetUser = false;
   for (auto *User : II.users()) {
     LoadInst *LI = dyn_cast<LoadInst>(User);
-    if (LI && LI->getPointerOperand() == &II) {
+    if (FakeloadTBAA && LI && LI->getPointerOperand() == &II) {
       LI->setMetadata(LLVMContext::MD_tbaa, FakeloadTBAA);
       continue;
     }
     StoreInst *SI = dyn_cast<StoreInst>(User);
-    if (SI && SI->getPointerOperand() == &II) {
+    if (FakeloadTBAA && SI && SI->getPointerOperand() == &II) {
       SI->setMetadata(LLVMContext::MD_tbaa, FakeloadTBAA);
       continue;
     }
