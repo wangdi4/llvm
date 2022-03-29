@@ -9847,6 +9847,11 @@ void OffloadBundler::ConstructJobMultipleOutputs(
   auto SYCLTCRange = C.getOffloadToolChains<Action::OFK_SYCL>();
   for (auto TI = SYCLTCRange.first, TE = SYCLTCRange.second; TI != TE; ++TI)
     HasSPIRTarget |= TI->second->getTriple().isSPIR();
+#if INTEL_CUSTOMIZATION
+  auto OpenMPTCRange = C.getOffloadToolChains<Action::OFK_OpenMP>();
+  for (auto TI = OpenMPTCRange.first, TE = OpenMPTCRange.second; TI != TE; ++TI)
+    HasSPIRTarget |= TI->second->getTriple().isSPIR();
+#endif // INTEL_CUSTOMIZATION
   if (InputType == types::TY_Archive && HasSPIRTarget)
     TypeArg = "aoo";
 

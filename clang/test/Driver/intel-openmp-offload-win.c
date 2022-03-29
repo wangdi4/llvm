@@ -87,22 +87,23 @@
 // RUN:   | FileCheck -DINPUT=%t.obj -check-prefix=CHK-UBACTIONS %s
 // CHK-UBACTIONS: 0: input, "[[INPUT]]", object, (host-openmp)
 // CHK-UBACTIONS: 1: clang-offload-unbundler, {0}, object, (host-openmp)
-// CHK-UBACTIONS: 2: input, {{.*libomp-spirvdevicertl.o.*}}, object
-// CHK-UBACTIONS: 3: clang-offload-unbundler, {2}, object
-// CHK-UBACTIONS: 4: input, {{.*libomp-itt-user-wrappers.o.*}}, object
-// CHK-UBACTIONS: 5: clang-offload-unbundler, {4}, object
-// CHK-UBACTIONS: 6: input, {{.*libomp-itt-compiler-wrappers.o.*}}, object
-// CHK-UBACTIONS: 7: clang-offload-unbundler, {6}, object
-// CHK-UBACTIONS: 8: input, {{.*libomp-itt-stubs.o.*}}, object
-// CHK-UBACTIONS: 9: clang-offload-unbundler, {8}, object
-// CHK-UBACTIONS: 10: linker, {1, 3, 5, 7, 9}, ir, (device-openmp)
-// CHK-UBACTIONS: 11: sycl-post-link, {10}, ir, (device-openmp)
-// CHK-UBACTIONS: 12: llvm-spirv, {11}, spirv, (device-openmp)
-// CHK_UBACTIONS: 13: offload, "device-openmp (spir64)" {12}, ir
-// CHK_UBACTIONS: 14: clang-offload-wrapper, {13}, ir, (host-openmp)
-// CHK_UBACTIONS: 15: backend, {14}, assembler, (host-openmp)
-// CHK_UBACTIONS: 16: assembler, {15}, object, (host-openmp)
-// CHK_UBACTIONS: 17: linker, {1, 16}, image, (host-openmp)
+// CHK-UBACTIONS: 2: spirv-to-ir-wrapper, {1}, ir, (device-openmp)
+// CHK-UBACTIONS: 3: input, {{.*libomp-spirvdevicertl.o.*}}, object
+// CHK-UBACTIONS: 4: clang-offload-unbundler, {3}, object
+// CHK-UBACTIONS: 5: input, {{.*libomp-itt-user-wrappers.o.*}}, object
+// CHK-UBACTIONS: 6: clang-offload-unbundler, {5}, object
+// CHK-UBACTIONS: 7: input, {{.*libomp-itt-compiler-wrappers.o.*}}, object
+// CHK-UBACTIONS: 8: clang-offload-unbundler, {7}, object
+// CHK-UBACTIONS: 9: input, {{.*libomp-itt-stubs.o.*}}, object
+// CHK-UBACTIONS: 10: clang-offload-unbundler, {9}, object
+// CHK-UBACTIONS: 11: linker, {2, 4, 6, 8, 10}, ir, (device-openmp)
+// CHK-UBACTIONS: 12: sycl-post-link, {11}, ir, (device-openmp)
+// CHK-UBACTIONS: 13: llvm-spirv, {12}, spirv, (device-openmp)
+// CHK-UBACTIONS: 14: offload, "device-openmp (spir64)" {13}, ir
+// CHK-UBACTIONS: 15: clang-offload-wrapper, {14}, ir, (host-openmp)
+// CHK-UBACTIONS: 16: backend, {15}, assembler, (host-openmp)
+// CHK-UBACTIONS: 17: assembler, {16}, object, (host-openmp)
+// CHK-UBACTIONS: 18: linker, {1, 17}, image, (host-openmp)
 
 /// ###########################################################################
 
@@ -118,7 +119,8 @@
 // RUN:   touch %t.obj
 // RUN:   %clang -### -fiopenmp %t.obj -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 --intel -fno-openmp-device-lib=all 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-UBJOBS %s
-// CHK-UBJOBS: clang-offload-bundler{{(.exe)?}}{{.*}} "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64" "-inputs=[[FATOBJ:.+\.obj]]" "-outputs=[[HOSTOBJ:.+\.o]],[[TGTBC:.+\.o]]" "-unbundle"
+// CHK-UBJOBS: clang-offload-bundler{{(.exe)?}}{{.*}} "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64" "-inputs=[[FATOBJ:.+\.obj]]" "-outputs=[[HOSTOBJ:.+\.o]],[[TGTOBJ:.+\.o]]" "-unbundle"
+// CHK-UBJOBS: spirv-to-ir-wrapper{{.*}} "[[TGTOBJ]]" "-o" "[[TGTBC:.+\.bc]]"
 // CHK-UBJOBS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=openmp-spir64" "-inputs={{.*}}libomp-spirvdevicertl.obj" "-outputs=[[RTLTGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
 // CHK-UBJOBS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=openmp-spir64" "-inputs={{.*}}libomp-itt-user-wrappers.obj" "-outputs=[[ITT1TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
 // CHK-UBJOBS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=openmp-spir64" "-inputs={{.*}}libomp-itt-compiler-wrappers.obj" "-outputs=[[ITT2TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"

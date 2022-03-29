@@ -130,6 +130,22 @@ bool VFAnalysisInfo::hasUnsupportedPatterns(Function *Kernel) {
   LLVM_DEBUG(dbgs() << "Checking unsupported patterns:\n");
   CallGraphNode *Node = (*CG)[Kernel];
 
+  // Unsupported: Kernel calls a function with struct or complex return type
+  if (hasFunctionCallInCGNodeIf(Node, [](const Function *CalledFunc) {
+        return CalledFunc &&
+               CalledFunc->hasFnAttribute(KernelAttribute::HasSubGroups) &&
+               CalledFunc->getReturnType()->isStructTy();
+      })) {
+    LLVM_DEBUG(
+        dbgs() << "Can't be vectorized - struct return type in callee\n");
+    Kernel->getContext().diagnose(VFAnalysisDiagInfo(
+        *Kernel,
+        "Kernel can't be vectorized due to unsupported struct type return in "
+        "callee",
+        VFDK_Warn_UnsupportedVectorizationPattern, DS_Warning));
+    return true;
+  }
+
   // Unsupported: Kernel calls a function with byval/byref args and
   // - Either the called function contains subgroups.
   // - Or the called function is flaged as "kernel-call-once" (VPlan can't
