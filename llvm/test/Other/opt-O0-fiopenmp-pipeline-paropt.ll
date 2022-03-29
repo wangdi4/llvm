@@ -111,6 +111,7 @@
 ;CHECK-NEXT:     FunctionPass Manager
 ;CHECK-NEXT:       Dominator Tree Construction
 ;CHECK-NEXT:       Natural Loop Information
+;CHECK-NEXT:       Pragma omp simd if clause reduction to simdlen(1)
 ;CHECK-NEXT:       VPO CFGRestructuring
 ;CHECK-NEXT:       LCSSA Verifier
 ;CHECK-NEXT:       Loop-Closed SSA Form Pass

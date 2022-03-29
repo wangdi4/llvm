@@ -279,6 +279,25 @@ bool AliasSet::aliasesUnknownInst(const Instruction *Inst,
   return false;
 }
 
+#if INTEL_COLLAB
+bool AliasSet::aliases(const AliasSet &AS, AliasAnalysis &AA) const {
+  if (AliasAny)
+    return true;
+
+  for (iterator I = begin(), E = end(); I != E; ++I)
+    if (AS.aliasesPointer(I.getPointer(), I.getSize(), I.getAAInfo(), AA))
+      return true;
+
+  if (!UnknownInsts.empty())
+    for (unsigned I = 0, E = UnknownInsts.size(); I < E; ++I)
+      if (const Instruction *Inst = getUnknownInst(I))
+        if (AS.aliasesUnknownInst(Inst, AA))
+          return true;
+
+  return false;
+}
+
+#endif // INTEL_COLLAB
 Instruction* AliasSet::getUniqueInstruction() {
   if (AliasAny)
     // May have collapses alias set

@@ -2333,6 +2333,25 @@ private:
   // set HasTeamsReduction attribute for the enclosing target region
   // (if any).
   void updateKernelHasTeamsReduction(const WRNTeamsNode *WT) const;
+
+  /// Remove all clauses from the given work region and all nested regions
+  /// except SIMD. SIMD directives remain unchanged in IR, but SIMD WRNs are
+  /// updated to have null entry/exit directives.
+  /// Return true if IR has been updated and false otherwise. Upon return
+  /// FoundSIMD is set to true if there were any SIMD directives found and to
+  /// false otherwise.
+  bool removeClausesFromNestedRegionsExceptSIMD(WRegionNode *W,
+                                                bool &FoundSIMD) const;
+
+  /// Recompute insertion points for barriers that need to be inserted after
+  /// parallel regions inside the given target region \p W inside outlined
+  /// function \p KernelF for the case when there are no instructions with side
+  /// effects outside of the parallel regions. Return true if barriers need to
+  /// be inserted with insertion points added to \p InsertBarrierAt or false
+  /// otherwise.
+  bool needBarriersAfterParallel(
+      WRegionNode *W, Function *KernelF,
+      SmallDenseMap<Instruction *, bool> &InsertBarrierAt);
 };
 
 } /// namespace vpo

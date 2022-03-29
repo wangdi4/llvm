@@ -31,6 +31,7 @@ define internal void @test01(%class.test01base* "intel_dtrans_func_index"="1" %i
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %class.test01base*{{ *$}}
+; CHECK-NEXT:    i32 (...)***{{ *$}}
 ; CHECK-NEXT:   void (%class.test01base*, i32)***{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:    %class.test01base @ 0

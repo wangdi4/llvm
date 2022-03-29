@@ -2326,6 +2326,8 @@ void PassManagerBuilder::addVPlanVectorizer(legacy::PassManagerBase &PM) const {
   // VPlanPragmaOmpOrderedSimdExtract pass should run after VPO CFG
   // Restructuring.
   PM.add(createVPlanPragmaOmpOrderedSimdExtractPass());
+  // Makes sure #pragma omp if clause will be reduced before VPlan pass
+  PM.add(createVPlanPragmaOmpSimdIfPass());
   // Code extractor might add new instructions in the entry block. If the
   // entry block has a directive, than we have to split the entry block. VPlan
   // assumes that the directives are in single-entry single-exit basic blocks.
@@ -2419,6 +2421,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
   if (EnableVPlanDriverHIR) {
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPlanPragmaOmpOrderedSimdExtractPass());
+    PM.add(createVPlanPragmaOmpSimdIfPass());
   }
 
   if (ConvertToSubs)

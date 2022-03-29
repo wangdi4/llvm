@@ -197,6 +197,12 @@ Pass *createVPlanFunctionVectorizerPass();
 //
 Pass *createVPlanPragmaOmpOrderedSimdExtractPass();
 
+//===----------------------------------------------------------------------===//
+//
+// Support for pragma omp simd if.
+//
+Pass *createVPlanPragmaOmpSimdIfPass();
+
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

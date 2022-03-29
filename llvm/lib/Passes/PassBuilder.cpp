@@ -363,6 +363,7 @@
 #include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 #include "llvm/Transforms/Vectorize/IntelVPlanFunctionVectorizer.h"
 #include "llvm/Transforms/Vectorize/IntelVPlanPragmaOmpOrderedSimdExtract.h"
+#include "llvm/Transforms/Vectorize/IntelVPlanPragmaOmpSimdIf.h"
 
 // Analysis passes
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"

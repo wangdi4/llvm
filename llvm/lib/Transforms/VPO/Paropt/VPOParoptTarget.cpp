@@ -36,6 +36,9 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/CaptureTracking.h"
 #endif // INTEL_CUSTOMIZATION
+#include "llvm/Analysis/AliasSetTracker.h"
+#include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/PhiValues.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
@@ -51,6 +54,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Scalar/SROA.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/InferAddressSpacesUtils.h"
 
@@ -123,6 +127,13 @@ static cl::opt<bool> ExcludeGlobalFenceFromBarriers(
     cl::init(false), cl::ZeroOrMore,
     cl::desc("Exclude global fence when adding workgroup barriers after "
              "parallel regions"));
+
+static cl::opt<bool> SimplifyBarrierFences(
+    "vpo-paropt-simplify-workgroup-barrier-fences", cl::Hidden, cl::init(true),
+    cl::ZeroOrMore,
+    cl::desc(
+        "Try to eliminate global fences when adding workgroup barriers after "
+        "parallel regions"));
 
 static cl::opt<uint64_t> KernelArgsSizeLimit(
     "vpo-paropt-kernel-args-size-limit", cl::Hidden, cl::init(1024),
@@ -867,6 +878,220 @@ static bool ignoreSpecialOperands(const Instruction *I) {
   return false;
 }
 
+namespace {
+// Address space-aware AlisSetTracker which takes into account aliasing rules
+// for different address spaces on SPIR-V target.
+class AliasSetTrackerSPIRV {
+  std::array<std::unique_ptr<AliasSetTracker>, vpo::ADDRESS_SPACE_GENERIC> ASTs;
+
+  void add(unsigned AS, Instruction &I) {
+    if (AS == vpo::ADDRESS_SPACE_GENERIC) {
+      ASTs[vpo::ADDRESS_SPACE_PRIVATE]->add(&I);
+      ASTs[vpo::ADDRESS_SPACE_LOCAL]->add(&I);
+      ASTs[vpo::ADDRESS_SPACE_GLOBAL]->add(&I);
+      return;
+    }
+    ASTs[AS]->add(&I);
+  }
+
+public:
+  AliasSetTrackerSPIRV(AAResults &AAR) {
+    ASTs[ADDRESS_SPACE_PRIVATE] = std::make_unique<AliasSetTracker>(AAR);
+    ASTs[ADDRESS_SPACE_GLOBAL] = std::make_unique<AliasSetTracker>(AAR);
+    ASTs[ADDRESS_SPACE_CONSTANT] = std::make_unique<AliasSetTracker>(AAR);
+    ASTs[ADDRESS_SPACE_LOCAL] = std::make_unique<AliasSetTracker>(AAR);
+  }
+
+  void add(Instruction &I) {
+    if (!I.mayReadOrWriteMemory() || VPOAnalysisUtils::isOpenMPDirective(&I))
+      return;
+    if (auto *LI = dyn_cast<LoadInst>(&I)) {
+      add(LI->getPointerAddressSpace(), *LI);
+      return;
+    }
+    if (auto *SI = dyn_cast<StoreInst>(&I)) {
+      add(SI->getPointerAddressSpace(), *SI);
+      return;
+    }
+    if (auto *AI = dyn_cast<AtomicCmpXchgInst>(&I)) {
+      add(AI->getPointerAddressSpace(), *AI);
+      return;
+    }
+    if (auto *AI = dyn_cast<AtomicRMWInst>(&I)) {
+      add(AI->getPointerAddressSpace(), *AI);
+      return;
+    }
+    if (auto *MI = dyn_cast<AnyMemSetInst>(&I)) {
+      add(MI->getArgOperand(0)->getType()->getPointerAddressSpace(), *MI);
+      return;
+    }
+    if (auto *MI = dyn_cast<AnyMemTransferInst>(&I)) {
+      add(MI->getArgOperand(0)->getType()->getPointerAddressSpace(), *MI);
+      add(MI->getArgOperand(1)->getType()->getPointerAddressSpace(), *MI);
+      return;
+    }
+    if (auto *CI = dyn_cast<CallBase>(&I)) {
+      static const StringSet<> IgnoreCalls{
+          "_Z13get_global_idj", "_Z12get_local_idj", "_Z14get_local_sizej",
+          "_Z14get_num_groupsj", "_Z12get_group_idj"};
+
+      if (Function *Callee = CI->getCalledFunction()) {
+        if (IgnoreCalls.contains(Callee->getName()))
+          return;
+      }
+
+      // TODO: Perhaps we can do something smarter here taking into account
+      // function and argument attributes, but so far just fall though to the
+      // code that handles unknown instructions.
+    }
+
+    // Conservatively add instruction to all underlying address space specific
+    // alias sets.
+    for (auto &AST : ASTs)
+      AST->add(&I);
+  }
+
+  // Return alias sets for the given address space.
+  const ilist<AliasSet> &getAliasSets(unsigned AS) const {
+    return ASTs[AS]->getAliasSets();
+  }
+};
+} // anonymous namespace
+
+bool VPOParoptTransform::needBarriersAfterParallel(
+    WRegionNode *W, Function *KernelF,
+    SmallDenseMap<Instruction *, bool> &InsertBarrierAt) {
+  if (DisableParallelBarriers)
+    return false;
+
+  // With side-effects instructions barriers will be inserted after each
+  // parallel region, but if there are no such instructions we need to
+  // recompute places that require a barrier for correctness.
+  InsertBarrierAt.clear();
+
+  DenseMap<BasicBlock *, WRegionNode *> Exit2ParRegion;
+
+  // Find all parallel regions at any nesting level inside the target region,
+  // but skip parallel regions nested inside another parallel. Adding a
+  // barrier after such regions may cause a deadlock.
+  SmallVector<WRegionNode *, 8> Worklist;
+  copy(W->getChildren(), std::back_inserter(Worklist));
+  while (!Worklist.empty()) {
+    WRegionNode *W = Worklist.pop_back_val();
+    if (W->getIsPar()) {
+      if (W->getParent()->getIsPar())
+        continue;
+      Exit2ParRegion[W->getExitBBlock()] = W;
+    }
+    copy(W->getChildren(), std::back_inserter(Worklist));
+  }
+
+  // No need to add barriers if there is only one or no parallel regions.
+  if (Exit2ParRegion.size() <= 1)
+    return false;
+
+  // Setup AA for the outlined function.
+  DominatorTree DT(*KernelF);
+  PhiValues PV(*KernelF);
+  BasicAAResult BAR(KernelF->getParent()->getDataLayout(), *KernelF, *TLI, *AC,
+                    &DT, &PV, OptLevel);
+  AAResults AAR(*TLI);
+  AAR.addAAResult(BAR);
+
+  SmallDenseMap<WRegionNode *, std::unique_ptr<AliasSetTrackerSPIRV>> ASTs;
+  auto GetAliasSets = [&ASTs, &AAR](WRegionNode *W,
+                                    unsigned AS) -> const ilist<AliasSet> & {
+    auto P = ASTs.insert({W, nullptr});
+    if (P.second) {
+      P.first->second = std::make_unique<AliasSetTrackerSPIRV>(AAR);
+
+      W->populateBBSet();
+      for (BasicBlock *BB : W->blocks()) {
+        if (W->getExitDirective() == &BB->front())
+          continue;
+
+        Instruction *I1 = (BB == W->getEntryBBlock())
+                              ? W->getEntryDirective()->getNextNode()
+                              : &BB->front();
+        Instruction *I2 = (BB == W->getExitBBlock())
+                              ? W->getExitDirective()->getPrevNode()
+                              : &BB->back();
+
+        for (auto &I : make_range(I1->getIterator(), ++I2->getIterator()))
+          P.first->second->add(I);
+      }
+    }
+    return P.first->second->getAliasSets(AS);
+  };
+
+  // Otherwise for each of parallel region walk predecessors to see if we can
+  // find any parallel region on all paths to the target region entry. All
+  // regions that we find require a barrier.
+  for (auto &P : Exit2ParRegion) {
+    SmallPtrSet<BasicBlock *, 8> Visited{W->getEntryBBlock()};
+    std::queue<BasicBlock *> Worklist;
+    auto GrowWorklist = [&Worklist, &Visited](BasicBlock *BB) {
+      if (Visited.insert(BB).second)
+        for (BasicBlock *PredBB : predecessors(BB))
+          if (!Visited.contains(PredBB))
+            Worklist.push(PredBB);
+    };
+    GrowWorklist(P.second->getEntryBBlock());
+
+    while (!Worklist.empty()) {
+      BasicBlock *BB = Worklist.front();
+      Worklist.pop();
+
+      // If this is an exit block of a parallel region then this region
+      // needs a barrier.
+      auto It = Exit2ParRegion.find(BB);
+      if (It != Exit2ParRegion.end()) {
+        bool &IsGlobal = InsertBarrierAt
+                             .insert({It->second->getExitDirective(),
+                                      OptLevel < 3 || !SimplifyBarrierFences})
+                             .first->second;
+        if (!IsGlobal) {
+          // Global fence is needed if either the parallel region that we are
+          // analysing or the region reacheable though predecessors writes to
+          // global memory while the other one reads from or writes to it. In
+          // that case we add a barrier with global fence after the reacheable
+          // parallel region if both regions access the same memory.
+          const ilist<AliasSet> &ASL1 =
+              GetAliasSets(It->second, vpo::ADDRESS_SPACE_GLOBAL);
+          const ilist<AliasSet> &ASL2 =
+              GetAliasSets(P.second, vpo::ADDRESS_SPACE_GLOBAL);
+
+          IsGlobal |= any_of(ASL1, [&ASL2, &AAR](const AliasSet &AS1) {
+            if (AS1.isForwardingAliasSet())
+              return false;
+
+            for (const AliasSet &AS2 : ASL2) {
+              if (AS2.isForwardingAliasSet())
+                continue;
+
+              // If any of these alias sets write to memory while the other
+              // one reads from or writes to it, then alias sets may
+              // potentially overlap. In this case we need to check if these
+              // alias sets alias.
+              if ((AS1.isMod() && (AS2.isMod() || AS2.isRef())) ||
+                  (AS2.isMod() && (AS1.isMod() || AS1.isRef()))) {
+                // Check if alias sets alias.
+                if (AS1.aliases(AS2, AAR))
+                  return true;
+              }
+            }
+            return false;
+          });
+        }
+      }
+
+      GrowWorklist(BB);
+    }
+  }
+
+  return !InsertBarrierAt.empty();
+}
+
 /// Guard instructions that have side effects, so that only master thread
 /// (thread_id == 0) in each team executes it.
 void VPOParoptTransform::guardSideEffectStatements(
@@ -883,51 +1108,45 @@ void VPOParoptTransform::guardSideEffectStatements(
   CallInst *KernelExitDir           = cast<CallInst>(W->getExitDirective());
 
   SmallVector<Instruction *, 6> SideEffectInstructions;
-  SmallPtrSet<Instruction *, 6> InsertBarrierAt;
+  SmallDenseMap<Instruction *, bool> InsertBarrierAt;
   SmallVector<BasicBlock *, 10> ParBBVector, TargetBBSet;
   SmallVector<Instruction *, 10> EntryDirectivesToDelete;
   SmallVector<Instruction *, 10> ExitDirectivesToDelete;
   SmallVector<std::pair<CallInst *, CallInst *>, 10> OmpCriticalCalls;
 
-  auto InsertWorkGroupBarrier = [](Instruction *InsertPt) {
+  auto InsertWorkGroupBarrier = [](Instruction *InsertPt, bool GlobalFence) {
     LLVMContext &C = InsertPt->getContext();
 
     LLVM_DEBUG(dbgs() << "\nInsert Barrier before:" << *InsertPt << "\n");
 
+    uint64_t MemSemanticsFlags =
+        spirv::SequentiallyConsistent | spirv::WorkgroupMemory;
     // Experimental option is used to remove global memory fence from the
-    // barrier instruction. 
-    auto MemorySemanticsID =
-        (ExcludeGlobalFenceFromBarriers)
-            ? ConstantInt::get(Type::getInt32Ty(C),
-                               spirv::SequentiallyConsistent |
-                               spirv::WorkgroupMemory)
-            : ConstantInt::get(Type::getInt32Ty(C),
-                               spirv::SequentiallyConsistent |
-                               spirv::WorkgroupMemory |
-                               spirv::CrossWorkgroupMemory);
+    // barrier instruction.
+    if (GlobalFence && !ExcludeGlobalFenceFromBarriers)
+      MemSemanticsFlags |= spirv::CrossWorkgroupMemory;
 
     // TODO: we only need global fences for side effect instructions
     //       inside "omp target" and outside of the enclosed regions.
     //       Moreover, it probably makes sense to guard such instructions
     //       with (get_group_id() == 0) vs (get_local_id() == 0).
-    CallInst *CI =
-        VPOParoptUtils::genCall(
-            "_Z22__spirv_ControlBarrieriii", Type::getVoidTy(C),
-            // The arguments are:
-            //   (Scope Execution, Scope Memory, MemorySemantics Semantics)
-            //
-            // work_group_barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE)
-            // translates into:
-            // __spirv_ControlBarrier(
-            //     vpo::spirv::Scope::Workgroup,
-            //     vpo::spirv::Scope::Workgroup,
-            //     vpo::spirv::MemorySemantics::SequentiallyConsistent |
-            //     vpo::spirv::MemorySemantics::WorkgroupMemory |
-            //     vpo::spirv::MemorySemantics::CrossWorkgroupMemory)
-            { ConstantInt::get(Type::getInt32Ty(C), spirv::Workgroup),
-              ConstantInt::get(Type::getInt32Ty(C), spirv::Workgroup),
-              MemorySemanticsID },
-            InsertPt);
+    CallInst *CI = VPOParoptUtils::genCall(
+        "_Z22__spirv_ControlBarrieriii", Type::getVoidTy(C),
+        // The arguments are:
+        //   (Scope Execution, Scope Memory, MemorySemantics Semantics)
+        //
+        // work_group_barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE)
+        // translates into:
+        // __spirv_ControlBarrier(
+        //     vpo::spirv::Scope::Workgroup,
+        //     vpo::spirv::Scope::Workgroup,
+        //     vpo::spirv::MemorySemantics::SequentiallyConsistent |
+        //     vpo::spirv::MemorySemantics::WorkgroupMemory |
+        //     vpo::spirv::MemorySemantics::CrossWorkgroupMemory)
+        {ConstantInt::get(Type::getInt32Ty(C), spirv::Workgroup),
+         ConstantInt::get(Type::getInt32Ty(C), spirv::Workgroup),
+         ConstantInt::get(Type::getInt32Ty(C), MemSemanticsFlags)},
+        InsertPt);
     // __spirv_ControlBarrier() is a convergent call.
     CI->getCalledFunction()->setConvergent();
   };
@@ -977,7 +1196,7 @@ void VPOParoptTransform::guardSideEffectStatements(
       // from the region's exit. Note that we do not need a barrier
       // before the region, since we insert barriers after all side effect
       // instructions that may reach the region's entry.
-      InsertBarrierAt.insert(ParDirectiveExit);
+      InsertBarrierAt.insert({ParDirectiveExit, true});
 
       ParDirectiveBegin = nullptr;
       ParDirectiveExit = nullptr;
@@ -1190,7 +1409,7 @@ void VPOParoptTransform::guardSideEffectStatements(
         (!PrevI || !isa<CallInst>(PrevI) ||
          dyn_cast<CallInst>(PrevI)->getCalledFunction()->getName() !=
              "_Z22__spirv_ControlBarrieriii"))
-      InsertWorkGroupBarrier(StartI); //         (2)
+      InsertWorkGroupBarrier(StartI, true); //                            (2)
 
     Instruction *ThenTerm = SplitBlockAndInsertIfThen(
         MasterCheckPredicate, StartI, false, nullptr, DT, LI); //         (3)
@@ -1224,85 +1443,10 @@ void VPOParoptTransform::guardSideEffectStatements(
 
     // Insert group barrier at the merge point.
     if (SideEffectsInCritical.count(StartI) == 0)
-      InsertWorkGroupBarrier(BarrierInsertPt); //                         (5)
+      InsertWorkGroupBarrier(BarrierInsertPt, true); //                   (5)
 
     I = std::next(I);
   }
-
-  auto NeedBarriersAfterParallel = [&](WRegionNode *W) {
-    if (DisableParallelBarriers)
-      return false;
-
-    // With side-effects instructions barriers will be inserted after each
-    // parallel region, but if there are no such instructions we need to
-    // recompute places that require a barrier for correctness.
-    assert(SideEffectInstructions.empty() &&
-           "no side-effects instructions expected");
-    InsertBarrierAt.clear();
-
-    auto IsParallel = [](const WRegionNode *W) {
-      if (W)
-        switch (W->getDirID()) {
-        case DIR_OMP_PARALLEL:
-        case DIR_OMP_PARALLEL_LOOP:
-        case DIR_OMP_PARALLEL_SECTIONS:
-        case DIR_OMP_DISTRIBUTE_PARLOOP:
-          return true;
-        }
-      return false;
-    };
-
-    DenseMap<BasicBlock *, WRegionNode *> Exit2ParRegion;
-
-    // Find all parallel regions at any nesting level inside the target region,
-    // but skip parallel regions nested inside another parallel. Adding a
-    // barrier after such regions may cause a deadlock.
-    SmallVector<WRegionNode *, 8> Worklist;
-    copy(W->getChildren(), std::back_inserter(Worklist));
-    while (!Worklist.empty()) {
-      WRegionNode *W = Worklist.pop_back_val();
-      if (IsParallel(W)) {
-        if (IsParallel(W->getParent()))
-          continue;
-        Exit2ParRegion[W->getExitBBlock()] = W;
-      }
-      copy(W->getChildren(), std::back_inserter(Worklist));
-    }
-
-    // No need to add barriers if there is only one or no parallel regions.
-    if (Exit2ParRegion.size() <= 1)
-      return false;
-
-    // Otherwise for each of parallel region walk predecessors to see if we can
-    // find any parallel region on all paths to the target region entry. All
-    // regions that we find require a barrier.
-    for (auto &P : Exit2ParRegion) {
-      SmallPtrSet<BasicBlock *, 8> Visited{W->getEntryBBlock()};
-      std::queue<BasicBlock *> Worklist;
-      auto GrowWorklist = [&Worklist, &Visited](BasicBlock *BB) {
-        if (Visited.insert(BB).second)
-          for (BasicBlock *PredBB : predecessors(BB))
-            if (!Visited.contains(PredBB))
-              Worklist.push(PredBB);
-      };
-      GrowWorklist(P.second->getEntryBBlock());
-
-      while (!Worklist.empty()) {
-        BasicBlock *BB = Worklist.front();
-        Worklist.pop();
-
-        // If this is an exit block of a parallel region then this region
-        // needs a barrier.
-        auto It = Exit2ParRegion.find(BB);
-        if (It != Exit2ParRegion.end())
-          InsertBarrierAt.insert(It->second->getExitDirective());
-
-        GrowWorklist(BB);
-      }
-    }
-
-    return !InsertBarrierAt.empty();
-  };
 
   if (!SideEffectInstructions.empty() ||
       // FIXME: if there are multiple parallel regions,
@@ -1318,10 +1462,12 @@ void VPOParoptTransform::guardSideEffectStatements(
       //        be to check if any load operation after a parallel region
       //        may read data that was potentially updated inside
       //        the parallel region. Can we use alias information for that?
-      NeedBarriersAfterParallel(W)) {
-    for (auto *InsertPt : InsertBarrierAt) {
-      LLVM_DEBUG(dbgs() << "Insert Barrier at :" << *InsertPt << "\n");
-      InsertWorkGroupBarrier(InsertPt);
+      needBarriersAfterParallel(W, KernelF, InsertBarrierAt)) {
+    for (auto &InsertPt : InsertBarrierAt) {
+      LLVM_DEBUG(dbgs() << "Insert Barrier with "
+                        << (InsertPt.second ? "global" : "local")
+                        << " fence at :" << InsertPt.first << "\n");
+      InsertWorkGroupBarrier(InsertPt.first, InsertPt.second);
     }
   }
 
@@ -1475,6 +1621,61 @@ void VPOParoptTransform::renameDuplicateBasesInMapClauses(WRegionNode *W) {
   }
 }
 
+bool VPOParoptTransform::removeClausesFromNestedRegionsExceptSIMD(
+    WRegionNode *W, bool &FoundSIMD) const {
+  bool Changed = false;
+  FoundSIMD = false;
+  SmallVector<WRegionNode *, 8> Worklist{W};
+  do {
+    WRegionNode *W = Worklist.pop_back_val();
+    if (W->getDirID() == DIR_OMP_SIMD) {
+      W->setEntryDirective(nullptr);
+      W->setExitDirective(nullptr);
+      FoundSIMD = true;
+    }
+
+    if (CallInst *OldEntry = cast_or_null<CallInst>(W->getEntryDirective())) {
+      OperandBundleDef Bundles(
+          VPOAnalysisUtils::getDirectiveString(OldEntry).str(), None);
+      CallInst *NewEntry = CallInst::Create(OldEntry, Bundles, OldEntry);
+      NewEntry->copyMetadata(*OldEntry);
+      OldEntry->replaceAllUsesWith(NewEntry);
+      OldEntry->eraseFromParent();
+      W->setEntryDirective(NewEntry);
+      Changed = true;
+    }
+
+    copy(W->getChildren(), std::back_inserter(Worklist));
+  } while (!Worklist.empty());
+  return Changed;
+}
+
+// Remove SIMD directives from the function body.
+static void removeSimdDirectives(Function *F) {
+  for (BasicBlock &BB : *F)
+    for (auto I = BB.begin(), E = BB.end(); I != E;)
+      if (auto *II = dyn_cast<IntrinsicInst>(I++)) {
+        int ID = VPOAnalysisUtils::getDirectiveID(II);
+        if (ID == DIR_OMP_SIMD)
+          II->replaceAllUsesWith(UndefValue::get(II->getType()));
+        if (ID == DIR_OMP_SIMD || ID == DIR_OMP_END_SIMD)
+          II->eraseFromParent();
+      }
+}
+
+// Run SROA pass on the given function.
+static void runSROA(Function *F) {
+  FunctionAnalysisManager FAM;
+  FAM.registerPass([&] { return PassInstrumentationAnalysis(); });
+  FAM.registerPass([&] { return DominatorTreeAnalysis(); });
+  FAM.registerPass([&] { return AssumptionAnalysis(); });
+  FAM.registerPass([&] { return TargetIRAnalysis(); });
+
+  FunctionPassManager FPM;
+  FPM.addPass(SROAPass());
+  FPM.run(*F, FAM);
+}
+
 // Generate the code for the directive omp target
 bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
@@ -1568,25 +1769,31 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       LLVM_DEBUG(dbgs() << "\nAfter finalizeKernel Dump the function ::"
                         << *NewF << "\n");
 
-      // Run guardSideEffectStatements() after finalizeKernelFunction(),
-      // because the latter may modify some of the kernel arguments,
-      // e.g. change arguments that were originally outlined as addrspace(1)
-      // pointer argument into byval arguments from addrspace(0).
-      // We must not guard accesses through such pointer arguments with
-      // the master-thread checks, otherwise, the code may produce
-      // wrong results.
-      guardSideEffectStatements(W, NewF);
-      LLVM_DEBUG(dbgs() << "\nAfter guardSideEffectStatements the function ::"
-                        << *NewF);
+      // CodeExtractor may replace existing SIMD directive entry instructions
+      // with new ones, but it does not update directive entries in WRNs.
+      // Because of that SIMD WRNs may contain invalid entry directive
+      // addresses, so any attempt to dereference SIMD WRNs entry directive
+      // leads to a segfault. Remove all SIMD directives from the function
+      // unless SIMD device codegen is enabled.
+      if (!VPOParoptUtils::enableDeviceSimdCodeGen())
+        removeSimdDirectives(NewF);
 
-      // Finally, run address space inference optimization to get rid
+      // Remove clauses from all directives in the outlined function in
+      // preparation for the address space inference optimization.
+      // The directives themselves will later be removed in
+      // guardSideEffectStatements() after they are no longer needed.
+      bool ContainsSIMD = false;
+      removeClausesFromNestedRegionsExceptSIMD(W, ContainsSIMD);
+
+      // Cleanup redundant allocas/loads/stores if barrier fences simplification
+      // is enabled. It improves quality of the address space inference
+      // optimization which in turn is needed for simplifying fences.
+      if (OptLevel > 2 && SimplifyBarrierFences)
+        runSROA(NewF);
+
+      // Run address space inference optimization to get rid
       // of addrspace(4) accesses, which result in run-time dispatches.
-      // We have to run it after guardSideEffectStatements(), which
-      // removes OpenMP directives that may be considered as pointer
-      // escapes, thus, may block the address space inference.
-      if (!VPOParoptUtils::enableDeviceSimdCodeGen() ||
-          !WRegionUtils::containsWRNsWith(
-               W, [](WRegionNode *W) { return isa<WRNVecLoopNode>(W); })) {
+      if (!VPOParoptUtils::enableDeviceSimdCodeGen() || !ContainsSIMD) {
         // When W contains a SIMD directive (and SIMD device codegen
         // is enabled), we don't run InferAddrSpaces as it can cause
         // mismatches in the Values on the clause list, and those used
@@ -1602,8 +1809,19 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
         //                                     |
         InferAddrSpaces(*TTI, vpo::ADDRESS_SPACE_GENERIC, *NewF);
         LLVM_DEBUG(dbgs() << "\nAfter InferAddrSpaces the function ::"
-                   << *NewF);
+                          << *NewF);
       }
+
+      // Run guardSideEffectStatements() after finalizeKernelFunction(),
+      // because the latter may modify some of the kernel arguments,
+      // e.g. change arguments that were originally outlined as addrspace(1)
+      // pointer argument into byval arguments from addrspace(0).
+      // We must not guard accesses through such pointer arguments with
+      // the master-thread checks, otherwise, the code may produce
+      // wrong results.
+      guardSideEffectStatements(W, NewF);
+      LLVM_DEBUG(dbgs() << "\nAfter guardSideEffectStatements the function ::"
+                        << *NewF);
     }
   }
 

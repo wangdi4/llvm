@@ -354,6 +354,11 @@ public:
   AliasResult aliasesPointer(const Value *Ptr, LocationSize Size,
                              const AAMDNodes &AAInfo, AAResults &AA) const;
   bool aliasesUnknownInst(const Instruction *Inst, AAResults &AA) const;
+#if INTEL_COLLAB
+
+  /// Check if alias set aliases with another alias set.
+  bool aliases(const AliasSet &AS, AAResults &AA) const;
+#endif // INTEL_COLLAB
 };
 
 inline raw_ostream& operator<<(raw_ostream &OS, const AliasSet &AS) {

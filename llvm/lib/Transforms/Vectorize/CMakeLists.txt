@@ -61,6 +61,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPMemRefTransform.cpp
   Intel_VPlan/IntelVPlanOptrpt.cpp
   Intel_VPlan/IntelVPlanPragmaOmpOrderedSimdExtract.cpp
+  Intel_VPlan/IntelVPlanPragmaOmpSimdIf.cpp
   Intel_VPlan/IntelVPlanPredicator.cpp
   Intel_VPlan/IntelVPlanScalarEvolution.cpp
   Intel_VPlan/IntelVPlanScalVecAnalysis.cpp
