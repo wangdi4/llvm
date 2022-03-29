@@ -1,15 +1,6 @@
 # Test runner infrastructure for Clang. This configures the Clang test trees
 # for use by Lit, and delegates to LLVM's lit test handlers.
 
-<<<<<<< HEAD
-if (CMAKE_CFG_INTDIR STREQUAL ".")
-  set(LLVM_BUILD_MODE ".")
-else ()
-  set(LLVM_BUILD_MODE "%(build_mode)s")
-endif ()
-
-string(REPLACE ${CMAKE_CFG_INTDIR} ${LLVM_BUILD_MODE} CLANG_TOOLS_DIR ${LLVM_RUNTIME_OUTPUT_INTDIR})
-
 if (INTEL_CUSTOMIZATION)
   # Enable new IN_LIST operator.
   cmake_policy(SET CMP0057 NEW)
@@ -20,8 +11,6 @@ if (INTEL_CUSTOMIZATION)
   endif()
 endif (INTEL_CUSTOMIZATION)
 
-=======
->>>>>>> 57ee624d7946b4d42890709287eb71d4eb1fa2fa
 llvm_canonicalize_cmake_booleans(
   CLANG_BUILD_EXAMPLES
   CLANG_DEFAULT_PIE_ON_LINUX
