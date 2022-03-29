@@ -61,6 +61,9 @@ add_llvm_tool(opt
   BreakpointPrinter.cpp
   GraphPrinters.cpp
   NewPMDriver.cpp
+# INTEL_CUSTOMIZATION
+  Intel_PassPrinters.cpp
+# end INTEL_CUSTOMIZATION
   PrintSCC.cpp
   opt.cpp
 

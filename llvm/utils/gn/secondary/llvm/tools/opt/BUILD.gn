@@ -24,6 +24,9 @@ executable("opt") {
     "BreakpointPrinter.cpp",
     "GraphPrinters.cpp",
     "NewPMDriver.cpp",
+# INTEL_CUSTOMIZATIONN
+    "Intel_PassPrinters.cpp"
+# end INTEL_CUSTOMIZATIONN
     "PrintSCC.cpp",
     "opt.cpp",
   ]

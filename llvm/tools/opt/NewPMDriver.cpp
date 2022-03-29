@@ -13,6 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "NewPMDriver.h"
+#if INTEL_CUSTOMIZATION
+#include "Intel_PassPrinters.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/AliasAnalysis.h"
