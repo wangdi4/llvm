@@ -281,6 +281,8 @@ public:
     case Base::CELdStIndex:
       return Idiom.is<const DDRef *>();
     }
+    llvm_unreachable("unexpected IdiomId");
+    return false;
   }
 };
 
