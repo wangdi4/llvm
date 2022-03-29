@@ -327,7 +327,6 @@ InstructionContext RecognizableInstr::insnContext() const {
       errs() << "Instruction does not use a prefix: " << Name << "\n";
       llvm_unreachable("Invalid prefix");
     }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XUCC
   } else if (IsXuCCMode && XuCCOpPrefix) {
@@ -350,12 +349,8 @@ InstructionContext RecognizableInstr::insnContext() const {
     }
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
-  } else if (Is64Bit || HasREX_WPrefix || AdSize == X86Local::AdSize64) {
-    if (HasREX_WPrefix && (OpSize == X86Local::OpSize16 || OpPrefix == X86Local::PD))
-=======
   } else if (Is64Bit || HasREX_W || AdSize == X86Local::AdSize64) {
     if (HasREX_W && (OpSize == X86Local::OpSize16 || OpPrefix == X86Local::PD))
->>>>>>> dc68ca3eff60d4fd067b2ba1ec4932f88b20a48e
       insnContext = IC_64BIT_REXW_OPSIZE;
     else if (HasREX_W && AdSize == X86Local::AdSize32)
       insnContext = IC_64BIT_REXW_ADSIZE;

@@ -204,19 +204,14 @@ struct RecognizableInstrBase {
   uint8_t OpSize;
   /// The AdSize field from the record
   uint8_t AdSize;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XUCC
   /// The XuCCOpPrefix field from the record
   uint8_t XuCCOpPrefix;
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
-  /// The hasREX_WPrefix field from the record
-  bool HasREX_WPrefix;
-=======
   /// The hasREX_W field from the record
   bool HasREX_W;
->>>>>>> dc68ca3eff60d4fd067b2ba1ec4932f88b20a48e
   /// The hasVEX_4V field from the record
   bool HasVEX_4V;
   /// The HasVEX_WPrefix field from the record
