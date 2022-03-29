@@ -6116,9 +6116,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     bool CanBeginNewMultiNode =
         MultiNodeCompatibleInstructions &&
         (BB->size() - llvm::count_if(DeletedInstructions,
-                                     [BB](const auto &Pair) {
-                                       return Pair.getFirst()->getParent() ==
-                                              BB;
+                                     [BB](const auto *I) {
+                                       return I->getParent() == BB;
                                      }) <=
          MaxBBSizeForMultiNodeSLP) &&
         // Disable overlapping Multi-Nodes
