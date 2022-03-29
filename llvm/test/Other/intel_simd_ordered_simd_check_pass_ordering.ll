@@ -45,6 +45,7 @@ define void @var_tripcount() local_unnamed_addr {
 ; CHECK-NEXT:    FunctionPass Manager
 ; CHECK-NEXT:      Dominator Tree Construction [LoopOpt]
 ; CHECK-NEXT:      Natural Loop Information [LoopOpt]
+; CHECK-NEXT:      Pragma omp simd if clause reduction to simdlen(1) [LoopOpt]
 ; CHECK-NEXT:      Scalar Evolution Analysis [LoopOpt]
 ; CHECK-NEXT:      Post-Dominator Tree Construction [LoopOpt]
 ; CHECK-NEXT:      HIR Region Identification [LoopOpt]
@@ -94,6 +95,7 @@ define void @var_tripcount() local_unnamed_addr {
 ; CHECK-NEXT:    FunctionPass Manager
 ; CHECK-NEXT:      Dominator Tree Construction
 ; CHECK-NEXT:      Natural Loop Information
+; CHECK-NEXT:      Pragma omp simd if clause reduction to simdlen(1)
 ; CHECK-NEXT:      VPO CFGRestructuring
 ; CHECK-NEXT:      Replace known math operations with optimized library functions
 ; CHECK-NEXT:      LCSSA Verifier
