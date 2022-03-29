@@ -16,8 +16,8 @@
 ;       + END LOOP
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -vplan-vec-scenario="n0;v4;s1" -hir-verify=false -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-enable-new-cfg-merge-hir -vplan-vec-scenario="n0;v4;s1" -hir-verify=false -hir-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -vplan-vec-scenario="n0;v4;s1" -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-enable-new-cfg-merge-hir -vplan-vec-scenario="n0;v4;s1" -hir-details -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: Function: _Z3fooPlPS_
 ; CHECK:    BEGIN REGION { modified }
@@ -30,9 +30,8 @@
 ; CHECK:          |   if (%1 > 0)
 ; CHECK:          |   {
 ; CHECK:          |      %tgu = %1  /u  4;
-; FIXME: %1 is incorrectly identified as LINEAR here leading to inconsistencies in HIR verifier.
 ; CHECK:          |      <LVAL-REG> NON-LINEAR i64 %tgu {sb:20}
-; CHECK:          |      <RVAL-REG> LINEAR i64 %1{def@1} {sb:9}
+; CHECK:          |      <RVAL-REG> NON-LINEAR i64 %1 {sb:9}
 ; CHECK:          |      %vec.tc = %tgu  *  4;
 ; CHECK:          |      %.vec = 0 == %vec.tc;
 ; CHECK:          |      %phi.temp = 0;
@@ -42,9 +41,8 @@
 ; CHECK:          |         goto merge.blk10.43;
 ; CHECK:          |      }
 ; CHECK:          |      %tgu2 = %1  /u  4;
-; FIXME: %1 is incorrectly identified as LINEAR here leading to inconsistencies in HIR verifier.
 ; CHECK:          |      <LVAL-REG> NON-LINEAR i64 %tgu2 {sb:25}
-; CHECK:          |      <RVAL-REG> LINEAR i64 %1{def@1} {sb:9}
+; CHECK:          |      <RVAL-REG> NON-LINEAR i64 %1 {sb:9}
 ; CHECK:          |      %vec.tc3 = %tgu2  *  4;
 ; CHECK:          |
 ; CHECK:          |      + DO i64 i2 = 0, %vec.tc3 + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
@@ -52,9 +50,8 @@
 ; CHECK:          |      + END LOOP
 ; CHECK:          |
 ; CHECK:          |      %.vec4 = %1 == %vec.tc3;
-; FIXME: %1 is incorrectly identified as LINEAR here leading to inconsistencies in HIR verifier.
 ; CHECK:          |      <LVAL-REG> NON-LINEAR <4 x i1> %.vec4 {sb:29}
-; CHECK:          |      <RVAL-REG> LINEAR <4 x i64> %1{def@1} {sb:9}
+; CHECK:          |      <RVAL-REG> NON-LINEAR <4 x i64> %1 {sb:9}
 ; CHECK:          |      <RVAL-REG> NON-LINEAR <4 x i64> %vec.tc3 {sb:26}
 ; CHECK:          |      %phi.temp = %vec.tc3;
 ; CHECK:          |      %phi.temp6 = %vec.tc3;
@@ -71,10 +68,9 @@
 ; CHECK:          |      + END LOOP
 ; CHECK:          |
 ; CHECK:          |      %phi.temp6 = %1 + -1;
-; FIXME: %1 is incorrectly identified as LINEAR here leading to inconsistencies in HIR verifier.
 ; CHECK:          |      <LVAL-REG> NON-LINEAR i64 %phi.temp6 {sb:30}
-; CHECK:          |      <RVAL-REG> LINEAR i64 %1 + -1{def@1} {sb:2}
-; CHECK:          |         <BLOB> LINEAR i64 %1{def@1} {sb:9}
+; CHECK:          |      <RVAL-REG> NON-LINEAR i64 %1 + -1 {sb:2}
+; CHECK:          |         <BLOB> NON-LINEAR i64 %1 {sb:9}
 ; CHECK:          |      final.merge.63:
 ; CHECK:          |   }
 ; CHECK:          + END LOOP

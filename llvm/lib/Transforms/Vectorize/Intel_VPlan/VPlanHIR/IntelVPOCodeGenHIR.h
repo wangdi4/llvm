@@ -1034,7 +1034,11 @@ private:
       LiveOutRef->makeSelfBlob(true /*AssumeLvalIfDetached*/);
       ScalarLp->addLiveOutTemp(LiveOutRef->getSymbase());
     }
-    addVPValueScalRefMapping(LiveOut, LiveOutRef, 0);
+
+    // Make liveout ref consistent and add to scalar map.
+    SmallVector<const RegDDRef *, 1> AuxRefs = {LiveOutRef->clone()};
+    makeConsistentAndAddToMap(LiveOutRef, LiveOut, AuxRefs, false /*Widen*/,
+                              0 /*Lane*/);
   }
 
   RegDDRef *getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize);
