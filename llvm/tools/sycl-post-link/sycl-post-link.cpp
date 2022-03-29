@@ -250,217 +250,6 @@ void writeToFile(const std::string &Filename, const std::string &Content) {
   OS.close();
 }
 
-<<<<<<< HEAD
-// Describes scope covered by each entry in the module-entry points map
-// populated by the groupEntryPoints function.
-enum EntryPointsGroupScope {
-  Scope_PerKernel, // one entry per kernel
-  Scope_PerModule, // one entry per module
-  Scope_Global     // single entry in the map for all kernels
-};
-
-bool hasIndirectFunctionCalls(const Module &M) {
-  for (const auto &F : M.functions()) {
-    // There are functions marked with [[intel::device_indirectly_callable]]
-    // attribute, because it instructs us to make this function available to the
-    // whole program as it was compiled as a single module.
-    if (F.hasFnAttribute("referenced-indirectly"))
-      return true;
-    if (F.isDeclaration())
-      continue;
-    // There are indirect calls in the module, which means that we don't know
-    // how to group functions so both caller and callee of indirect call are in
-    // the same module.
-    for (const auto &I : instructions(F)) {
-      if (auto *CI = dyn_cast<CallInst>(&I))
-        if (!CI->getCalledFunction())
-          return true;
-    }
-
-    // Function pointer is used somewhere. Follow the same rule as above.
-    for (const auto *U : F.users())
-      if (!isa<CallInst>(U))
-        return true;
-  }
-
-  return false;
-}
-
-EntryPointsGroupScope selectDeviceCodeGroupScope(const Module &M) {
-  if (SplitMode.getNumOccurrences() > 0) {
-    switch (SplitMode) {
-    case SPLIT_PER_TU:
-      return Scope_PerModule;
-
-    case SPLIT_PER_KERNEL:
-      return Scope_PerKernel;
-
-    case SPLIT_AUTO: {
-      if (IROutputOnly) {
-        // We allow enabling auto split mode even in presence of -ir-output-only
-        // flag, but in this case we are limited by it so we can't do any split
-        // at all.
-        return Scope_Global;
-      }
-
-      if (hasIndirectFunctionCalls(M))
-        return Scope_Global;
-
-      // At the moment, we assume that per-source split is the best way of
-      // splitting device code and can always be used except for cases handled
-      // above.
-      return Scope_PerModule;
-    }
-    }
-  }
-  return Scope_Global;
-}
-
-// Return true if the function is a SPIRV or SYCL builtin, e.g.
-// _Z28__spirv_GlobalInvocationId_xv
-bool isSpirvSyclBuiltin(StringRef FName) {
-  if (!FName.consume_front("_Z"))
-    return false;
-  // now skip the digits
-  FName = FName.drop_while([](char C) { return std::isdigit(C); });
-
-  return FName.startswith("__spirv_") || FName.startswith("__sycl_");
-}
-
-bool isEntryPoint(const Function &F) {
-  // Skip declarations, if any: they should not be included into KernelModuleMap
-  // or otherwise we will end up with incorrectly generated list of symbols.
-  if (F.isDeclaration())
-    return false;
-
-  // Kernels are always considered to be entry points
-  if (CallingConv::SPIR_KERNEL == F.getCallingConv())
-    return true;
-
-  if (!EmitOnlyKernelsAsEntryPoints) {
-    // If not disabled, SYCL_EXTERNAL functions with sycl-module-id attribute
-    // are also considered as entry points (except __spirv_* and __sycl_*
-    // functions)
-    return F.hasFnAttribute(ATTR_SYCL_MODULE_ID) &&
-           !isSpirvSyclBuiltin(F.getName());
-  }
-
-  return false;
-}
-
-// This function decides how entry points of the input module M will be
-// distributed ("split") into multiple modules based on the command options and
-// IR attributes. The decision is recorded in the output map parameter
-// EntryPointsGroups which maps some key to a group of entry points. Each such
-// group along with IR it depends on (globals, functions from its call graph,
-// ...) will constitute a separate module.
-EntryPointGroupMap groupEntryPoints(const Module &M,
-                                    EntryPointsGroupScope EntryScope) {
-  EntryPointGroupMap EntryPointsGroups{};
-  // Only process module entry points:
-  for (const auto &F : M.functions()) {
-    if (!isEntryPoint(F))
-      continue;
-
-    switch (EntryScope) {
-    case Scope_PerKernel:
-      EntryPointsGroups[F.getName()].push_back(&F);
-      break;
-    case Scope_PerModule: {
-      if (!F.hasFnAttribute(ATTR_SYCL_MODULE_ID))
-        // TODO It may make sense to group all entry points w/o the attribute
-        // into a separate module rather than issuing an error. Should probably
-        // be controlled by an option.
-        error("no '" + Twine(ATTR_SYCL_MODULE_ID) +
-              "' attribute for entry point '" + F.getName() +
-              "', per-module split not possible");
-
-      Attribute Id = F.getFnAttribute(ATTR_SYCL_MODULE_ID);
-      StringRef Val = Id.getValueAsString();
-      EntryPointsGroups[Val].push_back(&F);
-      break;
-    }
-    case Scope_Global:
-      // the map key is not significant here
-      EntryPointsGroups[GLOBAL_SCOPE_NAME].push_back(&F);
-      break;
-    }
-  }
-
-  // No entry points met, record this.
-  if (EntryPointsGroups.empty())
-    EntryPointsGroups[GLOBAL_SCOPE_NAME] = {};
-
-  return EntryPointsGroups;
-}
-
-// For device global variables with the 'device_image_scope' property,
-// the function checks that there are no usages of a single device global
-// variable from kernels grouped to different modules.
-void checkImageScopedDeviceGlobals(const Module &M,
-                                   const EntryPointGroupMap &GMap) {
-  // Early exit if there is only one group
-  if (GMap.size() < 2)
-    return;
-
-  // Reverse the EntryPointGroupMap to get a map of entry point -> module's name
-  unsigned EntryPointNumber = 0;
-  for (const auto &Group : GMap)
-    EntryPointNumber += static_cast<unsigned>(Group.second.size());
-  DenseMap<const Function *, StringRef> EntryPointModules(EntryPointNumber);
-  for (const auto &Group : GMap) {
-    auto ModuleName = Group.first;
-    for (const auto *F : Group.second) {
-      EntryPointModules.insert({F, ModuleName});
-    }
-  }
-
-  // Processing device global variables with the "device_image_scope" property
-  for (auto &GV : M.globals()) {
-    if (!isDeviceGlobalVariable(GV) || !hasDeviceImageScopeProperty(GV))
-      continue;
-
-    Optional<StringRef> VarEntryPointModule{};
-    auto CheckEntryPointModule = [&VarEntryPointModule, &EntryPointModules,
-                                  &GV](const auto *F) {
-      auto EntryPointModulesIt = EntryPointModules.find(F);
-      assert(EntryPointModulesIt != EntryPointModules.end() &&
-             "There is no group for an entry point");
-      if (!VarEntryPointModule.hasValue()) {
-        VarEntryPointModule = EntryPointModulesIt->second;
-        return;
-      }
-      if (EntryPointModulesIt->second != *VarEntryPointModule) {
-        error("device_global variable '" + Twine(GV.getName()) +
-              "' with property \"device_image_scope\" is used in more "
-              "than one device image.");
-      }
-    };
-
-    SmallSetVector<const User *, 32> Workqueue;
-    for (auto *U : GV.users())
-      Workqueue.insert(U);
-
-    while (!Workqueue.empty()) {
-      const User *U = Workqueue.back();
-      Workqueue.pop_back();
-      if (auto *I = dyn_cast<const Instruction>(U)) {
-        auto *F = I->getFunction();
-        Workqueue.insert(F);
-        continue;
-      }
-      if (auto *F = dyn_cast<const Function>(U)) {
-        if (isEntryPoint(*F))
-          CheckEntryPointModule(F);
-      }
-      for (auto *UU : U->users())
-        Workqueue.insert(UU);
-    }
-  }
-}
-
-=======
->>>>>>> bb6b22f4dbf8bff34b42c271cb5dd8fe032572ee
 // This function traverses over reversed call graph by BFS algorithm.
 // It means that an edge links some function @func with functions
 // which contain call of function @func. It starts from
@@ -959,7 +748,6 @@ TableFiles processOneModule(std::unique_ptr<Module> M, bool IsEsimd,
   if (IsEsimd && LowerEsimd)
     lowerEsimdConstructs(*M);
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   bool DoLinkOmpOffloadEntries =
       OmpOffloadEntriesSymbol.getNumOccurrences() > 0;
@@ -991,13 +779,6 @@ TableFiles processOneModule(std::unique_ptr<Module> M, bool IsEsimd,
 #endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
 
-  EntryPointGroupMap GMap =
-      groupEntryPoints(*M, selectDeviceCodeGroupScope(*M));
-  if (DeviceGlobals)
-    checkImageScopedDeviceGlobals(*M, GMap);
-  bool DoSplit = (SplitMode.getNumOccurrences() > 0);
-  ModuleSplitter MSplit(std::move(M), DoSplit, std::move(GMap));
-=======
   module_split::IRSplitMode Mode = (SplitMode.getNumOccurrences() > 0)
                                        ? SplitMode
                                        : module_split::SPLIT_NONE;
@@ -1005,7 +786,6 @@ TableFiles processOneModule(std::unique_ptr<Module> M, bool IsEsimd,
       module_split::getSplitterByMode(std::move(M), Mode, IROutputOnly,
                                       EmitOnlyKernelsAsEntryPoints,
                                       DeviceGlobals);
->>>>>>> bb6b22f4dbf8bff34b42c271cb5dd8fe032572ee
 
   StringRef FileSuffix = IsEsimd ? "esimd_" : "";
 
