@@ -114,30 +114,31 @@
 
 // CHK-UBACTIONS: 0: input, "[[INPUT:.+\.o]]", object, (host-openmp-sycl)
 // CHK-UBACTIONS: 1: clang-offload-unbundler, {0}, object, (host-openmp-sycl)
-// CHK-UBACTIONS: 2: input, {{.*libomp-spirvdevicertl.o.*}}, object
-// CHK-UBACTIONS: 3: clang-offload-unbundler, {2}, object
-// CHK-UBACTIONS: 4: input, {{.*libomp-itt-user-wrappers.o.*}}, object
-// CHK-UBACTIONS: 5: clang-offload-unbundler, {4}, object
-// CHK-UBACTIONS: 6: input, {{.*libomp-itt-compiler-wrappers.o.*}}, object
-// CHK-UBACTIONS: 7: clang-offload-unbundler, {6}, object
-// CHK-UBACTIONS: 8: input, {{.*libomp-itt-stubs.o.*}}, object
-// CHK-UBACTIONS: 9: clang-offload-unbundler, {8}, object
-// CHK-UBACTIONS: 10: linker, {1, 3, 5, 7, 9}, ir, (device-openmp)
-// CHK-UBACTIONS: 11: sycl-post-link, {10}, ir, (device-openmp)
-// CHK-UBACTIONS: 12: llvm-spirv, {11}, spirv, (device-openmp)
-// CHK-UBACTIONS: 13: offload, "device-openmp (spir64)" {12}, ir
-// CHK-UBACTIONS: 14: clang-offload-wrapper, {13}, ir, (host-openmp-sycl)
-// CHK-UBACTIONS: 15: backend, {14}, assembler, (host-openmp-sycl)
-// CHK-UBACTIONS: 16: assembler, {15}, object, (host-openmp-sycl)
-// CHK-UBACTIONS: 17: linker, {1, 16}, image, (host-openmp-sycl)
-// CHK-UBACTIONS: 18: spirv-to-ir-wrapper, {1}, ir, (device-sycl)
-// CHK-UBACTIONS: 19: linker, {18}, ir, (device-sycl)
-// CHK-UBACTIONS: 20: sycl-post-link, {19}, tempfiletable, (device-sycl)
-// CHK-UBACTIONS: 21: file-table-tform, {20}, tempfilelist, (device-sycl)
-// CHK-UBACTIONS: 22: llvm-spirv, {21}, tempfilelist, (device-sycl)
-// CHK-UBACTIONS: 23: file-table-tform, {20, 22}, tempfiletable, (device-sycl)
-// CHK-UBACTIONS: 24: clang-offload-wrapper, {23}, object, (device-sycl)
-// CHK-UBACTIONS: 25: offload, "host-openmp-sycl (x86_64-unknown-linux-gnu)" {17}, "device-sycl (spir64-unknown-unknown)" {24}, image
+// CHK-UBACTIONS: 2: spirv-to-ir-wrapper, {1}, ir, (device-openmp)
+// CHK-UBACTIONS: 3: input, "{{.*libomp-spirvdevicertl.o.*}}", object
+// CHK-UBACTIONS: 4: clang-offload-unbundler, {3}, object
+// CHK-UBACTIONS: 5: input, "{{.*libomp-itt-user-wrappers.o.*}}", object
+// CHK-UBACTIONS: 6: clang-offload-unbundler, {5}, object
+// CHK-UBACTIONS: 7: input, "{{.*libomp-itt-compiler-wrappers.o.*}}", object
+// CHK-UBACTIONS: 8: clang-offload-unbundler, {7}, object
+// CHK-UBACTIONS: 9: input, "{{.*libomp-itt-stubs.o.*}}", object
+// CHK-UBACTIONS: 10: clang-offload-unbundler, {9}, object
+// CHK-UBACTIONS: 11: linker, {2, 4, 6, 8, 10}, ir, (device-openmp)
+// CHK-UBACTIONS: 12: sycl-post-link, {11}, ir, (device-openmp)
+// CHK-UBACTIONS: 13: llvm-spirv, {12}, spirv, (device-openmp)
+// CHK-UBACTIONS: 14: offload, "device-openmp (spir64)" {13}, ir
+// CHK-UBACTIONS: 15: clang-offload-wrapper, {14}, ir, (host-openmp-sycl)
+// CHK-UBACTIONS: 16: backend, {15}, assembler, (host-openmp-sycl)
+// CHK-UBACTIONS: 17: assembler, {16}, object, (host-openmp-sycl)
+// CHK-UBACTIONS: 18: linker, {1, 17}, image, (host-openmp-sycl)
+// CHK-UBACTIONS: 19: spirv-to-ir-wrapper, {1}, ir, (device-sycl)
+// CHK-UBACTIONS: 20: linker, {19}, ir, (device-sycl)
+// CHK-UBACTIONS: 21: sycl-post-link, {20}, tempfiletable, (device-sycl)
+// CHK-UBACTIONS: 22: file-table-tform, {21}, tempfilelist, (device-sycl)
+// CHK-UBACTIONS: 23: llvm-spirv, {22}, tempfilelist, (device-sycl)
+// CHK-UBACTIONS: 24: file-table-tform, {21, 23}, tempfiletable, (device-sycl)
+// CHK-UBACTIONS: 25: clang-offload-wrapper, {24}, object, (device-sycl)
+// CHK-UBACTIONS: 26: offload, "host-openmp-sycl (x86_64-unknown-linux-gnu)" {18}, "device-sycl (spir64-unknown-unknown)" {25}, image
 
 /// ###########################################################################
 
@@ -160,7 +161,7 @@
 // RUN:   touch %t.o
 // RUN:   %clang -### --intel -fsycl -fno-sycl-device-lib=all -fiopenmp %t.o -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 -no-canonical-prefixes -fno-openmp-device-lib=all 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-UBJOBS -DFATOBJ=%t.o %s
-// CHK-UBJOBS: clang-offload-bundler{{.*}} "-type=o" "-targets=host-x86_64-unknown-linux-gnu,openmp-spir64,sycl-spir64-unknown-unknown" "-inputs=[[FATOBJ]]" "-outputs=[[HOSTOBJ:.+\.o]],[[OMPBC:.+\.o]],[[SYCLBCO:.+\.o]]" "-unbundle"
+// CHK-UBJOBS: clang-offload-bundler{{.*}} "-type=o" "-targets=host-x86_64-unknown-linux-gnu,openmp-spir64,sycl-spir64-unknown-unknown" "-inputs=[[FATOBJ]]" "-outputs=[[HOSTOBJ:.+\.o]],[[OMPBCO:.+\.o]],[[SYCLBCO:.+\.o]]" "-unbundle"
 // CHK-UBJOBS: spirv-to-ir-wrapper{{.*}} "[[SYCLBCO]]" "-o" "[[SYCLBC:.+\.bc]]"
 // CHK-UBJOBS: llvm-link{{.*}} "[[SYCLBC]]" "-o" "[[SYCLLINKEDBC:.+\.bc]]"
 // CHK-UBJOBS: sycl-post-link{{.*}} "-symbols" "-emit-exported-symbols" "-split-esimd" "-lower-esimd" "-O2" "-spec-const=rt" "-o" "[[SYCLTABLE:.+\.table]]" "[[SYCLLINKEDBC]]"
@@ -169,6 +170,7 @@
 // CHK-UBJOBS: file-table-tform{{.*}} "-replace=Code,Code" "-o" "[[SYCLSPIRV:.+\.table]]" "[[SYCLTABLE]]" "[[SYCLLLVMFOROUT]]"
 // CHK-UBJOBS: clang-offload-wrapper{{.*}} "-o=[[SYCLWRAPPERBC:.+\.bc]]" "-host=x86_64-unknown-linux-gnu" "-target=spir64" "-kind=sycl" "-batch" "[[SYCLSPIRV]]"
 // CHK-UBJOBS: llc{{.*}} "-filetype=obj" "-o" "[[SYCLWRAPPEROBJ:.+\.o]]" "[[SYCLWRAPPERBC]]"
+// CHK-UBJOBS: spirv-to-ir-wrapper{{.*}} "[[OMPBCO]]" "-o" "[[OMPBC:.+\.bc]]"
 // CHK-UBJOBS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=openmp-spir64" "-inputs={{.*}}libomp-spirvdevicertl.o" "-outputs=[[RTLTGTOMP:.+\.o]]" "-unbundle" "-allow-missing-bundles"
 // CHK-UBJOBS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=openmp-spir64" "-inputs={{.*}}libomp-itt-user-wrappers.o" "-outputs=[[ITT1TGTOMP:.+\.o]]" "-unbundle" "-allow-missing-bundles"
 // CHK-UBJOBS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=openmp-spir64" "-inputs={{.*}}libomp-itt-compiler-wrappers.o" "-outputs=[[ITT2TGTOMP:.+\.o]]" "-unbundle" "-allow-missing-bundles"
@@ -242,30 +244,31 @@
 // FOFFLOAD_STATIC_LIB_SRC: 16: clang-offload-deps, {15}, ir, (host-openmp-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 17: input, "[[INPUT1]]", archive
 // FOFFLOAD_STATIC_LIB_SRC: 18: clang-offload-unbundler, {17}, tempfilelist
-// FOFFLOAD_STATIC_LIB_SRC: 19: input, "{{.*libomp-spirvdevicertl.o.*}}", object
-// FOFFLOAD_STATIC_LIB_SRC: 20: clang-offload-unbundler, {19}, object
-// FOFFLOAD_STATIC_LIB_SRC: 21: input, "{{.*libomp-itt-user-wrappers.o.*}}", object
-// FOFFLOAD_STATIC_LIB_SRC: 22: clang-offload-unbundler, {21}, object
-// FOFFLOAD_STATIC_LIB_SRC: 23: input, "{{.*libomp-itt-compiler-wrappers.o.*}}", object
-// FOFFLOAD_STATIC_LIB_SRC: 24: clang-offload-unbundler, {23}, object
-// FOFFLOAD_STATIC_LIB_SRC: 25: input, "{{.*libomp-itt-stubs.o.*}}", object
-// FOFFLOAD_STATIC_LIB_SRC: 26: clang-offload-unbundler, {25}, object
-// FOFFLOAD_STATIC_LIB_SRC: 27: linker, {14, 16, 18, 20, 22, 24, 26}, ir, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 28: sycl-post-link, {27}, ir, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 29: llvm-spirv, {28}, spirv, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 30: offload, "device-openmp (spir64)" {29}, ir
-// FOFFLOAD_STATIC_LIB_SRC: 31: clang-offload-wrapper, {30}, ir, (host-openmp-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 32: backend, {31}, assembler, (host-openmp-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 33: assembler, {32}, object, (host-openmp-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 34: linker, {0, 9, 33}, image, (host-openmp-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 35: spirv-to-ir-wrapper, {18}, tempfilelist, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 36: linker, {5, 16, 35}, ir, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 37: sycl-post-link, {36}, tempfiletable, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 38: file-table-tform, {37}, tempfilelist, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 39: llvm-spirv, {38}, tempfilelist, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 40: file-table-tform, {37, 39}, tempfiletable, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 41: clang-offload-wrapper, {40}, object, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 42: offload, "host-openmp-sycl (x86_64-unknown-linux-gnu)" {34}, "device-sycl (spir64-unknown-unknown)" {41}, image
+// FOFFLOAD_STATIC_LIB_SRC: 19: spirv-to-ir-wrapper, {18}, tempfilelist, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 20: input, "{{.*libomp-spirvdevicertl.o.*}}", object
+// FOFFLOAD_STATIC_LIB_SRC: 21: clang-offload-unbundler, {20}, object
+// FOFFLOAD_STATIC_LIB_SRC: 22: input, "{{.*libomp-itt-user-wrappers.o.*}}", object
+// FOFFLOAD_STATIC_LIB_SRC: 23: clang-offload-unbundler, {22}, object
+// FOFFLOAD_STATIC_LIB_SRC: 24: input, "{{.*libomp-itt-compiler-wrappers.o.*}}", object
+// FOFFLOAD_STATIC_LIB_SRC: 25: clang-offload-unbundler, {24}, object
+// FOFFLOAD_STATIC_LIB_SRC: 26: input, "{{.*libomp-itt-stubs.o.*}}", object
+// FOFFLOAD_STATIC_LIB_SRC: 27: clang-offload-unbundler, {26}, object
+// FOFFLOAD_STATIC_LIB_SRC: 28: linker, {14, 16, 19, 21, 23, 25, 27}, ir, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 29: sycl-post-link, {28}, ir, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 30: llvm-spirv, {29}, spirv, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 31: offload, "device-openmp (spir64)" {30}, ir
+// FOFFLOAD_STATIC_LIB_SRC: 32: clang-offload-wrapper, {31}, ir, (host-openmp-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 33: backend, {32}, assembler, (host-openmp-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 34: assembler, {33}, object, (host-openmp-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 35: linker, {0, 9, 34}, image, (host-openmp-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 36: spirv-to-ir-wrapper, {18}, tempfilelist, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 37: linker, {5, 16, 36}, ir, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 38: sycl-post-link, {37}, tempfiletable, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 39: file-table-tform, {38}, tempfilelist, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 40: llvm-spirv, {39}, tempfilelist, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 41: file-table-tform, {38, 40}, tempfiletable, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 42: clang-offload-wrapper, {41}, object, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 43: offload, "host-openmp-sycl (x86_64-unknown-linux-gnu)" {35}, "device-sycl (spir64-unknown-unknown)" {42}, image
 
 /// ###########################################################################
 

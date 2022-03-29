@@ -4741,10 +4741,29 @@ class OffloadingActionBuilder final {
       for (auto &LI : DeviceLinkerInputs) {
 #ifdef INTEL_CUSTOMIZATION
         OffloadAction::DeviceDependences DeviceLinkDeps;
-        addIntelOMPDeviceLibs(*TC, LI);
-        auto *DeviceLinkAction =
-            C.MakeAction<LinkJobAction>(LI, types::TY_LLVM_BC);
         llvm::Triple TT = (*TC)->getTriple();
+        ActionList ToLinkAction;
+        if (TT.isSPIR()) {
+          for (const auto &Input : LI) {
+            // Only convert if we know we are coming in from the unbundler.
+            if (!isa<OffloadUnbundlingJobAction>(Input)) {
+              ToLinkAction.push_back(Input);
+              continue;
+            }
+            // Convert SPIR-V to LLVM-IR.
+            Action *IrInput = C.MakeAction<SpirvToIrWrapperJobAction>(
+                Input, Input->getType() == types::TY_Tempfilelist
+                           ? types::TY_Tempfilelist
+                           : types::TY_LLVM_BC);
+            ToLinkAction.push_back(IrInput);
+          }
+        } else
+          ToLinkAction = LI;
+        // Add the device libs after we add the spirv-to-ir-wrapper step
+        // as the objects here we know contain IR.
+        addIntelOMPDeviceLibs(*TC, ToLinkAction);
+        auto *DeviceLinkAction =
+            C.MakeAction<LinkJobAction>(ToLinkAction, types::TY_LLVM_BC);
         if (TT.isSPIR()) {
           auto *PostLinkAction = C.MakeAction<SYCLPostLinkJobAction>(
               DeviceLinkAction, types::TY_LLVM_BC, types::TY_LLVM_BC);
@@ -6163,6 +6182,13 @@ public:
                          llvm::Triple::SPIRSubArch_fpga;
         HasSPIRTarget |= TI->second->getTriple().isSPIR();
       }
+#if INTEL_CUSTOMIZATION
+      auto OpenMPTCRange = C.getOffloadToolChains<Action::OFK_OpenMP>();
+      for (auto TI = OpenMPTCRange.first, TE = OpenMPTCRange.second; TI != TE;
+           ++TI) {
+        HasSPIRTarget |= TI->second->getTriple().isSPIR();
+      }
+#endif // INTEL_CUSTOMIZATION
       bool isArchive = !(HostAction->getType() == types::TY_Object &&
                          isObjectFile(InputArg->getAsString(Args)));
       if (!HasFPGATarget && isArchive &&
