@@ -3952,9 +3952,12 @@ bool HLNodeUtils::isKnownPredicate(const CanonExpr *LHS, PredicateTy Pred,
     bool IsSigned = CmpInst::isSigned(Pred);
     unsigned BitWidth = LHS->getDestType()->getIntegerBitWidth();
 
-    assert(LHS->getSrcType() == LHS->getDestType() &&
-           RHS->getSrcType() == RHS->getDestType() && "Cast is not expected");
     assert(LHS->getDestType() == RHS->getDestType() && "LHS/RHS type mismatch");
+    if (LHS->getSrcType() != LHS->getDestType() ||
+        RHS->getSrcType() != RHS->getDestType()) {
+      // With cast, just bail out.
+      return false;
+    }
 
     APInt LHSAPInt(BitWidth, LHSVal, IsSigned);
     APInt RHSAPInt(BitWidth, RHSVal, IsSigned);
