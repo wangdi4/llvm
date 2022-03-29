@@ -860,8 +860,7 @@ define <8 x i32> @stack_fold_vpdpbssd256_maskz_commuted(<8 x i32> %a0, <8 x i32>
 ; AVXDOTPROD-NEXT:    vmovdqa {{.*#+}} ymm2 = [1,2,4,8,16,32,64,128]
 ; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm1, %ymm1
 ; AVXDOTPROD-NEXT:    vpcmpeqd %ymm2, %ymm1, %ymm1
-; AVXDOTPROD-NEXT:    vpxor %xmm2, %xmm2, %xmm2
-; AVXDOTPROD-NEXT:    vblendvps %ymm1, %ymm0, %ymm2, %ymm0
+; AVXDOTPROD-NEXT:    vpand %ymm0, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = call <8 x i32> @llvm.x86.avx2.vpdpbssd.256(<8 x i32> %a0, <8 x i32> %a2, <8 x i32> %a1)
@@ -961,8 +960,7 @@ define <8 x i32> @stack_fold_vpdpbssds256_maskz_commuted(<8 x i32> %a0, <8 x i32
 ; AVXDOTPROD-NEXT:    vmovdqa {{.*#+}} ymm2 = [1,2,4,8,16,32,64,128]
 ; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm1, %ymm1
 ; AVXDOTPROD-NEXT:    vpcmpeqd %ymm2, %ymm1, %ymm1
-; AVXDOTPROD-NEXT:    vpxor %xmm2, %xmm2, %xmm2
-; AVXDOTPROD-NEXT:    vblendvps %ymm1, %ymm0, %ymm2, %ymm0
+; AVXDOTPROD-NEXT:    vpand %ymm0, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = call <8 x i32> @llvm.x86.avx2.vpdpbssds.256(<8 x i32> %a0, <8 x i32> %a2, <8 x i32> %a1)
@@ -1062,8 +1060,7 @@ define <8 x i32> @stack_fold_vpdpbuud256_maskz_commuted(<8 x i32> %a0, <8 x i32>
 ; AVXDOTPROD-NEXT:    vmovdqa {{.*#+}} ymm2 = [1,2,4,8,16,32,64,128]
 ; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm1, %ymm1
 ; AVXDOTPROD-NEXT:    vpcmpeqd %ymm2, %ymm1, %ymm1
-; AVXDOTPROD-NEXT:    vpxor %xmm2, %xmm2, %xmm2
-; AVXDOTPROD-NEXT:    vblendvps %ymm1, %ymm0, %ymm2, %ymm0
+; AVXDOTPROD-NEXT:    vpand %ymm0, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = call <8 x i32> @llvm.x86.avx2.vpdpbuud.256(<8 x i32> %a0, <8 x i32> %a2, <8 x i32> %a1)
@@ -1163,8 +1160,7 @@ define <8 x i32> @stack_fold_vpdpbuuds256_maskz_commuted(<8 x i32> %a0, <8 x i32
 ; AVXDOTPROD-NEXT:    vmovdqa {{.*#+}} ymm2 = [1,2,4,8,16,32,64,128]
 ; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm1, %ymm1
 ; AVXDOTPROD-NEXT:    vpcmpeqd %ymm2, %ymm1, %ymm1
-; AVXDOTPROD-NEXT:    vpxor %xmm2, %xmm2, %xmm2
-; AVXDOTPROD-NEXT:    vblendvps %ymm1, %ymm0, %ymm2, %ymm0
+; AVXDOTPROD-NEXT:    vpand %ymm0, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = call <8 x i32> @llvm.x86.avx2.vpdpbuuds.256(<8 x i32> %a0, <8 x i32> %a2, <8 x i32> %a1)
@@ -1250,8 +1246,7 @@ define <8 x i32> @stack_fold_vpdpbsud256_maskz(<8 x i32> %a0, <8 x i32> %a1, <8 
 ; AVXDOTPROD-NEXT:    vmovdqa {{.*#+}} ymm2 = [1,2,4,8,16,32,64,128]
 ; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm1, %ymm1
 ; AVXDOTPROD-NEXT:    vpcmpeqd %ymm2, %ymm1, %ymm1
-; AVXDOTPROD-NEXT:    vpxor %xmm2, %xmm2, %xmm2
-; AVXDOTPROD-NEXT:    vblendvps %ymm1, %ymm0, %ymm2, %ymm0
+; AVXDOTPROD-NEXT:    vpand %ymm0, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = call <8 x i32> @llvm.x86.avx2.vpdpbsud.256(<8 x i32> %a0, <8 x i32> %a1, <8 x i32> %a2)
@@ -1337,8 +1332,7 @@ define <8 x i32> @stack_fold_vpdpbsuds256_maskz(<8 x i32> %a0, <8 x i32> %a1, <8
 ; AVXDOTPROD-NEXT:    vmovdqa {{.*#+}} ymm2 = [1,2,4,8,16,32,64,128]
 ; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm1, %ymm1
 ; AVXDOTPROD-NEXT:    vpcmpeqd %ymm2, %ymm1, %ymm1
-; AVXDOTPROD-NEXT:    vpxor %xmm2, %xmm2, %xmm2
-; AVXDOTPROD-NEXT:    vblendvps %ymm1, %ymm0, %ymm2, %ymm0
+; AVXDOTPROD-NEXT:    vpand %ymm0, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = call <8 x i32> @llvm.x86.avx2.vpdpbsuds.256(<8 x i32> %a0, <8 x i32> %a1, <8 x i32> %a2)

@@ -11,9 +11,9 @@ define <16 x i16>@test_int_x86_avx512_mask_mpsadbw_256(<32 x i8> %x0, <32 x i8> 
 ; X86:       # %bb.0:
 ; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf8,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vmpsadbw $2, %ymm1, %ymm0, %ymm2 {%k1} # encoding: [0x62,0xf3,0x7e,0x29,0x42,0xd1,0x02]
-; X86-NEXT:    vmpsadbw $3, %ymm1, %ymm0, %ymm3 {%k1} {z} # encoding: [0x62,0xf3,0x7e,0xa9,0x42,0xd9,0x03]
+; X86-NEXT:    vmpsadbw $3, %ymm1, %ymm0, %ymm3 # EVEX TO VEX Compression encoding: [0xc4,0xe3,0x7d,0x42,0xd9,0x03]
 ; X86-NEXT:    vmpsadbw $4, %ymm1, %ymm0, %ymm0 # EVEX TO VEX Compression encoding: [0xc4,0xe3,0x7d,0x42,0xc1,0x04]
-; X86-NEXT:    vpaddw %ymm0, %ymm3, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xe5,0xfd,0xc0]
+; X86-NEXT:    vpaddw %ymm3, %ymm2, %ymm2 {%k1} # encoding: [0x62,0xf1,0x6d,0x29,0xfd,0xd3]
 ; X86-NEXT:    vpaddw %ymm0, %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xed,0xfd,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
 ;
@@ -21,9 +21,9 @@ define <16 x i16>@test_int_x86_avx512_mask_mpsadbw_256(<32 x i8> %x0, <32 x i8> 
 ; X64:       # %bb.0:
 ; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vmpsadbw $2, %ymm1, %ymm0, %ymm2 {%k1} # encoding: [0x62,0xf3,0x7e,0x29,0x42,0xd1,0x02]
-; X64-NEXT:    vmpsadbw $3, %ymm1, %ymm0, %ymm3 {%k1} {z} # encoding: [0x62,0xf3,0x7e,0xa9,0x42,0xd9,0x03]
+; X64-NEXT:    vmpsadbw $3, %ymm1, %ymm0, %ymm3 # EVEX TO VEX Compression encoding: [0xc4,0xe3,0x7d,0x42,0xd9,0x03]
 ; X64-NEXT:    vmpsadbw $4, %ymm1, %ymm0, %ymm0 # EVEX TO VEX Compression encoding: [0xc4,0xe3,0x7d,0x42,0xc1,0x04]
-; X64-NEXT:    vpaddw %ymm0, %ymm3, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xe5,0xfd,0xc0]
+; X64-NEXT:    vpaddw %ymm3, %ymm2, %ymm2 {%k1} # encoding: [0x62,0xf1,0x6d,0x29,0xfd,0xd3]
 ; X64-NEXT:    vpaddw %ymm0, %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xed,0xfd,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
   %1 = call <16 x i16> @llvm.x86.avx2.mpsadbw(<32 x i8> %x0, <32 x i8> %x1, i8 2)
@@ -44,9 +44,9 @@ define <8 x i16>@test_int_x86_avx512_mask_mpsadbw_128(<16 x i8> %x0, <16 x i8> %
 ; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
 ; X86-NEXT:    kmovd %eax, %k1 # encoding: [0xc5,0xfb,0x92,0xc8]
 ; X86-NEXT:    vmpsadbw $2, %xmm1, %xmm0, %xmm2 {%k1} # encoding: [0x62,0xf3,0x7e,0x09,0x42,0xd1,0x02]
-; X86-NEXT:    vmpsadbw $3, %xmm1, %xmm0, %xmm3 {%k1} {z} # encoding: [0x62,0xf3,0x7e,0x89,0x42,0xd9,0x03]
+; X86-NEXT:    vmpsadbw $3, %xmm1, %xmm0, %xmm3 # EVEX TO VEX Compression encoding: [0xc4,0xe3,0x79,0x42,0xd9,0x03]
 ; X86-NEXT:    vmpsadbw $4, %xmm1, %xmm0, %xmm0 # EVEX TO VEX Compression encoding: [0xc4,0xe3,0x79,0x42,0xc1,0x04]
-; X86-NEXT:    vpaddw %xmm0, %xmm3, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xe1,0xfd,0xc0]
+; X86-NEXT:    vpaddw %xmm3, %xmm2, %xmm2 {%k1} # encoding: [0x62,0xf1,0x6d,0x09,0xfd,0xd3]
 ; X86-NEXT:    vpaddw %xmm0, %xmm2, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xe9,0xfd,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
 ;
@@ -54,9 +54,9 @@ define <8 x i16>@test_int_x86_avx512_mask_mpsadbw_128(<16 x i8> %x0, <16 x i8> %
 ; X64:       # %bb.0:
 ; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vmpsadbw $2, %xmm1, %xmm0, %xmm2 {%k1} # encoding: [0x62,0xf3,0x7e,0x09,0x42,0xd1,0x02]
-; X64-NEXT:    vmpsadbw $3, %xmm1, %xmm0, %xmm3 {%k1} {z} # encoding: [0x62,0xf3,0x7e,0x89,0x42,0xd9,0x03]
+; X64-NEXT:    vmpsadbw $3, %xmm1, %xmm0, %xmm3 # EVEX TO VEX Compression encoding: [0xc4,0xe3,0x79,0x42,0xd9,0x03]
 ; X64-NEXT:    vmpsadbw $4, %xmm1, %xmm0, %xmm0 # EVEX TO VEX Compression encoding: [0xc4,0xe3,0x79,0x42,0xc1,0x04]
-; X64-NEXT:    vpaddw %xmm0, %xmm3, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xe1,0xfd,0xc0]
+; X64-NEXT:    vpaddw %xmm3, %xmm2, %xmm2 {%k1} # encoding: [0x62,0xf1,0x6d,0x09,0xfd,0xd3]
 ; X64-NEXT:    vpaddw %xmm0, %xmm2, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xe9,0xfd,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
   %1 = call <8 x i16> @llvm.x86.sse41.mpsadbw(<16 x i8> %x0, <16 x i8> %x1, i8 2)
