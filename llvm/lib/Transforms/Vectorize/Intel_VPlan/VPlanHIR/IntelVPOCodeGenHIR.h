@@ -79,8 +79,8 @@ public:
       : TLI(TLI), TTI(TTI), SRA(SRA), Plan(Plan), VLSA(VLSA), Fn(Fn),
         Context(*Plan->getLLVMContext()), OrigLoop(Loop), PeelLoop(nullptr),
         MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
-        TripCount(0), VF(0), UF(1), ORBuilder(ORB), HIRLegality(HIRLegality),
-        SearchLoopType(SearchLoopType),
+        TripCount(0), VF(0), MaxVF(0), UF(1), ORBuilder(ORB),
+        HIRLegality(HIRLegality), SearchLoopType(SearchLoopType),
         SearchLoopPeelArrayRef(SearchLoopPeelArrayRef),
         BlobUtilities(Loop->getBlobUtils()),
         CanonExprUtilities(Loop->getCanonExprUtils()),
@@ -626,6 +626,7 @@ private:
   // Vector factor or vector length to use. Each scalar instruction is widened
   // to operate on this number of operands.
   unsigned VF;
+  unsigned MaxVF;
 
   // Unroll factor which was applied to VPlan before code generation.
   unsigned UF;
@@ -736,7 +737,11 @@ private:
   void setNeedPeelLoop(bool NeedPeel) { NeedPeelLoop = NeedPeel; }
   void setNeedRemainderLoop(bool NeedRem) { NeedRemainderLoop = NeedRem; }
   void setTripCount(uint64_t TC) { TripCount = TC; }
-  void setVF(unsigned V) { VF = V; }
+  void setVF(unsigned V) {
+    VF = V;
+    if (VF > MaxVF)
+      MaxVF = VF;
+  }
   void setUF(unsigned U) { UF = U == 0 ? 1 : U; }
 
   void insertReductionInit(HLContainerTy *List);

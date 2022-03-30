@@ -1477,7 +1477,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
   StringRef FnName = F->getName();
 
   // Check to see if the call was vectorized in the main loop.
-  if (TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(VF))) {
+  if (TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(MaxVF))) {
     ++OptRptStats.VectorMathCalls;
 
     SmallVector<RegDDRef *, 1> CallArgs;
@@ -1502,7 +1502,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
       RegDDRef *Ref = *It;
 
       // The resulting type of the widened ref/broadcast.
-      auto VecDestTy = getWidenedType(Ref->getDestType(), VF);
+      auto VecDestTy = getWidenedType(Ref->getDestType(), MaxVF);
 
       RegDDRef *WideRef = nullptr;
       HLInst *LoadInst = nullptr;
@@ -1543,7 +1543,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
     // Using the newly created vector call arguments, generate the vector
     // call instruction and extract the low element.
     Function *VectorF = getOrInsertVectorLibFunction(
-        F, VF, ArgTys, TLI, Intrinsic::not_intrinsic, false /*non-masked*/);
+        F, MaxVF, ArgTys, TLI, Intrinsic::not_intrinsic, false /*non-masked*/);
     assert(VectorF && "Can't create vector function.");
 
     FastMathFlags FMF =
@@ -4848,6 +4848,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     UBTemp->getSingleCanonExpr()->setDefinedAtLevel(
         ScalarPeel->getNestingLevel() - 1);
 
+    HIRLoopVisitor LV(ScalarPeel, this);
+    LV.replaceCalls();
     return;
   }
 
@@ -4896,6 +4898,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     LBTemp->getSingleCanonExpr()->setDefinedAtLevel(
         ScalarRem->getNestingLevel() - 1);
 
+    HIRLoopVisitor LV(ScalarRem, this);
+    LV.replaceCalls();
     return;
   }
 
