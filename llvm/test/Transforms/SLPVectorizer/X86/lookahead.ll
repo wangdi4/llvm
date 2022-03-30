@@ -57,13 +57,9 @@ define void @lookahead_basic(double* %array) {
 ; XMAIN-LABEL: @lookahead_basic(
 ; XMAIN-NEXT:  entry:
 ; XMAIN-NEXT:    [[IDX0:%.*]] = getelementptr inbounds double, double* [[ARRAY:%.*]], i64 0
-; XMAIN-NEXT:    [[IDX1:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 1
 ; XMAIN-NEXT:    [[IDX2:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 2
-; XMAIN-NEXT:    [[IDX3:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 3
 ; XMAIN-NEXT:    [[IDX4:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 4
-; XMAIN-NEXT:    [[IDX5:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 5
 ; XMAIN-NEXT:    [[IDX6:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 6
-; XMAIN-NEXT:    [[IDX7:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 7
 ; XMAIN-NEXT:    [[TMP0:%.*]] = bitcast double* [[IDX0]] to <2 x double>*
 ; XMAIN-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* [[TMP0]], align 8
 ; XMAIN-NEXT:    [[TMP2:%.*]] = bitcast double* [[IDX2]] to <2 x double>*
@@ -149,9 +145,7 @@ define void @lookahead_alt1(double* %array) {
 ; XMAIN-LABEL: @lookahead_alt1(
 ; XMAIN-NEXT:  entry:
 ; XMAIN-NEXT:    [[IDX0:%.*]] = getelementptr inbounds double, double* [[ARRAY:%.*]], i64 0
-; XMAIN-NEXT:    [[IDX1:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 1
 ; XMAIN-NEXT:    [[IDX2:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 2
-; XMAIN-NEXT:    [[IDX3:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 3
 ; XMAIN-NEXT:    [[IDX4:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 4
 ; XMAIN-NEXT:    [[IDX5:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 5
 ; XMAIN-NEXT:    [[IDX6:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 6
@@ -167,7 +161,6 @@ define void @lookahead_alt1(double* %array) {
 ; XMAIN-NEXT:    store <2 x double> [[TMP6]], <2 x double>* [[TMP7]], align 8
 ; XMAIN-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
-;
 entry:
   %idx0 = getelementptr inbounds double, double* %array, i64 0
   %idx1 = getelementptr inbounds double, double* %array, i64 1
@@ -239,13 +232,9 @@ define void @lookahead_alt2(double* %array) {
 ; XMAIN-LABEL: @lookahead_alt2(
 ; XMAIN-NEXT:  entry:
 ; XMAIN-NEXT:    [[IDX0:%.*]] = getelementptr inbounds double, double* [[ARRAY:%.*]], i64 0
-; XMAIN-NEXT:    [[IDX1:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 1
 ; XMAIN-NEXT:    [[IDX2:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 2
-; XMAIN-NEXT:    [[IDX3:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 3
 ; XMAIN-NEXT:    [[IDX4:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 4
-; XMAIN-NEXT:    [[IDX5:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 5
 ; XMAIN-NEXT:    [[IDX6:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 6
-; XMAIN-NEXT:    [[IDX7:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 7
 ; XMAIN-NEXT:    [[TMP0:%.*]] = bitcast double* [[IDX0]] to <2 x double>*
 ; XMAIN-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* [[TMP0]], align 8
 ; XMAIN-NEXT:    [[TMP2:%.*]] = bitcast double* [[IDX2]] to <2 x double>*
@@ -265,7 +254,6 @@ define void @lookahead_alt2(double* %array) {
 ; XMAIN-NEXT:    store <2 x double> [[TMP14]], <2 x double>* [[TMP15]], align 8
 ; XMAIN-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
-;
 entry:
   %idx0 = getelementptr inbounds double, double* %array, i64 0
   %idx1 = getelementptr inbounds double, double* %array, i64 1
@@ -355,10 +343,10 @@ define void @lookahead_external_uses(double* %A, double *%B, double *%C, double 
 ; XMAIN-NEXT:    [[IDXB0:%.*]] = getelementptr inbounds double, double* [[B:%.*]], i64 0
 ; XMAIN-NEXT:    [[IDXC0:%.*]] = getelementptr inbounds double, double* [[C:%.*]], i64 0
 ; XMAIN-NEXT:    [[IDXD0:%.*]] = getelementptr inbounds double, double* [[D:%.*]], i64 0
-; XMAIN-NEXT:    [[IDXA1:%.*]] = getelementptr inbounds double, double* [[A]], i64 1
 ; XMAIN-NEXT:    [[IDXB2:%.*]] = getelementptr inbounds double, double* [[B]], i64 2
 ; XMAIN-NEXT:    [[IDXA2:%.*]] = getelementptr inbounds double, double* [[A]], i64 2
 ; XMAIN-NEXT:    [[IDXB1:%.*]] = getelementptr inbounds double, double* [[B]], i64 1
+; XMAIN-NEXT:    [[IDXS0:%.*]] = getelementptr inbounds double, double* [[S:%.*]], i64 0
 ; XMAIN-NEXT:    [[B0:%.*]] = load double, double* [[IDXB0]], align 8
 ; XMAIN-NEXT:    [[C0:%.*]] = load double, double* [[IDXC0]], align 8
 ; XMAIN-NEXT:    [[D0:%.*]] = load double, double* [[IDXD0]], align 8
@@ -376,14 +364,13 @@ define void @lookahead_external_uses(double* %A, double *%B, double *%C, double 
 ; XMAIN-NEXT:    [[TMP8:%.*]] = insertelement <2 x double> [[TMP7]], double [[B1]], i32 1
 ; XMAIN-NEXT:    [[TMP9:%.*]] = fsub fast <2 x double> [[TMP6]], [[TMP8]]
 ; XMAIN-NEXT:    [[TMP10:%.*]] = fadd fast <2 x double> [[TMP4]], [[TMP9]]
-; XMAIN-NEXT:    [[IDXS0:%.*]] = getelementptr inbounds double, double* [[S:%.*]], i64 0
-; XMAIN-NEXT:    [[IDXS1:%.*]] = getelementptr inbounds double, double* [[S]], i64 1
 ; XMAIN-NEXT:    [[TMP11:%.*]] = bitcast double* [[IDXS0]] to <2 x double>*
 ; XMAIN-NEXT:    store <2 x double> [[TMP10]], <2 x double>* [[TMP11]], align 8
 ; XMAIN-NEXT:    [[TMP12:%.*]] = extractelement <2 x double> [[TMP1]], i32 1
 ; XMAIN-NEXT:    store double [[TMP12]], double* [[EXT1:%.*]], align 8
 ; XMAIN-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
+;
 entry:
   %IdxA0 = getelementptr inbounds double, double* %A, i64 0
   %IdxB0 = getelementptr inbounds double, double* %B, i64 0
@@ -488,10 +475,10 @@ define void @lookahead_limit_users_budget(double* %A, double *%B, double *%C, do
 ; XMAIN-NEXT:    [[IDXB0:%.*]] = getelementptr inbounds double, double* [[B:%.*]], i64 0
 ; XMAIN-NEXT:    [[IDXC0:%.*]] = getelementptr inbounds double, double* [[C:%.*]], i64 0
 ; XMAIN-NEXT:    [[IDXD0:%.*]] = getelementptr inbounds double, double* [[D:%.*]], i64 0
-; XMAIN-NEXT:    [[IDXA1:%.*]] = getelementptr inbounds double, double* [[A]], i64 1
 ; XMAIN-NEXT:    [[IDXB2:%.*]] = getelementptr inbounds double, double* [[B]], i64 2
 ; XMAIN-NEXT:    [[IDXA2:%.*]] = getelementptr inbounds double, double* [[A]], i64 2
 ; XMAIN-NEXT:    [[IDXB1:%.*]] = getelementptr inbounds double, double* [[B]], i64 1
+; XMAIN-NEXT:    [[IDXS0:%.*]] = getelementptr inbounds double, double* [[S:%.*]], i64 0
 ; XMAIN-NEXT:    [[B0:%.*]] = load double, double* [[IDXB0]], align 8
 ; XMAIN-NEXT:    [[C0:%.*]] = load double, double* [[IDXC0]], align 8
 ; XMAIN-NEXT:    [[D0:%.*]] = load double, double* [[IDXD0]], align 8
@@ -509,8 +496,6 @@ define void @lookahead_limit_users_budget(double* %A, double *%B, double *%C, do
 ; XMAIN-NEXT:    [[TMP8:%.*]] = insertelement <2 x double> [[TMP7]], double [[B1]], i32 1
 ; XMAIN-NEXT:    [[TMP9:%.*]] = fsub fast <2 x double> [[TMP6]], [[TMP8]]
 ; XMAIN-NEXT:    [[TMP10:%.*]] = fadd fast <2 x double> [[TMP4]], [[TMP9]]
-; XMAIN-NEXT:    [[IDXS0:%.*]] = getelementptr inbounds double, double* [[S:%.*]], i64 0
-; XMAIN-NEXT:    [[IDXS1:%.*]] = getelementptr inbounds double, double* [[S]], i64 1
 ; XMAIN-NEXT:    [[TMP11:%.*]] = bitcast double* [[IDXS0]] to <2 x double>*
 ; XMAIN-NEXT:    store <2 x double> [[TMP10]], <2 x double>* [[TMP11]], align 8
 ; XMAIN-NEXT:    [[TMP12:%.*]] = extractelement <2 x double> [[TMP1]], i32 1
@@ -521,7 +506,6 @@ define void @lookahead_limit_users_budget(double* %A, double *%B, double *%C, do
 ; XMAIN-NEXT:    store double [[B1]], double* [[EXT5:%.*]], align 8
 ; XMAIN-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
-;
 entry:
   %IdxA0 = getelementptr inbounds double, double* %A, i64 0
   %IdxB0 = getelementptr inbounds double, double* %B, i64 0
@@ -594,7 +578,7 @@ define void @lookahead_crash(double* %A, double *%S, %Class *%Arg0) {
 ; INTEL_CUSTOMIZATION
 ; XMAIN-LABEL: @lookahead_crash(
 ; XMAIN-NEXT:    [[IDXA0:%.*]] = getelementptr inbounds double, double* [[A:%.*]], i64 0
-; XMAIN-NEXT:    [[IDXA1:%.*]] = getelementptr inbounds double, double* [[A]], i64 1
+; XMAIN-NEXT:    [[IDXS0:%.*]] = getelementptr inbounds double, double* [[S:%.*]], i64 0
 ; XMAIN-NEXT:    [[TMP1:%.*]] = bitcast double* [[IDXA0]] to <2 x double>*
 ; XMAIN-NEXT:    [[TMP2:%.*]] = load <2 x double>, <2 x double>* [[TMP1]], align 8
 ; XMAIN-NEXT:    [[C0:%.*]] = call double @_ZN1i2ayEv(%Class* [[ARG0:%.*]])
@@ -602,13 +586,10 @@ define void @lookahead_crash(double* %A, double *%S, %Class *%Arg0) {
 ; XMAIN-NEXT:    [[TMP3:%.*]] = insertelement <2 x double> poison, double [[C0]], i32 0
 ; XMAIN-NEXT:    [[TMP4:%.*]] = insertelement <2 x double> [[TMP3]], double [[C1]], i32 1
 ; XMAIN-NEXT:    [[TMP5:%.*]] = fadd fast <2 x double> [[TMP2]], [[TMP4]]
-; XMAIN-NEXT:    [[IDXS0:%.*]] = getelementptr inbounds double, double* [[S:%.*]], i64 0
-; XMAIN-NEXT:    [[IDXS1:%.*]] = getelementptr inbounds double, double* [[S]], i64 1
 ; XMAIN-NEXT:    [[TMP6:%.*]] = bitcast double* [[IDXS0]] to <2 x double>*
 ; XMAIN-NEXT:    store <2 x double> [[TMP5]], <2 x double>* [[TMP6]], align 8
 ; XMAIN-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
-;
   %IdxA0 = getelementptr inbounds double, double* %A, i64 0
   %IdxA1 = getelementptr inbounds double, double* %A, i64 1
 
@@ -657,6 +638,7 @@ define void @ChecksExtractScores(double* %storeArray, double* %array, <2 x doubl
 ; XMAIN-NEXT:    [[LOADA1:%.*]] = load double, double* [[IDX1]], align 4
 ; XMAIN-NEXT:    [[LOADVEC:%.*]] = load <2 x double>, <2 x double>* [[VECPTR1:%.*]], align 4
 ; XMAIN-NEXT:    [[LOADVEC2:%.*]] = load <2 x double>, <2 x double>* [[VECPTR2:%.*]], align 4
+; XMAIN-NEXT:    [[SIDX0:%.*]] = getelementptr inbounds double, double* [[STOREARRAY:%.*]], i64 0
 ; XMAIN-NEXT:    [[TMP1:%.*]] = insertelement <2 x double> poison, double [[LOADA0]], i32 0
 ; XMAIN-NEXT:    [[TMP2:%.*]] = insertelement <2 x double> [[TMP1]], double [[LOADA0]], i32 1
 ; XMAIN-NEXT:    [[TMP3:%.*]] = fmul <2 x double> [[LOADVEC]], [[TMP2]]
@@ -664,13 +646,10 @@ define void @ChecksExtractScores(double* %storeArray, double* %array, <2 x doubl
 ; XMAIN-NEXT:    [[TMP5:%.*]] = insertelement <2 x double> [[TMP4]], double [[LOADA1]], i32 1
 ; XMAIN-NEXT:    [[TMP6:%.*]] = fmul <2 x double> [[LOADVEC2]], [[TMP5]]
 ; XMAIN-NEXT:    [[TMP7:%.*]] = fadd <2 x double> [[TMP3]], [[TMP6]]
-; XMAIN-NEXT:    [[SIDX0:%.*]] = getelementptr inbounds double, double* [[STOREARRAY:%.*]], i64 0
-; XMAIN-NEXT:    [[SIDX1:%.*]] = getelementptr inbounds double, double* [[STOREARRAY]], i64 1
 ; XMAIN-NEXT:    [[TMP8:%.*]] = bitcast double* [[SIDX0]] to <2 x double>*
 ; XMAIN-NEXT:    store <2 x double> [[TMP7]], <2 x double>* [[TMP8]], align 8
 ; XMAIN-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
-;
   %idx0 = getelementptr inbounds double, double* %array, i64 0
   %idx1 = getelementptr inbounds double, double* %array, i64 1
   %loadA0 = load double, double* %idx0, align 4
@@ -746,7 +725,6 @@ define i1 @ExtractIdxNotConstantInt1(float %a, float %b, float %c, <4 x float> %
 ; XMAIN-NEXT:    [[CMP_I185:%.*]] = fcmp ogt float [[MUL123_I184]], 0.000000e+00
 ; XMAIN-NEXT:    ret i1 [[CMP_I185]]
 ; end INTEL_CUSTOMIZATION
-;
   %vecext.i291.i166 = extractelement <4 x float> %vec, i64 undef
   %sub14.i167 = fsub float undef, %vecext.i291.i166
   %fm = fmul float %a, %sub14.i167
@@ -810,7 +788,6 @@ define i1 @ExtractIdxNotConstantInt2(float %a, float %b, float %c, <4 x float> %
 ; XMAIN-NEXT:    [[CMP_I185:%.*]] = fcmp ogt float [[MUL123_I184]], 0.000000e+00
 ; XMAIN-NEXT:    ret i1 [[CMP_I185]]
 ; end INTEL_CUSTOMIZATION
-;
   %vecext.i291.i166 = extractelement <4 x float> %vec, i64 1
   %sub14.i167 = fsub float undef, %vecext.i291.i166
   %fm = fmul float %a, %sub14.i167
@@ -874,7 +851,6 @@ define i1 @foo(float %a, float %b, float %c, <4 x float> %vec, i64 %idx2) {
 ; XMAIN-NEXT:    [[CMP_I185:%.*]] = fcmp ogt float [[MUL123_I184]], 0.000000e+00
 ; XMAIN-NEXT:    ret i1 [[CMP_I185]]
 ; end INTEL_CUSTOMIZATION
-;
   %vecext.i291.i166 = extractelement <4 x float> %vec, i64 0
   %sub14.i167 = fsub float undef, %vecext.i291.i166
   %fm = fmul float %a, %sub14.i167
@@ -891,7 +867,6 @@ define i1 @foo(float %a, float %b, float %c, <4 x float> %vec, i64 %idx2) {
 
 ; Same as @ChecksExtractScores, but the extratelement vector operands do not match.
 define void @ChecksExtractScores_different_vectors(double* %storeArray, double* %array, <2 x double> *%vecPtr1, <2 x double>* %vecPtr2, <2 x double>* %vecPtr3, <2 x double>* %vecPtr4) {
-;
 ; SSE-LABEL: @ChecksExtractScores_different_vectors(
 ; SSE-NEXT:    [[IDX0:%.*]] = getelementptr inbounds double, double* [[ARRAY:%.*]], i64 0
 ; SSE-NEXT:    [[LOADVEC:%.*]] = load <2 x double>, <2 x double>* [[VECPTR1:%.*]], align 4
@@ -950,8 +925,8 @@ define void @ChecksExtractScores_different_vectors(double* %storeArray, double* 
 ; XMAIN-LABEL: @ChecksExtractScores_different_vectors(
 ; XMAIN-NEXT:    [[IDX0:%.*]] = getelementptr inbounds double, double* [[ARRAY:%.*]], i64 0
 ; XMAIN-NEXT:    [[IDX1:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 1
-; XMAIN-NEXT:    [[TMP1:%.*]] = bitcast double* [[IDX0]] to <2 x double>*
-; XMAIN-NEXT:    [[TMP2:%.*]] = load <2 x double>, <2 x double>* [[TMP1]], align 4
+; XMAIN-NEXT:    [[LOADA0:%.*]] = load double, double* [[IDX0]], align 4
+; XMAIN-NEXT:    [[LOADA1:%.*]] = load double, double* [[IDX1]], align 4
 ; XMAIN-NEXT:    [[LOADVEC:%.*]] = load <2 x double>, <2 x double>* [[VECPTR1:%.*]], align 4
 ; XMAIN-NEXT:    [[LOADVEC2:%.*]] = load <2 x double>, <2 x double>* [[VECPTR2:%.*]], align 4
 ; XMAIN-NEXT:    [[EXTRA0:%.*]] = extractelement <2 x double> [[LOADVEC]], i32 0
@@ -960,21 +935,22 @@ define void @ChecksExtractScores_different_vectors(double* %storeArray, double* 
 ; XMAIN-NEXT:    [[LOADVEC4:%.*]] = load <2 x double>, <2 x double>* [[VECPTR4:%.*]], align 4
 ; XMAIN-NEXT:    [[EXTRB0:%.*]] = extractelement <2 x double> [[LOADVEC3]], i32 0
 ; XMAIN-NEXT:    [[EXTRB1:%.*]] = extractelement <2 x double> [[LOADVEC4]], i32 1
-; XMAIN-NEXT:    [[TMP3:%.*]] = insertelement <2 x double> poison, double [[EXTRA1]], i32 0
-; XMAIN-NEXT:    [[TMP4:%.*]] = insertelement <2 x double> [[TMP3]], double [[EXTRB0]], i32 1
-; XMAIN-NEXT:    [[TMP5:%.*]] = fmul <2 x double> [[TMP4]], [[TMP2]]
-; XMAIN-NEXT:    [[SHUFFLE:%.*]] = shufflevector <2 x double> [[TMP5]], <2 x double> poison, <2 x i32> <i32 1, i32 0>
-; XMAIN-NEXT:    [[TMP6:%.*]] = insertelement <2 x double> poison, double [[EXTRA0]], i32 0
-; XMAIN-NEXT:    [[TMP7:%.*]] = insertelement <2 x double> [[TMP6]], double [[EXTRB1]], i32 1
-; XMAIN-NEXT:    [[TMP8:%.*]] = fmul <2 x double> [[TMP7]], [[TMP2]]
-; XMAIN-NEXT:    [[TMP9:%.*]] = fadd <2 x double> [[SHUFFLE]], [[TMP8]]
 ; XMAIN-NEXT:    [[SIDX0:%.*]] = getelementptr inbounds double, double* [[STOREARRAY:%.*]], i64 0
-; XMAIN-NEXT:    [[SIDX1:%.*]] = getelementptr inbounds double, double* [[STOREARRAY]], i64 1
-; XMAIN-NEXT:    [[TMP10:%.*]] = bitcast double* [[SIDX0]] to <2 x double>*
-; XMAIN-NEXT:    store <2 x double> [[TMP9]], <2 x double>* [[TMP10]], align 8
+; XMAIN-NEXT:    [[TMP1:%.*]] = insertelement <2 x double> poison, double [[EXTRA0]], i32 0
+; XMAIN-NEXT:    [[TMP2:%.*]] = insertelement <2 x double> [[TMP1]], double [[EXTRA1]], i32 1
+; XMAIN-NEXT:    [[TMP3:%.*]] = insertelement <2 x double> poison, double [[LOADA0]], i32 0
+; XMAIN-NEXT:    [[TMP4:%.*]] = insertelement <2 x double> [[TMP3]], double [[LOADA0]], i32 1
+; XMAIN-NEXT:    [[TMP5:%.*]] = fmul <2 x double> [[TMP2]], [[TMP4]]
+; XMAIN-NEXT:    [[TMP6:%.*]] = insertelement <2 x double> poison, double [[EXTRB0]], i32 0
+; XMAIN-NEXT:    [[TMP7:%.*]] = insertelement <2 x double> [[TMP6]], double [[EXTRB1]], i32 1
+; XMAIN-NEXT:    [[TMP8:%.*]] = insertelement <2 x double> poison, double [[LOADA1]], i32 0
+; XMAIN-NEXT:    [[TMP9:%.*]] = insertelement <2 x double> [[TMP8]], double [[LOADA1]], i32 1
+; XMAIN-NEXT:    [[TMP10:%.*]] = fmul <2 x double> [[TMP7]], [[TMP9]]
+; XMAIN-NEXT:    [[TMP11:%.*]] = fadd <2 x double> [[TMP5]], [[TMP10]]
+; XMAIN-NEXT:    [[TMP12:%.*]] = bitcast double* [[SIDX0]] to <2 x double>*
+; XMAIN-NEXT:    store <2 x double> [[TMP11]], <2 x double>* [[TMP12]], align 8
 ; XMAIN-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
-;
   %idx0 = getelementptr inbounds double, double* %array, i64 0
   %idx1 = getelementptr inbounds double, double* %array, i64 1
   %loadA0 = load double, double* %idx0, align 4
@@ -1048,6 +1024,28 @@ define double @splat_loads(double *%array1, double *%array2, double *%ptrA, doub
 ; AVX-NEXT:    [[ADD3:%.*]] = fadd double [[TMP9]], [[TMP10]]
 ; AVX-NEXT:    ret double [[ADD3]]
 ;
+; INTEL_CUSTOMIZATION
+; XMAIN-LABEL: @splat_loads(
+; XMAIN-NEXT:  entry:
+; XMAIN-NEXT:    [[GEP_1_0:%.*]] = getelementptr inbounds double, double* [[ARRAY1:%.*]], i64 0
+; XMAIN-NEXT:    [[GEP_2_0:%.*]] = getelementptr inbounds double, double* [[ARRAY2:%.*]], i64 0
+; XMAIN-NEXT:    [[GEP_2_1:%.*]] = getelementptr inbounds double, double* [[ARRAY2]], i64 1
+; XMAIN-NEXT:    [[LD_2_0:%.*]] = load double, double* [[GEP_2_0]], align 8
+; XMAIN-NEXT:    [[LD_2_1:%.*]] = load double, double* [[GEP_2_1]], align 8
+; XMAIN-NEXT:    [[TMP0:%.*]] = bitcast double* [[GEP_1_0]] to <2 x double>*
+; XMAIN-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* [[TMP0]], align 8
+; XMAIN-NEXT:    [[TMP2:%.*]] = insertelement <2 x double> poison, double [[LD_2_0]], i32 0
+; XMAIN-NEXT:    [[TMP3:%.*]] = insertelement <2 x double> [[TMP2]], double [[LD_2_0]], i32 1
+; XMAIN-NEXT:    [[TMP4:%.*]] = fmul <2 x double> [[TMP1]], [[TMP3]]
+; XMAIN-NEXT:    [[TMP5:%.*]] = insertelement <2 x double> poison, double [[LD_2_1]], i32 0
+; XMAIN-NEXT:    [[TMP6:%.*]] = insertelement <2 x double> [[TMP5]], double [[LD_2_1]], i32 1
+; XMAIN-NEXT:    [[TMP7:%.*]] = fmul <2 x double> [[TMP1]], [[TMP6]]
+; XMAIN-NEXT:    [[TMP8:%.*]] = fadd <2 x double> [[TMP4]], [[TMP7]]
+; XMAIN-NEXT:    [[TMP9:%.*]] = extractelement <2 x double> [[TMP8]], i32 0
+; XMAIN-NEXT:    [[TMP10:%.*]] = extractelement <2 x double> [[TMP8]], i32 1
+; XMAIN-NEXT:    [[ADD3:%.*]] = fadd double [[TMP9]], [[TMP10]]
+; XMAIN-NEXT:    ret double [[ADD3]]
+; end INTEL_CUSTOMIZATION
 entry:
   %gep_1_0 = getelementptr inbounds double, double* %array1, i64 0
   %gep_1_1 = getelementptr inbounds double, double* %array1, i64 1
@@ -1098,6 +1096,30 @@ define double @splat_loads_with_internal_uses(double *%array1, double *%array2, 
 ; CHECK-NEXT:    [[RES:%.*]] = fadd double [[TMP13]], [[TMP14]]
 ; CHECK-NEXT:    ret double [[RES]]
 ;
+; INTEL_CUSTOMIZATION
+; XMAIN-LABEL: @splat_loads_with_internal_uses(
+; XMAIN-NEXT:  entry:
+; XMAIN-NEXT:    [[GEP_1_0:%.*]] = getelementptr inbounds double, double* [[ARRAY1:%.*]], i64 0
+; XMAIN-NEXT:    [[GEP_2_0:%.*]] = getelementptr inbounds double, double* [[ARRAY2:%.*]], i64 0
+; XMAIN-NEXT:    [[TMP0:%.*]] = bitcast double* [[GEP_1_0]] to <2 x double>*
+; XMAIN-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* [[TMP0]], align 8
+; XMAIN-NEXT:    [[TMP2:%.*]] = bitcast double* [[GEP_2_0]] to <2 x double>*
+; XMAIN-NEXT:    [[TMP3:%.*]] = load <2 x double>, <2 x double>* [[TMP2]], align 8
+; XMAIN-NEXT:    [[SHUFFLE:%.*]] = shufflevector <2 x double> [[TMP3]], <2 x double> poison, <2 x i32> <i32 1, i32 0>
+; XMAIN-NEXT:    [[TMP4:%.*]] = fmul <2 x double> [[TMP1]], [[SHUFFLE]]
+; XMAIN-NEXT:    [[TMP5:%.*]] = extractelement <2 x double> [[SHUFFLE]], i32 1
+; XMAIN-NEXT:    [[TMP6:%.*]] = insertelement <2 x double> poison, double [[TMP5]], i32 0
+; XMAIN-NEXT:    [[TMP7:%.*]] = extractelement <2 x double> [[SHUFFLE]], i32 0
+; XMAIN-NEXT:    [[TMP8:%.*]] = insertelement <2 x double> [[TMP6]], double [[TMP7]], i32 1
+; XMAIN-NEXT:    [[TMP9:%.*]] = fmul <2 x double> [[TMP1]], [[TMP8]]
+; XMAIN-NEXT:    [[TMP10:%.*]] = fadd <2 x double> [[TMP4]], [[TMP9]]
+; XMAIN-NEXT:    [[TMP11:%.*]] = insertelement <2 x double> [[TMP6]], double [[TMP5]], i32 1
+; XMAIN-NEXT:    [[TMP12:%.*]] = fsub <2 x double> [[TMP10]], [[TMP11]]
+; XMAIN-NEXT:    [[TMP13:%.*]] = extractelement <2 x double> [[TMP12]], i32 0
+; XMAIN-NEXT:    [[TMP14:%.*]] = extractelement <2 x double> [[TMP12]], i32 1
+; XMAIN-NEXT:    [[RES:%.*]] = fadd double [[TMP13]], [[TMP14]]
+; XMAIN-NEXT:    ret double [[RES]]
+; end INTEL_CUSTOMIZATION
 entry:
   %gep_1_0 = getelementptr inbounds double, double* %array1, i64 0
   %gep_1_1 = getelementptr inbounds double, double* %array1, i64 1
