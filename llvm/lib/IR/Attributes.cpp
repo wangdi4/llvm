@@ -1794,7 +1794,6 @@ AttributeMask AttributeFuncs::typeIncompatible(Type *Ty,
                                                AttributeSafetyKind ASK) {
   AttributeMask Incompatible;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // We want to be able to zero/sign extend vector parameters/return for
   // vector functions.
@@ -1827,8 +1826,6 @@ AttributeMask AttributeFuncs::typeIncompatible(Type *Ty,
         .addAttribute(Attribute::ByRef)
         .addAttribute(Attribute::ElementType);
 
-  if (!Ty->isPtrOrPtrVectorTy())
-=======
   if (!Ty->isIntegerTy()) {
     // Attributes that only apply to integers.
     if (ASK & ASK_SAFE_TO_DROP)
@@ -1858,7 +1855,6 @@ AttributeMask AttributeFuncs::typeIncompatible(Type *Ty,
           .addAttribute(Attribute::ElementType);
   }
 
->>>>>>> bb0b23174e4ab963df427393fbf21bddede499bf
     // Attributes that only apply to pointers or vectors of pointers.
   if (!Ty->isPtrOrPtrVectorTy()) {
     if (ASK & ASK_SAFE_TO_DROP)
