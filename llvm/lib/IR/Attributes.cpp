@@ -1790,9 +1790,11 @@ bool AttrBuilder::operator==(const AttrBuilder &B) const {
 //===----------------------------------------------------------------------===//
 
 /// Which attributes cannot be applied to a type.
-AttributeMask AttributeFuncs::typeIncompatible(Type *Ty) {
+AttributeMask AttributeFuncs::typeIncompatible(Type *Ty,
+                                               AttributeSafetyKind ASK) {
   AttributeMask Incompatible;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // We want to be able to zero/sign extend vector parameters/return for
   // vector functions.
@@ -1826,12 +1828,48 @@ AttributeMask AttributeFuncs::typeIncompatible(Type *Ty) {
         .addAttribute(Attribute::ElementType);
 
   if (!Ty->isPtrOrPtrVectorTy())
+=======
+  if (!Ty->isIntegerTy()) {
+    // Attributes that only apply to integers.
+    if (ASK & ASK_SAFE_TO_DROP)
+      Incompatible.addAttribute(Attribute::AllocAlign);
+    if (ASK & ASK_UNSAFE_TO_DROP)
+      Incompatible.addAttribute(Attribute::SExt).addAttribute(Attribute::ZExt);
+  }
+
+  if (!Ty->isPointerTy()) {
+    // Attributes that only apply to pointers.
+    if (ASK & ASK_SAFE_TO_DROP)
+      Incompatible.addAttribute(Attribute::NoAlias)
+          .addAttribute(Attribute::NoCapture)
+          .addAttribute(Attribute::NonNull)
+          .addAttribute(Attribute::ReadNone)
+          .addAttribute(Attribute::ReadOnly)
+          .addAttribute(Attribute::Dereferenceable)
+          .addAttribute(Attribute::DereferenceableOrNull);
+    if (ASK & ASK_UNSAFE_TO_DROP)
+      Incompatible.addAttribute(Attribute::Nest)
+          .addAttribute(Attribute::SwiftError)
+          .addAttribute(Attribute::Preallocated)
+          .addAttribute(Attribute::InAlloca)
+          .addAttribute(Attribute::ByVal)
+          .addAttribute(Attribute::StructRet)
+          .addAttribute(Attribute::ByRef)
+          .addAttribute(Attribute::ElementType);
+  }
+
+>>>>>>> bb0b23174e4ab963df427393fbf21bddede499bf
     // Attributes that only apply to pointers or vectors of pointers.
-    Incompatible.addAttribute(Attribute::Alignment);
+  if (!Ty->isPtrOrPtrVectorTy()) {
+    if (ASK & ASK_SAFE_TO_DROP)
+      Incompatible.addAttribute(Attribute::Alignment);
+  }
 
   // Some attributes can apply to all "values" but there are no `void` values.
-  if (Ty->isVoidTy())
-    Incompatible.addAttribute(Attribute::NoUndef);
+  if (Ty->isVoidTy()) {
+    if (ASK & ASK_SAFE_TO_DROP)
+      Incompatible.addAttribute(Attribute::NoUndef);
+  }
 
   return Incompatible;
 }
