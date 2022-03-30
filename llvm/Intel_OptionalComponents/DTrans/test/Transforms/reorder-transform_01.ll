@@ -1,8 +1,8 @@
 ; This test verifies that reordering transformation applied to struct.test
 ; and a new struct is created with different layout.
 
-;  RUN: opt < %s -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-reorderfields | FileCheck %s
-;  RUN: opt < %s -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-reorderfields | FileCheck %s
+;  RUN: opt  -whole-program-assume < %s -S -dtrans-reorderfields | FileCheck %s
+;  RUN: opt  -whole-program-assume < %s -S -passes=dtrans-reorderfields | FileCheck %s
 
 ; CHECK: %__DFR_struct.test = type { i64, i64, i64, i32, i32, i32, i16 }
 ; CHECK-NOT: %struct.test = type { i32, i64, i32, i32, i16, i64, i64 }

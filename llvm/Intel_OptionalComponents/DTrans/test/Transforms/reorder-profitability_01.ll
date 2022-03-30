@@ -1,8 +1,8 @@
 ; This test verifies that reordering transformation will NOT be
 ; enabled for struct.test based on profitability heuristic.
 
-;  RUN: opt < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-reorderfields -S 2>&1 | FileCheck %s
-;  RUN: opt < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-reorderfields -S 2>&1 | FileCheck %s
+;  RUN: opt  -whole-program-assume < %s -dtrans-reorderfields -S 2>&1 | FileCheck %s
+;  RUN: opt  -whole-program-assume < %s -passes=dtrans-reorderfields -S 2>&1 | FileCheck %s
 
 ; CHECK: %struct.test = type { i8, i8, i64 }
 
