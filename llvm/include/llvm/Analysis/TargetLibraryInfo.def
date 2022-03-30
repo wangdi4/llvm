@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1129,6 +1129,9 @@ TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcE
 /// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::append(char const*)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6appendEPKc)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6appendEPKc")
+/// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::assign(char const*)
+TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6assignEPKc)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6assignEPKc")
 /// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::resize(unsigned long, char)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6resizeEmc)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6resizeEmc")

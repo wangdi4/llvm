@@ -1096,6 +1096,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare %struct* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEaSEOS4_(%struct *, %struct *)\n"
       "declare %struct* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEaSEPKc(%struct*, i8*)\n"
       "declare %struct* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6appendEPKc(%struct*, i8*)\n"
+      "declare %struct* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6assignEPKc(%struct*, i8*)\n"
       "declare void @_ZNSt9basic_iosIcSt11char_traitsIcEE4initEPSt15basic_streambufIcS1_E(i8*, i8*)\n"
       "declare void @_ZNSt9basic_iosIcSt11char_traitsIcEE5clearESt12_Ios_Iostate(i8*, i32)\n"
       "declare i8* @_ZNSt9basic_iosIcSt11char_traitsIcEE5rdbufEPSt15basic_streambufIcS1_E(i8*, i8*)\n"
