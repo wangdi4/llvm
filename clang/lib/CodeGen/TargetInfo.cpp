@@ -4202,7 +4202,6 @@ void X86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
     if (IsRegCall && it->type->isStructureOrClassType())
       it->info = classifyRegCallStructType(it->type, NeededInt, NeededSSE,
                                            MaxVectorWidth);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     else if (IsSVMLCall &&
              isSVMLIntArgumentMask(getContext(), it->type, FI.getReturnType())) {
@@ -4221,8 +4220,6 @@ void X86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
       NeededSSE = 0;
     }
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> cd26190a10fceb6e1472fabcd9e1736f62f078c4
     else
       it->info = classifyArgumentType(it->type, FreeIntRegs, NeededInt,
                                       NeededSSE, IsNamedArg);
