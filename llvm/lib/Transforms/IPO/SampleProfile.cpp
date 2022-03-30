@@ -91,8 +91,6 @@
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Utils/CallPromotionUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/Utils/MisExpect.h"
-#include "llvm/Transforms/Utils/SampleProfileInference.h"
 #include "llvm/Transforms/Utils/SampleProfileLoaderBaseImpl.h"
 #include "llvm/Transforms/Utils/SampleProfileLoaderBaseUtil.h"
 #include <algorithm>
@@ -1761,8 +1759,6 @@ void SampleProfileLoader::generateMDProfMetadata(Function &F) {
         }
       }
     }
-
-    misexpect::checkExpectAnnotations(*TI, Weights, /*IsFrontend=*/false);
 
     uint64_t TempWeight;
     // Only set weights if there is at least one non-zero weight.
