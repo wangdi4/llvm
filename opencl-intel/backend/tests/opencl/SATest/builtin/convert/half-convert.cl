@@ -118,9 +118,16 @@
                  convert_double##VF##_rtz(v);                                  \
   }
 
+#ifndef VF16
+
 CONVERT_FP16()
 CONVERT_FP16(2)
 CONVERT_FP16(3)
 CONVERT_FP16(4)
 CONVERT_FP16(8)
+
+#else
+
 CONVERT_FP16(16)
+
+#endif
