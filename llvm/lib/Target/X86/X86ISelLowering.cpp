@@ -2321,6 +2321,7 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
         setOperationAction(Op, MVT::f32, Promote);
 
   // We have target-specific dag combine patterns for the following nodes:
+<<<<<<< HEAD
   setTargetDAGCombine(ISD::VECTOR_SHUFFLE);
   setTargetDAGCombine(ISD::BUILD_VECTOR); // INTEL
   setTargetDAGCombine(ISD::SCALAR_TO_VECTOR);
@@ -2372,6 +2373,57 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
   setTargetDAGCombine(ISD::FP_EXTEND);
   setTargetDAGCombine(ISD::STRICT_FP_EXTEND);
   setTargetDAGCombine(ISD::FP_ROUND);
+=======
+  setTargetDAGCombine({ISD::VECTOR_SHUFFLE,
+                       ISD::SCALAR_TO_VECTOR,
+                       ISD::INSERT_VECTOR_ELT,
+                       ISD::EXTRACT_VECTOR_ELT,
+                       ISD::CONCAT_VECTORS,
+                       ISD::INSERT_SUBVECTOR,
+                       ISD::EXTRACT_SUBVECTOR,
+                       ISD::BITCAST,
+                       ISD::VSELECT,
+                       ISD::SELECT,
+                       ISD::SHL,
+                       ISD::SRA,
+                       ISD::SRL,
+                       ISD::OR,
+                       ISD::AND,
+                       ISD::ADD,
+                       ISD::FADD,
+                       ISD::FSUB,
+                       ISD::FNEG,
+                       ISD::FMA,
+                       ISD::STRICT_FMA,
+                       ISD::FMINNUM,
+                       ISD::FMAXNUM,
+                       ISD::SUB,
+                       ISD::LOAD,
+                       ISD::MLOAD,
+                       ISD::STORE,
+                       ISD::MSTORE,
+                       ISD::TRUNCATE,
+                       ISD::ZERO_EXTEND,
+                       ISD::ANY_EXTEND,
+                       ISD::SIGN_EXTEND,
+                       ISD::SIGN_EXTEND_INREG,
+                       ISD::ANY_EXTEND_VECTOR_INREG,
+                       ISD::SIGN_EXTEND_VECTOR_INREG,
+                       ISD::ZERO_EXTEND_VECTOR_INREG,
+                       ISD::SINT_TO_FP,
+                       ISD::UINT_TO_FP,
+                       ISD::STRICT_SINT_TO_FP,
+                       ISD::STRICT_UINT_TO_FP,
+                       ISD::SETCC,
+                       ISD::MUL,
+                       ISD::XOR,
+                       ISD::MSCATTER,
+                       ISD::MGATHER,
+                       ISD::FP16_TO_FP,
+                       ISD::FP_EXTEND,
+                       ISD::STRICT_FP_EXTEND,
+                       ISD::FP_ROUND});
+>>>>>>> 662b9fa02ca217f91e683f456d70fccc7746d31c
 
   computeRegisterProperties(Subtarget.getRegisterInfo());
 
