@@ -355,6 +355,8 @@ def ObjCNonFragileRuntime
 
 def HLS : LangOpt<"HLS">; // INTEL
 
+def HLSL : LangOpt<"HLSL">;
+
 // Language option for CMSE extensions
 def Cmse : LangOpt<"Cmse">;
 
@@ -5028,3 +5030,11 @@ def PropagateDSPPreference : InheritableAttr {
   let SimpleHandler = 1;
 }
 // end INTEL_CUSTOMIZATION
+
+def HLSLNumThreads: InheritableAttr {
+  let Spellings = [Microsoft<"numthreads">];
+  let Args = [IntArgument<"X">, IntArgument<"Y">, IntArgument<"Z">];
+  let Subjects = SubjectList<[Function]>;
+  let LangOpts = [HLSL];
+  let Documentation = [NumThreadsDocs];
+}
