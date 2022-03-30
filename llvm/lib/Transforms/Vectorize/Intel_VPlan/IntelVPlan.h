@@ -3241,10 +3241,8 @@ public:
   // TODO: Not sure about this. We might have to revisit this when we support
   // HIR.
 
-  VPInvSCEVWrapper(VPlanSCEV *S)
-      : VPInstruction(VPInstruction::InvSCEVWrapper,
-                      VPlanScalarEvolutionLLVM::toSCEV(S)->getType(), {}),
-        Scev(S) {
+  VPInvSCEVWrapper(VPlanSCEV *S, Type *Ty)
+      : VPInstruction(VPInstruction::InvSCEVWrapper, Ty, {}), Scev(S) {
     // We don't support AddREC SCEV.
     assert(VPlanScalarEvolutionLLVM::toSCEV(Scev)->getSCEVType() !=
                SCEVTypes::scAddRecExpr &&

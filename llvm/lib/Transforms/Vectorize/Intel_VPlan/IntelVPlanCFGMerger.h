@@ -90,8 +90,9 @@ public:
   // \p Scen and the prepared list of VPlans \p Plans. It goes through the list
   // of VPlans, creates placeholder basic blocks for them, inserts merging
   // blocks, and emits the needed trip count checks.
+  template <class LoopTy>
   void createMergedCFG(SingleLoopVecScenario &Scen,
-                       std::list<CfgMergerPlanDescr> &Plans);
+                       std::list<CfgMergerPlanDescr> &Plans, LoopTy *OrigLoop);
 
   void mergeVPlans(std::list<CfgMergerPlanDescr> &Plans);
 
@@ -197,7 +198,8 @@ private:
   // from the passed list. Each VPlan is represented by a VPlanAdapter. The
   // sequence of basic blocks with VPlanAdpaters, merge blocks, and the needed
   // trip count checks are generated. See example of CFG in the *.cpp file.
-  void emitSkeleton(std::list<PlanDescr> &Plans);
+  template <class LoopTy>
+  void emitSkeleton(std::list<PlanDescr> &Plans, LoopTy *OrigLoop);
 
   // Create a check for whether the loop described by \p PrevDescr should be
   // executed after the loop described by \p Descr. I.e. the check for the upper
@@ -281,9 +283,10 @@ private:
   //      merge block after the peel loop.
   //    - check for (PeelCount + MainVF*MainUF) is less than main loop upper
   //      bound, jumping to the remainder or to the peel loop.
+  template <class LoopTy>
   void insertPeelCntAndChecks(PlanDescr &PeelDescr,
                               VPBasicBlock *FinalRemainderMerge,
-                              VPBasicBlock *RemainderMerge);
+                              VPBasicBlock *RemainderMerge, LoopTy *OrigLoop);
 
   // Generate the following sequence to check whether lower bits of the pointer
   // for \p Peeling are non-zero. If they are non-zero we can't align the
@@ -300,10 +303,11 @@ private:
   //  can execute the main loop w/o peeling. E.g. in case of a search loop with
   //  speculative loads the alignment is required and we should go to the scalar
   //  remainder.
+  template <class LoopTy>
   void createPeelPtrCheck(VPlanDynamicPeeling &Peeling,
                           VPBasicBlock *InsertBefore,
                           VPBasicBlock *NonZeroMerge, VPlan &P,
-                          VPValue *&PeelBasePtr);
+                          VPValue *&PeelBasePtr, LoopTy *OrigLoop);
 
   // Predicate whether we need peel for safety, e.g. in the search loop.
   bool needPeelForSafety() const;
@@ -333,13 +337,15 @@ private:
   //   Quotient = BasePtr / DP.RequiredAlignment;
   //   Divisor = DP.TargetAlignment / DP.RequiredAlignment;
   //   PeelCount = (Quotient * Multiplier) % Divisor;
+  template <class LoopTy>
   VPValue *emitDynamicPeelCount(VPlanDynamicPeeling &DP, VPValue *BasePtr,
-                                VPBuilder &Builder);
+                                VPBuilder &Builder, LoopTy *OrigLoop);
 
   // Create VPInvSCEVWrapper for \p Peeling->invariantBase at the \p Builder's
   // insertion point.
+  template <class LoopTy>
   VPInvSCEVWrapper *emitPeelBasePtr(VPlanDynamicPeeling &Peeling,
-                                    VPBuilder &Builder);
+                                    VPBuilder &Builder, LoopTy *OrigLoop);
 
   // Insert VPPushVF/VPPopVF in the VPlan body. VPPushVF is inserted at the
   // beginning of the first VPBasicBlock of VPlan and VPPopVF is inserted in the
