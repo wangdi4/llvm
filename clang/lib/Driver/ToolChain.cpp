@@ -1621,18 +1621,6 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
   DerivedArgList *DAL = new DerivedArgList(Args.getBaseArgs());
   const OptTable &Opts = getDriver().getOpts();
   bool Modified = false;
-#if INTEL_CUSTOMIZATION
-  // FIXME: in IsCLMode() the host optlevel is specified with '/' prefix.
-  //        For some reason we use default GNU toolchain for spir triple,
-  //        so the optlevel translation does not happen
-  //        (see MSVCToolChain::TranslateArgs). Next, the AddOptLevel() lambda
-  //        in Clang.cpp does not handle /O options. With all this
-  //        there is currently no way to enable optimizations for spir offload
-  //        on Windows.
-  //        We should probably figure out how to translate '/' options
-  //        for spir offload on Windows.
-  bool ExplicitOptLevelForTarget = false;
-#endif // INTEL_CUSTOMIZATION
 
   // Handle -Xopenmp-target and -Xsycl-target-frontend flags
   for (auto *A : Args) {
@@ -1696,73 +1684,9 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
           Arg *A4 = OffloadTargetArg.release();
           AllocatedArgs.push_back(A4);
           DAL->append(A4);
-
-          // Tokenize the string.
-          SmallVector<const char *, 8> TargetArgs;
-          llvm::BumpPtrAllocator BPA;
-          llvm::StringSaver S(BPA);
-          llvm::cl::TokenizeGNUCommandLine(T.second, S, TargetArgs);
-          // Setup masks so Windows options aren't picked up for parsing
-          // Linux options
-          unsigned IncludedFlagsBitmask = 0;
-          unsigned ExcludedFlagsBitmask = options::NoDriverOption;
-          if (getDriver().IsCLMode()) {
-            // Include CL and Core options.
-            IncludedFlagsBitmask |= options::CLOption;
-            IncludedFlagsBitmask |= options::CoreOption;
-          } else {
-            ExcludedFlagsBitmask |= options::CLOption;
-          }
-          unsigned MissingArgIndex, MissingArgCount;
-          InputArgList NewArgs =
-              Opts.ParseArgs(TargetArgs, MissingArgIndex, MissingArgCount,
-                             IncludedFlagsBitmask, ExcludedFlagsBitmask);
-          for (Arg *NA : NewArgs) {
-            // Add the new arguments.
-            Arg *OffloadArg;
-            if (NA->getNumValues()) {
-              StringRef Value(NA->getValue());
-              OffloadArg = new Arg(
-                  NA->getOption(), Args.MakeArgString(NA->getSpelling()),
-                  Args.getBaseArgs().MakeIndex(NA->getSpelling()),
-                  Args.MakeArgString(Value.data()));
-            } else {
-              OffloadArg = new Arg(
-                  NA->getOption(), Args.MakeArgString(NA->getSpelling()),
-                  Args.getBaseArgs().MakeIndex(NA->getSpelling()));
-            }
-            std::unique_ptr<llvm::opt::Arg> A2(OffloadArg);
-            A2->setBaseArg(A);
-            Arg *A4 = A2.release();
-            AllocatedArgs.push_back(A4);
-            DAL->append(A4);
-          }
-          ExplicitOptLevelForTarget =
-              NewArgs.hasArg(options::OPT_O_Group, options::OPT__SLASH_O);
           Modified = true;
         } else
           DAL->append(A);
-        continue;
-      } else if (ExplicitOptLevelForTarget &&
-                 getDriver().IsIntelMode() &&
-                 (A->getOption().matches(options::OPT_O_Group) ||
-                  A->getOption().matches(options::OPT__SLASH_O))) {
-        // Ignore the optimization option specified for "host" compilation.
-        //
-        // ExplicitOptLevelForTarget means that there is an explicit
-        // optimization level in -fopenmp-targets=<target>="...",
-        // so we should honor it.
-        //
-        // If we add the host optlevel (including the default -O2), we will
-        // fail to honor the explicit optlevel for the target.
-        //
-        // FIXME: I believe this behavior should be true for all
-        //        options, i.e. options passed via -fopenmp-targets
-        //        must override the host options. Right now, it depends
-        //        on the order of the options, and there is no way
-        //        to override options added by default for Intel mode
-        //        (e.g. O2).
-        Modified = true;
         continue;
 #endif // INTEL_CUSTOMIZATION
       } else if (XOffloadTargetNoTriple) {
@@ -1834,7 +1758,51 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
     DAL->append(A);
     Modified = true;
   }
-
+#if INTEL_CUSTOMIZATION
+  // -fopenmp-targets=<triple>=<opts> support parsing.
+  for (StringRef Val : Args.getAllArgValues(options::OPT_fopenmp_targets_EQ)) {
+    // Capture options from -fopenmp-targets=<triple>=<opts>
+    std::pair<StringRef, StringRef> T = Val.split('=');
+    if (T.second.empty())
+      continue;
+    // Tokenize the string.
+    SmallVector<const char *, 8> TargetArgs;
+    llvm::BumpPtrAllocator BPA;
+    llvm::StringSaver S(BPA);
+    llvm::cl::TokenizeGNUCommandLine(T.second, S, TargetArgs);
+    // Setup masks so Windows options aren't picked up for parsing
+    // Linux options
+    unsigned IncludedFlagsBitmask = 0;
+    unsigned ExcludedFlagsBitmask = options::NoDriverOption;
+    if (getDriver().IsCLMode()) {
+      // Include CL and Core options.
+      IncludedFlagsBitmask |= options::CLOption;
+      IncludedFlagsBitmask |= options::CoreOption;
+    } else
+      ExcludedFlagsBitmask |= options::CLOption;
+    unsigned MissingArgIndex, MissingArgCount;
+    InputArgList NewArgs =
+        Opts.ParseArgs(TargetArgs, MissingArgIndex, MissingArgCount,
+                       IncludedFlagsBitmask, ExcludedFlagsBitmask);
+    for (Arg *NA : NewArgs) {
+      // Add the new arguments.
+      Arg *OffloadArg;
+      if (NA->getNumValues()) {
+        StringRef Value(NA->getValue());
+        OffloadArg = new Arg(
+            NA->getOption(), Args.MakeArgString(NA->getSpelling()),
+            Args.getBaseArgs().MakeIndex(NA->getSpelling()),
+            Args.MakeArgString(Value.data()));
+      } else {
+        OffloadArg = new Arg(
+            NA->getOption(), Args.MakeArgString(NA->getSpelling()),
+            Args.getBaseArgs().MakeIndex(NA->getSpelling()));
+      }
+      DAL->append(OffloadArg);
+      Modified = true;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   if (Modified)
     return DAL;
 
