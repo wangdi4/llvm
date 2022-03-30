@@ -115,7 +115,6 @@
 #include "TestsHelpClasses.h"
 #include "common_utils.h"
 #include <CL/cl.h>
-#include <gtest/gtest.h>
 
 extern cl_device_type gDeviceType;
 

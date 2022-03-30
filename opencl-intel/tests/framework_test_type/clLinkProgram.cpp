@@ -114,17 +114,17 @@ bool clLinkProgramTest()
         delete []pDevices;
         return false;
     }
-    printf("context = %p\n", (void*)context);
+    printf("context = %p\n", (void *)context);
 
-    queue = clCreateCommandQueue(context, pDevices[0], 0, &iRet);
-    if (CL_SUCCESS != iRet)
-    {
-        clReleaseContext(context);
+    queue =
+        clCreateCommandQueueWithProperties(context, pDevices[0], NULL, &iRet);
+    if (CL_SUCCESS != iRet) {
+      clReleaseContext(context);
 
-        delete []pDevices;
+      delete[] pDevices;
 
-        printf("clCreateCommandQueue = %s\n",ClErrTxt(iRet));
-        return false;
+      printf("clCreateCommandQueueWithProperties = %s\n", ClErrTxt(iRet));
+      return false;
     }
 
     // create program with source

@@ -59,19 +59,21 @@ bool fission_read_buffer_test()
 	//init context
 	context = clCreateContext(NULL, 2, devices, NULL, NULL, &err);
 	bResult &= SilentCheck("clCreateContext",CL_SUCCESS,err);
-	if (!bResult)	return bResult;
+        if (!bResult)
+          return bResult;
 
-	//init Command Queue
-	cmd_queue = clCreateCommandQueue(context, devices[1], 0, &err);
-	bResult &= SilentCheck("clCreateCommandQueue",CL_SUCCESS,err);
-	if (!bResult)
-    {
-		clReleaseContext(context);
-		clReleaseDevice(devices[1]);
-		return bResult;
-	}	
-	
-	//Create buffers
+        // init Command Queue
+        cmd_queue =
+            clCreateCommandQueueWithProperties(context, devices[1], NULL, &err);
+        bResult &=
+            SilentCheck("clCreateCommandQueueWithProperties", CL_SUCCESS, err);
+        if (!bResult) {
+          clReleaseContext(context);
+          clReleaseDevice(devices[1]);
+          return bResult;
+        }
+
+        //Create buffers
 	cl_uint data[2] = {0xABCD, 0x1234};
 	//buf = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint), data, &err); 
     buf = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_uint), NULL, &err); 
@@ -93,7 +95,8 @@ bool fission_read_buffer_test()
 	clReleaseCommandQueue(cmd_queue);
 	clReleaseContext(context);
 	clReleaseDevice(devices[1]);
-	if (!bResult) return bResult;
-	
-	return data[0] == data[1];
+        if (!bResult)
+          return bResult;
+
+        return data[0] == data[1];
 }

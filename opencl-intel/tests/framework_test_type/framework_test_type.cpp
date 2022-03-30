@@ -1,6 +1,5 @@
 #include "CL/cl.h"
 
-#include <gtest/gtest.h>
 #include <map>
 #include <string>
 
@@ -580,10 +579,7 @@ TEST(FrameworkTestType, Test_cl_DumpIRBeforeAfterPasses)
 #endif
 
 // cl_intel_subgroup test.
-TEST(INTEL_SUBGR, Test_GetKernelSubGroupInfoKHR)
-{
-    clGetKernelSubGroupInfoKHR();
-}
+TEST(INTEL_SUBGR, Test_GetKernelSubGroupInfoKHR) { clGetKernelSubGroupInfo(); }
 
 // CL21 tests.
 TEST(CL21_depr, Test_CloneKernel)

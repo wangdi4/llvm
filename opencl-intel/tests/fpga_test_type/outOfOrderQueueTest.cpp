@@ -98,8 +98,10 @@ TEST_P(OOOQueueTest, DependencyTest) {
     ASSERT_OCL_SUCCESS(iRet, "clSetKernelArgMemPointerINTEL");
 
     // Create queue
-    cl_command_queue queue = clCreateCommandQueue(
-        context, device, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &iRet);
+    const cl_queue_properties props[] = {
+        CL_QUEUE_PROPERTIES, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, 0};
+    cl_command_queue queue =
+        clCreateCommandQueueWithProperties(context, device, props, &iRet);
     ASSERT_OCL_SUCCESS(iRet, "clCreateCommandQueue");
 
     // Execute kernel

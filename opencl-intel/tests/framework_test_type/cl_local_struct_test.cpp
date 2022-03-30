@@ -71,15 +71,18 @@ bool clLocalStructTest()
     if (!bResult) goto release_end;
 
 	iRet = clGetDeviceIDs(platform, gDeviceType, 1, &clDefaultDeviceId, NULL);
-    bResult &= Check("clGetDeviceIDs", CL_SUCCESS, iRet);    
-    if (!bResult) goto release_context;
+        bResult &= Check("clGetDeviceIDs", CL_SUCCESS, iRet);
+        if (!bResult)
+          goto release_context;
 
-    queue = clCreateCommandQueue (context, clDefaultDeviceId, 0 /*no properties*/, &iRet);
-	bResult &= Check("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
-	if (!bResult) goto release_context;
+        queue = clCreateCommandQueueWithProperties(
+            context, clDefaultDeviceId, NULL /*no properties*/, &iRet);
+        bResult &= Check("clCreateCommandQueueWithProperties - queue",
+                         CL_SUCCESS, iRet);
+        if (!bResult)
+          goto release_context;
 
-	
-	if ( !BuildProgramSynch(context, 1, (const char**)&ocl_test_program, NULL, NULL, &program) )
+        if ( !BuildProgramSynch(context, 1, (const char**)&ocl_test_program, NULL, NULL, &program) )
 		goto release_queue;
 
     kernel = clCreateKernel(program, "Foo", &iRet);

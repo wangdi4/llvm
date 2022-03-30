@@ -65,10 +65,6 @@ static uint16_t CallFunctions(cl_device_id device) {
     clCreateBuffer(0, 0, 0, 0, 0);
 
     ++count;
-    functionId = CL_FUNCTION_clCreateCommandQueue;
-    clCreateCommandQueue(0, 0, 0, 0);
-
-    ++count;
     functionId = CL_FUNCTION_clCreateCommandQueueWithProperties;
     clCreateCommandQueueWithProperties(0, 0, 0, 0);
 
@@ -81,7 +77,7 @@ static uint16_t CallFunctions(cl_device_id device) {
     clCreateContextFromType(0, 0, 0, 0, 0);
 
     ++count;
-    cl_image_desc imageDesc = {0};
+    cl_image_desc imageDesc = {0, 0, 0, 0, 0, 0, 0, 0, 0, {nullptr}};
     functionId = CL_FUNCTION_clCreateImage;
     clCreateImage(0, 0, 0, &imageDesc, 0, 0);
 
@@ -123,10 +119,6 @@ static uint16_t CallFunctions(cl_device_id device) {
     ++count;
     functionId = CL_FUNCTION_clCreateProgramWithSource;
     clCreateProgramWithSource(0, 0, 0, 0, 0);
-
-    ++count;
-    functionId = CL_FUNCTION_clCreateSampler;
-    clCreateSampler(0, 0, 0, 0, 0);
 
     ++count;
     functionId = CL_FUNCTION_clCreateSamplerWithProperties;
@@ -243,10 +235,6 @@ static uint16_t CallFunctions(cl_device_id device) {
     ++count;
     functionId = CL_FUNCTION_clEnqueueSVMUnmap;
     clEnqueueSVMUnmap(0, 0, 0, 0, 0);
-
-    ++count;
-    functionId = CL_FUNCTION_clEnqueueTask;
-    clEnqueueTask(0, 0, 0, 0, 0);
 
     ++count;
     functionId = CL_FUNCTION_clEnqueueUnmapMemObject;
@@ -501,37 +489,28 @@ static void callback(cl_function_id fid,
         }
     }
 
-    if (fid == CL_FUNCTION_clCreateCommandQueue) {
-        if (callbackData->site == CL_CALLBACK_SITE_ENTER) {
-            const cl_params_clCreateCommandQueue* params =
-                reinterpret_cast<const cl_params_clCreateCommandQueue*>(
-                    callbackData->functionParams);
-            CheckException("clCreateCommandQueue", 0llu,
-                static_cast<unsigned long long>(*params->properties));
-            *params->properties = CL_QUEUE_PROFILING_ENABLE;
-        }
-    }
-    else if (fid == CL_FUNCTION_clCreateCommandQueueWithProperties) {
-        if (callbackData->site == CL_CALLBACK_SITE_ENTER) {
-            const cl_params_clCreateCommandQueueWithProperties* params =
-                reinterpret_cast<const cl_params_clCreateCommandQueueWithProperties*>(
-                    callbackData->functionParams);
-            CheckException("clCreateCommandQueueWithProperties",
-                static_cast<const void*>(nullptr),
-                reinterpret_cast<const void*>(*params->properties));
+    if (fid == CL_FUNCTION_clCreateCommandQueueWithProperties) {
+      if (callbackData->site == CL_CALLBACK_SITE_ENTER) {
+        const cl_params_clCreateCommandQueueWithProperties *params =
+            reinterpret_cast<
+                const cl_params_clCreateCommandQueueWithProperties *>(
+                callbackData->functionParams);
+        CheckException("clCreateCommandQueueWithProperties",
+                       static_cast<const void *>(nullptr),
+                       reinterpret_cast<const void *>(*params->properties));
 
-            cl_queue_properties* props = new cl_queue_properties[3];
-            props[0] = CL_QUEUE_PROPERTIES;
-            props[1] = CL_QUEUE_PROFILING_ENABLE;
-            props[2] = 0;
+        cl_queue_properties *props = new cl_queue_properties[3];
+        props[0] = CL_QUEUE_PROPERTIES;
+        props[1] = CL_QUEUE_PROFILING_ENABLE;
+        props[2] = 0;
 
-            *params->properties = props;
-            *callbackData->correlationData = reinterpret_cast<cl_ulong>(props);
-        } else {
-            cl_queue_properties* props = reinterpret_cast<cl_queue_properties*>(
-                *callbackData->correlationData);
-            delete[] props;
-        }
+        *params->properties = props;
+        *callbackData->correlationData = reinterpret_cast<cl_ulong>(props);
+      } else {
+        cl_queue_properties *props = reinterpret_cast<cl_queue_properties *>(
+            *callbackData->correlationData);
+        delete[] props;
+      }
     }
 }
 
@@ -833,53 +812,30 @@ bool clTracingFunctionsEnabledCheckTest() {
     return true;
 }
 
-bool CheckCommandQueue(cl_device_id device) {
-    cl_int status = CL_SUCCESS;
-
-    cl_context context = clCreateContext(nullptr, 1, &device, nullptr,
-        nullptr, &status);
-    CheckException("clCreateContext", CL_SUCCESS, status);
-
-    cl_command_queue queue = clCreateCommandQueue(context, device, 0, &status);
-    CheckException("clCreateCommandQueue", CL_SUCCESS, status);
-
-    cl_command_queue_properties props = 0;
-    status = clGetCommandQueueInfo(queue, CL_QUEUE_PROPERTIES,
-        sizeof(cl_command_queue_properties), &props, nullptr);
-    CheckException("clGetCommandQueueInfo", CL_SUCCESS, status);
-
-    status = clReleaseCommandQueue(queue);
-    CheckException("clReleaseCommandQueue", CL_SUCCESS, status);
-
-    status = clReleaseContext(context);
-    CheckException("clReleaseContext", CL_SUCCESS, status);
-
-    return props == CL_QUEUE_PROFILING_ENABLE ? true : false;
-}
-
 bool CheckCommandQueueWithProperties(cl_device_id device) {
-    cl_int status = CL_SUCCESS;
+  cl_int status = CL_SUCCESS;
 
-    cl_context context = clCreateContext(nullptr, 1, &device, nullptr,
-        nullptr, &status);
-    CheckException("clCreateContext", CL_SUCCESS, status);
+  cl_context context =
+      clCreateContext(nullptr, 1, &device, nullptr, nullptr, &status);
+  CheckException("clCreateContext", CL_SUCCESS, status);
 
-    cl_command_queue queue = clCreateCommandQueueWithProperties(context,
-        device, nullptr, &status);
-    CheckException("clCreateCommandQueueWithProperties", CL_SUCCESS, status);
+  cl_command_queue queue =
+      clCreateCommandQueueWithProperties(context, device, nullptr, &status);
+  CheckException("clCreateCommandQueueWithProperties", CL_SUCCESS, status);
 
-    cl_command_queue_properties props = 0;
-    status = clGetCommandQueueInfo(queue, CL_QUEUE_PROPERTIES,
-        sizeof(cl_command_queue_properties), &props, nullptr);
-    CheckException("clGetCommandQueueInfo", CL_SUCCESS, status);
+  cl_command_queue_properties props = 0;
+  status = clGetCommandQueueInfo(queue, CL_QUEUE_PROPERTIES,
+                                 sizeof(cl_command_queue_properties), &props,
+                                 nullptr);
+  CheckException("clGetCommandQueueInfo", CL_SUCCESS, status);
 
-    status = clReleaseCommandQueue(queue);
-    CheckException("clReleaseCommandQueue", CL_SUCCESS, status);
+  status = clReleaseCommandQueue(queue);
+  CheckException("clReleaseCommandQueue", CL_SUCCESS, status);
 
-    status = clReleaseContext(context);
-    CheckException("clReleaseContext", CL_SUCCESS, status);
+  status = clReleaseContext(context);
+  CheckException("clReleaseContext", CL_SUCCESS, status);
 
-    return props == CL_QUEUE_PROFILING_ENABLE ? true : false;
+  return props == CL_QUEUE_PROFILING_ENABLE ? true : false;
 }
 
 bool clTracingArgumentsChangedCheckTest() {
@@ -890,18 +846,14 @@ bool clTracingArgumentsChangedCheckTest() {
     status = clCreateTracingHandleINTEL(device, callback, nullptr, &handle);
     CheckException("clCreateTracingHandleINTEL", CL_SUCCESS, status);
 
-    status = clSetTracingPointINTEL(handle,
-        CL_FUNCTION_clCreateCommandQueue, CL_TRUE);
-    CheckException("clSetTracingPointINTEL", CL_SUCCESS, status);
-    status = clSetTracingPointINTEL(handle,
-        CL_FUNCTION_clCreateCommandQueueWithProperties, CL_TRUE);
+    status = clSetTracingPointINTEL(
+        handle, CL_FUNCTION_clCreateCommandQueueWithProperties, CL_TRUE);
     CheckException("clSetTracingPointINTEL", CL_SUCCESS, status);
 
     status = clEnableTracingINTEL(handle);
     CheckException("clEnableTracingINTEL", CL_SUCCESS, status);
 
-    bool success = CheckCommandQueue(device);
-    success = success && CheckCommandQueueWithProperties(device);
+    bool success = CheckCommandQueueWithProperties(device);
 
     status = clDisableTracingINTEL(handle);
     CheckException("clDisableTracingINTEL", CL_SUCCESS, status);

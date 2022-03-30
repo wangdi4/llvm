@@ -18,7 +18,7 @@
 #include "FunctionDescriptor.h"
 #include "NameMangleAPI.h"
 #include "ParameterType.h"
-#include "gtest/gtest.h"
+#include "gtest_wrapper.h"
 #include <algorithm>
 #include <map>
 #include <stdint.h>

@@ -82,13 +82,14 @@ bool test_native_kernel(cl_command_queue queue1, cl_mem buffer_srcA, cl_mem buff
     cl_mem memList[] = { buffer_srcA, buffer_srcB, buffer_dst};
     void* ppArgsMemLoc[3];
     ppArgsMemLoc[0]= (void*)(&(params.pInBuffer1));
-    ppArgsMemLoc[1]= (void*)(&(params.pInBuffer2));
-    ppArgsMemLoc[2]= (void*)(&(params.pOutBuffer));
+    ppArgsMemLoc[1] = (void *)(&(params.pInBuffer2));
+    ppArgsMemLoc[2] = (void *)(&(params.pOutBuffer));
 
-    iRet = clEnqueueNativeKernel( queue1, _KerenlTestFunc, &params, sizeof(SKernelTestParams), 3, memList, (const void**)ppArgsMemLoc, 0, NULL, NULL);
-    if (CL_SUCCESS != iRet)
-    {
-      printf("clEnqueueNativeKernel(1) = %s\n",ClErrTxt(iRet));
+    iRet = clEnqueueNativeKernel(
+        queue1, _KerenlTestFunc, &params, sizeof(SKernelTestParams), 3, memList,
+        const_cast<const void **>(ppArgsMemLoc), 0, NULL, NULL);
+    if (CL_SUCCESS != iRet) {
+      printf("clEnqueueNativeKernel(1) = %s\n", ClErrTxt(iRet));
       return false;
     }
 
@@ -185,14 +186,17 @@ bool clExecutionTest()
     }
     printf("context = %p\n", (void*)context);
 
-      //
-      // Create queue
-      //
-      cl_command_queue queue1 = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
-    bResult &= SilentCheck("clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
+    //
+    // Create queue
+    //
+    cl_command_queue queue1 = clCreateCommandQueueWithProperties(
+        context, pDevices[0], NULL /*no properties*/, &iRet);
+    bResult &= SilentCheck("clCreateCommandQueueWithProperties - queue1",
+                           CL_SUCCESS, iRet);
 
     cl_context cntxInfo;
-    iRet = clGetCommandQueueInfo(queue1, CL_QUEUE_CONTEXT, sizeof(cl_context), &cntxInfo, NULL);
+    iRet = clGetCommandQueueInfo(queue1, CL_QUEUE_CONTEXT, sizeof(cl_context),
+                                 &cntxInfo, NULL);
     bResult &= SilentCheck("clGetCommandQueueInfo", CL_SUCCESS, iRet);
     bResult &= CheckHandle("clGetCommandQueueInfo - context", context, cntxInfo);
 

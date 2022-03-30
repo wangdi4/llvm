@@ -17,7 +17,6 @@
 #include "common_utils.h"
 #include <CL/cl.h>
 #include <CL/cl_gvp_ext.h>
-#include <gtest/gtest.h>
 #include <time.h>
 
 extern cl_device_type gDeviceType;

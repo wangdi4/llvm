@@ -2,7 +2,7 @@
 #include "FrameworkTest.h"
 #include "cl_types.h"
 #include "common_utils.h"
-#include <gtest/gtest.h>
+#include "gtest_wrapper.h"
 #include <stdio.h>
 #include <string>
 

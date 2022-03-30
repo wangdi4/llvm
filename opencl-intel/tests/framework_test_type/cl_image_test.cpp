@@ -46,42 +46,45 @@ bool clCopyImageTest()
     if (!bResult) goto release_end;
 
 	iRet = clGetDeviceIDs(platform, gDeviceType, 1, &clDefaultDeviceId, NULL);
-    bResult &= Check("clGetDeviceIDs", CL_SUCCESS, iRet);    
-    if (!bResult) goto release_context;
+    bResult &= Check("clGetDeviceIDs", CL_SUCCESS, iRet);
+    if (!bResult)
+      goto release_context;
 
-	{
-		cl_command_queue queue = clCreateCommandQueue (context, clDefaultDeviceId, 0 /*no properties*/, &iRet);
-		bResult &= Check("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
-		if (!bResult) goto release_context;
-		
-		{
-			//
-			// Create images for testing
-			// 2D: 480x640
-			// 3D  320x240x4
-			size_t szSrcWidth = 640;
-			size_t szSrcHeight = 480;
-    size_t szDstWidth = 640;
-    size_t szDstHeight = 480;
-    size_t szDstDepth = 4;
+    {
+      cl_command_queue queue = clCreateCommandQueueWithProperties(
+          context, clDefaultDeviceId, NULL /*no properties*/, &iRet);
+      bResult &=
+          Check("clCreateCommandQueueWithProperties - queue", CL_SUCCESS, iRet);
+      if (!bResult)
+        goto release_context;
 
-    //
-    // Set image info according to the format
-    //
-    
+      {
+        //
+        // Create images for testing
+        // 2D: 480x640
+        // 3D  320x240x4
+        size_t szSrcWidth = 640;
+        size_t szSrcHeight = 480;
+        size_t szDstWidth = 640;
+        size_t szDstHeight = 480;
+        size_t szDstDepth = 4;
 
-    size_t szSrcRowPitch   = szSrcWidth * 4; // num channels in CL_RGBA
-    size_t szDstRowPitch   = szDstWidth * 4;
-    size_t szDstSlicePitch = szDstRowPitch * szDstHeight;
+        //
+        // Set image info according to the format
+        //
 
-    size_t szSrcByteSize = szSrcRowPitch * szSrcHeight;
-    size_t szDstByteSize = szDstSlicePitch * szDstDepth;
+        size_t szSrcRowPitch = szSrcWidth * 4; // num channels in CL_RGBA
+        size_t szDstRowPitch = szDstWidth * 4;
+        size_t szDstSlicePitch = szDstRowPitch * szDstHeight;
 
-    //
-    // Allocate and image
-    //
-    cl_uchar* pSrcImageValues = (cl_uchar*)malloc(szSrcByteSize);
-    // fill with random bits no matter what
+        size_t szSrcByteSize = szSrcRowPitch * szSrcHeight;
+        size_t szDstByteSize = szDstSlicePitch * szDstDepth;
+
+        //
+        // Allocate and image
+        //
+        cl_uchar *pSrcImageValues = (cl_uchar *)malloc(szSrcByteSize);
+        // fill with random bits no matter what
 	for( ui = 0; ui < (cl_uint)szSrcByteSize; ui++ )
     {
         pSrcImageValues[ui] = (cl_uchar)( rand() & 255 );
@@ -223,11 +226,11 @@ bool clCopyImageTest()
 			free(pSrcImageValues);
 			clReleaseMemObject(clSrcImg);
 			clReleaseMemObject(clDstImg);
-		}
-	release_queue:
+                }
+        release_queue:
 		clFinish(queue);
 		clReleaseCommandQueue(queue);
-	}
+        }
 release_context:
     clReleaseContext(context);
 release_end:

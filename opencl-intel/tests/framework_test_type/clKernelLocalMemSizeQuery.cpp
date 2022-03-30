@@ -23,7 +23,6 @@
 #include "TestsHelpClasses.h"
 #include "cl_types.h"
 #include "common_utils.h"
-#include <gtest/gtest.h>
 #include <stdio.h>
 #include <string>
 

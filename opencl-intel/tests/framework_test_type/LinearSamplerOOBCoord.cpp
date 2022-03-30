@@ -198,8 +198,9 @@ void LinearSampleOOBCoord()
   cl_sampler sampler = clCreateSamplerWithProperties(context, sampProps, &err);
   ASSERT_OCL_SUCCESS(err, "clCreateSamplerWithProperties");
 
-  cl_command_queue queue = clCreateCommandQueue(context, device, 0, &err);
-  ASSERT_OCL_SUCCESS(err, "clCreateCommandQueue");
+  cl_command_queue queue =
+      clCreateCommandQueueWithProperties(context, device, NULL, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateCommandQueueWithProperties");
 
   TestImage1D(context, queue, sampler);
   TestImage2D(context, queue, sampler);

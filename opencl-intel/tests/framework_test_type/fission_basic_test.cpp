@@ -214,17 +214,20 @@ bool fission_basic_test(){
 	char param_val[100];
 	err = clGetContextInfo(context, CL_CONTEXT_DEVICES, 100, param_val, &pSize);
 	bResult = SilentCheck("clGetContextInfo",CL_SUCCESS,err);
-	if (!bResult)	return bResult;
+        if (!bResult)
+          return bResult;
 
-	//init Command Queue
-	cmd_queue = clCreateCommandQueue(context,out_devices[0],0,&err);
-	bResult = SilentCheck("clCreateCommandQueue",CL_SUCCESS,err);
-	if (!bResult){
-		clReleaseContext(context);
-		return bResult;
-	}	
+        // init Command Queue
+        cmd_queue = clCreateCommandQueueWithProperties(context, out_devices[0],
+                                                       NULL, &err);
+        bResult =
+            SilentCheck("clCreateCommandQueueWithProperties", CL_SUCCESS, err);
+        if (!bResult) {
+          clReleaseContext(context);
+          return bResult;
+        }
 
-	clGetCommandQueueInfo(cmd_queue, CL_QUEUE_DEVICE, 100, param_val, &pSize);
+        clGetCommandQueueInfo(cmd_queue, CL_QUEUE_DEVICE, 100, param_val, &pSize);
 	bResult = SilentCheck("clGetCommandQueueInfo",CL_SUCCESS,err);
 	if (!bResult){
 		clReleaseContext(context);
@@ -260,7 +263,7 @@ bool fission_basic_test(){
 	clReleaseContext(context);
 	for (size_t i = 0; i < num_devices; i++)
 	{
-		clReleaseDevice(out_devices[i]);
-	}
-	return bResult;
+          clReleaseDevice(out_devices[i]);
+        }
+        return bResult;
 }

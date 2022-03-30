@@ -19,12 +19,12 @@
 // problem reports or change requests be submitted to it directly
 
 #include "FrameworkTestThreads.h"
+#include "gtest_wrapper.h"
 #include "test_utils.h"
 #include <CL/cl.h>
 #include <CL/cl_platform.h>
 #include <cstdlib>
 #include <cstring>
-#include <gtest/gtest.h>
 #include <iostream>
 #include <tbb/global_control.h>
 
@@ -505,7 +505,7 @@ static void TestMigrate(cl_context context, cl_device_id device,
   CheckException("clSetKernelArgSVMPointer", CL_SUCCESS, err);
 
   // Enqueue Migrate command to the first queue
-  char *ptrs[] = {buf};
+  const char *ptrs[] = {buf};
   const size_t szs[] = {13};
   cl_event evt;
   err = clEnqueueSVMMigrateMem(queue, 1, (const void **)ptrs, szs, 0, 0,
@@ -525,7 +525,7 @@ static void TestMigrate(cl_context context, cl_device_id device,
   CheckException("clEnqueueNDRangeKernel", CL_SUCCESS, err);
 
   // Enqueue Migrate command to the second queue
-  char *ptrs2[] = {buf};
+  const char *ptrs2[] = {buf};
   const size_t szs2[] = {0};
   err = clEnqueueSVMMigrateMem(queue2, 1, (const void **)ptrs2, szs2, 0, 1,
                                &event, nullptr);

@@ -2,7 +2,6 @@
 #include "TestsHelpClasses.h"
 #include <CL/cl.h>
 #include <cmath>
-#include <gtest/gtest.h>
 #include <tbb/global_control.h>
 #include <tbb/parallel_for.h>
 
@@ -76,10 +75,10 @@ TEST_F(EnqueueNativeKernelTest, basic) {
   args.val = 1234;
 
   cl_mem memList[] = {mem1, mem2, res};
-  void *offsets[] = {&args.inp2, &args.inp1, &args.output};
+  const void *offsets[] = {&args.inp2, &args.inp1, &args.output};
   cl_event e;
   err = clEnqueueNativeKernel(m_queue, NativeFunc, &args, sizeof(arg_struct), 3,
-                              memList, (const void **)offsets, 0, NULL, &e);
+                              memList, offsets, 0, NULL, &e);
   ASSERT_OCL_SUCCESS(err, "clEnqueueNativeKernel");
   int data3;
   err = clEnqueueReadBuffer(m_queue, res, CL_TRUE, 0, sizeof(int), &data3, 1,
@@ -158,7 +157,7 @@ TEST_F(EnqueueNativeKernelTest, multiThreadEnqueueWait) {
 
   std::vector<SynchronizedThread *> threads(numThreads);
 
-  for (int i = 0; i < numThreads; ++i)
+  for (unsigned i = 0; i < numThreads; ++i)
     threads[i] = new NativeKernelThread(m_context, m_device, m_queue,
                                         &r[blockSize * i], blockSize, i);
 
@@ -167,12 +166,12 @@ TEST_F(EnqueueNativeKernelTest, multiThreadEnqueueWait) {
   pool.StartAll();
   pool.WaitAll();
 
-  for (int i = 0; i < numThreads; ++i) {
+  for (unsigned i = 0; i < numThreads; ++i) {
     bool res = static_cast<NativeKernelThread *>(threads[i])->getResult();
     ASSERT_TRUE(res) << "NativeKernelThread " << i << " failed";
   }
 
-  for (int i = 0; i < numThreads; ++i)
+  for (unsigned i = 0; i < numThreads; ++i)
     delete threads[i];
 }
 

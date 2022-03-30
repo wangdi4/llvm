@@ -145,109 +145,119 @@ void RunFunctionTest (const char* FuncName,const char* ocl_test_program,int vec,
 	cl_mem clBuff[MAX_BUFFS+1]; //+1 for clULP which is clBuff[numBuffs]
   char *kernelCode = new char[strlen(ocl_test_program) + 10];
   sprintf(kernelCode, "%s\n", ocl_test_program);
-	try{
-	// create program with source
-	if ( !BuildProgramSynch(context, 1, (const char**)&kernelCode, NULL, NULL, &program) ){
-		bResult=false;
-		throw RELEASE_QUEUE;
-	}
+  try {
+    // create program with source
+    if (!BuildProgramSynch(context, 1, const_cast<const char **>(&kernelCode),
+                           NULL, NULL, &program)) {
+      bResult = false;
+      throw RELEASE_QUEUE;
+    }
 
-	iRet=clCreateKernelsInProgram(program,sizeof(kernel),&kernel,NULL);
-	bResult &= SilentCheck("clCreateKernelsInProgram", CL_SUCCESS, iRet);
-	if (!bResult) throw RELEASE_PROGRAM;
-	
+    iRet = clCreateKernelsInProgram(program, sizeof(kernel), &kernel, NULL);
+    bResult &= SilentCheck("clCreateKernelsInProgram", CL_SUCCESS, iRet);
+    if (!bResult)
+      throw RELEASE_PROGRAM;
 
-	cl_int pULP[BUFFER_SIZE];
+    cl_int pULP[BUFFER_SIZE];
 
-	for( unsigned ui = 0; ui < BUFFER_SIZE; ui++ )
-	{
-		pULP[ui] = -1 ;
-	}
+    for (unsigned ui = 0; ui < BUFFER_SIZE; ui++) {
+      pULP[ui] = -1;
+    }
 
+    for (int i = 0; i < (numBuffs); i++) {
+      clBuff[i] =
+          clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
+                         sizeof(T) * stBuffSize, pBuff[i], &iRet);
+      bResult &= SilentCheck("clCreateBuffer", CL_SUCCESS, iRet);
+      if (!bResult) {
+        numBuffs = i - 1;
+        throw RELEASE_IMAGES;
+      }
+    }
+    clBuff[numBuffs] =
+        clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
+                       sizeof(pULP), pULP, &iRet);
+    bResult &= SilentCheck("clCreateBuffer", CL_SUCCESS, iRet);
+    if (!bResult) {
+      numBuffs--;
+      throw RELEASE_IMAGES;
+    }
 
-	for (int i=0 ; i< (numBuffs) ; i++){
-	clBuff[i] = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(T)*stBuffSize, pBuff[i], &iRet);
-	bResult &= SilentCheck("clCreateBuffer", CL_SUCCESS, iRet);
-	if (!bResult) {
-		numBuffs=i-1;
-		throw RELEASE_IMAGES;
-	}
-	}
-	clBuff[numBuffs] = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(pULP), pULP, &iRet);
-	bResult &= SilentCheck("clCreateBuffer", CL_SUCCESS, iRet);
-	if (!bResult) {
-		numBuffs--;
-		throw RELEASE_IMAGES;
-	}
+    // Set Kernel Arguments
+    for (int i = 0; i < (numBuffs + 1); i++) {
+      iRet |= clSetKernelArg(kernel, i, sizeof(cl_mem), &clBuff[i]);
+      bResult &= SilentCheck("clSetKernelArg", CL_SUCCESS, iRet);
+      if (!bResult)
+        throw RELEASE_IMAGES;
+    }
 
-	// Set Kernel Arguments
-	for (int i=0 ; i< (numBuffs+1) ; i++){
-	iRet |= clSetKernelArg(kernel, i, sizeof(cl_mem), &clBuff[i]);
-	bResult &= SilentCheck("clSetKernelArg", CL_SUCCESS, iRet);
-	if (!bResult) throw RELEASE_IMAGES;
-	}
+    size_t global_work_size[1] = {stBuffSize / vec};
 
-	size_t global_work_size[1] = { stBuffSize / vec };
+    // Execute kernel
+    iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size,
+                                  NULL, 0, NULL, NULL);
+    bResult &= SilentCheck("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
+    if (!bResult)
+      throw RELEASE_IMAGES;
+    //
+    // Verification phase
+    //
+    T pDstBuff[BUFFER_SIZE];
 
-	// Execute kernel
-	iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, NULL);
-	bResult &= SilentCheck("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
-	if (!bResult) throw RELEASE_IMAGES;
-	//
-	// Verification phase
-	//
-	T pDstBuff[BUFFER_SIZE];
+    iRet = clEnqueueReadBuffer(queue, clBuff[0], CL_TRUE, 0, sizeof(pDstBuff),
+                               pDstBuff, 0, NULL, NULL);
+    iRet |= clEnqueueReadBuffer(queue, clBuff[numBuffs], CL_TRUE, 0,
+                                sizeof(pULP), pULP, 0, NULL, NULL);
+    bResult &= SilentCheck("clEnqueueReadBuffer ", CL_SUCCESS, iRet);
+    if (!bResult)
+      throw RELEASE_IMAGES;
 
-	iRet = clEnqueueReadBuffer( queue, clBuff[0], CL_TRUE, 0, sizeof(pDstBuff), pDstBuff, 0, NULL, NULL );
-	iRet |= clEnqueueReadBuffer( queue, clBuff[numBuffs], CL_TRUE, 0, sizeof(pULP), pULP, 0, NULL, NULL );
-	bResult &= SilentCheck("clEnqueueReadBuffer ", CL_SUCCESS, iRet);
-	if (!bResult) throw RELEASE_IMAGES;
-	
-	int maxULP=0;
-	T maxEpsilon=0;
-	for( unsigned y=0; (y < stBuffSize) && bResult; ++y )
-	{
-		if ( ((pULP[y] > target_ulp) || (pULP[y]<0) ) && ( (int)((y+1) % 4) != vector3 ) )
-		{
-			printf("KERNEL TEST FAILED: the function %s failed \n \n",FuncName);
-			printf("difference between regular function and relaxed function is: %d ULP\n",pULP[y]);
-			if (pULP[y]==-1) printf (" -1 means the difference between native function and regular one is over half of the outcome \n ");
-			printf("and should have been: %d ULP \n", target_ulp);
-			printf("which is an epsilon of: %.38f \n",pDstBuff[y]);
-			printf("for the numbers: \n");
-			for (int i=0 ; i< (numBuffs) ; i++){
-				printf( " %.38f  \n",pBuff[i][y]);
-			}
-			bResult = false;
-			throw RELEASE_IMAGES;
-		
-		}
-		maxULP=MAX(maxULP,pULP[y]);
-		maxEpsilon=MAX(maxEpsilon,pDstBuff[y]);
-	}
-	printf ("***function %s test completed successfully, ",FuncName);
-	printf ("with max ULP of %d and max Epsilon of %.38f *** \n",maxULP,maxEpsilon);
-	}
-	catch (int error)
-	{
-		bResult=false;
-		switch (error){
-			case RELEASE_IMAGES:
-				for (int i=0 ; i< (numBuffs+1) ;i++){
-					clReleaseMemObject(clBuff[i]);		
-				}
-				LLVM_FALLTHROUGH;
-			case RELEASE_KERNEL:
-				clReleaseKernel(kernel);
-				LLVM_FALLTHROUGH;
-			case RELEASE_PROGRAM:
-				clReleaseProgram(program);
-				throw RELEASE_QUEUE;
-			default:
-				throw error;
-		}
-	}
-	//finished successfully 
+    int maxULP = 0;
+    T maxEpsilon = 0;
+    for (unsigned y = 0; (y < stBuffSize) && bResult; ++y) {
+      if (((pULP[y] > target_ulp) || (pULP[y] < 0)) &&
+          ((int)((y + 1) % 4) != vector3)) {
+        printf("KERNEL TEST FAILED: the function %s failed \n \n", FuncName);
+        printf("difference between regular function and relaxed function is: "
+               "%d ULP\n",
+               pULP[y]);
+        if (pULP[y] == -1)
+          printf(" -1 means the difference between native function and regular "
+                 "one is over half of the outcome \n ");
+        printf("and should have been: %d ULP \n", target_ulp);
+        printf("which is an epsilon of: %.38f \n", pDstBuff[y]);
+        printf("for the numbers: \n");
+        for (int i = 0; i < (numBuffs); i++) {
+          printf(" %.38f  \n", pBuff[i][y]);
+        }
+        bResult = false;
+        throw RELEASE_IMAGES;
+      }
+      maxULP = MAX(maxULP, pULP[y]);
+      maxEpsilon = MAX(maxEpsilon, pDstBuff[y]);
+    }
+    printf("***function %s test completed successfully, ", FuncName);
+    printf("with max ULP of %d and max Epsilon of %.38f *** \n", maxULP,
+           maxEpsilon);
+  } catch (int error) {
+    bResult = false;
+    switch (error) {
+    case RELEASE_IMAGES:
+      for (int i = 0; i < (numBuffs + 1); i++) {
+        clReleaseMemObject(clBuff[i]);
+      }
+      LLVM_FALLTHROUGH;
+    case RELEASE_KERNEL:
+      clReleaseKernel(kernel);
+      LLVM_FALLTHROUGH;
+    case RELEASE_PROGRAM:
+      clReleaseProgram(program);
+      throw RELEASE_QUEUE;
+    default:
+      throw error;
+    }
+  }
+        //finished successfully 
 	for (int i=0 ; i< (numBuffs+1) ;i++){
 		clReleaseMemObject(clBuff[i]);		
 	}
@@ -297,14 +307,18 @@ bool clNativeFunctionTest()
     if (!bResult) goto release_end;
 
     iRet = clGetDeviceIDs(platform, gDeviceType, 1, &clDefaultDeviceId, NULL);
-    bResult &= SilentCheck("clGetDeviceIDs", CL_SUCCESS, iRet);    
-    if (!bResult) goto release_context;
+    bResult &= SilentCheck("clGetDeviceIDs", CL_SUCCESS, iRet);
+    if (!bResult)
+      goto release_context;
 
-    queue = clCreateCommandQueue (context, clDefaultDeviceId, 0 /*no properties*/, &iRet);
-	bResult &= SilentCheck("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
-	if (!bResult) goto release_context;
+    queue = clCreateCommandQueueWithProperties(context, clDefaultDeviceId,
+                                               NULL /*no properties*/, &iRet);
+    bResult &= SilentCheck("clCreateCommandQueueWithProperties - queue",
+                           CL_SUCCESS, iRet);
+    if (!bResult)
+      goto release_context;
 
-	srand( 0 );
+    srand(0);
 
     // fill with random bits no matter what
 	for( unsigned ui = 0; ui < BUFFER_SIZE; ui++ )

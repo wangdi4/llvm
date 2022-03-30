@@ -16,9 +16,8 @@
 
 #ifdef __INCLUDE_MKL__
 #include <CL/cl.h>
-#include <gtest/gtest.h>
-#include <stdio.h>
 #include <assert.h>
+#include <stdio.h>
 
 #include <cl_types.h>
 #include "FrameworkTest.h"

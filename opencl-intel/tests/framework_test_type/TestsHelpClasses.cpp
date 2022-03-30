@@ -63,20 +63,19 @@ void baseOcl::initContext()
 	ASSERT_EQ(CL_SUCCESS,err) << ERR_FUNCTION("clCreateContext");
 }
 
-void baseOcl::initCommandQueue()
-{
-	cl_int err = ERROR_RESET;
-	//init Command Queue
-	cmd_queue=clCreateCommandQueue(context,device,0,&err);
-	ASSERT_EQ(CL_SUCCESS,err) << ERR_FUNCTION("clCreateCommandQueue");
+void baseOcl::initCommandQueue() {
+  cl_int err = ERROR_RESET;
+  // init Command Queue
+  cmd_queue = clCreateCommandQueueWithProperties(context, device, NULL, &err);
+  ASSERT_EQ(CL_SUCCESS, err)
+      << ERR_FUNCTION("clCreateCommandQueueWithProperties");
 }
 
-void baseOcl::simpleProgramCreation( const char **kernelCode )
-{
-	cl_err_code err = ERROR_RESET;
+void baseOcl::simpleProgramCreation(const char **kernelCode) {
+  cl_err_code err = ERROR_RESET;
 
-	program = clCreateProgramWithSource(context, 1, kernelCode, NULL, &err);
-	ASSERT_OCL_SUCCESS(err,clCreateProgramWithSource);
+  program = clCreateProgramWithSource(context, 1, kernelCode, NULL, &err);
+  ASSERT_OCL_SUCCESS(err, clCreateProgramWithSource);
 }
 
 void baseOcl::simpleProgramBuild()

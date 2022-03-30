@@ -6,12 +6,8 @@ set( TARGET framework_test_type )
 
 include_directories( ${OCL_SOURCE_DIR}/framework/export
                      ${OCL_SOURCE_DIR}/framework/Tracing
+                     ${OCL_SOURCE_DIR}/tests/test_utils/export
                      ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export )
-
-if (NOT WIN32)
-    # silence warning coming from a gtest header.
-    add_definitions ( -Wno-sign-compare )
-endif (NOT WIN32)
 
 set( IGNORE_FILES clBuildCubinProgram|clBuildProgram.cpp|clCreateCudaKernel|clCreateKernelCpuGpu|clCreateQueue )
 

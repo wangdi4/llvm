@@ -1,11 +1,11 @@
-#include <string>
-#include <iostream>
-#include <vector>
 #include "CL/cl.h"
-#include "test_utils.h"
 #include "CL/cl_platform.h"
-#include <gtest/gtest.h>
-
+#include "FrameworkTest.h"
+#include "gtest_wrapper.h"
+#include "test_utils.h"
+#include <iostream>
+#include <string>
+#include <vector>
 
 extern cl_device_type gDeviceType;
 

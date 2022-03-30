@@ -29,20 +29,26 @@ bool ClkEventAsKernelArg()
 
     context = clCreateContext(NULL,1, &device, NULL, NULL, &err);
     bResult = SilentCheck("clCreateContext", CL_SUCCESS, err);
-    if (!bResult)    return bResult;
+    if (!bResult)
+      return bResult;
 
-    //Create host command queue
-    cmd_queue = clCreateCommandQueue(context, device, 0, &err);
-    bResult = SilentCheck("clCreateCommandQueue on host", CL_SUCCESS,err);
-    if (!bResult)    return bResult;
+    // Create host command queue
+    cmd_queue = clCreateCommandQueueWithProperties(context, device, NULL, &err);
+    bResult = SilentCheck("clCreateCommandQueueWithProperties on host",
+                          CL_SUCCESS, err);
+    if (!bResult)
+      return bResult;
     // Create device command queue
-    cl_queue_properties deviceQueueProps[] =
-      {CL_QUEUE_PROPERTIES, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE |
-                            CL_QUEUE_ON_DEVICE |
-                            CL_QUEUE_ON_DEVICE_DEFAULT, 0};
+    cl_queue_properties deviceQueueProps[] = {
+        CL_QUEUE_PROPERTIES,
+        CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_ON_DEVICE |
+            CL_QUEUE_ON_DEVICE_DEFAULT,
+        0};
     clCreateCommandQueueWithProperties(context, device, deviceQueueProps, &err);
-    bResult = SilentCheck("clCreateCommandQueue on device", CL_SUCCESS, err);
-    if (!bResult) return bResult;
+    bResult = SilentCheck("clCreateCommandQueueWithProperties on device",
+                          CL_SUCCESS, err);
+    if (!bResult)
+      return bResult;
 
     // host_kernel enqueues device_kernel and passes to it a user event
     // device kernel stores result of is_valid_event to output buffer

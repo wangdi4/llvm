@@ -9,11 +9,6 @@ if (WIN32)
     add_definitions(
         -wd4996 # Suppress 'function': was declared deprecated'
     )
-else (WIN32)
-    add_definitions(
-        -Wno-deprecated-declarations
-    )
-    llvm_replace_compiler_option(CMAKE_CXX_FLAGS "-Werror" "")
 endif (WIN32)
 
 if( NOT DEFINED LLVM_PATH_FE )

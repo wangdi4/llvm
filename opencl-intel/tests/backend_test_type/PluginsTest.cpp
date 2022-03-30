@@ -23,7 +23,7 @@ File Name:  PluginsTest.cpp
 #include "common_utils.h"
 #include "plugin_manager.h"
 
-#include <gtest/gtest.h>
+#include "gtest_wrapper.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string>

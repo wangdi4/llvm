@@ -24,11 +24,10 @@
 #include "common_utils.h"
 #include "cpu_dev_limits.h"
 #include "ocl_config.h"
-#include <gtest/gtest.h>
 
 extern cl_device_type gDeviceType;
 
-enum TestKind { NoEnv, DisableParralel };
+enum TestKind { NoEnv, DisableParallel };
 
 static bool checkResultBuffer(char *buffer, size_t size, char value) {
   for (size_t i = 0; i < size; i++) {
@@ -45,11 +44,9 @@ protected:
     switch (GetParam()) {
     case NoEnv:
       break;
-    case DisableParralel:
+    case DisableParallel:
       ASSERT_TRUE(SETENV(CL_CONFIG_ENABLE_PARALLEL_COPY, "False"));
       break;
-    default:
-      FAIL() << "Unknown testing param.";
     }
 
     cl_int err = clGetPlatformIDs(1, &m_platform, NULL);
@@ -80,7 +77,7 @@ protected:
 
     // Unset env.
     switch (GetParam()) {
-    case DisableParralel:
+    case DisableParallel:
       ASSERT_TRUE(UNSETENV(CL_CONFIG_ENABLE_PARALLEL_COPY));
       break;
     default:
@@ -604,4 +601,4 @@ TEST_P(ParallelCopySetTest, readBufferMultiThreads) {
 }
 
 INSTANTIATE_TEST_SUITE_P(KernelLibrary, ParallelCopySetTest,
-                        ::testing::Values(NoEnv, DisableParralel));
+                         ::testing::Values(NoEnv, DisableParallel));

@@ -13,15 +13,15 @@
 // ===--------------------------------------------------------------------=== //
 #include "simple_fixture.h"
 
+#include "gtest_wrapper.h"
 #include <CL/cl.h>
 #include <CL/cl_ext.h>
-#include <gtest/gtest.h>
 
 #include <algorithm>
 #include <cstdlib>
+#include <numeric>
 #include <string>
 #include <vector>
-#include <numeric>
 
 namespace {
   const int SIZE = 10;

@@ -89,28 +89,35 @@ bool TBBTest()
 
 	//Now to the actual test
 	const size_t iterations = 100;
-	for (size_t i = 0; i < iterations; ++i)
-	{
-		cl_command_queue queues[2];
+        for (size_t i = 0; i < iterations; ++i) {
+          cl_command_queue queues[2];
 
-		queues[0] = clCreateCommandQueue(context, pDevices[0], 0, &iRet);
-		bResult &= SilentCheck("clCreateCommandQueue", CL_SUCCESS, iRet);
-		queues[1] = clCreateCommandQueue(context, pDevices[0], 0, &iRet);
-		bResult &= SilentCheck("clCreateCommandQueue", CL_SUCCESS, iRet);
+          queues[0] = clCreateCommandQueueWithProperties(context, pDevices[0],
+                                                         NULL, &iRet);
+          bResult &= SilentCheck("clCreateCommandQueueWithProperties",
+                                 CL_SUCCESS, iRet);
+          queues[1] = clCreateCommandQueueWithProperties(context, pDevices[0],
+                                                         NULL, &iRet);
+          bResult &= SilentCheck("clCreateCommandQueueWithProperties",
+                                 CL_SUCCESS, iRet);
 
-		cl_event kernelEvent;
-		iRet |= clEnqueueNDRangeKernel(queues[0], dummyKernel, 1, NULL, &execution_size2, NULL, 0, NULL, &kernelEvent);
-		iRet |= clEnqueueNDRangeKernel(queues[1], dummyKernel, 1, NULL, &execution_size, NULL, 1, &kernelEvent, NULL);
-		bResult &= SilentCheck("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
+          cl_event kernelEvent;
+          iRet |= clEnqueueNDRangeKernel(queues[0], dummyKernel, 1, NULL,
+                                         &execution_size2, NULL, 0, NULL,
+                                         &kernelEvent);
+          iRet |= clEnqueueNDRangeKernel(queues[1], dummyKernel, 1, NULL,
+                                         &execution_size, NULL, 1, &kernelEvent,
+                                         NULL);
+          bResult &= SilentCheck("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
 
-		clFlush(queues[0]);
-		clFinish(queues[1]);
+          clFlush(queues[0]);
+          clFinish(queues[1]);
 
-		clReleaseEvent(kernelEvent);
-		clReleaseCommandQueue(queues[1]);
-		clReleaseCommandQueue(queues[0]);
-	}
-	//No crash? test passed
+          clReleaseEvent(kernelEvent);
+          clReleaseCommandQueue(queues[1]);
+          clReleaseCommandQueue(queues[0]);
+        }
+        //No crash? test passed
 	printf("Test passed!\n");
 	delete []pDevices;
 

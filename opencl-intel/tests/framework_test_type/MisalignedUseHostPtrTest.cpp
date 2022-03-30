@@ -59,15 +59,19 @@ bool MisalignedUseHostPtrTest()
 
 	// create context
 	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
-	bResult &= SilentCheck("clCreateContext",CL_SUCCESS, iRet);
-	if (!bResult) goto end;
+        bResult &= SilentCheck("clCreateContext", CL_SUCCESS, iRet);
+        if (!bResult)
+          goto end;
 
-	queue1 = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
-	bResult &= SilentCheck("clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
-	if (!bResult) goto release_context;
+        queue1 = clCreateCommandQueueWithProperties(
+            context, pDevices[0], NULL /*no properties*/, &iRet);
+        bResult &= SilentCheck("clCreateCommandQueueWithProperties - queue1",
+                               CL_SUCCESS, iRet);
+        if (!bResult)
+          goto release_context;
 
-	// create program with source
-	program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
+        // create program with source
+        program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
 	bResult &= SilentCheck("clCreateProgramWithSource", CL_SUCCESS, iRet);
 	if (!bResult) goto release_queue;
 

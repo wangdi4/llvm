@@ -158,10 +158,10 @@ bool clMapBufferTest() {
                 //
                 // Create queue
                 //
-                cl_command_queue queue1 = clCreateCommandQueue(
-                    context, pDevices[0], 0 /*no properties*/, &iRet);
-                bResult &=
-                    Check("clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
+                cl_command_queue queue1 = clCreateCommandQueueWithProperties(
+                    context, pDevices[0], NULL /*no properties*/, &iRet);
+                bResult &= Check("clCreateCommandQueueWithProperties - queue1",
+                                 CL_SUCCESS, iRet);
                 if (!bResult)
                   goto release_queue;
 

@@ -1,9 +1,10 @@
 #include "CL/cl.h"
 #include "cl_cpu_detect.h"
 #include "cl_types.h"
-#include <gtest/gtest.h>
-#include <stdio.h>
+
 #include "FrameworkTest.h"
+#include "gtest_wrapper.h"
+#include <stdio.h>
 
 extern cl_device_type gDeviceType;
 using namespace Intel::OpenCL::Utils;
@@ -51,15 +52,15 @@ void clGetCommandQueueInfo() {
       << "clGetCommandQueueInfo failed: queried property is unexpected\n";
 
   clReleaseCommandQueue(queue);
-  queue = clCreateCommandQueue(context, device,
-                               CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE |
-                                   CL_QUEUE_PROFILING_ENABLE,
-                               &iRes);
-  ASSERT_EQ(iRes, CL_SUCCESS) << "clCreateCommandQueue failed\n";
+  cl_queue_properties props[] = {
+      CL_QUEUE_PROPERTIES,
+      CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE, 0};
+  queue = clCreateCommandQueueWithProperties(context, device, props, &iRes);
+  ASSERT_EQ(iRes, CL_SUCCESS)
+      << "The 2nd call of clCreateCommandQueueWithProperties failed\n";
   iRes = clGetCommandQueueInfo(queue, CL_QUEUE_PROPERTIES_ARRAY, 0, nullptr,
                                &size_ret);
-  ASSERT_EQ(size_ret, 0) << "clGetCommandQueueInfo failed: size is unexpected";
-
+  ASSERT_EQ(size_ret, 24) << "clGetCommandQueueInfo failed: size is unexpected";
 
   clReleaseCommandQueue(queue);
   clReleaseContext(context);

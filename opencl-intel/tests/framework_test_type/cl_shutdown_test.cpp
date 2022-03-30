@@ -1,15 +1,17 @@
 #include "CL/cl.h"
-#include "cl_types.h"
-#include <stdio.h>
 #include "FrameworkTest.h"
-#include <gtest/gtest.h>
+#include "cl_types.h"
+#include "gtest_wrapper.h"
+#include <stdio.h>
+
 #include <float.h>
 //
-// Testing note: This test case creates a dedicated process for each test. In order to test it in Visual Studio define the
-// following macro to forse running in the same process. GTEST will not work ok because of early exists but debugging is 
-// possible
-//#define DEBUGGING_DEATH_TEST 
-//#define SilentCheck Check
+// Testing note: This test case creates a dedicated process for each test. In
+// order to test it in Visual Studio define the following macro to forse running
+// in the same process. GTEST will not work ok because of early exists but
+// debugging is possible
+// #define DEBUGGING_DEATH_TEST
+// #define SilentCheck Check
 
 #define BUFFERS_LENGTH 20000
 extern cl_device_type gDeviceType;
@@ -113,11 +115,14 @@ bool cl_shutdown_test(TEST_CASE test_case, const char* name)
     //
     // Create queue
     //
-    cl_command_queue queue1 = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
-    bResult &= SilentCheck("clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
+    cl_command_queue queue1 = clCreateCommandQueueWithProperties(
+        context, pDevices[0], NULL /*no properties*/, &iRet);
+    bResult &= SilentCheck("clCreateCommandQueueWithProperties - queue1",
+                           CL_SUCCESS, iRet);
 
     cl_context cntxInfo;
-    iRet = clGetCommandQueueInfo(queue1, CL_QUEUE_CONTEXT, sizeof(cl_context), &cntxInfo, NULL);
+    iRet = clGetCommandQueueInfo(queue1, CL_QUEUE_CONTEXT, sizeof(cl_context),
+                                 &cntxInfo, NULL);
     bResult &= SilentCheck("clGetCommandQueueInfo", CL_SUCCESS, iRet);
     bResult &= CheckHandle("clGetCommandQueueInfo - context", context, cntxInfo);
 

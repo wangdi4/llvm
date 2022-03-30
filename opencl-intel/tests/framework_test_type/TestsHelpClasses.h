@@ -1,15 +1,17 @@
 #pragma once
 /*
-* This file holds all of the functions/classes and macros that can help you make a better,easier tests.
-*
-*/
+ * This file holds all of the functions/classes and macros that can help you
+ * make a better,easier tests.
+ *
+ */
 
-#include <gtest/gtest.h>
+#include "gtest_wrapper.h"
+
 #include "CL/cl.h"
 #include "FrameworkTest.h"
-#include <sys/stat.h>
 #include <fstream>
 #include <iostream>
+#include <sys/stat.h>
 
 // used to make a macro definition into a string simply call XSTR with you defined macro "s"
 #define XSTR(s) STR(s)

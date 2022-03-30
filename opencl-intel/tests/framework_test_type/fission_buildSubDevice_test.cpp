@@ -96,17 +96,20 @@ bool fission_buildSubDevice_test(){
 	//init context
 	context = clCreateContext(NULL,1,&out_devices[0],NULL,NULL,&err);
 	bResult = SilentCheck("clCreateContext",CL_SUCCESS,err);
-	if (!bResult)	return bResult;
+        if (!bResult)
+          return bResult;
 
-	//init Command Queue
-	cmd_queue = clCreateCommandQueue(context,out_devices[0],0,&err);
-	bResult = SilentCheck("clCreateCommandQueue",CL_SUCCESS,err);
-	if (!bResult){
-		clReleaseContext(context);
-		return bResult;
-	}	
+        // init Command Queue
+        cmd_queue = clCreateCommandQueueWithProperties(context, out_devices[0],
+                                                       NULL, &err);
+        bResult =
+            SilentCheck("clCreateCommandQueueWithProperties", CL_SUCCESS, err);
+        if (!bResult) {
+          clReleaseContext(context);
+          return bResult;
+        }
 
-	const char* ocl_test_program= {\
+        const char* ocl_test_program= {\
 		"__kernel void fissionBuildTest(__global int *dummy)\
 		{size_t s = 7;}"};
 
@@ -123,7 +126,7 @@ bool fission_buildSubDevice_test(){
 	clReleaseContext(context);
 	for (size_t i = 0; i < num_devices; i++)
 	{
-		clReleaseDevice(out_devices[i]);
-	}
-	return bResult;
+          clReleaseDevice(out_devices[i]);
+        }
+        return bResult;
 }

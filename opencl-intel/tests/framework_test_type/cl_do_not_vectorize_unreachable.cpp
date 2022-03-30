@@ -172,8 +172,10 @@ bool clDoNotVectorizeUnreachable()
   int input_int[BUFFERS_LENGTH] = INT_BUFFER_INPUT;
 
   // Create queue
-  cl_command_queue queue = clCreateCommandQueue (context, device, 0, &iRet);
-  bResult &= SilentCheck("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
+  cl_command_queue queue =
+      clCreateCommandQueueWithProperties(context, device, NULL, &iRet);
+  bResult &= SilentCheck("clCreateCommandQueueWithProperties - queue",
+                         CL_SUCCESS, iRet);
   if (!bResult) {
     return bResult;
   }

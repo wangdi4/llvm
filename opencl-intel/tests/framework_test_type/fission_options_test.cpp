@@ -159,20 +159,21 @@ bool fission_options_test(){
 	bResult = SilentCheck("clCreateContext",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
-	//init Command Queue
-	for (size_t i = 0; i < num_devices; i++)
-	{
-		cmd_queue[i] = clCreateCommandQueue(context,out_devices[i],0,&err);
-		bResult = SilentCheck("clCreateCommandQueue",CL_SUCCESS,err);
-		if (!bResult){
-			for (size_t j = 0; j < i; j++)
-				clReleaseCommandQueue(cmd_queue[j]);
-			clReleaseContext(context);
-			return bResult;
-		}
-	}	
+        // init Command Queue
+        for (size_t i = 0; i < num_devices; i++) {
+          cmd_queue[i] = clCreateCommandQueueWithProperties(
+              context, out_devices[i], NULL, &err);
+          bResult = SilentCheck("clCreateCommandQueueWithProperties",
+                                CL_SUCCESS, err);
+          if (!bResult) {
+            for (size_t j = 0; j < i; j++)
+              clReleaseCommandQueue(cmd_queue[j]);
+            clReleaseContext(context);
+            return bResult;
+          }
+        }
 
-	const char* ocl_test_program= {\
+        const char* ocl_test_program= {\
 		"struct dummy {\
 		unsigned int ui;\
 		char c;\
@@ -200,7 +201,7 @@ bool fission_options_test(){
 	clReleaseContext(context);
 	for (size_t i = 0; i < num_devices; i++)
 	{
-		clReleaseDevice(out_devices[i]);
-	}
-	return bResult;
+          clReleaseDevice(out_devices[i]);
+        }
+        return bResult;
 }

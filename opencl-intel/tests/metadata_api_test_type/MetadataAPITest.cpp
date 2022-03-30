@@ -21,7 +21,7 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
-#include <gtest/gtest.h>
+#include "gtest_wrapper.h"
 
 #include <algorithm>
 #include <utility>

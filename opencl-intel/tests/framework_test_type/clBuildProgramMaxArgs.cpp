@@ -68,28 +68,29 @@ bool clBuildProgramMaxArgsTest()
 		return false;
 	}
 
-	// create context
-	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
-	bResult &= Check("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
-	if (!bResult)
-	{
-		delete []pDevices;
-		delete []pBinarySizes;
-		delete []pBinaryStatus;
-		return false;
-	}
-    cl_command_queue queue = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
-	bResult &= Check("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
-	if (!bResult)
-	{
-		clReleaseContext(context);
-		delete []pDevices;
-		delete []pBinarySizes;
-		delete []pBinaryStatus;
-		return false;
-	}
+        // create context
+        context =
+            clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
+        bResult &= Check("clCreateContext - queue", CL_SUCCESS, iRet);
+        if (!bResult) {
+          delete[] pDevices;
+          delete[] pBinarySizes;
+          delete[] pBinaryStatus;
+          return false;
+        }
+        cl_command_queue queue = clCreateCommandQueueWithProperties(
+            context, pDevices[0], NULL /*no properties*/, &iRet);
+        bResult &= Check("clCreateCommandQueueWithProperties - queue",
+                         CL_SUCCESS, iRet);
+        if (!bResult) {
+          clReleaseContext(context);
+          delete[] pDevices;
+          delete[] pBinarySizes;
+          delete[] pBinaryStatus;
+          return false;
+        }
 
-	int i;
+        int i;
 	size_t maxSize;
 	char *programSrc;
 	char *ptr;
@@ -169,18 +170,19 @@ bool clBuildProgramMaxArgsTest()
 		}
 
 		/* Create a kernel to test with */
-		sprintf( programSrc, sample_large_parmam_kernel_pattern[0], argumentLine, codeLines);
-		ptr = programSrc;
+                sprintf(programSrc, sample_large_parmam_kernel_pattern[0],
+                        argumentLine, codeLines);
+                ptr = programSrc;
 
-		prog = clCreateProgramWithSource(context, 1, (const char**)&ptr, NULL, &iRet);
-		bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
-		if (!bResult)
-		{
-			numberOfIntParametersToTry -= decrement;
-			continue;
-		}
+                prog = clCreateProgramWithSource(
+                    context, 1, const_cast<const char **>(&ptr), NULL, &iRet);
+                bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
+                if (!bResult) {
+                  numberOfIntParametersToTry -= decrement;
+                  continue;
+                }
 
-		size_t* szSize = new size_t[uiNumDevices];
+                size_t* szSize = new size_t[uiNumDevices];
 		for (unsigned int j = 0; j < uiNumDevices; j++)
 		{
 			szSize[j] = -1;

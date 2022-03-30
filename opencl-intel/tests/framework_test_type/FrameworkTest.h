@@ -33,7 +33,7 @@ typedef void (*openBcFunc)(FILE*&);
 bool clCreateContextTest();
 bool clGetPlatformInfoTest();
 bool clGetDeviceInfoTest();
-void clGetKernelSubGroupInfoKHR();
+void clGetKernelSubGroupInfo();
 bool clCheckJITSaveLoadTest();
 bool GenerateBinaryFile();
 bool clCheckCPUArchForJIT();

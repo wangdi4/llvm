@@ -113,53 +113,60 @@ public:
 
     // overriden methods:
 
-    virtual bool CompleteAndCheckSyncPoint() { return false; }
-	
-    virtual bool SetAsSyncPoint() { return false; }
+    virtual bool CompleteAndCheckSyncPoint() override { return false; }
 
-    virtual bool IsCompleted() const { return m_bIsComplete; }
+    virtual bool SetAsSyncPoint() override { return false; }
 
-    virtual long Release() { return 0; }
+    virtual bool IsCompleted() const override { return m_bIsComplete; }
 
-    virtual void Cancel() {}
+    virtual long Release() override { return 0; }
 
-    virtual int  Init(size_t region[], unsigned int& regCount, size_t numberOfThreads)
-    {
-        for (unsigned int i = 0; i < m_uiNumDims; i++)
-        {
-            region[i] = 1;
-        }
-        regCount = m_uiNumDims;
-        return 0;
+    virtual void Cancel() override {}
+
+    virtual int Init(size_t region[], unsigned int &regCount,
+                     size_t numberOfThreads) override {
+      for (unsigned int i = 0; i < m_uiNumDims; i++) {
+        region[i] = 1;
+      }
+      regCount = m_uiNumDims;
+      return 0;
     }
 
-    virtual void* AttachToThread(void* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]) { return pWgContext; }
-
-    virtual void DetachFromThread(void* pWgContext) {}
-
-    virtual bool ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext = NULL) { return true; }
-
-	virtual bool Finish(FINISH_REASON reason)
-    {
-        m_bIsComplete = true;
-        if (NULL != m_pUncompletedTasks)
-        {
-        	(*m_pUncompletedTasks)--;
-        }
-        return true;
+    virtual void *AttachToThread(void *pWgContext, size_t uiNumberOfWorkGroups,
+                                 size_t firstWGID[],
+                                 size_t lastWGID[]) override {
+      return pWgContext;
     }
 
-	virtual Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+    virtual void DetachFromThread(void *pWgContext) override {}
 
-    
+    virtual bool ExecuteIteration(size_t x, size_t y, size_t z,
+                                  void *pWgContext = NULL) override {
+      return true;
+    }
+
+    virtual bool Finish(FINISH_REASON reason) override {
+      m_bIsComplete = true;
+      if (NULL != m_pUncompletedTasks) {
+        (*m_pUncompletedTasks)--;
+      }
+      return true;
+    }
+
+    virtual Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup *
+    GetNDRangeChildrenTaskGroup() override {
+      return NULL;
+    }
+
     // Optimize By
-    TASK_PRIORITY         GetPriority() const { return TASK_PRIORITY_MEDIUM;}
-    TASK_SET_OPTIMIZATION OptimizeBy() const { return TASK_SET_OPTIMIZE_DEFAULT; }
-    size_t                PreferredSequentialItemsPerThread() const { return 1; }
-    bool                  PreferNumaNodes() const override { return false; }
+    TASK_PRIORITY GetPriority() const override { return TASK_PRIORITY_MEDIUM; }
+    TASK_SET_OPTIMIZATION OptimizeBy() const override {
+      return TASK_SET_OPTIMIZE_DEFAULT;
+    }
+    size_t PreferredSequentialItemsPerThread() const override { return 1; }
+    bool PreferNumaNodes() const override { return false; }
 
-private:
-
+  private:
     TesterTaskSet(unsigned int uiNumDims, AtomicCounter* pUncompletedTasks) : m_bIsComplete(false), m_uiNumDims(uiNumDims),
     	m_pUncompletedTasks(pUncompletedTasks) { }
 

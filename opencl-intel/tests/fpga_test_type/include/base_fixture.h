@@ -13,9 +13,9 @@
 
 #include "pretty_printers.h"
 
+#include "gtest_wrapper.h"
 #include <CL/cl.h>
 #include <CL/cl_ext.h>
-#include <gtest/gtest.h>
 
 #include <string>
 #include <type_traits>
@@ -412,7 +412,8 @@ private:
 
     cl_program program_with_binary = clCreateProgramWithBinary(
         context, num_devices, devices_list.data(), binary_sizes.data(),
-        (const unsigned char **)binary_ptrs.data(), nullptr, &error);
+        const_cast<const unsigned char **>(binary_ptrs.data()), nullptr,
+        &error);
     EXPECT_EQ(CL_SUCCESS, error)
         << "clCreateProgramWithBinary failed with error " << ErrToStr(error);
     if (CL_SUCCESS != error) {

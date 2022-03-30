@@ -29,7 +29,7 @@ static int compareProperties(const std::vector<cl_sampler_properties> &queried,
       queried.size() != check.size())
     return -1;
 
-  for (int i = 0; i < check.size(); i++) {
+  for (size_t i = 0; i < check.size(); i++) {
     if (check[i] != queried[i])
       return -1;
   }
@@ -59,13 +59,13 @@ bool clSampler()
         iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
         CheckException("clGetDeviceIDs", CL_SUCCESS, iRet);
 
-        const cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };    
+        const cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
         context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
         CheckException("clCreateContextFromType", CL_SUCCESS, iRet);
 
-        std::vector<cl_sampler_properties> samplerPropsEmpty{0};
+        std::vector<cl_sampler_properties> samplerPropsEmpty = {0};
 
-        std::vector<cl_sampler_properties> samplerProps{
+        std::vector<cl_sampler_properties> samplerProps = {
             CL_SAMPLER_NORMALIZED_COORDS,
             CL_FALSE,
             CL_SAMPLER_ADDRESSING_MODE,
@@ -75,18 +75,17 @@ bool clSampler()
             0};
 
         cl_sampler sampler =
-            clCreateSampler(context, CL_FALSE, CL_ADDRESS_MIRRORED_REPEAT,
-                            CL_FILTER_LINEAR, &iRet);
+            clCreateSamplerWithProperties(context, samplerProps.data(), &iRet);
         CheckException("clCreateSampler", CL_SUCCESS, iRet);
         iRet = clGetSamplerInfo(sampler, CL_SAMPLER_PROPERTIES, 0, nullptr,
                                 &szSize);
         CheckException("clGetSamplerInfo", CL_SUCCESS, iRet);
         CheckException("clGetSamplerInfo queried properties is unexpected",
-                       size_t(0), szSize);
+                       size_t(56), szSize);
         clReleaseSampler(sampler);
 
-        sampler =
-            clCreateSamplerWithProperties(context, samplerPropsEmpty.data(), &iRet);
+        sampler = clCreateSamplerWithProperties(
+            context, samplerPropsEmpty.data(), &iRet);
 
         iRet = clGetSamplerInfo(sampler, CL_SAMPLER_PROPERTIES, 0, nullptr,
                                 &szSize);

@@ -79,41 +79,41 @@ bool clImagePermissions()
 	{
 		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 	    PROV_RETURN_AND_ABANDON(false);
-	}
-	printf("device = %p\n", (void*)clDefaultDeviceId);
+        }
+        printf("device = %p\n", (void *)clDefaultDeviceId);
 
-	cl_command_queue queue = PROV_OBJ( clCreateCommandQueue (context, clDefaultDeviceId, 0 /*no properties*/, &iRet) );
-	if (CL_SUCCESS != iRet)
-	{
-		printf("clCreateCommandQueue = %s\n",ClErrTxt(iRet));
-	    PROV_RETURN_AND_ABANDON(false);
-	}
-    cl_mem imgForErr;
-    void *rwBuf = PROV_MALLOC(BUFFER_CL_ALLOC_IMG);
-    const size_t buffRectOrigin[MAX_WORK_DIM] = {0, 0, 0};
-    const size_t buffRectRegion3D[MAX_WORK_DIM] = {64, 64, 64};
-    const size_t buffRectRegion2D[MAX_WORK_DIM] = {64, 64, 1};
+        cl_command_queue queue = PROV_OBJ(clCreateCommandQueueWithProperties(
+            context, clDefaultDeviceId, NULL /*no properties*/, &iRet));
+        if (CL_SUCCESS != iRet) {
+          printf("clCreateCommandQueueWithProperties = %s\n", ClErrTxt(iRet));
+          PROV_RETURN_AND_ABANDON(false);
+        }
+        cl_mem imgForErr;
+        void *rwBuf = PROV_MALLOC(BUFFER_CL_ALLOC_IMG);
+        const size_t buffRectOrigin[MAX_WORK_DIM] = {0, 0, 0};
+        const size_t buffRectRegion3D[MAX_WORK_DIM] = {64, 64, 64};
+        const size_t buffRectRegion2D[MAX_WORK_DIM] = {64, 64, 1};
 
-    cl_image_format imgFormat;
-    imgFormat.image_channel_order = CL_BGRA;
-    imgFormat.image_channel_data_type = CL_UNORM_INT8;
+        cl_image_format imgFormat;
+        imgFormat.image_channel_order = CL_BGRA;
+        imgFormat.image_channel_data_type = CL_UNORM_INT8;
 
-    //TODO: once new clCreateImage() interface is here, use it!
-    //imgForErr = PROV_OBJ( clCreateImage(context, CL_MEM_HOST_NO_ACCESS, &imgFormat, &imgDesc, NULL, &iRet) );
-    imgForErr = PROV_OBJ( clCreateImage3D(context, CL_MEM_HOST_NO_ACCESS, &imgFormat, IMG_W, IMG_H, IMG_D, 0, 0, NULL, &iRet) );
-    if (gDeviceType == CL_DEVICE_TYPE_ACCELERATOR)
-	{
-		EXPECT_EQ(oclErr(CL_INVALID_OPERATION), oclErr(iRet))
-			<< "clCreateImage3D with flags (CL_MEM_HOST_NO_ACCESS) should fail "
-				"for CL_DEVICE_TYPE_ACCELERATOR.";
-		if (CL_INVALID_OPERATION != iRet)
-		{
-			PROV_RETURN_AND_ABANDON(false);
-		}
-		else
-		{
-			PROV_RETURN_AND_ABANDON(true);
-		}
+        // TODO: once new clCreateImage() interface is here, use it!
+        // imgForErr = PROV_OBJ( clCreateImage(context, CL_MEM_HOST_NO_ACCESS,
+        // &imgFormat, &imgDesc, NULL, &iRet) );
+        imgForErr =
+            PROV_OBJ(clCreateImage3D(context, CL_MEM_HOST_NO_ACCESS, &imgFormat,
+                                     IMG_W, IMG_H, IMG_D, 0, 0, NULL, &iRet));
+        if (gDeviceType == CL_DEVICE_TYPE_ACCELERATOR) {
+          EXPECT_EQ(oclErr(CL_INVALID_OPERATION), oclErr(iRet))
+              << "clCreateImage3D with flags (CL_MEM_HOST_NO_ACCESS) should "
+                 "fail "
+                 "for CL_DEVICE_TYPE_ACCELERATOR.";
+          if (CL_INVALID_OPERATION != iRet) {
+            PROV_RETURN_AND_ABANDON(false);
+          } else {
+            PROV_RETURN_AND_ABANDON(true);
+          }
 	}
 	else
 	{

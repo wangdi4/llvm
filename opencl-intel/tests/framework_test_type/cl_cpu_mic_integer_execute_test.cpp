@@ -129,12 +129,16 @@ bool run_the_test(const char* test_name, bool include_migration)
 
     for (unsigned int curr_dev = 0; curr_dev < sizeof(devices)/sizeof(devices[0]); ++curr_dev )
 	{
-        device   = devices[curr_dev];
-        dev_name = dev_names[curr_dev];
+      device = devices[curr_dev];
+      dev_name = dev_names[curr_dev];
 
-        dev_queue[curr_dev] = clCreateCommandQueue (context, device, 0 /*no properties*/, &iRet);
-        bResult &= SilentCheck(TITLE("clCreateCommandQueue - queue for "), CL_SUCCESS, iRet);
-        if (!bResult) goto release_queues;
+      dev_queue[curr_dev] = clCreateCommandQueueWithProperties(
+          context, device, NULL /*no properties*/, &iRet);
+      bResult &=
+          SilentCheck(TITLE("clCreateCommandQueueWithProperties - queue for "),
+                      CL_SUCCESS, iRet);
+      if (!bResult)
+        goto release_queues;
     }
 
     for (unsigned int round = 0; round < number_of_rounds; ++round)

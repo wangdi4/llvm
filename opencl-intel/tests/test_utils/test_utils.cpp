@@ -22,7 +22,9 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
-#include <gtest/gtest.h>
+
+#include "gtest_wrapper.h"
+
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -526,22 +528,23 @@ bool BuildProgramSynch(cl_context	        context,
 		}
 		delete[] devices;
 		return bRes;
-	}
+        }
 
-	cl_program new_program = 0;
-	new_program = clCreateProgramWithBinary(context, (cl_uint)szNumDevices, devices, pBinarySizes, (const unsigned char**)binaries, NULL, &iRes);
-	bRes = SilentCheck("clCreateProgramWithBinary (new program)", CL_SUCCESS, iRes);
-	if (!bRes)
-	{
-		for (unsigned int i=0; i<szNumDevices; ++i)
-		{
-			delete[] binaries[i];
-		}
-		delete[] devices;
-		return bRes;
-	}
+        cl_program new_program = 0;
+        new_program = clCreateProgramWithBinary(
+            context, (cl_uint)szNumDevices, devices, pBinarySizes,
+            const_cast<const unsigned char **>(binaries), NULL, &iRes);
+        bRes = SilentCheck("clCreateProgramWithBinary (new program)",
+                           CL_SUCCESS, iRes);
+        if (!bRes) {
+          for (unsigned int i = 0; i < szNumDevices; ++i) {
+            delete[] binaries[i];
+          }
+          delete[] devices;
+          return bRes;
+        }
 
-	iRes = clBuildProgram(new_program, (cl_uint)szNumDevices, devices, options, NULL, NULL);
+        iRes = clBuildProgram(new_program, (cl_uint)szNumDevices, devices, options, NULL, NULL);
 	bRes = SilentCheck("clBuildProgram (new program)", CL_SUCCESS, iRes);
 	if (!bRes)
 	{

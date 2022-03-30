@@ -61,20 +61,24 @@ bool EventDependenciesTest()
         return true;
     }
 
-    // No need for any other properties
-    queue_properties = CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE;
+    // Create a context
+    context = clCreateContext(NULL, 1, &device, NULL, NULL, &err);
+    bResult = SilentCheck("clCreateContext", CL_SUCCESS, err);
+    if (!bResult)
+      return bResult;
 
-    //Create a context 
-    context = clCreateContext(NULL,1, &device, NULL, NULL, &err);
-    bResult = SilentCheck("clCreateContext",CL_SUCCESS,err);
-    if (!bResult)    return bResult;
+    // Create a command queue
+    cl_queue_properties props[] = {CL_QUEUE_PROPERTIES,
+                                   CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, 0};
+    cmd_queue =
+        clCreateCommandQueueWithProperties(context, device, props, &err);
+    bResult =
+        SilentCheck("clCreateCommandQueueWithProperties", CL_SUCCESS, err);
+    if (!bResult)
+      return bResult;
 
-    //Create a command queue
-    cmd_queue = clCreateCommandQueue(context, device, queue_properties, &err);
-    bResult = SilentCheck("clCreateCommandQueue",CL_SUCCESS,err);
-    if (!bResult)    return bResult;
-
-    const char* ocl_test_program= "__kernel void k1(__global int* a, int b) {}";
+    const char *ocl_test_program =
+        "__kernel void k1(__global int* a, int b) {}";
 
     cl_kernel  k1;
     cl_event   events[TEST_COUNT + 1];

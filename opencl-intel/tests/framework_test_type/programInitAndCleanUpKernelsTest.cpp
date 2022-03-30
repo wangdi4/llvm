@@ -14,7 +14,6 @@
 #include "TestsHelpClasses.h"
 #include "common_utils.h"
 #include <CL/cl.h>
-#include <gtest/gtest.h>
 
 extern cl_device_type gDeviceType;
 
@@ -54,23 +53,22 @@ protected:
   cl_program m_program;
 };
 
-static void CL_API_CALL callbackFoo(cl_program, void *) {}
+static void CL_API_CALL callbackFoo(cl_context, void *) {}
 
 // Return CL_INVALID_OPERATION, clean-up kernels is not supported in OpenCL 3.0
-TEST_F(ProgramInitAndCleanUpKernelsTest, clSetProgramReleaseCallbackTest) {
+TEST_F(ProgramInitAndCleanUpKernelsTest, clSetContextDestructorCallbackTest) {
   cl_int err = CL_SUCCESS;
-  err = clSetProgramReleaseCallback(nullptr, nullptr, nullptr);
-  ASSERT_EQ(CL_INVALID_OPERATION, err)
-      << "clSetProgramReleaseCallback with invalid operation failed.";
+  err = clSetContextDestructorCallback(nullptr, nullptr, nullptr);
+  ASSERT_EQ(CL_INVALID_CONTEXT, err)
+      << "clSetContextDestructorCallback with invalid context is failed.";
 
-  err = clSetProgramReleaseCallback(m_program, nullptr, nullptr);
-  ASSERT_EQ(CL_INVALID_OPERATION, err)
-      << "clSetProgramReleaseCallback with invalid operation failed.";
+  err = clSetContextDestructorCallback(m_context, nullptr, nullptr);
+  ASSERT_EQ(CL_INVALID_VALUE, err)
+      << "clSetContextDestructorCallback with invalid callback is failed.";
 
   auto userData = reinterpret_cast<void *>(0x4321);
-  err = clSetProgramReleaseCallback(m_program, callbackFoo, userData);
-  ASSERT_EQ(CL_INVALID_OPERATION, err)
-      << "clSetProgramReleaseCallback with invalid operation failed.";
+  err = clSetContextDestructorCallback(m_context, callbackFoo, userData);
+  ASSERT_EQ(CL_SUCCESS, err) << "clSetContextDestructorCallback is passed.";
 }
 
 // Returns CL_FALSE, Program initialization is not supported in OpenCL 3.0

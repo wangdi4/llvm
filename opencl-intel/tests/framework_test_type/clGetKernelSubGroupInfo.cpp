@@ -468,82 +468,82 @@ TEST_F(CL21, GetKernelSubGroupInfo_MAX_NUM_SUB_GROUPS)
         << " clGetKernelSubGroupInfo(CL_KERNEL_MAX_NUM_SUB_GROUPS query) failed. Unexpected query result. ";
 }
 
-TEST_F(CL21, GetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS)
-{
-    cl_int iRet = CL_SUCCESS;
-    bool bResult = 0;
+TEST_F(CL21, GetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS) {
+  cl_int iRet = CL_SUCCESS;
+  // source code
+  // __kernel __attribute__((required_num_sub_groups(5))) void
+  // test_reqd_num_sg(__global unsigned long *result)
+  // {
+  //     result = get_global_id(0);
+  // }
 
-    // source code
-    // __kernel __attribute__((required_num_sub_groups(5))) void test_reqd_num_sg(__global unsigned long *result)
-    // {
-    //     result = get_global_id(0);
-    // }
+  cl_context context;
+  cl_device_id device;
+  cl_platform_id platform = 0;
 
-    cl_context context;
-    cl_device_id device;
-    cl_platform_id platform = 0;
+  iRet = clGetPlatformIDs(1, &platform, NULL);
+  Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
-    iRet = clGetPlatformIDs(1, &platform, NULL);
-    bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
+  cl_context_properties prop[3] = {CL_CONTEXT_PLATFORM,
+                                   (cl_context_properties)platform, 0};
+  iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
+  Check("clGetDeviceIDs", CL_SUCCESS, iRet);
 
-    cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
-    iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
-    bResult &= Check("clGetDeviceIDs", CL_SUCCESS, iRet);
+  context = clCreateContext(prop, 1, &device, NULL, NULL, &iRet);
+  Check("clCreateContext", CL_SUCCESS, iRet);
 
-    context = clCreateContext(prop, 1, &device, NULL, NULL, &iRet);
-    bResult &= Check("clCreateContext", CL_SUCCESS, iRet);
+  // open binary file
+  unsigned int uiContSize = 0;
+  FILE *fin = fopen((get_exe_dir() + BC_FILE).c_str(), "rb");
+  fpos_t fileSize;
+  SET_FPOS_T(fileSize, 0);
 
-    // open binary file
-    unsigned int uiContSize = 0;
-    FILE* fin = fopen((get_exe_dir() + BC_FILE).c_str(), "rb");
-    fpos_t fileSize;
-    SET_FPOS_T(fileSize, 0);
+  assert(fin && "Failed open file.");
+  fseek(fin, 0, SEEK_END);
+  fgetpos(fin, &fileSize);
+  uiContSize += (unsigned int)GET_FPOS_T(fileSize);
+  fseek(fin, 0, SEEK_SET);
 
-    assert(fin && "Failed open file.");
-    fseek(fin, 0, SEEK_END);
-    fgetpos(fin, &fileSize);
-    uiContSize += (unsigned int)GET_FPOS_T(fileSize);
-    fseek(fin, 0, SEEK_SET);
+  assert(uiContSize > 0 && "the input file must not be empty");
+  unsigned char *pCont = (unsigned char *)malloc(uiContSize);
 
-    assert(uiContSize > 0 && "the input file must not be empty");
-    unsigned char* pCont = (unsigned char*)malloc(uiContSize);
+  // construct program container
+  size_t ret =
+      fread(((unsigned char *)pCont), 1, (size_t)GET_FPOS_T(fileSize), fin);
+  ASSERT_EQ(ret, (size_t)GET_FPOS_T(fileSize)) << "Failed read file.";
+  fclose(fin);
 
-    // construct program container
-    size_t ret = fread(((unsigned char*)pCont), 1, (size_t)GET_FPOS_T(fileSize), fin);
-    ASSERT_EQ(ret, (size_t)GET_FPOS_T(fileSize)) << "Failed read file.";
-    fclose(fin);
+  size_t binarySize = uiContSize;
 
-    size_t binarySize = uiContSize;
+  // create program with binary
+  cl_int binaryStatus;
+  cl_program prog = clCreateProgramWithBinary(
+      context, 1, &device, &binarySize,
+      const_cast<const unsigned char **>(&pCont), &binaryStatus, &iRet);
+  Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
 
-    // create program with binary
-    cl_int binaryStatus;
-    cl_program prog = clCreateProgramWithBinary(context, 1, &device, &binarySize, const_cast<const unsigned char**>(&pCont), &binaryStatus, &iRet);
-    bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
+  iRet = clBuildProgram(prog, 1, &device, NULL, NULL, NULL);
+  Check("clBuildProgram", CL_SUCCESS, iRet);
 
-    iRet = clBuildProgram(prog, 1, &device, NULL, NULL, NULL);
-    bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
+  cl_kernel kern = clCreateKernel(prog, "test_reqd_num_sg", &iRet);
+  Check("clCreateKernel", CL_SUCCESS, iRet);
 
-    cl_kernel kern = clCreateKernel(prog, "test_reqd_num_sg", &iRet);
-    bResult &= Check("clCreateKernel", CL_SUCCESS, iRet);
+  size_t returned_size = 0;
+  size_t required_num_SG = 0;
 
-    size_t returned_size = 0;
-    size_t required_num_SG = 0;
-
-    iRet = clGetKernelSubGroupInfo(kern,
-                                   m_device,
-                                   CL_KERNEL_COMPILE_NUM_SUB_GROUPS,
-                                   /*input_value_size*/0,
-                                   /*input_value*/nullptr,
-                                   sizeof(required_num_SG),
-                                   &required_num_SG,
-                                   &returned_size);
-    clReleaseKernel(kern);
-    clReleaseProgram(prog);
-    ASSERT_EQ(CL_SUCCESS, iRet)
-        << " clGetKernelSubGroupInfo(CL_KERNEL_COMPILE_NUM_SUB_GROUPS query) failed. ";
-    ASSERT_EQ(sizeof(size_t), returned_size)
-        << " clGetKernelSubGroupInfo(CL_KERNEL_COMPILE_NUM_SUB_GROUPS) failed. Expected and returned size differ. ";
-    ASSERT_EQ((cl_uint)5, required_num_SG)
-        << " clGetKernelSubGroupInfo(CL_KERNEL_COMPILE_NUM_SUB_GROUPS query) failed. Unexpected query result. ";
+  iRet =
+      clGetKernelSubGroupInfo(kern, m_device, CL_KERNEL_COMPILE_NUM_SUB_GROUPS,
+                              /*input_value_size*/ 0,
+                              /*input_value*/ nullptr, sizeof(required_num_SG),
+                              &required_num_SG, &returned_size);
+  clReleaseKernel(kern);
+  clReleaseProgram(prog);
+  ASSERT_EQ(CL_SUCCESS, iRet) << " clGetKernelSubGroupInfo(CL_KERNEL_COMPILE_"
+                                 "NUM_SUB_GROUPS query) failed. ";
+  ASSERT_EQ(sizeof(size_t), returned_size)
+      << " clGetKernelSubGroupInfo(CL_KERNEL_COMPILE_NUM_SUB_GROUPS) failed. "
+         "Expected and returned size differ. ";
+  ASSERT_EQ((cl_uint)5, required_num_SG)
+      << " clGetKernelSubGroupInfo(CL_KERNEL_COMPILE_NUM_SUB_GROUPS query) "
+         "failed. Unexpected query result. ";
 }
-

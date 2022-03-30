@@ -438,62 +438,62 @@ catch (int error)
 	clFinish(cmd_queue);
 	clReleaseKernel(kernel);
 	clReleaseProgram(program);
-
 }
 
-#define PRINTF_FORMAT __kernel void printf_format(__global int* count,int num_of_chars){\
-int num=1023456789;\
-int width=30;\
-int precision=30;\
-int len=printf("format check: \n");\
-len+=printf("regular int: %d \n",num);\
-len+=printf("left-justify: %-d \n",num);\
-len+=printf("sign: %+d \n",num);\
-len+=printf("width : %30d \n",num);\
-len+=printf("zeros-width : %030d \n",num);\
-len+=printf("external width : %0*d \n",width,num);\
-len+=printf("short : %hd \n",num);\
-len+=printf("long : %ld \n",num);\
-len+=printf("all : %-+0*d \n",width,num);\
-float f_num=-3.1415926535897932384626433832795;\
-len+=printf("regular float: %f \n",f_num);\
-len+=printf("left-justify: %-f \n",f_num);\
-len+=printf("sign: %+f \n",f_num);\
-len+=printf("width : %30f \n",f_num);\
-len+=printf("zeros-width : %030f \n",f_num);\
-len+=printf("external width : %0*f \n",width,f_num);\
-len+=printf("precision : %.30f \n",f_num);\
-len+=printf("external precision : %.*f \n",precision,f_num);\
-if (len==num_of_chars ){	\
-atom_inc(count); /* conformance issue should be: atomic_inc(count); */\
-}	\
-}
+#define PRINTF_FORMAT                                                          \
+  __kernel void printf_format(__global int *count, int num_of_chars) {         \
+    int num = 1023456789;                                                      \
+    int width = 30;                                                            \
+    int precision = 30;                                                        \
+    int len = printf("format check: \n");                                      \
+    len += printf("regular int: %d \n", num);                                  \
+    len += printf("left-justify: %-d \n", num);                                \
+    len += printf("sign: %+d \n", num);                                        \
+    len += printf("width : %30d \n", num);                                     \
+    len += printf("zeros-width : %030d \n", num);                              \
+    len += printf("external width : %0*d \n", width, num);                     \
+    len += printf("short : %hd \n", (short)num);                               \
+    len += printf("long : %ld \n", num);                                       \
+    len += printf("all : %-+0*d \n", width, num);                              \
+    float f_num = -3.1415926535897932384626433832795;                          \
+    len += printf("regular float: %f \n", f_num);                              \
+    len += printf("left-justify: %-f \n", f_num);                              \
+    len += printf("sign: %+f \n", f_num);                                      \
+    len += printf("width : %30f \n", f_num);                                   \
+    len += printf("zeros-width : %030f \n", f_num);                            \
+    len += printf("external width : %0*f \n", width, f_num);                   \
+    len += printf("precision : %.30f \n", f_num);                              \
+    len += printf("external precision : %.*f \n", precision, f_num);           \
+    if (len == num_of_chars) {                                                 \
+      atom_inc(count); /* conformance issue should be: atomic_inc(count); */   \
+    }                                                                          \
+  }
 
-int printf_format(){
-	int num=1023456789;
-	int width=30;
-	int precision=30;
-	int len=printf("format check: \n");
-	len+=printf("regular int: %d \n",num);
-	len+=printf("left-justify: %-d \n",num);
-	len+=printf("sign: %+d \n",num);
-	len+=printf("width : %30d \n",num);
-	len+=printf("zeros-width : %030d \n",num);
-	len+=printf("external width : %0*d \n",width,num);
-	len+=printf("short : %hd \n",num);
-	len+=printf("long : %d \n",num);
-	len+=printf("all : %-+*d \n",width,num);
-	float f_num=-3.1415926535897932384626433832795f;
-	len+=printf("regular float: %f \n",f_num);
-	len+=printf("left-justify: %-f \n",f_num);
-	len+=printf("sign: %+f \n",f_num);
-	len+=printf("width : %30f \n",f_num);
-	len+=printf("zeros-width : %030f \n",f_num);
-	len+=printf("external width : %0*f \n",width,f_num);
-	len+=printf("precision : %.30f \n",f_num);
-	len+=printf("external precision : %.*f \n",precision,f_num);
+int printf_format() {
+  int num = 1023456789;
+  int width = 30;
+  int precision = 30;
+  int len = printf("format check: \n");
+  len += printf("regular int: %d \n", num);
+  len += printf("left-justify: %-d \n", num);
+  len += printf("sign: %+d \n", num);
+  len += printf("width : %30d \n", num);
+  len += printf("zeros-width : %030d \n", num);
+  len += printf("external width : %0*d \n", width, num);
+  len += printf("short : %hd \n", (short)num);
+  len += printf("long : %d \n", num);
+  len += printf("all : %-+*d \n", width, num);
+  float f_num = -3.1415926535897932384626433832795f;
+  len += printf("regular float: %f \n", f_num);
+  len += printf("left-justify: %-f \n", f_num);
+  len += printf("sign: %+f \n", f_num);
+  len += printf("width : %30f \n", f_num);
+  len += printf("zeros-width : %030f \n", f_num);
+  len += printf("external width : %0*f \n", width, f_num);
+  len += printf("precision : %.30f \n", f_num);
+  len += printf("external precision : %.*f \n", precision, f_num);
 
-	return len;
+  return len;
 }
 
 void run_kernel_printf_format(cl_context& context,cl_device_id& device,cl_command_queue& cmd_queue,bool& bResult){
@@ -816,14 +816,16 @@ bool MultithreadedPrintf()
 	context  = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
 	bResult &= SilentCheck("Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
 
-	iRet     = clGetDeviceIDs(platform, gDeviceType, 1, &deviceId, NULL);
-	bResult &= SilentCheck("Get device ID (gDeviceType)", CL_SUCCESS, iRet);
+        iRet = clGetDeviceIDs(platform, gDeviceType, 1, &deviceId, NULL);
+        bResult &= SilentCheck("Get device ID (gDeviceType)", CL_SUCCESS, iRet);
 
-	queue    = clCreateCommandQueue(context, deviceId, 0, &iRet);
-	bResult &= SilentCheck("Create command queue", CL_SUCCESS, iRet);
+        queue =
+            clCreateCommandQueueWithProperties(context, deviceId, NULL, &iRet);
+        bResult &= SilentCheck("Create command queue", CL_SUCCESS, iRet);
 
-	program  = clCreateProgramWithSource(context, 1, &programSource, NULL, &iRet);
-	bResult &= SilentCheck("Create program with source", CL_SUCCESS, iRet);
+        program =
+            clCreateProgramWithSource(context, 1, &programSource, NULL, &iRet);
+        bResult &= SilentCheck("Create program with source", CL_SUCCESS, iRet);
 
 	iRet     = clBuildProgram(program, 1, &deviceId, NULL, NULL, NULL);
 	bResult &= SilentCheck("Build program", CL_SUCCESS, iRet);
@@ -894,16 +896,18 @@ bool printf_test(){
 		bResult&=SilentCheck("clCreateContext",CL_SUCCESS,err);
 		if (!bResult){
 			throw RELEASE_END;
-		}
+                }
 
-		//init Command Queue
-		cmd_queue=clCreateCommandQueue(context,device,0,&err);
-		bResult&=SilentCheck("clCreateCommandQueue",CL_SUCCESS,err);
-		if (!bResult){
-			throw RELEASE_CONTEXT;
-		}	
+                // init Command Queue
+                cmd_queue = clCreateCommandQueueWithProperties(context, device,
+                                                               NULL, &err);
+                bResult &= SilentCheck("clCreateCommandQueueWithProperties",
+                                       CL_SUCCESS, err);
+                if (!bResult) {
+                  throw RELEASE_CONTEXT;
+                }
 
-		//run_kernel_printf_simple(context,device,cmd_queue,bResult);
+                //run_kernel_printf_simple(context,device,cmd_queue,bResult);
 
 		run_kernel_printf_special_chars(context,device,cmd_queue,bResult);
 

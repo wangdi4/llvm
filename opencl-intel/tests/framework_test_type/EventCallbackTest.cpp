@@ -102,31 +102,32 @@ bool EventCallbackTest()
 
 	// create context
 	context = PROV_OBJ( clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet) );
-	NOISY_CHECK("clCreateContext",CL_SUCCESS, iRet);
+        NOISY_CHECK("clCreateContext", CL_SUCCESS, iRet);
 
-	// Create queue
-	cl_command_queue queue = PROV_OBJ( clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet) );
-	NOISY_CHECK("clCreateCommandQueue", CL_SUCCESS, iRet);
+        // Create queue
+        cl_command_queue queue = PROV_OBJ(clCreateCommandQueueWithProperties(
+            context, pDevices[0], NULL /*no properties*/, &iRet));
+        NOISY_CHECK("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
 
-	cl_int errCode;
-	NativeKernelArgType kernel_arg(128);
-	cl_event kernelWaitList[1];
+        cl_int errCode;
+        NativeKernelArgType kernel_arg(128);
+        cl_event kernelWaitList[1];
 
-	/** first iteration, check for proper call order. **/
+        /** first iteration, check for proper call order. **/
 
-	// triggers to start all events.
-	cl_event kernelEvent1;
-	cl_event user_event1 = PROV_OBJ(clCreateUserEvent(context, &errCode));
-	NOISY_CHECK("clCreateUserEvent 1", CL_SUCCESS, errCode);
+        // triggers to start all events.
+        cl_event kernelEvent1;
+        cl_event user_event1 = PROV_OBJ(clCreateUserEvent(context, &errCode));
+        NOISY_CHECK("clCreateUserEvent 1", CL_SUCCESS, errCode);
 
-	callback_data_type data1;
-	data1.queue             = queue;
-	data1.submitted_counter = 0;
-	data1.running_counter   = 0;
-	data1.complete_counter  = 0;
-	data1.sum_of_errors     = 0;
+        callback_data_type data1;
+        data1.queue = queue;
+        data1.submitted_counter = 0;
+        data1.running_counter = 0;
+        data1.complete_counter = 0;
+        data1.sum_of_errors = 0;
 
-	kernelWaitList[0] = user_event1;
+        kernelWaitList[0] = user_event1;
 
 	iRet = clEnqueueNativeKernel(queue, NativeKernelFunc, &kernel_arg, sizeof(kernel_arg), 0, NULL, NULL, 1, kernelWaitList, &kernelEvent1);
 	NOISY_CHECK("clEnqueueNativeKernel 1", CL_SUCCESS, iRet);

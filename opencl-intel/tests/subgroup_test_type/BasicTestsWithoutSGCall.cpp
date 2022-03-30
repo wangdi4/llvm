@@ -45,10 +45,10 @@ TEST_P(SGEmulationTest, BasicTestsWithoutSGCall) {
   constexpr size_t LSize = 16;
 
   size_t MaxSGSize = 0;
-  Ret = clGetKernelSubGroupInfoKHR(
-      Kern, m_device, CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE_KHR,
-      sizeof(LSize), &LSize, sizeof(MaxSGSize), &MaxSGSize, nullptr);
-  ASSERT_OCL_SUCCESS(Ret, " clGetKernelSubGroupInfoKHR");
+  Ret = clGetKernelSubGroupInfo(
+      Kern, m_device, CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE, sizeof(LSize),
+      &LSize, sizeof(MaxSGSize), &MaxSGSize, nullptr);
+  ASSERT_OCL_SUCCESS(Ret, " clGetKernelSubGroupInfo");
 
   ASSERT_NE(
       std::find(SupportedSGSizes.begin(), SupportedSGSizes.end(), MaxSGSize),

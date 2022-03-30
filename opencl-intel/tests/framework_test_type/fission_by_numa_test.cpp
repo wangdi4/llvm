@@ -22,8 +22,8 @@
 #include "FrameworkTest.h"
 #include "TestsHelpClasses.h"
 #include "cl_sys_info.h"
+#include "gtest_wrapper.h"
 #include <CL/cl.h>
-#include <gtest/gtest.h>
 #include <stdio.h>
 
 extern cl_device_type gDeviceType;
@@ -117,9 +117,9 @@ TEST_F(SubDevicesByNumaTest, createSubDevicesAndRunKernel) {
   size_t globalSize = maxComputeUnits / numDevices;
   size_t localSize = 1;
   std::vector<int *> res(numDevices, nullptr);
-  for (int i = 0; i < numDevices; i++)
+  for (cl_uint i = 0; i < numDevices; i++)
     res[i] = new int[globalSize];
-  for (int i = 0; i < numDevices; i++) {
+  for (cl_uint i = 0; i < numDevices; i++) {
     cl_uint computeUnits;
     err = clGetDeviceInfo(subDevIds[i], CL_DEVICE_MAX_COMPUTE_UNITS,
                           sizeof(computeUnits), &computeUnits, nullptr);
@@ -181,11 +181,11 @@ TEST_F(SubDevicesByNumaTest, createSubDevicesAndRunKernel) {
     clFinish(q);
 
   // validate result
-  for (int i = 0; i < numDevices; i++) {
+  for (cl_uint i = 0; i < numDevices; i++) {
     std::vector<cl_uint> nodes;
     Intel::OpenCL::Utils::GetProcessorIndexFromNumaNode(i, nodes);
     std::set<cl_uint> index(nodes.begin(), nodes.end());
-    for (int core = 0; core < globalSize; core++) {
+    for (size_t core = 0; core < globalSize; core++) {
       if (index.find(res[i][core]) == index.end()) {
         ASSERT_TRUE(false) << "thread is not bound to same numa node.";
       }

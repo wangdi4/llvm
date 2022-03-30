@@ -56,16 +56,20 @@ bool clMathExecuteTest()
     if (!bResult) goto release_end;
 
 	iRet = clGetDeviceIDs(platform, gDeviceType, 1, &clDefaultDeviceId, NULL);
-    bResult &= Check("clGetDeviceIDs", CL_SUCCESS, iRet);    
-    if (!bResult) goto release_context;
+    bResult &= Check("clGetDeviceIDs", CL_SUCCESS, iRet);
+    if (!bResult)
+      goto release_context;
 
-	{
-		cl_command_queue queue = clCreateCommandQueue (context, clDefaultDeviceId, 0 /*no properties*/, &iRet);
-		bResult &= Check("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
-		if (!bResult) goto release_context;
+    {
+      cl_command_queue queue = clCreateCommandQueueWithProperties(
+          context, clDefaultDeviceId, NULL /*no properties*/, &iRet);
+      bResult &=
+          Check("clCreateCommandQueueWithProperties - queue", CL_SUCCESS, iRet);
+      if (!bResult)
+        goto release_context;
 
-		// create program with source
-	#if 0
+        // create program with source
+#if 0
 	cl_program program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
 	bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
 	if (!bResult) goto release_queue;
@@ -153,7 +157,7 @@ bool clMathExecuteTest()
 	release_queue:
 		clFinish(queue);
 		clReleaseCommandQueue(queue);
-	}
+        }
 release_context:
     clReleaseContext(context);
 release_end:

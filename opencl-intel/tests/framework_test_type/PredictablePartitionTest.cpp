@@ -40,15 +40,20 @@ bool test_subdevice(cl_device_id subdevice_id, cl_uint subdevice_size, bool useF
 	//Create a context with the sub-device
 	context = clCreateContext(NULL, 1, &subdevice_id, NULL, NULL, &err);
 	bResult = SilentCheck("clCreateContext", CL_SUCCESS, err);
-	if (!bResult)	return bResult;
+        if (!bResult)
+          return bResult;
 
-	//Create a command queue for the device
-	cmd_queue = clCreateCommandQueue(context, subdevice_id, 0, &err);
-	bResult = SilentCheck("clCreateCommandQueue", CL_SUCCESS, err);
-	if (!bResult) return bResult;
+        // Create a command queue for the device
+        cmd_queue = clCreateCommandQueueWithProperties(context, subdevice_id,
+                                                       NULL, &err);
+        bResult =
+            SilentCheck("clCreateCommandQueueWithProperties", CL_SUCCESS, err);
+        if (!bResult)
+          return bResult;
 
-    //Todo: should extend this test to also ensure which cores work groups execute on. Relies on a debug built-in
-	const char* ocl_test_program= "__kernel void writeTID(__global int *a) { a[get_global_id(0)] = get_global_id(0); }";
+        // Todo: should extend this test to also ensure which cores work groups
+        // execute on. Relies on a debug built-in
+        const char* ocl_test_program= "__kernel void writeTID(__global int *a) { a[get_global_id(0)] = get_global_id(0); }";
 
 	cl_kernel  kernel;
 	cl_program program;

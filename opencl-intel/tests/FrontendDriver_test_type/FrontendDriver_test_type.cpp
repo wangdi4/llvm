@@ -18,12 +18,12 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly.
 
-#include <CL/cl.h>
-#include <gtest/gtest.h>
-#include <FrontendDriver.h>
-#include <frontend_api.h>
-#include <clang_device_info.h>
 #include "common_clang.h"
+#include "gtest_wrapper.h"
+#include <CL/cl.h>
+#include <FrontendDriver.h>
+#include <clang_device_info.h>
+#include <frontend_api.h>
 
 #include "FrontendDriverFixture.h"
 
@@ -151,11 +151,11 @@ TEST_F(ClangCompilerTestType, Test_RejectInvalidCompileOption)
     ASSERT_EQ(CL_INVALID_COMPILER_OPTIONS, err) << "Unexpected retcode in presence of invalid compile options.\n";
 }
 
-// The following constants are used to make SPIR-V 1.1 BC in place (little-endian byte order)
-const std::uint32_t SPIRV10Version     = 0x00010000;
-const std::uint32_t SPIRV11Version     = 0x00010100;
-const std::uint32_t SPIRV12Version     = 0x00010200;
-const std::uint32_t SPIRVOpCapability  = 0x00020000 | spv::OpCapability;
+// The following constants are used to make SPIR-V 1.1 BC in place
+// (little-endian byte order)
+const std::uint32_t SPIRV10Version = 0x00010000;
+const std::uint32_t SPIRV12Version = 0x00010200;
+const std::uint32_t SPIRVOpCapability = 0x00020000 | spv::OpCapability;
 const std::uint32_t SPIRVOpMemoryModel = 0x00030000 | spv::OpMemoryModel;
 
 // test that a module with device agnostic capabilities is accepted by FE

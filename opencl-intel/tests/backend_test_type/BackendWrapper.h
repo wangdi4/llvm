@@ -25,7 +25,7 @@ File Name:  BackendWrapper.h
 #include <string>
 #include <vector>
 
-#include <gtest/gtest.h>                // Test framework
+#include "gtest_wrapper.h" // Test framework
 
 #include "BE_DynamicLib.h"
 #include "BWOptions.h" // the implemented Options classes
@@ -172,40 +172,54 @@ protected:
 class OCLProgramMock: public ICLDevBackendProgram_
 {
 public:
-    ~OCLProgramMock(){}
+  ~OCLProgramMock() {}
 
-    unsigned long long int GetProgramID() const { return 0; }
+  unsigned long long int GetProgramID() const override { return 0; }
 
-    const char* GetBuildLog() const { return ""; }
+  const char *GetBuildLog() const override { return ""; }
 
-    virtual const ICLDevBackendCodeContainer* GetProgramCodeContainer() const { return NULL; }
+  virtual const ICLDevBackendCodeContainer *
+  GetProgramCodeContainer() const override {
+    return NULL;
+  }
 
-    virtual const ICLDevBackendCodeContainer* GetProgramIRCodeContainer() const { return NULL; }
+  virtual const ICLDevBackendCodeContainer *
+  GetProgramIRCodeContainer() const override {
+    return NULL;
+  }
 
-    cl_dev_err_code Finalize() override { return CL_DEV_SUCCESS; }
+  cl_dev_err_code Finalize() override { return CL_DEV_SUCCESS; }
 
-    virtual cl_dev_err_code
-    GetKernelByName(const char *pKernelName,
-                    const ICLDevBackendKernel_ **ppKernel) const override {
-      return CL_DEV_ERROR_FAIL;
-    }
+  virtual cl_dev_err_code
+  GetKernelByName(const char *pKernelName,
+                  const ICLDevBackendKernel_ **ppKernel) const override {
+    return CL_DEV_ERROR_FAIL;
+  }
 
-    virtual int GetNonBlockKernelsCount() const { return 0; }
+  virtual int GetNonBlockKernelsCount() const override { return 0; }
 
-    virtual int GetKernelsCount() const { return 0; }
+  virtual int GetKernelsCount() const override { return 0; }
 
-    virtual cl_dev_err_code	GetKernel(
-        int kernelIndex,
-        const ICLDevBackendKernel_** pKernel) const { return CL_DEV_ERROR_FAIL; }
+  virtual cl_dev_err_code
+  GetKernel(int kernelIndex,
+            const ICLDevBackendKernel_ **pKernel) const override {
+    return CL_DEV_ERROR_FAIL;
+  }
 
-    virtual const ICLDevBackendProgramJITCodeProperties* GetProgramJITCodeProperties() const { return NULL; }
+  virtual const ICLDevBackendProgramJITCodeProperties *
+  GetProgramJITCodeProperties() const override {
+    return NULL;
+  }
 
-    virtual size_t GetGlobalVariableTotalSize() const { return 0; }
+  virtual size_t GetGlobalVariableTotalSize() const override { return 0; }
 
-    virtual cl_ulong GetFunctionPointerFor(const char *FunctionName) const { return 0; }
+  virtual cl_ulong
+  GetFunctionPointerFor(const char *FunctionName) const override {
+    return 0;
+  }
 
-    virtual void GetGlobalVariablePointers(const cl_prog_gv **gvPtrs,
-                                           size_t *gvCount) const {}
+  virtual void GetGlobalVariablePointers(const cl_prog_gv **gvPtrs,
+                                         size_t *gvCount) const override {}
 };
 
 #endif // BACKEND_WRAPPER_H

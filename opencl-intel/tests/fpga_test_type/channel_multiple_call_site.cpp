@@ -13,12 +13,12 @@
 // ===--------------------------------------------------------------------=== //
 #include "simple_fixture.h"
 
+#include "gtest_wrapper.h"
 #include <CL/cl.h>
-#include <gtest/gtest.h>
 
 #include <numeric>
-#include <vector>
 #include <string>
+#include <vector>
 
 class TestChannelMultipleCallSite : public OCLFPGASimpleFixture {};
 

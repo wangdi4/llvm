@@ -296,14 +296,12 @@ public:
      *
      * \return A memory pointer to the error message string.
      */
-    virtual const char * what() const throw ()
-    {
-        if (errStr_ == NULL) {
-            return "empty";
-        }
-        else {
-            return errStr_;
-        }
+    virtual const char *what() const noexcept override {
+      if (errStr_ == NULL) {
+        return "empty";
+      } else {
+        return errStr_;
+      }
     }
 
     /*! \brief Get error code associated with exception
@@ -2939,13 +2937,12 @@ public:
      * 
      *  Wraps clWaitForEvents().
      */
-    static cl_int
-    waitForEvents(const VECTOR_CLASS<Event>& events)
-    {
-        return detail::errHandler(
-            ::clWaitForEvents(
-                (cl_uint) events.size(), (events.size() > 0) ? (cl_event*)&events.front() : NULL),
-            __WAIT_FOR_EVENTS_ERR);
+    static cl_int waitForEvents(const VECTOR_CLASS<Event> &events) {
+      return detail::errHandler(
+          ::clWaitForEvents(
+              (cl_uint)events.size(),
+              (events.size() > 0) ? (const cl_event *)(&events.front()) : NULL),
+          __WAIT_FOR_EVENTS_ERR);
     }
 };
 
@@ -2996,13 +2993,12 @@ public:
  * 
  *  Wraps clWaitForEvents().
  */
-inline static cl_int
-WaitForEvents(const VECTOR_CLASS<Event>& events)
-{
-    return detail::errHandler(
-        ::clWaitForEvents(
-            (cl_uint) events.size(), (events.size() > 0) ? (cl_event*)&events.front() : NULL),
-        __WAIT_FOR_EVENTS_ERR);
+inline static cl_int WaitForEvents(const VECTOR_CLASS<Event> &events) {
+  return detail::errHandler(
+      ::clWaitForEvents(
+          (cl_uint)events.size(),
+          (events.size() > 0) ? (const cl_event *)(&events.front()) : NULL),
+      __WAIT_FOR_EVENTS_ERR);
 }
 
 /*! \brief Class interface for cl_mem.
@@ -3637,34 +3633,19 @@ public:
      *
      *  Wraps clCreateImage().
      */
-    Image1D(
-        const Context& context,
-        cl_mem_flags flags,
-        ImageFormat format,
-        ::size_t width,
-        void* host_ptr = NULL,
-        cl_int* err = NULL)
-    {
-        cl_int error;
-        cl_image_desc desc =
-        {
-            CL_MEM_OBJECT_IMAGE1D,
-            width,
-            0, 0, 0, 0, 0, 0, 0, 0
-        };
-        object_ = ::clCreateImage(
-            context(), 
-            flags, 
-            &format, 
-            &desc, 
-            host_ptr, 
-            &error);
+  Image1D(const Context &context, cl_mem_flags flags, ImageFormat format,
+          ::size_t width, void *host_ptr = NULL, cl_int *err = NULL) {
+    cl_int error;
+    cl_image_desc desc = {
+        CL_MEM_OBJECT_IMAGE1D, width, 0, 0, 0, 0, 0, 0, 0, {0}};
+    object_ =
+        ::clCreateImage(context(), flags, &format, &desc, host_ptr, &error);
 
-        detail::errHandler(error, __CREATE_IMAGE_ERR);
-        if (err != NULL) {
-            *err = error;
-        }
+    detail::errHandler(error, __CREATE_IMAGE_ERR);
+    if (err != NULL) {
+      *err = error;
     }
+  }
 
     //! \brief Default constructor - initializes to NULL.
     Image1D() { }
@@ -3722,35 +3703,18 @@ public:
 class Image1DBuffer : public Image
 {
 public:
-    Image1DBuffer(
-        const Context& context,
-        cl_mem_flags flags,
-        ImageFormat format,
-        ::size_t width,
-        const Buffer &buffer,
-        cl_int* err = NULL)
-    {
-        cl_int error;
-        cl_image_desc desc =
-        {
-            CL_MEM_OBJECT_IMAGE1D_BUFFER,
-            width,
-            0, 0, 0, 0, 0, 0, 0,
-            buffer()
-        };
-        object_ = ::clCreateImage(
-            context(), 
-            flags, 
-            &format, 
-            &desc, 
-            NULL, 
-            &error);
+  Image1DBuffer(const Context &context, cl_mem_flags flags, ImageFormat format,
+                ::size_t width, const Buffer &buffer, cl_int *err = NULL) {
+    cl_int error;
+    cl_image_desc desc = {
+        CL_MEM_OBJECT_IMAGE1D_BUFFER, width, 0, 0, 0, 0, 0, 0, 0, {buffer()}};
+    object_ = ::clCreateImage(context(), flags, &format, &desc, NULL, &error);
 
-        detail::errHandler(error, __CREATE_IMAGE_ERR);
-        if (err != NULL) {
-            *err = error;
-        }
+    detail::errHandler(error, __CREATE_IMAGE_ERR);
+    if (err != NULL) {
+      *err = error;
     }
+  }
 
     Image1DBuffer() { }
 
@@ -3799,39 +3763,28 @@ public:
 class Image1DArray : public Image
 {
 public:
-    Image1DArray(
-        const Context& context,
-        cl_mem_flags flags,
-        ImageFormat format,
-        ::size_t arraySize,
-        ::size_t width,
-        ::size_t rowPitch,
-        void* host_ptr = NULL,
-        cl_int* err = NULL)
-    {
-        cl_int error;
-        cl_image_desc desc =
-        {
-            CL_MEM_OBJECT_IMAGE1D_ARRAY,
-            width,
-            0, 0,  // height, depth (unused)
-            arraySize,
-            rowPitch,
-            0, 0, 0, 0
-        };
-        object_ = ::clCreateImage(
-            context(), 
-            flags, 
-            &format, 
-            &desc, 
-            host_ptr, 
-            &error);
+  Image1DArray(const Context &context, cl_mem_flags flags, ImageFormat format,
+               ::size_t arraySize, ::size_t width, ::size_t rowPitch,
+               void *host_ptr = NULL, cl_int *err = NULL) {
+    cl_int error;
+    cl_image_desc desc = {CL_MEM_OBJECT_IMAGE1D_ARRAY,
+                          width,
+                          0,
+                          0, // height, depth (unused)
+                          arraySize,
+                          rowPitch,
+                          0,
+                          0,
+                          0,
+                          {0}};
+    object_ =
+        ::clCreateImage(context(), flags, &format, &desc, host_ptr, &error);
 
-        detail::errHandler(error, __CREATE_IMAGE_ERR);
-        if (err != NULL) {
-            *err = error;
-        }
+    detail::errHandler(error, __CREATE_IMAGE_ERR);
+    if (err != NULL) {
+      *err = error;
     }
+  }
 
     Image1DArray() { }
 
@@ -3915,29 +3868,24 @@ public:
 #endif
 
 #if defined(CL_VERSION_1_2)
-        if (useCreateImage)
-        {
-            cl_image_desc desc =
-            {
-                CL_MEM_OBJECT_IMAGE2D,
-                width,
-                height,
-                0, 0, // depth, array size (unused)
-                row_pitch,
-                0, 0, 0, 0
-            };
-            object_ = ::clCreateImage(
-                context(),
-                flags,
-                &format,
-                &desc,
-                host_ptr,
-                &error);
+        if (useCreateImage) {
+          cl_image_desc desc = {CL_MEM_OBJECT_IMAGE2D,
+                                width,
+                                height,
+                                0,
+                                0, // depth, array size (unused)
+                                row_pitch,
+                                0,
+                                0,
+                                0,
+                                { 0 }};
+          object_ = ::clCreateImage(context(), flags, &format, &desc, host_ptr,
+                                    &error);
 
-            detail::errHandler(error, __CREATE_IMAGE_ERR);
-            if (err != NULL) {
-                *err = error;
-            }
+          detail::errHandler(error, __CREATE_IMAGE_ERR);
+          if (err != NULL) {
+            *err = error;
+          }
         }
 #endif // #if defined(CL_VERSION_1_2)
 #if !defined(CL_VERSION_1_2) || defined(CL_USE_DEPRECATED_OPENCL_1_1_APIS)
@@ -4105,43 +4053,29 @@ public:
 class Image2DArray : public Image
 {
 public:
-    Image2DArray(
-        const Context& context,
-        cl_mem_flags flags,
-        ImageFormat format,
-        ::size_t arraySize,
-        ::size_t width,
-        ::size_t height,
-        ::size_t rowPitch,
-        ::size_t slicePitch,
-        void* host_ptr = NULL,
-        cl_int* err = NULL)
-    {
-        cl_int error;
-        cl_image_desc desc =
-        {
-            CL_MEM_OBJECT_IMAGE2D_ARRAY,
-            width,
-            height,
-            0,       // depth (unused)
-            arraySize,
-            rowPitch,
-            slicePitch,
-            0, 0, 0
-        };
-        object_ = ::clCreateImage(
-            context(), 
-            flags, 
-            &format, 
-            &desc, 
-            host_ptr, 
-            &error);
+  Image2DArray(const Context &context, cl_mem_flags flags, ImageFormat format,
+               ::size_t arraySize, ::size_t width, ::size_t height,
+               ::size_t rowPitch, ::size_t slicePitch, void *host_ptr = NULL,
+               cl_int *err = NULL) {
+    cl_int error;
+    cl_image_desc desc = {CL_MEM_OBJECT_IMAGE2D_ARRAY,
+                          width,
+                          height,
+                          0, // depth (unused)
+                          arraySize,
+                          rowPitch,
+                          slicePitch,
+                          0,
+                          0,
+                          {0}};
+    object_ =
+        ::clCreateImage(context(), flags, &format, &desc, host_ptr, &error);
 
-        detail::errHandler(error, __CREATE_IMAGE_ERR);
-        if (err != NULL) {
-            *err = error;
-        }
+    detail::errHandler(error, __CREATE_IMAGE_ERR);
+    if (err != NULL) {
+      *err = error;
     }
+  }
 
     Image2DArray() { }
 
@@ -4226,33 +4160,26 @@ public:
 #endif
 
 #if defined(CL_VERSION_1_2)
-        if (useCreateImage)
-        {
-            cl_image_desc desc =
-            {
-                CL_MEM_OBJECT_IMAGE3D,
-                width,
-                height,
-                depth,
-                0,      // array size (unused)
-                row_pitch,
-                slice_pitch,
-                0, 0, 0
-            };
-            object_ = ::clCreateImage(
-                context(), 
-                flags, 
-                &format, 
-                &desc, 
-                host_ptr, 
-                &error);
+        if (useCreateImage) {
+          cl_image_desc desc = {CL_MEM_OBJECT_IMAGE3D,
+                                width,
+                                height,
+                                depth,
+                                0, // array size (unused)
+                                row_pitch,
+                                slice_pitch,
+                                0,
+                                0,
+                                { 0 }};
+          object_ = ::clCreateImage(context(), flags, &format, &desc, host_ptr,
+                                    &error);
 
-            detail::errHandler(error, __CREATE_IMAGE_ERR);
-            if (err != NULL) {
-                *err = error;
-            }
+          detail::errHandler(error, __CREATE_IMAGE_ERR);
+          if (err != NULL) {
+            *err = error;
+          }
         }
-#endif  // #if defined(CL_VERSION_1_2)
+#endif // #if defined(CL_VERSION_1_2)
 #if !defined(CL_VERSION_1_2) || defined(CL_USE_DEPRECATED_OPENCL_1_1_APIS)
         if (!useCreateImage)
         {
@@ -4632,31 +4559,30 @@ public:
 
     /*! \brief Constructs a Sampler in a specified context.
      *
-     *  Wraps clCreateSampler().
+     *  Wraps clCreateSamplerWithProperties().
      */
-    Sampler(
-        const Context& context,
-        cl_bool normalized_coords,
-        cl_addressing_mode addressing_mode,
-        cl_filter_mode filter_mode,
-        cl_int* err = NULL)
-    {
-        cl_int error;
-        object_ = ::clCreateSampler(
-            context(), 
-            normalized_coords,
-            addressing_mode,
-            filter_mode,
-            &error);
+    Sampler(const Context &context, cl_bool normalized_coords,
+            cl_addressing_mode addressing_mode, cl_filter_mode filter_mode,
+            cl_int *err = NULL) {
+      cl_int error;
+      cl_sampler_properties props[] = {CL_SAMPLER_NORMALIZED_COORDS,
+                                       normalized_coords,
+                                       CL_SAMPLER_ADDRESSING_MODE,
+                                       addressing_mode,
+                                       CL_SAMPLER_FILTER_MODE,
+                                       filter_mode,
+                                       0};
 
-        detail::errHandler(error, __CREATE_SAMPLER_ERR);
-        if (err != NULL) {
-            *err = error;
-        }
+      object_ = ::clCreateSamplerWithProperties(context(), props, &error);
+
+      detail::errHandler(error, __CREATE_SAMPLER_ERR);
+      if (err != NULL) {
+        *err = error;
+      }
     }
 
     /*! \brief Constructor from cl_sampler - takes ownership.
-     * 
+     *
      *  This effectively transfers ownership of a refcount on the cl_sampler
      *  into the new Sampler object.
      */
@@ -5498,17 +5424,16 @@ public:
             if (err != NULL) {
                 *err = error;
             }
-        }
-        else {
-            Device device = context.getInfo<CL_CONTEXT_DEVICES>()[0];
+        } else {
+          Device device = context.getInfo<CL_CONTEXT_DEVICES>()[0];
 
-            object_ = ::clCreateCommandQueue(
-                context(), device(), properties, &error);
+          object_ = ::clCreateCommandQueueWithProperties(context(), device(),
+                                                         &properties, &error);
 
-            detail::errHandler(error, __CREATE_COMMAND_QUEUE_ERR);
-            if (err != NULL) {
-                *err = error;
-            }
+          detail::errHandler(error, __CREATE_COMMAND_QUEUE_ERR);
+          if (err != NULL) {
+            *err = error;
+          }
         }
     }
     /*!
@@ -5533,7 +5458,8 @@ public:
             return;
         }
 
-        object_ = ::clCreateCommandQueue(context(), devices[0](), properties, &error);
+        object_ = ::clCreateCommandQueueWithProperties(context(), devices[0](),
+                                                       &properties, &error);
 
         detail::errHandler(error, __CREATE_COMMAND_QUEUE_ERR);
 
@@ -5543,20 +5469,17 @@ public:
 
     }
 
-    CommandQueue(
-        const Context& context,
-        const Device& device,
-        cl_command_queue_properties properties = 0,
-        cl_int* err = NULL)
-    {
-        cl_int error;
-        object_ = ::clCreateCommandQueue(
-            context(), device(), properties, &error);
+    CommandQueue(const Context &context, const Device &device,
+                 cl_command_queue_properties properties = 0,
+                 cl_int *err = NULL) {
+      cl_int error;
+      object_ = ::clCreateCommandQueueWithProperties(context(), device(),
+                                                     &properties, &error);
 
-        detail::errHandler(error, __CREATE_COMMAND_QUEUE_ERR);
-        if (err != NULL) {
-            *err = error;
-        }
+      detail::errHandler(error, __CREATE_COMMAND_QUEUE_ERR);
+      if (err != NULL) {
+        *err = error;
+      }
     }
 
     /*! \brief Copy constructor to forward copy to the superclass correctly.
@@ -5691,20 +5614,20 @@ public:
         const VECTOR_CLASS<Event>* events = NULL,
         Event* event = NULL) const
     {
-        cl_event tmp;
-        cl_int err = detail::errHandler(
-            ::clEnqueueReadBuffer(
-                object_, buffer(), blocking, offset, size,
-                ptr,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-                (event != NULL) ? &tmp : NULL),
-            __ENQUEUE_READ_BUFFER_ERR);
+      cl_event tmp;
+      cl_int err = detail::errHandler(
+          ::clEnqueueReadBuffer(object_, buffer(), blocking, offset, size, ptr,
+                                (events != NULL) ? (cl_uint)events->size() : 0,
+                                (events != NULL && events->size() > 0)
+                                    ? (const cl_event *)&events->front()
+                                    : NULL,
+                                (event != NULL) ? &tmp : NULL),
+          __ENQUEUE_READ_BUFFER_ERR);
 
-        if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+      if (event != NULL && err == CL_SUCCESS)
+        *event = tmp;
 
-        return err;
+      return err;
     }
 
     cl_int enqueueWriteBuffer(
@@ -5716,20 +5639,20 @@ public:
         const VECTOR_CLASS<Event>* events = NULL,
         Event* event = NULL) const
     {
-        cl_event tmp;
-        cl_int err = detail::errHandler(
-            ::clEnqueueWriteBuffer(
-                object_, buffer(), blocking, offset, size,
-                ptr,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-                (event != NULL) ? &tmp : NULL),
-                __ENQUEUE_WRITE_BUFFER_ERR);
+      cl_event tmp;
+      cl_int err = detail::errHandler(
+          ::clEnqueueWriteBuffer(object_, buffer(), blocking, offset, size, ptr,
+                                 (events != NULL) ? (cl_uint)events->size() : 0,
+                                 (events != NULL && events->size() > 0)
+                                     ? (const cl_event *)&events->front()
+                                     : NULL,
+                                 (event != NULL) ? &tmp : NULL),
+          __ENQUEUE_WRITE_BUFFER_ERR);
 
-        if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+      if (event != NULL && err == CL_SUCCESS)
+        *event = tmp;
 
-        return err;
+      return err;
     }
 
     cl_int enqueueCopyBuffer(
@@ -5745,8 +5668,10 @@ public:
         cl_int err = detail::errHandler(
             ::clEnqueueCopyBuffer(
                 object_, src(), dst(), src_offset, dst_offset, size,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
+                (events != NULL) ? (cl_uint)events->size() : 0,
+                (events != NULL && events->size() > 0)
+                    ? (const cl_event *)&events->front()
+                    : NULL,
                 (event != NULL) ? &tmp : NULL),
             __ENQEUE_COPY_BUFFER_ERR);
 
@@ -5770,29 +5695,24 @@ public:
         const VECTOR_CLASS<Event>* events = NULL,
         Event* event = NULL) const
     {
-        cl_event tmp;
-        cl_int err = detail::errHandler(
-            ::clEnqueueReadBufferRect(
-                object_, 
-                buffer(), 
-                blocking, 
-                (const ::size_t *)buffer_offset,
-                (const ::size_t *)host_offset,
-                (const ::size_t *)region,
-                buffer_row_pitch,
-                buffer_slice_pitch,
-                host_row_pitch,
-                host_slice_pitch,
-                ptr,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-                (event != NULL) ? &tmp : NULL),
-                __ENQUEUE_READ_BUFFER_RECT_ERR);
+      cl_event tmp;
+      cl_int err = detail::errHandler(
+          ::clEnqueueReadBufferRect(
+              object_, buffer(), blocking, (const ::size_t *)buffer_offset,
+              (const ::size_t *)host_offset, (const ::size_t *)region,
+              buffer_row_pitch, buffer_slice_pitch, host_row_pitch,
+              host_slice_pitch, ptr,
+              (events != NULL) ? (cl_uint)events->size() : 0,
+              (events != NULL && events->size() > 0)
+                  ? (const cl_event *)&events->front()
+                  : NULL,
+              (event != NULL) ? &tmp : NULL),
+          __ENQUEUE_READ_BUFFER_RECT_ERR);
 
-        if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+      if (event != NULL && err == CL_SUCCESS)
+        *event = tmp;
 
-        return err;
+      return err;
     }
 
     cl_int enqueueWriteBufferRect(
@@ -5809,29 +5729,24 @@ public:
         const VECTOR_CLASS<Event>* events = NULL,
         Event* event = NULL) const
     {
-        cl_event tmp;
-        cl_int err = detail::errHandler(
-            ::clEnqueueWriteBufferRect(
-                object_, 
-                buffer(), 
-                blocking, 
-                (const ::size_t *)buffer_offset,
-                (const ::size_t *)host_offset,
-                (const ::size_t *)region,
-                buffer_row_pitch,
-                buffer_slice_pitch,
-                host_row_pitch,
-                host_slice_pitch,
-                ptr,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-                (event != NULL) ? &tmp : NULL),
-                __ENQUEUE_WRITE_BUFFER_RECT_ERR);
+      cl_event tmp;
+      cl_int err = detail::errHandler(
+          ::clEnqueueWriteBufferRect(
+              object_, buffer(), blocking, (const ::size_t *)buffer_offset,
+              (const ::size_t *)host_offset, (const ::size_t *)region,
+              buffer_row_pitch, buffer_slice_pitch, host_row_pitch,
+              host_slice_pitch, ptr,
+              (events != NULL) ? (cl_uint)events->size() : 0,
+              (events != NULL && events->size() > 0)
+                  ? (const cl_event *)&events->front()
+                  : NULL,
+              (event != NULL) ? &tmp : NULL),
+          __ENQUEUE_WRITE_BUFFER_RECT_ERR);
 
-        if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+      if (event != NULL && err == CL_SUCCESS)
+        *event = tmp;
 
-        return err;
+      return err;
     }
 
     cl_int enqueueCopyBufferRect(
@@ -5847,28 +5762,23 @@ public:
         const VECTOR_CLASS<Event>* events = NULL,
         Event* event = NULL) const
     {
-        cl_event tmp;
-        cl_int err = detail::errHandler(
-            ::clEnqueueCopyBufferRect(
-                object_, 
-                src(), 
-                dst(), 
-                (const ::size_t *)src_origin, 
-                (const ::size_t *)dst_origin, 
-                (const ::size_t *)region,
-                src_row_pitch,
-                src_slice_pitch,
-                dst_row_pitch,
-                dst_slice_pitch,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-                (event != NULL) ? &tmp : NULL),
-            __ENQEUE_COPY_BUFFER_RECT_ERR);
+      cl_event tmp;
+      cl_int err = detail::errHandler(
+          ::clEnqueueCopyBufferRect(
+              object_, src(), dst(), (const ::size_t *)src_origin,
+              (const ::size_t *)dst_origin, (const ::size_t *)region,
+              src_row_pitch, src_slice_pitch, dst_row_pitch, dst_slice_pitch,
+              (events != NULL) ? (cl_uint)events->size() : 0,
+              (events != NULL && events->size() > 0)
+                  ? (const cl_event *)&events->front()
+                  : NULL,
+              (event != NULL) ? &tmp : NULL),
+          __ENQEUE_COPY_BUFFER_RECT_ERR);
 
-        if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+      if (event != NULL && err == CL_SUCCESS)
+        *event = tmp;
 
-        return err;
+      return err;
     }
 
 #if defined(CL_VERSION_1_2)
@@ -5887,24 +5797,22 @@ public:
         const VECTOR_CLASS<Event>* events = NULL,
         Event* event = NULL) const
     {
-        cl_event tmp;
-        cl_int err = detail::errHandler(
-            ::clEnqueueFillBuffer(
-                object_, 
-                buffer(),
-                static_cast<void*>(&pattern),
-                sizeof(PatternType), 
-                offset, 
-                size,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-                (event != NULL) ? &tmp : NULL),
-                __ENQUEUE_FILL_BUFFER_ERR);
+      cl_event tmp;
+      cl_int err = detail::errHandler(
+          ::clEnqueueFillBuffer(object_, buffer(),
+                                static_cast<void *>(&pattern),
+                                sizeof(PatternType), offset, size,
+                                (events != NULL) ? (cl_uint)events->size() : 0,
+                                (events != NULL && events->size() > 0)
+                                    ? (const cl_event *)&events->front()
+                                    : NULL,
+                                (event != NULL) ? &tmp : NULL),
+          __ENQUEUE_FILL_BUFFER_ERR);
 
-        if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+      if (event != NULL && err == CL_SUCCESS)
+        *event = tmp;
 
-        return err;
+      return err;
     }
 #endif // #if defined(CL_VERSION_1_2)
 
@@ -5919,20 +5827,22 @@ public:
         const VECTOR_CLASS<Event>* events = NULL,
         Event* event = NULL) const
     {
-        cl_event tmp;
-        cl_int err = detail::errHandler(
-            ::clEnqueueReadImage(
-                object_, image(), blocking, (const ::size_t *) origin,
-                (const ::size_t *) region, row_pitch, slice_pitch, ptr,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-                (event != NULL) ? &tmp : NULL),
-            __ENQUEUE_READ_IMAGE_ERR);
+      cl_event tmp;
+      cl_int err = detail::errHandler(
+          ::clEnqueueReadImage(
+              object_, image(), blocking, (const ::size_t *)origin,
+              (const ::size_t *)region, row_pitch, slice_pitch, ptr,
+              (events != NULL) ? (cl_uint)events->size() : 0,
+              (events != NULL && events->size() > 0)
+                  ? (const cl_event *)&events->front()
+                  : NULL,
+              (event != NULL) ? &tmp : NULL),
+          __ENQUEUE_READ_IMAGE_ERR);
 
-        if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+      if (event != NULL && err == CL_SUCCESS)
+        *event = tmp;
 
-        return err;
+      return err;
     }
 
     cl_int enqueueWriteImage(
@@ -5946,20 +5856,22 @@ public:
         const VECTOR_CLASS<Event>* events = NULL,
         Event* event = NULL) const
     {
-        cl_event tmp;
-        cl_int err = detail::errHandler(
-            ::clEnqueueWriteImage(
-                object_, image(), blocking, (const ::size_t *) origin,
-                (const ::size_t *) region, row_pitch, slice_pitch, ptr,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-                (event != NULL) ? &tmp : NULL),
-            __ENQUEUE_WRITE_IMAGE_ERR);
+      cl_event tmp;
+      cl_int err = detail::errHandler(
+          ::clEnqueueWriteImage(
+              object_, image(), blocking, (const ::size_t *)origin,
+              (const ::size_t *)region, row_pitch, slice_pitch, ptr,
+              (events != NULL) ? (cl_uint)events->size() : 0,
+              (events != NULL && events->size() > 0)
+                  ? (const cl_event *)&events->front()
+                  : NULL,
+              (event != NULL) ? &tmp : NULL),
+          __ENQUEUE_WRITE_IMAGE_ERR);
 
-        if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+      if (event != NULL && err == CL_SUCCESS)
+        *event = tmp;
 
-        return err;
+      return err;
     }
 
     cl_int enqueueCopyImage(
@@ -5971,20 +5883,22 @@ public:
         const VECTOR_CLASS<Event>* events = NULL,
         Event* event = NULL) const
     {
-        cl_event tmp;
-        cl_int err = detail::errHandler(
-            ::clEnqueueCopyImage(
-                object_, src(), dst(), (const ::size_t *) src_origin,
-                (const ::size_t *)dst_origin, (const ::size_t *) region,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-                (event != NULL) ? &tmp : NULL),
-            __ENQUEUE_COPY_IMAGE_ERR);
+      cl_event tmp;
+      cl_int err = detail::errHandler(
+          ::clEnqueueCopyImage(
+              object_, src(), dst(), (const ::size_t *)src_origin,
+              (const ::size_t *)dst_origin, (const ::size_t *)region,
+              (events != NULL) ? (cl_uint)events->size() : 0,
+              (events != NULL && events->size() > 0)
+                  ? (const cl_event *)&events->front()
+                  : NULL,
+              (event != NULL) ? &tmp : NULL),
+          __ENQUEUE_COPY_IMAGE_ERR);
 
-        if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+      if (event != NULL && err == CL_SUCCESS)
+        *event = tmp;
 
-        return err;
+      return err;
     }
 
 #if defined(CL_VERSION_1_2)
@@ -6003,23 +5917,22 @@ public:
         const VECTOR_CLASS<Event>* events = NULL,
         Event* event = NULL) const
     {
-        cl_event tmp;
-        cl_int err = detail::errHandler(
-            ::clEnqueueFillImage(
-                object_, 
-                image(),
-                static_cast<void*>(&fillColor), 
-                (const ::size_t *) origin, 
-                (const ::size_t *) region,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-                (event != NULL) ? &tmp : NULL),
-                __ENQUEUE_FILL_IMAGE_ERR);
+      cl_event tmp;
+      cl_int err = detail::errHandler(
+          ::clEnqueueFillImage(
+              object_, image(), static_cast<void *>(&fillColor),
+              (const ::size_t *)origin, (const ::size_t *)region,
+              (events != NULL) ? (cl_uint)events->size() : 0,
+              (events != NULL && events->size() > 0)
+                  ? (const cl_event *)&events->front()
+                  : NULL,
+              (event != NULL) ? &tmp : NULL),
+          __ENQUEUE_FILL_IMAGE_ERR);
 
-        if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+      if (event != NULL && err == CL_SUCCESS)
+        *event = tmp;
 
-        return err;
+      return err;
     }
 
     /**
@@ -6037,23 +5950,22 @@ public:
         const VECTOR_CLASS<Event>* events = NULL,
         Event* event = NULL) const
     {
-        cl_event tmp;
-        cl_int err = detail::errHandler(
-            ::clEnqueueFillImage(
-                object_, 
-                image(),
-                static_cast<void*>(&fillColor), 
-                (const ::size_t *) origin, 
-                (const ::size_t *) region,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-                (event != NULL) ? &tmp : NULL),
-                __ENQUEUE_FILL_IMAGE_ERR);
+      cl_event tmp;
+      cl_int err = detail::errHandler(
+          ::clEnqueueFillImage(
+              object_, image(), static_cast<void *>(&fillColor),
+              (const ::size_t *)origin, (const ::size_t *)region,
+              (events != NULL) ? (cl_uint)events->size() : 0,
+              (events != NULL && events->size() > 0)
+                  ? (const cl_event *)&events->front()
+                  : NULL,
+              (event != NULL) ? &tmp : NULL),
+          __ENQUEUE_FILL_IMAGE_ERR);
 
-        if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+      if (event != NULL && err == CL_SUCCESS)
+        *event = tmp;
 
-        return err;
+      return err;
     }
 
     /**
@@ -6071,23 +5983,22 @@ public:
         const VECTOR_CLASS<Event>* events = NULL,
         Event* event = NULL) const
     {
-        cl_event tmp;
-        cl_int err = detail::errHandler(
-            ::clEnqueueFillImage(
-                object_, 
-                image(),
-                static_cast<void*>(&fillColor), 
-                (const ::size_t *) origin, 
-                (const ::size_t *) region,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-                (event != NULL) ? &tmp : NULL),
-                __ENQUEUE_FILL_IMAGE_ERR);
+      cl_event tmp;
+      cl_int err = detail::errHandler(
+          ::clEnqueueFillImage(
+              object_, image(), static_cast<void *>(&fillColor),
+              (const ::size_t *)origin, (const ::size_t *)region,
+              (events != NULL) ? (cl_uint)events->size() : 0,
+              (events != NULL && events->size() > 0)
+                  ? (const cl_event *)&events->front()
+                  : NULL,
+              (event != NULL) ? &tmp : NULL),
+          __ENQUEUE_FILL_IMAGE_ERR);
 
-        if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+      if (event != NULL && err == CL_SUCCESS)
+        *event = tmp;
 
-        return err;
+      return err;
     }
 #endif // #if defined(CL_VERSION_1_2)
 
@@ -6100,20 +6011,22 @@ public:
         const VECTOR_CLASS<Event>* events = NULL,
         Event* event = NULL) const
     {
-        cl_event tmp;
-        cl_int err = detail::errHandler(
-            ::clEnqueueCopyImageToBuffer(
-                object_, src(), dst(), (const ::size_t *) src_origin,
-                (const ::size_t *) region, dst_offset,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-                (event != NULL) ? &tmp : NULL),
-            __ENQUEUE_COPY_IMAGE_TO_BUFFER_ERR);
+      cl_event tmp;
+      cl_int err = detail::errHandler(
+          ::clEnqueueCopyImageToBuffer(
+              object_, src(), dst(), (const ::size_t *)src_origin,
+              (const ::size_t *)region, dst_offset,
+              (events != NULL) ? (cl_uint)events->size() : 0,
+              (events != NULL && events->size() > 0)
+                  ? (const cl_event *)&events->front()
+                  : NULL,
+              (event != NULL) ? &tmp : NULL),
+          __ENQUEUE_COPY_IMAGE_TO_BUFFER_ERR);
 
-        if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+      if (event != NULL && err == CL_SUCCESS)
+        *event = tmp;
 
-        return err;
+      return err;
     }
 
     cl_int enqueueCopyBufferToImage(
@@ -6125,102 +6038,92 @@ public:
         const VECTOR_CLASS<Event>* events = NULL,
         Event* event = NULL) const
     {
-        cl_event tmp;
-        cl_int err = detail::errHandler(
-            ::clEnqueueCopyBufferToImage(
-                object_, src(), dst(), src_offset,
-                (const ::size_t *) dst_origin, (const ::size_t *) region,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-                (event != NULL) ? &tmp : NULL),
-            __ENQUEUE_COPY_BUFFER_TO_IMAGE_ERR);
+      cl_event tmp;
+      cl_int err = detail::errHandler(
+          ::clEnqueueCopyBufferToImage(
+              object_, src(), dst(), src_offset, (const ::size_t *)dst_origin,
+              (const ::size_t *)region,
+              (events != NULL) ? (cl_uint)events->size() : 0,
+              (events != NULL && events->size() > 0)
+                  ? (const cl_event *)&events->front()
+                  : NULL,
+              (event != NULL) ? &tmp : NULL),
+          __ENQUEUE_COPY_BUFFER_TO_IMAGE_ERR);
 
-        if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+      if (event != NULL && err == CL_SUCCESS)
+        *event = tmp;
 
-        return err;
+      return err;
     }
 
-    void* enqueueMapBuffer(
-        const Buffer& buffer,
-        cl_bool blocking,
-        cl_map_flags flags,
-        ::size_t offset,
-        ::size_t size,
-        const VECTOR_CLASS<Event>* events = NULL,
-        Event* event = NULL,
-        cl_int* err = NULL) const
-    {
-        cl_event tmp;
-        cl_int error;
-        void * result = ::clEnqueueMapBuffer(
-            object_, buffer(), blocking, flags, offset, size,
-            (events != NULL) ? (cl_uint) events->size() : 0,
-            (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-            (event != NULL) ? &tmp : NULL,
-            &error);
+    void *enqueueMapBuffer(const Buffer &buffer, cl_bool blocking,
+                           cl_map_flags flags, ::size_t offset, ::size_t size,
+                           const VECTOR_CLASS<Event> *events = NULL,
+                           Event *event = NULL, cl_int *err = NULL) const {
+      cl_event tmp;
+      cl_int error;
+      void *result =
+          ::clEnqueueMapBuffer(object_, buffer(), blocking, flags, offset, size,
+                               (events != NULL) ? (cl_uint)events->size() : 0,
+                               (events != NULL && events->size() > 0)
+                                   ? (const cl_event *)&events->front()
+                                   : NULL,
+                               (event != NULL) ? &tmp : NULL, &error);
 
-        detail::errHandler(error, __ENQUEUE_MAP_BUFFER_ERR);
-        if (err != NULL) {
-            *err = error;
-        }
-        if (event != NULL && error == CL_SUCCESS)
-            *event = tmp;
+      detail::errHandler(error, __ENQUEUE_MAP_BUFFER_ERR);
+      if (err != NULL) {
+        *err = error;
+      }
+      if (event != NULL && error == CL_SUCCESS)
+        *event = tmp;
 
-        return result;
+      return result;
     }
 
-    void* enqueueMapImage(
-        const Image& buffer,
-        cl_bool blocking,
-        cl_map_flags flags,
-        const size_t<3>& origin,
-        const size_t<3>& region,
-        ::size_t * row_pitch,
-        ::size_t * slice_pitch,
-        const VECTOR_CLASS<Event>* events = NULL,
-        Event* event = NULL,
-        cl_int* err = NULL) const
-    {
-        cl_event tmp;
-        cl_int error;
-        void * result = ::clEnqueueMapImage(
-            object_, buffer(), blocking, flags,
-            (const ::size_t *) origin, (const ::size_t *) region,
-            row_pitch, slice_pitch,
-            (events != NULL) ? (cl_uint) events->size() : 0,
-            (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-            (event != NULL) ? &tmp : NULL,
-            &error);
+    void *enqueueMapImage(const Image &buffer, cl_bool blocking,
+                          cl_map_flags flags, const size_t<3> &origin,
+                          const size_t<3> &region, ::size_t *row_pitch,
+                          ::size_t *slice_pitch,
+                          const VECTOR_CLASS<Event> *events = NULL,
+                          Event *event = NULL, cl_int *err = NULL) const {
+      cl_event tmp;
+      cl_int error;
+      void *result = ::clEnqueueMapImage(
+          object_, buffer(), blocking, flags, (const ::size_t *)origin,
+          (const ::size_t *)region, row_pitch, slice_pitch,
+          (events != NULL) ? (cl_uint)events->size() : 0,
+          (events != NULL && events->size() > 0)
+              ? (const cl_event *)&events->front()
+              : NULL,
+          (event != NULL) ? &tmp : NULL, &error);
 
-        detail::errHandler(error, __ENQUEUE_MAP_IMAGE_ERR);
-        if (err != NULL) {
-              *err = error;
-        }
-        if (event != NULL && error == CL_SUCCESS)
-            *event = tmp;
-        return result;
+      detail::errHandler(error, __ENQUEUE_MAP_IMAGE_ERR);
+      if (err != NULL) {
+        *err = error;
+      }
+      if (event != NULL && error == CL_SUCCESS)
+        *event = tmp;
+      return result;
     }
 
-    cl_int enqueueUnmapMemObject(
-        const Memory& memory,
-        void* mapped_ptr,
-        const VECTOR_CLASS<Event>* events = NULL,
-        Event* event = NULL) const
-    {
-        cl_event tmp;
-        cl_int err = detail::errHandler(
-            ::clEnqueueUnmapMemObject(
-                object_, memory(), mapped_ptr,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-                (event != NULL) ? &tmp : NULL),
-            __ENQUEUE_UNMAP_MEM_OBJECT_ERR);
+    cl_int enqueueUnmapMemObject(const Memory &memory, void *mapped_ptr,
+                                 const VECTOR_CLASS<Event> *events = NULL,
+                                 Event *event = NULL) const {
+      cl_event tmp;
+      cl_int err =
+          detail::errHandler(::clEnqueueUnmapMemObject(
+                                 object_, memory(), mapped_ptr,
+                                 (events != NULL) ? (cl_uint)events->size() : 0,
+                                 (events != NULL && events->size() > 0)
+                                     ? (const cl_event *)&events->front()
+                                     : NULL,
+                                 (event != NULL) ? &tmp : NULL),
+                             __ENQUEUE_UNMAP_MEM_OBJECT_ERR);
 
-        if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+      if (event != NULL && err == CL_SUCCESS)
+        *event = tmp;
 
-        return err;
+      return err;
     }
 
 #if defined(CL_VERSION_1_2)
@@ -6239,19 +6142,20 @@ public:
         const VECTOR_CLASS<Event> *events = 0,
         Event *event = 0)
     {
-        cl_event tmp;
-        cl_int err = detail::errHandler(
-            ::clEnqueueMarkerWithWaitList(
-                object_,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-                (event != NULL) ? &tmp : NULL),
-            __ENQUEUE_MARKER_WAIT_LIST_ERR);
+      cl_event tmp;
+      cl_int err = detail::errHandler(
+          ::clEnqueueMarkerWithWaitList(
+              object_, (events != NULL) ? (cl_uint)events->size() : 0,
+              (events != NULL && events->size() > 0)
+                  ? (const cl_event *)&events->front()
+                  : NULL,
+              (event != NULL) ? &tmp : NULL),
+          __ENQUEUE_MARKER_WAIT_LIST_ERR);
 
-        if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+      if (event != NULL && err == CL_SUCCESS)
+        *event = tmp;
 
-        return err;
+      return err;
     }
 
     /**
@@ -6269,19 +6173,20 @@ public:
         const VECTOR_CLASS<Event> *events = 0,
         Event *event = 0)
     {
-        cl_event tmp;
-        cl_int err = detail::errHandler(
-            ::clEnqueueBarrierWithWaitList(
-                object_,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-                (event != NULL) ? &tmp : NULL),
-            __ENQUEUE_BARRIER_WAIT_LIST_ERR);
+      cl_event tmp;
+      cl_int err = detail::errHandler(
+          ::clEnqueueBarrierWithWaitList(
+              object_, (events != NULL) ? (cl_uint)events->size() : 0,
+              (events != NULL && events->size() > 0)
+                  ? (const cl_event *)&events->front()
+                  : NULL,
+              (event != NULL) ? &tmp : NULL),
+          __ENQUEUE_BARRIER_WAIT_LIST_ERR);
 
-        if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+      if (event != NULL && err == CL_SUCCESS)
+        *event = tmp;
 
-        return err;
+      return err;
     }
     
     /**
@@ -6299,18 +6204,17 @@ public:
         
         cl_mem* localMemObjects = static_cast<cl_mem*>(alloca(memObjects.size() * sizeof(cl_mem)));
         for( int i = 0; i < (int)memObjects.size(); ++i ) {
-            localMemObjects[i] = memObjects[i]();
+          localMemObjects[i] = memObjects[i]();
         }
-
 
         cl_int err = detail::errHandler(
             ::clEnqueueMigrateMemObjects(
-                object_, 
-                (cl_uint)memObjects.size(), 
-                static_cast<const cl_mem*>(localMemObjects),
-                flags,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
+                object_, (cl_uint)memObjects.size(),
+                static_cast<const cl_mem *>(localMemObjects), flags,
+                (events != NULL) ? (cl_uint)events->size() : 0,
+                (events != NULL && events->size() > 0)
+                    ? (const cl_event *)&events->front()
+                    : NULL,
                 (event != NULL) ? &tmp : NULL),
             __ENQUEUE_UNMAP_MEM_OBJECT_ERR);
 
@@ -6329,42 +6233,47 @@ public:
         const VECTOR_CLASS<Event>* events = NULL,
         Event* event = NULL) const
     {
-        cl_event tmp;
-        cl_int err = detail::errHandler(
-            ::clEnqueueNDRangeKernel(
-                object_, kernel(), (cl_uint) global.dimensions(),
-                offset.dimensions() != 0 ? (const ::size_t*) offset : NULL,
-                (const ::size_t*) global,
-                local.dimensions() != 0 ? (const ::size_t*) local : NULL,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-                (event != NULL) ? &tmp : NULL),
-            __ENQUEUE_NDRANGE_KERNEL_ERR);
+      cl_event tmp;
+      cl_int err = detail::errHandler(
+          ::clEnqueueNDRangeKernel(
+              object_, kernel(), (cl_uint)global.dimensions(),
+              offset.dimensions() != 0 ? (const ::size_t *)offset : NULL,
+              (const ::size_t *)global,
+              local.dimensions() != 0 ? (const ::size_t *)local : NULL,
+              (events != NULL) ? (cl_uint)events->size() : 0,
+              (events != NULL && events->size() > 0)
+                  ? (const cl_event *)&events->front()
+                  : NULL,
+              (event != NULL) ? &tmp : NULL),
+          __ENQUEUE_NDRANGE_KERNEL_ERR);
 
-        if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+      if (event != NULL && err == CL_SUCCESS)
+        *event = tmp;
 
-        return err;
+      return err;
     }
 
-    cl_int enqueueTask(
-        const Kernel& kernel,
-        const VECTOR_CLASS<Event>* events = NULL,
-        Event* event = NULL) const
-    {
-        cl_event tmp;
-        cl_int err = detail::errHandler(
-            ::clEnqueueTask(
-                object_, kernel(),
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-                (event != NULL) ? &tmp : NULL),
-            __ENQUEUE_TASK_ERR);
+    cl_int enqueueTask(const Kernel &kernel,
+                       const VECTOR_CLASS<Event> *events = NULL,
+                       Event *event = NULL) const {
+      cl_event tmp;
+      const ::size_t global_work_size[1] = {1};
+      const ::size_t local_work_size[1] = {1};
 
-        if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+      cl_int err = detail::errHandler(
+          ::clEnqueueNDRangeKernel(
+              object_, kernel(), 1, nullptr, global_work_size, local_work_size,
+              (events != NULL) ? (cl_uint)events->size() : 0,
+              (events != NULL && events->size() > 0)
+                  ? (const cl_event *)&events->front()
+                  : NULL,
+              (event != NULL) ? &tmp : NULL),
+          __ENQUEUE_TASK_ERR);
 
-        return err;
+      if (event != NULL && err == CL_SUCCESS)
+        *event = tmp;
+
+      return err;
     }
 
     cl_int enqueueNativeKernel(
@@ -6389,11 +6298,14 @@ public:
         cl_int err = detail::errHandler(
             ::clEnqueueNativeKernel(
                 object_, userFptr, args.first, args.second,
-                (mem_objects != NULL) ? (cl_uint) mem_objects->size() : 0,
-                mems,
-                (mem_locs != NULL && mem_locs->size() > 0) ? (const void **) &mem_locs->front() : NULL,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
+                (mem_objects != NULL) ? (cl_uint)mem_objects->size() : 0, mems,
+                (mem_locs != NULL && mem_locs->size() > 0)
+                    ? const_cast<const void **>(&mem_locs->front())
+                    : NULL,
+                (events != NULL) ? (cl_uint)events->size() : 0,
+                (events != NULL && events->size() > 0)
+                    ? (const cl_event *)&events->front()
+                    : NULL,
                 (event != NULL) ? &tmp : NULL),
             __ENQUEUE_NATIVE_KERNEL);
 
@@ -6435,49 +6347,53 @@ public:
     }
 #endif // #if defined(CL_VERSION_1_1)
 
-    cl_int enqueueAcquireGLObjects(
-         const VECTOR_CLASS<Memory>* mem_objects = NULL,
-         const VECTOR_CLASS<Event>* events = NULL,
-         Event* event = NULL) const
-     {
-        cl_event tmp;
-        cl_int err = detail::errHandler(
-             ::clEnqueueAcquireGLObjects(
-                 object_,
-                 (mem_objects != NULL) ? (cl_uint) mem_objects->size() : 0,
-                 (mem_objects != NULL && mem_objects->size() > 0) ? (const cl_mem *) &mem_objects->front(): NULL,
-                 (events != NULL) ? (cl_uint) events->size() : 0,
-                 (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-                 (event != NULL) ? &tmp : NULL),
-             __ENQUEUE_ACQUIRE_GL_ERR);
+    cl_int
+    enqueueAcquireGLObjects(const VECTOR_CLASS<Memory> *mem_objects = NULL,
+                            const VECTOR_CLASS<Event> *events = NULL,
+                            Event *event = NULL) const {
+      cl_event tmp;
+      cl_int err = detail::errHandler(
+          ::clEnqueueAcquireGLObjects(
+              object_, (mem_objects != NULL) ? (cl_uint)mem_objects->size() : 0,
+              (mem_objects != NULL && mem_objects->size() > 0)
+                  ? (const cl_mem *)&mem_objects->front()
+                  : NULL,
+              (events != NULL) ? (cl_uint)events->size() : 0,
+              (events != NULL && events->size() > 0)
+                  ? (const cl_event *)&events->front()
+                  : NULL,
+              (event != NULL) ? &tmp : NULL),
+          __ENQUEUE_ACQUIRE_GL_ERR);
 
-        if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+      if (event != NULL && err == CL_SUCCESS)
+        *event = tmp;
 
-        return err;
-     }
+      return err;
+    }
 
-    cl_int enqueueReleaseGLObjects(
-         const VECTOR_CLASS<Memory>* mem_objects = NULL,
-         const VECTOR_CLASS<Event>* events = NULL,
-         Event* event = NULL) const
-     {
-        cl_event tmp;
-        cl_int err = detail::errHandler(
-             ::clEnqueueReleaseGLObjects(
-                 object_,
-                 (mem_objects != NULL) ? (cl_uint) mem_objects->size() : 0,
-                 (mem_objects != NULL && mem_objects->size() > 0) ? (const cl_mem *) &mem_objects->front(): NULL,
-                 (events != NULL) ? (cl_uint) events->size() : 0,
-                 (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-                 (event != NULL) ? &tmp : NULL),
-             __ENQUEUE_RELEASE_GL_ERR);
+    cl_int
+    enqueueReleaseGLObjects(const VECTOR_CLASS<Memory> *mem_objects = NULL,
+                            const VECTOR_CLASS<Event> *events = NULL,
+                            Event *event = NULL) const {
+      cl_event tmp;
+      cl_int err = detail::errHandler(
+          ::clEnqueueReleaseGLObjects(
+              object_, (mem_objects != NULL) ? (cl_uint)mem_objects->size() : 0,
+              (mem_objects != NULL && mem_objects->size() > 0)
+                  ? (const cl_mem *)&mem_objects->front()
+                  : NULL,
+              (events != NULL) ? (cl_uint)events->size() : 0,
+              (events != NULL && events->size() > 0)
+                  ? (const cl_event *)&events->front()
+                  : NULL,
+              (event != NULL) ? &tmp : NULL),
+          __ENQUEUE_RELEASE_GL_ERR);
 
-        if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+      if (event != NULL && err == CL_SUCCESS)
+        *event = tmp;
 
-        return err;
-     }
+      return err;
+    }
 
 #if defined (USE_DX_INTEROP)
 typedef CL_API_ENTRY cl_int (CL_API_CALL *PFN_clEnqueueAcquireD3D10ObjectsKHR)(
@@ -6504,20 +6420,22 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *PFN_clEnqueueReleaseD3D10ObjectsKHR)(
 #if defined(CL_VERSION_1_1)
         __INIT_CL_EXT_FCN_PTR(clEnqueueAcquireD3D10ObjectsKHR);
 #endif
-        
+
         cl_event tmp;
         cl_int err = detail::errHandler(
-             pfn_clEnqueueAcquireD3D10ObjectsKHR(
-                 object_,
-                 (mem_objects != NULL) ? (cl_uint) mem_objects->size() : 0,
-                 (mem_objects != NULL && mem_objects->size() > 0) ? (const cl_mem *) &mem_objects->front(): NULL,
-                 (events != NULL) ? (cl_uint) events->size() : 0,
-                 (events != NULL) ? (cl_event*) &events->front() : NULL,
-                 (event != NULL) ? &tmp : NULL),
-             __ENQUEUE_ACQUIRE_GL_ERR);
+            pfn_clEnqueueAcquireD3D10ObjectsKHR(
+                object_,
+                (mem_objects != NULL) ? (cl_uint)mem_objects->size() : 0,
+                (mem_objects != NULL && mem_objects->size() > 0)
+                    ? (const cl_mem *)&mem_objects->front()
+                    : NULL,
+                (events != NULL) ? (cl_uint)events->size() : 0,
+                (events != NULL) ? (const cl_event *)&events->front() : NULL,
+                (event != NULL) ? &tmp : NULL),
+            __ENQUEUE_ACQUIRE_GL_ERR);
 
         if (event != NULL && err == CL_SUCCESS)
-            *event = tmp;
+          *event = tmp;
 
         return err;
      }
@@ -6542,10 +6460,14 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *PFN_clEnqueueReleaseD3D10ObjectsKHR)(
         cl_int err = detail::errHandler(
             pfn_clEnqueueReleaseD3D10ObjectsKHR(
                 object_,
-                (mem_objects != NULL) ? (cl_uint) mem_objects->size() : 0,
-                (mem_objects != NULL && mem_objects->size() > 0) ? (const cl_mem *) &mem_objects->front(): NULL,
-                (events != NULL) ? (cl_uint) events->size() : 0,
-                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
+                (mem_objects != NULL) ? (cl_uint)mem_objects->size() : 0,
+                (mem_objects != NULL && mem_objects->size() > 0)
+                    ? (const cl_mem *)&mem_objects->front()
+                    : NULL,
+                (events != NULL) ? (cl_uint)events->size() : 0,
+                (events != NULL && events->size() > 0)
+                    ? (const cl_event *)&events->front()
+                    : NULL,
                 (event != NULL) ? &tmp : NULL),
             __ENQUEUE_RELEASE_GL_ERR);
 
@@ -6749,19 +6671,20 @@ inline void* enqueueMapBuffer(
     CommandQueue queue = CommandQueue::getDefault(&error);
     detail::errHandler(error, __ENQUEUE_MAP_BUFFER_ERR);
     if (err != NULL) {
-        *err = error;
+      *err = error;
     }
 
-    void * result = ::clEnqueueMapBuffer(
-            queue(), buffer(), blocking, flags, offset, size,
-            (events != NULL) ? (cl_uint) events->size() : 0,
-            (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-            (cl_event*) event,
-            &error);
+    void *result =
+        ::clEnqueueMapBuffer(queue(), buffer(), blocking, flags, offset, size,
+                             (events != NULL) ? (cl_uint)events->size() : 0,
+                             (events != NULL && events->size() > 0)
+                                 ? (const cl_event *)&events->front()
+                                 : NULL,
+                             (cl_event *)event, &error);
 
     detail::errHandler(error, __ENQUEUE_MAP_BUFFER_ERR);
     if (err != NULL) {
-        *err = error;
+      *err = error;
     }
     return result;
 }
@@ -6780,16 +6703,18 @@ inline cl_int enqueueUnmapMemObject(
     }
 
     cl_event tmp;
-    cl_int err = detail::errHandler(
-        ::clEnqueueUnmapMemObject(
-            queue(), memory(), mapped_ptr,
-            (events != NULL) ? (cl_uint) events->size() : 0,
-            (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
-            (event != NULL) ? &tmp : NULL),
-        __ENQUEUE_UNMAP_MEM_OBJECT_ERR);
+    cl_int err =
+        detail::errHandler(::clEnqueueUnmapMemObject(
+                               queue(), memory(), mapped_ptr,
+                               (events != NULL) ? (cl_uint)events->size() : 0,
+                               (events != NULL && events->size() > 0)
+                                   ? (const cl_event *)&events->front()
+                                   : NULL,
+                               (event != NULL) ? &tmp : NULL),
+                           __ENQUEUE_UNMAP_MEM_OBJECT_ERR);
 
     if (event != NULL && err == CL_SUCCESS)
-        *event = tmp;
+      *event = tmp;
 
     return err;
 }

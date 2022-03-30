@@ -20,18 +20,17 @@
 //
 // common_runtime_tests.h
 
-
 #ifndef COMMON_RUNTIME_GTEST_
 #define COMMON_RUNTIME_GTEST_
 
-#include <iostream>
-#include <gtest/gtest.h>
+#include "common_methods.h"
+#include "dynamic_array.h"
+#include "general_purpose_struct.h"
 #include "global_environment.h"
+#include "gtest_wrapper.h"
 #include "ocl_wrapper.h"
 #include "typename_getter.h"
-#include "general_purpose_struct.h"
-#include "dynamic_array.h"
-#include "common_methods.h"
+#include <iostream>
 
 /*
  * CommonRuntime - fixture for all test cases, containins ocl_descriptor.

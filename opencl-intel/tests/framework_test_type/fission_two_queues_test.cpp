@@ -73,21 +73,31 @@ bool fission_two_queues_test()
 	//Create a context with the sub-device
 	context = clCreateContext(NULL,1, &subdevice_id, NULL, NULL, &err);
 	bResult = SilentCheck("clCreateContext",CL_SUCCESS,err);
-	if (!bResult)	return bResult;
+        if (!bResult)
+          return bResult;
 
-	//Create a command queue for the first device
-	cmd_queue[0] = clCreateCommandQueue(context, subdevice_id, 0, &err);
-	bResult = SilentCheck("clCreateCommandQueue - first queue",CL_SUCCESS,err);
-	if (!bResult) return bResult;
+        // Create a command queue for the first device
+        cmd_queue[0] = clCreateCommandQueueWithProperties(context, subdevice_id,
+                                                          NULL, &err);
+        bResult =
+            SilentCheck("clCreateCommandQueueWithProperties - first queue",
+                        CL_SUCCESS, err);
+        if (!bResult)
+          return bResult;
 
-	//Create a command queue for the second device
-	cmd_queue[1] = clCreateCommandQueue(context, subdevice_id, 0, &err);
-	bResult = SilentCheck("clCreateCommandQueue - second queue",CL_SUCCESS,err);
-	if (!bResult) return bResult;
+        // Create a command queue for the second device
+        cmd_queue[1] = clCreateCommandQueueWithProperties(context, subdevice_id,
+                                                          NULL, &err);
+        bResult =
+            SilentCheck("clCreateCommandQueueWithProperties - second queue",
+                        CL_SUCCESS, err);
+        if (!bResult)
+          return bResult;
 
-	const char* ocl_test_program= "__kernel void writeThree(__global char *a) { a[get_global_id(0)] = 3; }";
+        const char *ocl_test_program = "__kernel void writeThree(__global char "
+                                       "*a) { a[get_global_id(0)] = 3; }";
 
-	cl_kernel  kernel;
+        cl_kernel  kernel;
 	cl_program program;
 
 	program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &err);

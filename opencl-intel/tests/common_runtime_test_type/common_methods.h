@@ -23,15 +23,15 @@
 #ifndef COMMON_METHODS_GTEST_
 #define COMMON_METHODS_GTEST_
 
-#include <iostream>
+#include "gtest_wrapper.h"
+#include <CL/cl.h>
 #include <fstream>
+#include <iostream>
+#include <malloc.h>
 #include <sstream>
+#include <stdlib.h>
 #include <string>
 #include <vector>
-#include <stdlib.h>
-#include <malloc.h>
-#include <gtest/gtest.h>
-#include <CL/cl.h>
 /**
  * Encapsulates common methods
  **/

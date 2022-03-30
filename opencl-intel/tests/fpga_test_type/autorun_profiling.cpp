@@ -15,8 +15,8 @@
 #include "base_fixture.h"
 #include "pretty_printers.h"
 
+#include "gtest_wrapper.h"
 #include <CL/cl.h>
-#include <gtest/gtest.h>
 
 #include <algorithm>
 #include <cstdlib>
