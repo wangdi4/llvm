@@ -11252,6 +11252,7 @@
 ; CHECK-NEXT: _Z3tanDv64_f
 ; CHECK-NEXT: _Z3tanDv64_fS_
 ; CHECK-NEXT: _Z3tanDv8_d
+; CHECK-NEXT: _Z40matrix_layout_transform_rowmajor_to_vnniPU3AS4cS0_iii
 ; CHECK-NEXT: _Z40sub_group_non_uniform_reduce_logical_andDv16_iDv16_j
 ; CHECK-NEXT: _Z40sub_group_non_uniform_reduce_logical_andDv4_iDv4_j
 ; CHECK-NEXT: _Z40sub_group_non_uniform_reduce_logical_andDv8_iDv8_j
