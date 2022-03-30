@@ -298,7 +298,8 @@ public:
     return CurInst ? CurInst->getDebugLoc() : DebugLoc();
   }
 
-  void CopyValueToVirtualRegister(const Value *V, unsigned Reg);
+  void CopyValueToVirtualRegister(const Value *V, unsigned Reg,
+                                  ISD::NodeType ExtendType = ISD::ANY_EXTEND);
 
   void visit(const Instruction &I);
 
