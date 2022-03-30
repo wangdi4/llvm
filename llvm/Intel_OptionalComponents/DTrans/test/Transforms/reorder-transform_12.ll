@@ -2,8 +2,8 @@
 ; contains a complete copy of the struct being reordered.
 ;
 
-;  RUN: opt < %s -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-reorderfields -dtrans-reorderfield-enable-applicable-test=0 -dtrans-reorderfield-enable-legal-test=0 | FileCheck %s
-;  RUN: opt < %s -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-reorderfields -dtrans-reorderfield-enable-applicable-test=0 -dtrans-reorderfield-enable-legal-test=0 | FileCheck %s
+;  RUN: opt  -whole-program-assume < %s -S -dtrans-reorderfields -dtrans-reorderfield-enable-applicable-test=0 -dtrans-reorderfield-enable-legal-test=0 | FileCheck %s
+;  RUN: opt  -whole-program-assume < %s -S -passes=dtrans-reorderfields -dtrans-reorderfield-enable-applicable-test=0 -dtrans-reorderfield-enable-legal-test=0 | FileCheck %s
 
 ; check __DFR_struct.S means DTrans Field-Reorder pass triggered on this struct type
 ; CHECK: %__DFR_struct.S = type { %struct.S0, i32, i64, i64, i16, i16, i32, i64, i64, i8*, i32*, i16*, i32, i32, %struct.S0, %struct.S0, %struct.S0, %struct.S0, i32, i16 }

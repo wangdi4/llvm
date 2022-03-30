@@ -1,8 +1,8 @@
 ; This test verifies that struct.test is not selected as candidate
 ; due to reordering restrictions since struct.test has vector type.
 
-;  RUN: opt < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-reorderfields -S 2>&1 | FileCheck %s
-;  RUN: opt < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-reorderfields -S 2>&1 | FileCheck %s
+;  RUN: opt  -whole-program-assume < %s -dtrans-reorderfields   -S 2>&1 | FileCheck %s
+;  RUN: opt  -whole-program-assume < %s -passes=dtrans-reorderfields  -S 2>&1 | FileCheck %s
 
 ; Note: Rejecting struct.test because reorder-field pass won't support any struct with vector type inside.
 

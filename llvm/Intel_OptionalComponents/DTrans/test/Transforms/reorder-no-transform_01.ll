@@ -4,8 +4,8 @@
 ; for %struct.test2. %struct.test1 doesn't violate any safety checks
 ; to trigger Field-reordering.
 
-;  RUN: opt  < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -S -dtrans-reorderfields | FileCheck %s
-;  RUN: opt  < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -S -passes=dtrans-reorderfields | FileCheck %s
+;  RUN: opt  < %s -whole-program-assume -S -dtrans-reorderfields | FileCheck %s
+;  RUN: opt  < %s -whole-program-assume -S -passes=dtrans-reorderfields | FileCheck %s
 
 ; CHECK-DAG: %__DFR_struct.test1 = type { i64, i64, i64, i32, i32, i32, i16 }
 ; CHECK-DAG: %struct.test2 = type { i32, i64, i32, i32, i16, i64, i64 }
