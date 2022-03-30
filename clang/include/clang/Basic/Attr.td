@@ -353,7 +353,11 @@ def ObjCAutoRefCount : LangOpt<"ObjCAutoRefCount">;
 def ObjCNonFragileRuntime
     : LangOpt<"", "LangOpts.ObjCRuntime.allowsClassStubs()">;
 
+<<<<<<< HEAD
 def HLS : LangOpt<"HLS">; // INTEL
+=======
+def HLSL : LangOpt<"HLSL">;
+>>>>>>> 94189b42cc51b5fa8355957a976f0d8b4f8c312b
 
 // Language option for CMSE extensions
 def Cmse : LangOpt<"Cmse">;
@@ -5005,6 +5009,7 @@ def Error : InheritableAttr {
   let Documentation = [ErrorAttrDocs];
 }
 
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 def PreferDSP : InheritableAttr {
   let Spellings = [CXX11<"intel", "prefer_dsp">, GNU<"prefer_dsp">];
@@ -5028,3 +5033,12 @@ def PropagateDSPPreference : InheritableAttr {
   let SimpleHandler = 1;
 }
 // end INTEL_CUSTOMIZATION
+=======
+def HLSLNumThreads: InheritableAttr {
+  let Spellings = [Microsoft<"numthreads">];
+  let Args = [IntArgument<"X">, IntArgument<"Y">, IntArgument<"Z">];
+  let Subjects = SubjectList<[Function]>;
+  let LangOpts = [HLSL];
+  let Documentation = [NumThreadsDocs];
+}
+>>>>>>> 94189b42cc51b5fa8355957a976f0d8b4f8c312b
