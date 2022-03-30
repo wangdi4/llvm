@@ -476,40 +476,8 @@ void *DeviceTy::getTgtPtrBegin(HDTTMapAccessorTy &HDTTMap, void *HstPtrBegin,
 int DeviceTy::deallocTgtPtr(HDTTMapAccessorTy &HDTTMap, LookupResult LR,
                             int64_t Size) {
   // Check if the pointer is contained in any sub-nodes.
-<<<<<<< HEAD
-  int Ret = OFFLOAD_SUCCESS;
-  LookupResult lr = lookupMapping(HDTTMap, HstPtrBegin, Size);
-  if (lr.Flags.IsContained || lr.Flags.ExtendsBefore || lr.Flags.ExtendsAfter) {
-    auto &HT = *lr.Entry;
-    if (HT.decRefCount(HasHoldModifier) == 0) {
-      DP("Deleting tgt data " DPxMOD " of size %" PRId64 "\n",
-         DPxPTR(HT.TgtPtrBegin), Size);
-#if INTEL_COLLAB
-      OMPT_TRACE(targetDataDeleteBegin(RTLDeviceID, (void *)HT.TgtPtrBegin));
-#endif // INTEL_COLLAB
-      deleteData((void *)HT.TgtPtrBegin);
-#if INTEL_COLLAB
-      OMPT_TRACE(targetDataDeleteEnd(RTLDeviceID, (void *)HT.TgtPtrBegin));
-#endif // INTEL_COLLAB
-      INFO(OMP_INFOTYPE_MAPPING_CHANGED, DeviceID,
-           "Removing map entry with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD
-           ", Size=%" PRId64 ", Name=%s\n",
-           DPxPTR(HT.HstPtrBegin), DPxPTR(HT.TgtPtrBegin), Size,
-           (HT.HstPtrName) ? getNameFromMapping(HT.HstPtrName).c_str()
-                           : "unknown");
-      void *Event = lr.Entry->getEvent();
-      HDTTMap->erase(lr.Entry);
-      delete lr.Entry;
-      if (Event && destroyEvent(Event) != OFFLOAD_SUCCESS) {
-        REPORT("Failed to destroy event " DPxMOD "\n", DPxPTR(Event));
-        Ret = OFFLOAD_FAIL;
-      }
-    }
-  } else {
-=======
   if (!(LR.Flags.IsContained || LR.Flags.ExtendsBefore ||
         LR.Flags.ExtendsAfter)) {
->>>>>>> b316126887d0e41a9e22717419d43af9d81b764c
     REPORT("Section to delete (hst addr " DPxMOD ") does not exist in the"
            " allocated memory\n",
            DPxPTR(LR.Entry->HstPtrBegin));
