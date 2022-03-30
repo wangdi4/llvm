@@ -46,7 +46,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeSmartGVNPass(Registry);
     intel::initializeSinCosFoldPass(Registry);
     intel::initializeOCLAliasAnalysisPass(Registry);
-    intel::initializePrintfArgumentsPromotionPass(Registry);
     intel::initializeChannelPipeTransformationPass(Registry);
     intel::initializePipeIOTransformationPass(Registry);
     intel::initializePipeSupportPass(Registry);

@@ -143,7 +143,6 @@ llvm::Pass *createSmartGVNPass(bool);
 llvm::ModulePass *createSinCosFoldPass();
 llvm::ModulePass *createDetectRecursionPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
-llvm::ModulePass *createPrintfArgumentsPromotionPass();
 llvm::ModulePass *createChannelsUsageAnalysisPass();
 llvm::ModulePass *createSYCLPipesHackPass();
 llvm::ModulePass *createRemoveAtExitPass();
@@ -324,7 +323,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 
   PM.add(createFMASplitterPass());
   PM.add(llvm::createAddFunctionAttrsLegacyPass());
-  PM.add(createPrintfArgumentsPromotionPass());
 
   if (OptLevel > 0) {
     PM.add(llvm::createCFGSimplificationPass());
