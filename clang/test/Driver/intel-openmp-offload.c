@@ -94,6 +94,12 @@
 // RUN:   | FileCheck -check-prefix=CHK-TARGOPTS-INTELPROP %s
 // CHK-TARGOPTS-INTELPROP-NOT: clang{{.*}} "-triple" "spir64"{{.*}}"-disable-intel-proprietary-opts"
 
+/// -fp-model=precise wins over -ffast-math
+// RUN:   %clang -### --intel -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64="-fp-model=precise" -ffast-math %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-TARGOPTS-PRECISE %s
+// CHK-TARGOPTS-PRECISE: clang{{.*}} "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu" {{..*}} "-emit-llvm-bc" {{.*}} "-fmath-errno" "-ffp-contract=on" {{.*}} "-O2"
+// CHK-TARGOPTS-PRECISE: clang{{.*}} "-triple" "x86_64-unknown-linux-gnu" {{.*}} "-ffast-math"
+
 /// ###########################################################################
 
 /// Check separate compilation with offloading - bundling actions
