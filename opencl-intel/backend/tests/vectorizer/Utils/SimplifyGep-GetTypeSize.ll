@@ -1,4 +1,5 @@
-; RUN: %oclopt  -SimplifyGEP -verify -S < %s | FileCheck %s
+; RUN: %oclopt -SimplifyGEP -verify -S < %s | FileCheck %s
+; RUN: %oclopt -opaque-pointers -SimplifyGEP -verify -S < %s | FileCheck %s
 
 ; ModuleID = 'Program'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32"
@@ -30,11 +31,11 @@ entry:
 ; CHECK-NEXT:   [[addIndex:%[a-zA-Z0-9]+]] = add nuw i32 [[mulIndex]], %i2
 ; CHECK-NEXT:   [[mulIndex1:%[a-zA-Z0-9]+]] = mul nuw i32 [[addIndex]], 1
 ; CHECK-NEXT:   [[addIndex2:%[a-zA-Z0-9]+]] = add nuw i32 [[mulIndex1]], %i3
-; CHECK-NEXT:   [[ptrTypeCast:%[a-zA-Z0-9]+]] = bitcast [7 x <2 x i1>]* %memA to i1*
-; CHECK-NEXT:   [[simplifiedGEP:%[a-zA-Z0-9]+]] = getelementptr i1, i1* [[ptrTypeCast]], i32 [[addIndex2]]
-; CHECK-NEXT:   %A = load i1, i1* [[simplifiedGEP]], align 4
-; CHECK-NEXT:   %arrayidx1 = getelementptr i1, i1* %memB, i32 %i1
-; CHECK-NEXT:   store i1 %A, i1* %arrayidx1, align 4
+; CHECK-NEXT:   [[ptrTypeCast:%[a-zA-Z0-9]+]] = bitcast {{.*}} %memA to {{.*}}
+; CHECK-NEXT:   [[simplifiedGEP:%[a-zA-Z0-9]+]] = getelementptr i1, {{.*}} [[ptrTypeCast]], i32 [[addIndex2]]
+; CHECK-NEXT:   %A = load i1, {{.*}} [[simplifiedGEP]], align 4
+; CHECK-NEXT:   %arrayidx1 = getelementptr i1, {{.*}} %memB, i32 %i1
+; CHECK-NEXT:   store i1 %A, {{.*}} %arrayidx1, align 4
 ; CHECK-NEXT: ret void
 }
 
@@ -53,10 +54,10 @@ entry:
 ; CHECK-NEXT:   [[addIndex:%[a-zA-Z0-9]+]] = add nuw i32 [[mulIndex]], %i2
 ; CHECK-NEXT:   [[mulIndex1:%[a-zA-Z0-9]+]] = mul nuw i32 [[addIndex]], 4
 ; CHECK-NEXT:   [[addIndex2:%[a-zA-Z0-9]+]] = add nuw i32 [[mulIndex1]], %i3
-; CHECK-NEXT:   [[ptrTypeCast:%[a-zA-Z0-9]+]] = bitcast [5 x <3 x float>]* %memA to float*
-; CHECK-NEXT:   [[simplifiedGEP:%[a-zA-Z0-9]+]] = getelementptr float, float* [[ptrTypeCast]], i32 [[addIndex2]]
-; CHECK-NEXT:   %A = load float, float* [[simplifiedGEP]], align 4
-; CHECK-NEXT:   %arrayidx1 = getelementptr float, float* %memB, i32 %i1
-; CHECK-NEXT:   store float %A, float* %arrayidx1, align 4
+; CHECK-NEXT:   [[ptrTypeCast:%[a-zA-Z0-9]+]] = bitcast {{.*}} %memA to {{.*}}
+; CHECK-NEXT:   [[simplifiedGEP:%[a-zA-Z0-9]+]] = getelementptr float, {{.*}} [[ptrTypeCast]], i32 [[addIndex2]]
+; CHECK-NEXT:   %A = load float, {{.*}} [[simplifiedGEP]], align 4
+; CHECK-NEXT:   %arrayidx1 = getelementptr float, {{.*}} %memB, i32 %i1
+; CHECK-NEXT:   store float %A, {{.*}} %arrayidx1, align 4
 ; CHECK-NEXT: ret void
 }

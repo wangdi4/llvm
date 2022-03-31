@@ -1,6 +1,5 @@
-; RUN: llvm-as %s -o %t.bc
-; RUN: %oclopt  -SimplifyGEP -verify %t.bc -S -o %t1.ll
-; RUN: FileCheck %s --input-file=%t1.ll
+; RUN: %oclopt -SimplifyGEP -verify %s -S | FileCheck %s
+; RUN: %oclopt -opaque-pointers -SimplifyGEP -verify %s -S | FileCheck %s
 
 ; ModuleID = 'Program'
 
