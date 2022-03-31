@@ -594,11 +594,6 @@ protected:
                     Value *CountRoundDown, Value *EndValue,
                     BasicBlock *MiddleBlock, BasicBlock *VectorHeader);
 
-  /// Introduce a conditional branch (on true, condition to be set later) at the
-  /// end of the header=latch connecting it to itself (across the backedge) and
-  /// to the exit block of \p L.
-  void createHeaderBranch(Loop *L);
-
   /// Handle all cross-iteration phis in the header.
   void fixCrossIterationPHIs(VPTransformState &State);
 
@@ -656,8 +651,8 @@ protected:
 
   /// Emit basic blocks (prefixed with \p Prefix) for the iteration check,
   /// vector loop preheader, middle block and scalar preheader. Also
-  /// allocate a loop object for the new vector loop and return it.
-  Loop *createVectorLoopSkeleton(StringRef Prefix);
+  /// allocate a loop object for the new vector loop.
+  void createVectorLoopSkeleton(StringRef Prefix);
 
   /// Create new phi nodes for the induction variables to resume iteration count
   /// in the scalar epilogue, from where the vectorized loop left off.
@@ -2858,23 +2853,6 @@ void InnerLoopVectorizer::scalarizeInstruction(Instruction *Instr,
     PredicatedInstructions.push_back(Cloned);
 }
 
-void InnerLoopVectorizer::createHeaderBranch(Loop *L) {
-  BasicBlock *Header = L->getHeader();
-  assert(!L->getLoopLatch() && "loop should not have a latch at this point");
-
-  IRBuilder<> B(Header->getTerminator());
-  Instruction *OldInst =
-      getDebugLocFromInstOrOperands(Legal->getPrimaryInduction());
-  setDebugLocFromInst(OldInst, &B);
-
-  // Connect the header to the exit and header blocks and replace the old
-  // terminator.
-  B.CreateCondBr(B.getTrue(), L->getUniqueExitBlock(), Header);
-
-  // Now we have two terminators. Remove the old one from the block.
-  Header->getTerminator()->eraseFromParent();
-}
-
 Value *InnerLoopVectorizer::getOrCreateTripCount(BasicBlock *InsertBlock) {
   if (TripCount)
     return TripCount;
@@ -3117,7 +3095,7 @@ BasicBlock *InnerLoopVectorizer::emitMemRuntimeChecks(BasicBlock *Bypass) {
   return MemCheckBlock;
 }
 
-Loop *InnerLoopVectorizer::createVectorLoopSkeleton(StringRef Prefix) {
+void InnerLoopVectorizer::createVectorLoopSkeleton(StringRef Prefix) {
   LoopScalarBody = OrigLoop->getHeader();
   LoopVectorPreHeader = OrigLoop->getLoopPreheader();
   assert(LoopVectorPreHeader && "Invalid loop structure");
@@ -3175,7 +3153,6 @@ Loop *InnerLoopVectorizer::createVectorLoopSkeleton(StringRef Prefix) {
     LI->addTopLevelLoop(Lp);
   }
   Lp->addBasicBlockToLoop(LoopVectorBody, *LI);
-  return Lp;
 }
 
 void InnerLoopVectorizer::createInductionResumeValues(
@@ -3341,7 +3318,7 @@ InnerLoopVectorizer::createVectorizedLoopSkeleton() {
 
   // Create an empty vector loop, and prepare basic blocks for the runtime
   // checks.
-  Loop *Lp = createVectorLoopSkeleton("");
+  createVectorLoopSkeleton("");
 
   // Now, compare the new count to zero. If it is zero skip the vector loop and
   // jump to the scalar loop. This check also covers the case where the
@@ -3358,8 +3335,6 @@ InnerLoopVectorizer::createVectorizedLoopSkeleton() {
   // checks into a separate block to make the more common case of few elements
   // faster.
   emitMemRuntimeChecks(LoopScalarPreHeader);
-
-  createHeaderBranch(Lp);
 
   // Emit phis for the new starting index of the scalar loop.
   createInductionResumeValues();
@@ -7712,7 +7687,7 @@ void LoopVectorizationPlanner::executePlan(ElementCount BestVF, unsigned BestUF,
   // 1. Create a new empty loop. Unlink the old loop and connect the new one.
   VPTransformState State{BestVF, BestUF, LI, DT, ILV.Builder, &ILV, &BestVPlan};
   Value *CanonicalIVStartValue;
-  std::tie(State.CFG.PrevBB, CanonicalIVStartValue) =
+  std::tie(State.CFG.VectorPreHeader, CanonicalIVStartValue) =
       ILV.createVectorizedLoopSkeleton();
   ILV.collectPoisonGeneratingRecipes(State);
 
@@ -7829,7 +7804,7 @@ Value *InnerLoopUnroller::getBroadcastInstrs(Value *V) { return V; }
 std::pair<BasicBlock *, Value *>
 EpilogueVectorizerMainLoop::createEpilogueVectorizedLoopSkeleton() {
   MDNode *OrigLoopID = OrigLoop->getLoopID();
-  Loop *Lp = createVectorLoopSkeleton("");
+  createVectorLoopSkeleton("");
 
   // Generate the code to check the minimum iteration count of the vector
   // epilogue (see below).
@@ -7858,7 +7833,6 @@ EpilogueVectorizerMainLoop::createEpilogueVectorizedLoopSkeleton() {
   // Generate the induction variable.
   Value *CountRoundDown = getOrCreateVectorTripCount(LoopVectorPreHeader);
   EPI.VectorTripCount = CountRoundDown;
-  createHeaderBranch(Lp);
 
   // Skip induction resume value creation here because they will be created in
   // the second pass. If we created them here, they wouldn't be used anyway,
@@ -7950,7 +7924,7 @@ EpilogueVectorizerMainLoop::emitMinimumIterationCountCheck(BasicBlock *Bypass,
 std::pair<BasicBlock *, Value *>
 EpilogueVectorizerEpilogueLoop::createEpilogueVectorizedLoopSkeleton() {
   MDNode *OrigLoopID = OrigLoop->getLoopID();
-  Loop *Lp = createVectorLoopSkeleton("vec.epilog.");
+  createVectorLoopSkeleton("vec.epilog.");
 
   // Now, compare the remaining count and if there aren't enough iterations to
   // execute the vectorized epilogue skip to the scalar part.
@@ -8030,9 +8004,6 @@ EpilogueVectorizerEpilogueLoop::createEpilogueVectorizedLoopSkeleton() {
   EPResumeVal->addIncoming(EPI.VectorTripCount, VecEpilogueIterationCountCheck);
   EPResumeVal->addIncoming(ConstantInt::get(IdxTy, 0),
                            EPI.MainLoopIterationCountCheck);
-
-  // Generate the induction variable.
-  createHeaderBranch(Lp);
 
   // Generate induction resume values. These variables save the new starting
   // indexes for the scalar loop. They are used to test if there are any tail
