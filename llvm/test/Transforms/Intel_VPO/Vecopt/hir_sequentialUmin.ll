@@ -1,5 +1,5 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-print-after-plain-cfg -vplan-print-after-vpentity-instrs 2>&1 | FileCheck %s
-; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -disable-output -vplan-print-after-plain-cfg -vplan-print-after-vpentity-instrs 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-print-after-plain-cfg -vplan-print-after-vpentity-instrs 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -disable-output -vplan-print-after-plain-cfg -vplan-print-after-vpentity-instrs 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
 
 ; As of now VPlan just support umin_seq SCEV which is recognized as an idiom in
 ; the input code. VPlan doesn't support its vectorization though.
