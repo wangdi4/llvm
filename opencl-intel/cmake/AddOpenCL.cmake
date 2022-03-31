@@ -4,6 +4,7 @@
 # Define build and install directories
 set(OCL_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 set(OCL_LIBRARY_DIR  ${OCL_BINARY_DIR}/lib)
+set(OCL_INCLUDE_DIR  ${OCL_BINARY_DIR}/include)
 set(OCL_RUNTIME_DIR  ${OCL_BINARY_DIR}/bin)
 set(OCL_TOOLS_BINARY_DIR ${OCL_BINARY_DIR}/bin)
 set(OCL_TESTS_BINARY_DIR ${OCL_BINARY_DIR}/tests)

@@ -33,6 +33,7 @@ const VectorVariant::ISAClass VectEntry::isaClass =
 const std::string VectEntry::baseName = "";
 bool VectEntry::isMasked = false;
 bool VectEntry::kernelCallOnce = true;
+unsigned VectEntry::stride = 0;
 std::vector<VectorKind> VectEntry::vectorKindEncode;
 
 OclBuiltinDB *VectInfo::builtinDB = nullptr;
@@ -73,8 +74,8 @@ static VecVec<T> transpose(const std::vector<std::vector<T>> &matrix) {
 
 VectInfo::VectInfo(Record *record) : m_builtins(4) {
   m_handleAlias = record->getValueAsBit("HandleAlias");
-
   m_kernelCallOnce = record->getValueAsBit("KernelCallOnce");
+  m_stride = record->getValueAsInt("Stride");
   const Record *pV1Func = record->getValueAsDef("v1Func");
   const Record *pV4Func = record->getValueAsDef("v4Func");
   const Record *pV8Func = record->getValueAsDef("v8Func");
@@ -179,7 +180,11 @@ void VectInfoGenerator::decodeParamKind(StringRef scalarName,
           VectEntry::vectorKindEncode.push_back(VectorKind::vector());
         }
       } else {
-        VectEntry::vectorKindEncode.push_back(VectorKind::uniform());
+        if (v1TypeId == reflection::TYPE_ID_POINTER && VectEntry::stride != 0)
+          VectEntry::vectorKindEncode.push_back(
+              VectorKind::linear(VectEntry::stride));
+        else
+          VectEntry::vectorKindEncode.push_back(VectorKind::uniform());
       }
 
     } else {
@@ -270,11 +275,13 @@ void VectInfoGenerator::run(raw_ostream &os) {
   // Since they share the same vector kind info.
   std::vector<std::pair<size_t, size_t>> numEntries;
   std::vector<bool> kernelCallOnceAttrs;
+  std::vector<unsigned> strides;
 
   for (Record *record : vectInfos) {
     VectInfo vectInfo{record};
 
     kernelCallOnceAttrs.push_back(vectInfo.kernelCallOnce());
+    strides.push_back(vectInfo.stride());
     const auto &builtins = vectInfo.getBuiltins();
 
     auto *pV1Builtin = builtins[0];
@@ -342,7 +349,8 @@ void VectInfoGenerator::run(raw_ostream &os) {
   auto funcIt = funcs.cbegin();
   size_t k = 0;
   for (const auto &numEntry : numEntries) {
-    VectEntry::kernelCallOnce = kernelCallOnceAttrs[k++];
+    VectEntry::kernelCallOnce = kernelCallOnceAttrs[k];
+    VectEntry::stride = strides[k++];
     size_t i = 0;
     assert(
         funcIt != funcs.cend() && funcIt != funcs.cend() - 1 &&
@@ -381,7 +389,7 @@ void VectInfoGenerator::run(raw_ostream &os) {
   }
   ssVPlan << "}\n";
 
-  assert(k == kernelCallOnceAttrs.size() &&
+  assert(k == kernelCallOnceAttrs.size() && k == strides.size() &&
          "the number of entries and kernel call once attrs should be the same");
   assert(
       funcIt == funcs.cend() &&
