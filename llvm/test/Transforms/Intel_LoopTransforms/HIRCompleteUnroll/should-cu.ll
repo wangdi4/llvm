@@ -2,6 +2,8 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll -print-before=hir-pre-vec-complete-unroll -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-pre-vec-complete-unroll,print<hir>" -aa-pipeline="basic-aa" -disable-output
 
+; XFAIL:*
+
 ; Make sure the i2-loop is completely unrolled.
 
 ; CHECK: Function: spam.bb859
