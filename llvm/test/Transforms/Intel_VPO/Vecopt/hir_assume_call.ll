@@ -1,7 +1,9 @@
 ; Test to check handling of @llvm.assume call in VPlan HIR vectorizer.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vec-dir-insert -print-after=hir-vplan-vec -disable-output -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vec-dir-insert -print-after=hir-vplan-vec -disable-output -vplan-force-vf=4 -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vec-dir-insert -print-after=hir-vplan-vec -disable-output -vplan-force-vf=4 -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
 
 ; Ensure that call to @llvm.assume does not prevent the insertion of vec directives.
 ; CHECK-LABEL: BEGIN REGION { }
@@ -16,7 +18,7 @@
 ; CHECK-NEXT:         |   %.vec1 = (<4 x i32>*)(@arr.i32.3)[0][i1];
 ; CHECK-NEXT:         |   (<4 x i32>*)(@arr.i32.2)[0][i1] = %.vec + %.vec1;
 ; CHECK-NEXT:         + END LOOP
-; CHECK-NEXT:   END REGION
+; CHECK:        END REGION
 
 @arr.i32.1 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
 @arr.i32.2 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16

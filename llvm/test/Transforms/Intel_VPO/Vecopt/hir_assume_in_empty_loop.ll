@@ -1,8 +1,14 @@
 ; RUN: opt -hir-vec-dir-insert -hir-vplan-vec -hir-cg -vplan-force-vf=4 <%s -disable-output \
-; RUN:     -print-after=hir-vplan-vec 2>&1 | FileCheck %s
+; RUN:     -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false 2>&1 | FileCheck %s
 
 ; RUN: opt -passes="hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 \
-; RUN:     <%s -disable-output 2>&1 | FileCheck %s
+; RUN:     <%s -disable-output -vplan-enable-new-cfg-merge-hir=false 2>&1 | FileCheck %s
+
+; RUN: opt -hir-vec-dir-insert -hir-vplan-vec -hir-cg -vplan-force-vf=4 <%s -disable-output \
+; RUN:     -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir 2>&1 | FileCheck %s
+
+; RUN: opt -passes="hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 \
+; RUN:     <%s -disable-output -vplan-enable-new-cfg-merge-hir 2>&1 | FileCheck %s
 
 ; Verify that vectorizer does not generate an empty HLIf node.
 ;
@@ -15,17 +21,13 @@
 
 
 ; CHECK-LABEL:  BEGIN REGION { modified }
-; CHECK-NEXT:        %tgu = (%arg)/u4;
-; CHECK-NEXT:        if (0 <u 4 * %tgu)
-; CHECK-NEXT:        {
-; CHECK-NEXT:           + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:           |   @llvm.assume(undef);
-; CHECK-NEXT:           + END LOOP
-; CHECK-NEXT:        }
-; CHECK:             + DO i1 = 4 * %tgu, %arg + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>   <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
-; CHECK-NEXT:        |   @llvm.assume(undef);
-; CHECK-NEXT:        + END LOOP
-; CHECK-NEXT:  END REGION
+; CHECK:        if ({{.*}})
+; CHECK:        {
+; CHECK:           + DO i1 = 0, {{.*}}, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:           |   @llvm.assume(undef);
+; CHECK:           + END LOOP
+; CHECK:        }
+; CHECK:  END REGION
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

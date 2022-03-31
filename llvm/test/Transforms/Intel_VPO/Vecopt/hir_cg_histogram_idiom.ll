@@ -1,26 +1,27 @@
 ; Test to check HIR vectorizer CG support for histogram idiom.
 
-; RUN: opt -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL:   BEGIN REGION { modified }
-; CHECK-NEXT:          + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:          |   %.vec = (<4 x i32>*)(%B)[i1];
-; CHECK-NEXT:          |   %.vec1 = (<4 x float>*)(%A)[%.vec];
-; CHECK-NEXT:          |   %conflicts = @llvm.x86.avx512.conflict.q.256(%.vec);
-; CHECK-NEXT:          |   %llvm.ctpop.v4i64 = @llvm.ctpop.v4i64(%conflicts);
-; CHECK-NEXT:          |   %.vec2 = sitofp.<4 x i64>.<4 x float>(%llvm.ctpop.v4i64);
-; CHECK-NEXT:          |   %.vec3 = %.vec2  +  1.000000e+00;
-; CHECK-NEXT:          |   %.vec4 = %.vec3  *  2.000000e+00;
-; CHECK-NEXT:          |   %.vec5 = %.vec1  +  %.vec4;
-; CHECK-NEXT:          |   (<4 x float>*)(%A)[%.vec] = %.vec5;
+; CHECK:               + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-NEXT:          |   [[IDX:%.*]] = (<4 x i32>*)(%B)[i1];
+; CHECK-NEXT:          |   [[A_LD:%.*]] = (<4 x float>*)(%A)[[[IDX]]];
+; CHECK-NEXT:          |   [[CONFLICTS:%.*]] = @llvm.x86.avx512.conflict.q.256([[IDX]]);
+; CHECK-NEXT:          |   [[CTPOP:%.*]] = @llvm.ctpop.v4i64([[CONFLICTS]]);
+; CHECK-NEXT:          |   [[CVT:%.*]] = sitofp.<4 x i64>.<4 x float>([[CTPOP]]);
+; CHECK-NEXT:          |   [[ADD:%.*]] = [[CVT]]  +  1.000000e+00;
+; CHECK-NEXT:          |   [[MUL:%.*]] = [[ADD]]  *  2.000000e+00;
+; CHECK-NEXT:          |   [[INC:%.*]] = [[A_LD]]  +  [[MUL]];
+; CHECK-NEXT:          |   (<4 x float>*)(%A)[[[IDX]]] = [[INC]];
 ; CHECK-NEXT:          + END LOOP
 
-; CHECK:               + DO i1 = 1024, 1026, 1   <DO_LOOP> <novectorize>
+; CHECK:               + DO i1 = {{.*}}, 1026, 1   <DO_LOOP>
 ; CHECK-NEXT:          |   %0 = (%B)[i1];
 ; CHECK-NEXT:          |   %add = (%A)[%0]  +  2.000000e+00;
 ; CHECK-NEXT:          |   (%A)[%0] = %add;
 ; CHECK-NEXT:          + END LOOP
-; CHECK-NEXT:    END REGION
+; CHECK:         END REGION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
