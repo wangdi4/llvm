@@ -4912,6 +4912,16 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     handleScalarLoopOrigLiveOut<VPRemainderOrigLiveOutHIR>(VPInst);
     return;
   }
+
+  case VPInstruction::InvSCEVWrapper: {
+    auto *InvScev = cast<VPInvSCEVWrapper>(VPInst)->getSCEV();
+    auto *AddRecHIR = VPlanScalarEvolutionHIR::toVPlanAddRecHIR(InvScev);
+    auto *Base = AddRecHIR->Base->clone();
+    auto *ScalarRef =
+        DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, Base);
+    addVPValueScalRefMapping(VPInst, ScalarRef, 0);
+    return;
+  }
   }
 
   // Skip widening the first select operand. The select instruction is generated
@@ -5013,9 +5023,10 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
     // Try and fold the divide operation into the canon expression for RefOp0 if
     // it is linear. This helps preserve linear values and also avoids
-    // unnecessary HLInsts.
+    // unnecessary HLInsts. This is limited to instructions inside a VPLoop.
     auto *ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(1));
-    if (CE1->isLinearAtLevel(MainLoop->getNestingLevel()) &&
+    if (Plan->getVPLoopInfo()->getLoopFor(VPInst->getParent()) &&
+        CE1->isLinearAtLevel(MainLoop->getNestingLevel()) &&
         CE1->getDenominator() == 1 && ConstOp) {
       auto *CI = cast<ConstantInt>(ConstOp->getConstant());
 
@@ -5044,7 +5055,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case Instruction::Mul: {
     // Try and fold the mul operation into the canon expression. This helps
     // preserve linear values and also avoids unnecessary HLInsts. Reductions
-    // cannot be folded.
+    // cannot be folded. This is limited to instructions inside a VPLoop.
     assert(RefOp0->isTerminalRef() && RefOp1->isTerminalRef() &&
            "Expected terminal refs");
 
@@ -5053,7 +5064,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     const VPConstant *ConstOp = nullptr;
     unsigned NonConstIndex = 0;
 
-    if (!ReductionVPInsts.count(VPInst) &&
+    if (Plan->getVPLoopInfo()->getLoopFor(VPInst->getParent()) &&
+        !ReductionVPInsts.count(VPInst) &&
         CE1->isLinearAtLevel(MainLoop->getNestingLevel()) &&
         CE2->isLinearAtLevel(MainLoop->getNestingLevel())) {
       if ((ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(0))))

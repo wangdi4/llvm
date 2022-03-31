@@ -1164,13 +1164,21 @@ VPInvSCEVWrapper *
 VPlanCFGMerger::emitPeelBasePtr<loopopt::HLLoop>(VPlanDynamicPeeling &Peeling,
                                                  VPBuilder &Builder,
                                                  loopopt::HLLoop *OrigLoop) {
-  return nullptr;
+  (void) OrigLoop;
+  auto *BasePtr = Peeling.invariantBase();
+  auto *AddRecHIR = VPlanScalarEvolutionHIR::toVPlanAddRecHIR(BasePtr);
+  auto *Ty = AddRecHIR->Base->getDestType();
+  auto *Ret = Builder.create<VPInvSCEVWrapper>("peel.base.ptr", BasePtr, Ty,
+                                               false /* IsSCEV */);
+  Plan.getVPlanDA()->markUniform(*Ret);
+  return Ret;
 }
 
 template <>
 VPInvSCEVWrapper *
 VPlanCFGMerger::emitPeelBasePtr<Loop>(VPlanDynamicPeeling &Peeling,
                                       VPBuilder &Builder, Loop *OrigLoop) {
+  (void) OrigLoop;
   auto *BasePtr = Peeling.invariantBase();
   auto *Ty = VPlanScalarEvolutionLLVM::toSCEV(BasePtr)->getType();
   auto Ret = Builder.create<VPInvSCEVWrapper>("peel.base.ptr", BasePtr, Ty);

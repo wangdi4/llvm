@@ -1354,10 +1354,15 @@ void VPBlendInst::addIncoming(VPValue *IncomingVal, VPValue *BlockPred, VPlan *P
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPInvSCEVWrapper::printImpl(raw_ostream & O) const {
-  O << "{ ";
-  VPlanScalarEvolutionLLVM::toSCEV(Scev)->print(O);
-  O << " }";
+void VPInvSCEVWrapper::printImpl(raw_ostream &O) const {
+  if (IsSCEV) {
+    O << "{ ";
+    VPlanScalarEvolutionLLVM::toSCEV(Scev)->print(O);
+    O << " }";
+  } else {
+    auto *AddRecHIR = VPlanScalarEvolutionHIR::toVPlanAddRecHIR(Scev);
+    O << *AddRecHIR;
+  }
 }
 
 void VPBlendInst::printImpl(raw_ostream &O) const {
