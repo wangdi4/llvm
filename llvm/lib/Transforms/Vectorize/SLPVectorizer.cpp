@@ -5521,7 +5521,8 @@ void BoUpSLP::applyReorderedOperands(ScheduleData *Bundle) {
   for (const auto &TEPtr : VectorizableTree)
     TEPtr->remapOperands(RemapMap);
   // Update the instructions in Bundle if required.
-  Bundle->remapInsts(RemapMap);
+  if (Bundle)
+    Bundle->remapInsts(RemapMap);
 }
 
 // Perform the operand reordering according to 'BestGroups'.
