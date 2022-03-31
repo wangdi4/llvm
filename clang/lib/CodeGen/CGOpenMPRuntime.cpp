@@ -12477,9 +12477,6 @@ static void emitX86DeclareSimdFunction(
     ISAData.push_back({'e', 512}); // AVX512
   }
 
-  // TODO: consider removing this eventually
-  if (UseSPIRMangling)
-    State = OMPDeclareSimdDeclAttr::BS_Notinbranch;
 #endif // INTEL_CUSTOMIZATION
   llvm::SmallVector<char, 2> Masked;
   switch (State) {

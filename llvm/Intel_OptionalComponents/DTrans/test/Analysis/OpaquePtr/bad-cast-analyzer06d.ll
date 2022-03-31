@@ -9,7 +9,7 @@
 
 ; CHECK: dtrans-bca: Begin bad casting analysis
 ; CHECK: dtrans-bca: Candidate Root Type: struct._ZTS11mynextcoder.mynextcoder
-; CHECK: dtrans-bca: (L) Not conditionally dead:   %i1 = phi ptr [ %call, %if.then ], [ %i, %entry ]
+; CHECK: dtrans-bca: (L) ICmp not in spec guard cond basic block:   %tobool.not = icmp eq ptr %i, @myglobalstring
 ; CHECK: dtrans-bca: Found safety violation
 ; CHECK: dtrans-bca: End bad casting analysis: (NOT OK)
 

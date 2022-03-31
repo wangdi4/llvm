@@ -169,6 +169,8 @@ double constlinear(const int i) { return 0.0; }
 
 // SPIR-DAG: _ZGVxN8v__Z5add_1Pf
 // SPIR-DAG: _ZGVxN16v__Z5add_1Pf
+// SPIR-NOT: _ZGVxN32v__Z5add_1Pf
+// SPIR-DAG: _ZGVxM32v__Z5add_1Pf
 
 // CHECK-NOT: _ZGVbN2vv__Z5add_1Pf
 // CHECK-NOT: _ZGVcN4vv__Z5add_1Pf
@@ -207,6 +209,8 @@ double constlinear(const int i) { return 0.0; }
 
 // SPIR-DAG: _ZGVxN8vvvv__Z1hIiEvPT_S1_S1_S1_
 // SPIR-DAG: _ZGVxN16vvvv__Z1hIiEvPT_S1_S1_S1_
+// SPIR-DAG: _ZGVxM8vvvv__Z1hIiEvPT_S1_S1_S1_
+// SPIR-DAG: _ZGVxM16vvvv__Z1hIiEvPT_S1_S1_S1_
 
 // CHECK-DAG: _ZGVbM4uus1__ZN2VV3addEii
 // CHECK-DAG: _ZGVbN4uus1__ZN2VV3addEii
@@ -219,6 +223,8 @@ double constlinear(const int i) { return 0.0; }
 
 // SPIR-DAG: _ZGVxN8uus1__ZN2VV3addEii
 // SPIR-DAG: _ZGVxN16uus1__ZN2VV3addEii
+// SPIR-DAG: _ZGVxM8uus1__ZN2VV3addEii
+// SPIR-DAG: _ZGVxM16uus1__ZN2VV3addEii
 
 // CHECK-DAG: _ZGVbM4ll4a16l4a4__ZN2VV6taddpfEPfRS0_
 // CHECK-DAG: _ZGVbN4ll4a16l4a4__ZN2VV6taddpfEPfRS0_
@@ -230,7 +236,9 @@ double constlinear(const int i) { return 0.0; }
 // CHECK-DAG: _ZGVeN16ll4a16l4a4__ZN2VV6taddpfEPfRS0_
 
 // SPIR-DAG: _ZGVxN8ll4l4a4__ZN2VV6taddpfEPfRS0_
-// SPIR-DAG: _ZGVxN16ll4l4a4__ZN2VV6taddpfEPfRS0_"
+// SPIR-DAG: _ZGVxN16ll4l4a4__ZN2VV6taddpfEPfRS0_
+// SPIR-DAG: _ZGVxM8ll4l4a4__ZN2VV6taddpfEPfRS0_
+// SPIR-DAG: _ZGVxM16ll4l4a4__ZN2VV6taddpfEPfRS0_
 
 // CHECK-DAG: _ZGVbM4vvl8__ZN2VV4taddERA_iRi
 // CHECK-DAG: _ZGVbN4vvl8__ZN2VV4taddERA_iRi
@@ -251,6 +259,8 @@ double constlinear(const int i) { return 0.0; }
 
 // SPIR-DAG: _ZGVxN8vvl8__ZN2VV4taddERA_iRi
 // SPIR-DAG: _ZGVxN16vvl8__ZN2VV4taddERA_iRi
+// SPIR-DAG: _ZGVxM8vvl8__ZN2VV4taddERA_iRi
+// SPIR-DAG: _ZGVxM16vvl8__ZN2VV4taddERA_iRi
 
 // CHECK-DAG: _ZGVbM4vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
 // CHECK-DAG: _ZGVbN4vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
@@ -264,6 +274,8 @@ double constlinear(const int i) { return 0.0; }
 // SimdDefaultAlign is 0 for SPIR but 128-512 for x86
 // SPIR-DAG: _ZGVxN8vva32l16__ZN3TVVILi16EfE6taddpfEPfRS1_
 // SPIR-DAG: _ZGVxN16vva32l16__ZN3TVVILi16EfE6taddpfEPfRS1_
+// SPIR-DAG: _ZGVxM8vva32l16__ZN3TVVILi16EfE6taddpfEPfRS1_
+// SPIR-DAG: _ZGVxM16vva32l16__ZN3TVVILi16EfE6taddpfEPfRS1_
 
 // CHECK-DAG: _ZGVbM4uu__ZN3TVVILi16EfE4taddEi
 // CHECK-DAG: _ZGVbN4uu__ZN3TVVILi16EfE4taddEi
@@ -284,6 +296,8 @@ double constlinear(const int i) { return 0.0; }
 
 // SPIR-DAG: _ZGVxN8uu__ZN3TVVILi16EfE4taddEi
 // SPIR-DAG: _ZGVxN16uu__ZN3TVVILi16EfE4taddEi
+// SPIR-DAG: _ZGVxM8uu__ZN3TVVILi16EfE4taddEi
+// SPIR-DAG: _ZGVxM16uu__ZN3TVVILi16EfE4taddEi
 
 // CHECK-DAG: _ZGVbM64va128l64__Z3fooILi64EEvRAT__iRPf
 // CHECK-DAG: _ZGVbN64va128l64__Z3fooILi64EEvRAT__iRPf
@@ -296,6 +310,8 @@ double constlinear(const int i) { return 0.0; }
 
 // SPIR-DAG: _ZGVxN64va128l64__Z3fooILi64EEvRAT__iRPf
 // SPIR-DAG: _ZGVxN64va128l64__Z3fooILi64EEvRAT__iRPf
+// SPIR-DAG: _ZGVxM64va128l64__Z3fooILi64EEvRAT__iRPf
+// SPIR-DAG: _ZGVxM64va128l64__Z3fooILi64EEvRAT__iRPf
 
 // CHECK-DAG: _ZGVbM4vv__Z3bar2VVPf
 // CHECK-DAG: _ZGVbN4vv__Z3bar2VVPf
@@ -312,6 +328,8 @@ double constlinear(const int i) { return 0.0; }
 
 // SPIR-DAG: _ZGVxN8vv__Z3bar2VVPf
 // SPIR-DAG: _ZGVxN16vv__Z3bar2VVPf
+// SPIR-DAG: _ZGVxM8vv__Z3bar2VVPf
+// SPIR-DAG: _ZGVxM16vv__Z3bar2VVPf
 
 // CHECK-DAG: _ZGVbM4vv__Z3baz2VVPi
 // CHECK-DAG: _ZGVbN4vv__Z3baz2VVPi

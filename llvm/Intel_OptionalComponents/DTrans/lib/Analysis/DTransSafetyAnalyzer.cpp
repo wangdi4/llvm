@@ -1959,16 +1959,18 @@ public:
       // that safety bit has different semantics regarding propagation than
       // the MismatchedElementAccess safety, which are necessary to get all
       // the necessary structures marked.
+      bool IsCandidateLoad = DTBCA.isCandidateLoad(&I);
       bool IsAllocStore = DTBCA.isAllocStore(&I);
+      bool IsCandidate = IsCandidateLoad || IsAllocStore;
       if (BadCasting) {
         const llvm::dtrans::SafetyData SD =
-            IsAllocStore ? dtrans::BadCastingPending : dtrans::BadCasting;
+            IsCandidate ? dtrans::BadCastingPending : dtrans::BadCasting;
         setBaseTypeInfoSafetyData(
             ParentTy, SD, "Incompatible pointer type for field load/store", &I);
         if (ValInfo)
           for (auto *ValAliasTy :
                ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
-            if (IsAllocStore)
+            if (IsCandidate)
               DTBCA.setSawBadCasting(&I);
             setBaseTypeInfoSafetyData(
                 ValAliasTy, SD,
@@ -1987,7 +1989,7 @@ public:
               IndexedType->getPointerElementType()->isAggregateType())
             PtrToAggregateFound = true;
           const llvm::dtrans::SafetyData SD =
-              IsAllocStore ? dtrans::UnsafePointerStorePending
+              IsCandidate ? dtrans::UnsafePointerStorePending
                            : dtrans::UnsafePointerStore;
           if (ValInfo) {
             auto &AliasSet =
@@ -1995,7 +1997,7 @@ public:
             PtrToAggregateFound |= ValInfo->canAliasToDirectAggregatePointer();
             if (PtrToAggregateFound) {
               for (auto *ValAliasTy : AliasSet) {
-                if (IsAllocStore)
+                if (IsCandidate)
                   DTBCA.setSawUnsafePointerStore(&I);
                 setBaseTypeInfoSafetyData(
                     ValAliasTy, SD, "Incompatible type for field load/store",
@@ -2005,7 +2007,7 @@ public:
           }
 
           if (PtrToAggregateFound) {
-            if (IsAllocStore)
+            if (IsCandidate)
               DTBCA.setSawUnsafePointerStore(&I);
             setBaseTypeInfoSafetyData(
                 IndexedType, SD, "Incompatible type for field load/store", &I);
@@ -2014,10 +2016,10 @@ public:
 
         // Finally, mark the structure as having a mismatched element access.
         TypeSize ValSize = DL.getTypeSizeInBits(ValOp->getType());
-        if (IsAllocStore)
+        if (IsCandidate)
           DTBCA.setSawMismatchedElementAccess(&I);
         setFieldMismatchedElementAccess(ParentTy, ValSize, IndexedType,
-                                        ElementNum, I, IsAllocStore);
+                                        ElementNum, I, IsCandidate);
       }
     }
   }

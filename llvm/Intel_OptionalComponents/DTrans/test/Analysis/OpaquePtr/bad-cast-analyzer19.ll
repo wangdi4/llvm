@@ -1,26 +1,21 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers < %s -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -disable-output -debug-only=dtrans-bca 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers < %s -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output -debug-only=dtrans-bca 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
-; This test case tests the bad cast analyzer on a case which has a use of
-; a load of the candidate field, and whose value is passed through a complex
-; collection of basic blocks.  It should fail with a safety violation and
-; retain the Bad casting, Unsafe pointer store, and Mismatched element access
-; violations.
+; This test case tests the bad cast analyzer on a case which removes bad
+; casting, unsafe pointer stores, and mismatched element accesses, but requires
+; the addition of tests in some functions.
 
-; CHECK: dtrans-bca: Begin bad casting analysis
-; CHECK: dtrans-bca: Candidate Root Type: struct._ZTS11mynextcoder.mynextcoder
-; CHECK: dtrans-bca: (SV) [0] Improper incoming block for PHI node:  %t13.7 = phi ptr [ %call, %t5 ], [ %t13.4, %t16 ]
-; CHECK: dtrans-bca: (SV) [0] Non-GEP target
-; CHECK: dtrans-bca: Found safety violation
-; CHECK: dtrans-bca: End bad casting analysis: (NOT OK)
+; This test case has a zero-element access %i2 in the function @init_with_coder1
+; which should not inhibit the removal of unconditional bad casting, unsafe
+; pointer store, and  mismatched element access safety checks.
 
 ; CHECK: LLVMType: %struct._ZTS11mynextcoder.mynextcoder
-; CHECK: Safety data: Bad casting | Mismatched element access | Global instance | Has function ptr{{ *$}}
+; CHECK: Safety data: Global instance | Has function ptr | Bad casting (conditional) | Mismatched element access (conditional){{ *$}}
 ; CHECK: LLVMType: %struct._ZTS8mycoder1.mycoder1
-; CHECK: Safety data: Bad casting{{ *$}}
+; CHECK: Safety data: Bad casting (conditional) | Unsafe pointer store (conditional){{ *$}}
 ; CHECK: LLVMType: %struct._ZTS8mycoder2.mycoder2
-; CHECK: Safety data: Bad casting | Unsafe pointer store{{ *$}}
+; CHECK: Safety data: Bad casting (conditional) | Unsafe pointer store (conditional){{ *$}}
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -35,7 +30,6 @@ target triple = "x86_64-unknown-linux-gnu"
 @localnextcoder4 = internal global %struct._ZTS11mynextcoder.mynextcoder zeroinitializer, align 8
 @myglobalint1 = internal global i32 50, align 4
 @myglobalint2 = internal global i32 100, align 4
-@myweirdcompare = internal global i32 50, align 4
 
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @main() local_unnamed_addr #0 {
@@ -63,36 +57,24 @@ entry:
   %field0 = getelementptr inbounds %struct._ZTS11mynextcoder.mynextcoder, ptr %arg0, i64 0, i32 0
   %i = load ptr, ptr %field0, align 8
   %tobool.not = icmp eq ptr %i, null
-  br i1 %tobool.not, label %t5, label %t11
+  br i1 %tobool.not, label %if.then, label %if.end
 
-t5:
+if.then:                                          ; preds = %entry
   %call = tail call align 16 dereferenceable_or_null(16) ptr @malloc(i64 16)
   store ptr %call, ptr %field0, align 8
   %field1 = getelementptr inbounds %struct._ZTS11mynextcoder.mynextcoder, ptr %arg0, i64 0, i32 1
   store ptr @coder1_startup, ptr %field1, align 8
   %field2 = getelementptr inbounds %struct._ZTS11mynextcoder.mynextcoder, ptr %arg0, i64 0, i32 2
   store ptr @coder1_shutdown, ptr %field2, align 8
-  %t20 = load volatile i32, i32* @myweirdcompare
-  %t15 = icmp eq i32 1, %t20
-  br i1 %t15, label %t16, label %t17
+  br label %if.end
 
-t16: 
-  %t13.3 = ptrtoint ptr %i to i64
-  %t13.4 = inttoptr i64 %t13.3 to ptr
-  br label %t17
-
-t17: 
-  %t13.7 = phi ptr [ %call, %t5 ], [ %t13.4, %t16 ]
-  %t13.5 = ptrtoint ptr %t13.7 to i64
-  %t13.6 = inttoptr i64 %t13.5 to ptr
-  br label %t11
-
-t11:
-  %i1 = phi ptr [ %i, %entry ], [ %t13.6, %t17 ]
+if.end:                                           ; preds = %if.then, %entry
+  %i1 = phi ptr [ %call, %if.then ], [ %i, %entry ]
   %field03 = getelementptr inbounds %struct._ZTS8mycoder1.mycoder1, ptr %i1, i64 0, i32 0
   store i32 15, ptr %field03, align 8
-  %field14 = getelementptr inbounds %struct._ZTS8mycoder1.mycoder1, ptr %i1, i64 0, i32 1
-  store ptr @myglobalint1, ptr %field14, align 8
+  %i2 = load ptr, ptr %field0, align 8
+  %field15 = getelementptr inbounds %struct._ZTS8mycoder1.mycoder1, ptr %i2, i64 0, i32 1
+  store ptr null, ptr %field15, align 8
   ret void
 }
 
