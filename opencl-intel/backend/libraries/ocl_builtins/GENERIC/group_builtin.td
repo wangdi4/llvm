@@ -77,12 +77,15 @@ list<OclType> work_group_types_int = [v1i32, v4i32, v8i32, v16i32, v32i32, v64i3
                                       v1u32, v4u32, v8u32, v16u32, v32u32, v64u32,
                                       v1i64, v4i64, v8i64, v16i64, v32i64, v64i64,
                                       v1u64, v4u64, v8u64, v16u64, v32u64, v64u64];
+list<OclType> work_group_types_all_integer = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64], [1, 4, 8, 16, 32, 64]>.Tout;
 list<OclType> work_group_types_float = [v1f32, v4f32, v8f32, v16f32, v32f32, v64f32,
                                         v1f64, v4f64, v8f64, v16f64, v32f64, v64f64];
+list<OclType> work_group_types_i32 = ExpandTypesByVFAndFlatten<[v1i32], [1, 4, 8, 16, 32, 64]>.Tout;
 // Scalar types
 list<OclType> work_group_scalar_types_all = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64];
 list<OclType> work_group_scalar_types_int = [v1i32, v1u32, v1i64, v1u64];
 list<OclType> work_group_scalar_types_float = [v1f32, v1f64];
+list<OclType> work_group_scalar_types_all_integer = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64];
 // Vector types
 list<OclType> work_group_vector_types_all = [v4i8, v8i8, v16i8, v32i8, v64i8,
                                              v4u8, v8u8, v16u8, v32u8, v64u8,
@@ -118,6 +121,14 @@ list<OclType> work_group_vector_types_float16 = [v16f32, v16f64];
 list<OclType> work_group_vector_types_float32 = [v32f32, v32f64];
 list<OclType> work_group_vector_types_float64 = [v64f32, v64f64];
 
+list<OclType> work_group_vector_types_all_i32 = ExpandTypesByVFAndFlatten<[v1i32], [4, 8, 16, 32, 64]>.Tout;
+list<OclType> work_group_vector_types_all_integer4 =  [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4i64, v4u64];
+list<OclType> work_group_vector_types_all_integer8 =  [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64];
+list<OclType> work_group_vector_types_all_integer16 = [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64];
+list<OclType> work_group_vector_types_all_integer32 = [v32i8, v32u8, v32i16, v32u16, v32i32, v32u32, v32i64, v32u64];
+list<OclType> work_group_vector_types_all_integer64 = [v64i8, v64u8, v64i16, v64u16, v64i32, v64u32, v64i64, v64u64];
+list<OclType> work_group_vector_types_all_integer = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64], [4, 8, 16, 32, 64]>.Tout;
+
 // Fake implementations of WG functions - in order to keep their declarations in BI LLVM module
 OclBuiltinImpl work_group_all_fake = OclBuiltinImpl<work_group_all, [ v1i32, v4i32, v8i32, v16i32, v32i32, v64i32 ], 0,
   [{
@@ -152,6 +163,30 @@ OclBuiltinImpl work_group_reduce_min_fake = OclBuiltinImpl<work_group_reduce_min
     return $Arg0VarName;
   }]>;
 OclBuiltinImpl work_group_reduce_max_fake = OclBuiltinImpl<work_group_reduce_max, work_group_types_all, 0,
+  [{
+    return $Arg0VarName;
+  }]>;
+OclBuiltinImpl work_group_reduce_bitwise_and_fake = OclBuiltinImpl<work_group_reduce_bitwise_and, work_group_types_all_integer, 0,
+  [{
+    return $Arg0VarName;
+  }]>;
+OclBuiltinImpl work_group_reduce_bitwise_or_fake = OclBuiltinImpl<work_group_reduce_bitwise_or, work_group_types_all_integer, 0,
+  [{
+    return $Arg0VarName;
+  }]>;
+OclBuiltinImpl work_group_reduce_bitwise_xor_fake = OclBuiltinImpl<work_group_reduce_bitwise_xor, work_group_types_all_integer, 0,
+  [{
+    return $Arg0VarName;
+  }]>;
+OclBuiltinImpl work_group_reduce_logical_and_fake = OclBuiltinImpl<work_group_reduce_logical_and, work_group_types_i32, 0,
+  [{
+    return $Arg0VarName;
+  }]>;
+OclBuiltinImpl work_group_reduce_logical_or_fake = OclBuiltinImpl<work_group_reduce_logical_or, work_group_types_i32, 0,
+  [{
+    return $Arg0VarName;
+  }]>;
+OclBuiltinImpl work_group_reduce_logical_xor_fake = OclBuiltinImpl<work_group_reduce_logical_xor, work_group_types_i32, 0,
   [{
     return $Arg0VarName;
   }]>;
@@ -266,6 +301,30 @@ OclBuiltinImpl work_group_mul_helper_util__generic = OclBuiltinImpl<work_group_m
   [{
     return $Arg0VarName * $Arg1VarName;
   }]>;
+OclBuiltinImpl work_group_bitwise_and_helper_util__generic = OclBuiltinImpl<work_group_bitwise_and_helper_util, work_group_types_all_integer, 0,
+  [{
+    return $Arg0VarName & $Arg1VarName;
+  }]>;
+OclBuiltinImpl work_group_bitwise_or_helper_util__generic = OclBuiltinImpl<work_group_bitwise_or_helper_util, work_group_types_all_integer, 0,
+  [{
+    return $Arg0VarName | $Arg1VarName;
+  }]>;
+OclBuiltinImpl work_group_bitwise_xor_helper_util__generic = OclBuiltinImpl<work_group_bitwise_xor_helper_util, work_group_types_all_integer, 0,
+  [{
+    return $Arg0VarName ^ $Arg1VarName;
+  }]>;
+OclBuiltinImpl work_group_logical_and_helper_util__generic = OclBuiltinImpl<work_group_logical_and_helper_util, work_group_types_i32, 0,
+  [{
+    return $Arg0VarName && $Arg1VarName;
+  }]>;
+OclBuiltinImpl work_group_logical_or_helper_util__generic = OclBuiltinImpl<work_group_logical_or_helper_util, work_group_types_i32, 0,
+  [{
+    return $Arg0VarName || $Arg1VarName;
+  }]>;
+OclBuiltinImpl work_group_logical_xor_helper_util__generic = OclBuiltinImpl<work_group_logical_xor_helper_util, work_group_types_i32, 0,
+  [{
+    return $Arg0VarName != $Arg1VarName;
+  }]>;
 OclBuiltinImpl work_group_all_helper_util_int = OclBuiltinImpl<work_group_all_helper_util, [v1i32, v4i32, v8i32, v16i32, v32i32, v64i32], 0,
   [{
     return $Arg0VarName & $Arg1VarName;
@@ -372,6 +431,30 @@ OclBuiltinImpl work_group_reduce_add_scalar_helper_generic = OclBuiltinImpl<work
 // work_group_reduce_mul
 OclBuiltinImpl work_group_reduce_mul_vector_helper_generic = OclBuiltinImpl<work_group_reduce_mul_helper, work_group_vector_types_all, 0, work_group_inclusive_function_op_vector, [["$FUNC", "work_group_mul_util"]]>;
 OclBuiltinImpl work_group_reduce_mul_scalar_helper_generic = OclBuiltinImpl<work_group_reduce_mul_helper, work_group_scalar_types_all, 0, work_group_inclusive_function_op_scalar, [["$FUNC", "work_group_mul_util"]]>;
+
+// work_group_reduce_bitwise_and
+OclBuiltinImpl work_group_reduce_bitwise_and_vector_helper_generic = OclBuiltinImpl<work_group_reduce_bitwise_and_helper, work_group_vector_types_all_integer, 0, work_group_inclusive_function_op_vector, [["$FUNC", "work_group_bitwise_and_util"]]>;
+OclBuiltinImpl work_group_reduce_bitwise_and_scalar_helper_generic = OclBuiltinImpl<work_group_reduce_bitwise_and_helper, work_group_scalar_types_all_integer, 0, work_group_inclusive_function_op_scalar, [["$FUNC", "work_group_bitwise_and_util"]]>;
+
+// work_group_reduce_bitwise_or
+OclBuiltinImpl work_group_reduce_bitwise_or_vector_helper_generic = OclBuiltinImpl<work_group_reduce_bitwise_or_helper, work_group_vector_types_all_integer, 0, work_group_inclusive_function_op_vector, [["$FUNC", "work_group_bitwise_or_util"]]>;
+OclBuiltinImpl work_group_reduce_bitwise_or_scalar_helper_generic = OclBuiltinImpl<work_group_reduce_bitwise_or_helper, work_group_scalar_types_all_integer, 0, work_group_inclusive_function_op_scalar, [["$FUNC", "work_group_bitwise_or_util"]]>;
+
+// work_group_reduce_bitwise_xor
+OclBuiltinImpl work_group_reduce_bitwise_xor_vector_helper_generic = OclBuiltinImpl<work_group_reduce_bitwise_xor_helper, work_group_vector_types_all_integer, 0, work_group_inclusive_function_op_vector, [["$FUNC", "work_group_bitwise_xor_util"]]>;
+OclBuiltinImpl work_group_reduce_bitwise_xor_scalar_helper_generic = OclBuiltinImpl<work_group_reduce_bitwise_xor_helper, work_group_scalar_types_all_integer, 0, work_group_inclusive_function_op_scalar, [["$FUNC", "work_group_bitwise_xor_util"]]>;
+
+// work_group_reduce_logical_and
+OclBuiltinImpl work_group_reduce_logical_and_vector_helper_generic = OclBuiltinImpl<work_group_reduce_logical_and_helper, work_group_vector_types_all_i32, 0, work_group_inclusive_function_op_vector, [["$FUNC", "work_group_logical_and_util"]]>;
+OclBuiltinImpl work_group_reduce_logical_and_scalar_helper_generic = OclBuiltinImpl<work_group_reduce_logical_and_helper, [v1i32], 0, work_group_inclusive_function_op_scalar, [["$FUNC", "work_group_logical_and_util"]]>;
+
+// work_group_reduce_logical_or
+OclBuiltinImpl work_group_reduce_logical_or_vector_helper_generic = OclBuiltinImpl<work_group_reduce_logical_or_helper, work_group_vector_types_all_i32, 0, work_group_inclusive_function_op_vector, [["$FUNC", "work_group_logical_or_util"]]>;
+OclBuiltinImpl work_group_reduce_logical_or_scalar_helper_generic = OclBuiltinImpl<work_group_reduce_logical_or_helper, [v1i32], 0, work_group_inclusive_function_op_scalar, [["$FUNC", "work_group_logical_or_util"]]>;
+
+// work_group_reduce_logical_xor
+OclBuiltinImpl work_group_reduce_logical_xor_vector_helper_generic = OclBuiltinImpl<work_group_reduce_logical_xor_helper, work_group_vector_types_all_i32, 0, work_group_inclusive_function_op_vector, [["$FUNC", "work_group_logical_xor_util"]]>;
+OclBuiltinImpl work_group_reduce_logical_xor_scalar_helper_generic = OclBuiltinImpl<work_group_reduce_logical_xor_helper, [v1i32], 0, work_group_inclusive_function_op_scalar, [["$FUNC", "work_group_logical_xor_util"]]>;
 
 // work_group_reduce_max/min
 OclBuiltinImpl work_group_reduce_min_vector_helper_int4 = OclBuiltinImpl<work_group_reduce_min_helper, work_group_vector_types_int4, 0, work_group_inclusive_function_op_vector, [["$FUNC", "min"]]>;
@@ -1935,6 +2018,72 @@ OclBuiltinImpl work_group_reduce_mul_finalize_helper_gen32 =
       OclBuiltinImpl<work_group_reduce_mul_finalize_helper, work_group_vector_types_all32,   0, work_group_finalize_function_op32, [["$FUNC","work_group_mul_util"]]>;
 OclBuiltinImpl work_group_reduce_mul_finalize_helper_gen64 =
       OclBuiltinImpl<work_group_reduce_mul_finalize_helper, work_group_vector_types_all64,   0, work_group_finalize_function_op64, [["$FUNC","work_group_mul_util"]]>;
+
+OclBuiltinImpl work_group_reduce_bitwise_and_finalize_helper_gen4 =
+      OclBuiltinImpl<work_group_reduce_bitwise_and_finalize_helper, work_group_vector_types_all_integer4,    0, work_group_finalize_function_op4, [["$FUNC","work_group_bitwise_and_util"]]>;
+OclBuiltinImpl work_group_reduce_bitwise_and_finalize_helper_gen8 =
+      OclBuiltinImpl<work_group_reduce_bitwise_and_finalize_helper, work_group_vector_types_all_integer8,    0, work_group_finalize_function_op8, [["$FUNC","work_group_bitwise_and_util"]]>;
+OclBuiltinImpl work_group_reduce_bitwise_and_finalize_helper_gen16 =
+      OclBuiltinImpl<work_group_reduce_bitwise_and_finalize_helper, work_group_vector_types_all_integer16,   0, work_group_finalize_function_op16, [["$FUNC","work_group_bitwise_and_util"]]>;
+OclBuiltinImpl work_group_reduce_bitwise_and_finalize_helper_gen32 =
+      OclBuiltinImpl<work_group_reduce_bitwise_and_finalize_helper, work_group_vector_types_all_integer32,   0, work_group_finalize_function_op32, [["$FUNC","work_group_bitwise_and_util"]]>;
+OclBuiltinImpl work_group_reduce_bitwise_and_finalize_helper_gen64 =
+      OclBuiltinImpl<work_group_reduce_bitwise_and_finalize_helper, work_group_vector_types_all_integer64,   0, work_group_finalize_function_op64, [["$FUNC","work_group_bitwise_and_util"]]>;
+
+OclBuiltinImpl work_group_reduce_bitwise_or_finalize_helper_gen4 =
+      OclBuiltinImpl<work_group_reduce_bitwise_or_finalize_helper, work_group_vector_types_all_integer4,    0, work_group_finalize_function_op4, [["$FUNC","work_group_bitwise_or_util"]]>;
+OclBuiltinImpl work_group_reduce_bitwise_or_finalize_helper_gen8 =
+      OclBuiltinImpl<work_group_reduce_bitwise_or_finalize_helper, work_group_vector_types_all_integer8,    0, work_group_finalize_function_op8, [["$FUNC","work_group_bitwise_or_util"]]>;
+OclBuiltinImpl work_group_reduce_bitwise_or_finalize_helper_gen16 =
+      OclBuiltinImpl<work_group_reduce_bitwise_or_finalize_helper, work_group_vector_types_all_integer16,   0, work_group_finalize_function_op16, [["$FUNC","work_group_bitwise_or_util"]]>;
+OclBuiltinImpl work_group_reduce_bitwise_or_finalize_helper_gen32 =
+      OclBuiltinImpl<work_group_reduce_bitwise_or_finalize_helper, work_group_vector_types_all_integer32,   0, work_group_finalize_function_op32, [["$FUNC","work_group_bitwise_or_util"]]>;
+OclBuiltinImpl work_group_reduce_bitwise_or_finalize_helper_gen64 =
+      OclBuiltinImpl<work_group_reduce_bitwise_or_finalize_helper, work_group_vector_types_all_integer64,   0, work_group_finalize_function_op64, [["$FUNC","work_group_bitwise_or_util"]]>;
+
+OclBuiltinImpl work_group_reduce_bitwise_xor_finalize_helper_gen4 =
+      OclBuiltinImpl<work_group_reduce_bitwise_xor_finalize_helper, work_group_vector_types_all_integer4,    0, work_group_finalize_function_op4, [["$FUNC","work_group_bitwise_xor_util"]]>;
+OclBuiltinImpl work_group_reduce_bitwise_xor_finalize_helper_gen8 =
+      OclBuiltinImpl<work_group_reduce_bitwise_xor_finalize_helper, work_group_vector_types_all_integer8,    0, work_group_finalize_function_op8, [["$FUNC","work_group_bitwise_xor_util"]]>;
+OclBuiltinImpl work_group_reduce_bitwise_xor_finalize_helper_gen16 =
+      OclBuiltinImpl<work_group_reduce_bitwise_xor_finalize_helper, work_group_vector_types_all_integer16,   0, work_group_finalize_function_op16, [["$FUNC","work_group_bitwise_xor_util"]]>;
+OclBuiltinImpl work_group_reduce_bitwise_xor_finalize_helper_gen32 =
+      OclBuiltinImpl<work_group_reduce_bitwise_xor_finalize_helper, work_group_vector_types_all_integer32,   0, work_group_finalize_function_op32, [["$FUNC","work_group_bitwise_xor_util"]]>;
+OclBuiltinImpl work_group_reduce_bitwise_xor_finalize_helper_gen64 =
+      OclBuiltinImpl<work_group_reduce_bitwise_xor_finalize_helper, work_group_vector_types_all_integer64,   0, work_group_finalize_function_op64, [["$FUNC","work_group_bitwise_xor_util"]]>;
+
+OclBuiltinImpl work_group_reduce_logical_and_finalize_helper_gen4 =
+      OclBuiltinImpl<work_group_reduce_logical_and_finalize_helper, [v4i32],    0, work_group_finalize_function_op4, [["$FUNC","work_group_logical_and_util"]]>;
+OclBuiltinImpl work_group_reduce_logical_and_finalize_helper_gen8 =
+      OclBuiltinImpl<work_group_reduce_logical_and_finalize_helper, [v8i32],    0, work_group_finalize_function_op8, [["$FUNC","work_group_logical_and_util"]]>;
+OclBuiltinImpl work_group_reduce_logical_and_finalize_helper_gen16 =
+      OclBuiltinImpl<work_group_reduce_logical_and_finalize_helper, [v16i32],   0, work_group_finalize_function_op16, [["$FUNC","work_group_logical_and_util"]]>;
+OclBuiltinImpl work_group_reduce_logical_and_finalize_helper_gen32 =
+      OclBuiltinImpl<work_group_reduce_logical_and_finalize_helper, [v32i32],   0, work_group_finalize_function_op32, [["$FUNC","work_group_logical_and_util"]]>;
+OclBuiltinImpl work_group_reduce_logical_and_finalize_helper_gen64 =
+      OclBuiltinImpl<work_group_reduce_logical_and_finalize_helper, [v64i32],   0, work_group_finalize_function_op64, [["$FUNC","work_group_logical_and_util"]]>;
+
+OclBuiltinImpl work_group_reduce_logical_or_finalize_helper_gen4 =
+      OclBuiltinImpl<work_group_reduce_logical_or_finalize_helper, [v4i32],    0, work_group_finalize_function_op4, [["$FUNC","work_group_logical_or_util"]]>;
+OclBuiltinImpl work_group_reduce_logical_or_finalize_helper_gen8 =
+      OclBuiltinImpl<work_group_reduce_logical_or_finalize_helper, [v8i32],    0, work_group_finalize_function_op8, [["$FUNC","work_group_logical_or_util"]]>;
+OclBuiltinImpl work_group_reduce_logical_or_finalize_helper_gen16 =
+      OclBuiltinImpl<work_group_reduce_logical_or_finalize_helper, [v16i32],   0, work_group_finalize_function_op16, [["$FUNC","work_group_logical_or_util"]]>;
+OclBuiltinImpl work_group_reduce_logical_or_finalize_helper_gen32 =
+      OclBuiltinImpl<work_group_reduce_logical_or_finalize_helper, [v32i32],   0, work_group_finalize_function_op32, [["$FUNC","work_group_logical_or_util"]]>;
+OclBuiltinImpl work_group_reduce_logical_or_finalize_helper_gen64 =
+      OclBuiltinImpl<work_group_reduce_logical_or_finalize_helper, [v64i32],   0, work_group_finalize_function_op64, [["$FUNC","work_group_logical_or_util"]]>;
+
+OclBuiltinImpl work_group_reduce_logical_xor_finalize_helper_gen4 =
+      OclBuiltinImpl<work_group_reduce_logical_xor_finalize_helper, [v4i32],    0, work_group_finalize_function_op4, [["$FUNC","work_group_logical_xor_util"]]>;
+OclBuiltinImpl work_group_reduce_logical_xor_finalize_helper_gen8 =
+      OclBuiltinImpl<work_group_reduce_logical_xor_finalize_helper, [v8i32],    0, work_group_finalize_function_op8, [["$FUNC","work_group_logical_xor_util"]]>;
+OclBuiltinImpl work_group_reduce_logical_xor_finalize_helper_gen16 =
+      OclBuiltinImpl<work_group_reduce_logical_xor_finalize_helper, [v16i32],   0, work_group_finalize_function_op16, [["$FUNC","work_group_logical_xor_util"]]>;
+OclBuiltinImpl work_group_reduce_logical_xor_finalize_helper_gen32 =
+      OclBuiltinImpl<work_group_reduce_logical_xor_finalize_helper, [v32i32],   0, work_group_finalize_function_op32, [["$FUNC","work_group_logical_xor_util"]]>;
+OclBuiltinImpl work_group_reduce_logical_xor_finalize_helper_gen64 =
+      OclBuiltinImpl<work_group_reduce_logical_xor_finalize_helper, [v64i32],   0, work_group_finalize_function_op64, [["$FUNC","work_group_logical_xor_util"]]>;
 
 OclBuiltinImpl work_group_reduce_min_finalize_helper_int4 =
       OclBuiltinImpl<work_group_reduce_min_finalize_helper, work_group_vector_types_int4,    0, work_group_finalize_function_op4, [["$FUNC","min"]]>;

@@ -39,6 +39,26 @@ def work_group_scan_inclusive_add_pre_exec         : REF_OclBuiltin<"work_group_
 def work_group_scan_inclusive_mul_pre_exec         : REF_OclBuiltin<"work_group_scan_inclusive_mul_pre_exec",         (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
 }
 
+let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64],
+    Attrs = [CONSTFUNC, OVERLOADABLE] in {
+def work_group_reduce_bitwise_and        : REF_OclBuiltin<"work_group_reduce_bitwise_and",        (outs gentype:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+def work_group_reduce_bitwise_or        : REF_OclBuiltin<"work_group_reduce_bitwise_or",        (outs gentype:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+def work_group_reduce_bitwise_xor        : REF_OclBuiltin<"work_group_reduce_bitwise_xor",        (outs gentype:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+def work_group_reduce_bitwise_and_pre_exec        : REF_OclBuiltin<"work_group_reduce_bitwise_and_pre_exec",        (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+def work_group_reduce_bitwise_or_pre_exec        : REF_OclBuiltin<"work_group_reduce_bitwise_or_pre_exec",        (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+def work_group_reduce_bitwise_xor_pre_exec        : REF_OclBuiltin<"work_group_reduce_bitwise_xor_pre_exec",        (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+}
+
+let Types = [v1i32],
+    Attrs = [CONSTFUNC, OVERLOADABLE] in {
+def work_group_reduce_logical_and        : REF_OclBuiltin<"work_group_reduce_logical_and",        (outs gentype:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+def work_group_reduce_logical_or        : REF_OclBuiltin<"work_group_reduce_logical_or",        (outs gentype:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+def work_group_reduce_logical_xor        : REF_OclBuiltin<"work_group_reduce_logical_xor",        (outs gentype:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+def work_group_reduce_logical_and_pre_exec        : REF_OclBuiltin<"work_group_reduce_logical_and_pre_exec",        (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+def work_group_reduce_logical_or_pre_exec        : REF_OclBuiltin<"work_group_reduce_logical_or_pre_exec",        (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+def work_group_reduce_logical_xor_pre_exec        : REF_OclBuiltin<"work_group_reduce_logical_xor_pre_exec",        (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
+}
+
 let Types = [v1i32],
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 def work_group_all            : REF_OclBuiltin<"work_group_all",            (outs gentype:$ret), (ins gentype:$x), [], [], TemplateAttr< [] > >;
@@ -77,6 +97,8 @@ using namespace llvm;
 using std::string;
 using std::vector;
 using namespace Validation::OCLBuiltins;
+
+typedef unsigned char uchar;
 
 #ifndef BUILTINS_API
    #if defined(_WIN32)
@@ -254,6 +276,154 @@ GenericValue lle_X_work_group_reduce_mul_pre_exec(FunctionType *FT,
 
 template<typename T>
 GenericValue lle_X_work_group_reduce_mul(FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
+  IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
+  GenericValue gv = pG->GetValueForReduceBuiltin();
+
+  pG->DecRef();
+  return gv;
+}
+
+template<typename T>
+GenericValue lle_X_work_group_reduce_bitwise_and_pre_exec(FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
+  llvm::GenericValue initializer;
+  if(std::is_same<uchar, T>::value || std::is_same<ushort, T>::value ||
+     std::is_same<uint, T>::value || std::is_same<ulong, T>::value){
+    initializer = initWithMax<T>();
+  }else{
+    initializer = initWithInteger<T>(-1);
+  }
+  IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
+  GenericValue Value = Args[0];
+  pG->AddRef("lle_X_work_group_reduce_bitwise_and_pre_exec_impl", initializer);
+
+  getRef<T>(pG->GetValueForReduceBuiltin())=getRef<T>(pG->GetValueForReduceBuiltin()) & getVal<T>(Value);
+
+  return GenericValue();
+}
+
+template<typename T>
+GenericValue lle_X_work_group_reduce_bitwise_and(FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
+  IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
+  GenericValue gv = pG->GetValueForReduceBuiltin();
+
+  pG->DecRef();
+  return gv;
+}
+
+template<typename T>
+GenericValue lle_X_work_group_reduce_bitwise_or_pre_exec(FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
+  llvm::GenericValue initializer;
+  initializer = initWithInteger<T>(0);
+  IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
+  GenericValue Value = Args[0];
+  pG->AddRef("lle_X_work_group_reduce_bitwise_or_pre_exec_impl", initializer);
+
+  getRef<T>(pG->GetValueForReduceBuiltin())=getRef<T>(pG->GetValueForReduceBuiltin()) | getVal<T>(Value);
+
+  return GenericValue();
+}
+
+template<typename T>
+GenericValue lle_X_work_group_reduce_bitwise_or(FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
+  IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
+  GenericValue gv = pG->GetValueForReduceBuiltin();
+
+  pG->DecRef();
+  return gv;
+}
+
+template<typename T>
+GenericValue lle_X_work_group_reduce_bitwise_xor_pre_exec(FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
+  llvm::GenericValue initializer;
+  initializer = initWithInteger<T>(0);
+  IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
+  GenericValue Value = Args[0];
+  pG->AddRef("lle_X_work_group_reduce_bitwise_xor_pre_exec_impl", initializer);
+
+  getRef<T>(pG->GetValueForReduceBuiltin())=getRef<T>(pG->GetValueForReduceBuiltin()) ^ getVal<T>(Value);
+
+  return GenericValue();
+}
+
+template<typename T>
+GenericValue lle_X_work_group_reduce_bitwise_xor(FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
+  IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
+  GenericValue gv = pG->GetValueForReduceBuiltin();
+
+  pG->DecRef();
+  return gv;
+}
+
+template<typename T>
+GenericValue lle_X_work_group_reduce_logical_and_pre_exec(FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
+  llvm::GenericValue initializer;
+  initializer = initWithInteger<T>(1);
+  IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
+  GenericValue Value = Args[0];
+  pG->AddRef("lle_X_work_group_reduce_logical_and_pre_exec_impl", initializer);
+
+  getRef<T>(pG->GetValueForReduceBuiltin())=(getRef<T>(pG->GetValueForReduceBuiltin())).getBoolValue() && getVal<T>(Value);
+
+  return GenericValue();
+}
+
+template<typename T>
+GenericValue lle_X_work_group_reduce_logical_and(FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
+  IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
+  GenericValue gv = pG->GetValueForReduceBuiltin();
+
+  pG->DecRef();
+  return gv;
+}
+
+template<typename T>
+GenericValue lle_X_work_group_reduce_logical_or_pre_exec(FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
+  llvm::GenericValue initializer;
+  initializer = initWithInteger<T>(0);
+  IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
+  GenericValue Value = Args[0];
+  pG->AddRef("lle_X_work_group_reduce_logical_or_pre_exec_impl", initializer);
+  getRef<T>(pG->GetValueForReduceBuiltin())=(getRef<T>(pG->GetValueForReduceBuiltin())).getBoolValue() || getVal<T>(Value);
+
+  return GenericValue();
+}
+
+template<typename T>
+GenericValue lle_X_work_group_reduce_logical_or(FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
+  IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
+  GenericValue gv = pG->GetValueForReduceBuiltin();
+
+  pG->DecRef();
+  return gv;
+}
+
+template<typename T>
+GenericValue lle_X_work_group_reduce_logical_xor_pre_exec(FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
+  llvm::GenericValue initializer;
+  initializer = initWithInteger<T>(0);
+  IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
+  GenericValue Value = Args[0];
+  pG->AddRef("lle_X_work_group_reduce_logical_xor_pre_exec_impl", initializer);
+
+  getRef<T>(pG->GetValueForReduceBuiltin())=getRef<T>(pG->GetValueForReduceBuiltin()) != getVal<T>(Value);
+
+  return GenericValue();
+}
+
+template<typename T>
+GenericValue lle_X_work_group_reduce_logical_xor(FunctionType *FT,
                          llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
   GenericValue gv = pG->GetValueForReduceBuiltin();

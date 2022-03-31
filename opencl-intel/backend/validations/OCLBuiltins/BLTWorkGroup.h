@@ -47,6 +47,24 @@ llvm::GenericValue lle_X_work_group_reduce_min_impl(llvm::FunctionType *FT,
 
 llvm::GenericValue lle_X_work_group_reduce_mul_impl(llvm::FunctionType *FT,
                          llvm::ArrayRef<llvm::GenericValue> Args);
+
+llvm::GenericValue lle_X_work_group_reduce_bitwise_and_impl(llvm::FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args);
+
+llvm::GenericValue lle_X_work_group_reduce_bitwise_or_impl(llvm::FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args);
+
+llvm::GenericValue lle_X_work_group_reduce_bitwise_xor_impl(llvm::FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args);
+
+llvm::GenericValue lle_X_work_group_reduce_logical_and_impl(llvm::FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args);
+
+llvm::GenericValue lle_X_work_group_reduce_logical_or_impl(llvm::FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args);
+
+llvm::GenericValue lle_X_work_group_reduce_logical_xor_impl(llvm::FunctionType *FT,
+                         llvm::ArrayRef<llvm::GenericValue> Args);
 } // namespace OCLBuiltins
 } // namespace Validation
 #endif // BLT_WORK_GROUP_H

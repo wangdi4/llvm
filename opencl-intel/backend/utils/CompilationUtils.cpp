@@ -132,6 +132,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_WORK_GROUP_REDUCE_MUL = "work_group_reduce_mul";
   const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_EXCLUSIVE_MUL = "work_group_scan_exclusive_mul";
   const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_INCLUSIVE_MUL = "work_group_scan_inclusive_mul";
+  const std::string CompilationUtils::NAME_WORK_GROUP_REDUCE_BITWISE_AND = "work_group_reduce_bitwise_and";
+  const std::string CompilationUtils::NAME_WORK_GROUP_REDUCE_BITWISE_OR = "work_group_reduce_bitwise_or";
+  const std::string CompilationUtils::NAME_WORK_GROUP_REDUCE_BITWISE_XOR = "work_group_reduce_bitwise_xor";
+  const std::string CompilationUtils::NAME_WORK_GROUP_REDUCE_LOGICAL_AND = "work_group_reduce_logical_and";
+  const std::string CompilationUtils::NAME_WORK_GROUP_REDUCE_LOGICAL_OR = "work_group_reduce_logical_or";
+  const std::string CompilationUtils::NAME_WORK_GROUP_REDUCE_LOGICAL_XOR = "work_group_reduce_logical_xor";
   const std::string CompilationUtils::NAME_FINALIZE_WG_FUNCTION_PREFIX = "__finalize_";
 
   //sub-group functions
@@ -1193,6 +1199,30 @@ bool CompilationUtils::isWorkGroupScanInclusiveMax(const std::string& S) {
   return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX);
 }
 
+bool CompilationUtils::isWorkGroupReduceBitwiseAnd(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_BITWISE_AND);
+}
+
+bool CompilationUtils::isWorkGroupReduceBitwiseOr(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_BITWISE_OR);
+}
+
+bool CompilationUtils::isWorkGroupReduceBitwiseXor(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_BITWISE_XOR);
+}
+
+bool CompilationUtils::isWorkGroupReduceLogicalAnd(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_LOGICAL_AND);
+}
+
+bool CompilationUtils::isWorkGroupReduceLogicalOr(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_LOGICAL_OR);
+}
+
+bool CompilationUtils::isWorkGroupReduceLogicalXor(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_LOGICAL_XOR);
+}
+
 bool CompilationUtils::isSubGroupReduceAdd(const std::string& S) {
   return isMangleOf(S, NAME_SUB_GROUP_REDUCE_ADD);
 }
@@ -1330,7 +1360,13 @@ bool CompilationUtils::isWorkGroupUniform(const std::string& S) {
          isWorkGroupReduceAdd(S) ||
          isWorkGroupReduceMin(S) ||
          isWorkGroupReduceMax(S) ||
-         isWorkGroupReduceMul(S);
+         isWorkGroupReduceMul(S) ||
+         isWorkGroupReduceBitwiseAnd(S) ||
+         isWorkGroupReduceBitwiseOr(S) ||
+         isWorkGroupReduceBitwiseXor(S) ||
+         isWorkGroupReduceLogicalAnd(S) ||
+         isWorkGroupReduceLogicalOr(S) ||
+         isWorkGroupReduceLogicalXor(S);
 }
 
 bool CompilationUtils::isWorkGroupDivergent(const std::string &S) {
