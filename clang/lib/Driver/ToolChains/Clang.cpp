@@ -10714,6 +10714,12 @@ void SpirvToIrWrapper::ConstructJob(Compilation &C, const JobAction &JA,
   // Output File
   addArgs(CmdArgs, TCArgs, {"-o", Output.getFilename()});
 
+#if INTEL_CUSTOMIZATION
+  // Skip unknown files
+  if (JA.isOffloading(Action::OFK_OpenMP))
+    addArgs(CmdArgs, TCArgs, {"-skip-unknown-input"});
+#endif // INTEL_CUSTOMIZATION
+
   auto Cmd = std::make_unique<Command>(
       JA, *this, ResponseFileSupport::None(),
       TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
