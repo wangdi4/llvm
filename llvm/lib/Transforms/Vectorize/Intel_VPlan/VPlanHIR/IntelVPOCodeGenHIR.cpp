@@ -4056,6 +4056,39 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     return;
   }
 
+  case VPInstruction::PrivateFinalArray: {
+    VPAllocatePrivate *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
+    Type *ElementType = Priv->getAllocatedType();
+    const DataLayout &DL = DDRefUtilities.getDataLayout();
+
+    // We need to copy array from last private allocated memory into the
+    // original array location.
+    RegDDRef *Orig = getOrCreateScalarRef(VPInst->getOperand(1), 0);
+    auto *OrigAddr = DDRefUtilities.createSelfAddressOfRef(
+        ElementType, Orig->getSelfBlobIndex(), Orig->getDefinedAtLevel());
+    OrigAddr->setAlignment(DL.getPrefTypeAlign(Orig->getSrcType()).value());
+
+    // TODO: Add support for SOA layout in HIR (CMPLRLLVM-9193).
+    assert(!Priv->isSOALayout() && "SOA layout is not supported for HIR.");
+
+    // In case of non-SOA layout it will be enough to copy memory from last
+    // private into the original array.
+    RegDDRef *ResAddr = getOrCreateScalarRef(Priv, 0);
+    auto IndexCE = CanonExprUtilities.createCanonExpr(
+        ResAddr->getSingleCanonExpr()->getDestType());
+    IndexCE->addConstant(getVF() - 1, true /* IsMathAdd */);
+    ResAddr->addDimension(IndexCE);
+    ResAddr->setAlignment(Priv->getOrigAlignment().value());
+
+    Type *SizeTy = Type::getInt64Ty(HLNodeUtilities.getContext());
+    RegDDRef *Size = DDRefUtilities.createConstDDRef(
+        SizeTy, DL.getTypeAllocSize(ElementType));
+
+    auto *PrivMemcpy = HLNodeUtilities.createMemcpy(OrigAddr, ResAddr, Size);
+    addInstUnmasked(PrivMemcpy);
+    return;
+  }
+
   default:
     llvm_unreachable("Unsupported VPLoopEntity instruction.");
   }
@@ -4474,6 +4507,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::PrivateFinalUncondMem:
   case VPInstruction::PrivateFinalCondMem:
   case VPInstruction::PrivateFinalCond:
+  case VPInstruction::PrivateFinalArray:
     widenLoopEntityInst(VPInst);
     return;
   case Instruction::ShuffleVector: {
