@@ -8,6 +8,7 @@
 ; unsigned number into a large one, which may be trivially > X.
 
 ; RUN: opt -indvars -S %s | FileCheck %s
+; RUN: opt -passes=indvars -S %s | FileCheck %s
 ; INTEL
 ; CHECK: %cmp10 = icmp ult i64 %indvars.iv1, 4
 ; CHECK: br i1 %cmp10, label %for.body11, label %for.cond8.for.end_crit_edge
