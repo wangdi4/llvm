@@ -6,7 +6,10 @@
 define ptr @f(ptr %buffer, i32 %n) {
 ; CHECK-LABEL: @f(
 ; CHECK-NEXT:  coro.return:
-; CHECK-NEXT:    store i32 [[N:%.*]], ptr [[BUFFER:%.*]], align 4
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[N_VAL_SPILL_ADDR:%.*]] = getelementptr inbounds [[F_FRAME:%.*]], ptr [[BUFFER:%.*]], i64 0, i32 0
+; CHECK-NEXT:    store i32 [[N:%.*]], ptr [[N_VAL_SPILL_ADDR]], align 4
+; END INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    tail call void @print(i32 [[N]])
 ; CHECK-NEXT:    ret ptr @f.resume.0
 ;
@@ -34,17 +37,26 @@ define i32 @main() {
 ; CHECK-LABEL: @main(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = alloca [8 x i8], align 4
-; CHECK-NEXT:    store i32 4, ptr [[TMP0]], align 4
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[N_VAL_SPILL_ADDR_I:%.*]] = getelementptr inbounds [[F_FRAME:%.*]], ptr [[TMP0]], i64 0, i32 0
+; CHECK-NEXT:    store i32 4, ptr [[N_VAL_SPILL_ADDR_I]], align 4
+; END INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    call void @print(i32 4)
 ; CHECK-NEXT:    call void @llvm.experimental.noalias.scope.decl(metadata [[META0:![0-9]+]])
-; CHECK-NEXT:    [[N_VAL_RELOAD_I:%.*]] = load i32, ptr [[TMP0]], align 4, !alias.scope !0
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[N_VAL_RELOAD_I:%.*]] = load i32, ptr [[N_VAL_SPILL_ADDR_I]], align 4, !alias.scope !0
+; END INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[INC_I:%.*]] = add i32 [[N_VAL_RELOAD_I]], 1
-; CHECK-NEXT:    store i32 [[INC_I]], ptr [[TMP0]], align 4, !alias.scope !0
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    store i32 [[INC_I]], ptr [[N_VAL_SPILL_ADDR_I]], align 4, !alias.scope !0
+; END INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    call void @print(i32 [[INC_I]]), !noalias !0
 ; CHECK-NEXT:    call void @llvm.experimental.noalias.scope.decl(metadata [[META3:![0-9]+]])
-; CHECK-NEXT:    [[N_VAL_RELOAD_I1:%.*]] = load i32, ptr [[TMP0]], align 4, !alias.scope !3
-; CHECK-NEXT:    [[INC_I2:%.*]] = add i32 [[N_VAL_RELOAD_I1]], 1
-; CHECK-NEXT:    call void @print(i32 [[INC_I2]]), !noalias !3
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[N_VAL_RELOAD_I3:%.*]] = load i32, ptr [[N_VAL_SPILL_ADDR_I]], align 4, !alias.scope !3
+; CHECK-NEXT:    [[INC_I4:%.*]] = add i32 [[N_VAL_RELOAD_I3]], 1
+; CHECK-NEXT:    call void @print(i32 [[INC_I4]]), !noalias !3
+; END INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret i32 0
 ;
 entry:
@@ -62,7 +74,10 @@ define hidden { ptr, ptr } @g(ptr %buffer, ptr %ptr) {
 ; CHECK-NEXT:  coro.return:
 ; CHECK-NEXT:    [[TMP0:%.*]] = tail call ptr @allocate(i32 8)
 ; CHECK-NEXT:    store ptr [[TMP0]], ptr [[BUFFER:%.*]], align 8
-; CHECK-NEXT:    store ptr [[PTR:%.*]], ptr [[TMP0]], align 8
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[PTR_SPILL_ADDR:%.*]] = getelementptr inbounds [[G_FRAME:%.*]], ptr [[TMP0]], i64 0, i32 0
+; CHECK-NEXT:    store ptr [[PTR:%.*]], ptr [[PTR_SPILL_ADDR]], align 8
+; END INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[TMP1:%.*]] = insertvalue { ptr, ptr } { ptr @g.resume.0, ptr undef }, ptr [[PTR]], 1
 ; CHECK-NEXT:    ret { ptr, ptr } [[TMP1]]
 ;
