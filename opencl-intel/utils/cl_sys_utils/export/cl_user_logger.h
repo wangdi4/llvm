@@ -238,14 +238,19 @@ public:
     }
 
     /**
+     * Print macro code defined in header files, e.g. cl.h
+     */
+    ApiLogger& PrintMacroCode(cl_ulong value);
+
+    /**
      * Print a list of properties. The list is terminated with 0.
      * @param properties a list of properties.
      */
     template<typename T>
-    void PrintProperties(const T *properties) {
+    ApiLogger& PrintProperties(const T *properties) {
       if (!properties) {
         m_strStream << "nullptr";
-        return;
+        return *this;
       }
       m_strStream << "[" << hex;
       int i = 0;
@@ -253,6 +258,7 @@ public:
         m_strStream << "0x" << properties[i++] << ", ";
       }
       m_strStream << "0]";
+      return *this;
     }
 
     void PrintCLSources(cl_uint count, const char **strings,
