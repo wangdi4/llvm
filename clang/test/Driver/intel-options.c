@@ -43,7 +43,7 @@
 //
 // RUN: %clang_cl -### /Qaxbroadwell %s -c 2>&1 | \
 // RUN:  FileCheck %s --check-prefixes=CHECK-AX-BROADWELL
-// RUN: %clang_cl -### /Qaxcore-avx2,broadwell %s -c 2>&1 | \
+// RUN: %clang_cl -### /QaxCORE-AVX2,broadwell %s -c 2>&1 | \
 // RUN:  FileCheck %s -check-prefixes=CHECK-AX-BOTH
 //
 // CHECK-AX-BROADWELL: "-ax=broadwell"
