@@ -1,6 +1,6 @@
 //===------ Intel_CloneUtils.cpp - Utilities for Cloning -----===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -101,7 +101,6 @@ static bool hasLoopIndexArg(CallBase &CB) {
 // function 'isRecProgressionCloneArgument' below.
 //
 static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
-                                           WholeProgramInfo *WPInfo,
                                            Argument &Arg, unsigned &Count,
                                            int &Start, int &Inc,
                                            Type *&ArgType) {
@@ -180,10 +179,6 @@ static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
     }
     return ECI;
   };
-
-  auto IAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
-  if (WPInfo && !WPInfo->isAdvancedOptEnabled(IAVX2))
-    return false;
 
   int LocalStart = 0;
   int LocalInc = 0;
@@ -421,10 +416,10 @@ static bool isRecProgressionCloneArgument2(bool TestCountForConstant,
 // if it is a by reference value. Set 'IsCyclic' if the recursive progression
 // is cyclic.
 
-// If 'TestCountForConstant' is 'true', we return 'false' if the 'Count' value
-// is not a constant. In determining whether we are sure we have a recursive
-// progression, we should set 'TestCountForConstant' to 'true'. We use this
-// query function with 'TestCountForConstant' equal to 'false' to inhibit the
+// If 'TestForConstant' is 'true', we return 'false' if the 'Count' value is
+// not a constant. In determining whether we are sure we have a recursive
+// progression, we should set 'TestForConstant' to 'true'. We use this
+// query function with 'TestForConstant' equal to 'false' to inhibit the
 // performing of the tail call elimination optimization on functions which
 // are potential recursive progression clone candidates.  This is because
 // the tail call elimination optimization can occur in the 'PrepareForLTO'
@@ -468,7 +463,6 @@ static bool isRecProgressionCloneArgument2(bool TestCountForConstant,
 // the recursive call ensures that the values do not cycle.
 //
 static bool isRecProgressionCloneArgument(bool TestCountForConstant,
-                                          WholeProgramInfo *WPInfo,
                                           Argument &Arg, unsigned &Count,
                                           int &Start, int &Inc,
                                           bool &IsByRef, Type *&ArgType,
@@ -476,7 +470,7 @@ static bool isRecProgressionCloneArgument(bool TestCountForConstant,
 
    bool RV = false;
    Type *LArgType = nullptr;
-   RV = isRecProgressionCloneArgument1(TestCountForConstant, WPInfo, Arg, Count,
+   RV = isRecProgressionCloneArgument1(TestCountForConstant, Arg, Count,
                                        Start, Inc, LArgType);
    if (RV) {
      IsByRef = true;
@@ -499,7 +493,6 @@ namespace llvm {
 
 extern bool isRecProgressionCloneCandidate(Function &F,
                                            bool TestCountForConstant,
-                                           WholeProgramInfo *WPInfo,
                                            unsigned *ArgPos, unsigned *Count,
                                            int *Start, int *Inc,
                                            bool *IsByRef, Type **ArgType,
@@ -512,10 +505,9 @@ extern bool isRecProgressionCloneCandidate(Function &F,
   bool LocalIsCyclic;
 
   for (auto &Arg : F.args()) {
-    if (isRecProgressionCloneArgument(TestCountForConstant, WPInfo, Arg,
-                                      LocalCount, LocalStart, LocalInc,
-                                      LocalIsByRef, LocalArgType,
-                                      LocalIsCyclic)) {
+    if (isRecProgressionCloneArgument(TestCountForConstant, Arg, LocalCount,
+                                      LocalStart, LocalInc, LocalIsByRef,
+                                      LocalArgType, LocalIsCyclic)) {
       unsigned LocalArgPos = Arg.getArgNo();
       if (ArgPos)
         *ArgPos = LocalArgPos;
