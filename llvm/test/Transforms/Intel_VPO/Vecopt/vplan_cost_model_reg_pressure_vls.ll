@@ -4,7 +4,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
-; RUN:     | FileCheck %s
+; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
 
 define void @test(i8 *%p) local_unnamed_addr {
 ; CHECK-LABEL:  Cost Model for VPlan test:HIR.#{{[0-9]+}} with VF = 8:
