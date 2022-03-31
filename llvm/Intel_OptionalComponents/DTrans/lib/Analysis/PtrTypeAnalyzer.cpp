@@ -393,6 +393,33 @@ public:
     return UnsupportedAddressSpaceSeen;
   }
 
+  // If there is not element-zero info tracked for the instruction, start
+  // tracking it. Otherwise, if the 'Ty' or 'Depth' values differ from what is
+  // tracked, mark the tracked data as an unknown type.
+  void addElementZeroPointer(Instruction *I, DTransType *Ty,
+                             unsigned int Depth) {
+    auto It = ElementZeroPointers.find(I);
+    if (It != ElementZeroPointers.end()) {
+      if (It->second.Ty != Ty || It->second.Depth != Depth) {
+        Ty = nullptr;
+        Depth = 0;
+        DEBUG_WITH_TYPE_P(
+            FNFilter, VERBOSE_TRACE,
+            dbgs() << "Warning: Element zero type already exists for: ["
+                   << I->getFunction()->getName() << "]" << *I << "\n");
+      }
+    }
+
+    ElementZeroPointers[I] = PtrTypeAnalyzer::ElementZeroInfo(Ty, Depth);
+  }
+
+  PtrTypeAnalyzer::ElementZeroInfo getElementZeroPointer(Instruction *I) const {
+    auto It = ElementZeroPointers.find(I);
+    if (It != ElementZeroPointers.end())
+      return It->second;
+    return PtrTypeAnalyzer::ElementZeroInfo(nullptr, 0);
+  }
+
 private:
   DTransTypeManager &TM;
   TypeMetadataReader &MDReader;
@@ -471,6 +498,10 @@ private:
 
   // 'true' if a Non-opaque pointer was seen during the analysis.
   bool SawNonOpaquePointer = false;
+
+  // Map of instructions that were identified as using element-zero of a
+  // contained type to information about element-zero type.
+  DenseMap<Instruction *, PtrTypeAnalyzer::ElementZeroInfo> ElementZeroPointers;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1075,6 +1106,8 @@ public:
     // example:
     //   store i32 0, ptrtoint (i64 256 to i32*)
     ValueTypeInfo *PtrInfo = analyzeValue(I.getPointerOperand());
+    checkForElementZeroAccess(&I, I.getValueOperand()->getType(), PtrInfo,
+                              ValueTypeInfo::ValueAnalysisType::VAT_Decl);
 
     // If the pointer operand is used to store a scalar type, note the type
     // in the usage types for the pointer. TODO: May need to do something
@@ -3253,6 +3286,9 @@ private:
           TM.getOrCreatePointerType(TM.getOrCreateSimpleType(LoadType)));
     }
 
+    checkForElementZeroAccess(LI, ValTy, PointerInfo,
+                              ValueTypeInfo::ValueAnalysisType::VAT_Decl);
+
     if (PointerInfo->getUnhandled() || PointerInfo->getDependsOnUnhandled())
       ResultInfo->setDependsOnUnhandled();
 
@@ -3336,6 +3372,46 @@ private:
       Changed |= DoPropagate(ValueTypeInfo::VAT_Use);
 
     return Changed;
+  }
+
+  void checkForElementZeroAccess(Instruction *I, llvm::Type *ValTy,
+                                 ValueTypeInfo *PointerInfo,
+                                 ValueTypeInfo::ValueAnalysisType Kind) {
+    for (auto *Alias : PointerInfo->getPointerTypeAliasSet(Kind)) {
+      DTransType *PropAlias = nullptr;
+      if (!Alias->isPointerTy())
+        continue;
+
+      PropAlias = Alias->getPointerElementType();
+      if (PropAlias->isAggregateType() &&
+          PropAlias->getNumContainedElements() != 0) {
+        DTransType *PrevNestedType = nullptr;
+        DTransType *NestedType = PropAlias;
+        unsigned int Depth = 0;
+        while (NestedType && NestedType->isAggregateType()) {
+          PrevNestedType = NestedType;
+          ++Depth;
+          if (auto *StTy = dyn_cast<DTransStructType>(NestedType))
+            NestedType = StTy->getFieldType(0);
+          else if (auto *ArTy = dyn_cast<DTransArrayType>(NestedType))
+            NestedType = ArTy->getElementType();
+          else
+            NestedType = nullptr;
+        }
+
+        if (NestedType && PrevNestedType->isAggregateType() &&
+            (ValTy->isPointerTy() ||
+             ValTy == PTA.getLLVMPointerSizedIntType() ||
+             NestedType->getLLVMType() == ValTy)) {
+          DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE,
+                            dbgs() << "Element-zero on: ["
+                                   << I->getFunction()->getName() << "]" << *I
+                                   << "\n"
+                                   << *PropAlias << " Depth=" << Depth << "\n");
+          PTA.addElementZeroPointer(I, PropAlias, Depth);
+        }
+      }
+    }
   }
 
   void analyzePHINode(PHINode *PHI, ValueTypeInfo *ResultInfo) {
@@ -4374,6 +4450,11 @@ bool PtrTypeAnalyzer::sawOpaquePointer() const {
 }
 bool PtrTypeAnalyzer::sawNonOpaquePointer() const {
   return Impl->getSawNonOpaquePointer();
+}
+
+PtrTypeAnalyzer::ElementZeroInfo
+PtrTypeAnalyzer::getElementZeroPointer(Instruction *I) const {
+  return Impl->getElementZeroPointer(I);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
