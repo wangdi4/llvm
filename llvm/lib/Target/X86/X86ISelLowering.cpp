@@ -2322,6 +2322,7 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
 
   // We have target-specific dag combine patterns for the following nodes:
   setTargetDAGCombine({ISD::VECTOR_SHUFFLE,
+                       ISD::BUILD_VECTOR, // INTEL
                        ISD::SCALAR_TO_VECTOR,
                        ISD::INSERT_VECTOR_ELT,
                        ISD::EXTRACT_VECTOR_ELT,
@@ -2340,6 +2341,7 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
                        ISD::FADD,
                        ISD::FSUB,
                        ISD::FNEG,
+                       ISD::FMUL, // INTEL
                        ISD::FMA,
                        ISD::STRICT_FMA,
                        ISD::FMINNUM,
