@@ -245,7 +245,9 @@ define i32 @sub_sub0_nsw_nsw(i32 %a, i32 %b, i32 %c) {
 define i32 @sub_sub1_nsw_nsw(i32 %a, i32 %b, i32 %c) {
 ; CHECK-LABEL: @sub_sub1_nsw_nsw(
 ; CHECK-NEXT:    [[S1_NEG:%.*]] = sub i32 [[B:%.*]], [[A:%.*]]
-; CHECK-NEXT:    [[S2:%.*]] = add i32 [[S1_NEG]], [[C:%.*]]
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[S2:%.*]] = add nsw i32 [[S1_NEG]], [[C:%.*]]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret i32 [[S2]]
 ;
   %s1 = sub nsw i32 %a, %b
