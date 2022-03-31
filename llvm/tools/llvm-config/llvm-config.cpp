@@ -260,17 +260,13 @@ Options:\n\
 Typical components:\n\
   all               All LLVM libraries (default).\n\
   engine            Either a native JIT or a bitcode interpreter.\n";
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   errs() << "\
 Intel-specific options:\n\
   --intel-features  List of all Intel features currently enabled.\n";
 #endif  // INTEL_CUSTOMIZATION
-  exit(1);
-=======
   if (ExitWithFailure)
     exit(1);
->>>>>>> aaf6608441d7ec084e2c05447aeab8cb357cab9a
 }
 
 /// Compute the path to the main executable.
