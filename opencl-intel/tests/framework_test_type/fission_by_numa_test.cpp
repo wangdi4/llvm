@@ -263,18 +263,33 @@ TEST_F(SubDevicesByNumaTest, queryDeviceInfo) {
   // query the size of device partition type
   err = clGetDeviceInfo(subDevIds[0], CL_DEVICE_PARTITION_TYPE, 0, nullptr,
                         &paramSize);
-  ASSERT_OCL_SUCCESS(err, clGetDeviceInfo);
+  ASSERT_OCL_SUCCESS(err, "clGetDeviceInfo");
 
   partitionType.resize(paramSize/sizeof(cl_device_partition_property));
   // query device info -> CL_DEVICE_PARTITION_TYPE
   err = clGetDeviceInfo(subDevIds[0], CL_DEVICE_PARTITION_TYPE, paramSize,
                         partitionType.data(), nullptr);
-  ASSERT_OCL_SUCCESS(err, clGetDeviceInfo);
+  ASSERT_OCL_SUCCESS(err, "clGetDeviceInfo");
   // subdevice should be partitioned by affinity domain numa
   bool partitionByNuma =
       std::find(partitionType.begin(), partitionType.end(),
                 CL_DEVICE_AFFINITY_DOMAIN_NUMA) != partitionType.end();
   ASSERT_EQ(true, partitionByNuma);
+
+  // subdevice created by affinity domain is not partitionable
+  cl_device_partition_property subDevSupportedProp;
+  err = clGetDeviceInfo(subDevIds[0], CL_DEVICE_PARTITION_PROPERTIES,
+                        sizeof(cl_device_partition_property),
+                        &subDevSupportedProp, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetDeviceInfo");
+  ASSERT_EQ((cl_device_partition_property)0, subDevSupportedProp);
+
+  cl_device_affinity_domain subDevSupportedDomain;
+  err = clGetDeviceInfo(subDevIds[0], CL_DEVICE_PARTITION_AFFINITY_DOMAIN,
+                        sizeof(cl_device_affinity_domain),
+                        &subDevSupportedDomain, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetDeviceInfo");
+  ASSERT_EQ((cl_device_affinity_domain)0, subDevSupportedDomain);
 
   for (auto &subDev : subDevIds) {
     err = clReleaseDevice(subDev);

@@ -859,6 +859,27 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void 
         pValue = m_cachedFissionMode;
         break;
 
+    case CL_DEVICE_PARTITION_AFFINITY_DOMAIN:
+      // subdevice is not allowed to be partitioned by affinity domain.
+      {
+        const static cl_device_affinity_domain supportedDomain = 0;
+        szParamValueSize = sizeof(cl_device_affinity_domain);
+        pValue = &supportedDomain;
+        break;
+      }
+
+    case CL_DEVICE_PARTITION_PROPERTIES:
+      // The subdevice created by affinity domain is not partitionable.
+      if (m_cachedFissionMode[0] == CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN) {
+        szParamValueSize = sizeof(cl_device_partition_property);
+        const static cl_device_partition_property supportedProps =
+            (cl_device_partition_property)0;
+        pValue = &supportedProps;
+        break;
+      }
+      // Otherwise, fallback to root device API.
+      // fallthrough
+
     case CL_DEVICE_NUM_SLICES_INTEL:
       // The term 'SLICE' is equivalent to a NUMA node on CPU.
       // If the subdevice is partitioned by NUMA node, we can return 1.
