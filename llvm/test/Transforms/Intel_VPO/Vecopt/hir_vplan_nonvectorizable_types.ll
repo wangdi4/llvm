@@ -36,9 +36,9 @@
 ;CHECK-NEXT:   Cost 0 for i32* [[VP10:%.*]] = subscript inbounds i32* {{.*}}%"var$6" i64 [[VP0]]
 ;CHECK-NEXT:   Cost 1.0625 for store i32 [[VP20]] i32* [[VP10]]
 ;CHECK-NEXT:   Cost 1 for i64 [[VP11:%.*]] = add i64 [[VP0]] i64 [[VP12:%.*]]
-;CHECK-NEXT:   Cost 11 for i1 [[VP14:%.*]] = icmp slt i64 [[VP11]] i64 [[VP13:%.*]]
+;CHECK-NEXT:   Cost 8 for i1 [[VP14:%.*]] = icmp slt i64 [[VP11]] i64 [[VP13:%.*]]
 ;CHECK-NEXT:   Cost 0 for br i1 [[VP14]], [[BB3]], [[BB4:BB[0-9]+]]
-;CHECK-NEXT: BB3: base cost: 37.0625
+;CHECK-NEXT: BB3: base cost: 34.0625
 
 %"EXTENT$.btINTVL" = type { i32, i32 }
 %"QNCA_a0$%\22EXTENT$.btINTVL\22*$rank1$" = type { %"EXTENT$.btINTVL"*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
