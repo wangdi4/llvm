@@ -6642,6 +6642,10 @@ tryImplicitlyCaptureThisIfImplicitMemberFunctionAccessWithDependentArgs(
 #if INTEL_CUSTOMIZATION
 // IntrinsicPromotion implementation.
 static void PromoteIntelIntrins(Sema &S, ExprResult Call) {
+  // If we're in a discarded statement, we don't need to promote for this call.
+  if (S.ExprEvalContexts.back().isDiscardedStatementContext())
+    return;
+
   auto *CurFD = dyn_cast<FunctionDecl>(S.CurContext);
   // Don't promote if we are not in a function, in a multiversion function, or
   // in a function that would otherwise be always inlined.

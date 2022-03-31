@@ -588,8 +588,9 @@ static bool allCallersPassValidPointerForArgument(Argument *Arg,
     AbstractCallSite CS(&U);
     assert((CS.isDirectCall() || CS.isCallbackCall()) &&
            "Should only have direct or callback calls!");
-    return isDereferenceableAndAlignedPointer(
-        CS.getCallArgOperand(Arg->getArgNo()), NeededAlign, Bytes, DL);
+    Value *ArgOp = CS.getCallArgOperand(Arg->getArgNo());
+    return ArgOp &&
+           isDereferenceableAndAlignedPointer(ArgOp, NeededAlign, Bytes, DL);
   });
 #endif // INTEL_CUSTOMIZATION
 }

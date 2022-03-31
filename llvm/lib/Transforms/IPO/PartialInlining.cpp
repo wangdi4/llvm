@@ -1493,13 +1493,6 @@ bool PartialInlinerImpl::allCallSitesAreDirect(Function *Func) {
 // Return true if the input function is the target of a virtual
 // call.
 bool PartialInlinerImpl::isVirtualFunctionTarget(Function *Func) const {
-
-  // Apply partial inlining on a virtual function target only if Intel AVX
-  // is enabled.
-  auto IAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
-  if (!WPInfo.isAdvancedOptEnabled(IAVX2))
-    return false;
-
   return ((RunLTOPartialInline || LTOPartialInlineVirtual)
           && Func->hasMetadata() &&
           Func->getMetadata("_Intel.Devirt.Target") != nullptr);

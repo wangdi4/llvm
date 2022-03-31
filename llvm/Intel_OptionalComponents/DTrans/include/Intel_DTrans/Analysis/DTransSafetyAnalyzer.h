@@ -358,6 +358,9 @@ private:
 
   // Finalize the analysis for the fields that are arrays with constant entries
   void postProcessArraysWithConstantEntries();
+
+  // Create a dtrans::TypeInfo for the input DTransType
+  dtrans::TypeInfo *createTypeInfo(DTransType *Ty);
 };
 
 class DTransSafetyAnalyzer : public AnalysisInfoMixin<DTransSafetyAnalyzer> {
