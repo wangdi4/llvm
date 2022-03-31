@@ -42,9 +42,6 @@ static cl::opt<OptReportVerbosity::Level> OptReportVerbosityOption(
                    "reason why transformation did't happen"),
         clEnumValN(OptReportVerbosity::High, "high",
                    "Medium + all extra details about the transformations")));
-static cl::alias OptReportVerbosityDeprecated (
-  "intel-loop-optreport", cl::aliasopt(OptReportVerbosityOption),
-  cl::desc("Deprecated alias for --intel-opt-report"));
 
 // External storage for opt-report emitter control.
 OptReportOptions::OptReportEmitterKind llvm::IntelOptReportEmitter;
@@ -66,9 +63,6 @@ static cl::opt<OptReportOptions::OptReportEmitterKind, true> OptReportEmitter(
         clEnumValN(OptReportOptions::MIR, "mir",
                    "Optimization reports are emitted at the end of "
                    "MIR processing")));
-static cl::alias OptReportEmitterDeprecated(
-  "intel-loop-optreport-emitter", cl::aliasopt(OptReportEmitter),
-  cl::desc("Deprecated alias for --intel-opt-report-emitter"));
 
 /// Internal option for setting opt-report output file.
 static cl::opt<std::string> OptReportFile(
@@ -78,9 +72,6 @@ static cl::opt<std::string> OptReportFile(
              "'stdout' which writes opt-report to stdout and 'stderr' which "
              "writes to stderr. Default is 'stderr'."),
     cl::init("stderr"));
-static cl::alias OptReportFileDeprecated(
-  "intel-loop-optreport-file", cl::aliasopt(OptReportFile),
-  cl::desc("Deprecated alias for --intel-opt-report-file"));
 
 formatted_raw_ostream &OptReportOptions::getOutputStream() {
 
