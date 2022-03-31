@@ -169,12 +169,6 @@ static cl::opt<bool>
 static cl::opt<unsigned> IPSpeCloningMinLoops("ip-spec-cloning-min-loops",
                                               cl::init(30), cl::ReallyHidden);
 
-// Skip the CPU check for recursive progression cloning.
-// This is intended primarily for use in LIT tests.
-static cl::opt<bool>
-    IPRecProCloningSkipCPUCheck("ip-rec-pro-cloning-skip-cpu-check",
-                               cl::init(false), cl::ReallyHidden);
-
 
 // It is a mapping between formals of current function that is being processed
 // for cloning and set of possible constant values that can reach from
@@ -5412,10 +5406,7 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
       LoadInst *LI = nullptr;
       unsigned TCNumber = 0;
       if (EnableDTrans &&
-          isRecProgressionCloneCandidate(F, true,
-                                         IPRecProCloningSkipCPUCheck ?
-                                             nullptr : WPInfo,
-                                         &ArgPos, &Count, &Start, &Inc,
+          isRecProgressionCloneCandidate(F, true, &ArgPos, &Count, &Start, &Inc,
                                          &IsByRef, &ArgType, &IsCyclic)) {
         CloneType = RecProgressionClone;
         LLVM_DEBUG(dbgs() << "    Selected RecProgression cloning  "

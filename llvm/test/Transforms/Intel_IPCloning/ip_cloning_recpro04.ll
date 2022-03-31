@@ -1,9 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt < %s -ip-cloning -ip-gen-cloning-force-enable-dtrans -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -debug-only=ipcloning -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
-
-target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+; RUN: opt < %s -ip-cloning -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -S 2>&1 | FileCheck %s
 
 ; Test that the function foo is recognized as a recursive progression clone
 ; and eight clones of it are created. Also test that the recursive progression
