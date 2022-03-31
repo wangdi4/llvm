@@ -91,6 +91,24 @@ static bool isAMXCast(Instruction *II) {
          match(II, m_Intrinsic<Intrinsic::x86_cast_tile_to_vector>(m_Value()));
 }
 
+static bool isAMXInstrinsic(User *I) {
+  auto *II = dyn_cast<IntrinsicInst>(I);
+  if (!II)
+    return false;
+  if (isAMXCast(II))
+    return false;
+  // Check if return type or parameter is x86_amx. If it is x86_amx
+  // the intrinsic must be x86 amx intrinsics.
+  if (II->getType()->isX86_AMXTy())
+    return true;
+  for (Value *V : II->args()) {
+    if (V->getType()->isX86_AMXTy())
+      return true;
+  }
+
+  return false;
+}
+
 static AllocaInst *createAllocaInstAtEntry(IRBuilder<> &Builder, BasicBlock *BB,
                                            Type *Ty) {
   Function &F = *BB->getParent();
@@ -111,6 +129,72 @@ static Instruction *getFirstNonAllocaInTheEntryBlock(Function &F) {
     if (!isa<AllocaInst>(&I))
       return &I;
   llvm_unreachable("No terminator in the entry block!");
+}
+
+static std::pair<Value *, Value *> getShape(IntrinsicInst *II, unsigned OpNo) {
+  IRBuilder<> Builder(II);
+  Value *Row = nullptr, *Col = nullptr;
+  switch (II->getIntrinsicID()) {
+  default:
+    llvm_unreachable("Expect amx intrinsics");
+  case Intrinsic::x86_tileloadd64_internal:
+  case Intrinsic::x86_tileloaddt164_internal:
+  case Intrinsic::x86_tilestored64_internal: {
+    Row = II->getArgOperand(0);
+    Col = II->getArgOperand(1);
+    break;
+  }
+  // a * b + c
+  // The shape depends on which operand.
+  case Intrinsic::x86_tdpbssd_internal:
+  case Intrinsic::x86_tdpbsud_internal:
+  case Intrinsic::x86_tdpbusd_internal:
+  case Intrinsic::x86_tdpbuud_internal:
+  case Intrinsic::x86_tdpbf16ps_internal: {
+    switch (OpNo) {
+    case 3:
+      Row = II->getArgOperand(0);
+      Col = II->getArgOperand(1);
+      break;
+    case 4:
+      Row = II->getArgOperand(0);
+      Col = II->getArgOperand(2);
+      break;
+    case 5:
+      if (isa<ConstantInt>(II->getArgOperand(2)))
+        Row = Builder.getInt16(
+            (cast<ConstantInt>(II->getOperand(2))->getSExtValue()) / 4);
+      else if (isa<Instruction>(II->getArgOperand(2))) {
+        // When it is not a const value and it is not a function argument, we
+        // create Row after the definition of II->getOperand(2) instead of
+        // before II. For example, II is %118, we try to getshape for %117:
+        //   %117 = call x86_amx @llvm.x86.cast.vector.to.tile.v256i32(<256 x
+        //   i32> %115).
+        //   %118 = call x86_amx @llvm.x86.tdpbf16ps.internal(i16
+        //   %104, i16 %105, i16 %106, x86_amx %110, x86_amx %114, x86_amx
+        //   %117).
+        // If we create %row = udiv i16 %106, 4 before %118(aka. II), then its
+        // definition is after its user(new tileload for %117).
+        // So, the best choice is to create %row right after the definition of
+        // %106.
+        Builder.SetInsertPoint(cast<Instruction>(II->getOperand(2)));
+        Row = Builder.CreateUDiv(II->getOperand(2), Builder.getInt16(4));
+        cast<Instruction>(Row)->moveAfter(cast<Instruction>(II->getOperand(2)));
+      } else {
+        // When it is not a const value and it is a function argument, we create
+        // Row at the entry bb.
+        IRBuilder<> NewBuilder(
+            getFirstNonAllocaInTheEntryBlock(*II->getFunction()));
+        Row = NewBuilder.CreateUDiv(II->getOperand(2), NewBuilder.getInt16(4));
+      }
+      Col = II->getArgOperand(1);
+      break;
+    }
+    break;
+  }
+  }
+
+  return std::make_pair(Row, Col);
 }
 
 #if INTEL_CUSTOMIZATION
@@ -320,6 +404,36 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
   }
 
   return std::make_pair(Row, Col);
+}
+
+static std::pair<Value *, Value *> getShape(PHINode *Phi) {
+  Use &U = *(Phi->use_begin());
+  unsigned OpNo = U.getOperandNo();
+  User *V = U.getUser();
+  // TODO We don't traverse all users. To make the algorithm simple, here we
+  // just traverse the first user. If we can find shape, then return the shape,
+  // otherwise just return nullptr and the optimization for undef/zero will be
+  // abandoned.
+  while (V) {
+    if (isAMXCast(dyn_cast<Instruction>(V))) {
+      if (V->use_empty())
+        break;
+      Use &U = *(V->use_begin());
+      OpNo = U.getOperandNo();
+      V = U.getUser();
+    } else if (isAMXInstrinsic(V)) {
+      return getShape(cast<IntrinsicInst>(V), OpNo);
+    } else if (isa<PHINode>(V)) {
+      if (V->use_empty())
+        break;
+      Use &U = *(Phi->use_begin());
+      V = U.getUser();
+    } else {
+      break;
+    }
+  }
+
+  return std::make_pair(nullptr, nullptr);
 }
 
 namespace {
@@ -886,11 +1000,33 @@ bool X86LowerAMXCast::optimizeAMXCastFromPhi(
   OldPhiNodes.insert(PN);
   while (!PhiWorklist.empty()) {
     auto *OldPN = PhiWorklist.pop_back_val();
-    for (Value *IncValue : OldPN->incoming_values()) {
+    for (unsigned I = 0; I < OldPN->getNumOperands(); ++I) {
+      Value *IncValue = OldPN->getIncomingValue(I);
       // TODO: currently, We ignore cases where it is a const. In the future, we
       // might support const.
-      if (isa<Constant>(IncValue))
-        return false;
+      if (isa<Constant>(IncValue)) {
+        auto *IncConst = dyn_cast<Constant>(IncValue);
+        if (!isa<UndefValue>(IncValue) && !IncConst->isZeroValue())
+          return false;
+        Value *Row = nullptr, *Col = nullptr;
+        std::tie(Row, Col) = getShape(OldPN);
+        // TODO: If it is not constant the Row and Col must domoniate tilezero
+        // that we are going to create.
+        if (!Row || !Col || !isa<Constant>(Row) || !isa<Constant>(Col))
+          return false;
+        // Create tilezero at the end of incoming block.
+        auto *Block = OldPN->getIncomingBlock(I);
+        BasicBlock::iterator Iter = Block->getTerminator()->getIterator();
+        Instruction *NewInst = Builder.CreateIntrinsic(
+            Intrinsic::x86_tilezero_internal, None, {Row, Col});
+        NewInst->moveBefore(&*Iter);
+        NewInst = Builder.CreateIntrinsic(Intrinsic::x86_cast_tile_to_vector,
+                                          {IncValue->getType()}, {NewInst});
+        NewInst->moveBefore(&*Iter);
+        // Replace InValue with new Value.
+        OldPN->setIncomingValue(I, NewInst);
+        IncValue = NewInst;
+      }
 
       if (auto *PNode = dyn_cast<PHINode>(IncValue)) {
         if (OldPhiNodes.insert(PNode))
