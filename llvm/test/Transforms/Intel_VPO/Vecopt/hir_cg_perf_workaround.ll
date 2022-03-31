@@ -19,8 +19,10 @@
 ;
 ;   return sum;
 ; }
-; RUN: opt -enable-new-pm=0 -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -disable-hir-loop-reversal -hir-vplan-vec -print-after=hir-vplan-vec -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-hir-loop-reversal -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -disable-hir-loop-reversal -hir-vplan-vec -print-after=hir-vplan-vec -enable-blob-coeff-vec -enable-nested-blob-vec -vplan-enable-new-cfg-merge-hir=false -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-hir-loop-reversal -enable-blob-coeff-vec -enable-nested-blob-vec -vplan-enable-new-cfg-merge-hir=false -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -disable-hir-loop-reversal -hir-vplan-vec -print-after=hir-vplan-vec -enable-blob-coeff-vec -enable-nested-blob-vec -vplan-enable-new-cfg-merge-hir -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-hir-loop-reversal -enable-blob-coeff-vec -enable-nested-blob-vec -vplan-enable-new-cfg-merge-hir -disable-output < %s 2>&1 | FileCheck %s
 
 ; It used to be a lit test for performance WA bail out in HIR CG.
 ; Now it checks that the input code can be vectorized with VF=4.
@@ -36,13 +38,10 @@ define double @foo(i32 %n, double %d) local_unnamed_addr #0 {
 ; CHECK:       Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  BEGIN REGION { modified }
-; CHECK-NEXT:        [[TGU0:%.*]] = (sext.i32.i64([[N0:%.*]]))/u4
-; CHECK-NEXT:        if (0 <u 4 * [[TGU0]])
-; CHECK-NEXT:        {
-; CHECK-NEXT:           [[RED_INIT0:%.*]] = 0.000000e+00
+; CHECK:                [[RED_INIT0:%.*]] = 0.000000e+00
 ; CHECK-NEXT:           [[PHI_TEMP0:%.*]] = [[RED_INIT0]]
 ;
-; CHECK:                + DO i1 = 0, 4 * [[TGU0]] + -1, 4   <DO_LOOP>  <MAX_TC_EST = 536870911>  <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:                + DO i1 = 0, {{.*}}, 4   <DO_LOOP>  <MAX_TC_EST = {{536870911|2147483647}}>  <LEGAL_MAX_TC = {{536870911|2147483647}}> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:           |   [[DOTVEC0:%.*]] = (<4 x i16>*)([[TMP0:%.*]])[-1 * i1 + -1 * <i64 0, i64 1, i64 2, i64 3>].2
 ; CHECK-NEXT:           |   [[DOTVEC10:%.*]] = uitofp.<4 x i16>.<4 x double>([[DOTVEC0]])
 ; CHECK-NEXT:           |   [[DOTVEC20:%.*]] = [[DOTVEC10]]  *  [[D0:%.*]]
@@ -55,19 +54,7 @@ define double @foo(i32 %n, double %d) local_unnamed_addr #0 {
 ; CHECK-NEXT:           + END LOOP
 ;
 ; CHECK:                [[SUM_0200:%.*]] = @llvm.vector.reduce.fadd.v4f64([[SUM_0200]],  [[DOTVEC70]])
-; CHECK-NEXT:        }
-;
-; CHECK:             + DO i1 = 4 * [[TGU0]], sext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
-; CHECK-NEXT:        |   [[TMP2:%.*]] = ([[TMP0]])[-1 * i1].2
-; CHECK-NEXT:        |   [[CONV10:%.*]] = uitofp.i16.double([[TMP2]])
-; CHECK-NEXT:        |   [[MUL20:%.*]] = [[CONV10]]  *  [[D0]]
-; CHECK-NEXT:        |   [[ADD0:%.*]] = [[SUM_0200]]  +  [[MUL20]]
-; CHECK-NEXT:        |   [[TMP3:%.*]] = ([[TMP0]])[-1 * i1].0
-; CHECK-NEXT:        |   [[CONV70:%.*]] = uitofp.i16.double([[TMP3]])
-; CHECK-NEXT:        |   [[MUL80:%.*]] = [[CONV70]]  *  [[D0]]
-; CHECK-NEXT:        |   [[SUM_0200]] = [[ADD0]]  +  [[MUL80]]
-; CHECK-NEXT:        + END LOOP
-; CHECK-NEXT:  END REGION
+; CHECK:       END REGION
 ;
 entry:
   %cmp18 = icmp sgt i32 %n, 0

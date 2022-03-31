@@ -1,6 +1,7 @@
 ; Test VPlan HIR vectorizer codegen for call serialization.
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=2 -vplan-enable-new-cfg-merge-hir=false -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=2 -vplan-enable-new-cfg-merge-hir -disable-output < %s 2>&1 | FileCheck %s
 
 ; Input HIR:
 ; BEGIN REGION { }
@@ -57,7 +58,7 @@
 ; CHECK-NEXT:          |      @baa(%extract.1.12);
 ; CHECK-NEXT:          |   }
 ; CHECK-NEXT:          + END LOOP
-; CHECK-NEXT:    END REGION
+; CHECK:         END REGION
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

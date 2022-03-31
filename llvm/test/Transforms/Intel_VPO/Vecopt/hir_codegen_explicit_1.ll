@@ -8,7 +8,8 @@
 ;   return a + b;
 ; }
 
-; RUN: opt -print-after=hir-vplan-vec -hir-ssa-deconstruction -hir-framework -hir-vplan-vec < %s 2>&1 -disable-output | FileCheck %s
+; RUN: opt -print-after=hir-vplan-vec -hir-ssa-deconstruction -hir-framework -hir-vplan-vec < %s 2>&1 -disable-output -vplan-enable-new-cfg-merge-hir=false | FileCheck %s
+; RUN: opt -print-after=hir-vplan-vec -hir-ssa-deconstruction -hir-framework -hir-vplan-vec < %s 2>&1 -disable-output -vplan-enable-new-cfg-merge-hir | FileCheck %s
 ; Check for vectorized HIR loop
 
 ; CHECK:      BEGIN REGION {
@@ -16,7 +17,7 @@
 ; CHECK-NEXT: %.vec2 = (<4 x float>*)(%vec.b.cast)[0];
 ; CHECK-NEXT: %.vec3 = %.vec2  +  %.vec;
 ; CHECK-NEXT: (<4 x float>*)(%ret.cast)[0] = %.vec3;
-; CHECK-NEXT: END REGION
+; CHECK:      END REGION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
