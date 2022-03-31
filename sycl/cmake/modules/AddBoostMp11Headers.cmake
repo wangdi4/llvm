@@ -10,6 +10,15 @@ set(BOOST_MP11_GIT_REPO https://github.com/boostorg/mp11.git)
 #   Merge pull request #71 from grisumbras/feature/mp_valid_and_true
 set(BOOST_MP11_GIT_TAG 7bc4e1ae9b36ec8ee635c3629b59ec525bbe82b9)
 
+if (INTEL_CUSTOMIZATION)
+  set(BOOST_MP11_GIT_REPO https://github.com/intel-innersource/applications.compilers.source.mp11)
+  if (DEFINED ENV{ICS_GIT_MIRROR} AND NOT "$ENV{ICS_GIT_MIRROR}" STREQUAL "")
+    # ICS_GIT_MIRROR, if set, overrides default internal URL.
+    set(BOOST_MP11_GIT_REPO $ENV{ICS_GIT_MIRROR}/applications.compilers.source.mp11)
+    STRING(REGEX REPLACE "\\\\" "/" BOOST_MP11_GIT_REPO "${BOOST_MP11_GIT_REPO}")
+  endif ()
+endif (INTEL_CUSTOMIZATION)
+
 # Either download from github or use existing if BOOST_MP11_SOURCE_DIR is set
 if (NOT DEFINED BOOST_MP11_SOURCE_DIR)
   message(STATUS "BOOST_MP11_SOURCE_DIR not set, downloading boost/mp11 headers from ${BOOST_MP11_GIT_REPO}")
