@@ -50,6 +50,7 @@ public:
   bool analyzeAfterVisit();
   bool gepiMatchesCandidateStruct(GetElementPtrInst *GEPI);
   bool gepiMatchesCandidateField(GetElementPtrInst *GEPI);
+  bool isCandidateLoad(Instruction *I);
   bool isAllocStore(Instruction *I);
   void setSawBadCasting(Instruction *I);
   void setSawUnsafePointerStore(Instruction *I);
@@ -131,7 +132,11 @@ private:
   void handlePotentialAllocStore(StoreInst *SI);
   bool isInnocuousLoadOfCall(CallInst *CI, LoadInst *LI,
                              GetElementPtrInst *GEPI);
-  bool allUseBBsConditionallyDead(Instruction *I);
+  bool allUseBBsCondDeadOrAllocStoreDominated(Instruction *I,
+                                              bool &IsCondDead);
+  bool isValidZeroElementPtrAccess(LoadInst *LDI);
+  StoreInst *allocStoreInst(BasicBlock *BB);
+  bool condDeadOrAllocStoreDominated(BasicBlock *BB, bool &IsCondDead);
   void pruneCondLoadFunctions();
   bool violationIsConditional();
   void applySafetyCheckToCandidate(dtrans::SafetyData FindCondition,

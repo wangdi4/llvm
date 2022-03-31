@@ -808,7 +808,7 @@ bool DTransBadCastingAnalyzer::analyzeStore(dtrans::FieldInfo &FI,
 // that will be checked later.
 //
 void DTransBadCastingAnalyzer::handlePotentialAllocStore(StoreInst *SI) {
-  if (AllocStores.find(SI) != AllocStores.end())
+  if (AllocStores.find(SI) == AllocStores.end())
     PendingStores.insert(SI);
 }
 
