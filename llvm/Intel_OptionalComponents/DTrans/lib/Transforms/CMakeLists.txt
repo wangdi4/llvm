@@ -25,6 +25,7 @@ add_llvm_component_library(LLVMIntel_DTransOpt
   DynClone.cpp
   DTransForceInline.cpp
   DTransForceInlineOP.cpp
+  DTransNormalizeOP.cpp
   DTransOPOptBase.cpp
   DTransOPOptBaseTest.cpp
   DTransOptBase.cpp
