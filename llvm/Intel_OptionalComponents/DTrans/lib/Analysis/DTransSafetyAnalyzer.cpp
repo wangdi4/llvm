@@ -6268,11 +6268,9 @@ void DTransSafetyInfo::checkLanguages(Module &M) {
     }
 }
 
-dtrans::TypeInfo *DTransSafetyInfo::getOrCreateTypeInfo(DTransType *Ty) {
-  // If we already have this type in our map, just return it.
-  dtrans::TypeInfo *TI = getTypeInfo(Ty);
-  if (TI)
-    return TI;
+dtrans::TypeInfo *DTransSafetyInfo::createTypeInfo(DTransType *Ty) {
+  assert(Ty && "Trying to create a dtrans::TypeInfo without a DTransType");
+  assert(!getTypeInfo(Ty) && "dtrans::TypeInfo already created");
 
   // Create the DTrans TypeInfo object for this type and any sub-types.
   dtrans::TypeInfo *DTransTI;
@@ -6304,42 +6302,45 @@ dtrans::TypeInfo *DTransSafetyInfo::getOrCreateTypeInfo(DTransType *Ty) {
     // TODO: TypeInfo does not support vector types, so they will be stored
     // within NonAggregateTypeInfo objects currently.
     assert(!Ty->isAggregateType() &&
-           "DTransAnalysisInfo::getOrCreateTypeInfo unexpected aggregate type");
+           "DTransAnalysisInfo::createTypeInfo unexpected aggregate type");
     DTransTI = new dtrans::NonAggregateTypeInfo(Ty);
   }
 
   TypeInfoMap[Ty] = DTransTI;
-  DTransType* RelatedType = RelatedTypesUtils->getRelatedTypeFor(Ty);
+  return DTransTI;
+}
 
-  // Set the related type
-  if (RelatedType) {
+dtrans::TypeInfo *DTransSafetyInfo::getOrCreateTypeInfo(DTransType *Ty) {
+  // If we already have this type in our map, just return it.
+  dtrans::TypeInfo *TI = getTypeInfo(Ty);
+  if (TI)
+    return TI;
+
+  // Create the dtrans::TypeInfo
+  dtrans::TypeInfo *DTransTI = createTypeInfo(Ty);
+  assert(DTransTI && "dtrans::TypeInfo not created correctly");
+  assert(DTransTI->getDTransType() == Ty &&
+         "DTransType for the created dtrans::TypeInfo is incorrect");
+
+  // Set the related type if it exists
+  if (auto *RelatedType = RelatedTypesUtils->getRelatedTypeFor(Ty)) {
+
+    // Collect or create the dtrans::TypeInfo if needed
     dtrans::StructInfo *RelatedStructInfo =
         dyn_cast_or_null<dtrans::StructInfo>(getTypeInfo(RelatedType));
     if (!RelatedStructInfo)
-      RelatedStructInfo = cast<dtrans::StructInfo>(
-        getOrCreateTypeInfo(RelatedType));
+      RelatedStructInfo =
+          cast<dtrans::StructInfo>(createTypeInfo(RelatedType));
 
     assert(RelatedStructInfo &&
-           "Missing struct info when setting related type");
+           "Missing dtrans::StructInfo when setting related type");
 
+    // Set the relationship between both types
     dtrans::StructInfo *CurrStructInfo =  cast<dtrans::StructInfo>(DTransTI);
-    CurrStructInfo->setRelatedType(RelatedStructInfo);
-
-    // If Ty is the padded type, then set the last field as
-    // padded field.
-    //
-    // NOTE: We don't set anything for the related type because the recursion
-    // will take care of it.
-    int64_t CurrNumFields = CurrStructInfo->getNumFields();
-    int64_t RelatedNumFields = RelatedStructInfo->getNumFields();
-    if ((CurrNumFields - RelatedNumFields) == 1) {
-      CurrStructInfo->getField(CurrNumFields - 1).setPaddedField();
-      CurrStructInfo->setAsABIPaddingPaddedStructure();
-    } else {
-      CurrStructInfo->setAsABIPaddingBaseStructure();
-    }
-
+    RelatedTypesUtils->setTypeInfoAsRelatedTypes(CurrStructInfo,
+                                                 RelatedStructInfo);
   }
+
   return DTransTI;
 }
 
