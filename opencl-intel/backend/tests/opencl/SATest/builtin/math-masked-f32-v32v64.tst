@@ -5,167 +5,167 @@
 ; RUN: SATest -BUILD --config=%s.cfg -tsize=32 -cpuarch="skx" --dump-llvm-file - | FileCheck %s
 ; RUN: SATest -BUILD --config=%s.cfg -tsize=64 -cpuarch="skx" --dump-llvm-file - | FileCheck %s
 
-; CHECK32: call{{.*}}<32 x float> @_Z4acosDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z5acoshDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z6acospiDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z4asinDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z5asinhDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z6asinpiDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z4atanDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z5atan2Dv32_fS_S_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z5atanhDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z6atanpiDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z7atan2piDv32_fS_S_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z4cbrtDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z4ceilDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z8copysignDv32_fS_S_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z4coshDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z5cospiDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z4erfcDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z3erfDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z3expDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z4exp2Dv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z5exp10Dv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z5expm1Dv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z4fabsDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z4fdimDv32_fS_S_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z5floorDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z3fmaDv32_fS_S_S_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z4fmaxDv32_fS_S_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z4fmaxDv32_fS_S_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z4fminDv32_fS_S_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z4fminDv32_fS_S_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z4fmodDv32_fS_S_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z5hypotDv32_fS_S_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x i32> @_Z5ilogbDv32_fDv32_i(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z5ldexpDv32_fDv32_iS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z6lgammaDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z3logDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z4log2Dv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z5log10Dv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z5log1pDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z4logbDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z3madDv32_fS_S_S_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z6maxmagDv32_fS_S_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z6minmagDv32_fS_S_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z9nextafterDv32_fS_S_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z3powDv32_fS_S_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z4pownDv32_fDv32_iS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z4powrDv32_fS_S_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z9remainderDv32_fS_S_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z5rootnDv32_fDv32_iS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z5roundDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z5rsqrtDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z4sinhDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z5sinpiDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z4sqrtDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z3tanDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z4tanhDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z5tanpiDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z6tgammaDv32_fS_(<32 x float> {{.*}}mask
-; CHECK32: call{{.*}}<32 x float> @_Z5truncDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4acosDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z5acoshDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z6acospiDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4asinDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z5asinhDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z6asinpiDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4atanDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z5atan2Dv32_fS_S_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z5atanhDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z6atanpiDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z7atan2piDv32_fS_S_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4cbrtDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4ceilDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z8copysignDv32_fS_S_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4coshDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z5cospiDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4erfcDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z3erfDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z3expDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4exp2Dv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z5exp10Dv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z5expm1Dv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4fabsDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4fdimDv32_fS_S_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z5floorDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z3fmaDv32_fS_S_S_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4fmaxDv32_fS_S_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4fmaxDv32_fS_S_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4fminDv32_fS_S_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4fminDv32_fS_S_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4fmodDv32_fS_S_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z5hypotDv32_fS_S_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x i32> @_Z5ilogbDv32_fDv32_i(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z5ldexpDv32_fDv32_iS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z6lgammaDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z3logDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4log2Dv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z5log10Dv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z5log1pDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4logbDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z3madDv32_fS_S_S_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z6maxmagDv32_fS_S_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z6minmagDv32_fS_S_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z9nextafterDv32_fS_S_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z3powDv32_fS_S_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4pownDv32_fDv32_iS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4powrDv32_fS_S_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z9remainderDv32_fS_S_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z5rootnDv32_fDv32_iS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z5roundDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z5rsqrtDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4sinhDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z5sinpiDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4sqrtDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z3tanDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z4tanhDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z5tanpiDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z6tgammaDv32_fS_(<32 x float> {{.*}}mask
+; CHECK32: call{{.*}} <32 x float> @_Z5truncDv32_fS_(<32 x float> {{.*}}mask
 
-; CHECK64: call{{.*}}<64 x float> @_Z4acosDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z5acoshDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z6acospiDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z4asinDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z5asinhDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z6asinpiDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z4atanDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z5atan2Dv64_fS_S_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z5atanhDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z6atanpiDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z7atan2piDv64_fS_S_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z4cbrtDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z4ceilDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z8copysignDv64_fS_S_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z4coshDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z5cospiDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z4erfcDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z3erfDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z3expDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z4exp2Dv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z5exp10Dv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z5expm1Dv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z4fabsDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z4fdimDv64_fS_S_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z5floorDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z3fmaDv64_fS_S_S_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z4fmaxDv64_fS_S_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z4fmaxDv64_fS_S_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z4fminDv64_fS_S_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z4fminDv64_fS_S_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z4fmodDv64_fS_S_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z5hypotDv64_fS_S_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x i32> @_Z5ilogbDv64_fDv64_i(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z5ldexpDv64_fDv64_iS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z6lgammaDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z3logDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z4log2Dv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z5log10Dv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z5log1pDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z4logbDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z3madDv64_fS_S_S_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z6maxmagDv64_fS_S_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z6minmagDv64_fS_S_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z9nextafterDv64_fS_S_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z3powDv64_fS_S_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z4pownDv64_fDv64_iS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z4powrDv64_fS_S_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z9remainderDv64_fS_S_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z5rootnDv64_fDv64_iS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z5roundDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z5rsqrtDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z4sinhDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z5sinpiDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z4sqrtDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z3tanDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z4tanhDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z5tanpiDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z6tgammaDv64_fS_(<64 x float> {{.*}}mask
-; CHECK64: call{{.*}}<64 x float> @_Z5truncDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4acosDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z5acoshDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z6acospiDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4asinDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z5asinhDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z6asinpiDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4atanDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z5atan2Dv64_fS_S_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z5atanhDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z6atanpiDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z7atan2piDv64_fS_S_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4cbrtDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4ceilDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z8copysignDv64_fS_S_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4coshDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z5cospiDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4erfcDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z3erfDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z3expDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4exp2Dv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z5exp10Dv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z5expm1Dv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4fabsDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4fdimDv64_fS_S_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z5floorDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z3fmaDv64_fS_S_S_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4fmaxDv64_fS_S_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4fmaxDv64_fS_S_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4fminDv64_fS_S_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4fminDv64_fS_S_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4fmodDv64_fS_S_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z5hypotDv64_fS_S_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x i32> @_Z5ilogbDv64_fDv64_i(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z5ldexpDv64_fDv64_iS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z6lgammaDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z3logDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4log2Dv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z5log10Dv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z5log1pDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4logbDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z3madDv64_fS_S_S_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z6maxmagDv64_fS_S_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z6minmagDv64_fS_S_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z9nextafterDv64_fS_S_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z3powDv64_fS_S_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4pownDv64_fDv64_iS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4powrDv64_fS_S_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z9remainderDv64_fS_S_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z5rootnDv64_fDv64_iS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z5roundDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z5rsqrtDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4sinhDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z5sinpiDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4sqrtDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z3tanDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z4tanhDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z5tanpiDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z6tgammaDv64_fS_(<64 x float> {{.*}}mask
+; CHECK64: call{{.*}} <64 x float> @_Z5truncDv64_fS_(<64 x float> {{.*}}mask
 
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_acosf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_acoshf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_acospif32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_asinf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_asinhf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_asinpif32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_atanf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_atan2f32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_atanhf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_atanpif32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_atan2pif32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_cbrtf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_coshf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_cospif32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_erfcf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_erff32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_expf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_exp2f32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_exp10f32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_expm1f32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_fmodf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_hypotf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_ldexpf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_lgammaf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_logf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_log2f32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_log10f32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_log1pf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_logbf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_nextafterf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_powf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_pownf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_powrf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_remainderf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_rootnf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_roundf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_rsqrtf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_sinhf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_sinpif32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_tanf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_tanhf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_tanpif32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_tgammaf32(<32 x float>
-; CHECK: call contract intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_truncf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_acosf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_acoshf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_acospif32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_asinf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_asinhf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_asinpif32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_atanf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_atan2f32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_atanhf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_atanpif32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_atan2pif32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_cbrtf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_coshf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_cospif32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_erfcf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_erff32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_expf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_exp2f32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_exp10f32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_expm1f32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_fmodf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_hypotf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_ldexpf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_lgammaf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_logf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_log2f32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_log10f32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_log1pf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_logbf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_nextafterf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_powf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_pownf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_powrf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_remainderf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_rootnf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_roundf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_rsqrtf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_sinhf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_sinpif32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_tanf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_tanhf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_tanpif32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_tgammaf32(<32 x float>
+; CHECK: call{{.*}} intel_ocl_bicc_avx512 <32 x float> @__ocl_svml_{{[xz]}}0_truncf32(<32 x float>

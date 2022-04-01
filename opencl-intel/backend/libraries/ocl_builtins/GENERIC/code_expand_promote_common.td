@@ -119,3 +119,12 @@
     $Arg2VarName$ExpandHiPatternPtr = nhi$Arg2VarName;
     return $ReturnVarName;
   }];
+
+  // misc
+
+  defvar Expand_movemask = [{
+    return intel_movemask($Arg0VarName$ExpandLoPattern) | (intel_movemask($Arg0VarName$ExpandHiPattern) << ($VecLength/2));
+  }];
+  defvar Expand_movemask64 = [{
+    return convert_long(intel_movemask($Arg0VarName$ExpandLoPattern)) | (convert_long(intel_movemask($Arg0VarName$ExpandHiPattern)) << ($VecLength/2));
+  }];

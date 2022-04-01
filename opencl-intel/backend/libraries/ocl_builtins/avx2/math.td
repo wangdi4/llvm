@@ -41,6 +41,7 @@ OclBuiltinImpl fma_v3f64_impl = OclBuiltinImpl<fma, [v1f64, v3f64], 0, Promote3>
 OclBuiltinImpl fma_f81664_impl = OclBuiltinImpl<fma, [v8f64, v16f64], 0, Expand3>;
 
 //////////////////////////////////////////////////////////////////////////////////////////////
-//                SVML ABI hacks for AVX2
-//  We inherit hacks from AVX
-//////////////////////////////////////////////////////////////////////////////////////////////
+
+OclBuiltinImpl intel_movemask_v32i8 = OclBuiltinImpl<intel_movemask, [v32i8], 0, [{
+    return as_int(_mm256_movemask_epi8((__m256i)$Arg0VarName));
+  }]>;

@@ -40,6 +40,9 @@ OclBuiltinImpl round_f32_impl = OclBuiltinImpl<round, [v4f32], 0, [{
 
 
 // rint
+OclBuiltinImpl rint_f64_impl = OclBuiltinImpl<rint, [v2f64], 0, [{
+    return _mm_round_pd($Arg0VarName, _MM_FROUND_TO_NEAREST_INT);
+  }]>;
 OclBuiltinImpl rint_f32_impl = OclBuiltinImpl<rint, [v4f32], 0, [{
     return _mm_round_ps($Arg0VarName, _MM_FROUND_TO_NEAREST_INT);
   }]>;

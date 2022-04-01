@@ -27,10 +27,11 @@ foreach name = ["acos", "acosh", "acospi", "asin", "asinh", "asinpi", "atan",
     "native_sincos_gen", "native_sincos_pas2", "native_sqrt",
     "native_tan", "native_tanh", "native_tanpi"] in {
   defvar types = !cond(
-      !eq(name, "ilogb") : [v32f64, v64f64],
-      !or(!ne(!find(name, "fract_"), -1), !eq(name, "ceil"), !eq(name, "floor"),
-          !eq(name, "fma"), !eq(name, "sqrt"), !eq(name, "native_divide"),
-          !eq(name, "native_recip"), !eq(name, "native_rsqrt")): v32v64FTypes,
+      !or(!ne(!find(name, "fract_"), -1), !eq(name, "ilogb")) : [v32f64, v64f64],
+      !or(!eq(name, "fma"), !eq(name, "rint")): [v16f64, v32f32, v64f32, v32f64, v64f64],
+      !or(!eq(name, "ceil"), !eq(name, "floor"), !eq(name, "sqrt"),
+          !eq(name, "native_divide"), !eq(name, "native_recip"),
+          !eq(name, "native_rsqrt")): v32v64FTypes,
       true: [v64f32, v32f64, v64f64]);
 
   defvar builtin = !cast<OclBuiltin>(name);
@@ -49,22 +50,36 @@ foreach name = ["acos", "acosh", "acospi", "asin", "asinh", "asinpi", "atan",
 // SVML calls
 foreach name = ["acos", "acosh", "acospi", "asin", "asinh", "asinpi", "atan",
     "atan2", "atanh", "atanpi", "atan2pi", "cbrt", "cos", "cosh", "cospi",
-    "erfc", "erf", "exp", "exp2", "exp10", "expm1", "fmod", "hypot", "ilogb",
-    "ldexp", "lgamma", "log", "log2", "log10", "log1p", "logb", "nextafter", 
-    "pow", "pown", "powr", "remainder", "rint", "rootn", "round", "rsqrt", 
-    "sin", "sinh", "sinpi", "tan", "tanh", "tanpi", "tgamma"] in {
+    "erfc", "erf", "exp", "exp2", "exp10", "expm1", "fmod",
+    "fract_pas", "fract_las", "fract_gas", "fract_gen",
+    "frexp_pas", "frexp_las", "frexp_gas", "frexp_gen", "hypot",
+    "ilogb", "ldexp", "lgamma", "lgamma_r_pas", "lgamma_r_las", "lgamma_r_gas",
+    "lgamma_r_gen", "log", "log2", "log10", "log1p", "logb",
+    "modf_pas", "modf_las", "modf_gas", "modf_gen", "nextafter",
+    "pow", "pown", "powr", "remainder", "remquo_pas", "remquo_las",
+    "remquo_gas", "remquo_gen", "rootn", "round", "rsqrt", "sin",
+    "sincos_pas", "sincos_las", "sincos_gas", "sincos_gen",
+    "sinh", "sinpi", "tan", "tanh", "tanpi", "tgamma"] in {
   defvar builtin = !cast<OclBuiltin>(name);
-  defvar types = !cond(!eq(name, "ilogb") : [v8f64],
-                       true: [v8f64, v16f32, v32f32]);
+  defvar types = !cond(!or(!ne(!find(name, "fract_"), -1), !eq(name, "ilogb")): [v16f64],
+      true: [v32f32, v16f64]);
   defvar num_args = !size(builtin.Ins);
-  defvar svml_code1 = [{
-    return __ocl_svml_$Target_$NAME$SVMLSuffix($Arg0VarName);
-  }];
-  defvar svml_code2 = [{
-    return __ocl_svml_$Target_$NAME$SVMLSuffix($Arg0VarName, $Arg1VarName);
-  }];
-  defvar svml_code = !cond(!eq(num_args, 1) : svml_code1, true: svml_code2);
-  def name # _impl : OclBuiltinImpl<builtin, types, 0, svml_code, [["$NAME", name]]>;
+  defvar svml_code = !cond(!ne(!find(name, "fract_"), -1): fract_svml,
+      !ne(!find(name, "frexp_"), -1): frexp_svml,
+      !ne(!find(name, "lgamma_r_"), -1): lgamma_r_svml,
+      !ne(!find(name, "modf_"), -1): modf_svml,
+      !ne(!find(name, "remquo_"), -1): remquo_svml,
+      !ne(!find(name, "sincos_"), -1): sincos_svml,
+      !eq(num_args, 1): svml_code1,
+      true: svml_code2);
+  defvar svml_name = !cond(
+      !ne(!find(name, "frexp_"), -1): "frexp",
+      !ne(!find(name, "lgamma_r_"), -1): "lgamma_r",
+      !ne(!find(name, "modf_"), -1): "modf",
+      !ne(!find(name, "remquo_"), -1): "remquo",
+      !ne(!find(name, "sincos_"), -1): "sincos",
+      true: name);
+  def name # _avx512f_impl : OclBuiltinImpl<builtin, types, 0, svml_code, [["$NAME", svml_name]]>;
 }
 
 // Native SVML calls
@@ -77,15 +92,9 @@ foreach name = ["acos", "acosh", "acospi", "asin",
     "powr", "rcbrt", "rootn", "sin", "sinh", 
     "sinpi", "sqrt", "tan", "tanh", "tanpi"] in {
   defvar builtin = !cast<OclBuiltin>("native_" # name);
-  defvar types = [v8f64, v16f32, v32f32];
+  defvar types = [v16f32, v32f32, v8f64, v16f64];
   defvar num_args = !size(builtin.Ins);
-  defvar svml_code1 = [{
-    return __ocl_svml_$Target_$NAME$SVMLSuffix_native($Arg0VarName);
-  }];
-  defvar svml_code2 = [{
-    return __ocl_svml_$Target_$NAME$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
-  }];
-  defvar svml_code = !cond(!eq(num_args, 1) : svml_code1, true: svml_code2);
+  defvar svml_code = !cond(!eq(num_args, 1) : svml_native_code1, true: svml_native_code2);
   def name # _native_impl : OclBuiltinImpl<builtin, types, 0, svml_code, [["$NAME", name]]>;
 }
 

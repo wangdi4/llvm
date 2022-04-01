@@ -3,6 +3,7 @@
 //////////////////////////////////////////////////////////////////////////////////////////////
 
 defvar v32v64FTypes = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [32, 64]>.Tout;
+defvar v32v64F32Types = ExpandTypesByVFAndFlatten<[v1f32], [32, 64]>.Tout;
 
 // ceil float16
 OclBuiltinImpl ceil_v16f32_impl = OclBuiltinImpl<ceil, [v16f32], 0, [{
@@ -52,6 +53,18 @@ OclBuiltinImpl fmin_common_v32v64_impl = OclBuiltinImpl<fmin_common, v32v64FType
 
 OclBuiltinImpl fmin_s_v32v64_generic = OclBuiltinImpl<fmin_s, v32v64FTypes, 0, fmin_s_code>;
 
+OclBuiltinImpl fract_pas_f32 = OclBuiltinImpl<fract_pas, v32v64F32Types, 0, fract_code_f32>;
+OclBuiltinImpl fract_las_f32 = OclBuiltinImpl<fract_las, v32v64F32Types, 0, fract_code_f32>;
+OclBuiltinImpl fract_gas_f32 = OclBuiltinImpl<fract_gas, v32v64F32Types, 0, fract_code_f32>;
+OclBuiltinImpl fract_gen_f32 = OclBuiltinImpl<fract_gen, v32v64F32Types, 0, fract_code_f32>;
+OclBuiltinImpl fract_ret2ptr_pas = OclBuiltinImpl<fract_pas2, v32v64F32Types, 0, fract_ret2ptr_code>;
+
+OclBuiltinImpl native_fract_pas_f32 = OclBuiltinImpl<native_fract_pas, v32v64F32Types, 0, native_fract_code>;
+OclBuiltinImpl native_fract_las_f32 = OclBuiltinImpl<native_fract_las, v32v64F32Types, 0, native_fract_code>;
+OclBuiltinImpl native_fract_gas_f32 = OclBuiltinImpl<native_fract_gas, v32v64F32Types, 0, native_fract_code>;
+OclBuiltinImpl native_fract_gen_f32 = OclBuiltinImpl<native_fract_gen, v32v64F32Types, 0, native_fract_code>;
+OclBuiltinImpl native_fract_ret2ptr_pas = OclBuiltinImpl<native_fract_pas2, v32v64F32Types, 0, native_fract_ret2ptr>;
+
 OclBuiltinImpl ilogb_f32_v32v64 = OclBuiltinImpl<ilogb, [v32f32, v64f32], 0, ilogb_code>;
 
 OclBuiltinImpl ldexp_s_v32v64_generic = OclBuiltinImpl<ldexp_s, v32v64FTypes, 0, ldexp_s_code>;
@@ -64,6 +77,13 @@ OclBuiltinImpl minmag_v32v64_impl = OclBuiltinImpl<minmag, v32v64FTypes, 0, minm
 
 OclBuiltinImpl nan_v32v64_impl = OclBuiltinImpl<nan, v32v64FTypes, 0, nan_code>;
 
+OclBuiltinImpl rint_v8f64_impl = OclBuiltinImpl<rint, [v8f64], 0, [{
+  return _mm512_roundscale_pd($Arg0VarName, _MM_FROUND_TO_NEAREST_INT);
+  }]>;
+OclBuiltinImpl rint_v16f32_impl = OclBuiltinImpl<rint, [v16f32], 0, [{
+  return _mm512_roundscale_ps($Arg0VarName, _MM_FROUND_TO_NEAREST_INT);
+  }]>;
+
 // sqrt
 OclBuiltinImpl sqrt_v8f64_impl = OclBuiltinImpl<sqrt, [v8f64], 0, [{
     return _mm512_sqrt_pd($Arg0VarName);
@@ -75,38 +95,12 @@ OclBuiltinImpl sqrt_v16f32_impl = OclBuiltinImpl<sqrt, [v16f32], 0, [{
 
 // SVML calls
 
-list<OclType> math_FP512_types = [v8f64, v16f32, v32f32];
-
-// frexp
-OclBuiltinImpl frexp_pas_svml = OclBuiltinImpl<frexp_pas, math_FP512_types, 0, frexp_svml>;
-OclBuiltinImpl frexp_las_svml = OclBuiltinImpl<frexp_las, math_FP512_types, 0, frexp_svml>;
-OclBuiltinImpl frexp_gas_svml = OclBuiltinImpl<frexp_gas, math_FP512_types, 0, frexp_svml>;
-OclBuiltinImpl frexp_gen_svml = OclBuiltinImpl<frexp_gen, math_FP512_types, 0, frexp_svml>;
-
-// lgamma_r
-OclBuiltinImpl lgamma_r_pas_svml = OclBuiltinImpl<lgamma_r_pas, math_FP512_types, 0, lgamma_r_svml>;
-OclBuiltinImpl lgamma_r_las_svml = OclBuiltinImpl<lgamma_r_las, math_FP512_types, 0, lgamma_r_svml>;
-OclBuiltinImpl lgamma_r_gas_svml = OclBuiltinImpl<lgamma_r_gas, math_FP512_types, 0, lgamma_r_svml>;
-OclBuiltinImpl lgamma_r_gen_svml = OclBuiltinImpl<lgamma_r_gen, math_FP512_types, 0, lgamma_r_svml>;
+list<OclType> math_FP512_types = [v16f32, v32f32, v8f64, v16f64];
 
 // modf
-OclBuiltinImpl modf_pas_svml = OclBuiltinImpl<modf_pas, math_FP512_types, 0, modf_svml>;
-OclBuiltinImpl modf_las_svml = OclBuiltinImpl<modf_las, math_FP512_types, 0, modf_svml>;
-OclBuiltinImpl modf_gas_svml = OclBuiltinImpl<modf_gas, math_FP512_types, 0, modf_svml>;
-OclBuiltinImpl modf_gen_svml = OclBuiltinImpl<modf_gen, math_FP512_types, 0, modf_svml>;
 OclBuiltinImpl modf_ret2ptr_pas = OclBuiltinImpl<modf_pas2, math_FP512_types, 0, modf_ret2ptr>;
 
-// remquo
-OclBuiltinImpl remquo_pas_svml = OclBuiltinImpl<remquo_pas, math_FP512_types, 0, remquo_svml>;
-OclBuiltinImpl remquo_las_svml = OclBuiltinImpl<remquo_las, math_FP512_types, 0, remquo_svml>;
-OclBuiltinImpl remquo_gas_svml = OclBuiltinImpl<remquo_gas, math_FP512_types, 0, remquo_svml>;
-OclBuiltinImpl remquo_gen_svml = OclBuiltinImpl<remquo_gen, math_FP512_types, 0, remquo_svml>;
-
 // sincos
-OclBuiltinImpl sincos_pas_svml = OclBuiltinImpl<sincos_pas, math_FP512_types, 0, sincos_svml>;
-OclBuiltinImpl sincos_las_svml = OclBuiltinImpl<sincos_las, math_FP512_types, 0, sincos_svml>;
-OclBuiltinImpl sincos_gas_svml = OclBuiltinImpl<sincos_gas, math_FP512_types, 0, sincos_svml>;
-OclBuiltinImpl sincos_gen_svml = OclBuiltinImpl<sincos_gen, math_FP512_types, 0, sincos_svml>;
 OclBuiltinImpl sincos_ret2ptr_pas = OclBuiltinImpl<sincos_pas2, math_FP512_types, 0, sincos_ret2ptr>;
 
 // TODO: calls to trunc svml functions can be replaced with avx512f intrinsic
@@ -285,3 +279,32 @@ OclBuiltinImpl idiv_svml = OclBuiltinImpl<idiv, [v16i32], 0, [{
 OclBuiltinImpl udiv_svml = OclBuiltinImpl<udiv, [v16u32], 0, [{
     return __ocl_svml_$Target_udiv$VecLength($Arg0VarName, $Arg1VarName);
   }]>;
+
+// misc
+OclBuiltinImpl intel_movemask_v32i8 = OclBuiltinImpl<intel_movemask, [v32i8], 0, [{
+    return as_int(_mm256_movepi8_mask((__m256i)$Arg0VarName));
+  }]>;
+OclBuiltinImpl intel_movemask_v64i8 = OclBuiltinImpl<intel_movemask_v64, [v64i8], 0, [{
+    return as_long(_mm512_movepi8_mask((__m512i)$Arg0VarName));
+  }]>;
+OclBuiltinImpl intel_movemask_v16i16 = OclBuiltinImpl<intel_movemask, [v16i16], 0, [{
+    return convert_int(as_short(_mm256_movepi16_mask((__m256i)$Arg0VarName)));
+  }]>;
+OclBuiltinImpl intel_movemask_v32i16 = OclBuiltinImpl<intel_movemask, [v32i16], 0, [{
+    return as_int(_mm512_movepi16_mask((__m512i)$Arg0VarName));
+  }]>;
+OclBuiltinImpl intel_movemask_v8i32 = OclBuiltinImpl<intel_movemask, [v8i32], 0, [{
+    return convert_int(as_char(_mm256_movepi32_mask((__m256i)$Arg0VarName)));
+  }]>;
+OclBuiltinImpl intel_movemask_v16i32 = OclBuiltinImpl<intel_movemask, [v16i32], 0, [{
+    return convert_int(as_short(_mm512_movepi32_mask((__m512i)$Arg0VarName)));
+  }]>;
+OclBuiltinImpl intel_movemask_v4i64 = OclBuiltinImpl<intel_movemask, [v4i64], 0, [{
+    return convert_int(as_char(_mm256_movepi64_mask((__m256i)$Arg0VarName)));
+  }]>;
+OclBuiltinImpl intel_movemask_v8i64 = OclBuiltinImpl<intel_movemask, [v8i64], 0, [{
+    return convert_int(as_char(_mm512_movepi64_mask((__m512i)$Arg0VarName)));
+  }]>;
+
+OclBuiltinImpl intel_movemask_v32_expand = OclBuiltinImpl<intel_movemask, [v32i32, v32i64], 0, Expand_movemask>;
+OclBuiltinImpl intel_movemask_v64_expand = OclBuiltinImpl<intel_movemask_v64, [v64i16, v64i32, v64i64], 0, Expand_movemask64>;

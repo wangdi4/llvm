@@ -1510,13 +1510,15 @@ let Types = [ void ],
 // for vector types it returns most significant bit in each vector element compressed to output mask,
 // behaviour is equal to _mm_movemask() intrinsic from x86 SSE
 // example of use: fract
-let Types = [v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
-             v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
-             v1i32, v2i32, v3i32, v4i32, v8i32, v16i32,
-             v1i64, v2i64, v3i64, v4i64, v8i64, v16i64],
+let Types = ExpandTypesByVFAndFlatten<[v1i8, v1i16, v1i32, v1i64], [1, 2, 3, 4, 8, 16, 32]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def intel_movemask: OclBuiltin<"intel_movemask", (outs si32gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
+}
+let Types = ExpandTypesByVFAndFlatten<[v1i8, v1i16, v1i32, v1i64], [64]>.Tout,
+    Attrs = [CONSTFUNC, OVERLOADABLE],
+    NeedForwardDecl = 1 in {
+def intel_movemask_v64: OclBuiltin<"intel_movemask", (outs si64gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 }
 
 // OpenCL 1.2 Section 6.12 Image Functions (those which have SOA versions)

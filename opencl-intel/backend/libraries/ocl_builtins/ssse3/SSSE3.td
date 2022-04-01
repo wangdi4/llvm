@@ -40,6 +40,10 @@ let Types = [intptr_t],
     def ocl20_max_intptr : OclBuiltin<"__ocl20_max", (outs gentype:$res), (ins gentype:$lhs, uintptr_t:$rhs), [], [], 1, 0>;
 }
 
+defset list<OclBuiltinImpl> ssse3_impls = {
+include "ssse3/math_impl.td"
+}
+
 class SSSE3 : Generic {
 // Native types for SSSE3. Used in "Promote" calls
 let NativeTypes = [v16i8, v16u8, v8i16, v8u16, v4i32, v4u32, v2i64, v2u64, v4f32, v2f64];
@@ -82,4 +86,6 @@ include "ssse3/relational.td"
 include "ssse3/transpose.td"
 include "ssse3/masked_load_store.td"
 include "ssse3/sub_group_builtin_generic_impl.td"
+
+let Impls = ssse3_impls;
 }

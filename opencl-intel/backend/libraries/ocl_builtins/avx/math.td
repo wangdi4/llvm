@@ -4,14 +4,6 @@
 // AVX math implementation
 //////////////////////////////////////////////////////////////////////////////////////////////
 
-// Redefine "special care" types inherited from SSE4.2 to make ocl-tblgen use them instead
-list<OclType> math_svml_vF_expand = [v16f64];
-list<OclType> math_svml_vFpvI32_expand = [v16f64];
-list<OclType> math_svml_vFpvF_expand = [v16f64];
-list<OclType> math_svml_vF32_expand = [v3f32];
-list<OclType> math_svml_vF32vF32_expand = [v3f32, v16f32];
-
-
 //////////////////////////////////////////////////////////////////////////////////////////////
 //                Float f32 section
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -46,15 +38,20 @@ OclBuiltinImpl round_v8f32_impl = OclBuiltinImpl<round, [v8f32], 0, [{
   }]>;
 
 // rint
+OclBuiltinImpl rint_v4f64_impl = OclBuiltinImpl<rint, [v4f64], 0, [{
+  return _mm256_round_pd($Arg0VarName, _MM_FROUND_TO_NEAREST_INT);
+  }]>;
 OclBuiltinImpl rint_v8f32_impl = OclBuiltinImpl<rint, [v8f32], 0, [{
   return _mm256_round_ps($Arg0VarName, _MM_FROUND_TO_NEAREST_INT);
   }]>;
 
 // rsqrt
+/*
 OclBuiltinImpl rsqrt_v8f32_impl = OclBuiltinImpl<rsqrt, [v8f32], 0, [{
   const float8 temp = _mm256_sqrt_ps($Arg0VarName);
   return 1.0f/temp;
   }]>;
+*/
 
 // intel_maskmove()
 // non OpenCL builtin. Specialization for AVX
@@ -148,182 +145,6 @@ OclBuiltinImpl sqrt_v4f64_impl = OclBuiltinImpl<sqrt, [v4f64], 0, [{
 //////////////////////////////////////////////////////////////////////////////////////////////
 //         v16f32 and v8f64 svml calls for AVX and higher
 //////////////////////////////////////////////////////////////////////////////////////////////
-// NOTE ssse3 and sse42 .dll (or .so) doesn't include v16f32 and v8f64,
-// but avx and avx2 includes these functions, so we can call them for these
-// architectures
-
-list<OclType> avx_types = [v16f32, v8f64];
-
-// acos
-OclBuiltinImpl acos_svml = OclBuiltinImpl<acos, avx_types, 0, [{
-    return __ocl_svml_$Target_acos$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// acosh
-OclBuiltinImpl acosh_svml = OclBuiltinImpl<acosh, avx_types, 0, [{
-    return __ocl_svml_$Target_acosh$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// acospi
-OclBuiltinImpl acospi_svml = OclBuiltinImpl<acospi, avx_types, 0, [{
-    return __ocl_svml_$Target_acospi$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// asin
-OclBuiltinImpl asin_svml = OclBuiltinImpl<asin, avx_types, 0, [{
-    return __ocl_svml_$Target_asin$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// asinh
-OclBuiltinImpl asinh_svml = OclBuiltinImpl<asinh, avx_types, 0, [{
-    return __ocl_svml_$Target_asinh$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// asinpi
-OclBuiltinImpl asinpi_svml = OclBuiltinImpl<asinpi, avx_types, 0, [{
-    return __ocl_svml_$Target_asinpi$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// atan
-OclBuiltinImpl atan_svml = OclBuiltinImpl<atan, avx_types, 0, [{
-    return __ocl_svml_$Target_atan$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// atan2
-OclBuiltinImpl atan2_svml = OclBuiltinImpl<atan2, avx_types, 0, [{
-    return __ocl_svml_$Target_atan2$SVMLSuffix($Arg0VarName, $Arg1VarName);
-  }]>;
-
-// atanh
-OclBuiltinImpl atanh_svml = OclBuiltinImpl<atanh, avx_types, 0, [{
-    return __ocl_svml_$Target_atanh$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// atanpi
-OclBuiltinImpl atanpi_svml = OclBuiltinImpl<atanpi, avx_types, 0, [{
-    return __ocl_svml_$Target_atanpi$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// atan2pi
-OclBuiltinImpl atan2pi_svml = OclBuiltinImpl<atan2pi, avx_types, 0, [{
-    return __ocl_svml_$Target_atan2pi$SVMLSuffix($Arg0VarName, $Arg1VarName);
-  }]>;
-
-// cbrt
-OclBuiltinImpl cbrt_svml = OclBuiltinImpl<cbrt, avx_types, 0, [{
-    return __ocl_svml_$Target_cbrt$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// cos
-OclBuiltinImpl cos_svml = OclBuiltinImpl<cos, avx_types, 0, [{
-    return __ocl_svml_$Target_cos$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// cosh
-OclBuiltinImpl cosh_svml = OclBuiltinImpl<cosh, avx_types, 0, [{
-    return __ocl_svml_$Target_cosh$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// cospi
-OclBuiltinImpl cospi_svml = OclBuiltinImpl<cospi, avx_types, 0, [{
-    return __ocl_svml_$Target_cospi$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// erfc
-OclBuiltinImpl erfc_svml = OclBuiltinImpl<erfc, avx_types, 0, [{
-    return __ocl_svml_$Target_erfc$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// erf
-OclBuiltinImpl erf_svml = OclBuiltinImpl<erf, avx_types, 0, [{
-    return __ocl_svml_$Target_erf$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// exp
-OclBuiltinImpl exp_svml = OclBuiltinImpl<exp, avx_types, 0, [{
-    return __ocl_svml_$Target_exp$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// exp2
-OclBuiltinImpl exp2_svml = OclBuiltinImpl<exp2, avx_types, 0, [{
-    return __ocl_svml_$Target_exp2$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// exp10
-OclBuiltinImpl exp10_svml = OclBuiltinImpl<exp10, avx_types, 0, [{
-    return __ocl_svml_$Target_exp10$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// expm1
-OclBuiltinImpl expm1_svml = OclBuiltinImpl<expm1, avx_types, 0, [{
-    return __ocl_svml_$Target_expm1$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// fmod
-OclBuiltinImpl fmod_svml = OclBuiltinImpl<fmod, avx_types, 0, [{
-    return __ocl_svml_$Target_fmod$SVMLSuffix($Arg0VarName, $Arg1VarName);
-  }]>;
-
-// lgamma
-OclBuiltinImpl lgamma_svml = OclBuiltinImpl<lgamma, avx_types, 0, [{
-    return __ocl_svml_$Target_lgamma$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// log
-OclBuiltinImpl log_svml = OclBuiltinImpl<log, avx_types, 0, [{
-    return __ocl_svml_$Target_log$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// log2
-OclBuiltinImpl log2_svml = OclBuiltinImpl<log2, avx_types, 0, [{
-    return __ocl_svml_$Target_log2$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// log10
-OclBuiltinImpl log10_svml = OclBuiltinImpl<log10, avx_types, 0, [{
-    return __ocl_svml_$Target_log10$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// log1p
-OclBuiltinImpl log1p_svml = OclBuiltinImpl<log1p, avx_types, 0, [{
-    return __ocl_svml_$Target_log1p$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// logb
-OclBuiltinImpl logb_svml = OclBuiltinImpl<logb, avx_types, 0, [{
-    return __ocl_svml_$Target_logb$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// sin
-OclBuiltinImpl sin_svml = OclBuiltinImpl<sin, avx_types, 0, [{
-    return __ocl_svml_$Target_sin$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// sinh
-OclBuiltinImpl sinh_svml = OclBuiltinImpl<sinh, avx_types, 0, [{
-    return __ocl_svml_$Target_sinh$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// sinpi
-OclBuiltinImpl sinpi_svml = OclBuiltinImpl<sinpi, avx_types, 0, [{
-    return __ocl_svml_$Target_sinpi$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// tan
-OclBuiltinImpl tan_svml = OclBuiltinImpl<tan, avx_types, 0, [{
-    return __ocl_svml_$Target_tan$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// tanh
-OclBuiltinImpl tanh_svml = OclBuiltinImpl<tanh, avx_types, 0, [{
-    return __ocl_svml_$Target_tanh$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// tanpi
-OclBuiltinImpl tanpi_svml = OclBuiltinImpl<tanpi, avx_types, 0, [{
-    return __ocl_svml_$Target_tanpi$SVMLSuffix($Arg0VarName);
-  }]>;
-
 // OpenCL 2.0 -cl-fast-relaxed-math functions
 // cos_rm
 OclBuiltinImpl cos_svml_rm = OclBuiltinImpl<cos_rm, [v16f32], 0, [{

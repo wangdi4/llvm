@@ -1,3 +1,10 @@
+defvar svml_code1 = [{
+    return __ocl_svml_$Target_$NAME$SVMLSuffix($Arg0VarName);
+  }];
+defvar svml_code2 = [{
+    return __ocl_svml_$Target_$NAME$SVMLSuffix($Arg0VarName, $Arg1VarName);
+  }];
+
 defvar copysign_code = [{
     $Arg0Type $ReturnVarName;
     $Arg0igentype ux = __builtin_astype(($Arg0VarName), $Arg0igentype);
@@ -60,6 +67,49 @@ defvar fmin_common_code = [{
 defvar fmin_s_code = [{
     $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
     return $Func($Arg0VarName, vec$Arg1VarName);
+  }];
+
+// fract float vector
+defvar fract_code_f32 = [{
+    const $Arg0Type fractLimit = $ReturnBaseType_const_fractLimit;
+    $ReturnType $ReturnVarName;
+    // check NaN or Inf
+    $Arg0igentype isNaNOrInf = (__builtin_astype(($Arg0VarName), $Arg0igentype) & $ReturnBaseType_const_expMask) == $ReturnBaseType_const_expMask;
+    // check for zero
+    $Arg0igentype isZero = ($Arg0VarName == ($Arg0Type)0.0);
+    // obtain mask with elements zero or Nan or infinity. we need to keep sign
+    $Arg0igentype isZeroNaNInf = isNaNOrInf | isZero;
+
+    // floor(x)
+    *iptr = floor($Arg0VarName);
+    // x - floor(x)
+    $Arg0Type f4x_1 = $Arg0VarName - *iptr;
+    // fmin( x - floor (x), 0x1.fffffep-1f )
+    $ReturnVarName = min(f4x_1, fractLimit);
+
+    // approach with if() instead of unconditional blend
+    if( intel_movemask(isZeroNaNInf) )
+    {
+      // check for NaN
+      $Arg0igentype isNaN = isnan($Arg0VarName );
+      $Arg0igentype isInf = ~isNaN & isNaNOrInf;
+      // make zero with sign
+      $Arg0Type xSignedZero = __builtin_astype((__builtin_astype(($Arg0VarName), $Arg0igentype) & ~$ReturnBaseType_const_expMask), $Arg0Type);
+      // NaN. Put NaN from f4x to res
+      $ReturnVarName = select($ReturnVarName, $Arg0VarName, isNaN);
+      // +/- inf and zero. Put zero with proper sign
+      $ReturnVarName = select($ReturnVarName, xSignedZero, isInf|isZero);
+    }
+    return $ReturnVarName;
+  }];
+
+defvar fract_ret2ptr_code = [{
+    $Arg0Type res = fract($Arg0VarName, $Arg2VarName);
+    *$Arg1VarName = res;
+  }];
+
+defvar fract_svml = [{
+    return __ocl_svml_$Target_fract$SVMLSuffix($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
   }];
 
 defvar frexp_svml = [{
@@ -184,6 +234,13 @@ defvar ret2ptr2_strided_mask_code = [{
   }];
 
 // native
+
+defvar svml_native_code1 = [{
+    return __ocl_svml_$Target_$NAME$SVMLSuffix_native($Arg0VarName);
+  }];
+defvar svml_native_code2 = [{
+    return __ocl_svml_$Target_$NAME$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
+  }];
 
 defvar native_fdim_code = [{
      return select($Arg0VarName-$Arg1VarName, ($Arg0Type) 0.0, __builtin_astype(($Arg0VarName-$Arg1VarName), $Arg0igentype));
