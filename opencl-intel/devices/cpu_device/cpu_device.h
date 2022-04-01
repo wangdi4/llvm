@@ -31,10 +31,11 @@
 #ifdef __USE_TBB_SCALABLE_ALLOCATOR__
 #include "tbb/scalable_allocator.h"
 #endif
-#include <cl_synch_objects.h>
-#include <map>
-#include <vector>
 #include <atomic>
+#include <cl_synch_objects.h>
+#include <mutex>
+#include <unordered_map>
+#include <vector>
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
@@ -70,14 +71,15 @@ protected:
     bool                        m_disableMasterJoin;  // Check whether master join is disabled or not
     unsigned long               m_numCores;           // Architectural data on the underlying HW
     unsigned int*               m_pComputeUnitMap;    // A mapping between an OpenCL-defined core ID (1 is first CPU on second socket) and OS-defined core ID
-    std::map<threadid_t, int>   m_threadToCore;       // Maps OS thread ID to core ID
+    // Maps OS thread ID to core ID.
+    std::unordered_map<threadid_t, int> m_threadToCore;
     std::vector<threadid_t>     m_pCoreToThread;      // Maps OpenCL core ID to OS thread id which is pinned to the core, which can then be used access the scoreboard above
     std::vector<bool>           m_pCoreInUse;         // Keeps track over used compute units to prevent overlap
 
 #ifdef __HARD_TRAPPING__
     bool                        m_bUseTrapping;       // Use worker thread trapping when device fission with core affinity is used
 #endif
-    Intel::OpenCL::Utils::OclNonReentrantSpinMutex m_ComputeUnitScoreboardMutex;
+    std::mutex m_ComputeUnitScoreboardMutex;
 
 #ifdef __USE_TBB_SCALABLE_ALLOCATOR__
 	tbb::scalable_allocator<DeviceNDRange> m_deviceNDRangeAllocator;
