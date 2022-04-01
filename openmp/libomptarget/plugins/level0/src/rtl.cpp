@@ -961,6 +961,9 @@ class LevelZeroProgramTy {
   /// Requires module link
   bool RequiresModuleLink = false;
 
+  /// Is this module library
+  bool IsLibModule = false;
+
   /// Loads the device version of the offload table for device \p DeviceId.
   /// The table is expected to have \p NumEntries entries.
   /// Returns true, if the load was successful, false - otherwise.
@@ -2276,6 +2279,10 @@ public:
   std::vector<ze_command_list_handle_t> ImmCmdLists;
 
   std::vector<std::list<LevelZeroProgramTy>> Programs;
+
+  /// Contains all modules (possibly from multiple device images) to handle
+  /// dynamic link across multiple images
+  std::vector<ze_module_handle_t> GlobalModules;
 
   std::vector<std::map<ze_kernel_handle_t, KernelPropertiesTy>>
       KernelProperties;
@@ -5500,6 +5507,8 @@ EXTERN void __tgt_rtl_free_per_hw_thread_scratch(int32_t DeviceId, void *Ptr) {
   DeviceInfo->dataDelete(DeviceId, Ptr);
 }
 
+int32_t __tgt_rtl_supports_empty_images() { return 1; }
+
 bool RTLDeviceInfoTy::isExtensionSupported(const char *ExtName) {
   for (auto &E : DriverExtensions) {
     std::string Supported(E.name);
@@ -5610,10 +5619,17 @@ LevelZeroProgramTy::~LevelZeroProgramTy() {
 }
 
 int32_t LevelZeroProgramTy::addModule(
-    size_t Size, const uint8_t *Image, const std::string &BuildOptions,
+    size_t Size, const uint8_t *Image, const std::string &CommonBuildOptions,
     ze_module_format_t Format) {
   ze_module_constants_t SpecConstants =
       DeviceInfo->Option.CommonSpecConstants.getModuleConstants();
+  std::string BuildOptions(CommonBuildOptions);
+  // Add required flag to enable dynamic linking. We can do this only if the
+  // module does not contain any kernels or globals.
+  // FIXME: module build with "-library-compilation" does not work on iGPU now.
+  // Keep the device check until XDEPS-3954 is resolved.
+  if (IsLibModule && DeviceInfo->isDiscreteDevice(DeviceId))
+    BuildOptions += " -library-compilation ";
 
   ze_module_desc_t ModuleDesc{ZE_STRUCTURE_TYPE_MODULE_DESC, nullptr, Format};
 
@@ -5725,6 +5741,7 @@ int32_t LevelZeroProgramTy::addModule(
     if (Modules.empty())
       GlobalModule = Module;
     Modules.push_back(Module);
+    DeviceInfo->GlobalModules.push_back(Module);
     return OFFLOAD_SUCCESS;
   }
 }
@@ -5744,8 +5761,9 @@ int32_t LevelZeroProgramTy::linkModules() {
 
   ze_result_t RC;
   ze_module_build_log_handle_t LinkLog = nullptr;
-  CALL_ZE_RC(RC, zeModuleDynamicLink, (uint32_t)Modules.size(), Modules.data(),
-             &LinkLog);
+  auto &AllModules = DeviceInfo->GlobalModules;
+  CALL_ZE_RC(RC, zeModuleDynamicLink, (uint32_t)AllModules.size(),
+             AllModules.data(), &LinkLog);
   bool LinkFailed = (RC != ZE_RESULT_SUCCESS);
   bool ShowBuildLog = DeviceInfo->Option.Flags.ShowBuildLog;
 
@@ -5789,6 +5807,10 @@ int32_t LevelZeroProgramTy::buildModules(std::string &BuildOptions) {
     return addModule(ImgSize, ImgBegin, BuildOptions,
                      ZE_MODULE_FORMAT_IL_SPIRV);
   }
+
+  // Check if the program only contains libraries
+  size_t NumEntries = (size_t)(Image->EntriesEnd - Image->EntriesBegin);
+  IsLibModule = (NumEntries == 0);
 
   // Iterate over the images and pick the first one that fits.
   char *ImgBegin = reinterpret_cast<char *>(Image->ImageStart);
@@ -6253,7 +6275,7 @@ int32_t LevelZeroProgramTy::buildKernels() {
   Kernels.resize(NumEntries);
 
   auto EnableTargetGlobals = DeviceInfo->Option.Flags.EnableTargetGlobals;
-  if (EnableTargetGlobals &&
+  if (NumEntries > 0 && EnableTargetGlobals &&
       DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_XeLP &&
       !loadOffloadTable(NumEntries)) {
     DP("Warning: could not load offload table.\n");
