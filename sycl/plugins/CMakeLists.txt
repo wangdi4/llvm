@@ -21,14 +21,11 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang|IntelLLVM" )
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-covered-switch-default")
 endif()
 
-if(SYCL_BUILD_PI_CUDA)
-  add_subdirectory(cuda)
-endif()
+foreach(plugin ${SYCL_ENABLE_PLUGINS})
+  add_subdirectory(${plugin})
+endforeach()
 
-if(SYCL_BUILD_PI_HIP)
-  add_subdirectory(hip)
-endif()
-
+<<<<<<< HEAD
 add_subdirectory(opencl)
 # INTEL_CUSTOMIZATION
 if (CMAKE_SYCL_USE_LEVEL0)
@@ -43,3 +40,5 @@ if(SYCL_BUILD_PI_ESIMD_EMULATOR)
     add_subdirectory(esimd_emulator)
   endif()
 endif()
+=======
+>>>>>>> c16412b5fb32814461b82b5c615f771f97e9d26d

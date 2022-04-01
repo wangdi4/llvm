@@ -30,9 +30,18 @@ else()
      "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}ze_loader${CMAKE_SHARED_LIBRARY_SUFFIX}")
 endif()
 
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATON
 set(LEVEL_ZERO_HEADERS LevelZeroLoader::Headers)
 # end INTEL_CUSTOMIZATON
+=======
+if ("cuda" IN_LIST SYCL_ENABLE_PLUGINS)
+  set(SYCL_BUILD_PI_CUDA ON)
+endif()
+if ("hip" IN_LIST SYCL_ENABLE_PLUGINS)
+  set(SYCL_BUILD_PI_HIP ON)
+endif()
+>>>>>>> c16412b5fb32814461b82b5c615f771f97e9d26d
 
 target_link_libraries(get_device_count_by_type
   PRIVATE
