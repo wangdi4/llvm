@@ -1,4 +1,5 @@
-; RUN: opt < %s -scalar-evolution -analyze | FileCheck %s
+; RUN: opt < %s -scalar-evolution -analyze -enable-new-pm=0 | FileCheck %s
+; RUN: opt < %s -disable-output "-passes=print<scalar-evolution>" 2>&1 | FileCheck %s
 
 ; Check that ScalarEvolution can determine that the entire addition tree does
 ; not signed wrap. E.g., (v0 + 7 + 13) summed in any order will not wrap.

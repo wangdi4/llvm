@@ -1,6 +1,9 @@
-; RUN: opt < %s -analyze -scalar-evolution | FileCheck %s
-; RUN: opt < %s -analyze -scalar-evolution -scalar-evolution-print-scoped-mode | FileCheck %s --check-prefix=SCOPED-MODE
-; RUN: opt < %s -analyze -scalar-evolution -scalar-evolution-print-scoped-mode -scalar-evolution-nowrap-user-tracking-threshold=1 | FileCheck %s --check-prefix=SCOPED-MODE-THRESHOLD
+; RUN: opt < %s -analyze -enable-new-pm=0 -scalar-evolution | FileCheck %s
+; RUN: opt < %s -disable-output "-passes=print<scalar-evolution>" 2>&1 | FileCheck %s
+; RUN: opt < %s -analyze -enable-new-pm=0 -scalar-evolution -scalar-evolution-print-scoped-mode | FileCheck %s --check-prefix=SCOPED-MODE
+; RUN: opt < %s -disable-output -scalar-evolution-print-scoped-mode "-passes=print<scalar-evolution>" 2>&1 | FileCheck %s --check-prefix=SCOPED-MODE
+; RUN: opt < %s -analyze -enable-new-pm=0 -scalar-evolution -scalar-evolution-print-scoped-mode -scalar-evolution-nowrap-user-tracking-threshold=1 | FileCheck %s --check-prefix=SCOPED-MODE-THRESHOLD
+; RUN: opt < %s -disable-output -scalar-evolution-print-scoped-mode -scalar-evolution-nowrap-user-tracking-threshold=1 "-passes=print<scalar-evolution>" 2>&1 | FileCheck %s --check-prefix=SCOPED-MODE-THRESHOLD
 
 ; Verify that in scoped mode we can propagate nsw flag to SCEV of %add by
 ; assuming that IR will not change during analysis. The nuw flag is removed
