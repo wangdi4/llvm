@@ -3,7 +3,8 @@
 ; and all calls appropriate constructor/destructor to initialize and deallocate
 ; the memory.
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir=false -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 | FileCheck %s
 
 ; Incoming HIR
 ;    BEGIN REGION { }
@@ -31,16 +32,16 @@ define dso_local void @ctor_dtor(i32* nocapture %dst, i32* nocapture readonly %s
 ; CHECK:            %serial.temp = undef;
 ; CHECK:            %_ZTS6ClassA.omp.def_constr = @_ZTS6ClassA.omp.def_constr(&((%struct.ClassA*)(%priv.mem)[0]));
 ; CHECK:            %serial.temp = insertelement %serial.temp,  %_ZTS6ClassA.omp.def_constr,  0;
-; CHECK:            %extract.1. = extractelement &((<2 x %struct.ClassA*>)(%priv.mem.bc)[<i32 0, i32 1>]),  1;
-; CHECK:            %_ZTS6ClassA.omp.def_constr2 = @_ZTS6ClassA.omp.def_constr(%extract.1.);
+; CHECK:            %[[extract1:.*]] = extractelement &((<2 x %struct.ClassA*>)(%priv.mem.bc)[<i32 0, i32 1>]),  1;
+; CHECK:            %_ZTS6ClassA.omp.def_constr2 = @_ZTS6ClassA.omp.def_constr(%[[extract1]]);
 ; CHECK:            %serial.temp = insertelement %serial.temp,  %_ZTS6ClassA.omp.def_constr2,  1;
 
-; CHECK:            + DO i64 i1 = 0, 2 * %tgu + -1, 2   <DO_LOOP>  <MAX_TC_EST = 1073741823>   <LEGAL_MAX_TC = 1073741823> <simd-vectorized> <nounroll> <novectorize>
+; CHECK:            + DO i64 i1 = 0, {{.*}} + -1, 2   <DO_LOOP>
 ; CHECK:            + END LOOP
 
 ; CHECK:            @_ZTS6ClassA.omp.destr(&((%struct.ClassA*)(%priv.mem)[0]));
-; CHECK:            %extract.1.9 = extractelement &((<2 x %struct.ClassA*>)(%priv.mem.bc)[<i32 0, i32 1>]),  1;
-; CHECK:            @_ZTS6ClassA.omp.destr(%extract.1.9);
+; CHECK:            %[[extract19:.*]] = extractelement &((<2 x %struct.ClassA*>)(%priv.mem.bc)[<i32 0, i32 1>]),  1;
+; CHECK:            @_ZTS6ClassA.omp.destr(%[[extract19]]);
 ; CHECK:         END REGION
 ;
 

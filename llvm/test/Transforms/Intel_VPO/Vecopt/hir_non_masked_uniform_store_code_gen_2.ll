@@ -16,12 +16,14 @@
 ;}
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -print-after=hir-vplan-vec 2>&1 < %s -S | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 2>&1 < %s -S | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir=false -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -print-after=hir-vplan-vec 2>&1 < %s -S | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir=false -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 2>&1 < %s -S | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -print-after=hir-vplan-vec 2>&1 < %s -S | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 2>&1 < %s -S | FileCheck %s
 
 
 ; Check HIR
-; CHECK: DO i2 = 0, 4 * {{%.*}} + -1, 4 <DO_LOOP> <MAX_TC_EST = 536870911>   <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
+; CHECK: DO i2 = 0, {{.*}} + -1, 4 <DO_LOOP>
 ; CHECK: [[E0:%.*]] = extractelement i2 + <i64 0, i64 1, i64 2, i64 3>,  3;
 ; CHECK-NEXT: ([[ArrB:%.*]])[0] = [[E0]];
 ; CHECK-NEXT: [[E1:%.*]] = extractelement i2 + <i64 0, i64 1, i64 2, i64 3>,  3;

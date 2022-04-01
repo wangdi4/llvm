@@ -14,14 +14,15 @@
 ;   }
 ; }
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -vplan-force-vf=4 -print-after=hir-vplan-vec -hir-vplan-vec < %s 2>&1 -disable-output | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir=false -hir-ssa-deconstruction -hir-vec-dir-insert -vplan-force-vf=4 -print-after=hir-vplan-vec -hir-vplan-vec < %s 2>&1 -disable-output | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -hir-ssa-deconstruction -hir-vec-dir-insert -vplan-force-vf=4 -print-after=hir-vplan-vec -hir-vplan-vec < %s 2>&1 -disable-output | FileCheck %s
 ;
 ; CHECK:      BEGIN REGION
 ; CHECK-NEXT:  DO i1 = 0, 127, 4
 ; CHECK-NEXT:  (<4 x i32>*)(@darr)[0][i1 + <i64 0, i64 1, i64 2, i64 3>] = i1 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:  (<4 x i32>*)(@arr)[0][i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:  END LOOP
-; CHECK-NEXT: END REGION
+; CHECK:      END REGION
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

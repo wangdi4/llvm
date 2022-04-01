@@ -1070,7 +1070,7 @@ private:
   void insertPrivateFinalCond(const VPInstruction *VPInst);
 
   void makeSymLiveInForParentLoops(unsigned Sym) {
-    auto *ParentLoop = MainLoop->getParentLoop();
+    auto *ParentLoop = OrigLoop->getParentLoop();
     while (ParentLoop != nullptr) {
       ParentLoop->addLiveInTemp(Sym);
       ParentLoop = ParentLoop->getParentLoop();
