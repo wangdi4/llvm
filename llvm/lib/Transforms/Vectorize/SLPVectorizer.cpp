@@ -2103,61 +2103,6 @@ public:
 
 private:
 #if INTEL_CUSTOMIZATION
-  /// A leaf operand of the Multi-Node. These operands get reordered.
-  class LeafData {
-    /// The leaf operand value.
-    Value *Leaf = nullptr;
-    /// APO of the Leaf (see VLOperands::OperandData for the description).
-    bool APO = false;
-    /// Set to true if this OperandData is used (visited) by the algorithm and
-    /// should not be used again.
-    bool Used = false;
-    /// We may have a Leaf being used by multiple instructions. Keep track of
-    /// a particular user (frontier) instruction that 'Leaf' is attached to.
-    Instruction *FrontierI = nullptr;
-    /// OperandV is FrontierI's OperandNum'th operand.
-    int OperandNum = -1;
-    /// If true the frontier will get an inverse opcode after codegen.
-    bool InvertFrontierOpcode = false;
-
-  public:
-    LeafData() = default;
-    LeafData(Value *Op, Instruction *Frontier, int OpNum, bool APO)
-        : Leaf(Op), APO(APO), FrontierI(Frontier), OperandNum(OpNum) {}
-    Value *getLeaf() const { return Leaf; }
-    void swapLeafWith(LeafData &Op) {
-      std::swap(Leaf, Op.Leaf);
-      // Swap APOs too as a property of the Leaf.
-      std::swap(APO, Op.APO);
-    }
-    int getOperandNum() const { return OperandNum; }
-    bool getAPO() const { return APO; }
-    bool isUsed() const { return Used; }
-    void setUsed() { Used = true; }
-    Instruction *getFrontier() const { return FrontierI; }
-    void setFrontier(Instruction *NewFrontierI) {
-      assert(NewFrontierI != FrontierI && "Why are we setting then?");
-      FrontierI = NewFrontierI;
-    }
-
-    bool computeFrontierAPO() const {
-      bool Commutative = isCommutative(FrontierI);
-      if (InvertFrontierOpcode)
-        Commutative = !Commutative;
-      // APO isn't changed if it is left operand or operation is commutative.
-      return (OperandNum == 0 || Commutative) ? APO : !APO;
-    }
-    void invertFrontierOpcode() {
-      InvertFrontierOpcode = !InvertFrontierOpcode;
-    }
-    /// \returns true if the opcode of the frontier should be updated.
-    bool getInvertFrontierOpcode() const { return InvertFrontierOpcode; }
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    void dump(void) const;
-#endif
-  };
-
   /// By design the Multi-Node is a group of Add/Sub instructions that we
   /// should be able to perform operand reordering across it without too many
   /// restrictions. Thus there is single vector length for entire Multi-Node.
@@ -2183,6 +2128,719 @@ private:
   ///   +--------------+----------+
   ///
   class MultiNode {
+    /// Path steering helps builTree_rec() follow the best path through the
+    /// Multi-Node. The 'best' path is the one with the highest probability of
+    /// succeeding in vectorizing the code. Since the Multi-Node operand
+    /// reordering is based on evaluating the score of each operand, we already
+    /// know which operand is the best one. Using this best operand we guide
+    /// buildTree_rec() through the Multi-Node trunk nodes.
+    ///
+    /// For example, given the following Multi-Node with Operands Op1-4 and
+    /// Trunk nodes T1-3, we may find that Op3 is the operand with the best
+    /// score. We therefore make sure that the path T3->T2->Op3 is marked as the
+    /// highest priority one that, such that buildTree_rec() follows it first,
+    /// before any other path.
+    ///
+    ///        Best Score
+    ///           |
+    ///           v
+    ///  Op1 Op2 Op3 Op4
+    /// +--\-/----\-/--+
+    /// |  T1     T2   |
+    /// |    \   /     |
+    /// |     T3       |
+    /// +------|-------+
+    ///
+    /// Path steering will guide buildTree_rec() towards T3->T2->Op3.
+    struct SteerTowardsData {
+      // The frontier instruction is found as MN.get(Lane, OpI).
+      // We don't keep a pointer here, because it may get updated in codegen if
+      // we update the opcode.
+      int OpI = -1;
+      // The operand number.
+      int OperandNum = -1;
+      // The best score so far.
+      int Score = -1;
+      void set(int OpIdx, int OpNum, int S) {
+        OpI = OpIdx;
+        OperandNum = OpNum;
+        Score = S;
+      }
+      bool isUninit() const { return Score == -1; }
+    };
+
+    class MNOperands {
+      // TODO: make LeafData class private once we get rid of reordering
+      // directly on LLVM IR
+    public:
+      /// A leaf operand of the Multi-Node. These operands get reordered.
+      class LeafData {
+        /// The leaf operand value.
+        Value *Leaf = nullptr;
+        /// APO of the Leaf (see VLOperands::OperandData for the description).
+        bool APO = false;
+        /// Set to true if this OperandData is used (visited) by the algorithm
+        /// and should not be used again.
+        bool Used = false;
+        /// We may have a Leaf being used by multiple instructions. Keep track
+        /// of a particular user (frontier) instruction that 'Leaf' is attached
+        /// to.
+        Instruction *FrontierI = nullptr;
+        /// OperandV is FrontierI's OperandNum'th operand.
+        int OperandNum = -1;
+        /// If true the frontier will get an inverse opcode after codegen.
+        bool InvertFrontierOpcode = false;
+
+      public:
+        LeafData() = default;
+        LeafData(Value *Op, Instruction *Frontier, int OpNum, bool APO)
+            : Leaf(Op), APO(APO), FrontierI(Frontier), OperandNum(OpNum) {}
+        Value *getLeaf() const { return Leaf; }
+        void swapLeafWith(LeafData &Op) {
+          std::swap(Leaf, Op.Leaf);
+          // Swap APOs too as a property of the Leaf.
+          std::swap(APO, Op.APO);
+        }
+        int getOperandNum() const { return OperandNum; }
+        bool getAPO() const { return APO; }
+        bool isUsed() const { return Used; }
+        void setUsed() { Used = true; }
+        Instruction *getFrontier() const { return FrontierI; }
+        void setFrontier(Instruction *NewFrontierI) {
+          assert(NewFrontierI != FrontierI && "Why are we setting then?");
+          FrontierI = NewFrontierI;
+        }
+
+        bool computeFrontierAPO() const {
+          bool Commutative = isCommutative(FrontierI);
+          if (InvertFrontierOpcode)
+            Commutative = !Commutative;
+          // APO isn't changed if it is left operand or operation is
+          // commutative.
+          return (OperandNum == 0 || Commutative) ? APO : !APO;
+        }
+        void invertFrontierOpcode() {
+          InvertFrontierOpcode = !InvertFrontierOpcode;
+        }
+        /// \returns true if the opcode of the frontier should be updated.
+        bool getInvertFrontierOpcode() const { return InvertFrontierOpcode; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+        void dump(void) const;
+#endif
+      };
+      /// \returns the operand data at \p OpIdx and \p Lane.
+      LeafData &getData(unsigned OpIdx, unsigned Lane) {
+        return Leaves[OpIdx][Lane];
+      }
+
+      /// \returns the operand data at \p OpIdx and \p Lane. Const version.
+      const LeafData &getData(unsigned OpIdx, unsigned Lane) const {
+        return Leaves[OpIdx][Lane];
+      }
+
+    private:
+      const DataLayout &DL;
+      ScalarEvolution &SE;
+      const BoUpSLP &R;
+      const DominatorTree &DT;
+
+      /// The operands (leaves) of the Multi-Node for all lanes.
+      /// We are not simply using the Value for a leaf. Instead we are using the
+      /// LeafData structure because it not only contains the Value, but it
+      /// also points to its user (referred as frontier instruction), and it
+      /// also holds the operand number (i.e. the Nth operand of the frontier).
+      SmallVector<SmallVector<LeafData, 8>, 8> Leaves;
+
+      /// Swap the operand at \p OpIdx1 with that one at \p OpIdx2.
+      void swap(unsigned OpIdx1, unsigned OpIdx2, unsigned Lane) {
+        if (OpIdx1 == OpIdx2)
+          return;
+
+        LeafData &Op1 = getData(OpIdx1, Lane);
+        LeafData &Op2 = getData(OpIdx2, Lane);
+        if (Op1.getLeaf() == Op2.getLeaf())
+          return;
+
+        bool InvertOpcodes = Op1.getAPO() != Op2.getAPO();
+        // i. Swap the leaf values.
+        Op1.swapLeafWith(Op2);
+        // ii. Swap the opcode.
+        if (InvertOpcodes) {
+          Op1.invertFrontierOpcode();
+          Op2.invertFrontierOpcode();
+        }
+      }
+
+      // We go through the operands of V1 and V2 until LEVEL
+      // and we count the number of matches.
+      int getScoreAtLevel(Value *V1, Value *V2, int Level, int MaxLevel) {
+        // Get the shallow score of V1 and V2.
+        int ShallowScoreAtThisLevel =
+            VLOperands::getShallowScore(V1, V2, DL, SE, getNumLanes(), None);
+
+        // If reached MaxLevel,
+        // or if V1 and V2 are not instructions,
+        // or if they are SPLAT,
+        // or if they are not consecutive, early return the current cost.
+        auto *I1 = dyn_cast<Instruction>(V1);
+        auto *I2 = dyn_cast<Instruction>(V2);
+        if (Level == MaxLevel || !(I1 && I2) || I1 == I2 ||
+            ShallowScoreAtThisLevel == VLOperands::ScoreFail ||
+            (isa<LoadInst>(I1) && isa<LoadInst>(I2) && ShallowScoreAtThisLevel))
+          return ShallowScoreAtThisLevel;
+
+        assert(I1 && I2 && "Should have early exited.");
+        SmallSet<int, 4> Op2Used;
+
+        // Recursion towards the operands of I1 and I2. In this way we are
+        // collecting the total deep score.
+        for (int Op1I = 0, Op1E = I1->getNumOperands(); Op1I != Op1E; ++Op1I) {
+          // Try to pair op1I with the best operand of I2.
+          int MaxTmpScore = 0;
+          int MaxOp2I = -1;
+          for (int Op2I = 0, Op2E = I2->getNumOperands(); Op2I != Op2E;
+               ++Op2I) {
+            // Skip operands already paired with Op1.
+            if (Op2Used.count(Op2I))
+              continue;
+            // Recursively calculate the cost at each level
+            int TmpScore =
+                getScoreAtLevel(I1->getOperand(Op1I), I2->getOperand(Op2I),
+                                Level + 1, MaxLevel);
+            if (TmpScore > 0 && TmpScore > MaxTmpScore) {
+              MaxTmpScore = TmpScore;
+              MaxOp2I = Op2I;
+            }
+          }
+          if (MaxOp2I >= 0) {
+            Op2Used.insert(MaxOp2I);
+            ShallowScoreAtThisLevel += MaxTmpScore;
+          }
+        }
+        return ShallowScoreAtThisLevel;
+      }
+
+      /// This specifies the vectorization mode of each operand index
+      enum class VecMode {
+        Uninit = 0,
+        Constant, // All constants
+        Load,     // Consecutive Loads
+        Opcode,   // Same opcode (non-loads)
+        Splat,    // Exact same instruction multiple times
+        Failed    // Failed to form a vectorizable group
+      };
+      /// GroupState refers to the state of the search while trying to build the
+      /// maximum group in buildMaxGroup() (which is basically the best set of
+      /// operands for a specific operand position).
+      enum GroupState {
+        // Default, uninitialized state.
+        UNINIT = 0,
+        // This means that we could not fill some lane with a value. A common
+        // reason is that it is illegal to move the values there.
+        FAILED,
+        // We did find a single best group for this MultiNode operand. So all
+        // lanes are filled.
+        SUCCESS,
+        // This state refers to the situation where we have multiple equally
+        // good values for a specific lane while building the group. So instead
+        // of just  picking just one of them, we stop growing the group at this
+        // lane, return  the partial group, and also return all the possible
+        // good candidate  operands for this lane. Then, we resume from the
+        // partial group, but we spawn multiple searches, one for each
+        // candidate.
+        NO_SINGLE_BEST
+      };
+
+      /// The horizontal (for all lanes) group of leaves that are selected in
+      /// operand reordering of the Multi-Node.
+      class OpGroup {
+        int Score = -1;
+        VecMode Mode = VecMode::Uninit;
+        GroupState State = UNINIT;
+        // Store the best operand index for each lane.
+        SmallVector<int> OperandsVec;
+
+      public:
+        OpGroup() = default;
+        int size() const { return OperandsVec.size(); }
+        bool empty() const { return OperandsVec.empty(); }
+        void append(int OpIdx) { OperandsVec.push_back(OpIdx); }
+        void setScore(int S) { Score = S; }
+        int getScore() const { return Score; }
+        void setMode(VecMode M) { Mode = M; }
+        void setMode(Value *V) {
+          if (isa<Constant>(V) || isa<Argument>(V))
+            Mode = VecMode::Constant;
+          else if (isa<LoadInst>(V))
+            Mode = VecMode::Load;
+          else if (isa<Instruction>(V))
+            Mode = VecMode::Opcode;
+          else
+            llvm_unreachable("unhandled value");
+        }
+
+        VecMode getMode() const { return Mode; }
+        void setState(GroupState S) { State = S; }
+        GroupState getState() const { return State; }
+        ArrayRef<int> getOpVec() const { return makeArrayRef(OperandsVec); }
+        void clear() {
+          Score = -1;
+          Mode = VecMode::Uninit;
+          State = UNINIT;
+          OperandsVec.clear();
+        }
+        bool isBetterThan(const OpGroup &Other) const {
+          assert(!(empty() || Other.empty()) &&
+                 "cannot compare with an empty group");
+
+          auto &&NormalizedScore = [](const OpGroup &G) {
+            // In order to find the best maximum group its score is divided
+            // by the group size (the number of nodes in a group).
+            // Multiplier is used in order to avoid floats still providing
+            // decent differentiation between groups. This way long bad
+            // groups are avoided.
+            return G.getScore() * 10 / G.size();
+          };
+
+          return size() >= Other.size() &&
+                 NormalizedScore(*this) > NormalizedScore(Other);
+        }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+        void dump() const;
+#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      };
+      /// Given the two operand data of the Multi-Node \p Op1 and \p Op2
+      /// check whether it is legal to swap operands (aka Multi-Node leaves)
+      /// between their frontier instructions (aka Multi-Node trunk
+      /// instructions).
+      bool isLegalToSwapLeaves(const LeafData &Op1, const LeafData &Op2) const {
+        // Check if we can swap two leaf operands between their frontiers.
+        //  Multi-Node: +------+
+        //              | ...  |
+        //              |  |   |
+        //       Op1 => | Fr--Operand
+        //              |  |   |
+        //              | ...  |   Q:can swap?
+        //              |  |   |
+        //       Op2 => | Fr--Operand
+        //              |  |   |
+        //              | ...  |
+        //              |  |   |
+        //              | Root |
+        //              +------+
+        // To maintain semantics this is only allowed if the path from Op1
+        // to Root and from Op2 to Root pass through the same number of right
+        // operand edges feeding into subtracts.
+        // In the simplest case, when we have commutative operations of the same
+        // type within the Multi-Node, it is always legal to move.
+        if (Op1.getAPO() != Op2.getAPO())
+          return false;
+
+        auto *Leaf1 = dyn_cast<Instruction>(Op1.getLeaf());
+        auto *Leaf2 = dyn_cast<Instruction>(Op2.getLeaf());
+
+        if (Leaf1 == Leaf2)
+          return true;
+
+        return (!Leaf1 || DT.dominates(Leaf1, Op2.getFrontier())) &&
+               (!Leaf2 || DT.dominates(Leaf2, Op1.getFrontier()));
+      }
+
+      /// Return the look-ahead score, which tells us how much the sub-trees
+      /// rooted at LHS and RHS match (the higher the better).
+      int getLookAheadScore(Value *LHS, Value *RHS) {
+        int Score = getScoreAtLevel(LHS, RHS, 1, LookAheadMaxLevel);
+        return Score;
+      }
+
+      /// Return score of the MultiNode.
+      int getScore() const {
+        int Score = 0;
+        assert(!empty() && "requested score for empty Multi-Node");
+        for (int OpI = 0, OpIMax = getNumOperands(); OpI != OpIMax; ++OpI) {
+          bool AreConsecutive = true;
+          for (unsigned Lane = 1; Lane != getNumLanes(); ++Lane) {
+            Value *Left = getData(OpI, Lane - 1).getLeaf();
+            Value *Right = getData(OpI, Lane).getLeaf();
+            if (Left == Right ||
+                VLOperands::getShallowScore(Left, Right, DL, SE, getNumLanes(),
+                                            None) == VLOperands::ScoreFail) {
+              AreConsecutive = false;
+              break;
+            }
+          }
+          if (AreConsecutive)
+            ++Score;
+        }
+        return Score;
+      }
+
+      /// The look-ahead score measured how well the frontier-rooted sub-trees
+      /// match. This score is adjusted by this much when the frontier nodes
+      /// (users of the sub-tree) don't match and require alternate ops and
+      /// shuffle to get vectorized. The more negative the number the worse the
+      /// resulting score. Its main purpose is to break ties across scores.
+      static const int BLEND_COST = -3;
+
+      /// Look for the best operands for \p LHSOp. Return the best ones in \p
+      /// BestOps.
+      /// Depending on what type of Value we have on the LHS, we should
+      /// follow a different strategy on how to get the best value for the RHS.
+      /// This is what the "Mode" is for. For example if \p LHSOp is a Constant,
+      /// then we should be looking for a constant for the RHS too ans the mode
+      /// is set to VM_CONSTANT. Similarly, Loads and Splats, and other we need
+      /// separate modes.
+      int getBestOperand(SmallVectorImpl<int> &BestOps, int LHSOp, int RHSLane,
+                         int OrigOpIdx, ArrayRef<int> BestOperandsSoFar,
+                         VecMode Mode) {
+        const LeafData &LHSOperand = getData(LHSOp, RHSLane - 1);
+        Value *LHS = LHSOperand.getLeaf();
+        int BestScore = -1;
+
+        // Go through all operands of the MultiNode looking for the best match.
+        for (int OpIdx = 0, E = getNumOperands(); OpIdx != E; ++OpIdx) {
+          const LeafData &RHSOperand = getData(OpIdx, RHSLane);
+          // Skip if we have already used this for this Lane.
+          if (RHSOperand.isUsed())
+            continue;
+          // The candidate for this operand data.
+          Value *RHS = RHSOperand.getLeaf();
+
+          int Score;
+          switch (Mode) {
+          case VecMode::Constant:
+          case VecMode::Load:
+          case VecMode::Opcode:
+            Score = getLookAheadScore(LHS, RHS);
+            // Make sure we are not using the same value.
+            for (int Lane = 0, NumLanes = BestOperandsSoFar.size();
+                 Lane != NumLanes; ++Lane)
+              if (getData(BestOperandsSoFar[Lane], Lane).getLeaf() == RHS) {
+                Score = 0;
+                break;
+              }
+            break;
+          case VecMode::Splat:
+            Score = RHS == LHS ? 1 : 0;
+            break;
+          case VecMode::Failed:
+            Score = -1;
+            break;
+          default:
+            llvm_unreachable("Bad Mode");
+          }
+
+          Instruction *FrontierToSwapWith = nullptr;
+
+          LeafData &OrigRHSOperand = getData(OrigOpIdx, RHSLane);
+          if (OrigOpIdx != OpIdx &&
+              !isLegalToSwapLeaves(RHSOperand, OrigRHSOperand)) {
+            // We found the operand which is better suited than the original
+            // one but we can't legally swap them. Try to see if we can
+            // move it along with its frontier instruction.
+            if (EnableSwapFrontiers &&
+                // First check that signs mismatch was the reason of bail out.
+                RHSOperand.getAPO() != OrigRHSOperand.getAPO() &&
+                // This is allowed only if the frontiers are different.
+                RHSOperand.getFrontier() != OrigRHSOperand.getFrontier() &&
+                // Operand 0 is tricky.
+                RHSOperand.getOperandNum() == 1 &&
+                OrigRHSOperand.getOperandNum() == 1 &&
+                // Check signs.
+                RHSOperand.computeFrontierAPO() ==
+                    OrigRHSOperand.computeFrontierAPO())
+              FrontierToSwapWith = OrigRHSOperand.getFrontier();
+            else // If not, then skip this candidate and look for another.
+              continue;
+          }
+
+          // If the users' opcodes don't match, then we need to adjust the cost
+          // to reflect the fact that we will need a blend generated when
+          // vectorizing alternate opcodes.
+          Instruction *RHSNewFrontierI = FrontierToSwapWith
+                                             ? FrontierToSwapWith
+                                             : OrigRHSOperand.getFrontier();
+          auto S = getSameOpcode({LHSOperand.getFrontier(), RHSNewFrontierI});
+          if (S.isAltShuffle())
+            Score += BLEND_COST;
+
+          // Check score and set best if needed.
+          if (Score > 0 && Score >= BestScore) {
+            // We just found a new best, that is better than the previous one.
+            if (Score > BestScore)
+              BestOps.clear();
+
+            BestScore = Score;
+            BestOps.push_back(OpIdx);
+          }
+        }
+
+        return BestScore;
+      }
+
+      /// For each lane, find the best value for the OpI operand of the
+      /// Multi-Node and put it in to the 'Group'. The 'Group' is a sequence of
+      /// leaves, one for each lane, that will be the 'OpI'th operand of the
+      /// Multi-Node.
+      void buildMaxGroup(OpGroup &Group, unsigned OpI,
+                         SmallVectorImpl<int> &NextGroupLHSOps) {
+        assert(!Group.empty() &&
+               "Expected at least one instruction in the group");
+        int TotalScore = 0;
+        // Try to get the best operands to grow Group.
+        for (int RHSLane = Group.size(), Lanes = getNumLanes();
+             RHSLane != Lanes; ++RHSLane) {
+          // Get:
+          // 1) the best candidate for 'RHSLane' that matches best agaisnt
+          // LHSOp, 2) whether we should swap frontiers with the CurrRHSOperand.
+          int LHSOp = Group.getOpVec().back();
+          SmallVector<int> BestOps;
+          // We are looking for a node of a specific type according to the
+          // operand history in VMode.
+          int LaneScore = getBestOperand(BestOps, LHSOp, RHSLane, OpI,
+                                         Group.getOpVec(), Group.getMode());
+          TotalScore += LaneScore;
+          if (BestOps.empty()) {
+            // No solution. Mark OpI as failed and return.
+            Group.setMode(VecMode::Failed);
+            Group.setState(FAILED);
+            return;
+          } else if (BestOps.size() > 1) {
+            // We have many nodes with max score.
+            // This signifies the end of the current group.
+            NextGroupLHSOps = BestOps;
+            Group.setState(NO_SINGLE_BEST);
+            Group.setScore(TotalScore);
+            return;
+          }
+          // A single best solution.
+          int BestRHSOperand = BestOps.front();
+
+          // If the first two Lanes are a splat, change the mode
+          if (RHSLane == 1 && getData(BestRHSOperand, 1).getLeaf() ==
+                                  getData(LHSOp, 0).getLeaf())
+            Group.setMode(VecMode::Splat);
+
+          Group.append(BestRHSOperand);
+        }
+        // If we have reached this point, we have filled in the whole
+        // 'BestForLanes'.
+        Group.setScore(TotalScore);
+        Group.setState(SUCCESS);
+      }
+
+      /// Try to fill in \p GlobalBestGroup with the best operands for
+      /// \p OpI operand index of the MultiNode.
+      /// Return true if succeeded.
+      bool getBestGroupForOpI(int OpI, OpGroup &GlobalBestGroup) {
+        GlobalBestGroup.clear();
+        // We are trying all nodes with maximum scores as seeds of groups.
+        SmallVector<int> FirstOperandCandidates;
+        // For the first lane we need to try all operand nodes.
+        LeafData &CurrLHSOperand = getData(OpI, 0);
+        for (int OpIdx = 0, E = getNumOperands(); OpIdx != E; ++OpIdx) {
+          LeafData &LHSOperand = getData(OpIdx, 0);
+          if (!LHSOperand.isUsed() &&
+              (OpI == OpIdx || isLegalToSwapLeaves(LHSOperand, CurrLHSOperand)))
+            FirstOperandCandidates.push_back(OpIdx);
+        }
+
+        // Keep trying to build max groups until we cover all lanes.
+        int NumLanes = getNumLanes();
+        int SpawnsBudget = MaxTotalGroupSpawns;
+        while (GlobalBestGroup.size() < NumLanes) {
+          SmallVector<int> BestNextFirstOperands;
+          OpGroup LocalBestGroup;
+          // Try all the first operand candidates for the group.
+          assert(!FirstOperandCandidates.empty() && "Need first operand");
+          for (int FirstOperand : FirstOperandCandidates) {
+            // Build the maximum group starting from 'FirstOperand'.
+            OpGroup TryGroup = GlobalBestGroup;
+            TryGroup.append(FirstOperand);
+            if (TryGroup.size() == 1)
+              TryGroup.setMode(getData(FirstOperand, 0).getLeaf());
+
+            SmallVector<int> FirstOperandsForNextGroup;
+            buildMaxGroup(TryGroup, OpI, FirstOperandsForNextGroup);
+
+            // We need to make the groups as long as possible and with
+            // maximum the score per lane.
+            if (LocalBestGroup.empty() ||
+                TryGroup.isBetterThan(LocalBestGroup)) {
+              LocalBestGroup = TryGroup;
+
+              // Check our complexity budget. We have this many spawns left.
+              int CappedSpawns = std::min((int)FirstOperandsForNextGroup.size(),
+                                          MaxGroupSpawns.getValue());
+              SpawnsBudget -= CappedSpawns;
+              // The budget is not super accurate, but it should be good enough.
+              if (SpawnsBudget < 0)
+                CappedSpawns = 1;
+              FirstOperandsForNextGroup.truncate(CappedSpawns);
+              BestNextFirstOperands = FirstOperandsForNextGroup;
+            }
+          }
+          assert(!LocalBestGroup.empty() &&
+                 "Must have found a best group, even a bad one.");
+
+          if (LocalBestGroup.getState() == FAILED) {
+            // TODO: Let it get cleaned up by the parent function.
+            GlobalBestGroup = LocalBestGroup;
+            return false;
+          } else if (LocalBestGroup.getState() == NO_SINGLE_BEST) {
+            // We cannot find a single best, so we have to start with a new
+            // group.
+            FirstOperandCandidates = BestNextFirstOperands;
+          }
+          // Since LocalBestGroup did not fail, keep it a best.
+          GlobalBestGroup = LocalBestGroup;
+        }
+        assert(GlobalBestGroup.getState() == SUCCESS);
+        return true;
+      }
+
+    public:
+      MNOperands(const DataLayout &DL, ScalarEvolution &SE, const BoUpSLP &R,
+                 const DominatorTree &DT)
+          : DL(DL), SE(SE), R(R), DT(DT) {}
+
+      /// \returns the number of operands.
+      unsigned getNumOperands() const { return Leaves.size(); }
+      /// \returns the number of lanes.
+      unsigned getNumLanes() const { return Leaves[0].size(); }
+      bool empty() const { return Leaves.empty(); }
+      void appendOperand(ArrayRef<Value *> OpVL, const EdgeInfo &EI) {
+        unsigned NumLanes = OpVL.size();
+        unsigned OpIdx = Leaves.size();
+        Leaves.resize(OpIdx + 1);
+        Leaves[OpIdx].resize(NumLanes);
+
+        // It is possible the original operands have been reordered,
+        // so we need to find out the actual operand number.
+        // TODO: since we then do reordering again across the entire
+        // MultiNode it is not clear if it really makes any profit. We
+        // probably can turn it off with no issues.
+        auto &&FindOperandNum = [&EI](const Instruction *I,
+                                      const Value *Op) -> int {
+          assert(isa<BinaryOperator>(I) && "Expected a binary Op");
+          // When instructoion is non-commutative reordering isn't legal.
+          // Or if both operands are same then no reason for reordering.
+          // We take data from EI in these cases.
+          if (!I->isCommutative() || I->getOperand(0) == I->getOperand(1))
+            return EI.EdgeIdx;
+          return I->getOperand(0) == Op ? 0 : 1;
+        };
+
+        for (unsigned Lane = 0; Lane != NumLanes; ++Lane) {
+          auto *Frontier = cast<Instruction>(EI.UserTE->Scalars[Lane]);
+          int OpNum = FindOperandNum(Frontier, OpVL[Lane]);
+          Leaves[OpIdx][Lane] = {OpVL[Lane], Frontier, OpNum, EI.APOs[Lane]};
+        }
+      }
+
+      /// Perform Multi-Node operand reordering. Returns true if we found a
+      /// better order than current one.
+      ///
+      /// A1  B1  C2  A2
+      ///  \ /     \ /
+      ///   +   C1  +   B2
+      ///    \ /     \ /
+      ///     +       +
+        bool reorder(int RootIdx, SteerTowardsData &SteerTowards) {
+        // Early exit if no more than one operand.
+        if (getNumOperands() <= 1)
+          return false;
+
+        auto CmpDistFromRoot = [RootIdx, this](int Idx1, int Idx2) -> bool {
+          const LeafData &Op1 = getData(Idx1, 0);
+          const LeafData &Op2 = getData(Idx2, 0);
+          const TreeEntry *TE1 = R.getTreeEntry(Op1.getFrontier());
+          const TreeEntry *TE2 = R.getTreeEntry(Op2.getFrontier());
+          assert(TE1 && TE2 && "Broken Op1, Op2 ?");
+          // If TE the TE is the root of the MultiNode, return -1 as the user.
+          auto GetDistanceFromRoot = [RootIdx](const TreeEntry *TE) {
+            int Cnt = 0;
+            // NOTE: I think that there may be more than 1 use in the
+            // Multi-Node, but it should be good enough to use
+            // UserTreeIndices[0] here.
+            for (const TreeEntry *RunnerTE = TE; RunnerTE->Idx > RootIdx;
+                 RunnerTE = RunnerTE->UserTreeIndices[0].UserTE)
+              Cnt++;
+            return Cnt;
+          };
+          return GetDistanceFromRoot(TE1) < GetDistanceFromRoot(TE2);
+        };
+
+        // The assumption is that the Multi-Node has been canonicalized,
+        // therefore the closer we are to the root (the lower the OpI), the more
+        // important it is to find the best match. Multi-Node canonicalization
+        // is transformation from:
+        //
+        //  A   B            0 A
+        //   \ /             |/
+        //    -  C    to:    + B
+        //    | /            |/
+        //    +              - C
+        //                   |/
+        //                   +
+
+        // Get the score before we perform any operand sorting. We will use it
+        // later to check if sorting improved the score.
+        int OrigScore = getScore();
+
+        // Sort the visiting order such that operands closer to the root of the
+        // Multi-Node are visited first.
+        SmallVector<int, 8> VisitingOrder(getNumOperands());
+        std::iota(VisitingOrder.begin(), VisitingOrder.end(), 0);
+        std::sort(VisitingOrder.begin(), VisitingOrder.end(), CmpDistFromRoot);
+
+        for (int OpI : VisitingOrder) {
+          // Find the best operands for the whole 'OpI'.
+          OpGroup BestGroup;
+          if (!getBestGroupForOpI(OpI, BestGroup)) {
+            LLVM_DEBUG(dbgs() << "SLP: MultiNode: Group FAILED at OpI:" << OpI
+                              << "\n");
+            continue;
+          }
+          LLVM_DEBUG(dbgs()
+                     << "SLP: MultiNode: Group SUCCESS at OpI:" << OpI << "\n");
+          // Since we found a "best" group, update the MultiNode to
+          // reflect the code changes. This includes:
+          // i.   Swapping the leaf values, and ii. Swapping the opcodes.
+          // iii. Marking operands as 'used'.
+          // NOTE: We are *not* generating code at this point yet,
+          // only update the data structures
+          for (int Lane = 0, Lanes = BestGroup.size(); Lane != Lanes; ++Lane) {
+            int BestOp = BestGroup.getOpVec()[Lane];
+            // i. Swap the leaf values. If APOs differ this will invert opcodes
+            // for both frontiers.
+            swap(OpI, BestOp, Lane);
+            // iii. Mark as 'used'.
+            getData(OpI, Lane).setUsed();
+          }
+          // If we are steering the SLP path, steer it towards the group with
+          // the best score. This must be done before the MN reordering, as this
+          // will mess up some of BestGroup's data.
+          if (EnablePathSteering && BestGroup.getScore() > SteerTowards.Score)
+            SteerTowards.set(OpI, getData(OpI, 0).getOperandNum(),
+                             BestGroup.getScore());
+        }
+
+        // Perform the code transformation only if it leads to a better score.
+        // TODO: We would ideally update CurrentMultiNode and get rid of
+        // getScore(). But this is not so easy as CurrentMultiNode does not
+        // contain pointers.
+        bool DoCodeGen = false;
+        // TODO: Not sure if this check is actually needed.
+        int FinalScore = getScore();
+        if (FinalScore >= OrigScore)
+          DoCodeGen = true;
+
+        return DoCodeGen;
+      }
+    };
+
   public:
     // Backup information is stored in BackupMap.
     // Multi-Node operand index OpI and Lane pair used as a key for searching
@@ -2230,231 +2888,9 @@ private:
     /// steering.
     bool DisableReorder = false;
 
-    /// Path steering helps builTree_rec() follow the best path through the
-    /// Multi-Node. The 'best' path is the one with the highest probability of
-    /// succeeding in vectorizing the code. Since the Multi-Node operand
-    /// reordering is based on evaluating the score of each operand, we already
-    /// know which operand is the best one. Using this best operand we guide
-    /// buildTree_rec() through the Multi-Node trunk nodes.
-    ///
-    /// For example, given the following Multi-Node with Operands Op1-4 and
-    /// Trunk nodes T1-3, we may find that Op3 is the operand with the best
-    /// score. We therefore make sure that the path T3->T2->Op3 is marked as the
-    /// highest priority one that, such that buildTree_rec() follows it first,
-    /// before any other path.
-    ///
-    ///        Best Score
-    ///           |
-    ///           v
-    ///  Op1 Op2 Op3 Op4
-    /// +--\-/----\-/--+
-    /// |  T1     T2   |
-    /// |    \   /     |
-    /// |     T3       |
-    /// +------|-------+
-    ///
-    /// Path steering will guide buildTree_rec() towards T3->T2->Op3.
-    struct SteerTowardsData {
-      // The frontier instruction is found as MN.get(Lane, OpI).
-      // We don't keep a pointer here, because it may get updated in codegen if
-      // we update the opcode.
-      int OpI = -1;
-      // The operand number.
-      int OperandNum = -1;
-      // The best score so far.
-      int Score = -1;
-      void set(int OpIdx, int OpNum, int S) {
-        OpI = OpIdx;
-        OperandNum = OpNum;
-        Score = S;
-      }
-      bool isUninit() const { return Score == -1; }
-    };
-
     /// Used for path steering. The key is the TreeEntry.Scalars[0] and the
     /// value is the operand to follow, where 0 means left and 1 right operand.
     DenseMap<Value *, int> PreferredOperandMap;
-
-    const DataLayout &DL;
-    ScalarEvolution &SE;
-    const BoUpSLP &R;
-    const DominatorTree &DT;
-
-    /// The operands (leaves) of the Multi-Node for all lanes.
-    /// We are not simply using the Value for a leaf. Instead we are using the
-    /// LeafData structure because it not only contains the Value, but it
-    /// also points to its user (referred as frontier instruction), and it also
-    /// holds the operand number (i.e. the Nth operand of the frontier).
-    SmallVector<SmallVector<LeafData, 8>, 8> Leaves;
-
-    /// \returns the operand data at \p OpIdx and \p Lane.
-    LeafData &getData(unsigned OpIdx, unsigned Lane) {
-      return Leaves[OpIdx][Lane];
-    }
-
-    /// \returns the operand data at \p OpIdx and \p Lane. Const version.
-    const LeafData &getData(unsigned OpIdx, unsigned Lane) const {
-      return Leaves[OpIdx][Lane];
-    }
-    /// Swap the operand at \p OpIdx1 with that one at \p OpIdx2.
-    void swap(unsigned OpIdx1, unsigned OpIdx2, unsigned Lane) {
-      if (OpIdx1 == OpIdx2)
-        return;
-
-      LeafData &Op1 = getData(OpIdx1, Lane);
-      LeafData &Op2 = getData(OpIdx2, Lane);
-      if (Op1.getLeaf() == Op2.getLeaf())
-        return;
-
-      bool InvertOpcodes = Op1.getAPO() != Op2.getAPO();
-      // i. Swap the leaf values.
-      Op1.swapLeafWith(Op2);
-      // ii. Swap the opcode.
-      if (InvertOpcodes) {
-        Op1.invertFrontierOpcode();
-        Op2.invertFrontierOpcode();
-      }
-    }
-
-    // We go through the operands of V1 and V2 until LEVEL
-    // and we count the number of matches.
-    int getScoreAtLevel(Value *V1, Value *V2, int Level, int MaxLevel) {
-      // Get the shallow score of V1 and V2.
-      int ShallowScoreAtThisLevel =
-          VLOperands::getShallowScore(V1, V2, DL, SE, getNumLanes(), None);
-
-      // If reached MaxLevel,
-      // or if V1 and V2 are not instructions,
-      // or if they are SPLAT,
-      // or if they are not consecutive, early return the current cost.
-      auto *I1 = dyn_cast<Instruction>(V1);
-      auto *I2 = dyn_cast<Instruction>(V2);
-      if (Level == MaxLevel || !(I1 && I2) || I1 == I2 ||
-          ShallowScoreAtThisLevel == VLOperands::ScoreFail ||
-          (isa<LoadInst>(I1) && isa<LoadInst>(I2) && ShallowScoreAtThisLevel))
-        return ShallowScoreAtThisLevel;
-
-      assert(I1 && I2 && "Should have early exited.");
-      SmallSet<int, 4> Op2Used;
-
-      // Recursion towards the operands of I1 and I2. In this way we are
-      // collecting the total deep score.
-      for (int Op1I = 0, Op1E = I1->getNumOperands(); Op1I != Op1E; ++Op1I) {
-        // Try to pair op1I with the best operand of I2.
-        int MaxTmpScore = 0;
-        int MaxOp2I = -1;
-        for (int Op2I = 0, Op2E = I2->getNumOperands(); Op2I != Op2E; ++Op2I) {
-          // Skip operands already paired with Op1.
-          if (Op2Used.count(Op2I))
-            continue;
-          // Recursively calculate the cost at each level
-          int TmpScore = getScoreAtLevel(
-              I1->getOperand(Op1I), I2->getOperand(Op2I), Level + 1, MaxLevel);
-          if (TmpScore > 0 && TmpScore > MaxTmpScore) {
-            MaxTmpScore = TmpScore;
-            MaxOp2I = Op2I;
-          }
-        }
-        if (MaxOp2I >= 0) {
-          Op2Used.insert(MaxOp2I);
-          ShallowScoreAtThisLevel += MaxTmpScore;
-        }
-      }
-      return ShallowScoreAtThisLevel;
-    }
-
-    using OpVec = SmallVector<LeafData *, 4>;
-
-    /// This specifies the vectorization mode of each operand index
-    enum class VecMode {
-      Uninit = 0,
-      Constant, // All constants
-      Load,     // Consecutive Loads
-      Opcode,   // Same opcode (non-loads)
-      Splat,    // Exact same instruction multiple times
-      Failed   // Failed to form a vectorizable group
-    };
-    /// GroupState refers to the state of the search while trying to build the
-    /// maximum group in buildMaxGroup() (which is basically the best set of
-    /// operands for a specific operand position).
-    enum GroupState {
-      // Default, uninitialized state.
-      UNINIT = 0,
-      // This means that we could not fill some lane with a value. A common
-      // reason
-      // is that it is illegal to move the values there.
-      FAILED,
-      // We did find a single best group for this MultiNode operand. So all
-      // lanes are filled.
-      SUCCESS,
-      // This state refers to the situation where we have multiple equally good
-      // values for a specific lane while building the group. So instead of just
-      // picking just one of them, we stop growing the group at this lane,
-      // return
-      // the partial group, and also return all the possible good candidate
-      // operands for this lane. Then, we resume from the partial group, but we
-      // spawn multiple searches, one for each candidate.
-      NO_SINGLE_BEST
-    };
-
-    /// The horizontal (for all lanes) group of leaves that are selected in
-    /// operand reordering of the Multi-Node.
-    class OpGroup {
-      int Score = -1;
-      VecMode Mode = VecMode::Uninit;
-      GroupState State = UNINIT;
-      // Store the best operand index for each lane.
-      SmallVector<int> OperandsVec;
-
-    public:
-      OpGroup() = default;
-      int size() const { return OperandsVec.size(); }
-      bool empty() const { return OperandsVec.empty(); }
-      void append(int OpIdx) { OperandsVec.push_back(OpIdx); }
-      void setScore(int S) { Score = S; }
-      int getScore() const { return Score; }
-      void setMode(VecMode M) { Mode = M; }
-      void setMode(Value *V) {
-        if (isa<Constant>(V) || isa<Argument>(V))
-          Mode = VecMode::Constant;
-        else if (isa<LoadInst>(V))
-          Mode = VecMode::Load;
-        else if (isa<Instruction>(V))
-          Mode = VecMode::Opcode;
-        else
-          llvm_unreachable("unhandled value");
-      }
-
-      VecMode getMode() const { return Mode; }
-      void setState(GroupState S) { State = S; }
-      GroupState getState() const { return State; }
-      ArrayRef<int> getOpVec() const { return makeArrayRef(OperandsVec); }
-      void clear() {
-        Score = -1;
-        Mode = VecMode::Uninit;
-        State = UNINIT;
-        OperandsVec.clear();
-      }
-      bool isBetterThan(const OpGroup &Other) const {
-        assert(!(empty() || Other.empty()) &&
-               "cannot compare with an empty group");
-
-        auto &&NormalizedScore = [](const OpGroup &G) {
-          // In order to find the best maximum group its score is divided
-          // by the group size (the number of nodes in a group).
-          // Multiplier is used in order to avoid floats still providing
-          // decent differentiation between groups. This way long bad
-          // groups are avoided.
-          return G.getScore() * 10 / G.size();
-        };
-
-        return size() >= Other.size() &&
-               NormalizedScore(*this) > NormalizedScore(Other);
-      }
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-      void dump() const;
-#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    };
 
     void steerPath(SteerTowardsData &SteerTowards) {
       auto GetOperandIndex = [](Instruction *I, Value *Op) {
@@ -2490,296 +2926,12 @@ private:
       }
     }
 
-    /// Given the two operand data of the Multi-Node \p Op1 and \p Op2
-    /// check whether it is legal to swap operands (aka Multi-Node leaves)
-    /// between their frontier instructions (aka Multi-Node trunk instructions).
-    bool isLegalToSwapLeaves(const LeafData &Op1, const LeafData &Op2) const {
-      // Check if we can swap two leaf operands between their frontiers.
-      //  Multi-Node: +------+
-      //              | ...  |
-      //              |  |   |
-      //       Op1 => | Fr--Operand
-      //              |  |   |
-      //              | ...  |   Q:can swap?
-      //              |  |   |
-      //       Op2 => | Fr--Operand
-      //              |  |   |
-      //              | ...  |
-      //              |  |   |
-      //              | Root |
-      //              +------+
-      // To maintain semantics this is only allowed if the path from Op1
-      // to Root and from Op2 to Root pass through the same number of right
-      // operand edges feeding into subtracts.
-      // In the simplest case, when we have commutative operations of the same
-      // type within the Multi-Node, it is always legal to move.
-      if (Op1.getAPO() != Op2.getAPO())
-        return false;
-
-      auto *Leaf1 = dyn_cast<Instruction>(Op1.getLeaf());
-      auto *Leaf2 = dyn_cast<Instruction>(Op2.getLeaf());
-
-      if (Leaf1 == Leaf2)
-        return true;
-
-      return (!Leaf1 || DT.dominates(Leaf1, Op2.getFrontier())) &&
-             (!Leaf2 || DT.dominates(Leaf2, Op1.getFrontier()));
-    }
-
-    /// Return the look-ahead score, which tells us how much the sub-trees
-    /// rooted at LHS and RHS match (the higher the better).
-    int getLookAheadScore(Value *LHS, Value *RHS) {
-      int Score = getScoreAtLevel(LHS, RHS, 1, LookAheadMaxLevel);
-      return Score;
-    }
-
-    /// Return the score of the MultiNode.
-    int getScore() const {
-      int Score = 0;
-      assert(!empty() && "requested score for empty Multi-Node");
-      for (int OpI = 0, OpIMax = getNumOperands(); OpI != OpIMax; ++OpI) {
-        bool AreConsecutive = true;
-        for (unsigned Lane = 1; Lane != getNumLanes(); ++Lane) {
-          Value *Left = getData(OpI, Lane - 1).getLeaf();
-          Value *Right = getData(OpI, Lane).getLeaf();
-          if (Left == Right ||
-              VLOperands::getShallowScore(Left, Right, DL, SE, getNumLanes(),
-                                          None) == VLOperands::ScoreFail) {
-            AreConsecutive = false;
-            break;
-          }
-        }
-        if (AreConsecutive)
-          ++Score;
-      }
-      return Score;
-    }
-
-    /// The look-ahead score measured how well the frontier-rooted sub-trees
-    /// match. This score is adjusted by this much when the frontier nodes
-    /// (users of the sub-tree) don't match and require alternate ops and
-    /// shuffle to get vectorized. The more negative the number the worse the
-    /// resulting score. Its main purpose is to break ties across scores.
-    static const int BLEND_COST = -3;
-
-    /// Look for the best operands for \p LHSOp. Return the best ones in \p
-    /// BestOps.
-    /// Depending on what type of Value we have on the LHS, we should
-    /// follow a different strategy on how to get the best value for the RHS.
-    /// This is what the "Mode" is for. For example if \p LHSOp is a Constant,
-    /// then we should be looking for a constant for the RHS too ans the mode is
-    /// set to VM_CONSTANT. Similarly, Loads and Splats, and other we need
-    /// separate modes.
-    int getBestOperand(SmallVectorImpl<int> &BestOps, int LHSOp, int RHSLane,
-                       int OrigOpIdx, ArrayRef<int> BestOperandsSoFar,
-                       VecMode Mode) {
-      const LeafData &LHSOperand = getData(LHSOp, RHSLane - 1);
-      Value *LHS = LHSOperand.getLeaf();
-      int BestScore = -1;
-
-      // Go through all operands of the MultiNode looking for the best match.
-      for (int OpIdx = 0, E = getNumOperands(); OpIdx != E; ++OpIdx) {
-        const LeafData &RHSOperand = getData(OpIdx, RHSLane);
-        // Skip if we have already used this for this Lane.
-        if (RHSOperand.isUsed())
-          continue;
-        // The candidate for this operand data.
-        Value *RHS = RHSOperand.getLeaf();
-
-        int Score;
-        switch (Mode) {
-        case VecMode::Constant:
-        case VecMode::Load:
-        case VecMode::Opcode:
-          Score = getLookAheadScore(LHS, RHS);
-          // Make sure we are not using the same value.
-          for (int Lane = 0, NumLanes = BestOperandsSoFar.size();
-               Lane != NumLanes; ++Lane)
-            if (getData(BestOperandsSoFar[Lane], Lane).getLeaf() == RHS) {
-              Score = 0;
-              break;
-            }
-          break;
-        case VecMode::Splat:
-          Score = RHS == LHS ? 1 : 0;
-          break;
-        case VecMode::Failed:
-          Score = -1;
-          break;
-        default:
-          llvm_unreachable("Bad Mode");
-        }
-
-        Instruction *FrontierToSwapWith = nullptr;
-
-        LeafData &OrigRHSOperand = getData(OrigOpIdx, RHSLane);
-        if (OrigOpIdx != OpIdx &&
-            !isLegalToSwapLeaves(RHSOperand, OrigRHSOperand)) {
-          // We found the operand which is better suited than the original
-          // one but we can't legally swap them. Try to see if we can
-          // move it along with its frontier instruction.
-          if (EnableSwapFrontiers &&
-              // First check that signs mismatch was the reason of bail out.
-              RHSOperand.getAPO() != OrigRHSOperand.getAPO() &&
-              // This is allowed only if the frontiers are different.
-              RHSOperand.getFrontier() != OrigRHSOperand.getFrontier() &&
-              // Operand 0 is tricky.
-              RHSOperand.getOperandNum() == 1 &&
-              OrigRHSOperand.getOperandNum() == 1 &&
-              // Check signs.
-              RHSOperand.computeFrontierAPO() ==
-                  OrigRHSOperand.computeFrontierAPO())
-            FrontierToSwapWith = OrigRHSOperand.getFrontier();
-          else // If not, then skip this candidate and look for another.
-            continue;
-        }
-
-        // If the users' opcodes don't match, then we need to adjust the cost
-        // to reflect the fact that we will need a blend generated when
-        // vectorizing alternate opcodes.
-        Instruction *RHSNewFrontierI = FrontierToSwapWith
-                                           ? FrontierToSwapWith
-                                           : OrigRHSOperand.getFrontier();
-        auto S = getSameOpcode({LHSOperand.getFrontier(), RHSNewFrontierI});
-        if (S.isAltShuffle())
-          Score += BLEND_COST;
-
-        // Check score and set best if needed.
-        if (Score > 0 && Score >= BestScore) {
-          // We just found a new best, that is better than the previous one.
-          if (Score > BestScore)
-            BestOps.clear();
-
-          BestScore = Score;
-          BestOps.push_back(OpIdx);
-        }
-      }
-
-      return BestScore;
-    }
-
-    /// For each lane, find the best value for the OpI operand of the Multi-Node
-    /// and put it in to the 'Group'. The 'Group' is a sequence of leaves, one
-    /// for each lane, that will be the 'OpI'th operand of the Multi-Node.
-    void buildMaxGroup(OpGroup &Group, unsigned OpI,
-                       SmallVectorImpl<int> &NextGroupLHSOps) {
-      assert(!Group.empty() &&
-             "Expected at least one instruction in the group");
-      int TotalScore = 0;
-      // Try to get the best operands to grow Group.
-      for (int RHSLane = Group.size(), Lanes = getNumLanes(); RHSLane != Lanes;
-           ++RHSLane) {
-        // Get:
-        // 1) the best candidate for 'RHSLane' that matches best agaisnt LHSOp,
-        // 2) whether we should swap frontiers with the CurrRHSOperand.
-        int LHSOp = Group.getOpVec().back();
-        SmallVector<int> BestOps;
-        // We are looking for a node of a specific type according to the operand
-        // history in VMode.
-        int LaneScore = getBestOperand(BestOps, LHSOp, RHSLane, OpI,
-                                       Group.getOpVec(), Group.getMode());
-        TotalScore += LaneScore;
-        if (BestOps.empty()) {
-          // No solution. Mark OpI as failed and return.
-          Group.setMode(VecMode::Failed);
-          Group.setState(FAILED);
-          return;
-        } else if (BestOps.size() > 1) {
-          // We have many nodes with max score.
-          // This signifies the end of the current group.
-          NextGroupLHSOps = BestOps;
-          Group.setState(NO_SINGLE_BEST);
-          Group.setScore(TotalScore);
-          return;
-        }
-        // A single best solution.
-        int BestRHSOperand = BestOps.front();
-
-        // If the first two Lanes are a splat, change the mode
-        if (RHSLane == 1 &&
-            getData(BestRHSOperand, 1).getLeaf() == getData(LHSOp, 0).getLeaf())
-          Group.setMode(VecMode::Splat);
-
-        Group.append(BestRHSOperand);
-      }
-      // If we have reached this point, we have filled in the whole
-      // 'BestForLanes'.
-      Group.setScore(TotalScore);
-      Group.setState(SUCCESS);
-    }
-
-    /// Try to fill in \p GlobalBestGroup with the best operands for
-    /// \p OpI operand index of the MultiNode.
-    /// Return true if succeeded.
-    bool getBestGroupForOpI(int OpI, OpGroup &GlobalBestGroup) {
-      GlobalBestGroup.clear();
-      // We are trying all nodes with maximum scores as seeds of groups.
-      SmallVector<int> FirstOperandCandidates;
-      // For the first lane we need to try all operand nodes.
-      LeafData &CurrLHSOperand = getData(OpI, 0);
-      for (int OpIdx = 0, E = getNumOperands(); OpIdx != E; ++OpIdx) {
-        LeafData &LHSOperand = getData(OpIdx, 0);
-        if (!LHSOperand.isUsed() &&
-            (OpI == OpIdx || isLegalToSwapLeaves(LHSOperand, CurrLHSOperand)))
-          FirstOperandCandidates.push_back(OpIdx);
-      }
-
-      // Keep trying to build max groups until we cover all lanes.
-      int NumLanes = getNumLanes();
-      int SpawnsBudget = MaxTotalGroupSpawns;
-      while (GlobalBestGroup.size() < NumLanes) {
-        SmallVector<int> BestNextFirstOperands;
-        OpGroup LocalBestGroup;
-        // Try all the first operand candidates for the group.
-        assert(!FirstOperandCandidates.empty() && "Need first operand");
-        for (int FirstOperand : FirstOperandCandidates) {
-          // Build the maximum group starting from 'FirstOperand'.
-          OpGroup TryGroup = GlobalBestGroup;
-          TryGroup.append(FirstOperand);
-          if (TryGroup.size() == 1)
-            TryGroup.setMode(getData(FirstOperand, 0).getLeaf());
-
-          SmallVector<int> FirstOperandsForNextGroup;
-          buildMaxGroup(TryGroup, OpI, FirstOperandsForNextGroup);
-
-          // We need to make the groups as long as possible and with
-          // maximum the score per lane.
-          if (LocalBestGroup.empty() || TryGroup.isBetterThan(LocalBestGroup)) {
-            LocalBestGroup = TryGroup;
-
-            // Check our complexity budget. We have this many spawns left.
-            int CappedSpawns = std::min((int)FirstOperandsForNextGroup.size(),
-                                        MaxGroupSpawns.getValue());
-            SpawnsBudget -= CappedSpawns;
-            // The budget is not super accurate, but it should be good enough.
-            if (SpawnsBudget < 0)
-              CappedSpawns = 1;
-            FirstOperandsForNextGroup.truncate(CappedSpawns);
-            BestNextFirstOperands = FirstOperandsForNextGroup;
-          }
-        }
-        assert(!LocalBestGroup.empty() &&
-               "Must have found a best group, even a bad one.");
-
-        if (LocalBestGroup.getState() == FAILED) {
-          // TODO: Let it get cleaned up by the parent function.
-          GlobalBestGroup = LocalBestGroup;
-          return false;
-        } else if (LocalBestGroup.getState() == NO_SINGLE_BEST) {
-          // We cannot find a single best, so we have to start with a new group.
-          FirstOperandCandidates = BestNextFirstOperands;
-        }
-        // Since LocalBestGroup did not fail, keep it a best.
-        GlobalBestGroup = LocalBestGroup;
-      }
-      assert(GlobalBestGroup.getState() == SUCCESS);
-      return true;
-    }
-
+    const BoUpSLP &R;
+    MNOperands Operands;
   public:
     MultiNode(const DataLayout &DL, ScalarEvolution &SE, const BoUpSLP &R,
               const DominatorTree &DT)
-        : DL(DL), SE(SE), R(R), DT(DT) {}
+        : R(R), Operands(DL, SE, R, DT) {}
 
     /// \Returns the inverse opcode of \p Opc.
     static Optional<unsigned> getInverseOpcode(unsigned Opc) {
@@ -2818,49 +2970,23 @@ private:
     }
 
     unsigned getNumLanes() const { return NumLanes; }
-    unsigned getNumOperands() const {
-      assert(!Leaves.empty());
-      return Leaves.size();
+    unsigned getNumOperands() const { return Operands.getNumOperands(); }
+    bool empty() const { return Operands.empty(); }
+    void setNumLanes(unsigned Lanes) { NumLanes = Lanes; }
+
+    using LeafData = MNOperands::LeafData;
+
+    LeafData &getData(unsigned OpIdx, unsigned Lane) {
+      return Operands.getData(OpIdx, Lane);
     }
-    bool empty() const { return Leaves.empty(); }
-    void setNumLanes(unsigned Lanes) {
-      NumLanes = Lanes;
+    const LeafData &getData(unsigned OpIdx, unsigned Lane) const {
+      return Operands.getData(OpIdx, Lane);
     }
-    const LeafData *getOperand(int Lane, int OpI) const {
-      return &getData(OpI, Lane);
-    }
-    /// Similar to Instructions, the Multi-Node has operands and we can index
-    /// them using the 'Lane' number and 'OpI' operand index.
-    LeafData *getOperand(int Lane, int OpI) { return &getData(OpI, Lane); }
+
     void appendOperand(ArrayRef<Value *> OpVL, const EdgeInfo &EI) {
-      unsigned NumLanes = OpVL.size();
-      assert((Leaves.empty() || NumLanes == getNumLanes()) &&
+      assert((empty() || NumLanes == OpVL.size()) &&
              "Must keep same num of lanes");
-      unsigned OpIdx = Leaves.size();
-      Leaves.resize(OpIdx + 1);
-      Leaves[OpIdx].resize(NumLanes);
-
-      // It is possible the original operands have been reordered,
-      // so we need to find out the actual operand number.
-      // TODO: since we then do reordering again across the entire
-      // MultiNode it is not clear if it really makes any profit. We
-      // probably can turn it off with no issues.
-      auto &&FindOperandNum = [&EI](const Instruction *I,
-                                    const Value *Op) -> int {
-        assert(isa<BinaryOperator>(I) && "Expected a binary Op");
-        // When instructoion is non-commutative reordering isn't legal.
-        // Or if both operands are same then no reason for reordering.
-        // We take data from EI in these cases.
-        if (!I->isCommutative() || I->getOperand(0) == I->getOperand(1))
-          return EI.EdgeIdx;
-        return I->getOperand(0) == Op ? 0 : 1;
-      };
-
-      for (unsigned Lane = 0; Lane != NumLanes; ++Lane) {
-        auto *Frontier = cast<Instruction>(EI.UserTE->Scalars[Lane]);
-        int OpNum = FindOperandNum(Frontier, OpVL[Lane]);
-        Leaves[OpIdx][Lane] = {OpVL[Lane], Frontier, OpNum, EI.APOs[Lane]};
-      }
+      Operands.appendOperand(OpVL, EI);
     }
     // If operands were reordered and/or frontier opcode was updated
     // this routine saves original values into BackupMap.
@@ -2925,96 +3051,9 @@ private:
     ///    \ /     \ /
     ///     +       +
     bool findMultiNodeOrder() {
-      // Early exit if no more than one operand.
-      unsigned NumMultiNodeOps = getNumOperands();
-      if (NumMultiNodeOps <= 1)
-        return false;
-
-      auto CmpDistFromRoot = [this](int Idx1, int Idx2) -> bool {
-        const LeafData &Op1 = getData(Idx1, 0);
-        const LeafData &Op2 = getData(Idx2, 0);
-        const TreeEntry *TE1 = R.getTreeEntry(Op1.getFrontier());
-        const TreeEntry *TE2 = R.getTreeEntry(Op2.getFrontier());
-        assert(TE1 && TE2 && "Broken Op1, Op2 ?");
-        // If TE the TE is the root of the MultiNode, return -1 as the user.
-        auto GetDistanceFromRoot = [this](const TreeEntry *TE) {
-          int Cnt = 0;
-          // NOTE: I think that there may be more than 1 use in the Multi-Node,
-          // but it should be good enough to use UserTreeIndices[0] here.
-          for (const TreeEntry *RunnerTE = TE; RunnerTE->Idx > getRoot();
-               RunnerTE = RunnerTE->UserTreeIndices[0].UserTE)
-            Cnt++;
-          return Cnt;
-        };
-        return GetDistanceFromRoot(TE1) < GetDistanceFromRoot(TE2);
-      };
-
-      // The assumption is that the Multi-Node has been canonicalized, therefore
-      // the closer we are to the root (the lower the OpI), the more important
-      // it is to find the best match.
-      // Multi-Node canonicalization is transformation from:
-      //
-      //  A   B            0 A
-      //   \ /             |/
-      //    -  C    to:    + B
-      //    | /            |/
-      //    +              - C
-      //                   |/
-      //                   +
-
       // Holds the hint that will help steer SLP through the multi-node.
       SteerTowardsData SteerTowards;
-      // Get the score before we perform any operand sorting. We will use it
-      // later to check if sorting improved the score.
-      int OrigScore = getScore();
-
-      // Sort the visiting order such that operands closer to the root of the
-      // Multi-Node are visited first.
-      SmallVector<int, 8> VisitingOrder(NumMultiNodeOps);
-      std::iota(VisitingOrder.begin(), VisitingOrder.end(), 0);
-      std::sort(VisitingOrder.begin(), VisitingOrder.end(), CmpDistFromRoot);
-
-      for (int OpI : VisitingOrder) {
-        // Find the best operands for the whole 'OpI'.
-        OpGroup BestGroup;
-        if (!getBestGroupForOpI(OpI, BestGroup)) {
-          LLVM_DEBUG(dbgs()
-                     << "SLP: MultiNode: Group FAILED at OpI:" << OpI << "\n");
-          continue;
-        }
-        LLVM_DEBUG(dbgs() << "SLP: MultiNode: Group SUCCESS at OpI:" << OpI
-                          << "\n");
-        // Since we found a "best" group, update the MultiNode to
-        // reflect the code changes. This includes:
-        // i.   Swapping the leaf values, and ii. Swapping the opcodes.
-        // iii. Marking operands as 'used'.
-        // NOTE: We are *not* generating code at this point yet,
-        // only update the data structures
-        for (int Lane = 0, Lanes = BestGroup.size(); Lane != Lanes; ++Lane) {
-          int BestOp = BestGroup.getOpVec()[Lane];
-          // i. Swap the leaf values. If APOs differ this will invert opcodes
-          // for both frontiers.
-          swap(OpI, BestOp, Lane);
-          // iii. Mark as 'used'.
-          getData(OpI, Lane).setUsed();
-        }
-        // If we are steering the SLP path, steer it towards the group with
-        // the best score. This must be done before the MN reordering, as this
-        // will mess up some of BestGroup's data.
-        if (EnablePathSteering && BestGroup.getScore() > SteerTowards.Score)
-          SteerTowards.set(OpI, getData(OpI, 0).getOperandNum(),
-                           BestGroup.getScore());
-      }
-
-      // Perform the code transformation only if it leads to a better score.
-      // TODO: We would ideally update CurrentMultiNode and get rid of
-      // getScore(). But this is not so easy as CurrentMultiNode does not
-      // contain pointers.
-      bool DoCodeGen = false;
-      // TODO: Not sure if this check is actually needed.
-      int FinalScore = getScore();
-      if (FinalScore >= OrigScore)
-        DoCodeGen = true;
+      bool DoCodeGen = Operands.reorder(getRoot(), SteerTowards);
 
       // Steer the SLP direction to always start from the best path first.
       if (EnablePathSteering && !SteerTowards.isUninit())
@@ -4490,8 +4529,8 @@ void BoUpSLP::undoMultiNodeReordering() {
         Optional<MultiNode::BackupData> Data = MNode.getBackupData(OpI, Lane);
         if (!Data)
           continue;
-        LeafData *Op = MNode.getOperand(Lane, OpI);
-        Instruction *Frontier = Op->getFrontier();
+        MultiNode::LeafData &Op = MNode.getData(OpI, Lane);
+        Instruction *Frontier = Op.getFrontier();
         Instruction *OrigFrontier = Data->OrigFrontier;
         if (Frontier != OrigFrontier && !OrigFrontier->getParent()) {
           OrigFrontier->insertBefore(Frontier);
@@ -4499,13 +4538,13 @@ void BoUpSLP::undoMultiNodeReordering() {
           for (int I : seq<int>(0, Frontier->getNumOperands()))
             OrigFrontier->setOperand(I, Frontier->getOperand(I));
           Frontier->eraseFromParent();
-          Op->setFrontier(OrigFrontier);
+          Op.setFrontier(OrigFrontier);
           if (Data->Sibling)
-            MNode.getOperand(Lane, *Data->Sibling)->setFrontier(OrigFrontier);
+            MNode.getData(*Data->Sibling, Lane).setFrontier(OrigFrontier);
           Frontier = OrigFrontier;
         }
         Value *OrigOperand = Data->OrigOperand;
-        int OpNum = Op->getOperandNum();
+        int OpNum = Op.getOperandNum();
         assert(Frontier->getParent() && "Frontier has been erased!");
         if (OrigOperand != Frontier->getOperand(OpNum))
           Frontier->setOperand(OpNum, OrigOperand);
@@ -5351,19 +5390,19 @@ void BoUpSLP::applyReorderedOperands(ScheduleData *Bundle) {
         continue;
       Instruction *OrigFrontier = Data->OrigFrontier;
 
-      LeafData *Op = CurrentMultiNode->getOperand(Lane, OpI);
+      MultiNode::LeafData &Op = CurrentMultiNode->getData(OpI, Lane);
       // 1. Check if we first need to update the opcode.
       // We replace frontier when its opcode needs to be inversed and if
       // it has not been replaced via sibling earlier.
-      if (Op->getInvertFrontierOpcode() && Op->getFrontier() == OrigFrontier) {
+      if (Op.getInvertFrontierOpcode() && Op.getFrontier() == OrigFrontier) {
         Instruction *NewFrontier =
             MultiNode::updateFrontierOpcode(OrigFrontier);
-        Op->setFrontier(NewFrontier);
+        Op.setFrontier(NewFrontier);
 
         if (Data->Sibling) {
-          LeafData *SiblingOp =
-              CurrentMultiNode->getOperand(Lane, *Data->Sibling);
-          SiblingOp->setFrontier(NewFrontier);
+          MultiNode::LeafData &SiblingOp =
+              CurrentMultiNode->getData(*Data->Sibling, Lane);
+          SiblingOp.setFrontier(NewFrontier);
         }
 
         // Update VectorizableTree data structures to reflect the instruction
@@ -5390,11 +5429,11 @@ void BoUpSLP::applyReorderedOperands(ScheduleData *Bundle) {
       }
 
       // 2. Update the operands if needed.
-      Instruction *FrontierI = Op->getFrontier();
-      int OpNum = Op->getOperandNum();
-      if (FrontierI->getOperand(OpNum) != Op->getLeaf()) {
+      Instruction *FrontierI = Op.getFrontier();
+      int OpNum = Op.getOperandNum();
+      if (FrontierI->getOperand(OpNum) != Op.getLeaf()) {
         // Update the operand to reflect the current state.
-        FrontierI->setOperand(OpNum, Op->getLeaf());
+        FrontierI->setOperand(OpNum, Op.getLeaf());
       }
     }
   }
@@ -8857,9 +8896,9 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
   auto *VecTy = FixedVectorType::get(ScalarTy, E->Scalars.size());
 #if INTEL_CUSTOMIZATION
   bool IsPartOfMultiNode = any_of(MultiNodes, [VL0](const MultiNode &MN) {
-    for (size_t Lane = 0, NumLanes = MN.getNumLanes(); Lane < NumLanes; ++Lane)
-      for (int OpIdx = 0, NumOps = MN.getNumOperands(); OpIdx < NumOps; ++OpIdx)
-        if (MN.getOperand(Lane, OpIdx)->getFrontier() == VL0)
+    for (int Lane : seq<int>(0, MN.getNumLanes()))
+      for (int OpIdx : seq<int>(0, MN.getNumOperands()))
+        if (MN.getData(OpIdx, Lane).getFrontier() == VL0)
           return true;
     return false;
   });
@@ -10822,7 +10861,8 @@ LLVM_DUMP_METHOD void BoUpSLP::MultiNode::dumpDot() const {
   OS << "}\n";
 }
 
-LLVM_DUMP_METHOD void BoUpSLP::LeafData::dump(void) const {
+LLVM_DUMP_METHOD void
+BoUpSLP::MultiNode::MNOperands::LeafData::dump(void) const {
   std::string Indent = "    ";
   dbgs() << Indent << "Used: " << Used << ", APO: " << APO << "\n";
   dbgs() << Indent << *Leaf << "\n";
@@ -10833,7 +10873,7 @@ LLVM_DUMP_METHOD void BoUpSLP::LeafData::dump(void) const {
   dbgs() << "\n";
 }
 
-LLVM_DUMP_METHOD void BoUpSLP::MultiNode::OpGroup::dump() const {
+LLVM_DUMP_METHOD void BoUpSLP::MultiNode::MNOperands::OpGroup::dump() const {
   auto VecModeStr = [](VecMode Mode) {
     switch (Mode) {
     case VecMode::Uninit:
