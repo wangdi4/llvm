@@ -54,30 +54,27 @@ namespace Validation
 
         /// @brief Adds mismatch information
         /// @param  [in]  in_Val            Mismatch value information        template<typename T>
-        void AddMismatch(const MismatchedVal& in_Val);
+        void AddMismatch(const MismatchedVal &in_Val) override;
 
         /// @brief Gets mismatch information by given mismatch index
         /// @param [in] index   Index of mismatch value in mismatch container
-        MismatchedVal GetMismatch(size_t index);
+        MismatchedVal GetMismatch(size_t index) override;
 
         /// @brief Number of mismatched values in mismatch container
-        size_t GetMismatchCount();
+        size_t GetMismatchCount() override;
 
-        bool isFailed();
+        bool isFailed() override;
 
         void Report();
 
         void ReportDetail();
 
-        void Clear();
+        void Clear() override;
 
         /// @brief returns pointer to object that contains statistics data
-        StatisticsCollector* GetStatistics()
-        {
-            return &mStatistics;
-        }
+        StatisticsCollector *GetStatistics() override { return &mStatistics; }
 
-    private:
+      private:
         std::string m_kernelName;
         /// @brief  Mismatched values container
         std::vector<MismatchedVal> mismatches;

@@ -938,51 +938,52 @@ namespace Validation
             return &instance;
         }
         //lazy-semantic getter for the BE plugin
-        DeviceBackend::ICLDevBackendPlugin* getBackendPlugin()
-        {
-            {
-                std::lock_guard<llvm::sys::Mutex> mutex(lock);
-                if (pOclRecorder)
-                    return pOclRecorder;
-                std::string LogDir, DumpPrefix;
+        DeviceBackend::ICLDevBackendPlugin *getBackendPlugin() override {
+          {
+            std::lock_guard<llvm::sys::Mutex> mutex(lock);
+            if (pOclRecorder)
+              return pOclRecorder;
+            std::string LogDir, DumpPrefix;
 
-                llvm::SmallString<MAX_LOG_PATH> logpath;
-                if (Intel::OpenCL::Utils::getEnvVar(LogDir,
-                                                    "OCLRECORDER_LOGDIR"))
-                  logpath = LogDir;
-                else llvm::sys::fs::current_path(logpath);
+            llvm::SmallString<MAX_LOG_PATH> logpath;
+            if (Intel::OpenCL::Utils::getEnvVar(LogDir, "OCLRECORDER_LOGDIR"))
+              logpath = LogDir;
+            else
+              llvm::sys::fs::current_path(logpath);
 
-                char argv0[MAX_LOG_PATH];
-                size_t addr = 0;
-                llvm::SmallString<MAX_LOG_PATH> fileName;
-                fileName = llvm::sys::path::stem(llvm::sys::fs::getMainExecutable(argv0, &addr));
+            char argv0[MAX_LOG_PATH];
+            size_t addr = 0;
+            llvm::SmallString<MAX_LOG_PATH> fileName;
+            fileName = llvm::sys::path::stem(
+                llvm::sys::fs::getMainExecutable(argv0, &addr));
 
-                if (!Intel::OpenCL::Utils::getEnvVar(DumpPrefix,
-                                                     "OCLRECORDER_DUMPPREFIX"))
-                  DumpPrefix = std::string(Validation::FILE_PREFIX);
+            if (!Intel::OpenCL::Utils::getEnvVar(DumpPrefix,
+                                                 "OCLRECORDER_DUMPPREFIX"))
+              DumpPrefix = std::string(Validation::FILE_PREFIX);
 
-                fileName = fileName.empty() ? DumpPrefix
-                                            : std::string(fileName.c_str()) +
-                                                  "." + DumpPrefix;
+            fileName = fileName.empty()
+                           ? DumpPrefix
+                           : std::string(fileName.c_str()) + "." + DumpPrefix;
 
-                llvm::sys::fs::make_absolute(logpath);
-                pOclRecorder = new OCLRecorder(std::string(logpath.c_str()), std::string(fileName));
-            }
-            assignSourceRecorder();
-            return pOclRecorder;
+            llvm::sys::fs::make_absolute(logpath);
+            pOclRecorder = new OCLRecorder(std::string(logpath.c_str()),
+                                           std::string(fileName));
+          }
+          assignSourceRecorder();
+          return pOclRecorder;
         }
         //lazy-semantic getter for the FE plugin
-        Frontend::ICLFrontendPlugin* getFrontendPlugin()
-        {
-            {
-                std::lock_guard<llvm::sys::Mutex> mutex(lock);
-                if (pSourceRecorder)
-                    return pSourceRecorder;
-                pSourceRecorder = new OclSourceRecorder();
-            }
-            assignSourceRecorder();
-            return pSourceRecorder;
+        Frontend::ICLFrontendPlugin *getFrontendPlugin() override {
+          {
+            std::lock_guard<llvm::sys::Mutex> mutex(lock);
+            if (pSourceRecorder)
+              return pSourceRecorder;
+            pSourceRecorder = new OclSourceRecorder();
+          }
+          assignSourceRecorder();
+          return pSourceRecorder;
         }
+
     private:
         //a pointer for the bytecode-level recorder.
         OCLRecorder* pOclRecorder;

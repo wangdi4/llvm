@@ -28,7 +28,7 @@
 #include <limits>
 #include <list>
 
-#include <gtest/gtest.h>
+#include "gtest_wrapper.h"
 
 using namespace Validation;
 
@@ -1554,9 +1554,9 @@ typedef ::testing::Types< uint8_t, uint16_t, uint32_t, uint64_t > UnsignedDGType
 typedef ::testing::Types< int8_t, int16_t, int32_t, int64_t > SignedDGTypes;
 typedef ::testing::Types< CFloat16, float, double > FloatDGTypes;
 
-TYPED_TEST_CASE(DataGeneratorTypedUnsigned, UnsignedDGTypes);
-TYPED_TEST_CASE(DataGeneratorTypedSigned, SignedDGTypes);
-TYPED_TEST_CASE(DataGeneratorTypedFloat, FloatDGTypes);
+TYPED_TEST_SUITE(DataGeneratorTypedUnsigned, UnsignedDGTypes, );
+TYPED_TEST_SUITE(DataGeneratorTypedSigned, SignedDGTypes, );
+TYPED_TEST_SUITE(DataGeneratorTypedFloat, FloatDGTypes, );
 
 template <typename T> void TestGenerateRandomVectors(DataTypeVal dataTypeVal)
 {

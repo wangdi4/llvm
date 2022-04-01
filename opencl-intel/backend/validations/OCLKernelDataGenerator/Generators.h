@@ -66,7 +66,7 @@ namespace Validation
         {}
         ///@brief responsible for data generating preporation
         ///@param [in] ptr is a pointer to IMemoryObject(buffer of image)
-        virtual void Generate(const IMemoryObject *ptr);
+        virtual void Generate(const IMemoryObject *ptr) override;
         ///@brief generates data into buffer
         ///@param [in out] p is a pointer to buffer data
         ///@param [in] n_elems - number of elements to generate
@@ -99,9 +99,10 @@ namespace Validation
         {}
         ///@brief responsible for data generating preparation
         ///@param [in] ptr is a pointer to IMemoryObject(buffer of image)
-        virtual void Generate(const IMemoryObject *ptr);
+        virtual void Generate(const IMemoryObject *ptr) override;
         ///@brief generates data into image
-        virtual void GenerateImage(const void* p, const uint64_t pixels_in_row, const ImageDesc &imdesc)=0;
+        virtual void GenerateImage(const void *p, const uint64_t pixels_in_row,
+                                   const ImageDesc &imdesc) = 0;
     };
 
     ///responsible for filling image with random values
@@ -118,12 +119,14 @@ namespace Validation
         ///@param [in out] p is a pointer to image data
         ///@param [in] pixels_in_row - number of elements to generate
         ///@param [in] imdesc - image description
-        virtual void GenerateImage(const void* p, const uint64_t pixels_in_row, const ImageDesc &imdesc);
+      virtual void GenerateImage(const void *p, const uint64_t pixels_in_row,
+                                 const ImageDesc &imdesc) override;
+
     private:
         ///@brief generate and pack one single pixel
         ///param [in out] p is a pointer to image data
         ///param [in] imdesc is image description
-        void GenerateAndPackPixel(const void* p, const ImageDesc &imdesc);
+      void GenerateAndPackPixel(void *p, const ImageDesc &imdesc);
     };
 
     ///responsible for filling buffer with constant value
@@ -143,7 +146,9 @@ namespace Validation
         ///@param [in out] p is a pointer to buffer data
         ///@param [in] n_elems - number of elements to generate
         ///@param [in] stride - stride between these elements
-        virtual void GenerateBuffer(void *p, uint64_t n_elems, uint64_t stride);
+      virtual void GenerateBuffer(void *p, uint64_t n_elems,
+                                  uint64_t stride) override;
+
     private:
         T m_fillVal;
     };
@@ -163,7 +168,8 @@ namespace Validation
         ///@param [in out] p is a pointer to buffer data
         ///@param [in] n_elems - number of elements to generate
         ///@param [in] stride - stride between these elements
-        virtual void GenerateBuffer(void *p, uint64_t n_elems, uint64_t stride);
+      virtual void GenerateBuffer(void *p, uint64_t n_elems,
+                                  uint64_t stride) override;
     };
 
     ///implements factory method
@@ -205,7 +211,8 @@ namespace Validation
         ///@param [in out] p is a pointer to buffer data
         ///@param [in] n_elems - number of elements to generate
         ///@param [in] stride - stride between these elements
-        virtual void GenerateBuffer(void *p, uint64_t n_elems, uint64_t stride);
+      virtual void GenerateBuffer(void *p, uint64_t n_elems,
+                                  uint64_t stride) override;
     };
 }
 

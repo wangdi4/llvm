@@ -51,7 +51,7 @@ class Prefix: public ParserState{
 public:
   Prefix(): m_endPattern(false){}
 
-  void process(std::istream& cstream){
+  void process(std::istream &cstream) override {
     char c = cstream.peek();
     if('_' != c)
       ParserState::process(cstream);
@@ -61,7 +61,7 @@ public:
     }
   }
 
-  State next()const { return m_endPattern ? TYPENAME : PREFIX;}
+  State next() const override { return m_endPattern ? TYPENAME : PREFIX; }
 };
 
 class TypeName: public ParserState{
@@ -69,7 +69,7 @@ class TypeName: public ParserState{
 public:
   TypeName(): m_next(TYPENAME){}
 
-  void process(std::istream& cstream){
+  void process(std::istream &cstream) override {
     char c = cstream.peek();
     if (isdigit(c))
       m_next = TYPELEN;
@@ -80,9 +80,7 @@ public:
       ParserState::process(cstream);
   }
 
-  State next()const {
-    return m_next;
-  }
+  State next() const override { return m_next; }
 };
 
 class TypeLen : public ParserState{
@@ -91,7 +89,7 @@ public:
   TypeLen(): m_next(TYPELEN){
   }
 
-  void process(std::istream& cstream){
+  void process(std::istream &cstream) override {
     char c = cstream.peek();
     if (!cstream.good())
       return;
@@ -104,12 +102,12 @@ public:
     }
   }
 
-  State next()const{return m_next;}
+  State next() const override { return m_next; }
 };
 
 class Postfix: public ParserState{
 public:
-  State next()const{return POSTFIX;}
+  State next() const override { return POSTFIX; }
 };
 
 ConversionDescriptor::ConversionDescriptor(const std::string& s): m_width(1){

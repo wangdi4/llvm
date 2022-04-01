@@ -1191,7 +1191,8 @@ FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *i
 #define NORMALIZE_UNROUNDED( v, max ) ( v < 0 ? 0 : ( v > 1.f ? max :  v * max ) )
 #define NORMALIZE_SIGNED( v, min, max ) ( v  < -1.0f ? min : ( v > 1.f ? max : round_to_even( v * max ) ) )
 #define NORMALIZE_SIGNED_UNROUNDED( v, min, max ) ( v  < -1.0f ? min : ( v > 1.f ? max : v * max ) )
-#define CONVERT_INT( v, min, max, max_val)  ( v < min ? min : ( v > max ? max_val : round_to_even( v ) ) )
+#define CONVERT_INT(v, min, max, max_val)                                      \
+  (v < min ? (int)min : (v > max ? (int)max_val : (int)round_to_even(v)))
 #define CONVERT_UINT( v, max, max_val)  ( v < 0 ? 0 : ( v > max ? max_val : round_to_even( v ) ) )
 
     void pack_image_pixel( float *srcVector, const cl_image_format *imageFormat, void *outData )

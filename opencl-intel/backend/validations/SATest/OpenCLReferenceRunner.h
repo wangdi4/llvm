@@ -54,21 +54,24 @@ namespace Validation
         /// @param [IN] program Test program to execute
         /// @param [IN] programConfig Test program configuration options
         /// @param [IN] runConfig Configuration of the test run.
-        virtual void Run( IRunResult* runResult,
-                          const IProgram * program,
-                          const IProgramConfiguration* programConfig,
-                          const IRunComponentConfiguration* runConfig);
+        virtual void Run(IRunResult *runResult, const IProgram *program,
+                         const IProgramConfiguration *programConfig,
+                         const IRunComponentConfiguration *runConfig) override;
 
         /// @brief Load the output from file 
         /// @param [OUT] runResult Result of test program execution
         /// @param [IN] config Configuration of the test run
-        virtual void LoadOutput(IRunResult* pRunResult, const IProgramConfiguration* pConfig);
+        virtual void LoadOutput(IRunResult *pRunResult,
+                                const IProgramConfiguration *pConfig) override;
 
         /// @brief Load the output from file 
         /// @param [IN] runResult Result of test program execution
         /// @param [IN] config Configuration of the test run
-        virtual void StoreOutput(const IRunResult* pRunResult, const IProgramConfiguration* pConfig) const;
-    private:
+        virtual void
+        StoreOutput(const IRunResult *pRunResult,
+                    const IProgramConfiguration *pConfig) const override;
+
+      private:
         // TODO: Maybe we should detach copying from inBuffer to outBuffer into
         // another function.
         /// @brief Copies data from inBuffer to outBuffer, checks if data type
@@ -175,12 +178,8 @@ namespace Validation
         /// Values of kernel arguments which are passed via pointers.
         std::vector<void*> m_pointerArgs;
 
-        llvm::LLVMContext*      m_pLLVMContext;
-        llvm::Module*           m_pModule;      // test program module
-        llvm::Module*           m_pRTModule;    // run-time module
-        llvm::Function*         m_pKernel;      // kernel to run
-        llvm::ExecutionEngine*  m_pExecEngine;  // interpreter
-        llvm::NEATPlugIn*       m_pNEAT;        // NEAT plug-in
+        llvm::Module *m_pModule;   // test program module
+        llvm::Function *m_pKernel; // kernel to run
         /// map of OCL program inputs to NEATGenericValue s
         std::map<llvm::Value *, llvm::NEATGenericValue> m_NEATArgValues;
         // pointers to allocated cl_mem_obj_descriptor structures

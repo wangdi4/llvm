@@ -38,11 +38,11 @@ namespace Validation
 
         ~RunResultComparison();
 
-        IComparisonResults* GetComparison( const char* name ) ;
+        IComparisonResults *GetComparison(const char *name) override;
 
-        bool isFailed() const { return m_failed; }
+        bool isFailed() const override { return m_failed; }
 
-    public:
+      public:
         void AddComparison( const char* name, IComparisonResults* comparison);
 
         void SetIsFailedStatus( bool failed ) { m_failed = failed; }
@@ -69,31 +69,36 @@ namespace Validation
 
         /// @brief Returns test execution output
         /// @return Test output
-        virtual IBufferContainerList& GetOutput(const char * name);
-        virtual const IBufferContainerList& GetOutput(const char * name) const;
+        virtual IBufferContainerList &GetOutput(const char *name) override;
+        virtual const IBufferContainerList &
+        GetOutput(const char *name) const override;
 
         /// @brief Returns test execution NEAT output
         /// @return Test NEAT output
-        virtual IBufferContainerList& GetNEATOutput(const char* name);
-        virtual const IBufferContainerList& GetNEATOutput(const char* name) const;
+        virtual IBufferContainerList &GetNEATOutput(const char *name) override;
+        virtual const IBufferContainerList &
+        GetNEATOutput(const char *name) const override;
 
         /// @brief Returns pointer to the list of boolean values that signal comparator if it can omit corresponding kernel argument.
         /// @param name Name of the kernel.
-        virtual const std::vector<bool>* GetComparatorIgnoreList(const char* name);
+        virtual const std::vector<bool> *
+        GetComparatorIgnoreList(const char *name) override;
 
         /// @brief Sets ignore list for the kernel with the provided name.
         /// @param name Name of the kernel.
         /// @param ignoreList The list of boolean values that signal comparator if it can omit corresponding kernel argument.
-        virtual void SetComparatorIgnoreList(const char* name, const std::vector<bool>& ignoreList);
+        virtual void
+        SetComparatorIgnoreList(const char *name,
+                                const std::vector<bool> &ignoreList) override;
 
         /// @brief Returns test execution performance measurements
         /// @return Test performance measurements
-        virtual IPerformance& GetPerformance();
+        virtual IPerformance &GetPerformance() override;
 
         /// @brief Returns number of output buffers
-        virtual size_t GetOutputsCount() const;
+        virtual size_t GetOutputsCount() const override;
 
-    private:
+      private:
         /// hide copy constructor
         RunResult(const RunResult& );
         /// hide assignment operator

@@ -147,7 +147,7 @@ namespace Validation
         /// Generates data with method defined in BufferFillMethodDesc
         /// structure inside BufferContainerListFillMethod structure
         /// @param  [inout]  p pointer to interface for BufferContainerList
-        virtual void Read(IContainer *p);
+        virtual void Read(IContainer *p) override;
 
         /// @brief Static function to set buffer parameters according to
         /// BufferDesc and BufferFillMethodDesc

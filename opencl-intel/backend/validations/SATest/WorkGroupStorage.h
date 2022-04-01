@@ -35,58 +35,58 @@ public:
     ///for work-group built-ins. specific function for work_group_all.
     ///work_group_any builtins
     ///@return reference to llvm::GenericValue
-    virtual llvm::GenericValue& GetValueForWorkGroupAllAnyBuiltin(){
-        return m_Predicate;
+    virtual llvm::GenericValue &GetValueForWorkGroupAllAnyBuiltin() override {
+      return m_Predicate;
     }
 
     ///Get reference to accumulative value. Needed to collect data
     ///for work-group built-ins. specific function for work_group_broadcast builtin
     ///@return reference to llvm::GenericValue
-    virtual llvm::GenericValue& GetValueForBroadcastBuiltin(){
-        return m_BroadcastedValue;
+    virtual llvm::GenericValue &GetValueForBroadcastBuiltin() override {
+      return m_BroadcastedValue;
     }
 
     ///Get reference to accumulative value. Needed to collect data
     ///for work-group built-ins. specific function for work_group_reduce builtin
     ///@return reference to llvm::GenericValue
-    virtual llvm::GenericValue& GetValueForReduceBuiltin(){
-        return m_ReduceValue;
+    virtual llvm::GenericValue &GetValueForReduceBuiltin() override {
+      return m_ReduceValue;
     }
 
     ///Get reference to accumulative value. Needed to collect data
     ///for work-group built-ins. specific function for work_group_scan builtin
     ///@return reference to llvm::GenericValue
-    virtual llvm::GenericValue& GetValueForScanBuiltin(){
-        return m_ScanValue;
+    virtual llvm::GenericValue &GetValueForScanBuiltin() override {
+      return m_ScanValue;
     }
 
     ///Report that someone is referencing to instance of class
     ///@param [in] string lock  built-in who is referencing to instance
     ///@param [in] GenericValue init initialize with this value on very first run
-    virtual void AddRef(const std::string& lock, const llvm::GenericValue init){
-        if(m_LockedBy!=std::string()&&m_RefCounter)
-            assert(lock==m_LockedBy&&"Two different work group builtins \
+    virtual void AddRef(const std::string &lock,
+                        const llvm::GenericValue init) override {
+      if (m_LockedBy != std::string() && m_RefCounter)
+        assert(lock == m_LockedBy && "Two different work group builtins \
                                      are executing in the same time");
-        if(!m_RefCounter)
-            initializeWithValue(init);
+      if (!m_RefCounter)
+        initializeWithValue(init);
 
-        m_LockedBy = lock;
-        ++m_RefCounter;
+      m_LockedBy = lock;
+      ++m_RefCounter;
     }
 
     ///Report that reference to instance of supreclass is no longer needed.
     ///reinitializes object with zero referenced objects
-    virtual void DecRef(){
-        --m_RefCounter;
-    }
-private:
-    ///initialize accumulators with given value
-    ///@param [in] GenericValue init 
-    void initializeWithValue(const llvm::GenericValue init){
-        m_Predicate=init;
-        m_BroadcastedValue=init;
-        m_ReduceValue=init;
-        m_ScanValue=init;
+    virtual void DecRef() override { --m_RefCounter; }
+
+  private:
+    /// initialize accumulators with given value
+    ///@param [in] GenericValue init
+    void initializeWithValue(const llvm::GenericValue init) {
+      m_Predicate = init;
+      m_BroadcastedValue = init;
+      m_ReduceValue = init;
+      m_ScanValue = init;
     }
 
     ///accumulative variable stored within work group

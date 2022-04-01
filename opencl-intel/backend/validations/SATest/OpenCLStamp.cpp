@@ -84,13 +84,13 @@ namespace Validation
 
 
    std::vector<uint8_t>  OCLStamp::generateMD5 (const std::vector<uint8_t>& buffer) {
-       MD5 md5((uint8_t*)&buffer[0], buffer.size());
-       MD5Code res = md5.digest();
-       uint8_t *pRes = (uint8_t *)(res.code());
+     MD5 md5(const_cast<uint8_t *>(&buffer[0]), buffer.size());
+     MD5Code res = md5.digest();
+     uint8_t *pRes = const_cast<uint8_t *>(res.code());
 
-       // set calculated MD5
-       std::vector<uint8_t> outVec(pRes, pRes+m_stampLen);
-       return outVec;
+     // set calculated MD5
+     std::vector<uint8_t> outVec(pRes, pRes + m_stampLen);
+     return outVec;
    }
 
    void OCLStamp::readBinaryInputFile (const std::string inputFileName, std::vector<uint8_t>& buffer) {
@@ -120,15 +120,16 @@ namespace Validation
 
   std::vector<uint8_t> OCLStamp::calcStampKernelRef (const OpenCLKernelConfiguration * const config) {
 
-        size_t * pGlobalWorkOffset = (size_t*) config->GetGlobalWorkOffset();
-        size_t * pGlobalWorkSize = (size_t*) config->GetGlobalWorkSize();
-        size_t * pLocalWorkSize = (size_t*) config->GetLocalWorkSize();
+    size_t *pGlobalWorkOffset =
+        const_cast<size_t *>(config->GetGlobalWorkOffset());
+    size_t *pGlobalWorkSize = const_cast<size_t *>(config->GetGlobalWorkSize());
+    size_t *pLocalWorkSize = const_cast<size_t *>(config->GetLocalWorkSize());
 
-        std::vector<uint8_t> buffer;
+    std::vector<uint8_t> buffer;
 
-        if(config->GetInputFileType() == Binary) {
-            readBinaryInputFile(config->GetInputFilePath(), buffer);
-        }
+    if (config->GetInputFileType() == Binary) {
+      readBinaryInputFile(config->GetInputFilePath(), buffer);
+    }
 
         // add integer data to buffer
         uint32_t workDimension = uint32_t(config->GetWorkDimension());

@@ -141,8 +141,6 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
         case BC:
             BCOpenCLProgram(programFile);
             break;
-        default:
-            throw Exception::InvalidArgument("Unsupported byte code type.");
     }
 
 }

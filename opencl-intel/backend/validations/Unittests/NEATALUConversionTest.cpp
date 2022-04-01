@@ -14,7 +14,7 @@
 
 // \brief Tests for OpenCL vector load and store built-in functions (see spec. 6.11.7.) in NEATALU
 
-#include <gtest/gtest.h>            // Test framework
+#include "gtest_wrapper.h" // Test framework
 
 #include "DataGenerator.h"
 #include "DGHelper.h"
@@ -70,7 +70,7 @@ public:
 };
 
 typedef ::testing::Types<char,short,int,long,long long> IntTypesConversion;
-TYPED_TEST_CASE(NEATAluTypedConversion, IntTypesConversion);
+TYPED_TEST_SUITE(NEATAluTypedConversion, IntTypesConversion, );
 
 TYPED_TEST(NEATAluTypedConversion, convert_float)
 {

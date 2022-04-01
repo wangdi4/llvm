@@ -19,10 +19,10 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "OpenCLKernelArgumentsParser.h"
-#include <gtest/gtest.h>
-#include <string>
 #include "Buffer.h"
+#include "OpenCLKernelArgumentsParser.h"
+#include "gtest_wrapper.h"
+#include <string>
 
 using namespace llvm;
 using namespace Validation;

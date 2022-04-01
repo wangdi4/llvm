@@ -81,7 +81,7 @@ namespace Validation
     public:
         BERunOptions();
         /// @brief Init the configuration from the command line parameters
-        void InitFromCommandLine();
+        void InitFromCommandLine() override;
         template <typename T>
         T GetValue(RunConfigurationOption rc, T defaultValue) const {
             // TODO: notify via the logger to the user that default option value was returned.
@@ -143,7 +143,7 @@ namespace Validation
     public:
         ComparatorRunOptions();
         /// @brief Init the configuration from the command line parameters
-        void InitFromCommandLine();
+        void InitFromCommandLine() override;
         template <typename T>
         T GetValue(RunConfigurationOption rc, T defaultValue) const {
             // TODO: notify via the logger to the user that default option value was returned.
@@ -162,7 +162,7 @@ namespace Validation
     public:
         ReferenceRunOptions();
         /// @brief Init the configuration from the command line parameters
-        void InitFromCommandLine();
+        void InitFromCommandLine() override;
         template <typename T>
         T GetValue(RunConfigurationOption rc, T defaultValue) const {
             // TODO: notify via the logger to the user that default option value was returned.
@@ -188,30 +188,33 @@ namespace Validation
         OpenCLRunConfiguration();
 
         /// @brief Init the configuration from the command line parameters
-        virtual void InitFromCommandLine();
+        virtual void InitFromCommandLine() override;
 
         /// @brief Returns true if reference should be used in validation mode
-        virtual bool UseReference() const;
+        virtual bool UseReference() const override;
 
         /// @brief Returns true if reference should be unconditionally generated
-        virtual bool GetForceReference() const;
+        virtual bool GetForceReference() const override;
 
         /// @brief Set "force_ref" flag to passed value.
-        virtual void SetForceReference(bool enable);
+        virtual void SetForceReference(bool enable) override;
 
         /// @brief Returns current test mode.
-        virtual TEST_MODE TestMode() const;
+        virtual TEST_MODE TestMode() const override;
 
         /// @brief Returns pointer to the object with comparator configuration
-        virtual const IRunComponentConfiguration* GetComparatorConfiguration() const;
+        virtual const IRunComponentConfiguration *
+        GetComparatorConfiguration() const override;
 
         /// @brief Returns pointer to the object with reference runner configuration
-        virtual const IRunComponentConfiguration* GetReferenceRunnerConfiguration() const;
+        virtual const IRunComponentConfiguration *
+        GetReferenceRunnerConfiguration() const override;
 
         /// @brief Returns pointer to the object with back-end runner configuration
-        virtual IRunComponentConfiguration* GetBackendRunnerConfiguration();
+        virtual IRunComponentConfiguration *
+        GetBackendRunnerConfiguration() override;
 
-    private:
+      private:
         // SATest options
         bool m_useReference;
         bool m_forceReference;

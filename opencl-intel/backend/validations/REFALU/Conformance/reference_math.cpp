@@ -13,13 +13,13 @@
 // License.
 
 #include "reference_math.h"
-#include "imathLibd.h"
-#include <math.h>
-#include <limits.h>
 #include "CL/cl.h"
+#include "imathLibd.h"
+#include <limits.h>
+#include <math.h>
 
 #if !defined(_WIN32)
-//void  *memset(void *, int, size_t);
+// void  *memset(void *, int, size_t);
 #include <stdint.h>
 #pragma GCC diagnostic ignored "-Wall"
 #endif
@@ -109,35 +109,42 @@ namespace Conformance
 
     // Declare Classification macros for non-C99 platforms
     #ifndef isinf
-        #define isinf(x)    (   sizeof (x) == sizeof(float )    ?   fabsf(x) == INFINITY    \
-                            :   sizeof (x) == sizeof(double)    ?   fabs(x) == INFINITY     \
-                            :   fabsl(x) == INFINITY)
-    #endif
+#define isinf(x)                                                               \
+  (sizeof(x) == sizeof(float)    ? fabsf((float)x) == INFINITY                 \
+   : sizeof(x) == sizeof(double) ? fabs((double)x) == INFINITY                 \
+                                 : fabsl((long double)x) == INFINITY)
+#endif
 
-    #ifndef isfinite
-        #define isfinite(x) (   sizeof (x) == sizeof(float )    ?   fabsf(x) < INFINITY     \
-                            :   sizeof (x) == sizeof(double)    ?   fabs(x) < INFINITY      \
-                            :   fabsl(x) < INFINITY)
-    #endif
+#ifndef isfinite
+#define isfinite(x)                                                            \
+  (sizeof(x) == sizeof(float)    ? fabsf((float)x) < INFINITY                  \
+   : sizeof(x) == sizeof(double) ? fabs((double)x) < INFINITY                  \
+                                 : fabsl((long double)x) < INFINITY)
+#endif
 
-    #ifndef isnan
-        #define isnan(_a)       ( (_a) != (_a) )
-    #endif
+#ifndef isnan
+#define isnan(_a) ((_a) != (_a))
+#endif
 
-    #ifdef __MINGW32__
-        #undef isnormal
-    #endif
+#ifdef __MINGW32__
+#undef isnormal
+#endif
 
-    #ifndef isnormal
-        #define isnormal(x) (   sizeof (x) == sizeof(float )    ?   (fabsf(x) < INFINITY && fabsf(x) >= FLT_MIN)    \
-                            :   sizeof (x) == sizeof(double)    ?   (fabs(x) < INFINITY && fabs(x) >= DBL_MIN)  \
-                            :   (fabsl(x) < INFINITY && fabsl(x) >= LDBL_MIN)   )
-    #endif
+#ifndef isnormal
+#define isnormal(x)                                                            \
+  (sizeof(x) == sizeof(float)                                                  \
+       ? (fabsf((float)x) < INFINITY && fabsf((float)x) >= FLT_MIN)            \
+   : sizeof(x) == sizeof(double)                                               \
+       ? (fabs((double)x) < INFINITY && fabs((double)x) >= DBL_MIN)            \
+       : (fabsl((long double)x) < INFINITY &&                                  \
+          fabsl((long double)x) >= LDBL_MIN))
+#endif
 
-    #ifndef islessgreater
-        // Note: Non-C99 conformant. This will trigger floating point exceptions. We don't care about that here.
-        #define islessgreater( _x, _y )     ( (_x) < (_y) || (_x) > (_y) )
-    #endif
+#ifndef islessgreater
+    // Note: Non-C99 conformant. This will trigger floating point exceptions. We
+    // don't care about that here.
+#define islessgreater(_x, _y) ((_x) < (_y) || (_x) > (_y))
+#endif
 
     // #pragma STDC FP_CONTRACT OFF - unknown pragma warning
     static void __log2_ep(double *hi, double *lo, double x);
@@ -896,10 +903,10 @@ namespace Conformance
         __m128 va = _mm_set_ss( (float) a );
         __m128 vb = _mm_set_ss( (float) b );
         va = _mm_add_ss( va, vb );
-        _mm_store_ss( (float*) &a, va );
-    #else
+        _mm_store_ss(const_cast<float *>(&a), va);
+#else
         a += b;
-    #endif
+#endif
         return (double) a;
     }
     double reference_subtract( double x, double y )
@@ -911,10 +918,10 @@ namespace Conformance
         __m128 va = _mm_set_ss( (float) a );
         __m128 vb = _mm_set_ss( (float) b );
         va = _mm_sub_ss( va, vb );
-        _mm_store_ss( (float*) &a, va );
-    #else
+        _mm_store_ss(const_cast<float *>(&a), va);
+#else
         a -= b;
-    #endif
+#endif
         return a;
     }
 
@@ -928,10 +935,10 @@ namespace Conformance
         __m128 va = _mm_set_ss( (float) a );
         __m128 vb = _mm_set_ss( (float) b );
         va = _mm_mul_ss( va, vb );
-        _mm_store_ss( (float*) &a, va );
-    #else
+        _mm_store_ss(const_cast<float *>(&a), va);
+#else
         a *= b;
-    #endif
+#endif
         return a;
     }
 
@@ -1726,12 +1733,22 @@ namespace Conformance
             r = half*y+p/q;
             z = one;    /* lgamma(1+s) = log(s) + lgamma(s) */
             switch(i) {
-            case 7: z *= (y+6.0);   /* FALLTHRU */
-            case 6: z *= (y+5.0);   /* FALLTHRU */
-            case 5: z *= (y+4.0);   /* FALLTHRU */
-            case 4: z *= (y+3.0);   /* FALLTHRU */
-            case 3: z *= (y+2.0);   /* FALLTHRU */
-                r += reference_log(z); break;
+            case 7:
+              z *= (y + 6.0);
+              [[clang::fallthrough]]; /* FALLTHRU */
+            case 6:
+              z *= (y + 5.0);
+              [[clang::fallthrough]]; /* FALLTHRU */
+            case 5:
+              z *= (y + 4.0);
+              [[clang::fallthrough]]; /* FALLTHRU */
+            case 4:
+              z *= (y + 3.0);
+              [[clang::fallthrough]]; /* FALLTHRU */
+            case 3:
+              z *= (y + 2.0); /* FALLTHRU */
+              r += reference_log(z);
+              break;
             }
         /* 8.0 <= x < 2**58 */
         } else if (ix < 0x43900000) {
@@ -2666,10 +2683,10 @@ namespace Conformance
         __m128d va = _mm_set_sd( (double) a );
         __m128d vb = _mm_set_sd( (double) b );
         va = _mm_add_sd( va, vb );
-        _mm_store_sd( (double*) &a, va );
-    #else
+        _mm_store_sd(const_cast<double *>(&a), va);
+#else
         a += b;
-    #endif
+#endif
         return (long double) a;
     }
 
@@ -2683,10 +2700,10 @@ namespace Conformance
         __m128d va = _mm_set_sd( (double) a );
         __m128d vb = _mm_set_sd( (double) b );
         va = _mm_sub_sd( va, vb );
-        _mm_store_sd( (double*) &a, va );
-    #else
+        _mm_store_sd(const_cast<double *>(&a), va);
+#else
         a -= b;
-    #endif
+#endif
         return (long double) a;
     }
 
@@ -2700,10 +2717,10 @@ namespace Conformance
         __m128d va = _mm_set_sd( (double) a );
         __m128d vb = _mm_set_sd( (double) b );
         va = _mm_mul_sd( va, vb );
-        _mm_store_sd( (double*) &a, va );
-    #else
+        _mm_store_sd(const_cast<double *>(&a), va);
+#else
         a *= b;
-    #endif
+#endif
         return (long double) a;
     }
 
@@ -2737,7 +2754,7 @@ namespace Conformance
     int reference_islessequall( long double x, long double y){ return x <= y; }
     int reference_islessgreaterl( long double x, long double y){  return 0 != islessgreater( x, y ); }
     int reference_isnanl( long double x){ return 0 != isnan( x ); }
-    int reference_isnormall( long double x){ return 0 != isnormal( (double) x ); }
+    int reference_isnormall(long double x) { return 0 != isnormal(x); }
     int reference_isnotequall( long double x, long double y){ return x != y; }
     int reference_isorderedl( long double x, long double y){ return x == x && y == y; }
     int reference_isunorderedl( long double x, long double y){ return isnan(x) || isnan( y ); }

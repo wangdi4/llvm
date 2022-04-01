@@ -31,24 +31,18 @@ namespace Validation
         /// @brief Destructor
         virtual ~DXProgramConfiguration(void);
 
-        /// @brief Returns the program file path 
-        std::string GetProgramFilePath() const
-        {
-            throw "Not implemented";
+        /// @brief Returns the program file path
+        std::string GetProgramFilePath() const override {
+          throw "Not implemented";
         }
 
         /// @brief Returns the program name
-        std::string GetProgramName() const
-        {
-            throw "Not implemented";
-        }
+        std::string GetProgramName() const override { throw "Not implemented"; }
 
         /// @brief Return number of kernel configurations to run.
-        size_t GetNumberOfKernelConfigurations() const
-        {
-            throw "Not implemented";
+        size_t GetNumberOfKernelConfigurations() const override {
+          throw "Not implemented";
         }
-
     };
 
 }

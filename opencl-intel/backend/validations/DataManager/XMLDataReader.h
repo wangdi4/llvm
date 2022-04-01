@@ -19,9 +19,7 @@
 #include <limits>
 #include <fstream>
 
-#define TIXML_USE_STL
-#include "tinyxml.h"
-
+#include "tinyxml_wrapper.h"
 #include "llvm/Support/DataTypes.h"
 
 #include "IDataReader.h"
@@ -56,32 +54,32 @@ namespace Validation
         /// @param [INOUT] - pContainer pointer to object with 
         ///        IBufferContainerList interface
         /// @throws Exception::InvalidArgument, Exception::IOError
-        void Read(IContainer * pContainer)
-        {
-            IBufferContainerList * pBCL = 
-              static_cast<IBufferContainerList*>(pContainer);
-            if(NULL == pBCL)
-                throw Exception::InvalidArgument("XMLBufferContainerListReader"
-                "::Read Input object is NULL");
+        void Read(IContainer *pContainer) override {
+          IBufferContainerList *pBCL =
+              static_cast<IBufferContainerList *>(pContainer);
+          if (NULL == pBCL)
+            throw Exception::InvalidArgument("XMLBufferContainerListReader"
+                                             "::Read Input object is NULL");
 
-            TiXmlDocument XMLDoc;
-            if (!XMLDoc.LoadFile(m_fileName.c_str())){
-                std::stringstream ss;
-                ss << "at line " << XMLDoc.ErrorRow();
-                ss << ", column " << XMLDoc.ErrorCol();
-                ss << ", " <<  XMLDoc.ErrorDesc() << std::endl;
-                throw Exception::IOError(ss.str());
-            }
+          TiXmlDocument XMLDoc;
+          if (!XMLDoc.LoadFile(m_fileName.c_str())) {
+            std::stringstream ss;
+            ss << "at line " << XMLDoc.ErrorRow();
+            ss << ", column " << XMLDoc.ErrorCol();
+            ss << ", " << XMLDoc.ErrorDesc() << std::endl;
+            throw Exception::IOError(ss.str());
+          }
 
-            TiXmlHandle h(&XMLDoc);
-            TiXmlElement* pXMLNode = h.FirstChild("ICSCData").ToElement();
-            if (NULL == pXMLNode)
-                throw Exception::IOError("XMLBufferContainerListReader::"
+          TiXmlHandle h(&XMLDoc);
+          TiXmlElement *pXMLNode = h.FirstChild("ICSCData").ToElement();
+          if (NULL == pXMLNode)
+            throw Exception::IOError(
+                "XMLBufferContainerListReader::"
                 "XMLBufferContainerListReader cannot open node ");
 
-            XMLBufferContainerListReadWrite rw;
-            rw.ReadWriteBufferContainerList(pBCL, pXMLNode, 
-              IXMLReadWriteBase::READ);
+          XMLBufferContainerListReadWrite rw;
+          rw.ReadWriteBufferContainerList(pBCL, pXMLNode,
+                                          IXMLReadWriteBase::READ);
         }
 
     private:

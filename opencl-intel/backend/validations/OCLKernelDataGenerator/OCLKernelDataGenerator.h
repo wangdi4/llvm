@@ -49,24 +49,21 @@ namespace Validation
 
         ///@brief allocates memory and generates data
         ///@param [in out] p is a pointer to BufferContainerList
-        virtual void Read(IContainer *p);
+        virtual void Read(IContainer *p) override;
 
         ///@brief visit Buffer
         ///@param [in out] p is a Buffer
-        virtual void visitBuffer(const IMemoryObject* p)
-        {
-            visitBufferAndImage(p);
+        virtual void visitBuffer(const IMemoryObject *p) override {
+          visitBufferAndImage(p);
         }
 
-        virtual void visitBufferContainerList(const IBufferContainerList* p){
-        }
-        virtual void visitBufferContainer(const IBufferContainer* p){
-        }
+        virtual void
+        visitBufferContainerList(const IBufferContainerList *p) override {}
+        virtual void visitBufferContainer(const IBufferContainer *p) override {}
         ///@brief visit Image
         ///@param [in out] p is an Image
-        virtual void visitImage(const IMemoryObject* p)
-        {
-            visitBufferAndImage(p);
+        virtual void visitImage(const IMemoryObject *p) override {
+          visitBufferAndImage(p);
         }
 
         inline AbstractGenerator* GetArgumentFillMethod(int indx)

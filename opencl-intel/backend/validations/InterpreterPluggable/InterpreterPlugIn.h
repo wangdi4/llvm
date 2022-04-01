@@ -40,7 +40,7 @@ namespace llvm {
 
         /// event after instruction execution
         virtual void handlePostInstExecution(Instruction& ) = 0;
-
+        virtual ~InterpreterPlugIn() {}
     };
 
 } // namespace llvm

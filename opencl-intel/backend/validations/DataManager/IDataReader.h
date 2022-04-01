@@ -26,6 +26,7 @@ namespace Validation
         /// @brief Loads from data file.
         /// @param [OUT] pContainer pointer to object with IContainer interface
         virtual void Read(IContainer * pContainer) = 0;
+        virtual ~IDataReader() {}
     };
 } // End of Validation namespace
 #endif // __I_DATA_READER_H__

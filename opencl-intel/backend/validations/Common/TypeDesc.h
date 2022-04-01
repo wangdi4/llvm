@@ -213,14 +213,15 @@ namespace Validation
         uint64_t GetNumOfSubTypes() const {return m_subTypes.size();}
         void SetNumOfSubTypes(uint64_t n) {SetUpSubTypes(n);}
 
-        virtual void SetNeat(const bool inNEAT);
-        virtual bool IsNEAT() const;
+        virtual void SetNeat(const bool inNEAT) override;
+        virtual bool IsNEAT() const override;
 
-        virtual IMemoryObjectDesc * Clone() const
-        { return new TypeDesc(*this); }
+        virtual IMemoryObjectDesc *Clone() const override {
+          return new TypeDesc(*this);
+        }
 
         /// @brief get Name of class
-        virtual std::string GetName() const{return "TypeDesc"; }
+        virtual std::string GetName() const override { return "TypeDesc"; }
 
         /// Gets number of elements in array/vector or number of elements accessed by pointer.
         uint64_t GetNumberOfElements() const
@@ -289,7 +290,7 @@ namespace Validation
         void SetOffsetInStruct (uint64_t offset) {m_offsetInStruct = offset;}
 
         /// Returns object size of m_type data type in bytes.
-        std::size_t GetSizeInBytes() const;
+        std::size_t GetSizeInBytes() const override;
 
         /// Returns string representation of data type (not including sub types!).
         std::string TypeToString() const

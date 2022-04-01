@@ -18,7 +18,7 @@
 /// Common class for ALU tests. Each NEAT ALU test can use it as a base class
 /// It prints seed if the test fails
 
-#include <gtest/gtest.h>            // Test framework
+#include "gtest_wrapper.h" // Test framework
 
 #include "DGHelper.h"
 

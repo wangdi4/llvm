@@ -115,12 +115,12 @@ namespace Validation {
 
     void ImageRandomGenerator::GenerateImage(const void* p, const uint64_t pixels_in_row, const ImageDesc &imdesc)
     {
-        uint8_t* p_row = (uint8_t*)p;
-        for(uint64_t i = 0; i < pixels_in_row; ++i)
-        {
-            GenerateAndPackPixel(p_row, imdesc);
-            p_row += ImageDesc::CalcPixelSizeInBytes(imdesc.GetImageChannelDataType(), imdesc.GetImageChannelOrder());
-        }
+      uint8_t *p_row = reinterpret_cast<uint8_t *>(const_cast<void *>(p));
+      for (uint64_t i = 0; i < pixels_in_row; ++i) {
+        GenerateAndPackPixel(p_row, imdesc);
+        p_row += ImageDesc::CalcPixelSizeInBytes(
+            imdesc.GetImageChannelDataType(), imdesc.GetImageChannelOrder());
+      }
     }
 
     template<typename T>
@@ -129,15 +129,17 @@ namespace Validation {
 
         for(uint32_t i = 0; i<channelCount; ++i)
         {
-            ( (T*)p )[i] = ( (T*)pixel )[i];
+          (reinterpret_cast<T *>(const_cast<void *>(p)))[i] =
+              (reinterpret_cast<T *>(const_cast<void *>(pixel)))[i];
         }
     }
 
-    void ImageRandomGenerator::GenerateAndPackPixel(const void* p, const ImageDesc &imdesc)
-    {
-        ImageChannelDataTypeValWrapper DataTypeWrapper(imdesc.GetImageChannelDataType());
-        void *pixel = new uint8_t[DataTypeWrapper.GetSize()*4];
-        
+    void ImageRandomGenerator::GenerateAndPackPixel(void *p,
+                                                    const ImageDesc &imdesc) {
+      ImageChannelDataTypeValWrapper DataTypeWrapper(
+          imdesc.GetImageChannelDataType());
+      void *pixel = new uint8_t[DataTypeWrapper.GetSize() * 4];
+
 #define GENERATE_AND_PACK_PIX_CASE(DATA_TYPE) case DATA_TYPE:\
             for(uint32_t i =0; i<4; ++i)\
             {\

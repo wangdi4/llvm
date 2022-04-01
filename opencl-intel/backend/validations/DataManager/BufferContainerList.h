@@ -48,39 +48,34 @@ namespace Validation
             }
         }
 
-        virtual std::size_t GetBufferContainerCount() const
-        {
-            return m_BCV.size();
+        virtual std::size_t GetBufferContainerCount() const override {
+          return m_BCV.size();
         }
 
-        virtual IBufferContainer* CreateBufferContainer()
-        {
-            // Create a Buffer and put it into container.
-            BufferContainer* pBC = new BufferContainer();
-            m_BCV.push_back(pBC);
-            return pBC;
+        virtual IBufferContainer *CreateBufferContainer() override {
+          // Create a Buffer and put it into container.
+          BufferContainer *pBC = new BufferContainer();
+          m_BCV.push_back(pBC);
+          return pBC;
         }
 
-        virtual IBufferContainer* GetBufferContainer(std::size_t id) const
-        {
-            return (m_BCV[id]);
+        virtual IBufferContainer *
+        GetBufferContainer(std::size_t id) const override {
+          return (m_BCV[id]);
         }
 
-        void Accept( IContainerVisitor& visitor ) const
-        {
-            visitor.visitBufferContainerList(this);
-            for(BufferContainerVector::const_iterator it = m_BCV.begin(); it != m_BCV.end(); ++it)
-            {
-                (*it)->Accept(visitor);
-            }
+        void Accept(IContainerVisitor &visitor) const override {
+          visitor.visitBufferContainerList(this);
+          for (BufferContainerVector::const_iterator it = m_BCV.begin();
+               it != m_BCV.end(); ++it) {
+            (*it)->Accept(visitor);
+          }
         }
 
-        uint32_t GetDataVersion() {
-            return readVersion;
-        }
+        uint32_t GetDataVersion() override { return readVersion; }
 
-        void SetDataVersion(uint32_t const inDataVersion) {
-            readVersion = inDataVersion;
+        void SetDataVersion(uint32_t const inDataVersion) override {
+          readVersion = inDataVersion;
         }
 
     private:

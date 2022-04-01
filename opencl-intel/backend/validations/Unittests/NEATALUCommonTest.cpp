@@ -13,7 +13,7 @@
 // License.
 
 // \brief Tests for OpenCL common built-in functions (see spec. 6.11.4.) in NEATALU
-#include <gtest/gtest.h>            // Test framework
+#include "gtest_wrapper.h" // Test framework
 
 #include "DataGenerator.h"
 
@@ -72,7 +72,7 @@ public:
 };
 
 typedef ::testing::Types<float, double> FloatTypesCommon;
-TYPED_TEST_CASE(NEATAluTypedCommon, FloatTypesCommon);
+TYPED_TEST_SUITE(NEATAluTypedCommon, FloatTypesCommon, );
 
 TYPED_TEST(NEATAluTypedCommon, step)
 {
@@ -386,7 +386,7 @@ static NEATValue max_ref(const NEATValue& xVal, const NEATValue& yVal)
 }
 
 typedef ::testing::Types<float, double> FloatTypesCommon;
-TYPED_TEST_CASE(NEATAluTypedCommon, FloatTypesCommon);
+TYPED_TEST_SUITE(NEATAluTypedCommon, FloatTypesCommon, );
 
 TYPED_TEST(NEATAluTypedCommon, max)
 {
@@ -676,7 +676,7 @@ class NEATDegRadTestRun : public ALUTest {
 };
 
 typedef ::testing::Types<ValueTypeContainer<float,true>,ValueTypeContainer<float,false>,ValueTypeContainer<double,true>,ValueTypeContainer<double,false> > FloatTypesCommon2;
-TYPED_TEST_CASE(NEATDegRadTestRun, FloatTypesCommon2);
+TYPED_TEST_SUITE(NEATDegRadTestRun, FloatTypesCommon2, );
 TYPED_TEST(NEATDegRadTestRun, radians)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
@@ -807,8 +807,8 @@ public:
     }
 };
 
-TYPED_TEST_CASE(NEATCommonTestOneArg, FloatTypesCommon2);
-TYPED_TEST_CASE(NEATCommonTestThreeArgs, FloatTypesCommon2);
+TYPED_TEST_SUITE(NEATCommonTestOneArg, FloatTypesCommon2, );
+TYPED_TEST_SUITE(NEATCommonTestThreeArgs, FloatTypesCommon2, );
 
 template <typename T>
 static void testSignResult (NEATValue xVal, NEATValue testVal)

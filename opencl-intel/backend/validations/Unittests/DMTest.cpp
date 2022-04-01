@@ -18,7 +18,7 @@
 #include <limits>
 #include <list>
 
-#include <gtest/gtest.h>
+#include "gtest_wrapper.h"
 
 #include "VectorWidth.h"
 #include "DataType.h"

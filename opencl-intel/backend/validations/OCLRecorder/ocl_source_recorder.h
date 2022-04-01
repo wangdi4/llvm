@@ -60,7 +60,7 @@ public:
   static FileIter end();
   struct FileIterException: public std::exception{
   public:
-    const char* what() const throw();
+    const char *what() const noexcept override;
   };
 private:
 
@@ -84,10 +84,11 @@ public:
   ~OclSourceRecorder();
   //
   //invoked when a program is being linked
-  void OnLink(const Intel::OpenCL::Frontend::LinkData* linkData);
+  void OnLink(const Intel::OpenCL::Frontend::LinkData *linkData) override;
   //
   //invoked when a program is being compiled
-  void OnCompile(const Intel::OpenCL::Frontend::CompileData* compileData);
+  void
+  OnCompile(const Intel::OpenCL::Frontend::CompileData *compileData) override;
   //
   //begin iterator for the files which need to be generated for a configuration
   //file

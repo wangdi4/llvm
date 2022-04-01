@@ -24,7 +24,6 @@ if (WIN32)
 else ()
   set ( ICC_AUXILIARY_CXX_FLAGS "-fp-model extended -pc80 -prec-div" )
   set ( ICC_AUXILIARY_C_FLAGS   "-fp-model extended -pc80 -prec-div" )
-  llvm_replace_compiler_option(CMAKE_CXX_FLAGS "-Werror" "")
 endif()
 
 include_directories( ${VALIDATIONS_ROOT}/Common )

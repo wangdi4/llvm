@@ -6637,8 +6637,8 @@ private:
     template<typename T, uint32_t n>
     static void vstore(NEATVector data, size_t offset, const NEATValue* p) {
         for (unsigned int i = 0; i < n; ++i) {
-            NEATValue * pData = (NEATValue *)(p+offset*n+i);
-            *pData = data[i];
+          NEATValue *pData = const_cast<NEATValue *>(p + offset * n + i);
+          *pData = data[i];
         }
     }
 public:

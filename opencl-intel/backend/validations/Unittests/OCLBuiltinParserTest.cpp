@@ -12,9 +12,9 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <gtest/gtest.h>
-#include "Exception.h"
 #include "OCLBuiltinParser.h"
+#include "Exception.h"
+#include "gtest_wrapper.h"
 
 using namespace llvm;
 using namespace Validation;

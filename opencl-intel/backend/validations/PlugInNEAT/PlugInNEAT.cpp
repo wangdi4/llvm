@@ -1845,7 +1845,6 @@ void NEATPlugIn::visitExtractValueInst( ExtractValueInst &I )
 
   ExtractValueInst::idx_iterator IdxBegin = I.idx_begin();
   unsigned Num = I.getNumIndices();
-  ArrayRef<unsigned> neatIndex;
 
   for (unsigned i = 0 ; i < Num; ++i) {
     unsigned idx = *IdxBegin;

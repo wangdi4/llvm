@@ -380,9 +380,9 @@ void DataGenerator::FillBuffer(const BufferFillMethodDesc& bfmd, IMemoryObject* 
         }
         break;
     case INVALID_FILL_METHOD:
-    default:
-        throw Exception::InvalidArgument("[DataGenerator::FillBuffer] Invalid fill method");
-        break;
+      throw Exception::InvalidArgument(
+          "[DataGenerator::FillBuffer] Invalid fill method");
+      break;
     }
 }
 

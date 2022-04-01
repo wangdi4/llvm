@@ -19,10 +19,6 @@ if (WIN32)
     add_definitions(
         -wd4996 # Suppress 'function': was declared deprecated'
     )
-else(WIN32)
-    # remove the restriction of warning as error for this component
-    remove_definitions( -Werror )
-    set ( CMAKE_CXX_FLAGS   "${CMAKE_CXX_FLAGS} -Wno-overflow" )
 endif(WIN32)
 
 include_directories(
@@ -48,7 +44,7 @@ include_directories(
     ${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser
     ${CMAKE_CURRENT_SOURCE_DIR}/Common
     ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
-    ${GTEST_INCLUDE_DIR}
+    ${OCL_SOURCE_DIR}/tests/test_utils/export
 )
 
 if (OPENCL_INTREE_BUILD)

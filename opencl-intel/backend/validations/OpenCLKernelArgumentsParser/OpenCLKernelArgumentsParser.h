@@ -33,16 +33,20 @@ namespace Validation
         /// @param [IN] programObject LLVM program object
         /// @param [IN] kernelName Name of kernel
         /// @return list of kernel argument descriptions
-        OCLKernelArgumentsList KernelArgumentsParser(const std::string& kernelName,const llvm::Module* programObject);
-        /// @brief static function that tries to guess 
-        /// number of pointed elements by pointer
-        /// @param [IN] Args - reference to output of arg parser
-        /// @param [IN] globalworksize is the pointer to array that 
-        /// contains number of work items for dimention i
-        /// @param [IN] dim the number of dimentions
-        /// @return new list of arguments
-        static OCLKernelArgumentsList KernelArgHeuristics(const OCLKernelArgumentsList &Args,
-                                                            const size_t* globalworksize, const uint64_t dim);
+      OCLKernelArgumentsList
+      KernelArgumentsParser(const std::string &kernelName,
+                            const llvm::Module *programObject) override;
+      /// @brief static function that tries to guess
+      /// number of pointed elements by pointer
+      /// @param [IN] Args - reference to output of arg parser
+      /// @param [IN] globalworksize is the pointer to array that
+      /// contains number of work items for dimention i
+      /// @param [IN] dim the number of dimentions
+      /// @return new list of arguments
+      static OCLKernelArgumentsList
+      KernelArgHeuristics(const OCLKernelArgumentsList &Args,
+                          const size_t *globalworksize, const uint64_t dim);
+
     private:
         /// @brief parse of struct
         /// @param [IN] struct of LLVM program object

@@ -12,11 +12,11 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <cassert>
-#include <gtest/gtest.h>
-#include "plugin_manager.h"
 #include "compile_data.h"
+#include "gtest_wrapper.h"
+#include "plugin_manager.h"
 #include "source_file.h"
+#include <cassert>
 #include <link_data.h>
 #if defined(_WIN32)
 #include <windows.h>

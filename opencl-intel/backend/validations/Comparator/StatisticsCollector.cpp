@@ -59,9 +59,6 @@ void StatisticsCollector::Finalize()
         case COUNT:
             (it->second).res = (double)(it->second).count;
             break;
-        default:
-            throw Exception::InvalidArgument("Type of statistics is invalid in Finalize");
-            break;
         }
     }
 }

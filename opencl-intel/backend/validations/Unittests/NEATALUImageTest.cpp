@@ -12,7 +12,7 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <gtest/gtest.h>            // Test framework
+#include "gtest_wrapper.h" // Test framework
 #include <memory>
 
 #include "DataGenerator.h"

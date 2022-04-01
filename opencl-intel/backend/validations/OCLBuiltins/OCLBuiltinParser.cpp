@@ -193,19 +193,19 @@ typedef Singleton<ArgVectorMap> ArgVectorMapSingleton;
         return newArg;
     }
 
-    void visit(const reflection::PrimitiveType* p) {
+    void visit(const reflection::PrimitiveType *p) override {
       newArg.basicType = BasicTypeConvertor[p->toString()];
       newArg.genType = OCLBuiltinParser::BASIC;
     }
 
-    void visit(const reflection::VectorType* p) {
+    void visit(const reflection::VectorType *p) override {
       p->getScalarType()->accept(this);
       newArg.vecType.elType = newArg.basicType;
       newArg.vecType.elNum = p->getLength();
       newArg.genType = OCLBuiltinParser::VECTOR;
     }
 
-    void visit(const reflection::PointerType* p) {
+    void visit(const reflection::PointerType *p) override {
 
       llvm::OCLBuiltinParser::ARG pointerArg;
 
@@ -216,15 +216,15 @@ typedef Singleton<ArgVectorMap> ArgVectorMapSingleton;
       newArg.ptrType.ptrToStr = p->toString();
     }
 
-    void visit(const reflection::AtomicType* p) {
+    void visit(const reflection::AtomicType *p) override {
       assert(false && "need to support Atomic Parameter type");
     }
 
-    void visit(const reflection::BlockType* p) {
+    void visit(const reflection::BlockType *p) override {
       assert(false && "need to support Block Parameter type");
     }
 
-    void visit(const reflection::UserDefinedType* p) {
+    void visit(const reflection::UserDefinedType *p) override {
       //user defined type, in OCL, its images
       std::string gotString = p->toString();
       size_t found_1d = gotString.find("image1d");
@@ -241,7 +241,6 @@ typedef Singleton<ArgVectorMap> ArgVectorMapSingleton;
          newArg.genType = OCLBuiltinParser::NA;
       }
     }
-
   };
 
 

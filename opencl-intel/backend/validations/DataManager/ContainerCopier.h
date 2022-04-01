@@ -42,41 +42,41 @@ namespace Validation
             return m_pList;
         }
 
-        virtual void visitImage( const IMemoryObject* in_pImage )
-        {
-            assert(m_pList->GetBufferContainerCount() == 1);
-            IBufferContainer* pBc = m_pList->GetBufferContainer(0);
-            const IMemoryObjectDesc* pDesc = in_pImage->GetMemoryObjectDesc();
-            std::unique_ptr<ImageDesc> pNewDesc(static_cast<ImageDesc *>(pDesc->Clone()));
-            IMemoryObject* pNewBuf = pBc->CreateImage(*pNewDesc);
-            void *pNewData = pNewBuf->GetDataPtr();
-            void *pOldData = in_pImage->GetDataPtr();
-            const ImageDesc *pImgDesc = 
-                static_cast<const ImageDesc *>(in_pImage->GetMemoryObjectDesc());
-            memcpy(pNewData, pOldData, pImgDesc->GetSizeInBytes());
+        virtual void visitImage(const IMemoryObject *in_pImage) override {
+          assert(m_pList->GetBufferContainerCount() == 1);
+          IBufferContainer *pBc = m_pList->GetBufferContainer(0);
+          const IMemoryObjectDesc *pDesc = in_pImage->GetMemoryObjectDesc();
+          std::unique_ptr<ImageDesc> pNewDesc(
+              static_cast<ImageDesc *>(pDesc->Clone()));
+          IMemoryObject *pNewBuf = pBc->CreateImage(*pNewDesc);
+          void *pNewData = pNewBuf->GetDataPtr();
+          void *pOldData = in_pImage->GetDataPtr();
+          const ImageDesc *pImgDesc =
+              static_cast<const ImageDesc *>(in_pImage->GetMemoryObjectDesc());
+          memcpy(pNewData, pOldData, pImgDesc->GetSizeInBytes());
         }
 
-        virtual void visitBuffer( const IMemoryObject* in_pBuffer )
-        {
-            assert(m_pList->GetBufferContainerCount() == 1);
-            IBufferContainer* pBc = m_pList->GetBufferContainer(0);
-            const IMemoryObjectDesc* pDesc = in_pBuffer->GetMemoryObjectDesc();
-            std::unique_ptr<BufferDesc> pNewDesc(static_cast<BufferDesc *>(pDesc->Clone()));
-            IMemoryObject* pNewBuf = pBc->CreateBuffer(*pNewDesc);
-            void *pNewData = pNewBuf->GetDataPtr();
-            void *pOldData = in_pBuffer->GetDataPtr();
-            const BufferDesc *pBufDesc = 
-                static_cast<const BufferDesc *>(in_pBuffer->GetMemoryObjectDesc());
-            memcpy(pNewData, pOldData, pBufDesc->GetSizeInBytes());
+        virtual void visitBuffer(const IMemoryObject *in_pBuffer) override {
+          assert(m_pList->GetBufferContainerCount() == 1);
+          IBufferContainer *pBc = m_pList->GetBufferContainer(0);
+          const IMemoryObjectDesc *pDesc = in_pBuffer->GetMemoryObjectDesc();
+          std::unique_ptr<BufferDesc> pNewDesc(
+              static_cast<BufferDesc *>(pDesc->Clone()));
+          IMemoryObject *pNewBuf = pBc->CreateBuffer(*pNewDesc);
+          void *pNewData = pNewBuf->GetDataPtr();
+          void *pOldData = in_pBuffer->GetDataPtr();
+          const BufferDesc *pBufDesc = static_cast<const BufferDesc *>(
+              in_pBuffer->GetMemoryObjectDesc());
+          memcpy(pNewData, pOldData, pBufDesc->GetSizeInBytes());
         }
 
-        virtual void visitBufferContainer( const IBufferContainer* pBufferContainer)
-        {
-            // Do nothing
+        virtual void visitBufferContainer(
+            const IBufferContainer *pBufferContainer) override {
+          // Do nothing
         }
-        virtual void visitBufferContainerList( const IBufferContainerList* pBufferContainerList )
-        {
-            assert(false);
+        virtual void visitBufferContainerList(
+            const IBufferContainerList *pBufferContainerList) override {
+          assert(false);
         }
 
     private:

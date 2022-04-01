@@ -44,9 +44,11 @@ namespace Validation
                          const ReferenceRunOptions* pRefConfig);
 
         /// @brief Compares the result of two runs
-        virtual IRunResultComparison* Compare( IRunResult* volcanoRunResults, IRunResult* referenceRunResults ) const;
+        virtual IRunResultComparison *
+        Compare(IRunResult *volcanoRunResults,
+                IRunResult *referenceRunResults) const override;
 
-    private:
+      private:
         bool    m_useNeat;
         double  m_ULPTolerance;
         bool    m_detailedStat;

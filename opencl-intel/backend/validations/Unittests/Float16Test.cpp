@@ -23,7 +23,7 @@
 #include "BufferContainer.h"
 #include "dxfloat.h"
 
-#include <gtest/gtest.h>
+#include "gtest_wrapper.h"
 
 using namespace Validation;
 using namespace Validation::Utils;

@@ -55,15 +55,12 @@ Class("class", cl::desc("Print Enum list for this class"),
 
 bool OCLTableGenAction(raw_ostream& OS, RecordKeeper& Records) {
   switch (Action) {
-    default:
-      assert(1 && "Invalid Action");
-      return true;
-    case PrintRecords:
-      OS << Records;
-      break;
-    case GenOCLBuiltisnHeader:
-      OclBuiltinsHeaderGen(Records).run(OS);
-      break;
+  case PrintRecords:
+    OS << Records;
+    break;
+  case GenOCLBuiltisnHeader:
+    OclBuiltinsHeaderGen(Records).run(OS);
+    break;
   }
 
   return false;

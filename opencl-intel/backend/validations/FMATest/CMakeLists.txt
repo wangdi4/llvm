@@ -14,7 +14,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}/common_runtime/icd
   ${BACKEND_ROOT_DIR}/ocl_cpu_backend
   ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
-  ${GTEST_INCLUDE_DIR}
+  ${OCL_SOURCE_DIR}/tests/test_utils/export
   )
 add_opencl_executable(${TARGET_NAME}
   EXCLUDE_FROM_ALL_BUILD

@@ -881,9 +881,7 @@ OclConversions::getTemplate(unsigned i, const std::string& TyName) const
             std::string RMode = this->getRMode().erase(0,1);
             ret << (RMode.size()==0?"RModeDef":RMode);
             break;
-        }
-    default:
-        throw;
+    }
     }
 
     return ret.str();

@@ -75,32 +75,34 @@ void UpdateCurrentSeed(void);
     vecWidth.SetValue(VectorWidth(vecW));\
     dataType.SetValue(dataTypeVal);
 
-#define GET_BUFFER_CONTAINER\
-    DataGenerator::SetBufferContainerListFillMethod(bclfm, bcfm);\
-    DataGenerator dg(bclfm);\
-    dg.Read(&list);\
-    seed = dg.GetSeed();\
-    T* data = (T*)list.GetBufferContainer(0)->GetMemoryObject(0)->GetDataPtr();\
-    T *arrOfVec = (T*)arr;\
-    for(uint32_t i = 0; i<n; i++) {\
-         for(uint32_t j = 0; j<vecWidth.GetSize(); j++) {\
-             arrOfVec[j] = data[j]; }\
-         arrOfVec += vecWidth.GetSize();\
-         data += vecWidth.GetSize();\
-    }
+#define GET_BUFFER_CONTAINER                                                   \
+  DataGenerator::SetBufferContainerListFillMethod(bclfm, bcfm);                \
+  DataGenerator dg(bclfm);                                                     \
+  dg.Read(&list);                                                              \
+  seed = dg.GetSeed();                                                         \
+  T *data = (T *)list.GetBufferContainer(0)->GetMemoryObject(0)->GetDataPtr(); \
+  T *arrOfVec = const_cast<T *>(arr);                                          \
+  for (uint32_t i = 0; i < n; i++) {                                           \
+    for (uint32_t j = 0; j < vecWidth.GetSize(); j++) {                        \
+      arrOfVec[j] = data[j];                                                   \
+    }                                                                          \
+    arrOfVec += vecWidth.GetSize();                                            \
+    data += vecWidth.GetSize();                                                \
+  }
 
-#define GET_BUFFER_CONTAINER_SEED(seed)\
-    DataGenerator::SetBufferContainerListFillMethod(bclfm, bcfm);\
-    DataGenerator dg(bclfm,seed);\
-    dg.Read(&list);\
-    T* data = (T*)list.GetBufferContainer(0)->GetMemoryObject(0)->GetDataPtr();\
-    T *arrOfVec = (T*)arr;\
-    for(uint32_t i = 0; i<n; i++) {\
-         for(uint32_t j = 0; j<vecWidth.GetSize(); j++) {\
-             arrOfVec[j] = data[j]; }\
-         arrOfVec += vecWidth.GetSize();\
-         data += vecWidth.GetSize();\
-    }
+#define GET_BUFFER_CONTAINER_SEED(seed)                                        \
+  DataGenerator::SetBufferContainerListFillMethod(bclfm, bcfm);                \
+  DataGenerator dg(bclfm, seed);                                               \
+  dg.Read(&list);                                                              \
+  T *data = (T *)list.GetBufferContainer(0)->GetMemoryObject(0)->GetDataPtr(); \
+  T *arrOfVec = const_cast<T *>(arr);                                          \
+  for (uint32_t i = 0; i < n; i++) {                                           \
+    for (uint32_t j = 0; j < vecWidth.GetSize(); j++) {                        \
+      arrOfVec[j] = data[j];                                                   \
+    }                                                                          \
+    arrOfVec += vecWidth.GetSize();                                            \
+    data += vecWidth.GetSize();                                                \
+  }
 
 /// @brief Static function to generate a number of random vectors and
 /// returns the internally calculated seed used for data generation
