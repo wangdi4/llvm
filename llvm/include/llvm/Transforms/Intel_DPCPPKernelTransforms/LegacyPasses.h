@@ -73,6 +73,7 @@ FunctionPass *createAddFastMathLegacyPass();
 ModulePass *createAddTLSGlobalsLegacyPass();
 ModulePass *createReduceCrossBarrierValuesLegacyPass();
 ModulePass *createResolveMatrixFillLegacyPass();
+ModulePass *createResolveMatrixLayoutLegacyPass();
 ModulePass *createResolveMatrixWISliceLegacyPass();
 ModulePass *createResolveSubGroupWICallLegacyPass(
     const SmallVector<Module *, 2> &BuiltinModules = SmallVector<Module *, 2>(),

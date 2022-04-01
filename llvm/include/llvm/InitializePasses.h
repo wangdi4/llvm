@@ -762,6 +762,7 @@ void initializePrepareKernelArgsLegacyPass(PassRegistry &);
 void initializeReduceCrossBarrierValuesLegacyPass(PassRegistry &);
 void initializeRedundantPhiNodeLegacyPass(PassRegistry &);
 void initializeResolveMatrixFillLegacyPass(PassRegistry &);
+void initializeResolveMatrixLayoutLegacyPass(PassRegistry &);
 void initializeResolveMatrixWISliceLegacyPass(PassRegistry &);
 void initializeResolveSubGroupWICallLegacyPass(PassRegistry &);
 void initializeResolveWICallLegacyPass(PassRegistry &);
