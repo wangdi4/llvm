@@ -131,72 +131,6 @@ static Instruction *getFirstNonAllocaInTheEntryBlock(Function &F) {
   llvm_unreachable("No terminator in the entry block!");
 }
 
-static std::pair<Value *, Value *> getShape(IntrinsicInst *II, unsigned OpNo) {
-  IRBuilder<> Builder(II);
-  Value *Row = nullptr, *Col = nullptr;
-  switch (II->getIntrinsicID()) {
-  default:
-    llvm_unreachable("Expect amx intrinsics");
-  case Intrinsic::x86_tileloadd64_internal:
-  case Intrinsic::x86_tileloaddt164_internal:
-  case Intrinsic::x86_tilestored64_internal: {
-    Row = II->getArgOperand(0);
-    Col = II->getArgOperand(1);
-    break;
-  }
-  // a * b + c
-  // The shape depends on which operand.
-  case Intrinsic::x86_tdpbssd_internal:
-  case Intrinsic::x86_tdpbsud_internal:
-  case Intrinsic::x86_tdpbusd_internal:
-  case Intrinsic::x86_tdpbuud_internal:
-  case Intrinsic::x86_tdpbf16ps_internal: {
-    switch (OpNo) {
-    case 3:
-      Row = II->getArgOperand(0);
-      Col = II->getArgOperand(1);
-      break;
-    case 4:
-      Row = II->getArgOperand(0);
-      Col = II->getArgOperand(2);
-      break;
-    case 5:
-      if (isa<ConstantInt>(II->getArgOperand(2)))
-        Row = Builder.getInt16(
-            (cast<ConstantInt>(II->getOperand(2))->getSExtValue()) / 4);
-      else if (isa<Instruction>(II->getArgOperand(2))) {
-        // When it is not a const value and it is not a function argument, we
-        // create Row after the definition of II->getOperand(2) instead of
-        // before II. For example, II is %118, we try to getshape for %117:
-        //   %117 = call x86_amx @llvm.x86.cast.vector.to.tile.v256i32(<256 x
-        //   i32> %115).
-        //   %118 = call x86_amx @llvm.x86.tdpbf16ps.internal(i16
-        //   %104, i16 %105, i16 %106, x86_amx %110, x86_amx %114, x86_amx
-        //   %117).
-        // If we create %row = udiv i16 %106, 4 before %118(aka. II), then its
-        // definition is after its user(new tileload for %117).
-        // So, the best choice is to create %row right after the definition of
-        // %106.
-        Builder.SetInsertPoint(cast<Instruction>(II->getOperand(2)));
-        Row = Builder.CreateUDiv(II->getOperand(2), Builder.getInt16(4));
-        cast<Instruction>(Row)->moveAfter(cast<Instruction>(II->getOperand(2)));
-      } else {
-        // When it is not a const value and it is a function argument, we create
-        // Row at the entry bb.
-        IRBuilder<> NewBuilder(
-            getFirstNonAllocaInTheEntryBlock(*II->getFunction()));
-        Row = NewBuilder.CreateUDiv(II->getOperand(2), NewBuilder.getInt16(4));
-      }
-      Col = II->getArgOperand(1);
-      break;
-    }
-    break;
-  }
-  }
-
-  return std::make_pair(Row, Col);
-}
-
 #if INTEL_CUSTOMIZATION
 class ShapeCalculator {
 private:
@@ -209,6 +143,7 @@ private:
 public:
   ShapeCalculator(TargetMachine *TargetM) : TM(TargetM) {}
   std::pair<Value *, Value *> getShape(IntrinsicInst *II, unsigned OpNo);
+  std::pair<Value *, Value *> getShape(PHINode *Phi);
   Value *getRowFromCol(Instruction *II, Value *V, unsigned Granularity);
   Value *getColFromRow(Instruction *II, Value *V, unsigned Granularity);
 };
@@ -246,13 +181,9 @@ Value *ShapeCalculator::getColFromRow(Instruction *II, Value *V,
 }
 
 // TODO: Refine the row and col-in-bytes of tile to row and col of matrix.
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
 std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
                                                       unsigned OpNo) {
   (void)TM;
-#endif // INTEL_CUSTOMIZATION
   IRBuilder<> Builder(II);
   Value *Row = nullptr, *Col = nullptr;
   switch (II->getIntrinsicID()) {
@@ -267,7 +198,6 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
   }
   // a * b + c
   // The shape depends on which operand.
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FP19
   case Intrinsic::x86_tmmulfp19ps_internal:
 #endif // INTEL_FEATURE_ISA_AMX_FP19
@@ -275,7 +205,6 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
   case Intrinsic::x86_tcmmimfp16ps_internal:
   case Intrinsic::x86_tcmmrlfp16ps_internal:
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
-#endif // INTEL_CUSTOMIZATION
   case Intrinsic::x86_tdpbssd_internal:
   case Intrinsic::x86_tdpbsud_internal:
   case Intrinsic::x86_tdpbusd_internal:
@@ -322,7 +251,6 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
     }
     break;
   }
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FP19
   case Intrinsic::x86_ttmmulfp19ps_internal:
 #endif // INTEL_FEATURE_ISA_AMX_FP19
@@ -400,13 +328,12 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
     break;
   }
 #endif // INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
-#endif // INTEL_CUSTOMIZATION
   }
 
   return std::make_pair(Row, Col);
 }
 
-static std::pair<Value *, Value *> getShape(PHINode *Phi) {
+std::pair<Value *, Value *> ShapeCalculator::getShape(PHINode *Phi) {
   Use &U = *(Phi->use_begin());
   unsigned OpNo = U.getOperandNo();
   User *V = U.getUser();
@@ -435,6 +362,7 @@ static std::pair<Value *, Value *> getShape(PHINode *Phi) {
 
   return std::make_pair(nullptr, nullptr);
 }
+#endif // INTEL_CUSTOMIZATION
 
 namespace {
 class X86LowerAMXType {
@@ -1009,7 +937,7 @@ bool X86LowerAMXCast::optimizeAMXCastFromPhi(
         if (!isa<UndefValue>(IncValue) && !IncConst->isZeroValue())
           return false;
         Value *Row = nullptr, *Col = nullptr;
-        std::tie(Row, Col) = getShape(OldPN);
+        std::tie(Row, Col) = SC->getShape(OldPN); // INTEL
         // TODO: If it is not constant the Row and Col must domoniate tilezero
         // that we are going to create.
         if (!Row || !Col || !isa<Constant>(Row) || !isa<Constant>(Col))
