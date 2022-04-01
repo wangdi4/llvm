@@ -44,6 +44,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ReduceCrossBarrierValues.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/RedundantPhiNodePass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveMatrixFill.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveMatrixLayout.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveMatrixWISlice.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveSubGroupWICall.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveWICall.h"
