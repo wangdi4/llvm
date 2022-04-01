@@ -1649,6 +1649,12 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
     return false;
   }
 
+  if (isa<CallBrInst>(Term)) {
+    printOptReportRemark(Lp,
+                         "Call branch instruction currently not supported.");
+    return false;
+  }
+
   if (isa<InvokeInst>(Term) || isa<ResumeInst>(Term) ||
       isa<CatchSwitchInst>(Term) || isa<CatchReturnInst>(Term) ||
       isa<CleanupReturnInst>(Term)) {

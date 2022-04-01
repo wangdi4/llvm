@@ -7396,7 +7396,11 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
       return None;
     }
     QualType InteropType = Context.getTypeDeclType(TD);
+#if INTEL_COLLAB
+    if (!LangOpts.OpenMPLateOutline && PTy->isVariadic()) {
+#else // INTEL_COLLAB
     if (PTy->isVariadic()) {
+#endif // INTEL_COLLAB
       Diag(FD->getLocation(), diag::err_omp_append_args_with_varargs) << SR;
       return None;
     }

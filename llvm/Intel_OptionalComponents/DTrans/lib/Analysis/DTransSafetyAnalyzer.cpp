@@ -3577,7 +3577,7 @@ public:
         if (isLegalRelatedTypeUse(*ParamInfo)) {
           setAllAliasedTypeSafetyData(ParamInfo,
               dtrans::BadCastingForRelatedTypes,
-              "Formal paremeter is a related type of the actual parameter, "
+              "Formal parameter is a related type of the actual parameter, "
               "or vice-versa", &Call, DumpCallback);
           continue;
         }
@@ -5033,6 +5033,116 @@ private:
     return false;
   }
 
+  // Return true if all aliases in AliasesSet are zero element access of
+  // ParentTy
+  bool allAliasesAreZeroElement(DTransType *ParentTy,
+      ValueTypeInfo::PointerTypeAliasSetRef &AliasesSet) const {
+
+    // NOTE: For now we are going to check if all aliases are pointers to
+    // structures. We can expand this in the future to check if an alias is
+    // pointer then ParentTy should be a pointer, else if an alias is a
+    // structure then ParentTy is a structure.
+    if (!ParentTy || !isa<DTransPointerType>(ParentTy))
+      return false;
+
+    DTransType *CurrParentType = ParentTy->getPointerElementType();
+    if (!isa<DTransStructType>(CurrParentType))
+      return false;
+
+    // Collect the pointer element type from the aliases in the set. We are
+    // going to prove that they are zero element access of ParentTy.
+    //
+    // NOTE: This is conservative, perhaps we may be able to relax this check
+    // in the future.
+    SmallDenseMap<DTransType *, bool, 4> AliasesStructsMap;
+    for (auto *AliasTy : AliasesSet) {
+      if (AliasTy == ParentTy)
+        continue;
+
+      // Check if alias used is not a pointer to a structure.
+      DTransType* AliasedType = nullptr;
+      if (auto *PtrTy = dyn_cast<DTransPointerType>(AliasTy)) {
+        // We can skip i8* if it is in the aliased used set. The analysis
+        // process should take care if the use is unexpected (e.g. not a call
+        // to a memcpy or memmov, illegal load/store, etc.).
+        if (PtrTy == getDTransI8PtrType())
+          continue;
+        AliasedType = PtrTy->getPointerElementType();
+      } else {
+        return false;
+      }
+
+      if (!AliasedType)
+        return false;
+
+      if (AliasedType == CurrParentType)
+        continue;
+
+      if (!isa<DTransStructType>(AliasedType) &&
+          !isa<DTransArrayType>(AliasedType))
+        return false;
+
+      AliasesStructsMap.insert({AliasedType, false});
+    }
+
+    if (AliasesStructsMap.empty())
+      return false;
+
+    // Traversing through the zero element of the decl type should reach all
+    // the aliased and related types
+    SetVector<DTransType *> VisitedTypes;
+    while (CurrParentType) {
+      if (!VisitedTypes.insert(CurrParentType))
+        break;
+
+      if (auto *StructTy = dyn_cast<DTransStructType>(CurrParentType)) {
+        // If we find the 0 element type then continue
+        auto It = AliasesStructsMap.find(CurrParentType);
+        if (It != AliasesStructsMap.end()) {
+          It->second = true;
+        } else {
+          // Else check if getting the related type of the current
+          // structure is in the list
+          auto *TyInfo = DTInfo.getTypeInfo(CurrParentType);
+          auto *StInfo = dyn_cast_or_null<dtrans::StructInfo>(TyInfo);
+          // Note: Perhaps this should be an assertion
+          if (!StInfo)
+            return false;
+
+          auto *RelatedTypeInfo = StInfo->getRelatedType();
+          if (RelatedTypeInfo) {
+            // Now check if the related type is in the list. For example,
+            // the parent structure CurrParentType encapsulates a base
+            // structure, but the set of aliases contains the padded structure.
+            auto *RelatedDTType = RelatedTypeInfo->getDTransType();
+            auto ItRel = AliasesStructsMap.find(RelatedDTType);
+            if (ItRel != AliasesStructsMap.end())
+              ItRel->second = true;
+          }
+        }
+        if (StructTy->getNumFields() == 0)
+          break;
+
+        CurrParentType = StructTy->getFieldType(0);
+      } else if (auto *Arr = dyn_cast<DTransArrayType>(CurrParentType)) {
+        auto It = AliasesStructsMap.find(CurrParentType);
+        if (It != AliasesStructsMap.end())
+          It->second = true;
+
+        CurrParentType = Arr->getArrayElementType();
+      } else {
+        break;
+      }
+    }
+
+    // All related types where collected correctly
+    for (auto Pair : AliasesStructsMap)
+      if (!Pair.second)
+        return false;
+
+    return true;
+  }
+
   // Return true if all the alias pointers use (VAT_Use) in the input
   // ValueTypeInfo have related types and the related type is legal to use with
   // the alias pointer declaration (VAT_Decl). For example, assume that we have
@@ -5058,101 +5168,67 @@ private:
   // This function will return true because %struct.test.a.base is a related
   // type of %struct.test.a, and is the 0 element of %struct.test.b.
   bool isLegalRelatedTypeUse(ValueTypeInfo &Info) const {
+
     // ValueTypeInfo must be completely analyzed
     //
     // NOTE: conservative check, perhaps could be relaxed
     if (!Info.isCompletelyAnalyzed())
       return false;
 
-    // There should be only one declaration
-    DTransType *DeclType = nullptr;
-    for (auto *CurrTy : Info.getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl)) {
-      if (!DeclType)
-        DeclType = CurrTy;
-      else
-        return false;
-    }
+    ValueTypeInfo::PointerTypeAliasSetRef &DeclAliases =
+        Info.getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl);
+    ValueTypeInfo::PointerTypeAliasSetRef &UsedAliases =
+        Info.getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
 
-    // NOTE: For now we are going to check if VAT_Decl and VAT_Use are pointers
-    // to structures. We can expand this in the future to check if VAT_Decl is
-    // pointer then VAT_Use should be a pointer, else if VAT_Decl is a
-    // structure then VAT_Use is a structure.
-    if (!DeclType || !isa<DTransPointerType>(DeclType))
-      return false;
-
-    // All alias use must have a related type, or should be the same as
-    // as declaration type
+    // First we need to find which alias declared encapsulates all other
+    // aliases declared as a 0 element in case we have multiple declarations.
+    // For example, assume that &Info contains the following information:
     //
-    // NOTE: This is conservative, perhaps we may be able to relax this check
-    // in the future.
-    SmallDenseMap<DTransType *, bool, 2> RelatedTypesFromUsedAliases;
-    for (auto *AliasTy : Info.getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
-      if (AliasTy == DeclType)
-        continue;
-
-      // Check if aliased used is not a pointer to a structure.
-      DTransType* AliasedStruct = nullptr;
-      if (auto *PtrTy = dyn_cast<DTransPointerType>(AliasTy))
-        AliasedStruct = PtrTy->getPointerElementType();
-      else
-        return false;
-
-      if (!AliasedStruct || !isa<DTransStructType>(AliasedStruct))
-        return false;
-
-      if (AliasedStruct == DeclType)
-        continue;
-
-      auto *TyInfo = DTInfo.getTypeInfo(AliasedStruct);
-      auto *StInfo = dyn_cast_or_null<dtrans::StructInfo>(TyInfo);
-      if (!StInfo)
-        return false;
-
-      // There must be a related type
-      auto *RelatedTypeInfo = StInfo->getRelatedType();
-      if (!RelatedTypeInfo)
-        return false;
-
-      DTransType *RelatedType = RelatedTypeInfo->getDTransType();
-      assert(RelatedType &&
-             "Related type info set but the DTrans type is not set");
-
-      RelatedTypesFromUsedAliases.insert({RelatedType, false});
+    //  LocalPointerInfo: CompletelyAnalyzed
+    //  Declared Types:
+    //    Aliased types:
+    //      %struct.test.b*
+    //      %struct.test.a*
+    //    No element pointees.
+    //  Usage Types:
+    //    Aliased types:
+    //      %struct.test.a*
+    //      %struct.test.b*
+    //    No element pointees.
+    //
+    // This means that we have multiple declarations for the pointer. In this
+    // case we first need to find the declared type that encapsulates through
+    // the zero element all the declared types. From the example above, the
+    // zero element of structure %struct.test.b is %struct.test.a.base, which
+    // it's related type is %struct.test.a. Therefore, any alias use is OK
+    // because they are just zero element access.
+    DTransType *DeclType = nullptr;
+    if (DeclAliases.size() == 0) {
+      return false;
+    } else if (DeclAliases.size() == 1) {
+      DeclType = *(DeclAliases.begin());
+    } else {
+      DeclType = nullptr;
+      for (auto *CurrTy : DeclAliases) {
+        if (allAliasesAreZeroElement(CurrTy, DeclAliases)) {
+          // Only one type encapsulates all the types through the 0 element
+          if (!DeclType)
+            DeclType = CurrTy;
+          else
+            return false;
+        }
+      }
     }
 
-    if (RelatedTypesFromUsedAliases.empty())
+    if (!DeclType)
       return false;
 
-    // Traversing through the zero element of the decl type should reach all
-    // the related types
-    SetVector<DTransStructType *> VisitedTypes;
-
-    // NOTE: We already prove that DeclType is a pointer type.
-    DTransType *CurrDeclType = DeclType->getPointerElementType();
-
-    while (CurrDeclType) {
-      auto *StructTy = dyn_cast<DTransStructType>(CurrDeclType);
-      if (!StructTy)
-        break;
-
-      if (!VisitedTypes.insert(StructTy))
-        break;
-
-      if (RelatedTypesFromUsedAliases.count(StructTy) > 0)
-        RelatedTypesFromUsedAliases[StructTy] = true;
-
-      if (StructTy->getNumFields() == 0)
-        break;
-
-      CurrDeclType = StructTy->getFieldType(0);
-    }
-
-    // All related types where collected correctly
-    for (auto Pair : RelatedTypesFromUsedAliases)
-      if (!Pair.second)
-        return false;
-
-    return true;
+    // The alias declared must encapsulate all the alias used through the zero
+    // element access. From the examples above, in both cases we found that
+    // %struct.test.b* is the declare type, now we are going to prove that the
+    // used types (%struct.test.a* and %struct.test.b*) are zero element access
+    // and/or the same type.
+    return allAliasesAreZeroElement(DeclType, UsedAliases);
   }
 
   // Check whether any of the aliases that were collected for the declaration of

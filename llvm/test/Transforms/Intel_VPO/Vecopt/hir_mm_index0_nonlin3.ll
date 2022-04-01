@@ -2,9 +2,12 @@
 ; Test checks correct processing of min/max+index idiom with non-linear and linear indexes.
 ; Linear index appears after non-linear one.
 ; REQUIRES: asserts
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1 -disable-nonlinear-mmindex=0 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1  -disable-nonlinear-mmindex=1 -debug-only=parvec-analysis -vplan-force-vf=4 -S < %s 2>&1 | FileCheck --check-prefixes=DISABLED %s
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -enable-mmindex=1 -disable-nonlinear-mmindex=0 -vplan-force-vf=4  -S -print-after=hir-vplan-vec  < %s 2>&1 | FileCheck --check-prefix=CG_ENABLE %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir=false -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1 -disable-nonlinear-mmindex=0 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir=false -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1  -disable-nonlinear-mmindex=1 -debug-only=parvec-analysis -vplan-force-vf=4 -S < %s 2>&1 | FileCheck --check-prefixes=DISABLED %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir=false -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -enable-mmindex=1 -disable-nonlinear-mmindex=0 -vplan-force-vf=4  -S -print-after=hir-vplan-vec  < %s 2>&1 | FileCheck --check-prefix=CG_ENABLE %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1 -disable-nonlinear-mmindex=0 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1  -disable-nonlinear-mmindex=1 -debug-only=parvec-analysis -vplan-force-vf=4 -S < %s 2>&1 | FileCheck --check-prefixes=DISABLED %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -enable-mmindex=1 -disable-nonlinear-mmindex=0 -vplan-force-vf=4  -S -print-after=hir-vplan-vec  < %s 2>&1 | FileCheck --check-prefix=CG_ENABLE %s
 
 ; CHECK:  Reduction list
 ; CHECK-NEXT:   signed (SIntMax) Start: i32 [[BEST_0230:%.*]] Exit: i32 [[VP0:%.*]]
@@ -56,41 +59,22 @@
 ;DISABLED-NEXT  No idioms detected.
 ;
 ;CG_ENABLE: Function: maxloc
-;CG_ENABLE-EMPTY:
-;CG_ENABLE-NEXT: BEGIN REGION { modified }
-;CG_ENABLE-NEXT:       %tgu = (%m)/u4;
-;CG_ENABLE-NEXT:       if (0 <u 4 * %tgu)
-;CG_ENABLE-NEXT:       {
-;CG_ENABLE-NEXT:          %red.init = %best.023;
-;CG_ENABLE-NEXT:          %red.init1 = %tmp.024;
-;CG_ENABLE-NEXT:          %red.init2 = %val.025;
-;CG_ENABLE-NEXT:          %phi.temp = %red.init1;
-;CG_ENABLE-NEXT:          %phi.temp3 = %red.init2;
-;CG_ENABLE-NEXT:          %phi.temp5 = %red.init;
-;CG_ENABLE:               + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 536870911>   <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
-;CG_ENABLE-NEXT:          |   %.vec = (<4 x i32>*)(%ordering)[i1];
-;CG_ENABLE-NEXT:          |   %.vec7 = (%.vec > %phi.temp5) ? %.vec + 2 : %phi.temp3;
-;CG_ENABLE-NEXT:          |   %.vec8 = (%.vec > %phi.temp5) ? i1 + <i32 0, i32 1, i32 2, i32 3> : %phi.temp;
-;CG_ENABLE-NEXT:          |   %.vec9 = (%.vec > %phi.temp5) ? %.vec : %phi.temp5;
-;CG_ENABLE-NEXT:          |   %phi.temp = %.vec8;
-;CG_ENABLE-NEXT:          |   %phi.temp3 = %.vec7;
-;CG_ENABLE-NEXT:          |   %phi.temp5 = %.vec9;
-;CG_ENABLE-NEXT:          + END LOOP
-;CG_ENABLE:               %best.023 = @llvm.vector.reduce.smax.v4i32(%.vec9);
-;CG_ENABLE-NEXT:          %idx.blend = (%best.023 == %.vec9) ? %.vec8 : <i32 2147483647, i32 2147483647, i32 2147483647, i32 2147483647>;
-;CG_ENABLE-NEXT:          %tmp.024 = @llvm.vector.reduce.smin.v4i32(%idx.blend);
-;CG_ENABLE-NEXT:          %mmidx.cmp. = %tmp.024 == %.vec8;
-;CG_ENABLE-NEXT:          %bsfintmask = bitcast.<4 x i1>.i4(%mmidx.cmp.);
-;CG_ENABLE-NEXT:          %bsf = @llvm.cttz.i4(%bsfintmask,  1);
-;CG_ENABLE-NEXT:          %val.025 = extractelement %.vec7,  %bsf;
-;CG_ENABLE-NEXT:       }
-;CG_ENABLE:            + DO i1 = 4 * %tgu, %m + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>   <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
+;CG_ENABLE:               + END LOOP
+;CG_ENABLE:               %[[best023:.*]] = @llvm.vector.reduce.smax.v4i32(%.[[vec9:.*]]);
+;CG_ENABLE-NEXT:          %[[idxblend:.*]] = (%[[best023]] == %.[[vec9]]) ? %.[[vec8:.*]] : <i32 2147483647, i32 2147483647, i32 2147483647, i32 2147483647>;
+;CG_ENABLE-NEXT:          %[[tmp024:.*]] = @llvm.vector.reduce.smin.v4i32(%[[idxblend]]);
+;CG_ENABLE-NEXT:          %[[mmidxcmp:.*]] = %[[tmp024]] == %.[[vec8:.*]];
+;CG_ENABLE-NEXT:          %[[bsfintmask:.*]] = bitcast.<4 x i1>.i4(%[[mmidxcmp]]);
+;CG_ENABLE-NEXT:          %[[bsf:.*]] = @llvm.cttz.i4(%[[bsfintmask]],  1);
+;CG_ENABLE-NEXT:          %[[val025:.*]] = extractelement %.[[vec7:.*]],  %[[bsf]];
+;CG_ENABLE:            }
+;CG_ENABLE:            + DO i1 = {{.*}}, %m + -1, 1   <DO_LOOP>
 ;CG_ENABLE-NEXT:       |   %0 = (%ordering)[i1];
-;CG_ENABLE-NEXT:       |   %val.025 = (%0 > %best.023) ? %0 + 2 : %val.025;
-;CG_ENABLE-NEXT:       |   %tmp.024 = (%0 > %best.023) ? i1 : %tmp.024;
-;CG_ENABLE-NEXT:       |   %best.023 = (%0 > %best.023) ? %0 : %best.023;
+;CG_ENABLE-NEXT:       |   %[[val025]] = (%0 > %[[best023]]) ? %0 + 2 : %[[val025]];
+;CG_ENABLE-NEXT:       |   %[[tmp024]] = (%0 > %[[best023]]) ? i1 : %[[tmp024]];
+;CG_ENABLE-NEXT:       |   %[[best023]] = (%0 > %[[best023]]) ? %0 : %[[best023]];
 ;CG_ENABLE-NEXT:       + END LOOP
-;CG_ENABLE-NEXT: END REGION
+;CG_ENABLE:      END REGION
 ;
 ; source code
 ;int ordering[1000];

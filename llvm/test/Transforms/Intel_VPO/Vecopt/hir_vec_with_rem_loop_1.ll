@@ -13,15 +13,17 @@
 ; }
 ;
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir=false -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 
 ;
 ; HIR Test.
 ; CHECK: DO i1 = 0, 1019, 4   <DO_LOOP>
 ; CHECK: (<4 x i32>*)(@arr)[0][i1] = i1
 ; CHECK: END LOOP
-; CHECK: DO i1 = 1020, 1022, 1   <DO_LOOP>
+; CHECK: DO i1 = {{.*}}, 1022, 1   <DO_LOOP>
 ; CHECK: (@arr)[0][i1] = i1
 ; CHECK: END LOOP
 ; source_filename = "rem2.c"
