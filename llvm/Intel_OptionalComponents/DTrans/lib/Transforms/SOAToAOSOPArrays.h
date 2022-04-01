@@ -1294,6 +1294,12 @@ public:
         else if (ArrayIdioms::isExternaSideEffect(D, S)) {
           MC.HasExternalSideEffect = true;
           break;
+        } else if (auto *II = dyn_cast<IntrinsicInst>(&I)) {
+          if (II->getIntrinsicID() == Intrinsic::umax &&
+              isDependentOnIntegerFieldsOnly(D, S))
+            break;
+
+          DEBUG_WITH_TYPE(DTRANS_SOAARR, dbgs() << "; Unsupported intrinsic\n");
         }
         Handled = false;
         break;

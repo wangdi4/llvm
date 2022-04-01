@@ -1,6 +1,6 @@
 //===--------- SOAToAOSOPClassInfo.cpp - SOAToAOSOP Class Info Analysis ---===//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -2989,40 +2989,87 @@ bool ClassInfo::checkCapacityIncrementPattern(Value *Val, Argument *ThisObj) {
     return UToF->getOperand(0);
   };
 
-  ICmpInst::Predicate Pred;
-  Value *LHS;
-  Value *RHS;
-  Value *Cond;
   //       %cmp5 = icmp ult i32 %add, %add4
   //  Val: %spec.select = select i1 %cmp5, i32 %add4, i32 %add
-  if (!match(Val, m_Select(m_Value(Cond), m_Value(LHS), m_Value(RHS))) ||
-      !match(Cond, m_ICmp(Pred, m_Specific(RHS), m_Specific(LHS))) ||
-      Pred != ICmpInst::ICMP_ULT)
-    return false;
+  //
+  //  or
+  //
+  //  Val: %spec.select = i32 call intrin.umax(i32 %add4, i32 %add)
+  //
+  auto CheckUMax = [](Value *Val, Value **LHS, Value **RHS, Value **Cond) {
+    if (match(Val, m_Intrinsic<Intrinsic::umax>(m_Value(*LHS), m_Value(*RHS))))
+      return true;
 
-  Value *CurSize;
-  Value *Inc;
-  auto *Select = cast<SelectInst>(Val);
+    ICmpInst::Predicate Pred;
+    if (match(Val, m_Select(m_Value(*Cond), m_Value(*LHS), m_Value(*RHS))) &&
+        match(*Cond, m_ICmp(Pred, m_Specific(*RHS), m_Specific(*LHS))) &&
+        Pred == ICmpInst::ICMP_ULT)
+      return true;
+    return false;
+  };
+
+  // Check patterns of RHS and LHS:
+  //
   //      %0 = load i32, i32* %size
   // RHS: %add = add i32 %0, 1
-  if (!match(RHS, m_Add(m_Value(CurSize), m_Value(Inc))) ||
-      !match(Inc, m_One()) ||
-      !checkFieldOfArgClassLoad(CurSize, ThisObj, SizeField))
+  //
+  // LHS: Check if memory growth is in expected pattern.
+  //
+  auto CheckUMaxInputs =
+      [this, &AllowedMemGrowthPatternOne, AllowedMemGrowthPatternTwo](
+          Instruction *I, Value *LHS, Value *RHS, Argument *ThisObj) {
+        Value *Inc;
+        Value *CurSize;
+        //      %0 = load i32, i32* %size
+        // RHS: %add = add i32 %0, 1
+        if (!match(RHS, m_Add(m_Value(CurSize), m_Value(Inc))) ||
+            !match(Inc, m_One()) ||
+            !checkFieldOfArgClassLoad(CurSize, ThisObj, SizeField))
+          return false;
+
+        // Check if memory growth is in expected pattern.
+        Value *Ptr = AllowedMemGrowthPatternOne(LHS, ThisObj);
+        if (!Ptr) {
+          Ptr = AllowedMemGrowthPatternTwo(LHS, ThisObj);
+          if (!Ptr)
+            return false;
+        }
+        if (!isControlledUnderCapacityField(I->getParent(), ThisObj, RHS))
+          return false;
+        Visited.insert(cast<Instruction>(CurSize));
+        Visited.insert(cast<Instruction>(RHS));
+        return true;
+      };
+
+  Value *LHS = nullptr;
+  Value *RHS = nullptr;
+  Value *Cond = nullptr;
+
+  // Check if "Val" is computing UMax.
+  if (!CheckUMax(Val, &LHS, &RHS, &Cond))
     return false;
 
-  // Check if memory growth is in expected pattern.
-  Value *Ptr = AllowedMemGrowthPatternOne(LHS, ThisObj);
-  if (!Ptr) {
-    Ptr = AllowedMemGrowthPatternTwo(LHS, ThisObj);
-    if (!Ptr)
-      return false;
-  }
-  if (!isControlledUnderCapacityField(Select->getParent(), ThisObj, RHS))
+  auto *SelInst = cast<Instruction>(Val);
+
+  // Check LHS and RHS:
+  //       %cmp5 = icmp ult i32 RHS, LHS
+  //  Val: %spec.select = select i1 %cmp5, i32 LHS, i32 RHS
+  //
+  //  or
+  //
+  //  Val: %spec.select = i32 call intrin.umax(i32 LHS, i32 RHS)
+  //
+  //  or
+  //
+  //  Val: %spec.select = i32 call intrin.umax(i32 RHS, i32 LHS)
+  //
+  if (!CheckUMaxInputs(SelInst, LHS, RHS, ThisObj) &&
+      (Cond || !CheckUMaxInputs(SelInst, RHS, LHS, ThisObj)))
     return false;
-  Visited.insert(cast<Instruction>(Val));
-  Visited.insert(cast<Instruction>(Cond));
-  Visited.insert(cast<Instruction>(RHS));
-  Visited.insert(cast<Instruction>(CurSize));
+
+  Visited.insert(SelInst);
+  if (Cond)
+    Visited.insert(cast<Instruction>(Cond));
   return true;
 }
 
