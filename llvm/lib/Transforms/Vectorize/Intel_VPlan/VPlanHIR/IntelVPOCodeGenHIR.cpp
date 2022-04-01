@@ -3400,9 +3400,11 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
   VPLdSt->getAAMetadata(AANodes);
 
   RegDDRef *PtrRef;
-  if (NeedScalarRef)
+  if (NeedScalarRef) {
     PtrRef = getOrCreateScalarRef(VPPtr, 0 /*LaneID*/);
-  else
+    if (PtrRef->hasGEPInfo())
+      PtrRef->setBitCastDestVecOrElemType(VPLdSt->getValueType());
+  } else
     PtrRef = getWidenedAddressForScatterGather(VPPtr, VPLdSt->getValueType());
 
   RegDDRef *MemRef;
