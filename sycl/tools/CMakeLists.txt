@@ -33,6 +33,12 @@ endif()
 # INTEL_CUSTOMIZATON
 set(LEVEL_ZERO_HEADERS LevelZeroLoader::Headers)
 # end INTEL_CUSTOMIZATON
+if ("cuda" IN_LIST SYCL_ENABLE_PLUGINS)
+  set(SYCL_BUILD_PI_CUDA ON)
+endif()
+if ("hip" IN_LIST SYCL_ENABLE_PLUGINS)
+  set(SYCL_BUILD_PI_HIP ON)
+endif()
 
 target_link_libraries(get_device_count_by_type
   PRIVATE

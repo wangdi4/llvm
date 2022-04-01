@@ -33,6 +33,7 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 include(AddSYCLExecutable)
+include(AddSYCL)
 include(SYCLUtils)
 
 set(SYCL_MAJOR_VERSION 5)
@@ -43,6 +44,11 @@ if (SYCL_ADD_DEV_VERSION_POSTFIX)
   set(SYCL_VERSION_POSTFIX "-${SYCL_DEV_ABI_VERSION}")
 endif()
 set(SYCL_VERSION_STRING "${SYCL_MAJOR_VERSION}.${SYCL_MINOR_VERSION}.${SYCL_PATCH_VERSION}${SYCL_VERSION_POSTFIX}")
+
+define_property(GLOBAL PROPERTY SYCL_TOOLCHAIN_INSTALL_COMPONENTS
+  BRIEF_DOCS "List of components to deploy with SYCL toolchain"
+  FULL_DOCS "List of components to deploy with SYCL toolchain"
+)
 
 # enable all warnings by default
 if (MSVC)
@@ -150,11 +156,16 @@ install(DIRECTORY ${OpenCL_INCLUDE_DIR}/CL
         DESTINATION ${SYCL_INCLUDE_DIR}/sycl
         COMPONENT OpenCL-Headers)
 
-option(SYCL_BUILD_PI_CUDA
-  "Enables the CUDA backend for the Plugin Interface" OFF)
-
-option(SYCL_BUILD_PI_HIP
-  "Enables the HIP backend for the Plugin Interface" OFF)
+# Needed for feature_test.hpp
+if ("cuda" IN_LIST SYCL_ENABLE_PLUGINS)
+  set(SYCL_BUILD_PI_CUDA ON)
+endif()
+if ("hip" IN_LIST SYCL_ENABLE_PLUGINS)
+  set(SYCL_BUILD_PI_HIP ON)
+endif()
+if ("esimd_emulator" IN_LIST SYCL_ENABLE_PLUGINS)
+  set(SYCL_BUILD_PI_HIP ON)
+endif()
 
 # Configure SYCL version macro
 set(sycl_inc_dir ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -350,6 +361,7 @@ if(SYCL_INCLUDE_TESTS)
   add_subdirectory(test)
 endif()
 
+get_property(SYCL_TOOLCHAIN_DEPS GLOBAL PROPERTY SYCL_TOOLCHAIN_INSTALL_COMPONENTS)
 # Package deploy support
 # Listed here are component names contributing the package
 set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
@@ -379,8 +391,6 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      sycl-headers
      sycl-headers-extras
      sycl
-     pi_opencl
-     pi_level_zero
      libsycldevice
      ${XPTIFW_LIBS}
 # INTEL_CUSTOMIZATION
@@ -388,6 +398,7 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      # under the existing if(INTEL_CUSTOMIZATION)
      # guard below.
 # end INTEL_CUSTOMIZATION
+     ${SYCL_TOOLCHAIN_DEPS}
 )
 
 if (TARGET sycl-prof)
@@ -419,7 +430,7 @@ if(INTEL_CUSTOMIZATION)
   endif()
 endif(INTEL_CUSTOMIZATION)
 
-if(SYCL_BUILD_PI_CUDA)
+if("cuda" IN_LIST SYCL_ENABLE_PLUGINS)
   # Ensure that libclc is enabled.
   list(FIND LLVM_ENABLE_PROJECTS libclc LIBCLC_FOUND)
   if( LIBCLC_FOUND EQUAL -1 )
@@ -431,7 +442,7 @@ if(SYCL_BUILD_PI_CUDA)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS libspirv-builtins pi_cuda)
 endif()
 
-if(SYCL_BUILD_PI_HIP)
+if("hip" IN_LIST SYCL_ENABLE_PLUGINS)
   # Ensure that libclc is enabled.
   list(FIND LLVM_ENABLE_PROJECTS libclc LIBCLC_FOUND)
   if( LIBCLC_FOUND EQUAL -1 )
@@ -443,7 +454,7 @@ if(SYCL_BUILD_PI_HIP)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS libspirv-builtins pi_hip)
 endif()
 
-if(SYCL_BUILD_PI_ESIMD_EMULATOR)
+if("esimd_emulator" IN_LIST SYCL_ENABLE_PLUGINS)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_esimd_emulator libcmrt-headers)
   if (MSVC)
     list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS libcmrt-libs libcmrt-dlls)
