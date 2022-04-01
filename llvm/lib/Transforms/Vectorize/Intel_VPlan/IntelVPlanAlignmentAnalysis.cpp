@@ -376,7 +376,15 @@ void VPlanPeelingAnalysis::computeCongruentMemrefs() {
         if (!Diff)
           continue;
         auto KB = VPVT->getKnownBits(Diff, nullptr);
-        assert(!KB.isZero() && "Comparing same address?");
+
+        // We can have a case especially in HIR, where the base canon expressions
+        // coming from different memory references are different but are
+        // equivalent. For example the base CE from the load and store below:
+        //   a[i] = a[i] + 1
+        // Treat this case the same as CandBase == PrevBase.
+        if (KB.isZero())
+          continue;
+
         // "Alignment" of the pointer difference determines how much alignment
         // can be transferred from one memref to another. That is, as long as
         // alignment of Mrf1 is not greater than A, alignment of Mrf2 is going
