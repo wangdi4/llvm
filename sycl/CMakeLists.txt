@@ -393,15 +393,12 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      sycl
      libsycldevice
      ${XPTIFW_LIBS}
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
      # Please add xmain specific deploy components
      # under the existing if(INTEL_CUSTOMIZATION)
      # guard below.
 # end INTEL_CUSTOMIZATION
-=======
      ${SYCL_TOOLCHAIN_DEPS}
->>>>>>> c16412b5fb32814461b82b5c615f771f97e9d26d
 )
 
 if (TARGET sycl-prof)
@@ -418,7 +415,6 @@ if(OpenCL_INSTALL_KHRONOS_ICD_LOADER AND TARGET OpenCL-ICD)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS OpenCL-ICD)
 endif()
 
-<<<<<<< HEAD
 if(INTEL_CUSTOMIZATION)
   # Add xmain specific deploy components here.
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-config-file)
@@ -434,10 +430,7 @@ if(INTEL_CUSTOMIZATION)
   endif()
 endif(INTEL_CUSTOMIZATION)
 
-if(SYCL_BUILD_PI_CUDA)
-=======
 if("cuda" IN_LIST SYCL_ENABLE_PLUGINS)
->>>>>>> c16412b5fb32814461b82b5c615f771f97e9d26d
   # Ensure that libclc is enabled.
   list(FIND LLVM_ENABLE_PROJECTS libclc LIBCLC_FOUND)
   if( LIBCLC_FOUND EQUAL -1 )

@@ -25,20 +25,8 @@ foreach(plugin ${SYCL_ENABLE_PLUGINS})
   add_subdirectory(${plugin})
 endforeach()
 
-<<<<<<< HEAD
-add_subdirectory(opencl)
 # INTEL_CUSTOMIZATION
 if (CMAKE_SYCL_USE_LEVEL0)
   add_subdirectory(level_zero)
 endif()
 # end INTEL_CUSTOMIZATION
-
-if(SYCL_BUILD_PI_ESIMD_EMULATOR)
-  # TODO : Remove 'if (NOT MSVC)' when CM_EMU supports Windows
-  # environment
-  if (NOT MSVC)
-    add_subdirectory(esimd_emulator)
-  endif()
-endif()
-=======
->>>>>>> c16412b5fb32814461b82b5c615f771f97e9d26d

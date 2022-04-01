@@ -35,20 +35,6 @@ add_sycl_plugin(opencl
     OpenCL-ICD
 )
 
-<<<<<<< HEAD
-  # This script file is used to allow exporting pi* symbols only.
-  # All other symbols are regarded as local (hidden)
-  set(linker_script "${CMAKE_CURRENT_SOURCE_DIR}/../ld-version-script.txt")
-
-  # Filter symbols based on the scope defined in the script file,
-  # and export pi* function symbols in the library.
-  target_link_libraries( pi_opencl
-    PRIVATE "-Wl,--version-script=${linker_script}"
-  )
-endif()
-
-add_common_options(pi_opencl)
-
 # INTEL_CUSTOMIZATION
 dpcpptarget_add_resource_file(pi_opencl
                               "pi_opencl.dll"
@@ -56,9 +42,4 @@ dpcpptarget_add_resource_file(pi_opencl
                               "Intel(R) oneAPI DPC++ Library")
 #end INTEL_CUSTOMIZATION
 
-install(TARGETS pi_opencl
-  LIBRARY DESTINATION "lib${LLVM_LIBDIR_SUFFIX}" COMPONENT pi_opencl
-  RUNTIME DESTINATION "bin" COMPONENT pi_opencl)
-=======
 set_target_properties(pi_opencl PROPERTIES LINKER_LANGUAGE CXX)
->>>>>>> c16412b5fb32814461b82b5c615f771f97e9d26d

@@ -141,30 +141,3 @@ add_sycl_plugin(level_zero
 if (TARGET level-zero-loader)
   add_dependencies(pi_level_zero level-zero-loader)
 endif()
-
-<<<<<<< HEAD
-add_dependencies(sycl-toolchain pi_level_zero)
-target_link_libraries(pi_level_zero
-  PRIVATE
-    "${LEVEL_ZERO_LOADER}"
-    OpenCL-Headers
-)
-
-if (UNIX)
-  target_link_libraries(pi_level_zero PRIVATE pthread)
-else()
-  if (INTEL_CUSTOMIZATION)
-    dpcpptarget_add_resource_file(pi_level_zero
-                                  "pi_level_zero.dll"
-                                  "Intel(R) oneAPI DPC++ Library"
-                                  "Intel(R) oneAPI DPC++ Library")
-  endif()
-endif()
-
-add_common_options(pi_level_zero)
-
-install(TARGETS pi_level_zero
-  LIBRARY DESTINATION "lib" COMPONENT pi_level_zero
-  RUNTIME DESTINATION "bin" COMPONENT pi_level_zero)
-=======
->>>>>>> c16412b5fb32814461b82b5c615f771f97e9d26d
