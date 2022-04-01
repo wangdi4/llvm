@@ -486,7 +486,6 @@ bool LoopAttrsImpl::preferFunctionLevelRegionDueToDV() {
   uint64_t NumOfDopeVectorsWithOneLoop = 0;
   uint64_t NumOfDopeVectorsWithManyLoops = 0;
   uint64_t NumOfDopeVectorsWithZeroLoops = 0;
-  const DataLayout &DL = F.getParent()->getDataLayout();
   SetVector<Argument*> DopeVectorArgs;
 
   // Collect all the arguments that are dope vectors
@@ -495,13 +494,14 @@ bool LoopAttrsImpl::preferFunctionLevelRegionDueToDV() {
     if(Arg.user_empty())
       continue;
 
-    // TODO: This will need to be revised for opaque pointers once we have
-    // a solid form of collecting dope vectors from them.
     Type *ArgType = Arg.getType();
-    if (ArgType->isPointerTy())
-      ArgType = ArgType->getPointerElementType();
+    if (!ArgType->isPointerTy())
+      continue;
 
-    if (!isDopeVectorType(ArgType, DL))
+    // We are interested in the arguments that are marked as "assumed_shape"
+    // and "ptrnoalias" since they could be dope vectors.
+    if (!Arg.hasAttribute("ptrnoalias") ||
+        !Arg.hasAttribute("assumed_shape"))
       continue;
 
     DopeVectorArgs.insert(&Arg);
