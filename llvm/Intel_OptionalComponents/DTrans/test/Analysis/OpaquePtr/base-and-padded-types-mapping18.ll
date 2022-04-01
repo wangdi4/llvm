@@ -9,7 +9,7 @@
 ; BadCastingForRelatedTypes) since the relationship between %struct.test.a
 ; and %struct.test.a.base is not set.
 
-; CHECK: dtrans-safety: Bad casting (related types) -- Formal paremeter is a related type of the actual parameter, or vice-versa
+; CHECK: dtrans-safety: Bad casting (related types) -- Formal parameter is a related type of the actual parameter, or vice-versa
 ; CHECK:   [test]   %1 = call i32 @foo(ptr %bptr)
 ; CHECK:   Arg#0:   %bptr = alloca %struct.test.b, align 8
 

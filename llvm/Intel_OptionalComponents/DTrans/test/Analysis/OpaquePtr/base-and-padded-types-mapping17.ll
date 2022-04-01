@@ -10,7 +10,7 @@
 ; *%struct.test.a, therefore the safety analyzer should set
 ; BadCastingForRelatedTypes.
 
-; CHECK: dtrans-safety: Bad casting (related types) -- Formal paremeter is a related type of the actual parameter, or vice-versa
+; CHECK: dtrans-safety: Bad casting (related types) -- Formal parameter is a related type of the actual parameter, or vice-versa
 ; CHECK:  [test]   %ret = call i32 @foo(ptr %bptr)
 ; CHECK:  Arg#0:   %bptr = alloca %struct.test.b, align 8
 
