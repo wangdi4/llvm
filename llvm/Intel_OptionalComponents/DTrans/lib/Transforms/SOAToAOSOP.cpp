@@ -53,11 +53,6 @@ static cl::opt<bool> DTransSOAToAOSOPSizeHeuristic(
     "dtrans-soatoaosop-size-heuristic", cl::init(true), cl::Hidden,
     cl::desc("Respect size heuristic in DTrans SOAToAOS"));
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-static cl::opt<std::string> DTransSOAToAOSOPType("dtrans-soatoaosop-typename",
-                                                 cl::ReallyHidden);
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
 class SOAToAOSOPTransformImpl : public DTransOPOptBase {
 public:
   SOAToAOSOPTransformImpl(
@@ -96,7 +91,6 @@ private:
     // Checks that all field arrays' methods are called from structure's
     // methods; Necessary check for legality analysis.
     bool checkCFG(DTransSafetyInfo &DTInfo) const {
-      // TODO: Add more code here to check CallGraph
       for (auto *Fld : fields()) {
         auto *FI = cast_or_null<dtrans::StructInfo>(DTInfo.getTypeInfo(Fld));
 
@@ -856,20 +850,27 @@ bool SOAToAOSOPTransformImpl::prepareTypes(Module &M) {
     if (!StInfo || cast<StructType>(StInfo->getLLVMType())->isLiteral())
       continue;
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (!DTransSOAToAOSOPType.empty() &&
-        DTransSOAToAOSOPType !=
-            cast<StructType>(StInfo->getLLVMType())->getName()) {
+    std::unique_ptr<CandidateInfo> Info(new CandidateInfo());
+
+    // Test safety violations on both structure and array types.
+    bool SafetyViolation = DTInfo->testSafetyData(TI, dtrans::DT_SOAToAOS);
+    if (!SafetyViolation)
+      for (auto *Fld : Info->fields()) {
+        auto *FTI = DTInfo->getTypeInfo(Fld);
+        if (!FTI || DTInfo->testSafetyData(FTI, dtrans::DT_SOAToAOS)) {
+          SafetyViolation = true;
+          break;
+        }
+      }
+
+    if (SafetyViolation) {
       LLVM_DEBUG({
         dbgs() << "  ; Rejecting ";
         StInfo->getLLVMType()->print(dbgs(), true, true);
-        dbgs() << " based on dtrans-soatoaosop-typename option.\n";
+        dbgs() << " because safety checks were violated.\n";
       });
-      return FALSE("conflicting -dtrans-soatoaosop-typename.");
+      continue;
     }
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
-    std::unique_ptr<CandidateInfo> Info(new CandidateInfo());
 
     if (!Info->populateLayoutInformation(StInfo->getDTransType())) {
       LLVM_DEBUG({

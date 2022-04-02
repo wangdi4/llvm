@@ -1,5 +1,7 @@
-; RUN: opt < %s -dtrans-soatoaos -enable-dtrans-soatoaos -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaos -dtrans-soatoaos-typename=noname -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes=dtrans-soatoaos -enable-dtrans-soatoaos -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaos -dtrans-soatoaos-typename=noname -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -dtrans-soatoaosop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaosop -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=dtrans-soatoaosop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaosop -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -dtrans-soatoaosop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaosop -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -passes=dtrans-soatoaosop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaosop -disable-output 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; This test checks safety data violations on structure of interest (F).
@@ -50,7 +52,7 @@
 ;   }
 ; };
 ;
-; int main() { F *f = new F(); <bad bitcasts causing safety violation on F> }
+; int main() { F *f = new F(); <bad bitcast causing safety violation on F> }
 ;
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -66,34 +68,31 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 define i32 @main() personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
 entry:
-  %call = call i8* @_Znwm(i64 32)
+  %call = call i8* @malloc(i64 32)
   %0 = bitcast i8* %call to %class.F*
+  %bad_bc = bitcast %class.F* %0 to i8*
+  store i8 2, i8* %bad_bc, align 2
   invoke void @_ZN1FC2Ev(%class.F* %0)
           to label %invoke.cont unwind label %lpad
 
 invoke.cont:                                      ; preds = %entry
-  %bad_bc = bitcast %class.F* %0 to %class.A*
   ret i32 0
 
 lpad:                                             ; preds = %entry
   %1 = landingpad { i8*, i32 }
           cleanup
-  %2 = extractvalue { i8*, i32 } %1, 0
-  %3 = extractvalue { i8*, i32 } %1, 1
-  call void @_ZdlPv(i8* %call)
+  call void @free(i8* %call)
   br label %eh.resume
 
 eh.resume:                                        ; preds = %lpad
-  %lpad.val = insertvalue { i8*, i32 } undef, i8* %2, 0
-  %lpad.val1 = insertvalue { i8*, i32 } %lpad.val, i32 %3, 1
-  resume { i8*, i32 } %lpad.val1
+  resume { i8*, i32 } undef
 }
 
-declare noalias i8* @_Znwm(i64)
+declare !intel.dtrans.func.type !20 noalias "intel_dtrans_func_index"="1" i8* @malloc(i64)
 
-define void @_ZN1FC2Ev(%class.F* nocapture %this) align 2 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
+define void @_ZN1FC2Ev(%class.F* nocapture "intel_dtrans_func_index"="1" %this) align 2 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) !intel.dtrans.func.type !22 {
 entry:
-  %call = call i8* @_Znwm(i64 32)
+  %call = call i8* @malloc(i64 32)
   %0 = bitcast i8* %call to %struct.Arr*
   invoke void @_ZN3ArrIPiEC2EiP3Mem(%struct.Arr* %0, i32 10, %struct.Mem* null)
           to label %invoke.cont unwind label %lpad
@@ -101,20 +100,20 @@ entry:
 invoke.cont:                                      ; preds = %entry
   %f1 = getelementptr inbounds %class.F, %class.F* %this, i32 0, i32 1
   store %struct.Arr* %0, %struct.Arr** %f1, align 8
-  %call2 = call i8* @_Znwm(i64 32)
+  %call2 = call i8* @malloc(i64 32)
   %1 = bitcast i8* %call2 to %struct.Arr.0*
   invoke void @_ZN3ArrIPvEC2EiP3Mem(%struct.Arr.0* %1, i32 10, %struct.Mem* null)
-          to label %invoke.cont4 unwind label %lpad3
+          to label %invoke.cont4 unwind label %lpad
 
 invoke.cont4:                                     ; preds = %invoke.cont
   %f2 = getelementptr inbounds %class.F, %class.F* %this, i32 0, i32 2
   store %struct.Arr.0* %1, %struct.Arr.0** %f2, align 8
-  %call5 = call i8* @_Znwm(i64 32)
+  %call5 = call i8* @malloc(i64 32)
   %2 = bitcast i8* %call5 to %struct.Arr1*
   %3 = bitcast %struct.Arr1* %2 to i8*
   call void @llvm.memset.p0i8.i64(i8* align 16 %3, i8 0, i64 32, i1 false)
   invoke void @_ZN4Arr1IPfEC2Ev(%struct.Arr1* %2)
-          to label %invoke.cont7 unwind label %lpad6
+          to label %invoke.cont7 unwind label %lpad
 
 invoke.cont7:                                     ; preds = %invoke.cont4
   %f3 = getelementptr inbounds %class.F, %class.F* %this, i32 0, i32 3
@@ -130,40 +129,14 @@ invoke.cont7:                                     ; preds = %invoke.cont4
 lpad:                                             ; preds = %entry
   %6 = landingpad { i8*, i32 }
           cleanup
-  %7 = extractvalue { i8*, i32 } %6, 0
-  %8 = extractvalue { i8*, i32 } %6, 1
-  call void @_ZdlPv(i8* %call)
-  br label %eh.resume
-
-lpad3:                                            ; preds = %invoke.cont
-  %9 = landingpad { i8*, i32 }
-          cleanup
-  %10 = extractvalue { i8*, i32 } %9, 0
-  %11 = extractvalue { i8*, i32 } %9, 1
-  call void @_ZdlPv(i8* %call2)
-  br label %eh.resume
-
-lpad6:                                            ; preds = %invoke.cont4
-  %12 = landingpad { i8*, i32 }
-          cleanup
-  %13 = extractvalue { i8*, i32 } %12, 0
-  %14 = extractvalue { i8*, i32 } %12, 1
-  call void @_ZdlPv(i8* %call5)
-  br label %eh.resume
-
-eh.resume:                                        ; preds = %lpad6, %lpad3, %lpad
-  %exn.slot.0 = phi i8* [ %13, %lpad6 ], [ %10, %lpad3 ], [ %7, %lpad ]
-  %ehselector.slot.0 = phi i32 [ %14, %lpad6 ], [ %11, %lpad3 ], [ %8, %lpad ]
-  %lpad.val = insertvalue { i8*, i32 } undef, i8* %exn.slot.0, 0
-  %lpad.val11 = insertvalue { i8*, i32 } %lpad.val, i32 %ehselector.slot.0, 1
-  resume { i8*, i32 } %lpad.val11
+  ret void
 }
 
 declare i32 @__gxx_personality_v0(...)
 
-declare void @_ZdlPv(i8*)
+declare !intel.dtrans.func.type !33 void @free(i8* "intel_dtrans_func_index"="1" )
 
-define void @_ZN3ArrIPiEC2EiP3Mem(%struct.Arr* nocapture %this, i32 %c, %struct.Mem* %mem) align 2 {
+define void @_ZN3ArrIPiEC2EiP3Mem(%struct.Arr* nocapture "intel_dtrans_func_index"="1" %this, i32 %c, %struct.Mem* "intel_dtrans_func_index"="2" %mem) align 2 !intel.dtrans.func.type !24 {
 entry:
   %mem2 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 0
   store %struct.Mem* %mem, %struct.Mem** %mem2, align 8
@@ -176,7 +149,7 @@ entry:
   ret void
 }
 
-define void @_ZN3ArrIPvEC2EiP3Mem(%struct.Arr.0* nocapture %this, i32 %c, %struct.Mem* %mem) align 2 {
+define void @_ZN3ArrIPvEC2EiP3Mem(%struct.Arr.0* nocapture "intel_dtrans_func_index"="1" %this, i32 %c, %struct.Mem* "intel_dtrans_func_index"="2" %mem) align 2 !intel.dtrans.func.type !25 {
 entry:
   %mem2 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 0
   store %struct.Mem* %mem, %struct.Mem** %mem2, align 8
@@ -191,14 +164,14 @@ entry:
 
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1)
 
-define void @_ZN4Arr1IPfEC2Ev(%struct.Arr1* nocapture %this) align 2 {
+define void @_ZN4Arr1IPfEC2Ev(%struct.Arr1* nocapture "intel_dtrans_func_index"="1" %this) align 2 !intel.dtrans.func.type !26 {
 entry:
   %0 = bitcast %struct.Arr1* %this to %struct.Arr.2*
   call void @_ZN3ArrIPfEC2EiP3Mem(%struct.Arr.2* %0, i32 1, %struct.Mem* null)
   ret void
 }
 
-define void @_ZN3ArrIPiE3setEiS0_(%struct.Arr* nocapture readonly %this, i32 %i, i32* %val) align 2 {
+define void @_ZN3ArrIPiE3setEiS0_(%struct.Arr* nocapture readonly "intel_dtrans_func_index"="1" %this, i32 %i, i32* "intel_dtrans_func_index"="2" %val) align 2 !intel.dtrans.func.type !27 {
 entry:
   %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3
   %0 = load i32**, i32*** %base, align 8
@@ -208,7 +181,7 @@ entry:
   ret void
 }
 
-define i8* @_ZN3ArrIPvE3getEi(%struct.Arr.0* nocapture readonly %this, i32 %i) align 2 {
+define "intel_dtrans_func_index"="1" i8* @_ZN3ArrIPvE3getEi(%struct.Arr.0* nocapture readonly "intel_dtrans_func_index"="2" %this, i32 %i) align 2 !intel.dtrans.func.type !29 {
 entry:
   %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3
   %0 = load i8**, i8*** %base, align 8
@@ -218,7 +191,7 @@ entry:
   ret i8* %1
 }
 
-define void @_ZN3ArrIPfEC2EiP3Mem(%struct.Arr.2* nocapture %this, i32 %c, %struct.Mem* %mem) align 2 {
+define void @_ZN3ArrIPfEC2EiP3Mem(%struct.Arr.2* nocapture "intel_dtrans_func_index"="1" %this, i32 %c, %struct.Mem* "intel_dtrans_func_index"="2" %mem) align 2 !intel.dtrans.func.type !30 {
 entry:
   %mem2 = getelementptr inbounds %struct.Arr.2, %struct.Arr.2* %this, i32 0, i32 0
   store %struct.Mem* %mem, %struct.Mem** %mem2, align 8
@@ -230,3 +203,44 @@ entry:
   store i32 0, i32* %size, align 8
   ret void
 }
+
+attributes #0 = { argmemonly nofree nounwind willreturn writeonly }
+
+!intel.dtrans.types = !{!0, !5, !9, !13, !15, !17, !19, !32}
+
+!0 = !{!"S", %class.F zeroinitializer, i32 4, !1, !2, !3, !4}
+!1 = !{%struct.Mem zeroinitializer, i32 1}
+!2 = !{%struct.Arr zeroinitializer, i32 1}
+!3 = !{%struct.Arr.0 zeroinitializer, i32 1}
+!4 = !{%struct.Arr1 zeroinitializer, i32 1}
+!5 = !{!"S", %struct.Mem zeroinitializer, i32 1, !6}
+!6 = !{!7, i32 2}
+!7 = !{!"F", i1 true, i32 0, !8}
+!8 = !{i32 0, i32 0}
+!9 = !{!"S", %struct.Arr zeroinitializer, i32 6, !1, !8, !10, !12, !8, !10}
+!10 = !{!"A", i32 4, !11}
+!11 = !{i8 0, i32 0}
+!12 = !{i32 0, i32 2}
+!13 = !{!"S", %struct.Arr.0 zeroinitializer, i32 6, !1, !8, !10, !14, !8, !10}
+!14 = !{i8 0, i32 2}
+!15 = !{!"S", %struct.Arr1 zeroinitializer, i32 2, !16, !10}
+!16 = !{%struct.Arr.base.3 zeroinitializer, i32 0}
+!17 = !{!"S", %struct.Arr.2 zeroinitializer, i32 6, !1, !8, !10, !18, !8, !10}
+!18 = !{float 0.000000e+00, i32 2}
+!19 = !{!"S", %struct.Arr.base.3 zeroinitializer, i32 5, !1, !8, !10, !18, !8}
+!20 = distinct !{!21}
+!21 = !{i8 0, i32 1}
+!22 = distinct !{!23}
+!23 = !{%class.F zeroinitializer, i32 1}
+!24 = distinct !{!2, !1}
+!25 = distinct !{!3, !1}
+!26 = distinct !{!4}
+!27 = distinct !{!2, !28}
+!28 = !{i32 0, i32 1}
+!29 = distinct !{!21, !3}
+!30 = distinct !{!31, !1}
+!31 = !{%struct.Arr.2 zeroinitializer, i32 1}
+!32 = !{!"S", %class.A zeroinitializer, i32 4, !21, !21, !21, !21}
+!33 = distinct !{!21}
+!34 = !{%class.A zeroinitializer, i32 1}
+!35 = distinct !{!34}
