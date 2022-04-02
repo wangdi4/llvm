@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -410,7 +410,7 @@ static cl::opt<bool> EnableIndirectCallConv("enable-npm-ind-call-conv",
 
 // Function multi-versioning.
 static cl::opt<bool> EnableMultiVersioning("enable-npm-multiversioning",
-  cl::init(false), cl::ReallyHidden,
+  cl::init(true), cl::ReallyHidden,
   cl::desc("Enable Function Multi-versioning in the new PM"));
 
 // Enable whole program analysis
@@ -1489,7 +1489,14 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 
   // Try to perform OpenMP specific optimizations on the module. This is a
   // (quick!) no-op if there are no OpenMP runtime calls present in the module.
+#if INTEL_COLLAB
+  // If OpenMP codegen is to be done by Paropt after the inliner,
+  // then OpenMPOpt cannot be run here, before the inliner.
+  if (Level != OptimizationLevel::O0 &&
+      (!RunVPOParopt || RunVPOOpt == InvokeParoptBeforeInliner))
+#else // INTEL_COLLAB
   if (Level != OptimizationLevel::O0)
+#endif // INTEL_COLLAB
     MPM.addPass(OpenMPOptPass());
 
   if (AttributorRun & AttributorRunOption::MODULE)
@@ -1565,6 +1572,10 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   if (EnableSyntheticCounts && !PGOOpt)
     MPM.addPass(SyntheticCountsPropagation());
 
+#if INTEL_COLLAB
+// FIXME: addVPOPasses needs to be called if EnableModuleInliner is true. This
+// needs to be fixed before the flag is made true by default.
+#endif // INTEL_COLLAB
   if (EnableModuleInliner)
     MPM.addPass(buildModuleInlinerPipeline(Level, Phase));
   else
@@ -1870,10 +1881,10 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, FunctionPassManager &FPM,
 #endif // INTEL_CUSTOMIZATION
   // Clean-up empty blocks after OpenMP directives handling.
   FPM.addPass(VPOCFGSimplifyPass());
-#if INTEL_CUSTOMIZATION
-  // Paropt transformation pass may produce new AlwaysInline functions.
-  // Force inlining for them, if paropt pass runs after the normal inliner.
   if (RunVPOOpt == InvokeParoptAfterInliner) {
+#if INTEL_CUSTOMIZATION
+    // Paropt transformation pass may produce new AlwaysInline functions.
+    // Force inlining for them, if paropt pass runs after the normal inliner.
     // Run it even at -O0, because the only AlwaysInline functions
     // after paropt are the ones that it artificially created.
     // There is some interference with coroutines passes, which
@@ -1887,11 +1898,24 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, FunctionPassManager &FPM,
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
     MPM.addPass(AlwaysInlinerPass(
         /*InsertLifetimeIntrinsics=*/false));
+
+#endif // INTEL_CUSTOMIZATION
+    // If Paropt is run after the inliner, we have to delay the OpenMPOpt module
+    // pass as well (which otherwise runs before the inliner).
+    if (!RunVec && OptLevel > 0) {
+#if INTEL_CUSTOMIZATION
+#else // INTEL_CUSTOMIZATION
+      MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM));
+#endif // INTEL_CUSTOMIZATION
+      MPM.addPass(OpenMPOptPass());
+    }
+
+#if INTEL_CUSTOMIZATION
     // Run GlobalDCE to delete dead functions.
     if (OptLevel > 0)
       MPM.addPass(GlobalDCEPass());
-  }
 #endif // INTEL_CUSTOMIZATION
+  }
 }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION

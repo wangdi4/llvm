@@ -1922,15 +1922,6 @@ static pi_result SetKernelParamsAndLaunch(
       sampler *SamplerPtr = (sampler *)Arg.MPtr;
       RT::PiSampler Sampler = detail::getSyclObjImpl(*SamplerPtr)
                                   ->getOrCreateSampler(Queue->get_context());
-#if INTEL_CUSTOMIZATION
-      if (Plugin.getBackend() == (backend::level_zero)) {
-        // TODO: This is a workaround and should be reworked when
-        // piextDeviceGetNativeHandle will be implemented.
-        Plugin.call<PiApiKind::piKernelSetArg>(Kernel, NextTrueIndex,
-                                               sizeof(void *), Sampler);
-        break;
-      }
-#endif // INTEL_CUSTOMIZATION
       Plugin.call<PiApiKind::piextKernelSetArgSampler>(Kernel, NextTrueIndex,
                                                        &Sampler);
       break;

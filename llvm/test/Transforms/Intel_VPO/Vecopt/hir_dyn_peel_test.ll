@@ -141,8 +141,7 @@ define void @foo(i64* %lp, i64 %n1) {
 
 ; CHECK:              + DO i64 i1 = %phi.temp, %vec.tc + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK:              |   (<4 x i64>*)(%lp)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
-; Fixme: Expect store to be marked with !intel.preferred_alignment
-; CHECK:              |   <LVAL-REG> {al:8}(<4 x i64>*)(LINEAR i64* %lp)[LINEAR i64 i1] inbounds  !tbaa {{.*}}
+; CHECK:              |   <LVAL-REG> {al:8}(<4 x i64>*)(LINEAR i64* %lp)[LINEAR i64 i1] inbounds  !tbaa {{.*}} !intel.preferred_alignment <{{.*}}>
 ; CHECK:              + END LOOP
 
 ; CHECK:              %.vec14 = %n1 == %vec.tc;

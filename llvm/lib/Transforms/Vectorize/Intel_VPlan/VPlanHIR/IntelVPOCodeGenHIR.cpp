@@ -3436,6 +3436,20 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
 
   // Set ref alignment using original alignment.
   MemRef->setAlignment(Alignment.value());
+
+  // Attach PreferredAlignmentMetadata if VPLdSt is a dynamic peeling candidate.
+  VPlanPeelingVariant *PreferredPeeling = Plan->getPreferredPeeling(VF);
+  if (auto *DynPeeling =
+          dyn_cast_or_null<VPlanDynamicPeeling>(PreferredPeeling))
+    if (VPLdSt == DynPeeling->memref()) {
+      LLVMContext &Context = *Plan->getLLVMContext();
+      auto *CI = ConstantInt::get(Type::getInt32Ty(Context),
+                                  DynPeeling->targetAlignment().value());
+      SmallVector<Metadata *, 1> Ops{ConstantAsMetadata::get(CI)};
+      MemRef->setMetadata("intel.preferred_alignment",
+                          MDTuple::get(Context, Ops));
+    }
+
   return MemRef;
 }
 
