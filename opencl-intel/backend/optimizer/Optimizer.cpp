@@ -460,6 +460,7 @@ static void populatePassesPostFailCheck(
   // Support matrix fill and slice.
   if (IsSYCL) {
     PM.add(createResolveMatrixFillLegacyPass());
+    PM.add(createResolveMatrixLayoutLegacyPass());
     PM.add(createResolveMatrixWISliceLegacyPass());
   }
 
