@@ -1,8 +1,6 @@
 /*===---- stddef.h - Basic type definitions --------------------------------=== */
 /* INTEL_CUSTOMIZATION */
 /*
- * INTEL CONFIDENTIAL
- *
  * Modifications, Copyright (C) 2021 Intel Corporation
  *
  * This software and the related documents are Intel copyrighted materials, and
