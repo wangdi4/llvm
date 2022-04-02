@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -409,7 +409,7 @@ static cl::opt<bool> EnableIndirectCallConv("enable-npm-ind-call-conv",
 
 // Function multi-versioning.
 static cl::opt<bool> EnableMultiVersioning("enable-npm-multiversioning",
-  cl::init(false), cl::ReallyHidden,
+  cl::init(true), cl::ReallyHidden,
   cl::desc("Enable Function Multi-versioning in the new PM"));
 
 // Enable whole program analysis
