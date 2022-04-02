@@ -77,11 +77,15 @@ class LLOpaqueType(LLType):
 class LLValue(Record):
 
     @property
+    def name(self) -> str:
+        return super().emit()
+
+    @property
     def type(self) -> LLType:
         return LLType(self.builder, self.data["Ty"]["def"])
 
     def emit(self) -> str:
-        return "{} {}".format(self.type, super().emit())
+        return "{} {}".format(self.type, self.name)
 
 
 class LLDeclare(Record):

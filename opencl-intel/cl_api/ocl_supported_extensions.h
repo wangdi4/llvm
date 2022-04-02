@@ -40,6 +40,7 @@
 
 #define OCL_EXT_INTEL_GLOBAL_VARIABLE_POINTER          "cl_intel_global_variable_pointers_preview"
 
+#define OCL_EXT_KHR_SUBGROUP_BALLOT                    "cl_khr_subgroup_ballot"
 #define OCL_EXT_KHR_SUBGROUP_SHUFFLE                   "cl_khr_subgroup_shuffle"
 #define OCL_EXT_KHR_SUBGROUP_SHUFFLE_RELATIVE          "cl_khr_subgroup_shuffle_relative"
 #define OCL_EXT_KHR_SUBGROUP_NON_UNIFORM_ARITHMETIC    "cl_khr_subgroup_non_uniform_arithmetic"

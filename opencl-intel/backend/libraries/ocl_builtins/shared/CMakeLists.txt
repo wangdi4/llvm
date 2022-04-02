@@ -16,6 +16,7 @@ tblgenoclblt(OCL_TABLEGEN_SOURCE
 # generate shared LL builtin implementations
 set(SHARED_LL_TD_FILES
   GENERIC/ll_sub_group_block_assume_uniform.td
+  shared/ll_subgroup_impl.td
 )
 set(SHARED_LL_IMPLS)
 foreach(FILE ${SHARED_LL_TD_FILES})

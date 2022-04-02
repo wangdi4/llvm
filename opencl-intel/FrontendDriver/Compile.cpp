@@ -171,6 +171,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   optionsEx << " -Dcl_intel_required_subgroup_size";
   optionsEx << " -Dcl_intel_subgroups_char";
   optionsEx << " -Dcl_intel_subgroups_long";
+  optionsEx << " -Dcl_khr_subgroup_ballot";
   optionsEx << " -Dcl_khr_subgroup_shuffle";
   optionsEx << " -Dcl_khr_subgroup_shuffle_relative";
   optionsEx << " -Dcl_khr_subgroup_extended_types";

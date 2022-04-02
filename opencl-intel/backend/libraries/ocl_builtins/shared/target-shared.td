@@ -5,6 +5,7 @@ include "GENERIC/ll_intrinsics.td"
 include "GENERIC/sycl-spirv.td"
 include "shared/opencl-pipes.td"
 include "GENERIC/code_helpers.td"
+include "GENERIC/sub_group_builtin.td"
 
 class Generic : TargetImpl {
 // include Promote1_v3_to_v4, Promote2_v3_to_v4 codes
@@ -24,6 +25,7 @@ include "shared/conversion_impl.td"
 include "shared/math_impl.td"
 include "shared/relational_impl.td"
 include "shared/spirv_impl.td"
+include "shared/subgroup_impl.td"
 } // defset shared_impls
 
 class Shared : Generic {

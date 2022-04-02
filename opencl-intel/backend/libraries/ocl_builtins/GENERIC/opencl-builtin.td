@@ -1047,6 +1047,10 @@ class VFType<list<OclType> types, string suffix> {
   list<OclType> Tout = !foreach(ty, Tys, !cast<OclType>(VectorVTypeSuffixString<ty.BaseCTypeName, !mul(ty.VecLength, vf)>.Value));
 }
 
+class WidenType<OclType type, int vf> {
+  OclType Tout = !cast<OclType>(!subst("v" # type.VecLength, "v" # !mul(vf, type.VecLength), !cast<string>(type)));
+}
+
 // e.g.
 // ExpandTypeByVF<v16i32, [2,4,8]>.Tout == [v2i32, v4i32, v8i32]
 class ExpandTypeByVF<OclType type, list<int> vfs> {
@@ -1289,13 +1293,4 @@ class TargetImpl {
   //
 }
 
-// Helper func to get a linear strided list of ints.
-// e.g.
-// Range<0, 4>.Tout == [0, 1, 2, 3]
-// Range<1, 4, 2>.Tout == [1, 3]
-class Range<int start, int end, int step = 1> {
-  list<int> _zeros = !listsplat(0, !sub(end, start));
-  list<int> _indices = !foldl([]<int>, _zeros, acc, z, acc # [!add(step, !sub(!size(acc), 1))]);
-  list<int> _range = !foreach(x, _indices, !add(x, start));
-  list<int> Tout = !filter(x, _range, !lt(x, end));
-}
+include "GENERIC/td-helper.td"

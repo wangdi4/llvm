@@ -2532,6 +2532,12 @@
 ; CHECK-NEXT: _Z16soa_fast_length4Dv16_fS_S_S_
 ; CHECK-NEXT: _Z16soa_fast_length4Dv4_fS_S_S_
 ; CHECK-NEXT: _Z16soa_fast_length4Dv8_fS_S_S_
+; CHECK-NEXT: _Z16sub_group_ballotDv16_iDv16_j
+; CHECK-NEXT: _Z16sub_group_ballotDv32_iDv32_j
+; CHECK-NEXT: _Z16sub_group_ballotDv4_iDv4_j
+; CHECK-NEXT: _Z16sub_group_ballotDv64_iDv64_j
+; CHECK-NEXT: _Z16sub_group_ballotDv8_iDv8_j
+; CHECK-NEXT: _Z16sub_group_balloti
 ; CHECK-NEXT: _Z17convert_char2_rteDv2_Dh
 ; CHECK-NEXT: _Z17convert_char2_rteDv2_c
 ; CHECK-NEXT: _Z17convert_char2_rteDv2_d

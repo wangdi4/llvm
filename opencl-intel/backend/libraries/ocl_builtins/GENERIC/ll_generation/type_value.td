@@ -144,3 +144,5 @@ class ManglePointerType<PointerType type, bit signed = true, string mangle_suffi
 class MangleVectorOfPointersType<VectorType type, bit signed = true, string mangle_suffix = ""> {
   string ret = type.ManglePrefix # ManglePointerType<!cast<PointerType>(type.ElementType), signed, mangle_suffix>.ret;
 }
+
+include "GENERIC/td-helper.td"
