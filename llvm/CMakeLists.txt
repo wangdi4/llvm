@@ -358,9 +358,13 @@ set(INTEL_DEPLOY_UNIFIED_LAYOUT OFF CACHE BOOL "Build and deploy for a unified O
 
 if(INTEL_DEPLOY_UNIFIED_LAYOUT)
   add_compile_definitions(INTEL_DEPLOY_UNIFIED_LAYOUT=1)
+  set(INTEL_DEPLOY_PKGCOMP_NAME "compiler" CACHE STRING "OneAPI deployment package component name")
+  set(LLVM_TOOLS_INSTALL_DIR
+    "${CMAKE_INSTALL_BINDIR}/${INTEL_DEPLOY_PKGCOMP_NAME}"
+    CACHE STRING "Path for binary subdirectory")
+else()
+  set(LLVM_TOOLS_INSTALL_DIR "bin-llvm" CACHE STRING "Path for binary subdirectory (defaults to 'bin-llvm')")
 endif()
-
-set(LLVM_TOOLS_INSTALL_DIR "bin-llvm" CACHE STRING "Path for binary subdirectory (defaults to 'bin-llvm')")
 
 # If configured to install a separate tools directory (as is the default)
 # install a README explaining its purpose.
