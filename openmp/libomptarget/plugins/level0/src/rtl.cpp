@@ -2334,6 +2334,10 @@ public:
 
   RTLDeviceInfoTy() = default;
 
+  /// Find L0 devices and initialize device properties.
+  /// Returns number of devices reported to omptarget.
+  int32_t findDevices();
+
   /// Start a user-guided kernel-batching region
   void beginKernelBatch(int32_t DeviceId, uint32_t MaxKernels);
 
@@ -2526,8 +2530,8 @@ public:
   /// Return memory to pool
   bool poolFree(int32_t DeviceId, void *Ptr);
 
-  /// Initialize all memory pools
-  void initMemoryPool();
+  /// Initialize all memory pools for the device
+  void initMemoryPool(int32_t DeviceId);
 
   /// Initialize memory stats
   void initMemoryStat();
@@ -3377,13 +3381,22 @@ bool RTLDeviceInfoTy::poolFree(int32_t DeviceId, void *Ptr) {
   return ret;
 }
 
-/// Initialize all memory pool
-void RTLDeviceInfoTy::initMemoryPool() {
+/// Initialize all memory pool for the specified device
+void RTLDeviceInfoTy::initMemoryPool(int32_t DeviceId) {
   MemPoolHost.init(TARGET_ALLOC_HOST, this);
-  for (auto &pool : MemPoolShared)
-    pool.second.init(TARGET_ALLOC_SHARED, this);
-  for (auto &pool : MemPoolDevice)
-    pool.second.init(TARGET_ALLOC_DEVICE, this);
+  auto &Device = Devices[DeviceId];
+  if (MemPoolShared.count(Device) == 0) {
+    MemPoolShared.emplace(Device, Device);
+    MemPoolShared[Device].init(TARGET_ALLOC_SHARED, this);
+  }
+  if (MemPoolDevice.count(Device) == 0) {
+    MemPoolDevice.emplace(Device, Device);
+    MemPoolDevice[Device].init(TARGET_ALLOC_DEVICE, this);
+  }
+  // Also initialize subdevices' pool
+  if (SubDeviceIds[DeviceId].size() > 0)
+    for (auto SubId : SubDeviceIds[DeviceId][0])
+      initMemoryPool(SubId);
 }
 
 /// Initialize memory stats
@@ -3637,43 +3650,8 @@ static bool isValidSubDevice(int64_t DeviceIds) {
   return true;
 }
 
-/// Find subdevice handles
-static int32_t getSubDevices(
-    uint32_t Level, ze_device_handle_t Parent, SubDeviceListsTy &Lists) {
-  if (Level >= DeviceInfo->SubDeviceLevels) {
-    DP("Finished checking %" PRIu32 " levels of subdevices.\n", Level);
-    return OFFLOAD_SUCCESS;
-  }
-
-  uint32_t numDevices = 0;
-  CALL_ZE_RET_FAIL(zeDeviceGetSubDevices, Parent, &numDevices, nullptr);
-
-  if (numDevices == 0) {
-    DP("No subdevices are found for device " DPxMOD " at level %" PRIu32 "\n",
-       DPxPTR(Parent), Level);
-    return OFFLOAD_SUCCESS;
-  }
-
-  std::vector<ze_device_handle_t> devices(numDevices);
-  CALL_ZE_RET_FAIL(zeDeviceGetSubDevices, Parent, &numDevices, devices.data());
-  if (Lists.size() > Level)
-    Lists[Level].insert(Lists[Level].end(), devices.begin(), devices.end());
-  else
-    Lists.push_back(devices);
-
-  for (auto device : devices) {
-    DP("Found subdevice " DPxMOD " for device " DPxMOD " at level %" PRIu32
-       "\n", DPxPTR(device), DPxPTR(Parent), Level);
-    if (getSubDevices(Level + 1, device, Lists) != OFFLOAD_SUCCESS)
-      return OFFLOAD_FAIL;
-  }
-
-  return OFFLOAD_SUCCESS;
-}
-
 static int32_t appendDeviceProperties(
-    ze_device_handle_t Device, std::string IdStr,
-    uint32_t QueueOrdinal = UINT32_MAX, uint32_t QueueIndex = 0) {
+    ze_device_handle_t Device, std::string IdStr, uint32_t QueueIndex = 0) {
   ze_device_properties_t properties = DevicePropertiesInit;
   ze_device_compute_properties_t computeProperties =
       DeviceComputePropertiesInit;
@@ -3702,8 +3680,7 @@ static int32_t appendDeviceProperties(
 
   DeviceInfo->DeviceIdStr.push_back(IdStr);
   uint32_t NumQueues = 0;
-  if (QueueOrdinal == UINT32_MAX)
-    QueueOrdinal = getCmdQueueGroupOrdinal(Device, NumQueues);
+  uint32_t QueueOrdinal = getCmdQueueGroupOrdinal(Device, NumQueues);
   DeviceInfo->NumCCSQueues.push_back(NumQueues);
   DeviceInfo->CmdQueueGroupOrdinals.push_back(QueueOrdinal);
   DeviceInfo->CmdQueueIndices.push_back(QueueIndex);
@@ -3728,213 +3705,16 @@ static int32_t appendDeviceProperties(
 }
 
 EXTERN int32_t __tgt_rtl_number_of_devices() {
-  DP("Looking for Level0 devices...\n");
-
-  if (DeviceInfo->Option.DeviceType != ZE_DEVICE_TYPE_GPU)
+  int32_t NumDevices = DeviceInfo->findDevices();
+  if (NumDevices <= 0)
     return 0;
 
-  CALL_ZE_RET_ZERO(zeInit, ZE_INIT_FLAG_GPU_ONLY);
-  DP("Initialized L0, API %" PRIx32 "\n", ZE_API_VERSION_CURRENT);
+  if (DeviceInfo->Option.DeviceMode == DEVICE_MODE_TOP)
+    DP("Returning %" PRIu32 " top-level devices\n", NumDevices);
+  else
+    DP("Returning %" PRIu32 " devices including sub-devices\n", NumDevices);
 
-  uint32_t numDrivers = 0;
-  CALL_ZE_RET_ZERO(zeDriverGet, &numDrivers, nullptr);
-  if (numDrivers == 0)
-    return 0;
-
-  std::vector<ze_driver_handle_t> driverHandles(numDrivers);
-  CALL_ZE_RET_ZERO(zeDriverGet, &numDrivers, driverHandles.data());
-  DP("Found %" PRIu32 " driver(s)!\n", numDrivers);
-
-  auto deviceMode = DeviceInfo->Option.DeviceMode;
-
-  for (uint32_t i = 0; i < numDrivers; i++) {
-    // Check available devices
-    uint32_t numDevices = 0;
-    CALL_ZE_RET_ZERO(zeDeviceGet, driverHandles[i], &numDevices, nullptr);
-    if (numDevices == 0) {
-      DP("Cannot find any devices for driver %" PRIu32 "!\n", i);
-      continue;
-    }
-
-    // Get device handles and check device type
-    std::vector<ze_device_handle_t> devices(numDevices);
-    CALL_ZE_RET_ZERO(zeDeviceGet, driverHandles[i], &numDevices,
-                     devices.data());
-
-    for (uint32_t i = 0; i < numDevices; i++) {
-      auto device = devices[i];
-
-      if (deviceMode == DEVICE_MODE_TOP) {
-        auto Rc = appendDeviceProperties(device, std::to_string(i));
-        if (Rc != OFFLOAD_SUCCESS)
-          return 0;
-      }
-
-      if (DeviceInfo->Option.Flags.UseMemoryPool) {
-        DeviceInfo->MemPoolShared.emplace(device, device);
-        DeviceInfo->MemPoolDevice.emplace(device, device);
-      }
-    }
-
-    for (uint32_t i = 0; i < numDevices; i++) {
-      ze_device_handle_t device = devices[i];
-
-      // Find subdevices, add them to the device list, mark where they are.
-      // Collect lists of subdevice handles first.
-      SubDeviceListsTy subDeviceLists;
-      if (getSubDevices(0, device, subDeviceLists) != OFFLOAD_SUCCESS)
-        return 0;
-
-      // Memory pool for L0 sub-devices
-      if (DeviceInfo->Option.Flags.UseMemoryPool && !subDeviceLists.empty()) {
-        for (auto subDevice : subDeviceLists[0]) {
-          DeviceInfo->MemPoolShared.emplace(subDevice, subDevice);
-          DeviceInfo->MemPoolDevice.emplace(subDevice, subDevice);
-        }
-      }
-
-      DeviceInfo->SubDeviceIds.emplace_back();
-      auto &subDeviceIds = DeviceInfo->SubDeviceIds.back();
-
-      // Fill internal data using the list of subdevice handles.
-      // Internally, all devices/subdevices are listed as follows for N devices
-      // where Subdevices(i,j) is a list of subdevices for device i at level j.
-      // [0..N-1][Subdevices(0,0),Subdevices(0,1)]..[Subdevices(N-1,0)..]
-      // Recursive subdevice query is not supported, so use existing query only
-      // for the first-level subdevice, and use multi-context queue/list for the
-      // second-level subdevice.
-      if (!subDeviceLists.empty()) {
-        // Fill per-device data for subdevice
-        if (deviceMode != DEVICE_MODE_SUBSUB) {
-          subDeviceIds.emplace_back();
-          for (size_t k = 0; k < subDeviceLists[0].size(); k++) {
-            auto subDevice = subDeviceLists[0][k];
-            subDeviceIds.back().push_back(DeviceInfo->Devices.size());
-            auto IdStr = std::to_string(i) + ".0." + std::to_string(k);
-            auto Rc = appendDeviceProperties(subDevice, IdStr);
-            if (Rc != OFFLOAD_SUCCESS)
-              return 0;
-          }
-        }
-        // Fill per-device data for subsubdevice
-        if (deviceMode != DEVICE_MODE_SUB) {
-          subDeviceIds.emplace_back();
-          for (size_t k = 0; k < subDeviceLists[0].size(); k++) {
-            auto subDevice = subDeviceLists[0][k];
-            uint32_t numQueues = 0;
-            uint32_t ordinal = getCmdQueueGroupOrdinalCCS(subDevice, numQueues);
-            for (uint32_t j = 0; j < numQueues; j++) {
-              subDeviceIds.back().push_back(DeviceInfo->Devices.size());
-              auto IdStr =
-                  std::to_string(i) + ".1." + std::to_string(k * numQueues + j);
-              auto Rc = appendDeviceProperties(subDevice, IdStr, ordinal, j);
-              if (Rc != OFFLOAD_SUCCESS)
-                return 0;
-            }
-          }
-        }
-      } else {
-        // Try to find second-level subdevices of the root device. Tile can be
-        // exposed as root device, so we need to setup second-level subdevices.
-        if (deviceMode != DEVICE_MODE_SUB) {
-          // Only subDeviceIds[1] will be used
-          subDeviceIds.resize(2);
-          uint32_t numQueues = 0;
-          uint32_t ordinal = getCmdQueueGroupOrdinalCCS(device, numQueues);
-          if (ordinal != UINT32_MAX) {
-            for (uint32_t j = 0; j < numQueues; j++) {
-              subDeviceIds.back().push_back(DeviceInfo->Devices.size());
-              auto IdStr = std::to_string(i) + ".1." + std::to_string(j);
-              auto Rc = appendDeviceProperties(device, IdStr, ordinal, j);
-              if (Rc != OFFLOAD_SUCCESS)
-                return 0;
-            }
-          }
-        }
-      }
-    }
-
-    DeviceInfo->Driver = driverHandles[i];
-    DeviceInfo->NumRootDevices = numDevices;
-    DeviceInfo->NumDevices = DeviceInfo->Devices.size();
-    DP("Found %" PRIu32 " root devices, %" PRIu32 " total devices.\n",
-       DeviceInfo->NumRootDevices, DeviceInfo->NumDevices);
-    DP("List of devices (DeviceID[.SubDeviceLevel.SubDeviceID])\n");
-    for (auto &str : DeviceInfo->DeviceIdStr)
-      DP("-- %s\n", str.c_str());
-    break;
-  }
-
-  // Return early if no devices are available
-  if (DeviceInfo->NumDevices == 0)
-    return 0;
-
-  CALL_ZE_RET_ZERO(zeDriverGetApiVersion, DeviceInfo->Driver,
-                   &DeviceInfo->DriverAPIVersion);
-  DP("Driver API version is %" PRIx32 "\n", DeviceInfo->DriverAPIVersion);
-  L0Interop::printInteropProperties();
-
-  // Check driver extensions.
-  uint32_t NumExtensions = 0;
-  CALL_ZE_RET_ZERO(zeDriverGetExtensionProperties, DeviceInfo->Driver,
-                   &NumExtensions, nullptr);
-  if (NumExtensions > 0) {
-    auto &Extensions = DeviceInfo->DriverExtensions;
-    Extensions.resize(NumExtensions);
-    CALL_ZE_RET_ZERO(zeDriverGetExtensionProperties, DeviceInfo->Driver,
-                     &NumExtensions, Extensions.data());
-    DP("Found driver extensions:\n");
-    for (auto &E : Extensions)
-      DP("-- %s\n", E.name);
-  }
-
-  DeviceInfo->Programs.resize(DeviceInfo->NumDevices);
-  DeviceInfo->KernelProperties.resize(DeviceInfo->NumDevices);
-  DeviceInfo->OwnedMemory.resize(DeviceInfo->NumDevices);
-  DeviceInfo->Initialized.resize(DeviceInfo->NumDevices);
-  DeviceInfo->Profiles.resize(DeviceInfo->NumDevices);
-  DeviceInfo->Context = createContext(DeviceInfo->Driver);
-  DeviceInfo->NumActiveKernels.resize(DeviceInfo->NumRootDevices, 0);
-  DeviceInfo->ProgramData.resize(DeviceInfo->NumRootDevices);
-  DeviceInfo->BatchCmdQueues.resize(DeviceInfo->NumRootDevices);
-  DeviceInfo->ImmCmdLists.resize(DeviceInfo->NumDevices);
-
-  // Common event pool
-  uint32_t EventFlag = 0;
-  if (DeviceInfo->Option.Flags.EnableProfile)
-    EventFlag = ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;
-  DeviceInfo->EventPool.init(DeviceInfo->Context, EventFlag);
-
-  DeviceInfo->Mutexes.reset(new std::mutex[DeviceInfo->NumDevices]);
-  DeviceInfo->DataMutexes.reset(new std::mutex[DeviceInfo->NumDevices]);
-  DeviceInfo->KernelMutexes.reset(new std::mutex[DeviceInfo->NumDevices]);
-
-  // Host allocation information needs one additional slot
-  for (uint32_t I = 0; I < DeviceInfo->NumDevices + 1; I++)
-    DeviceInfo->MemAllocInfo.emplace_back(new MemAllocInfoMapTy());
-
-  if (DebugLevel > 0)
-    DeviceInfo->initMemoryStat();
-
-  // Look up GITS notification function
-  ze_result_t Rc;
-  CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, DeviceInfo->Driver,
-          "zeGitsIndirectAllocationOffsets",
-          &DeviceInfo->GitsIndirectAllocationOffsets);
-  if (Rc != ZE_RESULT_SUCCESS)
-    DeviceInfo->GitsIndirectAllocationOffsets = nullptr;
-
-  if (deviceMode == DEVICE_MODE_TOP) {
-    DP("Returning %" PRIu32 " top-level devices\n", DeviceInfo->NumRootDevices);
-    return DeviceInfo->NumRootDevices;
-  } else {
-    // Just keep empty internal ID mapping in this case.
-    DeviceInfo->SubDeviceIds.clear();
-    DeviceInfo->SubDeviceIds.resize(DeviceInfo->NumDevices);
-    DP("Returning %" PRIu32 " devices including sub-devices\n",
-       DeviceInfo->NumDevices);
-    return DeviceInfo->NumDevices;
-  }
+  return NumDevices;
 }
 
 EXTERN int32_t __tgt_rtl_init_device(int32_t DeviceId) {
@@ -3946,7 +3726,7 @@ EXTERN int32_t __tgt_rtl_init_device(int32_t DeviceId) {
   }
 
   if (DeviceInfo->Option.Flags.UseMemoryPool)
-    DeviceInfo->initMemoryPool();
+    DeviceInfo->initMemoryPool(DeviceId);
 
   if (DeviceInfo->Option.Flags.UseImmCmdList)
     DeviceInfo->initImmCmdList(DeviceId);
@@ -5605,6 +5385,190 @@ bool RTLDeviceInfoTy::hasCopyEngineAccess(int32_t DeviceId, bool IsMain) {
     return (LinkCopyCmdQueueGroupOrdinals[DeviceId].second > 0);
 }
 
+int32_t RTLDeviceInfoTy::findDevices() {
+  DP("Looking for Level0 devices...\n");
+
+  if (Option.DeviceType != ZE_DEVICE_TYPE_GPU) {
+    DP("Only GPU device is supported\n");
+    return 0;
+  }
+
+  CALL_ZE_RET_ZERO(zeInit, ZE_INIT_FLAG_GPU_ONLY);
+
+  uint32_t NumDrivers = 0;
+  CALL_ZE_RET_ZERO(zeDriverGet, &NumDrivers, nullptr);
+  if (NumDrivers == 0) {
+    DP("Cannot find any drivers.\n");
+    return 0;
+  }
+
+  // We will use the first driver found
+  NumDrivers = 1;
+  CALL_ZE_RET_ZERO(zeDriverGet, &NumDrivers, &Driver);
+
+  uint32_t NumFoundDevices = 0;
+  std::vector<ze_device_handle_t> RootDevices;
+  CALL_ZE_RET_ZERO(zeDeviceGet, Driver, &NumFoundDevices, nullptr);
+  if (NumFoundDevices == 0) {
+    DP("Cannot find any devices.\n");
+    return 0;
+  }
+  RootDevices.resize(NumFoundDevices);
+  CALL_ZE_RET_ZERO(zeDeviceGet, Driver, &NumFoundDevices, RootDevices.data());
+
+  // Find minimal information to initialize device properties.
+  // List of device handle, root ID, sub ID, CCS ID
+  std::list<std::tuple<ze_device_handle_t, int32_t, int32_t, int32_t>> Tuples;
+
+  for (uint32_t I = 0; I < NumFoundDevices; I++) {
+    Tuples.emplace_back(RootDevices[I], I, -1, -1);
+    // Try to find subdevices.
+    uint32_t NumSub = 0;
+    std::vector<ze_device_handle_t> SubDevices;
+    CALL_ZE_RET_ZERO(zeDeviceGetSubDevices, RootDevices[I], &NumSub, nullptr);
+    if (NumSub == 0) {
+      // Try to find CCS directly in this case
+      SubDevices.push_back(RootDevices[I]);
+    } else {
+      SubDevices.resize(NumSub);
+      CALL_ZE_RET_ZERO(zeDeviceGetSubDevices, RootDevices[I], &NumSub,
+                       SubDevices.data());
+    }
+    for (uint32_t J = 0; J < SubDevices.size(); J++) {
+      if (NumSub > 0)
+        Tuples.emplace_back(SubDevices[J], I, J, -1);
+      uint32_t NumCCS = 0;
+      (void)getCmdQueueGroupOrdinalCCS(SubDevices[J], NumCCS);
+      for (uint32_t K = 0; K < NumCCS; K++)
+        Tuples.emplace_back(SubDevices[J], I, J, K);
+    }
+  }
+
+  auto getIdStr = [](int32_t RootID, int32_t SubID, int32_t CCSID) {
+    std::string Ret;
+    std::string Sep{"."};
+    if (RootID >= 0)
+      Ret += std::to_string(RootID);
+    if (SubID >= 0)
+      Ret += Sep + std::to_string(SubID);
+    if (CCSID >= 0)
+      Ret += Sep + std::to_string(CCSID);
+    return Ret;
+  };
+
+  // Initialize device properties respecting LIBOMPTARGET_DEVICES.
+  // Fill internal data using the list of subdevice handles.
+  // Internally, all devices/subdevices are listed as follows for N devices
+  // where Subdevices(i,j) is a list of subdevices for device i at level j.
+  // [0..N-1][Subdevices(0,0),Subdevices(0,1)]..[Subdevices(N-1,0)..]
+  // Recursive subdevice query is not supported, so use existing query only
+  // for the first-level subdevice, and use multi-context queue/list for the
+  // second-level subdevice.
+  bool SupportsClause = (Option.DeviceMode == DEVICE_MODE_TOP);
+  if (SupportsClause) {
+    for (auto &T : Tuples) {
+      if (std::get<2>(T) >= 0 || std::get<3>(T) >= 0)
+        continue;
+      SubDeviceIds.emplace_back(2); // Prepare for subdevice clause support
+      auto IdStr = getIdStr(std::get<1>(T), std::get<2>(T), std::get<3>(T));
+      appendDeviceProperties(std::get<0>(T), IdStr);
+    }
+  }
+  for (int32_t I = 0; I < (int)NumFoundDevices; I++) {
+    if (Option.DeviceMode != DEVICE_MODE_SUBSUB) {
+      // Initialize first-level subdevices properties
+      for (auto &T : Tuples) {
+        if (std::get<1>(T) != I || std::get<2>(T) < 0 || std::get<3>(T) >= 0)
+          continue;
+        if (SupportsClause)
+          SubDeviceIds[I][0].push_back(Devices.size());
+        auto IdStr = getIdStr(std::get<1>(T), std::get<2>(T), std::get<3>(T));
+        SubDeviceIds.emplace_back(); // Put empty list for subdevices
+        appendDeviceProperties(std::get<0>(T), IdStr);
+      }
+    }
+    if (Option.DeviceMode != DEVICE_MODE_SUB) {
+      // Initialize second-level subdevice properties
+      for (auto &T : Tuples) {
+        if (std::get<1>(T) != I || std::get<3>(T) < 0)
+          continue;
+        if (SupportsClause)
+          SubDeviceIds[I][1].push_back(Devices.size());
+        auto IdStr = getIdStr(std::get<1>(T), std::get<2>(T), std::get<3>(T));
+        SubDeviceIds.emplace_back(); // Put empty list for subdevices
+        appendDeviceProperties(std::get<0>(T), IdStr, std::get<3>(T));
+      }
+    }
+  }
+
+  NumDevices = Devices.size();
+  NumRootDevices = SupportsClause ? NumFoundDevices : NumDevices;
+
+  DP("Found %" PRIu32 " root devices, %" PRIu32 " total devices.\n",
+     NumRootDevices, NumDevices);
+  DP("List of devices (DeviceID[.SubID[.CCSID]])\n");
+  for (auto &Str : DeviceIdStr)
+    DP("-- %s\n", Str.c_str());
+
+  // Prepare space for internal data
+  Programs.resize(NumDevices);
+  KernelProperties.resize(NumDevices);
+  OwnedMemory.resize(NumDevices);
+  Initialized.resize(NumDevices);
+  Profiles.resize(NumDevices);
+  Context = createContext(Driver);
+  NumActiveKernels.resize(NumRootDevices, 0);
+  ProgramData.resize(NumRootDevices);
+  BatchCmdQueues.resize(NumRootDevices);
+  ImmCmdLists.resize(NumDevices);
+  Mutexes.reset(new std::mutex[NumDevices]);
+  DataMutexes.reset(new std::mutex[NumDevices]);
+  KernelMutexes.reset(new std::mutex[NumDevices]);
+
+  // Common event pool
+  uint32_t EventFlag = 0;
+  if (Option.Flags.EnableProfile)
+    EventFlag = ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;
+  EventPool.init(Context, EventFlag);
+
+  // Supported API version
+  CALL_ZE_RET_ZERO(zeDriverGetApiVersion, Driver, &DriverAPIVersion);
+  DP("Driver API version is %" PRIx32 "\n", DriverAPIVersion);
+
+  // Supported interop properties
+  L0Interop::printInteropProperties();
+
+  // Check driver extensions.
+  uint32_t NumExtensions = 0;
+  CALL_ZE_RET_ZERO(zeDriverGetExtensionProperties, Driver,
+                   &NumExtensions, nullptr);
+  if (NumExtensions > 0) {
+    auto &Extensions = DriverExtensions;
+    Extensions.resize(NumExtensions);
+    CALL_ZE_RET_ZERO(zeDriverGetExtensionProperties, Driver,
+                     &NumExtensions, Extensions.data());
+    DP("Found driver extensions:\n");
+    for (auto &E : Extensions)
+      DP("-- %s\n", E.name);
+  }
+
+  // Host allocation information needs one additional slot
+  for (uint32_t I = 0; I < NumDevices + 1; I++)
+    MemAllocInfo.emplace_back(new MemAllocInfoMapTy());
+
+  if (DebugLevel > 0)
+    initMemoryStat();
+
+  // Look up GITS notification function
+  ze_result_t Rc;
+  CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
+          "zeGitsIndirectAllocationOffsets", &GitsIndirectAllocationOffsets);
+  if (Rc != ZE_RESULT_SUCCESS)
+    GitsIndirectAllocationOffsets = nullptr;
+
+  return NumRootDevices;
+}
+
 LevelZeroProgramTy::~LevelZeroProgramTy() {
   for (auto Kernel : Kernels) {
     if (Kernel)
@@ -6423,6 +6387,12 @@ int32_t LevelZeroProgramTy::initProgramData() {
   auto &P = DeviceInfo->DeviceProperties[DeviceId];
   uint32_t TotalEUs =
       P.numSlices * P.numSubslicesPerSlice * P.numEUsPerSubslice;
+  // If CCS is exposed as an OpenMP device, adjust EU count
+  if (DeviceInfo->Option.DeviceMode == DEVICE_MODE_SUBSUB) {
+    uint32_t NumCCS = DeviceInfo->NumCCSQueues[DeviceId];
+    if (NumCCS > 0)
+      TotalEUs /= NumCCS;
+  }
 
   // Allocate dynamic memory for in-kernel allocation
   void *MemLB = 0;

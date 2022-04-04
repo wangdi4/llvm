@@ -205,6 +205,23 @@ std::string Driver::GetResourcesPath(StringRef BinaryPath,
     // path of the embedding binary, which for LLVM binaries will be in bin/.
     // ../lib gets us to lib/ in both cases.
     P = llvm::sys::path::parent_path(Dir);
+#if INTEL_CUSTOMIZATION
+    // We're trying to compute a relative path to the "lib" directory, but the
+    // number of levels we need to travel up depends on whether we're being
+    // invoked from the build directory or the deploy directory. Dynamically
+    // determine how far up to go by searching for the "lib" directory.
+    auto HasLibSubdir = [=](const StringRef Path) {
+      SmallString<128> Cand(Path);
+      llvm::sys::path::append(Cand, "lib");
+      return llvm::sys::fs::is_directory(Cand);
+    };
+    while (P != "" && !HasLibSubdir(P)) {
+      if (!llvm::sys::path::has_parent_path(P))
+        break;
+      SmallString<128> Child(P);
+      P = llvm::sys::path::parent_path(Child);
+    }
+#endif
     llvm::sys::path::append(P, Twine("lib") + CLANG_LIBDIR_SUFFIX, "clang",
                             CLANG_VERSION_STRING);
   }
@@ -4736,6 +4753,9 @@ class OffloadingActionBuilder final {
         for (const std::pair<const StringRef, unsigned> &Lib
                  : omp_device_libs) {
           SmallString<128> LibName(TC->getDriver().Dir);
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+          llvm::sys::path::append(LibName, "..");
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
           llvm::sys::path::append(LibName, "..", "lib", Lib.first);
           llvm::sys::path::replace_extension(LibName, IsMSVC ? ".obj" : ".o");
           if ((Lib.second & LinkForOMP) == Lib.second)
