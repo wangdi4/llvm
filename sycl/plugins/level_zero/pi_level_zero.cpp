@@ -207,7 +207,11 @@ static void zePrint(const char *Format, ...) {
 
 // Controls whether device-scope events are used, and how.
 static const enum EventsScope {
+<<<<<<< HEAD
   // All events are created host-visible.
+=======
+  // All events are created host-visible
+>>>>>>> 328f4908f52b45f682820200a9a86298255b45e6
   AllHostVisible,
   // All events are created with device-scope and only when
   // host waits them or queries their status that a proxy
@@ -5139,6 +5143,14 @@ pi_result piEventGetInfo(pi_event Event, pi_event_info ParamName,
     // TODO: We don't know if the status is queued, submitted or running.
     //       For now return "running", as others are unlikely to be of
     //       interest.
+<<<<<<< HEAD
+=======
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
+    //       https://gitlab.devtools.intel.com/one-api/level_zero/issues/243
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
+>>>>>>> 328f4908f52b45f682820200a9a86298255b45e6
     pi_int32 Result = CL_RUNNING;
 
     // Make sure that we query a host-visible event only.
@@ -5155,12 +5167,15 @@ pi_result piEventGetInfo(pi_event Event, pi_event_info ParamName,
         Result = CL_COMPLETE;
       }
     }
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SHARED_SW_ADVANCED
     //       https://gitlab.devtools.intel.com/one-api/level_zero/issues/243
 #endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 328f4908f52b45f682820200a9a86298255b45e6
     return ReturnValue(pi_cast<pi_int32>(Result));
   }
   case PI_EVENT_INFO_REFERENCE_COUNT:
