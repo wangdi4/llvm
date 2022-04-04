@@ -552,9 +552,13 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
     const char * PluginName = "LLVMgold";
     if (D.IsIntelMode())
       PluginName = "icx-lto";
-    SmallString<1024> Plugin;
-    llvm::sys::path::native(Twine(ToolChain.getDriver().Dir) +
-        "/../lib" CLANG_LIBDIR_SUFFIX "/" + PluginName + Suffix, Plugin);
+    SmallString<1024> Plugin(ToolChain.getDriver().Dir);
+    llvm::sys::path::append(Plugin, "..");
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+    llvm::sys::path::append(Plugin, "..");
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
+    llvm::sys::path::append(Plugin, "lib" CLANG_LIBDIR_SUFFIX,
+                            Twine(PluginName) + Twine(Suffix));
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back(Args.MakeArgString(Plugin));
   }

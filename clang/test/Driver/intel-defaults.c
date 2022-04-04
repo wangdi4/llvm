@@ -62,7 +62,7 @@
 // RUN: touch %t.o
 // RUN: %clang -### -no-canonical-prefixes --intel -target x86_64-unknown-linux --gcc-toolchain="" --sysroot=%S/Inputs/basic_linux_tree %t.o 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS %s
 // CHECK-INTEL-LIBS: "{{.*}}ld{{(.exe)?}}" "--sysroot=[[SYSROOT:[^"]+]]"
-// CHECK-INTEL-LIBS: "-L{{.*}}../compiler/lib/intel64_lin" "-L{{.*}}bin/../lib"
+// CHECK-INTEL-LIBS: "-L{{.*}}..{{(/|\\\\)}}compiler{{(/|\\\\)}}lib{{(/|\\\\)}}intel64_lin" "-L{{.*}}bin{{(/|\\\\)}}..{{(/|\\\\)}}lib"
 // CHECK-INTEL-LIBS: "-L[[SYSROOT]]/usr/lib/gcc/x86_64-unknown-linux/10.2.0"
 // CHECK-INTEL-LIBS: "-Bstatic" "-lsvml" "-Bdynamic"
 // CHECK-INTEL-LIBS: "-Bstatic" "-lirng" "-Bdynamic"
@@ -104,7 +104,7 @@
 
 // RUN: touch %t.o
 // RUN: %clang -### --intel -target i386-unknown-linux-gnu %t.o 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS32 %s
-// CHECK-INTEL-LIBS32: "-L{{.*}}../compiler/lib/ia32_lin" "-L{{.*}}bin/../lib"
+// CHECK-INTEL-LIBS32: "-L{{.*}}..{{(/|\\\\)}}compiler{{(/|\\\\)}}lib{{(/|\\\\)}}ia32_lin" "-L{{.*}}bin{{(/|\\\\)}}..{{(/|\\\\)}}lib"
 // CHECK-INTEL-LIBS32: "-Bstatic" "-lsvml" "-Bdynamic"
 // CHECK-INTEL-LIBS32: "-Bstatic" "-lirng" "-Bdynamic"
 // CHECK-INTEL-LIBS32: "-Bstatic" "-lirc" "-Bdynamic"
@@ -219,7 +219,7 @@
 
 // print-search-dirs should contain the Intel lib dir
 // RUN: %clang --intel -target x86_64-unknown-linux-gnu --print-search-dirs 2>&1 | FileCheck -check-prefix CHECK-SEARCH-DIRS %s
-// CHECK-SEARCH-DIRS: libraries:{{.*}} {{.*}}compiler/lib{{(/|\\)}}intel64_lin{{.*}}
+// CHECK-SEARCH-DIRS: libraries:{{.*}} {{.*}}compiler{{(/|\\)}}lib{{(/|\\)}}intel64_lin{{.*}}
 
 // Add -header-base-path for Windows
 // RUN: %clang_cl --intel -### -c %s 2>&1 \

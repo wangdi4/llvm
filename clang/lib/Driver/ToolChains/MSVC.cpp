@@ -403,8 +403,16 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-nodefaultlib:vcomp.lib");
     CmdArgs.push_back("-nodefaultlib:vcompd.lib");
-    CmdArgs.push_back(Args.MakeArgString(std::string("-libpath:") +
-                                         TC.getDriver().Dir + "/../lib"));
+#if INTEL_CUSTOMIZATION
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+    SmallString<128> LibPath(TC.getDriver().Dir);
+    LibPath.append(TC.getArch() == llvm::Triple::x86_64 ? "/../../lib"
+                                                        : "/../../lib32");
+#else
+    SmallString<128> LibPath(TC.getDriver().Dir + "/../lib");
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
+    CmdArgs.push_back(Args.MakeArgString(std::string("-libpath:") + LibPath));
+#endif // INTEL_CUSTOMIZATION
     switch (TC.getDriver().getOpenMPRuntime(Args)) {
     case Driver::OMPRT_OMP:
       CmdArgs.push_back("-defaultlib:libomp.lib");
@@ -864,9 +872,15 @@ void MSVCToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
 
 #if INTEL_CUSTOMIZATION
   // Add Intel specific headers
-  if (getDriver().IsIntelMode())
-    addSystemInclude(DriverArgs, CC1Args,
-                     getDriver().Dir + "/../compiler/include");
+  if (getDriver().IsIntelMode()) {
+    SmallString<128> HeaderDir(getDriver().Dir);
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+    llvm::sys::path::append(HeaderDir, "..", "..", "include");
+#else
+    llvm::sys::path::append(HeaderDir, "..", "compiler", "include");
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
+    addSystemInclude(DriverArgs, CC1Args, HeaderDir);
+  }
 
   // Add Intel performance library headers
   if (DriverArgs.hasArg(clang::driver::options::OPT_qmkl_EQ)) {
