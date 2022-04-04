@@ -101,7 +101,7 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP__IND_FINAL]]
 ;
 ; CHECK:        BEGIN REGION { modified }
-; CHECK:              %.vec = ptrtoint.<4 x i64*>.<4 x i64>(%lp);
+; CHECK:              %.vec = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)(%lp)[0]));
 ; CHECK:              %.vec1 = %.vec  /u  8;
 ; CHECK:              %.vec2 = %.vec1  *  3;
 ; CHECK:              %.vec3 = %.vec2  %u  4;

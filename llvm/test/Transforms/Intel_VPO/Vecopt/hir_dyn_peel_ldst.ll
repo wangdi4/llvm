@@ -4,7 +4,7 @@
 ; LIT test to check dynamic peeling in VPlan HIR path for the case a[i] = a[i] + 1.
 ;
 ; CHECK:          BEGIN REGION { modified }
-; CHECK-NEXT:           %.vec = ptrtoint.<4 x i64*>.<4 x i64>(%lp);
+; CHECK-NEXT:           %.vec = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)(%lp)[0]));
 ; CHECK-NEXT:           %.vec1 = %.vec  /u  8;
 ; CHECK-NEXT:           %.vec2 = %.vec1  *  3;
 ; CHECK-NEXT:           %.vec3 = %.vec2  %u  4;
