@@ -383,9 +383,11 @@ void X86AsmPrinter::PrintIntelMemReference(const MachineInstr *MI,
     HasBaseReg = false;
 
   // If we really just want to print out displacement.
+  bool HasIndexReg = IndexReg.getReg() != 0;
   if (Modifier && (DispSpec.isGlobal() || DispSpec.isSymbol()) &&
       !strcmp(Modifier, "disp-only")) {
     HasBaseReg = false;
+    HasIndexReg = false;
   }
 
   // If this has a segment register, print it.
@@ -402,7 +404,7 @@ void X86AsmPrinter::PrintIntelMemReference(const MachineInstr *MI,
     NeedPlus = true;
   }
 
-  if (IndexReg.getReg()) {
+  if (HasIndexReg) {
     if (NeedPlus) O << " + ";
     if (ScaleVal != 1)
       O << ScaleVal << '*';
