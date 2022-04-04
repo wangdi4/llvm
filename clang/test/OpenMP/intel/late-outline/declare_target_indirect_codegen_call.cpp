@@ -14,6 +14,22 @@
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
 //RUN:  -Wsource-uses-openmp -o - %s | FileCheck %s -check-prefix TARG
 
+//RUN: %clang_cc1 -triple x86_64-pc-windows-msvc19.29.30133 \
+//RUN:  -fopenmp -fopenmp-version=51 -fopenmp-late-outline \
+//RUN:  -fopenmp-targets=spir64 -emit-llvm -disable-llvm-passes \
+//RUN:  -Werror -Wsource-uses-openmp -o - %s | FileCheck %s -check-prefix WHOST
+
+//RUN: %clang_cc1 -triple x86_64-pc-windows-msvc19.29.30133 \
+//RUN:  -fopenmp -fopenmp-version=51 -fopenmp-late-outline \
+//RUN:  -fopenmp-targets=spir64 -emit-llvm-bc -disable-llvm-passes \
+//RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
+
+//RUN: %clang_cc1 -triple spir64 -aux-triple x86_64-pc-windows-msvc \
+//RUN:  -fopenmp -fopenmp-targets=spir64  -fopenmp-is-device \
+//RUN:  -fopenmp-late-outline -fopenmp -fopenmp-version=51 \
+//RUN:  -emit-llvm -fopenmp-host-ir-file-path %t_host.bc \
+//RUN:  -Wsource-uses-openmp -o - %s | FileCheck %s -check-prefix TARG
+
 // expected-no-diagnostics
 
 typedef int(*func)(int, int);
@@ -147,4 +163,12 @@ int main()
 // TARG-NEXT: !5 = !{i32 2, !"_Z3zooi", i32 {{.*}}, i32 (i32)* @_Z3zooi}
 // TARG-NEXT: !6 = !{i32 2, !"_Z4barrii", i32 0, i32 (i32, i32)* @_Z4barrii}
 // TARG-NEXT: !7 = !{i32 2, !"_ZN1C3fooEv", i32 7, void (%struct.C addrspace(4)*)* @_ZN1C3fooEv}
+
+// WHOST: !omp_offload.info = !{!0, !1, !2, !3, !4, !5, !6, !7}
+// WHOST: !3 = !{i32 2, !"_Z2f5fRKPi", i32 3, i32** (float, i32**)* @"?f5@@YAPEBQEAHMAEBQEAH@Z"}
+// WHOST-NEXT: !4 = !{i32 2, !"_Z3mooi", i32 {{.*}}, i32 (i32)* @"?moo@@YAHH@Z"}
+// WHOST-NEXT: !5 = !{i32 2, !"_Z3zooi", i32 {{.*}}, i32 (i32)* @"?zoo@@YAHH@Z"}
+// WHOST-NEXT: !6 = !{i32 2, !"_Z4barrii", i32 0, i32 (i32, i32)* @"?barr@@YAHHH@Z"}
+// WHOST-NEXT: !7 = !{i32 2, !"_ZN1C3fooEv", i32 7, void (%struct.C*)* @"?foo@C@@UEAAXXZ"}
+
 // end INTEL_COLLAB
