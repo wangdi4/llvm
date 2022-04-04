@@ -2,11 +2,11 @@
 #include "cl_types.h"
 
 #include <fstream>
-#include <gtest/gtest.h>
 #include <stdio.h>
 
 #include "FrameworkTest.h"
 #include "common_utils.h"
+#include "gtest_wrapper.h"
 
 extern cl_device_type gDeviceType;
 
@@ -67,8 +67,14 @@ TEST_F(DISABLED_CheckSamplerTypedefInSPIRV, Run) {
   m_kernel = clCreateKernel(m_program, "smplr", &rc);
   ASSERT_EQ(CL_SUCCESS, rc) << "Unable to create kernel";
 
-  m_sampler = clCreateSampler(m_context, CL_FALSE, CL_ADDRESS_CLAMP,
-                              CL_FILTER_NEAREST, &rc);
+  cl_sampler_properties props[] = {CL_SAMPLER_NORMALIZED_COORDS,
+                                   CL_FALSE,
+                                   CL_SAMPLER_ADDRESSING_MODE,
+                                   CL_ADDRESS_CLAMP,
+                                   CL_SAMPLER_FILTER_MODE,
+                                   CL_FILTER_NEAREST,
+                                   0};
+  m_sampler = clCreateSamplerWithProperties(m_context, props, &rc);
   ASSERT_EQ(CL_SUCCESS, rc) << "Unable to create kernel";
 
   rc = clSetKernelArg(m_kernel, 0, sizeof(cl_sampler), &m_sampler);

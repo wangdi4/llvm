@@ -88,11 +88,12 @@ bool clCheckVectorizingDim1And2AndUniteWG(int progIndex,bool hasLocalWGSize)
         context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
         CheckException("clCreateContextFromType", CL_SUCCESS, iRet);
 
-        queue = clCreateCommandQueue(context, device, 0, &iRet);
-        CheckException("clCreateCommandQueue", CL_SUCCESS, iRet);
+        queue =
+            clCreateCommandQueueWithProperties(context, device, NULL, &iRet);
+        CheckException("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
 
-        const char * program  = (progIndex==0)?sProg_prefer1:sProg_prefer2;
-        const size_t szLengths = { strlen(program) };
+        const char *program = (progIndex == 0) ? sProg_prefer1 : sProg_prefer2;
+        const size_t szLengths = {strlen(program)};
         cl_program prog = clCreateProgramWithSource(context, 1, (const char**)&program, &szLengths, &iRet);
 
         CheckException("clCreateProgramWithSource", CL_SUCCESS, iRet);

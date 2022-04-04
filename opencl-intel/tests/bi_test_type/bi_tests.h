@@ -1,11 +1,10 @@
 #ifndef __BI_TESTS_H__
 #define __BI_TESTS_H__
 
-#include "gtest/gtest.h"
 #include "CL/cl.h"
+#include "gtest_wrapper.h"
 
 #include <vector>
-
 
 class BITest : public ::testing::Test {
 protected:

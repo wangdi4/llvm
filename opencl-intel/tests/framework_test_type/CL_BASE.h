@@ -17,7 +17,7 @@
 
 #include "CL/cl.h"
 #include "cl_config.h"
-#include <gtest/gtest.h>
+#include "gtest_wrapper.h"
 
 using Intel::OpenCL::Utils::OPENCL_VERSION;
 

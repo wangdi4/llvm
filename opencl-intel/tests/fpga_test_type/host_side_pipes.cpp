@@ -14,13 +14,13 @@
 #include "base_fixture.h"
 #include "pretty_printers.h"
 
+#include "gtest_wrapper.h"
 #include <CL/cl.h>
 #include <CL/cl_fpga_ext.h>
-#include <gtest/gtest.h>
 
 #include <algorithm>
-#include <string>
 #include <cstdlib>
+#include <string>
 
 class TestHostSidePipes : public OCLFPGABaseFixture {
 protected:
@@ -190,9 +190,13 @@ bool TestHostSidePipes::runLoopbackKernel(cl_int numPackets) {
     return false;
   }
 
-  error = clEnqueueTask(m_queue, m_loopback, 0, nullptr, nullptr);
+  size_t global_work_size[1] = {1};
+  size_t local_work_size[1] = {1};
+  error =
+      clEnqueueNDRangeKernel(m_queue, m_loopback, 1, nullptr, global_work_size,
+                             local_work_size, 0, nullptr, nullptr);
   EXPECT_EQ(error, CL_SUCCESS)
-      << "clEnqueueTask failed with error " << ErrToStr(error);
+      << "clEnqueueNDRangeKernel failed with error " << ErrToStr(error);
   if (error != CL_SUCCESS) {
     return false;
   }

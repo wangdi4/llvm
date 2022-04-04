@@ -20,17 +20,15 @@
 //
 // ocl_wrapper.h
 
-
 #ifndef OCL_WRAPPER_GTEST_
 #define OCL_WRAPPER_GTEST_
 
+#include "dynamic_array.h"
+#include "gtest_wrapper.h"
 #include <CL/cl.h>
 #include <CL/cl_ext.h>
-#include <gtest/gtest.h>
-#include "dynamic_array.h"
 
-template <typename T>
-class DynamicArray;
+template <typename T> class DynamicArray;
 
 /**
  *	OpenCLDescriptor - encapsulates commonly used OpenCL objects.

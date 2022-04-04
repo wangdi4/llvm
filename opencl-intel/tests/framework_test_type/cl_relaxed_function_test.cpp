@@ -68,15 +68,19 @@ bool clRelaxedFunctionTest()
     if (!bResult) goto release_end;
 
 	iRet = clGetDeviceIDs(platform, gDeviceType, 1, &clDefaultDeviceId, NULL);
-    bResult &= Check("clGetDeviceIDs", CL_SUCCESS, iRet);    
-    if (!bResult) goto release_context;
+        bResult &= Check("clGetDeviceIDs", CL_SUCCESS, iRet);
+        if (!bResult)
+          goto release_context;
 
-    queue = clCreateCommandQueue (context, clDefaultDeviceId, 0 /*no properties*/, &iRet);
-	bResult &= Check("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
-	if (!bResult) goto release_context;
+        queue = clCreateCommandQueueWithProperties(
+            context, clDefaultDeviceId, NULL /*no properties*/, &iRet);
+        bResult &= Check("clCreateCommandQueueWithProperties - queue",
+                         CL_SUCCESS, iRet);
+        if (!bResult)
+          goto release_context;
 
-	// create program with source
-	cl_program program, relaxedProgram;
+        // create program with source
+        cl_program program, relaxedProgram;
 	if ( !BuildProgramSynch(context, 1, (const char**)&ocl_test_program, NULL, "-cl-fast-relaxed-math", &relaxedProgram) )
 	{
 		bResult = false;

@@ -13,13 +13,13 @@
 
 #include "base_fixture.h"
 
+#include "gtest_wrapper.h"
 #include <CL/cl.h>
 #include <CL/cl_ext.h>
-#include <gtest/gtest.h>
 
+#include <map>
 #include <string>
 #include <type_traits>
-#include <map>
 
 /**
  *  Provides minimalistic API for tests development:

@@ -1,6 +1,5 @@
-#include <CL/cl.h>
-#include <CL/cl_ext_intel.h>
 #include "FrameworkTest.h"
+#include <CL/cl.h>
 
 extern cl_device_type gDeviceType;
 
@@ -101,9 +100,12 @@ bool immediateExecutionTest()
     //
     // Create an in-order immediate queue
     //
-    cl_command_queue queue1 = clCreateCommandQueue (context, device_id, CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL, &iRet);
-    bResult &= SilentCheck("clCreateCommandQueue", CL_SUCCESS, iRet);
-
+    const cl_queue_properties props[] = {
+        CL_QUEUE_PROPERTIES, CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL, 0};
+    cl_command_queue queue1 =
+        clCreateCommandQueueWithProperties(context, device_id, props, &iRet);
+    bResult &=
+        SilentCheck("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
 
     //
     // Create Kernel

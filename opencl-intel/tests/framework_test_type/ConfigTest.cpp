@@ -1,9 +1,9 @@
-#include <gtest/gtest.h>
+
 #include "cl_config.h"
 #include "common_utils.h"
+#include "gtest_wrapper.h"
 
-TEST(FrameworkTestType, ConfigEnvSize)
-{
+TEST(FrameworkTestType, ConfigEnvSize) {
 #ifndef _WIN32
   const char* devNull = "/dev/null";
 #else

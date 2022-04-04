@@ -1160,6 +1160,9 @@ class VectInfo<list<OclType> tys, OclBuiltin v1, OclBuiltin v4, OclBuiltin v8, O
   bit HandleAlias = 1;
   bit KernelCallOnce = 1;
   bit NeedWidenTypes = 1;
+  // If the 'Stride' field is a non-zero value, OclTableGen backend will emit
+  // linear strided vector variants instead of uniform ones.
+  int Stride = 0;
   ScalarFunc v1Func = ScalarFunc<v1, Types>;
   VectorFunc v4Func = VectorFunc<v4, Types, 4, NeedWidenTypes>;
   VectorFunc v8Func = VectorFunc<v8, Types, 8, NeedWidenTypes>;

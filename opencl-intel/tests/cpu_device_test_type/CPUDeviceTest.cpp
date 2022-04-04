@@ -36,9 +36,9 @@
 #include "program_service_test.h"
 #include "task_executor.h"
 
+#include "gtest_wrapper.h"
 #include <CL/cl_ext.h>
 #include <assert.h>
-#include <gtest/gtest.h>
 #include <random>
 #include <stdio.h>
 #include <stdlib.h>

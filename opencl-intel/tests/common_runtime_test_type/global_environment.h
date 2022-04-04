@@ -26,13 +26,13 @@
 
 #include "ocl_wrapper.h"
 
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <stdlib.h>
-#include <malloc.h>
+#include "gtest_wrapper.h"
 #include <CL/cl.h>
-#include <gtest/gtest.h>
+#include <fstream>
+#include <iostream>
+#include <malloc.h>
+#include <stdlib.h>
+#include <string>
 
 /**
  * EnvironemntCommonRuntimeTestType - global setup of the tests environment

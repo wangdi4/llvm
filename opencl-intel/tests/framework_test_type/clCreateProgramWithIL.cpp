@@ -1,20 +1,17 @@
 #include "CL21.h"
+#include "gtest_wrapper.h"
 
-TEST_F(CL21, CreateProgramWithIL_IL_VERSION)
-{
-    cl_int iRet = CL_SUCCESS;
+TEST_F(CL21, CreateProgramWithIL_IL_VERSION) {
+  cl_int iRet = CL_SUCCESS;
 
-    const size_t il_version_size = 14;
-    std::string il_version(il_version_size, '\0');
+  const size_t il_version_size = 14;
+  std::string il_version(il_version_size, '\0');
 
-    iRet  = clGetDeviceInfo(m_device,
-                            CL_DEVICE_IL_VERSION,
-                            il_version.size(),
-                            &il_version[0],
-                            /*ret_size*/nullptr);
-    ASSERT_EQ(CL_SUCCESS, iRet)
-                << " clGetDeviceInfo with CL_DEVICE_IL_VERSION failed. ";
-
+  iRet = clGetDeviceInfo(m_device, CL_DEVICE_IL_VERSION, il_version.size(),
+                         &il_version[0],
+                         /*ret_size*/ nullptr);
+  ASSERT_EQ(CL_SUCCESS, iRet)
+      << " clGetDeviceInfo with CL_DEVICE_IL_VERSION failed. ";
 }
 
 TEST_F(CL21, CreateProgramWithIL_Negative)

@@ -729,11 +729,12 @@ bool clCreateImageTest()
         CheckException("clGetDeviceIDs", CL_SUCCESS, iRet);
         size_t szSize;
 
-        const cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };    
-        context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);    
-        CheckException("clCreateContextFromType", CL_SUCCESS, iRet);    
-        queue = clCreateCommandQueue(context, device, 0, &iRet);
-        CheckException("clCreateCommandQueue", CL_SUCCESS, iRet);
+        const cl_context_properties prop[3] = {
+            CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0};
+        context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
+        CheckException("clCreateContextFromType", CL_SUCCESS, iRet);
+        queue = clCreateCommandQueueWithProperties(context, device, 0, &iRet);
+        CheckException("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
         clFormat.image_channel_order = CL_RGBA;
         clFormat.image_channel_data_type = CL_UNSIGNED_INT8;
         clImageDesc.image_width = IMAGE_WIDTH;
@@ -931,8 +932,8 @@ bool clCreateImageWithPropertiesTest() {
                                            (cl_context_properties)platform, 0};
     context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
     CheckException("clCreateContextFromType", CL_SUCCESS, iRet);
-    queue = clCreateCommandQueue(context, device, 0, &iRet);
-    CheckException("clCreateCommandQueue", CL_SUCCESS, iRet);
+    queue = clCreateCommandQueueWithProperties(context, device, NULL, &iRet);
+    CheckException("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
     clFormat.image_channel_order = CL_RGBA;
     clFormat.image_channel_data_type = CL_UNSIGNED_INT8;
     clImageDesc.image_width = IMAGE_WIDTH;

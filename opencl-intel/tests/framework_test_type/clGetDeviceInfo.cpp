@@ -2,7 +2,6 @@
 #include "FrameworkTest.h"
 #include "cl_cpu_detect.h"
 #include "cl_types.h"
-#include <gtest/gtest.h>
 #include <stdio.h>
 
 extern cl_device_type gDeviceType;

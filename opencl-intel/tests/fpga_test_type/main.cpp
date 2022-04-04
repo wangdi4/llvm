@@ -8,10 +8,10 @@
 //
 // ===--------------------------------------------------------------------=== //
 
+#include "common_utils.h"
+#include "gtest_wrapper.h"
 #include "options.hpp"
 #include <CL/cl.h>
-#include <gtest/gtest.h>
-#include "common_utils.h"
 
 bool gCaptureMode = false;
 

@@ -1,4 +1,4 @@
-#include <gtest/gtest.h>
+#include "gtest_wrapper.h"
 
 #include <string>
 

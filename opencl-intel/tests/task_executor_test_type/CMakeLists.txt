@@ -1,4 +1,3 @@
-# remove the restriction of warning as error for this component
 link_directories( ${TBB_LIB_DIR} )
 
 set( TARGET task_executor_test_type )
@@ -16,7 +15,6 @@ add_ocl_unittest( ${TARGET} SOURCE_FILES ${TARGET_SOURCES}
     LINK_LIBRARIES ${TARGET_LIBS} )
 
 target_compile_options (${TARGET} PRIVATE
-    $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wno-error>
     $<$<CXX_COMPILER_ID:MSVC>:/WX->
 )
 

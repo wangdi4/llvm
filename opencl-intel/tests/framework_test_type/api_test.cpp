@@ -296,25 +296,37 @@ bool api_test(){
 	bResult = Check("clWaitForEvents, CSSD100011903",CL_INVALID_VALUE,err);
 	if (!bResult){
 		return bResult;
-	}	
+        }
 
-	//init Command Queue - should fail
-	cmd_queue = clCreateCommandQueue(context,device,0xff,&err);
-	bResult = SilentCheck("clCreateCommandQueue, CSSD100006058",CL_INVALID_VALUE,err);
-	if (!bResult){
-		clReleaseContext(context);
-		return bResult;
-	}	
+        // init Command Queue - should fail
+        const cl_queue_properties props[] = {
+            CL_QUEUE_PROPERTIES,
+            (int)~(CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE |
+                   CL_QUEUE_PROFILING_ENABLE |
+                   CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL |
+                   CL_QUEUE_ON_DEVICE | CL_QUEUE_ON_DEVICE_DEFAULT),
+            0};
+        cmd_queue =
+            clCreateCommandQueueWithProperties(context, device, props, &err);
+        bResult =
+            SilentCheck("clCreateCommandQueueWithProperties, CSSD100006058",
+                        CL_INVALID_VALUE, err);
+        if (!bResult) {
+          clReleaseContext(context);
+          return bResult;
+        }
 
-	//init Command Queue - should succeed
-	cmd_queue = clCreateCommandQueue(context,device, 0/*CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE*/,&err);
-	bResult = SilentCheck("clCreateCommandQueue",CL_SUCCESS,err);
-	if (!bResult){
-		clReleaseContext(context);
-		return bResult;
-	}
+        // init Command Queue - should succeed
+        cmd_queue =
+            clCreateCommandQueueWithProperties(context, device, NULL, &err);
+        bResult =
+            SilentCheck("clCreateCommandQueueWithProperties", CL_SUCCESS, err);
+        if (!bResult) {
+          clReleaseContext(context);
+          return bResult;
+        }
 
-	const char* ocl_test_program= {\
+        const char* ocl_test_program= {\
 		"__kernel void apiTest(__global char  *fred)\
 		{fred[0] = 0;}"};
 

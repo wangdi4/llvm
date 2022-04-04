@@ -21,18 +21,16 @@ set (TARGET_NAME_PREFIX clbltfn)
 set (SHARED_RTL_NAME shared)
 set (TARGET_NAME_SHARED ${TARGET_NAME_PREFIX}${SHARED_RTL_NAME})
 
-if (BUILD_X64)
-  # 64 bit
-  set (PLATFORM 64)
-else ()
-  # 32 bit
-  set (PLATFORM 32)
-endif ()
-
 if (WIN32)
-  set (PLATFORM Win${PLATFORM})
+  if (BUILD_X64)
+    # 64 bit
+    set (PLATFORM win64)
+  else ()
+    # 32 bit
+    set (PLATFORM win32)
+  endif ()
 else ()
-  set (PLATFORM Linux${PLATFORM})
+  set (PLATFORM linux)
 endif()
 
 add_subdirectory (utils/TableGen)
@@ -49,12 +47,11 @@ set (BUILTINS_OUTPUT_DIR ${OCL_OUTPUT_LIBRARY_DIR})
 set (BUILTINS_SHARED_OUTPUT_DIR ${OCL_LIBRARY_DIR})
 
 # svml directories
-set (SVML_DLL_DIR ${CL_BUILTIN_SOURCE_DIR}/bin/svml/${PLATFORM})
+set (SVML_DLL_DIR ${OCL_SOURCE_DIR}/externals/ocl_svml/${PLATFORM})
 if (NOT EXISTS ${SVML_DLL_DIR})
   message (FATAL_ERROR "Cannot find SVML binary directory (${SVML_DLL_DIR})!")
 endif()
 set (SVML_NAME_PREFIX __ocl_svml_)
-set (SDE_NAME_PREFIX __sde_svml_)
 
 #
 # Tool environment and options

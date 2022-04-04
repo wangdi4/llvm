@@ -82,8 +82,13 @@ bool clOutOfOrderTest()
     //
     // Create queue
     //
-    cl_command_queue queue1 = clCreateCommandQueue (context, pDevices[0], CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &iRet);
-	bResult &= Check("clCreateCommandQueue - queue1 - Out of order", CL_SUCCESS, iRet);
+    const cl_queue_properties props[] = {
+        CL_QUEUE_PROPERTIES, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, 0};
+    cl_command_queue queue1 =
+        clCreateCommandQueueWithProperties(context, pDevices[0], props, &iRet);
+    bResult &=
+        Check("clCreateCommandQueueWithProperties - queue1 - Out of order",
+              CL_SUCCESS, iRet);
 
     //
     // Create buffers
@@ -281,64 +286,71 @@ bool clOODotProductTest( int iNumLoops )
     for( int i=0; i< iNumLoops; i++)
     {
 
-        // Create queue
-        //
-        cl_command_queue queue1 = clCreateCommandQueue (context, pDevices[0], CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &iRet);
-	    bResult &= Check("clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
+      // Create queue
+      //
+      const cl_queue_properties props[] = {
+          CL_QUEUE_PROPERTIES, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, 0};
+
+      cl_command_queue queue1 = clCreateCommandQueueWithProperties(
+          context, pDevices[0], props, &iRet);
+      bResult &= Check("clCreateCommandQueueWithProperties - queue1",
+                       CL_SUCCESS, iRet);
+
+      //
+      // Execute commands - Write buffers
+      //
+      iRet = clEnqueueWriteBuffer(queue1, buffer_srcA, false, 0,
+                                  size * BUFFERS_LENGTH, srcA, 0, NULL, NULL);
+      bResult &= Check("clEnqueueWriteBuffer - srcA", CL_SUCCESS, iRet);
+
+      iRet = clEnqueueWriteBuffer(queue1, buffer_srcB, false, 0,
+                                  size * BUFFERS_LENGTH, srcB, 0, NULL, NULL);
+      bResult &= Check("clEnqueueWriteBuffer - srcB", CL_SUCCESS, iRet);
+
+      // Enqueue Barrier to continue only when buffers are ready
+      iRet = clEnqueueBarrier(queue1);
+      bResult &= Check("clEnqueueBarrier", CL_SUCCESS, iRet);
+
+      //
+      // Execute kernel - dot_product
+      //
+      size_t global_work_size[1] = {BUFFERS_LENGTH / 4};
+      size_t local_work_size[1] = {1};
+
+      cl_event waitEvent[2];
+      for (int index = 0; index < 4; index++) {
+        iRet =
+            clEnqueueNDRangeKernel(queue1, kernel1, 1, NULL, global_work_size,
+                                   local_work_size, 0, NULL, &waitEvent[0]);
+        bResult &= Check("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
+
+        iRet = clEnqueueReadBuffer(queue1, buffer_dst, CL_FALSE, 0,
+                                   size * BUFFERS_LENGTH, dst, 1, &waitEvent[0],
+                                   NULL);
+        bResult &= Check("clEnqueueReadBuffer", CL_SUCCESS, iRet);
+
+        // Wait with Marker...
+        iRet = clEnqueueMarker(queue1, &waitEvent[1]);
+        bResult &= Check("clEnqueueMarker", CL_SUCCESS, iRet);
+
+        // Wait on marker
+        iRet = clWaitForEvents(1, &waitEvent[1]);
+        bResult &= Check("clWaitForEvents", CL_SUCCESS, iRet);
 
         //
-        // Execute commands - Write buffers
+        // Print kernel output
         //
-        iRet = clEnqueueWriteBuffer (queue1, buffer_srcA, false, 0, size* BUFFERS_LENGTH, srcA, 0, NULL, NULL);
-        bResult &= Check("clEnqueueWriteBuffer - srcA", CL_SUCCESS, iRet);
+        printf("\n ==== \n");
+        for (int i = 0; i < 10; i++) {
+          printf("%lf, ", dst[i]);
+        }
+        printf("\n ==== \n");
 
-        iRet = clEnqueueWriteBuffer (queue1, buffer_srcB, false, 0, size* BUFFERS_LENGTH, srcB, 0, NULL, NULL);
-        bResult &= Check("clEnqueueWriteBuffer - srcB", CL_SUCCESS, iRet);
-        
+        iRet = clReleaseEvent(waitEvent[0]);
+        bResult &= Check("clReleaseEvent - waitEvent[0]", CL_SUCCESS, iRet);
 
-        // Enqueue Barrier to continue only when buffers are ready
-        iRet = clEnqueueBarrier(queue1);
-        bResult &= Check("clEnqueueBarrier", CL_SUCCESS, iRet);
-
-        //
-        // Execute kernel - dot_product
-        //
-        size_t global_work_size[1] = { BUFFERS_LENGTH/4 };
-        size_t local_work_size[1] = { 1 };
-
-        cl_event waitEvent[2];
-        for (int index =0; index < 4; index++)
-        {
-            iRet = clEnqueueNDRangeKernel(queue1, kernel1, 1, NULL, global_work_size, local_work_size, 0, NULL, &waitEvent[0]);
-            bResult &= Check("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
-
-            iRet = clEnqueueReadBuffer (queue1, buffer_dst, CL_FALSE,  0, size*BUFFERS_LENGTH, dst, 1, &waitEvent[0], NULL);
-            bResult &= Check("clEnqueueReadBuffer", CL_SUCCESS, iRet);
-
-            // Wait with Marker...
-            iRet = clEnqueueMarker(queue1, &waitEvent[1]);
-            bResult &= Check("clEnqueueMarker", CL_SUCCESS, iRet);
-
-            // Wait on marker
-            iRet = clWaitForEvents(1, &waitEvent[1]);
-            bResult &= Check("clWaitForEvents", CL_SUCCESS, iRet);
-
-
-            //
-            // Print kernel output
-            //
-            printf("\n ==== \n");
-            for (int i=0; i<10; i++)
-            {
-                printf("%lf, ", dst[i]);
-            }
-            printf("\n ==== \n");
-
-            iRet = clReleaseEvent(waitEvent[0]);
-            bResult &= Check("clReleaseEvent - waitEvent[0]", CL_SUCCESS, iRet);
-
-            iRet = clReleaseEvent(waitEvent[1]);
-            bResult &= Check("clReleaseEvent - waitEvent[1]", CL_SUCCESS, iRet);
+        iRet = clReleaseEvent(waitEvent[1]);
+        bResult &= Check("clReleaseEvent - waitEvent[1]", CL_SUCCESS, iRet);
         }
         iRet = clFinish(queue1);
         bResult &= Check("clFinish - queue1", CL_SUCCESS, iRet);        
@@ -418,7 +430,10 @@ bool clQuickExecutionTest()
     //
     // Create queue
     //
-    cl_command_queue queue1 = clCreateCommandQueue (context, pDevices[0], CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &iRet);
+    const cl_queue_properties props[] = {
+        CL_QUEUE_PROPERTIES, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, 0};
+    cl_command_queue queue1 =
+        clCreateCommandQueueWithProperties(context, pDevices[0], props, &iRet);
 
     //
     // Create buffers

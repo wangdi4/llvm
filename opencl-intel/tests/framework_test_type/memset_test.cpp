@@ -39,16 +39,16 @@ bool reuse_mem_test()
 	context = clCreateContext(NULL, 1, &deviceId, NULL, NULL, &err);
 	if (err != CL_SUCCESS)
 	{
-		return false;
-	}
+          return false;
+        }
 
-	commandQueue = clCreateCommandQueue(context, deviceId, 0, &err);
-	if (err != CL_SUCCESS)
-	{
-		return false;
-	}
+        commandQueue =
+            clCreateCommandQueueWithProperties(context, deviceId, NULL, &err);
+        if (err != CL_SUCCESS) {
+          return false;
+        }
 
-	program = clCreateProgramWithSource(context, 1, &kernelSource1, NULL, &err);
+        program = clCreateProgramWithSource(context, 1, &kernelSource1, NULL, &err);
 	err |= clBuildProgram(program, 1, &deviceId, NULL, NULL, NULL);
 	if (err != CL_SUCCESS)
 	{
@@ -140,16 +140,16 @@ bool memset_test()
 	context = clCreateContext(prop, 1, &deviceId, NULL, NULL, &err);
 	if (err != CL_SUCCESS)
 	{
-		return false;
-	}
+          return false;
+        }
 
-	commandQueue = clCreateCommandQueue(context, deviceId, 0, &err);
-	if (err != CL_SUCCESS)
-	{
-		return false;
-	}
+        commandQueue =
+            clCreateCommandQueueWithProperties(context, deviceId, NULL, &err);
+        if (err != CL_SUCCESS) {
+          return false;
+        }
 
-	program = clCreateProgramWithSource(context, 1, &kernelSource2, NULL, &err);
+        program = clCreateProgramWithSource(context, 1, &kernelSource2, NULL, &err);
 	err |= clBuildProgram(program, 1, &deviceId, NULL, NULL, NULL);
 	if (err != CL_SUCCESS)
 	{
@@ -196,7 +196,7 @@ bool memset_test()
 	if (err != CL_SUCCESS)
 	{
 		return false;
-	}
+        }
 
-	return validBuffer;
+        return validBuffer;
 }

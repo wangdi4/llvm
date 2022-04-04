@@ -13,12 +13,11 @@
 // License.
 
 #include "CL/cl.h"
-#include "cl_types.h"
-#include <stdio.h>
 #include "FrameworkTest.h"
 #include "TestsHelpClasses.h"
-#include <gtest/gtest.h>
+#include "cl_types.h"
 #include <memory>
+#include <stdio.h>
 
 extern cl_device_type gDeviceType;
 
@@ -67,22 +66,21 @@ bool TestRun(cl_program& program, cl_context cxContext, cl_device_id device)
     std::unique_ptr<int> pSrcA(new int[szGlobalWorkSize]);
     for(size_t i = 0; i < szGlobalWorkSize; ++i) pSrcA.get()[i] = i % 2;
     std::unique_ptr<int> pSrcB(new int[szGlobalWorkSize]);
-    for(size_t i = 0; i < szGlobalWorkSize; ++i) pSrcB.get()[i] = 10;
+    for (size_t i = 0; i < szGlobalWorkSize; ++i)
+      pSrcB.get()[i] = 10;
 
     cl_int ciErrNum;
-    cl_command_queue cqCommandQueue = clCreateCommandQueue(cxContext, device, 0, &ciErrNum);
-    bResult &= Check("clCreateCommandQueue(...)", CL_SUCCESS, ciErrNum);
+    cl_command_queue cqCommandQueue =
+        clCreateCommandQueueWithProperties(cxContext, device, NULL, &ciErrNum);
+    bResult &=
+        Check("clCreateCommandQueueWithProperties(...)", CL_SUCCESS, ciErrNum);
 
-    cl_mem cmDevDst = clCreateBuffer(cxContext, CL_MEM_READ_WRITE , sizeof(cl_int) * szGlobalWorkSize, NULL, &ciErrNum);
-    ciErrNum = clEnqueueWriteBuffer(cqCommandQueue,
-                                  cmDevDst,
-                                  CL_TRUE,
-                                  0,
-                                  sizeof(cl_int) * szGlobalWorkSize,
-                                  pDst.get(),
-                                  0,
-                                  NULL,
-                                  NULL);
+    cl_mem cmDevDst =
+        clCreateBuffer(cxContext, CL_MEM_READ_WRITE,
+                       sizeof(cl_int) * szGlobalWorkSize, NULL, &ciErrNum);
+    ciErrNum = clEnqueueWriteBuffer(cqCommandQueue, cmDevDst, CL_TRUE, 0,
+                                    sizeof(cl_int) * szGlobalWorkSize,
+                                    pDst.get(), 0, NULL, NULL);
     bResult &= Check("clEnqueueWriteBuffer(Dst)", CL_SUCCESS, ciErrNum);
 
     cl_mem cmDevSrcA = clCreateBuffer(cxContext, CL_MEM_READ_ONLY, sizeof(cl_int) * szGlobalWorkSize, NULL, &ciErrNum);
@@ -219,23 +217,25 @@ bool clCheckJITSaveLoadTest()
     }
 
     std::vector<size_t> binarySizes(uiNumDevices);
-    char ** pBinaries = NULL;
-    if (bResult)
-    {
-        // get the binary
-        iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARY_SIZES, sizeof(size_t) * uiNumDevices, &binarySizes[0], NULL);
-        bResult &= Check("clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
-        if (bResult)
-        {
-            size_t sumBinariesSize = 0;
-            pBinaries = new char*[uiNumDevices];
-            for (unsigned int i = 0; i < uiNumDevices; ++i)
-            {
-                pBinaries[i] = new char[binarySizes[i]];
-                sumBinariesSize += binarySizes[i];
-            }
-            iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARIES, sumBinariesSize, pBinaries, NULL);
-            bResult &= Check("clGetProgramInfo(CL_PROGRAM_BINARIES)", CL_SUCCESS, iRet);
+    unsigned char **pBinaries = NULL;
+    if (bResult) {
+      // get the binary
+      iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARY_SIZES,
+                              sizeof(size_t) * uiNumDevices, &binarySizes[0],
+                              NULL);
+      bResult &=
+          Check("clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
+      if (bResult) {
+        size_t sumBinariesSize = 0;
+        pBinaries = new unsigned char *[uiNumDevices];
+        for (unsigned int i = 0; i < uiNumDevices; ++i) {
+          pBinaries[i] = new unsigned char[binarySizes[i]];
+          sumBinariesSize += binarySizes[i];
+        }
+        iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARIES, sumBinariesSize,
+                                pBinaries, NULL);
+        bResult &=
+            Check("clGetProgramInfo(CL_PROGRAM_BINARIES)", CL_SUCCESS, iRet);
 #if __STORE_BINARY__
             if (bResult)
             {
@@ -245,7 +245,7 @@ bool clCheckJITSaveLoadTest()
                 fclose(fout);
             }
 #endif
-        }
+      }
 
         // check if all the returned binaries is in object format
         bool objectFormat = true;
@@ -263,32 +263,37 @@ bool clCheckJITSaveLoadTest()
 
         // create program with binary
         cl_int status;
-	cl_program clBinaryProg = clCreateProgramWithBinary(context, uiNumDevices, &devices[0], &binarySizes[0], (const unsigned char**)pBinaries, &status, &iRet);
-	bResult &= Check("clCreateProgramWithBinary", CL_SUCCESS, iRet);
+        cl_program clBinaryProg = clCreateProgramWithBinary(
+            context, uiNumDevices, &devices[0], &binarySizes[0],
+            const_cast<const unsigned char **>(pBinaries), &status, &iRet);
+        bResult &= Check("clCreateProgramWithBinary", CL_SUCCESS, iRet);
 
-	iRet = clBuildProgram(clBinaryProg, uiNumDevices, &devices[0], NULL, NULL, NULL);
-	bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
+        iRet = clBuildProgram(clBinaryProg, uiNumDevices, &devices[0], NULL,
+                              NULL, NULL);
+        bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
 
         // get binaries from the 2nd built program
         std::vector<size_t> binarySizes2(uiNumDevices);
-        char** pBinaries2 = nullptr;
-        if(bResult)
-        {
-            // get the binary
-            iRet = clGetProgramInfo(clBinaryProg, CL_PROGRAM_BINARY_SIZES, sizeof(size_t) * uiNumDevices, &binarySizes2[0], NULL);
-            bResult &= Check("clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
-            if (bResult)
-            {
-                size_t sumBinariesSize = 0;
-                pBinaries2 = new char*[uiNumDevices];
-                for (unsigned int i = 0; i < uiNumDevices; ++i)
-                {
-                    pBinaries2[i] = new char[binarySizes2[i]];
-                    sumBinariesSize += binarySizes2[i];
-                }
-                iRet = clGetProgramInfo(clBinaryProg, CL_PROGRAM_BINARIES, sumBinariesSize, pBinaries2, NULL);
-                bResult &= Check("clGetProgramInfo(CL_PROGRAM_BINARIES)", CL_SUCCESS, iRet);
+        unsigned char **pBinaries2 = nullptr;
+        if (bResult) {
+          // get the binary
+          iRet = clGetProgramInfo(clBinaryProg, CL_PROGRAM_BINARY_SIZES,
+                                  sizeof(size_t) * uiNumDevices,
+                                  &binarySizes2[0], NULL);
+          bResult &= Check("clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)",
+                           CL_SUCCESS, iRet);
+          if (bResult) {
+            size_t sumBinariesSize = 0;
+            pBinaries2 = new unsigned char *[uiNumDevices];
+            for (unsigned int i = 0; i < uiNumDevices; ++i) {
+              pBinaries2[i] = new unsigned char[binarySizes2[i]];
+              sumBinariesSize += binarySizes2[i];
             }
+            iRet = clGetProgramInfo(clBinaryProg, CL_PROGRAM_BINARIES,
+                                    sumBinariesSize, pBinaries2, NULL);
+            bResult &= Check("clGetProgramInfo(CL_PROGRAM_BINARIES)",
+                             CL_SUCCESS, iRet);
+          }
         }
 
         // 2nd test check the binaries
@@ -309,14 +314,17 @@ bool clCheckJITSaveLoadTest()
         {
             delete [](pBinaries[i]);
         }
-        delete []pBinaries;
+        delete[] pBinaries;
 
         // create program with binary
-	cl_program clBinaryProg2 = clCreateProgramWithBinary(context, uiNumDevices, &devices[0], &binarySizes2[0], (const unsigned char**)pBinaries2, &status, &iRet);
-	bResult &= Check("clCreateProgramWithBinary", CL_SUCCESS, iRet);
+        cl_program clBinaryProg2 = clCreateProgramWithBinary(
+            context, uiNumDevices, &devices[0], &binarySizes2[0],
+            const_cast<const unsigned char **>(pBinaries2), &status, &iRet);
+        bResult &= Check("clCreateProgramWithBinary", CL_SUCCESS, iRet);
 
-	iRet = clBuildProgram(clBinaryProg2, uiNumDevices, &devices[0], NULL, NULL, NULL);
-	bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
+        iRet = clBuildProgram(clBinaryProg2, uiNumDevices, &devices[0], NULL,
+                              NULL, NULL);
+        bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
 
         // delete the second binaries
         for (unsigned int i = 0; i < uiNumDevices; i++)

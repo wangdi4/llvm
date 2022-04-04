@@ -21,7 +21,6 @@
 #include "FrameworkTestThreads.h"
 #include "TestsHelpClasses.h"
 #include <CL/cl.h>
-#include <gtest/gtest.h>
 #include <tbb/parallel_for.h>
 
 #include <thread>
@@ -781,7 +780,7 @@ TEST_F(USMTest, setKernelExecInfo) {
                                           sizeof(Foo), alignment, &err);
   ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
 
-  for (int i = 0; i < num; i++) {
+  for (size_t i = 0; i < num; i++) {
     bufA[i] = i;
     bufB[i] = i;
     bufC[i] = i;

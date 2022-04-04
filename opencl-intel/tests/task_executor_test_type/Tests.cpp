@@ -18,9 +18,9 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-#include <iostream>
 #include "TaskExecutorTester.h"
-#include "gtest/gtest.h"
+#include "gtest_wrapper.h"
+#include <iostream>
 
 using namespace std;
 
@@ -34,81 +34,72 @@ FrameworkUserLogger* g_pUserLogger = NULL;
 
 struct DeviceAuto
 {
-    SharedPtr<ITEDevice> deviceHandle;
+  SharedPtr<ITEDevice> deviceHandle;
 
-    // root device constructor
-    DeviceAuto( TaskExecutorTester& taskExecutorTester ) : is_root(true)
-    {
-        ITaskExecutor* taskExecutor = taskExecutorTester.GetTaskExecutor();
-        deviceHandle = taskExecutor->CreateRootDevice(
-            RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, 1),
-            NULL, &taskExecutorTester);
-    };
+  // root device constructor
+  DeviceAuto(TaskExecutorTester &taskExecutorTester) {
+    ITaskExecutor *taskExecutor = taskExecutorTester.GetTaskExecutor();
+    deviceHandle = taskExecutor->CreateRootDevice(
+        RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, 1),
+        NULL, &taskExecutorTester);
+  };
 
-    // sub device constructor
-    DeviceAuto( const SharedPtr<ITEDevice> root, unsigned int units ) : is_root( false )
-    {
-        deviceHandle = root->CreateSubDevice(units);
+  // sub device constructor
+  DeviceAuto(const SharedPtr<ITEDevice> root, unsigned int units) {
+    deviceHandle = root->CreateSubDevice(units);
+  }
+
+  ~DeviceAuto() {
+    if (NULL != deviceHandle.GetPtr()) {
+      deviceHandle->ShutDown();
     }
-
-    ~DeviceAuto()
-    {
-        if (NULL != deviceHandle)
-        {
-            deviceHandle->ShutDown();
-        }
-    }
-private:
-    bool is_root;
+  }
 };
 
-static bool RunSomeTasks(const SharedPtr<ITEDevice>& pSubdevData, bool bOutOfOrder, bool bIsFullDevice, AtomicCounter* pUncompletedTasks)
-{
-    SharedPtr<ITaskList> pTaskList = pSubdevData->CreateTaskList( bOutOfOrder ? TE_CMD_LIST_OUT_OF_ORDER : TE_CMD_LIST_IN_ORDER );
-    if (NULL == pTaskList)
-    {
-        cerr << "TaskExecutor::CreateTaskList returned NULL" << endl;
-        return false;
-    }	
-	const bool bWaitShouldBeSupported = bIsFullDevice;
-    for (unsigned int uiNumDims = 1; uiNumDims <= 3; uiNumDims++)
-    {
-        std::vector<SharedPtr<TesterTaskSet> > tasks(1000);
-        for (size_t i = 0; i < tasks.size(); i++)
-        {
-            SharedPtr<TesterTaskSet> pTaskSet = TesterTaskSet::Allocate(uiNumDims, pUncompletedTasks);
-            if (NULL != pUncompletedTasks)
-            {
-            	(*pUncompletedTasks)++;
-            }
-            pTaskList->Enqueue(pTaskSet);
-            tasks[i] = pTaskSet;
-        }        
-        if (!pTaskList->Flush())
-        {
-            cerr << "Flush failed failed" << endl;
-            return false;
-        }
+static bool RunSomeTasks(const SharedPtr<ITEDevice> &pSubdevData,
+                         bool bOutOfOrder, bool bIsFullDevice,
+                         AtomicCounter *pUncompletedTasks) {
+  SharedPtr<ITaskList> pTaskList = pSubdevData->CreateTaskList(
+      bOutOfOrder ? TE_CMD_LIST_OUT_OF_ORDER : TE_CMD_LIST_IN_ORDER);
+  if (NULL == pTaskList.GetPtr()) {
+    cerr << "TaskExecutor::CreateTaskList returned NULL" << endl;
+    return false;
+  }
+  const bool bWaitShouldBeSupported = bIsFullDevice;
+  for (unsigned int uiNumDims = 1; uiNumDims <= 3; uiNumDims++) {
+    std::vector<SharedPtr<TesterTaskSet>> tasks(1000);
+    for (size_t i = 0; i < tasks.size(); i++) {
+      SharedPtr<TesterTaskSet> pTaskSet =
+          TesterTaskSet::Allocate(uiNumDims, pUncompletedTasks);
+      if (NULL != pUncompletedTasks) {
+        (*pUncompletedTasks)++;
+      }
+      pTaskList->Enqueue(pTaskSet);
+      tasks[i] = pTaskSet;
+    }
+    if (!pTaskList->Flush()) {
+      cerr << "Flush failed failed" << endl;
+      return false;
+    }
 
-        for (size_t i = 0; i < tasks.size(); i++)
-        {
-            const te_wait_result res = pTaskList->WaitForCompletion(tasks[i]);
-			
-            if ((!bWaitShouldBeSupported && res != TE_WAIT_NOT_SUPPORTED) || (bWaitShouldBeSupported && res != TE_WAIT_COMPLETED))
-            {
-                cerr << "WaitForCompletion doesn't return result as expected" << endl;
-                return false;
-            }
-        }
-        
-        const te_wait_result res = pTaskList->WaitForCompletion(NULL);
-        if ((!bWaitShouldBeSupported && res != TE_WAIT_NOT_SUPPORTED) || (bWaitShouldBeSupported && res != TE_WAIT_COMPLETED))
-        {
-            cerr << "WaitForCompletion doesn't return result as expected" << endl;
-            return false;
-        }
-    }    
-    return true;
+    for (size_t i = 0; i < tasks.size(); i++) {
+      const te_wait_result res = pTaskList->WaitForCompletion(tasks[i]);
+
+      if ((!bWaitShouldBeSupported && res != TE_WAIT_NOT_SUPPORTED) ||
+          (bWaitShouldBeSupported && res != TE_WAIT_COMPLETED)) {
+        cerr << "WaitForCompletion doesn't return result as expected" << endl;
+        return false;
+      }
+    }
+
+    const te_wait_result res = pTaskList->WaitForCompletion(NULL);
+    if ((!bWaitShouldBeSupported && res != TE_WAIT_NOT_SUPPORTED) ||
+        (bWaitShouldBeSupported && res != TE_WAIT_COMPLETED)) {
+      cerr << "WaitForCompletion doesn't return result as expected" << endl;
+      return false;
+    }
+  }
+  return true;
 }
 
 // a value of 0 in uiSubdevSize designates running on the root device
@@ -117,15 +108,17 @@ static bool RunSubdeviceTest(unsigned int uiSubdevSize, TaskExecutorTester& task
 {
     DeviceAuto  rootDeviceHandle( taskExecutorTester );
     bool use_subdevice = (uiSubdevSize > 0);
-    DeviceAuto  subDevHandle( rootDeviceHandle.deviceHandle, uiSubdevSize );
-    SharedPtr<ITEDevice> pSubdevData = use_subdevice ? subDevHandle.deviceHandle : rootDeviceHandle.deviceHandle;
-    if (NULL == pSubdevData && use_subdevice)
-    {
-        cerr << "CreateSubdevice returned NULL" << endl;
-        return false;
+    DeviceAuto subDevHandle(rootDeviceHandle.deviceHandle, uiSubdevSize);
+    SharedPtr<ITEDevice> pSubdevData = use_subdevice
+                                           ? subDevHandle.deviceHandle
+                                           : rootDeviceHandle.deviceHandle;
+    if (NULL == pSubdevData.GetPtr() && use_subdevice) {
+      cerr << "CreateSubdevice returned NULL" << endl;
+      return false;
     }
     AtomicCounter uncompletedTasks;
-	const bool bResult = RunSomeTasks(pSubdevData, false, !use_subdevice, &uncompletedTasks);
+    const bool bResult =
+        RunSomeTasks(pSubdevData, false, !use_subdevice, &uncompletedTasks);
 
     if (0 == uiSubdevSize)   // subdevices don't support WaitForCompletion
     {

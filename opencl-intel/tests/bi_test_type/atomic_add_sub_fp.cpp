@@ -127,8 +127,8 @@ protected:
     context = clCreateContext(prop, 1, &device, nullptr, nullptr, &err);
     ASSERT_OCL_SUCCESS(err, "clCreateContext");
 
-    queue = clCreateCommandQueue(context, device, 0, &err);
-    ASSERT_OCL_SUCCESS(err, "clCreateCommandQueue");
+    queue = clCreateCommandQueueWithProperties(context, device, NULL, &err);
+    ASSERT_OCL_SUCCESS(err, "clCreateCommandQueueWithProperties");
 
     bool isDouble = std::is_same<typename Ty::DataTy, double>();
     if (Ty::isOCL20) {

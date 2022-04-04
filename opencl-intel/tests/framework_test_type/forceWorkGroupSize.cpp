@@ -150,7 +150,8 @@ protected:
   bool IsGreater(unsigned workDim, size_t *gdim) {
     unsigned numDim = std::min((unsigned)m_forceWGSize.size(), workDim);
     for (unsigned i = 0; i < numDim; ++i)
-      if (m_forceWGSize[i] > m_maxWorkGroupSize || m_forceWGSize[i] > gdim[i])
+      if ((size_t)m_forceWGSize[i] > m_maxWorkGroupSize ||
+          (size_t)m_forceWGSize[i] > gdim[i])
         return true;
     return false;
   }
@@ -394,7 +395,7 @@ TEST_F(ForceWGSizeSingleTest, invalidDeviceProgram) {
   cl_uint numDevicesRet;
   std::vector<cl_device_partition_property> properties(numDevices + 2);
   properties[0] = CL_DEVICE_PARTITION_BY_COUNTS;
-  for (int i = 1; i <= numDevices; ++i)
+  for (cl_uint i = 1; i <= numDevices; ++i)
     properties[i] = 1;
   properties[numDevices + 1] = 0;
   err = clCreateSubDevices(device, &properties[0], numDevices, &subDevices[0],

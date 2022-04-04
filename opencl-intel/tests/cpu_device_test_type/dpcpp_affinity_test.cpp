@@ -20,7 +20,7 @@
 
 #include "cl_device_api.h"
 #include "cl_sys_info.h"
-#include <gtest/gtest.h>
+#include "gtest_wrapper.h"
 
 #ifndef _WIN32
 extern IOCLDeviceAgent *dev_entry;

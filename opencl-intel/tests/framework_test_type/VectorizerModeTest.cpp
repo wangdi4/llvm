@@ -1,6 +1,5 @@
 #include "CL/cl.h"
 
-#include <gtest/gtest.h>
 #include <stdio.h>
 #include <string>
 
@@ -10,8 +9,9 @@
 #include "cl_env.h"
 #include "cl_types.h"
 #include "common_utils.h"
+#include "gtest_wrapper.h"
 
-//#define DEBUGGING_DEATH_TEST
+// #define DEBUGGING_DEATH_TEST
 
 #define CL_CONFIG_CPU_VECTORIZER_MODE "CL_CONFIG_CPU_VECTORIZER_MODE"
 

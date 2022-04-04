@@ -35,17 +35,17 @@ bool clCreateKernelTest(openBcFunc pFunc)
 
 	cl_uint uiNumDevices = 0;
 	cl_device_id * pDevices;
-	size_t * pBinarySizes;
-	cl_int * pBinaryStatus; 
-	cl_context context;
-	char** ppContainers;
+        size_t *pBinarySizes;
+        cl_int *pBinaryStatus;
+        cl_context context;
+        unsigned char **ppContainers;
 
-	cl_platform_id platform = 0;
+        cl_platform_id platform = 0;
 
-	cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
+        cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
+        bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
-	if (!bResult)
+        if (!bResult)
 	{
 		return bResult;
 	}
@@ -61,23 +61,23 @@ bool clCreateKernelTest(openBcFunc pFunc)
 	}
 
 	// initialize arrays
-	pDevices = new cl_device_id[uiNumDevices];
-	pBinarySizes = new size_t[uiNumDevices];
-	pBinaryStatus = new cl_int[uiNumDevices];
-	ppContainers = new char*[uiNumDevices];
+        pDevices = new cl_device_id[uiNumDevices];
+        pBinarySizes = new size_t[uiNumDevices];
+        pBinaryStatus = new cl_int[uiNumDevices];
+        ppContainers = new unsigned char *[uiNumDevices];
 
-	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
-	bResult &= Check("clGetDeviceIDs",CL_SUCCESS, iRet);
-	if (!bResult)
-	{
-		delete []pDevices;
-		delete []pBinarySizes;
-		delete []pBinaryStatus;
-		delete []ppContainers;
-		return bResult;
-	}
+        iRet =
+            clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
+        bResult &= Check("clGetDeviceIDs", CL_SUCCESS, iRet);
+        if (!bResult) {
+          delete[] pDevices;
+          delete[] pBinarySizes;
+          delete[] pBinaryStatus;
+          delete[] ppContainers;
+          return bResult;
+        }
 
-	// create context
+        // create context
 	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
 	bResult &= Check("clCreateContext",CL_SUCCESS, iRet);
 	if (!bResult)
@@ -107,51 +107,51 @@ bool clCreateKernelTest(openBcFunc pFunc)
 	}
 	fseek(pIRfile, 0, SEEK_END);
 	fgetpos(pIRfile, &fileSize);
-	uiContSize += (unsigned int)GET_FPOS_T(fileSize);
-	fseek(pIRfile, 0, SEEK_SET);
+        uiContSize += (unsigned int)GET_FPOS_T(fileSize);
+        fseek(pIRfile, 0, SEEK_SET);
 
-	char* pCont = (char*)malloc(uiContSize);
-	if ( NULL == pCont )
-	{
-		delete []pDevices;
-		delete []pBinarySizes;
-		delete []pBinaryStatus;
-		delete []ppContainers;
-		return false;
-	}
-	size_t ret = fread(((unsigned char*)pCont), 1, (size_t)GET_FPOS_T(fileSize), pIRfile);
-	if(ret != (size_t)GET_FPOS_T(fileSize))
-	{
-		printf("Failed read file.\n");
-		delete []pDevices;
-		delete []pBinarySizes;
-		delete []pBinaryStatus;
-		delete []ppContainers;
-		return false;
-	}
-	fclose(pIRfile);
+        unsigned char *pCont = (unsigned char *)malloc(uiContSize);
+        if (NULL == pCont) {
+          delete[] pDevices;
+          delete[] pBinarySizes;
+          delete[] pBinaryStatus;
+          delete[] ppContainers;
+          return false;
+        }
+        size_t ret = fread(pCont, 1, (size_t)GET_FPOS_T(fileSize), pIRfile);
+        if (ret != (size_t)GET_FPOS_T(fileSize)) {
+          printf("Failed read file.\n");
+          delete[] pDevices;
+          delete[] pBinarySizes;
+          delete[] pBinaryStatus;
+          delete[] ppContainers;
+          return false;
+        }
+        fclose(pIRfile);
 
 	for (unsigned int i = 0; i < uiNumDevices; i++)
 	{
 		pBinarySizes[i] = uiContSize;
 		ppContainers[i] = pCont;
-	}
+        }
 
-	// create program with binary
-	cl_program program  = clCreateProgramWithBinary(context, uiNumDevices, pDevices, pBinarySizes,  (const unsigned char**)(ppContainers), pBinaryStatus, &iRet);
-	bResult &= Check("clCreateProgramWithBinary", CL_SUCCESS, iRet);
+        // create program with binary
+        cl_program program = clCreateProgramWithBinary(
+            context, uiNumDevices, pDevices, pBinarySizes,
+            const_cast<const unsigned char **>(ppContainers), pBinaryStatus,
+            &iRet);
+        bResult &= Check("clCreateProgramWithBinary", CL_SUCCESS, iRet);
 
-	if (!bResult)
-	{
-		delete []pDevices;
-		delete []pBinarySizes;
-		delete []pBinaryStatus;
-		delete []ppContainers;
-		free(pCont);
-		return bResult;
-	}
+        if (!bResult) {
+          delete[] pDevices;
+          delete[] pBinarySizes;
+          delete[] pBinaryStatus;
+          delete[] ppContainers;
+          free(pCont);
+          return bResult;
+        }
 
-	// Try to create kernel before building the program.
+        // Try to create kernel before building the program.
 	// According to the spec it is invalid: From OpenCL API spec ver 2.0 rev 31:
 	// section 5.8.2, clBuildProgram:
 	// clBuildProgram must be called for program created using either

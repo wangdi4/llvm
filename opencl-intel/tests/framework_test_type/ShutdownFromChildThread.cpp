@@ -55,17 +55,17 @@ void ShutdownThread::ThreadRoutine()
 	context = clCreateContext(prop, 1, &deviceId, NULL, NULL, &err);
 	if (err != CL_SUCCESS)
 	{
-		return;
-	}
+          return;
+        }
 
-	commandQueue = clCreateCommandQueue(context, deviceId, 0, &err);
-	if (err != CL_SUCCESS)
-	{
-		clReleaseContext(context);
-		return;
-	}
+        commandQueue =
+            clCreateCommandQueueWithProperties(context, deviceId, NULL, &err);
+        if (err != CL_SUCCESS) {
+          clReleaseContext(context);
+          return;
+        }
 
-	// Create memory objects for test
+        // Create memory objects for test
 	int data1 = 0xABCD;
 	static int data2 = 0x1234;
     cl_mem mem1 = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int), NULL, &err);

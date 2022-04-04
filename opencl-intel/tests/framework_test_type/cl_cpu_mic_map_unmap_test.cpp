@@ -134,20 +134,20 @@ bool cl_CPU_MIC_MapUnmapTest_worker(const char* name, bool use_out_of_order)
     cl_device_id clMicDeviceId;
     cl_command_queue clCpuQueue = NULL;
     cl_command_queue clMicQueue = NULL;
-    cl_command_queue_properties queue_type = (use_out_of_order) ? CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE : 0;
-        
-	printf("=============================================================\n");
-	printf("%s\n", name);
-	printf("=============================================================\n");
+    cl_command_queue_properties queue_props[] = {
+        CL_QUEUE_PROPERTIES, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, 0};
 
-	cl_platform_id platform = 0;
+    printf("=============================================================\n");
+    printf("%s\n", name);
+    printf("=============================================================\n");
 
-	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= CHECK("clGetPlatformIDs", CL_SUCCESS, iRet);
+    cl_platform_id platform = 0;
 
-	if (!bResult)
-	{
-		return bResult;
+    iRet = clGetPlatformIDs(1, &platform, NULL);
+    bResult &= CHECK("clGetPlatformIDs", CL_SUCCESS, iRet);
+
+    if (!bResult) {
+      return bResult;
 	}
 
     iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &clCpuDeviceId, NULL);
@@ -181,15 +181,19 @@ bool cl_CPU_MIC_MapUnmapTest_worker(const char* name, bool use_out_of_order)
     bResult &= CHECK("clCreateContext", CL_SUCCESS, iRet);    
     if (!bResult) return bResult;
 
-    
+    clCpuQueue = clCreateCommandQueueWithProperties(
+        context, clCpuDeviceId, use_out_of_order ? queue_props : NULL, &iRet);
+    bResult &= CHECK("clCreateCommandQueueWithProperties - queue for Cpu",
+                     CL_SUCCESS, iRet);
+    if (!bResult)
+      goto release_queues;
 
-    clCpuQueue = clCreateCommandQueue (context, clCpuDeviceId, queue_type, &iRet);
-    bResult &= CHECK("clCreateCommandQueue - queue for Cpu", CL_SUCCESS, iRet);
-    if (!bResult) goto release_queues;
-
-    clMicQueue = clCreateCommandQueue (context, clMicDeviceId, queue_type, &iRet);
-    bResult &= CHECK("clCreateCommandQueue - queue for Mic", CL_SUCCESS, iRet);
-    if (!bResult) goto release_queues;
+    clMicQueue = clCreateCommandQueueWithProperties(
+        context, clMicDeviceId, use_out_of_order ? queue_props : NULL, &iRet);
+    bResult &= CHECK("clCreateCommandQueueWithProperties - queue for Mic",
+                     CL_SUCCESS, iRet);
+    if (!bResult)
+      goto release_queues;
 
     printf("Map Cpu -> Mic.....\n");
     bResult = move_data( context, "Cpu", clCpuQueue, "Mic", clMicQueue );

@@ -454,7 +454,8 @@ cl_int CL_API_CALL clGetPlatformInfo(cl_platform_id platform,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetPlatformInfo);
-        apiLogger << "cl_platform_id platform" << platform << "cl_platform_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void* param_value" << param_value << "size_t* param_value_size_ret" << param_value_size_ret;
+        apiLogger << "cl_platform_id platform" << platform << "cl_platform_info param_name";
+        apiLogger.PrintMacroCode(param_name) << "size_t param_value_size" << param_value_size << "void* param_value" << param_value << "size_t* param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParamValue("param_value", param_name, param_value_size,
                                param_value);
@@ -542,7 +543,8 @@ cl_int CL_API_CALL clGetDeviceIDs(cl_platform_id platform,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetDeviceIDs);
-        apiLogger << "cl_platform_id platform" << platform << "cl_device_type device_type" << device_type << "cl_uint num_entries" << num_entries << "cl_device_id* devices" << devices << "cl_uint* num_devices" << num_devices;
+        apiLogger << "cl_platform_id platform" << platform << "cl_device_type device_type";
+        apiLogger.PrintMacroCode(device_type) << "cl_uint num_entries" << num_entries << "cl_device_id* devices" << devices << "cl_uint* num_devices" << num_devices;
         OutputListPrinter<cl_device_id, cl_uint> printer("devices", devices, num_devices, num_entries);
         OutputParamsValueProvider provider(apiLogger, &printer);
         CALL_TRACED_API_LOGGER(PLATFORM_MODULE, cl_int, GetDeviceIDs(platform, device_type, num_entries, devices, num_devices),
@@ -565,7 +567,8 @@ cl_int CL_API_CALL clGetDeviceInfo(cl_device_id device,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetDeviceInfo);
-        apiLogger << "cl_device_id device" << device << "cl_device_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void* param_value" << param_value << "size_t* param_value_size_ret" << param_value_size_ret;
+        apiLogger << "cl_device_id device" << device << "cl_device_info param_name";
+        apiLogger.PrintMacroCode(param_name) << "size_t param_value_size" << param_value_size << "void* param_value" << param_value << "size_t* param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParamValue("param_value", param_name, param_value_size,
                                param_value);
@@ -596,8 +599,8 @@ cl_context CL_API_CALL clCreateContext(const cl_context_properties * properties,
     {
         START_LOG_API(clCreateContext);
         apiLogger << "const cl_context_properties * properties";
-        apiLogger.PrintProperties(properties);
-        apiLogger << "cl_uint num_devices" << num_devices
+        apiLogger.PrintProperties(properties)
+                  << "cl_uint num_devices" << num_devices
                   << "const cl_device_id * devices" << devices
                   << "logging_fn pfn_notify" << pfn_notify << "void * user_data"
                   << user_data << "cl_int * errcode_ret" << errcode_ret;
@@ -659,9 +662,8 @@ cl_context CL_API_CALL clCreateContextFromType(const cl_context_properties * pro
     {
         START_LOG_API(clCreateContextFromType);
         apiLogger << "const cl_context_properties * properties";
-        apiLogger.PrintProperties(properties);
-        apiLogger << "cl_device_type device_type" << device_type
-                  << "logging_fn pfn_notify" << pfn_notify << "void * user_data"
+        apiLogger.PrintProperties(properties) << "cl_device_type device_type";
+        apiLogger.PrintMacroCode(device_type) << "logging_fn pfn_notify" << pfn_notify << "void * user_data"
                   << user_data << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
@@ -719,7 +721,8 @@ cl_int CL_API_CALL clGetContextInfo(cl_context      context,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetContextInfo);
-        apiLogger << "cl_context context" << context << "cl_context_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
+        apiLogger << "cl_context context" << context << "cl_context_info param_name";
+        apiLogger.PrintMacroCode(param_name) << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParamValue("param_value", param_name, param_value_size,
                                param_value);
@@ -746,7 +749,8 @@ cl_command_queue CL_API_CALL clCreateCommandQueue(cl_context                  co
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateCommandQueue);
-        apiLogger << "cl_context context" << context << "cl_device_id device" << device << "cl_command_queue_properties properties" << properties << "cl_int * errcode_ret" << errcode_ret;
+        apiLogger << "cl_context context" << context << "cl_device_id device" << device << "cl_command_queue_properties properties";
+        apiLogger.PrintMacroCode(properties) << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
 	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device, propertiesArr, /* withProps */ false, errcode_ret),
@@ -800,7 +804,8 @@ cl_int CL_API_CALL clGetCommandQueueInfo(cl_command_queue      command_queue,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetCommandQueueInfo);
-        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_command_queue_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
+        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_command_queue_info param_name";
+        apiLogger.PrintMacroCode(param_name) << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParamValue("param_value", param_name, param_value_size,
                                param_value);
@@ -823,7 +828,8 @@ cl_int CL_API_CALL clSetCommandQueueProperty(cl_command_queue              comma
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clSetCommandQueueProperty);
-        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_command_queue_properties properties" << properties << "cl_bool enable" << enable << "cl_command_queue_properties * old_properties" << old_properties;
+        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_command_queue_properties properties";
+        apiLogger.PrintMacroCode(properties) << "cl_bool enable" << enable << "cl_command_queue_properties * old_properties" << old_properties;
 	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, SetCommandQueueProperty(command_queue, properties, enable, old_properties),
            clSetCommandQueueProperty, &command_queue, &properties, &enable, &old_properties);
     }
@@ -845,7 +851,8 @@ cl_mem CL_API_CALL clCreateBuffer(cl_context   context,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateBuffer);
-        apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "size_t size" << size << "void * host_ptr" << host_ptr << "cl_int * errcode_ret" << errcode_ret;
+        apiLogger << "cl_context context" << context << "cl_mem_flags flags";
+        apiLogger.PrintMacroCode(flags) << "size_t size" << size << "void * host_ptr" << host_ptr << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateBuffer(context, flags, size, host_ptr, errcode_ret),
@@ -870,8 +877,8 @@ cl_mem CL_API_CALL clCreateBufferWithPropertiesINTEL(cl_context   context,
     {
         START_LOG_API(clCreateBufferWithPropertiesINTEL);
         apiLogger << "cl_context context" << context << "cl_mem_properties_intel";
-        apiLogger.PrintProperties(properties);
-        apiLogger << "cl_mem_flags flags" << flags << "size_t size" << size
+        apiLogger.PrintProperties(properties) << "cl_mem_flags flags";
+        apiLogger.PrintMacroCode(flags) << "size_t size" << size
             << "void * host_ptr" << host_ptr
             << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
@@ -893,7 +900,8 @@ cl_mem CL_API_CALL clCreateBufferWithProperties(
     START_LOG_API(clCreateBufferWithProperties);
     apiLogger << "cl_context context" << context
               << "cl_mem_properties* properties" << properties
-              << "cl_mem_flags flags" << flags << "size_t size" << size
+              << "cl_mem_flags flags";
+    apiLogger.PrintMacroCode(flags) << "size_t size" << size
               << "void *host_ptr" << host_ptr << "cl_int *errcode_ret"
               << errcode_ret;
     OutputParamsValueProvider provider(apiLogger);
@@ -923,7 +931,8 @@ cl_mem CL_API_CALL clCreateSubBuffer(cl_mem buffer,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateSubBuffer);
-        apiLogger << "cl_mem buffer" << buffer << "cl_mem_flags flags" << flags << "cl_buffer_create_type buffer_create_type" << buffer_create_type << "const void * buffer_create_info" << buffer_create_info << "cl_int * errcode_ret" << errcode_ret;
+        apiLogger << "cl_mem buffer" << buffer << "cl_mem_flags flags";
+        apiLogger.PrintMacroCode(flags) << "cl_buffer_create_type buffer_create_type" << buffer_create_type << "const void * buffer_create_info" << buffer_create_info << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateSubBuffer(buffer, flags, buffer_create_type, buffer_create_info, errcode_ret),
@@ -967,7 +976,8 @@ cl_mem CL_API_CALL clCreateImage(
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateImage);
-        apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "const cl_image_format *image_format" << image_format << "const cl_image_desc *image_desc" << image_desc << "void *host_ptr" << host_ptr << "cl_int *errcode_ret" << errcode_ret;
+        apiLogger << "cl_context context" << context << "cl_mem_flags flags";
+        apiLogger.PrintMacroCode(flags) << "const cl_image_format *image_format" << image_format << "const cl_image_desc *image_desc" << image_desc << "void *host_ptr" << host_ptr << "cl_int *errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
         CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateImage(context, flags, image_format, image_desc, host_ptr, errcode_ret),
@@ -989,8 +999,8 @@ cl_mem CL_API_CALL clCreateImageWithProperties(
     START_LOG_API(clCreateImageWithProperties);
     apiLogger << "cl_context context" << context
               << "cl_mem_properties* properties" << properties
-              << "cl_mem_flags flags" << flags
-              << "const cl_image_format *image_format" << image_format
+              << "cl_mem_flags flags";
+    apiLogger.PrintMacroCode(flags) << "const cl_image_format *image_format" << image_format
               << "const cl_image_desc *image_desc" << image_desc
               << "void *host_ptr" << host_ptr << "cl_int *errcode_ret"
               << errcode_ret;
@@ -1025,7 +1035,8 @@ cl_mem CL_API_CALL clCreateImage2D(cl_context              context,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateImage2D);
-        apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "const cl_image_format * image_format" << image_format << "size_t image_width" << image_width << "size_t image_height" << image_height << "size_t image_row_pitch" << image_row_pitch << "void * host_ptr" << host_ptr << "cl_int * errcode_ret" << errcode_ret;
+        apiLogger << "cl_context context" << context << "cl_mem_flags flags";
+        apiLogger.PrintMacroCode(flags) << "const cl_image_format * image_format" << image_format << "size_t image_width" << image_width << "size_t image_height" << image_height << "size_t image_row_pitch" << image_row_pitch << "void * host_ptr" << host_ptr << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateImage2D(context, flags, image_format, image_width, image_height, image_row_pitch, host_ptr, errcode_ret),
@@ -1053,7 +1064,8 @@ cl_mem CL_API_CALL clCreateImage3D(cl_context              context,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateImage3D);
-        apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "const cl_image_format * image_format" << image_format << "size_t image_width" << image_width << "size_t image_height" << image_height << "size_t image_depth" << image_depth << "size_t image_row_pitch" << image_row_pitch << "size_t image_slice_pitch" << image_slice_pitch << "void * host_ptr" << host_ptr << "cl_int * errcode_ret" << errcode_ret;
+        apiLogger << "cl_context context" << context << "cl_mem_flags flags";
+        apiLogger.PrintMacroCode(flags) << "const cl_image_format * image_format" << image_format << "size_t image_width" << image_width << "size_t image_height" << image_height << "size_t image_depth" << image_depth << "size_t image_row_pitch" << image_row_pitch << "size_t image_slice_pitch" << image_slice_pitch << "void * host_ptr" << host_ptr << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateImage3D(context, flags, image_format, image_width, image_height, image_depth, image_row_pitch, image_slice_pitch, host_ptr, errcode_ret),
@@ -1123,7 +1135,8 @@ cl_int CL_API_CALL clGetSupportedImageFormats(cl_context           context,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetSupportedImageFormats);
-        apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "cl_mem_object_type image_type" << image_type << "cl_uint num_entries" << num_entries << "cl_image_format * image_formats" << image_formats << "cl_uint * num_image_formats" << num_image_formats;
+        apiLogger << "cl_context context" << context << "cl_mem_flags flags";
+        apiLogger.PrintMacroCode(flags) << "cl_mem_object_type image_type" << image_type << "cl_uint num_entries" << num_entries << "cl_image_format * image_formats" << image_formats << "cl_uint * num_image_formats" << num_image_formats;
         OutputListPrinter<cl_image_format, cl_uint, ImageFormatValuePrinter> printer("image_formats (order,type)", image_formats, num_image_formats, num_entries);
         OutputParamsValueProvider provider(apiLogger, &printer);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetSupportedImageFormats(context, flags, image_type, num_entries, image_formats, num_image_formats),
@@ -1146,7 +1159,8 @@ cl_int CL_API_CALL clGetMemObjectInfo(cl_mem           memobj,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetMemObjectInfo);
-        apiLogger << "cl_mem memobj" << memobj << "cl_mem_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
+        apiLogger << "cl_mem memobj" << memobj << "cl_mem_info param_name";
+        apiLogger.PrintMacroCode(param_name) << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParamValue("param_value", param_name, param_value_size,
                                param_value);
@@ -1171,7 +1185,8 @@ cl_int CL_API_CALL clGetImageInfo(cl_mem           image,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetImageInfo);
-        apiLogger << "cl_mem image" << image << "cl_image_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
+        apiLogger << "cl_mem image" << image << "cl_image_info param_name";
+        apiLogger.PrintMacroCode(param_name) << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParamValue("param_value", param_name, param_value_size,
                                param_value);
@@ -1198,7 +1213,9 @@ cl_sampler CL_API_CALL clCreateSampler(cl_context			context,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateSampler);
-        apiLogger << "cl_context context" << context << "cl_bool normalized_coords" << normalized_coords << "cl_addressing_mode addressing_mode" << addressing_mode << "cl_filter_mode filter_mode" << filter_mode << "cl_int * errcode_ret" << errcode_ret;
+        apiLogger << "cl_context context" << context << "cl_bool normalized_coords" << normalized_coords << "cl_addressing_mode addressing_mode";
+        apiLogger.PrintMacroCode(addressing_mode) << "cl_filter_mode filter_mode";
+        apiLogger.PrintMacroCode(filter_mode) << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_sampler, CreateSampler(context, normalized_coords, addressing_mode, filter_mode, errcode_ret),
@@ -1221,8 +1238,8 @@ cl_sampler CL_API_CALL clCreateSamplerWithProperties(cl_context context,
         START_LOG_API(clCreateSamplerWithProperties);
         apiLogger << "cl_context context" << context
             << "const cl_sampler_properties *sampler_properties";
-        apiLogger.PrintProperties(sampler_properties);
-        apiLogger << "cl_int *errcode_ret" << errcode_ret;
+        apiLogger.PrintProperties(sampler_properties)
+                  << "cl_int *errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_sampler, CreateSamplerWithProperties(context, sampler_properties, errcode_ret),
@@ -1279,7 +1296,8 @@ cl_int CL_API_CALL clGetSamplerInfo(cl_sampler		sampler,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetSamplerInfo);
-        apiLogger << "cl_sampler sampler" << sampler << "cl_sampler_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
+        apiLogger << "cl_sampler sampler" << sampler << "cl_sampler_info param_name";
+        apiLogger.PrintMacroCode(param_name) << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParamValue("param_value", param_name, param_value_size,
                                param_value);
@@ -1505,7 +1523,8 @@ cl_int CL_API_CALL clGetProgramInfo(cl_program      program,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetProgramInfo);
-        apiLogger << "cl_program program" << program << "cl_program_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
+        apiLogger << "cl_program program" << program << "cl_program_info param_name";
+        apiLogger.PrintMacroCode(param_name) << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParamValue("param_value", param_name, param_value_size,
                                param_value);
@@ -1531,7 +1550,8 @@ cl_int CL_API_CALL clGetProgramBuildInfo(cl_program            program,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetProgramBuildInfo);
-        apiLogger << "cl_program program" << program << "cl_device_id device" << device << "cl_program_build_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
+        apiLogger << "cl_program program" << program << "cl_device_id device" << device << "cl_program_build_info param_name";
+        apiLogger.PrintMacroCode(param_name) << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParamValue("param_value", param_name, param_value_size,
                                param_value);
@@ -1660,7 +1680,8 @@ cl_int CL_API_CALL clGetKernelInfo(cl_kernel      kernel,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetKernelInfo);
-        apiLogger << "cl_kernel kernel" << kernel << "cl_kernel_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
+        apiLogger << "cl_kernel kernel" << kernel << "cl_kernel_info param_name";
+        apiLogger.PrintMacroCode(param_name) << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParamValue("param_value", param_name, param_value_size,
                                param_value);
@@ -1686,7 +1707,8 @@ cl_int CL_API_CALL clGetKernelWorkGroupInfo(cl_kernel                 kernel,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetKernelWorkGroupInfo);
-        apiLogger << "cl_kernel kernel" << kernel << "cl_device_id device" << device << "cl_kernel_work_group_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
+        apiLogger << "cl_kernel kernel" << kernel << "cl_device_id device" << device << "cl_kernel_work_group_info param_name";
+        apiLogger.PrintMacroCode(param_name) << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParamValue("param_value", param_name, param_value_size,
                                param_value);
@@ -1729,7 +1751,8 @@ cl_int CL_API_CALL clGetEventInfo(cl_event		event,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetEventInfo);
-        apiLogger << "cl_event event" << event << "cl_event_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
+        apiLogger << "cl_event event" << event << "cl_event_info param_name";
+        apiLogger.PrintMacroCode(param_name) << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParamValue("param_value", param_name, param_value_size,
                                param_value);
@@ -1790,7 +1813,8 @@ cl_int CL_API_CALL clGetEventProfilingInfo(cl_event				event,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetEventProfilingInfo);
-        apiLogger << "cl_event event" << event << "cl_profiling_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
+        apiLogger << "cl_event event" << event << "cl_profiling_info param_name";
+        apiLogger.PrintMacroCode(param_name) << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParamValue("param_value", param_name, param_value_size,
                                param_value);
@@ -2260,7 +2284,8 @@ void * CL_API_CALL clEnqueueMapBuffer(cl_command_queue	command_queue,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clEnqueueMapBuffer);
-        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_mem buffer" << buffer << "cl_bool blocking_map" << blocking_map << "cl_map_flags map_flags" << map_flags << "size_t offset" << offset << "size_t cb" << cb << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event * event_wait_list" << event_wait_list << "cl_event * event" << event << "cl_int * errcode_ret" << errcode_ret;
+        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_mem buffer" << buffer << "cl_bool blocking_map" << blocking_map << "cl_map_flags map_flags";
+        apiLogger.PrintMacroCode(map_flags) << "size_t offset" << offset << "size_t cb" << cb << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event * event_wait_list" << event_wait_list << "cl_event * event" << event << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
@@ -2291,8 +2316,8 @@ void * CL_API_CALL clEnqueueMapImage(cl_command_queue	command_queue,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clEnqueueMapImage);
-        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_mem image" << image << "cl_bool blocking_map" << blocking_map << "cl_map_flags map_flags" << map_flags
-            << "origin[0]" << origin[0] << "origin[1]" << origin[1] << "origin[2]" << origin[2]
+        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_mem image" << image << "cl_bool blocking_map" << blocking_map << "cl_map_flags map_flags";
+        apiLogger.PrintMacroCode(map_flags) << "origin[0]" << origin[0] << "origin[1]" << origin[1] << "origin[2]" << origin[2]
             << "region[0]" << region[0] << "region[1]" << region[1] << "region[2]" << region[2] << "size_t * image_row_pitch" << image_row_pitch << "size_t * image_slice_pitch" << image_slice_pitch << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event * event_wait_list" << event_wait_list << "cl_event * event" << event << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
@@ -2581,8 +2606,8 @@ cl_int CL_API_CALL clCreateSubDevices(cl_device_id device,
         START_LOG_API(clCreateSubDevices);
         apiLogger << "cl_device_id device" << device
                   << "const cl_device_partition_property* properties";
-        apiLogger.PrintProperties(properties);
-        apiLogger << "cl_uint num_entries" << num_entries
+        apiLogger.PrintProperties(properties)
+                  << "cl_uint num_entries" << num_entries
                   << "cl_device_id* out_devices" << out_devices
                   << "cl_uint* num_devices" << num_devices;
         OutputListPrinter<cl_device_id, cl_uint> printer("out_devices", out_devices, num_devices, num_entries);
@@ -2611,7 +2636,8 @@ cl_int CL_API_CALL clGetKernelArgInfo(cl_kernel		kernel,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetKernelArgInfo);
-        apiLogger << "cl_kernel kernel" << kernel << "cl_uint arg_indx" << arg_indx << "cl_kernel_arg_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
+        apiLogger << "cl_kernel kernel" << kernel << "cl_uint arg_indx" << arg_indx << "cl_kernel_arg_info param_name";
+        apiLogger.PrintMacroCode(param_name) << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParamValue("param_value", param_name, param_value_size,
                                param_value);
@@ -2682,7 +2708,8 @@ cl_int CL_API_CALL clEnqueueMigrateMemObjects(cl_command_queue command_queue,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clEnqueueMigrateMemObjects);
-        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_uint num_mem_objects" << num_mem_objects << "const cl_mem *mem_objects" << mem_objects << "cl_mem_migration_flags flags" << flags << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event *event_wait_list" << event_wait_list << "cl_event *event" << event;
+        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_uint num_mem_objects" << num_mem_objects << "const cl_mem *mem_objects" << mem_objects << "cl_mem_migration_flags flags";
+        apiLogger.PrintMacroCode(flags) << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event *event_wait_list" << event_wait_list << "cl_event *event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
         CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueMigrateMemObjects(command_queue,
@@ -2719,7 +2746,8 @@ cl_int CL_API_CALL clEnqueueSVMMigrateMem(cl_command_queue command_queue,
                   << "cl_uint num_svm_pointers" << num_svm_pointers
                   << "const void** svm_pointers" << svm_pointers
                   << "const size_t* sizes" << sizes
-                  << "cl_mem_migration_flags flags" << flags
+                  << "cl_mem_migration_flags flags";
+        apiLogger.PrintMacroCode(flags)
                   << "cl_uint num_events_in_wait_list" << num_events_in_wait_list
                   << "const cl_event* event_wait_list" << event_wait_list
                   << "cl_event* event" << event;
@@ -2810,7 +2838,8 @@ void* CL_API_CALL clSVMAlloc(cl_context context,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clSVMAlloc);
-        apiLogger << "cl_context context" << context << "cl_svm_mem_flags flags" << flags << "size_t size" << size << "unsigned int alignment" << alignment;
+        apiLogger << "cl_context context" << context << "cl_svm_mem_flags flags";
+        apiLogger.PrintMacroCode(flags) << "size_t size" << size << "unsigned int alignment" << alignment;
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, void*, SVMAlloc(context, flags, size, alignment),
            clSVMAlloc, &context, &flags, &size, &alignment);
     }
@@ -2937,7 +2966,8 @@ cl_int CL_API_CALL clEnqueueSVMMap(cl_command_queue command_queue,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clEnqueueSVMMap);
-        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_bool blocking_map" << blocking_map << "cl_map_flags map_flags" << map_flags << "void* svm_ptr" << svm_ptr << "size_t size" << size << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event* event_wait_list" << event_wait_list << "cl_event* event" << event;
+        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_bool blocking_map" << blocking_map << "cl_map_flags map_flags";
+        apiLogger.PrintMacroCode(map_flags) << "void* svm_ptr" << svm_ptr << "size_t size" << size << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event* event_wait_list" << event_wait_list << "cl_event* event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
 	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueSVMMap(command_queue, blocking_map, map_flags, svm_ptr, size, num_events_in_wait_list, event_wait_list, event, &apiLogger),
@@ -3001,7 +3031,8 @@ cl_int CL_API_CALL clSetKernelExecInfo(cl_kernel kernel,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clSetKernelExecInfo);
-        apiLogger << "cl_kernel kernel" << kernel << "cl_kernel_exec_info param_name" << param_name << "size_t param_value_size" << param_value_size << "const void* param_value" << param_value;
+        apiLogger << "cl_kernel kernel" << kernel << "cl_kernel_exec_info param_name";
+        apiLogger.PrintMacroCode(param_name) << "size_t param_value_size" << param_value_size << "const void* param_value" << param_value;
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, SetKernelExecInfo(kernel, param_name, param_value_size, param_value),
            clSetKernelExecInfo, &kernel, &param_name, &param_value_size, &param_value);
     }
@@ -3023,12 +3054,12 @@ cl_mem CL_API_CALL clCreatePipe(cl_context context,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreatePipe);
-        apiLogger << "cl_context context" << context << "cl_mem_flags flags"
-                  << flags << "cl_uint pipe_packet_size" << pipe_packet_size
+        apiLogger << "cl_context context" << context << "cl_mem_flags flags";
+        apiLogger.PrintMacroCode(flags) << "cl_uint pipe_packet_size" << pipe_packet_size
                   << "cl_uint pipe_max_packets" << pipe_max_packets
                   << "const cl_pipe_properties *properties";
-        apiLogger.PrintProperties(properties);
-        apiLogger << "cl_int *errcode_ret" << errcode_ret;
+        apiLogger.PrintProperties(properties)
+                  << "cl_int *errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreatePipe(context, flags, pipe_packet_size, pipe_max_packets, properties, nullptr, nullptr, errcode_ret),
@@ -3055,12 +3086,12 @@ cl_mem CL_API_CALL clCreatePipeINTEL(
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreatePipeINTEL);
-        apiLogger << "cl_context context" << context << "cl_mem_flags flags"
-                  << flags << "cl_uint pipe_packet_size" << pipe_packet_size
+        apiLogger << "cl_context context" << context << "cl_mem_flags flags";
+        apiLogger.PrintMacroCode(flags) << "cl_uint pipe_packet_size" << pipe_packet_size
                   << "cl_uint pipe_max_packets" << pipe_max_packets
                   << "const cl_pipe_properties* properties";
-        apiLogger.PrintProperties(properties);
-        apiLogger << "void * host_ptr" << host_ptr << "size_t * size_ret"
+        apiLogger.PrintProperties(properties)
+                  << "void * host_ptr" << host_ptr << "size_t * size_ret"
                   << size_ret << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("size_ret", size_ret, false, true);
@@ -3084,7 +3115,8 @@ cl_int CL_API_CALL clGetPipeInfo(cl_mem pipe,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetPipeInfo);
-        apiLogger << "cl_mem pipe" << pipe << "cl_pipe_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void *param_value" << param_value << "size_t *param_value_size_ret" << param_value_size_ret;
+        apiLogger << "cl_mem pipe" << pipe << "cl_pipe_info param_name";
+        apiLogger.PrintMacroCode(param_name) << "size_t param_value_size" << param_value_size << "void *param_value" << param_value << "size_t *param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParamValue("param_value", param_name, param_value_size,
                                param_value);
@@ -3130,8 +3162,8 @@ cl_command_queue CL_API_CALL clCreateCommandQueueWithProperties(cl_context conte
         START_LOG_API(clCreateCommandQueueWithProperties);
         apiLogger << "cl_context context" << context << "cl_device_id device_id"
             << device_id << "const cl_queue_properties* properties";
-        apiLogger.PrintProperties(properties);
-        apiLogger << "cl_int* errcode_ret" << errcode_ret;
+        apiLogger.PrintProperties(properties)
+                  << "cl_int* errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
 	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device_id, pCmdQueueProps, /* withProps */ true, errcode_ret),
@@ -3273,7 +3305,8 @@ cl_int CL_API_CALL clGetKernelSubGroupInfo(cl_kernel kernel,
         ApiLogger apiLogger("clGetKernelSubGroupInfo");
         apiLogger << "cl_kernel kernel" << kernel
                   << "cl_device_id device" << device
-                  << "cl_kernel_sub_group_info param_name" << param_name
+                  << "cl_kernel_sub_group_info param_name";
+        apiLogger.PrintMacroCode(param_name)
                   << "size_t input_value_size" << input_value_size
                   << "const void* input_value" << input_value
                   << "size_t param_value_size" << param_value_size
@@ -3314,7 +3347,8 @@ cl_int CL_API_CALL clGetKernelSubGroupInfoKHR(cl_kernel kernel,
       ApiLogger apiLogger("clGetKernelSubGroupInfoKHR");
       apiLogger << "cl_kernel kernel" << kernel
                 << "cl_device_id device" << device
-                << "cl_kernel_sub_group_info param_name" << param_name
+                << "cl_kernel_sub_group_info param_name";
+      apiLogger.PrintMacroCode(param_name)
                 << "size_t input_value_size" << input_value_size
                 << "const void* input_value" << input_value
                 << "size_t param_value_size" << param_value_size
@@ -3351,7 +3385,8 @@ clMapHostPipeIntelFPGA(cl_mem pipe, cl_map_flags flags,
     {
         START_LOG_API(clMapHostPipeIntelFPGA);
         apiLogger << "cl_mem pipe " << pipe
-                  << ", cl_map_flags flags " << flags
+                  << ", cl_map_flags flags ";
+        apiLogger.PrintMacroCode(flags)
                   << ", size_t requestedSize " << requestedSize
                   << ", size_t* pMappedSize " << pMappedSize;
         CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, void*,
@@ -3536,8 +3571,8 @@ void* CL_API_CALL clHostMemAllocINTEL(cl_context context,
         START_LOG_API(clHostMemAllocINTEL);
         apiLogger << "cl_context context" << context
                   << "const cl_mem_properties_intel* properties";
-        apiLogger.PrintProperties(properties);
-        apiLogger << "size_t size" << size << "unsigned int alignment"
+        apiLogger.PrintProperties(properties)
+                  << "size_t size" << size << "unsigned int alignment"
                   << alignment << "cl_int* errcode_ret" << errcode_ret;
         CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, void*,
             USMHostAlloc(context, properties, size, alignment, errcode_ret));
@@ -3563,8 +3598,8 @@ void* CL_API_CALL clDeviceMemAllocINTEL(cl_context context,
         START_LOG_API(clDeviceMemAllocINTEL);
         apiLogger << "cl_context context" << context
                   << "const cl_mem_properties_intel* properties";
-        apiLogger.PrintProperties(properties);
-        apiLogger << "size_t size" << size << "unsigned int alignment"
+        apiLogger.PrintProperties(properties)
+                  << "size_t size" << size << "unsigned int alignment"
                   << alignment << "cl_int* errcode_ret" << errcode_ret;
         CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, void*, USMDeviceAlloc(
             context, device, properties, size, alignment, errcode_ret));
@@ -3590,8 +3625,8 @@ void* CL_API_CALL clSharedMemAllocINTEL(cl_context context,
         START_LOG_API(clSharedMemAllocINTEL);
         apiLogger << "cl_context context" << context << "cl_device_id device"
                   << device << "const cl_mem_properties_intel* properties";
-        apiLogger.PrintProperties(properties);
-        apiLogger << "size_t size" << size << "unsigned int alignment"
+        apiLogger.PrintProperties(properties)
+                  << "size_t size" << size << "unsigned int alignment"
                   << alignment << "cl_int* errcode_ret" << errcode_ret;
         CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, void*, USMSharedAlloc(
             context, device, properties, size, alignment, errcode_ret));
@@ -3651,7 +3686,8 @@ cl_int CL_API_CALL clGetMemAllocInfoINTEL(cl_context context,
     {
         START_LOG_API(clGetMemAllocInfoINTEL);
         apiLogger << "cl_context context" << context << "void* ptr" << ptr <<
-          "cl_mem_info_intel param_name" << param_name <<
+          "cl_mem_info_intel param_name";
+        apiLogger.PrintMacroCode(param_name) <<
           "size_t param_value_size" << param_value_size_ret <<
           "void* param_value" << param_value_size_ret <<
           "size_t* param_value_size_ret" << param_value_size_ret;
@@ -3813,7 +3849,8 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueMigrateMemINTEL(
         START_LOG_API(clEnqueueMigrateMemINTEL);
         apiLogger << "cl_command_queue command_queue" << command_queue <<
         "const void* ptr" << ptr << "size_t size" << size <<
-        "cl_mem_migration_flags_intel flags" << flags <<
+        "cl_mem_migration_flags_intel flags";
+        apiLogger.PrintMacroCode(flags) <<
         "cl_uint num_events_in_wait_list" << num_events_in_wait_list <<
         "const cl_event* event_wait_list" << event_wait_list <<
         "cl_event* event" << event;
@@ -3848,7 +3885,8 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueMemAdviseINTEL(
         START_LOG_API(clEnqueueMemAdviseINTEL);
         apiLogger << "cl_command_queue command_queue" << command_queue <<
         "const void* ptr" << ptr << "size_t size" << size <<
-        "cl_mem_advice_intel advice" << advice <<
+        "cl_mem_advice_intel advice";
+        apiLogger.PrintMacroCode(advice) <<
         "cl_uint num_events_in_wait_list" << num_events_in_wait_list <<
         "const cl_event* event_wait_list" << event_wait_list <<
         "cl_event* event" << event;

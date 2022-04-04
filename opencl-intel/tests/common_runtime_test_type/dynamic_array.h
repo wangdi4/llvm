@@ -23,26 +23,24 @@
 #ifndef DYNAMIC_ARRAY_
 #define DYNAMIC_ARRAY_
 
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <stdlib.h>
-#include <malloc.h>
-#include <gtest/gtest.h>
-#include <CL/cl.h>
 #include "general_purpose_struct.h"
-#include "vector_comparator.h"
+#include "gtest_wrapper.h"
 #include "ieeehalfprecision.h"
+#include "vector_comparator.h"
+#include <CL/cl.h>
+#include <fstream>
+#include <iostream>
 #include <limits.h>
+#include <malloc.h>
+#include <stdlib.h>
+#include <string>
 
-template <typename T>
-inline T getNextValue(T element)
-{
-	++element;
-	if(element<(T)0){
-		return (T)0;
-	}
-	return element;
+template <typename T> inline T getNextValue(T element) {
+  ++element;
+  if (element < (T)0) {
+    return (T)0;
+  }
+  return element;
 }
 
 // DynamicArray - encapsulates dynamic memory management

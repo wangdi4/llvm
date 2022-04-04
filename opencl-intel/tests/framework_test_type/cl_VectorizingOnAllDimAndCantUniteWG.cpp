@@ -138,11 +138,12 @@ bool clCheckVectorizingOnAllDimAndCantUniteWG(int progIndex, bool oddDimention, 
         context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
         CheckException("clCreateContextFromType", CL_SUCCESS, iRet);
 
-        queue = clCreateCommandQueue(context, device, 0, &iRet);
-        CheckException("clCreateCommandQueue", CL_SUCCESS, iRet);
+        queue =
+            clCreateCommandQueueWithProperties(context, device, NULL, &iRet);
+        CheckException("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
 
         bool additionalSizes = false;
-        const char * program  = sProg_prefer3;
+        const char *program = sProg_prefer3;
         if (progIndex == 0){
             program = sProg_prefer1;
         }

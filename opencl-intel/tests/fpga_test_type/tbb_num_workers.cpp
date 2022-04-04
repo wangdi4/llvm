@@ -15,8 +15,8 @@
 #include "base_fixture.h"
 #include "common_utils.h"
 
+#include "gtest_wrapper.h"
 #include <CL/cl.h>
-#include <gtest/gtest.h>
 
 class TBBNumWorkersBase : public OCLFPGABaseFixture,
                           public ::testing::WithParamInterface<int> {

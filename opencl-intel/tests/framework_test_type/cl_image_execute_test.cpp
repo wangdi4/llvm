@@ -60,14 +60,16 @@ bool clImageExecuteTest()
     bResult &= Check("clGetDeviceIDs", CL_SUCCESS, iRet);    
     if (!bResult) goto release_context;
 
-	{
+    {
 
-		cl_command_queue queue = clCreateCommandQueue (context, clDefaultDeviceId, 0 /*no properties*/, &iRet);
-		bResult &= Check("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
-		if (!bResult) goto release_context;
+      cl_command_queue queue = clCreateCommandQueueWithProperties(
+          context, clDefaultDeviceId, NULL /*no properties*/, &iRet);
+      bResult &=
+          Check("clCreateCommandQueueWithProperties - queue", CL_SUCCESS, iRet);
+      if (!bResult)
+        goto release_context;
 
-
-	#if 0
+#if 0
 		cl_program program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
 		bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
 		if (!bResult) goto release_queue;
@@ -138,42 +140,88 @@ bool clImageExecuteTest()
 				memset( pDstBuffer, 0xff, stBuffSize );
 
 				{
-					//
-					// Write src data
-					//
-					size_t origin[ 3 ] = { 0, 0, 0 };
-					size_t region[ 3 ] = { szSrcWidth, szSrcHeight, 1 };
-				
-					cl_sampler sampler = clCreateSampler(context, CL_FALSE, CL_ADDRESS_NONE, CL_FILTER_NEAREST, &iRet);
-					bResult &= Check("clCreateSampler", CL_SUCCESS, iRet);
-					if (!bResult) goto release_image;
+                                  //
+                                  // Write src data
+                                  //
+                                  size_t origin[3] = {0, 0, 0};
+                                  size_t region[3] = {szSrcWidth, szSrcHeight,
+                                                      1};
 
-					cl_sampler samplerLinear = clCreateSampler(context, CL_FALSE, CL_ADDRESS_NONE, CL_FILTER_LINEAR, &iRet);
-					bResult &= Check("clCreateSampler", CL_SUCCESS, iRet);
-					if (!bResult) goto release_sampler;
+                                  cl_sampler_properties props[] = {
+                                      CL_SAMPLER_NORMALIZED_COORDS,
+                                      CL_FALSE,
+                                      CL_SAMPLER_ADDRESSING_MODE,
+                                      CL_ADDRESS_NONE,
+                                      CL_SAMPLER_FILTER_MODE,
+                                      CL_FILTER_NEAREST,
+                                      0};
 
-					// Set Kernel Arguments
-					iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &clSrcImg);
-					bResult &= Check("clSetKernelArg - clSrcImg", CL_SUCCESS, iRet);
-					if (!bResult) goto release_linear_sampler;
-					iRet = clSetKernelArg(kernel, 1, sizeof(cl_sampler), &sampler);
-					bResult &= Check("clSetKernelArg - sampler", CL_SUCCESS, iRet);
-					if (!bResult) goto release_linear_sampler;
-					iRet = clSetKernelArg(kernel, 2, sizeof(cl_mem), &clDstBuff);
-					bResult &= Check("clSetKernelArg - clDstBuff", CL_SUCCESS, iRet);
-					if (!bResult) goto release_linear_sampler;
+                                  cl_sampler sampler =
+                                      clCreateSamplerWithProperties(
+                                          context, props, &iRet);
+                                  bResult &=
+                                      Check("clCreateSamplerWithProperties",
+                                            CL_SUCCESS, iRet);
+                                  if (!bResult)
+                                    goto release_image;
 
-					iRet = clEnqueueWriteImage(queue, clSrcImg, CL_TRUE, origin, region, 0, 0, pSrcImageValues, 0, NULL, NULL);
-					bResult &= Check("clEnqueueWriteImage - src", CL_SUCCESS, iRet);
-					if (!bResult) goto release_linear_sampler;
+                                  cl_sampler_properties propsLinear[] = {
+                                      CL_SAMPLER_NORMALIZED_COORDS,
+                                      CL_FALSE,
+                                      CL_SAMPLER_ADDRESSING_MODE,
+                                      CL_ADDRESS_NONE,
+                                      CL_SAMPLER_FILTER_MODE,
+                                      CL_FILTER_LINEAR,
+                                      0};
 
-					{
-						//size_t global_work_size[2] = { szSrcWidth, szSrcHeight };
-						size_t global_work_size[2] = { 100, 100 };
-						size_t local_work_size[2] = { 1, 1 };
+                                  cl_sampler samplerLinear =
+                                      clCreateSamplerWithProperties(
+                                          context, propsLinear, &iRet);
+                                  bResult &=
+                                      Check("clCreateSamplerWithProperties",
+                                            CL_SUCCESS, iRet);
+                                  if (!bResult)
+                                    goto release_sampler;
 
-						// Execute kernel
-						iRet = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_work_size, local_work_size, 0, NULL, NULL);
+                                  // Set Kernel Arguments
+                                  iRet = clSetKernelArg(
+                                      kernel, 0, sizeof(cl_mem), &clSrcImg);
+                                  bResult &= Check("clSetKernelArg - clSrcImg",
+                                                   CL_SUCCESS, iRet);
+                                  if (!bResult)
+                                    goto release_linear_sampler;
+                                  iRet = clSetKernelArg(
+                                      kernel, 1, sizeof(cl_sampler), &sampler);
+                                  bResult &= Check("clSetKernelArg - sampler",
+                                                   CL_SUCCESS, iRet);
+                                  if (!bResult)
+                                    goto release_linear_sampler;
+                                  iRet = clSetKernelArg(
+                                      kernel, 2, sizeof(cl_mem), &clDstBuff);
+                                  bResult &= Check("clSetKernelArg - clDstBuff",
+                                                   CL_SUCCESS, iRet);
+                                  if (!bResult)
+                                    goto release_linear_sampler;
+
+                                  iRet = clEnqueueWriteImage(
+                                      queue, clSrcImg, CL_TRUE, origin, region,
+                                      0, 0, pSrcImageValues, 0, NULL, NULL);
+                                  bResult &= Check("clEnqueueWriteImage - src",
+                                                   CL_SUCCESS, iRet);
+                                  if (!bResult)
+                                    goto release_linear_sampler;
+
+                                  {
+                                    // size_t global_work_size[2] = {
+                                    // szSrcWidth, szSrcHeight };
+                                    size_t global_work_size[2] = {100, 100};
+                                    size_t local_work_size[2] = {1, 1};
+
+                                    // Execute kernel
+                                    iRet = clEnqueueNDRangeKernel(
+                                        queue, kernel, 2, NULL,
+                                        global_work_size, local_work_size, 0,
+                                        NULL, NULL);
 					}
 					bResult &= Check("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
 					//
@@ -240,7 +288,7 @@ bool clImageExecuteTest()
 	release_queue:
 		clFinish(queue);
 		clReleaseCommandQueue(queue);
-	}
+        }
 release_context:
     clReleaseContext(context);
 release_end:

@@ -223,8 +223,8 @@ TEST_F(DumpEnvTest, CheckHashSame) {
 
     cl_int binaryStatus;
     cl_program programAOT = clCreateProgramWithBinary(
-        m_context, 1, &m_device, &binarySize, (const unsigned char **)binaries,
-        &binaryStatus, &err);
+        m_context, 1, &m_device, &binarySize,
+        const_cast<const unsigned char **>(binaries), &binaryStatus, &err);
     ASSERT_OCL_SUCCESS(binaryStatus, "clCreateProgramWithBinary binaryStatus");
     ASSERT_OCL_SUCCESS(err, "clCreateProgramWithBinary");
 

@@ -96,35 +96,37 @@ bool ConcurrentBuildProgramTest()
 	}
 	printf("context = %p\n", (void*)context);
 
-	printf("Building program %s\n", oclProgram);
+        printf("Building program %s\n", oclProgram);
 
-	clProg = clCreateProgramWithSource(context, 1, (const char**)&oclProgram, NULL, &iRet);
-	bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
+        clProg = clCreateProgramWithSource(
+            context, 1, const_cast<const char **>(&oclProgram), NULL, &iRet);
+        bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
 
-	gBuildDone = false;
-	iRet = clBuildProgram(clProg, 0, NULL, NULL, buildCallback, NULL);
-	bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
+        gBuildDone = false;
+        iRet = clBuildProgram(clProg, 0, NULL, NULL, buildCallback, NULL);
+        bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
 
-	iRet = clBuildProgram(clProg, 0, NULL, NULL, buildCallback, NULL);
-	if (!gBuildDone)
-	{
-		bResult &= Check("clBuildProgram", CL_INVALID_OPERATION, iRet);
-	}
-	while (!gBuildDone);
+        iRet = clBuildProgram(clProg, 0, NULL, NULL, buildCallback, NULL);
+        if (!gBuildDone) {
+          bResult &= Check("clBuildProgram", CL_INVALID_OPERATION, iRet);
+        }
+        while (!gBuildDone)
+          ;
 
-	cl_kernel dummy = clCreateKernel(clProg, "k", &iRet);
-	bResult &= Check("clCreateKernel", CL_SUCCESS, iRet);
+        cl_kernel dummy = clCreateKernel(clProg, "k", &iRet);
+        bResult &= Check("clCreateKernel", CL_SUCCESS, iRet);
 
-	iRet = clBuildProgram(clProg, 0, NULL, NULL, NULL, NULL);
-	bResult &= Check("clBuildProgram after kernel creation", CL_INVALID_OPERATION, iRet);
-	
-	// Release objects
-	delete[] oclProgram;
-	delete []pDevices;
-	delete []pBinarySizes;
-	delete []pBinaryStatus;
-	clReleaseKernel(dummy);
-	clReleaseProgram(clProg);
-	clReleaseContext(context);
-	return bResult;
+        iRet = clBuildProgram(clProg, 0, NULL, NULL, NULL, NULL);
+        bResult &= Check("clBuildProgram after kernel creation",
+                         CL_INVALID_OPERATION, iRet);
+
+        // Release objects
+        delete[] oclProgram;
+        delete[] pDevices;
+        delete[] pBinarySizes;
+        delete[] pBinaryStatus;
+        clReleaseKernel(dummy);
+        clReleaseProgram(clProg);
+        clReleaseContext(context);
+        return bResult;
 }

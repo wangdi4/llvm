@@ -130,15 +130,20 @@ bool fission_subdivision_test()
 	//Create a context with the two sub-devices
 	context = clCreateContext(NULL,2, out_devices, NULL, NULL, &err);
 	bResult = SilentCheck("clCreateContext",CL_SUCCESS,err);
-	if (!bResult)	return bResult;
+        if (!bResult)
+          return bResult;
 
-	//Create a command queue for the first device
-	cmd_queue[0] = clCreateCommandQueue(context,out_devices[0],0,&err);
-	bResult = SilentCheck("clCreateCommandQueue - first sub-device",CL_SUCCESS,err);
-	if (!bResult) return bResult;
+        // Create a command queue for the first device
+        cmd_queue[0] = clCreateCommandQueueWithProperties(
+            context, out_devices[0], NULL, &err);
+        bResult =
+            SilentCheck("clCreateCommandQueueWithProperties - first sub-device",
+                        CL_SUCCESS, err);
+        if (!bResult)
+          return bResult;
 
-	//Passed all tests, release resources
-	err      = clReleaseCommandQueue(cmd_queue[0]);
+        // Passed all tests, release resources
+        err      = clReleaseCommandQueue(cmd_queue[0]);
 	bResult &= SilentCheck("clReleaseCommandQueue",CL_SUCCESS,err);
 	err      = clReleaseContext(context);
 	bResult &= SilentCheck("clReleaseContext",CL_SUCCESS,err);

@@ -81,8 +81,9 @@ cl_int check_atomic_min(bool isOCL20, const std::vector<T> &src_a,
   context = clCreateContext(prop, 1, &device, NULL, NULL, &iRet);
   CheckException("clCreateContext", CL_SUCCESS, iRet);
 
-  cl_command_queue queue = clCreateCommandQueue(context, device, 0, &iRet);
-  CheckException("clCreateCommandQueue", CL_SUCCESS, iRet);
+  cl_command_queue queue =
+      clCreateCommandQueueWithProperties(context, device, NULL, &iRet);
+  CheckException("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
 
   const char *kernelString =
       isOCL20 ? OCL20_KERNEL_MIN_TEST_CODE_STR : OCL12_KERNEL_MIN_TEST_CODE_STR;
@@ -247,8 +248,9 @@ cl_int check_atomic_max(bool isOCL20, const std::vector<T> &src_a,
   context = clCreateContext(prop, 1, &device, NULL, NULL, &iRet);
   CheckException("clCreateContext", CL_SUCCESS, iRet);
 
-  cl_command_queue queue = clCreateCommandQueue(context, device, 0, &iRet);
-  CheckException("clCreateCommandQueue", CL_SUCCESS, iRet);
+  cl_command_queue queue =
+      clCreateCommandQueueWithProperties(context, device, NULL, &iRet);
+  CheckException("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
 
   const char *kernelString =
       isOCL20 ? OCL20_KERNEL_MAX_TEST_CODE_STR : OCL12_KERNEL_MAX_TEST_CODE_STR;

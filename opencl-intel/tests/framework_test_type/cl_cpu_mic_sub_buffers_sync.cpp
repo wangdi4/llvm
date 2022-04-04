@@ -249,14 +249,16 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
 		}
 	}
 
-    for (unsigned int i = 0; i < numDevices; i++)
-	{
-        dev_queue[i] = clCreateCommandQueue (context, devices[i], 0 /*no properties*/, &iRet);
-        bResult &= SilentCheck("clCreateCommandQueue", CL_SUCCESS, iRet);
-        if (!bResult) goto release_queues;
-    }
+        for (unsigned int i = 0; i < numDevices; i++) {
+          dev_queue[i] = clCreateCommandQueueWithProperties(
+              context, devices[i], 0 /*no properties*/, &iRet);
+          bResult &= SilentCheck("clCreateCommandQueueWithProperties",
+                                 CL_SUCCESS, iRet);
+          if (!bResult)
+            goto release_queues;
+        }
 
-	if (releaseBuffTest)
+        if (releaseBuffTest)
 	{
 		// cl_CPU_MIC_Common_RT_SubBuffers_Async_With_Buffer_Release test.
 		global_work_size[0] = stSubBuffSize;
@@ -684,16 +686,16 @@ bool run_multi_devices_sub_buffer_simple_test(const char* test_name)
 			break;
 		}
 
-		for (unsigned int i = 0; i < num_devices; i++)
-		{
-			clCommandQueues[i] = clCreateCommandQueue (context, pDevices[i], 0 /*no properties*/, &iRet);
-			bResult &= SilentCheck("clCreateCommandQueue", CL_SUCCESS, iRet);
-			if (!bResult)
-			{
-				break;
-			}
-		}
-		if (!bResult)
+                for (unsigned int i = 0; i < num_devices; i++) {
+                  clCommandQueues[i] = clCreateCommandQueueWithProperties(
+                      context, pDevices[i], NULL /*no properties*/, &iRet);
+                  bResult &= SilentCheck("clCreateCommandQueueWithProperties",
+                                         CL_SUCCESS, iRet);
+                  if (!bResult) {
+                    break;
+                  }
+                }
+                if (!bResult)
 		{
 			break;
 		}
@@ -1021,15 +1023,16 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers()
     //
     // Create queue
     //
-	vector<cl_command_queue> queues(uiNumDevices);
-	for (unsigned int i = 0; i < uiNumDevices; i++)
-	{
-		queues[i] = clCreateCommandQueue (context, pDevices[i], 0 /*no properties*/, &iRet);
-		bResult &= SilentCheck("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
-	}
+        vector<cl_command_queue> queues(uiNumDevices);
+        for (unsigned int i = 0; i < uiNumDevices; i++) {
+          queues[i] = clCreateCommandQueueWithProperties(
+              context, pDevices[i], NULL /*no properties*/, &iRet);
+          bResult &= SilentCheck("clCreateCommandQueueWithProperties - queue",
+                                 CL_SUCCESS, iRet);
+        }
 
-	vector<cl_mem* > subBuffers(NUM_BUFFERS);
-	for (unsigned int i = 0; i < NUM_BUFFERS; i++)
+        vector<cl_mem *> subBuffers(NUM_BUFFERS);
+        for (unsigned int i = 0; i < NUM_BUFFERS; i++)
 	{
 		subBuffers[i] = new cl_mem[ NUM_SUB_BUFFERS ];
 		for (unsigned int j = 0; j < NUM_SUB_BUFFERS; j++)

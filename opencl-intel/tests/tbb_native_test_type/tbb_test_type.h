@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "gtest/gtest.h"
+#include "gtest_wrapper.h"
 
 #ifndef WIN32
 #include <unistd.h>

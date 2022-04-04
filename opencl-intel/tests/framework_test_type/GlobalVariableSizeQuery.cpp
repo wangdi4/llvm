@@ -1,8 +1,8 @@
 #include "CL/cl.h"
-#include "cl_types.h"
-#include <stdio.h>
 #include "FrameworkTest.h"
-#include <gtest/gtest.h>
+#include "cl_types.h"
+#include "gtest_wrapper.h"
+#include <stdio.h>
 
 #include <string>
 

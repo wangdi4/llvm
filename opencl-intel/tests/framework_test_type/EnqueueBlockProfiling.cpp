@@ -2,8 +2,8 @@
 #include "FrameworkTest.h"
 #include "cl_types.h"
 #include "common_utils.h"
+#include "gtest_wrapper.h"
 
-#include <gtest/gtest.h>
 #include <stdio.h>
 #include <string>
 
@@ -113,7 +113,7 @@ void enqueueBlockProfilingTest() {
                               NULL);
     ASSERT_EQ(CL_SUCCESS, err) << "clEnqueueReadBuffer failed.";
 
-    for (int i = 0; i < (sizeof(res) / sizeof(cl_int)); i++) {
+    for (size_t i = 0; i < (sizeof(res) / sizeof(cl_int)); i++) {
       ASSERT_EQ(res[i], 0) << "kernel results validation failed.";
     }
 

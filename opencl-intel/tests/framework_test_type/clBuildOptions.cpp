@@ -20,10 +20,10 @@
 
 #define __CL_ENABLE_EXCEPTIONS
 #include "CL/cl.hpp"
-#include "cl_types.h"
-#include <gtest/gtest.h>
-#include <stdio.h>
 #include "FrameworkTest.h"
+#include "cl_types.h"
+#include "gtest_wrapper.h"
+#include <stdio.h>
 
 /**
  * In this test the kernel is built with a macro defined through 'options'

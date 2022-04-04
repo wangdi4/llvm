@@ -34,6 +34,7 @@ struct VectEntry {
   static std::vector<VectorKind> vectorKindEncode;
   static bool isMasked;
   static bool kernelCallOnce;
+  static unsigned stride;
   const static VectorVariant::ISAClass isaClass;
   const static std::string baseName;
 };
@@ -60,10 +61,14 @@ public:
 
   bool kernelCallOnce() const { return m_kernelCallOnce; }
 
+  unsigned stride() const { return m_stride; }
+
 private:
   bool m_handleAlias;
 
   bool m_kernelCallOnce;
+
+  unsigned m_stride;
 
   TVecVec m_types;
 

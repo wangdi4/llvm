@@ -421,6 +421,13 @@ ApiLogger& ApiLogger::operator<<(const cl_event *val) {
     return *this;
 }
 
+ApiLogger& ApiLogger::PrintMacroCode(cl_ulong value) {
+  m_strStream << std::hex << "0x" << std::setfill('0') << std::setw(4)
+              << std::uppercase << value
+              << std::resetiosflags(std::ios_base::basefield);
+  return *this;
+}
+
 void ApiLogger::PrintPtrValue(size_t size, const void *value) {
     if (!value)
         return;

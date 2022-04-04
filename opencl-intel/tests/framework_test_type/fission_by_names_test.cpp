@@ -75,16 +75,22 @@ bool fission_by_names_test()
 	//Create a context with the sub-device
 	context = clCreateContext(NULL,1, &subdevice_id, NULL, NULL, &err);
 	bResult = SilentCheck("clCreateContext",CL_SUCCESS,err);
-	if (!bResult)	return bResult;
+        if (!bResult)
+          return bResult;
 
-	//Create a command queue for the device
-	cmd_queue = clCreateCommandQueue(context, subdevice_id, 0, &err);
-	bResult = SilentCheck("clCreateCommandQueue - first queue",CL_SUCCESS,err);
-	if (!bResult) return bResult;
+        // Create a command queue for the device
+        cmd_queue = clCreateCommandQueueWithProperties(context, subdevice_id,
+                                                       NULL, &err);
+        bResult =
+            SilentCheck("clCreateCommandQueueWithProperties - first queue",
+                        CL_SUCCESS, err);
+        if (!bResult)
+          return bResult;
 
-	const char* ocl_test_program= "__kernel void writeSeven(__global char *a) { a[get_global_id(0)] = 7; }";
+        const char *ocl_test_program = "__kernel void writeSeven(__global char "
+                                       "*a) { a[get_global_id(0)] = 7; }";
 
-	cl_kernel  kernel;
+        cl_kernel  kernel;
 	cl_program program;
 
 	program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &err);

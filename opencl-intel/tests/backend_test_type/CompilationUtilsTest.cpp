@@ -8,8 +8,8 @@
 //
 // ===---------------------------------------------------------------------==//
 
+#include "gtest_wrapper.h"
 #include <CompilationUtils.h>
-#include <gtest/gtest.h>
 
 using namespace Intel::OpenCL::DeviceBackend;
 

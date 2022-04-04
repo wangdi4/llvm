@@ -237,16 +237,15 @@ bool fission_logic_test(){
 		"__kernel void fissionLogic2Test(__global int *d)\
 		{d = 3;}"};
 
-	// init Command Queue for the lowest level devices
-    for (size_t i = 0; i < num_level2_devices; i++)
-	{
-		cmd_queue[i] = clCreateCommandQueue(context, out_devices[num_level1_devices + i], 0, &err);
-		bResult      = SilentCheck("clCreateCommandQueue",CL_SUCCESS,err);
-		if (!bResult)
-        {
-            for (size_t j = 0; j < i; ++j)
-            {
-                clReleaseCommandQueue(cmd_queue[i]);
+        // init Command Queue for the lowest level devices
+        for (size_t i = 0; i < num_level2_devices; i++) {
+          cmd_queue[i] = clCreateCommandQueueWithProperties(
+              context, out_devices[num_level1_devices + i], NULL, &err);
+          bResult = SilentCheck("clCreateCommandQueueWithProperties",
+                                CL_SUCCESS, err);
+          if (!bResult) {
+            for (size_t j = 0; j < i; ++j) {
+              clReleaseCommandQueue(cmd_queue[i]);
             }
             for (size_t j = 0; j < num_level1_devices + num_level2_devices; ++j)
             {
@@ -254,10 +253,10 @@ bool fission_logic_test(){
             }
 			clReleaseContext(context);
 			return bResult;
-		}
-	}	
+          }
+        }
 
-	int res1, res2;
+        int res1, res2;
 
 	bResult |= run_kernel1(context, out_devices[num_level1_devices], cmd_queue[0], ocl_test1_program, &res1);
 
@@ -278,7 +277,7 @@ bool fission_logic_test(){
 	clReleaseContext(context);
 	for (size_t i = 0; i < num_level1_devices + num_level2_devices; i++)
 	{
-		clReleaseDevice(out_devices[i]);
-	}
-	return bResult;
+          clReleaseDevice(out_devices[i]);
+        }
+        return bResult;
 }

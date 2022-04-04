@@ -50,85 +50,82 @@ public:
 	
     PREPARE_SHARED_PTR(TestSet)
 
-    static SharedPtr<TestSet> Allocate(int id, volatile int* pDone) { return SharedPtr<TestSet>(new TestSet(id, pDone)); }
+    static SharedPtr<TestSet> Allocate(int id, volatile int *pDone) {
+      return SharedPtr<TestSet>(new TestSet(id, pDone));
+    }
 
-	bool SetAsSyncPoint()
-	{
-		return false;
-	}
+    bool SetAsSyncPoint() override { return false; }
 
-	bool CompleteAndCheckSyncPoint()
-	{
-		return false;
-	}
+    bool CompleteAndCheckSyncPoint() override { return false; }
 
-	bool IsCompleted() const
-	{
-		return false;
-	}
+    bool IsCompleted() const override { return false; }
 
-    void Cancel() {}
+    void Cancel() override {}
 
-	Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup *
+    GetNDRangeChildrenTaskGroup() override {
+      return NULL;
+    }
 
-	// ITaskSet interface
-	int Init(size_t region[], unsigned int &regCount, size_t numberOfThreads)
-	{
-		*m_pDone = 0;
+    // ITaskSet interface
+    int Init(size_t region[], unsigned int &regCount,
+             size_t numberOfThreads) override {
+      *m_pDone = 0;
 #ifdef EXTENDED_PRINT
-		printf("TestSet::Init() - %d - Init on %d\n", m_id, GET_THREAD_ID);
+      printf("TestSet::Init() - %d - Init on %d\n", m_id, GET_THREAD_ID);
 #endif
-		regCount = 1;
-		region[0] = 1000;
-		return 0;
-	}
-	void*  AttachToThread(void* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
-	{
-		m_attached++;
+      regCount = 1;
+      region[0] = 1000;
+      return 0;
+    }
+    void *AttachToThread(void *pWgContext, size_t uiNumberOfWorkGroups,
+                         size_t firstWGID[], size_t lastWGID[]) override {
+      m_attached++;
 #ifdef EXTENDED_PRINT
-		printf("TestSet::AttachToThread() - %d - %d was joined as %d, attached: %d\n",  m_id, GET_THREAD_ID, uiWorkerId, long(m_attached));
+      printf("TestSet::AttachToThread() - %d - %d was joined as %d, attached: "
+             "%d\n",
+             m_id, GET_THREAD_ID, uiWorkerId, long(m_attached));
 #endif
-		return (void*)1; // return non-NULL
-	}
-	void  DetachFromThread(void* pWgContext)
-	{
-		m_attached--;
+      return (void *)1; // return non-NULL
+    }
+    void DetachFromThread(void *pWgContext) override {
+      m_attached--;
 #ifdef EXTENDED_PRINT
-		printf("TestSet::DetachFromThread() - %d - %d left execution, attached: %d\n",  m_id, uiWorkerId, long(m_attached));
+      printf("TestSet::DetachFromThread() - %d - %d left execution, attached: "
+             "%d\n",
+             m_id, uiWorkerId, long(m_attached));
 #endif
-		return;
-	}
-	bool	ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext)
-	{
-		//printf("TestSet::ExecuteIteration() - %d executing\n", uiWorkerId);
-		for (unsigned int i=0;i<x;++i)
-		{
-			SLEEP(0);
-		}
-        return true;
-	}
-	bool	Finish(FINISH_REASON reason)
-	{
+      return;
+    }
+    bool ExecuteIteration(size_t x, size_t y, size_t z,
+                          void *pWgContext) override {
+      // printf("TestSet::ExecuteIteration() - %d executing\n", uiWorkerId);
+      for (unsigned int i = 0; i < x; ++i) {
+        SLEEP(0);
+      }
+      return true;
+    }
+    bool Finish(FINISH_REASON reason) override {
 #ifdef EXTENDED_PRINT
-		printf("TestSet::Finish() - %d - Finished on %d\n", m_id, GET_THREAD_ID);
+      printf("TestSet::Finish() - %d - Finished on %d\n", m_id, GET_THREAD_ID);
 #endif
-		assert( 0==m_attached && "m_attached != 0");
-		*m_pDone = 1;
-		return true;
-	}
-	long	Release()
-	{
-		delete this;
-        return 0;
-	}
+      assert(0 == m_attached && "m_attached != 0");
+      *m_pDone = 1;
+      return true;
+    }
+    long Release() override {
+      delete this;
+      return 0;
+    }
     // Optimize By
-    TASK_PRIORITY         GetPriority() const { return TASK_PRIORITY_MEDIUM;}
-    TASK_SET_OPTIMIZATION OptimizeBy() const { return TASK_SET_OPTIMIZE_DEFAULT; }
-    size_t                PreferredSequentialItemsPerThread() const { return 1; }
-    bool                  PreferNumaNodes() const override { return false; }
+    TASK_PRIORITY GetPriority() const override { return TASK_PRIORITY_MEDIUM; }
+    TASK_SET_OPTIMIZATION OptimizeBy() const override {
+      return TASK_SET_OPTIMIZE_DEFAULT;
+    }
+    size_t PreferredSequentialItemsPerThread() const override { return 1; }
+    bool PreferNumaNodes() const override { return false; }
 
-private:
-
+  private:
     TestSet(int id, volatile int* pDone) : m_id(id),m_pDone(pDone), m_attached(0) {}
 
 };

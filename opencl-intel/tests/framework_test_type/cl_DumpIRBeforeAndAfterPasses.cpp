@@ -14,16 +14,17 @@
 
 // The test checks --print-before/--print-after work correctly.
 
-// The test can only run on Linux as fork() is used to check the output on stderr.
+// The test can only run on Linux as fork() is used to check the output on
+// stderr.
 #if (!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)) && !defined(_WIN32)
 
-#include <gtest/gtest.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/wait.h>
 
 #include "CL/cl.h"
 #include "FrameworkTest.h"
+#include "gtest_wrapper.h"
 
 extern cl_device_type gDeviceType;
 

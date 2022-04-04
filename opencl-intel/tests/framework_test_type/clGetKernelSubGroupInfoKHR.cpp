@@ -12,18 +12,19 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <iostream>
-#include <gtest/gtest.h>
 #include "CL/cl.h"
 #include "CL/cl_ext.h"
+#include "gtest_wrapper.h"
+#include <iostream>
 
 extern cl_device_type gDeviceType;
 
-void clGetKernelSubGroupInfoKHR()
-{
-  std::cout << "=============================================================" << std::endl;
-  std::cout << "GetKernelSubGroupInfoKHR" << std::endl;
-  std::cout << "=============================================================" << std::endl;
+void clGetKernelSubGroupInfo() {
+  std::cout << "============================================================="
+            << std::endl;
+  std::cout << "GetKernelSubGroupInfo" << std::endl;
+  std::cout << "============================================================="
+            << std::endl;
 
   cl_int iRet = CL_SUCCESS;
 
@@ -70,57 +71,47 @@ void clGetKernelSubGroupInfoKHR()
   cl_kernel kernel = clCreateKernel(program, "dummy_kernel", &iRet);
   ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateKernel failed. ";
 
-  // Test only one case as GetKernelSubGroupInfoKHR is proxied to GetKernelSubGroupInfo.
-  {// local work sizes are [20,20,20]
+  // Test only one case as GetKernelSubGroupInfo is proxied to
+  // GetKernelSubGroupInfo.
+  { // local work sizes are [20,20,20]
     size_t dummy_vec[] = {20, 20, 20};
-    std::vector<size_t> local_work_sizes(dummy_vec, dummy_vec + sizeof(dummy_vec) / sizeof(size_t));
+    std::vector<size_t> local_work_sizes(
+        dummy_vec, dummy_vec + sizeof(dummy_vec) / sizeof(size_t));
     size_t max_SG_size = 0;
     size_t returned_size = 0;
-    iRet = clGetKernelSubGroupInfoKHR(kernel,
-                                      device,
-                                      CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE_KHR,
-                                      local_work_sizes.size() * sizeof(local_work_sizes[0]),
-                                      &local_work_sizes[0],
-                                      sizeof(max_SG_size),
-                                      &max_SG_size,
-                                      &returned_size);
-    ASSERT_EQ(CL_SUCCESS, iRet) << " clGetKernelSubGroupInfoKHR failed. ";
+    iRet = clGetKernelSubGroupInfo(
+        kernel, device, CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE,
+        local_work_sizes.size() * sizeof(local_work_sizes[0]),
+        &local_work_sizes[0], sizeof(max_SG_size), &max_SG_size,
+        &returned_size);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clGetKernelSubGroupInfo failed. ";
     ASSERT_EQ(sizeof(size_t), returned_size)
-      << " clGetKernelSubGroupInfoKHR failed. Expected and returned sizes differ. ";
-    ASSERT_LT((size_t)0, max_SG_size)
-      << " clGetKernelSubGroupInfoKHR failed. Max subgroup size can't be less than 1. ";
+        << " clGetKernelSubGroupInfo failed. Expected and returned sizes "
+           "differ. ";
+    ASSERT_LT((size_t)0, max_SG_size) << " clGetKernelSubGroupInfo failed. Max "
+                                         "subgroup size can't be less than 1. ";
   }
 
   // Tests accessibility via clGetExtensionFunctionAddress
   {
-    cl_int (CL_API_CALL *get_kernel_subgroup_info) (cl_kernel, cl_device_id, cl_kernel_sub_group_info,
-                                        size_t, const void*, size_t, void*, size_t*);
-
-    get_kernel_subgroup_info = (cl_int (CL_API_CALL *) (cl_kernel, cl_device_id, cl_kernel_sub_group_info,
-                                            size_t, const void*, size_t, void*, size_t*))
-                                clGetExtensionFunctionAddress("clGetKernelSubGroupInfoKHR");
-
-    ASSERT_NE(nullptr, get_kernel_subgroup_info)
-      << "clGetExtensionFunctionAddress(\"clGetKernelSubGroupInfoKHR\" failed. ";
-
     // local work sizes are [20,20,20]
     size_t dummy_vec[] = {20, 20, 20};
-    std::vector<size_t> local_work_sizes(dummy_vec, dummy_vec + sizeof(dummy_vec) / sizeof(size_t));
+    std::vector<size_t> local_work_sizes(
+        dummy_vec, dummy_vec + sizeof(dummy_vec) / sizeof(size_t));
     size_t number_of_SG = 0;
     size_t returned_size = 0;
-    iRet = get_kernel_subgroup_info(kernel,
-                                    device,
-                                    CL_KERNEL_SUB_GROUP_COUNT_FOR_NDRANGE_KHR,
-                                    local_work_sizes.size() * sizeof(local_work_sizes[0]),
-                                    &local_work_sizes[0],
-                                    sizeof(number_of_SG),
-                                    &number_of_SG,
-                                    &returned_size);
-    ASSERT_EQ(CL_SUCCESS, iRet) << " clGetKernelSubGroupInfoKHR failed. ";
+    iRet = clGetKernelSubGroupInfo(
+        kernel, device, CL_KERNEL_SUB_GROUP_COUNT_FOR_NDRANGE,
+        local_work_sizes.size() * sizeof(local_work_sizes[0]),
+        &local_work_sizes[0], sizeof(number_of_SG), &number_of_SG,
+        &returned_size);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clGetKernelSubGroupInfo failed. ";
     ASSERT_EQ(sizeof(size_t), returned_size)
-      << " clGetKernelSubGroupInfoKHR failed. Expected and returned size differ. ";
+        << " clGetKernelSubGroupInfo failed. Expected and returned size "
+           "differ. ";
     ASSERT_LT((size_t)0, number_of_SG)
-      << " clGetKernelSubGroupInfoKHR failed. Max subgroup size can't be less than 1. ";
+        << " clGetKernelSubGroupInfo failed. Max subgroup size can't be less "
+           "than 1. ";
   }
 
   clReleaseKernel(kernel);

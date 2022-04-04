@@ -23,14 +23,14 @@
 #ifndef VECTOR_COMPARATOR_GTEST_
 #define VECTOR_COMPARATOR_GTEST_
 
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <stdlib.h>
-#include <malloc.h>
-#include <gtest/gtest.h>
+#include "gtest_wrapper.h"
 #include <CL/cl.h>
 #include <cmath>
+#include <fstream>
+#include <iostream>
+#include <malloc.h>
+#include <stdlib.h>
+#include <string>
 
 /**
  * VectorComparator - responsible for comparing values

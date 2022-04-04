@@ -2,7 +2,6 @@
 #include "FrameworkTestThreads.h"
 #include "TestsHelpClasses.h"
 #include "cl_types.h"
-#include <gtest/gtest.h>
 #include <stdio.h>
 
 extern cl_device_type gDeviceType;

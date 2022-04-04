@@ -47,38 +47,35 @@ public:
     ~SamplePlugin() {}
 
     /// @brief dummy implemention of the interface's method
-    void OnCreateBinary(const ICLDevBackendKernel_* pKernel,
-                        const _cl_work_description_type* pWorkDesc,
-                        size_t bufSize,
-                        void* pArgsBuffer)
-    {
-        // do nothing
+    void OnCreateBinary(const ICLDevBackendKernel_ *pKernel,
+                        const _cl_work_description_type *pWorkDesc,
+                        size_t bufSize, void *pArgsBuffer) override {
+      // do nothing
     }
 
     /// @brief dummy implemention of the interface's method
-    void OnCreateKernel(const ICLDevBackendProgram_* pProgram,
-                        const ICLDevBackendKernel_* pKernel,
-                        const void* pFunction)
-    {
-        // do nothing
+    void OnCreateKernel(const ICLDevBackendProgram_ *pProgram,
+                        const ICLDevBackendKernel_ *pKernel,
+                        const void *pFunction) override {
+      // do nothing
     }
 
-    /// @brief implementing the interface's method, the ONLY method that changes pluginWorked
-    void OnCreateProgram(const void * pBinary,
-                         size_t uiBinarySize,
-                         const ICLDevBackendProgram_* pProgram)
-    {
-        // we are using this event to check if the plugin is loaded (see backend plugin tests)
-        pluginWorked = true;
+    /// @brief implementing the interface's method, the ONLY method that changes
+    /// pluginWorked
+    void OnCreateProgram(const void *pBinary, size_t uiBinarySize,
+                         const ICLDevBackendProgram_ *pProgram) override {
+      // we are using this event to check if the plugin is loaded (see backend
+      // plugin tests)
+      pluginWorked = true;
     }
 
     /// @brief dummy implemention of the interface's method
-    void OnReleaseProgram(const ICLDevBackendProgram_* pProgram)
-    {
-        // do nothing
+    void OnReleaseProgram(const ICLDevBackendProgram_ *pProgram) override {
+      // do nothing
     }
 
-    /// @brief we call this after we created a program to check if the plugin is loaded
+    /// @brief we call this after we created a program to check if the plugin is
+    /// loaded
     static bool DidPluginWork() { return pluginWorked; }
 private:
     static bool pluginWorked;
@@ -100,17 +97,18 @@ class OclSamplePlugin: public Intel::OpenCL::IPlugin
     friend void ReleasePlugin(Intel::OpenCL::IPlugin*);
 
 public:
-    /// @brief return the singleton instance
-    static OclSamplePlugin* Instance();
-    /// @brief return the backend plugin SamplePlugin to the plugin manager
-    ICLDevBackendPlugin* getBackendPlugin();
-    /// @brief dummy implemntion, SamplePlugin is only for testing in the backend
-    Intel::OpenCL::Frontend::ICLFrontendPlugin* getFrontendPlugin();
-private:
-    /// @brief singleton instance
-    static OclSamplePlugin* instance;
+  /// @brief return the singleton instance
+  static OclSamplePlugin *Instance();
+  /// @brief return the backend plugin SamplePlugin to the plugin manager
+  ICLDevBackendPlugin *getBackendPlugin() override;
+  /// @brief dummy implemntion, SamplePlugin is only for testing in the backend
+  Intel::OpenCL::Frontend::ICLFrontendPlugin *getFrontendPlugin() override;
 
-    OclSamplePlugin(){}
+private:
+  /// @brief singleton instance
+  static OclSamplePlugin *instance;
+
+  OclSamplePlugin() {}
 };
 
 #endif //SAMPLE_PLUGIN_H

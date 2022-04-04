@@ -143,137 +143,126 @@ bool CmdUnmapMemObj(cl_dev_cmd_param_map *pMapParams)
 
 	cl_dev_cmd_desc* cmdsBuff = &cmds;
 	iRes = dev_entry->clDevCommandListExecute(list, &cmdsBuff, 1);
-	if (CL_DEV_FAILED(iRes))
-	{
-		printf("clDevCommandListExecute failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
-		return NULL;
-	}	
-	
-	//release commans list
-	iRes = dev_entry->clDevFlushCommandList(list);
-	if (CL_DEV_FAILED(iRes))
-	{
-		printf("clDevFlushCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
-		return false;
-	}	
+        if (CL_DEV_FAILED(iRes)) {
+          printf("clDevCommandListExecute failed: %s\n",
+                 clDevErr2Txt((cl_dev_err_code)iRes));
+          return false;
+        }
 
-	while(!gExecDone )
-	{
-		SLEEP(10);
-	}
+        // release commans list
+        iRes = dev_entry->clDevFlushCommandList(list);
+        if (CL_DEV_FAILED(iRes)) {
+          printf("clDevFlushCommandList failed: %s\n",
+                 clDevErr2Txt((cl_dev_err_code)iRes));
+          return false;
+        }
 
-	//release command list
-	iRes = dev_entry->clDevReleaseCommandList(list);
-	if (CL_DEV_FAILED(iRes))
-	{
-		printf("second clDevReleaseCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
-		return NULL;
-	}	
-	return true;
+        while (!gExecDone) {
+          SLEEP(10);
+        }
+
+        // release command list
+        iRes = dev_entry->clDevReleaseCommandList(list);
+        if (CL_DEV_FAILED(iRes)) {
+          printf("second clDevReleaseCommandList failed: %s\n",
+                 clDevErr2Txt((cl_dev_err_code)iRes));
+          return false;
+        }
+        return true;
 }
 
-bool clMapBuffer_Test()
-{
-	cl_mem_flags memFlags = CL_MEM_READ_WRITE;
-	cl_map_flags mapFlags = CL_MAP_READ;
-	const cl_image_format format = {CL_RGBA, CL_UNORM_INT8};
-	size_t  dim[] =  {BUFFER_SIZE, 0};	
-	IOCLDevMemoryObject*  memObj;
-	unsigned int dim_count = 1;
-	char buffer[BUFFER_SIZE];
-	char *pMapPtr;
-	size_t origin[MAX_WORK_DIM] = {0, 0, 0};
-	size_t region[MAX_WORK_DIM] = {BUFFER_SIZE, 1, 1};
+bool clMapBuffer_Test() {
+  cl_mem_flags memFlags = CL_MEM_READ_WRITE;
+  cl_map_flags mapFlags = CL_MAP_READ;
+  const cl_image_format format = {CL_RGBA, CL_UNORM_INT8};
+  size_t dim[] = {BUFFER_SIZE, 0};
+  IOCLDevMemoryObject *memObj;
+  unsigned int dim_count = 1;
+  char buffer[BUFFER_SIZE];
+  char *pMapPtr;
+  size_t origin[MAX_WORK_DIM] = {0, 0, 0};
+  size_t region[MAX_WORK_DIM] = {BUFFER_SIZE, 1, 1};
 
-	
-	//Create Buffer Memory Object
-	localRTMemService.SetupState( &format, dim_count, dim, NULL, CL_MEM_OBJECT_BUFFER );
-	cl_int iRes = dev_entry->clDevCreateMemoryObject(0, memFlags, &format, dim_count, dim, &localRTMemService, &memObj);
-	
-	if (CL_DEV_FAILED(iRes))
-	{
-		printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
-		return false;
-	}
+  // Create Buffer Memory Object
+  localRTMemService.SetupState(&format, dim_count, dim, NULL,
+                               CL_MEM_OBJECT_BUFFER);
+  cl_int iRes = dev_entry->clDevCreateMemoryObject(
+      0, memFlags, &format, dim_count, dim, &localRTMemService, &memObj);
 
-	//Fill buffer with data to write
-	for(unsigned int i=0; i<BUFFER_SIZE ; ++i)
-	{
-		buffer[i] = i;
-	}
-    
-   //Write Host buffer into the created memory image
-	if(!writeImage(false, memObj, buffer, dim_count, BUFFER_SIZE, 1, 1, true))
-	{
-		return false;
-	}
+  if (CL_DEV_FAILED(iRes)) {
+    printf("pclDevCreateMemoryObject failed: %s\n",
+           clDevErr2Txt((cl_dev_err_code)iRes));
+    return false;
+  }
 
-	//Create Mapped region
-	cl_dev_cmd_param_map mapParams;
-	memset(&mapParams, 0, sizeof(cl_dev_cmd_param_map));
-	mapParams.ptr = NULL;
-	mapParams.flags = mapFlags;
-	mapParams.dim_count = dim_count;
-	memcpy(mapParams.region, region, sizeof(region));
-	memcpy(mapParams.origin, origin, sizeof(origin));
+  // Fill buffer with data to write
+  for (unsigned int i = 0; i < BUFFER_SIZE; ++i) {
+    buffer[i] = i;
+  }
 
-	iRes = memObj->clDevMemObjCreateMappedRegion( &mapParams);
-	if (CL_DEV_FAILED(iRes))
-	{
-		printf("clDevCreateMappedRegion failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
-		return false;
-	}
-	pMapPtr = (char*)mapParams.ptr;
-	if(NULL == pMapPtr)
-	{
-		return false;
-	}
-	//Map the buffer into host ptr
-	if(!CmdMapMemObj(&mapParams))
-	{
-		return false;
-	}
-	
+  // Write Host buffer into the created memory image
+  if (!writeImage(false, memObj, buffer, dim_count, BUFFER_SIZE, 1, 1, true)) {
+    return false;
+  }
 
-	//Compare the host buffer to the map ptr
+  // Create Mapped region
+  cl_dev_cmd_param_map mapParams;
+  memset(&mapParams, 0, sizeof(cl_dev_cmd_param_map));
+  mapParams.ptr = NULL;
+  mapParams.flags = mapFlags;
+  mapParams.dim_count = dim_count;
+  memcpy(mapParams.region, region, sizeof(region));
+  memcpy(mapParams.origin, origin, sizeof(origin));
 
-	if(0 != memcmp(buffer, pMapPtr, BUFFER_SIZE))
-	{
-		printf("Read buffer is different from Mapped ptr\n");
-		return false;
-	}
+  iRes = memObj->clDevMemObjCreateMappedRegion(&mapParams);
+  if (CL_DEV_FAILED(iRes)) {
+    printf("clDevCreateMappedRegion failed: %s\n",
+           clDevErr2Txt((cl_dev_err_code)iRes));
+    return false;
+  }
+  pMapPtr = (char *)mapParams.ptr;
+  if (NULL == pMapPtr) {
+    return false;
+  }
+  // Map the buffer into host ptr
+  if (!CmdMapMemObj(&mapParams)) {
+    return false;
+  }
 
-	//Try to access the memory object 
-	if(readImage(false, memObj, buffer, dim_count, BUFFER_SIZE, 1, 1, true))
-	{
-		printf("Read of Map region was succeed\n");
-	}
+  // Compare the host buffer to the map ptr
 
-	//Unamp the region 
-	if(!CmdUnmapMemObj(&mapParams))
-	{
-		printf("Failed to unmap memory object\n");
+  if (0 != memcmp(buffer, pMapPtr, BUFFER_SIZE)) {
+    printf("Read buffer is different from Mapped ptr\n");
+    return false;
+  }
 
-	}
-	//The read should be OK now
-	if(!readImage(false, memObj, buffer, dim_count, BUFFER_SIZE, 1, 1, true))
-	{
-		printf("Read of region which was Mapped and Unmapped failed\n");
-	}
-	iRes = memObj->clDevMemObjReleaseMappedRegion(&mapParams );
-	if (CL_DEV_FAILED(iRes))
-	{
-		printf("clDevReleaseMappedRegion failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
-		return false;
-	}
+  // Try to access the memory object
+  if (readImage(false, memObj, buffer, dim_count, BUFFER_SIZE, 1, 1, true)) {
+    printf("Read of Map region was succeed\n");
+  }
 
-	iRes = memObj->clDevMemObjRelease();
-	if (CL_DEV_FAILED(iRes))
-	{
-		printf("clDevDeleteMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
-		return false;
-	}
-	return true;
+  // Unamp the region
+  if (!CmdUnmapMemObj(&mapParams)) {
+    printf("Failed to unmap memory object\n");
+  }
+  // The read should be OK now
+  if (!readImage(false, memObj, buffer, dim_count, BUFFER_SIZE, 1, 1, true)) {
+    printf("Read of region which was Mapped and Unmapped failed\n");
+  }
+  iRes = memObj->clDevMemObjReleaseMappedRegion(&mapParams);
+  if (CL_DEV_FAILED(iRes)) {
+    printf("clDevReleaseMappedRegion failed: %s\n",
+           clDevErr2Txt((cl_dev_err_code)iRes));
+    return false;
+  }
+
+  iRes = memObj->clDevMemObjRelease();
+  if (CL_DEV_FAILED(iRes)) {
+    printf("clDevDeleteMemoryObject failed: %s\n",
+           clDevErr2Txt((cl_dev_err_code)iRes));
+    return false;
+  }
+  return true;
 }
 
 bool clMapImage_Test()

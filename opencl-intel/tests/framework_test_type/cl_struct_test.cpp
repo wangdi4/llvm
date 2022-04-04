@@ -111,16 +111,17 @@ bool clStructTest()
     src1.b = 2;
     src1.c = 3;
     src1.d = 4;
-   
+
     src2.f = 1.0;
 
     // Create queue
-    cl_command_queue queue = clCreateCommandQueue (context, device, 0, &iRet);
-	bResult &= SilentCheck("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
-    if (!bResult)
-	{
-		return bResult;
-	}
+    cl_command_queue queue =
+        clCreateCommandQueueWithProperties(context, device, NULL, &iRet);
+    bResult &= SilentCheck("clCreateCommandQueueWithProperties - queue",
+                           CL_SUCCESS, iRet);
+    if (!bResult) {
+      return bResult;
+    }
 
     // Create Kernel
     cl_kernel kernel = clCreateKernel(program, "test", &iRet);

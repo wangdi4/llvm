@@ -305,6 +305,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isWorkGroupReduceMax(const std::string&);
     static bool isWorkGroupScanExclusiveMax(const std::string&);
     static bool isWorkGroupScanInclusiveMax(const std::string&);
+    static bool isWorkGroupReduceBitwiseAnd(const std::string&);
+    static bool isWorkGroupReduceBitwiseOr(const std::string&);
+    static bool isWorkGroupReduceBitwiseXor(const std::string&);
+    static bool isWorkGroupReduceLogicalAnd(const std::string&);
+    static bool isWorkGroupReduceLogicalOr(const std::string&);
+    static bool isWorkGroupReduceLogicalXor(const std::string&);
     static bool hasWorkGroupFinalizePrefix(const std::string&);
     static bool isSubGroupReduceAdd(const std::string&);
     static bool isSubGroupScanExclusiveAdd(const std::string&);
@@ -428,6 +434,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string NAME_WORK_GROUP_SCAN_EXCLUSIVE_MUL;
     static const std::string NAME_WORK_GROUP_SCAN_INCLUSIVE_MUL;
     static const std::string NAME_FINALIZE_WG_FUNCTION_PREFIX;
+    static const std::string NAME_WORK_GROUP_REDUCE_BITWISE_AND;
+    static const std::string NAME_WORK_GROUP_REDUCE_BITWISE_OR;
+    static const std::string NAME_WORK_GROUP_REDUCE_BITWISE_XOR;
+    static const std::string NAME_WORK_GROUP_REDUCE_LOGICAL_AND;
+    static const std::string NAME_WORK_GROUP_REDUCE_LOGICAL_OR;
+    static const std::string NAME_WORK_GROUP_REDUCE_LOGICAL_XOR;
 
     //sub-group functions
     static const std::string NAME_SUB_GROUP_ALL;

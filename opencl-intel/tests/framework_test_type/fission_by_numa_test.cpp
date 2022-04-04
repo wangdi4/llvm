@@ -22,8 +22,8 @@
 #include "FrameworkTest.h"
 #include "TestsHelpClasses.h"
 #include "cl_sys_info.h"
+#include "gtest_wrapper.h"
 #include <CL/cl.h>
-#include <gtest/gtest.h>
 #include <stdio.h>
 
 extern cl_device_type gDeviceType;
@@ -117,9 +117,9 @@ TEST_F(SubDevicesByNumaTest, createSubDevicesAndRunKernel) {
   size_t globalSize = maxComputeUnits / numDevices;
   size_t localSize = 1;
   std::vector<int *> res(numDevices, nullptr);
-  for (int i = 0; i < numDevices; i++)
+  for (cl_uint i = 0; i < numDevices; i++)
     res[i] = new int[globalSize];
-  for (int i = 0; i < numDevices; i++) {
+  for (cl_uint i = 0; i < numDevices; i++) {
     cl_uint computeUnits;
     err = clGetDeviceInfo(subDevIds[i], CL_DEVICE_MAX_COMPUTE_UNITS,
                           sizeof(computeUnits), &computeUnits, nullptr);
@@ -181,11 +181,11 @@ TEST_F(SubDevicesByNumaTest, createSubDevicesAndRunKernel) {
     clFinish(q);
 
   // validate result
-  for (int i = 0; i < numDevices; i++) {
+  for (cl_uint i = 0; i < numDevices; i++) {
     std::vector<cl_uint> nodes;
     Intel::OpenCL::Utils::GetProcessorIndexFromNumaNode(i, nodes);
     std::set<cl_uint> index(nodes.begin(), nodes.end());
-    for (int core = 0; core < globalSize; core++) {
+    for (size_t core = 0; core < globalSize; core++) {
       if (index.find(res[i][core]) == index.end()) {
         ASSERT_TRUE(false) << "thread is not bound to same numa node.";
       }
@@ -263,18 +263,33 @@ TEST_F(SubDevicesByNumaTest, queryDeviceInfo) {
   // query the size of device partition type
   err = clGetDeviceInfo(subDevIds[0], CL_DEVICE_PARTITION_TYPE, 0, nullptr,
                         &paramSize);
-  ASSERT_OCL_SUCCESS(err, clGetDeviceInfo);
+  ASSERT_OCL_SUCCESS(err, "clGetDeviceInfo");
 
   partitionType.resize(paramSize/sizeof(cl_device_partition_property));
   // query device info -> CL_DEVICE_PARTITION_TYPE
   err = clGetDeviceInfo(subDevIds[0], CL_DEVICE_PARTITION_TYPE, paramSize,
                         partitionType.data(), nullptr);
-  ASSERT_OCL_SUCCESS(err, clGetDeviceInfo);
+  ASSERT_OCL_SUCCESS(err, "clGetDeviceInfo");
   // subdevice should be partitioned by affinity domain numa
   bool partitionByNuma =
       std::find(partitionType.begin(), partitionType.end(),
                 CL_DEVICE_AFFINITY_DOMAIN_NUMA) != partitionType.end();
   ASSERT_EQ(true, partitionByNuma);
+
+  // subdevice created by affinity domain is not partitionable
+  cl_device_partition_property subDevSupportedProp;
+  err = clGetDeviceInfo(subDevIds[0], CL_DEVICE_PARTITION_PROPERTIES,
+                        sizeof(cl_device_partition_property),
+                        &subDevSupportedProp, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetDeviceInfo");
+  ASSERT_EQ((cl_device_partition_property)0, subDevSupportedProp);
+
+  cl_device_affinity_domain subDevSupportedDomain;
+  err = clGetDeviceInfo(subDevIds[0], CL_DEVICE_PARTITION_AFFINITY_DOMAIN,
+                        sizeof(cl_device_affinity_domain),
+                        &subDevSupportedDomain, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetDeviceInfo");
+  ASSERT_EQ((cl_device_affinity_domain)0, subDevSupportedDomain);
 
   for (auto &subDev : subDevIds) {
     err = clReleaseDevice(subDev);

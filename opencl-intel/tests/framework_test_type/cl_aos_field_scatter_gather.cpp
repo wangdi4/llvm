@@ -274,12 +274,14 @@ bool clAoSFieldScatterGather()
     }
 
     // Create queue
-    cl_command_queue queue = clCreateCommandQueue (context, device, 0, &iRet);
-    bResult &= SilentCheck("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
+    cl_command_queue queue =
+        clCreateCommandQueueWithProperties(context, device, NULL, &iRet);
+    bResult &= SilentCheck("clCreateCommandQueueWithProperties - queue",
+                           CL_SUCCESS, iRet);
     if (!bResult) {
       return bResult;
     }
- 
+
     // Create buffers
     cl_mem buffer_src_struct = clCreateBuffer(context,
                                               CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR,

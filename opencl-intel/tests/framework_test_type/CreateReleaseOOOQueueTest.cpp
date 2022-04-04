@@ -116,28 +116,29 @@ bool CreateReleaseOOOQueueTest()
         numOfInterations = REDUCED_ITERATION_COUNT;        
     }
 
-	for (size_t i = 0; i < numOfInterations; ++i)
-	{
-    	queue = clCreateCommandQueue(context, device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &iRet);
-	    bResult &= SilentCheck("clCreateCommandQueue", CL_SUCCESS, iRet);
+    for (size_t i = 0; i < numOfInterations; ++i) {
+      const cl_queue_properties props[] = {
+          CL_QUEUE_PROPERTIES, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, 0};
+      queue =
+          clCreateCommandQueueWithProperties(context, device_id, props, &iRet);
+      bResult &=
+          SilentCheck("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
 
-	    if (!bResult)
-	    {
-            clReleaseContext(context);
-		    return bResult;
-	    }
+      if (!bResult) {
+        clReleaseContext(context);
+        return bResult;
+      }
 
-		iRet = clReleaseCommandQueue(queue);
-	    bResult &= SilentCheck("clReleaseCommandQueue", CL_SUCCESS, iRet);
+      iRet = clReleaseCommandQueue(queue);
+      bResult &= SilentCheck("clReleaseCommandQueue", CL_SUCCESS, iRet);
 
-	    if (!bResult)
-	    {
-		    clReleaseContext(context);
-		    return bResult;
-	    }
-	}
+      if (!bResult) {
+        clReleaseContext(context);
+        return bResult;
+      }
+    }
 
     clReleaseContext(context);
 
-	return bResult;
+    return bResult;
 }

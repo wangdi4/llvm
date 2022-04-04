@@ -149,17 +149,18 @@ bool clWorkItemFunctionsTest()
     bResult &= Check("clGetDeviceIDs", CL_SUCCESS, iRet);    
     if (!bResult)
 	{
-		return bResult;
-	}
+      return bResult;
+    }
 
-	cl_command_queue queue = clCreateCommandQueue (context, clDefaultDeviceId, 0 /*no properties*/, &iRet);
-	bResult &= Check("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
-	if (!bResult)
-	{
-		return bResult;
-	}
+    cl_command_queue queue = clCreateCommandQueueWithProperties(
+        context, clDefaultDeviceId, NULL /*no properties*/, &iRet);
+    bResult &=
+        Check("clCreateCommandQueueWithProperties - queue", CL_SUCCESS, iRet);
+    if (!bResult) {
+      return bResult;
+    }
 
-	// create program
+        // create program
 	cl_program program;
 	if ( !BuildProgramSynch(context, 1, (const char**)&ocl_test_program, NULL, NULL, &program) )
 	{

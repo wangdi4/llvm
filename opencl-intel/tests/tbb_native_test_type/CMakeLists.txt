@@ -1,8 +1,3 @@
-# remove the restriction of warning as error for this component
-if (NOT WIN32)
-    remove_definitions( -Werror )
-endif (NOT WIN32)
-
 set( TARGET tbb_native_test_type )
 
 include_directories( BEFORE ${OCL_SOURCE_DIR}/externals/tbb/enhancements)

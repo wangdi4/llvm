@@ -19,36 +19,38 @@ File Name:  CompilationServiceTest.cpp
 #include "BackendWrapper.h"
 #include "common_utils.h"
 
-#include <gtest/gtest.h>
+#include "gtest_wrapper.h"
 
-TEST_F(BackEndTests_CompilationService, CreateProgramSuccess)
-{
-    // get Backend service factory
-    ICLDevBackendServiceFactory* funcGetFactory = BackendWrapper::GetInstance().GetBackendServiceFactory();;
-    ASSERT_TRUE(funcGetFactory);
-    // create a Compilation service
-    ICLDevBackendCompileServicePtr   spCompileService(NULL);
-    ASSERT_TRUE(spCompileService.get() == NULL);
-    cl_dev_err_code ret = funcGetFactory->GetCompilationService(NULL, spCompileService.getOutPtr());
-    EXPECT_EQ(CL_DEV_SUCCESS, ret);
-    ICLDevBackendCompilationService* pCompileService = spCompileService.get();
-    ASSERT_TRUE(pCompileService);
+TEST_F(BackEndTests_CompilationService, CreateProgramSuccess) {
+  // get Backend service factory
+  ICLDevBackendServiceFactory *funcGetFactory =
+      BackendWrapper::GetInstance().GetBackendServiceFactory();
+  ;
+  ASSERT_TRUE(funcGetFactory);
+  // create a Compilation service
+  ICLDevBackendCompileServicePtr spCompileService(NULL);
+  ASSERT_TRUE(spCompileService.get() == NULL);
+  cl_dev_err_code ret =
+      funcGetFactory->GetCompilationService(NULL, spCompileService.getOutPtr());
+  EXPECT_EQ(CL_DEV_SUCCESS, ret);
+  ICLDevBackendCompilationService *pCompileService = spCompileService.get();
+  ASSERT_TRUE(pCompileService);
 
-    //-----------------------------------------------------------------
-    // load pre created bitcode buffer in correct format - with kernels
-    std::unique_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
-    ASSERT_TRUE(pBackendWrapper.get());
-    std::vector<char> program;
-    pBackendWrapper->CreateProgramContainer(get_exe_dir() + FILE_BC_WITH_KERNELS, program);
-    ASSERT_TRUE(program.size() > 0);
+  //-----------------------------------------------------------------
+  // load pre created bitcode buffer in correct format - with kernels
+  std::unique_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
+  ASSERT_TRUE(pBackendWrapper.get());
+  std::vector<char> program;
+  pBackendWrapper->CreateProgramContainer(get_exe_dir() + FILE_BC_WITH_KERNELS,
+                                          program);
+  ASSERT_TRUE(program.size() > 0);
 
-    // create the program with valid parameters - should success
-    ICLDevBackendProgram_* pProgram = NULL;
-    ret = pCompileService->CreateProgram(program.data(), program.size(), &pProgram);
-    EXPECT_EQ(CL_DEV_SUCCESS, ret);
+  // create the program with valid parameters - should success
+  ICLDevBackendProgram_ *pProgram = NULL;
+  ret =
+      pCompileService->CreateProgram(program.data(), program.size(), &pProgram);
+  EXPECT_EQ(CL_DEV_SUCCESS, ret);
 }
-
-
 
 TEST_F(BackEndTests_CompilationService, CreateProgramNoKernels)
 {

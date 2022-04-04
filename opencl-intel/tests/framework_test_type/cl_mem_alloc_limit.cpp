@@ -22,7 +22,6 @@
 #include "TestsHelpClasses.h"
 #include "common_utils.h"
 #include <CL/cl.h>
-#include <gtest/gtest.h>
 #include <tbb/parallel_for.h>
 
 #include <thread>

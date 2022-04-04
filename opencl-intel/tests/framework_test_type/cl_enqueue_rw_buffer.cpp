@@ -94,25 +94,28 @@ bool clEnqueueRWBuffer()
 	{
 		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 	    PROV_RETURN_AND_ABANDON(false);
-	}
-	printf("device = %p\n", (void*)clDefaultDeviceId);
+        }
+        printf("device = %p\n", (void *)clDefaultDeviceId);
 
-	cl_command_queue queue = PROV_OBJ( clCreateCommandQueue (context, clDefaultDeviceId, 0 /*no properties*/, &iRet) );
-	if (CL_SUCCESS != iRet)
-	{
-		printf("clCreateCommandQueue = %s\n",ClErrTxt(iRet));
-	    PROV_RETURN_AND_ABANDON(false);
-	}
-    cl_mem bufferForErr;
-    void *rwBuf = PROV_MALLOC(BUFFER_CL_ALLOC_SIZE);
-    const size_t buffRectOrigin[MAX_WORK_DIM] = {1, 1, 1};
+        cl_command_queue queue = PROV_OBJ(clCreateCommandQueueWithProperties(
+            context, clDefaultDeviceId, NULL /*no properties*/, &iRet));
+        if (CL_SUCCESS != iRet) {
+          printf("clCreateCommandQueueWithProperties = %s\n", ClErrTxt(iRet));
+          PROV_RETURN_AND_ABANDON(false);
+        }
+        cl_mem bufferForErr;
+        void *rwBuf = PROV_MALLOC(BUFFER_CL_ALLOC_SIZE);
+        const size_t buffRectOrigin[MAX_WORK_DIM] = {1, 1, 1};
 
-    bufferForErr = PROV_OBJ( clCreateBuffer(context, CL_MEM_HOST_NO_ACCESS, BUFFER_CL_ALLOC_SIZE, NULL, &iRet) );
-    EXPECT_EQ(oclErr(CL_SUCCESS),oclErr(iRet)) << "clCreateBuffer with flags (CL_MEM_HOST_NO_ACCESS) should be OK.";
-    if (CL_SUCCESS != iRet)
-	{
-		printf("clCreateBuffer (CL_MEM_HOST_NO_ACCESS) = %s\n",ClErrTxt(iRet));
-	    PROV_RETURN_AND_ABANDON(false);
+        bufferForErr = PROV_OBJ(clCreateBuffer(
+            context, CL_MEM_HOST_NO_ACCESS, BUFFER_CL_ALLOC_SIZE, NULL, &iRet));
+        EXPECT_EQ(oclErr(CL_SUCCESS), oclErr(iRet))
+            << "clCreateBuffer with flags (CL_MEM_HOST_NO_ACCESS) should be "
+               "OK.";
+        if (CL_SUCCESS != iRet) {
+          printf("clCreateBuffer (CL_MEM_HOST_NO_ACCESS) = %s\n",
+                 ClErrTxt(iRet));
+          PROV_RETURN_AND_ABANDON(false);
 	}
     enqueueAllVariants(queue, bufferForErr, rwBuf, buffRectOrigin, false, false, "CL_MEM_HOST_NO_ACCESS");
     clReleaseMemObject(bufferForErr);

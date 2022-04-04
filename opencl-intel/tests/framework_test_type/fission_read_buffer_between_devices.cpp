@@ -104,33 +104,32 @@ bool fission_read_buffer_between_device_test()
 		    clReleaseDevice(out_devices[i]);
 	    }
         return bResult;
-    }
+        }
 
-	//init Command Queues
-	cmd_queue[0] = clCreateCommandQueue(context,out_devices[0], 0, &err);
-	bResult = SilentCheck("clCreateCommandQueue",CL_SUCCESS,err);
-	if (!bResult)
-    {
-		clReleaseContext(context);
-	    for (size_t i = 0; i < num_devices; i++)
-	    {
-		    clReleaseDevice(out_devices[i]);
-	    }
-		return bResult;
-    }
-	cmd_queue[1] = clCreateCommandQueue(context, out_devices[1], 0, &err);
-	bResult = SilentCheck("clCreateCommandQueue",CL_SUCCESS,err);
-	if (!bResult)
-    {
-        clReleaseCommandQueue(cmd_queue[0]);
-		clReleaseContext(context);
-	    for (size_t i = 0; i < num_devices; i++)
-	    {
-		    clReleaseDevice(out_devices[i]);
-	    }
-		return bResult;
-    }
-
+        // init Command Queues
+        cmd_queue[0] = clCreateCommandQueueWithProperties(
+            context, out_devices[0], NULL, &err);
+        bResult =
+            SilentCheck("clCreateCommandQueueWithProperties", CL_SUCCESS, err);
+        if (!bResult) {
+          clReleaseContext(context);
+          for (size_t i = 0; i < num_devices; i++) {
+            clReleaseDevice(out_devices[i]);
+          }
+          return bResult;
+        }
+        cmd_queue[1] = clCreateCommandQueueWithProperties(
+            context, out_devices[1], NULL, &err);
+        bResult =
+            SilentCheck("clCreateCommandQueueWithProperties", CL_SUCCESS, err);
+        if (!bResult) {
+          clReleaseCommandQueue(cmd_queue[0]);
+          clReleaseContext(context);
+          for (size_t i = 0; i < num_devices; i++) {
+            clReleaseDevice(out_devices[i]);
+          }
+          return bResult;
+        }
 
     const char* ocl_test_program[] = {"__kernel void writeThree(__global int *a) { a[0] = 3; }"};
 
@@ -258,7 +257,7 @@ bool fission_read_buffer_between_device_test()
 
 	for (size_t i = 0; i < num_devices; i++)
 	{
-		clReleaseDevice(out_devices[i]);
-	}
-	return bResult;
+          clReleaseDevice(out_devices[i]);
+        }
+        return bResult;
 }

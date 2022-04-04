@@ -41,6 +41,10 @@ namespace Validation{
 
     WorkGroupBultinsNames::WorkGroupBultinsNames()
     {
+        reflection::RefParamType CharTy(new reflection::PrimitiveType(reflection::PRIMITIVE_CHAR));
+        reflection::RefParamType UCharTy(new reflection::PrimitiveType(reflection::PRIMITIVE_UCHAR));
+        reflection::RefParamType ShortTy(new reflection::PrimitiveType(reflection::PRIMITIVE_SHORT));
+        reflection::RefParamType UShortTy(new reflection::PrimitiveType(reflection::PRIMITIVE_USHORT));
         reflection::RefParamType HalfTy(new reflection::PrimitiveType(reflection::PRIMITIVE_HALF));
         reflection::RefParamType IntTy(new reflection::PrimitiveType(reflection::PRIMITIVE_INT));
         reflection::RefParamType UIntTy(new reflection::PrimitiveType(reflection::PRIMITIVE_UINT));
@@ -113,6 +117,42 @@ namespace Validation{
         ONE_ARG_FUNCTION(work_group_reduce_mul, ULongTy)
         ONE_ARG_FUNCTION(work_group_reduce_mul, FloatTy)
         ONE_ARG_FUNCTION(work_group_reduce_mul, DoubleTy)
+        //work_group_reduce_bitwise_and(gentype)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_and, CharTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_and, UCharTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_and, ShortTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_and, UShortTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_and, HalfTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_and, IntTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_and, UIntTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_and, LongTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_and, ULongTy)
+        //work_group_reduce_bitwise_or(gentype)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_or, CharTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_or, UCharTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_or, ShortTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_or, UShortTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_or, HalfTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_or, IntTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_or, UIntTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_or, LongTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_or, ULongTy)
+        //work_group_reduce_bitwise_xor(gentype)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_xor, CharTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_xor, UCharTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_xor, ShortTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_xor, UShortTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_xor, HalfTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_xor, IntTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_xor, UIntTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_xor, LongTy)
+        ONE_ARG_FUNCTION(work_group_reduce_bitwise_xor, ULongTy)
+        //work_group_reduce_logical_and(gentype)
+        ONE_ARG_FUNCTION(work_group_reduce_logical_and, IntTy)
+        //work_group_reduce_logical_or(gentype)
+        ONE_ARG_FUNCTION(work_group_reduce_logical_or, IntTy)
+        //work_group_reduce_logical_xor(gentype)
+        ONE_ARG_FUNCTION(work_group_reduce_logical_xor, IntTy)
         //work_group_scan_exclusive_mul(gentype)
         ONE_ARG_FUNCTION(work_group_scan_exclusive_mul, HalfTy)
         ONE_ARG_FUNCTION(work_group_scan_exclusive_mul, IntTy)

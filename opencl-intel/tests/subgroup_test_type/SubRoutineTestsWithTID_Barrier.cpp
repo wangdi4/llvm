@@ -52,10 +52,10 @@ TEST_P(SGEmulationTest, SubRoutineTestsWithTID_Barrier) {
   constexpr size_t lsize = 16;
 
   size_t max_sg_size = 0;
-  iRet = clGetKernelSubGroupInfoKHR(
-      kern, m_device, CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE_KHR,
-      sizeof(lsize), &lsize, sizeof(max_sg_size), &max_sg_size, nullptr);
-  ASSERT_OCL_SUCCESS(iRet, " clGetKernelSubGroupInfoKHR");
+  iRet = clGetKernelSubGroupInfo(
+      kern, m_device, CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE, sizeof(lsize),
+      &lsize, sizeof(max_sg_size), &max_sg_size, nullptr);
+  ASSERT_OCL_SUCCESS(iRet, " clGetKernelSubGroupInfo");
 
   cl_ulong lid[lsize] = {0};
   cl_mem mem_obj_lid = clCreateBuffer(m_context, CL_MEM_USE_HOST_PTR,

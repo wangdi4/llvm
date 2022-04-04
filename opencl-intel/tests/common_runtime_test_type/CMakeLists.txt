@@ -1,16 +1,11 @@
-# remove the restriction of warning as error for this component
-if (NOT WIN32)
-    add_definitions( "-Wno-type-limits -Wno-missing-braces -Wno-unused-variable" )
-    remove_definitions( -Werror )
-endif (NOT WIN32)
-
 set( TARGET common_runtime_test_type )
 
 include_directories(
-  ${GTEST_INCLUDE_DIR}
   ${LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR}/lib
   ${CL_API_HEADERS}
-  ${CMAKE_CURRENT_SOURCE_DIR}/common)
+  ${CMAKE_CURRENT_SOURCE_DIR}/common
+  ${OCL_SOURCE_DIR}/tests/test_utils/export
+  )
 
 FIND_SOURCES( ${IGNORE_FILES} )
 CALCULATE_TARGET_SOURCES()

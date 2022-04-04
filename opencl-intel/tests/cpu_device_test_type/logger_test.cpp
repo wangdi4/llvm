@@ -61,21 +61,16 @@ cl_int CPUTestLogger::clLogCreateClient(cl_int device_id, const char* client_nam
 		return CL_INVALID_VALUE;
 	}
 
-	if(iLastClientId >= MAX_CLIENT_NUM)
-	{
-		return CL_INVALID_VALUE;
-	}
-	pLoggerClient[iLastClientId] = STRDUP((char*)client_name);
-	if (NULL == pLoggerClient)
-	{
-		return CL_INVALID_VALUE;
-	}
-	*client_id = iLastClientId++;
+        if (iLastClientId >= MAX_CLIENT_NUM) {
+          return CL_INVALID_VALUE;
+        }
+        pLoggerClient[iLastClientId] = STRDUP(client_name);
+        *client_id = iLastClientId++;
 
-	return CL_SUCCESS;
+        return CL_SUCCESS;
 }
 
-//Release logger callback
+// Release logger callback
 cl_int CPUTestLogger::clLogReleaseClient(cl_int client_id)
 {
 	if (client_id < iLastClientId && NULL != pLoggerClient[client_id])

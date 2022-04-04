@@ -14,11 +14,11 @@
 
 #include "CL/cl_platform.h"
 #include "common_utils.h"
+#include "gtest_wrapper.h"
 #include "simple_fixture.h"
 #include <CL/cl.h>
 #include <CL/cl_ext.h>
 #include <fstream>
-#include <gtest/gtest.h>
 #include <string>
 
 class TestAtomcis : public OCLFPGASimpleFixture {};

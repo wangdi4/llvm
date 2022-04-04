@@ -90,17 +90,19 @@ protected:
 		{
 			printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		    PROV_RETURN_AND_ABANDON();
-		}
-		//printf("device = %p\n", m_clDefaultDeviceId);
+                }
+                // printf("device = %p\n", m_clDefaultDeviceId);
 
-		m_queue = PROV_OBJ( clCreateCommandQueue (m_context, m_clDefaultDeviceId, 0 /*no properties*/, &iRet) );
-		if (CL_SUCCESS != iRet)
-		{
-			printf("clCreateCommandQueue = %s\n",ClErrTxt(iRet));
-		    PROV_RETURN_AND_ABANDON();
-		}
+                m_queue = PROV_OBJ(clCreateCommandQueueWithProperties(
+                    m_context, m_clDefaultDeviceId, NULL /*no properties*/,
+                    &iRet));
+                if (CL_SUCCESS != iRet) {
+                  printf("clCreateCommandQueueWithProperties = %s\n",
+                         ClErrTxt(iRet));
+                  PROV_RETURN_AND_ABANDON();
+                }
 
-		m_setupOK = true;
+                m_setupOK = true;
 	}
 
 	virtual void TearDown()

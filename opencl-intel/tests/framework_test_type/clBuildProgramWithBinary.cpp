@@ -34,15 +34,15 @@ bool clBuildProgramWithBinaryTest(openBcFunc pFunc)
 	printf("---------------------------------------\n");
 	cl_uint uiNumDevices = 0;
 	cl_device_id * pDevices;
-	size_t * pBinarySizes;
-	cl_int * pBinaryStatus; 
-	cl_context context;
-	char** ppContainers;
-//	cl_program program;
+        size_t *pBinarySizes;
+        cl_int *pBinaryStatus;
+        cl_context context;
+        unsigned char **ppContainers;
+        //	cl_program program;
 
-	cl_platform_id platform = 0;
+        cl_platform_id platform = 0;
 
-	cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
+        cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
 	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
@@ -61,24 +61,24 @@ bool clBuildProgramWithBinaryTest(openBcFunc pFunc)
 	}
 
 	// initialize arrays
-	pDevices = new cl_device_id[uiNumDevices];
-	pBinarySizes = new size_t[uiNumDevices];
-	pBinaryStatus = new cl_int[uiNumDevices];
-	ppContainers = new char*[uiNumDevices];
+        pDevices = new cl_device_id[uiNumDevices];
+        pBinarySizes = new size_t[uiNumDevices];
+        pBinaryStatus = new cl_int[uiNumDevices];
+        ppContainers = new unsigned char *[uiNumDevices];
 
-	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
-	if (CL_SUCCESS != iRet)
-	{
-		delete []pDevices;
-		delete []pBinarySizes;
-		delete []pBinaryStatus;
-		delete []ppContainers;
+        iRet =
+            clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
+        if (CL_SUCCESS != iRet) {
+          delete[] pDevices;
+          delete[] pBinarySizes;
+          delete[] pBinaryStatus;
+          delete[] ppContainers;
 
-		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
-		return false;
-	}
+          printf("clGetDeviceIDs = %s\n", ClErrTxt(iRet));
+          return false;
+        }
 
-	// create context
+        // create context
 	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
 	if (CL_SUCCESS != iRet)
 	{
@@ -108,19 +108,18 @@ bool clBuildProgramWithBinaryTest(openBcFunc pFunc)
 	}
 	fseek(pIRfile, 0, SEEK_END);
 	fgetpos(pIRfile, &fileSize);
-	uiContSize += (unsigned int)GET_FPOS_T(fileSize);
-	fseek(pIRfile, 0, SEEK_SET);
+        uiContSize += (unsigned int)GET_FPOS_T(fileSize);
+        fseek(pIRfile, 0, SEEK_SET);
 
-	char* pCont = (char*)malloc(uiContSize);
-	if ( NULL == pCont )
-	{
-		delete []pDevices;
-		delete []pBinarySizes;
-		delete []pBinaryStatus;
-		delete []ppContainers;
-		return false;
-	}
-	// Construct program container
+        unsigned char *pCont = (unsigned char *)malloc(uiContSize);
+        if (NULL == pCont) {
+          delete[] pDevices;
+          delete[] pBinarySizes;
+          delete[] pBinaryStatus;
+          delete[] ppContainers;
+          return false;
+        }
+        // Construct program container
 	size_t ret = fread(((unsigned char*)pCont), 1, (size_t)GET_FPOS_T(fileSize), pIRfile);
 	if(ret != (size_t)GET_FPOS_T(fileSize))
 	{
@@ -138,22 +137,24 @@ bool clBuildProgramWithBinaryTest(openBcFunc pFunc)
 	{
 		pBinarySizes[i] = uiContSize;
 		ppContainers[i] = pCont;
-	}
-		
-	// create program with binary
-	g_clProgram = clCreateProgramWithBinary(context, uiNumDevices, pDevices, pBinarySizes, (const unsigned char**)(ppContainers), pBinaryStatus, &iRet);
-	bResult &= Check("clCreateProgramWithBinary", CL_SUCCESS, iRet);
+        }
 
-	if (!bResult)
-	{
-		delete []pDevices;
-		delete []pBinarySizes;
-		delete []pBinaryStatus;
-		delete []ppContainers;
-		return bResult;
-	}
+        // create program with binary
+        g_clProgram = clCreateProgramWithBinary(
+            context, uiNumDevices, pDevices, pBinarySizes,
+            const_cast<const unsigned char **>(ppContainers), pBinaryStatus,
+            &iRet);
+        bResult &= Check("clCreateProgramWithBinary", CL_SUCCESS, iRet);
 
-	iRet = clBuildProgram(g_clProgram, uiNumDevices, pDevices, NULL, NULL, NULL);
+        if (!bResult) {
+          delete[] pDevices;
+          delete[] pBinarySizes;
+          delete[] pBinaryStatus;
+          delete[] ppContainers;
+          return bResult;
+        }
+
+        iRet = clBuildProgram(g_clProgram, uiNumDevices, pDevices, NULL, NULL, NULL);
 	bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
 
 //	while (!g_bFinished)

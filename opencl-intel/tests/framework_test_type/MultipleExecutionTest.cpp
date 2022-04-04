@@ -66,18 +66,20 @@ bool clMultipleExecutionTest()
         printf("Iteration %u started\n", iteration);
 
         context = clCreateContext(prop, 1, &device_id, NULL, NULL, &iRet);
-	    bResult &= SilentCheck("clCreateContext",CL_SUCCESS, iRet);
-	    if (!bResult) return bResult;
-
-        cl_command_queue queue = clCreateCommandQueue (context, device_id, 0, &iRet);
-	    bResult &= SilentCheck("clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
+        bResult &= SilentCheck("clCreateContext", CL_SUCCESS, iRet);
         if (!bResult)
-        {
-            clReleaseContext(context);
-            return bResult;
+          return bResult;
+
+        cl_command_queue queue =
+            clCreateCommandQueueWithProperties(context, device_id, NULL, &iRet);
+        bResult &= SilentCheck("clCreateCommandQueueWithProperties - queue1",
+                               CL_SUCCESS, iRet);
+        if (!bResult) {
+          clReleaseContext(context);
+          return bResult;
         }
 
-	    // create program with source
+            // create program with source
 	    cl_program program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
 	    bResult &= SilentCheck("clCreateProgramWithSource", CL_SUCCESS, iRet);
         if (!bResult)

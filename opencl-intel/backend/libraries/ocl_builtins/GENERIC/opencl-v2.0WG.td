@@ -41,6 +41,20 @@ let NeedForwardDecl = 1 in {
     def work_group_scan_inclusive_mul : OclBuiltin<"work_group_scan_inclusive_mul", (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
   }
 
+  let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64], [1, 4, 8, 16, 32, 64]>.Tout,
+      Attrs = [OVERLOADABLE] in {
+    def work_group_reduce_bitwise_and         : OclBuiltin<"work_group_reduce_bitwise_and",    (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
+    def work_group_reduce_bitwise_or         : OclBuiltin<"work_group_reduce_bitwise_or",    (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
+    def work_group_reduce_bitwise_xor         : OclBuiltin<"work_group_reduce_bitwise_xor",    (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
+  }
+
+  let Types = ExpandTypesByVFAndFlatten<[v1i32], [1, 4, 8, 16, 32, 64]>.Tout,
+      Attrs = [OVERLOADABLE] in {
+    def work_group_reduce_logical_and         : OclBuiltin<"work_group_reduce_logical_and",    (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
+    def work_group_reduce_logical_or         : OclBuiltin<"work_group_reduce_logical_or",    (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
+    def work_group_reduce_logical_xor         : OclBuiltin<"work_group_reduce_logical_xor",    (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
+  }
+
   let Types = [ v4i8, v8i8, v16i8, v32i8, v64i8,
                 v4u8, v8u8, v16u8, v32u8, v64u8,
                 v4i16, v8i16, v16i16, v32i16, v64i16,
@@ -92,6 +106,18 @@ let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64]
   }
 }
 
+let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64] in {
+  foreach op = ["bitwise_and", "bitwise_or", "bitwise_xor"] in {
+    def : VectInfo<[], !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op)>;
+  }
+}
+
+let Types = [v1i32] in {
+  foreach op = ["logical_and", "logical_or", "logical_xor"] in {
+    def : VectInfo<[], !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op)>;
+  }
+}
+
 //
 // Vectorizer table for scalar and vectorized versions of work-group functions
 //
@@ -131,7 +157,6 @@ foreach func_name = [ "work_group_broadcast1d", "work_group_broadcast2d", "work_
   }
 }
 
-
 // -------------------------------------------------------------------------------------------------------------------------------
 // Per-WI versions of work-group functions. These functions have the following arguments:
 //   1. WI (scalar or vectorized packet) argument of the same type as corresponding WG function
@@ -161,6 +186,18 @@ let NeedForwardDecl = 1 in { /* work around the missing prototype in opencl.h */
       Attrs = [OVERLOADABLE] in {
     def work_group_all_helper_util  : OclBuiltin<"work_group_all_util",  (outs gentype:$ret), (ins gentype:$src, gentype:$accum), [], [], 1, 0>;
     def work_group_any_helper_util  : OclBuiltin<"work_group_any_util",  (outs gentype:$ret), (ins gentype:$src, gentype:$accum), [], [], 1, 0>;
+  }
+  let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64], [1, 4, 8, 16, 32, 64]>.Tout,
+      Attrs = [OVERLOADABLE] in {
+    def work_group_bitwise_and_helper_util  : OclBuiltin<"work_group_bitwise_and_util",  (outs gentype:$ret), (ins gentype:$src, gentype:$accum), [], [], 1, 0>;
+    def work_group_bitwise_or_helper_util  : OclBuiltin<"work_group_bitwise_or_util",  (outs gentype:$ret), (ins gentype:$src, gentype:$accum), [], [], 1, 0>;
+    def work_group_bitwise_xor_helper_util  : OclBuiltin<"work_group_bitwise_xor_util",  (outs gentype:$ret), (ins gentype:$src, gentype:$accum), [], [], 1, 0>;
+  }
+  let Types = ExpandTypesByVFAndFlatten<[v1i32], [1, 4, 8, 16, 32, 64]>.Tout,
+      Attrs = [OVERLOADABLE] in {
+    def work_group_logical_and_helper_util  : OclBuiltin<"work_group_logical_and_util",  (outs gentype:$ret), (ins gentype:$src, gentype:$accum), [], [], 1, 0>;
+    def work_group_logical_or_helper_util  : OclBuiltin<"work_group_logical_or_util",  (outs gentype:$ret), (ins gentype:$src, gentype:$accum), [], [], 1, 0>;
+    def work_group_logical_xor_helper_util  : OclBuiltin<"work_group_logical_xor_util",  (outs gentype:$ret), (ins gentype:$src, gentype:$accum), [], [], 1, 0>;
   }
 }
 
@@ -220,6 +257,22 @@ foreach function_logic = ["reduce", "scan_exclusive", "scan_inclusive"] in {
   }
 }
 
+foreach function_op = ["bitwise_and", "bitwise_or", "bitwise_xor"] in {
+  let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64], [1, 4, 8, 16, 32, 64]>.Tout,
+      Attrs = [OVERLOADABLE] in {
+    def work_group_reduce_#function_op#_helper :
+      OclBuiltin<"work_group_reduce_"#function_op, (outs gentype:$ret), (ins gentype:$src, ppgentype:$accum), [], [], 1, 0>;
+  }
+}
+
+foreach function_op = ["logical_and", "logical_or", "logical_xor"] in {
+  let Types = ExpandTypesByVFAndFlatten<[v1i32], [1, 4, 8, 16, 32, 64]>.Tout,
+      Attrs = [OVERLOADABLE] in {
+    def work_group_reduce_#function_op#_helper :
+      OclBuiltin<"work_group_reduce_"#function_op, (outs gentype:$ret), (ins gentype:$src, ppgentype:$accum), [], [], 1, 0>;
+  }
+}
+
 foreach function_logic = ["reduce", "scan_exclusive", "scan_inclusive"] in {
   foreach function_op = ["add", "min", "max", "mul"] in {
     let Types = [ v1i32, v4i32, v8i32, v16i32, v32i32, v64i32,
@@ -264,4 +317,18 @@ let Types = [ v4i32, v8i32, v16i32, v32i32, v64i32,
   def work_group_reduce_min_finalize_helper_mask : OclBuiltin<"__finalize_work_group_reduce_min", (outs gentype:$ret), (ins gentype:$accum, u32gentype:$dummy_mask), [], [], 1, 0>;
   def work_group_reduce_max_finalize_helper_mask : OclBuiltin<"__finalize_work_group_reduce_max", (outs gentype:$ret), (ins gentype:$accum, u32gentype:$dummy_mask), [], [], 1, 0>;
   def work_group_reduce_mul_finalize_helper_mask : OclBuiltin<"__finalize_work_group_reduce_mul", (outs gentype:$ret), (ins gentype:$accum, u32gentype:$dummy_mask), [], [], 1, 0>;
+}
+
+let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64], [1, 4, 8, 16, 32, 64]>.Tout,
+    Attrs = [OVERLOADABLE] in {
+  def work_group_reduce_bitwise_and_finalize_helper : OclBuiltin<"__finalize_work_group_reduce_bitwise_and", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
+  def work_group_reduce_bitwise_or_finalize_helper : OclBuiltin<"__finalize_work_group_reduce_bitwise_or", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
+  def work_group_reduce_bitwise_xor_finalize_helper : OclBuiltin<"__finalize_work_group_reduce_bitwise_xor", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
+}
+
+let Types = ExpandTypesByVFAndFlatten<[v1i32], [1, 4, 8, 16, 32, 64]>.Tout,
+    Attrs = [OVERLOADABLE] in {
+  def work_group_reduce_logical_and_finalize_helper : OclBuiltin<"__finalize_work_group_reduce_logical_and", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
+  def work_group_reduce_logical_or_finalize_helper : OclBuiltin<"__finalize_work_group_reduce_logical_or", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
+  def work_group_reduce_logical_xor_finalize_helper : OclBuiltin<"__finalize_work_group_reduce_logical_xor", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
 }

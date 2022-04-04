@@ -1,13 +1,13 @@
 #include "CL/cl.h"
 #include "cl_types.h"
 
-#include <gtest/gtest.h>
 #include <stdio.h>
 
 #include "cl_device_api.h"
 
 #include "FrameworkTest.h"
 #include "common_utils.h"
+#include "gtest_wrapper.h"
 
 #define CL_CONFIG_USE_FAST_RELAXED_MATH "CL_CONFIG_USE_FAST_RELAXED_MATH"
 #define CL_CONFIG_USE_FAST_RELAXED_MATH_VALUE "True"

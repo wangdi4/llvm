@@ -60,8 +60,8 @@ bool clCheckVectorizingDim1AndUniteWG(bool hasNonUniformWG) {
         clCreateContextFromType(context_prop, gDeviceType, NULL, NULL, &iRet);
     CheckException("clCreateContextFromType", CL_SUCCESS, iRet);
 
-    queue = clCreateCommandQueue(context, device, 0, &iRet);
-    CheckException("clCreateCommandQueue", CL_SUCCESS, iRet);
+    queue = clCreateCommandQueueWithProperties(context, device, NULL, &iRet);
+    CheckException("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
 
     const size_t szLengths = {strlen(sProg)};
     program = clCreateProgramWithSource(context, 1, (const char **)&sProg,

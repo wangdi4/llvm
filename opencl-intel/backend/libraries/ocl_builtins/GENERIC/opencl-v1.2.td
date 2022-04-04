@@ -374,6 +374,25 @@ def native_tanpi_mask         : OclBuiltin<"native_tanpi",     (outs gentype:$re
 }
 }
 
+// Linear strided vector variant of sincos
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
+    Attrs = [OVERLOADABLE],
+    NeedForwardDecl = true in {
+foreach is_masked = [true, false] in {
+  defvar suffix = !if(is_masked, "_mask", "");
+  defvar mask_arg = !if(is_masked, (ins gentype:$mask), (ins));
+foreach is_native = [true, false] in {
+  defvar prefix = !if(is_native, "native_", "");
+
+  def prefix # sincos_pas_strided # suffix : OclBuiltin<prefix # "sincos", (outs gentype:$ret), !con((ins gentype:$x, psgentype:$cosval), mask_arg), []>, PRIVATE;
+  def prefix # sincos_las_strided # suffix : OclBuiltin<prefix # "sincos", (outs gentype:$ret), !con((ins gentype:$x, psgentype:$cosval), mask_arg), []>, LOCAL;
+  def prefix # sincos_gas_strided # suffix : OclBuiltin<prefix # "sincos", (outs gentype:$ret), !con((ins gentype:$x, psgentype:$cosval), mask_arg), []>, GLOBAL;
+  def prefix # sincos_gen_strided # suffix : OclBuiltin<prefix # "sincos", (outs gentype:$ret), !con((ins gentype:$x, psgentype:$cosval), mask_arg), []>;
+  def prefix # sincos_pas2_strided # suffix : OclBuiltin<prefix # "sincos_ret2ptr", (outs), !con((ins gentype:$x, psgentype:$sinval, psgentype:$cosval), mask_arg), []>, PRIVATE;
+} // foreach is_native
+} // foreach is_masked
+}
+
 //Vectorizer generated table
 //{{"_Z20__retbyvector_sincosd" , "_Z19__retbyarray_sincosDv2_d" , "_Z19__retbyarray_sincosDv4_d" , "_Z19__retbyarray_sincosDv8_d" , "_Z19__retbyarray_sincosDv16_d" , "_Z19__retbyarray_sincosDv3_d" },1, 0}
 foreach bi = ["sincos", "native_sincos", "modf", "fract", "native_fract"] in {
@@ -489,9 +508,7 @@ let KernelCallOnce = 0 in {
                   "native_log", "native_log2", "native_log10", "native_log1p",
                   "native_logb", "native_pow", "native_pown", "native_powr",
                   "native_rcbrt", "native_recip", "native_rootn", "native_rsqrt",
-                  "native_sin", "native_sinh", "native_sinpi",
-                  "native_sincos_pas", "native_sincos_las", "native_sincos_gas",
-                  "native_sincos_gen", "native_sincos_pas2", "native_sqrt",
+                  "native_sin", "native_sinh", "native_sinpi", "native_sqrt",
                   "native_tan", "native_tanh", "native_tanpi"] in {
       def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
 
@@ -501,6 +518,25 @@ let KernelCallOnce = 0 in {
       }
     }
   }
+
+  // sincos linear strided vectinfo
+  let HandleAlias = false in
+  foreach bi = ["sincos_pas", "sincos_las", "sincos_gas", "sincos_pas2"] in {
+    foreach is_native = [true, false] in {
+      defvar name = !if(is_native, "native_", "") # bi;
+
+      // f32 type, stride 4
+      let Types = [v1f32], Stride = 4 in {
+        def : VectInfo<[], !cast<OclBuiltin>(name), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided)>;
+        def : VectInfo<[], !cast<OclBuiltin>(name), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask)>;
+      }
+      // f64 type, stride 8
+      let Types = [v1f64], Stride = 8 in {
+        def : VectInfo<[], !cast<OclBuiltin>(name), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided)>;
+        def : VectInfo<[], !cast<OclBuiltin>(name), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask)>;
+      }
+    } // foreach is_native
+  } // foreach sincos builtins
 }
 
 // OpenCL 1.2 rev 15, Table 6.10

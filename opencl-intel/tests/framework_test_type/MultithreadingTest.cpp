@@ -220,17 +220,17 @@ void ConcurrentExecutionTestThread::ThreadRoutine()
 
 	if (!bResult)
 	{
-		return;
-	}
- 
-	queue    = clCreateCommandQueue(context, deviceId, 0, &iRet);
-	bResult &= SilentCheck("Create command queue", CL_SUCCESS, iRet);
+          return;
+        }
 
-	if (!bResult)
-	{
-		return;
-	}
-	program  = clCreateProgramWithSource(context, 1, &programSource, NULL, &iRet);
+        queue =
+            clCreateCommandQueueWithProperties(context, deviceId, NULL, &iRet);
+        bResult &= SilentCheck("Create command queue", CL_SUCCESS, iRet);
+
+        if (!bResult) {
+          return;
+        }
+        program  = clCreateProgramWithSource(context, 1, &programSource, NULL, &iRet);
 	bResult &= SilentCheck("Create program with source", CL_SUCCESS, iRet);
 
 	if (!bResult)
@@ -427,14 +427,19 @@ bool MultithreadedReleaseObjects()
 			contexts[object] = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
 			bResult &= SilentCheck("Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
 
-			iRet = clGetDeviceIDs(platform, gDeviceType, 1, &deviceId, NULL);
-			bResult &= SilentCheck("Get device ID (gDeviceType)", CL_SUCCESS, iRet);
+                        iRet = clGetDeviceIDs(platform, gDeviceType, 1,
+                                              &deviceId, NULL);
+                        bResult &= SilentCheck("Get device ID (gDeviceType)",
+                                               CL_SUCCESS, iRet);
 
-			queues[object] = clCreateCommandQueue(contexts[object], deviceId, 0, &iRet);
-			bResult &= SilentCheck("Create command queue", CL_SUCCESS, iRet);
+                        queues[object] = clCreateCommandQueueWithProperties(
+                            contexts[object], deviceId, NULL, &iRet);
+                        bResult &= SilentCheck("Create command queue",
+                                               CL_SUCCESS, iRet);
 
-			programs[object] = clCreateProgramWithSource(contexts[object], 1, &programSource, NULL, &iRet);
-			bResult &= SilentCheck("Create program with source", CL_SUCCESS, iRet);
+                        programs[object] = clCreateProgramWithSource(
+                            contexts[object], 1, &programSource, NULL, &iRet);
+                        bResult &= SilentCheck("Create program with source", CL_SUCCESS, iRet);
 
 			iRet = clBuildProgram(programs[object], 1, &deviceId, NULL, NULL, NULL);
 			bResult &= SilentCheck("Build program", CL_SUCCESS, iRet);
@@ -504,16 +509,17 @@ bool MultithreadedHelloWorld()
 	context  = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
 	bResult &= SilentCheck("Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
 
-	iRet     = clGetDeviceIDs(platform, gDeviceType, 1, &deviceId, NULL);
-	bResult &= SilentCheck("Get device ID (gDeviceType)", CL_SUCCESS, iRet);
+        iRet = clGetDeviceIDs(platform, gDeviceType, 1, &deviceId, NULL);
+        bResult &= SilentCheck("Get device ID (gDeviceType)", CL_SUCCESS, iRet);
 
-	queue    = clCreateCommandQueue(context, deviceId, 0, &iRet);
-	bResult &= SilentCheck("Create command queue", CL_SUCCESS, iRet);
+        queue = clCreateCommandQueueWithProperties(context, deviceId, 0, &iRet);
+        bResult &= SilentCheck("Create command queue", CL_SUCCESS, iRet);
 
-	program  = clCreateProgramWithSource(context, 1, &programSource, NULL, &iRet);
-	bResult &= SilentCheck("Create program with source", CL_SUCCESS, iRet);
+        program =
+            clCreateProgramWithSource(context, 1, &programSource, NULL, &iRet);
+        bResult &= SilentCheck("Create program with source", CL_SUCCESS, iRet);
 
-	iRet     = clBuildProgram(program, 1, &deviceId, NULL, NULL, NULL);
+        iRet     = clBuildProgram(program, 1, &deviceId, NULL, NULL, NULL);
 	bResult &= SilentCheck("Build program", CL_SUCCESS, iRet);
 
 	if (!bResult)
@@ -699,14 +705,16 @@ bool MultithreadedOrderViolation()
 	context  = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
 	bResult &= SilentCheck("Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
 
-	iRet     = clGetDeviceIDs(platform, gDeviceType, 1, &deviceId, NULL);
-	bResult &= SilentCheck("Get device ID (gDeviceType)", CL_SUCCESS, iRet);
+        iRet = clGetDeviceIDs(platform, gDeviceType, 1, &deviceId, NULL);
+        bResult &= SilentCheck("Get device ID (gDeviceType)", CL_SUCCESS, iRet);
 
-	queue    = clCreateCommandQueue(context, deviceId, 0, &iRet);
-	bResult &= SilentCheck("Create command queue", CL_SUCCESS, iRet);
+        queue =
+            clCreateCommandQueueWithProperties(context, deviceId, NULL, &iRet);
+        bResult &= SilentCheck("Create command queue", CL_SUCCESS, iRet);
 
-	program  = clCreateProgramWithSource(context, 1, &programSource, NULL, &iRet);
-	bResult &= SilentCheck("Create program with source", CL_SUCCESS, iRet);
+        program =
+            clCreateProgramWithSource(context, 1, &programSource, NULL, &iRet);
+        bResult &= SilentCheck("Create program with source", CL_SUCCESS, iRet);
 
 	iRet     = clBuildProgram(program, 1, &deviceId, NULL, NULL, NULL);
 	bResult &= SilentCheck("Build program", CL_SUCCESS, iRet);

@@ -5,7 +5,6 @@
 #include "common_utils.h"
 #include "llvm/Support/Path.h"
 #include <fstream>
-#include <gtest/gtest.h>
 #include <stdio.h>
 
 extern cl_device_type gDeviceType;
@@ -266,6 +265,6 @@ TEST_F(CheckBinaryVersionSuit, BinaryWithUpToDateVersionTest) {
 // gold release, gold update1 release and gold update2 relase
 TEST_F(CheckBinaryVersionSuit, CompatiblityTest) {
   auto size = m_CompatibilityBinaryFileName.size();
-  for (int i = 0; i < size; ++i)
+  for (size_t i = 0; i < size; ++i)
     LoadBinaryAndRun(m_CompatibilityBinaryFileName[i]);
 }

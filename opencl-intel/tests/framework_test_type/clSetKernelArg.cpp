@@ -1,7 +1,7 @@
 #include "CL/cl.h"
 
 #include "FrameworkTest.h"
-#include "gtest/gtest.h"
+#include "gtest_wrapper.h"
 #include <string>
 
 extern cl_device_type gDeviceType;

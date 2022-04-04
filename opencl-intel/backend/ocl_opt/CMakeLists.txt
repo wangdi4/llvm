@@ -47,7 +47,6 @@ set(OCL_BE_PASSES
     SmartGVN
     StripIntelIP
     OCLAliasAnalysis
-    PrintfArgumentsPromotion
     SYCLPipesHack
     ResolveVariableTIDCall
     UndefExternalFuncs

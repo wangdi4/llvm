@@ -71,27 +71,28 @@ bool clFlexibleNdrange()
         iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
         CheckException("clGetDeviceIDs", CL_SUCCESS, iRet);
 
-        const cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };    
+        const cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
         context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
-		CheckException("clCreateContextFromType", CL_SUCCESS, iRet);
-		
-		queue = clCreateCommandQueue(context, device, 0, &iRet);
-		CheckException("clCreateCommandQueue", CL_SUCCESS, iRet);
+        CheckException("clCreateContextFromType", CL_SUCCESS, iRet);
 
-		const size_t szLengths = { strlen(sProg) };
-		cl_program prog = clCreateProgramWithSource(context, 1, &sProg, &szLengths, &iRet);
-		CheckException("clCreateProgramWithSource", CL_SUCCESS, iRet);
-		iRet = clBuildProgram(prog, 1, &device, "-cl-std=CL2.0", NULL, NULL);
-		CheckException("clBuildProgram", CL_SUCCESS, iRet);
-		cl_kernel kernel = clCreateKernel(prog, "FlexibleNdrange", &iRet);
-		CheckException("clCreateKernel", CL_SUCCESS, iRet);
+        queue =
+            clCreateCommandQueueWithProperties(context, device, NULL, &iRet);
+        CheckException("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
 
-		assert(GLOBAL_WORK_SIZE % LOCAL_WORK_SIZE != 0);
-		const size_t szDstArrSize = GLOBAL_WORK_SIZE / LOCAL_WORK_SIZE + 1;
-		cl_int iSrcArr[GLOBAL_WORK_SIZE], iDstArr[szDstArrSize];
-		for (size_t i = 0; i < GLOBAL_WORK_SIZE; i++)
-		{
-			iSrcArr[i] = rand();
+        const size_t szLengths = {strlen(sProg)};
+        cl_program prog =
+            clCreateProgramWithSource(context, 1, &sProg, &szLengths, &iRet);
+        CheckException("clCreateProgramWithSource", CL_SUCCESS, iRet);
+        iRet = clBuildProgram(prog, 1, &device, "-cl-std=CL2.0", NULL, NULL);
+        CheckException("clBuildProgram", CL_SUCCESS, iRet);
+        cl_kernel kernel = clCreateKernel(prog, "FlexibleNdrange", &iRet);
+        CheckException("clCreateKernel", CL_SUCCESS, iRet);
+
+        assert(GLOBAL_WORK_SIZE % LOCAL_WORK_SIZE != 0);
+        const size_t szDstArrSize = GLOBAL_WORK_SIZE / LOCAL_WORK_SIZE + 1;
+        cl_int iSrcArr[GLOBAL_WORK_SIZE], iDstArr[szDstArrSize];
+        for (size_t i = 0; i < GLOBAL_WORK_SIZE; i++) {
+          iSrcArr[i] = rand();
 		}
 		clMemWrapper srcBuf = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, sizeof(iSrcArr), iSrcArr, &iRet);
 		CheckException("clCreateBuffer", CL_SUCCESS, iRet);		

@@ -15,12 +15,12 @@
 #include "base_fixture.h"
 #include "common_utils.h"
 
+#include "gtest_wrapper.h"
 #include <CL/cl.h>
-#include <gtest/gtest.h>
 
-#include <vector>
-#include <string>
 #include <numeric>
+#include <string>
+#include <vector>
 
 class MultipleDevicesBase : public OCLFPGABaseFixture,
                             public ::testing::WithParamInterface<int> {

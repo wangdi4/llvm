@@ -44,10 +44,12 @@ cl_int check_scalar(std::vector<float> h_rhs, std::vector<char> h_res) {
     context = clCreateContext(prop, 1, &device, NULL, NULL, &iRet);
     CheckException("clCreateContext", CL_SUCCESS, iRet);
 
-    cl_command_queue queue = clCreateCommandQueue(context, device, 0, &iRet);
-    CheckException("clCreateCommandQueue", CL_SUCCESS, iRet);
+    cl_command_queue queue =
+        clCreateCommandQueueWithProperties(context, device, NULL, &iRet);
+    CheckException("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
 
-    cl_program prog = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
+    cl_program prog = clCreateProgramWithSource(
+        context, 1, (const char **)&ocl_test_program, NULL, &iRet);
     CheckException("clCreateProgramWithSource", CL_SUCCESS, iRet);
 
     iRet = clBuildProgram(prog, 1, &device, NULL, NULL, NULL);
@@ -111,10 +113,12 @@ cl_int check_vector(std::vector<float> h_rhs, std::vector<char> h_res) {
     context = clCreateContext(prop, 1, &device, NULL, NULL, &iRet);
     CheckException("clCreateContext", CL_SUCCESS, iRet);
 
-    cl_command_queue queue = clCreateCommandQueue(context, device, 0, &iRet);
-    CheckException("clCreateCommandQueue", CL_SUCCESS, iRet);
+    cl_command_queue queue =
+        clCreateCommandQueueWithProperties(context, device, NULL, &iRet);
+    CheckException("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
 
-    cl_program prog = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
+    cl_program prog = clCreateProgramWithSource(
+        context, 1, (const char **)&ocl_test_program, NULL, &iRet);
     CheckException("clCreateProgramWithSource", CL_SUCCESS, iRet);
 
     iRet = clBuildProgram(prog, 1, &device, NULL, NULL, NULL);

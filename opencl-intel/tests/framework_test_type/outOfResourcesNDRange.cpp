@@ -3,7 +3,6 @@
 #include "CL/cl.h"
 #include "cl_types.h"
 
-#include <gtest/gtest.h>
 #define PROVISIONAL_MALLOC_SIZE 100
 #include "TestsHelpClasses.h"
 #include "cl_provisional.h"
@@ -124,7 +123,8 @@ TEST_F(BaseProvisionalTest, OutOfResourcesNDRange)
     iRet = clGetDeviceIDs(platform, gDeviceType, 1, &clDefaultDeviceId, NULL);
     ASSERT_EQ(CL_SUCCESS, iRet) << "Failed getting device IDs";
 
-    cl_command_queue queue = PROV_OBJ( clCreateCommandQueue (context, clDefaultDeviceId, 0 /*no properties*/, &iRet) );
+    cl_command_queue queue = PROV_OBJ(clCreateCommandQueueWithProperties(
+        context, clDefaultDeviceId, NULL /*no properties*/, &iRet));
     ASSERT_EQ(CL_SUCCESS, iRet) << "Failed creating command queue";
 
     // Create input and output buffers
@@ -332,8 +332,8 @@ TEST_F(BaseProvisionalTest, OutOfResourcesNDRangeWithAutoMemEnabled) {
   iRet = clGetDeviceIDs(platform, gDeviceType, 1, &clDefaultDeviceId, NULL);
   ASSERT_EQ(CL_SUCCESS, iRet) << "Failed getting device IDs";
 
-  cl_command_queue queue = PROV_OBJ(clCreateCommandQueue(
-      context, clDefaultDeviceId, 0 /*no properties*/, &iRet));
+  cl_command_queue queue = PROV_OBJ(clCreateCommandQueueWithProperties(
+      context, clDefaultDeviceId, NULL /*no properties*/, &iRet));
   ASSERT_EQ(CL_SUCCESS, iRet) << "Failed creating command queue";
 
   // Create input and output buffers

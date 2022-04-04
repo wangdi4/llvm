@@ -23,18 +23,17 @@
 #ifndef TYPENAME_GETTER_
 #define TYPENAME_GETTER_
 
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <stdlib.h>
-#include <malloc.h>
-#include <gtest/gtest.h>
-#include <CL/cl.h>
 #include "general_purpose_struct.h"
+#include "gtest_wrapper.h"
+#include <CL/cl.h>
+#include <fstream>
+#include <iostream>
+#include <malloc.h>
+#include <stdlib.h>
+#include <string>
 
 // TypeNameGetter - returns string representation of T
-template <typename T>
-class TypeNameGetter{
+template <typename T> class TypeNameGetter {
 public:
 
 	//	getCombinedString - return concatenation of prefix and T's type string

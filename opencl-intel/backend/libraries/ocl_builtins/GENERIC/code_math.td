@@ -161,6 +161,28 @@ defvar sincos_ret2ptr = [{
     *$Arg1VarName = res;
   }];
 
+// General ret2ptr linear strided vector code
+// e.g. float16 sincos(float16 x, float *cos_ptr)
+// Simply cast `cos_ptr` to `float16 *` type since the access is guaranteed to
+// be linear-strided.
+defvar ret2ptr_strided_code = [{
+    return $FUNC($Arg0VarName, ($Arg0Type *)$Arg1VarName);
+  }];
+
+defvar ret2ptr_strided_mask_code = [{
+    return $FUNC($Arg0VarName, ($Arg0Type *)$Arg1VarName, $Arg2VarName);
+  }];
+// e.g. void sincos_ret2ptr(float16 x, float *sin_ptr, float *cos_ptr)
+defvar ret2ptr2_strided_code = [{
+    $Arg0Type _res = $FUNC($Arg0VarName, $Arg2VarName);
+    *($Arg0Type *)$Arg1VarName = _res;
+  }];
+
+defvar ret2ptr2_strided_mask_code = [{
+    $Arg0Type _res = $FUNC($Arg0VarName, $Arg2VarName, $Arg3VarName);
+    *($Arg0Type *)$Arg1VarName = _res;
+  }];
+
 // native
 
 defvar native_fdim_code = [{

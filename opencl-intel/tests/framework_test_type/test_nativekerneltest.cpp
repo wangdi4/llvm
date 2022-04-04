@@ -1,14 +1,15 @@
 //| TESTSUITE: NativeKernelSuite
 //|
-//| Test the implementation of native kernels + their interaction and 
+//| Test the implementation of native kernels + their interaction and
 //| memory object sharing with OpenCL
 //|
 #include "CL/cl.h"
+#include "FrameworkTest.h"
 #include "cl_types.h"
-#include <iostream>
-#include <cstring>
+#include "gtest_wrapper.h"
 #include <cstdlib>
-#include <gtest/gtest.h>
+#include <cstring>
+#include <iostream>
 
 using namespace std;
 
@@ -82,7 +83,8 @@ protected:
         m_context = clCreateContext(props, 1, &m_devices[0], 0, 0, &rc);
         ASSERT_EQ(CL_SUCCESS, rc);
 
-        m_command_queue = clCreateCommandQueue(m_context, m_devices[0], 0, &rc);
+        m_command_queue =
+            clCreateCommandQueueWithProperties(m_context, m_devices[0], 0, &rc);
         ASSERT_EQ(CL_SUCCESS, rc);
     }
 
@@ -106,15 +108,12 @@ protected:
         memset(&kernel_arg, 0, sizeof(kernel_arg));
         kernel_arg.bufsize = bufsize;
         buf_loc_ptrs[0] = (void*)(&(kernel_arg.input_buf));
-        buf_loc_ptrs[1] = (void*)(&(kernel_arg.output_buf));
+        buf_loc_ptrs[1] = (void *)(&(kernel_arg.output_buf));
 
         cl_int rc = clEnqueueNativeKernel(
-            m_command_queue, 
-            copying_native_kernel_func, 
-            &kernel_arg, sizeof(kernel_arg),
-            2, mem_list,
-            (const void**)buf_loc_ptrs,
-            0, 0, 0);
+            m_command_queue, copying_native_kernel_func, &kernel_arg,
+            sizeof(kernel_arg), 2, mem_list,
+            const_cast<const void **>(buf_loc_ptrs), 0, 0, 0);
         ASSERT_EQ(CL_SUCCESS, rc);
     }
 
@@ -412,8 +411,10 @@ TEST_F(NativeKernelSuite, ocl_ooo_to_native)
     // Create the command queue (not using m_command_queue here, since we need
     // an out-of-order queue.
     //
-    cl_command_queue ooo_cmd_queue = clCreateCommandQueue(
-        m_context, m_devices[0], CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &rc);
+    cl_queue_properties props[] = {CL_QUEUE_PROPERTIES,
+                                   CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, 0};
+    cl_command_queue ooo_cmd_queue =
+        clCreateCommandQueueWithProperties(m_context, m_devices[0], props, &rc);
     ASSERT_EQ(CL_SUCCESS, rc);
 
     // Prepare kernel objects for the OCL kernels.
@@ -539,14 +540,10 @@ TEST_F(NativeKernelSuite, ocl_ooo_to_native)
 
     cl_event ev_native;
     cl_event native_wait_list[] = {ev_invert, ev_mask};
-    rc = clEnqueueNativeKernel(
-        ooo_cmd_queue, 
-        adding_native_kernel_func, 
-        &kernel_arg, sizeof(kernel_arg),
-        3, mem_list,
-        (const void**)buf_loc_ptrs,
-        2, native_wait_list, 
-        &ev_native);
+    rc = clEnqueueNativeKernel(ooo_cmd_queue, adding_native_kernel_func,
+                               &kernel_arg, sizeof(kernel_arg), 3, mem_list,
+                               const_cast<const void **>(buf_loc_ptrs), 2,
+                               native_wait_list, &ev_native);
     ASSERT_EQ(CL_SUCCESS, rc);
 
     // Enqueue blocking read to force computation

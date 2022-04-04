@@ -13,11 +13,11 @@
 // ===--------------------------------------------------------------------=== //
 #include "simple_fixture.h"
 
+#include "gtest_wrapper.h"
 #include <CL/cl.h>
-#include <gtest/gtest.h>
 
-#include <numeric>
 #include <algorithm>
+#include <numeric>
 #include <string>
 #include <vector>
 
@@ -133,7 +133,7 @@ TEST_F(TestAutorun, SWIWithReplication) {
   std::vector<cl_int> reference_data;
   std::transform(input_data.begin(), input_data.end(),
                  std::back_inserter(reference_data),
-                 [N](cl_int v) { return v + N; });
+                 [](cl_int v) { return v + N; });
 
   ASSERT_NO_FATAL_FAILURE(verifyResults(reference_data));
 }
@@ -218,7 +218,7 @@ TEST_F(TestAutorun, SWG111WithReplication) {
   std::vector<cl_int> reference_data;
   std::transform(input_data.begin(), input_data.end(),
                  std::back_inserter(reference_data),
-                 [N](cl_int v) { return v + N; });
+                 [](cl_int v) { return v + N; });
 
   ASSERT_NO_FATAL_FAILURE(verifyResults(reference_data));
 }
@@ -260,7 +260,7 @@ TEST_F(TestAutorun, SWG811WithoutReplication) {
 
   std::vector<cl_int> reference_data;
   std::transform(input_data.begin(), input_data.end(),
-                 std::back_inserter(reference_data), [W](cl_int v) {
+                 std::back_inserter(reference_data), [](cl_int v) {
                    static cl_int local_id = 0;
                    return v + (local_id++ % W);
                  });
@@ -308,7 +308,7 @@ TEST_F(TestAutorun, SWG811WithReplication) {
 
   std::vector<cl_int> reference_data;
   std::transform(input_data.begin(), input_data.end(),
-                 std::back_inserter(reference_data), [N, W](cl_int v) {
+                 std::back_inserter(reference_data), [](cl_int v) {
                    static cl_int local_id = 0;
                    return v + N * (local_id++ % W);
                  });
@@ -355,7 +355,7 @@ TEST_F(TestAutorun, SWG811WithWhileTrueWithoutReplication) {
 
   std::vector<cl_int> reference_data;
   std::transform(input_data.begin(), input_data.end(),
-                 std::back_inserter(reference_data), [W](cl_int v) {
+                 std::back_inserter(reference_data), [](cl_int v) {
                    static cl_int local_id = 0;
                    return v + (local_id++ % W);
                  });
@@ -406,7 +406,7 @@ TEST_F(TestAutorun, SWG811WithWhileTrueWithReplication) {
 
   std::vector<cl_int> reference_data;
   std::transform(input_data.begin(), input_data.end(),
-                 std::back_inserter(reference_data), [N, W](cl_int v) {
+                 std::back_inserter(reference_data), [](cl_int v) {
                    static cl_int local_id = 0;
                    return v + N * (local_id++ % W);
                  });
@@ -517,7 +517,7 @@ TEST_F(TestAutorun, SWG811WithReplicationCheckGID) {
 
   std::vector<cl_int> reference_data;
   std::transform(input_data.begin(), input_data.end(),
-                 std::back_inserter(reference_data), [N](cl_int v) {
+                 std::back_inserter(reference_data), [](cl_int v) {
                    static cl_int global_linear_id = 0;
                    return v + N * (global_linear_id++);
                  });

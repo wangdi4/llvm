@@ -64,13 +64,6 @@ SimplifyGEP::SimplifyGEP()
     return changed;
   }
 
-  static bool isPhiPtrToPrimitive(const PHINode* pPhiNode) {
-    V_ASSERT(pPhiNode && "Got a null argument");
-    PointerType *PT = dyn_cast<PointerType>(pPhiNode->getType());
-    return PT && (PT->getElementType()->isFloatingPointTy() ||
-           PT->getElementType()->isIntegerTy());
-  }
-
   bool SimplifyGEP::FixPhiNodeGEP(Function &F) {
     std::vector< std::pair<PHINode *, unsigned int> > worklist;
 
@@ -98,9 +91,6 @@ SimplifyGEP::SimplifyGEP()
       PHINode *pPhiNode = worklist[iter].first;
       unsigned int iterEntry = worklist[iter].second;
       unsigned int initEntry = 1-iterEntry;
-
-      V_ASSERT(isPhiPtrToPrimitive(pPhiNode) &&
-        "PhiNode type is not a pointer to a primitive!");
 
       // pInitialValue - the initial value of the PhiNode.
       // pIterValue - the iteration value of the PhiNode.
@@ -142,9 +132,10 @@ SimplifyGEP::SimplifyGEP()
       pNewPhiNode->addIncoming(pNewIterValue, pPhiNode->getIncomingBlock(iterEntry));
 
       // Create new Gep instruction just after the PhiNode
-      // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
-      // (not using type from pointer as this functionality is planned to be removed.
-      Type *Ty = pNewBase->getType()->getScalarType()->getPointerElementType();
+      // Get type info from parameter of PHI instructions
+      Type *Ty = pIterValue->getSourceElementType();
+      if (isa<llvm::ArrayType>(Ty))
+        Ty = cast<llvm::ArrayType>(Ty)->getElementType();
       GetElementPtrInst *pNewIndexGep = GetElementPtrInst::Create(Ty, pNewBase, pNewPhiNode, "IndexPhiNodeGEP", pPhiNode->getParent()->getFirstNonPHI());
 
       // Remove old PhiNode entries, need to do that before removing iterValue
@@ -164,9 +155,9 @@ SimplifyGEP::SimplifyGEP()
           //  oldGep = GEP(pNewBase, index)
           //  newGep = GEP(oldGep, pNewPhiNode)
           pOldGep->replaceUsesOfWith(pPhiNode, pNewBase);
-          // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
-          // (not using type from pointer as this functionality is planned to be removed.
-          Type *Ty = pOldGep->getType()->getScalarType()->getPointerElementType();
+          Type *Ty = pOldGep->getSourceElementType();
+          if (isa<llvm::ArrayType>(Ty))
+            Ty = cast<llvm::ArrayType>(Ty)->getElementType();
           GetElementPtrInst *pNewGep = GetElementPtrInst::Create(Ty, pOldGep, pNewPhiNode, "IndexNewGEP");
           pNewGep->insertAfter(pOldGep);
           pOldGep->replaceAllUsesWith(pNewGep);
@@ -293,12 +284,7 @@ SimplifyGEP::SimplifyGEP()
     }
     // Support GEP instructions with
     // pointer operand of type that contains no structures!
-    Value *pPtr = pGEP->getPointerOperand();
-
-    Type *type = pPtr->getType();
-    if(type->isPointerTy()) {
-      type = type->getContainedType(0);
-    }
+    Type *type = pGEP->getSourceElementType();
     while(type->isArrayTy()) {
       type = type->getContainedType(0);
     }
@@ -362,13 +348,15 @@ SimplifyGEP::SimplifyGEP()
 
       // Create new GEP instructions. The first one with the uniform index
       // which is used as a base pointer of the second GEP with divergent index
-      // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
-      // (not using type from pointer as this functionality is planned to be removed.
-      Type *Ty = pGEP->getOperand(0)->getType()->getScalarType()->getPointerElementType();
+      Type *Ty = pGEP->getSourceElementType();
+      if (isa<llvm::ArrayType>(Ty))
+        Ty = cast<llvm::ArrayType>(Ty)->getElementType();
       GetElementPtrInst * pUniformGEP   = GetElementPtrInst::Create(Ty,
                                                                     pGEP->getOperand(0), uniformIdx,
                                                                     "uniformGEP", pGEP);
-      Ty = pUniformGEP->getType()->getScalarType()->getPointerElementType();
+      Ty = pUniformGEP->getSourceElementType();
+      if (isa<llvm::ArrayType>(Ty))
+        Ty = cast<llvm::ArrayType>(Ty)->getElementType();
       GetElementPtrInst * pDivergentGEP = GetElementPtrInst::Create(Ty,
                                                                     pUniformGEP, divergentIdx,
                                                                     "divergentGEP", pGEP);
@@ -400,9 +388,9 @@ SimplifyGEP::SimplifyGEP()
     pGEP->setOperand(pGEP->getNumIndices(), Constant::getNullValue(pLastIndex->getType()));
     // Create new GEP instruction with original GEP instruction as pointer
     // and with its old last index as the new GEP instruction only index.
-    // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
-    // (not using type from pointer as this functionality is planned to be removed.
-    Type *Ty = pGEP->getType()->getScalarType()->getPointerElementType();
+    Type *Ty = pGEP->getSourceElementType();
+    if (isa<llvm::ArrayType>(Ty))
+      Ty = cast<llvm::ArrayType>(Ty)->getElementType();
     GetElementPtrInst *pNewGEP = GetElementPtrInst::Create(Ty, pGEP, pLastIndex, "simplifiedGEP");
     VectorizerUtils::SetDebugLocBy(pNewGEP, pGEP);
     pNewGEP->insertAfter(pGEP);
@@ -423,15 +411,16 @@ SimplifyGEP::SimplifyGEP()
     // bitcast base address value to pointer of base type
     // calculate all indices into one index by multiplying array sizes with indices
     //[A x [B X [C X type]]]* GEP base, x, a, b, c ==> ((x*A + a)*B + b)*C + c
-    Type *baseType = pGEP->getPointerOperand()->getType();
-
-    V_ASSERT(baseType->isPointerTy() && "type of base address of GEP assumed to be a pointer");
-    baseType = baseType->getContainedType(0);
+    Type* baseType = pGEP->getSourceElementType();
 
     std::vector<unsigned int> arraySizes;
+    // If there is no vector as sub-element, baseType will be int or float
+    // type after while loop
+    // [A x [B X [C X i32]]]* GEP base, x, a, b, c ==> baseType: i32
+    // [A x [B X <C X i32>]]* GEP base, x, a, b, c ==> baseType: <C X i32>
     while (baseType->isArrayTy()) {
       arraySizes.push_back(cast<ArrayType>(baseType)->getNumElements());
-      baseType = baseType->getContainedType(0);
+      baseType = cast<ArrayType>(baseType)->getElementType();
     }
     V_ASSERT((baseType->isIntOrIntVectorTy() || baseType->isFPOrFPVectorTy()) && "assumed primitive base type!");
 
@@ -445,6 +434,8 @@ SimplifyGEP::SimplifyGEP()
       V_ASSERT((vectorSize/elementSize > 0) && (vectorSize % elementSize == 0) &&
         "vector size should be a multiply of element size");
       arraySizes.push_back(vectorSize/elementSize);
+      // Get element type of vector
+      baseType = cast<VectorType>(baseType)->getElementType();
     }
 
     Value *newIndex = nullptr;
@@ -479,10 +470,8 @@ SimplifyGEP::SimplifyGEP()
     V_ASSERT(newIndex && "new calculated index should not be NULL");
     Value* newBase = pGEP->getPointerOperand();
     newBase = new BitCastInst(newBase, pGEP->getType(), "ptrTypeCast", pGEP);
-    // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
-    // (not using type from pointer as this functionality is planned to be removed.
-    Type *Ty = newBase->getType()->getScalarType()->getPointerElementType();
-    GetElementPtrInst *pNewGEP = GetElementPtrInst::Create(Ty, newBase, newIndex, "simplifiedGEP", pGEP);
+    GetElementPtrInst *pNewGEP = GetElementPtrInst::Create(
+        baseType, newBase, newIndex, "simplifiedGEP", pGEP);
     VectorizerUtils::SetDebugLocBy(pNewGEP, pGEP);
     pGEP->replaceAllUsesWith(pNewGEP);
     pGEP->eraseFromParent();
@@ -495,7 +484,7 @@ SimplifyGEP::SimplifyGEP()
 
   int SimplifyGEP::SimplifiablePhiNode(PHINode *pPhiNode) {
     // This is not a supported case for simplifying PhiNode.
-    if (pPhiNode->getNumIncomingValues() != 2 || !isPhiPtrToPrimitive(pPhiNode)) {
+    if (pPhiNode->getNumIncomingValues() != 2) {
       return -1;
     }
     // Now only need to check that one of the entries is a GEP with the PhiNode as its base.
@@ -504,16 +493,22 @@ SimplifyGEP::SimplifyGEP()
 
     // Supported simplifying PhiNode should apply the following:
     //   1. Has only two entries
-    //   2. Its value is a pointer type
+    //   2. Its value is a pointer to floating point or integer
     //   3. One of its value should be a Gep instruction with the PhiNode as its base
     //   4. The Gep instruction should have one index
     //   5. The Gep instruction should have one usage (the PhiNode itself)
     // This is not a supported case for simplifying PhiNode.
-    if (pGep1 && pGep1->getPointerOperand() == pPhiNode && pGep1->getNumIndices() == 1 && pGep1->hasOneUse()) {
-      return 0;
+    if (pGep1 && pGep1->getPointerOperand() == pPhiNode &&
+        pGep1->getNumIndices() == 1 && pGep1->hasOneUse()) {
+      Type *Ty = pGep1->getSourceElementType();
+      if (Ty->isFloatingPointTy() || Ty->isIntegerTy())
+        return 0;
     }
-    if (pGep2 && pGep2->getPointerOperand() == pPhiNode && pGep2->getNumIndices() == 1 && pGep2->hasOneUse()) {
-      return 1;
+    if (pGep2 && pGep2->getPointerOperand() == pPhiNode &&
+        pGep2->getNumIndices() == 1 && pGep2->hasOneUse()) {
+      Type *Ty = pGep1->getSourceElementType();
+      if (Ty->isFloatingPointTy() || Ty->isIntegerTy())
+        return 1;
     }
     // This is not a supported case for simplifying PhiNode.
     return -1;
