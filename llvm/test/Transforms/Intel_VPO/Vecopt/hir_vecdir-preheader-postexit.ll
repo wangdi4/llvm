@@ -1,5 +1,7 @@
 ; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vec-dir-insert -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vec-dir-insert -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 ; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -print-after=hir-vec-dir-insert -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -print-after=hir-vec-dir-insert -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 ;
 ; The test checks that HIRParVecAnalysis doesn't look into loop preheader or
@@ -39,19 +41,16 @@ define void @foo(i64* nocapture %ary, i64 %size.inner) {
 ; CHECK-NEXT:        |   if (%size.inner != 0)
 ; CHECK-NEXT:        |   {
 ; CHECK-NEXT:        |      @llvm.memset.p0i64.i64(&((%ary)[0]),  0,  8,  0);
-; CHECK-NEXT:        |      %tgu = (%size.inner)/u4;
-; CHECK-NEXT:        |      if (0 <u 4 * %tgu)
-; CHECK-NEXT:        |      {
-; CHECK-NEXT:        |         + DO i2 = 0, 4 * %tgu + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+
+; CHECK:             |         + DO i2 = 0, {{.*}} + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:        |         |   (<4 x i64>*)(%ary)[i2] = i2 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:        |         + END LOOP
-; CHECK-NEXT:        |      }
-; CHECK-NEXT:        |
-; CHECK-NEXT:        |      + DO i2 = 4 * %tgu, %size.inner + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>   <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
+
+; CHECK:             |      + DO i2 = {{.*}}, %size.inner + -1, 1   <DO_LOOP>
 ; CHECK-NEXT:        |      |   (%ary)[i2] = i2;
 ; CHECK-NEXT:        |      + END LOOP
-; CHECK-NEXT:        |
-; CHECK-NEXT:        |      @llvm.memset.p0i64.i64(&((%ary)[0]),  0,  8,  0);
+
+; CHECK:             |      @llvm.memset.p0i64.i64(&((%ary)[0]),  0,  8,  0);
 ; CHECK-NEXT:        |   }
 ; CHECK-NEXT:        + END LOOP
 ; CHECK-NEXT:  END REGION

@@ -2,7 +2,9 @@
 ; Test to check for in-memory floating point reduction last value calculation
 ; does not crash on scalar operand.
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR
 
 ; RUN: opt -vplan-vec -print-after=vplan-vec -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="vplan-vec" -print-after=vplan-vec -disable-output < %s 2>&1 | FileCheck %s
@@ -12,14 +14,11 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: mustprogress nounwind uwtable
 define dso_local noundef float @_Z3fooi(i32 noundef %n) local_unnamed_addr {
-; HIR-LABEL:   BEGIN REGION
-; HIR-NEXT:        [[TGU0:%.*]] = ([[N0:%.*]])/u4
-; HIR-NEXT:        if (0 <u 4 * [[TGU0]])
-; HIR-NEXT:        {
-; HIR-NEXT:           [[PRIV_MEM_BC0:%.*]] = &((float*)([[PRIV_MEM0:%.*]])[0])
+; HIR-LABEL: BEGIN REGION
+; HIR:                [[PRIV_MEM_BC0:%.*]] = &((float*)([[PRIV_MEM0:%.*]])[0])
 ; HIR-NEXT:           [[RED_INIT0:%.*]] = -0.000000e+00
 ; HIR-NEXT:           (<4 x float>*)([[PRIV_MEM0]])[0] = [[RED_INIT0]]
-; HIR:                + DO i1 = 0, 4 * [[TGU0]] + -1, 4   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
+; HIR:                + DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; HIR-NEXT:           |   @_Z6updateRf(&((float*)([[PRIV_MEM0]])[0]))
 ; HIR-NEXT:           |   [[EXTRACT_1_0:%.*]] = extractelement &((<4 x float*>)([[PRIV_MEM_BC0]])[<i32 0, i32 1, i32 2, i32 3>]),  1
 ; HIR-NEXT:           |   @_Z6updateRf([[EXTRACT_1_0]])
@@ -32,11 +31,7 @@ define dso_local noundef float @_Z3fooi(i32 noundef %n) local_unnamed_addr {
 ; HIR-NEXT:           [[DOTUNIFLOAD0:%.*]] = ([[S_RED0:%.*]])[0]
 ; HIR-NEXT:           [[VEC_REDUCE0:%.*]] = @llvm.vector.reduce.fadd.v4f32([[DOTUNIFLOAD0]],  [[DOTVEC0]])
 ; HIR-NEXT:           ([[S_RED0]])[0] = [[VEC_REDUCE0]]
-; HIR-NEXT:        }
-; HIR:             + DO i1 = 4 * [[TGU0]], [[N0]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
-; HIR-NEXT:        |   @_Z6updateRf(&(([[S_RED0]])[0]))
-; HIR-NEXT:        + END LOOP
-; HIR-NEXT:  END REGION
+; HIR:       END REGION
 ;
 ; CHECK:  define dso_local noundef float @_Z3fooi(i32 noundef [[N0:%.*]]) local_unnamed_addr {
 ; CHECK-NEXT:  entry:
@@ -51,10 +46,10 @@ define dso_local noundef float @_Z3fooi(i32 noundef %n) local_unnamed_addr {
 ; CHECK-NEXT:    call void @_Z6updateRf(float* noundef nonnull align 4 dereferenceable(4) [[S_RED_VEC_BASE_ADDR_EXTRACT_3_0:%.*]])
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
 ; CHECK-NEXT:    [[TMP4]] = add nuw nsw i32 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp uge i32 [[TMP4]], [[TMP2:%.*]]
+; CHECK-NEXT:    [[TMP5:%.*]] = icmp uge i32 [[TMP4]], 100
 ; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB40:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB4:
+; CHECK-NEXT:  VPlannedBB3:
 ; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x float>, <4 x float>* [[S_RED_VEC0]], align 1
 ; CHECK-NEXT:    [[TMP6:%.*]] = load float, float* [[S_RED0]], align 1
 ; CHECK:         [[TMP10:%.*]] = call float @llvm.vector.reduce.fadd.v4f32(float [[TMP6]], <4 x float> [[WIDE_LOAD0]])
@@ -73,7 +68,7 @@ omp.inner.for.body:
   %.omp.iv.local.016 = phi i32 [ 0, %DIR.OMP.SIMD.124 ], [ %add5, %omp.inner.for.body ]
   call void @_Z6updateRf(float* noundef nonnull align 4 dereferenceable(4) %s.red)
   %add5 = add nuw nsw i32 %.omp.iv.local.016, 1
-  %exitcond.not = icmp eq i32 %add5, %n
+  %exitcond.not = icmp eq i32 %add5, 100
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
 
 DIR.OMP.END.SIMD.2:
