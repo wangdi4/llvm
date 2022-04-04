@@ -1,14 +1,9 @@
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; Add "-enable-lv":
 ;   - Enable loop vectorizer as it is needed.
 ; RUN: opt < %s -enable-lv -disable-loop-unrolling -debug-only=loop-vectorize -passes='default<O3>' -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -enable-lv -disable-loop-unrolling -debug-only=loop-vectorize -O3 -S 2>&1 | FileCheck %s
 ; END INTEL_CUSTOMIZATION
-=======
-; RUN: opt < %s -disable-loop-unrolling -debug-only=loop-vectorize -passes='default<O3>' -S 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-loop-unrolling -debug-only=loop-vectorize -O3 -S 2>&1 | FileCheck %s
->>>>>>> 872f7000fc6a2945c715dd701984560b0a98105c
 ; REQUIRES: asserts
 ; We want to make sure that we don't even try to vectorize loops again
 ; The vectorizer used to mark the un-vectorized loop only as already vectorized

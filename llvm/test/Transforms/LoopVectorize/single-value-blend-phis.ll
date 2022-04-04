@@ -175,7 +175,6 @@ define void @multiple_incoming_phi_with_blend_mask(i64 %a, i16* noalias %dst) {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_IND:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH]] ], [ [[VEC_IND_NEXT:%.*]], [[VECTOR_BODY]] ]
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; Test behaves differently on xmain due to SCEV improvements over community.
 ; Community SCEV based loop analysis failed to recognize consecutive access for
@@ -207,32 +206,6 @@ define void @multiple_incoming_phi_with_blend_mask(i64 %a, i16* noalias %dst) {
 ; CHECK-NEXT:    [[TMP14:%.*]] = icmp eq i64 [[INDEX_NEXT]], 32
 ; CHECK-NEXT:    br i1 [[TMP14]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP6:![0-9]+]]
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[VEC_IND1:%.*]] = phi <2 x i16> [ <i16 0, i16 1>, [[VECTOR_PH]] ], [ [[VEC_IND_NEXT2:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[VEC_IND3:%.*]] = phi <2 x i16> [ <i16 0, i16 1>, [[VECTOR_PH]] ], [ [[VEC_IND_NEXT4:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[TMP0:%.*]] = add i64 [[INDEX]], 0
-; CHECK-NEXT:    [[TMP2:%.*]] = icmp ugt <2 x i64> [[VEC_IND]], [[BROADCAST_SPLAT]]
-; CHECK-NEXT:    [[TMP3:%.*]] = xor <2 x i1> [[TMP2]], <i1 true, i1 true>
-; CHECK-NEXT:    [[PREDPHI:%.*]] = select <2 x i1> [[TMP2]], <2 x i16> [[VEC_IND3]], <2 x i16> [[VEC_IND1]]
-; CHECK-NEXT:    [[TMP4:%.*]] = extractelement <2 x i16> [[PREDPHI]], i32 0
-; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds [32 x i16], [32 x i16]* @src, i16 0, i16 [[TMP4]]
-; CHECK-NEXT:    [[TMP6:%.*]] = extractelement <2 x i16> [[PREDPHI]], i32 1
-; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds [32 x i16], [32 x i16]* @src, i16 0, i16 [[TMP6]]
-; CHECK-NEXT:    [[TMP8:%.*]] = load i16, i16* [[TMP5]], align 1
-; CHECK-NEXT:    [[TMP9:%.*]] = load i16, i16* [[TMP7]], align 1
-; CHECK-NEXT:    [[INS1:%.+]] = insertelement <2 x i16> poison, i16 [[TMP8]], i32 0
-; CHECK-NEXT:    [[INS2:%.+]] = insertelement <2 x i16> [[INS1]], i16 [[TMP9]], i32 1
-; CHECK-NEXT:    [[DST0:%.+]] = getelementptr inbounds i16, i16* %dst, i64 [[TMP0]]
-; CHECK-NEXT:    [[DST1:%.+]] = getelementptr inbounds i16, i16* [[DST0]], i32 0
-; CHECK-NEXT:    [[DST1_BC:%.+]] = bitcast i16* [[DST1]] to <2 x i16>*
-; CHECK-NEXT:    store <2 x i16> [[INS2]], <2 x i16>* [[DST1_BC]], align 2
-; CHECK-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[INDEX]], 2
-; CHECK-NEXT:    [[VEC_IND_NEXT]] = add <2 x i64> [[VEC_IND]], <i64 2, i64 2>
-; CHECK-NEXT:    [[VEC_IND_NEXT2]] = add <2 x i16> [[VEC_IND1]], <i16 2, i16 2>
-; CHECK-NEXT:    [[VEC_IND_NEXT4]] = add <2 x i16> [[VEC_IND3]], <i16 2, i16 2>
-; CHECK-NEXT:    [[TMP10:%.*]] = icmp eq i64 [[INDEX_NEXT]], 32
-; CHECK-NEXT:    br i1 [[TMP10]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], [[LOOP6:!llvm.loop !.*]]
->>>>>>> 872f7000fc6a2945c715dd701984560b0a98105c
 ; CHECK:       middle.block:
 ; CHECK-NEXT:    [[CMP_N:%.*]] = icmp eq i64 32, 32
 ; CHECK-NEXT:    br i1 [[CMP_N]], label [[EXIT:%.*]], label [[SCALAR_PH]]
