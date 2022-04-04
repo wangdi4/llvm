@@ -68,31 +68,31 @@ define i32 @inv_val_store_to_inv_address_with_reduction(i32* %a, i64 %n, i32* %b
 ; CHECK:       vec.epilog.ph:
 ; CHECK-NEXT:    [[BC_MERGE_RDX:%.*]] = phi i32 [ 0, [[VECTOR_MAIN_LOOP_ITER_CHECK]] ], [ [[TMP13]], [[VEC_EPILOG_ITER_CHECK]] ]
 ; CHECK-NEXT:    [[VEC_EPILOG_RESUME_VAL:%.*]] = phi i64 [ 0, [[VECTOR_MAIN_LOOP_ITER_CHECK]] ], [ [[N_VEC]], [[VEC_EPILOG_ITER_CHECK]] ]
-; CHECK-NEXT:    [[N_VEC18:%.*]] = and i64 [[SMAX6]], 9223372036854775800
+; CHECK-NEXT:    [[N_VEC17:%.*]] = and i64 [[SMAX6]], 9223372036854775800
 ; CHECK-NEXT:    [[TMP14:%.*]] = insertelement <8 x i32> <i32 poison, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>, i32 [[BC_MERGE_RDX]], i64 0
 ; CHECK-NEXT:    br label [[VEC_EPILOG_VECTOR_BODY:%.*]]
 ; CHECK:       vec.epilog.vector.body:
-; CHECK-NEXT:    [[INDEX20:%.*]] = phi i64 [ [[VEC_EPILOG_RESUME_VAL]], [[VEC_EPILOG_PH]] ], [ [[INDEX_NEXT23:%.*]], [[VEC_EPILOG_VECTOR_BODY]] ]
-; CHECK-NEXT:    [[VEC_PHI21:%.*]] = phi <8 x i32> [ [[TMP14]], [[VEC_EPILOG_PH]] ], [ [[TMP17:%.*]], [[VEC_EPILOG_VECTOR_BODY]] ]
-; CHECK-NEXT:    [[TMP15:%.*]] = getelementptr inbounds i32, i32* [[B]], i64 [[INDEX20]]
+; CHECK-NEXT:    [[OFFSET_IDX:%.*]] = phi i64 [ [[VEC_EPILOG_RESUME_VAL]], [[VEC_EPILOG_PH]] ], [ [[INDEX_NEXT22:%.*]], [[VEC_EPILOG_VECTOR_BODY]] ]
+; CHECK-NEXT:    [[VEC_PHI20:%.*]] = phi <8 x i32> [ [[TMP14]], [[VEC_EPILOG_PH]] ], [ [[TMP17:%.*]], [[VEC_EPILOG_VECTOR_BODY]] ]
+; CHECK-NEXT:    [[TMP15:%.*]] = getelementptr inbounds i32, i32* [[B]], i64 [[OFFSET_IDX]]
 ; CHECK-NEXT:    [[TMP16:%.*]] = bitcast i32* [[TMP15]] to <8 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD22:%.*]] = load <8 x i32>, <8 x i32>* [[TMP16]], align 8
-; CHECK-NEXT:    [[TMP17]] = add <8 x i32> [[VEC_PHI21]], [[WIDE_LOAD22]]
+; CHECK-NEXT:    [[WIDE_LOAD21:%.*]] = load <8 x i32>, <8 x i32>* [[TMP16]], align 8
+; CHECK-NEXT:    [[TMP17]] = add <8 x i32> [[VEC_PHI20]], [[WIDE_LOAD21]]
 ; CHECK-NEXT:    store i32 [[NTRUNC]], i32* [[A]], align 4
-; CHECK-NEXT:    [[INDEX_NEXT23]] = add nuw i64 [[INDEX20]], 8
-; CHECK-NEXT:    [[TMP18:%.*]] = icmp eq i64 [[INDEX_NEXT23]], [[N_VEC18]]
+; CHECK-NEXT:    [[INDEX_NEXT22]] = add nuw i64 [[OFFSET_IDX]], 8
+; CHECK-NEXT:    [[TMP18:%.*]] = icmp eq i64 [[INDEX_NEXT22]], [[N_VEC17]]
 ; CHECK-NEXT:    br i1 [[TMP18]], label [[VEC_EPILOG_MIDDLE_BLOCK:%.*]], label [[VEC_EPILOG_VECTOR_BODY]], !llvm.loop [[LOOP7:![0-9]+]]
 ; CHECK:       vec.epilog.middle.block:
 ; CHECK-NEXT:    [[TMP19:%.*]] = call i32 @llvm.vector.reduce.add.v8i32(<8 x i32> [[TMP17]])
-; CHECK-NEXT:    [[CMP_N19:%.*]] = icmp eq i64 [[SMAX6]], [[N_VEC18]]
-; CHECK-NEXT:    br i1 [[CMP_N19]], label [[FOR_END_LOOPEXIT:%.*]], label [[VEC_EPILOG_SCALAR_PH]]
+; CHECK-NEXT:    [[CMP_N18:%.*]] = icmp eq i64 [[SMAX6]], [[N_VEC17]]
+; CHECK-NEXT:    br i1 [[CMP_N18]], label [[FOR_END_LOOPEXIT:%.*]], label [[VEC_EPILOG_SCALAR_PH]]
 ; CHECK:       vec.epilog.scalar.ph:
-; CHECK-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i64 [ [[N_VEC18]], [[VEC_EPILOG_MIDDLE_BLOCK]] ], [ [[N_VEC]], [[VEC_EPILOG_ITER_CHECK]] ], [ 0, [[VECTOR_MEMCHECK]] ], [ 0, [[ITER_CHECK:%.*]] ]
-; CHECK-NEXT:    [[BC_MERGE_RDX24:%.*]] = phi i32 [ [[TMP19]], [[VEC_EPILOG_MIDDLE_BLOCK]] ], [ [[TMP13]], [[VEC_EPILOG_ITER_CHECK]] ], [ 0, [[VECTOR_MEMCHECK]] ], [ 0, [[ITER_CHECK]] ]
+; CHECK-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i64 [ [[N_VEC17]], [[VEC_EPILOG_MIDDLE_BLOCK]] ], [ [[N_VEC]], [[VEC_EPILOG_ITER_CHECK]] ], [ 0, [[VECTOR_MEMCHECK]] ], [ 0, [[ITER_CHECK:%.*]] ]
+; CHECK-NEXT:    [[BC_MERGE_RDX23:%.*]] = phi i32 [ [[TMP19]], [[VEC_EPILOG_MIDDLE_BLOCK]] ], [ [[TMP13]], [[VEC_EPILOG_ITER_CHECK]] ], [ 0, [[VECTOR_MEMCHECK]] ], [ 0, [[ITER_CHECK]] ]
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[I:%.*]] = phi i64 [ [[I_NEXT:%.*]], [[FOR_BODY]] ], [ [[BC_RESUME_VAL]], [[VEC_EPILOG_SCALAR_PH]] ]
-; CHECK-NEXT:    [[T0:%.*]] = phi i32 [ [[T3:%.*]], [[FOR_BODY]] ], [ [[BC_MERGE_RDX24]], [[VEC_EPILOG_SCALAR_PH]] ]
+; CHECK-NEXT:    [[T0:%.*]] = phi i32 [ [[T3:%.*]], [[FOR_BODY]] ], [ [[BC_MERGE_RDX23]], [[VEC_EPILOG_SCALAR_PH]] ]
 ; CHECK-NEXT:    [[T1:%.*]] = getelementptr inbounds i32, i32* [[B]], i64 [[I]]
 ; CHECK-NEXT:    [[T2:%.*]] = load i32, i32* [[T1]], align 8
 ; CHECK-NEXT:    [[T3]] = add i32 [[T0]], [[T2]]
@@ -197,10 +197,10 @@ define void @inv_val_store_to_inv_address_conditional(i32* %a, i64 %n, i32* %b, 
 ; CHECK-NEXT:    [[TMP11:%.*]] = icmp eq i64 [[INDEX_NEXT24]], [[N_VEC14]]
 ; CHECK-NEXT:    br i1 [[TMP11]], label [[VEC_EPILOG_MIDDLE_BLOCK:%.*]], label [[VEC_EPILOG_VECTOR_BODY]], !llvm.loop [[LOOP16:![0-9]+]]
 ; CHECK:       vec.epilog.middle.block:
-; CHECK-NEXT:    [[CMP_N15:%.*]] = icmp eq i64 [[SMAX6]], [[N_VEC14]]
-; CHECK-NEXT:    br i1 [[CMP_N15]], label [[FOR_END_LOOPEXIT:%.*]], label [[VEC_EPILOG_SCALAR_PH]]
+; CHECK-NEXT:    [[CMP_N14:%.*]] = icmp eq i64 [[SMAX6]], [[N_VEC13]]
+; CHECK-NEXT:    br i1 [[CMP_N14]], label [[FOR_END_LOOPEXIT:%.*]], label [[VEC_EPILOG_SCALAR_PH]]
 ; CHECK:       vec.epilog.scalar.ph:
-; CHECK-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i64 [ [[N_VEC14]], [[VEC_EPILOG_MIDDLE_BLOCK]] ], [ [[N_VEC]], [[VEC_EPILOG_ITER_CHECK]] ], [ 0, [[VECTOR_MEMCHECK]] ], [ 0, [[ITER_CHECK:%.*]] ]
+; CHECK-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i64 [ [[N_VEC13]], [[VEC_EPILOG_MIDDLE_BLOCK]] ], [ [[N_VEC]], [[VEC_EPILOG_ITER_CHECK]] ], [ 0, [[VECTOR_MEMCHECK]] ], [ 0, [[ITER_CHECK:%.*]] ]
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[I:%.*]] = phi i64 [ [[I_NEXT:%.*]], [[LATCH:%.*]] ], [ [[BC_RESUME_VAL]], [[VEC_EPILOG_SCALAR_PH]] ]
@@ -330,10 +330,10 @@ define void @variant_val_store_to_inv_address_conditional(i32* %a, i64 %n, i32* 
 ; CHECK-NEXT:    [[TMP15:%.*]] = icmp eq i64 [[INDEX_NEXT35]], [[N_VEC24]]
 ; CHECK-NEXT:    br i1 [[TMP15]], label [[VEC_EPILOG_MIDDLE_BLOCK:%.*]], label [[VEC_EPILOG_VECTOR_BODY]], !llvm.loop [[LOOP26:![0-9]+]]
 ; CHECK:       vec.epilog.middle.block:
-; CHECK-NEXT:    [[CMP_N25:%.*]] = icmp eq i64 [[SMAX16]], [[N_VEC24]]
-; CHECK-NEXT:    br i1 [[CMP_N25]], label [[FOR_END_LOOPEXIT:%.*]], label [[VEC_EPILOG_SCALAR_PH]]
+; CHECK-NEXT:    [[CMP_N24:%.*]] = icmp eq i64 [[SMAX16]], [[N_VEC23]]
+; CHECK-NEXT:    br i1 [[CMP_N24]], label [[FOR_END_LOOPEXIT:%.*]], label [[VEC_EPILOG_SCALAR_PH]]
 ; CHECK:       vec.epilog.scalar.ph:
-; CHECK-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i64 [ [[N_VEC24]], [[VEC_EPILOG_MIDDLE_BLOCK]] ], [ [[N_VEC]], [[VEC_EPILOG_ITER_CHECK]] ], [ 0, [[VECTOR_MEMCHECK]] ], [ 0, [[ITER_CHECK:%.*]] ]
+; CHECK-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i64 [ [[N_VEC23]], [[VEC_EPILOG_MIDDLE_BLOCK]] ], [ [[N_VEC]], [[VEC_EPILOG_ITER_CHECK]] ], [ 0, [[VECTOR_MEMCHECK]] ], [ 0, [[ITER_CHECK:%.*]] ]
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[I:%.*]] = phi i64 [ [[I_NEXT:%.*]], [[LATCH:%.*]] ], [ [[BC_RESUME_VAL]], [[VEC_EPILOG_SCALAR_PH]] ]
