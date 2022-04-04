@@ -3708,6 +3708,337 @@ public:
     }
   }
 
+  // Return true if the binary operator is a division between the input
+  // Value and the input Size. Also, the division needs to be set as exact.
+  bool isValidDivision(BinaryOperator *BinOp, Value *V, uint64_t Size) {
+    if (!BinOp || !V)
+      return false;
+
+    if (BinOp->getOpcode() != Instruction::SDiv &&
+        BinOp->getOpcode() != Instruction::UDiv)
+      return false;
+
+    if (BinOp->getOperand(0) != V)
+      return false;
+
+    if (auto *Inst = dyn_cast<Instruction>(BinOp))
+      if (!Inst->isExact())
+        return false;
+
+    return dtrans::isValueMultipleOfSize(BinOp->getOperand(1), Size);
+  }
+
+  // Return true if the input call is a call to an alloc site and the
+  // allocation size is set by a subtraction. The result of the subtraction
+  // needs to be guarded with a check that is divisible by SizeOfStruct, as
+  // well there needs to be a check if it is equal to zero and greater than
+  // a positive integer that represents a limit. For example:
+  //
+  //   %class.MainClass.base = type { [4 x i32], i32}
+  //   %class.TestClass.Inner = type { %class.MainClass.base, [4 x i8] }
+  //   entry:
+  //     ...
+  //     %7 = sub i64 %5, %6
+  //     %8 = sdiv exact i64 %7, 24
+  //     %9 = icmp eq i64 %8, 0
+  //     br i1 %9, label %invoke.good, label %is.not.zero.br
+  //
+  //   is.not.zero.br:
+  //     %10 = icmp ugt i64 %8, 1092816592044404
+  //     br i1 %10, label %is.out.of.bounds.br, label %call.to.new.br
+  //
+  //   is.out.of.bounds.br:
+  //     br label %exit
+  //
+  //   call.to.new.br:
+  //     %11 = invoke noalias noundef nonnull ptr @_Znwm(i64 noundef %7)
+  //             to label %invoke.good unwind label %unwind.br
+  //
+  // Assume that %11 is the call to "new" that we are analyzing, and the size
+  // we are allocating is 24 bytes (size of %class.TestClass.Inner). This
+  // function will check that the input size to new (%7) is a subtraction, the
+  // result of the subtraction is divisible by 24 (%8), and the result of the
+  // division is checked if it is equal to 0 (%9) or a max integer limit (%10).
+  // This kind of memory space allocation usually happens when adding a new
+  // entry into a vector.
+  bool subForAllocIsGuarded(CallBase *Call, dtrans::AllocKind Kind,
+                            uint64_t SizeOfStruct) {
+    if (!Call || SizeOfStruct == 0)
+      return false;
+
+    const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
+    unsigned AllocSizeInd = 0;
+    unsigned AllocCountInd = 0;
+    getAllocSizeArgs(Kind, Call, AllocSizeInd, AllocCountInd, TLI);
+
+    // First collect the dominant type for the subtraction
+    BinaryOperator *Sub =
+        dyn_cast<BinaryOperator>(Call->getArgOperand(AllocSizeInd));
+
+    if (!Sub || Sub->getOpcode() != Instruction::Sub)
+      return false;
+
+    // Now we are going to check that the subtraction is properly guarded, this
+    // means that it should be a multiple of the structure size (call to div
+    // with exact), a check with 0, and a check with a positive integer for
+    // checking with max.
+    bool SubOpIsGuarded = false;
+    for (User *U : Sub->users()) {
+      if (auto *BinOp = dyn_cast<BinaryOperator>(U)) {
+        // If the user is a binary operation then it has to be division.
+        if (!SubOpIsGuarded) {
+          if (isValidDivision(BinOp, Sub, SizeOfStruct)) {
+            // Check that the division is guarded
+            bool ZeroFound = false;
+            bool PositiveFound = false;
+            for (User * DivU : BinOp->users()) {
+              // Check if it is comparing against positive numbers.
+              // These instructions can be used to ensure limits.
+              if (auto *ICmp = dyn_cast<ICmpInst>(DivU)) {
+                ConstantInt *Const = nullptr;
+                if (BinOp == ICmp->getOperand(0))
+                  Const = dyn_cast<ConstantInt>(ICmp->getOperand(1));
+                else
+                  Const = dyn_cast<ConstantInt>(ICmp->getOperand(0));
+
+                if (!Const)
+                  return false;
+
+                // Check if the compare is against 0 (Size == 0) or if size
+                // is larger than the max (Size > max or max < Size). These
+                // checks secure that the number passed to "new" is greater
+                // than 0 and smaller than a limit.
+                auto ICmpPredicate = ICmp->getPredicate();
+                if (Const->isZero())
+                  ZeroFound = ICmpPredicate == ICmpInst::ICMP_EQ;
+                else if (!Const->isNegative())
+                  PositiveFound = (Const == ICmp->getOperand(1)) ?
+                                  ICmpPredicate == ICmpInst::ICMP_UGT :
+                                  ICmpPredicate == ICmpInst::ICMP_ULT;
+                else
+                  return false;
+              }
+            }
+            SubOpIsGuarded = ZeroFound && PositiveFound;
+          } else {
+            return false;
+          }
+        } else {
+          return false;
+        }
+      } else if (auto *UserCall = dyn_cast<CallBase>(U)) {
+        // If there is a call site then it has to be the same as the input
+        // call
+        if (Call != UserCall)
+          return false;
+      } else {
+        // Else, the input Value is used for something we don't know.
+        return false;
+      }
+    }
+
+    // Return if we found that the sub operation is guarded properly.
+    return SubOpIsGuarded;
+  }
+
+  // Return true if the input call is a call to an alloc function that uses
+  // a binary operation to compute the size of the memory space that needs
+  // to be allocated. The call won't have a dominant aggregate type because
+  // the pointer to the allocated space will be used (like casted) as a
+  // related type. For example:
+  //
+  //   %class.MainClass = type { [4 x i32], i32, [4 x i8]}
+  //   %class.MainClass.base = type { [4 x i32], i32}
+  //
+  //   %class.TestClass.Outer = type { %class.TestClass.Inner,
+  //                                   %class.TestClass.Inner_vect}
+  //   %class.TestClass.Inner = type { %class.MainClass.base, [4 x i8] }
+  //
+  //   %class.TestClass.Inner_vect = type { %class.TestClass.Inner_vect_imp,
+  //                                        %class.TestClass.Inner_vect_imp,
+  //                                        %class.TestClass.Inner_vect_imp}
+  //   %class.TestClass.Inner_vect_imp = type { ptr, ptr, ptr }
+  //
+  //   ; %class.TestClass.Inner_vect_imp = type { %class.TestClass.Inner*,
+  //   ;                                          %class.TestClass.Inner*,
+  //   ;                                          %class.TestClass.Inner* }
+  //
+  //   entry:
+  //     %1 = getelementptr inbounds %class.TestClass.Outer, ptr %ptr2, i64 0,
+  //                                                                    i32 1
+  //     %2 = getelementptr inbounds %class.TestClass.Inner_vect, ptr %1,
+  //                                 i64 0, i32 1
+  //     %3 = load ptr, ptr %2
+  //     %4 = load ptr, ptr %1
+  //     %5 = ptrtoint ptr %3 to i64
+  //     %6 = ptrtoint ptr %4 to i64
+  //     %7 = sub i64 %5, %6
+  //     %8 = sdiv exact i64 %7, 24
+  //     %9 = icmp eq i64 %8, 0
+  //     br i1 %9, label %invoke.good, label %is.not.zero.br
+  //
+  //   is.not.zero.br:
+  //     %10 = icmp ugt i64 %8, 1092816592044404
+  //     br i1 %10, label %is.out.of.bounds.br, label %call.to.new.br
+  //
+  //   is.out.of.bounds.br:
+  //     br label %exit
+  //
+  //   call.to.new.br:
+  //     %11 = invoke noalias noundef nonnull ptr @_Znwm(i64 noundef %7)
+  //             to label %invoke.good unwind label %unwind.br
+  //
+  //   invoke.good:
+  //     %12 = phi ptr [ null, %entry ], [ %11, %call.to.new.br ]
+  //     store ptr %12, ptr %0
+  //     %13 = getelementptr inbounds %class.TestClass.Inner_vect, ptr %0,
+  //                                  i64 0, i32 1
+  //     store ptr %12, ptr %13
+  //     %14 = getelementptr inbounds %class.MainClass, ptr %12, i64 %8
+  //     br label %exit
+  //
+  // Assume that we are analyzing the call to new in %11. The value type info
+  // for the call will be:
+  //
+  //   [foo]   %11 = invoke noalias noundef nonnull ptr @_Znwm(i64 noundef %7)
+  //           to label %invoke.good unwind label %unwind.br
+  //     LocalPointerInfo: CompletelyAnalyzed
+  //     Declared Types:
+  //       Aliased types:
+  //         %class.MainClass*
+  //         %class.TestClass.Inner*
+  //         i8*
+  //       No element pointees.
+  //     Usage Types:
+  //       Aliased types:
+  //         %class.MainClass*
+  //         %class.TestClass.Inner*
+  //         i8*
+  //
+  // This function will check for the following:
+  //
+  //   * There won't be a dominant aggregate type because %class.MainClass is
+  //     not a zero element access of %class.TestClass.Inner and the pointer
+  //     to the new memory space is used as %class.MainClass in %14.
+  //   * The input value to the call new is a binary operation (instruction %7)
+  //     between two pointers (%5 and %6).
+  //   * The dominant aggregate types for these two pointers are the same
+  //     (%class.TestClass.Inner*).
+  //   * Prove that the result of the binary operation will be a multiple
+  //     of the interested structure (%class.TestClass.Inner). More details
+  //     about this in the comments of function subForAllocIsGuarded.
+  //   * The structure of interest is in the Declared Types and Used Types
+  //     lists, and all the types in these lists are zero element access
+  //     and/or related types.
+  //        - %class.TestClass.Inner[0] -> %class.MainClass.base
+  //        - %class.MainClass.base -related to- %class.MainClass
+  //
+  // Once all these conditions are completed, then it means that the call to
+  // new is allocating a new memory space with the size of the structure of
+  // interest (%class.TestClass.Inner), but the zero element is casted to
+  // its related type, therefore the dominant aggregate type can't be
+  // collected.
+  bool sizeOfAllocSiteIsLegalForRelatedTypes(CallBase *Call,
+                                             dtrans::AllocKind Kind) {
+    if (!Call)
+      return false;
+
+    const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
+    unsigned AllocSizeInd = 0;
+    unsigned AllocCountInd = 0;
+    getAllocSizeArgs(Kind, Call, AllocSizeInd, AllocCountInd, TLI);
+    Value *SizeArg = Call->getArgOperand(AllocSizeInd);
+
+    if (!SizeArg)
+      return false;
+
+    ValueTypeInfo *CallInfo = PTA.getValueTypeInfo(Call);
+    if (!CallInfo)
+      return false;
+
+    // If there is a dominant aggregate type then exit. There is another
+    // process that checks for that case. This function is for handling the
+    // case when we have related types in the list of declared and used
+    // aliases. CallInfo won't have a dominant aggregate type in this case.
+    //
+    // NOTE: This condition may be relaxed in the future in case we may need to
+    // process the same analysis for a call with dominant aggregate type.
+    auto *CallDomTy = PTA.getDominantAggregateUsageType(*CallInfo);
+    if (CallDomTy)
+      return false;
+
+    // This analysis is only for binary operations.
+    BinaryOperator *BinOp = dyn_cast<BinaryOperator>(SizeArg);
+    if (!BinOp)
+      return false;
+
+    // First collect the dominant type for the binary operation. It needs to
+    // be the same for both operands.
+    //
+    // NOTE: This might be relaxed for the case when one of the operators
+    // is a constant.
+    ValueTypeInfo *OperandZeroInfo =
+        PTA.getValueTypeInfo(BinOp->getOperand(0));
+    ValueTypeInfo *OperandOneInfo =
+        PTA.getValueTypeInfo(BinOp->getOperand(1));
+
+    if (!OperandZeroInfo || !OperandOneInfo)
+      return false;
+
+    DTransType *OPZeroDomTy =
+        PTA.getDominantAggregateUsageType(*OperandZeroInfo);
+    DTransType *OPOneDomTy =
+        PTA.getDominantAggregateUsageType(*OperandOneInfo);
+
+    if (!OPZeroDomTy || !OPZeroDomTy->isPointerTy() ||
+        !OPOneDomTy || !OPOneDomTy->isPointerTy() ||
+        OPZeroDomTy != OPOneDomTy)
+      return false;
+
+    // Now collect the size that is being allocated
+    uint64_t SizeOfStruct = 0;
+    auto *STType =
+        dyn_cast<DTransStructType>(OPZeroDomTy->getPointerElementType());
+    if (STType) {
+      Type *StructLLVMType = STType->getLLVMType();
+      SizeOfStruct = DL.getTypeAllocSize(StructLLVMType);
+    }
+
+    if (SizeOfStruct == 0)
+      return false;
+
+    // Check if the size is computed using a subtraction
+    if (BinOp->getOpcode() == Instruction::Sub) {
+      if (!subForAllocIsGuarded(Call, Kind, SizeOfStruct))
+        return false;
+    } else {
+      return false;
+    }
+
+    // TODO: Add support for multiplication
+
+    // If we reach here it means that we know that the size of the allocation
+    // site will be a multiple of SizeOfStruct. Now we need to check if the
+    // operands' type is in the lists of declared and used aliases of the
+    // pointer to the new allocated space. Also, the operands' type must
+    // encapsulate through the zero element all the aliases and/or aliases'
+    // related types.
+    ValueTypeInfo::PointerTypeAliasSetRef &DeclAliases =
+        CallInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl);
+    ValueTypeInfo::PointerTypeAliasSetRef &UsedAliases =
+        CallInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
+
+    if (DeclAliases.find(OPZeroDomTy) == DeclAliases.end() ||
+        UsedAliases.find(OPZeroDomTy) == UsedAliases.end())
+      return false;
+
+    if (!allAliasesAreZeroElement(OPZeroDomTy, DeclAliases) ||
+        !allAliasesAreZeroElement(OPZeroDomTy, UsedAliases))
+      return false;
+
+    return true;
+  }
+
   // For an allocation call, we want to check that the value produced does not
   // get used as multiple types. Also, collect information for use by the
   // transformations that need to rewrite allocation and free calls. This is
@@ -3758,8 +4089,21 @@ public:
 
     DTransType *DomTy = PTA.getDominantAggregateUsageType(*Info);
     if (!DomTy) {
-      setAllAliasedTypeSafetyData(Info, dtrans::BadCasting,
-                                  "Allocation of ambiguous type", Call);
+      if (sizeOfAllocSiteIsLegalForRelatedTypes(Call, Kind)) {
+        // Set as BadCastingForRelatedTypes since we don't have a dominant
+        // aggregate type due to related types, but we prove that the alloc
+        // size is correct. We can't fully ignore the bad casting here because
+        // there is a chance that two related types can be set as unrelated.
+        // If this happens, the BadCastingForRelatedTypes will be converted
+        // as BadCasting. Ignoring the bad casting could produce that the
+        // safety violation is not properly set once the relationship is
+        // broken.
+        setAllAliasedTypeSafetyData(Info, dtrans::BadCastingForRelatedTypes,
+                                    "Allocation includes related types", Call);
+      } else {
+        setAllAliasedTypeSafetyData(Info, dtrans::BadCasting,
+                                    "Allocation of ambiguous type", Call);
+      }
       return;
     }
 
