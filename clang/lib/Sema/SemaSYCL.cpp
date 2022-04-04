@@ -3210,8 +3210,13 @@ public:
                              FunctionDecl *KernelFunc)
       : SyclKernelFieldHandler(S), Header(H) {
     bool IsSIMDKernel = isESIMDKernelType(KernelObj);
+    // The header needs to access the kernel object size.
+    int64_t ObjSize = SemaRef.getASTContext()
+                          .getTypeSizeInChars(KernelObj->getTypeForDecl())
+                          .getQuantity();
     Header.startKernel(KernelFunc, NameType, KernelObj->getLocation(),
-                       IsSIMDKernel, IsSYCLUnnamedKernel(S, KernelFunc));
+                       IsSIMDKernel, IsSYCLUnnamedKernel(S, KernelFunc),
+                       ObjSize);
   }
 
   bool handleSyclSpecialType(const CXXRecordDecl *RD,
@@ -4877,6 +4882,14 @@ void SYCLIntegrationHeader::emit(raw_ostream &O) {
     O << "    return 0;\n";
     O << "#endif\n";
     O << "  }\n";
+    StringRef ReturnType =
+        (S.Context.getTargetInfo().getInt64Type() == TargetInfo::SignedLong)
+            ? "long"
+            : "long long";
+    O << "  // Returns the size of the kernel object in bytes.\n";
+    O << "  __SYCL_DLL_LOCAL\n";
+    O << "  static constexpr " << ReturnType << " getKernelSize() { return "
+      << K.ObjSize << "; }\n";
     O << "};\n";
     CurStart += N;
   }
@@ -4907,9 +4920,9 @@ void SYCLIntegrationHeader::startKernel(const FunctionDecl *SyclKernel,
                                         QualType KernelNameType,
                                         SourceLocation KernelLocation,
                                         bool IsESIMDKernel,
-                                        bool IsUnnamedKernel) {
+                                        bool IsUnnamedKernel, int64_t ObjSize) {
   KernelDescs.emplace_back(SyclKernel, KernelNameType, KernelLocation,
-                           IsESIMDKernel, IsUnnamedKernel);
+                           IsESIMDKernel, IsUnnamedKernel, ObjSize);
 }
 
 void SYCLIntegrationHeader::addParamDesc(kernel_param_kind_t Kind, int Info,
