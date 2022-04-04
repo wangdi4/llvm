@@ -796,8 +796,17 @@ RegDDRef *DDRefUtils::simplifyConstArray(const RegDDRef *Ref) {
       Indices.push_back(Index);
     }
 
-    Constant *Val =
-        ConstantFoldLoadThroughGEPIndices(GV->getInitializer(), Indices);
+    Constant *Val = nullptr;
+    auto &DL = Ref->getCanonExprUtils().getDataLayout();
+    unsigned OffsetBits = DL.getIndexTypeSizeInBits(LocationGEP->getType());
+    APInt Offset(OffsetBits, 0);
+
+    if (LocationGEP->accumulateConstantOffset(DL, Offset)) {
+      Val = ConstantFoldLoadFromConst(GV->getInitializer(),
+                                      LocationGEP->getResultElementType(),
+                                      Offset, DL);
+    }
+
     // TODO: add support for constant GEP exprs.
     if (!Val || isa<GEPOperator>(Val)) {
       return nullptr;
