@@ -7,7 +7,6 @@
 %0 = type { %0* }
 
 define %0* @f1(%0* %i0) local_unnamed_addr {
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; update_test_checks is using hardcoded block names, which are different due
 ; slightly different code in JumpThreading.
@@ -15,20 +14,6 @@ define %0* @f1(%0* %i0) local_unnamed_addr {
 ; OLDPM-LABEL: @f1(
 ; OLDPM:       bb6:
 ; OLDPM-NEXT:    ret %0* undef
-=======
-; CHECK-LABEL: @f1(
-; CHECK-NEXT:  bb:
-; CHECK:         br label [[BB3:%.*]]
-; CHECK:       bb3:
-; CHECK-NEXT:    [[I1:%.*]] = phi %0* [ %i0, [[BB:%.*]] ], [ [[I5:%.*]], [[BB3]] ]
-; CHECK-NEXT:    call void @llvm.assume(i1 true) [ "nonnull"(%0* [[I1]]) ]
-; CHECK-NEXT:    [[I4:%.*]] = getelementptr inbounds [[TMP0:%.*]], %0* [[I1]], i64 0, i32 0
-; CHECK-NEXT:    [[I5]] = load %0*, %0** [[I4]], align 8
-; CHECK-NEXT:    [[I2:%.*]] = icmp eq %0* [[I5]], null
-; CHECK-NEXT:    br i1 [[I2]], label [[BB6:%.*]], label [[BB3]]
-; CHECK:       bb6:
-; CHECK-NEXT:    ret %0* undef
->>>>>>> a96638e50ef5932d53c70d052bef73a5f1f9cba9
 ;
 ; NEWPM-LABEL: @f1(
 ; NEWPM-NEXT:  bb:
