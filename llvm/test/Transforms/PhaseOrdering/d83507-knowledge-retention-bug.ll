@@ -7,7 +7,6 @@
 %0 = type { %0* }
 
 define %0* @f1(%0* %i0) local_unnamed_addr {
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; update_test_checks is using hardcoded block names, which are different due
 ; slightly different code in JumpThreading.
@@ -15,25 +14,6 @@ define %0* @f1(%0* %i0) local_unnamed_addr {
 ; OLDPM-LABEL: @f1(
 ; OLDPM:       bb6:
 ; OLDPM-NEXT:    ret %0* undef
-=======
-; CHECK-LABEL: @f1(
-; CHECK-NEXT:  bb:
-; CHECK-NEXT:    [[I21:%.*]] = icmp eq %0* [[I0:%.*]], null
-; CHECK-NEXT:    br i1 [[I21]], label [[BB6:%.*]], label [[BB3_LR_PH:%.*]]
-; CHECK:       bb3.lr.ph:
-; CHECK-NEXT:    br label [[BB3:%.*]]
-; CHECK:       bb3:
-; CHECK-NEXT:    [[I3:%.*]] = phi %0* [ [[I0]], [[BB3_LR_PH]] ], [ [[I5:%.*]], [[BB3]] ]
-; CHECK-NEXT:    call void @llvm.assume(i1 true) [ "nonnull"(%0* [[I3]]) ]
-; CHECK-NEXT:    [[I4:%.*]] = getelementptr inbounds [[TMP0:%.*]], %0* [[I3]], i64 0, i32 0
-; CHECK-NEXT:    [[I5]] = load %0*, %0** [[I4]], align 8
-; CHECK-NEXT:    [[I2:%.*]] = icmp eq %0* [[I5]], null
-; CHECK-NEXT:    br i1 [[I2]], label [[BB1_BB6_CRIT_EDGE:%.*]], label [[BB3]]
-; CHECK:       bb1.bb6_crit_edge:
-; CHECK-NEXT:    br label [[BB6]]
-; CHECK:       bb6:
-; CHECK-NEXT:    ret %0* undef
->>>>>>> e91fe08999d5f5d7e7777837c529bac692d06c1b
 ;
 ; NEWPM-LABEL: @f1(
 ; NEWPM-NEXT:  bb:
