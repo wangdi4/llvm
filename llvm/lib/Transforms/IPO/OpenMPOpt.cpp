@@ -4975,6 +4975,11 @@ PreservedAnalyses OpenMPOptPass::run(Module &M, ModuleAnalysisManager &AM) {
     SmallPtrSet<Function *, 16> InternalizeFns;
     for (Function &F : M)
       if (!F.isDeclaration() && !Kernels.contains(&F) && IsCalled(F) &&
+#if INTEL_COLLAB
+          // Internalization currently works incorrectly for spirv offloading.
+          F.getCallingConv() != CallingConv::SPIR_KERNEL &&
+          F.getCallingConv() != CallingConv::SPIR_FUNC &&
+#endif // INTEL_COLLAB
           !DisableInternalization) {
         if (Attributor::isInternalizable(F)) {
           InternalizeFns.insert(&F);

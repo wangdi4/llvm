@@ -307,6 +307,16 @@ const Dep *DepCompute::computeInstDep(const Instruction *I) const {
       break;
     }
 
+    if (auto *II = dyn_cast<IntrinsicInst>(I)) {
+      if (II->getIntrinsicID() == Intrinsic::umax) {
+        Dep::Container Args;
+        Args.insert(computeValueDep(II->getArgOperand(0)));
+        Args.insert(computeValueDep(II->getArgOperand(1)));
+        Rep = Dep::mkFunction(DM, Args);
+        break;
+      }
+    }
+
     SmallPtrSet<const Value *, 3> Args;
     auto *Call = cast<CallBase>(I);
     auto *Info = DTInfo.getCallInfo(I);

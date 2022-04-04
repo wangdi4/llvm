@@ -1,8 +1,6 @@
 /*===---- stdatomic.h - Standard header for atomic types and operations -----=== */
 /* INTEL_CUSTOMIZATION */
 /*
- * INTEL CONFIDENTIAL
- *
  * Modifications, Copyright (C) 2021 Intel Corporation
  *
  * This software and the related documents are Intel copyrighted materials, and

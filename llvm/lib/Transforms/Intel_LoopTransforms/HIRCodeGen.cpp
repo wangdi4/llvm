@@ -970,12 +970,11 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
       // generated a new GEP for this dimension. EmitSubsValue() skips
       // generating new GEP for zero offsets.
       if ((DimNum != 1) && (PrevGEPVal != GEPVal)) {
-        if (auto *GEPOp = dyn_cast<GEPOperator>(GEPVal)) {
-          BasePtrElementTy = GEPOp->getResultElementType();
+        if (!Offsets.empty()) {
+          BasePtrElementTy = cast<GEPOperator>(GEPVal)->getResultElementType();
         } else {
           // In cases where the stride is non-constant, EmitSubsValue() emits
           // bitcast to/from i8* to do the offset computation in bytes.
-          assert(Offsets.empty() && "Dimension offsets not expected!");
           BasePtrElementTy = DimElementTy;
         }
         PrevGEPVal = GEPVal;

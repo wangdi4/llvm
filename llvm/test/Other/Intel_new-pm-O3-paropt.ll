@@ -55,7 +55,6 @@
 ;            Invalidating analysis: AAManager on foo
 ;            Invalidating analysis: WRegionCollectionAnalysis on foo
 ;            Invalidating analysis: WRegionInfoAnalysis on foo
-;            Running pass: OpenMPOptPass on [module]
 ;            Running pass: IPSCCPPass on [module]
 ;            Running analysis: DominatorTreeAnalysis on foo
 ;            Running pass: CalledValuePropagationPass on [module]
@@ -122,6 +121,7 @@
 ;CHECK-NEXT: Running analysis: BasicAA on foo
 ;CHECK-NEXT: Running pass: VPOCFGSimplifyPass on foo
 ;CHECK-NEXT: Running pass: AlwaysInlinerPass on [module]            ;INTEL
+;CHECK-NEXT: Running pass: OpenMPOptPass on [module]
 ;CHECK-NEXT: Running pass: GlobalDCEPass on [module]                ;INTEL
 ;CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{llvm::FunctionAnalysisManager|llvm::AnalysisManager<llvm::Function>}}, llvm::Module> on {{.*}}
 ;            Running pass: ModuleInlinerWrapperPass on [module]

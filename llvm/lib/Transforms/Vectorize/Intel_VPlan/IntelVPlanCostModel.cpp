@@ -41,13 +41,14 @@ static cl::opt<unsigned>
 // Store has two stages: allocate/read cache line(s) and place data to it. The
 // load reads data from cache line(s). Moving the data to the cache buffer is
 // more expensive than moving it from the buffer.
-static cl::opt<vpo::VPInstructionCost> CMStoreCostAdjustment(
-    "vplan-cm-store-cost-adjustment", cl::init(1), cl::Hidden,
+static cl::opt<float> CMStoreCostAdjustment(
+    "vplan-cm-store-cost-adjustment", cl::init(1.0f), cl::Hidden,
     cl::desc("Store cost adjustment on top of TTI value"));
 
-static cl::opt<vpo::VPInstructionCost> CMLoadCostAdjustment(
-    "vplan-cm-load-cost-adjustment", cl::init(.5f), cl::Hidden,
-    cl::desc("Load cost adjustment on top of TTI value"));
+static cl::opt<float>
+    CMLoadCostAdjustment("vplan-cm-load-cost-adjustment", cl::init(.5f),
+                         cl::Hidden,
+                         cl::desc("Load cost adjustment on top of TTI value"));
 
 /// A helper function that returns the alignment of load or store instruction.
 static unsigned getMemInstAlignment(const Value *I) {
@@ -1041,8 +1042,8 @@ VPInstructionCost VPlanTTICostModel::getNonMaskedMemOpCostAdj(
   // TODO: tune the cost model once peel/rem loops can be generated.
   // For now the change should be miniscule enough to not have
   // noticeable regressions. Consider a multiplier for Load/Store cost.
-  VPInstructionCost Cost = IsStore ?
-    CMStoreCostAdjustment : CMLoadCostAdjustment;
+  VPInstructionCost Cost = IsStore ? VPInstructionCost(CMStoreCostAdjustment)
+                                   : VPInstructionCost(CMLoadCostAdjustment);
 
   VPInstructionCost CrossProbability =
       cacheLineCrossingProbability(Alignment, SizeOfMemRef, BytesCross);

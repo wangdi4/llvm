@@ -19,6 +19,18 @@
 #include <cstdlib>
 #include <cstring>
 
+#if INTEL_COLLAB
+/// API functions that can access host-to-target data map need to load device
+/// image to get correct mapping information for global data. This macro is
+/// called in such functions.
+#define CHECK_DEVICE_AND_CTORS_RET(ID, RetVal)                                 \
+  do {                                                                         \
+    int64_t DeviceID = ID;                                                     \
+    if (checkDeviceAndCtors(DeviceID, nullptr) != OFFLOAD_SUCCESS)             \
+      return RetVal;                                                           \
+  } while(0)
+#endif // INTEL_COLLAB
+
 EXTERN int omp_get_num_devices(void) {
   TIMESCOPE();
   PM->RTLsMtx.lock();
@@ -103,6 +115,9 @@ EXTERN int omp_target_is_present(const void *ptr, int device_num) {
        "false\n");
     return false;
   }
+#if INTEL_COLLAB
+  CHECK_DEVICE_AND_CTORS_RET(device_num, false);
+#endif // INTEL_COLLAB
 
   DeviceTy &Device = *PM->Devices[device_num];
   bool IsLast; // not used
@@ -283,6 +298,9 @@ EXTERN int omp_target_associate_ptr(const void *host_ptr,
     REPORT("omp_target_associate_ptr returns OFFLOAD_FAIL\n");
     return OFFLOAD_FAIL;
   }
+#if INTEL_COLLAB
+  CHECK_DEVICE_AND_CTORS_RET(device_num, OFFLOAD_FAIL);
+#endif // INTEL_COLLAB
 
   DeviceTy &Device = *PM->Devices[device_num];
   void *device_addr = (void *)((uint64_t)device_ptr + (uint64_t)device_offset);
@@ -313,6 +331,9 @@ EXTERN int omp_target_disassociate_ptr(const void *host_ptr, int device_num) {
     REPORT("omp_target_disassociate_ptr returns OFFLOAD_FAIL\n");
     return OFFLOAD_FAIL;
   }
+#if INTEL_COLLAB
+  CHECK_DEVICE_AND_CTORS_RET(device_num, OFFLOAD_FAIL);
+#endif // INTEL_COLLAB
 
   DeviceTy &Device = *PM->Devices[device_num];
   int rc = Device.disassociatePtr(const_cast<void *>(host_ptr));
@@ -338,6 +359,7 @@ EXTERN void * omp_get_mapped_ptr(void *host_ptr, int device_num) {
     DP("omp_get_mapped_ptr :  returns NULL\n");
     return NULL;
   }
+  CHECK_DEVICE_AND_CTORS_RET(device_num, NULL);
 
   DeviceTy& Device = *PM->Devices[device_num];
   bool IsLast, IsHostPtr;

@@ -1,5 +1,8 @@
-; RUN: opt -vplan-force-vf=8 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec %s 2>&1 2>&1 -disable-output | FileCheck %s
-; RUN: opt -opaque-pointers -vplan-force-vf=8 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec %s 2>&1 2>&1 -disable-output | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir=false -vplan-force-vf=8 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec %s 2>&1 2>&1 -disable-output | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir=false -opaque-pointers -vplan-force-vf=8 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec %s 2>&1 2>&1 -disable-output | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -vplan-force-vf=8 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec %s 2>&1 2>&1 -disable-output | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -opaque-pointers -vplan-force-vf=8 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec %s 2>&1 2>&1 -disable-output | FileCheck %s
+
 
 ; CHECK:      BEGIN REGION { modified }
 ; CHECK-NEXT:  %sum.red.promoted = (%sum.red)[0];
@@ -12,7 +15,7 @@
 ; CHECK-NEXT:   %phi.temp = %.vec2
 ; CHECK-NEXT:  END LOOP
 ; CHECK:       %red.local = @llvm.vector.reduce.fadd.v8f32(%red.local,  %.vec2);
-; CHECK-NEXT: END REGION
+; CHECK:      END REGION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

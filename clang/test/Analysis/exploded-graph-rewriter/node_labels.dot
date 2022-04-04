@@ -1,3 +1,8 @@
+// INTEL_CUSTOMIZATION
+// FIXME: Disabled on Windows as it is flaky
+// UNSUPPORTED: system-windows
+// end INTEL_CUSTOMIZATION
+
 // RUN: %exploded_graph_rewriter %s \
 // RUN:     | FileCheck %s -check-prefixes=CHECK,LIGHT,COLOR
 // RUN: %exploded_graph_rewriter %s --dark \
