@@ -334,9 +334,7 @@ namespace Validation {
                 return ret;
             }
 
-        private:
-            /// type of mismatch
-            MismatchType type;
+          private:
             /// description of memory object
             IMemoryObjectDescPtr pDesc;
             /// @brief Container with value and its string representation

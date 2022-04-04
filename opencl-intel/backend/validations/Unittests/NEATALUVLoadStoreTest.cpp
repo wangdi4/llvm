@@ -14,7 +14,7 @@
 
 // \brief Tests for OpenCL vector load and store built-in functions (see spec. 6.11.7.) in NEATALU
 
-#include <gtest/gtest.h>            // Test framework
+#include "gtest_wrapper.h" // Test framework
 
 #include "DataGenerator.h"
 #include "DGHelper.h"
@@ -70,7 +70,7 @@ public:
 };
 
 typedef ::testing::Types<float> FloatTypesVLoadStore;
-TYPED_TEST_CASE(NEATAluTypedVLoadStore, FloatTypesVLoadStore);
+TYPED_TEST_SUITE(NEATAluTypedVLoadStore, FloatTypesVLoadStore, );
 
 TYPED_TEST(NEATAluTypedVLoadStore, vload)
 {
@@ -98,7 +98,9 @@ TYPED_TEST(NEATAluTypedVLoadStore, vstore)
         // data vector to be stored
         NEATVector data(this->currWidth);
         // array to be filled by stored vector data
-        NEATValue p[this->vectorWidth];
+        NEATValue *p =
+            (NEATValue *)malloc(this->vectorWidth * sizeof(NEATValue));
+        EXPECT_TRUE(p != nullptr);
 
         for (int i = 0; i < NEATAluTypedVLoadStore<TypeParam>::vectorWidth; ++i) {
             data[i] = this->p[testIdx*this->vectorWidth+this->offset[testIdx]+i];

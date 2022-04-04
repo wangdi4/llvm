@@ -115,9 +115,9 @@ namespace Validation
         void SetExecutionTime(const std::string& name, unsigned int vectorSize, const Sample& sample);
 
         /// @brief Visits the performance data
-        void Visit(IPerformanceVisitor* pVisitor) const;
+        void Visit(IPerformanceVisitor *pVisitor) const override;
 
-    private:
+      private:
         typedef std::pair<std::string,unsigned int> KernelID;
         typedef std::map<KernelID, SampleVector> Samples;
 

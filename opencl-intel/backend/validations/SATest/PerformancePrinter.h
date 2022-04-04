@@ -32,17 +32,13 @@ public:
                         const IRunComponentConfiguration* pRunConfiguration );
 
 private:
-    void OnKernelSample(const std::string& kernel,
-                        unsigned int vectorSize,
-                        cl_long buildTicks,
-                        double buildSDMean,
-                        cl_long executionTicks,
-                        double executionSDMean,
-                        cl_long serializationTicks,
-                        double serializationSDMean,
-                        cl_long deserializationTicks,
-                        double deserializationSDMean
-                        );
+  void OnKernelSample(const std::string &kernel, unsigned int vectorSize,
+                      cl_long buildTicks, double buildSDMean,
+                      cl_long executionTicks, double executionSDMean,
+                      cl_long serializationTicks, double serializationSDMean,
+                      cl_long deserializationTicks,
+                      double deserializationSDMean) override;
+
 private:
     std::string m_IRFilename;
     std::string m_JITFilename;

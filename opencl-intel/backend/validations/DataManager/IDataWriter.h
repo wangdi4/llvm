@@ -26,6 +26,7 @@ namespace Validation
         /// @brief Write IContainer object to file
         /// @param [in] pContainer pointer to object with IContainer interface
         virtual void Write(const IContainer *pContainer) = 0;
+        virtual ~IDataWriter() {}
     };
 
 } // End of Validation namespace

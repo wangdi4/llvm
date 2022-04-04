@@ -58,6 +58,7 @@ public:
     ///@return reference to llvm::GenericValue accumulative value for
     ///work_group_scan built-ins
     virtual llvm::GenericValue& GetValueForScanBuiltin()=0;
+    virtual ~IWorkGroupBuiltins() {}
 };
 
 /// Interface for setting/getting work-item built-in variables
@@ -98,6 +99,7 @@ public:
     /// @param [in]     dimindx dimension number
     virtual uint64_t GetGlobalOffset(const uint32_t dimindx) = 0;
 
+    virtual ~IWorkItemBuiltins() {}
 };
 
 /// singleton class to set interface for workitem built-ins to obtain workgroup IDs

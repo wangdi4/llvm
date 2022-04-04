@@ -36,19 +36,15 @@ namespace Validation
 
         virtual ~Buffer();
 
-        virtual void* GetDataPtr() const
-        {
-            return (void *)m_data;
+        virtual void *GetDataPtr() const override { return (void *)m_data; }
+
+        virtual const IMemoryObjectDesc *GetMemoryObjectDesc() const override {
+          return &m_desc;
         }
 
-        virtual const IMemoryObjectDesc* GetMemoryObjectDesc() const
-        {
-            return &m_desc;
-        }
+        void Accept(IContainerVisitor &visitor) const override;
 
-        void Accept( IContainerVisitor& visitor ) const;
-
-        virtual std::string GetName() const {return GetBufferName();}
+        virtual std::string GetName() const override { return GetBufferName(); }
 
         static std::string GetBufferName() {return std::string("Buffer");}
 

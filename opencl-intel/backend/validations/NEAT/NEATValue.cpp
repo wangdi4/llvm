@@ -135,8 +135,6 @@ namespace Validation
                         for(uint32_t i=0;i<NEATValue::MaxBytes;++i)
                             os << (int32_t) k.m_max[i] << " ";
                         break;
-                    default:
-                        throw Exception::InvalidArgument("");
         }
         return os;
     }

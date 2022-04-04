@@ -35,22 +35,19 @@ namespace Validation
 
         virtual ~Image();
 
-        virtual void* GetDataPtr() const
-        {
-            return (void *)m_data;
+        virtual void *GetDataPtr() const override { return (void *)m_data; }
+
+        virtual const IMemoryObjectDesc *GetMemoryObjectDesc() const override {
+          return &m_desc;
         }
 
-        virtual const IMemoryObjectDesc* GetMemoryObjectDesc() const
-        {
-            return &m_desc;
-        }
-
-        virtual std::string GetName() const {return GetImageName();}
+        virtual std::string GetName() const override { return GetImageName(); }
 
         static std::string GetImageName() {return std::string("Image");}
 
-        void Accept( IContainerVisitor& visitor ) const;
-    private:
+        void Accept(IContainerVisitor &visitor) const override;
+
+      private:
         /// hide copy constructor
         Image(const Image& ) : IMemoryObject(), m_desc(){}
 

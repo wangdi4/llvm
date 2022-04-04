@@ -26,7 +26,7 @@
 #include "NEATALUUtils.h"
 #include "ALUTest.h"
 
-#include <gtest/gtest.h>
+#include "gtest_wrapper.h"
 
 using namespace Validation;
 
@@ -991,7 +991,7 @@ class ComparatorImageTestNEATRun : public ALUTest {
 };
 
 typedef ::testing::Types<float> FloatTypes;
-TYPED_TEST_CASE(ComparatorImageTestNEATRun, FloatTypes);
+TYPED_TEST_SUITE(ComparatorImageTestNEATRun, FloatTypes, );
 
 bool ComparatorImageTestNEATRun_should_be_disabled = true;
 // we can't add DISABLE_ to typed tests, so disable them manually

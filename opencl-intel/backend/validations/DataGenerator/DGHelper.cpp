@@ -90,7 +90,7 @@ void GenerateRandomVectorsAutoSeed(DataTypeVal dataTypeVal, const float *arr,
     uint8_t* dataExp = (uint8_t*)list.GetBufferContainer(0)->GetMemoryObject(0)->GetDataPtr();
     int32_t* dataMant = (int32_t*)list.GetBufferContainer(0)->GetMemoryObject(1)->GetDataPtr();
 
-    float *arrOfVec = (float*)arr;
+    float *arrOfVec = const_cast<float *>(arr);
     for(uint32_t i = 0; i<n; i++) {       
          for(uint32_t j = 0; j<vecWidth.GetSize(); j++)
          {
@@ -146,7 +146,7 @@ void GenerateRandomVectorsAutoSeed(DataTypeVal dataTypeVal, const double *arr,
     uint16_t* dataExp = (uint16_t*)list.GetBufferContainer(0)->GetMemoryObject(0)->GetDataPtr();
     int64_t* dataMant = (int64_t*)list.GetBufferContainer(0)->GetMemoryObject(1)->GetDataPtr();
 
-    double *arrOfVec = (double*)arr;
+    double *arrOfVec = const_cast<double *>(arr);
     for(uint32_t i = 0; i<n; i++) {       
          for(uint32_t j = 0; j<vecWidth.GetSize(); j++)
          {

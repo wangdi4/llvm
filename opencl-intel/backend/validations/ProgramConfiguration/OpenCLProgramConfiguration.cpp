@@ -22,9 +22,6 @@
 #define DEBUG_TYPE "OpenCLProgramConfiguration"
 #include "llvm/Support/Debug.h"
 
-#define TIXML_USE_STL
-#include "tinyxml.h"
-
 #include <sstream>
 #include <string>
 #include <stdlib.h>

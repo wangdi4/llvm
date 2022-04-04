@@ -285,8 +285,12 @@ Validation::COMP_RESULT Comparator::CompareNElements( const int8_t* pAct, const 
                 const int8_t* pRefData = (m_haveReference) ?
                     pRef + cntBufferElem * BufElemSize : NULL;
                 // obtain pointer to NEAT data
-                const NEATValue* pNEATData = (m_IsNEATSupportedMemObj) ?
-                    (NEATValue*)((uint8_t*)pNEAT + cntBufferElem * BufElemNEATSize) : NULL; // NEATValue *
+                const NEATValue *pNEATData =
+                    (m_IsNEATSupportedMemObj)
+                        ? reinterpret_cast<NEATValue *>(const_cast<uint8_t *>(
+                              (const uint8_t *)pNEAT +
+                              cntBufferElem * BufElemNEATSize))
+                        : NULL; // NEATValue *
 
                 // compare elements in vector through recursion
                 if( NOT_PASSED == CompareNElements(pActData, pRefData, pNEATData,

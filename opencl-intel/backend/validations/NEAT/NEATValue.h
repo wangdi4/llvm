@@ -156,11 +156,14 @@ namespace Validation
             {
             case ACCURATE:
                 ss<<"ACCURATE "<<*GetAcc<T>();
-                ss << " ACCURATE (hex) 0x" << std::hex << *(uint64_t*)(GetAcc<T>());
+                ss << " ACCURATE (hex) 0x" << std::hex
+                   << *(const uint64_t *)(GetAcc<T>());
                 break;
             case INTERVAL:
                 ss<<"INTERVAL ["<<*GetMin<T>()<<"; "<<*GetMax<T>()<<"]";
-                ss << " INTERVAL (hex) [0x" << std::hex << *(uint64_t*)(GetMin<T>()) << "; 0x" << *(uint64_t*)(GetMax<T>()) << "]";
+                ss << " INTERVAL (hex) [0x" << std::hex
+                   << *(const uint64_t *)(GetMin<T>()) << "; 0x"
+                   << *(const uint64_t *)(GetMax<T>()) << "]";
                 break;
             case UNKNOWN:
                 ss<<"UNKNOWN";
@@ -280,41 +283,34 @@ namespace Validation
                 if (acc1 == acc2)
                     return true;
                 else
-                    return false;
-                break;
+                  return false;
             case UNKNOWN:
             case UNWRITTEN:
             case ANY:
-                return true;
-                break;
-            case INTERVAL:
-                {
-                    bool res = true;
-                    T min1, min2, max1, max2;
-                    memcpy(&min1, val1.GetMin<T>(), sizeof(T));
-                    memcpy(&max1, val1.GetMax<T>(), sizeof(T));
-                    memcpy(&min2, val2.GetMin<T>(), sizeof(T));
-                    memcpy(&max2, val2.GetMax<T>(), sizeof(T));
+              return true;
+            case INTERVAL: {
+              bool res = true;
+              T min1, min2, max1, max2;
+              memcpy(&min1, val1.GetMin<T>(), sizeof(T));
+              memcpy(&max1, val1.GetMax<T>(), sizeof(T));
+              memcpy(&min2, val2.GetMin<T>(), sizeof(T));
+              memcpy(&max2, val2.GetMax<T>(), sizeof(T));
 
-                    if( Utils::IsNaN(min1)) {
-                        res &= (Utils::IsNaN(min1) && Utils::IsNaN(min2));
-                    } else {
-                        res &= (double(min1) == min2);
-                    }
+              if (Utils::IsNaN(min1)) {
+                res &= (Utils::IsNaN(min1) && Utils::IsNaN(min2));
+              } else {
+                res &= (double(min1) == min2);
+              }
 
-                    if (Utils::IsNaN(max1)) {
-                        res &= (Utils::IsNaN(max1) && Utils::IsNaN(max2));
-                    } else {
-                        res &= (double(max1) == max2);
-                    }
-                    return res;
-                }
-                break;
-            default:
-                return false;
-                break;
+              if (Utils::IsNaN(max1)) {
+                res &= (Utils::IsNaN(max1) && Utils::IsNaN(max2));
+              } else {
+                res &= (double(max1) == max2);
+              }
+              return res;
+            }
         }
-
+        assert(false && "Invalid status!");
     }
 
         /// @return true if NEATValue status is valid i.e. one of expected values.

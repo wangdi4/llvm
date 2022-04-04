@@ -15,8 +15,7 @@
 #include"GeneratorConfig.h"
 #include"BufferDesc.h"
 #include"ImageDesc.h"
-#include<assert.h>
-#include<tinyxml.h>
+#include <assert.h>
 #include<time.h>
 using namespace Validation;
 

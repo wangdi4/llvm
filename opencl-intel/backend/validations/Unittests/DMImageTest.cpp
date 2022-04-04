@@ -16,7 +16,7 @@
 #include <limits>
 #include <list>
 
-#include <gtest/gtest.h>
+#include "gtest_wrapper.h"
 
 #include "BufferContainerList.h"
 #include "XMLDataReader.h"

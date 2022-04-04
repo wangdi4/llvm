@@ -34,14 +34,14 @@ namespace Validation
         BufferContainer(){}
         /// dtor. Should be called only by BufferContainerList object
         virtual ~BufferContainer();
-        std::size_t GetMemoryObjectCount() const;
-        IMemoryObject* GetMemoryObject(std::size_t buffId) const;
-        IMemoryObject* CreateBuffer(const BufferDesc& buffDesc);
-        IMemoryObject* CreateImage(const ImageDesc& imDesc);
+        std::size_t GetMemoryObjectCount() const override;
+        IMemoryObject *GetMemoryObject(std::size_t buffId) const override;
+        IMemoryObject *CreateBuffer(const BufferDesc &buffDesc) override;
+        IMemoryObject *CreateImage(const ImageDesc &imDesc) override;
 
-        void Accept( IContainerVisitor& visitor ) const;
+        void Accept(IContainerVisitor &visitor) const override;
 
-    private:
+      private:
         /// hide copy constructor
         BufferContainer(const BufferContainer& ) : IBufferContainer() {}
         /// hide assignment operator

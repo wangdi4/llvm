@@ -48,21 +48,25 @@ namespace Validation
         /// @param [IN] program Test program to execute
         /// @param [IN] programConfig Configuration of the test program
         /// @param [IN] runConfig Configuration of the test run
-        virtual void Run(IRunResult* runResult,
-                         const IProgram* program,
-                         const IProgramConfiguration* programConfig,
-                         const IRunComponentConfiguration* runConfig);
+        virtual void Run(IRunResult *runResult, const IProgram *program,
+                         const IProgramConfiguration *programConfig,
+                         const IRunComponentConfiguration *runConfig) override;
 
         /// @brief Load the Volcano output from the file.
         /// @param [OUT] runResult Result of test program execution
         /// @param [IN] config Configuration of the test run
-        virtual void LoadOutput(IRunResult* pRunResult, const IProgramConfiguration* pConfig){}
+        virtual void LoadOutput(IRunResult *pRunResult,
+                                const IProgramConfiguration *pConfig) override {
+        }
 
         /// @brief Store the Volcano output to the file.
         /// @param [IN] runResult Result of test program execution
         /// @param [IN] config Configuration of the test run
-        virtual void StoreOutput(const IRunResult* pRunResult, const IProgramConfiguration* pConfig) const {}
-    private:
+        virtual void
+        StoreOutput(const IRunResult *pRunResult,
+                    const IProgramConfiguration *pConfig) const override {}
+
+      private:
         /// Dump properties of kernel from OpenCLKernelConfiguration.
         void DumpKernelProperties(ICLDevBackendProgram_ *program,
                                   OpenCLKernelConfiguration *kernelConfig);

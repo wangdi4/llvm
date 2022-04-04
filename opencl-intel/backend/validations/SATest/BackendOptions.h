@@ -47,56 +47,50 @@ public:
         m_llvmOption = runConfig.GetValue<std::string>(RC_BR_LLVM_OPTION, "");
     }
 
-
-    const char* GetStringValue(int optionId, const char* defaultValue) const
-    {
-        switch(optionId)
-        {
-        case CL_DEV_BACKEND_OPTION_TIME_PASSES:
-            return m_TimePasses.c_str();
-        case CL_DEV_BACKEND_OPTION_DEBUG_PASS_MANAGER:
-            return m_debugPassManager.c_str();
-        case CL_DEV_BACKEND_OPTION_LLVM_OPTION:
-            return m_llvmOption.c_str();
-        default:
-            return defaultValue;
-        }
-    }
-
-    bool GetBooleanValue(int optionId, bool defaultValue) const
-    {
-        switch(optionId)
-        {
-        case CL_DEV_BACKEND_OPTION_DISABLE_STACKDUMP:
-            return m_DisableStackDump;
-        case CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS:
-            return m_nativeSubgroups;
-        case CL_DEV_BACKEND_OPTION_SUBGROUP_EMULATION:
-            return m_enableSubgroupEmulation;
-        default:
-            return defaultValue;
-        }
+    const char *GetStringValue(int optionId,
+                               const char *defaultValue) const override {
+      switch (optionId) {
+      case CL_DEV_BACKEND_OPTION_TIME_PASSES:
+        return m_TimePasses.c_str();
+      case CL_DEV_BACKEND_OPTION_DEBUG_PASS_MANAGER:
+        return m_debugPassManager.c_str();
+      case CL_DEV_BACKEND_OPTION_LLVM_OPTION:
+        return m_llvmOption.c_str();
+      default:
         return defaultValue;
+      }
     }
 
-    virtual int GetIntValue( int optionId, int defaultValue) const
-    {
-        switch(optionId)
-        {
-        case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
-            return m_transposeSize;
-        case CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE:
-            return m_vectorizerType;
-        case CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE:
-            return (int)m_passManagerType;
-        default:
-            return defaultValue;
-        }
+    bool GetBooleanValue(int optionId, bool defaultValue) const override {
+      switch (optionId) {
+      case CL_DEV_BACKEND_OPTION_DISABLE_STACKDUMP:
+        return m_DisableStackDump;
+      case CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS:
+        return m_nativeSubgroups;
+      case CL_DEV_BACKEND_OPTION_SUBGROUP_EMULATION:
+        return m_enableSubgroupEmulation;
+      default:
+        return defaultValue;
+      }
+      return defaultValue;
     }
 
-    virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
-    {
-        return false;
+    virtual int GetIntValue(int optionId, int defaultValue) const override {
+      switch (optionId) {
+      case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
+        return m_transposeSize;
+      case CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE:
+        return m_vectorizerType;
+      case CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE:
+        return (int)m_passManagerType;
+      default:
+        return defaultValue;
+      }
+    }
+
+    virtual bool GetValue(int optionId, void *Value,
+                          size_t *pSize) const override {
+      return false;
     }
 
 private:
@@ -144,68 +138,61 @@ public:
     {
     }
 
-    bool GetBooleanValue(int optionId, bool defaultValue) const
-    {
-        switch(optionId)
-        {
-        case CL_DEV_BACKEND_OPTION_USE_VTUNE :
-            return m_useVTune;
-        case CL_DEV_BACKEND_OPTION_DUMP_HEURISTIC_IR :
-            return m_dumpHeuristcIR;
-        case CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS :
-            return m_nativeSubgroups;
-        case CL_DEV_BACKEND_OPTION_SERIALIZE_WORK_GROUPS:
-            return m_serializeWorkGroups;
-        default:
-            return defaultValue;
-        }
+    bool GetBooleanValue(int optionId, bool defaultValue) const override {
+      switch (optionId) {
+      case CL_DEV_BACKEND_OPTION_USE_VTUNE:
+        return m_useVTune;
+      case CL_DEV_BACKEND_OPTION_DUMP_HEURISTIC_IR:
+        return m_dumpHeuristcIR;
+      case CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS:
+        return m_nativeSubgroups;
+      case CL_DEV_BACKEND_OPTION_SERIALIZE_WORK_GROUPS:
+        return m_serializeWorkGroups;
+      default:
+        return defaultValue;
+      }
     }
 
-    virtual int GetIntValue( int optionId, int defaultValue) const
-    {
-        switch(optionId)
-        {
-        case CL_DEV_BACKEND_OPTION_DEVICE :
-            return m_deviceMode;
-        case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
-            return m_transposeSize;
-        case CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE:
-            return m_vectorizerType;
-        case CL_DEV_BACKEND_OPTION_EXPENSIVE_MEM_OPTS:
-            return m_expensiveMemOpts;
-        case CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE:
-            return (int)m_passManagerType;
-        default:
-             return defaultValue;
-        }
+    virtual int GetIntValue(int optionId, int defaultValue) const override {
+      switch (optionId) {
+      case CL_DEV_BACKEND_OPTION_DEVICE:
+        return m_deviceMode;
+      case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
+        return m_transposeSize;
+      case CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE:
+        return m_vectorizerType;
+      case CL_DEV_BACKEND_OPTION_EXPENSIVE_MEM_OPTS:
+        return m_expensiveMemOpts;
+      case CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE:
+        return (int)m_passManagerType;
+      default:
+        return defaultValue;
+      }
     }
 
-    virtual const char* GetStringValue(int optionId, const char* defaultValue)const
-    {
-        switch(optionId)
-        {
-        case CL_DEV_BACKEND_OPTION_SUBDEVICE :
-            return m_cpu.c_str();
-        case CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES:
-            return m_cpuFeatures.c_str();
-        case CL_DEV_BACKEND_OPTION_DEBUG_PASS_MANAGER:
-            return m_debugPassManager.c_str();
-        default:
-            return defaultValue;
-        }
+    virtual const char *
+    GetStringValue(int optionId, const char *defaultValue) const override {
+      switch (optionId) {
+      case CL_DEV_BACKEND_OPTION_SUBDEVICE:
+        return m_cpu.c_str();
+      case CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES:
+        return m_cpuFeatures.c_str();
+      case CL_DEV_BACKEND_OPTION_DEBUG_PASS_MANAGER:
+        return m_debugPassManager.c_str();
+      default:
+        return defaultValue;
+      }
     }
 
-    virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
-    {
-        if (Value == NULL)
-        {
-            throw Exception::InvalidArgument("Value is not initialized");
-        }
-        switch(optionId)
-        {
-        default:
-            return false;
-        }
+    virtual bool GetValue(int optionId, void *Value,
+                          size_t *pSize) const override {
+      if (Value == NULL) {
+        throw Exception::InvalidArgument("Value is not initialized");
+      }
+      switch (optionId) {
+      default:
+        return false;
+      }
     }
 
 protected:
@@ -257,52 +244,48 @@ public:
         return *this;
     }
 
-    virtual void InitTargetDescriptionSession(ICLDevBackendExecutionService* pExecutionService)
-    {
-        m_targetDescSize = pExecutionService->GetTargetMachineDescriptionSize();
+    virtual void InitTargetDescriptionSession(
+        ICLDevBackendExecutionService *pExecutionService) override {
+      m_targetDescSize = pExecutionService->GetTargetMachineDescriptionSize();
 
-        if(0 != m_targetDescSize)
-        {
-            m_pTargetDesc = new char[m_targetDescSize];
-            pExecutionService->GetTargetMachineDescription(m_pTargetDesc, m_targetDescSize);
-        }
+      if (0 != m_targetDescSize) {
+        m_pTargetDesc = new char[m_targetDescSize];
+        pExecutionService->GetTargetMachineDescription(m_pTargetDesc,
+                                                       m_targetDescSize);
+      }
     }
 
-    virtual const char* GetStringValue(int optionId, const char* defaultValue)const
-    {
-        return CPUBackendOptions::GetStringValue(optionId, defaultValue);
+    virtual const char *
+    GetStringValue(int optionId, const char *defaultValue) const override {
+      return CPUBackendOptions::GetStringValue(optionId, defaultValue);
     }
 
-    virtual int GetIntValue( int optionId, int defaultValue) const
-    {
-        switch(optionId)
-        {
-        case CL_DEV_BACKEND_OPTION_DEVICE :
-            return CPU_DEVICE;
-        case CL_DEV_BACKEND_OPTION_TARGET_DESC_SIZE:
-            return m_targetDescSize;
-        default:
-            return CPUBackendOptions::GetIntValue(optionId, defaultValue);
-        }
+    virtual int GetIntValue(int optionId, int defaultValue) const override {
+      switch (optionId) {
+      case CL_DEV_BACKEND_OPTION_DEVICE:
+        return CPU_DEVICE;
+      case CL_DEV_BACKEND_OPTION_TARGET_DESC_SIZE:
+        return m_targetDescSize;
+      default:
+        return CPUBackendOptions::GetIntValue(optionId, defaultValue);
+      }
     }
 
-    virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
-    {
-        if (Value == NULL)
-        {
-            throw Exception::InvalidArgument("Value is not initialized");
-        }
-        switch(optionId)
-        {
-        case CL_DEV_BACKEND_OPTION_TARGET_DESC_BLOB:
-            if(*pSize < m_targetDescSize) return false;
-            memcpy(Value, m_pTargetDesc, m_targetDescSize);
-            return true;
-        default:
-            return CPUBackendOptions::GetValue(optionId, Value, pSize);
-        }
+    virtual bool GetValue(int optionId, void *Value,
+                          size_t *pSize) const override {
+      if (Value == NULL) {
+        throw Exception::InvalidArgument("Value is not initialized");
+      }
+      switch (optionId) {
+      case CL_DEV_BACKEND_OPTION_TARGET_DESC_BLOB:
+        if (*pSize < m_targetDescSize)
+          return false;
+        memcpy(Value, m_pTargetDesc, m_targetDescSize);
+        return true;
+      default:
+        return CPUBackendOptions::GetValue(optionId, Value, pSize);
+      }
     }
-
 
 private:
     void copy(const SDEBackendOptions& options)
@@ -334,29 +317,26 @@ public:
         m_fileName = runConfig->GetValue<std::string>(RC_BR_DUMP_OPTIMIZED_LLVM_IR, "-");
     }
 
-    bool GetBooleanValue(int optionId, bool defaultValue) const
-    {
+    bool GetBooleanValue(int optionId, bool defaultValue) const override {
+      return defaultValue;
+    }
+
+    virtual int GetIntValue(int optionId, int defaultValue) const override {
+      return defaultValue;
+    }
+
+    virtual const char *
+    GetStringValue(int optionId, const char *defaultValue) const override {
+      if (CL_DEV_BACKEND_OPTION_DUMPFILE != optionId) {
         return defaultValue;
+      }
+
+      return m_fileName.c_str();
     }
 
-    virtual int GetIntValue( int optionId, int defaultValue) const
-    {
-        return defaultValue;
-    }
-
-    virtual const char* GetStringValue(int optionId, const char* defaultValue)const
-    {
-        if( CL_DEV_BACKEND_OPTION_DUMPFILE != optionId )
-        {
-            return defaultValue;
-        }
-
-        return m_fileName.c_str();
-    }
-
-    virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
-    {
-        return false;
+    virtual bool GetValue(int optionId, void *Value,
+                          size_t *pSize) const override {
+      return false;
     }
 
 private:
@@ -375,29 +355,26 @@ public:
         m_fileName = fileName;
     }
 
-    bool GetBooleanValue(int optionId, bool defaultValue) const
-    {
+    bool GetBooleanValue(int optionId, bool defaultValue) const override {
+      return defaultValue;
+    }
+
+    virtual int GetIntValue(int optionId, int defaultValue) const override {
+      return defaultValue;
+    }
+
+    virtual const char *
+    GetStringValue(int optionId, const char *defaultValue) const override {
+      if (CL_DEV_BACKEND_OPTION_DUMPFILE != optionId) {
         return defaultValue;
+      }
+
+      return m_fileName.c_str();
     }
 
-    virtual int GetIntValue( int optionId, int defaultValue) const
-    {
-        return defaultValue;
-    }
-
-    virtual const char* GetStringValue(int optionId, const char* defaultValue)const
-    {
-        if( CL_DEV_BACKEND_OPTION_DUMPFILE != optionId )
-        {
-            return defaultValue;
-        }
-
-        return m_fileName.c_str();
-    }
-
-    virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
-    {
-        return false;
+    virtual bool GetValue(int optionId, void *Value,
+                          size_t *pSize) const override {
+      return false;
     }
 
 private:
@@ -418,43 +395,37 @@ public:
         m_injectedObjectSize   = injectedObjectSize;
     }
 
-    const char* GetStringValue(int optionId, const char* defaultValue) const
-    {
+    const char *GetStringValue(int optionId,
+                               const char *defaultValue) const override {
+      return defaultValue;
+    }
+
+    bool GetBooleanValue(int optionId, bool defaultValue) const override {
+      switch (optionId) {
+      case CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT:
+        return m_bStopBeforeJIT;
+      default:
         return defaultValue;
+      }
     }
 
-    bool GetBooleanValue(int optionId, bool defaultValue) const
-    {
-        switch(optionId)
-        {
-        case CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT:
-            return m_bStopBeforeJIT;
-        default:
-            return defaultValue;
-        }
+    int GetIntValue(int optionId, int defaultValue) const override {
+      return defaultValue;
     }
 
-    int GetIntValue( int optionId, int defaultValue) const
-    {
-        return defaultValue;
-    }
+    bool GetValue(int optionId, void *Value, size_t *pSize) const override {
+      if (Value == NULL) {
+        throw Exception::InvalidArgument("Value is not initialized");
+      }
 
-    bool GetValue(int optionId, void* Value, size_t* pSize) const
-    {
-        if (Value == NULL)
-        {
-            throw Exception::InvalidArgument("Value is not initialized");
-        }
-
-        switch(optionId)
-        {
-            case CL_DEV_BACKEND_OPTION_INJECTED_OBJECT:
-                *(static_cast<const char* *>(Value)) = m_pInjectedObjectStart;
-                *pSize = m_injectedObjectSize;
-                return true;
-            default:
-                return false;
-        }
+      switch (optionId) {
+      case CL_DEV_BACKEND_OPTION_INJECTED_OBJECT:
+        *(static_cast<const char **>(Value)) = m_pInjectedObjectStart;
+        *pSize = m_injectedObjectSize;
+        return true;
+      default:
+        return false;
+      }
     }
     void SetStopBeforeJIT() { m_bStopBeforeJIT = true; }
 

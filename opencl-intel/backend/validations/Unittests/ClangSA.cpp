@@ -12,11 +12,11 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <gtest/gtest.h>
-#include <string>
+#include "OCLBuilder.h"
+#include "gtest_wrapper.h"
 #include <sstream>
 #include <string.h>
-#include "OCLBuilder.h"
+#include <string>
 
 using namespace Intel::OpenCL::DeviceBackend::Utils;
 using namespace Intel::OpenCL::FECompilerAPI;

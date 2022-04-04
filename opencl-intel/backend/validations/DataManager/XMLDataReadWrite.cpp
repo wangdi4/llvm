@@ -428,9 +428,7 @@ namespace Validation
                             ReadWriteValueToStrFloat<T>(isrt, min, IXMLReadWriteBase::WRITE);
                             ReadWriteValueToStrFloat<T>(isrt, max, IXMLReadWriteBase::WRITE);
                             break;
-                        }
-                    default:
-                      throw Exception::InvalidArgument("XMLDataReadWrite::ReadWriteNEATValueToStr: Unsupported status of NEAT value");
+                    }
             }
         }
     }
@@ -486,29 +484,30 @@ namespace Validation
             if (NULL == m_pBC)
                 throw Exception::InvalidArgument("XMLImageReadWrite::XMLImageReadWrite constructor NULL input");
         }
-        virtual IContainer* ReadWrite (IContainer* pContainer, TiXmlElement* pXml, const RWOperationType rwtype)
-        {
-            IMemoryObject* pIm = static_cast<Image*> (pContainer);
+        virtual IContainer *ReadWrite(IContainer *pContainer,
+                                      TiXmlElement *pXml,
+                                      const RWOperationType rwtype) override {
+          IMemoryObject *pIm = static_cast<Image *>(pContainer);
 
-            ImageDesc desc;
+          ImageDesc desc;
 
-            if(WRITE == rwtype) desc = GetImageDescription(pIm->GetMemoryObjectDesc());
-            XMLReadWriteAttr(&desc, pXml, "ImageDesc", rwtype);
+          if (WRITE == rwtype)
+            desc = GetImageDescription(pIm->GetMemoryObjectDesc());
+          XMLReadWriteAttr(&desc, pXml, "ImageDesc", rwtype);
 
-            // Once buffer description is filled buffer is created.
-            pIm = (READ == rwtype) ? m_pBC->CreateImage(desc) : pIm;
+          // Once buffer description is filled buffer is created.
+          pIm = (READ == rwtype) ? m_pBC->CreateImage(desc) : pIm;
 
-            if(false == desc.IsNEAT())
-            {  // not NEAT case
-                ReadWriteImageBinary(pIm, pXml, rwtype);
-            }
-            else
-            {   // NEAT
-                throw Exception::NotImplemented("XMLImageReadWrite::ReadWrite "
-                    "NEAT image read/write operations has not implemented yet.");
-            }
-            return pIm;
+          if (false == desc.IsNEAT()) { // not NEAT case
+            ReadWriteImageBinary(pIm, pXml, rwtype);
+          } else { // NEAT
+            throw Exception::NotImplemented(
+                "XMLImageReadWrite::ReadWrite "
+                "NEAT image read/write operations has not implemented yet.");
+          }
+          return pIm;
         }
+
     private:
         IBufferContainer * m_pBC;
     };
@@ -528,24 +527,27 @@ namespace Validation
         }
 
         /// @brief read write Buffer data to IContainer
-        virtual IContainer* ReadWrite(IContainer* pContainer, TiXmlElement* pXml , const RWOperationType rwtype)
-        {
-            IMemoryObject * pB = static_cast<IMemoryObject*>(pContainer);
+        virtual IContainer *ReadWrite(IContainer *pContainer,
+                                      TiXmlElement *pXml,
+                                      const RWOperationType rwtype) override {
+          IMemoryObject *pB = static_cast<IMemoryObject *>(pContainer);
 
-            BufferDesc desc;
+          BufferDesc desc;
 
-            if(WRITE == rwtype) desc = GetBufferDescription(pB->GetMemoryObjectDesc());
-            XMLReadWriteAttr(&desc, pXml, "BufferDesc", rwtype);
+          if (WRITE == rwtype)
+            desc = GetBufferDescription(pB->GetMemoryObjectDesc());
+          XMLReadWriteAttr(&desc, pXml, "BufferDesc", rwtype);
 
-            // Once buffer description is filled buffer is created.
-            pB = (READ == rwtype) ? m_pBC->CreateBuffer(desc) : pB;
+          // Once buffer description is filled buffer is created.
+          pB = (READ == rwtype) ? m_pBC->CreateBuffer(desc) : pB;
 
-            TypeVal elemType = (desc.GetElementDescription().IsAggregate() && !desc.GetElementDescription().IsStruct()) ? 
-                desc.GetElementDescription().GetSubTypeDesc(0).GetType() :
-                desc.GetElementDescription().GetType();
+          TypeVal elemType =
+              (desc.GetElementDescription().IsAggregate() &&
+               !desc.GetElementDescription().IsStruct())
+                  ? desc.GetElementDescription().GetSubTypeDesc(0).GetType()
+                  : desc.GetElementDescription().GetType();
 
-            if(false == desc.IsNEAT())
-            {  // not NEAT case
+          if (false == desc.IsNEAT()) { // not NEAT case
 #define CASE_READWRITEBUFFER(_str, _type) case(_str): ReadWriteBufferVector<_type>(pB, pXml, rwtype); break;
 
                 switch(elemType)
@@ -566,10 +568,9 @@ namespace Validation
                     // Error! Unsupported vector length
                     throw Exception::IOError("XMLReader::ReadBuffer Unsupported data types");
                 }
-            }
+          }
 #define CASE_NEATREADWRITEBUFFER(_str, _type) case(_str): ReadWriteBufferVectorNEAT<_type>(pB, pXml, rwtype); break;
-            else
-            {   // NEAT 
+          else { // NEAT
                 switch(elemType)
                 {
                     CASE_NEATREADWRITEBUFFER(THALF,   CFloat16);
@@ -579,8 +580,7 @@ namespace Validation
                     // Error! Unsupported vector length
                     throw Exception::IOError("XMLReader::ReadBuffer Unsupported data types");
                 }
-
-            }
+          }
             return pB;
         }
 #undef CASE_NEATREADWRITEBUFFER
@@ -601,23 +601,27 @@ namespace Validation
                 throw Exception::InvalidArgument("XMLBufferReadWrite::XMLBufferReadWrite constructor NULL input");
         }
         /// @brief read write Buffer data to IContainer
-        virtual IContainer* ReadWrite(IContainer* pContainer, TiXmlElement* pXml , const RWOperationType rwtype)
-        {
-            IMemoryObject * pB = static_cast<IMemoryObject*>(pContainer);
-            if (Buffer::GetBufferName() == pB->GetName())
-            {
-                pXml = (IXMLReadWriteBase::READ == rwtype) ? pXml : new TiXmlElement("Buffer");
-                XMLBufferReadWrite rw(m_pBC);
-                rw.ReadWrite(pContainer, pXml, rwtype);
-            }
-            if (Image::GetImageName() == pB->GetName())
-            {
-                pXml = (IXMLReadWriteBase::READ == rwtype) ? pXml : new TiXmlElement("Image");
-                XMLImageReadWrite rw(m_pBC);
-                rw.ReadWrite(pContainer, pXml, rwtype);
-            }
-            return pB;
+        virtual IContainer *ReadWrite(IContainer *pContainer,
+                                      TiXmlElement *pXml,
+                                      const RWOperationType rwtype) override {
+          IMemoryObject *pB = static_cast<IMemoryObject *>(pContainer);
+          if (Buffer::GetBufferName() == pB->GetName()) {
+            pXml = (IXMLReadWriteBase::READ == rwtype)
+                       ? pXml
+                       : new TiXmlElement("Buffer");
+            XMLBufferReadWrite rw(m_pBC);
+            rw.ReadWrite(pContainer, pXml, rwtype);
+          }
+          if (Image::GetImageName() == pB->GetName()) {
+            pXml = (IXMLReadWriteBase::READ == rwtype)
+                       ? pXml
+                       : new TiXmlElement("Image");
+            XMLImageReadWrite rw(m_pBC);
+            rw.ReadWrite(pContainer, pXml, rwtype);
+          }
+          return pB;
         }
+
     private:
         IBufferContainer * m_pBC;
     };
@@ -628,89 +632,73 @@ namespace Validation
     {
     public:
         /// @brief read data to IContainer
-        virtual IContainer* ReadWrite(IContainer *pContainer, TiXmlElement* pXml , const RWOperationType rwtype)
-        {
-            IBufferContainer * pBC = static_cast<IBufferContainer*>(pContainer);
-            // Obtain container size - number of objects in container.
-            int32_t size_BC = (WRITE == rwtype) ? (int32_t) pBC->GetMemoryObjectCount() : 0;
-            XMLReadWriteAttr(&size_BC, pXml, "size", rwtype);
+      virtual IContainer *ReadWrite(IContainer *pContainer, TiXmlElement *pXml,
+                                    const RWOperationType rwtype) override {
+        IBufferContainer *pBC = static_cast<IBufferContainer *>(pContainer);
+        // Obtain container size - number of objects in container.
+        int32_t size_BC =
+            (WRITE == rwtype) ? (int32_t)pBC->GetMemoryObjectCount() : 0;
+        XMLReadWriteAttr(&size_BC, pXml, "size", rwtype);
 
-            IMemoryObject * pB = (READ == rwtype) ? NULL : pBC->GetMemoryObject(0);
-            TiXmlElement* memObjElem;
-            if (READ == rwtype)
-            {
-                // Read first xml element
-                memObjElem = pXml->FirstChildElement();
-                if (!memObjElem)
-                {
-                    throw Exception::InvalidArgument("BufferContainer must cointain at least one buffer or image!");
-                }
-            }
-            else
-            {
-                if (Buffer::GetBufferName() == pB->GetName())
-                {
-                    memObjElem = new TiXmlElement("Buffer");
-                }
-                else if (Image::GetImageName() == pB->GetName())
-                {
-                    memObjElem = new TiXmlElement("Image");
-                }
-                else
-                {
-                    throw Exception::InvalidArgument("XMLBufferContainerReadWrite: Unknown object to write");
-                }
-                pXml->LinkEndChild(memObjElem);
-            }
-            if (string("Buffer") == memObjElem->ValueStr())
-            {
-                XMLBufferReadWrite rw(pBC);
-                rw.ReadWrite(pB, memObjElem, rwtype);
-            }
-            if (string("Image") == memObjElem->ValueStr())
-            {
-                XMLImageReadWrite rw(pBC);
-                rw.ReadWrite(pB, memObjElem, rwtype);
-            }
-
-            for (int32_t cnt = 1; cnt < size_BC; ++cnt)
-            {
-                pB = (READ == rwtype) ? NULL : pBC->GetMemoryObject(cnt);
-                if (READ == rwtype)
-                {
-                    // Read first xml element
-                    memObjElem = memObjElem->NextSiblingElement();
-                    if (!memObjElem)
-                    {
-                        throw Exception::InvalidArgument("BufferContainer size doesn't correlate with the "
-                            "actual number of memory objects. Not enough buffers!");
-                    }
-                }
-                else
-                {
-                    if (Buffer::GetBufferName() == pB->GetName())
-                    {
-                        memObjElem = new TiXmlElement("Buffer");
-                    }
-                    if (Image::GetImageName() == pB->GetName())
-                    {
-                        memObjElem = new TiXmlElement("Image");
-                    }
-                    pXml->LinkEndChild(memObjElem);
-                }
-                if (string("Buffer") == memObjElem->ValueStr())
-                {
-                    XMLBufferReadWrite rw(pBC);
-                    rw.ReadWrite(pB, memObjElem, rwtype);
-                }
-                if (string("Image") == memObjElem->ValueStr())
-                {
-                    XMLImageReadWrite rw(pBC);
-                    rw.ReadWrite(pB, memObjElem, rwtype);
-                }
-            }
-            return pBC;
+        IMemoryObject *pB = (READ == rwtype) ? NULL : pBC->GetMemoryObject(0);
+        TiXmlElement *memObjElem;
+        if (READ == rwtype) {
+          // Read first xml element
+          memObjElem = pXml->FirstChildElement();
+          if (!memObjElem) {
+            throw Exception::InvalidArgument(
+                "BufferContainer must cointain at least one buffer or image!");
+          }
+        } else {
+          if (Buffer::GetBufferName() == pB->GetName()) {
+            memObjElem = new TiXmlElement("Buffer");
+          } else if (Image::GetImageName() == pB->GetName()) {
+            memObjElem = new TiXmlElement("Image");
+          } else {
+            throw Exception::InvalidArgument(
+                "XMLBufferContainerReadWrite: Unknown object to write");
+          }
+          pXml->LinkEndChild(memObjElem);
         }
+        if (string("Buffer") == memObjElem->ValueStr()) {
+          XMLBufferReadWrite rw(pBC);
+          rw.ReadWrite(pB, memObjElem, rwtype);
+        }
+        if (string("Image") == memObjElem->ValueStr()) {
+          XMLImageReadWrite rw(pBC);
+          rw.ReadWrite(pB, memObjElem, rwtype);
+        }
+
+        for (int32_t cnt = 1; cnt < size_BC; ++cnt) {
+          pB = (READ == rwtype) ? NULL : pBC->GetMemoryObject(cnt);
+          if (READ == rwtype) {
+            // Read first xml element
+            memObjElem = memObjElem->NextSiblingElement();
+            if (!memObjElem) {
+              throw Exception::InvalidArgument(
+                  "BufferContainer size doesn't correlate with the "
+                  "actual number of memory objects. Not enough buffers!");
+            }
+          } else {
+            if (Buffer::GetBufferName() == pB->GetName()) {
+              memObjElem = new TiXmlElement("Buffer");
+            }
+            if (Image::GetImageName() == pB->GetName()) {
+              memObjElem = new TiXmlElement("Image");
+            }
+            pXml->LinkEndChild(memObjElem);
+          }
+          if (string("Buffer") == memObjElem->ValueStr()) {
+            XMLBufferReadWrite rw(pBC);
+            rw.ReadWrite(pB, memObjElem, rwtype);
+          }
+          if (string("Image") == memObjElem->ValueStr()) {
+            XMLImageReadWrite rw(pBC);
+            rw.ReadWrite(pB, memObjElem, rwtype);
+          }
+        }
+        return pBC;
+      }
     };
 
     IContainer* XMLBufferContainerListReadWrite::ReadWriteBufferContainerList(IContainer *pContainer, TiXmlElement* pXml , const RWOperationType rwtype)

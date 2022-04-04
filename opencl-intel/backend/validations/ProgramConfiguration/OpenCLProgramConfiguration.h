@@ -19,12 +19,11 @@
 #include "mem_utils.h"
 
 #include "CL/cl.h"
-#define TIXML_USE_STL
-#include "tinyxml.h"
-#include <list>
-#include <cl_device_api.h>
-#include <vector>
+#include "tinyxml_wrapper.h"
 #include "llvm/Support/DataTypes.h"
+#include <cl_device_api.h>
+#include <list>
+#include <vector>
 
 #include <iostream>
 #include <iomanip>
@@ -181,24 +180,25 @@ namespace Validation
         }
 
     private:
-        bool VisitEnter( const TiXmlElement& element, const TiXmlAttribute* firstAttribute);
-        DataFileType GetDataFileType(const std::string& strFileType);
+      bool VisitEnter(const TiXmlElement &element,
+                      const TiXmlAttribute *firstAttribute) override;
+      DataFileType GetDataFileType(const std::string &strFileType);
 
+      std::string GetStampedPath(const std::string &path,
+                                 const std::vector<uint8_t> &stamp) {
+        std::ostringstream ss;
+        ss << path;
 
-        std::string GetStampedPath( const std::string& path, const std::vector<uint8_t>& stamp)
-        {
-            std::ostringstream ss;
-            ss << path;
-
-            if(stamp.size() > 0) {
-                ss << '.';
-                ss << std::hex << std::uppercase << std::setfill( '0' );
-                for (std::vector<uint8_t>::const_iterator i = stamp.begin(), e = stamp.end(); i != e; ++i)
-                ss << std::setw(2) << int(*i);
-            }
-            return ss.str();        
+        if (stamp.size() > 0) {
+          ss << '.';
+          ss << std::hex << std::uppercase << std::setfill('0');
+          for (std::vector<uint8_t>::const_iterator i = stamp.begin(),
+                                                    e = stamp.end();
+               i != e; ++i)
+            ss << std::setw(2) << int(*i);
         }
-
+        return ss.str();
+      }
 
     private:
         // Global work offset
@@ -276,7 +276,8 @@ namespace Validation
             return m_includeDirsList.end();
         }
     private:
-        bool VisitEnter( const TiXmlElement& element, const TiXmlAttribute* firstAttribute);
+      bool VisitEnter(const TiXmlElement &element,
+                      const TiXmlAttribute *firstAttribute) override;
 
     private:
         // List of include directories for OpenCL
@@ -299,9 +300,8 @@ namespace Validation
         ~OpenCLProgramConfiguration();
 
         /// @brief Returns the program file path
-        std::string GetProgramFilePath() const
-        {
-            return m_programFilePath;
+        std::string GetProgramFilePath() const override {
+          return m_programFilePath;
         }
 
         /// @brief Returns the type of the program file
@@ -310,10 +310,7 @@ namespace Validation
             return m_programFileType;
         }
 
-        std::string GetProgramName() const
-        {
-            return m_programName;
-        }
+        std::string GetProgramName() const override { return m_programName; }
 
         /// @brief Returns the compilation flags for the program file
         std::string GetCompilationFlags() const
@@ -361,9 +358,8 @@ namespace Validation
         }
 
         /// @brief Return number of kernel configurations to run.
-        size_t GetNumberOfKernelConfigurations() const
-        {
-            return m_kernels.size();
+        size_t GetNumberOfKernelConfigurations() const override {
+          return m_kernels.size();
         }
 
         /// @brief Return device mode.
@@ -373,9 +369,10 @@ namespace Validation
         }
 
     private:
-        bool VisitEnter( const TiXmlElement& element, const TiXmlAttribute* firstAttribute);
-        ProgramFileType GetProgramFileType(const std::string& strFileType);
-        DeviceMode GetProgramDeviceMode(const std::string& strDeviceMode);
+      bool VisitEnter(const TiXmlElement &element,
+                      const TiXmlAttribute *firstAttribute) override;
+      ProgramFileType GetProgramFileType(const std::string &strFileType);
+      DeviceMode GetProgramDeviceMode(const std::string &strDeviceMode);
 
     private:
         // Indicator whether to use vectorizer

@@ -86,8 +86,6 @@ void SATest::Run(TEST_MODE mode, IRunConfiguration* pRunConfiguration)
         case BUILD:
             RunBuildOnly( pRunConfiguration->GetBackendRunnerConfiguration() );
             break;
-        default:
-            throw Exception::TestFailException("Unsupported test mode.");
     }
 }
 

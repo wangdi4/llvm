@@ -3,6 +3,11 @@ set (TARGET_NAME ref_cl_builtins)
 # remember OCL builtins source dir
 set (REF_CL_BUILTIN_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
+# TODO: enable this warning later.
+# There is such warning since llvm::GenericValue is used as return type of C
+# function.
+add_compile_options("-Wno-return-type-c-linkage")
+
 #------------------- Utility functions ---------------------------
 function(tblgenrefoclblt OUTPUT_VAR OUTPUT_DIR IFN)
     string(REPLACE ".td" ".cpp" OFN ${IFN})

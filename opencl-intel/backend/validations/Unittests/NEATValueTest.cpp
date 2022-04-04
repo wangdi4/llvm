@@ -12,12 +12,12 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <gtest/gtest.h>
 #include "NEATValue.h"
 #include "NEATALUUtils.h"
 #include "RefALU.h"
-#include <iostream>
+#include "gtest_wrapper.h"
 #include <fstream>
+#include <iostream>
 
 using namespace Validation;
 using namespace std;

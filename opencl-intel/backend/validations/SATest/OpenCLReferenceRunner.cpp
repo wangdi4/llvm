@@ -88,7 +88,6 @@ using namespace Validation;
 using namespace Validation::Exception;
 using namespace llvm;
 
-static const size_t MAX_LOCAL_MEMORY_SIZE = 30000;
 // mutex for RunKernel to be thread-safe
 static ManagedStatic<sys::Mutex> g_interpreterLock;
 
@@ -111,35 +110,27 @@ extern "C" void initOCLBuiltinsWorkGroup();
 extern "C" void initOCLBuiltinsVLoadStore();
 extern "C" void initOCLBuiltinsExplMemFenceOps();
 
-
-OpenCLReferenceRunner::OpenCLReferenceRunner(bool bUseNEAT):
-    m_pLLVMContext(NULL),
-    m_pModule(NULL),
-    m_pRTModule(NULL),
-    m_pKernel(NULL),
-    m_pExecEngine(NULL),
-    m_pNEAT(NULL),
-    m_bUseNEAT(bUseNEAT),
-    m_bUseFmaNEAT(false)
-{
-    initOCLBuiltinsAsync();
-    initOCLBuiltinsAtomic();
-    initOCLBuiltinsCommon();
-    initOCLBuiltinsConvChar();
-    initOCLBuiltinsConvShort();
-    initOCLBuiltinsConvInt();
-    initOCLBuiltinsConvLong();
-    initOCLBuiltinsConvFPoint();
-    initOCLBuiltinsGeometric();
-    initOCLBuiltinsImages();
-    initOCLBuiltinsInteger();
-    initOCLBuiltinsMath();
-    initOCLBuiltinsMisc();
-    initOCLBuiltinsRelational();
-    initOCLBuiltinsWorkItem();
-    initOCLBuiltinsWorkGroup();
-    initOCLBuiltinsVLoadStore();
-    initOCLBuiltinsExplMemFenceOps();
+OpenCLReferenceRunner::OpenCLReferenceRunner(bool bUseNEAT)
+    : m_pModule(NULL), m_pKernel(NULL), m_bUseNEAT(bUseNEAT),
+      m_bUseFmaNEAT(false) {
+  initOCLBuiltinsAsync();
+  initOCLBuiltinsAtomic();
+  initOCLBuiltinsCommon();
+  initOCLBuiltinsConvChar();
+  initOCLBuiltinsConvShort();
+  initOCLBuiltinsConvInt();
+  initOCLBuiltinsConvLong();
+  initOCLBuiltinsConvFPoint();
+  initOCLBuiltinsGeometric();
+  initOCLBuiltinsImages();
+  initOCLBuiltinsInteger();
+  initOCLBuiltinsMath();
+  initOCLBuiltinsMisc();
+  initOCLBuiltinsRelational();
+  initOCLBuiltinsWorkItem();
+  initOCLBuiltinsWorkGroup();
+  initOCLBuiltinsVLoadStore();
+  initOCLBuiltinsExplMemFenceOps();
 }
 
 OpenCLReferenceRunner::~OpenCLReferenceRunner(void)

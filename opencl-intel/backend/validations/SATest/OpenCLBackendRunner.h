@@ -37,25 +37,6 @@ namespace Validation
         OpenCLBackendRunner(const BERunOptions& runConfig);
         ~OpenCLBackendRunner();
 
-        /// @brief Builds and executes a single test program
-        /// @param [OUT] runResult Result of test program execution
-        /// @param [IN] program Test program to execute
-        /// @param [IN] programConfig Configuration of the test program
-        /// @param [IN] runConfig Configuration of the test run
-        virtual void Run(IRunResult* runResult,
-                         const IProgram* program,
-                         const IProgramConfiguration* programConfig,
-                         const IRunComponentConfiguration* runConfig) = 0;
-
-        /// @brief Load the Volcano output from the file.
-        /// @param [OUT] runResult Result of test program execution
-        /// @param [IN] config Configuration of the test run
-        virtual void LoadOutput(IRunResult* pRunResult, const IProgramConfiguration* pConfig) = 0;
-
-        /// @brief Store the Volcano output to the file.
-        /// @param [IN] runResult Result of test program execution
-        /// @param [IN] config Configuration of the test run
-        virtual void StoreOutput(const IRunResult* pRunResult, const IProgramConfiguration* pConfig) const = 0;
     protected:
         /// @brief Loads the input buffer according to kernel configuration.
         /// @param pKernelConfig    [IN] kernel specific configuration

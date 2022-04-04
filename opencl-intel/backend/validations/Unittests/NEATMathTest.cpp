@@ -12,8 +12,7 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-
-#include <gtest/gtest.h>            // Test framework
+#include "gtest_wrapper.h" // Test framework
 
 #include "DataGenerator.h"
 #include "DGHelper.h"
@@ -160,9 +159,9 @@ public:
 // To enable double testing, add double to Types template arguments parameter
 typedef ::testing::Types<ValueTypeContainer<float,true>,ValueTypeContainer<float,false>,ValueTypeContainer<double,true>,ValueTypeContainer<double,false> > FloatTypesCommon;
 typedef ::testing::Types<ValueTypeContainer<float,true>,ValueTypeContainer<float,false> > Float32Types;
-TYPED_TEST_CASE(NEATMathTestOneArg, FloatTypesCommon);
-TYPED_TEST_CASE(NEATMathTestTwoArgs, FloatTypesCommon);
-TYPED_TEST_CASE(NEATMathTestThreeArgs, FloatTypesCommon);
+TYPED_TEST_SUITE(NEATMathTestOneArg, FloatTypesCommon, );
+TYPED_TEST_SUITE(NEATMathTestTwoArgs, FloatTypesCommon, );
+TYPED_TEST_SUITE(NEATMathTestThreeArgs, FloatTypesCommon, );
 
 TYPED_TEST(NEATMathTestOneArg, Ceil)
 {
@@ -1086,8 +1085,7 @@ template <typename T>
 class NEATExpFrmTestRun : public ALUTest {
 };
 
-
-TYPED_TEST_CASE(NEATExpTestRun, FloatTypesCommon);
+TYPED_TEST_SUITE(NEATExpTestRun, FloatTypesCommon, );
 TYPED_TEST(NEATExpTestRun, exp)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
@@ -1112,7 +1110,7 @@ TYPED_TEST(NEATExpTestRun, exp)
     expTest.TestExp(NEATFunc, NEATFuncVec, RefFunc, float(NEATALU::EXP_ERROR));
 }
 
-TYPED_TEST_CASE(NEATExpFrmTestRun, Float32Types);
+TYPED_TEST_SUITE(NEATExpFrmTestRun, Float32Types, );
 TYPED_TEST(NEATExpFrmTestRun, exp_frm)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
@@ -1696,7 +1694,7 @@ class NEATLogTestRun : public ALUTest {
 template <typename T>
 class NEATLogFrmTestRun : public ALUTest {
 };
-TYPED_TEST_CASE(NEATLogTestRun, FloatTypesCommon);
+TYPED_TEST_SUITE(NEATLogTestRun, FloatTypesCommon, );
 
 TYPED_TEST(NEATLogTestRun, log)
 {
@@ -1720,7 +1718,7 @@ TYPED_TEST(NEATLogTestRun, log)
     logTest.TestLog(NEATFunc, NEATFuncVec, RefFunc, float(NEATALU::LOG_ERROR), TypeP(0.0));
 }
 
-TYPED_TEST_CASE(NEATLogFrmTestRun, Float32Types);
+TYPED_TEST_SUITE(NEATLogFrmTestRun, Float32Types, );
 TYPED_TEST(NEATLogFrmTestRun, log_frm)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
@@ -1967,7 +1965,7 @@ TYPED_TEST(NEATLogTestRun, log1p)
     logTest.TestLog(NEATFunc, NEATFuncVec, RefFunc, float(NEATALU::LOG1P_ERROR), TypeP(-1.0));
 }
 
-TYPED_TEST_CASE(NEATLogbTest, FloatTypesCommon);
+TYPED_TEST_SUITE(NEATLogbTest, FloatTypesCommon, );
 
 TYPED_TEST(NEATMathTestOneArg, logb)
 {
@@ -2340,8 +2338,12 @@ TYPED_TEST(NEATMathTestTwoArgs, pow)
         TestPowInterval<TypeP>(x, y, testVal);
     }
     /// test case for exponent close to 0.9 .. 1.1 values to cover
-    TypeP ExpMin[this->NUM_TESTS*this->vectorWidth];
-    TypeP ExpMax[this->NUM_TESTS*this->vectorWidth];
+    TypeP *ExpMin =
+        (TypeP *)malloc(this->NUM_TESTS * this->vectorWidth * sizeof(TypeP));
+    assert(ExpMin != nullptr);
+    TypeP *ExpMax =
+        (TypeP *)malloc(this->NUM_TESTS * this->vectorWidth * sizeof(TypeP));
+    assert(ExpMax != nullptr);
     VectorWidth Width = VectorWidthWrapper::ValueOf(this->vectorWidth);
     GenerateRangedVectorsAutoSeed(this->dataTypeVal, &ExpMin[0], Width, this->NUM_TESTS, (TypeP)0.9, (TypeP)1.1);
     GenerateRangedVectorsAutoSeed(this->dataTypeVal, &ExpMax[0], Width, this->NUM_TESTS, (TypeP)0.9, (TypeP)1.1);
@@ -2478,8 +2480,13 @@ TYPED_TEST(NEATMathTestTwoArgs, powr)
         TestPowrInterval<TypeP>(x, y, testVal);
     }
     /// test case for exponent close to 0.9 .. 1.1 values to cover
-    TypeP ExpMin[this->NUM_TESTS*this->vectorWidth];
-    TypeP ExpMax[this->NUM_TESTS*this->vectorWidth];
+    TypeP *ExpMin =
+        (TypeP *)malloc(this->NUM_TESTS * this->vectorWidth * sizeof(TypeP));
+    assert(ExpMin != nullptr);
+    TypeP *ExpMax =
+        (TypeP *)malloc(this->NUM_TESTS * this->vectorWidth * sizeof(TypeP));
+    assert(ExpMax != nullptr);
+
     VectorWidth Width = VectorWidthWrapper::ValueOf(this->vectorWidth);
     GenerateRangedVectorsAutoSeed(this->dataTypeVal, &ExpMin[0], Width, this->NUM_TESTS, (TypeP)0.9, (TypeP)1.1);
     GenerateRangedVectorsAutoSeed(this->dataTypeVal, &ExpMax[0], Width, this->NUM_TESTS, (TypeP)0.9, (TypeP)1.1);
@@ -2586,8 +2593,13 @@ TYPED_TEST(NEATMathTestTwoArgs, half_powr)
         TestPowrInterval<TypeP>(x, y, testVal);
     }
     /// test case for exponent close to 0.9 .. 1.1 values to cover
-    TypeP ExpMin[this->NUM_TESTS*this->vectorWidth];
-    TypeP ExpMax[this->NUM_TESTS*this->vectorWidth];
+    TypeP *ExpMin =
+        (TypeP *)malloc(this->NUM_TESTS * this->vectorWidth * sizeof(TypeP));
+    assert(ExpMin != nullptr);
+    TypeP *ExpMax =
+        (TypeP *)malloc(this->NUM_TESTS * this->vectorWidth * sizeof(TypeP));
+    assert(ExpMax != nullptr);
+
     VectorWidth Width = VectorWidthWrapper::ValueOf(this->vectorWidth);
     GenerateRangedVectorsAutoSeed(this->dataTypeVal, &ExpMin[0], Width, this->NUM_TESTS, (TypeP)0.9, (TypeP)1.1);
     GenerateRangedVectorsAutoSeed(this->dataTypeVal, &ExpMax[0], Width, this->NUM_TESTS, (TypeP)0.9, (TypeP)1.1);
@@ -2635,8 +2647,12 @@ TYPED_TEST(NEATMathTestOneArg, fabs)
     TypeP * firstFloat = &this->Arg1Min[0];
     TypeP * secondFloat = &this->Arg1Max[0];
 
-    TypeP firstFloatRanged[this->NUM_TESTS*this->vectorWidth];
-    TypeP secondFloatRanged[this->NUM_TESTS*this->vectorWidth];
+    TypeP *firstFloatRanged =
+        (TypeP *)malloc(this->NUM_TESTS * this->vectorWidth * sizeof(TypeP));
+    assert(firstFloatRanged != nullptr);
+    TypeP *secondFloatRanged =
+        (TypeP *)malloc(this->NUM_TESTS * this->vectorWidth * sizeof(TypeP));
+    assert(secondFloatRanged != nullptr);
 
     VectorWidth curWidth = VectorWidthWrapper::ValueOf(this->vectorWidth);
 
@@ -2935,7 +2951,7 @@ public:
 template <typename T>
 class NEATRoundingTestRun : public ALUTest {
 };
-TYPED_TEST_CASE(NEATRoundingTestRun, FloatTypesCommon);
+TYPED_TEST_SUITE(NEATRoundingTestRun, FloatTypesCommon, );
 
 TYPED_TEST(NEATRoundingTestRun, floor)
 {
@@ -3528,7 +3544,9 @@ TYPED_TEST(NEATMathTestOneArg, ldexp)
         return;
     }
 
-    int32_t Arg2[this->NUM_TESTS*this->vectorWidth];
+    int32_t *Arg2 = (int32_t *)malloc(this->NUM_TESTS * this->vectorWidth *
+                                      sizeof(int32_t));
+    assert(Arg2 != nullptr);
 
     // Fill up argument values with random data
     GenerateRandomVectorsAutoSeed(I32, &Arg2[0], this->currWidth, this->NUM_TESTS);
@@ -3859,7 +3877,9 @@ TYPED_TEST(NEATMathTestOneArg, rootn)
         return;
     }
 
-    int32_t Arg2[this->NUM_TESTS*this->vectorWidth];
+    int32_t *Arg2 = (int32_t *)malloc(this->NUM_TESTS * this->vectorWidth *
+                                      sizeof(int32_t));
+    assert(Arg2 != nullptr);
 
     GenerateRandomVectorsAutoSeed(I32, &Arg2[0], this->currWidth, this->NUM_TESTS);
 
@@ -4112,7 +4132,9 @@ TYPED_TEST(NEATMathTestOneArg, pown)
         return;
     }
 
-    int32_t Arg2[this->NUM_TESTS*this->vectorWidth];
+    int32_t *Arg2 = (int32_t *)malloc(this->NUM_TESTS * this->vectorWidth *
+                                      sizeof(int32_t));
+    assert(Arg2 != nullptr);
 
     GenerateRandomVectorsAutoSeed(I32, &Arg2[0], this->currWidth, this->NUM_TESTS/2);
     GenerateRangedVectorsAutoSeed(I32, &Arg2[this->NUM_TESTS/2], this->currWidth, this->NUM_TESTS/2, -10, 10);
@@ -4565,8 +4587,7 @@ template <typename T>
 class NEATMaxMinMagTestRun : public ALUTest {
 };
 
-
-TYPED_TEST_CASE(NEATMaxMinMagTestRun, FloatTypesCommon);
+TYPED_TEST_SUITE(NEATMaxMinMagTestRun, FloatTypesCommon, );
 TYPED_TEST(NEATMaxMinMagTestRun, maxmag)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
@@ -4590,7 +4611,7 @@ TYPED_TEST(NEATMaxMinMagTestRun, maxmag)
     test.TestOtherValues(NEATFunc, NEATFuncVec, RefFunc);
 }
 
-TYPED_TEST_CASE(NEATMaxMinMagTestRun, FloatTypesCommon);
+TYPED_TEST_SUITE(NEATMaxMinMagTestRun, FloatTypesCommon, );
 TYPED_TEST(NEATMaxMinMagTestRun, minmag)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false

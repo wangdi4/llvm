@@ -20,9 +20,7 @@
 #include <limits>
 #include "llvm/Support/DataTypes.h"
 
-#define TIXML_USE_STL
-#include "tinyxml.h"
-
+#include "tinyxml_wrapper.h"
 
 #include "Exception.h"
 #include "IDataWriter.h"
@@ -54,28 +52,27 @@ namespace Validation
         /// @param [IN] - pContainer pointer to object with IBufferContainerList
         ///        interface
         /// @throws Exception::InvalidArgument, Exception::IOError
-        virtual void Write(const IContainer * pContainer)
-        {
-            IBufferContainerList * pBCL = const_cast<IBufferContainerList *>
-                (static_cast<const IBufferContainerList*>(pContainer));
-            if(NULL == pBCL)
-                throw Exception::InvalidArgument("XMLBufferContainerListWriter"
-                "::Write() Input object is NULL");
+        virtual void Write(const IContainer *pContainer) override {
+          IBufferContainerList *pBCL = const_cast<IBufferContainerList *>(
+              static_cast<const IBufferContainerList *>(pContainer));
+          if (NULL == pBCL)
+            throw Exception::InvalidArgument("XMLBufferContainerListWriter"
+                                             "::Write() Input object is NULL");
 
-            TiXmlDocument XMLDoc;
+          TiXmlDocument XMLDoc;
 
-            // create declaration for XML file
-            XMLDoc.LinkEndChild( new TiXmlDeclaration("1.0", "UTF-8", ""));
+          // create declaration for XML file
+          XMLDoc.LinkEndChild(new TiXmlDeclaration("1.0", "UTF-8", ""));
 
-            // Create ICSCData node
-            TiXmlElement * pXMLNode = new TiXmlElement( "ICSCData" );
-            XMLDoc.LinkEndChild(pXMLNode);
+          // Create ICSCData node
+          TiXmlElement *pXMLNode = new TiXmlElement("ICSCData");
+          XMLDoc.LinkEndChild(pXMLNode);
 
-            XMLBufferContainerListReadWrite rw;
-            rw.ReadWriteBufferContainerList(pBCL, pXMLNode, 
-              IXMLReadWriteBase::WRITE);
+          XMLBufferContainerListReadWrite rw;
+          rw.ReadWriteBufferContainerList(pBCL, pXMLNode,
+                                          IXMLReadWriteBase::WRITE);
 
-            XMLDoc.SaveFile(m_fileName);
+          XMLDoc.SaveFile(m_fileName);
         };
 
     private:

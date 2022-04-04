@@ -17,11 +17,11 @@
 #include "DGHelper.h"
 
 #include "FloatOperations.h"
+#include "NEATALU.h"
+#include "NEATValue.h"
 #include "NEATVector.h"
 #include "RefALU.h"
-#include "NEATALU.h"
-#include <gtest/gtest.h>
-#include "NEATValue.h"
+#include "gtest_wrapper.h"
 #include <fstream>
 
 #include "NEATALUUtils.h"
@@ -33,7 +33,7 @@ using namespace Validation;
 template <typename T>
 class NEATAluTyped : public ::testing::Test {};
 typedef ::testing::Types<float, double> FloatTypes;
-TYPED_TEST_CASE(NEATAluTyped, FloatTypes);
+TYPED_TEST_SUITE(NEATAluTyped, FloatTypes, );
 
 typedef NEATVector (*NEATVectorBinaryOp)(const NEATVector&, const NEATVector&);
 
@@ -986,11 +986,7 @@ static bool areEqualFloatDouble (const NEATValue& val_1/*float*/, const NEATValu
                     res &= (double(maxF) == maxD);
                 }
                 return res;
-            }
-            break;
-        default:
-            return false;
-            break;
+        } break;
     }
 
 }
@@ -1038,13 +1034,9 @@ static bool areEqualDoubleFloat (const NEATValue& val_1/*double*/, const NEATVal
                 res &= (float(maxD) == maxF);
             }
             return res;
-         }
-            break;
-        default:
-            return false;
-            break;
+        } break;
     }
-
+    return false;
 }
 
 TEST(NEATAlu, fpext)
@@ -1749,8 +1741,8 @@ class NEATAluTypedFastRelaxedMath : public NEATAluTypedMath<T> {
 
 typedef ::testing::Types<ValueTypeContainer<float,true>,ValueTypeContainer<float,false>,ValueTypeContainer<double,true>,ValueTypeContainer<double,false> > FloatTypesMathFTZ;
 typedef ::testing::Types<ValueTypeContainer<float,true>,ValueTypeContainer<float,false> > Float32TypeMathFTZ;
-TYPED_TEST_CASE(NEATAluTypedMath, FloatTypesMathFTZ);
-TYPED_TEST_CASE(NEATAluTypedFastRelaxedMath, Float32TypeMathFTZ);
+TYPED_TEST_SUITE(NEATAluTypedMath, FloatTypesMathFTZ, );
+TYPED_TEST_SUITE(NEATAluTypedFastRelaxedMath, Float32TypeMathFTZ, );
 
 template <typename T>
 class NEATDivTest {
@@ -1990,8 +1982,10 @@ public:
             NEATValue testAccVal, testIntVal;
             NEATValue refAccVal, refIntVal;
 
-            T minRef[this->vectorWidth];
-            T maxRef[this->vectorWidth];
+            T *minRef = (T *)malloc(this->vectorWidth * sizeof(T));
+            assert(minRef != nullptr);
+            T *maxRef = (T *)malloc(this->vectorWidth * sizeof(T));
+            assert(maxRef != nullptr);
 
             for(uint32_t i = 0; i<this->vectorWidth; i++)
             {
@@ -2075,7 +2069,7 @@ template <typename T>
 class NEATDivFrmTestRun : public ALUTest {
 };
 
-TYPED_TEST_CASE(NEATDivTestRun, FloatTypesMathFTZ);
+TYPED_TEST_SUITE(NEATDivTestRun, FloatTypesMathFTZ, );
 TYPED_TEST(NEATDivTestRun, div)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
@@ -2101,8 +2095,7 @@ TYPED_TEST(NEATDivTestRun, div)
     divTest.TestDiv(NEATFunc, NEATFuncVec, RefFunc, divError);
 }
 
-
-TYPED_TEST_CASE(NEATDivFrmTestRun, Float32TypeMathFTZ);
+TYPED_TEST_SUITE(NEATDivFrmTestRun, Float32TypeMathFTZ, );
 TYPED_TEST(NEATDivFrmTestRun, div_frm)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
@@ -9013,7 +9006,7 @@ template <typename T>
 class NEATLengthRun : public ALUTest {
 };
 
-TYPED_TEST_CASE(NEATLengthRun, FloatTypesMathFTZ);
+TYPED_TEST_SUITE(NEATLengthRun, FloatTypesMathFTZ, );
 TYPED_TEST(NEATLengthRun, length)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
@@ -9258,7 +9251,7 @@ template <typename T>
 class NEATDistanceRun : public ALUTest {
 };
 
-TYPED_TEST_CASE(NEATDistanceRun, FloatTypesMathFTZ);
+TYPED_TEST_SUITE(NEATDistanceRun, FloatTypesMathFTZ, );
 TYPED_TEST(NEATDistanceRun, distance)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
@@ -9614,7 +9607,7 @@ class NEATCrossRun : public ALUTest {
 };
 
 typedef ::testing::Types<ValueTypeContainer<float,true>,ValueTypeContainer<float,false>, ValueTypeContainer<double,true>,ValueTypeContainer<double,false> > FloatTypesMathCross;
-TYPED_TEST_CASE(NEATCrossRun, FloatTypesMathCross);
+TYPED_TEST_SUITE(NEATCrossRun, FloatTypesMathCross, );
 TYPED_TEST(NEATCrossRun, cross)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
@@ -10191,7 +10184,7 @@ template <typename T>
 class NEATNormalizeRun : public ALUTest {
 };
 
-TYPED_TEST_CASE(NEATNormalizeRun, FloatTypesMathFTZ);
+TYPED_TEST_SUITE(NEATNormalizeRun, FloatTypesMathFTZ, );
 TYPED_TEST(NEATNormalizeRun, normalize)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
@@ -10884,7 +10877,7 @@ typedef ::testing::Types<SelectTypeContainer<float,int8_t>,SelectTypeContainer<f
                          SelectTypeContainer<double,int32_t>,SelectTypeContainer<double,uint32_t>,
                          SelectTypeContainer<double,int64_t>,SelectTypeContainer<double,uint64_t> > SelectTypes;
 
-TYPED_TEST_CASE(NEATRelationalTestSelect, SelectTypes);
+TYPED_TEST_SUITE(NEATRelationalTestSelect, SelectTypes, );
 
 TYPED_TEST(NEATRelationalTestSelect, select)
 {

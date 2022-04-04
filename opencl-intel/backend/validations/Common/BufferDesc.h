@@ -72,22 +72,28 @@ namespace Validation
         }
 
         /// @brief Computes buffer size.
-        std::size_t GetSizeInBytes() const {
-            return m_numOfElements * m_elemenType.GetSizeInBytes();
+        std::size_t GetSizeInBytes() const override {
+          return m_numOfElements * m_elemenType.GetSizeInBytes();
         }
 
         TypeDesc GetElementDescription() const {return m_elemenType;}
         void SetElementDecs(TypeDesc in_elemType) {m_elemenType = in_elemType;}
 
-        virtual bool IsNEAT() const {return m_elemenType.IsNEAT();}
-        virtual void SetNeat(const bool inNEAT) {m_elemenType.SetNeat(inNEAT);}
+        virtual bool IsNEAT() const override { return m_elemenType.IsNEAT(); }
+        virtual void SetNeat(const bool inNEAT) override {
+          m_elemenType.SetNeat(inNEAT);
+        }
 
-        virtual IMemoryObjectDesc * Clone() const { return new BufferDesc(*this); }
+        virtual IMemoryObjectDesc *Clone() const override {
+          return new BufferDesc(*this);
+        }
 
         virtual std::string ToString() {    return("BufferDescriptor"); }
 
         /// @brief get Name of class
-        virtual std::string GetName() const {return GetBufferDescName(); } 
+        virtual std::string GetName() const override {
+          return GetBufferDescName();
+        }
 
         /// @brief get static Name of class
         static std::string GetBufferDescName() {return "BufferDesc"; } 

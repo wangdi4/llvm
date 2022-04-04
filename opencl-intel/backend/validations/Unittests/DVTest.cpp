@@ -12,9 +12,9 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <gtest/gtest.h>
 #include "cl_types.h"
 #include "common_clang.h"
+#include "gtest_wrapper.h"
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
@@ -23,10 +23,9 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "OCLBuilder.h"
 
-#include<fstream>
-#define TIXML_USE_STL
-#include "tinyxml.h"
 #include "BufferContainerList.h"
+#include "tinyxml_wrapper.h"
+#include <fstream>
 
 #include "OCLKernelDataGenerator.h"
 
@@ -170,7 +169,7 @@ static void  testFindSamplers(std::string sourceIn, std::vector<unsigned int >& 
     const void* binaryBuff;
     size_t binaryBuffsize;
 
-    binaryBuff = (char*)pBinary->GetIR();
+    binaryBuff = reinterpret_cast<char *>(const_cast<void *>(pBinary->GetIR()));
     binaryBuffsize   = pBinary->GetIRSize();
 
     llvm::SMDiagnostic err;
@@ -350,7 +349,7 @@ TEST(DataVersionTest, DISABLED_ConvertData) /* CSSD100018373 */ {
     const void* binaryBuff;
     size_t binaryBuffsize;
 
-    binaryBuff = (char*)pBinary->GetIR();
+    binaryBuff = reinterpret_cast<char *>(const_cast<void *>(pBinary->GetIR()));
     binaryBuffsize   = pBinary->GetIRSize();
 
     llvm::SMDiagnostic err;

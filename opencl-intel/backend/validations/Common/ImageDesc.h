@@ -122,55 +122,54 @@ namespace Validation
 
         /// get image data size in bytes
         /// in case of NEAT returns correct number of bytes occupied by NEAT image
-        inline size_t GetSizeInBytes() const {
-            size_t res = 0;
-            if(m_isNEAT)
-            {
-                switch(m_imageType.GetValue()) {
-                    case OpenCL_MEM_OBJECT_IMAGE1D :
-                    case OpenCL_MEM_OBJECT_IMAGE1D_BUFFER :
-                        res = GetElementSize() * m_size.width;
-                        break;
-                    case OpenCL_MEM_OBJECT_IMAGE1D_ARRAY :
-                        res = GetElementSize() * m_size.width * m_size.array_size;
-                        break;
-                    case OpenCL_MEM_OBJECT_IMAGE2D :
-                        res = GetElementSize() * m_size.width * m_size.height;
-                        break;
-                    case OpenCL_MEM_OBJECT_IMAGE2D_ARRAY :
-                        res =  GetElementSize() * m_size.width * m_size.height * m_size.array_size;
-                        break;
-                    case OpenCL_MEM_OBJECT_IMAGE3D :
-                        res =  GetElementSize() * m_size.width * m_size.height * m_size.depth;
-                        break;
-                    default :
-                        throw Exception::OutOfRange("Incorrect image type.");
-                }
+        inline size_t GetSizeInBytes() const override {
+          size_t res = 0;
+          if (m_isNEAT) {
+            switch (m_imageType.GetValue()) {
+            case OpenCL_MEM_OBJECT_IMAGE1D:
+            case OpenCL_MEM_OBJECT_IMAGE1D_BUFFER:
+              res = GetElementSize() * m_size.width;
+              break;
+            case OpenCL_MEM_OBJECT_IMAGE1D_ARRAY:
+              res = GetElementSize() * m_size.width * m_size.array_size;
+              break;
+            case OpenCL_MEM_OBJECT_IMAGE2D:
+              res = GetElementSize() * m_size.width * m_size.height;
+              break;
+            case OpenCL_MEM_OBJECT_IMAGE2D_ARRAY:
+              res = GetElementSize() * m_size.width * m_size.height *
+                    m_size.array_size;
+              break;
+            case OpenCL_MEM_OBJECT_IMAGE3D:
+              res = GetElementSize() * m_size.width * m_size.height *
+                    m_size.depth;
+              break;
+            default:
+              throw Exception::OutOfRange("Incorrect image type.");
             }
-            else
-            {
-                switch(m_imageType.GetValue()) {
-                    case OpenCL_MEM_OBJECT_IMAGE1D :
-                    case OpenCL_MEM_OBJECT_IMAGE1D_BUFFER :
-                        res = m_size.row;
-                        break;
-                    case OpenCL_MEM_OBJECT_IMAGE1D_ARRAY :
-                        res = m_size.slice * m_size.array_size;
-                        break;
-                    case OpenCL_MEM_OBJECT_IMAGE2D :
-                        res = m_size.row * m_size.height;
-                        break;
-                    case OpenCL_MEM_OBJECT_IMAGE2D_ARRAY :
-                        res =  m_size.slice * m_size.array_size;
-                        break;
-                    case OpenCL_MEM_OBJECT_IMAGE3D :
-                        res =  m_size.slice * m_size.depth;
-                        break;
-                    default :
-                        throw Exception::OutOfRange("Incorrect image type.");
-                }
+          } else {
+            switch (m_imageType.GetValue()) {
+            case OpenCL_MEM_OBJECT_IMAGE1D:
+            case OpenCL_MEM_OBJECT_IMAGE1D_BUFFER:
+              res = m_size.row;
+              break;
+            case OpenCL_MEM_OBJECT_IMAGE1D_ARRAY:
+              res = m_size.slice * m_size.array_size;
+              break;
+            case OpenCL_MEM_OBJECT_IMAGE2D:
+              res = m_size.row * m_size.height;
+              break;
+            case OpenCL_MEM_OBJECT_IMAGE2D_ARRAY:
+              res = m_size.slice * m_size.array_size;
+              break;
+            case OpenCL_MEM_OBJECT_IMAGE3D:
+              res = m_size.slice * m_size.depth;
+              break;
+            default:
+              throw Exception::OutOfRange("Incorrect image type.");
             }
-            return res;
+          }
+          return res;
         }
 
         /// obtain pixel size in bytes
@@ -188,23 +187,21 @@ namespace Validation
         }
 
         /// If image contains NEAT
-        virtual bool IsNEAT() const
-        {
-            return m_isNEAT;
-        }
+        virtual bool IsNEAT() const override { return m_isNEAT; }
 
         /// Set Neat flag
-        virtual void SetNeat(const bool in_IsNeat) {
-            // OpenCL images which can be written are 2D images (OpenCL 1.1).
-            // So NEAT tracks write only 2D images with Float pixel data type
-            // other images are considered as accurate. NEAT assumes their pixel values are accurate
-            // and obtains them from Interpreter Context
-            if(in_IsNeat)
-            {
-                assert((m_dataType.GetValue() == OpenCL_FLOAT) && "ImageDesc with NEAT supports only FLOAT images");
-                m_size = GetNEATImageSizeDesc(m_size, GetChannelCount(m_order.GetValue()));
-            }
-            m_isNEAT = in_IsNeat;
+        virtual void SetNeat(const bool in_IsNeat) override {
+          // OpenCL images which can be written are 2D images (OpenCL 1.1).
+          // So NEAT tracks write only 2D images with Float pixel data type
+          // other images are considered as accurate. NEAT assumes their pixel
+          // values are accurate and obtains them from Interpreter Context
+          if (in_IsNeat) {
+            assert((m_dataType.GetValue() == OpenCL_FLOAT) &&
+                   "ImageDesc with NEAT supports only FLOAT images");
+            m_size = GetNEATImageSizeDesc(m_size,
+                                          GetChannelCount(m_order.GetValue()));
+          }
+          m_isNEAT = in_IsNeat;
         }
 
         /// assignment
@@ -221,13 +218,14 @@ namespace Validation
         }
 
         /// clone ImageDesc
-        virtual IMemoryObjectDesc * Clone() const
-        {
-            return new ImageDesc(*this);
+        virtual IMemoryObjectDesc *Clone() const override {
+          return new ImageDesc(*this);
         }
 
         /// @brief get Name of class
-        virtual std::string GetName() const { return GetImageDescName(); }
+        virtual std::string GetName() const override {
+          return GetImageDescName();
+        }
 
         /// @brief Static Name of class
         static std::string GetImageDescName() { return "ImageDesc"; }

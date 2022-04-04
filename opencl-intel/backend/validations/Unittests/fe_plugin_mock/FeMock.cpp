@@ -26,31 +26,27 @@ struct FePluginMock: ICLFrontendPlugin {
   FePluginMock(){
   }
 
-  void OnLink (const LinkData* data){
-    printf ("on link was called\n");
-  }
+  void OnLink(const LinkData *data) override { printf("on link was called\n"); }
 
-  void OnCompile (const CompileData* data){
+  void OnCompile(const CompileData *data) override {
     SourceFile file("my name is", "slim shady", "");
     const_cast<CompileData*>(data)->sourceFile(file);
   }
 };
 
 struct NullPlugin: ICLDevBackendPlugin{
-  void OnCreateBinary(const ICLDevBackendKernel_* pKernel,
-                      const _cl_work_description_type* pWorkDesc,
-                      size_t bufSize,
-                      void* pArgsBuffer){}
+  void OnCreateBinary(const ICLDevBackendKernel_ *pKernel,
+                      const _cl_work_description_type *pWorkDesc,
+                      size_t bufSize, void *pArgsBuffer) override {}
 
-  void OnCreateKernel(const ICLDevBackendProgram_* pProgram,
-                      const ICLDevBackendKernel_* pKernel,
-                      const void* pFunction){}
+  void OnCreateKernel(const ICLDevBackendProgram_ *pProgram,
+                      const ICLDevBackendKernel_ *pKernel,
+                      const void *pFunction) override {}
 
-  void OnCreateProgram(const void* pBinary,
-                       size_t uiBinarySize,
-                       const ICLDevBackendProgram_* pProgram){}
+  void OnCreateProgram(const void *pBinary, size_t uiBinarySize,
+                       const ICLDevBackendProgram_ *pProgram) override {}
 
-  void OnReleaseProgram(const ICLDevBackendProgram_* pProgram){}
+  void OnReleaseProgram(const ICLDevBackendProgram_ *pProgram) override {}
 };
 
 struct DummyPlugin: IPlugin{
@@ -59,14 +55,14 @@ struct DummyPlugin: IPlugin{
 
   DummyPlugin(): pfe(NULL), pbe(NULL){}
 
-  ICLFrontendPlugin* getFrontendPlugin(){
+  ICLFrontendPlugin *getFrontendPlugin() override {
     if (pfe)
       return pfe;
     pfe = new FePluginMock();
     return pfe;
   }
 
-  DeviceBackend::ICLDevBackendPlugin* getBackendPlugin(){
+  DeviceBackend::ICLDevBackendPlugin *getBackendPlugin() override {
     if(pbe)
       return pbe;
     pbe = new NullPlugin();

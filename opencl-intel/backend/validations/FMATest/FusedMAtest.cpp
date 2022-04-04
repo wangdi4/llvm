@@ -33,13 +33,12 @@
 
 // Includes:
 #include "CL/cl.h"
-#include <sys/stat.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include "gtest_wrapper.h"
 #include <iostream>
-#include <gtest/gtest.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string>
-
+#include <sys/stat.h>
 
 //Define:
 #define SCALAR         1

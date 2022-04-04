@@ -198,51 +198,56 @@ typedef std::pair<const OclBuiltin*,std::string> TypedBi;
 typedef std::list<TypedBi> TypedBiList;
 typedef TypedBiList::const_iterator TypedBiIter;
 
-  ~MangledNameEmmiter(){
-    std::string err;
-    llvm::SmallString<128> fileName;
-    llvm::sys::fs::createUniqueFile("builtins-%%%%%%%.ll", fileName);
-    llvm::SMDiagnostic errDiagnostic;
-    llvm::LLVMContext context;
-    std::list<const OclBuiltin*>::const_iterator biit = m_builtins.begin(),
-    bie = m_builtins.end();
-    TypedBiList typedbiList;
-    for(; biit != bie ; ++biit){
-      OclBuiltin::const_type_iterator typeIter, typeEnd = (*biit)->type_end();
-      for (typeIter=(*biit)->type_begin() ; typeIter!=typeEnd; ++typeIter){
-        TypedBi typedBi( *biit, (*typeIter)->getName() );
-        typedbiList.push_back( typedBi );
-      }
+virtual ~MangledNameEmmiter() {
+  std::string err;
+  llvm::SmallString<128> fileName;
+  llvm::sys::fs::createUniqueFile("builtins-%%%%%%%.ll", fileName);
+  llvm::SMDiagnostic errDiagnostic;
+  llvm::LLVMContext context;
+  std::list<const OclBuiltin *>::const_iterator biit = m_builtins.begin(),
+                                                bie = m_builtins.end();
+  TypedBiList typedbiList;
+  for (; biit != bie; ++biit) {
+    OclBuiltin::const_type_iterator typeIter, typeEnd = (*biit)->type_end();
+    for (typeIter = (*biit)->type_begin(); typeIter != typeEnd; ++typeIter) {
+      TypedBi typedBi(*biit, (*typeIter)->getName());
+      typedbiList.push_back(typedBi);
     }
-    //enable double extentions in clang
-    std::string code = "#pragma OPENCL EXTENSION cl_khr_depth_images : enable\n";
-    typedbiList.sort(isLess);
-    TypedBiIter typeit, typee = typedbiList.end();
-    for(typeit = typedbiList.begin(); typeit != typee ; ++typeit)
-      code += generateBuiltinOverload(typeit->first, typeit->second);
-    build(code, std::string(fileName));
-    std::unique_ptr<llvm::Module> pModule = llvm::parseIRFile(fileName.str(), errDiagnostic, context);
-    assert(pModule && "module parsing failed");
-    //deleting the temporary output file
-    remove(fileName.c_str());
-    llvm::Module::const_iterator it = pModule->begin(), e = pModule->end();
-    assert(pModule && "null llvm module");
-    //assert(it != e && "module contains no functions!" );
-
-    typeit = typedbiList.begin();
-    assert(pModule->size() == typedbiList.size() && "number of builded functions does not match builtin list");
-    int biCounter = 0;
-    while (it != e&& typeit != typee ){
-        m_formatter << "BUILTINS_API llvm::GenericValue lle_X_" << deleteSuffix(std::string(it->getName())) 
-            << "( llvm::FunctionType *FT, llvm::ArrayRef<llvm::GenericValue> Args) { return " 
-            << getRefFunction(typeit->first, typeit->second) << "(FT,Args);}//" << biCounter++;
-      m_formatter.endl();
-      ++it;
-      ++typeit;
-    }
-    m_formatter.unindent();
-    m_formatter.endl();
   }
+  // enable double extentions in clang
+  std::string code = "#pragma OPENCL EXTENSION cl_khr_depth_images : enable\n";
+  typedbiList.sort(isLess);
+  TypedBiIter typeit, typee = typedbiList.end();
+  for (typeit = typedbiList.begin(); typeit != typee; ++typeit)
+    code += generateBuiltinOverload(typeit->first, typeit->second);
+  build(code, std::string(fileName));
+  std::unique_ptr<llvm::Module> pModule =
+      llvm::parseIRFile(fileName.str(), errDiagnostic, context);
+  assert(pModule && "module parsing failed");
+  // deleting the temporary output file
+  remove(fileName.c_str());
+  llvm::Module::const_iterator it = pModule->begin(), e = pModule->end();
+  assert(pModule && "null llvm module");
+  // assert(it != e && "module contains no functions!" );
+
+  typeit = typedbiList.begin();
+  assert(pModule->size() == typedbiList.size() &&
+         "number of builded functions does not match builtin list");
+  int biCounter = 0;
+  while (it != e && typeit != typee) {
+    m_formatter << "BUILTINS_API llvm::GenericValue lle_X_"
+                << deleteSuffix(std::string(it->getName()))
+                << "( llvm::FunctionType *FT, "
+                   "llvm::ArrayRef<llvm::GenericValue> Args) { return "
+                << getRefFunction(typeit->first, typeit->second)
+                << "(FT,Args);}//" << biCounter++;
+    m_formatter.endl();
+    ++it;
+    ++typeit;
+  }
+  m_formatter.unindent();
+  m_formatter.endl();
+}
 
   virtual void operator () (const std::pair<std::string, llvm::OclBuiltin*>& it){
     const OclBuiltin* pBuiltin = it.second;

@@ -29,25 +29,30 @@ namespace Validation
         ~OpenCLFactory(void);
 
         /// @brief Creates new OpenCL program
-        virtual IProgram* CreateProgram(IProgramConfiguration* programConfig,
-                                        IRunConfiguration* pRunConfiguration);
+        virtual IProgram *
+        CreateProgram(IProgramConfiguration *programConfig,
+                      IRunConfiguration *pRunConfiguration) override;
 
         /// @brief Creates new program configuration
-        virtual IProgramConfiguration* CreateProgramConfiguration(const std::string& configFile, 
-                                                                   const std::string& baseDir);
+        virtual IProgramConfiguration *
+        CreateProgramConfiguration(const std::string &configFile,
+                                   const std::string &baseDir) override;
 
         /// @brief Creates new run configuration
-        virtual IRunConfiguration* CreateRunConfiguration();
+        virtual IRunConfiguration *CreateRunConfiguration() override;
 
         /// @brief Creates new OpenCL program runner
-        virtual IProgramRunner* CreateProgramRunner(const IRunComponentConfiguration* pRunConfiguration);
+        virtual IProgramRunner *CreateProgramRunner(
+            const IRunComponentConfiguration *pRunConfiguration) override;
 
         /// @brief Creates new OpenCL reference runner
-        virtual IProgramRunner* CreateReferenceRunner(const IRunComponentConfiguration*pRunConfiguration);
+        virtual IProgramRunner *CreateReferenceRunner(
+            const IRunComponentConfiguration *pRunConfiguration) override;
 
         /// @brief Creates new run results comparator for given platform
-        virtual IRunResultComparator* CreateComparator(IProgramConfiguration* pProgramConfiguration,
-                                                       IRunConfiguration* pRunConfiguration);
+        virtual IRunResultComparator *
+        CreateComparator(IProgramConfiguration *pProgramConfiguration,
+                         IRunConfiguration *pRunConfiguration) override;
     };
 }
 

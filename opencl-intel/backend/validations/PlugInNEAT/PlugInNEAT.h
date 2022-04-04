@@ -158,14 +158,15 @@ namespace llvm {
             m_ArgValues = val;
         }
         /// init before interpreter starts running function
-        virtual void handlePreFunctionRun( std::vector<ExecutionContext>&,
-            llvm::InterpreterPluggable&);
+        virtual void
+        handlePreFunctionRun(std::vector<ExecutionContext> &,
+                             llvm::InterpreterPluggable &) override;
         /// event after function call
-        virtual void handlePostFunctionRun();
+        virtual void handlePostFunctionRun() override;
         /// handle event prior to instruction execution
-        virtual void handlePreInstExecution(Instruction& );
+        virtual void handlePreInstExecution(Instruction &) override;
         /// handle event post to instruction execution
-        virtual void handlePostInstExecution(Instruction& );
+        virtual void handlePostInstExecution(Instruction &) override;
 
         ///////////////////////////////////////////////////////////////////////
         /// Opcode Implementations

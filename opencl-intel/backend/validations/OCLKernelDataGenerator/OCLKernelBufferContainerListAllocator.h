@@ -33,8 +33,9 @@ namespace Validation
         ///@brief allocate memory for arguments
         ///@param [in out] p is a pointer to instance of BufferContainerList
         ///creates buffer in BufferContainerList for each argument from OCLKernelArgumentsList
-        virtual void Read(IContainer *p);
-    private:
+        virtual void Read(IContainer *p) override;
+
+      private:
         OCLKernelArgumentsList m_list;
     };
 

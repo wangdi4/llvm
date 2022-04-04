@@ -197,9 +197,7 @@ void OpenCLBackendRunner::LoadInputBuffer(OpenCLKernelConfiguration* pKernelConf
 
             gen.Read(pContainer);
             break;
-        }
-    default:
-        throw Exception::TestRunnerException("Unsupported input file type\n");
+    }
     }
 }
 

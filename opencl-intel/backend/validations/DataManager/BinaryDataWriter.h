@@ -54,12 +54,11 @@ namespace Validation
 
           /// @brief write data from IBufferContainerList object to stream
           /// @param [in] - pContainer pointer to object with IBufferContainerList interface
-          void Write( const IContainer *pContainer )
-          {
-              assert( NULL != pContainer);
-              pContainer->Accept(*this);
-              Flush();
-          }
+        void Write(const IContainer *pContainer) override {
+          assert(NULL != pContainer);
+          pContainer->Accept(*this);
+          Flush();
+        }
 
         /// @brief flushes the stream to the file
         /// @param [in] - pContainer pointer to object with IBufferContainerList interface
@@ -121,56 +120,55 @@ namespace Validation
             }
         }
 
-        void visitBuffer( const IMemoryObject* pBuffer )
-        {
-            assert( NULL != pBuffer );
+        void visitBuffer(const IMemoryObject *pBuffer) override {
+          assert(NULL != pBuffer);
 
-            // Write marker.
-            writeMarker(pBuffer->GetName());
+          // Write marker.
+          writeMarker(pBuffer->GetName());
 
-            // first we write down the descriptor
-            BufferDesc bd  = GetBufferDescription(pBuffer->GetMemoryObjectDesc());
-            writeValue((uint32_t)bd.NumOfElements());
-            writeElementDesc(bd.GetElementDescription());
-            writeValue((uint32_t)bd.IsNEAT());
+          // first we write down the descriptor
+          BufferDesc bd = GetBufferDescription(pBuffer->GetMemoryObjectDesc());
+          writeValue((uint32_t)bd.NumOfElements());
+          writeElementDesc(bd.GetElementDescription());
+          writeValue((uint32_t)bd.IsNEAT());
 
-            size_t size = bd.GetSizeInBytes();
-            // then the buffer itself
-            m_stream.write( (const char*)pBuffer->GetDataPtr(), size);
+          size_t size = bd.GetSizeInBytes();
+          // then the buffer itself
+          m_stream.write((const char *)pBuffer->GetDataPtr(), size);
         }
 
-        void visitImage( const IMemoryObject* pImage )
-        {
-            assert( NULL != pImage );
+        void visitImage(const IMemoryObject *pImage) override {
+          assert(NULL != pImage);
 
-            writeMarker(pImage->GetName());
+          writeMarker(pImage->GetName());
 
-            // first we write down the descriptor
-            ImageDesc imDesc = GetImageDescription(pImage->GetMemoryObjectDesc());
-            writeValue(imageSignature);
-            writeValue(imageVersionHigh);
-            writeValue(imageVersionLow);
-            writeValue((uint32_t)imDesc.GetImageType());
-            writeValue(imDesc.GetSizesDesc());
-            writeValue(imDesc.GetImageChannelOrder());
-            writeValue(imDesc.GetImageChannelDataType());
-            writeValue((uint32_t)imDesc.GetElementSize());
-            writeValue(imDesc.IsNEAT());
-            // then the image itself
-            m_stream.write( (const char*)pImage->GetDataPtr(), imDesc.GetSizeInBytes());
+          // first we write down the descriptor
+          ImageDesc imDesc = GetImageDescription(pImage->GetMemoryObjectDesc());
+          writeValue(imageSignature);
+          writeValue(imageVersionHigh);
+          writeValue(imageVersionLow);
+          writeValue((uint32_t)imDesc.GetImageType());
+          writeValue(imDesc.GetSizesDesc());
+          writeValue(imDesc.GetImageChannelOrder());
+          writeValue(imDesc.GetImageChannelDataType());
+          writeValue((uint32_t)imDesc.GetElementSize());
+          writeValue(imDesc.IsNEAT());
+          // then the image itself
+          m_stream.write((const char *)pImage->GetDataPtr(),
+                         imDesc.GetSizeInBytes());
         }
 
-        void visitBufferContainer( const IBufferContainer* pBufferContainer)
-        {
-            assert( NULL != pBufferContainer);
-            writeValue((uint32_t)pBufferContainer->GetMemoryObjectCount());
+        void visitBufferContainer(
+            const IBufferContainer *pBufferContainer) override {
+          assert(NULL != pBufferContainer);
+          writeValue((uint32_t)pBufferContainer->GetMemoryObjectCount());
         }
 
-        void visitBufferContainerList( const IBufferContainerList* pBufferContainerList )
-        {
-            assert( NULL != pBufferContainerList );
-            writeDataVersion();
-            writeValue((uint32_t)pBufferContainerList->GetBufferContainerCount());
+        void visitBufferContainerList(
+            const IBufferContainerList *pBufferContainerList) override {
+          assert(NULL != pBufferContainerList);
+          writeDataVersion();
+          writeValue((uint32_t)pBufferContainerList->GetBufferContainerCount());
         }
 
     private:

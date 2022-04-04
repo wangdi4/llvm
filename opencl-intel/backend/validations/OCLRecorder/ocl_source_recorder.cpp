@@ -61,7 +61,9 @@ namespace Validation{
     void OclSourceRecorder::OnCompile(const CompileData* compileData){
       assert (compileData && "NULL compileData");
       BinaryBuffer binaryBuffer = compileData->sourceFile().getBinaryBuffer();
-      MD5 md5((unsigned char*)binaryBuffer.binary, binaryBuffer.size);
+      MD5 md5(reinterpret_cast<unsigned char *>(
+                  const_cast<void *>(binaryBuffer.binary)),
+              binaryBuffer.size);
       MD5Code res = md5.digest();
       SourceFilesVector sourceVector;
       sourceVector.push_back(compileData->sourceFile());
@@ -170,7 +172,7 @@ namespace Validation{
       return *m_iter;
     }
 
-    const char* FileIter::FileIterException::what() const throw(){
+    const char *FileIter::FileIterException::what() const noexcept {
       return "Source File iteration exception";
     }
 }

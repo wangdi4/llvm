@@ -39,16 +39,14 @@ public:
     {}
 
     /// IWorkItemBuiltins interface functions
-    virtual uint32_t GetWorkDim(){
-        return m_WorkDim;
+    virtual uint32_t GetWorkDim() override { return m_WorkDim; }
+
+    virtual uint64_t GetGlobalSize(const uint32_t dimindx) override {
+      return m_GlobalSize[dimindx];
     }
-    
-    virtual uint64_t GetGlobalSize(const uint32_t dimindx){
-        return m_GlobalSize[dimindx];
-    }
-    
-    virtual uint64_t GetLocalSize(const uint32_t dimindx){
-        return GetLocalSize(m_GlobalID[dimindx], dimindx);
+
+    virtual uint64_t GetLocalSize(const uint32_t dimindx) override {
+      return GetLocalSize(m_GlobalID[dimindx], dimindx);
     }
 
     virtual uint64_t GetLocalSize(const uint32_t globalId, const uint32_t dimindx){
@@ -68,21 +66,21 @@ public:
         //local size of non-uniform workgroup
         return (lastLocalSize && isAfterLastUniformWG) ? lastLocalSize : m_LocalSize[dimindx];
     }
-    
-    virtual uint64_t getEnqueuedLocalSize(const uint32_t dimindx){
-        return m_LocalSize[dimindx];
-    }
-    
-    virtual uint64_t GetGlobalIdNoOffset(const uint32_t dimindx){
-        return m_GlobalID[dimindx];
+
+    virtual uint64_t getEnqueuedLocalSize(const uint32_t dimindx) override {
+      return m_LocalSize[dimindx];
     }
 
-    virtual uint64_t GetLocalId(const uint32_t dimindx){
-        return m_LocalID[dimindx];
+    virtual uint64_t GetGlobalIdNoOffset(const uint32_t dimindx) override {
+      return m_GlobalID[dimindx];
     }
-  
-    virtual uint64_t GetGlobalOffset(const uint32_t dimindx){
-        return m_GlobalOffset[dimindx];
+
+    virtual uint64_t GetLocalId(const uint32_t dimindx) override {
+      return m_LocalID[dimindx];
+    }
+
+    virtual uint64_t GetGlobalOffset(const uint32_t dimindx) override {
+      return m_GlobalOffset[dimindx];
     }
 
     void SetGlobalID(const uint32_t dimindx, const uint64_t& val){

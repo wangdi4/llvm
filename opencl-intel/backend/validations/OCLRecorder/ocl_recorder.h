@@ -29,16 +29,16 @@
     #define OCL_RECORDER_API
 #endif
 
-#include "llvm/Support/Path.h"
-#include "llvm/Support/Mutex.h"
-#include "llvm/IR/DataLayout.h"
-#include "plugin_interface.h"
-#include "cl_types.h"
-#include "cl_device_api.h"
 #include "cl_dev_backend_api.h"
+#include "cl_device_api.h"
+#include "cl_types.h"
 #include "ocl_source_recorder.h"
-#define TIXML_USE_STL
-#include "tinyxml.h"
+#include "plugin_interface.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/Support/Mutex.h"
+#include "llvm/Support/Path.h"
+
+#include "tinyxml_wrapper.h"
 
 #include <atomic>
 #include <list>
@@ -271,22 +271,22 @@ namespace Validation
         ~OCLRecorder();
 
     public:
-        virtual void OnCreateBinary(const ICLDevBackendKernel_* pKernel,
-                                    const _cl_work_description_type* pWorkDesc,
-                                    size_t bufSize,
-                                    void* pArgsBuffer);
+      virtual void OnCreateBinary(const ICLDevBackendKernel_ *pKernel,
+                                  const _cl_work_description_type *pWorkDesc,
+                                  size_t bufSize, void *pArgsBuffer) override;
 
-        virtual void OnCreateKernel(const ICLDevBackendProgram_* pProgram,
-                                    const ICLDevBackendKernel_* pKernel,
-                                    const void* pFunction);
+      virtual void OnCreateKernel(const ICLDevBackendProgram_ *pProgram,
+                                  const ICLDevBackendKernel_ *pKernel,
+                                  const void *pFunction) override;
 
-        virtual void OnCreateProgram(const void * pBinary,
-                                     size_t uiBinarySize,
-                                     const ICLDevBackendProgram_* pProgram);
+      virtual void
+      OnCreateProgram(const void *pBinary, size_t uiBinarySize,
+                      const ICLDevBackendProgram_ *pProgram) override;
 
-        virtual void OnReleaseProgram(const ICLDevBackendProgram_* pProgram);
+      virtual void
+      OnReleaseProgram(const ICLDevBackendProgram_ *pProgram) override;
 
-        void SetSourceRecorder(const OclSourceRecorder* recorder);
+      void SetSourceRecorder(const OclSourceRecorder *recorder);
 
     private: // Internal method
         void RecordByteCode(const void* pBinary, size_t uiBinarySize, const RecorderContext& context);

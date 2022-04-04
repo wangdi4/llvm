@@ -47,8 +47,7 @@ namespace Validation
 
         /// @brief reads the file data and populate the given container
         /// @param [in] - pointer to IBufferContainerList
-        void Read(IContainer * pContainer)
-        {
+        void Read(IContainer *pContainer) override {
           assert(NULL != pContainer);
           readBufferContainerList(static_cast<IBufferContainerList*>(pContainer));
         }

@@ -19,8 +19,7 @@
 #include <limits>
 #include <fstream>
 
-#define TIXML_USE_STL
-#include "tinyxml.h"
+#include "tinyxml_wrapper.h"
 
 #include "llvm/Support/DataTypes.h"
 
@@ -50,6 +49,7 @@ namespace Validation
         /// @param [in]	    rwtype - read or write operation
         /// @return		    pointer to IContainer interface of resulting object
         virtual IContainer* ReadWrite(IContainer* pContainer, TiXmlElement* pXml, const RWOperationType rwtype) = 0;
+        virtual ~IXMLReadWriteBase() {}
     };
 
     /// @brief helper structure to travel along sibling XML nodes
@@ -126,12 +126,13 @@ namespace Validation
 
     private:
         /// @brief read data to IContainer. Implementation of IXMLReadWriteBase::ReadWrite interface
-        virtual IContainer* ReadWrite(IContainer *, TiXmlElement* , const RWOperationType );
-        /// hide copy constructor
-        XMLBufferContainerListReadWrite(const XMLBufferContainerListReadWrite& ) : IXMLReadWriteBase() {}
-        /// hide assignment operator
-        void operator =(const XMLBufferContainerListReadWrite&){}
-
+      virtual IContainer *ReadWrite(IContainer *, TiXmlElement *,
+                                    const RWOperationType) override;
+      /// hide copy constructor
+      XMLBufferContainerListReadWrite(const XMLBufferContainerListReadWrite &)
+          : IXMLReadWriteBase() {}
+      /// hide assignment operator
+      void operator=(const XMLBufferContainerListReadWrite &) {}
     };
 
 }
