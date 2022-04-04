@@ -3,7 +3,9 @@
 ; binop reduction.
 
 ; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-framework -hir-vplan-vec -vplan-print-after-vpentity-instrs -print-after=hir-vplan-vec -vplan-force-vf=2 -disable-output %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-framework -hir-vplan-vec -vplan-print-after-vpentity-instrs -print-after=hir-vplan-vec -vplan-force-vf=2 -disable-output %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -disable-output %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -disable-output %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR
 ; RUN: opt -enable-new-pm=0 -vplan-vec -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes=vplan-vec -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -S < %s 2>&1 | FileCheck %s
 
@@ -44,15 +46,12 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; HIR-NEXT:     br [[BB4:BB[0-9]+]]
 ; === Generated HIR code
 ; HIR:       BEGIN REGION { modified }
-; HIR-NEXT:        [[TGU0:%.*]] = ([[N0:%.*]])/u2
-; HIR-NEXT:        if (0 <u 2 * [[TGU0]])
-; HIR-NEXT:        {
-; HIR-NEXT:           [[PRIV_MEM_BC0:%.*]] = &((i32*)([[PRIV_MEM0:%.*]])[0])
-; HIR-NEXT:           [[DOTUNIFLOAD0:%.*]] = ([[SUM0]])[0]
+; HIR:                [[PRIV_MEM_BC0:%.*]] = &((i32*)([[PRIV_MEM0:%.*]])[0])
+; HIR:                [[DOTUNIFLOAD0:%.*]] = ([[SUM0]])[0]
 ; HIR-NEXT:           [[RED_INIT0:%.*]] = 0
 ; HIR-NEXT:           [[RED_INIT_INSERT0:%.*]] = insertelement [[RED_INIT0]],  [[DOTUNIFLOAD0]],  0
 ; HIR-NEXT:           (<2 x i32>*)([[PRIV_MEM0]])[0] = [[RED_INIT_INSERT0]]
-; HIR:                + DO i1 = 0, 2 * [[TGU0]] + -1, 2   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
+; HIR:                + DO i1 = 0, {{.*}} + -1, 2   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
 ; HIR-NEXT:           |   [[DOTVEC0:%.*]] = (<2 x i32>*)([[A0]])[i1]
 ; HIR-NEXT:           |   [[DOTVEC30:%.*]] = (<2 x i32>*)([[PRIV_MEM0]])[0]
 ; HIR-NEXT:           |   (<2 x i32>*)([[PRIV_MEM0]])[0] = [[DOTVEC0]] + [[DOTVEC30]]
@@ -60,13 +59,7 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; HIR:                [[DOTVEC40:%.*]] = (<2 x i32>*)([[PRIV_MEM0]])[0]
 ; HIR-NEXT:           [[VEC_REDUCE0:%.*]] = @llvm.vector.reduce.add.v2i32([[DOTVEC40]])
 ; HIR-NEXT:           ([[SUM0]])[0] = [[VEC_REDUCE0]]
-; HIR-NEXT:        }
-; HIR:             + DO i1 = 2 * [[TGU0]], [[N0]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <nounroll> <novectorize> <max_trip_count = 1>
-; HIR-NEXT:        |   [[A_I0:%.*]] = ([[A0]])[i1]
-; HIR-NEXT:        |   [[SUM_LD0:%.*]] = ([[SUM0]])[0]
-; HIR-NEXT:        |   ([[SUM0]])[0] = [[A_I0]] + [[SUM_LD0]]
-; HIR-NEXT:        + END LOOP
-; HIR-NEXT:  END REGION
+; HIR:       END REGION
 ;
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  VPlan IR for: foo:for.body.#{{[0-9]+}}

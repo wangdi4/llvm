@@ -13,16 +13,13 @@ define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%a}
 ; CHECK-NEXT:  External Defs End:
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
-; CHECK:         [DA: Uni] br [[BB1:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 80, UF = 2
+
+; CHECK:          [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 80, UF = 2
 ; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 {{.*}} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], cloned.[[BB3:BB[0-9]+]]
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1:BB[0-9]+]], cloned.[[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP1:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP2:%.*]], cloned.[[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds float* [[A0:%.*]] i64 [[VP1]]
 ; CHECK-NEXT:     [DA: Div] float [[VP_LOAD:%.*]] = load float* [[VP_SUBSCRIPT]]
