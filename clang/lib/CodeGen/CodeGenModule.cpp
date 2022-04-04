@@ -6357,7 +6357,8 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
           IndirectE->EvaluateAsBooleanCondition(IsIndirect, getContext());
       const auto *MD = dyn_cast<CXXMethodDecl>(D);
       if (IsIndirect || MD && MD->isVirtual()) {
-        getOpenMPRuntime().registerTargetIndirectFn(getMangledName(GD), GV);
+        getOpenMPRuntime().registerTargetIndirectFn(
+            getUniqueItaniumABIMangledName(GD), GV);
         Fn->addFnAttr("openmp-target-declare", "true");
       }
     }
