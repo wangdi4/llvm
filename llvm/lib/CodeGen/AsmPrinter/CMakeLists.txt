@@ -31,9 +31,9 @@ add_llvm_component_library(LLVMAsmPrinter
   DwarfCFIException.cpp
   DwarfCompileUnit.cpp
   DwarfDebug.cpp
-#if INTEL_CUSTOMIZATION
+# INTEL_CUSTOMIZATION
   Intel_TraceBackDebug.cpp
-#end INTEL_CUSTOMIZATION
+# end INTEL_CUSTOMIZATION
   DwarfExpression.cpp
   DwarfFile.cpp
   DwarfStringPool.cpp
@@ -45,9 +45,9 @@ add_llvm_component_library(LLVMAsmPrinter
   WinCFGuard.cpp
   WinException.cpp
   CodeViewDebug.cpp
-#if INTEL_CUSTOMIZATION
+# INTEL_CUSTOMIZATION
   intel/Intel_AsmOptReport.cpp
-#end INTEL_CUSTOMIZATION
+# end INTEL_CUSTOMIZATION
   WasmException.cpp
 
   DEPENDS
