@@ -1661,12 +1661,18 @@ public:
 
   /// Get the attribute of a given kind for the function.
   Attribute getFnAttr(StringRef Kind) const {
-    return getAttributes().getFnAttr(Kind);
+    Attribute Attr = getAttributes().getFnAttr(Kind);
+    if (Attr.isValid())
+      return Attr;
+    return getFnAttrOnCalledFunction(Kind);
   }
 
   /// Get the attribute of a given kind for the function.
   Attribute getFnAttr(Attribute::AttrKind Kind) const {
-    return getAttributes().getFnAttr(Kind);
+    Attribute A = getAttributes().getFnAttr(Kind);
+    if (A.isValid())
+      return A;
+    return getFnAttrOnCalledFunction(Kind);
   }
 
   /// Get the attribute of a given kind from a given arg
@@ -2368,6 +2374,7 @@ private:
 
     return hasFnAttrOnCalledFunction(Kind);
   }
+  template <typename AK> Attribute getFnAttrOnCalledFunction(AK Kind) const;
 
 #if INTEL_CUSTOMIZATION
   template <typename AttrKind>
