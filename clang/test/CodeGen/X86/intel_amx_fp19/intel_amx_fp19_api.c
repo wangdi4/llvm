@@ -12,14 +12,16 @@ char buf2[1024];
 
 void test_tile_tmmulfp19ps(__tile1024i a, __tile1024i b, __tile1024i c) {
   //CHECK-LABEL: @test_tile_tmmulfp19ps
-  //CHECK: call x86_amx @llvm.x86.tmmulfp19ps.internal
-  //CHECK-NEXT: {{%.*}} = bitcast x86_amx {{%.*}} to <256 x i32>
+  //CHECK-DAG: call x86_amx @llvm.x86.cast.vector.to.tile.v256i32(<256 x i32> {{%.*}})
+  //CHECK-DAG: call x86_amx @llvm.x86.tmmulfp19ps.internal
+  //CHECK-DAG: call <256 x i32> @llvm.x86.cast.tile.to.vector.v256i32(x86_amx {{%.*}})
   __tile_tmmulfp19ps(&c, a, b);
 }
 
 void test_tile_ttmmulfp19ps(__tile1024i a, __tile1024i b, __tile1024i c) {
   //CHECK-LABEL: @test_tile_ttmmulfp19ps
-  //CHECK: call x86_amx @llvm.x86.ttmmulfp19ps.internal
-  //CHECK-NEXT: {{%.*}} = bitcast x86_amx {{%.*}} to <256 x i32>
+  //CHECK-DAG: call x86_amx @llvm.x86.cast.vector.to.tile.v256i32(<256 x i32> {{%.*}})
+  //CHECK-DAG: call x86_amx @llvm.x86.ttmmulfp19ps.internal
+  //CHECK-DAG: call <256 x i32> @llvm.x86.cast.tile.to.vector.v256i32(x86_amx {{%.*}})
   __tile_ttmmulfp19ps(&c, a, b);
 }
