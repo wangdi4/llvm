@@ -361,15 +361,31 @@ static void addIntelLibPaths(ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args, const ToolChain &TC) {
   // Add Intel specific library search locations
   // TODO: This is a rudimentary way to add the library search locations
-  if (TC.getEffectiveTriple().getArch() == llvm::Triple::x86_64) {
-    // deploy
-    CmdArgs.push_back(Args.MakeArgString("-L" +
-        TC.getDriver().Dir + "/../compiler/lib/intel64_lin"));
-  } else {
-    // deploy
-    CmdArgs.push_back(Args.MakeArgString("-L" +
-        TC.getDriver().Dir + "/../compiler/lib/ia32_lin"));
-  }
+  SmallString<128> BaseDir(TC.getDriver().Dir);
+  SmallString<128> LibDir("-L");
+  llvm::sys::path::append(BaseDir, "..");
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  // The driver is located in <installdir>/bin/compiler
+  llvm::sys::path::append(BaseDir, "..");
+  llvm::sys::path::append(LibDir, BaseDir);
+  if (TC.getEffectiveTriple().getArch() == llvm::Triple::x86_64)
+    // lib location is in <installdir>/lib.
+    llvm::sys::path::append(LibDir, "lib");
+  else
+    // lib location is in <installdir>/lib32.
+    llvm::sys::path::append(LibDir, "lib32");
+#else
+  // The driver is located in <installdir>/bin-llvm
+  llvm::sys::path::append(LibDir, BaseDir, "compiler", "lib");
+  if (TC.getEffectiveTriple().getArch() == llvm::Triple::x86_64)
+    // lib location is in <installdir>/compiler/lib/intel64_lin.
+    llvm::sys::path::append(LibDir, "intel64_lin");
+  else
+    // lib location is in <installdir>/compiler/lib/ia32_lin.
+    llvm::sys::path::append(LibDir, "ia32_lin");
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
+  CmdArgs.push_back(Args.MakeArgString(LibDir));
+
   // IA32ROOT
   const char * IA32Root = getenv("IA32ROOT");
   if (IA32Root) {
@@ -379,7 +395,9 @@ static void addIntelLibPaths(ArgStringList &CmdArgs,
     CmdArgs.push_back(Args.MakeArgString(P));
   }
   // Add 'lib' directory (same level as 'bin').
-  CmdArgs.push_back(Args.MakeArgString("-L" + TC.getDriver().Dir + "/../lib"));
+  SmallString<128> ClangLib(BaseDir);
+  llvm::sys::path::append(ClangLib, "lib");
+  CmdArgs.push_back(Args.MakeArgString("-L" + ClangLib));
 }
 
 // Goes through the CmdArgs, checking for known strings which set the library

@@ -42,6 +42,9 @@ using namespace llvm::opt;
 SYCLInstallationDetector::SYCLInstallationDetector(const Driver &D)
     : D(D), InstallationCandidates() {
   InstallationCandidates.emplace_back(D.Dir + "/..");
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  InstallationCandidates.emplace_back(D.Dir + "/../..");
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
 }
 
 void SYCLInstallationDetector::getSYCLDeviceLibPath(

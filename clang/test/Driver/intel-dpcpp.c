@@ -25,7 +25,7 @@
 // RUN: touch %t.o
 // RUN: %clang -### -no-canonical-prefixes --dpcpp -target x86_64-unknown-linux --gcc-toolchain="" --sysroot=%S/Inputs/basic_linux_tree %t.o 2>&1 | FileCheck -check-prefix CHECK-DPCPP-LIBS %s
 // CHECK-DPCPP-LIBS: "{{.*}}ld{{(.exe)?}}" "--sysroot=[[SYSROOT:[^"]+]]"
-// CHECK-DPCPP-LIBS: "-L{{.*}}../compiler/lib/intel64_lin" "-L{{.*}}bin/../lib"
+// CHECK-DPCPP-LIBS: "-L{{.*}}..{{(/|\\\\)}}compiler{{(/|\\\\)}}lib{{(/|\\\\)}}intel64_lin" "-L{{.*}}bin{{(/|\\\\)}}..{{(/|\\\\)}}lib"
 // CHECK-DPCPP-LIBS: "-L[[SYSROOT]]/usr/lib/gcc/x86_64-unknown-linux/10.2.0"
 // CHECK-DPCPP-LIBS: "-lsvml"
 // CHECK-DPCPP-LIBS: "-lirc"
