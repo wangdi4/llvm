@@ -26,113 +26,8 @@ list<OclType> math_shared_f32_types = [v1f32, v2f32, v3f32, v4f32, v8f32];
 
 list<OclType> math_shared_types_v1_to_v16 = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16]>.Tout;
 
-// acos
-OclBuiltinImpl acos_svml = OclBuiltinImpl<acos, math_shared_types, 0, [{
-    return __ocl_svml_$Target_acos$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// acosh
-OclBuiltinImpl acosh_svml = OclBuiltinImpl<acosh, math_shared_types, 0, [{
-    return __ocl_svml_$Target_acosh$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// acospi
-OclBuiltinImpl acospi_svml = OclBuiltinImpl<acospi, math_shared_types, 0, [{
-    return __ocl_svml_$Target_acospi$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// asin
-OclBuiltinImpl asin_svml = OclBuiltinImpl<asin, math_shared_types, 0, [{
-    return __ocl_svml_$Target_asin$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// asinh
-OclBuiltinImpl asinh_svml = OclBuiltinImpl<asinh, math_shared_types, 0, [{
-    return __ocl_svml_$Target_asinh$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// asinpi
-OclBuiltinImpl asinpi_svml = OclBuiltinImpl<asinpi, math_shared_types, 0, [{
-    return __ocl_svml_$Target_asinpi$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// atan
-OclBuiltinImpl atan_svml = OclBuiltinImpl<atan, math_shared_types, 0, [{
-    return __ocl_svml_$Target_atan$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// atan2
-OclBuiltinImpl atan2_svml = OclBuiltinImpl<atan2, math_shared_types, 0, [{
-    return __ocl_svml_$Target_atan2$SVMLSuffix($Arg0VarName, $Arg1VarName);
-  }]>;
-
-// atanh
-OclBuiltinImpl atanh_svml = OclBuiltinImpl<atanh, math_shared_types, 0, [{
-    return __ocl_svml_$Target_atanh$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// atanpi
-OclBuiltinImpl atanpi_svml = OclBuiltinImpl<atanpi, math_shared_types, 0, [{
-    return __ocl_svml_$Target_atanpi$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// atan2pi
-OclBuiltinImpl atan2pi_svml = OclBuiltinImpl<atan2pi, math_shared_types, 0, [{
-    return __ocl_svml_$Target_atan2pi$SVMLSuffix($Arg0VarName, $Arg1VarName);
-  }]>;
-
-// cbrt
-OclBuiltinImpl cbrt_svml = OclBuiltinImpl<cbrt, math_shared_types, 0, [{
-    return __ocl_svml_$Target_cbrt$SVMLSuffix($Arg0VarName);
-  }]>;
-
 // copysign
 OclBuiltinImpl copysign_impl = OclBuiltinImpl<copysign, math_shared_types_v1_to_v16, 0, copysign_code>;
-
-// cos
-OclBuiltinImpl cos_svml = OclBuiltinImpl<cos, math_shared_types, 0, [{
-    return __ocl_svml_$Target_cos$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// cosh
-OclBuiltinImpl cosh_svml = OclBuiltinImpl<cosh, math_shared_types, 0, [{
-    return __ocl_svml_$Target_cosh$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// cospi
-OclBuiltinImpl cospi_svml = OclBuiltinImpl<cospi, math_shared_types, 0, [{
-    return __ocl_svml_$Target_cospi$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// erfc
-OclBuiltinImpl erfc_svml = OclBuiltinImpl<erfc, math_shared_types, 0, [{
-    return __ocl_svml_$Target_erfc$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// erf
-OclBuiltinImpl erf_svml = OclBuiltinImpl<erf, math_shared_types, 0, [{
-    return __ocl_svml_$Target_erf$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// exp
-OclBuiltinImpl exp_svml = OclBuiltinImpl<exp, math_shared_types, 0, [{
-    return __ocl_svml_$Target_exp$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// exp2
-OclBuiltinImpl exp2_svml = OclBuiltinImpl<exp2, math_shared_types, 0, [{
-    return __ocl_svml_$Target_exp2$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// exp10
-OclBuiltinImpl exp10_svml = OclBuiltinImpl<exp10, math_shared_types, 0, [{
-    return __ocl_svml_$Target_exp10$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// expm1
-OclBuiltinImpl expm1_svml = OclBuiltinImpl<expm1, math_shared_types, 0, [{
-    return __ocl_svml_$Target_expm1$SVMLSuffix($Arg0VarName);
-  }]>;
 
 // fabs
 OclBuiltinImpl fabs_impl = OclBuiltinImpl<fabs, math_shared_types_v1_to_v16, 0, fabs_code>;
@@ -345,7 +240,7 @@ OclBuiltinImpl round_svml = OclBuiltinImpl<round, [v1f32, v2f32, v3f32, v1f64, v
   }]>;
 
 // rsqrt
-OclBuiltinImpl rsqrt_svml = OclBuiltinImpl<rsqrt, [v1f32, v2f32, v3f32, v4f32, v1f64, v3f64], 0, [{
+OclBuiltinImpl rsqrt_svml = OclBuiltinImpl<rsqrt, [v1f32, v3f32, v1f64, v3f64], 0, [{
     return __ocl_svml_$Target_rsqrt$SVMLSuffix($Arg0VarName);
   }]>;
 
@@ -547,7 +442,7 @@ OclBuiltinImpl native_sin_svml = OclBuiltinImpl<native_sin, math_shared_types, 0
   }]>;
 
 // native_sqrt
-OclBuiltinImpl native_sqrt_svml = OclBuiltinImpl<native_sqrt, [v2f32, v3f32, v4f32, v2f64, v3f64, v4f64, v16f64], 0, [{
+OclBuiltinImpl native_sqrt_svml = OclBuiltinImpl<native_sqrt, [v2f32, v3f32, v4f32, v2f64, v3f64, v4f64], 0, [{
     // SLOW version. assume that SVML call will be even slower
     return sqrt($Arg0VarName);
   }]>;

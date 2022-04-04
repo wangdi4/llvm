@@ -2,6 +2,10 @@
 
 include "sse42/SSE42.td"
 
+defset list<OclBuiltinImpl> avx_impls = {
+include "avx/math_impl.td"
+}
+
 class AVX : SSE42 {
 
   // copy paste from SSE42 plus AVX native types
@@ -20,4 +24,6 @@ class AVX : SSE42 {
   include "avx/transpose.td"
   include "avx/masked_load_store.td"
   include "avx/sub_group_builtin_impl.td"
+
+  let Impls = avx_impls;
 }

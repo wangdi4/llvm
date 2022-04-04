@@ -20,7 +20,6 @@
 #include "task_dispatcher.h"
 
 #include <CL/cl_ext.h>
-#include <CL/cl_ext_intel.h>
 #include <CL/cl_fpga_ext.h>
 #include <buildversion.h>
 #include <builtin_kernels.h>
@@ -414,6 +413,7 @@ cl_dev_err_code CPUDevice::QueryHWInfo()
     }
     //Todo: m_pComputeUnitScoreboard.reserve(m_numCores);
 
+    m_threadToCore.reserve(m_numCores);
     m_pCoreToThread.resize(m_numCores);
     m_pCoreInUse.resize(m_numCores);
 
@@ -572,7 +572,7 @@ bool CPUDevice::AcquireComputeUnits(unsigned int* which, unsigned int how_many)
     {
         return true;
     }
-    Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
+    std::lock_guard<std::mutex> Lock(m_ComputeUnitScoreboardMutex);
     for (unsigned int i = 0; i < how_many; ++i)
     {
         if (m_pCoreInUse[which[i]])
@@ -598,7 +598,7 @@ void CPUDevice::ReleaseComputeUnits(unsigned int* which, unsigned int how_many)
     {
         return;
     }
-    Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
+    std::lock_guard<std::mutex> Lock(m_ComputeUnitScoreboardMutex);
     for (unsigned int i = 0; i < how_many; ++i)
     {
         m_pCoreInUse[which[i]] = false;
@@ -622,7 +622,7 @@ void CPUDevice::NotifyAffinity(threadid_t tid, unsigned int core_index,
 
     if (relocate)
     {
-        Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
+        std::lock_guard<std::mutex> Lock(m_ComputeUnitScoreboardMutex);
 
         threadid_t other_tid = m_pCoreToThread[core_index];
         int my_prev_core_idx = m_threadToCore[tid];
@@ -673,41 +673,35 @@ void CPUDevice::NotifyAffinity(threadid_t tid, unsigned int core_index,
         }
         else
             m_pCoreToThread[my_prev_core_idx] = INVALID_THREAD_HANDLE;
-    }
-    else if (need_mutex)
-    {
-        Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
-        if (m_threadToCore[tid] != (int)core_index ||
-            m_threadToCore.find(tid) != m_threadToCore.end())
-        {
-            // Update map
-            m_threadToCore[tid] = core_index;
 
-            //Set the caller's affinity as requested
-            clSetThreadAffinityToCore(m_pComputeUnitMap[core_index], tid);
-        }
+        return;
     }
-    else
-    {
-        // m_threadToCore is more robust than m_pCoreToThread.
-        // Imagine a scene where tid1234 will be pinned two times:
-        // 1. tid1234 is running on core 60 and it will be migrated
-        // to core 20;
-        // 2. now tid1234 is running on core 20 and it will be migrated
-        // back to core 60 again.
-        // In the step two, since the value of tid1234 has been stored
-        // in m_pCoreToThread[60]. The re-pin operation will not be
-        // performed.
-        if (m_threadToCore[tid] != (int)core_index ||
-            m_threadToCore.find(tid) != m_threadToCore.end())
-        {
-            // Update map
-            m_threadToCore[tid] = core_index;
 
-            //Set the caller's affinity as requested
-            clSetThreadAffinityToCore(m_pComputeUnitMap[core_index], tid);
-        }
+  // m_threadToCore is more robust than m_pCoreToThread.
+  // Imagine a scene where tid1234 will be pinned two times:
+  // 1. tid1234 is running on core 60 and it will be migrated
+  // to core 20;
+  // 2. now tid1234 is running on core 20 and it will be migrated
+  // back to core 60 again.
+  // In the step two, since the value of tid1234 has been stored
+  // in m_pCoreToThread[60]. The re-pin operation will not be
+  // performed.
+  auto setAffinityToCore = [&]() {
+    auto insertResult = m_threadToCore.insert({tid, core_index});
+    if (insertResult.second ||
+        insertResult.first->second != (int)core_index) {
+      // Update map
+      insertResult.first->second = (int)core_index;
+      //Set the caller's affinity as requested
+      clSetThreadAffinityToCore(m_pComputeUnitMap[core_index], tid);
     }
+  };
+  if (need_mutex) {
+    std::lock_guard<std::mutex> Lock(m_ComputeUnitScoreboardMutex);
+    setAffinityToCore();
+  } else {
+    setAffinityToCore();
+  }
 }
 
 cl_uint GetNativeVectorWidth(CPUDeviceDataTypes dataType)

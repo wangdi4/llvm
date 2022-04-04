@@ -25,15 +25,16 @@
 //  Intercats with the compiler backend
 ///////////////////////////////////////////////////////////
 
-#include "cpu_logger.h"
-#include "cpu_config.h"
-#include "task_executor.h"
 #include "task_dispatcher.h"
-#include "dispatcher_commands.h"
 #include "cl_shared_ptr.hpp"
+#include "cpu_config.h"
+#include "cpu_logger.h"
+#include "dispatcher_commands.h"
+#include "task_executor.h"
 #include <cl_synch_objects.h>
 #include <cl_sys_info.h>
 #include <cl_utils.h>
+#include <thread>
 #if defined(USE_ITT)
 #include <ocl_itt.h>
 #endif
@@ -703,10 +704,13 @@ bool AffinitizeThreads::ExecuteIteration(size_t /*x*/, size_t /*y*/,
         break;
       }
       hw_pause();
+      std::this_thread::sleep_for(1ms);
     }
   } else {
-    while (m_barrier > 0)
+    while (m_barrier > 0) {
       hw_pause();
+      std::this_thread::sleep_for(1ms);
+    }
   }
 
   return true;

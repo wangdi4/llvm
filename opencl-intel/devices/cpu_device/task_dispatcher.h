@@ -275,7 +275,7 @@ protected:
     unsigned int                        m_numThreads;
     cl_ulong                            m_startTime; // start time in nanoseconds
     cl_ulong                            m_timeOut; // time out in nanoseconds
-    Intel::OpenCL::Utils::AtomicCounter	m_barrier;
+    std::atomic<unsigned> m_barrier;
     std::atomic<bool>                   m_failed;
 
     Intel::OpenCL::Utils::AtomicCounter	m_endBarrier;

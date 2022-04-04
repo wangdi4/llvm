@@ -304,15 +304,41 @@
   double4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_fmod4  (double4  a, double4  b);
   double8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_fmod8  (double8  a, double8  b);
 
+  double   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_fract1  (double  a, double  *b);
+  double2  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_fract2  (double2  a, double2  *b);
+  double3  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_fract3  (double3  a, double3  *b);
+  double4  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_fract4  (double4  a, double4  *b);
+  double8  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_fract8  (double8  a, double8  *b);
+
+  float   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_frexpf1  (float   a, int   *c);
+  float2  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_frexpf2  (float2  a, int2  *c);
+  float3  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_frexpf3  (float3  a, int3  *c);
+  float4  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_frexpf4  (float4  a, int4  *c);
+  float8  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_frexpf8  (float8  a, int8  *c);
+
+  double   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_frexp1  (double   a, int   *c);
+  double2  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_frexp2  (double2  a, int2  *c);
+  double3  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_frexp3  (double3  a, int3  *c);
+  double4  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_frexp4  (double4  a, int4  *c);
+  double8  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_frexp8  (double8  a, int8  *c);
+
+  int   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_ilogb1  (double  a);
+  int2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_ilogb2  (double2  a);
+  int3  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_ilogb3  (double3  a);
+  int4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_ilogb4  (double4  a);
+  int8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_ilogb8  (double8  a);
+
   float   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_ldexpf1  (float  a, int b);
+  float2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_ldexpf2  (float2  a, int2 b);
+  float3  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_ldexpf3  (float3  a, int3 b);
   float4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_ldexpf4  (float4  a, int4 b);
   float8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_ldexpf8  (float8  a, int8 b);
 
-  int   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_ilogb1  (double  a);
-  int4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_ilogb4  (double4  a);
-
   double   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_ldexp1  (double  a, int b);
+  double2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_ldexp2  (double2  a, int2 b);
+  double3  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_ldexp3  (double3  a, int3 b);
   double4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_ldexp4  (double4  a, int4 b);
+  double8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_ldexp8  (double8  a, int8 b);
 
   float   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_lgammaf1  (float  a);
   float2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_lgammaf2  (float2  a);
@@ -326,6 +352,18 @@
   double3  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_lgamma3  (double3  a);
   double4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_lgamma4  (double4  a);
   double8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_lgamma8  (double8  a);
+
+  float   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_lgammarf1  (float   a, int   *c);
+  float2  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_lgammarf2  (float2  a, int2  *c);
+  float3  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_lgammarf3  (float3  a, int3  *c);
+  float4  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_lgammarf4  (float4  a, int4  *c);
+  float8  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_lgammarf8  (float8  a, int8  *c);
+
+  double   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_lgammar1  (double   a, int   *c);
+  double2  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_lgammar2  (double2  a, int2  *c);
+  double3  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_lgammar3  (double3  a, int3  *c);
+  double4  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_lgammar4  (double4  a, int4  *c);
+  double8  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_lgammar8  (double8  a, int8  *c);
 
   float   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_logf1  (float  a);
   float2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_logf2  (float2  a);
@@ -392,12 +430,35 @@
   double4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_logb4  (double4  a);
   double8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_logb8  (double8  a);
 
+  float   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_fmodf1  (float  a, float  b);
+  float2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_fmodf2  (float2  a, float2  b);
+  float3  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_fmodf3  (float3  a, float3  b);
+  float4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_fmodf4  (float4  a, float4  b);
+  float8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_fmodf8  (float8  a, float8  b);
+
+  double   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_fmod1  (double  a, double  b);
+  double2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_fmod2  (double2  a, double2  b);
+  double3  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_fmod3  (double3  a, double3  b);
+  double4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_fmod4  (double4  a, double4  b);
+  double8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_fmod8  (double8  a, double8  b);
+
+  float    __attribute__((intel_ocl_bicc))  __ocl_svml_shared_modff1  (float   a, float *c);
+  float2   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_modff2  (float2  a, float2 *c);
+  float3   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_modff3  (float3  a, float3 *c);
+  float4   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_modff4  (float4  a, float4 *c);
+  float8   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_modff8  (float8  a, float8 *c);
+
+  double    __attribute__((intel_ocl_bicc))  __ocl_svml_shared_modf1  (double   a, double *c);
+  double2   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_modf2  (double2  a, double2 *c);
+  double3   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_modf3  (double3  a, double3 *c);
+  double4   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_modf4  (double4  a, double4 *c);
+  double8   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_modf8  (double8  a, double8 *c);
+
   float   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_nextafterf1  (float  a, float  b);
   float2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_nextafterf2  (float2  a, float2  b);
   float3  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_nextafterf3  (float3  a, float3  b);
   float4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_nextafterf4  (float4  a, float4  b);
   float8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_nextafterf8  (float8  a, float8  b);
-  float16 CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_nextafterf16 (float16  a, float16  b);
 
   double   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_nextafter1  (double  a, double  b);
   double2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_nextafter2  (double2  a, double2  b);
@@ -457,18 +518,59 @@
   double4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_remainder4  (double4  a, double4 b);
   double8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_remainder8  (double8  a, double8 b);
 
+  float   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_remquof1  (float   a, float   b, int   *c);
+  float2  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_remquof2  (float2  a, float2  b, int2  *c);
+  float3  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_remquof3  (float3  a, float3  b, int3  *c);
+  float4  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_remquof4  (float4  a, float4  b, int4  *c);
+  float8  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_remquof8  (float8  a, float8  b, int8  *c);
+
+  double   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_remquo1  (double   a, double   b, int   *c);
+  double2  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_remquo2  (double2  a, double2  b, int2  *c);
+  double3  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_remquo3  (double3  a, double3  b, int3  *c);
+  double4  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_remquo4  (double4  a, double4  b, int4  *c);
+  double8  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_remquo8  (double8  a, double8  b, int8  *c);
+
+  float   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rintf1  (float  a);
+  float2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rintf2  (float2  a);
+  float3  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rintf3  (float3  a);
+  float4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rintf4  (float4  a);
+  float8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rintf8  (float8  a);
+
+  double   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rint1   (double  a);
+  double2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rint2   (double2  a);
+  double3  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rint3   (double3  a);
+  double4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rint4   (double4  a);
+  double8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rint8   (double8  a);
+
   float   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rootnf1  (float   a, int b);
   float2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rootnf2  (float2  a, int2 b);
   float3  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rootnf3  (float3  a, int3 b);
   float4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rootnf4  (float4  a, int4 b);
   float8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rootnf8  (float8  a, int8 b);
-  float16 CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rootnf16 (float16 a, int16 b);
 
   double   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rootn1  (double   a, int b);
   double2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rootn2  (double2  a, int2 b);
   double3  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rootn3  (double3  a, int3 b);
   double4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rootn4  (double4  a, int4 b);
   double8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rootn8  (double8  a, int8 b);
+
+  float   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_roundf1  (float  a);
+  float2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_roundf2  (float2  a);
+  float3  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_roundf3  (float3  a);
+  float4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_roundf4  (float4  a);
+  float8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_roundf8  (float8  a);
+
+  double   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_round1   (double  a);
+  double2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_round2   (double2  a);
+  double3  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_round3   (double3  a);
+  double4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_round4   (double4  a);
+  double8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_round8   (double8  a);
+
+  float   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rsqrtf1  (float   a);
+  float2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rsqrtf2  (float2   a);
+  float3  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rsqrtf3  (float3   a);
+  float4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rsqrtf4  (float4   a);
+  float8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rsqrtf8  (float8   a);
 
   double   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rsqrt1  (double   a);
   double2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_rsqrt2  (double2   a);
@@ -481,7 +583,6 @@
   float3  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sinf3  (float3  a);
   float4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sinf4  (float4  a);
   float8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sinf8  (float8  a);
-  float16 CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sinf16 (float16  a);
 
   double   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sin1   (double  a);
   double2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sin2   (double2  a);
@@ -489,12 +590,23 @@
   double4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sin4   (double4  a);
   double8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sin8   (double8  a);
 
+  float    __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sincosf1  (float   a, float *c);
+  float2   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sincosf2  (float2  a, float2 *c);
+  float3   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sincosf3  (float3  a, float3 *c);
+  float4   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sincosf4  (float4  a, float4 *c);
+  float8   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sincosf8  (float8  a, float8 *c);
+
+  double    __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sincos1  (double   a, double *c);
+  double2   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sincos2  (double2  a, double2 *c);
+  double3   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sincos3  (double3  a, double3 *c);
+  double4   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sincos4  (double4  a, double4 *c);
+  double8   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sincos8  (double8  a, double8 *c);
+
   float   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sinhf1  (float  a);
   float2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sinhf2  (float2  a);
   float3  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sinhf3  (float3  a);
   float4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sinhf4  (float4  a);
   float8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sinhf8  (float8  a);
-  float16 CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sinhf16 (float16  a);
 
   double   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sinh1   (double  a);
   double2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sinh2   (double2  a);
@@ -507,7 +619,6 @@
   float3  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sinpif3  (float3  a);
   float4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sinpif4  (float4  a);
   float8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sinpif8  (float8  a);
-  float16 CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sinpif16 (float16  a);
 
   double   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sinpi1   (double  a);
   double2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sinpi2   (double2  a);
@@ -520,7 +631,6 @@
   float3  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_tanf3  (float3  a);
   float4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_tanf4  (float4  a);
   float8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_tanf8  (float8  a);
-  float16 CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_tanf16 (float16  a);
 
   double   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_tan1   (double  a);
   double2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_tan2   (double2  a);
@@ -533,7 +643,6 @@
   float3  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_tanhf3  (float3  a);
   float4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_tanhf4  (float4  a);
   float8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_tanhf8  (float8  a);
-  float16 CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_tanhf16 (float16  a);
 
   double   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_tanh1   (double  a);
   double2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_tanh2   (double2  a);
@@ -546,7 +655,6 @@
   float3  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_tanpif3  (float3  a);
   float4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_tanpif4  (float4  a);
   float8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_tanpif8  (float8  a);
-  float16 CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_tanpif16 (float16  a);
 
   double   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_tanpi1   (double  a);
   double2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_tanpi2   (double2  a);
@@ -572,7 +680,6 @@
   float3  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_truncf3  (float3  a);
   float4  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_truncf4  (float4  a);
   float8  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_truncf8  (float8  a);
-  float16 CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_truncf16 (float16  a);
 
   double   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_trunc1   (double  a);
   double2  CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_trunc2   (double2  a);
@@ -970,13 +1077,17 @@
 
   float   CONST __attribute__((intel_ocl_bicc)) __ocl_svml_shared_hypotf1 (float  a, float  b);
   float2  CONST __attribute__((intel_ocl_bicc)) __ocl_svml_shared_hypotf2 (float2  a, float2  b);
+  float3  CONST __attribute__((intel_ocl_bicc)) __ocl_svml_shared_hypotf3 (float3  a, float3  b);
   float4  CONST __attribute__((intel_ocl_bicc)) __ocl_svml_shared_hypotf4 (float4  a, float4  b);
   float8  CONST __attribute__((intel_ocl_bicc)) __ocl_svml_shared_hypotf8 (float8  a, float8  b);
   float16 CONST __attribute__((intel_ocl_bicc)) __ocl_svml_shared_hypotf16 (float16  a, float16  b);
+
   double   CONST __attribute__((intel_ocl_bicc)) __ocl_svml_shared_hypot1 (double  a, double  b);
   double2  CONST __attribute__((intel_ocl_bicc)) __ocl_svml_shared_hypot2 (double2  a, double2  b);
+  double3  CONST __attribute__((intel_ocl_bicc)) __ocl_svml_shared_hypot3 (double3  a, double3  b);
   double4  CONST __attribute__((intel_ocl_bicc)) __ocl_svml_shared_hypot4 (double4  a, double4  b);
   double8  CONST __attribute__((intel_ocl_bicc)) __ocl_svml_shared_hypot8 (double8  a, double8  b);
+  double16 CONST __attribute__((intel_ocl_bicc)) __ocl_svml_shared_hypot16(double16 a, double16 b);
 
   float    CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_cvti64tofprtef1 (long a);
   float4   CONST __attribute__((intel_ocl_bicc))  __ocl_svml_shared_cvti64tofprtef4 (long4  a);

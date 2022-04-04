@@ -209,8 +209,9 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
       // SPV_INTEL_runtime_aligned
     case spv::internal::CapabilityRuntimeAlignedAttributeINTEL:
     case spv::CapabilityLongConstantCompositeINTEL:
-      // SYCL_INTEL_bf16_conversion
+      // SPV_INTEL_bf16_conversion
     case spv::internal::CapabilityBfloat16ConversionINTEL:
+    case spv::CapabilityGroupNonUniformBallot:
       break;
     case spv::CapabilityInt64Atomics:
     case spv::CapabilityAtomicFloat64AddEXT:

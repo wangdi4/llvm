@@ -46,7 +46,10 @@ namespace Validation
     {
         if(IXMLReadWriteBase::READ == rwtype)
         {
-            isrt >> *data;
+            if (isrt.str().substr(0, 2) == "0x")
+                isrt >> std::hex >> *data;
+            else
+                isrt >> *data;
         }
         else
         {

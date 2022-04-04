@@ -764,6 +764,29 @@ def u64gentype : OclGenType<"u64gentype"> {
   list<string> T9 = !foreach(n,  T8, !subst("f64", "u64", n));
   list<string> Tout = T9;
 }
+// si64gentype: 'vNtM' -> 'v1i64'
+def si64gentype : OclGenType<"si64gentype"> {
+  list<string> Tin = Torig;
+  list<string> T0 = !foreach(n, Tin, !subst( "i8", "i64", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "u8", "i64", n));
+  list<string> T2 = !foreach(n,  T1, !subst("i16", "i64", n));
+  list<string> T3 = !foreach(n,  T2, !subst("u16", "i64", n));
+  list<string> T4 = !foreach(n,  T3, !subst("i32", "i64", n));
+  list<string> T5 = !foreach(n,  T4, !subst("u32", "i64", n));
+  list<string> T6 = !foreach(n,  T5, !subst("u64", "i64", n));
+  list<string> T7 = !foreach(n,  T6, !subst("f16", "i64", n));
+  list<string> T8 = !foreach(n,  T7, !subst("f32", "i64", n));
+  list<string> T9 = !foreach(n,  T8, !subst("f64", "i64", n));
+  list<string> Ta = !foreach(n,  T9, !subst("v32", "vX", n));
+  list<string> Tb = !foreach(n,  Ta, !subst("v64", "vX", n));
+  list<string> Tc = !foreach(n,  Tb, !subst( "v2", "v1", n));
+  list<string> Td = !foreach(n,  Tc, !subst( "v3", "v1", n));
+  list<string> Te = !foreach(n,  Td, !subst( "v4", "v1", n));
+  list<string> Tf = !foreach(n,  Te, !subst( "v8", "v1", n));
+  list<string> Tg = !foreach(n,  Tf, !subst("v16", "v1", n));
+  list<string> Th = !foreach(n,  Tg, !subst( "vX", "v1", n));
+  list<string> Tout = Th;
+}
 // f16gentype: 'vNtM' -> 'vNf16'
 def f16gentype : OclGenType<"f16gentype"> {
   list<string> Tin = Torig;
@@ -1024,6 +1047,10 @@ class VFType<list<OclType> types, string suffix> {
   list<OclType> Tout = !foreach(ty, Tys, !cast<OclType>(VectorVTypeSuffixString<ty.BaseCTypeName, !mul(ty.VecLength, vf)>.Value));
 }
 
+class WidenType<OclType type, int vf> {
+  OclType Tout = !cast<OclType>(!subst("v" # type.VecLength, "v" # !mul(vf, type.VecLength), !cast<string>(type)));
+}
+
 // e.g.
 // ExpandTypeByVF<v16i32, [2,4,8]>.Tout == [v2i32, v4i32, v8i32]
 class ExpandTypeByVF<OclType type, list<int> vfs> {
@@ -1266,13 +1293,4 @@ class TargetImpl {
   //
 }
 
-// Helper func to get a linear strided list of ints.
-// e.g.
-// Range<0, 4>.Tout == [0, 1, 2, 3]
-// Range<1, 4, 2>.Tout == [1, 3]
-class Range<int start, int end, int step = 1> {
-  list<int> _zeros = !listsplat(0, !sub(end, start));
-  list<int> _indices = !foldl([]<int>, _zeros, acc, z, acc # [!add(step, !sub(!size(acc), 1))]);
-  list<int> _range = !foreach(x, _indices, !add(x, start));
-  list<int> Tout = !filter(x, _range, !lt(x, end));
-}
+include "GENERIC/td-helper.td"

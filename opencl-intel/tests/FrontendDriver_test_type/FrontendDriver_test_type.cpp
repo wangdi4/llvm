@@ -183,6 +183,8 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesLittleEndian) {
         SPIRVOpCapability,  spv::CapabilityVariableLengthArrayINTEL,
         SPIRVOpCapability,  spv::internal::CapabilityJointMatrixINTEL,
         SPIRVOpCapability, spv::CapabilityLongConstantCompositeINTEL,
+        SPIRVOpCapability, spv::internal::CapabilityBfloat16ConversionINTEL,
+        SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
 
         // Memory model
         SPIRVOpMemoryModel, spv::AddressingModelPhysical32, spv::MemoryModelOpenCL
@@ -257,6 +259,8 @@ TEST_F(ClangCompilerTestType, DISABLED_Test_AcceptCommonSpirvCapabilitiesBigEndi
         SPIRVOpCapability,  spv::CapabilityVariableLengthArrayINTEL,
         SPIRVOpCapability,  spv::internal::CapabilityJointMatrixINTEL,
         SPIRVOpCapability, spv::CapabilityLongConstantCompositeINTEL,
+        SPIRVOpCapability, spv::internal::CapabilityBfloat16ConversionINTEL,
+        SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
 
         // Memory model
         SPIRVOpMemoryModel, spv::AddressingModelPhysical32, spv::MemoryModelOpenCL
@@ -461,6 +465,8 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnFPGA) {
       SPIRVOpCapability, spv::internal::CapabilityFPArithmeticFenceINTEL,
       SPIRVOpCapability, spv::CapabilityLongConstantCompositeINTEL,
       SPIRVOpCapability, spv::internal::CapabilityTaskSequenceINTEL, // INTEL
+      SPIRVOpCapability, spv::internal::CapabilityBfloat16ConversionINTEL,
+      SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
 
       // Memory model
       SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
@@ -562,6 +568,8 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnCPUAndFPGA) {
       spv::CapabilityDebugInfoModuleINTEL, SPIRVOpCapability,
       spv::internal::CapabilityRuntimeAlignedAttributeINTEL,
       SPIRVOpCapability, spv::CapabilityLongConstantCompositeINTEL,
+      SPIRVOpCapability, spv::internal::CapabilityBfloat16ConversionINTEL,
+      SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
 
       // Memory model
       SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
