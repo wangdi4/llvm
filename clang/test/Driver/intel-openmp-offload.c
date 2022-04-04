@@ -94,6 +94,12 @@
 // RUN:   | FileCheck -check-prefix=CHK-TARGOPTS-INTELPROP %s
 // CHK-TARGOPTS-INTELPROP-NOT: clang{{.*}} "-triple" "spir64"{{.*}}"-disable-intel-proprietary-opts"
 
+/// -fp-model=precise wins over -ffast-math
+// RUN:   %clang -### --intel -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64="-fp-model=precise" -ffast-math %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-TARGOPTS-PRECISE %s
+// CHK-TARGOPTS-PRECISE: clang{{.*}} "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu" {{..*}} "-emit-llvm-bc" {{.*}} "-fmath-errno" "-ffp-contract=on" {{.*}} "-O2"
+// CHK-TARGOPTS-PRECISE: clang{{.*}} "-triple" "x86_64-unknown-linux-gnu" {{.*}} "-ffast-math"
+
 /// ###########################################################################
 
 /// Check separate compilation with offloading - bundling actions
@@ -159,7 +165,7 @@
 // RUN:   %clang -### -fiopenmp %t.o -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 -march=native -no-canonical-prefixes -fno-openmp-device-lib=all 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-UBJOBS %s
 // CHK-UBJOBS: clang-offload-bundler{{.*}} "-type=o" "-targets=host-x86_64-unknown-linux-gnu,openmp-spir64" "-inputs={{.*}}" "-outputs=[[HOSTOBJ:.+\.o]],[[OFFOBJ:.+\.o]]" "-unbundle"
-// CHK-UBJOBS: spirv-to-ir-wrapper{{.*}} "[[OFFOBJ]]" "-o" "[[OFFBCFILE:.+\.bc]]"
+// CHK-UBJOBS: spirv-to-ir-wrapper{{.*}} "[[OFFOBJ]]" "-o" "[[OFFBCFILE:.+\.bc]]" "-skip-unknown-input"
 // CHK-UBJOBS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=openmp-spir64" "-inputs={{.*}}libomp-spirvdevicertl.o" "-outputs=[[RTLTGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
 // CHK-UBJOBS: clang-offload-bundler{{.*}}"-type=o"{{.*}}"-inputs={{.*}}libomp-itt-user-wrappers.o"{{.*}}"-outputs=[[ITT1TGT:.+\.o]]" "-unbundle"
 // CHK-UBJOBS: clang-offload-bundler{{.*}}"-type=o"{{.*}}"-inputs={{.*}}libomp-itt-compiler-wrappers.o"{{.*}}"-outputs=[[ITT2TGT:.+\.o]]" "-unbundle"

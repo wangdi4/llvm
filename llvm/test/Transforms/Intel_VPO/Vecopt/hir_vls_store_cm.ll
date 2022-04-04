@@ -4,10 +4,15 @@
 ; NOTE: CM dump goes to stdout and HIR dump goes to stderr. Trying to use one
 ; RUN command line garbles up output causing checks to fail.
 ;
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CMCHECK
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIRCHECK
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CMCHECK
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIRCHECK
+;
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=CMCHECK
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIRCHECK
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=CMCHECK
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIRCHECK
 ;
 ; Test to demonstrate issue with VLS group cost being applied twice to stores in
 ; the group. This happens the first time when we see a new store group. The
@@ -55,15 +60,15 @@ define dso_local void @foo(i64* nocapture %arr) local_unnamed_addr #0 {
 ;
 ; HIRCHECK:       Function: foo
 ; HIRCHECK-EMPTY:
-; HIRCHECK-NEXT:  <0>          BEGIN REGION { modified }
-; HIRCHECK-NEXT:  <17>               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; HIRCHECK-NEXT:  <22>               |   [[DOTEXTENDED0:%.*]] = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3>,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
-; HIRCHECK-NEXT:  <23>               |   [[SHUFFLE0:%.*]] = shufflevector undef,  [[DOTEXTENDED0]],  <i32 8, i32 1, i32 9, i32 3, i32 10, i32 5, i32 11, i32 7>
-; HIRCHECK-NEXT:  <24>               |   [[DOTEXTENDED10:%.*]] = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3> + 1,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
-; HIRCHECK-NEXT:  <25>               |   [[SHUFFLE20:%.*]] = shufflevector [[SHUFFLE0]],  [[DOTEXTENDED10]],  <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>
-; HIRCHECK-NEXT:  <26>               |   (<8 x i64>*)([[ARR0:%.*]])[2 * i1] = [[SHUFFLE20]]
-; HIRCHECK-NEXT:  <17>               + END LOOP
-; HIRCHECK-NEXT:  <0>          END REGION
+; HIRCHECK-NEXT:            BEGIN REGION { modified }
+; HIRCHECK-NEXT:                 + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; HIRCHECK-NEXT:                 |   [[DOTEXTENDED0:%.*]] = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3>,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; HIRCHECK-NEXT:                 |   [[SHUFFLE0:%.*]] = shufflevector undef,  [[DOTEXTENDED0]],  <i32 8, i32 1, i32 9, i32 3, i32 10, i32 5, i32 11, i32 7>
+; HIRCHECK-NEXT:                 |   [[DOTEXTENDED10:%.*]] = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3> + 1,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; HIRCHECK-NEXT:                 |   [[SHUFFLE20:%.*]] = shufflevector [[SHUFFLE0]],  [[DOTEXTENDED10]],  <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>
+; HIRCHECK-NEXT:                 |   (<8 x i64>*)([[ARR0:%.*]])[2 * i1] = [[SHUFFLE20]]
+; HIRCHECK-NEXT:                 + END LOOP
+; HIRCHECK:                 END REGION
 ;
 entry:
   br label %for.body

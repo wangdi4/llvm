@@ -56,6 +56,9 @@ template <typename T, int N> struct is_hf_type<__ESIMD_NS::simd<T, N>> {
   static const bool value = is_hf_type<T>::value;
 };
 
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+
 /// Compile-time checks if first template parameter is equal for any other
 template <typename...> struct is_one_of {
   static constexpr bool value = false;
@@ -85,9 +88,6 @@ struct is_one_of_enum<enumClass, Checked, First, Else...> {
 };
 template <typename enumClass, enumClass... T>
 inline constexpr bool is_one_of_enum_v = is_one_of_enum<enumClass, T...>::value;
-
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
 
 } // namespace __ESIMD_EDNS
 } // __SYCL_INLINE_NAMESPACE(cl)

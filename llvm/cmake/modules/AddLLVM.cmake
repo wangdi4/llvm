@@ -1585,36 +1585,13 @@ function(add_unittest test_suite test_name)
   string(FIND "${test_suite}" "SYCL" IS_SYCL_TEST)
   if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX AND UNIX AND NOT (${IS_SYCL_TEST} STREQUAL "-1"))
     list(APPEND LLVM_LINK_COMPONENTS Support_stdcpp) # gtest needs it for raw_ostream
-    add_llvm_executable(${test_name} IGNORE_EXTERNALIZE_DEBUGINFO NO_INSTALL_RPATH ${ARGN})
-    set(outdir ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
-    set_output_directory(${test_name} BINARY_DIR ${outdir} LIBRARY_DIR ${outdir})
-    target_link_libraries(${test_name} PRIVATE llvm_gtest_main_stdcpp llvm_gtest_stdcpp stdc++ ${LLVM_PTHREAD_LIB})
-    set_property(TARGET ${test_name} APPEND_STRING PROPERTY
-                 COMPILE_FLAGS " -stdlib=libstdc++")
   elseif (WIN32 AND NOT (${IS_SYCL_TEST} STREQUAL "-1"))
     list(APPEND LLVM_LINK_COMPONENTS Support_dyn) # gtest needs it for raw_ostream
-    add_llvm_executable(${test_name} IGNORE_EXTERNALIZE_DEBUGINFO NO_INSTALL_RPATH ${ARGN})
-    set(outdir ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
-    set_output_directory(${test_name} BINARY_DIR ${outdir} LIBRARY_DIR ${outdir})
-    target_link_libraries(${test_name} PRIVATE llvm_gtest_main_dyn llvm_gtest_dyn ${LLVM_PTHREAD_LIB})
-    foreach(flag_var
-        CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
-        CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-      string(REGEX REPLACE "/MT" "/MD" ${flag_var} "${${flag_var}}")
-      set(${flag_var} "${${flag_var}}" CACHE STRING "" FORCE)
-    endforeach()
   else()
     list(APPEND LLVM_LINK_COMPONENTS Support) # gtest needs it for raw_ostream
-    add_llvm_executable(${test_name} IGNORE_EXTERNALIZE_DEBUGINFO NO_INSTALL_RPATH ${ARGN})
-    set_msvc_crt_flags(${test_name})
-    set(outdir ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
-    set_output_directory(${test_name} BINARY_DIR ${outdir} LIBRARY_DIR ${outdir})
-    # libpthreads overrides some standard library symbols, so main
-    # executable must be linked with it in order to provide consistent
-    # API for all shared libaries loaded by this executable.
-    target_link_libraries(${test_name} PRIVATE llvm_gtest_main llvm_gtest ${LLVM_PTHREAD_LIB})
   endif()
   # end INTEL_CUSTOMIZATION
+  add_llvm_executable(${test_name} IGNORE_EXTERNALIZE_DEBUGINFO NO_INSTALL_RPATH ${ARGN})
 
   # The runtime benefits of LTO don't outweight the compile time costs for tests.
   if(LLVM_ENABLE_LTO)
@@ -1635,7 +1612,24 @@ function(add_unittest test_suite test_name)
   # libpthreads overrides some standard library symbols, so main
   # executable must be linked with it in order to provide consistent
   # API for all shared libaries loaded by this executable.
-  target_link_libraries(${test_name} PRIVATE llvm_gtest_main llvm_gtest ${LLVM_PTHREAD_LIB})
+  # INTEL_CUSTOMIZATION
+  if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX AND UNIX AND NOT (${IS_SYCL_TEST} STREQUAL "-1"))
+    target_link_libraries(${test_name} PRIVATE llvm_gtest_main_stdcpp llvm_gtest_stdcpp stdc++ ${LLVM_PTHREAD_LIB})
+    set_property(TARGET ${test_name} APPEND_STRING PROPERTY
+                 COMPILE_FLAGS " -stdlib=libstdc++")
+  elseif (WIN32 AND NOT (${IS_SYCL_TEST} STREQUAL "-1"))
+    target_link_libraries(${test_name} PRIVATE llvm_gtest_main_dyn llvm_gtest_dyn ${LLVM_PTHREAD_LIB})
+    foreach(flag_var
+        CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+        CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+      string(REGEX REPLACE "/MT" "/MD" ${flag_var} "${${flag_var}}")
+      set(${flag_var} "${${flag_var}}" CACHE STRING "" FORCE)
+    endforeach()
+  else()
+    set_msvc_crt_flags(${test_name})
+    target_link_libraries(${test_name} PRIVATE llvm_gtest_main llvm_gtest ${LLVM_PTHREAD_LIB})
+  endif()
+  # end INTEL_CUSTOMIZATION
 
   add_dependencies(${test_suite} ${test_name})
   get_target_property(test_suite_folder ${test_suite} FOLDER)

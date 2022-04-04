@@ -1959,16 +1959,18 @@ public:
       // that safety bit has different semantics regarding propagation than
       // the MismatchedElementAccess safety, which are necessary to get all
       // the necessary structures marked.
+      bool IsCandidateLoad = DTBCA.isCandidateLoad(&I);
       bool IsAllocStore = DTBCA.isAllocStore(&I);
+      bool IsCandidate = IsCandidateLoad || IsAllocStore;
       if (BadCasting) {
         const llvm::dtrans::SafetyData SD =
-            IsAllocStore ? dtrans::BadCastingPending : dtrans::BadCasting;
+            IsCandidate ? dtrans::BadCastingPending : dtrans::BadCasting;
         setBaseTypeInfoSafetyData(
             ParentTy, SD, "Incompatible pointer type for field load/store", &I);
         if (ValInfo)
           for (auto *ValAliasTy :
                ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
-            if (IsAllocStore)
+            if (IsCandidate)
               DTBCA.setSawBadCasting(&I);
             setBaseTypeInfoSafetyData(
                 ValAliasTy, SD,
@@ -1987,7 +1989,7 @@ public:
               IndexedType->getPointerElementType()->isAggregateType())
             PtrToAggregateFound = true;
           const llvm::dtrans::SafetyData SD =
-              IsAllocStore ? dtrans::UnsafePointerStorePending
+              IsCandidate ? dtrans::UnsafePointerStorePending
                            : dtrans::UnsafePointerStore;
           if (ValInfo) {
             auto &AliasSet =
@@ -1995,7 +1997,7 @@ public:
             PtrToAggregateFound |= ValInfo->canAliasToDirectAggregatePointer();
             if (PtrToAggregateFound) {
               for (auto *ValAliasTy : AliasSet) {
-                if (IsAllocStore)
+                if (IsCandidate)
                   DTBCA.setSawUnsafePointerStore(&I);
                 setBaseTypeInfoSafetyData(
                     ValAliasTy, SD, "Incompatible type for field load/store",
@@ -2005,7 +2007,7 @@ public:
           }
 
           if (PtrToAggregateFound) {
-            if (IsAllocStore)
+            if (IsCandidate)
               DTBCA.setSawUnsafePointerStore(&I);
             setBaseTypeInfoSafetyData(
                 IndexedType, SD, "Incompatible type for field load/store", &I);
@@ -2014,10 +2016,10 @@ public:
 
         // Finally, mark the structure as having a mismatched element access.
         TypeSize ValSize = DL.getTypeSizeInBits(ValOp->getType());
-        if (IsAllocStore)
+        if (IsCandidate)
           DTBCA.setSawMismatchedElementAccess(&I);
         setFieldMismatchedElementAccess(ParentTy, ValSize, IndexedType,
-                                        ElementNum, I, IsAllocStore);
+                                        ElementNum, I, IsCandidate);
       }
     }
   }
@@ -6268,11 +6270,9 @@ void DTransSafetyInfo::checkLanguages(Module &M) {
     }
 }
 
-dtrans::TypeInfo *DTransSafetyInfo::getOrCreateTypeInfo(DTransType *Ty) {
-  // If we already have this type in our map, just return it.
-  dtrans::TypeInfo *TI = getTypeInfo(Ty);
-  if (TI)
-    return TI;
+dtrans::TypeInfo *DTransSafetyInfo::createTypeInfo(DTransType *Ty) {
+  assert(Ty && "Trying to create a dtrans::TypeInfo without a DTransType");
+  assert(!getTypeInfo(Ty) && "dtrans::TypeInfo already created");
 
   // Create the DTrans TypeInfo object for this type and any sub-types.
   dtrans::TypeInfo *DTransTI;
@@ -6304,42 +6304,45 @@ dtrans::TypeInfo *DTransSafetyInfo::getOrCreateTypeInfo(DTransType *Ty) {
     // TODO: TypeInfo does not support vector types, so they will be stored
     // within NonAggregateTypeInfo objects currently.
     assert(!Ty->isAggregateType() &&
-           "DTransAnalysisInfo::getOrCreateTypeInfo unexpected aggregate type");
+           "DTransAnalysisInfo::createTypeInfo unexpected aggregate type");
     DTransTI = new dtrans::NonAggregateTypeInfo(Ty);
   }
 
   TypeInfoMap[Ty] = DTransTI;
-  DTransType* RelatedType = RelatedTypesUtils->getRelatedTypeFor(Ty);
+  return DTransTI;
+}
 
-  // Set the related type
-  if (RelatedType) {
+dtrans::TypeInfo *DTransSafetyInfo::getOrCreateTypeInfo(DTransType *Ty) {
+  // If we already have this type in our map, just return it.
+  dtrans::TypeInfo *TI = getTypeInfo(Ty);
+  if (TI)
+    return TI;
+
+  // Create the dtrans::TypeInfo
+  dtrans::TypeInfo *DTransTI = createTypeInfo(Ty);
+  assert(DTransTI && "dtrans::TypeInfo not created correctly");
+  assert(DTransTI->getDTransType() == Ty &&
+         "DTransType for the created dtrans::TypeInfo is incorrect");
+
+  // Set the related type if it exists
+  if (auto *RelatedType = RelatedTypesUtils->getRelatedTypeFor(Ty)) {
+
+    // Collect or create the dtrans::TypeInfo if needed
     dtrans::StructInfo *RelatedStructInfo =
         dyn_cast_or_null<dtrans::StructInfo>(getTypeInfo(RelatedType));
     if (!RelatedStructInfo)
-      RelatedStructInfo = cast<dtrans::StructInfo>(
-        getOrCreateTypeInfo(RelatedType));
+      RelatedStructInfo =
+          cast<dtrans::StructInfo>(createTypeInfo(RelatedType));
 
     assert(RelatedStructInfo &&
-           "Missing struct info when setting related type");
+           "Missing dtrans::StructInfo when setting related type");
 
+    // Set the relationship between both types
     dtrans::StructInfo *CurrStructInfo =  cast<dtrans::StructInfo>(DTransTI);
-    CurrStructInfo->setRelatedType(RelatedStructInfo);
-
-    // If Ty is the padded type, then set the last field as
-    // padded field.
-    //
-    // NOTE: We don't set anything for the related type because the recursion
-    // will take care of it.
-    int64_t CurrNumFields = CurrStructInfo->getNumFields();
-    int64_t RelatedNumFields = RelatedStructInfo->getNumFields();
-    if ((CurrNumFields - RelatedNumFields) == 1) {
-      CurrStructInfo->getField(CurrNumFields - 1).setPaddedField();
-      CurrStructInfo->setAsABIPaddingPaddedStructure();
-    } else {
-      CurrStructInfo->setAsABIPaddingBaseStructure();
-    }
-
+    RelatedTypesUtils->setTypeInfoAsRelatedTypes(CurrStructInfo,
+                                                 RelatedStructInfo);
   }
+
   return DTransTI;
 }
 

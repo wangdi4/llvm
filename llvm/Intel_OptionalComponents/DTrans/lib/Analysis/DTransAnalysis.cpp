@@ -987,6 +987,13 @@ public:
     if (isa<LoadInst>(V) || isa<SelectInst>(V) || isa<PHINode>(V))
       return true;
 
+    // A subtraction instruction with pointer-sized integers may also need to be
+    // treated as a possible pointer value to handle the case where one operand
+    // is from a PtrToInt, and the other is a constant integer.
+    if (auto *BinOp = dyn_cast<BinaryOperator>(V))
+      if (BinOp->getOpcode() == Instruction::Sub)
+        return true;
+
     // Otherwise, we don't need to analyze it as a pointer.
     return false;
   }
@@ -1234,6 +1241,18 @@ private:
       if (addDependency(Src, DependentVals))
         populateDependencyStack(Src, DependentVals);
       return;
+    }
+
+    if (auto *BinOp = dyn_cast<BinaryOperator>(V)) {
+      if (BinOp->getOpcode() == Instruction::Sub) {
+        Value *LeftOp = BinOp->getOperand(0);
+        Value *RightOp = BinOp->getOperand(1);
+        if (addDependency(LeftOp, DependentVals))
+          populateDependencyStack(LeftOp, DependentVals);
+        if (addDependency(RightOp, DependentVals))
+          populateDependencyStack(RightOp, DependentVals);
+        return;
+      }
     }
 
     // For PHI nodes we need to add all of the non-self incoming values.
@@ -1491,6 +1510,29 @@ private:
       Info.merge(SrcLPI);
       return;
     }
+    if (auto *BinOp = dyn_cast<BinaryOperator>(V)) {
+      // Treat the result of constant integer being subtracted from a PtrToInt
+      // value as still carrying the pointer type. This is necessary to perform
+      // checks if the subtract is subsequently used to subtract another
+      // PtrToInt value.
+      //   %prev = sub i64 %t2, 8
+      //   %offset = sub i64 %t1, %prev
+      //
+      // Subtracting a PtrToInt value from a constant or another PtrToInt value
+      // will not be tracked as carrying pointer type information.
+      if (BinOp->getOpcode() != Instruction::Sub)
+        return;
+      if (!isa<ConstantInt>(BinOp->getOperand(1)))
+        return;
+
+      // Copy any type information from the source operand. Unsupported cases,
+      // such as when the type is an element pointee and has a constant
+      // subtracted from it will be detected when using the LPI during
+      // visitBinaryOperator.
+      mergeOperandInfo(BinOp->getOperand(0), Info);
+      return;
+    }
+
     // The caller should have checked isDerivedValue() before calling this
     // function, and the above cases should cover all possible derived
     // values.
@@ -1955,7 +1997,8 @@ private:
     // value, even though it points to the same block of memory.
     // The GetElementPtr case will be handled elsewhere.
     if (isa<CastInst>(V) || isa<PHINode>(V) || isa<SelectInst>(V) ||
-        isa<BitCastOperator>(V) || isa<PtrToIntOperator>(V))
+        isa<BitCastOperator>(V) || isa<PtrToIntOperator>(V) ||
+        isa<BinaryOperator>(V))
       return true;
 
     // This assert is here to catch cases that I haven't thought about.
@@ -5112,7 +5155,8 @@ public:
           return;
 
         LocalPointerInfo &LPI = LPA.getLocalPointerInfo(V);
-        if (V->getType()->isPointerTy() || LPI.canAliasToAggregatePointer()) {
+        if (V->getType()->isPointerTy() || LPI.canAliasToAggregatePointer() ||
+            LPI.pointsToSomeElement()) {
           OS << "\n";
           LPI.print(OS, 4, ";");
           OS << ";      ";
@@ -8098,14 +8142,36 @@ private:
     assert(I.getOpcode() == Instruction::Sub &&
            "analyzeSub() called with unexpected opcode");
 
+    Value *LeftOp = I.getOperand(0);
+    Value *RightOp = I.getOperand(1);
     // If neither operand is of interest, we can ignore this instruction.
-    if (!isValueOfInterest(I.getOperand(0)) &&
-        !isValueOfInterest(I.getOperand(1)))
+    if (!isValueOfInterest(LeftOp) && !isValueOfInterest(RightOp))
       return;
 
-    LocalPointerInfo &LHSLPI = LPA.getLocalPointerInfo(I.getOperand(0));
-    LocalPointerInfo &RHSLPI = LPA.getLocalPointerInfo(I.getOperand(1));
+    // Check if the RHS can be found as part of a subtraction chain to support
+    // some simple cases where reassociation was done on the subtract chain
+    // when a constant integer is involved.
+    // For example:
+    //   %tmp = sub i64 %t1, 8
+    //   %offset = sub i64 %tmp, %t2
+    //
+    // TODO: This could be extended to also support:
+    //   %tmp = sub i64 %t2, 8
+    //   %offset = sub i64 %t1, %tmp
+    //
+    // Note: This should only be allowed for ptr-to-ptr types because the
+    // transformations do not support modifying a constant operand that is
+    // part of the subtraction chain. Those cases will be marked as
+    // "Unhandled use" because the subtract does not feed a divide
+    // operation.
+    LocalPointerInfo &LHSLPI = LPA.getLocalPointerInfo(LeftOp);
+    if (!isValueOfInterest(RightOp) && isa<ConstantInt>(I.getOperand(1)) &&
+        LHSLPI.isPtrToPtr() && I.hasOneUse())
+      if (auto *U = dyn_cast<BinaryOperator>(*I.user_begin()))
+        if (U->getOpcode() == Instruction::Sub && U->getOperand(0) == &I)
+          RightOp = U->getOperand(1);
 
+    LocalPointerInfo &RHSLPI = LPA.getLocalPointerInfo(RightOp);
     if (LHSLPI.pointsToSomeElement()) {
       LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation -- "
                         << "pointer to element used in sub instruction:\n"
@@ -8136,8 +8202,8 @@ private:
       LLVM_DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
                         << "sub instruction operands do not match:\n"
                         << "  " << I << "\n");
-      setValueTypeInfoSafetyData(I.getOperand(0), dtrans::UnhandledUse);
-      setValueTypeInfoSafetyData(I.getOperand(1), dtrans::UnhandledUse);
+      setValueTypeInfoSafetyData(LeftOp, dtrans::UnhandledUse);
+      setValueTypeInfoSafetyData(RightOp, dtrans::UnhandledUse);
       return;
     }
 

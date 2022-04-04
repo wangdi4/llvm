@@ -144,6 +144,8 @@ DTransBadCastingAnalyzerOP::findSpecificArgType(Function *F, unsigned Index) {
     } 
     return std::make_pair(false, nullptr);
   }
+  if (!ResultType)
+    return std::make_pair(true, nullptr);
   if (!isa<StructType>(ResultType))
     return std::make_pair(false, nullptr);
   // Jumped through all of the hoops. Return the ResultType.
@@ -180,9 +182,7 @@ DTransBadCastingAnalyzerOP::findSingleGEPISourceElementType(StoreInst *STI,
   if (!CI)
     return nullptr;
   llvm::Type *Result = nullptr;
-  const TargetLibraryInfo &TLI = GetTLI(*CI->getFunction());
-  if (dtrans::getAllocFnKind(CI, TLI) == dtrans::AK_NotAlloc &&
-      PTA.getAllocationCallKind(CI) == dtrans::AK_NotAlloc)
+  if (PTA.getAllocationCallKind(CI) == dtrans::AK_NotAlloc)
     return nullptr;
   unsigned UserCount = 0;
   for (auto *U : CI->users()) {
@@ -208,6 +208,8 @@ DTransBadCastingAnalyzerOP::findSingleGEPISourceElementType(StoreInst *STI,
         // can only come from the special gaurd conditional basic block.
         // This can be generalized if it is found useful.
         for (unsigned I = 0; I < PHIN->getNumIncomingValues(); ++I) {
+          if (PHIN->getIncomingValue(I) == CI)
+            continue;
           BasicBlock *BB = PHIN->getIncomingBlock(I);
           if (!isSpecialGuardConditional(BB) && BB != STI->getParent()) {
             DEBUG_WITH_TYPE(DTRANS_BCA, {
@@ -377,6 +379,8 @@ DTransBadCastingAnalyzerOP::gepiMatchesCandidateStruct(
 bool
 DTransBadCastingAnalyzerOP::gepiMatchesCandidateField(
     GetElementPtrInst *GEPI) {
+  if (!CandidateRootType)
+    return false;
   if (!gepiMatchesCandidateStruct(GEPI))
     return false; 
   auto ConstIndex = GEPI->getOperand(GEPI->getNumOperands() - 1);
@@ -805,7 +809,7 @@ DTransBadCastingAnalyzerOP::analyzeStore(dtrans::FieldInfo &FI,
 //
 void
 DTransBadCastingAnalyzerOP::handlePotentialAllocStore(StoreInst *SI) {
-  if (AllocStores.find(SI) != AllocStores.end())
+  if (AllocStores.find(SI) == AllocStores.end())
     PendingStores.insert(SI);
 }
 
@@ -856,6 +860,69 @@ DTransBadCastingAnalyzerOP::isInnocuousLoadOfCall(CallInst *CI, LoadInst *LI,
 }
 
 //
+// If there is one, return a StoreInst in 'BB' which stores the result
+// of a recognized alloc function to the candidate field. Otherwise,
+// return 'nullptr'. Also indicate that the StoreInst is a potential
+// alloc store.
+//
+StoreInst *
+DTransBadCastingAnalyzerOP::allocStoreInst(BasicBlock *BB) {
+  StoreInst *RSI = nullptr;
+  for (Instruction &I : *BB) {
+    auto SI = dyn_cast<StoreInst>(&I);
+    if (!SI)
+      continue;
+    auto GEPI = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
+    if (!GEPI)
+      continue;
+    auto CI = dyn_cast<CallInst>(SI->getValueOperand());
+    if (!CI)
+      continue;
+    if (gepiMatchesCandidateField(GEPI) &&
+        PTA.getAllocationCallKind(CI) != dtrans::AK_NotAlloc) {
+      RSI = SI;
+      break;
+    }
+  }
+  if (!RSI)
+    return nullptr;
+  handlePotentialAllocStore(RSI);
+  return RSI;
+}
+
+//
+// Return 'true' if 'BB' is either conditionally dead or is dominated
+// by a potential alloc store. If it may be conditionally dead, set
+// 'IsCondDead'.
+//
+bool
+DTransBadCastingAnalyzerOP::condDeadOrAllocStoreDominated(BasicBlock *BB,
+                                                          bool &IsCondDead) {
+  std::function<bool(BasicBlock *, BasicBlock *, bool &)>
+      CondDeadOrAllocStoreBlock = [this, &CondDeadOrAllocStoreBlock]
+                                  (BasicBlock *PBB, BasicBlock *BB,
+                                   bool &IsCondDead) {
+    if (isSpecialGuardConditional(PBB) &&
+        getNotTakenPathOfSpecialGuardConditional(PBB) == BB) {
+      IsCondDead = true;
+      return true;
+    }
+    if (allocStoreInst(BB))
+      return true;
+    for (BasicBlock *NPBB : predecessors(PBB))
+      if (!CondDeadOrAllocStoreBlock(NPBB, BB, IsCondDead))
+        return false;
+    return true;
+  };
+
+  for (BasicBlock *PBB : predecessors(BB))
+    if (!CondDeadOrAllocStoreBlock(PBB, BB, IsCondDead))
+      return false;
+  return true;
+}
+
+
+//
 // Return 'true' if all of the uses of 'I' are in basic blocks that are
 // either dominated by a potential alloc store or in a dead basic blcck
 // when the special condition is applied to the Function in which
@@ -898,60 +965,73 @@ DTransBadCastingAnalyzerOP::isInnocuousLoadOfCall(CallInst *CI, LoadInst *LI,
 // therefore conditionally dead.
 //
 bool
-DTransBadCastingAnalyzerOP::allUseBBsConditionallyDead(Instruction *I) {
-
-  //
-  // Return a StoreInst which is a potential alloc store, if the
-  // alloc store dominates 'BB'.
-  //
-  auto dominatingAllocStore = [this](BasicBlock *BB) -> StoreInst * {
-    for (auto PBB = BB; PBB; PBB = PBB->getUniquePredecessor()) {
-      for (Instruction &I : *PBB) {
-        auto SI = dyn_cast<StoreInst>(&I);
-        if (!SI)
-          continue;
-        auto GEPI = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
-        if (!GEPI)
-          continue;
-        auto CI = dyn_cast<CallInst>(SI->getValueOperand());
-        if (!CI)
-          continue;
-        const TargetLibraryInfo &TLI = GetTLI(*CI->getFunction());
-        if (gepiMatchesCandidateField(GEPI) &&
-            (dtrans::getAllocFnKind(CI, TLI) != dtrans::AK_NotAlloc ||
-             PTA.getAllocationCallKind(CI) != dtrans::AK_NotAlloc))
-          return SI;
-      }
-    }
-    return nullptr;
-  };
-
-  //
-  // Return 'true' if 'BB', which is a predecessor of 'OBB', is dominated
-  // by a conditionally dead basic block.
-  //
-  auto dominatedByConditionallyDeadBlock = [this](BasicBlock *BB,
-                                                  BasicBlock *OBB) -> bool {
-    auto TBB = OBB;
-    for (auto PBB = BB; PBB; TBB = PBB, PBB = PBB->getUniquePredecessor())
-      if (isSpecialGuardConditional(PBB) &&
-          getNotTakenPathOfSpecialGuardConditional(PBB) == TBB)
-        return true;
-    return false;
-  };
-
+DTransBadCastingAnalyzerOP::allUseBBsCondDeadOrAllocStoreDominated(
+    Instruction *I, bool &IsCondDead) {
   for (auto *U : I->users()) {
     auto II = dyn_cast<Instruction>(U);
     if (!II)
       continue;
     auto BB = II->getParent();
-    for (BasicBlock *PBB : predecessors(BB)) {
-      if (!dominatedByConditionallyDeadBlock(PBB, BB)) {
-        auto SI = dominatingAllocStore(PBB);
-        if (!SI)
-          return false;
-        handlePotentialAllocStore(SI);
-      }
+    if (!condDeadOrAllocStoreDominated(BB, IsCondDead))
+      return false;
+  }
+  return true;
+}
+
+//
+// Return 'true' if 'LDI' is a valid zero element ptr access load for
+// bad casting analysis. This is a special check needed when we have
+// opaque pointers. 'LDI' is valid if the type accessed is consistent
+// in all of its uses, as determined by the source type if the use is a
+// GEP or by the uses within called function if the use is an operand
+// of a CallBase.
+//
+bool
+DTransBadCastingAnalyzerOP::isValidZeroElementPtrAccess(LoadInst *LDI) {
+  auto GEPI = cast<GetElementPtrInst>(LDI->getPointerOperand());
+  StoreInst *SI = nullptr;
+  for (User *U : GEPI->users())
+    if (auto LSI = dyn_cast<StoreInst>(U)) {
+      if (SI || LSI->getPointerOperand() != GEPI)
+        return false;
+      SI = LSI;
+    }
+  if (!SI)
+    return false;
+  handlePotentialAllocStore(SI);
+  llvm::Type *GEPIType = nullptr;
+  for (User *U : SI->getValueOperand()->users()) {
+    if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
+      GEPIType = GEPI->getSourceElementType();
+      break;
+    }
+  }
+  if (!GEPIType)
+    return false;
+  for (User *U : LDI->users()) {
+    if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
+      if (GEPI->getSourceElementType() != GEPIType)
+        return false;
+    } else if (auto CB = dyn_cast<CallBase>(U)) {
+      Function *Callee = CB->getCalledFunction();
+      if (!Callee)
+        return false;
+      bool FoundUniqueIndex = false;
+     unsigned UniqueIndex = 0;
+      for (unsigned I = 0; I < CB->arg_size(); ++I)
+        if (CB->getArgOperand(I) == LDI) {
+          if (FoundUniqueIndex)
+            return false;
+          FoundUniqueIndex = true;
+          UniqueIndex = I;
+        }
+      if (!FoundUniqueIndex || UniqueIndex != VoidArgumentIndex)
+        return false;
+      auto Result = findSpecificArgType(Callee, VoidArgumentIndex);
+      if (!Result.first || Result.second != GEPIType)
+        return false;
+    } else {
+      return false;
     }
   }
   return true;
@@ -1000,6 +1080,8 @@ DTransBadCastingAnalyzerOP::analyzeLoad(dtrans::FieldInfo &FI,
   // Only care about the candidate field.
   if (Index != CandidateVoidField)
     return true;
+  if (isValidZeroElementPtrAccess(LDI))
+    return true;
   // Check the uses of the load.
   for (auto *U : LDI->users()) {
     // If it is a store, it should be an alloc store.
@@ -1037,6 +1119,31 @@ DTransBadCastingAnalyzerOP::analyzeLoad(dtrans::FieldInfo &FI,
       setFoundViolation(true);
       return false;
     }
+    // If it is a PHINode, check each incoming value which is the load being
+    // analyzed, and see if its incoming basic block will be determined to be
+    // dead if the special conditional expression test is added, or if it is
+    // dominated by a potential alloc store. If the former, this is OK, but
+    // record that the function the load appears in needs the conditional test.
+    if (auto PHIN = dyn_cast<PHINode>(U)) {
+      for (unsigned I = 0, E = PHIN->getNumIncomingValues(); I !=E; ++I) {
+        if (PHIN->getIncomingValue(I) == LDI) {
+          auto BBP = PHIN->getIncomingBlock(I);
+          bool IsCondDead = false;
+          if (condDeadOrAllocStoreDominated(BBP, IsCondDead)) {
+            if (IsCondDead)
+              CondLoadFunctions.insert(PHIN->getFunction());
+          } else {
+            DEBUG_WITH_TYPE(DTRANS_BCA, {
+              dbgs() << "dtrans-bca: (L) Not conditionally dead: ";
+              ICI->dump();
+            });
+            setFoundViolation(true);
+            return false;
+          }
+        }
+      }
+      continue;
+    }
     // If it is an instruction in a basic block that will be determined to be
     // dead if the special conditional expression test is added, this is OK,
     // but record that the function it appears in needs the conditional test.
@@ -1049,9 +1156,11 @@ DTransBadCastingAnalyzerOP::analyzeLoad(dtrans::FieldInfo &FI,
       continue;
     }
     // Now check all of the uses of the instruction to ensure that they
-    // are dominated, at least conditionally, by a potential alloc store.
-    if (allUseBBsConditionallyDead(I)) {
-      CondLoadFunctions.insert(I->getFunction());
+    // are either conditionally dead or dominated by a potential alloc store.
+    bool IsCondDead = false;
+    if (allUseBBsCondDeadOrAllocStoreDominated(I, IsCondDead)) {
+      if (IsCondDead)
+        CondLoadFunctions.insert(I->getFunction());
       continue;
     }
     DEBUG_WITH_TYPE(DTRANS_BCA, {
@@ -1066,7 +1175,7 @@ DTransBadCastingAnalyzerOP::analyzeLoad(dtrans::FieldInfo &FI,
 
 //
 // Remove 'F' from the set 'CondLoadFunctions' if there is an alloc store
-// in the Function 'F'.
+
 //
 void
 DTransBadCastingAnalyzerOP::pruneCondLoadFunctions() {
@@ -1255,6 +1364,17 @@ bool
 DTransBadCastingAnalyzerOP::isAllocStore(Instruction *I) {
   auto SI = dyn_cast<StoreInst>(I);
   return SI && AllocStores.find(SI) != AllocStores.end();
+}
+
+bool
+DTransBadCastingAnalyzerOP::isCandidateLoad(Instruction *I) {
+  auto LI = dyn_cast<LoadInst>(I);
+  if (!LI)
+    return false;
+  auto GEPI = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
+  if (!GEPI)
+    return false;
+  return gepiMatchesCandidateField(GEPI);
 }
 
 void

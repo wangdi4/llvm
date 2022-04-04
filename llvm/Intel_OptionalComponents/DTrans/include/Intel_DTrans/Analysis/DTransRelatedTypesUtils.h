@@ -85,6 +85,10 @@ public:
   // safety information.
   void postProcessRelatedTypesAnalysis(DTransSafetyInfo &DTInfo);
 
+  // Set input dtrans::StructInfos as related types
+  void setTypeInfoAsRelatedTypes(dtrans::StructInfo *CurrTypeInfo,
+                                 dtrans::StructInfo *RelatedTypeInfo);
+
 private:
   // Map the types with ABI padding to the base types
   DenseMap<DTransType *, DTransType *> RelatedTypesMap;

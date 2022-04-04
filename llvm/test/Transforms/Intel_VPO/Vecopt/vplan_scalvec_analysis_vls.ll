@@ -2,7 +2,8 @@
 ; Test to check SVA results for a loop with VLS optimized memory accesses.
 
 ; RUN: opt -S < %s -vplan-vec -disable-output -vplan-enable-scalvec-analysis -vplan-print-scalvec-results | FileCheck %s --check-prefix=SVA-IR
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-enable-scalvec-analysis -vplan-print-scalvec-results | FileCheck %s --check-prefix=SVA-HIR
+; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-enable-scalvec-analysis -vplan-print-scalvec-results -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=SVA-HIR
+; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-enable-scalvec-analysis -vplan-print-scalvec-results -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=SVA-HIR
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -68,7 +69,7 @@ define void @foo(i32* nocapture %ary) {
 ; SVA-HIR-DAG:     [[VP0:%.*]] = {%ary}
 ; SVA-HIR-NEXT:  External Defs End:
 ; SVA-HIR-NEXT:    [[BB0:BB[0-9]+]]: # preds:
-; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
+; SVA-HIR:          [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-HIR-EMPTY:
 ; SVA-HIR-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1 (SVAOpBits 0->F )
@@ -98,10 +99,7 @@ define void @foo(i32* nocapture %ary) {
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-HIR-EMPTY:
-; SVA-HIR-NEXT:    [[BB4]]: # preds: [[BB3]]
-; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
-; SVA-HIR-EMPTY:
-; SVA-HIR-NEXT:  External Uses:
+; SVA-HIR:       External Uses:
 ; SVA-HIR-NEXT:  Id: 0   no underlying for i64 [[VP__IND_FINAL]]
 ;
 entry:

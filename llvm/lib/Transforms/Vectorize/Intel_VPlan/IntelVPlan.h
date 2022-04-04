@@ -3237,19 +3237,13 @@ class VPInvSCEVWrapper : public VPInstruction {
   // SCEV object.
   VPlanSCEV *Scev;
 
-public:
-  // TODO: Not sure about this. We might have to revisit this when we support
-  // HIR.
+  // Is the opaque VPlanSCEV a LLVM SCEV?
+  const bool IsSCEV;
 
-  VPInvSCEVWrapper(VPlanSCEV *S)
-      : VPInstruction(VPInstruction::InvSCEVWrapper,
-                      VPlanScalarEvolutionLLVM::toSCEV(S)->getType(), {}),
-        Scev(S) {
-    // We don't support AddREC SCEV.
-    assert(VPlanScalarEvolutionLLVM::toSCEV(Scev)->getSCEVType() !=
-               SCEVTypes::scAddRecExpr &&
-           "An add-expr SCEV is not expected here.");
-  }
+public:
+  VPInvSCEVWrapper(VPlanSCEV *S, Type *Ty, bool IsSCEV = true)
+      : VPInstruction(VPInstruction::InvSCEVWrapper, Ty, {}), Scev(S),
+        IsSCEV(IsSCEV) {}
 
   VPlanSCEV *getSCEV() const { return Scev; }
 

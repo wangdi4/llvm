@@ -219,6 +219,57 @@ void DTransRelatedTypesUtils::postProcessRelatedTypesAnalysis(
   revertSafetyData(DTInfo);
 }
 
+// Set RelatedTypeInfo as the related type of CurrTypeInfo and vice-versa.
+// Also, identify which structure is the base, which one is the padded and
+// set the properties for base/padded structures.
+void DTransRelatedTypesUtils::setTypeInfoAsRelatedTypes(
+    dtrans::StructInfo *CurrTypeInfo, dtrans::StructInfo *RelatedTypeInfo) {
+
+  if (!CurrTypeInfo || !RelatedTypeInfo)
+    return;
+
+  // If the related type is already set then there is nothing to do.
+  // NOTE: Perhaps in the future we may want to set this an assertion.
+  if (CurrTypeInfo->getRelatedType() || RelatedTypeInfo->getRelatedType())
+    return;
+
+  DTransType *DTType = CurrTypeInfo->getDTransType();
+  DTransType *RelatedDTType = RelatedTypeInfo->getDTransType();
+
+  // We need to make sure that the types match with the information in the
+  // table we created to handle the related types
+  DTransType *RelatedTypeInTable = getRelatedTypeFor(DTType);
+  if (!RelatedTypeInTable || RelatedTypeInTable != RelatedDTType)
+    return;
+
+  CurrTypeInfo->setRelatedType(RelatedTypeInfo);
+  RelatedTypeInfo->setRelatedType(CurrTypeInfo);
+
+  // Identify which structure is the base and which one is the padded in order
+  // to set the properties for base/padded structures.
+  int64_t CurrNumFields = CurrTypeInfo->getNumFields();
+  int64_t RelatedNumFields = RelatedTypeInfo->getNumFields();
+  dtrans::StructInfo *BaseStruct = nullptr;
+  dtrans::StructInfo *PaddedStruct = nullptr;
+  int64_t PaddedStructSize = 0;
+
+  if ((CurrNumFields - RelatedNumFields) == 1) {
+    PaddedStruct = CurrTypeInfo;
+    BaseStruct = RelatedTypeInfo;
+    PaddedStructSize = CurrNumFields;
+  } else if ((RelatedNumFields - CurrNumFields) == 1) {
+    PaddedStruct = RelatedTypeInfo;
+    BaseStruct = CurrTypeInfo;
+    PaddedStructSize = RelatedNumFields;
+  } else {
+    llvm_unreachable("Base and padded structure not set propertly");
+  }
+
+  PaddedStruct->getField(PaddedStructSize - 1).setPaddedField();
+  PaddedStruct->setAsABIPaddingPaddedStructure();
+  BaseStruct->setAsABIPaddingBaseStructure();
+}
+
 // Return true if the input StructInfo has a padded field and
 // we found any safety violation for that field.
 bool DTransRelatedTypesUtils::HasInvalidPaddedField

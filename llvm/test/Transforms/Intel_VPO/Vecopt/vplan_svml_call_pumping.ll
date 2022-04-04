@@ -2,7 +2,8 @@
 ; Test to check SVML call pumping feature for simple masked and unmasked calls in LLVM-IR and HIR vector CG.
 
 ; RUN: opt -vplan-vec -S -vector-library=SVML < %s 2>&1 | FileCheck %s --check-prefix=IR
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vector-library=SVML -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vector-library=SVML -print-after=hir-vplan-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vector-library=SVML -print-after=hir-vplan-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo(float* nocapture %A, float* nocapture %B, i32 %N) {
@@ -16,9 +17,9 @@ define dso_local void @foo(float* nocapture %A, float* nocapture %B, i32 %N) {
 ; IR-NEXT:    [[COMBINED:%.*]] = shufflevector <64 x float> [[TMP4]], <64 x float> [[TMP5]], <128 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31, i32 32, i32 33, i32 34, i32 35, i32 36, i32 37, i32 38, i32 39, i32 40, i32 41, i32 42, i32 43, i32 44, i32 45, i32 46, i32 47, i32 48, i32 49, i32 50, i32 51, i32 52, i32 53, i32 54, i32 55, i32 56, i32 57, i32 58, i32 59, i32 60, i32 61, i32 62, i32 63, i32 64, i32 65, i32 66, i32 67, i32 68, i32 69, i32 70, i32 71, i32 72, i32 73, i32 74, i32 75, i32 76, i32 77, i32 78, i32 79, i32 80, i32 81, i32 82, i32 83, i32 84, i32 85, i32 86, i32 87, i32 88, i32 89, i32 90, i32 91, i32 92, i32 93, i32 94, i32 95, i32 96, i32 97, i32 98, i32 99, i32 100, i32 101, i32 102, i32 103, i32 104, i32 105, i32 106, i32 107, i32 108, i32 109, i32 110, i32 111, i32 112, i32 113, i32 114, i32 115, i32 116, i32 117, i32 118, i32 119, i32 120, i32 121, i32 122, i32 123, i32 124, i32 125, i32 126, i32 127>
 ; IR:         store <128 x float> [[COMBINED]], <128 x float>* [[TMP7:%.*]], align 4
 ; IR:         [[TMP9:%.*]] = icmp eq <128 x i32> [[TMP8:%.*]], zeroinitializer
-; IR-NEXT:    br label [[VPLANNEDBB4:%.*]]
+; IR-NEXT:    br label %[[VPLANNEDBB4:.*]]
 ; IR-EMPTY:
-; IR:       VPlannedBB4:
+; IR:       [[VPLANNEDBB4]]:
 ; IR-NEXT:    [[DOTPART_0_OF_2_5:%.*]] = shufflevector <128 x float> [[TMP3]], <128 x float> undef, <64 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31, i32 32, i32 33, i32 34, i32 35, i32 36, i32 37, i32 38, i32 39, i32 40, i32 41, i32 42, i32 43, i32 44, i32 45, i32 46, i32 47, i32 48, i32 49, i32 50, i32 51, i32 52, i32 53, i32 54, i32 55, i32 56, i32 57, i32 58, i32 59, i32 60, i32 61, i32 62, i32 63>
 ; IR-NEXT:    [[DOTPART_0_OF_2_6:%.*]] = shufflevector <128 x i1> [[TMP9]], <128 x i1> undef, <64 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31, i32 32, i32 33, i32 34, i32 35, i32 36, i32 37, i32 38, i32 39, i32 40, i32 41, i32 42, i32 43, i32 44, i32 45, i32 46, i32 47, i32 48, i32 49, i32 50, i32 51, i32 52, i32 53, i32 54, i32 55, i32 56, i32 57, i32 58, i32 59, i32 60, i32 61, i32 62, i32 63>
 ; IR-NEXT:    [[TMP10:%.*]] = call svml_cc <64 x float> @__svml_sinf64_mask(<64 x float> undef, <64 x i1> [[DOTPART_0_OF_2_6]], <64 x float> [[DOTPART_0_OF_2_5]])
@@ -30,7 +31,7 @@ define dso_local void @foo(float* nocapture %A, float* nocapture %B, i32 %N) {
 ;
 
 ; HIR-LABEL:  BEGIN REGION { modified }
-; HIR:           + DO i1 = 0, 128 * %tgu + -1, 128   <DO_LOOP>  <MAX_TC_EST = 16777215> <LEGAL_MAX_TC = 16777215> <simd-vectorized> <nounroll> <novectorize>
+; HIR:           + DO i1 = 0, 1279, 128   <DO_LOOP>
 ; HIR-NEXT:      |   %comb.shuf10 = undef;
 ; HIR-NEXT:      |   %.vec = sitofp.<128 x i32>.<128 x float>(i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31, i32 32, i32 33, i32 34, i32 35, i32 36, i32 37, i32 38, i32 39, i32 40, i32 41, i32 42, i32 43, i32 44, i32 45, i32 46, i32 47, i32 48, i32 49, i32 50, i32 51, i32 52, i32 53, i32 54, i32 55, i32 56, i32 57, i32 58, i32 59, i32 60, i32 61, i32 62, i32 63, i32 64, i32 65, i32 66, i32 67, i32 68, i32 69, i32 70, i32 71, i32 72, i32 73, i32 74, i32 75, i32 76, i32 77, i32 78, i32 79, i32 80, i32 81, i32 82, i32 83, i32 84, i32 85, i32 86, i32 87, i32 88, i32 89, i32 90, i32 91, i32 92, i32 93, i32 94, i32 95, i32 96, i32 97, i32 98, i32 99, i32 100, i32 101, i32 102, i32 103, i32 104, i32 105, i32 106, i32 107, i32 108, i32 109, i32 110, i32 111, i32 112, i32 113, i32 114, i32 115, i32 116, i32 117, i32 118, i32 119, i32 120, i32 121, i32 122, i32 123, i32 124, i32 125, i32 126, i32 127>);
 ; HIR-NEXT:      |   %.extracted.subvec = shufflevector %.vec,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31, i32 32, i32 33, i32 34, i32 35, i32 36, i32 37, i32 38, i32 39, i32 40, i32 41, i32 42, i32 43, i32 44, i32 45, i32 46, i32 47, i32 48, i32 49, i32 50, i32 51, i32 52, i32 53, i32 54, i32 55, i32 56, i32 57, i32 58, i32 59, i32 60, i32 61, i32 62, i32 63>;
@@ -81,7 +82,7 @@ if.then:                                          ; preds = %omp.inner.for.body
 
 omp.inner.for.inc:                                ; preds = %if.then, %omp.inner.for.body
   %add6 = add nuw nsw i32 %.omp.iv.local.014, 1
-  %exitcond = icmp eq i32 %add6, %N
+  %exitcond = icmp eq i32 %add6, 1280
   br i1 %exitcond, label %DIR.OMP.END.SIMD.3, label %omp.inner.for.body
 
 DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body

@@ -961,6 +961,9 @@ class LevelZeroProgramTy {
   /// Requires module link
   bool RequiresModuleLink = false;
 
+  /// Is this module library
+  bool IsLibModule = false;
+
   /// Loads the device version of the offload table for device \p DeviceId.
   /// The table is expected to have \p NumEntries entries.
   /// Returns true, if the load was successful, false - otherwise.
@@ -1163,8 +1166,6 @@ public:
       WallTime *= (double)TimestampNsec / NSEC_PER_SEC;
     else
       WallTime /= (double)TimestampCyclePerSec;
-
-    CALL_ZE_EXIT_FAIL(zeEventHostReset, Event);
 
     return WallTime;
   }
@@ -1382,70 +1383,80 @@ struct KernelPropertiesTy {
   ze_kernel_indirect_access_flags_t IndirectAccessFlags = 0;
 };
 
-struct ThreadEventPoolTy {
-  std::vector<ze_event_pool_handle_t> Pools;
-  size_t Size = 0;
-  std::map<int32_t, ze_event_handle_t> Events;  // Per-thread events
-  std::mutex *EventLock = nullptr;
+/// Common event pool used in the plugin. This event pool assumes all evnets
+/// from the pool are host-visible and use the same event pool flag.
+class EventPoolTy {
+  /// Size of L0 event pool created on demand
+  size_t PoolSize = 64;
+
+  /// Context of the events
   ze_context_handle_t Context = nullptr;
-  bool ProfileEnabled = false;
 
-  ThreadEventPoolTy() = default;
+  /// Additional event pool flags common to this pull
+  uint32_t Flags = 0;
 
-  /// Initialize internal data
-  void init(ze_context_handle_t ContextHandle, bool Profile = false) {
-    Size = omp_get_max_threads();
-    EventLock = new std::mutex();
-    Context = ContextHandle;
-    ProfileEnabled = Profile;
+  /// Protection
+  std::unique_ptr<std::mutex> Mtx;
+
+  /// List of created L0 event pools
+  std::list<ze_event_pool_handle_t> Pools;
+
+  /// List of free L0 events
+  std::list<ze_event_handle_t> Events;
+
+public:
+  /// Initialize context, flags, and mutex
+  void init(ze_context_handle_t _Context, uint32_t _Flags) {
+    Context = _Context;
+    Flags = _Flags;
+    Mtx.reset(new std::mutex);
   }
 
-  /// Release events and pools
+  /// Destroys L0 resources
   void deinit() {
-    for (auto Event : Events)
-      CALL_ZE_RET_VOID(zeEventDestroy, Event.second);
-    for (auto Pool : Pools)
-      CALL_ZE_RET_VOID(zeEventPoolDestroy, Pool);
-    delete EventLock;
+    for (auto E : Events)
+      CALL_ZE_RET_VOID(zeEventDestroy, E);
+    for (auto P : Pools)
+      CALL_ZE_RET_VOID(zeEventPoolDestroy, P);
   }
 
-  /// Return a thread-private event
+  /// Get a free event from the pool
   ze_event_handle_t getEvent() {
-    int32_t GTID = __kmpc_global_thread_num(nullptr);
-    std::unique_lock<std::mutex> Lock(*EventLock);
-    if (Events.count(GTID) == 0) {
-      size_t EventId = Events.size() % Size;
-      if (EventId == 0) {
-        // This is the first event, or the pools are fully used.
-        DP("Creating a new thread event pool with profile %s\n",
-           ProfileEnabled ? "enabled" : "disabled");
-        uint32_t Flags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
-        if (ProfileEnabled)
-          Flags |= ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;
-        ze_event_pool_desc_t PoolDesc = {
-          ZE_STRUCTURE_TYPE_EVENT_POOL_DESC,
-          nullptr,
-          Flags,
-          (uint32_t)Size
-        };
-        ze_event_pool_handle_t Pool = nullptr;
-        CALL_ZE_RET_NULL(
-            zeEventPoolCreate, Context, &PoolDesc, 0, nullptr, &Pool);
-        Pools.push_back(Pool);
+    std::lock_guard<std::mutex> Lock(*Mtx);
+
+    if (Events.empty()) {
+      // Need to create a new L0 pool
+      ze_event_pool_desc_t Desc{ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr};
+      Desc.flags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE | Flags;
+      Desc.count = PoolSize;
+      ze_event_pool_handle_t Pool;
+      CALL_ZE_RET_NULL(zeEventPoolCreate, Context, &Desc, 0, nullptr, &Pool);
+      Pools.push_back(Pool);
+
+      // Create events
+      ze_event_desc_t EventDesc{ZE_STRUCTURE_TYPE_EVENT_DESC, nullptr};
+      EventDesc.signal = 0;
+      EventDesc.wait = ZE_EVENT_SCOPE_FLAG_HOST;
+      for (uint32_t I = 0; I < PoolSize; I++) {
+        EventDesc.index = I;
+        ze_event_handle_t Event;
+        CALL_ZE_RET_NULL(zeEventCreate, Pool, &EventDesc, &Event);
+        Events.push_back(Event);
       }
-      auto Pool = Pools.back();
-      ze_event_desc_t EventDesc = {
-        ZE_STRUCTURE_TYPE_EVENT_DESC,
-        nullptr,
-        (uint32_t)EventId,
-        0,
-        0
-      };
-      ze_event_handle_t Event;
-      CALL_ZE_RET_NULL(zeEventCreate, Pool, &EventDesc, &Event);
-      Events[GTID] = Event;
     }
-    return Events[GTID];
+
+    auto Ret = Events.back();
+    Events.pop_back();
+
+    return Ret;
+  }
+
+  /// Return an event to the pool
+  void releaseEvent(ze_event_handle_t Event) {
+    std::lock_guard<std::mutex> Lock(*Mtx);
+
+    CALL_ZE_RET_VOID(zeEventHostReset, Event);
+    Events.push_back(Event);
   }
 };
 
@@ -2224,11 +2235,8 @@ public:
   // Driver extensions
   std::vector<ze_driver_extension_properties_t> DriverExtensions;
 
-  // Events for kernel profiling
-  ThreadEventPoolTy ProfileEvents;
-
-  // Events for immediate command list submission
-  ThreadEventPoolTy ImmEventPool;
+  // Common event pool
+  EventPoolTy EventPool;
 
   std::vector<ze_device_properties_t> DeviceProperties;
 
@@ -2271,6 +2279,10 @@ public:
   std::vector<ze_command_list_handle_t> ImmCmdLists;
 
   std::vector<std::list<LevelZeroProgramTy>> Programs;
+
+  /// Contains all modules (possibly from multiple device images) to handle
+  /// dynamic link across multiple images
+  std::vector<ze_module_handle_t> GlobalModules;
 
   std::vector<std::map<ze_kernel_handle_t, KernelPropertiesTy>>
       KernelProperties;
@@ -2885,13 +2897,9 @@ static void closeRTL() {
       stat.second.print();
   }
 
+  DeviceInfo->EventPool.deinit();
+
   DeviceInfo->BatchCmdQueues.clear();
-
-  if (DeviceInfo->Option.Flags.EnableProfile)
-    DeviceInfo->ProfileEvents.deinit();
-
-  if (DeviceInfo->Option.Flags.UseImmCmdList)
-    DeviceInfo->ImmEventPool.deinit();
 
   if (DeviceInfo->Context)
     CALL_ZE_EXIT_FAIL(zeContextDestroy, DeviceInfo->Context);
@@ -3071,6 +3079,8 @@ int32_t CommandBatchTy::commit(bool Always) {
         // Batch only includes kernel launch
         Profile->update(KernelName, BatchTime, DeviceTime);
       }
+      if (KernelEvent)
+        DeviceInfo->EventPool.releaseEvent(KernelEvent);
     }
     if (NumCopyTo > 0 && NumCopyFrom > 0)
       Profile->update("DataCopy", BatchTime, BatchTime);
@@ -3157,7 +3167,7 @@ int32_t CommandBatchTy::enqueueLaunchKernel(
 
   Kernel = _Kernel;
   if (DeviceInfo->Option.Flags.EnableProfile)
-    KernelEvent = DeviceInfo->ProfileEvents.getEvent();
+    KernelEvent = DeviceInfo->EventPool.getEvent();
 
   CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, CmdList, Kernel,
                    GroupCounts, KernelEvent, 0, nullptr);
@@ -3884,14 +3894,16 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->Initialized.resize(DeviceInfo->NumDevices);
   DeviceInfo->Profiles.resize(DeviceInfo->NumDevices);
   DeviceInfo->Context = createContext(DeviceInfo->Driver);
-  if (DeviceInfo->Option.Flags.EnableProfile)
-    DeviceInfo->ProfileEvents.init(DeviceInfo->Context, true /* Profile */);
   DeviceInfo->NumActiveKernels.resize(DeviceInfo->NumRootDevices, 0);
   DeviceInfo->ProgramData.resize(DeviceInfo->NumRootDevices);
   DeviceInfo->BatchCmdQueues.resize(DeviceInfo->NumRootDevices);
   DeviceInfo->ImmCmdLists.resize(DeviceInfo->NumDevices);
-  if (DeviceInfo->Option.Flags.UseImmCmdList)
-    DeviceInfo->ImmEventPool.init(DeviceInfo->Context);
+
+  // Common event pool
+  uint32_t EventFlag = 0;
+  if (DeviceInfo->Option.Flags.EnableProfile)
+    EventFlag = ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;
+  DeviceInfo->EventPool.init(DeviceInfo->Context, EventFlag);
 
   DeviceInfo->Mutexes.reset(new std::mutex[DeviceInfo->NumDevices]);
   DeviceInfo->DataMutexes.reset(new std::mutex[DeviceInfo->NumDevices]);
@@ -4913,16 +4925,18 @@ static int32_t runTargetTeamRegion(
     // Kernel batching with immediate command list is handled first by the
     // previous branch.
     DP("Using immediate command list for kernel submission.\n");
-    auto Event = DeviceInfo->ImmEventPool.getEvent();
+    auto Event = DeviceInfo->EventPool.getEvent();
     CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, CmdList,
                      Kernel, &GroupCounts, Event, 0, nullptr);
     KernelLock.unlock();
     CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
-    CALL_ZE_RET_FAIL(zeEventHostReset, Event);
+    if (DeviceInfo->Option.Flags.EnableProfile)
+      KernelTimer.updateDeviceTime(Event);
+    DeviceInfo->EventPool.releaseEvent(Event);
   } else {
     ze_event_handle_t Event = nullptr;
     if (DeviceInfo->Option.Flags.EnableProfile)
-      Event = DeviceInfo->ProfileEvents.getEvent();
+      Event = DeviceInfo->EventPool.getEvent();
     CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, CmdList, Kernel,
                      &GroupCounts, Event, 0, nullptr);
     KernelLock.unlock();
@@ -4934,7 +4948,10 @@ static int32_t runTargetTeamRegion(
     DP("Submitted kernel " DPxMOD " to device %s\n", DPxPTR(Kernel), SubIdStr);
     CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
     CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
-    KernelTimer.updateDeviceTime(Event);
+    if (DeviceInfo->Option.Flags.EnableProfile) {
+      KernelTimer.updateDeviceTime(Event);
+      DeviceInfo->EventPool.releaseEvent(Event);
+    }
     LEVEL0_KERNEL_END(RootId);
   }
 
@@ -5490,6 +5507,8 @@ EXTERN void __tgt_rtl_free_per_hw_thread_scratch(int32_t DeviceId, void *Ptr) {
   DeviceInfo->dataDelete(DeviceId, Ptr);
 }
 
+int32_t __tgt_rtl_supports_empty_images() { return 1; }
+
 bool RTLDeviceInfoTy::isExtensionSupported(const char *ExtName) {
   for (auto &E : DriverExtensions) {
     std::string Supported(E.name);
@@ -5600,10 +5619,17 @@ LevelZeroProgramTy::~LevelZeroProgramTy() {
 }
 
 int32_t LevelZeroProgramTy::addModule(
-    size_t Size, const uint8_t *Image, const std::string &BuildOptions,
+    size_t Size, const uint8_t *Image, const std::string &CommonBuildOptions,
     ze_module_format_t Format) {
   ze_module_constants_t SpecConstants =
       DeviceInfo->Option.CommonSpecConstants.getModuleConstants();
+  std::string BuildOptions(CommonBuildOptions);
+  // Add required flag to enable dynamic linking. We can do this only if the
+  // module does not contain any kernels or globals.
+  // FIXME: module build with "-library-compilation" does not work on iGPU now.
+  // Keep the device check until XDEPS-3954 is resolved.
+  if (IsLibModule && DeviceInfo->isDiscreteDevice(DeviceId))
+    BuildOptions += " -library-compilation ";
 
   ze_module_desc_t ModuleDesc{ZE_STRUCTURE_TYPE_MODULE_DESC, nullptr, Format};
 
@@ -5715,6 +5741,7 @@ int32_t LevelZeroProgramTy::addModule(
     if (Modules.empty())
       GlobalModule = Module;
     Modules.push_back(Module);
+    DeviceInfo->GlobalModules.push_back(Module);
     return OFFLOAD_SUCCESS;
   }
 }
@@ -5734,8 +5761,9 @@ int32_t LevelZeroProgramTy::linkModules() {
 
   ze_result_t RC;
   ze_module_build_log_handle_t LinkLog = nullptr;
-  CALL_ZE_RC(RC, zeModuleDynamicLink, (uint32_t)Modules.size(), Modules.data(),
-             &LinkLog);
+  auto &AllModules = DeviceInfo->GlobalModules;
+  CALL_ZE_RC(RC, zeModuleDynamicLink, (uint32_t)AllModules.size(),
+             AllModules.data(), &LinkLog);
   bool LinkFailed = (RC != ZE_RESULT_SUCCESS);
   bool ShowBuildLog = DeviceInfo->Option.Flags.ShowBuildLog;
 
@@ -5779,6 +5807,10 @@ int32_t LevelZeroProgramTy::buildModules(std::string &BuildOptions) {
     return addModule(ImgSize, ImgBegin, BuildOptions,
                      ZE_MODULE_FORMAT_IL_SPIRV);
   }
+
+  // Check if the program only contains libraries
+  size_t NumEntries = (size_t)(Image->EntriesEnd - Image->EntriesBegin);
+  IsLibModule = (NumEntries == 0);
 
   // Iterate over the images and pick the first one that fits.
   char *ImgBegin = reinterpret_cast<char *>(Image->ImageStart);
@@ -6243,7 +6275,7 @@ int32_t LevelZeroProgramTy::buildKernels() {
   Kernels.resize(NumEntries);
 
   auto EnableTargetGlobals = DeviceInfo->Option.Flags.EnableTargetGlobals;
-  if (EnableTargetGlobals &&
+  if (NumEntries > 0 && EnableTargetGlobals &&
       DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_XeLP &&
       !loadOffloadTable(NumEntries)) {
     DP("Warning: could not load offload table.\n");

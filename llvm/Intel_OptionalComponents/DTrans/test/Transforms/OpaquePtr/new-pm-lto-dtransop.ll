@@ -40,6 +40,7 @@
 
 ; Verify the DTrans passes get run next
 ; CHECK-NEXT: Running pass: dtransOP::RemoveDeadDTransTypeMetadataPass on [module]
+; CHECK-NEXT: Running pass: dtransOP::DTransNormalizeOPPass
 ; CHECK-NEXT: Running pass: dtransOP::CommuteCondOPPass
 ; CHECK-NEXT: Running analysis: dtransOP::DTransSafetyAnalyzer
 ; CHECK-NEXT: Running analysis: DTransImmutableAnalysis on [module]

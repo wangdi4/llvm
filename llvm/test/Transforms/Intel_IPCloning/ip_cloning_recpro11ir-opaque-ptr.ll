@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers < %s -ip-cloning -ip-gen-cloning-force-enable-dtrans -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-enable-dtrans -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -ip-cloning -ip-gen-cloning-force-enable-dtrans -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-enable-dtrans -S 2>&1 | FileCheck %s
 
 ; Test that the function @bad2 is recognized as a recursive progression clone
 ; and eight clones of it are created, but that it is not a candidate for

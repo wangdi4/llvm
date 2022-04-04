@@ -1,8 +1,8 @@
 ; This test verifies that Field-reordering transformation applied
 ; correctly to GEP and calloc instructions related to %struct.test.
 
-;  RUN: opt < %s -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-reorderfields | FileCheck %s
-;  RUN: opt < %s -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-reorderfields | FileCheck %s
+;  RUN: opt  -whole-program-assume < %s -S -dtrans-reorderfields | FileCheck %s
+;  RUN: opt  -whole-program-assume < %s -S -passes=dtrans-reorderfields | FileCheck %s
 
 ; CHECK: calloc(i64 10, i64 40)
 ; CHECK-NOT: calloc(i64 10, i64 48)

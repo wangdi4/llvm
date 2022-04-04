@@ -282,7 +282,7 @@ void LoopVectorizationPlannerHIR::emitPeelRemainderVPLoops(unsigned VF,
   VPlanCFGMerger CFGMerger(*Plan, VF, UF);
 
   // Run CFGMerger.
-  CFGMerger.createMergedCFG(VecScenario, MergerVPlans);
+  CFGMerger.createMergedCFG(VecScenario, MergerVPlans, TheLoop);
 }
 
 void LoopVectorizationPlannerHIR::createMergerVPlans(

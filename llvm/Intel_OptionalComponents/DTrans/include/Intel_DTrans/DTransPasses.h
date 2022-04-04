@@ -33,6 +33,7 @@
 #include "Intel_DTrans/Transforms/CommuteCond.h"
 #include "Intel_DTrans/Transforms/DTransForceInline.h"
 #include "Intel_DTrans/Transforms/DTransForceInlineOP.h"
+#include "Intel_DTrans/Transforms/DTransNormalizeOP.h"
 #include "Intel_DTrans/Transforms/DTransPaddedMalloc.h"
 #include "Intel_DTrans/Transforms/DeleteField.h"
 #include "Intel_DTrans/Transforms/DeleteFieldOP.h"

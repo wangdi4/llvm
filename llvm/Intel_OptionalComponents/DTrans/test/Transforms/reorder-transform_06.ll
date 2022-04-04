@@ -2,8 +2,8 @@
 ; correctly to memmov/memcpy/memset with constant and non-constant
 ; sizes related to %struct.test.
 
-;  RUN: opt  < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -S -dtrans-reorderfields | FileCheck %s
-;  RUN: opt  < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -S -passes=dtrans-reorderfields | FileCheck %s
+;  RUN: opt  < %s -whole-program-assume -S -dtrans-reorderfields | FileCheck %s
+;  RUN: opt  < %s -whole-program-assume -S -passes=dtrans-reorderfields | FileCheck %s
 
 
 

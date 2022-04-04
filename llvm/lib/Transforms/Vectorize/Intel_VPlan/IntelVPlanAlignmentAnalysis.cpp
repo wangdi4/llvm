@@ -22,6 +22,10 @@
 
 #define DEBUG_TYPE "vplan-alignment-analysis"
 
+static cl::opt<bool>
+    ForceDynAlignment("vplan-force-dyn-alignment", cl::init(false), cl::Hidden,
+                      cl::desc("Force dynamic peeling for alignment."));
+
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -146,7 +150,8 @@ VPlanPeelingAnalysis::selectBestPeelingVariant(int VF,
   auto Static = selectBestStaticPeelingVariant(VF, CM);
   if (EnableDynamic) {
     auto DynamicOrNone = selectBestDynamicPeelingVariant(VF, CM);
-    if (DynamicOrNone && DynamicOrNone->second > Static.second)
+    if (DynamicOrNone &&
+        (ForceDynAlignment || DynamicOrNone->second > Static.second))
       return std::make_unique<VPlanDynamicPeeling>(DynamicOrNone->first);
   }
   return std::make_unique<VPlanStaticPeeling>(Static.first);

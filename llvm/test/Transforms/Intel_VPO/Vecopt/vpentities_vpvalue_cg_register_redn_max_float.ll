@@ -1,15 +1,16 @@
 ; Test to check VPlan's VPValue-based vector codegen for simple in-register float max reduction.
 
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=CHECK-HIR
 ; Fully VPValue-based HIR codegen
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-HIR
 ; Mixed HIR codegen
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-HIR
 
 ; CHECK-HIR: Function: foo_float
-; CHECK-HIR: if (0 <u 4 * [[UB:%.*]])
-; CHECK-HIR: [[RED_INIT:%.*]] = [[INIT:%.*]];
+; CHECK-HIR: [[RED_INIT:%red.init*]] = [[INIT:%.*]];
 ; CHECK-HIR: [[PHI_TEMP:%.*]] = [[RED_INIT]]
-; CHECK-HIR: DO i1 = 0, 4 * [[UB]] + -1, 4   <DO_LOOP>
+; CHECK-HIR: DO i1 = 0, {{.*}} + -1, 4   <DO_LOOP>
 ; CHECK-HIR: [[VEC_LD:%.*]] = (<4 x float>*)(%ptr)
 ; CHECK-HIR: [[RED_SEL:%.*]] = ([[PHI_TEMP]] > [[VEC_LD]]) ? [[PHI_TEMP]] : [[VEC_LD]];
 ; CHECK-HIR: [[PHI_TEMP]] = [[RED_SEL]]

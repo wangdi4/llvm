@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-reorderfields | FileCheck %s
-; RUN: opt < %s -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-reorderfields | FileCheck %s
+; RUN: opt -whole-program-assume < %s -S -dtrans-reorderfields | FileCheck %s
+; RUN: opt -whole-program-assume < %s -S -passes=dtrans-reorderfields | FileCheck %s
 
 ; Verify that fields are not reordered when any invoke instruction is involved
 ;   (_Z11doSomethingP4testi).

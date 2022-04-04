@@ -545,23 +545,19 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AAResults *AA,
     C.set(Row);
   };
 
-  // Concatenate is expensive and we try not to call these two functions
-  // on the same instruction twice.
-
-  // Set alias_scope MetaData for 'I' using new scope. Preserve existing
-  // scope MD.
-  auto generateScopeMD = [&](Instruction *I, Metadata *NewScope) {
-    MDNode* SM = I->getMetadata(LLVMContext::MD_alias_scope);
-    MDNode *SM1 = MDNode::concatenate(SM, cast<MDNode>(NewScope));
-    I->setMetadata(LLVMContext::MD_alias_scope, SM1);
-  };
-
-  // Set noAlias MetaData for 'I' using new scope. Preserve existing
-  // noalias MD.
-  auto generateNoAliasMD = [](Instruction *I, Metadata *NewScope) {
-    MDNode* AM = I->getMetadata(LLVMContext::MD_noalias);
-    MDNode *AM1 = MDNode::concatenate(AM, cast<MDNode>(NewScope));
-    I->setMetadata(LLVMContext::MD_noalias, AM1);
+  // Append a list of metadata nodes of "KindID" to I.
+  // Preserve any existing MD of this type. Removes duplicate nodes.
+  auto AppendMD = [&](Instruction *I, unsigned KindID,
+                      ArrayRef<Metadata *> NewMD) {
+    auto &C = I->getContext();
+    MDNode *AM = I->getMetadata(KindID);
+    if (!AM) {
+      I->setMetadata(KindID, MDNode::get(C, NewMD));
+    } else {
+      SmallSetVector<Metadata *, 4> Operands(AM->op_begin(), AM->op_end());
+      Operands.insert(NewMD.begin(), NewMD.end());
+      I->setMetadata(KindID, MDNode::get(C, Operands.getArrayRef()));
+    }
   };
 
   // It generates a unique metadata ID for every clique.
@@ -614,8 +610,7 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AAResults *AA,
       // !4 = distinct !{!4, !99, "OMPAliasScope"}
       // !8 = {!3, !4}
       //
-      MDNode *M = MDNode::get(C, CliquesI.getArrayRef());
-      generateScopeMD(Ins, M);
+      AppendMD(Ins, LLVMContext::MD_alias_scope, CliquesI.getArrayRef());
     }
 
     // For each pair of Insns: (I,J), if I and J do not alias,
@@ -645,8 +640,7 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AAResults *AA,
       ScopeSetType &NoAliasMDI = NoAliasMDs[I];
       if (!NoAliasMDI.empty()) {
         // Make a list.
-        MDNode *M = MDNode::get(C, NoAliasMDI.getArrayRef());
-        generateNoAliasMD(Insns[I], M);
+        AppendMD(Insns[I], LLVMContext::MD_noalias, NoAliasMDI.getArrayRef());
       }
     }
   };

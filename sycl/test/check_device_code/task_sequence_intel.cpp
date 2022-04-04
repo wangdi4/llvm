@@ -1,4 +1,4 @@
-// RUN: %clangxx -fsycl-device-only -S -Xclang -emit-llvm %s -o - | FileCheck %s
+// RUN: %clangxx -fsycl-device-only -S -Xclang -emit-llvm -Xclang -no-enable-noundef-analysis %s -o - | FileCheck %s
 
 // CHECK: [[TaskSequence:%.*task_sequence"]] = type { i32, i64 }
 // CHECK: call spir_func i64 @_Z31__spirv_TaskSequenceCreateINTEL{{.*}}([[TaskSequence]] addrspace(4)*{{.*}}, i32 (i32 addrspace(4)*, i32 addrspace(4)*, i32)*{{.*}}[[Function:@.*]], i32 0)

@@ -8494,22 +8494,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   // -qopt-mem-layout-trans > 2 with LTO enables whole-program-vtables
   bool LayoutLTO = false;
-  bool MArchAVX2Enabled = false;
-  if (Args.hasArg(clang::driver::options::OPT_march_EQ)) {
-    StringRef Value = Args.getLastArgValue(options::OPT_march_EQ);
-    if (!Value.empty())
-      MArchAVX2Enabled =
-          x86::getCPUForIntel(Value, TC.getTriple()) == "core-avx2";
-  }
-
-  if (!MArchAVX2Enabled) {
-    if (Args.hasArg(options::OPT_qopt_mem_layout_trans_EQ) && D.isUsingLTO()) {
-      StringRef Value = Args.getLastArgValue(options::OPT_qopt_mem_layout_trans_EQ);
-      if (!Value.empty()) {
-        int ValInt = 0;
-        if (!Value.getAsInteger(0, ValInt))
-          LayoutLTO = (ValInt > 2);
-      }
+  if (Args.hasArg(options::OPT_qopt_mem_layout_trans_EQ) && D.isUsingLTO()) {
+    Arg *A = Args.getLastArg(options::OPT_qopt_mem_layout_trans_EQ);
+    StringRef Value(A->getValue());
+    if (!Value.empty()) {
+      int ValInt = 0;
+      if (!Value.getAsInteger(0, ValInt))
+        LayoutLTO = (ValInt > 2);
     }
   }
 
@@ -10746,6 +10737,12 @@ void SpirvToIrWrapper::ConstructJob(Compilation &C, const JobAction &JA,
 
   // Output File
   addArgs(CmdArgs, TCArgs, {"-o", Output.getFilename()});
+
+#if INTEL_CUSTOMIZATION
+  // Skip unknown files
+  if (JA.isOffloading(Action::OFK_OpenMP))
+    addArgs(CmdArgs, TCArgs, {"-skip-unknown-input"});
+#endif // INTEL_CUSTOMIZATION
 
   auto Cmd = std::make_unique<Command>(
       JA, *this, ResponseFileSupport::None(),

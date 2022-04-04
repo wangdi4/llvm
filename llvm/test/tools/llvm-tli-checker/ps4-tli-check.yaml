@@ -34,7 +34,7 @@
 # RUN: FileCheck %s --check-prefix=UNAVAIL --input-file %t3.txt
 #
 # INTEL_CUSTOMIZATION
-# CHECK: << Total TLI yes SDK no:  473
+# CHECK: << Total TLI yes SDK no:  474
 # end INTEL_CUSTOMIZATION
 # CHECK: >> Total TLI no  SDK yes: 0
 # CHECK: == Total TLI yes SDK yes: 235
@@ -42,7 +42,7 @@
 # WRONG_DETAIL: << TLI yes SDK no : '_ZdaPv' aka operator delete[](void*)
 # WRONG_DETAIL: >> TLI no  SDK yes: '_ZdaPvj' aka operator delete[](void*, unsigned int)
 # INTEL_CUSTOMIZATION
-# WRONG_SUMMARY: << Total TLI yes SDK no:  474
+# WRONG_SUMMARY: << Total TLI yes SDK no:  475
 # end INTEL_CUSTOMIZATION
 # WRONG_SUMMARY: >> Total TLI no  SDK yes: 1{{$}}
 # WRONG_SUMMARY: == Total TLI yes SDK yes: 234
@@ -52,8 +52,8 @@
 ## Yes, this means additions to TLI will fail this test, but the argument
 ## to -COUNT can't be an expression.
 # INTEL_CUSTOMIZATION
-# AVAIL: TLI knows 1222 symbols, 708 available
-# AVAIL-COUNT-708: {{^}} available
+# AVAIL: TLI knows 1223 symbols, 709 available
+# AVAIL-COUNT-709: {{^}} available
 # AVAIL-NOT:       {{^}} available
 # UNAVAIL-COUNT-514: not available
 # UNAVAIL-NOT:       not available

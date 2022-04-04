@@ -70,6 +70,7 @@ void initializeRemoveAllDTransTypeMetadataWrapperPass(PassRegistry &);
 void initializeRemoveDeadDTransTypeMetadataWrapperPass(PassRegistry &);
 void initializeDTransForceInlineWrapperPass(PassRegistry &);
 void initializeDTransForceInlineOPWrapperPass(PassRegistry &);
+void initializeDTransNormalizeOPWrapperPass(PassRegistry &);
 
 #if !INTEL_PRODUCT_RELEASE
 void initializeDTransOPOptBaseTestWrapperPass(PassRegistry&);

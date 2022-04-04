@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -S -opaque-pointers -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-aostosoaop -dtrans-aostosoaop-index32=false -dtrans-aostosoaop-typelist=struct.test01 -dtrans-aostosoaop-qual-override=true -debug-only=dtrans-aostosoaop %s 2>&1 | FileCheck %s
-; RUN: opt -S -opaque-pointers -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-aostosoaop -dtrans-aostosoaop-index32=false -dtrans-aostosoaop-typelist=struct.test01 -dtrans-aostosoaop-qual-override=true  -debug-only=dtrans-aostosoaop %s | FileCheck %s
+; RUN: opt -S -opaque-pointers -whole-program-assume -dtrans-aostosoaop -dtrans-aostosoaop-index32=false -dtrans-aostosoaop-typelist=struct.test01 -dtrans-aostosoaop-qual-override=true -debug-only=dtrans-aostosoaop %s 2>&1 | FileCheck %s
+; RUN: opt -S -opaque-pointers -whole-program-assume -passes=dtrans-aostosoaop -dtrans-aostosoaop-index32=false -dtrans-aostosoaop-typelist=struct.test01 -dtrans-aostosoaop-qual-override=true  -debug-only=dtrans-aostosoaop %s | FileCheck %s
 
 ; Test AOS-to-SOA transformation for byte-flattened GEP instructions
 

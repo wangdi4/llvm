@@ -1,4 +1,4 @@
-// RUN: %clang_cc1  -ax=broadwell -triple x86_64-linux-gnu -emit-llvm -o - %s -fopenmp -fintel-openmp-region -disable-llvm-passes | FileCheck %s
+// RUN: %clang_cc1  -ax=broadwell,skylake-avx512 -triple x86_64-linux-gnu -emit-llvm -o - %s -fopenmp -fintel-openmp-region -disable-llvm-passes | FileCheck %s
 
 // Declarations are not marked for auto-CPU dispatch
 // CHECK-DAG: declare i32 @foo() #{{[0-9]*}}
@@ -29,5 +29,6 @@ int __attribute__((cpu_dispatch(generic,ivybridge))) baz(void) { }
 #pragma omp declare simd simdlen(4)
 int vec_variant(void) { return 4; }
 
-// CHECK: [[MD]] = !{[[MD_TARGET:![0-9]*]]}
-// CHECK: [[MD_TARGET]] = !{!"auto-cpu-dispatch-target", !"broadwell"}
+// CHECK: [[MD]] = !{[[MD_TARGET1:![0-9]*]], [[MD_TARGET2:![0-9]*]]}
+// CHECK: [[MD_TARGET1]] = !{!"auto-cpu-dispatch-target", !"broadwell"}
+// CHECK: [[MD_TARGET2]] = !{!"auto-cpu-dispatch-target", !"skylake-avx512"}

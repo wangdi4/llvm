@@ -26,6 +26,6 @@ include_directories(
     )
 endif()
 
-if (HOST_LINUX AND "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" )
+if (HOST_LINUX AND "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang|IntelLLVM" )
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-c++17-extensions")
 endif()

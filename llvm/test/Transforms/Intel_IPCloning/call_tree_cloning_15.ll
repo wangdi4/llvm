@@ -1,5 +1,5 @@
-; RUN: opt < %s -passes='module(call-tree-clone)' -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-do-mv=false -S | FileCheck %s
-; RUN: opt < %s -call-tree-clone -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-do-mv=false -S | FileCheck %s
+; RUN: opt < %s -passes='module(call-tree-clone)' -call-tree-clone-do-mv=false -S | FileCheck %s
+; RUN: opt < %s -call-tree-clone -call-tree-clone-do-mv=false -S | FileCheck %s
 
 ; Check that Call Tree Cloning transformation keeps !noalias and !alias_scope metadata on call instruction(s)
 

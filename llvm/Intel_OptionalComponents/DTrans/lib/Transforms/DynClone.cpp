@@ -2338,6 +2338,8 @@ bool DynCloneImpl<InfoClass>::verifyCallsInInitRoutine(void) {
     case Intrinsic::lifetime_start:
     case Intrinsic::lifetime_end:
     case Intrinsic::ptr_annotation:
+    case Intrinsic::smax:
+    case Intrinsic::smin:
       return true;
 
     default:

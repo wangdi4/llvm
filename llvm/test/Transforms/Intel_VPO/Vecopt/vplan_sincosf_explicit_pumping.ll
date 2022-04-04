@@ -1,7 +1,8 @@
 ; Test to check SVML call pumping feature for sincos masked and unmasked calls in LLVM-IR and HIR vector CG.
 
 ; RUN: opt -vector-library=SVML -vplan-vec -S %s | FileCheck --check-prefixes=IR %s
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vector-library=SVML -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vector-library=SVML -print-after=hir-vplan-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vector-library=SVML -print-after=hir-vplan-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR
 
 ; IR-LABEL: @foo(
 ; IR:       vector.body:
@@ -44,7 +45,7 @@
 
 
 ; HIR-LABEL:  BEGIN REGION { modified }
-; HIR:           + DO i1 = 0, 128 * %tgu + -1, 128   <DO_LOOP>  <MAX_TC_EST = 16777215>  <LEGAL_MAX_TC = 16777215> <simd-vectorized> <nounroll> <novectorize>
+; HIR:           + DO i1 = 0, 1279, 128   <DO_LOOP>
 ; HIR-NEXT:      |   %.vec = sitofp.<128 x i32>.<128 x float>(i1 + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15, i64 16, i64 17, i64 18, i64 19, i64 20, i64 21, i64 22, i64 23, i64 24, i64 25, i64 26, i64 27, i64 28, i64 29, i64 30, i64 31, i64 32, i64 33, i64 34, i64 35, i64 36, i64 37, i64 38, i64 39, i64 40, i64 41, i64 42, i64 43, i64 44, i64 45, i64 46, i64 47, i64 48, i64 49, i64 50, i64 51, i64 52, i64 53, i64 54, i64 55, i64 56, i64 57, i64 58, i64 59, i64 60, i64 61, i64 62, i64 63, i64 64, i64 65, i64 66, i64 67, i64 68, i64 69, i64 70, i64 71, i64 72, i64 73, i64 74, i64 75, i64 76, i64 77, i64 78, i64 79, i64 80, i64 81, i64 82, i64 83, i64 84, i64 85, i64 86, i64 87, i64 88, i64 89, i64 90, i64 91, i64 92, i64 93, i64 94, i64 95, i64 96, i64 97, i64 98, i64 99, i64 100, i64 101, i64 102, i64 103, i64 104, i64 105, i64 106, i64 107, i64 108, i64 109, i64 110, i64 111, i64 112, i64 113, i64 114, i64 115, i64 116, i64 117, i64 118, i64 119, i64 120, i64 121, i64 122, i64 123, i64 124, i64 125, i64 126, i64 127>);
 ; HIR-NEXT:      |   %.extracted.subvec = shufflevector %.vec,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31, i32 32, i32 33, i32 34, i32 35, i32 36, i32 37, i32 38, i32 39, i32 40, i32 41, i32 42, i32 43, i32 44, i32 45, i32 46, i32 47, i32 48, i32 49, i32 50, i32 51, i32 52, i32 53, i32 54, i32 55, i32 56, i32 57, i32 58, i32 59, i32 60, i32 61, i32 62, i32 63>;
 ; HIR-NEXT:      |   %__svml_sincosf64 = @__svml_sincosf64(%.extracted.subvec);
@@ -118,7 +119,7 @@ if.then:                                          ; preds = %omp.inner.for.body
 
 omp.body.continue:                                ; preds = %omp.inner.for.body, %if.then
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count30
+  %exitcond = icmp eq i64 %indvars.iv.next, 1280
   br i1 %exitcond, label %DIR.OMP.END.SIMD.3, label %omp.inner.for.body
 
 DIR.OMP.END.SIMD.3:                               ; preds = %omp.body.continue

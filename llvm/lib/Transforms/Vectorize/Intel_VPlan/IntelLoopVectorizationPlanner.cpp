@@ -1676,7 +1676,7 @@ void LoopVectorizationPlanner::emitPeelRemainderVPLoops(unsigned VF, unsigned UF
   if (!EnableNewCFGMerge)
     CFGMerger.createSimpleVectorRemainderChain(TheLoop);
   else
-    CFGMerger.createMergedCFG(VecScenario, MergerVPlans);
+    CFGMerger.createMergedCFG(VecScenario, MergerVPlans, TheLoop);
 }
 
 void LoopVectorizationPlanner::createMergerVPlans(VPAnalysesFactoryBase &VPAF) {

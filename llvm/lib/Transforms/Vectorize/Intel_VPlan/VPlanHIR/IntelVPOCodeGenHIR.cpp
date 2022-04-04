@@ -1477,7 +1477,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
   StringRef FnName = F->getName();
 
   // Check to see if the call was vectorized in the main loop.
-  if (TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(VF))) {
+  if (TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(MaxVF))) {
     ++OptRptStats.VectorMathCalls;
 
     SmallVector<RegDDRef *, 1> CallArgs;
@@ -1502,7 +1502,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
       RegDDRef *Ref = *It;
 
       // The resulting type of the widened ref/broadcast.
-      auto VecDestTy = getWidenedType(Ref->getDestType(), VF);
+      auto VecDestTy = getWidenedType(Ref->getDestType(), MaxVF);
 
       RegDDRef *WideRef = nullptr;
       HLInst *LoadInst = nullptr;
@@ -1543,7 +1543,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
     // Using the newly created vector call arguments, generate the vector
     // call instruction and extract the low element.
     Function *VectorF = getOrInsertVectorLibFunction(
-        F, VF, ArgTys, TLI, Intrinsic::not_intrinsic, false /*non-masked*/);
+        F, MaxVF, ArgTys, TLI, Intrinsic::not_intrinsic, false /*non-masked*/);
     assert(VectorF && "Can't create vector function.");
 
     FastMathFlags FMF =
@@ -4056,6 +4056,39 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     return;
   }
 
+  case VPInstruction::PrivateFinalArray: {
+    VPAllocatePrivate *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
+    Type *ElementType = Priv->getAllocatedType();
+    const DataLayout &DL = DDRefUtilities.getDataLayout();
+
+    // We need to copy array from last private allocated memory into the
+    // original array location.
+    RegDDRef *Orig = getOrCreateScalarRef(VPInst->getOperand(1), 0);
+    auto *OrigAddr = DDRefUtilities.createSelfAddressOfRef(
+        ElementType, Orig->getSelfBlobIndex(), Orig->getDefinedAtLevel());
+    OrigAddr->setAlignment(DL.getPrefTypeAlign(Orig->getSrcType()).value());
+
+    // TODO: Add support for SOA layout in HIR (CMPLRLLVM-9193).
+    assert(!Priv->isSOALayout() && "SOA layout is not supported for HIR.");
+
+    // In case of non-SOA layout it will be enough to copy memory from last
+    // private into the original array.
+    RegDDRef *ResAddr = getOrCreateScalarRef(Priv, 0);
+    auto IndexCE = CanonExprUtilities.createCanonExpr(
+        ResAddr->getSingleCanonExpr()->getDestType());
+    IndexCE->addConstant(getVF() - 1, true /* IsMathAdd */);
+    ResAddr->addDimension(IndexCE);
+    ResAddr->setAlignment(Priv->getOrigAlignment().value());
+
+    Type *SizeTy = Type::getInt64Ty(HLNodeUtilities.getContext());
+    RegDDRef *Size = DDRefUtilities.createConstDDRef(
+        SizeTy, DL.getTypeAllocSize(ElementType));
+
+    auto *PrivMemcpy = HLNodeUtilities.createMemcpy(OrigAddr, ResAddr, Size);
+    addInstUnmasked(PrivMemcpy);
+    return;
+  }
+
   default:
     llvm_unreachable("Unsupported VPLoopEntity instruction.");
   }
@@ -4474,6 +4507,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::PrivateFinalUncondMem:
   case VPInstruction::PrivateFinalCondMem:
   case VPInstruction::PrivateFinalCond:
+  case VPInstruction::PrivateFinalArray:
     widenLoopEntityInst(VPInst);
     return;
   case Instruction::ShuffleVector: {
@@ -4848,6 +4882,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     UBTemp->getSingleCanonExpr()->setDefinedAtLevel(
         ScalarPeel->getNestingLevel() - 1);
 
+    HIRLoopVisitor LV(ScalarPeel, this);
+    LV.replaceCalls();
     return;
   }
 
@@ -4896,6 +4932,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     LBTemp->getSingleCanonExpr()->setDefinedAtLevel(
         ScalarRem->getNestingLevel() - 1);
 
+    HIRLoopVisitor LV(ScalarRem, this);
+    LV.replaceCalls();
     return;
   }
 
@@ -4906,6 +4944,16 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
   case VPInstruction::RemOrigLiveOutHIR: {
     handleScalarLoopOrigLiveOut<VPRemainderOrigLiveOutHIR>(VPInst);
+    return;
+  }
+
+  case VPInstruction::InvSCEVWrapper: {
+    auto *InvScev = cast<VPInvSCEVWrapper>(VPInst)->getSCEV();
+    auto *AddRecHIR = VPlanScalarEvolutionHIR::toVPlanAddRecHIR(InvScev);
+    auto *Base = AddRecHIR->Base->clone();
+    auto *ScalarRef =
+        DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, Base);
+    addVPValueScalRefMapping(VPInst, ScalarRef, 0);
     return;
   }
   }
@@ -5009,9 +5057,10 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
     // Try and fold the divide operation into the canon expression for RefOp0 if
     // it is linear. This helps preserve linear values and also avoids
-    // unnecessary HLInsts.
+    // unnecessary HLInsts. This is limited to instructions inside a VPLoop.
     auto *ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(1));
-    if (CE1->isLinearAtLevel(MainLoop->getNestingLevel()) &&
+    if (Plan->getVPLoopInfo()->getLoopFor(VPInst->getParent()) &&
+        CE1->isLinearAtLevel(MainLoop->getNestingLevel()) &&
         CE1->getDenominator() == 1 && ConstOp) {
       auto *CI = cast<ConstantInt>(ConstOp->getConstant());
 
@@ -5040,7 +5089,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case Instruction::Mul: {
     // Try and fold the mul operation into the canon expression. This helps
     // preserve linear values and also avoids unnecessary HLInsts. Reductions
-    // cannot be folded.
+    // cannot be folded. This is limited to instructions inside a VPLoop.
     assert(RefOp0->isTerminalRef() && RefOp1->isTerminalRef() &&
            "Expected terminal refs");
 
@@ -5049,7 +5098,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     const VPConstant *ConstOp = nullptr;
     unsigned NonConstIndex = 0;
 
-    if (!ReductionVPInsts.count(VPInst) &&
+    if (Plan->getVPLoopInfo()->getLoopFor(VPInst->getParent()) &&
+        !ReductionVPInsts.count(VPInst) &&
         CE1->isLinearAtLevel(MainLoop->getNestingLevel()) &&
         CE2->isLinearAtLevel(MainLoop->getNestingLevel())) {
       if ((ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(0))))

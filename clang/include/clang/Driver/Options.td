@@ -7849,7 +7849,7 @@ def _SLASH_Qbuiltin : CLFlag<"Qbuiltin">, Alias<fbuiltin>;
 def _SLASH_fp_EQ : CLJoined<"fp=">, Alias<ffp_model_EQ>,
   HelpText<"Controls the semantics of floating-point calculations.">;
 def _SLASH_fp_COL : CLJoined<"fp:">, Alias<ffp_model_EQ>;
-def _SLASH_ax : CLJoined<"Qax">, Alias<ax>,
+def _SLASH_ax : CLCommaJoined<"Qax">, Alias<ax>,
   HelpText<"generate code specialized for processors specified by <codes> "
   "while also generating generic IA-32 instructions">;
 def _SLASH_Qcf_protection_EQ : CLJoined<"Qcf-protection=">, Alias<fcf_protection_EQ>,

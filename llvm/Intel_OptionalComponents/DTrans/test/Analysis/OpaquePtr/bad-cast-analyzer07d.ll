@@ -10,7 +10,8 @@
 
 ; CHECK: dtrans-bca: Begin bad casting analysis
 ; CHECK: dtrans-bca: Candidate Root Type: struct._ZTS11mynextcoder.mynextcoder
-; CHECK: dtrans-bca: (L) Not conditionally dead:   %i1 = phi ptr [ %i, %entry ], [ %t13.6, %t17 ]
+; CHECK: dtrans-bca: (SV) [0] Improper incoming block for PHI node:  %t13.7 = phi ptr [ %call, %t5 ], [ %t13.4, %t16 ]
+; CHECK: dtrans-bca: (SV) [0] Non-GEP target
 ; CHECK: dtrans-bca: Found safety violation
 ; CHECK: dtrans-bca: End bad casting analysis: (NOT OK)
 

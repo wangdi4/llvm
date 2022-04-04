@@ -1,20 +1,15 @@
-; Checks that call tree cloning does not occur for -march=core-avx2 tuning
+; Checks that the Multi-Versioning (MV) transformation creates MV function as expected for -march=core-avx2 tuning
 
-; RUN: opt < %s -opaque-pointers -passes='module(call-tree-clone)' -enable-intel-advanced-opts=0 -mtriple=i686-- -march=core-avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -S | FileCheck %s
-; RUN: opt < %s -opaque-pointers -call-tree-clone -enable-intel-advanced-opts=0 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -S | FileCheck %s
+; RUN: opt < %s -opaque-pointers -passes='module(call-tree-clone)' -enable-intel-advanced-opts=1 -mtriple=i686-- -march=core-avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -S | FileCheck %s
+; RUN: opt < %s -opaque-pointers -call-tree-clone -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -S | FileCheck %s
+
+; Checks the multi-version (MV) function on get_ref() has proper code generation
 
 ; This is the same test case as call_tree_cloning_10.ll, but it checks for
 ; opaque pointers.
 
-; CHECK:  tail call fastcc void @get_ref(i32 16, i32 16)
-; CHECK:  tail call fastcc void @get_ref(i32 8, i32 8)
-; CHECK:  tail call fastcc void @get_ref(i32 8, i32 16)
-; CHECK:  tail call fastcc void @get_ref(i32 16, i32 8)
-; CHECK-NOT:  tail call fastcc void @get_ref|16.8(i32 16, i32 8)
-; CHECK-NOT:  tail call fastcc void @get_ref|8.8(i32 8, i32 8)
-; CHECK-NOT:  tail call fastcc void @get_ref|8.16(i32 8, i32 16)
-; CHECK-NOT:  tail call fastcc void @get_ref|16.8(i32 16, i32 8)
-
+; ModuleID = 'call_tree_cloning_10-opaque-ptr.ll'
+source_filename = "ld-temp.o"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -92,6 +87,45 @@ define internal fastcc void @get_ref(i32 %0, i32 %1) unnamed_addr #1 {
 35:                                               ; preds = %34
   ret void
 }
+
+; Checks the multi-version (MV) function on get_ref() has proper code generation
+; CHECK-LABEL:  define internal fastcc void @get_ref(i32 %0, i32 %1) unnamed_addr #1 {
+;
+; checks 4 2-variable clones
+;
+; CHECK:        %2 = icmp eq i32 %0, 8
+; CHECK:        %3 = icmp eq i32 %1, 8
+; CHECK:        all fastcc void @"get_ref|8.8"()
+
+; CHECK:        %5 = icmp eq i32 %0, 16
+; CHECK:        %6 = icmp eq i32 %1, 16
+; CHECK:        call fastcc void @"get_ref|16.16"()
+;
+; CHECK:        %8 = icmp eq i32 %0, 16
+; CHECK:        %9 = icmp eq i32 %1, 8
+; CHECK:        call fastcc void @"get_ref|16.8"()
+;
+; CHECK:        %11 = icmp eq i32 %0, 8
+; CHECK:        %12 = icmp eq i32 %1, 16
+; CHECK:        call fastcc void @"get_ref|8.16"()
+;
+; checks 4 1-variable clones
+;
+; CHECK:        %14 = icmp eq i32 %0, 20
+; CHECK:        call fastcc void @"get_ref|20._"(i32 %1)
+;
+; CHECK:        %15 = icmp eq i32 %0, 16
+; CHECK:        call fastcc void @"get_ref|16._"(i32 %1)
+;
+; CHECK:        %16 = icmp eq i32 %0, 12
+; CHECK:        call fastcc void @"get_ref|12._"(i32 %1)
+;
+; CHECK:        %17 = icmp eq i32 %0, 8
+; CHECK:        call fastcc void @"get_ref|8._"(i32 %1)
+;
+; checks the default-fallthrough path
+;
+; CHECK:        call fastcc void @"get_ref|_._"(i32 %0, i32 %1)
 
 ; Function Attrs: nounwind
 declare dso_local i32 @printf(ptr nocapture readonly, ...) local_unnamed_addr #2

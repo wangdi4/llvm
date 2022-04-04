@@ -5,7 +5,7 @@
 ; RUN:     -mtriple=x86_64-unknown-unknown -mcpu=skx \
 ; RUN:     -vplan-cm-gather-scatter-threshold=50 -enable-intel-advanced-opts \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
-; RUN:     | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF8
+; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF8
 
 @arr.i32.0 = external local_unnamed_addr global [1024 x i32], align 16
 @arr.i32.1 = external local_unnamed_addr global [1024 x i32], align 16

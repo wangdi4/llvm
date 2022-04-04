@@ -157,11 +157,8 @@ static cl::opt<bool>
 IntelDevirtMultiversion::IntelDevirtMultiversion(
     Module &M, WholeProgramInfo &WPInfo,
     std::function<const TargetLibraryInfo &(const Function &F)> GetTLI)
-    : M(M), WPInfo(WPInfo), GetTLI(GetTLI) {
-
-  auto IAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
-  EnableDevirtMultiversion = WPDevirtMultiversion &&
-                             WPInfo.isAdvancedOptEnabled(IAVX2);
+    : M(M), WPInfo(WPInfo), GetTLI(GetTLI),
+      EnableDevirtMultiversion(WPDevirtMultiversion) {
 
   DevirtCallMDNode = MDNode::get(
       M.getContext(), MDString::get(M.getContext(), "_Intel.Devirt.Call"));

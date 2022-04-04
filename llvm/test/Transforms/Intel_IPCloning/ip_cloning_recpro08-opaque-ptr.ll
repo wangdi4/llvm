@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers < %s -ip-cloning -ip-gen-cloning-force-enable-dtrans -inline -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers < %s -passes='module(ip-cloning),cgscc(inline)' -ip-gen-cloning-force-enable-dtrans -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -ip-cloning -ip-gen-cloning-force-enable-dtrans -inline -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -passes='module(ip-cloning),cgscc(inline)' -ip-gen-cloning-force-enable-dtrans -S 2>&1 | FileCheck %s
 
 ; Test that after @foo is cloned as a recursive progression clone 8 times and
 ; all of those clones are inlined into @MAIN__, that @MAIN__ has the
@@ -14,8 +14,8 @@
 ; CHECK: define dso_local void @MAIN__() [[ATTR1:#[0-9]+]]
 ; CHECK: define internal void @bar() [[ATTR2:#[0-9]+]]
 ; CHECK: define internal void @foo(ptr noalias nocapture readonly %arg)
-; CHECK: attributes [[ATTR1]] = { "contains-rec-pro-clone" "target-features"="+avx2" }
-; CHECK: attributes [[ATTR2]] = { noinline "target-features"="+avx2" }
+; CHECK: attributes [[ATTR1]] = { "contains-rec-pro-clone" }
+; CHECK: attributes [[ATTR2]] = { noinline }
 
 @count = available_externally dso_local local_unnamed_addr global i32 0, align 8
 

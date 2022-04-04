@@ -194,6 +194,7 @@ MODULE_PASS("dtrans-elim-ro-field-access-op",                    // INTEL
 MODULE_PASS("dtrans-meminittrimdown", dtrans::MemInitTrimDownPass()) // INTEL
 MODULE_PASS("dtrans-meminittrimdownop", dtransOP::MemInitTrimDownOPPass()) // INTEL
 MODULE_PASS("dtrans-memmanagetrans", dtrans::MemManageTransPass()) // INTEL
+MODULE_PASS("dtrans-normalizeop", dtransOP::DTransNormalizeOPPass()) // INTEL
 MODULE_PASS("dtrans-codealign", dtrans::CodeAlignPass())         // INTEL
 MODULE_PASS("dtrans-transpose", dtrans::TransposePass())         // INTEL
 MODULE_PASS("dtrans-commutecond", dtrans::CommuteCondPass())     // INTEL
