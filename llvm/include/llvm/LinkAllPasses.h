@@ -476,6 +476,7 @@ namespace {
       (void)llvm::createAddNTAttrLegacyPass();
       (void)llvm::createAddTLSGlobalsLegacyPass();
       (void)llvm::createResolveMatrixFillLegacyPass();
+      (void)llvm::createResolveMatrixLayoutLegacyPass();
       (void)llvm::createResolveMatrixWISliceLegacyPass();
       (void)llvm::createResolveSubGroupWICallLegacyPass();
       (void)llvm::createResolveWICallLegacyPass(false, false);
