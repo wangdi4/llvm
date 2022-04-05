@@ -47,10 +47,10 @@ define dso_local i32 @_Z6maxlocl(i64 %m) local_unnamed_addr #0 !dbg !14 {
 ; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:10:5
 ; CHECKHIRPCFG:         [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECKHIRPCFG-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 [[TMP_0260:%.*]], [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
-; CHECKHIRPCFG-NEXT:      DbgLoc:
+; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:11:15
 ; CHECKHIRPCFG-EMPTY:
 ; CHECKHIRPCFG-NEXT:     i64 [[VP7:%.*]] = phi  [ i64 [[B_0250:%.*]], [[BB1]] ],  [ i64 [[VP8:%.*]], [[BB2]] ]
-; CHECKHIRPCFG-NEXT:      DbgLoc:
+; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:11:15
 ; CHECKHIRPCFG-EMPTY:
 ; CHECKHIRPCFG-NEXT:     i64 [[VP9:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP10:%.*]], [[BB2]] ]
 ; CHECKHIRPCFG-NEXT:      DbgLoc:
@@ -62,7 +62,7 @@ define dso_local i32 @_Z6maxlocl(i64 %m) local_unnamed_addr #0 !dbg !14 {
 ; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:11:16
 ; CHECKHIRPCFG-EMPTY:
 ; CHECKHIRPCFG-NEXT:     i64 [[VP11:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:11:16
+; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:11:15
 ; CHECKHIRPCFG-EMPTY:
 ; CHECKHIRPCFG-NEXT:     i1 [[VP12:%.*]] = icmp slt i64 [[VP7]] i64 [[VP11]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:11:28
@@ -71,7 +71,7 @@ define dso_local i32 @_Z6maxlocl(i64 %m) local_unnamed_addr #0 !dbg !14 {
 ; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:11:15
 ; CHECKHIRPCFG-EMPTY:
 ; CHECKHIRPCFG-NEXT:     i64 [[VP13:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:11:16
+; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:12:13
 ; CHECKHIRPCFG-EMPTY:
 ; CHECKHIRPCFG-NEXT:     i1 [[VP14:%.*]] = icmp slt i64 [[VP7]] i64 [[VP13]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:11:28
@@ -129,10 +129,10 @@ define dso_local i32 @_Z6maxlocl(i64 %m) local_unnamed_addr #0 !dbg !14 {
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:10:5
 ; CHECKHIRVPE:         [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECKHIRVPE-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 [[VP_MONO_IDX_RED_INIT]], [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
-; CHECKHIRVPE-NEXT:      DbgLoc:
+; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:15
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i64 [[VP7:%.*]] = phi  [ i64 [[VP_MINMAX_RED_INIT]], [[BB1]] ],  [ i64 [[VP8:%.*]], [[BB2]] ]
-; CHECKHIRVPE-NEXT:      DbgLoc:
+; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:15
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i64 [[VP9:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP10:%.*]], [[BB2]] ]
 ; CHECKHIRVPE-NEXT:      DbgLoc:
@@ -144,7 +144,7 @@ define dso_local i32 @_Z6maxlocl(i64 %m) local_unnamed_addr #0 !dbg !14 {
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:16
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i64 [[VP11:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:16
+; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:15
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i1 [[VP12:%.*]] = icmp slt i64 [[VP7]] i64 [[VP11]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:28
@@ -153,7 +153,7 @@ define dso_local i32 @_Z6maxlocl(i64 %m) local_unnamed_addr #0 !dbg !14 {
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:15
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i64 [[VP13:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:16
+; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:12:13
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i1 [[VP14:%.*]] = icmp slt i64 [[VP7]] i64 [[VP13]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:28

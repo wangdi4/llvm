@@ -2441,12 +2441,16 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level, bool IsTop,
       SC = ScopedSE.getTruncateOrSignExtend(SC, FinalIntTy);
     }
 
-    if (parseRecursive(SC, CE, Level, IsTop, !EnableCastHiding, true)) {
-      parseMetadata(OrigVal, CE);
-    } else {
+    if (!parseRecursive(SC, CE, Level, IsTop, !EnableCastHiding, true)) {
       getCanonExprUtils().destroy(CE);
       CE = parseAsBlob(OrigVal, Level, FinalIntTy);
     }
+  }
+
+  // TODO: getCurInst asserts for cast of BrInst->getCondition() to Instruction
+  // when condition is not a standalone inst.
+  if (!isa<HLIf>(CurNode)) {
+    parseMetadata(getCurInst(), CE);
   }
 
   assert((CE->getDestType() == OrigVal->getType() ||

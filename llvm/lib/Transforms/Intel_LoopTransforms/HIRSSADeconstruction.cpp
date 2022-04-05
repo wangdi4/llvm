@@ -282,6 +282,11 @@ Instruction *HIRSSADeconstruction::createCopy(Value *Val, StringRef Name,
   auto CInst = CallInst::Create(FunctionCallee(SSACopyFunc), {Val},
                                 Name + (IsLivein ? ".in" : ".out"));
 
+  // Copy available DebugLoc metadata
+  if (const auto *Inst = dyn_cast<Instruction>(Val)) {
+    CInst->setDebugLoc(Inst->getDebugLoc());
+  }
+
   attachMetadata(CInst, IsLivein ? Name : "",
                  IsLivein ? ScalarEvolution::HIRLiveKind::LiveIn
                           : ScalarEvolution::HIRLiveKind::LiveOut);

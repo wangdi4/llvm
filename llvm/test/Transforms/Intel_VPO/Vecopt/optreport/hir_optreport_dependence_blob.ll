@@ -19,61 +19,61 @@
 ; CHECK:      LOOP BEGIN at test2.c (9, 2)
 ; CHECK-NEXT:     remark #15344: Loop was not vectorized: vector dependence prevents vectorization
 ; CHECK-NEXT:     remark #15346: vector dependence: assumed ANTI dependence between p1 (11:23) and p1 (11:11)
-; CHECK-NEXT:     remark #15346: vector dependence: assumed FLOW dependence between t1 (11:20) and t1
 ; CHECK-NEXT:     remark #15346: vector dependence: assumed FLOW dependence between t1 (11:20) and t1 (11:11)
-; CHECK-NEXT:     remark #15346: vector dependence: assumed FLOW dependence between t1 (11:20) and t1
+; CHECK-NEXT:     remark #15346: vector dependence: assumed FLOW dependence between t1 (11:20) and t1 (11:11)
+; CHECK-NEXT:     remark #15346: vector dependence: assumed FLOW dependence between t1 (11:20) and t1 (11:20)
 ; CHECK-NEXT: LOOP END
 
 
 define dso_local i32 @sub(i32* nocapture noundef %p1, i32* nocapture noundef readnone %p2, i32 noundef %n, i32* nocapture noundef readnone %M) local_unnamed_addr #0 !dbg !7 {
 entry:
-  call void @llvm.dbg.value(metadata i32* %p1, metadata !13, metadata !DIExpression()), !dbg !21
-  call void @llvm.dbg.value(metadata i32* %p2, metadata !14, metadata !DIExpression()), !dbg !21
-  call void @llvm.dbg.value(metadata i32 %n, metadata !15, metadata !DIExpression()), !dbg !21
-  call void @llvm.dbg.value(metadata i32* %M, metadata !16, metadata !DIExpression()), !dbg !21
-  %0 = load i32, i32* %p1, align 4, !dbg !22, !tbaa !23
-  call void @llvm.dbg.value(metadata i32 %0, metadata !17, metadata !DIExpression()), !dbg !21
-  call void @llvm.dbg.value(metadata i32 0, metadata !18, metadata !DIExpression()), !dbg !21
-  call void @llvm.dbg.value(metadata i32 0, metadata !19, metadata !DIExpression()), !dbg !27
-  %cmp15 = icmp sgt i32 %n, 0, !dbg !28
-  br i1 %cmp15, label %for.body.preheader, label %for.cond.cleanup, !dbg !30
+  call void @llvm.dbg.value(metadata i32* %p1, metadata !13, metadata !DIExpression()), !dbg !21  ; test2.c:0:0
+  call void @llvm.dbg.value(metadata i32* %p2, metadata !14, metadata !DIExpression()), !dbg !21  ; test2.c:0:0
+  call void @llvm.dbg.value(metadata i32 %n, metadata !15, metadata !DIExpression()), !dbg !21  ; test2.c:0:0
+  call void @llvm.dbg.value(metadata i32* %M, metadata !16, metadata !DIExpression()), !dbg !21  ; test2.c:0:0
+  %0 = load i32, i32* %p1, align 4, !dbg !22, !tbaa !23  ; test2.c:3:11
+  call void @llvm.dbg.value(metadata i32 %0, metadata !17, metadata !DIExpression()), !dbg !21  ; test2.c:0:0
+  call void @llvm.dbg.value(metadata i32 0, metadata !18, metadata !DIExpression()), !dbg !21  ; test2.c:0:0
+  call void @llvm.dbg.value(metadata i32 0, metadata !19, metadata !DIExpression()), !dbg !27  ; test2.c:0:0
+  %cmp15 = icmp sgt i32 %n, 0, !dbg !28           ; test2.c:9:17
+  br i1 %cmp15, label %for.body.preheader, label %for.cond.cleanup, !dbg !30  ; test2.c:9:2
 
 for.body.preheader:                               ; preds = %entry
-  %wide.trip.count18 = zext i32 %n to i64, !dbg !28
-  br label %for.body, !dbg !30
+  %wide.trip.count18 = zext i32 %n to i64, !dbg !28  ; test2.c:9:17
+  br label %for.body, !dbg !30                    ; test2.c:9:2
 
 for.cond.cleanup.loopexit:                        ; preds = %for.body
-  %add.lcssa = phi i32 [ %add, %for.body ], !dbg !31
-  br label %for.cond.cleanup, !dbg !33
+  %add.lcssa = phi i32 [ %add, %for.body ], !dbg !31  ; test2.c:11:20
+  br label %for.cond.cleanup, !dbg !33            ; test2.c:15:2
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup.loopexit, %entry
   %t1.0.lcssa = phi i32 [ %0, %entry ], [ %add.lcssa, %for.cond.cleanup.loopexit ]
-  call void @llvm.dbg.value(metadata i32 %t1.0.lcssa, metadata !18, metadata !DIExpression()), !dbg !21
-  ret i32 %t1.0.lcssa, !dbg !33
+  call void @llvm.dbg.value(metadata i32 %t1.0.lcssa, metadata !18, metadata !DIExpression()), !dbg !21  ; test2.c:0:0
+  ret i32 %t1.0.lcssa, !dbg !33                   ; test2.c:15:2
 
-for.body:                                         ; preds = %for.body.preheader, %for.body
+for.body:                                         ; preds = %for.body, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %t1.016 = phi i32 [ %0, %for.body.preheader ], [ %add, %for.body ]
-  call void @llvm.dbg.value(metadata i64 %indvars.iv, metadata !19, metadata !DIExpression()), !dbg !27
-  call void @llvm.dbg.value(metadata i32 %t1.016, metadata !17, metadata !DIExpression()), !dbg !21
-  %idxprom = sext i32 %t1.016 to i64, !dbg !34
-  %arrayidx = getelementptr inbounds i32, i32* %p1, i64 %idxprom, !dbg !34
-  store i32 %t1.016, i32* %arrayidx, align 4, !dbg !35, !tbaa !23
-  %arrayidx2 = getelementptr inbounds i32, i32* %p1, i64 %indvars.iv, !dbg !36
-  %1 = load i32, i32* %arrayidx2, align 4, !dbg !36, !tbaa !23
-  %add = add nsw i32 %1, %t1.016, !dbg !31
-  call void @llvm.dbg.value(metadata i32 %add, metadata !17, metadata !DIExpression()), !dbg !21
-  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1, !dbg !37
-  call void @llvm.dbg.value(metadata i64 %indvars.iv.next, metadata !19, metadata !DIExpression()), !dbg !27
-  %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count18, !dbg !28
-  br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body, !dbg !30, !llvm.loop !38
+  call void @llvm.dbg.value(metadata i64 %indvars.iv, metadata !19, metadata !DIExpression()), !dbg !27  ; test2.c:0:0
+  call void @llvm.dbg.value(metadata i32 %t1.016, metadata !17, metadata !DIExpression()), !dbg !21  ; test2.c:0:0
+  %idxprom = sext i32 %t1.016 to i64, !dbg !34    ; test2.c:11:4
+  %arrayidx = getelementptr inbounds i32, i32* %p1, i64 %idxprom, !dbg !34  ; test2.c:11:4
+  store i32 %t1.016, i32* %arrayidx, align 4, !dbg !35, !tbaa !23  ; test2.c:11:11
+  %arrayidx2 = getelementptr inbounds i32, i32* %p1, i64 %indvars.iv, !dbg !36  ; test2.c:11:23
+  %1 = load i32, i32* %arrayidx2, align 4, !dbg !36, !tbaa !23  ; test2.c:11:23
+  %add = add nsw i32 %1, %t1.016, !dbg !31        ; test2.c:11:20
+  call void @llvm.dbg.value(metadata i32 %add, metadata !17, metadata !DIExpression()), !dbg !21  ; test2.c:0:0
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1, !dbg !37  ; test2.c:9:23
+  call void @llvm.dbg.value(metadata i64 %indvars.iv.next, metadata !19, metadata !DIExpression()), !dbg !27  ; test2.c:0:0
+  %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count18, !dbg !28  ; test2.c:9:17
+  br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body, !dbg !30, !llvm.loop !38  ; test2.c:9:2
 }
 
-; Function Attrs: mustprogress nofree nosync nounwind readnone speculatable willreturn
+; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
 declare void @llvm.dbg.value(metadata, metadata, metadata) #1
 
 attributes #0 = { nofree norecurse nosync nounwind uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" }
-attributes #1 = { mustprogress nofree nosync nounwind readnone speculatable willreturn }
+attributes #1 = { nofree nosync nounwind readnone speculatable willreturn }
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!2, !3, !4, !5}
