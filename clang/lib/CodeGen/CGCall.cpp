@@ -1606,12 +1606,14 @@ void ClangToLLVMArgMapping::construct(const ASTContext &Context,
 /// reference in the function declaration, the "T" marker will be replaced
 /// with "PTR_TO_PTR".
 ///
-/// Take into account the number of LLVM registers used for a function
-/// parameter, because there isn't always a one-to-one correspondence (for
-/// example, a small struct by value). To do this, we use the base function
-/// (defined after the declare variant directive) to get source parameters
-/// and the variant function (specified with the declare variant directive)
-/// to get the actual LLVM registers assigned to each of those parameters.
+/// Emit the variant string taking into account LLVM argument register usage
+/// as determined by the variant function (specified with the declare variant
+/// directive). User parameters are taken from the base function (defined
+/// after the declare variant directive). We must account for the following:
+///   - "hidden" struct return register usage.
+///   - implicit 'this' pointer for member functions (LLVM register zero).
+///   - number of LLVM registers used per user argument.
+///   - padding register(s).
 std::string
 CodeGenModule::getDevPtrAttrString(GlobalDecl VariantFunc,
                                    const FunctionDecl *BaseFunc,
@@ -1619,18 +1621,35 @@ CodeGenModule::getDevPtrAttrString(GlobalDecl VariantFunc,
   std::string Buffer;
   if (Attr->adjustArgsNeedDevicePtr_size()) {
     llvm::raw_string_ostream OS(Buffer);
-    const CGFunctionInfo &FI = getTypes().arrangeGlobalDeclaration(VariantFunc);
-    ClangToLLVMArgMapping IRFunctionArgs(getContext(), FI, true);
+    const CGFunctionInfo &VFI =
+        getTypes().arrangeGlobalDeclaration(VariantFunc);
+    ClangToLLVMArgMapping IRFunctionArgs(getContext(), VFI, true);
+    unsigned HasThis = 0;
+    if (VFI.isInstanceMethod()) {
+      HasThis = IRFunctionArgs.getIRArgs(0).second;
+      assert(HasThis == 1 && "Expected only a single `this` pointer.");
+    }
 
-    // The adjustArgsNeedDevicePtr list contains the parameters specified with
-    // the 'need_device_ptr' adjust-op in the 'adjust_args' clause. So, if a
-    // parameter is present in the adjust args list, and its position as
-    // declared in the function parameter list equals the current parameter
-    // number, then a T (or PTR_TO_PTR) is emitted. Otherwse, an F.
+    unsigned TotalNumArgRegs = IRFunctionArgs.totalIRArgs();
+    unsigned LastArgIndexEmitted = 0;
+
+    auto EmitAdjArgEntries = [&OS, &Buffer]
+        (std::string EntryVal, unsigned FirstReg, unsigned LastReg) {
+        for (unsigned I = FirstReg; I < LastReg; ++I) {
+          if (Buffer.length())
+            OS << ',';
+          OS << EntryVal;
+        }
+        return LastReg - FirstReg;
+    };
+
     for (unsigned N = 0, NumParams = BaseFunc->getNumParams(); N != NumParams;
          ++N) {
-      if (N != 0)
-        OS << ",";
+      // The adjustArgsNeedDevicePtr list contains the parameters specified with
+      // the 'need_device_ptr' adjust-op in the 'adjust_args' clause. So, if a
+      // parameter is present in the adjust args list, and its position as
+      // declared in the function parameter list equals the current parameter
+      // number, then a T (or PTR_TO_PTR) is emitted. Otherwse, an F.
       auto I = llvm::find_if(Attr->adjustArgsNeedDevicePtr(), [&N](Expr *&E) {
         E = E->IgnoreParenImpCasts();
         if (const auto *DRE = dyn_cast<DeclRefExpr>(E))
@@ -1640,6 +1659,7 @@ CodeGenModule::getDevPtrAttrString(GlobalDecl VariantFunc,
         return false;
       });
       std::string DevPtrArgString;
+
       if (I != Attr->adjustArgsNeedDevicePtr_end()) {
         if (BaseFunc->getParamDecl(N)->getType()->isReferenceType())
           DevPtrArgString = "PTR_TO_PTR";
@@ -1647,14 +1667,24 @@ CodeGenModule::getDevPtrAttrString(GlobalDecl VariantFunc,
           DevPtrArgString = "T";
       } else
         DevPtrArgString = "F";
-      // Function parameter maps to this number of LLVM registers.
-      unsigned NumIRArgs = std::get<1>(IRFunctionArgs.getIRArgs(N));
-      for (unsigned Arg = 0; Arg < NumIRArgs; ++Arg) {
-        if (Arg > 0)
-          OS << ",";
-        OS << DevPtrArgString;
-      }
+
+      unsigned CurParamArgIndex, NumParamArgRegs;
+      std::tie(CurParamArgIndex, NumParamArgRegs) =
+          IRFunctionArgs.getIRArgs(N+HasThis);
+
+      // All LLVM registers prior to current parameter register index are,
+      // by definition, "F" (do not need a device pointer).
+      LastArgIndexEmitted += EmitAdjArgEntries("F", LastArgIndexEmitted,
+                                               CurParamArgIndex);
+
+      // Write the approprate adjust_args metadata for the current parameter
+      // ("T", "PTR_TO_PTR", or "F").
+      LastArgIndexEmitted += EmitAdjArgEntries(DevPtrArgString,
+                                               0, NumParamArgRegs);
     }
+    // Any LLVM registers that follow the user parameters are also, by
+    // definition, "F" (do not need a device pointer).
+    (void) EmitAdjArgEntries("F", LastArgIndexEmitted, TotalNumArgRegs);
   }
   return Buffer;
 }
