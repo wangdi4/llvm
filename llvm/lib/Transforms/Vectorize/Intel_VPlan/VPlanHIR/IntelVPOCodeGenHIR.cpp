@@ -4035,18 +4035,22 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     assert(!VPInst->getOperand(0)->getType()->isVectorTy() &&
            "Private finalization for VectorTy not supported yet.");
 
-    // Scalar result of private finalization should be written back to original
-    // private descriptor variable, obtained from external user.
-    assert(!hasNoExternalUsers(VPInst) &&
-           "Private final does not have any external uses.");
-    const VPExternalUse *ExtUse = getSingleExternalUse(VPInst, Plan);
-    RegDDRef *OrigPrivDescr = getUniformScalarRef(ExtUse);
+    RegDDRef *OrigPrivDescr = nullptr;
+    if (VPInst->getOpcode() == VPInstruction::PrivateFinalUncond) {
+      // Scalar result of private finalization should be written back to
+      // original private descriptor variable, obtained from external user.
+      assert(!hasNoExternalUsers(VPInst) &&
+             "Private final does not have any external uses.");
+      const VPExternalUse *ExtUse = getSingleExternalUse(VPInst, Plan);
+      OrigPrivDescr = getUniformScalarRef(ExtUse);
+    }
     RegDDRef *VecRef = widenRef(VPInst->getOperand(0), getVF());
     auto *PrivExtract = HLNodeUtilities.createExtractElementInst(
         VecRef, getVF() - 1, "extracted.priv", OrigPrivDescr);
     // Make the original private descriptor non-linear since we have a
     // definition to the temp in loop post-exit.
-    OrigPrivDescr->getSingleCanonExpr()->setNonLinear();
+    if (OrigPrivDescr)
+      OrigPrivDescr->getSingleCanonExpr()->setNonLinear();
     addInstUnmasked(PrivExtract);
     addVPValueScalRefMapping(VPInst, PrivExtract->getLvalDDRef(), 0 /*Lane*/);
 
@@ -4072,6 +4076,56 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       insertPrivateFinalCond<VPPrivateFinalCond>(VPInst);
     else if (isa<VPPrivateFinalCondMem>(VPInst))
       insertPrivateFinalCond<VPPrivateFinalCondMem>(VPInst);
+    return;
+  }
+
+  case VPInstruction::PrivateFinalMaskedMem:
+  case VPInstruction::PrivateFinalMasked: {
+    // Pseudo HIR generated to finalize masked last private entity,
+    // %priv.final = private-masked %exit, %mask, %orig
+    // ==>
+    // ; Obtain lane for extraction
+    // %bsfintmask = bitcast.<2 x i1>.i2(%mask);
+    // %lz = @llvm.ctlz.i2(%bsfintmask,  1);
+    // %lane = VF - 1 - %lz;
+    // ; Extract final value and store back to original
+    // %orig = extractelement %exit, %lane
+    //
+    // In case of in-memory private the %orig is unknown - we don't have that
+    // operand in the PrivateFinalMaskedMem instruction. In this case we just
+    // create a new temp.
+    //
+    HLContainerTy PrivFinalInsts;
+    RegDDRef *VecMask = widenRef(VPInst->getOperand(1), getVF());
+
+    HLInst *BsfCall = createCTZCall(VecMask->clone(),
+                                    Intrinsic::ctlz, true, &PrivFinalInsts);
+
+    // Scalar result of registerized private finalization should be written back
+    // to original private descriptor variable.
+    RegDDRef *OrigPrivDescr = nullptr;
+    if (VPInst->getOpcode() == VPInstruction::PrivateFinalMasked)
+      OrigPrivDescr = getUniformScalarRef(VPInst->getOperand(2));
+
+    RegDDRef *VecExit = widenRef(VPInst->getOperand(0), getVF());
+
+    RegDDRef *BsfLhs = BsfCall->getLvalDDRef();
+    HLInst *SubInst = HLNodeUtilities.createSub(
+        DDRefUtilities.createConstDDRef(BsfLhs->getDestType(), VF - 1),
+        BsfLhs->clone(), "ext.lane");
+    PrivFinalInsts.push_back(*SubInst);
+
+    HLInst *PrivExtract = HLNodeUtilities.createExtractElementInst(
+        VecExit->clone(), SubInst->getLvalDDRef()->clone(), "priv.extract",
+        OrigPrivDescr);
+    PrivFinalInsts.push_back(*PrivExtract);
+
+    // Make the original private descriptor non-linear since we have a
+    // definition to the temp in loop post-exit.
+    PrivExtract->getLvalDDRef()->getSingleCanonExpr()->setNonLinear();
+
+    addInst(&PrivFinalInsts);
+    addVPValueScalRefMapping(VPInst, PrivExtract->getLvalDDRef(), 0 /*Lane*/);
     return;
   }
 
@@ -4526,6 +4580,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::PrivateFinalUncondMem:
   case VPInstruction::PrivateFinalCondMem:
   case VPInstruction::PrivateFinalCond:
+  case VPInstruction::PrivateFinalMaskedMem:
+  case VPInstruction::PrivateFinalMasked:
   case VPInstruction::PrivateFinalArray:
     widenLoopEntityInst(VPInst);
     return;

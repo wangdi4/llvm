@@ -2,6 +2,9 @@
 ; RUN: opt -vplan-vec -S -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant -vplan-print-after-final-cond-transform < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="vplan-vec" -S -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant -vplan-print-after-final-cond-transform < %s  2>&1 | FileCheck %s
 
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-print-after-final-cond-transform -vplan-enable-new-cfg-merge-hir -vplan-enable-masked-variant-hir < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-print-after-final-cond-transform -vplan-enable-new-cfg-merge-hir -vplan-enable-masked-variant-hir < %s  2>&1 | FileCheck %s --check-prefix=HIR
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 define i32 @main() {
@@ -91,6 +94,89 @@ define i32 @main() {
 ; CHECK:       loopexit:
 ; CHECK-NEXT:    [[X_LCSSA0]] = phi i32 [ [[UNI_PHI220]], [[FINAL_MERGE0:%.*]] ]
 ; CHECK-NEXT:    store i32 [[X_LCSSA0]], i32* [[XP0:%.*]], align 4
+;
+; HIR-LABEL:  VPlan after insertion of VPEntities instructions:
+; HIR:          i32* [[VP_XP:%.*]] = allocate-priv i32*, OrigAlign = 4
+; HIR-NEXT:     i32 [[VP_IV_IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
+; HIR-NEXT:     i32 [[VP_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
+;
+; HIR:          i32 [[VP_X:%.*]] = add i32 [[VP_IV:%.*]] i32 1
+;
+; HIR:          i32 [[VP_X_PRIV_FINAL:%.*]] = private-final-uc i32 [[VP_X]]
+;
+; HIR-LABEL:  VPlan after emitting masked variant
+; HIR-NEXT:   VPlan IR for: main:HIR.#{{[0-9]+}}.cloned.masked
+;
+; HIR:          [DA: Div] i32* [[VP0:%.*]] = allocate-priv i32*, OrigAlign = 4
+; HIR:          [DA: Div] i1 [[VP3:%.*]] = icmp ult i32 [[VP_IV_1:%.*]] i32 128
+; HIR:            [DA: Div] i32 [[VP_X_1:%.*]] = add i32 [[VP_IV_1]] i32 1
+; HIR:          [DA: Div] i32 [[VP4:%.*]] = phi  [ i32 [[VP_X_1]], [[BB10:.*]] ],  [ i32 live-in0, [[BB8:.*]] ]
+; HIR:          [DA: Uni] i32 [[VP8:%.*]] = private-final-masked i32 [[VP4]] i1 [[VP3]] i32 live-in0
+;
+; HIR:       VPlan after private finalization instructions transformation:
+; HIR:            [DA: Div] i32* [[VP_XP]] = allocate-priv i32*, OrigAlign = 4
+; HIR:            [DA: Uni] i32 [[VP_X_PRIV_FINAL]] = private-final-uc i32 [[VP_X]]
+;
+; HIR:            [DA: Div] i32* [[VP0]] = allocate-priv i32*, OrigAlign = 4
+; HIR:           [[BB8:BB[0-9]+]]: # preds: [[BB7:BB[0-9]+]], new_latch
+; HIR:            [DA: Div] i32 [[VP_IV_1]] = phi  [ i32 [[VP1:%.*]], [[BB7]] ],  [ i32 [[VP_IV_NEXT_1:%.*]], new_latch ]
+; HIR:            [DA: Div] i1 [[VP3]] = icmp ult i32 [[VP_IV_1]] i32 128
+; HIR:            [DA: Div] i1 [[VP13:%.*]] = block-predicate i1 [[VP3]]
+; HIR-NEXT:       [DA: Div] i32 [[VP_X_1]] = add i32 [[VP_IV_1]] i32 1
+;
+; HIR:           new_latch:
+; HIR-NEXT:       [DA: Div] i32 [[VP__BLEND_BB310:%.*]] = blend [ i32 [[VP10:%.*]], i1 true ], [ i32 [[VP_X_1]], i1 [[VP3]] ]
+; HIR-NEXT:       [DA: Div] i32 [[VP_IV_NEXT_1]] = add i32 [[VP_IV_1]] i32 [[VP2:%.*]]
+;
+; HIR:            [DA: Uni] i32 [[VP7:%.*]] = induction-final{add} i32 0 i32 1
+; HIR-NEXT:       [DA: Uni] i1 [[VP14:%.*]] = all-zero-check i1 [[VP3]]
+; HIR-NEXT:       [DA: Uni] br i1 [[VP14]], [[BB14:BB[0-9]+]], [[BB15:BB[0-9]+]]
+; HIR-EMPTY:
+; HIR-NEXT:        [[BB15]]:
+; HIR-NEXT:         [DA: Uni] i32 [[VP8]] = private-final-masked i32 [[VP__BLEND_BB310]] i1 [[VP3]] i32 [[VP10]]
+; HIR-NEXT:         [DA: Uni] br [[BB14]]
+; HIR-EMPTY:
+; HIR-NEXT:      [[BB14]]:
+; HIR-NEXT:       [DA: Uni] i32 [[VP15:%.*]] = phi  [ i32 [[VP10]], [[BB11:.*]] ],  [ i32 [[VP8]], [[BB15]] ]
+;
+; === generated code
+; HIR-LABEL: Function: main
+; HIR-EMPTY:
+; HIR:       BEGIN REGION { modified }
+; HIR:             + DO i1 = 0, 127, 16   <DO_LOOP> <simd-vectorized> <novectorize>
+; HIR-NEXT:        |   [[LIVEOUTCOPY40:%.*]] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> + 1
+; HIR-NEXT:        + END LOOP
+;
+; HIR:             [[X0:%.*]] = extractelement [[LIVEOUTCOPY40]],  15
+;
+; HIR:             + DO i1 = [[PHI_TEMP20:%.*]], 127, 16   <DO_LOOP> <nounroll> <novectorize>
+; HIR-NEXT:        |   [[DOTVEC150:%.*]] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> <u 128
+; HIR-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC150]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> + 1 : [[PHI_TEMP0:%.*]];
+; HIR-NEXT:        |   [[DOTVEC160:%.*]] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> + 16 <u 128
+; HIR-NEXT:        |   [[TMP0:%.*]] = bitcast.<16 x i1>.i16([[DOTVEC160]])
+; HIR-NEXT:        |   [[CMP0:%.*]] = [[TMP0]] == 0
+; HIR-NEXT:        |   [[ALL_ZERO_CHECK0:%.*]] = [[CMP0]]
+; HIR-NEXT:        + END LOOP
+;
+; HIR:             [[TMP1:%.*]] = bitcast.<16 x i1>.i16([[DOTVEC150]])
+; HIR-NEXT:        [[CMP170:%.*]] = [[TMP1]] == 0
+; HIR-NEXT:        [[ALL_ZERO_CHECK180:%.*]] = [[CMP170]]
+; HIR-NEXT:        [[PHI_TEMP190:%.*]] = [[PHI_TEMP0]]
+; HIR-NEXT:        if ([[CMP170]] == 1)
+; HIR-NEXT:        {
+; HIR-NEXT:           goto [[BB12:BB[0-9]+]].77
+; HIR-NEXT:        }
+; HIR-NEXT:        [[BSFINTMASK0:%.*]] = bitcast.<16 x i1>.i16([[DOTVEC150]])
+; HIR-NEXT:        [[BSF0:%.*]] = @llvm.ctlz.i16([[BSFINTMASK0]],  1)
+; HIR-NEXT:        [[EXTLANE:%.*]] = 15 - [[BSF0]]
+; HIR-NEXT:        [[PHI_TEMP0]] = extractelement [[SELECT0]],  [[EXTLANE]]
+; HIR-NEXT:        [[PHI_TEMP190]] = [[PHI_TEMP0]]
+; HIR-NEXT:        [[BB12]].77:
+; HIR-NEXT:        [[PHI_TEMP80:%.*]] = [[PHI_TEMP190]]
+; HIR-NEXT:        [[PHI_TEMP100:%.*]] = 128
+; HIR-NEXT:        final.merge.51:
+; HIR-NEXT:        ([[XP0:%.*]])[0] = [[X0]]
+; HIR-NEXT:  END REGION
 entry:
   %xp = alloca i32, align 4
   br label %preheader
