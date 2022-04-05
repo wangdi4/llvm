@@ -374,7 +374,7 @@ private:
   /// used directly inside the outlined function created for the WRegion.
   SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
 #if INTEL_CUSTOMIZATION
-  bool IsDoConcurrent; // Used from Fortran DO Concurrent
+  bool IsDoConcurrent = false; // Used from Fortran DO Concurrent
   loopopt::HLNode *EntryHLNode; // for HIR only
   loopopt::HLNode *ExitHLNode;  // for HIR only
   loopopt::HLLoop *HLp;         // for HIR only
@@ -627,7 +627,7 @@ private:
   Type *NumTeamsTy = nullptr;
   WRNDefaultKind Default;
 #if INTEL_CUSTOMIZATION
-  bool IsDoConcurrent; // Used for Fortran Do Concurrent
+  bool IsDoConcurrent = false; // Used for Fortran Do Concurrent
 #endif // INTEL_CUSTOMIZATION
 
 public:
@@ -699,7 +699,7 @@ private:
   SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
 
 #if INTEL_CUSTOMIZATION
-  bool IsDoConcurrent; // Used for Fortran DO Concurrent.
+  bool IsDoConcurrent = false; // Used for Fortran DO Concurrent.
 #endif // INTEL_CUSTOMIZATION
 
 public:
@@ -789,7 +789,7 @@ private:
   EXPR Device;
   SubdeviceClause Subdevice;
   AllocaInst *ParLoopNdInfoAlloca;    // supports kernel loop parallelization
-  bool Nowait;
+  bool Nowait = false;
   WRNDefaultmapBehavior Defaultmap[WRNDefaultmapCategorySize] =
       {WRNDefaultmapAbsent};
   int OffloadEntryIdx;
@@ -801,7 +801,7 @@ private:
   bool HasTeamsReduction = false;
   uint8_t HasAtomicFreeReduction = 0;
 #if INTEL_CUSTOMIZATION
-  bool IsDoConcurrent;  // Used fro Fortran Do Concurrent
+  bool IsDoConcurrent = false;  // Used fro Fortran Do Concurrent
 #endif // INTEL_CUSTOMIZATION
 
 public:
@@ -980,7 +980,7 @@ private:
   EXPR IfExpr;
   EXPR Device;
   SubdeviceClause Subdevice;
-  bool Nowait;
+  bool Nowait = false;
 
 public:
   WRNTargetEnterDataNode(BasicBlock *BB);
@@ -1025,7 +1025,7 @@ private:
   EXPR IfExpr;
   EXPR Device;
   SubdeviceClause Subdevice;
-  bool Nowait;
+  bool Nowait = false;
 
 public:
   WRNTargetExitDataNode(BasicBlock *BB);
@@ -1070,7 +1070,7 @@ private:
   EXPR IfExpr;
   EXPR Device;
   SubdeviceClause Subdevice;
-  bool Nowait;
+  bool Nowait = false;
 
 public:
   WRNTargetUpdateNode(BasicBlock *BB);
@@ -1112,7 +1112,7 @@ private:
   UseDevicePtrClause UseDevicePtr;
   EXPR Device;
   SubdeviceClause Subdevice;
-  bool Nowait;
+  bool Nowait = false;
 
 public:
   WRNTargetVariantNode(BasicBlock *BB);
@@ -1149,7 +1149,7 @@ private:
   EXPR Device;
   EXPR Nocontext;
   EXPR Novariants;
-  bool Nowait;
+  bool Nowait = false;
 
   // To be populated during Paropt codegen
   CallInst *Call;                  // The dispatch call.
@@ -1197,7 +1197,7 @@ private:
   EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
   EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
   InteropActionClause InteropAction;
-  bool Nowait;
+  bool Nowait = false;
 
 public:
   WRNInteropNode(BasicBlock *BB);
@@ -1437,7 +1437,7 @@ private:
   WRNLoopOrderKind LoopOrder;
   WRNLoopInfo WRNLI;
 #if INTEL_CUSTOMIZATION
-  bool IsDoConcurrent; // Used for Fortran Do Concurrent
+  bool IsDoConcurrent = false; // Used for Fortran Do Concurrent
   bool IsAutoVec;
   bool HasVectorAlways;
   loopopt::HLNode *EntryHLNode; // for HIR only
@@ -1539,14 +1539,14 @@ private:
   int Collapse;
   int Ordered;
   WRNLoopOrderKind LoopOrder;
-  bool Nowait;
+  bool Nowait = false;
 
   WRNLoopInfo WRNLI;
   SmallVector<Value *, 2> OrderedTripCounts;
   SmallVector<Instruction *, 2> CancellationPoints;
   SmallVector<AllocaInst *, 2> CancellationPointAllocas;
 #if INTEL_CUSTOMIZATION
-  bool IsDoConcurrent; // Used for Fortran Do Concurrent
+  bool IsDoConcurrent = false; // Used for Fortran Do Concurrent
 #if INTEL_FEATURE_CSA
   ScheduleClause WorkerSchedule;
 #endif // INTEL_FEATURE_CSA
@@ -1630,7 +1630,7 @@ private:
   ReductionClause Reduction;
   AllocateClause Alloc;
   ScheduleClause Schedule;
-  bool Nowait;
+  bool Nowait = false;
   WRNLoopInfo WRNLI;
   SmallVector<Instruction *, 2> CancellationPoints;
   SmallVector<AllocaInst *, 2> CancellationPointAllocas;
@@ -1695,7 +1695,7 @@ public:
 /// \endcode
 class WRNWorkshareNode : public WRegionNode {
 private:
-  bool Nowait;
+  bool Nowait = false;
   WRNLoopInfo WRNLI;
 
 public:
@@ -1845,7 +1845,7 @@ class WRNScopeNode : public WRegionNode {
 private:
   PrivateClause Priv;
   ReductionClause Reduction;
-  bool Nowait;
+  bool Nowait = false;
 
 public:
   WRNScopeNode(BasicBlock *BB);
@@ -2068,7 +2068,7 @@ private:
   FirstprivateClause Fpriv;
   AllocateClause Alloc;
   CopyprivateClause Cpriv;
-  bool Nowait;
+  bool Nowait = false;
 
 public:
   WRNSingleNode(BasicBlock *BB);
@@ -2213,7 +2213,7 @@ private:
   WRNLoopInfo WRNLI;
   int MappedDir;
 #if INTEL_CUSTOMIZATION
-  bool IsDoConcurrent; // used for Fortran Do Concurrent
+  bool IsDoConcurrent = false; // used for Fortran Do Concurrent
 #endif // INTEL_CUSTOMIZATION
 
 public:

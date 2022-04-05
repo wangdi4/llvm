@@ -374,7 +374,6 @@ WRNTargetNode::WRNTargetNode(BasicBlock *BB)
   setIsTarget();
   setIf(nullptr);
   setDevice(nullptr);
-  setNowait(false);
   setParLoopNdInfoAlloca(nullptr);
   setOffloadEntryIdx(-1);
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetNode<" << getNumber() << ">\n");
@@ -399,7 +398,6 @@ WRNInteropNode::WRNInteropNode(BasicBlock* BB)
     : WRegionNode(WRegionNode::WRNInterop, BB) {
   setIsInterop();
   setDevice(nullptr);
-  setNowait(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNInteropNode<" << getNumber() << ">\n");
 }
@@ -442,7 +440,6 @@ WRNTargetEnterDataNode::WRNTargetEnterDataNode(BasicBlock *BB)
   setIsTarget();
   setIf(nullptr);
   setDevice(nullptr);
-  setNowait(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetEnterDataNode<" << getNumber()
                     << ">\n");
@@ -465,7 +462,6 @@ WRNTargetExitDataNode::WRNTargetExitDataNode(BasicBlock *BB)
   setIsTarget();
   setIf(nullptr);
   setDevice(nullptr);
-  setNowait(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetExitDataNode<" << getNumber()
                     << ">\n");
@@ -488,7 +484,6 @@ WRNTargetUpdateNode::WRNTargetUpdateNode(BasicBlock *BB)
   setIsTarget();
   setIf(nullptr);
   setDevice(nullptr);
-  setNowait(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetUpdateNode<" << getNumber()
                     << ">\n");
@@ -509,7 +504,6 @@ WRNTargetVariantNode::WRNTargetVariantNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNTargetVariant, BB) {
   setIsTarget();
   setDevice(nullptr);
-  setNowait(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetVariantNode<" << getNumber()
                     << ">\n");
@@ -533,7 +527,6 @@ WRNDispatchNode::WRNDispatchNode(BasicBlock *BB)
   setDevice(nullptr);
   setNocontext(nullptr);
   setNovariants(nullptr);
-  setNowait(false);
   setCall(nullptr);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNDispatchNode<" << getNumber()
@@ -739,7 +732,6 @@ WRNWksLoopNode::WRNWksLoopNode(BasicBlock *BB, LoopInfo *Li)
   setIsOmpLoop();
   setCollapse(0);
   setOrdered(-1);
-  setNowait(false);
   setLoopOrder(WRNLoopOrderAbsent);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNWksLoopNode<" << getNumber() << ">\n");
@@ -765,7 +757,6 @@ WRNSectionsNode::WRNSectionsNode(BasicBlock *BB, LoopInfo *Li)
     : WRegionNode(WRegionNode::WRNSections, BB), WRNLI(Li) {
   setIsOmpLoop();
   setIsSections();
-  setNowait(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNSectionsNode<" << getNumber() << ">\n");
 }
@@ -799,7 +790,6 @@ WRNSectionNode::WRNSectionNode(BasicBlock *BB)
 WRNWorkshareNode::WRNWorkshareNode(BasicBlock *BB, LoopInfo *Li)
     : WRegionNode(WRegionNode::WRNWorkshare, BB), WRNLI(Li) {
   setIsOmpLoop();
-  setNowait(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNWorkshareNode<" << getNumber() << ">\n");
 }
@@ -946,7 +936,7 @@ void WRNOrderedNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
 
 // constructor
 WRNSingleNode::WRNSingleNode(BasicBlock *BB)
-    : WRegionNode(WRegionNode::WRNSingle, BB), Nowait(false) {
+    : WRegionNode(WRegionNode::WRNSingle, BB) {
   LLVM_DEBUG(dbgs() << "\nCreated WRNSingleNode <" << getNumber() << ">\n");
 }
 
@@ -1042,7 +1032,6 @@ WRNTaskyieldNode::WRNTaskyieldNode(BasicBlock *BB)
 // constructor
 WRNScopeNode::WRNScopeNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNScope, BB) {
-  setNowait(false);
   LLVM_DEBUG(dbgs() << "\nCreated WRNScopeNode<" << getNumber() << ">\n");
 }
 
