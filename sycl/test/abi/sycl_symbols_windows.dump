@@ -114,7 +114,6 @@
 ??$get_info@$0BAIA@@context@sycl@cl@@QEBAIXZ
 ??$get_info@$0BAIB@@context@sycl@cl@@QEBA?AV?$vector@Vdevice@sycl@cl@@V?$allocator@Vdevice@sycl@cl@@@std@@@std@@XZ
 ??$get_info@$0BAIE@@context@sycl@cl@@QEBA?AVplatform@12@XZ
-?device_has@queue@sycl@cl@@QEBA_NW4aspect@23@@Z
 ??$get_info@$0BAJA@@queue@sycl@cl@@QEBA?AVcontext@12@XZ
 ??$get_info@$0BAJB@@queue@sycl@cl@@QEBA?AVdevice@12@XZ
 ??$get_info@$0BAJC@@queue@sycl@cl@@QEBAIXZ
@@ -380,13 +379,9 @@
 ??0gpu_selector@sycl@cl@@QEAA@$$QEAV012@@Z
 ??0gpu_selector@sycl@cl@@QEAA@AEBV012@@Z
 ??0gpu_selector@sycl@cl@@QEAA@XZ
-??0half@host_half_impl@detail@sycl@cl@@QEAA@$$QEAV01234@@Z
 ??0half@host_half_impl@detail@sycl@cl@@QEAA@AEBM@Z
-??0half@host_half_impl@detail@sycl@cl@@QEAA@AEBV01234@@Z
 ??0half@host_half_impl@detail@sycl@cl@@QEAA@G@Z
-??0half_v2@host_half_impl@detail@sycl@cl@@QEAA@$$QEAV01234@@Z
 ??0half_v2@host_half_impl@detail@sycl@cl@@QEAA@AEBM@Z
-??0half_v2@host_half_impl@detail@sycl@cl@@QEAA@AEBV01234@@Z
 ??0half_v2@host_half_impl@detail@sycl@cl@@QEAA@G@Z
 ??0handler@sycl@cl@@AEAA@V?$shared_ptr@Vqueue_impl@detail@sycl@cl@@@std@@00_N@Z
 ??0handler@sycl@cl@@AEAA@V?$shared_ptr@Vqueue_impl@detail@sycl@cl@@@std@@_N@Z
@@ -954,6 +949,9 @@
 ?Ordered@__host_std@cl@@YAHMM@Z
 ?Ordered@__host_std@cl@@YAHNN@Z
 ?Ordered@__host_std@cl@@YAHVhalf@half_impl@detail@sycl@2@0@Z
+?Plugin@?1???$getPlugin@$00@pi@detail@sycl@cl@@YAAEBVplugin@234@XZ@4PEBV5234@EB
+?Plugin@?1???$getPlugin@$01@pi@detail@sycl@cl@@YAAEBVplugin@234@XZ@4PEBV5234@EB
+?Plugin@?1???$getPlugin@$04@pi@detail@sycl@cl@@YAAEBVplugin@234@XZ@4PEBV5234@EB
 ?PushBack@exception_list@sycl@cl@@AEAAX$$QEAVexception_ptr@std@@@Z
 ?PushBack@exception_list@sycl@cl@@AEAAXAEBVexception_ptr@std@@@Z
 ?REJECT_DEVICE_SCORE@device_selector@sycl@cl@@1HB
@@ -1000,6 +998,15 @@
 ?Unordered@__host_std@cl@@YAHMM@Z
 ?Unordered@__host_std@cl@@YAHNN@Z
 ?Unordered@__host_std@cl@@YAHVhalf@half_impl@detail@sycl@2@0@Z
+?XTermPos@?1??getImageDesc@?$image_impl@$00@detail@sycl@cl@@AEAA?AU_pi_image_desc@@_N@Z@4HB
+?XTermPos@?1??getImageDesc@?$image_impl@$01@detail@sycl@cl@@AEAA?AU_pi_image_desc@@_N@Z@4HB
+?XTermPos@?1??getImageDesc@?$image_impl@$02@detail@sycl@cl@@AEAA?AU_pi_image_desc@@_N@Z@4HB
+?YTermPos@?1??getImageDesc@?$image_impl@$00@detail@sycl@cl@@AEAA?AU_pi_image_desc@@_N@Z@4HB
+?YTermPos@?1??getImageDesc@?$image_impl@$01@detail@sycl@cl@@AEAA?AU_pi_image_desc@@_N@Z@4HB
+?YTermPos@?1??getImageDesc@?$image_impl@$02@detail@sycl@cl@@AEAA?AU_pi_image_desc@@_N@Z@4HB
+?ZTermPos@?1??getImageDesc@?$image_impl@$00@detail@sycl@cl@@AEAA?AU_pi_image_desc@@_N@Z@4HB
+?ZTermPos@?1??getImageDesc@?$image_impl@$01@detail@sycl@cl@@AEAA?AU_pi_image_desc@@_N@Z@4HB
+?ZTermPos@?1??getImageDesc@?$image_impl@$02@detail@sycl@cl@@AEAA?AU_pi_image_desc@@_N@Z@4HB
 ?__spirv_ControlBarrier@@YAXUScope@__spv@@0I@Z
 ?__spirv_GroupWaitEvents@@YAXUScope@__spv@@IPEAPEAX@Z
 ?__spirv_MemoryBarrier@@YAXUScope@__spv@@I@Z
@@ -1697,6 +1704,7 @@
 ?destructorNotification@buffer_impl@detail@sycl@cl@@QEAAXPEAX@Z
 ?determineHostPtr@SYCLMemObjT@detail@sycl@cl@@IEAAXAEBV?$shared_ptr@Vcontext_impl@detail@sycl@cl@@@std@@_NAEAPEAXAEA_N@Z
 ?device_has@queue@sycl@cl@@AEBA_NW4aspect@23@@Z
+?device_has@queue@sycl@cl@@QEBA_NW4aspect@23@@Z
 ?die@pi@detail@sycl@cl@@YAXPEBD@Z
 ?discard_or_return@queue@sycl@cl@@AEAA?AVevent@23@AEBV423@@Z
 ?distance@__host_std@cl@@YA?AVhalf@half_impl@detail@sycl@2@V34562@0@Z
