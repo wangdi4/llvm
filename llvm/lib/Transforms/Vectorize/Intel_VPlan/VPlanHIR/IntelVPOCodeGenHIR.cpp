@@ -4930,11 +4930,14 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // + END LOOP
 
     for (unsigned I = 0; I < VPRemLp->getNumOperands(); ++I) {
-      RegDDRef *TempToInit = cast<RegDDRef>(VPRemLp->getLiveIn(I));
+      RegDDRef *TempToInit = cast<RegDDRef>(VPRemLp->getLiveIn(I))->clone();
       RegDDRef *InitValue = getOrCreateScalarRef(VPRemLp->getOperand(I), 0);
       HLInst *InitInst = HLNodeUtilities.createCopyInst(InitValue, "temp.init",
-                                                        TempToInit->clone());
+                                                        TempToInit);
       addInstUnmasked(InitInst);
+      if (TempToInit->isTerminalRef())
+        TempToInit->makeSelfBlob();
+      
       // Initialized temp will be live-in to scalar loop.
       ScalarRem->addLiveInTemp(TempToInit);
     }
