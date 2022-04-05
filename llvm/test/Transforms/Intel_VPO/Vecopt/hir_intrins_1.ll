@@ -1,16 +1,18 @@
 ; Test to check HIR vector codegen support for vectorizable intrinsic calls with always scalar operands.
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output  < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output -vplan-enable-new-cfg-merge-hir=false  < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output -vplan-enable-new-cfg-merge-hir  < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
 
 ; Check that intrinsic calls are vectorized.
 ; CHECK-LABEL: ctlz_f64
-; CHECK: @llvm.ctlz.v4i64(%.vec,  {{-1|true}})
+; CHECK: @llvm.ctlz.v4i64([[VEC:%.*]],  {{-1|true}})
 
 ; CHECK-LABEL: cttz_f64
-; CHECK: @llvm.cttz.v4i64(%.vec,  {{-1|true}})
+; CHECK: @llvm.cttz.v4i64([[VEC:%.*]],  {{-1|true}})
 
 ; CHECK-LABEL: powi_f64
-; CHECK: @llvm.powi.v4f64.i32(%.vec,  %P)
+; CHECK: @llvm.powi.v4f64.i32([[VEC:%.*]],  %P)
 
 ; Check that call is serialized, when intrinsic with always scalar operand is loop variant.
 ; CHECK-LABEL: powi_f64_variant
@@ -19,7 +21,7 @@
 ; Check that call is vectorized, when intrinsic with always scalar operand is uniform despite
 ; being loop variant.
 ; CHECK-LABEL: powi_f64_uni_variant
-; CHECK: @llvm.powi.v4f64.i32(%.vec,  %.unifload)
+; CHECK: @llvm.powi.v4f64.i32([[VEC:%.*]],  %.unifload)
 
 declare i64  @llvm.ctlz.i64 (i64, i1) nounwind readnone
 
