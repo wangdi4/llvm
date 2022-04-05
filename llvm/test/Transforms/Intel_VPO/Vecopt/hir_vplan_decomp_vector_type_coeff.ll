@@ -18,7 +18,9 @@
 ; zeroinitializer of type <8 x i1>
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg < %s -disable-output 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg < %s -disable-output 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg < %s -disable-output 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg < %s -disable-output 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 
 %union.V512 = type { <16 x float> }

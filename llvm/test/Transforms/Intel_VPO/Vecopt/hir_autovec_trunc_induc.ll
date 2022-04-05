@@ -11,9 +11,13 @@
 ; }
 ;   
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -S -vplan-force-vf=4 < %s -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -S -vplan-force-vf=4 < %s -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -S -vplan-force-vf=4 < %s -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -S -vplan-force-vf=4 < %s -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -S -vplan-force-vf=4 -opaque-pointers < %s -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -S -vplan-force-vf=4 -opaque-pointers < %s -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -S -vplan-force-vf=4 -opaque-pointers < %s -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -S -vplan-force-vf=4 -opaque-pointers < %s -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 ; CHECK: llvm.masked.gather.v4i32
 ; CHECK-NEXT: store <4 x i32>

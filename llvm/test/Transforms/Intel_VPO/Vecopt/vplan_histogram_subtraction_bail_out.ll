@@ -4,6 +4,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; REQUIRES: asserts
 ; RUN: opt -S -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -enable-vconflict-idiom -hir-vplan-vec -vplan-force-vf=2 -disable-output -debug-only=vplan-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -enable-vconflict-idiom -hir-vplan-vec -vplan-force-vf=2 -disable-output -debug-only=vplan-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 ; CHECK: VConflict idiom is not supported
 

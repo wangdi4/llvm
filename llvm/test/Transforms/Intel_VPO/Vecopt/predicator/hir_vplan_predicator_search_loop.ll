@@ -2,9 +2,14 @@
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
 ; RUN:     -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-predicator -disable-output \
 ; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
+; RUN:     -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-predicator -disable-output \
+; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 ; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" \
 ; RUN:     -vplan-print-after-predicator -disable-output -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" \
+; RUN:     -vplan-print-after-predicator -disable-output -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 ; Test to verify predicator behavior for our hacky support of search loops
 ; vectorization. The main issue is that we don't merge loop exits nor perform
