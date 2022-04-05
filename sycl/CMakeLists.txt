@@ -377,15 +377,17 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
 # end INTEL_CUSTOMIZATION
 )
 
-if (TARGET sycl-prof)
-  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-prof)
-endif()
-if (TARGET sycl-sanitize)
-  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-sanitize)
-endif()
-if (TARGET sycl-trace)
-  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-trace)
-endif()
+# INTEL_CUSTOMIZATION
+# if (TARGET sycl-prof)
+#   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-prof)
+# endif()
+# if (TARGET sycl-sanitize)
+#   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-sanitize)
+# endif()
+# if (TARGET sycl-trace)
+#   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-trace)
+# endif()
+# end INTEL_CUSTOMIZATION
 
 if(OpenCL_INSTALL_KHRONOS_ICD_LOADER AND TARGET OpenCL-ICD)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS OpenCL-ICD)
