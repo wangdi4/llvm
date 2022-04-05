@@ -1,4 +1,5 @@
 ; RUN: opt %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-enable-general-peeling-hir 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-enable-general-peeling-hir 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 ;
 ; Checks that in HIR path we skip loops with "#pragma vector dynamic_align" and "#pragma vector vecremainder"
 ;

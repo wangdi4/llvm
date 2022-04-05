@@ -3,6 +3,7 @@
 ; an instruction emission in the loop preheader.
 ;
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vec-dir-insert -hir-vplan-vec -disable-output -print-after=hir-vplan-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vec-dir-insert -hir-vplan-vec -disable-output -print-after=hir-vplan-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 ;
 ; HIR input
 ; BEGIN REGION { }

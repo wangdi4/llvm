@@ -2,6 +2,7 @@
 ; Test if debug information for PrivDescr class are generated correctly.
 
 ; RUN: opt -S -hir-ssa-deconstruction -hir-framework -hir-vplan-vec  -vplan-print-after-plain-cfg -vplan-entities-dump -vplan-print-legality -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -S -hir-ssa-deconstruction -hir-framework -hir-vplan-vec  -vplan-print-after-plain-cfg -vplan-entities-dump -vplan-print-legality -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 
 ; Function Attrs: nounwind uwtable

@@ -3,6 +3,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; REQUIRES: asserts
 ; RUN: opt -S -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -debug-only=parvec-analysis -disable-vplan-codegen -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -debug-only=parvec-analysis -disable-vplan-codegen -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 ; <13>         + DO i1 = 0, zext.i32.i64(%TC) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; <3>          |   %0 = (%B)[i1];
