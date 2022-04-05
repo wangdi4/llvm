@@ -43,8 +43,13 @@ class VecCloneImpl {
   protected:
 #endif // INTEL_CUSTOMIZATION
 
-    /// Set of allocas to mark private for the SIMD loop
-    SetVector<Value*> PrivateAllocas;
+    /// Set of memory locations to mark as private for the SIMD loop
+    SetVector<Value*> PrivateMemory;
+    /// Set of memory locations to mark as uniform for the SIMD loop
+    SetVector<Value*> UniformMemory;
+    /// Set of memory locations to mark as linear for the SIMD loop
+    /// The non-key value is the stride
+    MapVector<Value*, Value*> LinearMemory;
 
     /// \brief Make a copy of the function if it is marked as SIMD.
     Function *CloneFunction(Function &F, VectorVariant &V,
@@ -106,10 +111,14 @@ class VecCloneImpl {
                              BasicBlock *ReturnBlock, PHINode *Phi,
                              AllocaInst *&LastAlloca);
 
-    /// \brief Update the values of linear arguments by adding the stride
-    /// before the use.
-    void updateLinearReferences(Function *Clone, Function &F,
-                                VectorVariant &V, PHINode *Phi);
+    /// Mark memory as uniform for SIMD directives.
+    void processUniformArgs(Function *Clone, VectorVariant &V,
+                            BasicBlock *EntryBlock, BasicBlock *LoopPreheader);
+
+    /// Update the values of linear arguments by adding the stride before the
+    /// use and mark memory and linear for SIMD directives.
+    void processLinearArgs(Function *Clone, VectorVariant &V, PHINode *Phi,
+                           BasicBlock *EntryBlock, BasicBlock *LoopPreheader);
 
     /// \brief Update the instructions in the return basic block to return a
     /// vector temp.
@@ -155,7 +164,7 @@ class VecCloneImpl {
 
     /// \brief Utility function that generates instructions that calculate the
     /// stride for a linear argument.
-    Value *generateStrideForArgument(Function *Clone, Argument *Arg,
+    Value *generateStrideForArgument(Function *Clone, Value *ArgVal,
                                      Instruction *ParmUser, int Stride,
                                      PHINode *Phi);
 
