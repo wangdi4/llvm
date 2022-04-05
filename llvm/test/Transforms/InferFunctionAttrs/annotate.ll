@@ -594,25 +594,15 @@ declare i64 @labs(i64)
 ; CHECK: declare noundef i32 @lchown(i8* nocapture noundef readonly, i32 noundef, i32 noundef) [[NOFREE_NOUNWIND]]
 declare i32 @lchown(i8*, i32, i32)
 
-<<<<<<< HEAD
 ; CHECK: declare double @ldexp(double, i32 signext) [[NOFREE_WILLRETURN_READNONE:#[0-9]+]] ;INTEL
-declare double @ldexp(double, i32)
-
-; CHECK: declare float @ldexpf(float, i32 signext) [[NOFREE_WILLRETURN_READNONE]] ;INTEL
-declare float @ldexpf(float, i32)
-
-; CHECK: declare x86_fp80 @ldexpl(x86_fp80, i32 signext) [[NOFREE_WILLRETURN_READNONE]] ;INTEL
-=======
-; CHECK: declare double @ldexp(double, i32) [[NOFREE_WILLRETURN:#[0-9]+]]
 ; CHECK-SYSTEMZ: declare double @ldexp(double, i32 signext)
 declare double @ldexp(double, i32)
 
-; CHECK: declare float @ldexpf(float, i32) [[NOFREE_WILLRETURN]]
+; CHECK: declare float @ldexpf(float, i32 signext) [[NOFREE_WILLRETURN_READNONE]] ;INTEL
 ; CHECK-SYSTEMZ: declare float @ldexpf(float, i32 signext)
 declare float @ldexpf(float, i32)
 
-; CHECK: declare x86_fp80 @ldexpl(x86_fp80, i32) [[NOFREE_WILLRETURN]]
->>>>>>> dbb6a75fbb3679a03edf6f4bc7e7262f751b6dfc
+; CHECK: declare x86_fp80 @ldexpl(x86_fp80, i32 signext) [[NOFREE_WILLRETURN_READNONE]] ;INTEL
 declare x86_fp80 @ldexpl(x86_fp80, i32)
 
 ; CHECK: declare i64 @llabs(i64) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
