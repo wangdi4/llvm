@@ -136,21 +136,25 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK:              {
 ; CHECK:                 goto merge.blk12.31;
 ; CHECK:              }
-; CHECK:              %tgu = %n1  /u  4;
+; CHECK:              %extract.0.14 = extractelement %.vec3,  0;
+; CHECK:              %adj.tc = %n1  -  %extract.0.14;
+; CHECK:              %tgu = %adj.tc  /u  4;
 ; CHECK:              %vec.tc = %tgu  *  4;
+; CHECK:              %extract.0.15 = extractelement %.vec3,  0;
+; CHECK:              %adj.tc16 = %vec.tc  +  %extract.0.15;
 
-; CHECK:              + DO i64 i1 = %phi.temp, %vec.tc + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:              + DO i64 i1 = %phi.temp, %adj.tc16 + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK:              |   (<4 x i64>*)(%lp)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK:              |   <LVAL-REG> {al:8}(<4 x i64>*)(LINEAR i64* %lp)[LINEAR i64 i1] inbounds  !tbaa {{.*}} !intel.preferred_alignment <{{.*}}>
 ; CHECK:              + END LOOP
 
-; CHECK:              %.vec14 = %n1 == %vec.tc;
-; CHECK:              %phi.temp6 = %vec.tc;
-; CHECK:              %phi.temp16 = %vec.tc;
-; CHECK:              %extract.0.18 = extractelement %.vec14,  0;
-; CHECK:              if (%extract.0.18 == 1)
+; CHECK:              %.vec17 = %n1 == %adj.tc16;
+; CHECK:              %phi.temp6 = %adj.tc16;
+; CHECK:              %phi.temp19 = %adj.tc16;
+; CHECK:              %extract.0.21 = extractelement %.vec17,  0;
+; CHECK:              if (%extract.0.21 == 1)
 ; CHECK:              {
-; CHECK:                 goto final.merge.69;
+; CHECK:                 goto final.merge.73;
 ; CHECK:              }
 ; CHECK:              merge.blk12.31:
 ; CHECK:              %lb.tmp = %phi.temp6;
@@ -159,8 +163,8 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK:              |   (%lp)[i1] = i1;
 ; CHECK:              + END LOOP
 
-; CHECK:              %phi.temp16 = %n1 + -1;
-; CHECK:              final.merge.69:
+; CHECK:              %phi.temp19 = %n1 + -1;
+; CHECK:              final.merge.73:
 ; CHECK:        END REGION
 ;
 entry:

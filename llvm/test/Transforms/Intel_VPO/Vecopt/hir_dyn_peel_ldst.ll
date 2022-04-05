@@ -40,19 +40,25 @@
 ; CHECK-NEXT:           {
 ; CHECK-NEXT:              goto merge.blk12.33;
 ; CHECK-NEXT:           }
+; CHECK-NEXT:           %extract.0.14 = extractelement %.vec3,  0;
+; CHECK-NEXT:           %adj.tc = 400  -  %extract.0.14;
+; CHECK-NEXT:           %tgu = %adj.tc  /u  4;
+; CHECK-NEXT:           %vec.tc = %tgu  *  4;
+; CHECK-NEXT:           %extract.0.15 = extractelement %.vec3,  0;
+; CHECK-NEXT:           %adj.tc16 = %vec.tc  +  %extract.0.15;
 
-; CHECK:                + DO i1 = %phi.temp, 399, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:           |   %.vec14 = (<4 x i64>*)(%lp)[i1];
-; CHECK-NEXT:           |   (<4 x i64>*)(%lp)[i1] = %.vec14 + 1;
+; CHECK:                + DO i1 = %phi.temp, %adj.tc16 + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:           |   %.vec17 = (<4 x i64>*)(%lp)[i1];
+; CHECK-NEXT:           |   (<4 x i64>*)(%lp)[i1] = %.vec17 + 1;
 ; CHECK-NEXT:           + END LOOP
 
-; CHECK:                %.vec15 = 400 == 400;
-; CHECK-NEXT:           %phi.temp6 = 400;
-; CHECK-NEXT:           %phi.temp17 = 400;
-; CHECK-NEXT:           %extract.0.19 = extractelement %.vec15,  0;
-; CHECK-NEXT:           if (%extract.0.19 == 1)
+; CHECK:                %.vec18 = 400 == %adj.tc16;
+; CHECK-NEXT:           %phi.temp6 = %adj.tc16;
+; CHECK-NEXT:           %phi.temp20 = %adj.tc16;
+; CHECK-NEXT:           %extract.0.22 = extractelement %.vec18,  0;
+; CHECK-NEXT:           if (%extract.0.22 == 1)
 ; CHECK-NEXT:           {
-; CHECK-NEXT:              goto final.merge.71;
+; CHECK-NEXT:              goto final.merge.77;
 ; CHECK-NEXT:           }
 ; CHECK-NEXT:           merge.blk12.33:
 ; CHECK-NEXT:           %lb.tmp = %phi.temp6;
@@ -62,10 +68,9 @@
 ; CHECK-NEXT:           |   (%lp)[i1] = %val + 1;
 ; CHECK-NEXT:           + END LOOP
 
-; CHECK:                %phi.temp17 = 399;
-; CHECK-NEXT:           final.merge.71:
+; CHECK:                %phi.temp20 = 399;
+; CHECK-NEXT:           final.merge.77:
 ; CHECK-NEXT:     END REGION
-;
 define void @foo(i64* %lp) {
 entry:
   br label %for.body.preheader
