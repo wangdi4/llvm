@@ -43,18 +43,24 @@
 ; CHECK-NEXT:          {
 ; CHECK-NEXT:             goto merge.blk12.32;
 ; CHECK-NEXT:          }
+; CHECK-NEXT:          %extract.0.14 = extractelement %.vec3,  0;
+; CHECK-NEXT:          %adj.tc = 400  -  %extract.0.14;
+; CHECK-NEXT:          %tgu = %adj.tc  /u  4;
+; CHECK-NEXT:          %vec.tc = %tgu  *  4;
+; CHECK-NEXT:          %extract.0.15 = extractelement %.vec3,  0;
+; CHECK-NEXT:          %adj.tc16 = %vec.tc  +  %extract.0.15;
 
-; CHECK:               + DO i1 = %phi.temp, 399, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:               + DO i1 = %phi.temp, %adj.tc16 + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:          |   (<4 x i64>*)(%lp)[i1 + %n1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:          + END LOOP
 
-; CHECK:               %.vec14 = 400 == 400;
-; CHECK-NEXT:          %phi.temp6 = 400;
-; CHECK-NEXT:          %phi.temp16 = 400;
-; CHECK-NEXT:          %extract.0.18 = extractelement %.vec14,  0;
-; CHECK-NEXT:          if (%extract.0.18 == 1)
+; CHECK:               %.vec17 = 400 == %adj.tc16;
+; CHECK-NEXT:          %phi.temp6 = %adj.tc16;
+; CHECK-NEXT:          %phi.temp19 = %adj.tc16;
+; CHECK-NEXT:          %extract.0.21 = extractelement %.vec17,  0;
+; CHECK-NEXT:          if (%extract.0.21 == 1)
 ; CHECK-NEXT:          {
-; CHECK-NEXT:             goto final.merge.68;
+; CHECK-NEXT:             goto final.merge.74;
 ; CHECK-NEXT:          }
 ; CHECK-NEXT:          merge.blk12.32:
 ; CHECK-NEXT:          %lb.tmp = %phi.temp6;
@@ -63,8 +69,8 @@
 ; CHECK-NEXT:          |   (%lp)[i1 + %n1] = i1;
 ; CHECK-NEXT:          + END LOOP
 
-; CHECK:               %phi.temp16 = 399;
-; CHECK-NEXT:          final.merge.68:
+; CHECK:               %phi.temp19 = 399;
+; CHECK-NEXT:          final.merge.74:
 ; CHECK-NEXT:    END REGION
 ;
 define void @foo(i64* %lp, i64 %n1) {

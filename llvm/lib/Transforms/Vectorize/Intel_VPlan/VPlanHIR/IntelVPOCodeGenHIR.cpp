@@ -4873,8 +4873,13 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::VectorTripCountCalculation: {
     auto *VPVectorTC = cast<VPVectorTripCountCalculation>(VPInst);
     VPValue *VPOrigTC = VPVectorTC->getOperand(0);
+    auto *ConstIntTC = dyn_cast<VPConstantInt>(VPOrigTC);
 
-    if (auto *ConstIntTC = dyn_cast<VPConstantInt>(VPOrigTC)) {
+    // When the vectortripcountcalculation instruction has two operands,
+    // the vector trip count calculation needs to be adjusted using the
+    // second operand which specifies the number of peel iteration. We
+    // cannot treat the loop as having a known constant trip count.
+    if (ConstIntTC && VPVectorTC->getNumOperands() == 1) {
       auto VFUF = getVF() * getUF();
       auto TGU = ConstIntTC->getValue().getZExtValue() / VFUF;
       auto ConstVecTC = TGU * VFUF;
@@ -4884,8 +4889,18 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       return;
     }
 
-    // For non-constant TC.
+    // Adjust original trip count by subtracting the number of peeled iterations
+    // using the second operand of VPVectorTC if available.
     RegDDRef *OrigTC = getUniformScalarRef(VPOrigTC);
+    if (VPVectorTC->getNumOperands() > 1) {
+      RegDDRef *AdjRef =
+          getOrCreateScalarRef(VPVectorTC->getOperand(1), 0 /*Lane*/);
+      HLInst *AdjTCInst =
+          HLNodeUtilities.createSub(OrigTC->clone(), AdjRef->clone(), "adj.tc");
+      addInstUnmasked(AdjTCInst);
+      OrigTC = AdjTCInst->getLvalDDRef();
+    }
+
     RegDDRef *UBRef = OrigTC->clone();
 
     // For given original loop TC say %N, we emit following sequence of
@@ -4902,6 +4917,18 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     auto *MulInst = HLNodeUtilities.createMul(DivInst->getLvalDDRef()->clone(),
                                               VFUFDD->clone(), "vec.tc");
     addInstUnmasked(MulInst);
+
+    // We need to add back the number of peeled iteration to the value
+    // computed above.
+    if (VPVectorTC->getNumOperands() > 1) {
+      RegDDRef *AdjRef =
+          getOrCreateScalarRef(VPVectorTC->getOperand(1), 0 /*Lane*/);
+      auto *AdjTCInst = HLNodeUtilities.createAdd(
+          MulInst->getLvalDDRef()->clone(), AdjRef->clone(), "adj.tc");
+      addInstUnmasked(AdjTCInst);
+      MulInst = AdjTCInst;
+    }
+
     addVPValueScalRefMapping(VPVectorTC, MulInst->getLvalDDRef(), 0);
     return;
   }
