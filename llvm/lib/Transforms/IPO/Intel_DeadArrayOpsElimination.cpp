@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===------- Intel_DeadArrayOpsElimination.cpp ----------------------------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -579,14 +579,11 @@ bool CandidateInfo::applySanityChecks(void) {
 //  qsort(i8* nonnull %211, i64 %207)
 //
 //
+// NOTE: The above example includes bitcasts and typed pointers. I will update
+// it to not have bitcasts and typed pointers when -opaque-pointers is the
+// default for xmain.
+//
 bool CandidateInfo::isLocalArrayPassedAsFirstArg(void) {
-  auto IsPtrToStruct = [](Type *Ty) {
-    auto *PtrTy = dyn_cast<PointerType>(Ty);
-    if (PtrTy && PtrTy->getPointerElementType()->isStructTy())
-      return true;
-    return false;
-  };
-
   assert(FirstCall && "Expected first call to qsort function");
   unsigned PtrIncrement = 0;
   Value *FirstArg = FirstCall->getArgOperand(0);
@@ -607,13 +604,11 @@ bool CandidateInfo::isLocalArrayPassedAsFirstArg(void) {
   if (auto *GEP = dyn_cast<GetElementPtrInst>(ArrayArg)) {
     Value *GEPOp;
     if (GEP->getNumIndices() == 1) {
-      if (!IsPtrToStruct(GEP->getSourceElementType()))
-        return false;
       GEPOp = GEP->getOperand(1);
 
     } else if (GEP->getNumIndices() == 2) {
       auto *ATy = dyn_cast<ArrayType>(GEP->getSourceElementType());
-      if (!ATy || !IsPtrToStruct(ATy->getElementType()))
+      if (!ATy)
         return false;
       GEPOp = GEP->getOperand(2);
     } else {
