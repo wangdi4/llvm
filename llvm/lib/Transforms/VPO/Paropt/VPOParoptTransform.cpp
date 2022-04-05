@@ -10480,6 +10480,15 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   CallInst* ForkCI = genForkCallInst(W, MTFnCI);
   MTFnCI->eraseFromParent();
 
+  // If Proc_Bind clause is set to Master, Close or Spread, Generate
+  // __kmpc_push_proc_kind(LOC, TID, i32 policy) and insert it before
+  // __kmpc_fork_call.
+  if (W->getIsPar()) {
+    WRNProcBindKind ProcBind = W->getProcBind();
+    if (ProcBind != WRNProcBindAbsent && ProcBind != WRNProcBindTrue)
+      VPOParoptUtils::genKmpcPushProcKindCall(W, IdentTy, TidPtrHolder, ForkCI);
+  }
+
   // Generate __kmpc_push_num_threads(...) Call Instruction
   Value *NumThreads = nullptr;
   Type *NumThreadsTy = nullptr;

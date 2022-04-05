@@ -394,9 +394,9 @@ public:
 
 protected:
   void setIf(EXPR E) override { IfExpr = E; }
-  void setNumThreads(EXPR E) override{ NumThreads = E; }
-  void setDefault(WRNDefaultKind D) override{ Default = D; }
-  void setProcBind(WRNProcBindKind P) override{ ProcBind = P; }
+  void setNumThreads(EXPR E) override { NumThreads = E; }
+  void setDefault(WRNDefaultKind D) override { Default = D; }
+  void setProcBind(WRNProcBindKind P) override { ProcBind = P; }
   void setCollapse(int N) override { Collapse = N; }
   void setOrdered(int N) override { Ordered = N; }
   void setLoopOrder(WRNLoopOrderKind LO) override { LoopOrder = LO; }
