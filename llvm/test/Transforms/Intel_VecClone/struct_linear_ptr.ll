@@ -9,12 +9,14 @@
 ; CHECK-SAME: DIR.OMP.SIMD
 ; CHECK-SAME: QUAL.OMP.SIMDLEN
 ; CHECK-SAME: i32 4
+; CHECK-SAME: QUAL.OMP.LINEAR
+; CHECK-SAME: %struct.my_struct** %alloca.s
 ; CHECK-SAME: QUAL.OMP.PRIVATE
 ; CHECK-SAME: %struct.my_struct** %s.addr
 ; CHECK: simd.loop.header:
 ; CHECK: %stride.mul = mul i32 1, %index
-; CHECK-NEXT: %s.gep = getelementptr %struct.my_struct, %struct.my_struct* %load.s, i32 %stride.mul
-; CHECK-NEXT: store %struct.my_struct* %s.gep, %struct.my_struct** %s.addr, align 8
+; CHECK-NEXT: %load.s.gep = getelementptr %struct.my_struct, %struct.my_struct* %load.s, i32 %stride.mul
+; CHECK-NEXT: store %struct.my_struct* %load.s.gep, %struct.my_struct** %s.addr, align 8
 ; CHECK-NEXT: %0 = load %struct.my_struct*, %struct.my_struct** %s.addr, align 8
 ; CHECK-NEXT: %field1 = getelementptr inbounds %struct.my_struct, %struct.my_struct* %0, i32 0, i32 0
 ; CHECK-NEXT: %1 = load float, float* %field1, align 8

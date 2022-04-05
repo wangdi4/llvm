@@ -287,7 +287,7 @@ BasicBlock *VecCloneImpl::splitEntryIntoLoop(Function *Clone, VectorVariant &V,
     if (auto Alloca = dyn_cast<AllocaInst>(BBIt)) {
       EntryInsts.push_back(Alloca);
       // Add alloca to SIMD loop private
-      PrivateAllocas.insert(Alloca);
+      PrivateMemory.insert(Alloca);
     }
   }
 
@@ -641,7 +641,7 @@ Instruction *VecCloneImpl::widenVectorArgumentsAndReturn(
   return WidenedReturn;
 }
 
-Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Argument *Arg,
+Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Value *Arg,
                                                Instruction *ArgUser,
                                                int Stride, PHINode *Phi) {
   // For linear values, a mul + add/gep sequence is needed to generate the
@@ -655,12 +655,6 @@ Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Argument *Arg,
     if (!ArgTy->isOpaque()) {
       // Try to make compute nicely looking without byte arithmetic. Purely for
       // aesthetic purposes.
-      const DataLayout &DL = Clone->getParent()->getDataLayout();
-      unsigned PointeeEltSize =
-          DL.getTypeAllocSize(ArgTy->getPointerElementType());
-      assert(Stride % PointeeEltSize == 0 &&
-             "Stride is expected to be a multiple of element size!");
-      Stride /= PointeeEltSize;
       auto *Mul = Builder.CreateMul(ConstantInt::get(Phi->getType(), Stride),
                                     Phi, "stride.mul");
 
@@ -705,8 +699,64 @@ Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Argument *Arg,
   return Add;
 }
 
-void VecCloneImpl::updateLinearReferences(Function *Clone, Function &F,
-                                          VectorVariant &V, PHINode *Phi) {
+// Emits store and load of \p ArgValue and replaces all uses of \p ArgValue with
+// the load.
+static LoadInst* emitLoadStoreForParameter(AllocaInst *Alloca, Value *ArgValue,
+                                           BasicBlock *LoopPreHeader) {
+  // Emit the load in the simd.loop.preheader block.
+  IRBuilder<> Builder(&*LoopPreHeader->begin());
+  LoadInst *Load = Builder.CreateLoad(Alloca->getAllocatedType(), Alloca,
+                                      "load." + ArgValue->getName());
+  ArgValue->replaceAllUsesWith(Load);
+  // After updating the uses of the function argument with its stack variable,
+  // we emit the store.
+  Builder.SetInsertPoint(Alloca->getNextNode());
+  Builder.CreateStore(ArgValue, Alloca);
+
+  return Load;
+}
+
+// Create an alloca for args where memory is not already on the stack.
+// This is done regardless of whether there is an existing alloca for
+// the argument. In those cases we still create a new alloca that will
+// be marked appropriately (e.g., linear, uniform) and the old alloca
+// can be marked as private because loads/stores using it will be in
+// the loop. This approach helps simplify the implementation because
+// we don't have to distinguish between opt levels.
+static void getOrCreateArgMemory(Argument &Arg, BasicBlock *EntryBlock,
+                                 BasicBlock *LoopPreHeader, Value* &ArgVal,
+                                 Value* &ArgMemory) {
+  ArgVal = &Arg;
+  ArgMemory = &Arg;
+  // TODO:  Should it be !hasPointeeInMemoryValueAttr() instead?
+  if (!Arg.hasByValAttr()) {
+    IRBuilder<> Builder(&*EntryBlock->begin());
+    AllocaInst *ArgAlloca = Builder.CreateAlloca(Arg.getType(), nullptr,
+                                                 "alloca." + Arg.getName());
+    ArgVal = emitLoadStoreForParameter(cast<AllocaInst>(ArgAlloca), ArgVal,
+                                       LoopPreHeader);
+    ArgMemory = ArgAlloca;
+  }
+}
+
+void VecCloneImpl::processUniformArgs(Function *Clone, VectorVariant &V,
+                                      BasicBlock *EntryBlock,
+                                      BasicBlock *LoopPreHeader) {
+  std::vector<VectorKind> ParmKinds = V.getParameters();
+  for (Argument &Arg : Clone->args()) {
+    VectorKind ParmKind = ParmKinds[Arg.getArgNo()];
+    if (ParmKind.isUniform()) {
+      Value *ArgVal;
+      Value *ArgMemory;
+      getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, ArgVal, ArgMemory);
+      UniformMemory.insert(ArgMemory);
+    }
+  }
+}
+
+void VecCloneImpl::processLinearArgs(Function *Clone, VectorVariant &V,
+                                     PHINode *Phi, BasicBlock *EntryBlock,
+                                     BasicBlock *LoopPreHeader) {
   // Add stride to arguments marked as linear. These instructions are added
   // before the arg user and uses are updated accordingly.
   std::vector<VectorKind> ParmKinds = V.getParameters();
@@ -714,11 +764,34 @@ void VecCloneImpl::updateLinearReferences(Function *Clone, Function &F,
   for (Argument &Arg : Clone->args()) {
     VectorKind ParmKind = ParmKinds[Arg.getArgNo()];
     if (ParmKind.isLinear()) {
+      // Apparently, we still don't have support for linear variable strides
+      assert(ParmKind.isConstantStrideLinear() &&
+             "Need support for variable stride");
       int Stride = ParmKind.getStride();
-      for (auto &U:  make_early_inc_range(Arg.uses())) {
+      if (auto *PtrTy = dyn_cast<PointerType>(Arg.getType()))
+        if (!PtrTy->isOpaque()) {
+          const DataLayout &DL = Clone->getParent()->getDataLayout();
+          unsigned PointeeEltSize =
+              DL.getTypeAllocSize(PtrTy->getPointerElementType());
+          assert(Stride % PointeeEltSize == 0 &&
+                 "Stride is expected to be a multiple of element size!");
+          Stride /= PointeeEltSize;
+        }
+      Value *StrideVal =
+          ConstantInt::get(Type::getInt32Ty(Clone->getContext()), Stride);
+      Value *ArgVal;
+      Value *ArgMemory;
+      getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, ArgVal, ArgMemory);
+      LinearMemory[ArgMemory] = StrideVal;
+
+      // Eventually, this for loop can be removed once we start relying on
+      // just marking the allocas as linear and letting VPlan deal with
+      // accounting for stride calculations rather than VecClone inserting
+      // new instructions for the stride and updating users.
+      for (auto &U:  make_early_inc_range(ArgVal->uses())) {
         auto *User = cast<Instruction>(U.getUser());
         Value *StrideInst =
-            generateStrideForArgument(Clone, &Arg, User, Stride, Phi);
+            generateStrideForArgument(Clone, ArgVal, User, Stride, Phi);
         User->setOperand(U.getOperandNo(), StrideInst);
       }
     }
@@ -775,18 +848,15 @@ void VecCloneImpl::updateReturnBlockInstructions(Function *Clone,
   LLVM_DEBUG(Clone->dump());
 }
 
-// Stores the argument in the stack and loads it.
-static void emitLoadStoreForParameter(AllocaInst *Alloca, Value *ArgValue,
-                                      BasicBlock *LoopPreHeader) {
-  // Emit the load in the simd.loop.preheader block.
-  IRBuilder<> Builder(&*LoopPreHeader->begin());
-  LoadInst *Load = Builder.CreateLoad(Alloca->getAllocatedType(), Alloca,
-                                      "load." + ArgValue->getName());
-  ArgValue->replaceAllUsesWith(Load);
-  // After updating the uses of the function argument with its stack variable,
-  // we emit the store.
-  Builder.SetInsertPoint(Alloca->getNextNode());
-  Builder.CreateStore(ArgValue, Alloca);
+static Type* getMemoryType(Value* Memory) {
+  if (AllocaInst *Alloca = dyn_cast<AllocaInst>(Memory))
+    return Alloca->getAllocatedType();
+  else if (Argument *Arg = dyn_cast<Argument>(Memory)) {
+    // Represents byval args where there is already a stack slot
+    // available for the arg.
+    return Arg->getPointeeInMemoryValueType();
+  } else
+    llvm_unreachable("Arg memory should be on the stack");
 }
 
 // Creates the simd.begion.region block which marks the beginning of the WRN
@@ -844,63 +914,26 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
   OpndBundles.emplace_back(Clause(QUAL_OMP_SIMDLEN),
                            Builder.getInt32(V.getVlen()));
 
-  // Add directives for linear and vector arguments. Vector arguments can be
-  // marked as private.
-  for (Argument &Arg : Clone->args()) {
-    VectorKind ParmKind = ParmKinds[Arg.getArgNo()];
-
-    // In O0, the arguments are also stored in the stack. mem2reg which would
-    // have cleaned up the redundant memory operations does not run in O0. In
-    // O0, all the arguments are marked as privates even if they are linear or
-    // uniform. This does not have an impact on program's correctness. For
-    // linear arguments, VecClone will emit a stride. For all the other
-    // optimization levels, we do not have this problem.
-    // TODO: CMPLRLLVM-9851: The linear and uniform arguments which are
-    // currently marked as privates will be marked as linear and uniform
-    // respectively.
-    if (Arg.hasOneUse())
-      if (auto *Store = dyn_cast<StoreInst>(Arg.user_back()))
-        if (isa<AllocaInst>(Store->getPointerOperand()))
-          continue;
-
-    if (!ParmKind.isLinear() && !ParmKind.isUniform())
-      continue;
-
-  // No need to allocate another stack slot for an argument if there is already
-  // a dedicated storage for it on the stack.
-    Value *Memory = &Arg;
-    Type *ValueType = Arg.getPointeeInMemoryValueType();
-    // TODO:  Should it be !hasPointeeInMemoryValueAttr() instead?
-    if (!Arg.hasByValAttr()) {
-      ValueType = Arg.getType();
-      Memory = Builder.CreateAlloca(Arg.getType(), nullptr,
-                                    "alloca." + Arg.getName());
-      emitLoadStoreForParameter(cast<AllocaInst>(Memory), &Arg, LoopPreHeader);
-    }
-
-    if (ParmKind.isLinear()) {
-      unsigned Stride = ParmKind.getStride();
-      if (auto *PtrTy = dyn_cast<PointerType>(Arg.getType()))
-        if (!PtrTy->isOpaque()) {
-          const DataLayout &DL = Clone->getParent()->getDataLayout();
-          unsigned PointeeEltSize =
-              DL.getTypeAllocSize(PtrTy->getPointerElementType());
-          assert(Stride % PointeeEltSize == 0 &&
-                 "Stride is expected to be a multiple of element size!");
-          Stride /= PointeeEltSize;
-        }
-      AddTypedClause(QUAL_OMP_LINEAR, Memory, ValueType,
-                     Builder.getInt32(Stride));
-    }
-
-    if (ParmKind.isUniform())
-      AddTypedClause(QUAL_OMP_UNIFORM, Memory, ValueType);
+  // Mark linear memory for the SIMD directives
+  for (auto LinearMem : LinearMemory) {
+    Type *LinearTy = getMemoryType(LinearMem.first);
+    AddTypedClause(QUAL_OMP_LINEAR, LinearMem.first, LinearTy,
+                   LinearMem.second);
+  }
+  
+  // Mark uniform memory for the SIMD directives
+  for (Value *UniformMem : UniformMemory) {
+    Type *UniformTy = getMemoryType(UniformMem);
+    AddTypedClause(QUAL_OMP_UNIFORM, UniformMem, UniformTy);
   }
 
-  // Add PrivateAllocas to privates.
-  for (Value *AllocaVal : PrivateAllocas)
-    AddTypedClause(QUAL_OMP_PRIVATE, AllocaVal,
-                   cast<AllocaInst>(AllocaVal)->getAllocatedType());
+  // Mark private memory for the SIMD directives
+  for (Value *PrivateMem : PrivateMemory) {
+    assert(isa<AllocaInst>(PrivateMem) &&
+           "private memory is expected to be an alloca instruction");
+    AddTypedClause(QUAL_OMP_PRIVATE, PrivateMem,
+                   cast<AllocaInst>(PrivateMem)->getAllocatedType());
+  }
 
   // Create simd.begin.region block which indicates the begining of the WRN
   // region.
@@ -1168,8 +1201,12 @@ bool VecCloneImpl::runImpl(Module &M, LoopOptLimiter Limiter) {
       // argument. This mul instruction is then used as the index of the gep
       // that will be inserted before the next use of the argument. The
       // function also updates the users of the argument with the new
-      // calculation involving the stride.
-      updateLinearReferences(Clone, F, Variant, Phi);
+      // calculation involving the stride. Also mark linear memory for SIMD
+      // directives.
+      processLinearArgs(Clone, Variant, Phi, EntryBlock, LoopPreHeader);
+
+      // Mark uniform memory for SIMD directives
+      processUniformArgs(Clone, Variant, EntryBlock, LoopPreHeader);
 
       // Remove the old scalar instructions associated with the return and
       // replace with packing instructions.
@@ -1189,7 +1226,9 @@ bool VecCloneImpl::runImpl(Module &M, LoopOptLimiter Limiter) {
       // Insert the basic blocks that mark the beginning/end of the SIMD loop.
       insertDirectiveIntrinsics(M, Clone, F, Variant, EntryBlock, LoopPreHeader,
                                 LoopLatch, ReturnBlock);
-      PrivateAllocas.clear();
+      PrivateMemory.clear();
+      UniformMemory.clear();
+      LinearMemory.clear();
 
       // Add may-have-openmp-directive attribute since we inserted directives.
       Clone->addFnAttr("may-have-openmp-directive", "true");

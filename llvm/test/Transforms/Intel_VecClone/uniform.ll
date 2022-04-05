@@ -9,13 +9,12 @@
 ; CHECK-SAME: DIR.OMP.SIMD
 ; CHECK-SAME: QUAL.OMP.SIMDLEN
 ; CHECK-SAME: i32 4
-; FIXME: alloca for %b should be marked as uniform. This is temporary because
-; this will be fixed as part of CMPLRLLVM-9851. This is just a side-effect
-; from this refactor.
+; CHECK-SAME: QUAL.OMP.UNIFORM
+; CHECK-SAME: i32* %alloca.b
 ; CHECK-SAME: QUAL.OMP.PRIVATE
 ; CHECK-SAME: i32* %b.addr
 ; CHECK: simd.loop.header:
-; CHECK: store i32 %b
+; CHECK: store i32 %load.b
 
 ; ModuleID = 'uniform.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

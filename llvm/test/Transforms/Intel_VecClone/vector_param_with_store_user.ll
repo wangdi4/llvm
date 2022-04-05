@@ -6,29 +6,45 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: mustprogress noinline nounwind optnone uwtable
 define dso_local void @_Z6mandelCfj(<2 x float> %c.coerce, i32 %max_iter) #0 {
-; CHECK:  define dso_local void @_ZGVbN8vu__Z6mandelCfj(<16 x float> [[C_COERCE0:%.*]], i32 [[MAX_ITER0:%.*]]) #1 {
+; CHECK:       target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+; CHECK-NEXT:  target triple = "x86_64-unknown-linux-gnu"
+;
+; CHECK:  define dso_local void @_Z6mandelCfj(<2 x float> [[C_COERCE0:%.*]], i32 [[MAX_ITER0:%.*]]) #0 {
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[VEC_C_COERCE0:%.*]] = alloca <16 x float>, align 64
 ; CHECK-NEXT:    [[C0:%.*]] = alloca { float, float }, align 4
 ; CHECK-NEXT:    [[MAX_ITER_ADDR0:%.*]] = alloca i32, align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast { float, float }* [[C0]] to <2 x float>*
+; CHECK-NEXT:    store <2 x float> [[C_COERCE0]], <2 x float>* [[TMP0]], align 4
+; CHECK-NEXT:    store i32 [[MAX_ITER0]], i32* [[MAX_ITER_ADDR0]], align 4
+; CHECK-NEXT:    ret void
+; CHECK-NEXT:  }
+;
+; CHECK:  define dso_local void @_ZGVbN8vu__Z6mandelCfj(<16 x float> [[C_COERCE0]], i32 [[MAX_ITER0]]) #1 {
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[ALLOCA_MAX_ITER0:%.*]] = alloca i32, align 4
+; CHECK-NEXT:    store i32 [[MAX_ITER0]], i32* [[ALLOCA_MAX_ITER0]], align 4
+; CHECK-NEXT:    [[VEC_C_COERCE0:%.*]] = alloca <16 x float>, align 64
+; CHECK-NEXT:    [[C0]] = alloca { float, float }, align 4
+; CHECK-NEXT:    [[MAX_ITER_ADDR0]] = alloca i32, align 4
 ; CHECK-NEXT:    [[VEC_C_COERCE_CAST0:%.*]] = bitcast <16 x float>* [[VEC_C_COERCE0]] to <2 x float>*
 ; CHECK-NEXT:    store <16 x float> [[C_COERCE0]], <16 x float>* [[VEC_C_COERCE0]], align 64
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
-; CHECK-NEXT:    [[ENTRY_REGION0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.PRIVATE"({ float, float }* [[C0]]), "QUAL.OMP.PRIVATE"(i32* [[MAX_ITER_ADDR0]]) ]
+; CHECK-NEXT:    [[ENTRY_REGION0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM"(i32* [[ALLOCA_MAX_ITER0]]), "QUAL.OMP.PRIVATE"({ float, float }* [[C0]]), "QUAL.OMP.PRIVATE"(i32* [[MAX_ITER_ADDR0]]) ]
 ; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.preheader:
+; CHECK-NEXT:    [[LOAD_MAX_ITER0:%.*]] = load i32, i32* [[ALLOCA_MAX_ITER0]], align 4
 ; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.header:
 ; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_LATCH0:%.*]] ]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast { float, float }* [[C0]] to <2 x float>*
+; CHECK-NEXT:    [[TMP0]] = bitcast { float, float }* [[C0]] to <2 x float>*
 ; CHECK-NEXT:    [[VEC_C_COERCE_CAST_GEP0:%.*]] = getelementptr <2 x float>, <2 x float>* [[VEC_C_COERCE_CAST0]], i32 [[INDEX0]]
 ; CHECK-NEXT:    [[VEC_C_COERCE_ELEM0:%.*]] = load <2 x float>, <2 x float>* [[VEC_C_COERCE_CAST_GEP0]], align 8
 ; CHECK-NEXT:    store <2 x float> [[VEC_C_COERCE_ELEM0]], <2 x float>* [[TMP0]], align 4
-; CHECK-NEXT:    store i32 [[MAX_ITER0]], i32* [[MAX_ITER_ADDR0]], align 4
+; CHECK-NEXT:    store i32 [[LOAD_MAX_ITER0]], i32* [[MAX_ITER_ADDR0]], align 4
 ; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.latch:

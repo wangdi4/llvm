@@ -175,7 +175,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRPCFG-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKHIRPCFG:         [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECKHIRPCFG-NEXT:     i32 [[VP3:%.*]] = phi  [ i32 [[TMP2:%.*]], [[BB1]] ],  [ i32 [[VP4:%.*]], [[BB2]] ]
-; CHECKHIRPCFG-NEXT:      DbgLoc: sum.cpp:0
+; CHECKHIRPCFG-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKHIRPCFG-EMPTY:
 ; CHECKHIRPCFG-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
 ; CHECKHIRPCFG-NEXT:      DbgLoc:
@@ -242,7 +242,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKHIRVPE:         [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECKHIRVPE-NEXT:     i32 [[VP3:%.*]] = phi  [ i32 [[VP_RED_INIT]], [[BB1]] ],  [ i32 [[VP4:%.*]], [[BB2]] ]
-; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:0
+; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
 ; CHECKHIRVPE-NEXT:      DbgLoc:
