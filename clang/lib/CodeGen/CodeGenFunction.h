@@ -5092,12 +5092,25 @@ public:
   /// annotation result.
   Address EmitFieldAnnotations(const FieldDecl *D, Address V);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// Emit HLS field annotations for the given field and value. Returns the
   /// annotation result.
   Address EmitHLSFieldAnnotations(const FieldDecl *D, Address V,
                                   StringRef AnnotStr);
 #endif // INTEL_CUSTOMIZATION
+=======
+  /// Emit a "sycl-properties" annotation call (intrinsic).
+  llvm::Value *
+  EmitSYCLAnnotationCall(llvm::Function *AnnotationFn,
+                         llvm::Value *AnnotatedVal, SourceLocation Location,
+                         const SYCLAddIRAnnotationsMemberAttr *Attr);
+
+  /// Emit sycl field annotations for given field & value. Returns the
+  /// annotation result.
+  Address EmitFieldSYCLAnnotations(const FieldDecl *D, Address V);
+
+>>>>>>> d2982c6a6810ea1f5e1999b74ae77c92748551f8
   /// Emit Intel FPGA field annotations for the given field and value. Returns
   /// the annotation result.
   Address EmitIntelFPGAFieldAnnotations(const FieldDecl *D, Address V,
