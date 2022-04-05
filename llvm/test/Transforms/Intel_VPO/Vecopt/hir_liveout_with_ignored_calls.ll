@@ -1,8 +1,10 @@
 ; Test to verify that VPlan HIR vectorizer codegen does not bail out for loops
 ; containing unconditional liveouts and calls to ignored functions.
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
 
 
 define float @foo1(float* nocapture %a, float %const, i64* %lt.arg) {
@@ -16,7 +18,7 @@ define float @foo1(float* nocapture %a, float %const, i64* %lt.arg) {
 ; CHECK-NEXT:           + END LOOP
 
 ; CHECK:                %0 = extractelement %.vec2,  3;
-; CHECK-NEXT:           ret %0;
+; CHECK:                ret %0;
 ; CHECK-NEXT:     END REGION
 
 entry:

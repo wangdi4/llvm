@@ -1,5 +1,7 @@
-; RUN: opt -enable-new-pm=0 -hir-framework -hir-vplan-vec -vplan-vec -vplan-force-vf=2 -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -S < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-vplan-vec,print<hir>,vplan-vec" -vplan-force-vf=2 -vplan-print-after-plain-cfg -S < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-framework -hir-vplan-vec -vplan-vec -vplan-force-vf=2 -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -S -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-vplan-vec,print<hir>,vplan-vec" -vplan-force-vf=2 -vplan-print-after-plain-cfg -S -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-framework -hir-vplan-vec -vplan-vec -vplan-force-vf=2 -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -S -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-vplan-vec,print<hir>,vplan-vec" -vplan-force-vf=2 -vplan-print-after-plain-cfg -S -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
 
 ;
 ; Test checks that we do not crash during HIR decomposition. The test also
@@ -10,19 +12,19 @@
 ; Checks for HIR vectorizer
 ; CHECK-LABEL:    VPlan after importing plain CFG
 ; CHECK:          <4 x float> %vp{{.*}} = insertelement <4 x float> <float undef, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00> float %vp{{.*}} i32 0
-; CHECK:          + DO i1 = 0, 2 * %tgu + -1, 2   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647> <simd-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:     |   %.vec = (<2 x float>*)(%f)[i1];
-; CHECK-NEXT:     |   %.extended = shufflevector %.vec,  undef,  <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>;
-; CHECK-NEXT:     |   %wide.insert = shufflevector <float undef, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float undef, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00>,  %.extended,  <i32 8, i32 1, i32 2, i32 3, i32 9, i32 5, i32 6, i32 7>
-; CHECK-NEXT:     |   %serial.temp = undef;
-; CHECK-NEXT:     |   %extractsubvec. = shufflevector %wide.insert,  undef,  <i32 0, i32 1, i32 2, i32 3>;
-; CHECK-NEXT:     |   %llvm.x86.avx512bf16.mask.cvtneps2bf16.128 = @llvm.x86.avx512bf16.mask.cvtneps2bf16.128(%extractsubvec.,  zeroinitializer,  <i1 true, i1 true, i1 true, i1 true>);
-; CHECK-NEXT:     |   %serial.temp = @llvm.experimental.vector.insert.v16i16.v8i16(%serial.temp,  %llvm.x86.avx512bf16.mask.cvtneps2bf16.128,  0);
-; CHECK-NEXT:     |   %extractsubvec.1 = shufflevector %wide.insert,  undef,  <i32 4, i32 5, i32 6, i32 7>;
-; CHECK-NEXT:     |   %llvm.x86.avx512bf16.mask.cvtneps2bf16.1282 = @llvm.x86.avx512bf16.mask.cvtneps2bf16.128(%extractsubvec.1,  zeroinitializer,  <i1 true, i1 true, i1 true, i1 true>);
-; CHECK-NEXT:     |   %serial.temp = @llvm.experimental.vector.insert.v16i16.v8i16(%serial.temp,  %llvm.x86.avx512bf16.mask.cvtneps2bf16.1282,  8);
-; CHECK-NEXT:     |   %wide.extract = shufflevector %serial.temp,  undef,  <i32 0, i32 8>;
-; CHECK-NEXT:     |   (<2 x i16>*)(%bf)[i1] = %wide.extract;
+; CHECK:          + DO i1 = 0, {{.*}}, 2   <DO_LOOP>  <MAX_TC_EST = {{2147483647|4294967295}}>   <LEGAL_MAX_TC = {{2147483647|4294967295}}> <simd-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:     |   [[VEC:%.*]] = (<2 x float>*)(%f)[i1];
+; CHECK-NEXT:     |   [[EXTENDED:%.*]] = shufflevector [[VEC]],  undef,  <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>;
+; CHECK-NEXT:     |   [[WIDE_INSERT:%.*]] = shufflevector <float undef, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float undef, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00>,  [[EXTENDED]],  <i32 8, i32 1, i32 2, i32 3, i32 9, i32 5, i32 6, i32 7>
+; CHECK-NEXT:     |   [[SERIAL_TEMP:%.*]] = undef;
+; CHECK-NEXT:     |   [[EXTRACTSUBVEC:%.*]] = shufflevector [[WIDE_INSERT]],  undef,  <i32 0, i32 1, i32 2, i32 3>;
+; CHECK-NEXT:     |   [[CALL:%.*]] = @llvm.x86.avx512bf16.mask.cvtneps2bf16.128([[EXTRACTSUBVEC]],  zeroinitializer,  <i1 true, i1 true, i1 true, i1 true>);
+; CHECK-NEXT:     |   [[SERIAL_TEMP]] = @llvm.experimental.vector.insert.v16i16.v8i16([[SERIAL_TEMP]],  [[CALL]],  0);
+; CHECK-NEXT:     |   [[EXTRACTSUBVEC1:%.*]] = shufflevector [[WIDE_INSERT]],  undef,  <i32 4, i32 5, i32 6, i32 7>;
+; CHECK-NEXT:     |   [[CALL1:%.*]] = @llvm.x86.avx512bf16.mask.cvtneps2bf16.128([[EXTRACTSUBVEC1]],  zeroinitializer,  <i1 true, i1 true, i1 true, i1 true>);
+; CHECK-NEXT:     |   [[SERIAL_TEMP]] = @llvm.experimental.vector.insert.v16i16.v8i16([[SERIAL_TEMP]],  [[CALL1]],  8);
+; CHECK-NEXT:     |   [[WIDE_EXTRACT:%.*]] = shufflevector [[SERIAL_TEMP]],  undef,  <i32 0, i32 8>;
+; CHECK-NEXT:     |   (<2 x i16>*)(%bf)[i1] = [[WIDE_EXTRACT]];
 ; CHECK-NEXT:     + END LOOP
 
 

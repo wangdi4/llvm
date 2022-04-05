@@ -1,7 +1,9 @@
 ; Check that indirect prefetching is disabled for vector refs
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -hir-prefetching -hir-cg -print-after=hir-prefetching < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-prefetching,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false -hir-prefetching -hir-cg -print-after=hir-prefetching < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-prefetching,print<hir>" -vplan-enable-new-cfg-merge-hir=false 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -hir-prefetching -hir-cg -print-after=hir-prefetching < %s 2>&1 | FileCheck %s --check-prefix=MERGED-CFG
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-prefetching,print<hir>" -vplan-enable-new-cfg-merge-hir 2>&1 < %s | FileCheck %s --check-prefix=MERGED-CFG
 ;
 ;*** IR Dump Before HIR Prefetching (hir-prefetching) ***
 ;Function: sub1_
@@ -30,6 +32,18 @@
 ;<0>          END REGION
 ;
 ; CHECK-NOT:    @llvm.prefetch.p0i8
+; TODO: Prefetching is triggered for scalar remainder loop in merged CFG-based CG. Potentially because
+; of incorrect MAX_TC_EST? Removes these checks when issue is resolved.
+; MERGED-CFG:       + DO i1 = %lb.tmp, zext.i32.i64(%"sub1_$N_fetch.18") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>  <LEGAL_MAX_TC = 2147483647> <ivdep>
+; MERGED-CFG:       |   %"sub1_$JJ[]_fetch.86" = (@"sub1_$JJ")[0][i1];
+; MERGED-CFG:       |   %add.22 = (%"sub1_$A")[%"sub1_$JJ[]_fetch.86"]  +  1.000000e+00;
+; MERGED-CFG:       |   (%"sub1_$A")[i1 + 1] = %add.22;
+; MERGED-CFG:       |   if (i1 <=u zext.i32.i64(%"sub1_$N_fetch.18") + -1)
+; MERGED-CFG:       |   {
+; MERGED-CFG:       |      %Load = (@"sub1_$JJ")[0][i1];
+; MERGED-CFG:       |      @llvm.prefetch.p0i8(&((i8*)(%"sub1_$A")[%Load]),  0,  3,  1);
+; MERGED-CFG:       |   }
+; MERGED-CFG:       + END LOOP
 ;
 ; ModuleID = 'all'
 source_filename = "/tmp/ifxApC43i.i"

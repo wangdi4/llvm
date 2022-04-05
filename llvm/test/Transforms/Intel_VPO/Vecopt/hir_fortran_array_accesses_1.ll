@@ -4,8 +4,10 @@
 ; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-dump-subscript-details -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -vplan-dump-subscript-details -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
 
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=VPVALUE-CG
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=VPVALUE-CG
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -disable-output -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s --check-prefixes=VPVALUE-CG
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -disable-output -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s --check-prefixes=VPVALUE-CG
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -disable-output -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s --check-prefixes=VPVALUE-CG
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -disable-output -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s --check-prefixes=VPVALUE-CG
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -67,7 +69,7 @@ define void @interp1(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; VPVALUE-CG-NEXT:                 |   |   |   [[DOTVEC40:%.*]] = [[DOTVEC0]]  +  [[DOTVEC30]]
 ; VPVALUE-CG-NEXT:                 |   |   |   (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 2] = [[DOTVEC40]]
 ; VPVALUE-CG-NEXT:                 |   |   + END LOOP
-; VPVALUE-CG-NEXT:                 |   + END LOOP
+; VPVALUE-CG:                      |   + END LOOP
 ; VPVALUE-CG-NEXT:                 + END LOOP
 ; VPVALUE-CG-NEXT:            END REGION
 ;
@@ -206,7 +208,7 @@ define void @interp2(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; VPVALUE-CG-NEXT:                 |   |   |   [[DOTVEC70:%.*]] = [[DOTVEC0]]  +  [[DOTVEC60]]
 ; VPVALUE-CG-NEXT:                 |   |   |   (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 1] = [[DOTVEC70]]
 ; VPVALUE-CG-NEXT:                 |   |   + END LOOP
-; VPVALUE-CG-NEXT:                 |   + END LOOP
+; VPVALUE-CG:                      |   + END LOOP
 ; VPVALUE-CG-NEXT:                 + END LOOP
 ; VPVALUE-CG-NEXT:            END REGION
 ;
