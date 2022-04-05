@@ -491,7 +491,7 @@ int main(int argc, char **argv) {
   // from the arguments list, and if the option is available then enable
   // the use of opaque pointers.
   if (enableUseOpaquePointers(argc,argv))
-    Context.enableOpaquePointers();
+    Context.setOpaquePointers(true);
 #endif // INTEL_CUSTOMIZATION
   Context.setDiagnosticHandler(std::make_unique<LLVMLinkDiagnosticHandler>(),
                                true);
