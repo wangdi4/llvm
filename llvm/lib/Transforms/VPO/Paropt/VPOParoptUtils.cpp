@@ -3574,6 +3574,21 @@ CallInst *VPOParoptUtils::genKmpcTaskgroupOrEndTaskgroupCall(
   return TaskgroupOrEndCall;
 }
 
+// Emits a call to __kmpc_push_proc_kind(LOC, TID, i32 policy)
+CallInst *VPOParoptUtils::genKmpcPushProcKindCall(WRegionNode *W,
+                                                  StructType *IdentTy,
+                                                  Value *TidPtr,
+                                                  Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  Value *Policy = Builder.getInt32(W->getProcBind());
+
+  CallInst *KmpcPushProcKindCall =
+      genKmpcCallWithTid(W, IdentTy, TidPtr, InsertPt, "__kmpc_push_proc_kind",
+                         nullptr, {Policy}, /*insert=*/true);
+
+  addFuncletOperandBundle(KmpcPushProcKindCall, W->getDT());
+  return KmpcPushProcKindCall;
+}
 
 // Emits a call to __kmpc_omp_taskyield(LOC, TID, i32 0)
 CallInst *VPOParoptUtils::genKmpcTaskyieldCall(WRegionNode *W,
