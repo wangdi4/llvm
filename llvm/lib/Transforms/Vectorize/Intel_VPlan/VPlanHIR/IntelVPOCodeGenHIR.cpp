@@ -1406,10 +1406,13 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
   } else {
     // NeedRemainderLoop is false so trip count % VF == 0. Also check to see
     // that the trip count is small and the loop body is small. If so, do
-    // complete unroll of the vector loop.
+    // complete unroll of the vector loop. We can only use the original
+    // trip count when a peel loop is not needed. A generated peel loop
+    // will lead to a non-constant lower bound leading to a crash in the
+    // complete unroller.
     uint64_t TripCount = getTripCount();
     bool KnownTripCount = TripCount > 0 ? true : false;
-    if (KnownTripCount && TripCount <= SmallTripThreshold &&
+    if (!NeedPeelLoop && KnownTripCount && TripCount <= SmallTripThreshold &&
         OrigLoop->isInnermost()) {
       HLInstCounter InstCounter;
       HLNodeUtils::visitRange(InstCounter, OrigLoop->child_begin(),
