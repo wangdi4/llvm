@@ -23,7 +23,7 @@ namespace {
 class IMLUtilsTest : public testing::Test {
 public:
   IMLUtilsTest() : testing::Test() {
-    Context.enableOpaquePointers();
+    Context.setOpaquePointers(true);
     HalfTy = Type::getHalfTy(Context);
     FloatTy = Type::getFloatTy(Context);
     DoubleTy = Type::getDoubleTy(Context);
