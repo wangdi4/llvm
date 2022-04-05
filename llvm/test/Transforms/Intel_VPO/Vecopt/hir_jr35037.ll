@@ -1,5 +1,7 @@
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=4 -disable-output -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=4 -disable-output -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
 ;
 ; LIT test for the regression reported in CMPLRLLVM-35037. The changes to stop
 ; tracking IV updates introduced a regression in HIR vector code generation in
@@ -34,7 +36,7 @@
 ;              |   @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ;              + END LOOP
 ;
-; CHECK:       + DO i2 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 10>  <LEGAL_MAX_TC = 10> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:       + DO i2 = 0, {{.*}}, 4   <DO_LOOP>  <MAX_TC_EST = {{10|40}}>  <LEGAL_MAX_TC = {{10|40}}> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:  |   (<4 x i64>*)(%0)[i2] = i2 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:  + END LOOP
 ;

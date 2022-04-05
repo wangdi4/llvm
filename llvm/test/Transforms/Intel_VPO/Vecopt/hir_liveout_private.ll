@@ -1,5 +1,7 @@
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
 
 ; LIT test to check code generated for liveout private.
 ;
@@ -10,7 +12,7 @@ define i64 @foo(i64* nocapture %larr) {
 ; CHECK-NEXT:                     |   (<4 x i64>*)([[LARR0]])[i1] = i1 + <i64 0, i64 1, i64 2, i64 3> + [[DOTVEC0]]
 ; CHECK-NEXT:                     + END LOOP
 ; CHECK:                          [[TMP0:%.*]] = extractelement [[DOTVEC0]],  3
-; CHECK-NEXT:               END REGION
+; CHECK:                    END REGION
 ;
 entry:
   br label %for.body

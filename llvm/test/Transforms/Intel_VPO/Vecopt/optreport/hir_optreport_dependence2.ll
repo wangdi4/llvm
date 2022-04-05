@@ -5,7 +5,8 @@
 ; does not happen. Note that p1 is a global array, and t1 is represented as a
 ; lval terminal ref (special case).
 
-; TODO: Add missing debugloc for Refs (t1)
+; TODO: differentiate p1/t1 locations (12:10). For stores like (@p1)[0][%t1.022] = ... the same LLVM
+; inst is being used for p1/t1, but we cannot rely on gepinst since it can be shared.
 
 ;CHECK:       BEGIN REGION { }
 ;CHECK-NEXT:        + DO i1 = 0, zext.i32.i64(%n) + -1, 1
@@ -27,9 +28,9 @@
 ; CHECK-NEXT: remark #15346: vector dependence: assumed OUTPUT dependence between p2 (14:10) and p1 (12:10)
 ; CHECK-NEXT: remark #15346: vector dependence: assumed FLOW dependence between p2 (14:10) and p1 (13:9)
 ; CHECK-NEXT: remark #15346: vector dependence: assumed FLOW dependence between p2 (14:10) and M (14:12)
-; CHECK-NEXT: remark #15346: vector dependence: assumed FLOW dependence between t1 and t1
-; CHECK-NEXT: remark #15346: vector dependence: assumed FLOW dependence between t1 and t1 (12:10)
-; CHECK-NEXT: remark #15346: vector dependence: assumed FLOW dependence between t1 and t1 (14:10)
+; CHECK-NEXT: remark #15346: vector dependence: assumed FLOW dependence between t1 (11:2) and t1 (12:10)
+; CHECK-NEXT: remark #15346: vector dependence: assumed FLOW dependence between t1 (11:2) and t1 (12:10)
+; CHECK-NEXT: remark #15346: vector dependence: assumed FLOW dependence between t1 (11:2) and t1 (14:10)
 ; CHECK-NEXT:  LOOP END
 
 @p1 = dso_local local_unnamed_addr global [10 x i32] zeroinitializer, align 16, !dbg !0
@@ -37,51 +38,51 @@
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
 define dso_local i32 @sub(i32* nocapture noundef writeonly %p2, i32 noundef %n, i32* nocapture noundef readonly %M) local_unnamed_addr #0 !dbg !14 {
 entry:
-  call void @llvm.dbg.value(metadata i32* %p2, metadata !19, metadata !DIExpression()), !dbg !26
-  call void @llvm.dbg.value(metadata i32 %n, metadata !20, metadata !DIExpression()), !dbg !26
-  call void @llvm.dbg.value(metadata i32* %M, metadata !21, metadata !DIExpression()), !dbg !26
-  %0 = load i32, i32* getelementptr inbounds ([10 x i32], [10 x i32]* @p1, i64 0, i64 0), align 16, !dbg !27, !tbaa !28
-  call void @llvm.dbg.value(metadata i32 %0, metadata !22, metadata !DIExpression()), !dbg !26
-  call void @llvm.dbg.value(metadata i32 0, metadata !23, metadata !DIExpression()), !dbg !26
-  call void @llvm.dbg.value(metadata i32 0, metadata !24, metadata !DIExpression()), !dbg !32
-  %cmp21 = icmp sgt i32 %n, 0, !dbg !33
-  br i1 %cmp21, label %for.body.preheader, label %for.cond.cleanup, !dbg !35
+  call void @llvm.dbg.value(metadata i32* %p2, metadata !19, metadata !DIExpression()), !dbg !26  ; test2.c:0:0
+  call void @llvm.dbg.value(metadata i32 %n, metadata !20, metadata !DIExpression()), !dbg !26  ; test2.c:0:0
+  call void @llvm.dbg.value(metadata i32* %M, metadata !21, metadata !DIExpression()), !dbg !26  ; test2.c:0:0
+  %0 = load i32, i32* getelementptr inbounds ([10 x i32], [10 x i32]* @p1, i64 0, i64 0), align 16, !dbg !27, !tbaa !28  ; test2.c:5:11
+  call void @llvm.dbg.value(metadata i32 %0, metadata !22, metadata !DIExpression()), !dbg !26  ; test2.c:0:0
+  call void @llvm.dbg.value(metadata i32 0, metadata !23, metadata !DIExpression()), !dbg !26  ; test2.c:0:0
+  call void @llvm.dbg.value(metadata i32 0, metadata !24, metadata !DIExpression()), !dbg !32  ; test2.c:0:0
+  %cmp21 = icmp sgt i32 %n, 0, !dbg !33           ; test2.c:11:17
+  br i1 %cmp21, label %for.body.preheader, label %for.cond.cleanup, !dbg !35  ; test2.c:11:2
 
 for.body.preheader:                               ; preds = %entry
-  %wide.trip.count24 = zext i32 %n to i64, !dbg !33
-  br label %for.body, !dbg !35
+  %wide.trip.count24 = zext i32 %n to i64, !dbg !33  ; test2.c:11:17
+  br label %for.body, !dbg !35                    ; test2.c:11:2
 
 for.cond.cleanup.loopexit:                        ; preds = %for.body
-  br label %for.cond.cleanup, !dbg !36
+  br label %for.cond.cleanup, !dbg !36            ; test2.c:20:2
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup.loopexit, %entry
   %t1.0.lcssa = phi i32 [ %0, %entry ], [ %n, %for.cond.cleanup.loopexit ]
-  call void @llvm.dbg.value(metadata i32 %t1.0.lcssa, metadata !23, metadata !DIExpression()), !dbg !26
-  ret i32 %t1.0.lcssa, !dbg !36
+  call void @llvm.dbg.value(metadata i32 %t1.0.lcssa, metadata !23, metadata !DIExpression()), !dbg !26  ; test2.c:0:0
+  ret i32 %t1.0.lcssa, !dbg !36                   ; test2.c:20:2
 
-for.body:                                         ; preds = %for.body.preheader, %for.body
+for.body:                                         ; preds = %for.body, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %t1.022 = phi i32 [ %0, %for.body.preheader ], [ %3, %for.body ]
-  call void @llvm.dbg.value(metadata i64 %indvars.iv, metadata !24, metadata !DIExpression()), !dbg !32
-  call void @llvm.dbg.value(metadata i32 %t1.022, metadata !22, metadata !DIExpression()), !dbg !26
-  %idxprom = sext i32 %t1.022 to i64, !dbg !37
-  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* @p1, i64 0, i64 %idxprom, !dbg !37, !intel-tbaa !39
-  store i32 %t1.022, i32* %arrayidx, align 4, !dbg !41, !tbaa !39
-  %arrayidx2 = getelementptr inbounds [10 x i32], [10 x i32]* @p1, i64 0, i64 %indvars.iv, !dbg !42, !intel-tbaa !39
-  %1 = load i32, i32* %arrayidx2, align 4, !dbg !42, !tbaa !39
-  %add = add nsw i32 %1, %t1.022, !dbg !43
-  call void @llvm.dbg.value(metadata i32 %add, metadata !22, metadata !DIExpression()), !dbg !26
-  %arrayidx4 = getelementptr inbounds i32, i32* %M, i64 %indvars.iv, !dbg !44
-  %2 = load i32, i32* %arrayidx4, align 4, !dbg !44, !tbaa !28
-  %idxprom5 = sext i32 %add to i64, !dbg !45
-  %arrayidx6 = getelementptr inbounds i32, i32* %p2, i64 %idxprom5, !dbg !45
-  store i32 %2, i32* %arrayidx6, align 4, !dbg !46, !tbaa !28
-  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1, !dbg !47
-  call void @llvm.dbg.value(metadata i64 %indvars.iv.next, metadata !24, metadata !DIExpression()), !dbg !32
-  call void @llvm.dbg.value(metadata i64 %indvars.iv.next, metadata !22, metadata !DIExpression()), !dbg !26
-  %3 = trunc i64 %indvars.iv.next to i32, !dbg !35
-  %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count24, !dbg !33
-  br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body, !dbg !35, !llvm.loop !48
+  call void @llvm.dbg.value(metadata i64 %indvars.iv, metadata !24, metadata !DIExpression()), !dbg !32  ; test2.c:0:0
+  call void @llvm.dbg.value(metadata i32 %t1.022, metadata !22, metadata !DIExpression()), !dbg !26  ; test2.c:0:0
+  %idxprom = sext i32 %t1.022 to i64, !dbg !37    ; test2.c:12:3
+  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* @p1, i64 0, i64 %idxprom, !dbg !37, !intel-tbaa !39  ; test2.c:12:3
+  store i32 %t1.022, i32* %arrayidx, align 4, !dbg !41, !tbaa !39  ; test2.c:12:10
+  %arrayidx2 = getelementptr inbounds [10 x i32], [10 x i32]* @p1, i64 0, i64 %indvars.iv, !dbg !42, !intel-tbaa !39  ; test2.c:13:9
+  %1 = load i32, i32* %arrayidx2, align 4, !dbg !42, !tbaa !39  ; test2.c:13:9
+  %add = add nsw i32 %1, %t1.022, !dbg !43        ; test2.c:13:6
+  call void @llvm.dbg.value(metadata i32 %add, metadata !22, metadata !DIExpression()), !dbg !26  ; test2.c:0:0
+  %arrayidx4 = getelementptr inbounds i32, i32* %M, i64 %indvars.iv, !dbg !44  ; test2.c:14:12
+  %2 = load i32, i32* %arrayidx4, align 4, !dbg !44, !tbaa !28  ; test2.c:14:12
+  %idxprom5 = sext i32 %add to i64, !dbg !45      ; test2.c:14:3
+  %arrayidx6 = getelementptr inbounds i32, i32* %p2, i64 %idxprom5, !dbg !45  ; test2.c:14:3
+  store i32 %2, i32* %arrayidx6, align 4, !dbg !46, !tbaa !28  ; test2.c:14:10
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1, !dbg !47  ; test2.c:15:9
+  call void @llvm.dbg.value(metadata i64 %indvars.iv.next, metadata !24, metadata !DIExpression()), !dbg !32  ; test2.c:0:0
+  call void @llvm.dbg.value(metadata i64 %indvars.iv.next, metadata !22, metadata !DIExpression()), !dbg !26  ; test2.c:0:0
+  %3 = trunc i64 %indvars.iv.next to i32, !dbg !35  ; test2.c:11:2
+  %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count24, !dbg !33  ; test2.c:11:17
+  br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body, !dbg !35, !llvm.loop !48  ; test2.c:11:2
 }
 
 ; Function Attrs: mustprogress nofree nosync nounwind readnone speculatable willreturn

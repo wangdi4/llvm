@@ -1,7 +1,9 @@
 ; Check that prefetchw is working for vector refs
 ;
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -hir-prefetching -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -hir-prefetching-prefetchw=true -print-after=hir-prefetching < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-prefetching,print<hir>" -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -hir-prefetching-prefetchw=true < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false -hir-prefetching -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -hir-prefetching-prefetchw=true -print-after=hir-prefetching < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-prefetching,print<hir>" -vplan-enable-new-cfg-merge-hir=false -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -hir-prefetching-prefetchw=true < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -hir-prefetching -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -hir-prefetching-prefetchw=true -print-after=hir-prefetching < %s 2>&1 | FileCheck %s --check-prefix=MERGED-CFG
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-prefetching,print<hir>" -vplan-enable-new-cfg-merge-hir -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -hir-prefetching-prefetchw=true < %s 2>&1 | FileCheck %s --check-prefix=MERGED-CFG
 ;
 ;*** IR Dump Before HIR Prefetching ***
 ;
@@ -38,6 +40,21 @@
 ; CHECK:             |   (@A)[0][i1][0] = i1;
 ; CHECK:             + END LOOP
 ; CHECK:       END REGION
+
+; TODO: Prefetching is triggered for scalar remainder loop in merged CFG-based CG. Potentially because
+; of incorrect MAX_TC_EST? Removes these checks when issue is resolved.
+; MERGED-CFG:        + DO i1 = 0, %vec.tc2 + -1, 4   <DO_LOOP>  <MAX_TC_EST = 100000>  <LEGAL_MAX_TC = 2147483647> <auto-vectorized> <nounroll> <novectorize>
+; MERGED-CFG:        |   (<4 x i32>*)(@A)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][0] = i1 + <i64 0, i64 1, i64 2, i64 3>;
+; MERGED-CFG:        |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 256][0]),  1,  3,  1);
+; MERGED-CFG:        |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 257][0]),  1,  3,  1);
+; MERGED-CFG:        |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 258][0]),  1,  3,  1);
+; MERGED-CFG:        |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 259][0]),  1,  3,  1);
+; MERGED-CFG:        + END LOOP
+
+; MERGED-CFG:        + DO i1 = %lb.tmp, zext.i32.i64(%t) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100000>  <LEGAL_MAX_TC = 2147483647>
+; MERGED-CFG:        |   (@A)[0][i1][0] = i1;
+; MERGED-CFG:        |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 120][0]),  1,  3,  1);
+; MERGED-CFG:        + END LOOP
 ;
 ;Module Before HIR
 ; ModuleID = 't.c'

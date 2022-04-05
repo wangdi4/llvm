@@ -1406,10 +1406,13 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
   } else {
     // NeedRemainderLoop is false so trip count % VF == 0. Also check to see
     // that the trip count is small and the loop body is small. If so, do
-    // complete unroll of the vector loop.
+    // complete unroll of the vector loop. We can only use the original
+    // trip count when a peel loop is not needed. A generated peel loop
+    // will lead to a non-constant lower bound leading to a crash in the
+    // complete unroller.
     uint64_t TripCount = getTripCount();
     bool KnownTripCount = TripCount > 0 ? true : false;
-    if (KnownTripCount && TripCount <= SmallTripThreshold &&
+    if (!NeedPeelLoop && KnownTripCount && TripCount <= SmallTripThreshold &&
         OrigLoop->isInnermost()) {
       HLInstCounter InstCounter;
       HLNodeUtils::visitRange(InstCounter, OrigLoop->child_begin(),
@@ -4032,18 +4035,22 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     assert(!VPInst->getOperand(0)->getType()->isVectorTy() &&
            "Private finalization for VectorTy not supported yet.");
 
-    // Scalar result of private finalization should be written back to original
-    // private descriptor variable, obtained from external user.
-    assert(!hasNoExternalUsers(VPInst) &&
-           "Private final does not have any external uses.");
-    const VPExternalUse *ExtUse = getSingleExternalUse(VPInst, Plan);
-    RegDDRef *OrigPrivDescr = getUniformScalarRef(ExtUse);
+    RegDDRef *OrigPrivDescr = nullptr;
+    if (VPInst->getOpcode() == VPInstruction::PrivateFinalUncond) {
+      // Scalar result of private finalization should be written back to
+      // original private descriptor variable, obtained from external user.
+      assert(!hasNoExternalUsers(VPInst) &&
+             "Private final does not have any external uses.");
+      const VPExternalUse *ExtUse = getSingleExternalUse(VPInst, Plan);
+      OrigPrivDescr = getUniformScalarRef(ExtUse);
+    }
     RegDDRef *VecRef = widenRef(VPInst->getOperand(0), getVF());
     auto *PrivExtract = HLNodeUtilities.createExtractElementInst(
         VecRef, getVF() - 1, "extracted.priv", OrigPrivDescr);
     // Make the original private descriptor non-linear since we have a
     // definition to the temp in loop post-exit.
-    OrigPrivDescr->getSingleCanonExpr()->setNonLinear();
+    if (OrigPrivDescr)
+      OrigPrivDescr->getSingleCanonExpr()->setNonLinear();
     addInstUnmasked(PrivExtract);
     addVPValueScalRefMapping(VPInst, PrivExtract->getLvalDDRef(), 0 /*Lane*/);
 
@@ -4069,6 +4076,56 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       insertPrivateFinalCond<VPPrivateFinalCond>(VPInst);
     else if (isa<VPPrivateFinalCondMem>(VPInst))
       insertPrivateFinalCond<VPPrivateFinalCondMem>(VPInst);
+    return;
+  }
+
+  case VPInstruction::PrivateFinalMaskedMem:
+  case VPInstruction::PrivateFinalMasked: {
+    // Pseudo HIR generated to finalize masked last private entity,
+    // %priv.final = private-masked %exit, %mask, %orig
+    // ==>
+    // ; Obtain lane for extraction
+    // %bsfintmask = bitcast.<2 x i1>.i2(%mask);
+    // %lz = @llvm.ctlz.i2(%bsfintmask,  1);
+    // %lane = VF - 1 - %lz;
+    // ; Extract final value and store back to original
+    // %orig = extractelement %exit, %lane
+    //
+    // In case of in-memory private the %orig is unknown - we don't have that
+    // operand in the PrivateFinalMaskedMem instruction. In this case we just
+    // create a new temp.
+    //
+    HLContainerTy PrivFinalInsts;
+    RegDDRef *VecMask = widenRef(VPInst->getOperand(1), getVF());
+
+    HLInst *BsfCall = createCTZCall(VecMask->clone(),
+                                    Intrinsic::ctlz, true, &PrivFinalInsts);
+
+    // Scalar result of registerized private finalization should be written back
+    // to original private descriptor variable.
+    RegDDRef *OrigPrivDescr = nullptr;
+    if (VPInst->getOpcode() == VPInstruction::PrivateFinalMasked)
+      OrigPrivDescr = getUniformScalarRef(VPInst->getOperand(2));
+
+    RegDDRef *VecExit = widenRef(VPInst->getOperand(0), getVF());
+
+    RegDDRef *BsfLhs = BsfCall->getLvalDDRef();
+    HLInst *SubInst = HLNodeUtilities.createSub(
+        DDRefUtilities.createConstDDRef(BsfLhs->getDestType(), VF - 1),
+        BsfLhs->clone(), "ext.lane");
+    PrivFinalInsts.push_back(*SubInst);
+
+    HLInst *PrivExtract = HLNodeUtilities.createExtractElementInst(
+        VecExit->clone(), SubInst->getLvalDDRef()->clone(), "priv.extract",
+        OrigPrivDescr);
+    PrivFinalInsts.push_back(*PrivExtract);
+
+    // Make the original private descriptor non-linear since we have a
+    // definition to the temp in loop post-exit.
+    PrivExtract->getLvalDDRef()->getSingleCanonExpr()->setNonLinear();
+
+    addInst(&PrivFinalInsts);
+    addVPValueScalRefMapping(VPInst, PrivExtract->getLvalDDRef(), 0 /*Lane*/);
     return;
   }
 
@@ -4523,6 +4580,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::PrivateFinalUncondMem:
   case VPInstruction::PrivateFinalCondMem:
   case VPInstruction::PrivateFinalCond:
+  case VPInstruction::PrivateFinalMaskedMem:
+  case VPInstruction::PrivateFinalMasked:
   case VPInstruction::PrivateFinalArray:
     widenLoopEntityInst(VPInst);
     return;
@@ -4814,8 +4873,13 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::VectorTripCountCalculation: {
     auto *VPVectorTC = cast<VPVectorTripCountCalculation>(VPInst);
     VPValue *VPOrigTC = VPVectorTC->getOperand(0);
+    auto *ConstIntTC = dyn_cast<VPConstantInt>(VPOrigTC);
 
-    if (auto *ConstIntTC = dyn_cast<VPConstantInt>(VPOrigTC)) {
+    // When the vectortripcountcalculation instruction has two operands,
+    // the vector trip count calculation needs to be adjusted using the
+    // second operand which specifies the number of peel iteration. We
+    // cannot treat the loop as having a known constant trip count.
+    if (ConstIntTC && VPVectorTC->getNumOperands() == 1) {
       auto VFUF = getVF() * getUF();
       auto TGU = ConstIntTC->getValue().getZExtValue() / VFUF;
       auto ConstVecTC = TGU * VFUF;
@@ -4825,8 +4889,18 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       return;
     }
 
-    // For non-constant TC.
+    // Adjust original trip count by subtracting the number of peeled iterations
+    // using the second operand of VPVectorTC if available.
     RegDDRef *OrigTC = getUniformScalarRef(VPOrigTC);
+    if (VPVectorTC->getNumOperands() > 1) {
+      RegDDRef *AdjRef =
+          getOrCreateScalarRef(VPVectorTC->getOperand(1), 0 /*Lane*/);
+      HLInst *AdjTCInst =
+          HLNodeUtilities.createSub(OrigTC->clone(), AdjRef->clone(), "adj.tc");
+      addInstUnmasked(AdjTCInst);
+      OrigTC = AdjTCInst->getLvalDDRef();
+    }
+
     RegDDRef *UBRef = OrigTC->clone();
 
     // For given original loop TC say %N, we emit following sequence of
@@ -4843,6 +4917,18 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     auto *MulInst = HLNodeUtilities.createMul(DivInst->getLvalDDRef()->clone(),
                                               VFUFDD->clone(), "vec.tc");
     addInstUnmasked(MulInst);
+
+    // We need to add back the number of peeled iteration to the value
+    // computed above.
+    if (VPVectorTC->getNumOperands() > 1) {
+      RegDDRef *AdjRef =
+          getOrCreateScalarRef(VPVectorTC->getOperand(1), 0 /*Lane*/);
+      auto *AdjTCInst = HLNodeUtilities.createAdd(
+          MulInst->getLvalDDRef()->clone(), AdjRef->clone(), "adj.tc");
+      addInstUnmasked(AdjTCInst);
+      MulInst = AdjTCInst;
+    }
+
     addVPValueScalRefMapping(VPVectorTC, MulInst->getLvalDDRef(), 0);
     return;
   }
@@ -4927,11 +5013,14 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // + END LOOP
 
     for (unsigned I = 0; I < VPRemLp->getNumOperands(); ++I) {
-      RegDDRef *TempToInit = cast<RegDDRef>(VPRemLp->getLiveIn(I));
+      RegDDRef *TempToInit = cast<RegDDRef>(VPRemLp->getLiveIn(I))->clone();
       RegDDRef *InitValue = getOrCreateScalarRef(VPRemLp->getOperand(I), 0);
       HLInst *InitInst = HLNodeUtilities.createCopyInst(InitValue, "temp.init",
-                                                        TempToInit->clone());
+                                                        TempToInit);
       addInstUnmasked(InitInst);
+      if (TempToInit->isTerminalRef())
+        TempToInit->makeSelfBlob();
+      
       // Initialized temp will be live-in to scalar loop.
       ScalarRem->addLiveInTemp(TempToInit);
     }

@@ -69,7 +69,10 @@ static std::string getNameAndDbgLoc(DDRef *Ref) {
     if (GV) {
       SmallVector<DIGlobalVariableExpression *, 1> GVEs;
       GV->getDebugInfo(GVEs);
-      NameAndDbgLoc.append(GVEs.front()->getVariable()->getName().str() + " ");
+      if (!GVEs.empty()) {
+        NameAndDbgLoc.append(GVEs.front()->getVariable()->getName().str() +
+                             " ");
+      }
     } else if (Val->isUsedByMetadata()) {
       if (auto *L = LocalAsMetadata::getIfExists(Val)) {
         if (auto *MDV = MetadataAsValue::getIfExists(Val->getContext(), L)) {

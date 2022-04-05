@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===- Intel_FunctionRecognizer.cpp - Function Recognizer -------------===//
 //
-// Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -34,6 +34,11 @@ using namespace PatternMatch;
 #define FXNREC_VERBOSE "functionrecognizer-verbose"
 
 STATISTIC(NumFunctionsRecognized, "Number of Functions Recognized");
+
+//
+// NOTE: The examples below use typed pointers. I will change them to opaque
+// pointers when -opaque-pointers is the default for xmain.
+//
 
 //
 // Utility functions used by multiple function recognizers
@@ -604,8 +609,11 @@ static bool isQsortSwapFunc(Function &F) {
   //   br label 'BBO'
   //
   // If we return 'true', we set the values of 'V0', 'V1', 'V2', and 'BBO'.
-  // Note: the bircast instructions may be absent, in which case we set
+  // Note: the bitcast instructions may be absent, in which case we set
   // 'V0' and 'V1' to nullptr.
+  //
+  // NOTE: Bitcasts may not be present when -opaque-pointers becomes
+  // the default.
   //
   auto IsSFDoPreH = [](Function &F, BasicBlock *BBI, uint64_t UDivDen,
                        Value **V0, Value **V1, Value **V2,
@@ -669,6 +677,9 @@ static bool isQsortSwapFunc(Function &F) {
   // Note: we don't match the branch labels here.  They are shown only
   // for context.
   //
+  // NOTE: Bitcasts may not be present when -opaque-pointers becomes
+  // the default.
+  //
   auto IsLSChain = [](BasicBlock *BBI, BasicBlock *BBD, StoreInst *SI,
                       Value *VI, Type *DType, PHINode **PHIS,
                       PHINode **PHIL) -> bool {
@@ -727,6 +738,9 @@ static bool isQsortSwapFunc(Function &F) {
   // If we return 'true', set the value of 'BBX'.
   // Note: Here we only match the do-loop itself. We match the do-loop and
   // its preheader and exit branch below.
+  //
+  // NOTE: Bitcasts may not be present when -opaque-pointers becomes
+  // the default.
   //
   auto IsSFDoBody = [&IsLSChain](Function &F, BasicBlock *BBD, BasicBlock *BBI,
                                  Type *DType, Value *V0, Value *V1, Value *VN,
@@ -810,6 +824,9 @@ static bool isQsortSwapFunc(Function &F) {
   //
   // otherwise, return nullptr. Furthermore, if 'BBRet' is not nullptr,
   // 'BBRet' must match 'BBR', or we return nullptr.
+  //
+  // NOTE: Bitcasts may not be present when -opaque-pointers becomes
+  // the default.
   //
   auto IsDoLoop = [&IsSFDoPreH,
                    &IsSFDoBody](Function &F, BasicBlock *BBI, BasicBlock *BBRet,
@@ -1292,19 +1309,17 @@ static bool isQsortSpecQsort(Function &F, Function **FSwapFunc,
   //
   //  If we return 'true', we assign values to 'VLO' and 'VSO'.
   //
+  // NOTE: Bitcasts may not be present when -opaque-pointers becomes
+  // the default.
   //
   auto IsSwapLSChain = [](StoreInst *SI, Value **VLO, Value **VSO) -> bool {
     auto LI = dyn_cast<LoadInst>(SI->getValueOperand());
     if (!LI)
       return false;
     auto BC0 = dyn_cast<BitCastInst>(LI->getPointerOperand());
-    if (!BC0)
-      return false;
+    *VLO = BC0 ? BC0->getOperand(0) : LI->getPointerOperand();
     auto BC1 = dyn_cast<BitCastInst>(SI->getPointerOperand());
-    if (!BC1)
-      return false;
-    *VLO = BC0->getOperand(0);
-    *VSO = BC1->getOperand(0);
+    *VSO = BC1 ? BC1->getOperand(0) : SI->getPointerOperand();
     return true;
   };
 
@@ -1353,6 +1368,9 @@ static bool isQsortSpecQsort(Function &F, Function **FSwapFunc,
   //    %7 = bitcast i8* %add.ptr31 to 'DType'*
   //    store 'DType' %3, 'DType'* %7, align 8
   //    br label 'BBX'
+  //
+  // NOTE: Bitcasts may not be present when -opaque-pointers becomes
+  // the default.
   //
   auto IsHardSwapBlock = [&IsSwapLSChain, IsSwapGEPChain](
                              Function &F, BasicBlock *BBI, BasicBlock *BBX,
@@ -1855,6 +1873,9 @@ static bool isQsortSpecQsort(Function &F, Function **FSwapFunc,
   // where 'DType' is the integer type of 'DSize' bytes.
   //
   // If we return 'true', set the value of 'BBO'.
+  //
+  // NOTE: Bitcasts may not be present when -opaque-pointers becomes
+  // the default.
   //
   auto IsEasySwapBlock = [&IsSwapLSChain](BasicBlock *BBI, uint64_t DSize,
                                           Value *VL, Value *VR,

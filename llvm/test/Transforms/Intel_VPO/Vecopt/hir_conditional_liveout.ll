@@ -4,8 +4,10 @@
 ; the liveout variable(%nz.061) is not live-in to the target loop, but live-in
 ; to the parent loop region.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vec-dir-insert -hir-details < %s 2>&1 -disable-output | FileCheck %s --check-prefix=INPUT
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -hir-details < %s 2>&1 -disable-output | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vec-dir-insert -hir-details -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 -disable-output | FileCheck %s --check-prefix=INPUT
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -hir-details -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 -disable-output | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vec-dir-insert -hir-details -vplan-enable-new-cfg-merge-hir < %s 2>&1 -disable-output | FileCheck %s --check-prefix=INPUT
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -hir-details -vplan-enable-new-cfg-merge-hir < %s 2>&1 -disable-output | FileCheck %s --check-prefixes=CHECK,MERGED-CFG
 
 ; Checks for incoming HIR
 ; INPUT-LABEL: BEGIN REGION { }
@@ -102,45 +104,43 @@ define dso_local i32 @main() local_unnamed_addr {
 ; Checks for vector HIR
 ; CHECK-LABEL:   BEGIN REGION { modified }
 ; CHECK:              + DO i64 i1 = 0, 62, 1   <DO_LOOP>
-; CHECK:              |   %tgu = (-1 * i1 + 63)/u4;
-; CHECK:              |   if (0 <u 4 * %tgu)
-; CHECK:              |   {
-; CHECK:              |      %phi.temp = %nz.061;
+; MERGED-CFG:         |      [[VEC:%.*]] = 0 == [[VEC_TC:%.*]];
+; MERGED-CFG:         |      [[EXTRACT:%.*]] = extractelement [[VEC]],  0;
+; CHECK:              |      [[PHI_TEMP:%.*]] = %nz.061;
 ; CHECK:              |      <RVAL-REG> NON-LINEAR <4 x i32> %nz.061 {sb:3}
-; CHECK:              |      %phi.temp2 = -1;
+; CHECK:              |      [[PHI_TEMP2:%.*]] = -1;
 ; CHECK:              |
-; CHECK:              |      + DO i64 i2 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 15>   <LEGAL_MAX_TC = 15> <auto-vectorized> <nounroll> <novectorize>
-; CHECK:              |      |   %.vec7 = undef;
-; CHECK:              |      |   %.vec = (<4 x i32>*)(%zo)[0][i2 + <i64 0, i64 1, i64 2, i64 3> + 1][0];
-; CHECK:              |      |   %.vec4 = %.vec == 0;
-; CHECK:              |      |   %.vec5 = %.vec4  ^  -1;
-; CHECK:              |      |   %.copy6 = 0;
-; CHECK:              |      |   %.vec7 = (<4 x i32>*)(%s1)[0][i2 + 1], Mask = @{%.vec4};
-; CHECK:              |      |   (<4 x i32>*)(%s1)[0][i2 + 1] = %.vec7 + -1, Mask = @{%.vec4};
-; CHECK:              |      |   %select = (%.vec4 == <i1 true, i1 true, i1 true, i1 true>) ? %phi.temp2 : i2 + <i64 0, i64 1, i64 2, i64 3>;
-; CHECK:              |      |   %select8 = (%.vec4 == <i1 true, i1 true, i1 true, i1 true>) ? %phi.temp : %.copy6;
-; CHECK:              |      |   %phi.temp = %select8;
-; CHECK:              |      |   %phi.temp2 = %select;
+; CHECK:              |      + DO i64 i2 = 0, {{.*}}, 4   <DO_LOOP>  <MAX_TC_EST = {{15|63}}>   <LEGAL_MAX_TC = {{15|63}}> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:              |      |   [[VEC7:%.*]] = undef;
+; CHECK:              |      |   [[VEC:%.*]] = (<4 x i32>*)(%zo)[0][i2 + <i64 0, i64 1, i64 2, i64 3> + 1][0];
+; CHECK:              |      |   [[VEC4:%.*]] = [[VEC]] == 0;
+; CHECK:              |      |   [[VEC5:%.*]] = [[VEC4]]  ^  -1;
+; CHECK:              |      |   [[COPY6:%.*]] = 0;
+; CHECK:              |      |   [[VEC7:%.*]] = (<4 x i32>*)(%s1)[0][i2 + 1], Mask = @{[[VEC4]]};
+; CHECK:              |      |   (<4 x i32>*)(%s1)[0][i2 + 1] = [[VEC7]] + -1, Mask = @{[[VEC4]]};
+; CHECK:              |      |   [[SELECT:%.*]] = ([[VEC4]] == <i1 true, i1 true, i1 true, i1 true>) ? [[PHI_TEMP2]] : i2 + <i64 0, i64 1, i64 2, i64 3>;
+; CHECK:              |      |   [[SELECT8:%.*]] = ([[VEC4]] == <i1 true, i1 true, i1 true, i1 true>) ? [[PHI_TEMP]] : [[COPY6]];
+; CHECK:              |      |   [[PHI_TEMP]] = [[SELECT8]];
+; CHECK:              |      |   [[PHI_TEMP2]] = [[SELECT]];
 ; CHECK:              |      + END LOOP
 ; CHECK:              |
-; CHECK:              |      %.vec11 = %select != -1;
-; CHECK:              |      %2 = bitcast.<4 x i1>.i4(%.vec11);
-; CHECK:              |      %cmp12 = %2 == 0;
-; CHECK:              |      %all.zero.check = %cmp12;
-; CHECK:              |      %phi.temp13 = %nz.061;
-; CHECK:              |      if (%cmp12 == 1)
+; CHECK:              |      [[VEC11:%.*]] = [[SELECT]] != -1;
+; CHECK:              |      [[DOT2:%.*]] = bitcast.<4 x i1>.i4([[VEC11]]);
+; CHECK:              |      [[CMP12:%.*]] = [[DOT2]] == 0;
+; CHECK:              |      [[ALL_ZERO_CHECK:%.*]] = [[CMP12]];
+; CHECK:              |      [[PHI_TEMP13:%.*]] = %nz.061;
+; CHECK:              |      if ([[CMP12]] == 1)
 ; CHECK:              |      {
-; CHECK:              |         goto BB10.73;
+; CHECK:              |         goto [[MERGE:BB.*]];
 ; CHECK:              |      }
-; CHECK:              |      %priv.idx.max = @llvm.vector.reduce.smax.v4i64(%select);
-; CHECK:              |      %priv.idx.cmp = %select == %priv.idx.max;
-; CHECK:              |      %bsfintmask = bitcast.<4 x i1>.i4(%priv.idx.cmp);
-; CHECK:              |      %bsf = @llvm.cttz.i4(%bsfintmask,  1);
-; CHECK:              |      %nz.061 = extractelement %select8,  %bsf;
+; CHECK:              |      [[PRIV_IDX_MAX:%.*]] = @llvm.vector.reduce.smax.v4i64([[SELECT]]);
+; CHECK:              |      [[PRIV_IDX_CMP:%.*]] = [[SELECT]] == [[PRIV_IDX_MAX]];
+; CHECK:              |      [[BSFINTMASK:%.*]] = bitcast.<4 x i1>.i4([[PRIV_IDX_CMP]]);
+; CHECK:              |      [[BSF:%.*]] = @llvm.cttz.i4([[BSFINTMASK]],  1);
+; CHECK:              |      %nz.061 = extractelement [[SELECT8]],  [[BSF]];
 ; CHECK:              |      <LVAL-REG> NON-LINEAR i32 %nz.061 {sb:3}
-; CHECK:              |      %phi.temp13 = %nz.061;
-; CHECK:              |      BB10.73:
-; CHECK:              |   }
+; CHECK:              |      [[PHI_TEMP13:%.*]] = %nz.061;
+; CHECK:              |      [[MERGE]]:
 ;
 entry:
   %zo = alloca [100 x [100 x i32]], align 16

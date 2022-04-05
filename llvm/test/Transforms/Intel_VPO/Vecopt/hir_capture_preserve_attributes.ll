@@ -33,22 +33,22 @@
 ; VEC-HIR:      <0>          BEGIN REGION { modified }
 ; VEC-HIR-NEXT: <{{[0-9]+}}:8>             %red.init = call <4 x i32> @llvm.ssa.copy.v4i32(<4 x i32> undef), !dbg !29
 ; VEC-HIR-NEXT: <{{[0-9]+}}:8>             %red.init.insert = insertelement <4 x i32> undef, i32 undef, i64 0, !dbg !29
-; VEC-HIR-NEXT: <{{[0-9]+}}:8>             %.copy = call <4 x i32> @llvm.ssa.copy.v4i32(<4 x i32> undef), !dbg !29
+; VEC-HIR-NEXT: <{{[0-9]+}}:11>             %.copy = call <4 x i32> @llvm.ssa.copy.v4i32(<4 x i32> undef), !dbg !30
 ; VEC-HIR:      <{{[0-9]+}}:8>             + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; VEC-HIR-NEXT: <{{[0-9]+}}:10>            |     %.vec = load <4 x float>, <4 x float>* undef, align 16, !dbg !29
 ; VEC-HIR-NEXT: <{{[0-9]+}}:10>            |     %.vec1 = load <4 x float>, <4 x float>* undef, align 16, !dbg !29
-; VEC-HIR-NEXT: <{{[0-9]+}}:10>            |     %.vec2 = fmul fast <4 x float> undef, undef, !dbg !30
+; VEC-HIR-NEXT: <{{[0-9]+}}:10>            |     %.vec2 = fmul fast <4 x float> undef, undef, !dbg !32
 ; VEC-HIR-NEXT: <{{[0-9]+}}:10>            |     store <4 x float> undef, <4 x float>* undef, align 16, !dbg !29
-; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec3 = ashr exact <4 x i32> undef, undef, !dbg !32
-; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec4 = fcmp fast true <4 x float> undef, undef, !dbg !32
-; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec5 = add <4 x i32> undef, undef, !dbg !32
-; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec6 = add <4 x i32> undef, undef, !dbg !32
-; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec7 = select fast i1 undef, <4 x float> undef, <4 x float> undef, !dbg !32
+; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec3 = ashr exact <4 x i32> undef, undef, !dbg !30
+; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec4 = fcmp fast true <4 x float> undef, undef, !dbg !30
+; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec5 = add <4 x i32> undef, undef, !dbg !30
+; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec6 = add <4 x i32> undef, undef, !dbg !30
+; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec7 = select fast i1 undef, <4 x float> undef, <4 x float> undef, !dbg !30
 ; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     store <4 x float> undef, <4 x float>* undef, align 16, !dbg !29
 ; VEC-HIR-NEXT: <{{[0-9]+}}:8>             |     %.copy8 = call <4 x i32> @llvm.ssa.copy.v4i32(<4 x i32> undef), !dbg !29
 ; VEC-HIR-NEXT: <{{[0-9]+}}:8>             + END LOOP
-; VEC-HIR:      <{{[0-9]+}}:11>            %vec.reduce = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> undef), !dbg !32
-; VEC-HIR:      <0>          END REGION
+; VEC-HIR:      <{{[0-9]+}}:11>            %vec.reduce = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> undef), !dbg !30
+; VEC-HIR: <0>          END REGION
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
