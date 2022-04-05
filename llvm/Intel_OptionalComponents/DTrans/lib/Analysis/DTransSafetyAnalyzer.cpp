@@ -3841,6 +3841,158 @@ public:
     return SubOpIsGuarded;
   }
 
+  // Return the dominant aggregate type that is used to set the number of
+  // entries that will be allocated when calling "new". For example:
+  //
+  //   %class.MainClass = type { [4 x i32], i32, [4 x i8]}
+  //   %class.MainClass.base = type { [4 x i32], i32}
+  //
+  //   %class.TestClass.Outer = type { %class.TestClass.Inner,
+  //                                   %class.TestClass.Inner_vect}
+  //   %class.TestClass.Inner = type { %class.MainClass.base, [4 x i8] }
+  //
+  //   %class.TestClass.Inner_vect = type { %class.TestClass.Inner_vect_imp,
+  //                                        %class.TestClass.Inner_vect_imp,
+  //                                        %class.TestClass.Inner_vect_imp}
+  //   %class.TestClass.Inner_vect_imp = type { ptr, ptr, ptr }
+  //
+  //   ; %class.TestClass.Inner_vect_imp = type { %class.TestClass.Inner*,
+  //   ;                                          %class.TestClass.Inner*,
+  //   ;                                          %class.TestClass.Inner* }
+  //
+  //   entry:
+  //     %1 = getelementptr inbounds %class.TestClass.Outer, ptr %ptr2,
+  //                                                         i64 0, i32 1
+  //     %2 = getelementptr inbounds %class.TestClass.Inner_vect, ptr %1,
+  //                                                              i64 0, i32 1
+  //     %3 = load ptr, ptr %2
+  //     %4 = load ptr, ptr %1
+  //     %5 = ptrtoint ptr %3 to i64
+  //     %6 = ptrtoint ptr %4 to i64
+  //     %7 = sub i64 %5, %6
+  //     %8 = sdiv exact i64 %7, 24
+  //     %9 = tail call i64 @llvm.umax.i64(i64 %8, i64 1)
+  //     %10 = add nsw i64 %9, %8
+  //     %11 = icmp ult i64 %10, %8
+  //     %12 = icmp ugt i64 %10, 1092816592044404
+  //     %13 = or i1 %11, %12
+  //     %14 = select i1 %13, i64 1092816592044404, i64 %10
+  //     %15 = icmp eq i64 %14, 0
+  //     br i1 %15, label %call.to.new, label %continue.br
+  //
+  //   call.to.new:
+  //     %16 = mul nuw nsw i64 %14, 24
+  //     %17 = tail call noalias noundef nonnull ptr @_Znwm(i64 noundef %16)
+  //
+  // Assume that we are analyzing the call to new in %17. The input argument
+  // to the call is %16, a multiplication of a constant that represents the
+  // size of the structure (24 bytes) and a variable that represents the
+  // number of entries that is going to be reserved (%14). We are
+  // going to collect the dominant aggregate type that is used to identify
+  // the size of the structure and the number of entries needed
+  // (%class.TestClass.Inner). This is common when allocating new entries into
+  // an std::vector.
+  //
+  // The inputs for this function are a Value that represents the variable
+  // that is going to be analyzed (%14 from the example above) and an unsigned
+  // integer that represents the structure size (24 from the example).
+  DTransType* getPossibleDominantTypeFromVal(Value *Op, uint64_t SizeOfStruct) {
+    if (!Op || SizeOfStruct == 0)
+      return nullptr;
+
+    Value *VarVal = nullptr;
+
+    // The operand is a select instruction (%14 from the example) that chooses
+    // between a constant that represents a limit and a variable. We are going
+    // to chase this variable to prove that it is produced by a binary operation
+    // between two pointers with the same dominant aggregate type.
+    //
+    // NOTE: Perhaps in the future we can expand the analysis for other cases.
+    if (auto *Sel = dyn_cast<SelectInst>(Op)) {
+      if (isa<ConstantInt>(Sel->getTrueValue()) &&
+          !isa<ConstantInt>(Sel->getFalseValue()))
+        VarVal = Sel->getFalseValue();
+      else if (!isa<ConstantInt>(Sel->getTrueValue()) &&
+          isa<ConstantInt>(Sel->getFalseValue()))
+        VarVal = Sel->getTrueValue();
+      else
+        return nullptr;
+    }
+
+    if (!VarVal)
+      return nullptr;
+
+    // We need to find the division used for ensuring that the binary operation
+    // between the two pointers will always be a multiple of the structure size
+    // (SizeOfStruct). From the example above, we are going to find %8.
+    BinaryOperator *DivOp = nullptr;
+    if (auto *BinOp = dyn_cast<BinaryOperator>(VarVal)) {
+      // We need to check first if the operand collected from the select
+      // instruction is not a division (%10 from the example). This means that
+      // the result of the division is being expanded to reserve the space for
+      // multiple entries.
+      //
+      // The binary operation between the select instruction and the division
+      // works for addition, and perhaps for multiplication. This is because
+      // the operation is expanding the number of entries to be allocated.
+      // This may need to be revised in case there is any other operation
+      // (e.g. division is not behind the addition).
+      auto BinOpcode = BinOp->getOpcode();
+      if (BinOpcode != Instruction::Add)
+        return nullptr;
+
+      // Find the division through operand 0 or 1.
+      bool OPZeroIsDiv = false;
+      bool OPOneIsDiv = false;
+      auto *OPZeroBin = dyn_cast<BinaryOperator>(BinOp->getOperand(0));
+      auto *OPOneBin = dyn_cast<BinaryOperator>(BinOp->getOperand(1));
+
+      if (OPZeroBin)
+        OPZeroIsDiv =
+          isValidDivision(OPZeroBin, OPZeroBin->getOperand(0), SizeOfStruct);
+
+      if (OPOneBin)
+        OPOneIsDiv =
+          isValidDivision(OPOneBin, OPOneBin->getOperand(0), SizeOfStruct);
+
+      if (OPZeroIsDiv == OPOneIsDiv)
+        return nullptr;
+      else if (OPZeroIsDiv)
+        DivOp = OPZeroBin;
+      else
+        DivOp = OPOneBin;
+    }
+
+    if (!DivOp)
+      return nullptr;
+
+    // The division guards a subtraction between two pointers (%7 from the
+    // example above).
+    auto *PtrSub = dyn_cast<BinaryOperator>(DivOp->getOperand(0));
+    if (!PtrSub || PtrSub->getOpcode() != Instruction::Sub)
+      return nullptr;
+
+    // Both pointers, %6 and %5 from the example above, must have the same
+    // dominant aggregate type.
+    ValueTypeInfo *OperandZeroInfo =
+        PTA.getValueTypeInfo(PtrSub->getOperand(0));
+    ValueTypeInfo *OperandOneInfo =
+        PTA.getValueTypeInfo(PtrSub->getOperand(1));
+    if (!OperandZeroInfo || !OperandOneInfo)
+      return nullptr;
+
+    DTransType *OPZeroDomTy =
+        PTA.getDominantAggregateUsageType(*OperandZeroInfo);
+    DTransType *OPOneDomTy =
+        PTA.getDominantAggregateUsageType(*OperandOneInfo);
+
+    if (!OPZeroDomTy || !OPOneDomTy || OPZeroDomTy != OPOneDomTy ||
+        !OPZeroDomTy->isPointerTy())
+      return nullptr;
+
+    return OPZeroDomTy;
+  }
+
   // Return true if the input call is a call to an alloc function that uses
   // a binary operation to compute the size of the memory space that needs
   // to be allocated. The call won't have a dominant aggregate type because
@@ -3940,6 +4092,35 @@ public:
   // collected.
   bool sizeOfAllocSiteIsLegalForRelatedTypes(CallBase *Call,
                                              dtrans::AllocKind Kind) {
+
+    // Return the possible dominant type for the input VarOperand if it
+    // is available, else return nullptr.
+    auto GetDominantTypeFromOperands =
+        [this](Value *VarOp, ConstantInt *ConstOp) -> DTransType * {
+      assert(VarOp && "Trying to get the dominant type for a null value");
+      assert(ConstOp && "Trying to get the dominant type without constant");
+
+      if (ConstOp->isZero())
+        return nullptr;
+
+      uint64_t MultipleOp = ConstOp->getZExtValue();
+      ValueTypeInfo *OperandInfo = PTA.getValueTypeInfo(VarOp);
+      if (!OperandInfo)
+        return nullptr;
+
+      DTransType *OPDomTy = nullptr;
+      if (auto *DomTy = PTA.getDominantAggregateUsageType(*OperandInfo)) {
+        // If the variable has a dominant aggregate type then use it.
+        OPDomTy = DomTy;
+      } else {
+        // Else try computing the dominant aggregate type.
+        OPDomTy =
+            getPossibleDominantTypeFromVal(VarOp, MultipleOp);
+      }
+
+      return OPDomTy;
+    };
+
     if (!Call)
       return false;
 
@@ -3972,33 +4153,60 @@ public:
     if (!BinOp)
       return false;
 
-    // First collect the dominant type for the binary operation. It needs to
-    // be the same for both operands.
-    //
-    // NOTE: This might be relaxed for the case when one of the operators
-    // is a constant.
-    ValueTypeInfo *OperandZeroInfo =
-        PTA.getValueTypeInfo(BinOp->getOperand(0));
-    ValueTypeInfo *OperandOneInfo =
-        PTA.getValueTypeInfo(BinOp->getOperand(1));
+    // TODO: Handle the case when the input size is a constant integer.
 
-    if (!OperandZeroInfo || !OperandOneInfo)
+    // Collect the dominant aggregate type for the binary operation.
+    DTransType *OperandsDomType = nullptr;
+    ConstantInt *ConstOperand = nullptr;
+    if (isa<ConstantInt>(BinOp->getOperand(0)) &&
+        !isa<ConstantInt>(BinOp->getOperand(1))) {
+      // Operand 0 is a constant and operand 1 is not a constant
+      ConstOperand = cast<ConstantInt>(BinOp->getOperand(0));
+      OperandsDomType =
+          GetDominantTypeFromOperands(BinOp->getOperand(1), ConstOperand);
+    } else if (!isa<ConstantInt>(BinOp->getOperand(0)) &&
+        isa<ConstantInt>(BinOp->getOperand(1))) {
+      // Operand 0 is not a constant and operand 1 is a constant
+      ConstOperand = cast<ConstantInt>(BinOp->getOperand(1));
+      OperandsDomType =
+          GetDominantTypeFromOperands(BinOp->getOperand(0), ConstOperand);
+    } else if (!isa<ConstantInt>(BinOp->getOperand(0)) &&
+        !isa<ConstantInt>(BinOp->getOperand(1))) {
+      // If both operands aren't constant then the dominant aggregate types
+      // need be the same for both operands.
+      ValueTypeInfo *OperandZeroInfo =
+          PTA.getValueTypeInfo(BinOp->getOperand(0));
+      ValueTypeInfo *OperandOneInfo =
+          PTA.getValueTypeInfo(BinOp->getOperand(1));
+
+      if (!OperandZeroInfo || !OperandOneInfo)
+        return false;
+
+      DTransType *OPZeroDomTy =
+          PTA.getDominantAggregateUsageType(*OperandZeroInfo);
+      DTransType *OPOneDomTy =
+          PTA.getDominantAggregateUsageType(*OperandOneInfo);
+
+      if (!OPZeroDomTy || !OPOneDomTy || OPZeroDomTy != OPOneDomTy ||
+          !OPZeroDomTy->isPointerTy())
+        return false;
+
+      OperandsDomType = OPZeroDomTy;
+    } else {
+      // Return false if both operands are constants. This may be relaxed in
+      // the future.
       return false;
+    }
 
-    DTransType *OPZeroDomTy =
-        PTA.getDominantAggregateUsageType(*OperandZeroInfo);
-    DTransType *OPOneDomTy =
-        PTA.getDominantAggregateUsageType(*OperandOneInfo);
-
-    if (!OPZeroDomTy || !OPZeroDomTy->isPointerTy() ||
-        !OPOneDomTy || !OPOneDomTy->isPointerTy() ||
-        OPZeroDomTy != OPOneDomTy)
+    // Return false if we couldn't collect any dominant aggregate type from
+    // the binary operation.
+    if (!OperandsDomType || !OperandsDomType->isPointerTy())
       return false;
 
     // Now collect the size that is being allocated
     uint64_t SizeOfStruct = 0;
     auto *STType =
-        dyn_cast<DTransStructType>(OPZeroDomTy->getPointerElementType());
+        dyn_cast<DTransStructType>(OperandsDomType->getPointerElementType());
     if (STType) {
       Type *StructLLVMType = STType->getLLVMType();
       SizeOfStruct = DL.getTypeAllocSize(StructLLVMType);
@@ -4011,11 +4219,14 @@ public:
     if (BinOp->getOpcode() == Instruction::Sub) {
       if (!subForAllocIsGuarded(Call, Kind, SizeOfStruct))
         return false;
+    } else if (BinOp->getOpcode() == Instruction::Mul) {
+      // Check if the constant value used in the multiplication is the same as
+      // the structure's size
+      if (!ConstOperand || !ConstOperand->equalsInt(SizeOfStruct))
+        return false;
     } else {
       return false;
     }
-
-    // TODO: Add support for multiplication
 
     // If we reach here it means that we know that the size of the allocation
     // site will be a multiple of SizeOfStruct. Now we need to check if the
@@ -4028,12 +4239,12 @@ public:
     ValueTypeInfo::PointerTypeAliasSetRef &UsedAliases =
         CallInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
 
-    if (DeclAliases.find(OPZeroDomTy) == DeclAliases.end() ||
-        UsedAliases.find(OPZeroDomTy) == UsedAliases.end())
+    if (DeclAliases.find(OperandsDomType) == DeclAliases.end() ||
+        UsedAliases.find(OperandsDomType) == UsedAliases.end())
       return false;
 
-    if (!allAliasesAreZeroElement(OPZeroDomTy, DeclAliases) ||
-        !allAliasesAreZeroElement(OPZeroDomTy, UsedAliases))
+    if (!allAliasesAreZeroElement(OperandsDomType, DeclAliases) ||
+        !allAliasesAreZeroElement(OperandsDomType, UsedAliases))
       return false;
 
     return true;
