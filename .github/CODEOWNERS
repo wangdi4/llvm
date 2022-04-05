@@ -125,6 +125,8 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov @sndmitrie
 /llvm/lib/DebugInfo/DWARF/ @bwyma @stevemerr
 /llvm/lib/ObjectYAML/CodeViewYAMLTypes.cpp @bwyma @stevemerr
 /llvm/test/DebugInfo/COFF/ @bwyma @stevemerr
+/llvm/test/DebugInfo/Generic/ @bwyma @stevemerr
+/llvm/test/DebugInfo/X86/ @bwyma @stevemerr
 /llvm/tools/llvm-pdbutil/ @bwyma @stevemerr
 /llvm/unittests/DebugInfo/ @bwyma @stevemerr
 
