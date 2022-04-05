@@ -2,7 +2,9 @@
 ; Test to check that last private with "TYPED" clause is succesfully imported into VPlan
 
 ; RUN: opt -disable-output %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 --vplan-print-after-plain-cfg -vplan-entities-dump 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -disable-output %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 --vplan-print-after-plain-cfg -vplan-entities-dump 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 ; RUN: opt -disable-output %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec" -vplan-force-vf=4 --vplan-print-after-plain-cfg -vplan-entities-dump 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -disable-output %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec" -vplan-force-vf=4 --vplan-print-after-plain-cfg -vplan-entities-dump 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 define i64 @foo(i64* nocapture %larr, i64* %mm) {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
