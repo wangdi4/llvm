@@ -5540,10 +5540,8 @@ def qno_opt_multiple_gather_scatter_by_shuffles : Flag<["-"], "qno-opt-multiple-
 // code, make sure to specify proper default values once options are unhidden.
 // E.g., Default<"true">, Default<"false">
 def qopt_dynamic_align : Flag<["-"], "qopt-dynamic-align">,
-  Flags<[HelpHidden]>, // TODO: remove HelpHidden once approved
   HelpText<"Enable peeling to optimize alignment for vectorization.">;
 def qno_opt_dynamic_align : Flag<["-"], "qno-opt-dynamic-align">,
-  Flags<[HelpHidden]>, // TODO: remove HelpHidden once approved
   HelpText<"Disable peeling to optimize alignment for vectorization.">;
 def fvectorize_masked_mode : Flag<["-"], "fvectorize-masked-mode">,
   Flags<[HelpHidden]>, // TODO: remove HelpHidden once approved
