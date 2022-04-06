@@ -99,6 +99,9 @@ public:
   // VF as the vectorization factor.
   bool initializeVectorLoop(unsigned int VF, unsigned int UF);
 
+  // Returns true if one of the children of Loop is an unknown loop
+  bool hasUnknownChildLoop(HLLoop *Loop);
+
   // Perform and cleanup/final actions after vectorizing the loop
   void finalizeVectorLoop(void);
 
@@ -571,6 +574,14 @@ public:
   // "llvm.loop.vectorize.enable" metadata.
   void setIsVecMDForHLLoops();
 
+  // Set flag that indicates tree conflict instructions were lowered to double
+  // permute tree reduction.
+  void setTreeConflictsLowered(bool Lowered);
+
+  // Get flag that indicates if tree conflict instructions were lowered to double
+  // permute tree reduction.
+  bool getTreeConflictsLowered();
+
 private:
   // Target Library Info is used to check for svml.
   TargetLibraryInfo *TLI;
@@ -715,6 +726,9 @@ private:
 
   // True if #pragma omp simd defined for OrigLoop
   bool IsOmpSIMD;
+
+  // True if tree conflict lowering was done
+  bool TreeConflictsLowered = false;
 
   // Tracker to collect info about loops emitted by CFGMerger.
   MergedCFGInfo &CFGInfo;

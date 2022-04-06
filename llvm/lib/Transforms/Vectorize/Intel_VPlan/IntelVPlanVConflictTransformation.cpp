@@ -17,6 +17,7 @@
 
 #include "IntelVPlanVConflictTransformation.h"
 #include "IntelVPlan.h"
+#include "IntelVPlanLoopInfo.h"
 #include "IntelVPlanBuilder.h"
 
 #define DEBUG_TYPE "VConflictTransformation"
@@ -27,6 +28,9 @@ using namespace llvm::vpo;
 static LoopVPlanDumpControl
     VPlanLowerVConflictIdiomControl("optimize-vconflict-idiom",
                                     "VPlanOptimizeVConflictIdiom");
+static LoopVPlanDumpControl
+    VPlanLowerTreeConflictControl("lower-tree-conflict",
+                                  "VPlanLowerTreeConflict");
 
 namespace llvm {
 namespace vpo {
@@ -293,6 +297,8 @@ bool processVConflictIdiom(VPGeneralMemOptConflict *VPConflict, Function &Fn) {
     if (DA->isUniform(*TreeConflict->getRednUpdateOp()))
       return lowerHistogram(TreeConflict, Fn);
 
+    // General Requirements met to enable TreeConflict lowering to double
+    // permute tree reduction sequence. This happens just before codegen.
     return true;
   }
 
@@ -308,14 +314,330 @@ bool processVConflictIdiom(VPlan &Plan, Function &Fn) {
         return false;
 
   VPLAN_DUMP(VPlanLowerVConflictIdiomControl, Plan);
-
-  // TODO: Remove below loop after adding lowering and CG support for
-  // VPTreeConflict.
-  for (auto &VPInst : make_early_inc_range(vpinstructions(&Plan)))
-    if (isa<VPTreeConflict>(&VPInst))
-      return false;
-
   return true;
 }
+
+static VPValue* convertValueType(VPValue *Val, Type *ToTy, VPBuilder &VPBldr) {
+  Type *ValType = Val->getType();
+  if (ValType == ToTy)
+    return Val;
+  if (ValType->getPrimitiveSizeInBits() == ToTy->getPrimitiveSizeInBits())
+    return VPBldr.createNaryOp(Instruction::BitCast, ToTy, {Val});
+  if (ValType->isIntegerTy() && ToTy->isIntegerTy())
+    return VPBldr.createIntCast(Val, ToTy);
+  if (ValType->isFloatingPointTy() && ToTy->isFloatingPointTy())
+    return VPBldr.createFPCast(Val, ToTy);
+  if (ValType->isIntegerTy() && ToTy->isFloatingPointTy())
+    return VPBldr.createIntToFPCast(Val, ToTy);
+  if (ValType->isFloatingPointTy() && ToTy->isIntegerTy())
+    return VPBldr.createFPToIntCast(Val, ToTy);
+  llvm_unreachable("Unsupported conversion operation");
+}
+
+// To lower TreeConflict to double permute tree reduction, the types of the
+// control and result operands must have the same sizes because that's how the
+// permute intrinsics are defined. Note: the type of the control operand is
+// based on the type of the conflict idx. This function returns the size in bits
+// that should be used for each operand of the permutes within the conflict
+// loop. Decomposition of subscript instructions results in two possible type
+// sizes for the conflict idx, the original type size and i64 since the
+// decomposition currently promotes conflict idx to i64 for use in subscript
+// instructions. Thus, we may have something like the following as input to
+// this function.
+//
+// Original conflict idx type: i32
+// Promoted conflict idx type: i64
+// Reduction update op type (result type) : i32
+//
+// This function would return 32 for both the conflict idx and reduction
+// update op type sizes. The corresponding conflict loop phis and instructions
+// would then be based on this.
+Optional<unsigned> getPermuteTypeSize(const VPTreeConflict *TreeConflict,
+                                      unsigned VF) {
+  auto *RednUpdateOpTy = TreeConflict->getRednUpdateOp()->getType();
+  unsigned PermuteSize = RednUpdateOpTy->getScalarSizeInBits();
+
+  // We don't yet support type sizes less than 32-bits. However, we do support
+  // cases where we know at least one of the conflict idx or reduction op types
+  // are at least 32-bit because the size returned will be 32. E.g., if conflict
+  // idx is i16, but reduction op is i32, then we'll promote the conflict idx
+  // for use in the permute intrinsics.
+  if (PermuteSize < 32)
+    return None;
+
+  // The following cases are where we don't have a direct intrinsic mapping for
+  // the size and VF. We'll need support for partial vectors and pumping.
+  if (VF < 4)
+    return None;
+
+  if (PermuteSize == 64 && VF > 8)
+    return None;
+
+  if (PermuteSize == 32 && VF > 16)
+    return None;
+
+  return PermuteSize;
+}
+
+VPValue* createPermuteIntrinsic(StringRef Name, Type *Ty, VPValue *PermuteVals,
+                                VPValue *Control, VPBuilder &VPBldr,
+                                LLVMContext &C, unsigned VF,
+                                VPlanDivergenceAnalysis *DA) {
+  // Permute intrinsic for int where VF=4 doesn't exist, so bitcast to float
+  // and use the float version. Cast back after permuting since users will
+  // expect the original type.
+  if (Ty->isIntegerTy(32) && VF == 4) {
+    auto *Cast = VPBldr.createNaryOp(Instruction::BitCast, Type::getFloatTy(C),
+                                     {PermuteVals});
+    DA->markDivergent(*Cast);
+    auto *Permute =
+        VPBldr.create<VPPermute>(Name, Cast->getType(), Cast, Control);
+    DA->markDivergent(*Permute);
+    return VPBldr.createNaryOp(Instruction::BitCast, IntegerType::get(C, 32),
+                               {Permute});
+  } else
+    return VPBldr.create<VPPermute>(Name, Ty, PermuteVals, Control);
+}
+
+// Do the actual tree conflict lowering using the double permute tree reduction
+// algorithm described in <TODO: put link location here>. Due to the size of
+// the IR generated, please refer to vplan_lower_tree_conflict*.ll tests. The
+// Vlan dump can also be used with these tests through
+// VPlanLowerTreeConflictControl (-vplan-print-after-lower-tree-conflict)
+bool lowerTreeConflictsToDoublePermuteTreeReduction(VPlanVector *Plan,
+                                                    unsigned VF, Function &Fn) {
+
+  VPBuilder VPBldr;
+  auto *DA = Plan->getVPlanDA();
+  auto *VPLI = Plan->getVPLoopInfo();
+  auto *C = Plan->getLLVMContext();
+  SmallVector<VPTreeConflict *, 2> TreeConflicts;
+  bool TreeConflictsLowered = false;
+
+  for (auto &VPInst : vpinstructions(Plan))
+    if (auto *TreeConflict = dyn_cast<VPTreeConflict>(&VPInst))
+      TreeConflicts.push_back(TreeConflict);
+
+  for (auto *TreeConflict : TreeConflicts) {
+    assert(TreeConflict->getNumUsers() == 1 &&
+           cast<VPInstruction>(*TreeConflict->users().begin())->getOpcode() ==
+               Instruction::Store &&
+               "VPTreeConflict can only have a store user.");
+
+    auto *TreeConflictParent = TreeConflict->getParent();
+    auto *Pred = TreeConflictParent->getPredicate();
+
+    // Generate the conflict loop.
+    auto SplitIt = TreeConflict->getIterator();
+    auto *ConflictPreheader =
+        VPBlockUtils::splitBlock(TreeConflictParent, SplitIt, VPLI,
+                                 Plan->getDT(),
+                                 Plan->getPDT());
+
+    ++SplitIt;
+    auto *PostConflict =
+        VPBlockUtils::splitBlock(ConflictPreheader, SplitIt, VPLI,
+                                 Plan->getDT(),
+                                 Plan->getPDT());
+
+    // OuterLoop latch; not referenced
+    ++SplitIt;
+    VPBlockUtils::splitBlock(PostConflict, SplitIt, VPLI, Plan->getDT(),
+                             Plan->getPDT());
+
+    auto *ConflictHeader =
+        VPBlockUtils::splitBlockEnd(ConflictPreheader, VPLI, Plan->getDT(),
+                                    Plan->getPDT());
+
+    auto *ConflictExit =
+        VPBlockUtils::splitBlockEnd(ConflictHeader, VPLI, Plan->getDT(),
+                                    Plan->getPDT());
+
+    VPLoop *ConflictLoop = VPLI->AllocateLoop();
+    VPLoop *ParentLoop = VPLI->getLoopFor(TreeConflictParent);
+    ParentLoop->addChildLoop(ConflictLoop);
+    VPLI->changeLoopFor(ConflictHeader, ConflictLoop);
+    ConflictLoop->addBlockEntry(ConflictHeader);
+
+    // Begin inserting pre-conflict loop instructions.
+    VPBldr.setInsertPoint(TreeConflictParent->getTerminator());
+
+    Optional<unsigned> PermuteSize = getPermuteTypeSize(TreeConflict, VF);
+    assert(PermuteSize != None && "Expected valid permute intrinsic size");
+    auto *ConflictIdx = TreeConflict->getConflictIndex();
+    auto *ConflictIdxTy = ConflictIdx->getType();
+    Type *PermuteTy = IntegerType::get(*C, *PermuteSize);
+    VPValue *RednUpdateOp = TreeConflict->getRednUpdateOp();
+    Type *RednUpdateOpTy = RednUpdateOp->getType();
+
+    auto *VConf = VPBldr.create<VPConflictInsn>(
+        "vpconflict.intrinsic", ConflictIdxTy,
+        cast<VPInstruction>(TreeConflict->getConflictIndex()));
+    DA->markDivergent(*VConf);
+
+    // Set llvm.ctlz is_zero_undef = 0. If VConf results in all zeros, then
+    // the result of the intrinsic should be the number of bits in VConf. E.g.,
+    // if VConf is 32-bits then the result of ctlz should be 32 and not undef.
+    Type *Ty1 = Type::getInt1Ty(*C);
+    VPConstant *Zero = Plan->getVPConstant(ConstantInt::get(Ty1, 0));
+
+    auto *CtlzIntrin =
+        Intrinsic::getDeclaration(Fn.getParent(), Intrinsic::ctlz,
+                                  {VConf->getType()});
+    auto *Vlzcnt =
+        VPBldr.create<VPCallInstruction, const Twine &, VPValue *,
+                      FunctionType *, ArrayRef<VPValue *>>(
+        "vp.ctlz", Plan->getVPConstant(CtlzIntrin),
+        CtlzIntrin->getFunctionType(), {VConf, Zero});
+    Vlzcnt->setVectorizeWithIntrinsic(Intrinsic::ctlz);
+    DA->markUniform(*Vlzcnt->getCalledValue());
+    DA->markDivergent(*Vlzcnt);
+
+    unsigned VPermControlTySize = ConflictIdxTy->getPrimitiveSizeInBits();
+    // BitConst is 1 less the size in bits of ConflictIdx so that when
+    // VPermControl = -1, mask will be updated to know that that
+    // particular lane is off.
+    VPConstant *BitConst =
+        Plan->getVPConstant(ConstantInt::get(VConf->getType(),
+                            VPermControlTySize - 1));
+    auto *VPermControl =
+        VPBldr.createNaryOp(Instruction::Sub, ConflictIdxTy,
+                            {BitConst, Vlzcnt});
+
+    auto *VPermControlConvert = convertValueType(VPermControl, PermuteTy,
+                                                 VPBldr);
+    DA->markDivergent(*VPermControlConvert);
+
+    VPConstant *NegOne =
+        Plan->getVPConstant(ConstantInt::get(PermuteTy, -1));
+    VPInstruction *MaskTodo =
+        VPBldr.createCmpInst(CmpInst::ICMP_NE, VPermControlConvert, NegOne,
+                             "mask.todo");
+    DA->markDivergent(*MaskTodo);
+
+    // Mask of conflict loop anded with block-predicate where tree conflict
+    // lowering is conditional. The final store of the result after the
+    // conflict loop will be under this mask, so this is not strictly needed
+    // for correctness. However, it will reduce the number of iterations of
+    // the loop since the loop will exit once the mask is all-zero.
+    if (Pred) {
+      MaskTodo = VPBldr.createNaryOp(Instruction::And, MaskTodo->getType(),
+                                     {MaskTodo, Pred});
+      DA->markDivergent(*MaskTodo);
+    }
+
+    auto *Cond1 = VPBldr.createAllZeroCheck(MaskTodo, "conflict.top.test");
+    DA->markUniform(*Cond1);
+    TreeConflictParent->setTerminator(PostConflict,
+                                      ConflictPreheader, Cond1);
+
+    // Begin inserting conflict loop instructions.
+    VPBldr.setInsertPoint(ConflictHeader, ConflictHeader->begin());
+
+    VPPHINode *VPermControlPhi =
+        VPBldr.createPhiInstruction(PermuteTy, "curr.vperm.control");
+    VPermControlPhi->addIncoming(VPermControlConvert, ConflictPreheader);
+    DA->markDivergent(*VPermControlPhi);
+
+    VPPHINode *VResPhi =
+        VPBldr.createPhiInstruction(RednUpdateOpTy, "curr.vres");
+    VResPhi->addIncoming(RednUpdateOp, ConflictPreheader);
+    DA->markDivergent(*VResPhi);
+
+    VPPHINode *MaskTodoPhi =
+        VPBldr.createPhiInstruction(MaskTodo->getType(), "curr.mask.todo");
+    MaskTodoPhi->addIncoming(MaskTodo, ConflictPreheader);
+    DA->markDivergent(*MaskTodoPhi);
+
+    auto *VTmp = createPermuteIntrinsic("vtmp", VResPhi->getType(), VResPhi,
+                                        VPermControlPhi, VPBldr, *C, VF, DA);
+    DA->markDivergent(*VTmp);
+
+    // HIR codegen needs operand 0 of select to be a cmp instruction due to how
+    // HIR represents it. E.g., %val = select %op1 > %op2 ? %val0 : val1.
+    VPConstant *One = Plan->getVPConstant(ConstantInt::get(Ty1, 1));
+    auto *MaskICmp = VPBldr.createCmpInst(CmpInst::ICMP_EQ, MaskTodoPhi,
+                                          One, "dummy.cmp");
+    DA->markDivergent(*MaskICmp);
+
+    // Permute intrinsics are unmasked and will remain so according to
+    // the CodeGen team. This is apparently done to enable mask optimizations.
+    // Use select after the permute instead.
+    Zero = Plan->getVPConstant(Constant::getNullValue(VTmp->getType()));
+    auto *VTmpSelect =
+        VPBldr.createSelect(MaskICmp, VTmp, Zero, "vtmp.select");
+    DA->markDivergent(*VTmpSelect);
+
+    unsigned RednOpcode = TreeConflict->getRednOpcode();
+    auto *VResUpdate = VPBldr.createNaryOp(RednOpcode, VResPhi->getType(),
+                                           {VTmpSelect, VResPhi});
+    DA->markDivergent(*VResUpdate);
+
+    auto *VResNext = VPBldr.createSelect(MaskICmp, VResUpdate, VResPhi,
+                                         "vres.next");
+    VResPhi->addIncoming(VResNext, ConflictHeader);
+    DA->markDivergent(*VResNext);
+
+    auto *VPermControlNext =
+        createPermuteIntrinsic("vperm.control.next", VPermControlPhi->getType(),
+                               VPermControlPhi, VPermControlPhi, VPBldr, *C,
+                               VF, DA);
+    DA->markDivergent(*VPermControlNext);
+
+    auto *VPermControlNextSelect =
+        VPBldr.createSelect(MaskICmp, VPermControlNext, VPermControlPhi,
+                            "vperm.control.select");
+    VPermControlPhi->addIncoming(VPermControlNextSelect, ConflictHeader);
+    DA->markDivergent(*VPermControlNextSelect);
+
+    // Generate the mask for the next iteration of the conflict loop.
+    NegOne = Plan->getVPConstant(
+        ConstantInt::get(VPermControlNextSelect->getType(), -1));
+    auto *MaskTodoNext =
+        VPBldr.createCmpInst(CmpInst::ICMP_NE, VPermControlNextSelect, NegOne,
+                             "mask.todo.next");
+    MaskTodoPhi->addIncoming(MaskTodoNext, ConflictHeader);
+    DA->markDivergent(*MaskTodoNext);
+
+    // HLLoop verifier expects unknown loop backedge to be on the true
+    // condition, so this is why the !allzero check is done here.
+    auto *LatchCond = VPBldr.createAllZeroCheck(MaskTodoNext, "latch.cond");
+    DA->markUniform(*LatchCond);
+    auto *LatchCondNot =
+        VPBldr.createNot(LatchCond, LatchCond->getName() + ".not");
+    DA->markUniform(*LatchCondNot);
+    ConflictHeader->setTerminator(ConflictHeader, ConflictExit, LatchCondNot);
+
+    // Begin inserting/updating post-conflict loop instructions.
+    VPBldr.setInsertPoint(PostConflict, PostConflict->begin());
+
+    VPPHINode *FinalVResPhi =
+        VPBldr.createPhiInstruction(RednUpdateOpTy, "final.result");
+    FinalVResPhi->addIncoming(RednUpdateOp, TreeConflictParent);
+    FinalVResPhi->addIncoming(VResNext, ConflictHeader);
+    DA->markDivergent(*FinalVResPhi);
+
+    // Store of the final result should be under the same mask before the block
+    // splitting happened for the conflict loop. Necessary for conditional
+    // tree conflict lowering.
+    if (Pred) {
+      auto *BlockPredInst = VPBldr.createPred(TreeConflictParent->getPredicate());
+      PostConflict->setBlockPredicate(BlockPredInst);
+    }
+
+    auto *StoreVal =
+        VPBldr.createNaryOp(RednOpcode, RednUpdateOpTy,
+                            {TreeConflict->getConflictLoad(),
+                            FinalVResPhi});
+    DA->markDivergent(*StoreVal);
+
+    TreeConflict->replaceAllUsesWith(StoreVal);
+    TreeConflictParent->eraseInstruction(TreeConflict);
+    TreeConflictsLowered = true;
+  }
+  VPLAN_DUMP(VPlanLowerTreeConflictControl, Plan);
+  return TreeConflictsLowered;
+}
+
 } // namespace vpo
 } // namespace llvm

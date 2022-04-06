@@ -413,6 +413,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "vp-general-mem-opt-conflict";
   case VPInstruction::TreeConflict:
     return "tree-conflict";
+  case VPInstruction::Permute:
+    return "permute";
   case VPInstruction::ConflictInsn:
     return "vpconflict-insn";
   case VPInstruction::PrivateLastValueNonPOD:

@@ -604,6 +604,16 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::Permute: {
+    // Each lanes has its own value.
+    setSVAKindForReturnValue(Inst, SVAKind::Vector);
+    // Each lanes has its own value.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    // Each lanes has its own value.
+    setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    return true;
+  }
+
   default: {
     assert(Inst->getOpcode() <= Instruction::OtherOpsEnd &&
            "Unknown opcode seen in SVA.");
@@ -913,6 +923,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::GeneralMemOptConflict:
   case VPInstruction::ConflictInsn:
   case VPInstruction::TreeConflict:
+  case VPInstruction::Permute:
     return true;
   default:
     return false;

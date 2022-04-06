@@ -1441,7 +1441,7 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
     uint64_t TripCount = getTripCount();
     bool KnownTripCount = TripCount > 0 ? true : false;
     if (!NeedPeelLoop && KnownTripCount && TripCount <= SmallTripThreshold &&
-        OrigLoop->isInnermost()) {
+        OrigLoop->isInnermost() && !getTreeConflictsLowered()) {
       HLInstCounter InstCounter;
       HLNodeUtils::visitRange(InstCounter, OrigLoop->child_begin(),
                               OrigLoop->child_end());
@@ -5843,6 +5843,19 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     break;
   }
 
+  case VPInstruction::Permute: {
+    auto *Permute = cast<VPPermute>(VPInst);
+    Intrinsic::ID PermuteIntrin = Permute->getPermuteIntrinsic(getVF());
+    assert(PermuteIntrin != Intrinsic::not_intrinsic &&
+           "Valid permute intrinsic expected here.");
+    Function *PermuteFunc =
+        Intrinsic::getDeclaration(&HLNodeUtilities.getModule(), PermuteIntrin);
+    LLVM_DEBUG(dbgs() << "Permute func: "; PermuteFunc->dump());
+    NewInst = HLNodeUtilities.createCall(PermuteFunc, {RefOp0, RefOp1},
+                                         "permute");
+    break;
+  }
+
   case VPInstruction::PushVF: {
     assert(isMergedCFG() && "PushVF expected only for merged CFG.");
     unsigned NewVF = cast<VPPushVF>(VPInst)->getVF();
@@ -6630,5 +6643,13 @@ void VPOCodeGenHIR::setIsVecMDForHLLoops() {
         setHLLoopMD(HLp, "llvm.loop.isvectorized");
     }
   }
+}
+
+bool VPOCodeGenHIR::getTreeConflictsLowered() {
+  return TreeConflictsLowered;
+}
+
+void VPOCodeGenHIR::setTreeConflictsLowered(bool Lowered) {
+  TreeConflictsLowered = Lowered;
 }
 } // end namespace llvm
