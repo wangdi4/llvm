@@ -116,7 +116,7 @@ static cl::opt<bool> VPlanEnableGeneralPeelingOpt(
         "peeling. Pragma [no]dynamic_align always overrides both switches."));
 
 static cl::opt<bool> VPlanEnableGeneralPeelingHIROpt(
-    "vplan-enable-general-peeling-hir", cl::init(false), cl::Hidden,
+    "vplan-enable-general-peeling-hir", cl::init(true), cl::Hidden,
     cl::desc(
         "Enable peeling in general for HIR path. When true this effectively "
         "enables static peeling, dynamic peeling needs an additional switch "
@@ -1447,10 +1447,12 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   VPlanName = std::string(Fn.getName()) + ":HIR";
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   LVP.readLoopMetadata();
-  if (isOmpSIMDLoop && ((LVP.isDynAlignEnabled() && !VPlanEnablePeeling) ||
-                        LVP.isVecRemainderEnforced())) {
-    // Temporary. If peeling and/or remainder vectorization are enforced,
-    // bailout relying on the vplan-vec after loop opt.
+  if (isOmpSIMDLoop &&
+      (LVP.isDynAlignEnabled() || LVP.isVecRemainderEnforced()) &&
+      (!EnableNewCFGMergeHIR || !VPlanEnableGeneralPeeling)) {
+    // If peeling and/or remainder vectorization are enforced,
+    // bailout relying on the vplan-vec after loop opt if either
+    // cfg merger or general peeling is disabled.
     LLVM_DEBUG(dbgs() << "Delegating peel and remainder vectorization to post "
                          "loopopt vplan-vec\n");
     return false;

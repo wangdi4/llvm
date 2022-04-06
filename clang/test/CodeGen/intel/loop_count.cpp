@@ -4,6 +4,8 @@
 void bar(int i);
 int ibar(int i);
 
+#define min(a,b) (((a) < (b)) ? (a) : (b))
+
 //CHECK-LABEL: foo
 void foo()
 {
@@ -23,7 +25,7 @@ void foo()
     bar(i);
   }
   //CHECK: br{{.*}}!llvm.loop [[LOOP_4:![0-9]+]]
-  #pragma loop_count(1) min(4) max(10) avg(2)
+  #pragma loop_count(1) min(min(4,10)) max(10) avg(2)
   for (int i = 0; i < 10; ++i) {
     bar(i);
   }

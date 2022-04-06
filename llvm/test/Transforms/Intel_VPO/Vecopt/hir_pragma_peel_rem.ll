@@ -1,7 +1,8 @@
-; RUN: opt %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-enable-general-peeling-hir 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-enable-general-peeling-hir 2>&1 -vplan-enable-new-cfg-merge-hir=0 -disable-output | FileCheck %s --check-prefix=SKIP
+; RUN: opt %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-enable-general-peeling-hir=0 2>&1 -vplan-enable-new-cfg-merge-hir=1 -disable-output | FileCheck %s --check-prefix=SKIP
 ; RUN: opt %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-enable-general-peeling-hir 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 ;
-; Checks that in HIR path we skip loops with "#pragma vector dynamic_align" and "#pragma vector vecremainder"
+; Checks that in HIR path we process loops with "#pragma vector dynamic_align" and "#pragma vector vecremainder"
 ;
 ;
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -9,12 +10,13 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline norecurse nounwind uwtable
 define dso_local void @foo1(i32* nocapture %arr) local_unnamed_addr #0 {
-; CHECK-NOT: simd-vectorized
+; SKIP-NOT: simd-vectorized
+; CHECK:    simd-vectorized
 entry:
   br label %preheader
 
 preheader:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8) ]
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
@@ -36,7 +38,8 @@ for.end:                                          ; preds = %for.body
 
 ; Function Attrs: noinline norecurse nounwind uwtable
 define dso_local void @foo2(i32* nocapture %arr) local_unnamed_addr #0 {
-; CHECK-NOT: simd-vectorized
+; SKIP-NOT: simd-vectorized
+; CHECK:    simd-vectorized
 entry:
   br label %preheader
 
