@@ -115,7 +115,7 @@ function(add_spv_file src dst)
             ${src} ${cmplr_obj_out}${dst}${objext}
     COMMAND ${clang_offload_bundler} -type=o -unbundle
             -targets=openmp-spir64
-            -inputs=${dst}${objext} -outputs=${dst}.target.bc
+            -input=${dst}${objext} -output=${dst}.target.bc
     COMMAND ${llvm_spirv} -spirv-ext=+all ${dst}.target.bc -o ${dst}
     MAIN_DEPENDENCY ${src}
     DEPENDS ${ARG_DEPENDS}
