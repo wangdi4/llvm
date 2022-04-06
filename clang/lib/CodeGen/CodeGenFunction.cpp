@@ -3096,7 +3096,6 @@ Address CodeGenFunction::EmitFieldAnnotations(const FieldDecl *D,
   return Address(V, Addr.getElementType(), Addr.getAlignment());
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 Address CodeGenFunction::EmitHLSFieldAnnotations(const FieldDecl *D,
                                                  Address Addr,
@@ -3110,7 +3109,6 @@ Address CodeGenFunction::EmitHLSFieldAnnotations(const FieldDecl *D,
   return Address(V, Addr.getElementType(), Addr.getAlignment());
 }
 #endif // INTEL_CUSTOMIZATION
-=======
 llvm::Value *CodeGenFunction::EmitSYCLAnnotationCall(
     llvm::Function *AnnotationFn, llvm::Value *AnnotatedVal,
     SourceLocation Location, const SYCLAddIRAnnotationsMemberAttr *Attr) {
@@ -3144,7 +3142,6 @@ Address CodeGenFunction::EmitFieldSYCLAnnotations(const FieldDecl *D,
     V = Builder.CreateBitCast(V, VTy);
   return Address(V, Addr.getElementType(), Addr.getAlignment());
 }
->>>>>>> d2982c6a6810ea1f5e1999b74ae77c92748551f8
 
 Address CodeGenFunction::EmitIntelFPGAFieldAnnotations(const FieldDecl *D,
                                                        Address Addr,
