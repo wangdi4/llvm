@@ -23,7 +23,7 @@
 
 ; CHECK:              + LiveIn symbases: 3, 11, 14, 21
 ; CHECK:              + LiveOut symbases: 3
-; CHECK:              + DO i64 i1 = %lb.tmp, %N + -1, 1   <DO_LOOP> <vectorize>
+; CHECK:              + DO i64 i1 = %lb.tmp, %N + -1, 1   <DO_LOOP>
 ; CHECK:              |   if (i1 == %N + -1)
 ; CHECK:              |   {
 ; CHECK:              |      %4 = (%lp)[%N + -1];

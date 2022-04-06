@@ -59,7 +59,7 @@
 ; CHECK-NEXT:           %lb.tmp = %phi.temp2;
 ; CHECK-NEXT:           %sum.07 = %phi.temp;
 
-; CHECK:                + DO i1 = %lb.tmp, %N + -1, 1   <DO_LOOP> <vectorize>
+; CHECK:                + DO i1 = %lb.tmp, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK-NEXT:           |   %A.i = (%A)[i1];
 ; CHECK-NEXT:           |   %sum.07 = %A.i  +  %sum.07;
 ; CHECK-NEXT:           + END LOOP

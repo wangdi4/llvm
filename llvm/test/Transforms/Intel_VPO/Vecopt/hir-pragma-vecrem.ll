@@ -83,7 +83,7 @@ define dso_local noundef i32 @_Z3fooPiii(i32* noalias nocapture noundef readonly
 ; CHECK-NEXT:        [[RED_INIT300:%.*]] = 0
 ; CHECK-NEXT:        [[RED_INIT_INSERT310:%.*]] = insertelement [[RED_INIT300]],  [[PHI_TEMP60]],  0
 ; CHECK-NEXT:        [[PHI_TEMP320:%.*]] = [[RED_INIT_INSERT310]]
-; CHECK:             + DO i1 = [[PHI_TEMP80]], [[VEC_TC290]] + -1, 4   <DO_LOOP> <nounroll> <novectorize>
+; CHECK:             + DO i1 = [[PHI_TEMP80]], [[VEC_TC290]] + -1, 4   <DO_LOOP>  <MAX_TC_EST = 4>  <LEGAL_MAX_TC = 4> <nounroll> <novectorize> <max_trip_count = 4>
 ; CHECK-NEXT:        |   [[DOTVEC340:%.*]] = (<4 x i32>*)([[PTR0]])[i1]
 ; CHECK-NEXT:        |   [[DOTVEC350:%.*]] = [[DOTVEC340]]  +  [[PHI_TEMP320]]
 ; CHECK-NEXT:        |   [[PHI_TEMP320]] = [[DOTVEC350]]
@@ -107,7 +107,7 @@ define dso_local noundef i32 @_Z3fooPiii(i32* noalias nocapture noundef readonly
 ; CHECK-NEXT:        [[MERGE_BLK0]].23:
 ; CHECK-NEXT:        [[LB_TMP0:%.*]] = [[PHI_TEMP10]]
 ; CHECK-NEXT:        [[S_090]] = [[PHI_TEMP0]]
-; CHECK:             + DO i1 = [[LB_TMP0]], [[N0]] + -1, 1   <DO_LOOP>
+; CHECK:             + DO i1 = [[LB_TMP0]], [[N0]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 15>  <LEGAL_MAX_TC = 15> <nounroll> <novectorize> <max_trip_count = 15>
 ; CHECK-NEXT:        |   [[TMP0:%.*]] = ([[PTR0]])[i1]
 ; CHECK-NEXT:        |   [[S_090]] = [[TMP0]]  +  [[S_090]]
 ; CHECK-NEXT:        + END LOOP

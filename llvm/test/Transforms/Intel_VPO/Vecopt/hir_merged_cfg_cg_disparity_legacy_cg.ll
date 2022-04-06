@@ -51,7 +51,7 @@
 ; MERGED-CFG-CG-NEXT:             merge.blk10.26:
 ; MERGED-CFG-CG-NEXT:             %lb.tmp = %phi.temp;
 
-; MERGED-CFG-CG:                  + DO i1 = %lb.tmp, 9, 1   <DO_LOOP> <vectorize>
+; MERGED-CFG-CG:                  + DO i1 = %lb.tmp, 9, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ; MERGED-CFG-CG-NEXT:             |   (%A)[i1] = i1;
 ; MERGED-CFG-CG-NEXT:             + END LOOP
 

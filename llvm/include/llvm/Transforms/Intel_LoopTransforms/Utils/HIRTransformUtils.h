@@ -215,6 +215,11 @@ public:
 #endif // INTEL_FEATURE_SW_DTRANS
                               bool IgnoreIVs = false);
 
+  /// Adjust trip count estimates for given loop by taking into account
+  /// the loop unroll or vectorization factor.
+  static void adjustTCEstimatesForUnrollOrVecFactor(HLLoop *NewLoop,
+                                                    unsigned UnrollOrVecFactor);
+
   /// This function creates and returns a new loop that will be used as the
   /// main loop for unrolling or vectorization(current clients). The bounds
   /// for this newly created loop are set appropriately using the bounds of

@@ -25,7 +25,7 @@
 ; CHECK-NEXT:           |   (<32 x i32>*)(@arr)[0][i1] = 42;
 ; CHECK-NEXT:           + END LOOP
 
-; CHECK:                + DO i1 = {{.*}}, 1024, 1   <DO_LOOP> {{<novectorize>|<vectorize = 32>}}
+; CHECK:                + DO i1 = {{.*}}, 1024, 1   <DO_LOOP>{{.*}}<novectorize>
 ; CHECK-NEXT:           |   (@arr)[0][i1] = 42;
 ; CHECK-NEXT:           + END LOOP
 ; CHECK:          END REGION

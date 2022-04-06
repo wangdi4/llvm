@@ -25,7 +25,7 @@
 ; CHECK-NEXT:       [[RED_INIT_INSERT:%.*]] = insertelement %red.init,  %a.010,  0;
 ; CHECK-NEXT:       [[PHI_TEMP:%.*]] = [[RED_INIT_INSERT]];
 
-; CHECK:            + DO i1 = 0, {{.*}}, 4   <DO_LOOP>  <MAX_TC_EST = {{536870911|2147483647}}>   <LEGAL_MAX_TC = {{536870911|2147483647}}> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:            + DO i1 = 0, {{.*}}, 4   <DO_LOOP>  <MAX_TC_EST = 536870911>   <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:       |   [[COPY:%.*]] = [[PHI_TEMP]];
 ; CHECK-NEXT:       |   [[VEC:%.*]] = (<4 x i32>*)(%A)[i1];
 ; CHECK-NEXT:       |   [[VEC2:%.*]] = [[COPY]]  +  i1 + <i32 0, i32 1, i32 2, i32 3>;

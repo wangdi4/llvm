@@ -39,7 +39,7 @@
 
 ; CHECK:              %red.init = 0.000000e+00;
 ; CHECK:              [[RED_TEMP:%.*]] = %red.init;
-; CHECK:              + DO i2 = 0, [[UB:.*]], 32   <DO_LOOP>  <MAX_TC_EST = {{67108863|2147483647}}>   <LEGAL_MAX_TC = {{67108863|2147483647}}> <simd-vectorized> <nounroll> <novectorize>
+; CHECK:              + DO i2 = 0, [[UB:.*]], 32   <DO_LOOP>  <MAX_TC_EST = 67108863>   <LEGAL_MAX_TC = 67108863> <simd-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:         |   [[A_LD:%.*]] = (<32 x float>*)(%A)[i2];
 ; CHECK-NEXT:         |   [[B_LD:%.*]] = (<32 x float>*)(%B)[i2];
 ; CHECK-NEXT:         |   [[MUL:%.*]] = [[A_LD]]  *  [[B_LD]];

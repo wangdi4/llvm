@@ -12,7 +12,7 @@
 ; Checks for HIR vectorizer
 ; CHECK-LABEL:    VPlan after importing plain CFG
 ; CHECK:          <4 x float> %vp{{.*}} = insertelement <4 x float> <float undef, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00> float %vp{{.*}} i32 0
-; CHECK:          + DO i1 = 0, {{.*}}, 2   <DO_LOOP>  <MAX_TC_EST = {{2147483647|4294967295}}>   <LEGAL_MAX_TC = {{2147483647|4294967295}}> <simd-vectorized> <nounroll> <novectorize>
+; CHECK:          + DO i1 = 0, {{.*}}, 2   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647> <simd-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:     |   [[VEC:%.*]] = (<2 x float>*)(%f)[i1];
 ; CHECK-NEXT:     |   [[EXTENDED:%.*]] = shufflevector [[VEC]],  undef,  <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>;
 ; CHECK-NEXT:     |   [[WIDE_INSERT:%.*]] = shufflevector <float undef, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float undef, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00>,  [[EXTENDED]],  <i32 8, i32 1, i32 2, i32 3, i32 9, i32 5, i32 6, i32 7>

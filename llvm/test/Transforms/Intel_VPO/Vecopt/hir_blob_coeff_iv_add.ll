@@ -26,7 +26,7 @@
 ; |   }
 ; + END LOOP
 
-; CHECK: |            + DO i2 = 0, {{.*}}, 4   <DO_LOOP>  <MAX_TC_EST = {{2|8}}> <auto-vectorized> <nounroll> <novectorize>
+; CHECK: |            + DO i2 = 0, {{.*}}, 4   <DO_LOOP>  <MAX_TC_EST = 2> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK: |            |   %.unifload = (i32*)(@b)[0][1];
 ; CHECK: |            |   [[VEC_IV:%.*]] = 3 * %0  *  i2 + <i32 0, i32 1, i32 2, i32 3>;
 ; CHECK: |            |   [[SCAL_IV:%.*]] = 3 * %0  *  i2;
