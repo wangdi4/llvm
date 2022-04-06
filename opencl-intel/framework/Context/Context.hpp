@@ -16,13 +16,6 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-#if !defined (_WIN32)
-    /* In the line:
-    for (size_t i = 0; i < DIM - 1; i++)
-    don't issue an error that i < DIM - 1 is always false when DIM is 1 - this is intentional */
-#pragma GCC diagnostic ignored "-Wtype-limits"
-#endif
-
 template<size_t DIM, cl_mem_object_type OBJ_TYPE>
 cl_err_code Context::CreateImage(cl_mem_flags	         clFlags,
                                  const cl_image_format * pclImageFormat,

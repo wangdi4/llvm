@@ -926,11 +926,13 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>&    program,
                 // The spec doesn't forbid compilation of built program
                 // Intentional fall through.
             }
+              LLVM_FALLTHROUGH;
         case DEVICE_PROGRAM_LOADED_IR:
             {
                 // SPIR extension allows compiling binary
                 // Intentional fall through.
-            }
+        }
+          LLVM_FALLTHROUGH;
         case DEVICE_PROGRAM_SOURCE:
         case DEVICE_PROGRAM_SPIRV:
             {

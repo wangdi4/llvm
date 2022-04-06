@@ -1669,17 +1669,23 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
                 case OPENCL_VERSION_3_0: // FALL THROUGH
                     openclCVerAll.push_back(
                         cl_name_version{CL_MAKE_VERSION(3, 0, 0), "OpenCL C"});
+                    LLVM_FALLTHROUGH;
                 case OPENCL_VERSION_2_2: // FALL THROUGH
+                  LLVM_FALLTHROUGH;
                 case OPENCL_VERSION_2_1: // FALL THROUGH
+                  LLVM_FALLTHROUGH;
                 case OPENCL_VERSION_2_0: // FALL THROUGH
                     openclCVerAll.push_back(
                         cl_name_version{CL_MAKE_VERSION(2, 0, 0), "OpenCL C"});
+                    LLVM_FALLTHROUGH;
                 case OPENCL_VERSION_1_2: // FALL THROUGH
                     openclCVerAll.push_back(
                         cl_name_version{CL_MAKE_VERSION(1, 2, 0), "OpenCL C"});
+                    LLVM_FALLTHROUGH;
                 case OPENCL_VERSION_1_1: // FALL THROUGH
                     openclCVerAll.push_back(
                         cl_name_version{CL_MAKE_VERSION(1, 1, 0), "OpenCL C"});
+                    LLVM_FALLTHROUGH;
                 case OPENCL_VERSION_1_0:
                     openclCVerAll.push_back(
                         cl_name_version{CL_MAKE_VERSION(1, 0, 0), "OpenCL C"});

@@ -9,8 +9,6 @@ endif()
 if (NOT WIN32)
   set( CMAKE_CXX_FLAGS_RELEASE                "${CMAKE_CXX_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2")
   set( CMAKE_C_FLAGS_RELEASE                  "${CMAKE_C_FLAGS_RELEASE}   -D_FORTIFY_SOURCE=2")
-  # disable warnings inherited from external componennts
-  add_definitions(-Wno-attributes)
 endif (NOT WIN32)
 
 add_subdirectory( cl_hw_utils )

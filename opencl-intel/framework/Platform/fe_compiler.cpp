@@ -131,10 +131,10 @@ void FrontEndCompiler::FreeResources()
 
     if ( nullptr != m_pszModuleName )
     {
-        free((void*)m_pszModuleName);
-        m_pszModuleName = nullptr;
-        m_dlModule.Close();
-        m_pfnCreateInstance = nullptr;
+      free(const_cast<char *>(m_pszModuleName));
+      m_pszModuleName = nullptr;
+      m_dlModule.Close();
+      m_pfnCreateInstance = nullptr;
     }
 }
 

@@ -46,7 +46,7 @@ public:
     // memory cast.
     static_assert(sizeof(std::uint64_t) == sizeof(std::atomic<std::uint64_t>),
                   "the sizes are expected to be equal");
-    return unsigned(((std::atomic<std::uint64_t> *)&m_wait_ctx)[1].load(
+    return unsigned(((const std::atomic<std::uint64_t> *)&m_wait_ctx)[1].load(
         std::memory_order_acquire));
   }
 };

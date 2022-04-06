@@ -119,6 +119,7 @@ public:
         if (!m_pTaskSeqQueue) {
           cl_dev_err_code err = createCommandList(
               CL_DEV_LIST_ENABLE_OOO, GetRootDevice(), &m_pTaskSeqQueue);
+          (void)err;
           assert(err == CL_DEV_SUCCESS &&
                  "Failed to create command queue for task_sequence.");
         }

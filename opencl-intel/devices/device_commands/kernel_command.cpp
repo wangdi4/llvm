@@ -268,7 +268,7 @@ int KernelCommand::SetEventStatus(clk_event_t event, int iStatus)
 
 int KernelCommand::WaitForEvents(cl_uint num_events,
                                  const clk_event_t *event_list) {
-  if (event_list == nullptr || num_events == 0 && event_list != nullptr)
+  if (event_list == nullptr || num_events == 0)
     return CL_INVALID_VALUE;
 
   for ( ; num_events > 0; --num_events) {

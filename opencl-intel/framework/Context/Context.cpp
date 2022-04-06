@@ -472,34 +472,33 @@ cl_err_code Context::GetInfo(cl_int param_name, size_t param_value_size, void *p
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::CreateProgramWithIL
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Context::CreateProgramWithIL(const unsigned char* pIL, const size_t length, SharedPtr<Program>* ppProgram)
-{
-    LOG_DEBUG(
-        TEXT("CreateProgramWithIL enter. pIL=%p, length=%zu, ppProgram=%p"),
-        (void *)pIL, length, (void *)ppProgram);
+cl_err_code Context::CreateProgramWithIL(const unsigned char *pIL,
+                                         const size_t length,
+                                         SharedPtr<Program> *ppProgram) {
+  LOG_DEBUG(TEXT("CreateProgramWithIL enter. pIL=%p, length=%zu, ppProgram=%p"),
+            pIL, length, (void *)ppProgram);
 
-    // check input parameters
-    if (nullptr == ppProgram)
-    {
-        LOG_ERROR(TEXT("%s"), TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
-        return CL_INVALID_VALUE;
+  // check input parameters
+  if (nullptr == ppProgram) {
+    LOG_ERROR(TEXT("%s"), TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
+    return CL_INVALID_VALUE;
+  }
+  cl_err_code clErrRet = CL_SUCCESS;
+  // create new program object
+  SharedPtr<Program> pProgram =
+      ProgramWithIL::Allocate(this, pIL, length, &clErrRet);
+  if (NULL == pProgram.GetPtr()) {
+    if (CL_SUCCESS != clErrRet) {
+      return clErrRet;
     }
-    cl_err_code clErrRet = CL_SUCCESS;
-    // create new program object
-    SharedPtr<Program> pProgram =
-        ProgramWithIL::Allocate(this, pIL, length, &clErrRet);
-    if (NULL == pProgram.GetPtr()) {
-      if (CL_SUCCESS != clErrRet) {
-        return clErrRet;
-      }
-      return CL_OUT_OF_HOST_MEMORY;
-    }
-    pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
+    return CL_OUT_OF_HOST_MEMORY;
+  }
+  pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
 
-    // add program object to programs map list
-    m_mapPrograms.AddObject(pProgram);
-    *ppProgram = pProgram;
-    return clErrRet;
+  // add program object to programs map list
+  m_mapPrograms.AddObject(pProgram);
+  *ppProgram = pProgram;
+  return clErrRet;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

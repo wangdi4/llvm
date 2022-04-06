@@ -51,23 +51,23 @@ cl_err_code UserEvent::GetInfo(cl_int iParamName, size_t szParamValueSize, void 
 	{
 	case CL_EVENT_COMMAND_QUEUE:
 		cmd_queue = (cl_command_queue)nullptr;
-		localParamValue = (void*)(&cmd_queue);
-		outputValueSize = sizeof(cl_command_queue);
-		break;
-	case CL_EVENT_CONTEXT:
-		evt_contex = GetParentHandle();
-		localParamValue = (void*)(&evt_contex);
-		outputValueSize = sizeof(cl_context);
-		break;
-	case CL_EVENT_COMMAND_TYPE:
-		cmd_type        = (cl_command_type)CL_COMMAND_USER;
-		localParamValue = &cmd_type;
-		outputValueSize = sizeof(cl_command_type);
-		break;
-	case CL_EVENT_REFERENCE_COUNT:
-		localParamValue = &m_uiRefCount;
-		outputValueSize = sizeof(cl_uint);
-		break;
+                localParamValue = const_cast<_cl_command_queue **>(&cmd_queue);
+                outputValueSize = sizeof(cl_command_queue);
+                break;
+        case CL_EVENT_CONTEXT:
+          evt_contex = GetParentHandle();
+          localParamValue = (void *)(&evt_contex);
+          outputValueSize = sizeof(cl_context);
+          break;
+        case CL_EVENT_COMMAND_TYPE:
+          cmd_type = (cl_command_type)CL_COMMAND_USER;
+          localParamValue = &cmd_type;
+          outputValueSize = sizeof(cl_command_type);
+          break;
+        case CL_EVENT_REFERENCE_COUNT:
+          localParamValue = &m_uiRefCount;
+          outputValueSize = sizeof(cl_uint);
+          break;
 	case CL_EVENT_COMMAND_EXECUTION_STATUS:
 		if (EVENT_STATE_DONE == GetEventState())
 		{

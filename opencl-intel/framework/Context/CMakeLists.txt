@@ -12,14 +12,6 @@ CALCULATE_TARGET_SOURCES()
 
 include(itt)
 
-# [LLVM 3.6 UPGRADE] Disable Linux warning about unused function
-# this warning occur when processing externals/itt/include/ittnotify.h
-# since it contain __itt_id __itt_id_make(void*, long long unsigned int)
-# function that is not used in every build target.
-# There are ~50 cases of NULL conversion, so disable it too.
-if (NOT WIN32)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-function -Wno-conversion-null" )
-endif(NOT WIN32)
 
 include_directories( ${OCL_SOURCE_DIR}/utils/CLElfLib )
 

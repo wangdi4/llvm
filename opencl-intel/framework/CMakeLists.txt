@@ -6,12 +6,6 @@ if(NOT OPENCL_INTREE_BUILD)
   find_package(LLVM REQUIRED)
 endif()
 
-if (NOT WIN32)
-  # disable warnings inherited from external componennts
-  add_definitions(-Wno-missing-braces)
-endif (NOT WIN32)
-
-
 # Embed RPATH/RUNPATH for libraries which dependencies aren't in the standard system libarary directories
 include(embed.rpath)
 
