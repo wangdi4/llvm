@@ -33,15 +33,14 @@ using namespace llvm;
 
 #define DEBUG_TYPE "intel-fold-wp-intrinsic"
 
-// Name of the intrinsic for whole program safe
-static cl::opt<StringRef> WholeProgramSafeIntrinName(
-    "whole-program-safe-intrinsic", cl::init("llvm.intel.wholeprogramsafe"),
-    cl::ReallyHidden);
-
 // Fold the intrinsic llvm.intel.wholeprogramsafe
 // into true or false depending on the result of the analysis
 static bool foldIntrinsicWholeProgramSafe(Module &M, unsigned OptLevel,
                                           WholeProgramInfo *WPInfo) {
+
+  // Name of the intrinsic for whole program safe
+  StringRef WholeProgramSafeIntrinName =
+      llvm::Intrinsic::getName(llvm::Intrinsic::intel_wholeprogramsafe);
 
   Function *WhPrIntrin = M.getFunction(WholeProgramSafeIntrinName);
 
