@@ -375,7 +375,7 @@ public:
 
   /// Pre VPlan CodeGen pass to verify that we can lower the final VPlan into
   /// corresponding vector code.
-  bool canLowerVPlan(const VPlanVector &Plan);
+  bool canLowerVPlan(const VPlanVector &Plan, unsigned VF);
 
   /// Select the best plan and dispose all other VPlans.
   /// \Returns the selected vectorization factor and corresponding VPlan.

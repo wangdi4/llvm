@@ -420,6 +420,37 @@ public:
     return Val;
   }
 
+  VPValue *createFPCast(VPValue *Val, Type *Ty) {
+    if (Ty != Val->getType()) {
+      assert((Ty->isFloatTy() || Ty->isDoubleTy()) &&
+             "Expected floating point type for Ty");
+      assert((Val->getType()->isFloatTy() || Val->getType()->isDoubleTy()) &&
+             "Expected floating point type for Val");
+      unsigned Opcode = Ty->getPrimitiveSizeInBits() <
+                                Val->getType()->getPrimitiveSizeInBits()
+                            ? Instruction::FPTrunc
+                            : Instruction::FPExt;
+      Val = createNaryOp(Opcode, Ty, {Val});
+    }
+    return Val;
+  }
+
+  VPValue *createIntToFPCast(VPValue *Val, Type *Ty) {
+    assert((Ty->getScalarSizeInBits() == 32 ||
+            Ty->getScalarSizeInBits() == 64) &&
+           "Expected 32 or 64 bit type size for fp conversion");
+    VPValue *FPCast = createNaryOp(Instruction::SIToFP, Ty, {Val});
+    return FPCast;
+  }
+
+  VPValue *createFPToIntCast(VPValue *Val, Type *Ty) {
+    assert((Val->getType()->getScalarSizeInBits() == 32 ||
+            Val->getType()->getScalarSizeInBits()  == 64) &&
+           "Expected 32 or 64 bit type size for fp conversion");
+    VPValue *IntCast = createNaryOp(Instruction::FPToSI, Ty, {Val});
+    return IntCast;
+  }
+
   //===--------------------------------------------------------------------===//
   // RAII helpers.
   //===--------------------------------------------------------------------===//

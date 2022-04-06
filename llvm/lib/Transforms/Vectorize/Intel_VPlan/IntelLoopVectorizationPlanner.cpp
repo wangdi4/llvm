@@ -32,6 +32,7 @@
 #include "IntelVPlanLoopExitCanonicalization.h"
 #include "IntelVPlanPredicator.h"
 #include "IntelVPlanUtils.h"
+#include "IntelVPlanVConflictTransformation.h"
 #include "VPlanHIR/IntelVPlanHCFGBuilderHIR.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringExtras.h"
@@ -440,6 +441,10 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
       TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
           .getFixedSize();
 
+  // TODO: We're losing out on being able to vectorize vconflict idioms at
+  // VF=16 for i32 types because the conflict index is always represented
+  // as i64. Look into preserving the original VPValue for the index as
+  // live-in to VPGeneralMemOptConflict.
   for (auto &VPInst : vpinstructions(Plan.get()))
     if (auto *VPConflict = dyn_cast<VPGeneralMemOptConflict>(&VPInst)) {
       unsigned VConflictIndexSizeInBits = VPConflict->getConflictIndex()
@@ -1550,7 +1555,8 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
   return true;
 }
 
-bool LoopVectorizationPlanner::canLowerVPlan(const VPlanVector &Plan) {
+bool LoopVectorizationPlanner::canLowerVPlan(const VPlanVector &Plan,
+                                             unsigned VF) {
   for (auto &VPI : vpinstructions(&Plan)) {
     // Check if an array private is marked as SOA profitable and if we
     // lack the needed codegen support.
@@ -1559,6 +1565,18 @@ bool LoopVectorizationPlanner::canLowerVPlan(const VPlanVector &Plan) {
           !isSOACodegenSupported() &&
           AllocaPriv->getAllocatedType()->isArrayTy())
         return false;
+
+    // Determine if there are permute intrinsics available for a given type
+    // size and VF combination. If the intrinsic is not available then tree
+    // conflict lowering to double permute tree reduction will not happen.
+    if (auto *TreeConflict = dyn_cast<VPTreeConflict>(&VPI)) {
+      Optional<unsigned> PermuteSize = getPermuteTypeSize(TreeConflict, VF);
+      if (PermuteSize == None) {
+        LLVM_DEBUG(dbgs() << "Permute intrinsic not available for tree "
+                          << "conflict lowering\n");
+        return false;
+      }
+    }
   }
 
   // All checks passed.

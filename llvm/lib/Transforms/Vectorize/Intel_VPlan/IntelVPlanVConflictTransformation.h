@@ -21,6 +21,10 @@ class VPGeneralMemOptConflict;
 class VPTreeConflict;
 class VPInstruction;
 class VPlan;
+class VPlanVector;
+class VPValue;
+class VPBuilder;
+class VPlanDivergenceAnalysis;
 
 // Checks if the Plan has a VPConflict isntruction.
 bool processVConflictIdiom(VPlan &, Function &Fn);
@@ -32,6 +36,25 @@ bool processVConflictIdiom(VPGeneralMemOptConflict *, Function &Fn);
 // Check if given VPConflict instruction is a generic tree-conflict idiom. If
 // yes, generate a new VPTreeConflict and RUAW of VPConflict.
 VPTreeConflict *tryReplaceWithTreeConflict(VPGeneralMemOptConflict *);
+
+// Return the type size for the permute intrinsics used when lowering tree
+// conflict to double permute tree reduction. If permute intrinsics aren't
+// available for type/VF combination, then return None;
+Optional<unsigned> getPermuteTypeSize(const VPTreeConflict *TreeConflict,
+                                      unsigned VF);
+
+// Generate the permute intrinsic and do any necessary bitcasting if there is
+// not a direct VF/type to intrinsic mapping.
+VPValue* createPermuteIntrinsic(StringRef Name, Type *Ty, VPValue *PermuteVals,
+                                VPValue *Control, VPBuilder &VPBldr,
+                                LLVMContext &C, unsigned VF,
+                                VPlanDivergenceAnalysis *DA);
+
+// Lower VPTreeConflict instructions using the double permute tree reduction
+// algorithm for any vector VPlan. Returns true if any tree conflict
+// instructions were lowered.
+bool lowerTreeConflictsToDoublePermuteTreeReduction(VPlanVector *Plan,
+                                                    unsigned VF, Function &Fn);
 } // namespace vpo
 } // namespace llvm
 

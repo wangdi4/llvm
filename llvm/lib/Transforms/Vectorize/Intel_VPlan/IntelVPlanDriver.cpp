@@ -524,7 +524,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   if (DisableCodeGen)
     return false;
 
-  if (VF == 1 || !LVP.canLowerVPlan(*Plan)) {
+  if (VF == 1 || !LVP.canLowerVPlan(*Plan, VF)) {
     // Emit opt report remark if a VPlan candidate SIMD loop was not vectorized.
     // TODO: Emit reason for bailing out.
     VPlanOptReportBuilder(ORBuilder, LI)
@@ -1567,7 +1567,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
                            ORBuilder, &HIRVecLegal, SearchLoopOpcode,
                            PeelArrayRef, isOmpSIMDLoop, MCFGI);
     bool LoopIsHandled =
-        (VF != 1 && VCodeGen.loopIsHandled(Lp, VF) && LVP.canLowerVPlan(*Plan));
+        (VF != 1 && VCodeGen.loopIsHandled(Lp, VF) &&
+         LVP.canLowerVPlan(*Plan, VF));
 
     // Erase intrinsics before and after the loop if we either vectorized the
     // loop or if this loop is an auto vectorization candidate. SIMD Intrinsics
@@ -1580,6 +1581,9 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
       // TODO: Is this placement of unroller correct? It is being run for the
       // final VPlan before CG. Potentially problematic for merged CFG.
       LVP.unroll(*cast<VPlanNonMasked>(Plan));
+      bool treeConflictsLowered =
+          lowerTreeConflictsToDoublePermuteTreeReduction(Plan, VF, Fn);
+      VCodeGen.setTreeConflictsLowered(treeConflictsLowered);
       if (LVP.executeBestPlan(&VCodeGen, UF)) {
         ModifiedLoop = true;
         VPlanDriverImpl::addOptReportRemarks<VPOCodeGenHIR, loopopt::HLLoop>(

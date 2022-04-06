@@ -647,6 +647,7 @@ public:
     GeneralMemOptConflict,
     ConflictInsn,
     TreeConflict,
+    Permute,
   };
 
 private:
@@ -4125,6 +4126,77 @@ public:
 
   VPConflictInsn *cloneImpl() const override {
     return new VPConflictInsn(getType(), cast<VPInstruction>(getOperand(0)));
+  }
+};
+
+// VPInstruction that serves as a placeholder for permute intrinsics. So far,
+// these instructions are used for tree conflict lowering.
+class VPPermute final : public VPInstruction {
+// Permute BaseTy elements in PermuteVals using Control.
+public:
+  VPPermute(Type *BaseTy, VPValue *PermuteVals, VPValue *Control)
+      : VPInstruction(VPInstruction::Permute, BaseTy, {PermuteVals, Control}) {
+    assert(PermuteVals->getType()->getPrimitiveSizeInBits() ==
+           Control->getType()->getPrimitiveSizeInBits() &&
+           "Type size of PermuteVals should match that of Control");
+  }
+
+  Intrinsic::ID getPermuteIntrinsic(unsigned VF) const {
+    Type *Ty = getType();
+    if (Ty->isDoubleTy() && VF == 4)
+      return Intrinsic::x86_avx512_permvar_df_256;
+    if (Ty->isDoubleTy() && VF == 8)
+      return Intrinsic::x86_avx512_permvar_df_512;
+
+    if (Ty->isFloatTy() && VF == 4)
+      return Intrinsic::x86_avx_vpermilvar_ps;
+    if (Ty->isFloatTy() && VF == 8)
+      return Intrinsic::x86_avx2_permps;
+    if (Ty->isFloatTy() && VF == 16)
+      return Intrinsic::x86_avx512_permvar_sf_512;
+
+    if (Ty->isIntegerTy(32) && VF == 4)
+      return Intrinsic::x86_avx_vpermilvar_ps;
+    if (Ty->isIntegerTy(32) && VF == 8)
+      return Intrinsic::x86_avx2_permd;
+    if (Ty->isIntegerTy(32) && VF == 16)
+      return Intrinsic::x86_avx512_permvar_si_512;
+
+    if (Ty->isIntegerTy(64) && VF == 4)
+      return Intrinsic::x86_avx512_permvar_di_256;
+    if (Ty->isIntegerTy(64) && VF == 8)
+      return Intrinsic::x86_avx512_permvar_di_512;
+
+// TODO: support yet to come for i8/i16 intrinsics, but we've already
+//       provisioned for them here.
+    if (Ty->isIntegerTy(16) && VF == 8)
+      return Intrinsic::x86_avx512_permvar_hi_128;
+    if (Ty->isIntegerTy(16) && VF == 16)
+      return Intrinsic::x86_avx512_permvar_hi_256;
+    if (Ty->isIntegerTy(16) && VF == 32)
+      return Intrinsic::x86_avx512_permvar_hi_512;
+
+    if (Ty->isIntegerTy(8) && VF == 16)
+      return Intrinsic::x86_avx512_permvar_qi_128;
+    if (Ty->isIntegerTy(8) && VF == 32)
+      return Intrinsic::x86_avx512_permvar_qi_256;
+    if (Ty->isIntegerTy(8) && VF == 64)
+      return Intrinsic::x86_avx512_permvar_qi_512;
+
+    return Intrinsic::not_intrinsic;
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::Permute;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPPermute *cloneImpl() const override {
+    return new VPPermute(getType(), getOperand(0), getOperand(1));
   }
 };
 

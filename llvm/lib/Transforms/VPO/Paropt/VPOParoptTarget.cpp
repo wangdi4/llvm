@@ -4788,7 +4788,7 @@ bool VPOParoptTransform::genInteropCode(WRegionNode* W) {
     CallInst *TaskAllocCI =
         VPOParoptUtils::genKmpcTaskAllocWithoutCallback(W, IdentTy, InsertPt);
 
-    if (!DepClause.empty()) {
+    if (!DepClause.empty() || W->getDepArray()) {
       AllocaInst *DummyTaskTDependRec = genDependInitForTask(W, InsertPt);
       genTaskDeps(W, IdentTy, TidPtrHolder, /*TaskAlloc=*/nullptr,
                   DummyTaskTDependRec, InsertPt, true);
@@ -5237,7 +5237,7 @@ void VPOParoptTransform::genDependForDispatch(WRegionNode *W,
     return;
 
   DependClause const &DepClause = ParentTask->getDepend();
-  if (DepClause.empty())
+  if (DepClause.empty() && !ParentTask->getDepArray())
     return;
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genDependForDispatch\n");
