@@ -49,7 +49,6 @@
 #include "llvm/Transforms/IPO/Attributor.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/CallGraphUpdater.h"
-#include "llvm/Transforms/Utils/CodeExtractor.h"
 
 #include <algorithm>
 
@@ -1117,10 +1116,8 @@ private:
       // callbacks.
       SmallVector<Value *, 8> Args;
       for (auto *CI : MergableCIs) {
-        Value *Callee =
-            CI->getArgOperand(CallbackCalleeOperand)->stripPointerCasts();
-        FunctionType *FT =
-            cast<FunctionType>(Callee->getType()->getPointerElementType());
+        Value *Callee = CI->getArgOperand(CallbackCalleeOperand);
+        FunctionType *FT = OMPInfoCache.OMPBuilder.ParallelTask;
         Args.clear();
         Args.push_back(OutlinedFn->getArg(0));
         Args.push_back(OutlinedFn->getArg(1));
@@ -2808,7 +2805,7 @@ struct AAExecutionDomainFunction : public AAExecutionDomain {
   SmallSetVector<const BasicBlock *, 16> SingleThreadedBBs;
 
   /// Total number of basic blocks in this function.
-  long unsigned NumBBs;
+  long unsigned NumBBs = 0;
 };
 
 ChangeStatus AAExecutionDomainFunction::updateImpl(Attributor &A) {
@@ -3178,12 +3175,6 @@ struct AAKernelInfoFunction : AAKernelInfo {
     auto &OMPInfoCache = static_cast<OMPInformationCache &>(A.getInfoCache());
 
     Function *Fn = getAnchorScope();
-    if (!OMPInfoCache.Kernels.count(Fn))
-      return;
-
-    // Add itself to the reaching kernel and set IsKernelEntry.
-    ReachingKernelEntries.insert(Fn);
-    IsKernelEntry = true;
 
     OMPInformationCache::RuntimeFunctionInfo &InitRFI =
         OMPInfoCache.RFIs[OMPRTL___kmpc_target_init];
@@ -3217,10 +3208,12 @@ struct AAKernelInfoFunction : AAKernelInfo {
         Fn);
 
     // Ignore kernels without initializers such as global constructors.
-    if (!KernelInitCB || !KernelDeinitCB) {
-      indicateOptimisticFixpoint();
+    if (!KernelInitCB || !KernelDeinitCB)
       return;
-    }
+
+    // Add itself to the reaching kernel and set IsKernelEntry.
+    ReachingKernelEntries.insert(Fn);
+    IsKernelEntry = true;
 
     // For kernels we might need to initialize/finalize the IsSPMD state and
     // we need to register a simplification callback so that the Attributor
@@ -3386,8 +3379,17 @@ struct AAKernelInfoFunction : AAKernelInfo {
       return false;
     }
 
-    // Check if the kernel is already in SPMD mode, if so, return success.
+    // Get the actual kernel, could be the caller of the anchor scope if we have
+    // a debug wrapper.
     Function *Kernel = getAnchorScope();
+    if (Kernel->hasLocalLinkage()) {
+      assert(Kernel->hasOneUse() && "Unexpected use of debug kernel wrapper.");
+      auto *CB = cast<CallBase>(Kernel->user_back());
+      Kernel = CB->getCaller();
+    }
+    assert(OMPInfoCache.Kernels.count(Kernel) && "Expected kernel function!");
+
+    // Check if the kernel is already in SPMD mode, if so, return success.
     GlobalVariable *ExecMode = Kernel->getParent()->getGlobalVariable(
         (Kernel->getName() + "_exec_mode").str());
     assert(ExecMode && "Kernel without exec mode?");
@@ -4741,18 +4743,23 @@ void OpenMPOpt::registerFoldRuntimeCall(RuntimeFunction RF) {
 
 void OpenMPOpt::registerAAs(bool IsModulePass) {
   if (SCC.empty())
-
     return;
+
   if (IsModulePass) {
     // Ensure we create the AAKernelInfo AAs first and without triggering an
     // update. This will make sure we register all value simplification
     // callbacks before any other AA has the chance to create an AAValueSimplify
     // or similar.
-    for (Function *Kernel : OMPInfoCache.Kernels)
+    auto CreateKernelInfoCB = [&](Use &, Function &Kernel) {
       A.getOrCreateAAFor<AAKernelInfo>(
-          IRPosition::function(*Kernel), /* QueryingAA */ nullptr,
+          IRPosition::function(Kernel), /* QueryingAA */ nullptr,
           DepClassTy::NONE, /* ForceUpdate */ false,
           /* UpdateAfterInit */ false);
+      return false;
+    };
+    OMPInformationCache::RuntimeFunctionInfo &InitRFI =
+        OMPInfoCache.RFIs[OMPRTL___kmpc_target_init];
+    InitRFI.foreachUse(SCC, CreateKernelInfoCB);
 
     registerFoldRuntimeCall(OMPRTL___kmpc_is_generic_main_thread_id);
     registerFoldRuntimeCall(OMPRTL___kmpc_is_spmd_exec_mode);

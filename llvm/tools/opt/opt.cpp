@@ -30,7 +30,9 @@
 
 #include "BreakpointPrinter.h"
 #include "NewPMDriver.h"
-#include "PassPrinters.h"
+#if INTEL_CUSTOMIZATION
+#include "Intel_PassPrinters.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
@@ -49,6 +51,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/LegacyPassNameParser.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/ModuleSummaryIndex.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/InitializePasses.h"
@@ -56,6 +59,7 @@
 #include "llvm/LinkAllPasses.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Passes/PassPlugin.h"
 #include "llvm/Remarks/HotnessThresholdParser.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
@@ -236,9 +240,11 @@ DisableBuiltins("disable-builtin",
                 cl::desc("Disable specific target library builtin function"),
                 cl::ZeroOrMore);
 
+#if INTEL_CUSTOMIZATION
 static cl::opt<bool>
     AnalyzeOnly("analyze", cl::desc("Only perform analysis, no optimization. "
                                     "Legacy pass manager only."));
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> EnableDebugify(
     "enable-debugify",
@@ -338,6 +344,10 @@ static cl::opt<std::string> RemarksFormat(
     "pass-remarks-format",
     cl::desc("The format used for serializing remarks (default: YAML)"),
     cl::value_desc("format"), cl::init("yaml"));
+
+static cl::list<std::string>
+    PassPlugins("load-pass-plugin",
+                cl::desc("Load passes from plugin library"));
 
 namespace llvm {
 cl::opt<PGOKind>
@@ -659,13 +669,39 @@ int main(int argc, char **argv) {
   initializeExampleIRTransforms(Registry);
 #endif
 
+  SmallVector<PassPlugin, 1> PluginList;
+  PassPlugins.setCallback([&](const std::string &PluginPath) {
+    auto Plugin = PassPlugin::Load(PluginPath);
+    if (!Plugin) {
+      errs() << "Failed to load passes from '" << PluginPath
+             << "'. Request ignored.\n";
+      return;
+    }
+    PluginList.emplace_back(Plugin.get());
+  });
+
   cl::ParseCommandLineOptions(argc, argv,
     "llvm .bc -> .bc modular optimizer and analysis printer\n");
 
   LLVMContext Context;
 
+#if INTEL_CUSTOMIZATION
   if (AnalyzeOnly && NoOutput) {
     errs() << argv[0] << ": analyze mode conflicts with no-output mode.\n";
+    return 1;
+  }
+#endif // INTEL_CUSTOMIZATION
+
+  // If `-passes=` is specified, use NPM.
+  // If `-enable-new-pm` is specified and there are no codegen passes, use NPM.
+  // e.g. `-enable-new-pm -sroa` will use NPM.
+  // but `-enable-new-pm -codegenprepare` will still revert to legacy PM.
+  const bool UseNPM = (EnableNewPassManager && !shouldForceLegacyPM()) ||
+                      PassPipeline.getNumOccurrences() > 0;
+
+  if (!UseNPM && PluginList.size()) {
+    errs() << argv[0] << ": " << PassPlugins.ArgStr
+           << " specified with legacy PM.\n";
     return 1;
   }
 
@@ -804,7 +840,9 @@ int main(int argc, char **argv) {
   // If the output is set to be emitted to standard out, and standard out is a
   // console, print out a warning message and refuse to do it.  We don't
   // impress anyone by spewing tons of binary goo to a terminal.
+#if INTEL_CUSTOMIZATION
   if (!Force && !NoOutput && !AnalyzeOnly && !OutputAssembly)
+#endif // INTEL_CUSTOMIZATION
     if (CheckBitcodeOutputToConsole(Out->os()))
       NoOutput = true;
 
@@ -830,12 +868,8 @@ int main(int argc, char **argv) {
       }
   }
 
-  // If `-passes=` is specified, use NPM.
-  // If `-enable-new-pm` is specified and there are no codegen passes, use NPM.
-  // e.g. `-enable-new-pm -sroa` will use NPM.
-  // but `-enable-new-pm -codegenprepare` will still revert to legacy PM.
-  if ((EnableNewPassManager && !shouldForceLegacyPM()) ||
-      PassPipeline.getNumOccurrences() > 0) {
+  if (UseNPM) {
+#if INTEL_CUSTOMIZATION
     if (AnalyzeOnly) {
       errs() << "Cannot specify -analyze under new pass manager, either "
                 "specify '-enable-new-pm=0', or use the corresponding new pass "
@@ -843,6 +877,7 @@ int main(int argc, char **argv) {
                 "full list of passes, see the '--print-passes' flag.\n";
       return 1;
     }
+#endif // INTEL_CUSTOMIZATION
 #if !INTEL_PRODUCT_RELEASE
     if (legacy::debugPassSpecified()) {
       errs()
@@ -901,7 +936,7 @@ int main(int argc, char **argv) {
     // layer.
     return runPassPipeline(argv[0], *M, TM.get(), &TLII, Out.get(),
                            ThinLinkOut.get(), RemarksFile.get(), Pipeline,
-                           Passes, OK, VK, PreserveAssemblyUseListOrder,
+                           Passes, PluginList, OK, VK, PreserveAssemblyUseListOrder,
                            PreserveBitcodeUseListOrder, EmitSummaryIndex,
                            EmitModuleHash, EnableDebugify)
                ? 0
@@ -913,13 +948,13 @@ int main(int argc, char **argv) {
   // the (-check)-debugify passes.
   DebugifyCustomPassManager Passes;
   DebugifyStatsMap DIStatsMap;
-  DebugInfoPerPassMap DIPreservationMap;
+  DebugInfoPerPass DebugInfoBeforePass;
   if (DebugifyEach) {
     Passes.setDebugifyMode(DebugifyMode::SyntheticDebugInfo);
     Passes.setDIStatsMap(DIStatsMap);
   } else if (VerifyEachDebugInfoPreserve) {
     Passes.setDebugifyMode(DebugifyMode::OriginalDebugInfo);
-    Passes.setDIPreservationMap(DIPreservationMap);
+    Passes.setDebugInfoBeforePass(DebugInfoBeforePass);
     if (!VerifyDIPreserveExport.empty())
       Passes.setOrigDIVerifyBugsReportFilePath(VerifyDIPreserveExport);
   }
@@ -939,10 +974,10 @@ int main(int argc, char **argv) {
       Passes.setDIStatsMap(DIStatsMap);
       Passes.add(createDebugifyModulePass());
     } else if (VerifyDebugInfoPreserve) {
-      Passes.setDIPreservationMap(DIPreservationMap);
+      Passes.setDebugInfoBeforePass(DebugInfoBeforePass);
       Passes.add(createDebugifyModulePass(
           DebugifyMode::OriginalDebugInfo, "",
-          &(Passes.getDebugInfoPerPassMap())));
+          &(Passes.getDebugInfoPerPass())));
     }
   }
 
@@ -1018,7 +1053,8 @@ int main(int argc, char **argv) {
     else
       errs() << argv[0] << ": cannot create pass: "
              << PassInf->getPassName() << "\n";
-    if (P) {
+#if INTEL_CUSTOMIZATION
+   if (P) {
       PassKind Kind = P->getPassKind();
       addPass(Passes, P);
 
@@ -1042,6 +1078,7 @@ int main(int argc, char **argv) {
         }
       }
     }
+#endif // INTEL_CUSTOMIZATION
   }
 
   if (OptLevelO0)
@@ -1081,7 +1118,7 @@ int main(int argc, char **argv) {
         Passes.setOrigDIVerifyBugsReportFilePath(VerifyDIPreserveExport);
       Passes.add(createCheckDebugifyModulePass(
           false, "", nullptr, DebugifyMode::OriginalDebugInfo,
-          &(Passes.getDebugInfoPerPassMap()), VerifyDIPreserveExport));
+          &(Passes.getDebugInfoPerPass()), VerifyDIPreserveExport));
     }
   }
 
@@ -1094,7 +1131,9 @@ int main(int argc, char **argv) {
   std::unique_ptr<raw_svector_ostream> BOS;
   raw_ostream *OS = nullptr;
 
+#if INTEL_CUSTOMIZATION
   const bool ShouldEmitOutput = !NoOutput && !AnalyzeOnly;
+#endif // INTEL_CUSTOMIZATION
 
   // Write bitcode or assembly to the output as the last step...
   if (ShouldEmitOutput || RunTwice) {

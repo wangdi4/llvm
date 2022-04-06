@@ -34,7 +34,6 @@
 #include "llvm-c/Transforms/PassManagerBuilder.h"
 #include "llvm/Support/Intel_WP_utils.h"   // INTEL
 #include <functional>
-#include <memory>
 #include <string>
 #include <vector>
 

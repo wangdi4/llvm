@@ -1370,43 +1370,12 @@ _sgdt(void *__ptr) {
 #endif /* __has_extension(gnu_asm) */
 
 #if !defined(_MSC_VER) && __has_extension(gnu_asm)
-
-#if __i386__
-/* __cpuid might already be a macro defined from cpuid.h */
-#ifndef __cpuid
-static __inline__ void __DEFAULT_FN_ATTRS
-__cpuid(int __info[4], int __level) {
-  __asm__ ("cpuid" : "=a"(__info[0]), "=b" (__info[1]), "=c"(__info[2]), "=d"(__info[3])
-                   : "a"(__level), "c"(0));
-}
+#ifdef __cplusplus
+extern "C" {
 #endif
-
-static __inline__ void __DEFAULT_FN_ATTRS
-__cpuidex(int __info[4], int __level, int __ecx) {
-  __asm__ ("cpuid" : "=a"(__info[0]), "=b" (__info[1]), "=c"(__info[2]), "=d"(__info[3])
-                   : "a"(__level), "c"(__ecx));
-}
-#else
-/* x86-64 uses %rbx as the base register, so preserve it. */
-/* __cpuid might already be a macro defined from cpuid.h */
-#ifndef __cpuid
-static __inline__ void __DEFAULT_FN_ATTRS
-__cpuid(int __info[4], int __level) {
-  __asm__ ("  xchgq  %%rbx,%q1\n"
-           "  cpuid\n"
-           "  xchgq  %%rbx,%q1"
-           : "=a"(__info[0]), "=r" (__info[1]), "=c"(__info[2]), "=d"(__info[3])
-           : "a"(__level), "c"(0));
-}
-#endif
-
-static __inline__ void __DEFAULT_FN_ATTRS
-__cpuidex(int __info[4], int __level, int __ecx) {
-  __asm__ ("  xchgq  %%rbx,%q1\n"
-           "  cpuid\n"
-           "  xchgq  %%rbx,%q1"
-           : "=a"(__info[0]), "=r" (__info[1]), "=c"(__info[2]), "=d"(__info[3])
-           : "a"(__level), "c"(__ecx));
+void __cpuid(int[4], int);
+void __cpuidex(int[4], int, int);
+#ifdef __cplusplus
 }
 #endif
 

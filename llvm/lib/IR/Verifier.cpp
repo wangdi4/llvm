@@ -107,6 +107,8 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicsAArch64.h"
+#include "llvm/IR/IntrinsicsARM.h"
 #include "llvm/IR/IntrinsicsWebAssembly.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
@@ -300,6 +302,12 @@ namespace {
 class Verifier : public InstVisitor<Verifier>, VerifierSupport {
   friend class InstVisitor<Verifier>;
 
+  // ISD::ArgFlagsTy::MemAlign only have 4 bits for alignment, so
+  // the alignment size should not exceed 2^15. Since encode(Align)
+  // would plus the shift value by 1, the alignment size should
+  // not exceed 2^14, otherwise it can NOT be properly lowered
+  // in backend.
+  static constexpr unsigned ParamMaxAlignment = 1 << 14;
   DominatorTree DT;
 
   /// When verifying a basic block, keep track of all of the
@@ -1858,6 +1866,12 @@ void Verifier::verifyParameterAttrs(AttributeSet Attrs, Type *Ty,
 
   if (PointerType *PTy = dyn_cast<PointerType>(Ty)) {
     if (Attrs.hasAttribute(Attribute::ByVal)) {
+      if (Attrs.hasAttribute(Attribute::Alignment)) {
+        Align AttrAlign = Attrs.getAlignment().valueOrOne();
+        Align MaxAlign(ParamMaxAlignment);
+        Assert(AttrAlign <= MaxAlign,
+               "Attribute 'align' exceed the max size 2^14", V);
+      }
       SmallPtrSet<Type *, 4> Visited;
       Assert(Attrs.getByValType()->isSized(&Visited),
              "Attribute 'byval' does not support unsized types!", V);
@@ -3198,6 +3212,21 @@ void Verifier::visitCallBase(CallBase &Call) {
 
   Assert(verifyAttributeCount(Attrs, Call.arg_size()),
          "Attribute after last parameter!", Call);
+
+  auto VerifyTypeAlign = [&](Type *Ty, const Twine &Message) {
+    if (!Ty->isSized())
+      return;
+    Align ABIAlign = DL.getABITypeAlign(Ty);
+    Align MaxAlign(ParamMaxAlignment);
+    Assert(ABIAlign <= MaxAlign,
+           "Incorrect alignment of " + Message + " to called function!", Call);
+  };
+
+  VerifyTypeAlign(FTy->getReturnType(), "return type");
+  for (unsigned i = 0, e = FTy->getNumParams(); i != e; ++i) {
+    Type *Ty = FTy->getParamType(i);
+    VerifyTypeAlign(Ty, "argument passed");
+  }
 
   Function *Callee =
       dyn_cast<Function>(Call.getCalledOperand()->stripPointerCasts());
@@ -5702,7 +5731,11 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
     break;
   }
   case Intrinsic::preserve_array_access_index:
-  case Intrinsic::preserve_struct_access_index: {
+  case Intrinsic::preserve_struct_access_index:
+  case Intrinsic::aarch64_ldaxr:
+  case Intrinsic::aarch64_ldxr:
+  case Intrinsic::arm_ldaex:
+  case Intrinsic::arm_ldrex: {
     Type *ElemTy = Call.getParamElementType(0);
     Assert(ElemTy,
            "Intrinsic requires elementtype attribute on first argument.",
@@ -5722,6 +5755,16 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
     break;
   }
 #endif // INTEL_CUSTOMIZATION
+  case Intrinsic::aarch64_stlxr:
+  case Intrinsic::aarch64_stxr:
+  case Intrinsic::arm_stlex:
+  case Intrinsic::arm_strex: {
+    Type *ElemTy = Call.getAttributes().getParamElementType(1);
+    Assert(ElemTy,
+           "Intrinsic requires elementtype attribute on second argument.",
+           &Call);
+    break;
+  }
   };
 }
 

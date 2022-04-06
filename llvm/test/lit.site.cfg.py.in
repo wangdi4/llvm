@@ -6,9 +6,9 @@ config.host_triple = "@LLVM_HOST_TRIPLE@"
 config.target_triple = "@LLVM_TARGET_TRIPLE@"
 config.llvm_src_root = path(r"@LLVM_SOURCE_DIR@")
 config.llvm_obj_root = path(r"@LLVM_BINARY_DIR@")
-config.llvm_tools_dir = path(r"@LLVM_TOOLS_DIR@")
-config.llvm_lib_dir = path(r"@LLVM_LIBS_DIR@")
-config.llvm_shlib_dir = path(r"@SHLIBDIR@")
+config.llvm_tools_dir = lit_config.substitute(path(r"@LLVM_TOOLS_DIR@"))
+config.llvm_lib_dir = lit_config.substitute(path(r"@LLVM_LIBS_DIR@"))
+config.llvm_shlib_dir = lit_config.substitute(path(r"@SHLIBDIR@"))
 config.llvm_shlib_ext = "@SHLIBEXT@"
 config.llvm_plugin_ext = "@LLVM_PLUGIN_EXT@"
 config.llvm_exe_ext = "@EXEEXT@"
@@ -63,17 +63,6 @@ config.enable_proto_bor = @INTEL_ENABLE_PROTO_BIN_OPTRPT@
 config.include_intel_extra_opts = @INTEL_DTRANS_EXTRA_OPTS@
 # end INTEL_FEATURE_SW_DTRANS
 # end INTEL_CUSTOMIZATION
-
-# Support substitution of the tools_dir with user parameters. This is
-# used when we can't determine the tool dir at configuration time.
-try:
-    config.llvm_tools_dir = config.llvm_tools_dir % lit_config.params
-    config.llvm_lib_dir = config.llvm_lib_dir % lit_config.params
-    config.llvm_shlib_dir = config.llvm_shlib_dir % lit_config.params
-except KeyError:
-    e = sys.exc_info()[1]
-    key, = e.args
-    lit_config.fatal("unable to find %r parameter, use '--param=%s=VALUE'" % (key,key))
 
 import lit.llvm
 lit.llvm.initialize(lit_config, config)

@@ -96,6 +96,9 @@ The improvements are...
 Improvements to clang-tidy
 --------------------------
 
+- Added trace code to help narrow down any checks and the relevant source code
+  that result in crashes.
+
 New checks
 ^^^^^^^^^^
 
@@ -110,6 +113,10 @@ New checks
   Detects confusable unicode identifiers.
 ..
   end INTEL_CUSTOMIZATION
+- New :doc:`modernize-macro-to-enum
+  <clang-tidy/checks/modernize-macro-to-enum>` check.
+
+  Replaces groups of adjacent macros with an unscoped anonymous enum.
 
 New check aliases
 ^^^^^^^^^^^^^^^^^
@@ -123,6 +130,12 @@ Changes in existing checks
 - Fixed a crash in :doc:`readability-const-return-type
   <clang-tidy/checks/readability-const-return-type>` when a pure virtual function
   overrided has a const return type. Removed the fix for a virtual function.
+
+- Fixed a false positive in :doc:`misc-redundant-expression <clang-tidy/checks/misc-redundant-expression>`
+  involving overloaded comparison operators.
+
+- Fixed a crash in :doc:`bugprone-sizeof-expression <clang-tidy/checks/bugprone-sizeof-expression>` when
+  `sizeof(...)` is compared agains a `__int128_t`.
 
 Removed checks
 ^^^^^^^^^^^^^^

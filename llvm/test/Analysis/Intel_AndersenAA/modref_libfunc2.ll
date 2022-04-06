@@ -9,9 +9,12 @@
 @glob01 = internal global double zeroinitializer
 define internal double @test01() {
   %call1 = tail call noalias i8* @malloc(i64 1024)
+  %ld.call1 = load i8, i8* %call1
   %ar1 = bitcast i8* %call1 to double*
+  %ld.ar1 = load double, double* %ar1
 
   %arindex = getelementptr double, double* %ar1, i64 10
+  %ld.arindex = load double, double* %arindex
   %val = load double, double* %arindex
   %res = call double @sin(double %val)
 
@@ -27,10 +30,14 @@ define internal double @test01() {
 ; Test with calls that just operate on the arguments
 define internal void @test02() {
   %call1 = tail call noalias i8* @malloc(i64 1024)
+  %ld.call1 = load i8, i8* %call1
   %call2 = tail call noalias i8* @malloc(i64 1024)
+  %ld.call2 = load i8, i8* %call2
 
   %t1 = call i8* @memset(i8* %call1, i32 1, i64 1024)
+  %ld.t1 = load i8, i8* %t1
   %t2 = call i8* @strncpy(i8* %call2, i8* %call1, i64 1024)
+  %ld.t2 = load i8, i8* %t2
   ret void
 }
 ; CHECK-LABEL: Function: test02:
@@ -47,8 +54,10 @@ define internal void @test02() {
 declare i8* @foo(i8*)
 define internal void @test03() {
   %call1 = tail call noalias i8* @malloc(i64 1024)
+  %ld.call1 = load i8, i8* %call1
 
   %call = tail call i8* @foo(i8* %call1)
+  %ld.call = load i8, i8* %call
   call void @exit(i32 1)
 
   ret void

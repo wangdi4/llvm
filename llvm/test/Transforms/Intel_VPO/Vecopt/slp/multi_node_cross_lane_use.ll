@@ -7,10 +7,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @main(i32* %arg, i32 %arg1, i32 %arg2) {
 ; CHECK-LABEL: @main(
 ; CHECK-NEXT:  bb:
-; CHECK-NEXT:    [[T:%.*]] = getelementptr i32, i32* [[ARG:%.*]], i64 1
-; CHECK-NEXT:    [[T3:%.*]] = getelementptr i32, i32* [[ARG]], i64 0
-; CHECK-NEXT:    [[T4:%.*]] = getelementptr i32, i32* [[ARG]], i64 2
-; CHECK-NEXT:    [[T5:%.*]] = getelementptr i32, i32* [[ARG]], i64 3
+; CHECK-NEXT:    [[T3:%.*]] = getelementptr i32, i32* [[ARG:%.*]], i64 0
 ; CHECK-NEXT:    [[T6:%.*]] = add i32 [[ARG2:%.*]], 42
 ; CHECK-NEXT:    [[TMP0:%.*]] = insertelement <4 x i32> poison, i32 [[ARG2]], i32 0
 ; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP0]], <4 x i32> poison, <4 x i32> zeroinitializer

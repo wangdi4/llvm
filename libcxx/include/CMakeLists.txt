@@ -70,6 +70,7 @@ set(files
   __algorithm/ranges_find_if.h
   __algorithm/ranges_find_if_not.h
   __algorithm/ranges_max_element.h
+  __algorithm/ranges_min.h
   __algorithm/ranges_min_element.h
   __algorithm/ranges_mismatch.h
   __algorithm/ranges_swap_ranges.h
@@ -183,6 +184,7 @@ set(files
   __filesystem/recursive_directory_iterator.h
   __filesystem/space_info.h
   __filesystem/u8path.h
+  __format/buffer.h
   __format/format_arg.h
   __format/format_args.h
   __format/format_context.h

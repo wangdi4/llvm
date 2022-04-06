@@ -32,16 +32,16 @@
 ;CHECK-NEXT:   Cost 1 for i32 [[VP16:%.*]] = add i32 [[VP2]] i32 2
 ;CHECK-NEXT:   Cost Unknown for %"EXTENT$.btINTVL" = type { i32, i32 } [[VP18:%.*]] = insertvalue %"EXTENT$.btINTVL" undef i32 [[VP16]]
 ;CHECK-NEXT:   Cost 4 for i1 [[VP5:%.*]] = icmp sgt i32 [[VP2]] i32 1
-;CHECK-NEXT:   Cost 7 for %"EXTENT$.btINTVL" = type { i32, i32 } [[VP9:%.*]] = select i1 [[VP5]] %"EXTENT$.btINTVL" = type { i32, i32 } [[VP17]] %"EXTENT$.btINTVL" = type { i32, i32 } [[VP18]]
+;CHECK-NEXT:   Cost 6 for %"EXTENT$.btINTVL" = type { i32, i32 } [[VP9:%.*]] = select i1 [[VP5]] %"EXTENT$.btINTVL" = type { i32, i32 } [[VP17]] %"EXTENT$.btINTVL" = type { i32, i32 } [[VP18]]
 ;CHECK-NEXT:   Cost Unknown for i32 [[VP8:%.*]] = extractvalue %"EXTENT$.btINTVL" = type { i32, i32 } [[VP9]]
 ;CHECK-NEXT:   Cost Unknown for i32 [[VP19:%.*]] = extractvalue %"EXTENT$.btINTVL" = type { i32, i32 } [[VP9]]
 ;CHECK-NEXT:   Cost 1 for i32 [[VP20:%.*]] = add i32 [[VP19]] i32 [[VP8]]
 ;CHECK-NEXT:   Cost 0 for i32* [[VP10:%.*]] = subscript inbounds i32* {{.*}}%"var$6" i64 [[VP0]]
 ;CHECK-NEXT:   Cost 1.0625 for store i32 [[VP20]] i32* [[VP10]]
 ;CHECK-NEXT:   Cost 1 for i64 [[VP11:%.*]] = add i64 [[VP0]] i64 [[VP12:%.*]]
-;CHECK-NEXT:   Cost 11 for i1 [[VP14:%.*]] = icmp slt i64 [[VP11]] i64 [[VP13:%.*]]
+;CHECK-NEXT:   Cost 8 for i1 [[VP14:%.*]] = icmp slt i64 [[VP11]] i64 [[VP13:%.*]]
 ;CHECK-NEXT:   Cost 0 for br i1 [[VP14]], [[BB3]], [[BB4:BB[0-9]+]]
-;CHECK-NEXT: BB3: base cost: 38.0625
+;CHECK-NEXT: BB3: base cost: 34.0625
 
 %"EXTENT$.btINTVL" = type { i32, i32 }
 %"QNCA_a0$%\22EXTENT$.btINTVL\22*$rank1$" = type { %"EXTENT$.btINTVL"*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }

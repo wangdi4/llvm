@@ -439,7 +439,7 @@ struct PragmaAttributeHandler : public PragmaHandler {
                     Token &FirstToken) override;
 
   /// A pool of attributes that were parsed in \#pragma clang attribute.
-  ParsedAttributesWithRange AttributesForPragmaAttribute;
+  ParsedAttributes AttributesForPragmaAttribute;
 };
 
 struct PragmaMaxTokensHereHandler : public PragmaHandler {
@@ -1129,7 +1129,7 @@ StmtResult Parser::HandlePragmaLoopFuse() {
 
   // Create the attributes corresponding to the clauses and the attributed
   // statement itself.
-  ParsedAttributesWithRange Attrs(AttrFactory);
+  ParsedAttributes Attrs(AttrFactory);
   ArgsUnion AttrArgs[] = {IndependentLoc, DepthExpr};
   Attrs.addNew(PragmaNameInfo, FuseScopeStmt->getSourceRange(), nullptr,
                AttrLoc, AttrArgs, 2, ParsedAttr::AS_Pragma);
@@ -1737,13 +1737,12 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
 namespace {
 struct PragmaAttributeInfo {
   enum ActionType { Push, Pop, Attribute };
-  ParsedAttributesWithRange &Attributes;
+  ParsedAttributes &Attributes;
   ActionType Action;
   const IdentifierInfo *Namespace = nullptr;
   ArrayRef<Token> Tokens;
 
-  PragmaAttributeInfo(ParsedAttributesWithRange &Attributes)
-      : Attributes(Attributes) {}
+  PragmaAttributeInfo(ParsedAttributes &Attributes) : Attributes(Attributes) {}
 };
 
 #include "clang/Parse/AttrSubMatchRulesParserStringSwitches.inc"
@@ -1933,7 +1932,7 @@ getAttributeSubjectRulesRecoveryPointForToken(const Token &Tok) {
 /// suggests the possible attribute subject rules in a fix-it together with
 /// any other missing tokens.
 DiagnosticBuilder createExpectedAttributeSubjectRulesTokenDiagnostic(
-    unsigned DiagID, ParsedAttr &Attribute,
+    unsigned DiagID, ParsedAttributes &Attrs,
     MissingAttributeSubjectRulesRecoveryPoint Point, Parser &PRef) {
   SourceLocation Loc = PRef.getEndOfPreviousToken();
   if (Loc.isInvalid())
@@ -1953,25 +1952,38 @@ DiagnosticBuilder createExpectedAttributeSubjectRulesTokenDiagnostic(
   SourceRange FixItRange(Loc);
   if (EndPoint == MissingAttributeSubjectRulesRecoveryPoint::None) {
     // Gather the subject match rules that are supported by the attribute.
-    SmallVector<std::pair<attr::SubjectMatchRule, bool>, 4> SubjectMatchRuleSet;
-    Attribute.getMatchRules(PRef.getLangOpts(), SubjectMatchRuleSet);
-    if (SubjectMatchRuleSet.empty()) {
+    // Add all the possible rules initially.
+    llvm::BitVector IsMatchRuleAvailable(attr::SubjectMatchRule_Last + 1, true);
+    // Remove the ones that are not supported by any of the attributes.
+    for (const ParsedAttr &Attribute : Attrs) {
+      SmallVector<std::pair<attr::SubjectMatchRule, bool>, 4> MatchRules;
+      Attribute.getMatchRules(PRef.getLangOpts(), MatchRules);
+      llvm::BitVector IsSupported(attr::SubjectMatchRule_Last + 1);
+      for (const auto &Rule : MatchRules) {
+        // Ensure that the missing rule is reported in the fix-it only when it's
+        // supported in the current language mode.
+        if (!Rule.second)
+          continue;
+        IsSupported[Rule.first] = true;
+      }
+      IsMatchRuleAvailable &= IsSupported;
+    }
+    if (IsMatchRuleAvailable.count() == 0) {
       // FIXME: We can emit a "fix-it" with a subject list placeholder when
       // placeholders will be supported by the fix-its.
       return Diagnostic;
     }
     FixIt += "any(";
     bool NeedsComma = false;
-    for (const auto &I : SubjectMatchRuleSet) {
-      // Ensure that the missing rule is reported in the fix-it only when it's
-      // supported in the current language mode.
-      if (!I.second)
+    for (unsigned I = 0; I <= attr::SubjectMatchRule_Last; I++) {
+      if (!IsMatchRuleAvailable[I])
         continue;
       if (NeedsComma)
         FixIt += ", ";
       else
         NeedsComma = true;
-      FixIt += attr::getSubjectMatchRuleSpelling(I.first);
+      FixIt += attr::getSubjectMatchRuleSpelling(
+          static_cast<attr::SubjectMatchRule>(I));
     }
     FixIt += ")";
     // Check if we need to remove the range
@@ -2013,7 +2025,7 @@ void Parser::HandlePragmaAttribute() {
                       /*IsReinject=*/false);
   ConsumeAnnotationToken();
 
-  ParsedAttributesWithRange &Attrs = Info->Attributes;
+  ParsedAttributes &Attrs = Info->Attributes;
   Attrs.clearListOnly();
 
   auto SkipToEnd = [this]() {
@@ -2041,22 +2053,25 @@ void Parser::HandlePragmaAttribute() {
       return SkipToEnd();
     }
 
-    if (Tok.isNot(tok::identifier)) {
-      Diag(Tok, diag::err_pragma_attribute_expected_attribute_name);
-      SkipToEnd();
-      return;
-    }
-    IdentifierInfo *AttrName = Tok.getIdentifierInfo();
-    SourceLocation AttrNameLoc = ConsumeToken();
+    // Parse the comma-separated list of attributes.
+    do {
+      if (Tok.isNot(tok::identifier)) {
+        Diag(Tok, diag::err_pragma_attribute_expected_attribute_name);
+        SkipToEnd();
+        return;
+      }
+      IdentifierInfo *AttrName = Tok.getIdentifierInfo();
+      SourceLocation AttrNameLoc = ConsumeToken();
 
-    if (Tok.isNot(tok::l_paren))
-      Attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0,
-                   ParsedAttr::AS_GNU);
-    else
-      ParseGNUAttributeArgs(AttrName, AttrNameLoc, Attrs, /*EndLoc=*/nullptr,
-                            /*ScopeName=*/nullptr,
-                            /*ScopeLoc=*/SourceLocation(), ParsedAttr::AS_GNU,
-                            /*Declarator=*/nullptr);
+      if (Tok.isNot(tok::l_paren))
+        Attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0,
+                     ParsedAttr::AS_GNU);
+      else
+        ParseGNUAttributeArgs(AttrName, AttrNameLoc, Attrs, /*EndLoc=*/nullptr,
+                              /*ScopeName=*/nullptr,
+                              /*ScopeLoc=*/SourceLocation(), ParsedAttr::AS_GNU,
+                              /*Declarator=*/nullptr);
+    } while (TryConsumeToken(tok::comma));
 
     if (ExpectAndConsume(tok::r_paren))
       return SkipToEnd();
@@ -2094,26 +2109,19 @@ void Parser::HandlePragmaAttribute() {
     return;
   }
 
-  // Ensure that we don't have more than one attribute.
-  if (Attrs.size() > 1) {
-    SourceLocation Loc = Attrs[1].getLoc();
-    Diag(Loc, diag::err_pragma_attribute_multiple_attributes);
-    SkipToEnd();
-    return;
-  }
-
-  ParsedAttr &Attribute = *Attrs.begin();
-  if (!Attribute.isSupportedByPragmaAttribute()) {
-    Diag(PragmaLoc, diag::err_pragma_attribute_unsupported_attribute)
-        << Attribute;
-    SkipToEnd();
-    return;
+  for (const ParsedAttr &Attribute : Attrs) {
+    if (!Attribute.isSupportedByPragmaAttribute()) {
+      Diag(PragmaLoc, diag::err_pragma_attribute_unsupported_attribute)
+          << Attribute;
+      SkipToEnd();
+      return;
+    }
   }
 
   // Parse the subject-list.
   if (!TryConsumeToken(tok::comma)) {
     createExpectedAttributeSubjectRulesTokenDiagnostic(
-        diag::err_expected, Attribute,
+        diag::err_expected, Attrs,
         MissingAttributeSubjectRulesRecoveryPoint::Comma, *this)
         << tok::comma;
     SkipToEnd();
@@ -2122,7 +2130,7 @@ void Parser::HandlePragmaAttribute() {
 
   if (Tok.isNot(tok::identifier)) {
     createExpectedAttributeSubjectRulesTokenDiagnostic(
-        diag::err_pragma_attribute_invalid_subject_set_specifier, Attribute,
+        diag::err_pragma_attribute_invalid_subject_set_specifier, Attrs,
         MissingAttributeSubjectRulesRecoveryPoint::ApplyTo, *this);
     SkipToEnd();
     return;
@@ -2130,7 +2138,7 @@ void Parser::HandlePragmaAttribute() {
   const IdentifierInfo *II = Tok.getIdentifierInfo();
   if (!II->isStr("apply_to")) {
     createExpectedAttributeSubjectRulesTokenDiagnostic(
-        diag::err_pragma_attribute_invalid_subject_set_specifier, Attribute,
+        diag::err_pragma_attribute_invalid_subject_set_specifier, Attrs,
         MissingAttributeSubjectRulesRecoveryPoint::ApplyTo, *this);
     SkipToEnd();
     return;
@@ -2139,7 +2147,7 @@ void Parser::HandlePragmaAttribute() {
 
   if (!TryConsumeToken(tok::equal)) {
     createExpectedAttributeSubjectRulesTokenDiagnostic(
-        diag::err_expected, Attribute,
+        diag::err_expected, Attrs,
         MissingAttributeSubjectRulesRecoveryPoint::Equals, *this)
         << tok::equal;
     SkipToEnd();
@@ -2169,8 +2177,10 @@ void Parser::HandlePragmaAttribute() {
   if (Info->Action == PragmaAttributeInfo::Push)
     Actions.ActOnPragmaAttributeEmptyPush(PragmaLoc, Info->Namespace);
 
-  Actions.ActOnPragmaAttributeAttribute(Attribute, PragmaLoc,
-                                        std::move(SubjectMatchRules));
+  for (ParsedAttr &Attribute : Attrs) {
+    Actions.ActOnPragmaAttributeAttribute(Attribute, PragmaLoc,
+                                          SubjectMatchRules);
+  }
 }
 
 // #pragma GCC visibility comes in two variants:
@@ -4516,7 +4526,7 @@ void PragmaLoopCountHandler::HandlePragma(Preprocessor &PP,
 }
 
 bool Parser::ParseLoopHintValue(LoopHint &Hint, SourceLocation Loc,
-                                ParsedAttributesWithRange &Attrs) {
+                                ParsedAttributes &Attrs) {
   SourceLocation BeginExprLoc = Tok.getLocation();
   ExprResult R = ParseConstantExpression();
   if (R.isInvalid() || Actions.CheckLoopHintExpr(R.get(), BeginExprLoc))
@@ -4533,7 +4543,7 @@ bool Parser::ParseLoopHintValue(LoopHint &Hint, SourceLocation Loc,
 }
 
 bool Parser::ParseLoopHintValueList(LoopHint &Hint,
-                                    ParsedAttributesWithRange &Attrs) {
+                                    ParsedAttributes &Attrs) {
   SourceLocation Loc = Tok.getLocation();
   ConsumeToken();
   if (Tok.is(tok::eod)) {
@@ -4555,7 +4565,7 @@ bool Parser::ParseLoopHintValueList(LoopHint &Hint,
 }
 
 bool Parser::ParseLoopCountClause(LoopHint &Hint,
-                                  ParsedAttributesWithRange &Attrs) {
+                                  ParsedAttributes &Attrs) {
   SourceLocation Loc = Tok.getLocation();
   ConsumeToken();
   if (Tok.is(tok::l_paren) || Tok.is(tok::equal)) {
@@ -4581,7 +4591,7 @@ bool Parser::ParseLoopCountClause(LoopHint &Hint,
 ///     avgmid := avg(x) | avg=x
 ///
 bool Parser::HandlePragmaLoopCount(LoopHint &Hint,
-                                   ParsedAttributesWithRange &Attrs) {
+                                   ParsedAttributes &Attrs) {
   PragmaLoopHintInfo *Info =
       static_cast<PragmaLoopHintInfo *>(Tok.getAnnotationValue());
   IdentifierInfo *PragmaNameInfo = Info->PragmaName.getIdentifierInfo();
@@ -4624,9 +4634,9 @@ bool Parser::HandlePragmaLoopCount(LoopHint &Hint,
 StmtResult Parser::ParsePragmaLoopCount(StmtVector &Stmts,
                                         ParsedStmtContext StmtCtx,
                                         SourceLocation *TrailingElseLoc,
-                                        ParsedAttributesWithRange &Attrs) {
+                                        ParsedAttributes &Attrs) {
   // Create temporary attribute list.
-  ParsedAttributesWithRange TempAttrs(AttrFactory);
+  ParsedAttributes TempAttrs(AttrFactory);
   // Get loop hints and consume annotated token.
   bool HasAttrs = false;
   if (Tok.is(tok::annot_pragma_loop_count)) {

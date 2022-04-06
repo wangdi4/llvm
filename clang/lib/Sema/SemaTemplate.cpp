@@ -2201,10 +2201,24 @@ struct ConvertConstructorToDeductionGuideTransform {
         SubstArgs.push_back(SemaRef.Context.getCanonicalTemplateArgument(
             SemaRef.Context.getInjectedTemplateArg(NewParam)));
       }
+
+      // Substitute new template parameters into requires-clause if present.
+      Expr *RequiresClause = nullptr;
+      if (Expr *InnerRC = InnerParams->getRequiresClause()) {
+        MultiLevelTemplateArgumentList Args;
+        Args.setKind(TemplateSubstitutionKind::Rewrite);
+        Args.addOuterTemplateArguments(SubstArgs);
+        Args.addOuterRetainedLevel();
+        ExprResult E = SemaRef.SubstExpr(InnerRC, Args);
+        if (E.isInvalid())
+          return nullptr;
+        RequiresClause = E.getAs<Expr>();
+      }
+
       TemplateParams = TemplateParameterList::Create(
           SemaRef.Context, InnerParams->getTemplateLoc(),
           InnerParams->getLAngleLoc(), AllParams, InnerParams->getRAngleLoc(),
-          /*FIXME: RequiresClause*/ nullptr);
+          RequiresClause);
     }
 
     // If we built a new template-parameter-list, track that we need to
@@ -7018,7 +7032,9 @@ ExprResult Sema::CheckTemplateArgument(NonTypeTemplateParmDecl *Param,
       // -- a predefined __func__ variable
       APValue::LValueBase Base = Value.getLValueBase();
       auto *VD = const_cast<ValueDecl *>(Base.dyn_cast<const ValueDecl *>());
-      if (Base && (!VD || isa<LifetimeExtendedTemporaryDecl>(VD))) {
+      if (Base &&
+          (!VD ||
+           isa<LifetimeExtendedTemporaryDecl, UnnamedGlobalConstantDecl>(VD))) {
         Diag(Arg->getBeginLoc(), diag::err_template_arg_not_decl_ref)
             << Arg->getSourceRange();
         return ExprError();

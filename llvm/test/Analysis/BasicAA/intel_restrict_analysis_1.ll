@@ -5,9 +5,8 @@
 ; RUN: opt < %s -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -convert-to-subscript -S | opt -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 
-; CHECK:  NoAlias:      double* %data, double* %twp
-; CHECK:  NoAlias:      double* %data, double* %twp.addr.029
-
+; CHECK-DAG:  NoAlias:      double* %data, double* %twp.addr.029
+; CHECK-DAG:  NoAlias:      double* %data, double* %twp
 
 define void @FFT_transform_internal(i32 %N, double* noalias %data, i32 %direction, double* %twp) {
 entry:
@@ -34,6 +33,12 @@ for.body3:                                        ; preds = %for.body3.preheader
   %add = fadd double %1, %2
   store double %add, double* %arrayidx, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+
+; dead loads, needed to get aa-eval to trigger
+  %ld.data = load double, double* %data, align 8
+  %ld.twp.addr.029 = load double, double* %twp.addr.029, align 8
+  %ld.twp = load double, double* %twp, align 8
+
   %cmp2 = icmp slt i64 %indvars.iv.next, %0
   br i1 %cmp2, label %for.body3, label %for.end
 

@@ -46,17 +46,10 @@
 ; CHECK-MATRIX-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-DEFAULT-NEXT: Running pass: VecClonePass ;INTEL
 ; CHECK-DEFAULT-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*}}> ;INTEL
-; CHECK-CORO-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*Function.*}}, llvm::Module> ;INTEL
-; CHECK-CORO-NEXT: Running pass: CoroEarlyPass
-; CHECK-CORO-NEXT: Running analysis: InnerAnalysisManagerProxy
-; CHECK-CORO-NEXT: Running analysis: LazyCallGraphAnalysis
-; CHECK-CORO-NEXT: Running analysis: TargetLibraryAnalysis
-; CHECK-CORO-NEXT: Running analysis: FunctionAnalysisManagerCGSCCProxy
-; CHECK-CORO-NEXT: Running analysis: OuterAnalysisManagerProxy
-; CHECK-CORO-NEXT: Running pass: CoroSplitPass
-; CHECK-CORO-NEXT: Running pass: CoroCleanupPass
-; CHECK-PRE-LINK-NEXT: Running pass: CanonicalizeAliasesPass ;INTEL
+; CHECK-CORO-NEXT: Running pass: CoroConditionalWrapper
+; CHECK-PRE-LINK: Running pass: CanonicalizeAliasesPass
 ; CHECK-PRE-LINK-NEXT: Running pass: NameAnonGlobalPass
+; CHECK-CORO-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*Function.*}}, llvm::Module> ;INTEL
 ; CHECK-THINLTO: Running pass: Annotation2MetadataPass
 ; CHECK-THINLTO-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-THINLTO-NEXT: Running pass: EliminateAvailableExternallyPass
@@ -75,6 +68,7 @@
 ; CHECK-LTO-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-LTO-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-CORO-NEXT: Running pass: AnnotationRemarksPass
+; CHECK-CORO-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-LTO-NEXT: Running pass: AnnotationRemarksPass
 ; CHECK-LTO-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-NEXT: Running pass: PrintModulePass

@@ -41,8 +41,6 @@
 #include "llvm/IR/PatternMatch.h"
 #include <utility>
 
-using namespace llvm::PatternMatch;
-
 namespace llvm {
 
 class Function;
@@ -274,6 +272,10 @@ public:
     // are aligned and have a size that is a power of 2.
     unsigned DataSize = DL.getTypeStoreSize(DataType);
     return Alignment >= DataSize && isPowerOf2_32(DataSize);
+  }
+
+  bool isLegalBroadcastLoad(Type *ElementTy, unsigned NumElements) const {
+    return false;
   }
 
   bool isLegalMaskedScatter(Type *DataType, Align Alignment) const {
@@ -542,7 +544,8 @@ public:
 
   InstructionCost getShuffleCost(TTI::ShuffleKind Kind, VectorType *Ty,
                                  ArrayRef<int> Mask, int Index,
-                                 VectorType *SubTp) const {
+                                 VectorType *SubTp,
+                                 ArrayRef<Value *> Args = None) const {
     return 1;
   }
 
@@ -1054,6 +1057,8 @@ public:
 
   InstructionCost getUserCost(const User *U, ArrayRef<const Value *> Operands,
                               TTI::TargetCostKind CostKind) {
+    using namespace llvm::PatternMatch;
+
     auto *TargetTTI = static_cast<T *>(this);
     // Handle non-intrinsic calls, invokes, and callbr.
     // FIXME: Unlikely to be true for anything but CodeSize.

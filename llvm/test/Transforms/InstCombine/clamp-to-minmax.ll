@@ -566,39 +566,3 @@ define i32 @mixed_clamp_to_i32_2(float %x) {
   %r = select i1 %lo_cmp, i32 1, i32 %i32_min
   ret i32 %r
 }
-
-; begin INTEL_CUSTOMIZATION
-; Check recognition of saturation donwconvert pattern
-; http://rise4fun.com/Alive/Puh
-define zeroext i8 @saturation_downconvert(i32 %x) {
-; CHECK-LABEL: @saturation_downconvert(
-; CHECK-NEXT:    [[TMP1:%.*]] = call i32 @llvm.smax.i32(i32 [[X:%.*]], i32 0)
-; CHECK-NEXT:    [[TMP2:%.*]] = call i32 @llvm.umin.i32(i32 [[TMP1]], i32 255)
-; CHECK-NEXT:    [[CONV:%.*]] = trunc i32 [[TMP2]] to i8
-; CHECK-NEXT:    ret i8 [[CONV]]
-;
-  %tobool = icmp ugt i32 %x, 255
-  %sub = sub nsw i32 0, %x
-  %shr = ashr i32 %sub, 31
-  %cond = select i1 %tobool, i32 %shr, i32 %x
-  %conv = trunc i32 %cond to i8
-  ret i8 %conv
-}
-
-; Check that saturation will not be recognized if there is no appropriate trunc
-; instruction.
-define zeroext i32 @no_saturation_without_downconvert(i32 %x) {
-; CHECK-LABEL: @no_saturation_without_downconvert(
-; CHECK-NEXT:    [[TOBOOL:%.*]] = icmp ugt i32 [[X:%.*]], 255
-; CHECK-NEXT:    [[TMP1:%.*]] = icmp sgt i32 [[X]], 0
-; CHECK-NEXT:    [[SHR:%.*]] = sext i1 [[TMP1]] to i32
-; CHECK-NEXT:    [[COND:%.*]] = select i1 [[TOBOOL]], i32 [[SHR]], i32 [[X]]
-; CHECK-NEXT:    ret i32 [[COND]]
-;
-  %tobool = icmp ugt i32 %x, 255
-  %sub = sub nsw i32 0, %x
-  %shr = ashr i32 %sub, 31
-  %cond = select i1 %tobool, i32 %shr, i32 %x
-  ret i32 %cond
-}
-; end INTEL_CUSTOMIZATION

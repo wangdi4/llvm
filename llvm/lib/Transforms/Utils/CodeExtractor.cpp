@@ -1957,7 +1957,8 @@ static void eraseDebugIntrinsicsWithNonLocalRefs(Function &F) {
 }
 
 #if INTEL_COLLAB
-static void updateDebugPostExtraction(Function *OldF, Function *NewF) {
+static void updateDebugPostExtraction(Function *OldF, Function *NewF,
+                                      CallInst *TheCall) {
   // If there's no debug information to update then we are done.
   DISubprogram *OSP = OldF->getSubprogram();
   if (!OSP)
@@ -2132,6 +2133,8 @@ static void updateDebugPostExtraction(Function *OldF, Function *NewF) {
   MDMap[OSP].reset(NSP);
   MDMap[NSP].reset(NSP);
   RemapFunction(*NewF, VMap, RF_IgnoreMissingLocals);
+  if (!TheCall->getDebugLoc())
+    TheCall->setDebugLoc(DILocation::get(OldF->getContext(), 0, 0, OSP));
 }
 #endif
 
@@ -2597,7 +2600,7 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
   }
 
   if (IntelCodeExtractorDebug)
-    updateDebugPostExtraction(oldFunction, newFunction);
+    updateDebugPostExtraction(oldFunction, newFunction, TheCall);
   else
 #endif // INTEL_COLLAB
   fixupDebugInfoPostExtraction(*oldFunction, *newFunction, *TheCall);

@@ -32,8 +32,8 @@ S Var2;
 // CHECK-TGT-NEXT: call void @_Z3barv()
 // CHECK-TGT-NEXT: call void @llvm.directive.region.exit(token [[REGION]]) [ "DIR.OMP.END.TARGET"() ]
 
-// CHECK-TGT: define dso_local void @[[CTOR:__omp_offloading.*_ctor]]()
-// CHECK-TGT: define dso_local void @[[DTOR:__omp_offloading.*_dtor]]()
+// CHECK-TGT: define {{.*}}void @[[CTOR:__omp_offloading.*_ctor]]()
+// CHECK-TGT: define {{.*}}void @[[DTOR:__omp_offloading.*_dtor]]()
 
 // Target IR shoud not have variables that are not defined as "declare target".
 // CHECK-HST:     @Var3 = {{.*}}global i32 10

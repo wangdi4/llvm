@@ -1,12 +1,3 @@
-if (CMAKE_CFG_INTDIR STREQUAL ".")
-  set(LLVM_BUILD_MODE ".")
-else ()
-  set(LLVM_BUILD_MODE "%(build_mode)s")
-endif ()
-
-string(REPLACE "${CMAKE_CFG_INTDIR}" "${LLVM_BUILD_MODE}" LLD_LIBS_DIR "${LLVM_LIBRARY_OUTPUT_INTDIR}")
-string(REPLACE "${CMAKE_CFG_INTDIR}" "${LLVM_BUILD_MODE}" LLD_TOOLS_DIR "${LLVM_RUNTIME_OUTPUT_INTDIR}")
-
 llvm_canonicalize_cmake_booleans(
   LLVM_ENABLE_ZLIB
   LLVM_ENABLE_LIBXML2
@@ -17,6 +8,9 @@ llvm_canonicalize_cmake_booleans(
   INTEL_DTRANS_EXTRA_OPTS
 # end INTEL_FEATURE_SW_DTRANS
 # end INTEL_CUSTOMIZATION
+  LLVM_BUILD_EXAMPLES
+  LLVM_ENABLE_PLUGINS
+  LLVM_BYE_LINK_INTO_TOOLS
   )
 
 configure_lit_site_cfg(
@@ -65,6 +59,11 @@ if (NOT LLD_BUILT_STANDALONE)
     split-file
     yaml2obj
     )
+    if (NOT WIN32 AND LLVM_BUILD_EXAMPLES)
+      list(APPEND LLD_TEST_DEPS
+        Bye
+        )
+    endif()
 endif()
 
 add_lit_testsuite(check-lld "Running lld test suite"

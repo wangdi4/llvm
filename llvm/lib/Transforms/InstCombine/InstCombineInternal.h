@@ -393,7 +393,8 @@ private:
   /// Optimize (fcmp)&(fcmp) or (fcmp)|(fcmp).
   /// NOTE: Unlike most of instcombine, this returns a Value which should
   /// already be inserted into the function.
-  Value *foldLogicOfFCmps(FCmpInst *LHS, FCmpInst *RHS, bool IsAnd);
+  Value *foldLogicOfFCmps(FCmpInst *LHS, FCmpInst *RHS, bool IsAnd,
+                          bool IsLogicalSelect = false);
 
 #if INTEL_CUSTOMIZATION
   /// Recognize min/max semantics in (fcmp)&(fcmp) and (fcmp)|(fcmp).

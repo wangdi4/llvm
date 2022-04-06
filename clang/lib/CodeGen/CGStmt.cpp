@@ -477,16 +477,6 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
 #if INTEL_COLLAB
   case Stmt::OMPTargetVariantDispatchDirectiveClass:
     llvm_unreachable("target variant dispatch not supported with FE outlining");
-//  case Stmt::OMPGenericLoopDirectiveClass:
-//    llvm_unreachable("loop not supported with FE outlining");
-  case Stmt::OMPTeamsGenericLoopDirectiveClass:
-    llvm_unreachable("teams loop not supported with FE outlining");
-  case Stmt::OMPTargetTeamsGenericLoopDirectiveClass:
-    llvm_unreachable("target teams loop not supported with FE outlining");
-  case Stmt::OMPParallelGenericLoopDirectiveClass:
-    llvm_unreachable("parallel loop not supported with FE outlining");
-  case Stmt::OMPTargetParallelGenericLoopDirectiveClass:
-    llvm_unreachable("target parallel loop not supported with FE outlining");
   case Stmt::OMPPrefetchDirectiveClass:
     llvm_unreachable("prefetch not supported with FE outlining");
   case Stmt::OMPScopeDirectiveClass:
@@ -497,6 +487,18 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     break;
   case Stmt::OMPGenericLoopDirectiveClass:
     EmitOMPGenericLoopDirective(cast<OMPGenericLoopDirective>(*S));
+    break;
+  case Stmt::OMPTeamsGenericLoopDirectiveClass:
+    llvm_unreachable("teams loop directive not supported yet.");
+    break;
+  case Stmt::OMPTargetTeamsGenericLoopDirectiveClass:
+    llvm_unreachable("target teams loop directive not supported yet.");
+    break;
+  case Stmt::OMPParallelGenericLoopDirectiveClass:
+    llvm_unreachable("parallel loop directive not supported yet.");
+    break;
+  case Stmt::OMPTargetParallelGenericLoopDirectiveClass:
+    llvm_unreachable("target parallel loop directive not supported yet.");
     break;
   }
 }
@@ -1017,23 +1019,33 @@ CodeGenFunction::IntelPrefetchExprHandler::~IntelPrefetchExprHandler() {
 void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
   bool nomerge = false;
   bool noinline = false;
+  bool alwaysinline = false;
   const CallExpr *musttail = nullptr;
 
   for (const auto *A : S.getAttrs()) {
-    if (A->getKind() == attr::NoMerge) {
+    switch (A->getKind()) {
+    default:
+      break;
+    case attr::NoMerge:
       nomerge = true;
-    }
-    if (A->getKind() == attr::NoInline) {
+      break;
+    case attr::NoInline:
       noinline = true;
-    }
-    if (A->getKind() == attr::MustTail) {
+      break;
+    case attr::AlwaysInline:
+      alwaysinline = true;
+      break;
+    case attr::MustTail:
       const Stmt *Sub = S.getSubStmt();
       const ReturnStmt *R = cast<ReturnStmt>(Sub);
       musttail = cast<CallExpr>(R->getRetValue()->IgnoreParens());
+      break;
     }
   }
   SaveAndRestore<bool> save_nomerge(InNoMergeAttributedStmt, nomerge);
   SaveAndRestore<bool> save_noinline(InNoInlineAttributedStmt, noinline);
+  SaveAndRestore<bool> save_alwaysinline(InAlwaysInlineAttributedStmt,
+                                         alwaysinline);
   SaveAndRestore<const CallExpr *> save_musttail(MustTailCall, musttail);
 #if INTEL_CUSTOMIZATION
   IntelPragmaInlineState PS(*this, S.getAttrs());
@@ -3130,9 +3142,8 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
       QualType Ty = getContext().getIntTypeForBitwidth(Size, /*Signed*/ false);
       if (Ty.isNull()) {
         const Expr *OutExpr = S.getOutputExpr(i);
-        CGM.Error(
-            OutExpr->getExprLoc(),
-            "impossible constraint in asm: can't store value into a register");
+        CGM.getDiags().Report(OutExpr->getExprLoc(),
+                              diag::err_store_value_to_reg);
         return;
       }
       Dest = MakeAddrLValue(A, Ty);

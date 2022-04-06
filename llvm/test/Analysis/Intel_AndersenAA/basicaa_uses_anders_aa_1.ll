@@ -50,6 +50,10 @@ L2:
   %call3 = tail call noalias i8* @malloc(i64 1024)
   store i8* %call3, i8** bitcast (double** @sumdeijda to i8**)
   %G3 = load double*, double** @riff
+
+; these loads are needed to trigger aa-eval
+  %ld.G3 = load double, double* %G3, align 8
+  %ld.ld2 = load double, double* %ld2
   ret i32 0
 }
 

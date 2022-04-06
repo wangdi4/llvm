@@ -774,7 +774,8 @@ void RISCVDAGToDAGISel::Select(SDNode *Node) {
         // (srli (slli x, c3-c2), c3).
         // Skip it in order to select sraiw.
         bool Skip = Subtarget->hasStdExtZba() && C3 == 32 &&
-                    X.getOpcode() == ISD::SIGN_EXTEND_INREG;
+                    X.getOpcode() == ISD::SIGN_EXTEND_INREG &&
+                    cast<VTSDNode>(X.getOperand(1))->getVT() == MVT::i32;
         if (OneUseOrZExtW && !IsANDI && !Skip) {
           SDNode *SLLI = CurDAG->getMachineNode(
               RISCV::SLLI, DL, XLenVT, X,
@@ -1107,11 +1108,16 @@ void RISCVDAGToDAGISel::Select(SDNode *Node) {
       SDValue V0 = CurDAG->getRegister(RISCV::V0, VT);
 
       // Otherwise use
-      // vmslt{u}.vx vd, va, x, v0.t; vmxor.mm vd, vd, v0
+      // vmslt{u}.vx vd, va, x, v0.t; if mask policy is agnostic.
       SDValue Cmp = SDValue(
           CurDAG->getMachineNode(VMSLTMaskOpcode, DL, VT,
                                  {MaskedOff, Src1, Src2, V0, VL, SEW, Glue}),
           0);
+      if (MaskedOff.isUndef()) {
+        ReplaceNode(Node, Cmp.getNode());
+        return;
+      }
+      // Need vmxor.mm vd, vd, v0 to assign inactive value.
       ReplaceNode(Node, CurDAG->getMachineNode(VMXOROpcode, DL, VT,
                                                {Cmp, Mask, VL, MaskSEW}));
       return;

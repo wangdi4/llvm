@@ -30,12 +30,10 @@
 #ifndef LLVM_CODEGEN_TARGETSUBTARGETINFO_H
 #define LLVM_CODEGEN_TARGETSUBTARGETINFO_H
 
-#include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/CodeGen/PBQPRAConstraint.h"
-#include "llvm/CodeGen/ScheduleDAGMutation.h"
 #include "llvm/CodeGen/SchedulerRegistry.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Support/CodeGen.h"
@@ -45,6 +43,9 @@
 
 namespace llvm {
 
+class APInt;
+class MachineFunction;
+class ScheduleDAGMutation;
 class CallLowering;
 class InlineAsmLowering;
 class InstrItineraryData;
@@ -289,11 +290,6 @@ public:
   /// This heuristic may be compile time intensive, \p OptLevel provides
   /// a finer grain to tune the register allocator.
   virtual bool enableRALocalReassignment(CodeGenOpt::Level OptLevel) const;
-
-  /// True if the subtarget should consider the cost of local intervals
-  /// created by a split candidate when choosing the best split candidate. This
-  /// heuristic may be compile time intensive.
-  virtual bool enableAdvancedRASplitCost() const;
 
   /// Enable use of alias analysis during code generation (during MI
   /// scheduling, DAGCombine, etc.).

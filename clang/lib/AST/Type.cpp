@@ -1916,8 +1916,14 @@ bool Type::hasAutoForTrailingReturnType() const {
 bool Type::hasIntegerRepresentation() const {
   if (const auto *VT = dyn_cast<VectorType>(CanonicalType))
     return VT->getElementType()->isIntegerType();
-  else
-    return isIntegerType();
+  if (CanonicalType->isVLSTBuiltinType()) {
+    const auto *VT = cast<BuiltinType>(CanonicalType);
+    return VT->getKind() == BuiltinType::SveBool ||
+           (VT->getKind() >= BuiltinType::SveInt8 &&
+            VT->getKind() <= BuiltinType::SveUint64);
+  }
+
+  return isIntegerType();
 }
 
 /// Determine whether this type is an integral type.
@@ -3350,7 +3356,6 @@ CanThrowResult FunctionProtoType::canThrow() const {
   switch (getExceptionSpecType()) {
   case EST_Unparsed:
   case EST_Unevaluated:
-  case EST_Uninstantiated:
     llvm_unreachable("should not call this with unresolved exception specs");
 
   case EST_DynamicNone:
@@ -3372,6 +3377,7 @@ CanThrowResult FunctionProtoType::canThrow() const {
         return CT_Can;
     return CT_Dependent;
 
+  case EST_Uninstantiated:
   case EST_DependentNoexcept:
     return CT_Dependent;
   }

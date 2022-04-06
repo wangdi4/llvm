@@ -547,6 +547,7 @@ option(LLVM_ENABLE_PEDANTIC "Compile with pedantic enabled." ON)
 option(LLVM_ENABLE_WERROR "Fail and stop if a warning is triggered." OFF)
 
 option(LLVM_ENABLE_DUMP "Enable dump functions even when assertions are disabled" OFF)
+option(LLVM_UNREACHABLE_OPTIMIZE "Optimize llvm_unreachable() as undefined behavior (default), guaranteed trap when OFF" ON)
 
 if( NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG" )
   option(LLVM_ENABLE_ASSERTIONS "Enable assertions" OFF)
@@ -1962,7 +1963,7 @@ if (INTEL_CUSTOMIZATION)
         # XDEV components
         xdev-icpx
         # CXX components
-        cxx cxxabi cxx-headers
+        cxx cxxabi cxx-headers cxxabi-headers
         )
 
       # CMPLRLLVM-20054: icx-lto is a release name for LLVMgold plugin.

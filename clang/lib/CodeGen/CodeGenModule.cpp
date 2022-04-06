@@ -63,6 +63,7 @@
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Basic/Version.h"
+#include "clang/CodeGen/BackendUtil.h"
 #include "clang/CodeGen/ConstantInitBuilder.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
 #if INTEL_CUSTOMIZATION
@@ -1071,6 +1072,9 @@ void CodeGenModule::Release() {
 
   EmitBackendOptionsMetadata(getCodeGenOpts());
 
+  // If there is device offloading code embed it in the host now.
+  EmbedObject(&getModule(), CodeGenOpts, getDiags());
+
   // Set visibility from DLL storage class
   // We do this at the end of LLVM IR generation; after any operation
   // that might affect the DLL storage class or the visibility, and
@@ -1729,10 +1733,17 @@ void CodeGenModule::EmitCtorList(CtorList &Fns, const char *GlobalName) {
   llvm::FunctionType* CtorFTy = llvm::FunctionType::get(VoidTy, false);
   llvm::Type *CtorPFTy = llvm::PointerType::get(CtorFTy,
       TheModule.getDataLayout().getProgramAddressSpace());
+  llvm::PointerType *TargetType = VoidPtrTy;
+  // Get target type when templated global variables are used,
+  // to emit them correctly in the target (default) address space and avoid
+  // emitting them in a private address space.
+  if (getLangOpts().SYCLIsDevice)
+    TargetType = llvm::IntegerType::getInt8PtrTy(
+        getLLVMContext(), getContext().getTargetAddressSpace(LangAS::Default));
 
   // Get the type of a ctor entry, { i32, void ()*, i8* }.
-  llvm::StructType *CtorStructTy = llvm::StructType::get(
-      Int32Ty, CtorPFTy, VoidPtrTy);
+  llvm::StructType *CtorStructTy =
+      llvm::StructType::get(Int32Ty, CtorPFTy, TargetType);
 
   // Construct the constructor and destructor arrays.
   ConstantInitBuilder builder(*this);
@@ -1741,10 +1752,12 @@ void CodeGenModule::EmitCtorList(CtorList &Fns, const char *GlobalName) {
     auto ctor = ctors.beginStruct(CtorStructTy);
     ctor.addInt(Int32Ty, I.Priority);
     ctor.add(llvm::ConstantExpr::getBitCast(I.Initializer, CtorPFTy));
+    // Emit appropriate bitcasts for pointers of different address spaces.
     if (I.AssociatedData)
-      ctor.add(llvm::ConstantExpr::getBitCast(I.AssociatedData, VoidPtrTy));
+      ctor.add(llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
+          I.AssociatedData, TargetType));
     else
-      ctor.addNullPointer(VoidPtrTy);
+      ctor.addNullPointer(TargetType);
     ctor.finishAndAddTo(ctors);
   }
 
@@ -2853,19 +2866,26 @@ static void emitUsed(CodeGenModule &CGM, StringRef Name,
   // Don't create llvm.used if there is no need.
   if (List.empty())
     return;
+  // For SYCL emit pointers in the default address space which is a superset of
+  // other address spaces, so that casts from any other address spaces will be
+  // valid.
+  llvm::PointerType *TargetType = CGM.Int8PtrTy;
+  if (CGM.getLangOpts().SYCLIsDevice)
+    TargetType = llvm::IntegerType::getInt8PtrTy(
+        CGM.getLLVMContext(),
+        CGM.getContext().getTargetAddressSpace(LangAS::Default));
 
   // Convert List to what ConstantArray needs.
   SmallVector<llvm::Constant*, 8> UsedArray;
   UsedArray.resize(List.size());
   for (unsigned i = 0, e = List.size(); i != e; ++i) {
-    UsedArray[i] =
-        llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
-            cast<llvm::Constant>(&*List[i]), CGM.Int8PtrTy);
+    UsedArray[i] = llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
+        cast<llvm::Constant>(&*List[i]), TargetType);
   }
 
   if (UsedArray.empty())
     return;
-  llvm::ArrayType *ATy = llvm::ArrayType::get(CGM.Int8PtrTy, UsedArray.size());
+  llvm::ArrayType *ATy = llvm::ArrayType::get(TargetType, UsedArray.size());
 
   auto *GV = new llvm::GlobalVariable(
       CGM.getModule(), ATy, false, llvm::GlobalValue::AppendingLinkage,
@@ -3065,8 +3085,8 @@ void CodeGenModule::EmitDeferred() {
   // Note we should not clear CUDADeviceVarODRUsedByHost since it is still
   // needed for further handling.
   if (getLangOpts().CUDA && getLangOpts().CUDAIsDevice)
-    for (const auto *V : getContext().CUDADeviceVarODRUsedByHost)
-      DeferredDeclsToEmit.push_back(V);
+    llvm::append_range(DeferredDeclsToEmit,
+                       getContext().CUDADeviceVarODRUsedByHost);
 
   // Stop if we're out of both deferred vtables and deferred declarations.
   if (DeferredDeclsToEmit.empty())
@@ -3291,6 +3311,26 @@ void CodeGenModule::AddGlobalAnnotations(const ValueDecl *D,
     Annotations.push_back(EmitAnnotateAttr(GV, I, D->getLocation()));
 }
 
+void CodeGenModule::AddGlobalSYCLIRAttributes(llvm::GlobalVariable *GV,
+                                              const RecordDecl *RD) {
+  const auto *A = RD->getAttr<SYCLAddIRAttributesGlobalVariableAttr>();
+  assert(A && "no add_ir_attributes_global_variable attribute");
+  SmallVector<std::pair<std::string, std::string>, 4> NameValuePairs =
+      A->getFilteredAttributeNameValuePairs(Context);
+  for (const std::pair<std::string, std::string> &NameValuePair :
+       NameValuePairs)
+    GV->addAttribute(NameValuePair.first, NameValuePair.second);
+}
+
+// Add "sycl-unique-id" llvm IR attribute that has a unique string generated
+// by __builtin_sycl_unique_stable_id for global variables marked with
+// SYCL device_global attribute.
+static void addSYCLUniqueID(llvm::GlobalVariable *GV, const VarDecl *VD,
+                            ASTContext &Context) {
+  auto builtinString = SYCLUniqueStableIdExpr::ComputeName(Context, VD);
+  GV->addAttribute("sycl-unique-id", builtinString);
+}
+
 bool CodeGenModule::isInNoSanitizeList(SanitizerMask Kind, llvm::Function *Fn,
                                        SourceLocation Loc) const {
   const auto &NoSanitizeL = getContext().getNoSanitizeList();
@@ -3506,6 +3546,37 @@ ConstantAddress CodeGenModule::GetAddrOfMSGuidDecl(const MSGuidDecl *GD) {
   llvm::Constant *Addr = llvm::ConstantExpr::getBitCast(
       GV, Ty->getPointerTo(GV->getAddressSpace()));
   return ConstantAddress(Addr, Ty, Alignment);
+}
+
+ConstantAddress CodeGenModule::GetAddrOfUnnamedGlobalConstantDecl(
+    const UnnamedGlobalConstantDecl *GCD) {
+  CharUnits Alignment = getContext().getTypeAlignInChars(GCD->getType());
+
+  llvm::GlobalVariable **Entry = nullptr;
+  Entry = &UnnamedGlobalConstantDeclMap[GCD];
+  if (*Entry)
+    return ConstantAddress(*Entry, (*Entry)->getValueType(), Alignment);
+
+  ConstantEmitter Emitter(*this);
+  llvm::Constant *Init;
+
+  const APValue &V = GCD->getValue();
+
+  assert(!V.isAbsent());
+  Init = Emitter.emitForInitializer(V, GCD->getType().getAddressSpace(),
+                                    GCD->getType());
+
+  auto *GV = new llvm::GlobalVariable(getModule(), Init->getType(),
+                                      /*isConstant=*/true,
+                                      llvm::GlobalValue::PrivateLinkage, Init,
+                                      ".constant");
+  GV->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+  GV->setAlignment(Alignment.getAsAlign());
+
+  Emitter.finalize(GV);
+
+  *Entry = GV;
+  return ConstantAddress(GV, GV->getValueType(), Alignment);
 }
 
 ConstantAddress CodeGenModule::GetAddrOfTemplateParamObject(
@@ -5792,6 +5863,18 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
   if (getLangOpts().SYCLIsDevice)
     addGlobalIntelFPGAAnnotation(D, GV);
 
+  if (getLangOpts().SYCLIsDevice) {
+    const RecordDecl *RD = D->getType()->getAsRecordDecl();
+    // Add IR attributes if add_ir_attribute_global_variable is attached to
+    // type.
+    if (RD && RD->hasAttr<SYCLAddIRAttributesGlobalVariableAttr>())
+      AddGlobalSYCLIRAttributes(GV, RD);
+    // If VarDecl has a type decorated with SYCL device_global attribute, emit
+    // IR attribute 'sycl-unique-id'.
+    if (RD && RD->hasAttr<SYCLDeviceGlobalAttr>())
+      addSYCLUniqueID(GV, D, Context);
+  }
+
   if (D->getType().isRestrictQualified()) {
     llvm::LLVMContext &Context = getLLVMContext();
 
@@ -6658,6 +6741,8 @@ CodeGenModule::GetAddrOfConstantCFString(const StringLiteral *Literal) {
     llvm_unreachable("GOFF is not yet implemented");
   case llvm::Triple::XCOFF:
     llvm_unreachable("XCOFF is not yet implemented");
+  case llvm::Triple::DXContainer:
+    llvm_unreachable("DXContainer is not yet implemented");
   case llvm::Triple::COFF:
   case llvm::Triple::ELF:
   case llvm::Triple::Wasm:
@@ -7730,14 +7815,9 @@ void CodeGenModule::EmitOMPThreadPrivateDecl(const OMPThreadPrivateDecl *D) {
         VD->getAnyInitializer() &&
         !VD->getAnyInitializer()->isConstantInitializer(getContext(),
                                                         /*ForRef=*/false);
-#if INTEL_CUSTOMIZATION
-    // Temporary fix for opaque pointer problem.
-    // Pulldown coordinator: Please replace with community code unless it
-    // contains Address::deprecated.
-    Address Addr = Address(GetAddrOfGlobalVar(VD),
-                           getTypes().ConvertTypeForMem(VD->getType()),
-                           getContext().getDeclAlign(VD));
-#endif // INTEL_CUSTOMIZATION
+    Address Addr(GetAddrOfGlobalVar(VD),
+                 getTypes().ConvertTypeForMem(VD->getType()),
+                 getContext().getDeclAlign(VD));
     if (auto InitFunction = getOpenMPRuntime().emitThreadPrivateVarDefinition(
             VD, Addr, RefExpr->getBeginLoc(), PerformInit))
       CXXGlobalInits.push_back(InitFunction);

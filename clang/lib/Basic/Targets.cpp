@@ -36,6 +36,7 @@
 #include "Targets/ARM.h"
 #include "Targets/AVR.h"
 #include "Targets/BPF.h"
+#include "Targets/DirectX.h"
 #include "Targets/Hexagon.h"
 #include "Targets/Lanai.h"
 #include "Targets/Le64.h"
@@ -736,6 +737,8 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
         return nullptr;
     }
 
+  case llvm::Triple::dxil:
+    return new DirectXTargetInfo(Triple,Opts);
   case llvm::Triple::renderscript32:
     return new LinuxTargetInfo<RenderScript32TargetInfo>(Triple, Opts);
   case llvm::Triple::renderscript64:

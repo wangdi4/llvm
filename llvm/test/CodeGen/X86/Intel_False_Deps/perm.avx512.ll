@@ -99,11 +99,11 @@ define <4 x i64> @permq_maskz_256(<4 x i64> %a0, <4 x i64> %idx, i8* %mask) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:    kmovb (%rdi), %k1
 ; CHECK-NEXT:    vxorps %xmm2, %xmm2, %xmm2
-; CHECK-NEXT:    vpermq %ymm0, %ymm1, %ymm2 {%k1} {z}
+; CHECK-NEXT:    vpermq %ymm0, %ymm1, %ymm2
+; CHECK-NEXT:    kmovb (%rdi), %k1
 ; CHECK-NEXT:    vpaddq %ymm1, %ymm0, %ymm0
-; CHECK-NEXT:    vpaddq %ymm0, %ymm2, %ymm0
+; CHECK-NEXT:    vpaddq %ymm2, %ymm0, %ymm0 {%k1}
 ; CHECK-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = load i8, i8* %mask
@@ -180,11 +180,11 @@ define <8 x i64> @permq_maskz_512(<8 x i64> %a0, <8 x i64> %idx, i8* %mask) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:    kmovb (%rdi), %k1
 ; CHECK-NEXT:    vpxor %xmm2, %xmm2, %xmm2
-; CHECK-NEXT:    vpermq %zmm0, %zmm1, %zmm2 {%k1} {z}
+; CHECK-NEXT:    vpermq %zmm0, %zmm1, %zmm2
+; CHECK-NEXT:    kmovb (%rdi), %k1
 ; CHECK-NEXT:    vpaddq %zmm1, %zmm0, %zmm0
-; CHECK-NEXT:    vpaddq %zmm0, %zmm2, %zmm0
+; CHECK-NEXT:    vpaddq %zmm2, %zmm0, %zmm0 {%k1}
 ; CHECK-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = load i8, i8* %mask
@@ -261,11 +261,11 @@ define <8 x i32> @permd_maskz_256(<8 x i32> %a0, <8 x i32> %idx, i8* %mask) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:    kmovb (%rdi), %k1
 ; CHECK-NEXT:    vxorps %xmm2, %xmm2, %xmm2
-; CHECK-NEXT:    vpermd %ymm0, %ymm1, %ymm2 {%k1} {z}
+; CHECK-NEXT:    vpermd %ymm0, %ymm1, %ymm2
+; CHECK-NEXT:    kmovb (%rdi), %k1
 ; CHECK-NEXT:    vpaddd %ymm1, %ymm0, %ymm0
-; CHECK-NEXT:    vpaddd %ymm0, %ymm2, %ymm0
+; CHECK-NEXT:    vpaddd %ymm2, %ymm0, %ymm0 {%k1}
 ; CHECK-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = load i8, i8* %mask
@@ -341,11 +341,11 @@ define <16 x i32> @permd_maskz_512(<16 x i32> %a0, <16 x i32> %idx, i16* %mask) 
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:    kmovw (%rdi), %k1
 ; CHECK-NEXT:    vpxor %xmm2, %xmm2, %xmm2
-; CHECK-NEXT:    vpermd %zmm0, %zmm1, %zmm2 {%k1} {z}
+; CHECK-NEXT:    vpermd %zmm0, %zmm1, %zmm2
+; CHECK-NEXT:    kmovw (%rdi), %k1
 ; CHECK-NEXT:    vpaddd %zmm1, %zmm0, %zmm0
-; CHECK-NEXT:    vpaddd %zmm0, %zmm2, %zmm0
+; CHECK-NEXT:    vpaddd %zmm2, %zmm0, %zmm0 {%k1}
 ; CHECK-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = load i16, i16* %mask

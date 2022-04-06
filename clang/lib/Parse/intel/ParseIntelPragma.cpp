@@ -72,9 +72,9 @@ bool Parser::HandlePragmaIntelInline(SourceRange &Range,
 StmtResult Parser::ParsePragmaInline(StmtVector &Stmts,
                                      ParsedStmtContext StmtCtx,
                                      SourceLocation *TrailingElseLoc,
-                                     ParsedAttributesWithRange &Attrs) {
+                                     ParsedAttributes &Attrs) {
   // Create temporary attribute list.
-  ParsedAttributesWithRange TempAttrs(AttrFactory);
+  ParsedAttributes TempAttrs(AttrFactory);
 
   // Get #pragma inline info and consume annotated token.
   while (Tok.is(tok::annot_pragma_inline)) {
@@ -222,9 +222,9 @@ bool Parser::HandlePragmaBlockLoop(ArgsVector *ArgExprs) {
 StmtResult Parser::ParsePragmaBlockLoop(StmtVector &Stmts,
                                         ParsedStmtContext StmtCtx,
                                         SourceLocation *TrailingElseLoc,
-                                        ParsedAttributesWithRange &Attrs) {
+                                        ParsedAttributes &Attrs) {
   // Create temporary attribute list.
-  ParsedAttributesWithRange TempAttrs(AttrFactory);
+  ParsedAttributes TempAttrs(AttrFactory);
 
   // Get blockloop arguments and consume annotated token.
   assert(Tok.is(tok::annot_pragma_blockloop));
@@ -514,9 +514,9 @@ bool Parser::HandlePragmaPrefetch(ArgsVector *ArgExprs) {
 StmtResult Parser::ParsePragmaPrefetch(StmtVector &Stmts,
                                        ParsedStmtContext StmtCtx,
                                        SourceLocation *TrailingElseLoc,
-                                       ParsedAttributesWithRange &Attrs) {
+                                       ParsedAttributes &Attrs) {
   // Create temporary attribute list.
-  ParsedAttributesWithRange TempAttrs(AttrFactory);
+  ParsedAttributes TempAttrs(AttrFactory);
 
   // Get prefetch arguments and consume annotated token.
   assert(Tok.is(tok::annot_pragma_prefetch));

@@ -1694,6 +1694,10 @@ bool CursorVisitor::VisitAttributedTypeLoc(AttributedTypeLoc TL) {
   return Visit(TL.getModifiedLoc());
 }
 
+bool CursorVisitor::VisitBTFTagAttributedTypeLoc(BTFTagAttributedTypeLoc TL) {
+  return Visit(TL.getWrappedLoc());
+}
+
 bool CursorVisitor::VisitFunctionTypeLoc(FunctionTypeLoc TL,
                                          bool SkipResultType) {
   if (!SkipResultType && Visit(TL.getReturnLoc()))
@@ -5685,14 +5689,6 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
   case CXCursor_OMPSectionDirective:
     return cxstring::createRef("OMPSectionDirective");
 #if INTEL_COLLAB
-  case CXCursor_OMPTeamsGenericLoopDirective:
-    return cxstring::createRef("OMPTeamsGenericLoopDirective");
-  case CXCursor_OMPTargetTeamsGenericLoopDirective:
-    return cxstring::createRef("OMPTargetTeamsGenericLoopDirective");
-  case CXCursor_OMPParallelGenericLoopDirective:
-    return cxstring::createRef("OMPParallelGenericLoopDirective");
-  case CXCursor_OMPTargetParallelGenericLoopDirective:
-    return cxstring::createRef("OMPTargetParallelGenericLoopDirective");
   case CXCursor_OMPTargetVariantDispatchDirective:
     return cxstring::createRef("OMPTargetVariantDispatchDirective");
   case CXCursor_OMPPrefetchDirective:
@@ -5805,6 +5801,14 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("OMPMaskedDirective");
   case CXCursor_OMPGenericLoopDirective:
     return cxstring::createRef("OMPGenericLoopDirective");
+  case CXCursor_OMPTeamsGenericLoopDirective:
+    return cxstring::createRef("OMPTeamsGenericLoopDirective");
+  case CXCursor_OMPTargetTeamsGenericLoopDirective:
+    return cxstring::createRef("OMPTargetTeamsGenericLoopDirective");
+  case CXCursor_OMPParallelGenericLoopDirective:
+    return cxstring::createRef("OMPParallelGenericLoopDirective");
+  case CXCursor_OMPTargetParallelGenericLoopDirective:
+    return cxstring::createRef("OMPTargetParallelGenericLoopDirective");
   case CXCursor_OverloadCandidate:
     return cxstring::createRef("OverloadCandidate");
   case CXCursor_TypeAliasTemplateDecl:
@@ -6549,6 +6553,7 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   case Decl::Binding:
   case Decl::MSProperty:
   case Decl::MSGuid:
+  case Decl::UnnamedGlobalConstant:
   case Decl::TemplateParamObject:
   case Decl::IndirectField:
   case Decl::ObjCIvar:

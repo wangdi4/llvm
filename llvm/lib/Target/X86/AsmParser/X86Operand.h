@@ -54,6 +54,10 @@ struct X86Operand final : public MCParsedAsmOperand {
   void *OpDecl;
   bool AddressOf;
 
+  /// This used for inline asm which may specify base reg and index reg for
+  /// MemOp. e.g. ARR[eax + ecx*4], so no extra reg can be used for MemOp.
+  bool UseUpRegs = false;
+
   struct TokOp {
     const char *Data;
     unsigned Length;

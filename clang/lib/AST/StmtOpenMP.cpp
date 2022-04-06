@@ -619,204 +619,6 @@ OMPTargetVariantDispatchDirective::CreateEmpty(const ASTContext &C,
       /*NumChildren=*/0);
 }
 
-OMPTeamsGenericLoopDirective *OMPTeamsGenericLoopDirective::Create(
-    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
-    unsigned CollapsedNum, ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt,
-    const HelperExprs &Exprs) {
-  auto *Dir = createDirective<OMPTeamsGenericLoopDirective>(
-      C, Clauses, AssociatedStmt,
-      numLoopChildren(CollapsedNum, OMPD_teams_loop), StartLoc, EndLoc,
-      CollapsedNum);
-  Dir->setIterationVariable(Exprs.IterationVarRef);
-  Dir->setLastIteration(Exprs.LastIteration);
-  Dir->setCalcLastIteration(Exprs.CalcLastIteration);
-  Dir->setPreCond(Exprs.PreCond);
-  Dir->setCond(Exprs.Cond);
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
-  Dir->setLateOutlineLinearCounterIncrement(
-      Exprs.LateOutlineLinearCounterIncrement);
-  Dir->setInit(Exprs.Init);
-  Dir->setInc(Exprs.Inc);
-  Dir->setIsLastIterVariable(Exprs.IL);
-  Dir->setLowerBoundVariable(Exprs.LB);
-  Dir->setUpperBoundVariable(Exprs.UB);
-  Dir->setStrideVariable(Exprs.ST);
-  Dir->setEnsureUpperBound(Exprs.EUB);
-  Dir->setNextLowerBound(Exprs.NLB);
-  Dir->setNextUpperBound(Exprs.NUB);
-  Dir->setNumIterations(Exprs.NumIterations);
-  Dir->setCounters(Exprs.Counters);
-  Dir->setPrivateCounters(Exprs.PrivateCounters);
-  Dir->setInits(Exprs.Inits);
-  Dir->setUpdates(Exprs.Updates);
-  Dir->setFinals(Exprs.Finals);
-  Dir->setDependentCounters(Exprs.DependentCounters);
-  Dir->setDependentInits(Exprs.DependentInits);
-  Dir->setFinalsConditions(Exprs.FinalsConditions);
-  CALL_ALL_SET_UNCOLLAPSED // INTEL
-  Dir->setPreInits(Exprs.PreInits);
-  return Dir;
-}
-
-OMPTeamsGenericLoopDirective *
-OMPTeamsGenericLoopDirective::CreateEmpty(const ASTContext &C,
-                                          unsigned NumClauses,
-                                          unsigned CollapsedNum, EmptyShell) {
-  return createEmptyDirective<OMPTeamsGenericLoopDirective>(
-      C, NumClauses, /*HasAssociatedStmt=*/true,
-      numLoopChildren(CollapsedNum, OMPD_teams_loop), CollapsedNum);
-}
-
-OMPTargetTeamsGenericLoopDirective *OMPTargetTeamsGenericLoopDirective::Create(
-    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
-    unsigned CollapsedNum, ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt,
-    const HelperExprs &Exprs) {
-  auto *Dir = createDirective<OMPTargetTeamsGenericLoopDirective>(
-      C, Clauses, AssociatedStmt,
-      numLoopChildren(CollapsedNum, OMPD_target_teams_loop), StartLoc, EndLoc,
-      CollapsedNum);
-  Dir->setIterationVariable(Exprs.IterationVarRef);
-  Dir->setLastIteration(Exprs.LastIteration);
-  Dir->setCalcLastIteration(Exprs.CalcLastIteration);
-  Dir->setPreCond(Exprs.PreCond);
-  Dir->setCond(Exprs.Cond);
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
-  Dir->setLateOutlineLinearCounterIncrement(
-      Exprs.LateOutlineLinearCounterIncrement);
-  Dir->setInit(Exprs.Init);
-  Dir->setInc(Exprs.Inc);
-  Dir->setIsLastIterVariable(Exprs.IL);
-  Dir->setLowerBoundVariable(Exprs.LB);
-  Dir->setUpperBoundVariable(Exprs.UB);
-  Dir->setStrideVariable(Exprs.ST);
-  Dir->setEnsureUpperBound(Exprs.EUB);
-  Dir->setNextLowerBound(Exprs.NLB);
-  Dir->setNextUpperBound(Exprs.NUB);
-  Dir->setNumIterations(Exprs.NumIterations);
-  Dir->setCounters(Exprs.Counters);
-  Dir->setPrivateCounters(Exprs.PrivateCounters);
-  Dir->setInits(Exprs.Inits);
-  Dir->setUpdates(Exprs.Updates);
-  Dir->setFinals(Exprs.Finals);
-  Dir->setDependentCounters(Exprs.DependentCounters);
-  Dir->setDependentInits(Exprs.DependentInits);
-  Dir->setFinalsConditions(Exprs.FinalsConditions);
-  CALL_ALL_SET_UNCOLLAPSED // INTEL
-  Dir->setPreInits(Exprs.PreInits);
-  return Dir;
-}
-
-OMPTargetTeamsGenericLoopDirective *
-OMPTargetTeamsGenericLoopDirective::CreateEmpty(const ASTContext &C,
-                                                unsigned NumClauses,
-                                                unsigned CollapsedNum,
-                                                EmptyShell) {
-  return createEmptyDirective<OMPTargetTeamsGenericLoopDirective>(
-      C, NumClauses, /*HasAssociatedStmt=*/true,
-      numLoopChildren(CollapsedNum, OMPD_target_teams_loop), CollapsedNum);
-}
-
-OMPParallelGenericLoopDirective *OMPParallelGenericLoopDirective::Create(
-    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
-    unsigned CollapsedNum, ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt,
-    const HelperExprs &Exprs) {
-  auto *Dir = createDirective<OMPParallelGenericLoopDirective>(
-      C, Clauses, AssociatedStmt,
-      numLoopChildren(CollapsedNum, OMPD_parallel_loop), StartLoc, EndLoc,
-      CollapsedNum);
-  Dir->setIterationVariable(Exprs.IterationVarRef);
-  Dir->setLastIteration(Exprs.LastIteration);
-  Dir->setCalcLastIteration(Exprs.CalcLastIteration);
-  Dir->setPreCond(Exprs.PreCond);
-  Dir->setCond(Exprs.Cond);
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
-  Dir->setLateOutlineLinearCounterIncrement(
-      Exprs.LateOutlineLinearCounterIncrement);
-  Dir->setInit(Exprs.Init);
-  Dir->setInc(Exprs.Inc);
-  Dir->setIsLastIterVariable(Exprs.IL);
-  Dir->setLowerBoundVariable(Exprs.LB);
-  Dir->setUpperBoundVariable(Exprs.UB);
-  Dir->setStrideVariable(Exprs.ST);
-  Dir->setEnsureUpperBound(Exprs.EUB);
-  Dir->setNextLowerBound(Exprs.NLB);
-  Dir->setNextUpperBound(Exprs.NUB);
-  Dir->setNumIterations(Exprs.NumIterations);
-  Dir->setCounters(Exprs.Counters);
-  Dir->setPrivateCounters(Exprs.PrivateCounters);
-  Dir->setInits(Exprs.Inits);
-  Dir->setUpdates(Exprs.Updates);
-  Dir->setFinals(Exprs.Finals);
-  Dir->setDependentCounters(Exprs.DependentCounters);
-  Dir->setDependentInits(Exprs.DependentInits);
-  Dir->setFinalsConditions(Exprs.FinalsConditions);
-  CALL_ALL_SET_UNCOLLAPSED // INTEL
-  Dir->setPreInits(Exprs.PreInits);
-  return Dir;
-}
-
-OMPParallelGenericLoopDirective *OMPParallelGenericLoopDirective::CreateEmpty(
-    const ASTContext &C, unsigned NumClauses, unsigned CollapsedNum,
-    EmptyShell) {
-  return createEmptyDirective<OMPParallelGenericLoopDirective>(
-      C, NumClauses, /*HasAssociatedStmt=*/true,
-      numLoopChildren(CollapsedNum, OMPD_parallel_loop), CollapsedNum);
-}
-
-OMPTargetParallelGenericLoopDirective *
-OMPTargetParallelGenericLoopDirective::Create(
-    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
-    unsigned CollapsedNum, ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt,
-    const HelperExprs &Exprs) {
-  auto *Dir = createDirective<OMPTargetParallelGenericLoopDirective>(
-      C, Clauses, AssociatedStmt,
-      numLoopChildren(CollapsedNum, OMPD_target_parallel_loop), StartLoc,
-      EndLoc, CollapsedNum);
-  Dir->setIterationVariable(Exprs.IterationVarRef);
-  Dir->setLastIteration(Exprs.LastIteration);
-  Dir->setCalcLastIteration(Exprs.CalcLastIteration);
-  Dir->setPreCond(Exprs.PreCond);
-  Dir->setCond(Exprs.Cond);
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
-  Dir->setLateOutlineLinearCounterIncrement(
-      Exprs.LateOutlineLinearCounterIncrement);
-  Dir->setInit(Exprs.Init);
-  Dir->setInc(Exprs.Inc);
-  Dir->setIsLastIterVariable(Exprs.IL);
-  Dir->setLowerBoundVariable(Exprs.LB);
-  Dir->setUpperBoundVariable(Exprs.UB);
-  Dir->setStrideVariable(Exprs.ST);
-  Dir->setEnsureUpperBound(Exprs.EUB);
-  Dir->setNextLowerBound(Exprs.NLB);
-  Dir->setNextUpperBound(Exprs.NUB);
-  Dir->setNumIterations(Exprs.NumIterations);
-  Dir->setCounters(Exprs.Counters);
-  Dir->setPrivateCounters(Exprs.PrivateCounters);
-  Dir->setInits(Exprs.Inits);
-  Dir->setUpdates(Exprs.Updates);
-  Dir->setFinals(Exprs.Finals);
-  Dir->setDependentCounters(Exprs.DependentCounters);
-  Dir->setDependentInits(Exprs.DependentInits);
-  Dir->setFinalsConditions(Exprs.FinalsConditions);
-  CALL_ALL_SET_UNCOLLAPSED // INTEL
-  Dir->setPreInits(Exprs.PreInits);
-  return Dir;
-}
-
-OMPTargetParallelGenericLoopDirective *
-OMPTargetParallelGenericLoopDirective::CreateEmpty(const ASTContext &C,
-                                                   unsigned NumClauses,
-                                                   unsigned CollapsedNum,
-                                                   EmptyShell) {
-  return createEmptyDirective<OMPTargetParallelGenericLoopDirective>(
-      C, NumClauses, /*HasAssociatedStmt=*/true,
-      numLoopChildren(CollapsedNum, OMPD_target_parallel_loop), CollapsedNum);
-}
-
 OMPPrefetchDirective *OMPPrefetchDirective::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
     ArrayRef<OMPClause *> Clauses) {
@@ -2649,4 +2451,210 @@ OMPGenericLoopDirective::CreateEmpty(const ASTContext &C, unsigned NumClauses,
   return createEmptyDirective<OMPGenericLoopDirective>(
       C, NumClauses, /*HasAssociatedStmt=*/true,
       numLoopChildren(CollapsedNum, OMPD_loop), CollapsedNum);
+}
+
+OMPTeamsGenericLoopDirective *OMPTeamsGenericLoopDirective::Create(
+    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+    unsigned CollapsedNum, ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt,
+    const HelperExprs &Exprs) {
+  auto *Dir = createDirective<OMPTeamsGenericLoopDirective>(
+      C, Clauses, AssociatedStmt,
+      numLoopChildren(CollapsedNum, OMPD_teams_loop), StartLoc, EndLoc,
+      CollapsedNum);
+  Dir->setIterationVariable(Exprs.IterationVarRef);
+  Dir->setLastIteration(Exprs.LastIteration);
+  Dir->setCalcLastIteration(Exprs.CalcLastIteration);
+  Dir->setPreCond(Exprs.PreCond);
+  Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
+#endif // INTEL_COLLAB
+  Dir->setInit(Exprs.Init);
+  Dir->setInc(Exprs.Inc);
+  Dir->setIsLastIterVariable(Exprs.IL);
+  Dir->setLowerBoundVariable(Exprs.LB);
+  Dir->setUpperBoundVariable(Exprs.UB);
+  Dir->setStrideVariable(Exprs.ST);
+  Dir->setEnsureUpperBound(Exprs.EUB);
+  Dir->setNextLowerBound(Exprs.NLB);
+  Dir->setNextUpperBound(Exprs.NUB);
+  Dir->setNumIterations(Exprs.NumIterations);
+  Dir->setCounters(Exprs.Counters);
+  Dir->setPrivateCounters(Exprs.PrivateCounters);
+  Dir->setInits(Exprs.Inits);
+  Dir->setUpdates(Exprs.Updates);
+  Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
+  Dir->setPreInits(Exprs.PreInits);
+  return Dir;
+}
+
+OMPTeamsGenericLoopDirective *
+OMPTeamsGenericLoopDirective::CreateEmpty(const ASTContext &C,
+                                          unsigned NumClauses,
+                                          unsigned CollapsedNum, EmptyShell) {
+  return createEmptyDirective<OMPTeamsGenericLoopDirective>(
+      C, NumClauses, /*HasAssociatedStmt=*/true,
+      numLoopChildren(CollapsedNum, OMPD_teams_loop), CollapsedNum);
+}
+
+OMPTargetTeamsGenericLoopDirective *OMPTargetTeamsGenericLoopDirective::Create(
+    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+    unsigned CollapsedNum, ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt,
+    const HelperExprs &Exprs) {
+  auto *Dir = createDirective<OMPTargetTeamsGenericLoopDirective>(
+      C, Clauses, AssociatedStmt,
+      numLoopChildren(CollapsedNum, OMPD_target_teams_loop), StartLoc, EndLoc,
+      CollapsedNum);
+  Dir->setIterationVariable(Exprs.IterationVarRef);
+  Dir->setLastIteration(Exprs.LastIteration);
+  Dir->setCalcLastIteration(Exprs.CalcLastIteration);
+  Dir->setPreCond(Exprs.PreCond);
+  Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
+#endif // INTEL_COLLAB
+  Dir->setInit(Exprs.Init);
+  Dir->setInc(Exprs.Inc);
+  Dir->setIsLastIterVariable(Exprs.IL);
+  Dir->setLowerBoundVariable(Exprs.LB);
+  Dir->setUpperBoundVariable(Exprs.UB);
+  Dir->setStrideVariable(Exprs.ST);
+  Dir->setEnsureUpperBound(Exprs.EUB);
+  Dir->setNextLowerBound(Exprs.NLB);
+  Dir->setNextUpperBound(Exprs.NUB);
+  Dir->setNumIterations(Exprs.NumIterations);
+  Dir->setCounters(Exprs.Counters);
+  Dir->setPrivateCounters(Exprs.PrivateCounters);
+  Dir->setInits(Exprs.Inits);
+  Dir->setUpdates(Exprs.Updates);
+  Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
+  Dir->setPreInits(Exprs.PreInits);
+  return Dir;
+}
+
+OMPTargetTeamsGenericLoopDirective *
+OMPTargetTeamsGenericLoopDirective::CreateEmpty(const ASTContext &C,
+                                                unsigned NumClauses,
+                                                unsigned CollapsedNum,
+                                                EmptyShell) {
+  return createEmptyDirective<OMPTargetTeamsGenericLoopDirective>(
+      C, NumClauses, /*HasAssociatedStmt=*/true,
+      numLoopChildren(CollapsedNum, OMPD_target_teams_loop), CollapsedNum);
+}
+
+OMPParallelGenericLoopDirective *OMPParallelGenericLoopDirective::Create(
+    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+    unsigned CollapsedNum, ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt,
+    const HelperExprs &Exprs) {
+  auto *Dir = createDirective<OMPParallelGenericLoopDirective>(
+      C, Clauses, AssociatedStmt,
+      numLoopChildren(CollapsedNum, OMPD_parallel_loop), StartLoc, EndLoc,
+      CollapsedNum);
+  Dir->setIterationVariable(Exprs.IterationVarRef);
+  Dir->setLastIteration(Exprs.LastIteration);
+  Dir->setCalcLastIteration(Exprs.CalcLastIteration);
+  Dir->setPreCond(Exprs.PreCond);
+  Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
+#endif // INTEL_COLLAB
+  Dir->setInit(Exprs.Init);
+  Dir->setInc(Exprs.Inc);
+  Dir->setIsLastIterVariable(Exprs.IL);
+  Dir->setLowerBoundVariable(Exprs.LB);
+  Dir->setUpperBoundVariable(Exprs.UB);
+  Dir->setStrideVariable(Exprs.ST);
+  Dir->setEnsureUpperBound(Exprs.EUB);
+  Dir->setNextLowerBound(Exprs.NLB);
+  Dir->setNextUpperBound(Exprs.NUB);
+  Dir->setNumIterations(Exprs.NumIterations);
+  Dir->setCounters(Exprs.Counters);
+  Dir->setPrivateCounters(Exprs.PrivateCounters);
+  Dir->setInits(Exprs.Inits);
+  Dir->setUpdates(Exprs.Updates);
+  Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
+  Dir->setPreInits(Exprs.PreInits);
+  return Dir;
+}
+
+OMPParallelGenericLoopDirective *OMPParallelGenericLoopDirective::CreateEmpty(
+    const ASTContext &C, unsigned NumClauses, unsigned CollapsedNum,
+    EmptyShell) {
+  return createEmptyDirective<OMPParallelGenericLoopDirective>(
+      C, NumClauses, /*HasAssociatedStmt=*/true,
+      numLoopChildren(CollapsedNum, OMPD_parallel_loop), CollapsedNum);
+}
+
+OMPTargetParallelGenericLoopDirective *
+OMPTargetParallelGenericLoopDirective::Create(
+    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+    unsigned CollapsedNum, ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt,
+    const HelperExprs &Exprs) {
+  auto *Dir = createDirective<OMPTargetParallelGenericLoopDirective>(
+      C, Clauses, AssociatedStmt,
+      numLoopChildren(CollapsedNum, OMPD_target_parallel_loop), StartLoc,
+      EndLoc, CollapsedNum);
+  Dir->setIterationVariable(Exprs.IterationVarRef);
+  Dir->setLastIteration(Exprs.LastIteration);
+  Dir->setCalcLastIteration(Exprs.CalcLastIteration);
+  Dir->setPreCond(Exprs.PreCond);
+  Dir->setCond(Exprs.Cond);
+#ifdef INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
+#endif // INTEL_COLLAB
+  Dir->setInit(Exprs.Init);
+  Dir->setInc(Exprs.Inc);
+  Dir->setIsLastIterVariable(Exprs.IL);
+  Dir->setLowerBoundVariable(Exprs.LB);
+  Dir->setUpperBoundVariable(Exprs.UB);
+  Dir->setStrideVariable(Exprs.ST);
+  Dir->setEnsureUpperBound(Exprs.EUB);
+  Dir->setNextLowerBound(Exprs.NLB);
+  Dir->setNextUpperBound(Exprs.NUB);
+  Dir->setNumIterations(Exprs.NumIterations);
+  Dir->setCounters(Exprs.Counters);
+  Dir->setPrivateCounters(Exprs.PrivateCounters);
+  Dir->setInits(Exprs.Inits);
+  Dir->setUpdates(Exprs.Updates);
+  Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
+  Dir->setPreInits(Exprs.PreInits);
+  return Dir;
+}
+
+OMPTargetParallelGenericLoopDirective *
+OMPTargetParallelGenericLoopDirective::CreateEmpty(const ASTContext &C,
+                                                   unsigned NumClauses,
+                                                   unsigned CollapsedNum,
+                                                   EmptyShell) {
+  return createEmptyDirective<OMPTargetParallelGenericLoopDirective>(
+      C, NumClauses, /*HasAssociatedStmt=*/true,
+      numLoopChildren(CollapsedNum, OMPD_target_parallel_loop), CollapsedNum);
 }

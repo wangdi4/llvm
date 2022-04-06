@@ -23,5 +23,6 @@ define void @test() {
 define void @test1() {
   %ig = load i32*, i32** @IndirectGlob
   store i32 123, i32* @Glob
+  %ld.ig = load i32, i32* %ig, align 8
   ret void
 }

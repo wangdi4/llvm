@@ -20,16 +20,11 @@ void bar() {
 // CHECK: [[REGION0:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 [[ENTRYIDX:[0-9]+]])
 // CHECK: call void @foo()
 // CHECK: call void @llvm.directive.region.exit(token [[REGION0]]) [ "DIR.OMP.END.TARGET"() ]
-// CHECK: [[REGION1:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.UPDATE"()
-// CHECK-SAME "QUAL.OMP.FROMQUAL.OMP.MAP.FROM"(i32* @x_a{{.*}}, i32* @x_a{{.*}}, i64 4, i64 34) ]
-// CHECK: call void @llvm.directive.region.exit(token [[REGION1]]) [ "DIR.OMP.END.TARGET.UPDATE"() ]
 
 #pragma omp target map(x)
   {
     foo();
   }
-
-#pragma omp target update from(x)
 
   return;
 }
