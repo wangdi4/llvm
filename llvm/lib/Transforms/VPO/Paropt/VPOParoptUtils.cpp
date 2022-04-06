@@ -1579,9 +1579,9 @@ CallInst *VPOParoptUtils::genKmpcTask(WRegionNode *W, StructType *IdentTy,
 CallInst *VPOParoptUtils::genKmpcTaskWithDeps(WRegionNode *W,
                                               StructType *IdentTy,
                                               Value *TidPtr, Value *TaskAlloc,
-                                              Value *Dep, int DepNum,
+                                              Value *Dep, Value *NumDeps,
                                               Instruction *InsertPt) {
-  return genKmpcTaskDepsGeneric(W, IdentTy, TidPtr, TaskAlloc, Dep, DepNum,
+  return genKmpcTaskDepsGeneric(W, IdentTy, TidPtr, TaskAlloc, Dep, NumDeps,
                                 InsertPt, "__kmpc_omp_task_with_deps");
 }
 
@@ -1596,9 +1596,9 @@ CallInst *VPOParoptUtils::genKmpcTaskWithDeps(WRegionNode *W,
 CallInst *VPOParoptUtils::genKmpcTaskWaitDeps(WRegionNode *W,
                                               StructType *IdentTy,
                                               Value *TidPtr, Value *Dep,
-                                              int DepNum,
+                                              Value *NumDeps,
                                               Instruction *InsertPt) {
-  return genKmpcTaskDepsGeneric(W, IdentTy, TidPtr, nullptr, Dep, DepNum,
+  return genKmpcTaskDepsGeneric(W, IdentTy, TidPtr, nullptr, Dep, NumDeps,
                                 InsertPt, "__kmpc_omp_wait_deps");
 }
 
@@ -1606,7 +1606,7 @@ CallInst *VPOParoptUtils::genKmpcTaskWaitDeps(WRegionNode *W,
 //  __kmpc_omp_wait_deps.
 CallInst *VPOParoptUtils::genKmpcTaskDepsGeneric(
     WRegionNode *W, StructType *IdentTy, Value *TidPtr, Value *TaskAlloc,
-    Value *Dep, int DepNum, Instruction *InsertPt, StringRef FnName) {
+    Value *Dep, Value *NumDeps, Instruction *InsertPt, StringRef FnName) {
 
   IRBuilder<> Builder(InsertPt);
   BasicBlock *B = W->getEntryBBlock();
@@ -1622,7 +1622,7 @@ CallInst *VPOParoptUtils::genKmpcTaskDepsGeneric(
   TaskArgs.push_back(Builder.CreateLoad(Builder.getInt32Ty(), TidPtr));
   if (TaskAlloc)
     TaskArgs.push_back(TaskAlloc);
-  TaskArgs.push_back(Builder.getInt32(DepNum));
+  TaskArgs.push_back(NumDeps);
   TaskArgs.push_back(Dep);
   TaskArgs.push_back(Builder.getInt32(0));
   TaskArgs.push_back(ConstantPointerNull::get(Type::getInt8PtrTy(C)));
