@@ -738,6 +738,20 @@ static ReturnInfoTy PopulateOCLBuiltinReturnInfo() {
       RetInfo.push_back({std::string("_Z21work_group_reduce_") + Op + Type,
                          VectorKind::uniform()});
   }
+  const char WorkGroupIntegerTypes[] = {'c', 'h', 's', 't', 'i', 'j', 'l', 'm'};
+  for (char Type : WorkGroupIntegerTypes) {
+    for (const auto *Op : {"bitwise_and", "bitwise_xor"})
+      RetInfo.push_back({std::string("_Z29work_group_reduce_") + Op + Type,
+                        VectorKind::uniform()});
+    RetInfo.push_back({std::string("_Z28work_group_reduce_bitwise_or") + Type,
+                  VectorKind::uniform()});
+  }
+  RetInfo.push_back({std::string("_Z29work_group_reduce_logical_andi"),
+                    VectorKind::uniform()});
+  RetInfo.push_back({std::string("_Z28work_group_reduce_logical_ori"),
+                    VectorKind::uniform()});
+  RetInfo.push_back({std::string("_Z29work_group_reduce_logical_xori"),
+                    VectorKind::uniform()});
 
   // Sub group uniform built-ins
   RetInfo.push_back({std::string("_Z13sub_group_alli"), VectorKind::uniform()});
