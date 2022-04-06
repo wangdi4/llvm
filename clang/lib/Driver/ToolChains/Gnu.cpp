@@ -996,6 +996,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                      false))
       addIntelLib("-lmatmul", ToolChain, CmdArgs, Args);
   }
+  if (Args.hasArg(options::OPT_fortlib))
+    addIntelLib("-lifcoremt", ToolChain, CmdArgs, Args);
 #endif // INTEL_CUSTOMIZATION
 
   if (D.CCCIsCXX() &&
@@ -1178,11 +1180,6 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtn.o")));
     }
   }
-
-#if INTEL_CUSTOMIZATION
-  if (Args.hasArg(options::OPT_fortlib))
-    addIntelLib("-lifcoremt", ToolChain, CmdArgs, Args);
-#endif // INTEL_CUSTOMIZATION
 
   Args.AddAllArgs(CmdArgs, options::OPT_T);
 
