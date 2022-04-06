@@ -1399,7 +1399,7 @@ public:
   /// \endcode
   static CallInst *genKmpcTaskWithDeps(WRegionNode *W, StructType *IdentTy,
                                        Value *TidPtr, Value *TaskAlloc,
-                                       Value *Dep, int DepNum,
+                                       Value *Dep, Value *NumDeps,
                                        Instruction *InsertPt);
 
   /// Generate a call to `__kmpc_omp_wait_deps`. Example:
@@ -1413,14 +1413,14 @@ public:
   ///          i8* /* 0 */)
   /// \endcode
   static CallInst *genKmpcTaskWaitDeps(WRegionNode *W, StructType *IdentTy,
-                                       Value *TidPtr, Value *Dep, int DepNum,
-                                       Instruction *InsertPt);
+                                       Value *TidPtr, Value *Dep,
+                                       Value *NumDeps, Instruction *InsertPt);
 
   /// Generic routine to generate `__kmpc_omp_task_with_deps` or
   /// `__kmpc_omp_wait_deps` calls.
   static CallInst *genKmpcTaskDepsGeneric(WRegionNode *W, StructType *IdentTy,
                                           Value *TidPtr, Value *TaskAlloc,
-                                          Value *Dep, int DepNum,
+                                          Value *Dep, Value *NumDeps,
                                           Instruction *InsertPt,
                                           StringRef FnName);
 
