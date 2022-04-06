@@ -4511,7 +4511,7 @@ void PragmaLoopCountHandler::HandlePragma(Preprocessor &PP,
   Pragma.push_back(Tok);
   Pragma.push_back(FirstTok);
   while (Tok.isNot(tok::eod) && Tok.isNot(tok::eof)) {
-    PP.Lex(Tok);
+    PP.LexUnexpandedToken(Tok);
     Pragma.push_back(Tok);
   }
   SourceLocation EodLoc = Tok.getLocation();
@@ -4545,7 +4545,7 @@ bool Parser::ParseLoopHintValue(LoopHint &Hint, SourceLocation Loc,
 bool Parser::ParseLoopHintValueList(LoopHint &Hint,
                                     ParsedAttributes &Attrs) {
   SourceLocation Loc = Tok.getLocation();
-  ConsumeToken();
+  PP.LexUnexpandedToken(Tok);
   if (Tok.is(tok::eod)) {
     PP.Diag(Tok.getLocation(), diag::warn_pragma_loop_count_invalid_option);
     return false;
@@ -4560,7 +4560,7 @@ bool Parser::ParseLoopHintValueList(LoopHint &Hint,
       return false;
   } while (Tok.is(tok::comma));
   while (Tok.is(tok::r_paren) || Tok.is(tok::comma) || Tok.is(tok::semi))
-    ConsumeAnyToken();  // Consume r_paren, comma
+    PP.LexUnexpandedToken(Tok); // Consume r_paren, comma
   return true;
 }
 
