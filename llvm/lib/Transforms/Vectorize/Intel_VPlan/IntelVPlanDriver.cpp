@@ -116,7 +116,7 @@ static cl::opt<bool> VPlanEnableGeneralPeelingOpt(
         "peeling. Pragma [no]dynamic_align always overrides both switches."));
 
 static cl::opt<bool> VPlanEnableGeneralPeelingHIROpt(
-    "vplan-enable-general-peeling-hir", cl::init(false), cl::Hidden,
+    "vplan-enable-general-peeling-hir", cl::init(true), cl::Hidden,
     cl::desc(
         "Enable peeling in general for HIR path. When true this effectively "
         "enables static peeling, dynamic peeling needs an additional switch "
