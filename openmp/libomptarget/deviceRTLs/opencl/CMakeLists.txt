@@ -132,7 +132,7 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
                   ${src_abs}
           COMMAND ${clang_offload_bundler}
                   --unbundle --type=o --targets=openmp-spir64
-                  --inputs=${filename}${objext} --outputs=${filename}.bc
+                  --input=${filename}${objext} --output=${filename}.bc
           DEPENDS ${src_abs} ${omp_cmplr} ${clang_offload_bundler}
           VERBATIM
         )
@@ -188,8 +188,8 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
       COMMAND ${ocl_cmplr} -c -o empty_host${objext} empty_host.c
       COMMAND ${clang_offload_bundler} --type=o
               --targets=${host_target_name},openmp-spir64,openmp-spir64_gen,openmp-spir64_x86_64
-              --inputs=empty_host${objext},${rtl_bc},${rtl_bc},${rtl_bc}
-              --outputs=${rtl_obj}
+              --input=empty_host${objext} --input=${rtl_bc} --input=${rtl_bc}
+              --input=${rtl_bc} --output=${rtl_obj}
       DEPENDS ${rtl_bc} ${ocl_cmplr} ${clang_offload_bundler}
       VERBATIM
     )
