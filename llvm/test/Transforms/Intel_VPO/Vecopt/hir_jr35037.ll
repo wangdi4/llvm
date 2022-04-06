@@ -36,7 +36,7 @@
 ;              |   @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ;              + END LOOP
 ;
-; CHECK:       + DO i2 = 0, {{.*}}, 4   <DO_LOOP>  <MAX_TC_EST = {{10|40}}>  <LEGAL_MAX_TC = {{10|40}}> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:       + DO i2 = 0, {{.*}}, 4   <DO_LOOP>  <MAX_TC_EST = 10>  <LEGAL_MAX_TC = 10> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:  |   (<4 x i64>*)(%0)[i2] = i2 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:  + END LOOP
 ;

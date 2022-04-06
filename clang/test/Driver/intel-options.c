@@ -745,7 +745,8 @@
 
 // -fortlib
 // RUN: %clang -### --intel -target x86_64-unknown-linux -fortlib %s 2>&1 | FileCheck -check-prefix=LIBS_FORTRAN %s
-// LIBS_FORTRAN: "--as-needed" "-lpthread" "--no-as-needed"{{.*}} "-Bstatic" "-lifcoremt" "-Bdynamic"
+// LIBS_FORTRAN: "-Bstatic" "-lifcoremt"
+// LIBS_FORTRAN-SAME: "--as-needed" "-lpthread" "--no-as-needed"
 
 // Verify /Qextend-arguments= and /Qextend-arguments: are accepted
 // They are aliases to -fextend-arguments= and the functionality is tested in fextend-args.c

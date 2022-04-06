@@ -75,7 +75,7 @@
 ; CHECK-NEXT:           %red.init.insert32 = insertelement %red.init31,  %phi.temp7,  0;
 ; CHECK-NEXT:           %phi.temp33 = %red.init.insert32;
 
-; CHECK:                + DO i1 = %phi.temp9, %vec.tc30 + -1, 2   <DO_LOOP> <nounroll> <novectorize>
+; CHECK:                + DO i1 = %phi.temp9, %vec.tc30 + -1, 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <nounroll> <novectorize> <max_trip_count = 2>
 ; CHECK-NEXT:           |   %.vec35 = (<2 x i32>*)(%A)[i1];
 ; CHECK-NEXT:           |   %.vec36 = %.vec35  +  %phi.temp33;
 ; CHECK-NEXT:           |   %phi.temp33 = %.vec36;
@@ -101,7 +101,7 @@
 ; CHECK-NEXT:           %lb.tmp = %phi.temp2;
 ; CHECK-NEXT:           %sum.07 = %phi.temp;
 
-; CHECK:                + DO i1 = %lb.tmp, %N + -1, 1   <DO_LOOP> <vectorize>
+; CHECK:                + DO i1 = %lb.tmp, %N + -1, 1 <DO_LOOP> <MAX_TC_EST = 3> <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK-NEXT:           |   %A.i = (%A)[i1];
 ; CHECK-NEXT:           |   %sum.07 = %A.i  +  %sum.07;
 ; CHECK-NEXT:           + END LOOP

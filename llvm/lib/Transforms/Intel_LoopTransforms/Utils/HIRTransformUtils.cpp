@@ -278,6 +278,18 @@ static void getFactoredWeights(HIRTransformUtils::ProfInfo *Prof,
   }
 }
 
+void HIRTransformUtils::adjustTCEstimatesForUnrollOrVecFactor(
+    HLLoop *NewLoop, unsigned UnrollOrVecFactor) {
+  NewLoop->setMaxTripCountEstimate(
+      NewLoop->getMaxTripCountEstimate() / UnrollOrVecFactor,
+      NewLoop->isMaxTripCountEstimateUsefulForDD());
+
+  NewLoop->setLegalMaxTripCount(NewLoop->getLegalMaxTripCount() /
+                                UnrollOrVecFactor);
+
+  NewLoop->dividePragmaBasedTripCount(UnrollOrVecFactor);
+}
+
 HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, uint64_t NewTripCount,
     const RegDDRef *NewTCRef, bool NeedRemainderLoop,
@@ -352,14 +364,7 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
     }
 
     // Update unrolled/vectorized loop's max trip count info.
-    NewLoop->setMaxTripCountEstimate(
-        NewLoop->getMaxTripCountEstimate() / UnrollOrVecFactor,
-        NewLoop->isMaxTripCountEstimateUsefulForDD());
-
-    NewLoop->setLegalMaxTripCount(NewLoop->getLegalMaxTripCount() /
-                                  UnrollOrVecFactor);
-
-    NewLoop->dividePragmaBasedTripCount(UnrollOrVecFactor);
+    adjustTCEstimatesForUnrollOrVecFactor(NewLoop, UnrollOrVecFactor);
   }
 
   if (Prof) {

@@ -32,7 +32,7 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -vplan-enable-new-cfg-merge-hir -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
 
 ; Check that loop was vectorized.
-; CHECK:      + DO i2 = 0, [[UB:.*]], 2 <DO_LOOP> <MAX_TC_EST = {{1073741824|2147483648}}>   <LEGAL_MAX_TC = {{1073741824|2147483648}}> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:      + DO i2 = 0, [[UB:.*]], 2 <DO_LOOP> <MAX_TC_EST = 1073741824>   <LEGAL_MAX_TC = 1073741824> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK:      |   [[LD:%.*]] = (<2 x double>*)(%"interp_$ARR")[i2 + <i64 0, i64 1>][i1];
 ; CHECK:      |   [[VEC2:%.*]] = [[RED_PHI:%.*]]  +  [[LD]];
 ; CHECK:      |   [[RED_PHI]]  =  [[VEC2]];

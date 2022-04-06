@@ -110,7 +110,7 @@ define dso_local i32 @main() local_unnamed_addr {
 ; CHECK:              |      <RVAL-REG> NON-LINEAR <4 x i32> %nz.061 {sb:3}
 ; CHECK:              |      [[PHI_TEMP2:%.*]] = -1;
 ; CHECK:              |
-; CHECK:              |      + DO i64 i2 = 0, {{.*}}, 4   <DO_LOOP>  <MAX_TC_EST = {{15|63}}>   <LEGAL_MAX_TC = {{15|63}}> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:              |      + DO i64 i2 = 0, {{.*}}, 4   <DO_LOOP>  <MAX_TC_EST = 15>   <LEGAL_MAX_TC = 15> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK:              |      |   [[VEC7:%.*]] = undef;
 ; CHECK:              |      |   [[VEC:%.*]] = (<4 x i32>*)(%zo)[0][i2 + <i64 0, i64 1, i64 2, i64 3> + 1][0];
 ; CHECK:              |      |   [[VEC4:%.*]] = [[VEC]] == 0;

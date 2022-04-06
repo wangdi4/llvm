@@ -984,6 +984,22 @@ VPValue *VPOCodeGenHIR::getLoopIVUpper(const VPLoop *VPLp,
   return CmpOp1;
 }
 
+// Helper function to set up trip count estimates for non-constant trip loop to
+// given TC and mark it as donotunroll. The loop gets marked donotvectorize.
+static void setLoopTCEstimatesAndMarkers(HLLoop *Loop, unsigned TC) {
+  // TODO - HIR transform utils also adjust profile data and other metadata.
+  // Need to look into the same.
+  if (!Loop->isConstTripLoop()) {
+    Loop->setMaxTripCountEstimate(TC);
+    Loop->setLegalMaxTripCount(TC);
+    Loop->setPragmaBasedMaximumTripCount(TC);
+    Loop->markDoNotUnroll();
+  }
+
+  Loop->clearPrefetchingPragmaInfo();
+  Loop->markDoNotVectorize();
+}
+
 void VPOCodeGenHIR::setupHLLoop(const VPLoop *VPLp) {
   // For merged CFG we reuse the MainLoop created earlier for first top-level
   // loop, and for all other top-level loops (vectorized remainder for example)
@@ -998,6 +1014,18 @@ void VPOCodeGenHIR::setupHLLoop(const VPLoop *VPLp) {
   HLLoop *HLoop;
   if (!VPLp->getParentLoop()) {
     HLoop = isMergedCFG() ? getMergedCFGVecHLLoop(VPLp) : MainLoop;
+    if (isMergedCFG()) {
+      // TODO - this code is making some implicit assumptions that the first
+      // VPLoop is the main vector loop and using its VF(MaxVF) to set
+      // trip count estimates. This needs to be improved to get the VF
+      // information explicitly from the merger and to give better estimates
+      // for the different vector loops.
+      if (*Plan->getVPLoopInfo()->begin() == VPLp)
+        HIRTransformUtils::adjustTCEstimatesForUnrollOrVecFactor(
+            HLoop, getVF() * getUF());
+      else
+        setLoopTCEstimatesAndMarkers(HLoop, MaxVF / VF);
+    }
   } else {
     Type *IVTy;
     VPValue *IVUpper = nullptr;
@@ -1120,7 +1148,7 @@ void VPOCodeGenHIR::setupLoopsForLegacyCG(unsigned VF, unsigned UF) {
 }
 
 void VPOCodeGenHIR::setupLoopsForMergedCFG() {
-  // TODO: Port some functionalities like max TC estimation, profiling data from
+  // TODO: Port some functionalities like profiling data from
   // HIRTransformUtils::setupPeelMainAndRemainderLoops. For merged CFG just
   // create an empty clone of original scalar loop to correspond to the main
   // vector loop. We also extract preheader and postexit to preserve it in
@@ -4984,6 +5012,9 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     UBTemp->getSingleCanonExpr()->setDefinedAtLevel(
         ScalarPeel->getNestingLevel() - 1);
 
+    // As we peel maximum for the size of one register, the max TC for peel
+    // can be MaxVF.
+    setLoopTCEstimatesAndMarkers(ScalarPeel, MaxVF - 1);
     HIRLoopVisitor LV(ScalarPeel, this);
     LV.replaceCalls();
     return;
@@ -5037,6 +5068,10 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     LBTemp->getSingleCanonExpr()->setDefinedAtLevel(
         ScalarRem->getNestingLevel() - 1);
 
+    // TODO: For the case of vector remainder followed by a scalar
+    // remainder, we should be able to use remainder VF - 1 for
+    // the trip count estimates. To be done later.
+    setLoopTCEstimatesAndMarkers(ScalarRem, MaxVF * UF - 1);
     HIRLoopVisitor LV(ScalarRem, this);
     LV.replaceCalls();
     return;

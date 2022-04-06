@@ -996,6 +996,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                      false))
       addIntelLib("-lmatmul", ToolChain, CmdArgs, Args);
   }
+  if (Args.hasArg(options::OPT_fortlib))
+    addIntelLib("-lifcoremt", ToolChain, CmdArgs, Args);
 #endif // INTEL_CUSTOMIZATION
 
   if (D.CCCIsCXX() &&
@@ -1178,11 +1180,6 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtn.o")));
     }
   }
-
-#if INTEL_CUSTOMIZATION
-  if (Args.hasArg(options::OPT_fortlib))
-    addIntelLib("-lifcoremt", ToolChain, CmdArgs, Args);
-#endif // INTEL_CUSTOMIZATION
 
   Args.AddAllArgs(CmdArgs, options::OPT_T);
 
@@ -3533,6 +3530,16 @@ Generic_GCC::addLibCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
   if (!getTriple().isAndroid())
     if (AddIncludePath(getDriver().Dir + "/../include"))
       return;
+#if INTEL_CUSTOMIZATION
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+    // If using the new unified/flat layout, the "../include" will only exist
+    // when the driver is invoked from the build directory. If invoked from the
+    // deployment we need to look an additional level up.
+    else if(AddIncludePath(getDriver().Dir + "/../../include"))
+      return;
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
+#endif // INTEL_CUSTOMIZATION
+
   // If this is a development, non-installed, clang, libcxx will
   // not be found at ../include/c++ but it likely to be found at
   // one of the following two locations:
