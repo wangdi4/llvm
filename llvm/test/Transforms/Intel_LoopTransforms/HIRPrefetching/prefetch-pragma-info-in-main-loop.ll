@@ -62,11 +62,11 @@
 ; CHECK:           ret ;
 ; CHECK:     END REGION
 
-; TODO: Prefetching is triggered for scalar remainder loop in merged CFG-based CG. Potentially because
-; of incorrect MAX_TC_EST? Removes these checks when issue is resolved.
+; TODO: Merged CFG rewiring uses gotos that vector CG cannot convert to proper ifs yet. Merge
+; the two checks when this happens.
 ; MERGED-CFG:         + Loop metadata: !llvm.loop
 ; MERGED-CFG:         + Prefetching directives:{&((@A)[0]):1:40}
-; MERGED-CFG:         + DO i64 i1 = 0, %vec.tc3 + -1, 4   <DO_LOOP>  <MAX_TC_EST = 10000>  <LEGAL_MAX_TC = 2147483647> <auto-vectorized> <nounroll> <novectorize>
+; MERGED-CFG:         + DO i64 i1 = 0, %vec.tc3 + -1, 4   <DO_LOOP>  <MAX_TC_EST = 2500>  <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ; MERGED-CFG:         |   %.vec4 = sitofp.<4 x i32>.<4 x float>(i1 + <i64 0, i64 1, i64 2, i64 3>);
 ; MERGED-CFG:         |   (<4 x float>*)(@A)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][0] = %.vec4;
 ; MERGED-CFG:         |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 160][0]),  0,  2,  1);
@@ -76,11 +76,9 @@
 ; MERGED-CFG:         + END LOOP
 
 ; MERGED-CFG:         + Loop metadata: !llvm.loop
-; MERGED-CFG:         + Prefetching directives:{&((@A)[0]):1:40}
-; MERGED-CFG:         + DO i64 i1 = %lb.tmp, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 10000>  <LEGAL_MAX_TC = 2147483647>
+; MERGED-CFG:         + DO i64 i1 = %lb.tmp, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3>
 ; MERGED-CFG:         |   %conv = sitofp.i32.float(i1);
 ; MERGED-CFG:         |   (@A)[0][i1][0] = %conv;
-; MERGED-CFG:         |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 40][0]),  0,  2,  1);
 ; MERGED-CFG:         + END LOOP
 ;
 ;

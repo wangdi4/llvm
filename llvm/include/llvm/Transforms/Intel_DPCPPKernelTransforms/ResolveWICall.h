@@ -24,7 +24,8 @@ enum TInternalCallType : int;
 /// Resolve work item function calls.
 class ResolveWICallPass : public PassInfoMixin<ResolveWICallPass> {
 public:
-  static StringRef name() { return "ResolveWICallPass"; }
+  ResolveWICallPass(bool IsUniformWG = false, bool UseTLSGlobals = false)
+      : IsUniformWG(IsUniformWG), UseTLSGlobals(UseTLSGlobals) {}
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
@@ -147,9 +148,9 @@ private:
 
   // Version of OpenCL C a processed module is compiled for.
   unsigned OclVersion;
-  // true if a module is compiled with the support of the
-  // non-uniform work-group size.
-  bool UniformLocalSize;
+  // True if a module is compiled with uniform work-group size,
+  // e.g. -cl-uniform-work-group-size.
+  bool IsUniformWG;
   // Use TLS globals instead of implicit arguments.
   bool UseTLSGlobals;
 };

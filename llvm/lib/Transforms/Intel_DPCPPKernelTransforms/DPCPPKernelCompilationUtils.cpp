@@ -112,6 +112,18 @@ const StringRef NAME_WORK_GROUP_RESERVE_WRITE_PIPE =
     "__work_group_reserve_write_pipe";
 const StringRef NAME_WORK_GROUP_COMMIT_WRITE_PIPE =
     "__work_group_commit_write_pipe";
+const StringRef NAME_WORK_GROUP_REDUCE_BITWISE_AND =
+    "work_group_reduce_bitwise_and";
+const StringRef NAME_WORK_GROUP_REDUCE_BITWISE_OR =
+    "work_group_reduce_bitwise_or";
+const StringRef NAME_WORK_GROUP_REDUCE_BITWISE_XOR =
+    "work_group_reduce_bitwise_xor";
+const StringRef NAME_WORK_GROUP_REDUCE_LOGICAL_AND =
+    "work_group_reduce_logical_and";
+const StringRef NAME_WORK_GROUP_REDUCE_LOGICAL_OR =
+    "work_group_reduce_logical_or";
+const StringRef NAME_WORK_GROUP_REDUCE_LOGICAL_XOR =
+    "work_group_reduce_logical_xor";
 const StringRef NAME_FINALIZE_WG_FUNCTION_PREFIX = "__finalize_";
 
 // KMP acquire/release
@@ -345,6 +357,30 @@ bool isWorkGroupReduceMax(StringRef S) {
   return isMangleOf(S, NAME_WORK_GROUP_REDUCE_MAX);
 }
 
+bool isWorkGroupReduceBitwiseAnd(StringRef S){
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_BITWISE_AND);
+}
+
+bool isWorkGroupReduceBitwiseOr(StringRef S){
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_BITWISE_OR);
+}
+
+bool isWorkGroupReduceBitwiseXor(StringRef S){
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_BITWISE_XOR);
+}
+
+bool isWorkGroupReduceLogicalAnd(StringRef S){
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_LOGICAL_AND);
+}
+
+bool isWorkGroupReduceLogicalOr(StringRef S){
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_LOGICAL_OR);
+}
+
+bool isWorkGroupReduceLogicalXor(StringRef S){
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_LOGICAL_XOR);
+}
+
 bool isWorkGroupScanExclusiveAdd(StringRef S) {
   return isMangleOf(S, NAME_WORK_GROUP_SCAN_EXCLUSIVE_ADD);
 }
@@ -565,7 +601,10 @@ bool isWorkGroupScan(StringRef S) {
 bool isWorkGroupBuiltinUniform(StringRef S) {
   return isWorkGroupAll(S) || isWorkGroupAny(S) || isWorkGroupBroadCast(S) ||
          isWorkGroupReduceAdd(S) || isWorkGroupReduceMin(S) ||
-         isWorkGroupReduceMax(S) || isWorkGroupReduceMul(S);
+         isWorkGroupReduceMax(S) || isWorkGroupReduceMul(S) ||
+         isWorkGroupReduceBitwiseAnd(S) || isWorkGroupReduceBitwiseOr(S) ||
+         isWorkGroupReduceBitwiseXor(S) || isWorkGroupReduceLogicalAnd(S) ||
+         isWorkGroupReduceLogicalOr(S) || isWorkGroupReduceLogicalXor(S);
 }
 
 bool isWorkGroupMin(StringRef S) {

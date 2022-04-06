@@ -41,7 +41,7 @@ define double @foo(i32 %n, double %d) local_unnamed_addr #0 {
 ; CHECK:                [[RED_INIT0:%.*]] = 0.000000e+00
 ; CHECK-NEXT:           [[PHI_TEMP0:%.*]] = [[RED_INIT0]]
 ;
-; CHECK:                + DO i1 = 0, {{.*}}, 4   <DO_LOOP>  <MAX_TC_EST = {{536870911|2147483647}}>  <LEGAL_MAX_TC = {{536870911|2147483647}}> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:                + DO i1 = 0, {{.*}}, 4   <DO_LOOP>  <MAX_TC_EST = 536870911>  <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:           |   [[DOTVEC0:%.*]] = (<4 x i16>*)([[TMP0:%.*]])[-1 * i1 + -1 * <i64 0, i64 1, i64 2, i64 3>].2
 ; CHECK-NEXT:           |   [[DOTVEC10:%.*]] = uitofp.<4 x i16>.<4 x double>([[DOTVEC0]])
 ; CHECK-NEXT:           |   [[DOTVEC20:%.*]] = [[DOTVEC10]]  *  [[D0:%.*]]

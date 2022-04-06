@@ -96,7 +96,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:        }
 ; CHECK-NEXT:        [[MERGE_BLK0]].28:
 
-; CHECK:             + DO i1 = [[PHI_TEMP0]], umax(1, sext.i32.i64([[C0]])) + -1, 2   <DO_LOOP> <nounroll> <novectorize>
+; CHECK:             + DO i1 = [[PHI_TEMP0]], umax(1, sext.i32.i64([[C0]])) + -1, 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <nounroll> <novectorize> <max_trip_count = 2>
 ; CHECK-NEXT:        |   [[DOTVEC90:%.*]] = i1 + <i64 0, i64 1> <u umax(1, sext.i32.i64([[C0]]))
 ; CHECK-NEXT:        |   (<2 x i64>*)([[ARY0]])[i1] = i1 + sext.i32.i64([[C0]]) + <i64 0, i64 1>, Mask = @{[[DOTVEC90]]}
 ; CHECK-NEXT:        |   [[DOTVEC100:%.*]] = i1 + <i64 0, i64 1> + 2 <u umax(1, sext.i32.i64([[C0]]))

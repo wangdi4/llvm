@@ -55,6 +55,22 @@ entry:
 ; CHECK: = call {{(spir_func )?}}<16 x i32> @_Z29work_group_scan_exclusive_mulDv16_i(<16 x i32> %wide.load)
 ; CHECK: = call {{(spir_func )?}}<16 x i32> @_Z29work_group_scan_inclusive_mulDv16_i(<16 x i32> %wide.load)
 
+  %conv = trunc i32 %0 to i16
+; CHECK: [[WIDE_LOAD_i16:%.*]] = trunc <16 x i32> %wide.load to <16 x i16>
+
+  %call18 = tail call spir_func i16 @_Z29work_group_reduce_bitwise_andt(i16 %conv) #4
+  %call19 = tail call spir_func i32 @_Z28work_group_reduce_bitwise_ori(i32 %0) #4
+  %call20 = tail call spir_func i64 @_Z29work_group_reduce_bitwise_xorl(i64 %1) #4
+  %call21 = tail call spir_func i32 @_Z29work_group_reduce_logical_andi(i32 %0) #4
+  %call22 = tail call spir_func i32 @_Z28work_group_reduce_logical_ori(i32 %0) #4
+  %call23 = tail call spir_func i32 @_Z29work_group_reduce_logical_xori(i32 %0) #4
+; CHECK: call {{(spir_func )?}}<16 x i16> @_Z29work_group_reduce_bitwise_andDv16_t(<16 x i16> [[WIDE_LOAD_i16]])
+; CHECK: call {{(spir_func )?}}<16 x i32> @_Z28work_group_reduce_bitwise_orDv16_i(<16 x i32> %wide.load)
+; CHECK: call {{(spir_func )?}}<16 x i64> @_Z29work_group_reduce_bitwise_xorDv16_l(<16 x i64> [[WIDE_LOAD_i64]])
+; CHECK: call {{(spir_func )?}}<16 x i32> @_Z29work_group_reduce_logical_andDv16_i(<16 x i32> %wide.load)
+; CHECK: call {{(spir_func )?}}<16 x i32> @_Z28work_group_reduce_logical_orDv16_i(<16 x i32> %wide.load)
+; CHECK: call {{(spir_func )?}}<16 x i32> @_Z29work_group_reduce_logical_xorDv16_i(<16 x i32> %wide.load)
+
   ret void
 }
 
@@ -76,6 +92,12 @@ declare spir_func i64 @_Z29work_group_scan_inclusive_maxl(i64) #1
 declare spir_func i32 @_Z21work_group_reduce_muli(i32) #1
 declare spir_func i32 @_Z29work_group_scan_exclusive_muli(i32) #1
 declare spir_func i32 @_Z29work_group_scan_inclusive_muli(i32) #1
+declare spir_func i16 @_Z29work_group_reduce_bitwise_andt(i16) #1
+declare spir_func i32 @_Z28work_group_reduce_bitwise_ori(i32) #1
+declare spir_func i64 @_Z29work_group_reduce_bitwise_xorl(i64) #1
+declare spir_func i32 @_Z29work_group_reduce_logical_andi(i32) #1
+declare spir_func i32 @_Z28work_group_reduce_logical_ori(i32) #1
+declare spir_func i32 @_Z29work_group_reduce_logical_xori(i32) #1
 
 ; Function Attrs: convergent nounwind readnone
 declare spir_func i64 @_Z13get_global_idj(i32) local_unnamed_addr #2
