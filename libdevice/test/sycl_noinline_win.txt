@@ -21,52 +21,52 @@ RUN: llvm-dis %t.bc -o - | FileCheck %s
 
 RUN: clang-offload-bundler -type=o -unbundle \
 RUN:     -targets=sycl-spir64-unknown-unknown \
-RUN:     -inputs=%libsycldevice_obj_dir/libsycl-fallback-cassert.obj -outputs=%t.bc
+RUN:     -input=%libsycldevice_obj_dir/libsycl-fallback-cassert.obj -output=%t.bc
 RUN: llvm-dis %t.bc -o - | FileCheck %s
 
 RUN: clang-offload-bundler -type=o -unbundle \
 RUN:     -targets=sycl-spir64-unknown-unknown \
-RUN:     -inputs=%libsycldevice_obj_dir/libsycl-fallback-cmath.obj -outputs=%t.bc
+RUN:     -input=%libsycldevice_obj_dir/libsycl-fallback-cmath.obj -output=%t.bc
 RUN: llvm-dis %t.bc -o - | FileCheck %s
 
 RUN: clang-offload-bundler -type=o -unbundle \
 RUN:     -targets=sycl-spir64-unknown-unknown \
-RUN:     -inputs=%libsycldevice_obj_dir/libsycl-fallback-cmath-fp64.obj -outputs=%t.bc
+RUN:     -input=%libsycldevice_obj_dir/libsycl-fallback-cmath-fp64.obj -output=%t.bc
 RUN: llvm-dis %t.bc -o - | FileCheck %s
 
 RUN: clang-offload-bundler -type=o -unbundle \
 RUN:     -targets=sycl-spir64-unknown-unknown \
-RUN:     -inputs=%libsycldevice_obj_dir/libsycl-fallback-complex.obj -outputs=%t.bc
+RUN:     -input=%libsycldevice_obj_dir/libsycl-fallback-complex.obj -output=%t.bc
 RUN: llvm-dis %t.bc -o - | FileCheck %s
 
 RUN: clang-offload-bundler -type=o -unbundle \
 RUN:     -targets=sycl-spir64-unknown-unknown \
-RUN:     -inputs=%libsycldevice_obj_dir/libsycl-fallback-complex-fp64.obj -outputs=%t.bc
+RUN:     -input=%libsycldevice_obj_dir/libsycl-fallback-complex-fp64.obj -output=%t.bc
 RUN: llvm-dis %t.bc -o - | FileCheck %s
 
 RUN: clang-offload-bundler -type=o -unbundle \
 RUN:     -targets=sycl-spir64-unknown-unknown \
-RUN:     -inputs=%libsycldevice_obj_dir/libsycl-crt.obj -outputs=%t.bc
+RUN:     -input=%libsycldevice_obj_dir/libsycl-crt.obj -output=%t.bc
 RUN: llvm-dis %t.bc -o - | FileCheck %s
 
 RUN: clang-offload-bundler -type=o -unbundle \
 RUN:     -targets=sycl-spir64-unknown-unknown \
-RUN:     -inputs=%libsycldevice_obj_dir/libsycl-cmath.obj -outputs=%t.bc
+RUN:     -input=%libsycldevice_obj_dir/libsycl-cmath.obj -output=%t.bc
 RUN: llvm-dis %t.bc -o - | FileCheck %s
 
 RUN: clang-offload-bundler -type=o -unbundle \
 RUN:     -targets=sycl-spir64-unknown-unknown \
-RUN:     -inputs=%libsycldevice_obj_dir/libsycl-cmath-fp64.obj -outputs=%t.bc
+RUN:     -input=%libsycldevice_obj_dir/libsycl-cmath-fp64.obj -output=%t.bc
 RUN: llvm-dis %t.bc -o - | FileCheck %s
 
 RUN: clang-offload-bundler -type=o -unbundle \
 RUN:     -targets=sycl-spir64-unknown-unknown \
-RUN:     -inputs=%libsycldevice_obj_dir/libsycl-complex.obj -outputs=%t.bc
+RUN:     -input=%libsycldevice_obj_dir/libsycl-complex.obj -output=%t.bc
 RUN: llvm-dis %t.bc -o - | FileCheck %s
 
 RUN: clang-offload-bundler -type=o -unbundle \
 RUN:     -targets=sycl-spir64-unknown-unknown \
-RUN:     -inputs=%libsycldevice_obj_dir/libsycl-complex-fp64.obj -outputs=%t.bc
+RUN:     -input=%libsycldevice_obj_dir/libsycl-complex-fp64.obj -output=%t.bc
 RUN: llvm-dis %t.bc -o - | FileCheck %s
 
 CHECK: target triple ={{.*}}spir64
