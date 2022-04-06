@@ -29,6 +29,8 @@ static cl::opt<bool> OptUniformWGSize(
     "dpcpp-uniform-wg-size", cl::init(false), cl::Hidden,
     cl::desc("The flag speficies work groups size as uniform"));
 
+extern bool EnableTLSGlobals;
+
 namespace {
 
 /// Legacy ResolveWICall pass.
@@ -52,7 +54,7 @@ private:
   ResolveWICallPass Impl;
   /// true if a module is compiled with the support of the non-uniform
   /// work-group size.
-  bool UniformLocalSize;
+  bool IsUniformWG;
   /// Use TLS globals instead of implicit arguments.
   bool UseTLSGlobals;
 };
@@ -69,8 +71,7 @@ INITIALIZE_PASS_END(ResolveWICallLegacy, DEBUG_TYPE,
 char ResolveWICallLegacy::ID = 0;
 
 ResolveWICallLegacy::ResolveWICallLegacy(bool IsUniformWG, bool UseTLSGlobals)
-    : ModulePass(ID), UniformLocalSize(IsUniformWG),
-      UseTLSGlobals(UseTLSGlobals) {
+    : ModulePass(ID), IsUniformWG(IsUniformWG), UseTLSGlobals(UseTLSGlobals) {
   initializeResolveWICallLegacyPass(*PassRegistry::getPassRegistry());
 }
 
@@ -78,7 +79,7 @@ bool ResolveWICallLegacy::runOnModule(Module &M) {
   CallGraph *CG = &getAnalysis<CallGraphWrapperPass>().getCallGraph();
   ImplicitArgsInfo *IAInfo =
       &getAnalysis<ImplicitArgsAnalysisLegacy>().getResult();
-  return Impl.runImpl(M, UniformLocalSize, UseTLSGlobals, IAInfo, CG);
+  return Impl.runImpl(M, IsUniformWG, UseTLSGlobals, IAInfo, CG);
 }
 
 ModulePass *llvm::createResolveWICallLegacyPass(bool IsUniformWGSize,
@@ -104,8 +105,8 @@ bool ResolveWICallPass::runImpl(Module &M, bool IsUniformWG, bool UseTLSGlobals,
   this->CG = CG;
 
   PrefetchDecl = false;
-  UniformLocalSize = IsUniformWG | OptUniformWGSize;
-  this->UseTLSGlobals = UseTLSGlobals;
+  this->IsUniformWG = IsUniformWG | OptUniformWGSize;
+  this->UseTLSGlobals = UseTLSGlobals | EnableTLSGlobals;
 
   // extended execution flags
   ExtExecDecls.clear();
@@ -351,7 +352,7 @@ Value *ResolveWICallPass::updateGetFunctionInBound(CallInst *CI,
         NDInfo::internalCall2NDInfo(CallType), WorkInfo, CI->getArgOperand(0),
         Builder);
   case ICT_GET_LOCAL_SIZE:
-    return IAInfo->GenerateGetLocalSize(UniformLocalSize, WorkInfo, WGId,
+    return IAInfo->GenerateGetLocalSize(IsUniformWG, WorkInfo, WGId,
                                         CI->getArgOperand(0), Builder);
   case ICT_GET_ENQUEUED_LOCAL_SIZE:
     return IAInfo->GenerateGetEnqueuedLocalSize(WorkInfo, CI->getArgOperand(0),
