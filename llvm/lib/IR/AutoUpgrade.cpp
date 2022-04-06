@@ -3808,10 +3808,12 @@ void llvm::UpgradeIntrinsicCall(CallBase *CI, Function *NewFn) {
 
     // This must be an upgrade from a named to a literal struct.
     auto *OldST = cast<StructType>(CI->getType());
-    assert(OldST != NewFn->getReturnType() && "Return type must have changed");
-    assert(OldST->getNumElements() ==
-               cast<StructType>(NewFn->getReturnType())->getNumElements() &&
+#if !INTEL_CUSTOMIZATION
+    auto *NewST = cast<StructType>(NewFn->getReturnType());
+    assert(OldST != NewST && "Return type must have changed");
+    assert(OldST->getNumElements() == NewST->getNumElements() &&
            "Must have same number of elements");
+#endif // INTEL_CUSTOMIZATION
 
     SmallVector<Value *> Args(CI->args());
     Value *NewCI = Builder.CreateCall(NewFn, Args);
