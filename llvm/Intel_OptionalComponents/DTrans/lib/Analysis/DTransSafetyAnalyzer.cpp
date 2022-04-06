@@ -1259,6 +1259,23 @@ public:
       if (!PtrDomTy) {
         IsMismatched = true;
         BadcastReason = "Dominant type of pointer not resolved";
+      } else if (!PtrDomTy->isPointerTy()) {
+        // It's possible to reach here by using a pointer to an object as a
+        // pointer-to-pointer type. In the typed pointer IR, there would have
+        // been a bitcast that converted the pointer to a pointer-to-pointer.
+        // However, with opaque pointers a value could be loaded as a pointer
+        // from a memory location that the pointer type analyzer does not expect
+        // to hold a pointer, and then used to load another pointer. For
+        // example, %i5 below is not expected as pointer type:
+        //
+        //    %i = alloca [0 x i8]
+        //    %i2 = getelementptr inbounds [0 x i8], ptr %i, i64 0, i64 0
+        //    %i4 = getelementptr inbounds ptr, ptr %i2, i64 undef
+        //    %i5 = load ptr, ptr %i2, align 8
+        //    %i7 = load ptr, ptr %i5, align 8
+        //
+        IsMismatched = true;
+        BadcastReason = "Unknown pointer type for pointer argument";
       } else if ((PtrDomTy->getPointerElementType() != ValTy &&
                   !PtrInfo->getIsPartialPointerUse()) ||
                  (PtrInfo->canAliasMultipleAggregatePointers() &&
