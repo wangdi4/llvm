@@ -139,8 +139,8 @@ cl_err_code	Sampler::GetInfo(cl_int iParamName, size_t szParamValueSize, void * 
 	case CL_SAMPLER_CONTEXT:
 		szSize = sizeof(cl_context);
 		clContext = m_pContext->GetHandle();
-		pValue = (void*)&clContext;
-		break;
+                pValue = const_cast<_cl_context **>(&clContext);
+                break;
     case CL_SAMPLER_PROPERTIES:
         szSize = sizeof(cl_sampler_properties) * m_clSamplerPropArrays.size();
         pValue = m_clSamplerPropArrays.data();

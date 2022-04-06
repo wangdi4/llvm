@@ -327,12 +327,12 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
     case CL_PLATFORM_PROFILE:
         m_uiPlatformInfoStrSize = m_vPlatformInfoStr.size() + 1;
         szParamSize = m_uiPlatformInfoStrSize;
-        pValue = (void*)m_vPlatformInfoStr.c_str();
+        pValue = const_cast<char *>(m_vPlatformInfoStr.c_str());
         break;
     case CL_PLATFORM_VERSION:
         // it must include the terminating null character
         szParamSize = m_vPlatformVersionStr.size() + 1;
-        pValue = (void*)m_vPlatformVersionStr.c_str();
+        pValue = const_cast<char *>(m_vPlatformVersionStr.c_str());
         break;
     case CL_PLATFORM_NUMERIC_VERSION:
         szParamSize = sizeof(m_vPlatformVersionNum);
@@ -342,11 +342,11 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
         // it must include the terminating null character
         m_uiPlatformNameStrSize = m_vPlatformNameStr.size() + 1;
         szParamSize = m_uiPlatformNameStrSize;
-        pValue = (void*)m_vPlatformNameStr.c_str();
+        pValue = const_cast<char *>(m_vPlatformNameStr.c_str());
         break;
     case CL_PLATFORM_VENDOR:
         szParamSize = m_uiPlatformVendorStrSize;
-        pValue = (void*)m_vPlatformVendorStr;
+        pValue = const_cast<char *>(m_vPlatformVendorStr);
         break;
     case CL_PLATFORM_EXTENSIONS:
         assert ((m_uiRootDevicesCount > 0) &&
@@ -432,9 +432,9 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
         break;
     }
     case CL_PLATFORM_ICD_SUFFIX_KHR:
-        pValue = (void*)pcPlatformICDSuffixKhr;
-        szParamSize = strlen((const char *)pcPlatformICDSuffixKhr) + 1;
-        break;
+      pValue = const_cast<char *>(pcPlatformICDSuffixKhr);
+      szParamSize = strlen((const char *)pcPlatformICDSuffixKhr) + 1;
+      break;
     case CL_PLATFORM_HOST_TIMER_RESOLUTION:
         if (m_oclVersion >= OPENCL_VERSION_2_1)
         {

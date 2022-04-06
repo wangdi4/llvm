@@ -18,21 +18,16 @@
 #include "cl_sys_defines.h"
 #include "cl_types.h"
 
-#include <CL/cl_ext_intel.h>
+#include <CL/cl_ext.h>
 
 // Disable warning 'deprecated-declarations' emitted from opencl-headers/CL/cl_icd.h
-#if defined(__clang__)
-    #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#elif defined(__GNUC__)
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif
 #include <icd_dispatch.h>
-#if defined(__clang__)
-    #pragma clang diagnostic pop
-#elif defined(__GNUC__)
-    #pragma GCC diagnostic pop
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
 #endif
 
 #include <map>

@@ -35,8 +35,7 @@ using namespace Intel::OpenCL::Framework;
 Program::Program(SharedPtr<Context> pContext)
     : OCLObject<_cl_program_int>((_cl_context_int *)pContext->GetHandle(),
                                  "Program"),
-      m_pContext(pContext), m_ppDevicePrograms(NULL),
-      m_szNumAssociatedDevices(0), m_isFinalized(false) {
+      m_pContext(pContext), m_szNumAssociatedDevices(0), m_isFinalized(false) {
   m_afAutorunKernelsLaunched.clear();
 }
 

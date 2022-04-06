@@ -7,7 +7,6 @@
 if (NOT WIN32)
     set( CMAKE_CXX_FLAGS_RELEASE                "${CMAKE_CXX_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2")
     set( CMAKE_C_FLAGS_RELEASE                  "${CMAKE_C_FLAGS_RELEASE}   -D_FORTIFY_SOURCE=2")
-    add_definitions( "-Wno-pointer-arith -Wno-reorder" )
 else (NOT WIN32)
 # Common Runtime has to use deprecated OpenCL API functions.
     add_definitions(

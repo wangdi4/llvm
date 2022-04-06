@@ -39,7 +39,8 @@ void SharedPtrBase<T>::IncRefCnt()
 #ifdef _DEBUG
     // TODO: In some DLLs (like task_executor.dll) we always get NULL for the mutex and map - we need to fix this.
     std::string name = (nullptr != this->m_ptr->GetTypeName()) ? this->m_ptr->GetTypeName() : "";
-    void*       p    = (void*)(this->m_ptr->GetThis());
+    void *p = const_cast<Intel::OpenCL::Utils::ReferenceCountedObject *>(
+        this->m_ptr->GetThis());
     if (lRefCnt >= 0 && nullptr != allocatedObjectsMapMutex && nullptr != allocatedObjectsMap && name != "")   // otherwise the object isn't reference counted
     {
         std::lock_guard<std::mutex> guard(*allocatedObjectsMapMutex);
@@ -62,7 +63,8 @@ void SharedPtrBase<T>::DecRefCntInt(T* ptr)
     {
 #ifdef _DEBUG
         std::string name = (nullptr != ptr->GetTypeName()) ? ptr->GetTypeName() : "";
-        void*       p    = (void*)(ptr->GetThis());
+        void *p = const_cast<Intel::OpenCL::Utils::ReferenceCountedObject *>(
+            ptr->GetThis());
 
         // This isn't thread safe, but these object are freed when the library is unloaded, so there is just one thread at this point.
         const bool bIsAllocationDbNull = nullptr == allocatedObjectsMap || nullptr == allocatedObjectsMapMutex || name == "";

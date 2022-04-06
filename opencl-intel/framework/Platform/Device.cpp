@@ -892,6 +892,7 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void 
       }
       // Otherwise, fallback to root device API.
       // fallthrough
+      [[clang::fallthrough]];
     default:
         return m_pRootDevice->GetInfo(param_name, param_value_size, param_value, param_value_size_ret);
     }

@@ -17,14 +17,6 @@ set(TARGET_SOURCE_FILES
     ${TARGET_SOURCES}
 )
 
-# [LLVM 3.6 UPGRADE] Disable Linux warning about unused function
-# this warning occur when processing externals/itt/include/ittnotify.h
-# since it contain __itt_id __itt_id_make(void*, long long unsigned int)
-# function that is not used in every build target.
-if (NOT WIN32)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-function" )
-endif(NOT WIN32)
-
 include_directories(${CCLANG_DEV_INCLUDE_DIRS})
 
 add_opencl_library (${TARGET_NAME} STATIC
