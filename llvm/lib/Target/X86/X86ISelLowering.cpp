@@ -55489,8 +55489,13 @@ static SDValue combineADC(SDNode *N, SelectionDAG &DAG,
 
   // Fold ADC(ADD(X,Y),0,Carry) -> ADC(X,Y,Carry)
   // iff the flag result is dead.
+<<<<<<< HEAD
   if (LHS.getOpcode() == ISD::ADD && RHSC && RHSC->isZero() &&
       !N->hasAnyUseOfValue(1))
+=======
+  if (LHS.getOpcode() == ISD::ADD && isNullConstant(RHS) &&
+      !N->hasAnyUseOfValue(1) && LHS.getNode()->hasOneUse())  // INTEL
+>>>>>>> 0f0f2644a7d0807ba6f0b128b703f76f7e810d71
     return DAG.getNode(X86ISD::ADC, SDLoc(N), N->getVTList(), LHS.getOperand(0),
                        LHS.getOperand(1), CarryIn);
 
