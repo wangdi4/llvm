@@ -4663,6 +4663,9 @@ void VPOCodeGen::emitRemarksForScalarLoops() {
              "Remainder loop type expected here.");
       // remark #25519: REMAINDER LOOP FOR VECTORIZATION.
       ORBuilder(*ScalarLp, *LI).addOrigin(25519u);
+      // remark #15441: remainder loop was not vectorized
+      ORBuilder(*ScalarLp, *LI)
+          .addRemark(OptReportVerbosity::Medium, 15441u, "");
     }
   }
 }

@@ -225,6 +225,9 @@ static bool canProcessMaskedVariant(const VPlan &P) {
     switch (I.getOpcode()) {
     default:
       break;
+    // Cloning of VPRegion is not implemented yet, hence we can't support masked
+    // variants for CFGs containing them.
+    case VPInstruction::GeneralMemOptConflict:
     // We need special processing for those instructions in masked mode,
     // as we need to extract last value not from (VF-1)th lane but from
     // the lane defined by the execution mask.
@@ -905,7 +908,13 @@ void VPlanDriverImpl::addOptReportRemarks(WRNVecLoopNode *WRLp,
   if (VCodeGen->getUF() > 1)
     VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15399,
                           Twine(VCodeGen->getUF()).str());
-  VCodeGen->getOptReportStatsTracker().emitRemarks(VPORBuilder, MainLoop);
+
+  // VPLoop corresponding to MainLoop should be the outer most loop in CFG.
+  auto *Plan = cast<VPlanVector>(VCodeGen->getPlan());
+  auto *OuterMostVLp = *(Plan->getVPLoopInfo()->begin());
+  VCodeGen->getPlan()
+      ->getOptRptStatsForLoop(OuterMostVLp)
+      .emitRemarks(VPORBuilder, MainLoop);
 
   // If remainder loop was generated for MainLoop, report that it is currently
   // not vectorized
@@ -1474,7 +1483,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   if (VPlanConstrStressTest)
     return false;
 
-  if (EnableMaskedVariantHIR)
+  if (EnableMaskedVariantHIR && EnableMaskedVariant)
     generateMaskedModeVPlans(&LVP, &VPAF);
 
   // VPlan Predicator
@@ -1543,6 +1552,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
                CfgMergerPlanDescr::LoopType::LTRemainder)
         MCFGI.setRemainderLoopEmitted(true);
 
+      auto LpKind = PlanDescr.getLoopType();
       VPlan *Plan = PlanDescr.getVPlan();
 
       if (isa<VPlanVector>(Plan)) {
@@ -1553,6 +1563,20 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
       }
 
       // TODO: Unroller and SOA transform missing here.
+
+      // Capture opt-report remarks for main VPLoop.
+      if (LpKind == CfgMergerPlanDescr::LoopType::LTMain)
+        addOptReportRemarksForMainPlan(WRLp, PlanDescr);
+
+      // Capture opt-report remarks for vectorized remainder loops.
+      if (LpKind == CfgMergerPlanDescr::LoopType::LTRemainder &&
+          isa<VPlanVector>(Plan))
+        addOptReportRemarksForVecRemainder(PlanDescr);
+
+      // Capture opt-report remarks for vectorized peel loops.
+      if (LpKind == CfgMergerPlanDescr::LoopType::LTPeel &&
+          isa<VPlanVector>(Plan))
+        addOptReportRemarksForVecPeel(PlanDescr);
     }
 
     LVP.emitPeelRemainderVPLoops(VF, UF);
@@ -1588,8 +1612,11 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
       VCodeGen.setTreeConflictsLowered(treeConflictsLowered);
       if (LVP.executeBestPlan(&VCodeGen, UF)) {
         ModifiedLoop = true;
-        VPlanDriverImpl::addOptReportRemarks<VPOCodeGenHIR, loopopt::HLLoop>(
-            WRLp, VPORBuilder, &VCodeGen);
+        // Use HLLoop based opt-report generation for non-merged CFG-based CG.
+        // TODO: Drop this when merged CFG-based CG is used by default.
+        if (LVP.mergerVPlans().empty())
+          VPlanDriverImpl::addOptReportRemarks<VPOCodeGenHIR, loopopt::HLLoop>(
+              WRLp, VPORBuilder, &VCodeGen);
         // Mark loops with "vectorize.enable" metadata as "isvectorized" so that
         // WarnMissedTransforms pass will not complain that this loop is not
         // vectorized. We also tag the main vector loop based on

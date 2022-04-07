@@ -28,7 +28,7 @@ cl::opt<bool> EnableMaskedVariant("vplan-enable-masked-variant",
                                   cl::desc("Enable masked variant"));
 
 cl::opt<bool> EnableMaskedVariantHIR(
-    "vplan-enable-masked-variant-hir", cl::init(false), cl::Hidden,
+    "vplan-enable-masked-variant-hir", cl::init(true), cl::Hidden,
     cl::desc("Enable masked variant for HIR vectorizer"));
 
 static LoopVPlanDumpControl
@@ -168,6 +168,35 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
       return !TopVPLoop->contains(I);
     return false;
   };
+  // Helper lambda to search the recurrence/liveout tracking data structure and
+  // return recurrent PHI for given VPValue, if found. Returns nullptr
+  // otherwise.
+  auto ValHasRecurrencePhi =
+      [RecurrentValsAndLiveOuts](VPValue *V) -> VPPHINode * {
+    for (auto &Pair : RecurrentValsAndLiveOuts) {
+      if (Pair.second == V && Pair.first != nullptr)
+        return Pair.first;
+    }
+
+    return nullptr;
+  };
+  // Helper lambda to check if given VPValue has a HIR-copy user which is
+  // in-turn used in recurrence. The recurrent PHI is returned if found, nullptr
+  // otherwise.
+  auto ValHasCopyUsedInRecurrence =
+      [&ValHasRecurrencePhi](VPValue *V) -> VPPHINode * {
+    VPPHINode *RecurPhi = nullptr;
+    for (auto *U : V->users()) {
+      if (auto *CopyU = dyn_cast<VPHIRCopyInst>(U)) {
+        if (auto *Phi = ValHasRecurrencePhi(CopyU)) {
+          RecurPhi = Phi;
+          break;
+        }
+      }
+    }
+
+    return RecurPhi;
+  };
 
   // Map to keep live-in values for encountered VPPrivateFinal-s.
   // We fill it in the loop below and use during transforming
@@ -188,43 +217,56 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
     LiveOutVPPhi->addIncoming(LiveOutVal, *NewLoopLatchPred);
     VPValue *IncomingValFromHeader = Pair.first;
     if (!IncomingValFromHeader) {
-      // Liveout w/o header phi. That can be an unconditional last private
-      // only. In such cases we should take the loop incoming value as an
-      // operand of the latch phi. Even the unconditional last private does not
-      // have any incoming value, if this masked mode loop is a
-      // remainder and there are no iterations executed in that remainder we
-      // need to pass through the value that comes from the main loop.
+      // Liveout w/o header phi. That can be either -
+      // 1. a value which has a HIR-copy used in recurrence (or)
+      // 2. an unconditional last private
       //
-      // First take the out-of-the-loop use of that liveot, it should be a
-      // PrivateFinal instruction.
+      // First take the out-of-the-loop use of that liveoyt.
       auto LOUserIt = llvm::find_if(LiveOutVal->users(), InsnNotInLoop);
       assert(LOUserIt != LiveOutVal->user_end() &&
              "Expected not-in-the-loop user");
       auto *UseInst = cast<VPInstruction>(*LOUserIt);
-      assert(UseInst->getOpcode() == VPInstruction::PrivateFinalUncond &&
-             "Expected liveout private");
 
-      // Then find the external use to get incoming value.
-      auto Iter = llvm::find_if(UseInst->users(), [](VPUser *U) {
-        return isa<VPExternalUse>(U) || isa<VPLiveOutValue>(U);
-      });
-      assert(Iter != UseInst->user_end() && "Expected non-null external use");
+      if (UseInst->getOpcode() != VPInstruction::PrivateFinalUncond) {
+        // Liveout value is expected to have a copy used in recurrence. We use
+        // that recurrent PHI as incoming value from header.
+        auto *RecurPhiFromCopy = ValHasCopyUsedInRecurrence(LiveOutVal);
+        assert(RecurPhiFromCopy && "Liveout value expected to have a copy user "
+                                   "involved in recurrence.");
+        IncomingValFromHeader = RecurPhiFromCopy;
+      } else {
+        // In such cases we should take the loop incoming value as an
+        // operand of the latch phi. Even the unconditional last private does
+        // not have any incoming value, if this masked mode loop is a remainder
+        // and there are no iterations executed in that remainder we need to
+        // pass through the value that comes from the main loop.
 
-      int MergeId;
-      if (auto *ExternalUse = dyn_cast<VPExternalUse>(*Iter))
-        MergeId = ExternalUse->getMergeId();
-      else
-        MergeId = cast<VPLiveOutValue>(*Iter)->getMergeId();
+        // We expect out-of-loop user of liveout to be PrivateFinal instruction
+        // only.
+        assert(UseInst->getOpcode() == VPInstruction::PrivateFinalUncond &&
+               "Expected liveout private");
 
-      IncomingValFromHeader =
-          const_cast<VPLiveInValue *>(MaskedVPlan->getLiveInValue(MergeId));
-      // Save for future replacement
-      LLVM_DEBUG(dbgs() << "IncomingVal for: "; UseInst->printAsOperand(dbgs());
-                 dbgs() << " is ";
-                 IncomingValFromHeader->printAsOperand(dbgs()););
-      PrivFinalLiveInMap[UseInst] = IncomingValFromHeader;
-    }
-    else {
+        // Then find the external use to get incoming value.
+        auto Iter = llvm::find_if(UseInst->users(), [](VPUser *U) {
+          return isa<VPExternalUse>(U) || isa<VPLiveOutValue>(U);
+        });
+        assert(Iter != UseInst->user_end() && "Expected non-null external use");
+
+        int MergeId;
+        if (auto *ExternalUse = dyn_cast<VPExternalUse>(*Iter))
+          MergeId = ExternalUse->getMergeId();
+        else
+          MergeId = cast<VPLiveOutValue>(*Iter)->getMergeId();
+
+        IncomingValFromHeader =
+            const_cast<VPLiveInValue *>(MaskedVPlan->getLiveInValue(MergeId));
+        // Save for future replacement
+        LLVM_DEBUG(dbgs() << "IncomingVal for: ";
+                   UseInst->printAsOperand(dbgs()); dbgs() << " is ";
+                   IncomingValFromHeader->printAsOperand(dbgs()););
+        PrivFinalLiveInMap[UseInst] = IncomingValFromHeader;
+      }
+    } else {
       // When the VPPHINode in the header exists.
       VPPHINode *HeaderPhi = Pair.first;
       HeaderPhi->setIncomingValue(HeaderPhi->getBlockIndex(NewLoopLatch),

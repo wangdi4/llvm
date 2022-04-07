@@ -18,7 +18,7 @@
 ; CHECK-NEXT:         %extract.0. = extractelement %.vec4,  0;
 ; CHECK-NEXT:         if (%extract.0. == 1)
 ; CHECK-NEXT:         {
-; CHECK-NEXT:            goto merge.blk14.24;
+; CHECK-NEXT:            goto [[MERGE_AFTER_PEEL:.*]];
 ; CHECK-NEXT:         }
 ;
 define void @foo(i64* %lp, i64 %n1, i64* %lp1, i64* %lp2) {

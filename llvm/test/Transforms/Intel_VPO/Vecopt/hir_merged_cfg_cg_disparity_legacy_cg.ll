@@ -33,7 +33,7 @@
 ; MERGED-CFG-CG-NEXT:             %extract.0. = extractelement %.vec,  0;
 ; MERGED-CFG-CG-NEXT:             if (%extract.0. == 1)
 ; MERGED-CFG-CG-NEXT:             {
-; MERGED-CFG-CG-NEXT:                goto merge.blk10.26;
+; MERGED-CFG-CG-NEXT:                goto [[MERGE_AFTER_MAIN:.*]];
 ; MERGED-CFG-CG-NEXT:             }
 
 ; MERGED-CFG-CG:                  + DO i1 = 0, 7, 4   <DO_LOOP> <simd-vectorized> <novectorize>
@@ -46,9 +46,9 @@
 ; MERGED-CFG-CG-NEXT:             %extract.0.6 = extractelement %.vec2,  0;
 ; MERGED-CFG-CG-NEXT:             if (%extract.0.6 == 1)
 ; MERGED-CFG-CG-NEXT:             {
-; MERGED-CFG-CG-NEXT:                goto final.merge.44;
+; MERGED-CFG-CG-NEXT:                goto [[FINAL_MERGE:.*]];
 ; MERGED-CFG-CG-NEXT:             }
-; MERGED-CFG-CG-NEXT:             merge.blk10.26:
+; MERGED-CFG-CG-NEXT:             [[MERGE_AFTER_MAIN]]:
 ; MERGED-CFG-CG-NEXT:             %lb.tmp = %phi.temp;
 
 ; MERGED-CFG-CG:                  + DO i1 = %lb.tmp, 9, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
@@ -56,7 +56,7 @@
 ; MERGED-CFG-CG-NEXT:             + END LOOP
 
 ; MERGED-CFG-CG:                  %phi.temp4 = 9;
-; MERGED-CFG-CG-NEXT:             final.merge.44:
+; MERGED-CFG-CG-NEXT:             [[FINAL_MERGE]]:
 ; MERGED-CFG-CG-NEXT:       END REGION
 
 

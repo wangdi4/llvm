@@ -1680,6 +1680,9 @@ public:
           const HLLoop *L = Header2HLLoop[VPL->getHeader()];
           assert(L != nullptr && "Can't find Loop");
           LoopMap[L] = VPL;
+          // Capture opt-report remarks that are present for current loop in
+          // incoming HIR.
+          const_cast<VPLoop *>(VPL)->setOptReport(L->getOptReport());
           for (auto VLoop : *VPL)
             mapLoop2VPLoop(VLoop);
         };

@@ -44,6 +44,10 @@
 ; CHECK-NEXT:    -> {(%src),+,4}
 ; CHECK-NEXT:  computeAddressSCEV([DA: Div] store i32 %vp{{.*}} i32* [[ST_PTR:%.*]])
 ; CHECK-NEXT:    -> {(%dst),+,4}
+; CHECK-NEXT:  computeAddressSCEV(i32 %vp{{.*}} = load i32* [[LD_PTR_CLONE:%.*]])
+; CHECK-NEXT:    -> {(%src),+,4}
+; CHECK-NEXT:  computeAddressSCEV(store i32 %vp{{.*}} i32* [[ST_PTR_CLONE:%.*]])
+; CHECK-NEXT:    -> {(%dst),+,4}
 ; CHECK-NEXT:  getMinusExpr({(%dst),+,0},
 ; CHECK-NEXT:               {(%src),+,0})
 ; CHECK-NEXT:    -> {(-1 * %src + %dst),+,0}

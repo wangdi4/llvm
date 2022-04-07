@@ -43,7 +43,10 @@
 ; CHECK-EMITTER-NEXT: LOOP END
 
 ; TODO: -simplifycfg gets rid of one of loops showing the remark of loop unswitch in this test case. We need to change the test case to show loop unswitch remark in the HIR.
-; RUN: opt -loop-unswitch -intel-opt-report=low -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=CHECK-HIR --strict-whitespace
+; TODO: Different checks are seen because of difference in ordering blocks between legacy and merged CFG-based CG. Scalar remainder
+; is on false branch of its top test in merged CFG-based HIR.
+; RUN: opt -loop-unswitch -intel-opt-report=low -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false -vplan-force-vf=4 -hir-cg -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=CHECK-HIR --strict-whitespace
+; RUN: opt -loop-unswitch -intel-opt-report=low -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -vplan-force-vf=4 -hir-cg -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=MERGED-CFG-HIR --strict-whitespace
 
 ; CHECK-HIR:      LOOP BEGIN
 ; CHECK-HIR:          LOOP BEGIN
@@ -57,6 +60,19 @@
 ; CHECK-HIR-NEXT:         remark #25436: Loop completely unrolled by 3
 ; CHECK-HIR-NEXT:     LOOP END
 ; CHECK-HIR-NEXT: LOOP END
+
+; MERGED-CFG-HIR:      LOOP BEGIN
+; MERGED-CFG-HIR:          LOOP BEGIN
+; MERGED-CFG-HIR-NEXT:         remark #15300: LOOP WAS VECTORIZED
+; MERGED-CFG-HIR-NEXT:         remark #15305: vectorization support: vector length {{.*}}
+; MERGED-CFG-HIR-NEXT:     LOOP END{{[[:space:]]}}
+; MERGED-CFG-HIR-NEXT:     LOOP BEGIN
+; MERGED-CFG-HIR-NEXT:         remark #25436: Loop completely unrolled by 3
+; MERGED-CFG-HIR-NEXT:     LOOP END{{[[:space:]]}}
+; MERGED-CFG-HIR-NEXT:     LOOP BEGIN
+; MERGED-CFG-HIR-NEXT:         <Remainder loop for vectorization>
+; MERGED-CFG-HIR-NEXT:     LOOP END
+; MERGED-CFG-HIR-NEXT: LOOP END
 ;
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

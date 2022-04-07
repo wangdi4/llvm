@@ -21,7 +21,7 @@
 ; CHECK-NEXT:           %extract.0. = extractelement %.vec,  0;
 ; CHECK-NEXT:           if (%extract.0. == 1)
 ; CHECK-NEXT:           {
-; CHECK-NEXT:              goto merge.blk10.26;
+; CHECK-NEXT:              goto [[MERGE_AFTER_MAIN:.*]];
 ; CHECK-NEXT:           }
 
 ; CHECK:                + DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
@@ -34,9 +34,9 @@
 ; CHECK-NEXT:           %extract.0.6 = extractelement %.vec2,  0;
 ; CHECK-NEXT:           if (%extract.0.6 == 1)
 ; CHECK-NEXT:           {
-; CHECK-NEXT:              goto final.merge.44;
+; CHECK-NEXT:              goto [[FINAL_MERGE:.*]];
 ; CHECK-NEXT:           }
-; CHECK-NEXT:           merge.blk10.26:
+; CHECK-NEXT:           [[MERGE_AFTER_MAIN]]:
 ; CHECK-NEXT:           %lb.tmp = %phi.temp;
 
 ; CHECK:                + DO i1 = %lb.tmp, 100, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
@@ -44,7 +44,7 @@
 ; CHECK-NEXT:           + END LOOP
 
 ; CHECK:                %phi.temp4 = 100;
-; CHECK-NEXT:           final.merge.44:
+; CHECK-NEXT:           [[FINAL_MERGE]]:
 ; CHECK-NEXT:     END REGION
 
 

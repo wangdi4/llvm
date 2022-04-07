@@ -110,14 +110,14 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK:              %extract.0. = extractelement %.vec4,  0;
 ; CHECK:              if (%extract.0. == 1)
 ; CHECK:              {
-; CHECK:                 goto merge.blk14.23;
+; CHECK:                 goto [[MERGE_AFTER_PEEL:.*]];
 ; CHECK:              }
 ; CHECK:              %.vec5 = %.vec3 + 4 >u %n1;
 ; CHECK:              %phi.temp6 = 0;
 ; CHECK:              %extract.0.8 = extractelement %.vec5,  0;
 ; CHECK:              if (%extract.0.8 == 1)
 ; CHECK:              {
-; CHECK:                 goto merge.blk12.31;
+; CHECK:                 goto [[MERGE_AFTER_MAIN:.*]];
 ; CHECK:              }
 ; CHECK:              %extract.0.9 = extractelement %.vec3,  0;
 ; CHECK:              %ub.tmp = %extract.0.9;
@@ -128,13 +128,13 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK:              + END LOOP
 
 ; CHECK:              %phi.temp = %ub.tmp;
-; CHECK:              merge.blk14.23:
+; CHECK:              [[MERGE_AFTER_PEEL]]:
 ; CHECK:              %.vec11 = %.vec3 + 4 >u %n1;
 ; CHECK:              %phi.temp6 = %phi.temp;
 ; CHECK:              %extract.0.13 = extractelement %.vec11,  0;
 ; CHECK:              if (%extract.0.13 == 1)
 ; CHECK:              {
-; CHECK:                 goto merge.blk12.31;
+; CHECK:                 goto [[MERGE_AFTER_MAIN]];
 ; CHECK:              }
 ; CHECK:              %extract.0.14 = extractelement %.vec3,  0;
 ; CHECK:              %adj.tc = %n1  -  %extract.0.14;
@@ -154,9 +154,9 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK:              %extract.0.21 = extractelement %.vec17,  0;
 ; CHECK:              if (%extract.0.21 == 1)
 ; CHECK:              {
-; CHECK:                 goto final.merge.73;
+; CHECK:                 goto [[FINAL_MERGE:.*]];
 ; CHECK:              }
-; CHECK:              merge.blk12.31:
+; CHECK:              [[MERGE_AFTER_MAIN]]:
 ; CHECK:              %lb.tmp = %phi.temp6;
 
 ; CHECK:              + DO i64 i1 = %lb.tmp, %n1 + -1, 1   <DO_LOOP>
@@ -164,7 +164,7 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK:              + END LOOP
 
 ; CHECK:              %phi.temp19 = %n1 + -1;
-; CHECK:              final.merge.73:
+; CHECK:              [[FINAL_MERGE]]:
 ; CHECK:        END REGION
 ;
 entry:

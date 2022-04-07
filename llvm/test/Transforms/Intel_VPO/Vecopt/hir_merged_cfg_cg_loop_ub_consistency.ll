@@ -38,7 +38,7 @@
 ; CHECK:          |      %extract.0. = extractelement %.vec,  0;
 ; CHECK:          |      if (%extract.0. == 1)
 ; CHECK:          |      {
-; CHECK:          |         goto merge.blk10.43;
+; CHECK:          |         goto [[MERGE_AFTER_MAIN:.*]];
 ; CHECK:          |      }
 ; CHECK:          |      %tgu2 = %1  /u  4;
 ; CHECK:          |      <LVAL-REG> NON-LINEAR i64 %tgu2 {sb:25}
@@ -58,9 +58,9 @@
 ; CHECK:          |      %extract.0.8 = extractelement %.vec4,  0;
 ; CHECK:          |      if (%extract.0.8 == 1)
 ; CHECK:          |      {
-; CHECK:          |         goto final.merge.63;
+; CHECK:          |         goto [[FINAL_MERGE:.*]];
 ; CHECK:          |      }
-; CHECK:          |      merge.blk10.43:
+; CHECK:          |      [[MERGE_AFTER_MAIN]]:
 ; CHECK:          |      %lb.tmp = %phi.temp;
 ; CHECK:          |
 ; CHECK:          |      + DO i64 i2 = %lb.tmp, %1 + -1, 1   <DO_LOOP>
@@ -71,7 +71,7 @@
 ; CHECK:          |      <LVAL-REG> NON-LINEAR i64 %phi.temp6 {sb:30}
 ; CHECK:          |      <RVAL-REG> NON-LINEAR i64 %1 + -1 {sb:2}
 ; CHECK:          |         <BLOB> NON-LINEAR i64 %1 {sb:9}
-; CHECK:          |      final.merge.63:
+; CHECK:          |      [[FINAL_MERGE]]:
 ; CHECK:          |   }
 ; CHECK:          + END LOOP
 ; CHECK:    END REGION

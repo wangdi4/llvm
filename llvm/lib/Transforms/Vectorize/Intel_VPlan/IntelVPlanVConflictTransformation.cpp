@@ -568,8 +568,15 @@ bool lowerTreeConflictsToDoublePermuteTreeReduction(VPlanVector *Plan,
         VPBldr.createSelect(MaskICmp, VTmp, Zero, "vtmp.select");
     DA->markDivergent(*VTmpSelect);
 
-    unsigned RednOpcode = TreeConflict->getRednOpcode();
-    auto *VResUpdate = VPBldr.createNaryOp(RednOpcode, VResPhi->getType(),
+    // Add is also used for fsub/sub reduction op because the running sum
+    // represents the value to be subtracted for the final value stored (see
+    // StoreVal below). E.g., if we have A[B[i]] = A[B[i]] - C[i], then the
+    // running sum of C[i] is subtracted for the final value. Otherwise if
+    // sub is used we'll end up subtracting two negative numbers, which is
+    // obviously wrong.
+    unsigned VResUpdateOpcode = VResPhi->getType()->isFloatingPointTy() ?
+        Instruction::FAdd : Instruction::Add;
+    auto *VResUpdate = VPBldr.createNaryOp(VResUpdateOpcode, VResPhi->getType(),
                                            {VTmpSelect, VResPhi});
     DA->markDivergent(*VResUpdate);
 
@@ -626,7 +633,7 @@ bool lowerTreeConflictsToDoublePermuteTreeReduction(VPlanVector *Plan,
     }
 
     auto *StoreVal =
-        VPBldr.createNaryOp(RednOpcode, RednUpdateOpTy,
+        VPBldr.createNaryOp(TreeConflict->getRednOpcode(), RednUpdateOpTy,
                             {TreeConflict->getConflictLoad(),
                             FinalVResPhi});
     DA->markDivergent(*StoreVal);
