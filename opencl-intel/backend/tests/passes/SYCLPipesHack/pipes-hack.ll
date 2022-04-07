@@ -32,7 +32,7 @@ define internal spir_func void @_ZN2cl4sycl4pipeIZ4mainE9some_pipe_0iLi1EE5write
   %3 = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(1)* @_ZN2cl4sycl4pipeIZ4mainE9some_pipe_0iLi1EE9m_StorageE to %struct.__spirv_ConstantPipeStorage addrspace(4)*
   %4 = call spir_func %opencl.pipe_wo_t addrspace(1)* @_Z39__spirv_CreatePipeFromPipeStorage_writePU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %3) #0
 ; CHECK: %[[CAST1:[0-9]+]] = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(1)* bitcast (%opencl.pipe_rw_t addrspace(1)* addrspace(1)* @_ZN2cl4sycl4pipeIZ4mainE9some_pipe_0iLi1EE9m_StorageE.syclpipe to %struct.__spirv_ConstantPipeStorage addrspace(1)*) to %struct.__spirv_ConstantPipeStorage addrspace(4)*
-; CHECK: call spir_func %opencl.pipe_wo_t addrspace(1)* @_Z39__spirv_CreatePipeFromPipeStorage_writePU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %[[CAST1]])
+; CHECK: call spir_func %opencl.pipe_wo_t addrspace(1)* @_Z39__spirv_CreatePipeFromPipeStorage_writePU3AS427__spirv_ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %[[CAST1]])
   ret void
 }
 
@@ -45,7 +45,7 @@ define internal spir_func i32 @_ZN2cl4sycl4pipeIZ4mainE9some_pipe_0iLi1EE4readER
   %3 = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(1)* @_ZN2cl4sycl4pipeIZ4mainE9some_pipe_0iLi1EE9m_StorageE to %struct.__spirv_ConstantPipeStorage addrspace(4)*
   %4 = call spir_func %opencl.pipe_ro_t addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %3) #0
 ; CHECK: %[[CAST2:[0-9]+]] = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(1)* bitcast (%opencl.pipe_rw_t addrspace(1)* addrspace(1)* @_ZN2cl4sycl4pipeIZ4mainE9some_pipe_0iLi1EE9m_StorageE.syclpipe to %struct.__spirv_ConstantPipeStorage addrspace(1)*) to %struct.__spirv_ConstantPipeStorage addrspace(4)*
-; CHECK: call spir_func %opencl.pipe_ro_t addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %3)
+; CHECK: call spir_func %opencl.pipe_ro_t addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS427__spirv_ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %3)
   ret i32 0
 }
 
@@ -56,7 +56,7 @@ define internal spir_func void @"_ZN2cl4sycl4pipeIZZZ4mainENK3$_2clERNS0_7handle
   %3 = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(1)* @"_ZN2cl4sycl4pipeIZZZ4mainENK3$_2clERNS0_7handlerEENKUlNS0_2idILi1EEEE_clES6_E9some_pipeiLi1EE9m_StorageE" to %struct.__spirv_ConstantPipeStorage addrspace(4)*
   %4 = call spir_func %opencl.pipe_wo_t addrspace(1)* @_Z39__spirv_CreatePipeFromPipeStorage_writePU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %3) #0
 ; CHECK: %[[CAST3:[0-9]+]] = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(1)* bitcast (%opencl.pipe_rw_t addrspace(1)* addrspace(1)* @"_ZN2cl4sycl4pipeIZZZ4mainENK3$_2clERNS0_7handlerEENKUlNS0_2idILi1EEEE_clES6_E9some_pipeiLi1EE9m_StorageE.syclpipe" to %struct.__spirv_ConstantPipeStorage addrspace(1)*) to %struct.__spirv_ConstantPipeStorage addrspace(4)*
-; CHECK: call spir_func %opencl.pipe_wo_t addrspace(1)* @_Z39__spirv_CreatePipeFromPipeStorage_writePU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %[[CAST3]])
+; CHECK: call spir_func %opencl.pipe_wo_t addrspace(1)* @_Z39__spirv_CreatePipeFromPipeStorage_writePU3AS427__spirv_ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %[[CAST3]])
   ret void
 }
 
@@ -66,7 +66,7 @@ define internal spir_func i32 @"_ZN2cl4sycl4pipeIZZZ4mainENK3$_3clERNS0_7handler
   %3 = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(1)* @"_ZN2cl4sycl4pipeIZZZ4mainENK3$_3clERNS0_7handlerEENKUlNS0_2idILi1EEEE_clES6_E9some_pipeiLi1EE9m_StorageE" to %struct.__spirv_ConstantPipeStorage addrspace(4)*
   %4 = call spir_func %opencl.pipe_ro_t addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %3) #0
 ; CHECK: %[[CAST4:[0-9]+]] = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(1)* bitcast (%opencl.pipe_rw_t addrspace(1)* addrspace(1)* @"_ZN2cl4sycl4pipeIZZZ4mainENK3$_3clERNS0_7handlerEENKUlNS0_2idILi1EEEE_clES6_E9some_pipeiLi1EE9m_StorageE.syclpipe" to %struct.__spirv_ConstantPipeStorage addrspace(1)*) to %struct.__spirv_ConstantPipeStorage addrspace(4)*
-; CHECK: call spir_func %opencl.pipe_ro_t addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %[[CAST4]])
+; CHECK: call spir_func %opencl.pipe_ro_t addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS427__spirv_ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %[[CAST4]])
   ret i32 0
 }
 
@@ -75,7 +75,7 @@ define spir_func void @_ZN2cl4sycl4pipeIN4some4pipeEiLi1EE5writeERKiRb(i32 addrs
   %3 = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(1)* @_ZN2cl4sycl4pipeIN4some4pipeEiLi1EE9m_StorageE to %struct.__spirv_ConstantPipeStorage addrspace(4)*
   %4 = call spir_func %opencl.pipe_wo_t addrspace(1)* @_Z39__spirv_CreatePipeFromPipeStorage_writePU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %3) #0
 ; CHECK: %[[CAST5:[0-9]+]] = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(1)* bitcast (%opencl.pipe_rw_t addrspace(1)* addrspace(1)* @_ZN2cl4sycl4pipeIN4some4pipeEiLi1EE9m_StorageE.syclpipe to %struct.__spirv_ConstantPipeStorage addrspace(1)*) to %struct.__spirv_ConstantPipeStorage addrspace(4)*
-; CHECK: call spir_func %opencl.pipe_wo_t addrspace(1)* @_Z39__spirv_CreatePipeFromPipeStorage_writePU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %[[CAST5]])
+; CHECK: call spir_func %opencl.pipe_wo_t addrspace(1)* @_Z39__spirv_CreatePipeFromPipeStorage_writePU3AS427__spirv_ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %[[CAST5]])
   ret void
 }
 
@@ -85,7 +85,7 @@ define spir_func i32 @_ZN2cl4sycl4pipeIN4some4pipeEiLi1EE4readERb(i8 addrspace(4
   %3 = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(1)* @_ZN2cl4sycl4pipeIN4some4pipeEiLi1EE9m_StorageE to %struct.__spirv_ConstantPipeStorage addrspace(4)*
   %4 = call spir_func %opencl.pipe_ro_t addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %3) #0
 ; CHECK: %[[CAST6:[0-9]+]] = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(1)* bitcast (%opencl.pipe_rw_t addrspace(1)* addrspace(1)* @_ZN2cl4sycl4pipeIN4some4pipeEiLi1EE9m_StorageE.syclpipe to %struct.__spirv_ConstantPipeStorage addrspace(1)*) to %struct.__spirv_ConstantPipeStorage addrspace(4)*
-; CHECK: call spir_func %opencl.pipe_ro_t addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %[[CAST6]])
+; CHECK: call spir_func %opencl.pipe_ro_t addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS427__spirv_ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %[[CAST6]])
   ret i32 0
 }
 
@@ -94,7 +94,7 @@ define internal spir_func void @_ZN2cl4sycl4pipeIZ4mainE21pipe_type_for_lambdasi
   %3 = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(1)* @_ZN2cl4sycl4pipeIZ4mainE21pipe_type_for_lambdasiLi0EE9m_StorageE to %struct.__spirv_ConstantPipeStorage addrspace(4)*
   %4 = call spir_func %opencl.pipe_wo_t addrspace(1)* @_Z39__spirv_CreatePipeFromPipeStorage_writePU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %3) #0
 ; CHECK: %[[CAST7:[0-9]+]] = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(1)* bitcast (%opencl.pipe_rw_t addrspace(1)* addrspace(1)* @_ZN2cl4sycl4pipeIZ4mainE21pipe_type_for_lambdasiLi0EE9m_StorageE.syclpipe to %struct.__spirv_ConstantPipeStorage addrspace(1)*) to %struct.__spirv_ConstantPipeStorage addrspace(4)*
-; CHECK: call spir_func %opencl.pipe_wo_t addrspace(1)* @_Z39__spirv_CreatePipeFromPipeStorage_writePU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %[[CAST7]])
+; CHECK: call spir_func %opencl.pipe_wo_t addrspace(1)* @_Z39__spirv_CreatePipeFromPipeStorage_writePU3AS427__spirv_ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %[[CAST7]])
   ret void
 }
 
@@ -104,7 +104,7 @@ define internal spir_func i32 @_ZN2cl4sycl4pipeIZ4mainE21pipe_type_for_lambdasiL
   %3 = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(1)* @_ZN2cl4sycl4pipeIZ4mainE21pipe_type_for_lambdasiLi0EE9m_StorageE to %struct.__spirv_ConstantPipeStorage addrspace(4)*
   %4 = call spir_func %opencl.pipe_ro_t addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %3) #0
 ; CHECK: %[[CAST8:[0-9]+]] = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(1)* bitcast (%opencl.pipe_rw_t addrspace(1)* addrspace(1)* @_ZN2cl4sycl4pipeIZ4mainE21pipe_type_for_lambdasiLi0EE9m_StorageE.syclpipe to %struct.__spirv_ConstantPipeStorage addrspace(1)*) to %struct.__spirv_ConstantPipeStorage addrspace(4)*
-; CHECK: call spir_func %opencl.pipe_ro_t addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %[[CAST8]])
+; CHECK: call spir_func %opencl.pipe_ro_t addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS427__spirv_ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %[[CAST8]])
   ret i32 0
 }
 
@@ -113,7 +113,7 @@ define internal spir_func void @_ZN2cl4sycl4pipeIZ4mainE9some_pipeiLi1EE5writeER
   %2 = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(1)* @_ZN2cl4sycl4pipeIZ4mainE9some_pipeiLi1EE9m_StorageE to %struct.__spirv_ConstantPipeStorage addrspace(4)*
   %3 = call spir_func %opencl.pipe_wo_t addrspace(1)* @_Z39__spirv_CreatePipeFromPipeStorage_writePU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %2) #0
 ; CHECK: %[[CAST9:[0-9]+]] = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(1)* bitcast (%opencl.pipe_rw_t addrspace(1)* addrspace(1)* @_ZN2cl4sycl4pipeIZ4mainE9some_pipeiLi1EE9m_StorageE.syclpipe to %struct.__spirv_ConstantPipeStorage addrspace(1)*) to %struct.__spirv_ConstantPipeStorage addrspace(4)*
-; CHECK: call spir_func %opencl.pipe_wo_t addrspace(1)* @_Z39__spirv_CreatePipeFromPipeStorage_writePU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %[[CAST9]])
+; CHECK: call spir_func %opencl.pipe_wo_t addrspace(1)* @_Z39__spirv_CreatePipeFromPipeStorage_writePU3AS427__spirv_ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %[[CAST9]])
   ret void
 }
 
@@ -124,7 +124,7 @@ define internal spir_func i32 @_ZN2cl4sycl4pipeIZ4mainE9some_pipeiLi1EE4readEv()
   %2 = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(1)* @_ZN2cl4sycl4pipeIZ4mainE9some_pipeiLi1EE9m_StorageE to %struct.__spirv_ConstantPipeStorage addrspace(4)*
   %3 = call spir_func %opencl.pipe_ro_t addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %2) #0
 ; CHECK: %[[CAST10:[0-9]+]] = addrspacecast %struct.__spirv_ConstantPipeStorage addrspace(1)* bitcast (%opencl.pipe_rw_t addrspace(1)* addrspace(1)* @_ZN2cl4sycl4pipeIZ4mainE9some_pipeiLi1EE9m_StorageE.syclpipe to %struct.__spirv_ConstantPipeStorage addrspace(1)*) to %struct.__spirv_ConstantPipeStorage addrspace(4)*
-; CHECK: call spir_func %opencl.pipe_ro_t addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %[[CAST10]])
+; CHECK: call spir_func %opencl.pipe_ro_t addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS427__spirv_ConstantPipeStorage(%struct.__spirv_ConstantPipeStorage addrspace(4)* %[[CAST10]])
   ret i32 0
 }
 

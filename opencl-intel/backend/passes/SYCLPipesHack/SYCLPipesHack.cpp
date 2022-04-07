@@ -53,6 +53,12 @@ const char *CreatePipeFromPipeStorageWriteName =
     "_Z39__spirv_CreatePipeFromPipeStorage_write";
 const char *CreatePipeFromPipeStorageReadName =
     "_Z38__spirv_CreatePipeFromPipeStorage_read";
+const char *CreatePipeFromPipeStorageWriteTargetName =
+    "_Z39__spirv_CreatePipeFromPipeStorage_writePU3AS427"
+    "__spirv_ConstantPipeStorage";
+const char *CreatePipeFromPipeStorageReadTargetName =
+    "_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS427"
+    "__spirv_ConstantPipeStorage";
 
 static void
 findPipeStorageGlobals(Module *M,
@@ -80,6 +86,11 @@ findPipeStorageGlobals(Module *M,
                            "\n");
       StorageVars.emplace_back(PipeStorageGV);
     }
+
+    if (FName.startswith(CreatePipeFromPipeStorageWriteName))
+      F.setName(CreatePipeFromPipeStorageWriteTargetName);
+    if (FName.startswith(CreatePipeFromPipeStorageReadName))
+      F.setName(CreatePipeFromPipeStorageReadTargetName);
   }
 }
 
