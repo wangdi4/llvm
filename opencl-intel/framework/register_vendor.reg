@@ -1,0 +1,7 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Khronos\OpenCL\Vendors]
+"intelocl32.dll"=dword:0
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Khronos\OpenCL\Vendors]
+"intelocl64.dll"=dword:0

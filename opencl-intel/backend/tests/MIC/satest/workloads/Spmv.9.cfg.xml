@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<RunConfiguration>
+  <ProgramFile compilation_flags="-DSINGLE_PRECISION">Spmv.8.c</ProgramFile>
+  <ProgramFileType>CL</ProgramFileType>
+  <UseVTune>0</UseVTune>
+  <UseVectorizer>1</UseVectorizer>
+  <KernelConfiguration Name="Foo">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>16</LocalWorkSize>
+    <GlobalWorkSize>16</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>Spmv.9.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>Spmv.9.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>Spmv.9.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+</RunConfiguration>

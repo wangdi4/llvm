@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ICSCData>
+  <BufferContainerList size="1" version="0.1">
+    <BufferContainer size="4">
+      <Buffer length="4" type="vector" type_size_in_bytes="64" vectorWidth="16"
+       vector_number_of_subtypes="1" vector0type="f32" vector0type_size_in_bytes="4"  neat="0">
+        <Vector id="0">0.13 1.5 3.5 0.20 4.5 -2.5 0.11 2.5 0 0.8 0.5 -4.5 13.5 5 4.5 0.5</Vector>
+        <Vector id="1">4.5 -2.5 0.11 2.5 0.13 1.5 3.5 0.20 0 0.8 0.5 -4.5 13.5 5 4.5 0.5</Vector>
+        <Vector id="2">0.13 1.5 3.5 -4.5 13.5 5 4.5 0.5 0.20 4.5 -2.5 0.11 2.5 0 0.8 0.5 </Vector>
+        <Vector id="3">1 1 1 0 1 1 1 0 1 1 1 0 1 1 1 0</Vector>
+      </Buffer>
+      <Buffer length="4" type="vector" type_size_in_bytes="64" vectorWidth="8"
+       vector_number_of_subtypes="1" vector0type="f64" vector0type_size_in_bytes="8"  neat="0">
+        <Vector id="0">0.13 1.5 3.5 0.20 4.5 -2.5 0.11 2.5</Vector>
+        <Vector id="1">4.5 -2.5 0.11 2.5 0.13 1.5 3.5 0.20</Vector>
+        <Vector id="2">0.13 1.5 3.5 -4.5 13.5 5 4.5 0.5</Vector>
+        <Vector id="3">1 1 1 0 1 1 1 0</Vector>
+      </Buffer>
+      <Buffer length="4" vectorWidth="1" type="f32" type_size_in_bytes="4"
+        neat="0">
+        <Vector id="0">1</Vector>
+        <Vector id="1">2</Vector>
+        <Vector id="2">3</Vector>
+        <Vector id="3">4</Vector>
+      </Buffer>
+      <Buffer length="4" vectorWidth="1" type="f64" type_size_in_bytes="8"
+        neat="0">
+        <Vector id="0">5</Vector>
+        <Vector id="1">6</Vector>
+        <Vector id="2">7</Vector>
+        <Vector id="3">8</Vector>
+      </Buffer>
+     </BufferContainer>
+  </BufferContainerList>
+</ICSCData>

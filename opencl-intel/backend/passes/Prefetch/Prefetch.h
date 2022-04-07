@@ -1,0 +1,262 @@
+// INTEL CONFIDENTIAL
+//
+// Copyright 2013-2018 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
+#ifndef __PREFETCH_H_
+#define __PREFETCH_H_
+
+#include "llvm/Analysis/BranchProbabilityInfo.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
+#include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
+
+#include <map>
+
+using namespace llvm;
+
+namespace intel{
+
+  // Micro-architecture specific information
+  struct UarchInfo {
+    static const int L1MissLatency;
+    static const int L2MissLatency;
+    static const int L1PrefetchSlots;
+    static const int L2PrefetchSlots;
+    static const int MaxThreads;
+    static const int CacheLineSize;
+    static const int defaultL1PFType;
+    static const int defaultL2PFType;
+  };
+
+  // PrefetchStats class contains all the stats that are used by the
+  // class PrefetchCandidateUtils static methods, since stats can't be static
+  class PrefetchStats {
+  public:
+    PrefetchStats(DPCPPStatistic::ActiveStatsT &statList);
+
+    // DPCPPStatistics
+    DPCPPStatistic Candidate_global_gather;
+    DPCPPStatistic Candidate_local_gather;
+    DPCPPStatistic Candidate_constant_gather;
+    DPCPPStatistic Candidate_private_gather;
+
+    DPCPPStatistic Candidate_global_masked_gather;
+    DPCPPStatistic Candidate_local_masked_gather;
+    DPCPPStatistic Candidate_constant_masked_gather;
+    DPCPPStatistic Candidate_private_masked_gather;
+
+    DPCPPStatistic Candidate_global_scatter;
+    DPCPPStatistic Candidate_local_scatter;
+    DPCPPStatistic Candidate_constant_scatter;
+    DPCPPStatistic Candidate_private_scatter;
+
+    DPCPPStatistic Candidate_global_masked_scatter;
+    DPCPPStatistic Candidate_local_masked_scatter;
+    DPCPPStatistic Candidate_constant_masked_scatter;
+    DPCPPStatistic Candidate_private_masked_scatter;
+    DPCPPStatistic PF_triggered_by_masked_unaligned_loads;
+    DPCPPStatistic PF_triggered_by_masked_unaligned_stores;
+    DPCPPStatistic PF_triggered_by_masked_random_gather;
+    DPCPPStatistic PF_triggered_by_masked_random_scatter;
+    DPCPPStatistic PF_triggered_by_random_gather;
+    DPCPPStatistic PF_triggered_by_random_scatter;
+
+    DPCPPStatistic Abort_APF_since_detected_manual_PF;
+  };
+
+  class Prefetch : public FunctionPass {
+
+    public:
+      static char ID; // Pass identification, replacement for typeid
+      Prefetch(int level=2);
+
+      ~Prefetch();
+
+      virtual llvm::StringRef getPassName() const override {
+        return "Prefetch";
+      }
+
+      virtual bool runOnFunction(Function &F) override;
+
+      virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
+        AU.addRequired<LoopInfoWrapperPass>();
+        AU.addRequired<ScalarEvolutionWrapperPass>();
+        AU.addRequired<BranchProbabilityInfoWrapperPass>();
+        AU.addPreserved<BranchProbabilityInfoWrapperPass>();
+        AU.addRequired<DominatorTreeWrapperPass>();
+        AU.setPreservesCFG();
+      }
+
+    private:
+      // Pass pointers
+      LoopInfo        * m_LI ;
+      ScalarEvolution * m_SE;
+      SCEVExpander    * m_ADRExpander;
+
+      // Controls
+                                  // prefetch level, which accesses to consider for prefetching:
+      int  m_level;               // 0 - none, 1 - loads/stores, 2 - all sequential accesses, 3 - all accesses
+                                  // if MPF is detected don't generate
+      bool m_disableAPF;          // don't APF
+      bool m_disableAPFGS;        // don't APF gathers and scatters
+                                  // don't APF gathers and scatters and don't
+      bool m_disableAPFGSTune;    // collect tuning info
+                                  // Consider further ahead prefetch for less
+      bool m_calcFactor;          // than cache line accesses
+      bool m_prefetchScalarCode;  // prefetch for accesses in scalar BBs
+
+      // Type pointers
+      Type *m_i8;
+      Type *m_i32;
+      Type *m_i64;
+      Type *m_pi8;
+      Type *m_void;
+
+      static const std::string m_prefetchIntrinsicName;
+
+      static const int PrefecthedAddressSpaces;
+
+      static const int defaultTripCount;
+
+      // optimal number of threads for this loop
+      int m_numThreads;
+
+      // map from loop to loop iteration length estimation
+      typedef std::map<Loop *, unsigned int> LoopToLengthMap;
+      LoopToLengthMap m_iterLength;
+
+      // indication for each loop whether it's vectorized. if it's not
+      // vectorized prefetches will not be inserted
+      std::set<Loop *> m_isVectorized;
+
+      // map from loop to PF related info
+      struct loopPFInfo {
+        int numRefs;       // number of accesses to prefetch in this loop
+        int L1Distance;    // L1 prefetch distance
+        int L2Distance;    // L2 prefetch distance
+        int numThreads;    // optimal number of threads
+        int iterLen;       // IR based iteration length
+                           // number of iterations in which the same cache line
+        int factor;        // is the prefech target
+                           // Effective number of references if loop iteration
+        int factNumRefs;   // length is factored
+        int numRandom;     // number of random accesses to prefetch in loop
+
+        loopPFInfo() {}
+        loopPFInfo (int count, int _factor, int _numRandom) : numRefs(count),
+            L1Distance(0), L2Distance(0), numThreads(UarchInfo::MaxThreads),
+            iterLen(0), factor (_factor), factNumRefs(0), numRandom(_numRandom)
+        {}
+      };
+      typedef std::map<Loop *, loopPFInfo> LoopInfoMap;
+      LoopInfoMap m_LoopInfo;
+
+      struct memAccess {
+        Instruction *I;
+        const SCEV *S;
+        int step;
+        int offset;
+        int factor;
+        int flags;
+
+        memAccess () {}
+        memAccess (Instruction *i, const SCEV *s, int _step, int _offset,
+            bool random, bool exclusive) :
+            I(i), S(s), step(_step), offset(_offset), flags(0) {
+          if (random) setRandom();
+          if (exclusive) setExclusive();
+        }
+
+        // set and query flags
+        void setRecurring () {flags |= 0x1;}
+        bool isRecurring () {return (flags & 0x1);}
+
+        void setRandom() {flags |= 0x2;}
+        bool isRandom() {return (flags & 0x2);}
+
+        void setExclusive () {flags |= 0x4;}
+        bool isExclusive () {return (flags & 0x4);}
+      };
+
+      typedef std::vector<memAccess> memAccessV;
+      typedef std::map<BasicBlock *, memAccessV> BBAccesses;
+
+      // holds all memory accesses that deserve prefetching
+      BBAccesses m_addresses;
+
+      // DPCPPStatistics
+      DPCPPStatistic::ActiveStatsT m_kernelStats;
+      DPCPPStatistic Ignore_BB_lacking_vector_instructions;
+      DPCPPStatistic Ignore_BB_not_in_loop;
+      DPCPPStatistic Accesses_merged_to_1_PF_have_large_diff_256;
+      DPCPPStatistic Accesses_not_merged_to_1_PF_have_large_diff_1024;
+      DPCPPStatistic Ignore_non_simple_load;
+      DPCPPStatistic Ignore_local_load;
+      DPCPPStatistic Ignore_private_load;
+      DPCPPStatistic Ignore_non_simple_store;
+      DPCPPStatistic Ignore_local_store;
+      DPCPPStatistic Ignore_private_store;
+
+      DPCPPStatistic Access_has_no_scalar_evolution_in_loop;
+      DPCPPStatistic Access_step_is_loop_variant;
+      DPCPPStatistic Access_step_is_loop_invariant;
+      DPCPPStatistic Access_match_in_same_BB;
+      DPCPPStatistic Access_match_in_dominating_BB;
+      DPCPPStatistic Access_exact_match;
+      DPCPPStatistic Access_match_same_cache_line;
+      DPCPPStatistic PF_triggered_by_partial_cache_line_access;
+      DPCPPStatistic PF_triggered_by_full_cache_line_access;
+      DPCPPStatistic PF_triggered_by_multiple_cache_line_access;
+      DPCPPStatistic Access_step_is_variable;
+
+      PrefetchStats m_stats;
+
+    private:
+      void init();
+
+      // memAccessExists - checks if access overlaps with another access
+      // recorded in MAV.
+      // accessIsReady tells weather all access details are already calculated
+      bool memAccessExists (memAccess &access, memAccessV &MAV,
+                            bool accessIsReady);
+
+      bool detectReferencesForPrefetch(Function &F);
+
+      void countPFPerLoop ();
+
+      unsigned int IterLength(Loop *L);
+
+      void getPFDistance(Loop *L, loopPFInfo &info);
+
+      void getPFDistance();
+
+      void insertPF (Instruction *I, Loop *L, int PFType,
+                     const SCEV *SAddr, unsigned count, bool pfExclusive);
+
+      void emitPrefetches();
+
+      bool autoPrefetch(Function &F);
+
+  }; // Prefetch class
+
+} // namespace intel
+
+
+#endif // __PREFETCH_H_

@@ -1,0 +1,120 @@
+// INTEL CONFIDENTIAL
+//
+// Copyright 2012-2018 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
+#ifndef __OCL_ALIAS_ANALYSIS_H__
+#define __OCL_ALIAS_ANALYSIS_H__
+
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/Passes.h"
+#include "llvm/Analysis/ValueTracking.h"
+#include "llvm/IR/ValueHandle.h"
+#include "llvm/Pass.h"
+
+using namespace llvm;
+
+namespace intel {
+
+  struct OCLAliasAnalysis;
+
+  struct OCLAAResult : public AAResultBase<OCLAAResult> {
+    friend AAResultBase<OCLAAResult>;
+
+    OCLAAResult();
+
+    AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
+                      AAQueryInfo &);
+
+    bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
+                                bool OrLocal = false);
+
+
+    void deleteValue (Value *V);
+    void copyValue (Value *From, Value *To);
+    void addEscapingUse (Use &U);
+
+    private:
+
+      // OCLAAACallbackVH - A CallbackVH to arrange for OCLAliasAnalysis to be
+      // notified whenever a Value is deleted.
+      class OCLAAACallbackVH : public CallbackVH {
+        OCLAAResult *OCLAAR;
+        void deleted() override;
+        void allUsesReplacedWith(Value *New) override;
+      public:
+        OCLAAACallbackVH(Value *V, OCLAAResult *OCLAAR = nullptr);
+        virtual ~OCLAAACallbackVH() {}
+      };
+
+      // Helper class to hold the result of address space resolution
+      class ResolveResult {
+      public:
+        ResolveResult() = delete;
+        ResolveResult(const ResolveResult& other) = default;
+        ResolveResult(bool r, unsigned int ar) :
+            resolved(r), addressSpace(ar) {}
+
+        bool isResolved() {return resolved;}
+        unsigned int getAddressSpace() {return addressSpace;}
+        bool operator==(const ResolveResult& other) {
+          return (resolved == other.resolved) &&
+                 (addressSpace == other.addressSpace);
+        }
+      private:
+        bool resolved;
+        unsigned int addressSpace;
+      };
+
+      // ValuerMapType - The typedef for ValueMap.
+      typedef DenseMap<OCLAAACallbackVH, ResolveResult, DenseMapInfo<Value *> >
+         ValueMapType;
+
+      // ValueExprMap - This is a cache of the values we have analyzed so far.
+      ValueMapType ValueMap;
+
+      // Go over used values and usages and loop for a cast to a named address
+      // space. If there are no conversions from/to int and only one namespace
+      // different from default (__private) is found resolve all values found
+      // on the way to this address space.
+      // 1st arg: pointer value to resolve
+      // 2nd arg: if true force the resolving once more instead of using
+      //          cached results.
+      ResolveResult resolveAddressSpace(const Value* value, bool force);
+
+      typedef SmallPtrSet<const Value*, 16> SmallValueSet;
+      ResolveResult cacheResult(SmallValueSet& values, ResolveResult resolveResult);
+
+      void rauwValue(Value* oldVal, Value* newVal);
+
+      int m_disjointAddressSpaces;
+  };
+
+  // OCLAliasAnalysis needs to be integrated into LLVM AAResults through
+  // ExternalAAWrapper pass, but the latter only supports ImmutablePass,
+  // thus this pass must be ImmutablePass.
+  struct OCLAliasAnalysis : public ImmutablePass{
+    std::unique_ptr<OCLAAResult> OCLAAR;
+    static char ID;
+
+    OCLAliasAnalysis();
+
+    OCLAAResult &getOCLAAResult() { return *OCLAAR; }
+    const OCLAAResult &getOCLAAResult() const { return *OCLAAR; }
+
+    bool doInitialization(Module &)  override;
+
+    void getAnalysisUsage(AnalysisUsage &AU) const override;
+  };
+}
+#endif

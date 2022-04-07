@@ -1,0 +1,21 @@
+use_eh(TRUE)
+
+set(TARGET_NAME name_mangling_test_type)
+
+include_directories(
+  ${LLVM_INCLUDE_DIRS}
+  ${LLVM_MAIN_SRC_DIR}/lib/Transforms/Intel_DPCPPKernelTransforms/Utils
+  ${OCL_SOURCE_DIR}/backend/name_mangling
+  ${OCL_BINARY_DIR}/include
+)
+
+add_ocl_unittest(
+  ${TARGET_NAME}
+  SOURCE_FILES
+    MangleTest.cpp
+  LINK_LIBRARIES
+    LLVMSupport
+    LLVMIntel_DPCPPKernelTransforms
+)
+
+add_dependencies(${TARGET_NAME} reflection_module)

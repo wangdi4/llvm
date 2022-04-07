@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ICSCData>
+    <BufferContainerList size="1" version="0.1">
+        <BufferContainer size="3">
+            <Buffer length="2" vectorWidth="2" type="f32" neat="1">
+                <Vector id="0">INTERVAL -1.2300000190734863  1.034000039100647 INTERVAL 0.23199999332427979  5.3422999382019043 </Vector>
+                <Vector id="1">INTERVAL -31.100000381469727  6.3422999382019043 INTERVAL 1.3344000577926636  6.6764998435974121 </Vector>
+            </Buffer>
+            <Buffer length="2" vectorWidth="2" type="f32" neat="1">
+                <Vector id="0">ACCURATE 0.44999998807907104 ACCURATE 3.3399999141693115 </Vector>
+                <Vector id="1">ACCURATE -4.3000001907348633 ACCURATE 5.4229998588562012 </Vector>
+            </Buffer>
+            <Buffer length="4" vectorWidth="1" type="f64" neat="1">
+                <Vector id="0">ANY</Vector>
+                <Vector id="1">UNKNOWN</Vector>
+                <Vector id="2">UNWRITTEN</Vector>
+                <Vector id="3">ACCURATE 345 </Vector>
+            </Buffer>
+        </BufferContainer>
+    </BufferContainerList>
+</ICSCData>

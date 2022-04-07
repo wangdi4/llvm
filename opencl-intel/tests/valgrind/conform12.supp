@@ -1,0 +1,76 @@
+#
+# This is the conformance 1.2 suppression file.
+#
+# It ignores conformance leaks, such as the test harness.
+# 
+
+{
+   conform12_kernel_helpers
+   Memcheck:Cond
+   fun:create_single_kernel_helper
+   ...
+}
+
+{
+   conform12_test_harness
+   Memcheck:Param
+   write(buf)
+   obj:/lib64/libc-2.11.1.so
+   fun:_IO_file_write@@GLIBC_2.2.5
+   fun:new_do_write
+   fun:_IO_do_write@@GLIBC_2.2.5
+   fun:_IO_file_sync@@GLIBC_2.2.5
+   fun:fflush
+   fun:callSingleTestFunction
+   fun:callTestFunctions
+   fun:parseAndCallCommandLineTests
+   fun:runTestHarnessWithCheck
+   fun:runTestHarness
+   fun:main
+}
+
+{
+   external_strlen
+   Memcheck:Cond
+   fun:strlen
+   ...
+}
+
+{
+   external_strnlen
+   Memcheck:Cond
+   fun:strnlen
+   ...
+}
+
+{
+   external_strcpy
+   Memcheck:Cond
+   fun:strcpy
+   ...
+}
+
+{
+   external_strncpy
+   Memcheck:Cond
+   fun:strncpy
+   ...
+}
+
+{
+   conform12_printDeviceHeader_cond_issues
+   Memcheck:Cond
+   ...
+   fun:printDeviceHeader
+   ...
+}
+
+{
+   conform12_printDeviceHeader_param_issues
+   Memcheck:Param
+   ...
+   fun:printDeviceHeader
+   ...
+}
+
+
