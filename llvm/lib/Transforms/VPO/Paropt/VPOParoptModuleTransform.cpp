@@ -50,7 +50,7 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#include "llvm/Transforms/Utils/InferAddressSpacesUtils.h"
+#include "llvm/Transforms/Utils/Intel_InferAddressSpacesUtils.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;

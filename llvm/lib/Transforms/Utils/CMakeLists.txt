@@ -50,8 +50,6 @@ add_llvm_component_library(LLVMTransformUtils
   InjectTLIMappings.cpp
   InstructionNamer.cpp
   IntegerDivision.cpp
-  InferAddressSpacesUtils.cpp
-# end INTEL_COLLAB
   Intel_CloneUtils.cpp # INTEL_CUSTOMIZATION
 # INTEL_COLLAB
   GeneralUtils.cpp
@@ -59,9 +57,10 @@ add_llvm_component_library(LLVMTransformUtils
   ../VPO/Utils/IntrinsicUtils.cpp # TODO: Move to lib/Transforms/Utils
 # end INTEL_COLLAB
 # INTEL_CUSTOMIZATION
-  Intel_RegionSplitter.cpp
   Intel_IMLUtils.cpp
+  Intel_InferAddressSpacesUtils.cpp
   Intel_ParseAnnotateAttributes.cpp
+  Intel_RegionSplitter.cpp
   Intel_VecClone.cpp                    #TODO: VEC to COLLAB
   Intel_X86EmitMultiVersionResolver.cpp
 #end INTEL_CUSTOMIZATION
