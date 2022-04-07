@@ -13,7 +13,7 @@ def ctz       : OclBuiltin<"ctz",       (outs gentype:$ret), (ins gentype:$x), [
 }
 
 // native relaxed math built-ins OpenCL 2.0 rev 08 Table 7.2, single-precision only
-let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32],
+let Types = ExpandTypesByVFAndFlatten<[v1f32], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def cos_rm    : OclBuiltin<"cos_rm",    (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
@@ -461,7 +461,7 @@ let KernelCallOnce = 0 in {
     foreach bi = ["cos_rm", "divide_rm", "exp_rm", "exp2_rm", "exp10_rm",
                   "log_rm", "log2_rm", "pow_rm", "sin_rm", "tan_rm",
                   "sincos_pas_rm", "sincos_las_rm", "sincos_gas_rm", "sincos_gen_rm"] in {
-      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
     }
   }
 }

@@ -291,13 +291,30 @@ defvar native_ilogb_code = [{
     return convert_int$Suffix(tmp);
   }];
 
-defvar native_sincos_svml = [{
+defvar svml_native_code_sincos = [{
     return __ocl_svml_$Target_sincos$SVMLSuffix_native($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
   }];
 
 defvar native_sincos_ret2ptr = [{
     $Arg0Type res = native_sincos($Arg0VarName, $Arg2VarName);
     *$Arg1VarName = res;
+  }];
+
+// Relaxed
+
+defvar svml_rm_code1 = [{
+    return __ocl_svml_$Target_$NAME$SVMLSuffix_rm($Arg0VarName);
+  }];
+defvar svml_rm_code2 = [{
+    return __ocl_svml_$Target_$NAME$SVMLSuffix_rm($Arg0VarName, $Arg1VarName);
+  }];
+
+defvar svml_rm_code_divide = [{
+    return __ocl_svml_$Target_div$SVMLSuffix_rm($Arg0VarName, $Arg1VarName);
+  }];
+
+defvar svml_rm_code_sincos = [{
+    return __ocl_svml_$Target_sincos$SVMLSuffix_rm($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
   }];
 
 // masked

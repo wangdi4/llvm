@@ -285,10 +285,10 @@ OclBuiltinImpl native_fract_gen_f32 = OclBuiltinImpl<native_fract_gen, math_not_
 
 
 // native_sincos
-OclBuiltinImpl native_sincos_pas_svml = OclBuiltinImpl<native_sincos_pas, math_not_shared_types_v1_to_v16, 0, native_sincos_svml>;
-OclBuiltinImpl native_sincos_las_svml = OclBuiltinImpl<native_sincos_las, math_not_shared_types_v1_to_v16, 0, native_sincos_svml>;
-OclBuiltinImpl native_sincos_gas_svml = OclBuiltinImpl<native_sincos_gas, math_not_shared_types_v1_to_v16, 0, native_sincos_svml>;
-OclBuiltinImpl native_sincos_gen_svml = OclBuiltinImpl<native_sincos_gen, math_not_shared_types_v1_to_v16, 0, native_sincos_svml>;
+OclBuiltinImpl native_sincos_pas_svml = OclBuiltinImpl<native_sincos_pas, math_not_shared_types_v1_to_v16, 0, svml_native_code_sincos>;
+OclBuiltinImpl native_sincos_las_svml = OclBuiltinImpl<native_sincos_las, math_not_shared_types_v1_to_v16, 0, svml_native_code_sincos>;
+OclBuiltinImpl native_sincos_gas_svml = OclBuiltinImpl<native_sincos_gas, math_not_shared_types_v1_to_v16, 0, svml_native_code_sincos>;
+OclBuiltinImpl native_sincos_gen_svml = OclBuiltinImpl<native_sincos_gen, math_not_shared_types_v1_to_v16, 0, svml_native_code_sincos>;
 
 
 

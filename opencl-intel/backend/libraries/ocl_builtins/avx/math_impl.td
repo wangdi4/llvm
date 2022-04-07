@@ -30,3 +30,14 @@ foreach name = ["acos", "acosh", "acospi", "asin", "asinh", "asinpi", "atan",
       true: name);
   def name # _avx_impl : OclBuiltinImpl<builtin, types, 0, svml_code, [["$NAME", svml_name]]>;
 }
+
+// Relaxed SVML calls
+foreach name = ["cos", "divide", "exp", "exp2", "exp10", "log", "log2", "pow",
+    "sin", "tan", "sincos_pas", "sincos_las", "sincos_gas", "sincos_gen"] in {
+  defvar builtin = !cast<OclBuiltin>(name # "_rm");
+  defvar num_args = !size(builtin.Ins);
+  defvar svml_code = !cond(!ne(!find(name, "sincos_"), -1): svml_rm_code_sincos,
+      !eq(name, "divide"): svml_rm_code_divide,
+      !eq(num_args, 1): svml_rm_code1, true: svml_rm_code2);
+  def name # _rm_avx_impl : OclBuiltinImpl<builtin, [v16f32], 0, svml_code, [["$NAME", name]]>;
+}

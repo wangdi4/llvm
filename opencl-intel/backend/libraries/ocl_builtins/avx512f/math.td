@@ -243,10 +243,10 @@ OclBuiltinImpl native_rsqrt_svml = OclBuiltinImpl<native_rsqrt, [v8f64], 0, [{
     return __ocl_svml_$Target_rsqrt$VecLength($Arg0VarName);
   }]>;
 
-OclBuiltinImpl native_sincos_pas_svml = OclBuiltinImpl<native_sincos_pas, v32v64FTypes, 0, native_sincos_svml>;
-OclBuiltinImpl native_sincos_las_svml = OclBuiltinImpl<native_sincos_las, v32v64FTypes, 0, native_sincos_svml>;
-OclBuiltinImpl native_sincos_gas_svml = OclBuiltinImpl<native_sincos_gas, v32v64FTypes, 0, native_sincos_svml>;
-OclBuiltinImpl native_sincos_gen_svml = OclBuiltinImpl<native_sincos_gen, v32v64FTypes, 0, native_sincos_svml>;
+OclBuiltinImpl native_sincos_pas_svml = OclBuiltinImpl<native_sincos_pas, v32v64FTypes, 0, svml_native_code_sincos>;
+OclBuiltinImpl native_sincos_las_svml = OclBuiltinImpl<native_sincos_las, v32v64FTypes, 0, svml_native_code_sincos>;
+OclBuiltinImpl native_sincos_gas_svml = OclBuiltinImpl<native_sincos_gas, v32v64FTypes, 0, svml_native_code_sincos>;
+OclBuiltinImpl native_sincos_gen_svml = OclBuiltinImpl<native_sincos_gen, v32v64FTypes, 0, svml_native_code_sincos>;
 OclBuiltinImpl native_sincos_ret2ptr_pas = OclBuiltinImpl<native_sincos_pas2, v32v64FTypes, 0, native_sincos_ret2ptr>;
 
 // native masked

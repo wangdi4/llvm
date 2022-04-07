@@ -13335,7 +13335,11 @@
 ; CHECK-NEXT: _Z6atanpiDv64_fS_
 ; CHECK-NEXT: _Z6atanpiDv8_d
 ; CHECK-NEXT: _Z6cos_rmDv16_f
+; CHECK-NEXT: _Z6cos_rmDv32_f
+; CHECK-NEXT: _Z6cos_rmDv64_f
 ; CHECK-NEXT: _Z6exp_rmDv16_f
+; CHECK-NEXT: _Z6exp_rmDv32_f
+; CHECK-NEXT: _Z6exp_rmDv64_f
 ; CHECK-NEXT: _Z6lgammaDv16_d
 ; CHECK-NEXT: _Z6lgammaDv16_f
 ; CHECK-NEXT: _Z6lgammaDv32_d
@@ -13348,6 +13352,8 @@
 ; CHECK-NEXT: _Z6lgammaDv64_fS_
 ; CHECK-NEXT: _Z6lgammaDv8_d
 ; CHECK-NEXT: _Z6log_rmDv16_f
+; CHECK-NEXT: _Z6log_rmDv32_f
+; CHECK-NEXT: _Z6log_rmDv64_f
 ; CHECK-NEXT: _Z6maxmagDv32_dS_
 ; CHECK-NEXT: _Z6maxmagDv32_dS_S_
 ; CHECK-NEXT: _Z6maxmagDv32_fS_
@@ -13376,6 +13382,8 @@
 ; CHECK-NEXT: _Z6mul_hiDv8_lS_
 ; CHECK-NEXT: _Z6mul_hiDv8_mS_
 ; CHECK-NEXT: _Z6pow_rmDv16_fS_
+; CHECK-NEXT: _Z6pow_rmDv32_fS_
+; CHECK-NEXT: _Z6pow_rmDv64_fS_
 ; CHECK-NEXT: _Z6remquoDv16_dS_PDv16_i
 ; CHECK-NEXT: _Z6remquoDv16_dS_PU3AS1Dv16_i
 ; CHECK-NEXT: _Z6remquoDv16_dS_PU3AS3Dv16_i
@@ -13429,6 +13437,8 @@
 ; CHECK-NEXT: _Z6remquoDv8_dS_PU3AS3Dv8_i
 ; CHECK-NEXT: _Z6remquoDv8_dS_PU3AS4Dv8_i
 ; CHECK-NEXT: _Z6sin_rmDv16_f
+; CHECK-NEXT: _Z6sin_rmDv32_f
+; CHECK-NEXT: _Z6sin_rmDv64_f
 ; CHECK-NEXT: _Z6sincosDv16_dPS_
 ; CHECK-NEXT: _Z6sincosDv16_dPU3AS1S_
 ; CHECK-NEXT: _Z6sincosDv16_dPU3AS3S_
@@ -13482,6 +13492,8 @@
 ; CHECK-NEXT: _Z6sincosDv8_dPU3AS3S_
 ; CHECK-NEXT: _Z6sincosDv8_dPU3AS4S_
 ; CHECK-NEXT: _Z6tan_rmDv16_f
+; CHECK-NEXT: _Z6tan_rmDv32_f
+; CHECK-NEXT: _Z6tan_rmDv64_f
 ; CHECK-NEXT: _Z6tgammaDv16_d
 ; CHECK-NEXT: _Z6tgammaDv16_f
 ; CHECK-NEXT: _Z6tgammaDv32_d
@@ -13724,7 +13736,11 @@
 ; CHECK-NEXT: _Z7atom_orPU3AS3mm
 ; CHECK-NEXT: _Z7degreesDv3_d
 ; CHECK-NEXT: _Z7exp2_rmDv16_f
+; CHECK-NEXT: _Z7exp2_rmDv32_f
+; CHECK-NEXT: _Z7exp2_rmDv64_f
 ; CHECK-NEXT: _Z7log2_rmDv16_f
+; CHECK-NEXT: _Z7log2_rmDv32_f
+; CHECK-NEXT: _Z7log2_rmDv64_f
 ; CHECK-NEXT: _Z7mad_satDv16_iS_S_
 ; CHECK-NEXT: _Z7mad_satDv16_jS_S_
 ; CHECK-NEXT: _Z7mad_satDv16_tS_S_
@@ -14262,6 +14278,8 @@
 ; CHECK-NEXT: _Z8copysignDv64_fS_
 ; CHECK-NEXT: _Z8copysignDv64_fS_S_
 ; CHECK-NEXT: _Z8exp10_rmDv16_f
+; CHECK-NEXT: _Z8exp10_rmDv32_f
+; CHECK-NEXT: _Z8exp10_rmDv64_f
 ; CHECK-NEXT: _Z8half_cosDv16_f
 ; CHECK-NEXT: _Z8half_expDv16_f
 ; CHECK-NEXT: _Z8half_logDv16_f
@@ -14571,6 +14589,8 @@
 ; CHECK-NEXT: _Z9bitselectDv64_sS_S_
 ; CHECK-NEXT: _Z9bitselectDv64_tS_S_
 ; CHECK-NEXT: _Z9divide_rmDv16_fS_
+; CHECK-NEXT: _Z9divide_rmDv32_fS_
+; CHECK-NEXT: _Z9divide_rmDv64_fS_
 ; CHECK-NEXT: _Z9get_fencePKv
 ; CHECK-NEXT: _Z9get_fencePU3AS1Kv
 ; CHECK-NEXT: _Z9get_fencePU3AS1v
@@ -14614,6 +14634,14 @@
 ; CHECK-NEXT: _Z9sincos_rmDv16_fPU3AS1S_
 ; CHECK-NEXT: _Z9sincos_rmDv16_fPU3AS3S_
 ; CHECK-NEXT: _Z9sincos_rmDv16_fPU3AS4S_
+; CHECK-NEXT: _Z9sincos_rmDv32_fPS_
+; CHECK-NEXT: _Z9sincos_rmDv32_fPU3AS1S_
+; CHECK-NEXT: _Z9sincos_rmDv32_fPU3AS3S_
+; CHECK-NEXT: _Z9sincos_rmDv32_fPU3AS4S_
+; CHECK-NEXT: _Z9sincos_rmDv64_fPS_
+; CHECK-NEXT: _Z9sincos_rmDv64_fPU3AS1S_
+; CHECK-NEXT: _Z9sincos_rmDv64_fPU3AS3S_
+; CHECK-NEXT: _Z9sincos_rmDv64_fPU3AS4S_
 ; CHECK-NEXT: __async
 ; CHECK-NEXT: __builtin_IB_kmp_acquire_lock
 ; CHECK-NEXT: __builtin_IB_kmp_release_lock

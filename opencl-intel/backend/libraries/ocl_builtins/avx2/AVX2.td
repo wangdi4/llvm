@@ -2,6 +2,10 @@
 
 include "avx/AVX.td"
 
+defset list<OclBuiltinImpl> avx2_impls = {
+include "avx2/math_impl.td"
+}
+
 // Declare this helpers here due to they use ocl_char32 type with in define only for avx2 and higher
 let Types = [v4i8],
     Attrs = [INTERNAL_INLINE],
@@ -22,5 +26,6 @@ class AVX2 : AVX {
   include "avx2/transpose.td"
   include "avx2/masked_load_store.td"
   include "avx2/sub_group_builtin_impl.td"
-}
 
+  let Impls = avx2_impls;
+}
