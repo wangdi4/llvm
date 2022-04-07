@@ -2674,7 +2674,13 @@ Instruction *InstCombinerImpl::foldICmpSubConstant(ICmpInst &Cmp,
 
   // X - Y == 0 --> X == Y.
   // X - Y != 0 --> X != Y.
-  if (Cmp.isEquality() && C.isZero())
+#if INTEL_CUSTOMIZATION
+  bool AVX512 = getTargetTransformInfo().isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512);
+  // For AVX512, make sure there is only one use.
+  // This transform may cause suboptimal X86 instruction selection.
+  if ((!AVX512 || Sub->hasOneUse()) && Cmp.isEquality() && C.isZero())
+#endif // INTEL_CUSTOMIZATION
     return new ICmpInst(Pred, X, Y);
 
   // The following transforms are only worth it if the only user of the subtract
