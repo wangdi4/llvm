@@ -227,7 +227,7 @@ bool LoopMassagingEnabled = true;
 bool EnableSOAAnalysis = true;
 bool EnableSOAAnalysisHIR = true;
 bool EnableNewCFGMerge = true;
-bool EnableNewCFGMergeHIR = false;
+bool EnableNewCFGMergeHIR = true;
 bool VPlanEnablePeeling = false;
 bool VPlanEnableGeneralPeeling = true;
 } // namespace vpo
