@@ -4,8 +4,8 @@
 ; RUN: opt -dpcpp-kernel-resolve-matrix-layout -enable-debugify -S %s 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-resolve-matrix-layout -enable-debugify -S %s 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 
-define void @test_load_store_same_addrspace(i32* %ptr, i64 %stride, i32* %dst) {
-; CHECK-LABEL: @test_load_store_same_addrspace(
+define void @test_load_store_same_addrspace_int8(i32* %ptr, i64 %stride, i32* %dst) {
+; CHECK-LABEL: @test_load_store_same_addrspace_int8(
 ; CHECK-NEXT:  enrty:
 ; CHECK-NEXT:    [[TMP0:%.*]] = alloca <8 x i8>, align 8
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[PTR:%.*]] to i8*
@@ -21,9 +21,30 @@ enrty:
   ret void
 }
 
+
+define void @test_load_store_same_addrspace_bf16(i32* %ptr, i64 %stride, i32* %dst) {
+; CHECK-LABEL: @test_load_store_same_addrspace_bf16(
+; CHECK-NEXT:  enrty:
+; CHECK-NEXT:    [[TMP0:%.*]] = alloca <8 x i16>, align 16
+; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[PTR:%.*]] to i16*
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast <8 x i16>* [[TMP0]] to i16*
+; CHECK-NEXT:    [[TMP3:%.*]] = mul i64 [[STRIDE:%.*]], 2
+; CHECK-NEXT:    call void @_Z40matrix_layout_transform_rowmajor_to_vnniPU3AS4sS0_iii(i16* [[TMP1]], i16* [[TMP2]], i32 4, i32 2, i64 [[TMP3]])
+; CHECK-NEXT:    [[TMP4:%.*]] = call <8 x i16> @llvm.experimental.matrix.load.v8i16.p0i16(i16* [[TMP2]], i64 4, i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup")
+; CHECK-NEXT:    call void @llvm.experimental.matrix.store.v8i16.p0i32(<8 x i16> [[TMP4]], i32* [[DST:%.*]], i64 [[STRIDE]], i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup")
+; CHECK-NEXT:    ret void
+;
+enrty:
+  %0 = call <8 x i16> @llvm.experimental.matrix.load.v8i16.p4i16.v2(i32* %ptr,  i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+  call void @llvm.experimental.matrix.store.v8i16.p4i16.v2(<8 x i16> %0, i32* %dst,  i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup")
+  ret void
+}
+
 declare <8 x i8> @llvm.experimental.matrix.load.v8i8.p4i8.v2(i32*, i64, i1, i32, i32, metadata, metadata, metadata);
 declare void @llvm.experimental.matrix.store.v8i8.p4i8.v2(<8 x i8>, i32*, i64, i1, i32, i32, metadata, metadata, metadata);
-
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_load_store_same_addrspace -- %0 = alloca <8 x i8>, align 8
+declare <8 x i16> @llvm.experimental.matrix.load.v8i16.p4i16.v2(i32*, i64, i1, i32, i32, metadata, metadata, metadata);
+declare void @llvm.experimental.matrix.store.v8i16.p4i16.v2(<8 x i16>, i32*, i64, i1, i32, i32, metadata, metadata, metadata);
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_load_store_same_addrspace_int8 -- %0 = alloca <8 x i8>, align 8
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_load_store_same_addrspace_bf16 -- %0 = alloca <8 x i16>, align 16
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: PASS

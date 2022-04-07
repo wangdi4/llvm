@@ -124,8 +124,42 @@ static std::pair<bool, Value *> resolveMatrixLayoutLoad(CallInst *CI) {
                                  CI->getOperand(1)};
     generateCall(CI->getModule(), "_Z40matrix_layout_transform_rowmajor_to_vnniPU3AS4cS0_iii",
                  Type::getVoidTy(Builder.getContext()), Args, Builder);
-    // stride should be the calculated according to the temp matrix's size, aka,
+    // stride should be the calculated according to the temp matrix's size
     Value *NewStride = Builder.getInt64(MCols * 4);
+    SmallVector<Value *> ArgsForNewLoad = {Dst,
+                                           NewStride,
+                                           CI->getOperand(2),
+                                           CI->getOperand(3),
+                                           CI->getOperand(4),
+                                           CI->getOperand(5),
+                                           CI->getOperand(5),
+                                           CI->getOperand(7)};
+    SmallVector<Type *> TypesForNewLoad = {MatrixType, Dst->getType()};
+    return std::make_pair(
+        true, Builder.CreateIntrinsic(Intrinsic::experimental_matrix_load,
+                                      TypesForNewLoad, ArgsForNewLoad));
+  } else if (cast<MDString>(MatL)->getString().equals("matrix.packed.b") &&
+             cast<MDString>(MemL)->getString().equals("matrix.rowmajor") &&
+             MatrixType->getElementType()->isIntegerTy(16)) {
+    IRBuilder<> Builder(CI);
+    Value *MatAlloca = createMatrixAllocaInst(*CI->getFunction(), MatrixType);
+    Value *Src = CI->getOperand(0)->getType()->getPointerAddressSpace() == 0
+                     ? Builder.CreateBitCast(
+                           CI->getOperand(0),
+                           llvm::Type::getInt16PtrTy(Builder.getContext()))
+                     : Builder.CreateAddrSpaceCast(
+                           CI->getOperand(0),
+                           llvm::Type::getInt16PtrTy(Builder.getContext()));
+    Value *Dst = Builder.CreateBitCast(
+        MatAlloca, Type::getInt16PtrTy(Builder.getContext()));
+    SmallVector<Value *> Args = {
+        Src, Dst, CI->getOperand(3), CI->getOperand(4),
+        Builder.CreateMul(CI->getOperand(1), Builder.getInt64(2))};
+    generateCall(CI->getModule(),
+                 "_Z40matrix_layout_transform_rowmajor_to_vnniPU3AS4sS0_iii",
+                 Type::getVoidTy(Builder.getContext()), Args, Builder);
+    // stride should be the calculated according to the temp matrix's size
+    Value *NewStride = Builder.getInt64(MCols * 2);
     SmallVector<Value *> ArgsForNewLoad = {Dst,
                                            NewStride,
                                            CI->getOperand(2),
