@@ -150,15 +150,15 @@
 // CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-emit-llvm-bc" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-fopenmp-is-device" "-fopenmp-host-ir-file-path" "[[HOSTBC]]" "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl" "-fsycl-is-host" "-mllvm" "-paropt=63"{{.*}} "-fopenmp-targets=spir64" {{.*}} "-o" "[[OMPBC:.+\.bc]]" {{.*}} "[[INPUT]]"
 // CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice{{.*}}" "-fsycl-is-device" {{.*}} "-emit-llvm-bc" {{.*}} "-o" "[[SYCLBC:.+\.bc]]" {{.*}} "[[INPUT]]"
 // CHK-BUJOBS-NOCL: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-obj" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" {{.*}} "-o" "[[HOSTOBJ:.+\.o]]" "-x" "ir" "[[HOSTBC]]"
-// CHK-BUJOBS-NOCL: clang-offload-bundler{{.*}} "-type=o" "-targets=openmp-spir64,sycl-spir64-unknown-unknown-sycldevice,host-x86_64-pc-windows-msvc" "-outputs=[[FATOBJ:.+\.o]]" "-inputs=[[OMPBC]],[[SYCLBC]],[[HOSTOBJ]]"
+// CHK-BUJOBS-NOCL: clang-offload-bundler{{.*}} "-type=o" "-targets=openmp-spir64,sycl-spir64-unknown-unknown-sycldevice,host-x86_64-pc-windows-msvc" "-output=[[FATOBJ:.+\.o]]" "-input=[[OMPBC]]" "-input=[[SYCLBC]]" "-input=[[HOSTOBJ]]"
 // CHK-BUJOBS-CL: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-obj" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" {{.*}} "-o" "[[HOSTOBJCL:.+\.obj]]" "-x" "ir" "[[HOSTBC]]"
-// CHK-BUJOBS-CL: clang-offload-bundler{{.*}} "-type=o" "-targets=openmp-spir64,sycl-spir64-unknown-unknown-sycldevice{{(-coff)?}},host-x86_64-pc-windows-msvc" "-outputs=[[FATOBJ:.+\.o]]" "-inputs=[[OMPBC]],[[SYCLBC]],[[HOSTOBJCL]]"
+// CHK-BUJOBS-CL: clang-offload-bundler{{.*}} "-type=o" "-targets=openmp-spir64,sycl-spir64-unknown-unknown-sycldevice{{(-coff)?}},host-x86_64-pc-windows-msvc" "-output=[[FATOBJ:.+\.o]]" "-input=[[OMPBC]]" "-input=[[SYCLBC]]" "-input=[[HOSTOBJCL]]"
 
 /// Check separate compilation with offloading - unbundling jobs construct
 // RUN:   touch %t.o
 // RUN:   %clang -### --intel -fsycl -fno-sycl-device-lib=all -fiopenmp %t.o -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 -no-canonical-prefixes 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-UBJOBS %s
-// CHK-UBJOBS: clang-offload-bundler{{.*}} "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64,sycl-spir64-unknown-unknown-sycldevice" "-inputs=[[FATOBJ:.+\.o]]" "-outputs=[[HOSTOBJ:.+\.o]],[[OMPBC:.+\.o]],[[SYCLBC:.+\.o]]" "-unbundle"
+// CHK-UBJOBS: clang-offload-bundler{{.*}} "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64,sycl-spir64-unknown-unknown-sycldevice" "-input=[[FATOBJ:.+\.o]]" "-output=[[HOSTOBJ:.+\.o]]" "-output=[[OMPBC:.+\.o]]" "-output=[[SYCLBC:.+\.o]]" "-unbundle"
 // CHK-UBJOBS: llvm-link{{.*}} "[[SYCLBC]]" "-o" "[[SYCLLINKEDBC:.+\.bc]]"
 // CHK-UBJOBS: sycl-post-link{{.*}} "-symbols" "-spec-const=rt" "-o" "[[SYCLTABLE:.+\.table]]" "[[SYCLLINKEDBC]]"
 // CHK-UBJOBS: file-table-tform{{.*}} "-extract=Code" "-drop_titles" "-o" "[[SYCLTABLEOUT:.+\.txt]]" "[[SYCLTABLE]]"
@@ -175,7 +175,7 @@
 // RUN:   touch %t.o
 // RUN:   %clang_cl -### --intel -fsycl -fno-sycl-device-lib=all -Qiopenmp %t.o --target=x86_64-pc-windows-msvc -Qopenmp-targets=spir64  2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-UBJOBS-CL %s
-// CHK-UBJOBS-CL: clang-offload-bundler{{.*}} "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64,sycl-spir64-unknown-unknown-sycldevice{{(-coff)?}}" "-inputs=[[FATOBJ:.+\.o]]" "-outputs=[[HOSTOBJCL:.+\.obj]],[[OMPBCCL:.+\.obj]],[[SYCLBCCL:.+\.obj]]" "-unbundle"
+// CHK-UBJOBS-CL: clang-offload-bundler{{.*}} "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64,sycl-spir64-unknown-unknown-sycldevice{{(-coff)?}}" "-input=[[FATOBJ:.+\.o]]" "-output=[[HOSTOBJCL:.+\.obj]]" "-output=[[OMPBCCL:.+\.obj]]" "-output=[[SYCLBCCL:.+\.obj]]" "-unbundle"
 // CHK-UBJOBS-CL: llvm-link{{.*}} "[[SYCLBCCL]]" "-o" "[[SYCLLINKEDBC:.+\.bc]]"
 // CHK-UBJOBS-CL: sycl-post-link{{.*}} "-symbols" "-spec-const=rt" "-o" "[[SYCLTABLE:.+\.table]]" "[[SYCLLINKEDBC]]"
 // CHK-UBJOBS-CL: file-table-tform{{.*}} "-extract=Code" "-drop_titles" "-o" "[[SYCLTABLEOUT:.+\.txt]]" "[[SYCLTABLE]]"

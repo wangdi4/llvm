@@ -22,8 +22,8 @@
 // RUN:   | FileCheck %s -check-prefix=STATIC_LIB -DINPUTA=%t.a -DINPUTO=%t.o
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -fno-openmp-device-lib=all -fiopenmp -fopenmp-targets=spir64 -L/dummy/dir %t.lo -### %t.o 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=STATIC_LIB -DINPUTA=%t.lo -DINPUTO=%t.o
-// STATIC_LIB: clang-offload-bundler{{.*}} "-type=o" {{.*}} "-inputs=[[INPUTO]]" "-outputs=[[HOSTOBJ:.+\.o]],{{.+\.o}}"
-// STATIC_LIB: clang-offload-bundler{{.*}} "-type=aoo" {{.*}} "-inputs=[[INPUTA]]" "-outputs=[[OUTLIST:.+\.txt]]"
+// STATIC_LIB: clang-offload-bundler{{.*}} "-type=o" {{.*}} "-input=[[INPUTO]]" "-output=[[HOSTOBJ:.+\.o]]" "-output={{.+\.o}}"
+// STATIC_LIB: clang-offload-bundler{{.*}} "-type=aoo" {{.*}} "-input=[[INPUTA]]" "-output=[[OUTLIST:.+\.txt]]"
 // STATIC_LIB: spirv-to-ir-wrapper{{.*}} "[[OUTLIST]]" "-o" "[[OUTLIB:.+\.txt]]"
 // STATIC_LIB: llvm-link{{.*}} "@[[OUTLIB]]"
 // STATIC_LIB: ld{{.*}} "[[INPUTA]]" "[[HOSTOBJ]]"
@@ -37,9 +37,9 @@
 // RUN: touch %t-3.o
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 %t.a -### %t-1.o %t-2.o %t-3.o 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=STATIC_LIB_MULTI_O
-// STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=o" {{.*}} "-inputs={{.+}}-1.o"
-// STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=o" {{.*}} "-inputs={{.+}}-2.o"
-// STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=o" {{.*}} "-inputs={{.+}}-3.o"
+// STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=o" {{.*}} "-input={{.+}}-1.o"
+// STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=o" {{.*}} "-input={{.+}}-2.o"
+// STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=o" {{.*}} "-input={{.+}}-3.o"
 // STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=aoo"
 // STATIC_LIB_MULTI_O: llvm-link{{.*}} "--only-needed" {{.*}}
 
@@ -65,8 +65,8 @@
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -L/dummy/dir %t.o -Wl,@%t.arg -fno-openmp-device-lib=all -### 2>&1 \
 // RUN:   | FileCheck %s -check-prefixes=WHOLE_STATIC_LIB
 // WHOLE_STATIC_LIB: clang-offload-bundler{{.*}} "-type=o" {{.*}}
-// WHOLE_STATIC_LIB: clang-offload-bundler{{.*}} "-type=aoo" {{.*}} "-inputs=[[INPUTA:.+\.a]]" "-outputs={{.*}}"
-// WHOLE_STATIC_LIB: clang-offload-bundler{{.*}} "-type=aoo" {{.*}} "-inputs=[[INPUTB:.+\.a]]" "-outputs={{.*}}"
+// WHOLE_STATIC_LIB: clang-offload-bundler{{.*}} "-type=aoo" {{.*}} "-input=[[INPUTA:.+\.a]]" "-output={{.*}}"
+// WHOLE_STATIC_LIB: clang-offload-bundler{{.*}} "-type=aoo" {{.*}} "-input=[[INPUTB:.+\.a]]" "-output={{.*}}"
 // WHOLE_STATIC_LIB: llvm-link{{.*}}
 // WHOLE_STATIC_LIB: llvm-spirv{{.*}}
 // WHOLE_STATIC_LIB: clang-offload-wrapper{{.*}}
@@ -80,8 +80,8 @@
 // RUN:   | FileCheck %s -check-prefix=STATIC_LIB_NOSRC -DINPUTLIB=%t.a
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -L/dummy/dir %t.lo -fno-openmp-device-lib=all -### 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=STATIC_LIB_NOSRC -DINPUTLIB=%t.lo
-// STATIC_LIB_NOSRC: clang-offload-bundler{{.*}} "-type=ao" "-targets=host-x86_64-unknown-linux-gnu" "-inputs=[[INPUTLIB]]" "-check-section"
-// STATIC_LIB_NOSRC: clang-offload-bundler{{.*}} "-type=aoo" "-targets=openmp-spir64" "-inputs=[[INPUTLIB]]" "-outputs=[[OUTLIST:.+\.txt]]" "-unbundle"
+// STATIC_LIB_NOSRC: clang-offload-bundler{{.*}} "-type=ao" "-targets=host-x86_64-unknown-linux-gnu" "-input=[[INPUTLIB]]" "-check-section"
+// STATIC_LIB_NOSRC: clang-offload-bundler{{.*}} "-type=aoo" "-targets=openmp-spir64" "-input=[[INPUTLIB]]" "-output=[[OUTLIST:.+\.txt]]" "-unbundle"
 // STATIC_LIB_NOSRC: spirv-to-ir-wrapper{{.*}} "[[OUTLIST]]" "-o" "[[OUTLIB:.+\.txt]]"
 // STATIC_LIB_NOSRC: llvm-link{{.*}} "@[[OUTLIB]]" "-o" "[[OUTFILE:.+\.bc]]"
 // STATIC_LIB_NOSRC: llvm-link{{.*}} "--only-needed" "[[OUTFILE]]" {{.*}} "-o" "[[OUTFILE2:.+\.bc]]"
