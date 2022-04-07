@@ -781,19 +781,11 @@ void Verifier::visitGlobalVariable(const GlobalVariable &GV) {
               Init);
         for (Value *Op : InitArray->operands()) {
           Value *V = Op->stripPointerCasts();
-<<<<<<< HEAD
-          Assert(isa<GlobalVariable>(V) || isa<Function>(V) ||
-                 isa<GlobalAlias>(V) || isa<GlobalIFunc>(V), // INTEL
-                 Twine("invalid ") + GV.getName() + " member", V);
-          Assert(V->hasName(),
-                 Twine("members of ") + GV.getName() + " must be named", V);
-=======
           Check(isa<GlobalVariable>(V) || isa<Function>(V) ||
-                    isa<GlobalAlias>(V),
+                    isa<GlobalAlias>(V) || isa<GlobalIFunc>(V), // INTEL
                 Twine("invalid ") + GV.getName() + " member", V);
           Check(V->hasName(),
                 Twine("members of ") + GV.getName() + " must be named", V);
->>>>>>> c54ad1360248e28a436a6a6c560ba5952d8e98cb
         }
       }
     }
@@ -911,18 +903,13 @@ void Verifier::visitNamedMDNode(const NamedMDNode &NMD) {
   // There used to be various other llvm.dbg.* nodes, but we don't support
   // upgrading them and we want to reserve the namespace for future uses.
   if (NMD.getName().startswith("llvm.dbg."))
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-    AssertDI(NMD.getName() == "llvm.dbg.cu" ||
+    CheckDI(NMD.getName() == "llvm.dbg.cu" ||
                  NMD.getName().startswith("llvm.dbg.intel") ||
                  NMD.getName().startswith("llvm.dbg.ms"),
              "unrecognized named metadata node in the llvm.dbg namespace",
              &NMD);
 #endif // INTEL_CUSTOMIZATION
-=======
-    CheckDI(NMD.getName() == "llvm.dbg.cu",
-            "unrecognized named metadata node in the llvm.dbg namespace", &NMD);
->>>>>>> c54ad1360248e28a436a6a6c560ba5952d8e98cb
   for (const MDNode *MD : NMD.operands()) {
     if (NMD.getName() == "llvm.dbg.cu")
       CheckDI(MD && isa<DICompileUnit>(MD), "invalid compile unit", &NMD, MD);
@@ -3801,7 +3788,7 @@ void Verifier::visitGetElementPtrInst(GetElementPtrInst &GEP) {
     }
   }
 #if INTEL_CUSTOMIZATION
-  Assert(TBAAVerifier::isCanonicalIntelTBAAGEP(&GEP),
+  Check(TBAAVerifier::isCanonicalIntelTBAAGEP(&GEP),
          "GEP has !intel-tbaa annotation but its \"shape\" is unexpected!",
          &GEP);
 #endif // INTEL_CUSTOMIZATION
@@ -3823,27 +3810,27 @@ void Verifier::visitSubscriptInst(SubscriptInst &I) {
   Value *Index = I.getIndex();
 
   Type *PtrTy = Ptr->getType();
-  Assert(PtrTy->isPtrOrPtrVectorTy(),
+  Check(PtrTy->isPtrOrPtrVectorTy(),
          "llvm.intel.subscript base pointer is not "
          "a vector or a vector of pointers",
          &I);
 
-  Assert(I.getRank() <= 32,
+  Check(I.getRank() <= 32,
          "Rank cannot be greater or equal to 32, max possible number of "
          "dimensions",
          &I);
 
   // Check for proper 'ElementType' attribute and expected size.
-  Assert(I.getElementType()->isSized(),
+  Check(I.getElementType()->isSized(),
          "llvm.intel.subscript into unsized type!", &I);
 
   Value* IntArgs[] = {Lower, Stride, Index};
-  Assert(all_of(IntArgs,
+  Check(all_of(IntArgs,
                 [](Value *V) { return V->getType()->isIntOrIntVectorTy(); }),
          "llvm.intel.subscript lower/stride/index must be integers", &I);
 
   Type *ResTy = I.getType();
-  Assert(
+  Check(
       ResTy->isPtrOrPtrVectorTy() &&
           ResTy->getScalarType() == PtrTy->getScalarType(),
       "llvm.intel.subscript result type is not consistent with base pointer !",
@@ -3864,27 +3851,27 @@ void Verifier::visitSubscriptInst(SubscriptInst &I) {
         continue;
 
       unsigned ArgWidth = cast<FixedVectorType>(ArgTy)->getNumElements();
-      Assert(Width == 0 || ArgWidth == Width,
+      Check(Width == 0 || ArgWidth == Width,
              "Invalid llvm.intel.subscript lower/stride/index vector width",
              &I);
       Width = std::max(Width, ArgWidth);
     }
   }
-  Assert(IsVector ? cast<FixedVectorType>(ResTy)->getNumElements() == Width
+  Check(IsVector ? cast<FixedVectorType>(ResTy)->getNumElements() == Width
                   : !ResTy->isVectorTy(),
          "Inconsistent vector width in llvm.intel.subscript", &I);
 
-  Assert(I.hasFnAttr(Attribute::Speculatable),
+  Check(I.hasFnAttr(Attribute::Speculatable),
          "llvm.intel.subscript should have speculatable attribute", &I);
-  Assert(I.hasFnAttr(Attribute::ReadNone),
+  Check(I.hasFnAttr(Attribute::ReadNone),
          "llvm.intel.subscript should have readnone attribute", &I);
 
-  Assert(I.getNumOperandBundles() == 0,
+  Check(I.getNumOperandBundles() == 0,
          "llvm.intel.subscript should not have operand bundles", &I);
 
   unsigned PointerSize = DL.getPointerSizeInBits(I.getPointerAddressSpace());
   if (const ConstantInt *CStride = dyn_cast<ConstantInt>(Stride)) {
-    Assert(CStride->getBitWidth() <= PointerSize,
+    Check(CStride->getBitWidth() <= PointerSize,
            "Constant stride is too big for pointer size", &I, PointerSize);
 
     // Check that the Elementtype Size evenly divides Const Stride. Size is
@@ -3892,14 +3879,14 @@ void Verifier::visitSubscriptInst(SubscriptInst &I) {
     // signed remainder.
     int64_t Scale = CStride->getSExtValue();
     int64_t ElSize = (int64_t)DL.getTypeAllocSize(I.getElementType());
-    Assert(Scale % ElSize == 0,
+    Check(Scale % ElSize == 0,
            "llvm.intel.subscript incompatible Stride for ElemTy!",
            Scale, ElSize);
     if (const ConstantInt *CIdx = dyn_cast<ConstantInt>(Index))
       if (const ConstantInt *CLb = dyn_cast<ConstantInt>(Lower)) {
         int64_t Offset = Scale * (CIdx->getSExtValue() - CLb->getSExtValue());
         APInt ConstOffset(PointerSize, Offset, true);
-        Assert(ConstOffset.getSExtValue() == Offset,
+        Check(ConstOffset.getSExtValue() == Offset,
                "Wrap around in offset computations", &I, PointerSize);
       }
   }
@@ -5047,9 +5034,9 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
 #if INTEL_CUSTOMIZATION
   case Intrinsic::intel_honor_fcmp: {
     auto Pred = cast<IntelHonorFCmpIntrinsic>(&Call)->getPredicate();
-    Assert(CmpInst::isFPPredicate(Pred),
+    Check(CmpInst::isFPPredicate(Pred),
            "invalid predicate for intel.honor.fcmp intrinsic", Call);
-    Assert(!Call.hasNoNaNs(),
+    Check(!Call.hasNoNaNs(),
            "nnan is not permitted on intel.honor.fcmp intrinsic", Call);
     break;
   }
@@ -5218,27 +5205,24 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
           Call);
     break;
   case Intrinsic::prefetch:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_PREFETCHST2
-    Assert(cast<ConstantInt>(Call.getArgOperand(1))->getZExtValue() < 3 &&
-           cast<ConstantInt>(Call.getArgOperand(2))->getZExtValue() < 4,
-           "invalid arguments to llvm.prefetch", Call);
+    Check(cast<ConstantInt>(Call.getArgOperand(1))->getZExtValue() < 3 &&
+          cast<ConstantInt>(Call.getArgOperand(2))->getZExtValue() < 4,
+          "invalid arguments to llvm.prefetch", Call);
 #else // INTEL_FEATURE_ISA_PREFETCHST2
-    Assert(cast<ConstantInt>(Call.getArgOperand(1))->getZExtValue() < 2 &&
-           cast<ConstantInt>(Call.getArgOperand(2))->getZExtValue() < 4,
-           "invalid arguments to llvm.prefetch", Call);
+    Check(cast<ConstantInt>(Call.getArgOperand(1))->getZExtValue() < 2 &&
+          cast<ConstantInt>(Call.getArgOperand(2))->getZExtValue() < 4,
+          "invalid arguments to llvm.prefetch", Call);
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
 #if INTEL_FEATURE_ISA_PREFETCHI
-    Assert(cast<ConstantInt>(Call.getArgOperand(3))->getZExtValue() < 2,
-           "invalid arguments to llvm.prefetch", Call);
+    Check(cast<ConstantInt>(Call.getArgOperand(3))->getZExtValue() < 2,
+          "invalid arguments to llvm.prefetch", Call);
 #endif // INTEL_FEATURE_ISA_PREFETCHI
 #endif // INTEL_CUSTOMIZATION
-=======
     Check(cast<ConstantInt>(Call.getArgOperand(1))->getZExtValue() < 2 &&
               cast<ConstantInt>(Call.getArgOperand(2))->getZExtValue() < 4,
           "invalid arguments to llvm.prefetch", Call);
->>>>>>> c54ad1360248e28a436a6a6c560ba5952d8e98cb
     break;
   case Intrinsic::stackprotector:
     Check(isa<AllocaInst>(Call.getArgOperand(1)->stripPointerCasts()),
@@ -5495,16 +5479,11 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
   case Intrinsic::vector_reduce_umax:
   case Intrinsic::vector_reduce_umin: {
     Type *ArgTy = Call.getArgOperand(0)->getType();
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-    Assert((ArgTy->isIntOrIntVectorTy() || ArgTy->isPtrOrPtrVectorTy()) &&
+    Check((ArgTy->isIntOrIntVectorTy() || ArgTy->isPtrOrPtrVectorTy()) &&
                ArgTy->isVectorTy(),
            "Intrinsic has incorrect argument type!");
 #endif // INTEL_CUSTOMIZATION
-=======
-    Check(ArgTy->isIntOrIntVectorTy() && ArgTy->isVectorTy(),
-          "Intrinsic has incorrect argument type!");
->>>>>>> c54ad1360248e28a436a6a6c560ba5952d8e98cb
     break;
   }
   case Intrinsic::vector_reduce_fmax:
@@ -5771,7 +5750,7 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
     // Check that the vector type is a pair of floating-point types.
     Type *ArgTy = Call.getArgOperand(0)->getType();
     FixedVectorType *VectorTy = dyn_cast<FixedVectorType>(ArgTy);
-    Assert(VectorTy && VectorTy->getNumElements() % 2 == 0 &&
+    Check(VectorTy && VectorTy->getNumElements() % 2 == 0 &&
              VectorTy->getElementType()->isFloatingPointTy(),
            "complex intrinsic must use an even-length vector of floating-point types",
            &Call);
