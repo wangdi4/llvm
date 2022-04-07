@@ -6566,6 +6566,14 @@ static bool IsScalarTBAANodeImpl(const MDNode *MD,
          (IsRootTBAANode(Parent) || IsScalarTBAANodeImpl(Parent, Visited));
 }
 
+#if INTEL_CUSTOMIZATION
+// "External" version of below that doesn't require a private cache.
+bool TBAAVerifier::isValidScalarTBAANodeStatic(const MDNode *MD) {
+  SmallPtrSet<const MDNode *, 4> Visited;
+  return IsScalarTBAANodeImpl(MD, Visited);
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool TBAAVerifier::isValidScalarTBAANode(const MDNode *MD) {
   auto ResultIt = TBAAScalarNodes.find(MD);
   if (ResultIt != TBAAScalarNodes.end())

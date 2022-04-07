@@ -107,6 +107,12 @@ public:
   /// be a simple pointer arithmetic. Otherwise, the \p GEP is assumed to
   /// represent "structural" access so its first index should be zero.
   static bool isCanonicalIntelTBAAGEP(const GetElementPtrInst *GEP);
+
+  /// "static" version of isValidScalarTBAANode. Doesn't use the private
+  /// node cache.
+  /// Returns true if \p MD represents a scalar type, not a struct or an
+  /// array.
+  static bool isValidScalarTBAANodeStatic(const MDNode *MD);
 #endif // INTEL_CUSTOMIZATION
 };
 
