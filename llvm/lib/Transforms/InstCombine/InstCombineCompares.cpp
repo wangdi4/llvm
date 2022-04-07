@@ -2690,7 +2690,13 @@ Instruction *InstCombinerImpl::foldICmpSubConstant(ICmpInst &Cmp,
   //       in phis. The phi use check is guarding against a codegen regression
   //       for a loop test. If the backend could undo this (and possibly
   //       subsequent transforms), we would not need this hack.
-  if (Cmp.isEquality() && C.isZero() &&
+#if INTEL_CUSTOMIZATION
+  bool AVX512 = getTargetTransformInfo().isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512);
+  // For AVX512, make sure there is only one use.
+  // This transform may cause suboptimal X86 instruction selection.
+  if ((!AVX512 || Sub->hasOneUse()) && Cmp.isEquality() && C.isZero() &&
+#endif // INTEL_CUSTOMIZATION
       none_of((Sub->users()), [](const User *U) { return isa<PHINode>(U); }))
     return new ICmpInst(Pred, X, Y);
 
