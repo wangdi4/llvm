@@ -94,18 +94,14 @@ for.body25:                                       ; preds = %land.rhs
   br i1 %cmp26, label %if.then27, label %if.else
 
 if.then27:                                        ; preds = %for.body25
-  %i2 = bitcast ptr %pl.0 to ptr
-  %i3 = load i64, ptr %i2, align 8
+  %i3 = load i64, ptr %pl.0, align 8
   %idx.neg28 = sub i64 0, %es
   %add.ptr29 = getelementptr inbounds i8, ptr %pl.0, i64 %idx.neg28
-  %i4 = bitcast ptr %add.ptr29 to ptr
-  %i5 = load i64, ptr %i4, align 8
-  %i6 = bitcast ptr %pl.0 to ptr
-  store i64 %i5, ptr %i6, align 8
+  %i5 = load i64, ptr %add.ptr29, align 8
+  store i64 %i5, ptr %pl.0, align 8
   %idx.neg30 = sub i64 0, %es
   %add.ptr31 = getelementptr inbounds i8, ptr %pl.0, i64 %idx.neg30
-  %i7 = bitcast ptr %add.ptr31 to ptr
-  store i64 %i3, ptr %i7, align 8
+  store i64 %i3, ptr %add.ptr31, align 8
   br label %for.inc
 
 if.else:                                          ; preds = %for.body25
@@ -113,18 +109,14 @@ if.else:                                          ; preds = %for.body25
   br i1 %cmp32, label %if.then33, label %if.else39
 
 if.then33:                                        ; preds = %if.else
-  %i8 = bitcast ptr %pl.0 to ptr
-  %i9 = load i32, ptr %i8, align 4
+  %i9 = load i32, ptr %pl.0, align 4
   %idx.neg35 = sub i64 0, %es
   %add.ptr36 = getelementptr inbounds i8, ptr %pl.0, i64 %idx.neg35
-  %i10 = bitcast ptr %add.ptr36 to ptr
-  %i11 = load i32, ptr %i10, align 4
-  %i12 = bitcast ptr %pl.0 to ptr
-  store i32 %i11, ptr %i12, align 4
+  %i11 = load i32, ptr %add.ptr36, align 4
+  store i32 %i11, ptr %pl.0, align 4
   %idx.neg37 = sub i64 0, %es
   %add.ptr38 = getelementptr inbounds i8, ptr %pl.0, i64 %idx.neg37
-  %i13 = bitcast ptr %add.ptr38 to ptr
-  store i32 %i9, ptr %i13, align 4
+  store i32 %i9, ptr %add.ptr38, align 4
   br label %for.inc
 
 if.else39:                                        ; preds = %if.else
@@ -192,14 +184,10 @@ if.end77:                                         ; preds = %if.end75, %if.end48
   br i1 %cmp78, label %if.then80, label %if.else82
 
 if.then80:                                        ; preds = %if.end77
-  %i14 = bitcast ptr %a.addr.0 to ptr
-  %i15 = load i64, ptr %i14, align 8
-  %i16 = bitcast ptr %pm.2 to ptr
-  %i17 = load i64, ptr %i16, align 8
-  %i18 = bitcast ptr %a.addr.0 to ptr
-  store i64 %i17, ptr %i18, align 8
-  %i19 = bitcast ptr %pm.2 to ptr
-  store i64 %i15, ptr %i19, align 8
+  %i15 = load i64, ptr %a.addr.0, align 8
+  %i17 = load i64, ptr %pm.2, align 8
+  store i64 %i17, ptr %a.addr.0, align 8
+  store i64 %i15, ptr %pm.2, align 8
   br label %if.end90
 
 if.else82:                                        ; preds = %if.end77
@@ -207,14 +195,10 @@ if.else82:                                        ; preds = %if.end77
   br i1 %cmp83, label %if.then85, label %if.else87
 
 if.then85:                                        ; preds = %if.else82
-  %i20 = bitcast ptr %a.addr.0 to ptr
-  %i21 = load i32, ptr %i20, align 4
-  %i22 = bitcast ptr %pm.2 to ptr
-  %i23 = load i32, ptr %i22, align 4
-  %i24 = bitcast ptr %a.addr.0 to ptr
-  store i32 %i23, ptr %i24, align 4
-  %i25 = bitcast ptr %pm.2 to ptr
-  store i32 %i21, ptr %i25, align 4
+  %i21 = load i32, ptr %a.addr.0, align 4
+  %i23 = load i32, ptr %pm.2, align 4
+  store i32 %i23, ptr %a.addr.0, align 4
+  store i32 %i21, ptr %pm.2, align 4
   br label %if.end90
 
 if.else87:                                        ; preds = %if.else82
@@ -258,14 +242,10 @@ if.then105:                                       ; preds = %while.body
   br i1 %cmp106, label %if.then108, label %if.else110
 
 if.then108:                                       ; preds = %if.then105
-  %i26 = bitcast ptr %pa.1 to ptr
-  %i27 = load i64, ptr %i26, align 8
-  %i28 = bitcast ptr %pb.1 to ptr
-  %i29 = load i64, ptr %i28, align 8
-  %i30 = bitcast ptr %pa.1 to ptr
-  store i64 %i29, ptr %i30, align 8
-  %i31 = bitcast ptr %pb.1 to ptr
-  store i64 %i27, ptr %i31, align 8
+  %i27 = load i64, ptr %pa.1, align 8
+  %i29 = load i64, ptr %pb.1, align 8
+  store i64 %i29, ptr %pa.1, align 8
+  store i64 %i27, ptr %pb.1, align 8
   br label %if.end118
 
 if.else110:                                       ; preds = %if.then105
@@ -273,14 +253,10 @@ if.else110:                                       ; preds = %if.then105
   br i1 %cmp111, label %if.then113, label %if.else115
 
 if.then113:                                       ; preds = %if.else110
-  %i32 = bitcast ptr %pa.1 to ptr
-  %i33 = load i32, ptr %i32, align 4
-  %i34 = bitcast ptr %pb.1 to ptr
-  %i35 = load i32, ptr %i34, align 4
-  %i36 = bitcast ptr %pa.1 to ptr
-  store i32 %i35, ptr %i36, align 4
-  %i37 = bitcast ptr %pb.1 to ptr
-  store i32 %i33, ptr %i37, align 4
+  %i33 = load i32, ptr %pa.1, align 4
+  %i35 = load i32, ptr %pb.1, align 4
+  store i32 %i35, ptr %pa.1, align 4
+  store i32 %i33, ptr %pb.1, align 4
   br label %if.end118
 
 if.else115:                                       ; preds = %if.else110
@@ -322,14 +298,10 @@ if.then133:                                       ; preds = %while.body130
   br i1 %cmp134, label %if.then136, label %if.else138
 
 if.then136:                                       ; preds = %if.then133
-  %i38 = bitcast ptr %pc.1 to ptr
-  %i39 = load i64, ptr %i38, align 8
-  %i40 = bitcast ptr %pd.1 to ptr
-  %i41 = load i64, ptr %i40, align 8
-  %i42 = bitcast ptr %pc.1 to ptr
-  store i64 %i41, ptr %i42, align 8
-  %i43 = bitcast ptr %pd.1 to ptr
-  store i64 %i39, ptr %i43, align 8
+  %i39 = load i64, ptr %pc.1, align 8
+  %i41 = load i64, ptr %pd.1, align 8
+  store i64 %i41, ptr %pc.1, align 8
+  store i64 %i39, ptr %pd.1, align 8
   br label %if.end146
 
 if.else138:                                       ; preds = %if.then133
@@ -337,14 +309,10 @@ if.else138:                                       ; preds = %if.then133
   br i1 %cmp139, label %if.then141, label %if.else143
 
 if.then141:                                       ; preds = %if.else138
-  %i44 = bitcast ptr %pc.1 to ptr
-  %i45 = load i32, ptr %i44, align 4
-  %i46 = bitcast ptr %pd.1 to ptr
-  %i47 = load i32, ptr %i46, align 4
-  %i48 = bitcast ptr %pc.1 to ptr
-  store i32 %i47, ptr %i48, align 4
-  %i49 = bitcast ptr %pd.1 to ptr
-  store i32 %i45, ptr %i49, align 4
+  %i45 = load i32, ptr %pc.1, align 4
+  %i47 = load i32, ptr %pd.1, align 4
+  store i32 %i47, ptr %pc.1, align 4
+  store i32 %i45, ptr %pd.1, align 4
   br label %if.end146
 
 if.else143:                                       ; preds = %if.else138
@@ -373,14 +341,10 @@ if.end156:                                        ; preds = %while.end152
   br i1 %cmp157, label %if.then159, label %if.else161
 
 if.then159:                                       ; preds = %if.end156
-  %i50 = bitcast ptr %pb.1 to ptr
-  %i51 = load i64, ptr %i50, align 8
-  %i52 = bitcast ptr %pc.1 to ptr
-  %i53 = load i64, ptr %i52, align 8
-  %i54 = bitcast ptr %pb.1 to ptr
-  store i64 %i53, ptr %i54, align 8
-  %i55 = bitcast ptr %pc.1 to ptr
-  store i64 %i51, ptr %i55, align 8
+  %i51 = load i64, ptr %pb.1, align 8
+  %i53 = load i64, ptr %pc.1, align 8
+  store i64 %i53, ptr %pb.1, align 8
+  store i64 %i51, ptr %pc.1, align 8
   br label %if.end169
 
 if.else161:                                       ; preds = %if.end156
@@ -388,14 +352,10 @@ if.else161:                                       ; preds = %if.end156
   br i1 %cmp162, label %if.then164, label %if.else166
 
 if.then164:                                       ; preds = %if.else161
-  %i56 = bitcast ptr %pb.1 to ptr
-  %i57 = load i32, ptr %i56, align 4
-  %i58 = bitcast ptr %pc.1 to ptr
-  %i59 = load i32, ptr %i58, align 4
-  %i60 = bitcast ptr %pb.1 to ptr
-  store i32 %i59, ptr %i60, align 4
-  %i61 = bitcast ptr %pc.1 to ptr
-  store i32 %i57, ptr %i61, align 4
+  %i57 = load i32, ptr %pb.1, align 4
+  %i59 = load i32, ptr %pc.1, align 4
+  store i32 %i59, ptr %pb.1, align 4
+  store i32 %i57, ptr %pc.1, align 4
   br label %if.end169
 
 if.else166:                                       ; preds = %if.else161
@@ -444,18 +404,14 @@ for.body194:                                      ; preds = %land.rhs187
   br i1 %cmp195, label %if.then197, label %if.else203
 
 if.then197:                                       ; preds = %for.body194
-  %i62 = bitcast ptr %pl.2 to ptr
-  %i63 = load i64, ptr %i62, align 8
+  %i63 = load i64, ptr %pl.2, align 8
   %idx.neg199 = sub i64 0, %es
   %add.ptr200 = getelementptr inbounds i8, ptr %pl.2, i64 %idx.neg199
-  %i64 = bitcast ptr %add.ptr200 to ptr
-  %i65 = load i64, ptr %i64, align 8
-  %i66 = bitcast ptr %pl.2 to ptr
-  store i64 %i65, ptr %i66, align 8
+  %i65 = load i64, ptr %add.ptr200, align 8
+  store i64 %i65, ptr %pl.2, align 8
   %idx.neg201 = sub i64 0, %es
   %add.ptr202 = getelementptr inbounds i8, ptr %pl.2, i64 %idx.neg201
-  %i67 = bitcast ptr %add.ptr202 to ptr
-  store i64 %i63, ptr %i67, align 8
+  store i64 %i63, ptr %add.ptr202, align 8
   br label %for.inc218
 
 if.else203:                                       ; preds = %for.body194
@@ -463,18 +419,14 @@ if.else203:                                       ; preds = %for.body194
   br i1 %cmp204, label %if.then206, label %if.else212
 
 if.then206:                                       ; preds = %if.else203
-  %i68 = bitcast ptr %pl.2 to ptr
-  %i69 = load i32, ptr %i68, align 4
+  %i69 = load i32, ptr %pl.2, align 4
   %idx.neg208 = sub i64 0, %es
   %add.ptr209 = getelementptr inbounds i8, ptr %pl.2, i64 %idx.neg208
-  %i70 = bitcast ptr %add.ptr209 to ptr
-  %i71 = load i32, ptr %i70, align 4
-  %i72 = bitcast ptr %pl.2 to ptr
-  store i32 %i71, ptr %i72, align 4
+  %i71 = load i32, ptr %add.ptr209, align 4
+  store i32 %i71, ptr %pl.2, align 4
   %idx.neg210 = sub i64 0, %es
   %add.ptr211 = getelementptr inbounds i8, ptr %pl.2, i64 %idx.neg210
-  %i73 = bitcast ptr %add.ptr211 to ptr
-  store i32 %i69, ptr %i73, align 4
+  store i32 %i69, ptr %add.ptr211, align 4
   br label %for.inc218
 
 if.else212:                                       ; preds = %if.else203
