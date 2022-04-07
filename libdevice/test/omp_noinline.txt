@@ -23,23 +23,23 @@ RUN: llvm-spirv -r %libompdevice_spv_dir/libomp-fallback-complex-fp64.spv -o %t.
 RUN: llvm-dis %t.bc -o - | FileCheck %s
 
 RUN: clang-offload-bundler -type=o -unbundle -targets=openmp-spir64 \
-RUN:     -inputs=%libompdevice_obj_dir/libomp-glibc.o -outputs=%t.bc
+RUN:     -input=%libompdevice_obj_dir/libomp-glibc.o -output=%t.bc
 RUN: llvm-dis %t.bc -o - | FileCheck %s
 
 RUN: clang-offload-bundler -type=o -unbundle -targets=openmp-spir64 \
-RUN:     -inputs=%libompdevice_obj_dir/libomp-cmath.o -outputs=%t.bc
+RUN:     -input=%libompdevice_obj_dir/libomp-cmath.o -output=%t.bc
 RUN: llvm-dis %t.bc -o - | FileCheck %s
 
 RUN: clang-offload-bundler -type=o -unbundle -targets=openmp-spir64 \
-RUN:     -inputs=%libompdevice_obj_dir/libomp-cmath-fp64.o -outputs=%t.bc
+RUN:     -input=%libompdevice_obj_dir/libomp-cmath-fp64.o -output=%t.bc
 RUN: llvm-dis %t.bc -o - | FileCheck %s
 
 RUN: clang-offload-bundler -type=o -unbundle -targets=openmp-spir64 \
-RUN:     -inputs=%libompdevice_obj_dir/libomp-complex.o -outputs=%t.bc
+RUN:     -input=%libompdevice_obj_dir/libomp-complex.o -output=%t.bc
 RUN: llvm-dis %t.bc -o - | FileCheck %s
 
 RUN: clang-offload-bundler -type=o -unbundle -targets=openmp-spir64 \
-RUN:     -inputs=%libompdevice_obj_dir/libomp-complex-fp64.o -outputs=%t.bc
+RUN:     -input=%libompdevice_obj_dir/libomp-complex-fp64.o -output=%t.bc
 RUN: llvm-dis %t.bc -o - | FileCheck %s
 
 CHECK: target triple ={{.*}}spir64
