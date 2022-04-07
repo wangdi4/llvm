@@ -497,8 +497,18 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
     return AlignFromIR;
 
   VPlanSCEV *Diff = VPSE->getMinusExpr(DstScev, SrcScev);
-  assert(Diff && "Cannot compute alignment for peeled memref");
+  // If we are unable to compute the diff, there is not much that we can
+  // do. Use alignment from IR.
+  if (!Diff)
+    return AlignFromIR;
+
   auto KB = VPVT->getKnownBits(Diff, &Memref);
+  if (KB.isZero()) {
+    // The memref is congruently equal to the peeling base. Return targeted
+    // peeling alignment. Note: the steps equality is checked above.
+    return DP.targetAlignment();
+  }
+
   Align AlignFromDiff{1ULL << KB.countMinTrailingZeros()};
 
   // Alignment of access cannot be larger than alignment of the step, which

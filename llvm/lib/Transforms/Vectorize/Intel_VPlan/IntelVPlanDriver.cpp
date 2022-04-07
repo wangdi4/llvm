@@ -103,7 +103,7 @@ static cl::opt<bool>
                                    "alignment of memory accesses"));
 
 static cl::opt<bool> VPlanEnablePeelingHIROpt(
-    "vplan-enable-peeling-hir", cl::init(false), cl::Hidden,
+    "vplan-enable-peeling-hir", cl::init(true), cl::Hidden,
     cl::desc("Enable generation of peel loops to improve "
              "alignment of memory accesses in HIR path"));
 
@@ -1392,7 +1392,7 @@ bool VPlanDriverHIRImpl::runImpl(
 bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
                                      WRNVecLoopNode *WRLp) {
   // Enable peeling for HIR path from command line switch
-  VPlanEnablePeeling = VPlanEnablePeelingHIROpt;
+  VPlanEnablePeeling = VPlanEnablePeelingHIROpt && VPlanEnablePeelingOpt;
   VPlanEnableGeneralPeeling = VPlanEnableGeneralPeelingHIROpt;
 
   // TODO: How do we allow stress-testing for HIR path?
