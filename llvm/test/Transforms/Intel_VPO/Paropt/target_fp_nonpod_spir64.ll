@@ -33,8 +33,7 @@
 ; CTORDTOR-DAG: %[[SRC]] = addrspacecast %class.C addrspace(1)* %c1.ascast to %class.C addrspace(4)*
 ; CTORDTOR-DAG: %[[DST]] = addrspacecast %class.C* %[[C1_NEW]] to %class.C addrspace(4)*
 
-; CTORDTOR-DAG: call spir_func void @_ZTS1C.omp.destr(%class.C addrspace(4)* %[[ARG:[^ ,)]+]]) [[ATTR2:#[0-9]+]]
-; CTORDTOR-DAG: %[[ARG]] = addrspacecast %class.C* %[[C1_NEW]] to %class.C addrspace(4)*
+; CTORDTOR-DAG: call spir_func void @_ZTS1C.omp.destr(%class.C addrspace(4)* %[[DST]]) [[ATTR2:#[0-9]+]]
 
 ; CTORDTOR-DAG: [[ATTR1]] = {{{.*}}"openmp-privatization-copyconstructor"{{.*}}}
 ; CTORDTOR-DAG: [[ATTR2]] = {{{.*}}"openmp-privatization-destructor"{{.*}}}

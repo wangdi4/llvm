@@ -1,4 +1,3 @@
-#if !INTEL_COLLAB
 //===- InferAddressSpace.h - ----------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -23,7 +22,17 @@ private:
   unsigned FlatAddrSpace = 0;
 };
 
+#if INTEL_COLLAB
+class AssumptionCache;
+class DominatorTree;
+class TargetTransformInfo;
+
+// The utility performs the propagation of specific address space from
+// type-quailifed variable declarations to its users.
+bool InferAddrSpaces(AssumptionCache *AC, DominatorTree *DT,
+                     const TargetTransformInfo *TTI, unsigned addrSpace,
+                     Function &F);
+#endif // INTEL_COLLAB
 } // end namespace llvm
 
 #endif // LLVM_TRANSFORMS_SCALAR_INFERADDRESSSPACES_H
-#endif // !INTEL_COLLAB

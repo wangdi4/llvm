@@ -54,9 +54,9 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Scalar/InferAddressSpaces.h"
 #include "llvm/Transforms/Scalar/SROA.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/InferAddressSpacesUtils.h"
 
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionNode.h"
@@ -1807,7 +1807,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
         //                                     |
         //  store i32 0, i32 addrspace(4)* %x1 | store i32 0, i32* %x
         //                                     |
-        InferAddrSpaces(*TTI, vpo::ADDRESS_SPACE_GENERIC, *NewF);
+        InferAddrSpaces(AC, DT, TTI, vpo::ADDRESS_SPACE_GENERIC, *NewF);
         LLVM_DEBUG(dbgs() << "\nAfter InferAddrSpaces the function ::"
                           << *NewF);
       }
