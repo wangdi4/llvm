@@ -80,8 +80,11 @@ const Instruction *HIRParser::getCurInst() const {
     auto Term = BB->getTerminator();
     auto BrInst = dyn_cast<BranchInst>(Term);
 
-    return cast<Instruction>(BrInst->getCondition());
-
+    if (isa<Instruction>(BrInst->getCondition())) {
+      return cast<Instruction>(BrInst->getCondition());
+    } else {
+      return cast<Instruction>(BrInst);
+    }
   } else if (auto Switch = dyn_cast<HLSwitch>(CurNode)) {
     auto BB = HIRC.getSrcBBlock(Switch);
     return BB->getTerminator();
@@ -2447,11 +2450,7 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level, bool IsTop,
     }
   }
 
-  // TODO: getCurInst asserts for cast of BrInst->getCondition() to Instruction
-  // when condition is not a standalone inst.
-  if (!isa<HLIf>(CurNode)) {
-    parseMetadata(getCurInst(), CE);
-  }
+  parseMetadata(getCurInst(), CE);
 
   assert((CE->getDestType() == OrigVal->getType() ||
           (CE->getDestType() == FinalIntTy)) &&
