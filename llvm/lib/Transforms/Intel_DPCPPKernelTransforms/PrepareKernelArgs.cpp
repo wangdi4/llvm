@@ -26,6 +26,8 @@ using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-prepare-args"
 
+extern bool EnableTLSGlobals;
+
 namespace {
 
 uint64_t STACK_PADDING_BUFFER = DEV_MAXIMUM_ALIGN * 1;
@@ -81,7 +83,7 @@ ModulePass *llvm::createPrepareKernelArgsLegacyPass(bool UseTLSGlobals) {
 PreservedAnalyses PrepareKernelArgsPass::run(Module &M,
                                              ModuleAnalysisManager &AM) {
   ImplicitArgsInfo *IAInfo = &AM.getResult<ImplicitArgsAnalysis>(M);
-  if (!runImpl(M, false, IAInfo))
+  if (!runImpl(M, UseTLSGlobals, IAInfo))
     return PreservedAnalyses::all();
   return PreservedAnalyses::none();
 }
@@ -89,7 +91,7 @@ PreservedAnalyses PrepareKernelArgsPass::run(Module &M,
 bool PrepareKernelArgsPass::runImpl(Module &M, bool UseTLSGlobals,
                                     ImplicitArgsInfo *IAInfo) {
   this->M = &M;
-  this->UseTLSGlobals = UseTLSGlobals;
+  this->UseTLSGlobals = UseTLSGlobals | EnableTLSGlobals;
   this->IAInfo = IAInfo;
   LLVMContext &C = M.getContext();
   SizetTy = IntegerType::get(C, M.getDataLayout().getPointerSizeInBits());

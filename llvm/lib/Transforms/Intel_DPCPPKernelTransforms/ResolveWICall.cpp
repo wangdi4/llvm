@@ -90,7 +90,7 @@ ModulePass *llvm::createResolveWICallLegacyPass(bool IsUniformWGSize,
 PreservedAnalyses ResolveWICallPass::run(Module &M, ModuleAnalysisManager &AM) {
   CallGraph *CG = &AM.getResult<CallGraphAnalysis>(M);
   ImplicitArgsInfo *IAInfo = &AM.getResult<ImplicitArgsAnalysis>(M);
-  if (!runImpl(M, false, false, IAInfo, CG))
+  if (!runImpl(M, IsUniformWG, UseTLSGlobals, IAInfo, CG))
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserve<ImplicitArgsAnalysis>();

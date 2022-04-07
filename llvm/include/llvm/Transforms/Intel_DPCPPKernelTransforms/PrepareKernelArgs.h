@@ -24,7 +24,7 @@ namespace llvm {
 /// calculated based on the arguments' alignment, which in non LLVM dependent.
 class PrepareKernelArgsPass : public PassInfoMixin<PrepareKernelArgsPass> {
 public:
-  static StringRef name() { return "PrepareKernelArgsPass"; }
+  PrepareKernelArgsPass(bool UseTLSGlobals = false) : UseTLSGlobals(UseTLSGlobals) {}
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
