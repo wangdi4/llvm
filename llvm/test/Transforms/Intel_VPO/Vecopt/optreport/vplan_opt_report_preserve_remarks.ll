@@ -14,10 +14,9 @@
 ; LOOP END
 
 ; RUN: opt -vplan-vec -vplan-force-vf=2 -intel-opt-report=low -intel-ir-optreport-emitter < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -intel-opt-report=low -hir-optreport-emitter -vplan-enable-new-cfg-merge-hir < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace
 
-; CHECK-LABEL:  Global optimization report for : _Z3fooPiii
-; CHECK-EMPTY:
-; CHECK-NEXT:  LOOP BEGIN at test.cpp (2, 1)
+; CHECK:       LOOP BEGIN at test.cpp (2, 1)
 ; CHECK-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; CHECK-NEXT:      remark #15305: vectorization support: vector length 2
 ; CHECK-EMPTY:
@@ -71,10 +70,8 @@ loop.49:                                          ; preds = %ifmerge.14, %DIR.OM
   %i1.i32.0 = phi i32 [ 0, %DIR.OMP.SIMD.1 ], [ %nextivloop.49, %ifmerge.14 ]
   %2 = bitcast i32* %i.linear.iv to i8*, !dbg !29
   call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %2) #3, !dbg !29, !llvm.access.group !32
-  %hir.cmp.14 = icmp sgt i32 %n, 0, !dbg !33
   %hir.cmp.21 = icmp ne i32 %i1.i32.0, 0
-  %or.cond = select i1 %hir.cmp.14, i1 %hir.cmp.21, i1 false, !dbg !35
-  br i1 %or.cond, label %then.21, label %ifmerge.14, !dbg !35
+  br i1 %hir.cmp.21, label %then.21, label %ifmerge.14, !dbg !35
 
 then.21:                                          ; preds = %loop.49
   %3 = zext i32 %n to i64, !dbg !29
@@ -120,80 +117,6 @@ ifmerge.55.loopexit:                              ; preds = %loop.54
   br label %ifmerge.55, !dbg !36
 
 ifmerge.55:                                       ; preds = %ifmerge.55.loopexit, %then.21
-  %22 = and i64 %3, 4294967288, !dbg !36
-  %23 = and i64 %3, 7, !dbg !36
-  br label %NodeBlock84
-
-NodeBlock84:                                      ; preds = %ifmerge.55
-  %Pivot85 = icmp slt i64 %23, 4
-  br i1 %Pivot85, label %NodeBlock76, label %NodeBlock82
-
-NodeBlock82:                                      ; preds = %NodeBlock84
-  %Pivot83 = icmp slt i64 %23, 6
-  br i1 %Pivot83, label %NodeBlock78, label %NodeBlock80
-
-NodeBlock80:                                      ; preds = %NodeBlock82
-  %Pivot81 = icmp slt i64 %23, 7
-  br i1 %Pivot81, label %hir.L.69, label %hir.L.67
-
-NodeBlock78:                                      ; preds = %NodeBlock82
-  %Pivot79 = icmp slt i64 %23, 5
-  br i1 %Pivot79, label %hir.L.75, label %hir.L.72
-
-NodeBlock76:                                      ; preds = %NodeBlock84
-  %Pivot77 = icmp slt i64 %23, 2
-  br i1 %Pivot77, label %LeafBlock, label %NodeBlock
-
-NodeBlock:                                        ; preds = %NodeBlock76
-  %Pivot = icmp slt i64 %23, 3
-  br i1 %Pivot, label %hir.L.81, label %hir.L.78
-
-LeafBlock:                                        ; preds = %NodeBlock76
-  %SwitchLeaf = icmp eq i64 %23, 1
-  br i1 %SwitchLeaf, label %hir.L.84, label %NewDefault
-
-hir.L.67:                                         ; preds = %NodeBlock80
-  %24 = or i64 %22, 6, !dbg !38
-  %25 = getelementptr inbounds i32, i32* %arr, i64 %24, !dbg !38
-  store i32 %i1.i32.0, i32* %25, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
-  br label %hir.L.69, !dbg !36
-
-hir.L.69:                                         ; preds = %NodeBlock80, %hir.L.67
-  %26 = or i64 %22, 5, !dbg !38
-  %27 = getelementptr inbounds i32, i32* %arr, i64 %26, !dbg !38
-  store i32 %i1.i32.0, i32* %27, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
-  br label %hir.L.72, !dbg !36
-
-hir.L.72:                                         ; preds = %NodeBlock78, %hir.L.69
-  %28 = or i64 %22, 4, !dbg !38
-  %29 = getelementptr inbounds i32, i32* %arr, i64 %28, !dbg !38
-  store i32 %i1.i32.0, i32* %29, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
-  br label %hir.L.75, !dbg !36
-
-hir.L.75:                                         ; preds = %NodeBlock78, %hir.L.72
-  %30 = or i64 %22, 3, !dbg !38
-  %31 = getelementptr inbounds i32, i32* %arr, i64 %30, !dbg !38
-  store i32 %i1.i32.0, i32* %31, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
-  br label %hir.L.78, !dbg !36
-
-hir.L.78:                                         ; preds = %NodeBlock, %hir.L.75
-  %32 = or i64 %22, 2, !dbg !38
-  %33 = getelementptr inbounds i32, i32* %arr, i64 %32, !dbg !38
-  store i32 %i1.i32.0, i32* %33, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
-  br label %hir.L.81, !dbg !36
-
-hir.L.81:                                         ; preds = %NodeBlock, %hir.L.78
-  %34 = or i64 %22, 1, !dbg !38
-  %35 = getelementptr inbounds i32, i32* %arr, i64 %34, !dbg !38
-  store i32 %i1.i32.0, i32* %35, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
-  br label %hir.L.84, !dbg !36
-
-hir.L.84:                                         ; preds = %LeafBlock, %hir.L.81
-  %36 = getelementptr inbounds i32, i32* %arr, i64 %22, !dbg !38
-  store i32 %i1.i32.0, i32* %36, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
-  br label %ifmerge.14, !dbg !36
-
-NewDefault:                                       ; preds = %LeafBlock
   br label %ifmerge.14
 
 ifmerge.14:                                       ; preds = %NewDefault, %hir.L.84, %loop.49

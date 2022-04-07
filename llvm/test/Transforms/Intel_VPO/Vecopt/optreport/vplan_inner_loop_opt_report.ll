@@ -1,7 +1,8 @@
 ; Test to check the functionality of vectorization opt-report for
 ; outer loopnest with nested inner loop.
 
-; RUN: opt -vplan-vec -vplan-force-vf=2 -intel-opt-report=high -intel-ir-optreport-emitter < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace
+; RUN: opt -vplan-vec -vplan-force-vf=2 -intel-opt-report=high -intel-ir-optreport-emitter < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace --check-prefixes=CHECK,IR
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -vplan-enable-new-cfg-merge-hir -intel-opt-report=high -hir-optreport-emitter < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace
 
 ; CHECK:      LOOP BEGIN
 ; CHECK-NEXT:     remark #15301: SIMD LOOP WAS VECTORIZED
@@ -10,21 +11,21 @@
 ; CHECK-NEXT:     remark #15482: vectorized math library calls: 0
 ; CHECK-NEXT:     remark #15484: vector function calls: 0
 ; CHECK-NEXT:     remark #15485: serialized function calls: 1
-; CHECK-NEXT:     remark #15558: Call to function 'serial_call_1' was serialized due to no suitable vector variants were found.
+; IR-NEXT:        remark #15558: Call to function 'serial_call_1' was serialized due to no suitable vector variants were found.
 ; CHECK-NEXT:     remark #15488: --- end vector loop cost summary ---
 
 ; CHECK:          LOOP BEGIN
 ; CHECK-NEXT:         remark #15475: --- begin vector loop cost summary ---
-; CHECK-NEXT:         remark #15482: vectorized math library calls: 0
+; CHECK-NEXT:         remark #15482: vectorized math library calls: 1
 ; CHECK-NEXT:         remark #15484: vector function calls: 0
-; CHECK-NEXT:         remark #15485: serialized function calls: 1
-; CHECK-NEXT:         remark #15558: Call to function 'serial_call_2' was serialized due to no suitable vector variants were found.
+; CHECK-NEXT:         remark #15485: serialized function calls: 0
 ; CHECK-NEXT:         remark #15488: --- end vector loop cost summary ---
 ; CHECK:          LOOP END
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN
 ; CHECK-NEXT: <Remainder loop for vectorization>
+; CHECK-NEXT:     remark #15441: remainder loop was not vectorized:
 ; CHECK-EMPTY:
 ; CHECK-NEXT:     LOOP BEGIN
 ; CHECK-NEXT:     LOOP END
@@ -40,7 +41,7 @@ declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
 declare void @serial_call_1() nounwind
-declare void @serial_call_2() nounwind
+declare double @llvm.sqrt.f64(double %val) #1
 
 define void @test(i64 %n, i64* %arr, i64* %arr1) {
 entry:
@@ -62,7 +63,8 @@ for.body2.preheader:                              ; preds = %for.body
 
 for.body2:                                        ; preds = %for.body2.preheader, %for.body2
   %indvars.iv2 = phi i64 [ %indvars.iv.next2, %for.body2 ], [ 0, %for.body2.preheader ]
-  call void @serial_call_2()
+  %d = sitofp i64 %indvars.iv2 to double
+  %sqrt = call double @llvm.sqrt.f64(double %d)
   %indvars.iv.next2 = add nuw nsw i64 %indvars.iv2, 1
   %exitcond2 = icmp eq i64 %indvars.iv.next2, %n
   br i1 %exitcond2, label %for.latch.loopexit, label %for.body2
@@ -83,3 +85,4 @@ exit:                                             ; preds = %for.end, %entry
   ret void
 }
 
+attributes #1 = { nounwind readnone "target-features"="+fxsr,+mmx,+sse,+sse2,+x87,+avx,+avx2" }

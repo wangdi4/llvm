@@ -1450,6 +1450,13 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
     }
     HLNodeUtils::remove(OrigLoop);
   }
+
+  // Lower remarks collected in VPLoops to outgoing vector/scalar HLLoops. This
+  // is done only for merged CFG-based CG today.
+  if (isMergedCFG()) {
+    emitRemarksForScalarLoops();
+    lowerRemarksForVectorLoops();
+  }
 }
 
 // This function replaces scalar math lib calls in the remainder loop with
@@ -1509,7 +1516,9 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
 
   // Check to see if the call was vectorized in the main loop.
   if (TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(MaxVF))) {
-    ++OptRptStats.VectorMathCalls;
+    // TODO: Call is vectorized in scalar remainder loop, currently ignored
+    // since we don't have corresponding VPLoop.
+    ++NonLoopInstStats.VectorMathCalls;
 
     SmallVector<RegDDRef *, 1> CallArgs;
     SmallVector<Type *, 1> ArgTys;
@@ -4400,6 +4409,8 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
     }
   }
 
+  auto &OptRptStats = getOptReportStats(VPLoadStore);
+
   if (Opcode == Instruction::Load) {
     if (IsUnitStride)
       ++(Mask ? OptRptStats.MaskedUnalignedUnitStrideLoads
@@ -4587,6 +4598,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         return;
     }
   }
+
+  auto &OptRptStats = getOptReportStats(VPInst);
 
   auto Opcode = VPInst->getOpcode();
   switch (Opcode) {
@@ -6651,5 +6664,66 @@ bool VPOCodeGenHIR::getTreeConflictsLowered() {
 
 void VPOCodeGenHIR::setTreeConflictsLowered(bool Lowered) {
   TreeConflictsLowered = Lowered;
+}
+
+void VPOCodeGenHIR::lowerRemarksForVectorLoops() {
+  auto LowerRemarksForLoop = [this](VPLoop *VPL) {
+    // Emit statistics related remarks for the loop.
+    Plan->getOptRptStatsForLoop(VPL).emitRemarks(
+        ORBuilder, VPL, const_cast<VPLoopInfo *>(Plan->getVPLoopInfo()));
+
+    auto OR = VPL->getOptReport();
+    if (!OR)
+      return;
+
+    // Identify the HIR loop that corresponds to current VPLoop.
+    assert(VPLoopHLLoopMap.count(VPL) &&
+           "Could not find HIR loop corresponding to VPLoop.");
+    HLLoop *HIRLp = VPLoopHLLoopMap[VPL];
+
+    // Drop any existing opt-report and re-add the opt-report tracked
+    // for current VPLoop to corresponding HIR loop. Remarks from prior
+    // components are all captured in VPLoop's opt-report during VPlan CFG
+    // construction.
+    HIRLp->eraseOptReport();
+    HIRLp->setOptReport(OR);
+  };
+
+  for (VPLoop *OuterLoop : *Plan->getVPLoopInfo())
+    for (auto *VLP : post_order(OuterLoop))
+      LowerRemarksForLoop(VLP);
+}
+
+void VPOCodeGenHIR::emitRemarksForScalarLoops() {
+  // Naive visitor to erase opt-reports from all loops in given loop-nest.
+  struct EraseOptReportLoopVisitor
+      : public HIRVisitor<EraseOptReportLoopVisitor> {
+    void visitLoop(HLLoop *L) { L->eraseOptReport(); }
+  };
+
+  for (auto &ScalarLoopPair : OutgoingScalarHLLoopsMap) {
+    auto *ScalarLpVPI = ScalarLoopPair.first;
+    HLLoop *ScalarHLp = ScalarLoopPair.second;
+
+    // Remove all opt-reports from scalar loop nest. They have been moved to
+    // vectorized loops.
+    ScalarHLp->eraseOptReport();
+    EraseOptReportLoopVisitor ELV;
+    ELV.visit(ScalarHLp);
+
+    // TODO: Any other remarks for scalar peel/remainder loops? Should we report
+    // that they were not vectorized?
+    if (isa<VPScalarPeelHIR>(ScalarLpVPI)) {
+      // remark #25518: PEELED LOOP FOR VECTORIZATION.
+      ORBuilder(*ScalarHLp).addOrigin(25518u);
+    } else {
+      assert(isa<VPScalarRemainderHIR>(ScalarLpVPI) &&
+             "Remainder loop type expected here.");
+      // remark #25519: REMAINDER LOOP FOR VECTORIZATION.
+      ORBuilder(*ScalarHLp).addOrigin(25519u);
+      // remark #15441: remainder loop was not vectorized
+      ORBuilder(*ScalarHLp).addRemark(OptReportVerbosity::Medium, 15441u, "");
+    }
+  }
 }
 } // end namespace llvm

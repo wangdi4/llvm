@@ -135,7 +135,17 @@ public:
   HLLoop *getRemainderLoop() const { return OrigLoop; }
   bool getIsOmpSIMD() const { return IsOmpSIMD; }
 
-  OptReportStatsTracker &getOptReportStatsTracker() { return OptRptStats; }
+  OptReportStatsTracker &getOptReportStats(const VPInstruction *I) {
+    auto *BB = I->getParent();
+    auto *VPLp = Plan->getVPLoopInfo()->getLoopFor(BB);
+    // TODO: For instructions that don't belong to loop, need to find associated
+    // concrete VPLoop and report stats there. For now we ignore these
+    // instructions by collecting the stats in NonLoopInstStats.
+    if (!VPLp)
+      return NonLoopInstStats;
+
+    return Plan->getOptRptStatsForLoop(VPLp);
+  }
 
   void setForceMixedCG(bool MixedCG) { ForceMixedCG = MixedCG; }
   bool getForceMixedCG() const { return ForceMixedCG; }
@@ -655,7 +665,7 @@ private:
   DenseMap<const VPValue *, RegDDRef *> VPValsToFlushForVF;
 
   OptReportBuilder &ORBuilder;
-  OptReportStatsTracker OptRptStats;
+  OptReportStatsTracker NonLoopInstStats;
 
   // Map of DDRef symbase and widened ref
   DenseMap<unsigned, RegDDRef *> WidenMap;
@@ -1090,6 +1100,17 @@ private:
       ParentLoop = ParentLoop->getParentLoop();
     }
   }
+
+  // Helper method to visit all VPLoops in final VPlan CFG and lower
+  // opt-reports attached to them to their corresponding loops in outgoing HIR.
+  void lowerRemarksForVectorLoops();
+
+  // Helper method to visit all outgoing scalar loops and emit opt-report
+  // remarks for them explicitly.
+  // TODO: We are not able to attach these remarks earlier in pipeline since
+  // scalar loops don't have VPLoops in CFG. Explore alternative approaches for
+  // such loops.
+  void emitRemarksForScalarLoops();
 
   // The small loop trip count and body thresholds used to determine where it
   // is appropriate for complete unrolling. May eventually need to be moved to
