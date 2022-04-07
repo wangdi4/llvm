@@ -1,0 +1,8 @@
+set( TARGET_NAME test_utils )
+
+include_directories( export ${GTEST_INCLUDE_DIR} ${CL_API_HEADERS} )
+
+FIND_SOURCES()
+CALCULATE_TARGET_SOURCES()
+
+add_opencl_library( ${TARGET_NAME} STATIC EXCLUDE_FROM_ALL ${TARGET_SOURCES} )

@@ -1,0 +1,1 @@
+RUN: SATest -PERF -config=%s.cfg

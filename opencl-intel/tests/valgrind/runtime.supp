@@ -1,0 +1,258 @@
+#
+# This is the runtime suppression file.
+#
+# It ignores other module leaks (clang, llvm, backend, tbb, tec.)
+# It also ignores some TBD issues of the runtime, like module/static variables cleanup.
+# 
+
+{
+   otherModule_CPUDeviceBackendModule
+   Memcheck:Cond
+   ...
+   fun:_ZN5Intel6OpenCL13DeviceBackend*
+   ...
+}
+
+{
+   otherModule_cpu_device_backend_init_leak
+   Memcheck:Leak
+   fun:_Znwm
+   ...
+   fun:_ZN5Intel6OpenCL9CPUDevice20OpenCLBackendWrapper4InitEPKNS0_13DeviceBackend20ICLDevBackendOptionsE
+   ...
+}
+
+{
+   otherModule_device_backend_leaks
+   Memcheck:Leak
+   ...
+   fun:_ZN5Intel6OpenCL13DeviceBackend*
+   ...
+}
+
+{
+   otherModule_build_program_leaks_because_backend
+   Memcheck:Leak
+   fun:_Znwm
+   ...
+   fun:_ZN5Intel6OpenCL9CPUDevice14ProgramService*
+   ...
+}
+
+{
+   otherModule_ignore_llvm_cond
+   Memcheck:Cond
+   ...
+   fun:_ZN4llvm*
+   ...
+}
+
+{
+  otherModule_ignore_llvm_leak
+  Memcheck:Leak
+  ...
+  fun:_ZN4llvm*
+  ...
+}
+
+
+{
+   otherModule_clang_stuff
+   Memcheck:Leak
+   ...
+   fun:_ZN5clang*
+   ...
+}
+
+{
+   otherModule_clang
+   Memcheck:Leak
+   ...
+   fun:_ZN5Intel6OpenCL7Clang*
+   ...
+}
+
+{
+    otherModule_llvm_pretty_stack_trace
+    Memcheck:Cond
+    ...
+    fun:_ZN4llvm21PrettyStackTraceEntry*
+    ...
+}
+
+
+{
+   falsePositive_nothing_is_nice_in_cpu_detect
+   Memcheck:Cond
+   ...
+   fun:_ZN5Intel6OpenCL5Utils9CPUDetectC1Ev
+   ...
+}
+
+{
+    tbd_ignore_dl_init_allocations_until_proper_deinition
+    Memcheck:Leak
+    ...
+    fun:call_init
+    fun:_dl_init
+}
+
+{
+   tbd_ignore_dlopen_issues_until_proper_definition
+   Memcheck:Leak
+   fun:?alloc
+   ...
+   fun:_dl_open*
+   ...
+}
+
+{
+   tbd_ignore_dlopen_issues_until_proper_definition
+   Memcheck:Leak
+   fun:?alloc
+   ...
+   fun:dlopen*
+   ...
+}
+
+{
+   tbd_front_end_issues
+   Memcheck:Leak
+   fun:_Znwm
+   fun:CreateFrontEndInstance
+   ...
+}
+
+{
+    otherModule_ignore_tbb_issues
+    Memcheck:Leak
+    ...
+    fun:_ZN3tbb8internal*
+    ...
+}
+
+{
+   otherModule_tbb_so_malloc_issues
+   Memcheck:Leak
+   fun:malloc
+   ...
+   obj:/home/OpenCL/users/shohaml/trunk/install/SLES64/Release/bin/libtbbmalloc.so.2
+}
+
+{
+    falsePositive_ignore_getcpu_calls
+    Memcheck:Jump
+    obj:*
+    fun:sched_getcpu
+    ...
+}
+
+{
+   tbd_arena_handler_does_not_release_context
+   # See ArenaHandler::~ArenaHandler for explanation
+   Memcheck:Leak
+   fun:memalign
+   fun:posix_memalign
+   fun:_ZN5Intel6OpenCL9CPUDevice9WGContext4InitEv
+   fun:_ZN5Intel6OpenCL9CPUDevice13WgContextPool12GetWGContextEb
+   fun:_ZN5Intel6OpenCL12TaskExecutor15TBBTaskExecutor12GetWGContextEb
+   fun:_ZN5Intel6OpenCL12TaskExecutor16DevArenaObserver18on_scheduler_entryEb
+   ...
+}
+
+{
+   tbd_task_executor_does_not_release_context
+   # See: only release context when calling TBBTaskExecutor::ReleaseWorkerWGContext
+   Memcheck:Leak
+   fun:memalign
+   fun:posix_memalign
+   fun:_ZN5Intel6OpenCL9CPUDevice9WGContext4InitEv
+   ...
+}
+
+{
+   tbd_no_dll_cleanup
+   Memcheck:Leak
+   fun:?alloc
+   ...
+   fun:_ZN5Intel6OpenCL5Utils13OclDynamicLib4LoadEPKc
+   ...
+}
+
+{
+   tbd_no_cleanup_of_config_file_from_cpu_device
+   Memcheck:Leak
+   fun:_Znwm
+   fun:_ZNSs4_Rep9_S_createEmmRKSaIcE
+   fun:_ZNSs12_S_constructIPKcEEPcT_S3_RKSaIcESt20forward_iterator_tag
+   fun:_ZNSsC1EPKcRKSaIcE
+   fun:_ZN5Intel6OpenCL9CPUDevice9CPUDevice4InitEv
+   ...
+}
+
+{
+    otherModule_gtest_stuff
+    Memcheck:Leak
+    ...
+    fun:*_ZN7testing8*
+    ...
+}
+
+{
+    tbd_framework_proxy_init
+    Memcheck:Leak
+    ...
+    fun:_ZN5Intel6OpenCL9Framework14FrameworkProxy10InitializeEv
+    ...
+}
+
+{
+    tbd_cpu_dev_init
+    Memcheck:Leak
+    ...
+    fun:_ZN5Intel6OpenCL9CPUDevice9CPUDevice4InitEv
+    ...
+}
+
+{
+    tbd_platform_module_init
+    Memcheck:Leak
+    ...
+    fun:_ZN5Intel6OpenCL9Framework14PlatformModule10InitializeEP16ocl_entry_pointsPNS1_9OCLConfigEP12ocl_gpa_data
+    ...
+}
+   
+{
+   tbd_cl_utils_config_file
+   Memcheck:Leak
+   ...
+   fun:_ZN5Intel6OpenCL5Utils10ConfigFile8ReadFileESsRS2_
+   ...
+}
+
+{
+   tbd_not_clear_where_these_c++_strings_were_allocated
+   Memcheck:Leak
+   fun:_Znwm
+   fun:_ZNSs4_Rep9_S_createEmmRKSaIcE
+   ...
+}
+
+{
+   tbd_smart_pointers_debug_allocatedObjectsMap_not_freed
+   Memcheck:Leak
+   fun:_Znwm
+   ...
+   fun:_ZN5Intel6OpenCL5Utils13SharedPtrBaseINS*EE9IncRefCntEv
+   fun:_ZN5Intel6OpenCL5Utils13SharedPtrBaseINS*EEC2EPS4_
+   ...
+}
+
+{
+   tbd_cpu_memory_allocator_image_object
+   Memcheck:Leak
+   fun:_Znwm
+   ...
+   fun:_ZN5Intel6OpenCL9CPUDevice18CPUDevMemoryObject4InitEv
+   ...
+}

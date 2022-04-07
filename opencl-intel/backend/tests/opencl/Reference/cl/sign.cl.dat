@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+The test checks that
+            0 if x is NaN,
+  sign(x) = 0 if x = 0,
+           -0 if x = -0,
+where x is any of floatn or doublen
+
+For other tests for sign() built-in function, they're covered in conformance
+test, I guess.
+
+As we cannot represent NaN directly using float, we use u32/u64 as input and
+output values.
+
+Some special values:
+u32-float:
+          0 -  0.0
+ 2147483648 - -0.0
+ 2147483647 -  NaN
+ 4294508544 -  NaN
+
+u64-double:
+                   0 -  0.0
+ 9223372036854775808 - -0.0
+ 9223372036854775807 -  NaN
+18446744073707454464 -  NaN
+-->
+
+<ICSCData>
+  <BufferContainerList size="1" version="0.1">
+    <BufferContainer size="20">
+      <!--input of float-->
+      <Buffer length="4" type="vector" vectorWidth="2" vector_number_of_subtypes="1" vector0type="u32" type_size_in_bytes="8" vector0type_size_in_bytes="4" neat="0">
+        <Vector id="0">0 0</Vector>
+        <Vector id="1">2147483648 2147483648</Vector>
+        <Vector id="2">2147483647 2147483647</Vector>
+        <Vector id="3">4294508544 4294508544</Vector>
+      </Buffer>
+      <Buffer length="4" type="vector" vectorWidth="3" vector_number_of_subtypes="1" vector0type="u32" type_size_in_bytes="16" vector0type_size_in_bytes="4" neat="0">
+        <Vector id="0">0 0 0 0</Vector>
+        <Vector id="1">2147483648 2147483648 2147483648 2147483648</Vector>
+        <Vector id="2">2147483647 2147483647 2147483647 2147483647</Vector>
+        <Vector id="3">4294508544 4294508544 4294508544 4294508544</Vector>
+      </Buffer>
+      <Buffer length="4" type="vector" vectorWidth="4" vector_number_of_subtypes="1" vector0type="u32" type_size_in_bytes="16" vector0type_size_in_bytes="4" neat="0">
+        <Vector id="0">0 0 0 0</Vector>
+        <Vector id="1">2147483648 2147483648 2147483648 2147483648</Vector>
+        <Vector id="2">2147483647 2147483647 2147483647 2147483647</Vector>
+        <Vector id="3">4294508544 4294508544 4294508544 4294508544</Vector>
+      </Buffer>
+      <Buffer length="4" type="vector" vectorWidth="8" vector_number_of_subtypes="1" vector0type="u32" type_size_in_bytes="32" vector0type_size_in_bytes="4" neat="0">
+        <Vector id="0">0 0 0 0 0 0 0 0</Vector>
+        <Vector id="1">2147483648 2147483648 2147483648 2147483648 2147483648 2147483648 2147483648 2147483648</Vector>
+        <Vector id="2">2147483647 2147483647 2147483647 2147483647 2147483647 2147483647 2147483647 2147483647</Vector>
+        <Vector id="3">4294508544 4294508544 4294508544 4294508544 4294508544 4294508544 4294508544 4294508544</Vector>
+      </Buffer>
+      <Buffer length="4" type="vector" vectorWidth="16" vector_number_of_subtypes="1" vector0type="u32" type_size_in_bytes="64" vector0type_size_in_bytes="4" neat="0">
+        <Vector id="0">0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0</Vector>
+        <Vector id="1">
+          2147483648 2147483648 2147483648 2147483648 2147483648 2147483648 2147483648 2147483648
+          2147483648 2147483648 2147483648 2147483648 2147483648 2147483648 2147483648 2147483648
+        </Vector>
+        <Vector id="2">
+          2147483647 2147483647 2147483647 2147483647 2147483647 2147483647 2147483647 2147483647
+          2147483647 2147483647 2147483647 2147483647 2147483647 2147483647 2147483647 2147483647
+        </Vector>
+        <Vector id="3">
+          4294508544 4294508544 4294508544 4294508544 4294508544 4294508544 4294508544 4294508544
+          4294508544 4294508544 4294508544 4294508544 4294508544 4294508544 4294508544 4294508544
+        </Vector>
+      </Buffer>
+
+      <!--input of double-->
+      <Buffer length="4" type="vector" vectorWidth="2" vector_number_of_subtypes="1" vector0type="u64" type_size_in_bytes="16" vector0type_size_in_bytes="8" neat="0">
+        <Vector id="0">0 0</Vector>
+        <Vector id="1">9223372036854775808 9223372036854775808</Vector>
+        <Vector id="2">9223372036854775807 9223372036854775807</Vector>
+        <Vector id="3">18446744073707454464 18446744073707454464</Vector>
+      </Buffer>
+      <Buffer length="4" type="vector" vectorWidth="3" vector_number_of_subtypes="1" vector0type="u64" type_size_in_bytes="32" vector0type_size_in_bytes="8" neat="0">
+        <Vector id="0">0 0 0 0</Vector>
+        <Vector id="1">9223372036854775808 9223372036854775808 9223372036854775808 9223372036854775808</Vector>
+        <Vector id="2">9223372036854775807 9223372036854775807 9223372036854775807 9223372036854775807</Vector>
+        <Vector id="3">18446744073707454464 18446744073707454464 18446744073707454464 18446744073707454464</Vector>
+      </Buffer>
+      <Buffer length="4" type="vector" vectorWidth="4" vector_number_of_subtypes="1" vector0type="u64" type_size_in_bytes="32" vector0type_size_in_bytes="8" neat="0">
+        <Vector id="0">0 0 0 0</Vector>
+        <Vector id="1">9223372036854775808 9223372036854775808 9223372036854775808 9223372036854775808</Vector>
+        <Vector id="2">9223372036854775807 9223372036854775807 9223372036854775807 9223372036854775807</Vector>
+        <Vector id="3">18446744073707454464 18446744073707454464 18446744073707454464 18446744073707454464</Vector>
+      </Buffer>
+      <Buffer length="4" type="vector" vectorWidth="8" vector_number_of_subtypes="1" vector0type="u64" type_size_in_bytes="64" vector0type_size_in_bytes="8" neat="0">
+        <Vector id="0">0 0 0 0 0 0 0 0</Vector>
+        <Vector id="1">
+          9223372036854775808 9223372036854775808 9223372036854775808 9223372036854775808 9223372036854775808 9223372036854775808 9223372036854775808 9223372036854775808
+        </Vector>
+        <Vector id="2">
+          9223372036854775807 9223372036854775807 9223372036854775807 9223372036854775807 9223372036854775807 9223372036854775807 9223372036854775807 9223372036854775807
+        </Vector>
+        <Vector id="3">
+          18446744073707454464 18446744073707454464 18446744073707454464 18446744073707454464 18446744073707454464 18446744073707454464 18446744073707454464 18446744073707454464
+        </Vector>
+      </Buffer>
+      <Buffer length="4" type="vector" vectorWidth="16" vector_number_of_subtypes="1" vector0type="u64" type_size_in_bytes="128" vector0type_size_in_bytes="8" neat="0">
+        <Vector id="0">0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0</Vector>
+        <Vector id="1">
+          9223372036854775808 9223372036854775808 9223372036854775808 9223372036854775808 9223372036854775808 9223372036854775808 9223372036854775808 9223372036854775808
+          9223372036854775808 9223372036854775808 9223372036854775808 9223372036854775808 9223372036854775808 9223372036854775808 9223372036854775808 9223372036854775808
+        </Vector>
+        <Vector id="2">
+          9223372036854775807 9223372036854775807 9223372036854775807 9223372036854775807 9223372036854775807 9223372036854775807 9223372036854775807 9223372036854775807
+          9223372036854775807 9223372036854775807 9223372036854775807 9223372036854775807 9223372036854775807 9223372036854775807 9223372036854775807 9223372036854775807
+        </Vector>
+        <Vector id="3">
+          18446744073707454464 18446744073707454464 18446744073707454464 18446744073707454464 18446744073707454464 18446744073707454464 18446744073707454464 18446744073707454464
+          18446744073707454464 18446744073707454464 18446744073707454464 18446744073707454464 18446744073707454464 18446744073707454464 18446744073707454464 18446744073707454464
+        </Vector>
+      </Buffer>
+
+      <!--output of float-->
+      <Buffer length="4" type="vector" vectorWidth="2" vector_number_of_subtypes="1" vector0type="u32" type_size_in_bytes="8" vector0type_size_in_bytes="4" neat="0">
+        <Vector id="0">8 8</Vector>
+        <Vector id="1">8 8</Vector>
+        <Vector id="2">8 8</Vector>
+        <Vector id="3">8 8</Vector>
+      </Buffer>
+      <Buffer length="4" type="vector" vectorWidth="3" vector_number_of_subtypes="1" vector0type="u32" type_size_in_bytes="16" vector0type_size_in_bytes="4" neat="0">
+        <Vector id="0">8 8 8 8</Vector>
+        <Vector id="1">8 8 8 8</Vector>
+        <Vector id="2">8 8 8 8</Vector>
+        <Vector id="3">8 8 8 8</Vector>
+      </Buffer>
+      <Buffer length="4" type="vector" vectorWidth="4" vector_number_of_subtypes="1" vector0type="u32" type_size_in_bytes="16" vector0type_size_in_bytes="4" neat="0">
+        <Vector id="0">8 8 8 8</Vector>
+        <Vector id="1">8 8 8 8</Vector>
+        <Vector id="2">8 8 8 8</Vector>
+        <Vector id="3">8 8 8 8</Vector>
+      </Buffer>
+      <Buffer length="4" type="vector" vectorWidth="8" vector_number_of_subtypes="1" vector0type="u32" type_size_in_bytes="32" vector0type_size_in_bytes="4" neat="0">
+        <Vector id="0">8 8 8 8 8 8 8 8</Vector>
+        <Vector id="1">8 8 8 8 8 8 8 8</Vector>
+        <Vector id="2">8 8 8 8 8 8 8 8</Vector>
+        <Vector id="3">8 8 8 8 8 8 8 8</Vector>
+      </Buffer>
+      <Buffer length="4" type="vector" vectorWidth="16" vector_number_of_subtypes="1" vector0type="u32" type_size_in_bytes="64" vector0type_size_in_bytes="4" neat="0">
+        <Vector id="0">8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8</Vector>
+        <Vector id="1">8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8</Vector>
+        <Vector id="2">8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8</Vector>
+        <Vector id="3">8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8</Vector>
+      </Buffer>
+
+      <!--output of double-->
+      <Buffer length="4" type="vector" vectorWidth="2" vector_number_of_subtypes="1" vector0type="u64" type_size_in_bytes="16" vector0type_size_in_bytes="8" neat="0">
+        <Vector id="0">8 8</Vector>
+        <Vector id="1">8 8</Vector>
+        <Vector id="2">8 8</Vector>
+        <Vector id="3">8 8</Vector>
+      </Buffer>
+      <Buffer length="4" type="vector" vectorWidth="3" vector_number_of_subtypes="1" vector0type="u64" type_size_in_bytes="32" vector0type_size_in_bytes="8" neat="0">
+        <Vector id="0">8 8 8 8</Vector>
+        <Vector id="1">8 8 8 8</Vector>
+        <Vector id="2">8 8 8 8</Vector>
+        <Vector id="3">8 8 8 8</Vector>
+      </Buffer>
+      <Buffer length="4" type="vector" vectorWidth="4" vector_number_of_subtypes="1" vector0type="u64" type_size_in_bytes="32" vector0type_size_in_bytes="8" neat="0">
+        <Vector id="0">8 8 8 8</Vector>
+        <Vector id="1">8 8 8 8</Vector>
+        <Vector id="2">8 8 8 8</Vector>
+        <Vector id="3">8 8 8 8</Vector>
+      </Buffer>
+      <Buffer length="4" type="vector" vectorWidth="8" vector_number_of_subtypes="1" vector0type="u64" type_size_in_bytes="64" vector0type_size_in_bytes="8" neat="0">
+        <Vector id="0">8 8 8 8 8 8 8 8</Vector>
+        <Vector id="1">8 8 8 8 8 8 8 8</Vector>
+        <Vector id="2">8 8 8 8 8 8 8 8</Vector>
+        <Vector id="3">8 8 8 8 8 8 8 8</Vector>
+      </Buffer>
+      <Buffer length="4" type="vector" vectorWidth="16" vector_number_of_subtypes="1" vector0type="u64" type_size_in_bytes="128" vector0type_size_in_bytes="8" neat="0">
+        <Vector id="0">8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8</Vector>
+        <Vector id="1">8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8</Vector>
+        <Vector id="2">8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8</Vector>
+        <Vector id="3">8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8</Vector>
+      </Buffer>
+    </BufferContainer>
+  </BufferContainerList>
+</ICSCData>

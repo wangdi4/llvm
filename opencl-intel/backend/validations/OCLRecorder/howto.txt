@@ -1,0 +1,30 @@
+Running a recorder
+===================
+
+1. General
+----------
+
+The recorder is a plugin to our tool chain, (i.e., backend and frontend).
+The recorder has two operating modes: bytecode mode and source code mode. When
+in source mode, the recorder will capture the source code of the application in
+OpenCL when possible. When in bytecode mode, the source code of the application
+will always be in llvm-bytecode.
+
+2. Enabling the recorder
+------------------------
+
+The recorder is controlled by the following environment variables:
+
+1. OCLBACKEND_PLUGINS:	should be set to the dynamic library of the OCLRecorder.
+  (libOclRecorder.so on linux, OclRecorder.dll on windows). On linux systems,
+  it is important to remember to set the LD_LIBRARY_PATH, so it
+  the OS will find the recorder in runtime.
+
+2. OCL_DISABLE_SOURCE_RECORDER: when set,
+   the recorder will avoid recording the application in source-level. Rather,
+   the OCL code will be captured in its byte-code form.
+
+3. OCLRECORDER_DUMPPREFIX: prefix to be added for the generated files.
+
+4. OCLRECORDER_LOGDIR: path for the generated files.
+

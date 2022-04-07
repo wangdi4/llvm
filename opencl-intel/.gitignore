@@ -1,0 +1,6 @@
+/externals/
+/framework/icd/
+/samples/
+*~
+*.pch
+*.swp

@@ -1,0 +1,18 @@
+# This python script is used to call SATest directly or via SDE.
+# In order to switch between this two options command line should be changed.
+# This python wrapper allows us to avoid changing command lines in all test files.
+# Now all test files call python wrapper and in order to switch between SDE and "native" execution we need to change only one file - this wrapper.
+import subprocess, os, sys
+
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv
+    # TODO: implement command line argument processing/checking
+    runCommand = ['sde', '--', '@LLVM_BINARY_DIR@/bin/' + 'SATest', '-sde', '-cpuarch=knc', '-single_wg', '-trace=false', '-vtune=false', '-cpufeatures="" '] + argv[1:] 
+    print runCommand
+    process = subprocess.check_call(runCommand)
+    # TODO: if process.communicate()[1] 
+    return 0;
+
+if __name__ == "__main__":
+    sys.exit(main())
