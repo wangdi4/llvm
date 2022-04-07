@@ -5,7 +5,7 @@ code ReadPipe = [{
     __global struct __pipe_t* p = __ocl_rpipe2ptr($Arg0VarName);
     __global struct __pipe_internal_buf* buf = &p->read_buf;
 
-    $ReturnType $ReturnVarName;
+    $ReturnType $ReturnVarName = ($ReturnType)(0);
 
     // Buffer exists but it doesn't have enough space to read a full
     // vector

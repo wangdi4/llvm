@@ -39,7 +39,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ///        Hack for using inside Binary::InitParams():
     ///        actual BlockLiteral pointer is obtained via ctor
     /// @param   is ignored
-    virtual void setValue(const char* ) {
+    virtual void setValue(const char *) override {
       ExplicitArgument::setValue((const char*)&m_pBL);
     }
   };

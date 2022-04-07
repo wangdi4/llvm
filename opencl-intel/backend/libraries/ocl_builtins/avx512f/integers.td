@@ -101,7 +101,11 @@ OclBuiltinImpl mul_hi_v8u64 = OclBuiltinImpl<mul_hi, [v8u64] , 0, [{
     // Store to temporary buffer
     *(__m512i *) tempX = (__m512i) $Arg0VarName;
     *(__m512i *) tempY = (__m512i) $Arg1VarName;
-    #pragma ivdep
+#if defined(__GNUC__)
+#pragma GCC ivdep
+#elif defined(__clang__)
+#pragma clang loop vectorize(enable)
+#endif
     for(int i=0; i < 8; ++i)
     {
       multiply_unsigned_64_by_64( tempX[i], tempY[i], &destLow, &destHi );
@@ -121,7 +125,11 @@ OclBuiltinImpl mul_hi_v8i64 = OclBuiltinImpl<mul_hi, [v8i64] , 0, [{
     // Store to temporary buffer
     *(__m512i *) tempX = (__m512i) $Arg0VarName;
     *(__m512i *) tempY = (__m512i) $Arg1VarName;
-    #pragma ivdep
+#if defined(__GNUC__)
+#pragma GCC ivdep
+#elif defined(__clang__)
+#pragma clang loop vectorize(enable)
+#endif
     for(int i=0; i < 8; ++i)
     {
       multiply_signed_64_by_64( tempX[i], tempY[i], &destLow, &destHi );

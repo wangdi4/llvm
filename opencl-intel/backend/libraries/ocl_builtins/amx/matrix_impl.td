@@ -1,6 +1,6 @@
 def int8_matrix_layout_transform_rowmajor_to_vnni_impl : OclBuiltinImpl<matrix_layout_transform_rowmajor_to_vnni, [v1i8], 0, [{
   int k_full_quads = $Arg2VarName / 4, k_quad, n;
-  signed char *in = $Arg0VarName, *out = $Arg1VarName;
+  char *in = $Arg0VarName, *out = $Arg1VarName;
   for (k_quad = 0; k_quad < k_full_quads; k_quad++) {
     for (n = 0; n < $Arg3VarName; n += 16) {
       size_t remaining_n = ($Arg3VarName-n) >= 16? 16:($Arg3VarName-n);
@@ -41,7 +41,7 @@ def int8_matrix_layout_transform_rowmajor_to_vnni_impl : OclBuiltinImpl<matrix_l
 
 def bf16_matrix_layout_transform_rowmajor_to_vnni_impl : OclBuiltinImpl<matrix_layout_transform_rowmajor_to_vnni, [v1i16], 0, [{
   int k_full_quads = $Arg2VarName / 2, k_quad, n;
-  signed char *in = $Arg0VarName, *out = $Arg1VarName;
+  char *in = (char *)$Arg0VarName, *out = (char *)$Arg1VarName;
 
   for (k_quad = 0; k_quad < k_full_quads; k_quad++) {
     for (n = 0; n < $Arg3VarName; n += 16) {

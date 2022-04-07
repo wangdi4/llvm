@@ -145,7 +145,7 @@ OclBuiltinImpl soa_normalize2_f32 = OclBuiltinImpl<soa_normalize2 , sp_fp_soa_ty
     double$VecLength p0_x_d = convert_double$VecLength($Arg0VarName);
     double$VecLength p0_y_d = convert_double$VecLength($Arg1VarName);
     double$VecLength length = p0_x_d * p0_x_d + p0_y_d * p0_y_d;
-    double$VecLength length_inf;
+    double$VecLength length_inf = (double$VecLength)(0.0f);
     long$VecLength zero_mask = (length == 0.f);
     long$VecLength inf_mask = (length == INFINITY);
 
@@ -184,7 +184,6 @@ OclBuiltinImpl soa_normalize2_f64 = OclBuiltinImpl<soa_normalize2 , dp_fp_soa_ty
       t_y = $Arg1VarName * exp700;
       underflow_total = t_x * t_x + t_y * t_y;
       underflow_zero_mask = (underflow_total == 0.0);
-      underflow_zero_mask = underflow_zero_mask;
       $Arg0VarName = select($Arg0VarName, t_x, underflow_mask);
       $Arg1VarName = select($Arg1VarName, t_y, underflow_mask);
       total = select( total, underflow_total, underflow_mask);
@@ -233,7 +232,7 @@ OclBuiltinImpl soa_normalize3_f32 = OclBuiltinImpl<soa_normalize3 , sp_fp_soa_ty
     double$VecLength p0_y_d = convert_double$VecLength($Arg1VarName);
     double$VecLength p0_z_d = convert_double$VecLength($Arg2VarName);
     double$VecLength length = p0_x_d * p0_x_d + p0_y_d * p0_y_d + p0_z_d * p0_z_d;
-    double$VecLength length_inf;
+    double$VecLength length_inf = (double$VecLength)(0.0f);
     long$VecLength zero_mask = (length == 0.f);
     long$VecLength inf_mask = (length == INFINITY);
 
@@ -278,7 +277,6 @@ OclBuiltinImpl soa_normalize3_f64 = OclBuiltinImpl<soa_normalize3 , dp_fp_soa_ty
       t_z = $Arg2VarName * exp700;
       underflow_total = t_x * t_x + t_y * t_y + t_z * t_z;
       underflow_zero_mask = (underflow_total == 0.0);
-      underflow_zero_mask = underflow_zero_mask;
       $Arg0VarName = select($Arg0VarName, t_x, underflow_mask);
       $Arg1VarName = select($Arg1VarName, t_y, underflow_mask);
       $Arg2VarName = select($Arg2VarName, t_z, underflow_mask);
@@ -337,7 +335,7 @@ OclBuiltinImpl soa_normalize4_f32 = OclBuiltinImpl<soa_normalize4 , sp_fp_soa_ty
     double$VecLength p0_z_d = convert_double$VecLength($Arg2VarName);
     double$VecLength p0_w_d = convert_double$VecLength($Arg3VarName);
     double$VecLength length = p0_x_d * p0_x_d + p0_y_d * p0_y_d + p0_z_d * p0_z_d + p0_w_d * p0_w_d;
-    double$VecLength length_inf;
+    double$VecLength length_inf = (double$VecLength)(0.0f);
     long$VecLength zero_mask = (length == 0.f);
     long$VecLength inf_mask = (length == INFINITY);
 
@@ -388,7 +386,6 @@ OclBuiltinImpl soa_normalize4_f64 = OclBuiltinImpl<soa_normalize4 , dp_fp_soa_ty
       t_w = $Arg3VarName * exp700;
       underflow_total = t_x * t_x + t_y * t_y + t_z * t_z + t_w * t_w;
       underflow_zero_mask = (underflow_total == 0.0);
-      underflow_zero_mask = underflow_zero_mask;
       $Arg0VarName = select($Arg0VarName, t_x, underflow_mask);
       $Arg1VarName = select($Arg1VarName, t_y, underflow_mask);
       $Arg2VarName = select($Arg2VarName, t_z, underflow_mask);

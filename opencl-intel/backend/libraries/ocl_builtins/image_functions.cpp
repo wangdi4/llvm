@@ -1121,16 +1121,19 @@ void  __attribute__((overloadable)) mask_write_imagei(int mask, read_write image
 
 float4  __attribute__((overloadable)) read_imagef_2d(__private image_aux_data *pImage, sampler_t sampler, int2 coord)
 {
-    int4 coord4 = (int4)(0.f, 0.f, 0.f, 0.f);
-    coord4.lo = coord;
-    __private void* pData =pImage->pData;
-    size_t samplerIndex = __builtin_astype(sampler, size_t);
-    Image_I_COORD_CBK coord_cbk = call_coord_translate_i_callback(samplerIndex);
-    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[samplerIndex];
-    int4 dummy0;
-    float4 dummy1;
-    int4 trans_position=call_Image_I_COORD_CBK(coord_cbk, (__private void*)pImage, coord4);
-    return call_Image_FI_READ_CBK(read_cbk, (__private void*)pImage, trans_position, dummy0, dummy1, pData);
+  int4 coord4 = (int4)0;
+  coord4.lo = coord;
+  __private void *pData = pImage->pData;
+  size_t samplerIndex = __builtin_astype(sampler, size_t);
+  Image_I_COORD_CBK coord_cbk = call_coord_translate_i_callback(samplerIndex);
+  Image_FI_READ_CBK read_cbk =
+      (Image_FI_READ_CBK)pImage->read_img_callback_float[samplerIndex];
+  int4 dummy0 = (int4)(0);
+  float4 dummy1 = (float4)(0.0f);
+  int4 trans_position =
+      call_Image_I_COORD_CBK(coord_cbk, (__private void *)pImage, coord4);
+  return call_Image_FI_READ_CBK(read_cbk, (__private void *)pImage,
+                                trans_position, dummy0, dummy1, pData);
 }
 
 float4  __attribute__((overloadable)) read_imagef(__read_only image2d_t image, sampler_t sampler, int2 coord)
@@ -1172,8 +1175,8 @@ float4  __attribute__((overloadable)) read_imagef(__read_only image3d_t image, s
     size_t samplerIndex = __builtin_astype(sampler, size_t);
     Image_I_COORD_CBK coord_cbk = call_coord_translate_i_callback(samplerIndex);
     Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[samplerIndex];
-    int4 dummy0;
-    float4 dummy1;
+    int4 dummy0 = (int4)(0);
+    float4 dummy1 = (float4)(0.0f);
     int4 trans_position=call_Image_I_COORD_CBK(coord_cbk, (__private void*)pImage, coord);
     return call_Image_FI_READ_CBK(read_cbk, (__private void*)pImage, trans_position, dummy0, dummy1, pData);
 }
@@ -1302,8 +1305,8 @@ float4  __attribute__((overloadable)) read_imagef_2d_array(__private image_aux_d
     size_t samplerIndex = __builtin_astype(sampler, size_t);
     Image_I_COORD_CBK coord_cbk = call_coord_translate_i_callback(samplerIndex);
     Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[samplerIndex];
-    int4 dummy0;
-    float4 dummy1;
+    int4 dummy0 = (int4)(0);
+    float4 dummy1 = (float4)(0.0f);
     int4 trans_position=call_Image_I_COORD_CBK(coord_cbk, (__private void*)pImage, internal_coord);
     float4 val = call_Image_FI_READ_CBK(read_cbk, (__private void*)pImage, trans_position, dummy0, dummy1, pData);
     return val;
@@ -1452,8 +1455,8 @@ float4 __attribute__((overloadable)) read_imagef(__read_only image1d_t image, sa
     Image_I_COORD_CBK coord_cbk = call_coord_translate_i_callback(samplerIndex);
     Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[samplerIndex];
     int4 trans_position=call_Image_I_COORD_CBK(coord_cbk, (__private void*)pImage, coord4);
-    int4 dummy0;
-    float4 dummy1;
+    int4 dummy0 = (int4)(0);
+    float4 dummy1 = (float4)(0.0f);
     return call_Image_FI_READ_CBK(read_cbk, (__private void*)pImage, trans_position, dummy0, dummy1, pData);
 }
 
@@ -1558,8 +1561,8 @@ float4 __attribute__((overloadable)) read_imagef(__read_only image1d_array_t ima
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[samplerIndex];
     int4 trans_position=call_Image_I_COORD_CBK(coord_cbk, (__private void*)pImage, internal_coord);
-    int4 dummy0;
-    float4 dummy1;
+    int4 dummy0 = (int4)(0);
+    float4 dummy1 = (float4)(0.0f);
     float4 val = call_Image_FI_READ_CBK(read_cbk, (__private void*)pImage, trans_position, dummy0, dummy1, pData);
     return val;
 
@@ -1663,8 +1666,8 @@ float4 __attribute__((overloadable)) read_imagef_2d (__private image_aux_data *p
     coord4.lo = coord;
     __private void* pData =pImage->pData;
     Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[SIMPLE_SAMPLER];
-    int4 dummy0;
-    float dummy1;
+    int4 dummy0 = (int4)(0);
+    float4 dummy1 = (float4)(0.0f);
     return call_Image_FI_READ_CBK(read_cbk, (__private void*)pImage, coord4, dummy0, dummy1, pData);
 }
 
@@ -1761,8 +1764,8 @@ float4 __attribute__((overloadable)) read_imagef(__read_only image3d_t image, in
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     __private void* pData =pImage->pData;
     Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[SIMPLE_SAMPLER];
-    int4 dummy0;
-    float4 dummy1;
+    int4 dummy0 = (int4)(0);
+    float4 dummy1 = (float4)(0.0f);
     return call_Image_FI_READ_CBK(read_cbk, (__private void*)pImage, coord, dummy0, dummy1, pData);
 }
 
@@ -1804,8 +1807,8 @@ float4 __attribute__((overloadable)) read_imagef_2d_array (__private image_aux_d
     internal_coord.z = 0;
     __private void* pData = GetImagePtr2d(pImage, coord.z);
     Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[SIMPLE_SAMPLER];
-    int4 dummy0;
-    float dummy1;
+    int4 dummy0 = (int4)(0);
+    float4 dummy1 = (float4)(0.0f);
     return call_Image_FI_READ_CBK(read_cbk, (__private void*)pImage, internal_coord, dummy0, dummy1, pData);
 }
 
@@ -1869,8 +1872,8 @@ float4 __attribute__((overloadable)) read_imagef (__read_only image1d_t image, i
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     __private void* pData =pImage->pData;
     Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[SIMPLE_SAMPLER];
-    int4 dummy0;
-    float4 dummy1;
+    int4 dummy0 = (int4)(0);
+    float4 dummy1 = (float4)(0.0f);
     return call_Image_FI_READ_CBK(read_cbk, (__private void*)pImage, coord4, dummy0, dummy1, pData);
 }
 
@@ -1885,8 +1888,8 @@ float4 __attribute__((overloadable)) read_imagef (__read_only image1d_buffer_t i
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     __private void* pData =pImage->pData;
     Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[SIMPLE_SAMPLER];
-    int4 dummy0;
-    float dummy1;
+    int4 dummy0 = (int4)(0);
+    float4 dummy1 = (float4)(0.0f);
     return call_Image_FI_READ_CBK(read_cbk, (__private void*)pImage, coord4, dummy0, dummy1, pData);
 }
 
@@ -1957,8 +1960,8 @@ float4 __attribute__((overloadable)) read_imagef(__read_only image1d_array_t ima
     __private void* pData = GetImagePtr(image, coord.y);
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[SIMPLE_SAMPLER];
-    int4 dummy0;
-    float dummy1;
+    int4 dummy0 = (int4)(0);
+    float4 dummy1 = (float4)(0.0f);
     return call_Image_FI_READ_CBK(read_cbk, (__private void*)pImage, internal_coord, dummy0, dummy1, pData);
 }
 

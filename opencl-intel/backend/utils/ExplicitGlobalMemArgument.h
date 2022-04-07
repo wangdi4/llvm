@@ -30,15 +30,18 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param arg              OpenCL argument
     ExplicitGlobalMemArgument(char* pValue, const KernelArgument& arg)
     : ExplicitArgument(pValue, arg) { }
-    
+
     /// @brief Overriding implementation
     /// @brief Sets the value of this argument
-    /// @param pValueSrc       The src from which to copy the value 
-    virtual void setValue(const char* pValue) {
+    /// @param pValueSrc       The src from which to copy the value
+    virtual void setValue(const char *pValue) override {
       // The src is a mem descriptor and we need to extract the pointer to memory
       //if it is an image, we suppose the imageAuxData instead
     const void* pGlobalData = nullptr;
-    cl_mem_obj_descriptor* pMemObj =  !pValue ? nullptr : (*(cl_mem_obj_descriptor**)pValue);
+    cl_mem_obj_descriptor *pMemObj =
+        !pValue ? nullptr
+                : (*reinterpret_cast<cl_mem_obj_descriptor **>(
+                      const_cast<char *>(pValue)));
     if ( nullptr != pMemObj )
     {
       if (pMemObj->memObjType == CL_MEM_OBJECT_BUFFER)

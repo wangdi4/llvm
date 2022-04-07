@@ -400,7 +400,6 @@ defvar work_group_inclusive_function_op_mask64 = [{
     $MaskCastTy$VecLength arg0 = __builtin_astype($Arg0VarName, $MaskCastTy$VecLength);
     $MaskCastTy$VecLength arg1 = __builtin_convertvector(__builtin_astype($Arg1VarName, int$VecLength), $MaskCastTy$VecLength);
     arg0 &= arg1;
-    $Arg0BaseType val = $VAL;
     arg1 = ~arg1 & __builtin_astype(($Arg0BaseType)($VAL), $MaskCastTy);
     arg0 |= arg1;
     $Arg0VarName = __builtin_astype(arg0, $Arg0Type);

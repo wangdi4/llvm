@@ -13,7 +13,7 @@
 // License.
 
 #include "CL/cl.h"
-#include "gtest/gtest.h"
+#include "gtest_wrapper.h"
 
 #include <fstream>
 #include <map>
@@ -117,7 +117,8 @@ static bool runAndVerify(int numberOfIntParametersToTry, cl_context context,
   /* Create a kernel to test with */
   sprintf( strSrc, sample_large_parmam_kernel_pattern[0], argumentLine.get(), codeLines.get());
 
-  prog = clCreateProgramWithSource(context, 1, (const char**)&strSrc, NULL, &iRet);
+  prog = clCreateProgramWithSource(
+      context, 1, const_cast<const char **>(&strSrc), NULL, &iRet);
   bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
   assert(bResult && "clCreateProgramWithSource");
 
@@ -354,7 +355,8 @@ static bool runAndVerify_forLocalMem(cl_context context, cl_uint uiNumDevices,
   /* Create a kernel to test with */
   sprintf( strSrc, "%s", sample_large_parmam_kernel_pattern[0]);
 
-  prog = clCreateProgramWithSource(context, 1, (const char**)&strSrc, NULL, &iRet);
+  prog = clCreateProgramWithSource(
+      context, 1, const_cast<const char **>(&strSrc), NULL, &iRet);
   bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
   assert(bResult && "clCreateProgramWithSource");
 
@@ -834,7 +836,7 @@ TEST(OclRecorder, recording_half_ptr)
     cl_mem globalMemFloatBuf = clCreateBuffer(context, (CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR), sizeof(cl_float), &value_for_float_buffer, &returnResult);
     ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateBuffer";
 
-    cl_half value_for_half_buffer = 10.5;
+    cl_half value_for_half_buffer = (cl_half)10.5;
     cl_mem globalMemHalfBuf = clCreateBuffer(context, (CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR), sizeof(cl_float), &value_for_half_buffer, &returnResult);
     ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateBuffer";
 

@@ -2,9 +2,9 @@ set(TARGET_NAME TestTypeConversion)
 
 include_directories(
   ${LLVM_INCLUDE_DIRS}
-  ${GTEST_INCLUDE_DIR}
   ${OCL_SOURCE_DIR}/backend/utils
   ${OCL_SOURCE_DIR}/backend/name_mangling
+  ${OCL_SOURCE_DIR}/tests/test_utils/export
 )
 
 add_opencl_executable(${TARGET_NAME}

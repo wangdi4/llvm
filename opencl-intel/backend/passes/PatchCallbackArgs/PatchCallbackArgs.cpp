@@ -106,7 +106,7 @@ bool PatchCallbackArgs::runOnModule(Module &M) {
       Value *Val = 0;
       switch (ImplicitArgAccessorFuncList[I].ArgId) {
       default:
-        assert(false && "Unhandled arguemnt ID");
+        llvm_unreachable("Unhandled arguemnt ID");
       case ImplicitArgsUtils::IA_RUNTIME_HANDLE:
         Val = ImplicitArgs.second;
         break;

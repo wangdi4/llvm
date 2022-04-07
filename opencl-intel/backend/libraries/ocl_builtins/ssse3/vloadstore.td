@@ -758,7 +758,6 @@ code Load_const_half4 = [{
     return __ocl_Half4ToFloat4(tmp);
   }];
 code Load_half8 = [{
-    float8 res;
     const short8 inp = vload8($Arg0VarName, ($Arg1igentype)$Arg1VarName);
     return __ocl_Half8ToFloat8(inp);
   }];
@@ -821,7 +820,7 @@ code Stored_half3 = [{
   }];
 code Stored_half4 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
-    float4 t1, t2, f4;
+    float4 t1;
     t1 = __ocl_double4ToHalf4($Arg0VarName);
     _mm_storel_epi64((__m128i*)$Arg2VarName, __builtin_astype(t1,__m128i));
   }];
@@ -1024,7 +1023,7 @@ code Stored_half_rte3 = [{
   }];
 code Stored_half_rte4 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
-    float4 t1, t2, f4;
+    float4 t1;
     t1 = __ocl_double4ToHalf4_rte($Arg0VarName);
     _mm_storel_epi64((__m128i*)$Arg2VarName, __builtin_astype(t1,__m128i));
   }];
@@ -1179,7 +1178,7 @@ code Stored_half_rtn3 = [{
   }];
 code Stored_half_rtn4 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
-    float4 t1, t2, f4;
+    float4 t1;
     t1 = __ocl_double4ToHalf4_rtn($Arg0VarName);
     _mm_storel_epi64((__m128i*)$Arg2VarName, __builtin_astype(t1,__m128i));
   }];
@@ -1331,7 +1330,7 @@ code Stored_half_rtp3 = [{
   }];
 code Stored_half_rtp4 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
-    float4 t1, t2, f4;
+    float4 t1;
     t1 = __ocl_double4ToHalf4_rtp($Arg0VarName);
     _mm_storel_epi64((__m128i*)$Arg2VarName, __builtin_astype(t1,__m128i));
   }];
@@ -1486,7 +1485,7 @@ code Stored_half_rtz3 = [{
   }];
 code Stored_half_rtz4 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*4);
-    float4 t1, t2, f4;
+    float4 t1;
     t1 = __ocl_double4ToHalf4_rtz($Arg0VarName);
     _mm_storel_epi64((__m128i*)$Arg2VarName, __builtin_astype(t1,__m128i));
   }];

@@ -12,11 +12,11 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "gtest/gtest.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/ADT/StringRef.h"
 #include "TypeConversion.h"
+#include "gtest_wrapper.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/LLVMContext.h"
 
 using namespace llvm;
 

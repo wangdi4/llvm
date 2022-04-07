@@ -13,10 +13,7 @@ include_directories( . include src )
 if (WIN32)
   add_definitions( -D_SCL_SECURE_NO_WARNINGS -D _SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS)
 else (WIN32)
-  remove_definitions( -Werror -pedantic )
   add_definitions ( -DHAVE_PTHREAD )
-  # disable all warnings
-  add_definitions( -w )
 endif (WIN32)
 
 set(TARGET_SOURCE_FILES

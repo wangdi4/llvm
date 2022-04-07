@@ -69,7 +69,7 @@ set(CLANG_CL_COMMON_COMPILER_FLAGS
   -fopencl-force-vector-abi -fblocks -faddress-space-map-mangling=yes -mstackrealign -ffp-contract=fast
   -cl-ext=+cl_khr_fp16
   -D float_atomics_enable
-  -Wno-psabi
+  -Werror -Wall -Wno-psabi
   )
 
 set (CLANG_C_COMPILER_PARAMS

@@ -4,10 +4,6 @@ set(TARGET_NAME ReflectionModuleTest)
 
 project (${TARGET_NAME})
 
-if (NOT WIN32)
-  llvm_replace_compiler_option(CMAKE_CXX_FLAGS "-Werror" "")
-endif()
-
 include_directories(
   ${LLVM_INCLUDE_DIRS}
   ${BACKEND_ROOT_DIR}/name_mangling
@@ -15,7 +11,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/OpenCL
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/Volcano
-  ${GTEST_INCLUDE_DIR}
+  ${OCL_SOURCE_DIR}/tests/test_utils/export
 )
 
 add_opencl_executable(

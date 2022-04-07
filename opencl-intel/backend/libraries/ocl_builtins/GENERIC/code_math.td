@@ -6,7 +6,6 @@ defvar svml_code2 = [{
   }];
 
 defvar copysign_code = [{
-    $Arg0Type $ReturnVarName;
     $Arg0igentype ux = __builtin_astype(($Arg0VarName), $Arg0igentype);
     $Arg0igentype uy = __builtin_astype(($Arg1VarName), $Arg1igentype);
     ux &= $ReturnBaseType_const_signMask;

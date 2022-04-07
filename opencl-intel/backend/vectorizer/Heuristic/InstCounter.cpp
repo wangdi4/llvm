@@ -207,7 +207,9 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
 
     bool discardPhis = false;
     bool discardTerminator = false;
+#ifndef INTEL_PRODUCT_RELEASE
     int blockWeights = 0; // for statistical purposes.
+#endif                    // #ifndef INTEL_PRODUCT_RELEASE
 
     // Check if BB is an idom of an allOnes branch
     // and if it does discard its phis cost
@@ -246,7 +248,10 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
       m_totalWeight += Cost;
       LLVM_DEBUG(dbgs() << "  [" << format_decimal(instWeight, 4) << ']');
       LLVM_DEBUG(I->dump());
+
+#ifndef INTEL_PRODUCT_RELEASE
       blockWeights += instWeight; // for statisical purposes.
+#endif                            // #ifndef INTEL_PRODUCT_RELEASE
     }
     LLVM_DEBUG(dbgs() << "Cost of BB " << BB->getName() << ':'
                       << " Final Cost: "

@@ -1,8 +1,3 @@
-# remove the restriction of warning as error for this component
-if (NOT WIN32)
-  remove_definitions( -Werror )
-endif (NOT WIN32)
-
 add_opencl_executable(SumStats
     FileList.cpp
     Stats.cpp

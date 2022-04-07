@@ -128,33 +128,6 @@ void __ovld atomic_store_explicit(__global volatile atomic_int *object,
 #define ASSERT(cond) do {} while(0);
 #endif
 
-static void __pipe_dump(__global struct __pipe_t* p) {
-  struct __pipe_internal_buf* rb = &p->read_buf;
-  struct __pipe_internal_buf* wb = &p->write_buf;
-
-  printf("pipe %p dump:\n"
-         "  >> packet_size = %d\n"
-         "  >> max_packets = %d\n"
-         "  >> head = %d\n"
-         "  >> tail = %d\n"
-         "  >> read_buf = {\n"
-         "  >>   end   = %d\n"
-         "  >>   size  = %d\n"
-         "  >>   limit = %d\n"
-         "  >> }\n"
-         "  >> write_buf = {\n"
-         "  >>   end   = %d\n"
-         "  >>   size  = %d\n"
-         "  >>   limit = %d\n"
-         "  >> }\n",
-         p,
-         p->packet_size, p->max_packets,
-         atomic_load_explicit(&p->head, memory_order_acquire),
-         atomic_load_explicit(&p->tail, memory_order_acquire),
-         rb->end, rb->size, rb->limit,
-         wb->end, wb->size, wb->limit);
-}
-
 static bool is_buffer_full(__global const struct __pipe_internal_buf* b) {
   return b->size >= b->limit;
 }

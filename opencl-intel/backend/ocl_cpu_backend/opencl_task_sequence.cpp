@@ -98,6 +98,7 @@ __ocl_task_sequence_async(task_sequence *obj, unsigned invocation_capacity,
   int err = __ocl20_enqueue_kernel_events(
       queue, flags, &ndrange, num_events_in_wait_list, event_wait_list,
       &event_ret, block_invoke, block_literal, DCM, B2K, RuntimeHandle);
+  (void)err;
   LLVM_DEBUG(dbgs() << "__ocl_task_sequence_async. Return value " << err
                     << "\n");
 
@@ -114,6 +115,7 @@ __ocl_task_sequence_get(task_sequence *obj, IDeviceCommandManager *DCM) {
   // Wait for task to finish execution.
   clk_event_t current_event = data->events[data->delivered];
   int err = DCM->WaitForEvents(1, &current_event);
+  (void)err;
   LLVM_DEBUG(dbgs() << "__ocl_task_sequence_get. Return value " << err << "\n");
 
   __ocl20_release_event(current_event, DCM);

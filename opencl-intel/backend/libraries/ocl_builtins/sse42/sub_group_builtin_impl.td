@@ -315,7 +315,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx128iu32 = OclBuiltinImpl<sub_grou
     $Arg0VarName = as_$Arg0Type(arg0);
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 3; i++) {
       temp[3] = 0;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -332,7 +332,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx128f32 = OclBuiltinImpl<sub_group
     $Arg0VarName = as_$Arg0Type(arg0);
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 3; i++) {
       temp[3] = 0;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -349,7 +349,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx128iu64 = OclBuiltinImpl<sub_grou
     $Arg0VarName = as_$Arg0Type(arg0);
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 3; i++) {
       temp[3] = 0;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -367,7 +367,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx128f64 = OclBuiltinImpl<sub_group
     $Arg0VarName = as_$Arg0Type(arg0);
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 3; i++) {
       temp[3] = 0;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -416,7 +416,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx128i32 =  OclBuiltinImpl<sub_grou
     $Arg0VarName = as_$Arg0Type(arg0);
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 3; i++) {
       temp[3] = INT_MAX;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -433,7 +433,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx128u32 =  OclBuiltinImpl<sub_grou
     $Arg0VarName = as_$Arg0Type(arg0);
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 3; i++) {
       temp[3] = UINT_MAX;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -452,7 +452,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx128f32 =  OclBuiltinImpl<sub_grou
     $Arg0VarName = as_$Arg0Type(arg0);
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 3; i++) {
       temp[3] = INFINITY;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -470,7 +470,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx128i64 =  OclBuiltinImpl<sub_grou
     arg0 |= arg1;
     long4 temp0 = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 3; i++) {
       temp0[3] = LONG_MAX;
       temp0 = __builtin_shufflevector(temp0, temp0, 3, 0, 1, 2);
@@ -491,7 +491,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx128u64 =  OclBuiltinImpl<sub_grou
     arg0 |= ~arg1;
     long4 temp0 = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 3; i++) {
       temp0[3] = as_long(ULONG_MAX);
       temp0 = __builtin_shufflevector(temp0, temp0, 3, 0, 1, 2);
@@ -512,7 +512,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx128f64 =  OclBuiltinImpl<sub_grou
     arg0 |= arg1;
     long4 temp0 = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 3; i++) {
       temp0[3] = INF;
       temp0 = __builtin_shufflevector(temp0, temp0, 3, 0, 1, 2);
@@ -561,7 +561,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx128i32 =  OclBuiltinImpl<sub_grou
     $Arg0VarName = as_$Arg0Type(arg0);
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 3; i++) {
       temp[3] = INT_MIN;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -578,7 +578,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx128u32 =  OclBuiltinImpl<sub_grou
     $Arg0VarName = as_$Arg0Type(arg0);
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 3; i++) {
       temp[3] = 0;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -597,7 +597,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx128f32 =  OclBuiltinImpl<sub_grou
     $Arg0VarName = as_$Arg0Type(arg0);
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 3; i++) {
       temp[3] = -INFINITY;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -615,7 +615,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx128i64 =  OclBuiltinImpl<sub_grou
     arg0 |= arg1;
     long4 temp0 = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 3; i++) {
       temp0[3] = LONG_MIN;
       temp0 = __builtin_shufflevector(temp0, temp0, 3, 0, 1, 2);
@@ -636,7 +636,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx128u64 =  OclBuiltinImpl<sub_grou
     arg0 &= arg1;
     long4 temp0 = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 3; i++) {
       temp0[3] = 0;
       temp0 = __builtin_shufflevector(temp0, temp0, 3, 0, 1, 2);
@@ -657,7 +657,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx128f64 =  OclBuiltinImpl<sub_grou
     arg0 |= arg1;
     long4 temp0 = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 3; i++) {
       temp0[3] = INF;
       temp0 = __builtin_shufflevector(temp0, temp0, 3, 0, 1, 2);
@@ -708,7 +708,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx128iu32 = OclBuiltinImpl<sub_grou
     $Arg0VarName[0] = 0;
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 2; i++) {
       temp[3] = 0;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -728,7 +728,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx128f32 = OclBuiltinImpl<sub_group
     $Arg0VarName[0] = 0;
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 2; i++) {
       temp[3] = 0;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -748,7 +748,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx128iu64 = OclBuiltinImpl<sub_grou
     $Arg0VarName[0] = 0;
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 2; i++) {
       temp[3] = 0;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -768,7 +768,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx128f64 = OclBuiltinImpl<sub_group
     $Arg0VarName[0] = 0;
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 2; i++) {
       temp[3] = 0;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -819,7 +819,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx128i32 = OclBuiltinImpl<sub_group
     $Arg0VarName[0] = INT_MAX;
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 2; i++) {
       temp[3] = INT_MAX;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -839,7 +839,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx128u32 = OclBuiltinImpl<sub_group
     $Arg0VarName[0] = UINT_MAX;
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 2; i++) {
       temp[3] = UINT_MAX;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -861,7 +861,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx128f32 = OclBuiltinImpl<sub_group
     $Arg0VarName[0] = INFINITY;
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 2; i++) {
       temp[3] = INFINITY;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -882,7 +882,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx128i64 = OclBuiltinImpl<sub_group
     arg0[0] = LONG_MAX;
     long4 temp = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 2; i++) {
       temp[3] = LONG_MAX;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -903,7 +903,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx128u64 = OclBuiltinImpl<sub_group
     arg0[0] = as_long(ULONG_MAX);
     long4 temp = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 2; i++) {
       temp[3] = as_long(ULONG_MAX);
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -928,7 +928,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx128f64 = OclBuiltinImpl<sub_group
     arg0[0] = INF;
     long4 temp = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 2; i++) {
       temp[3] = INF;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -979,7 +979,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx128i32 = OclBuiltinImpl<sub_group
     $Arg0VarName[0] = INT_MIN;
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 2; i++) {
       temp[3] = INT_MIN;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -999,7 +999,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx128u32 = OclBuiltinImpl<sub_group
     $Arg0VarName[0] = 0;
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 2; i++) {
       temp[3] = 0;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -1021,7 +1021,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx128f32 = OclBuiltinImpl<sub_group
     $Arg0VarName[0] = -INFINITY;
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 2; i++) {
       temp[3] = -INFINITY;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -1042,7 +1042,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx128i64 = OclBuiltinImpl<sub_group
     arg0[0] = LONG_MIN;
     long4 temp = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 2; i++) {
       temp[3] = LONG_MIN;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -1063,7 +1063,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx128u64 = OclBuiltinImpl<sub_group
     arg0[0] = 0;
     long4 temp = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 2; i++) {
       temp[3] = 0;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -1088,7 +1088,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx128f64 = OclBuiltinImpl<sub_group
     arg0[0] = INF;
     long4 temp = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 2; i++) {
       temp[3] = INF;
       temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -1135,7 +1135,7 @@ OclBuiltinImpl sub_group_shuffle_avx128v4ui32 = OclBuiltinImpl<sub_group_shuffle
   [{
     $Arg1VarName = $Arg1VarName & $Arg2VarName;
     $ReturnType res;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i =0; i < 4; ++i) {
       res[i] = $Arg0VarName[$Arg1VarName[i]];
     }
@@ -1751,7 +1751,7 @@ code reduce_logical_and = [{
   int$VecLength arg1 = as_int$VecLength($Arg1VarName);
   $Arg0VarName |= ~arg1;
   int res = 1;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i=0; i < $VecLength; i++) {
     res = res && $Arg0VarName[i];
   }
@@ -1765,7 +1765,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_and_v4 = OclBuiltinI
   int4 arg1 = as_int4($Arg1VarName);
   $Arg0VarName |= ~arg1;
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 3; i++) {
     temp[3] = 1;
     temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -1779,7 +1779,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_and_v8 = OclBuiltinI
   int8 arg1 = as_int8($Arg1VarName);
   $Arg0VarName |= ~arg1;
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 7; i++) {
     temp[7] = 1;
     temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -1793,7 +1793,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_and_v16 = OclBuiltin
   int16 arg1 = as_int16($Arg1VarName);
   $Arg0VarName |= ~arg1;
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 15; i++) {
     temp[15] = 1;
     temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
@@ -1809,7 +1809,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_and_v4 = OclBuiltinI
   $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
   $Arg0VarName[0] = 1;
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 2; i++) {
     temp[3] = 1;
     temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -1825,7 +1825,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_and_v8 = OclBuiltinI
   $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 7, 0, 1, 2, 3, 4, 5, 6);
   $Arg0VarName[0] = 1;
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 6; i++) {
     temp[7] = 1;
     temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -1841,7 +1841,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_and_v16 = OclBuiltin
   $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
   $Arg0VarName[0] = 1;
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 14; i++) {
     temp[15] = 1;
     temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
@@ -1855,7 +1855,7 @@ code reduce_logical_or_xor = [{
   int$VecLength arg1 = as_int$VecLength($Arg1VarName);
   $Arg0VarName &= arg1;
   int res = 0;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i=0; i < $VecLength; i++) {
     res = res $OP $Arg0VarName[i];
   }
@@ -1869,7 +1869,7 @@ code scan_inclusive_logical_or_xor_v4 = [{
   int4 arg1 = as_int4($Arg1VarName);
   $Arg0VarName &= arg1;
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 3; i++) {
     temp[3] = 0;
     temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -1885,7 +1885,7 @@ code scan_inclusive_logical_or_xor_v8 = [{
   int8 arg1 = as_int8($Arg1VarName);
   $Arg0VarName &= arg1;
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 7; i++) {
     temp[7] = 0;
     temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -1900,7 +1900,7 @@ code scan_inclusive_logical_or_xor_v16 = [{
   int16 arg1 = as_int16($Arg1VarName);
   $Arg0VarName &= arg1;
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 15; i++) {
     temp[15] = 0;
     temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
@@ -1917,7 +1917,7 @@ code scan_exclusive_logical_or_xor_v4 = [{
   $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
   $Arg0VarName[0] = 0;
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 2; i++) {
     temp[3] = 0;
     temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -1934,7 +1934,7 @@ code scan_exclusive_logical_or_xor_v8 = [{
   $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 7, 0, 1, 2, 3, 4, 5, 6);
   $Arg0VarName[0] = 0;
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 6; i++) {
     temp[7] = 0;
     temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -1951,7 +1951,7 @@ code scan_exclusive_logical_or_xor_v16 = [{
   $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
   $Arg0VarName[0] = 0;
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 14; i++) {
     temp[15] = 0;
     temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
@@ -1974,7 +1974,7 @@ code reduce_and = [{
   arg0 |= ~arg1;
   $Arg0VarName = as_$Arg0Type(arg0);
   $Arg0BaseType res = $Arg0VarName[0];
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i=1; i < $VecLength; i++) {
     res &= $Arg0VarName[i];
   }
@@ -1989,7 +1989,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_inclusive_and_v4 = OclBuiltinImpl<sub_
   arg0 |= ~arg1;
   $Arg0VarName = as_$Arg0Type(arg0);
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 3; i++) {
     temp[3] = -1;
     temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -2005,7 +2005,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_inclusive_and_v8 = OclBuiltinImpl<sub_
   arg0 |= ~arg1;
   $Arg0VarName = as_$Arg0Type(arg0);
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 7; i++) {
     temp[7] = -1;
     temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -2021,7 +2021,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_inclusive_and_v16 = OclBuiltinImpl<sub
   arg0 |= ~arg1;
   $Arg0VarName = as_$Arg0Type(arg0);
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 15; i++) {
     temp[15] = -1;
     temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
@@ -2039,7 +2039,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_exclusive_and_v4 = OclBuiltinImpl<sub_
   $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
   $Arg0VarName[0] = -1;
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 2; i++) {
     temp[3] = -1;
     temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -2057,7 +2057,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_exclusive_and_v8 = OclBuiltinImpl<sub_
   $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 7, 0, 1, 2, 3, 4, 5, 6);
   $Arg0VarName[0] = -1;
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 6; i++) {
     temp[7] = -1;
     temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -2075,7 +2075,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_exclusive_and_v16 = OclBuiltinImpl<sub
   $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
   $Arg0VarName[0] = -1;
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 14; i++) {
     temp[15] = -1;
     temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
@@ -2090,7 +2090,7 @@ code reduce_or_xor = [{
   arg0 &= arg1;
   $Arg0VarName = as_$Arg0Type(arg0);
   $Arg0BaseType res = $Arg0VarName[0];
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i=1; i < $VecLength; i++) {
     res = $Arg0VarName[i] $OP res;
   }
@@ -2105,7 +2105,7 @@ code scan_inclusive_or_xor_v4 = [{
   arg0 &= arg1;
   $Arg0VarName = as_$Arg0Type(arg0);
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 3; i++) {
     temp[3] = 0;
     temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -2124,7 +2124,7 @@ code scan_inclusive_or_xor_v8 = [{
   arg0 &= arg1;
   $Arg0VarName = as_$Arg0Type(arg0);
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 7; i++) {
     temp[7] = 0;
     temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -2143,7 +2143,7 @@ code scan_inclusive_or_xor_v16 = [{
   arg0 &= arg1;
   $Arg0VarName = as_$Arg0Type(arg0);
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 15; i++) {
     temp[15] = 0;
     temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
@@ -2165,7 +2165,7 @@ code scan_exclusive_or_xor_v4 = [{
   $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
   $Arg0VarName[0] = 0;
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 2; i++) {
     temp[3] = 0;
     temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -2186,7 +2186,7 @@ code scan_exclusive_or_xor_v8 = [{
   $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 7, 0, 1, 2, 3, 4, 5, 6);
   $Arg0VarName[0] = 0;
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 6; i++) {
     temp[7] = 0;
     temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -2207,7 +2207,7 @@ code scan_exclusive_or_xor_v16 = [{
   $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
   $Arg0VarName[0] = 0;
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 14; i++) {
     temp[15] = 0;
     temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
@@ -2236,7 +2236,7 @@ code reduce_mul = [{
   arg0 |= (~mask0 & as_$MaskCastTy(one));
   $Arg0VarName = as_$Arg0Type(arg0);
   $Arg0BaseType res = 1;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i=0; i < $VecLength; i++) {
     res *= $Arg0VarName[i];
   }
@@ -2252,7 +2252,7 @@ code scan_inclusive_mul_v4 = [{
   arg0 |= (~mask0 & as_$MaskCastTy(one));
   $Arg0VarName = as_$Arg0Type(arg0);
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 3; i++) {
     temp[3] = 1;
     temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -2268,7 +2268,7 @@ code scan_inclusive_mul_v8 = [{
   arg0 |= (~mask0 & as_$MaskCastTy(one));
   $Arg0VarName = as_$Arg0Type(arg0);
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 7; i++) {
     temp[7] = 1;
     temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -2284,7 +2284,7 @@ code scan_inclusive_mul_v16 = [{
   arg0 |= (~mask0 & as_$MaskCastTy(one));
   $Arg0VarName = as_$Arg0Type(arg0);
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 15; i++) {
     temp[15] = 1;
     temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
@@ -2307,7 +2307,7 @@ code scan_exclusive_mul_v4 = [{
   $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
   $Arg0VarName[0] = 1;
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 2; i++) {
     temp[3] = 1;
     temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
@@ -2325,7 +2325,7 @@ code scan_exclusive_mul_v8 = [{
   $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 7, 0, 1, 2, 3, 4, 5, 6);
   $Arg0VarName[0] = 1;
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 6; i++) {
     temp[7] = 1;
     temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -2343,7 +2343,7 @@ code scan_exclusive_mul_v16 = [{
   $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
   $Arg0VarName[0] = 1;
   $Arg0Type temp = $Arg0VarName;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
   for (int i = 0; i < 14; i++) {
     temp[15] = 1;
     temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);

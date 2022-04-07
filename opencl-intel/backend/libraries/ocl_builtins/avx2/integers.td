@@ -147,7 +147,11 @@ OclBuiltinImpl mul_hi_v2u64 = OclBuiltinImpl<mul_hi, [v4u64] , 0, [{
     // Store to temporary buffer
     _mm256_store_si256((__m256i *)tempX,(__m256i) $Arg0VarName);
     _mm256_store_si256((__m256i *)tempY,(__m256i) $Arg1VarName);
-    #pragma ivdep
+#if defined(__GNUC__)
+#pragma GCC ivdep
+#elif defined(__clang__)
+#pragma clang loop vectorize(enable)
+#endif
     for(int i=0; i < 4; ++i)
     {
       multiply_unsigned_64_by_64( tempX[i], tempY[i], &destLow, &destHi );

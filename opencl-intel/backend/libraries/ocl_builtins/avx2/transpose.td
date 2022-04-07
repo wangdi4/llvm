@@ -122,11 +122,6 @@ OclBuiltinImpl transpose_gather_char4x8_avx2 = OclBuiltinImpl<__ocl_gather_trans
 OclBuiltinImpl transpose_scatter_char4x8_avx2 = OclBuiltinImpl<__ocl_transpose_scatter4x8, [v4i8],  0, [{
     int8 xyzw = 0;
     __private ocl_char32* pStore = (__private ocl_char32*)&xyzw;
-    $Arg8Type Arg1 = $Arg8VarName;
-    $Arg9Type Arg2 = $Arg9VarName;
-    $Arg10Type Arg3 = $Arg10VarName;
-    $Arg11Type Arg4 = $Arg11VarName;
-
     __ocl_transpose_store_char4x8_avx2_helper(pStore, $Arg8VarName, $Arg9VarName, $Arg10VarName, $Arg11VarName);
 
     *((__private int*)$Arg0VarName) = xyzw.s0;
@@ -246,7 +241,6 @@ OclBuiltinImpl transpose_store_int4x4_avx2 = OclBuiltinImpl<__ocl_transpose_stor
     int8 xyzw23;
     __private int8* pStore0 = &xyzw01;
     __private int8* pStore1 = &xyzw23;
-    bool Arg4 = false;
 
     __ocl_transpose_store4x4_avx2_helper(Arg0, Arg1, pStore0, pStore1);
 

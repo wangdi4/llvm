@@ -100,7 +100,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_inclusive_and_avx512fiu32 = OclBuiltin
     __v16si res = *((__v16si *)&masked_data);
     __v16si rotated = res;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 15; i++) { // VF - 1 iterations
         mask <<= 1;
         rotated = (__v16si)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
@@ -127,7 +127,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_inclusive_or_avx512fiu32 = OclBuiltinI
     __v16si res = *((__v16si *)&masked_data);
     __v16si rotated = res;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 15; i++) { // VF - 1 iterations
         mask <<= 1;
         rotated = (__v16si)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
@@ -154,7 +154,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_inclusive_xor_avx512fiu32 = OclBuiltin
     __v16si res = *((__v16si *)&masked_data);
     __v16si rotated = res;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 15; i++) { // VF - 1 iterations
         mask <<= 1;
         rotated = (__v16si)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
@@ -184,7 +184,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_exclusive_and_avx512fui32 = OclBuiltin
     __v16su rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 14; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v16su)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
@@ -212,7 +212,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_exclusive_or_avx512fui32 = OclBuiltinI
     __v16su rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 14; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v16su)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
@@ -240,7 +240,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_exclusive_xor_avx512fui32 = OclBuiltin
     __v16su rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 14; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v16su)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
@@ -769,7 +769,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fiu32 = OclBuiltinImpl<sub_gro
     __v16si rotated = *((__v16si *)&masked_data);
     __v16si res = rotated;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 15; i++) {
       rotated = (__v16si)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
       mask <<= 1;
@@ -789,7 +789,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512ff32 = OclBuiltinImpl<sub_grou
     __v16sf rotated = *((__v16sf *)&masked_data);
     __v16sf res = rotated;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 15; i++) {
       rotated = (__v16sf)_mm512_permutexvar_ps(rotate_mask, (__m512)res);
       mask <<= 1;
@@ -814,7 +814,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fv16iu64 = OclBuiltinImpl<sub_
     __v8du rotated;
     __v8du res_lo = *(__v8du*)(&lo);
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
         rotated = (__v8du)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res_lo);
         mask <<= 1;
@@ -825,7 +825,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fv16iu64 = OclBuiltinImpl<sub_
     res_hi[0] += res_lo[7];
     mask = 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
         rotated = (__v8du)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res_hi);
         mask <<= 1;
@@ -858,7 +858,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fv16ff64 = OclBuiltinImpl<sub_
     __v8df rotated;
     __v8df res_lo = *(__v8df*)(&lo);
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
         rotated = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)res_lo);
         mask <<= 1;
@@ -869,7 +869,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fv16ff64 = OclBuiltinImpl<sub_
     res_hi[0] += res_lo[7];
     mask = 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
         rotated = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)res_hi);
         mask <<= 1;
@@ -892,7 +892,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fv16iu8 = OclBuiltinImpl<sub_g
     $Arg0Type rotated = masked_data;
     $Arg0Type res = rotated;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 15; i++) {
       rotated = __builtin_shufflevector(res, res, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
       mask <<= 1;
@@ -912,7 +912,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fv16iu16 = OclBuiltinImpl<sub_
     __m256i rotated = masked_data;
     __m256i res = rotated;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 15; i++) {
       rotated = _mm256_permutexvar_epi16(rotate_mask, res);
       mask <<= 1;
@@ -935,7 +935,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fvf8iu32 = OclBuiltinImpl<sub_
     __v8si rotated = *((__v8si *)&masked_data);
     __v8si res = rotated;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       rotated = (__v8si)_mm256_permutexvar_epi32(rotate_mask, (__m256i)res);
       mask <<= 1;
@@ -955,7 +955,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fvf8f32 = OclBuiltinImpl<sub_g
     __v8sf rotated = *((__v8sf *)&masked_data);
     __v8sf res = rotated;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       rotated = (__v8sf)_mm256_permutexvar_ps(rotate_mask, (__m256)res);
       mask <<= 1;
@@ -975,7 +975,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fvf8iu64 = OclBuiltinImpl<sub_
     __v8du rotated = *((__v8du *)&masked_data);
     __v8du res = rotated;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       rotated = (__v8du)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res);
       mask <<= 1;
@@ -995,7 +995,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fvf8f64 = OclBuiltinImpl<sub_g
     __v8df rotated = *((__v8df *)&masked_data);
     __v8df res = rotated;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       rotated = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)res);
       mask <<= 1;
@@ -1025,7 +1025,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fv8iu16 = OclBuiltinImpl<sub_g
     __m128i rotated = masked_data;
     __m128i res = rotated;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       rotated = _mm_permutexvar_epi16(rotate_mask, res);
       mask <<= 1;
@@ -1074,7 +1074,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fi32 = OclBuiltinImpl<sub_grou
     __v16si res = *((__v16si *)&masked_data);
     __v16si rotated = res;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 15; i++) { // VF - 1 iterations
         mask <<= 1;
         rotated = (__v16si)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
@@ -1094,7 +1094,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fu32 = OclBuiltinImpl<sub_grou
     __v16su res = *((__v16su *)&masked_data);
     __v16su rotated = res;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 15; i++) { // VF - 1 iterations
         mask <<= 1;
         rotated = (__v16su)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
@@ -1114,7 +1114,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512ff32vf16 = OclBuiltinImpl<sub_
     __v16sf res = *((__v16sf *)&masked_data);
     __v16sf rotated = res;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 15; i++) { // VF - 1 iterations
         mask <<= 1;
         rotated = (__v16sf)_mm512_permutexvar_ps(rotate_mask, (__m512)res);
@@ -1139,7 +1139,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16ff64 = OclBuiltinImpl<sub_
     __v8df rotated;
     __v8df res_lo = *(__v8df*)(&lo);
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
         rotated = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)res_lo);
         mask <<= 1;
@@ -1150,7 +1150,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16ff64 = OclBuiltinImpl<sub_
     res_hi[0] = res_lo[7] < res_hi[0] ? res_lo[7] : res_hi[0];
     mask = 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
         rotated = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)res_hi);
         mask <<= 1;
@@ -1179,7 +1179,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16u64 = OclBuiltinImpl<sub_g
     __v8du rotated;
     __v8du res_lo = *(__v8du*)(&lo);
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
         rotated = (__v8du)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res_lo);
         mask <<= 1;
@@ -1190,7 +1190,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16u64 = OclBuiltinImpl<sub_g
     res_hi[0] = res_lo[7] < res_hi[0] ? res_lo[7] : res_hi[0];
     mask = 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
         rotated = (__v8du)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res_hi);
         mask <<= 1;
@@ -1219,7 +1219,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16i64 = OclBuiltinImpl<sub_g
     __v8di rotated;
     __v8di res_lo = *(__v8di*)(&lo);
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
         rotated = (__v8di)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res_lo);
         mask <<= 1;
@@ -1230,7 +1230,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16i64 = OclBuiltinImpl<sub_g
     res_hi[0] = res_lo[7] < res_hi[0] ? res_lo[7] : res_hi[0];
     mask = 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
         rotated = (__v8di)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res_hi);
         mask <<= 1;
@@ -1253,7 +1253,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16u8 = OclBuiltinImpl<sub_gr
     $Arg0Type rotated = masked_data;
     $Arg0Type res = rotated;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 15; i++) {
       mask <<= 1;
       rotated = __builtin_shufflevector(res, res, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
@@ -1272,7 +1272,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16i8 = OclBuiltinImpl<sub_gr
     $Arg0Type rotated = masked_data;
     $Arg0Type res = rotated;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 15; i++) {
       mask <<= 1;
       rotated = __builtin_shufflevector(res, res, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
@@ -1292,7 +1292,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16i16 = OclBuiltinImpl<sub_g
     __m256i rotated = masked_data;
     __m256i res = rotated;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 15; i++) {
       mask <<= 1;
       rotated = _mm256_permutexvar_epi16(rotate_mask, res);
@@ -1312,7 +1312,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16u16 = OclBuiltinImpl<sub_g
     __m256i rotated = masked_data;
     __m256i res = rotated;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 15; i++) {
       mask <<= 1;
       rotated = _mm256_permutexvar_epi16(rotate_mask, res);
@@ -1335,7 +1335,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fvf8i32 = OclBuiltinImpl<sub_g
     __v8si res = *((__v8si *)&masked_data);
     __v8si rotated = res;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) { // VF - 1 iterations
         mask <<= 1;
         rotated = (__v8si)_mm256_permutexvar_epi32(rotate_mask, (__m256i)res);
@@ -1355,7 +1355,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fvf8u32 = OclBuiltinImpl<sub_g
     __v8su res = *((__v8su *)&masked_data);
     __v8su rotated = res;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) { // VF - 1 iterations
         mask <<= 1;
         rotated = (__v8su)_mm256_permutexvar_epi32(rotate_mask, (__m256i)res);
@@ -1376,7 +1376,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fvf8f32 = OclBuiltinImpl<sub_g
     __v8sf res = *((__v8sf *)&masked_data);
     __v8sf rotated = res;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) { // VF - 1 iterations
         mask <<= 1;
         rotated = (__v8sf)_mm256_permutexvar_ps(rotate_mask, (__m256)res);
@@ -1396,7 +1396,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv8u64 = OclBuiltinImpl<sub_gr
     __v8du res = *((__v8du *)&masked_data);
     __v8du rotated = res;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) { // VF - 1 iterations
         mask <<= 1;
         rotated = (__v8du)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res);
@@ -1416,7 +1416,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv8i64 = OclBuiltinImpl<sub_gr
     __v8di res = *((__v8di *)&masked_data);
     __v8di rotated = res;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) { // VF - 1 iterations
         mask <<= 1;
         rotated = (__v8di)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res);
@@ -1436,7 +1436,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512v8f64 = OclBuiltinImpl<sub_gro
     __v8df res = *((__v8df *)&masked_data);
     __v8df rotated = res;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)res);
@@ -1466,7 +1466,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv8i16 = OclBuiltinImpl<sub_gr
     __m128i rotated = masked_data;
     __m128i res = rotated;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       mask <<= 1;
       rotated = _mm_permutexvar_epi16(rotate_mask, res);
@@ -1486,7 +1486,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv8u16 = OclBuiltinImpl<sub_gr
     __m128i rotated = masked_data;
     __m128i res = rotated;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       mask <<= 1;
       rotated = _mm_permutexvar_epi16(rotate_mask, res);
@@ -1535,7 +1535,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512i32 = OclBuiltinImpl<sub_group
     __v16si res = *((__v16si *)&masked_data);
     __v16si rotated = res;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 15; i++) { // VF - 1 iterations
         mask <<= 1;
         rotated = (__v16si)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
@@ -1555,7 +1555,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512u32 = OclBuiltinImpl<sub_group
     __v16su res = *((__v16su *)&masked_data);
     __v16su rotated = res;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 15; i++) { // VF - 1 iterations
         mask <<= 1;
         rotated = (__v16su)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
@@ -1576,7 +1576,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512f32 = OclBuiltinImpl<sub_group
     __v16sf res = *((__v16sf *)&masked_data);
     __v16sf rotated = res;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 15; i++) { // VF - 1 iterations
         mask <<= 1;
         rotated = (__v16sf)_mm512_permutexvar_ps(rotate_mask, (__m512)res);
@@ -1601,7 +1601,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16f64 = OclBuiltinImpl<sub_g
     __v8df rotated;
     __v8df res_lo = *(__v8df*)(&lo);
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
         rotated = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)res_lo);
         mask <<= 1;
@@ -1612,7 +1612,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16f64 = OclBuiltinImpl<sub_g
     res_hi[0] = res_lo[7] > res_hi[0] ? res_lo[7] : res_hi[0];
     mask = 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
         rotated = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)res_hi);
         mask <<= 1;
@@ -1641,7 +1641,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16u64 = OclBuiltinImpl<sub_g
     __v8du rotated;
     __v8du res_lo = *(__v8du*)(&lo);
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
         rotated = (__v8du)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res_lo);
         mask <<= 1;
@@ -1652,7 +1652,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16u64 = OclBuiltinImpl<sub_g
     res_hi[0] = res_lo[7] > res_hi[0] ? res_lo[7] : res_hi[0];
     mask = 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
         rotated = (__v8du)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res_hi);
         mask <<= 1;
@@ -1681,7 +1681,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16i64 = OclBuiltinImpl<sub_g
     __v8di rotated;
     __v8di res_lo = *(__v8di*)(&lo);
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
         rotated = (__v8di)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res_lo);
         mask <<= 1;
@@ -1692,7 +1692,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16i64 = OclBuiltinImpl<sub_g
     res_hi[0] = res_lo[7] > res_hi[0] ? res_lo[7] : res_hi[0];
     mask = 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
         rotated = (__v8di)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res_hi);
         mask <<= 1;
@@ -1715,7 +1715,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16i8 = OclBuiltinImpl<sub_gr
     $Arg0Type rotated = masked_data;
     $Arg0Type res = rotated;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 15; i++) {
       mask <<= 1;
       rotated = __builtin_shufflevector(res, res, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
@@ -1734,7 +1734,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16u8 = OclBuiltinImpl<sub_gr
     $Arg0Type rotated = masked_data;
     $Arg0Type res = rotated;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 15; i++) {
       mask <<= 1;
       rotated = __builtin_shufflevector(res, res, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
@@ -1754,7 +1754,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16i16 = OclBuiltinImpl<sub_g
     __m256i rotated = masked_data;
     __m256i res = rotated;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 15; i++) {
       mask <<= 1;
       rotated = _mm256_permutexvar_epi16(rotate_mask, res);
@@ -1774,7 +1774,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16u16 = OclBuiltinImpl<sub_g
     __m256i rotated = masked_data;
     __m256i res = rotated;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 15; i++) {
       mask <<= 1;
       rotated = _mm256_permutexvar_epi16(rotate_mask, res);
@@ -1796,7 +1796,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fvf8i32 = OclBuiltinImpl<sub_g
     __v8si res = *((__v8si *)&masked_data);
     __v8si rotated = res;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) { // VF - 1 iterations
         mask <<= 1;
         rotated = (__v8si)_mm256_permutexvar_epi32(rotate_mask, (__m256i)res);
@@ -1816,7 +1816,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fvf8u32 = OclBuiltinImpl<sub_g
     __v8su res = *((__v8su *)&masked_data);
     __v8su rotated = res;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) { // VF - 1 iterations
         mask <<= 1;
         rotated = (__v8su)_mm256_permutexvar_epi32(rotate_mask, (__m256i)res);
@@ -1837,7 +1837,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fvf832 = OclBuiltinImpl<sub_gr
     __v8sf res = *((__v8sf *)&masked_data);
     __v8sf rotated = res;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) { // VF - 1 iterations
         mask <<= 1;
         rotated = (__v8sf)_mm256_permutexvar_ps(rotate_mask, (__m256)res);
@@ -1857,7 +1857,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv8u64 = OclBuiltinImpl<sub_gr
     __v8du res = *((__v8du *)&masked_data);
     __v8du rotated = res;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) { // VF - 1 iterations
         mask <<= 1;
         rotated = (__v8du)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res);
@@ -1877,7 +1877,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fvf8i64 = OclBuiltinImpl<sub_g
     __v8di res = *((__v8di *)&masked_data);
     __v8di rotated = res;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) { // VF - 1 iterations
         mask <<= 1;
         rotated = (__v8di)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res);
@@ -1897,7 +1897,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fvf8f64 = OclBuiltinImpl<sub_g
     __v8df res = *((__v8df *)&masked_data);
     __v8df rotated = res;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) { // VF - 1 iterations
         mask <<= 1;
         rotated = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)res);
@@ -1927,7 +1927,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv8i16 = OclBuiltinImpl<sub_gr
     __m128i rotated = masked_data;
     __m128i res = rotated;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       mask <<= 1;
       rotated = _mm_permutexvar_epi16(rotate_mask, res);
@@ -1947,7 +1947,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv8u16 = OclBuiltinImpl<sub_gr
     __m128i rotated = masked_data;
     __m128i res = rotated;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       mask <<= 1;
       rotated = _mm_permutexvar_epi16(rotate_mask, res);
@@ -2000,7 +2000,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512fui32 = OclBuiltinImpl<sub_gro
     __v16si rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 14; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v16si)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
@@ -2011,9 +2011,6 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512fui32 = OclBuiltinImpl<sub_gro
 
 OclBuiltinImpl sub_group_scan_exclusive_add_avx512ff32 = OclBuiltinImpl<sub_group_scan_exclusive_add_vec, [ v16f32 ], 0,
   [{
-    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
-    __m512 masked_data = _mm512_maskz_mov_ps(vmask, $Arg0VarName);
-
     const __m512i rotate_mask = _mm512_setr_epi32(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
     unsigned short mask = 1;
 
@@ -2023,7 +2020,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512ff32 = OclBuiltinImpl<sub_grou
     __v16sf rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 14; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v16sf)_mm512_permutexvar_ps(rotate_mask, (__m512)res);
@@ -2053,7 +2050,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512v16ui64 = OclBuiltinImpl<sub_g
     __v8du rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8du)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res_lo);
@@ -2066,7 +2063,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512v16ui64 = OclBuiltinImpl<sub_g
 
     mask = 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8du)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res_hi);
@@ -2100,7 +2097,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512v16f64 = OclBuiltinImpl<sub_gr
     __v8df rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)res_lo);
@@ -2113,7 +2110,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512v16f64 = OclBuiltinImpl<sub_gr
 
     mask = 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)res_hi);
@@ -2139,7 +2136,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512fv16ui8 = OclBuiltinImpl<sub_g
     $Arg0Type rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 14; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = __builtin_shufflevector(res, res, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
@@ -2164,7 +2161,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512fv16ui16 = OclBuiltinImpl<sub_
     __m256i rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 14; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = _mm256_permutexvar_epi16(rotate_mask, res);
@@ -2190,7 +2187,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512fvf8ui32 = OclBuiltinImpl<sub_
     __v8si rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8si)_mm256_permutexvar_epi32(rotate_mask, (__m256i)res);
@@ -2213,7 +2210,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512fvf8f32 = OclBuiltinImpl<sub_g
     __v8sf rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8sf)_mm256_permutexvar_ps(rotate_mask, (__m256)res);
@@ -2236,7 +2233,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512fvf8ui64 = OclBuiltinImpl<sub_
     __v8di rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8di)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res);
@@ -2259,7 +2256,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512fv8f64 = OclBuiltinImpl<sub_gr
     __v8df rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)res);
@@ -2293,7 +2290,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512fv8ui16 = OclBuiltinImpl<sub_g
     __m128i rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = _mm_permutexvar_epi16(rotate_mask, res);
@@ -2346,7 +2343,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512fui32 = OclBuiltinImpl<sub_gro
     __v16su rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 14; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v16su)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
@@ -2369,7 +2366,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512fi32 = OclBuiltinImpl<sub_grou
     __v16si rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 14; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v16si)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
@@ -2392,7 +2389,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512ff32 = OclBuiltinImpl<sub_grou
     __v16sf rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 14; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v16sf)_mm512_permutexvar_ps(rotate_mask, (__m512)res);
@@ -2422,7 +2419,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512v16u64 = OclBuiltinImpl<sub_gr
     __v8du rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8du)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res_lo);
@@ -2435,7 +2432,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512v16u64 = OclBuiltinImpl<sub_gr
 
     mask = 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8du)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res_hi);
@@ -2469,7 +2466,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512v16i64 = OclBuiltinImpl<sub_gr
     __v8di rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8di)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res_lo);
@@ -2482,7 +2479,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512v16i64 = OclBuiltinImpl<sub_gr
 
     mask = 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8di)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res_hi);
@@ -2516,7 +2513,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512v16f64 = OclBuiltinImpl<sub_gr
     __v8df rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)res_lo);
@@ -2529,7 +2526,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512v16f64 = OclBuiltinImpl<sub_gr
 
     mask = 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)res_hi);
@@ -2556,7 +2553,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512fv16u8 = OclBuiltinImpl<sub_gr
     $Arg0Type rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 14; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = __builtin_shufflevector(res, res, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
@@ -2579,7 +2576,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512fv16i8 = OclBuiltinImpl<sub_gr
     $Arg0Type rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 14; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = __builtin_shufflevector(res, res, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
@@ -2604,7 +2601,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512fv16u16 = OclBuiltinImpl<sub_g
     __m256i rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 14; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = _mm256_permutexvar_epi16(rotate_mask, res);
@@ -2629,7 +2626,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512fv16i16 = OclBuiltinImpl<sub_g
     __m256i rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 14; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = _mm256_permutexvar_epi16(rotate_mask, res);
@@ -2655,7 +2652,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512fvf8ui32 = OclBuiltinImpl<sub_
     __v8su rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8su)_mm256_permutexvar_epi32(rotate_mask, (__m256i)res);
@@ -2678,7 +2675,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512fvf8i32 = OclBuiltinImpl<sub_g
     __v8si rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8si)_mm256_permutexvar_epi32(rotate_mask, (__m256i)res);
@@ -2701,7 +2698,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512fvf8f32 = OclBuiltinImpl<sub_g
     __v8sf rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8sf)_mm256_permutexvar_ps(rotate_mask, (__m256)res);
@@ -2724,7 +2721,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512fvf8u64 = OclBuiltinImpl<sub_g
     __v8du rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8du)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res);
@@ -2747,7 +2744,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512fvf8i64 = OclBuiltinImpl<sub_g
     __v8di rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8di)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res);
@@ -2770,7 +2767,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512fvf8f64 = OclBuiltinImpl<sub_g
     __v8df rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)res);
@@ -2804,7 +2801,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512fv8u16 = OclBuiltinImpl<sub_gr
     __m128i rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = _mm_permutexvar_epi16(rotate_mask, res);
@@ -2828,7 +2825,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512fv8i16 = OclBuiltinImpl<sub_gr
     __m128i rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = _mm_permutexvar_epi16(rotate_mask, res);
@@ -2880,7 +2877,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512fi32 = OclBuiltinImpl<sub_grou
     __v16si rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 14; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v16si)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
@@ -2903,7 +2900,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512fu32 = OclBuiltinImpl<sub_grou
     __v16su rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 14; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v16su)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
@@ -2926,7 +2923,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512ff32 = OclBuiltinImpl<sub_grou
     __v16sf rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 14; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v16sf)_mm512_permutexvar_ps(rotate_mask, (__m512)res);
@@ -2956,7 +2953,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512v16u64 = OclBuiltinImpl<sub_gr
     __v8du rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8du)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res_lo);
@@ -2969,7 +2966,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512v16u64 = OclBuiltinImpl<sub_gr
 
     mask = 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8du)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res_hi);
@@ -3003,7 +3000,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512v16i64 = OclBuiltinImpl<sub_gr
     __v8di rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8di)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res_lo);
@@ -3016,7 +3013,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512v16i64 = OclBuiltinImpl<sub_gr
 
     mask = 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8di)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res_hi);
@@ -3050,7 +3047,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512v16f64 = OclBuiltinImpl<sub_gr
     __v8df rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)res_lo);
@@ -3063,7 +3060,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512v16f64 = OclBuiltinImpl<sub_gr
 
     mask = 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)res_hi);
@@ -3088,7 +3085,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512fv16u8 = OclBuiltinImpl<sub_gr
     $Arg0Type rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 14; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = __builtin_shufflevector(res, res, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
@@ -3109,7 +3106,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512fv16i8 = OclBuiltinImpl<sub_gr
     $Arg0Type rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 14; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = __builtin_shufflevector(res, res, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
@@ -3133,7 +3130,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512fv16u16 = OclBuiltinImpl<sub_g
     __m256i rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 14; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = _mm256_permutexvar_epi16(rotate_mask, res);
@@ -3157,7 +3154,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512fv16i16 = OclBuiltinImpl<sub_g
     __m256i rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 14; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = _mm256_permutexvar_epi16(rotate_mask, res);
@@ -3183,7 +3180,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512fvf8i32 = OclBuiltinImpl<sub_g
     __v8si rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8si)_mm256_permutexvar_epi32(rotate_mask, (__m256i)res);
@@ -3206,7 +3203,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512fvf8u32 = OclBuiltinImpl<sub_g
     __v8su rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8su)_mm256_permutexvar_epi32(rotate_mask, (__m256i)res);
@@ -3229,7 +3226,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512fvf8f32 = OclBuiltinImpl<sub_g
     __v8sf rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = (__v8sf)_mm256_permutexvar_ps(rotate_mask, (__m256)res);
@@ -3252,7 +3249,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512vf8fu64 = OclBuiltinImpl<sub_g
     __v8du rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
       mask <<= 1;
       rotated = (__v8du)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res);
@@ -3275,7 +3272,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512fvf8i64 = OclBuiltinImpl<sub_g
     __v8di rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
       mask <<= 1;
       rotated = (__v8di)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res);
@@ -3298,7 +3295,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512fvf8f64 =  OclBuiltinImpl<sub_
     __v8df rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
 for (int i = 0; i < 6; i++) { // VF - 2 iterations
       mask <<= 1;
       rotated = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)res);
@@ -3332,7 +3329,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512fv8u16 = OclBuiltinImpl<sub_gr
     __m128i rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = _mm_permutexvar_epi16(rotate_mask, res);
@@ -3356,7 +3353,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512fv8i16 = OclBuiltinImpl<sub_gr
     __m128i rotated;
     mask <<= 1;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) { // VF - 2 iterations
         mask <<= 1;
         rotated = _mm_permutexvar_epi16(rotate_mask, res);

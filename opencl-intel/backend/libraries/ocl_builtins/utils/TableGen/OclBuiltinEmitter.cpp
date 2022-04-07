@@ -60,8 +60,9 @@ GenOCLBuiltinVerbose("gen-ocl-verbose", cl::Hidden,
                      cl::desc("Output verbose warning during OCL builtin generation."), cl::init(false));
 
 static cl::opt<bool>
-GenOCLBuiltinWerror("gen-ocl-werror", cl::Hidden,
-                   cl::desc("Make all warnings into errors."), cl::init(false));
+    GenOCLBuiltinWerror("gen-ocl-werror", cl::Hidden,
+                        cl::desc("Make all warnings into errors."),
+                        cl::init(true));
 
 static cl::opt<std::string, false, cl::parser<std::string> >
   GenOCLBuiltinPrefix("gen-ocl-Prefix", cl::NotHidden,

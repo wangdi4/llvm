@@ -267,7 +267,6 @@ code Storead_half_rtz16 = [{
   }];
 
 code Load_half8 = [{
-    float8 res;
     const short8 inp = vload8($Arg0VarName, ($Arg1igentype)$Arg1VarName);
     return __ocl_Half8ToFloat8(inp);
   }];

@@ -345,7 +345,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx256iu32 = OclBuiltinImpl<sub_grou
     $Arg0VarName = as_$Arg0Type(arg0);
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       temp[7] = 0;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -362,7 +362,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx256f32 = OclBuiltinImpl<sub_group
     $Arg0VarName = as_$Arg0Type(arg0);
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       temp[7] = 0;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -379,7 +379,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx256iu64 = OclBuiltinImpl<sub_grou
     $Arg0VarName = as_$Arg0Type(arg0);
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       temp[7] = 0;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -397,7 +397,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx256f64 = OclBuiltinImpl<sub_group
     $Arg0VarName = as_$Arg0Type(arg0);
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       temp[7] = 0;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -446,7 +446,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx256i32 =  OclBuiltinImpl<sub_grou
     $Arg0VarName = as_$Arg0Type(arg0);
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       temp[7] = INT_MAX;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -463,7 +463,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx256u32 =  OclBuiltinImpl<sub_grou
     $Arg0VarName = as_$Arg0Type(arg0);
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       temp[7] = UINT_MAX;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -482,7 +482,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx256f32 =  OclBuiltinImpl<sub_grou
     $Arg0VarName = as_$Arg0Type(arg0);
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       temp[7] = INFINITY;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -500,7 +500,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx256i64 =  OclBuiltinImpl<sub_grou
     arg0 |= arg1;
     long8 temp0 = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       temp0[7] = LONG_MAX;
       temp0 = __builtin_shufflevector(temp0, temp0, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -521,7 +521,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx256u64 =  OclBuiltinImpl<sub_grou
     arg0 |= ~arg1;
     long8 temp0 = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       temp0[7] = as_long(ULONG_MAX);
       temp0 = __builtin_shufflevector(temp0, temp0, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -542,7 +542,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx256f64 =  OclBuiltinImpl<sub_grou
     arg0 |= arg1;
     long8 temp0 = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       temp0[7] = INF;
       temp0 = __builtin_shufflevector(temp0, temp0, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -591,7 +591,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx256i32 =  OclBuiltinImpl<sub_grou
     $Arg0VarName = as_$Arg0Type(arg0);
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       temp[7] = INT_MIN;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -608,7 +608,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx256u32 =  OclBuiltinImpl<sub_grou
     $Arg0VarName = as_$Arg0Type(arg0);
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       temp[7] = 0;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -627,7 +627,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx256f32 =  OclBuiltinImpl<sub_grou
     $Arg0VarName = as_$Arg0Type(arg0);
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       temp[7] = -INFINITY;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -645,7 +645,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx256i64 =  OclBuiltinImpl<sub_grou
     arg0 |= arg1;
     long8 temp0 = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       temp0[7] = LONG_MIN;
       temp0 = __builtin_shufflevector(temp0, temp0, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -666,7 +666,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx256u64 =  OclBuiltinImpl<sub_grou
     arg0 &= arg1;
     long8 temp0 = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       temp0[7] = 0;
       temp0 = __builtin_shufflevector(temp0, temp0, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -686,7 +686,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx256f64 =  OclBuiltinImpl<sub_grou
     arg1 = (~arg1) & INF;
     arg0 |= arg1;
     long8 temp0 = arg0;
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 7; i++) {
       temp0[7] = INF ;
       temp0 = __builtin_shufflevector(temp0, temp0, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -737,7 +737,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx256iu32 = OclBuiltinImpl<sub_grou
     $Arg0VarName[0] = 0;
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) {
       temp[7] = 0;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -757,7 +757,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx256f32 = OclBuiltinImpl<sub_group
     $Arg0VarName[0] = 0;
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) {
       temp[7] = 0;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -777,7 +777,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx256iu64 = OclBuiltinImpl<sub_grou
     $Arg0VarName[0] = 0;
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) {
       temp[7] = 0;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -798,7 +798,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx256f64 = OclBuiltinImpl<sub_group
     $Arg0VarName[0] = 0;
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) {
       temp[7] = 0;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -850,7 +850,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx256i32 = OclBuiltinImpl<sub_group
     $Arg0VarName[0] = INT_MAX;
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) {
       temp[7] = INT_MAX;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -870,7 +870,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx256u32 = OclBuiltinImpl<sub_group
     $Arg0VarName[0] = UINT_MAX;
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) {
       temp[7] = UINT_MAX;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -892,7 +892,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx256f32 = OclBuiltinImpl<sub_group
     $Arg0VarName[0] = INFINITY;
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) {
       temp[7] = INFINITY;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -913,7 +913,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx256i64 = OclBuiltinImpl<sub_group
     arg0[0] = LONG_MAX;
     long8 temp = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) {
       temp[7] = LONG_MAX;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -937,7 +937,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx256u64 = OclBuiltinImpl<sub_group
     arg0[0] = as_long(ULONG_MAX);
     long8 temp = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) {
       temp[7] = as_long(ULONG_MAX);
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -962,7 +962,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx256f64 = OclBuiltinImpl<sub_group
     arg0[0] = INF;
     long8 temp = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) {
       temp[7] = INF;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -1014,7 +1014,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx256i32 = OclBuiltinImpl<sub_group
     $Arg0VarName[0] = INT_MIN;
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) {
       temp[7] = INT_MIN;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -1034,7 +1034,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx256u32 = OclBuiltinImpl<sub_group
     $Arg0VarName[0] = 0;
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) {
       temp[7] = 0;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -1056,7 +1056,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx256f32 = OclBuiltinImpl<sub_group
     $Arg0VarName[0] = -INFINITY;
     $Arg0Type temp = $Arg0VarName;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) {
       temp[7] = -INFINITY;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -1077,7 +1077,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx256i64 = OclBuiltinImpl<sub_group
     arg0[0] = LONG_MIN;
     long8 temp = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) {
       temp[7] = LONG_MIN;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -1101,7 +1101,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx256u64 = OclBuiltinImpl<sub_group
     arg0[0] = 0;
     long8 temp = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) {
       temp[7] = 0;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
@@ -1126,7 +1126,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx256f64 = OclBuiltinImpl<sub_group
     arg0[0] = INF;
     long8 temp = arg0;
 
-#pragma clang unroll(full)
+#pragma clang loop unroll(full)
     for (int i = 0; i < 6; i++) {
       temp[7] = INF;
       temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);

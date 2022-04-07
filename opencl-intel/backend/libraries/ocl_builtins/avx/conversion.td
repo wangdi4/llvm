@@ -29,7 +29,6 @@ OclBuiltinImpl avx_convert_i32_rtz_v3f64 = OclBuiltinImpl<convert_i32_rtz, [v3f6
   }]>;
 
 OclBuiltinImpl avx_convert_i32_rtz_v4f64 = OclBuiltinImpl<convert_i32_rtz, [v4f64], 0, [{
-    int4 t1, t2, res;
     return as_int4(_mm256_cvttpd_epi32($Arg0VarName));
   }]>;
 
@@ -293,7 +292,6 @@ OclBuiltinImpl avx_rtn_cvt_f32_u64 = OclBuiltinImpl<convert_f32_rtn,
 \*****************************************************************/
 
 OclBuiltinImpl avx_cvt_f64_v3f32 = OclBuiltinImpl<convert_f64, [v3f32], 0, [{
-    double4 res;
     float4 n$Arg0VarName = as_float4($Arg0VarName);
     return as_$ReturnType(_mm256_cvtps_pd(__builtin_astype(n$Arg0VarName,__m128)));
   }]>;

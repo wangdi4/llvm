@@ -12,20 +12,20 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <gtest/gtest.h>
-#include <utility>
-#include "utils.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Support/SourceMgr.h"
-#include "llvm/IRReader/IRReader.h"
 #include "BuiltinKeeper.h"
 #include "FunctionDescriptor.h"
 #include "NameMangleAPI.h"
 #include "VolcanoOpenclRuntime.h"
+#include "gtest_wrapper.h"
+#include "utils.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/Support/SourceMgr.h"
+#include <utility>
 
 using namespace llvm::reflection;
 using namespace llvm::NameMangleAPI;
