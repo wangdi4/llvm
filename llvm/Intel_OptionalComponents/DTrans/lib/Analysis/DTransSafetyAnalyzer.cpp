@@ -4138,6 +4138,23 @@ public:
       return OPDomTy;
     };
 
+    // If the input DTransType is a pointer to a structure, then return the
+    // size of the structure, else return 0.
+    auto GetStructureSize = [this](DTransType *StructPtr) -> uint64_t {
+      if (!StructPtr->isPointerTy())
+        return 0;
+
+      uint64_t SizeOfStruct = 0;
+      auto *STType =
+          dyn_cast<DTransStructType>(StructPtr->getPointerElementType());
+      if (STType) {
+        Type *StructLLVMType = STType->getLLVMType();
+        SizeOfStruct = DL.getTypeAllocSize(StructLLVMType);
+      }
+
+      return SizeOfStruct;
+    };
+
     if (!Call)
       return false;
 
@@ -4151,7 +4168,7 @@ public:
       return false;
 
     ValueTypeInfo *CallInfo = PTA.getValueTypeInfo(Call);
-    if (!CallInfo)
+    if (!CallInfo || !CallInfo->isCompletelyAnalyzed())
       return false;
 
     // If there is a dominant aggregate type then exit. There is another
@@ -4165,12 +4182,63 @@ public:
     if (CallDomTy)
       return false;
 
+    // If the input size is a constant integer, then we are going to prove that
+    // one of the aliases for declaration covers the rest of the aliases
+    // through the zero element, and the size is the same as the constant. For
+    // example, assume that the IR contains the following types and
+    // instructions:
+    //
+    //   %class.MainClass = type { [4 x i32], i32, [4 x i8]}
+    //   %class.MainClass.base = type { [4 x i32], i32}
+    //
+    //   %class.TestClass.Outer = type { %class.TestClass.Inner }
+    //   %class.TestClass.Inner = type { %class.MainClass.base, [4 x i8] }
+    //
+    //   %1 = tail call noalias noundef nonnull ptr @_Znwm(i64 24)
+    //   %2 = getelementptr inbounds %class.TestClass.Inner, ptr %1, i64 0,
+    //                                                       i32 0
+    //   %3 = getelementptr inbounds %class.MainClass, ptr %1, i64 0, i32 0
+    //
+    // The pointer to the new allocated memory space (%1) won't have a dominant
+    // aggregate type since it is used as %class.TestClass.Inner* (%2) and
+    // %class.MainClass* (%3), and %class.MainClass is not a zero element of
+    // %class.TestClass.Inner. The ValueTypeInfo for the call to new will be
+    // the following:
+    //
+    //   LocalPointerInfo: CompletelyAnalyzed
+    //   Declared Types:
+    //     Aliased types:
+    //       %class.MainClass*
+    //       %class.TestClass.Inner*
+    //       i8*
+    //     No element pointees.
+    //   Usage Types:
+    //     Aliased types:
+    //       %class.MainClass*
+    //       %class.TestClass.Inner*
+    //       i8*
+    //     No element pointees.
+    //
+    // We are going to prove that traversing the zero element of
+    // %class.TestClass.Inner we will reach to a type that is related to
+    // %class.MainClass (%class.MainClass.base), and that the input to
+    // new (24) is the same as the size of %class.TestClass.Inner.
+    if (ConstantInt *ConstArg = dyn_cast<ConstantInt>(SizeArg)) {
+      DTransType *EnclosingParentDecl = getEnclosingParentDeclType(*CallInfo);
+      if (!EnclosingParentDecl || !EnclosingParentDecl->isPointerTy())
+        return false;
+
+      uint64_t SizeOfStruct = GetStructureSize(EnclosingParentDecl);
+      if (SizeOfStruct == 0)
+        return false;
+
+      return ConstArg->equalsInt(SizeOfStruct);
+    }
+
     // This analysis is only for binary operations.
     BinaryOperator *BinOp = dyn_cast<BinaryOperator>(SizeArg);
     if (!BinOp)
       return false;
-
-    // TODO: Handle the case when the input size is a constant integer.
 
     // Collect the dominant aggregate type for the binary operation.
     DTransType *OperandsDomType = nullptr;
@@ -4221,14 +4289,7 @@ public:
       return false;
 
     // Now collect the size that is being allocated
-    uint64_t SizeOfStruct = 0;
-    auto *STType =
-        dyn_cast<DTransStructType>(OperandsDomType->getPointerElementType());
-    if (STType) {
-      Type *StructLLVMType = STType->getLLVMType();
-      SizeOfStruct = DL.getTypeAllocSize(StructLLVMType);
-    }
-
+    uint64_t SizeOfStruct = GetStructureSize(OperandsDomType);
     if (SizeOfStruct == 0)
       return false;
 
@@ -5715,6 +5776,74 @@ private:
     return true;
   }
 
+  // Traverse through the aliases for declaration and collect the type that
+  // encloses all the types through the zero element. This type also needs
+  // to enclose all the aliases for use through the zero element. If the type
+  // is not found, then return nullptr. For example, assume that &Info
+  // contains the following information:
+  //
+  //  LocalPointerInfo: CompletelyAnalyzed
+  //  Declared Types:
+  //    Aliased types:
+  //      %struct.test.b*
+  //      %struct.test.a*
+  //    No element pointees.
+  //  Usage Types:
+  //    Aliased types:
+  //      %struct.test.a*
+  //      %struct.test.b*
+  //    No element pointees.
+  //
+  // This means that we have multiple declarations for the pointer. From the
+  // example above, the zero element of structure %struct.test.b is
+  // %struct.test.a.base, and its related type is %struct.test.a. Therefore,
+  // any alias use is OK because they are just zero element access.
+  DTransType* getEnclosingParentDeclType(ValueTypeInfo &Info) const {
+    // ValueTypeInfo must be completely analyzed
+    //
+    // NOTE: conservative check, perhaps could be relaxed
+    if (!Info.isCompletelyAnalyzed())
+      return nullptr;
+
+    ValueTypeInfo::PointerTypeAliasSetRef &DeclAliases =
+        Info.getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl);
+    ValueTypeInfo::PointerTypeAliasSetRef &UsedAliases =
+        Info.getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
+
+    // First we need to find which alias declared encapsulates all other
+    // aliases declared as a 0 element in case we have multiple declarations.
+    DTransType *DeclType = nullptr;
+    if (DeclAliases.empty() || UsedAliases.empty()) {
+      return nullptr;
+    } else if (DeclAliases.size() == 1) {
+      DeclType = *(DeclAliases.begin());
+    } else {
+      DeclType = nullptr;
+      for (auto *CurrTy : DeclAliases) {
+        if (allAliasesAreZeroElement(CurrTy, DeclAliases)) {
+          // Only one type encapsulates all the types through the 0 element
+          if (!DeclType)
+            DeclType = CurrTy;
+          else
+            return nullptr;
+        }
+      }
+    }
+
+    if (!DeclType)
+      return nullptr;
+
+    // The alias declared must encapsulate all the alias used through the zero
+    // element access. From the examples above, in both cases we found that
+    // %struct.test.b* is the declare type, now we are going to prove that the
+    // used types (%struct.test.a* and %struct.test.b*) are zero element access
+    // and/or the same type.
+    if (!allAliasesAreZeroElement(DeclType, UsedAliases))
+      return nullptr;
+
+    return DeclType;
+  }
+
   // Return true if all the alias pointers use (VAT_Use) in the input
   // ValueTypeInfo have related types and the related type is legal to use with
   // the alias pointer declaration (VAT_Decl). For example, assume that we have
@@ -5740,67 +5869,7 @@ private:
   // This function will return true because %struct.test.a.base is a related
   // type of %struct.test.a, and is the 0 element of %struct.test.b.
   bool isLegalRelatedTypeUse(ValueTypeInfo &Info) const {
-
-    // ValueTypeInfo must be completely analyzed
-    //
-    // NOTE: conservative check, perhaps could be relaxed
-    if (!Info.isCompletelyAnalyzed())
-      return false;
-
-    ValueTypeInfo::PointerTypeAliasSetRef &DeclAliases =
-        Info.getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl);
-    ValueTypeInfo::PointerTypeAliasSetRef &UsedAliases =
-        Info.getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
-
-    // First we need to find which alias declared encapsulates all other
-    // aliases declared as a 0 element in case we have multiple declarations.
-    // For example, assume that &Info contains the following information:
-    //
-    //  LocalPointerInfo: CompletelyAnalyzed
-    //  Declared Types:
-    //    Aliased types:
-    //      %struct.test.b*
-    //      %struct.test.a*
-    //    No element pointees.
-    //  Usage Types:
-    //    Aliased types:
-    //      %struct.test.a*
-    //      %struct.test.b*
-    //    No element pointees.
-    //
-    // This means that we have multiple declarations for the pointer. In this
-    // case we first need to find the declared type that encapsulates through
-    // the zero element all the declared types. From the example above, the
-    // zero element of structure %struct.test.b is %struct.test.a.base, which
-    // it's related type is %struct.test.a. Therefore, any alias use is OK
-    // because they are just zero element access.
-    DTransType *DeclType = nullptr;
-    if (DeclAliases.size() == 0) {
-      return false;
-    } else if (DeclAliases.size() == 1) {
-      DeclType = *(DeclAliases.begin());
-    } else {
-      DeclType = nullptr;
-      for (auto *CurrTy : DeclAliases) {
-        if (allAliasesAreZeroElement(CurrTy, DeclAliases)) {
-          // Only one type encapsulates all the types through the 0 element
-          if (!DeclType)
-            DeclType = CurrTy;
-          else
-            return false;
-        }
-      }
-    }
-
-    if (!DeclType)
-      return false;
-
-    // The alias declared must encapsulate all the alias used through the zero
-    // element access. From the examples above, in both cases we found that
-    // %struct.test.b* is the declare type, now we are going to prove that the
-    // used types (%struct.test.a* and %struct.test.b*) are zero element access
-    // and/or the same type.
-    return allAliasesAreZeroElement(DeclType, UsedAliases);
+    return getEnclosingParentDeclType(Info) != nullptr;
   }
 
   // Check whether any of the aliases that were collected for the declaration of
