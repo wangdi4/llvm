@@ -910,6 +910,13 @@ const SCEV *HIRParser::BlobProcessor::getSubstituteSCEV(const SCEV *SC) {
     return nullptr;
   }
 
+  // Avoid substitution of AddRec operand into Unknown loop bottom test.
+  if (HIRP->ScopedSE.containsAddRecurrence(SC) &&
+      isa<HLIf>(HIRP->getCurNode()) &&
+      cast<HLIf>(HIRP->getCurNode())->isUnknownLoopBottomTest()) {
+    return nullptr;
+  }
+
   OrigInst = findOrigInst(nullptr, SC, &IsTruncOrSExt, &IsZExt, &IsNegation,
                           &ConstMultiplier, &Additive);
 
