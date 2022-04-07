@@ -34,8 +34,8 @@ foreach name = ["acos", "acosh", "acospi", "asin", "asinh", "asinpi", "atan",
   defvar builtin = !cast<OclBuiltin>(name);
   defvar types = !cond(
       !or(!ne(!find(name, "fract_"), -1), !eq(name, "ilogb"), !eq(name, "rsqrt")):
-          ExpandTypesByVFAndFlatten<[v1f64], [1, 2, 4, 8]>.Tout,
-      true: ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 4, 8]>.Tout);
+          ExpandTypesByVFAndFlatten<[v1f64], [1, 2, 4]>.Tout,
+      true: [v1f32, v2f32, v4f32, v8f32, v1f64, v2f64, v4f64]);
   defvar num_args = !size(builtin.Ins);
   defvar svml_code = !cond(!ne(!find(name, "fract_"), -1): fract_svml,
       !ne(!find(name, "frexp_"), -1): frexp_svml,

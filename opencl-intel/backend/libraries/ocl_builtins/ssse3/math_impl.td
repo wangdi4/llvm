@@ -13,8 +13,9 @@ foreach name = ["acos", "acosh", "acospi", "asin", "asinh", "asinpi", "atan",
     "sincos_pas", "sincos_las", "sincos_gas", "sincos_gen",
     "sinh", "sinpi", "tan", "tanh", "tanpi", "tgamma"] in {
   defvar builtin = !cast<OclBuiltin>(name);
-  defvar types = !cond(!or(!ne(!find(name, "fract_"), -1), !eq(name, "ilogb")): [v16f64],
-      true: ExpandTypesByVFAndFlatten<[v1f32, v1f64], [16]>.Tout);
+  // Some v8f64 svml builtins has runfail on sse42, so we have to expand them.
+  defvar types = !cond(!or(!ne(!find(name, "fract_"), -1), !eq(name, "ilogb")): [v8f64, v16f64],
+      true: [v16f32, v8f64, v16f64]);
   defvar num_args = !size(builtin.Ins);
   defvar expand_code = !cond(
       !or(!ne(!find(name, "fract_"), -1), !ne(!find(name, "modf_"), -1), !ne(!find(name, "sincos_"), -1)): Expand_2Ptr,

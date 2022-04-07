@@ -12,7 +12,7 @@ foreach name = ["acos", "acosh", "acospi", "asin", "asinh", "asinpi", "atan",
     "sinh", "sinpi", "tan", "tanh", "tanpi", "tgamma"] in {
   defvar builtin = !cast<OclBuiltin>(name);
   // Some v16f64 svml builtins has runfail on avx2, so we don't enable them.
-  defvar types = [v16f32];
+  defvar types = [v16f32, v8f64];
   defvar num_args = !size(builtin.Ins);
   defvar svml_code = !cond(!ne(!find(name, "frexp_"), -1): frexp_svml,
       !ne(!find(name, "lgamma_r_"), -1): lgamma_r_svml,

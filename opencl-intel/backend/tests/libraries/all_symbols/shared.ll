@@ -9066,7 +9066,6 @@
 ; CHECK-NEXT: _Z3cosDv4_dS_
 ; CHECK-NEXT: _Z3cosDv4_f
 ; CHECK-NEXT: _Z3cosDv4_fS_
-; CHECK-NEXT: _Z3cosDv8_d
 ; CHECK-NEXT: _Z3cosDv8_dS_
 ; CHECK-NEXT: _Z3cosDv8_f
 ; CHECK-NEXT: _Z3cosDv8_fS_
@@ -9138,7 +9137,6 @@
 ; CHECK-NEXT: _Z3erfDv4_dS_
 ; CHECK-NEXT: _Z3erfDv4_f
 ; CHECK-NEXT: _Z3erfDv4_fS_
-; CHECK-NEXT: _Z3erfDv8_d
 ; CHECK-NEXT: _Z3erfDv8_dS_
 ; CHECK-NEXT: _Z3erfDv8_f
 ; CHECK-NEXT: _Z3erfDv8_fS_
@@ -9158,7 +9156,6 @@
 ; CHECK-NEXT: _Z3expDv4_dS_
 ; CHECK-NEXT: _Z3expDv4_f
 ; CHECK-NEXT: _Z3expDv4_fS_
-; CHECK-NEXT: _Z3expDv8_d
 ; CHECK-NEXT: _Z3expDv8_dS_
 ; CHECK-NEXT: _Z3expDv8_f
 ; CHECK-NEXT: _Z3expDv8_fS_
@@ -9188,7 +9185,6 @@
 ; CHECK-NEXT: _Z3logDv4_dS_
 ; CHECK-NEXT: _Z3logDv4_f
 ; CHECK-NEXT: _Z3logDv4_fS_
-; CHECK-NEXT: _Z3logDv8_d
 ; CHECK-NEXT: _Z3logDv8_dS_
 ; CHECK-NEXT: _Z3logDv8_f
 ; CHECK-NEXT: _Z3logDv8_fS_
@@ -9465,7 +9461,6 @@
 ; CHECK-NEXT: _Z3powDv4_dS_S_
 ; CHECK-NEXT: _Z3powDv4_fS_
 ; CHECK-NEXT: _Z3powDv4_fS_S_
-; CHECK-NEXT: _Z3powDv8_dS_
 ; CHECK-NEXT: _Z3powDv8_dS_S_
 ; CHECK-NEXT: _Z3powDv8_fS_
 ; CHECK-NEXT: _Z3powDv8_fS_S_
@@ -9485,7 +9480,6 @@
 ; CHECK-NEXT: _Z3sinDv4_dS_
 ; CHECK-NEXT: _Z3sinDv4_f
 ; CHECK-NEXT: _Z3sinDv4_fS_
-; CHECK-NEXT: _Z3sinDv8_d
 ; CHECK-NEXT: _Z3sinDv8_dS_
 ; CHECK-NEXT: _Z3sinDv8_f
 ; CHECK-NEXT: _Z3sinDv8_fS_
@@ -9505,7 +9499,6 @@
 ; CHECK-NEXT: _Z3tanDv4_dS_
 ; CHECK-NEXT: _Z3tanDv4_f
 ; CHECK-NEXT: _Z3tanDv4_fS_
-; CHECK-NEXT: _Z3tanDv8_d
 ; CHECK-NEXT: _Z3tanDv8_dS_
 ; CHECK-NEXT: _Z3tanDv8_f
 ; CHECK-NEXT: _Z3tanDv8_fS_
@@ -9525,7 +9518,6 @@
 ; CHECK-NEXT: _Z4acosDv4_dS_
 ; CHECK-NEXT: _Z4acosDv4_f
 ; CHECK-NEXT: _Z4acosDv4_fS_
-; CHECK-NEXT: _Z4acosDv8_d
 ; CHECK-NEXT: _Z4acosDv8_dS_
 ; CHECK-NEXT: _Z4acosDv8_f
 ; CHECK-NEXT: _Z4acosDv8_fS_
@@ -9545,7 +9537,6 @@
 ; CHECK-NEXT: _Z4asinDv4_dS_
 ; CHECK-NEXT: _Z4asinDv4_f
 ; CHECK-NEXT: _Z4asinDv4_fS_
-; CHECK-NEXT: _Z4asinDv8_d
 ; CHECK-NEXT: _Z4asinDv8_dS_
 ; CHECK-NEXT: _Z4asinDv8_f
 ; CHECK-NEXT: _Z4asinDv8_fS_
@@ -9565,7 +9556,6 @@
 ; CHECK-NEXT: _Z4atanDv4_dS_
 ; CHECK-NEXT: _Z4atanDv4_f
 ; CHECK-NEXT: _Z4atanDv4_fS_
-; CHECK-NEXT: _Z4atanDv8_d
 ; CHECK-NEXT: _Z4atanDv8_dS_
 ; CHECK-NEXT: _Z4atanDv8_f
 ; CHECK-NEXT: _Z4atanDv8_fS_
@@ -9585,7 +9575,6 @@
 ; CHECK-NEXT: _Z4cbrtDv4_dS_
 ; CHECK-NEXT: _Z4cbrtDv4_f
 ; CHECK-NEXT: _Z4cbrtDv4_fS_
-; CHECK-NEXT: _Z4cbrtDv8_d
 ; CHECK-NEXT: _Z4cbrtDv8_dS_
 ; CHECK-NEXT: _Z4cbrtDv8_f
 ; CHECK-NEXT: _Z4cbrtDv8_fS_
@@ -9615,7 +9604,6 @@
 ; CHECK-NEXT: _Z4coshDv4_dS_
 ; CHECK-NEXT: _Z4coshDv4_f
 ; CHECK-NEXT: _Z4coshDv4_fS_
-; CHECK-NEXT: _Z4coshDv8_d
 ; CHECK-NEXT: _Z4coshDv8_dS_
 ; CHECK-NEXT: _Z4coshDv8_f
 ; CHECK-NEXT: _Z4coshDv8_fS_
@@ -9635,7 +9623,6 @@
 ; CHECK-NEXT: _Z4erfcDv4_dS_
 ; CHECK-NEXT: _Z4erfcDv4_f
 ; CHECK-NEXT: _Z4erfcDv4_fS_
-; CHECK-NEXT: _Z4erfcDv8_d
 ; CHECK-NEXT: _Z4erfcDv8_dS_
 ; CHECK-NEXT: _Z4erfcDv8_f
 ; CHECK-NEXT: _Z4erfcDv8_fS_
@@ -9655,7 +9642,6 @@
 ; CHECK-NEXT: _Z4exp2Dv4_dS_
 ; CHECK-NEXT: _Z4exp2Dv4_f
 ; CHECK-NEXT: _Z4exp2Dv4_fS_
-; CHECK-NEXT: _Z4exp2Dv8_d
 ; CHECK-NEXT: _Z4exp2Dv8_dS_
 ; CHECK-NEXT: _Z4exp2Dv8_f
 ; CHECK-NEXT: _Z4exp2Dv8_fS_
@@ -9783,7 +9769,6 @@
 ; CHECK-NEXT: _Z4fmodDv4_dS_S_
 ; CHECK-NEXT: _Z4fmodDv4_fS_
 ; CHECK-NEXT: _Z4fmodDv4_fS_S_
-; CHECK-NEXT: _Z4fmodDv8_dS_
 ; CHECK-NEXT: _Z4fmodDv8_dS_S_
 ; CHECK-NEXT: _Z4fmodDv8_fS_
 ; CHECK-NEXT: _Z4fmodDv8_fS_S_
@@ -9891,7 +9876,6 @@
 ; CHECK-NEXT: _Z4log2Dv4_dS_
 ; CHECK-NEXT: _Z4log2Dv4_f
 ; CHECK-NEXT: _Z4log2Dv4_fS_
-; CHECK-NEXT: _Z4log2Dv8_d
 ; CHECK-NEXT: _Z4log2Dv8_dS_
 ; CHECK-NEXT: _Z4log2Dv8_f
 ; CHECK-NEXT: _Z4log2Dv8_fS_
@@ -9911,7 +9895,6 @@
 ; CHECK-NEXT: _Z4logbDv4_dS_
 ; CHECK-NEXT: _Z4logbDv4_f
 ; CHECK-NEXT: _Z4logbDv4_fS_
-; CHECK-NEXT: _Z4logbDv8_d
 ; CHECK-NEXT: _Z4logbDv8_dS_
 ; CHECK-NEXT: _Z4logbDv8_f
 ; CHECK-NEXT: _Z4logbDv8_fS_
@@ -9965,13 +9948,9 @@
 ; CHECK-NEXT: _Z4modfDv4_fPU3AS3S_S_
 ; CHECK-NEXT: _Z4modfDv4_fPU3AS4S_
 ; CHECK-NEXT: _Z4modfDv4_fPU3AS4S_S_
-; CHECK-NEXT: _Z4modfDv8_dPS_
 ; CHECK-NEXT: _Z4modfDv8_dPS_S_
-; CHECK-NEXT: _Z4modfDv8_dPU3AS1S_
 ; CHECK-NEXT: _Z4modfDv8_dPU3AS1S_S_
-; CHECK-NEXT: _Z4modfDv8_dPU3AS3S_
 ; CHECK-NEXT: _Z4modfDv8_dPU3AS3S_S_
-; CHECK-NEXT: _Z4modfDv8_dPU3AS4S_
 ; CHECK-NEXT: _Z4modfDv8_dPU3AS4S_S_
 ; CHECK-NEXT: _Z4modfDv8_fPS_
 ; CHECK-NEXT: _Z4modfDv8_fPS_S_
@@ -10003,7 +9982,6 @@
 ; CHECK-NEXT: _Z4pownDv4_dDv4_iS_
 ; CHECK-NEXT: _Z4pownDv4_fDv4_i
 ; CHECK-NEXT: _Z4pownDv4_fDv4_iS_
-; CHECK-NEXT: _Z4pownDv8_dDv8_i
 ; CHECK-NEXT: _Z4pownDv8_dDv8_iS_
 ; CHECK-NEXT: _Z4pownDv8_fDv8_i
 ; CHECK-NEXT: _Z4pownDv8_fDv8_iS_
@@ -10023,7 +10001,6 @@
 ; CHECK-NEXT: _Z4powrDv4_dS_S_
 ; CHECK-NEXT: _Z4powrDv4_fS_
 ; CHECK-NEXT: _Z4powrDv4_fS_S_
-; CHECK-NEXT: _Z4powrDv8_dS_
 ; CHECK-NEXT: _Z4powrDv8_dS_S_
 ; CHECK-NEXT: _Z4powrDv8_fS_
 ; CHECK-NEXT: _Z4powrDv8_fS_S_
@@ -10075,7 +10052,6 @@
 ; CHECK-NEXT: _Z4sinhDv4_dS_
 ; CHECK-NEXT: _Z4sinhDv4_f
 ; CHECK-NEXT: _Z4sinhDv4_fS_
-; CHECK-NEXT: _Z4sinhDv8_d
 ; CHECK-NEXT: _Z4sinhDv8_dS_
 ; CHECK-NEXT: _Z4sinhDv8_f
 ; CHECK-NEXT: _Z4sinhDv8_fS_
@@ -10129,7 +10105,6 @@
 ; CHECK-NEXT: _Z4tanhDv4_dS_
 ; CHECK-NEXT: _Z4tanhDv4_f
 ; CHECK-NEXT: _Z4tanhDv4_fS_
-; CHECK-NEXT: _Z4tanhDv8_d
 ; CHECK-NEXT: _Z4tanhDv8_dS_
 ; CHECK-NEXT: _Z4tanhDv8_f
 ; CHECK-NEXT: _Z4tanhDv8_fS_
@@ -10149,7 +10124,6 @@
 ; CHECK-NEXT: _Z5acoshDv4_dS_
 ; CHECK-NEXT: _Z5acoshDv4_f
 ; CHECK-NEXT: _Z5acoshDv4_fS_
-; CHECK-NEXT: _Z5acoshDv8_d
 ; CHECK-NEXT: _Z5acoshDv8_dS_
 ; CHECK-NEXT: _Z5acoshDv8_f
 ; CHECK-NEXT: _Z5acoshDv8_fS_
@@ -10169,7 +10143,6 @@
 ; CHECK-NEXT: _Z5asinhDv4_dS_
 ; CHECK-NEXT: _Z5asinhDv4_f
 ; CHECK-NEXT: _Z5asinhDv4_fS_
-; CHECK-NEXT: _Z5asinhDv8_d
 ; CHECK-NEXT: _Z5asinhDv8_dS_
 ; CHECK-NEXT: _Z5asinhDv8_f
 ; CHECK-NEXT: _Z5asinhDv8_fS_
@@ -10189,7 +10162,6 @@
 ; CHECK-NEXT: _Z5atan2Dv4_dS_S_
 ; CHECK-NEXT: _Z5atan2Dv4_fS_
 ; CHECK-NEXT: _Z5atan2Dv4_fS_S_
-; CHECK-NEXT: _Z5atan2Dv8_dS_
 ; CHECK-NEXT: _Z5atan2Dv8_dS_S_
 ; CHECK-NEXT: _Z5atan2Dv8_fS_
 ; CHECK-NEXT: _Z5atan2Dv8_fS_S_
@@ -10209,7 +10181,6 @@
 ; CHECK-NEXT: _Z5atanhDv4_dS_
 ; CHECK-NEXT: _Z5atanhDv4_f
 ; CHECK-NEXT: _Z5atanhDv4_fS_
-; CHECK-NEXT: _Z5atanhDv8_d
 ; CHECK-NEXT: _Z5atanhDv8_dS_
 ; CHECK-NEXT: _Z5atanhDv8_f
 ; CHECK-NEXT: _Z5atanhDv8_fS_
@@ -10339,7 +10310,6 @@
 ; CHECK-NEXT: _Z5cospiDv4_dS_
 ; CHECK-NEXT: _Z5cospiDv4_f
 ; CHECK-NEXT: _Z5cospiDv4_fS_
-; CHECK-NEXT: _Z5cospiDv8_d
 ; CHECK-NEXT: _Z5cospiDv8_dS_
 ; CHECK-NEXT: _Z5cospiDv8_f
 ; CHECK-NEXT: _Z5cospiDv8_fS_
@@ -10361,7 +10331,6 @@
 ; CHECK-NEXT: _Z5exp10Dv4_dS_
 ; CHECK-NEXT: _Z5exp10Dv4_f
 ; CHECK-NEXT: _Z5exp10Dv4_fS_
-; CHECK-NEXT: _Z5exp10Dv8_d
 ; CHECK-NEXT: _Z5exp10Dv8_dS_
 ; CHECK-NEXT: _Z5exp10Dv8_f
 ; CHECK-NEXT: _Z5exp10Dv8_fS_
@@ -10381,7 +10350,6 @@
 ; CHECK-NEXT: _Z5expm1Dv4_dS_
 ; CHECK-NEXT: _Z5expm1Dv4_f
 ; CHECK-NEXT: _Z5expm1Dv4_fS_
-; CHECK-NEXT: _Z5expm1Dv8_d
 ; CHECK-NEXT: _Z5expm1Dv8_dS_
 ; CHECK-NEXT: _Z5expm1Dv8_f
 ; CHECK-NEXT: _Z5expm1Dv8_fS_
@@ -10442,13 +10410,9 @@
 ; CHECK-NEXT: _Z5fractDv4_fPU3AS1S_S_
 ; CHECK-NEXT: _Z5fractDv4_fPU3AS3S_S_
 ; CHECK-NEXT: _Z5fractDv4_fPU3AS4S_S_
-; CHECK-NEXT: _Z5fractDv8_dPS_
 ; CHECK-NEXT: _Z5fractDv8_dPS_S_
-; CHECK-NEXT: _Z5fractDv8_dPU3AS1S_
 ; CHECK-NEXT: _Z5fractDv8_dPU3AS1S_S_
-; CHECK-NEXT: _Z5fractDv8_dPU3AS3S_
 ; CHECK-NEXT: _Z5fractDv8_dPU3AS3S_S_
-; CHECK-NEXT: _Z5fractDv8_dPU3AS4S_
 ; CHECK-NEXT: _Z5fractDv8_dPU3AS4S_S_
 ; CHECK-NEXT: _Z5fractDv8_fPS_S_
 ; CHECK-NEXT: _Z5fractDv8_fPU3AS1S_S_
@@ -10506,13 +10470,9 @@
 ; CHECK-NEXT: _Z5frexpDv4_fPU3AS3Dv4_iS_
 ; CHECK-NEXT: _Z5frexpDv4_fPU3AS4Dv4_i
 ; CHECK-NEXT: _Z5frexpDv4_fPU3AS4Dv4_iS_
-; CHECK-NEXT: _Z5frexpDv8_dPDv8_i
 ; CHECK-NEXT: _Z5frexpDv8_dPDv8_iS_
-; CHECK-NEXT: _Z5frexpDv8_dPU3AS1Dv8_i
 ; CHECK-NEXT: _Z5frexpDv8_dPU3AS1Dv8_iS_
-; CHECK-NEXT: _Z5frexpDv8_dPU3AS3Dv8_i
 ; CHECK-NEXT: _Z5frexpDv8_dPU3AS3Dv8_iS_
-; CHECK-NEXT: _Z5frexpDv8_dPU3AS4Dv8_i
 ; CHECK-NEXT: _Z5frexpDv8_dPU3AS4Dv8_iS_
 ; CHECK-NEXT: _Z5frexpDv8_fPDv8_i
 ; CHECK-NEXT: _Z5frexpDv8_fPDv8_iS_
@@ -10544,7 +10504,6 @@
 ; CHECK-NEXT: _Z5hypotDv4_dS_S_
 ; CHECK-NEXT: _Z5hypotDv4_fS_
 ; CHECK-NEXT: _Z5hypotDv4_fS_S_
-; CHECK-NEXT: _Z5hypotDv8_dS_
 ; CHECK-NEXT: _Z5hypotDv8_dS_S_
 ; CHECK-NEXT: _Z5hypotDv8_fS_
 ; CHECK-NEXT: _Z5hypotDv8_fS_S_
@@ -10564,7 +10523,6 @@
 ; CHECK-NEXT: _Z5ilogbDv4_dDv4_i
 ; CHECK-NEXT: _Z5ilogbDv4_f
 ; CHECK-NEXT: _Z5ilogbDv4_fDv4_i
-; CHECK-NEXT: _Z5ilogbDv8_d
 ; CHECK-NEXT: _Z5ilogbDv8_dDv8_i
 ; CHECK-NEXT: _Z5ilogbDv8_f
 ; CHECK-NEXT: _Z5ilogbDv8_fDv8_i
@@ -10629,7 +10587,6 @@
 ; CHECK-NEXT: _Z5ldexpDv4_fDv4_i
 ; CHECK-NEXT: _Z5ldexpDv4_fDv4_iS_
 ; CHECK-NEXT: _Z5ldexpDv4_fi
-; CHECK-NEXT: _Z5ldexpDv8_dDv8_i
 ; CHECK-NEXT: _Z5ldexpDv8_dDv8_iS_
 ; CHECK-NEXT: _Z5ldexpDv8_di
 ; CHECK-NEXT: _Z5ldexpDv8_fDv8_i
@@ -10651,7 +10608,6 @@
 ; CHECK-NEXT: _Z5log10Dv4_dS_
 ; CHECK-NEXT: _Z5log10Dv4_f
 ; CHECK-NEXT: _Z5log10Dv4_fS_
-; CHECK-NEXT: _Z5log10Dv8_d
 ; CHECK-NEXT: _Z5log10Dv8_dS_
 ; CHECK-NEXT: _Z5log10Dv8_f
 ; CHECK-NEXT: _Z5log10Dv8_fS_
@@ -10671,7 +10627,6 @@
 ; CHECK-NEXT: _Z5log1pDv4_dS_
 ; CHECK-NEXT: _Z5log1pDv4_f
 ; CHECK-NEXT: _Z5log1pDv4_fS_
-; CHECK-NEXT: _Z5log1pDv8_d
 ; CHECK-NEXT: _Z5log1pDv8_dS_
 ; CHECK-NEXT: _Z5log1pDv8_f
 ; CHECK-NEXT: _Z5log1pDv8_fS_
@@ -10802,7 +10757,6 @@
 ; CHECK-NEXT: _Z5rootnDv4_dDv4_iS_
 ; CHECK-NEXT: _Z5rootnDv4_fDv4_i
 ; CHECK-NEXT: _Z5rootnDv4_fDv4_iS_
-; CHECK-NEXT: _Z5rootnDv8_dDv8_i
 ; CHECK-NEXT: _Z5rootnDv8_dDv8_iS_
 ; CHECK-NEXT: _Z5rootnDv8_fDv8_i
 ; CHECK-NEXT: _Z5rootnDv8_fDv8_iS_
@@ -10837,7 +10791,6 @@
 ; CHECK-NEXT: _Z5rsqrtDv4_dS_
 ; CHECK-NEXT: _Z5rsqrtDv4_f
 ; CHECK-NEXT: _Z5rsqrtDv4_fS_
-; CHECK-NEXT: _Z5rsqrtDv8_d
 ; CHECK-NEXT: _Z5rsqrtDv8_dS_
 ; CHECK-NEXT: _Z5rsqrtDv8_f
 ; CHECK-NEXT: _Z5rsqrtDv8_fS_
@@ -10857,7 +10810,6 @@
 ; CHECK-NEXT: _Z5sinpiDv4_dS_
 ; CHECK-NEXT: _Z5sinpiDv4_f
 ; CHECK-NEXT: _Z5sinpiDv4_fS_
-; CHECK-NEXT: _Z5sinpiDv8_d
 ; CHECK-NEXT: _Z5sinpiDv8_dS_
 ; CHECK-NEXT: _Z5sinpiDv8_f
 ; CHECK-NEXT: _Z5sinpiDv8_fS_
@@ -10877,7 +10829,6 @@
 ; CHECK-NEXT: _Z5tanpiDv4_dS_
 ; CHECK-NEXT: _Z5tanpiDv4_f
 ; CHECK-NEXT: _Z5tanpiDv4_fS_
-; CHECK-NEXT: _Z5tanpiDv8_d
 ; CHECK-NEXT: _Z5tanpiDv8_dS_
 ; CHECK-NEXT: _Z5tanpiDv8_f
 ; CHECK-NEXT: _Z5tanpiDv8_fS_
@@ -10912,7 +10863,6 @@
 ; CHECK-NEXT: _Z6acospiDv4_dS_
 ; CHECK-NEXT: _Z6acospiDv4_f
 ; CHECK-NEXT: _Z6acospiDv4_fS_
-; CHECK-NEXT: _Z6acospiDv8_d
 ; CHECK-NEXT: _Z6acospiDv8_dS_
 ; CHECK-NEXT: _Z6acospiDv8_f
 ; CHECK-NEXT: _Z6acospiDv8_fS_
@@ -10932,7 +10882,6 @@
 ; CHECK-NEXT: _Z6asinpiDv4_dS_
 ; CHECK-NEXT: _Z6asinpiDv4_f
 ; CHECK-NEXT: _Z6asinpiDv4_fS_
-; CHECK-NEXT: _Z6asinpiDv8_d
 ; CHECK-NEXT: _Z6asinpiDv8_dS_
 ; CHECK-NEXT: _Z6asinpiDv8_f
 ; CHECK-NEXT: _Z6asinpiDv8_fS_
@@ -10952,7 +10901,6 @@
 ; CHECK-NEXT: _Z6atanpiDv4_dS_
 ; CHECK-NEXT: _Z6atanpiDv4_f
 ; CHECK-NEXT: _Z6atanpiDv4_fS_
-; CHECK-NEXT: _Z6atanpiDv8_d
 ; CHECK-NEXT: _Z6atanpiDv8_dS_
 ; CHECK-NEXT: _Z6atanpiDv8_f
 ; CHECK-NEXT: _Z6atanpiDv8_fS_
@@ -10990,7 +10938,6 @@
 ; CHECK-NEXT: _Z6lgammaDv4_dS_
 ; CHECK-NEXT: _Z6lgammaDv4_f
 ; CHECK-NEXT: _Z6lgammaDv4_fS_
-; CHECK-NEXT: _Z6lgammaDv8_d
 ; CHECK-NEXT: _Z6lgammaDv8_dS_
 ; CHECK-NEXT: _Z6lgammaDv8_f
 ; CHECK-NEXT: _Z6lgammaDv8_fS_
@@ -11263,13 +11210,9 @@
 ; CHECK-NEXT: _Z6remquoDv4_fS_PU3AS3Dv4_iS_
 ; CHECK-NEXT: _Z6remquoDv4_fS_PU3AS4Dv4_i
 ; CHECK-NEXT: _Z6remquoDv4_fS_PU3AS4Dv4_iS_
-; CHECK-NEXT: _Z6remquoDv8_dS_PDv8_i
 ; CHECK-NEXT: _Z6remquoDv8_dS_PDv8_iS_
-; CHECK-NEXT: _Z6remquoDv8_dS_PU3AS1Dv8_i
 ; CHECK-NEXT: _Z6remquoDv8_dS_PU3AS1Dv8_iS_
-; CHECK-NEXT: _Z6remquoDv8_dS_PU3AS3Dv8_i
 ; CHECK-NEXT: _Z6remquoDv8_dS_PU3AS3Dv8_iS_
-; CHECK-NEXT: _Z6remquoDv8_dS_PU3AS4Dv8_i
 ; CHECK-NEXT: _Z6remquoDv8_dS_PU3AS4Dv8_iS_
 ; CHECK-NEXT: _Z6remquoDv8_fS_PDv8_i
 ; CHECK-NEXT: _Z6remquoDv8_fS_PDv8_iS_
@@ -11668,17 +11611,13 @@
 ; CHECK-NEXT: _Z6sincosDv64_fPU3AS4fS_
 ; CHECK-NEXT: _Z6sincosDv64_fPf
 ; CHECK-NEXT: _Z6sincosDv64_fPfS_
-; CHECK-NEXT: _Z6sincosDv8_dPS_
 ; CHECK-NEXT: _Z6sincosDv8_dPS_S_
-; CHECK-NEXT: _Z6sincosDv8_dPU3AS1S_
 ; CHECK-NEXT: _Z6sincosDv8_dPU3AS1S_S_
 ; CHECK-NEXT: _Z6sincosDv8_dPU3AS1d
 ; CHECK-NEXT: _Z6sincosDv8_dPU3AS1dS_
-; CHECK-NEXT: _Z6sincosDv8_dPU3AS3S_
 ; CHECK-NEXT: _Z6sincosDv8_dPU3AS3S_S_
 ; CHECK-NEXT: _Z6sincosDv8_dPU3AS3d
 ; CHECK-NEXT: _Z6sincosDv8_dPU3AS3dS_
-; CHECK-NEXT: _Z6sincosDv8_dPU3AS4S_
 ; CHECK-NEXT: _Z6sincosDv8_dPU3AS4S_S_
 ; CHECK-NEXT: _Z6sincosDv8_dPU3AS4d
 ; CHECK-NEXT: _Z6sincosDv8_dPU3AS4dS_
@@ -11727,7 +11666,6 @@
 ; CHECK-NEXT: _Z6tgammaDv4_dS_
 ; CHECK-NEXT: _Z6tgammaDv4_f
 ; CHECK-NEXT: _Z6tgammaDv4_fS_
-; CHECK-NEXT: _Z6tgammaDv8_d
 ; CHECK-NEXT: _Z6tgammaDv8_dS_
 ; CHECK-NEXT: _Z6tgammaDv8_f
 ; CHECK-NEXT: _Z6tgammaDv8_fS_
@@ -11833,7 +11771,6 @@
 ; CHECK-NEXT: _Z7atan2piDv4_dS_S_
 ; CHECK-NEXT: _Z7atan2piDv4_fS_
 ; CHECK-NEXT: _Z7atan2piDv4_fS_S_
-; CHECK-NEXT: _Z7atan2piDv8_dS_
 ; CHECK-NEXT: _Z7atan2piDv8_dS_S_
 ; CHECK-NEXT: _Z7atan2piDv8_fS_
 ; CHECK-NEXT: _Z7atan2piDv8_fS_S_
@@ -12327,13 +12264,9 @@
 ; CHECK-NEXT: _Z8lgamma_rDv4_fPU3AS3Dv4_iS_
 ; CHECK-NEXT: _Z8lgamma_rDv4_fPU3AS4Dv4_i
 ; CHECK-NEXT: _Z8lgamma_rDv4_fPU3AS4Dv4_iS_
-; CHECK-NEXT: _Z8lgamma_rDv8_dPDv8_i
 ; CHECK-NEXT: _Z8lgamma_rDv8_dPDv8_iS_
-; CHECK-NEXT: _Z8lgamma_rDv8_dPU3AS1Dv8_i
 ; CHECK-NEXT: _Z8lgamma_rDv8_dPU3AS1Dv8_iS_
-; CHECK-NEXT: _Z8lgamma_rDv8_dPU3AS3Dv8_i
 ; CHECK-NEXT: _Z8lgamma_rDv8_dPU3AS3Dv8_iS_
-; CHECK-NEXT: _Z8lgamma_rDv8_dPU3AS4Dv8_i
 ; CHECK-NEXT: _Z8lgamma_rDv8_dPU3AS4Dv8_iS_
 ; CHECK-NEXT: _Z8lgamma_rDv8_fPDv8_i
 ; CHECK-NEXT: _Z8lgamma_rDv8_fPDv8_iS_
@@ -12743,7 +12676,6 @@
 ; CHECK-NEXT: _Z9nextafterDv4_dS_S_
 ; CHECK-NEXT: _Z9nextafterDv4_fS_
 ; CHECK-NEXT: _Z9nextafterDv4_fS_S_
-; CHECK-NEXT: _Z9nextafterDv8_dS_
 ; CHECK-NEXT: _Z9nextafterDv8_dS_S_
 ; CHECK-NEXT: _Z9nextafterDv8_fS_
 ; CHECK-NEXT: _Z9nextafterDv8_fS_S_
@@ -12771,7 +12703,6 @@
 ; CHECK-NEXT: _Z9remainderDv4_dS_S_
 ; CHECK-NEXT: _Z9remainderDv4_fS_
 ; CHECK-NEXT: _Z9remainderDv4_fS_S_
-; CHECK-NEXT: _Z9remainderDv8_dS_
 ; CHECK-NEXT: _Z9remainderDv8_dS_S_
 ; CHECK-NEXT: _Z9remainderDv8_fS_
 ; CHECK-NEXT: _Z9remainderDv8_fS_S_
