@@ -29,7 +29,7 @@
 ; CHECK-NEXT:            |   |   %extract.0. = extractelement %.vec6,  0;
 ; CHECK-NEXT:            |   |   if (%extract.0. == 1)
 ; CHECK-NEXT:            |   |   {
-; CHECK-NEXT:            |   |      goto merge.blk14.49;
+; CHECK-NEXT:            |   |      goto [[MERGE_AFTER_PEEL:.*]];
 ; CHECK-NEXT:            |   |   }
 ;
 define void @foo(i64* %lp) {

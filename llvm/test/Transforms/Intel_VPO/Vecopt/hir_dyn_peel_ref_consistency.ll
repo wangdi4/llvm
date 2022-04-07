@@ -17,14 +17,14 @@
 ; CHECK-NEXT:          %extract.0. = extractelement %.vec4,  0;
 ; CHECK-NEXT:          if (%extract.0. == 1)
 ; CHECK-NEXT:          {
-; CHECK-NEXT:             goto merge.blk14.24;
+; CHECK-NEXT:             goto [[MERGE_AFTER_PEEL:.*]];
 ; CHECK-NEXT:          }
 ; CHECK-NEXT:          %.vec5 = %.vec3 + 4 >u 400;
 ; CHECK-NEXT:          %phi.temp6 = 0;
 ; CHECK-NEXT:          %extract.0.8 = extractelement %.vec5,  0;
 ; CHECK-NEXT:          if (%extract.0.8 == 1)
 ; CHECK-NEXT:          {
-; CHECK-NEXT:             goto merge.blk12.32;
+; CHECK-NEXT:             goto [[MERGE_AFTER_MAIN:.*]];
 ; CHECK-NEXT:          }
 ; CHECK-NEXT:          %extract.0.9 = extractelement %.vec3,  0;
 ; CHECK-NEXT:          %ub.tmp = %extract.0.9;
@@ -35,13 +35,13 @@
 ; CHECK-NEXT:          + END LOOP
 
 ; CHECK:               %phi.temp = %ub.tmp;
-; CHECK-NEXT:          merge.blk14.24:
+; CHECK-NEXT:          [[MERGE_AFTER_PEEL]]:
 ; CHECK-NEXT:          %.vec11 = %.vec3 + 4 >u 400;
 ; CHECK-NEXT:          %phi.temp6 = %phi.temp;
 ; CHECK-NEXT:          %extract.0.13 = extractelement %.vec11,  0;
 ; CHECK-NEXT:          if (%extract.0.13 == 1)
 ; CHECK-NEXT:          {
-; CHECK-NEXT:             goto merge.blk12.32;
+; CHECK-NEXT:             goto [[MERGE_AFTER_MAIN]];
 ; CHECK-NEXT:          }
 ; CHECK-NEXT:          %extract.0.14 = extractelement %.vec3,  0;
 ; CHECK-NEXT:          %adj.tc = 400  -  %extract.0.14;
@@ -60,9 +60,9 @@
 ; CHECK-NEXT:          %extract.0.21 = extractelement %.vec17,  0;
 ; CHECK-NEXT:          if (%extract.0.21 == 1)
 ; CHECK-NEXT:          {
-; CHECK-NEXT:             goto final.merge.74;
+; CHECK-NEXT:             goto [[FINAL_MERGE:.*]];
 ; CHECK-NEXT:          }
-; CHECK-NEXT:          merge.blk12.32:
+; CHECK-NEXT:          [[MERGE_AFTER_MAIN]]:
 ; CHECK-NEXT:          %lb.tmp = %phi.temp6;
 
 ; CHECK:               + DO i1 = %lb.tmp, 399, 1   <DO_LOOP>
@@ -70,7 +70,7 @@
 ; CHECK-NEXT:          + END LOOP
 
 ; CHECK:               %phi.temp19 = 399;
-; CHECK-NEXT:          final.merge.74:
+; CHECK-NEXT:          [[FINAL_MERGE]]:
 ; CHECK-NEXT:    END REGION
 ;
 define void @foo(i64* %lp, i64 %n1) {

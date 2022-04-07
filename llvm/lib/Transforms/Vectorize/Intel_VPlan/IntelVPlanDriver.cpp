@@ -225,6 +225,9 @@ static bool canProcessMaskedVariant(const VPlan &P) {
     switch (I.getOpcode()) {
     default:
       break;
+    // Cloning of VPRegion is not implemented yet, hence we can't support masked
+    // variants for CFGs containing them.
+    case VPInstruction::GeneralMemOptConflict:
     // We need special processing for those instructions in masked mode,
     // as we need to extract last value not from (VF-1)th lane but from
     // the lane defined by the execution mask.
@@ -1474,7 +1477,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   if (VPlanConstrStressTest)
     return false;
 
-  if (EnableMaskedVariantHIR)
+  if (EnableMaskedVariantHIR && EnableMaskedVariant)
     generateMaskedModeVPlans(&LVP, &VPAF);
 
   // VPlan Predicator

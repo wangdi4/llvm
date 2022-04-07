@@ -30,7 +30,7 @@
 ; CHECK-NEXT:           %extract.0. = extractelement %.vec,  0;
 ; CHECK-NEXT:           if (%extract.0. == 1)
 ; CHECK-NEXT:           {
-; CHECK-NEXT:              goto merge.blk10.31;
+; CHECK-NEXT:              goto [[MERGE_AFTER_MAIN:.*]];
 ; CHECK-NEXT:           }
 ; CHECK-NEXT:           %tgu4 = %N  /u  4;
 ; CHECK-NEXT:           %vec.tc5 = %tgu4  *  4;
@@ -53,9 +53,9 @@
 ; CHECK-NEXT:           %extract.0.18 = extractelement %.vec11,  0;
 ; CHECK-NEXT:           if (%extract.0.18 == 1)
 ; CHECK-NEXT:           {
-; CHECK-NEXT:              goto final.merge.59;
+; CHECK-NEXT:              goto [[FINAL_MERGE:.*]];
 ; CHECK-NEXT:           }
-; CHECK-NEXT:           merge.blk10.31:
+; CHECK-NEXT:           [[MERGE_AFTER_MAIN]]:
 ; CHECK-NEXT:           %lb.tmp = %phi.temp2;
 ; CHECK-NEXT:           %sum.07 = %phi.temp;
 
@@ -66,7 +66,7 @@
 
 ; CHECK:                %phi.temp14 = %sum.07;
 ; CHECK-NEXT:           %phi.temp16 = %N + -1;
-; CHECK-NEXT:           final.merge.59:
+; CHECK-NEXT:           [[FINAL_MERGE]]:
 ; CHECK-NEXT:     END REGION
 
 

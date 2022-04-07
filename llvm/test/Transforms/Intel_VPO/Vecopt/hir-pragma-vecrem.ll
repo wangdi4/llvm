@@ -12,7 +12,7 @@ define dso_local noundef i32 @_Z3fooPiii(i32* noalias nocapture noundef readonly
 ; CHECK-NEXT:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=2
 ; CHECK-NEXT:   PeelLoop: none
-; CHECK-NEXT:   Remainders: scalar,
+; CHECK-NEXT:   Remainders: masked, VF=2,
 ; CHECK-NEXT:  Updated scenario for VF: 4
 ; CHECK-NEXT:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=4
