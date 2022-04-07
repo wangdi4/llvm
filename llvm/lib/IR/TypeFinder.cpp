@@ -50,7 +50,7 @@ using namespace llvm;
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
-void TypeFinder::run(const Module &M, bool onlyNamed, bool IncludeFuncMD) {
+void TypeFinder::run(const Module &M, bool onlyNamed, bool IncludeMD) {
 #else // INTEL_FEATURE_SW_DTRANS
 void TypeFinder::run(const Module &M, bool onlyNamed) {
 #endif // INTEL_FEATURE_SW_DTRANS
@@ -62,6 +62,16 @@ void TypeFinder::run(const Module &M, bool onlyNamed) {
     incorporateType(G.getValueType());
     if (G.hasInitializer())
       incorporateValue(G.getInitializer());
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    if (IncludeMD) {
+      SmallVector<std::pair<unsigned, MDNode *>, 4> MDForGlobal;
+      G.getAllMetadata(MDForGlobal);
+      for (const auto &MD : MDForGlobal)
+        incorporateMDNode(MD.second);
+    }
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Get types from aliases.
@@ -82,7 +92,7 @@ void TypeFinder::run(const Module &M, bool onlyNamed) {
     incorporateAttributes(FI.getAttributes());
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
-    if (IncludeFuncMD) {
+    if (IncludeMD) {
       FI.getAllMetadata(MDForInst);
       for (const auto &MD : MDForInst)
         incorporateMDNode(MD.second);

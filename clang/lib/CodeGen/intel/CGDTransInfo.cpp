@@ -208,7 +208,7 @@ void CodeGenModule::EmitIntelDTransMetadata() {
   llvm::SmallSetVector<StructEmitTy, 32> ToBeVisited;
 
   llvm::TypeFinder TFinder;
-  TFinder.run(getModule(), /*onlyNamed*/ false, /*IncludeFuncMD*/ true);
+  TFinder.run(getModule(), /*onlyNamed*/ false, /*IncludeMD*/ true);
 
   for (const auto &Type : DTransTypes) {
     assert(Type.second.size() <= 2 && "More than two representations?");

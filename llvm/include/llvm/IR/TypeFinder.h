@@ -44,7 +44,9 @@ public:
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
-  void run(const Module &M, bool onlyNamed, bool IncludeFuncMD = false);
+  // When IncludeMD is set to 'true', types referenced in metadata nodes
+  // attached to GlobalVariable and Function objects will be collected.
+  void run(const Module &M, bool onlyNamed, bool IncludeMD = false);
 #else // INTEL_FEATURE_SW_DTRANS
   void run(const Module &M, bool onlyNamed);
 #endif // INTEL_FEATURE_SW_DTRANS
