@@ -65,6 +65,7 @@
 #include "llvm/SYCLLowerIR/ESIMD/LowerESIMD.h"
 #include "llvm/SYCLLowerIR/LowerWGLocalMemory.h"
 #include "llvm/SYCLLowerIR/LowerWGScope.h"
+#include "llvm/SYCLLowerIR/LowerInvokeSimd.h"
 #include "llvm/SYCLLowerIR/MutatePrintfAddrspace.h"
 #include "llvm/Support/Valgrind.h"
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
@@ -311,6 +312,7 @@ namespace {
       (void)llvm::createSPIRITTAnnotationsLegacyPass();
       (void)llvm::createSYCLLowerWGLocalMemoryLegacyPass();
       (void)llvm::createESIMDVerifierPass();
+      (void)llvm::createSYCLLowerInvokeSimdPass();
       std::string buf;
       llvm::raw_string_ostream os(buf);
       (void) llvm::createPrintModulePass(os);
