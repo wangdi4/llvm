@@ -7,12 +7,13 @@
 ; CHECK: |   %3 = (@g)[0];
 ; CHECK: |   if (%3 > %m.sroa.0.0.copyload * i1 + (%.pr * %m.sroa.0.0.copyload) + smin(%m.sroa.0.0.copyload, %inc18))
 ; CHECK: |   {
+; CHECK: |         %5 = sext.i32.i64(%m.sroa.0.0.copyload * i1 + (%.pr * %m.sroa.0.0.copyload) + smin(%m.sroa.0.0.copyload, %inc18));
 ; CHECK: |      + UNKNOWN LOOP i2
 ; CHECK: |      |   <i2 = 0>
 ; CHECK: |      |   for.body8:
 ; CHECK: |      |   (%1)[-1 * i2 + sext.i32.i64(%3)] = %conv;
 ; CHECK: |      |   %indvars.iv.next = -1 * i2 + sext.i32.i64(%3)  +  -1;
-; CHECK: |      |   if (-1 * i2 + sext.i32.i64(%3) + -1 > %m.sroa.0.0.copyload * i1 + (%.pr * %m.sroa.0.0.copyload) + smin(%m.sroa.0.0.copyload, %inc18))
+; CHECK: |      |   if (-1 * i2 + sext.i32.i64(%3) + -1 > %5)
 ; CHECK: |      |   {
 ; CHECK: |      |      <i2 = i2 + 1>
 ; CHECK: |      |      goto for.body8;
