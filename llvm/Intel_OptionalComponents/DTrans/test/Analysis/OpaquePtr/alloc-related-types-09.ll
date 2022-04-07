@@ -57,7 +57,7 @@ entry:
   br i1 %15, label %call.to.new, label %continue.br
 
 call.to.new:
-  %16 = mul nuw nsw i64 %14, %10
+  %16 = mul nuw nsw i64 %14, 24
   %17 = tail call noalias noundef nonnull ptr @_Znwm(i64 noundef %16)
   br label %continue.br
 
