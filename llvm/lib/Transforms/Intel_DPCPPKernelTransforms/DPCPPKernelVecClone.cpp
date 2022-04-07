@@ -83,25 +83,6 @@ extern bool DPCPPEnableSubgroupDirectCallVectorization;
 static std::vector<std::tuple<std::string, std::string, std::string>>
     ExtendedVectInfos;
 
-namespace llvm {
-
-template <> struct GraphTraits<User *> {
-  using NodeRef = User *;
-  using ChildIteratorType = Value::user_iterator;
-
-  static NodeRef getEntryNode(NodeRef N) { return N; }
-
-  static inline ChildIteratorType child_begin(NodeRef N) {
-    return N->user_begin();
-  }
-
-  static inline ChildIteratorType child_end(NodeRef N) {
-    return N->user_end();
-  }
-};
-
-} // namespace llvm
-
 using DefUseTreeChildSet = SmallPtrSet<Instruction *, 8>;
 using DefUseTree = SmallDenseMap<Instruction *, DefUseTreeChildSet>;
 
