@@ -62,9 +62,13 @@
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/Intel_VectorVariant.h" // INTEL
 #include "llvm/SYCLLowerIR/ESIMD/ESIMDVerifier.h"
+<<<<<<< HEAD
 #include "llvm/SYCLLowerIR/ESIMD/LowerESIMD.h"
 #include "llvm/SYCLLowerIR/LowerWGLocalMemory.h"
 #include "llvm/SYCLLowerIR/LowerWGScope.h"
+=======
+#include "llvm/SYCLLowerIR/LowerInvokeSimd.h"
+>>>>>>> 8471ff3314b29d68f1cded66fa03eaabd8b46774
 #include "llvm/SYCLLowerIR/MutatePrintfAddrspace.h"
 #include "llvm/Support/Valgrind.h"
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
@@ -311,6 +315,7 @@ namespace {
       (void)llvm::createSPIRITTAnnotationsLegacyPass();
       (void)llvm::createSYCLLowerWGLocalMemoryLegacyPass();
       (void)llvm::createESIMDVerifierPass();
+      (void)llvm::createSYCLLowerInvokeSimdPass();
       std::string buf;
       llvm::raw_string_ostream os(buf);
       (void) llvm::createPrintModulePass(os);

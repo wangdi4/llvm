@@ -645,6 +645,7 @@ int main(int argc, char **argv) {
   initializeJMCInstrumenterPass(Registry);
   initializeSYCLLowerWGScopeLegacyPassPass(Registry);
   initializeSYCLLowerESIMDLegacyPassPass(Registry);
+<<<<<<< HEAD
   initializeParseAnnotateAttributesLegacyPass(Registry);
   initializeAutoCPUCloneLegacyPassPass(Registry);
   initializeHeteroArchOptPass(Registry);
@@ -658,6 +659,9 @@ int main(int argc, char **argv) {
   initializeVPOAnalysis(Registry);
   initializeVPOTransforms(Registry);
 #endif // INTEL_COLLAB
+=======
+  initializeSYCLLowerInvokeSimdLegacyPassPass(Registry);
+>>>>>>> 8471ff3314b29d68f1cded66fa03eaabd8b46774
   initializeSPIRITTAnnotationsLegacyPassPass(Registry);
   initializeESIMDLowerLoadStorePass(Registry);
   initializeESIMDLowerVecArgLegacyPassPass(Registry);
