@@ -906,17 +906,12 @@ void CodeGenModule::Release() {
                               LangOpts.OpenMP);
 
   // Emit OpenCL specific module metadata: OpenCL/SPIR version.
-<<<<<<< HEAD
-  if (LangOpts.OpenCL) {
+  if (LangOpts.OpenCL || (LangOpts.CUDAIsDevice && getTriple().isSPIRV())) {
 #if INTEL_CUSTOMIZATION
     if (!getContext().isFPContractDisabled() &&
         getLangOpts().getDefaultFPContractMode() != LangOptions::FPM_Off)
       getModule().getOrInsertNamedMetadata("opencl.enable.FP_CONTRACT");
 #endif // INTEL_CUSTOMIZATION
-
-=======
-  if (LangOpts.OpenCL || (LangOpts.CUDAIsDevice && getTriple().isSPIRV())) {
->>>>>>> 15a1769631ff0b2b3e830b03e51ae5f54f08a0ab
     EmitOpenCLMetadata();
     // Emit SPIR version.
     if (getTriple().isSPIR()) {
