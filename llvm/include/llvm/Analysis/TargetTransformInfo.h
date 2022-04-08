@@ -650,6 +650,12 @@ public:
   /// cost should return false, otherwise return true.
   bool isNumRegsMajorCostOfLSR() const;
 
+#if INTEL_CUSTOMIZATION
+  /// Return false if LSRCost not exceeding the max register numbers
+  /// Target supports.
+  bool isLSRCostExceedTTIRegNum(TargetTransformInfo::LSRCost &Cost) const;
+#endif // INTEL_CUSTOMIZATION
+
   /// \returns true if LSR should not optimize a chain that includes \p I.
   bool isProfitableLSRChainElement(Instruction *I) const;
 
@@ -1662,6 +1668,9 @@ public:
   virtual bool isLSRCostLess(TargetTransformInfo::LSRCost &C1,
                              TargetTransformInfo::LSRCost &C2) = 0;
   virtual bool isNumRegsMajorCostOfLSR() = 0;
+#if INTEL_CUSTOMIZATION
+  virtual bool isLSRCostExceedTTIRegNum(TargetTransformInfo::LSRCost &Cost) = 0;
+#endif // INTEL_CUSTOMIZATION
   virtual bool isProfitableLSRChainElement(Instruction *I) = 0;
   virtual bool canMacroFuseCmp() = 0;
   virtual bool canSaveCmp(Loop *L, BranchInst **BI, ScalarEvolution *SE,
@@ -2098,6 +2107,11 @@ public:
   bool isNumRegsMajorCostOfLSR() override {
     return Impl.isNumRegsMajorCostOfLSR();
   }
+#if INTEL_CUSTOMIZATION
+  bool isLSRCostExceedTTIRegNum(TargetTransformInfo::LSRCost &Cost) override {
+    return Impl.isLSRCostExceedTTIRegNum(Cost);
+  }
+#endif // INTEL_CUSTOMIZATION
   bool isProfitableLSRChainElement(Instruction *I) override {
     return Impl.isProfitableLSRChainElement(I);
   }
