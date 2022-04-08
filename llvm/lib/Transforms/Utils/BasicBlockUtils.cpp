@@ -1412,14 +1412,17 @@ void llvm::SplitCleanupPadPredecessors(BasicBlock *OrigBB,
   //
   // The cleanup block has 1 pred inside the loop (the catchswitch)
   // and 1 pred outside the loop (the invoke in the catch handler).
-  // We need to separate the invoke edge from the catchswitch, so that
-  // the cleanup block only has in-loop preds.
-  // But this is explicitly forbidden by LLVM, as a catchswitch and its
-  // catch body insts must all have the same unwind destination.
+  // We would like to separate the preds by making a new CleanupPad block and
+  // pointing the catchswitch (and any other in-loop preds) to it.
+  // But LLVM requires the invoke and catchswitch to have the same unwind
+  // destination.
   // If this is an OpenMP loop, we can just break the out-of-loop edge
   // (from the invoke) as any path from the catchswitch outside the loop,
   // is undefined. Then we generate a new cleanup block that is only reachable
   // from inside the loop.
+  //
+  // Only invoke preds can be handled like this, other insts such as cleanupret
+  // are not supported.
   //
   // The inverse of the above situation is not supported:
   // omp parallel {
@@ -1431,6 +1434,7 @@ void llvm::SplitCleanupPadPredecessors(BasicBlock *OrigBB,
   // cleanup:
   //
   // In this case, foo() is inside the loop, and the catchswitch is outside.
+  // We can only break out-of-loop edges.
   // The caller of this utility does not expect the loop exit edge from foo()
   // to be removed.
   bool NeedCSFixup = false;
@@ -1456,15 +1460,38 @@ void llvm::SplitCleanupPadPredecessors(BasicBlock *OrigBB,
     }
   }
 
+  SmallSet<BasicBlock *, 4> SplitPredsSet;
+  llvm::copy(SplitPreds,
+            std::inserter(SplitPredsSet, SplitPredsSet.begin()));
   // If one of the SplitPreds is dominated by a catchswitch, and that
   // catchswitch is not in SplitPreds itself, we cannot separate them.
-  if (CSPredBB && std::find(SplitPreds.begin(), SplitPreds.end(), CSPredBB) ==
-                      SplitPreds.end()) {
+  if (CSPredBB && !SplitPredsSet.contains(CSPredBB)) {
     for (auto *ToSplit : SplitPreds) {
       if (DT->dominates(CSPredBB, ToSplit)) {
         LLVM_DEBUG(
             dbgs() << "Catchswitch dominates loop exit, cannot break.\n");
         return;
+      }
+    }
+  }
+
+  // We can't break EH instructions. Check if the catchswitch has other pads
+  // that lead to the exit, but are outside the loop.
+  if (CSPredBB) {
+    for (auto *PredBB : predecessors(OrigBB)) {
+      if (!SplitPredsSet.contains(PredBB)) {
+        auto *Terminator = PredBB->getTerminator();
+        switch (Terminator->getOpcode()) {
+        case Instruction::CatchSwitch:
+        case Instruction::CatchRet:
+        case Instruction::CleanupRet:
+          if (DT->dominates(CSPredBB, PredBB)) {
+            LLVM_DEBUG(dbgs()
+                       << "Cannot modify EH instruction outside of loop:\n");
+            LLVM_DEBUG(dbgs() << *Terminator);
+            return;
+          }
+        }
       }
     }
   }
