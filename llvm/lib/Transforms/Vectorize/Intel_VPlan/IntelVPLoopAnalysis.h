@@ -713,6 +713,8 @@ public:
       llvm_unreachable("Unknown loop entity");
   }
 
+  bool hasReduction() const { return !ReductionList.empty(); }
+
 private:
   VPlanVector &Plan;
   VPLoop &Loop;
