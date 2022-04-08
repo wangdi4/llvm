@@ -3,8 +3,8 @@
 
 ; Check that Call Tree Cloning transformation keeps !noalias and !alias_scope metadata on call instruction(s)
 
-; CHECK: call fastcc void @"foo|_.10"(ptr getelementptr inbounds ([100 x float], ptr @a, i64 0, i64 0)), !noalias !0
-; CHECK: call fastcc void @"foo|_.20"(ptr getelementptr inbounds ([100 x float], ptr @b, i64 0, i64 0)), !alias.scope !0
+; CHECK: call fastcc void @"foo|_.10"(ptr @a), !noalias !0
+; CHECK: call fastcc void @"foo|_.20"(ptr @b), !alias.scope !0
 
 ; This is the same test case as call_tree_cloning_15.ll, but it checks for
 ; opaque pointers.

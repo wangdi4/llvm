@@ -21,12 +21,12 @@
 ; CHECK-NEXT:  Arguments' Padding:
 ; CHECK-NEXT:    ptr %p : -1
 ; CHECK-NEXT:  Value paddings:
-; CHECK-NEXT:      %t0 = tail call ptr @llvm.ptr.annotation.p0(ptr %call, ptr getelementptr inbounds ([16 x i8], ptr @1, i64 0, i64 0), ptr getelementptr inbounds ([14 x i8], ptr @.str, i64 0, i64 0), i32 8, ptr null) :: 16
+; CHECK-NEXT:      %t0 = tail call ptr @llvm.ptr.annotation.p0(ptr %call, ptr @1, ptr @.str, i32 8, ptr null) :: 16
 ; CHECK: Function info(baz):
 ; CHECK-NEXT:  HasUnknownCallSites: 0
 ; CHECK-NEXT:  Return Padding: -1
 ; CHECK-NEXT:  Value paddings:
-; CHECK-NEXT:      %t1 = tail call ptr @llvm.ptr.annotation.p0(ptr %t0, ptr getelementptr inbounds ([15 x i8], ptr @0, i64 0, i64 0), ptr getelementptr inbounds ([14 x i8], ptr @.str, i64 0, i64 0), i32 4, ptr null) :: 8
+; CHECK-NEXT:      %t1 = tail call ptr @llvm.ptr.annotation.p0(ptr %t0, ptr @0, ptr @.str, i32 4, ptr null) :: 8
 ; CHECK: ==== END OF INITIAL FUNCTION SET ====
 
 ; CHECK: ==== TRANSFORMED FUNCTION SET ====
@@ -36,13 +36,13 @@
 ; CHECK-NEXT:  Arguments' Padding:
 ; CHECK-NEXT:    ptr %p : -1
 ; CHECK-NEXT:  Value paddings:
-; CHECK-NEXT:      %t0 = tail call ptr @llvm.ptr.annotation.p0(ptr %call, ptr getelementptr inbounds ([16 x i8], ptr @1, i64 0, i64 0), ptr getelementptr inbounds ([14 x i8], ptr @.str, i64 0, i64 0), i32 8, ptr null) :: 16
+; CHECK-NEXT:      %t0 = tail call ptr @llvm.ptr.annotation.p0(ptr %call, ptr @1, ptr @.str, i32 8, ptr null) :: 16
 ; CHECK-NEXT:      %call = call ptr @bar(ptr %p) :: 16
 ; CHECK: Function info(baz):
 ; CHECK-NEXT:  HasUnknownCallSites: 0
 ; CHECK-NEXT:  Return Padding: 16
 ; CHECK-NEXT:  Value paddings:
-; CHECK-NEXT:      %t1 = tail call ptr @llvm.ptr.annotation.p0(ptr %t0, ptr getelementptr inbounds ([15 x i8], ptr @0, i64 0, i64 0), ptr getelementptr inbounds ([14 x i8], ptr @.str, i64 0, i64 0), i32 4, ptr null) :: 8
+; CHECK-NEXT:      %t1 = tail call ptr @llvm.ptr.annotation.p0(ptr %t0, ptr @0, ptr @.str, i32 4, ptr null) :: 8
 ; CHECK-NEXT:      %call = call ptr @bar(ptr %t1) :: 16
 ; CHECK: ==== END OF TRANSFORMED FUNCTION SET ====
 

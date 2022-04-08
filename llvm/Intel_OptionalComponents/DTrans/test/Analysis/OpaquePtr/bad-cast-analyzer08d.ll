@@ -37,10 +37,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @main() local_unnamed_addr #0 {
 entry:
-  store ptr null, ptr getelementptr inbounds (%struct._ZTS11mynextcoder.mynextcoder, ptr @localnextcoder1, i64 0, i32 0), align 8
+  %dtnorm = getelementptr %struct._ZTS11mynextcoder.mynextcoder, ptr @localnextcoder1, i64 0, i32 0
+  store ptr null, ptr %dtnorm, align 8
   store ptr null, ptr getelementptr inbounds (%struct._ZTS11mynextcoder.mynextcoder, ptr @localnextcoder1, i64 0, i32 1), align 8
   store ptr null, ptr getelementptr inbounds (%struct._ZTS11mynextcoder.mynextcoder, ptr @localnextcoder1, i64 0, i32 2), align 8
-  store ptr null, ptr getelementptr inbounds (%struct._ZTS11mynextcoder.mynextcoder, ptr @localnextcoder2, i64 0, i32 0), align 8
+  %dtnorm1 = getelementptr %struct._ZTS11mynextcoder.mynextcoder, ptr @localnextcoder2, i64 0, i32 0
+  store ptr null, ptr %dtnorm1, align 8
   store ptr null, ptr getelementptr inbounds (%struct._ZTS11mynextcoder.mynextcoder, ptr @localnextcoder2, i64 0, i32 1), align 8
   store ptr null, ptr getelementptr inbounds (%struct._ZTS11mynextcoder.mynextcoder, ptr @localnextcoder2, i64 0, i32 2), align 8
   tail call fastcc void @init_with_coder1(ptr nonnull @localnextcoder1)
