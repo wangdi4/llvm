@@ -2940,18 +2940,15 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
     LibDirs.append(begin(AVRLibDirs), end(AVRLibDirs));
     TripleAliases.append(begin(AVRTriples), end(AVRTriples));
     break;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case llvm::Triple::csa:
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-=======
   case llvm::Triple::csky:
     LibDirs.append(begin(CSKYLibDirs), end(CSKYLibDirs));
     TripleAliases.append(begin(CSKYTriples), end(CSKYTriples));
     break;
->>>>>>> 97e496054a378131227262109c856f89b288c309
   case llvm::Triple::x86_64:
     if (TargetTriple.isX32()) {
       LibDirs.append(begin(X32LibDirs), end(X32LibDirs));
