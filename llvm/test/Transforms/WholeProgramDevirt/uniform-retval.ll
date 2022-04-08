@@ -1,13 +1,9 @@
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-; RUN: opt -S -passes=wholeprogramdevirt %intel_devirt_options -whole-program-visibility %s | FileCheck %s
-; end INTEL_CUSTOMIZATION
-=======
 ; -stats requires asserts
 ; REQUIRES: asserts
 
-; RUN: opt -S -passes=wholeprogramdevirt -whole-program-visibility -pass-remarks=wholeprogramdevirt -stats %s 2>&1 | FileCheck %s
->>>>>>> ced9a795fd84aabfbc6a8b3040c33e719e39600c
+; INTEL_CUSTOMIZATION
+; RUN: opt -S -passes=wholeprogramdevirt %intel_devirt_options -whole-program-visibility -pass-remarks=wholeprogramdevirt -stats %s 2>&1 | FileCheck %s
+; end INTEL_CUSTOMIZATION
 
 target datalayout = "e-p:64:64"
 target triple = "x86_64-unknown-linux-gnu"

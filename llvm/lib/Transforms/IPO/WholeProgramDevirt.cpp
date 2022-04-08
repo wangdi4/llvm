@@ -1370,7 +1370,6 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
       if (RemarksEnabled)
         VCallSite.emitRemark("single-impl",
                              TheFn->stripPointerCasts()->getName(), OREGetter);
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -1381,9 +1380,7 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
           dyn_cast<Function>(TheFn), VCallSite.CB.getCaller())) {
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-=======
       NumSingleImpl++;
->>>>>>> ced9a795fd84aabfbc6a8b3040c33e719e39600c
       auto &CB = VCallSite.CB;
       assert(!CB.getCalledFunction() && "devirtualizing direct call?");
       IRBuilder<> Builder(&CB);

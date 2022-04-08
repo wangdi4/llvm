@@ -1,12 +1,8 @@
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-; RUN: opt -S -passes=wholeprogramdevirt %intel_devirt_options -whole-program-visibility -pass-remarks=wholeprogramdevirt %s 2>&1 | FileCheck %s
-=======
 ; -stats requires asserts
 ; REQUIRES: asserts
 
-; RUN: opt -S -passes=wholeprogramdevirt -whole-program-visibility -pass-remarks=wholeprogramdevirt -stats %s 2>&1 | FileCheck %s
->>>>>>> ced9a795fd84aabfbc6a8b3040c33e719e39600c
+; INTEL_CUSTOMIZATION
+; RUN: opt -S -passes=wholeprogramdevirt %intel_devirt_options -whole-program-visibility -pass-remarks=wholeprogramdevirt -stats %s 2>&1 | FileCheck %s
 ; Skipping vf0i1 is identical to setting public LTO visibility. We don't devirtualize vf0i1 and all other
 ; virtual call targets.
 ; RUN: opt -S -passes=wholeprogramdevirt %intel_devirt_options -whole-program-visibility -pass-remarks=wholeprogramdevirt -wholeprogramdevirt-skip=vf0i1 %s 2>&1 | FileCheck %s --check-prefix=SKIP
