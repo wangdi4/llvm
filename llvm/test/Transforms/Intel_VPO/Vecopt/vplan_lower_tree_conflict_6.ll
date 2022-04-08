@@ -4,11 +4,15 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; REQUIRES: asserts
 ; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF4
 ; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF4
 ; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-force-vf=8 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF8
 ; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=8 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF8
+
+; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s --check-prefix=CHECK-VF4
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s --check-prefix=CHECK-VF4
+; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-force-vf=8 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s --check-prefix=CHECK-VF8
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=8 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s --check-prefix=CHECK-VF8
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
 define dso_local void @foo(double* noalias nocapture noundef %A, i64* nocapture noundef readonly %B, double* noalias nocapture noundef readonly %C, i32 noundef %N) local_unnamed_addr #0 {
@@ -23,10 +27,7 @@ define dso_local void @foo(double* noalias nocapture noundef %A, i64* nocapture 
 ; CHECK-VF4-LABEL:  Function: foo
 ; CHECK-VF4-EMPTY:
 ; CHECK-VF4-NEXT:  BEGIN REGION { modified }
-; CHECK-VF4-NEXT:        [[TGU0:%.*]] = (zext.i32.i64([[N0:%.*]]))/u4
-; CHECK-VF4-NEXT:        if (0 <u 4 * [[TGU0]])
-; CHECK-VF4-NEXT:        {
-; CHECK-VF4-NEXT:           + DO i1 = 0, 4 * [[TGU0]] + -1, 4   <DO_LOOP>  <MAX_TC_EST = 536870911>  <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
+; CHECK-VF4:                + DO i1 = 0, {{.*}}, 4   <DO_LOOP>  <MAX_TC_EST = 536870911>  <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-VF4-NEXT:           |   [[DOTVEC0:%.*]] = (<4 x i64>*)([[B0:%.*]])[i1]
 ; CHECK-VF4-NEXT:           |   [[DOTVEC10:%.*]] = (<4 x double>*)([[C0:%.*]])[i1]
 ; CHECK-VF4-NEXT:           |   [[DOTVEC20:%.*]] = (<4 x double>*)([[A0:%.*]])[[[DOTVEC0]]]
@@ -41,7 +42,7 @@ define dso_local void @foo(double* noalias nocapture noundef %A, i64* nocapture 
 ; CHECK-VF4-NEXT:           |   [[UNIFCOND0:%.*]] = extractelement [[ALL_ZERO_CHECK0]],  0
 ; CHECK-VF4-NEXT:           |   if ([[UNIFCOND0]] == 1)
 ; CHECK-VF4-NEXT:           |   {
-; CHECK-VF4-NEXT:           |      goto [[BB0:BB[0-9]+]].40
+; CHECK-VF4-NEXT:           |      goto [[BB0:BB.*]];
 ; CHECK-VF4-NEXT:           |   }
 ; CHECK-VF4-NEXT:           |   [[PHI_TEMP50:%.*]] = [[DOTVEC30]]
 ; CHECK-VF4-NEXT:           |   [[PHI_TEMP70:%.*]] = [[DOTVEC10]]
@@ -49,7 +50,7 @@ define dso_local void @foo(double* noalias nocapture noundef %A, i64* nocapture 
 ; CHECK-VF4-NEXT:           |
 ; CHECK-VF4-NEXT:           |   + UNKNOWN LOOP i2 <novectorize>
 ; CHECK-VF4-NEXT:           |   |   <i2 = 0>
-; CHECK-VF4-NEXT:           |   |   [[BB1:BB[0-9]+]].46:
+; CHECK-VF4-NEXT:           |   |   [[BB1:BB.*]]:
 ; CHECK-VF4-NEXT:           |   |   [[PERMUTE0:%.*]] = @llvm.x86.avx512.permvar.df.256([[PHI_TEMP70]],  [[PHI_TEMP50]])
 ; CHECK-VF4-NEXT:           |   |   [[DOTVEC110:%.*]] = [[PHI_TEMP90]] == -1
 ; CHECK-VF4-NEXT:           |   |   [[DOTVEC120:%.*]] = ([[PHI_TEMP90]] == -1) ? [[PERMUTE0]] : 0.000000e+00
@@ -70,23 +71,19 @@ define dso_local void @foo(double* noalias nocapture noundef %A, i64* nocapture 
 ; CHECK-VF4-NEXT:           |   |   if ([[UNIFCOND250]] == 1)
 ; CHECK-VF4-NEXT:           |   |   {
 ; CHECK-VF4-NEXT:           |   |      <i2 = i2 + 1>
-; CHECK-VF4-NEXT:           |   |      goto [[BB1]].46
+; CHECK-VF4-NEXT:           |   |      goto [[BB1]];
 ; CHECK-VF4-NEXT:           |   |   }
 ; CHECK-VF4-NEXT:           |   + END LOOP
 ; CHECK-VF4-NEXT:           |
-; CHECK-VF4-NEXT:           |   [[BB0]].40:
+; CHECK-VF4-NEXT:           |   [[BB0]]:
 ; CHECK-VF4-NEXT:           |   [[DOTVEC260:%.*]] = [[DOTVEC20]]  +  [[PHI_TEMP0]]
 ; CHECK-VF4-NEXT:           |   (<4 x double>*)([[A0]])[[[DOTVEC0]]] = [[DOTVEC260]]
 ; CHECK-VF4-NEXT:           + END LOOP
-; CHECK-VF4-NEXT:        }
 ;
 ; CHECK-VF8-LABEL:  Function: foo
 ; CHECK-VF8-EMPTY:
 ; CHECK-VF8-NEXT:  BEGIN REGION { modified }
-; CHECK-VF8-NEXT:        [[TGU0:%.*]] = (zext.i32.i64([[N0:%.*]]))/u8
-; CHECK-VF8-NEXT:        if (0 <u 8 * [[TGU0]])
-; CHECK-VF8-NEXT:        {
-; CHECK-VF8-NEXT:           + DO i1 = 0, 8 * [[TGU0]] + -1, 8   <DO_LOOP>  <MAX_TC_EST = 268435455>  <LEGAL_MAX_TC = 268435455> <auto-vectorized> <nounroll> <novectorize>
+; CHECK-VF8:                + DO i1 = 0, {{.*}}, 8   <DO_LOOP>  <MAX_TC_EST = 268435455>  <LEGAL_MAX_TC = 268435455> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-VF8-NEXT:           |   [[DOTVEC0:%.*]] = (<8 x i64>*)([[B0:%.*]])[i1]
 ; CHECK-VF8-NEXT:           |   [[DOTVEC10:%.*]] = (<8 x double>*)([[C0:%.*]])[i1]
 ; CHECK-VF8-NEXT:           |   [[DOTVEC20:%.*]] = (<8 x double>*)([[A0:%.*]])[[[DOTVEC0]]]
@@ -101,7 +98,7 @@ define dso_local void @foo(double* noalias nocapture noundef %A, i64* nocapture 
 ; CHECK-VF8-NEXT:           |   [[UNIFCOND0:%.*]] = extractelement [[ALL_ZERO_CHECK0]],  0
 ; CHECK-VF8-NEXT:           |   if ([[UNIFCOND0]] == 1)
 ; CHECK-VF8-NEXT:           |   {
-; CHECK-VF8-NEXT:           |      goto [[BB0:BB[0-9]+]].40
+; CHECK-VF8-NEXT:           |      goto [[BB0:BB.*]];
 ; CHECK-VF8-NEXT:           |   }
 ; CHECK-VF8-NEXT:           |   [[PHI_TEMP50:%.*]] = [[DOTVEC30]]
 ; CHECK-VF8-NEXT:           |   [[PHI_TEMP70:%.*]] = [[DOTVEC10]]
@@ -109,7 +106,7 @@ define dso_local void @foo(double* noalias nocapture noundef %A, i64* nocapture 
 ; CHECK-VF8-NEXT:           |
 ; CHECK-VF8-NEXT:           |   + UNKNOWN LOOP i2 <novectorize>
 ; CHECK-VF8-NEXT:           |   |   <i2 = 0>
-; CHECK-VF8-NEXT:           |   |   [[BB1:BB[0-9]+]].46:
+; CHECK-VF8-NEXT:           |   |   [[BB1:BB.*]]:
 ; CHECK-VF8-NEXT:           |   |   [[PERMUTE0:%.*]] = @llvm.x86.avx512.permvar.df.512([[PHI_TEMP70]],  [[PHI_TEMP50]])
 ; CHECK-VF8-NEXT:           |   |   [[DOTVEC110:%.*]] = [[PHI_TEMP90]] == -1
 ; CHECK-VF8-NEXT:           |   |   [[DOTVEC120:%.*]] = ([[PHI_TEMP90]] == -1) ? [[PERMUTE0]] : 0.000000e+00
@@ -130,15 +127,14 @@ define dso_local void @foo(double* noalias nocapture noundef %A, i64* nocapture 
 ; CHECK-VF8-NEXT:           |   |   if ([[UNIFCOND250]] == 1)
 ; CHECK-VF8-NEXT:           |   |   {
 ; CHECK-VF8-NEXT:           |   |      <i2 = i2 + 1>
-; CHECK-VF8-NEXT:           |   |      goto [[BB1]].46
+; CHECK-VF8-NEXT:           |   |      goto [[BB1]];
 ; CHECK-VF8-NEXT:           |   |   }
 ; CHECK-VF8-NEXT:           |   + END LOOP
 ; CHECK-VF8-NEXT:           |
-; CHECK-VF8-NEXT:           |   [[BB0]].40:
+; CHECK-VF8-NEXT:           |   [[BB0]]:
 ; CHECK-VF8-NEXT:           |   [[DOTVEC260:%.*]] = [[DOTVEC20]]  +  [[PHI_TEMP0]]
 ; CHECK-VF8-NEXT:           |   (<8 x double>*)([[A0]])[[[DOTVEC0]]] = [[DOTVEC260]]
 ; CHECK-VF8-NEXT:           + END LOOP
-; CHECK-VF8-NEXT:        }
 ;
 entry:
   %cmp14 = icmp sgt i32 %N, 0
