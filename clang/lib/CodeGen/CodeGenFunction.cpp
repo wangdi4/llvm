@@ -3109,6 +3109,7 @@ Address CodeGenFunction::EmitHLSFieldAnnotations(const FieldDecl *D,
   return Address(V, Addr.getElementType(), Addr.getAlignment());
 }
 #endif // INTEL_CUSTOMIZATION
+
 llvm::Value *CodeGenFunction::EmitSYCLAnnotationCall(
     llvm::Function *AnnotationFn, llvm::Value *AnnotatedVal,
     SourceLocation Location, const SYCLAddIRAnnotationsMemberAttr *Attr) {

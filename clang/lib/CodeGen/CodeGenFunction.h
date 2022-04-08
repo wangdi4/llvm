@@ -5098,6 +5098,7 @@ public:
   Address EmitHLSFieldAnnotations(const FieldDecl *D, Address V,
                                   StringRef AnnotStr);
 #endif // INTEL_CUSTOMIZATION
+
   /// Emit a "sycl-properties" annotation call (intrinsic).
   llvm::Value *
   EmitSYCLAnnotationCall(llvm::Function *AnnotationFn,
