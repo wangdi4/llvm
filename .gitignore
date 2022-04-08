@@ -52,7 +52,6 @@ autoconf/autom4te.cache
 # External projects
 /llvm-spirv
 /ocl-cclang
-/opencl-intel
 
 #==============================================================================#
 # Directories to ignore (do not add trailing '/'s, they skip symlinks).
