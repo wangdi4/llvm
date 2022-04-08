@@ -102,7 +102,7 @@ static cl::opt<bool> EnableNewPassManager(
     cl::desc("Enable the new pass manager, translating "
              "'opt -foo' to 'opt -passes=foo'. This is strictly for the new PM "
              "migration, use '-passes=' when possible."),
-    cl::init(true));
+    cl::init(LLVM_ENABLE_NEW_PASS_MANAGER)); // INTEL
 
 // This flag specifies a textual description of the optimization pass pipeline
 // to run over the module. This flag switches opt to use the new pass manager
