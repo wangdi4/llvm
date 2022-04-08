@@ -993,8 +993,13 @@ struct _pi_buffer final : _pi_mem {
   _pi_buffer(pi_context Ctx, char *Mem, char *HostPtr, bool OwnZeMemHandle,
              _pi_mem *Parent = nullptr, size_t Origin = 0, size_t Size = 0,
              bool MemOnHost = false, bool ImportedHostPtr = false)
+<<<<<<< HEAD
       : _pi_mem(Ctx, HostPtr, OwnZeMemHandle, MemOnHost, ImportedHostPtr),
         ZeMem{Mem}, SubBuffer{Parent, Origin, Size} {}
+=======
+      : _pi_mem(Ctx, HostPtr, OwnZeMemHandle, MemOnHost), ZeMem{Mem},
+        SubBuffer{Parent, Origin, Size} {}
+>>>>>>> e6dc83be9fa29d0a61f7a8bc8953cad3a212e9a3
 
   void *getZeHandle() override { return ZeMem; }
 
