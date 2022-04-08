@@ -178,9 +178,12 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
 
     addBarrierPasses(MPM, Level);
 
-    MPM.addPass(AddImplicitArgsPass());
-    MPM.addPass(ResolveWICallPass());
-    MPM.addPass(LocalBuffersPass(/*UseTLSGlobals*/ false));
+    if (m_UseTLSGlobals)
+      MPM.addPass(AddTLSGlobalsPass());
+    else
+      MPM.addPass(AddImplicitArgsPass());
+    MPM.addPass(ResolveWICallPass(Config->GetUniformWGSize(), m_UseTLSGlobals));
+    MPM.addPass(LocalBuffersPass(m_UseTLSGlobals));
     MPM.addPass(BuiltinImportPass(m_RtlModules, CPUPrefix));
     if (Level != OptimizationLevel::O0)
       MPM.addPass(GlobalDCEPass());
@@ -209,7 +212,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     } else {
       MPM.addPass(AlwaysInlinerPass());
     }
-    MPM.addPass(PrepareKernelArgsPass());
+    MPM.addPass(PrepareKernelArgsPass(m_UseTLSGlobals));
 
     if (Level != OptimizationLevel::O0) {
       // These passes come after PrepareKernelArgsLegacyPass to eliminate the
@@ -245,8 +248,7 @@ void OptimizerLTO::addBarrierPasses(ModulePassManager &MPM, OptimizationLevel Le
   MPM.addPass(SplitBBonBarrier());
   if (Level != OptimizationLevel::O0)
     MPM.addPass(ReduceCrossBarrierValuesPass());
-  MPM.addPass(
-      KernelBarrier(m_debugType == intel::Native, /*UseTLSGlobals*/ false));
+  MPM.addPass(KernelBarrier(m_debugType == intel::Native, m_UseTLSGlobals));
 }
 
 void OptimizerLTO::registerLastPasses(ModulePassManager &MPM) {

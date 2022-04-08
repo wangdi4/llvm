@@ -1863,7 +1863,7 @@ code reduce_logical_or_xor = [{
 }];
 
 OclBuiltinImpl sub_group_non_uniform_reduce_logical_or_all = OclBuiltinImpl<sub_group_non_uniform_reduce_logical_or_vec, logical_vec_types, 0, reduce_logical_or_xor, [["$OP", "||"]]>;
-//OclBuiltinImpl sub_group_non_uniform_reduce_logical_xor_all = OclBuiltinImpl<sub_group_non_uniform_reduce_logical_xor_vec, logical_vec_types, 0, reduce_logical_or_xor, [["$OP", "^^"]]>;
+OclBuiltinImpl sub_group_non_uniform_reduce_logical_xor_all = OclBuiltinImpl<sub_group_non_uniform_reduce_logical_xor_vec, logical_vec_types, 0, reduce_logical_or_xor, [["$OP", "!="]]>;
 
 code scan_inclusive_logical_or_xor_v4 = [{
   int4 arg1 = as_int4($Arg1VarName);
@@ -1879,7 +1879,7 @@ code scan_inclusive_logical_or_xor_v4 = [{
 }];
 
 OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_or_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_logical_or_vec, [v4i32], 0, scan_inclusive_logical_or_xor_v4, [["$OP", "||"]]>;
-//OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_xor_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_logical_xor_vec, [v4i32], 0, scan_inclusive_logical_or_xor_v4, [["$OP", "^^"]]>;
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_xor_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_logical_xor_vec, [v4i32], 0, scan_inclusive_logical_or_xor_v4, [["$OP", "!="]]>;
 
 code scan_inclusive_logical_or_xor_v8 = [{
   int8 arg1 = as_int8($Arg1VarName);
@@ -1894,7 +1894,7 @@ code scan_inclusive_logical_or_xor_v8 = [{
   return $Arg0VarName;
 }];
 OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_or_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_logical_or_vec, [v8i32], 0, scan_inclusive_logical_or_xor_v8, [["$OP", "||"]]>;
-//OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_xor_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_logical_xor_vec, [v8i32], 0, scan_inclusive_logical_or_xor_v8, [["$OP", "^^"]]>;
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_xor_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_logical_xor_vec, [v8i32], 0, scan_inclusive_logical_or_xor_v8, [["$OP", "!="]]>;
 
 code scan_inclusive_logical_or_xor_v16 = [{
   int16 arg1 = as_int16($Arg1VarName);
@@ -1909,7 +1909,7 @@ code scan_inclusive_logical_or_xor_v16 = [{
   return $Arg0VarName;
 }];
 OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_or_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_logical_or_vec, [v16i32], 0, scan_inclusive_logical_or_xor_v16, [["$OP", "||"]]>;
-//OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_xor_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_logical_xor_vec, [v16i32], 0, scan_inclusive_logical_or_xor_v16, [["$OP", "^^"]]>;
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_xor_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_logical_xor_vec, [v16i32], 0, scan_inclusive_logical_or_xor_v16, [["$OP", "!="]]>;
 
 code scan_exclusive_logical_or_xor_v4 = [{
   int4 arg1 = as_int4($Arg1VarName);
@@ -1926,7 +1926,7 @@ code scan_exclusive_logical_or_xor_v4 = [{
   return $Arg0VarName;
 }];
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_or_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_or_vec, [v4i32], 0, scan_exclusive_logical_or_xor_v4, [["$OP", "||"]]>;
-//OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_xor_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_xor_vec, [v4i32], 0, scan_exclusive_logical_or_xor_v4, [["$OP", "^^"]]>;
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_xor_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_xor_vec, [v4i32], 0, scan_exclusive_logical_or_xor_v4, [["$OP", "!="]]>;
 
 code scan_exclusive_logical_or_xor_v8 = [{
   int8 arg1 = as_int8($Arg1VarName);
@@ -1943,7 +1943,7 @@ code scan_exclusive_logical_or_xor_v8 = [{
   return $Arg0VarName;
 }];
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_or_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_or_vec, [v8i32], 0, scan_exclusive_logical_or_xor_v8, [["$OP", "||"]]>;
-//OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_xor_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_xor_vec, [v8i32], 0, scan_exclusive_logical_or_xor_v8, [["$OP", "^^"]]>;
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_xor_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_xor_vec, [v8i32], 0, scan_exclusive_logical_or_xor_v8, [["$OP", "!="]]>;
 
 code scan_exclusive_logical_or_xor_v16 = [{
   int16 arg1 = as_int16($Arg1VarName);
@@ -1960,7 +1960,7 @@ code scan_exclusive_logical_or_xor_v16 = [{
   return $Arg0VarName;
 }];
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_or_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_or_vec, [v16i32], 0, scan_exclusive_logical_or_xor_v16, [["$OP", "||"]]>;
-//OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_xor_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_xor_vec, [v16i32], 0, scan_exclusive_logical_or_xor_v16, [["$OP", "^^"]]>;
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_xor_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_xor_vec, [v16i32], 0, scan_exclusive_logical_or_xor_v16, [["$OP", "!="]]>;
 
 
 // non uniform bitwise

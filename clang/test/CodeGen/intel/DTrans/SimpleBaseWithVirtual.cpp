@@ -1,5 +1,6 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,PTR
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -mllvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
 
 class Base {
 public:
@@ -14,24 +15,41 @@ int main() {
   Derived instance;
 }
 
-// CHECK: @_ZTV7Derived = linkonce_odr unnamed_addr constant { [4 x i8*] }{{.+}} !intel_dtrans_type ![[VTABLE:[0-9]+]]
-// CHECK: @_ZTI7Derived = linkonce_odr constant { i8*, i8*, i8* }{{.+}} !intel_dtrans_type ![[TYPEINFO:[0-9]+]]
-// CHECK: @_ZTV4Base = available_externally unnamed_addr constant { [4 x i8*] }{{.+}} !intel_dtrans_type ![[VTABLE]]
+// PTR: @_ZTV7Derived = linkonce_odr unnamed_addr constant { [4 x i8*] }{{.+}} !intel_dtrans_type ![[VTABLE:[0-9]+]]
+// OPQ: @_ZTV7Derived = linkonce_odr unnamed_addr constant { [4 x ptr] }{{.+}} !intel_dtrans_type ![[VTABLE:[0-9]+]]
+// PTR: @_ZTI7Derived = linkonce_odr constant { i8*, i8*, i8* }{{.+}} !intel_dtrans_type ![[TYPEINFO:[0-9]+]]
+// OPQ: @_ZTI7Derived = linkonce_odr constant { ptr, ptr, ptr }{{.+}} !intel_dtrans_type ![[TYPEINFO:[0-9]+]]
+// PTR: @_ZTV4Base = available_externally unnamed_addr constant { [4 x i8*] }{{.+}} !intel_dtrans_type ![[VTABLE]]
+// OPQ: @_ZTV4Base = available_externally unnamed_addr constant { [4 x ptr] }{{.+}} !intel_dtrans_type ![[VTABLE]]
 
-// CHECK: define linkonce_odr void @_ZN7DerivedC1Ev(%class._ZTS7Derived.Derived* {{[^,]*}}"intel_dtrans_func_index"="1" %this) {{.*}}!intel.dtrans.func.type ![[DERIVED_CTOR_FUNC_MD:[0-9]+]]
-// CHECK: alloca %class._ZTS7Derived.Derived*, align 8, !intel_dtrans_type ![[DERIVED_PTR:[0-9]+]]
-// CHECK: define linkonce_odr void @_ZN7DerivedD1Ev(%class._ZTS7Derived.Derived* {{[^,]*}}"intel_dtrans_func_index"="1" %this) {{.*}}!intel.dtrans.func.type ![[DERIVED_DTOR1_FUNC_MD:[0-9]+]]
-// CHECK: alloca %class._ZTS7Derived.Derived*, align 8, !intel_dtrans_type ![[DERIVED_PTR]]
-// CHECK: define linkonce_odr void @_ZN7DerivedC2Ev(%class._ZTS7Derived.Derived* {{[^,]*}}"intel_dtrans_func_index"="1" %this) {{.*}}!intel.dtrans.func.type ![[DERIVED_CTOR2_FUNC_MD:[0-9]+]]
-// CHECK: alloca %class._ZTS7Derived.Derived*, align 8, !intel_dtrans_type ![[DERIVED_PTR]]
-// CHECK: define linkonce_odr void @_ZN4BaseC2Ev(%class._ZTS4Base.Base* {{[^,]*}}"intel_dtrans_func_index"="1" %this) {{.*}}!intel.dtrans.func.type ![[BASE_CTOR2_FUNC_MD:[0-9]+]]
-// CHECK: alloca %class._ZTS4Base.Base*, align 8, !intel_dtrans_type ![[BASE_PTR:[0-9]+]]
-// CHECK: define linkonce_odr void @_ZN7DerivedD0Ev(%class._ZTS7Derived.Derived* {{[^,]*}}"intel_dtrans_func_index"="1" %this) {{.*}}!intel.dtrans.func.type ![[DERIVED_DTOR0_FUNC_MD:[0-9]+]]
-// CHECK: alloca %class._ZTS7Derived.Derived*, align 8, !intel_dtrans_type ![[DERIVED_PTR]]
-// CHECK: declare !intel.dtrans.func.type ![[OP_DELETE_FUNC_MD:[0-9]+]] void @_ZdlPv(i8* noundef "intel_dtrans_func_index"="1")
-// CHECK: define linkonce_odr void @_ZN7DerivedD2Ev(%class._ZTS7Derived.Derived* {{[^,]*}}"intel_dtrans_func_index"="1" %this) {{.*}}!intel.dtrans.func.type ![[DERIVED_DTOR2_FUNC_MD:[0-9]+]]
-// CHECK: alloca %class._ZTS7Derived.Derived*, align 8, !intel_dtrans_type ![[DERIVED_PTR]]
-// CHECK: declare !intel.dtrans.func.type ![[BASE_DTOR2_FUNC_MD:[0-9]+]] void @_ZN4BaseD2Ev(%class._ZTS4Base.Base* {{[^,]*}}"intel_dtrans_func_index"="1")
+// PTR: define linkonce_odr void @_ZN7DerivedC1Ev(%class._ZTS7Derived.Derived* {{[^,]*}}"intel_dtrans_func_index"="1" %this) {{.*}}!intel.dtrans.func.type ![[DERIVED_CTOR_FUNC_MD:[0-9]+]]
+// OPQ: define linkonce_odr void @_ZN7DerivedC1Ev(ptr {{[^,]*}}"intel_dtrans_func_index"="1" %this) {{.*}}!intel.dtrans.func.type ![[DERIVED_CTOR_FUNC_MD:[0-9]+]]
+// PTR: alloca %class._ZTS7Derived.Derived*, align 8, !intel_dtrans_type ![[DERIVED_PTR:[0-9]+]]
+// OPQ: alloca ptr, align 8, !intel_dtrans_type ![[DERIVED_PTR:[0-9]+]]
+// PTR: define linkonce_odr void @_ZN7DerivedD1Ev(%class._ZTS7Derived.Derived* {{[^,]*}}"intel_dtrans_func_index"="1" %this) {{.*}}!intel.dtrans.func.type ![[DERIVED_DTOR1_FUNC_MD:[0-9]+]]
+// OPQ: define linkonce_odr void @_ZN7DerivedD1Ev(ptr {{[^,]*}}"intel_dtrans_func_index"="1" %this) {{.*}}!intel.dtrans.func.type ![[DERIVED_DTOR1_FUNC_MD:[0-9]+]]
+// PTR: alloca %class._ZTS7Derived.Derived*, align 8, !intel_dtrans_type ![[DERIVED_PTR]]
+// OPQ: alloca ptr, align 8, !intel_dtrans_type ![[DERIVED_PTR]]
+// PTR: define linkonce_odr void @_ZN7DerivedC2Ev(%class._ZTS7Derived.Derived* {{[^,]*}}"intel_dtrans_func_index"="1" %this) {{.*}}!intel.dtrans.func.type ![[DERIVED_CTOR2_FUNC_MD:[0-9]+]]
+// OPQ: define linkonce_odr void @_ZN7DerivedC2Ev(ptr {{[^,]*}}"intel_dtrans_func_index"="1" %this) {{.*}}!intel.dtrans.func.type ![[DERIVED_CTOR2_FUNC_MD:[0-9]+]]
+// PTR: alloca %class._ZTS7Derived.Derived*, align 8, !intel_dtrans_type ![[DERIVED_PTR]]
+// OPQ: alloca ptr, align 8, !intel_dtrans_type ![[DERIVED_PTR]]
+// PTR: define linkonce_odr void @_ZN4BaseC2Ev(%class._ZTS4Base.Base* {{[^,]*}}"intel_dtrans_func_index"="1" %this) {{.*}}!intel.dtrans.func.type ![[BASE_CTOR2_FUNC_MD:[0-9]+]]
+// OPQ: define linkonce_odr void @_ZN4BaseC2Ev(ptr {{[^,]*}}"intel_dtrans_func_index"="1" %this) {{.*}}!intel.dtrans.func.type ![[BASE_CTOR2_FUNC_MD:[0-9]+]]
+// PTR: alloca %class._ZTS4Base.Base*, align 8, !intel_dtrans_type ![[BASE_PTR:[0-9]+]]
+// OPQ: alloca ptr, align 8, !intel_dtrans_type ![[BASE_PTR:[0-9]+]]
+// PTR: define linkonce_odr void @_ZN7DerivedD0Ev(%class._ZTS7Derived.Derived* {{[^,]*}}"intel_dtrans_func_index"="1" %this) {{.*}}!intel.dtrans.func.type ![[DERIVED_DTOR0_FUNC_MD:[0-9]+]]
+// OPQ: define linkonce_odr void @_ZN7DerivedD0Ev(ptr {{[^,]*}}"intel_dtrans_func_index"="1" %this) {{.*}}!intel.dtrans.func.type ![[DERIVED_DTOR0_FUNC_MD:[0-9]+]]
+// PTR: alloca %class._ZTS7Derived.Derived*, align 8, !intel_dtrans_type ![[DERIVED_PTR]]
+// OPQ: alloca ptr, align 8, !intel_dtrans_type ![[DERIVED_PTR]]
+// PTR: declare !intel.dtrans.func.type ![[OP_DELETE_FUNC_MD:[0-9]+]] void @_ZdlPv(i8* noundef "intel_dtrans_func_index"="1")
+// OPQ: declare !intel.dtrans.func.type ![[OP_DELETE_FUNC_MD:[0-9]+]] void @_ZdlPv(ptr noundef "intel_dtrans_func_index"="1")
+// PTR: define linkonce_odr void @_ZN7DerivedD2Ev(%class._ZTS7Derived.Derived* {{[^,]*}}"intel_dtrans_func_index"="1" %this) {{.*}}!intel.dtrans.func.type ![[DERIVED_DTOR2_FUNC_MD:[0-9]+]]
+// OPQ: define linkonce_odr void @_ZN7DerivedD2Ev(ptr {{[^,]*}}"intel_dtrans_func_index"="1" %this) {{.*}}!intel.dtrans.func.type ![[DERIVED_DTOR2_FUNC_MD:[0-9]+]]
+// PTR: alloca %class._ZTS7Derived.Derived*, align 8, !intel_dtrans_type ![[DERIVED_PTR]]
+// OPQ: alloca ptr, align 8, !intel_dtrans_type ![[DERIVED_PTR]]
+// PTR: declare !intel.dtrans.func.type ![[BASE_DTOR2_FUNC_MD:[0-9]+]] void @_ZN4BaseD2Ev(%class._ZTS4Base.Base* {{[^,]*}}"intel_dtrans_func_index"="1")
+// OPQ: declare !intel.dtrans.func.type ![[BASE_DTOR2_FUNC_MD:[0-9]+]] void @_ZN4BaseD2Ev(ptr {{[^,]*}}"intel_dtrans_func_index"="1")
 
 // CHECK: !intel.dtrans.types = !{![[DERIVED:[0-9]+]], ![[BASE:[0-9]+]]}
 

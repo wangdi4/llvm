@@ -100,6 +100,9 @@ VPLAN_OPTRPT_HANDLE_MEM(15557u, MaskedVLSStores)
 // TODO: No entry for loads from uniform address (O0/kernel vectorization).
 VPLAN_OPTRPT_HANDLE_MEM_GROUP_END(15474u)
 
+// Remarks related to reduction reasons
+VPLAN_OPTRPT_VEC_HANDLE(ReductionInstRemarks)
+
 #undef VPLAN_OPTRPT_HANDLE_GROUP_BEGIN
 #undef VPLAN_OPTRPT_HANDLE
 #undef VPLAN_OPTRPT_GS

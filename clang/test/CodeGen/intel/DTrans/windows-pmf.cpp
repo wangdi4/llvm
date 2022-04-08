@@ -1,5 +1,6 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-pc-windows-msvc -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-pc-windows-msvc -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,PTR
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-pc-windows-msvc -emit-dtrans-info -fintel-compatibility -emit-llvm -mllvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
 
 class HasPMFToCompleteClass {
 public:
@@ -110,20 +111,36 @@ void use() {
 
 // If these ever change (beyond to opaque-ptr) we need to confirm that the
 // dtrans info matches.
-// CHECK: %"class..?AVHasPMFToIncompleteClass@@.HasPMFToIncompleteClass" = type { { i8*, i32, i32, i32 } }
-// CHECK: %"struct..?AUContainsBoth@@.ContainsBoth" = type 
-// CHECK-SAME: { %"class..?AVHasPMFToCompleteClass@@.HasPMFToCompleteClass", 
-// CHECK-SAME: %"class..?AVHasPMFToIncompleteClass@@.HasPMFToIncompleteClass" }
-// CHECK: %"class..?AVHasPMFToCompleteClass@@.HasPMFToCompleteClass" = type { i8* } 
-// CHECK: %"class..?AVVirtualWithBase@@.VirtualWithBase" = type { i32 (...)** }
-// CHECK: %"class..?AVVirtual@@.Virtual" = type { i32 (...)** } 
-// CHECK: %"class..?AVPtrToHas1Base@@.PtrToHas1Base" = type { i8* } 
-// CHECK: %"class..?AVPtrToHas2Base@@.PtrToHas2Base" = type { { i8*, i32 } } 
-// CHECK: %"class..?AVPtrToHas3Base@@.PtrToHas3Base" = type { { i8*, i32 } } 
-// CHECK: %"class..?AVPtrToHas4Base@@.PtrToHas4Base" = type { { i8*, i32 } } 
-// CHECK: %"class..?AVPtrToHas5Base@@.PtrToHas5Base" = type { { i8*, i32 } } 
-// CHECK: %"class..?AVPtrToHas6Base@@.PtrToHas6Base" = type { { i8*, i32 } } 
-// CHECK: %"class..?AVPtrToHas7Base@@.PtrToHas7Base" = type { { i8*, i32 } } 
+// PTR: %"class..?AVHasPMFToIncompleteClass@@.HasPMFToIncompleteClass" = type { { i8*, i32, i32, i32 } }
+// PTR: %"struct..?AUContainsBoth@@.ContainsBoth" = type 
+// PTR-SAME: { %"class..?AVHasPMFToCompleteClass@@.HasPMFToCompleteClass", 
+// PTR-SAME: %"class..?AVHasPMFToIncompleteClass@@.HasPMFToIncompleteClass" }
+// PTR: %"class..?AVHasPMFToCompleteClass@@.HasPMFToCompleteClass" = type { i8* } 
+// PTR: %"class..?AVVirtualWithBase@@.VirtualWithBase" = type { i32 (...)** }
+// PTR: %"class..?AVVirtual@@.Virtual" = type { i32 (...)** } 
+// PTR: %"class..?AVPtrToHas1Base@@.PtrToHas1Base" = type { i8* } 
+// PTR: %"class..?AVPtrToHas2Base@@.PtrToHas2Base" = type { { i8*, i32 } } 
+// PTR: %"class..?AVPtrToHas3Base@@.PtrToHas3Base" = type { { i8*, i32 } } 
+// PTR: %"class..?AVPtrToHas4Base@@.PtrToHas4Base" = type { { i8*, i32 } } 
+// PTR: %"class..?AVPtrToHas5Base@@.PtrToHas5Base" = type { { i8*, i32 } } 
+// PTR: %"class..?AVPtrToHas6Base@@.PtrToHas6Base" = type { { i8*, i32 } } 
+// PTR: %"class..?AVPtrToHas7Base@@.PtrToHas7Base" = type { { i8*, i32 } } 
+
+// Order changes for Opaque Ptr?
+// OPQ: %"class..?AVHasPMFToCompleteClass@@.HasPMFToCompleteClass" = type { ptr } 
+// OPQ: %"class..?AVPtrToHas1Base@@.PtrToHas1Base" = type { ptr } 
+// OPQ: %"class..?AVPtrToHas2Base@@.PtrToHas2Base" = type { { ptr, i32 } } 
+// OPQ: %"class..?AVPtrToHas3Base@@.PtrToHas3Base" = type { { ptr, i32 } } 
+// OPQ: %"class..?AVPtrToHas4Base@@.PtrToHas4Base" = type { { ptr, i32 } } 
+// OPQ: %"class..?AVPtrToHas5Base@@.PtrToHas5Base" = type { { ptr, i32 } } 
+// OPQ: %"class..?AVPtrToHas6Base@@.PtrToHas6Base" = type { { ptr, i32 } } 
+// OPQ: %"class..?AVPtrToHas7Base@@.PtrToHas7Base" = type { { ptr, i32 } } 
+// OPQ: %"class..?AVHasPMFToIncompleteClass@@.HasPMFToIncompleteClass" = type { { ptr, i32, i32, i32 } }
+// OPQ: %"struct..?AUContainsBoth@@.ContainsBoth" = type 
+// OPQ-SAME: { %"class..?AVHasPMFToCompleteClass@@.HasPMFToCompleteClass", 
+// OPQ-SAME: %"class..?AVHasPMFToIncompleteClass@@.HasPMFToIncompleteClass" }
+// OPQ: %"class..?AVVirtualWithBase@@.VirtualWithBase" = type { ptr }
+// OPQ: %"class..?AVVirtual@@.Virtual" = type { ptr } 
 
 // DTrans info for the above classes:
 // CHECK: !intel.dtrans.types = !{![[INCOMPLETE:[0-9]+]], ![[BOTH:[0-9]+]], 

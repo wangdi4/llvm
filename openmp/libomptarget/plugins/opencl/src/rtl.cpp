@@ -4446,10 +4446,7 @@ int32_t OpenCLProgramTy::buildKernels() {
 
   ProfileIntervalTy EntriesTimer("OffloadEntriesInit", DeviceId);
   EntriesTimer.start();
-  // FIXME: table loading does not work at all on XeLP.
-  // Enable it after CMPLRLIBS-33285 is fixed.
-  if (DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_XeLP &&
-      !loadOffloadTable(NumEntries))
+  if (!loadOffloadTable(NumEntries))
     DP("Warning: could not load offload table.\n");
   EntriesTimer.stop();
 

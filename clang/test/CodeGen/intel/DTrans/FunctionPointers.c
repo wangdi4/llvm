@@ -1,5 +1,6 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,PTR
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -mllvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
 
 struct points {
   int x, y;
@@ -10,9 +11,11 @@ typedef void (*fptr)(long, struct points *);
 struct fptr_test {
   fptr m_func;
 };
-// CHECK: define dso_local void @foo(i64 noundef %x, %struct._ZTS6points.points* noundef "intel_dtrans_func_index"="1" %array) {{.*}}!intel.dtrans.func.type ![[FOO_MD:[0-9]+]]
+// PTR: define dso_local void @foo(i64 noundef %x, %struct._ZTS6points.points* noundef "intel_dtrans_func_index"="1" %array) {{.*}}!intel.dtrans.func.type ![[FOO_MD:[0-9]+]]
+// OPQ: define dso_local void @foo(i64 noundef %x, ptr noundef "intel_dtrans_func_index"="1" %array) {{.*}}!intel.dtrans.func.type ![[FOO_MD:[0-9]+]]
 void foo(long x, struct points *array) {
-  // CHECK: alloca %struct._ZTS6points.points*, align 8, !intel_dtrans_type ![[POINTS_PTR:[0-9]+]]
+  // PTR: alloca %struct._ZTS6points.points*, align 8, !intel_dtrans_type ![[POINTS_PTR:[0-9]+]]
+  // OPQ: alloca ptr, align 8, !intel_dtrans_type ![[POINTS_PTR:[0-9]+]]
 }
 
 int main() {

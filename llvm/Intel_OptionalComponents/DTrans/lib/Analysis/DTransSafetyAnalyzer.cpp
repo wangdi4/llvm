@@ -5480,9 +5480,74 @@ public:
       // Check that the type being returned matches the expected type for the
       // function
       DTransType *PtrDomTy = PTA.getDominantAggregateUsageType(*Info);
-      if (!PtrDomTy)
+
+      if (!PtrDomTy) {
+        // If we don't have a dominant aggregate type, then try checking if
+        // there is a parent type that encapsulates all the declared and used
+        // types through zero element or related types. Also, this type needs
+        // to be the same as the return type. For example:
+        //
+        //   %class.MainClass = type { [4 x i32], i32, [4 x i8]}
+        //   %class.MainClass.base = type { [4 x i32], i32}
+        //
+        //   %class.TestClass.Outer = type { %class.TestClass.Inner}
+        //   %class.TestClass.Inner = type { %class.MainClass.base, [4 x i8] }
+        //
+        //   define dso_local ptr @foo() {
+        //   entry:
+        //     %0 = tail call noalias noundef nonnull ptr @_Znwm(i64 24)
+        //     %1 = getelementptr inbounds %class.TestClass.Outer, ptr %0,
+        //                                                         i64 0, i32 0
+        //     %2 = getelementptr inbounds %class.MainClass, ptr %0, i64 0,
+        //                                                           i32 0
+        //     ret ptr %0
+        //   }
+        //
+        // Assume that the return type of function @foo is a pointer to
+        // %class.TestClass.Outer. The ValueTypeInfo for the return instruction
+        // in @foo() will be the following:
+        //
+        //   LocalPointerInfo: CompletelyAnalyzed
+        //   Declared Types:
+        //     Aliased types:
+        //       %class.MainClass*
+        //       %class.TestClass.Outer*
+        //       i8*
+        //     No element pointees.
+        //   Usage Types:
+        //     Aliased types:
+        //       %class.MainClass*
+        //       %class.TestClass.Outer*
+        //       i8*
+        //     No element pointees.
+        //
+        // The ValueTypeInfo won't have a dominant aggregate type since the
+        // structure %class.MainClass is not part of the zero elements of
+        // %class.TestClass.Outer, but it has a related type that is a
+        // zero element of %class.TestClass.Outer (%class.MainClass.base).
+        // In this case we will collect the declared type that encapsulates
+        // all the declared and usage types (%class.TestClass.Outer) and
+        // then check if it is the same as the return type.
+        //
+        // NOTE: Perhaps this could be relaxed in a future if the return type
+        // is not exactly the parent type collected, but a zero element or
+        // a related type.
+        DTransType *ParentDeclTy = getEnclosingParentDeclType(*Info);
+        if (ParentDeclTy && ParentDeclTy == ExpectedRetDTransTy) {
+          setAllAliasedAndPointeeTypeSafetyData(
+              Info, dtrans::BadCastingForRelatedTypes,
+              "Return type contains related types", &I);
+          setBaseTypeInfoSafetyData(ExpectedRetDTransTy,
+                                    dtrans::BadCastingForRelatedTypes,
+                                    "Return value type encapsulates related "
+                                    "types", &I);
+          return;
+        }
+
         setAllAliasedTypeSafetyData(Info, dtrans::BadCasting,
                                     "Return of ambiguous type", &I);
+
+      }
 
       // If a pointer to an aggregate type is being returned as a generic type
       // (i8* or pointer-sized-int), then the AddressTaken safety bit will be

@@ -750,6 +750,18 @@ Constant *llvm::ConstantFoldLoadFromUniformValue(Constant *C, Type *Ty) {
     return UndefValue::get(Ty);
   if (C->isNullValue() && !Ty->isX86_MMXTy() && !Ty->isX86_AMXTy())
     return Constant::getNullValue(Ty);
+
+#if INTEL_CUSTOMIZATION
+  // Let the target codegen decide how to handle "rounded up" loads
+  // of non-integral values (i9=>i16, i3=>i8, etc.) Assuming sign-extend may be
+  // incorrect.
+  Type *CTy = C->getType();
+  if (CTy->isSized() && Ty->isSized() &&
+      (CTy->getScalarSizeInBits() % 8 != 0) &&
+      Ty->getScalarSizeInBits() > CTy->getScalarSizeInBits())
+    return nullptr;
+#endif // INTEL_CUSTOMIZATION
+
   if (C->isAllOnesValue() &&
       (Ty->isIntOrIntVectorTy() || Ty->isFPOrFPVectorTy()))
     return Constant::getAllOnesValue(Ty);

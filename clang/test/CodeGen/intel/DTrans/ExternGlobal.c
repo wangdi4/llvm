@@ -1,5 +1,6 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,PTR
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -mllvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
 struct arc {
   int id;
   long cost;
@@ -13,8 +14,10 @@ struct basket {
 struct basket *basket;
 extern struct basket **perm_p;
 
-// CHECK: @basket = global %struct._ZTS6basket.basket* null, align 8, !intel_dtrans_type ![[BASKET_PTR:[0-9]+]]
-// CHECK: @perm_p = external global %struct._ZTS6basket.basket**, align 8, !intel_dtrans_type ![[BASKET_PTR_PTR:[0-9]+]]
+// PTR: @basket = global %struct._ZTS6basket.basket* null, align 8, !intel_dtrans_type ![[BASKET_PTR:[0-9]+]]
+// OPQ: @basket = global ptr null, align 8, !intel_dtrans_type ![[BASKET_PTR:[0-9]+]]
+// PTR: @perm_p = external global %struct._ZTS6basket.basket**, align 8, !intel_dtrans_type ![[BASKET_PTR_PTR:[0-9]+]]
+// OPQ: @perm_p = external global ptr, align 8, !intel_dtrans_type ![[BASKET_PTR_PTR:[0-9]+]]
 
 int main() {
   perm_p = &basket;

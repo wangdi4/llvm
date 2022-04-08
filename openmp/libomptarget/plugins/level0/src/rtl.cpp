@@ -6239,11 +6239,8 @@ int32_t LevelZeroProgramTy::buildKernels() {
   Kernels.resize(NumEntries);
 
   auto EnableTargetGlobals = DeviceInfo->Option.Flags.EnableTargetGlobals;
-  if (NumEntries > 0 && EnableTargetGlobals &&
-      DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_XeLP &&
-      !loadOffloadTable(NumEntries)) {
+  if (NumEntries > 0 && EnableTargetGlobals && !loadOffloadTable(NumEntries))
     DP("Warning: could not load offload table.\n");
-  }
 
   // We need to build kernels here before filling the offload entries since we
   // don't know which module contains a specific kernel with a name.

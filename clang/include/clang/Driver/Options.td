@@ -7357,6 +7357,11 @@ def fopenmp_declare_target_scalar_defaultmap_firstprivate
       Flags<[CC1Option]>,
       MarshallingInfoFlag<
           LangOpts<"OpenMPDeclareTargetScalarDefaultMapFirstPrivate">>;
+def fopenmp_declare_target_global_default_no_map
+    : Flag<["-"], "fopenmp-declare-target-global-default-no-map">,
+      Flags<[CC1Option]>,
+      MarshallingInfoFlag<
+          LangOpts<"OpenMPDeclareTargetGlobalDefaultNoMap">>;
 def fenable_variant_function_pointers
     : Flag<["-"], "fenable-variant-function-pointers">,
       HelpText<"Enable variant function pointers.">,

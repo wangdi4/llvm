@@ -1,6 +1,6 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s
-//
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,PTR
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -mllvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
 
 struct arc_t;
 
@@ -27,7 +27,8 @@ int main() {
   return 0;
 }
 
-// CHECK: intel.dtrans.types = !{![[TP2P:[0-9]+]], ![[ARC:[0-9]+]], ![[TD:[0-9]+]]}
+// PTR: intel.dtrans.types = !{![[TP2P:[0-9]+]], ![[ARC:[0-9]+]], ![[TD:[0-9]+]]}
+// OPQ: intel.dtrans.types = !{![[TP2P:[0-9]+]], ![[TD:[0-9]+]], ![[ARC:[0-9]+]]}
 
 // CHECK: ![[TP2P]] = !{!"S", %struct._ZTS12test_ptr2ptr.test_ptr2ptr zeroinitializer, i32 4, ![[ARC_PTR:[0-9]+]], ![[SELF_PTR:[0-9]+]], ![[TD_PTR_PTR:[0-9]+]], ![[STRUCT:[0-9]+]]}
 // CHECK: ![[ARC_PTR]] = !{%struct._ZTS5arc_t.arc_t zeroinitializer, i32 1}
@@ -35,7 +36,7 @@ int main() {
 // CHECK: ![[TD_PTR_PTR]] = !{%struct._ZTS9test_data.test_data zeroinitializer, i32 2}
 // CHECK: ![[STRUCT]] = !{%struct._ZTS9test_data.test_data zeroinitializer, i32 0}
 
-// CHECK: ![[ARC]] = !{!"S", %struct._ZTS5arc_t.arc_t zeroinitializer, i32 -1}
+// CHECK-DAG: ![[ARC]] = !{!"S", %struct._ZTS5arc_t.arc_t zeroinitializer, i32 -1}
+// CHECK-DAG: ![[TD]] = !{!"S", %struct._ZTS9test_data.test_data zeroinitializer, i32 3, ![[INT:[0-9]+]], ![[INT]], ![[INT]]}
 
-// CHECK: ![[TD]] = !{!"S", %struct._ZTS9test_data.test_data zeroinitializer, i32 3, ![[INT:[0-9]+]], ![[INT]], ![[INT]]}
-// CHECK: ![[INT]] = !{i32 0, i32 0}
+// CHECK-DAG: ![[INT]] = !{i32 0, i32 0}

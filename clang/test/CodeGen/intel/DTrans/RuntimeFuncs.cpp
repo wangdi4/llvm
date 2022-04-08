@@ -1,29 +1,39 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -fexceptions -fcxx-exceptions -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s -check-prefixes=CHECK,LIN
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-windows-pc -fexceptions -fcxx-exceptions -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s -check-prefixes=CHECK,WIN
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -fexceptions -fcxx-exceptions -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s -check-prefixes=CHECK,PTR,LIN,LIN-PTR
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-windows-pc -fexceptions -fcxx-exceptions -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s -check-prefixes=CHECK,PTR,WIN,WIN-PTR
+
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -fexceptions -fcxx-exceptions -emit-dtrans-info -fintel-compatibility -emit-llvm -mllvm -opaque-pointers %s -o - | FileCheck %s -check-prefixes=CHECK,OPQ,LIN,LIN-OPQ
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-windows-pc -fexceptions -fcxx-exceptions -emit-dtrans-info -fintel-compatibility -emit-llvm -mllvm -opaque-pointers %s -o - | FileCheck %s -check-prefixes=CHECK,OPQ,WIN,WIN-OPQ
 
 // Validate that 'runtime functions' get the proper DTRans metadata generated
 // for them, so we don't pessimize in optimization passes.
 
-// LIN: @IP = external global i32*, align 8, !intel_dtrans_type ![[INT_PTR:[0-9]+]]
-// WIN: @"?IP@@3PEAHEA" = external dso_local global i32*, align 8, !intel_dtrans_type ![[INT_PTR:[0-9]+]]
+// LIN-PTR: @IP = external global i32*, align 8, !intel_dtrans_type ![[INT_PTR:[0-9]+]]
+// LIN-OPQ: @IP = external global ptr, align 8, !intel_dtrans_type ![[INT_PTR:[0-9]+]]
+// WIN-PTR: @"?IP@@3PEAHEA" = external dso_local global i32*, align 8, !intel_dtrans_type ![[INT_PTR:[0-9]+]]
+// WIN-OPQ: @"?IP@@3PEAHEA" = external dso_local global ptr, align 8, !intel_dtrans_type ![[INT_PTR:[0-9]+]]
 extern int *IP;
 
 // LIN: @_ZZ11static_initE1i = {{.+}}!intel_dtrans_type ![[CHAR_PTR:[0-9]+]]
 // WIN: @"?i@?1??static_init@@9@4PEADEA" = {{.+}}!intel_dtrans_type ![[CHAR_PTR:[0-9]+]]
 
-// CHECK: define dso_local "intel_dtrans_func_index"="1" i32* @callee(){{.+}}!intel.dtrans.func.type ![[CALLEE:[0-9]+]]
+// PTR: define dso_local "intel_dtrans_func_index"="1" i32* @callee(){{.+}}!intel.dtrans.func.type ![[CALLEE:[0-9]+]]
+// OPQ: define dso_local "intel_dtrans_func_index"="1" ptr @callee(){{.+}}!intel.dtrans.func.type ![[CALLEE:[0-9]+]]
 extern "C" __attribute__((noinline)) int *callee() {
   if (IP)
     throw 0;
   return IP;
 }
 
-// LIN: declare !intel.dtrans.func.type ![[ALLOC_EXCEPT:[0-9]+]] "intel_dtrans_func_index"="1" i8* @__cxa_allocate_exception(i64)
-// LIN: declare !intel.dtrans.func.type ![[THROW:[0-9]+]] void @__cxa_throw(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i8* "intel_dtrans_func_index"="3")
-// WIN: declare !intel.dtrans.func.type ![[THROW:[0-9]+]] dso_local void @_CxxThrowException(i8* "intel_dtrans_func_index"="1", %eh.ThrowInfo* "intel_dtrans_func_index"="2")
+// LIN-PTR: declare !intel.dtrans.func.type ![[ALLOC_EXCEPT:[0-9]+]] "intel_dtrans_func_index"="1" i8* @__cxa_allocate_exception(i64)
+// LIN-OPQ: declare !intel.dtrans.func.type ![[ALLOC_EXCEPT:[0-9]+]] "intel_dtrans_func_index"="1" ptr @__cxa_allocate_exception(i64)
+// LIN-PTR: declare !intel.dtrans.func.type ![[THROW:[0-9]+]] void @__cxa_throw(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i8* "intel_dtrans_func_index"="3")
+// LIN-OPQ: declare !intel.dtrans.func.type ![[THROW:[0-9]+]] void @__cxa_throw(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", ptr "intel_dtrans_func_index"="3")
+// WIN-PTR: declare !intel.dtrans.func.type ![[THROW:[0-9]+]] dso_local void @_CxxThrowException(i8* "intel_dtrans_func_index"="1", %eh.ThrowInfo* "intel_dtrans_func_index"="2")
+// WIN-OPQ: declare !intel.dtrans.func.type ![[THROW:[0-9]+]] dso_local void @_CxxThrowException(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2")
 
-// CHECK: define dso_local "intel_dtrans_func_index"="1" i32* @caller(){{.+}}!intel.dtrans.func.type ![[CALLER:[0-9]+]]
+// PTR: define dso_local "intel_dtrans_func_index"="1" i32* @caller(){{.+}}!intel.dtrans.func.type ![[CALLER:[0-9]+]]
+// OPQ: define dso_local "intel_dtrans_func_index"="1" ptr @caller(){{.+}}!intel.dtrans.func.type ![[CALLER:[0-9]+]]
 extern "C" int *caller(void) {
   try {
     int *p = callee();
@@ -37,7 +47,8 @@ extern "C" int *caller(void) {
 }
 
 // Windows uses the catchpad stuff, and just calls _CxxThrowException for rethrow.
-// LIN: declare !intel.dtrans.func.type ![[BEGIN_CATCH:[0-9]+]] "intel_dtrans_func_index"="1" i8* @__cxa_begin_catch(i8* "intel_dtrans_func_index"="2")
+// LIN-PTR: declare !intel.dtrans.func.type ![[BEGIN_CATCH:[0-9]+]] "intel_dtrans_func_index"="1" i8* @__cxa_begin_catch(i8* "intel_dtrans_func_index"="2")
+// LIN-OPQ: declare !intel.dtrans.func.type ![[BEGIN_CATCH:[0-9]+]] "intel_dtrans_func_index"="1" ptr @__cxa_begin_catch(ptr "intel_dtrans_func_index"="2")
 // LIN: declare void @__cxa_end_catch()
 // LIN: declare void @__cxa_rethrow()
 
@@ -46,13 +57,16 @@ struct A {
 };
 struct B : A {};
 
-// CHECK: define dso_local "intel_dtrans_func_index"="1" %{{\"?}}struct.{{.+}}.B{{\"?}}* @calls_dyn_cast(%{{\"?}}struct.{{.+}}.A{{\"?}}* noundef "intel_dtrans_func_index"="2" %{{.+}}){{.+}}!intel.dtrans.func.type ![[CALLS_DYN_CAST:[0-9]+]]
+// PTR: define dso_local "intel_dtrans_func_index"="1" %{{\"?}}struct.{{.+}}.B{{\"?}}* @calls_dyn_cast(%{{\"?}}struct.{{.+}}.A{{\"?}}* noundef "intel_dtrans_func_index"="2" %{{.+}}){{.+}}!intel.dtrans.func.type ![[CALLS_DYN_CAST:[0-9]+]]
+// OPQ: define dso_local "intel_dtrans_func_index"="1" ptr @calls_dyn_cast(ptr noundef "intel_dtrans_func_index"="2" %{{.+}}){{.+}}!intel.dtrans.func.type ![[CALLS_DYN_CAST:[0-9]+]]
 
 extern "C" B* calls_dyn_cast(A* a) {
   return dynamic_cast<B*>(a);
 }
-// LIN: declare !intel.dtrans.func.type ![[DYN_CAST:[0-9]+]] "intel_dtrans_func_index"="1" i8* @__dynamic_cast(i8* "intel_dtrans_func_index"="2", i8* "intel_dtrans_func_index"="3", i8* "intel_dtrans_func_index"="4", i64)
-// WIN: declare !intel.dtrans.func.type ![[DYN_CAST:[0-9]+]] dso_local "intel_dtrans_func_index"="1" i8* @__RTDynamicCast(i8* "intel_dtrans_func_index"="2", i32, i8* "intel_dtrans_func_index"="3", i8* "intel_dtrans_func_index"="4", i32)
+// LIN-PTR: declare !intel.dtrans.func.type ![[DYN_CAST:[0-9]+]] "intel_dtrans_func_index"="1" i8* @__dynamic_cast(i8* "intel_dtrans_func_index"="2", i8* "intel_dtrans_func_index"="3", i8* "intel_dtrans_func_index"="4", i64)
+// LIN-OPQ: declare !intel.dtrans.func.type ![[DYN_CAST:[0-9]+]] "intel_dtrans_func_index"="1" ptr @__dynamic_cast(ptr "intel_dtrans_func_index"="2", ptr "intel_dtrans_func_index"="3", ptr "intel_dtrans_func_index"="4", i64)
+// WIN-PTR: declare !intel.dtrans.func.type ![[DYN_CAST:[0-9]+]] dso_local "intel_dtrans_func_index"="1" i8* @__RTDynamicCast(i8* "intel_dtrans_func_index"="2", i32, i8* "intel_dtrans_func_index"="3", i8* "intel_dtrans_func_index"="4", i32)
+// WIN-OPQ: declare !intel.dtrans.func.type ![[DYN_CAST:[0-9]+]] dso_local "intel_dtrans_func_index"="1" ptr @__RTDynamicCast(ptr "intel_dtrans_func_index"="2", i32, ptr "intel_dtrans_func_index"="3", ptr "intel_dtrans_func_index"="4", i32)
 
 extern "C" char *get_i();
 
@@ -61,16 +75,23 @@ extern "C" void static_init() {
   static char *i = get_i();
 }
 
-// LIN: declare !intel.dtrans.func.type ![[GUARD_ACQ:[0-9]+]] i32 @__cxa_guard_acquire(i64* "intel_dtrans_func_index"="1")
-// WIN: declare !intel.dtrans.func.type ![[GUARD_ACQ:[0-9]+]] dso_local void @_Init_thread_header(i32* "intel_dtrans_func_index"="1")
+// LIN-PTR: declare !intel.dtrans.func.type ![[GUARD_ACQ:[0-9]+]] i32 @__cxa_guard_acquire(i64* "intel_dtrans_func_index"="1")
+// LIN-OPQ: declare !intel.dtrans.func.type ![[GUARD_ACQ:[0-9]+]] i32 @__cxa_guard_acquire(ptr "intel_dtrans_func_index"="1")
+// WIN-PTR: declare !intel.dtrans.func.type ![[GUARD_ACQ:[0-9]+]] dso_local void @_Init_thread_header(i32* "intel_dtrans_func_index"="1")
+// WIN-OPQ: declare !intel.dtrans.func.type ![[GUARD_ACQ:[0-9]+]] dso_local void @_Init_thread_header(ptr "intel_dtrans_func_index"="1")
 
-// CHECK: declare !intel.dtrans.func.type ![[GET_IV:[0-9]+]] {{.*}}"intel_dtrans_func_index"="1" i8* @get_i()
+// PTR: declare !intel.dtrans.func.type ![[GET_IV:[0-9]+]] {{.*}}"intel_dtrans_func_index"="1" i8* @get_i()
+// OPQ: declare !intel.dtrans.func.type ![[GET_IV:[0-9]+]] {{.*}}"intel_dtrans_func_index"="1" ptr @get_i()
 
-// LIN: declare !intel.dtrans.func.type ![[GUARD_ABORT:[0-9]+]] void @__cxa_guard_abort(i64* "intel_dtrans_func_index"="1")
-// WIN: declare !intel.dtrans.func.type ![[GUARD_ABORT:[0-9]+]] dso_local void @_Init_thread_abort(i32* "intel_dtrans_func_index"="1")
+// LIN-PTR: declare !intel.dtrans.func.type ![[GUARD_ABORT:[0-9]+]] void @__cxa_guard_abort(i64* "intel_dtrans_func_index"="1")
+// LIN-OPQ: declare !intel.dtrans.func.type ![[GUARD_ABORT:[0-9]+]] void @__cxa_guard_abort(ptr "intel_dtrans_func_index"="1")
+// WIN-PTR: declare !intel.dtrans.func.type ![[GUARD_ABORT:[0-9]+]] dso_local void @_Init_thread_abort(i32* "intel_dtrans_func_index"="1")
+// WIN-OPQ: declare !intel.dtrans.func.type ![[GUARD_ABORT:[0-9]+]] dso_local void @_Init_thread_abort(ptr "intel_dtrans_func_index"="1")
 
-// LIN: declare !intel.dtrans.func.type ![[GUARD_REL:[0-9]+]] void @__cxa_guard_release(i64* "intel_dtrans_func_index"="1")
-// WIN: declare !intel.dtrans.func.type ![[GUARD_REL:[0-9]+]] dso_local void @_Init_thread_footer(i32* "intel_dtrans_func_index"="1")
+// LIN-PTR: declare !intel.dtrans.func.type ![[GUARD_REL:[0-9]+]] void @__cxa_guard_release(i64* "intel_dtrans_func_index"="1")
+// LIN-OPQ: declare !intel.dtrans.func.type ![[GUARD_REL:[0-9]+]] void @__cxa_guard_release(ptr "intel_dtrans_func_index"="1")
+// WIN-PTR: declare !intel.dtrans.func.type ![[GUARD_REL:[0-9]+]] dso_local void @_Init_thread_footer(i32* "intel_dtrans_func_index"="1")
+// WIN-OPQ: declare !intel.dtrans.func.type ![[GUARD_REL:[0-9]+]] dso_local void @_Init_thread_footer(ptr "intel_dtrans_func_index"="1")
 
 // LIN: !intel.dtrans.types = !{![[STRUCTB:[0-9]+]], ![[STRUCTA:[0-9]+]]}
 // WIN: !intel.dtrans.types = !{![[EH_THROWINFO:[0-9]+]], ![[STRUCTB:[0-9]+]], ![[STRUCTA:[0-9]+]]}

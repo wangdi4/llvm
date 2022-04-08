@@ -1145,6 +1145,10 @@ public:
   void print(raw_ostream &OS) const;
   void dump() const;
 
+#if INTEL_CUSTOMIZATION
+  TargetTransformInfo::LSRCost& getLSRCost() { return C; }
+#endif // INTEL_CUSTOMIZATION
+
 private:
   void RateRegister(const Formula &F, const SCEV *Reg,
                     SmallPtrSetImpl<const SCEV *> &Regs);
@@ -5185,6 +5189,14 @@ void LSRInstance::SolveRecurse(SmallVectorImpl<const Formula *> &Solution,
 
         SolutionCost = NewCost;
         Solution = Workspace;
+#if INTEL_CUSTOMIZATION
+        if (TTI.isLSRCostExceedTTIRegNum(SolutionCost.getLSRCost())) {
+          LLVM_DEBUG(dbgs() << "LSR: Solution's LSR cost is exceeding Target "
+                              "supports, abandoned the solution.\n");
+          SolutionCost.Lose();
+          Solution.clear();
+        }
+#endif // INTEL_CUSTOMIZATION
       }
       Workspace.pop_back();
     }

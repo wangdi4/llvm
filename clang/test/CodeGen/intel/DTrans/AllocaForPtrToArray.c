@@ -1,10 +1,14 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,PTRS
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -mllvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
 
-// CHECK: define dso_local void @test(i8* noundef "intel_dtrans_func_index"="1" %buf) {{.*}}!intel.dtrans.func.type ![[TEST_MD:[0-9]+]]
+// PTRS: define dso_local void @test(i8* noundef "intel_dtrans_func_index"="1" %buf) {{.*}}!intel.dtrans.func.type ![[TEST_MD:[0-9]+]]
+// OPQ: define dso_local void @test(ptr noundef "intel_dtrans_func_index"="1" %buf) {{.*}}!intel.dtrans.func.type ![[TEST_MD:[0-9]+]]
 void test(void *buf) {
-  // CHECK: alloca i8*, align 8, !intel_dtrans_type ![[VOID_PTR:[0-9]+]]
-  // CHECK: alloca [4 x i32]*, align 8, !intel_dtrans_type ![[ARRAY_PTR:[0-9]+]]
+  // PTRS: alloca i8*, align 8, !intel_dtrans_type ![[VOID_PTR:[0-9]+]]
+  // OPQ: alloca ptr, align 8, !intel_dtrans_type ![[VOID_PTR:[0-9]+]]
+  // PTRS: alloca [4 x i32]*, align 8, !intel_dtrans_type ![[ARRAY_PTR:[0-9]+]]
+  // OPQ: alloca ptr, align 8, !intel_dtrans_type ![[ARRAY_PTR:[0-9]+]]
   int (*sum0)[4] = buf;
   }
 

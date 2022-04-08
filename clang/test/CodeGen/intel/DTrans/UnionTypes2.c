@@ -1,5 +1,6 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,PTR
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -mllvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
 struct custom_op;
 struct op;
 
@@ -14,7 +15,8 @@ typedef union {
   XOP *xop_ptr;
 } XOPRETANY;
 
-// CHECK: define dso_local "intel_dtrans_func_index"="1" i8* @Perl_custom_op_get_field(%struct._ZTS2op.op* noundef "intel_dtrans_func_index"="2" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[PERL_FUNC_MD:[0-9]+]]
+// PTR: define dso_local "intel_dtrans_func_index"="1" i8* @Perl_custom_op_get_field(%struct._ZTS2op.op* noundef "intel_dtrans_func_index"="2" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[PERL_FUNC_MD:[0-9]+]]
+// OPQ: define dso_local "intel_dtrans_func_index"="1" ptr @Perl_custom_op_get_field(ptr noundef "intel_dtrans_func_index"="2" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[PERL_FUNC_MD:[0-9]+]]
 XOPRETANY Perl_custom_op_get_field(const OP *o) {
   XOPRETANY local;
   local.xop_class = 1;
@@ -30,7 +32,8 @@ typedef union {
   Complex a;
 } ComplexRep;
 
-// CHECK: define dso_local "intel_dtrans_func_index"="1" { i64, %struct._ZTS2op.op* } @f() {{.*}}!intel.dtrans.func.type ![[F_FUNC_MD:[0-9]+]]
+// PTR: define dso_local "intel_dtrans_func_index"="1" { i64, %struct._ZTS2op.op* } @f() {{.*}}!intel.dtrans.func.type ![[F_FUNC_MD:[0-9]+]]
+// OPQ: define dso_local "intel_dtrans_func_index"="1" { i64, ptr } @f() {{.*}}!intel.dtrans.func.type ![[F_FUNC_MD:[0-9]+]]
 ComplexRep f() {
   ComplexRep r = {};
   return r;

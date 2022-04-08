@@ -570,6 +570,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnCPUAndFPGA) {
       SPIRVOpCapability, spv::CapabilityLongConstantCompositeINTEL,
       SPIRVOpCapability, spv::internal::CapabilityBfloat16ConversionINTEL,
       SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
+      SPIRVOpCapability, spv::CapabilityGroupUniformArithmeticKHR,
 
       // Memory model
       SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL

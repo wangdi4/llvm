@@ -1377,9 +1377,19 @@ void LoopVectorizationPlanner::runInitialVecSpecificTransforms(
 
 void LoopVectorizationPlanner::emitVPEntityInstrs(VPlanVector *Plan) {
   VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
+  OptReportStatsTracker &OptRptStats = Plan->getOptRptStatsForLoop(MainLoop);
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
   VPBuilder VPIRBuilder;
   LE->insertVPInstructions(VPIRBuilder);
+
+  if (LE->hasReduction()) {
+    if (WRLp && WRLp->isOmpSIMDLoop())
+      // Add remark Loop has SIMD reduction
+      OptRptStats.ReductionInstRemarks.emplace_back(25588, "");
+    else
+      // Add remark Loop has reduction
+      OptRptStats.ReductionInstRemarks.emplace_back(25587, "");
+  }
 
   VPLAN_DUMP(VPEntityInstructionsDumpControl, Plan);
 }
