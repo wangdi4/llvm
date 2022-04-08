@@ -214,11 +214,6 @@ public:
     virtual bool useLLDJITForExecution(llvm::Module* pModule) const = 0;
     virtual bool isObjectFromLLDJIT(llvm::StringRef ObjBuf) const = 0;
 
-    bool OptLTO() const {
-      return m_passManagerType == PM_LTO_LEGACY ||
-             m_passManagerType == PM_LTO_NEW;
-    }
-
 protected:
     SmallVector<std::unique_ptr<Module>, 2> LoadBuiltinModules(BuiltinLibrary *
                                                                pLibrary);

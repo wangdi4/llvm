@@ -416,12 +416,12 @@ static void populatePassesPostFailCheck(
     const intel::OptimizerConfig *pConfig,
     std::vector<std::string> &UndefinedExternals, bool isOcl20,
     bool isFpgaEmulator, bool isEyeQEmulator, bool UnrollLoops, bool UseVplan,
-    bool IsSPIRV, bool IsSYCL, bool IsOMP, DebuggingServiceType debugType) {
+    bool IsSPIRV, bool IsSYCL, bool IsOMP, DebuggingServiceType debugType,
+    bool UseTLSGlobals) {
   bool isProfiling = pConfig->GetProfilingFlag();
   bool HasGatherScatter = pConfig->GetCpuId()->HasGatherScatter();
   // Tune the maximum size of the basic block for memory dependency analysis
   // utilized by GVN.
-  bool UseTLSGlobals = (debugType == intel::Native) && !isEyeQEmulator;
   VectorVariant::ISAClass ISA =
       VectorizerCommon::getCPUIdISA(pConfig->GetCpuId());
 
@@ -843,9 +843,7 @@ OptimizerOCL::~OptimizerOCL() {}
 OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
                            llvm::SmallVector<llvm::Module *, 2> &RtlModules,
                            const intel::OptimizerConfig *pConfig)
-    : Optimizer(pModule, RtlModules, pConfig),
-      m_IsFpgaEmulator(pConfig->isFpgaEmulator()),
-      m_IsEyeQEmulator(pConfig->isEyeQEmulator()) {
+    : Optimizer(pModule, RtlModules, pConfig) {
   TargetMachine* targetMachine = pConfig->GetTargetMachine();
   assert(targetMachine && "Uninitialized TargetMachine!");
 
@@ -893,7 +891,7 @@ OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
                               m_undefinedExternalFunctions, m_IsOcl20,
                               m_IsFpgaEmulator, m_IsEyeQEmulator, UnrollLoops,
                               EnableVPlan, m_IsSPIRV, m_IsSYCL, m_IsOMP,
-                              m_debugType);
+                              m_debugType, m_UseTLSGlobals);
 }
 
 /// Customized diagnostic handler to be registered to LLVMContext before running
@@ -953,13 +951,16 @@ Optimizer::Optimizer(llvm::Module *M,
     : m_M(M), m_RtlModules(RtlModules), Config(Config),
       m_IsSPIRV(CompilationUtils::generatedFromSPIRV(*M)),
       m_IsSYCL(DPCPPKernelCompilationUtils::isGeneratedFromOCLCPP(*M)),
-      m_IsOMP(DPCPPKernelCompilationUtils::isGeneratedFromOMP(*M)) {
+      m_IsOMP(DPCPPKernelCompilationUtils::isGeneratedFromOMP(*M)),
+      m_IsFpgaEmulator(Config->isFpgaEmulator()),
+      m_IsEyeQEmulator(Config->isEyeQEmulator()) {
   assert(Config && Config->GetCpuId() && "Invalid OptimizerConfig");
   CPUPrefix = Config->GetCpuId()->GetCPUPrefix();
   m_IsOcl20 = CompilationUtils::fetchCLVersionFromMetadata(*M) >=
               OclVersion::CL_VER_2_0;
   m_debugType = getDebuggingServiceType(Config->GetDebugInfoFlag(), M,
                                         Config->GetUseNativeDebuggerFlag());
+  m_UseTLSGlobals = (m_debugType == intel::Native) && !m_IsEyeQEmulator;
 }
 
 bool Optimizer::hasUndefinedExternals() const {

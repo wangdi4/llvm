@@ -1,5 +1,5 @@
-; RUN: SATest -BUILD -pass-manager-type=lto-legacy -debug-passes=Structure -config=%S/pipeline_lto.tst.cfg 2>&1 | FileCheck %s
-; RUN: SATest -BUILD -debug-passes=Structure -config=%S/pipeline_lto.tst.cfg 2>&1 | FileCheck %s
+; RUN: SATest -BUILD -pass-manager-type=lto-legacy -debug-passes=Structure -config=%S/pipeline_lto_g.tst.cfg 2>&1 | FileCheck %s
+; RUN: SATest -BUILD -debug-passes=Structure -config=%S/pipeline_lto_g.tst.cfg 2>&1 | FileCheck %s
 ; TODO:
 ;   check CoerceWin64Types pass when SATest is enabled on Windows.
 
@@ -77,10 +77,10 @@
 ; CHECK-NEXT:         Dominance Frontier Construction
 ; CHECK-NEXT:     Intel Kernel DataPerValue Analysis
 ; CHECK-NEXT:     Intel Kernel Barrier
-; CHECK:          ImplicitArgsAnalysisLegacy
 ; CHECK:          LocalBufferAnalysisLegacy
-; CHECK-NEXT:     AddImplicitArgsLegacy
-; CHECK-NEXT:     ResolveWICallLegacy
+; CHECK:          ImplicitArgsAnalysisLegacy
+; CHECK-NEXT:     AddTLSGlobalsLegacy
+; CHECK:          ResolveWICallLegacy
 ; CHECK:          CallGraph Construction
 ; CHECK-NEXT:     LocalBufferAnalysisLegacy
 ; CHECK-NEXT:     LocalBuffersLegacy

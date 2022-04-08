@@ -230,9 +230,15 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
 
   addBarrierPasses(OptLevel, MPM);
 
-  MPM.add(createAddImplicitArgsLegacyPass());
-  MPM.add(createResolveWICallLegacyPass(false, false));
-  MPM.add(createLocalBuffersLegacyPass(/*UseTLSGlobals*/ false));
+  // The following three passes (AddImplicitArgs/AddImplicitArgs,
+  // ResolveWICall, LocalBuffers) must run before BuiltinImportLegacyPass.
+  if (m_UseTLSGlobals)
+    MPM.add(createAddTLSGlobalsLegacyPass());
+  else
+    MPM.add(createAddImplicitArgsLegacyPass());
+  MPM.add(createResolveWICallLegacyPass(Config->GetUniformWGSize(),
+                                        m_UseTLSGlobals));
+  MPM.add(createLocalBuffersLegacyPass(m_UseTLSGlobals));
   MPM.add(createBuiltinImportLegacyPass(m_RtlModules, CPUPrefix));
   if (OptLevel > 0)
     MPM.add(createGlobalDCEPass());
@@ -268,7 +274,7 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
   // this pass itself won't generate much suboptimal codes.
   // Therefore, we basically should run the most optimization passes
   // (especially AliasAnalysis-related) before the PrepareKernelArgs pass.
-  MPM.add(createPrepareKernelArgsLegacyPass(false));
+  MPM.add(createPrepareKernelArgsLegacyPass(m_UseTLSGlobals));
 
   if (OptLevel > 0) {
     // These passes come after PrepareKernelArgsLegacyPass to eliminate the
@@ -303,7 +309,7 @@ void OptimizerLTOLegacyPM::addBarrierPasses(unsigned OptLevel, legacy::PassManag
   if (OptLevel > 0)
     MPM.add(createReduceCrossBarrierValuesLegacyPass());
   MPM.add(createKernelBarrierLegacyPass(m_debugType == intel::Native,
-                                        /*UseTLSGlobals*/ false));
+                                        m_UseTLSGlobals));
 }
 
 void OptimizerLTOLegacyPM::registerLastPasses(PassManagerBuilder &PMBuilder) {

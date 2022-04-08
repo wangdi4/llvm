@@ -122,7 +122,11 @@ protected:
   /// Indicates whether the module comes from OpenMP.
   bool m_IsOMP;
 
+  bool m_IsFpgaEmulator;
+  bool m_IsEyeQEmulator;
+
   intel::DebuggingServiceType m_debugType;
+  bool m_UseTLSGlobals;
 };
 
 /**
@@ -145,8 +149,6 @@ public:
 private:
   // hold the collection of passes
   llvm::legacy::PassManager m_PM;
-  bool m_IsFpgaEmulator;
-  bool m_IsEyeQEmulator;
 };
 
 } // namespace DeviceBackend

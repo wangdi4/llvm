@@ -1,6 +1,5 @@
-; RUN: SATest -BUILD -tsize=1 -pass-manager-type=lto-new -debug-passes=Structure -config=%S/pipeline_lto.tst.cfg 2>&1 | FileCheck %s
+; RUN: SATest -BUILD -pass-manager-type=lto-new -debug-passes=Structure -config=%S/pipeline_lto_g.tst.cfg 2>&1 | FileCheck %s
 ; TODO:
-;   check VPlan driver pass is not run when VPlan is enabled in buildPerModuleDefaultPipeline.
 ;   check CoerceWin64Types pass when SATest is enabled on Windows.
 
 ; CHECK:      Running pass: DPCPPPreprocessSPIRVFriendlyIRPass
@@ -17,6 +16,7 @@
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
 ; CHECK:      Running pass: DuplicateCalledKernels
 ; CHECK-NEXT: Running pass: InternalizeNonKernelFuncPass
+
 #ifndef NDEBUG
 ; CHECK-NEXT: Invalidating analysis: VerifierAnalysis
 #endif // #ifndef NDEBUG
@@ -35,13 +35,13 @@
 
 ; CHECK:      Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: DPCPPKernelWGLoopCreatorPass
+; CHECK:      Running pass: LoopUnrollPass
 ; CHECK:      Running pass: ResolveSubGroupWICallPass
 
 ; CHECK:      Running pass: PhiCanonicalization
-; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
 ; CHECK-NEXT: Running pass: Intel Kernel RedundantPhiNode
-; CHECK-NEXT: Running pass: GroupBuiltin
+; CHECK:      Running pass: GroupBuiltinPass
 ; CHECK-NEXT: Running pass: Intel Kernel BarrierInFunction
 ; CHECK:      Running pass: ResolveSubGroupWICallPass
 ; CHECK:      Running pass: Intel Kernel SplitBBonBarrier
@@ -54,9 +54,9 @@
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-NEXT: Running pass: Intel Kernel Barrier
 
-; CHECK:      Running pass: AddImplicitArgsPass
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
+; CHECK:      Running pass: AddTLSGlobalsPass
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
+; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
 ; CHECK:      Running pass: ResolveWICallPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
