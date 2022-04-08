@@ -125,6 +125,9 @@ LANGOPT(OpenMPTargetSimd       , 1, 0,
 LANGOPT(
     OpenMPDeclareTargetScalarDefaultMapFirstPrivate	, 1, 0,
     "Specify defaultmap for scalar variable with declare target attribute")
+LANGOPT(
+    OpenMPDeclareTargetGlobalDefaultNoMap	, 1, 0,
+    "Specify defaultmap for Global variable with declare target attribute")
 
 LANGOPT(KeepImportTemps        , 1, 0,
         "Keep temporary files needed for #import processing")

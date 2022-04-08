@@ -826,6 +826,9 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
   case ICK_normalized_ub:
     CSB.add("QUAL.OMP.NORMALIZED.UB");
     break;
+  case ICK_livein:
+    CSB.add("QUAL.OMP.LIVEIN");
+    break;
   default:
     llvm_unreachable("Clause not allowed");
   }
@@ -976,7 +979,12 @@ void OpenMPLateOutliner::addImplicitClauses() {
       // Normally all variables used in a target region are captured and
       // produce map clauses. We've disabled the captures for non-pointer
       // scalar variables so they will become firstprivate instead.
-      emitImplicit(VD, ICK_firstprivate);
+      if (OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD) &&
+          VD->hasGlobalStorage() &&
+          CGF.getLangOpts().OpenMPDeclareTargetGlobalDefaultNoMap)
+        emitImplicit(VD, ICK_livein);
+      else
+        emitImplicit(VD, ICK_firstprivate);
 #if INTEL_CUSTOMIZATION
       if (OptRepFPMapInfos.find(VD) != OptRepFPMapInfos.end())
         emitRemark(OptRepFPMapInfos[VD]);

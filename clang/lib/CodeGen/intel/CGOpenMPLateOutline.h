@@ -215,6 +215,7 @@ class OpenMPLateOutliner {
     ICK_normalized_ub,
     // A firstprivate specified with an implicit OMPFirstprivateClause.
     ICK_specified_firstprivate,
+    ICK_livein,
     ICK_unknown
   };
 

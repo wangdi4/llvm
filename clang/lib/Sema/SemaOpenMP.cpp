@@ -2228,16 +2228,25 @@ bool Sema::isOpenMPTargetLastPrivate(ValueDecl *D) {
 
   auto *VD = dyn_cast<VarDecl>(D);
 
-  if (!VD || !VD->getType()->isScalarType() || VD->getType()->isPointerType())
+  bool IsMapVar =
+      !VD || !VD->getType()->isScalarType() || VD->getType()->isPointerType();
+  if (VD && OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD))
+    if (VD->hasGlobalStorage() &&
+        getLangOpts().OpenMPDeclareTargetGlobalDefaultNoMap) {
+      // emit livein clause for global variable with target declare with
+      // no-map option
+      IsMapVar = false;
+    } else if (!IsMapVar) {
+      // emit map clause for scalar variable with target declare attribute,
+      // except for device_type(nohost)
+      Optional<OMPDeclareTargetDeclAttr::DevTypeTy> DevTy =
+          OMPDeclareTargetDeclAttr::getDeviceType(VD);
+      if (!DevTy || *DevTy != OMPDeclareTargetDeclAttr::DT_NoHost)
+        if (!getLangOpts().OpenMPDeclareTargetScalarDefaultMapFirstPrivate)
+          IsMapVar = true;
+    }
+  if (IsMapVar)
     return false;
-
-  if (OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD)) {
-    Optional<OMPDeclareTargetDeclAttr::DevTypeTy> DevTy =
-        OMPDeclareTargetDeclAttr::getDeviceType(VD);
-    if (!DevTy || *DevTy != OMPDeclareTargetDeclAttr::DT_NoHost)
-      if (!LangOpts.OpenMPDeclareTargetScalarDefaultMapFirstPrivate)
-        return false;
-  }
 
   if (DSAStack->getCurrentDirective() != OMPD_unknown &&
       isInOpenMPTargetExecutionDirective()) {
