@@ -16,6 +16,8 @@ target triple = "x86_64-unknown-linux-gnu"
 %TestStruct.1 = type { [16 x i8], [16 x i8], i32, %DummyStruct* }
 @globArray = internal global [1000 x %TestStruct] zeroinitializer
 
+; Check that the GEP in @callback wasn't changed when opaque is false.
+; (opaque pointers: the 0 0 GEP is deleted)
 define internal void @callback(i8* %ID, [1000 x %TestStruct.1]* %Arr) {
 ; NOOPAQUE-LABEL: @callback(
 ; NOOPAQUE-NEXT:  entry:
@@ -31,6 +33,7 @@ entry:
   ret void
 }
 
+; Check that the parameter in the call site for @callback wasn't updated
 define internal void @foo(%TestStruct.1* %Arr) {
 ; NOOPAQUE-LABEL: @foo(
 ; NOOPAQUE-NEXT:  entry:
@@ -68,10 +71,3 @@ declare !callback !0 void @broker(i32, void (i8*, ...)*, ...)
 !0 = !{!1}
 !1 = !{i64 1, i64 -1, i1 true}
 
-; Check that the GEP in @callback wasn't changed
-; NOOPAQUE: %dummy = getelementptr [1000 x %TestStruct.1], [1000 x %TestStruct.1]* %Arr, i64 0, i64 0
-; (opaque pointers: the 0 0 GEP is deleted)
-
-; Check that the parameter in the call site for @callback wasn't updated
-; NOOPAQUE: call void (i32, void (i8*, ...)*, ...) @broker(i32 3, void (i8*, ...)* bitcast (void (i8*, [1000 x %TestStruct.1]*)* @callback to void (i8*, ...)*), %TestStruct.1* %Arr)
-; OPAQUE: call void (i32, ptr, ...) @broker(i32 3, ptr @callback, ptr getelementptr inbounds ([1000 x %TestStruct.1], ptr @globArray, i64 0, i64 0))

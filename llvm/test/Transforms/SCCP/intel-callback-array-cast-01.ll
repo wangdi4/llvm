@@ -14,6 +14,8 @@ target triple = "x86_64-unknown-linux-gnu"
 %TestStruct = type { [16 x i8], [16 x i8], i32 }
 @globArray = internal global [1000 x %TestStruct] zeroinitializer
 
+; Check that @globArray was casted correctly and %Arr was replaced with
+; %bc_const in the GEP %dummy
 define internal void @callback(i8* %ID, [1000 x %TestStruct]* %Arr) {
 ; NOOPAQUE-LABEL: @callback(
 ; NOOPAQUE-NEXT:  entry:
@@ -30,6 +32,8 @@ entry:
   ret void
 }
 
+; Check that the parameter in the call site for @callback was updated with the
+; correct type
 define internal void @foo(%TestStruct* %Arr) {
 ; NOOPAQUE-LABEL: @foo(
 ; NOOPAQUE-NEXT:  entry:
@@ -66,16 +70,3 @@ declare !callback !0 void @broker(i32, void (i8*, ...)*, ...)
 
 !0 = !{!1}
 !1 = !{i64 1, i64 -1, i1 true}
-
-; Check that @globArray was casted correctly and %Arr was replaced with
-; %bc_const in the GEP %dummy
-; NOOPAQUE: define internal void @callback(i8* %ID, [1000 x %TestStruct]* %Arr) {
-; NOOPAQUE: %bc_const = bitcast %TestStruct* getelementptr inbounds ([1000 x %TestStruct], [1000 x %TestStruct]* @globArray, i64 0, i64 0) to [1000 x %TestStruct]*
-; NOOPAQUE: %dummy = getelementptr [1000 x %TestStruct], [1000 x %TestStruct]* %bc_const, i64 0, i64 0
-; OPAQUE: define internal void @callback(ptr %ID, ptr %Arr) {
-; OPAQUE-NOT: bitcast
-
-; Check that the parameter in the call site for @callback was updated with the
-; correct type
-; NOOPAQUE: call void (i32, void (i8*, ...)*, ...) @broker(i32 3, void (i8*, ...)* bitcast (void (i8*, [1000 x %TestStruct]*)* @callback to void (i8*, ...)*), %TestStruct* getelementptr inbounds ([1000 x %TestStruct], [1000 x %TestStruct]* @globArray, i64 0, i64 0))
-; OPAQUE: call void (i32, ptr, ...) @broker(i32 3, ptr @callback, ptr getelementptr inbounds ([1000 x %TestStruct], ptr @globArray, i64 0, i64 0))
