@@ -2592,6 +2592,7 @@ bool WRegionNode::canHaveLivein() const {
   case WRNGenericLoop:
   case WRNVecLoop:
   case WRNWksLoop:
+  case WRNTarget:
   case WRNTile:
     return true;
   }

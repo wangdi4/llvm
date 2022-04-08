@@ -788,6 +788,7 @@ private:
   EXPR IfExpr;
   EXPR Device;
   SubdeviceClause Subdevice;
+  LiveinClause Livein;
   AllocaInst *ParLoopNdInfoAlloca;    // supports kernel loop parallelization
   bool Nowait = false;
   WRNDefaultmapBehavior Defaultmap[WRNDefaultmapCategorySize] =
@@ -843,6 +844,7 @@ protected:
   DEFINE_GETTER(DependClause,       getDepend,      Depend)
   DEFINE_GETTER(IsDevicePtrClause,  getIsDevicePtr, IsDevicePtr)
   DEFINE_GETTER(SubdeviceClause,    getSubdevice,   Subdevice)
+  DEFINE_GETTER(LiveinClause,       getLivein,      Livein)
 
   // ParLoopNdInfoAlloca is set by transformation rather than parsing, so
   // setter is public instead of protected

@@ -8762,6 +8762,12 @@ bool VPOParoptTransform::renameOperandsUsingStoreThenLoad(WRegionNode *W) {
       Changed |= rename(RedI->getOrig(), false);
   }
 
+  if (W->canHaveLivein()) {
+    LiveinClause &LvClause = W->getLivein();
+    for (LiveinItem *LvI : LvClause.items())
+      Changed |= rename(LvI->getOrig(), false);
+  }
+
   if (W->canHaveLastprivate()) {
     LastprivateClause &LprivClause = W->getLpriv();
     for (LastprivateItem *LprivI : LprivClause.items())
