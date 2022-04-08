@@ -74,6 +74,7 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AssumptionCache.h"
@@ -139,6 +140,15 @@ using namespace llvm::llvm_intel_wp_analysis;
 using namespace wholeprogramdevirt;
 
 #define DEBUG_TYPE "wholeprogramdevirt"
+
+STATISTIC(NumDevirtTargets, "Number of whole program devirtualization targets");
+STATISTIC(NumSingleImpl, "Number of single implementation devirtualizations");
+STATISTIC(NumBranchFunnel, "Number of branch funnels");
+STATISTIC(NumUniformRetVal, "Number of uniform return value optimizations");
+STATISTIC(NumUniqueRetVal, "Number of unique return value optimizations");
+STATISTIC(NumVirtConstProp1Bit,
+          "Number of 1 bit virtual constant propagations");
+STATISTIC(NumVirtConstProp, "Number of virtual constant propagations");
 
 static cl::opt<PassSummaryAction> ClSummaryAction(
     "wholeprogramdevirt-summary-action",
@@ -1360,6 +1370,7 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
       if (RemarksEnabled)
         VCallSite.emitRemark("single-impl",
                              TheFn->stripPointerCasts()->getName(), OREGetter);
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -1370,6 +1381,9 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
           dyn_cast<Function>(TheFn), VCallSite.CB.getCaller())) {
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+=======
+      NumSingleImpl++;
+>>>>>>> ced9a795fd84aabfbc6a8b3040c33e719e39600c
       auto &CB = VCallSite.CB;
       assert(!CB.getCalledFunction() && "devirtualizing direct call?");
       IRBuilder<> Builder(&CB);
@@ -1489,7 +1503,7 @@ bool DevirtModule::trySingleImplDevirt(
       return false;
 
   // If so, update each call site to call that implementation directly.
-  if (RemarksEnabled)
+  if (RemarksEnabled || AreStatisticsEnabled())
     TargetsForSlot[0].WasDevirt = true;
 
   bool IsExported = false;
@@ -1560,7 +1574,7 @@ bool DevirtIndex::trySingleImplDevirt(MutableArrayRef<ValueInfo> TargetsForSlot,
       return false;
 
   // Collect functions devirtualized at least for one call site for stats.
-  if (PrintSummaryDevirt)
+  if (PrintSummaryDevirt || AreStatisticsEnabled())
     DevirtTargets.insert(TheFn);
 
   auto &S = TheFn.getSummaryList()[0];
@@ -1666,6 +1680,7 @@ void DevirtModule::applyICallBranchFunnel(VTableSlotInfo &SlotInfo,
           !FSAttr.getValueAsString().contains("+retpoline"))
         continue;
 
+      NumBranchFunnel++;
       if (RemarksEnabled)
         VCallSite.emitRemark("branch-funnel",
                              JT->stripPointerCasts()->getName(), OREGetter);
@@ -1812,6 +1827,7 @@ void DevirtModule::applyUniformRetValOpt(CallSiteInfo &CSInfo, StringRef FnName,
   for (auto Call : CSInfo.CallSites) {
     if (!OptimizedCalls.insert(&Call.CB).second)
       continue;
+    NumUniformRetVal++;
     Call.replaceAndErase(
         "uniform-ret-val", FnName, RemarksEnabled, OREGetter,
         ConstantInt::get(cast<IntegerType>(Call.CB.getType()), TheRetVal));
@@ -1835,7 +1851,7 @@ bool DevirtModule::tryUniformRetValOpt(
   }
 
   applyUniformRetValOpt(CSInfo, TargetsForSlot[0].Fn->getName(), TheRetVal);
-  if (RemarksEnabled)
+  if (RemarksEnabled || AreStatisticsEnabled())
     for (auto &&Target : TargetsForSlot)
       Target.WasDevirt = true;
   return true;
@@ -1928,6 +1944,7 @@ void DevirtModule::applyUniqueRetValOpt(CallSiteInfo &CSInfo, StringRef FnName,
         B.CreateICmp(IsOne ? ICmpInst::ICMP_EQ : ICmpInst::ICMP_NE, Call.VTable,
                      B.CreateBitCast(UniqueMemberAddr, Call.VTable->getType()));
     Cmp = B.CreateZExt(Cmp, Call.CB.getType());
+    NumUniqueRetVal++;
     Call.replaceAndErase("unique-ret-val", FnName, RemarksEnabled, OREGetter,
                          Cmp);
   }
@@ -1972,7 +1989,7 @@ bool DevirtModule::tryUniqueRetValOpt(
                          UniqueMemberAddr);
 
     // Update devirtualization statistics for targets.
-    if (RemarksEnabled)
+    if (RemarksEnabled || AreStatisticsEnabled())
       for (auto &&Target : TargetsForSlot)
         Target.WasDevirt = true;
 
@@ -2001,11 +2018,13 @@ void DevirtModule::applyVirtualConstProp(CallSiteInfo &CSInfo, StringRef FnName,
       Value *Bits = B.CreateLoad(Int8Ty, Addr);
       Value *BitsAndBit = B.CreateAnd(Bits, Bit);
       auto IsBitSet = B.CreateICmpNE(BitsAndBit, ConstantInt::get(Int8Ty, 0));
+      NumVirtConstProp1Bit++;
       Call.replaceAndErase("virtual-const-prop-1-bit", FnName, RemarksEnabled,
                            OREGetter, IsBitSet);
     } else {
       Value *ValAddr = B.CreateBitCast(Addr, RetType->getPointerTo());
       Value *Val = B.CreateLoad(RetType, ValAddr);
+      NumVirtConstProp++;
       Call.replaceAndErase("virtual-const-prop", FnName, RemarksEnabled,
                            OREGetter, Val);
     }
@@ -2091,7 +2110,7 @@ bool DevirtModule::tryVirtualConstProp(
       setAfterReturnValues(TargetsForSlot, AllocAfter, BitWidth, OffsetByte,
                            OffsetBit);
 
-    if (RemarksEnabled)
+    if (RemarksEnabled || AreStatisticsEnabled())
       for (auto &&Target : TargetsForSlot)
         Target.WasDevirt = true;
 
@@ -2641,7 +2660,7 @@ bool DevirtModule::run() {
       }
 
       // Collect functions devirtualized at least for one call site for stats.
-      if (RemarksEnabled)
+      if (RemarksEnabled || AreStatisticsEnabled())
         for (const auto &T : TargetsForSlot)
           if (T.WasDevirt)
             DevirtTargets[std::string(T.Fn->getName())] = T.Fn;
@@ -2673,6 +2692,8 @@ bool DevirtModule::run() {
                         << NV("FunctionName", DT.first));
     }
   }
+
+  NumDevirtTargets += DevirtTargets.size();
 
   removeRedundantTypeTests();
 
@@ -2771,4 +2792,6 @@ void DevirtIndex::run() {
   if (PrintSummaryDevirt)
     for (const auto &DT : DevirtTargets)
       errs() << "Devirtualized call to " << DT << "\n";
+
+  NumDevirtTargets += DevirtTargets.size();
 }

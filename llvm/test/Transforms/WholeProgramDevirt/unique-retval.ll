@@ -1,9 +1,21 @@
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; RUN: opt -S -passes=wholeprogramdevirt -whole-program-visibility %intel_devirt_options %s | FileCheck %s
 ; end INTEL_CUSTOMIZATION
+=======
+; -stats requires asserts
+; REQUIRES: asserts
+
+; RUN: opt -S -passes=wholeprogramdevirt -whole-program-visibility -pass-remarks=wholeprogramdevirt -stats %s 2>&1 | FileCheck %s
+>>>>>>> ced9a795fd84aabfbc6a8b3040c33e719e39600c
 
 target datalayout = "e-p:64:64"
 target triple = "x86_64-unknown-linux-gnu"
+
+; CHECK: remark: {{.*}} unique-ret-val: devirtualized a call to vf0
+; CHECK: remark: {{.*}} unique-ret-val: devirtualized a call to vf0
+; CHECK: remark: {{.*}} devirtualized vf0
+; CHECK: remark: {{.*}} devirtualized vf1
 
 @vt1 = constant [1 x i8*] [i8* bitcast (i1 (i8*)* @vf0 to i8*)], !type !0
 @vt2 = constant [1 x i8*] [i8* bitcast (i1 (i8*)* @vf0 to i8*)], !type !0, !type !1
@@ -57,3 +69,6 @@ declare void @llvm.assume(i1)
 
 !0 = !{i32 0, !"typeid1"}
 !1 = !{i32 0, !"typeid2"}
+
+; CHECK: 2 wholeprogramdevirt - Number of whole program devirtualization targets
+; CHECK: 2 wholeprogramdevirt - Number of unique return value optimizations
