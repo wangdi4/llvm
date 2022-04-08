@@ -259,6 +259,7 @@ TEST_F(CommandLineTest, BoolOptionDefaultFalsePresentNegReset) {
 // The flag with positive spelling can set the keypath to true.
 // The flag with negative spelling can set the keypath to false.
 
+#if INTEL_CUSTOMIZATION
 static constexpr unsigned PassManagerDefault =
     !static_cast<unsigned>(LLVM_ENABLE_NEW_PASS_MANAGER);
 
@@ -269,39 +270,56 @@ static constexpr const char *PassManagerResetByFlag =
 static constexpr const char *PassManagerChangedByFlag =
     LLVM_ENABLE_NEW_PASS_MANAGER ? "-flegacy-pass-manager"
                                  : "-fno-legacy-pass-manager";
+#endif // INTEL_CUSTOMIZATION
 
 TEST_F(CommandLineTest, BoolOptionDefaultArbitraryTwoFlagsPresentNone) {
   const char *Args = {""};
 
   ASSERT_TRUE(CompilerInvocation::CreateFromArgs(Invocation, Args, *Diags));
+#if INTEL_CUSTOMIZATION
   ASSERT_EQ(Invocation.getCodeGenOpts().LegacyPassManager, PassManagerDefault);
+#endif // INTEL_CUSTOMIZATION
 
   Invocation.generateCC1CommandLine(GeneratedArgs, *this);
 
+#if INTEL_CUSTOMIZATION
   ASSERT_THAT(GeneratedArgs, Not(Contains(StrEq(PassManagerResetByFlag))));
   ASSERT_THAT(GeneratedArgs, Not(Contains(StrEq(PassManagerChangedByFlag))));
+#endif // INTEL_CUSTOMIZATION
 }
 
 TEST_F(CommandLineTest, BoolOptionDefaultArbitraryTwoFlagsPresentChange) {
+#if INTEL_CUSTOMIZATION
   const char *Args[] = {PassManagerChangedByFlag};
+#endif // INTEL_CUSTOMIZATION
 
   ASSERT_TRUE(CompilerInvocation::CreateFromArgs(Invocation, Args, *Diags));
+#if INTEL_CUSTOMIZATION
   ASSERT_EQ(Invocation.getCodeGenOpts().LegacyPassManager, !PassManagerDefault);
+#endif // INTEL_CUSTOMIZATION
 
   Invocation.generateCC1CommandLine(GeneratedArgs, *this);
+#if INTEL_CUSTOMIZATION
   ASSERT_THAT(GeneratedArgs, Contains(StrEq(PassManagerChangedByFlag)));
   ASSERT_THAT(GeneratedArgs, Not(Contains(StrEq(PassManagerResetByFlag))));
+#endif // INTEL_CUSTOMIZATION
 }
 
 TEST_F(CommandLineTest, BoolOptionDefaultArbitraryTwoFlagsPresentReset) {
+#if INTEL_CUSTOMIZATION
   const char *Args[] = {PassManagerResetByFlag};
+#endif // INTEL_CUSTOMIZATION
 
   ASSERT_TRUE(CompilerInvocation::CreateFromArgs(Invocation, Args, *Diags));
+#if INTEL_CUSTOMIZATION
   ASSERT_EQ(Invocation.getCodeGenOpts().LegacyPassManager, PassManagerDefault);
+#endif // INTEL_CUSTOMIZATION
 
   Invocation.generateCC1CommandLine(GeneratedArgs, *this);
+#if INTEL_CUSTOMIZATION
   ASSERT_THAT(GeneratedArgs, Not(Contains(StrEq(PassManagerResetByFlag))));
   ASSERT_THAT(GeneratedArgs, Not(Contains(StrEq(PassManagerChangedByFlag))));
+#endif // INTEL_CUSTOMIZATION
 }
 
 // Boolean option that gets the CC1Option flag from a let statement (which
