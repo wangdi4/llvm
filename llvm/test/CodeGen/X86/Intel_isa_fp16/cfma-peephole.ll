@@ -36,12 +36,12 @@ define dso_local <16 x float> @test_fmaconj_sum(<16 x float>* nocapture readonly
 ; CHECK-NEXT:    vmovaps (%rdi), %zmm1
 ; CHECK-NEXT:    vmovaps 64(%rdi), %zmm2
 ; CHECK-NEXT:    vmovaps 128(%rdi), %zmm3
-; CHECK-NEXT:    vmovaps 192(%rdi), %zmm4
 ; CHECK-NEXT:    vfcmaddcph (%rsi), %zmm1, %zmm0
 ; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vfcmaddcph 64(%rsi), %zmm2, %zmm1
 ; CHECK-NEXT:    vfcmaddcph 128(%rsi), %zmm3, %zmm0
-; CHECK-NEXT:    vfcmaddcph 192(%rsi), %zmm4, %zmm1
+; CHECK-NEXT:    vmovaps 192(%rdi), %zmm2
+; CHECK-NEXT:    vfcmaddcph 192(%rsi), %zmm2, %zmm1
 ; CHECK-NEXT:    vaddph %zmm1, %zmm0, %zmm0
 ; CHECK-NEXT:    retq
 entry:
@@ -82,12 +82,12 @@ define dso_local <8 x float> @test_fmaconj_sum256(<8 x float>* nocapture readonl
 ; CHECK-NEXT:    vmovaps (%rdi), %ymm1
 ; CHECK-NEXT:    vmovaps 32(%rdi), %ymm2
 ; CHECK-NEXT:    vmovaps 64(%rdi), %ymm3
-; CHECK-NEXT:    vmovaps 96(%rdi), %ymm4
 ; CHECK-NEXT:    vfcmaddcph (%rsi), %ymm1, %ymm0
 ; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vfcmaddcph 32(%rsi), %ymm2, %ymm1
 ; CHECK-NEXT:    vfcmaddcph 64(%rsi), %ymm3, %ymm0
-; CHECK-NEXT:    vfcmaddcph 96(%rsi), %ymm4, %ymm1
+; CHECK-NEXT:    vmovaps 96(%rdi), %ymm2
+; CHECK-NEXT:    vfcmaddcph 96(%rsi), %ymm2, %ymm1
 ; CHECK-NEXT:    vaddph %ymm1, %ymm0, %ymm0
 ; CHECK-NEXT:    retq
 entry:
@@ -128,12 +128,12 @@ define dso_local <4 x float> @test_fmaconj_sum128(<4 x float>* nocapture readonl
 ; CHECK-NEXT:    vmovaps (%rdi), %xmm1
 ; CHECK-NEXT:    vmovaps 16(%rdi), %xmm2
 ; CHECK-NEXT:    vmovaps 32(%rdi), %xmm3
-; CHECK-NEXT:    vmovaps 48(%rdi), %xmm4
 ; CHECK-NEXT:    vfcmaddcph (%rsi), %xmm1, %xmm0
 ; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vfcmaddcph 16(%rsi), %xmm2, %xmm1
 ; CHECK-NEXT:    vfcmaddcph 32(%rsi), %xmm3, %xmm0
-; CHECK-NEXT:    vfcmaddcph 48(%rsi), %xmm4, %xmm1
+; CHECK-NEXT:    vmovaps 48(%rdi), %xmm2
+; CHECK-NEXT:    vfcmaddcph 48(%rsi), %xmm2, %xmm1
 ; CHECK-NEXT:    vaddph %xmm1, %xmm0, %xmm0
 ; CHECK-NEXT:    retq
 entry:
@@ -235,12 +235,12 @@ define dso_local <16 x float> @test_fma_sum(<16 x float>* nocapture readonly %x0
 ; CHECK-NEXT:    vmovaps (%rdi), %zmm1
 ; CHECK-NEXT:    vmovaps 64(%rdi), %zmm2
 ; CHECK-NEXT:    vmovaps 128(%rdi), %zmm3
-; CHECK-NEXT:    vmovaps 192(%rdi), %zmm4
 ; CHECK-NEXT:    vfmaddcph (%rsi), %zmm1, %zmm0
 ; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vfmaddcph 64(%rsi), %zmm2, %zmm1
 ; CHECK-NEXT:    vfmaddcph 128(%rsi), %zmm3, %zmm0
-; CHECK-NEXT:    vfmaddcph 192(%rsi), %zmm4, %zmm1
+; CHECK-NEXT:    vmovaps 192(%rdi), %zmm2
+; CHECK-NEXT:    vfmaddcph 192(%rsi), %zmm2, %zmm1
 ; CHECK-NEXT:    vaddph %zmm1, %zmm0, %zmm0
 ; CHECK-NEXT:    retq
 entry:
@@ -281,12 +281,12 @@ define dso_local <8 x float> @test_fma_sum256(<8 x float>* nocapture readonly %x
 ; CHECK-NEXT:    vmovaps (%rdi), %ymm1
 ; CHECK-NEXT:    vmovaps 32(%rdi), %ymm2
 ; CHECK-NEXT:    vmovaps 64(%rdi), %ymm3
-; CHECK-NEXT:    vmovaps 96(%rdi), %ymm4
 ; CHECK-NEXT:    vfmaddcph (%rsi), %ymm1, %ymm0
 ; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vfmaddcph 32(%rsi), %ymm2, %ymm1
 ; CHECK-NEXT:    vfmaddcph 64(%rsi), %ymm3, %ymm0
-; CHECK-NEXT:    vfmaddcph 96(%rsi), %ymm4, %ymm1
+; CHECK-NEXT:    vmovaps 96(%rdi), %ymm2
+; CHECK-NEXT:    vfmaddcph 96(%rsi), %ymm2, %ymm1
 ; CHECK-NEXT:    vaddph %ymm1, %ymm0, %ymm0
 ; CHECK-NEXT:    retq
 entry:
@@ -327,12 +327,12 @@ define dso_local <4 x float> @test_fma_sum128(<4 x float>* nocapture readonly %x
 ; CHECK-NEXT:    vmovaps (%rdi), %xmm1
 ; CHECK-NEXT:    vmovaps 16(%rdi), %xmm2
 ; CHECK-NEXT:    vmovaps 32(%rdi), %xmm3
-; CHECK-NEXT:    vmovaps 48(%rdi), %xmm4
 ; CHECK-NEXT:    vfmaddcph (%rsi), %xmm1, %xmm0
 ; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vfmaddcph 16(%rsi), %xmm2, %xmm1
 ; CHECK-NEXT:    vfmaddcph 32(%rsi), %xmm3, %xmm0
-; CHECK-NEXT:    vfmaddcph 48(%rsi), %xmm4, %xmm1
+; CHECK-NEXT:    vmovaps 48(%rdi), %xmm2
+; CHECK-NEXT:    vfmaddcph 48(%rsi), %xmm2, %xmm1
 ; CHECK-NEXT:    vaddph %xmm1, %xmm0, %xmm0
 ; CHECK-NEXT:    retq
 entry:
@@ -469,19 +469,19 @@ entry:
 define dso_local <16 x float> @test_fmaconj_sum_loop5(<16 x float>* nocapture readonly %x0, <16 x float>* nocapture readonly %x1) {
 ; CHECK-LABEL: test_fmaconj_sum_loop5:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vmovaps (%rdi), %zmm0
-; CHECK-NEXT:    vmovaps 64(%rdi), %zmm1
-; CHECK-NEXT:    vmovaps 128(%rdi), %zmm2
-; CHECK-NEXT:    vxorps %xmm3, %xmm3, %xmm3
-; CHECK-NEXT:    vmovaps 192(%rdi), %zmm4
-; CHECK-NEXT:    vfcmaddcph (%rsi), %zmm0, %zmm3
 ; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; CHECK-NEXT:    vfcmaddcph 64(%rsi), %zmm1, %zmm0
-; CHECK-NEXT:    vfcmaddcph 128(%rsi), %zmm2, %zmm3
-; CHECK-NEXT:    vfcmaddcph 192(%rsi), %zmm4, %zmm0
+; CHECK-NEXT:    vmovaps (%rdi), %zmm1
+; CHECK-NEXT:    vmovaps 64(%rdi), %zmm2
+; CHECK-NEXT:    vfcmaddcph (%rsi), %zmm1, %zmm0
+; CHECK-NEXT:    vmovaps 128(%rdi), %zmm1
+; CHECK-NEXT:    vmovaps 192(%rdi), %zmm3
+; CHECK-NEXT:    vxorps %xmm4, %xmm4, %xmm4
+; CHECK-NEXT:    vfcmaddcph 64(%rsi), %zmm2, %zmm4
+; CHECK-NEXT:    vfcmaddcph 128(%rsi), %zmm1, %zmm0
+; CHECK-NEXT:    vfcmaddcph 192(%rsi), %zmm3, %zmm4
 ; CHECK-NEXT:    vmovaps 256(%rdi), %zmm1
-; CHECK-NEXT:    vfcmaddcph 256(%rsi), %zmm1, %zmm3
-; CHECK-NEXT:    vaddph %zmm3, %zmm0, %zmm0
+; CHECK-NEXT:    vfcmaddcph 256(%rsi), %zmm1, %zmm0
+; CHECK-NEXT:    vaddph %zmm0, %zmm4, %zmm0
 ; CHECK-NEXT:    retq
 entry:
   %0 = load <16 x float>, <16 x float>* %x0, align 64
@@ -532,19 +532,19 @@ define dso_local <16 x float> @test_fmaconj_r_3list(<16 x float> %p1, <16 x floa
 ; CHECK-LABEL: test_fmaconj_r_3list:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    vxorps %xmm8, %xmm8, %xmm8
-; CHECK-NEXT:    vxorps %xmm9, %xmm9, %xmm9
-; CHECK-NEXT:    vfcmaddcph %zmm1, %zmm0, %zmm9
-; CHECK-NEXT:    vfcmaddcph %zmm3, %zmm2, %zmm9
-; CHECK-NEXT:    vfcmaddcph %zmm5, %zmm4, %zmm9
+; CHECK-NEXT:    vfcmaddcph %zmm1, %zmm0, %zmm8
+; CHECK-NEXT:    vfcmaddcph %zmm3, %zmm2, %zmm8
 ; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
-; CHECK-NEXT:    vfcmaddcph %zmm7, %zmm6, %zmm1
-; CHECK-NEXT:    vfcmaddcph %zmm5, %zmm4, %zmm1
-; CHECK-NEXT:    vfcmaddcph %zmm7, %zmm6, %zmm1
-; CHECK-NEXT:    vaddps %zmm1, %zmm9, %zmm1
-; CHECK-NEXT:    vfcmaddcph %zmm6, %zmm0, %zmm8
-; CHECK-NEXT:    vfcmaddcph %zmm5, %zmm2, %zmm8
-; CHECK-NEXT:    vfcmaddcph %zmm7, %zmm4, %zmm8
-; CHECK-NEXT:    vaddps %zmm8, %zmm1, %zmm0
+; CHECK-NEXT:    vfcmaddcph %zmm5, %zmm4, %zmm8
+; CHECK-NEXT:    vxorps %xmm3, %xmm3, %xmm3
+; CHECK-NEXT:    vfcmaddcph %zmm7, %zmm6, %zmm3
+; CHECK-NEXT:    vfcmaddcph %zmm5, %zmm4, %zmm3
+; CHECK-NEXT:    vfcmaddcph %zmm7, %zmm6, %zmm3
+; CHECK-NEXT:    vfcmaddcph %zmm6, %zmm0, %zmm1
+; CHECK-NEXT:    vaddps %zmm3, %zmm8, %zmm0
+; CHECK-NEXT:    vfcmaddcph %zmm5, %zmm2, %zmm1
+; CHECK-NEXT:    vfcmaddcph %zmm7, %zmm4, %zmm1
+; CHECK-NEXT:    vaddps %zmm1, %zmm0, %zmm0
 ; CHECK-NEXT:    retq
 entry:
   %r0 = tail call fast <16 x float> @llvm.x86.avx512fp16.mask.vfcmadd.cph.512(<16 x float> %p1, <16 x float> %p2, <16 x float> zeroinitializer, i16 -1, i32 4)
