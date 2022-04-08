@@ -721,6 +721,28 @@ foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
   }
 }
 
+foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
+  foreach op = ["mul", "logical_and", "logical_or", "logical_xor"] in {
+    def sub_group_#func#_#op#_alias : AliasMap<[
+    ["sub_group_non_uniform_"#func#"_"#op, "sub_group_"#func#"_"#op]
+    ],[]>;
+    def sub_group_#func#_#op#_vec_alias : AliasMap<[
+    ["sub_group_non_uniform_"#func#"_"#op#"_vec", "sub_group_"#func#"_"#op]
+    ],[]>;
+  }
+}
+
+foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
+  foreach op = ["and", "or", "xor"] in {
+    def sub_group_#func#_#op#_alias : AliasMap<[
+    ["sub_group_non_uniform_"#func#"_"#op, "sub_group_"#func#"_bitwise_"#op]
+    ],[]>;
+    def sub_group_#func#_#op#_vec_alias : AliasMap<[
+    ["sub_group_non_uniform_"#func#"_"#op#"_vec", "sub_group_"#func#"_bitwise_"#op]
+    ],[]>;
+  }
+}
+
 //
 // Generate VectInfo for DPCPPKernelVecClone
 //

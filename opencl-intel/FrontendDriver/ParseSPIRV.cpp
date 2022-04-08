@@ -197,6 +197,8 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityAtomicFloat16MinMaxEXT:
     case spv::CapabilityAtomicFloat32MinMaxEXT:
     case spv::CapabilityAtomicFloat64MinMaxEXT:
+      // SPV_KHR_uniform_group_instructions extension
+    case spv::CapabilityGroupUniformArithmeticKHR:
       // optnone attribute support
     case spv::internal::CapabilityOptNoneINTEL:
       // SPV_INTEL_memory_access_aliasing
