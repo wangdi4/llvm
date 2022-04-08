@@ -50,9 +50,9 @@ define void @test01() {
 ; CHECK-NONOPAQUE: store i32 0, i32* %p_test_A
 ; CHECK-OPAQUE: %p8_A = getelementptr i8, ptr %p, i64 0
 ; CHECK-OPAQUE: %p_test_A = bitcast ptr %p8_A to ptr
-; CHECK-OPAQUE: %alloc_idx = call ptr @llvm.ptr.annotation.p0(ptr %p_test_A, ptr getelementptr inbounds ([33 x i8], ptr @__intel_dtrans_aostosoa_index, i32 0, i32 0), ptr getelementptr inbounds ([1 x i8], ptr @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, ptr null)
+; CHECK-OPAQUE: %alloc_idx = call ptr @llvm.ptr.annotation.p0(ptr %p_test_A, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK-OPAQUE: %value_A = load i32, ptr %p_test_A
-; CHECK-OPAQUE: %alloc_idx1 = call ptr @llvm.ptr.annotation.p0(ptr %p_test_A, ptr getelementptr inbounds ([33 x i8], ptr @__intel_dtrans_aostosoa_index, i32 0, i32 0), ptr getelementptr inbounds ([1 x i8], ptr @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, ptr null)
+; CHECK-OPAQUE: %alloc_idx1 = call ptr @llvm.ptr.annotation.p0(ptr %p_test_A, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK-OPAQUE: store i32 0, ptr %p_test_A
 
   %p8_B = getelementptr i8, i8* %p, i64 8
@@ -64,7 +64,7 @@ define void @test01() {
 ; CHECK-NONOPAQUE: store i32 %value_A, i32* %p_test_B
 ; CHECK-OPAQUE: %p8_B = getelementptr i8, ptr %p, i64 4
 ; CHECK-OPAQUE: %p_test_B = bitcast ptr %p8_B to ptr
-; CHECK-OPAQUE: %alloc_idx2 = call ptr @llvm.ptr.annotation.p0(ptr %p_test_B, ptr getelementptr inbounds ([33 x i8], ptr @__intel_dtrans_aostosoa_index, i32 0, i32 0), ptr getelementptr inbounds ([1 x i8], ptr @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, ptr null)
+; CHECK-OPAQUE: %alloc_idx2 = call ptr @llvm.ptr.annotation.p0(ptr %p_test_B, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK-OPAQUE: store i32 %value_A, ptr %p_test_B
 
   %p8_C = getelementptr i8, i8* %p, i64 16

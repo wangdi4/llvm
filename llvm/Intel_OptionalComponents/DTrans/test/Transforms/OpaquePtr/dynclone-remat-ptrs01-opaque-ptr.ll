@@ -33,7 +33,9 @@ define void @init() {
   %g1 = select i1 undef, i64 500, i64 1000
   store i64 %g1, ptr %F1, align 8
   %tp2 = getelementptr %struct.test.01, ptr %tp1, i64 5
-  store ptr %tp2, ptr getelementptr (%struct.netw, ptr @glob, i64 0, i32 0)
+  %field0 = getelementptr %struct.netw, ptr @glob, i64 0, i32 0
+  store ptr %tp2, ptr %field0
+
   %F6 = getelementptr %struct.test.01, ptr %tp1, i32 0, i32 6
   %g2 = select i1 undef, i64 -5000, i64 20000
   store i64 %g2, ptr %F6, align 8

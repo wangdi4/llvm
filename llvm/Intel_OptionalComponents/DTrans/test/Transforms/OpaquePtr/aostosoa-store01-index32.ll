@@ -41,13 +41,13 @@ define i32 @test01() {
 
 ; CHECK-OPAQUE: %p0 = getelementptr %__SOADT_struct.test01dep, ptr @var01, i64 0, i32 0
 ; CHECK-OPAQUE: %p1 = getelementptr %__SOADT_struct.test01dep, ptr @var01, i64 0, i32 1
-; CHECK-OPAQUE: call ptr @llvm.ptr.annotation.p0(ptr %p0, ptr getelementptr inbounds ([33 x i8], ptr @__intel_dtrans_aostosoa_index, i32 0, i32 0), ptr getelementptr inbounds ([1 x i8], ptr @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, ptr null)
+; CHECK-OPAQUE: call ptr @llvm.ptr.annotation.p0(ptr %p0, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK-OPAQUE: %v0 = load i32, ptr %p0
-; CHECK-OPAQUE: call ptr @llvm.ptr.annotation.p0(ptr %p1, ptr getelementptr inbounds ([33 x i8], ptr @__intel_dtrans_aostosoa_index, i32 0, i32 0), ptr getelementptr inbounds ([1 x i8], ptr @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, ptr null)
+; CHECK-OPAQUE: call ptr @llvm.ptr.annotation.p0(ptr %p1, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK-OPAQUE: %v1 = load i32, ptr %p1
-; CHECK-OPAQUE: call ptr @llvm.ptr.annotation.p0(ptr %p1, ptr getelementptr inbounds ([33 x i8], ptr @__intel_dtrans_aostosoa_index, i32 0, i32 0), ptr getelementptr inbounds ([1 x i8], ptr @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, ptr null)
+; CHECK-OPAQUE: call ptr @llvm.ptr.annotation.p0(ptr %p1, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK-OPAQUE: store i32 %v0, ptr %p1
-; CHECK-OPAQUE: call ptr @llvm.ptr.annotation.p0(ptr %p0, ptr getelementptr inbounds ([33 x i8], ptr @__intel_dtrans_aostosoa_index, i32 0, i32 0), ptr getelementptr inbounds ([1 x i8], ptr @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, ptr null)
+; CHECK-OPAQUE: call ptr @llvm.ptr.annotation.p0(ptr %p0, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK-OPAQUE: store i32 %v1, ptr %p0
 ; CHECK-OPAQUE: ret i32 0
 
@@ -74,14 +74,14 @@ define i32 @test02() {
 ; CHECK-NONOPAQUE: ret i32 0
 
 ; CHECK-OPAQUE: %p0 = getelementptr %__SOADT_struct.test01dep, ptr @var01, i64 0, i32 0
-; CHECK-OPAQUE: call ptr @llvm.ptr.annotation.p0(ptr %p0, ptr getelementptr inbounds ([33 x i8], ptr @__intel_dtrans_aostosoa_index, i32 0, i32 0), ptr getelementptr inbounds ([1 x i8], ptr @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, ptr null)
+; CHECK-OPAQUE: call ptr @llvm.ptr.annotation.p0(ptr %p0, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK-OPAQUE: %v0 = load i32, ptr %p0
 ; CHECK-OPAQUE: %[[ADDR1:[0-9]+]] = getelementptr %__SOA_struct.test01, ptr @__soa_struct.test01, i64 0, i32 1
 ; CHECK-OPAQUE: %[[BASE1:[0-9]+]] = load ptr, ptr %[[ADDR1]]
 ; CHECK-OPAQUE-SAME: !invariant.load
 ; CHECK-OPAQUE: %[[ZEXT1:[0-9]+]] = zext i32 %v0 to i64
 ; CHECK-OPAQUE: %t0 = getelementptr i32, ptr %[[BASE1]], i64 %[[ZEXT1]]
-; CHECK-OPAQUE: call ptr @llvm.ptr.annotation.p0(ptr %t0, ptr getelementptr inbounds ([33 x i8], ptr @__intel_dtrans_aostosoa_index, i32 0, i32 0), ptr getelementptr inbounds ([1 x i8], ptr @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, ptr null)
+; CHECK-OPAQUE: call ptr @llvm.ptr.annotation.p0(ptr %t0, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK-OPAQUE: store i32 %v0, ptr %t0
 ; CHECK-OPAQUE: ret i32 0
 

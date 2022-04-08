@@ -35,14 +35,14 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:   [[APTR:%dyn.alloc.ld[0-9]*]] = load ptr, ptr [[APTRVAR]]
 
 ; Pre-loop:
-; Load of 2nd field address of @n.
-; CHECK: [[L1:%[0-9]+]] = load ptr, ptr getelementptr inbounds (%struct.ns, ptr @n, i64 0, i32 1)
+; Load of 3rd field address of @n.
+; CHECK: [[L1:%[0-9]+]] = load ptr, ptr getelementptr inbounds (%struct.ns, ptr @n, i64 0, i32 2)
 
 ; Loop begin
 ; CHECK: [[LIndex:%rematidx[0-9]*]] = phi i64 [ 0,
 ; Load each element from 2nd array field of @n
 ; CHECK: [[GEP1:%[0-9]+]] = getelementptr inbounds ptr, ptr [[L1]], i64 [[LIndex]]
-;CHECK: [[LOAD1:%[0-9]+]] = load ptr, ptr [[GEP1]]
+; CHECK: [[LOAD1:%[0-9]+]] = load ptr, ptr [[GEP1]]
 
 ; Rematerialize pointer if it is not null.
 ; CHECK: [[CMP1:%[0-9]+]] = icmp ne ptr [[LOAD1]], null
@@ -65,7 +65,9 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test.01 = type { i32, i64, i32, i32, i16, ptr, i64 }
 
 ; Type of AOSTOSOA variable.
-%struct.ns = type { ptr, ptr, ptr, ptr }
+;   type { i32, i64*, %struct.test.01**, %struct.test.01**, i64* }
+; Field 1
+%struct.ns = type { i32, ptr, ptr, ptr, ptr }
 
 ; Memory allocation pointers, which are returned by calloc in "init" routine,
 ; are stored in 2nd and 3rd array fields of @n.
@@ -81,19 +83,21 @@ define "intel_dtrans_func_index"="1" ptr @init() !intel.dtrans.func.type !7 {
   %call0 = call ptr @calloc(i64 1000, i64 32)
   %call.ptr = call ptr @llvm.ptr.annotation.p0(ptr %call0, ptr getelementptr inbounds ([38 x i8], [38 x i8]* @__intel_dtrans_aostosoa_alloc, i32 0, i32 0), ptr null, i32 0, ptr null)
   %C01 = getelementptr i8, ptr %call0, i64 0
-  store ptr %C01, ptr getelementptr (%struct.ns, ptr @n, i64 0, i32 0)
+  ; DynClone uses pattern match to find the GEPOperator as the pointer parameter
+  ; of the store. Use index 1 to avoid the GEP removal.
+  store ptr %C01, ptr getelementptr (%struct.ns, ptr @n, i64 0, i32 1)
   %tp1 = tail call ptr @calloc(i64 10, i64 48)
   %tp2 = getelementptr %struct.test.01, ptr %tp1, i64 2
 
-; Store %tp1 in 2nd array field of @n
-  %N7 = getelementptr %struct.ns, ptr @n, i64 0, i32 1
+; Store %tp1 in the 3rd field of @n
+  %N7 = getelementptr %struct.ns, ptr @n, i64 0, i32 2
   %LN7 = load ptr, ptr %N7
   %PN7 = getelementptr ptr, ptr %LN7, i64 1
   %NLD1 = load i64, ptr %PN7
   store ptr %tp1, ptr %PN7
 
-; Store %tp2 in 2nd array field of @n
-  %N8 = getelementptr %struct.ns, ptr @n, i64 0, i32 1
+; Store %tp2 in 3rd field of @n
+  %N8 = getelementptr %struct.ns, ptr @n, i64 0, i32 2
   %LN8 = load ptr, ptr %N8
   %PN8 = getelementptr ptr, ptr %LN8, i64 1
   %NLD2 = load i64, ptr %PN8
@@ -143,6 +147,6 @@ declare ptr @llvm.ptr.annotation.p0(ptr, ptr, ptr, i32, ptr)
 !8 = !{i8 0, i32 1}  ; i8*
 !9 = distinct !{!8}
 !10 = !{!"S", %struct.test.01 zeroinitializer, i32 7, !1, !2, !1, !1, !3, !4, !2} ; { i32, i64, i32, i32, i16, i64*, i64 }
-!11 = !{!"S", %struct.ns zeroinitializer, i32 4, !4, !5, !5, !4} ; { i64*, %struct.test.01**, %struct.test.01**, i64* }
+!11 = !{!"S", %struct.ns zeroinitializer, i32 5, !1, !4, !5, !5, !4} ; { i32, i64*, %struct.test.01**, %struct.test.01**, i64* }
 
 !intel.dtrans.types = !{!10, !11}

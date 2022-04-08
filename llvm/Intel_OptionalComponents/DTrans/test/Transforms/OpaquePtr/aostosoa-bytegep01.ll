@@ -62,7 +62,7 @@ define i32 @test01() {
 ; CHECK-OPAQUE: %[[LOAD1:[0-9]+]] = load ptr, ptr %[[FADDR1]]
 ; CHECK-OPAQUE: %fa1 = getelementptr i64, ptr %[[LOAD1]], i64 %p1
 ; CHECK-OPAQUE: %fa1.t = bitcast ptr %fa1 to ptr
-; CHECK-OPAQUE: %alloc_idx1 = call ptr @llvm.ptr.annotation.p0(ptr %fa1.t, ptr getelementptr inbounds ([33 x i8], ptr @__intel_dtrans_aostosoa_index, i32 0, i32 0), ptr getelementptr inbounds ([1 x i8], ptr @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, ptr null)
+; CHECK-OPAQUE: %alloc_idx1 = call ptr @llvm.ptr.annotation.p0(ptr %fa1.t, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK-OPAQUE: %v1 = load i64, ptr %fa1.t
 ; CHECK-OPAQUE: %[[FADDR2:[0-9]+]] = getelementptr %__SOA_struct.test01, ptr @__soa_struct.test01, i64 0, i32 2
 ; CHECK-OPAQUE: %[[LOAD2:[0-9]+]] = load ptr, ptr %[[FADDR2]]
