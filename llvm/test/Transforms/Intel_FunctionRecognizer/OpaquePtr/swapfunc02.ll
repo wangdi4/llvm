@@ -19,13 +19,11 @@ if.then:                                          ; preds = %entry
   %conv = sext i32 %n to i64
   %div = udiv i64 %conv, 4
   %conv1 = trunc i64 %div to i32
-  %i = bitcast ptr %a to ptr
-  %i1 = bitcast ptr %b to ptr
   br label %do.body
 
 do.body:                                          ; preds = %do.body, %if.then
-  %pj.0 = phi ptr [ %i1, %if.then ], [ %incdec.ptr2, %do.body ]
-  %pi.0 = phi ptr [ %i, %if.then ], [ %incdec.ptr, %do.body ]
+  %pj.0 = phi ptr [ %b, %if.then ], [ %incdec.ptr2, %do.body ]
+  %pi.0 = phi ptr [ %a, %if.then ], [ %incdec.ptr, %do.body ]
   %i.0 = phi i32 [ %conv1, %if.then ], [ %dec, %do.body ]
   %i2 = load i32, ptr %pi.0, align 4
   %i3 = load i32, ptr %pj.0, align 4
@@ -48,14 +46,12 @@ if.then7:                                         ; preds = %if.else
   %conv9 = sext i32 %n to i64
   %div10 = udiv i64 %conv9, 4
   %conv11 = trunc i64 %div10 to i32
-  %i4 = bitcast ptr %a to ptr
-  %i5 = bitcast ptr %b to ptr
   br label %do.body14
 
 do.body14:                                        ; preds = %do.body14, %if.then7
   %i8.0 = phi i32 [ %conv11, %if.then7 ], [ %dec19, %do.body14 ]
-  %pi12.0 = phi ptr [ %i4, %if.then7 ], [ %incdec.ptr16, %do.body14 ]
-  %pj13.0 = phi ptr [ %i5, %if.then7 ], [ %incdec.ptr17, %do.body14 ]
+  %pi12.0 = phi ptr [ %a, %if.then7 ], [ %incdec.ptr16, %do.body14 ]
+  %pj13.0 = phi ptr [ %b, %if.then7 ], [ %incdec.ptr17, %do.body14 ]
   %i6 = load i32, ptr %pi12.0, align 4
   %i7 = load i32, ptr %pj13.0, align 4
   %incdec.ptr16 = getelementptr inbounds i32, ptr %pi12.0, i32 1
