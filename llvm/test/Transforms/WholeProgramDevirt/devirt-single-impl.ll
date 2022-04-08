@@ -1,7 +1,11 @@
 ; -stats requires asserts
 ; REQUIRES: asserts
 
-; RUN: opt -S -passes=wholeprogramdevirt -whole-program-visibility -pass-remarks=wholeprogramdevirt -stats %s 2>&1 | FileCheck %s
+; INTEL_CUSTOMIZATION
+; We need to disable multiversioning from devirtualization since this is
+; a test case from the community.
+; RUN: opt -S -passes=wholeprogramdevirt -whole-program-visibility -pass-remarks=wholeprogramdevirt -wholeprogramdevirt-multiversion=false -stats %s 2>&1 | FileCheck %s
+; end INTEL_CUSTOMIZATION
 
 target datalayout = "e-p:64:64"
 target triple = "x86_64-unknown-linux-gnu"
