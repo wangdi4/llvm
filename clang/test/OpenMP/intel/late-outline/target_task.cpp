@@ -1,11 +1,11 @@
 // INTEL_COLLAB
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s \
-// RUN:  | FileCheck --check-prefixes CHECK,CHECK-OLD %s
+// RUN:  | FileCheck --check-prefixes CHECK,CHECK-NEW %s
 
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
-// RUN:  -fopenmp-new-depend-ir -triple x86_64-unknown-linux-gnu %s \
-// RUN:  | FileCheck --check-prefixes CHECK,CHECK-NEW %s
+// RUN:  -fno-openmp-new-depend-ir -triple x86_64-unknown-linux-gnu %s \
+// RUN:  | FileCheck --check-prefixes CHECK,CHECK-OLD %s
 
 void foo1() {
   double w = 1.0;
