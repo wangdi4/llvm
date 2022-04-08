@@ -57,6 +57,9 @@ sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-runtime
 # OpenCL deps
 opencl/ @intel-restricted/llvm-reviewers-runtime
 
+# OpenCL runtime
+opencl-intel/ @intel-restricted/cmplrllvm-ocl-cpu-rt
+
 # Device library
 libdevice/ @intel-restricted/llvm-reviewers-runtime
 
