@@ -723,7 +723,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
                                       options::OPT__SLASH_Qx))
     addAdvancedOptimFlag(*A, options::OPT__SLASH_Qx);
-  addIntelOptimizationArgs(ToolChain, Args, CmdArgs, true);
+  addIntelOptimizationArgs(ToolChain, Args, CmdArgs, Input, true);
   // All -mllvm flags as provided by the user will be passed through.
   for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm))
     CmdArgs.push_back(Args.MakeArgString(Twine("-plugin-opt=") + AV));
@@ -763,7 +763,8 @@ static void AddllvmOption(const ToolChain &TC, const char *Opt, bool IsLink,
 
 static void RenderOptReportOptions(const ToolChain &TC, bool IsLink,
                                    const llvm::opt::ArgList &Args,
-                                   llvm::opt::ArgStringList &CmdArgs) {
+                                   llvm::opt::ArgStringList &CmdArgs,
+                                   const InputInfo &Input) {
   const Arg *A = Args.getLastArg(options::OPT_qopt_report_EQ);
   if (!A)
     return;
@@ -799,12 +800,34 @@ static void RenderOptReportOptions(const ToolChain &TC, bool IsLink,
     InlineLevel |= 0xd040; // high = 0xf859
   addllvmOption(Args.MakeArgString(Twine("-inline-report=0x") +
                                    Twine::utohexstr(InlineLevel)));
+
+  // -qopt-report-file support
+  if (const Arg *A = Args.getLastArg(options::OPT_qopt_report_file_EQ)) {
+    StringRef Value(A->getValue());
+    addllvmOption(Args.MakeArgString(Twine("-intel-opt-report-file=") + Value));
+  } else {
+    // No -qopt-report-file given on the command, we do default values based
+    // on file name or if performing LTO, 'ipo_out.optrpt'
+    SmallString<128> OutFileDir;
+    auto *OptO = Args.getLastArg(options::OPT_o, options::OPT__SLASH_o);
+    OutFileDir = (OptO ? OptO->getValues()[0] : "");
+    llvm::sys::path::remove_filename(OutFileDir);
+
+    SmallString<128> OutFile(
+        IsLink ? "ipo_out" : llvm::sys::path::filename(Input.getBaseInput()));
+    llvm::sys::path::replace_extension(OutFile, ".optrpt");
+    if (!OutFileDir.empty())
+      OutFileDir.append(llvm::sys::path::get_separator());
+    OutFileDir.append(OutFile);
+    addllvmOption(
+        Args.MakeArgString(Twine("-intel-opt-report-file=") + OutFileDir));
+  }
 }
 
 void tools::addIntelOptimizationArgs(const ToolChain &TC,
                                      const llvm::opt::ArgList &Args,
                                      llvm::opt::ArgStringList &CmdArgs,
-                                     bool IsLink) {
+                                     const InputInfo &Input, bool IsLink) {
   auto addllvmOption = [&](const char *Opt) {
     AddllvmOption(TC, Opt, IsLink, Args, CmdArgs);
   };
@@ -927,7 +950,7 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
           << LoopCarriedVal << A->getOption().getName();
   }
 
-  RenderOptReportOptions(TC, IsLink, Args, CmdArgs);
+  RenderOptReportOptions(TC, IsLink, Args, CmdArgs, Input);
   auto addMultiVersionFlag = [&](const Arg &OptArg, OptSpecifier Opt) {
     if (IsLink && OptArg.getOption().matches(Opt) &&
         x86::isValidIntelCPU(OptArg.getValue(), TC.getTriple()))

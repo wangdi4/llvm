@@ -8690,7 +8690,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
                                       options::OPT__SLASH_Qx))
     addAdvancedOptimFlag(*A, options::OPT__SLASH_Qx);
-  addIntelOptimizationArgs(TC, Args, CmdArgs, false);
+  addIntelOptimizationArgs(TC, Args, CmdArgs, Input, false);
 #endif // INTEL_CUSTOMIZATION
   // Add the output path to the object file for CodeView debug infos.
   if (EmitCodeView && Output.isFilename())

@@ -524,7 +524,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                                         options::OPT__SLASH_Qx))
       addAdvancedOptimFlag(*A, options::OPT__SLASH_Qx);
 
-    addIntelOptimizationArgs(TC, Args, CmdArgs, true);
+    addIntelOptimizationArgs(TC, Args, CmdArgs, Inputs[0], true);
     // Using lld-link and -flto, we need to add any additional -mllvm options
     // and implied options.
     for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm))

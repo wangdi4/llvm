@@ -5570,6 +5570,13 @@ def qopt_report_EQ : Joined<["-"], "qopt-report=">, Values<"min,med,max">,
 def : Joined<["-"], "qopt-report">, Alias<qopt_report_EQ>;
 def qopt_report : Flag<["-"], "qopt-report">, Alias<qopt_report_EQ>,
   AliasArgs<["2"]>;
+def qopt_report_file_EQ : Joined<["-"], "qopt-report-file=">,
+  HelpText<"Specify the filename or output stream (stdout, stderr) for the "
+           "generated optimization report">;
+def qopt_report_stdout : Flag<["-"], "qopt-report-stdout">,
+  Alias<qopt_report_file_EQ>, AliasArgs<["stdout"]>,
+  HelpText<"Specify the generated optimization report should be directed "
+           "to stdout">;
 def qopt_streaming_stores_EQ : Joined<["-"], "qopt-streaming-stores=">,
   Values<"always,auto,never">, HelpText<"Specifies whether streaming stores "
   "are generated.">;
@@ -8079,6 +8086,16 @@ def _SLASH_Qopt_report : CLFlag<"Qopt-report">, Alias<qopt_report_EQ>,
   AliasArgs<["2"]>;
 def _SLASH_Qopt_report_COL : CLJoined<"Qopt-report:">, Alias<qopt_report_EQ>,
   HelpText<"Generate an optimization report, min, med or max.">;
+def _SLASH_Qopt_report_file_EQ : CLJoined<"Qopt-report-file=">,
+  Alias<qopt_report_file_EQ>;
+def _SLASH_Qopt_report_file_COL : CLJoined<"Qopt-report-file:">,
+  Alias<qopt_report_file_EQ>,
+  HelpText<"Specify the filename or output stream (stdout, stderr) for the "
+           "generated optimization report">;
+def : CLFlag<"Qopt-report-stdout">,
+  Alias<qopt_report_file_EQ>, AliasArgs<["stdout"]>,
+  HelpText<"Specify the generated optimization report should be directed "
+           "to stdout">;
 def : CLJoined<"Qopt-streaming-stores:">,
   Alias<qopt_streaming_stores_EQ>, HelpText<"Specifies whether streaming "
   "stores are generated.">;

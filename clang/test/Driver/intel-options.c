@@ -578,16 +578,16 @@
 // CHECK-PCH-USE: "-include-pch"
 
 // Behavior with -qopt-report
-// RUN: %clang -### -qopt-report -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
-// RUN: %clang_cl -### -Qopt-report -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
-// RUN: %clang -### -qopt-report=2 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
-// RUN: %clang_cl -### -Qopt-report:2 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
-// RUN: %clang -### -qopt-report2 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
-// RUN: %clang_cl -### -Qopt-report2 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
-// RUN: %clang -### -qopt-report=med -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
-// RUN: %clang_cl -### -Qopt-report:med -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
-// RUN: %clang -### -fiopenmp -fopenmp-targets=spir64 -S -qopt-report=3 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-NAME %s
-// RUN: %clang_cl -### -Qiopenmp -Qopenmp-targets=spir64 -S -Qopt-report=3 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-NAME %s
+// RUN: mkdir -p %t_dir
+// RUN: touch %t_dir/dummy.c
+// RUN: %clang -### -qopt-report -c %t_dir/dummy.c 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang_cl -### -Qopt-report -c %t_dir/dummy.c 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang -### -qopt-report=2 -c %t_dir/dummy.c 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang_cl -### -Qopt-report:2 -c %t_dir/dummy.c 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang -### -qopt-report2 -c %t_dir/dummy.c 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang_cl -### -Qopt-report2 -c %t_dir/dummy.c 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang -### -qopt-report=med -c %t_dir/dummy.c 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang_cl -### -Qopt-report:med -c %t_dir/dummy.c 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
 // CHECK-OPT-REPORT: "-debug-info-kind=line-tables-only"
 // CHECK-OPT-REPORT: "-opt-record-file" "{{.*}}.yaml"
 // CHECK-OPT-REPORT: "-opt-record-format" "yaml"
@@ -596,6 +596,24 @@
 // CHECK-OPT-REPORT: "-mllvm" "-intel-opt-report=medium"
 // CHECK-OPT-REPORT: "-mllvm" "-intel-ra-spillreport=medium"
 // CHECK-OPT-REPORT: "-mllvm" "-inline-report=0x2819"
+// CHECK-OPT-REPORT: "-mllvm" "-intel-opt-report-file=dummy.optrpt"
+
+// -qopt-report-file checks
+// RUN: %clang -### -qopt-report -qopt-report-file=report-out.file -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-FILE %s
+// RUN: %clang_cl -### -Qopt-report -Qopt-report-file:report-out.file -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-FILE %s
+// CHECK-OPT-REPORT-FILE: "-mllvm" "-intel-opt-report-file=report-out.file"
+
+// RUN: %clang -### -ipo -fuse-ld=lld -qopt-report %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-FILE-IPO %s
+// RUN: %clang_cl -### -Qipo -fuse-ld=lld -Qopt-report %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-FILE-IPO %s
+// CHECK-OPT-REPORT-FILE-IPO: "-mllvm" "-intel-opt-report-file=intel-options.optrpt"
+// CHECK-OPT-REPORT-FILE-IPO: -intel-opt-report-file=ipo_out.optrpt
+
+// RUN: %clang -### -ipo -fuse-ld=lld -qopt-report -o %t_dir/out.exe %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-FILE-IPO-DIR %s
+// RUN: %clang_cl -### -Qipo -fuse-ld=lld -Qopt-report -o %t_dir/out.exe %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-FILE-IPO-DIR %s
+// CHECK-OPT-REPORT-FILE-IPO-DIR: -intel-opt-report-file={{.*}}_dir{{(/|\\\\)}}ipo_out.optrpt
+
+// RUN: %clang -### -fiopenmp -fopenmp-targets=spir64 -S -qopt-report=3 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-NAME %s
+// RUN: %clang_cl -### -Qiopenmp -Qopenmp-targets=spir64 -S -Qopt-report=3 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-NAME %s
 // CHECK-OPT-REPORT-NAME: "-opt-record-file" "intel-options-openmp-spir64.opt.yaml"
 
 // RUN: %clang -### -qopt-report=min -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MIN %s
