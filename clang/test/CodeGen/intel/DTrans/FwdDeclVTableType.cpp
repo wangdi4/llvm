@@ -1,5 +1,6 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,PTR
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -mllvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
 class a;
 class b {};
 class c {
@@ -19,13 +20,17 @@ f::f() : g(new d) {}
 // vtable for 'd'
 // CHECK: @_ZTV1d = available_externally unnamed_addr constant {{.*}} !intel_dtrans_type ![[D_VTABLE:[0-9]+]]
 // f::f()
-// CHECK: define dso_local void @_ZN1fC2Ev(%class._ZTS1f.f* {{[^,]*}}"intel_dtrans_func_index"="1" %{{.*}}){{.*}}!intel.dtrans.func.type ![[F_CTOR:[0-9]+]]
+// PTR: define dso_local void @_ZN1fC2Ev(%class._ZTS1f.f* {{[^,]*}}"intel_dtrans_func_index"="1" %{{.*}}){{.*}}!intel.dtrans.func.type ![[F_CTOR:[0-9]+]]
+// OPQ: define dso_local void @_ZN1fC2Ev(ptr {{[^,]*}}"intel_dtrans_func_index"="1" %{{.*}}){{.*}}!intel.dtrans.func.type ![[F_CTOR:[0-9]+]]
 // Operator new.
-// CHECK: declare !intel.dtrans.func.type ![[OP_NEW:[0-9]+]] noundef nonnull "intel_dtrans_func_index"="1" i8* @_Znwm(i64 noundef)
+// PTR: declare !intel.dtrans.func.type ![[OP_NEW:[0-9]+]] noundef nonnull "intel_dtrans_func_index"="1" i8* @_Znwm(i64 noundef)
+// OPQ: declare !intel.dtrans.func.type ![[OP_NEW:[0-9]+]] noundef nonnull "intel_dtrans_func_index"="1" ptr @_Znwm(i64 noundef)
 // d::d()
-// CHECK: define linkonce_odr void @_ZN1dC1Ev(%class._ZTS1d.d* {{[^,]*}}"intel_dtrans_func_index"="1" %{{.*}}){{.*}} !intel.dtrans.func.type ![[D_CTOR:[0-9]+]]
+// PTR: define linkonce_odr void @_ZN1dC1Ev(%class._ZTS1d.d* {{[^,]*}}"intel_dtrans_func_index"="1" %{{.*}}){{.*}} !intel.dtrans.func.type ![[D_CTOR:[0-9]+]]
+// OPQ: define linkonce_odr void @_ZN1dC1Ev(ptr {{[^,]*}}"intel_dtrans_func_index"="1" %{{.*}}){{.*}} !intel.dtrans.func.type ![[D_CTOR:[0-9]+]]
 // c::c(b*)
-// CHECK: declare !intel.dtrans.func.type ![[C_CTOR:[0-9]+]] void @_ZN1cC1EP1b(%class._ZTS1c.c* {{[^,]*}}"intel_dtrans_func_index"="1", %class._ZTS1b.b* noundef  "intel_dtrans_func_index"="2")
+// PTR: declare !intel.dtrans.func.type ![[C_CTOR:[0-9]+]] void @_ZN1cC1EP1b(%class._ZTS1c.c* {{[^,]*}}"intel_dtrans_func_index"="1", %class._ZTS1b.b* noundef  "intel_dtrans_func_index"="2")
+// OPQ: declare !intel.dtrans.func.type ![[C_CTOR:[0-9]+]] void @_ZN1cC1EP1b(ptr {{[^,]*}}"intel_dtrans_func_index"="1", ptr noundef  "intel_dtrans_func_index"="2")
 // CHECK: !intel.dtrans.types = !{![[F:[0-9]+]], ![[C:[0-9]+]], ![[D:[0-9]+]], ![[B:[0-9]+]]}
 
 // CHECK: ![[D_VTABLE]] = !{!"L", i32 1, ![[ARR_CHAR_PTRS:[0-9]+]]}

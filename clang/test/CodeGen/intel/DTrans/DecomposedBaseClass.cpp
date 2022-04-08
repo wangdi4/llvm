@@ -1,5 +1,6 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,PTR
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -mllvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
 template <typename a> struct b {
   int c;
   a d;
@@ -17,8 +18,10 @@ void i() {
 }
 
 // e::e(int,int)
-// CHECK: declare !intel.dtrans.func.type ![[E_CTOR:[0-9]+]] void @_ZN1eC1Eii(%class._ZTS1e.e* {{[^,]*}}"intel_dtrans_func_index"="1", i32 noundef, i32 noundef)
-// CHECK: declare !intel.dtrans.func.type ![[G:[0-9]+]] "intel_dtrans_func_index"="1" { i32, i32* } @_ZN1e1gEv(%class._ZTS1e.e* {{[^,]*}}"intel_dtrans_func_index"="2")
+// PTR: declare !intel.dtrans.func.type ![[E_CTOR:[0-9]+]] void @_ZN1eC1Eii(%class._ZTS1e.e* {{[^,]*}}"intel_dtrans_func_index"="1", i32 noundef, i32 noundef)
+// OPQ: declare !intel.dtrans.func.type ![[E_CTOR:[0-9]+]] void @_ZN1eC1Eii(ptr {{[^,]*}}"intel_dtrans_func_index"="1", i32 noundef, i32 noundef)
+// PTR: declare !intel.dtrans.func.type ![[G:[0-9]+]] "intel_dtrans_func_index"="1" { i32, i32* } @_ZN1e1gEv(%class._ZTS1e.e* {{[^,]*}}"intel_dtrans_func_index"="2")
+// OPQ: declare !intel.dtrans.func.type ![[G:[0-9]+]] "intel_dtrans_func_index"="1" { i32, ptr } @_ZN1e1gEv(ptr {{[^,]*}}"intel_dtrans_func_index"="2")
 
 // CHECK: intel.dtrans.types = !{![[E:[0-9]+]], ![[F:[0-9]+]], ![[B:[0-9]+]]}
 // CHECK: ![[E]] = !{!"S", %class._ZTS1e.e zeroinitializer, i32 1, ![[CHAR:[0-9]+]]}

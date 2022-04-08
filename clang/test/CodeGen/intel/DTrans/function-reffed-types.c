@@ -1,7 +1,6 @@
 // REQUIRES: intel_feature_sw_dtrans
 // RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -mllvm -opaque-pointers -fintel-compatibility -emit-llvm %s -o - | FileCheck %s
 
-
 struct Struct;
 void NormalStruct(struct Struct*);
 void VAList(__builtin_va_list*);
