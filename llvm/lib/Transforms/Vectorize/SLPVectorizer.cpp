@@ -4699,7 +4699,7 @@ BoUpSLP::~BoUpSLP() {
 
   // Cleanup any dead scalar code feeding the vectorized instructions
   RecursivelyDeleteTriviallyDeadInstructions(DeadInsts, TLI);
-  
+
 #ifdef EXPENSIVE_CHECKS
   // If we could guarantee that this call is not extremely slow, we could
   // remove the ifdef limitation (see PR47712).
@@ -5551,7 +5551,7 @@ void BoUpSLP::applyReorderedOperands(ScheduleData *Bundle) {
       }
     }
   }
-#ifdef EXPENSIVE_CHECKS  
+#ifdef EXPENSIVE_CHECKS
   if (MultiNodeVerifierChecks)
     assert(!verifyFunction(*F, &dbgs()));
 #endif // EXPENSIVE_CHECKS
