@@ -33,7 +33,8 @@
 /clang-tools-extra/ @aaronballman
 
 # DPC++ Tools
-/clang/tools/clang-offload-* @sndmitriev @AlexeySachkov @mlychkov
+# /clang/tools/clang-offload-*
+# Temporarily removed @sndmitriev, @AlexeySachkov, @mlychkov
 
 # CFE/OpenMP
 /llvm/include/llvm/Frontend/OpenMP/ @mikerice1969 @jyu2-git @ddpagan
@@ -65,7 +66,8 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 
 # COMPONENT: DPC++ ESIMD
 # ESIMD device library
-sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov @sndmitriev
+sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
+# Temporarily removed @sndmitriev
 
 # COMPONENT: CG
 # JIRA: CMPLRLLVM->LLVM Code Generator
@@ -162,7 +164,8 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov @sndmitrie
 /llvm/include/llvm/Support/Intel_WP_utils.h @robertcox-github @pvbattin
 /llvm/include/llvm/Support/intel-plugin-api.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/IPO/ @robertcox-github @pvbattin
-/llvm/include/llvm/Transforms/IPO/Intel_AutoCPUClone.h @romanovvlad @abuyukku
+/llvm/include/llvm/Transforms/IPO/Intel_AutoCPUClone.h @abuyukku
+# Temporarily removed @romanovvlad
 /llvm/include/llvm/Transforms/IPO.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Scalar/Intel_FunctionRecognizer.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Scalar/Intel_IndirectCallConv.h @robertcox-github @pvbattin
@@ -178,7 +181,8 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov @sndmitrie
 /llvm/include/llvm/Transforms/Utils/GlobalStatus.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/Utils/ImportedFunctionsInliningStatistics.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Utils/Intel_CloneUtils.h @robertcox-github @pvbattin
-/llvm/include/llvm/Transforms/Utils/Intel_X86EmitMultiVersionResolver.h @romanovvlad @abuyukku
+/llvm/include/llvm/Transforms/Utils/Intel_X86EmitMultiVersionResolver.h @abuyukku
+# Temporarily removed @romanovvlad
 /llvm/include/llvm/Transforms/Utils/LibCallsShrinkWrap.h  @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Utils/ModuleUtils.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Utils/SplitModule.h @robertcox-github @pvbattin
@@ -210,7 +214,8 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov @sndmitrie
 /llvm/lib/Linker/ @robertcox-github @pvbattin
 /llvm/lib/LTO/ @robertcox-github @pvbattin
 /llvm/lib/Transforms/IPO/ @robertcox-github @pvbattin
-/llvm/lib/Transforms/IPO/Intel_AutoCPUClone.cpp @romanovvlad @abuyukku
+/llvm/lib/Transforms/IPO/Intel_AutoCPUClone.cpp @abuyukku
+# Temporarily removed @romanovvlad
 /llvm/lib/Transforms/Scalar/Intel_FunctionRecognizer.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Scalar/Intel_IndirectCallConv.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/BuildLibCalls.cpp @robertcox-github @pvbattin
@@ -228,7 +233,8 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov @sndmitrie
 /llvm/lib/Transforms/Utils/InlineFunction.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/Intel_CloneUtils.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/Intel_RegionSplitter.cpp @robertcox-github @pvbattin
-/llvm/lib/Transforms/Utils/Intel_X86EmitMultiVersionResolver.cpp @romanovvlad @abuyukku @erichkeane
+/llvm/lib/Transforms/Utils/Intel_X86EmitMultiVersionResolver.cpp @abuyukku @erichkeane
+# Temporarily removed @romanovvlad
 /llvm/lib/Transforms/Utils/LibCallsShrinkWrap.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/ModuleUtils.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/SplitModule.cpp @robertcox-github @pvbattin
@@ -257,11 +263,13 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov @sndmitrie
 /llvm/test/Transforms/Inline/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_AdvancedFastCall/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_ArgumentAlignment/ @robertcox-github @pvbattin
-/llvm/test/Transforms/Intel_AutoCPUClone/ @romanovvlad @abuyukku
+/llvm/test/Transforms/Intel_AutoCPUClone/ @abuyukku
+# Temporarily removed @romanovvlad
 /llvm/test/Transforms/Intel_DeadArrayOpsElimination/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_DopeVectorConstProp/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_DopeVectorHoist/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_FoldWPIntrinsic/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_FunctionRecognizer/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_InlineReport/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_IPArrayTranspose/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_IPCloning/ @robertcox-github @pvbattin
@@ -674,8 +682,9 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov @sndmitrie
 # Scalar Optimizer Tests
 /llvm/test/Analysis/AliasSet/ @tcreech-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Analysis/BasicAA/ @tcreech-intel @dwoodwor-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
-/llvm/test/Analysis/ConstantFolding/ @sndmitriev @intel-restricted/cmplrllvm-llvm-scalar-optimizer
-/llvm/test/Analysis/LazyValueAnalysis/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Analysis/ConstantFolding/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+# Temporarily removed @sndmitriev
+/llvm/test/Analysis/LazyValueAnalysis/  @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Analysis/LoopAccessAnalysis/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Analysis/MemoryDependenceAnalysis/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Analysis/ScalarEvolution/ @pankaj-chawla @intel-restricted/cmplrllvm-llvm-scalar-optimizer
@@ -694,7 +703,8 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov @sndmitrie
 /llvm/test/Transforms/IRCE/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/IndVarSimplify/ @tcreech-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/InferAddressSpaces/ @intel-restricted/cmplrllvm-llvm-paropt
-/llvm/test/Transforms/InstCombine/ @tcreech-intel @sndmitriev @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/InstCombine/ @tcreech-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+# Temporarily removed @sndmitriev
 /llvm/test/Transforms/InstSimplify/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/Intel_ForcedCMOVGeneration/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/Intel_MapIntrinToIml/ @LuoYuanke @phoebewang @williamweixiao
@@ -760,4 +770,5 @@ xpti/ @intel-restricted/llvm-reviewers-runtime
 xptifw/ @intel-restricted/llvm-reviewers-runtime
 
 # JIRA: CMPLRLLVM->DPC++ Tools
-sycl-post-link/ @AlexeySachkov @mlychkov
+# sycl-post-link/
+# Temporarily removed @AlexeySachkov, @mlychkov
