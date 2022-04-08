@@ -95,14 +95,12 @@ libIRCMVResolverOptionComparator(const MultiVersionResolverOption &LHS,
          (LHSBits[1] == RHSBits[1] && LHSBits[0] > RHSBits[0]);
 }
 
-PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &) {
-
+static bool cloneFunctions(Module &M,
+                           function_ref<TargetLibraryInfo &(Function &)> GetTLI) {
   // Windows is not supported so far.
   const Triple TT{M.getTargetTriple()};
   if (!TT.isOSLinux())
-    return PreservedAnalyses::all();
-
-  bool Changed = false;
+    return false;
 
   // Maps that are used to do to RAUW later.
   std::map</*OrigFunc*/ GlobalValue *,
@@ -114,6 +112,8 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &) {
   std::map</*MultiversionedFunc*/ const GlobalValue *,
            /*Target extension*/ std::string>
       MultiFunc2TargetExt;
+
+  bool Changed = false;
 
   // Multiversion functions marked for auto cpu dispatching.
   for (Function &Fn : M) {
@@ -150,6 +150,17 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &) {
                  auto *CInst = dyn_cast<CallBase>(&I);
                  return CInst && CInst->isInlineAsm();
                })) {
+      continue;
+    }
+
+    // Names of Library functions that come from the ISO C standard are reserved
+    // unconditionally. Redefining them with external linkage will rsult in
+    // undefined behavior.
+    // Skip multiversioning such redefinitions. This is to achieve consistent
+    // behavior with -ax enabled vs not.
+    LibFunc LF;
+    if (Fn.hasExternalLinkage() &&
+        GetTLI(Fn).getLibFunc(Fn.getName(), LF)) {
       continue;
     }
 
@@ -261,7 +272,7 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &) {
 
   // No functions were multiversioned, exiting.
   if (!Changed)
-    return PreservedAnalyses::all();
+    return false;
 
   // Update uses of the original functions.
   // At this point all functions(except resolvers) use original functions(those
@@ -340,7 +351,20 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &) {
   }
 
   // If we are here then we have done modifications.
-  return PreservedAnalyses::none();
+  return true;
+}
+
+PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &AM) {
+
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(F);
+  };
+
+  if (cloneFunctions(M, GetTLI))
+    return PreservedAnalyses::none();
+
+  return PreservedAnalyses::all();
 }
 
 namespace {
@@ -351,21 +375,31 @@ public:
     initializeAutoCPUCloneLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<TargetLibraryInfoWrapperPass>();
+  }
+
   bool runOnModule(Module &M) override {
+
+    auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
+
     if (skipModule(M))
       return false;
 
-    AutoCPUClonePass Impl;
-    ModuleAnalysisManager AM;
-    PreservedAnalyses PA = Impl.run(M, AM);
-    return !PA.areAllPreserved();
+    bool anyFunctionsCloned = cloneFunctions(M, GetTLI);
+    return anyFunctionsCloned;
   }
 };
 } // namespace
 
 char AutoCPUCloneLegacyPass::ID = 0;
-INITIALIZE_PASS(AutoCPUCloneLegacyPass, "auto-cpu-clone",
-                "Clone functions for Auto CPU Dispatch", false, false)
+INITIALIZE_PASS_BEGIN(AutoCPUCloneLegacyPass, "auto-cpu-clone",
+                      "Clone functions for Auto CPU Dispatch", false, false)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_END(AutoCPUCloneLegacyPass, "auto-cpu-clone",
+                    "Clone functions for Auto CPU Dispatch", false, false)
 
 Pass *llvm::createAutoCPUCloneLegacyPass() {
   return new AutoCPUCloneLegacyPass();

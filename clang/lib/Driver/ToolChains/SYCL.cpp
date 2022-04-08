@@ -1029,6 +1029,15 @@ void SYCLToolChain::AddSYCLIncludeArgs(const clang::driver::Driver &Driver,
   // Add ../include/sycl and ../include (in that order)
   SmallString<128> P(Driver.getInstalledDir());
   llvm::sys::path::append(P, "..");
+#if INTEL_CUSTOMIZATION
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  if (!llvm::sys::fs::exists(P + "/include/sycl")) {
+    // Location of SYCL specific headers is <install>/include/sycl, which is
+    // two levels up from the clang binary (Driver installed dir).
+    llvm::sys::path::append(P, "..");
+  }
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
+#endif // INTEL_CUSTOMIZATION
   llvm::sys::path::append(P, "include");
   SmallString<128> SYCLP(P);
   llvm::sys::path::append(SYCLP, "sycl");
