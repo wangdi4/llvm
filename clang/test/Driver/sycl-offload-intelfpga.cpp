@@ -248,7 +248,11 @@
 // CHK-FPGA-AOCX-OBJ: file-table-tform{{.*}} "-rename=0,Code" "-o" "[[TABLEOUT:.+\.txt]]" "[[BUNDLEOUT]]"
 // CHK-FPGA-AOCX-OBJ: clang-offload-wrapper{{.*}} "-o=[[WRAPOUT:.+\.bc]]" {{.*}} "-target=spir64_fpga" "-kind=sycl" "-batch" "[[TABLEOUT]]"
 // CHK-FPGA-AOCX-OBJ: llc{{.*}} "-filetype=obj" "-o" "[[LLCOUT:.+\.(o|obj)]]" "[[WRAPOUT]]"
+<<<<<<< HEAD
 // CHK-FPGA-AOCX-OBJ: clang-offload-bundler{{.*}} "-type=o" {{.*}} "-output=[[HOSTOBJ:.+\.(o|obj)]]" "-output=[[DEVICEOBJ:.+\.(o|obj)]]" "-unbundle"
+=======
+// CHK-FPGA-AOCX-OBJ: clang-offload-bundler{{.*}} "-type=o" {{.*}} "-output=[[HOSTOBJ:.+\.(o|obj)]],[[DEVICEOBJ:.+\.(o|obj)]]" "-unbundle"
+>>>>>>> e76f74dba6f7f5466504d816d3135fc4c77daabc
 // CHK-FPGA-AOCX-OBJ: spirv-to-ir-wrapper{{.*}} "[[DEVICEOBJ]]" "-o" "[[IROUTPUT:.+\.bc]]"
 // CHK-FPGA-AOCX-OBJ: llvm-link{{.*}} "[[IROUTPUT]]" "-o" "[[LLVMLINKOUT:.+\.bc]]" "--suppress-warnings"
 // CHK-FPGA-AOCX-OBJ: sycl-post-link{{.*}} "-O2" "-spec-const=default" "-o" "[[POSTLINKOUT:.+\.table]]" "[[LLVMLINKOUT]]
@@ -267,7 +271,11 @@
 // RUN:  | FileCheck -check-prefixes=CHK-FPGA-AOCX-OBJ2 %s
 // RUN:  %clang_cl -fsycl -fno-sycl-device-lib=all -fsycl-targets=spir64,spir64_fpga -Xshardware %t.o %t_aocx.a -### 2>&1 \
 // RUN:  | FileCheck -check-prefixes=CHK-FPGA-AOCX-OBJ2 %s
+<<<<<<< HEAD
 // CHK-FPGA-AOCX-OBJ2: clang-offload-bundler{{.*}} "-type=o" {{.*}} "-output=[[HOSTOBJ:.+\.(o|obj)]]" "-output=[[DEVICEOBJ:.+\.(o|obj)]]" "-output=[[DEVICEOBJ2:.+\.(o|obj)]]" "-unbundle"
+=======
+// CHK-FPGA-AOCX-OBJ2: clang-offload-bundler{{.*}} "-type=o" {{.*}} "-output=[[HOSTOBJ:.+\.(o|obj)]],[[DEVICEOBJ:.+\.(o|obj)]],[[DEVICEOBJ2:.+\.(o|obj)]]" "-unbundle"
+>>>>>>> e76f74dba6f7f5466504d816d3135fc4c77daabc
 // CHK-FPGA-AOCX-OBJ2: spirv-to-ir-wrapper{{.*}} "[[DEVICEOBJ]]" "-o" "[[IROUTPUT:.+\.bc]]"
 // CHK-FPGA-AOCX-OBJ2: llvm-link{{.*}} "[[IROUTPUT]]" "-o" "[[LLVMLINKOUT:.+\.bc]]" "--suppress-warnings"
 // CHK-FPGA-AOCX-OBJ2: sycl-post-link{{.*}} "-O2" "-spec-const=rt" "-o" "[[POSTLINKOUT:.+\.table]]" "[[LLVMLINKOUT]]"
@@ -361,7 +369,11 @@
 // CHK-FPGA-DEP-FILES2-LIN: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64_fpga-unknown-unknown,host-x86_64-unknown-linux-gnu,sycl-fpga_dep" {{.*}} "-input={{.*}}.bc" "-input={{.*}}.o" "-input=[[INPUT1]]"
 // CHK-FPGA-DEP-FILES2-WIN: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64_fpga-unknown-unknown,host-x86_64-pc-windows-msvc,sycl-fpga_dep" {{.*}} "-input={{.*}}.bc" "-input={{.*}}.obj" "-input=[[INPUT1]]"
 // CHK-FPGA-DEP-FILES2: clang{{.*}} "-dependency-file" "[[INPUT2:.+\.d]]"
+<<<<<<< HEAD
 // CHK-FPGA-DEP-FILES2-LIN: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64_fpga-unknown-unknown,host-x86_64-unknown-linux-gnu,sycl-fpga_dep" {{.*}} "-input={{.*}}.bc" "-input={{.*}}.o" "-input=[[INPUT2]]"
+=======
+// CHK-FPGA-DEP-FILES2-LIN: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64_fpga-unknown-unknown,host-x86_64-unknown-linux-gnu,sycl-fpga_dep" {{.*}} "-input={{.*}}.bc" "-input={{.*}}.o "-input=[[INPUT2]]"
+>>>>>>> e76f74dba6f7f5466504d816d3135fc4c77daabc
 // CHK-FPGA-DEP-FILES2-WIN: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64_fpga-unknown-unknown,host-x86_64-pc-windows-msvc,sycl-fpga_dep" {{.*}} "-input={{.*}}.bc" "-input={{.*}}.obj" "-input=[[INPUT2]]"
 
 /// -fintelfpga dependency file test to object with output designator

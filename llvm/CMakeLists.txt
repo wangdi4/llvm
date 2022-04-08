@@ -859,16 +859,19 @@ else()
 endif()
 option(LLVM_ENABLE_PLUGINS "Enable plugin support" ${LLVM_ENABLE_PLUGINS_default})
 
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # We want to keep the legacy pass manager enabled by default even
 # after the community changes the default here.
 set(LLVM_ENABLE_NEW_PASS_MANAGER FALSE CACHE BOOL # INTEL
+=======
+set(LLVM_ENABLE_NEW_PASS_MANAGER TRUE CACHE BOOL
+>>>>>>> e76f74dba6f7f5466504d816d3135fc4c77daabc
   "Enable the new pass manager by default.")
 #end INTEL_CUSTOMIZATION
 if(NOT LLVM_ENABLE_NEW_PASS_MANAGER)
-  message(WARNING "Using the legacy pass manager for the optimization pipeline"
-                  " is deprecated. The functionality will degrade over time and"
-                  " be removed in a future release.")
+  message(FATAL_ERROR "Enabling the legacy pass manager on the cmake level is"
+                      " no longer supported.")
 endif()
 
 include(HandleLLVMOptions)
