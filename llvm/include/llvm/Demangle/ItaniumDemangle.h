@@ -694,7 +694,7 @@ public:
   void printLeft(OutputBuffer &OB) const override {
     if (Printing)
       return;
-    SwapAndRestore<bool> SavePrinting(Printing, true);
+    ScopedOverride<bool> SavePrinting(Printing, true);
     std::pair<ReferenceKind, const Node *> Collapsed = collapse(OB);
     if (!Collapsed.second)
       return;
@@ -709,7 +709,7 @@ public:
   void printRight(OutputBuffer &OB) const override {
     if (Printing)
       return;
-    SwapAndRestore<bool> SavePrinting(Printing, true);
+    ScopedOverride<bool> SavePrinting(Printing, true);
     std::pair<ReferenceKind, const Node *> Collapsed = collapse(OB);
     if (!Collapsed.second)
       return;
@@ -1223,7 +1223,7 @@ public:
   template<typename Fn> void match(Fn F) const { F(Name, Params); }
 
   void printLeft(OutputBuffer &OB) const override {
-    SwapAndRestore<unsigned> LT(OB.GtIsGt, 0);
+    ScopedOverride<unsigned> LT(OB.GtIsGt, 0);
     OB += "template<";
     Params.printWithComma(OB);
     OB += "> typename ";
@@ -1359,8 +1359,8 @@ public:
 
   void printLeft(OutputBuffer &OB) const override {
     constexpr unsigned Max = std::numeric_limits<unsigned>::max();
-    SwapAndRestore<unsigned> SavePackIdx(OB.CurrentPackIndex, Max);
-    SwapAndRestore<unsigned> SavePackMax(OB.CurrentPackMax, Max);
+    ScopedOverride<unsigned> SavePackIdx(OB.CurrentPackIndex, Max);
+    ScopedOverride<unsigned> SavePackMax(OB.CurrentPackMax, Max);
     size_t StreamPos = OB.getCurrentPosition();
 
     // Print the first element in the pack. If Child contains a ParameterPack,
@@ -1401,7 +1401,7 @@ public:
   const NodeArray &getParams() const { return Params; }
 
   void printLeft(OutputBuffer &OB) const override {
-    SwapAndRestore<unsigned> LT(OB.GtIsGt, 0);
+    ScopedOverride<unsigned> LT(OB.GtIsGt, 0);
     OB += "<";
     Params.printWithComma(OB);
     if (OB.back() == '>')
@@ -1451,38 +1451,38 @@ struct ForwardTemplateReference : Node {
   bool hasRHSComponentSlow(OutputBuffer &OB) const override {
     if (Printing)
       return false;
-    SwapAndRestore<bool> SavePrinting(Printing, true);
+    ScopedOverride<bool> SavePrinting(Printing, true);
     return Ref->hasRHSComponent(OB);
   }
   bool hasArraySlow(OutputBuffer &OB) const override {
     if (Printing)
       return false;
-    SwapAndRestore<bool> SavePrinting(Printing, true);
+    ScopedOverride<bool> SavePrinting(Printing, true);
     return Ref->hasArray(OB);
   }
   bool hasFunctionSlow(OutputBuffer &OB) const override {
     if (Printing)
       return false;
-    SwapAndRestore<bool> SavePrinting(Printing, true);
+    ScopedOverride<bool> SavePrinting(Printing, true);
     return Ref->hasFunction(OB);
   }
   const Node *getSyntaxNode(OutputBuffer &OB) const override {
     if (Printing)
       return this;
-    SwapAndRestore<bool> SavePrinting(Printing, true);
+    ScopedOverride<bool> SavePrinting(Printing, true);
     return Ref->getSyntaxNode(OB);
   }
 
   void printLeft(OutputBuffer &OB) const override {
     if (Printing)
       return;
-    SwapAndRestore<bool> SavePrinting(Printing, true);
+    ScopedOverride<bool> SavePrinting(Printing, true);
     Ref->printLeft(OB);
   }
   void printRight(OutputBuffer &OB) const override {
     if (Printing)
       return;
-    SwapAndRestore<bool> SavePrinting(Printing, true);
+    ScopedOverride<bool> SavePrinting(Printing, true);
     Ref->printRight(OB);
   }
 };
@@ -1699,7 +1699,7 @@ public:
 
   void printDeclarator(OutputBuffer &OB) const {
     if (!TemplateParams.empty()) {
-      SwapAndRestore<unsigned> LT(OB.GtIsGt, 0);
+      ScopedOverride<unsigned> LT(OB.GtIsGt, 0);
       OB += "<";
       TemplateParams.printWithComma(OB);
       OB += ">";
@@ -1923,7 +1923,7 @@ public:
   void printLeft(OutputBuffer &OB) const override {
     OB += CastKind;
     {
-      SwapAndRestore<unsigned> LT(OB.GtIsGt, 0);
+      ScopedOverride<unsigned> LT(OB.GtIsGt, 0);
       OB += "<";
       To->printLeft(OB);
       if (OB.back() == '>')
@@ -2910,7 +2910,7 @@ AbstractManglingParser<Derived, Alloc>::parseUnnamedTypeName(NameState *State) {
     return make<UnnamedTypeName>(Count);
   }
   if (consumeIf("Ul")) {
-    SwapAndRestore<size_t> SwapParams(ParsingLambdaParamsAtLevel,
+    ScopedOverride<size_t> SwapParams(ParsingLambdaParamsAtLevel,
                                       TemplateParams.size());
     ScopedTemplateParamList LambdaTemplateParams(this);
 
@@ -3115,11 +3115,11 @@ AbstractManglingParser<Derived, Alloc>::parseOperatorName(NameState *State) {
   if (const auto *Op = parseOperatorEncoding()) {
     if (Op->getKind() == OperatorInfo::CCast) {
       //              ::= cv <type>    # (cast)
-      SwapAndRestore<bool> SaveTemplate(TryToParseTemplateArgs, false);
+      ScopedOverride<bool> SaveTemplate(TryToParseTemplateArgs, false);
       // If we're parsing an encoding, State != nullptr and the conversion
       // operators' <type> could have a <template-param> that refers to some
       // <template-arg>s further ahead in the mangled name.
-      SwapAndRestore<bool> SavePermit(PermitForwardTemplateReferences,
+      ScopedOverride<bool> SavePermit(PermitForwardTemplateReferences,
                                       PermitForwardTemplateReferences ||
                                           State != nullptr);
       Node *Ty = getDerived().parseType();
@@ -3771,8 +3771,8 @@ Node *AbstractManglingParser<Derived, Alloc>::parseQualifiedType() {
       StringView ProtoSourceName = Qual.dropFront(std::strlen("objcproto"));
       StringView Proto;
       {
-        SwapAndRestore<const char *> SaveFirst(First, ProtoSourceName.begin()),
-                                     SaveLast(Last, ProtoSourceName.end());
+        ScopedOverride<const char *> SaveFirst(First, ProtoSourceName.begin()),
+            SaveLast(Last, ProtoSourceName.end());
         Proto = parseBareSourceName();
       }
       if (Proto.empty())
@@ -4252,7 +4252,7 @@ Node *AbstractManglingParser<Derived, Alloc>::parseConversionExpr() {
     return nullptr;
   Node *Ty;
   {
-    SwapAndRestore<bool> SaveTemp(TryToParseTemplateArgs, false);
+    ScopedOverride<bool> SaveTemp(TryToParseTemplateArgs, false);
     Ty = getDerived().parseType();
   }
 
@@ -4687,7 +4687,7 @@ Node *AbstractManglingParser<Derived, Alloc>::parseExpr() {
       // C Cast: (type)expr
       Node *Ty;
       {
-        SwapAndRestore<bool> SaveTemp(TryToParseTemplateArgs, false);
+        ScopedOverride<bool> SaveTemp(TryToParseTemplateArgs, false);
         Ty = getDerived().parseType();
       }
       if (Ty == nullptr)
