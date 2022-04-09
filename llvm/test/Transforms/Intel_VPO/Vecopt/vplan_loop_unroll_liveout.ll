@@ -35,6 +35,8 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_B_PRIV]] = allocate-priv i32*, OrigAlign = 4
+; CHECK-NEXT:     [DA: Div] i8* [[VP_B_PRIV_BCAST:%.*]] = bitcast i32* [[VP_B_PRIV]]
+; CHECK-NEXT:     [DA: Div] call i64 4 i8* [[VP_B_PRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 [Serial]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 live-in1 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[WIDE_TRIP_COUNT210:%.*]], UF = 3
@@ -64,6 +66,8 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: cloned.[[BB3]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Div] i8* [[VP_B_PRIV_BCAST1:%.*]] = bitcast i32* [[VP_B_PRIV]]
+; CHECK-NEXT:     [DA: Div] call i64 4 i8* [[VP_B_PRIV_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8 [Serial]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP__PRIV_FINAL]] = private-final-uc i32 [[VP3]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -105,6 +109,8 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:    br label [[VPLANNEDBB20:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB2:
+; CHECK-NEXT:    [[B_PRIV_VEC0_BCAST:%.*]] = bitcast <4 x i32>* [[B_PRIV_VEC0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[B_PRIV_VEC0_BCAST]])
 ; CHECK-NEXT:    [[N_MOD_VF30:%.*]] = urem i64 [[WIDE_TRIP_COUNT210]], 12
 ; CHECK-NEXT:    [[N_VEC40:%.*]] = sub nuw nsw i64 [[WIDE_TRIP_COUNT210]], [[N_MOD_VF30]]
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
@@ -113,7 +119,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB20]] ], [ [[TMP12:%.*]], [[VPLANNEDBB90:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB20]] ], [ [[TMP11:%.*]], [[VPLANNEDBB90]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP2]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 4
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP4:%.*]] = add nuw nsw i64 [[UNI_PHI0]], 4
@@ -141,6 +147,8 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:  VPlannedBB12:
 ; CHECK-NEXT:    [[TMP14:%.*]] = mul i64 1, [[N_VEC40]]
 ; CHECK-NEXT:    [[TMP15:%.*]] = add i64 0, [[TMP14]]
+; CHECK-NEXT:    [[B_PRIV_VEC0_BCAST:%.*]] = bitcast <4 x i32>* [[B_PRIV_VEC0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[B_PRIV_VEC0_BCAST]])
 ; CHECK-NEXT:    [[EXTRACTED_PRIV0:%.*]] = extractelement <4 x i32> [[WIDE_LOAD110]], i64 3
 ; CHECK-NEXT:    br label [[VPLANNEDBB130:%.*]]
 ; CHECK-EMPTY:

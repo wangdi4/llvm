@@ -33,6 +33,8 @@ define void @foo() {
 ; CHECK:       VPlannedBB1:
 ; CHECK-NEXT:    br label [[VPLANNEDBB2:%.*]]
 ; CHECK:       VPlannedBB2:
+; CHECK-NEXT:    [[RET_LPRIV_VEC_BCAST:%.*]] = bitcast <4 x i8>* [[RET_LPRIV_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* [[RET_LPRIV_VEC_BCAST]])
 ; CHECK-NEXT:    store <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>, <4 x i32>* [[PRIV_IDX_MEM_VEC]], align 1
 ; CHECK-NEXT:    [[TMP5:%.*]] = and i32 [[SMAX]], -4
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
@@ -96,6 +98,8 @@ define void @foo() {
 ; CHECK-NEXT:    store i8 [[PRIV_EXTRACT]], i8* [[RET_LPRIV]], align 1
 ; CHECK-NEXT:    br label [[VPLANNEDBB18]]
 ; CHECK:       VPlannedBB18:
+; CHECK-NEXT:    [[RET_LPRIV_VEC_BCAST1:%.*]] = bitcast <4 x i8>* [[RET_LPRIV_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 4, i8* [[RET_LPRIV_VEC_BCAST1]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB22:%.*]]
 ;
 entry:

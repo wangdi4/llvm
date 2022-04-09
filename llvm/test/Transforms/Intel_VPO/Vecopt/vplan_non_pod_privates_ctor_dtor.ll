@@ -10,6 +10,8 @@
 ; CHECK-LABEL: VPlan after insertion of VPEntities instructions:
 ; CHECK:       BB{{.*}}: # preds: BB{{.*}}
 ; CHECK:        %struct.ClassA* [[PRIVATE_MEM:%vp.*]] = allocate-priv %struct.ClassA*, OrigAlign = 4
+; CHECK-NEXT:   i8* [[PRIVATE_MEM_BCAST:%.*]] = bitcast %struct.ClassA* [[PRIVATE_MEM]]
+; CHECK-NEXT:   call i64 4 i8* [[PRIVATE_MEM_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:   i32* [[PRIV_GEP:%vp.*]] = getelementptr inbounds %struct.ClassA* [[PRIVATE_MEM]] i64 0 i32 0
 ; CHECK-NEXT:   %struct.ClassA* [[PRIV_CTOR:%vp.*]] = call %struct.ClassA* [[PRIVATE_MEM]] %struct.ClassA* (%struct.ClassA*)* @_ZTS6ClassA.omp.def_constr
 
@@ -22,6 +24,8 @@
 ; CHECK-LABEL: VPlan after CallVecDecisions analysis for merged CFG:
 ; CHECK:         BB{{.*}}: # preds: BB{{.*}}
 ; CHECK:          [DA: Div] %struct.ClassA* [[PRIVATE_MEM]] = allocate-priv %struct.ClassA*, OrigAlign = 4
+; CHECK-NEXT:     i8* [[PRIVATE_MEM_BCAST:%.*]] = bitcast %struct.ClassA* [[PRIVATE_MEM]]
+; CHECK-NEXT:     call i64 4 i8* [[PRIVATE_MEM_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     [DA: Div] i32* [[PRIV_GEP]] = getelementptr inbounds %struct.ClassA* [[PRIVATE_MEM]] i64 0 i32 0
 ; CHECK-NEXT:     [DA: Div] %struct.ClassA* [[PRIV_CTOR]] = call %struct.ClassA* [[PRIVATE_MEM]] %struct.ClassA* (%struct.ClassA*)* @_ZTS6ClassA.omp.def_constr [Serial]
 
@@ -43,6 +47,8 @@ define dso_local void @_Z4funcPiS_i(i32* nocapture %dst, i32* nocapture readonly
 ; CHECK-NEXT:    [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_1_:%.*]] = extractelement <2 x %struct.ClassA*> [[VALUE_PRIV_VEC_BASE_ADDR]], i32 1
 ; CHECK-NEXT:    [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_0_:%.*]] = extractelement <2 x %struct.ClassA*> [[VALUE_PRIV_VEC_BASE_ADDR]], i32 0
 ; CHECK:       VPlannedBB2:
+; CHECK-NEXT:    [[VALUE_PRIV_VEC_BCAST:%.*]] = bitcast [2 x %struct.ClassA]* [[VALUE_PRIV_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[VALUE_PRIV_VEC_BCAST]])
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds [[STRUCT_CLASSA]], %struct.ClassA* [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_0_]], i64 0, i32 0
 ; CHECK-NEXT:    [[TMP2:%.*]] = call %struct.ClassA* @_ZTS6ClassA.omp.def_constr(%struct.ClassA* [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_0_]])
 ; CHECK-NEXT:    [[TMP3:%.*]] = call %struct.ClassA* @_ZTS6ClassA.omp.def_constr(%struct.ClassA* [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_1_]])

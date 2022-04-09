@@ -18,6 +18,8 @@ define i32 @main() {
 ;
 ; CHECK:          i32 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:     i32 [[VP_X_PRIV_FINAL:%.*]] = private-final-uc i32 [[VP_X]]
+; CHECK-NEXT:     i8* [[VP_XP_BCAST:%.*]] = bitcast i32* [[VP_XP]]
+; CHECK-NEXT:     call i64 4 i8* [[VP_XP_BCAST]] void (i64, i8*)* @llvm.lifetime.end.p0i8 
 ; CHECK-NEXT:     br [[BB5:BB[0-9]+]]
 ;
 ; CHECK:       VPlan after emitting masked variant:
@@ -27,6 +29,8 @@ define i32 @main() {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP0:%.*]] = allocate-priv i32*, OrigAlign = 4
+; CHECK-NEXT:     [DA: Div] i8* [[VP0_BCAST:%.*]] = bitcast i32* [[VP0]]
+; CHECK-NEXT:     [DA: Div] call i64 4 i8* [[VP0_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 
 ; CHECK-NEXT:     [DA: Div] i32 [[VP1:%.*]] = induction-init{add} i32 live-in1 i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP2:%.*]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB8:BB[0-9]+]]
@@ -50,6 +54,8 @@ define i32 @main() {
 ;
 ; CHECK:          [DA: Uni] i32 [[VP7:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP8:%.*]] = private-final-masked i32 [[VP4]] i1 [[VP3]] i32 live-in0
+; CHECK-NEXT:     [DA: Div] i8* [[VP0_BCAST:%.*]] = bitcast i32* [[VP0]]
+; CHECK-NEXT:     [DA: Div] call i64 4 i8* [[VP0_BCAST]] void (i64, i8*)* @llvm.lifetime.end.p0i8 
 ; CHECK-NEXT:     [DA: Uni] br [[BB12:BB[0-9]+]]
 ; CHECK:       External Uses:
 ; CHECK-NEXT:  Id: 0     [[X_LCSSA0:.*]] = phi i32 [ [[X0:.*]], [[LATCH0:.*]] ] i32 [[VP8]] -> i32 [[X0]]
@@ -70,6 +76,8 @@ define i32 @main() {
 ;
 ; CHECK:           [[BB14]]: # preds: [[BB15]], [[BB11]]
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP15:%.*]] = phi  [ i32 [[VP10]], [[BB11]] ],  [ i32 [[VP8]], [[BB15]] ]
+; CHECK-NEXT:       [DA: Div] i8* [[VP0_BCAST:%.*]] = bitcast i32* [[VP0]]
+; CHECK-NEXT:       [DA: Div] call i64 4 i8* [[VP0_BCAST]] void (i64, i8*)* @llvm.lifetime.end.p0i8 
 ; CHECK-NEXT:       [DA: Uni] br [[BB12]]
 ;
 ;========= generated code

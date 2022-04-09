@@ -17,6 +17,8 @@ define dso_local void @test_soa_shapes(i32 %n) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] [1024 x i32]* [[VP_ARR_PRIV:%.*]] = allocate-priv [1024 x i32]*, OrigAlign = 4
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i8* [[VP_ARR_PRIV_BCAST:%.*]] = bitcast [1024 x i32]* [[VP_ARR_PRIV]]
+;CHECK-NEXT:   Divergent: [Shape: Random] call i64 4096 i8* [[VP_ARR_PRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
@@ -48,6 +50,8 @@ define dso_local void @test_soa_shapes(i32 %n) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i8* [[VP_ARR_PRIV_BCAST1:%.*]] = bitcast [1024 x i32]* [[VP_ARR_PRIV]]
+; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4096 i8* [[VP_ARR_PRIV_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8 
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB4]]
@@ -61,6 +65,8 @@ define dso_local void @test_soa_shapes(i32 %n) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-NEXT:  Divergent: [Shape: SOA Unit Stride, Stride: i64 4] [1024 x i32]* [[VP_ARR_PRIV]] = allocate-priv [1024 x i32]*, OrigAlign = 4
+; CHECK-NEXT:  Divergent: [Shape: SOA Unit Stride, Stride: i64 4] i8* [[VP_ARR_PRIV_BCAST:%.*]] = bitcast [1024 x i32]* [[VP_ARR_PRIV]]
+;CHECK-NEXT:   Divergent: [Shape: Random] call i64 4096 i8* [[VP_ARR_PRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_IND_INIT]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_INIT_STEP]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 1024, UF = 1
@@ -92,6 +98,8 @@ define dso_local void @test_soa_shapes(i32 %n) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_FINAL]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:  Divergent: [Shape: SOA Unit Stride, Stride: i64 4] i8* [[VP_ARR_PRIV_BCAST1:%.*]] = bitcast [1024 x i32]* [[VP_ARR_PRIV]]
+; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4096 i8* [[VP_ARR_PRIV_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8 
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB4]]
@@ -163,6 +171,8 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] [1024 x i32]* [[VP_ARR_PRIV:%.*]] = allocate-priv [1024 x i32]*, OrigAlign = 4
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i8* [[VP_ARR_PRIV_BCAST:%.*]] = bitcast [1024 x i32]* [[VP_ARR_PRIV]]
+;CHECK-NEXT:   Divergent: [Shape: Random] call i64 4096 i8* [[VP_ARR_PRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_UNI_GEP1:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV]] i64 0 i64 0
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
@@ -178,6 +188,8 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i8* [[VP_ARR_PRIV_BCAST1:%.*]] = bitcast [1024 x i32]* [[VP_ARR_PRIV]]
+; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4096 i8* [[VP_ARR_PRIV_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8 
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB4]]
@@ -191,6 +203,8 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-NEXT:  Divergent: [Shape: SOA Unit Stride, Stride: i64 4] [1024 x i32]* [[VP_ARR_PRIV]] = allocate-priv [1024 x i32]*, OrigAlign = 4
+; CHECK-NEXT:  Divergent: [Shape: SOA Unit Stride, Stride: i64 4] i8* [[VP_ARR_PRIV_BCAST2:%.*]] = bitcast [1024 x i32]* [[VP_ARR_PRIV]]
+;CHECK-NEXT:   Divergent: [Shape: Random] call i64 4096 i8* [[VP_ARR_PRIV_BCAST2]] void (i64, i8*)* @llvm.lifetime.start.p0i8 
 ; ; This GEPs shape should be SOA Unit Stride with Stride = 4. This is not the case because when pushing 'users' of allocate-privates with SOA-shape, we exclude instructions which are outside the loop-region.
 ; CHECK-NEXT:  Divergent: [Shape: SOA Unit Stride, Stride: i64 4] i32* [[VP_UNI_GEP1]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV]] i64 0 i64 0
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_IND_INIT]] = induction-init{add} i64 live-in0 i64 1
@@ -207,6 +221,8 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_FINAL]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:  Divergent: [Shape: SOA Unit Stride, Stride: i64 4] i8* [[VP_ARR_PRIV_BCAST1:%.*]] = bitcast [1024 x i32]* [[VP_ARR_PRIV]]
+; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4096 i8* [[VP_ARR_PRIV_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8 
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB4]]
@@ -248,6 +264,8 @@ define void @test_vplan_da_phis_soa(i32* %arr.non.priv) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] [1024 x i32]* [[VP_ARR_PRIV32:%.*]] = allocate-priv [1024 x i32]*, OrigAlign = 4
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i8* [[VP_ARR_PRIV32_BCAST:%.*]] = bitcast [1024 x i32]* [[VP_ARR_PRIV32]]
+;CHECK-NEXT:   Divergent: [Shape: Random] call i64 4096 i8* [[VP_ARR_PRIV32_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
@@ -324,6 +342,8 @@ define void @test_vplan_da_phis_soa(i32* %arr.non.priv) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB9]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i8* [[VP_ARR_PRIV32_BCAST1:%.*]] = bitcast [1024 x i32]* [[VP_ARR_PRIV32]]
+; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4096 i8* [[VP_ARR_PRIV32_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8 
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB10]]
@@ -334,6 +354,8 @@ define void @test_vplan_da_phis_soa(i32* %arr.non.priv) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-NEXT:  Divergent: [Shape: SOA Unit Stride, Stride: i64 4] [1024 x i32]* [[VP_ARR_PRIV32]] = allocate-priv [1024 x i32]*, OrigAlign = 4
+; CHECK-NEXT:  Divergent: [Shape: SOA Unit Stride, Stride: i64 4] i8* [[VP_ARR_PRIV32_BCAST:%.*]] = bitcast [1024 x i32]* [[VP_ARR_PRIV32]]
+;CHECK-NEXT:   Divergent: [Shape: Random] call i64 4096 i8* [[VP_ARR_PRIV32_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_IND_INIT]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_INIT_STEP]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 1024, UF = 1
@@ -410,6 +432,8 @@ define void @test_vplan_da_phis_soa(i32* %arr.non.priv) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB9]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_FINAL]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:  Divergent: [Shape: SOA Unit Stride, Stride: i64 4] i8* [[VP_ARR_PRIV32_BCAST1:%.*]] = bitcast [1024 x i32]* [[VP_ARR_PRIV32]]
+; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4096 i8* [[VP_ARR_PRIV32_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8 
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB10]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB10]]

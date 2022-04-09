@@ -28,6 +28,8 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
 ; CHECK-NEXT:     i32* [[VP_COND_PRIV]] = allocate-priv i32*, OrigAlign = 4
+; CHECK-NEXT:     i8* [[VP_COND_PRIV_BCAST:%.*]] = bitcast i32* [[VP_COND_PRIV]]
+; CHECK-NEXT:     call i64 4 i8* [[VP_COND_PRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     i64* [[VP_PRIV_IDX_MEM:%.*]] = allocate-priv i64*, OrigAlign = 8
@@ -64,6 +66,8 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N) {
 ; CHECK-NEXT:     i64 [[VP_LOADED_PRIV_IDX:%.*]] = load i64* [[VP_PRIV_IDX_MEM]]
 ; CHECK-NEXT:     i32 [[VP__PRIV_FINAL]] = private-final-c-mem i32 [[VP_LOADED_PRIV]] i64 [[VP_LOADED_PRIV_IDX]] i32* [[COND_PRIV0]]
 ; CHECK-NEXT:     store i32 [[VP__PRIV_FINAL]] i32* [[COND_PRIV0]]
+; CHECK-NEXT:     i8* [[VP_COND_PRIV_BCAST1:%.*]] = bitcast i32* [[VP_COND_PRIV]]
+; CHECK-NEXT:     call i64 4 i8* [[VP_COND_PRIV_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]

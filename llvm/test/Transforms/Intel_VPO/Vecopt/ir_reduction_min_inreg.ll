@@ -23,6 +23,8 @@ define i32 @foo(i32* nocapture readonly %ip) {
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
+; CHECK-NEXT:    [[MIN_VEC_BCAST:%.*]] = bitcast <4 x i32>* [[MIN_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[MIN_VEC_BCAST]])
 ; CHECK-NEXT:    store <4 x i32> [[BROADCAST_SPLAT]], <4 x i32>* [[MIN_VEC]], align 1
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
@@ -46,6 +48,8 @@ define i32 @foo(i32* nocapture readonly %ip) {
 ; CHECK:       VPlannedBB6:
 ; CHECK-NEXT:    [[TMP7:%.*]] = call i32 @llvm.vector.reduce.smin.v4i32(<4 x i32> [[PREDBLEND]])
 ; CHECK-NEXT:    store i32 [[TMP7]], i32* [[MIN]], align 1
+; CHECK-NEXT:    [[MIN_VEC_BCAST1:%.*]] = bitcast <4 x i32>* [[MIN_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[MIN_VEC_BCAST1]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB7:%.*]]
 ; CHECK:       VPlannedBB7:
 ; CHECK-NEXT:    br label [[FINAL_MERGE:%.*]]

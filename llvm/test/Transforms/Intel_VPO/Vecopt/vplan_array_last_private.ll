@@ -24,6 +24,8 @@ define i16 @foo(i16 %a, i32 %n) {
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i16> [[BROADCAST_SPLATINSERT]], <4 x i16> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB2:%.*]]
 ; CHECK:       VPlannedBB2:
+; CHECK-NEXT:    [[B3_I_LPRIV_VEC_BCAST:%.*]] = bitcast [4 x [12 x i16]]* [[B3_I_LPRIV_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 96, i8* [[B3_I_LPRIV_VEC_BCAST]])
 ; CHECK-NEXT:    [[TMP3:%.*]] = and i32 [[TMP0]], -4
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:

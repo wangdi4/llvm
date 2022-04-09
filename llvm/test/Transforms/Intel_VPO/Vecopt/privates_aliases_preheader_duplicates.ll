@@ -16,6 +16,8 @@ declare void @llvm.directive.region.exit(token)
 
 define void @select_two_privates(i64 %init1, i64 %init2, i64* %ptr, i1 zeroext %pred) {
 ; CHECK:          [32 x i64]* [[VP_PRIV:%.*]] = allocate-priv [32 x i64]*, OrigAlign = 8
+; CHECK-NEXT:     i8* [[VP_PRIV_BCAST:%.*]] = bitcast [32 x i64]* [[VP_PRIV]]
+; CHECK-NEXT:     call i64 256 i8* [[VP_PRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     i64* [[VP_GEP2:%.*]] = getelementptr inbounds [32 x i64]* [[VP_PRIV]] i64 0 i64 1
 ; CHECK-NEXT:     i64* [[VP_GEP1:%.*]] = getelementptr inbounds [32 x i64]* [[VP_PRIV]] i64 0 i64 0
 ; CHECK-NEXT:     i64* [[VP_SELECT:%.*]] = select i1 [[PRED0:%.*]] i64* [[VP_GEP1]] i64* [[VP_GEP2]]

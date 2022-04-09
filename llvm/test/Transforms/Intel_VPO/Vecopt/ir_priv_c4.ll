@@ -21,6 +21,8 @@ define dso_local i64 @_Z3fooPlS_(i64* nocapture readonly %arr1, i64* nocapture r
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     i64* [[VP_RET_LPRIV]] = allocate-priv i64*, OrigAlign = 8
+; CHECK-NEXT:     i8* [[VP_RET_LPRIV_BCAST:%.*]] = bitcast i64* [[VP_RET_LPRIV]]
+; CHECK-NEXT:     call i64 8 i8* [[VP_RET_LPRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     i64 [[VP__OMP_IV_LOCAL_015_IND_INIT]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP__OMP_IV_LOCAL_015_IND_INIT_STEP]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB0]]
@@ -59,6 +61,8 @@ define dso_local i64 @_Z3fooPlS_(i64* nocapture readonly %arr1, i64* nocapture r
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB4]]
 ; CHECK-NEXT:     i64 [[VP__OMP_IV_LOCAL_015_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP_RET_LCSSA26_PRIV_FINAL]] = private-final-c i64 [[VP_RET_LCSSA26]] i64 [[VP_PRIV_IDX_BB4]] i64 [[RET_LPRIV_PROMOTED0]]
+; CHECK-NEXT:     i8* [[VP_RET_LPRIV_BCAST1:%.*]] = bitcast i64* [[VP_RET_LPRIV]]
+; CHECK-NEXT:     call i64 8 i8* [[VP_RET_LPRIV_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:     br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]]
