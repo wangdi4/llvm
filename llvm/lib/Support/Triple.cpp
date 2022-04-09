@@ -381,6 +381,7 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
     .Case("sparc", sparc)
     .Case("sparcel", sparcel)
     .Case("sparcv9", sparcv9)
+    .Case("s390x", systemz)
     .Case("systemz", systemz)
     .Case("tce", tce)
     .Case("tcele", tcele)
@@ -392,6 +393,7 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
     .Case("x86", x86)
+    .Case("i386", x86)
     .Case("x86-64", x86_64)
     .Case("xcore", xcore)
 #if INTEL_CUSTOMIZATION
