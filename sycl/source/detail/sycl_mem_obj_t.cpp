@@ -31,12 +31,6 @@ SYCLMemObjT::SYCLMemObjT(pi_native_handle MemObject, const context &SyclContext,
 SYCLMemObjT::SYCLMemObjT(pi_native_handle MemObject, const context &SyclContext,
                          bool OwnNativeHandle, event AvailableEvent,
                          std::unique_ptr<SYCLMemObjAllocator> Allocator)
-    : SYCLMemObjT(MemObject, SyclContext, true, AvailableEvent,
-                  std::move(Allocator)) {}
-
-SYCLMemObjT::SYCLMemObjT(pi_native_handle MemObject, const context &SyclContext,
-                         bool OwnNativeHandle, event AvailableEvent,
-                         std::unique_ptr<SYCLMemObjAllocator> Allocator)
     : MAllocator(std::move(Allocator)), MProps(),
       MInteropEvent(detail::getSyclObjImpl(std::move(AvailableEvent))),
       MInteropContext(detail::getSyclObjImpl(SyclContext)),
