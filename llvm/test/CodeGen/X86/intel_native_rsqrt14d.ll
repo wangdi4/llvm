@@ -91,8 +91,8 @@ define double @test_native_rsqrt14_sd_imf_acc_bt26(double %data) #2 {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vrsqrt14sd %xmm0, %xmm0, %xmm1 # encoding: [0x62,0xf2,0xfd,0x08,0x4f,0xc8]
 ; CHECK-NEXT:    vmulsd %xmm1, %xmm0, %xmm2 # EVEX TO VEX Compression encoding: [0xc5,0xfb,0x59,0xd1]
-; CHECK-NEXT:    vmovsd {{.*}}(%rip), %xmm3 # EVEX TO VEX Compression encoding: [0xc5,0xfb,0x10,0x1d,A,A,A,A]
-; CHECK-NEXT:    # fixup A - offset: 4, value: {{\.LCPI.*}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vmovsd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm3 # EVEX TO VEX Compression encoding: [0xc5,0xfb,0x10,0x1d,A,A,A,A]
+; CHECK-NEXT:    # fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    # xmm3 = mem[0],zero
 ; CHECK-NEXT:    vmulsd %xmm3, %xmm1, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf3,0x59,0xc3]
 ; CHECK-NEXT:    vfnmadd213sd %xmm3, %xmm2, %xmm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0xe9,0xad,0xc3]
@@ -110,9 +110,10 @@ define <2 x double> @test_native_rsqrt14_pd_128_imf_acc_bt26(<2 x double> %data)
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vrsqrt14pd %xmm0, %xmm1 # encoding: [0x62,0xf2,0xfd,0x08,0x4e,0xc8]
 ; CHECK-NEXT:    vmulpd %xmm1, %xmm0, %xmm2 # EVEX TO VEX Compression encoding: [0xc5,0xf9,0x59,0xd1]
-; CHECK-NEXT:    vmovapd {{.*}}(%rip), %xmm3 # EVEX TO VEX Compression xmm3 = [5.0E-1,5.0E-1]
-; CHECK-NEXT:    # encoding: [0xc5,0xf9,0x28,0x1d,A,A,A,A]
-; CHECK-NEXT:    # fixup A - offset: 4, value: {{\.LCPI.*}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vmovddup {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm3 # EVEX TO VEX Compression xmm3 = [5.0E-1,5.0E-1]
+; CHECK-NEXT:    # encoding: [0xc5,0xfb,0x12,0x1d,A,A,A,A]
+; CHECK-NEXT:    # fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    # xmm3 = mem[0,0]
 ; CHECK-NEXT:    vmulpd %xmm3, %xmm1, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf1,0x59,0xc3]
 ; CHECK-NEXT:    vfnmadd213pd %xmm3, %xmm2, %xmm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0xe9,0xac,0xc3]
 ; CHECK-NEXT:    # xmm0 = -(xmm2 * xmm0) + xmm3
@@ -129,9 +130,9 @@ define <4 x double> @test_native_rsqrt14_pd_256_imf_acc_bt26(<4 x double> %data)
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vrsqrt14pd %ymm0, %ymm1 # encoding: [0x62,0xf2,0xfd,0x28,0x4e,0xc8]
 ; CHECK-NEXT:    vmulpd %ymm1, %ymm0, %ymm2 # EVEX TO VEX Compression encoding: [0xc5,0xfd,0x59,0xd1]
-; CHECK-NEXT:    vbroadcastsd {{.*}}(%rip), %ymm3 # EVEX TO VEX Compression ymm3 = [5.0E-1,5.0E-1,5.0E-1,5.0E-1]
+; CHECK-NEXT:    vbroadcastsd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm3 # EVEX TO VEX Compression ymm3 = [5.0E-1,5.0E-1,5.0E-1,5.0E-1]
 ; CHECK-NEXT:    # encoding: [0xc4,0xe2,0x7d,0x19,0x1d,A,A,A,A]
-; CHECK-NEXT:    # fixup A - offset: 5, value: {{\.LCPI.*}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    vmulpd %ymm3, %ymm1, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xf5,0x59,0xc3]
 ; CHECK-NEXT:    vfnmadd213pd %ymm3, %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0xed,0xac,0xc3]
 ; CHECK-NEXT:    # ymm0 = -(ymm2 * ymm0) + ymm3
@@ -150,7 +151,7 @@ define <8 x double> @test_native_rsqrt14_pd_512_imf_acc_bt26(<8 x double> %data)
 ; CHECK-NEXT:    vmulpd %zmm1, %zmm0, %zmm2 # encoding: [0x62,0xf1,0xfd,0x48,0x59,0xd1]
 ; CHECK-NEXT:    vbroadcastsd {{.*#+}} zmm3 = [5.0E-1,5.0E-1,5.0E-1,5.0E-1,5.0E-1,5.0E-1,5.0E-1,5.0E-1]
 ; CHECK-NEXT:    # encoding: [0x62,0xf2,0xfd,0x48,0x19,0x1d,A,A,A,A]
-; CHECK-NEXT:    # fixup A - offset: 6, value: {{\.LCPI.*}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    # fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    vmulpd %zmm3, %zmm1, %zmm0 # encoding: [0x62,0xf1,0xf5,0x48,0x59,0xc3]
 ; CHECK-NEXT:    vfnmadd213pd %zmm3, %zmm2, %zmm0 # encoding: [0x62,0xf2,0xed,0x48,0xac,0xc3]
 ; CHECK-NEXT:    # zmm0 = -(zmm2 * zmm0) + zmm3
