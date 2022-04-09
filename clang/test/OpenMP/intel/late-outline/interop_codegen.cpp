@@ -5,16 +5,16 @@
 // RUN: %clang_cc1 -I%S/Inputs -emit-llvm -o - -std=c++14 -fopenmp \
 // RUN:  -fopenmp-late-outline -include-pch %t -verify \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck \
-// RUN:  --check-prefixes=CHECK,CHECK-OLD %s
+// RUN:  --check-prefixes=CHECK,CHECK-NEW %s
 
 // RUN: %clang_cc1 -I%S/Inputs -emit-pch -o %t -std=c++14 -fopenmp \
 // RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu \
-// RUN:  -fopenmp-new-depend-ir %s
+// RUN:  -fno-openmp-new-depend-ir %s
 
 // RUN: %clang_cc1 -I%S/Inputs -emit-llvm -o - -std=c++14 -fopenmp \
-// RUN:  -fopenmp-late-outline -include-pch %t -verify -fopenmp-new-depend-ir \
-// RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck \
-// RUN:  --check-prefixes=CHECK,CHECK-NEW %s
+// RUN:  -fopenmp-late-outline -include-pch %t -verify \
+// RUN:  -fno-openmp-new-depend-ir -triple x86_64-unknown-linux-gnu %s | \
+// RUN:  FileCheck --check-prefixes=CHECK,CHECK-OLD %s
 
 // expected-no-diagnostics
 #ifndef HEADER

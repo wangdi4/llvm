@@ -32,6 +32,8 @@ define void @foo(i64* nocapture %ip, i64* nocapture readonly %ip2) {
 ; CHECK-NEXT:    [[VAL_VEC_BC:%.*]] = bitcast <4 x i64>* [[VAL_VEC]] to i64*
 ; CHECK-NEXT:    [[VAL_VEC_BASE_ADDR:%.*]] = getelementptr i64, i64* [[VAL_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK:       VPlannedBB1:
+; CHECK-NEXT:    [[VAL_VEC_BCAST:%.*]] = bitcast <4 x i64>* [[VAL_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 32, i8* [[VAL_VEC_BCAST]])
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <4 x i64>* [[VAL_VEC]] to i8*
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:

@@ -18,6 +18,8 @@ define float @foo(float* nocapture readonly %A, i32 %N) {
 
 ; CHECK:        [[VPBB_PH:BB[0-9]+]]: # preds: {{BB[0-9]+}}
 ; CHECK-NEXT:     float* [[VP_RED]] = allocate-priv float*, OrigAlign = 4
+; CHECK-NEXT:     i8* [[VP_RED_BCAST:%.*]] = bitcast float* [[VP_RED]]
+; CHECK-NEXT:     call i64 4 i8* [[VP_RED_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     float [[VP_REDMINMAX_RED_INIT]] = reduction-init float %0
 ; CHECK-NEXT:     store float [[VP_REDMINMAX_RED_INIT]] float* [[VP_RED]]
 

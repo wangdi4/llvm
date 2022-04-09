@@ -14,6 +14,8 @@ define float @expl_reduction_add(float* nocapture %a) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div] float* [[VP_X:%.*]] = allocate-priv float*, OrigAlign = 4
+; CHECK-NEXT:     [DA: Div] i8* [[VP_X_BCAST:%.*]] = bitcast float* [[VP_X]]
+; CHECK-NEXT:     [DA: Div] call i64 4 i8* [[VP_X_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 [Serial]
 ; CHECK-NEXT:     [DA: Div] float [[VP_XRED_INIT:%.*]] = reduction-init float -0.000000e+00
 ; CHECK-NEXT:     [DA: Div] store float [[VP_XRED_INIT]] float* [[VP_X]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
@@ -39,6 +41,8 @@ define float @expl_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Uni] float [[VP_XRED_FINAL:%.*]] = reduction-final{fadd} float [[VP_ADD]] float [[X_PROMOTED0:%.*]]
 ; CHECK-NEXT:     [DA: Uni] store float [[VP_XRED_FINAL]] float* [[X0:%.*]]
+; CHECK-NEXT:     [DA: Div] i8* [[VP_X_BCAST:%.*]] = bitcast float* [[VP_X]]
+; CHECK-NEXT:     [DA: Div] call i64 4 i8* [[VP_X_BCAST]] void (i64, i8*)* @llvm.lifetime.end.p0i8 [Serial]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uni] float* [[VP_PTR_PHI_IND_FINAL:%.*]] = induction-final{getelementptr} float* [[A0]] i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]

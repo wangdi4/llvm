@@ -23,6 +23,8 @@ define void @main(i64 %call.i, i8* %call1) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     i16* [[VP_RET_I_LPRIV]] = allocate-priv i16*, OrigAlign = 2
+; CHECK-NEXT:     i8* [[VP_RET_I_LPRIV_BCAST:%.*]] = bitcast i16* [[VP_RET_I_LPRIV]]
+; CHECK-NEXT:     call i64 2 i8* [[VP_RET_I_LPRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV114_IND_INIT]] = induction-init{add} i64 live-in1 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV114_IND_INIT_STEP]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[CONV0:%.*]], UF = 1
@@ -68,6 +70,8 @@ define void @main(i64 %call.i, i8* %call1) {
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB4]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV114_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     i16 [[VP__PRIV_FINAL]] = private-final-c i16 [[VP0]] i64 [[VP_PRIV_IDX_BB4]] i16 live-in0
+; CHECK-NEXT:     i8* [[VP_RET_I_LPRIV_BCAST1:%.*]] = bitcast i16* [[VP_RET_I_LPRIV]]
+; CHECK-NEXT:     call i64 2 i8* [[VP_RET_I_LPRIV_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:     br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]]

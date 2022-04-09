@@ -34,6 +34,12 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB1:
+; CHECK-NEXT:    [[TMP_VEC0_BCAST:%.*]] = bitcast [2 x %struct.ndrange_t.6]* [[TMP_VEC0]] to i8* 
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 160, i8* [[TMP_VEC0_BCAST]]) 
+; CHECK-NEXT:    [[BLOCK_VEC0_BCAST:%.*]] = bitcast [2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>]* [[BLOCK_VEC0]] to i8* 
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 56, i8* [[BLOCK_VEC0_BCAST]]) 
+; CHECK-NEXT:    [[NDRANGE_I_I_VEC0_BCAST:%.*]] = bitcast [2 x %struct.ndrange_t.6]* [[NDRANGE_I_I_VEC0]] to i8* 
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 160, i8* [[NDRANGE_I_I_VEC0_BCAST]]) 
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:

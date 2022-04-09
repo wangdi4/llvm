@@ -13,6 +13,7 @@ define i32 @sum_() {
 ; CHECK-NEXT:    [[B3_I_LPRIV_VEC0:%.*]] = alloca [2 x %"QNCA_a0$i32*$rank2$"], align 8
 ; CHECK-NEXT:    [[B3_I_LPRIV_VEC_BASE_ADDR0:%.*]] = getelementptr %"QNCA_a0$i32*$rank2$", ptr [[B3_I_LPRIV_VEC0]], <2 x i32> <i32 0, i32 1>
 ; CHECK-NEXT:    [[B3_I_LPRIV_VEC_BASE_ADDR_EXTRACT_1_0:%.*]] = extractelement <2 x ptr> [[B3_I_LPRIV_VEC_BASE_ADDR0]], i32 1
+; CHECK-NEXT:    [[B3_I_LPRIV_VEC_BASE_ADDR_EXTRACT_0_0:%.*]] = extractelement <2 x ptr> [[B3_I_LPRIV_VEC_BASE_ADDR0]], i32 0
 ; CHECK-NEXT:    br label [[DIR_OMP_SIMD_1440:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.SIMD.144:
@@ -25,6 +26,7 @@ define i32 @sum_() {
 ; CHECK-NEXT:    br label [[VPLANNEDBB20:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB2:
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 192, ptr [[B3_I_LPRIV_VEC_BASE_ADDR_EXTRACT_0_0]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:

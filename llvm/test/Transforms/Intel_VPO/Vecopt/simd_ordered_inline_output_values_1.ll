@@ -41,6 +41,8 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    br label [[VPLANNEDBB30:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB3:
+; CHECK-NEXT:    [[VAL_LOC_VEC0_BCAST:%.*]] = bitcast <2 x i32>* [[VAL_LOC_VEC0]] to i8* 
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[VAL_LOC_VEC0_BCAST]]) 
 ; CHECK-NEXT:    [[TMP2:%.*]] = and i64 [[WIDE_TRIP_COUNT0]], 4294967294
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
@@ -77,6 +79,8 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:  VPlannedBB8:
 ; CHECK-NEXT:    [[TMP7:%.*]] = mul i64 1, [[TMP2]]
 ; CHECK-NEXT:    [[TMP8:%.*]] = add i64 0, [[TMP7]]
+; CHECK-NEXT:    [[VAL_LOC_VEC0_BCAST:%.*]] = bitcast <2 x i32>* [[VAL_LOC_VEC0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 8, i8* [[VAL_LOC_VEC0_BCAST]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB90:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB9:

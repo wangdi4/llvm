@@ -586,6 +586,57 @@ void VPLoopEntityList::finalizeImport() {
   }
 }
 
+// Similar to one in InlineFunction.cpp
+static ConstantInt *getAllocationSize(AllocaInst *AI, const DataLayout *DL) {
+  if (!AI)
+    return nullptr;
+  if (ConstantInt *AIArraySize = dyn_cast<ConstantInt>(AI->getArraySize())) {
+    Type *AllocaType = AI->getAllocatedType();
+    TypeSize AllocaTypeSize = DL->getTypeAllocSize(AllocaType);
+    uint64_t AllocaArraySize = AIArraySize->getLimitedValue();
+
+    if (AllocaArraySize != 0 && !AllocaTypeSize.isScalable() &&
+        AllocaArraySize != std::numeric_limits<uint64_t>::max() &&
+        std::numeric_limits<uint64_t>::max() / AllocaArraySize >=
+            AllocaTypeSize.getFixedSize()) {
+      return ConstantInt::get(Type::getInt64Ty(AI->getContext()),
+                              AllocaArraySize * AllocaTypeSize);
+    }
+  }
+  return nullptr;
+}
+
+static void createLifetimeMarker(VPBuilder &Builder, VPlanVector &Plan,
+                                 VPBasicBlock *InsertBB, VPValue *PrivateMem,
+                                 AllocaInst *AI,
+                                 llvm::Intrinsic::ID LMIntrinsicFn) {
+  if (!AI || !PrivateMem)
+    return;
+  if (ConstantInt *AllocaSize = getAllocationSize(AI, Plan.getDataLayout())) {
+
+    VPBuilder::InsertPointGuard Guard(Builder);
+    if (LMIntrinsicFn == Intrinsic::lifetime_end)
+      Builder.setInsertPoint(InsertBB);
+
+    VPValue *LMOp = PrivateMem;
+    Type *PrivateMemTy = PrivateMem->getType();
+    if (!PrivateMemTy->isOpaquePointerTy()) {
+      PrivateMemTy =
+          llvm::PointerType::get(Type::getIntNTy(*Plan.getLLVMContext(), 8), 0);
+      LMOp =
+          Builder.createNaryOp(Instruction::BitCast, PrivateMemTy, PrivateMem);
+    }
+
+    Function *LMFn = Intrinsic::getDeclaration(AI->getParent()->getModule(),
+                                               LMIntrinsicFn, {PrivateMemTy});
+    auto *VPLMFn = Plan.getVPConstant(cast<Constant>(LMFn));
+    auto *VPLMCall =
+        new VPCallInstruction(VPLMFn, LMFn->getFunctionType(),
+                              {Plan.getVPConstant(AllocaSize), LMOp});
+    Builder.insert(VPLMCall);
+  }
+}
+
 VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
                                                VPBuilder &Builder, VPValue *&AI,
                                                VPBasicBlock *Preheader) {
@@ -601,7 +652,8 @@ VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
 
   // Capture alignment of original alloca/global from incoming LLVM-IR.
   Align OrigAlignment(1);
-  if (auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue()))
+  auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
+  if (OrigAI)
     OrigAlignment = OrigAI->getAlign();
   if (auto *OrigGlobal =
           dyn_cast_or_null<GlobalVariable>(AI->getUnderlyingValue()))
@@ -618,6 +670,10 @@ VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
   // We do not set debug location on allocates.
   Ret->setDebugLocation({});
   linkValue(&E, Ret);
+
+  createLifetimeMarker(Builder, Plan, Preheader, Ret, OrigAI,
+                       Intrinsic::lifetime_start);
+
   return Ret;
 }
 
@@ -674,6 +730,7 @@ void VPLoopEntityList::processFinalValue(VPLoopEntity &E, VPValue *AI,
     updateHIROperand(AI, V); // INTEL
     linkValue(&E, V);
   }
+
   if (Exit && !E.getIsMemOnly())
     relinkLiveOuts(Exit, &Final, Loop);
   linkValue(&E, &Final);
@@ -797,6 +854,12 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
     Final->setFastMathFlags(FMF);
 
   processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
+
+  if (PrivateMem) {
+    auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
+    createLifetimeMarker(Builder, Plan, PostExit, PrivateMem, OrigAI,
+                         Intrinsic::lifetime_end);
+  }
 
   RedFinalMap[Reduction] = std::make_pair(Final, Exit);
   ProcessedReductions.insert(Reduction);
@@ -1058,6 +1121,12 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
     // iteration.
     Final->setLastValPreIncrement(isInductionLastValPreInc(Induction));
     processFinalValue(*Induction, AI, Builder, *Final, Ty, Exit);
+
+    if (PrivateMem) {
+      auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
+      createLifetimeMarker(Builder, Plan, PostExit, PrivateMem, OrigAI,
+                           Intrinsic::lifetime_end);
+    }
   }
 }
 
@@ -1211,6 +1280,13 @@ void VPLoopEntityList::insertConditionalLastPrivateInst(
 
     VPValue* StoreMem = Private.getIsMemOnly() ? AI : nullptr;
     processFinalValue(Private, StoreMem, Builder, *Final, Exit->getType(), Exit);
+
+    if (PrivateMem) {
+      auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
+      createLifetimeMarker(Builder, Plan, PostExit, PrivateMem, OrigAI,
+                           Intrinsic::lifetime_end);
+    }
+
     return;
   }
 
@@ -1244,6 +1320,12 @@ void VPLoopEntityList::insertConditionalLastPrivateInst(
   VPInstruction *Final =
       Builder.create<VPPrivateFinalCondMem>(".priv.final", Exit, IdxLoad, AI);
   processFinalValue(Private, AI, Builder, *Final, Exit->getType(), Exit);
+
+  if (PrivateMem) {
+    auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
+    createLifetimeMarker(Builder, Plan, PostExit, PrivateMem, OrigAI,
+                         Intrinsic::lifetime_end);
+  }
 }
 
 // Insert VPInstructions related to VPPrivates.
@@ -1389,6 +1471,12 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
       VPValue* StoreMem = Private->getIsMemOnly() ? AI : nullptr;
       processFinalValue(*Private, StoreMem, Builder, *Final, Exit->getType(),
                         Exit);
+    }
+
+    if (PrivateMem) {
+      auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
+      createLifetimeMarker(Builder, Plan, PostExit, PrivateMem, OrigAI,
+                           Intrinsic::lifetime_end);
     }
   }
   // Now do the replacement of Aliases. We first replace all instances of

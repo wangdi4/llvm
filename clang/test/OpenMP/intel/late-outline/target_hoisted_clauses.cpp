@@ -1,11 +1,11 @@
 // INTEL_COLLAB
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | \
-// RUN:  FileCheck --check-prefixes CHECK,CHECK-OLD %s
+// RUN:  FileCheck --check-prefixes CHECK,CHECK-NEW %s
 
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
-// RUN:  -triple x86_64-unknown-linux-gnu %s -fopenmp-new-depend-ir | \
-// RUN:  FileCheck --check-prefixes CHECK,CHECK-NEW %s
+// RUN:  -triple x86_64-unknown-linux-gnu %s -fno-openmp-new-depend-ir | \
+// RUN:  FileCheck --check-prefixes CHECK,CHECK-OLD %s
 
 //CHECK-LABEL: foo_target_teams
 void foo_target_teams(long long int n)

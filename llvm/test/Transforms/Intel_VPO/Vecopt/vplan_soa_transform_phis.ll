@@ -10,6 +10,8 @@ define void @merge_uniform_soa_geps() {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div] [1024 x i64]* [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4
+; CHECK-NEXT:     [DA: Div] i8* [[VP_ARR_SOA_PRIV64_BCAST:%.*]] = bitcast [1024 x i64]* [[VP_ARR_SOA_PRIV64]]
+; CHECK-NEXT:     [DA: Div] call i64 8192 i8* [[VP_ARR_SOA_PRIV64_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 [Serial] 
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
@@ -86,6 +88,8 @@ define void @merge_uniform_strided_soa_geps() {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div] [1024 x i64]* [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4
+; CHECK-NEXT:     [DA: Div] i8* [[VP_ARR_SOA_PRIV64_BCAST:%.*]] = bitcast [1024 x i64]* [[VP_ARR_SOA_PRIV64]]
+; CHECK-NEXT:     [DA: Div] call i64 8192 i8* [[VP_ARR_SOA_PRIV64_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 [Serial] 
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
@@ -167,6 +171,8 @@ define void @merge_str_soa_geps() {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] [1024 x i64]* [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4 (SVAOpBits )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i8* [[VP_ARR_SOA_PRIV64_BCAST:%.*]] = bitcast [1024 x i64]* [[VP_ARR_SOA_PRIV64]]
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] call i64 8192 i8* [[VP_ARR_SOA_PRIV64_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 [Serial] 
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1 (SVAOpBits 0->F )
@@ -240,7 +246,11 @@ define void @merge_aos_soa_geps() {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] [1024 x i64]* [[VP_ARR_AOS_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4 (SVAOpBits )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i8* [[VP_ARR_AOS_PRIV64_BCAST:%.*]] = bitcast [1024 x i64]* [[VP_ARR_AOS_PRIV64]]
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] call i64 8192 i8* [[VP_ARR_AOS_PRIV64_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 [Serial] 
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] [1024 x i64]* [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4 (SVAOpBits )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i8* [[VP_ARR_SOA_PRIV64_BCAST:%.*]] = bitcast [1024 x i64]* [[VP_ARR_SOA_PRIV64]]
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] call i64 8192 i8* [[VP_ARR_SOA_PRIV64_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 [Serial] 
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1 (SVAOpBits 0->F )

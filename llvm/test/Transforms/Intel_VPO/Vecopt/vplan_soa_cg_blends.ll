@@ -12,6 +12,8 @@ define void @uniform_with_undef(i64 *%p, i1 *%uniform.ptr) #0 {
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
+; CHECK-NEXT:    [[TMP15:%.*]] = bitcast [1024 x <2 x i32>]* [[ARR_SOA_PRIV32_SOA_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8192, i8* [[TMP15]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP13:%.*]], [[VPLANNEDBB21:%.*]] ]
@@ -28,7 +30,7 @@ define void @uniform_with_undef(i64 *%p, i1 *%uniform.ptr) #0 {
 ; CHECK-NEXT:    [[TMP3:%.*]] = load i1, i1* [[UNIFORM_PTR:%.*]], align 1
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i1> poison, i1 [[TMP3]], i32 0
 ; CHECK-NEXT:    br label [[TMP4]]
-; CHECK:       4:
+; CHECK:       5:
 ; CHECK-NEXT:    [[TMP5:%.*]] = phi <2 x i1> [ poison, [[VPLANNEDBB3]] ], [ [[BROADCAST_SPLATINSERT]], [[PRED_LOAD_IF]] ]
 ; CHECK-NEXT:    br label [[PRED_LOAD_CONTINUE:%.*]]
 ; CHECK:       pred.load.continue:
@@ -75,6 +77,8 @@ define void @uniform_with_undef(i64 *%p, i1 *%uniform.ptr) #0 {
 ; CHECK-NEXT:    [[TMP14:%.*]] = icmp uge i64 [[TMP13]], 4
 ; CHECK-NEXT:    br i1 [[TMP14]], label [[VPLANNEDBB25:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       VPlannedBB25:
+; CHECK-NEXT:    [[TMP16:%.*]] = bitcast [1024 x <2 x i32>]* [[ARR_SOA_PRIV32_SOA_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 8192, i8* [[TMP16]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB26:%.*]]
 ; CHECK:       VPlannedBB26:
 ; CHECK-NEXT:    br label [[FINAL_MERGE:%.*]]

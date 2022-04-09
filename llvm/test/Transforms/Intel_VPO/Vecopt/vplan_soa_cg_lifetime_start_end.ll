@@ -21,6 +21,10 @@ define void @test_lifetime_start_end() {
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
+; CHECK-NEXT:    [[ARR_PRIV32_SOA_VEC_BCAST:%.*]] = bitcast [1024 x <2 x i32>]* [[ARR_PRIV32_SOA_VEC]] to i8* 
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8192, i8* [[ARR_PRIV32_SOA_VEC_BCAST]]) 
+; CHECK-NEXT:    [[ARR_PRIV8_SOA_VEC_BCAST:%.*]] = bitcast [1024 x <2 x i8>]* [[ARR_PRIV8_SOA_VEC]] to i8* 
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 2048, i8* [[ARR_PRIV8_SOA_VEC_BCAST]]) 
 ; CHECK-NEXT:    [[SOA_SCALAR_GEP:%.*]] = getelementptr inbounds [1024 x <2 x i8>], [1024 x <2 x i8>]* [[ARR_PRIV8_SOA_VEC]], i64 0, i64 0
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast [1024 x <2 x i32>]* [[ARR_PRIV32_SOA_VEC]] to <2 x i8>*
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
@@ -91,6 +95,8 @@ define void @test_lifetime_start_end_with_phi_inputs() {
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
+; CHECK-NEXT:    [[ARR_PRIV32_SOA_VEC_BCAST:%.*]] = bitcast [1024 x <2 x i32>]* [[ARR_PRIV32_SOA_VEC]] to i8* 
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8192, i8* [[ARR_PRIV32_SOA_VEC_BCAST]]) 
 ; CHECK-NEXT:    [[SOA_SCALAR_GEP:%.*]] = getelementptr inbounds [1024 x <2 x i32>], [1024 x <2 x i32>]* [[ARR_PRIV32_SOA_VEC]], i64 0, i64 0
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:

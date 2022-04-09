@@ -72,6 +72,8 @@ define i32 @foo(float* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     i32* [[VP_SUM:%.*]] = allocate-priv i32*, OrigAlign = 4
+; CHECK-NEXT:     i8* [[VP_SUM_BCAST:%.*]] = bitcast i32* [[VP_SUM]]
+; CHECK-NEXT:     call i64 4 i8* [[VP_SUM_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[SUM0:%.*]]
 ; CHECK-NEXT:     i32 [[VP_SUMRED_INIT:%.*]] = reduction-init i32 0 i32 [[VP_LOAD]]
 ; CHECK-NEXT:     store i32 [[VP_SUMRED_INIT]] i32* [[VP_SUM]]
@@ -95,6 +97,8 @@ define i32 @foo(float* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUM]]
 ; CHECK-NEXT:     i32 [[VP_SUMRED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP_LOAD_1]]
 ; CHECK-NEXT:     store i32 [[VP_SUMRED_FINAL]] i32* [[SUM0]]
+; CHECK-NEXT:     i8* [[VP_SUM_BCAST1:%.*]] = bitcast i32* [[VP_SUM]]
+; CHECK-NEXT:     call i64 4 i8* [[VP_SUM_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -104,6 +108,8 @@ define i32 @foo(float* nocapture readonly %A, i64 %N, i32 %init) {
 ; Checks for generated vector code
 ; CHECK-LABEL: define i32 @foo
 ; CHECK:       VPlannedBB2:
+; CHECK-NEXT:    [[SUM_VEC_BCAST:%.*]] = bitcast <2 x i32>* [[SUM_VEC:%.*]] to i8* 
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[SUM_VEC_BCAST]]) 
 ; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* [[SUM0]], align 1
 ; CHECK-NEXT:    [[TMP3:%.*]] = load i32, i32* [[SUM0]], align 1
 ; CHECK-NEXT:    [[RED_INIT_INSERT0:%.*]] = insertelement <2 x i32> zeroinitializer, i32 [[TMP2]], i32 0
@@ -132,6 +138,8 @@ define i32 @foo(float* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:    [[WIDE_LOAD60:%.*]] = load <2 x i32>, <2 x i32>* [[SUM_VEC0]], align 1
 ; CHECK-NEXT:    [[TMP13:%.*]] = call i32 @llvm.vector.reduce.add.v2i32(<2 x i32> [[WIDE_LOAD60]])
 ; CHECK-NEXT:    store i32 [[TMP13]], i32* [[SUM0]], align 1
+; CHECK-NEXT:    [[SUM_VEC_BCAST1:%.*]] = bitcast <2 x i32>* [[SUM_VEC:%.*]] to i8* 
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 8, i8* [[SUM_VEC_BCAST1]])
 ; CHECK-NEXT:    [[TMP14:%.*]] = mul i64 1, [[TMP4]]
 ; CHECK-NEXT:    [[TMP15:%.*]] = add i64 0, [[TMP14]]
 ; CHECK-NEXT:    br label [[VPLANNEDBB70:%.*]]

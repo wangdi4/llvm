@@ -87,6 +87,8 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a) local_unnamed_addr #
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
 ; CHECK-NEXT:     i32* [[VP_S_RED]] = allocate-priv i32*, OrigAlign = 4
+; CHECK-NEXT:     i8* [[VP_S_RED_BCAST:%.*]] = bitcast i32* [[VP_S_RED]]
+; CHECK-NEXT:     call i64 4 i8* [[VP_S_RED_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[S_RED0]]
 ; CHECK-NEXT:     i32 [[VP_S_REDRED_INIT]] = reduction-init i32 0 i32 [[VP_LOAD]]
 ; CHECK-NEXT:     store i32 [[VP_S_REDRED_INIT]] i32* [[VP_S_RED]]
@@ -118,6 +120,8 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a) local_unnamed_addr #
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_S_RED]]
 ; CHECK-NEXT:     i32 [[VP_S_REDRED_FINAL]] = reduction-final{u_add} i32 [[VP_LOAD_1]]
 ; CHECK-NEXT:     store i32 [[VP_S_REDRED_FINAL]] i32* [[S_RED0]]
+; CHECK-NEXT:     i8* [[VP_S_RED_BCAST1:%.*]] = bitcast i32* [[VP_S_RED]]
+; CHECK-NEXT:     call i64 4 i8* [[VP_S_RED_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8 
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:

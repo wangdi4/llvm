@@ -53,6 +53,8 @@ define i32 @main() {
 ; CHECK-NEXT:         [DA: Uni] br [[BB14]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB14]]: # preds: [[BB15]], [[BB11]]
+; CHECK-NEXT:       [DA: Div] i8* [[VP0_BCAST:%.*]] = bitcast i32* [[VP0]]
+; CHECK-NEXT:       [DA: Div] call i64 4 i8* [[VP0_BCAST]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:       [DA: Uni] br [[BB12:BB[0-9]+]]
 ;================ generated code
 ; CHECK:  define i32 @main() {
@@ -71,6 +73,8 @@ define i32 @main() {
 ; CHECK-NEXT:    br label [[VPLANNEDBB180]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB18:
+; CHECK-NEXT:    [[VEC_BCAST:%.*]] = bitcast <16 x i32>* [[VEC:%.*]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 64, i8* [[VEC_BCAST]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB200:%.*]]
 ;
 ; HIR-LABEL:  VPlan after insertion of VPEntities instructions

@@ -6,7 +6,7 @@
 ;CHECK-LABEL: @getElement
 ;CHECK:  [[REP_VAL1:%.*]] = shufflevector <3 x float> %s1, <3 x float> undef, <6 x i32> <i32 0, i32 1, i32 2, i32 0, i32 1, i32 2>
 ;CHECK:  [[REP_VAL2:%.*]] = shufflevector <3 x float> %s2, <3 x float> undef, <6 x i32> <i32 0, i32 1, i32 2, i32 0, i32 1, i32 2>
-;CHECK:  [[WIDE_COND:%.*]] = shufflevector <2 x i1> %1, <2 x i1> undef, <6 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1>
+;CHECK:  [[WIDE_COND:%.*]] = shufflevector <2 x i1> %2, <2 x i1> undef, <6 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1>
 ;CHECK:  [[WIDE_SELECT:%.*]] = select <6 x i1> [[WIDE_COND]], <6 x float> [[REP_VAL1]], <6 x float> [[REP_VAL2]]
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

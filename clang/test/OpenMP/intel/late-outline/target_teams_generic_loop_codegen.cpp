@@ -5,7 +5,7 @@
 // RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
 // RUN:  -include-pch %t -verify -fopenmp-version=50 \
 // RUN:  -triple x86_64-unknown-linux-gnu %s \
-// RUN:  | FileCheck --check-prefixes CHECK,CHECK-OLD %s
+// RUN:  | FileCheck --check-prefixes CHECK,CHECK-NEW %s
 
 //RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes -fopenmp-version=50 \
@@ -24,12 +24,12 @@
 
 // RUN: %clang_cc1 -emit-pch -o %t -std=c++14 -fopenmp  -fopenmp-version=50 \
 // RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu \
-// RUN:  -fopenmp-new-depend-ir %s
+// RUN:  -fno-openmp-new-depend-ir %s
 
 // RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
 // RUN:  -include-pch %t -verify -fopenmp-version=50 \
-// RUN:  -triple x86_64-unknown-linux-gnu -fopenmp-new-depend-ir %s \
-// RUN:  | FileCheck --check-prefixes CHECK,CHECK-NEW %s
+// RUN:  -triple x86_64-unknown-linux-gnu -fno-openmp-new-depend-ir %s \
+// RUN:  | FileCheck --check-prefixes CHECK,CHECK-OLD %s
 
 //RUN: %clang_cc1 -triple spir64 \
 //RUN:  -aux-triple x86_64-unknown-linux-gnu \

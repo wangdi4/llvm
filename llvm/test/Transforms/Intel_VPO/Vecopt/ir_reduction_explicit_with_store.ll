@@ -23,6 +23,8 @@ define float @store_reduction_add(float* nocapture %a) {
 ; CHECK:       VPlannedBB4:
 ; CHECK-NEXT:    [[TMP5:%.*]] = call float @llvm.vector.reduce.fadd.v8f32(float 0.000000e+00, <8 x float> [[TMP1]])
 ; CHECK-NEXT:    store float [[TMP5]], float* [[X:%.*]], align 1
+; CHECK-NEXT:    [[X_VEC_BCAST:%.*]] = bitcast <8 x float>* [[X_VEC]] to i8* 
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 32, i8* [[X_VEC_BCAST]])
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK:%.*]]
 ;
 entry:

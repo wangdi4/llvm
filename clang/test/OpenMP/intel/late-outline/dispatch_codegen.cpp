@@ -40,13 +40,21 @@
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefixes ALL,TARG
 
-
 //RUN: %clang_cc1 -fopenmp -fintel-compatibility -fopenmp-late-outline \
 //RUN:   -triple x86_64-unknown-linux-gnu -emit-pch %s -o %t
 
 //RUN: %clang_cc1 -fopenmp -fintel-compatibility -fopenmp-late-outline \
 //RUN:   -triple x86_64-unknown-linux-gnu -include-pch %t -emit-llvm %s -o - \
-//RUN:   | FileCheck %s --check-prefixes ALL,HOST
+//RUN:   | FileCheck %s --check-prefixes ALL,NEW-ALL,HOST,NEW-HOST
+
+//RUN: %clang_cc1 -fopenmp -fintel-compatibility -fopenmp-late-outline \
+//RUN:   -fno-openmp-new-depend-ir -triple x86_64-unknown-linux-gnu \
+//RUN:   -emit-pch %s -o %t
+
+//RUN: %clang_cc1 -fopenmp -fintel-compatibility -fopenmp-late-outline \
+//RUN:   -triple x86_64-unknown-linux-gnu -include-pch %t -emit-llvm %s -o - \
+//RUN:   -fno-openmp-new-depend-ir | \
+//RUN:   FileCheck %s --check-prefixes ALL,OLD-ALL,HOST,OLD-HOST
 
 //expected-no-diagnostics
 
@@ -130,10 +138,13 @@ void caller2(int n, float* x, int dnum)
       //ALL: region.exit(token [[T2]]) [ "DIR.OMP.END.DISPATCH"
       //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TASK"
 
+      //NEW-ALL: [[KDI:%[0-9]+]] = bitcast %struct.kmp_depend_info*
       //ALL: [[T1:%[0-9]+]] = {{.*}}region.entry(){{.*}}TASK
       //ALL-SAME: "QUAL.OMP.IMPLICIT"
-      //ALL-SAME: "QUAL.OMP.DEPEND.IN"
-      //HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* %m
+      //NEW-HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* %m
+      //NEW-ALL-SAME: "QUAL.OMP.DEPARRAY"(i32 1, i8* [[KDI]])
+      //OLD-ALL-SAME: "QUAL.OMP.DEPEND.IN"
+      //OLD-HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* %m
       //TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %m.ascast
       //HOST-SAME: "QUAL.OMP.SHARED"(float** %a
       //TARG-SAME: "QUAL.OMP.SHARED"(float addrspace(4)* addrspace(4)* %a.ascast

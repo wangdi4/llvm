@@ -53,7 +53,11 @@ define i32 @getElement(i32 %RetIdx) {
 
 ; CHECK: VPlan after predicator
 ; CHECK:  [DA: Div] [1024 x i32]* [[PRIV1:%.*]] = allocate-priv [1024 x i32]*
+; CHECK-NEXT:  [DA: Div] i8* [[PRIV1_BCAST:%.*]] = bitcast [1024 x i32]* [[PRIV1]]
+; CHECK-NEXT:  [DA: Div] call i64 4096 i8* [[PRIV1_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 
 ; CHECK-NEXT:  [DA: Div] i32* [[PRIV2:%.*]] = allocate-priv i32*
+; CHECK-NEXT:  [DA: Div] i8* [[PRIV2_BCAST:%.*]] = bitcast i32* [[PRIV2]]
+; CHECK-NEXT:  [DA: Div] call i64 4 i8* [[PRIV2_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 
 ; CHECK-NEXT:  [DA: Div] i32* [[GEP1:%.*]]  = getelementptr inbounds [1024 x i32]* [[PRIV1]] i64 0 i64 0
 ; CHECK-NEXT:  [DA: Div] i8* [[BC1:%.*]] = bitcast i32* [[GEP1]]
 ; CHECK-NEXT:  [DA: Div] i82* [[BC2:%.*]] = bitcast i8* [[BC1]]

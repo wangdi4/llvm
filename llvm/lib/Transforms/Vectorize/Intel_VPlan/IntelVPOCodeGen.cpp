@@ -1393,11 +1393,21 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
       else
         llvm_unreachable("Intel indirect call should have vector-variants!");
     }
-    // Drop lifetime_start/end intrinsics operating on private-memory.
-    if (VPCall->isLifetimeStartOrEndIntrinsic())
+
+    // Drop lifetime_start/end intrinsics operating on private memory
+    // inside the loop leaving those that are in preheader/exit blocks.
+    if (VPCall->isLifetimeStartOrEndIntrinsic()) {
       if (auto *PrivPtr = dyn_cast_or_null<VPAllocatePrivate>(
-              getVPValuePrivateMemoryPtr(VPCall->getOperand(1))))
+              getVPValuePrivateMemoryPtr(VPCall->getOperand(1)))) {
+        const VPBasicBlock *VPCallBB = VPCall->getParent();
+        VPLoop *VPLp = Plan->getVPLoopInfo()->getLoopFor(VPCallBB);
+        if (!VPLp || VPLp->getLoopPreheader() == VPCallBB ||
+            VPLp->getUniqueExitBlock() == VPCallBB) {
+          vectorizeLifetimeStartEndIntrinsic(VPCall);
+        }
         return;
+      }
+    }
 
     switch (VPCall->getVectorizationScenario()) {
     case VPCallInstruction::CallVecScenariosTy::DoNotWiden: {
@@ -3392,6 +3402,51 @@ void VPOCodeGen::vectorizeVecVariant(VPCallInstruction *VPCall) {
 
   // Post process generated vector calls.
   VPWidenMap[VPCall] = getCombinedCallResults(CallResults);
+}
+
+// Widen or Serialize lifetime_start/end intrinsic call.
+void VPOCodeGen::vectorizeLifetimeStartEndIntrinsic(VPCallInstruction *VPCall) {
+  // If this is a private, determine if the call can be widened with the widened
+  // pointer, else serialie.
+  if (VPValue *PrivPtr = const_cast<VPValue *>(
+          getVPValuePrivateMemoryPtr(VPCall->getOperand(1)))) {
+    if (LoopPrivateVPWidenMap.count(PrivPtr)) {
+      Value *WidePriv = LoopPrivateVPWidenMap[PrivPtr];
+      AllocaInst *AI = dyn_cast<AllocaInst>(WidePriv);
+      if (!AI) {
+        assert(isa<AddrSpaceCastInst>(WidePriv) &&
+               "Expected alloca or addrspacecast instruction.");
+        AI = cast<AllocaInst>(
+            cast<AddrSpaceCastInst>(WidePriv)->getPointerOperand());
+      }
+      ConstantInt *Size = Builder.getInt64(-1);
+      if (!cast<VPConstantInt>(VPCall->getOperand(0))->isMinusOne()) {
+        const DataLayout &DL =
+            OrigLoop->getHeader()->getModule()->getDataLayout();
+        Size =
+            Builder.getInt64(AI->getAllocationSizeInBits(DL).getValue() >> 3);
+      }
+      // If the pointer argument is not i8* type for this function, insert a
+      // bitcast to convert it to i8*. This inserts duplicate bitcasts, but, we
+      // expect CSE following up to take care of this.
+      Value *PointerArg = getScalarValue(VPCall->getOperand(1), 0);
+      auto *PointerArgType = cast<PointerType>(PointerArg->getType());
+      if (!PointerArgType->isOpaque() &&
+          !PointerArgType->getElementType()->isIntegerTy(8))
+        PointerArg = Builder.CreateBitCast(
+            PointerArg, Type::getInt8PtrTy(*Plan->getLLVMContext()));
+
+      SmallVector<Value *, 3> ScalarArgs = {
+          Size, PointerArg, getScalarValue(VPCall->getOperand(2), 0)};
+      auto *ScalarInstrinsic = generateSerialInstruction(VPCall, ScalarArgs);
+      VPScalarMap[VPCall][0] = ScalarInstrinsic;
+      return;
+    }
+  }
+
+  // This call is either not operating on privates, or is not vectorizable. So,
+  // serialize.
+  serializeWithPredication(VPCall);
 }
 
 Value *VPOCodeGen::getVectorValue(VPValue *V) {

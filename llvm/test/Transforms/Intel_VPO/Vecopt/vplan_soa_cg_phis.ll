@@ -14,6 +14,8 @@ define void @merge_uniform_soa_geps() {
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
+; CHECK-NEXT:    [[ARR_SOA_PRIV64_SOA_VEC_BCAST:%.*]] = bitcast [1024 x <2 x i64>]* [[ARR_SOA_PRIV64_SOA_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16384, i8* [[ARR_SOA_PRIV64_SOA_VEC_BCAST]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP1:%.*]], [[VPLANNEDBB6:%.*]] ]
@@ -90,6 +92,8 @@ define void @merge_uniform_strided_soa_geps() {
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
+; CHECK-NEXT:    [[ARR_SOA_PRIV64_SOA_VEC_BCAST:%.*]] = bitcast [1024 x <2 x i64>]* [[ARR_SOA_PRIV64_SOA_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16384, i8* [[ARR_SOA_PRIV64_SOA_VEC_BCAST]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP1:%.*]], [[VPLANNEDBB8:%.*]] ]
@@ -172,6 +176,8 @@ define void @merge_str_soa_geps() {
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
+; CHECK-NEXT:    [[ARR_SOA_PRIV64_VEC_BCAST:%.*]] = bitcast [2 x [1024 x i64]]* [[ARR_SOA_PRIV64_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16384, i8* [[ARR_SOA_PRIV64_VEC_BCAST]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP1:%.*]], [[VPLANNEDBB6:%.*]] ]
@@ -252,6 +258,10 @@ define void @merge_aos_soa_geps() {
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
+; CHECK-NEXT:    [[ARR_AOS_PRIV64_VEC_BCAST:%.*]] = bitcast [2 x [1024 x i64]]* [[ARR_AOS_PRIV64_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16384, i8* [[ARR_AOS_PRIV64_VEC_BCAST]])
+; CHECK-NEXT:    [[ARR_SOA_PRIV64_VEC_BCAST:%.*]] = bitcast [2 x [1024 x i64]]* [[ARR_SOA_PRIV64_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16384, i8* [[ARR_SOA_PRIV64_VEC_BCAST]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP3:%.*]], [[VPLANNEDBB7:%.*]] ]
