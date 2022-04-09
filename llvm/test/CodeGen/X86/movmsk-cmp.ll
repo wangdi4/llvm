@@ -2069,7 +2069,7 @@ define i1 @allones_v2i64_and1(<2 x i64> %arg) {
 ;
 ; SKX-LABEL: allones_v2i64_and1:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %k0
+; SKX-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to2}, %xmm0, %k0
 ; SKX-NEXT:    kmovd %k0, %eax
 ; SKX-NEXT:    cmpb $3, %al
 ; SKX-NEXT:    sete %al
@@ -2111,7 +2111,7 @@ define i1 @allzeros_v2i64_and1(<2 x i64> %arg) {
 ;
 ; SKX-LABEL: allzeros_v2i64_and1:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %k0
+; SKX-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to2}, %xmm0, %k0
 ; SKX-NEXT:    kortestb %k0, %k0
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    retq
@@ -3312,7 +3312,7 @@ define i1 @allones_v2i64_and4(<2 x i64> %arg) {
 ;
 ; SKX-LABEL: allones_v2i64_and4:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %k0
+; SKX-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to2}, %xmm0, %k0
 ; SKX-NEXT:    kmovd %k0, %eax
 ; SKX-NEXT:    cmpb $3, %al
 ; SKX-NEXT:    sete %al
@@ -3354,7 +3354,7 @@ define i1 @allzeros_v2i64_and4(<2 x i64> %arg) {
 ;
 ; SKX-LABEL: allzeros_v2i64_and4:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %k0
+; SKX-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to2}, %xmm0, %k0
 ; SKX-NEXT:    kortestb %k0, %k0
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    retq
