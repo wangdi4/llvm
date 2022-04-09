@@ -497,7 +497,8 @@ void OpenMPLateOutliner::addSingleElementTypedArg(llvm::Value *V,
 }
 
 void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
-                                bool NeedsTypedElements) {
+                                bool NeedsTypedElements,
+                                llvm::Type *ElementType) {
   if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
       E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
     ArraySectionTy AS;
@@ -597,7 +598,8 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
           Elements = CGF.Builder.getInt32(1);
       }
     }
-    addArg(V, /*Handled=*/true, IsTyped, Addr.getElementType(), ZeroValue,
+    addArg(V, /*Handled=*/true, IsTyped,
+           ElementType ? ElementType : Addr.getElementType(), ZeroValue,
            Elements);
   }
 }
@@ -1224,14 +1226,22 @@ void OpenMPLateOutliner::emitOMPLinearClause(const OMPLinearClause *Cl) {
     addExplicit(VD, OMPC_linear);
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(VD);
     bool IsRef = !IsCapturedExpr && VD->getType()->isReferenceType();
+    bool IsPtr = E->getType()->isPointerType();
     ClauseEmissionHelper CEH(*this, OMPC_linear, "QUAL.OMP.LINEAR");
     ClauseStringBuilder &CSB = CEH.getBuilder();
     if (IsRef)
       CSB.setByRef();
     if (UseTypedClauses)
       CSB.setTyped();
+    if (UseTypedClauses && IsPtr)
+      CSB.setPtrToPtr();
     addArg(CSB.getString());
-    addTypedArg(E, IsRef);
+    if (UseTypedClauses && IsPtr) {
+      llvm::Type *ElemTy =
+          CGF.ConvertTypeForMem(E->getType()->getPointeeType());
+      addArg(E, IsRef, UseTypedClauses, /*NeedsTypedElements=*/true, ElemTy);
+     } else
+      addTypedArg(E, IsRef);
     addArg(Cl->getStep() ? CGF.EmitScalarExpr(Cl->getStep())
                          : CGF.Builder.getInt32(1));
   }

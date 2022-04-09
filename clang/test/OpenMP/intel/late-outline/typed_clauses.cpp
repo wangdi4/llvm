@@ -26,7 +26,6 @@ void test()
   //CHECK: [[B:%b.*]] = alloca i32, align 4
   //CHECK: [[IV:%.omp.iv.*]] = alloca i32, align 4
   //CHECK: [[UB:%.omp.ub.*]] = alloca i32, align 4
-  //CHECK: [[Z4:%z4.*]] = alloca i32, align 4
   //CHECK: [[R:%r.*]] = alloca i32, align 4
 
   int i;
@@ -78,13 +77,6 @@ void test()
   //CHECK-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"(i32* [[UB]], i32 0)
   #pragma omp parallel for lastprivate(b)
   for (int z3=0; z3 < 10; ++z3) { }
-
-  //CHECK: "DIR.OMP.PARALLEL.LOOP"()
-  //CHECK-SAME: "QUAL.OMP.LINEAR:TYPED"(i32* [[B]], i32 0, i32 1, i32 2)
-  //CHECK: "DIR.OMP.SIMD"()
-  //CHECK-SAME: "QUAL.OMP.LINEAR:IV.TYPED"(i32* [[Z4]], i32 0, i32 1, i32 1)
-  #pragma omp parallel for simd linear(b:2)
-  for (int z4=0; z4 < 10; ++z4) { }
 
   int r;
   //CHECK: "DIR.OMP.PARALLEL.LOOP"()
@@ -332,4 +324,36 @@ void foo_teams_thread_limit()
   { }
 }
 
+//CHECK: define {{.*}}foo_linear_clauses
+void foo_linear_clauses()
+{
+  //CHECK: [[I:%i.*]] = alloca i32, align 4
+  //CHECK: [[J:%j.*]] = alloca i32*, align 8
+  //CHECK: [[X:%x.*]] = alloca i32*, align 8
+  //CHECK: [[XP:%xp.*]] = alloca i32**, align 8
+  //CHECK: [[Y:%y.*]] = alloca i32**, align 8
+  //CHECK: [[CP:%cp.*]] = alloca i8*, align 8
+  //CHECK: [[Z6:%z6.*]] = alloca i32, align 4
+
+  int i;
+  int &j = i;
+  int *x;
+  int **xp = &x;
+  int *(&y) = x;
+  char *cp;
+
+  //CHECK: "DIR.OMP.PARALLEL.LOOP"()
+  //CHECK-SAME: "QUAL.OMP.LINEAR:TYPED"(i32* [[I]], i32 0, i32 1, i32 2)
+  //CHECK-SAME: "QUAL.OMP.LINEAR:BYREF.TYPED"(i32** [[J]], i32 0, i32 1, i32 1)
+  //CHECK-SAME: "QUAL.OMP.LINEAR:PTR_TO_PTR.TYPED"(i32** [[X]], i32 0, i32 1, i32 2)
+  //CHECK-SAME: "QUAL.OMP.LINEAR:PTR_TO_PTR.TYPED"(i32*** [[XP]], i32* null, i32 1, i32 1)
+  //CHECK-SAME: "QUAL.OMP.LINEAR:BYREF.PTR_TO_PTR.TYPED"(i32*** [[Y]], i32 0, i32 1, i32 1)
+  //CHECK-SAME: "QUAL.OMP.LINEAR:PTR_TO_PTR.TYPED"(i8** [[CP]], i8 0, i32 1, i32 3)
+  //CHECK: "DIR.OMP.SIMD"()
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV.TYPED"(i32* [[Z6]], i32 0, i32 1, i32 1)
+  #pragma omp parallel for simd linear(i:2) linear(j) linear(x:2) linear(xp) \
+                                linear(y) linear(cp:3)
+  for (int z6=0; z6 < 10; ++z6) { }
+
+}
 // end INTEL_COLLAB
