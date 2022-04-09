@@ -2782,8 +2782,8 @@ Node *AbstractManglingParser<Derived, Alloc>::parseLocalName(NameState *State) {
   return make<LocalName>(Encoding, Entity);
 }
 
-// <unscoped-name> ::= [L]* <unqualified-name>
-//                 ::= St [L]* <unqualified-name>   # ::std::
+// <unscoped-name> ::= <unqualified-name>
+//                 ::= St <unqualified-name>   # ::std::
 // [*] extension
 template <typename Derived, typename Alloc>
 Node *
@@ -2796,7 +2796,6 @@ AbstractManglingParser<Derived, Alloc>::parseUnscopedName(NameState *State,
     if (Std == nullptr)
       return nullptr;
   }
-  consumeIf('L');
 
   Node *Res = nullptr;
   ModuleName *Module = nullptr;
@@ -2814,29 +2813,32 @@ AbstractManglingParser<Derived, Alloc>::parseUnscopedName(NameState *State,
     }
   }
 
-  if (Res == nullptr)
+  if (Res == nullptr || Std != nullptr) {
     Res = getDerived().parseUnqualifiedName(State, Std, Module);
+  }
 
   return Res;
 }
 
-// <unqualified-name> ::= [<module-name>] <operator-name> [<abi-tags>]
+// <unqualified-name> ::= [<module-name>] L? <operator-name> [<abi-tags>]
 //                    ::= [<module-name>] <ctor-dtor-name> [<abi-tags>]
-//                    ::= [<module-name>] <source-name> [<abi-tags>]
-//                    ::= [<module-name>] <unnamed-type-name> [<abi-tags>]
+//                    ::= [<module-name>] L? <source-name> [<abi-tags>]
+//                    ::= [<module-name>] L? <unnamed-type-name> [<abi-tags>]
 //			# structured binding declaration
-//                    ::= [<module-name>] DC <source-name>+ E
+//                    ::= [<module-name>] L? DC <source-name>+ E
 template <typename Derived, typename Alloc>
 Node *AbstractManglingParser<Derived, Alloc>::parseUnqualifiedName(
     NameState *State, Node *Scope, ModuleName *Module) {
   if (getDerived().parseModuleNameOpt(Module))
     return nullptr;
 
+  consumeIf('L');
+
   Node *Result;
-  if (look() == 'U') {
-    Result = getDerived().parseUnnamedTypeName(State);
-  } else if (look() >= '1' && look() <= '9') {
+  if (look() >= '1' && look() <= '9') {
     Result = getDerived().parseSourceName(State);
+  } else if (look() == 'U') {
+    Result = getDerived().parseUnnamedTypeName(State);
   } else if (consumeIf("DC")) {
     // Structured binding
     size_t BindingsBegin = Names.size();
@@ -3216,10 +3218,12 @@ AbstractManglingParser<Derived, Alloc>::parseCtorDtorName(Node *&SoFar,
   return nullptr;
 }
 
-// <nested-name> ::= N [<CV-Qualifiers>] [<ref-qualifier>] <prefix> <unqualified-name> E
-//               ::= N [<CV-Qualifiers>] [<ref-qualifier>] <template-prefix> <template-args> E
+// <nested-name> ::= N [<CV-Qualifiers>] [<ref-qualifier>] <prefix>
+// 			<unqualified-name> E
+//               ::= N [<CV-Qualifiers>] [<ref-qualifier>] <template-prefix>
+//               	<template-args> E
 //
-// <prefix> ::= <prefix> [L]* <unqualified-name>
+// <prefix> ::= <prefix> <unqualified-name>
 //          ::= <template-prefix> <template-args>
 //          ::= <template-param>
 //          ::= <decltype>
@@ -3283,7 +3287,6 @@ AbstractManglingParser<Derived, Alloc>::parseNestedName(NameState *State) {
       SoFar = getDerived().parseDecltype();
     } else {
       ModuleName *Module = nullptr;
-      bool IsLocal = consumeIf('L'); // extension
 
       if (look() == 'S') {
         //          ::= <substitution>
@@ -3298,7 +3301,7 @@ AbstractManglingParser<Derived, Alloc>::parseNestedName(NameState *State) {
           return nullptr;
         if (S->getKind() == Node::KModuleName) {
           Module = static_cast<ModuleName *>(S);
-        } else if (SoFar != nullptr || IsLocal) {
+        } else if (SoFar != nullptr) {
           return nullptr; // Cannot have a prefix.
         } else {
           SoFar = S;
