@@ -3462,9 +3462,8 @@ define void @bcast_unfold_pcmpgt_v2i64(i64* %arg) {
 ; CHECK-LABEL: bcast_unfold_pcmpgt_v2i64:
 ; CHECK:       # %bb.0: # %bb
 ; CHECK-NEXT:    movq $-8192, %rax # imm = 0xE000
-<<<<<<< HEAD
-; CHECK-NEXT:    vmovdqa {{.*#+}} xmm0 = [1,1]
-; CHECK-NEXT:    vmovdqa {{.*#+}} xmm1 = [3,3] ;INTEL
+; CHECK-NEXT:    vpbroadcastq {{.*#+}} xmm0 = [1,1]
+; CHECK-NEXT:    vpbroadcastq {{.*#+}} xmm1 = [3,3] ;INTEL
 ; CHECK-NEXT:    .p2align 4, 0x90
 ; CHECK-NEXT:  .LBB99_1: # %bb1
 ; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
@@ -3472,16 +3471,6 @@ define void @bcast_unfold_pcmpgt_v2i64(i64* %arg) {
 ; CHECK-NEXT:    vpcmpgtq %xmm0, %xmm2, %k1 ;INTEL
 ; CHECK-NEXT:    vmovdqa64 %xmm1, %xmm2 {%k1} ;INTEL
 ; CHECK-NEXT:    vmovdqu %xmm2, 8192(%rdi,%rax) ;INTEL
-=======
-; CHECK-NEXT:    vpbroadcastq {{.*#+}} xmm0 = [1,1]
-; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  .LBB99_1: # %bb1
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    vmovdqu 8192(%rdi,%rax), %xmm1
-; CHECK-NEXT:    vpcmpgtq %xmm0, %xmm1, %k1
-; CHECK-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm1 {%k1}
-; CHECK-NEXT:    vmovdqu %xmm1, 8192(%rdi,%rax)
->>>>>>> 9be6e7b0f2496efa76229f70654ebe6494dc2cf9
 ; CHECK-NEXT:    addq $16, %rax
 ; CHECK-NEXT:    jne .LBB99_1
 ; CHECK-NEXT:  # %bb.2: # %bb10
@@ -3698,9 +3687,8 @@ define void @bcast_unfold_pcmpeq_v2i64(i64* %arg) {
 ; CHECK-LABEL: bcast_unfold_pcmpeq_v2i64:
 ; CHECK:       # %bb.0: # %bb
 ; CHECK-NEXT:    movq $-8192, %rax # imm = 0xE000
-<<<<<<< HEAD
-; CHECK-NEXT:    vmovdqa {{.*#+}} xmm0 = [1,1]
-; CHECK-NEXT:    vmovdqa {{.*#+}} xmm1 = [3,3] ;INTEL
+; CHECK-NEXT:    vpbroadcastq {{.*#+}} xmm0 = [1,1]
+; CHECK-NEXT:    vpbroadcastq {{.*#+}} xmm1 = [3,3] ;INTEL
 ; CHECK-NEXT:    .p2align 4, 0x90
 ; CHECK-NEXT:  .LBB105_1: # %bb1
 ; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
@@ -3708,16 +3696,6 @@ define void @bcast_unfold_pcmpeq_v2i64(i64* %arg) {
 ; CHECK-NEXT:    vpcmpeqq %xmm0, %xmm2, %k1 ;INTEL
 ; CHECK-NEXT:    vmovdqa64 %xmm1, %xmm2 {%k1} ;INTEL
 ; CHECK-NEXT:    vmovdqu %xmm2, 8192(%rdi,%rax) ;INTEL
-=======
-; CHECK-NEXT:    vpbroadcastq {{.*#+}} xmm0 = [1,1]
-; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  .LBB105_1: # %bb1
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    vmovdqu 8192(%rdi,%rax), %xmm1
-; CHECK-NEXT:    vpcmpeqq %xmm0, %xmm1, %k1
-; CHECK-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm1 {%k1}
-; CHECK-NEXT:    vmovdqu %xmm1, 8192(%rdi,%rax)
->>>>>>> 9be6e7b0f2496efa76229f70654ebe6494dc2cf9
 ; CHECK-NEXT:    addq $16, %rax
 ; CHECK-NEXT:    jne .LBB105_1
 ; CHECK-NEXT:  # %bb.2: # %bb10
@@ -3937,9 +3915,8 @@ define void @bcast_unfold_pcmp_v2i64(i64* %arg) {
 ; CHECK-LABEL: bcast_unfold_pcmp_v2i64:
 ; CHECK:       # %bb.0: # %bb
 ; CHECK-NEXT:    xorl %eax, %eax
-<<<<<<< HEAD
-; CHECK-NEXT:    vmovdqa {{.*#+}} xmm0 = [1,1]
-; CHECK-NEXT:    vmovdqa {{.*#+}} xmm1 = [3,3] ;INTEL
+; CHECK-NEXT:    vpbroadcastq {{.*#+}} xmm0 = [1,1]
+; CHECK-NEXT:    vpbroadcastq {{.*#+}} xmm1 = [3,3] ;INTEL
 ; CHECK-NEXT:    .p2align 4, 0x90
 ; CHECK-NEXT:  .LBB111_1: # %bb1
 ; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
@@ -3947,16 +3924,6 @@ define void @bcast_unfold_pcmp_v2i64(i64* %arg) {
 ; CHECK-NEXT:    vpcmpltq %xmm0, %xmm2, %k1 ;INTEL
 ; CHECK-NEXT:    vmovdqa64 %xmm1, %xmm2 {%k1} ;INTEL
 ; CHECK-NEXT:    vmovdqu %xmm2, (%rdi,%rax,8) ;INTEL
-=======
-; CHECK-NEXT:    vpbroadcastq {{.*#+}} xmm0 = [1,1]
-; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  .LBB111_1: # %bb1
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    vmovdqu (%rdi,%rax,8), %xmm1
-; CHECK-NEXT:    vpcmpltq %xmm0, %xmm1, %k1
-; CHECK-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm1 {%k1}
-; CHECK-NEXT:    vmovdqu %xmm1, (%rdi,%rax,8)
->>>>>>> 9be6e7b0f2496efa76229f70654ebe6494dc2cf9
 ; CHECK-NEXT:    addq $2, %rax
 ; CHECK-NEXT:    cmpq $1023, %rax # imm = 0x3FF
 ; CHECK-NEXT:    jg .LBB111_1
@@ -4179,9 +4146,8 @@ define void @bcast_unfold_pcmpu_v2i64(i64* %arg) {
 ; CHECK-LABEL: bcast_unfold_pcmpu_v2i64:
 ; CHECK:       # %bb.0: # %bb
 ; CHECK-NEXT:    xorl %eax, %eax
-<<<<<<< HEAD
-; CHECK-NEXT:    vmovdqa {{.*#+}} xmm0 = [2,2]
-; CHECK-NEXT:    vmovdqa {{.*#+}} xmm1 = [3,3] ;INTEL
+; CHECK-NEXT:    vpbroadcastq {{.*#+}} xmm0 = [2,2]
+; CHECK-NEXT:    vpbroadcastq {{.*#+}} xmm1 = [3,3] ;INTEL
 ; CHECK-NEXT:    .p2align 4, 0x90
 ; CHECK-NEXT:  .LBB117_1: # %bb1
 ; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
@@ -4189,16 +4155,6 @@ define void @bcast_unfold_pcmpu_v2i64(i64* %arg) {
 ; CHECK-NEXT:    vpcmpltuq %xmm0, %xmm2, %k1 ;INTEL
 ; CHECK-NEXT:    vmovdqa64 %xmm1, %xmm2 {%k1} ;INTEL
 ; CHECK-NEXT:    vmovdqu %xmm2, (%rdi,%rax,8) ;INTEL
-=======
-; CHECK-NEXT:    vpbroadcastq {{.*#+}} xmm0 = [2,2]
-; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  .LBB117_1: # %bb1
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    vmovdqu (%rdi,%rax,8), %xmm1
-; CHECK-NEXT:    vpcmpltuq %xmm0, %xmm1, %k1
-; CHECK-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm1 {%k1}
-; CHECK-NEXT:    vmovdqu %xmm1, (%rdi,%rax,8)
->>>>>>> 9be6e7b0f2496efa76229f70654ebe6494dc2cf9
 ; CHECK-NEXT:    addq $2, %rax
 ; CHECK-NEXT:    cmpq $1023, %rax # imm = 0x3FF
 ; CHECK-NEXT:    ja .LBB117_1
@@ -4418,15 +4374,10 @@ define void @bcast_unfold_cmp_v2f64(double* %arg) {
 ; CHECK-LABEL: bcast_unfold_cmp_v2f64:
 ; CHECK:       # %bb.0: # %bb
 ; CHECK-NEXT:    movq $-8192, %rax # imm = 0xE000
-<<<<<<< HEAD
-; CHECK-NEXT:    vmovapd {{.*#+}} xmm0 = [2.0E+0,2.0E+0]
-; CHECK-NEXT:    vmovapd {{.*#+}} xmm1 = [3.0E+0,3.0E+0] ;INTEL
-=======
 ; CHECK-NEXT:    vmovddup {{.*#+}} xmm0 = [2.0E+0,2.0E+0]
 ; CHECK-NEXT:    # xmm0 = mem[0,0]
 ; CHECK-NEXT:    vmovddup {{.*#+}} xmm1 = [3.0E+0,3.0E+0]
 ; CHECK-NEXT:    # xmm1 = mem[0,0]
->>>>>>> 9be6e7b0f2496efa76229f70654ebe6494dc2cf9
 ; CHECK-NEXT:    .p2align 4, 0x90
 ; CHECK-NEXT:  .LBB123_1: # %bb1
 ; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
