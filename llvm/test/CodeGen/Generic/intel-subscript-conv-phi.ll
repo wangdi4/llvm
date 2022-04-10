@@ -7,7 +7,7 @@
 ; RUN: opt < %s -S -opaque-pointers -convert-to-subscript | FileCheck %s --check-prefix=OPAQUE
 ;
 ; OPAQUE: for.body.preheader:
-; OPAQUE-NEXT: {{.*}} = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 0, i64 200, ptr elementtype(i32) getelementptr inbounds ([50 x i32], ptr @A, i64 0, i64 0), i64 0)
+; OPAQUE-NEXT: {{.*}} = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 0, i64 200, ptr elementtype(i32) {{.*}}, i64 0)
 ; OPAQUE-NEXT; {..*}} = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 4, ptr elementtype(i32) {{.*}}, i64 10)
 
 ; ModuleID = 'array-init-phi-base-ptr-iv.c'
