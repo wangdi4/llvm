@@ -1053,7 +1053,10 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
   // add it to ArgsToPromote.
   DenseMap<Argument *, SmallVector<OffsetAndArgPart, 4>> ArgsToPromote;
   SmallPtrSet<Argument *, 8> ByValArgsToTransform;
+  bool HasOpaquePointers = false; // INTEL
   for (Argument *PtrArg : PointerArgs) {
+    if (cast<PointerType>(PtrArg->getType())->isOpaque())
+      HasOpaquePointers = true; // INTEL
     // Replace sret attribute with noalias. This reduces register pressure by
     // avoiding a register copy.
     if (PtrArg->hasStructRetAttr()) {
@@ -1165,6 +1168,20 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
   if (ArgsToPromote.empty() && ByValArgsToTransform.empty())
     return nullptr;
 
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-36553: When we have opaque pointers, bitcasts between
+  // mismatched function signatures will disappear. This can cause
+  // argument promotion to assert when calling CallInst::Create or
+  // InvokeInst::Create with mismatched formals and actuals arguments.
+  // Detect if that could be the case here, and inhibit argument promotion.
+  if (HasOpaquePointers)
+    for (Argument &I : F->args())
+      for (User *U : F->users())
+        if (auto CB = dyn_cast<CallBase>(U))
+          if (CB->getArgOperand(I.getArgNo())->getType() != I.getType())
+            return nullptr;
+#endif // INTEL_CUSTOMIZATION
+     
   return doPromotion(F, ArgsToPromote, ByValArgsToTransform, // INTEL
                      isCallback, ReplaceCallSite);           // INTEL
 }
