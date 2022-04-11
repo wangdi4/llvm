@@ -42,6 +42,7 @@ namespace llvm {
   class DominatorTree;
   class LoopInfo;
   class Function;
+  template <typename T> class SmallPtrSetImpl;
 
   /// getDefaultMaxUsesToExploreForCaptureTracking - Return default value of
   /// the maximal number of uses to explore before giving up. It is used by
@@ -62,6 +63,14 @@ namespace llvm {
   /// is zero, a default value is assumed.
   bool PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
                             bool StoreCaptures,
+                            bool IngoreNoAliasArgStCaptures = false, // INTEL
+                            unsigned MaxUsesToExplore = 0);
+
+  /// Variant of the above function which accepts a set of Values that are
+  /// ephemeral and cannot cause pointers to escape.
+  bool PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
+                            bool StoreCaptures,
+                            const SmallPtrSetImpl<const Value *> &EphValues,
                             bool IgnoreNoAliasArgStCaptures = false,   // INTEL
                             unsigned MaxUsesToExplore = 0);
 
