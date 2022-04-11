@@ -1,13 +1,9 @@
 // RUN: %clang_cc1 -no-opaque-pointers -std=c++2a -fblocks %s -triple x86_64-unknown-unknown -emit-llvm -o %t.ll
 
 // This needs to be performed before #line directives which alter filename
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
-// RUN: %clang_cc1 -fintel-compatibility-enable=DisplayFullFilePath -fmacro-prefix-map=%p=/UNLIKELY/PATH -emit-llvm -o - %s | FileCheck %s --check-prefix=CHECK-PREFIX-MAP
+// RUN: %clang_cc1 -no-opaque-pointers -fintel-compatibility-enable=DisplayFullFilePath -fmacro-prefix-map=%p=/UNLIKELY/PATH -emit-llvm -o - %s | FileCheck %s --check-prefix=CHECK-PREFIX-MAP
 // end INTEL_CUSTOMIZATION
-=======
-// RUN: %clang_cc1 -no-opaque-pointers -fmacro-prefix-map=%p=/UNLIKELY/PATH -emit-llvm -o - %s | FileCheck %s --check-prefix=CHECK-PREFIX-MAP
->>>>>>> 769caf3e10b780b90737f08afa307829cebcaae3
 //
 // CHECK-PREFIX-MAP: /UNLIKELY/PATH{{/|\\\\}}builtin-source-location.cpp
 void testRemap() {
