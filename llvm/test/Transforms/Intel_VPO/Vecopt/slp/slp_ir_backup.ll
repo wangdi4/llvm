@@ -40,8 +40,7 @@ define dso_local i1 @_test() local_unnamed_addr {
 ; CHECK-NEXT:    [[I3:%.*]] = add i64 [[I2]], [[I0]]
 ; CHECK-NEXT:    [[I4:%.*]] = sub i64 [[I3]], undef
 ; CHECK-NEXT:    [[I5:%.*]] = ptrtoint %class.Mychar_* undef to i64
-; FIXME: left operand wasn't restored correctly
-; CHECK-NEXT:    [[I6:%.*]] = add i64 [[I5]], [[I5]]
+; CHECK-NEXT:    [[I6:%.*]] = add i64 [[I1]], [[I5]]
 ; CHECK-NEXT:    [[I7:%.*]] = sub i64 [[I6]], undef
 ; CHECK-NEXT:    [[I8:%.*]] = add i64 [[I7]], 0
 ; CHECK-NEXT:    [[I9:%.*]] = lshr i64 [[I8]], 1
