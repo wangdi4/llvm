@@ -34,7 +34,7 @@ DDEdge::DepType DDEdge::getEdgeType() const {
   }
 }
 
-bool DDEdge::isForwardDep() const {
+bool DDEdge::isForwardDep(bool CheckIfPath) const {
   auto SrcTopSortNum = getSrc()->getHLDDNode()->getTopSortNum();
   auto SinkTopSortNum = getSink()->getHLDDNode()->getTopSortNum();
 
@@ -47,6 +47,18 @@ bool DDEdge::isForwardDep() const {
     return !SrcIsLval;
   }
 
+  if (CheckIfPath) {
+    // a workaround for the fact that CFG representation in VPlan isn't lexical.
+    // TODO: Remove once CMPLRLLVM-3064 will be implemented
+    auto SinkNode = getSink()->getHLDDNode();
+    auto SrcNode = getSrc()->getHLDDNode();
+    auto *CommonParent =
+        HLNodeUtils::getLexicalLowestCommonAncestorParent(SrcNode, SinkNode);
+    if (auto *IfParent = dyn_cast<HLIf>(CommonParent)) {
+      if (IfParent->isThenChild(SrcNode) != IfParent->isThenChild(SinkNode))
+        return false; // assume backward
+    }
+  }
   return (SrcTopSortNum < SinkTopSortNum);
 }
 
