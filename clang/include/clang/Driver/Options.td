@@ -7370,6 +7370,8 @@ def fopenmp_host_ir_file_path : Separate<["-"], "fopenmp-host-ir-file-path">,
 // SYCL Options
 //===----------------------------------------------------------------------===//
 
+let Flags = [CC1Option, NoDriverOption] in {
+
 def fsycl_is_device : Flag<["-"], "fsycl-is-device">,
   HelpText<"Generate code for SYCL device.">,
   Flags<[CC1Option, NoDriverOption]>,
@@ -7435,12 +7437,9 @@ def fsycl_enable_int_header_diags: Flag<["-"], "fsycl-enable-int-header-diags">,
   HelpText<"Enable diagnostics that require the SYCL integration header.">,
   MarshallingInfoFlag<LangOpts<"SYCLEnableIntHeaderDiags">>;
 
-<<<<<<< HEAD
 } // let Flags = [CC1Option, NoDriverOption]
 
 #if INTEL_CUSTOMIZATION
-=======
->>>>>>> da1fc3ae955da47dc43d8d2e8f4d5a52deac7cf9
 def sycl_std_EQ : Joined<["-"], "sycl-std=">, Group<sycl_Group>,
   Flags<[CC1Option, NoArgumentUnused, CoreOption, DpcppOption]>,
   HelpText<"SYCL language standard to compile for.">,
