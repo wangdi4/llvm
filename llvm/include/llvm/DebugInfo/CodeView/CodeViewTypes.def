@@ -113,7 +113,7 @@ CV_TYPE(LF_OEM_IDENT_MSF90, 0xf090)
 // F90 OEM Type Record IDs.  Contained within an LF_OEM record.
 CV_TYPE(LF_recOEM_MSF90_DESCR_ARR, 0x0000)       /* Described Array */
 // CV_TYPE(LF_recOEM_MSF90_MODULE_DESCR, 0x0002) /* Module name */
-// CV_TYPE(LF_recOEM_MSF90_HOST_REF, 0x0003)     /* Host Reference */
+CV_TYPE(LF_recOEM_MSF90_HOST_REF, 0x0003)     /* Host Reference */
 // CV_TYPE(LF_recOEM_F090_HOST_PDATA, 0x0004)    /* Intel - post indexed data */
 CV_TYPE(LF_recOEM_MSF90_DESCRIPTOR, 0x0005)      /* Intel - generic descriptor type */
 #endif //INTEL_CUSTOMIZATION

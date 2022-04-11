@@ -244,6 +244,12 @@ DINode::DIFlags DINode::splitFlags(DIFlags Flags,
     Flags &= ~FlagIndirectVirtualBase;
     SplitFlags.push_back(FlagIndirectVirtualBase);
   }
+#if INTEL_CUSTOMIZATION
+  if ((Flags & FlagUplevelReference) == FlagUplevelReference) {
+    Flags &= ~FlagUplevelReference;
+    SplitFlags.push_back(FlagUplevelReference);
+  }
+#endif // INTEL_CUSTOMIZATION
 
 #define HANDLE_DI_FLAG(ID, NAME)                                               \
   if (DIFlags Bit = Flags & Flag##NAME) {                                      \

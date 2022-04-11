@@ -1280,6 +1280,45 @@ CodeViewDebug::createDefRangeMem(uint16_t CVRegister, int Offset) {
   return DR;
 }
 
+#if INTEL_CUSTOMIZATION
+static uint32_t getUplevelReferenceOffset(uint32_t& Offset, const DIExpression* Expr) {
+  bool ExprFormIsKnown = false;
+
+  if (Expr && Expr->startsWithDeref()) {
+    switch (Expr->getNumElements()) {
+    case 1:
+      ExprFormIsKnown = true;
+      Offset = 0;
+      break;
+    case 2:
+      if (Expr->getElement(1) == llvm::dwarf::DW_OP_deref) {
+        ExprFormIsKnown = true;
+        Offset = 0;
+      }
+      break;
+    case 3:
+      if (Expr->getElement(1) == llvm::dwarf::DW_OP_plus_uconst) {
+        ExprFormIsKnown = true;
+        Offset = Expr->getElement(2);
+      }
+      break;
+    case 4:
+      if (Expr->getElement(1) == llvm::dwarf::DW_OP_plus_uconst &&
+        Expr->getElement(3) == llvm::dwarf::DW_OP_deref) {
+        ExprFormIsKnown = true;
+        Offset = Expr->getElement(2);
+      }
+      break;
+    default:
+      // do nothing
+      ;
+    }
+  }
+
+  return ExprFormIsKnown;
+}
+#endif // INTEL_CUSTOMIZATION
+
 void CodeViewDebug::collectVariableInfoFromMFTable(
     DenseSet<InlinedEntity> &Processed) {
   const MachineFunction &MF = *Asm->MF;
@@ -1304,13 +1343,31 @@ void CodeViewDebug::collectVariableInfoFromMFTable(
     // FIXME: Try to handle DW_OP_deref as well.
     int64_t ExprOffset = 0;
     bool Deref = false;
+#if INTEL_CUSTOMIZATION
+    uint32_t UplevelOffset = 0;
+    bool UplevelExprIsKnown = false;
+#endif // INTEL_CUSTOMIZATION
     if (VI.Expr) {
+#if INTEL_CUSTOMIZATION
+      if (VI.Var->getFlags() & DINode::FlagUplevelReference)
+        UplevelExprIsKnown = getUplevelReferenceOffset(UplevelOffset, VI.Expr);
+
+      if (UplevelExprIsKnown) {
+        auto NumElems = VI.Expr->getNumElements();
+        if (UplevelExprIsKnown && NumElems >= 2 &&
+            VI.Expr->getElement(NumElems - 1) == llvm::dwarf::DW_OP_deref)
+          Deref = true;
+      } else {
+#endif // INTEL_CUSTOMIZATION
       // If there is one DW_OP_deref element, use offset of 0 and keep going.
       if (VI.Expr->getNumElements() == 1 &&
           VI.Expr->getElement(0) == llvm::dwarf::DW_OP_deref)
         Deref = true;
       else if (!VI.Expr->extractIfOffset(ExprOffset))
         continue;
+#if INTEL_CUSTOMIZATION
+      }
+#endif // INTEL_CUSTOMIZATION
     }
 
     // Get the frame register used and the offset.
@@ -1337,6 +1394,10 @@ void CodeViewDebug::collectVariableInfoFromMFTable(
     Var.DefRanges.emplace_back(std::move(DefRange));
     if (Deref)
       Var.UseReferenceType = true;
+#if INTEL_CUSTOMIZATION
+    if (UplevelExprIsKnown)
+      Var.UplevelOffset = UplevelOffset;
+#endif // INTEL_CUSTOMIZATION
 
     recordLocalVariable(std::move(Var), Scope);
   }
@@ -1761,6 +1822,27 @@ static bool isOneDimensionalWithDefaultLowerBound(const DICompositeType *Ty) {
   int64_t LowerBound = getConstantLowerBound(Subrange);
 
   return LowerBound == 1;
+}
+
+// Construct a Host Reference OEM Record, which has the following layout:
+//   LF_OEM (2)    0x100F
+//   OEM    (2)    LF_OEM_IDENT_MSF90
+//   recOEM (2)    LF_recOEM_MSF90_HOST_REF
+//   count  (4)    1
+//   index  (4)    type index of the variable that is uplevel-referenced
+//   data   (4)    offset from the stack base of the referenced variable
+TypeIndex CodeViewDebug::lowerTypeOemMSF90HostReference(TypeIndex RefType,
+                                                        uint32_t Offset) {
+  const uint32_t TypeIndicesCount = 1;
+  const uint32_t DataCount = 1;
+  TypeIndex Indices[TypeIndicesCount] = {RefType};
+  uint32_t Data[DataCount] = {Offset};
+
+  OEMTypeRecord OEM(TypeLeafKind::LF_OEM_IDENT_MSF90,
+                    TypeLeafKind::LF_recOEM_MSF90_HOST_REF,
+                    Indices, Data);
+
+  return TypeTable.writeLeafType(OEM);
 }
 
 // Construct a Descriptor OEM Record, which has the following layout:
@@ -3067,6 +3149,12 @@ void CodeViewDebug::emitLocalVariable(const FunctionInfo &FI,
   TypeIndex TI = Var.UseReferenceType
                      ? getTypeIndexForReferenceTo(Var.DIVar->getType())
                      : getCompleteTypeIndex(Var.DIVar->getType());
+#if INTEL_CUSTOMIZATION
+  if (!DisableIntelCodeViewExtensions &&
+      Var.DIVar->getFlags() & DINode::FlagUplevelReference) {
+    TI = lowerTypeOemMSF90HostReference(TI, Var.UplevelOffset);
+  }
+#endif // INTEL_CUSTOMIZATION
   OS.emitInt32(TI.getIndex());
   OS.AddComment("Flags");
   OS.emitInt16(static_cast<uint16_t>(Flags));

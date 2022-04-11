@@ -84,10 +84,16 @@ public:
   }
 
   // Returns true if the edge is a Forward dependence
-  bool isForwardDep() const;
+  // CheckIfPath is used to enable workaround to prevent vectorization due to
+  // the fact that CFG representation in VPlan isn't lexical.
+  bool isForwardDep(bool CheckIfPath = false) const;
 
   // Returns true if the edge is a Backward dependence
-  bool isBackwardDep() const { return !isForwardDep(); }
+  // CheckIfPath is used to enable workaround to prevent vectorization due to
+  // the fact that CFG representation in VPlan isn't lexical.
+  bool isBackwardDep(bool CheckIfPath = false) const {
+    return !isForwardDep(CheckIfPath);
+  }
 
   // Returns true if the edge prevents parallelization of Loop at Level
   // Note that this function only performs a quick check. It doesn't
@@ -99,7 +105,7 @@ public:
   // Note that this function only performs a quick check. It doesn't
   // perform the same level of analysis as ParVec analysis.
   bool preventsVectorization(unsigned Level) const {
-    return preventsParallelization(Level) && isBackwardDep() &&
+    return preventsParallelization(Level) && isBackwardDep(true) &&
            (getSrc() != getSink());
   }
 
