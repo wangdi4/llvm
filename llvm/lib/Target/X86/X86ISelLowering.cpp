@@ -233,6 +233,13 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setCondCodeAction(ISD::SETUNE, VT, Expand);
   }
 
+#if INTEL_CUSTOMIZATION
+  // TODO: We may need to set more types for x86 inline asm.
+  for (auto VT : {MVT::Other, MVT::i8, MVT::i16, MVT::i32, MVT::i64}) {
+    setOperationAction(ISD::INLINEASM, VT, Custom);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Integer absolute.
   if (Subtarget.canUseCMOV()) {
     setOperationAction(ISD::ABS            , MVT::i16  , Custom);
@@ -32861,6 +32868,20 @@ static SDValue LowerComplexMUL(SDValue Op, SelectionDAG &DAG,
   V4 = DAG.getNode(X86ISD::MOVSLDUP, DL, VT, RHS);
   return DAG.getNode(X86ISD::FMADDSUB, DL, VT, LHS, V4, V3);
 }
+
+static SDValue LowerInlineAsm(SDValue Op, SelectionDAG &DAG) {
+  // Asm string in inline asm is an external symbol operand.
+  SDValue AsmStrV = Op.getOperand(InlineAsm::Op_AsmString);
+  const char *AsmString = cast<ExternalSymbolSDNode>(AsmStrV)->getSymbol();
+  StringRef AsmStr(AsmString);
+
+  if (AsmStr.contains("call")) {
+    MachineFrameInfo &MFI = DAG.getMachineFunction().getFrameInfo();
+    MFI.setAdjustsStack(true);
+    MFI.setHasCalls(true);
+  }
+  return Op;
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// Provide custom lowering hooks for some operations.
@@ -33010,6 +33031,7 @@ SDValue X86TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case X86ISD::CVTPS2PH:        return LowerCVTPS2PH(Op, DAG);
 #if INTEL_CUSTOMIZATION
   case ISD::COMPLEX_MUL:        return LowerComplexMUL(Op, DAG, Subtarget);
+  case ISD::INLINEASM:          return LowerInlineAsm(Op, DAG);
 #endif // INTEL_CUSTOMIZATION
   }
 }
