@@ -34,16 +34,18 @@ set (ADD_C_FLAGS_DEBUG          "-O0 -ggdb3 -D _DEBUG" )
 
 set (ADD_CXX_FLAGS              "${ADD_COMMON_C_FLAGS}" )
 
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-  set (ADD_C_FLAGS_RELEASE        "-O2 -U _DEBUG")
-else()
-  set (ADD_C_FLAGS_RELEASE        "-O2 -U _DEBUG -Wno-error")
-endif()
-
+set (ADD_C_FLAGS_RELEASE        "-O2 -U _DEBUG")
 set (ADD_C_FLAGS_RELWITHDEBINFO "-O2 -ggdb3 -U _DEBUG")
 
 # Linker switches
 set (ADD_CMAKE_EXE_LINKER_FLAGS          "-z noexecstack -z relro -z now" )
+
+# INTEL_PRODUCT_RELEASE for release build
+if (CMAKE_C_FLAGS MATCHES "-DINTEL_PRODUCT_RELEASE=1")
+# There is unused command argument warning with -pie option, so remove it from
+# linker flags.
+  ocl_replace_compiler_option(CMAKE_EXE_LINKER_FLAGS "-pie" "")
+endif()
 
 # C switches
 set( CMAKE_C_FLAGS                          "${CMAKE_C_FLAGS}                         ${ADD_C_FLAGS}")

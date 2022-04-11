@@ -5,10 +5,6 @@
 # ITT/VTune integration
 add_definitions( -DUSE_ITT )
 
-# disable "implicit-fallthrough" warning in itt/ittnotify/ittnotify.c
-if (NOT WIN32)
-  add_compile_options(-Wno-implicit-fallthrough -Wno-self-assign)
-endif (NOT WIN32)
 
 # From CMake documentation:
 # If the SYSTEM option is given, the compiler will be
@@ -20,6 +16,15 @@ set(EXTERNALS_DIR ${CMAKE_SOURCE_DIR}/externals)
 if (OPENCL_INTREE_BUILD)
   set(EXTERNALS_DIR ${PROJECT_SOURCE_DIR}/externals)
 endif()
+
+# disable "implicit-fallthrough" and "self-assign" warnings in
+# itt/ittnotify/ittnotify_static.c
+if (NOT WIN32)
+  set_source_files_properties(${EXTERNALS_DIR}/itt/ittnotify/ittnotify_static.c
+                              PROPERTIES COMPILE_FLAGS
+                              "-Wno-implicit-fallthrough -Wno-self-assign")
+endif (NOT WIN32)
+
 include_directories( SYSTEM ${EXTERNALS_DIR}/itt/include
                      ${EXTERNALS_DIR}/itt/ittnotify/ )
 
