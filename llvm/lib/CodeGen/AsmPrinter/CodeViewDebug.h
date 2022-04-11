@@ -114,6 +114,9 @@ class LLVM_LIBRARY_VISIBILITY CodeViewDebug : public DebugHandlerBase {
     const DILocalVariable *DIVar = nullptr;
     SmallVector<LocalVarDefRange, 1> DefRanges;
     bool UseReferenceType = false;
+#if INTEL_CUSTOMIZATION
+    uint32_t UplevelOffset = 0;
+#endif // INTEL_CUSTOMIZATION
   };
 
   struct CVGlobalVariable {
@@ -426,6 +429,9 @@ class LLVM_LIBRARY_VISIBILITY CodeViewDebug : public DebugHandlerBase {
   codeview::TypeIndex lowerType(const DIType *Ty, const DIType *ClassTy);
   codeview::TypeIndex lowerTypeAlias(const DIDerivedType *Ty);
 #if INTEL_CUSTOMIZATION
+  codeview::TypeIndex lowerTypeOemMSF90HostReference(
+      codeview::TypeIndex RefType,
+      uint32_t Offset);
   codeview::TypeIndex lowerTypeOemMSF90Descriptor(
       const DIStringType *Ty,
       codeview::TypeIndex RefType);

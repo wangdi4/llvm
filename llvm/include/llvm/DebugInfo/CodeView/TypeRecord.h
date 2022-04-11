@@ -1004,10 +1004,17 @@ public:
 	       OEMTypeID == TypeLeafKind::LF_recOEM_MSF90_DESCRIPTOR;
   }
 
+  bool isF90HostReference() const {
+    return OEMIdentifier == TypeLeafKind::LF_OEM_IDENT_MSF90 &&
+	       OEMTypeID == TypeLeafKind::LF_recOEM_MSF90_HOST_REF;
+  }
+
   bool isValid() const {
     if (isF90DescribedArray() && TypeIndices.size() == 2 && Data.size() == 2)
       return true;
     if (isF90Descriptor() && TypeIndices.size() == 1 && Data.size() == 1)
+      return true;
+    if (isF90HostReference() && TypeIndices.size() == 1 && Data.size() == 1)
       return true;
     return false;
   }
