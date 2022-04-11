@@ -579,6 +579,10 @@ def lto_emit_asm: FF<"lto-emit-asm">,
   HelpText<"Emit assembly code">;
 def no_lto_legacy_pass_manager: FF<"no-lto-legacy-pass-manager">,
   HelpText<"Use the new pass manager in LLVM">;
+#if INTEL_CUSTOMIZATION
+def lto_legacy_pass_manager: FF<"lto-legacy-pass-manager">,
+  HelpText<"Use the legacy pass manager in LLVM">;
+#endif // INTEL_CUSTOMIZATION
 def lto_newpm_passes: JJ<"lto-newpm-passes=">,
   HelpText<"Passes to run during LTO">;
 def lto_O: JJ<"lto-O">, MetaVarName<"<opt-level>">,
@@ -651,6 +655,10 @@ def: J<"plugin-opt=lto-partitions=">, Alias<lto_partitions>, HelpText<"Alias for
 def plugin_opt_mcpu_eq: J<"plugin-opt=mcpu=">;
 def: F<"plugin-opt=new-pass-manager">,
   Alias<no_lto_legacy_pass_manager>, HelpText<"Alias for --no-lto-legacy-pass-manager">;
+#if INTEL_CUSTOMIZATION
+def: F<"plugin-opt=legacy-pass-manager">,
+  Alias<lto_legacy_pass_manager>, HelpText<"Alias for --lto-legacy-pass-manager">;
+#endif // INTEL_CUSTOMIZATION
 def: F<"plugin-opt=cs-profile-generate">,
   Alias<lto_cs_profile_generate>, HelpText<"Alias for --lto-cs-profile-generate">;
 def: J<"plugin-opt=cs-profile-path=">,

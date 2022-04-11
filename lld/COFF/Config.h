@@ -170,6 +170,10 @@ struct Configuration {
   // Used for /opt:lldltocachepolicy=policy
   llvm::CachePruningPolicy ltoCachePolicy;
 
+#if INTEL_CUSTOMIZATION
+  // Used for /opt:[no]ltonewpassmanager
+  bool ltoNewPassManager = false;
+#endif // INTEL_CUSTOMIZATION
   // Used for /opt:[no]ltodebugpassmanager
   bool ltoDebugPassManager = false;
 

@@ -107,6 +107,7 @@ struct Configuration {
   bool implicitDylibs = false;
   bool isPic = false;
   bool headerPadMaxInstallNames = false;
+  bool ltoNewPassManager = false; // INTEL
   bool markDeadStrippableDylib = false;
   bool printDylibSearch = false;
   bool printEachFile = false;

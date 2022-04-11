@@ -171,6 +171,7 @@ static lto::Config createConfig() {
   c.StatsFile = std::string(config->optStatsFilename);
 
   c.SampleProfile = std::string(config->ltoSampleProfile);
+  c.UseNewPM = config->ltoNewPassManager; // INTEL
   for (StringRef pluginFn : config->passPlugins)
     c.PassPlugins.push_back(std::string(pluginFn));
   c.DebugPassManager = config->ltoDebugPassManager;

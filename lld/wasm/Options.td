@@ -257,6 +257,9 @@ def thinlto_jobs: J<"thinlto-jobs=">,
   HelpText<"Number of ThinLTO jobs. Default to --threads=">;
 def no_lto_legacy_pass_manager: F<"no-lto-legacy-pass-manager">,
   HelpText<"Use new pass manager">;
+#if INTEL_CUSTOMIZATION
+defm lto_legacy_pass_manager: BB<"lto-legacy-pass-manager", "Use legacy pass manager", "Use new pass manager">;
+#endif INTEL_CUSTOMIZATION
 def lto_debug_pass_manager: F<"lto-debug-pass-manager">,
   HelpText<"Debug new pass manager">;
 
