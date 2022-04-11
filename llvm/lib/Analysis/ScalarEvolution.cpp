@@ -6537,6 +6537,13 @@ const SCEV *ScalarEvolution::createNodeForSelectOrPHIInstWithICmpInstCond(
 
 const SCEV *ScalarEvolution::createNodeForSelectOrPHIViaUMinSeq(
     Value *V, Value *Cond, Value *TrueVal, Value *FalseVal) {
+#if INTEL_CUSTOMIZATION
+  // HIR uses SCEV to analyze LLVM IR, but cannot handle umin_seq.
+  // Wait until after HIR. "unknown" will enable HIR's IR analysis.
+  if (F.isPreLoopOpt())
+    return getUnknown(V);
+#endif // INTEL_CUSTOMIZATION
+
   // For now, only deal with i1-typed `select`s.
   if (!V->getType()->isIntegerTy(1) || !Cond->getType()->isIntegerTy(1) ||
       !TrueVal->getType()->isIntegerTy(1) ||
@@ -11980,20 +11987,7 @@ bool ScalarEvolution::isKnownPredicateViaNoOverflow(ICmpInst::Predicate Pred,
 
     return true;
   };
-#if INTEL_CUSTOMIZATION
-  const SCEV *LHSConst, *LHSNonConst, *RHSConst, *RHSNonConst;
-  SCEV::NoWrapFlags LHSFlags, RHSFlags;
-  auto *LHSNAry = dyn_cast<SCEVNAryExpr>(LHS);
-  auto *RHSNAry = dyn_cast<SCEVNAryExpr>(RHS);
 
-  // If LHS and RHS have <nuw><nsw>, both the expressions are 'non-negative'. In
-  // this case the signedness of the comparsion does not matter.
-  if (LHSNAry && RHSNAry && LHSNAry->hasNoSignedWrap() &&
-      LHSNAry->hasNoUnsignedWrap() && RHSNAry->hasNoSignedWrap() &&
-      RHSNAry->hasNoUnsignedWrap()) {
-    Pred = ICmpInst::getSignedPredicate(Pred);
-  }
-#endif // INTEL_CUSTOMIZATION
   APInt C1;
   APInt C2;
 
@@ -12009,19 +12003,6 @@ bool ScalarEvolution::isKnownPredicateViaNoOverflow(ICmpInst::Predicate Pred,
     if (MatchBinaryAddToConst(LHS, RHS, C1, C2, SCEV::FlagNSW) && C1.sle(C2))
       return true;
 
-#if INTEL_CUSTOMIZATION
-    // (X + C1)<nsw> s<= (X + C2)<nsw> if C1 <= C2
-    if (LHSNAry && RHSNAry && LHSNAry->hasNoSignedWrap() &&
-        RHSNAry->hasNoSignedWrap() &&
-        splitBinaryAdd(LHS, LHSConst, LHSNonConst, LHSFlags) &&
-        splitBinaryAdd(RHS, RHSConst, RHSNonConst, RHSFlags) &&
-        (LHSNonConst == RHSNonConst) && isa<SCEVConstant>(LHSConst) &&
-        isa<SCEVConstant>(RHSConst)) {
-      APInt LHSConstVal = cast<SCEVConstant>(LHSConst)->getAPInt();
-      APInt RHSConstVal = cast<SCEVConstant>(RHSConst)->getAPInt();
-      return LHSConstVal.sle(RHSConstVal);
-    }
-#endif // INTEL_CUSTOMIZATION
     break;
 
   case ICmpInst::ICMP_SGT:
@@ -12032,19 +12013,6 @@ bool ScalarEvolution::isKnownPredicateViaNoOverflow(ICmpInst::Predicate Pred,
     if (MatchBinaryAddToConst(LHS, RHS, C1, C2, SCEV::FlagNSW) && C1.slt(C2))
       return true;
 
-#if INTEL_CUSTOMIZATION
-    // (X + C1)<nsw> s< (X + C2)<nsw> if C1 < C2
-    if (LHSNAry && RHSNAry && LHSNAry->hasNoSignedWrap() &&
-        RHSNAry->hasNoSignedWrap() &&
-        splitBinaryAdd(LHS, LHSConst, LHSNonConst, LHSFlags) &&
-        splitBinaryAdd(RHS, RHSConst, RHSNonConst, RHSFlags) &&
-        (LHSNonConst == RHSNonConst) && isa<SCEVConstant>(LHSConst) &&
-        isa<SCEVConstant>(RHSConst)) {
-      APInt LHSConstVal = cast<SCEVConstant>(LHSConst)->getAPInt();
-      APInt RHSConstVal = cast<SCEVConstant>(RHSConst)->getAPInt();
-      return LHSConstVal.slt(RHSConstVal);
-    }
-#endif // INTEL_CUSTOMIZATION
     break;
 
   case ICmpInst::ICMP_UGE:
