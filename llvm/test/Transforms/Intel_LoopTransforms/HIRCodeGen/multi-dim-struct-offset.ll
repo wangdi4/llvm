@@ -16,6 +16,10 @@
 ; CHECK: = load i32, {{.*}} getelementptr inbounds ([28 x %struct.key], {{.*}} @keytab, i64 0, i64 0, i32 1)
 ; OPAQUE: = load i32, ptr getelementptr inbounds (%struct.key, ptr @keytab, i64 0, i32 1)
 
+; OPAQUE: region.0:
+; OPAQUE: loop.{{[0-9]+}}:
+; OPAQUE: = load i32, ptr getelementptr inbounds (%struct.key, ptr @keytab, i64 0, i32 1)
+
 %struct.key = type { i8*, i32 }
 
 @keytab = external dso_local local_unnamed_addr global [28 x %struct.key], align 16
