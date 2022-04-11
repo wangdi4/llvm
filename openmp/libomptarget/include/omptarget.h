@@ -463,10 +463,14 @@ EXTERN
 void *llvm_omp_target_alloc_shared(size_t size, int device_num);
 
 /// Dummy target so we have a symbol for generating host fallback.
+<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
 void *llvm_omp_get_dynamic_shared();
+=======
+void *llvm_omp_target_dynamic_shared_alloc();
+>>>>>>> a3f423cf575db92a699deb7d9e7e6918c51f4e4d
 
 /// add the clauses of the requires directives in a given file
 #if INTEL_COLLAB
