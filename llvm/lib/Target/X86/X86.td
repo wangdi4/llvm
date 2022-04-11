@@ -1708,6 +1708,7 @@ def ProcessorFeatures {
                                      TuningFastScalarFSQRT,
                                      TuningFastVectorFSQRT,
                                      TuningFastScalarShiftMasks,
+                                     TuningFastVariablePerLaneShuffle,
                                      TuningFastMOVBE,
                                      TuningSlowSHLD,
                                      TuningSBBDepBreaking,
@@ -1723,11 +1724,9 @@ def ProcessorFeatures {
                                                   FeaturePKU,
                                                   FeatureVAES,
                                                   FeatureVPCLMULQDQ];
-  list<SubtargetFeature> ZN3AdditionalTuning =
-    [TuningMacroFusion,
-     TuningFastVariablePerLaneShuffle];
+  list<SubtargetFeature> ZN3AdditionalTuning = [TuningMacroFusion];
   list<SubtargetFeature> ZN3Tuning =
-    !listconcat(ZNTuning, ZN3AdditionalTuning);
+    !listconcat(ZN2Tuning, ZN3AdditionalTuning);
   list<SubtargetFeature> ZN3Features =
     !listconcat(ZN2Features, ZN3AdditionalFeatures);
 }
