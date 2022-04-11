@@ -1899,7 +1899,6 @@ public:
   virtual unsigned getAtomicMemIntrinsicMaxElementSize() const = 0;
   virtual Value *getOrCreateResultFromMemIntrinsic(IntrinsicInst *Inst,
                                                    Type *ExpectedType) = 0;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   virtual bool isAdvancedOptEnabled(AdvancedOptLevel AO) const = 0;
   virtual bool isLibIRCAllowed() const = 0;
@@ -1917,19 +1916,12 @@ public:
   virtual const char *getISASetForIMLFunctions() const = 0;
   virtual bool hasCDI() const = 0;
 #endif // INTEL_CUSTOMIZATION
-  virtual Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
-                                          unsigned SrcAddrSpace,
-                                          unsigned DestAddrSpace,
-                                          unsigned SrcAlign,
-                                          unsigned DestAlign) const = 0;
-=======
   virtual Type *
   getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
                             unsigned SrcAddrSpace, unsigned DestAddrSpace,
                             unsigned SrcAlign, unsigned DestAlign,
                             Optional<uint32_t> AtomicElementSize) const = 0;
 
->>>>>>> da41214d653808db86bcefeb97da842012ebd104
   virtual void getMemcpyLoopResidualLoweringType(
       SmallVectorImpl<Type *> &OpsOut, LLVMContext &Context,
       unsigned RemainingBytes, unsigned SrcAddrSpace, unsigned DestAddrSpace,
@@ -2543,7 +2535,6 @@ public:
                                            Type *ExpectedType) override {
     return Impl.getOrCreateResultFromMemIntrinsic(Inst, ExpectedType);
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool isAdvancedOptEnabled(AdvancedOptLevel AO) const override {
     return Impl.isAdvancedOptEnabled(AO);
@@ -2593,16 +2584,10 @@ public:
     return Impl.hasCDI();
   }
 #endif // INTEL_CUSTOMIZATION
-  Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
-                                  unsigned SrcAddrSpace, unsigned DestAddrSpace,
-                                  unsigned SrcAlign,
-                                  unsigned DestAlign) const override {
-=======
   Type *getMemcpyLoopLoweringType(
       LLVMContext &Context, Value *Length, unsigned SrcAddrSpace,
       unsigned DestAddrSpace, unsigned SrcAlign, unsigned DestAlign,
       Optional<uint32_t> AtomicElementSize) const override {
->>>>>>> da41214d653808db86bcefeb97da842012ebd104
     return Impl.getMemcpyLoopLoweringType(Context, Length, SrcAddrSpace,
                                           DestAddrSpace, SrcAlign, DestAlign,
                                           AtomicElementSize);
