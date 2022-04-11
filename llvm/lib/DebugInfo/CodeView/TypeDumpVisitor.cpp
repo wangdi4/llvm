@@ -608,6 +608,9 @@ Error TypeDumpVisitor::visitKnownRecord(CVType &CVR,
   } else if (OEMType.isF90Descriptor()) {
     printTypeIndex("RefType", Indices[0]);
     W->printNumber("DescrSize", Data[0]);
+  } else if (OEMType.isF90HostReference()) {
+    printTypeIndex("RefType", Indices[0]);
+    W->printNumber("Offset", int32_t(Data[0]));
   } else {
     for (size_t i = 0; i < Indices.size(); i++)
       printTypeIndex("Type", Indices[i]);

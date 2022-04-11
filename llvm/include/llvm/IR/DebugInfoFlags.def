@@ -64,6 +64,13 @@ HANDLE_DI_FLAG((1 << 29), AllCallsDescribed)
 // make sense for inheritance.
 HANDLE_DI_FLAG((1 << 2) | (1 << 5), IndirectVirtualBase)
 
+#if INTEL_CUSTOMIZATION
+// Avoid a dedicated value for UplevelReference by using the bitwise
+// or of EnumClass and Thunk, which does not otherwise make sense for
+// a variable or as a valid combination.
+HANDLE_DI_FLAG((1 << 24) | (1 << 25), UplevelReference)
+#endif // INTEL_CUSTOMIZATION
+
 #ifdef DI_FLAG_LARGEST_NEEDED
 // intended to be used with ADT/BitmaskEnum.h
 // NOTE: always must be equal to largest flag, check this when adding new flag

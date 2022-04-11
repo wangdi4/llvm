@@ -601,6 +601,8 @@
 // -qopt-report-file checks
 // RUN: %clang -### -qopt-report -qopt-report-file=report-out.file -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-FILE %s
 // RUN: %clang_cl -### -Qopt-report -Qopt-report-file:report-out.file -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-FILE %s
+// RUN: %clang -### -qopt-report-file=report-out.file -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-FILE %s
+// RUN: %clang_cl -### -Qopt-report-file:report-out.file -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-FILE %s
 // CHECK-OPT-REPORT-FILE: "-mllvm" "-intel-opt-report-file=report-out.file"
 
 // RUN: %clang -### -ipo -fuse-ld=lld -qopt-report %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-FILE-IPO %s

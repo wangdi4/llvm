@@ -806,7 +806,7 @@ Error TypeRecordMapping::visitKnownRecord(CVType &CVR,
   } else {
     if (Record.isF90DescribedArray())
       DataCount = 2;
-	else if (Record.isF90Descriptor())
+	else if (Record.isF90Descriptor() || Record.isF90HostReference())
       DataCount = 1;
     else
       DataCount = 0;
