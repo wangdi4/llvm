@@ -879,7 +879,7 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void 
       }
       // Otherwise, fallback to root device API.
       // fallthrough
-
+      LLVM_FALLTHROUGH;
     case CL_DEVICE_NUM_SLICES_INTEL:
       // The term 'SLICE' is equivalent to a NUMA node on CPU.
       // If the subdevice is partitioned by NUMA node, we can return 1.

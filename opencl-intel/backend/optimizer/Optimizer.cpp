@@ -366,7 +366,8 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
     if (OptLevel > 0) {
       PM.add(llvm::createPromoteMemoryToRegisterPass());
     }
-    PM.add(llvm::createInferAddressSpacesPass());
+    PM.add(llvm::createInferAddressSpacesPass(
+        DPCPPKernelCompilationUtils::ADDRESS_SPACE_GENERIC));
   }
 
   PM.add(llvm::createBasicAAWrapperPass());
@@ -436,10 +437,11 @@ static void populatePassesPostFailCheck(
 
   PM.add(createImplicitArgsAnalysisLegacyPass());
 
-  if (isOcl20) {
+  if (isOcl20 || IsSPIRV) {
     // Repeat resolution of generic address space pointers after LLVM
     // IR was optimized
-    PM.add(llvm::createInferAddressSpacesPass());
+    PM.add(llvm::createInferAddressSpacesPass(
+        DPCPPKernelCompilationUtils::ADDRESS_SPACE_GENERIC));
     // Cleanup after InferAddressSpacesPass
     if (OptLevel > 0) {
       PM.add(llvm::createCFGSimplificationPass());

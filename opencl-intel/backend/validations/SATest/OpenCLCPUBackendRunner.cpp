@@ -378,9 +378,8 @@ void PrintMeta (BufferContainerList& input)
                 PrintImage(pImageDesc, i);
             }
             else //Anything else
-            {
-                assert("Argument type don't known.\n");
-            }
+              llvm_unreachable("Argument type don't known.\n");
+
             std::cout << std::endl;
         }
     }
