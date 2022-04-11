@@ -1411,9 +1411,11 @@ public:
 #endif // INTEL_CUSTOMIZATION
 
   /// \returns The type to use in a loop expansion of a memcpy call.
-  Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
-                                  unsigned SrcAddrSpace, unsigned DestAddrSpace,
-                                  unsigned SrcAlign, unsigned DestAlign) const;
+  Type *
+  getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
+                            unsigned SrcAddrSpace, unsigned DestAddrSpace,
+                            unsigned SrcAlign, unsigned DestAlign,
+                            Optional<uint32_t> AtomicElementSize = None) const;
 
   /// \param[out] OpsOut The operand types to copy RemainingBytes of memory.
   /// \param RemainingBytes The number of bytes to copy.
@@ -1424,7 +1426,8 @@ public:
   void getMemcpyLoopResidualLoweringType(
       SmallVectorImpl<Type *> &OpsOut, LLVMContext &Context,
       unsigned RemainingBytes, unsigned SrcAddrSpace, unsigned DestAddrSpace,
-      unsigned SrcAlign, unsigned DestAlign) const;
+      unsigned SrcAlign, unsigned DestAlign,
+      Optional<uint32_t> AtomicCpySize = None) const;
 
   /// \returns True if the two functions have compatible attributes for inlining
   /// purposes.
@@ -1913,15 +1916,17 @@ public:
   virtual const char *getISASetForIMLFunctions() const = 0;
   virtual bool hasCDI() const = 0;
 #endif // INTEL_CUSTOMIZATION
-  virtual Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
-                                          unsigned SrcAddrSpace,
-                                          unsigned DestAddrSpace,
-                                          unsigned SrcAlign,
-                                          unsigned DestAlign) const = 0;
+  virtual Type *
+  getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
+                            unsigned SrcAddrSpace, unsigned DestAddrSpace,
+                            unsigned SrcAlign, unsigned DestAlign,
+                            Optional<uint32_t> AtomicElementSize) const = 0;
+
   virtual void getMemcpyLoopResidualLoweringType(
       SmallVectorImpl<Type *> &OpsOut, LLVMContext &Context,
       unsigned RemainingBytes, unsigned SrcAddrSpace, unsigned DestAddrSpace,
-      unsigned SrcAlign, unsigned DestAlign) const = 0;
+      unsigned SrcAlign, unsigned DestAlign,
+      Optional<uint32_t> AtomicCpySize) const = 0;
   virtual bool areInlineCompatible(const Function *Caller,
                                    const Function *Callee) const = 0;
   virtual bool areTypesABICompatible(const Function *Caller,
@@ -2579,20 +2584,22 @@ public:
     return Impl.hasCDI();
   }
 #endif // INTEL_CUSTOMIZATION
-  Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
-                                  unsigned SrcAddrSpace, unsigned DestAddrSpace,
-                                  unsigned SrcAlign,
-                                  unsigned DestAlign) const override {
+  Type *getMemcpyLoopLoweringType(
+      LLVMContext &Context, Value *Length, unsigned SrcAddrSpace,
+      unsigned DestAddrSpace, unsigned SrcAlign, unsigned DestAlign,
+      Optional<uint32_t> AtomicElementSize) const override {
     return Impl.getMemcpyLoopLoweringType(Context, Length, SrcAddrSpace,
-                                          DestAddrSpace, SrcAlign, DestAlign);
+                                          DestAddrSpace, SrcAlign, DestAlign,
+                                          AtomicElementSize);
   }
   void getMemcpyLoopResidualLoweringType(
       SmallVectorImpl<Type *> &OpsOut, LLVMContext &Context,
       unsigned RemainingBytes, unsigned SrcAddrSpace, unsigned DestAddrSpace,
-      unsigned SrcAlign, unsigned DestAlign) const override {
+      unsigned SrcAlign, unsigned DestAlign,
+      Optional<uint32_t> AtomicCpySize) const override {
     Impl.getMemcpyLoopResidualLoweringType(OpsOut, Context, RemainingBytes,
                                            SrcAddrSpace, DestAddrSpace,
-                                           SrcAlign, DestAlign);
+                                           SrcAlign, DestAlign, AtomicCpySize);
   }
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const override {
