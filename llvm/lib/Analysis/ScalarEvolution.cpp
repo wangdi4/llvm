@@ -6537,6 +6537,13 @@ const SCEV *ScalarEvolution::createNodeForSelectOrPHIInstWithICmpInstCond(
 
 const SCEV *ScalarEvolution::createNodeForSelectOrPHIViaUMinSeq(
     Value *V, Value *Cond, Value *TrueVal, Value *FalseVal) {
+#if INTEL_CUSTOMIZATION
+  // HIR uses SCEV to analyze LLVM IR, but cannot handle umin_seq.
+  // Wait until after HIR. "unknown" will enable HIR's IR analysis.
+  if (F.isPreLoopOpt())
+    return getUnknown(V);
+#endif // INTEL_CUSTOMIZATION
+
   // For now, only deal with i1-typed `select`s.
   if (!V->getType()->isIntegerTy(1) || !Cond->getType()->isIntegerTy(1) ||
       !TrueVal->getType()->isIntegerTy(1) ||
