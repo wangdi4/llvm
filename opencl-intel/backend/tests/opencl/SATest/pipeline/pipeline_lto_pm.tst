@@ -12,7 +12,8 @@
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 #endif // #ifndef NDEBUG
 
-; CHECK-NEXT: Running pass: DPCPPEqualizerPass
+; CHECK:      Running pass: InferAddressSpacesPass
+; CHECK:      Running pass: DPCPPEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
 ; CHECK:      Running pass: DuplicateCalledKernels
 ; CHECK-NEXT: Running pass: InternalizeNonKernelFuncPass
@@ -21,12 +22,20 @@
 ; CHECK-NEXT: Invalidating analysis: VerifierAnalysis
 #endif // #ifndef NDEBUG
 
-; CHECK-NEXT: Running pass: AddFunctionAttrsPass
+; CHECK:      Running pass: AddFunctionAttrsPass
 ; CHECK-NEXT: Running pass: LinearIdResolverPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
 ; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
+
+; CHECK:      Running pass: UnifyFunctionExitNodesPass
+; CHECK-NEXT: Running pass: InferAddressSpacesPass
+; CHECK-NEXT: Running pass: SimplifyCFGPass
+; CHECK-NEXT: Running pass: SROAPass
+; CHECK-NEXT: Running pass: EarlyCSEPass
+; CHECK-NEXT: Running pass: PromotePass
+; CHECK-NEXT: Running pass: InstCombinePass
 
 ; CHECK:      Running pass: ReassociatePass
 ; CHECK:      Running pass: MathLibraryFunctionsReplacementPass

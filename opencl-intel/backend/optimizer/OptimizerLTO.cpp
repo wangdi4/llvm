@@ -20,6 +20,7 @@
 #ifndef NDEBUG
 #include "llvm/IR/Verifier.h"
 #endif // #ifndef NDEBUG
+#include "llvm/IR/PassManager.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/StandardInstrumentations.h"
 #include "llvm/Target/TargetMachine.h"
@@ -33,6 +34,7 @@
 #include "llvm/Transforms/Scalar/DeadStoreElimination.h"
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
 #include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Scalar/InferAddressSpaces.h"
 #include "llvm/Transforms/Scalar/LICM.h"
 #include "llvm/Transforms/Scalar/LoopDeletion.h"
 #include "llvm/Transforms/Scalar/LoopIdiomRecognize.h"
@@ -40,6 +42,7 @@
 #include "llvm/Transforms/Scalar/Reassociate.h"
 #include "llvm/Transforms/Scalar/SROA.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
+#include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize/IntelMFReplacement.h"
@@ -52,15 +55,14 @@ namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
 
-OptimizerLTO::OptimizerLTO(Module *M,
-                           llvm::SmallVector<llvm::Module *, 2> &RtlModuleList,
+OptimizerLTO::OptimizerLTO(Module *M, SmallVector<Module *, 2> &RtlModuleList,
                            const intel::OptimizerConfig *Config,
                            bool DebugPassManager)
     : Optimizer(M, RtlModuleList, Config), DebugPassManager(DebugPassManager) {}
 
 OptimizerLTO::~OptimizerLTO() {}
 
-void OptimizerLTO::Optimize(llvm::raw_ostream &LogStream) {
+void OptimizerLTO::Optimize(raw_ostream &LogStream) {
   TargetMachine *TM = Config->GetTargetMachine();
   assert(TM && "Uninitialized TargetMachine!");
 
@@ -120,7 +122,7 @@ void OptimizerLTO::Optimize(llvm::raw_ostream &LogStream) {
 
 void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
   PB.registerPipelineStartEPCallback(
-      [&](ModulePassManager &MPM, OptimizationLevel Level) {
+      [this](ModulePassManager &MPM, OptimizationLevel Level) {
         MPM.addPass(DPCPPPreprocessSPIRVFriendlyIRPass());
         MPM.addPass(SPIRVLowerConstExprPass());
         MPM.addPass(SPIRVToOCL20Pass());
@@ -129,6 +131,10 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
 #ifndef NDEBUG
         MPM.addPass(VerifierPass());
 #endif // #ifndef NDEBUG
+
+        if (Level != OptimizationLevel::O0 && (m_IsOcl20 || m_IsSPIRV))
+          MPM.addPass(createModuleToFunctionPassAdaptor(InferAddressSpacesPass(
+              DPCPPKernelCompilationUtils::ADDRESS_SPACE_GENERIC)));
 
         MPM.addPass(DPCPPEqualizerPass());
         Triple TargetTriple(m_M->getTargetTriple());
@@ -146,9 +152,26 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
 
 void OptimizerLTO::registerVectorizerStartCallback(PassBuilder &PB) {
   PB.registerVectorizerStartEPCallback(
-      [](FunctionPassManager &FPM, OptimizationLevel Level) {
+      [this](FunctionPassManager &FPM, OptimizationLevel Level) {
         FPM.addPass(UnifyFunctionExitNodesPass());
+
         if (Level != OptimizationLevel::O0) {
+          if (m_IsOcl20 || m_IsSPIRV) {
+            // Repeat resolution of generic address space pointers after LLVM
+            // IR was optimized.
+            FPM.addPass(InferAddressSpacesPass(
+                DPCPPKernelCompilationUtils::ADDRESS_SPACE_GENERIC));
+            // Cleanup after InferAddressSpaces pass.
+            FPM.addPass(SimplifyCFGPass());
+            FPM.addPass(SROAPass());
+            FPM.addPass(EarlyCSEPass());
+            FPM.addPass(PromotePass());
+            FPM.addPass(InstCombinePass());
+            // No need to run function inlining pass here, because if there are
+            // still non-inlined functions, then we don't have to inline new
+            // ones.
+          }
+
           FPM.addPass(ReassociatePass());
           // Replace 'div' and 'rem' instructions with calls to optimized
           // library functions
@@ -158,8 +181,8 @@ void OptimizerLTO::registerVectorizerStartCallback(PassBuilder &PB) {
 }
 
 void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
-  PB.registerOptimizerLastEPCallback([&](ModulePassManager &MPM,
-                                         OptimizationLevel Level) {
+  PB.registerOptimizerLastEPCallback([this](ModulePassManager &MPM,
+                                            OptimizationLevel Level) {
     MPM.addPass(
         ResolveSubGroupWICallPass(m_RtlModules, /*ResolveSGBarrier*/ false));
     if (Level != OptimizationLevel::O0 && Config->GetStreamingAlways())
