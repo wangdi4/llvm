@@ -45,6 +45,7 @@
 namespace llvm {
 
 class AllocaInst;
+class AAResults;
 class Argument;
 class CallInst;
 class ConstantPointerNull;
@@ -241,6 +242,8 @@ struct ObjectSizeOpts {
   /// though they can't be evaluated. Otherwise, null is always considered to
   /// point to a 0 byte region of memory.
   bool NullIsUnknownSize = false;
+  /// If set, used for more accurate evaluation
+  AAResults *AA = nullptr;
 };
 
 /// Compute the size of the object pointed by Ptr. Returns true and the
@@ -260,6 +263,12 @@ bool getObjectSize(const Value *Ptr, uint64_t &Size, const DataLayout &DL,
 /// argument of the call to objectsize.
 Value *lowerObjectSizeCall(IntrinsicInst *ObjectSize, const DataLayout &DL,
                            const TargetLibraryInfo *TLI, bool MustSucceed);
+<<<<<<< HEAD
+=======
+Value *lowerObjectSizeCall(IntrinsicInst *ObjectSize, const DataLayout &DL,
+                           const TargetLibraryInfo *TLI, AAResults *AA,
+                           bool MustSucceed);
+>>>>>>> aa15ea47e20fbce5814f4a0d69521f8270b70e69
 
 using SizeOffsetType = std::pair<APInt, APInt>;
 
@@ -316,6 +325,10 @@ public:
   SizeOffsetType visitInstruction(Instruction &I);
 
 private:
+  SizeOffsetType findLoadSizeOffset(
+      LoadInst &LoadFrom, BasicBlock &BB, BasicBlock::iterator From,
+      SmallDenseMap<BasicBlock *, SizeOffsetType, 8> &VisitedBlocks,
+      unsigned &ScannedInstCount);
   SizeOffsetType combineSizeOffset(SizeOffsetType LHS, SizeOffsetType RHS);
   SizeOffsetType computeImpl(Value *V);
   bool CheckedZextOrTrunc(APInt &I);
