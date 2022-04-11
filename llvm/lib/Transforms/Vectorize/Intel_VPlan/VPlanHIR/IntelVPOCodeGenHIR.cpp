@@ -3240,9 +3240,18 @@ RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
       const HLIf *HIf = If->getIf();
       for (auto PredIt = HIf->pred_begin(), End = HIf->pred_end();
            PredIt != End; ++PredIt) {
-        auto *Cmp = HLNodeUtilities.createCmp(
-            *PredIt, HIf->getLHSPredicateOperandDDRef(PredIt)->clone(),
-            HIf->getRHSPredicateOperandDDRef(PredIt)->clone());
+        auto *LHS = HIf->getLHSPredicateOperandDDRef(PredIt)->clone();
+        auto *RHS = HIf->getRHSPredicateOperandDDRef(PredIt)->clone();
+        auto *Cmp = HLNodeUtilities.createCmp(*PredIt, LHS, RHS);
+
+        // Make LHS and RHS operands consistent at attached loop level.
+        unsigned NestingLvl =
+            InsertPoint->getParentLoop()
+                ? InsertPoint->getParentLoop()->getNestingLevel()
+                : 0;
+        LHS->makeConsistent({LHS->clone()}, NestingLvl);
+        RHS->makeConsistent({RHS->clone()}, NestingLvl);
+
         addInstUnmasked(Cmp);
         if (Res) {
           Res = HLNodeUtilities.createAnd(Res->getLvalDDRef()->clone(),
