@@ -1482,10 +1482,6 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
             if (!cast<PointerType>(ASC->getType())
                     ->hasSameElementTypeAs(
                         cast<PointerType>(NewV->getType()))) {
-<<<<<<< HEAD
-              BCNewV = CastInst::Create(Instruction::BitCast, NewV,
-                                        ASC->getType(), "", ASC);
-=======
               BasicBlock::iterator InsertPos;
               if (Instruction *NewVInst = dyn_cast<Instruction>(NewV))
                 InsertPos = std::next(NewVInst->getIterator());
@@ -1496,7 +1492,6 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
 
               NewV = CastInst::Create(Instruction::BitCast, NewV,
                                       ASC->getType(), "", &*InsertPos);
->>>>>>> 26b14c3ea77fd66e4edc3d62231413621d793181
             }
 #endif // !ENABLE_OPAQUEPOINTER
             ASC->replaceAllUsesWith(BCNewV);
