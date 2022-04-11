@@ -231,6 +231,8 @@ def g_flags_Group : OptionGroup<"<g flags group>">, Group<DebugInfo_Group>,
 #if INTEL_CUSTOMIZATION
 def intel_debug_Group : OptionGroup<"<intel debug group>">,
   Group<DebugInfo_Group>, DocName<"Intel debug options">;
+def intel_opt_report_Group : OptionGroup<"<Optimization Report group>">,
+  Group<CompileOnly_Group>, DocName<"Optimation Report options">;
 #endif // INTEL_CUSTOMIZATION
 
 def StaticAnalyzer_Group : OptionGroup<"<Static analyzer group>">,
@@ -5570,11 +5572,13 @@ def fno_vectorize_remainder_loops : Flag<["-"], "fno-vectorize-remainder-loops">
   Flags<[HelpHidden]>, // TODO: remove HelpHidden once approved
   HelpText<"Disable remainder loop vectorization.">;
 def qopt_report_EQ : Joined<["-"], "qopt-report=">, Values<"min,med,max">,
+  Group<intel_opt_report_Group>,
   HelpText<"Generate an optimization report, min, med or max.">;
 def : Joined<["-"], "qopt-report">, Alias<qopt_report_EQ>;
 def qopt_report : Flag<["-"], "qopt-report">, Alias<qopt_report_EQ>,
   AliasArgs<["2"]>;
 def qopt_report_file_EQ : Joined<["-"], "qopt-report-file=">,
+  Group<intel_opt_report_Group>,
   HelpText<"Specify the filename or output stream (stdout, stderr) for the "
            "generated optimization report">;
 def qopt_report_stdout : Flag<["-"], "qopt-report-stdout">,

@@ -758,23 +758,24 @@ static void RenderOptReportOptions(const ToolChain &TC, bool IsLink,
                                    const llvm::opt::ArgList &Args,
                                    llvm::opt::ArgStringList &CmdArgs,
                                    const InputInfo &Input) {
-  const Arg *A = Args.getLastArg(options::OPT_qopt_report_EQ);
-  if (!A)
+  if (!Args.hasArg(options::OPT_intel_opt_report_Group))
     return;
   auto addllvmOption = [&](const char *Opt) {
     AddllvmOption(TC, Opt, IsLink, Args, CmdArgs);
   };
-  StringRef ReportLevel;
-  ReportLevel = llvm::StringSwitch<StringRef>(A->getValue())
-                    .Case("0", "disable")
-                    .Cases("1", "min", "low")
-                    .Cases("2", "med", "medium")
-                    .Cases("3", "max", "high")
-                    .Default("");
-  if (ReportLevel.empty()) {
-    TC.getDriver().Diag(clang::diag::warn_drv_unused_argument)
-        << A->getAsString(Args);
-    return;
+  StringRef ReportLevel("medium");
+  if (Arg *A = Args.getLastArg(options::OPT_qopt_report_EQ)) {
+    ReportLevel = llvm::StringSwitch<StringRef>(A->getValue())
+                      .Case("0", "disable")
+                      .Cases("1", "min", "low")
+                      .Cases("2", "med", "medium")
+                      .Cases("3", "max", "high")
+                      .Default("");
+    if (ReportLevel.empty()) {
+      TC.getDriver().Diag(clang::diag::warn_drv_unused_argument)
+          << A->getAsString(Args);
+      return;
+    }
   }
   if (ReportLevel == "disable")
     return;
