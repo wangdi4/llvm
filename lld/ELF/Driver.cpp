@@ -1219,11 +1219,14 @@ static void readConfigs(opt::InputArgList &args) {
                                             OPT_no_lto_pgo_warn_mismatch, true);
   config->ltoDebugPassManager = args.hasArg(OPT_lto_debug_pass_manager);
   config->ltoEmitAsm = args.hasArg(OPT_lto_emit_asm);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   config->ltoNewPassManager =
       args.hasFlag(OPT_no_lto_legacy_pass_manager, OPT_lto_legacy_pass_manager,
                    LLVM_ENABLE_NEW_PASS_MANAGER);
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> b8f50abd04b4dde670a19fecc35445ecf6bf92b7
   config->ltoNewPmPasses = args.getLastArgValue(OPT_lto_newpm_passes);
   config->ltoWholeProgramVisibility =
       args.hasFlag(OPT_lto_whole_program_visibility,

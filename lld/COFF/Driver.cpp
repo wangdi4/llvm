@@ -1894,7 +1894,10 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   if (args.hasArg(OPT_profile))
     icfLevel = ICFLevel::None;
   unsigned tailMerge = 1;
+<<<<<<< HEAD
   bool ltoNewPM = LLVM_ENABLE_NEW_PASS_MANAGER; // INTEL
+=======
+>>>>>>> b8f50abd04b4dde670a19fecc35445ecf6bf92b7
   bool ltoDebugPM = false;
   for (auto *arg : args.filtered(OPT_opt)) {
     std::string str = StringRef(arg->getValue()).lower();
@@ -1916,9 +1919,7 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
       } else if (s == "nolldtailmerge") {
         tailMerge = 0;
       } else if (s == "ltonewpassmanager") {
-        ltoNewPM = true;
-      } else if (s == "noltonewpassmanager") {
-        ltoNewPM = false;
+        /* We always use the new PM. */
       } else if (s == "ltodebugpassmanager") {
         ltoDebugPM = true;
       } else if (s == "noltodebugpassmanager") {
@@ -1948,7 +1949,6 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   config->doICF = icfLevel.getValue();
   config->tailMerge =
       (tailMerge == 1 && config->doICF != ICFLevel::None) || tailMerge == 2;
-  config->ltoNewPassManager = ltoNewPM;
   config->ltoDebugPassManager = ltoDebugPM;
 
   // Handle /lldsavetemps
