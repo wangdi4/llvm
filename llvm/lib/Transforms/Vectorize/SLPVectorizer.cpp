@@ -3095,11 +3095,20 @@ private:
       }
 
       if (Sibling) {
-        const LeafData &SiblingOp = getData(*Sibling, Lane);
-        BackupMap[std::make_pair(*Sibling, Lane)] = BackupData{
-            SiblingOp.getFrontier(),
-            SiblingOp.getFrontier()->getOperand(SiblingOp.getOperandNum()),
-            OpI};
+        auto SiblingKey = std::make_pair(*Sibling, Lane);
+        // If we already have entry for sibling it means that we have visited
+        // the operand earlier. Do not update its backup data as the frontier
+        // does not already have the original operand on that place. Only update
+        // its sibling information.
+        if (BackupMap.count(SiblingKey)) {
+          BackupMap[SiblingKey].Sibling = OpI;
+        } else {
+          const LeafData &SiblingOp = getData(*Sibling, Lane);
+          BackupMap[SiblingKey] = BackupData{
+              SiblingOp.getFrontier(),
+              SiblingOp.getFrontier()->getOperand(SiblingOp.getOperandNum()),
+              OpI};
+        }
       }
 
       BackupData Data = {Op.getFrontier(),
