@@ -293,11 +293,7 @@ declare void @bcopy(i8*, i8*, i64)
 ; CHECK: declare void @bzero(i8* nocapture writeonly, i64)  [[ARGMEMONLY_NOFREE_NOUNWIND_WILLRETURN]]
 declare void @bzero(i8*, i64)
 
-<<<<<<< HEAD
 ; CHECK: declare noalias noundef i8* @calloc(i64 noundef, i64 noundef) [[NOFREE_NOUNWIND_WILLRETURN:#[0-9]+]] ;INTEL
-=======
-; CHECK: declare noalias noundef i8* @calloc(i64 noundef, i64 noundef) [[INACCESSIBLEMEMONLY_NOFREE_NOUNWIND_WILLRETURN_ALLOCSIZE01:#[0-9]+]]
->>>>>>> b916414096ad6a95d0da44d188f42e48dc469e0e
 declare i8* @calloc(i64, i64)
 
 ; CHECK: declare double @cbrt(double) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
@@ -1083,11 +1079,8 @@ declare void @memset_pattern16(i8*, i8*, i64)
 ; CHECK-DAG: attributes [[ARGMEMONLY_NOFREE_NOUNWIND_WILLRETURN]] = { argmemonly mustprogress nofree nounwind willreturn }
 ; CHECK-DAG: attributes [[NOFREE_NOUNWIND_READONLY]] = { nofree nounwind readonly }
 ; CHECK-DAG: attributes [[INACCESSIBLEMEMORARGMEMONLY_NOUNWIND_WILLRETURN]] = { inaccessiblemem_or_argmemonly mustprogress nounwind willreturn }
-<<<<<<< HEAD
-=======
 ; CHECK-DAG: attributes [[INACCESSIBLEMEMORARGMEMONLY_NOUNWIND_WILLRETURN_ALLOCSIZE]] = { inaccessiblemem_or_argmemonly mustprogress nounwind willreturn allocsize(1) }
 ; CHECK-DAG: attributes [[NOFREE_WILLRETURN]] = { mustprogress nofree willreturn }
->>>>>>> b916414096ad6a95d0da44d188f42e48dc469e0e
 ; CHECK-DAG: attributes [[ARGMEMONLY_NOFREE_NOUNWIND_READONLY_WILLRETURN]] = { argmemonly mustprogress nofree nounwind readonly willreturn }
 ; CHECK-DAG: attributes [[NOFREE]] = { nofree }
 ; CHECK-DAG: attributes [[INACCESSIBLEMEMORARGONLY_NOFREE_NOUNWIND_WILLRETURN]]  = { inaccessiblemem_or_argmemonly mustprogress nofree nounwind willreturn }
