@@ -2325,9 +2325,7 @@ TEST_F(FileSystemTest, widenPath) {
   for (size_t i = 0; i < NumChars; ++i)
     Input += Pi;
   // Check that UTF-8 length already exceeds MAX_PATH.
-#if INTEL_CUSTOMIZATION
   EXPECT_GT(Input.size(), (size_t)MAX_PATH);
-#endif // INTEL_CUSTOMIZATION
   SmallVector<wchar_t, MAX_PATH + 16> Result;
   ASSERT_NO_ERROR(windows::widenPath(Input, Result));
   // Result should not start with the long path prefix.
