@@ -173,6 +173,7 @@ void OptimizerLTO::registerVectorizerStartCallback(PassBuilder &PB) {
           }
 
           FPM.addPass(ReassociatePass());
+          FPM.addPass(SinCosFoldPass());
           // Replace 'div' and 'rem' instructions with calls to optimized
           // library functions
           FPM.addPass(MathLibraryFunctionsReplacementPass());

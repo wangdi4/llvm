@@ -43,7 +43,6 @@ set(OCL_BE_PASSES
     PreventDivCrashes
     RelaxedPass
     SetPreferVectorWidth
-    SinCosFold
     SmartGVN
     StripIntelIP
     OCLAliasAnalysis

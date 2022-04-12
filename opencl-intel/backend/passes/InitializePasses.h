@@ -38,7 +38,6 @@ void initializeSpecialCaseBuiltinResolverPass(llvm::PassRegistry&);
 void initializeCLBuiltinLICMPass(llvm::PassRegistry&);
 void initializeCLStreamSamplerPass(llvm::PassRegistry&);
 void initializeRemoveDuplicationBarrierPass(llvm::PassRegistry&);
-void initializeSinCosFoldPass(llvm::PassRegistry &);
 
 void initializeResolveVariableTIDCallPass(llvm::PassRegistry &);
 void initializeReplaceScalarWithMaskPass(llvm::PassRegistry&);

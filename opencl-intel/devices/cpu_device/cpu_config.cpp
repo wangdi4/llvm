@@ -95,8 +95,8 @@ cl_ulong CPUDeviceConfig::GetForcedMaxMemAllocSize() const
 
 cl_int CPUDeviceConfig::GetVectorizerMode() const
 {
-    return m_pConfigFile->Read(CL_CONFIG_CPU_VECTORIZER_MODE,
-                               static_cast<uint32_t>(TRANSPOSE_SIZE_NOT_SET));
+  return m_pConfigFile->Read(CL_CONFIG_CPU_VECTORIZER_MODE,
+                             static_cast<int32_t>(TRANSPOSE_SIZE_NOT_SET));
 }
 
 VectorizerType CPUDeviceConfig::GetVectorizerType() const
