@@ -193,6 +193,9 @@ void test_array_sections(unsigned long n, unsigned long m) {
 //CHECK: [[Y_ARRAY:%y_Array.*]] = alloca [[YT:\[20 x \[42 x \[100 x i32\]\]\]]],
   int y_Array[20][42][100];
 
+//CHECK: [[PTR_BASE:%ptr_base.*]] = alloca i32*, align 8
+//CHECK: [[PBREF:%pbref.*]] = alloca i32**, align 8
+
   // Typed array sections arguments are:
   // p# %vla, <type specifier>, i# %number_of_elements, i# %offset_in_elements
 
@@ -300,6 +303,21 @@ for (int i = 0; i < 3; i++) {
 //CHECK-SAME: [42 x double]* [[VLA2]], double 0.000000e+00, i64 1,
 //CHECK-SAME: i64 [[SEC_OFFSET_IN_ELEMENTS]])
   #pragma omp parallel for reduction(+:B_vla[4][3][n])
+  for(int i = 0; i < 10; i++);
+
+  int *ptr_base;
+  int *(&pbref) = ptr_base;
+
+//CHECK: "DIR.OMP.PARALLEL.LOOP"()
+//CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT.PTR_TO_PTR.TYPED"
+//CHECK-SAME: i32** [[PTR_BASE]], i32 0
+  #pragma omp parallel for reduction(+:ptr_base[3:10])
+  for(int i = 0; i < 10; i++);
+
+//CHECK: "DIR.OMP.PARALLEL.LOOP"()
+//CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:BYREF.ARRSECT.PTR_TO_PTR.TYPED"
+//CHECK-SAME: i32*** [[PBREF]], i32 0
+  #pragma omp parallel for reduction(+:pbref[3:10])
   for(int i = 0; i < 10; i++);
 }
 
