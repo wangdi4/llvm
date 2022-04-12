@@ -2662,16 +2662,11 @@ def fno_builtin : Flag<["-"], "fno-builtin">, Group<f_Group>, Flags<[CC1Option, 
   HelpText<"Disable implicit builtin knowledge of functions">;
 def fno_builtin_ : Joined<["-"], "fno-builtin-">, Group<f_Group>, Flags<[CC1Option, CoreOption]>,
   HelpText<"Disable implicit builtin knowledge of a specific function">;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 def nolib_inline : Flag<["-"], "nolib-inline">, Flags<[NoXarchOption]>, Alias<fno_builtin>,
   HelpText<"disable inline expansion of intrinsic functions">;
 def : Flag<["-"], "nolib_inline">, Alias<fno_builtin>;
 #endif // INTEL_CUSTOMIZATION
-def fno_diagnostics_color : Flag<["-"], "fno-diagnostics-color">, Group<f_Group>,
-  Flags<[CoreOption, NoXarchOption]>;
-=======
->>>>>>> 30b1c1f23d4d58c3220eac6aee35fd23f109b35c
 def fno_common : Flag<["-"], "fno-common">, Group<f_Group>, Flags<[CC1Option]>,
     HelpText<"Compile common globals like normal definitions">;
 defm digraphs : BoolFOption<"digraphs",
