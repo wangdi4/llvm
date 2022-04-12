@@ -446,7 +446,11 @@ void HIRScalarSymbaseAssignment::populateLoopSCCPhiLiveouts(
     }
 
     HLLoop *InnerDefLoop = LF.findHLLoop(InnerLp);
-    assert(InnerDefLoop && "SCC phi does not have parent HLLoop!");
+    // The loop may have been optimized away during redundant HLIf elimination
+    // in HIRCleanup phase.
+    if (!InnerDefLoop) {
+      return;
+    }
 
     while (InnerDefLoop != DefLoop) {
       InnerDefLoop->addLiveOutTemp(Symbase);
