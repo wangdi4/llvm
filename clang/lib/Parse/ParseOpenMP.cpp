@@ -3427,6 +3427,7 @@ OMPClause *Parser::ParseOpenMPUsesAllocatorClause(OpenMPDirectiveKind DKind) {
 ///       in_reduction-clause | allocator-clause | allocate-clause |
 ///       acq_rel-clause | acquire-clause | release-clause | relaxed-clause |
 ///       depobj-clause | destroy-clause | detach-clause | inclusive-clause |
+<<<<<<< HEAD
 ///       exclusive-clause | uses_allocators-clause | use_device_addr-clause
 #if INTEL_COLLAB
 ///       | bind-clause
@@ -3439,6 +3440,10 @@ OMPClause *Parser::ParseOpenMPUsesAllocatorClause(OpenMPDirectiveKind DKind) {
 ///       | dataflow-clause
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+///       exclusive-clause | uses_allocators-clause | use_device_addr-clause |
+///       has_device_addr
+>>>>>>> 187ccc66fa5d0b04189cdbd8266fc386e60f48aa
 ///
 OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
                                      OpenMPClauseKind CKind, bool FirstClause) {
@@ -3682,6 +3687,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_use_device_ptr:
   case OMPC_use_device_addr:
   case OMPC_is_device_ptr:
+  case OMPC_has_device_addr:
   case OMPC_allocate:
   case OMPC_nontemporal:
   case OMPC_inclusive:
@@ -4952,6 +4958,8 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
 ///       'use_device_addr' '(' list ')'
 ///    is_device_ptr-clause:
 ///       'is_device_ptr' '(' list ')'
+///    has_device_addr-clause:
+///       'has_device_addr' '(' list ')'
 ///    allocate-clause:
 ///       'allocate' '(' [ allocator ':' ] list ')'
 ///    nontemporal-clause:
