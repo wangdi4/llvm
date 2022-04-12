@@ -143,6 +143,18 @@ static cl::opt<bool> KeepBlocksOrder(
     "vpo-paropt-keep-blocks-order", cl::Hidden, cl::init(true),
     cl::desc("Keep the order of blocks during function outlining."));
 
+// When the function in the TARGET VARIANT DISPATCH construct is variadic,
+// controls where the interop obj is inserted in the variant call:
+//   flag = true:  as the last argument (default, for backward compatibility).
+//   flag = false: after the fixed arguments but before the vararg arguments;
+//                 this behavior matches that of OMP5.1 DISPATCH construct.
+// Note that this flag doesn't affect OMP5.1 DISPATCH.
+static cl::opt<bool> PutInteropAfterVararg(
+    "vpo-paropt-put-interop-after-vararg", cl::Hidden,
+    cl::init(true),
+    cl::desc(
+        "Put interop after last arg in a variant dispatch variadic function."));
+
 // Get the TidPtrHolder global variable @tid.addr.
 // Assert if the variable is not found or is not i32.
 GlobalVariable *VPOParoptUtils::getTidPtrHolder(Module *M) {
@@ -4204,28 +4216,83 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
     FnArgTypes.push_back(ArgType);
   }
 
+  // At this point, the FnArgs and FnArgTypes of the variant call is the same
+  // as the base call. If !InteropObj then the lists are ready for genCall.
+
   if (InteropObj != nullptr) {
-    // If !InteropPosition, then InteropObj is appended as the last arg.
-    // Otherwise, InteropPosition.getValue() is the position of the InteropObj
-    // in the arg list. The position is 1-based (ie, first arg is position 1,
-    // not 0).
-    if (InteropPosition) {
-      assert(!IsVarArg &&
-             "Unexpected VarArg variant function when InteropPosition is used");
-      uint64_t Position = InteropPosition.getValue();
-      auto ArgsIter = FnArgs.begin() + Position - 1;
-      FnArgs.insert(ArgsIter, InteropObj);
-      auto ArgTypesIter = FnArgTypes.begin() + Position - 1;
-      FnArgTypes.insert(ArgTypesIter, Int8PtrTy);
-    } else {
-      FnArgs.push_back(InteropObj);
-      if (!IsVarArg)
-        // If not VarArg, then the signature of the variant function has one
-        // more parameter (for void *interopObj) than the base function, so
-        // we need to update FnArgTypes accordingly.
+    // Case 1: non-variadic functions
+    //
+    // Case 1a: No InteropPosition
+    // Add the interop obj as the last argument of the variant call. E.g.,
+    //   base decl:    void foo_base(int a, int b)
+    //   variant decl: void foo_vrnt(int a, int b, omp_interop_t interop)
+    //   base call:    foo_base(1, 2)
+    //   variant call: foo_vrnt(1, 2, interop);
+    //
+    // Case 1b: With InteropPosition
+    // Add the interop obj at the position (1-based) specified. E.g.,
+    //   InteropPosition==3
+    //   base decl:    void foo_base(int a, int b, int c)
+    //   variant decl: void foo_vrnt(int a, int b, omp_interop_t interop, int c)
+    //   base call:    foo_base(1, 2, 3)
+    //   variant call: foo_vrnt(1, 2, interop, 3);
+    //
+    // Case 2: variadic functions
+    //
+    // (2a) If construct is OMP5.1 DISPATCH then the interop obj goes after
+    // the fixed arguments but before the vararg args (...).
+    //
+    // If construct is TARGET VARIANT DISPATCH then placement is controlled
+    // by the PutInteropAfterVararg flag:
+    //   (2a) false: same placement as for OMP5.1 DISPATCH
+    //   (2b) true: as the last argument of the variadic function call
+    //
+    // VarArg Case 2a: Insert interop obj immediately after the fixed args,
+    // but before varargs.
+    // (For OMP5.1 DISPTACH, and also for
+    //  TARGET VARIANT DISPATCH with PutInteropAfterVararg == false.) E.g.,
+    //   base decl:    void foo_base(int a, int b, ...)
+    //   variant decl: void foo_vrnt(int a, int b, omp_interop_t interop, ...)
+    //   base call:    foo_base(1, 2, 3, 4)
+    //   variant call: foo_vrnt(1, 2, interop, 3, 4)
+    //
+    // VarArg Case 2b: interop obj is the last arg of the variant call.
+    // (For TARGET VARIANT DISPATCH with PutInteropAfterVararg == true.) E.g.,
+    //   base decl:    void foo_base(int a, int b, ...)
+    //   variant decl: void foo_vrnt(int a, int b, ...)
+    //   base call:    foo_base(1, 2, 3, 4)
+    //   variant call: foo_vrnt(1, 2, 3, 4, interop)
+
+    if (!IsVarArg) { // Case 1: non-variadic
+      if (!InteropPosition) {
+        // Case 1a. No InteropPosition. Add interop as last arg.
+        FnArgs.push_back(InteropObj);
         FnArgTypes.push_back(Int8PtrTy);
+      } else {
+        // Case 1b. With InteropPosition.
+        // The position is 1-based (ie, first arg is position 1, not 0).
+        uint64_t Position = InteropPosition.getValue();
+        auto ArgsIter = FnArgs.begin() + Position - 1;
+        FnArgs.insert(ArgsIter, InteropObj);
+        auto ArgTypesIter = FnArgTypes.begin() + Position - 1;
+        FnArgTypes.insert(ArgTypesIter, Int8PtrTy);
+      }
+    } else { // Case 2: variadic
+      assert(!InteropPosition &&
+             "Unexpected VarArg variant function when InteropPosition is used");
+      if (isa<WRNDispatchNode>(W) || !PutInteropAfterVararg) {
+        // Case 2a: Add interop right after the fixed args but before varargs
+        uint64_t Position = FnArgTypes.size() + 1; // number of fixed args + 1
+        auto ArgsIter = FnArgs.begin() + Position - 1;
+        FnArgs.insert(ArgsIter, InteropObj);
+        FnArgTypes.push_back(Int8PtrTy);
+      } else {
+        // Case 2b: Add interop as last argument
+        FnArgs.push_back(InteropObj);
+        // FnArgTypes is the same as the base decl's. No change needed.
+      }
     }
-  }
+  } // if (InteropObj)
 
   CallInst *VariantCall = genCall(M, VariantName, ReturnTy, FnArgs, FnArgTypes,
                                   InsertPt, IsTail, IsVarArg,
