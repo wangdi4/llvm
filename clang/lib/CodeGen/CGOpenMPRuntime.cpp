@@ -12489,8 +12489,6 @@ static void emitX86DeclareSimdFunction(
 #if INTEL_CUSTOMIZATION
     OMPDeclareSimdDeclAttr::BranchStateTy State,
     bool UseSPIRMangling) {
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
   QualType RetTy = FD->getReturnType();
   if (RetTy->isComplexType() || RetTy->isStructureType())
     return;
@@ -12530,15 +12528,11 @@ static void emitX86DeclareSimdFunction(
   }
 #if INTEL_CUSTOMIZATION
   std::string Buffer;
-  if (Fn->hasFnAttribute("vector-variants")) {
-    llvm::Attribute Attr = Fn->getFnAttribute("vector-variants");
-    Buffer = Attr.getValueAsString().str();
-  }
   llvm::raw_string_ostream Out(Buffer);
 
   for (auto Mask : Masked) {
     for (auto &Data : ISAData) {
-      if (!Buffer.empty())
+      if (!Out.str().empty())
         Out << ",";
 #endif // INTEL_CUSTOMIZATION
       Out << "_ZGV" << Data.ISA << Mask;
@@ -12579,7 +12573,26 @@ static void emitX86DeclareSimdFunction(
       Out.flush(); // INTEL
     }
   }
-  Fn->addFnAttr("vector-variants", Out.str()); // INTEL
+#if INTEL_CUSTOMIZATION
+  if (!Out.str().empty()) {
+    std::string Buf;
+    if (Fn->hasFnAttribute("vector-variants")) {
+      llvm::Attribute Attr = Fn->getFnAttribute("vector-variants");
+      Buf = Attr.getValueAsString().str();
+    }
+    llvm::raw_string_ostream VecAttrs(Buf);
+    // Append current set of vector-variants attr to vector sets attribute.
+    if(VecAttrs.str().empty())
+      VecAttrs << Out.str();
+    else if (Buf.find(Out.str()) == std::string::npos) {
+      VecAttrs << ",";
+      VecAttrs << Out.str();
+    }
+    VecAttrs.flush();
+    Out.flush();
+    Fn->addFnAttr("vector-variants", VecAttrs.str());
+  }
+#endif  // INTEL_CUSTOMIZATION
 }
 
 // This are the Functions that are needed to mangle the name of the

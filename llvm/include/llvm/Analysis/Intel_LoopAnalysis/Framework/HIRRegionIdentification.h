@@ -54,7 +54,7 @@ namespace loopopt {
 class HIRRegionIdentification {
   const unsigned MaxFusionTripCountDiff = 3;
   const unsigned MaxIntermediateBBsForFusion = 10;
-  const unsigned FusedRegionTCThreshold = 15;
+  const unsigned FusedRegionTCThreshold = 16;
 
 public:
   typedef SmallVector<IRRegion, 16> IRRegionsTy;

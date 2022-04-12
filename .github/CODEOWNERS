@@ -118,6 +118,8 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 # JIRA: CMPLRLLVM->LLVM Debug Information
 /llvm/include/llvm/IR/Debug* @bwyma @stevemerr
 /llvm/include/llvm/IR/DIBuilder* @bwyma @stevemerr
+/llvm/include/llvm/DebugInfo/CodeView/ @bwyma @stevemerr
+/llvm/include/llvm/DebugInfo/DWARF/ @bwyma @stevemerr
 /llvm/lib/IR/Debug* @bwyma @stevemerr
 /llvm/lib/CodeGen/AsmPrinter/CodeView* @bwyma @stevemerr
 /llvm/lib/CodeGen/AsmPrinter/Dbg* @bwyma @stevemerr

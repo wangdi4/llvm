@@ -36,9 +36,9 @@ define void @foo(i1 %cond1, i1 %cond2) #2 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: foo:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:     [[VP0:%.*]] = {%fetch.6269}
-; CHECK-DAG:     [[VP1:%.*]] = {if (%cond2 != 0)}
-; CHECK-DAG:     [[VP2:%.*]] = {if (%cond1 != 0)}
+; CHECK-DAG:     [[VP0:%.*]] = {if (%cond1 != 0)}
+; CHECK-DAG:     [[VP1:%.*]] = {%fetch.6269}
+; CHECK-DAG:     [[VP2:%.*]] = {if (%cond2 != 0)}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
@@ -49,7 +49,7 @@ define void @foo(i1 %cond1, i1 %cond2) #2 {
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP3:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i32* [[VP5:%.*]] = hir-copy i32* null , OriginPhiId: -1
-; CHECK-NEXT:     br i1 [[VP2]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:     br i1 [[VP0]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
 ; CHECK-NEXT:       i32* [[VP6:%.*]] = hir-copy i32* null , OriginPhiId: -1
@@ -57,19 +57,17 @@ define void @foo(i1 %cond1, i1 %cond2) #2 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]], [[BB2]]
 ; CHECK-NEXT:     i32* [[VP7:%.*]] = phi  [ i32* [[VP6]], [[BB4]] ],  [ i32* [[VP5]], [[BB2]] ]
-; CHECK-NEXT:     br i1 [[VP1]], [[BB6:BB[0-9]+]], [[BB3]]
+; CHECK-NEXT:     br i1 [[VP2]], [[BB6:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[BB5]]
 ; CHECK-NEXT:       store i32 0 i32* null
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB6]], [[BB5]]
-; FIXME: This PHI is redundant and can be removed and replaced with VP7.
-; CHECK-NEXT:     i32* [[VP8:%.*]] = phi  [ i32* [[VP7]], [[BB6]] ],  [ i32* [[VP7]], [[BB5]] ]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP8]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP7]]
 ; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP3]] i64 1
-; CHECK-NEXT:     i1 [[VP9:%.*]] = icmp slt i64 [[VP4]] i64 100
-; CHECK-NEXT:     br i1 [[VP9]], [[BB2]], [[BB7:BB[0-9]+]]
+; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp slt i64 [[VP4]] i64 100
+; CHECK-NEXT:     br i1 [[VP8]], [[BB2]], [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB3]]
 ; CHECK-NEXT:     br [[BB8:BB[0-9]+]]

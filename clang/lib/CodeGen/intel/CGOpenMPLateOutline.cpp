@@ -517,7 +517,7 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
       llvm::Value *Size = CGF.CGM.getSize(ElementSize);;
 
       addArg(llvm::Constant::getNullValue(
-          CGF.CGM.getTypes().ConvertType(BaseT)));
+          ElementType ? ElementType : CGF.CGM.getTypes().ConvertType(BaseT)));
 
       llvm::Value *BaseCast =
           CGF.Builder.CreatePtrToInt(V, CGF.PtrDiffTy, "sec.base.cast");
@@ -1400,13 +1400,23 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
       CSB.setCmplx();
     if (IsRef)
       CSB.setByRef();
+    llvm::Type *ElemTy = nullptr;
     if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
-        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
+        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
       CSB.setArrSect();
+      QualType BaseTy = getArraySectionBase(E)->getType();
+      if (UseTypedClauses && BaseTy->isPointerType()) {
+        CSB.setPtrToPtr();
+        ElemTy = CGF.ConvertTypeForMem(BaseTy->getPointeeType());
+      }
+    }
     if (UseTypedClauses)
-        CSB.setTyped();
+      CSB.setTyped();
     addArg(CSB.getString());
-    addTypedArg(E, IsRef);
+    if (ElemTy)
+      addArg(E, IsRef, UseTypedClauses, /*NeedsTypedElements=*/true, ElemTy);
+    else
+      addTypedArg(E, IsRef);
     if (CombinerFn) {
       llvm::Value *Cons = llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
       llvm::Value *Des = llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
