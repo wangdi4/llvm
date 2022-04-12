@@ -346,7 +346,7 @@ bool EarliestEscapeInfo::isNotCapturedBeforeOrAt(const Value *Object,
   if (Iter.second) {
     Instruction *EarliestCapture = FindEarliestCapture(
         Object, *const_cast<Function *>(I->getFunction()),
-        /*ReturnCaptures=*/false, /*StoreCaptures=*/true, DT,
+        /*ReturnCaptures=*/false, /*StoreCaptures=*/true, DT, EphValues,
         MaxUses); // INTEL
     if (EarliestCapture) {
       auto Ins = Inst2Obj.insert({EarliestCapture, {}});
