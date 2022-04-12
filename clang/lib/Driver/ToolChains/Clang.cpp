@@ -7759,6 +7759,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    false))
     CmdArgs.push_back("-fgnu89-inline");
 
+<<<<<<< HEAD
   if (Args.hasArg(options::OPT_fno_inline))
     CmdArgs.push_back("-fno-inline");
 
@@ -7787,6 +7788,17 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddLastArg(CmdArgs, options::OPT_finline_functions,
                   options::OPT_finline_hint_functions,
                   options::OPT_fno_inline_functions);
+=======
+  const Arg *InlineArg = Args.getLastArg(options::OPT_finline_functions,
+                                         options::OPT_finline_hint_functions,
+                                         options::OPT_fno_inline_functions);
+  if (Arg *A = Args.getLastArg(options::OPT_finline, options::OPT_fno_inline)) {
+    if (A->getOption().matches(options::OPT_fno_inline))
+      A->render(Args, CmdArgs);
+  } else if (InlineArg) {
+    InlineArg->render(Args, CmdArgs);
+  }
+>>>>>>> ee7fb36ba03a75e404d1030666883e050052c5a1
 
 #endif //INTEL_CUSTOMIZATION
 
