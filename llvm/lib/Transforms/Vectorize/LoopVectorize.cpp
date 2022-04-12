@@ -2808,8 +2808,6 @@ void InnerLoopVectorizer::scalarizeInstruction(Instruction *Instr,
     if (!Instance.isFirstIteration())
       return;
 
-  setDebugLocFromInst(Instr);
-
   // Does this instruction return a value ?
   bool IsVoidRetTy = Instr->getType()->isVoidTy();
 
@@ -2826,8 +2824,9 @@ void InnerLoopVectorizer::scalarizeInstruction(Instruction *Instr,
   if (State.MayGeneratePoisonRecipes.contains(RepRecipe))
     Cloned->dropPoisonGeneratingFlags();
 
-  State.Builder.SetInsertPoint(Builder.GetInsertBlock(),
-                               Builder.GetInsertPoint());
+  if (Instr->getDebugLoc())
+    setDebugLocFromInst(Instr);
+
   // Replace the operands of the cloned instructions with their scalar
   // equivalents in the new loop.
   for (auto &I : enumerate(RepRecipe->operands())) {
@@ -2841,7 +2840,7 @@ void InnerLoopVectorizer::scalarizeInstruction(Instruction *Instr,
   addNewMetadata(Cloned, Instr);
 
   // Place the cloned scalar in the new loop.
-  Builder.Insert(Cloned);
+  State.Builder.Insert(Cloned);
 
   State.set(RepRecipe, Cloned, Instance);
 
