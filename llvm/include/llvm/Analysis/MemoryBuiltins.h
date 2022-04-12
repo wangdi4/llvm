@@ -263,12 +263,9 @@ bool getObjectSize(const Value *Ptr, uint64_t &Size, const DataLayout &DL,
 /// argument of the call to objectsize.
 Value *lowerObjectSizeCall(IntrinsicInst *ObjectSize, const DataLayout &DL,
                            const TargetLibraryInfo *TLI, bool MustSucceed);
-<<<<<<< HEAD
-=======
 Value *lowerObjectSizeCall(IntrinsicInst *ObjectSize, const DataLayout &DL,
                            const TargetLibraryInfo *TLI, AAResults *AA,
                            bool MustSucceed);
->>>>>>> aa15ea47e20fbce5814f4a0d69521f8270b70e69
 
 using SizeOffsetType = std::pair<APInt, APInt>;
 
