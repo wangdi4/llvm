@@ -8098,8 +8098,8 @@ let Uses = [MXCSR], checkVEXPredicate = 1,
 }
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 
-#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
-  let Predicates = [HasAVXDOTPRODINT8, NoVLX_Or_NoAVX512DOTPRODINT8],
+#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
+  let Predicates = [HasAVXVNNIINT8, NoVLX_Or_NoAVX512VNNIINT8],
   checkVEXPredicate = 1 in {
   defm VPDPBSSD   : avx_dotprod_rm<0x50,"vpdpbssd",  v4i32, VR128, loadv4i32,
                                    i128mem, X86vpdpbssd, SchedWriteVecIMul.XMM,
@@ -8138,7 +8138,7 @@ let Uses = [MXCSR], checkVEXPredicate = 1,
                                    i256mem, X86vpdpbsuds, SchedWriteVecIMul.YMM,
                                    0>, VEX_L, T8XS;
 }
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
