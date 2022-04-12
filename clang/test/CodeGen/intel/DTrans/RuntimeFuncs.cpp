@@ -94,10 +94,14 @@ extern "C" void static_init() {
 // WIN-OPQ: declare !intel.dtrans.func.type ![[GUARD_REL:[0-9]+]] dso_local void @_Init_thread_footer(ptr "intel_dtrans_func_index"="1")
 
 // LIN: !intel.dtrans.types = !{![[STRUCTB:[0-9]+]], ![[STRUCTA:[0-9]+]]}
-// WIN: !intel.dtrans.types = !{![[EH_THROWINFO:[0-9]+]], ![[STRUCTB:[0-9]+]], ![[STRUCTA:[0-9]+]]}
+// WIN: !intel.dtrans.types = !{![[TD2:[0-9]+]], ![[EH_THROWINFO:[0-9]+]], ![[STRUCTB:[0-9]+]], ![[STRUCTA:[0-9]+]], ![[TD7:[0-9]+]]}
 
 // CHECK: ![[INT_PTR]] = !{i32 0, i32 1}
 // CHECK: ![[CHAR_PTR]] = !{i8 0, i32 1}
+// WIN: ![[TD2]] = !{!"S", %rtti.TypeDescriptor2 zeroinitializer, i32 3, ![[CHARPTRPTR:[0-9]+]], ![[CHAR_PTR]], ![[CHAR_3_ARR:[0-9]+]]}
+// WIN: ![[CHARPTRPTR]] = !{i8 0, i32 2}
+// WIN: ![[CHAR_3_ARR]] = !{!"A", i32 3, ![[CHAR:[0-9]+]]}
+// WIN: ![[CHAR]] = !{i8 0, i32 0}
 // WIN: ![[EH_THROWINFO]] = !{!"S", %eh.ThrowInfo zeroinitializer, i32 4, ![[INT:[0-9]+]], ![[INT]], ![[INT]], ![[INT]]}
 // WIN: ![[INT]] = !{i32 0, i32 0}
 // CHECK: ![[STRUCTB]] = !{!"S", %{{\"?}}struct.{{.+}}.B{{\"?}} zeroinitializer, i32 1, ![[STRUCTA_REF:[0-9]+]]}
@@ -107,6 +111,8 @@ extern "C" void static_init() {
 // LIN: ![[FOO]] = !{!"F", i1 true, i32 0, ![[INT:[0-9]+]]
 // WIN: ![[FOO]] = !{!"F", i1 true, i32 0, ![[INT]]
 // LIN: ![[INT]] = !{i32 0, i32 0}
+// WIN: ![[TD7]] = !{!"S", %rtti.TypeDescriptor7 zeroinitializer, i32 3, ![[CHARPTRPTR]], ![[CHAR_PTR]], ![[CHAR_8_ARR:[0-9]+]]}
+// WIN: ![[CHAR_8_ARR]] = !{!"A", i32 8, ![[CHAR]]}
 // CHECK: ![[CALLEE]] = distinct !{![[INT_PTR]]}
 // LIN: ![[ALLOC_EXCEPT]] = distinct !{![[CHAR_PTR]]}
 // LIN: ![[THROW]] = distinct !{![[CHAR_PTR]], ![[CHAR_PTR]], ![[CHAR_PTR]]}

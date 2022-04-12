@@ -816,6 +816,58 @@ public:
     CGM.addDTransType(RD, ST);
     return Ctx.getPointerType(ClangThrowInfoType);
   }
+
+  llvm::SmallVector<StringRef,4> TypeDescriptorTypeNames;
+
+  // Create a clang type for the MSVC-style RTTI type descriptor so that we can
+  // properly add this to the metadata.  This type is consistently just: {i8**,
+  // i8*, [N x i8]}, where N is based on the mangled CXXRTTI name of the type.
+  // Instead of re-calculating, we can just look into the type to find it.
+  void AddDTransTypeDescriptorType(llvm::StructType *TypeDescriptorType,
+                                   unsigned NameLen) {
+    if (!CGM.getCodeGenOpts().EmitDTransInfo)
+      return;
+
+    ASTContext &Ctx = CGM.getContext();
+
+    // If we've already created one of this size, we don't need to add another.
+    StringRef TDName = TypeDescriptorType->getName();
+
+    if (llvm::find(TypeDescriptorTypeNames, TDName) !=
+        TypeDescriptorTypeNames.end())
+      return;
+    TypeDescriptorTypeNames.push_back(TDName);
+
+    RecordDecl *RD = Ctx.buildImplicitRecord(TDName);
+    RD->startDefinition();
+
+    FieldDecl *VTable = FieldDecl::Create(
+        Ctx, RD, SourceLocation{}, SourceLocation{}, /*IdentifierInfo*/ nullptr,
+        Ctx.getPointerType(Ctx.getPointerType(Ctx.Char8Ty)), /*TInfo*/ nullptr,
+        /*Bitwidth*/ nullptr, /*mutable*/ false, ICIS_NoInit);
+    VTable->setAccess(AS_public);
+
+    FieldDecl *RuntimeData = FieldDecl::Create(
+        Ctx, RD, SourceLocation{}, SourceLocation{}, /*IdentifierInfo*/ nullptr,
+        Ctx.getPointerType(Ctx.Char8Ty), /*TInfo*/ nullptr,
+        /*Bitwidth*/ nullptr, /*mutable*/ false, ICIS_NoInit);
+    RuntimeData->setAccess(AS_public);
+
+    QualType NameTy = Ctx.getConstantArrayType(
+        Ctx.Char8Ty, {64, NameLen}, /*SizeExpr*/ nullptr, ArrayType::Normal,
+        /*IndexTypeQuals*/ 0);
+    FieldDecl *Name =
+        FieldDecl::Create(Ctx, RD, SourceLocation{}, SourceLocation{},
+                          /*IdentifierInfo*/ nullptr, NameTy, /*TInfo*/ nullptr,
+                          /*Bitwidth*/ nullptr, /*mutable*/ false, ICIS_NoInit);
+    Name->setAccess(AS_public);
+
+    RD->completeDefinition();
+    QualType DescriptorTy = Ctx.getRecordType(RD);
+    CGM.getTypes().setDTransRuntimeType(TypeDescriptorType, DescriptorTy,
+                                        {VTable, RuntimeData, Name});
+    CGM.addDTransType(RD, TypeDescriptorType);
+  }
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -4157,6 +4209,11 @@ llvm::Constant *MicrosoftCXXABI::getAddrOfRTTIDescriptor(QualType Type) {
     llvm::ConstantDataArray::getString(CGM.getLLVMContext(), TypeInfoString)};
   llvm::StructType *TypeDescriptorType =
       getTypeDescriptorType(TypeInfoString);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  AddDTransTypeDescriptorType(TypeDescriptorType, TypeInfoString.size() + 1);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   auto *Var = new llvm::GlobalVariable(
       CGM.getModule(), TypeDescriptorType, /*isConstant=*/false,
       getLinkageForRTTI(Type),
