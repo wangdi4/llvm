@@ -1909,7 +1909,7 @@ public:
       // - a pointer was used, but not with the expected type
       bool TypesCompatible = true;
       bool BadCasting = false;
-
+      bool BadCastingForRelatedTypes = false;
       DTransType *ValTy = getLoadStoreValueType(*ValOp, ValInfo, IsLoad);
       if (!ValTy) {
         // In some cases we may not have a ValTy identified for a pointer being
@@ -1919,7 +1919,14 @@ public:
         if (!IsSafeAllocatedMemoryStore(I, IndexedType) ||
             !AreAllMemoryUsersSafe(I, IndexedType)) {
           TypesCompatible = false;
-          BadCasting = true;
+
+          // Check if the type of the values stored or loaded are used with
+          // related types. In this case ValTy couldn't be collected since
+          // there is no dominant aggregate type.
+          if (areLoadStoresWithRelatedTypes(IndexedType, ValInfo, &PtrInfo))
+            BadCastingForRelatedTypes = true;
+          else
+            BadCasting = true;
         }
       }
       // If the pointer location represents a vtable, then we only need to
@@ -1945,7 +1952,13 @@ public:
       else if (!areLoadStoreTypesCompatible(IndexedType, ValInfo, ValOp,
                                             PtrInfo, PtrOp)) {
         TypesCompatible = false;
-        BadCasting = true;
+
+        // Check if the types loaded or stored aren't compatible due to
+        // related types
+        if (areLoadStoresWithRelatedTypes(IndexedType, ValInfo, &PtrInfo))
+          BadCastingForRelatedTypes = true;
+        else
+          BadCasting = true;
       }
 
       if (!IsLoad && ValInfo) {
@@ -1968,6 +1981,12 @@ public:
             BadCasting = true;
           }
         }
+
+        // TODO: Catch the case when the data from a field of a structure that
+        // contains all entries with the same type (e.g. std::vector) is moved
+        // to another memory space, and this field is given by a byte flattened
+        // GEP. The GEP's index is produced by a loop (e.g. traversing all the
+        // entries in an std::vector).
       }
       // With opaque pointers, we will not see explicit pointer bitcasts
       // occurring, but the effect here is the same as is a bitcast had
@@ -1979,6 +1998,14 @@ public:
       bool IsCandidateLoad = DTBCA.isCandidateLoad(&I);
       bool IsAllocStore = DTBCA.isAllocStore(&I);
       bool IsCandidate = IsCandidateLoad || IsAllocStore;
+
+      // If IsCandidate is enabled then we are going to turn off
+      // BadCastingForRelatedTypes
+      if (IsCandidate && BadCastingForRelatedTypes) {
+        BadCastingForRelatedTypes = false;
+        BadCasting = true;
+      }
+
       if (BadCasting) {
         const llvm::dtrans::SafetyData SD =
             IsCandidate ? dtrans::BadCastingPending : dtrans::BadCasting;
@@ -1993,7 +2020,21 @@ public:
                 ValAliasTy, SD,
                 "Incompatible pointer type for field load/store", &I);
           }
+      } else if (BadCastingForRelatedTypes) {
+        const llvm::dtrans::SafetyData SD = dtrans::BadCastingForRelatedTypes;
+        setBaseTypeInfoSafetyData(
+            ParentTy, SD,
+            "Pointer type for field load/store contains related types", &I);
+        if (ValInfo)
+          for (auto *ValAliasTy :
+               ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+            setBaseTypeInfoSafetyData(
+                ValAliasTy, SD,
+                "Pointer type for field load/store contains related types",
+                &I);
+          }
       }
+
 
       if (!TypesCompatible) {
         if (!IsLoad) {
@@ -2212,6 +2253,94 @@ public:
       return false;
 
     return true;
+  }
+
+  // Return true if collecting the parent type that enclapsulates all the
+  // related types in ValInfo is the same as ExpectedType, and the
+  // dominant aggregate type for PtrInfo is the same as ExpecedType. Else,
+  // return false. For example:
+  //
+  //   %class.MainClass = type { [4 x i32], i32, [4 x i8]}
+  //   %class.MainClass.base = type { [4 x i32], i32}
+  //
+  //   %class.TestClass = type { %class.MainClass.base, [4 x i8] }
+  //   %class.TestClass.Outer = type { ptr, i32 }
+  //   ; %class.TestClass.Outer = type { %class.TestClass*, i32 }
+  //
+  //   define dso_local void @foo(ptr %ptr) {
+  //   entry:
+  //     %0 = getelementptr inbounds %class.TestClass.Outer, ptr %ptr,
+  //                                                         i64 0, i32 0
+  //     %1 = load ptr, ptr %0
+  //     %2 = getelementptr inbounds %class.MainClass, ptr %1, i64 0, i32 0
+  //     %3 = load i32, ptr %2
+  //     ret void
+  //   }
+  //
+  // The expected type of the load instruction in %1 is %class.TestClass*, but
+  // then it is used in %2 is %class.MainClass. %class.MainClass is a related
+  // type of %class.MainClass.base. In this case there won't be a dominant
+  // aggregate for ValInfo. We know that the expected type is
+  // %class.TestClass*, and that the ValueTypeInfos ValInfo and PtrInfo look
+  // as follows:
+  //
+  // * ValInfo:
+  //     LocalPointerInfo: CompletelyAnalyzed
+  //     Declared Types:
+  //       Aliased types:
+  //         %class.TestClass*
+  //       No element pointees.
+  //     Usage Types:
+  //       Aliased types:
+  //         %class.MainClass*
+  //         %class.TestClass*
+  //       No element pointees
+  //
+  // * PtrInfo:
+  //     LocalPointerInfo: CompletelyAnalyzed
+  //     Declared Types:
+  //       Aliased types:
+  //         %class.TestClass**
+  //       Element pointees:
+  //         %class.TestClass.Outer @ 0
+  //     Usage Types:
+  //       Aliased types:
+  //         %class.TestClass**
+  //       Element pointees:
+  //         %class.TestClass.Outer @ 0
+  //
+  // The type %class.TestClass* encapsulates all the zero element and related
+  // types in ValInfo, and is the dominant aggregate type for PtrInfo too.
+  // Since it is the same type as the expected type in %1, then this function
+  // will return true.
+  bool areLoadStoresWithRelatedTypes(DTransType *ExpectedType,
+                                     ValueTypeInfo *ValInfo,
+                                     ValueTypeInfo *PtrInfo) {
+    if (!ExpectedType || !ExpectedType->isPointerTy() ||
+        !ExpectedType->getPointerElementType()->isStructTy())
+      return false;
+
+    if (!ValInfo || !PtrInfo || PtrInfo->empty() || ValInfo->empty())
+      return false;
+
+    // This process is only for the case where we don't have dominant aggregate
+    // type in the ValInfo. This means that the pointer is used as multiple
+    // types.
+    if (PTA.getDominantAggregateUsageType(*ValInfo))
+      return false;
+
+    if (getEnclosingParentDeclType(*ValInfo) != ExpectedType)
+      return false;
+
+    // NOTE: In case there is no dominant aggregate type, then we may need to
+    // use "getEnclosingParentDeclType" in order to find the higher structure
+    // and then prove that the expected type is in the chain of related types.
+    DTransType *PtrDomTy = PTA.getDominantAggregateUsageType(*PtrInfo);
+    if (!PtrDomTy || !PtrDomTy->isPointerTy())
+      return false;
+
+    DTransType *PtrDomTyPtrTy = PtrDomTy->getPointerElementType();
+    return PtrDomTyPtrTy == ExpectedType;
   }
 
   // Return 'true' if 'DTy' is 'i32 (...)**'
