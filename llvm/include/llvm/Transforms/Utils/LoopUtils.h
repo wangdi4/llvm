@@ -227,12 +227,8 @@ bool promoteLoopAccessesToScalars(
     const SmallSetVector<Value *, 8> &, SmallVectorImpl<BasicBlock *> &,
     SmallVectorImpl<Instruction *> &, SmallVectorImpl<MemoryAccess *> &,
     PredIteratorCache &, LoopInfo *, DominatorTree *, const TargetLibraryInfo *,
-<<<<<<< HEAD
     const TargetTransformInfo *, // INTEL
-    Loop *, MemorySSAUpdater *, ICFLoopSafetyInfo *,
-=======
     Loop *, MemorySSAUpdater &, ICFLoopSafetyInfo *,
->>>>>>> c8c63625601c04786cbf0819708725b830f0dfbb
     OptimizationRemarkEmitter *, bool AllowSpeculation);
 
 /// Does a BFS from a given node to all of its children inside a given loop.
