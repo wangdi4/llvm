@@ -41,7 +41,6 @@ class StringRef;
 class AnalysisUsage;
 class TargetTransformInfo;
 class AAResults;
-class AliasSetTracker;
 class BasicBlock;
 class BlockFrequencyInfo;
 class ICFLoopSafetyInfo;
@@ -363,8 +362,8 @@ void getLoopAnalysisUsage(AnalysisUsage &AU);
 /// true when moving out of loop and not true when moving into loops.
 /// If \p ORE is set use it to emit optimization remarks.
 bool canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
-                        Loop *CurLoop, AliasSetTracker *CurAST,
-                        MemorySSAUpdater *MSSAU, bool TargetExecutesOncePerLoop,
+                        Loop *CurLoop, MemorySSAUpdater *MSSAU,
+                        bool TargetExecutesOncePerLoop,
                         SinkAndHoistLICMFlags *LICMFlags = nullptr,
                         OptimizationRemarkEmitter *ORE = nullptr);
 
