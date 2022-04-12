@@ -1,10 +1,14 @@
 ; Test plugin options for opt-remarks.
 ; RUN: llvm-as %s -o %t.o
+; INTEL_CUSTOMIZATION
+; Xmain need to explicitly specify new-pass-manger.
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext -shared \
 ; RUN:	  -plugin-opt=save-temps \
+; RUN:    -plugin-opt=new-pass-manager \
 ; RUN:    -plugin-opt=opt-remarks-passes=inline \
 ; RUN:    -plugin-opt=opt-remarks-format=yaml \
 ; RUN:    -plugin-opt=opt-remarks-filename=%t.yaml %t.o -o %t2.o 2>&1
+; end INTEL_CUSTOMIZATION
 ; RUN: llvm-dis %t2.o.0.4.opt.bc -o - | FileCheck %s
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext -shared \
 ; RUN:    -plugin-opt=opt-remarks-passes=inline \
