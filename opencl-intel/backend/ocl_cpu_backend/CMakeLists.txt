@@ -237,7 +237,6 @@ set( BACKEND_PASSES
     Prefetch
     SubGroupAdaptation
     PatchCallbackArgs
-    SinCosFold
     SmartGVN
     StripIntelIP
     OCLAliasAnalysis
