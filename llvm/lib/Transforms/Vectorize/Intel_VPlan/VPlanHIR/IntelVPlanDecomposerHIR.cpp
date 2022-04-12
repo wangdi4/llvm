@@ -1759,9 +1759,9 @@ void VPDecomposerHIR::fixPhiNodes() {
 
     // This fixed PHI node might have an empty/null incoming value from one of
     // its predecessors. This could happen due to inaccuracies in DDG. We also
-    // consider PHIs with single operands here. In most cases such PHI nodes are
-    // not even needed. Following are possible cases :
-    // 1. The PHI node has just a single incoming value.
+    // consider PHIs with same incoming values along all edges here. In most
+    // cases such PHI nodes are not even needed. Following are possible cases :
+    // 1. The PHI node has just a single incoming value along all edges.
     //    Solution : We replace all uses of this PHI with its operand, and
     //    remove the PHI.
     // 2. The PHI node has no incoming value.
@@ -1772,7 +1772,12 @@ void VPDecomposerHIR::fixPhiNodes() {
     //    replace all uses of PHI with this instruction thereby removing the
     //    PHI.
 
-    if (FixedPhi->getNumIncomingValues() == 1) {
+    bool HasSameIncomingValues =
+        FixedPhi->getNumIncomingValues() > 0 &&
+        llvm::all_of(FixedPhi->incoming_values(), [FixedPhi](VPValue *InV) {
+          return InV == FixedPhi->getIncomingValue(0u);
+        });
+    if (HasSameIncomingValues) {
       // Solution for case 1
       LLVM_DEBUG(dbgs() << "VPDecomp fixPhiNodes : The fixed PHI node will be "
                            "replaced and removed:";
