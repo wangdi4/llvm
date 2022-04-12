@@ -7750,38 +7750,30 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    false))
     CmdArgs.push_back("-fgnu89-inline");
 
-#if INTEL_CUSTOMIZATION
-  if (Arg *InlinLvl = Args.getLastArg(
-        options::OPT_inline_level_EQ, options::OPT_finline_functions,
-        options::OPT_finline_hint_functions,
-        options::OPT_fno_inline_functions)) {
-    if (InlinLvl->getOption().matches(options::OPT_inline_level_EQ)) {
-      if (InlinLvl->getValue() == StringRef("0") &&
-          !Args.hasArg(options::OPT_fno_inline))
-        CmdArgs.push_back("-fno-inline");
-      else if (InlinLvl->getValue() == StringRef("1"))
-        CmdArgs.push_back("-finline-hint-functions");
-      else if (InlinLvl->getValue() == StringRef("2"))
-        CmdArgs.push_back("-finline-functions");
-      else
-        C.getDriver().Diag(clang::diag::err_drv_unsupported_option_argument)
-          << InlinLvl->getOption().getName()
-          << StringRef(InlinLvl->getValue());
-    }
-    else
-      CmdArgs.push_back(Args.MakeArgString(InlinLvl->getAsString(Args)));
-  }
-#else //INTEL_CUSTOMIZATION
   const Arg *InlineArg = Args.getLastArg(options::OPT_finline_functions,
                                          options::OPT_finline_hint_functions,
+                                         options::OPT_inline_level_EQ, // INTEL
                                          options::OPT_fno_inline_functions);
   if (Arg *A = Args.getLastArg(options::OPT_finline, options::OPT_fno_inline)) {
     if (A->getOption().matches(options::OPT_fno_inline))
       A->render(Args, CmdArgs);
   } else if (InlineArg) {
-    InlineArg->render(Args, CmdArgs);
+#if INTEL_CUSTOMIZATION
+    if (InlineArg->getOption().matches(options::OPT_inline_level_EQ)) {
+      StringRef Value(InlineArg->getValue());
+      if (Value == "0" && !Args.hasArg(options::OPT_fno_inline))
+        CmdArgs.push_back("-fno-inline");
+      else if (Value == "1")
+        CmdArgs.push_back("-finline-hint-functions");
+      else if (Value == "2")
+        CmdArgs.push_back("-finline-functions");
+      else
+        C.getDriver().Diag(clang::diag::err_drv_unsupported_option_argument)
+            << InlineArg->getOption().getName() << Value;
+    } else
+      InlineArg->render(Args, CmdArgs);
+#endif // INTEL_CUSTOMIZATION
   }
-#endif //INTEL_CUSTOMIZATION
 
   // FIXME: Find a better way to determine whether the language has modules
   // support by default, or just assume that all languages do.
