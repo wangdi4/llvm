@@ -267,6 +267,21 @@ TEST(FrameworkTestTypeDeathTest, Test_VectorizerMode_64) {
   checkAndTestVectorizerMode(DeviceBackend::TRANSPOSE_SIZE_64);
 }
 
+TEST(FrameworkTestTypeDeathTest, Test_VectorizerMode_64_AVX2) {
+  ASSERT_TRUE(SETENV("CL_CONFIG_CPU_TARGET_ARCH", "core-avx2"));
+  checkAndTestVectorizerMode(DeviceBackend::TRANSPOSE_SIZE_64);
+}
+
+TEST(FrameworkTestTypeDeathTest, Test_VectorizerMode_64_AVX) {
+  ASSERT_TRUE(SETENV("CL_CONFIG_CPU_TARGET_ARCH", "corei7-avx"));
+  checkAndTestVectorizerMode(DeviceBackend::TRANSPOSE_SIZE_64);
+}
+
+TEST(FrameworkTestTypeDeathTest, Test_VectorizerMode_64_SSE) {
+  ASSERT_TRUE(SETENV("CL_CONFIG_CPU_TARGET_ARCH", "corei7"));
+  checkAndTestVectorizerMode(DeviceBackend::TRANSPOSE_SIZE_64);
+}
+
 // TODO: add negative tests
 //void negativeVectorizerModeDeathTest( const char* mode )
 //{

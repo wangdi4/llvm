@@ -75,14 +75,15 @@ enum cl_dev_backend_dump_options
  */
 enum ETransposeSize
 {
+    TRANSPOSE_SIZE_INVALID = -2, // Invalid value.
+    TRANSPOSE_SIZE_NOT_SET = -1, // Default value. Size is not set by user.
     TRANSPOSE_SIZE_AUTO = 0, // Automatic selection. Backend will selectet if and how to vectorize based on heuristics
     TRANSPOSE_SIZE_1  = 1,   // Scalar mode. Do not use the vectorizer
     TRANSPOSE_SIZE_4  = 4,   // Force the vectorization with packetization size of 4
     TRANSPOSE_SIZE_8  = 8,   // Force the vectorization with packetization size of 8
     TRANSPOSE_SIZE_16 = 16,  // Force the vectorization with packetization size of 16
     TRANSPOSE_SIZE_32 = 32,  // Force the vectorization with packetization size of 32
-    TRANSPOSE_SIZE_64 = 64,  // Force the vectorization with packetization size of 64
-    TRANSPOSE_SIZE_NOT_SET
+    TRANSPOSE_SIZE_64 = 64   // Force the vectorization with packetization size of 64
 };
 
 /*! \dump_IR_options
