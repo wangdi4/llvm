@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans, asserts
-; RUN: llvm-link -debug-only=irmover-dtrans-metadata-loss -irmover-enable-merge-with-dtrans -irmover-enable-module-verify -irmover-type-merging=false -irmover-enable-full-dtrans-types-check -S %S/Inputs/intel-merge-mangled10-a.ll %S/Inputs/intel-merge-mangled10-b.ll 2>&1 | FileCheck %s
+; RUN: llvm-link -irmover-trace-dtrans-metadata-loss -irmover-enable-merge-with-dtrans -irmover-enable-module-verify -irmover-type-merging=false -irmover-enable-full-dtrans-types-check -S %S/Inputs/intel-merge-mangled10-a.ll %S/Inputs/intel-merge-mangled10-b.ll 2>&1 | FileCheck %s
 
 ; This test case checks that the type merging is not affected when the
 ; metadata is missing and there are typed pointers. This is the same
