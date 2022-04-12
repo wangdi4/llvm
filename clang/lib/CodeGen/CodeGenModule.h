@@ -1723,6 +1723,7 @@ public:
                                            TBAAAccessInfo *TBAAInfo = nullptr);
   bool stopAutoInit();
 
+<<<<<<< HEAD
   /// Print the postfix for externalized static variable for single source
   /// offloading languages CUDA and HIP.
   void printPostfixForExternalizedStaticVar(llvm::raw_ostream &OS) const;
@@ -1732,6 +1733,12 @@ public:
                                   const FunctionDecl *BaseFunc,
                                   const OMPDeclareVariantAttr *Attr);
 #endif // INTEL_COLLAB
+=======
+  /// Print the postfix for externalized static variable or kernels for single
+  /// source offloading languages CUDA and HIP.
+  void printPostfixForExternalizedDecl(llvm::raw_ostream &OS,
+                                       const Decl *D) const;
+>>>>>>> 4ea1d435099f992cc16127619b0feb64e070630d
 
 private:
   llvm::Constant *GetOrCreateLLVMFunction(
