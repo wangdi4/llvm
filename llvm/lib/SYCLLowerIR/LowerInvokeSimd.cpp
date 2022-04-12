@@ -140,6 +140,7 @@ void getPossibleStoredVals(Value *Addr, ValueSetImpl &Vals) {
     Value *V = U->getUser();
 
     if (auto *StI = dyn_cast<StoreInst>(V)) {
+#if !INTEL_CUSTOMIZATION
       constexpr int StoreInstValueOperandIndex = 0;
 
       if (U != &StI->getOperandUse(StoreInst::getPointerOperandIndex())) {
@@ -147,6 +148,7 @@ void getPossibleStoredVals(Value *Addr, ValueSetImpl &Vals) {
         // this is double indirection - not supported
         llvm_unreachable("unsupported data flow pattern for invoke_simd 11");
       }
+ #endif // INTEL_CUSTOMIZATION
       V = stripCasts(StI->getValueOperand());
 
       if (auto *LI = dyn_cast<LoadInst>(V)) {
