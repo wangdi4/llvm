@@ -7443,10 +7443,7 @@ def fsycl_enable_int_header_diags: Flag<["-"], "fsycl-enable-int-header-diags">,
 
 } // let Flags = [CC1Option, NoDriverOption]
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-=======
->>>>>>> 3196d3c2f36022ca68f4cb615fc011f03050e6a8
 def sycl_std_EQ : Joined<["-"], "sycl-std=">, Group<sycl_Group>,
   Flags<[CC1Option, NoArgumentUnused, CoreOption, DpcppOption]>,
   HelpText<"SYCL language standard to compile for.">,
