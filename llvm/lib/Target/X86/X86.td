@@ -231,24 +231,24 @@ def FeatureFP16    : SubtargetFeature<"avx512fp16", "HasFP16", "true",
                            [FeatureBWI, FeatureVLX, FeatureDQI]>;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
-def FeatureAVXDOTPRODINT8  : SubtargetFeature<"avxdotprodint8",
-                             "HasAVXDOTPRODINT8", "true",
-                             "Enable AVX-DOTPROD-INT8",
+#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
+def FeatureAVXVNNIINT8  : SubtargetFeature<"avxvnniint8",
+                             "HasAVXVNNIINT8", "true",
+                             "Enable AVX-VNNI-INT8",
                              [FeatureAVX2]>;
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 def FeatureAVXDOTPRODPHPS  : SubtargetFeature<"avxdotprodphps",
                              "HasAVXDOTPRODPHPS", "true",
                              "Enable AVX-DOTPROD-PHPS",
                              [FeatureAVX2]>;
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
-def FeatureAVX512DOTPRODINT8 : SubtargetFeature<"avx512dotprodint8",
-                               "HasAVX512DOTPRODINT8", "true",
-                               "Enable AVX512-DOTPROD-INT8",
-                               [FeatureAVXDOTPRODINT8, FeatureAVX512]>;
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
+def FeatureAVX512VNNIINT8 : SubtargetFeature<"avx512vnniint8",
+                               "HasAVX512VNNIINT8", "true",
+                               "Enable AVX512-VNNI-INT8",
+                               [FeatureAVXVNNIINT8, FeatureAVX512]>;
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
 def FeatureAVX512DOTPRODPHPS : SubtargetFeature<"avx512dotprodphps",
                                "HasAVX512DOTPRODPHPS", "true",
@@ -1336,10 +1336,9 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_AVX_VNNI_INT16
     FeatureAVXVNNIINT16,
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
-#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
-// FIXME: Need to change to AVX_VNNI_INT8
-    FeatureAVXDOTPRODINT8,
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
+    FeatureAVXVNNIINT8,
+#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
     FeatureAVX512MEDIAX,
 #endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
@@ -1354,10 +1353,9 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT16
     FeatureAVX512VNNIINT16,
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT16
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
-// FIXME: Need to change to AVX512-VNNI-INT8
-    FeatureAVX512DOTPRODINT8,
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
+    FeatureAVX512VNNIINT8,
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 #if INTEL_FEATURE_ISA_CMPCCXADD
     FeatureCMPCCXADD,
 #endif // INTEL_FEATURE_ISA_CMPCCXADD
