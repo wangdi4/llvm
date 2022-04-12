@@ -38,6 +38,5 @@ llvm_update_compile_flags(llvm-omp-device-info)
 # used.
 target_link_libraries(llvm-omp-device-info PRIVATE
   omptarget
-  ${LIBOMPTARGET_TESTED_PLUGINS}
 )
 # end INTEL_CUSTOMIZATION
