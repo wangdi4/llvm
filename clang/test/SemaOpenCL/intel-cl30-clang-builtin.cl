@@ -2,7 +2,7 @@
 
 // expected-no-diagnostics
 
-kernel void addrspace_builtins() {
+kernel void addrspace_builtins(void) {
   int *generic_ptr;
   global int *global_ptr;
   local int *local_ptr;
@@ -13,7 +13,7 @@ kernel void addrspace_builtins() {
   private_ptr = to_private(generic_ptr);
 }
 
-void dse_builtins() {
+void dse_builtins(void) {
   queue_t queue;
   ndrange_t ndrange;
   enqueue_kernel(queue, 0, ndrange, ^(void) {
