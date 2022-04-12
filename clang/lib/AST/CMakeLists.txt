@@ -123,6 +123,7 @@ add_clang_library(clangAST
   ParentMap.cpp
   PrintfFormatString.cpp
   QualTypeNames.cpp
+  Randstruct.cpp
   RawCommentList.cpp
   RecordLayout.cpp
   RecordLayoutBuilder.cpp
