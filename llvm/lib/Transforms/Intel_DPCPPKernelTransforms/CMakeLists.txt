@@ -52,6 +52,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   PrepareKernelArgs.cpp
   CleanupWrappedKernel.cpp
   SetVectorizationFactor.cpp
+  SinCosFold.cpp
   SubgroupEmulation/SGBarrierPropagate.cpp
   SubgroupEmulation/SGBarrierSimplify.cpp
   SubgroupEmulation/SGBuiltin.cpp

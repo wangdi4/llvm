@@ -772,6 +772,7 @@ void initializeSGSizeAnalysisLegacyPass(PassRegistry &);
 void initializeSGSizeCollectorLegacyPass(PassRegistry &);
 void initializeSGSizeCollectorIndirectLegacyPass(PassRegistry &);
 void initializeSGValueWidenLegacyPass(PassRegistry &);
+void initializeSinCosFoldLegacyPass(PassRegistry &);
 void initializeSoaAllocaAnalysisLegacyPass(PassRegistry &);
 void initializeSplitBBonBarrierLegacyPass(PassRegistry &);
 void initializeTaskSeqAsyncHandlingLegacyPass(PassRegistry &);
