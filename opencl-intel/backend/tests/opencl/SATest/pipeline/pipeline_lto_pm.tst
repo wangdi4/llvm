@@ -38,6 +38,7 @@
 ; CHECK-NEXT: Running pass: InstCombinePass
 
 ; CHECK:      Running pass: ReassociatePass
+; CHECK:      Running pass: SinCosFoldPass
 ; CHECK:      Running pass: MathLibraryFunctionsReplacementPass
 ; CHECK:      Running pass: LoopUnrollPass
 ; CHECK-NOT:  Running pass: VecClonePass

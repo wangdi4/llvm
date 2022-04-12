@@ -168,6 +168,7 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
         if (Config->GetTransposeSize() == 1)
           return;
 
+        MPM.add(createSinCosFoldLegacyPass());
         // Replace 'div' and 'rem' instructions with calls to optimized library
         // functions
         MPM.add(createMathLibraryFunctionsReplacementPass());
