@@ -467,10 +467,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-fp19") {
       HasAMXFP19 = true;
 #endif // INTEL_FEATURE_ISA_AMX_FP19
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
-    } else if (Feature == "+avx512dotprodint8") {
-      HasAVX512DOTPRODINT8 = true;
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
+    } else if (Feature == "+avx512vnniint8") {
+      HasAVX512VNNIINT8 = true;
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
     } else if (Feature == "+avx512dotprodphps") {
       HasAVX512DOTPRODPHPS = true;
@@ -483,10 +483,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+avxifma") {
       HasAVXIFMA = true;
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
-#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
-    } else if (Feature == "+avxdotprodint8") {
-      HasAVXDOTPRODINT8 = true;
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
+    } else if (Feature == "+avxvnniint8") {
+      HasAVXVNNIINT8 = true;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
     } else if (Feature == "+avxdotprodphps") {
       HasAVXDOTPRODPHPS = true;
@@ -1199,11 +1199,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXFP19__");
   Builder.defineMacro("__AMXFP19_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_FP19
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
-  if (HasAVX512DOTPRODINT8)
-    Builder.defineMacro("__AVX512DOTPRODINT8__");
-  Builder.defineMacro("__AVX512DOTPRODINT8_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
+  if (HasAVX512VNNIINT8)
+    Builder.defineMacro("__AVX512VNNIINT8__");
+  Builder.defineMacro("__AVX512VNNIINT8_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
   if (HasAVX512DOTPRODPHPS)
     Builder.defineMacro("__AVX512DOTPRODPHPS__");
@@ -1219,11 +1219,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AVXIFMA__");
   Builder.defineMacro("__AVXIFMA_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
-#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
-  if (HasAVXDOTPRODINT8)
-    Builder.defineMacro("__AVXDOTPRODINT8__");
-  Builder.defineMacro("__AVXDOTPRODINT8_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
+  if (HasAVXVNNIINT8)
+    Builder.defineMacro("__AVXVNNIINT8__");
+  Builder.defineMacro("__AVXVNNIINT8_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
   if (HasAVXDOTPRODPHPS)
     Builder.defineMacro("__AVXDOTPRODPHPS__");
@@ -1682,18 +1682,18 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("xsaves", true)
       .Case("xsaveopt", true)
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
-      .Case("avx512dotprodint8", true)
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
+      .Case("avx512vnniint8", true)
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
       .Case("avx512dotprodphps", true)
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
       .Case("avx512convert", true)
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
-#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
-      .Case("avxdotprodint8", true)
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
+      .Case("avxvnniint8", true)
+#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
       .Case("avxdotprodphps", true)
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
@@ -1897,18 +1897,18 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("avx512ifma", HasAVX512IFMA)
       .Case("avx512vp2intersect", HasAVX512VP2INTERSECT)
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
-      .Case("avx512dotprodint8", HasAVX512DOTPRODINT8)
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
+      .Case("avx512vnniint8", HasAVX512VNNIINT8)
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
       .Case("avx512dotprodphps", HasAVX512DOTPRODPHPS)
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
       .Case("avx512convert", HasAVX512CONVERT)
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
-#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
-      .Case("avxdotprodint8", HasAVXDOTPRODINT8)
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
+      .Case("avxvnniint8", HasAVXVNNIINT8)
+#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
       .Case("avxdotprodphps", HasAVXDOTPRODPHPS)
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS

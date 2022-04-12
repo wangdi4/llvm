@@ -433,14 +433,14 @@ typedef struct __tile1024i_str {
 #endif
 
 /* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ISA_AVX_DOTPROD_INT8 */
-#if defined(__AVXDOTPRODINT8_SUPPORTED__)
+/* INTEL_FEATURE_ISA_AVX_VNNI_INT8 */
+#if defined(__AVXVNNIINT8_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVXDOTPRODINT8__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <avxdotprodint8/avxdotprodint8intrin.h>
+    defined(__AVXVNNIINT8__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avxvnniint8/avxvnniint8intrin.h>
 #endif
 #endif
-/* end INTEL_FEATURE_ISA_AVX_DOTPROD_INT8 */
+/* end INTEL_FEATURE_ISA_AVX_VNNI_INT8 */
 
 /* INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS */
 /*
@@ -457,19 +457,19 @@ typedef struct __tile1024i_str {
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8 */
-#if defined(__AVX512DOTPRODINT8_SUPPORTED__)
+/* INTEL_FEATURE_ISA_AVX512_VNNI_INT8 */
+#if defined(__AVX512VNNIINT8_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-      defined(__AVX512DOTPRODINT8__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <avx512dotprodint8/avx512dotprodint8intrin.h>
+      defined(__AVX512VNNIINT8__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avx512vnniint8/avx512vnniint8intrin.h>
 #endif
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    (defined(__AVX512VL__) && defined(__AVX512DOTPRODINT8__)) ||                      \
+    (defined(__AVX512VL__) && defined(__AVX512VNNIINT8__)) ||                      \
     defined(__M_INTRINSIC_PROMOTE__)
-#include <avx512dotprodint8/avx512vldotprodint8intrin.h>
+#include <avx512vnniint8/avx512vlvnniint8intrin.h>
 #endif
 #endif
-/* end INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8 */
+/* end INTEL_FEATURE_ISA_AVX512_VNNI_INT8 */
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */

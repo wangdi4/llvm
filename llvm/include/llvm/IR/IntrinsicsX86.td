@@ -2057,7 +2057,7 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
                   llvm_i32_ty],
                   [IntrNoMem, ImmArg<ArgIndex<4>>]>;
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
   def int_x86_avx512_vpdpbssd_512
       : GCCBuiltin<"__builtin_ia32_vpdpbssd512">,
         Intrinsic<[llvm_v16i32_ty],
@@ -2088,7 +2088,7 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
         Intrinsic<[llvm_v16i32_ty],
                   [llvm_v16i32_ty, llvm_v16i32_ty, llvm_v16i32_ty],
                   [IntrNoMem]>;
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
   def int_x86_avx2_vdpphps_128
       : GCCBuiltin<"__builtin_ia32_vdpphps128">,
@@ -2101,7 +2101,7 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
                   [llvm_v8f32_ty, llvm_v8f32_ty, llvm_v8f32_ty],
                   [IntrNoMem]>;
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
-#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
   def int_x86_avx2_vpdpbssd_128
       : GCCBuiltin<"__builtin_ia32_vpdpbssd128">,
         Intrinsic<[llvm_v4i32_ty],
@@ -2162,7 +2162,7 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
         Intrinsic<[llvm_v8i32_ty],
                   [llvm_v8i32_ty, llvm_v8i32_ty, llvm_v8i32_ty],
                   [IntrNoMem]>;
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
   def int_x86_avx512_mask_vcvt2ps2ph_128
       : GCCBuiltin<"__builtin_ia32_vcvt2ps2ph128_mask">,
