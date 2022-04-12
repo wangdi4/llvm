@@ -82,20 +82,14 @@ CPUDetect::isTransposeSizeSupported(ETransposeSize transposeSize) const {
   case TRANSPOSE_SIZE_NOT_SET:
   case TRANSPOSE_SIZE_AUTO:
   case TRANSPOSE_SIZE_1:
-    return SUPPORTED;
-
   case TRANSPOSE_SIZE_4:
-    return HasSSE41() ? SUPPORTED : UNSUPPORTED;
-
   case TRANSPOSE_SIZE_8:
-    return HasAVX1() ? SUPPORTED : UNSUPPORTED;
-
   case TRANSPOSE_SIZE_16:
-    return HasGatherScatter() ? SUPPORTED : UNSUPPORTED;
-
   case TRANSPOSE_SIZE_32:
   case TRANSPOSE_SIZE_64:
-    return HasAVX512Core() ? SUPPORTED : UNSUPPORTED;
+    return SUPPORTED;
+  case TRANSPOSE_SIZE_INVALID:
+    return INVALID;
   }
   llvm_unreachable("Invalid transpose size!");
 }

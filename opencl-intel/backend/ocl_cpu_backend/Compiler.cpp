@@ -745,8 +745,7 @@ void Compiler::validateVectorizerMode(llvm::raw_ostream& log) const
       return;
 
     case Intel::OpenCL::Utils::INVALID:
-      log << "The specified vectorizer mode (" << m_transposeSize
-          << ") is invalid.\n";
+      log << "The specified vectorizer mode is invalid.\n";
       break;
 
     case Intel::OpenCL::Utils::UNSUPPORTED:

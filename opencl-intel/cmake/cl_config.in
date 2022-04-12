@@ -108,7 +108,6 @@
 #       1: No compiler vectorization. Explicit kernel vector data types are left intact.
 #          The same as if CL_CONFIG_USE_VECTORIZER = False.
 #       [4, 8, 16, 32, 64]: Disable heuristic and force vectorization to the specified length.
-#                           32 and 64 are only supported on AVX-512.
 #
 #       NOTE: Some kernels do not support vectorization from functional aspect. Such kernels cannot be vectorized in any mode.
 #

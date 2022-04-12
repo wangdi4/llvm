@@ -29,6 +29,17 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 const char* CPU_ARCH_AUTO = "auto";
 using Intel::OpenCL::Utils::ConfigFile;
 
+static ETransposeSize parseTransposeSize(int TSize) {
+  static constexpr int ValidTSizes[] = {
+      TRANSPOSE_SIZE_NOT_SET, TRANSPOSE_SIZE_AUTO, TRANSPOSE_SIZE_1,
+      TRANSPOSE_SIZE_4,       TRANSPOSE_SIZE_8,    TRANSPOSE_SIZE_16,
+      TRANSPOSE_SIZE_32,      TRANSPOSE_SIZE_64};
+  if (std::find(std::begin(ValidTSizes), std::end(ValidTSizes), TSize) ==
+      std::end(ValidTSizes))
+    return TRANSPOSE_SIZE_INVALID;
+  return (ETransposeSize)TSize;
+}
+
 void GlobalCompilerConfig::LoadDefaults()
 {
     m_enableTiming = false;
@@ -112,9 +123,8 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
     // C++ pipeline command line options.
     m_LLVMOptions += " -enable-vec-clone=false";
     ETransposeSize TransposeSize =
-        (ETransposeSize)pBackendOptions->GetIntValue(
-            (int)CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE,
-            TRANSPOSE_SIZE_NOT_SET);
+        parseTransposeSize(pBackendOptions->GetIntValue(
+            (int)CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, TRANSPOSE_SIZE_NOT_SET));
     if (TRANSPOSE_SIZE_1 == TransposeSize)
       m_LLVMOptions += " -vplan-driver=false";
 
@@ -192,15 +202,6 @@ void CompilerConfig::LoadConfig()
   // TODO: Add validation code
   if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_CPU_TARGET_ARCH"))
     m_cpuArch = Env;
-
-  if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_CPU_VECTORIZER_MODE")) {
-    unsigned int size;
-    if ((std::stringstream(Env) >> size).fail()) {
-      throw Exceptions::BadConfigException(
-          "Failed to load the transpose size from environment");
-    }
-    m_transposeSize = ETransposeSize(size);
-  }
 #ifndef NDEBUG
   if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_CPU_FEATURES")) {
     // The validity of the cpud features are checked upon parsing of optimizer
@@ -232,7 +233,8 @@ void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOpt
     m_cpuMaxWGSize  = (size_t)pBackendOptions->GetIntValue(
         (int)CL_DEV_BACKEND_OPTION_CPU_MAX_WG_SIZE, (int)m_cpuMaxWGSize);
 
-    m_transposeSize = (ETransposeSize)pBackendOptions->GetIntValue((int)CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, m_transposeSize);
+    m_transposeSize = parseTransposeSize(pBackendOptions->GetIntValue(
+        (int)CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, m_transposeSize));
     m_rtLoopUnrollFactor  = pBackendOptions->GetIntValue((int) CL_DEV_BACKEND_OPTION_RT_LOOP_UNROLL_FACTOR, m_rtLoopUnrollFactor);
     m_useVTune      = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_USE_VTUNE, m_useVTune);
     m_serializeWorkGroups = pBackendOptions->GetBooleanValue(
