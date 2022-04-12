@@ -41,9 +41,7 @@ public:
     initializeResolveMatrixLayoutLegacyPass(*PassRegistry::getPassRegistry());
   }
 
-  StringRef getPassName() const override {
-    return "ResolveMatrixLayoutLegacy";
-  }
+  StringRef getPassName() const override { return "ResolveMatrixLayoutLegacy"; }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
@@ -85,14 +83,47 @@ static AllocaInst *createMatrixAllocaInst(Function &F, FixedVectorType *FVT) {
   return AllocaRes;
 }
 
-static std::pair<bool, Value *> resolveMatrixLayoutLoad(CallInst *CI) {
-  // int64_t MRows = cast<ConstantInt>(CI->getOperand(3))->getSExtValue();
+static std::pair<bool, Value *> resolveMatrixLayoutLoadHelper(
+    IRBuilder<> &Builder, CallInst *CI, StringRef BuiltinName,
+    PointerType *PtrType, Value *NewMemL, Value *OldStride, Value *NewStride,
+    bool ShouldAddWorkList, SmallVector<User *> &WorkList) {
+  FixedVectorType *MatrixType = cast<FixedVectorType>(CI->getType());
+  Value *MatAlloca = createMatrixAllocaInst(*CI->getFunction(), MatrixType);
+  Value *Src =
+      Builder.CreatePointerBitCastOrAddrSpaceCast(CI->getOperand(0), PtrType);
+  Value *Dst = Builder.CreateBitCast(MatAlloca, PtrType);
+  SmallVector<Value *, 5> Args = {Src, Dst, CI->getOperand(3),
+                                  CI->getOperand(4), OldStride};
+  generateCall(CI->getModule(), BuiltinName, Builder.getVoidTy(), Args,
+               Builder);
+  // stride should be calculated according to the size of the temporary matrix
+  SmallVector<Value *, 8> ArgsForNewLoad = {Dst,
+                                            NewStride,
+                                            CI->getOperand(2),
+                                            CI->getOperand(3),
+                                            CI->getOperand(4),
+                                            CI->getOperand(5),
+                                            NewMemL,
+                                            CI->getOperand(7)};
+  SmallVector<Type *, 2> TypesForNewLoad = {MatrixType, Dst->getType()};
+  CallInst *NewMatrixLoad = Builder.CreateIntrinsic(
+      Intrinsic::experimental_matrix_load, TypesForNewLoad, ArgsForNewLoad);
+  if (ShouldAddWorkList)
+    WorkList.push_back(NewMatrixLoad);
+  return std::make_pair(true, NewMatrixLoad);
+}
+
+static std::pair<bool, Value *>
+resolveMatrixLayoutLoad(CallInst *CI, SmallVector<User *> &WorkList) {
+  int64_t MRows = cast<ConstantInt>(CI->getOperand(3))->getSExtValue();
   int64_t MCols = cast<ConstantInt>(CI->getOperand(4))->getSExtValue();
   FixedVectorType *MatrixType = cast<FixedVectorType>(CI->getType());
   Metadata *MatL = cast<MetadataAsValue>(CI->getOperand(5))->getMetadata();
   Metadata *MemL = cast<MetadataAsValue>(CI->getOperand(6))->getMetadata();
   if (cast<MDString>(MatL)->getString() == cast<MDString>(MemL)->getString())
     return std::make_pair(false, CI);
+  IRBuilder<> Builder(CI);
+  LLVMContext &Ctx = Builder.getContext();
   if (cast<MDString>(MatL)->getString().equals("matrix.packed.b") &&
       cast<MDString>(MemL)->getString().equals("matrix.rowmajor") &&
       MatrixType->getElementType()->isIntegerTy(8)) {
@@ -109,69 +140,71 @@ static std::pair<bool, Value *> resolveMatrixLayoutLoad(CallInst *CI) {
     //   i8% ptr2, i64 stride, i1 false, i32 4, i32 2,
     //   metadata !"matrix.packed_b", metadata !"matrix.packed_b", metadata
     //   !"scope.subgroup")
-    IRBuilder<> Builder(CI);
-    Value *MatAlloca = createMatrixAllocaInst(*CI->getFunction(), MatrixType);
-    Value *Src = CI->getOperand(0)->getType()->getPointerAddressSpace() == 0
-                     ? Builder.CreateBitCast(
-                           CI->getOperand(0),
-                           llvm::Type::getInt8PtrTy(Builder.getContext()))
-                     : Builder.CreateAddrSpaceCast(
-                           CI->getOperand(0),
-                           llvm::Type::getInt8PtrTy(Builder.getContext()));
-    Value *Dst = Builder.CreateBitCast(
-        MatAlloca, Type::getInt8PtrTy(Builder.getContext()));
-    SmallVector<Value *> Args = {Src, Dst, CI->getOperand(3), CI->getOperand(4),
-                                 CI->getOperand(1)};
-    generateCall(CI->getModule(), "_Z40matrix_layout_transform_rowmajor_to_vnniPU3AS4cS0_iii",
-                 Type::getVoidTy(Builder.getContext()), Args, Builder);
-    // stride should be the calculated according to the temp matrix's size
-    Value *NewStride = Builder.getInt64(MCols * 4);
-    SmallVector<Value *> ArgsForNewLoad = {Dst,
-                                           NewStride,
-                                           CI->getOperand(2),
-                                           CI->getOperand(3),
-                                           CI->getOperand(4),
-                                           CI->getOperand(5),
-                                           CI->getOperand(5),
-                                           CI->getOperand(7)};
-    SmallVector<Type *> TypesForNewLoad = {MatrixType, Dst->getType()};
-    return std::make_pair(
-        true, Builder.CreateIntrinsic(Intrinsic::experimental_matrix_load,
-                                      TypesForNewLoad, ArgsForNewLoad));
+    return resolveMatrixLayoutLoadHelper(
+        Builder, CI,
+        "_Z40matrix_layout_transform_rowmajor_to_vnniPU3AS4cS0_iii",
+        Builder.getInt8PtrTy(), CI->getOperand(5), CI->getOperand(1),
+        Builder.getInt64(MCols * 4), false, WorkList);
   } else if (cast<MDString>(MatL)->getString().equals("matrix.packed.b") &&
              cast<MDString>(MemL)->getString().equals("matrix.rowmajor") &&
              MatrixType->getElementType()->isIntegerTy(16)) {
-    IRBuilder<> Builder(CI);
-    Value *MatAlloca = createMatrixAllocaInst(*CI->getFunction(), MatrixType);
-    Value *Src = CI->getOperand(0)->getType()->getPointerAddressSpace() == 0
-                     ? Builder.CreateBitCast(
-                           CI->getOperand(0),
-                           llvm::Type::getInt16PtrTy(Builder.getContext()))
-                     : Builder.CreateAddrSpaceCast(
-                           CI->getOperand(0),
-                           llvm::Type::getInt16PtrTy(Builder.getContext()));
-    Value *Dst = Builder.CreateBitCast(
-        MatAlloca, Type::getInt16PtrTy(Builder.getContext()));
-    SmallVector<Value *> Args = {
-        Src, Dst, CI->getOperand(3), CI->getOperand(4),
-        Builder.CreateMul(CI->getOperand(1), Builder.getInt64(2))};
-    generateCall(CI->getModule(),
-                 "_Z40matrix_layout_transform_rowmajor_to_vnniPU3AS4sS0_iii",
-                 Type::getVoidTy(Builder.getContext()), Args, Builder);
-    // stride should be the calculated according to the temp matrix's size
-    Value *NewStride = Builder.getInt64(MCols * 2);
-    SmallVector<Value *> ArgsForNewLoad = {Dst,
-                                           NewStride,
-                                           CI->getOperand(2),
-                                           CI->getOperand(3),
-                                           CI->getOperand(4),
-                                           CI->getOperand(5),
-                                           CI->getOperand(5),
-                                           CI->getOperand(7)};
-    SmallVector<Type *> TypesForNewLoad = {MatrixType, Dst->getType()};
-    return std::make_pair(
-        true, Builder.CreateIntrinsic(Intrinsic::experimental_matrix_load,
-                                      TypesForNewLoad, ArgsForNewLoad));
+    return resolveMatrixLayoutLoadHelper(
+        Builder, CI,
+        "_Z40matrix_layout_transform_rowmajor_to_vnniPU3AS4sS0_iii",
+        Type::getInt16PtrTy(Ctx), CI->getOperand(5),
+        Builder.CreateMul(CI->getOperand(1), Builder.getInt64(2)),
+        Builder.getInt64(MCols * 2), false, WorkList);
+  } else if (cast<MDString>(MatL)->getString().equals("matrix.rowmajor") &&
+             cast<MDString>(MemL)->getString().equals("matrix.colmajor") &&
+             MatrixType->getElementType()->isIntegerTy(8)) {
+    // Transform
+    // %res = call <8 x i8> @llvm.experimental.matrix.load.v8i8.p4i8(
+    //   i32* addressspace(4) %ptr, i64 stride, i1 false, i32 4, i32 2,
+    //   metadata !"matrix.rowmajor", metadata !"matrix.colmajor", metadata
+    //   !"scope.subgroup")
+    // =>
+    // %alloc = alloca [i8 x 8]
+    // %ptr2 = bitcast %alloc to i8*
+    // matrix_layout_transform_colmajor_to_rowmajor(ptr, %ptr2, rows, cols,
+    // stride) %res = call <8 x i8> @llvm.experimental.matrix.load.v8i8.p4i8(
+    //   i8% ptr2, i64 stride, i1 false, i32 4, i32 2,
+    //   metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata
+    //   !"scope.subgroup")
+    return resolveMatrixLayoutLoadHelper(
+        Builder, CI,
+        "_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4cS0_iii",
+        Builder.getInt8PtrTy(), CI->getOperand(5), CI->getOperand(1),
+        Builder.getInt64(MRows), false, WorkList);
+  } else if (cast<MDString>(MatL)->getString().equals("matrix.rowmajor") &&
+             cast<MDString>(MemL)->getString().equals("matrix.colmajor") &&
+             MatrixType->getElementType()->isIntegerTy(16)) {
+    return resolveMatrixLayoutLoadHelper(
+        Builder, CI,
+        "_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii",
+        Type::getInt16PtrTy(Ctx), CI->getOperand(5),
+        Builder.CreateMul(CI->getOperand(1), Builder.getInt64(2)),
+        Builder.getInt64(MRows), false, WorkList);
+  } else if (cast<MDString>(MatL)->getString().equals("matrix.packed.b") &&
+             cast<MDString>(MemL)->getString().equals("matrix.colmajor") &&
+             MatrixType->getElementType()->isIntegerTy(8)) {
+    return resolveMatrixLayoutLoadHelper(
+        Builder, CI,
+        "_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4cS0_iii",
+        Builder.getInt8PtrTy(),
+        MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.rowmajor")),
+        CI->getOperand(1), Builder.getInt64(MRows), true, WorkList);
+  } else if (cast<MDString>(MatL)->getString().equals("matrix.packed.b") &&
+             cast<MDString>(MemL)->getString().equals("matrix.colmajor") &&
+             MatrixType->getElementType()->isIntegerTy(16)) {
+    return resolveMatrixLayoutLoadHelper(
+        Builder, CI,
+        "_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii",
+        Type::getInt16PtrTy(Ctx),
+        MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.rowmajor")),
+        Builder.CreateMul(CI->getOperand(1), Builder.getInt64(2)),
+        Builder.getInt64(MRows), true, WorkList);
+  } else {
+    assert(false && "invalid matrix layout or memory layout!");
   }
 
   return std::make_pair(false, CI);
@@ -187,7 +220,7 @@ bool ResolveMatrixLayoutPass::runImpl(Module &M) {
       CallInst *CI = cast<CallInst>(U);
       bool Resolved;
       Value *Replacement;
-      std::tie(Resolved, Replacement) = resolveMatrixLayoutLoad(CI);
+      std::tie(Resolved, Replacement) = resolveMatrixLayoutLoad(CI, WorkList);
       if (Resolved) {
         CI->replaceAllUsesWith(Replacement);
         CI->eraseFromParent();
@@ -199,7 +232,7 @@ bool ResolveMatrixLayoutPass::runImpl(Module &M) {
 }
 
 PreservedAnalyses ResolveMatrixLayoutPass::run(Module &M,
-                                                ModuleAnalysisManager &AM) {
+                                               ModuleAnalysisManager &AM) {
   if (!runImpl(M))
     return PreservedAnalyses::all();
   PreservedAnalyses PA;

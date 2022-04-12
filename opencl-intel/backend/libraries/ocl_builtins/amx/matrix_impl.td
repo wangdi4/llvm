@@ -66,3 +66,18 @@ def bf16_matrix_layout_transform_rowmajor_to_vnni_impl : OclBuiltinImpl<matrix_l
   }
   }]>;
 
+def int8_matrix_layout_transform_colmajor_to_rowmajor_impl : OclBuiltinImpl<matrix_layout_transform_colmajor_to_rowmajor, [v1i8], 0, [{
+  for (int k = 0; k < $Arg2VarName; ++k) {
+    for (int n = 0; n < $Arg3VarName; ++n) {
+      $Arg1VarName[n*$Arg2VarName + k] = $Arg0VarName[k*$Arg4VarName + n];
+    }
+  }
+  }]>;
+
+def bf16_matrix_layout_transform_colmajor_to_rowmajor_impl : OclBuiltinImpl<matrix_layout_transform_colmajor_to_rowmajor, [v1i16], 0, [{
+  for (int k = 0; k < $Arg2VarName; ++k) {
+    for (int n = 0; n < $Arg3VarName; ++n) {
+      $Arg1VarName[n*$Arg2VarName + k] = $Arg0VarName[k*$Arg4VarName/2 + n];
+    }
+  }
+  }]>;
