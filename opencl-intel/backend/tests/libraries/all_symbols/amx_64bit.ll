@@ -12950,6 +12950,8 @@
 ; CHECK-NEXT: _Z40sub_group_non_uniform_scan_inclusive_xorm
 ; CHECK-NEXT: _Z40sub_group_non_uniform_scan_inclusive_xors
 ; CHECK-NEXT: _Z40sub_group_non_uniform_scan_inclusive_xort
+; CHECK-NEXT: _Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4cS0_iii
+; CHECK-NEXT: _Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii
 ; CHECK-NEXT: _Z47sub_group_non_uniform_scan_exclusive_logical_orDv16_iDv16_j
 ; CHECK-NEXT: _Z47sub_group_non_uniform_scan_exclusive_logical_orDv4_iDv4_j
 ; CHECK-NEXT: _Z47sub_group_non_uniform_scan_exclusive_logical_orDv8_iDv8_j
