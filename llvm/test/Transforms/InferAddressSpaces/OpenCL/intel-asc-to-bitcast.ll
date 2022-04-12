@@ -1,6 +1,6 @@
 ; ASI can convert the addrspacecast i16 into a plain bitcast.
-; However, after this conversion, this i16 bitcast was reused for the other
-; addrspace conversions, creating incorrect IR (use-before-def and invalid type)
+; This test checks that if ASC has the same element type as NewV, ASC is
+; replaced with NewV instead of new bitcast from i16 pointer.
 
 ; RUN: opt -S -infer-address-spaces -override-flat-addr-space=4 -o - %s | FileCheck %s
 ; CHECK: bitcast i32* %gep0 to i16*
