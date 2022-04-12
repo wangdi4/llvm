@@ -117,7 +117,6 @@
 // CHECK-NEXT: NoMicroMips (SubjectMatchRule_function)
 // CHECK-NEXT: NoMips16 (SubjectMatchRule_function)
 // CHECK-NEXT: NoProfileFunction (SubjectMatchRule_function)
-// CHECK-NEXT: NoRandomizeLayout (SubjectMatchRule_record)
 // CHECK-NEXT: NoSanitize (SubjectMatchRule_function, SubjectMatchRule_objc_method, SubjectMatchRule_variable_is_global)
 // CHECK-NEXT: NoSanitizeSpecific (SubjectMatchRule_function, SubjectMatchRule_variable_is_global)
 // CHECK-NEXT: NoSpeculativeLoadHardening (SubjectMatchRule_function, SubjectMatchRule_objc_method)
@@ -171,12 +170,15 @@
 // CHECK-NEXT: PassObjectSize (SubjectMatchRule_variable_is_parameter)
 // CHECK-NEXT: PatchableFunctionEntry (SubjectMatchRule_function, SubjectMatchRule_objc_method)
 // CHECK-NEXT: Pointer (SubjectMatchRule_record_not_is_union)
+<<<<<<< HEAD
 // if INTEL_CUSTOMIZATION
 // CHECK-NEXT: PreferDSP (SubjectMatchRule_function)
 // CHECK-NEXT: PreferSoftLogic (SubjectMatchRule_function)
 // CHECK-NEXT: PropagateDSPPreference (SubjectMatchRule_function)
 // endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: RandomizeLayout (SubjectMatchRule_record)
+=======
+>>>>>>> 2cac4e7802a6db025d457aeaad3f20c1feb9de89
 // CHECK-NEXT: ReleaseHandle (SubjectMatchRule_variable_is_parameter)
 // CHECK-NEXT: RenderScriptKernel (SubjectMatchRule_function)
 // CHECK-NEXT: ReqdWorkGroupSize (SubjectMatchRule_function)
