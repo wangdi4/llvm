@@ -140,7 +140,6 @@ llvm::ModulePass *createDebugInfoPass();
 llvm::ModulePass *createProfilingInfoPass();
 llvm::Pass *createSmartGVNPass(bool);
 
-llvm::ModulePass *createSinCosFoldPass();
 llvm::ModulePass *createDetectRecursionPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
 llvm::ModulePass *createChannelsUsageAnalysisPass();
@@ -532,7 +531,7 @@ static void populatePassesPostFailCheck(
     }
 
     if (!isEyeQEmulator) {
-      PM.add(createSinCosFoldPass());
+      PM.add(createSinCosFoldLegacyPass());
     }
 
     if (!pRtlModuleList.empty()) {
