@@ -217,7 +217,6 @@ set (SUPPORT_SOURCES
   RISCVAttributes.cpp
   RISCVAttributeParser.cpp
   RISCVISAInfo.cpp
-  RISCVVIntrinsicUtils.cpp
   ScaledNumber.cpp
   ScopedPrinter.cpp
   SHA1.cpp
