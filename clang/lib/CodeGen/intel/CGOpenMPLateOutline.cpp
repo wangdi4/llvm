@@ -2552,6 +2552,8 @@ void OpenMPLateOutliner::emitOMPExclusiveClause(const OMPExclusiveClause *Cl) {
   }
 }
 
+void OpenMPLateOutliner::emitOMPHasDeviceAddrClause(
+    const OMPHasDeviceAddrClause *) {}
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}
 void OpenMPLateOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
 void OpenMPLateOutliner::emitOMPFromClause(const OMPFromClause *) {assert(false);}
