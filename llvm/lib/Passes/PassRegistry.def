@@ -759,6 +759,7 @@ FUNCTION_PASS("dpcpp-kernel-builtin-call-to-inst", BuiltinCallToInstPass())
 FUNCTION_PASS("dpcpp-kernel-phi-canonicalization", PhiCanonicalization())
 FUNCTION_PASS("dpcpp-kernel-redundant-phi-node", RedundantPhiNode())
 FUNCTION_PASS("dpcpp-kernel-add-nt-attr", AddNTAttrPass())
+FUNCTION_PASS("dpcpp-kernel-sin-cos-fold", SinCosFoldPass())
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 FUNCTION_PASS("print<vpo-wrncollection>",

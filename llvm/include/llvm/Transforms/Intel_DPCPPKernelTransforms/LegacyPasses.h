@@ -98,6 +98,7 @@ ModulePass *createSGSizeCollectorLegacyPass(VectorVariant::ISAClass);
 ModulePass *createSGSizeCollectorIndirectLegacyPass(VectorVariant::ISAClass);
 ModulePass *createSetVectorizationFactorLegacyPass(
     VectorVariant::ISAClass ISA = VectorVariant::XMM);
+FunctionPass *createSinCosFoldLegacyPass();
 ModulePass *createVFAnalysisLegacyPass();
 ModulePass *createVectorizationDimensionAnalysisLegacyPass();
 ModulePass *
