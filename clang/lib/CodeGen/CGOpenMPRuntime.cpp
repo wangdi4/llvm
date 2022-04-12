@@ -5145,8 +5145,28 @@ std::pair<llvm::Value *, Address> CGOpenMPRuntime::emitDependClause(
                                /*IndexTypeQuals=*/0, SourceRange(Loc, Loc));
     // CGF.EmitVariablyModifiedType(KmpDependInfoArrayTy);
     // Properly emit variable-sized array.
-    auto *PD = ImplicitParamDecl::Create(C, KmpDependInfoArrayTy,
+#if INTEL_COLLAB
+    // Make each dependency array name unique. Ensures correct ordering
+    // when late-outlining.
+    static unsigned int NumDependArrays = 0;
+    SmallString<24> DependArrayStr(".depend_array");
+    if (CGM.getLangOpts().OpenMPLateOutline) {
+      DependArrayStr += std::to_string(NumDependArrays);
+      ++NumDependArrays;
+    }
+    auto *PD =
+        CGM.getLangOpts().OpenMPLateOutline
+            ? ImplicitParamDecl::Create(C, /*DC=*/nullptr, Loc,
+                                        &C.Idents.get(DependArrayStr),
+                                        KmpDependInfoArrayTy,
+                                        ImplicitParamDecl::Other)
+            : ImplicitParamDecl::Create(C, KmpDependInfoArrayTy,
+                                        ImplicitParamDecl::Other);
+#else // INTEL_COLLAB
+    auto *PD = ImplicitParamDecl::Create(C,
+                                         KmpDependInfoArrayTy,
                                          ImplicitParamDecl::Other);
+#endif // INTEL_COLLAB
     CGF.EmitVarDecl(*PD);
     DependenciesArray = CGF.GetAddrOfLocalVar(PD);
     NumOfElements = CGF.Builder.CreateIntCast(NumOfElements, CGF.Int32Ty,

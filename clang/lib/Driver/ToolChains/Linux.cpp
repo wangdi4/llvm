@@ -353,8 +353,14 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   // TODO Remove once LLVM_ENABLE_PROJECTS=libcxx is unsupported.
   if (StringRef(D.Dir).startswith(SysRoot) &&
       (D.getVFS().exists(D.Dir + "/../lib/libc++.so") ||
-       Args.hasArg(options::OPT_fsycl)))
+       Args.hasArg(options::OPT_fsycl))) { // INTEL
     addPathIfExists(D, D.Dir + "/../lib", Paths);
+#if INTEL_CUSTOMIZATION
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+    addPathIfExists(D, D.Dir + "/../../lib", Paths);
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
+  }
+#endif // INTEL_CUSTOMIZATION
 
   addPathIfExists(D, SysRoot + "/lib", Paths);
   addPathIfExists(D, SysRoot + "/usr/lib", Paths);
