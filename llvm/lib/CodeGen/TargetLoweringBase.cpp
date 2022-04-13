@@ -826,19 +826,13 @@ void TargetLoweringBase::initActions() {
     setOperationAction({ISD::BITREVERSE, ISD::PARITY}, VT, Expand);
 
     // These library functions default to expand.
-<<<<<<< HEAD
-    setOperationAction(ISD::FROUND, VT, Expand);
-    setOperationAction(ISD::FROUNDEVEN, VT, Expand);
-    setOperationAction(ISD::FPOWI, VT, Expand);
 #if INTEL_CUSTOMIZATION
     setOperationAction(ISD::FTAN, VT, Expand);
     setOperationAction(ISD::FATAN, VT, Expand);
     setOperationAction(ISD::FATAN2, VT, Expand);
     setOperationAction(ISD::LDEXP, VT, Expand);
 #endif  // INTEL_CUSTOMIZATION
-=======
     setOperationAction({ISD::FROUND, ISD::FROUNDEVEN, ISD::FPOWI}, VT, Expand);
->>>>>>> e90110e696c72e5f1f72df6d11a71acf38e4e400
 
     // These operations default to expand for vector types.
     if (VT.isVector())
