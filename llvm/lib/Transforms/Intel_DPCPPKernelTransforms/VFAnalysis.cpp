@@ -40,6 +40,12 @@ static cl::opt<bool, true>
                                     cl::Hidden,
                                     cl::desc("Enable sub-group emulation"));
 
+bool DPCPPForceOptnone = false;
+static cl::opt<bool, true> DPCPPForceOptnoneOpt(
+    "dpcpp-force-optnone", cl::location(DPCPPForceOptnone), cl::Hidden,
+    cl::desc("Force passes to process functions as if they have the optnone "
+             "attribute"));
+
 extern bool DPCPPEnableVectorizationOfByvalByrefFunctions;
 
 DiagnosticKind VFAnalysisDiagInfo::Kind =
@@ -93,7 +99,7 @@ void VFAnalysisInfo::deduceVF(Function *Kernel) {
   CanFallBackToDefaultVF = false;
 
   // optnone --> disable vectorization
-  if (Kernel->hasOptNone()) {
+  if (Kernel->hasOptNone() || DPCPPForceOptnone) {
     KernelToVF[Kernel] = 1;
     LLVM_DEBUG(dbgs() << "Initial VF<optnone mode>: " << KernelToVF[Kernel]
                       << '\n');

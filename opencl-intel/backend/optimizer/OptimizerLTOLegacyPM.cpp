@@ -29,6 +29,10 @@
 #include "llvm/Transforms/VPO/VPOPasses.h"
 #include "llvm/Transforms/Vectorize.h"
 
+// If set, then optimization passes will process functions as if they have the
+// optnone attribute.
+extern bool DPCPPForceOptnone;
+
 using namespace llvm;
 
 namespace Intel {
@@ -64,6 +68,8 @@ void OptimizerLTOLegacyPM::CreatePasses() {
   PMBuilder.PrepareForThinLTO = false;
   PMBuilder.PrepareForLTO = false;
   PMBuilder.RerollLoops = false;
+
+  DPCPPForceOptnone = PMBuilder.OptLevel == 0;
 
   // At O0 and O1 we only run the always inliner which is more efficient. At
   // higher optimization levels we run the normal inliner.

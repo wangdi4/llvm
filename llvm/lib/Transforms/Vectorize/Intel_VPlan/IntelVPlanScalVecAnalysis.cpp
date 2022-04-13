@@ -614,6 +614,16 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::CvtMaskToInt: {
+    // Wide value is shared across all lanes.
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    // Instruction itself produces scalar value, but it is vector in nature.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    // Each lanes has its own value.
+    setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    return true;
+  }
+
   default: {
     assert(Inst->getOpcode() <= Instruction::OtherOpsEnd &&
            "Unknown opcode seen in SVA.");
@@ -924,6 +934,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::ConflictInsn:
   case VPInstruction::TreeConflict:
   case VPInstruction::Permute:
+  case VPInstruction::CvtMaskToInt:
     return true;
   default:
     return false;

@@ -49,6 +49,10 @@
 
 #include "SPIRVLowerConstExpr.h"
 
+// If set, then optimization passes will process functions as if they have the
+// optnone attribute.
+extern bool DPCPPForceOptnone;
+
 using namespace llvm;
 
 namespace Intel {
@@ -114,6 +118,8 @@ void OptimizerLTO::Optimize(raw_ostream &LogStream) {
     MPM = PB.buildO0DefaultPipeline(OptimizationLevel::O0);
   else
     MPM = PB.buildPerModuleDefaultPipeline(OptimizationLevel::O3);
+
+  DPCPPForceOptnone = Config->GetDisableOpt();
 
   registerLastPasses(MPM);
 
