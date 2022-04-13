@@ -1,12 +1,14 @@
 // Tests that coroutine passes are added to and run by the new pass manager
 // pipeline, at -O0 and above.
 
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm-bc -o /dev/null \
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 -fexperimental-new-pass-manager -triple x86_64-unknown-linux-gnu -emit-llvm-bc -o /dev/null \
 // RUN:   -fdebug-pass-manager -std=c++20 \
 // RUN:   -O0 %s 2>&1 | FileCheck %s --check-prefixes=CHECK-ALL
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm-bc -o /dev/null \
+// RUN: %clang_cc1 -fexperimental-new-pass-manager -triple x86_64-unknown-linux-gnu -emit-llvm-bc -o /dev/null \
 // RUN:   -fdebug-pass-manager -std=c++20 \
 // RUN:   -O1 %s 2>&1 | FileCheck %s --check-prefixes=CHECK-ALL,CHECK-OPT
+// end INTEL_CUSTOMIZATION
 //
 // CHECK-ALL: Running pass:{{.*}}CoroEarlyPass
 //

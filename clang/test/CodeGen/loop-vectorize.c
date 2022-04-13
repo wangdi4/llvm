@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // There is a little value for Xmain in this test since -fvectorize is only
 // used by community vectorizer.
@@ -7,10 +6,6 @@
 // RUN: %clang_cc1 -triple x86_64 -target-cpu x86-64 -fexperimental-new-pass-manager -S -O1 -mllvm -enable-lv -vectorize-loops -emit-llvm -o - %s | FileCheck %s -check-prefix=CHECK-ENABLE-VECT
 // RUN: %clang_cc1 -triple x86_64 -target-cpu x86-64 -fexperimental-new-pass-manager -S -O1 -mllvm -enable-lv -emit-llvm -o - %s | FileCheck %s -check-prefix=CHECK-DISABLE-VECT
 // end INTEL_CUSTOMIZATION
-=======
-// RUN: %clang_cc1 -triple x86_64 -target-cpu x86-64 -S -O1 -vectorize-loops -emit-llvm -o - %s | FileCheck %s -check-prefix=CHECK-ENABLE-VECT
-// RUN: %clang_cc1 -triple x86_64 -target-cpu x86-64 -S -O1 -emit-llvm -o - %s | FileCheck %s -check-prefix=CHECK-DISABLE-VECT
->>>>>>> 4e1bfe2297ace8be45ed2dc1446277a16f906901
 // REQUIRES: x86-registered-target
 
 // CHECK-ENABLE-VECT-LABEL: @for_test()

@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+// INTEL_CUSTOMIZATION
 // INTEL -- xmain inlining logic prefers cloning foo() to inlining, so this test
 //          fails.  To work around that, disable xmain-specific inlining logic.
 // INTEL -- loopopt significantly changes the pass pipeline and makes the test
@@ -9,10 +9,7 @@
 // thinlto compile.
 // RUN: %clang_cc1 -fexperimental-new-pass-manager -fdebug-pass-manager -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -mllvm -loopopt=0 -o - 2>&1 | FileCheck %s -check-prefix=SAMPLEPGO
 // RUN: %clang_cc1 -fexperimental-new-pass-manager -fdebug-pass-manager -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -flto=thin -mllvm -loopopt=0 -o - 2>&1 | FileCheck %s -check-prefix=THINLTO
-=======
-// RUN: %clang_cc1 -fdebug-pass-manager -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -o - 2>&1 | FileCheck %s -check-prefix=SAMPLEPGO
-// RUN: %clang_cc1 -fdebug-pass-manager -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -flto=thin -o - 2>&1 | FileCheck %s -check-prefix=THINLTO
->>>>>>> 4e1bfe2297ace8be45ed2dc1446277a16f906901
+// end INTEL_CUSTOMIZATION
 
 int baz(int);
 int g;

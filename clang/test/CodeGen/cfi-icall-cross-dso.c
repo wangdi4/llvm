@@ -1,4 +1,7 @@
 // RUN: %clang_cc1 -no-opaque-pointers -triple x86_64-unknown-linux -O1 -fno-inline \
+// INTEL_CUSTOMIZATION
+// RUN:   -fexperimental-new-pass-manager \
+// end INTEL_CUSTOMIZATION
 // RUN:   -fsanitize=cfi-icall -fsanitize-cfi-cross-dso \
 // RUN:   -fsanitize-cfi-canonical-jump-tables -emit-llvm -o - %s | FileCheck \
 // RUN:       --check-prefix=CHECK --check-prefix=CHECK-DIAG \
@@ -6,6 +9,9 @@
 // RUN:       %s
 
 // RUN: %clang_cc1 -no-opaque-pointers -triple x86_64-unknown-linux -O1 -fno-inline \
+// INTEL_CUSTOMIZATION
+// RUN:   -fexperimental-new-pass-manager \
+// end INTEL_CUSTOMIZATION
 // RUN:   -fsanitize=cfi-icall -fsanitize-cfi-cross-dso -fsanitize-trap=cfi-icall \
 // RUN:   -fsanitize-cfi-canonical-jump-tables -emit-llvm -o - %s | FileCheck \
 // RUN:       --check-prefix=CHECK \
@@ -13,6 +19,9 @@
 // RUN:       %s
 
 // RUN: %clang_cc1 -no-opaque-pointers -triple x86_64-pc-windows-msvc -O1 -fno-inline \
+// INTEL_CUSTOMIZATION
+// RUN:   -fexperimental-new-pass-manager \
+// end INTEL_CUSTOMIZATION
 // RUN:   -fsanitize=cfi-icall -fsanitize-cfi-cross-dso \
 // RUN:   -fsanitize-cfi-canonical-jump-tables -emit-llvm -o - %s | FileCheck \
 // RUN:       --check-prefix=CHECK --check-prefix=CHECK-DIAG \
@@ -20,6 +29,9 @@
 // RUN:       %s
 
 // RUN: %clang_cc1 -no-opaque-pointers -triple x86_64-pc-windows-msvc -O1 -fno-inline \
+// INTEL_CUSTOMIZATION
+// RUN:   -fexperimental-new-pass-manager \
+// end INTEL_CUSTOMIZATION
 // RUN:   -fsanitize=cfi-icall -fsanitize-cfi-cross-dso -fsanitize-trap=cfi-icall \
 // RUN:   -fsanitize-cfi-canonical-jump-tables -emit-llvm -o - %s | FileCheck \
 // RUN:       --check-prefix=CHECK \
