@@ -5548,14 +5548,6 @@ bool X86TTIImpl::isLSRCostLess(TargetTransformInfo::LSRCost &C1,
                     C2.ScaleCost, C2.ImmCost, C2.SetupCost);
 }
 
-#if INTEL_CUSTOMIZATION
-bool X86TTIImpl::isLSRCostExceedTTIRegNum(TargetTransformInfo::LSRCost &Cost) {
-  return (Cost.NumRegs > getNumberOfRegisters(false)) &&
-         (Cost.Insns > getNumberOfRegisters(false)) &&
-         ((double)Cost.ScaleCost / Cost.NumRegs) > 0.9;
-}
-#endif // INTEL_CUSTOMIZATION
-
 bool X86TTIImpl::canMacroFuseCmp() {
   return ST->hasMacroFusion() || ST->hasBranchFusion();
 }

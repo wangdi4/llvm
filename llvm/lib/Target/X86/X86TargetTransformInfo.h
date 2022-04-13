@@ -260,9 +260,6 @@ public:
                                       TTI::TargetCostKind CostKind);
   bool isLSRCostLess(TargetTransformInfo::LSRCost &C1,
                      TargetTransformInfo::LSRCost &C2);
-#if INTEL_CUSTOMIZATION
-  bool isLSRCostExceedTTIRegNum(TargetTransformInfo::LSRCost &Cost);
-#endif // INTEL_CUSTOMIZATION
   bool canMacroFuseCmp();
   bool isLegalMaskedLoad(Type *DataType, Align Alignment);
   bool isLegalMaskedStore(Type *DataType, Align Alignment);

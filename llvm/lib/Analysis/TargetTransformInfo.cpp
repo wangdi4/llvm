@@ -384,12 +384,6 @@ bool TargetTransformInfo::isNumRegsMajorCostOfLSR() const {
   return TTIImpl->isNumRegsMajorCostOfLSR();
 }
 
-#if INTEL_CUSTOMIZATION
-bool TargetTransformInfo::isLSRCostExceedTTIRegNum(LSRCost &Cost) const {
-  return TTIImpl->isLSRCostExceedTTIRegNum(Cost);
-}
-#endif // INTEL_CUSTOMIZATION
-
 bool TargetTransformInfo::isProfitableLSRChainElement(Instruction *I) const {
   return TTIImpl->isProfitableLSRChainElement(I);
 }
