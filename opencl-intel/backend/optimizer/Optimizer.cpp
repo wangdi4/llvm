@@ -100,6 +100,10 @@ static cl::opt<bool>
                                 cl::Hidden,
                                 cl::desc("Enable native subgroup functionality"));
 
+// If set, then optimization passes will process functions as if they have the
+// optnone attribute.
+extern bool DPCPPForceOptnone;
+
 using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
 extern "C"{
@@ -851,6 +855,7 @@ OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
   unsigned int OptLevel = 3;
   if (pConfig->GetDisableOpt())
     OptLevel = 0;
+  DPCPPForceOptnone = OptLevel == 0;
 
   bool UnrollLoops = true;
 
