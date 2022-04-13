@@ -1,6 +1,4 @@
 // RUN: %libomptarget-compile-run-and-check-generic
-// FIXME: Temporarily disabled test to enable xmain-cand pull-down. Reported in CMPLRLIBS-33839
-// UNSUPPORTED: x86_64-pc-linux-gnu, x86_64-pc-linux-gnu-newDriver
 
 // REQUIRES: unified_shared_memory
 // UNSUPPORTED: clang-6, clang-7, clang-8, clang-9

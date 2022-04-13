@@ -59,7 +59,6 @@ using namespace llvm;
 using namespace dtransOP;
 
 #define DEBUG_DTRANS_TYPES "irmover-dtrans-types"
-#define DEBUG_DTRANS_METADATA_LOSS "irmover-dtrans-metadata-loss"
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -121,6 +120,13 @@ static cl::opt<bool> EnableVerify(
 static cl::opt<bool> EnableQuickVerify(
     "irmover-enable-quick-module-verify", cl::Hidden, cl::init(false),
     cl::desc("enable a simple check in the destination module"));
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+static cl::opt<bool> TraceDTransMetadataLoss(
+    "irmover-trace-dtrans-metadata-loss", cl::Hidden, cl::init(false),
+    cl::desc("print a trace that shows which source module is inserting "
+             "llvm::StructType without DTrans metadata"));
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #endif // INTEL_FEATURE_SW_DTRANS
 
 // Normalizes struct name for type merging.
@@ -369,6 +375,16 @@ DTransStructsMap::DTransStructsMap(Module &M, bool AllowsIncompleteMD,
   // compile step then we can replace the 'false' with '!AllowsIncompleteMD'.
   MDReadCorrectly = DtransTypeMDReader->initialize(M, false);
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (TraceDTransMetadataLoss) {
+    // Always populate the DTrans map if we are debugging for missing metadata.
+    // This will print which source module is adding a structure without
+    // metadata.
+    populateDtransSTMap(TypesInModule);
+    return;
+  }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
   // If incomplete metadata is not allowed then there is no need to collect
   // the DTrans information
   if (!MDReadCorrectly && !AllowsIncompleteMD)
@@ -403,7 +419,8 @@ void DTransStructsMap::populateDtransSTMap(
       auto *DTField =
           dyn_cast_or_null<DTransStructType>(DTStr->getFieldType(I));
 
-      DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS, {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      if (TraceDTransMetadataLoss) {
         if (!DTField) {
           dbgs() << "    llvm::Type: " << *Field << "\n";
           dbgs() << "    DTransType: None\n\n";
@@ -414,7 +431,8 @@ void DTransStructsMap::populateDtransSTMap(
           DTField->dump();
           dbgs() << "\n\n";
         }
-      });
+      }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
       DTransSTMap.insert({Field, DTField});
       MapNested(Field, DTField, DTransSTMap, Visited);
@@ -429,7 +447,8 @@ void DTransStructsMap::populateDtransSTMap(
     DTransStructType *DTStruct = TM->getStructType(ST->getName());
     DTransSTMap.insert({ST, DTStruct});
 
-    DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS, {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (TraceDTransMetadataLoss) {
       if (!DTStruct) {
         dbgs() << "    llvm::Type: " << *ST << "\n";
         dbgs() << "    DTransType: None\n\n";
@@ -440,7 +459,8 @@ void DTransStructsMap::populateDtransSTMap(
         DTStruct->dump();
         dbgs() << "\n\n";
       }
-    });
+    }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
     MapNested(ST, DTStruct, DTransSTMap, Visited);
   }
@@ -889,10 +909,12 @@ bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM) {
       std::vector<StructType *> &TypesInModule) -> bool {
     assert(!(*DTMap) && "DTransStructsMap already allocated");
 
-    DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS, {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (TraceDTransMetadataLoss) {
       dbgs() << "  Checking for metadata loss in "
              << "source module:\n";
-    });
+    }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
     DTransStructsMap *DTNewMap =
         new DTransStructsMap(M, AllowsIncompleteMD, TypesInModule);
@@ -1004,10 +1026,11 @@ bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM) {
       dbgs() << "Merging types from source module: "
              << SrcM.getName() << "\n\n");
 
-  DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS,
-      dbgs() << "Merging types from source module: "
-             << SrcM.getName() << "\n\n");
-
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (TraceDTransMetadataLoss)
+    dbgs() << "Merging types from source module: "
+           << SrcM.getName() << "\n\n";
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   std::vector<StructType *> SrcTypes = SrcM.getIdentifiedStructTypes();
   // NOTE: We collect the DTrans structures first because there is a chance
@@ -1019,10 +1042,11 @@ bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM) {
     return false;
   }
 
-  DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS, {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (TraceDTransMetadataLoss)
     dbgs() << "  Checking for metadata loss in "
            << "destination module:\n";
-  });
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   // This SetVector will store the structures that have extra numbering at the
   // end of the name in the destination module. If we can't catch the type by
@@ -2772,9 +2796,11 @@ void IRLinker::verifyDestinationModule() {
     return;
   }
 
-  DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS,
-      dbgs() << "  Checking for metadata loss in destination module "
-             << "verification:\n");
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (TraceDTransMetadataLoss)
+    dbgs() << "  Checking for metadata loss in destination module "
+           << "verification:\n";
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   // We need to create a new DTrans map since the destination module now
   // has new types.
@@ -2809,9 +2835,13 @@ void IRLinker::verifyDestinationModule() {
     if (!DTinMap) {
       assert(AllowsIncompleteMD && "Missing DTransStructType in "
                                    "destination metadata");
-      DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS,
-          dbgs() << "Warning: Missing DTrans type in metadata for: " << *ST
-                 << "\n");
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      if (TraceDTransMetadataLoss)
+        dbgs() << "Warning: Missing DTrans type in metadata for: " << *ST
+               << "\n";
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
       continue;
     }
 
@@ -2852,9 +2882,12 @@ void IRLinker::verifyDestinationModule() {
       if (!DTCleanNameST) {
         assert(AllowsIncompleteMD && "Missing DTransStructType in "
                                      "type mapper");
-        DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS,
-            dbgs() << "Warning: Missing DTrans type in map for: " << *ST
-                   << "\n");
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+       if (TraceDTransMetadataLoss)
+          dbgs() << "Warning: Missing DTrans type in map for: " << *ST << "\n";
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
         continue;
       }
 
@@ -2877,9 +2910,13 @@ void IRLinker::verifyDestinationModule() {
     if (!DTinDstTM) {
       assert(AllowsIncompleteMD && "Missing DTransStructType in destination "
           "type manager when it is available in DTrans metadata");
-      DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS,
-          dbgs() << "Warning: DTransStructType not generated in type "
-                 << "manager for: " << *ST << "\n");
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      if (TraceDTransMetadataLoss)
+        dbgs() << "Warning: DTransStructType not generated in type "
+               << "manager for: " << *ST << "\n";
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
       continue;
     }
     assert(DTinMap->compare(*DTinDstTM) && "Mismatch between DTrans type in "
@@ -2945,9 +2982,13 @@ void IRLinker::quickVerifyDestinationModule() {
       if (!DTCleanNameST) {
         assert(AllowsIncompleteMD && "Missing DTransStructType in "
                                      "type mapper");
-        DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS,
-            dbgs() << "Warning: Missing DTrans type in map for: " << *ST
-                   << "\n");
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+        if (TraceDTransMetadataLoss)
+          dbgs() << "Warning: Missing DTrans type in map for: " << *ST
+                 << "\n";
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
         continue;
       }
 
@@ -3885,8 +3926,11 @@ Error IRLinker::run() {
   DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES,
       dbgs() << "\n-------------------------------------------------------\n");
 
-  DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS,
-      dbgs() << "\n-------------------------------------------------------\n");
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (TraceDTransMetadataLoss)
+    dbgs() << "\n-------------------------------------------------------\n";
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 

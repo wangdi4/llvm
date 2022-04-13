@@ -5878,6 +5878,20 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     break;
   }
 
+  case VPInstruction::CvtMaskToInt: {
+    // Bitcast <VF x i1> to an integer value VF-bits long.
+    Type *MaskTy = IntegerType::get(Context, getVF());
+    auto *BitCastInst =
+        HLNodeUtilities.createCastHLInst(MaskTy, Instruction::BitCast, RefOp0);
+    addInst(BitCastInst, Mask);
+    // Zext the casted value to target integer type.
+    auto *ZextInst =
+        createZExt(VPInst->getType(), BitCastInst->getLvalDDRef()->clone());
+    // Produced value is uniform and scalar, update entry in scalar map.
+    addVPValueScalRefMapping(VPInst, ZextInst->getLvalDDRef(), 0 /*Lane*/);
+    return;
+  }
+
   case VPInstruction::PushVF: {
     assert(isMergedCFG() && "PushVF expected only for merged CFG.");
     unsigned NewVF = cast<VPPushVF>(VPInst)->getVF();
