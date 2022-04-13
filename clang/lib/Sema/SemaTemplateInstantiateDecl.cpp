@@ -1382,7 +1382,7 @@ void Sema::InstantiateDefaultCtorDefaultArgs(CXXConstructorDecl *Ctor) {
   for (unsigned I = 0; I != NumParams; ++I) {
     (void)CheckCXXDefaultArgExpr(Attr->getLocation(), Ctor,
                                    Ctor->getParamDecl(I));
-    DiscardCleanupsInEvaluationContext();
+    CleanupVarDeclMarking();
   }
 }
 
