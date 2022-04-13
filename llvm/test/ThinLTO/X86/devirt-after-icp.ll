@@ -46,7 +46,6 @@
 ; RUN: opt -thinlto-bc -thinlto-split-lto-unit %intel_devirt_options -o %t.o %s
 ; end INTEL_CUSTOMIZATION
 
-; Legacy PM
 ; RUN: llvm-lto2 run %t.o -save-temps -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
 ; INTEL_CUSTOMIZATION
@@ -68,6 +67,7 @@
 ; RUN:   -r=%t.o,_ZTV1B,px 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t3.1.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
+<<<<<<< HEAD
 ; New PM
 ; RUN: llvm-lto2 run %t.o -save-temps -use-new-pm -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
@@ -90,6 +90,8 @@
 ; RUN:   -r=%t.o,_ZTV1B,px 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t3.1.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
+=======
+>>>>>>> 2121dc5b158b0d11667a5d8c39f0121b869ca1c5
 ; We should only devirtualize the inlined call to bar().
 ; REMARK-NOT: single-impl: devirtualized a call to _ZN1B3fooEv
 ; REMARK: single-impl: devirtualized a call to _ZN1B3barEv

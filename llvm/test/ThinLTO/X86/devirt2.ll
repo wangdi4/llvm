@@ -36,7 +36,7 @@
 ; NOENABLESPLITFLAG-DAG: typeidCompatibleVTable: (name: "_ZTS1C", summary: ((offset: 16, [[C]])))
 ; NOENABLESPLITFLAG-DAG: typeidCompatibleVTable: (name: "_ZTS1D", summary: ((offset: 16, [[D]])))
 
-; Legacy PM, Index based WPD
+; Index based WPD
 ; RUN: llvm-lto2 run %t3.o %t4.o -save-temps -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
 ; INTEL_CUSTOMIZATION
@@ -63,6 +63,7 @@
 ; RUN: llvm-nm %t5.1 | FileCheck %s --check-prefix=NM-INDEX1
 ; RUN: llvm-nm %t5.2 | FileCheck %s --check-prefix=NM-INDEX2
 
+<<<<<<< HEAD
 ; New PM, Index based WPD
 ; RUN: llvm-lto2 run %t3.o %t4.o -save-temps -use-new-pm -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
@@ -90,6 +91,8 @@
 ; RUN: llvm-nm %t5.1 | FileCheck %s --check-prefix=NM-INDEX1
 ; RUN: llvm-nm %t5.2 | FileCheck %s --check-prefix=NM-INDEX2
 
+=======
+>>>>>>> 2121dc5b158b0d11667a5d8c39f0121b869ca1c5
 ; NM-INDEX1-DAG: U _ZN1A1nEi.llvm.
 ; NM-INDEX1-DAG: U _ZN1E1mEi.llvm.
 ; NM-INDEX1-DAG: U _ZN1D1mEi
@@ -101,7 +104,7 @@
 ; NM-INDEX2-DAG: t _ZN1C1fEi
 
 ; Index based WPD, distributed backends
-; RUN: llvm-lto2 run %t3.o %t4.o -save-temps -use-new-pm \
+; RUN: llvm-lto2 run %t3.o %t4.o -save-temps \
 ; RUN:   -whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_devirt_options \
@@ -127,6 +130,7 @@
 ; PRINT-DAG: Devirtualized call to {{.*}} (_ZN1E1mEi)
 ; PRINT-DAG: Devirtualized call to {{.*}} (_ZN1D1mEi)
 
+<<<<<<< HEAD
 ; Legacy PM
 ; RUN: llvm-lto2 run %t1.o %t2.o -save-temps -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
@@ -166,8 +170,10 @@
 ; RUN: llvm-nm %t5.1 | FileCheck %s --check-prefix=NM-HYBRID1
 ; RUN: llvm-nm %t5.2 | FileCheck %s --check-prefix=NM-HYBRID2
 
+=======
+>>>>>>> 2121dc5b158b0d11667a5d8c39f0121b869ca1c5
 ; New PM
-; RUN: llvm-lto2 run %t1.o %t2.o -save-temps -use-new-pm -pass-remarks=. \
+; RUN: llvm-lto2 run %t1.o %t2.o -save-temps -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_devirt_options \

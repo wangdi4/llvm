@@ -4,7 +4,6 @@
 
 ; RUN: opt -thinlto-bc -thinlto-split-lto-unit -o %t.o %s
 
-; Legacy PM
 ; RUN: llvm-lto2 run %t.o -save-temps -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
 ; INTEL_CUSTOMIZATION
@@ -25,6 +24,7 @@
 ; RUN:   -r=%t.o,_ZTV1C,px 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t3.1.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
+<<<<<<< HEAD
 ; New PM
 ; RUN: llvm-lto2 run %t.o -save-temps -use-new-pm -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
@@ -46,6 +46,8 @@
 ; RUN:   -r=%t.o,_ZTV1C,px 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t3.1.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
+=======
+>>>>>>> 2121dc5b158b0d11667a5d8c39f0121b869ca1c5
 ; REMARK: single-impl: devirtualized a call to _ZN1A1nEi
 
 ; Next check that we emit an error when trying to LTO link this module

@@ -33,7 +33,7 @@
 ; Type Id on _ZTV1D should have been promoted
 ; NOENABLESPLITFLAG-DAG: typeidCompatibleVTable: (name: "1.{{.*}}", summary: ((offset: 16, [[D]])))
 
-; Legacy PM, Index based WPD
+; Index based WPD
 ; RUN: llvm-lto2 run %t2.o -save-temps -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
 ; INTEL_CUSTOMIZATION
@@ -68,6 +68,7 @@
 ; RUN:   -r=%t2.o,_ZTV1C,px \
 ; RUN:   -r=%t2.o,_ZTV1D,px 2>&1 | FileCheck %s --check-prefix=SKIP
 
+<<<<<<< HEAD
 ; New PM, Index based WPD
 ; RUN: llvm-lto2 run %t2.o -save-temps -use-new-pm -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
@@ -86,6 +87,8 @@
 ; RUN: llvm-dis %t3.1.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
 ; Legacy PM
+=======
+>>>>>>> 2121dc5b158b0d11667a5d8c39f0121b869ca1c5
 ; FIXME: Fix machine verifier issues and remove -verify-machineinstrs=0. PR39436.
 ; RUN: llvm-lto2 run %t.o -save-temps -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
@@ -111,6 +114,7 @@
 ; RUN:   -r=%t.o,_ZTV1D,px 2>&1 | FileCheck %s --check-prefix=REMARK --dump-input=fail
 ; RUN: llvm-dis %t3.1.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
+<<<<<<< HEAD
 ; New PM
 ; FIXME: Fix machine verifier issues and remove -verify-machineinstrs=0. PR39436.
 ; RUN: llvm-lto2 run %t.o -save-temps -use-new-pm -pass-remarks=. \
@@ -137,6 +141,8 @@
 ; RUN:   -r=%t.o,_ZTV1D,px 2>&1 | FileCheck %s --check-prefix=REMARK --dump-input=fail
 ; RUN: llvm-dis %t3.1.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
+=======
+>>>>>>> 2121dc5b158b0d11667a5d8c39f0121b869ca1c5
 ; REMARK-DAG: single-impl: devirtualized a call to _ZN1A1nEi
 ; REMARK-DAG: single-impl: devirtualized a call to _ZN1D1mEi
 
