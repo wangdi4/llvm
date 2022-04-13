@@ -2232,9 +2232,15 @@ def fglobal_isel : Flag<["-"], "fglobal-isel">, Group<f_clang_Group>,
 def fexperimental_isel : Flag<["-"], "fexperimental-isel">, Group<f_clang_Group>,
   Alias<fglobal_isel>;
 defm legacy_pass_manager : BoolOption<"f", "legacy-pass-manager",
+<<<<<<< HEAD
   CodeGenOpts<"LegacyPassManager">, Default<"!static_cast<unsigned>(LLVM_ENABLE_NEW_PASS_MANAGER)">, // INTEL
   PosFlag<SetTrue, [], "Use the legacy pass manager in LLVM (deprecated, to be removed in a future release)">,
   NegFlag<SetFalse, [], "Use the new pass manager in LLVM">,
+=======
+  CodeGenOpts<"LegacyPassManager">, DefaultFalse,
+  PosFlag<SetTrue>,
+  NegFlag<SetFalse>,
+>>>>>>> 9faab435a35720fd7c6b3aeafe22c5dfb29f36e0
   BothFlags<[CC1Option]>>, Group<f_clang_Group>;
 def fexperimental_new_pass_manager : Flag<["-"], "fexperimental-new-pass-manager">,
   Group<f_clang_Group>, Flags<[CC1Option]>, Alias<fno_legacy_pass_manager>;
