@@ -276,6 +276,7 @@ TEST_F(CommandLineTest, BoolOptionDefaultArbitraryTwoFlagsPresentNone) {
   const char *Args = {""};
 
   ASSERT_TRUE(CompilerInvocation::CreateFromArgs(Invocation, Args, *Diags));
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   ASSERT_EQ(Invocation.getCodeGenOpts().LegacyPassManager, PassManagerDefault);
 #endif // INTEL_CUSTOMIZATION
@@ -320,6 +321,36 @@ TEST_F(CommandLineTest, BoolOptionDefaultArbitraryTwoFlagsPresentReset) {
   ASSERT_THAT(GeneratedArgs, Not(Contains(StrEq(PassManagerResetByFlag))));
   ASSERT_THAT(GeneratedArgs, Not(Contains(StrEq(PassManagerChangedByFlag))));
 #endif // INTEL_CUSTOMIZATION
+=======
+  ASSERT_EQ(Invocation.getCodeGenOpts().ClearASTBeforeBackend, false);
+
+  Invocation.generateCC1CommandLine(GeneratedArgs, *this);
+
+  ASSERT_THAT(GeneratedArgs, Not(Contains(StrEq("-no-clear-ast-before-backend"))));
+  ASSERT_THAT(GeneratedArgs, Not(Contains(StrEq("-clear-ast-before-backend"))));
+}
+
+TEST_F(CommandLineTest, BoolOptionDefaultArbitraryTwoFlagsPresentChange) {
+  const char *Args[] = {"-clear-ast-before-backend"};
+
+  ASSERT_TRUE(CompilerInvocation::CreateFromArgs(Invocation, Args, *Diags));
+  ASSERT_EQ(Invocation.getCodeGenOpts().ClearASTBeforeBackend, true);
+
+  Invocation.generateCC1CommandLine(GeneratedArgs, *this);
+  ASSERT_THAT(GeneratedArgs, Contains(StrEq("-clear-ast-before-backend")));
+  ASSERT_THAT(GeneratedArgs, Not(Contains(StrEq("-no-clear-ast-before-backend"))));
+}
+
+TEST_F(CommandLineTest, BoolOptionDefaultArbitraryTwoFlagsPresentReset) {
+  const char *Args[] = {"-no-clear-ast-before-backend"};
+
+  ASSERT_TRUE(CompilerInvocation::CreateFromArgs(Invocation, Args, *Diags));
+  ASSERT_EQ(Invocation.getCodeGenOpts().ClearASTBeforeBackend, false);
+
+  Invocation.generateCC1CommandLine(GeneratedArgs, *this);
+  ASSERT_THAT(GeneratedArgs, Not(Contains(StrEq("-no-clear-ast-before-backend"))));
+  ASSERT_THAT(GeneratedArgs, Not(Contains(StrEq("-clear-ast-before-backend"))));
+>>>>>>> 06285fc9fd522b5ab99f607b8123f4056d97e289
 }
 
 // Boolean option that gets the CC1Option flag from a let statement (which
