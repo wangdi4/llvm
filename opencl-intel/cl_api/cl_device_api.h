@@ -680,13 +680,9 @@ class ITaskExecutor;
 
 }}}
 
-typedef cl_dev_err_code (fn_clDevCreateDeviceInstance)(
-                                   unsigned int     dev_id,
-                                   IOCLFrameworkCallbacks   *pDevCallBacks,
-                                   IOCLDevLogDescriptor     *pLogDesc,
-                                   IOCLDeviceAgent*             *pDevice,
-                                   Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger
-                                   );
+typedef cl_dev_err_code(fn_clDevCreateDeviceInstance)(
+    unsigned int dev_id, IOCLFrameworkCallbacks *pDevCallBacks,
+    IOCLDevLogDescriptor *pLogDesc, IOCLDeviceAgent **pDevice);
 
 //! This function return device specific information defined by cl_device_info enumeration as specified in OCL spec. table 4.3.
 /*!

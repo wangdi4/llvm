@@ -192,8 +192,7 @@ FrameworkUserLogger *g_pUserLogger = nullptr;
 
 extern "C" DLL_EXPORT int
 CreateFrontEndInstance(const void *pDeviceInfo, size_t devInfoSize,
-                       IOCLFECompiler **pFECompiler,
-                       Intel::OpenCL::Utils::FrameworkUserLogger *pUserLogger) {
+                       IOCLFECompiler **pFECompiler) {
   // Lazy initialization
   if (!ClangCompilerInitialize())
   {
@@ -202,8 +201,6 @@ CreateFrontEndInstance(const void *pDeviceInfo, size_t devInfoSize,
 
   assert(nullptr != pFECompiler && "Front-end compiler can't be null");
   assert(devInfoSize == sizeof(CLANG_DEV_INFO) && "Ivalid device information");
-
-  g_pUserLogger = pUserLogger;
 
   try {
     *pFECompiler = new ClangFECompiler(pDeviceInfo);

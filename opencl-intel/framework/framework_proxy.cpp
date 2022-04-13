@@ -662,7 +662,7 @@ Intel::OpenCL::TaskExecutor::ITaskExecutor*  FrameworkProxy::GetTaskExecutor() c
       auto deviceMode = m_pConfig->GetDeviceMode();
       if (m_pConfig->UseAutoMemory()) {
         teInitialized = m_pTaskExecutor->Init(
-            g_pUserLogger, m_pConfig->GetNumTBBWorkers(), &m_GPAData,
+            m_pConfig->GetNumTBBWorkers(), &m_GPAData,
             m_pConfig->GetStackDefaultSize(), deviceMode);
       } else {
         // Here we pass value of CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE and
@@ -673,7 +673,7 @@ Intel::OpenCL::TaskExecutor::ITaskExecutor*  FrameworkProxy::GetTaskExecutor() c
                            m_pConfig->GetForcedPrivateMemSize() +
                            CPU_DEV_BASE_STACK_SIZE;
         teInitialized =
-            m_pTaskExecutor->Init(g_pUserLogger, m_pConfig->GetNumTBBWorkers(),
+            m_pTaskExecutor->Init(m_pConfig->GetNumTBBWorkers(),
                                   &m_GPAData, stackSize, deviceMode);
       }
     }

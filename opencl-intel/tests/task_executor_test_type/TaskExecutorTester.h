@@ -59,8 +59,7 @@ public:
             m_config->Initialize(GetConfigFilePath());
             size_t additionalStackSize = m_config->GetForcedLocalMemSize() +
                 m_config->GetForcedPrivateMemSize();
-            m_pTaskExecutor->Init(NULL, TE_AUTO_THREADS, NULL,
-                                  additionalStackSize);
+            m_pTaskExecutor->Init(TE_AUTO_THREADS, NULL, additionalStackSize);
         }
     }
 

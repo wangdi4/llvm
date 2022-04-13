@@ -355,7 +355,7 @@ cl_err_code Device::CreateInstance()
         }
 
         LOG_DEBUG(TEXT("%s"), TEXT("Call Device::fn_clDevCreateDeviceInstance"));
-        int clDevErr = devCreateInstance(m_devId, this, this, &m_pDevice, g_pUserLogger);
+        int clDevErr = devCreateInstance(m_devId, this, this, &m_pDevice);
         if (clDevErr != (int)CL_DEV_SUCCESS)
         {
             LOG_ERROR(TEXT("Device::devCreateInstance returned %d"), clDevErr);

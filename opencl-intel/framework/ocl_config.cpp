@@ -60,7 +60,7 @@ FrameworkUserLogger *FrameworkUserLogger::Instance = nullptr;
 
 FrameworkUserLogger *FrameworkUserLogger::GetInstance()
 {
-  FrameworkUserLogger *S = [] {
+  static FrameworkUserLogger *S = [] {
     Instance = new FrameworkUserLogger;
     return Instance;
   }();
