@@ -1,8 +1,7 @@
 ; RUN: opt -module-summary %s -o %t1.bc
 
 ; Test SLP and Loop Vectorization are enabled by default at O2 and O3.
-<<<<<<< HEAD
-; ; INTEL - Enable loop vectorizer as it is needed, it is not ON by default.
+; INTEL - Enable loop vectorizer as it is needed, it is not ON by default.
 ; RUN: llvm-lto2 run %t1.bc -o %t2.o -O0 -enable-lv -r %t1.bc,foo,plx -debug-pass-manager \
 ; RUN:  -use-new-pm -save-temps 2>&1 | FileCheck %s --check-prefix=CHECK-O0-SLP
 ; RUN: llvm-dis %t2.o.1.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-O0-LPV
@@ -17,22 +16,6 @@
 
 ; RUN: llvm-lto2 run %t1.bc -o %t5.o -O3 -enable-lv -r %t1.bc,foo,plx -debug-pass-manager \
 ; RUN:  -use-new-pm -save-temps 2>&1 | FileCheck %s --check-prefix=CHECK-O3-SLP
-=======
-; RUN: llvm-lto2 run %t1.bc -o %t2.o -O0 -r %t1.bc,foo,plx -debug-pass-manager \
-; RUN:  -save-temps 2>&1 | FileCheck %s --check-prefix=CHECK-O0-SLP
-; RUN: llvm-dis %t2.o.1.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-O0-LPV
-
-; RUN: llvm-lto2 run %t1.bc -o %t3.o -O1 -r %t1.bc,foo,plx -debug-pass-manager \
-; RUN:  -save-temps 2>&1 | FileCheck %s --check-prefix=CHECK-O1-SLP
-; RUN: llvm-dis %t3.o.1.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-O1-LPV
-
-; RUN: llvm-lto2 run %t1.bc -o %t4.o -O2 -r %t1.bc,foo,plx -debug-pass-manager \
-; RUN:  -save-temps 2>&1 | FileCheck %s --check-prefix=CHECK-O2-SLP
-; RUN: llvm-dis %t4.o.1.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-O2-LPV
-
-; RUN: llvm-lto2 run %t1.bc -o %t5.o -O3 -r %t1.bc,foo,plx -debug-pass-manager \
-; RUN:  -save-temps 2>&1 | FileCheck %s --check-prefix=CHECK-O3-SLP
->>>>>>> 2121dc5b158b0d11667a5d8c39f0121b869ca1c5
 ; RUN: llvm-dis %t5.o.1.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-O3-LPV
 
 ; CHECK-O0-SLP-NOT: Running pass: SLPVectorizerPass

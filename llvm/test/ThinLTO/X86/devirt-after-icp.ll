@@ -67,31 +67,6 @@
 ; RUN:   -r=%t.o,_ZTV1B,px 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t3.1.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
-<<<<<<< HEAD
-; New PM
-; RUN: llvm-lto2 run %t.o -save-temps -use-new-pm -pass-remarks=. \
-; RUN:   -whole-program-visibility \
-; INTEL_CUSTOMIZATION
-; RUN:   %intel_devirt_options \
-; end INTEL_CUSTOMIZATION
-; RUN:   -o %t3 \
-; RUN:   -r=%t.o,_Z3bazP1A,px \
-; RUN:   -r=%t.o,_ZN1A3fooEv, \
-; RUN:   -r=%t.o,_ZN1A3barEv, \
-; RUN:   -r=%t.o,_ZN1B3fooEv, \
-; RUN:   -r=%t.o,_ZN1B3barEv, \
-; RUN:   -r=%t.o,_ZTV1A, \
-; RUN:   -r=%t.o,_ZTV1B, \
-; RUN:   -r=%t.o,_ZN1A3fooEv, \
-; RUN:   -r=%t.o,_ZN1A3barEv, \
-; RUN:   -r=%t.o,_ZN1B3fooEv, \
-; RUN:   -r=%t.o,_ZN1B3barEv, \
-; RUN:   -r=%t.o,_ZTV1A,px \
-; RUN:   -r=%t.o,_ZTV1B,px 2>&1 | FileCheck %s --check-prefix=REMARK
-; RUN: llvm-dis %t3.1.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
-
-=======
->>>>>>> 2121dc5b158b0d11667a5d8c39f0121b869ca1c5
 ; We should only devirtualize the inlined call to bar().
 ; REMARK-NOT: single-impl: devirtualized a call to _ZN1B3fooEv
 ; REMARK: single-impl: devirtualized a call to _ZN1B3barEv

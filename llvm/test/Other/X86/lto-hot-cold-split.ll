@@ -1,7 +1,13 @@
 ; RUN: opt -module-summary %s -o %t.bc
 ; RUN: llvm-lto -hot-cold-split=true \
+; INTEL_CUSTOMIZATION
+; RUN:          -use-new-pm=true \
+; end INTEL_CUSTOMIZATION
 ; RUN:          -thinlto-action=run %t.bc -debug-pass-manager 2>&1 | FileCheck %s -check-prefix=OLDPM-ANYLTO-POSTLINK-Os
 ; RUN: llvm-lto -hot-cold-split=true \
+; INTEL_CUSTOMIZATION
+; RUN:          -use-new-pm=true \
+; end INTEL_CUSTOMIZATION
 ; RUN:          %t.bc -debug-pass-manager 2>&1 | FileCheck %s -check-prefix=OLDPM-ANYLTO-POSTLINK-Os
 
 ; REQUIRES: asserts

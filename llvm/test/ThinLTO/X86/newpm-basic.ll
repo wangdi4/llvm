@@ -1,10 +1,16 @@
 ; RUN: opt -module-summary %s -o %t1.bc
 ; RUN: llvm-lto2 run %t1.bc -o %t.o \
+; INTEL_CUSTOMIZATION
+; RUN:     -use-new-pm=true \
+; end INTEL_CUSTOMIZATION
 ; RUN:     -r=%t1.bc,_tinkywinky,pxl \
 ; RUN:     -debug-pass-manager \
 ; RUN:     2>&1 | FileCheck %s
 
 ; RUN: llvm-lto -thinlto-action=run -exported-symbol tinkywinky \
+; INTEL_CUSTOMIZATION
+; RUN:     -use-new-pm=true \
+; end INTEL_CUSTOMIZATION
 ; RUN:          -debug-pass-manager \
 ; RUN:          %t1.bc 2>&1 | FileCheck %s
 

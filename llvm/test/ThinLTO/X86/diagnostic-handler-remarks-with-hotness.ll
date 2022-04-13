@@ -5,6 +5,9 @@
 ; with -lto-pass-remarks-with-hotness.
 
 ; RUN: llvm-lto -thinlto-action=run \
+; INTEL_CUSTOMIZATION
+; RUN:          -use-new-pm=true \
+; end INTEL_CUSTOMIZATION
 ; RUN:          -lto-pass-remarks-output=%t.yaml \
 ; RUN:          -lto-pass-remarks-with-hotness \
 ; RUN:          -exported-symbol _func2 \

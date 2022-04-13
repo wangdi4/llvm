@@ -2,6 +2,9 @@
 
 ; Try the default pipeline and check is BasicAA is invoked.
 ; RUN: llvm-lto2 run %t1.bc -o %t.o -r %t1.bc,patatino,px -debug-pass-manager \
+; INTEL_CUSTOMIZATION
+; RUN:     -use-new-pm=true \
+; end INTEL_CUSTOMIZATION
 ; RUN:  2>&1 | FileCheck %s --check-prefix=DEFAULT
 ; DEFAULT: Running analysis: BasicAA on patatino
 
