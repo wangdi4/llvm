@@ -947,7 +947,6 @@ void DisassemblerTables::emitContextTable(raw_ostream &o, unsigned &i) const {
         if (index & ATTR_EVEXB)
           o << "_B";
       }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XUCC
     } else if ((index & ATTR_XUCCPD) || (index & ATTR_XUCCXD) ||
@@ -965,11 +964,8 @@ void DisassemblerTables::emitContextTable(raw_ostream &o, unsigned &i) const {
       }
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
-    } else if ((index & ATTR_64BIT) && (index & ATTR_REXW) && (index & ATTR_XS))
-=======
     }
     else if ((index & ATTR_64BIT) && (index & ATTR_REXW) && (index & ATTR_XS))
->>>>>>> 3337f50625a3e424a2d9a04c6034f6face81cca6
       o << "IC_64BIT_REXW_XS";
     else if ((index & ATTR_64BIT) && (index & ATTR_REXW) && (index & ATTR_XD))
       o << "IC_64BIT_REXW_XD";
