@@ -151,5 +151,5 @@ attributes #8 = { convergent }
 
 ; DEBUGIFY-NOT: WARNING
 ; FIXME: SGValueWiden does not respect llvm.dbg.value and llvm.dbg.addr
-; DEBUGIFY-COUNT-3: WARNING: Missing line
+; DEBUGIFY-COUNT-2: WARNING: Missing line
 ; DEBUGIFY-NOT: WARNING

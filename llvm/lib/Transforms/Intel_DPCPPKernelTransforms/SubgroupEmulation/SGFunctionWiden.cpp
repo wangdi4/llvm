@@ -216,9 +216,28 @@ bool FunctionWidener::isWideCall(Instruction *I) {
 }
 
 Instruction *FunctionWidener::getInsertPoint(Instruction *I, Value *V) {
-
-  if (isWideCall(I) || isa<ReturnInst>(I)) {
+  if (isWideCall(I)) {
+    auto *CI = cast<CallInst>(I);
     auto *IP = I->getPrevNode();
+
+    if (Utils.getAllFunctionsWithSynchronization().count(
+            CI->getCalledFunction())) {
+      assert((cast<CallInst>(IP)->getCalledFunction() != nullptr &&
+              isWorkGroupBarrier(
+                  cast<CallInst>(IP)->getCalledFunction()->getName())) &&
+             "Expect workgroup barrier call before workgroup sync function.");
+      IP = IP->getPrevNode();
+      return getInsertPoint(IP, V);
+    }
+    if (!Helper.isBarrier(IP))
+      IP = Helper.insertBarrierBefore(I);
+    return getInsertPoint(IP, V);
+  }
+
+  if (isa<ReturnInst>(I)) {
+    auto *IP = I->getPrevNode();
+    if (Utils.isBarrierCall(IP))
+      IP = IP->getPrevNode();
     // The ending barrier may be deleted before
     // sg_barrier
     // %0 = sub_group_all(1)
@@ -233,7 +252,7 @@ Instruction *FunctionWidener::getInsertPoint(Instruction *I, Value *V) {
   if (Helper.isBarrier(I) || Helper.isDummyBarrier(I)) {
     auto *SyncBB = I->getParent();
     std::string BBName = SyncBB->getName().str();
-    SyncBB->setName("");
+    SyncBB->setName("sync.bb.");
     SyncBB->splitBasicBlock(I, BBName);
     return SyncBB->getTerminator();
   }
