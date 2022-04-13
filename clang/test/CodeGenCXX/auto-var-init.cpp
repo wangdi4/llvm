@@ -1,11 +1,13 @@
-// RUN: %clang_cc1 -no-opaque-pointers -std=c++14 -triple x86_64-unknown-unknown -fblocks %s -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK,CHECK-O0
-// RUN: %clang_cc1 -no-opaque-pointers -std=c++14 -triple x86_64-unknown-unknown -fblocks -ftrivial-auto-var-init=pattern %s -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK-O0,PATTERN,PATTERN-O0
-// RUN: %clang_cc1 -no-opaque-pointers -std=c++14 -triple x86_64-unknown-unknown -fblocks -ftrivial-auto-var-init=pattern %s -O1 -fno-experimental-new-pass-manager -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK-O1,PATTERN,PATTERN-O1,PATTERN-O1-LEGACY
-// RUN: %clang_cc1 -no-opaque-pointers -std=c++14 -triple x86_64-unknown-unknown -fblocks -ftrivial-auto-var-init=pattern %s -O1 -fexperimental-new-pass-manager -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK-O1,PATTERN,PATTERN-O1,PATTERN-O1-NEWPM
-// RUN: %clang_cc1 -no-opaque-pointers -std=c++14 -triple x86_64-unknown-unknown -fblocks -ftrivial-auto-var-init=zero %s -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK-O0,ZERO,ZERO-O0
-// RUN: %clang_cc1 -no-opaque-pointers -std=c++14 -triple x86_64-unknown-unknown -fblocks -ftrivial-auto-var-init=zero %s -O1 -fno-experimental-new-pass-manager -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK-O1,ZERO,ZERO-O1,ZERO-O1-LEGACY
-// RUN: %clang_cc1 -no-opaque-pointers -std=c++14 -triple x86_64-unknown-unknown -fblocks -ftrivial-auto-var-init=zero %s -O1 -fexperimental-new-pass-manager -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK-O1,ZERO,ZERO-O1,ZERO-O1-NEWPM
-// RUN: %clang_cc1 -no-opaque-pointers -std=c++14 -triple i386-unknown-unknown -fblocks -ftrivial-auto-var-init=pattern %s -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK-O0,PATTERN,PATTERN-O0
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 -fexperimental-new-pass-manager -no-opaque-pointers -std=c++14 -triple x86_64-unknown-unknown -fblocks %s -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK,CHECK-O0
+// RUN: %clang_cc1 -fexperimental-new-pass-manager -no-opaque-pointers -std=c++14 -triple x86_64-unknown-unknown -fblocks -ftrivial-auto-var-init=pattern %s -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK-O0,PATTERN,PATTERN-O0
+// RUN: %clang_cc1 -fexperimental-new-pass-manager -no-opaque-pointers -std=c++14 -triple x86_64-unknown-unknown -fblocks -ftrivial-auto-var-init=pattern %s -O1 -fno-experimental-new-pass-manager -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK-O1,PATTERN,PATTERN-O1,PATTERN-O1-LEGACY
+// RUN: %clang_cc1 -fexperimental-new-pass-manager -no-opaque-pointers -std=c++14 -triple x86_64-unknown-unknown -fblocks -ftrivial-auto-var-init=pattern %s -O1 -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK-O1,PATTERN,PATTERN-O1,PATTERN-O1-NEWPM
+// RUN: %clang_cc1 -fexperimental-new-pass-manager -no-opaque-pointers -std=c++14 -triple x86_64-unknown-unknown -fblocks -ftrivial-auto-var-init=zero %s -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK-O0,ZERO,ZERO-O0
+// RUN: %clang_cc1 -fexperimental-new-pass-manager -no-opaque-pointers -std=c++14 -triple x86_64-unknown-unknown -fblocks -ftrivial-auto-var-init=zero %s -O1 -fno-experimental-new-pass-manager -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK-O1,ZERO,ZERO-O1,ZERO-O1-LEGACY
+// RUN: %clang_cc1 -fexperimental-new-pass-manager -no-opaque-pointers -std=c++14 -triple x86_64-unknown-unknown -fblocks -ftrivial-auto-var-init=zero %s -O1 -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK-O1,ZERO,ZERO-O1,ZERO-O1-NEWPM
+// RUN: %clang_cc1 -fexperimental-new-pass-manager -no-opaque-pointers -std=c++14 -triple i386-unknown-unknown -fblocks -ftrivial-auto-var-init=pattern %s -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK-O0,PATTERN,PATTERN-O0
+// end INTEL_CUSTOMIZATION
 
 #pragma clang diagnostic ignored "-Winaccessible-base"
 

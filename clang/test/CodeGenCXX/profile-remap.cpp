@@ -1,10 +1,12 @@
 // REQUIRES: x86-registered-target
 //
-// RUN: %clang_cc1 -triple x86_64-linux-gnu -fprofile-sample-use=%S/Inputs/profile-remap.samples -fprofile-remapping-file=%S/Inputs/profile-remap.map -fexperimental-new-pass-manager -O2 %s -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECK-SAMPLES
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 -fexperimental-new-pass-manager -triple x86_64-linux-gnu -fprofile-sample-use=%S/Inputs/profile-remap.samples -fprofile-remapping-file=%S/Inputs/profile-remap.map -O2 %s -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECK-SAMPLES
 // RUN: llvm-profdata merge -output %T.profdata %S/Inputs/profile-remap.proftext
-// RUN: %clang_cc1 -triple x86_64-linux-gnu -fprofile-instrument-use-path=%T.profdata -fprofile-remapping-file=%S/Inputs/profile-remap.map -fexperimental-new-pass-manager -O2 %s -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECK-INSTR
+// RUN: %clang_cc1 -fexperimental-new-pass-manager -triple x86_64-linux-gnu -fprofile-instrument-use-path=%T.profdata -fprofile-remapping-file=%S/Inputs/profile-remap.map -O2 %s -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECK-INSTR
 // RUN: llvm-profdata merge -output %T.profdata %S/Inputs/profile-remap_entry.proftext
-// RUN: %clang_cc1 -triple x86_64-linux-gnu -fprofile-instrument-use-path=%T.profdata -fprofile-remapping-file=%S/Inputs/profile-remap.map -fexperimental-new-pass-manager -O2 %s -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECK-INSTR
+// RUN: %clang_cc1 -fexperimental-new-pass-manager -triple x86_64-linux-gnu -fprofile-instrument-use-path=%T.profdata -fprofile-remapping-file=%S/Inputs/profile-remap.map -O2 %s -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECK-INSTR
+// end INTEL_CUSTOMIZATION
 
 namespace Foo {
   struct X {};

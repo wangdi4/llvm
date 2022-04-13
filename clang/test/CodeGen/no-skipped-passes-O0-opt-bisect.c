@@ -1,5 +1,6 @@
 // Test that no passes are skipped under NPM with -O0/opt-bisect
 //
+// INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -triple x86_64-linux-gnu -O0 -fexperimental-new-pass-manager %s -fdebug-pass-manager -emit-llvm -o /dev/null 2>&1 | FileCheck %s
 // RUN: %clang_cc1 -triple x86_64-linux-gnu -O0 -fexperimental-new-pass-manager %s -fdebug-pass-manager -emit-llvm -o /dev/null -fcoroutines-ts 2>&1 | FileCheck %s
 // RUN: %clang_cc1 -triple x86_64-linux-gnu -O0 -fexperimental-new-pass-manager %s -fdebug-pass-manager -emit-llvm -o /dev/null -fsanitize=address 2>&1 | FileCheck %s
@@ -23,6 +24,7 @@
 // RUN: %clang_cc1 -triple x86_64-linux-gnu -mllvm -opt-bisect-limit=0 -fexperimental-new-pass-manager %s -fdebug-pass-manager -emit-llvm -o /dev/null -fsanitize-coverage-trace-pc-guard 2>&1 | FileCheck %s
 // RUN: %clang_cc1 -triple x86_64-linux-gnu -mllvm -opt-bisect-limit=0 -fexperimental-new-pass-manager %s -fdebug-pass-manager -emit-llvm -o /dev/null -fmemory-profile 2>&1 | FileCheck %s
 // RUN: %clang_cc1 -triple x86_64-linux-gnu -mllvm -opt-bisect-limit=0 -fexperimental-new-pass-manager %s -fdebug-pass-manager -emit-llvm -o /dev/null 2>&1 -fopenmp -fopenmp-late-outline -mllvm -paropt=31 | FileCheck %s ;INTEL
+// end INTEL_CUSTOMIZATION
 
 // CHECK-NOT: Skipping pass
 
