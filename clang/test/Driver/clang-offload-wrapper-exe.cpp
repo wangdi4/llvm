@@ -27,7 +27,9 @@
 // RUN: clang-offload-wrapper -kind=sycl -target=TARGET -format=native -batch %t.batch -o %t.wrapped.bc
 // RUN: llc --filetype=obj %t.wrapped.bc -o %t.wrapped.o
 // --- Compile & link the test with the wrapper
-// RUN: %clangxx %t.wrapped.o %s -o %t.batch.exe -v
+// INTEL_CUSTOMIZATION
+// RUN: %clangxx -no-pie %t.wrapped.o %s -o %t.batch.exe -v
+// end INTEL_CUSTOMIZATION
 // --- Run and check ignoring white spaces
 // RUN: %t.batch.exe > %t.batch.exe.out
 // RUN: diff -b %t.batch.exe.out %t.all
