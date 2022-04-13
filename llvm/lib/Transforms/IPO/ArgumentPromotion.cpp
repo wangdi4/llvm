@@ -1019,17 +1019,10 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
   // is self-recursive.
   bool isCallback = false; // INTEL
   for (Use &U : F->uses()) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     AbstractCallSite CS(&U);
     // Must be a direct or a callback call.
     if (!CS || !(CS.isDirectCall() || CS.isCallbackCall()) || !CS.isCallee(&U))
-=======
-    CallBase *CB = dyn_cast<CallBase>(U.getUser());
-    // Must be a direct call.
-    if (CB == nullptr || !CB->isCallee(&U) ||
-        CB->getFunctionType() != F->getFunctionType())
->>>>>>> 51561b5e8017a3153629ba45b89d013ffa665f6c
       return nullptr;
 
     if (CS.isDirectCall()) {
