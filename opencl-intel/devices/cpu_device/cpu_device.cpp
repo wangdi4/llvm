@@ -759,19 +759,16 @@ void CPUDevice::WaitUntilShutdown()
 
 // ---------------------------------------
 // Public functions / Device entry points
-extern "C" cl_dev_err_code clDevCreateDeviceInstance(  cl_uint      dev_id,
-                                   IOCLFrameworkCallbacks   *pDevCallBacks,
-                                   IOCLDevLogDescriptor     *pLogDesc,
-                                   IOCLDeviceAgent*         *pOutDevice,
-                                   FrameworkUserLogger* pUserLogger
-                                   )
+extern "C" cl_dev_err_code
+clDevCreateDeviceInstance(cl_uint dev_id, IOCLFrameworkCallbacks *pDevCallBacks,
+                          IOCLDevLogDescriptor *pLogDesc,
+                          IOCLDeviceAgent **pOutDevice)
 {
     if(nullptr == pDevCallBacks || nullptr == pOutDevice)
     {
         return CL_DEV_INVALID_OPERATION;
     }
 
-    g_pUserLogger = pUserLogger;
     cl_dev_err_code rc = CL_DEV_SUCCESS;
     CPUDevice *pDevice =
         CPUDevice::clDevGetInstance(dev_id, pDevCallBacks, pLogDesc, rc);

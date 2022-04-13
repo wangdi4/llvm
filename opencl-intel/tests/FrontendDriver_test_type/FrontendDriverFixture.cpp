@@ -42,7 +42,7 @@ void ClangCompilerTestType::SetUp()
     CLANG_DEV_INFO* pszDeviceInfo = reinterpret_cast<CLANG_DEV_INFO*>(&pszDeviceInfoVec[0]);
     pszDeviceInfo->sExtensionStrings = "";
 
-    int failure = CreateFrontEndInstance(&pszDeviceInfo[0], pszDeviceInfoVec.size(), &m_fe_compiler, nullptr);
+    int failure = CreateFrontEndInstance(&pszDeviceInfo[0], pszDeviceInfoVec.size(), &m_fe_compiler);
     if (failure)
     {
         printf("Error while instantiating CreateFrontEndInstance: error #%d", failure);

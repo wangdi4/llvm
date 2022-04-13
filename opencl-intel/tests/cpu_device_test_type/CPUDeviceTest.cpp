@@ -859,7 +859,7 @@ void CPUDeviceTest_Init(Intel::OpenCL::Utils::BasicCLConfigWrapper *config) {
       gUseHalfProcessors ? (gNumProcessors / 2) : gNumProcessors;
   size_t additionalStackSize = CPU_DEV_TBB_STACK_SIZE;
   int iThreads =
-      pTaskExecutor->Init(nullptr, numThreads, nullptr, additionalStackSize);
+      pTaskExecutor->Init(numThreads, nullptr, additionalStackSize);
   ASSERT_EQ(pTaskExecutor->GetErrorCode(), 0);
   ASSERT_TRUE(iThreads > 0);
 
@@ -882,7 +882,7 @@ void CPUDeviceTest_Init(Intel::OpenCL::Utils::BasicCLConfigWrapper *config) {
 
   gDeviceIdInType = deviceIdsList[0];
   iRes = clDevCreateDeviceInstance(gDeviceIdInType, &g_dev_callbacks, &log_desc,
-                                   &dev_entry, NULL);
+                                   &dev_entry);
   ASSERT_TRUE(CL_DEV_SUCCEEDED(iRes));
 }
 

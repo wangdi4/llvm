@@ -60,13 +60,10 @@
 extern IOCLDeviceAgent*		dev_entry;
 extern volatile bool	gExecDone;
 
-extern "C" int clDevCreateDeviceInstance(
-								   unsigned int		dev_id,
-								   IOCLFrameworkCallbacks	*pDevCallBacks,
-								   IOCLDevLogDescriptor		*pLogDesc,
-								   IOCLDeviceAgent*				*pDevice,
-                   Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger
-								   );
+extern "C" int clDevCreateDeviceInstance(unsigned int dev_id,
+                                         IOCLFrameworkCallbacks *pDevCallBacks,
+                                         IOCLDevLogDescriptor *pLogDesc,
+                                         IOCLDeviceAgent **pDevice);
 
 extern "C" int clDevGetDeviceInfo(
 							unsigned int	dev_id,
