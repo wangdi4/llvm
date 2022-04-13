@@ -76,9 +76,6 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
 #endif
 } // extern "C"
 
-#define MIN(x, y) (((x) < (y)) ? (x) : (y))
-#define ABS(x) ((x) < 0 ? -(x) : (x))
-
 /// Default alignmnet for allocation
 #define LEVEL0_ALIGNMENT 0
 /// Default staging buffer size for host to device copy (16KB)
@@ -105,19 +102,6 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
 #ifndef SUBDEVICE_USE_ROOT_MEMORY
 #define SUBDEVICE_USE_ROOT_MEMORY 0
 #endif
-
-/// Misc. macros
-#define LOG_MEM_USAGE(Device, Requested, Ptr)                                  \
-do {                                                                           \
-  if (DebugLevel > 0)                                                          \
-    logMemUsage(Device, Requested, Ptr);                                       \
-} while (0)
-
-#define LOG_MEM_USAGE_POOL(Device, Requested, Ptr, Size)                       \
-do {                                                                           \
-  if (DebugLevel > 0)                                                          \
-    logMemUsage(Device, Requested, Ptr, Size);                                 \
-} while (0)
 
 #define ALLOC_KIND_TO_STR(Kind)                                                \
   (Kind == TARGET_ALLOC_HOST ? "host memory"                                   \
@@ -597,244 +581,6 @@ const auto KernelPropertiesInit =
                    ZE_STRUCTURE_TYPE_KERNEL_PROPERTIES>();
 
 int DebugLevel = getDebugLevel();
-
-/// Forward declarations
-static void *allocDataExplicit(ze_device_handle_t Device, int64_t Size,
-                               int32_t Kind, bool LargeMem = false,
-                               bool LogMemAlloc = true,
-                               size_t Align = LEVEL0_ALIGNMENT);
-static void logMemUsage(ze_device_handle_t Device, size_t Requested, void *Ptr,
-                        size_t MemSize = 0);
-class RTLDeviceInfoTy;
-
-/// Memory pool which enables reuse of already allocated blocks
-/// -- Pool maintains a list of buckets each of which can allocate fixed-size
-///    memory.
-/// -- Each bucket maintains a list of memory blocks allocated by GPU RT.
-/// -- Each memory block can allocate multiple fixed-size memory requested by
-///    offload RT or user.
-/// -- Memory allocation falls back to GPU RT allocation when the pool size
-///    (total memory used by pool) reaches a threshold.
-class MemoryPoolTy {
-
-  /// Memory block maintained in each bucket
-  struct BlockTy {
-    /// Base adddress of this block
-    uintptr_t Base = 0;
-
-    /// Size of the block
-    uint32_t Size = 0;
-
-    /// Supported allocation size by this block
-    uint32_t ChunkSize = 0;
-
-    /// Number of slots in use
-    uint32_t NumUsedSlots = 0;
-
-    /// Free slot returned by the last dealloc() call
-    uint32_t FreeSlot = UINT32_MAX;
-
-    /// Marker for the currently used slots
-    std::vector<bool> UsedSlots;
-
-    BlockTy(void *base, uint32_t size, uint32_t chunkSize) {
-      Base = reinterpret_cast<uintptr_t>(base);
-      Size = size;
-      ChunkSize = chunkSize;
-      NumUsedSlots = 0;
-      UsedSlots.resize(Size / ChunkSize, false);
-    }
-
-    bool isFull() { return NumUsedSlots == Size / ChunkSize; }
-
-    bool contains(void *Mem) {
-      auto mem = reinterpret_cast<uintptr_t>(Mem);
-      return mem >= Base && mem < Base + Size;
-    }
-
-    /// Allocate memory from this block
-    void *alloc() {
-      if (isFull())
-        return nullptr;
-
-      if (FreeSlot != UINT32_MAX) {
-        auto slot = FreeSlot;
-        FreeSlot = UINT32_MAX;
-        UsedSlots[slot] = true;
-        NumUsedSlots++;
-        return reinterpret_cast<void *>(Base + slot * ChunkSize);
-      }
-
-      auto numSlots = Size / ChunkSize;
-      for (uint32_t i = 0; i < numSlots; i++) {
-        if (UsedSlots[i])
-          continue;
-        UsedSlots[i] = true;
-        NumUsedSlots++;
-        return reinterpret_cast<void *>(Base + i * ChunkSize);
-      }
-
-      // Should not reach here.
-      FATAL_ERROR("Inconsistent state while allocating memory from pool");
-    }
-
-    /// Return the memory to the block
-    void dealloc(void *Mem) {
-      if (!contains(Mem))
-        FATAL_ERROR("Inconsistent state while returning memory to pool");
-      uint32_t slot = (reinterpret_cast<uintptr_t>(Mem) - Base) / ChunkSize;
-      UsedSlots[slot] = false;
-      NumUsedSlots--;
-      FreeSlot = slot;
-    }
-  }; /// BlockTy
-
-  /// Initialized
-  int32_t Initialized = 0;
-
-  /// Allocation unit size decided by the GPU RT.
-  /// Fall-back size is 64KB in case GPU RT does not provide the information.
-  size_t AllocUnit = 1 << 16; // 64KB
-
-  /// Minimum supported memory allocation size from pool
-  size_t AllocMin = 1 << 6; // 64B (cache line size by default)
-
-  /// Maximum supported memory allocation size from pool
-  size_t AllocMax = 0;
-
-  /// Capacity of each block in the buckets which decides number of allocatable
-  /// chunks from the block. Each block in the bucket can serve at least
-  /// BlockCapacity chunks.
-  /// If ChunkSize * BlockCapacity <= AllocUnit
-  ///   BlockSize = AllocUnit
-  /// Otherwise,
-  ///   BlockSize = ChunkSize * BlockCapacity
-  /// This simply means how much memory is over-allocated.
-  uint32_t BlockCapacity = 0;
-
-  /// Total memory in use from allocation by GPU RT
-  size_t PoolSize = 0;
-
-  /// Maximum memory the pool can manage
-  size_t PoolSizeMax = 0;
-
-  /// Memory buckets for each allocatable size
-  std::vector<std::vector<BlockTy *>> Buckets;
-
-  /// Bucket paramters
-  std::vector<std::pair<size_t, size_t>> BucketParams;
-
-  /// Memory allocated from pool
-  std::unordered_map<intptr_t, BlockTy *> PtrToBlock;
-
-  /// Associated L0 device ID
-  ze_device_handle_t Device = nullptr;
-
-  /// Associated context
-  ze_context_handle_t Context = nullptr;
-
-  /// Associated allocation kind
-  int32_t AllocKind = TARGET_ALLOC_DEFAULT;
-
-  /// Pool lock
-  std::mutex PoolMtx;
-
-  uint32_t getBucketId(size_t Size) {
-    uint32_t count = 0;
-    for (size_t sz = AllocMin; sz < Size; count++)
-      sz <<= 1;
-    return count;
-  }
-
-public:
-  MemoryPoolTy() = default;
-
-  /// Construct with device
-  MemoryPoolTy(ze_device_handle_t device) : Device(device) {}
-
-  /// Initialize the pool with parameters
-  void init(int32_t AllocKind, RTLDeviceInfoTy *RTL);
-
-  /// Allocate memory from the pool with Size and Offset
-  void *alloc(size_t Size, intptr_t Offset = 0) {
-    if (!Initialized)
-      return nullptr;
-
-    std::unique_lock<std::mutex> lock(PoolMtx);
-
-    if (Size == 0 || Size > AllocMax)
-      return nullptr;
-
-    uint32_t bucketId = getBucketId(Size);
-    void *mem = nullptr;
-    auto &blocks = Buckets[bucketId];
-
-    for (auto block : blocks) {
-      if (block->isFull())
-        continue;
-
-      mem = block->alloc();
-
-      if (mem == nullptr)
-        FATAL_ERROR("Inconsistent state while allocating memory from pool");
-
-      PtrToBlock.emplace(reinterpret_cast<intptr_t>(mem) + Offset, block);
-    }
-
-    if (mem == nullptr) {
-      // Check if current pool size exceeded max pool size
-      if (PoolSize > PoolSizeMax)
-        return nullptr;
-      // Bucket is empty or all blocks in the bucket are full
-      auto chunkSize = BucketParams[bucketId].first;
-      auto blockSize = BucketParams[bucketId].second;
-      void *base = allocDataExplicit(Device, blockSize, AllocKind);
-
-      BlockTy *block = new BlockTy(base, blockSize, chunkSize);
-      blocks.push_back(block);
-      mem = block->alloc();
-      PtrToBlock.emplace(reinterpret_cast<intptr_t>(mem) + Offset, block);
-      PoolSize += blockSize;
-      DP("New block allocation for %s pool: base = " DPxMOD
-         ", size = %zu, pool size = %zu\n", ALLOC_KIND_TO_STR(AllocKind),
-         DPxPTR(base), blockSize, PoolSize);
-    }
-
-    LOG_MEM_USAGE_POOL(Device, Size, mem, AllocMin << bucketId);
-
-    return mem;
-  }
-
-  /// Return the memory to the pool
-  bool dealloc(void *Mem) {
-    if (!Initialized)
-      return false;
-
-    std::unique_lock<std::mutex> lock(PoolMtx);
-
-    auto key = reinterpret_cast<intptr_t>(Mem);
-    if (PtrToBlock.count(key) == 0)
-      return false;
-
-    PtrToBlock[key]->dealloc(Mem);
-    LOG_MEM_USAGE_POOL(Device, 0, Mem, PtrToBlock[key]->ChunkSize);
-
-    PtrToBlock.erase(key);
-
-    return true;
-  }
-
-  /// Release all memory in the pool
-  void deinit() {
-    for (auto &bucket : Buckets) {
-      for (auto block : bucket) {
-        LOG_MEM_USAGE(Device, 0, (void *)block->Base);
-        CALL_ZE_EXIT_FAIL(zeMemFree, Context, (void *)block->Base);
-        delete block;
-      }
-    }
-  }
-}; /// MemoryPoolTy
 
 class KernelInfoTy {
   uint32_t Version = 0;
@@ -1460,7 +1206,6 @@ public:
   }
 };
 
-typedef std::vector<std::vector<ze_device_handle_t>> SubDeviceListsTy;
 typedef std::vector<std::vector<int32_t>> SubDeviceIdsTy;
 
 /// Device modes for multi-tile devices
@@ -1506,105 +1251,6 @@ public:
                               // L0 data type should probably be fixed.
                               const_cast<const void **>(ConstantValues.data())};
     return Tmp;
-  }
-};
-
-struct MemAllocInfoTy {
-  /// Base address allocated from compute runtime
-  void *Base = nullptr;
-  /// Allocation size known to users/libomptarget
-  size_t Size = 0;
-  /// TARGET_ALLOC kind
-  int32_t Kind = TARGET_ALLOC_DEFAULT;
-  /// Allocation from pool?
-  bool InPool = false;
-  /// Is implicit argument
-  bool ImplicitArg = false;
-
-  MemAllocInfoTy() = default;
-
-  MemAllocInfoTy(void *_Base, size_t _Size, int32_t _Kind, bool _InPool,
-                 bool _ImplicitArg) :
-      Base(_Base), Size(_Size), Kind(_Kind), InPool(_InPool),
-      ImplicitArg(_ImplicitArg) {}
-};
-
-/// Allocation information maintained in RTL
-class MemAllocInfoMapTy {
-  /// Map from allocated pointer to allocation information
-  std::map<void *, MemAllocInfoTy> Map;
-  /// Map from target alloc kind to number of implicit arguments
-  std::map<int32_t, uint32_t> NumImplicitArgs;
-  /// Mutex for guarding the internal data
-  std::mutex Mtx;
-
-public:
-  void add(void *Ptr, void *_Base, size_t _Size, int32_t _Kind,
-           bool _InPool = false, bool _ImplicitArg = false) {
-    std::lock_guard<std::mutex> Lock(Mtx);
-    auto Inserted = Map.emplace(
-        Ptr, MemAllocInfoTy{_Base, _Size, _Kind, _InPool, _ImplicitArg});
-#if INTEL_INTERNAL_BUILD
-    // Check if we keep valid disjoint memory ranges.
-    bool Valid = Inserted.second;
-    if (Valid) {
-      if (Inserted.first != Map.begin()) {
-        auto I = std::prev(Inserted.first, 1);
-        Valid = Valid && (uintptr_t)I->first + I->second.Size <= (uintptr_t)Ptr;
-      }
-      if (Valid) {
-        auto I = std::next(Inserted.first, 1);
-        if (I != Map.end())
-          Valid = Valid && (uintptr_t)Ptr + _Size <= (uintptr_t)I->first;
-      }
-    }
-    assert(Valid && "Invalid overlapping memory allocation");
-#else // INTEL_INTERNAL_BUILD
-    (void)Inserted;
-#endif // INTEL_INTERNAL_BUILD
-    if (_ImplicitArg)
-      NumImplicitArgs[_Kind]++;
-  }
-
-  bool remove(void *Ptr, MemAllocInfoTy *Removed = nullptr) {
-    std::lock_guard<std::mutex> Lock(Mtx);
-    auto AllocInfo = Map.find(Ptr);
-    if (AllocInfo == Map.end())
-      return false;
-    if (AllocInfo->second.ImplicitArg)
-      NumImplicitArgs[AllocInfo->second.Kind]--;
-    if (Removed)
-      *Removed = AllocInfo->second;
-    Map.erase(AllocInfo);
-    return true;
-  }
-
-  const MemAllocInfoTy *find(void *Ptr) {
-    std::lock_guard<std::mutex> Lock(Mtx);
-    auto AllocInfo = Map.find(Ptr);
-    if (AllocInfo == Map.end())
-      return nullptr;
-    else
-      return &AllocInfo->second;
-  }
-
-  bool contains(const void *Ptr, size_t Size) {
-    std::lock_guard<std::mutex> Lock(Mtx);
-    if (Map.size() == 0)
-      return false;
-    auto I = Map.upper_bound(const_cast<void *>(Ptr));
-    if (I == Map.begin())
-      return false;
-    --I;
-    bool Ret = (uintptr_t)I->first <= (uintptr_t)Ptr &&
-        (uintptr_t)Ptr + (uintptr_t)Size <=
-        (uintptr_t)I->first + (uintptr_t)I->second.Size;
-    return Ret;
-  }
-
-  size_t getNumImplicitArgs(int32_t Kind) {
-    std::lock_guard<std::mutex> Lock(Mtx);
-    return NumImplicitArgs[Kind];
   }
 };
 
@@ -2164,9 +1810,35 @@ struct RTLOptionTy {
   }
 }; // RTLOptionTy
 
-/// Device information
-class RTLDeviceInfoTy {
-  /// Memory stats
+static bool isDiscrete(uint32_t); // Forward declaration
+
+/// Memory allocation information used in memory allocation/deallocation.
+struct MemAllocInfoTy {
+  /// Base address allocated from compute runtime
+  void *Base = nullptr;
+  /// Allocation size known to users/libomptarget
+  size_t Size = 0;
+  /// TARGET_ALLOC kind
+  int32_t Kind = TARGET_ALLOC_DEFAULT;
+  /// Allocation from pool?
+  bool InPool = false;
+  /// Is implicit argument
+  bool ImplicitArg = false;
+
+  MemAllocInfoTy() = default;
+
+  MemAllocInfoTy(void *_Base, size_t _Size, int32_t _Kind, bool _InPool,
+                 bool _ImplicitArg) :
+      Base(_Base), Size(_Size), Kind(_Kind), InPool(_InPool),
+      ImplicitArg(_ImplicitArg) {}
+};
+
+/// Responsible for all activities involving memory allocation/deallocation.
+/// It contains memory pool management, memory allocation bookkeeping.
+class MemAllocatorTy {
+
+  /// Simple memory allocation statistics. Maintains numbers for pool allocation
+  /// and GPU RT allocation.
   struct MemStatTy {
     size_t Requested[2] = {0, 0};   // Requested bytes
     size_t Allocated[2] = {0, 0};   // Allocated bytes
@@ -2174,122 +1846,663 @@ class RTLDeviceInfoTy {
     size_t InUse[2] = {0, 0};       // Current memory in use
     size_t PeakUse[2] = {0, 0};     // Peak bytes used
     size_t NumAllocs[2] = {0, 0};   // Number of allocations
-
-    int32_t DeviceId = 0;
-    int32_t AllocKind = TARGET_ALLOC_DEFAULT;
-    std::mutex *Mtx = nullptr;
-
     MemStatTy() = default;
+  };
 
-    MemStatTy(int32_t deviceId, int32_t allocKind) {
-      DeviceId = deviceId;
-      AllocKind = allocKind;
-      Mtx = new std::mutex();
-    }
+  /// Memory pool which enables reuse of already allocated blocks
+  /// -- Pool maintains a list of buckets each of which can allocate fixed-size
+  ///    memory.
+  /// -- Each bucket maintains a list of memory blocks allocated by GPU RT.
+  /// -- Each memory block can allocate multiple fixed-size memory requested by
+  ///    offload RT or user.
+  /// -- Memory allocation falls back to GPU RT allocation when the pool size
+  ///    (total memory used by pool) reaches a threshold.
+  class MemPoolTy {
 
-    void update(size_t requested, size_t size, bool Pool = false) {
-      std::unique_lock<std::mutex> lock(*Mtx);
+    /// Memory block maintained in each bucket
+    struct BlockTy {
+      /// Base address of this block
+      uintptr_t Base = 0;
+      /// Size of the block
+      uint32_t Size = 0;
+      /// Supported allocation size by this block
+      uint32_t ChunkSize = 0;
+      /// Total number of slots
+      uint32_t NumSlots = 0;
+      /// Number of slots in use
+      uint32_t NumUsedSlots = 0;
+      /// Cached available slot returned by the last dealloc() call
+      uint32_t FreeSlot = UINT32_MAX;
+      /// Marker for the currently used slots
+      std::vector<bool> UsedSlots;
 
-      int32_t I = Pool ? 1 : 0;
-
-      if (requested > 0) {
-        Requested[I] += requested;
-        Allocated[I] += size;
-        InUse[I] += size;
-        NumAllocs[I]++;
-      } else {
-        Freed[I] += size;
-        InUse[I] -= size;
+      BlockTy(void *_Base, uint32_t _Size, uint32_t _ChunkSize) {
+        Base = reinterpret_cast<uintptr_t>(_Base);
+        Size = _Size;
+        ChunkSize = _ChunkSize;
+        NumSlots = Size / ChunkSize;
+        NumUsedSlots = 0;
+        UsedSlots.resize(NumSlots, false);
       }
 
-      if (InUse[I] > PeakUse[I])
-        PeakUse[I] = InUse[I];
+      /// Check if the current block is fully used
+      bool isFull() { return NumUsedSlots == NumSlots; }
+
+      /// Check if the given address belongs to the current block
+      bool contains(void *Mem) {
+        auto M = reinterpret_cast<uintptr_t>(Mem);
+        return M >= Base && M < Base + Size;
+      }
+
+      /// Allocate a single chunk from the block
+      void *alloc() {
+        if (isFull())
+          return nullptr;
+        if (FreeSlot != UINT32_MAX) {
+          uint32_t Slot = FreeSlot;
+          FreeSlot = UINT32_MAX;
+          UsedSlots[Slot] = true;
+          NumUsedSlots++;
+          return reinterpret_cast<void *>(Base + Slot * ChunkSize);
+        }
+        for (auto I = 0; I < NumSlots; I++) {
+          if (UsedSlots[I])
+            continue;
+          UsedSlots[I] = true;
+          NumUsedSlots++;
+          return reinterpret_cast<void *>(Base + I * ChunkSize);
+        }
+        // Should not reach here.
+        assert(0 && "Inconsistent memory pool state");
+        return nullptr;
+      }
+
+      /// Deallocate the given memory
+      void dealloc(void *Mem) {
+        if (!contains(Mem))
+          assert(0 && "Inconsistent memory pool state");
+        uint32_t Slot = (reinterpret_cast<uintptr_t>(Mem) - Base) / ChunkSize;
+        UsedSlots[Slot] = false;
+        NumUsedSlots--;
+        FreeSlot = Slot;
+      }
+    }; // BlockTy
+
+    /// Allocation kind for the current pool
+    int32_t AllocKind = TARGET_ALLOC_DEFAULT;
+    /// Access to the allocator
+    MemAllocatorTy *Allocator = nullptr;
+    /// Minimum supported memory allocation size from pool
+    size_t AllocMin = 1 << 6; // 64B
+    /// Maximum supported memory allocation size from pool
+    size_t AllocMax = 0;
+    /// Allocation size when the pool needs to allocate a block
+    size_t AllocUnit = 1 << 16; // 64KB
+    /// Capacity of each block in the buckets which decides number of
+    /// allocatable chunks from the block. Each block in the bucket can serve
+    /// at least BlockCapacity chunks.
+    /// If ChunkSize * BlockCapacity <= AllocUnit
+    ///   BlockSize = AllocUnit
+    /// Otherwise,
+    ///   BlockSize = ChunkSize * BlockCapacity
+    /// This simply means how much memory is over-allocated.
+    uint32_t BlockCapacity = 0;
+    /// Total memory allocated from GPU RT for this pool
+    size_t PoolSize = 0;
+    /// Maximum allowed pool size. Allocation falls back to GPU RT allocation if
+    /// when PoolSize reaches PoolSizeMax.
+    size_t PoolSizeMax = 0;
+    /// List of buckets
+    std::vector<std::vector<BlockTy *>> Buckets;
+    /// List of bucket parameters
+    std::vector<std::pair<size_t, size_t>> BucketParams;
+    /// Map from allocated pointer to corresponding block.
+    std::unordered_map<void *, BlockTy *> PtrToBlock;
+    /// Get bucket ID from the specified allocation size.
+    uint32_t getBucketId(size_t Size) {
+      uint32_t Count = 0;
+      for (size_t SZ = AllocMin; SZ < Size; Count++)
+        SZ <<= 1;
+      return Count;
     }
 
-    void print() {
-      DP("Memory usage for %s, device %" PRId32 ":\n",
-         ALLOC_KIND_TO_STR(AllocKind), DeviceId);
-      DP("-- Allocator: %12s, %12s\n", "Native", "Pool");
-      DP("-- Requested: %12zu, %12zu\n", Requested[0], Requested[1]);
-      DP("-- Allocated: %12zu, %12zu\n", Allocated[0], Allocated[1]);
-      DP("-- Freed    : %12zu, %12zu\n", Freed[0], Freed[1]);
-      DP("-- InUse    : %12zu, %12zu\n", InUse[0], InUse[1]);
-      DP("-- PeakUse  : %12zu, %12zu\n", PeakUse[0], PeakUse[1]);
-      DP("-- NumAllocs: %12zu, %12zu\n", NumAllocs[0], NumAllocs[1]);
+  public:
+
+    MemPoolTy() = default;
+
+    /// Construct pool with allocation kind, allocator, and user options.
+    MemPoolTy(int32_t Kind, MemAllocatorTy *_Allocator, RTLOptionTy &Option) {
+      AllocKind = Kind;
+      Allocator = _Allocator;
+
+      // Read user-defined options
+      size_t UserAllocMax = Option.MemPoolInfo[AllocKind][0];
+      size_t UserCapacity = Option.MemPoolInfo[AllocKind][1];
+      size_t UserPoolSize = Option.MemPoolInfo[AllocKind][2];
+
+      BlockCapacity = UserCapacity;
+      PoolSizeMax = UserPoolSize << 20; // MB to B
+      PoolSize = 0;
+
+      auto Context = Allocator->Context;
+      auto Device = Allocator->Device;
+
+      // Check page size used for this allocation kind to decide minimum
+      // allocation size when allocating from L0.
+      void *Mem = Allocator->allocL0(8, 0, AllocKind);
+      ze_memory_allocation_properties_t AP
+          {ZE_STRUCTURE_TYPE_MEMORY_ALLOCATION_PROPERTIES, nullptr};
+      CALL_ZE_RET_VOID(zeMemGetAllocProperties, Context, Mem, &AP, nullptr);
+      AllocUnit = (std::max)(AP.pageSize, AllocUnit);
+      CALL_ZE_RET_VOID(zeMemFree, Context, Mem);
+
+      if (AllocKind == TARGET_ALLOC_SHARED) {
+        ze_device_properties_t Properties
+            {ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES, nullptr};
+        CALL_ZE_RET_VOID(zeDeviceGetProperties, Device, &Properties);
+        if (isDiscrete(Properties.deviceId)) {
+          // Use page size as minimum chunk size for USM shared on discrete
+          // device.
+          // FIXME: pageSize is not returned correctly (=0) on some new devices,
+          //        so use fallback value for now.
+          AllocMin = (std::max)(AP.pageSize, AllocUnit);
+          AllocUnit = AllocMin * BlockCapacity;
+        }
+      }
+
+      // Convert MB to B and round up to power of 2
+      AllocMax = AllocMin << getBucketId(UserAllocMax * (1 << 20));
+      auto MinSize = getBucketId(AllocMin);
+      auto MaxSize = getBucketId(AllocMax);
+      Buckets.resize(MaxSize - MinSize + 1);
+      assert(AllocMin < AllocMax && AllocMax < PoolSizeMax &&
+             "Invalid parameters while initializing memory pool");
+
+      // Set bucket parameters
+      for (size_t I = 0; I < Buckets.size(); I++) {
+        size_t ChunkSize = AllocMin << I;
+        size_t BlockSize = (ChunkSize * BlockCapacity <= AllocUnit)
+            ? AllocUnit
+            : ChunkSize * BlockCapacity;
+        BucketParams.emplace_back(ChunkSize, BlockSize);
+      }
+
+      DP("Initialized %s pool for device " DPxMOD ": AllocUnit = %zu, "
+         "AllocMax = %zu, " "Capacity = %" PRIu32 ", PoolSizeMax = %zu\n",
+         ALLOC_KIND_TO_STR(AllocKind), DPxPTR(Device), AllocUnit, AllocMax,
+         BlockCapacity, PoolSizeMax);
     }
-  }; // MemStatTy
+
+    /// Release resources used in the pool.
+    ~MemPoolTy() {
+      for (auto &Bucket : Buckets) {
+        for (auto *Block : Bucket) {
+          if (DebugLevel > 0)
+            Allocator->log(0, Block->Size, AllocKind);
+          CALL_ZE_RET_VOID(zeMemFree, Allocator->Context,
+                           reinterpret_cast<void *>(Block->Base));
+          delete Block;
+        }
+      }
+    }
+
+    /// Allocate the requested size of memory from this pool.
+    /// AllocSize is the chunk size internally used for the returned memory.
+    void *alloc(size_t Size, size_t &AllocSize) {
+      if (Size == 0 || Size > AllocMax || PoolSize > PoolSizeMax)
+        return nullptr;
+
+      uint32_t BucketId = getBucketId(Size);
+      void *Mem = nullptr;
+      auto &Blocks = Buckets[BucketId];
+
+      for (auto *Block : Blocks) {
+        if (Block->isFull())
+          continue;
+        Mem = Block->alloc();
+        assert(Mem && "Inconsistent state while allocating memory from pool");
+        PtrToBlock.emplace(Mem, Block);
+      }
+
+      if (Mem == nullptr) {
+        // Bucket is empty or all blocks in the bucket are full
+        auto ChunkSize = BucketParams[BucketId].first;
+        auto BlockSize = BucketParams[BucketId].second;
+        void *Base = Allocator->allocL0(BlockSize, 0, AllocKind);
+
+        BlockTy *Block = new BlockTy(Base, BlockSize, ChunkSize);
+        Blocks.push_back(Block);
+        Mem = Block->alloc();
+        PtrToBlock.emplace(Mem, Block);
+        PoolSize += BlockSize;
+        DP("New block allocation for %s pool: base = " DPxMOD
+           ", size = %zu, pool size = %zu\n", ALLOC_KIND_TO_STR(AllocKind),
+           DPxPTR(Base), BlockSize, PoolSize);
+      }
+
+      AllocSize = (AllocMin << BucketId);
+
+      return Mem;
+    }
+
+    /// Deallocate the specified memory and returns block size deallocated.
+    size_t dealloc(void *Ptr) {
+      if (PtrToBlock.count(Ptr) == 0)
+        return 0;
+      PtrToBlock[Ptr]->dealloc(Ptr);
+      size_t Deallocated = PtrToBlock[Ptr]->ChunkSize;
+      PtrToBlock.erase(Ptr);
+      return Deallocated;
+    }
+  }; // MemPoolTy
+
+  /// Allocation information maintained in RTL
+  class MemAllocInfoMapTy {
+    /// Map from allocated pointer to allocation information
+    std::map<void *, MemAllocInfoTy> Map;
+    /// Map from target alloc kind to number of implicit arguments
+    std::map<int32_t, uint32_t> NumImplicitArgs;
+
+  public:
+    /// Add allocation information to the map
+    void add(void *Ptr, void *_Base, size_t _Size, int32_t _Kind,
+             bool _InPool = false, bool _ImplicitArg = false) {
+      auto Inserted = Map.emplace(
+          Ptr, MemAllocInfoTy{_Base, _Size, _Kind, _InPool, _ImplicitArg});
+#if INTEL_INTERNAL_BUILD
+      // Check if we keep valid disjoint memory ranges.
+      bool Valid = Inserted.second;
+      if (Valid) {
+        if (Inserted.first != Map.begin()) {
+          auto I = std::prev(Inserted.first, 1);
+          Valid =
+              Valid && (uintptr_t)I->first + I->second.Size <= (uintptr_t)Ptr;
+        }
+        if (Valid) {
+          auto I = std::next(Inserted.first, 1);
+          if (I != Map.end())
+            Valid = Valid && (uintptr_t)Ptr + _Size <= (uintptr_t)I->first;
+        }
+      }
+      assert(Valid && "Invalid overlapping memory allocation");
+#else // INTEL_INTERNAL_BUILD
+      (void)Inserted;
+#endif // INTEL_INTERNAL_BUILD
+      if (_ImplicitArg)
+        NumImplicitArgs[_Kind]++;
+    }
+
+    /// Remove allocation information for the given memory location
+    bool remove(void *Ptr, MemAllocInfoTy *Removed = nullptr) {
+      auto AllocInfo = Map.find(Ptr);
+      if (AllocInfo == Map.end())
+        return false;
+      if (AllocInfo->second.ImplicitArg)
+        NumImplicitArgs[AllocInfo->second.Kind]--;
+      if (Removed)
+        *Removed = AllocInfo->second;
+      Map.erase(AllocInfo);
+      return true;
+    }
+
+    /// Finds allocation information for the given memory location
+    const MemAllocInfoTy *find(void *Ptr) {
+      auto AllocInfo = Map.find(Ptr);
+      if (AllocInfo == Map.end())
+        return nullptr;
+      else
+        return &AllocInfo->second;
+    }
+
+    /// Check if the map contains the given pointer and offset
+    bool contains(const void *Ptr, size_t Size) {
+      if (Map.size() == 0)
+        return false;
+      auto I = Map.upper_bound(const_cast<void *>(Ptr));
+      if (I == Map.begin())
+        return false;
+      --I;
+      bool Ret = (uintptr_t)I->first <= (uintptr_t)Ptr &&
+          (uintptr_t)Ptr + (uintptr_t)Size <=
+          (uintptr_t)I->first + (uintptr_t)I->second.Size;
+      return Ret;
+    }
+
+    /// Returns the number of implicit arguments for the specified allocation
+    /// kind.
+    size_t getNumImplicitArgs(int32_t Kind) { return NumImplicitArgs[Kind]; }
+  }; // MemAllocInfoMapTy
+
+  /// Whether the device supports large memory allocation
+  bool SupportsLargeMem = false;
+  /// L0 context to use
+  ze_context_handle_t Context = nullptr;
+  /// L0 device to use
+  ze_device_handle_t Device = nullptr;
+  /// Cached max alloc size supported by device
+  uint64_t MaxAllocSize = 0;
+  /// Map from allocation kind to memory statistics
+  std::map<int32_t, MemStatTy> Stats;
+  /// Map from allocation kind to memory pool
+  std::map<int32_t, MemPoolTy> Pools;
+  /// Allocation information map
+  MemAllocInfoMapTy AllocInfo;
+  /// RTL-owned memory that needs to be freed automatically
+  std::list<void *> MemOwned;
+  /// Lock protection
+  std::mutex Mtx;
 
 public:
+  MemAllocatorTy() = default;
+
+  /// Construct with L0 context, device, RTL option
+  MemAllocatorTy(ze_context_handle_t _Context, ze_device_handle_t _Device,
+                 RTLOptionTy &Option, bool _SupportsLargeMem,
+                 bool IsHostMem = false) {
+    SupportsLargeMem = _SupportsLargeMem;
+    Context = _Context;
+    Device = _Device;
+
+    ze_device_properties_t P{ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES, nullptr};
+    CALL_ZE_RET_VOID(zeDeviceGetProperties, Device, &P);
+    MaxAllocSize = P.maxMemAllocSize;
+    // MemAllocatorTy for host allocation will be shared by RTL whereas other
+    // allocation kinds are supported by each device.
+    if (IsHostMem) {
+      if (Option.MemPoolInfo.count(TARGET_ALLOC_HOST) > 0)
+        Pools.emplace(std::piecewise_construct,
+                      std::forward_as_tuple(TARGET_ALLOC_HOST),
+                      std::forward_as_tuple(TARGET_ALLOC_HOST, this, Option));
+      if (DebugLevel > 0)
+        Stats.emplace(std::piecewise_construct,
+                      std::forward_as_tuple(TARGET_ALLOC_HOST),
+                      std::tuple<>{});
+    } else {
+      for (auto Kind : {TARGET_ALLOC_DEVICE, TARGET_ALLOC_SHARED}) {
+        if (Option.MemPoolInfo.count(Kind) > 0)
+          Pools.emplace(std::piecewise_construct, std::forward_as_tuple(Kind),
+                        std::forward_as_tuple(Kind, this, Option));
+        if (DebugLevel > 0)
+          Stats.emplace(std::piecewise_construct, std::forward_as_tuple(Kind),
+                        std::tuple<>{});
+      }
+    }
+  }
+
+  /// Release resources and report statistics if requested
+  ~MemAllocatorTy() {
+    // Release RTL-owned memory
+    for (auto *M : MemOwned)
+      dealloc(M);
+    // Release resources used in the pool
+    Pools.clear();
+    // Report memory usage if requested
+    if (DebugLevel > 0) {
+      for (auto &Stat : Stats) {
+        DP("Memory usage for %s, device " DPxMOD "\n",
+           ALLOC_KIND_TO_STR(Stat.first), DPxPTR(Device));
+        auto &ST = Stat.second;
+        if (ST.NumAllocs[0] == 0 && ST.NumAllocs[1] == 0) {
+          DP("-- Not used\n");
+          continue;
+        }
+        DP("-- Allocator: %12s, %12s\n", "Native", "Pool");
+        DP("-- Requested: %12zu, %12zu\n", ST.Requested[0], ST.Requested[1]);
+        DP("-- Allocated: %12zu, %12zu\n", ST.Allocated[0], ST.Allocated[1]);
+        DP("-- Freed    : %12zu, %12zu\n", ST.Freed[0], ST.Freed[1]);
+        DP("-- InUse    : %12zu, %12zu\n", ST.InUse[0], ST.InUse[1]);
+        DP("-- PeakUse  : %12zu, %12zu\n", ST.PeakUse[0], ST.PeakUse[1]);
+        DP("-- NumAllocs: %12zu, %12zu\n", ST.NumAllocs[0], ST.NumAllocs[1]);
+      }
+    }
+  }
+
+  /// Allocate memory from L0 GPU RT
+  void *allocL0(size_t Size, size_t Align, int32_t Kind) {
+    void *Mem = nullptr;
+    ze_device_mem_alloc_desc_t DeviceDesc
+        {ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC, nullptr, 0, 0};
+    ze_host_mem_alloc_desc_t HostDesc
+        {ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC, nullptr, 0};
+
+    // Use relaxed allocation limit if driver supports
+    ze_relaxed_allocation_limits_exp_desc_t RelaxedDesc{
+        ZE_STRUCTURE_TYPE_RELAXED_ALLOCATION_LIMITS_EXP_DESC, nullptr,
+        ZE_RELAXED_ALLOCATION_LIMITS_EXP_FLAG_MAX_SIZE};
+    if (Size > MaxAllocSize && SupportsLargeMem) {
+      DeviceDesc.pNext = &RelaxedDesc;
+      HostDesc.pNext = &RelaxedDesc;
+    }
+
+    switch (Kind) {
+    case TARGET_ALLOC_DEVICE:
+      CALL_ZE_RET_NULL(zeMemAllocDevice, Context, &DeviceDesc, Size, Align,
+                       Device, &Mem);
+      DP("Allocated a device memory " DPxMOD "\n", DPxPTR(Mem));
+      break;
+    case TARGET_ALLOC_HOST:
+      CALL_ZE_RET_NULL(zeMemAllocHost, Context, &HostDesc, Size, Align, &Mem);
+      DP("Allocated a host memory " DPxMOD "\n", DPxPTR(Mem));
+      break;
+    case TARGET_ALLOC_SHARED:
+      CALL_ZE_RET_NULL(zeMemAllocShared, Context, &DeviceDesc, &HostDesc, Size,
+                       Align, Device, &Mem);
+      DP("Allocated a shared memory object " DPxMOD "\n", DPxPTR(Mem));
+      break;
+    default:
+      assert(0 && "Invalid target data allocation kind");
+    }
+
+    log(Size, Size, Kind);
+
+    return Mem;
+  }
+
+  /// Allocate memory with the specified information
+  void *alloc(size_t Size, size_t Align, int32_t Kind, intptr_t Offset,
+              bool UserAlloc = false, bool Owned = false) {
+    assert((Kind == TARGET_ALLOC_DEVICE || Kind == TARGET_ALLOC_HOST ||
+            Kind == TARGET_ALLOC_SHARED) &&
+            "Unknown memory kind while allocating target memory");
+
+    std::lock_guard<std::mutex> Lock(Mtx);
+
+    // We do not expect meaningful Align parameter when Offset > 0, so the
+    // following code does not handle such case.
+
+    size_t AllocSize = Size + Offset;
+    void *Mem = nullptr;
+    void *AllocBase = nullptr;
+
+    if (Pools.count(Kind) > 0) {  // Pool is enabled for the allocation kind
+      if (Align > 0)
+        AllocSize += (Align - 1);
+      size_t PoolAllocSize = 0;
+      AllocBase = Pools[Kind].alloc(AllocSize, PoolAllocSize);
+      if (AllocBase) {
+        uintptr_t Base = (uintptr_t)AllocBase;
+        if (Align > 0)
+          Base = (Base + Align) & ~(Align - 1);
+        Mem = (void *)(Base + Offset);
+        AllocInfo.add(Mem, AllocBase, Size, Kind, true, UserAlloc);
+        log(Size, PoolAllocSize, Kind, true /* Pool */);
+        if (Owned)
+          MemOwned.push_back(AllocBase);
+        return Mem;
+      }
+    }
+
+    AllocBase = allocL0(AllocSize, Align, Kind);
+    if (AllocBase) {
+      Mem = (void *)((uintptr_t)AllocBase + Offset);
+      AllocInfo.add(Mem, AllocBase, Size, Kind, false, UserAlloc);
+      if (Owned)
+        MemOwned.push_back(AllocBase);
+    }
+
+    return Mem;
+  }
+
+  /// Deallocate memory
+  int32_t dealloc(void *Ptr) {
+    std::lock_guard<std::mutex> Lock(Mtx);
+
+    MemAllocInfoTy Info;
+    if (!AllocInfo.remove(Ptr, &Info)) {
+      DP("Error: Cannot find memory allocation information for " DPxMOD "\n",
+         DPxPTR(Ptr));
+      return OFFLOAD_FAIL;
+    }
+    if (Info.InPool) {
+      assert(Pools.count(Info.Kind) > 0 && "Inconsistent memory information\n");
+      size_t DeallocSize = Pools[Info.Kind].dealloc(Info.Base);
+      if (DeallocSize == 0) {
+        DP("Error: Cannot return memory " DPxMOD " to pool\n", DPxPTR(Ptr));
+        return OFFLOAD_FAIL;
+      }
+      log(0, DeallocSize, Info.Kind, true /* Pool */);
+      return OFFLOAD_SUCCESS;
+    }
+    if (!Info.Base) {
+      DP("Error: Cannot find base address of " DPxMOD "\n", DPxPTR(Ptr));
+      return OFFLOAD_FAIL;
+    }
+    CALL_ZE_RET_FAIL(zeMemFree, Context, Info.Base);
+    log(0, Info.Size, Info.Kind);
+
+    DP("Deleted device memory " DPxMOD " (Base: " DPxMOD ", Size: %zu)\n",
+       DPxPTR(Ptr), DPxPTR(Info.Base), Info.Size);
+
+    return OFFLOAD_SUCCESS;
+  }
+
+  /// Check if the given memory location and offset belongs to any allocated
+  /// memory
+  bool contains(const void *Ptr, size_t Size) {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    return AllocInfo.contains(Ptr, Size);
+  }
+
+  /// Get allocation information for the specified memory location
+  const MemAllocInfoTy *getAllocInfo(void *Ptr) {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    return AllocInfo.find(Ptr);
+  }
+
+  /// Get kernel indirect access flags using implicit argument info
+  ze_kernel_indirect_access_flags_t getIndirectFlags() {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    ze_kernel_indirect_access_flags_t Ret = 0;
+    if (AllocInfo.getNumImplicitArgs(TARGET_ALLOC_DEVICE) > 0)
+      Ret |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
+    if (AllocInfo.getNumImplicitArgs(TARGET_ALLOC_HOST) > 0)
+      Ret |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST;
+    if (AllocInfo.getNumImplicitArgs(TARGET_ALLOC_SHARED) > 0)
+      Ret |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED;
+    return Ret;
+  }
+
+  /// Log memory allocation/deallocation
+  void log(size_t ReqSize, size_t Size, int32_t Kind, bool Pool = false) {
+    if (Stats.count(Kind) == 0)
+      return; // Stat is disabled
+
+    auto &ST = Stats[Kind];
+    int32_t I = Pool ? 1 : 0;
+    if (ReqSize > 0) {
+      ST.Requested[I] += ReqSize;
+      ST.Allocated[I] += Size;
+      ST.InUse[I] += Size;
+      ST.NumAllocs[I]++;
+    } else {
+      ST.Freed[I] += Size;
+      ST.InUse[I] -= Size;
+    }
+    ST.PeakUse[I] = (std::max)(ST.PeakUse[I], ST.InUse[I]);
+  }
+}; /// MemAllocatorTy
+
+/// Device information
+struct RTLDeviceInfoTy {
+
+  /// Number of devices available including subdevices
   uint32_t NumDevices = 0;
 
-  uint32_t SubDeviceLevels = 1; // L0 API does not support recursive queries
-
+  /// Number of devices reported to omptarget
   uint32_t NumRootDevices = 0;
 
+  /// L0 Driver handle
   ze_driver_handle_t Driver = nullptr;
 
+  /// Common L0 context
   ze_context_handle_t Context = nullptr;
 
+  /// API version supported by the L0 driver
   ze_api_version_t DriverAPIVersion = ZE_API_VERSION_CURRENT;
 
-  // Driver extensions
+  /// Available L0 driver extensions
   std::vector<ze_driver_extension_properties_t> DriverExtensions;
 
-  // Common event pool
+  /// Common event pool
   EventPoolTy EventPool;
 
+  /// Misc. cached device properties
   std::vector<ze_device_properties_t> DeviceProperties;
-
   std::vector<ze_device_compute_properties_t> ComputeProperties;
   std::vector<ze_device_memory_properties_t> MemoryProperties;
   std::vector<ze_device_cache_properties_t> CacheProperties;
 
-  // Internal device type ID
+  /// Internal device type ID
   std::vector<uint64_t> DeviceArchs;
 
-  // Devices' default target allocation kinds for internal allocation
+  /// Devices' default target allocation kinds for internal allocation
   std::vector<int32_t> AllocKinds;
 
+  /// L0 device used by each OpenMP device
   std::vector<ze_device_handle_t> Devices;
 
-  // Subdevice IDs. It maps users' subdevice IDs to internal subdevice IDs
+  /// Subdevice IDs. It maps users' subdevice IDs to internal subdevice IDs
   std::vector<SubDeviceIdsTy> SubDeviceIds;
 
-  // User-friendly form of device ID string
+  /// User-friendly form of device ID string
   std::vector<std::string> DeviceIdStr;
 
-  // Command queue group ordinals for each device
+  /// Command queue group ordinals for each device
   std::vector<uint32_t> CmdQueueGroupOrdinals;
 
-  // Number of compute command queues for the device
+  /// Number of compute command queues for each device
   std::vector<uint32_t> NumCCSQueues;
 
-  // Command queue group ordinals for copying
+  /// Command queue group ordinals for copying
   std::vector<uint32_t> CopyCmdQueueGroupOrdinals;
 
-  // Command queue group ordinals and number of queues for link copy engines
+  /// Command queue group ordinals and number of queues for link copy engines
   std::vector<std::pair<uint32_t, uint32_t>> LinkCopyCmdQueueGroupOrdinals;
 
-  // Command queue index for each device
+  /// Command queue index for each device
   std::vector<uint32_t> CmdQueueIndices;
 
-  // Command lists/queues specialized for kernel batching
+  /// Command lists/queues specialized for kernel batching
   std::vector<KernelBatchTy> BatchCmdQueues;
 
+  /// Immediate command list for each device
   std::vector<ze_command_list_handle_t> ImmCmdLists;
 
+  /// L0 programs created for each device
   std::vector<std::list<LevelZeroProgramTy>> Programs;
 
   /// Contains all modules (possibly from multiple device images) to handle
   /// dynamic link across multiple images
   std::vector<ze_module_handle_t> GlobalModules;
 
+  /// Internally defined/used kernel properties
   std::vector<std::map<ze_kernel_handle_t, KernelPropertiesTy>>
       KernelProperties;
 
-  // Memory owned by the plugin
-  std::vector<std::vector<void *>> OwnedMemory;
+  /// Number of active kernel launches for each device
+  std::vector<uint32_t> NumActiveKernels;
 
+  /// Whether each device is initialized
   std::vector<bool> Initialized;
 
   /// Default device mutexes
@@ -2301,33 +2514,13 @@ public:
   /// For kernel preparation
   std::unique_ptr<std::mutex[]> KernelMutexes;
 
-  std::vector<std::vector<RTLProfileTy *>> Profiles;
-
-  /// Host memory pool for all devices
-  MemoryPoolTy MemPoolHost;
-  /// Shared memory pools per L0 device
-  std::map<ze_device_handle_t, MemoryPoolTy> MemPoolShared;
-  /// Device memory pools per L0 device
-  std::map<ze_device_handle_t, MemoryPoolTy> MemPoolDevice;
-
-  /// Memory stats for each memory type
-  MemStatTy MemStatHost;
-  std::map<ze_device_handle_t, MemStatTy> MemStatShared;
-  std::map<ze_device_handle_t, MemStatTy> MemStatDevice;
-
-  /// Internal allocation information
-  std::vector<std::unique_ptr<MemAllocInfoMapTy>> MemAllocInfo;
+  /// Memory allocator for each L0 devices
+  std::map<ze_device_handle_t, MemAllocatorTy> MemAllocator;
 
   /// GITS function address for notifying indirect accesses
   void *GitsIndirectAllocationOffsets = nullptr;
 
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
-
-  /// Number of active kernel launches for each device
-  std::vector<uint32_t> NumActiveKernels;
-
-  /// Cached target program data
-  std::vector<ProgramDataTy> ProgramData;
 
   /// RTL option
   RTLOptionTy Option;
@@ -2337,6 +2530,9 @@ public:
   /// Find L0 devices and initialize device properties.
   /// Returns number of devices reported to omptarget.
   int32_t findDevices();
+
+  /// Initialize memory allocator for the specified device
+  void initMemAllocator(int32_t DeviceId);
 
   /// Start a user-guided kernel-batching region
   void beginKernelBatch(int32_t DeviceId, uint32_t MaxKernels);
@@ -2523,22 +2719,6 @@ public:
   int32_t enqueueMemCopy(int32_t DeviceId, void *Dst, const void *Src,
                          size_t Size, bool Locked = false);
 
-  /// Allocate memory from pool
-  void *poolAlloc(int32_t DeviceId, size_t Size, int32_t Kind,
-                  intptr_t Offset = 0);
-
-  /// Return memory to pool
-  bool poolFree(int32_t DeviceId, void *Ptr);
-
-  /// Initialize all memory pools for the device
-  void initMemoryPool(int32_t DeviceId);
-
-  /// Initialize memory stats
-  void initMemoryStat();
-
-  /// Allocate data
-  void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr, void *HstBase);
-
   /// Return memory allocation type
   uint32_t getMemAllocType(const void *Ptr);
 
@@ -2558,6 +2738,10 @@ public:
 
   /// Get internal device ID from subdevice encoding
   int32_t getInternalDeviceId(int32_t DeviceId);
+
+  /// Data alloc
+  void *dataAlloc(int32_t DeviceId, size_t Size, size_t Align, int32_t Kind,
+                  intptr_t Offset, bool UserAlloc, bool Owned = false);
 
   /// Data delete
   int32_t dataDelete(int32_t DeviceId, void *Ptr);
@@ -2824,28 +3008,6 @@ static int32_t getAllocKinds(uint32_t L0DeviceId) {
   return isDiscrete(L0DeviceId) ? TARGET_ALLOC_DEVICE : TARGET_ALLOC_SHARED;
 }
 
-static void logMemUsage(ze_device_handle_t Device, size_t Requested,
-                        void *Ptr, size_t MemSize) {
-  size_t size = 0;
-  bool pool = false;
-  if (MemSize > 0) {
-    /// Pool is being used
-    size = MemSize;
-    pool = true;
-  } else {
-    void *base = nullptr;
-    CALL_ZE_EXIT_FAIL(zeMemGetAddressRange, DeviceInfo->Context, Ptr, &base,
-                      &size);
-  }
-  auto memType = DeviceInfo->getMemAllocType(Ptr);
-  if (memType == ZE_MEMORY_TYPE_HOST)
-    DeviceInfo->MemStatHost.update(Requested, size, pool);
-  else if (memType == ZE_MEMORY_TYPE_SHARED)
-    DeviceInfo->MemStatShared[Device].update(Requested, size, pool);
-  else // ZE_MEMORY_TYPE_DEVICE
-    DeviceInfo->MemStatDevice[Device].update(Requested, size, pool);
-}
-
 static void addDataTransferLatency() {
   if (DeviceInfo->Option.DataTransferLatency == 0)
     return;
@@ -2868,10 +3030,6 @@ static void closeRTL() {
       OMPT_CALLBACK(ompt_callback_device_finalize, i);
     }
     DeviceInfo->Mutexes[i].lock();
-    for (auto mem : DeviceInfo->OwnedMemory[i]) {
-      LOG_MEM_USAGE(DeviceInfo->Devices[i], 0, mem);
-      CALL_ZE_EXIT_FAIL(zeMemFree, DeviceInfo->Context, mem);
-    }
 
     if (DeviceInfo->Option.Flags.UseImmCmdList)
       CALL_ZE_RET_VOID(zeCommandListDestroy, DeviceInfo->ImmCmdLists[i]);
@@ -2881,25 +3039,11 @@ static void closeRTL() {
     DeviceInfo->Mutexes[i].unlock();
   }
 
+  DeviceInfo->MemAllocator.clear();
+
   if (TLSList)
     for (auto TLSPtr : *TLSList)
       delete TLSPtr;
-
-  if (DeviceInfo->Option.Flags.UseMemoryPool) {
-    DeviceInfo->MemPoolHost.deinit();
-    for (auto &pool : DeviceInfo->MemPoolShared)
-      pool.second.deinit();
-    for (auto &pool : DeviceInfo->MemPoolDevice)
-      pool.second.deinit();
-  }
-
-  if (DebugLevel > 0) {
-    DeviceInfo->MemStatHost.print();
-    for (auto &stat : DeviceInfo->MemStatShared)
-      stat.second.print();
-    for (auto &stat : DeviceInfo->MemStatDevice)
-      stat.second.print();
-  }
 
   DeviceInfo->EventPool.deinit();
 
@@ -2909,69 +3053,6 @@ static void closeRTL() {
     CALL_ZE_EXIT_FAIL(zeContextDestroy, DeviceInfo->Context);
 
   DP("Closed RTL successfully\n");
-}
-
-/// Allocate data explicitly
-static void *allocDataExplicit(ze_device_handle_t Device, int64_t Size,
-                               int32_t Kind, bool LargeMem, bool LogMemAlloc,
-                               size_t Align) {
-  void *mem = nullptr;
-  ze_device_mem_alloc_desc_t deviceDesc = {
-    ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC,
-    nullptr, // extension
-    0, // flags
-    0 // ordinal, TODO: when do we use non-zero ordinal?
-  };
-  ze_host_mem_alloc_desc_t hostDesc = {
-    ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC,
-    nullptr, // extension
-    0 // flags
-  };
-
-  // Use relaxed allocation limit if driver supports
-  ze_relaxed_allocation_limits_exp_desc_t relaxedAllocDesc = {
-    ZE_STRUCTURE_TYPE_RELAXED_ALLOCATION_LIMITS_EXP_DESC,
-    nullptr,
-    ZE_RELAXED_ALLOCATION_LIMITS_EXP_FLAG_MAX_SIZE
-  };
-  if (LargeMem && DeviceInfo->DriverAPIVersion >= ZE_API_VERSION_1_1) {
-    deviceDesc.pNext = &relaxedAllocDesc;
-    hostDesc.pNext = &relaxedAllocDesc;
-  }
-
-  auto context = DeviceInfo->Context;
-
-  switch (Kind) {
-  case TARGET_ALLOC_DEVICE:
-    CALL_ZE_RET_NULL(zeMemAllocDevice, context, &deviceDesc, Size, Align,
-                     Device, &mem);
-    DP("Allocated a device memory object " DPxMOD "\n", DPxPTR(mem));
-    break;
-  case TARGET_ALLOC_HOST:
-    CALL_ZE_RET_NULL(zeMemAllocHost, context, &hostDesc, Size, Align, &mem);
-    DP("Allocated a host memory object " DPxMOD "\n", DPxPTR(mem));
-    break;
-  case TARGET_ALLOC_SHARED:
-    CALL_ZE_RET_NULL(zeMemAllocShared, context, &deviceDesc, &hostDesc, Size,
-                     Align, Device, &mem);
-    DP("Allocated a shared memory object " DPxMOD "\n", DPxPTR(mem));
-    break;
-  default:
-    FATAL_ERROR("Invalid target data allocation kind");
-  }
-
-  if (LogMemAlloc)
-    LOG_MEM_USAGE(Device, Size, mem);
-
-  return mem;
-}
-
-static void *allocDataExplicit(int32_t DeviceId, int64_t Size, int32_t Kind,
-                               size_t Align = LEVEL0_ALIGNMENT) {
-  auto device = DeviceInfo->Devices[DeviceId];
-  auto DeviceMaxMem = DeviceInfo->DeviceProperties[DeviceId].maxMemAllocSize;
-  return allocDataExplicit(device, Size, Kind, (uint64_t)Size > DeviceMaxMem,
-                           true /* LogMemAlloc */, Align);
 }
 
 TLSTy::~TLSTy() {
@@ -3193,73 +3274,6 @@ int32_t CommandBatchTy::enqueueMemFree(int32_t ID, void *Ptr) {
   return OFFLOAD_SUCCESS;
 }
 
-/// Initialize memory pool with the parameters
-void MemoryPoolTy::init(int32_t allocKind, RTLDeviceInfoTy *RTL) {
-  if (Initialized)
-    return;
-
-  if (RTL->Option.MemPoolInfo.count(allocKind) == 0) {
-    DP("Memory pool is disabled for %s\n", ALLOC_KIND_TO_STR(allocKind));
-    return;
-  }
-
-  ze_device_properties_t properties = DevicePropertiesInit;
-
-  size_t userAllocMax = RTL->Option.MemPoolInfo[allocKind][0];
-  size_t userCapacity = RTL->Option.MemPoolInfo[allocKind][1];
-  size_t userPoolSize = RTL->Option.MemPoolInfo[allocKind][2];
-
-  Context = RTL->Context;
-  AllocKind = allocKind;
-  BlockCapacity = userCapacity;
-  PoolSizeMax = userPoolSize << 20; // MB to B
-  PoolSize = 0;
-
-  // Decide AllocUnit. Do not log this allocation.
-  void *mem = allocDataExplicit(Device, 8, AllocKind, false, false);
-  ze_memory_allocation_properties_t AP = {
-    ZE_STRUCTURE_TYPE_MEMORY_ALLOCATION_PROPERTIES, nullptr
-  };
-  CALL_ZE_EXIT_FAIL(zeMemGetAllocProperties, Context, mem, &AP, nullptr);
-  AllocUnit = (std::max)(AP.pageSize, AllocUnit);
-  CALL_ZE_EXIT_FAIL(zeMemFree, Context, mem);
-
-  if (allocKind == TARGET_ALLOC_SHARED) {
-    CALL_ZE_EXIT_FAIL(zeDeviceGetProperties, Device, &properties);
-    if (isDiscrete(properties.deviceId)) {
-      // Use page size as minimum chunk size for USM shared on discrete device.
-      // FIXME: pageSize is not returned correctly (=0) on some new devices, so
-      //        use fallback value for now.
-      AllocMin = (std::max)(AP.pageSize, AllocUnit);
-      AllocUnit = AllocMin * BlockCapacity;
-    }
-  }
-
-  // Convert MB to B and round up to power of 2
-  AllocMax = AllocMin << getBucketId(userAllocMax * (1 << 20));
-  auto minSize = getBucketId(AllocMin);
-  auto maxSize = getBucketId(AllocMax);
-  Buckets.resize(maxSize - minSize + 1);
-  assert(AllocMin < AllocMax && AllocMax < PoolSizeMax &&
-         "Invalid parameters while initializing memory pool");
-
-  // Set bucket parameters
-  for (size_t i = 0; i < Buckets.size(); i++) {
-    size_t chunkSize = AllocMin << i;
-    size_t blockSize = (chunkSize * BlockCapacity <= AllocUnit)
-        ? AllocUnit
-        : chunkSize * BlockCapacity;
-    BucketParams.emplace_back(chunkSize, blockSize);
-  }
-
-  Initialized = 1;
-
-  DP("Initialized %s pool for device " DPxMOD ": AllocUnit = %zu, "
-     "AllocMax = %zu, " "Capacity = %" PRIu32 ", PoolSizeMax = %zu\n",
-     ALLOC_KIND_TO_STR(AllocKind), DPxPTR(Device), AllocUnit, AllocMax,
-     BlockCapacity, PoolSizeMax);
-}
-
 /// Reset target program data
 int32_t RTLDeviceInfoTy::resetProgramData(int32_t DeviceId) {
   for (auto &PGM : Programs[DeviceId])
@@ -3284,12 +3298,8 @@ ze_kernel_indirect_access_flags_t RTLDeviceInfoTy::getKernelIndirectAccessFlags(
                     ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED;
 
   // Other flags due to users' memory allocation
-  if (MemAllocInfo[DeviceId]->getNumImplicitArgs(TARGET_ALLOC_DEVICE) > 0)
-    KernelFlags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
-  if (MemAllocInfo[DeviceId]->getNumImplicitArgs(TARGET_ALLOC_SHARED) > 0)
-    KernelFlags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED;
-  if (MemAllocInfo[NumDevices]->getNumImplicitArgs(TARGET_ALLOC_HOST) > 0)
-    KernelFlags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST;
+  KernelFlags |= MemAllocator.at(nullptr).getIndirectFlags();
+  KernelFlags |= MemAllocator.at(Devices[DeviceId]).getIndirectFlags();
 
   return KernelFlags;
 }
@@ -3333,81 +3343,6 @@ uint32_t RTLDeviceInfoTy::getMemAllocType(const void *Ptr) {
     return ZE_MEMORY_TYPE_UNKNOWN;
   else
     return properties.type;
-}
-
-/// Allocate memory from pool
-void *RTLDeviceInfoTy::poolAlloc(int32_t DeviceId, size_t Size, int32_t Kind,
-                                 intptr_t Offset) {
-  auto device = Devices[DeviceId];
-  void *mem = nullptr;
-
-  switch (Kind) {
-  case TARGET_ALLOC_HOST:
-    mem = MemPoolHost.alloc(Size, Offset);
-    break;
-  case TARGET_ALLOC_SHARED:
-    mem = MemPoolShared[device].alloc(Size, Offset);
-    break;
-  case TARGET_ALLOC_DEVICE:
-    mem = MemPoolDevice[device].alloc(Size, Offset);
-    break;
-  default:
-    DP("Invalid allocation kind while allocating memory from pool\n");
-  }
-
-  return mem;
-}
-
-/// Return memory to pool
-bool RTLDeviceInfoTy::poolFree(int32_t DeviceId, void *Ptr) {
-  auto memType = getMemAllocType(Ptr);
-  auto device = Devices[DeviceId];
-  bool ret = false;
-
-  switch (memType) {
-  case ZE_MEMORY_TYPE_HOST:
-    ret = MemPoolHost.dealloc(Ptr);
-    break;
-  case ZE_MEMORY_TYPE_SHARED:
-    ret = MemPoolShared[device].dealloc(Ptr);
-    break;
-  case ZE_MEMORY_TYPE_DEVICE:
-    ret = MemPoolDevice[device].dealloc(Ptr);
-    break;
-  default:
-    DP("Invalid memory type while freeing memory to pool\n");
-  }
-
-  return ret;
-}
-
-/// Initialize all memory pool for the specified device
-void RTLDeviceInfoTy::initMemoryPool(int32_t DeviceId) {
-  MemPoolHost.init(TARGET_ALLOC_HOST, this);
-  auto &Device = Devices[DeviceId];
-  if (MemPoolShared.count(Device) == 0) {
-    MemPoolShared.emplace(Device, Device);
-    MemPoolShared[Device].init(TARGET_ALLOC_SHARED, this);
-  }
-  if (MemPoolDevice.count(Device) == 0) {
-    MemPoolDevice.emplace(Device, Device);
-    MemPoolDevice[Device].init(TARGET_ALLOC_DEVICE, this);
-  }
-  // Also initialize subdevices' pool
-  if (SubDeviceIds[DeviceId].size() > 0)
-    for (auto SubId : SubDeviceIds[DeviceId][0])
-      initMemoryPool(SubId);
-}
-
-/// Initialize memory stats
-void RTLDeviceInfoTy::initMemoryStat() {
-  MemStatHost = MemStatTy(0, TARGET_ALLOC_HOST);
-  for (uint32_t I = 0; I < NumDevices; I++) {
-    if (MemStatShared.count(Devices[I]) == 0)
-      MemStatShared.emplace(Devices[I], MemStatTy(I, TARGET_ALLOC_SHARED));
-    if (MemStatDevice.count(Devices[I]) == 0)
-      MemStatDevice.emplace(Devices[I], MemStatTy(I, TARGET_ALLOC_DEVICE));
-  }
 }
 
 /// Create a new command queue for the given OpenMP device ID
@@ -3456,41 +3391,31 @@ int32_t RTLDeviceInfoTy::getInternalDeviceId(int32_t DeviceId) {
   return DeviceId;
 }
 
+void *RTLDeviceInfoTy::dataAlloc(int32_t DeviceId, size_t Size, size_t Align,
+                                 int32_t Kind, intptr_t Offset,
+                                 bool UserAlloc, bool Owned) {
+  ScopedTimerTy TM(DeviceId, "DataAlloc");
+  DeviceId = getInternalDeviceId(DeviceId);
+  auto Device = DeviceInfo->Devices[DeviceId];
+  if (Kind == TARGET_ALLOC_DEFAULT) {
+    if (UserAlloc)
+      Kind = (Option.TargetAllocKind == TARGET_ALLOC_DEFAULT) ?
+             TARGET_ALLOC_DEVICE : Option.TargetAllocKind;
+    else
+      Kind = AllocKinds[DeviceId];
+  }
+  auto &Allocator = (Kind == TARGET_ALLOC_HOST)
+                    ? MemAllocator.at(nullptr) : MemAllocator.at(Device);
+  return Allocator.alloc(Size, Align, Kind, Offset, UserAlloc, Owned);
+}
+
 int32_t RTLDeviceInfoTy::dataDelete(int32_t DeviceId, void *Ptr) {
-  MemAllocInfoTy Info;
-  auto Removed = MemAllocInfo[DeviceId]->remove(Ptr, &Info);
-  // Try again with device-independent allocation information (host USM)
-  if (!Removed)
-    Removed = MemAllocInfo[NumDevices]->remove(Ptr, &Info);
-  if (!Removed) {
-    DP("Error: Cannot find memory allocation information for " DPxMOD "\n",
-       DPxPTR(Ptr));
-    return OFFLOAD_FAIL;
-  }
-
-  if (Option.Flags.UseMemoryPool && Info.InPool) {
-    bool Deallocated = poolFree(DeviceId, Info.Base ? Info.Base : Ptr);
-    if (Deallocated) {
-      DP("Returned device memory " DPxMOD " to memory pool\n", DPxPTR(Ptr));
-      return OFFLOAD_SUCCESS;
-    } else {
-      DP("Error: Cannot return memory " DPxMOD " to memory pool\n",
-         DPxPTR(Ptr));
-      return OFFLOAD_FAIL;
-    }
-  }
-
-  if (!Info.Base) {
-    DP("Error: Cannot find base address of " DPxMOD "\n", DPxPTR(Ptr));
-    return OFFLOAD_FAIL;
-  }
-  LOG_MEM_USAGE(Devices[DeviceId], 0, Info.Base);
-  CALL_ZE_RET_FAIL_MTX(zeMemFree, Mutexes[DeviceId], Context, Info.Base);
-
-  DP("Deleted device memory " DPxMOD " (Base: " DPxMOD ", Size: %zu)\n",
-     DPxPTR(Ptr), DPxPTR(Info.Base), Info.Size);
-
-  return OFFLOAD_SUCCESS;
+  DeviceId = getInternalDeviceId(DeviceId);
+  auto Device = Devices[DeviceId];
+  auto AllocType = getMemAllocType(Ptr);
+  auto &Allocator = (AllocType == ZE_MEMORY_TYPE_HOST)
+                    ? MemAllocator.at(nullptr) : MemAllocator.at(Device);
+  return Allocator.dealloc(Ptr);
 }
 
 static void dumpImageToFile(
@@ -3725,8 +3650,7 @@ EXTERN int32_t __tgt_rtl_init_device(int32_t DeviceId) {
     return OFFLOAD_FAIL;
   }
 
-  if (DeviceInfo->Option.Flags.UseMemoryPool)
-    DeviceInfo->initMemoryPool(DeviceId);
+  DeviceInfo->initMemAllocator(DeviceId);
 
   if (DeviceInfo->Option.Flags.UseImmCmdList)
     DeviceInfo->initImmCmdList(DeviceId);
@@ -3810,122 +3734,21 @@ EXTERN __tgt_target_table *__tgt_rtl_load_binary(
   return Table;
 }
 
-void *RTLDeviceInfoTy::allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
-                                 void *HstBase) {
-  DeviceId = getInternalDeviceId(DeviceId);
-
-  // TODO: this seems necessary for now -- check with L0 driver team for details
-  std::unique_lock<std::mutex> AllocLock(Mutexes[DeviceId]);
-
-  ScopedTimerTy TmDataAlloc(DeviceId, "DataAlloc");
-  intptr_t Offset = (intptr_t)HstPtr - (intptr_t)HstBase;
-  size_t AllocSize =
-      (Offset < 0 && ABS(Offset) >= Size) ? ABS(Offset) + 1 : Size;
-
-  Offset = (Offset >= 0) ? Offset : 0;
-  AllocSize += Offset;
-
-  void *Base = nullptr;
-  void *Mem = nullptr;
-  auto AllocKind = AllocKinds[DeviceId];
-  auto ID = (AllocKind != TARGET_ALLOC_HOST) ? DeviceId : NumDevices;
-
-  if (Option.Flags.UseMemoryPool) {
-    Base = DeviceInfo->poolAlloc(DeviceId, AllocSize, AllocKind, Offset);
-    if (Base != nullptr) {
-      Mem = (void *)((intptr_t)Base + Offset);
-      DP("Allocated target memory " DPxMOD " (Base: " DPxMOD ", Size: %zu) "
-         "from memory pool for host ptr " DPxMOD "\n", DPxPTR(Mem),
-         DPxPTR(Base), AllocSize, DPxPTR(HstPtr));
-      MemAllocInfo[ID]->add(Mem, nullptr /* Base */, Size, AllocKind,
-                            true /* InPool */);
-      return Mem;
-    }
-  }
-
-  // Use device-specific allocation type
-  Base = allocDataExplicit(DeviceId, AllocSize, AllocKind);
-  if (Base) {
-    Mem = (void *)((intptr_t)Base + Offset);
-    MemAllocInfo[ID]->add(Mem, Base, Size, AllocKind);
-    if (DebugLevel > 0) {
-      void *ActualBase = nullptr;
-      size_t ActualSize = 0;
-      CALL_ZE_RET_NULL(zeMemGetAddressRange, Context, Mem, &ActualBase,
-                       &ActualSize);
-      assert(Base == ActualBase && "Invalid memory address range!");
-      DP("Allocated target memory " DPxMOD " (Base: " DPxMOD
-         ", Size: %zu) for host ptr " DPxMOD "\n", DPxPTR(Mem),
-         DPxPTR(ActualBase), ActualSize, DPxPTR(HstPtr));
-    }
-  }
-
-  return Mem;
-}
-
-static void *dataAllocExplicit(
-    int32_t DeviceId, int64_t Size, int32_t Kind, size_t Align = 0) {
-  void *Mem = nullptr;
-  void *Base = nullptr;
-  bool InPool = false;
-
-  if (DeviceInfo->Option.Flags.UseMemoryPool)
-    Mem = DeviceInfo->poolAlloc(DeviceId, Size + Align, Kind);
-
-  if (Mem) {
-    InPool = true;
-    if (Align > 0) {
-      Base = Mem; // Use Base address in later poolFree() operation
-      Mem = (void *)(((uintptr_t)Mem + Align) & ~(Align - 1));
-    }
-  } else {
-    Mem = allocDataExplicit(DeviceId, Size, Kind, Align);
-    Base = Mem;
-  }
-
-  if (Mem) {
-    auto ID = (Kind == TARGET_ALLOC_HOST) ? DeviceInfo->NumDevices : DeviceId;
-    DeviceInfo->MemAllocInfo[ID]->add(Mem, Base, Size, Kind, InPool,
-                                      true /* IsImplicitArg */);
-  }
-
-  return Mem;
-}
-
 EXTERN void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *HstPtr,
                                   int32_t Kind) {
-  void *Mem = nullptr;
-
-  if (HstPtr) {
-    Mem = DeviceInfo->allocData(DeviceId, Size, HstPtr, HstPtr);
-  } else {
-    // User allocation
-    int32_t AllocKind = Kind;
-    if (AllocKind == TARGET_ALLOC_DEFAULT) {
-      // Set allocation kind to device while respecting
-      // LIBOMPTARGET_LEVEL0_DEFAULT_TARGET_MEM.
-      AllocKind = DeviceInfo->Option.TargetAllocKind;
-      if (AllocKind == TARGET_ALLOC_DEFAULT)
-        AllocKind = TARGET_ALLOC_DEVICE;
-    }
-    Mem = dataAllocExplicit(DeviceId, Size, AllocKind);
-  }
-
-  return Mem;
+  return DeviceInfo->dataAlloc(DeviceId, Size, 0, Kind, 0, HstPtr == nullptr);
 }
 
 EXTERN void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size,
                                        void *HstPtr, void *HstBase) {
-  void *Mem = DeviceInfo->allocData(DeviceId, Size, HstPtr, HstBase);
-  return Mem;
+  return DeviceInfo->dataAlloc(DeviceId, Size, 0, TARGET_ALLOC_DEFAULT,
+                               (intptr_t)HstPtr - (intptr_t)HstBase, false);
 }
 
 EXTERN void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
   int32_t Kind = DeviceInfo->Option.Flags.UseHostMemForUSM
                     ? TARGET_ALLOC_HOST : TARGET_ALLOC_SHARED;
-  void *Mem = dataAllocExplicit(DeviceId, Size, Kind);
-
-  return Mem;
+  return DeviceInfo->dataAlloc(DeviceId, Size, 0, Kind, 0, true);
 }
 
 EXTERN void *__tgt_rtl_data_realloc(
@@ -3933,10 +3756,12 @@ EXTERN void *__tgt_rtl_data_realloc(
   const MemAllocInfoTy *Info = nullptr;
 
   if (Ptr) {
-    if (DeviceInfo->getMemAllocType(Ptr) == ZE_MEMORY_TYPE_HOST)
-      Info = DeviceInfo->MemAllocInfo[DeviceInfo->NumDevices]->find(Ptr);
-    else
-      Info = DeviceInfo->MemAllocInfo[DeviceId]->find(Ptr);
+    auto MemType = DeviceInfo->getMemAllocType(Ptr);
+    auto Device = DeviceInfo->Devices[DeviceId];
+    auto &Allocator = (MemType == ZE_MEMORY_TYPE_HOST)
+                          ? DeviceInfo->MemAllocator.at(nullptr)
+                          : DeviceInfo->MemAllocator.at(Device);
+    Info = Allocator.getAllocInfo(Ptr);
     if (!Info) {
       DP("Error: Cannot find allocation information for pointer " DPxMOD "\n",
          DPxPTR(Ptr));
@@ -3949,25 +3774,18 @@ EXTERN void *__tgt_rtl_data_realloc(
     }
   }
 
-  int32_t AllocKind = Kind;
-  if (AllocKind == TARGET_ALLOC_DEFAULT) {
-    AllocKind = DeviceInfo->Option.TargetAllocKind;
-    if (AllocKind == TARGET_ALLOC_DEFAULT)
-      AllocKind = TARGET_ALLOC_DEVICE;
-  }
+  void *Mem = DeviceInfo->dataAlloc(DeviceId, Size, 0, Kind, 0, true);
 
-  void *Mem = dataAllocExplicit(DeviceId, Size, AllocKind);
-
-  if (Mem && Info) {
-    int32_t Rc = OFFLOAD_SUCCESS;
-    if (AllocKind == TARGET_ALLOC_DEVICE || Info->Kind == TARGET_ALLOC_DEVICE)
-      Rc = DeviceInfo->enqueueMemCopy(DeviceId, Mem, Ptr, Info->Size);
+  if (Mem && Info) { // Requires copying data
+    int32_t RC = OFFLOAD_SUCCESS;
+    if (Kind == TARGET_ALLOC_DEVICE || Info->Kind == TARGET_ALLOC_DEVICE)
+      RC = DeviceInfo->enqueueMemCopy(DeviceId, Mem, Ptr, Info->Size);
     else
       std::copy_n((char *)Ptr, Info->Size, (char *)Mem);
-    if (Rc != OFFLOAD_SUCCESS)
+    if (RC != OFFLOAD_SUCCESS)
       return nullptr;
-    Rc = DeviceInfo->dataDelete(DeviceId, Ptr);
-    if (Rc != OFFLOAD_SUCCESS)
+    RC = DeviceInfo->dataDelete(DeviceId, Ptr);
+    if (RC != OFFLOAD_SUCCESS)
       return nullptr;
   }
 
@@ -3980,15 +3798,7 @@ EXTERN void *__tgt_rtl_data_aligned_alloc(
     DP("Error: Alignment %zu is not power of two.\n", Align);
     return nullptr;
   }
-
-  int32_t AllocKind = Kind;
-  if (AllocKind == TARGET_ALLOC_DEFAULT) {
-    AllocKind = DeviceInfo->Option.TargetAllocKind;
-    if (AllocKind == TARGET_ALLOC_DEFAULT)
-      AllocKind = TARGET_ALLOC_DEVICE;
-  }
-
-  return dataAllocExplicit(DeviceId, Size, AllocKind, Align);
+  return DeviceInfo->dataAlloc(DeviceId, Size, Align, Kind, 0, true);
 }
 
 EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(int32_t DeviceId, void *Ptr) {
@@ -4137,14 +3947,11 @@ EXTERN int32_t __tgt_rtl_data_exchange(
 }
 
 EXTERN int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
-  DeviceId = DeviceInfo->getInternalDeviceId(DeviceId);
-
   if (DeviceInfo->Option.CommandBatchLevel > 0) {
     auto &Batch = getTLS()->getCommandBatch();
     if (Batch.isActive())
       return Batch.enqueueMemFree(DeviceId, TgtPtr);
   }
-
   return DeviceInfo->dataDelete(DeviceId, TgtPtr);
 }
 
@@ -5097,13 +4904,14 @@ EXTERN int32_t __tgt_rtl_is_accessible_addr_range(
     return 0;
 
   auto MemType = DeviceInfo->getMemAllocType(Ptr);
-  auto ID = DeviceId;
-  if (MemType == ZE_MEMORY_TYPE_HOST)
-    ID = DeviceInfo->NumDevices;
-  else if (MemType != ZE_MEMORY_TYPE_SHARED)
+  if (MemType != ZE_MEMORY_TYPE_SHARED && MemType != ZE_MEMORY_TYPE_HOST)
     return 0;
 
-  if (DeviceInfo->MemAllocInfo[ID]->contains(Ptr, Size))
+  DeviceId = DeviceInfo->getInternalDeviceId(DeviceId);
+  auto Device = (MemType == ZE_MEMORY_TYPE_SHARED)
+                    ? DeviceInfo->Devices[DeviceId] : nullptr;
+  auto &Allocator = DeviceInfo->MemAllocator.at(Device);
+  if (Allocator.contains(Ptr, Size))
     return 1;
   else
     return 0;
@@ -5198,14 +5006,11 @@ EXTERN int32_t __tgt_rtl_set_function_ptr_map(
   // Allocate memory for the function pointers map on the device,
   // and transfer the host map to the allocated memory.
   size_t FnPtrMapSizeInBytes = Size * sizeof(__omp_offloading_fptr_map_t);
-  void *FnPtrMapMem = allocDataExplicit(DeviceId, FnPtrMapSizeInBytes,
-                                        DeviceInfo->AllocKinds[DeviceId]);
+  void *FnPtrMapMem = DeviceInfo->dataAlloc(DeviceId, FnPtrMapSizeInBytes, 0,
+                                            TARGET_ALLOC_DEFAULT, 0, false,
+                                            true /* Owned */);
   if (!FnPtrMapMem)
     return OFFLOAD_FAIL;
-
-  DeviceInfo->DataMutexes[DeviceId].lock();
-  DeviceInfo->OwnedMemory[DeviceId].push_back(FnPtrMapMem);
-  DeviceInfo->DataMutexes[DeviceId].unlock();
 
   if (DebugLevel >= 2) {
     DP("Transferring function pointers table (%" PRIu64
@@ -5255,7 +5060,6 @@ EXTERN int32_t __tgt_rtl_set_function_ptr_map(
 
 EXTERN void *__tgt_rtl_alloc_per_hw_thread_scratch(
     int32_t DeviceId, size_t ObjSize, int32_t AllocKind) {
-  void *Mem = nullptr;
   auto &P = DeviceInfo->DeviceProperties[DeviceId];
   uint32_t NumHWThreads = P.numThreadsPerEU * P.numEUsPerSubslice *
       P.numSubslicesPerSlice * P.numSlices;
@@ -5263,22 +5067,10 @@ EXTERN void *__tgt_rtl_alloc_per_hw_thread_scratch(
   if (AllocKind == TARGET_ALLOC_DEFAULT)
     AllocKind = TARGET_ALLOC_DEVICE;
 
-  // Use common pool for now. We can consider using a dedicated pool if desired.
-  if (DeviceInfo->Option.Flags.UseMemoryPool)
-    Mem = DeviceInfo->poolAlloc(DeviceId, AllocSize, AllocKind);
-
-  bool InPool = false;
-  if (Mem)
-    InPool = true;
-  else
-    Mem = allocDataExplicit(DeviceId, ObjSize * NumHWThreads, AllocKind);
-
-  if (Mem) {
-    DeviceInfo->MemAllocInfo[DeviceId]->add(
-        Mem, Mem, AllocSize, AllocKind, InPool);
-    DP("Allocated %zu byte per-hw-thread scratch space at " DPxMOD "\n",
-       AllocSize, DPxPTR(Mem));
-  }
+  void *Mem = DeviceInfo->dataAlloc(DeviceId, AllocSize, 0, AllocKind, 0,
+                                    false);
+  DP("Allocated %zu byte per-hw-thread scratch space at " DPxMOD "\n",
+     AllocSize, DPxPTR(Mem));
 
   return Mem;
 }
@@ -5513,12 +5305,9 @@ int32_t RTLDeviceInfoTy::findDevices() {
   // Prepare space for internal data
   Programs.resize(NumDevices);
   KernelProperties.resize(NumDevices);
-  OwnedMemory.resize(NumDevices);
   Initialized.resize(NumDevices);
-  Profiles.resize(NumDevices);
   Context = createContext(Driver);
   NumActiveKernels.resize(NumRootDevices, 0);
-  ProgramData.resize(NumRootDevices);
   BatchCmdQueues.resize(NumRootDevices);
   ImmCmdLists.resize(NumDevices);
   Mutexes.reset(new std::mutex[NumDevices]);
@@ -5552,13 +5341,6 @@ int32_t RTLDeviceInfoTy::findDevices() {
       DP("-- %s\n", E.name);
   }
 
-  // Host allocation information needs one additional slot
-  for (uint32_t I = 0; I < NumDevices + 1; I++)
-    MemAllocInfo.emplace_back(new MemAllocInfoMapTy());
-
-  if (DebugLevel > 0)
-    initMemoryStat();
-
   // Look up GITS notification function
   ze_result_t Rc;
   CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
@@ -5567,6 +5349,30 @@ int32_t RTLDeviceInfoTy::findDevices() {
     GitsIndirectAllocationOffsets = nullptr;
 
   return NumRootDevices;
+}
+
+void RTLDeviceInfoTy::initMemAllocator(int32_t DeviceId) {
+  auto Device = Devices[DeviceId];
+  bool SupportsLargeMem = DriverAPIVersion >= ZE_API_VERSION_1_1;
+  if (MemAllocator.count(Device) == 0) {
+    MemAllocator.emplace(std::piecewise_construct,
+                         std::forward_as_tuple(Device),
+                         std::forward_as_tuple(Context, Device, Option,
+                                               SupportsLargeMem));
+  }
+  if (MemAllocator.count(nullptr) == 0) {
+    // Also initialize host memory allocator if it is not initialized already
+    // We are using *null* key as host memory is not associated with any L0
+    // devices.
+    MemAllocator.emplace(std::piecewise_construct,
+                         std::forward_as_tuple(nullptr),
+                         std::forward_as_tuple(Context, Device, Option,
+                                               SupportsLargeMem, true));
+  }
+  if (DeviceId < NumRootDevices && SubDeviceIds[DeviceId].size() > 0) {
+    for (auto SubId : SubDeviceIds[DeviceId][0])
+      initMemAllocator(SubId);
+  }
 }
 
 LevelZeroProgramTy::~LevelZeroProgramTy() {
@@ -6276,11 +6082,9 @@ int32_t LevelZeroProgramTy::buildKernels() {
         TgtAddr = getOffloadVarDeviceAddr(Name, Size);
 
       if (!TgtAddr) {
-        TgtAddr = allocDataExplicit(DeviceId, Size,
-                                    DeviceInfo->AllocKinds[DeviceId]);
+        TgtAddr = DeviceInfo->dataAlloc(DeviceId, Size, 0, TARGET_ALLOC_DEFAULT,
+                                        0, false, true /* Owned */);
         __tgt_rtl_data_submit(DeviceId, TgtAddr, HstAddr, Size);
-        std::unique_lock<std::mutex> Lock(DeviceInfo->DataMutexes[DeviceId]);
-        DeviceInfo->OwnedMemory[DeviceId].push_back(TgtAddr);
         DP("Warning: global variable '%s' allocated. "
            "Direct references will not work properly.\n", Name);
       }
@@ -6396,12 +6200,10 @@ int32_t LevelZeroProgramTy::initProgramData() {
   uintptr_t MemUB = 0;
   size_t MemSize = DeviceInfo->Option.KernelDynamicMemorySize;
   if (MemSize > 0)
-    MemLB = allocDataExplicit(Device, MemSize, TARGET_ALLOC_DEVICE);
-
-  if (MemLB) {
-    DeviceInfo->OwnedMemory[DeviceId].push_back(MemLB);
+    MemLB = DeviceInfo->dataAlloc(DeviceId, MemSize, 0, TARGET_ALLOC_DEVICE, 0,
+                                  false, true /* Owned */);
+  if (MemLB)
     MemUB = (uintptr_t)MemLB + MemSize;
-  }
 
   PGMData = {
     1,                   // Initialized
@@ -6426,4 +6228,5 @@ int32_t LevelZeroProgramTy::resetProgramData() {
   return DeviceInfo->enqueueMemCopy(DeviceId, PGMDataPtr, &PGMData,
                                     sizeof(PGMData), true /* Locked */);
 }
+
 #endif // INTEL_CUSTOMIZATION
