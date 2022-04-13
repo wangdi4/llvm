@@ -349,6 +349,12 @@ private:
   /// IR Optimization Level [0-3].
   unsigned OptLevel = 3;
 
+#ifdef INTEL_CUSTOMIZATION
+  /// Flag to indicate whether the new pass manager should be used for IR
+  /// optimizations.
+  bool UseNewPM = true;
+#endif // INTEL_CUSTOMIZATION
+
   /// Flag to indicate whether debug output should be enabled for the new pass
   /// manager.
   bool DebugPassManager = false;
