@@ -647,6 +647,7 @@ public:
     GeneralMemOptConflict,
     ConflictInsn,
     TreeConflict,
+    CvtMaskToInt,
     Permute,
   };
 
@@ -4197,6 +4198,37 @@ public:
 
   VPPermute *cloneImpl() const override {
     return new VPPermute(getType(), getOperand(0), getOperand(1));
+  }
+};
+
+// Represents operation to convert mask to target IntergerTy. It effectively
+// represents a bitcast + zext, for example -
+//
+// i64 %cvt = convert-mask-to-int i1 %mask
+//
+// is lowered for VF=2 as -
+//
+// %bc = bitcast <2 x i1> %vec.mask to i2
+// %cvt = zext i2 %bc to i64
+class VPConvertMaskToInt final : public VPInstruction {
+public:
+  VPConvertMaskToInt(Type *TargetTy, VPValue *Mask)
+      : VPInstruction(VPInstruction::CvtMaskToInt, TargetTy, {Mask}) {
+    assert(Mask->getType()->isIntegerTy(1 /*BitWidth*/) &&
+           "Mask operand expected to be i1 type.");
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::CvtMaskToInt;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPConvertMaskToInt *cloneImpl() const override {
+    return new VPConvertMaskToInt(getType(), getOperand(0));
   }
 };
 

@@ -104,9 +104,29 @@ static bool lowerHistogram(VPTreeConflict *TreeConflict, Function &Fn) {
       cast<VPInstruction>(TreeConflict->getConflictIndex());
 
   // Detect conflicts.
-  auto *ConflictInst = VPBldr.create<VPConflictInsn>(
+  VPInstruction *ConflictInst = VPBldr.create<VPConflictInsn>(
       "vpconfict.intrinsic", ConflictIndex->getType(), ConflictIndex);
   DA->markDivergent(*ConflictInst);
+
+  // If histogram is masked, then we need to filter out the conflict results
+  // based on mask. This is done by following sequence of instructions -
+  //
+  // i64 %conficts = vpconflict-insn i64 %vp.vconflict.index
+  // i64 %mask.to.int = convert-mask-to-int i1 %mask
+  // i64 %filtered = and i64 %conflicts %mask.to.int
+  // i64 %pop.count = call i64 %filtered llvm.ctpop.v2i64 [x 1]
+  //
+  if (auto *Mask = TreeConflict->getParent()->getBlockPredicate()) {
+    auto *MaskToInt = VPBldr.create<VPConvertMaskToInt>(
+        "mask.to.int", ConflictInst->getType(), Mask->getOperand(0));
+    DA->updateDivergence(*MaskToInt);
+
+    auto *ConflictAndMask = cast<VPInstruction>(
+        VPBldr.createAnd(ConflictInst, MaskToInt, "conflict.and.mask"));
+    DA->updateDivergence(*ConflictAndMask);
+
+    ConflictInst = ConflictAndMask;
+  }
 
   // Emit pop count intrinsic.
   auto *PopCountFn = Intrinsic::getDeclaration(Fn.getParent(), Intrinsic::ctpop,
