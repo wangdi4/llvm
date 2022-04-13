@@ -1020,9 +1020,13 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
   bool isCallback = false; // INTEL
   for (Use &U : F->uses()) {
 #if INTEL_CUSTOMIZATION
+    CallBase *CB = dyn_cast<CallBase>(U.getUser());
     AbstractCallSite CS(&U);
+
     // Must be a direct or a callback call.
-    if (!CS || !(CS.isDirectCall() || CS.isCallbackCall()) || !CS.isCallee(&U))
+    if (!CS || !(CS.isDirectCall() || CS.isCallbackCall()) || !CS.isCallee(&U) ||
+        !CS.isCallbackCall() && CB &&
+	(CB->getFunctionType() != F->getFunctionType()))
       return nullptr;
 
     if (CS.isDirectCall()) {
