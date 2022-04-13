@@ -27,7 +27,8 @@ sg.dummy.bb.:                                     ; preds = %sg.barrier.bb.
 
 declare i32 @_Z13sub_group_alli(i32) #0
 
-; CHECK: define <16 x i32> @_ZGVbN16v_foo(<16 x i32> %a)
+; CHECK-DAG: define i32 @foo(i32 %a)
+; CHECK-DAG: define <16 x i32> @_ZGVbN16v_foo(<16 x i32> %a)
 
 define void @test(i32 %x) !kernel_has_sub_groups !1 !sg_emu_size !2 {
 ; CHECK-LABEL: define void @test
@@ -78,5 +79,5 @@ attributes #0 = { "vector-variants"="_ZGVbM16v__Z13sub_group_alli(_Z13sub_group_
 
 ; DEBUGIFY-NOT: WARNING
 ; FIXME: SGValueWiden does not respect llvm.dbg.value and llvm.dbg.addr
-; DEBUGIFY-COUNT-2: WARNING: Missing line
+; DEBUGIFY-COUNT-1: WARNING: Missing line
 ; DEBUGIFY-NOT: WARNING
