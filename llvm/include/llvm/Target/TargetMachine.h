@@ -274,11 +274,15 @@ public:
     Options.SupportsDebugEntryValues = Enable;
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   void setIntelLibIRCAllowed(bool Value) {
     Options.IntelLibIRCAllowed = Value;
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  void setCFIFixup(bool Enable) { Options.EnableCFIFixup = Enable; }
+>>>>>>> b4ad28da196d3c2b1bc064b4dc46c3e00e93438f
 
   bool getAIXExtendedAltivecABI() const {
     return Options.EnableAIXExtendedAltivecABI;
