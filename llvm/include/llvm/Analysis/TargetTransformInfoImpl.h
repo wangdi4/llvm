@@ -237,10 +237,6 @@ public:
 
   bool isNumRegsMajorCostOfLSR() const { return true; }
 
-#if INTEL_CUSTOMIZATION
-  bool isLSRCostExceedTTIRegNum(TTI::LSRCost &Cost) const { return false; }
-#endif // INTEL_CUSTOMIZATION
-
   bool isProfitableLSRChainElement(Instruction *I) const { return false; }
 
   bool canMacroFuseCmp() const { return false; }
