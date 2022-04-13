@@ -1,7 +1,7 @@
 ; RUN: opt -module-summary %s -o %t1.bc
 
 ; Test SLP and Loop Vectorization are enabled by default at O2 and O3.
-; ; INTEL - Enable loop vectorizer as it is needed, it is not ON by default.
+; INTEL - Enable loop vectorizer as it is needed, it is not ON by default.
 ; RUN: llvm-lto2 run %t1.bc -o %t2.o -O0 -enable-lv -r %t1.bc,foo,plx -debug-pass-manager \
 ; RUN:  -use-new-pm -save-temps 2>&1 | FileCheck %s --check-prefix=CHECK-O0-SLP
 ; RUN: llvm-dis %t2.o.1.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-O0-LPV

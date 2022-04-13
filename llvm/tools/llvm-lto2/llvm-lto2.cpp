@@ -143,10 +143,12 @@ static cl::opt<bool>
                  cl::desc("Run PGO context sensitive IR instrumentation"),
                  cl::init(false), cl::Hidden);
 
+#ifdef INTEL_CUSTOMIZATION
 static cl::opt<bool>
     UseNewPM("use-new-pm",
              cl::desc("Run LTO passes using the new pass manager"),
-             cl::init(LLVM_ENABLE_NEW_PASS_MANAGER), cl::Hidden); // INTEL
+             cl::init(LLVM_ENABLE_NEW_PASS_MANAGER), cl::Hidden);
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
     DebugPassManager("debug-pass-manager", cl::init(false), cl::Hidden,
@@ -267,7 +269,7 @@ static int run(int argc, char **argv) {
   Conf.AAPipeline = AAPipeline;
 
   Conf.OptLevel = OptLevel - '0';
-  Conf.UseNewPM = UseNewPM;
+  Conf.UseNewPM = UseNewPM; // INTEL
   Conf.Freestanding = EnableFreestanding;
   for (auto &PluginFN : PassPlugins)
     Conf.PassPlugins.push_back(PluginFN);
