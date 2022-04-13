@@ -320,7 +320,7 @@ TEST_F(ClangCompilerTestType, Test_SpirvWithFP64AndImages) {
     std::unique_ptr<IOCLFECompiler> spFeCompiler;
     IOCLFECompiler * pFeCompiler = spFeCompiler.get();
 
-    int err = CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler, nullptr);
+    int err = CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler);
     ASSERT_EQ(0, err) << "Failed to create FE instance.\n";
 
     err = pFeCompiler->ParseSPIRV(&spirvDesc, &m_binary_result);
@@ -351,7 +351,7 @@ TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOFP64) {
     std::unique_ptr<IOCLFECompiler> spFeCompiler;
     IOCLFECompiler * pFeCompiler = spFeCompiler.get();
 
-    int err = CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler, nullptr);
+    int err = CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler);
     ASSERT_EQ(0, err) << "Failed to create FE instance.\n";
 
     err = pFeCompiler->ParseSPIRV(&spirvDesc, &m_binary_result);
@@ -371,7 +371,7 @@ TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOImages) {
     std::unique_ptr<IOCLFECompiler> spFeCompiler;
     IOCLFECompiler * pFeCompiler = spFeCompiler.get();
 
-    int err = CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler, nullptr);
+    int err = CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler);
     ASSERT_EQ(0, err) << "Failed to create FE instance.\n";
 
     std::uint32_t imageCapabilities[] = {spv::CapabilitySampled1D,
@@ -485,7 +485,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnFPGA) {
   IOCLFECompiler *pFeCompiler = spFeCompiler.get();
 
   int err =
-      CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler, nullptr);
+      CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler);
   ASSERT_EQ(0, err) << "Failed to create FE instance.\n";
 
   err = pFeCompiler->ParseSPIRV(&spirvDesc, &m_binary_result);
@@ -519,7 +519,7 @@ TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnFPGA) {
   IOCLFECompiler *pFeCompiler = spFeCompiler.get();
 
   int err =
-      CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler, nullptr);
+      CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler);
   ASSERT_EQ(0, err) << "Failed to create FE instance.\n";
 
   err = pFeCompiler->ParseSPIRV(&spirvDesc, &m_binary_result);
@@ -591,8 +591,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnCPUAndFPGA) {
     std::unique_ptr<IOCLFECompiler> spFeCompiler;
     IOCLFECompiler *pFeCompiler = spFeCompiler.get();
 
-    int err = CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler,
-                                     nullptr);
+    int err = CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler);
     ASSERT_EQ(0, err) << "Failed to create FE instance.\n";
 
     err = pFeCompiler->ParseSPIRV(&spirvDesc, &m_binary_result);
@@ -644,7 +643,7 @@ TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnCPU) {
   IOCLFECompiler *pFeCompiler = spFeCompiler.get();
 
   int err =
-      CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler, nullptr);
+      CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler);
   ASSERT_EQ(0, err) << "Failed to create FE instance.\n";
 
   err = pFeCompiler->ParseSPIRV(&spirvDesc, &m_binary_result);

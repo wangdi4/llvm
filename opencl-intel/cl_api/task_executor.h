@@ -532,8 +532,7 @@ public:
      * etc).
      * @return the number of threads initialized, if succeeded, else -1.
      */
-    virtual int Init(Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger,
-                     unsigned int uiNumOfThreads = TE_AUTO_THREADS,
+    virtual int Init(unsigned int uiNumOfThreads = TE_AUTO_THREADS,
                      ocl_gpa_data * pGPAData = nullptr,
                      size_t ulAdditionalRequiredStackSize = 0,
                      DeviceMode deviceMode = CPU_DEVICE) = 0;

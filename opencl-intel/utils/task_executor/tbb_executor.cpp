@@ -57,7 +57,7 @@ using namespace Intel::OpenCL::Utils;
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
-FrameworkUserLogger* g_pUserLogger = NULL;
+FrameworkUserLogger* g_pUserLogger = nullptr;
 
 }}}
 
@@ -216,12 +216,10 @@ TBBTaskExecutor::~TBBTaskExecutor()
     // TBB seem to have a bug in ~task_scheduler_init(), so we work around it by not deleting m_pScheduler (TBB bug #1955)
 }
 
-int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
-                          unsigned int uiNumOfThreads, ocl_gpa_data * pGPAData,
+int TBBTaskExecutor::Init(unsigned int uiNumOfThreads, ocl_gpa_data * pGPAData,
                           size_t ulAdditionalRequiredStackSize,
                           DeviceMode deviceMode)
 {    
-    g_pUserLogger = pUserLogger;    
     INIT_LOGGER_CLIENT("TBBTaskExecutor", LL_INFO);
     LOG_INFO(TEXT("Initialization request with %d threads"), uiNumOfThreads);
     if ( 0 != gWorker_threads )
@@ -237,8 +235,8 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
     if ( !LoadTBBLibrary() )
     {
         LOG_ERROR(TEXT("%s"), "Failed to load TBB library");
-        if (pUserLogger && pUserLogger->IsErrorLoggingEnabled())
-          pUserLogger->PrintError("Failed to load TBB library.");
+        if (g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled())
+          g_pUserLogger->PrintError("Failed to load TBB library.");
         return 0;
     }
 
@@ -253,9 +251,9 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
                << __TBB_STRING(MINIMAL_TBB_INTERFACE_VERSION) << ", loaded "
                << TBB_runtime_interface_version() << "." << std::ends;
         LOG_ERROR(TEXT(stream.str().c_str()), "");
-        if (NULL != pUserLogger && pUserLogger->IsErrorLoggingEnabled())
+        if (nullptr != g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled())
         {
-            pUserLogger->PrintError(stream.str().c_str());
+            g_pUserLogger->PrintError(stream.str().c_str());
         }
         return 0;
     }

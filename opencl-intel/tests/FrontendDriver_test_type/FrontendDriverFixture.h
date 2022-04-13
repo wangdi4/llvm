@@ -97,7 +97,6 @@ private:
 extern "C" DLL_IMPORT int CreateFrontEndInstance(
     const void* pDeviceInfo,
     size_t devInfoSize,
-    Intel::OpenCL::FECompilerAPI::IOCLFECompiler* *pFECompiler,
-    Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger);
+    Intel::OpenCL::FECompilerAPI::IOCLFECompiler* *pFECompiler);
 
 #endif

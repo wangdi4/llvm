@@ -51,8 +51,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
         TBBTaskExecutor();
         virtual ~TBBTaskExecutor();
 
-        int Init(Intel::OpenCL::Utils::FrameworkUserLogger *pUserLogger,
-                 unsigned int uiNumOfThreads = TE_AUTO_THREADS,
+        int Init(unsigned int uiNumOfThreads = TE_AUTO_THREADS,
                  ocl_gpa_data *pGPAData = nullptr,
                  size_t ulAdditionalRequiredStackSize = 0,
                  DeviceMode deviceMode = CPU_DEVICE) override;
