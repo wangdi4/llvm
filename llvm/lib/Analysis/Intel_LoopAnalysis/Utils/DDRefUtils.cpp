@@ -247,9 +247,12 @@ int DDRefUtils::compareOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2,
          "DimensionNum is invalid for Ref1");
   assert((Ref2->getNumDimensions() >= DimensionNum) &&
          "DimensionNum is invalid for Ref2");
-  assert((Ref1->getDimensionType(DimensionNum) ==
-          Ref2->getDimensionType(DimensionNum)) &&
-         "Invalid offset comparison for refs!");
+
+  // Comment the assertion when we use compareOffsets in sorting memref groups
+  // with opaque pointer enabled.
+  // assert((Ref1->getDimensionType(DimensionNum) ==
+  //         Ref2->getDimensionType(DimensionNum)) &&
+  //        "Invalid offset comparison for refs!");
 
   auto Offsets1 = Ref1->getTrailingStructOffsets(DimensionNum);
   auto Offsets2 = Ref2->getTrailingStructOffsets(DimensionNum);
@@ -275,6 +278,11 @@ bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
                                        const RegDDRef *Ref2, bool RelaxedMode) {
   assert(Ref1->hasGEPInfo() && Ref2->hasGEPInfo() &&
          "Ref1 and Ref2 should be GEP DDRef");
+
+  if (Ref1->getBasePtrElementType() != Ref2->getBasePtrElementType()) {
+    return false;
+  }
+
   auto BaseCE1 = Ref1->getBaseCE();
   auto BaseCE2 = Ref2->getBaseCE();
 
