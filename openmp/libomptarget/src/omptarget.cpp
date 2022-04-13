@@ -962,6 +962,15 @@ int targetDataEnd(ident_t *loc, DeviceTy &Device, int32_t ArgNum,
         FromMapperBase = HstPtrBegin;
       }
 
+#if INTEL_CUSTOMIZATION
+      // In case of IsHostPtr, TPR.Entry refers to an entry that is not relevant
+      // to HstPtrBegin, and it can be used in apployToShadowMapEntries below
+      // even after TPR.Entry is destroyed.
+      // Runtime built with the current build compiler does not catch this,
+      // but runtime built with self-built compiler catches this error.
+      if (IsHostPtr)
+        TPR.Entry = nullptr;
+#endif // INTEL_CUSTOMIZATION
       // Add pointer to the buffer for post-synchronize processing.
       PostProcessingPtrs.emplace_back(HstPtrBegin, DataSize, ArgTypes[I],
                                       DelEntry && !IsHostPtr, TPR);
