@@ -153,6 +153,8 @@ int getX87Precision();
 bool getDoFMAOpt();
 
 bool getIntelSpillParms();
+
+bool getIntelABICompatible();
 #endif // INTEL_CUSTOMIZATION
 
 bool getEmitCallSiteInfo();

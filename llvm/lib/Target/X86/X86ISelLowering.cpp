@@ -4174,15 +4174,20 @@ SDValue X86TargetLowering::LowerFormalArguments(
         ArgValue = DAG.getCopyFromReg(Chain, dl, Reg, RegVT);
       }
 
+#if INTEL_CUSTOMIZATION
+      bool IsExtendedArg = !DAG.getTarget().Options.IntelABICompatible ||
+                          (DAG.getTarget().Options.IntelABICompatible &&
+                           F.hasLocalLinkage() && !F.hasAddressTaken());
       // If this is an 8 or 16-bit value, it is really passed promoted to 32
-      // bits.  Insert an assert[sz]ext to capture this, then truncate to the
-      // right size.
-      if (VA.getLocInfo() == CCValAssign::SExt)
+      // bits and the fuction is local linked.  Insert an assert[sz]ext to
+      // capture this, then truncate to the right size.
+      if (VA.getLocInfo() == CCValAssign::SExt && IsExtendedArg)
         ArgValue = DAG.getNode(ISD::AssertSext, dl, RegVT, ArgValue,
                                DAG.getValueType(VA.getValVT()));
-      else if (VA.getLocInfo() == CCValAssign::ZExt)
+      else if (VA.getLocInfo() == CCValAssign::ZExt && IsExtendedArg)
         ArgValue = DAG.getNode(ISD::AssertZext, dl, RegVT, ArgValue,
                                DAG.getValueType(VA.getValVT()));
+#endif // INTEL_CUSTOMIZATION
       else if (VA.getLocInfo() == CCValAssign::BCvt)
         ArgValue = DAG.getBitcast(VA.getValVT(), ArgValue);
 
