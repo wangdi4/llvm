@@ -7772,15 +7772,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    false))
     CmdArgs.push_back("-fmodules-debuginfo");
 
-<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
   Args.AddLastArg(CmdArgs, options::OPT_flegacy_pass_manager,
                   options::OPT_fno_legacy_pass_manager);
 #endif // INTEL_CUSTOMIZATION
-=======
   if (!CLANG_ENABLE_OPAQUE_POINTERS_INTERNAL)
     CmdArgs.push_back("-no-opaque-pointers");
->>>>>>> ab8abeaf48abb3addcbdb6136b1975b4afa3b37c
 
   ObjCRuntime Runtime = AddObjCRuntimeArgs(Args, Inputs, CmdArgs, rewriteKind);
   RenderObjCOptions(TC, D, RawTriple, Args, Runtime, rewriteKind != RK_None,
