@@ -9092,8 +9092,15 @@ void SelectionDAGBuilder::visitInlineAsm(const CallBase &Call,
     Chain = lowerStartEH(Chain, EHPadBB, BeginLabel);
   }
 
+  ArgNo = -1; // INTEL
+  SmallVector<StringRef> AsmStrs; // INTEL
+  IA->collectAsmStrs(AsmStrs);    // INTEL
+
   // Second pass over the constraints: compute which constraint option to use.
   for (SDISelAsmOperandInfo &OpInfo : ConstraintOperands) {
+    if (OpInfo.hasArg()) // INTEL
+      ArgNo++;           // INTEL
+
     // If this is an output operand with a matching input operand, look up the
     // matching input. If their types mismatch, e.g. one is an integer, the
     // other is floating point, or their sizes are different, flag it as an
@@ -9109,6 +9116,57 @@ void SelectionDAGBuilder::visitInlineAsm(const CallBase &Call,
     if (OpInfo.ConstraintType == TargetLowering::C_Memory &&
         OpInfo.Type == InlineAsm::isClobber)
       continue;
+
+#if INTEL_CUSTOMIZATION
+    // TODO: Refine me. This is a temporary/quick fix, it will generate more
+    // load/store.
+    // Current arch of inline asm is not friendly to identify the kinds of
+    // instructions in IR/DAG/MIR level.
+    //
+    // In inline asm, we can't (or hard to) distinguish a global address is used
+    // for what instruction. (In normal instructions we can distinguish them by
+    // checking the instruction type or opcode).
+    // So in following case, though there is "call func", we don't know there is
+    // fucntion call in such an (inline asm) IR/MIR.
+    //
+    // extern float func(float x); float GV;
+    // float test(float x) {
+    //     GV=x+1;
+    //     __asm { movss xmm0, GV; call func; movss GV, xmm0 }
+    //    return GV;
+    // }
+    //
+    // The global address will be see as normal global value's address, like GV
+    // in movss. This cause problems in 64 bit pic mode, becasue in 64 bit pic
+    // mode if we used a global value we first get a indepent address and then
+    // load the context from it. But "call func" is just use the address of
+    // "func", though "func" is also a global value.
+    //
+    // So it generated following wrong asm:
+    //
+    // movq    func@GOTPCREL(%rip), %rcx
+    // callq   *(%rcx) // There is 1 more dereference
+    //
+    // Correct code should be:
+    // callq   *%rcx   // Replace "(%rcx)" --> "%rcx"
+    //
+    // (Normally, except inline asm, these differentiated lowering for a
+    // global value happened in ISel by checking instruction/dag's type.)
+    //
+    // So here we termporly fix it by remove the isIndirect flag to "reduce"
+    // the times of dereference.
+    bool IsFunc = false;
+    if (OpInfo.CallOperand.getNode() &&
+        OpInfo.CallOperand.getOpcode() == ISD::GlobalAddress) {
+      if (auto *GA = dyn_cast<GlobalAddressSDNode>(OpInfo.CallOperand)) {
+        const GlobalValue *GV = GA->getGlobal();
+        IsFunc = GV && dyn_cast<Function>(GV);
+      }
+    }
+
+    if (IsFunc && TLI.hasExtraIndirectConstraint(AsmStrs, ArgNo))
+      OpInfo.isIndirect = false;
+#endif // INTEL_CUSTOMIZATION
 
     // If this is a memory input, and if the operand is not indirect, do what we
     // need to provide an address for the memory input.
