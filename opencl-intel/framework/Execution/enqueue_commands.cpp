@@ -13,19 +13,20 @@
 // License.
 
 #include "enqueue_commands.h"
-#include "ocl_event.h"
-#include "command_queue.h"
-#include "kernel.h"
-#include "sampler.h"
-#include "events_manager.h"
-#include "cl_sys_defines.h"
 #include "MemoryAllocator/MemoryObject.h"
-#include <Logger.h>
-#include "context_module.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_sys_defines.h"
+#include "cl_types.h"
+#include "command_queue.h"
+#include "context_module.h"
+#include "events_manager.h"
 #include "framework_proxy.h"
+#include "kernel.h"
+#include "ocl_event.h"
+#include "sampler.h"
 #include "svm_buffer.h"
 #include "usm_buffer.h"
+#include <Logger.h>
 
 //For debug
 #include <stdio.h>
@@ -2071,6 +2072,54 @@ void NDRangeKernelCommand::GPA_WriteWorkMetadata(const size_t* pWorkMetadata, __
     }
 }
 #endif // GPA
+
+ReadGVCommand::ReadGVCommand(const SharedPtr<IOclCommandQueueBase>& cmdQueue,
+    void *pDst, const void *pSrc, size_t size)
+    : Command(cmdQueue), m_pDst(pDst), m_pSrc(pSrc), m_size(size) {
+    m_commandType = CL_COMMAND_READ_GLOBAL_VARIABLE_INTEL;
+}
+
+ReadGVCommand::~ReadGVCommand() {
+}
+
+cl_err_code ReadGVCommand::Execute() {
+    if (nullptr == m_pDst || nullptr == m_pSrc)
+        return CL_INVALID_VALUE;
+
+    NotifyCmdStatusChanged(CL_RUNNING, CL_SUCCESS,
+                           Intel::OpenCL::Utils::HostTime());
+
+    memcpy(m_pDst, m_pSrc, m_size);
+
+    NotifyCmdStatusChanged(CL_COMPLETE, CL_SUCCESS,
+                           Intel::OpenCL::Utils::HostTime());
+
+    return CL_SUCCESS;
+}
+
+WriteGVCommand::WriteGVCommand(const SharedPtr<IOclCommandQueueBase>& cmdQueue,
+    void *pDst, const void *pSrc, size_t size)
+    : Command(cmdQueue), m_pDst(pDst), m_pSrc(pSrc), m_size(size) {
+    m_commandType = CL_COMMAND_WRITE_GLOBAL_VARIABLE_INTEL;
+}
+
+WriteGVCommand::~WriteGVCommand() {
+}
+
+cl_err_code WriteGVCommand::Execute() {
+    if (nullptr == m_pDst || nullptr == m_pSrc)
+        return CL_INVALID_VALUE;
+
+    NotifyCmdStatusChanged(CL_RUNNING, CL_SUCCESS,
+                           Intel::OpenCL::Utils::HostTime());
+
+    memcpy(m_pDst, m_pSrc, m_size);
+
+    NotifyCmdStatusChanged(CL_COMPLETE, CL_SUCCESS,
+                           Intel::OpenCL::Utils::HostTime());
+
+    return CL_SUCCESS;
+}
 
 /******************************************************************
  * Command: ReadBufferCommand

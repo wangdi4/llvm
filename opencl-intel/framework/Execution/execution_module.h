@@ -282,6 +282,30 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                         cl_event* event,
                                         ApiLogger* api_logger);
 
+        cl_err_code EnqueueReadGlobalVariable(cl_command_queue command_queue,
+                                              cl_program program,
+                                              const char* name,
+                                              bool blocking_read,
+                                              size_t size,
+                                              size_t offset,
+                                              void* ptr,
+                                              cl_uint num_events_in_wait_list,
+                                              const cl_event* event_wait_list,
+                                              cl_event* event,
+                                              ApiLogger* apiLogger);
+
+        cl_err_code EnqueueWriteGlobalVariable(cl_command_queue command_queue,
+                                               cl_program program,
+                                               const char* name,
+                                               bool blocking_write,
+                                               size_t size,
+                                               size_t offset,
+                                               const void* ptr,
+                                               cl_uint num_events_in_wait_list,
+                                               const cl_event* event_wait_list,
+                                               cl_event* event,
+                                               ApiLogger* apiLogger);
+
         // Profiling
         cl_err_code
         GetEventProfilingInfo(cl_event clEvent, cl_profiling_info clParamName,
