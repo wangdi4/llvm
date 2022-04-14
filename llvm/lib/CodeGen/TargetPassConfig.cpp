@@ -87,6 +87,12 @@ IntelLibIRCAllowed("intel-libirc-allowed",
 static cl::opt<bool> EnableRAReport("enable-ra-report",
   cl::init(false), cl::Hidden,
   cl::desc("Enable register allocation report."));
+
+/// This internal switch can be used to turn on INTEL ABI compatible. With the
+/// option enabled, the backend will handle ABI different from the community.
+cl::opt<bool> IntelABICompatible("intel-abi-compatible",
+                                        cl::desc("Enable intel abi compatible"),
+                                        cl::init(false), cl::Hidden);
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -659,6 +665,7 @@ TargetPassConfig::TargetPassConfig(LLVMTargetMachine &TM, PassManagerBase &pm)
 
 #if INTEL_CUSTOMIZATION
   TM.Options.IntelLibIRCAllowed = IntelLibIRCAllowed;
+  TM.Options.IntelABICompatible = IntelABICompatible;
 #endif // INTEL_CUSTOMIZATION
 
   if (EnableIPRA.getNumOccurrences())

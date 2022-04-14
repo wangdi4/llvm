@@ -4174,15 +4174,20 @@ SDValue X86TargetLowering::LowerFormalArguments(
         ArgValue = DAG.getCopyFromReg(Chain, dl, Reg, RegVT);
       }
 
+#if INTEL_CUSTOMIZATION
+      bool IsExtendedArg = !DAG.getTarget().Options.IntelABICompatible ||
+                          (DAG.getTarget().Options.IntelABICompatible &&
+                           F.hasLocalLinkage() && !F.hasAddressTaken());
       // If this is an 8 or 16-bit value, it is really passed promoted to 32
-      // bits.  Insert an assert[sz]ext to capture this, then truncate to the
-      // right size.
-      if (VA.getLocInfo() == CCValAssign::SExt)
+      // bits and the fuction is local linked.  Insert an assert[sz]ext to
+      // capture this, then truncate to the right size.
+      if (VA.getLocInfo() == CCValAssign::SExt && IsExtendedArg)
         ArgValue = DAG.getNode(ISD::AssertSext, dl, RegVT, ArgValue,
                                DAG.getValueType(VA.getValVT()));
-      else if (VA.getLocInfo() == CCValAssign::ZExt)
+      else if (VA.getLocInfo() == CCValAssign::ZExt && IsExtendedArg)
         ArgValue = DAG.getNode(ISD::AssertZext, dl, RegVT, ArgValue,
                                DAG.getValueType(VA.getValVT()));
+#endif // INTEL_CUSTOMIZATION
       else if (VA.getLocInfo() == CCValAssign::BCvt)
         ArgValue = DAG.getBitcast(VA.getValVT(), ArgValue);
 
@@ -32913,6 +32918,40 @@ static SDValue LowerInlineAsm(SDValue Op, SelectionDAG &DAG) {
     MFI.setHasCalls(true);
   }
   return Op;
+}
+
+static StringRef getInstrStrFromOpNo(const SmallVectorImpl<StringRef> &AsmStrs,
+                                     unsigned OpNo) {
+  const APInt Operand(32, OpNo);
+  std::string OpNoStr = llvm::toString(Operand, 10, false);
+  std::string Str(" $");
+
+  std::string OpNoStr1(Str + OpNoStr); // e.g. " $1" (OpNo=1)
+  std::string OpNoStr2(Str + "{" + OpNoStr + ":"); // With modifier, e.g. ${1:P}
+
+  for (auto &AsmStr : AsmStrs) {
+    // Match the OpNo string. We should match exactly to exclude match
+    // sub-string, e.g. "$12" contain "$1"
+    if (AsmStr.contains(OpNoStr1 + ",") || AsmStr.endswith(OpNoStr1) ||
+        AsmStr.contains(OpNoStr2))
+      return AsmStr;
+  }
+
+  return StringRef();
+}
+
+bool X86TargetLowering::hasExtraIndirectConstraint(
+    const SmallVectorImpl<StringRef> &AsmStrs, unsigned OpNo) const {
+  if (!isPositionIndependent() ||
+      !Subtarget.getTargetTriple().isOSBinFormatELF())
+    return false;
+
+  StringRef InstrStr = getInstrStrFromOpNo(AsmStrs, OpNo);
+
+  if (InstrStr.startswith("call") || InstrStr.startswith("jmp"))
+    return true;
+
+  return false;
 }
 #endif // INTEL_CUSTOMIZATION
 

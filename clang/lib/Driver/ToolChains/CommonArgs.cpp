@@ -1118,6 +1118,10 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   if (Args.hasFlag(options::OPT_no_global_hoist,
                    options::OPT_global_hoist, false))
     addllvmOption("-global-loads-unsafe");
+
+  // Enable the compatible intel ABI as default.
+  if (TC.getDriver().IsIntelMode())
+    addllvmOption("-intel-abi-compatible=true");
 }
 #endif // INTEL_CUSTOMIZATION
 

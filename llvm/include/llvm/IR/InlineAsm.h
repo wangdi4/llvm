@@ -16,6 +16,7 @@
 #define LLVM_IR_INLINEASM_H
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/SmallVector.h" // INTEL
 #include "llvm/IR/Value.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <cassert>
@@ -82,6 +83,7 @@ public:
 
   const std::string &getAsmString() const { return AsmString; }
   const std::string &getConstraintString() const { return Constraints; }
+  void collectAsmStrs(SmallVectorImpl<StringRef> &AsmStrs) const; // INTEL
 
   /// Verify - This static method can be used by the parser to check to see if
   /// the specified constraint string is legal for the type.  This returns true

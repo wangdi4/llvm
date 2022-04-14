@@ -856,6 +856,7 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
 
   if (PrivateMem) {
+    assert(AI && "Expected non-null original pointer");
     auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
     createLifetimeMarker(Builder, Plan, PostExit, PrivateMem, OrigAI,
                          Intrinsic::lifetime_end);
@@ -1123,6 +1124,7 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
     processFinalValue(*Induction, AI, Builder, *Final, Ty, Exit);
 
     if (PrivateMem) {
+      assert(AI && "Expected non-null original pointer");
       auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
       createLifetimeMarker(Builder, Plan, PostExit, PrivateMem, OrigAI,
                            Intrinsic::lifetime_end);
@@ -1282,6 +1284,7 @@ void VPLoopEntityList::insertConditionalLastPrivateInst(
     processFinalValue(Private, StoreMem, Builder, *Final, Exit->getType(), Exit);
 
     if (PrivateMem) {
+      assert(AI && "Expected non-null original pointer");
       auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
       createLifetimeMarker(Builder, Plan, PostExit, PrivateMem, OrigAI,
                            Intrinsic::lifetime_end);
@@ -1474,6 +1477,7 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
     }
 
     if (PrivateMem) {
+      assert(AI && "Expected non-null original pointer");
       auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
       createLifetimeMarker(Builder, Plan, PostExit, PrivateMem, OrigAI,
                            Intrinsic::lifetime_end);

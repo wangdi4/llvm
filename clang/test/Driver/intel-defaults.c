@@ -15,6 +15,7 @@
 // CHECK-INTEL: "-fintel-compatibility"
 // CHECK-INTEL: "-mllvm" "-disable-hir-generate-mkl-call"
 // CHECK-INTEL: "-mllvm" "-intel-libirc-allowed"
+// CHECK-INTEL: "-mllvm" "-intel-abi-compatible=true"
 
 // RUN: %clang -### -c --intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-ZP-LIN %s
 // RUN: %clang_cl -### -c --intel %s 2>&1 | FileCheck -check-prefixes=CHECK-INTEL-ZP-WIN %s

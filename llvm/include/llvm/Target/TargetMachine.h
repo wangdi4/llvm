@@ -278,6 +278,10 @@ public:
   void setIntelLibIRCAllowed(bool Value) {
     Options.IntelLibIRCAllowed = Value;
   }
+
+  void setIntelABICompatible(bool Value) {
+    Options.IntelABICompatible = Value;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   void setCFIFixup(bool Enable) { Options.EnableCFIFixup = Enable; }

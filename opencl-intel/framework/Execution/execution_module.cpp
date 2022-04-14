@@ -4155,6 +4155,94 @@ cl_err_code ExecutionModule::EnqueueUSMMemAdvise(
     return CL_SUCCESS;
 }
 
+cl_err_code ExecutionModule::EnqueueReadGlobalVariable(
+    cl_command_queue command_queue, cl_program program, const char *name,
+    bool blocking_read, size_t size, size_t offset, void *ptr,
+    cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
+    cl_event* event, ApiLogger* apiLogger) {
+    if (nullptr == name || nullptr == ptr)
+        return CL_INVALID_VALUE;
+
+    SharedPtr<IOclCommandQueueBase> queue =
+        GetCommandQueue(command_queue).DynamicCast<IOclCommandQueueBase>();
+    if (nullptr == queue.GetPtr())
+        return CL_INVALID_QUEUE;
+
+    cl_err_code err =
+        CheckEventList(queue, num_events_in_wait_list, event_wait_list);
+    if (CL_FAILED(err))
+        return err;
+
+    size_t gvSize;
+    void*  gvPtr;
+    err = m_pContextModule->GetDeviceGlobalVariablePointer(
+        queue->GetDefaultDevice()->GetHandle(), program, name, &gvSize, &gvPtr);
+    if (CL_FAILED(err))
+        return err;
+
+    if (size + offset > gvSize)
+        return CL_INVALID_VALUE;
+
+    Command *readGVCmd =
+        new ReadGVCommand(queue, ptr, (void*)((size_t)gvPtr + offset), size);
+    if (nullptr == readGVCmd)
+        return CL_OUT_OF_HOST_MEMORY;
+
+    err = readGVCmd->EnqueueSelf(blocking_read, num_events_in_wait_list,
+                                 event_wait_list, event, apiLogger);
+
+    if (CL_FAILED(err)) {
+        delete readGVCmd;
+        return err;
+    }
+
+    return CL_SUCCESS;
+}
+
+cl_err_code ExecutionModule::EnqueueWriteGlobalVariable(
+    cl_command_queue command_queue, cl_program program, const char *name,
+    bool blocking_write, size_t size, size_t offset, const void *ptr,
+    cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
+    cl_event* event, ApiLogger* apiLogger) {
+    if (nullptr == name || nullptr == ptr)
+        return CL_INVALID_VALUE;
+
+    SharedPtr<IOclCommandQueueBase> queue =
+        GetCommandQueue(command_queue).DynamicCast<IOclCommandQueueBase>();
+    if (nullptr == queue.GetPtr())
+        return CL_INVALID_QUEUE;
+
+    cl_err_code err =
+        CheckEventList(queue, num_events_in_wait_list, event_wait_list);
+    if (CL_FAILED(err))
+        return err;
+
+    size_t gvSize;
+    void*  gvPtr;
+    err = m_pContextModule->GetDeviceGlobalVariablePointer(
+        queue->GetDefaultDevice()->GetHandle(), program, name, &gvSize, &gvPtr);
+    if (CL_FAILED(err))
+        return err;
+
+    if (size + offset > gvSize)
+        return CL_INVALID_VALUE;
+
+    Command *writeGVCmd =
+        new WriteGVCommand(queue, (void*)((size_t)gvPtr + offset), ptr, size);
+    if (nullptr == writeGVCmd)
+        return CL_OUT_OF_HOST_MEMORY;
+
+    err = writeGVCmd->EnqueueSelf(blocking_write, num_events_in_wait_list,
+                                  event_wait_list, event, apiLogger);
+
+    if (CL_FAILED(err)) {
+        delete  writeGVCmd;
+        return err;
+    }
+
+    return CL_SUCCESS;
+}
+
 cl_err_code ExecutionModule::EnqueueLibraryCopy(
     SharedPtr<IOclCommandQueueBase> &queue,
     void *dst, const void *src, size_t size, bool is_dst_svm, bool is_dst_usm,

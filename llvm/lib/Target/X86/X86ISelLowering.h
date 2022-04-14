@@ -1542,6 +1542,9 @@ namespace llvm {
     unsigned getMaxSupportedInterleaveFactor() const override { return 8; }
 
     bool CustomLowerComplexMultiply(Type *FloatTy) const override;
+
+    bool hasExtraIndirectConstraint(const SmallVectorImpl<StringRef> &AsmStrs,
+                                    unsigned OpNo) const override;
 #endif // INTEL_CUSTOMIZATION
 
     /// Lower interleaved load(s) into target specific

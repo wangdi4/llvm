@@ -3473,6 +3473,14 @@ public:
   /// legal.  It is frequently not legal in PIC relocation models.
   virtual bool isOffsetFoldingLegal(const GlobalAddressSDNode *GA) const;
 
+#if INTEL_CUSTOMIZATION
+  virtual bool
+  hasExtraIndirectConstraint(const SmallVectorImpl<StringRef> &AsmStrs,
+                             unsigned OpNo) const {
+    return false;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   bool isInTailCallPosition(SelectionDAG &DAG, SDNode *Node,
                             SDValue &Chain) const;
 

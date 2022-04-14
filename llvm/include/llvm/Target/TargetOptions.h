@@ -150,6 +150,7 @@ namespace llvm {
           X87Precision(0),                         // INTEL
           DoFMAOpt(true),                          // INTEL
           IntelSpillParms(false),                  // INTEL
+          IntelABICompatible(false),               // INTEL
           GuaranteedTailCallOpt(false), StackSymbolOrdering(true),
           EnableFastISel(false), EnableGlobalISel(false), UseInitArray(false),
           LowerGlobalDtorsViaCxaAtExit(false), DisableIntegratedAS(false),
@@ -261,6 +262,11 @@ namespace llvm {
     /// registers (for x86-64). These spills will get picked up by their own
     /// internal tools.
     unsigned IntelSpillParms : 1;
+
+    /// IntelABICompatible - This option is to solve ABI compatibility issues.
+    /// It is usually difficult to modify ABI in the community, and modification
+    /// here is a compromise.
+    unsigned IntelABICompatible : 1;
 #endif // INTEL_CUSTOMIZATION
 
     /// GuaranteedTailCallOpt - This flag is enabled when -tailcallopt is
