@@ -31,6 +31,12 @@ if (NOT SYCL_COVERAGE_PATH)
   set(SYCL_COVERAGE_PATH "${CMAKE_CURRENT_BINARY_DIR}/profiles")
 endif()
 
+# If SYCL_ENABLE_PLUGINS is undefined, we default to enabling OpenCL and Level
+# Zero plugins.
+if (NOT DEFINED SYCL_ENABLE_PLUGINS)
+  set(SYCL_ENABLE_PLUGINS "opencl;level_zero")
+endif()
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 include(AddSYCLExecutable)
 include(AddSYCL)
@@ -420,9 +426,6 @@ endif()
 if(INTEL_CUSTOMIZATION)
   # Add xmain specific deploy components here.
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-config-file)
-  if (CMAKE_SYCL_USE_LEVEL0)
-    list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_level_zero)
-  endif()
 
   # Check if aocl-ioc64 tool is enabled.
   add_llvm_external_project(aocl-ioc64)

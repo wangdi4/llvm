@@ -24,9 +24,3 @@ endif()
 foreach(plugin ${SYCL_ENABLE_PLUGINS})
   add_subdirectory(${plugin})
 endforeach()
-
-# INTEL_CUSTOMIZATION
-if (CMAKE_SYCL_USE_LEVEL0)
-  add_subdirectory(level_zero)
-endif()
-# end INTEL_CUSTOMIZATION
