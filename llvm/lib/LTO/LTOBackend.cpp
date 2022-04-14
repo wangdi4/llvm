@@ -59,7 +59,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h" // INTEL
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
 #include "llvm/Transforms/Utils/FunctionImportUtils.h"
 #include "llvm/Transforms/Utils/SplitModule.h"
@@ -333,6 +333,7 @@ static void runNewPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
   MPM.run(Mod, MAM);
 }
 
+#if INTEL_CUSTOMIZATION
 static void runOldPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
                            bool IsThinLTO, ModuleSummaryIndex *ExportSummary,
                            const ModuleSummaryIndex *ImportSummary) {
@@ -345,7 +346,6 @@ static void runOldPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
   PMB.LibraryInfo = new TargetLibraryInfoImpl(Triple(TM->getTargetTriple()));
   if (Conf.Freestanding)
     PMB.LibraryInfo->disableAllFunctions();
-#if INTEL_CUSTOMIZATION
   PMB.Inliner = createFunctionInliningPass(Conf.OptLevel,
                                            0     /*SizeOptLevel*/,
                                            false /*DisableInlineHotCallSite*/,
@@ -354,7 +354,6 @@ static void runOldPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
 
   // Store the information related to whole program
   PMB.addWholeProgramUtils(Conf.WPUtils);
-#endif // INTEL_CUSTOMIZATION
   PMB.ExportSummary = ExportSummary;
   PMB.ImportSummary = ImportSummary;
   // Unconditionally verify input since it is not verified before this
@@ -376,6 +375,7 @@ static void runOldPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
     PMB.populateLTOPassManager(passes);
   passes.run(Mod);
 }
+#endif // INTEL_CUSTOMIZATION
 
 bool lto::opt(const Config &Conf, TargetMachine *TM, unsigned Task, Module &Mod,
               bool IsThinLTO, ModuleSummaryIndex *ExportSummary,
@@ -400,13 +400,14 @@ bool lto::opt(const Config &Conf, TargetMachine *TM, unsigned Task, Module &Mod,
                                /*Cmdline*/ CmdArgs);
   }
 #endif // !INTEL_PRODUCT_RELEASE
-  // FIXME: Plumb the combined index into the new pass manager.
+#if INTEL_CUSTOMIZATION
   if (Conf.UseNewPM || !Conf.OptPipeline.empty()) {
     runNewPMPasses(Conf, Mod, TM, Conf.OptLevel, IsThinLTO, ExportSummary,
                    ImportSummary);
   } else {
     runOldPMPasses(Conf, Mod, TM, IsThinLTO, ExportSummary, ImportSummary);
   }
+#endif // INTEL_CUSTOMIZATION
   return !Conf.PostOptModuleHook || Conf.PostOptModuleHook(Task, Mod);
 }
 
