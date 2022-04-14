@@ -78,6 +78,7 @@ extern bool VPlanEnableGeneralPeeling;
 class SingleLoopVecScenario {
 public:
   friend class LoopVectorizationPlanner; // to use set() methods
+  friend class LoopVectorizationPlannerHIR; // to use set() methods
 
   enum AuxLoopKind {
     LKNone = 0,
@@ -127,6 +128,22 @@ public:
   bool hasMaskedPeel() const { return Peel.Kind == LKMasked; }
   bool hasRemainder() const { return !Remainders.empty(); }
 
+  /// Simple main vector loop and scalar remainder scenario of a
+  /// a constant trip count loop. The main vector and scalar remainder
+  /// loops can be added for such scenarios without any checks to see
+  /// if they should be exercised.
+  bool isSimpleConstTCScenario() {
+    if (!IsConstTC)
+      return false;
+    if (Main.Kind != LKVector)
+      return false;
+    if (hasPeel())
+      return false;
+    if (!hasRemainder() || Remainders.size() > 1)
+      return false;
+    return Remainders[0].Kind == LKScalar;
+  }
+
   /// Return list of vector factors used for the current selection.
   void getUsedVFs(SmallSet<unsigned, 4> &Ret) {
     Ret.insert(Main.VF);
@@ -172,6 +189,7 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
+  void setIsConstTC(bool ConstTC) { IsConstTC = ConstTC; }
   void setMainUF(unsigned N) {MainUF = N;}
   void resetRemainders() { Remainders.clear(); }
 
@@ -211,6 +229,9 @@ private:
   AuxLoopDescr Peel;
   SmallVector<AuxLoopDescr, 1> Remainders;
   unsigned MainUF = 1; // Unroll factor of the main loop.
+
+  // Is the loop we are dealing with a constant trip loop?
+  bool IsConstTC = false;
 };
 
 inline raw_ostream &operator<<(raw_ostream &OS,

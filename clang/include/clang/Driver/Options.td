@@ -7964,6 +7964,10 @@ def _SLASH_Qglobal_hoist : CLFlag<"Qglobal-hoist">, Alias<global_hoist>,
   HelpText<"Enable external globals are load safe (default)">;
 def _SLASH_Qglobal_hoist_ : CLFlag<"Qglobal-hoist-">, Alias<no_global_hoist>,
   HelpText<"Disable external globals are load safe">;
+def _SLASH_Qhonor_nan_compares : CLFlag<"Qhonor-nan-compares">,
+  Alias<fhonor_nan_compares>, HelpText<"Honor NaN compares with fast math">;
+def _SLASH_Qhonor_nan_compares_ : CLFlag<"Qhonor-nan-compares-">,
+  Alias<fno_honor_nan_compares>, HelpText<"Do not honor NaN compares with fast math">;
 def _SLASH_Qinstrument_functions : CLFlag<"Qinstrument-functions">,
   Alias<finstrument_functions>, HelpText<"Generate calls to instrument "
   "function entry and exit">;

@@ -964,19 +964,24 @@ void VPlanCFGMerger::createTCCheckAfter(PlanDescr &Descr,
   }
 
   // Generate a check for vector tc is not equal original tc and branch
-  // according to the check.
+  // according to the check. This is not needed if we are dealing with a
+  // simple main vector, remainder scalar const trip count scenario.
   // Here we can use VectorUB directly as the new block is dominated by VPlan.
   VPBuilder Builder;
   Builder.setInsertPoint(TestBB);
-  auto *RemTCCheck =
-      Builder.createCmpInst(CmpInst::ICMP_EQ, PrevUB, VectorUB, "remtc.check");
-  Plan.getVPlanDA()->markUniform(*RemTCCheck);
 
-  TestBB->setTerminator(PrevDescr.PrevMerge, PrevDescr.MergeBefore, RemTCCheck);
   updateMergeBlockIncomings(Descr, PrevDescr.MergeBefore, TestBB,
                             false /* UseLiveIn */);
-  updateMergeBlockIncomings(Descr, PrevDescr.PrevMerge, TestBB,
-                            false /* UseLiveIn */);
+  if (!IsSimpleConstTCScenario) {
+    auto *RemTCCheck = Builder.createCmpInst(CmpInst::ICMP_EQ, PrevUB, VectorUB,
+                                             "remtc.check");
+    Plan.getVPlanDA()->markUniform(*RemTCCheck);
+    TestBB->setTerminator(PrevDescr.PrevMerge, PrevDescr.MergeBefore,
+                          RemTCCheck);
+    updateMergeBlockIncomings(Descr, PrevDescr.PrevMerge, TestBB,
+                              false /* UseLiveIn */);
+  } else
+    TestBB->setTerminator(PrevDescr.MergeBefore);
 }
 
 VPCmpInst *VPlanCFGMerger::createPeelCntVFCheck(VPValue *UB, VPBuilder &Builder,
@@ -1083,6 +1088,11 @@ void VPlanCFGMerger::createTCCheckBeforeMain(PlanDescr *Peel,
     // Nothing to generate.
     return;
   }
+
+  // We do not need the top test for simple main vector, remainder scalar
+  // scenario of constant trip count loops.
+  if (IsSimpleConstTCScenario)
+    return;
 
   VPBasicBlock *TopTest = createTopTest(
       MainDescr.Plan, MainDescr.FirstBB, MainDescr.PrevMerge,
@@ -1426,6 +1436,12 @@ void VPlanCFGMerger::updateAdapterOperands(VPBasicBlock *AdapterBB,
 //                  +-----------------------+
 //                           |
 //                         Exit
+//
+// The skeleton emission is optimized for the simple scenario of constant
+// trip count loops with a main vector and scalar remainder to enable
+// better downstream optimizations. The main and remainder loops are
+// emitted as straight line code without any checks for such a scenario.
+//
 template <class LoopTy>
 void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans,
                                   LoopTy *OrigLoop) {
