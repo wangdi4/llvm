@@ -9,6 +9,7 @@
 // CHECK_LTO: "-plugin-opt=-vector-library=SVML"
 // CHECK_LTO: "-plugin-opt=-disable-hir-generate-mkl-call"
 // CHECK_LTO: "-plugin-opt=-intel-libirc-allowed"
+// CHECK_LTO: "-plugin-opt=-intel-abi-compatible=true"
 // CHECK_LTO: "-plugin-opt=-dummy-option"
 
 // RUN: %clang_cl --target=x86_64-pc-windows-msvc -flto -fuse-ld=lld --intel -mllvm -dummy-option -### %s 2>&1 \
@@ -19,6 +20,7 @@
 // CHECK_LTO_WIN: "-mllvm:-vector-library=SVML"
 // CHECK_LTO_WIN: "-mllvm:-disable-hir-generate-mkl-call"
 // CHECK_LTO_WIN: "-mllvm:-intel-libirc-allowed"
+// CHECK_LTO_WIN: "-mllvm:-intel-abi-compatible=true"
 // CHECK_LTO_WIN: "-mllvm:-dummy-option"
 
 /// With ld.bfd or gold, link against icx-lto.so.

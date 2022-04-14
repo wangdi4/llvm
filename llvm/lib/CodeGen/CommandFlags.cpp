@@ -128,6 +128,7 @@ CGOPT(bool, JMCInstrument)
 
 #if INTEL_CUSTOMIZATION
 extern cl::opt<bool> IntelLibIRCAllowed;
+extern cl::opt<bool> IntelABICompatible;
 #endif // INTEL_CUSTOMIZATION
 
 codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
@@ -614,6 +615,7 @@ codegen::InitTargetOptionsFromCodeGenFlags(const Triple &TheTriple) {
   Options.X87Precision = getX87Precision();
   Options.DoFMAOpt = getDoFMAOpt();
   Options.IntelSpillParms = getIntelSpillParms();
+  Options.IntelABICompatible = IntelABICompatible;
 #endif // INTEL_CUSTOMIZATION
   Options.EmitCallSiteInfo = getEmitCallSiteInfo();
   Options.EnableDebugEntryValues = getEnableDebugEntryValues();
