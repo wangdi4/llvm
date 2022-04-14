@@ -59,7 +59,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
 #include "llvm/Transforms/Utils/FunctionImportUtils.h"
 #include "llvm/Transforms/Utils/SplitModule.h"
@@ -333,6 +332,7 @@ static void runNewPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
   MPM.run(Mod, MAM);
 }
 
+<<<<<<< HEAD
 static void runOldPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
                            bool IsThinLTO, ModuleSummaryIndex *ExportSummary,
                            const ModuleSummaryIndex *ImportSummary) {
@@ -377,6 +377,8 @@ static void runOldPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
   passes.run(Mod);
 }
 
+=======
+>>>>>>> 0d86fc65babcbffdd16559b9fd685f8bf33dc886
 bool lto::opt(const Config &Conf, TargetMachine *TM, unsigned Task, Module &Mod,
               bool IsThinLTO, ModuleSummaryIndex *ExportSummary,
               const ModuleSummaryIndex *ImportSummary,
@@ -401,12 +403,8 @@ bool lto::opt(const Config &Conf, TargetMachine *TM, unsigned Task, Module &Mod,
   }
 #endif // !INTEL_PRODUCT_RELEASE
   // FIXME: Plumb the combined index into the new pass manager.
-  if (Conf.UseNewPM || !Conf.OptPipeline.empty()) {
-    runNewPMPasses(Conf, Mod, TM, Conf.OptLevel, IsThinLTO, ExportSummary,
-                   ImportSummary);
-  } else {
-    runOldPMPasses(Conf, Mod, TM, IsThinLTO, ExportSummary, ImportSummary);
-  }
+  runNewPMPasses(Conf, Mod, TM, Conf.OptLevel, IsThinLTO, ExportSummary,
+                 ImportSummary);
   return !Conf.PostOptModuleHook || Conf.PostOptModuleHook(Task, Mod);
 }
 
