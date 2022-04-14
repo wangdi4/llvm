@@ -60,6 +60,7 @@ void VPlanSSADeconstruction::run() {
   unsigned DeconstructedPhiId = 0;
   bool ResetSVA = false;
 
+  SmallVector<VPPHINode *, 4> PhisToErase;
   for (VPBasicBlock &VPBB : Plan) {
     auto *CurrVLoop = Plan.getVPLoopInfo()->getLoopFor(&VPBB);
     for (VPPHINode &Phi : VPBB.getVPPhis()) {
@@ -72,6 +73,16 @@ void VPlanSSADeconstruction::run() {
           validateInductionPHI(&Phi, CurrVLoop, Plan);
           continue;
         }
+      }
+
+      if (Phi.getNumIncomingValues() == 1) {
+        unsigned Idx = 0;
+        LLVM_DEBUG(dbgs() << "[SSADecons] Single value Phi replacing uses with "
+                             "incoming value for: ";
+                   Phi.dump());
+        Phi.replaceAllUsesWith(Phi.getIncomingValue(Idx));
+        PhisToErase.push_back(&Phi);
+        continue;
       }
 
       LLVM_DEBUG(dbgs() << "[SSADecons] Inserting copies for: "; Phi.dump());
@@ -140,6 +151,9 @@ void VPlanSSADeconstruction::run() {
       ResetSVA = true;
     }
   }
+
+  for (auto *Phi : PhisToErase)
+    Phi->getParent()->eraseInstruction(Phi);
 
   // Invalidate SVA results as VPlan has been changed.
   if (ResetSVA)

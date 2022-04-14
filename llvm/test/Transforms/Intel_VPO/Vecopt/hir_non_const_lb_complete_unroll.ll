@@ -13,7 +13,7 @@
 
 ;
 
-; CHECK:           + DO i1 = %phi.temp, {{.*}}, 2   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:           + DO i1 = %ub.tmp, {{.*}}, 2   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:      |   (<2 x i32>*)(bitcast (i8* getelementptr inbounds ([40 x i8], [40 x i8]* @arr, i64 0, i64 20) to i32*))[i1] = 0;
 ; CHECK-NEXT:      + END LOOP
 ;
