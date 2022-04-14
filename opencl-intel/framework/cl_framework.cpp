@@ -3560,6 +3560,72 @@ SET_ALIAS(clGetDeviceGlobalVariablePointerINTEL);
 REGISTER_EXTENSION_FUNCTION(clGetDeviceGlobalVariablePointerINTEL,
     clGetDeviceGlobalVariablePointerINTEL);
 
+cl_int CL_API_CALL clEnqueueReadGlobalVariableINTEL(
+    cl_command_queue command_queue, cl_program program, const char *name,
+    cl_bool blocking_read, size_t size, size_t offset, void *ptr,
+    cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
+    cl_event *event)
+{
+  if (g_pUserLogger->IsApiLoggingEnabled()) {
+    ApiLogger apiLogger("clEnqueueReadGlobalVariableINTEL");
+    apiLogger << "cl_command_queue command_queue" << command_queue
+              << "cl_program program" << program
+              << "const char *name" << name
+              << "cl_bool blocking_read" << blocking_read
+              << "size_t size" << size
+              << "size_t offset" << offset
+              << "void *ptr" << ptr
+              << "cl_uint num_events_in_wait_list" << num_events_in_wait_list
+              << "const cl_event *event_wait_list" << event_wait_list
+              << "cl_event *event" << event;
+    CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int,
+        EnqueueReadGlobalVariable(command_queue, program, name, blocking_read,
+                                  size, offset, ptr, num_events_in_wait_list,
+                                  event_wait_list, event, &apiLogger));
+  } else {
+    CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int,
+        EnqueueReadGlobalVariable(command_queue, program, name, blocking_read,
+                                  size, offset, ptr, num_events_in_wait_list,
+                                  event_wait_list, event, nullptr));
+  }
+}
+SET_ALIAS(clEnqueueReadGlobalVariableINTEL);
+REGISTER_EXTENSION_FUNCTION(clEnqueueReadGlobalVariableINTEL,
+    clEnqueueReadGlobalVariableINTEL);
+
+cl_int CL_API_CALL clEnqueueWriteGlobalVariableINTEL(
+    cl_command_queue command_queue, cl_program program, const char *name,
+    cl_bool blocking_write, size_t size, size_t offset, const void *ptr,
+    cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
+    cl_event *event)
+{
+  if (g_pUserLogger->IsApiLoggingEnabled()) {
+    ApiLogger apiLogger("clEnqueueReadGlobalVariableINTEL");
+    apiLogger << "cl_command_queue command_queue" << command_queue
+              << "cl_program program" << program
+              << "const char *name" << name
+              << "cl_bool blocking_read" << blocking_write
+              << "size_t size" << size
+              << "size_t offset" << offset
+              << "void *ptr" << ptr
+              << "cl_uint num_events_in_wait_list" << num_events_in_wait_list
+              << "const cl_event *event_wait_list" << event_wait_list
+              << "cl_event *event" << event;
+    CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int,
+        EnqueueWriteGlobalVariable(command_queue, program, name, blocking_write,
+                                   size, offset, ptr, num_events_in_wait_list,
+                                   event_wait_list, event, &apiLogger));
+  } else {
+    CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int,
+        EnqueueWriteGlobalVariable(command_queue, program, name, blocking_write,
+                                   size, offset, ptr, num_events_in_wait_list,
+                                   event_wait_list, event, nullptr));
+  }
+}
+SET_ALIAS(clEnqueueWriteGlobalVariableINTEL);
+REGISTER_EXTENSION_FUNCTION(clEnqueueWriteGlobalVariableINTEL,
+    clEnqueueWriteGlobalVariableINTEL);
+
 void* CL_API_CALL clHostMemAllocINTEL(cl_context context,
                                       const cl_mem_properties_intel* properties,
                                       size_t size,

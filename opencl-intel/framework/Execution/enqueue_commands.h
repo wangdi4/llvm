@@ -291,6 +291,54 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     };
 
+    class ReadGVCommand : public Command
+    {
+    public:
+        ReadGVCommand(const SharedPtr<IOclCommandQueueBase>& cmdQueue,
+                      void *pDst, const void *pSrc, size_t size);
+
+        ~ReadGVCommand();
+
+        cl_err_code Init() override {return CL_SUCCESS;}
+
+        cl_err_code Execute() override;
+
+        cl_err_code CommandDone() override {return CL_SUCCESS;}
+
+        ECommandExecutionType GetExecutionType() const override {return DEVICE_EXECUTION_TYPE;}
+
+        const char *GetCommandName() const override {return "CL_COMMAND_READ_GLOBAL_VARIABLE_INTEL";}
+
+    protected:
+        void *m_pDst;
+        const void *m_pSrc;
+        size_t m_size;
+    };
+
+    class WriteGVCommand : public Command
+    {
+    public:
+        WriteGVCommand(const SharedPtr<IOclCommandQueueBase>& cmdQueue,
+                       void *pDst, const void *pSrc, size_t size);
+
+        ~WriteGVCommand();
+
+        cl_err_code Init() override {return CL_SUCCESS;}
+
+        cl_err_code Execute() override;
+
+        cl_err_code CommandDone() override {return CL_SUCCESS;}
+
+        ECommandExecutionType GetExecutionType() const override {return DEVICE_EXECUTION_TYPE;}
+
+        const char *GetCommandName() const override {return "CL_COMMAND_WRITE_GLOBAL_VARIABLE_INTEL";}
+
+    protected:
+        void *m_pDst;
+        const void *m_pSrc;
+        size_t m_size;
+    };
+
     class MemoryCommand : public Command
     {
     public:

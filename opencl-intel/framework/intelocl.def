@@ -126,6 +126,8 @@ EXPORTS
 	clGetProfileDataDeviceIntelFPGA
 	clGetDeviceFunctionPointerINTEL
 	clGetDeviceGlobalVariablePointerINTEL
+	clEnqueueReadGlobalVariableINTEL
+	clEnqueueWriteGlobalVariableINTEL
 	clCreateTracingHandleINTEL
 	clSetTracingPointINTEL
 	clDestroyTracingHandleINTEL
