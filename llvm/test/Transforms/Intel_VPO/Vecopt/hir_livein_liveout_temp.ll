@@ -28,8 +28,8 @@
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -disable-output -vplan-print-after-plain-cfg -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,MERGED-CFG
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -disable-output -vplan-print-after-plain-cfg -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,MERGED-CFG
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -disable-output -vplan-print-after-plain-cfg -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
 
 
 @s = dso_local local_unnamed_addr global i32 0, align 4
@@ -80,8 +80,6 @@ define dso_local i32 @main(i32 %add) {
 ; CHECK-NEXT:  Id: 0   i32 [[VP5]] -> [[VP12:%.*]] = {%0}
 ;
 ; CHECK-LABEL:  BEGIN REGION { modified }
-; MERGED-CFG:        [[VEC:%.*]] = 0 == 68;
-; MERGED-CFG:        [[EXTRACT:%.*]] = extractelement [[VEC]],  0;
 ; CHECK:             [[PHI_TEMP0:%.*]] = [[TMP1:%.*]];
 ; CHECK-NEXT:        [[PHI_TEMP10:%.*]] = -1;
 

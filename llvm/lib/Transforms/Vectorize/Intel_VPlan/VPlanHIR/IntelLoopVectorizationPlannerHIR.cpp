@@ -281,6 +281,10 @@ void LoopVectorizationPlannerHIR::emitPeelRemainderVPLoops(unsigned VF,
 
   VPlanCFGMerger CFGMerger(*Plan, VF, UF);
 
+  // Set the flag to indicate if we are dealing with a simple main vector
+  // scalar remainder scenario with known trip counts.
+  CFGMerger.setIsSimpleConstTCScenario(VecScenario.isSimpleConstTCScenario());
+
   // Run CFGMerger.
   CFGMerger.createMergedCFG(VecScenario, MergerVPlans, TheLoop);
 }
