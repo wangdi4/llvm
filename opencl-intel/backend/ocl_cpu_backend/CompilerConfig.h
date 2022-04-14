@@ -36,16 +36,14 @@ public:
     bool EnableTiming() const override { return m_enableTiming; }
     bool DisableStackDump() const override { return m_disableStackDump; }
     std::string InfoOutputFile() const override { return m_infoOutputFile; }
-    const llvm::SmallVectorImpl<std::string> &LLVMOptions() const override {
-      return m_LLVMOptions;
-    }
+    std::string LLVMOptions() const override { return m_LLVMOptions; }
     DeviceMode TargetDevice() const override { return m_targetDevice; }
 
   private:
     bool m_enableTiming;
     bool m_disableStackDump;
     std::string m_infoOutputFile;
-    llvm::SmallVector<std::string, 32> m_LLVMOptions;
+    std::string m_LLVMOptions;
     DeviceMode  m_targetDevice;
 };
 
