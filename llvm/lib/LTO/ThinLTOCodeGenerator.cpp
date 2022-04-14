@@ -254,7 +254,7 @@ crossImportIntoModule(Module &TheModule, const ModuleSummaryIndex &Index,
   verifyLoadedModule(TheModule);
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 static void optimizeModuleLegacyPM(Module &TheModule, TargetMachine &TM,
                                    unsigned OptLevel, bool Freestanding,
                                    ModuleSummaryIndex *Index) {
@@ -544,7 +544,7 @@ ProcessThinLTOModule(Module &TheModule, ModuleSummaryIndex &Index,
     saveTempBitcode(TheModule, SaveTempsDir, count, ".3.imported.bc");
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   if (UseNewPM)
     optimizeModule(TheModule, TM, OptLevel, Freestanding, DebugPassManager,
                    &Index);

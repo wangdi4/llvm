@@ -308,7 +308,7 @@ namespace options {
     } else if (opt.consume_front("cs-profile-path=")) {
       cs_profile_path = std::string(opt);
     } else if (opt == "new-pass-manager") {
-  #ifdef INTEL_CUSTOMIZATION
+  #if INTEL_CUSTOMIZATION
       new_pass_manager = true;
     } else if (opt == "legacy-pass-manager") {
       new_pass_manager = false;
@@ -992,7 +992,7 @@ static std::unique_ptr<LTO> createLTO(IndexWriteCallback OnIndexWrite,
   Conf.RemarksHotnessThreshold = options::RemarksHotnessThreshold;
   Conf.RemarksFormat = options::RemarksFormat;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Use new pass manager if set in driver
   Conf.UseNewPM = options::new_pass_manager;
 #endif // INTEL_CUSTOMIZATION

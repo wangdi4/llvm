@@ -1919,7 +1919,7 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
       } else if (s == "nolldtailmerge") {
         tailMerge = 0;
       } else if (s == "ltonewpassmanager") {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         ltoNewPM = true;
       } else if (s == "noltonewpassmanager") {
         ltoNewPM = false;
