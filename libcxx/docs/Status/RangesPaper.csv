@@ -80,8 +80,8 @@ Section,Description,Dependencies,Assignee,Complete
 | `Updates to front_insert_iterator <https://llvm.org/D103273>`_
 | `Updates to move_iterator <https://llvm.org/D117656>`_","| [iterator.concepts]
 | [iterator.cust.swap]
-| [iterator.cust.move]",Various,In progress
-`[move.sentinel] <https://wg21.link/move.sentinel>`_,`move_sentinel <https://llvm.org/D117656>`_,[predef.iterators],Arthur O'Dwyer,In progress
+| [iterator.cust.move]",Various,✅
+`[move.sentinel] <https://wg21.link/move.sentinel>`_,`move_sentinel <https://llvm.org/D117656>`_,[predef.iterators],Arthur O'Dwyer,✅
 `[common.iterator] <https://wg21.link/common.iterator>`_,`common_iterator <https://llvm.org/D103335>`_,"| [iterator.concepts]
 | [iterator.cust.swap]
 | [iterator.cust.move]",Zoe Carver,✅
