@@ -145,8 +145,7 @@ class DTransInfoGenerator {
       // well.
       if (const CXXRecordDecl *CXXRD = Ty->getAsCXXRecordDecl()) {
         StructEmitTy BaseEmit{RD, StructEmitTy::Base};
-        if (IsBase && CXXRD->isPolymorphic() &&
-            !AlreadyVisited->contains(BaseEmit))
+        if (IsBase && !AlreadyVisited->contains(BaseEmit))
           ToBeVisited->insert(BaseEmit);
       }
     }
@@ -234,7 +233,7 @@ void CodeGenModule::EmitIntelDTransMetadata() {
     Visited.insert(CurToBeVisited.begin(), CurToBeVisited.end());
 
     for (StructEmitTy Emit : CurToBeVisited) {
-      // For some specific edge cases, there isn't a '.base' for polymorphic
+      // For some specific edge cases, there isn't a '.base' for 
       // types used as a base, particularly polymorphic types that don't have
       // any data members. Don't try to emit them, since one doesn't exist.
       if (Emit.isBase() && DTransTypes[Emit.getRecordDecl()].size() < 2)

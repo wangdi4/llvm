@@ -1925,7 +1925,7 @@ if (INTEL_CUSTOMIZATION)
     # component to one or more products, please contact ICLProcessTeam@intel.com
     set(INTEL_DEPLOY_COMPONENTS_LIST
       # LLVM components
-      clang lld llc llvm-link llvm-profdata llvm-spirv
+      clang lld llc llvm-link llvm-profdata llvm-profgen llvm-spirv
       clang_rt.profile-x86_64 clang_rt.profile-i386 llvm-config
       clang-resource-headers llvm-cov clang-tidy
       # XDEV components
