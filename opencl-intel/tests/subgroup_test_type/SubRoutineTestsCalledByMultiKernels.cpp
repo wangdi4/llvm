@@ -21,21 +21,17 @@ TEST_P(SGEmulationTest, SubRoutineTestsWithWGBarrier) {
 
   const char *kernel = "__attribute__((noinline))"
                        "int foo(int lid) {"
-                       "  barrier(CLK_LOCAL_MEM_FENCE);"
-                       "  return 2 + lid;"
-                       "}"
-                       "__attribute__((noinline))"
-                       "int bar(int lid) {"
-                       "  return foo(lid);"
+                       "  return work_group_reduce_add(lid);"
                        "}"
                        "__kernel void basic2(__global int* scan_add) {"
                        "  int lid = get_local_id(0);"
-                       "  scan_add[lid] = bar(lid);"
+                       "  scan_add[lid] = foo(lid);"
                        "}"
-                       "__kernel void basic(__global int* scan_add) {"
+                       "__kernel void basic(__global int* scan_add, __global "
+                       "int* wg_reduce_add) {"
                        "  int lid = get_local_id(0);"
-                       "  scan_add[lid] = bar(lid);"
-                       "  scan_add[lid] += sub_group_scan_inclusive_add(lid);"
+                       "  *wg_reduce_add = foo(lid);"
+                       "  scan_add[lid] = sub_group_scan_inclusive_add(lid);"
                        "}";
   const size_t kernel_size = strlen(kernel);
   cl_int iRet = CL_SUCCESS;
@@ -44,7 +40,7 @@ TEST_P(SGEmulationTest, SubRoutineTestsWithWGBarrier) {
       clCreateProgramWithSource(m_context, 1, &kernel, &kernel_size, &iRet);
   ASSERT_OCL_SUCCESS(iRet, " clCreateProgramWithSource");
 
-  iRet = clBuildProgram(program, 0, nullptr, "", nullptr, nullptr);
+  iRet = clBuildProgram(program, 0, nullptr, "-cl-std=CL2.0", nullptr, nullptr);
   if (CL_SUCCESS != iRet) {
     std::string log;
     ASSERT_NO_FATAL_FAILURE(GetBuildLog(m_device, program, log));
@@ -64,11 +60,19 @@ TEST_P(SGEmulationTest, SubRoutineTestsWithWGBarrier) {
   ASSERT_OCL_SUCCESS(iRet, " clGetKernelSubGroupInfo");
 
   cl_int scan_add[lsize] = {0};
-  cl_mem mem_obj = clCreateBuffer(m_context, CL_MEM_USE_HOST_PTR,
-                                  sizeof(cl_int) * lsize, scan_add, &iRet);
+  cl_mem mem_obj_scan = clCreateBuffer(m_context, CL_MEM_USE_HOST_PTR,
+                                       sizeof(cl_int) * lsize, scan_add, &iRet);
   ASSERT_OCL_SUCCESS(iRet, " clCreateBuffer");
 
-  iRet = clSetKernelArg(kern, 0, sizeof(cl_mem), &mem_obj);
+  cl_int wg_reduce_add = 0;
+  cl_mem mem_obj_reduce = clCreateBuffer(m_context, CL_MEM_USE_HOST_PTR,
+                                         sizeof(cl_int), &wg_reduce_add, &iRet);
+  ASSERT_OCL_SUCCESS(iRet, " clCreateBuffer");
+
+  iRet = clSetKernelArg(kern, 0, sizeof(cl_mem), &mem_obj_scan);
+  ASSERT_OCL_SUCCESS(iRet, " clSetKernelArg");
+
+  iRet = clSetKernelArg(kern, 1, sizeof(cl_mem), &mem_obj_reduce);
   ASSERT_OCL_SUCCESS(iRet, " clSetKernelArg");
 
   iRet = clEnqueueNDRangeKernel(m_queue, kern, 1, nullptr, &gsize, &lsize, 0,
@@ -79,19 +83,26 @@ TEST_P(SGEmulationTest, SubRoutineTestsWithWGBarrier) {
   ASSERT_OCL_SUCCESS(iRet, " clFinish");
 
   int scan_add_ref = 0;
+  int reduce_add_ref = 0;
   for (size_t i = 0; i < lsize; ++i) {
+    reduce_add_ref += i;
     if (i % max_sg_size == 0)
-      scan_add_ref = 1 + i;
-    scan_add_ref += 1 + i;
+      scan_add_ref = 0;
+    scan_add_ref += i;
     ASSERT_EQ(scan_add_ref, scan_add[i])
         << "Mismatch at work-item: " << i << " Expect: " << scan_add_ref
         << " Result: " << scan_add[i];
   }
+  ASSERT_EQ(reduce_add_ref, wg_reduce_add)
+      << "Mismatch for WG reduce add: "
+      << " Expect: " << reduce_add_ref << " Result: " << wg_reduce_add;
 
   iRet = clReleaseProgram(program);
   ASSERT_OCL_SUCCESS(iRet, " clReleaseProgram");
   iRet = clReleaseKernel(kern);
   ASSERT_OCL_SUCCESS(iRet, " clReleaseKernel");
-  iRet = clReleaseMemObject(mem_obj);
+  iRet = clReleaseMemObject(mem_obj_scan);
+  ASSERT_OCL_SUCCESS(iRet, " clReleaseMemObject");
+  iRet = clReleaseMemObject(mem_obj_reduce);
   ASSERT_OCL_SUCCESS(iRet, " clReleaseMemObject");
 }
