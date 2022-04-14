@@ -682,6 +682,17 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
                                          Path));
   }
 
+#ifdef INTEL_CUSTOMIZATION
+  // Pass an option to enable/disable the new pass manager.
+  if (auto *A = Args.getLastArg(options::OPT_flegacy_pass_manager,
+                                options::OPT_fno_legacy_pass_manager)) {
+    if (A->getOption().matches(options::OPT_flegacy_pass_manager))
+      CmdArgs.push_back("-plugin-opt=legacy-pass-manager");
+    else
+      CmdArgs.push_back("-plugin-opt=new-pass-manager");
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Setup statistics file output.
   SmallString<128> StatsFile = getStatsFileName(Args, Output, Input, D);
   if (!StatsFile.empty())

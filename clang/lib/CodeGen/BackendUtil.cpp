@@ -82,6 +82,7 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/Intel_AutoCPUClone.h"      // INTEL
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"      // INTEL
 #include "llvm/Transforms/IPO/ThinLTOBitcodeWriter.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Instrumentation.h"
@@ -149,6 +150,10 @@ class EmitAssemblyHelper {
     return TargetIRAnalysis();
   }
 
+#ifdef INTEL_CUSTOMIZATION
+  void CreatePasses(legacy::PassManager &MPM, legacy::FunctionPassManager &FPM);
+#endif // INTEL_CUSTOMIZATION
+
   /// Generates the TargetMachine.
   /// Leaves TM unchanged if it is unable to create the target machine.
   /// Some of our clang tests specify triples which are not built
@@ -212,11 +217,66 @@ public:
 
   std::unique_ptr<TargetMachine> TM;
 
+#ifdef INTEL_CUSTOMIZATION
+  // Emit output using the legacy pass manager for the optimization pipeline.
+  // This will be removed soon when using the legacy pass manager for the
+  // optimization pipeline is no longer supported.
+  void EmitAssemblyWithLegacyPassManager(BackendAction Action,
+                                         std::unique_ptr<raw_pwrite_stream> OS);
+#endif // INTEL_CUSTOMIZATION
+
   // Emit output using the new pass manager for the optimization pipeline.
   void EmitAssembly(BackendAction Action,
                     std::unique_ptr<raw_pwrite_stream> OS);
 };
+
+#ifdef INTEL_CUSTOMIZATION
+// We need this wrapper to access LangOpts and CGOpts from extension functions
+// that we add to the PassManagerBuilder.
+class PassManagerBuilderWrapper : public PassManagerBuilder {
+public:
+  PassManagerBuilderWrapper(const Triple &TargetTriple,
+                            const CodeGenOptions &CGOpts,
+                            const LangOptions &LangOpts)
+      : TargetTriple(TargetTriple), CGOpts(CGOpts), LangOpts(LangOpts) {}
+  const Triple &getTargetTriple() const { return TargetTriple; }
+  const CodeGenOptions &getCGOpts() const { return CGOpts; }
+  const LangOptions &getLangOpts() const { return LangOpts; }
+
+private:
+  const Triple &TargetTriple;
+  const CodeGenOptions &CGOpts;
+  const LangOptions &LangOpts;
+};
+#endif // INTEL_CUSTOMIZATION
 }
+
+#ifdef INTEL_CUSTOMIZATION
+static void addObjCARCAPElimPass(const PassManagerBuilder &Builder, PassManagerBase &PM) {
+  if (Builder.OptLevel > 0)
+    PM.add(createObjCARCAPElimPass());
+}
+
+static void addObjCARCExpandPass(const PassManagerBuilder &Builder, PassManagerBase &PM) {
+  if (Builder.OptLevel > 0)
+    PM.add(createObjCARCExpandPass());
+}
+
+static void addObjCARCOptPass(const PassManagerBuilder &Builder, PassManagerBase &PM) {
+  if (Builder.OptLevel > 0)
+    PM.add(createObjCARCOptPass());
+}
+
+static void addAddDiscriminatorsPass(const PassManagerBuilder &Builder,
+                                     legacy::PassManagerBase &PM) {
+  PM.add(createAddDiscriminatorsPass());
+}
+
+static void addBoundsCheckingPass(const PassManagerBuilder &Builder,
+                                  legacy::PassManagerBase &PM) {
+  PM.add(createBoundsCheckingLegacyPass());
+}
+#endif // INTEL_CUSTOMIZATION
 
 static SanitizerCoverageOptions
 getSancovOptsFromCGOpts(const CodeGenOptions &CGOpts) {
@@ -240,6 +300,19 @@ getSancovOptsFromCGOpts(const CodeGenOptions &CGOpts) {
   Opts.TraceStores = CGOpts.SanitizeCoverageTraceStores;
   return Opts;
 }
+
+#ifdef INTEL_CUSTOMIZATION
+static void addSanitizerCoveragePass(const PassManagerBuilder &Builder,
+                                     legacy::PassManagerBase &PM) {
+  const PassManagerBuilderWrapper &BuilderWrapper =
+      static_cast<const PassManagerBuilderWrapper &>(Builder);
+  const CodeGenOptions &CGOpts = BuilderWrapper.getCGOpts();
+  auto Opts = getSancovOptsFromCGOpts(CGOpts);
+  PM.add(createModuleSanitizerCoverageLegacyPassPass(
+      Opts, CGOpts.SanitizeCoverageAllowlistFiles,
+      CGOpts.SanitizeCoverageIgnorelistFiles));
+}
+#endif // INTEL_CUSTOMIZATION
 
 // Check if ASan should use GC-friendly instrumentation for globals.
 // First of all, there is no point if -fdata-sections is off (expect for MachO,
@@ -265,6 +338,124 @@ static bool asanUseGlobalsGC(const Triple &T, const CodeGenOptions &CGOpts) {
   }
   return false;
 }
+
+#ifdef INTEL_CUSTOMIZATION
+static void addMemProfilerPasses(const PassManagerBuilder &Builder,
+                                 legacy::PassManagerBase &PM) {
+  PM.add(createMemProfilerFunctionPass());
+  PM.add(createModuleMemProfilerLegacyPassPass());
+}
+
+static void addAddressSanitizerPasses(const PassManagerBuilder &Builder,
+                                      legacy::PassManagerBase &PM) {
+  const PassManagerBuilderWrapper &BuilderWrapper =
+      static_cast<const PassManagerBuilderWrapper&>(Builder);
+  const Triple &T = BuilderWrapper.getTargetTriple();
+  const CodeGenOptions &CGOpts = BuilderWrapper.getCGOpts();
+  bool Recover = CGOpts.SanitizeRecover.has(SanitizerKind::Address);
+  bool UseAfterScope = CGOpts.SanitizeAddressUseAfterScope;
+  bool UseOdrIndicator = CGOpts.SanitizeAddressUseOdrIndicator;
+  bool UseGlobalsGC = asanUseGlobalsGC(T, CGOpts);
+  llvm::AsanDtorKind DestructorKind = CGOpts.getSanitizeAddressDtor();
+  llvm::AsanDetectStackUseAfterReturnMode UseAfterReturn =
+      CGOpts.getSanitizeAddressUseAfterReturn();
+  PM.add(createAddressSanitizerFunctionPass(/*CompileKernel*/ false, Recover,
+                                            UseAfterScope, UseAfterReturn));
+  PM.add(createModuleAddressSanitizerLegacyPassPass(
+      /*CompileKernel*/ false, Recover, UseGlobalsGC, UseOdrIndicator,
+      DestructorKind));
+}
+
+static void addKernelAddressSanitizerPasses(const PassManagerBuilder &Builder,
+                                            legacy::PassManagerBase &PM) {
+  PM.add(createAddressSanitizerFunctionPass(
+      /*CompileKernel*/ true, /*Recover*/ true, /*UseAfterScope*/ false,
+      /*UseAfterReturn*/ llvm::AsanDetectStackUseAfterReturnMode::Never));
+  PM.add(createModuleAddressSanitizerLegacyPassPass(
+      /*CompileKernel*/ true, /*Recover*/ true, /*UseGlobalsGC*/ true,
+      /*UseOdrIndicator*/ false));
+}
+
+static void addHWAddressSanitizerPasses(const PassManagerBuilder &Builder,
+                                            legacy::PassManagerBase &PM) {
+  const PassManagerBuilderWrapper &BuilderWrapper =
+      static_cast<const PassManagerBuilderWrapper &>(Builder);
+  const CodeGenOptions &CGOpts = BuilderWrapper.getCGOpts();
+  bool Recover = CGOpts.SanitizeRecover.has(SanitizerKind::HWAddress);
+  PM.add(createHWAddressSanitizerLegacyPassPass(
+      /*CompileKernel*/ false, Recover,
+      /*DisableOptimization*/ CGOpts.OptimizationLevel == 0));
+}
+
+static void addKernelHWAddressSanitizerPasses(const PassManagerBuilder &Builder,
+                                              legacy::PassManagerBase &PM) {
+  const PassManagerBuilderWrapper &BuilderWrapper =
+      static_cast<const PassManagerBuilderWrapper &>(Builder);
+  const CodeGenOptions &CGOpts = BuilderWrapper.getCGOpts();
+  PM.add(createHWAddressSanitizerLegacyPassPass(
+      /*CompileKernel*/ true, /*Recover*/ true,
+      /*DisableOptimization*/ CGOpts.OptimizationLevel == 0));
+}
+
+static void addGeneralOptsForMemorySanitizer(const PassManagerBuilder &Builder,
+                                             legacy::PassManagerBase &PM,
+                                             bool CompileKernel) {
+  const PassManagerBuilderWrapper &BuilderWrapper =
+      static_cast<const PassManagerBuilderWrapper&>(Builder);
+  const CodeGenOptions &CGOpts = BuilderWrapper.getCGOpts();
+  int TrackOrigins = CGOpts.SanitizeMemoryTrackOrigins;
+  bool Recover = CGOpts.SanitizeRecover.has(SanitizerKind::Memory);
+  PM.add(createMemorySanitizerLegacyPassPass(
+      MemorySanitizerOptions{TrackOrigins, Recover, CompileKernel,
+                             CGOpts.SanitizeMemoryParamRetval != 0}));
+
+  // MemorySanitizer inserts complex instrumentation that mostly follows
+  // the logic of the original code, but operates on "shadow" values.
+  // It can benefit from re-running some general purpose optimization passes.
+  if (Builder.OptLevel > 0) {
+    PM.add(createEarlyCSEPass());
+    PM.add(createReassociatePass());
+    PM.add(createLICMPass());
+    PM.add(createGVNPass());
+    PM.add(createInstructionCombiningPass());
+    PM.add(createDeadStoreEliminationPass());
+  }
+}
+
+static void addMemorySanitizerPass(const PassManagerBuilder &Builder,
+                                   legacy::PassManagerBase &PM) {
+  addGeneralOptsForMemorySanitizer(Builder, PM, /*CompileKernel*/ false);
+}
+
+static void addKernelMemorySanitizerPass(const PassManagerBuilder &Builder,
+                                         legacy::PassManagerBase &PM) {
+  addGeneralOptsForMemorySanitizer(Builder, PM, /*CompileKernel*/ true);
+}
+
+static void addThreadSanitizerPass(const PassManagerBuilder &Builder,
+                                   legacy::PassManagerBase &PM) {
+  PM.add(createThreadSanitizerLegacyPassPass());
+}
+
+static void addDataFlowSanitizerPass(const PassManagerBuilder &Builder,
+                                     legacy::PassManagerBase &PM) {
+  const PassManagerBuilderWrapper &BuilderWrapper =
+      static_cast<const PassManagerBuilderWrapper&>(Builder);
+  const LangOptions &LangOpts = BuilderWrapper.getLangOpts();
+  PM.add(createDataFlowSanitizerLegacyPassPass(LangOpts.NoSanitizeFiles));
+}
+
+static void addEntryExitInstrumentationPass(const PassManagerBuilder &Builder,
+                                            legacy::PassManagerBase &PM) {
+  PM.add(createEntryExitInstrumenterPass());
+}
+
+static void
+addPostInlineEntryExitInstrumentationPass(const PassManagerBuilder &Builder,
+                                          legacy::PassManagerBase &PM) {
+  PM.add(createPostInlineEntryExitInstrumenterPass());
+}
+#endif // INTEL_CUSTOMIZATION
 
 static TargetLibraryInfoImpl *createTLII(llvm::Triple &TargetTriple,
                                          const CodeGenOptions &CodeGenOpts) {
@@ -299,6 +490,19 @@ static TargetLibraryInfoImpl *createTLII(llvm::Triple &TargetTriple,
   }
   return TLII;
 }
+
+#ifdef INTEL_CUSTOMIZATION
+static void addSymbolRewriterPass(const CodeGenOptions &Opts,
+                                  legacy::PassManager *MPM) {
+  llvm::SymbolRewriter::RewriteDescriptorList DL;
+
+  llvm::SymbolRewriter::RewriteMapParser MapParser;
+  for (const auto &MapFile : Opts.RewriteMapFiles)
+    MapParser.parse(MapFile, &DL);
+
+  MPM->add(createRewriteSymbolsPass(DL));
+}
+#endif // INTEL_CUSTOMIZATION
 
 static CodeGenOpt::Level getCGOptLevel(const CodeGenOptions &CodeGenOpts) {
   switch (CodeGenOpts.OptimizationLevel) {
@@ -533,7 +737,7 @@ getInstrProfOptions(const CodeGenOptions &CodeGenOpts,
   return Options;
 }
 
-<<<<<<< HEAD
+#ifdef INTEL_CUSTOMIZATION
 void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
                                       legacy::FunctionPassManager &FPM) {
   // Handle disabling of all LLVM passes, where we want to preserve the
@@ -767,9 +971,8 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
   PMBuilder.populateFunctionPassManager(FPM);
   PMBuilder.populateModulePassManager(MPM);
 }
+#endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> e47f9e7e03698ade5c5996c4c2af35fc03af0949
 static void setCommandLineOpts(const CodeGenOptions &CodeGenOpts) {
   SmallVector<const char *, 16> BackendArgs;
   BackendArgs.push_back("clang"); // Fake program name.
@@ -847,7 +1050,7 @@ bool EmitAssemblyHelper::AddEmitPasses(legacy::PassManager &CodeGenPasses,
   return true;
 }
 
-<<<<<<< HEAD
+#ifdef INTEL_CUSTOMIZATION
 void EmitAssemblyHelper::EmitAssemblyWithLegacyPassManager(
     BackendAction Action, std::unique_ptr<raw_pwrite_stream> OS) {
   TimeRegion Region(CodeGenOpts.TimePasses ? &CodeGenerationTime : nullptr);
@@ -1015,9 +1218,8 @@ void EmitAssemblyHelper::EmitAssemblyWithLegacyPassManager(
   if (DwoOS)
     DwoOS->keep();
 }
+#endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> e47f9e7e03698ade5c5996c4c2af35fc03af0949
 static OptimizationLevel mapToLevel(const CodeGenOptions &Opts) {
   switch (Opts.OptimizationLevel) {
   default:
@@ -1554,6 +1756,7 @@ static void runThinLTOBackend(
   }
 
   Conf.ProfileRemapping = std::move(ProfileRemapping);
+  Conf.UseNewPM = !CGOpts.LegacyPassManager; // INTEL
   Conf.DebugPassManager = CGOpts.DebugPassManager;
   Conf.RemarksWithHotness = CGOpts.DiagnosticsWithHotness;
   Conf.RemarksFilename = CGOpts.OptRecordFile;
@@ -1661,7 +1864,13 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
   }
 
   EmitAssemblyHelper AsmHelper(Diags, HeaderOpts, CGOpts, TOpts, LOpts, M);
-  AsmHelper.EmitAssembly(Action, std::move(OS));
+
+#ifdef INTEL_CUSTOMIZATION
+  if (CGOpts.LegacyPassManager)
+    AsmHelper.EmitAssemblyWithLegacyPassManager(Action, std::move(OS));
+  else
+    AsmHelper.EmitAssembly(Action, std::move(OS));
+#endif // INTEL_CUSTOMIZATION
 
   // Verify clang's TargetInfo DataLayout against the LLVM TargetMachine's
   // DataLayout.
