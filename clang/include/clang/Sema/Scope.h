@@ -140,20 +140,17 @@ public:
     /// parsed. If such a scope is a ContinueScope, it's invalid to jump to the
     /// continue block from here.
     ConditionVarScope = 0x2000000,
-<<<<<<< HEAD
-#if INTEL_COLLAB
-    /// This is the scope of OpenMP simd directive.
-    /// This flag is propagated to children scopes.
-    OpenMPSimdOnlyDirectiveScope = 0x4000000,
-#endif  // INTEL_COLLAB
-=======
 
     /// This is the scope for a lambda, after the lambda introducer.
     /// Lambdas need 2 FunctionPrototypeScope scopes (because there is a
     /// template scope in between), the outer scope does not increase the
     /// depth of recursion.
     LambdaScope = 0x4000000,
->>>>>>> adff142dc253d65b6560e420bba6b858d88d4a98
+#if INTEL_COLLAB
+    /// This is the scope of OpenMP simd directive.
+    /// This flag is propagated to children scopes.
+    OpenMPSimdOnlyDirectiveScope = 0x8000000,
+#endif  // INTEL_COLLAB
   };
 
 private:
