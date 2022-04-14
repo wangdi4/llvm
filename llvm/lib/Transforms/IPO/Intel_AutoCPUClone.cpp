@@ -275,13 +275,16 @@ static bool cloneFunctions(Module &M,
     return false;
 
   // Update uses of the original functions.
-  // At this point all functions(except resolvers) use original functions(those
-  // with .A suffix). The loop below goes over all the functions that we
-  // multiversioned earlier and replaces all uses of those functions with
-  // corresponding ifunc's. This is done for all cases except when a
-  // multiversioned function calls a function which was also multiversioned
-  // (and hence has a definition in this module), for such cases it replaces
-  // call to oriiginal function to correct multiversioned analog.
+  // At this point all functions(except resolvers) use original functions (those
+  // with .A suffix). The loop below iterates over all the functions that we
+  // multiversioned earlier and replaces all of their uses with the
+  // corresponding ifunc's. This is done for _all_ cases except:
+  // 1) when a multiversioned function calls another multiversioned function
+  //    whose definition is in the same module and,
+  // 2) when a multiversioned function initializes a function pointer to point
+  //    to another multiversioned function whose definition is in the same module.
+  // For such cases, calls and function pointer initializations are replaced with
+  // calls and uses to the correct multiversioned analogs respectively.
   for (auto &Entry : Orig2MultiFuncs) {
     GlobalValue *Fn = Entry.first;
     const GlobalValue *Resolver = std::get<0>(Entry.second);
@@ -290,27 +293,36 @@ static bool cloneFunctions(Module &M,
 
     Fn->replaceUsesWithIf(Dispatcher, [&](Use &IFUse) {
 
-      const auto Inst = dyn_cast<Instruction>(IFUse.getUser());
-      // Resolver should operate on specific functions versions.
+      // Resolver should operate on specific function versions.
+      const auto *Inst = dyn_cast<Instruction>(IFUse.getUser());
       if (Inst && Inst->getFunction() == Resolver)
         return false;
 
       auto *CInst = dyn_cast<CallBase>(IFUse.getUser());
       if (CInst && CInst->getCalledOperand() == Fn) {
         Function *Caller = CInst->getFunction();
-        // If a caller is a generic function skip it as it already calls
-        // original callee:
+        // If caller is a generic function skip it, as it already calls
+        // the correct version:
         // foo.A
         //   call bar.A
         if (Orig2MultiFuncs.count(Caller))
           return false;
 
-        // If a caller is a specialized version of a function then find a
+        // If caller is a specialized version of a function then find the
         // corresponding specialized version of the callee.
-        if (CInst->getCalledOperand() == Fn &&
-            MultiFunc2TargetExt.count(Caller)) {
+        if (MultiFunc2TargetExt.count(Caller))
           return false;
-        }
+
+        return true;
+      }
+
+      // Function pointers are initialized using constant cast expressions.
+      //   ... bitcast (void ()* @bar.A to i8*), ...
+      // Since constant cast expressions, themselves, can have multiple uses,
+      // we skip processing them here and handle them separately.
+      auto *CExpr = dyn_cast<ConstantExpr>(IFUse.getUser());
+      if (CExpr && CExpr->isCast()) {
+        return false;
       }
 
       return true;
@@ -319,31 +331,66 @@ static bool cloneFunctions(Module &M,
     for (auto It = Fn->use_begin(), End = Fn->use_end(); It != End;) {
       Use &IFUse = *It;
       ++It;
-      const auto Inst = dyn_cast<Instruction>(IFUse.getUser());
+
       // Resolver should operate on specific functions versions.
+      const auto *Inst = dyn_cast<Instruction>(IFUse.getUser());
       if (Inst && Inst->getFunction() == Resolver)
         continue;
 
       auto *CInst = dyn_cast<CallBase>(IFUse.getUser());
       if (CInst && CInst->getCalledOperand() == Fn) {
         Function *Caller = CInst->getFunction();
-        // If a caller is a generic function skip it as it already calls
-        // original callee:
+        // If caller is a generic function skip it, as it already calls
+        // the correct version:
         // foo.A
         //   call bar.A
         if (Orig2MultiFuncs.count(Caller))
           continue;
 
-        // If a caller is a specialized version of a function then find a
+        // If caller is a specialized version of a function then find the
         // corresponding specialized version of the callee.
-        if (CInst->getCalledOperand() == Fn &&
-            MultiFunc2TargetExt.count(Caller)) {
+        if (MultiFunc2TargetExt.count(Caller)) {
           GlobalValue *Replacement = Clones[MultiFunc2TargetExt[Caller]];
           assert(Replacement && "Expected that functions are multiversioned "
                                 "for all requested targets now!");
           CInst->setCalledOperand(Replacement);
           continue;
         }
+      }
+
+      // Constant expressions have multiple uses, thus iterate over all users and
+      // update each as necessary.
+      auto *CExpr = dyn_cast<ConstantExpr>(IFUse.getUser());
+      if (CExpr && CExpr->isCast()) {
+
+        for (auto CIt = CExpr->user_begin(), CEnd = CExpr->user_end(); CIt != CEnd;) {
+
+          User *CurrentUser = *CIt;
+          ++CIt;
+
+          auto *CInst = dyn_cast<Instruction>(CurrentUser);
+          if (CInst) {
+            Function *ParentFunc = CInst->getFunction();
+            // If ParentFunc is a generic function skip it, as it already refers to the
+            // correct version of the use
+            // foo.A
+            //   ... bitcast (void ()* @bar.A to i8*), ...
+            if (Orig2MultiFuncs.count(ParentFunc))
+              continue;
+
+            // If ParentFunc is a specialized version of a function then find the
+            // corresponding specialized version of the use.
+            if (MultiFunc2TargetExt.count(ParentFunc)) {
+              GlobalValue *Replacement = Clones[MultiFunc2TargetExt[ParentFunc]];
+              assert(Replacement && "Expected that functions are multiversioned "
+                                    "for all requested targets now!");
+              CInst->replaceUsesOfWith(CExpr, CExpr->getWithOperands({Replacement}));
+              continue;
+            }
+          }
+          CExpr->setOperand(0, Dispatcher);
+        }
+        continue;
       }
 
       llvm_unreachable("Unhandled case!");
