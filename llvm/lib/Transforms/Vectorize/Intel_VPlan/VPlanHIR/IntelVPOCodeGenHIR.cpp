@@ -1375,7 +1375,7 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
   LLVM_DEBUG(dumpFinalHIR());
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (PrintHIRAfterVPlan) {
-    dbgs() <<"Handled loop after VPlan:\n";
+    dbgs() << "Handled loop after VPlan: in Function: " << Fn.getName() << "\n";
     dumpFinalHIR();
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -5064,12 +5064,15 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // |   %A.i = (%A)[i1];
     // |   %red.var = %A.i  +  %red.var;
     // + END LOOP
-
+    VPValue *LBTempInitVal = nullptr;
+    auto *LBTemp = cast<RegDDRef>(VPRemLp->getLowerBoundTemp());
     for (unsigned I = 0; I < VPRemLp->getNumOperands(); ++I) {
       RegDDRef *TempToInit = cast<RegDDRef>(VPRemLp->getLiveIn(I))->clone();
       RegDDRef *InitValue = getOrCreateScalarRef(VPRemLp->getOperand(I), 0);
       HLInst *InitInst = HLNodeUtilities.createCopyInst(InitValue, "temp.init",
                                                         TempToInit);
+      if (DDRefUtils::areEqual(TempToInit, LBTemp))
+        LBTempInitVal = VPRemLp->getOperand(I);
       addInstUnmasked(InitInst);
       if (TempToInit->isTerminalRef())
         TempToInit->makeSelfBlob();
@@ -5082,13 +5085,19 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                dbgs() << "\n");
     addInst(ScalarRem, nullptr /*Mask*/);
 
-    // Update lower DDRef of scalar peel.
-    auto *LBTemp = cast<RegDDRef>(VPRemLp->getLowerBoundTemp());
-    ScalarRem->setLowerDDRef(LBTemp);
-    // Sets the defined at level of new bound to (nesting level - 1) as the
-    // bound temp is defined just before the loop.
-    LBTemp->getSingleCanonExpr()->setDefinedAtLevel(
-        ScalarRem->getNestingLevel() - 1);
+    // Update lower DDRef of scalar peel. We try and set the lower DDRef to
+    // a constant if we know that the lower bound temp is initialized with
+    // a constant value to enable better downstream optimizations.
+    if (isa<VPLiveOutValue>(LBTempInitVal) &&
+        getUniformScalarRef(LBTempInitVal)->isConstant()) {
+      ScalarRem->setLowerDDRef(getUniformScalarRef(LBTempInitVal));
+    } else {
+      ScalarRem->setLowerDDRef(LBTemp);
+      // Sets the defined at level of new bound to (nesting level - 1) as the
+      // bound temp is defined just before the loop.
+      LBTemp->getSingleCanonExpr()->setDefinedAtLevel(
+          ScalarRem->getNestingLevel() - 1);
+    }
 
     // TODO: For the case of vector remainder followed by a scalar
     // remainder, we should be able to use remainder VF - 1 for

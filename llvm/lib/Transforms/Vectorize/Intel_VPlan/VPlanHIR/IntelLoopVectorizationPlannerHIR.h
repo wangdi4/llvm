@@ -82,7 +82,14 @@ public:
       : LoopVectorizationPlanner(WRL, /*Lp=*/nullptr, /*LI=*/nullptr, TLI, TTI,
                                  DL, nullptr, nullptr, VLSA),
         TheLoop(Lp), LightWeightMode(LightWeightMode), DDA(DDA),
-        HIRLegality(HIRLegal) {}
+        HIRLegality(HIRLegal) {
+    // Set the flag in scenario to indicate if we are dealing with a constant
+    // trip count loop. TODO - right now this is only done in the HIR path to
+    // generate better code for simple constant trip vectorization scenarios.
+    // Revisit this for the LLVM IR path later to see if it benefits there
+    // as well.
+    VecScenario.setIsConstTC(TheLoop->isConstTripLoop());
+  }
 
   /// Generate the HIR code for the body of the vectorized loop according to the
   /// best selected VPlan. This function returns true if code generation was

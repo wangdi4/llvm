@@ -12,53 +12,20 @@
 ;       @llvm.directive.region.exit(%tok); [ DIR.OMP.END.SIMD() ]
 ; END REGION
 
-; RUN: opt -enable-new-pm=false -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=LEGACY-CG
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-enable-new-cfg-merge-hir=false -disable-output < %s 2>&1 | FileCheck %s --check-prefix=LEGACY-CG
-; RUN: opt -enable-new-pm=false -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=MERGED-CFG-CG
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-enable-new-cfg-merge-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefix=MERGED-CFG-CG
+; RUN: opt -enable-new-pm=false -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-enable-new-cfg-merge-hir=false -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=false -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-enable-new-cfg-merge-hir -disable-output < %s 2>&1 | FileCheck %s
 
-; LEGACY-CG:                BEGIN REGION { modified }
-; LEGACY-CG-NEXT:                 + DO i1 = 0, 7, 4   <DO_LOOP> <simd-vectorized> <novectorize>
-; LEGACY-CG-NEXT:                 |   (<4 x i64>*)(%A)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
-; LEGACY-CG-NEXT:                 + END LOOP
+; CHECK:                BEGIN REGION { modified }
+; CHECK-NEXT:                 + DO i1 = 0, 7, 4   <DO_LOOP> <simd-vectorized> <novectorize>
+; CHECK-NEXT:                 |   (<4 x i64>*)(%A)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
+; CHECK-NEXT:                 + END LOOP
 
-; LEGACY-CG:                      + DO i1 = 8, 9, 1   <DO_LOOP> <novectorize>
-; LEGACY-CG-NEXT:                 |   (%A)[i1] = i1;
-; LEGACY-CG-NEXT:                 + END LOOP
-; LEGACY-CG-NEXT:           END REGION
-
-; MERGED-CFG-CG:            BEGIN REGION { modified }
-; MERGED-CFG-CG-NEXT:             %.vec = 0 == 8;
-; MERGED-CFG-CG-NEXT:             %phi.temp = 0;
-; MERGED-CFG-CG-NEXT:             %extract.0. = extractelement %.vec,  0;
-; MERGED-CFG-CG-NEXT:             if (%extract.0. == 1)
-; MERGED-CFG-CG-NEXT:             {
-; MERGED-CFG-CG-NEXT:                goto [[MERGE_AFTER_MAIN:.*]];
-; MERGED-CFG-CG-NEXT:             }
-
-; MERGED-CFG-CG:                  + DO i1 = 0, 7, 4   <DO_LOOP> <simd-vectorized> <novectorize>
-; MERGED-CFG-CG-NEXT:             |   (<4 x i64>*)(%A)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
-; MERGED-CFG-CG-NEXT:             + END LOOP
-
-; MERGED-CFG-CG:                  %.vec2 = 10 == 8;
-; MERGED-CFG-CG-NEXT:             %phi.temp = 8;
-; MERGED-CFG-CG-NEXT:             %phi.temp4 = 8;
-; MERGED-CFG-CG-NEXT:             %extract.0.6 = extractelement %.vec2,  0;
-; MERGED-CFG-CG-NEXT:             if (%extract.0.6 == 1)
-; MERGED-CFG-CG-NEXT:             {
-; MERGED-CFG-CG-NEXT:                goto [[FINAL_MERGE:.*]];
-; MERGED-CFG-CG-NEXT:             }
-; MERGED-CFG-CG-NEXT:             [[MERGE_AFTER_MAIN]]:
-; MERGED-CFG-CG-NEXT:             %lb.tmp = %phi.temp;
-
-; MERGED-CFG-CG:                  + DO i1 = %lb.tmp, 9, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
-; MERGED-CFG-CG-NEXT:             |   (%A)[i1] = i1;
-; MERGED-CFG-CG-NEXT:             + END LOOP
-
-; MERGED-CFG-CG:                  %phi.temp4 = 9;
-; MERGED-CFG-CG-NEXT:             [[FINAL_MERGE]]:
-; MERGED-CFG-CG-NEXT:       END REGION
-
+; CHECK:                      + DO i1 = 8, 9, 1   <DO_LOOP> <novectorize>
+; CHECK-NEXT:                 |   (%A)[i1] = i1;
+; CHECK-NEXT:                 + END LOOP
+; CHECK-NEXT:           END REGION
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

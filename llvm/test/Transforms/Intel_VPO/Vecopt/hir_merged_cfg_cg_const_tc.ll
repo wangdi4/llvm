@@ -16,35 +16,16 @@
 
 ; CHECK-LABEL: Function: foo
 ; CHECK:          BEGIN REGION { modified }
-; CHECK-NEXT:           %.vec = 0 == 100;
-; CHECK-NEXT:           %phi.temp = 0;
-; CHECK-NEXT:           %extract.0. = extractelement %.vec,  0;
-; CHECK-NEXT:           if (%extract.0. == 1)
-; CHECK-NEXT:           {
-; CHECK-NEXT:              goto [[MERGE_AFTER_MAIN:.*]];
-; CHECK-NEXT:           }
 
 ; CHECK:                + DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK-NEXT:           |   (<4 x i64>*)(%A)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:           + END LOOP
 
-; CHECK:                %.vec2 = 101 == 100;
-; CHECK-NEXT:           %phi.temp = 100;
-; CHECK-NEXT:           %phi.temp4 = 100;
-; CHECK-NEXT:           %extract.0.6 = extractelement %.vec2,  0;
-; CHECK-NEXT:           if (%extract.0.6 == 1)
-; CHECK-NEXT:           {
-; CHECK-NEXT:              goto [[FINAL_MERGE:.*]];
-; CHECK-NEXT:           }
-; CHECK-NEXT:           [[MERGE_AFTER_MAIN]]:
-; CHECK-NEXT:           %lb.tmp = %phi.temp;
+; CHECK:                %lb.tmp = 100;
 
-; CHECK:                + DO i1 = %lb.tmp, 100, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:                + DO i1 = 100, 100, 1   <DO_LOOP> <novectorize>
 ; CHECK-NEXT:           |   (%A)[i1] = i1;
 ; CHECK-NEXT:           + END LOOP
-
-; CHECK:                %phi.temp4 = 100;
-; CHECK-NEXT:           [[FINAL_MERGE]]:
 ; CHECK-NEXT:     END REGION
 
 

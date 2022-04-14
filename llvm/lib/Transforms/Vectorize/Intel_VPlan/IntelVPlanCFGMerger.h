@@ -49,6 +49,15 @@ class VPlanCFGMerger {
   // many trip count checks. It's taken from existing VPlan code.
   VPValue* OrigUB = nullptr;
 
+  // Boolean flag to indicate if the scenario is a main vector loop and a scalar
+  // remainder for a constant trip count original loop. If true, we can avoid
+  // unnecessary checks to see if we should exercise main and scalar loops.
+  // This also allows setting a constant lower bound for the scalar remainder
+  // which is important for downstream HIR optimizations.
+  // TODO - this flag is only set for HIR path for now. Revisit for the LLVM
+  // IR path if needed later.
+  bool IsSimpleConstTCScenario = false;
+
 public:
   VPlanCFGMerger(VPlanVector &P, unsigned V, unsigned U)
       : Plan(P), ExtVals(P.getExternals()), MainVF(V), MainUF(U) {}
@@ -95,6 +104,8 @@ public:
                        std::list<CfgMergerPlanDescr> &Plans, LoopTy *OrigLoop);
 
   void mergeVPlans(std::list<CfgMergerPlanDescr> &Plans);
+
+  void setIsSimpleConstTCScenario(bool Val) { IsSimpleConstTCScenario = Val; }
 
 private:
   using PlanDescr = CfgMergerPlanDescr;
