@@ -29,6 +29,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/Triple.h"
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
 #include "llvm/Demangle/Demangle.h"
@@ -36,6 +37,9 @@
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+=======
+#include "llvm/IR/AutoUpgrade.h"
+>>>>>>> b0343a38a5910e980bb031e4014655d77cd0c162
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DiagnosticPrinter.h"
@@ -3554,6 +3558,9 @@ Error IRLinker::linkModuleFlagsMetadata() {
   if (!SrcModFlags)
     return Error::success();
 
+  // Check for module flag for updates before do anything.
+  UpgradeModuleFlags(*SrcM);
+
   // If the destination module doesn't have module flags yet, then just copy
   // over the source module's flags.
   NamedMDNode *DstModFlags = DstM.getOrInsertModuleFlagsMetadata();
@@ -3636,11 +3643,15 @@ Error IRLinker::linkModuleFlagsMetadata() {
 
     // Diagnose inconsistent merge behavior types.
     if (SrcBehaviorValue != DstBehaviorValue) {
+      bool MinAndWarn = (SrcBehaviorValue == Module::Min &&
+                         DstBehaviorValue == Module::Warning) ||
+                        (DstBehaviorValue == Module::Min &&
+                         SrcBehaviorValue == Module::Warning);
       bool MaxAndWarn = (SrcBehaviorValue == Module::Max &&
                          DstBehaviorValue == Module::Warning) ||
                         (DstBehaviorValue == Module::Max &&
                          SrcBehaviorValue == Module::Warning);
-      if (!MaxAndWarn)
+      if (!(MaxAndWarn || MinAndWarn))
         return stringErr("linking module flags '" + ID->getString() +
                          "': IDs have conflicting behaviors in '" +
                          SrcM->getModuleIdentifier() + "' and '" +
@@ -3667,6 +3678,25 @@ Error IRLinker::linkModuleFlagsMetadata() {
           << *DstOp->getOperand(2) << "' from " << DstM.getModuleIdentifier()
           << ')';
       emitWarning(Str);
+    }
+
+    // Choose the minimum if either source or destination request Min behavior.
+    if (DstBehaviorValue == Module::Min || SrcBehaviorValue == Module::Min) {
+      ConstantInt *DstValue =
+          mdconst::extract<ConstantInt>(DstOp->getOperand(2));
+      ConstantInt *SrcValue =
+          mdconst::extract<ConstantInt>(SrcOp->getOperand(2));
+
+      // The resulting flag should have a Min behavior, and contain the minimum
+      // value from between the source and destination values.
+      Metadata *FlagOps[] = {
+          (DstBehaviorValue != Module::Min ? SrcOp : DstOp)->getOperand(0), ID,
+          (SrcValue->getZExtValue() < DstValue->getZExtValue() ? SrcOp : DstOp)
+              ->getOperand(2)};
+      MDNode *Flag = MDNode::get(DstM.getContext(), FlagOps);
+      DstModFlags->setOperand(DstIndex, Flag);
+      Flags[ID].first = Flag;
+      continue;
     }
 
     // Choose the maximum if either source or destination request Max behavior.
