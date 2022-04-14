@@ -7771,8 +7771,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    false))
     CmdArgs.push_back("-fmodules-debuginfo");
 
+#ifdef INTEL_CUSTOMIZATION
   Args.AddLastArg(CmdArgs, options::OPT_flegacy_pass_manager,
                   options::OPT_fno_legacy_pass_manager);
+#endif // INTEL_CUSTOMIZATION
 
   ObjCRuntime Runtime = AddObjCRuntimeArgs(Args, Inputs, CmdArgs, rewriteKind);
   RenderObjCOptions(TC, D, RawTriple, Args, Runtime, rewriteKind != RK_None,

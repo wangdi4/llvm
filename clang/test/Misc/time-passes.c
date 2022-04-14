@@ -1,11 +1,20 @@
 // Check -ftime-report/-ftime-report= output
 // RUN: %clang_cc1 -emit-obj -O1 \
+// INTEL_CUSTOMIZATION
+// RUN:     -fno-legacy-pass-manager \
+// end INTEL_CUSTOMIZATION
 // RUN:     -ftime-report %s -o /dev/null 2>&1 | \
 // RUN:     FileCheck %s --check-prefixes=TIME,NPM
 // RUN: %clang_cc1 -emit-obj -O1 \
+// INTEL_CUSTOMIZATION
+// RUN:     -fno-legacy-pass-manager \
+// end INTEL_CUSTOMIZATION
 // RUN:     -ftime-report=per-pass %s -o /dev/null 2>&1 | \
 // RUN:     FileCheck %s --check-prefixes=TIME,NPM
 // RUN: %clang_cc1 -emit-obj -O1 \
+// INTEL_CUSTOMIZATION
+// RUN:     -fno-legacy-pass-manager \
+// end INTEL_CUSTOMIZATION
 // RUN:     -ftime-report=per-pass-run %s -o /dev/null 2>&1 | \
 // RUN:     FileCheck %s --check-prefixes=TIME,NPM-PER-INVOKE
 
