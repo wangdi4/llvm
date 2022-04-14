@@ -5,6 +5,10 @@
 //
 // RUN: %clang -### -fhonor-nan-compares -c %s 2>&1 \
 // RUN:   | FileCheck --check-prefix=CHECK-HONOR-NAN %s
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cl -### /Qhonor-nan-compares -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=CHECK-HONOR-NAN %s
+// end INTEL_CUSTOMIZATION
 // CHECK-HONOR-NAN: "-cc1"
 // CHECK-HONOR-NAN-NOT: "-fno-honor-nan-compares"
 // CHECK-HONOR-NAN: "-fhonor-nan-compares"
@@ -13,6 +17,10 @@
 // The flag is omitted if -fno-honor-nan-compare is used.
 // RUN: %clang -### -fno-honor-nan-compares -c %s 2>&1 \
 // RUN:   | FileCheck --check-prefix=CHECK-NO-HONOR-NAN %s
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cl -### /Qhonor-nan-compares- -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=CHECK-NO-HONOR-NAN %s
+// end INTEL_CUSTOMIZATION
 // CHECK-NO-HONOR-NAN: "-cc1"
 // CHECK-NO-HONOR-NAN-NOT: "-fhonor-nan-compares"
 //
