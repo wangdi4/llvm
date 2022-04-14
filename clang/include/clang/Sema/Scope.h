@@ -44,11 +44,11 @@ public:
   enum ScopeFlags {
     /// This indicates that the scope corresponds to a function, which
     /// means that labels are set here.
-    FnScope       = 0x01,
+    FnScope = 0x01,
 
     /// This is a while, do, switch, for, etc that can have break
     /// statements embedded into it.
-    BreakScope    = 0x02,
+    BreakScope = 0x02,
 
     /// This is a while, do, for, which can have continue statements
     /// embedded into it.
@@ -140,10 +140,16 @@ public:
     /// parsed. If such a scope is a ContinueScope, it's invalid to jump to the
     /// continue block from here.
     ConditionVarScope = 0x2000000,
+
+    /// This is the scope for a lambda, after the lambda introducer.
+    /// Lambdas need 2 FunctionPrototypeScope scopes (because there is a
+    /// template scope in between), the outer scope does not increase the
+    /// depth of recursion.
+    LambdaScope = 0x4000000,
 #if INTEL_COLLAB
     /// This is the scope of OpenMP simd directive.
     /// This flag is propagated to children scopes.
-    OpenMPSimdOnlyDirectiveScope = 0x4000000,
+    OpenMPSimdOnlyDirectiveScope = 0x8000000,
 #endif  // INTEL_COLLAB
   };
 
