@@ -5004,7 +5004,8 @@ ConditionalInfo EmitConditionalBlocks(CodeGenFunction &CGF,
                                       const AbstractConditionalOperator *E,
                                       const FuncTy &BranchGenFunc) {
   ConditionalInfo Info{CGF.createBasicBlock("cond.true"),
-                       CGF.createBasicBlock("cond.false")};
+                       CGF.createBasicBlock("cond.false"), llvm::None,
+                       llvm::None};
   llvm::BasicBlock *endBlock = CGF.createBasicBlock("cond.end");
 
   CodeGenFunction::ConditionalEvaluation eval(CGF);
