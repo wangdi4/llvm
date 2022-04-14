@@ -6479,7 +6479,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
         TE->setOperand(I, VectorOperands[I]);
       }
-
       buildTree_rec(VectorOperands[NumOps - 1], Depth + 1, {TE, NumOps - 1});
       return;
     }
@@ -12515,7 +12514,9 @@ public:
             RdxFMF &= FPMO->getFastMathFlags();
         }
         // Estimate cost.
-        InstructionCost TreeCost = V.getTreeCost(VL);
+#if INTEL_CUSTOMIZATION
+        InstructionCost TreeCost = V.getTreeCost(VL, /*ForReduction=*/true);
+#endif // INTEL_CUSTOMIZATION
         InstructionCost ReductionCost =
             getReductionCost(TTI, VL[0], ReduxWidth, RdxFMF);
         InstructionCost Cost = TreeCost + ReductionCost;
@@ -12533,9 +12534,15 @@ public:
                    << " and threshold "
                    << ore::NV("Threshold", -SLPCostThreshold);
           });
+#if INTEL_CUSTOMIZATION
+          V.undoMultiNodeReordering();
+#endif // INTEL_CUSTOMIZATION
           AdjustReducedVals();
           continue;
         }
+#if INTEL_CUSTOMIZATION
+        V.cleanupMultiNodeReordering();
+#endif // INTEL_CUSTOMIZATION
 
         LLVM_DEBUG(dbgs() << "SLP: Vectorizing horizontal reduction at cost:"
                           << Cost << ". (HorRdx)\n");
@@ -12995,11 +13002,12 @@ static bool tryToVectorizeHorReductionOrInstOperands(
       // If reduced values are comparisons then we want to direct
       // vectorizer first to make attempt to vectorize pair which
       // are operands of a same cmp instruction.
-      for (auto &Vals : ReducedVals)
-        for (auto *V : Vals)
+      for (ArrayRef<Value *> Candidates : ReducedVals) {
+        for (Value *V : Candidates)
           if (isa<CmpInst>(V) && VisitedInstrs.insert(V).second &&
               Vectorize(cast<Instruction>(V), R))
             Res = true;
+      }
     }
     if (Res) {
 #endif // INTEL_CUSTOMIZATION
