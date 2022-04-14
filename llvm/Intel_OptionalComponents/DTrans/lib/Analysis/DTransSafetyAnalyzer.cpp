@@ -1955,7 +1955,8 @@ public:
 
         // Check if the types loaded or stored aren't compatible due to
         // related types
-        if (areLoadStoresWithRelatedTypes(IndexedType, ValInfo, &PtrInfo))
+        if (areLoadStoresWithRelatedTypes(IndexedType, ValInfo, &PtrInfo) ||
+            isStoringDataInNextEntry(&I, ValOp, PtrOp, &PtrInfo))
           BadCastingForRelatedTypes = true;
         else
           BadCasting = true;
@@ -1968,7 +1969,11 @@ public:
         //   %x = bitcast i64* %p to %struct*
         //   store %struct* %x, %struct** %y
         if (ValTy && ValTy->isPointerTy()) {
-          if (ValTy->getPointerElementType()->isAggregateType()) {
+          // check if we are using a byte flattened GEP to access the next entry
+          if (isStoringDataInNextEntry(&I, ValOp, PtrOp, &PtrInfo)) {
+            TypesCompatible = false;
+            BadCastingForRelatedTypes = true;
+          } else if (ValTy->getPointerElementType()->isAggregateType()) {
             if (hasIncompatibleAggregateDecl(ValTy->getPointerElementType(),
                                              ValInfo)) {
               TypesCompatible = false;
@@ -1981,12 +1986,6 @@ public:
             BadCasting = true;
           }
         }
-
-        // TODO: Catch the case when the data from a field of a structure that
-        // contains all entries with the same type (e.g. std::vector) is moved
-        // to another memory space, and this field is given by a byte flattened
-        // GEP. The GEP's index is produced by a loop (e.g. traversing all the
-        // entries in an std::vector).
       }
       // With opaque pointers, we will not see explicit pointer bitcasts
       // occurring, but the effect here is the same as is a bitcast had
@@ -2113,6 +2112,168 @@ public:
     }
 
     return PTA.getDominantType(*Info, Kind);
+  }
+
+  // Return true if the input instruction is a store instruction that moves
+  // information from one field in a structure to another field within the same
+  // structure, the fields are the same type, and it is using a byte flattened
+  // GEP to access them. For example:
+  //
+  //   %class.MainClass = type { [4 x i32], i32, [4 x i8]}
+  //   %class.MainClass.base = type { [4 x i32], i32}
+  //
+  //   %class.TestClass.Outer = type { %class.TestClass.Inner,
+  //                                   %class.TestClass.Inner_vect}
+  //   %class.TestClass.Inner = type { %class.MainClass.base, [4 x i8] }
+  //
+  //   %class.TestClass.Inner_vect = type { %class.TestClass.Inner_vect_imp,
+  //                                        %class.TestClass.Inner_vect_imp,
+  //                                        %class.TestClass.Inner_vect_imp}
+  //   %class.TestClass.Inner_vect_imp = type { ptr, ptr, ptr }
+  //
+  //   ; %class.TestClass.Inner_vect_imp = type { %class.TestClass.Inner*,
+  //                                              %class.TestClass.Inner*,
+  //                                              %class.TestClass.Inner* }
+  //
+  //   %0 = getelementptr inbounds %class.TestClass.Outer, ptr %ptr,
+  //                                                       i64 0, i32 1
+  //   %1 = getelementptr inbounds %class.TestClass.Inner_vect, ptr %0,
+  //                                                            i64 0, i32 0
+  //   %2 = getelementptr inbounds %class.TestClass.Inner_vect_imp,
+  //                               ptr %1, i64 0, i32 1
+  //   %3 = load ptr, ptr %2
+  //   %4 = mul i64 %var, 24
+  //   %5 = getelementptr i8, ptr %3, i64 %4
+  //   store ptr %5, ptr %2
+  //
+  // Assume that the language rules for out of bounds are disabled. The load in
+  // %3 is accessing the information in %class.TestClass.Inner_vect_imp field
+  // one (%class.TestClass.Inner*). The GEP in %5 is accessing the information
+  // after %class.TestClass.Inner in %3. Basically, field two in
+  // %class.TestClass.Inner_vect_imp since out of bounds is not allowed. The
+  // store instruction will move the pointer stored in field two of
+  // %class.TestClass.Inner_vect_imp into field one. This function will return
+  // true since all the fields of %class.TestClass.Inner_vect_imp are the same
+  // type. In simple words, the data is being moved within the fields of the
+  // structure. This common when dealing with std::vectors and there is a loop
+  // traversing through the entries of the vector and moving the data.
+  bool isStoringDataInNextEntry(Instruction *I, Value *ValOp, Value *PtrOp,
+                                ValueTypeInfo *PtrInfo) {
+    if (!I || !ValOp || !PtrOp || !PtrInfo)
+      return false;
+
+    // If the language rules for accessing out of bounds are enabled then we
+    // can't guarantee that the index accessed is within the bounds of the
+    // structure.
+    if (getLangRuleOutOfBoundsOK())
+      return false;
+
+    StoreInst *SI = dyn_cast<StoreInst>(I);
+    if (!SI)
+      return false;
+
+    if (ValOp != SI->getValueOperand() ||
+        PtrOp != SI->getPointerOperand())
+      return false;
+
+    auto *NextEntryGEP = dyn_cast<GetElementPtrInst>(ValOp);
+
+    // The number of indices must be 1 since we want to prove that we are
+    // accessing the next entry. Perhaps this could be relaxed in the future.
+    if (!NextEntryGEP || NextEntryGEP->getNumIndices() != 1)
+      return false;
+
+    // The GEP operand will be a multiplication by the size of the structure
+    // access. This means that we are moving the pointer to the end of the
+    // structure times an entry (jumping between entries).
+    auto *BIVal = dyn_cast<BinaryOperator>(NextEntryGEP->getOperand(1));
+    if (!BIVal || BIVal->getOpcode() != Instruction::Mul)
+      return false;
+
+    // One operand in the multiplication will be a constant and the other
+    // operand will be a variable.
+    //
+    // NOTE: If we can prove that the result of the multiplication is within
+    // the bounds of the structure that holds all the entries
+    // (%class.TestClass.Inner_vect_imp from the example) then we can get rid
+    // of the check for the language rules.
+    ConstantInt *ExpectedStructSize = nullptr;
+    if (isa<ConstantInt>(BIVal->getOperand(0)) &&
+        !isa<ConstantInt>(BIVal->getOperand(1)))
+      ExpectedStructSize = cast<ConstantInt>(BIVal->getOperand(0));
+    else if (!isa<ConstantInt>(BIVal->getOperand(0)) &&
+        isa<ConstantInt>(BIVal->getOperand(1)))
+      ExpectedStructSize = cast<ConstantInt>(BIVal->getOperand(1));
+
+    if (!ExpectedStructSize)
+      return false;
+
+    auto *LoadedStruct = dyn_cast<LoadInst>(NextEntryGEP->getOperand(0));
+    if (!LoadedStruct || LoadedStruct->getOperand(0) != PtrOp)
+      return false;
+
+    ValueTypeInfo *StructValInfo = PTA.getValueTypeInfo(LoadedStruct);
+    if (!StructValInfo || StructValInfo->empty())
+      return false;
+
+    // There must be a dominant aggregate type for the load instruction.
+    DTransType *StrDomTy = PTA.getDominantAggregateUsageType(*StructValInfo);
+    if (!StrDomTy || !StrDomTy->isPointerTy())
+      return false;
+
+    uint64_t SizeOfStruct = 0;
+    auto *STType =
+        dyn_cast<DTransStructType>(StrDomTy->getPointerElementType());
+    if (STType) {
+      Type *StructLLVMType = STType->getLLVMType();
+      SizeOfStruct = DL.getTypeAllocSize(StructLLVMType);
+    }
+
+    // The size of the structure must match the constant collected
+    // from the multiplication. This secures that the GEP is accessing
+    // the right entries.
+    if (SizeOfStruct == 0 || !ExpectedStructSize->equalsInt(SizeOfStruct))
+      return false;
+
+    // Collect the field where the data will be stored.
+    auto &ElementPointees =
+        PtrInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use);
+    if (ElementPointees.size() != 1)
+      return false;
+
+    // Collect the parent structure (%class.TestClass.Inner_vect_imp from
+    // the example)
+    auto PointeePair = ElementPointees.begin();
+    dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(PointeePair->first);
+    assert(ParentTI && "Expected TypeInfo but it wasn't created");
+    if (!PointeePair->second.isField())
+      return false;
+
+    auto *ParentStruct = dyn_cast<DTransStructType>(ParentTI->getDTransType());
+    if (!ParentStruct)
+      return false;
+
+    // The field accessed (%2 from the example above) can't be the last one
+    // since the byte flattened GEP will be accessing the information after
+    // this field.
+    //
+    // NOTE: This check may not be necessary since we know that the language
+    // rules won't allow out of bounds access, but it is worthy to double
+    // check. Also, if we get rid of the language rules then this check will
+    // be needed.
+    uint64_t EntryAccessed = PointeePair->second.getElementNum();
+    if (EntryAccessed >= (ParentStruct->getNumFields() - 1))
+     return false;
+
+    // All the entries for ParentStruct must be the same as the expected type
+    // (%class.TestClass.Inner* from the example above).
+    for (uint64_t I = 0, E = ParentStruct->getNumFields(); I < E; I++) {
+      DTransType *ElemTy = ParentStruct->getFieldType(I);
+      if (ElemTy != StrDomTy)
+        return false;
+    }
+
+    return true;
   }
 
   // Return 'true' if a value used as 'UsageType' is compatible with
