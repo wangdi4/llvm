@@ -5403,7 +5403,11 @@ int32_t LevelZeroProgramTy::addModule(
 
   ze_module_desc_t ModuleDesc{ZE_STRUCTURE_TYPE_MODULE_DESC, nullptr, Format};
 
-  if (DeviceInfo->Option.Flags.LinkLibDevice &&
+  ze_module_handle_t Module = nullptr;
+  ze_module_build_log_handle_t BuildLog = nullptr;
+  ze_result_t RC;
+
+  if (DeviceInfo->Option.Flags.LinkLibDevice && !IsLibModule &&
       Format == ZE_MODULE_FORMAT_IL_SPIRV && Modules.size() == 0) {
     // Handle link libdevice option. Do this only for the first moudle build
 
@@ -5458,19 +5462,17 @@ int32_t LevelZeroProgramTy::addModule(
     ModuleDesc.pInputModule = nullptr;
     ModuleDesc.pBuildFlags = nullptr;
     ModuleDesc.pConstants = nullptr;
+    CALL_ZE_RC(RC, zeModuleCreate, Context, Device, &ModuleDesc, &Module,
+               &BuildLog);
   } else {
     // Build a single module from a single image
     ModuleDesc.inputSize = Size;
     ModuleDesc.pInputModule = Image;
     ModuleDesc.pBuildFlags = BuildOptions.c_str();
     ModuleDesc.pConstants = &SpecConstants;
+    CALL_ZE_RC(RC, zeModuleCreate, Context, Device, &ModuleDesc, &Module,
+               &BuildLog);
   }
-
-  ze_module_handle_t Module = nullptr;
-  ze_module_build_log_handle_t BuildLog = nullptr;
-  ze_result_t RC;
-  CALL_ZE_RC(RC, zeModuleCreate, Context, Device, &ModuleDesc, &Module,
-             &BuildLog);
 
   bool BuildFailed = (RC != ZE_RESULT_SUCCESS);
   bool ShowBuildLog = DeviceInfo->Option.Flags.ShowBuildLog;
