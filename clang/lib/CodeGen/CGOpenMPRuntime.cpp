@@ -2036,9 +2036,19 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       auto AL = ApplyDebugLocation::CreateArtificial(CtorCGF);
       llvm::Constant *AddrInAS0 = Addr;
       if (Addr->getAddressSpace() != 0)
+#if INTEL_COLLAB
+        AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
+            Addr,
+            llvm::PointerType::getWithSamePointeeType(
+                cast<llvm::PointerType>(Addr->getType()),
+                CGM.getLangOpts().OpenMPLateOutline
+                    ? CGM.getContext().getTargetAddressSpace(VD->getType())
+                    : 0));
+#else // INTEL_COLLAB
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
             Addr, llvm::PointerType::getWithSamePointeeType(
                       cast<llvm::PointerType>(Addr->getType()), 0));
+#endif // INTEL_COLLAB
       CtorCGF.EmitAnyExprToMem(Init,
                                Address(AddrInAS0, Addr->getValueType(),
                                        CGM.getContext().getDeclAlign(VD)),
@@ -2097,9 +2107,19 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       auto AL = ApplyDebugLocation::CreateArtificial(DtorCGF);
       llvm::Constant *AddrInAS0 = Addr;
       if (Addr->getAddressSpace() != 0)
+#if INTEL_COLLAB
+        AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
+            Addr,
+            llvm::PointerType::getWithSamePointeeType(
+                cast<llvm::PointerType>(Addr->getType()),
+                CGM.getLangOpts().OpenMPLateOutline
+                    ? CGM.getContext().getTargetAddressSpace(VD->getType())
+                    : 0));
+#else // INTEL_COLLAB
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
             Addr, llvm::PointerType::getWithSamePointeeType(
                       cast<llvm::PointerType>(Addr->getType()), 0));
+#endif // INTEL_COLLAB
       DtorCGF.emitDestroy(Address(AddrInAS0, Addr->getValueType(),
                                   CGM.getContext().getDeclAlign(VD)),
                           ASTTy, DtorCGF.getDestroyer(ASTTy.isDestructedType()),

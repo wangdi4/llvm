@@ -217,7 +217,7 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
     llvm::sys::path::append(LibDir, "..");
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
     llvm::sys::path::append(LibDir, "..",
-                            Arch == llvm::Triple::x86_64 ? "lib64" : "lib32");
+                            Arch == llvm::Triple::x86_64 ? "lib" : "lib32");
 #else
     llvm::sys::path::append(LibDir, "compiler", "lib",
                             Arch == llvm::Triple::x86_64 ? "intel64_lin"
