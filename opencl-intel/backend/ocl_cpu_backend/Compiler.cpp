@@ -248,24 +248,27 @@ void Compiler::Init()
 void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
 {
     if( s_globalStateInitialized )
+    {
         return;
+    }
 
     OptimizerOCL::initializePasses();
 
-    SmallVector<const char*, 32> Args;
+    std::vector<std::string> args;
 
-    Args.push_back("OclBackend");
+    args.push_back("OclBackend");
     std::string Env;
 #ifndef NDEBUG
     if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_COMPILER_DEBUG")) {
-      Args.push_back("-print-after-all");
-      Args.push_back("-print-before-all");
-      Args.push_back("-debug");
+      args.push_back("-print-after-all");
+      args.push_back("-print-before-all");
+      args.push_back("-debug");
     }
 #endif
 
-    if (!Intel::OpenCL::Utils::getEnvVar(Env, "DISABLE_INFER_AS"))
-      Args.push_back("-infer-as-rewrite-opencl-bis");
+    if (!Intel::OpenCL::Utils::getEnvVar(Env, "DISABLE_INFER_AS")) {
+      args.push_back("-infer-as-rewrite-opencl-bis");
+    }
 
     // Loops #pragma unroll are unrolled up to -pragma-unroll-threshold, which
     // is set by default to a huge value, and it basically allows to fully
@@ -274,25 +277,44 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
     // unrolled loops, so most of FPGA workloads unroll every single loop.
     // Threshold heuristic set so as not to affect the performance negatively
     if (FPGA_EMU_DEVICE == config.TargetDevice())
-        Args.push_back("-pragma-unroll-threshold=3072");
-
-    std::string TimePasses;
-    if( config.EnableTiming() && false == config.InfoOutputFile().empty())
     {
-        TimePasses = "-info-output-file=" + config.InfoOutputFile();
-        Args.push_back("--time-passes");
-        Args.push_back(TimePasses.c_str());
+        args.push_back("-pragma-unroll-threshold=3072");
     }
 
-    for (const std::string &Option : config.LLVMOptions())
-      Args.push_back(Option.c_str());
+    if( config.EnableTiming() && false == config.InfoOutputFile().empty())
+    {
+        std::stringstream ss;
+        ss << "-info-output-file=" << config.InfoOutputFile().c_str();
 
-    Args.push_back(nullptr);
+        args.push_back("--time-passes");
+        args.push_back(ss.str());
+    }
 
-    cl::ParseCommandLineOptions(Args.size() - 1, Args.data());
+    // Split the options by space and push back to args
+    std::istringstream llvmOptsStream(config.LLVMOptions());
+    std::copy(std::istream_iterator<std::string>(llvmOptsStream),
+              std::istream_iterator<std::string>(),
+              std::back_inserter(args));
+
+    // Generate the argc/argv parameters for the llvm::ParsecommandLineOptions
+    std::vector<char*> argv;
+
+    std::vector<std::string>::iterator i = args.begin();
+    std::vector<std::string>::iterator e = args.end();
+
+    for(; i != e; ++i )
+    {
+        //be careful here. The pointer returned by c_str() is only guaranteed to remain unchanged
+        //until the next call to a non-constant member function of the string object.
+        argv.push_back( const_cast<char*>(i->c_str()) );
+    }
+
+    llvm::cl::ParseCommandLineOptions(argv.size(), &argv[0]);
 
     if (!config.DisableStackDump())
+    {
         llvm::EnablePrettyStackTrace();
+    }
 
     s_globalStateInitialized = true;
 }
