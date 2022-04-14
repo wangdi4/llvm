@@ -2,9 +2,16 @@
 ; REQUIRES: asserts
 
 ; INTEL_CUSTOMIZATION
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: intel_feature_sw_dtrans
 ; We need to disable multiversioning from devirtualization since this is
 ; a test case from the community.
-; RUN: opt -S -passes=wholeprogramdevirt -whole-program-visibility -pass-remarks=wholeprogramdevirt -wholeprogramdevirt-multiversion=false -stats %s 2>&1 | FileCheck %s
+; end INTEL_FEATURE_SW_DTRANS
+; RUN: opt -S -passes=wholeprogramdevirt -whole-program-visibility -pass-remarks=wholeprogramdevirt \
+; INTEL_FEATURE_SW_DTRANS
+; RUN:        -wholeprogramdevirt-multiversion=false \
+; end INTEL_FEATURE_SW_DTRANS
+; RUN:        -stats %s 2>&1 | FileCheck %s
 ; end INTEL_CUSTOMIZATION
 
 target datalayout = "e-p:64:64"
