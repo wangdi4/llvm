@@ -1,5 +1,6 @@
 // Check LLVM optimization pipeline is run by default for SPIR-V compiled for
 // SYCL device target, and can be disabled with -fno-sycl-early-optimizations.
+<<<<<<< HEAD
 //
 // RUN: %clang_cc1 -O2 -fsycl-is-device -triple spir64-unknown-unknown %s -flegacy-pass-manager -mllvm -debug-pass=Structure -emit-llvm -o /dev/null 2>&1 | FileCheck %s --check-prefix=CHECK-EARLYOPT
 // INTEL_CUSTOMIZATION
@@ -16,6 +17,8 @@
 // CHECK-NOEARLYOPT: Move SYCL printf literal arguments to constant address space
 //
 //
+=======
+>>>>>>> 6a594486025aa08e389c5b603088e6f1ee170144
 // New pass manager doesn't print all passes tree, only module level.
 //
 // RUN: %clang_cc1 -O2 -fsycl-is-device -triple spir64-unknown-unknown %s -fno-legacy-pass-manager -mdebug-pass Structure -emit-llvm -o /dev/null 2>&1 | FileCheck %s --check-prefix=CHECK-NEWPM-EARLYOPT
