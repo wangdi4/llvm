@@ -179,10 +179,22 @@ void OptimizerLTO::registerVectorizerStartCallback(PassBuilder &PB) {
           }
 
           FPM.addPass(ReassociatePass());
+
+          if (Config.GetTransposeSize() == 1)
+            return;
+
           FPM.addPass(SinCosFoldPass());
+
           // Replace 'div' and 'rem' instructions with calls to optimized
           // library functions
           FPM.addPass(MathLibraryFunctionsReplacementPass());
+
+          FPM.addPass(PromotePass());
+          FPM.addPass(LoopSimplifyPass());
+          FPM.addPass(createFunctionToLoopPassAdaptor(
+              LICMPass(SetLicmMssaOptCap, SetLicmMssaNoAccForPromotionCap,
+                       /*AllowSpeculation*/ true),
+              /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/true));
         }
       });
 }
