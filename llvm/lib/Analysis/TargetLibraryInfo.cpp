@@ -1327,6 +1327,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_msvc_std_Xout_of_range);
     TLI.setUnavailable(LibFunc_msvc_std_Xlength_error);
     TLI.setUnavailable(LibFunc_msvc_std_Xran);
+    TLI.setUnavailable(LibFunc_msvc_std_Xruntime_error);
     TLI.setUnavailable(LibFunc_msvc_std_yarn_dtor);
     TLI.setUnavailable(LibFunc_msvc_std_yarn_wchar_dtor);
     TLI.setUnavailable(LibFunc_sprintf_s);
@@ -3029,6 +3030,10 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
 
   case LibFunc_msvc_std_Xran:
     return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
+
+  case LibFunc_msvc_std_Xruntime_error:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
 
   case LibFunc_msvc_std_yarn_dtor:
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
