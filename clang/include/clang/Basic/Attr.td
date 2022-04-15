@@ -321,6 +321,9 @@ class Clang<string name, bit allowInC = 1> : Spelling<name, "Clang"> {
   bit AllowInC = allowInC;
 }
 
+// HLSL Semantic spellings
+class HLSLSemantic<string name> : Spelling<name, "HLSLSemantic">;
+
 class Accessor<string name, list<Spelling> spellings> {
   string Name = name;
   list<Spelling> Spellings = spellings;
@@ -5074,6 +5077,13 @@ def HLSLNumThreads: InheritableAttr {
   let Subjects = SubjectList<[HLSLEntry]>;
   let LangOpts = [HLSL];
   let Documentation = [NumThreadsDocs];
+}
+
+def HLSLSV_GroupIndex: InheritableAttr {
+  let Spellings = [HLSLSemantic<"SV_GroupIndex">];
+  let Subjects = SubjectList<[ParmVar, GlobalVar]>;
+  let LangOpts = [HLSL];
+  let Documentation = [HLSLSV_GroupIndexDocs];
 }
 
 def RandomizeLayout : InheritableAttr {
