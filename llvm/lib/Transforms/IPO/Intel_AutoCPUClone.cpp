@@ -316,6 +316,24 @@ static bool cloneFunctions(Module &M,
         return true;
       }
 
+      auto *SInst = dyn_cast<StoreInst>(IFUse.getUser());
+      if (SInst && SInst->getValueOperand() == Fn) {
+        Function *ParentFunc = SInst->getFunction();
+        // If ParentFunc is a generic function skip it, as it already refers to
+        // the correct use:
+        // foo.A
+        //   store @bar.A, ...
+        if (Orig2MultiFuncs.count(ParentFunc))
+          return false;
+
+        // If ParentFunc is a specialized version of a function then find the
+        // corresponding specialized version of the use.
+        if (MultiFunc2TargetExt.count(ParentFunc))
+          return false;
+
+        return true;
+      }
+
       // Function pointers are initialized using constant cast expressions.
       //   ... bitcast (void ()* @bar.A to i8*), ...
       // Since constant cast expressions, themselves, can have multiple uses,
@@ -354,6 +372,27 @@ static bool cloneFunctions(Module &M,
           assert(Replacement && "Expected that functions are multiversioned "
                                 "for all requested targets now!");
           CInst->setCalledOperand(Replacement);
+          continue;
+        }
+      }
+
+      auto *SInst = dyn_cast<StoreInst>(IFUse.getUser());
+      if (SInst && SInst->getValueOperand() == Fn) {
+        Function *ParentFunc = SInst->getFunction();
+        // If ParentFunc is a generic function skip it, as it already refers to
+        // the correct use:
+        // foo.A
+        //   store @bar.A, ...
+        if (Orig2MultiFuncs.count(ParentFunc))
+          continue;
+
+        // If ParentFunc is a specialized version of a function then find the
+        // corresponding specialized version of the use.
+        if (MultiFunc2TargetExt.count(ParentFunc)) {
+          GlobalValue *Replacement = Clones[MultiFunc2TargetExt[ParentFunc]];
+          assert(Replacement && "Expected that functions are multiversioned "
+                                "for all requested targets now!");
+          SInst->setOperand(0, Replacement);
           continue;
         }
       }

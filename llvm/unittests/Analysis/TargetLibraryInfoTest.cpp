@@ -555,6 +555,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @\"?_Xbad_alloc@std@@YAXXZ\"()\n"
       "declare void @\"?_Xout_of_range@std@@YAXPEBD@Z\"(i8*)\n"
       "declare void @\"?_Xran@?$_String_val@U?$_Simple_types@D@std@@@std@@SAXXZ\"()\n"
+      "declare void @\"?_Xruntime_error@std@@YAXPEBD@Z\"(i8*)\n"
       "declare void @\"?_Locinfo_ctor@_Locinfo@std@@SAXPEAV12@PEBD@Z\"(i8*, i8*)\n"
       "declare void @\"?_Locinfo_dtor@_Locinfo@std@@SAXPEAV12@@Z\"(i8*)\n"
       "declare void @\"?_Lock@?$basic_filebuf@DU?$char_traits@D@std@@@std@@UEAAXXZ\"(%struct*)\n"

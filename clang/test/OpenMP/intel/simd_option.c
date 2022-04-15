@@ -25,6 +25,9 @@ void foo1()
 {
   int arr[10];
   int i;
+
+  //CHECK-ONE: [[RED:%red.*]] = alloca i32, align 4
+
 // CHECK-ONE: DIR.OMP.SIMD
   #pragma omp simd
   for (i=0;i<10;++i) {
@@ -35,6 +38,20 @@ void foo1()
   #pragma omp parallel for simd shared(AAA)
   for(iii=0; iii<1000; iii++) {
     AAA[iii] = 123.456;
+  }
+
+  int red = 0;
+  int out[1024];
+  int in[1024];
+  //CHECK-ONE: DIR.OMP.SIMD
+  //CHECK-ONE-SAME: "QUAL.OMP.REDUCTION.ADD:INSCAN"(i32* [[RED]], i64 1)
+  #pragma omp simd reduction(inscan, +: red)
+  for (int i = 0; i < 1024; ++i) {
+    red = red + in[i];
+    //CHECK-ONE: DIR.OMP.SCAN
+    //CHECK-ONE-SAME: "QUAL.OMP.INCLUSIVE"(i32* [[RED]], i64 1)
+    #pragma omp scan inclusive(red)
+    out[i] = red;
   }
 }
 #endif
