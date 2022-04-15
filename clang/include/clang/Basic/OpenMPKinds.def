@@ -107,6 +107,7 @@
 #endif
 OPENMP_DIRECTIVE_SIMD_SUBSET(declare_simd)
 OPENMP_DIRECTIVE_SIMD_SUBSET(declare_reduction)
+OPENMP_DIRECTIVE_SIMD_SUBSET(scan)
 
 // OpenMP directives in the -qopenmp-tbb subset
 #ifndef OPENMP_DIRECTIVE_TBB_SUBSET
